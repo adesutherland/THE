@@ -1,5 +1,6 @@
-/* THE Default Profile */
-/* 
+/*NOREXX*/
+/* THE Default Profile
+
    This profile is executed when THE starts up.
    It contains a few sensible defaults and key bindings.
 */

@@ -2181,12 +2181,14 @@ static short process_command_line(CHARTYPE *profile_command_line,LINETYPE line_n
     * If the first line of the macro file does not contain the comment
     * 'NOREXX' abort further processing of the macro file.
     */
+#ifndef NOREXX
    if (memcmp(profile_command_line,"/*NOREXX*/",10) != 0
    && line_number == 1)
    {
       TRACE_RETURN();
       return(RC_NOREXX_ERROR);
    }
+#endif
    /*
     * If the line is a comment, return with RC_OK.
     */
