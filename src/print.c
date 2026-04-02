@@ -37,11 +37,7 @@
 #include <proto.h>
 
 #if !defined(WIN32) || defined(__CYGWIN32__)
-# ifdef HAVE_PROTO
 static void print_shadow_line(FILE *,CHARTYPE *,LINETYPE);
-# else
-static void print_shadow_line( );
-# endif
 #endif
 
 #if defined(WIN32) && !defined(__CYGWIN32__)
@@ -361,18 +357,8 @@ static void WriteString(char* sz, int len)
 
 #ifndef MSWIN
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void print_line(bool close_spooler,LINETYPE true_line,LINETYPE num_lines,
                 short pagesize,CHARTYPE *text,CHARTYPE *line_term,short target_type)
-#else
-void print_line(close_spooler,true_line,num_lines,pagesize,text,line_term,target_type)
-bool close_spooler;
-LINETYPE true_line,num_lines;
-short pagesize;
-CHARTYPE *text;
-CHARTYPE *line_term;
-short target_type;
-#endif
 /***********************************************************************/
 {
 /*--------------------------- local data ------------------------------*/
@@ -613,14 +599,7 @@ short target_type;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static void make_shadow_line(char *buf,LINETYPE num_excluded, int width)
-#else
-static void make_shadow_line(buf,num_excluded,width)
-char *buf;
-LINETYPE num_excluded;
-int width;
-#endif
 /***********************************************************************/
 {
 #define LINES_NOT_DISPLAYED " line(s) not displayed "
@@ -647,13 +626,7 @@ int width;
 
 #if defined(WIN32) && !defined(__CYGWIN32__)
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static void print_shadow_line(CHARTYPE *line_term,LINETYPE num_excluded)
-#else
-static void print_shadow_line(line_term,num_excluded)
-CHARTYPE *line_term;
-LINETYPE num_excluded;
-#endif
 /***********************************************************************/
 {
    register int width=0;
@@ -672,14 +645,7 @@ LINETYPE num_excluded;
 }
 #else
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static void print_shadow_line(FILE *pp,CHARTYPE *line_term,LINETYPE num_excluded)
-#else
-static void print_shadow_line(pp,line_term,num_excluded)
-FILE *pp;
-CHARTYPE *line_term;
-LINETYPE num_excluded;
-#endif
 /***********************************************************************/
 {
    register int width=0;
@@ -699,12 +665,7 @@ LINETYPE num_excluded;
 #endif
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short setprintername(char *pn)
-#else
-short setprintername(pn)
-char *pn;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -737,12 +698,7 @@ char *pn;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short setfontcpi(int cpi)
-#else
-short setfontcpi(cpi)
-int cpi;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("print.c:   setfontcpi");
@@ -754,12 +710,7 @@ int cpi;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short setfontlpi(int lpi)
-#else
-short setfontlpi(lpi)
-int lpi;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("print.c:   setfontlpi");
@@ -771,12 +722,7 @@ int lpi;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short setpagesize(int fs)
-#else
-short setpagesize(ps)
-int ps;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("print.c:   setpagesize");
@@ -785,12 +731,7 @@ int ps;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short setfontname(char *font)
-#else
-short setfontname(font)
-char *font;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("print.c:   setfontname");
@@ -799,12 +740,7 @@ char *font;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short setorient(char ori)
-#else
-short setorient(ori)
-char or;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("print.c:   setorient");

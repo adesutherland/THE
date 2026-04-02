@@ -60,9 +60,7 @@ $Id: therexx.h,v 1.10 2022/10/23 22:00:12 mark Exp $
 # endif
 # if defined(USE_UNIREXX)
 #  include <rexxsaa.h>
-#  if defined(HAVE_PROTO) && !defined(ORXXPrototype)
 #   define ORXXPrototype
-#  endif
 # endif
 #endif
 
@@ -110,9 +108,7 @@ typedef CHAR *PCH;
 # if defined(USE_UNIREXX)
 #  include <windows.h>
 #  include <rexxsaa.h>
-#  if defined(HAVE_PROTO) && !defined(ORXXPrototype)
 #   define ORXXPrototype
-#  endif
 # endif
 #endif
 

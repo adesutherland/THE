@@ -1,0 +1,54 @@
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# Build Directories
+build/
+cmake-build-*/
+cmake-build/
+out/
+bin/
+
+# C/C++ Build Artifacts
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+
+# IDEs
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/shelf/
+.idea/vcs.xml
+.idea/dictionaries/
+.idea/dataSources/
+.vs/
+.vscode/
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project Specific
+config.h
+doc/html/
+THE_Help_*
+migrate_c99.py
+fix_knr.py

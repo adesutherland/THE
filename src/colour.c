@@ -574,16 +574,7 @@ static COLOUR_DEF _THE_FAR xedit_colours[ATTR_MAX] =  { {0,0,0,0},{0,0,0,0},{0,0
  };
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short parse_colours(CHARTYPE *attrib,COLOUR_ATTR *pattr,CHARTYPE **rem,bool spare,bool *any_colours)
-#else
-short parse_colours(attrib,pattr,rem,spare,any_colours)
-CHARTYPE *attrib;
-COLOUR_ATTR *pattr;
-CHARTYPE **rem;
-bool spare;
-bool *any_colours;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -728,13 +719,7 @@ bool *any_colours;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short parse_modifiers(CHARTYPE *attrib,COLOUR_ATTR *pattr)
-#else
-short parse_modifiers(attrib,pattr)
-CHARTYPE *attrib;
-COLOUR_ATTR *pattr;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -820,12 +805,7 @@ COLOUR_ATTR *pattr;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 chtype merge_curline_colour(COLOUR_ATTR *attr, COLOUR_ATTR *ecolour)
-#else
-chtype merge_curline_colour(attr, ecolour)
-COLOUR_ATTR *attr,*ecolour;
-#endif
 /***********************************************************************/
 {
 /*
@@ -850,14 +830,7 @@ COLOUR_ATTR *attr,*ecolour;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void set_up_default_colours(FILE_DETAILS *fd,COLOUR_ATTR *attr,int colour_num)
-#else
-void set_up_default_colours(fd,attr,colour_num)
-FILE_DETAILS *fd;
-COLOUR_ATTR *attr;
-int colour_num;
-#endif
 /***********************************************************************/
 /* This function is called as part of reading in a new file.           */
 /***********************************************************************/
@@ -943,12 +916,7 @@ int colour_num;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void set_up_default_ecolours(FILE_DETAILS *fd)
-#else
-void set_up_default_ecolours(fd)
-FILE_DETAILS *fd;
-#endif
 /***********************************************************************/
 /* This function is called as part of reading in a new file.           */
 /***********************************************************************/
@@ -998,12 +966,7 @@ FILE_DETAILS *fd;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *get_colour_strings(COLOUR_ATTR *attr)
-#else
-CHARTYPE *get_colour_strings(attr)
-COLOUR_ATTR *attr;
-#endif
 /***********************************************************************/
 /* This function returns a pointer to an allocated block of memory with*/
 /* textual descriptions of the colours associated with the attr.       */
@@ -1101,12 +1064,7 @@ COLOUR_ATTR *attr;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int is_valid_colour( CHARTYPE *colour )
-#else
-int is_valid_colour( colour )
-CHARTYPE *colour;
-#endif
 /*
  * This function determines if a colour name is passed as the only argument.
  */

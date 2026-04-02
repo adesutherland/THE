@@ -112,11 +112,6 @@ extern void ClosedownConsole( int );
 #  include <curses.h>
 #endif
 
-#ifdef HAVE_PROTO
-# define Args(a) a
-#else
-# define Args(a) ()
-#endif
 
 /*
  * The following required because IBM AIX 4.3 defines curses colors
@@ -1157,12 +1152,12 @@ struct prefix_commands
    bool valid_on_tof;         /* is command allowed on Top of File line */
    bool valid_on_bof;      /* is command allowed on Bottom of File line */
    bool valid_in_readonly;    /* TRUE if command valid in readonly mode */
-   short (*function) Args((THE_PPC *,short,LINETYPE));
+   short (*function) (THE_PPC *,short,LINETYPE);
    LINETYPE default_target;/* number of lines to process if not specified */
    bool ignore_scope;/* TRUE if scope to be ignored when finding target */
    bool use_last_not_in_scope;/* TRUE if starting at end of shadow lines*/
    int  priority;                         /* priority of prefix command */
-   short (*post_function) Args((THE_PPC *,short,LINETYPE));
+   short (*post_function) (THE_PPC *,short,LINETYPE);
    bool text_arg;        /* is argument a plain text arg like for '.' ? */
    bool allowed_on_shadow_line;  /* is command allowed on shadow line ? */
 };
@@ -2098,7 +2093,7 @@ struct window_areas
 };
 typedef struct window_areas AREAS;
 
-typedef short (ExtractFunction) Args(( short, short, CHARTYPE *, CHARTYPE ,LINETYPE ,CHARTYPE *, LINETYPE ));
+typedef short (ExtractFunction) ( short, short, CHARTYPE *, CHARTYPE ,LINETYPE ,CHARTYPE *, LINETYPE );
 
 /* structure for query and implied extract */
 struct query_item
@@ -2144,32 +2139,18 @@ void  (*the_free)();                            /* ptr to some free(ptr) */
 void far * (*the_realloc)(void far *,unsigned long); /* ptr to some realloc(ptr,size) */
 # else
 #  define _THE_FAR
-#  ifdef HAVE_PROTO
 void* (*the_malloc)(size_t);  /* ptr to some malloc(size) */
 void* (*the_calloc)(size_t,size_t);  /* ptr to some calloc(num,size)*/
 void  (*the_free)(void *);    /* ptr to some free(ptr) */
 void* (*the_realloc)(void *, size_t); /* ptr to some realloc(ptr,size) */
-#  else
-void* (*the_malloc)();  /* ptr to some malloc(size) */
-void* (*the_calloc)();  /* ptr to some calloc(num,size)*/
-void  (*the_free)();    /* ptr to some free(ptr) */
-void* (*the_realloc)(); /* ptr to some realloc(ptr,size) */
-#  endif
 # endif
 #else
 # ifdef MSWIN
 #  define _THE_FAR __far
-#  ifdef HAVE_PROTO
 extern void far * (*the_malloc)(unsigned long);
 extern void far * (*the_calloc)(unsigned long);
 extern void  (*the_free)(void *);
 extern void far * (*the_realloc)(void far *,unsigned long);
-#  else
-extern void far * (*the_malloc)();
-extern void far * (*the_calloc)();
-extern void  (*the_free)();
-extern void far * (*the_realloc)();
-#  endif
 # else
 #  define _THE_FAR
 extern void* (*the_malloc)(unsigned long);
@@ -2180,11 +2161,11 @@ extern void* (*the_realloc)(void *, unsigned long);
 #endif
 
 #if defined(THE_TRACE)
-void trace_initialise Args((void));
-void trace_function Args((char *));
-void trace_return Args((void));
-void trace_string Args((char *,...));
-void trace_constant Args((char *));
+void trace_initialise (void);
+void trace_function (char *);
+void trace_return (void);
+void trace_string (char *,...);
+void trace_constant (char *);
 # define TRACE_RETURN()     trace_return()
 # define TRACE_FUNCTION(x)  trace_function(x)
 # define TRACE_INITIALISE() trace_initialise()

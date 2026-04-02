@@ -56,9 +56,6 @@ $Id: thedefs.h,v 1.22 2022/10/23 21:57:53 mark Exp $
 #  define HAVE_PREFRESH 1
 #  define HAVE_NOCBREAK 1
 #  define HAVE_NOTIMEOUT 1
-#  ifndef HAVE_PROTO
-#    define HAVE_PROTO 1
-#  endif
 #  define HAVE_RAW 1
 #  define HAVE_RESET_PROG_MODE 1
 #  define HAVE_RESET_SHELL_MODE 1
@@ -107,9 +104,6 @@ $Id: thedefs.h,v 1.22 2022/10/23 21:57:53 mark Exp $
 #  define HAVE_PREFRESH 1
 #  define HAVE_NOCBREAK 1
 #  define HAVE_NOTIMEOUT 1
-#  ifndef HAVE_PROTO
-#    define HAVE_PROTO 1
-#  endif
 #  define HAVE_RAW 1
 #  define HAVE_RESET_PROG_MODE 1
 #  define HAVE_RESET_SHELL_MODE 1
@@ -151,9 +145,6 @@ $Id: thedefs.h,v 1.22 2022/10/23 21:57:53 mark Exp $
 #  define HAVE_PREFRESH 1
 #  define HAVE_NOCBREAK 1
 #  define HAVE_NOTIMEOUT 1
-#  ifndef HAVE_PROTO
-#    define HAVE_PROTO 1
-#  endif
 #  define HAVE_RAW 1
 #  define HAVE_RESET_PROG_MODE 1
 #  define HAVE_RESET_SHELL_MODE 1
@@ -198,9 +189,6 @@ $Id: thedefs.h,v 1.22 2022/10/23 21:57:53 mark Exp $
 #  define HAVE_NODELAY 1
 #  define HAVE_NOTIMEOUT 1
 #  define HAVE_UNGETCH 1
-#  ifndef HAVE_PROTO
-#    define HAVE_PROTO 1
-#  endif
 #  define HAVE_RAW 1
 #  define HAVE_RESET_PROG_MODE 1
 #  define HAVE_RESET_SHELL_MODE 1
@@ -242,9 +230,6 @@ $Id: thedefs.h,v 1.22 2022/10/23 21:57:53 mark Exp $
 
 # if defined(VMS)
 #  define HAVE_BOX 1
-#  ifndef HAVE_PROTO
-#    define HAVE_PROTO 1
-#  endif
 #  define RETSIGTYPE void
 #  define STDC_HEADERS 1
 /*#  define USE_REGINA 1 */

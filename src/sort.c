@@ -58,19 +58,10 @@ SORT_FIELD sort_fields[MAX_SORT_FIELDS];
 
 short num_fields;
 
-#ifdef HAVE_PROTO
 static int cmp(const void *,const void *);
-#else
-static int cmp();
-#endif
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static int cmp(const void *first,const void *second)
-#else
-static int cmp(first,second)
-void *first,*second;
-#endif
 /***********************************************************************/
 {
    LENGTHTYPE i=0,j=0;
@@ -149,11 +140,7 @@ void *first,*second;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short execute_sort(CHARTYPE *params)
-#else
-short execute_sort(params)
-#endif
 /***********************************************************************/
 {
 #define STATE_REAL   0

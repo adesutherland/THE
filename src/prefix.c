@@ -37,44 +37,44 @@
 #include <proto.h>
 
 /*-------------------------- declarations -----------------------------*/
-static short parse_prefix_command Args((THE_PPC *));
-static short invalidate_prefix Args((THE_PPC *, char *));
-static short prefix_makecurr Args((THE_PPC *,short,LINETYPE));
-static short prefix_add Args((THE_PPC *,short,LINETYPE));
-static short prefix_duplicate Args((THE_PPC *,short,LINETYPE));
-static short prefix_copy Args((THE_PPC *,short,LINETYPE));
-static short prefix_move Args((THE_PPC *,short,LINETYPE));
-static short prefix_overlay Args((THE_PPC *,short,LINETYPE));
-static short prefix_lowercase Args((THE_PPC *,short,LINETYPE));
-static short prefix_uppercase Args((THE_PPC *,short,LINETYPE));
-static short prefix_delete Args((THE_PPC *,short,LINETYPE));
-static short prefix_point Args((THE_PPC *,short,LINETYPE));
-static short prefix_shift_left Args((THE_PPC *,short,LENGTHTYPE));
-static short prefix_shift_right Args((THE_PPC *,short,LENGTHTYPE));
-static short prefix_bounds_shift_left Args((THE_PPC *,short,LENGTHTYPE));
-static short prefix_bounds_shift_right Args((THE_PPC *,short,LENGTHTYPE));
-static short prefix_tabline Args((THE_PPC *,short,LINETYPE));
-static short prefix_scale Args((THE_PPC *,short,LINETYPE));
-static short prefix_show Args((THE_PPC *,short,LINETYPE));
-static short prefix_exclude Args((THE_PPC *,short,LINETYPE));
-static short prefix_block_duplicate Args((THE_PPC *,short,LINETYPE));
-static short prefix_block_copy Args((THE_PPC *,short,LINETYPE));
-static short prefix_block_move Args((THE_PPC *,short,LINETYPE));
-static short prefix_block_overlay Args((THE_PPC *,short,LINETYPE));
-static short prefix_block_lowercase Args((THE_PPC *,short,LINETYPE));
-static short prefix_block_uppercase Args((THE_PPC *,short,LINETYPE));
-static short prefix_block_delete Args((THE_PPC *,short,LINETYPE));
-static short prefix_block_shift_left Args((THE_PPC *,short,LENGTHTYPE));
-static short prefix_block_shift_right Args((THE_PPC *,short,LENGTHTYPE));
-static short prefix_block_bounds_shift_left Args((THE_PPC *,short,LENGTHTYPE));
-static short prefix_block_bounds_shift_right Args((THE_PPC *,short,LENGTHTYPE));
-static short prefix_block_exclude Args((THE_PPC *,short,LINETYPE));
-static THE_PPC *find_top_ppc Args((THE_PPC *,short));
-static THE_PPC *find_target_ppc Args((void));
-static THE_PPC *calculate_target_line Args((void));
-static short try_rexx_prefix_macro Args((THE_PPC *));
-static void split_prefix_command Args(( CHARTYPE *, THE_PPC * ));
-static short post_prefix_add Args((THE_PPC *,short,LINETYPE));
+static short parse_prefix_command (THE_PPC *);
+static short invalidate_prefix (THE_PPC *, char *);
+static short prefix_makecurr (THE_PPC *,short,LINETYPE);
+static short prefix_add (THE_PPC *,short,LINETYPE);
+static short prefix_duplicate (THE_PPC *,short,LINETYPE);
+static short prefix_copy (THE_PPC *,short,LINETYPE);
+static short prefix_move (THE_PPC *,short,LINETYPE);
+static short prefix_overlay (THE_PPC *,short,LINETYPE);
+static short prefix_lowercase (THE_PPC *,short,LINETYPE);
+static short prefix_uppercase (THE_PPC *,short,LINETYPE);
+static short prefix_delete (THE_PPC *,short,LINETYPE);
+static short prefix_point (THE_PPC *,short,LINETYPE);
+static short prefix_shift_left (THE_PPC *,short,LENGTHTYPE);
+static short prefix_shift_right (THE_PPC *,short,LENGTHTYPE);
+static short prefix_bounds_shift_left (THE_PPC *,short,LENGTHTYPE);
+static short prefix_bounds_shift_right (THE_PPC *,short,LENGTHTYPE);
+static short prefix_tabline (THE_PPC *,short,LINETYPE);
+static short prefix_scale (THE_PPC *,short,LINETYPE);
+static short prefix_show (THE_PPC *,short,LINETYPE);
+static short prefix_exclude (THE_PPC *,short,LINETYPE);
+static short prefix_block_duplicate (THE_PPC *,short,LINETYPE);
+static short prefix_block_copy (THE_PPC *,short,LINETYPE);
+static short prefix_block_move (THE_PPC *,short,LINETYPE);
+static short prefix_block_overlay (THE_PPC *,short,LINETYPE);
+static short prefix_block_lowercase (THE_PPC *,short,LINETYPE);
+static short prefix_block_uppercase (THE_PPC *,short,LINETYPE);
+static short prefix_block_delete (THE_PPC *,short,LINETYPE);
+static short prefix_block_shift_left (THE_PPC *,short,LENGTHTYPE);
+static short prefix_block_shift_right (THE_PPC *,short,LENGTHTYPE);
+static short prefix_block_bounds_shift_left (THE_PPC *,short,LENGTHTYPE);
+static short prefix_block_bounds_shift_right (THE_PPC *,short,LENGTHTYPE);
+static short prefix_block_exclude (THE_PPC *,short,LINETYPE);
+static THE_PPC *find_top_ppc (THE_PPC *,short);
+static THE_PPC *find_target_ppc (void);
+static THE_PPC *calculate_target_line (void);
+static short try_rexx_prefix_macro (THE_PPC *);
+static void split_prefix_command ( CHARTYPE *, THE_PPC * );
+static short post_prefix_add (THE_PPC *,short,LINETYPE);
 /*
  * The following two are to specify the first and last items in the
  * linked list for prefix synonyms.
@@ -191,11 +191,7 @@ LINETYPE prefix_current_line;
 bool in_prefix_macro=FALSE;     /* indicate if processing prefix macro */
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short execute_prefix_commands(void)
-#else
-short execute_prefix_commands()
-#endif
 /***********************************************************************/
 {
    short ispf_idx,cmd_idx=0,rc=RC_OK;
@@ -555,12 +551,7 @@ short execute_prefix_commands()
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short parse_prefix_command( THE_PPC *curr_ppc )
-#else
-static short parse_prefix_command( curr_ppc )
-THE_PPC *curr_ppc;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -643,14 +634,7 @@ THE_PPC *curr_ppc;
    return( rc );
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_makecurr(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_makecurr(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    LINETYPE top_line = curr_ppc->ppc_line_number;
@@ -662,14 +646,7 @@ LINETYPE number_lines;
    return(0);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_tabline(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_tabline(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    LINETYPE top_line = curr_ppc->ppc_line_number;
@@ -685,14 +662,7 @@ LINETYPE number_lines;
    return(0);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_scale(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_scale(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    LINETYPE top_line = curr_ppc->ppc_line_number;
@@ -708,14 +678,7 @@ LINETYPE number_lines;
    return(0);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_show(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_show(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    LINETYPE i=0;
@@ -776,14 +739,7 @@ LINETYPE number_lines;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_exclude(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_exclude(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -832,14 +788,7 @@ LINETYPE number_lines;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_add(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_add(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    short rc=(-1);
@@ -852,14 +801,7 @@ LINETYPE number_lines;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_duplicate(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_occ)
-#else
-static short prefix_duplicate(curr_ppc,cmd_idx,number_occ)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_occ;
-#endif
 /***********************************************************************/
 {
    short rc=(-1);
@@ -875,14 +817,7 @@ LINETYPE number_occ;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_copy(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_copy(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    LINETYPE bottom_line=0L,target_line=0L,lines_affected=0L;
@@ -904,14 +839,7 @@ LINETYPE number_lines;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_move(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_move(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    LINETYPE bottom_line=0L,target_line=0L,lines_affected=0L;
@@ -942,14 +870,7 @@ LINETYPE number_lines;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_point(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_point(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    int rc=RC_OK;
@@ -965,14 +886,7 @@ LINETYPE number_lines;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_delete(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_delete(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    short rc=(-1);
@@ -990,14 +904,7 @@ LINETYPE number_lines;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_shift_left(THE_PPC *curr_ppc,short cmd_idx,LENGTHTYPE number_cols)
-#else
-static short prefix_shift_left(curr_ppc,cmd_idx,number_cols)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LENGTHTYPE number_cols;
-#endif
 /***********************************************************************/
 {
    LINETYPE top_line = curr_ppc->ppc_line_number;
@@ -1011,14 +918,7 @@ LENGTHTYPE number_cols;
    return(0);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_shift_right(THE_PPC *curr_ppc,short cmd_idx,LENGTHTYPE number_cols)
-#else
-static short prefix_shift_right(curr_ppc,cmd_idx,number_cols)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LENGTHTYPE number_cols;
-#endif
 /***********************************************************************/
 {
    LINETYPE start_line = curr_ppc->ppc_line_number;
@@ -1032,14 +932,7 @@ LENGTHTYPE number_cols;
    return(0);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_bounds_shift_left(THE_PPC *curr_ppc,short cmd_idx,LENGTHTYPE number_cols)
-#else
-static short prefix_bounds_shift_left(curr_ppc,cmd_idx,number_cols)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LENGTHTYPE number_cols;
-#endif
 /***********************************************************************/
 {
    LINETYPE top_line = curr_ppc->ppc_line_number;
@@ -1053,14 +946,7 @@ LENGTHTYPE number_cols;
    return(0);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_bounds_shift_right(THE_PPC *curr_ppc,short cmd_idx,LENGTHTYPE number_cols)
-#else
-static short prefix_bounds_shift_right(curr_ppc,cmd_idx,number_cols)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LENGTHTYPE number_cols;
-#endif
 /***********************************************************************/
 {
    LINETYPE start_line = curr_ppc->ppc_line_number;
@@ -1074,14 +960,7 @@ LENGTHTYPE number_cols;
    return(0);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_lowercase(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_lowercase(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    LINETYPE start_line = curr_ppc->ppc_line_number;
@@ -1097,14 +976,7 @@ LINETYPE number_lines;
    return(0);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_uppercase(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_uppercase(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    LINETYPE start_line = curr_ppc->ppc_line_number;
@@ -1120,14 +992,7 @@ LINETYPE number_lines;
    return(0);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_overlay(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_overlay(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    short rc=(-1);
@@ -1184,14 +1049,7 @@ LINETYPE number_lines;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_block_duplicate(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_occ)
-#else
-static short prefix_block_duplicate(curr_ppc,cmd_idx,number_occ)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_occ;
-#endif
 /***********************************************************************/
 {
    short rc=(-1);
@@ -1212,14 +1070,7 @@ LINETYPE number_occ;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_block_copy(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_block_copy(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    short rc=(-1);
@@ -1245,14 +1096,7 @@ LINETYPE number_lines;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_block_move(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_block_move(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    short rc=(-1);
@@ -1295,14 +1139,7 @@ LINETYPE number_lines;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_block_delete(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_block_delete(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    short rc=(-1);
@@ -1323,14 +1160,7 @@ LINETYPE number_lines;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_block_shift_left(THE_PPC *curr_ppc,short cmd_idx,LENGTHTYPE number_cols)
-#else
-static short prefix_block_shift_left(curr_ppc,cmd_idx,number_cols)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LENGTHTYPE number_cols;
-#endif
 /***********************************************************************/
 {
    LINETYPE top_line=0L,bottom_line=0L;
@@ -1350,14 +1180,7 @@ LENGTHTYPE number_cols;
    return(0);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_block_shift_right(THE_PPC *curr_ppc,short cmd_idx,LENGTHTYPE number_cols)
-#else
-static short prefix_block_shift_right(curr_ppc,cmd_idx,number_cols)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LENGTHTYPE number_cols;
-#endif
 /***********************************************************************/
 {
    LINETYPE top_line=0L,bottom_line=0L;
@@ -1377,14 +1200,7 @@ LENGTHTYPE number_cols;
    return(0);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_block_exclude(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_block_exclude(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1432,14 +1248,7 @@ LINETYPE number_lines;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_block_bounds_shift_left(THE_PPC *curr_ppc,short cmd_idx,LENGTHTYPE number_cols)
-#else
-static short prefix_block_bounds_shift_left(curr_ppc,cmd_idx,number_cols)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LENGTHTYPE number_cols;
-#endif
 /***********************************************************************/
 {
    LINETYPE top_line=0L,bottom_line=0L;
@@ -1459,14 +1268,7 @@ LENGTHTYPE number_cols;
    return(0);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_block_bounds_shift_right(THE_PPC *curr_ppc,short cmd_idx,LENGTHTYPE number_cols)
-#else
-static short prefix_block_bounds_shift_right(curr_ppc,cmd_idx,number_cols)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LENGTHTYPE number_cols;
-#endif
 /***********************************************************************/
 {
    LINETYPE top_line=0L,bottom_line=0L;
@@ -1486,14 +1288,7 @@ LENGTHTYPE number_cols;
    return(0);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_block_lowercase(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_block_lowercase(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    LENGTHTYPE start_col=PENDING_VIEW->zone_start-1;
@@ -1515,14 +1310,7 @@ LINETYPE number_lines;
    return(0);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_block_uppercase(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_block_uppercase(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    LENGTHTYPE start_col=PENDING_VIEW->zone_start-1;
@@ -1544,14 +1332,7 @@ LINETYPE number_lines;
    return(0);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short prefix_block_overlay(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short prefix_block_overlay(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    short rc=(-1);
@@ -1559,13 +1340,7 @@ LINETYPE number_lines;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short invalidate_prefix(THE_PPC *curr_ppc, char *template)
-#else
-static short invalidate_prefix(curr_ppc,template)
-THE_PPC *curr_ppc;
-char *template;
-#endif
 /***********************************************************************/
 {
    short len=0;
@@ -1597,14 +1372,7 @@ char *template;
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void clear_pending_prefix_command( THE_PPC *curr_ppc, FILE_DETAILS *curr_file, LINE *curr_line )
-#else
-void clear_pending_prefix_command( curr_ppc, curr_file, curr_line )
-THE_PPC *curr_ppc;
-FILE_DETAILS *curr_file;
-LINE *curr_line;
-#endif
 /***********************************************************************/
 {
    LINE *curr=curr_line;
@@ -1627,14 +1395,7 @@ LINE *curr_line;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 THE_PPC *delete_pending_prefix_command(THE_PPC *curr_ppc,FILE_DETAILS *curr_file,LINE *curr_line)
-#else
-THE_PPC *delete_pending_prefix_command(curr_ppc,curr_file,curr_line)
-THE_PPC *curr_ppc;
-FILE_DETAILS *curr_file;
-LINE *curr_line;
-#endif
 /***********************************************************************/
 {
    LINE *curr=curr_line;
@@ -1652,13 +1413,7 @@ LINE *curr_line;
    return(return_ppc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static THE_PPC *find_top_ppc(THE_PPC *curr_ppc,short top_cmd_idx)
-#else
-static THE_PPC *find_top_ppc(curr_ppc,top_cmd_idx)
-THE_PPC *curr_ppc;
-short top_cmd_idx;
-#endif
 /***********************************************************************/
 {
    THE_PPC *top_ppc=PENDING_FILE->first_ppc;
@@ -1675,11 +1430,7 @@ short top_cmd_idx;
    return(NULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static THE_PPC *find_target_ppc(void)
-#else
-static THE_PPC *find_target_ppc()
-#endif
 /***********************************************************************/
 {
    THE_PPC *target_ppc=NULL;
@@ -1698,11 +1449,7 @@ static THE_PPC *find_target_ppc()
    return(NULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static THE_PPC *calculate_target_line(void)
-#else
-static THE_PPC *calculate_target_line()
-#endif
 /***********************************************************************/
 {
    THE_PPC *target_ppc=NULL;
@@ -1749,12 +1496,7 @@ static THE_PPC *calculate_target_line()
    return(target_ppc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short try_rexx_prefix_macro( THE_PPC *curr_ppc )
-#else
-static short try_rexx_prefix_macro( curr_ppc )
-THE_PPC *curr_ppc;
-#endif
 /***********************************************************************/
 {
    short pmacro_rc=0, errnum = 0 ;
@@ -1808,13 +1550,7 @@ THE_PPC *curr_ppc;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static void split_prefix_command( CHARTYPE *str, THE_PPC *curr_ppc )
-#else
-static void split_prefix_command( str, curr_ppc )
-CHARTPE *str;
-THE_PPC *curr_ppc;
-#endif
 /***********************************************************************/
 {
 #define STATE_BEFORE_CMD 0
@@ -1994,16 +1730,7 @@ THE_PPC *curr_ppc;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void add_prefix_command(CHARTYPE curr_screen,VIEW_DETAILS *curr_view,LINE *curr,LINETYPE line_number,bool block_command, bool set_by_pending)
-#else
-void add_prefix_command(curr_screen,curr_view,curr,line_number,block_command,set_by_pending)
-CHARTYPE curr_screen;
-VIEW_DETAILS *curr_view;
-LINE *curr;
-LINETYPE line_number;
-bool block_command,set_by_pending;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -2074,12 +1801,7 @@ bool block_command,set_by_pending;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short add_prefix_synonym(CHARTYPE *synonym,CHARTYPE *macroname)
-#else
-short add_prefix_synonym(synonym,macroname)
-CHARTYPE *synonym,*macroname;
-#endif
 /***********************************************************************/
 /* Parameters:                                                         */
 /*    synonym: synonym for prefix macro                                */
@@ -2164,12 +1886,7 @@ DESCRIPTION
 RETURN VALUE
      Either the macroname associated with 'synonym' or 'synonym'.
 *******************************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *find_prefix_synonym(CHARTYPE *synonym)
-#else
-CHARTYPE *find_prefix_synonym(synonym)
-CHARTYPE *synonym;
-#endif
 /***********************************************************************/
 {
    LINE *curr=NULL;
@@ -2206,12 +1923,7 @@ DESCRIPTION
 RETURN VALUE
      Either the synonym associated with 'oldname' or 'oldname'.
 *******************************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *find_prefix_oldname(CHARTYPE *oldname)
-#else
-CHARTYPE *find_prefix_oldname(oldname)
-CHARTYPE *oldname;
-#endif
 /***********************************************************************/
 {
    LINE *curr=NULL;
@@ -2231,12 +1943,7 @@ CHARTYPE *oldname;
    return(oldname);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *get_prefix_command(LINETYPE prefix_index)
-#else
-CHARTYPE *get_prefix_command(prefix_index)
-LINETYPE prefix_index;
-#endif
 /***********************************************************************/
 {
    int ispf_idx = (compatible_feel==COMPAT_ISPF) ? 1 : 0;
@@ -2250,14 +1957,7 @@ LINETYPE prefix_index;
    return(pc[ispf_idx][prefix_index].cmd);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short post_prefix_add(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
-#else
-static short post_prefix_add(curr_ppc,cmd_idx,number_lines)
-THE_PPC *curr_ppc;
-short cmd_idx;
-LINETYPE number_lines;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;

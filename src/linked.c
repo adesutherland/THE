@@ -37,14 +37,7 @@
 #include <proto.h>
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 THELIST *ll_add( THELIST *first, THELIST *curr, unsigned short size )
-#else
-THELIST *ll_add( first, curr, size )
-THELIST *first;
-THELIST *curr;
-unsigned short size; )
-#endif
 /***********************************************************************
  * Adds a THELIST to the current linked list after the current member.
  * PARAMETERS:
@@ -99,16 +92,7 @@ unsigned short size; )
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 THELIST *ll_del( THELIST **first, THELIST **last, THELIST *curr, short direction, THELIST_DEL delfunc )
-#else
-THELIST *ll_del( first, last, curr, direction, delfunc )
-THELIST **first;
-THELIST **last;
-THELIST *curr;
-short direction;
-THELIST_DEL delfunc;
-#endif
 /***********************************************************************
  * Deletes a THELIST from the current linked list.
  * PARAMETERS:
@@ -181,13 +165,7 @@ THELIST_DEL delfunc;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 THELIST *ll_free( THELIST *first, THELIST_DEL delfunc )
-#else
-THELIST *ll_free( first, delfunc )
-THELIST *first;
-THELIST_DEL delfunc;
-#endif
 /***********************************************************************
  * Frees all THELIST items from a linked list.
  * PARAMETERS:
@@ -214,14 +192,7 @@ THELIST_DEL delfunc;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 LINE *lll_add(LINE *first,LINE *curr,unsigned short size)
-#else
-LINE *lll_add(first,curr,size)
-LINE *first;
-LINE *curr;
-unsigned short size;
-#endif
 /***********************************************************************/
 /* Adds a LINE to the current linked list after the current member.    */
 /* PARAMETERS:                                                         */
@@ -276,15 +247,7 @@ unsigned short size;
    return(next);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 LINE *lll_del(LINE **first,LINE **last,LINE *curr,short direction)
-#else
-LINE *lll_del(first,last,curr,direction)
-LINE **first;
-LINE **last;
-LINE *curr;
-short direction;
-#endif
 /***********************************************************************/
 {
    LINE *new_curr=NULL;
@@ -344,12 +307,7 @@ short direction;
    return(curr);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 LINE *lll_free(LINE *first)
-#else
-LINE *lll_free(first)
-LINE *first;
-#endif
 /***********************************************************************/
 /* Free up all allocated memory until the last item in the linked-list */
 /* PARAMETERS:                                                         */
@@ -374,13 +332,7 @@ LINE *first;
    return((LINE *)NULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 LINE *lll_find(LINE *first,LINE *last,LINETYPE line_number,LINETYPE max_lines)
-#else
-LINE *lll_find(first,last,line_number,max_lines)
-LINE *first,*last;
-LINETYPE line_number,max_lines;
-#endif
 /***********************************************************************/
 {
    LINE *curr=NULL;
@@ -407,13 +359,7 @@ LINETYPE line_number,max_lines;
    return(curr);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 LINE *lll_locate(LINE *first,CHARTYPE *value)
-#else
-LINE *lll_locate(first,value)
-LINE *first;
-CHARTYPE *value;
-#endif
 /***********************************************************************/
 {
    LINE *curr=NULL;
@@ -431,14 +377,7 @@ CHARTYPE *value;
    return(curr);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 VIEW_DETAILS *vll_add(VIEW_DETAILS *first,VIEW_DETAILS *curr,unsigned short size)
-#else
-VIEW_DETAILS *vll_add(first,curr,size)
-VIEW_DETAILS *first;
-VIEW_DETAILS *curr;
-unsigned short size;
-#endif
 /***********************************************************************/
 /* Adds a VIEW_DETAILS to the current linked list after the current member.    */
 /* PARAMETERS:                                                         */
@@ -476,15 +415,7 @@ unsigned short size;
    return(next);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 VIEW_DETAILS *vll_del(VIEW_DETAILS **first,VIEW_DETAILS **last,VIEW_DETAILS *curr,short direction)
-#else
-VIEW_DETAILS *vll_del(first,last,curr,direction)
-VIEW_DETAILS **first;
-VIEW_DETAILS **last;
-VIEW_DETAILS *curr;
-short direction;
-#endif
 /***********************************************************************/
 /* This ll_del() function is different to others!!!!!!!!               */
 /***********************************************************************/
@@ -550,14 +481,7 @@ short direction;
    return(curr);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 DEFINE *dll_add(DEFINE *first,DEFINE *curr,unsigned short size)
-#else
-DEFINE *dll_add(first,curr,size)
-DEFINE *first;
-DEFINE *curr;
-unsigned short size;
-#endif
 /***********************************************************************/
 /* Adds a DEFINE to the current linked list after the current member.  */
 /* PARAMETERS:                                                         */
@@ -594,15 +518,7 @@ unsigned short size;
    return(next);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 DEFINE *dll_del(DEFINE **first,DEFINE **last,DEFINE *curr,short direction)
-#else
-DEFINE *dll_del(first,last,curr,direction)
-DEFINE **first;
-DEFINE **last;
-DEFINE *curr;
-short direction;
-#endif
 /***********************************************************************/
 {
    DEFINE *new_curr=NULL;
@@ -662,12 +578,7 @@ short direction;
    return(curr);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 DEFINE *dll_free(DEFINE *first)
-#else
-DEFINE *dll_free(first)
-DEFINE *first;
-#endif
 /***********************************************************************/
 {
    DEFINE *curr=NULL;
@@ -689,14 +600,7 @@ DEFINE *first;
    return((DEFINE *)NULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 THE_PPC *pll_add(THE_PPC **first,unsigned short size,LINETYPE line_number)
-#else
-THE_PPC *pll_add(first,size,line-numbr)
-THE_PPC **first;
-unsigned short size;
-LINETYPE line_number;
-#endif
 /***********************************************************************/
 /* Adds a THE_PPC to the current linked list in line_number order.     */
 /* PARAMETERS:                                                         */
@@ -769,15 +673,7 @@ LINETYPE line_number;
    return(next);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 THE_PPC *pll_del(THE_PPC **first,THE_PPC **last,THE_PPC *curr,short direction)
-#else
-THE_PPC *pll_del(first,last,curr,direction)
-THE_PPC **first;
-THE_PPC **last;
-THE_PPC *curr;
-short direction;
-#endif
 /***********************************************************************/
 {
    THE_PPC *new_curr=NULL;
@@ -837,12 +733,7 @@ short direction;
    return(curr);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 THE_PPC *pll_free(THE_PPC *first)
-#else
-THE_PPC *pll_free(first)
-THE_PPC *first;
-#endif
 /***********************************************************************/
 /* Free up all allocated memory until the last item in the linked-list */
 /* PARAMETERS:                                                         */
@@ -865,13 +756,7 @@ THE_PPC *first;
    return((THE_PPC *)NULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 THE_PPC *pll_find(THE_PPC *first,LINETYPE line_number)
-#else
-THE_PPC *pll_find(first,line_number)
-THE_PPC *first;
-LINETYPE line_number;
-#endif
 /***********************************************************************/
 {
    THE_PPC *curr_ppc=NULL;
@@ -891,14 +776,7 @@ LINETYPE line_number;
    return(NULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 RESERVED *rll_add(RESERVED *first,RESERVED *curr,unsigned short size)
-#else
-RESERVED *rll_add(first,curr,size)
-RESERVED *first;
-RESERVED *curr;
-unsigned short size;
-#endif
 /***********************************************************************/
 /* Adds a RESERVED to the current linked list after the current member.    */
 /* PARAMETERS:                                                         */
@@ -936,15 +814,7 @@ unsigned short size;
    return(next);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 RESERVED *rll_del(RESERVED **first,RESERVED **last,RESERVED *curr,short direction)
-#else
-RESERVED *rll_del(first,last,curr,direction)
-RESERVED **first;
-RESERVED **last;
-RESERVED *curr;
-short direction;
-#endif
 /***********************************************************************/
 {
    RESERVED *new_curr=NULL;
@@ -1004,12 +874,7 @@ short direction;
    return(curr);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 RESERVED *rll_free(RESERVED *first)
-#else
-RESERVED *rll_free(first)
-RESERVED *first;
-#endif
 /***********************************************************************/
 /* Free up all allocated memory until the last item in the linked-list */
 /* PARAMETERS:                                                         */
@@ -1038,13 +903,7 @@ RESERVED *first;
    return((RESERVED *)NULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 RESERVED *rll_find(RESERVED *first,short row)
-#else
-RESERVED *rll_find(first,row)
-RESERVED *first;
-short row;
-#endif
 /***********************************************************************/
 {
    RESERVED *curr=NULL;
@@ -1060,14 +919,7 @@ short row;
    return(curr);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSER_DETAILS *parserll_add(PARSER_DETAILS *first,PARSER_DETAILS *curr,unsigned short size)
-#else
-PARSER_DETAILS *parserll_add(first,curr,size)
-PARSER_DETAILS *first;
-PARSER_DETAILS *curr;
-unsigned short size;
-#endif
 /***********************************************************************/
 /* Adds a PARSER_DETAILS to the current linked list after the current member.    */
 /* PARAMETERS:                                                         */
@@ -1105,15 +957,7 @@ unsigned short size;
    return(next);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSER_DETAILS *parserll_del(PARSER_DETAILS **first,PARSER_DETAILS **last,PARSER_DETAILS *curr,short direction)
-#else
-PARSER_DETAILS *parserll_del(first,last,curr,direction)
-PARSER_DETAILS **first;
-PARSER_DETAILS **last;
-PARSER_DETAILS *curr;
-short direction;
-#endif
 /***********************************************************************/
 {
    PARSER_DETAILS *new_curr=NULL;
@@ -1173,12 +1017,7 @@ short direction;
    return(curr);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSER_DETAILS *parserll_free(PARSER_DETAILS *first)
-#else
-PARSER_DETAILS *parserll_free(first)
-PARSER_DETAILS *first;
-#endif
 /***********************************************************************/
 /* Free up all allocated memory until the last item in the linked-list */
 /* PARAMETERS:                                                         */
@@ -1207,13 +1046,7 @@ PARSER_DETAILS *first;
    return((PARSER_DETAILS *)NULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSER_DETAILS *parserll_find(PARSER_DETAILS *first,CHARTYPE *name)
-#else
-PARSER_DETAILS *parserll_find(first,name)
-PARSER_DETAILS *first;
-CHARTYPE *name;
-#endif
 /***********************************************************************/
 {
  PARSER_DETAILS *curr=NULL;
@@ -1236,14 +1069,7 @@ CHARTYPE *name;
    return(NULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSE_KEYWORDS *parse_keywordll_add(PARSE_KEYWORDS *first,PARSE_KEYWORDS *curr,unsigned short size)
-#else
-PARSE_KEYWORDS *parse_keywordll_add(first,curr,size)
-PARSE_KEYWORDS *first;
-PARSE_KEYWORDS *curr;
-unsigned short size;
-#endif
 /***********************************************************************/
 /* Adds a PARSE_KEYWORDS to the current linked list after the current member.    */
 /* PARAMETERS:                                                         */
@@ -1281,15 +1107,7 @@ unsigned short size;
    return(next);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSE_KEYWORDS *parse_keywordll_del(PARSE_KEYWORDS **first,PARSE_KEYWORDS **last,PARSE_KEYWORDS *curr,short direction)
-#else
-PARSE_KEYWORDS *parse_keywordll_del(first,last,curr,direction)
-PARSE_KEYWORDS **first;
-PARSE_KEYWORDS **last;
-PARSE_KEYWORDS *curr;
-short direction;
-#endif
 /***********************************************************************/
 {
    PARSE_KEYWORDS *new_curr=NULL;
@@ -1349,12 +1167,7 @@ short direction;
    return(curr);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSE_KEYWORDS *parse_keywordll_free(PARSE_KEYWORDS *first)
-#else
-PARSE_KEYWORDS *parse_keywordll_free(first)
-PARSE_KEYWORDS *first;
-#endif
 /***********************************************************************/
 /* Free up all allocated memory until the last item in the linked-list */
 /* PARAMETERS:                                                         */
@@ -1379,14 +1192,7 @@ PARSE_KEYWORDS *first;
    return((PARSE_KEYWORDS *)NULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSE_FUNCTIONS *parse_functionll_add(PARSE_FUNCTIONS *first,PARSE_FUNCTIONS *curr,unsigned short size)
-#else
-PARSE_FUNCTIONS *parse_functionll_add(first,curr,size)
-PARSE_FUNCTIONS *first;
-PARSE_FUNCTIONS *curr;
-unsigned short size;
-#endif
 /***********************************************************************/
 /* Adds a PARSE_FUNCTIONS to the current linked list after the current member.    */
 /* PARAMETERS:                                                         */
@@ -1424,15 +1230,7 @@ unsigned short size;
    return(next);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSE_FUNCTIONS *parse_functionll_del(PARSE_FUNCTIONS **first,PARSE_FUNCTIONS **last,PARSE_FUNCTIONS *curr,short direction)
-#else
-PARSE_FUNCTIONS *parse_functionll_del(first,last,curr,direction)
-PARSE_FUNCTIONS **first;
-PARSE_FUNCTIONS **last;
-PARSE_FUNCTIONS *curr;
-short direction;
-#endif
 /***********************************************************************/
 {
    PARSE_FUNCTIONS *new_curr=NULL;
@@ -1492,12 +1290,7 @@ short direction;
    return(curr);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSE_FUNCTIONS *parse_functionll_free(PARSE_FUNCTIONS *first)
-#else
-PARSE_FUNCTIONS *parse_functionll_free(first)
-PARSE_FUNCTIONS *first;
-#endif
 /***********************************************************************/
 /* Free up all allocated memory until the last item in the linked-list */
 /* PARAMETERS:                                                         */
@@ -1522,14 +1315,7 @@ PARSE_FUNCTIONS *first;
    return((PARSE_FUNCTIONS *)NULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSE_HEADERS *parse_headerll_add(PARSE_HEADERS *first,PARSE_HEADERS *curr,unsigned short size)
-#else
-PARSE_HEADERS *parse_headerll_add(first,curr,size)
-PARSE_HEADERS *first;
-PARSE_HEADERS *curr;
-unsigned short size;
-#endif
 /***********************************************************************/
 /* Adds a PARSE_HEADERS to the current linked list after the current member.    */
 /* PARAMETERS:                                                         */
@@ -1567,12 +1353,7 @@ unsigned short size;
    return(next);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSE_HEADERS *parse_headerll_free(PARSE_HEADERS *first)
-#else
-PARSE_HEADERS *parse_headerll_free(first)
-PARSE_HEADERS *first;
-#endif
 /***********************************************************************/
 /* Free up all allocated memory until the last item in the linked-list */
 /* PARAMETERS:                                                         */
@@ -1595,14 +1376,7 @@ PARSE_HEADERS *first;
    return((PARSE_HEADERS *)NULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSER_MAPPING *mappingll_add(PARSER_MAPPING *first,PARSER_MAPPING *curr,unsigned short size)
-#else
-PARSER_MAPPING *mappingll_add(first,curr,size)
-PARSER_MAPPING *first;
-PARSER_MAPPING *curr;
-unsigned short size;
-#endif
 /***********************************************************************/
 /* Adds a PARSER_MAPPING to the current linked list after the current member.    */
 /* PARAMETERS:                                                         */
@@ -1640,15 +1414,7 @@ unsigned short size;
    return(next);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSER_MAPPING *mappingll_del(PARSER_MAPPING **first,PARSER_MAPPING **last,PARSER_MAPPING *curr,short direction)
-#else
-PARSER_MAPPING *mappingll_del(first,last,curr,direction)
-PARSER_MAPPING **first;
-PARSER_MAPPING **last;
-PARSER_MAPPING *curr;
-short direction;
-#endif
 /***********************************************************************/
 {
    PARSER_MAPPING *new_curr=NULL;
@@ -1708,12 +1474,7 @@ short direction;
    return(curr);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSER_MAPPING *mappingll_free(PARSER_MAPPING *first)
-#else
-PARSER_MAPPING *mappingll_free(first)
-PARSER_MAPPING *first;
-#endif
 /***********************************************************************/
 /* Free up all allocated memory until the last item in the linked-list */
 /* PARAMETERS:                                                         */
@@ -1742,14 +1503,7 @@ PARSER_MAPPING *first;
    return((PARSER_MAPPING *)NULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSER_MAPPING *mappingll_find(PARSER_MAPPING *first,CHARTYPE *filemask, CHARTYPE *magic_number)
-#else
-PARSER_MAPPING *mappingll_find(first,filemask,magic_number)
-PARSER_MAPPING *first;
-CHARTYPE *filemask;
-CHARTYPE *magic_number;
-#endif
 /***********************************************************************/
 {
    PARSER_MAPPING *curr=NULL;
@@ -1803,14 +1557,7 @@ CHARTYPE *magic_number;
    return(NULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSE_COMMENTS *parse_commentsll_add(PARSE_COMMENTS *first,PARSE_COMMENTS *curr,unsigned short size)
-#else
-PARSE_COMMENTS *parse_commentsll_add(first,curr,size)
-PARSE_COMMENTS *first;
-PARSE_COMMENTS *curr;
-unsigned short size;
-#endif
 /***********************************************************************/
 /* Adds a PARSE_COMMENTS to the current linked list after the current member.    */
 /* PARAMETERS:                                                         */
@@ -1848,15 +1595,7 @@ unsigned short size;
    return(next);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSE_COMMENTS *parse_commentsll_del(PARSE_COMMENTS **first,PARSE_COMMENTS **last,PARSE_COMMENTS *curr,short direction)
-#else
-PARSE_COMMENTS *parse_commentsll_del(first,last,curr,direction)
-PARSE_COMMENTS **first;
-PARSE_COMMENTS **last;
-PARSE_COMMENTS *curr;
-short direction;
-#endif
 /***********************************************************************/
 {
    PARSE_COMMENTS *new_curr=NULL;
@@ -1916,12 +1655,7 @@ short direction;
    return(curr);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSE_COMMENTS *parse_commentsll_free(PARSE_COMMENTS *first)
-#else
-PARSE_COMMENTS *parse_commentsll_free(first)
-PARSE_COMMENTS *first;
-#endif
 /***********************************************************************/
 /* Free up all allocated memory until the last item in the linked-list */
 /* PARAMETERS:                                                         */
@@ -1944,14 +1678,7 @@ PARSE_COMMENTS *first;
    return((PARSE_COMMENTS *)NULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSE_POSTCOMPARE *parse_postcomparell_add(PARSE_POSTCOMPARE *first,PARSE_POSTCOMPARE *curr,unsigned short size)
-#else
-PARSE_POSTCOMPARE *parse_postcomparell_add(first,curr,size)
-PARSE_POSTCOMPARE *first;
-PARSE_POSTCOMPARE *curr;
-unsigned short size;
-#endif
 /***********************************************************************/
 /* Adds a PARSE_POSTCOMPARE to the current linked list after the current member.    */
 /* PARAMETERS:                                                         */
@@ -1989,15 +1716,7 @@ unsigned short size;
    return(next);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSE_POSTCOMPARE *parse_postcomparell_del(PARSE_POSTCOMPARE **first,PARSE_POSTCOMPARE **last,PARSE_POSTCOMPARE *curr,short direction)
-#else
-PARSE_POSTCOMPARE *parse_postcomparell_del(first,last,curr,direction)
-PARSE_POSTCOMPARE **first;
-PARSE_POSTCOMPARE **last;
-PARSE_POSTCOMPARE *curr;
-short direction;
-#endif
 /***********************************************************************/
 {
    PARSE_POSTCOMPARE *new_curr=NULL;
@@ -2061,12 +1780,7 @@ short direction;
    return(curr);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSE_POSTCOMPARE *parse_postcomparell_free(PARSE_POSTCOMPARE *first)
-#else
-PARSE_POSTCOMPARE *parse_postcomparell_free(first)
-PARSE_POSTCOMPARE *first;
-#endif
 /***********************************************************************/
 /* Free up all allocated memory until the last item in the linked-list */
 /* PARAMETERS:                                                         */
@@ -2093,14 +1807,7 @@ PARSE_POSTCOMPARE *first;
    return((PARSE_POSTCOMPARE *)NULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSE_EXTENSION *parse_extensionll_add(PARSE_EXTENSION *first,PARSE_EXTENSION *curr,unsigned short size)
-#else
-PARSE_EXTENSION *parse_extensionll_add(first,curr,size)
-PARSE_EXTENSION *first;
-PARSE_EXTENSION *curr;
-unsigned short size;
-#endif
 /***********************************************************************/
 /* Adds a PARSE_EXTENSION to the current linked list after the current member.    */
 /* PARAMETERS:                                                         */
@@ -2138,15 +1845,7 @@ unsigned short size;
    return(next);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSE_EXTENSION *parse_extensionll_del(PARSE_EXTENSION **first,PARSE_EXTENSION **last,PARSE_EXTENSION *curr,short direction)
-#else
-PARSE_EXTENSION *parse_extensionll_del(first,last,curr,direction)
-PARSE_EXTENSION **first;
-PARSE_EXTENSION **last;
-PARSE_EXTENSION *curr;
-short direction;
-#endif
 /***********************************************************************/
 {
    PARSE_EXTENSION *new_curr=NULL;
@@ -2208,12 +1907,7 @@ short direction;
    return(curr);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 PARSE_EXTENSION *parse_extensionll_free(PARSE_EXTENSION *first)
-#else
-PARSE_EXTENSION *parse_extensionll_free(first)
-PARSE_EXTENSION *first;
-#endif
 /***********************************************************************/
 /* Free up all allocated memory until the last item in the linked-list */
 /* PARAMETERS:                                                         */

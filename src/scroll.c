@@ -39,14 +39,7 @@
 #include <proto.h>
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short scroll_page(short direction,LINETYPE num_pages,bool scrollbar)
-#else
-short scroll_page(direction,num_pages,scrollbar)
-short direction;
-LINETYPE num_pages;
-bool scrollbar;
-#endif
 /***********************************************************************/
 {
    short y=0,x=0,save_y=0,rc;
@@ -117,17 +110,7 @@ bool scrollbar;
    return rc;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short direction,LINETYPE num_lines,bool scrollbar,short escreen)
-#else
-short scroll_line( curr_screen, curr_view, direction, num_lines, scrollbar, escreen )
-CHARTYPE curr_screen;
-VIEW_DETAILS *curr_view;
-short direction;
-LINETYPE num_lines;
-bool scrollbar;
-short escreen;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;

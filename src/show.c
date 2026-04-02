@@ -80,21 +80,12 @@
 #include <time.h>
 
 /*------------------------ function definitions -----------------------*/
-#ifdef HAVE_PROTO
 static void build_lines(CHARTYPE,short,LINE *,short,short);
 static void build_lines_for_display(CHARTYPE,short,short,short);
 static void show_lines(CHARTYPE);
 static void show_a_line(CHARTYPE,short,SHOW_LINE *);
 static void set_prefix_contents(CHARTYPE,LINE *,short,LINETYPE,bool);
 static void show_hex_line(CHARTYPE,short);
-#else
-static void build_lines();
-static void build_lines_for_display();
-static void show_lines();
-static void show_a_line();
-static void set_prefix_contents();
-static void show_hex_line();
-#endif
 static LINETYPE displayed_max_line_length = 0; /* max length of displayed line */
 static LINE *hexshow_curr=NULL; /* module global for historical reasons? */
 
@@ -494,15 +485,7 @@ static int is_column_being_shown(CHARTYPE scrno,COLTYPE col)
 }
 #endif
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static void display_line_left( WINDOW *win, chtype colour, CHARTYPE *str, int lenstr, int line, int width )
-#else
-static void display_line_left( win, colour, str, line, width )
-WINDOW *win;
-chtype colour;
-CHARTYPE *str;
-int lenstr, line, width;
-#endif
 /***********************************************************************/
 {
    int linelength;
@@ -519,17 +502,8 @@ int lenstr, line, width;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static void display_syntax_line_left(WINDOW *win, chtype colour, CHARTYPE *str,
                               chtype *high, int line, int width)
-#else
-static void display_syntax_line_left(win, colour, str, high, line, width)
-WINDOW *win;
-chtype colour;
-CHARTYPE *str;
-chtype *high;
-int line, width;
-#endif
 /***********************************************************************/
 {
    int linelength;
@@ -546,16 +520,8 @@ int line, width;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static void display_line_center(WINDOW *win, chtype colour, CHARTYPE *str,
                               int line, int width, int fillchar)
-#else
-static void display_line_center(win, colour, str, line, width, fillchar)
-WINDOW *win;
-chtype colour;
-CHARTYPE *str;
-int line, width, fillchar;
-#endif
 /***********************************************************************/
 {
    int linelength,first;
@@ -579,12 +545,7 @@ int line, width, fillchar;
 
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void prepare_idline(CHARTYPE scrno)
-#else
-void prepare_idline(scrno)
-CHARTYPE scrno;
-#endif
 /***********************************************************************/
 {
    short fpath_len=0,max_name=0;
@@ -810,12 +771,7 @@ CHARTYPE scrno;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void show_heading(CHARTYPE scrno)
-#else
-void show_heading(scrno)
-CHARTYPE scrno;
-#endif
 /***********************************************************************/
 {
    FILE_DETAILS *screen_file = SCREEN_FILE(scrno);
@@ -837,11 +793,7 @@ CHARTYPE scrno;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void show_statarea(void)
-#else
-void show_statarea()
-#endif
 /***********************************************************************/
 {
    short y=0,x=0;
@@ -1038,11 +990,7 @@ void show_statarea()
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void clear_statarea(void)
-#else
-void clear_statarea()
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("show.c:    clear_statarea");
@@ -1066,12 +1014,7 @@ void clear_statarea()
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void display_filetabs( VIEW_DETAILS *start)
-#else
-void display_filetabs( start)
-VIEW_DETAILS;
-#endif
 /***********************************************************************/
 {
    VIEW_DETAILS *curr;
@@ -1166,12 +1109,7 @@ VIEW_DETAILS;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void redraw_window(WINDOW *win)
-#else
-void redraw_window(win)
-WINDOW *win;
-#endif
 /***********************************************************************/
 {
    register short i=0,j=0;
@@ -1199,11 +1137,7 @@ WINDOW *win;
 }
 #if NOT_USED
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void repaint_screen(void)
-#else
-void repaint_screen()
-#endif
 /***********************************************************************/
 {
    short y=0,x=0;
@@ -1227,12 +1161,7 @@ void repaint_screen()
 #endif
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void build_screen(CHARTYPE scrno)
-#else
-void build_screen(scrno)
-CHARTYPE scrno;
-#endif
 /***********************************************************************/
 {
    LINE *curr=NULL;
@@ -1259,12 +1188,7 @@ CHARTYPE scrno;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void display_screen(CHARTYPE scrno)
-#else
-void display_screen(scrno)
-CHARTYPE scrno;
-#endif
 /***********************************************************************/
 {
    unsigned short x=0,y=0;
@@ -1375,13 +1299,7 @@ CHARTYPE scrno;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void display_cmdline( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
-#else
-void display_cmdline( curr_screen, curr_view )
-CHARTYPE curr_screen;
-VIEW_DETAILS *curr_view;
-#endif
 /***********************************************************************/
 {
    unsigned short x=0,y=0;
@@ -1412,16 +1330,8 @@ VIEW_DETAILS *curr_view;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static void build_lines(CHARTYPE scrno,short direction,LINE *curr,
                          short rows,short start_row)
-#else
-static void build_lines(scrno,direction,curr,rows,start_row)
-CHARTYPE scrno;
-short direction;
-LINE *curr;
-short rows,start_row;
-#endif
 /***********************************************************************/
 {
   /* BE CAREFUL! This function and his friend build_lines_for_display below
@@ -1810,15 +1720,8 @@ short rows,start_row;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static void build_lines_for_display(CHARTYPE scrno,short direction,
                                     short rows,short start_row)
-#else
-static void build_lines_for_display(scrno,direction,rows,start_row)
-CHARTYPE scrno;
-short direction;
-short rows,start_row;
-#endif
 /***********************************************************************/
 {
    /*
@@ -2303,12 +2206,7 @@ short rows,start_row;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static void show_lines(CHARTYPE scrno)
-#else
-static void show_lines(scrno)
-CHARTYPE scrno;
-#endif
 /***********************************************************************/
 {
    short i=0;
@@ -2565,14 +2463,7 @@ CHARTYPE scrno;
 }
 #define TMP_EXTRA 1
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static void show_a_line(CHARTYPE scrno,short row, SHOW_LINE *scurr)
-#else
-static void show_a_line(scrno,row,scurr)
-CHARTYPE scrno;
-short row;
-SHOW_LINE *scurr;
-#endif
 /***********************************************************************/
 {
    LENGTHTYPE vend,vlen,blanks_after_length;
@@ -2934,16 +2825,7 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d: ccols %d cother_end_col %d bother_end_col
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static void set_prefix_contents(CHARTYPE scrno,LINE *curr,short start_row,LINETYPE cline,bool is_current)
-#else
-static void set_prefix_contents(scrno,curr,start_row,cline,is_current)
-CHARTYPE scrno;
-LINE *curr;
-short start_row;
-LINETYPE cline;
-bool is_current;
-#endif
 /***********************************************************************/
 {
    CHARTYPE *ptr=NULL;
@@ -2996,13 +2878,7 @@ bool is_current;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static void show_hex_line(CHARTYPE scrno,short row)
-#else
-static void show_hex_line(scrno,row)
-CHARTYPE scrno;
-short row;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -3067,12 +2943,7 @@ short row;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void touch_screen(CHARTYPE scrno)
-#else
-void touch_screen(scrno)
-CHARTYPE scrno;
-#endif
 /***********************************************************************/
 {
    register int i=0;
@@ -3089,12 +2960,7 @@ CHARTYPE scrno;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void refresh_screen(CHARTYPE scrno)
-#else
-void refresh_screen(scrno)
-CHARTYPE scrno;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("commutil.c:refresh_screen");
@@ -3125,12 +2991,7 @@ CHARTYPE scrno;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void redraw_screen(CHARTYPE scrno)
-#else
-void redraw_screen(scrno)
-CHARTYPE scrno;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("commutil.c:redraw_screen");
@@ -3180,13 +3041,7 @@ CHARTYPE scrno;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 bool line_in_view(CHARTYPE scrno,LINETYPE line_number)
-#else
-bool line_in_view(scrno,line_number)
-CHARTYPE scrno;
-LINETYPE line_number;
-#endif
 /***********************************************************************/
 {
    register short i,max=screen[scrno].rows[WINDOW_FILEAREA];
@@ -3207,13 +3062,7 @@ LINETYPE line_number;
    return(result);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 bool column_in_view(CHARTYPE scrno,LENGTHTYPE column_number)
-#else
-bool column_in_view(scrno,column_number)
-CHARTYPE scrno;
-LENGTHTYPE column_number;
-#endif
 /***********************************************************************/
 {
    bool result=FALSE;
@@ -3241,13 +3090,7 @@ LENGTHTYPE column_number;
    return(result);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 LINETYPE find_next_current_line(LINETYPE num_pages,short direction)
-#else
-LINETYPE find_next_current_line(num_pages,direction)
-LINETYPE num_pages;
-short direction;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -3341,14 +3184,7 @@ short direction;
    return(cline);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short get_row_for_focus_line(CHARTYPE scrno,LINETYPE fl,short cr)
-#else
-short get_row_for_focus_line(scrno,fl,cr)
-CHARTYPE scrno;
-LINETYPE fl;
-short cr;
-#endif
 /***********************************************************************/
 {
    /*
@@ -3374,14 +3210,7 @@ short cr;
    return(cr);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 LINETYPE get_focus_line_in_view(CHARTYPE scrno,LINETYPE fl,ROWTYPE row)
-#else
-LINETYPE get_focus_line_in_view(scrno,fl,row)
-CHARTYPE scrno;
-LINETYPE fl;
-ROWTYPE row;
-#endif
 /***********************************************************************/
 {
    /*
@@ -3417,12 +3246,7 @@ ROWTYPE row;
    return(fl);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 LINETYPE calculate_focus_line(LINETYPE fl,LINETYPE cl)
-#else
-LINETYPE calculate_focus_line(fl,cl)
-LINETYPE fl,cl;
-#endif
 /***********************************************************************/
 {
    /*
@@ -3453,14 +3277,7 @@ LINETYPE fl,cl;
    return(new_fl);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 char *get_current_position(CHARTYPE scrno,LINETYPE *line,LENGTHTYPE *col)
-#else
-char *get_current_position(scrno,line,col)
-CHARTYPE scrno;
-LINETYPE *line;
-LENGTHTYPE *col;
-#endif
 /***********************************************************************/
 {
    short y=0,x=0;
@@ -3508,17 +3325,7 @@ LENGTHTYPE *col;
    return ret;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void calculate_new_column( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, COLTYPE current_screen_col, LENGTHTYPE current_verify_col, LENGTHTYPE new_file_col, COLTYPE *new_screen_col, LENGTHTYPE *new_verify_col )
-#else
-void calculate_new_column( curr_screen, curr_view, current_screen_col, current_verify_col, new_file_col, new_screen_col, new_verify_col )
-CHARTYPE curr_screen;
-VIEW_DETAILS *curr_view;
-COLTYPE current_screen_col;
-LENGTHTYPE current_verify_col,new_file_col;
-COLTYPE *new_screen_col;
-LENGTHTYPE *new_verify_col;
-#endif
 /***********************************************************************/
 {
    LINETYPE x=0;
@@ -3541,12 +3348,7 @@ LENGTHTYPE *new_verify_col;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short prepare_view(CHARTYPE scrn)
-#else
-short prepare_view(scrn)
-CHARTYPE scrn;
-#endif
 /***********************************************************************/
 {
    int y=0,x=0;
@@ -3576,13 +3378,7 @@ CHARTYPE scrn;
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short advance_view(VIEW_DETAILS *next_view,short direction)
-#else
-short advance_view(next_view,direction)
-VIEW_DETAILS *next_view;
-short direction;
-#endif
 /***********************************************************************/
 {
    VIEW_DETAILS *save_current_view=next_view; /* point to passed view */
@@ -3777,12 +3573,7 @@ short direction;
 
 #if defined(CAN_RESIZE) || defined(OS2) || defined(WIN32)
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short THE_Resize(int rows, int cols)
-#else
-short THE_Resize(rows,cols)
-int rows,cols;
-#endif
 /***********************************************************************/
 {
    short i=0;
@@ -3873,12 +3664,7 @@ int rows,cols;
 
 #if defined(HAVE_BROKEN_SYSVR4_CURSES)
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short force_curses_background(void)
-#else
-short force_curses_background()
-int rows,cols;
-#endif
 /***********************************************************************/
 {
    int rc=RC_OK;

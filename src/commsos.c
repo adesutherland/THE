@@ -40,8 +40,8 @@
 
 /*#define DEBUG 1*/
 
-static short sosdelback Args(( bool ));
-static short sosdelchar Args(( bool ));
+static short sosdelback ( bool );
+static short sosdelchar ( bool );
 
 /*man-start*********************************************************************
 
@@ -73,12 +73,7 @@ SEE ALSO
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_addline(CHARTYPE *params)
-#else
-short Sos_addline(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -121,12 +116,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_blockend(CHARTYPE *params)
-#else
-short Sos_blockend(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -209,12 +199,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_blockstart(CHARTYPE *params)
-#else
-short Sos_blockstart(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -296,12 +281,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_bottomedge(CHARTYPE *params)
-#else
-short Sos_bottomedge(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -368,12 +348,7 @@ SEE ALSO
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_cuadelback(CHARTYPE *params)
-#else
-short Sos_cuadelback(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc;
@@ -407,12 +382,7 @@ SEE ALSO
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_cuadelchar(CHARTYPE *params)
-#else
-short Sos_cuadelchar(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -440,25 +410,13 @@ COMPATIBILITY
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_current(CHARTYPE *params)
-#else
-short Sos_current(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    return do_Sos_current( params, current_screen, CURRENT_VIEW );
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short do_Sos_current( CHARTYPE *params, CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
-#else
-short do_Sos_current( params, curr_screen, curr_view )
-CHARTYPE *params;
-CHARTYPE curr_screen;
-VIEW_DETAILS *curr_view;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -516,12 +474,7 @@ SEE ALSO
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_cursoradj(CHARTYPE *params)
-#else
-short Sos_cursoradj(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    LENGTHTYPE num_cols=0,first_non_blank_col=0,col=0;
@@ -581,12 +534,7 @@ SEE ALSO
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_cursorshift(CHARTYPE *params)
-#else
-short Sos_cursorshift(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -649,12 +597,7 @@ SEE ALSO
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_delback(CHARTYPE *params)
-#else
-short Sos_delback(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc;
@@ -685,12 +628,7 @@ SEE ALSO
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_delchar(CHARTYPE *params)
-#else
-short Sos_delchar(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -718,12 +656,7 @@ COMPATIBILITY
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_delend(CHARTYPE *params)
-#else
-short Sos_delend(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    LENGTHTYPE i,col;
@@ -820,12 +753,7 @@ SEE ALSO
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_delline(CHARTYPE *params)
-#else
-short Sos_delline(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -882,12 +810,7 @@ COMPATIBILITY
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_delword(CHARTYPE *params)
-#else
-short Sos_delword(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -979,12 +902,7 @@ COMPATIBILITY
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_doprefix(CHARTYPE *params)
-#else
-short Sos_doprefix(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1012,12 +930,7 @@ COMPATIBILITY
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_edit(CHARTYPE *params)
-#else
-short Sos_edit(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    LINE *curr=NULL;
@@ -1173,12 +1086,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_endchar(CHARTYPE *params)
-#else
-short Sos_endchar(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1237,12 +1145,7 @@ COMPATIBILITY
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_execute(CHARTYPE *params)
-#else
-short Sos_execute(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    LENGTHTYPE i;
@@ -1292,12 +1195,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_firstchar(CHARTYPE *params)
-#else
-short Sos_firstchar(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1355,12 +1253,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_firstcol(CHARTYPE *params)
-#else
-short Sos_firstcol(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1410,12 +1303,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_instab(CHARTYPE *params)
-#else
-short Sos_instab(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    unsigned short x=0,y=0;
@@ -1477,12 +1365,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_lastcol(CHARTYPE *params)
-#else
-short Sos_lastcol(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1517,12 +1400,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_leftedge(CHARTYPE *params)
-#else
-short Sos_leftedge(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    unsigned short y=0,x=0;
@@ -1597,12 +1475,7 @@ COMPATIBILITY
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_makecurr(CHARTYPE *params)
-#else
-short Sos_makecurr(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1634,12 +1507,7 @@ SEE ALSO
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_marginl(CHARTYPE *params)
-#else
-short Sos_marginl(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1671,12 +1539,7 @@ SEE ALSO
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_marginr(CHARTYPE *params)
-#else
-short Sos_marginr(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1707,12 +1570,7 @@ COMPATIBILITY
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_parindent(CHARTYPE *params)
-#else
-short Sos_parindent(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1748,12 +1606,7 @@ COMPATIBILITY
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_pastecmdline(CHARTYPE *params)
-#else
-short Sos_pastecmdline(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1845,25 +1698,13 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_prefix(CHARTYPE *params)
-#else
-short Sos_prefix(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    return do_Sos_prefix( params, current_screen, CURRENT_VIEW );
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short do_Sos_prefix( CHARTYPE *params, CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
-#else
-short do_Sos_prefix( params, curr_screen, curr_view )
-CHARTYPE *params;
-CHARTYPE curr_screen;
-VIEW_DETAILS *curr_view;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1909,12 +1750,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_qcmnd(CHARTYPE *params)
-#else
-short Sos_qcmnd(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1955,12 +1791,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_rightedge(CHARTYPE *params)
-#else
-short Sos_rightedge(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1999,12 +1830,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_settab(CHARTYPE *params)
-#else
-short Sos_settab(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define SETTAB_INSERT 0
@@ -2118,12 +1944,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_startendchar(CHARTYPE *params)
-#else
-short Sos_startendchar(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    unsigned short x=0,y=0;
@@ -2195,12 +2016,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_tabb(CHARTYPE *params)
-#else
-short Sos_tabb(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    unsigned short x=0,y=0;
@@ -2297,12 +2113,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_tabf(CHARTYPE *params)
-#else
-short Sos_tabf(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    unsigned short x=0,y=0;
@@ -2428,12 +2239,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_tabfieldb(CHARTYPE *params)
-#else
-short Sos_tabfieldb(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -2503,12 +2309,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_tabfieldf(CHARTYPE *params)
-#else
-short Sos_tabfieldf(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -2564,12 +2365,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_tabwordb(CHARTYPE *params)
-#else
-short Sos_tabwordb(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    unsigned short x=0,y=0;
@@ -2769,12 +2565,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_tabwordf(CHARTYPE *params)
-#else
-short Sos_tabwordf(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    unsigned short x=0,y=0;
@@ -2939,12 +2730,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_topedge(CHARTYPE *params)
-#else
-short Sos_topedge(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
   short rc=RC_OK;
@@ -3006,12 +2792,7 @@ COMPATIBILITY
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Sos_undo(CHARTYPE *params)
-#else
-short Sos_undo(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    unsigned short x=0,y=0;
@@ -3058,12 +2839,7 @@ CHARTYPE *params;
 /*
  * Internal functions...
  */
-#ifdef HAVE_PROTO
 static short sosdelback( bool cua )
-#else
-static short sosdelback( cua )
-bool cua;
-#endif
 {
    unsigned short x=0,y=0;
    short rc=RC_OK;
@@ -3257,13 +3033,7 @@ bool cua;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short sosdelchar( bool cua )
-#else
-static short sosdelchar( cua )
-bool cua;
-/***********************************************************************/
-#endif
 {
    unsigned short x=0,y=0;
    short rc;

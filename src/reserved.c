@@ -38,16 +38,7 @@
 #include <proto.h>
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 RESERVED *add_reserved_line(CHARTYPE *spec,CHARTYPE *line,short base,short off,COLOUR_ATTR *attr, bool autoscroll)
-#else
-RESERVED *add_reserved_line(spec,line,base,off,attr,autoscroll)
-CHARTYPE *spec,*line;
-short base;
-short off;
-COLOUR_ATTR *attr;
-bool autoscroll;
-#endif
 /***********************************************************************/
 {
    RESERVED *curr=NULL;
@@ -106,15 +97,7 @@ bool autoscroll;
    return(curr);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 RESERVED *find_reserved_line(CHARTYPE scrno,bool find_by_row,ROWTYPE row,short base,short off)
-#else
-RESERVED *find_reserved_line(scrno,find_by_row,row,base,off)
-CHARTYPE scrno;
-bool find_by_row;
-ROWTYPE row;
-short base,off;
-#endif
 /***********************************************************************/
 {
    RESERVED *curr=SCREEN_FILE(scrno)->first_reserved;
@@ -146,12 +129,7 @@ short base,off;
    return(curr);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short delete_reserved_line(short base,short off)
-#else
-short delete_reserved_line(base,off)
-short base,off;
-#endif
 /***********************************************************************/
 {
    RESERVED *curr=NULL;

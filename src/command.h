@@ -66,11 +66,7 @@ struct commands
    CHARTYPE *text;
    unsigned short min_len;
    int funkey;
-#ifdef HAVE_PROTO
    short (*function)(CHARTYPE *);
-#else
-   short (*function)();
-#endif
    bool valid_batch_command;
    bool set_command;
    bool sos_command;

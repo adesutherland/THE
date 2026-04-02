@@ -63,12 +63,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Pagewrap(CHARTYPE *params)
-#else
-short Pagewrap(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -105,12 +100,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Parser(CHARTYPE *params)
-#else
-short Parser(params)
-CHARTYPE *params;
-#endif
 
 /***********************************************************************/
 {
@@ -306,12 +296,7 @@ COMPATIBILITY
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Pending(CHARTYPE *params)
-#else
-short Pending(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define PEND_ON    1
@@ -460,12 +445,7 @@ COMPATIBILITY
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Point(CHARTYPE *params)
-#else
-short Point(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define POI_PARAMS  2
@@ -546,12 +526,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Position(CHARTYPE *params)
-#else
-short Position(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -625,12 +600,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Prefix(CHARTYPE *params)
-#else
-short Prefix(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define PRE_PARAMS  5
@@ -920,12 +890,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short THEPrinter(CHARTYPE *params)
-#else
-short THEPrinter(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define PRI_PARAMS  3
@@ -1075,12 +1040,7 @@ DEFAULT
 STATUS
      Incomplete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Pscreen(CHARTYPE *params)
-#else
-short Pscreen(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define PSC_PARAMS  3
@@ -1176,12 +1136,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short THEReadonly(CHARTYPE *params)
-#else
-short THEReadonly(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define REO_PARAMS  2
@@ -1283,12 +1238,7 @@ SEE ALSO
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Regexp(CHARTYPE *params)
-#else
-short Regexp(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1339,12 +1289,7 @@ SEE ALSO
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Reprofile(CHARTYPE *params)
-#else
-short Reprofile(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1425,12 +1370,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Reserved(CHARTYPE *params)
-#else
-short Reserved(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define RSR_PARAMS  2
@@ -1586,12 +1526,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Rexxhalt(CHARTYPE *params)
-#else
-short Rexxhalt(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define REXH_PARAMS  2
@@ -1679,12 +1614,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Rexxoutput(CHARTYPE *params)
-#else
-short Rexxoutput(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define REX_PARAMS  2
@@ -1777,12 +1707,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Scale(CHARTYPE *params)
-#else
-short Scale(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define SCA_PARAMS  2
@@ -1884,12 +1809,7 @@ SEE ALSO
 STATUS
      Completed.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Scope(CHARTYPE *params)
-#else
-short Scope(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1965,12 +1885,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short THEScreen(CHARTYPE *params)
-#else
-short THEScreen(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define SCR_PARAMS  3
@@ -2372,12 +2287,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Select(CHARTYPE *params)
-#else
-short Select(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define SEL_PARAMS  2
@@ -2485,12 +2395,7 @@ SEE ALSO
 STATUS
      Completed.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Shadow(CHARTYPE *params)
-#else
-short Shadow(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -2548,12 +2453,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Slk(CHARTYPE *params)
-#else
-short Slk(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define SLK_PARAMS  2
@@ -2644,12 +2544,7 @@ DEFAULT
 STATUS
      Not started.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Span(CHARTYPE *params)
-#else
-short Span(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -2681,12 +2576,7 @@ DEFAULT
 STATUS
      Not started.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Spill(CHARTYPE *params)
-#else
-short Spill(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -2745,12 +2635,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Statopt(CHARTYPE *params)
-#else
-short Statopt(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define OPT_PARAMS  5
@@ -2956,12 +2841,7 @@ DEFAULT
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Statusline(CHARTYPE *params)
-#else
-short Statusline(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    CHARTYPE stat_place='?';
@@ -3088,12 +2968,7 @@ DEFAULT
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Stay(CHARTYPE *params)
-#else
-short Stay(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -3148,12 +3023,7 @@ DEFAULT
 STATUS
      Incomplete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Synonym(CHARTYPE *params)
-#else
-short Synonym(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define SYN_PARAMS  4
@@ -3331,12 +3201,7 @@ SEE ALSO
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Tabkey(CHARTYPE *params)
-#else
-short Tabkey(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define TKY_PARAMS  3
@@ -3468,12 +3333,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Tabline(CHARTYPE *params)
-#else
-short Tabline(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define TBL_PARAMS  2
@@ -3584,12 +3444,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Tabs(CHARTYPE *params)
-#else
-short Tabs(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define TABS_PARAMS  MAX_NUMTABS
@@ -3728,12 +3583,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Tabsin(CHARTYPE *params)
-#else
-short Tabsin(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 /*
@@ -3878,12 +3728,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Tabsout(CHARTYPE *params)
-#else
-short Tabsout(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define TABO_PARAMS  3
@@ -4021,12 +3866,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Targetsave(CHARTYPE *params)
-#else
-short Targetsave(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define TARSAV_PARAMS  10
@@ -4118,12 +3958,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short THighlight(CHARTYPE *params)
-#else
-short THighlight(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -4156,12 +3991,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Timecheck(CHARTYPE *params)
-#else
-short Timecheck(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -4192,12 +4022,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Tofeof(CHARTYPE *params)
-#else
-short Tofeof(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -4253,12 +4078,7 @@ DEFAULT
 STATUS
      Complete.  Some trailing blank behaviour while editing files incomplete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Trailing(CHARTYPE *params)
-#else
-short Trailing(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -4327,12 +4147,7 @@ DEFAULT
 STATUS
      Incomplete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Trunc(CHARTYPE *params)
-#else
-short Trunc(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -4371,12 +4186,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short THETypeahead(CHARTYPE *params)
-#else
-short THETypeahead(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -4435,12 +4245,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Undoing(CHARTYPE *params)
-#else
-short Undoing(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -4479,12 +4284,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Untaa(CHARTYPE *params)
-#else
-short Untaa(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -4524,12 +4324,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Verify(CHARTYPE *params)
-#else
-short Verify(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define VER_PARAMS  3
@@ -4687,12 +4482,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Width(CHARTYPE *params)
-#else
-short Width(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    LENGTHTYPE width=0;
@@ -4813,12 +4603,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Word(CHARTYPE *params)
-#else
-short Word(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -4871,12 +4656,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Wordwrap(CHARTYPE *params)
-#else
-short Wordwrap(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -4925,12 +4705,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Wrap(CHARTYPE *params)
-#else
-short Wrap(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -4968,12 +4743,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Xterminal(CHARTYPE *params)
-#else
-short Xterminal(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("commset2.c:Xterminal");
@@ -5024,12 +4794,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Zone(CHARTYPE *params)
-#else
-short Zone(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define ZON_PARAMS  3

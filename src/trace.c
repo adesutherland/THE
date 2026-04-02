@@ -42,30 +42,18 @@
 #include <stdarg.h>
 #include <time.h>
 
-#ifdef HAVE_PROTO
 void trace_initialise(void);
 void trace_function(char *);
 void trace_return(void);
 void trace_string(char *,...);
 void trace_constant(char *);
-#else
-void trace_initialise(/* void */);
-void trace_function(/* char* */);
-void trace_return(/* void */);
-void trace_string(/* char*,... */);
-void trace_constant(/* char * */);
-#endif
 
 static char trace_save_str[40];
 static char trace_env[40];
 static FILE *trace_fp;
 static short trace_number=0,trace_level=(-1);
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void trace_initialise(void)
-#else
-void trace_initialise()
-#endif
 /***********************************************************************/
 {
    char *trace_env_ptr=getenv( "THE_TRACE" );
@@ -79,12 +67,7 @@ void trace_initialise()
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void trace_function(char *trace_str)
-#else
-void trace_function(trace_str)
-char *trace_str;
-#endif
 /***********************************************************************/
 {
    register int i;
@@ -112,11 +95,7 @@ char *trace_str;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void trace_return(void)
-#else
-void trace_return()
-#endif
 /***********************************************************************/
 {
    if ( trace_level == (-1) )
@@ -133,12 +112,7 @@ void trace_return()
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void trace_string(char *fmt,...)
-#else
-void trace_string(fmt)
-char *fmt;
-#endif
 /***********************************************************************/
 {
    va_list args;
@@ -156,12 +130,7 @@ char *fmt;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void trace_constant(char *str)
-#else
-void trace_constant(str)
-char *str;
-#endif
 /***********************************************************************/
 {
    trace_fp = fopen( trace_env, "a" );

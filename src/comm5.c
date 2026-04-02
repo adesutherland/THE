@@ -38,14 +38,7 @@
 #include <the.h>
 #include <proto.h>
 
-#ifdef HAVE_PROTO
 static bool ispf_special_lines_entry( short line_type, int ch, CHARTYPE real_key )
-#else
-static bool ispf_special_lines_entry( line_type, ch, real_key )
-short line_type;
-int ch;
-CHARTYPE real_key;
-#endif
 {
    bool need_to_build_screen=FALSE;
    /*
@@ -119,12 +112,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Tabfile(CHARTYPE *params)
-#else
-short Tabfile(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -230,12 +218,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Tabpre(CHARTYPE *params)
-#else
-short Tabpre(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("comm5.c:   Tabpre");
@@ -296,12 +279,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Tag(CHARTYPE *params)
-#else
-short Tag(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define TAG_RTARGET 0
@@ -535,12 +513,7 @@ COMPATIBILITY
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Text(CHARTYPE *params)
-#else
-short Text(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    LENGTHTYPE i=0L;
@@ -879,12 +852,7 @@ COMPATIBILITY
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Toascii(CHARTYPE *params)
-#else
-short Toascii(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    LINETYPE num_lines=0L,true_line=0L,num_actual_lines=0L,i=0L,num_file_lines=0L;
@@ -1040,12 +1008,7 @@ SEE ALSO
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Top(CHARTYPE *params)
-#else
-short Top(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_TOF_EOF_REACHED;
@@ -1109,12 +1072,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Up(CHARTYPE *params)
-#else
-short Up(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1169,12 +1127,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Uppercase(CHARTYPE *params)
-#else
-short Uppercase(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1208,12 +1161,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Xedit(CHARTYPE *params)
-#else
-short Xedit(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1267,12 +1215,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Retrieve(CHARTYPE *params)
-#else
-short Retrieve(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    CHARTYPE *current_command=NULL;
@@ -1352,12 +1295,7 @@ COMPATIBILITY
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Reexecute(CHARTYPE *params)
-#else
-short Reexecute(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;

@@ -57,12 +57,7 @@ the_header_mapping thm[] =
 /*#define DEBUG 1*/
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short set_active_colour( short area )
-#else
-static short set_active_colour( area )
-short area;
-#endif
 /***********************************************************************/
 {
    int i;
@@ -260,12 +255,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Alt(CHARTYPE *params)
-#else
-short Alt(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define ALT_PARAMS  2
@@ -354,12 +344,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Arbchar(CHARTYPE *params)
-#else
-short Arbchar(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define ARB_PARAMS  4
@@ -528,12 +513,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Autocolour(CHARTYPE *params)
-#else
-short Autocolour(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define AUCO_PARAMS  3
@@ -728,12 +708,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Autosave(CHARTYPE *params)
-#else
-short Autosave(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define AUS_PARAMS  1
@@ -807,12 +782,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Autoscroll(CHARTYPE *params)
-#else
-short Autoscroll(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define AUL_PARAMS  1
@@ -906,12 +876,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Backup(CHARTYPE *params)
-#else
-short Backup(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -993,12 +958,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short BeepSound(CHARTYPE *params)
-#else
-short BeepSound(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1049,12 +1009,7 @@ DEFAULT
 STATUS
      Incomplete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Boundmark(CHARTYPE *params)
-#else
-short Boundmark(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define BND_PARAMS  2
@@ -1179,12 +1134,7 @@ SEE ALSO
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Case(CHARTYPE *params)
-#else
-short Case(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define CAS_PARAMS  6
@@ -1302,12 +1252,7 @@ DEFAULT
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Clearerrorkey(CHARTYPE *params)
-#else
-short Clearerrorkey(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1353,12 +1298,7 @@ DEFAULT
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Clearscreen(CHARTYPE *params)
-#else
-short Clearscreen(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1389,12 +1329,7 @@ DEFAULT
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Clock(CHARTYPE *params)
-#else
-short Clock(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1437,12 +1372,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Cmdarrows(CHARTYPE *params)
-#else
-short Cmdarrows(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1486,12 +1416,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Cmdline(CHARTYPE *params)
-#else
-short Cmdline(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    CHARTYPE cmd_place = '?';
@@ -1696,12 +1621,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Colour(CHARTYPE *params)
-#else
-short Colour(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define COL_PARAMS_DEF 2
@@ -2017,12 +1937,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Colouring(CHARTYPE *params)
-#else
-short Colouring(params)
-CHARTYPE *params;
-#endif
 
 /***********************************************************************/
 {
@@ -2144,12 +2059,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Compat(CHARTYPE *params)
-#else
-short Compat(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define COM_PARAMS  4
@@ -2420,12 +2330,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Ctlchar(CHARTYPE *params)
-#else
-short Ctlchar(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define CTL_PARAMS  3
@@ -2678,12 +2583,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Curline(CHARTYPE *params)
-#else
-short Curline(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define CUR_PARAMS  2
@@ -2884,12 +2784,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short CursorStay(CHARTYPE *params)
-#else
-short CursorStay(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -2950,12 +2845,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Defsort(CHARTYPE *params)
-#else
-short Defsort(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define DIR_PARAMS  2
@@ -3078,12 +2968,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Dirinclude(CHARTYPE *params)
-#else
-short Dirinclude(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -3117,12 +3002,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Display(CHARTYPE *params)
-#else
-short Display(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -3259,12 +3139,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Ecolour(CHARTYPE *params)
-#else
-short Ecolour(params)
-CHARTYPE *params;
-#endif
 
 /***********************************************************************/
 {
@@ -3468,12 +3343,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Eolout(CHARTYPE *params)
-#else
-short Eolout(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    CHARTYPE eolchar=0;
@@ -3529,12 +3399,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Equivchar(CHARTYPE *params)
-#else
-short Equivchar(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -3589,12 +3454,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Errorformat(CHARTYPE *params)
-#else
-short Errorformat(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    CHARTYPE errformat='N';
@@ -3639,12 +3499,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Erroroutput(CHARTYPE *params)
-#else
-short Erroroutput(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -3718,12 +3573,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Etmode(CHARTYPE *params)
-#else
-short Etmode(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define ETM_PARAMS  21
@@ -3915,12 +3765,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Fdisplay(CHARTYPE *params)
-#else
-short Fdisplay(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -3999,12 +3844,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Fext(CHARTYPE *params)
-#else
-short Fext(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    CHARTYPE tmp_name[MAX_FILE_NAME+1];
@@ -4172,12 +4012,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Filename(CHARTYPE *params)
-#else
-short Filename(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    CHARTYPE tmp_name[MAX_FILE_NAME+1];
@@ -4359,12 +4194,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short THEFiletabs(CHARTYPE *params)
-#else
-short THEFiletabs(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -4442,12 +4272,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Fmode(CHARTYPE *params)
-#else
-short Fmode(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #ifndef UNIX
@@ -4596,12 +4421,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Fname(CHARTYPE *params)
-#else
-short Fname(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    CHARTYPE tmp_name[MAX_FILE_NAME+1];
@@ -4741,12 +4561,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Fpath(CHARTYPE *params)
-#else
-short Fpath(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    CHARTYPE tmp_name[MAX_FILE_NAME+1];
@@ -4889,12 +4704,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Fullfname(CHARTYPE *params)
-#else
-short Fullfname(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -4944,12 +4754,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short THEHeader(CHARTYPE *params)
-#else
-short THEHeader(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -5045,12 +4850,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Hex(CHARTYPE *params)
-#else
-short Hex(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -5081,12 +4881,7 @@ DEFAULT
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Hexdisplay(CHARTYPE *params)
-#else
-short Hexdisplay(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -5148,12 +4943,7 @@ DEFAULT
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Hexshow(CHARTYPE *params)
-#else
-short Hexshow(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define HEXS_PARAMS  2
@@ -5258,12 +5048,7 @@ SEE ALSO
 STATUS
      Ccomplete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Highlight(CHARTYPE *params)
-#else
-short Highlight(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define HIGH_PARAMS  2
@@ -5355,12 +5140,7 @@ DEFAULT
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Idline(CHARTYPE *params)
-#else
-short Idline(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -5455,12 +5235,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Impmacro(CHARTYPE *params)
-#else
-short Impmacro(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -5496,12 +5271,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Impos(CHARTYPE *params)
-#else
-short Impos(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -5546,12 +5316,7 @@ SEE ALSO
 STATUS
      Incomplete. No support for FULL option.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Inputmode(CHARTYPE *params)
-#else
-short Inputmode(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION( "commset1.c:Inputmode" );
@@ -5595,12 +5360,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Insertmode(CHARTYPE *params)
-#else
-short Insertmode(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("commset1.c:Insertmode");
@@ -5665,12 +5425,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short THEInterface(CHARTYPE *params)
-#else
-short THEInterface(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -5717,12 +5472,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Lastop(CHARTYPE *params)
-#else
-short Lastop(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define LOP_PARAMS  2
@@ -5812,12 +5562,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Lineflag(CHARTYPE *params)
-#else
-short Lineflag(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define LF_PARAMS  4
@@ -6000,12 +5745,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Linend(CHARTYPE *params)
-#else
-short Linend(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define LE_PARAMS  2
@@ -6089,12 +5829,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short SetMacro(CHARTYPE *params)
-#else
-short SetMacro(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -6133,12 +5868,7 @@ DEFAULT
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Macroext(CHARTYPE *params)
-#else
-short Macroext(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("commset1.c:Macroext");
@@ -6191,12 +5921,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Macropath(CHARTYPE *params)
-#else
-short Macropath(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #if defined(UNIX)
@@ -6311,12 +6036,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Margins(CHARTYPE *params)
-#else
-short Margins(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define MAR_PARAMS  3
@@ -6529,12 +6249,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Mouse(CHARTYPE *params)
-#else
-short Mouse(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -6576,12 +6291,7 @@ NOTES
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Mouseclick(CHARTYPE *params)
-#else
-short Mouseclick(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -6692,12 +6402,7 @@ SEE ALSO
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Msgline(CHARTYPE *params)
-#else
-short Msgline(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define MSG_PARAMS  5
@@ -6903,12 +6608,7 @@ DEFAULT
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Msgmode(CHARTYPE *params)
-#else
-short Msgmode(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define MSGM_PARAMS  2
@@ -6992,12 +6692,7 @@ DEFAULT
 STATUS
      Complete
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Newlines(CHARTYPE *params)
-#else
-short Newlines(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define NEW_PARAMS  1
@@ -7062,12 +6757,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Nondisp(CHARTYPE *params)
-#else
-short Nondisp(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("commset1.c:Nondisp");
@@ -7107,12 +6797,7 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
-#ifdef HAVE_PROTO
 short Number(CHARTYPE *params)
-#else
-short Number(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;

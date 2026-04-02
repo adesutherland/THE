@@ -45,11 +45,7 @@
 # include <string.h>
 #endif
 
-#ifdef HAVE_PROTO
 void display_info(void);
-#else
-void display_info();
-#endif
 
 #if !defined(__cplusplus)
 typedef unsigned char bool;
@@ -69,13 +65,7 @@ typedef char CHARTYPE;
 #define STATE_COMMAND   2
 #define STATE_DEFAULT   3
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short strzne(CHARTYPE *str,CHARTYPE ch)
-#else
-short strzne(str,ch)
-CHARTYPE *str;
-CHARTYPE ch;
-#endif
 /***********************************************************************/
 {
  register short len=0;
@@ -88,13 +78,7 @@ CHARTYPE ch;
  return(i);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short strzrevne(CHARTYPE *str,CHARTYPE ch)
-#else
-short strzrevne(str,ch)
-CHARTYPE *str;
-CHARTYPE ch;
-#endif
 /***********************************************************************/
 {
  register short len=0;
@@ -104,12 +88,7 @@ CHARTYPE ch;
  return(len);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 bool blank_field(CHARTYPE *field)
-#else
-bool blank_field(field)
-CHARTYPE *field;
-#endif
 /***********************************************************************/
 {
  if (strzne(field,' ') == (-1))
@@ -117,12 +96,7 @@ CHARTYPE *field;
  return(FALSE);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *strtrunc(CHARTYPE *string)
-#else
-CHARTYPE *strtrunc(string)
-CHARTYPE *string;
-#endif
 /***********************************************************************/
 {
  register short i=0;
@@ -143,12 +117,7 @@ CHARTYPE *string;
  return(string);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *strtrim(CHARTYPE *string,char ch)
-#else
-CHARTYPE *strtrim(string,ch)
-CHARTYPE *string,ch;
-#endif
 /***********************************************************************/
 {
  register short i=0;
@@ -161,13 +130,7 @@ CHARTYPE *string,ch;
  return(string);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int main(int argc,char *argv[])
-#else
-int main(argc,argv)
-int argc;
-char *argv[];
-#endif
 /***********************************************************************/
 {
  char    s[MAX_LINE + 1];        /* input line */
@@ -301,11 +264,7 @@ char *argv[];
  return(0);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void display_info(void)
-#else
-void display_info()
-#endif
 /***********************************************************************/
 {
  fprintf(stderr,"\nMANEXT 1.00 Copyright (C) 1991-1999 Mark Hessling\n");

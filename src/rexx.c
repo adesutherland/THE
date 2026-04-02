@@ -54,7 +54,7 @@ LINE *rexxout_last_line=NULL;
 LINE *rexxout_curr=NULL;
 LINETYPE rexxout_number_lines=0L;
 
-#if (defined(HAVE_PROTO) && !defined(NOREXX)) || defined(USE_REXXIMC)
+#if !defined(NOREXX) || defined(USE_REXXIMC)
 
 /*
  * Because Rexx interpreters include <windows.h> on Windows platforms
@@ -86,15 +86,15 @@ RexxExitHandler rexx_interpreter_version_exit;
 RexxFunctionHandler THE_Function_Handler;
 #endif
 
-static RXSTRING *get_compound_rexx_variable Args((CHARTYPE *,RXSTRING *,short));
-static short valid_target_function Args((RFH_ARG1_TYPE, RFH_ARG2_TYPE));
-static short run_os_function Args((RFH_ARG1_TYPE, RFH_ARG2_TYPE));
-static int run_os_command Args((CHARTYPE *,CHARTYPE *,CHARTYPE *,CHARTYPE *));
-static CHARTYPE *MakeAscii Args((RXSTRING *));
-static char *get_a_line Args((FILE *, char *, int *, int *));
-static short set_rexx_variables_from_file Args((char *,CHARTYPE *));
-static void *THEAllocateMemory Args(( ULONG size ));
-static void THEFreeMemory Args(( void *ptr ));
+static RXSTRING *get_compound_rexx_variable (CHARTYPE *,RXSTRING *,short);
+static short valid_target_function (RFH_ARG1_TYPE, RFH_ARG2_TYPE);
+static short run_os_function (RFH_ARG1_TYPE, RFH_ARG2_TYPE);
+static int run_os_command (CHARTYPE *,CHARTYPE *,CHARTYPE *,CHARTYPE *);
+static CHARTYPE *MakeAscii (RXSTRING *);
+static char *get_a_line (FILE *, char *, int *, int *);
+static short set_rexx_variables_from_file (char *,CHARTYPE *);
+static void *THEAllocateMemory ( ULONG size );
+static void THEFreeMemory ( void *ptr );
 
 static LINETYPE captured_lines;
 static bool rexx_halted;
@@ -111,13 +111,8 @@ static int halt_signalled;
  * This function allocates memory for the Rexx interpreter
  ***********************************************************************/
 void *THEAllocateMemory
-#if defined(HAVE_PROTO)
    (
    ULONG size)
-#else
-   (size)
-   ULONG size;
-#endif
 /***********************************************************************/
 {
    void *ptr;
@@ -141,13 +136,8 @@ void *THEAllocateMemory
  * This function frees memory allocated by the Rexx interpreter
  ***********************************************************************/
 void THEFreeMemory
-#if defined(HAVE_PROTO)
    (
    void *ptr)
-#else
-   (ptr)
-   void *ptr;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("rexx.c:    THEFreeMemory");
@@ -169,13 +159,8 @@ void THEFreeMemory
  * functions.
  ***********************************************************************/
 unsigned long MyRexxDeregisterFunction
-#if defined(HAVE_PROTO)
    (
    CHARTYPE *Name)       /* Name of function to be deregistered  */
-#else
-   (Name)
-   CHARTYPE *Name;       /* Name of function to be deregistered  */
-#endif
 /***********************************************************************/
 {
    CHARTYPE newname[256];
@@ -197,13 +182,8 @@ unsigned long MyRexxDeregisterFunction
 /* to satisfy case sensitive interpreters.                             */
 /***********************************************************************/
 unsigned long MyRexxRegisterFunctionExe
-#if defined(HAVE_PROTO)
    (
    CHARTYPE *Name)         /* Name of function to be registered  */
-#else
-   (Name)
-   CHARTYPE *Name;         /* Name of function to be registered  */
-#endif
 /***********************************************************************/
 {
    CHARTYPE _THE_FAR newname[256];
@@ -249,17 +229,10 @@ unsigned long MyRexxRegisterFunctionExe
 
 /***********************************************************************/
 RSH_RETURN_TYPE THE_Commands
-#if defined(HAVE_PROTO)
    (
    RSH_ARG0_TYPE Command,    /* Command string passed from the caller    */
    RSH_ARG1_TYPE Flags,      /* pointer to short for return of flags     */
    RSH_ARG2_TYPE Retstr)     /* pointer to RXSTRING for RC return        */
-#else
-   ( Command, Flags, Retstr )
-   RSH_ARG0_TYPE Command;    /* Command string passed from the caller    */
-   RSH_ARG1_TYPE Flags;      /* pointer to short for return of flags     */
-   RSH_ARG2_TYPE Retstr;     /* pointer to RXSTRING for RC return        */
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -313,18 +286,11 @@ RSH_RETURN_TYPE THE_Commands
 /* This is a nop function for REXX6000 for getting the version */
 /***********************************************************************/
 REH_RETURN_TYPE ver_exit
-#if defined(HAVE_PROTO)
    (
    REH_ARG0_TYPE ExitNumber,    /* code defining the exit function    */
    REH_ARG1_TYPE Subfunction,   /* code defining the exit subfunction */
    REH_ARG2_TYPE ParmBlock      /* function dependent control block   */
    )
-#else
-   ( ExitNumber, Subfunction, ParmBlock )
-   REH_ARG0_TYPE ExitNumber;    /* code defining the exit function    */
-   REH_ARG1_TYPE Subfunction;   /* code defining the exit subfunction */
-   REH_ARG2_TYPE ParmBlock;     /* function dependent control block   */
-#endif
 /***********************************************************************/
 {
    return(0L);
@@ -333,18 +299,11 @@ REH_RETURN_TYPE ver_exit
 
 /***********************************************************************/
 REH_RETURN_TYPE THE_Function_Exit_Handler
-#if defined(HAVE_PROTO)
    (
    REH_ARG0_TYPE ExitNumber,    /* code defining the exit function    */
    REH_ARG1_TYPE Subfunction,   /* code defining the exit subfunction */
    REH_ARG2_TYPE ParmBlock      /* function dependent control block   */
    )
-#else
-   ( ExitNumber, Subfunction, ParmBlock )
-   REH_ARG0_TYPE ExitNumber;    /* code defining the exit function    */
-   REH_ARG1_TYPE Subfunction;   /* code defining the exit subfunction */
-   REH_ARG2_TYPE ParmBlock;     /* function dependent control block   */
-#endif
 /***********************************************************************/
 {
    RXFNCCAL_PARM *fnc_parm;
@@ -443,18 +402,11 @@ REH_RETURN_TYPE THE_Function_Exit_Handler
 
 /***********************************************************************/
 REH_RETURN_TYPE THE_SayTrace_Exit_Handler
-#if defined(HAVE_PROTO)
    (
    REH_ARG0_TYPE ExitNumber,    /* code defining the exit function    */
    REH_ARG1_TYPE Subfunction,   /* code defining the exit subfunction */
    REH_ARG2_TYPE ParmBlock      /* function dependent control block   */
    )
-#else
-   ( ExitNumber, Subfunction, ParmBlock )
-   REH_ARG0_TYPE ExitNumber;    /* code defining the exit function    */
-   REH_ARG1_TYPE Subfunction;   /* code defining the exit subfunction */
-   REH_ARG2_TYPE ParmBlock;     /* function dependent control block   */
-#endif
 /***********************************************************************/
 {
    LONG rc=0L;
@@ -663,7 +615,6 @@ REH_RETURN_TYPE THE_SayTrace_Exit_Handler
 }
 /***********************************************************************/
 RFH_RETURN_TYPE THE_Function_Handler
-#if defined(HAVE_PROTO)
    (
    RFH_ARG0_TYPE FunctionName,  /* name of function */
    RFH_ARG1_TYPE Argc,          /* number of arguments    */
@@ -671,14 +622,6 @@ RFH_RETURN_TYPE THE_Function_Handler
    RFH_ARG3_TYPE QueueName,     /* name of queue */
    RFH_ARG4_TYPE Retstr         /* return string   */
    )
-#else
-   ( FunctionName, Argc, Argv, QueueName, Retstr )
-   RFH_ARG0_TYPE FunctionName;  /* name of function */
-   RFH_ARG1_TYPE Argc;          /* number of arguments    */
-   RFH_ARG2_TYPE Argv,          /* array of arguments in RXSTRINGs */
-   RFH_ARG3_TYPE QueueName;     /* name of queue */
-   RFH_ARG4_TYPE Retstr;        /* return string   */
-#endif
 
 /***********************************************************************/
 {
@@ -832,11 +775,7 @@ RFH_RETURN_TYPE THE_Function_Handler
 }
 /***********************************************************************/
 short initialise_rexx
-#if defined(HAVE_PROTO)
       (void)
-#else
-      ()
-#endif
 /***********************************************************************/
 {
    ULONG rc;
@@ -920,11 +859,7 @@ short initialise_rexx
 }
 /***********************************************************************/
 short finalise_rexx
-#if defined(HAVE_PROTO)
     (void)
-#else
-    ()
-#endif
 /***********************************************************************/
 {
    ULONG rc;
@@ -991,15 +926,7 @@ short finalise_rexx
 }
 /***********************************************************************/
 short execute_macro_file
-#if defined(HAVE_PROTO)
       (CHARTYPE *filename, CHARTYPE *params, short *macrorc, bool interactive )
-#else
-      (filename,params,macrorc,interactive)
-       CHARTYPE *filename;
-       CHARTYPE *params;
-       short *macrorc;
-       bool interactive;
-#endif
 /***********************************************************************/
 {
 #if defined(USE_REXX6000)
@@ -1162,17 +1089,7 @@ short execute_macro_file
 
 /***********************************************************************/
 short execute_macro_instore
-#if defined(HAVE_PROTO)
       (CHARTYPE *commands,short *macrorc,CHARTYPE **pcode,int *pcode_len,int *tokenised, int macro_ident)
-#else
-      (commands, macrorc,pcode,pcode_len, tokenised)
-       CHARTYPE *commands;
-       short *macrorc;
-       CHARTYPE **pcode;
-       int *pcode_len;
-       int *tokenised;
-       int macro_ident;
-#endif
 /***********************************************************************/
 {
 #if defined(__EMX__) || defined(USE_REGINA)
@@ -1325,18 +1242,11 @@ short execute_macro_instore
 
 /***********************************************************************/
 REH_RETURN_TYPE rexx_interpreter_version_exit
-#if defined(HAVE_PROTO)
    (
    REH_ARG0_TYPE ExitNumber,    /* code defining the exit function    */
    REH_ARG1_TYPE Subfunction,   /* code defining the exit subfunction */
    REH_ARG2_TYPE ParmBlock      /* function dependent control block   */
    )
-#else
-   ( ExitNumber, Subfunction, ParmBlock )
-   REH_ARG0_TYPE ExitNumber;    /* code defining the exit function    */
-   REH_ARG1_TYPE Subfunction;   /* code defining the exit subfunction */
-   REH_ARG2_TYPE ParmBlock;     /* function dependent control block   */
-#endif
 /***********************************************************************/
 {
    SHVBLOCK shv;
@@ -1358,12 +1268,7 @@ REH_RETURN_TYPE rexx_interpreter_version_exit
 
 /***********************************************************************/
 CHARTYPE *get_rexx_interpreter_version
-#if defined(HAVE_PROTO)
       (CHARTYPE *buf)
-#else
-      (buf)
-       CHARTYPE *buf;
-#endif
 /***********************************************************************/
 {
  RXSYSEXIT Exits[2] ;
@@ -1416,14 +1321,7 @@ CHARTYPE *get_rexx_interpreter_version
 
 /***********************************************************************/
 short get_rexx_variable
-#if defined(HAVE_PROTO)
       (CHARTYPE *name,CHARTYPE **value,int *value_length)
-#else
-      (name,value,value_length)
-       CHARTYPE *name;
-       CHARTYPE **value;
-       int *value_length;
-#endif
 /***********************************************************************/
 {
    RXSTRING retstr;
@@ -1442,15 +1340,7 @@ short get_rexx_variable
 
 /***********************************************************************/
 short set_rexx_variable
-#if defined(HAVE_PROTO)
       (CHARTYPE *name, CHARTYPE *value, LENGTHTYPE value_length, int suffix)
-#else
-      (name,value,value_length,suffix)
-       CHARTYPE *name;
-       CHARTYPE *value;
-       LENGTHTYPE value_length;
-       int suffix;
-#endif
 /***********************************************************************/
 {
    SHVBLOCK shv;
@@ -1501,14 +1391,7 @@ short set_rexx_variable
 }
 /***********************************************************************/
 static RXSTRING *get_compound_rexx_variable
-#if defined(HAVE_PROTO)
       (CHARTYPE *name,RXSTRING *value,short suffix)
-#else
-      (name,value,suffix)
-       CHARTYPE *name;
-       RXSTRING *value;
-       short suffix;
-#endif
 /***********************************************************************/
 {
    static SHVBLOCK shv;
@@ -1593,13 +1476,7 @@ static RXSTRING *get_compound_rexx_variable
 }
 /***********************************************************************/
 static short valid_target_function
-#if defined(HAVE_PROTO)
       (RFH_ARG1_TYPE Argc,RFH_ARG2_TYPE Argv)
-#else
-     (Argc,Argv)
-      RFH_ARG1_TYPE Argc;
-      RFH_ARG2_TYPE Argv;
-#endif
 /***********************************************************************/
 {
    static TARGET target={NULL,0L,0L,0L,NULL,0,0,FALSE};
@@ -1684,13 +1561,7 @@ static short valid_target_function
 }
 /***********************************************************************/
 static short run_os_function
-#if defined(HAVE_PROTO)
       (RFH_ARG1_TYPE Argc, RFH_ARG2_TYPE Argv)
-#else
-     (Argc, Argv)
-      RFH_ARG1_TYPE Argc;
-      RFH_ARG2_TYPE Argv;
-#endif
 /***********************************************************************/
 {
 /*--------------------------- local data ------------------------------*/
@@ -1749,15 +1620,7 @@ static short run_os_function
 
 /***********************************************************************/
 static int run_os_command
-#if defined(HAVE_PROTO)
       (CHARTYPE *cmd,CHARTYPE *instem,CHARTYPE *outstem,CHARTYPE *errstem)
-#else
-      (cmd,instem,outstem,errstem)
-       CHARTYPE *cmd;
-       CHARTYPE *instem;
-       CHARTYPE *outstem;
-       CHARTYPE *errstem;
-#endif
 /***********************************************************************/
 {
    RXSTRING tmpstr;
@@ -2139,12 +2002,7 @@ static int run_os_command
 }
 /***********************************************************************/
 static CHARTYPE *MakeAscii
-#if defined(HAVE_PROTO)
       (RXSTRING *rxstring)
-#else
-     (rxstring)
-      RXSTRING *rxstring;
-#endif
 /***********************************************************************/
 {
    CHARTYPE *string=NULL;
@@ -2162,15 +2020,7 @@ static CHARTYPE *MakeAscii
 }
 /***********************************************************************/
 static char *get_a_line
-#if defined(HAVE_PROTO)
       (FILE *fp,char *string,int *length,int *rcode)
-#else
-      (fp,string,length,rcode)
-      FILE *fp;
-      char *string;
-      int *length;
-      int *rcode;
-#endif
 /***********************************************************************/
 {
    int ch;
@@ -2234,13 +2084,7 @@ static char *get_a_line
 }
 /***********************************************************************/
 static short set_rexx_variables_from_file
-#if defined(HAVE_PROTO)
       (char *filename,CHARTYPE *stem)
-#else
-      (filename,stem)
-       char *filename;
-       CHARTYPE *stem;
-#endif
 /***********************************************************************/
 {
    FILE *fp=NULL;
@@ -2288,69 +2132,35 @@ static short set_rexx_variables_from_file
 /*---------------------------------------------------------------------*/
 /***********************************************************************/
 short initialise_rexx
-#if defined(HAVE_PROTO)
       (void)
-#else
-      ()
-#endif
 /***********************************************************************/
 {
  return(RC_INVALID_ENVIRON);                        /* force an error */
 }
 /***********************************************************************/
 short finalise_rexx
-#if defined(HAVE_PROTO)
       (void)
-#else
-      ()
-#endif
 /***********************************************************************/
 {
  return(RC_OK);
 }
 /***********************************************************************/
 short execute_macro_file
-#if defined(HAVE_PROTO)
       (CHARTYPE *filename,CHARTYPE *params,short *macrorc,bool interactive)
-#else
-      (filename,params,macrorc,interactive)
-      CHARTYPE *filename;
-      CHARTYPE *params;
-      short *macrorc;
-      bool interactive;
-#endif
 /***********************************************************************/
 {
  return(RC_OK);
 }
 /***********************************************************************/
 short execute_macro_instore
-#if defined(HAVE_PROTO)
       (CHARTYPE *commands,short *macrorc,CHARTYPE **pcode,int *pcode_len,int *tokenised,int macro_ident)
-#else
-      (commands,macrorc,pcode,pcode_len,tokenised,macro_ident)
-      CHARTYPE *commands;
-      short *macrorc;
-      CHARTYPE **pcode;
-      int *pcode_len;
-      int tokenised;
-      int macro_ident;
-#endif
 /***********************************************************************/
 {
  return(RC_OK);
 }
 /***********************************************************************/
 short set_rexx_variable
-#if defined(HAVE_PROTO)
       (CHARTYPE *name,CHARTYPE *value,LENGTHTYPE value_length,int suffix)
-#else
-      (name,value,value_length,suffix)
-      CHARTYPE *name;
-      CHARTYPE *value;
-      LENGTHTYPE value_length;
-      int suffix;
-#endif
 /***********************************************************************/
 {
  return(RC_OK);
@@ -2358,14 +2168,7 @@ short set_rexx_variable
 
 /***********************************************************************/
 short get_rexx_variable
-#if defined(HAVE_PROTO)
       (CHARTYPE *name,CHARTYPE **value,int *value_length)
-#else
-      (name,value,value_length)
-       CHARTYPE *name;
-       CHARTYPE **value;
-       int *value_length;
-#endif
 /***********************************************************************/
 {
  return(RC_OK);
@@ -2373,12 +2176,7 @@ short get_rexx_variable
 
 /***********************************************************************/
 CHARTYPE *get_rexx_interpreter_version
-#if defined(HAVE_PROTO)
       (CHARTYPE *buf)
-#else
-      (buf)
-       CHARTYPE *buf;
-#endif
 /***********************************************************************/
 {
  strcpy((DEFCHAR *)buf,"NONE");
@@ -2387,13 +2185,8 @@ CHARTYPE *get_rexx_interpreter_version
 
 /***********************************************************************/
 unsigned long MyRexxDeregisterFunction
-#if defined(HAVE_PROTO)
    (
    CHARTYPE *Name)       /* Name of function to be deregistered        */
-#else
-   (Name)
-   CHARTYPE *Name;       /* Name of function to be deregistered        */
-#endif
 /***********************************************************************/
 {
    return 0L;
@@ -2401,13 +2194,8 @@ unsigned long MyRexxDeregisterFunction
 
 /***********************************************************************/
 unsigned long MyRexxRegisterFunctionExe
-#if defined(HAVE_PROTO)
    (
    CHARTYPE *Name)         /* Name of function to be registered        */
-#else
-   (Name)
-   CHARTYPE *Name;         /* Name of function to be registered        */
-#endif
 /***********************************************************************/
 {
    return 0L;

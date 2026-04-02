@@ -144,12 +144,7 @@ static int last_mouse_y_pos=-1;
 
 #if defined(PDCURSES_MOUSE_ENABLED)
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short get_mouse_info(int *button,int *button_action,int *button_modifier)
-#else
-short get_mouse_info(button,button_action,button_modifier)
-int *button,*button_action,*button_modifier;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -230,13 +225,7 @@ int *button,*button_action,*button_modifier;
 #endif
 #if defined(NCURSES_MOUSE_VERSION)
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void wmouse_position(WINDOW *win, int *y, int *x)
-#else
-void wmouse_position(win,y,x)
-WINDOW *win;
-int *y,*x;
-#endif
 /***********************************************************************/
 {
    int begy,begx,maxy,maxx;
@@ -270,12 +259,7 @@ int *y,*x;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short get_mouse_info(int *button,int *button_action,int *button_modifier)
-#else
-short get_mouse_info(button,button_action,button_modifier)
-int *button,*button_action,*button_modifier;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -355,12 +339,7 @@ int *button,*button_action,*button_modifier;
 #endif
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short THEMouse(CHARTYPE *params)
-#else
-short THEMouse(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    int w=0;
@@ -391,13 +370,7 @@ CHARTYPE *params;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void which_window_is_mouse_in(CHARTYPE *scrn,int *w)
-#else
-void which_window_is_mouse_in(scrn,w)
-CHARTYPE *scrn;
-int *w;
-#endif
 /***********************************************************************/
 {
    CHARTYPE i=0;
@@ -474,11 +447,7 @@ int *w;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void reset_saved_mouse_pos(void)
-#else
-void reset_saved_mouse_pos()
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("mouse.c:  reset_saved_mouse_pos");
@@ -488,12 +457,7 @@ void reset_saved_mouse_pos()
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void get_saved_mouse_pos(int *y, int *x)
-#else
-void get_saved_mouse_pos(y,x)
-int *y,*x;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("mouse.c:  get_saved_mouse_pos");
@@ -503,11 +467,7 @@ int *y,*x;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void initialise_mouse_commands(void)
-#else
-void initialise_mouse_commands()
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("mouse.c:   initialise_mouse_commands");
@@ -624,12 +584,7 @@ void initialise_mouse_commands()
  return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int mouse_info_to_key(int w, int button, int button_action, int button_modifier)
-#else
-int mouse_info_to_key(w,button,button_action,button_modifier)
-int w,button,button_action,button_modifier;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("mouse.c:   mouse_info_to_key");
@@ -639,14 +594,7 @@ int w,button,button_action,button_modifier;
 }
 #endif
 /***********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *mouse_key_number_to_name(int key_number, CHARTYPE *key_name, int *shift)
-#else
-CHARTYPE *mouse_key_number_to_name( key_number, key_name, shift )
-int key_number;
-CHARTYPE *key_name;
-int shift;
-#endif
 /***********************************************************************/
 {
    register int i=0;
@@ -679,12 +627,7 @@ int shift;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int find_mouse_key_value( CHARTYPE *mnemonic )
-#else
-int find_mouse_key_value( mnemonic )
-CHARTYPE *mnemonic;
-#endif
 /***********************************************************************/
 /*   Function: find the matching mouse key value for the supplied name */
 /* Parameters:                                                         */
@@ -845,12 +788,7 @@ CHARTYPE *mnemonic;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int find_mouse_key_value_in_window(CHARTYPE *mnemonic,CHARTYPE *win_name)
-#else
-int find_mouse_key_value_in_window(mnemonic,win_name)
-CHARTYPE *mnemonic,*win_name;
-#endif
 /***********************************************************************/
 /*   Function: find the matching mouse key value for the supplied name */
 /*             in the specified window.                                */
@@ -906,12 +844,7 @@ CHARTYPE *mnemonic,*win_name;
 
 #if defined(HAVE_SB_INIT)
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short ScrollbarHorz(CHARTYPE *params)
-#else
-short ScrollbarHorz(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    int cur=0;
@@ -930,12 +863,7 @@ CHARTYPE *params;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short ScrollbarVert(CHARTYPE *params)
-#else
-short ScrollbarVert(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    int cur=0;

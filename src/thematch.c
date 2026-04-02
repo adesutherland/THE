@@ -26,10 +26,6 @@ Cambridge, MA 02139, USA.  */
 #include <errno.h>
 #include <thematch.h>
 
-#if !defined(__GNU_LIBRARY__) && !defined(HAVE_PROTO)
-extern int errno;
-#endif
-
 /* Match STRING against the filename pattern PATTERN, returning zero if
    it matches, nonzero if not.  */
 #ifdef __cplusplus

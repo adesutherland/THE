@@ -52,20 +52,10 @@
 #define STATE_QUIT     98
 #define STATE_ERROR    99
 
-#ifdef HAVE_PROTO
 static bool is_blank(LINE *);
-#else
-static bool is_blank();
-#endif
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static int target_type_match( CHARTYPE *ptr, CHARTYPE *type, int minlen )
-#else
-static int target_type_match( ptr, type, minlen )
-CHARTYPE *ptr, *type;
-int minlen;
-#endif
 /***********************************************************************/
 /*
  * Return the length of ptr that matches from the minlen of type.
@@ -92,15 +82,8 @@ int minlen;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short split_change_params(CHARTYPE *cmd_line,CHARTYPE **old_str,CHARTYPE **new_str,
                           TARGET *target,LINETYPE *num,LINETYPE *occ)
-#else
-short split_change_params(cmd_line,old_str,new_str,target,num,occ)
-CHARTYPE *cmd_line,**old_str,**new_str;
-TARGET *target;
-LINETYPE *num,*occ;
-#endif
 /***********************************************************************/
 {
 #define SCP_PARAMS  2
@@ -236,19 +219,9 @@ LINETYPE *num,*occ;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short parse_target(CHARTYPE *target_spec,LINETYPE true_line,TARGET *target,
                    long target_types,bool display_parse_error,
                    bool allow_error_display,bool column_target)
-#else
-short parse_target(target_spec,true_line,target,target_types,
-                   display_parse_error,allow_error_display,column_target)
-CHARTYPE *target_spec;
-LINETYPE true_line;
-TARGET *target;
-long target_types;
-bool display_parse_error,allow_error_display,column_target;
-#endif
 /***********************************************************************/
 {
    short num_targets=0;
@@ -1177,12 +1150,7 @@ bool display_parse_error,allow_error_display,column_target;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void initialise_target(TARGET *target)
-#else
-void initialise_target(target)
-TARGET *target;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("target.c:  initialise_target");
@@ -1192,12 +1160,7 @@ TARGET *target;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void free_target(TARGET *target)
-#else
-void free_target(target)
-TARGET *target;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -1228,14 +1191,7 @@ TARGET *target;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short find_target( TARGET *target, LINETYPE true_line, bool display_parse_error, bool allow_error_display )
-#else
-short find_target( target, true_line, display_parse_error, allow_error_display )
-TARGET *target;
-LINETYPE true_line;
-bool display_parse_error, allow_error_display;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1440,16 +1396,7 @@ bool display_parse_error, allow_error_display;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short find_column_target(CHARTYPE *line,LENGTHTYPE len,TARGET *target,LENGTHTYPE true_column,bool display_parse_error,bool allow_error_display)
-#else
-short find_column_target(line,len,target,true_column,display_parse_error,allow_error_display)
-CHARTYPE *line;
-LENGTHTYPE len;
-TARGET *target;
-LENGTHTYPE true_column;
-bool display_parse_error,allow_error_display;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1510,12 +1457,7 @@ bool display_parse_error,allow_error_display;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static bool is_blank(LINE *curr)
-#else
-static bool is_blank(curr)
-LINE *curr;
-#endif
 /***********************************************************************/
 {
    LENGTHTYPE i=0;
@@ -1539,13 +1481,7 @@ LINE *curr;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 THELIST *find_line_name( LINE *curr, CHARTYPE *name )
-#else
-THELIST *find_line_name( curr, name )
-LINE *curr;
-CHARTYPE *name;
-#endif
 /***********************************************************************/
 /*
  * Given a pointer to a LINE, find the passed name and return a pointer to the
@@ -1578,14 +1514,7 @@ CHARTYPE *name;
    return( (THELIST *)NULL );
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 LINE *find_named_line(CHARTYPE *name,LINETYPE *retline,bool respect_scope)
-#else
-LINE *find_named_line(name,retline,respect_scope)
-CHARTYPE *name;
-LINETYPE *retline;
-bool respect_scope;
-#endif
 /***********************************************************************/
 {
    LINETYPE lineno=0;
@@ -1625,15 +1554,7 @@ bool respect_scope;
    return( (LINE *)NULL );
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short find_string_target( LINE *curr, RTARGET *rt, LENGTHTYPE start_col, int search_semantics )
-#else
-short find_string_target( curr, rt, start_col, search_semantics )
-LINE *curr;
-RTARGET *rt;
-LENGTHTYPE start_col;
-int search_semantics;
-#endif
 /***********************************************************************/
 /*
  * Finds a string (needle: in rt->string) in another string (haystack: in curr->line)
@@ -1794,13 +1715,7 @@ int search_semantics;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short find_regexp(LINE *curr,RTARGET *rt)
-#else
-short find_regexp(curr,rt)
-LINE *curr;
-RTARGET *rt;
-#endif
 /***********************************************************************/
 {
    CHARTYPE *haystack=NULL;
@@ -1851,15 +1766,7 @@ RTARGET *rt;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short find_rtarget_target( LINE *curr, TARGET *target, LINETYPE true_line, LINETYPE line_number, LINETYPE *num_lines )
-#else
-short find_rtarget_target( curr, target, true_line, line_number, num_lines )
-LINE *curr;
-TARGET *target;
-LINETYPE true_line,line_number;
-LINETYPE *num_lines;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -2156,16 +2063,7 @@ LINETYPE *num_lines;
    return((status)?RC_OK:RC_TARGET_NOT_FOUND);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 bool find_rtarget_column_target( CHARTYPE *line, LENGTHTYPE len, TARGET *target, LENGTHTYPE true_column, LENGTHTYPE column_number, LINETYPE *num_columns )
-#else
-bool find_rtarget_column_target( line, len, target, true_column, column_number, num_columns )
-CHARTYPE *line;
-LENGTHTYPE len;
-TARGET *target;
-LENGTHTYPE true_column,column_number;
-LINETYPE *num_columns;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -2268,15 +2166,7 @@ __FILE__,__LINE__,column_number,i,true_column,target->rt[i].start,target_found);
    return(status);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 LINETYPE find_next_in_scope(VIEW_DETAILS *view,LINE *in_curr,LINETYPE line_number,short direction)
-#else
-LINETYPE find_next_in_scope(view,in_curr,line_number,direction)
-VIEW_DETAILS *view;
-LINE *in_curr;
-LINETYPE line_number;
-short direction;
-#endif
 /***********************************************************************/
 {
    LINE *curr=in_curr;
@@ -2299,15 +2189,7 @@ short direction;
    return(line_number);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 LINETYPE find_last_not_in_scope(VIEW_DETAILS *view,LINE *in_curr,LINETYPE line_number,short direction)
-#else
-LINETYPE find_last_not_in_scope(view,in_curr,line_number,direction)
-VIEW_DETAILS *view;
-LINE *in_curr;
-LINETYPE line_number;
-short direction;
-#endif
 /***********************************************************************/
 {
    LINE *curr=in_curr;
@@ -2337,16 +2219,7 @@ short direction;
    return(line_number+offset);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short validate_target(CHARTYPE *string,TARGET *target,long target_type,LINETYPE true_line,bool display_parse_error,bool allow_error_display)
-#else
-short validate_target(string,target,target_type,true_line,display_parse_error,allow_error_display)
-CHARTYPE *string;
-TARGET *target;
-long target_type;
-LINETYPE true_line;
-bool display_parse_error,allow_error_display;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -2369,13 +2242,7 @@ bool display_parse_error,allow_error_display;
 }
 #ifdef NOT_USED_ANYMORE
 /***********************************************************************/
-#ifdef HAVE_PROTO
 bool in_scope(VIEW_DETAILS *view,LINE *curr)
-#else
-bool in_scope(view,curr)
-VIEW_DETAILS *view;
-LINE *curr;
-#endif
 /***********************************************************************/
 {
    bool rc=RC_OK;
@@ -2391,21 +2258,10 @@ LINE *curr;
 }
 #endif
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void calculate_scroll_values(CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short *number_focus_rows,LINETYPE *new_focus_line,
                              LINETYPE *new_current_line,bool *limit_of_screen,
                              bool *limit_of_file,bool *leave_cursor,
                              short direction)
-#else
-void calculate_scroll_values(curr_screen,curr_view,number_focus_rows,new_focus_line,new_current_line,
-                             limit_of_screen,limit_of_file,leave_cursor,direction)
-CHARTYPE curr_screen;
-VIEW_DETAILS *curr_view;
-short *number_focus_rows;
-LINETYPE *new_focus_line,*new_current_line;
-bool *limit_of_screen,*limit_of_file,*leave_cursor;
-short direction;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -2598,13 +2454,7 @@ short direction;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short find_last_focus_line( CHARTYPE curr_screen, unsigned short *newrow)
-#else
-short find_last_focus_line( curr_screen, newrow )
-CHARTYPE curr_screen;
-unsigned short *newrow;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -2626,13 +2476,7 @@ unsigned short *newrow;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short find_first_focus_line( CHARTYPE curr_screen, unsigned short *newrow )
-#else
-short find_first_focus_line( curr_screen, newrow )
-CHARTYPE curr_screen;
-unsigned short *newrow;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -2654,12 +2498,7 @@ unsigned short *newrow;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE find_unique_char(CHARTYPE *str)
-#else
-CHARTYPE find_unique_char(str)
-CHARTYPE *str;
-#endif
 /***********************************************************************/
 {
    register short i=0;

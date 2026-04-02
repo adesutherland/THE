@@ -39,13 +39,7 @@
 #include <proto.h>
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short column_command(CHARTYPE *cmd_text,int cmd_type)
-#else
-short column_command(cmd_text,cmd_type)
-CHARTYPE *cmd_text;
-int cmd_type;
-#endif
 /***********************************************************************/
 {
    LENGTHTYPE i=0;

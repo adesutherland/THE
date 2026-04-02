@@ -54,19 +54,11 @@ static DWORD THEDropProc( CLIPFORMAT cf, HGLOBAL hData, HWND hWnd, DWORD dwKeySt
 # endif
 #endif
 
-#ifdef HAVE_PROTO
 # ifdef UNIX
 static RETSIGTYPE handle_signal(int);
 # endif
 static void display_info(CHARTYPE *);
 static void init_signals(void);
-#else
-# ifdef UNIX
-static RETSIGTYPE handle_signal();
-# endif
-static void display_info();
-static void init_signals();
-#endif
 /*--------------------------- global data -----------------------------*/
    WINDOW *statarea=NULL,*error_window=NULL,*divider=NULL,*filetabs=NULL;
    VIEW_DETAILS *vd_current=(VIEW_DETAILS *)NULL;
@@ -309,13 +301,7 @@ int Themain(argc,argv)
 int argc;
 char *argv[];
 #else
-#ifdef HAVE_PROTO
 int main(int argc, char *argv[])
-#else
-int main(argc,argv)
-short argc;
-char *argv[];
-#endif
 #endif
 /***********************************************************************/
 {
@@ -491,7 +477,7 @@ char *argv[];
    else
    {
 # if defined(UNIX)
-      strcpy((DEFCHAR *)the_home_dir,(DEFCHAR *)THE_HOME_DIRECTORY);
+      strcpy((DEFCHAR *)the_home_dir,(DEFCHAR *)THE_HOME_DIR);
 # else
       strcpy((DEFCHAR *)the_home_dir,(DEFCHAR *)argv[0]);
       strrmdup(strtrans(the_home_dir,OSLASH,ISLASH),ISLASH,TRUE);
@@ -1407,11 +1393,7 @@ fclose( fp);
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static void init_signals(void)
-#else
-static void init_signals()
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("the.c:     init_signals");
@@ -1441,11 +1423,7 @@ static void init_signals()
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void init_colour_pairs(void)
-#else
-void init_colour_pairs()
-#endif
 /***********************************************************************/
 {
    short fg,bg;
@@ -1472,12 +1450,7 @@ void init_colour_pairs()
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int setup_profile_files(CHARTYPE *specified_prf)
-#else
-int setup_profile_files(specified_prf)
-CHARTYPE *specified_prf;
-#endif
 /***********************************************************************/
 {
    int rc=RC_OK;
@@ -1587,12 +1560,7 @@ CHARTYPE *specified_prf;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static void display_info(CHARTYPE *argv0)
-#else
-static void display_info(argv0)
-CHARTYPE *argv0;
-#endif
 /***********************************************************************/
 {
    fprintf(stdout,"\nTHE %s %2s %s. All rights reserved.\n",the_version,the_release,the_copyright);
@@ -1631,11 +1599,7 @@ CHARTYPE *argv0;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int allocate_working_memory(void)
-#else
-int allocate_working_memory()
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("the.c:     allocate_working_memory");
@@ -1707,11 +1671,7 @@ int allocate_working_memory()
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void cleanup(void)
-#else
-void cleanup()
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("the.c:     cleanup");
@@ -1795,12 +1755,7 @@ void cleanup()
 
 #ifdef UNIX
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static RETSIGTYPE handle_signal(int err)
-#else
-static RETSIGTYPE handle_signal(err)
-int err;
-#endif
 /***********************************************************************/
 {
    FILE_DETAILS *cf;
@@ -1872,13 +1827,7 @@ int err;
 
 #if defined(USE_XCURSES) && PDC_BUILD >= 2401
 /***********************************************************************/
-#ifdef HAVE_PROTO
 char **StringToArgv( int *argc, char *string )
-#else
-char **StringToArgv( argc, string )
-int *argc;
-char *string;
-#endif
 /***********************************************************************/
 {
 #define STA_IN_QUOTE 1

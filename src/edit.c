@@ -39,11 +39,7 @@
 bool prefix_changed=FALSE;
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void editor(void)
-#else
-void editor()
-#endif
 /***********************************************************************/
 {
    short y=0,x=0;
@@ -86,13 +82,7 @@ void editor()
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int process_key(int key, bool mouse_details_present)
-#else
-int process_key(key, mouse_details_present)
-int key;
-bool mouse_details_present;
-#endif
 /***********************************************************************/
 {
    unsigned short x=0,y=0;
@@ -277,13 +267,7 @@ bool mouse_details_present;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short EditFile(CHARTYPE *fn, bool external_command_line)
-#else
-short EditFile(fn, external_command_line)
-CHARTYPE *fn;
-bool external_command_line;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK,y=0,x=0;

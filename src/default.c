@@ -239,11 +239,7 @@ PARSER_MAPPING _THE_FAR default_parser_mapping[] =
 };
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void set_global_defaults(void)
-#else
-void set_global_defaults()
-#endif
 /***********************************************************************/
 {
    int i;
@@ -310,11 +306,7 @@ void set_global_defaults()
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void set_global_look_defaults(void)
-#else
-void set_global_look_defaults()
-#endif
 /***********************************************************************/
 {
 
@@ -359,11 +351,7 @@ void set_global_look_defaults()
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void set_global_feel_defaults(void)
-#else
-void set_global_feel_defaults()
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("default.c: set_global_feel_defaults");
@@ -391,12 +379,7 @@ void set_global_feel_defaults()
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void set_file_defaults(FILE_DETAILS *filep)
-#else
-void set_file_defaults(filep)
-FILE_DETAILS *filep;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("default.c: set_file_defaults");
@@ -446,12 +429,7 @@ FILE_DETAILS *filep;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void set_view_defaults(VIEW_DETAILS *viewp)
-#else
-void set_view_defaults(viewp)
-VIEW_DETAILS *viewp;
-#endif
 /***********************************************************************/
 {
    register int i=0;
@@ -647,12 +625,7 @@ VIEW_DETAILS *viewp;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short get_profile(CHARTYPE *prf_file,CHARTYPE *prf_arg)
-#else
-short get_profile(prf_file,prf_arg)
-CHARTYPE *prf_file,*prf_arg;
-#endif
 /***********************************************************************/
 {
    FILE *fp=NULL;
@@ -701,11 +674,7 @@ CHARTYPE *prf_file,*prf_arg;
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short defaults_for_first_file(void)
-#else
-short defaults_for_first_file()
-#endif
 /***********************************************************************/
 {
    register int i=0;
@@ -765,12 +734,7 @@ short defaults_for_first_file()
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short defaults_for_other_files(VIEW_DETAILS *base_view)
-#else
-short defaults_for_other_files(base_view)
-VIEW_DETAILS *base_view;
-#endif
 /***********************************************************************/
 {
    register int i=0;
@@ -970,12 +934,7 @@ VIEW_DETAILS *base_view;
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short default_file_attributes(FILE_DETAILS *fd)
-#else
-short default_file_attributes(fd)
-FILE_DETAILS *fd;
-#endif
 /***********************************************************************/
 {
    RESERVED *curr=NULL;
@@ -1032,11 +991,7 @@ FILE_DETAILS *fd;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void set_screen_defaults(void)
-#else
-void set_screen_defaults()
-#endif
 /***********************************************************************/
 {
    register int i=0;
@@ -1300,12 +1255,7 @@ void set_screen_defaults()
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short set_THE_key_defaults(int prey,int prex)
-#else
-short set_THE_key_defaults(prey,prex)
-int prey,prex;
-#endif
 /***********************************************************************/
 {
   short rc=RC_OK;
@@ -1346,12 +1296,7 @@ int prey,prex;
   return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short set_XEDIT_key_defaults(int prey,int prex)
-#else
-short set_XEDIT_key_defaults(prey,prex)
-int prey,prex;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1391,12 +1336,7 @@ int prey,prex;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short set_ISPF_key_defaults(int prey,int prex)
-#else
-short set_ISPF_key_defaults(prey,prex)
-int prey,prex;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1436,12 +1376,7 @@ int prey,prex;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short set_KEDIT_key_defaults(int prey,int prex)
-#else
-short set_KEDIT_key_defaults(prey,prex)
-int prey,prex;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1484,11 +1419,7 @@ int prey,prex;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short construct_default_parsers(void)
-#else
-short construct_default_parsers()
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1523,11 +1454,7 @@ short construct_default_parsers()
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short destroy_all_parsers(void)
-#else
-short destroy_all_parsers()
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1544,11 +1471,7 @@ short destroy_all_parsers()
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short construct_default_parser_mapping(void)
-#else
-short construct_default_parser_mapping()
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1613,12 +1536,7 @@ short construct_default_parser_mapping()
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *find_default_parser(CHARTYPE *name)
-#else
-CHARTYPE *find_default_parser(name)
-CHARTYPE *name;
-#endif
 /***********************************************************************/
 {
    int i;

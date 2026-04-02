@@ -496,15 +496,7 @@ signal_handler the_signal(int signum,THE_SIGNAL_HANDLER_T action)
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int initialise_fifo( LINE *first_file_name, LINETYPE startup_line, LENGTHTYPE startup_column, bool ro )
-#else
-int initialise_fifo( first_file_name, startup_line, startup_column, ro )
-LINE *first_file_name;
-LINETYPE startup_line;
-LENGTHTYPE startup_column;
-bool ro;
-#endif
 /***********************************************************************/
 {
    LINE *current_file_name;
@@ -653,23 +645,14 @@ bool ro;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int process_fifo_input( int key )
-#else
-int process_fifo_input( key )
-int key;
-#endif
 /***********************************************************************/
 {
    return -1;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void close_fifo( void )
-#else
-void close_fifo( )
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("single.c:  close_fifo");
@@ -697,15 +680,7 @@ void close_fifo( )
 static int fifo_fd;
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int initialise_fifo( LINE *first_file_name, LINETYPE startup_line, LENGTHTYPE startup_column, bool ro )
-#else
-int initialise_fifo( first_file_name, startup_line, startup_column, ro )
-LINE *first_file_name;
-LINETYPE startup_line;
-LENGTHTYPE startup_column;
-bool ro;
-#endif
 /***********************************************************************/
 {
    LINE *current_file_name;
@@ -818,12 +793,7 @@ bool ro;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int process_fifo_input( int key )
-#else
-int process_fifo_input( key )
-int key;
-#endif
 /***********************************************************************/
 {
    int s;
@@ -900,11 +870,7 @@ int key;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void close_fifo( void )
-#else
-void close_fifo( )
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("single.c:  close_fifo");

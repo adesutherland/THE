@@ -72,12 +72,7 @@
 #endif
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short file_readable(CHARTYPE *filename)
-#else
-short file_readable(filename)
-CHARTYPE *filename;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("nonansi.c: file_readable");
@@ -90,12 +85,7 @@ CHARTYPE *filename;
    return(TRUE);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short file_writable(CHARTYPE *filename)
-#else
-short file_writable(filename)
-CHARTYPE *filename;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("nonansi.c: file_writable");
@@ -113,12 +103,7 @@ CHARTYPE *filename;
    return(TRUE);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short file_exists(CHARTYPE *filename)
-#else
-short file_exists(filename)
-CHARTYPE *filename;
-#endif
 /***********************************************************************/
 {
    int rc;
@@ -147,12 +132,7 @@ CHARTYPE *filename;
    }
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short remove_file(CHARTYPE *filename)
-#else
-short remove_file(filename)
-CHARTYPE *filename;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("nonansi.c: remove_file");
@@ -174,12 +154,7 @@ CHARTYPE *filename;
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void convert_equals_in_filename(CHARTYPE *outfilename,CHARTYPE *infilename)
-#else
-void convert_equals_in_filename(outfilename,infilename)
-CHARTYPE *outfilename,*infilename;
-#endif
 /***********************************************************************/
 {
   /*
@@ -339,12 +314,7 @@ CHARTYPE *outfilename,*infilename;
 
 #if defined(DOS) || defined(OS2) || (defined(WIN32) && !defined(__CYGWIN32__)) || defined(__EMX__)
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short splitpath(CHARTYPE *filename)
-#else
-short splitpath(filename)
-CHARTYPE *filename;
-#endif
 /***********************************************************************/
 {
    LENGTHTYPE len=0;
@@ -635,12 +605,7 @@ CHARTYPE *filename;
 }
 #elif defined(__QNX__) && !defined(__QNXNTO__)
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short splitpath(CHARTYPE *filename)
-#else
-short splitpath(filename)
-CHARTYPE *filename;
-#endif
 /***********************************************************************/
 {
    short len=0;
@@ -762,12 +727,7 @@ CHARTYPE *filename;
 }
 #elif defined(AMIGA) && defined(GCC)
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short splitpath(CHARTYPE *filename)
-#else
-short splitpath(filename)
-CHARTYPE *filename;
-#endif
 /***********************************************************************/
 {
    short len=0;
@@ -856,12 +816,7 @@ CHARTYPE *filename;
 }
 #else
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short splitpath(CHARTYPE *filename)
-#else
-short splitpath(filename)
-CHARTYPE *filename;
-#endif
 /***********************************************************************/
 {
    short len=0;
@@ -1012,13 +967,7 @@ CHARTYPE *filename;
 
 #ifndef HAVE_RENAME
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short rename(CHARTYPE *path1,CHARTYPE *path2)
-#else
-short rename(path1,path2)
-CHARTYPE *path1;
-CHARTYPE *path2;
-#endif
 /***********************************************************************/
 /* Function  : Emulate missing rename() function missing from SystemV  */
 /* Parameters: path1    - old filename                                 */
@@ -1169,13 +1118,7 @@ typedef FSQINFO FAR *PFSQINFO;
 #endif
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 LINE *getclipboard(LINE *now, int from_get)
-#else
-LINE *getclipboard(now,from_get)
-LINE *now;
-int from_get;
-#endif
 /*
  * Function  : Reads the contents of the clipboard into the file.
  * Parameters: pointer to line after which lines are to be added
@@ -1305,21 +1248,8 @@ int from_get;
    return curr;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short setclipboard(FILE_DETAILS *cf,CHARTYPE *new_fname,bool force,LINETYPE in_lines,
                 LINETYPE start_line_in,LINETYPE end_line_in,LINETYPE *num_file_lines,bool append,LENGTHTYPE start_col_in, LENGTHTYPE end_col_in,bool ignore_scope,bool lines_based_on_scope,int target_type)
-#else
-short setclipboard(cf,new_fname,force,in_lines,start_line_in,end_line_in,num_file_lines,append,start_col_in,end_col_in,ignore_scope,lines_based_on_scope,target_type)
-FILE_DETAILS *cf;
-CHARTYPE *new_fname;
-bool force,append;
-LINETYPE in_lines,start_line_in,end_line_in;
-LINETYPE *num_file_lines;
-LENGTHTYPE start_col_in,end_col_in;
-bool ignore_scope;
-bool lines_based_on_scope;
-int target_type;
-#endif
 /***********************************************************************/
 {
 #define CLIP_TYPE_LINE   1
@@ -1743,12 +1673,7 @@ static void PDC_curs_set(int visibility)
 #endif
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void draw_cursor(bool visible)
-#else
-void draw_cursor(visible)
-bool visible;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("nonansi,c: draw_cursor");
@@ -1777,12 +1702,7 @@ bool visible;
  * is_a_dir_stat() used when the attributes are obtained from stat()
  */
 /*********************************************************************/
-#ifdef HAVE_PROTO
 int is_a_dir_stat(ATTR_TYPE attrs)
-#else
-int is_a_dir_stat(attrs)
-ATTR_TYPE attrs;
-#endif
 /*********************************************************************/
 {
 #if defined(S_IFDIR)
@@ -1801,12 +1721,7 @@ ATTR_TYPE attrs;
  * is_a_dir_dir() used when the attributes are obtained from _findfirst() on Windows
  */
 /*********************************************************************/
-#ifdef HAVE_PROTO
 int is_a_dir_dir(ATTR_TYPE attrs)
-#else
-int is_a_dir_dir(attrs)
-ATTR_TYPE attrs;
-#endif
 /*********************************************************************/
 {
 #if defined(_A_SUBDIR)

@@ -39,14 +39,7 @@
 #include <proto.h>
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short THEcursor_cmdline( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short col)
-#else
-short THEcursor_cmdline( curr_screen, curr_view, col )
-CHARTYPE curr_screen;
-VIEW_DETAILS *curr_view;
-short col;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -81,11 +74,7 @@ short col;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short THEcursor_column(void)
-#else
-short THEcursor_column()
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -117,14 +106,7 @@ short THEcursor_column()
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short THEcursor_down( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short escreen)
-#else
-short THEcursor_down( curr_screen, curr_view, escreen )
-CHARTYPE curr_screen;
-VIEW_DETAILS *curr_view;
-short escreen;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -170,14 +152,7 @@ short escreen;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short THEcursor_file(bool show_errors,LINETYPE line,LENGTHTYPE col)
-#else
-short THEcursor_file(show_errors,line,col)
-bool show_errors;
-LINETYPE line;
-LENGTHTYPE col;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -224,14 +199,7 @@ LENGTHTYPE col;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short THEcursor_home( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool save )
-#else
-short THEcursor_home( curr_screen, curr_view, save )
-CHARTYPE curr_screen;
-VIEW_DETAILS *curr_view;
-bool save;
-#endif
 /***********************************************************************/
 {
    CHARTYPE last_win=0;
@@ -274,13 +242,7 @@ bool save;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short THEcursor_left(short escreen,bool kedit_defaults)
-#else
-short THEcursor_left(escreen,kedit_defaults)
-short escreen;
-bool kedit_defaults;
-#endif
 /***********************************************************************/
 {
    unsigned short x=0,y=0;
@@ -402,13 +364,7 @@ bool kedit_defaults;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short THEcursor_right(short escreen,bool kedit_defaults)
-#else
-short THEcursor_right(escreen,kedit_defaults)
-short escreen;
-bool kedit_defaults;
-#endif
 /***********************************************************************/
 {
    unsigned short x=0,y=0,tempx=0;
@@ -512,12 +468,7 @@ bool kedit_defaults;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short THEcursor_up(short escreen)
-#else
-short THEcursor_up(escreen)
-short escreen;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -573,15 +524,7 @@ short escreen;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short THEcursor_move( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool show_errors, bool escreen, short row, short col)
-#else
-short THEcursor_move( curr_screen, curr_view, show_errors, escreen, row, col )
-CHARTYPE curr_screen;
-VIEW_DETAILS *curr_view;
-bool show_errors,escreen;
-short row,col;
-#endif
 /***********************************************************************/
 {
    register int i=0;
@@ -758,13 +701,7 @@ short row,col;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short THEcursor_goto(LINETYPE row, LENGTHTYPE col)
-#else
-short THEcursor_goto(row,col)
-LINETYPE row;
-LENGTHTYPE col;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -806,11 +743,7 @@ LENGTHTYPE col;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short THEcursor_mouse(void)
-#else
-short THEcursor_mouse()
-#endif
 /***********************************************************************/
 {
 #if defined(PDCURSES_MOUSE_ENABLED)
@@ -864,11 +797,7 @@ short THEcursor_mouse()
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 long where_now(void)
-#else
-long where_now()
-#endif
 /***********************************************************************/
 {
    long rc=0L;
@@ -909,11 +838,7 @@ long where_now()
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 long what_current_now(void)
-#else
-long what_current_now()
-#endif
 /***********************************************************************/
 {
    long rc=0;
@@ -937,11 +862,7 @@ long what_current_now()
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 long what_other_now(void)
-#else
-long what_other_now()
-#endif
 /***********************************************************************/
 {
    long rc=0L;
@@ -970,12 +891,7 @@ long what_other_now()
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 long where_next(long where,long what_current,long what_other)
-#else
-long where_next(where,what_current,what_other)
-long where,what_current,what_other;
-#endif
 /***********************************************************************/
 {
    long where_row=0L,where_window=0L,where_screen=0L;
@@ -1166,12 +1082,7 @@ long where,what_current,what_other;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 long where_before(long where,long what_current,long what_other)
-#else
-long where_before(where,what_current,what_other)
-long where,what_current,what_other;
-#endif
 /***********************************************************************/
 {
    long where_row=0L,where_window=0L,where_screen=0L;
@@ -1362,12 +1273,7 @@ long where,what_current,what_other;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 bool enterable_field(long where)
-#else
-bool enterable_field(where)
-long where;
-#endif
 /***********************************************************************/
 {
    bool rc=TRUE;
@@ -1398,12 +1304,7 @@ long where;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short go_to_new_field(long save_where,long where)
-#else
-short go_to_new_field(save_where,where)
-long save_where,where;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1491,13 +1392,7 @@ long save_where,where;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void get_cursor_position(LINETYPE *screen_line, LENGTHTYPE *screen_column, LINETYPE *file_line, LENGTHTYPE *file_column)
-#else
-void get_cursor_position(screen_line,screen_column,file_line,file_column)
-LINETYPE *screen_line,*file_line;
-LENGTHTYPE *screen_column,*file_column;
-#endif
 /***********************************************************************/
 {
    unsigned short y=0,x=0;
@@ -1531,12 +1426,7 @@ LENGTHTYPE *screen_column,*file_column;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short advance_focus_line(LINETYPE num_lines)
-#else
-short advance_focus_line(num_lines)
-LINETYPE num_lines;
-#endif
 /***********************************************************************/
 {
    unsigned short y=0,x=0;
@@ -1583,12 +1473,7 @@ LINETYPE num_lines;
    return rc;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short advance_current_line(LINETYPE num_lines)
-#else
-short advance_current_line(num_lines)
-LINETYPE num_lines;
-#endif
 /***********************************************************************/
 {
    LINE *curr=NULL;
@@ -1642,12 +1527,7 @@ LINETYPE num_lines;
    return rc;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short advance_current_or_focus_line(LINETYPE num_lines)
-#else
-short advance_current_or_focus_line(num_lines)
-LINETYPE num_lines;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1698,17 +1578,7 @@ DESCRIPTION
 RETURN VALUE
      void
 *******************************************************************************/
-#ifdef HAVE_PROTO
 void resolve_current_and_focus_lines( CHARTYPE curr_screen, VIEW_DETAILS *view, LINETYPE true_line, LINETYPE num_lines, short direction, bool respect_stay, bool sos )
-#else
-void resolve_current_and_focus_lines( curr_screen, view, true_line, num_lines, direction, respect_stay, sos )
-CHARTYPE curr_screen;
-VIEW_DETAILS *view;
-LINETYPE true_line,num_lines;
-short direction;
-bool respect_stay;
-bool sos;
-#endif
 /***********************************************************************/
 {
    short y=0,x=0;

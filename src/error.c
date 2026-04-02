@@ -265,21 +265,10 @@ static CHARTYPE _THE_FAR *error_message[] =
    (CHARTYPE *)"Error 0216: TLD error:",
 };
 
-#ifdef HAVE_PROTO
 static void open_msgline(ROWTYPE,ROWTYPE,ROWTYPE);
-#else
-static void open_msgline();
-#endif
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int display_error(unsigned short err_num,CHARTYPE *mess,bool ignore_bell)
-#else
-int display_error(err_num,mess,ignore_bell)
-unsigned short err_num;
-CHARTYPE *mess;
-bool ignore_bell;
-#endif
 /***********************************************************************/
 {
    CHARTYPE *last_cmd_name=NULL;
@@ -454,12 +443,7 @@ bool ignore_bell;
    return rc;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static void open_msgline(ROWTYPE base, ROWTYPE off,ROWTYPE rows)
-#else
-static void open_msgline(base,off,rows)
-ROWTYPE base,off,rows;
-#endif
 /***********************************************************************/
 {
    int start_row=0;
@@ -485,12 +469,7 @@ ROWTYPE base,off,rows;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void clear_msgline(int key)
-#else
-void clear_msgline(key)
-int key;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("error.c:   clear_msgline");
@@ -518,12 +497,7 @@ int key;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void display_prompt(CHARTYPE *prompt)
-#else
-void display_prompt(prompt)
-CHARTYPE *prompt;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("error.c:   display_prompt");
@@ -537,11 +511,7 @@ CHARTYPE *prompt;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int expose_msgline(void)
-#else
-int expose_msgline()
-#endif
 /***********************************************************************/
 {
 #define NORMAL_PROMPT "Press any key to continue..."

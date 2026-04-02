@@ -38,18 +38,11 @@
 
 #include <query.h>
 
-#ifdef HAVE_PROTO
 short extract_point_settings(short,CHARTYPE *);
 short extract_prefix_settings(short,CHARTYPE *,CHARTYPE);
 short extract_colour_settings(short,CHARTYPE *,CHARTYPE,CHARTYPE *,bool,bool);
 short extract_autocolour_settings(short,CHARTYPE *,CHARTYPE,CHARTYPE *,bool);
 void get_etmode(CHARTYPE *,CHARTYPE *);
-#else
-short extract_point_settings();
-short extract_prefix_settings();
-short extract_autocolour_settings();
-void get_etmode();
-#endif
 
 extern ExtractFunction extract_after_function;
 extern ExtractFunction extract_alt;
@@ -2231,13 +2224,7 @@ CHARTYPE _THE_FAR *block_name[] = {
 VALUE item_values[MAX_VARIABLES_RETURNED];
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 THE_PPC *in_range( THE_PPC *found_ppc, THE_PPC *curr_ppc, LINETYPE first_in_range, LINETYPE last_in_range )
-#else
-THE_PPC *in_range( found_ppc, curr_ppc, first_in_range, last_in_range )
-THE_PPC *found_ppc, *curr_ppc;
-LINETYPE first_in_range, last_in_range;
-#endif
 /***********************************************************************/
 {
    if ( found_ppc == NULL )
@@ -2257,13 +2244,7 @@ LINETYPE first_in_range, last_in_range;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void set_key_values(int key, bool mouse_key)
-#else
-void set_key_values(key, mouse_key)
-int key;
-bool mouse_key;
-#endif
 /***********************************************************************/
 {
    CHARTYPE *keyname=NULL;
@@ -2338,13 +2319,7 @@ bool mouse_key;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short set_boolean_value(bool flag, short num)
-#else
-short set_boolean_value(flag, num)
-bool flag;
-short num;
-#endif
 /***********************************************************************/
 {
    if (flag)
@@ -2361,13 +2336,7 @@ short num;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short set_on_off_value(bool flag, short num)
-#else
-short set_on_off_value(flag, num)
-bool flag;
-short num;
-#endif
 /***********************************************************************/
 {
    if (flag)
@@ -2384,14 +2353,7 @@ short num;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short find_query_item(CHARTYPE *item_name,int len,CHARTYPE *query_type)
-#else
-short find_query_item(item_name,len,query_type)
-CHARTYPE *item_name;
-int len;
-CHARTYPE *query_type;
-#endif
 /***********************************************************************/
 {
    int rc=0;
@@ -2415,11 +2377,7 @@ CHARTYPE *query_type;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short show_status(void)
-#else
-short show_status()
-#endif
 /***********************************************************************/
 {
 #define STATUS_COLS 6
@@ -2511,12 +2469,7 @@ short show_status()
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short save_status(CHARTYPE *filename)
-#else
-short save_status(filename)
-CHARTYPE *filename;
-#endif
 /***********************************************************************/
 {
    register short i=0,j=0;
@@ -2578,12 +2531,7 @@ CHARTYPE *filename;
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short set_extract_variables(short itemno)
-#else
-short set_extract_variables(itemno)
-short itemno;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -2601,12 +2549,7 @@ short itemno;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short get_number_dynamic_items( int qitem )
-#else
-short get_number_dynamic_items( qitem )
-int qitem;
-#endif
 /***********************************************************************/
 {
    int number_variables=0;
@@ -2635,18 +2578,7 @@ int qitem;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short get_item_values(int qitem,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
-#else
-short get_item_values(qitem,itemno,itemargs,query_type,argc,arg,arglen)
-int qitem;
-short itemno;
-CHARTYPE *itemargs;
-CHARTYPE query_type;
-LINETYPE argc;
-CHARTYPE *arg;
-LINETYPE arglen;
-#endif
 /***********************************************************************/
 {
    short number_variables = 1;
@@ -2715,13 +2647,7 @@ LINETYPE arglen;
    return(number_variables);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short extract_point_settings(short itemno,CHARTYPE *params)
-#else
-short extract_point_settings(itemno,params)
-short itemno;
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -2812,14 +2738,7 @@ CHARTYPE *params;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short extract_prefix_settings(short itemno,CHARTYPE *params,CHARTYPE query_type)
-#else
-short extract_prefix_settings(itemno,params,query_type)
-short itemno;
-CHARTYPE *params;
-CHARTYPE query_type;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -2934,12 +2853,7 @@ CHARTYPE query_type;
    return(number_variables);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void get_etmode(CHARTYPE *onoff,CHARTYPE *list)
-#else
-void get_etmode(onoff,list)
-CHARTYPE *onoff,*list;
-#endif
 /***********************************************************************/
 {
    bool on_flag=FALSE;
@@ -2992,16 +2906,7 @@ CHARTYPE *onoff,*list;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short extract_colour_settings(short itemno,CHARTYPE *buffer,CHARTYPE query_type,CHARTYPE *params,bool us,bool isecolour)
-#else
-short extract_colour_settings(itemno,buffer,query_type,params,us,isecolour)
-short itemno;
-CHARTYPE *buffer;
-CHARTYPE query_type;
-CHARTYPE *params;
-bool us,isecolour;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -3135,16 +3040,7 @@ bool us,isecolour;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short extract_autocolour_settings(short itemno,CHARTYPE *buffer,CHARTYPE query_type,CHARTYPE *params,bool us)
-#else
-short extract_autocolour_settings(itemno,buffer,query_type,params,us)
-short itemno;
-CHARTYPE *buffer;
-CHARTYPE query_type;
-CHARTYPE *params;
-bool us;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -3279,34 +3175,21 @@ bool us;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int number_function_item( void )
-#else
-int number_function_item()
-#endif
 /***********************************************************************/
 {
    return NUMBER_FUNCTION_ITEM;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int number_query_item( void )
-#else
-int number_query_item()
-#endif
 /***********************************************************************/
 {
    return NUMBER_QUERY_ITEM;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void format_options( CHARTYPE *buf )
-#else
-void format_options( buf )
-CHARTYPE *buf;
-#endif
 /***********************************************************************/
 {
    LINE *curr=first_option;

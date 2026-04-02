@@ -61,20 +61,11 @@
 #define BRACK  400
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 #  ifdef MSWIN
 int my_getch (WINDOW far *winptr)
 #  else
 int my_getch (WINDOW *winptr)
 #  endif
-#else
-int my_getch (winptr)
-#  ifdef MSWIN
-WINDOW far *winptr;
-#  else
-WINDOW *winptr;
-#  endif
-#endif
 /***********************************************************************/
 {
    int c=0,tmp_c=(-1);

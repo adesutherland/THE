@@ -204,12 +204,7 @@ static int last_nonopt;
    the new indices of the non-options in ARGV after they are moved.  */
 
 static void exchange
-#ifdef HAVE_PROTO
 ( char **argv)
-#else
-(argv)
-     char **argv;
-#endif
 {
   int bottom = first_nonopt;
   int middle = last_nonopt;
@@ -321,17 +316,7 @@ static void exchange
 
 int
 _getopt_internal
-#ifdef HAVE_PROTO
 (int argc, char *const *argv, const char *optstring, const struct my_getopt_option *longopts, int *longind, int long_only)
-#else
-(argc, argv, optstring, longopts, longind, long_only)
-     int argc;
-     char *const *argv;
-     const char *optstring;
-     const struct my_getopt_option *longopts;
-     int *longind;
-     int long_only;
-#endif
 {
   int option_index;
 
@@ -660,46 +645,21 @@ _getopt_internal
 
 int
 my_getopt
-#ifdef HAVE_PROTO
 (int argc, char *const *argv, const char *optstring)
-#else
-(argc, argv, optstring)
-     int argc;
-     char *const *argv;
-     const char *optstring;
-#endif
 {
    return _getopt_internal (argc, argv, optstring, (const struct my_getopt_option *) 0, (int *) 0, 0);
 }
 
 int
 my_getopt_long
-#ifdef HAVE_PROTO
 (int argc, char *const *argv, const char *options, const struct my_getopt_option *long_options, int *opt_index)
-#else
-(argc, argv, options, long_options, opt_index)
-   int argc;
-   char *const *argv;
-   const char *options;
-   const struct my_getopt_option *long_options;
-   int *opt_index;
-#endif
 {
    return _getopt_internal (argc, argv, options, long_options, opt_index, 0);
 }
 
 int
 my_getopt_long_only
-#ifdef HAVE_PROTO
 (int argc, char *const *argv, const char *options, const struct my_getopt_option *long_options, int *opt_index)
-#else
-(argc, argv, options, long_options, opt_index)
-   int argc;
-   char *const *argv;
-   const char *options;
-   const struct my_getopt_option *long_options;
-   int *opt_index;
-#endif
 {
    return _getopt_internal (argc, argv, options, long_options, opt_index, 1);
 }

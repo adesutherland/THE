@@ -441,7 +441,6 @@ struct dirfile {
    int   fname_length;     /* length of filename */
 };
 
-#ifdef HAVE_PROTO
 # ifdef __cplusplus
 extern "C" {
 int date_comp( const void*, const void* );
@@ -463,18 +462,5 @@ CHARTYPE *file_attrs(ATTR_TYPE,CHARTYPE *,int);
 CHARTYPE *file_date(struct dirfile *,CHARTYPE *);
 CHARTYPE *file_time(struct dirfile *,CHARTYPE *);
 short set_dirtype(CHARTYPE *);
-#else
-int date_comp();
-int time_comp();
-int size_comp();
-int name_comp();
-int dir_comp();
-CHARTYPE *make_full();
-short getfiles();
-CHARTYPE *file_attrs();
-CHARTYPE *file_date();
-CHARTYPE *file_time();
-short set_dirtype();
-#endif
 
 #endif

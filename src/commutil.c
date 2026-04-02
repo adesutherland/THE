@@ -40,17 +40,10 @@
 #include "key.h"
 #include "command.h"
 
-#ifdef HAVE_PROTO
 static CHARTYPE *build_defined_key_definition(int, CHARTYPE *,DEFINE *,int);
 static void save_last_command(CHARTYPE *,CHARTYPE *);
 void AdjustThighlight( int );
 static bool save_target( TARGET * );
-#else
-static CHARTYPE *build_defined_key_definition();
-static void save_last_command();
-void AdjustThighlight();
-static bool save_target();
-#endif
 
 #define HEXVAL(c) (((c)>'9')?(tolower(c)-'a'+10):((c)-'0'))
 
@@ -186,13 +179,7 @@ AREAS _THE_FAR valid_areas[ATTR_MAX]=
 };
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *get_key_name(int key, int *shift)
-#else
-CHARTYPE *get_key_name(key,shift)
-int key;
-int *shift;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -216,14 +203,7 @@ int *shift;
    return(keyname);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *get_key_definition( int key, int define_format, bool default_keys, bool mouse_key )
-#else
-CHARTYPE *get_key_definition( key, define_format, default_keys, mouse_key )
-int key;
-int define_format;
-bool default_keys,mouse_key;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -369,12 +349,7 @@ bool default_keys,mouse_key;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short execute_synonym( CHARTYPE *synonym, CHARTYPE *params )
-#else
-static short execute_synonym( synonym, params )
-CHARTYPE *synonym, *params;
-#endif
 /***********************************************************************/
 {
    DEFINE *curr=(DEFINE *)NULL;
@@ -494,14 +469,7 @@ CHARTYPE *synonym, *params;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short function_key(int key,int option,bool mouse_details_present)
-#else
-short function_key(key,option,mouse_details_present)
-int key;
-int option;
-bool mouse_details_present;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -878,12 +846,7 @@ bool mouse_details_present;
    return(RAW_KEY);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 bool is_modifier_key(int key)
-#else
-bool is_modifier_key(key)
-int key;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -905,13 +868,7 @@ int key;
    return(FALSE);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *build_default_key_definition(int key, CHARTYPE *buf)
-#else
-CHARTYPE *build_default_key_definition(key, buf)
-int key;
-CHARTYPE *buf;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("commutil.c:build_default_key_definition");
@@ -945,15 +902,7 @@ CHARTYPE *buf;
    return(buf);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static CHARTYPE *build_defined_key_definition(int key, CHARTYPE *buf,DEFINE *curr,int define_format)
-#else
-static CHARTYPE *build_defined_key_definition(key, buf,curr,define_format)
-int key;
-CHARTYPE *buf;
-DEFINE *curr;
-int define_format;
-#endif
 /***********************************************************************/
 {
    bool key_defined=FALSE;
@@ -1010,14 +959,7 @@ int define_format;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *build_synonym_definition( DEFINE *curr, CHARTYPE *name, CHARTYPE *buf, bool full_definition )
-#else
-CHARTYPE *build_synonym_definition( curr, name, buf, full_definition )
-DEFINE *curr;
-CHARTYPE *name,*buf;
-bool full_defnition;
-#endif
 /***********************************************************************/
 {
    CHARTYPE delim[2];
@@ -1057,11 +999,7 @@ bool full_defnition;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short display_all_keys(void)
-#else
-short display_all_keys()
-#endif
 /***********************************************************************/
 {
    LINE *curr=NULL;
@@ -1207,12 +1145,7 @@ short display_all_keys()
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int set_rexx_variables_for_all_keys(int key_type, int *number_keys_return)
-#else
-int set_rexx_variables_for_all_keys(key_type,number_keys_return)
-int key_type,*number_keys_return;
-#endif
 /***********************************************************************/
 {
    DEFINE *curr_define=NULL;
@@ -1292,13 +1225,7 @@ int key_type,*number_keys_return;
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short command_line(CHARTYPE *cmd_line,bool command_only)
-#else
-short command_line(cmd_line,command_only)
-CHARTYPE *cmd_line;
-bool command_only;
-#endif
 /***********************************************************************/
 {
    bool valid_command=FALSE;
@@ -1693,11 +1620,7 @@ fprintf(stderr,"%s %d: Command: [%s] idline: %d\n",__FILE__,__LINE__,command_ent
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void cleanup_command_line(void)
-#else
-void cleanup_command_line()
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("commutil.c:cleanup_command_line");
@@ -1726,12 +1649,7 @@ void cleanup_command_line()
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void split_command(CHARTYPE *cmd_line,CHARTYPE *cmd,CHARTYPE *param)
-#else
-void split_command(cmd_line,cmd,param)
-CHARTYPE *cmd_line,*cmd,*param;
-#endif
 /***********************************************************************/
 {
    LENGTHTYPE pos=0;
@@ -1788,19 +1706,8 @@ CHARTYPE *cmd_line,*cmd,*param;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short param_split( CHARTYPE *params,CHARTYPE *word[],int words,
                    CHARTYPE *delims,CHARTYPE param_type,CHARTYPE *strip, bool trailing_spaces_is_arg)
-#else
-short param_split(params,word,words,delims,param_type,strip,trailing_spaces_is_arg)
-CHARTYPE *params;
-CHARTYPE *word[];
-int words;
-CHARTYPE *delims;
-CHARTYPE param_type;
-CHARTYPE *strip;
-bool trailing_spaces_is_arg;
-#endif
 /***********************************************************************/
 {
 #define STATE_START    0
@@ -1948,21 +1855,9 @@ bool trailing_spaces_is_arg;
    return(j);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short quoted_param_split( CHARTYPE *params,CHARTYPE *word[],int words,
                    CHARTYPE *delims,CHARTYPE param_type,CHARTYPE *strip, bool trailing_spaces_is_arg,
                    CHARTYPE *quoted )
-#else
-short quoted_param_split(params,word,words,delims,param_type,strip,trailing_spaces_is_arg,quoted)
-CHARTYPE *params;
-CHARTYPE *word[];
-int words;
-CHARTYPE *delims;
-CHARTYPE param_type;
-CHARTYPE *strip;
-bool trailing_spaces_is_arg;
-CHARTYPE *quoted;
-#endif
 /***********************************************************************/
 {
 /*
@@ -2181,17 +2076,8 @@ CHARTYPE *quoted;
    return(j);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short command_split(CHARTYPE *params,CHARTYPE *word[],int words,
                 CHARTYPE *delims,CHARTYPE *buffer)
-#else
-short command_split(params,word,words,delims,buffer)
-CHARTYPE *params;
-CHARTYPE *word[];
-int words;
-CHARTYPE *delims;
-CHARTYPE *buffer;
-#endif
 /***********************************************************************/
 {
    register short k,delims_len=strlen((DEFCHAR *)delims);
@@ -2241,12 +2127,7 @@ CHARTYPE *buffer;
    return(j);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 LINETYPE get_true_line(bool respect_compat)
-#else
-LINETYPE get_true_line(respect_compat)
-bool respect_compat;
-#endif
 /***********************************************************************/
 {
    LINETYPE true_line=0L;
@@ -2265,12 +2146,7 @@ bool respect_compat;
    return(true_line);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 LENGTHTYPE get_true_column(bool respect_compat)
-#else
-LENGTHTYPE get_true_column(respect_compat)
-bool respect_compat;
-#endif
 /***********************************************************************/
 {
    LENGTHTYPE true_column=0;
@@ -2294,14 +2170,7 @@ bool respect_compat;
    return(true_column);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE next_char(LINE *curr,long *off,LENGTHTYPE end_col)
-#else
-CHARTYPE next_char(curr,off,end_col)
-LINE *curr;
-long *off;
-LENGTHTYPE end_col;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("commutil.c:next_char");
@@ -2316,17 +2185,7 @@ LENGTHTYPE end_col;
    return(0);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short add_define(DEFINE **first,DEFINE **last,int key_value,CHARTYPE *commands,bool instore,CHARTYPE *synonym,CHARTYPE linend)
-#else
-short add_define(first,last,key_value,commands,instore,synonym,linend)
-DEFINE **first,**last;
-int key_value;
-CHARTYPE *commands;
-bool instore;
-CHARTYPE *synonym;
-CHARTYPE linend;
-#endif
 /***********************************************************************/
 /* Parameters:                                                         */
 /*  key_value: numeric representation of function key                  */
@@ -2493,14 +2352,7 @@ CHARTYPE linend;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short remove_define(DEFINE **first,DEFINE **last,int key_value,CHARTYPE *synonym)
-#else
-short remove_define(first,last,key_value,synonym)
-DEFINE **first,**last;
-int key_value;
-CHARTYPE *synonym;
-#endif
 /***********************************************************************/
 /* Parameters:                                                         */
 /*  key_value: numeric representation of function key                  */
@@ -2553,19 +2405,7 @@ CHARTYPE *synonym;
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short append_define(DEFINE **first,DEFINE **last,int key_value,short cmd,CHARTYPE *prm,CHARTYPE *pcode,int pcode_len,CHARTYPE *synonym,CHARTYPE linend)
-#else
-short append_define(first,last,key_value,cmd,prm,pcode,pcode_len,synonym,linend)
-DEFINE **first,**last;
-int key_value;
-short cmd;
-CHARTYPE *prm;
-CHARTYPE *pcode;
-int pcode_len;
-CHARTYPE *synonym;
-CHARTYPE linend;
-#endif
 /***********************************************************************/
 /* Parameters:                                                         */
 /*  key_value: numeric representation of function key                  */
@@ -2629,13 +2469,7 @@ CHARTYPE linend;
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short find_command(CHARTYPE *cmd,bool search_for_target)
-#else
-short find_command(cmd,search_for_target)
-CHARTYPE *cmd;
-bool search_for_target;
-#endif
 /***********************************************************************/
 /*   Function: determine if the string supplied is a valid abbrev for  */
 /*             a command.                                              */
@@ -2694,11 +2528,7 @@ bool search_for_target;
    return(i);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void init_command(void)
-#else
-void init_command()
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -2719,12 +2549,7 @@ void init_command()
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void add_command(CHARTYPE *new_cmd)
-#else
-void add_command(new_cmd)
-CHARTYPE *new_cmd;
-#endif
 /***********************************************************************/
 {
    int len_cmd;
@@ -2789,13 +2614,7 @@ CHARTYPE *new_cmd;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *get_next_command( short direction, int num)
-#else
-CHARTYPE *get_next_command(direction,num)
-short direction;
-int num;
-#endif
 /***********************************************************************/
 {
    CHARTYPE *ret_cmd=NULL;
@@ -2841,12 +2660,7 @@ int num;
    return(ret_cmd);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 bool valid_command_to_save(CHARTYPE *save_cmd)
-#else
-bool valid_command_to_save(save_cmd)
-CHARTYPE *save_cmd;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("commutil.c:valid_command_to_save");
@@ -2866,12 +2680,7 @@ CHARTYPE *save_cmd;
    return(TRUE);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static void save_last_command(CHARTYPE *last_cmd,CHARTYPE *cmnd)
-#else
-static void save_last_command(last_cmd,cmnd)
-CHARTYPE *last_cmd,*cmnd;
-#endif
 /***********************************************************************/
 {
    int last_cmd_len;
@@ -2945,12 +2754,7 @@ CHARTYPE *last_cmd,*cmnd;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 bool is_tab_col(LENGTHTYPE x)
-#else
-bool is_tab_col(x)
-LENGTHTYPE x;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -2969,12 +2773,7 @@ LENGTHTYPE x;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 LENGTHTYPE find_next_tab_col(LENGTHTYPE x)
-#else
-LENGTHTYPE find_next_tab_col(x)
-LENGTHTYPE x;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -2993,12 +2792,7 @@ LENGTHTYPE x;
    return(next_tab_col);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 LENGTHTYPE find_prev_tab_col(LENGTHTYPE x)
-#else
-LENGTHTYPE find_prev_tab_col(x)
-LENGTHTYPE x;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -3017,13 +2811,7 @@ LENGTHTYPE x;
    return(next_tab_col);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short tabs_convert( LINE *curr, bool expand_tabs, bool use_tabs, bool add_to_recovery )
-#else
-short tabs_convert( curr, expand_tabs, use_tabs, add_to_recovery )
-LINE *curr;
-bool expand_tabs,use_tabs,add_to_recovery;
-#endif
 /***********************************************************************/
 {
 #define STATE_NORMAL 0
@@ -3295,12 +3083,7 @@ static int pack_hex( char *string, char *out )
    return res_ptr - out ;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short convert_hex_strings(CHARTYPE *str)
-#else
-short convert_hex_strings(str)
-CHARTYPE *str;
-#endif
 /***********************************************************************/
 {
    LENGTHTYPE i=0;
@@ -3420,12 +3203,7 @@ CHARTYPE *str;
    return(i);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short marked_block(bool in_current_view)
-#else
-short marked_block(in_current_view)
-bool in_current_view;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("commutil.c:marked_block");
@@ -3452,11 +3230,7 @@ bool in_current_view;
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short suspend_curses(void)
-#else
-short suspend_curses()
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("commutil.c:suspend_curses");
@@ -3481,11 +3255,7 @@ short suspend_curses()
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short resume_curses(void)
-#else
-short resume_curses()
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("commutil.c:resume_curses");
@@ -3507,11 +3277,7 @@ short resume_curses()
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short restore_THE(void)
-#else
-short restore_THE()
-#endif
 /***********************************************************************/
 {
    unsigned short y=0,x=0;
@@ -3559,13 +3325,7 @@ short restore_THE()
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short execute_set_sos_command(bool set_command,CHARTYPE *params)
-#else
-short execute_set_sos_command(set_command,params)
-bool set_command;
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
 #define SETSOS_PARAMS  2
@@ -3631,13 +3391,7 @@ CHARTYPE *params;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short valid_command_type(bool set_command,CHARTYPE *cmd_line)
-#else
-short valid_command_type(set_command,cmd_line)
-bool set_command;
-CHARTYPE *cmd_line;
-#endif
 /***********************************************************************/
 {
    register short i;
@@ -3675,13 +3429,7 @@ CHARTYPE *cmd_line;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short allocate_temp_space(LENGTHTYPE length,CHARTYPE param_type)
-#else
-short allocate_temp_space(length,param_type)
-LENGTHTYPE length;
-CHARTYPE param_type;
-#endif
 /***********************************************************************/
 {
    CHARTYPE *temp_ptr=NULL;
@@ -3763,12 +3511,7 @@ CHARTYPE param_type;
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void free_temp_space(CHARTYPE param_type)
-#else
-void free_temp_space(param_type)
-CHARTYPE param_type;
-#endif
 /***********************************************************************/
 {
    CHARTYPE *temp_ptr=NULL;
@@ -3817,15 +3560,7 @@ CHARTYPE param_type;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE calculate_actual_row(short base,short off,ROWTYPE rows,bool force_in_view)
-#else
-CHARTYPE calculate_actual_row(base,off,rows,force_in_view)
-short base;
-short off;
-ROWTYPE rows;
-bool force_in_view;
-#endif
 /***********************************************************************/
 {
    short row=0;
@@ -3892,13 +3627,7 @@ RETURN VALUE
      copied into filename, the error number of the error message is
      copied into errnum and the function returns with RC_ACCESS_DENIED.
 *******************************************************************************/
-#ifdef HAVE_PROTO
 short get_valid_macro_file_name(CHARTYPE *inmacroname,CHARTYPE *filename,CHARTYPE *macro_ext,short *errnum)
-#else
-short get_valid_macro_file_name(inmacroname,filename,macro_ext,errnum)
-CHARTYPE *inmacroname,*filename,*macro_ext;
-short *errnum;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -4002,12 +3731,7 @@ short *errnum;
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 bool define_command(CHARTYPE *cmd_line)
-#else
-bool define_command(cmd_line)
-CHARTYPE *cmd_line;
-#endif
 /***********************************************************************/
 {
    register short i=0;
@@ -4039,12 +3763,7 @@ CHARTYPE *cmd_line;
    return(FALSE);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int find_key_name(CHARTYPE *keyname)
-#else
-int find_key_name(keyname)
-CHARTYPE *keyname;
-#endif
 /***********************************************************************/
 {
    register int i=0;
@@ -4063,14 +3782,7 @@ CHARTYPE *keyname;
    return(key);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int readv_cmdline(CHARTYPE *initial, WINDOW *dw, int start_col)
-#else
-int readv_cmdline(initial,dw,start_col)
-CHARTYPE *initial;
-WINDOW *dw;
-int start_col;
-#endif
 /***********************************************************************/
 {
    int key=0;
@@ -4185,12 +3897,7 @@ int start_col;
    return( rc );
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short execute_mouse_commands(int key)
-#else
-short execute_mouse_commands(key)
-int key;
-#endif
 /***********************************************************************/
 {
    DEFINE *curr=(DEFINE *)NULL;
@@ -4286,13 +3993,7 @@ int key;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short validate_n_m(CHARTYPE *params,short *col1,short *col2)
-#else
-short validate_n_m(params,col1,col2)
-CHARTYPE *params;
-short *col1,*col2;
-#endif
 /***********************************************************************/
 {
 #define NM_PARAMS  2
@@ -4364,12 +4065,7 @@ short *col1,*col2;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void ResetOrDeleteCUABlock( int cua_behaviour )
-#else
-void ResetOrDeleteCUABlock( cua_behaviour )
-int cua_behaviour;
-#endif
 /***********************************************************************/
 {
    LENGTHTYPE save_col;
@@ -4406,12 +4102,7 @@ int cua_behaviour;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void AdjustThighlight( int thighlight_behaviour )
-#else
-void AdjustThighlight( thighlight_behaviour )
-int cua_behaviour;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("commutil.c:AdjustThighlight");
@@ -4431,12 +4122,7 @@ int cua_behaviour;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 bool save_target( TARGET *target )
-#else
-bool save_target( target )
-TARGET *target;
-#endif
 /***********************************************************************/
 {
    int i;
@@ -4469,13 +4155,7 @@ TARGET *target;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short execute_locate( CHARTYPE *cmd, bool display_parse_error, bool search_semantics, bool *target_found )
-#else
-short execute_locate( cmd, display_parse_error, search_semantics, target_found )
-CHARTYPE *cmd;
-bool display_parse_error, search_semantics,*target_found;
-#endif
 /***********************************************************************/
 {
    LINETYPE save_focus_line=0L;
@@ -4651,11 +4331,7 @@ bool display_parse_error, search_semantics,*target_found;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void adjust_other_screen_shadow_lines( void )
-#else
-void adjust_other_screen_shadow_lines()
-#endif
 /***********************************************************************/
 /*
  * This function adjusts displayed lines in the other screen if the display lines
@@ -4686,12 +4362,7 @@ void adjust_other_screen_shadow_lines()
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int is_file_in_ring( CHARTYPE *fpath, CHARTYPE *fname )
-#else
-int is_file_in_ring( fpath, fname )
-CHARTYPE *fpath, *fname;
-#endif
 /***********************************************************************/
 {
    VIEW_DETAILS *curr=vd_first;
@@ -4718,13 +4389,7 @@ CHARTYPE *fpath, *fname;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 int save_lastop( int idx, CHARTYPE *op )
-#else
-int save_lastop( idx, op )
-int idx;
-CHARTYPE *op;
-#endif
 /***********************************************************************/
 {
    int op_len;
@@ -4752,14 +4417,7 @@ CHARTYPE *op;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *get_command_name( int idx, bool *set_command, bool *sos_command )
-#else
-CHARTYPE *get_command_name( idx, set_command, sos_command )
-int idx;
-bool *set_command;
-bool *sos_command;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("commutil.c:get_command_name");

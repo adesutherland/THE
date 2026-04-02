@@ -58,12 +58,7 @@ static ATTR_TYPE att[NUM_DIRTYPE] =
        {0,F_RO,F_SY,F_HI,F_DI};
 
 /*********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *make_full(CHARTYPE *path, CHARTYPE *file)
-#else
-CHARTYPE *make_full(path, file)
-CHARTYPE *path, *file;
-#endif
 /*********************************************************************/
 {
    static CHARTYPE _THE_FAR filebuf[BUFSIZ];
@@ -84,16 +79,8 @@ CHARTYPE *path, *file;
 }
 /*********************************************************************/
 #if defined(UNIX) || defined(VMS) || defined(EMX) || (defined(AMIGA) && defined(GCC))
-#ifdef HAVE_PROTO
 short getfiles(CHARTYPE *path,CHARTYPE *files,struct dirfile **dpfirst,
                                     struct dirfile **dplast)
-#else
-short getfiles(path,files,dpfirst,dplast)
-CHARTYPE *path;
-CHARTYPE *files;
-struct dirfile **dpfirst;
-struct dirfile **dplast;
-#endif
 /*********************************************************************/
 {
    DIR *dirp=NULL;
@@ -190,16 +177,8 @@ struct dirfile **dplast;
 }
 #else
 /*********************************************************************/
-#ifdef HAVE_PROTO
 short getfiles(CHARTYPE *path,CHARTYPE *files,struct dirfile **dpfirst,
                                     struct dirfile **dplast)
-#else
-short getfiles(path,files,dpfirst,dplast)
-CHARTYPE *path;
-CHARTYPE *files;
-struct dirfile **dpfirst;
-struct dirfile **dplast;
-#endif
 /*********************************************************************/
 {
    struct dirfile *dp=NULL;
@@ -358,13 +337,7 @@ struct dirfile **dplast;
 #endif
 
 /*********************************************************************/
-#ifdef HAVE_PROTO
 int date_compare(struct dirfile *first,struct dirfile *next)
-#else
-int date_compare(first,next)
-struct dirfile *first;
-struct dirfile *next;
-#endif
 /*********************************************************************/
 {
    if (first->f_yy > next->f_yy)
@@ -382,13 +355,7 @@ struct dirfile *next;
    return(0);
 }
 /*********************************************************************/
-#ifdef HAVE_PROTO
 int time_compare(struct dirfile *first,struct dirfile *next)
-#else
-int time_compare(first,next)
-struct dirfile *first;
-struct dirfile *next;
-#endif
 /*********************************************************************/
 {
    if (first->f_hh > next->f_hh)
@@ -407,12 +374,7 @@ struct dirfile *next;
 }
 
 /*********************************************************************/
-#ifdef HAVE_PROTO
 int date_comp( const void *in_first, const void *in_next )
-#else
-int date_comp( in_first, in_next )
-void *in_first, *in_next;
-#endif
 /*********************************************************************/
 {
    int rc=0;
@@ -435,12 +397,7 @@ void *in_first, *in_next;
 }
 
 /*********************************************************************/
-#ifdef HAVE_PROTO
 int time_comp( const void *in_first, const void *in_next )
-#else
-int time_comp( in_first, in_next )
-void *in_first, *in_next;
-#endif
 /*********************************************************************/
 {
    int rc=0;
@@ -461,12 +418,7 @@ void *in_first, *in_next;
 }
 
 /*********************************************************************/
-#ifdef HAVE_PROTO
 int dir_comp( const void *in_first, const void *in_next )
-#else
-int dir_comp( in_first, in_next )
-void *in_first, *in_next;
-#endif
 /*********************************************************************/
 {
    int first_dir=0;
@@ -494,12 +446,7 @@ void *in_first, *in_next;
 }
 
 /*********************************************************************/
-#ifdef HAVE_PROTO
 int size_comp( const void *in_first, const void *in_next )
-#else
-int size_comp( in_first, in_next )
-void *in_first, *in_next;
-#endif
 /*********************************************************************/
 {
    int rc=0;
@@ -526,12 +473,7 @@ void *in_first, *in_next;
 }
 
 /*********************************************************************/
-#ifdef HAVE_PROTO
 int name_comp( const void *in_first, const void *in_next )
-#else
-int name_comp( in_first, in_next )
-void *in_first, *in_next;
-#endif
 /*********************************************************************/
 {
    int rc=0;
@@ -549,13 +491,7 @@ void *in_first, *in_next;
    return(rc);
 }
 /*********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *file_date(struct dirfile *date,CHARTYPE *str_date)
-#else
-CHARTYPE *file_date(date,str_date)
-struct dirfile *date;
-CHARTYPE *str_date;
-#endif
 /*********************************************************************/
 {
    static CHARTYPE _THE_FAR *mon[12] =
@@ -564,27 +500,14 @@ CHARTYPE *str_date;
    return(str_date);
 }
 /*********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *file_time(struct dirfile *time,CHARTYPE *str_time)
-#else
-CHARTYPE *file_time(time,str_time)
-struct dirfile *time;
-CHARTYPE *str_time;
-#endif
 /*********************************************************************/
 {
    sprintf((DEFCHAR *)str_time,"%2d:%2.2d",time->f_hh,time->f_mi);
    return(str_time);
 }
 /*********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *file_attrs(ATTR_TYPE attrs,CHARTYPE *str_attr,int facl)
-#else
-CHARTYPE *file_attrs(attrs,str_attr,facl)
-ATTR_TYPE attrs;
-CHARTYPE *str_attr;
-int facl;
-#endif
 /*********************************************************************/
 {
 #if defined(UNIX) || defined(AMIGA) || defined(VMS)
@@ -653,12 +576,7 @@ int facl;
    return(str_attr);
 }
 /*********************************************************************/
-#ifdef HAVE_PROTO
 short set_dirtype(CHARTYPE *params)
-#else
-short set_dirtype(params)
-CHARTYPE *params;
-#endif
 /***********************************************************************/
 {
    CHARTYPE *p=NULL;
@@ -700,12 +618,7 @@ CHARTYPE *params;
 }
 
 /*********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *get_dirtype(CHARTYPE *buf)
-#else
-CHARTYPE *get_dirtype(buf)
-CHARTYPE *buf;
-#endif
 /***********************************************************************/
 {
    if (curr_dirtype == all_dirtype)                 /* all masks enabled */

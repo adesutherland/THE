@@ -3,398 +3,398 @@
 /* Define this always; build number.  */
 /* When next build requires configure to be run again, increment this */
 /* Format is xxyy where xx is version, yy build number */
-#undef BUILD3001
+#define BUILD3001 1
 
 /* Define value of BSD_STANDOUT */
-#undef BSD_STANDOUT
+#cmakedefine BSD_STANDOUT 1
 
 /* Define to int if no chtype defined in curses header.  */
 #ifndef chtype
-#undef chtype
+#cmakedefine chtype 1
 #endif
 
 /* Define to empty if the keyword does not work.  */
-#undef const
+#cmakedefine const 1
 
 /* Define if curses library has this function */
-#undef HAVE_BEEP
+#cmakedefine HAVE_BEEP 1
 
 /* Define if curses library has this function */
-#undef HAVE_BOX
+#cmakedefine HAVE_BOX 1
 
 /* Define if curses library has this function */
-#undef HAVE_WHLINE
+#cmakedefine HAVE_WHLINE 1
 
 /* Define if the SVR4 curses is broken */
-#undef HAVE_BROKEN_SYSVR4_CURSES
+#cmakedefine HAVE_BROKEN_SYSVR4_CURSES 1
 
 /* Define if linking with BSD curses variant */
-#undef HAVE_BSD_CURSES
+#cmakedefine HAVE_BSD_CURSES 1
 
 /* Define if curses library has this function */
-#undef HAVE_CBREAK
+#cmakedefine HAVE_CBREAK 1
 
 /* Define if curses library has this function */
-#undef HAVE_CURS_SET
+#cmakedefine HAVE_CURS_SET 1
 
 /* Define if curses library has this function */
-#undef HAVE_DOUPDATE
+#cmakedefine HAVE_DOUPDATE 1
 
 /* Define if curses library has this function */
-#undef HAVE_DERWIN
+#cmakedefine HAVE_DERWIN 1
 
 /* Define if curses library has this function */
-#undef HAVE_KEYPAD
+#cmakedefine HAVE_KEYPAD 1
 
 /* Define if curses library has this function */
-#undef HAVE_NEWPAD
+#cmakedefine HAVE_NEWPAD 1
 
 /* Define if curses library has this function */
-#undef HAVE_NOCBREAK
+#cmakedefine HAVE_NOCBREAK 1
 
 /* Define if curses library has this function */
-#undef HAVE_NODELAY
+#cmakedefine HAVE_NODELAY 1
 
 /* Define if curses library has this function */
-#undef HAVE_NOTIMEOUT
+#cmakedefine HAVE_NOTIMEOUT 1
 
 /* Define if curses library has this function */
-#undef HAVE_PREFRESH
+#cmakedefine HAVE_PREFRESH 1
 
 /* Define if curses library has this function */
-#undef HAVE_UNGETCH
+#cmakedefine HAVE_UNGETCH 1
 
 /* Define if your compiler supports ANSI prototypes  */
-#undef HAVE_PROTO
+#cmakedefine HAVE_PROTO 1
 
 /* Define if curses library has this function */
-#undef HAVE_RAW
+#cmakedefine HAVE_RAW 1
 
 /* Define if curses library has this function */
-#undef HAVE_RESET_PROG_MODE
+#cmakedefine HAVE_RESET_PROG_MODE 1
 
 /* Define if curses library has this function */
-#undef HAVE_RESET_SHELL_MODE
+#cmakedefine HAVE_RESET_SHELL_MODE 1
 
 /* Define if curses library has this function */
-#undef HAVE_RESIZE_TERM
+#cmakedefine HAVE_RESIZE_TERM 1
 
 /* Define if curses library has this function */
-#undef HAVE_RESIZETERM
+#cmakedefine HAVE_RESIZETERM 1
 
 /* Define if curses library has this function */
-#undef HAVE_SLK_INIT
+#cmakedefine HAVE_SLK_INIT 1
 
 /* Define if curses library has this function */
-#undef HAVE_SLK_ATTRSET
+#cmakedefine HAVE_SLK_ATTRSET 1
 
 /* Define if curses library has this function */
-#undef HAVE_SB_INIT
+#cmakedefine HAVE_SB_INIT 1
 
 /* Define if curses library has this function */
-#undef HAVE_TOUCHLINE
+#cmakedefine HAVE_TOUCHLINE 1
 
 /* Define if curses library has this function */
-#undef HAVE_TYPEAHEAD
+#cmakedefine HAVE_TYPEAHEAD 1
 
 /* Define if curses library has this  */
-#undef HAVE_WATTRSET
+#cmakedefine HAVE_WATTRSET 1
 
 /* Define if curses library has this  */
-#undef HAVE_WADDCHNSTR
+#cmakedefine HAVE_WADDCHNSTR 1
 
 /* Define if curses library has this  */
-#undef HAVE_WBKGD
+#cmakedefine HAVE_WBKGD 1
 
 /* Define if curses library has this function */
-#undef HAVE_WNOUTREFRESH
+#cmakedefine HAVE_WNOUTREFRESH 1
 
 /* Define if curses library has this function */
-#undef HAVE_WVLINE
+#cmakedefine HAVE_WVLINE 1
 
 /* Define if not linking with REXX support  */
-#undef NOREXX
+#cmakedefine NOREXX 1
 
 /* Define if you need to in order for stat and other things to work.  */
-#undef _POSIX_SOURCE
+#cmakedefine _POSIX_SOURCE 1
 
 /* Define as the return type of signal handlers (int or void).  */
-#undef RETSIGTYPE
+#define RETSIGTYPE void
 
 /* Define if __sighandler_t is defined.  */
-#undef HAVE__SIGHANDLER_T
+#cmakedefine HAVE__SIGHANDLER_T 1
 
 /* Define to `unsigned' if <sys/types.h> doesn't define.  */
-#undef size_t
+#cmakedefine size_t 1
 
 /* Define if you have the ANSI C header files.  */
-#undef STDC_HEADERS
+#cmakedefine STDC_HEADERS 1
 
 /* Define if you can safely include both <sys/time.h> and <time.h>.  */
-#undef TIME_WITH_SYS_TIME
+#cmakedefine TIME_WITH_SYS_TIME 1
 
 /* Define if your <sys/time.h> declares struct tm.  */
-#undef TM_IN_SYS_TIME
+#cmakedefine TM_IN_SYS_TIME 1
 
 /* Define if compiling with TRACE information */
-#undef THE_TRACE
+#cmakedefine THE_TRACE 1
 
 /* Define if running on UNIX system.  */
-#undef UNIX
+#cmakedefine UNIX 1
 
 /* Define if linking with Extended Curses.  */
-#undef USE_EXTCURSES
+#cmakedefine USE_EXTCURSES 1
 
 /* Define if linking with ncurses.  */
-#undef USE_NCURSES
+#cmakedefine USE_NCURSES 1
 
 /* Define if linking with ncursesw.  */
-#undef USE_NCURSESW
+#cmakedefine USE_NCURSESW 1
 
 /* Define if linking with Regina REXX.  */
-#undef USE_REGINA
+#cmakedefine USE_REGINA 1
 
 /* Define if linking with Rexx/Trans.  */
-#undef USE_REXXTRANS
+#cmakedefine USE_REXXTRANS 1
 
 /* Define if linking with REXX/6000.  */
-#undef USE_REXX6000
+#cmakedefine USE_REXX6000 1
 
 /* Define if linking with REXX/imc.  */
-#undef USE_REXXIMC
+#cmakedefine USE_REXXIMC 1
 
 /* Define if linking with Object Rexx.  */
-#undef USE_OREXX
+#cmakedefine USE_OREXX 1
 
 /* Define if linking with Open Object Rexx 4.0.  */
-#undef OOREXX_40
+#cmakedefine OOREXX_40 1
 
 /* Define if linking with Open Object Rexx.  */
-#undef USE_OOREXX
+#cmakedefine USE_OOREXX 1
 
 /* Define if linking with uni-REXX.  */
-#undef USE_UNIREXX
+#cmakedefine USE_UNIREXX 1
 
 /* Define if linking with dwindows.  */
-#undef USE_DWINDOWS
+#cmakedefine USE_DWINDOWS 1
 
 /* Define if linking with XCurses.  */
-#undef USE_XCURSES
+#cmakedefine USE_XCURSES 1
 
 /* Define if linking with PDCurses built with SDL.  */
-#undef USE_SDLCURSES
+#cmakedefine USE_SDLCURSES 1
 
 /* Define if linking with PDCurses built with SDL.  */
-#undef USE_VTCURSES
+#cmakedefine USE_VTCURSES 1
 
 /* Define if linking with Curses include dir specified --with-cursesincdir.  */
-#undef LOCAL_CURSES
+#cmakedefine LOCAL_CURSES 1
 
 /* Define if linking with PDCurses.  */
-#undef USE_PDCURSES
+#cmakedefine USE_PDCURSES 1
 
 /* Define a value for the xterm program */
-#undef XTERM_PROGRAM
+#cmakedefine XTERM_PROGRAM 1
 
 /* Define if you have this function */
-#undef HAVE_ACL_GET
+#cmakedefine HAVE_ACL_GET 1
 
 /* Define if you have this function */
-#undef HAVE_FORK
+#cmakedefine HAVE_FORK 1
 
 /* Define if you have this function */
-#undef HAVE_GETACL
+#cmakedefine HAVE_GETACL 1
 
 /* Define if you have this function */
-#undef HAVE_REALPATH
+#cmakedefine HAVE_REALPATH 1
 
 /* Define if you have this function */
-#undef HAVE_SETLOCALE
+#cmakedefine HAVE_SETLOCALE 1
 
 /* Define if you have the sigaction function.  */
-#undef HAVE_SIGACTION
+#cmakedefine HAVE_SIGACTION 1
 
 /* Define if you have the siginterrupt function.  */
-#undef HAVE_SIGINTERRUPT
+#cmakedefine HAVE_SIGINTERRUPT 1
 
 /* Define if you have the strcasecmp function.  */
-#undef HAVE_STRCASECMP
+#cmakedefine HAVE_STRCASECMP 1
 
 /* Define if you have the stricmp function.  */
-#undef HAVE_STRICMP
+#cmakedefine HAVE_STRICMP 1
 
 /* Define if you have the strcmpi function.  */
-#undef HAVE_STRCMPI
+#cmakedefine HAVE_STRCMPI 1
 
 /* Define if you have the readlink function.  */
-#undef HAVE_READLINK
+#cmakedefine HAVE_READLINK 1
 
 /* Define if you have the select function.  */
-#undef HAVE_SELECT
+#cmakedefine HAVE_SELECT 1
 
 /* Define if you have the mkfifo function.  */
-#undef HAVE_MKFIFO
+#cmakedefine HAVE_MKFIFO 1
 
 /* Define if you have the rename function.  */
-#undef HAVE_RENAME
+#cmakedefine HAVE_RENAME 1
 
 /* Define if you have the lstat function.  */
-#undef HAVE_LSTAT
+#cmakedefine HAVE_LSTAT 1
 
 /* Define if you have the chown function.  */
-#undef HAVE_CHOWN
+#cmakedefine HAVE_CHOWN 1
 
 /* Define if you have the mkstemp function.  */
-#undef HAVE_MKSTEMP
+#cmakedefine HAVE_MKSTEMP 1
 
 /* Define if you have the <ctype.h> header file.  */
-#undef HAVE_CTYPE_H
+#cmakedefine HAVE_CTYPE_H 1
 
 /* Define if you have the <wctype.h> header file.  */
-#undef HAVE_WCTYPE_H
+#cmakedefine HAVE_WCTYPE_H 1
 
 /* Define if you have the <errno.h> header file.  */
-#undef HAVE_ERRNO_H
+#cmakedefine HAVE_ERRNO_H 1
 
 /* Define if you have the <alloca.h> header file.  */
-#undef HAVE_ALLOCA_H
+#cmakedefine HAVE_ALLOCA_H 1
 
 /* Define if you have the <dirent.h> header file.  */
-#undef HAVE_DIRENT_H
+#cmakedefine HAVE_DIRENT_H 1
 
 /* Define if you have the <fcntl.h> header file.  */
-#undef HAVE_FCNTL_H
+#cmakedefine HAVE_FCNTL_H 1
 
 /* Define if you have the <locale.h> header file.  */
-#undef HAVE_LOCALE_H
+#cmakedefine HAVE_LOCALE_H 1
 
 /* Define if you have the <memory.h> header file.  */
-#undef HAVE_MEMORY_H
+#cmakedefine HAVE_MEMORY_H 1
 
 /* Define if you have the <stat.h> header file.  */
-#undef HAVE_STAT_H
+#cmakedefine HAVE_STAT_H 1
 
 /* Define if you have the <stdarg.h> header file.  */
-#undef HAVE_STDARG_H
+#cmakedefine HAVE_STDARG_H 1
 
 /* Define if you have the <stdlib.h> header file.  */
-#undef HAVE_STDLIB_H
+#cmakedefine HAVE_STDLIB_H 1
 
 /* Define if you have the <stdint.h> header file.  */
-#undef HAVE_STDINT_H
+#cmakedefine HAVE_STDINT_H 1
 
 /* Define if you have the <inttypes.h> header file.  */
-#undef HAVE_INTTYPES_H
+#cmakedefine HAVE_INTTYPES_H 1
 
 /* Define if you have the <string.h> header file.  */
-#undef HAVE_STRING_H
+#cmakedefine HAVE_STRING_H 1
 
 /* Define if you have the <time.h> header file.  */
-#undef HAVE_TIME_H
+#cmakedefine HAVE_TIME_H 1
 
 /* Define if you have the <sys/acl.h> header file.  */
-#undef HAVE_SYS_ACL_H
+#cmakedefine HAVE_SYS_ACL_H 1
 
 /* Define if you have the <sys/mode.h> header file.  */
-#undef HAVE_SYS_MODE_H
+#cmakedefine HAVE_SYS_MODE_H 1
 
 /* Define if you have the <sys/file.h> header file.  */
-#undef HAVE_SYS_FILE_H
+#cmakedefine HAVE_SYS_FILE_H 1
 
 /* Define if you have the <sys/stat.h> header file.  */
-#undef HAVE_SYS_STAT_H
+#cmakedefine HAVE_SYS_STAT_H 1
 
 /* Define if you have the <sys/socket.h> header file.  */
-#undef HAVE_SYS_SOCKET_H
+#cmakedefine HAVE_SYS_SOCKET_H 1
 
 /* Define if you have the <sys/time.h> header file.  */
-#undef HAVE_SYS_TIME_H
+#cmakedefine HAVE_SYS_TIME_H 1
 
 /* Define if you have the <sys/types.h> header file.  */
-#undef HAVE_SYS_TYPES_H
+#cmakedefine HAVE_SYS_TYPES_H 1
 
 /* Define if you have the <sys/wait.h> header file.  */
-#undef HAVE_SYS_WAIT_H
+#cmakedefine HAVE_SYS_WAIT_H 1
 
 /* Define if you have the <sys/select.h> header file.  */
-#undef HAVE_SYS_SELECT_H
+#cmakedefine HAVE_SYS_SELECT_H 1
 
 /* Define if you have the <select.h> header file.  */
-#undef HAVE_SELECT_H
+#cmakedefine HAVE_SELECT_H 1
 
 /* Define if select() is in <time.h> header file.  */
-#undef HAVE_SELECT_IN_TIME_H
+#cmakedefine HAVE_SELECT_IN_TIME_H 1
 
 /* Define if you have the <unistd.h> header file.  */
-#undef HAVE_UNISTD_H
+#cmakedefine HAVE_UNISTD_H 1
 
 /* Define if are on Digital Unix 4.0.  */
-#undef HAVE_BROKEN_SYS_ACL_H
+#cmakedefine HAVE_BROKEN_SYS_ACL_H 1
 
 /* Define if WINDOW->_begy exists */
-#undef HAVE_UNDERSCORE_BEGY
+#cmakedefine HAVE_UNDERSCORE_BEGY 1
 
 /* Define if WINDOW->begy exists */
-#undef HAVE_BEGY
+#cmakedefine HAVE_BEGY 1
 
 /* Define if WINDOW->_maxy exists */
-#undef HAVE_UNDERSCORE_MAXY
+#cmakedefine HAVE_UNDERSCORE_MAXY 1
 
 /* Define if WINDOW->maxy exists */
-#undef HAVE_MAXY
+#cmakedefine HAVE_MAXY 1
 
 /* Define if g++ can't compile <string.h> */
-#undef HAVE_BROKEN_CXX_WITH_STRING_H
+#cmakedefine HAVE_BROKEN_CXX_WITH_STRING_H 1
 
 /* Define if you have curses_version() */
-#undef HAVE_CURSES_VERSION
+#cmakedefine HAVE_CURSES_VERSION 1
 
 /* Defines the kernel name */
-#undef MH_KERNEL_NAME
+#cmakedefine MH_KERNEL_NAME 1
 
 /* Defines a global profile name */
-#undef THE_GLOBAL_PROFILE
+#cmakedefine THE_GLOBAL_PROFILE 1
 
 /* Defines home directory */
-#undef THE_HOME_DIR
+#define THE_HOME_DIR "/usr/local/share/the/"
 
 /* define if you have PDC_set_function_key */
-#undef HAVE_PDC_SET_FUNCTION_KEY
+#cmakedefine HAVE_PDC_SET_FUNCTION_KEY 1
 
 /* the following are added so that embedded PDCursesMod will be configured correctly */
 
 /* Define if you have the <DECkeySym.h> header file */
-#undef HAVE_DECKEYSYM_H
+#cmakedefine HAVE_DECKEYSYM_H 1
 
 /* Define to 1 if you have the `poll' function. */
-#undef HAVE_POLL
+#cmakedefine HAVE_POLL 1
 
 /* Define if you have the <Sunkeysym.h> header file */
-#undef HAVE_SUNKEYSYM_H
+#cmakedefine HAVE_SUNKEYSYM_H 1
 
 /* Define if you have the <XF86keysym.h> header file */
-#undef HAVE_XF86KEYSYM_H
+#cmakedefine HAVE_XF86KEYSYM_H 1
 
 /* Define to 1 if you have the `usleep' function. */
-#undef HAVE_USLEEP
+#cmakedefine HAVE_USLEEP 1
 
 /* Define to 1 if you have the `snprintf' function. */
-#undef HAVE_SNPRINTF
+#cmakedefine HAVE_SNPRINTF 1
 
 /* Define to 1 if you have the `vsnprintf' function. */
-#undef HAVE_VSNPRINTF
+#cmakedefine HAVE_VSNPRINTF 1
 
 /* Define to 1 if you have the `vsscanf' function. */
-#undef HAVE_VSSCANF
+#cmakedefine HAVE_VSSCANF 1
 
 /* Define if you have the <xpm.h> header file */
-#undef HAVE_XPM_H
+#cmakedefine HAVE_XPM_H 1
 
 /* Define if you want to use neXtaw library */
-#undef USE_NEXTAW
+#cmakedefine USE_NEXTAW 1
 
 /* Define if you want to use Xaw3d library */
-#undef USE_XAW3D
+#cmakedefine USE_XAW3D 1
 
 /* Define XPointer is typedefed in X11/Xlib.h */
-#undef XPOINTER_TYPEDEFED
+#cmakedefine XPOINTER_TYPEDEFED 1

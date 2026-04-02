@@ -319,12 +319,7 @@ static int show_a_free_list(int bin, char *str)
  * free()ed by the_free_flists().
  */
 /******************************************************************************/
-#ifdef HAVE_PROTO
 int register_mem( void *chunk )
-#else
-int register_mem( chunk )
-void *chunk;
-#endif
 /******************************************************************************/
 {
    meminfo *mem=NULL;
@@ -355,11 +350,7 @@ void *chunk;
  * The values put into the array has been described above.
  */
 /******************************************************************************/
-#ifdef HAVE_PROTO
 void init_memory_table( void )
-#else
-void init_memory_table()
-#endif
 /******************************************************************************/
 {
    int indeks ;   /* index into current element to be initiated */
@@ -477,14 +468,7 @@ void init_memory_table()
  * memory has been released.
  */
 /******************************************************************************/
-#ifdef HAVE_PROTO
 static int add_entry( char *start, char *addr, int bin_no )
-#else
-static int add_entry( start, addr, bin_no )
-char *start;
-char *addr;
-int bin_no;
-#endif
 /******************************************************************************/
 {
    meminfo *ptr ;              /* work ptr */
@@ -527,12 +511,7 @@ int bin_no;
  * empty in the first place.
  */
 /******************************************************************************/
-#ifdef HAVE_PROTO
 void *get_a_block( size_t size )
-#else
-void *get_a_block( size )
-int size;
-#endif
 /******************************************************************************/
 {
    register int bin ;     /* bin no in array of freelists */
@@ -637,12 +616,7 @@ int size;
  * of CPU in this routine is the for(;;) loop, it should be rewritten.
  */
 /******************************************************************************/
-#ifdef HAVE_PROTO
 void give_a_block( void *ptr )
-#else
-void give_a_block( ptr )
-void *ptr;
-#endif
 /******************************************************************************/
 {
    char *cptr ;      /* pseudonym for 'ptr' */
@@ -703,13 +677,7 @@ void *ptr;
  * the block is put back on the free lists and a new block allocated.
  */
 /******************************************************************************/
-#ifdef HAVE_PROTO
 void *resize_a_block( void *ptr, size_t size )
-#else
-void *resize_a_block( ptr, size )
-void *ptr;
-int size;
-#endif
 /******************************************************************************/
 {
    char *cptr ;      /* pseudonym for 'ptr' */
@@ -776,11 +744,7 @@ int size;
 }
 
 /******************************************************************************/
-#ifdef HAVE_PROTO
 void the_free_flists( void )
-#else
-void the_free_flists()
-#endif
 /******************************************************************************/
 {
    meminfo *ptr = first_chunk;

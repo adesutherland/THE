@@ -1,5 +1,5 @@
 /* This file should only be used and compiled if you want to use checker.
- * It contains wrappers für PDCurses for X11.
+ * It contains wrappers fr PDCurses for X11.
  */
 #define CURSES_LIBRARY
 #include <xcurses.h>

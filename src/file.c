@@ -52,27 +52,15 @@
 #define stricmp strcasecmp
 #endif
 
-#ifdef HAVE_PROTO
 static short write_line(CHARTYPE *,LENGTHTYPE,FILE *,short);
 static short write_char(CHARTYPE,FILE *);
-#else
-static short write_line();
-static short write_char();
-#endif
 
 LINE *dir_first_line=NULL;
 LINE *dir_last_line=NULL;
 LINETYPE dir_number_lines=0L;
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short process_file_attributes(int restore_attributes, FILE_DETAILS *cf, CHARTYPE *filename)
-#else
-static short process_file_attributes(restore_attributes, cf, filename)
-int restore_attributes;
-FILE_DETAILS *cf;
-CHARTYPE *filename;
-#endif
 /***********************************************************************/
 {
 #if defined(HAVE_GETACL)
@@ -172,12 +160,7 @@ CHARTYPE *filename;
    }
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short get_file(CHARTYPE *filename)
-#else
-short get_file(filename)
-CHARTYPE *filename;
-#endif
 /***********************************************************************/
 {
    LINE *curr=NULL;
@@ -709,16 +692,7 @@ CHARTYPE *filename;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 LINE *read_file( FILE *fp, LINE *curr, CHARTYPE *filename, LINETYPE fromline, LINETYPE numlines, bool called_from_get_command )
-#else
-LINE *read_file( fp, curr, filename, fromline, numlines, called_from_get_command )
-FILE *fp;
-LINE *curr;
-CHARTYPE *filename;
-LINETYPE fromline,numlines;
-bool called_from_get_command;
-#endif
 /***********************************************************************/
 {
 #define THE_CR '\r'
@@ -924,15 +898,7 @@ bool called_from_get_command;
    return(temp);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 LINE *read_fixed_file(FILE *fp,LINE *curr,CHARTYPE *filename,LINETYPE fromline,LINETYPE numlines)
-#else
-LINE *read_fixed_file(fp,curr,filename,fromline,numlines)
-FILE *fp;
-LINE *curr;
-CHARTYPE *filename;
-LINETYPE fromline,numlines;
-#endif
 /***********************************************************************/
 {
    LINE *temp=NULL;
@@ -994,21 +960,8 @@ LINETYPE fromline,numlines;
    return(temp);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short save_file(FILE_DETAILS *cf,CHARTYPE *new_fname,bool force,LINETYPE in_lines,
                 LINETYPE start_line,LINETYPE *num_file_lines,bool append,LENGTHTYPE start_col, LENGTHTYPE end_col,bool ignore_scope,bool lines_based_on_scope,bool autosave)
-#else
-short save_file(cf,new_fname,force,in_lines,start_line,num_file_lines,append,start_col,end_col,ignore_scope,lines_based_on_scope,autosave)
-FILE_DETAILS *cf;
-CHARTYPE *new_fname;
-bool force,append;
-LINETYPE in_lines,start_line;
-LINETYPE *num_file_lines;
-LENGTHTYPE start_col,end_col;
-bool ignore_scope;
-bool lines_based_on_scope;
-bool autosave;
-#endif
 /***********************************************************************/
 {
    CHARTYPE *bak_filename=NULL;
@@ -1504,13 +1457,7 @@ bool autosave;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short write_char(CHARTYPE chr,FILE *fp)
-#else
-static short write_char(chr,fp)
-CHARTYPE chr;
-FILE *fp;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("file.c:    write_char");
@@ -1526,15 +1473,7 @@ FILE *fp;
    return(RC_DISK_FULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short write_line(CHARTYPE *line,LENGTHTYPE len,FILE *fp,short trailing)
-#else
-static short write_line(line,len,fp,trailing)
-CHARTYPE *line;
-LENGTHTYPE len;
-FILE *fp;
-short trailing;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -1577,12 +1516,7 @@ short trailing;
    return rc;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void increment_alt(FILE_DETAILS *cf)
-#else
-void increment_alt(cf)
-FILE_DETAILS *cf;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("file.c:    increment_alt");
@@ -1603,13 +1537,8 @@ FILE_DETAILS *cf;
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *new_filename(CHARTYPE *ofp,CHARTYPE *ofn,
                             CHARTYPE *nfn,CHARTYPE *ext)
-#else
-CHARTYPE *new_filename(ofp,ofn,nfn,ext)
-CHARTYPE *ofp,*ofn,*nfn,*ext;
-#endif
 /***********************************************************************/
 {
 #if defined(DOS) || defined(OS2)
@@ -1641,12 +1570,7 @@ CHARTYPE *ofp,*ofn,*nfn,*ext;
    return(nfn);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short remove_aus_file(FILE_DETAILS *cf)
-#else
-short remove_aus_file(cf)
-FILE_DETAILS *cf;
-#endif
 /***********************************************************************/
 {
    CHARTYPE *aus_filename=NULL;
@@ -1665,13 +1589,7 @@ FILE_DETAILS *cf;
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short free_view_memory(bool free_file_lines,bool display_the_screen)
-#else
-short free_view_memory(free_file_lines,display_the_screen)
-bool free_file_lines;
-bool display_the_screen;
-#endif
 /***********************************************************************/
 {
    VIEW_DETAILS *save_current_view=NULL;
@@ -1907,11 +1825,7 @@ bool display_the_screen;
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 void free_a_view(void)
-#else
-void free_a_view()
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("file.c:    free_a_view");
@@ -1929,12 +1843,7 @@ void free_a_view()
    return;
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short free_file_memory(bool free_file_lines)
-#else
-short free_file_memory(free_file_lines)
-bool free_file_lines;
-#endif
 /***********************************************************************/
 {
    TRACE_FUNCTION("file.c:    free_file_memory");
@@ -2067,11 +1976,7 @@ bool free_file_lines;
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short read_directory(void)
-#else
-short read_directory()
-#endif
 /***********************************************************************/
 {
 #if !defined(MULTIPLE_PSEUDO_FILES)
@@ -2213,12 +2118,7 @@ short read_directory()
    return(RC_OK);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 VIEW_DETAILS *find_file(CHARTYPE *fp,CHARTYPE *fn)
-#else
-VIEW_DETAILS *find_file(fp,fn)
-CHARTYPE *fp,*fn;
-#endif
 /***********************************************************************/
 {
    VIEW_DETAILS *save_current_view=NULL,*found_file=NULL;
@@ -2248,12 +2148,7 @@ CHARTYPE *fp,*fn;
    return((VIEW_DETAILS *)NULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 VIEW_DETAILS *find_pseudo_file(CHARTYPE file)
-#else
-VIEW_DETAILS *find_pseudo_file(file)
-CHARTYPE file;
-#endif
 /***********************************************************************/
 {
    VIEW_DETAILS *cv;
@@ -2274,13 +2169,7 @@ CHARTYPE file;
    return((VIEW_DETAILS *)NULL);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 static short process_command_line(CHARTYPE *profile_command_line,LINETYPE line_number)
-#else
-static short process_command_line(profile_command_line,line_number)
-CHARTYPE *profile_command_line;
-LINETYPE line_number;
-#endif
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -2328,12 +2217,7 @@ LINETYPE line_number;
    return(rc);
 }
 /***********************************************************************/
-#ifdef HAVE_PROTO
 short execute_command_file(FILE *fp)
-#else
-short execute_command_file(fp)
-FILE *fp;
-#endif
 /***********************************************************************/
 {
    LENGTHTYPE i;
@@ -2395,13 +2279,7 @@ FILE *fp;
 }
 
 /***********************************************************************/
-#ifdef HAVE_PROTO
 CHARTYPE *read_file_into_memory(CHARTYPE *filename,int *buffer_size)
-#else
-CHARTYPE *read_file_into_memory(filename,buffer_size)
-CHARTYPE *filename;
-int *buffer_size;
-#endif
 /***********************************************************************/
 {
    FILE *fp=NULL;
