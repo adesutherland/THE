@@ -387,8 +387,7 @@ int display_error(unsigned short err_num,CHARTYPE *mess,bool ignore_bell)
       }
       error_on_screen = TRUE;
       fprintf(stderr,"%s\n",last_message);
-      TRACE_RETURN();
-      return rc;
+      /* Do not return here! Let the message get added to the error list so it shows up in the editor. */
    }
 #endif
    /*
