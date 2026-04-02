@@ -2223,9 +2223,10 @@ short execute_command_file(FILE *fp)
 /***********************************************************************/
 {
    LENGTHTYPE i;
-   CHARTYPE ch;
+   int ch, next_ch;
    short rc=RC_OK;
    LINETYPE line_number=0;
+   bool in_comment = FALSE;
 
    TRACE_FUNCTION("file.c:    execute_command_file");
 
@@ -2234,47 +2235,63 @@ short execute_command_file(FILE *fp)
    while(1)
    {
       ch = fgetc(fp);
-      if (feof(fp))
+      if (ch == EOF)
          break;
+
+      if (in_comment)
+      {
+         if (ch == '*')
+         {
+            next_ch = fgetc(fp);
+            if (next_ch == EOF) break;
+            if (next_ch == '/')
+            {
+               in_comment = FALSE;
+               continue;
+            }
+            ungetc(next_ch, fp);
+         }
+         if (ch == '\n') line_number++;
+         continue;
+      }
+      else if (ch == '/')
+      {
+         next_ch = fgetc(fp);
+         if (next_ch == EOF) break;
+         if (next_ch == '*')
+         {
+            in_comment = TRUE;
+            continue;
+         }
+         ungetc(next_ch, fp);
+      }
+
       if (ch == '\n')
       {
          line_number++;
          profile_command_line[i] = '\0';
-         rc = process_command_line(profile_command_line,line_number);
-         if (rc == RC_SYSTEM_ERROR
-         ||  rc == RC_NOREXX_ERROR)
-            break;
-         if (number_of_files == 0)
-            break;
+         /* Trim leading/trailing whitespace before parsing if we want, but process_command_line handles it. */
+         if (i > 0)
+         {
+            rc = process_command_line(profile_command_line,line_number);
+            if (rc == RC_SYSTEM_ERROR || rc == RC_NOREXX_ERROR)
+               break;
+            if (number_of_files == 0)
+               break;
+         }
          i = 0;
          memset(profile_command_line,' ',MAX_LENGTH_OF_LINE);
          continue;
       }
       if (ch == '\r')
       {
-         profile_command_line[i] = ch;
-         i++;
-         ch = fgetc(fp);
-         if (feof(fp))
-            break;
-         if (ch == '\n')
-         {
-            --i;
-            line_number++;
-            profile_command_line[i] = '\0';
-            rc = process_command_line(profile_command_line,line_number);
-            if (rc == RC_SYSTEM_ERROR
-            ||  rc == RC_NOREXX_ERROR)
-               break;
-            if (number_of_files == 0)
-               break;
-            i = 0;
-            memset(profile_command_line,' ',MAX_LENGTH_OF_LINE);
-            continue;
-         }
+         continue; /* Safely ignore carriage returns */
       }
-      profile_command_line[i] = ch;
-      i++;
+      if (i < MAX_LENGTH_OF_LINE - 1)
+      {
+         profile_command_line[i] = (CHARTYPE)ch;
+         i++;
+      }
    }
    TRACE_RETURN();
    return(rc);
