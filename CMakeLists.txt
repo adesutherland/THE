@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 
 project(THE C)
 
-set(THE_VERSION "4.0")
+set(THE_VERSION "4.0.CREXX")
 set(THE_VERSION_DATE "29-Dec-2022")
 
 # --- Options ---
