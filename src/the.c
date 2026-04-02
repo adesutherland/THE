@@ -1017,7 +1017,7 @@ int main(int argc, char *argv[])
               rc = get_profile(local_prf,prf_arg);
            if (error_on_screen)
            {
-              error_on_screen = FALSE;
+              /* If we generated a message, don't just throw it away, keep it for the display loop. */
            }
 #ifdef MSWIN
            (void)get_user_profile();
@@ -1283,6 +1283,9 @@ fclose( fp);
    /*
     * This is where it all happens!!!
     */
+   if (error_on_screen) {
+       expose_msgline();
+   }
    editor();
    /*
     * Finalise rexx support...
