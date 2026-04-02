@@ -1,0 +1,32 @@
+<HTML>
+<HEAD><TITLE>THE Reference - SET Commands - set lineflag </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>SET LINEFLAG</B> -  set the line characteristics of lines <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> [SET] LINEFLAG <I>CHAnge|NOCHange NEW|NONEW TAG|NOTAG [target]</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SET LINEFLAGS command controls the line characteristics of lines           in a file. <P></DD>
+<DD> Each line in a file has certain characteristics associated with it           depending on how the line has been modified.  On reading a file from           disk, all lines in the file are set to their default values. <P></DD>
+<DD> Once a line is modified, or tagged, the characteristics of the line           are set appropriately.  A line that is added, is set to NEW; a line           that is changed is set to CHANGE, and a line that is tagged with the <A HREF = "../comm/TAG.html">TAG</A>  command, is set to TAG.  All three characteristics can be on           at the one time. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>Default:</B> <BR></DT>
+<DD> NOCHANGE NONEW NOTAG <P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "../comm/TAG.html">TAG</A>, <A HREF = "../commset/SETHIGHLIGHT.html">SET HIGHLIGHT</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

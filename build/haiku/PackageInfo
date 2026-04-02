@@ -1,0 +1,27 @@
+name        the_common
+summary     "The Hessling Editor binary."
+description "THE is a text editor based on the VM/CMS editor
+XEDIT and many features of KEDIT written by Mansfield Software."
+vendor      "Mark Hessling"
+packager    "Mark Hessling <mark@rexx.org>"
+architecture x86_64
+version      4.0-1
+copyrights {
+             "1991-2020 Mark Hessling"
+           }
+licenses   {
+             "GNU GPL v2"
+           }
+urls       {
+             "https://hessling-editor.sf.net/"
+           }
+source-urls {
+             "https://hessling-editor.sf.net/downloads/the-4.0.tar.gz"
+           }
+provides   {
+             the_common = 4.0
+             cmd:the = 4.0
+           }
+requires   {
+             haiku>=r1~beta2_hrev54154_93-1
+           }

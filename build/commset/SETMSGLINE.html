@@ -1,0 +1,55 @@
+<HTML>
+<HEAD><TITLE>THE Reference - SET Commands - set msgline </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>SET MSGLINE</B> -  set position and size of message line <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> [SET] MSGLine <I>ON M[+n|-n]|[+|-]n [lines] [Overlay]</I> <P></DD>
+<DD> [SET] MSGLine <I>CLEAR</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SET MSGLINE set command specifies the position of the <A HREF = "../misc/glossary.html#MESSAGELINE">message line</A>  and the size of the message line window. <P></DD>
+<DD> The first form of positional parameters is: <P></DD>
+<DD>   M[+n|-n]
+</DD><DD>   this sets the first line to be relative to the middle of
+</DD><DD>   the screen. A positive value adds to the middle line number,
+</DD><DD>   a negative subtracts from it.
+</DD><DD>   e.g. M+3 on a 24 line screen will be line 15
+</DD><DD>   M-5 on a 24 line screen will be line 7
+<P></DD>
+<DD> The second form of positional parameters is: <P></DD>
+<DD>   [+|-]n
+</DD><DD>   this sets the first line to be relative to the top of the
+</DD><DD>   screen (if positive or no sign) or relative to the bottom
+</DD><DD>   of the screen if negative.
+</DD><DD>   e.g. +3 or 3 will set first line to line 3
+</DD><DD>   -3 on a 24 line screen will set first line to line 21
+<P></DD>
+<DD> If the resulting line is outside the bounds of the screen           the position of the message line will become the middle line           on the screen. <P></DD>
+<DD> The  <I>lines</I>  argument specifies the maximum number of lines of           error messages to display at the one time.  If this value is           specified as a whole number it must be less than or equal to the           number of lines that could fit on the screen from the starting row.            '*'  can be specified to indicate that as many lines as possible should           be displayed. <P></DD>
+<DD> All options can be specified as the current EQUIVCHAR to retain the           existing value. <P></DD>
+<DD> The second format of the command clears the messages being displayed.           This is useful in macros where you need to display an error message           but also want to be able to clear it. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: Compatible.
+</DD><DD>   The OVERLAY option is the default but ignored.
+</DD><DD>   The second format is not supported.
+</DD><DD>   KEDIT: Compatible
+</DD><DD>   The OVERLAY option is the default but ignored.
+</DD><DD>   The second format is not supported.
+<P></DD>
+<DT> <B>Default:</B> <BR></DT>
+<DD> ON 2 5 Overlay <P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "../commset/SETEQUIVCHAR.html">SET EQUIVCHAR</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

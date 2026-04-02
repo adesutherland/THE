@@ -1,0 +1,31 @@
+<HTML>
+<HEAD><TITLE>THE Reference - SET Commands - set stay </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>SET STAY</B> -  set condition of cursor position after CHANGE/LOCATE commands <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> [SET] STAY <I>ON|OFF</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SET STAY set command determines what line is displayed as the           current line after an unsuccessful <A HREF = "../comm/LOCATE.html">LOCATE</A> or successful <A HREF = "../comm/CHANGE.html">CHANGE</A>            command. <P></DD>
+<DD> With STAY ON, the <A HREF = "../misc/glossary.html#CURRENTLINE">current line</A>  remains where it currently is. <P></DD>
+<DD> With STAY OFF, after an unsuccessful <A HREF = "../comm/LOCATE.html">LOCATE</A> , the <A HREF = "../misc/glossary.html#CURRENTLINE">current line</A> becomes the <A HREF = "../misc/glossary.html#BOTTOM-OF-FILELINE">Bottom-of-File line</A> (or <A HREF = "../misc/glossary.html#TOP-OF-FILELINE">Top-of-File line</A>  if direction           is backwards). <P></DD>
+<DD> After a successful <A HREF = "../comm/CHANGE.html">CHANGE</A> , the <A HREF = "../misc/glossary.html#CURRENTLINE">current line</A> is the last           line affected by the <A HREF = "../comm/CHANGE.html">CHANGE</A>  command. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: Compatible.
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>Default:</B> <BR></DT>
+<DD> ON <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

@@ -1,0 +1,52 @@
+<HTML>
+<HEAD><TITLE>THE Reference - Commands - dialog </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>DIALOG</B> -  display a user configurable dialog box <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> DIALOG <I>/prompt/ [EDITfield [/val/]] [TITLE /title/] [OK|OKCANCEL|YESNO|YESNOCANCEL] [DEFBUTTON n]</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The DIALOG command displays a dialog box in the middle of the screen           with user-configurable settings. <P></DD>
+<DD> The mandatory  <I>prompt</I>  parameter is the text of a prompt displayed           near the top of the dialog window. Up to 100 lines can be displayed           by separating lines with a character (decimal 10). <P></DD>
+<DD> <I>EDITfield</I>  creates a user enterable field, with a default value           of  <I>val</I> , if supplied. While the cursor is in the editfield, "normal"           edit keys are in effect. See <A HREF = "../comm/READV.html">READV</A> for more details on keys that are           useable in the editfield.  The same keys that exit from the <A HREF = "../comm/READV.html">READV</A>            command also exit the editfield. On exit from the editfield, the           first button becomes active. <P></DD>
+<DD> <I>title</I>  specifies optional text to be displayed on the border of           the dialog box. <P></DD>
+<DD> The type of button combination can be specifed as one of the following: <P></DD>
+<DD>   OK - just an OK button is displayed
+</DD><DD>   OKCANCEL - an OK and a CANCEL button are displayed
+</DD><DD>   YESNO - a YES and a NO button are displayed
+</DD><DD>   YESNOCANCEL - a YES, a NO and a CANCEL button are displayed
+<P></DD>
+<DD> If no button combination is selected, an OK button is displayed. <P></DD>
+<DD> If  <I>DEFBUTTON</I>  is specified, it indicates which of the buttons is to           be set as the active button. This is a number between 1 and the           number of buttons displayed. By default, button 1 is active. If            <I>EDITfield</I>  is specified, no active button is set. <P></DD>
+<DD> The active button can be selected by pressing the TAB key; to exit           from the DIALOG, press the RETURN or ENTER key, or click the first           mouse button on the required button. <P></DD>
+<DD> On exit from the DIALOG command, the following Rexx variables are set: <P></DD>
+<DD>   DIALOG.0 - 2
+</DD><DD>   DIALOG.1 - value of  'EDITfield'
+</DD><DD>   DIALOG.2 - button selected as specified in the call to the command.
+<P></DD>
+<DD> The colours used for the dialog box are: <P></DD>
+<DD>   Border          - <A HREF = "../commset/SETCOLOR.html">SET COLOR</A>  DIALOGBORDER
+</DD><DD>   Prompt area     - <A HREF = "../commset/SETCOLOR.html">SET COLOR</A>  DIALOG
+</DD><DD>   Editfield       - <A HREF = "../commset/SETCOLOR.html">SET COLOR</A>  DIALOGEDITFIELD
+</DD><DD>   Inactive button - <A HREF = "../commset/SETCOLOR.html">SET COLOR</A>  DIALOGBUTTON
+</DD><DD>   Active button   - <A HREF = "../commset/SETCOLOR.html">SET COLOR</A>  DIALOGABUTTON
+<P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible. Does not support bitmap icons or font options.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "../comm/POPUP.html">POPUP</A>, <A HREF = "../comm/ALERT.html">ALERT</A>, <A HREF = "../comm/READV.html">READV</A>, <A HREF = "../commset/SETCOLOR.html">SET COLOR</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

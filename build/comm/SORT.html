@@ -1,0 +1,35 @@
+<HTML>
+<HEAD><TITLE>THE Reference - Commands - sort </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>SORT</B> -  sort selected lines in a file <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SORT <I>target [[sort field 1] [...] [sort field 1000]]</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SORT command sorts a portion of a file based on the  <I>sort field</I>            specifications. <P></DD>
+<DD> A  <I>sort field</I>  specification consists of: <P></DD>
+<DD>   order flag   - [Ascending|Descending]
+</DD><DD>   left column  - left column of field to sort on
+</DD><DD>   right column - right column of field to sort on
+<P></DD>
+<DD> If the  'order flag'  is omitted for a  <I>sort field</I> , the  'order flag'  for           the previous  <I>sort field</I>  is used. If no  'order flag'  is specified, all           sort fields are sorted in acending order. Therefore           SORT * D 1 1 2 2 A 3 3 4 4 is the same as SORT * D 1 1 D 2 2 A 3 3 A 4 4 <P></DD>
+<DD> The right column MUST be >= left column. <P></DD>
+<DD> 1000 sort fields are allowed. <P></DD>
+<DD> <A HREF = "../misc/glossary.html#TARGET"> <I>target</I> </A>  can be any valid target including ALL, *, -*, and BLOCK. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: XEDIT only allows ordering flag for all fields
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

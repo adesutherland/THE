@@ -1,0 +1,778 @@
+<HTML>
+<HEAD><TITLE>THE Reference - Quick Reference for THE </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="the64.png" ALT="THE"> </CENTER>
+<A NAME="QUICKREFERENCEFORTHE"></A>
+<center><h1>THE Quick Reference<br>
+Version 4.0<br>
+</h1></center>
+<CENTER><HR></CENTER>
+<A NAME="COMMAND-LINEINVOCATION"></A>
+<H2> Command-line invocation </H2>
+<B> the [-h?nmrsbq] [-p profile] [-a prof_arg] [-l line_num] [-c col_num] </B><P>
+<B> Where: </B><P>
+<TABLE BORDER=1 CELLSPACING=1 CELLPADDING=2><TR>
+<TD> -h or -?<BR> -n<BR> -m<BR> -r<BR> -s<BR> -b<BR> -q<BR> -k[fmt]<BR> -l line_num<BR> -c column_num<BR> -p profile<BR> <BR> <BR> <BR> -a prof_arg<BR> <BR> -w width<BR> -u disp_len<BR> dir<BR> file [...]<BR> <BR> <BR> <BR> <BR> <BR> <BR></TD>
+<TD> Display usage information and version.<BR> Do not execute a profile file.<BR> Force display into mono, ignoring colour support.<BR> Run THE in read-only mode.<BR> A debugging aid for Unix versions. Turns off signal trapping.<BR> run in batch mode.<BR> run quietly in batch mode<BR> allow Soft Label Key display<BR> specify line number to make current<BR> specify column number to make current<BR> The name of the profile file to use.  If not specified,<BR> the file ".\PROFILE.THE" (under OS/2, DOS and Win95/NT)<BR> or "$HOME/.therc" (under UNIX), will be used, unless<BR> overridden by the environment variable "THE_PROFILE_FILE".<BR> Used to pass a string to the profile file as argument.<BR> Only works with Rexx macros.<BR> Length of longest line THE can handle (default 512)<BR> display length in non-line mode<BR> Will display a directory of the specified dir.<BR> Specifications of file(s) to edit.  If multiple files<BR> are specified, each will be put in a separate file in<BR> the ring.  The last file specified will be displayed.<BR> If no files are specified, the current directory will<BR> be displayed.<BR> Issuing [SOS EDIT] on a file spec will edit that file.<BR> [SOS EDIT] on a subdir will display that directory.<BR></TD>
+</TR></TABLE><P>
+<B> Option flags are case-sensitive. </B><BR>
+<A NAME="MINIMUMABBREVIATIONS"></A>
+<H2> Minimum Abbreviations </H2>
+  In the following segments, the capitalised portion of a command is the minimum abbreviation for the command. <P>
+<A NAME="COMMANDS"></A>
+<H2> Commands </H2>
+<A HREF = "comm.html#ADD"> Add </A> [n] <BR>
+add blank line<BR>
+Default: 1<BR>
+<A HREF = "comm.html#ALERT"> ALERT </A> /prompt/ [EDITfield [/val/]] [TITLE /title/] [OK|OKCANCEL|YESNO|YESNOCANCEL] [DEFBUTTON n] <BR>
+display a user configurable dialog box with notification<BR>
+<A HREF = "comm.html#ALL"> ALL </A> [rtarget] <BR>
+select and display restricted set of lines<BR>
+<A HREF = "comm.html#BACKWARD"> BAckward </A> [n|*] <BR>
+scroll backwards [n] screens<BR>
+Default: 1<BR>
+<A HREF = "comm.html#BOTTOM"> Bottom </A>  <BR>
+move to the bottom of the file<BR>
+<A HREF = "comm.html#CANCEL"> CANcel </A>  <BR>
+quit from all unaltered files in the ring<BR>
+<A HREF = "comm.html#CAPPEND"> CAppend </A> [text] <BR>
+append text after column pointer<BR>
+<A HREF = "comm.html#CCANCEL"> CCancel </A>  <BR>
+qquit from all files in the ring<BR>
+<A HREF = "comm.html#CDELETE"> CDelete </A> [column target] <BR>
+delete text starting at column pointer<BR>
+<A HREF = "comm.html#CFIRST"> CFirst </A>  <BR>
+move column pointer to beginning of zone<BR>
+<A HREF = "comm.html#CHANGE"> Change </A> [/string1/string2/ [target] [n] [m]] <BR>
+change one string to another<BR>
+Default: 1 1 1<BR>
+<A HREF = "comm.html#CINSERT"> CInsert </A> text <BR>
+insert text starting at the column pointer<BR>
+<A HREF = "comm.html#CLAST"> CLAst </A>  <BR>
+move the column pointer to end of zone<BR>
+<A HREF = "comm.html#CLIPBOARD"> CLIPBOARD </A> COPY|CUT|PASTE|CLEAR <BR>
+manipulate system clipboard<BR>
+<A HREF = "comm.html#CLOCATE"> CLocate </A> column target <BR>
+move the column pointer<BR>
+<A HREF = "comm.html#CMATCH"> CMATCH </A>  <BR>
+find matching bracket character<BR>
+<A HREF = "comm.html#CMSG"> CMSG </A> [text] <BR>
+display text on command line<BR>
+<A HREF = "comm.html#COMMAND"> COMMAND </A> command [options] <BR>
+execute a command without translation<BR>
+<A HREF = "comm.html#COMPRESS"> COMPress </A> [target] <BR>
+reduce spaces to tabs<BR>
+<A HREF = "comm.html#CONTROLCHAR"> CONTROLChar </A>  <BR>
+allow control characters to be entered<BR>
+<A HREF = "comm.html#COPY"> COPY </A> target1 target2 <BR>
+<A HREF = "comm.html#COPY"> COPY </A> BLOCK [RESET] <BR>
+copies text from one position to another<BR>
+<A HREF = "comm.html#COVERLAY"> COVerlay </A> text <BR>
+overlay text starting at the column pointer<BR>
+<A HREF = "comm.html#CREPLACE"> CReplace </A> text <BR>
+replace text starting at the column pointer<BR>
+<A HREF = "comm.html#CURSOR"> CURsor </A> Column <BR>
+<A HREF = "comm.html#CURSOR"> CURsor </A> Screen UP|DOWN|LEFT|RIGHT <BR>
+<A HREF = "comm.html#CURSOR"> CURsor </A> Screen row [col] <BR>
+<A HREF = "comm.html#CURSOR"> CURsor </A> [Escreen] UP|DOWN <BR>
+<A HREF = "comm.html#CURSOR"> CURsor </A> [Escreen|Kedit] LEFT|RIGHT <BR>
+<A HREF = "comm.html#CURSOR"> CURsor </A> [Escreen] row [col] <BR>
+<A HREF = "comm.html#CURSOR"> CURsor </A> CUA UP|DOWN|LEFT|RIGHT <BR>
+<A HREF = "comm.html#CURSOR"> CURsor </A> CMdline [n] <BR>
+<A HREF = "comm.html#CURSOR"> CURsor </A> HOME [SAVE] <BR>
+<A HREF = "comm.html#CURSOR"> CURsor </A> File line [col] <BR>
+<A HREF = "comm.html#CURSOR"> CURsor </A> GOTO line col <BR>
+<A HREF = "comm.html#CURSOR"> CURsor </A> Mouse <BR>
+<A HREF = "comm.html#CURSOR"> CURsor </A> Prefix <BR>
+move cursor to specified position<BR>
+<A HREF = "comm.html#DEFINE"> DEFine </A> key-name [REXX] [command [args] [[#command [args]...]]] <BR>
+<A HREF = "comm.html#DEFINE"> DEFine </A> mouse-key-definition IN window [REXX] [command [args] [[#command [args]...]]] <BR>
+assign one or many commands to a key or mouse event<BR>
+<A HREF = "comm.html#DELETE"> DELete </A> [target] <BR>
+delete lines from a file<BR>
+Default: 1<BR>
+<A HREF = "comm.html#DIALOG"> DIALOG </A> /prompt/ [EDITfield [/val/]] [TITLE /title/] [OK|OKCANCEL|YESNO|YESNOCANCEL] [DEFBUTTON n] <BR>
+display a user configurable dialog box<BR>
+<A HREF = "comm.html#DIRECTORY"> DIRectory </A> [file specification] <BR>
+list the specified directory as an editable file<BR>
+<A HREF = "comm.html#DOS"> DOS </A> [command] <BR>
+execute an operating system command<BR>
+<A HREF = "comm.html#DOSNOWAIT"> DOSNowait </A> command <BR>
+execute an operating system command - no prompt<BR>
+<A HREF = "comm.html#DOSQUIET"> DOSQuiet </A> command <BR>
+execute an operating system command quietly<BR>
+<A HREF = "comm.html#DOWN"> Down </A> [relative target] <BR>
+move forward in the file a number of lines<BR>
+Default: 1<BR>
+<A HREF = "comm.html#DUPLICATE"> DUPlicate </A> [n [target|BLOCK]] <BR>
+duplicate lines<BR>
+<A HREF = "comm.html#EDIT"> Edit </A> [file] <BR>
+edit another file or switch to next file<BR>
+<A HREF = "comm.html#EDITV"> EDITV </A> GET|PUT|GETF|PUTF var1 [var2 ...] <BR>
+<A HREF = "comm.html#EDITV"> EDITV </A> SET|SETF var1 value1 [var2 value2 ...] <BR>
+<A HREF = "comm.html#EDITV"> EDITV </A> SETL|SETLF|SETFL var1 value1 <BR>
+<A HREF = "comm.html#EDITV"> EDITV </A> LIST|LISTF [var1 ...] <BR>
+set and retrieve persistent macro variables<BR>
+<A HREF = "comm.html#EMSG"> EMSG </A> [message] <BR>
+display message<BR>
+<A HREF = "comm.html#ENTER"> ENTER </A> [CUA] <BR>
+execute a command<BR>
+<A HREF = "comm.html#EXPAND"> EXPand </A> [target] <BR>
+expand tab characters to spaces<BR>
+<A HREF = "comm.html#EXTRACT"> EXTract </A> /item/[...] <BR>
+obtain various internal information about THE<BR>
+<A HREF = "comm.html#FFILE"> FFile </A> [filename] <BR>
+force a FILE of the current file to disk<BR>
+Default: With no parameters, the current file is written.<BR>
+<A HREF = "comm.html#FILE"> FILE </A> [filename] <BR>
+write the current file to disk and remove from ring<BR>
+Default: With no parameters, the current file is written.<BR>
+<A HREF = "comm.html#FILLBOX"> FILLbox </A> [c] <BR>
+fill the marked block with a character<BR>
+<A HREF = "comm.html#FIND"> Find </A> [string] <BR>
+locate forwards the line which begins with the supplied string<BR>
+<A HREF = "comm.html#FINDUP"> FINDUp </A> [string] <BR>
+locate backwards the line which begins with the supplied string<BR>
+<A HREF = "comm.html#FORWARD"> FOrward </A> [n] <BR>
+scroll forwards [n] screens<BR>
+Default: 1<BR>
+<A HREF = "comm.html#FUP"> FUp </A> [string] <BR>
+locate backwards the line which begins with the supplied string<BR>
+<A HREF = "comm.html#GET"> GET </A> [filename] [fromline] [numlines] <BR>
+<A HREF = "comm.html#GET"> GET </A> CLIP: [STREAM|BOX|LINE] <BR>
+insert into file the contents of specified file<BR>
+<A HREF = "comm.html#HELP"> HELP </A>  <BR>
+edit help file for THE<BR>
+<A HREF = "comm.html#HIT"> HIT </A> key <BR>
+simulate hitting of the named key<BR>
+<A HREF = "comm.html#INPUT"> Input </A> [string] <BR>
+insert the command line contents into the file<BR>
+<A HREF = "comm.html#JOIN"> Join </A> [ALigned] [Column|CURSOR] <BR>
+join a line with the line following<BR>
+<A HREF = "comm.html#KEDIT"> Kedit </A> [file] <BR>
+edit another file or switch to next file<BR>
+<A HREF = "comm.html#LEFT"> LEft </A> [n|HALF|FULL] <BR>
+scroll the screen to the left<BR>
+<A HREF = "comm.html#LOCATE"> [Locate] </A> target [command] <BR>
+search for a target<BR>
+<A HREF = "comm.html#LOWERCASE"> LOWercase </A> [target] <BR>
+change uppercase characters to lowercase<BR>
+<A HREF = "comm.html#LS"> LS </A> [file specification] <BR>
+list the specified directory as an editable file<BR>
+<A HREF = "comm.html#MACRO"> MACRO </A> [?] filename [arguments ...] <BR>
+execute a macro command file<BR>
+<A HREF = "comm.html#MARK"> MARK </A> Box [line1 col1 line2 col2] <BR>
+<A HREF = "comm.html#MARK"> MARK </A> Line [line1 line2] <BR>
+<A HREF = "comm.html#MARK"> MARK </A> Stream [line1 col1 line2 col2] <BR>
+<A HREF = "comm.html#MARK"> MARK </A> Column [col1 col2] <BR>
+<A HREF = "comm.html#MARK"> MARK </A> Word [line1 col1] <BR>
+<A HREF = "comm.html#MARK"> MARK </A> CUA [LEFT|RIGHT|UP|DOWN|START|END|FOrward|BAckward|TOP|Bottom|MOUSE] <BR>
+mark a portion of text<BR>
+<A HREF = "comm.html#MODIFY"> MODify </A> set-command <BR>
+display current SET command for alteration<BR>
+<A HREF = "comm.html#MOVE"> MOVE </A> target1 target2 <BR>
+<A HREF = "comm.html#MOVE"> MOVE </A> BLOCK [RESET] <BR>
+move a portion of text<BR>
+<A HREF = "comm.html#MSG"> MSG </A> [message] <BR>
+display message on error line<BR>
+<A HREF = "comm.html#NEXT"> Next </A> [relative target] <BR>
+move forward in the file a number of lines<BR>
+Default: 1<BR>
+<A HREF = "comm.html#NEXTWINDOW"> NEXTWindow </A>  <BR>
+switch focus of editing session to another file<BR>
+<A HREF = "comm.html#NFIND"> NFind </A> [string] <BR>
+locate forwards the line which does NOT begin with the supplied string<BR>
+<A HREF = "comm.html#NFINDUP"> NFINDUp </A> [string] <BR>
+locate backwards the line which does NOT begin with the supplied string<BR>
+<A HREF = "comm.html#NFUP"> NFUp </A> [string] <BR>
+locate backwards the line which does NOT begin with the supplied string<BR>
+<A HREF = "comm.html#NOMSG"> NOMSG </A> command [arguments] <BR>
+execute a command suppressing any messages<BR>
+<A HREF = "comm.html#NOP"> NOP </A>  <BR>
+no operation command<BR>
+<A HREF = "comm.html#OS"> OS </A> [command] <BR>
+execute an operating system command<BR>
+<A HREF = "comm.html#OSNOWAIT"> OSNowait </A> command <BR>
+execute an operating system command - no prompt<BR>
+<A HREF = "comm.html#OSQUIET"> OSQuiet </A> command <BR>
+execute an operating system command quietly<BR>
+<A HREF = "comm.html#OSREDIR"> OSRedir </A> filename command [arguments ...] <BR>
+execute an operating system command and capture output<BR>
+<A HREF = "comm.html#OVERLAYBOX"> OVERLAYBox </A>  <BR>
+overlay marked block on current cursor position<BR>
+<A HREF = "comm.html#POPUP"> POPUP </A> [MOUSE|TEXT|CENTER|CENTRE|BELOW|ABOVE] [INITIAL n] [ESCAPE keyname] /item1[/item2/...] <BR>
+display popup menu<BR>
+<A HREF = "comm.html#PRESERVE"> PREServe </A>  <BR>
+save various editor settings<BR>
+<A HREF = "comm.html#PREVWINDOW"> PREVWindow </A>  <BR>
+switch focus of editing session to another file<BR>
+<A HREF = "comm.html#PRINT"> PRint </A> [target] [n] <BR>
+<A HREF = "comm.html#PRINT"> PRint </A> LINE [text] <BR>
+<A HREF = "comm.html#PRINT"> PRint </A> STRING [text] <BR>
+<A HREF = "comm.html#PRINT"> PRint </A> FORMfeed <BR>
+<A HREF = "comm.html#PRINT"> PRint </A> CLOSE <BR>
+send text to default printer or print spooler<BR>
+<A HREF = "comm.html#PUT"> PUT </A> [target] [filename] <BR>
+write part of a file to another<BR>
+<A HREF = "comm.html#PUTD"> PUTD </A> [target] [filename] <BR>
+write part of a file to another and delete<BR>
+<A HREF = "comm.html#QQUIT"> QQuit </A>  <BR>
+exit from the current file without saving changes<BR>
+<A HREF = "comm.html#QUERY"> Query </A> item <BR>
+display various option settings<BR>
+<A HREF = "comm.html#QUIT"> QUIT </A>  <BR>
+exit from the current file if no changes made<BR>
+<A HREF = "comm.html#READV"> READV </A> Cmdline [initial text] <BR>
+<A HREF = "comm.html#READV"> READV </A> KEY <BR>
+read keystrokes and pass to macro<BR>
+<A HREF = "comm.html#RECORD"> RECORD </A> stop_key filename <BR>
+records all keystrokes into a macro file<BR>
+<A HREF = "comm.html#RECOVER"> RECover </A> [n|*] <BR>
+recover changed or deleted lines<BR>
+<A HREF = "comm.html#REDIT"> REDIT </A>  <BR>
+re-edit the current file<BR>
+<A HREF = "comm.html#REDRAW"> REDRAW </A>  <BR>
+redraw the current screen<BR>
+<A HREF = "comm.html#REFRESH"> REFRESH </A>  <BR>
+refresh the contents of the current screen<BR>
+<A HREF = "comm.html#REPEAT"> REPEat </A> [target] <BR>
+repeat the last command<BR>
+<A HREF = "comm.html#REPLACE"> Replace </A> [text] <BR>
+replace the current line with supplied text<BR>
+<A HREF = "comm.html#RESET"> RESet </A> ALL|Block|Prefix|THIGHlight <BR>
+cancel the marked block or prefix commands or both<BR>
+<A HREF = "comm.html#RESTORE"> REStore </A>  <BR>
+restore various editor settings<BR>
+<A HREF = "comm.html#REXX"> REXX </A> rexx instructions <BR>
+execute Rexx instructions<BR>
+<A HREF = "comm.html#RGTLEFT"> RGTLEFT </A> [n] <BR>
+scroll the screen to the left or right<BR>
+<A HREF = "comm.html#RIGHT"> RIght </A> [n|HALF|FULL] <BR>
+scroll the screen to the right<BR>
+<A HREF = "comm.html#SAVE"> SAVE </A> [filename] <BR>
+save changes to current file<BR>
+<A HREF = "comm.html#SCHANGE"> SCHange </A> /string1/string2/ [target] [n] [m] <BR>
+selectively change strings<BR>
+Default: 1 1 1<BR>
+<A HREF = "comm.html#SEARCH"> SEArch </A> string target <BR>
+locate a string<BR>
+<A HREF = "comm.html#SET"> SET set_command </A> [set_command parameter(s) ...] <BR>
+execute various set commands<BR>
+<A HREF = "comm.html#SHIFT"> SHift </A> Left|Right [n] [target] <BR>
+move text left or right<BR>
+<A HREF = "comm.html#SHOWKEY"> SHOWkey </A> [ALL] <BR>
+display current key value and command assignation<BR>
+<A HREF = "comm.html#SORT"> SORT </A> target [[sort field 1] [...] [sort field 10]] <BR>
+sort selected lines in a file<BR>
+<A HREF = "comm.html#SOS"> SOS sos_command </A> [sos_command ...] <BR>
+execute various sos commands<BR>
+<A HREF = "comm.html#SPLIT"> SPlit </A> [ALigned] [Column|CURSOR] <BR>
+split a line into two lines<BR>
+<A HREF = "comm.html#SPLTJOIN"> spltjoin </A>  <BR>
+split/join two lines<BR>
+<A HREF = "comm.html#SSAVE"> SSave </A> [filename] <BR>
+force SAVE to specified file<BR>
+<A HREF = "comm.html#STATUS"> STATus </A> [filename] <BR>
+display current settings of various variables<BR>
+<A HREF = "comm.html#SUSPEND"> SUSPend </A>  <BR>
+suspend THE and return to operating system<BR>
+<A HREF = "comm.html#TABFILE"> TABFILE </A> [+|-] <BR>
+edit the file under the file tab or shift FILETABS view<BR>
+<A HREF = "comm.html#TAG"> TAG </A> [More|Less] [rtarget] <BR>
+displays lines matching target in different colour<BR>
+<A HREF = "comm.html#TEXT"> TEXT </A> text <BR>
+simulate keyboard entry of characters<BR>
+<A HREF = "comm.html#THE"> THE </A> [filename] <BR>
+edit another file or switch to next file<BR>
+<A HREF = "comm.html#TOASCII"> TOASCII </A> [target] <BR>
+convert the target from EBCDIC to ASCII<BR>
+<A HREF = "comm.html#TOP"> TOP </A>  <BR>
+move to the top of the file<BR>
+<A HREF = "comm.html#UP"> Up </A> [relative target] <BR>
+move backward in the file a number of lines<BR>
+Default: 1<BR>
+<A HREF = "comm.html#UPPERCASE"> UPPercase </A> [target] <BR>
+change lowercase characters to uppercase<BR>
+<A HREF = "comm.html#XEDIT"> Xedit </A> [file] <BR>
+edit another file or switch to next file<BR>
+<A HREF = "comm.html#QUESTIONMARK"> ?[+|?...] </A>  <BR>
+retrieve - return the next/prior command on the command line<BR>
+<A HREF = "comm.html#EQUALSIGN"> = </A>  <BR>
+re-execute the last command issued on the command line<BR>
+<A HREF = "comm.html#EXCLAIMARK"> ! </A> [command] <BR>
+execute an operating system command<BR>
+<A HREF = "comm.html#AMPERSAND"> &[command] </A>  <BR>
+execute and re-display command<BR>
+<A NAME="SETCOMMANDS"></A>
+<H2> SET commands </H2>
+<A HREF = "commset.html#SETALT"> [SET] ALT </A> [n] [m] <BR>
+change alteration counts<BR>
+Default: OFF<BR>
+<A HREF = "commset.html#SETARBCHAR"> [SET] ARBchar </A> ON|OFF [char1] [char2] <BR>
+set arbitrary character(s) for targets<BR>
+Default: Off $ ?<BR>
+<A HREF = "commset.html#SETAUTOCOLOR"> [SET] AUTOCOLOR </A> mask parser [MAGIC] <BR>
+specifies which parser to use for syntax highlighting<BR>
+Default: See <QUERY> AUTOCOLOR<BR>
+<A HREF = "commset.html#SETAUTOCOLOUR"> [SET] AUTOCOLOUR </A> mask parser [MAGIC] <BR>
+specifies which parser to use for syntax highlighting<BR>
+Default: See <QUERY> AUTOCOLOR<BR>
+<A HREF = "commset.html#SETAUTOSAVE"> [SET] AUtosave </A> n|OFF <BR>
+set autosave period<BR>
+Default: OFF<BR>
+<A HREF = "commset.html#SETAUTOSCROLL"> [SET] AUTOSCroll </A> n|OFF|Half <BR>
+set rate of automatic horizontal scrolling<BR>
+Default: HALF<BR>
+<A HREF = "commset.html#SETBACKUP"> [SET] BACKup </A> OFF|TEMP|KEEP|ON|INPLACE <BR>
+indicate if a backup copy of the file is to be kept<BR>
+Default: KEEP<BR>
+<A HREF = "commset.html#SETBEEP"> [SET] BEEP </A> ON|OFF <BR>
+turn on or off the audible alarm when displaying errors<BR>
+Default: OFF<BR>
+<A HREF = "commset.html#SETBOUNDMARK"> [SET] BOUNDMARK </A> OFF|Zone|TRunc|MARgins|TABs|Verify <BR>
+set bounds marker display<BR>
+Default: Zone<BR>
+<A HREF = "commset.html#SETCASE"> [SET] CASE </A> Mixed|Lower|Upper [Respect|Ignore] [Respect|Ignore] [Respect|Ignore] [Mixed|Lower|Upper] [Mixed|Lower|Upper] <BR>
+set case sensitivity parameters<BR>
+Default: Mixed Ignore Respect Respect<BR>
+<A HREF = "commset.html#SETCLEARERRORKEY"> [SET] CLEARErrorkey </A> *|keyname <BR>
+specify which key clears the message line<BR>
+Default: *<BR>
+<A HREF = "commset.html#SETCLEARSCREEN"> [SET] CLEARScreen </A> ON|OFF <BR>
+indicate if the screen is to be cleared on exit<BR>
+Default: OFF<BR>
+<A HREF = "commset.html#SETCLOCK"> [SET] CLOCK </A> ON|OFF <BR>
+turn on or off display of time on status line<BR>
+Default: ON<BR>
+<A HREF = "commset.html#SETCMDARROWS"> [SET] CMDArrows </A> Retrieve|Tab <BR>
+sets the behaviour of the up and down arrow keys<BR>
+Default: RETRIEVE<BR>
+<A HREF = "commset.html#SETCMDLINE"> [SET] CMDline </A> ON|OFF|Top|Bottom <BR>
+sets the position of the command line.<BR>
+Default: BOTTOM<BR>
+<A HREF = "commset.html#SETCOLOR"> [SET] COLOR </A> area [modifier[...]] [foreground] [ON] [background] <BR>
+<A HREF = "commset.html#SETCOLOR"> [SET] COLOR </A> area [modifier[...]] ON|OFF <BR>
+set colours for display<BR>
+Default: Depends on compatibility mode setting and monitor type.<BR>
+<A HREF = "commset.html#SETCOLOUR"> [SET] COLOUR </A> area [modifier[...]] [foreground] [on background] <BR>
+<A HREF = "commset.html#SETCOLOUR"> [SET] COLOUR </A> area [modifier[...]] ON|OFF <BR>
+set colours for display<BR>
+Default: Depends on compatibility mode setting and monitor type.<BR>
+<A HREF = "commset.html#SETCOLORING"> [SET] COLORING </A> ON|OFF [AUTO|parser] <BR>
+enable or disable syntax highlighting<BR>
+Default: ON AUTO<BR>
+<A HREF = "commset.html#SETCOLOURING"> [SET] COLOURING </A> ON|OFF [AUTO|parser] <BR>
+enable or disable syntax highlighting<BR>
+Default: ON AUTO<BR>
+<A HREF = "commset.html#SETCOMPAT"> [SET] COMPat </A> The|Xedit|Kedit|KEDITW|Ispf|= [The|Xedit|Kedit|KEDITW|Ispf|=] [The|Xedit|Kedit|KEDITW|Ispf|=] <BR>
+set compatibility mode<BR>
+Default: THE THE THE<BR>
+<A HREF = "commset.html#SETCTLCHAR"> [SET] CTLchar </A> OFF <BR>
+<A HREF = "commset.html#SETCTLCHAR"> [SET] CTLchar </A> char Escape | OFF <BR>
+<A HREF = "commset.html#SETCTLCHAR"> [SET] CTLchar </A> char Protect|Noprotect [modifier[...]] [fore [ON back]] <BR>
+define control character attributes<BR>
+Default: OFF<BR>
+<A HREF = "commset.html#SETCURLINE"> [SET] CURLine </A> [ON] M[+n|-n] | [+|-]n <BR>
+set position of current line on screen<BR>
+Default: M<BR>
+<A HREF = "commset.html#SETCURSORSTAY"> [SET] CURSORSTay </A> ON|OFF <BR>
+set on or off the behaviour of the cursor on a scroll<BR>
+Default: ON<BR>
+<A HREF = "commset.html#SETDEFSORT"> [SET] DEFSORT </A> OFF|DIRectory|Size|Date|Time|Name [Ascending|Descending] <BR>
+specify the order in which files appear in DIR.DIR<BR>
+Default: NAME ASCENDING<BR>
+<A HREF = "commset.html#SETDIRINCLUDE"> [SET] DIRInclude </A> * <BR>
+<A HREF = "commset.html#SETDIRINCLUDE"> [SET] DIRInclude </A> [Normal] [Readonly] [System] [Hidden] [Directory] <BR>
+set the file mask for directory command<BR>
+Default: *<BR>
+<A HREF = "commset.html#SETDISPLAY"> [SET] DISPlay </A> n [m|*] <BR>
+specify which level of lines to display<BR>
+Default: 0 0<BR>
+<A HREF = "commset.html#SETECOLOR"> [SET] ECOLOR </A> char [modifier[...]] [foreground] [on background] <BR>
+<A HREF = "commset.html#SETECOLOR"> [SET] ECOLOR </A> char [modifier[...]] ON|OFF <BR>
+set colors for syntax highlighting<BR>
+Default: See <QUERY> ECOLOR<BR>
+<A HREF = "commset.html#SETECOLOUR"> [SET] ECOLOUR </A> char [modifier[...]] [foreground] [on background] <BR>
+<A HREF = "commset.html#SETECOLOUR"> [SET] ECOLOUR </A> char [modifier[...]] ON|OFF <BR>
+set colours for syntax highlighting<BR>
+Default: See <QUERY> ECOLOR<BR>
+<A HREF = "commset.html#SETEOLOUT"> [SET] EOLout </A> CRLF|LF|CR|NONE <BR>
+set end of line terminating character(s)<BR>
+Default: LF - UNIX<BR>
+Default: CRLF - DOS/OS2/WIN32<BR>
+Default: NONE - if THE started with -u option<BR>
+<A HREF = "commset.html#SETEQUIVCHAR"> [SET] EQUIVChar </A> char <BR>
+set the equivalence character<BR>
+Default: =<BR>
+<A HREF = "commset.html#SETETMODE"> [SET] ETMODE </A> ON|OFF [character list] <BR>
+indicate if extended display mode is possible<BR>
+Default: ON - DOS/OS2/WIN32<BR>
+Default: ON 32-255 - X11<BR>
+Default: OFF - UNIX/AMIGA/QNX<BR>
+<A HREF = "commset.html#SETFEXT"> [SET] FExt </A> ext <BR>
+<A HREF = "commset.html#SETFTYPE"> [SET] FType </A> ext <BR>
+change the extension of the existing file<BR>
+<A HREF = "commset.html#SETFILENAME"> [SET] FILEName </A> filename <BR>
+change the filename of the file being edited<BR>
+<A HREF = "commset.html#SETFILETABS"> [SET] FILETABS </A> ON|OFF <BR>
+determine if and where where file tabs are positioned<BR>
+<A HREF = "commset.html#SETFMODE"> [SET] FMode </A> d[:] <BR>
+change the drive letter of the existing file<BR>
+<A HREF = "commset.html#SETFNAME"> [SET] FName </A> filename <BR>
+change the filename of the file being edited<BR>
+<A HREF = "commset.html#SETFPATH"> [SET] FPath </A> path <BR>
+change the path of the existing file<BR>
+<A HREF = "commset.html#SETFTYPE"> [SET] FType </A> ext <BR>
+change the extension of the existing file<BR>
+<A HREF = "commset.html#SETFULLFNAME"> [SET] FULLFName </A> ON|OFF <BR>
+specify if complete filename to be displayed<BR>
+Default: ON<BR>
+<A HREF = "commset.html#SETHEADER"> [SET] HEADer </A> section ON|OFF <BR>
+turn on or off syntax highlighting headers<BR>
+Default: * ON<BR>
+<A HREF = "commset.html#SETHEX"> [SET] HEX </A> ON|OFF <BR>
+set how hexadecimal strings are treated in string operands<BR>
+Default: OFF<BR>
+<A HREF = "commset.html#SETHEXDISPLAY"> [SET] HEXDISPlay </A> ON|OFF <BR>
+turn on or off display of character under cursor<BR>
+Default: ON<BR>
+<A HREF = "commset.html#SETHEXSHOW"> [SET] HEXShow </A> ON|OFF [M[+n|-n]|[+|-]n] <BR>
+turn on or off hex display of current line<BR>
+Default: OFF 7<BR>
+<A HREF = "commset.html#SETHIGHLIGHT"> [SET] HIGHlight </A> OFF|TAGged|ALTered|SELect n [m] <BR>
+specify which lines (if any) are to be highlighted<BR>
+Default: OFF<BR>
+<A HREF = "commset.html#SETIDLINE"> [SET] IDline </A> ON|OFF <BR>
+specify if IDLINE is displayed<BR>
+Default: ON<BR>
+<A HREF = "commset.html#SETIMPCMSCP"> [SET] IMPcmscp </A> ON|OFF <BR>
+set implied operating system command processing<BR>
+Default: ON<BR>
+<A HREF = "commset.html#SETIMPMACRO"> [SET] IMPMACro </A> ON|OFF <BR>
+set implied macro command processing<BR>
+Default: ON<BR>
+<A HREF = "commset.html#SETIMPOS"> [SET] IMPOS </A> ON|OFF <BR>
+set implied operating system command processing<BR>
+Default: ON<BR>
+<A HREF = "commset.html#SETINPUTMODE"> [SET] INPUTMode </A> OFF|FUll|LIne <BR>
+set input mode behaviour<BR>
+Default: LINE<BR>
+<A HREF = "commset.html#SETINSERTMODE"> [SET] INSERTMode </A> ON|OFF|TOGGLE <BR>
+put editor into or out of insert mode<BR>
+Default: OFF<BR>
+<A HREF = "commset.html#SETINTERFACE"> [SET] INTerface </A> CLASSIC|CUA <BR>
+set overall behaviour of THE<BR>
+Default: CLASSIC<BR>
+<A HREF = "commset.html#SETLASTOP"> [SET] LASTOP </A> operand text <BR>
+set the contents of the lastop argument<BR>
+<A HREF = "commset.html#SETLINEFLAG"> [SET] LINEFLAG </A> CHAnge|NOCHange NEW|NONEW TAG|NOTAG [target] <BR>
+set the line characteristics of lines<BR>
+Default: NOCHANGE NONEW NOTAG<BR>
+<A HREF = "commset.html#SETLINEND"> [SET] LINENd </A> ON|OFF [character] <BR>
+allow/disallow multiple commands on command line<BR>
+Default: OFF #<BR>
+<A HREF = "commset.html#SETMACRO"> [SET] MACRO </A> ON|OFF <BR>
+indicate if macros executed before commands<BR>
+Default: OFF<BR>
+<A HREF = "commset.html#SETMACROEXT"> [SET] MACROExt </A> [ext] <BR>
+set default macro extension value<BR>
+Default: the<BR>
+<A HREF = "commset.html#SETMACROPATH"> [SET] MACROPath </A> PATH|path[s] <BR>
+set default path for macro commands<BR>
+Default: Path specified by env variable THE_MACRO_PATH<BR>
+<A HREF = "commset.html#SETMARGINS"> [SET] MARgins </A> left right [[+|-]indent] <BR>
+set left and right margins for wordwrap<BR>
+Default: 1 72 +0<BR>
+<A HREF = "commset.html#SETMOUSE"> [SET] MOUSE </A> ON|OFF <BR>
+turn mouse support on or off<BR>
+Default: ON - if mouse supported, OFF - otherwise<BR>
+<A HREF = "commset.html#SETMSGLINE"> [SET] MSGLine </A> ON M[+n|-n]|[+|-]n [lines] [Overlay] <BR>
+<A HREF = "commset.html#SETMSGLINE"> [SET] MSGLine </A> CLEAR <BR>
+set position and size of message line<BR>
+Default: ON 2 5 Overlay<BR>
+<A HREF = "commset.html#SETMSGMODE"> [SET] MSGMode </A> ON|OFF <BR>
+set display of messages on or off<BR>
+Default: ON<BR>
+<A HREF = "commset.html#SETNEWLINES"> [SET] NEWLines </A> Aligned|Left <BR>
+set position of cursor after adding blank line<BR>
+Default: Aligned<BR>
+<A HREF = "commset.html#SETNONDISP"> [SET] NONDisp </A> character <BR>
+specify character to display for non-displaying characters<BR>
+Default: #<BR>
+<A HREF = "commset.html#SETNUMBER"> [SET] NUMber </A> ON|OFF <BR>
+turn prefix numbers on or off<BR>
+Default: ON<BR>
+<A HREF = "commset.html#SETPAGEWRAP"> [SET] PAGEWRAP </A> ON|OFF <BR>
+determine if page scrolling wraps at bottom/top of file<BR>
+Default: ON<BR>
+<A HREF = "commset.html#SETPARSER"> [SET] PARSER </A> parser file <BR>
+associates a language definition file with a parser<BR>
+<A HREF = "commset.html#SETPENDING"> [SET] PENDing </A> ON string <BR>
+<A HREF = "commset.html#SETPENDING"> [SET] PENDing </A> OFF <BR>
+<A HREF = "commset.html#SETPENDING"> [SET] PENDing </A> BLOCK string <BR>
+set status of pending prefix commands<BR>
+<A HREF = "commset.html#SETPOINT"> [SET] Point </A> .name [OFF] <BR>
+assign a name to the current line<BR>
+<A HREF = "commset.html#SETPOSITION"> [SET] POSition </A> ON|OFF <BR>
+determine if LINE/COL is displayed on idline<BR>
+Default: ON<BR>
+<A HREF = "commset.html#SETPREFIX"> [SET] PREfix </A> ON [Left|Right] [n [m]] <BR>
+<A HREF = "commset.html#SETPREFIX"> [SET] PREfix </A> Nulls [Left|Right] [n [m]] <BR>
+<A HREF = "commset.html#SETPREFIX"> [SET] PREfix </A> OFF <BR>
+<A HREF = "commset.html#SETPREFIX"> [SET] PREfix </A> Synonym newname oldname <BR>
+set prefix area attributes<BR>
+Default: ON Left 6 0<BR>
+<A HREF = "commset.html#SETPRINTER"> [SET] PRINTER </A> spooler|[OPTION options] <BR>
+define printer spooler name<BR>
+Default: LPT1 - DOS/OS2, lpr - Unix, default - Win32<BR>
+<A HREF = "commset.html#SETPSCREEN"> [SET] PSCReen </A> height [width] [RESET|PRESET] <BR>
+set physical size of screen<BR>
+Default: System Dependent<BR>
+<A HREF = "commset.html#SETREADONLY"> [SET] READONLY </A> ON|OFF|FORCE <BR>
+allow/disallow changes to a file if it is readonly<BR>
+Default: OFF<BR>
+<A HREF = "commset.html#SETREGEXP"> [SET] REGEXP </A> syntax <BR>
+specify the regular expression syntax to use<BR>
+Default: EMACS<BR>
+<A HREF = "commset.html#SETREPROFILE"> [SET] REPROFile </A> ON|OFF <BR>
+indicate if profile file to be executed for all files<BR>
+Default: OFF<BR>
+<A HREF = "commset.html#SETRESERVED"> [SET] RESERved </A> *|+|-n [colour] [text|OFF] <BR>
+display a reserved line<BR>
+<A HREF = "commset.html#SETREXXOUTPUT"> [SET] REXXOUTput </A> File|Display n <BR>
+indicate where Rexx output is to go<BR>
+Default: Display 1000<BR>
+<A HREF = "commset.html#SETSCALE"> [SET] SCALe </A> ON|OFF [M[+n|-n]|[+|-]n] <BR>
+set position and status of scale line on screen<BR>
+Default: OFF M+1<BR>
+<A HREF = "commset.html#SETSCOPE"> [SET] SCOPE </A> All|Display <BR>
+sets which lines are to be excluded from commands<BR>
+Default: Display<BR>
+<A HREF = "commset.html#SETSCREEN"> [SET] SCReen </A> n [Horizontal|Vertical] <BR>
+<A HREF = "commset.html#SETSCREEN"> [SET] SCReen </A> Size l1|* [l2|*] <BR>
+<A HREF = "commset.html#SETSCREEN"> [SET] SCReen </A> Width c1|* [c2|*] <BR>
+specify number of screens displayed and their sizes<BR>
+Default: 1<BR>
+<A HREF = "commset.html#SETSELECT"> [SET] SELect </A> [+|-]n [target] <BR>
+sets the selection level for the specified lines<BR>
+Default: 0<BR>
+<A HREF = "commset.html#SETSHADOW"> [SET] SHADOW </A> ON|OFF <BR>
+determines if shadow lines are displayed or not<BR>
+Default: ON<BR>
+<A HREF = "commset.html#SETSLK"> [SET] SLK </A> n|OFF|ON [text] <BR>
+set Soft Label Key definitions<BR>
+Default: OFF if no SLK support<BR>
+Default: ON if SLK support available<BR>
+<A HREF = "commset.html#SETSPAN"> [SET] SPAN </A> ON|OFF [Blank|Noblank [n|*]] <BR>
+specify if a string target can span multiple lines (unavailable)<BR>
+Default: OFF Blank 2<BR>
+<A HREF = "commset.html#SETSPILL"> [SET] SPILL </A> ON|OFF|WORD <BR>
+specify if a string target can span multiple lines (unavailable)<BR>
+Default: OFF<BR>
+<A HREF = "commset.html#SETSTATOPT"> [SET] STATOPT </A> ON option column [length [prompt] ] <BR>
+<A HREF = "commset.html#SETSTATOPT"> [SET] STATOPT </A> OFF option|* <BR>
+set display options on statusline<BR>
+Default: ON NBFILE.1 13 0 Files=<BR>
+Default: ON WIDTH.1 23 0 Width=<BR>
+<A HREF = "commset.html#SETSTATUSLINE"> [SET] STATUSLine </A> Top|Bottom|Off|GUI <BR>
+set position of status line<BR>
+Default: Bottom<BR>
+<A HREF = "commset.html#SETSTAY"> [SET] STAY </A> ON|OFF <BR>
+set condition of cursor position after CHANGE/LOCATE commands<BR>
+Default: ON<BR>
+<A HREF = "commset.html#SETSYNONYM"> [SET] SYNonym </A> ON|OFF <BR>
+<A HREF = "commset.html#SETSYNONYM"> [SET] SYNonym </A> [LINEND char] newname [n] definition <BR>
+define synonyms for commands (unavailable)<BR>
+Default: OFF<BR>
+<A HREF = "commset.html#SETTABKEY"> [SET] TABKey </A> Tab|Character Tab|Character <BR>
+set characteristics of the SOS TABF command<BR>
+Default: Tab Character<BR>
+<A HREF = "commset.html#SETTABLINE"> [SET] TABLine </A> ON|OFF [M[+n|-n]|[+|-]n] <BR>
+set position and status of tab line on screen<BR>
+Default: OFF -3<BR>
+<A HREF = "commset.html#SETTABS"> [SET] TABS </A> n1 [n2 ... n32] <BR>
+<A HREF = "commset.html#SETTABS"> [SET] TABS </A> INCR n <BR>
+<A HREF = "commset.html#SETTABS"> [SET] TABS </A> OFF <BR>
+set tab columns or tab length<BR>
+Default: INCR 8<BR>
+<A HREF = "commset.html#SETTABSIN"> [SET] TABSIn </A> ON|OFF [n] <BR>
+set tab processing on file input<BR>
+Default: OFF 8<BR>
+<A HREF = "commset.html#SETTABSOUT"> [SET] TABSOut </A> ON|OFF [n] <BR>
+set tab processing on file output<BR>
+Default: OFF 8<BR>
+<A HREF = "commset.html#SETTARGETSAVE"> [SET] TARGETSAVE </A> ALL|NONE| STRING REGEXP ABSOLUTE RELATIVE POINT BLANK <BR>
+set type(s) of targets to save for subsequent LOCATEs<BR>
+Default: ALL<BR>
+<A HREF = "commset.html#SETTHIGHLIGHT"> [SET] THIGHlight </A> ON|OFF <BR>
+specify if text highlighting is supported<BR>
+Default: ON - THE/KEDIT/KEDITW OFF - XEDIT/ISPF<BR>
+<A HREF = "commset.html#SETTIMECHECK"> [SET] TIMECHECK </A> ON|OFF <BR>
+specify if time stamp checking done<BR>
+Default: ON<BR>
+<A HREF = "commset.html#SETTOFEOF"> [SET] TOFEOF </A> ON|OFF <BR>
+specify if TOF and BOF lines are displayed<BR>
+Default: ON<BR>
+<A HREF = "commset.html#SETTRAILING"> [SET] TRAILING </A> ON|OFF|SINGLE|EMPTY <BR>
+specify how to treat trailing blanks on lines<BR>
+Default: ON<BR>
+<A HREF = "commset.html#SETTRUNC"> [SET] TRunc </A> n|* <BR>
+specify the truncation column<BR>
+Default: *<BR>
+<A HREF = "commset.html#SETTYPEAHEAD"> [SET] TYPEAhead </A> ON|OFF <BR>
+set behaviour of screen redraw<BR>
+Default: OFF<BR>
+<A HREF = "commset.html#SETUNDOING"> [SET] UNDOING </A> ON|OFF <BR>
+turn on or off undo facility for the current file<BR>
+Default: ON<BR>
+<A HREF = "commset.html#SETUNTAA"> [SET] UNTAA </A> ON|OFF <BR>
+specifies if "Unsigned Numerical Targets Are Absolute"<BR>
+Default: OFF<BR>
+<A HREF = "commset.html#SETVERIFY"> [SET] Verify </A> first [last] <BR>
+set column display limits<BR>
+Default: 1 *<BR>
+<A HREF = "commset.html#SETWIDTH"> [SET] WIDTH </A> n <BR>
+set width of maximum line that THE can edit<BR>
+Default: 512<BR>
+<A HREF = "commset.html#SETWORD"> [SET] WORD </A> NONBlank|ALPHAnum <BR>
+controls what THE considers a word to be<BR>
+Default: NONBlank<BR>
+<A HREF = "commset.html#SETWORDWRAP"> [SET] WORDWrap </A> ON|OFF <BR>
+set wordwrap feature on or off<BR>
+Default: OFF<BR>
+<A HREF = "commset.html#SETWRAP"> [SET] WRap </A> ON|OFF <BR>
+enable/disable string locates around the end of the file<BR>
+Default: OFF<BR>
+<A HREF = "commset.html#SETXTERMINAL"> [SET] XTERMinal </A> program <BR>
+set X terminal to execute under X<BR>
+Default: System dependent but usually one of:<BR>
+<A HREF = "commset.html#SETZONE"> [SET] Zone </A> first [last] <BR>
+set column limits for editing<BR>
+Default: 1 *<BR>
+<A NAME="SOSCOMMANDS"></A>
+<H2> SOS commands </H2>
+<A HREF = "commsos.html#SOSADDLINE"> SOS ADDline </A>  <BR>
+add blank line after focus line<BR>
+<A HREF = "commsos.html#SOSBLOCKEND"> SOS BLOCKEnd </A>  <BR>
+move cursor to end of marked block<BR>
+<A HREF = "commsos.html#SOSBLOCKSTART"> SOS BLOCKStart </A>  <BR>
+move cursor to start of marked block<BR>
+<A HREF = "commsos.html#SOSBOTTOMEDGE"> SOS BOTTOMEdge </A>  <BR>
+move cursor to bottom edge of FILEAREA<BR>
+<A HREF = "commsos.html#SOSCUADELBACK"> SOS CUADELBAck </A>  <BR>
+delete the character to the left of the cursor<BR>
+<A HREF = "commsos.html#SOSCUADELCHAR"> SOS CUADELChar </A>  <BR>
+delete character under cursor<BR>
+<A HREF = "commsos.html#SOSCURRENT"> SOS CURRent </A>  <BR>
+move cursor to current line<BR>
+<A HREF = "commsos.html#SOSCURSORADJ"> SOS CURSORAdj </A>  <BR>
+move first non-blank character to cursor<BR>
+<A HREF = "commsos.html#SOSCURSORSHIFT"> SOS CURSORSHIFT </A>  <BR>
+move text to right of cursor to cursor<BR>
+<A HREF = "commsos.html#SOSDELBACK"> SOS DELBAck </A>  <BR>
+delete the character to the left of the cursor<BR>
+<A HREF = "commsos.html#SOSDELCHAR"> SOS DELChar </A>  <BR>
+delete character under cursor<BR>
+<A HREF = "commsos.html#SOSDELEND"> SOS DELEnd </A>  <BR>
+delete to end of line<BR>
+<A HREF = "commsos.html#SOSDELLINE"> SOS DELLine </A>  <BR>
+delete focus line<BR>
+<A HREF = "commsos.html#SOSDELWORD"> SOS DELWord </A>  <BR>
+delete word at or right of cursor<BR>
+<A HREF = "commsos.html#SOSDOPREFIX"> SOS DOPREfix </A>  <BR>
+execute any pending prefix commands<BR>
+<A HREF = "commsos.html#SOSEDIT"> SOS EDIT </A>  <BR>
+edit a file from directory list<BR>
+<A HREF = "commsos.html#SOSENDCHAR"> SOS ENDChar </A>  <BR>
+move cursor to end of focus line<BR>
+<A HREF = "commsos.html#SOSEXECUTE"> SOS EXecute </A>  <BR>
+move cursor to command line and execute command<BR>
+<A HREF = "commsos.html#SOSFIRSTCHAR"> SOS FIRSTCHar </A>  <BR>
+move cursor to first non-blank of field<BR>
+<A HREF = "commsos.html#SOSFIRSTCOL"> SOS FIRSTCOl </A>  <BR>
+move cursor to first column of field<BR>
+<A HREF = "commsos.html#SOSINSTAB"> SOS INSTAB </A>  <BR>
+shift text to next tab column<BR>
+<A HREF = "commsos.html#SOSLASTCOL"> SOS LASTCOl </A>  <BR>
+move cursor to last column of field<BR>
+<A HREF = "commsos.html#SOSLEFTEDGE"> SOS LEFTEdge </A>  <BR>
+move cursor to left edge of window<BR>
+<A HREF = "commsos.html#SOSLINEADD"> SOS LINEAdd </A>  <BR>
+add blank line after focus line<BR>
+<A HREF = "commsos.html#SOSLINEDEL"> SOS LINEDel </A>  <BR>
+delete focus line<BR>
+<A HREF = "commsos.html#SOSMAKECURR"> SOS MAKECURR </A>  <BR>
+make focus line the current line<BR>
+<A HREF = "commsos.html#SOSMARGINL"> SOS MARGINL </A>  <BR>
+move cursor to the left margin column<BR>
+<A HREF = "commsos.html#SOSMARGINR"> SOS MARGINR </A>  <BR>
+move cursor to the right margin column<BR>
+<A HREF = "commsos.html#SOSPARINDENT"> SOS PARINDent </A>  <BR>
+move cursor to the paragraph indent column<BR>
+<A HREF = "commsos.html#SOSPASTECMDLINE"> SOS PASTECMDline </A>  <BR>
+copy contents of marked block to command line<BR>
+<A HREF = "commsos.html#SOSPREFIX"> SOS PREfix </A>  <BR>
+move cursor to leftmost edge of prefix area<BR>
+<A HREF = "commsos.html#SOSQCMND"> SOS QCmnd </A>  <BR>
+move cursor to command line and clear<BR>
+<A HREF = "commsos.html#SOSRIGHTEDGE"> SOS RIGHTEdge </A>  <BR>
+move cursor to right edge of window<BR>
+<A HREF = "commsos.html#SOSSETTAB"> SOS SETTAB </A>  <BR>
+set a tab column at the cursor position<BR>
+<A HREF = "commsos.html#SOSSTARTENDCHAR"> SOS STARTENDChar </A>  <BR>
+move cursor to end/start of focus line<BR>
+<A HREF = "commsos.html#SOSTABB"> SOS TABB </A>  <BR>
+move cursor to previous tab stop<BR>
+<A HREF = "commsos.html#SOSTABF"> SOS TABf </A>  <BR>
+move cursor to next tab stop<BR>
+<A HREF = "commsos.html#SOSTABFIELDB"> SOS TABFIELDB </A>  <BR>
+move cursor to previous enterable field<BR>
+<A HREF = "commsos.html#SOSTABFIELDF"> SOS TABFIELDf </A>  <BR>
+move cursor to next enterable field<BR>
+<A HREF = "commsos.html#SOSTABWORDB"> SOS TABWORDB </A>  <BR>
+move cursor to beginning of previous word<BR>
+<A HREF = "commsos.html#SOSTABWORDF"> SOS TABWORDf </A>  <BR>
+move cursor to start of next word<BR>
+<A HREF = "commsos.html#SOSTOPEDGE"> SOS TOPEdge </A>  <BR>
+move cursor to top edge of filearea<BR>
+<A HREF = "commsos.html#SOSUNDO"> SOS UNDO </A>  <BR>
+undo changes to the current line<BR>
+<A NAME="PREFIXCOMMANDS"></A>
+<H2> Prefix commands </H2>
+<TABLE BORDER=1 CELLSPACING=1 CELLPADDING=2>
+<TH><BR><BR>Prefix<BR>Command<BR><BR><BR></TH><TH><BR><BR>ISPF<BR>Mode<BR><BR><BR></TH><TH><BR><BR>All<BR>Others<BR><BR><BR></TH></TR>
+<TR><TD>a<BR>b<BR>i<BR>/<BR>c<BR>m<BR>d<BR>x<BR>"<BR>r<BR>o<BR>s<BR>p<BR>f<BR>><BR><<BR>)<BR>(<BR>lc<BR>uc<BR>cc<BR>mm<BR>dd<BR>xx<BR>""<BR>rr<BR>oo<BR>>><BR><<<BR>))<BR>((<BR>lcc<BR>ucc<BR>.xxxxx<BR>TABL<BR>SCALE<BR>TABS<BR>COLS<BR></TD><TD>target - after line<BR>target - before line<BR>insert blank line<BR>N/A<BR>copy line<BR>move line<BR>delete line<BR>exclude line<BR>N/A<BR>repeat line<BR>overlay line<BR>show excluded lines<BR>N/A<BR>N/A<BR>shift line right<BR>shift line left<BR>shift line right zoned<BR>shift line left  zoned<BR>lowercase line<BR>uppercase line<BR>copy line block<BR>move line block<BR>delete line block<BR>exclude line block<BR>N/A<BR>repeat line block<BR>overlay line block<BR>shift line block right<BR>shift line block left<BR>shift line block right zoned<BR>shift line block left zoned<BR>lowercase line block<BR>uppercase line block<BR>give name to line<BR>N/A<BR>N/A<BR>display tab line<BR>display scale line<BR></TD><TD>add blank line<BR>N/A<BR>insert blank line<BR>make line current line<BR>copy line<BR>move line<BR>delete line<BR>exclude line<BR>duplicate line<BR>N/A<BR>overlay line<BR>show excluded lines<BR>target - prior to line<BR>target - following line<BR>shift line right<BR>shift line left<BR>shift line right zoned<BR>shift line left zoned<BR>lowercase line<BR>uppercase line<BR>copy line block<BR>move line block<BR>delete line block<BR>exclude line block<BR>duplicate line block<BR>N/A<BR>overlay line block<BR>shift line block right<BR>shift line block left<BR>shift line block right zoned<BR>shift line block left zoned<BR>lowercase line block<BR>uppercase line block<BR>give name to line<BR>display tab line<BR>display scale line<BR>N/A<BR>N/A<BR></TD></TR></TABLE><P>
+<A NAME="LINETARGETS"></A>
+<H2> Line Targets </H2>
+  All line targets can be specified as an argument to the LOCATE command, or
+  without the optional LOCATE command.
+<table width="100%" border="1" cellpadding="4" cellspacing="0" bgcolor="#cccccc"><tr><td><blockquote>
+=====> locate new <BR>
+</blockquote></td></tr></table><br>
+  is equivalent to:
+<table width="100%" border="1" cellpadding="4" cellspacing="0" bgcolor="#cccccc"><tr><td><blockquote>
+=====> new <BR>
+</blockquote></td></tr></table><br>
+<TABLE BORDER=1 CELLSPACING=1 CELLPADDING=2>
+<TH>Target Type<BR></TH><TH>Description<BR></TH></TR>
+<TR><TD>Absolute target<BR><BR>All target<BR><BR>Blank target<BR><BR>Block target<BR><BR>Named line target<BR><BR>Relative target<BR><BR><BR><BR><BR>String target<BR><BR><BR><BR><BR>Line flag targets<BR><BR><BR><BR><BR><BR><BR><BR><BR></TD><TD>An absolute line number.<BR>e.g. :12 = line number 12<BR>All lines in the file.<BR>e.g. ALL<BR>The first line containing only blank characters.<BR>e.g. BLANK<BR>All lines in the marked block.<BR>e.g. BLOCK<BR>A line with a name, set with [SET] POINT<BR>e.g. .fred<BR>A target relative to the focus line.<BR>e.g. 12 = 12 lines below the focus line<BR>-4 = 4 lines above the focus line<BR>*  = all lines below the focus line<BR>-* = all lines above the focus line<BR>A sequence of characters between delimiters.<BR>e.g. /string/  - the first line below the<BR>focus line containing "string"<BR>-/string/ - the first line above the<BR>focus line containing "string"<BR>Targets that reference line flags. See [SET] LINEFLAG<BR>e.g. NEW - the first line added to the file below<BR>the focus line<BR>CHAnged - the first changed in the file below<BR>the focus line<BR>ALTered - the first new line or changed line in<BR>the file below the focus line<BR>TAGged - the first tagged line in the file below<BR>the focus line<BR></TD></TR></TABLE><P>
+  Targets may be separated by the boolean operators '&' or '|'.
+<table width="100%" border="1" cellpadding="4" cellspacing="0" bgcolor="#cccccc"><tr><td><blockquote>
+=====> /string1/ | /string2/ <BR>
+</blockquote></td></tr></table><br>
+  Targets may also be prefixed with '~' to signify boolean NOT.
+<table width="100%" border="1" cellpadding="4" cellspacing="0" bgcolor="#cccccc"><tr><td><blockquote>
+=====> ~/string1/ <BR>
+</blockquote></td></tr></table><br>
+<A NAME="DEFAULTKEYASSIGNMENTS"></A>
+<H2> Default Key Assignments </H2>
+<TABLE BORDER=1 CELLSPACING=1 CELLPADDING=2>
+<TH><BR><BR><BR><BR>Command<BR><BR><BR></TH><TH>DOS<BR>OS/2<BR>Win32<BR>Win31<BR></TH><TH><BR><BR><BR><BR>X11<BR><BR><BR></TH><TH><BR><BR><BR><BR>vt220<BR><BR><BR></TH><TH><BR><BR><BR><BR>xterm<BR><BR><BR></TH></TR>
+<TR><TD>?<BR>backward 1<BR>cmatch<BR>controlchar<BR>copy block<BR>copy block reset<BR>cursor down<BR>cursor home save<BR>cursor left<BR>cursor right<BR>cursor up<BR>delete block<BR>duplicate 1 block<BR>enter<BR>file<BR>fillbox<BR>forward *<BR>forward 1<BR>help<BR>insertmode toggle<BR>join aligned<BR>locate<BR>locate .a<BR>mark box<BR>mark line<BR>move block reset<BR>nextwindow<BR>overlaybox<BR>point .a<BR>qquit<BR>recover<BR>redraw<BR>reset block<BR>sos addline 1<BR>sos cursoradj<BR>sos delback<BR>sos delchar<BR>sos delend<BR>sos delline 1<BR>sos delword<BR>sos doprefix<BR>sos edit<BR>sos makecurr<BR>sos startendchar<BR>sos tabb<BR>sos tabf<BR>sos tabwordb<BR>sos tabwordf<BR>sos undo<BR>split aligned<BR>spltjoin<BR>suspend<BR>tabpre<BR>top<BR></TD><TD>F6<BR>PGUP<BR>F7<BR>F11<BR>A-K<BR>A-C<BR>CURD<BR>HOME<BR>CURL<BR>CURR<BR>CURU<BR>A-G<BR>A-D<BR>ENTER<BR>F3<BR>A-F<BR>C-PGDN<BR>PGDN<BR>F1<BR>INS<BR>A-J<BR>S-F1<BR>C-F12<BR>A-B<BR>A-L<BR>A-M<BR>F2<BR>A-O<BR>C-F11<BR>S-F3<BR>F8<BR>C-R<BR>A-U<BR>F4<BR>C-A<BR>BKSP<BR>DEL<BR>C-END<BR>F9<BR>A-W<BR>NUMENTER<BR>A-X<BR>F5<BR>END<BR>S-TAB<BR>TAB<BR>C-CURL<BR>C-CURR<BR>ESC<BR>A-S<BR>F10<BR>C-Z<BR>F12,PLUS,NUMPLUS<BR>C-PGUP<BR></TD><TD>F6<BR>PGUP<BR>F7<BR>F11<BR>C-K<BR>C-C<BR>CURD<BR>HOME<BR>CURL<BR>CURR<BR>CURU<BR>C-G<BR>C-D<BR>ENTER<BR>F3<BR>C-F<BR>C-PGDN<BR>PGDN<BR>F1<BR>INS<BR>C-J<BR>S-F1<BR>C-F12<BR>C-B<BR>C-L<BR>C-V<BR>F2<BR>C-O<BR>C-F11<BR>S-F3<BR>F8<BR>C-R<BR>C-U<BR>F4<BR>C-A<BR>BKSP<BR>DEL<BR>C-END<BR>F9<BR>C-W<BR>NUMENTER<BR>C-X<BR>F5<BR>END<BR>S-TAB<BR>TAB<BR>C-CURL<BR>C-CURR<BR>ESC<BR>C-S<BR>F10<BR>C-Z<BR>F12,PLUS<BR>C-PGUP<BR></TD><TD>F6<BR>PrevScreen<BR>F7<BR>F11<BR>C-K<BR>C-C<BR>DOWN<BR>F16 (Do)<BR>LEFT<BR>RIGHT<BR>UP<BR>C-G<BR>C-D<BR>C-M<BR>PF3<BR>C-F<BR><BR>NextScreen<BR>PF1<BR>InsertHere<BR>C-J<BR>F17<BR><BR>C-B<BR>C-L<BR>C-V<BR>PF2<BR>C-O<BR><BR>F13<BR>F8<BR>C-R<BR>C-U<BR>PF4<BR>C-A<BR>BackSpace<BR>Remove,C-H<BR>C-E<BR>F9<BR>C-W<BR>C-P<BR>C-X<BR>F20<BR>Select<BR><BR>C-I<BR>F18<BR>F19<BR>C-Q<BR>C-S<BR>F10<BR>C-Z<BR>Find,F12<BR><BR></TD><TD>F6<BR>PGUP<BR>F7<BR>F11<BR>C-K<BR>C-C<BR>CURD<BR>HOME<BR>CURL<BR>CURR<BR>CURU<BR>C-G<BR>C-D<BR>NUMENTER,C-M<BR>F3<BR>C-F<BR><BR>PGDN<BR>F1<BR>INS<BR>C-J<BR><BR><BR>C-B<BR>C-L<BR>C-V<BR>F2<BR>C-O<BR><BR><BR>F8<BR>C-R<BR>C-U<BR>F4<BR>C-A<BR>BACKSPACE<BR>DEL<BR>C-E<BR>F9<BR>C-W<BR>C-P<BR>C-X<BR>F5<BR><BR><BR>TAB<BR><BR><BR>C-Q<BR>C-S<BR>F10<BR>C-Z<BR>F12<BR><BR></TD></TR></TABLE><P>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

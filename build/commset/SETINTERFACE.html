@@ -1,0 +1,39 @@
+<HTML>
+<HEAD><TITLE>THE Reference - SET Commands - set interface </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>SET INTERFACE</B> -  set overall behaviour of THE <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> [SET] INTerface <I>CLASSIC|CUA</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SET INTERFACE command changes the behaviour of several operations           within THE.  THE normally operates in a block-mode manner, however           many applications conform to the Common User Access (CUA) standard           developed by IBM.  This command specifies that CUA behaviour should           occur on various actions during the edit session. <P></DD>
+<DD> The major differences between CLASSIC and CUA behaviour involve           keyboard and mouse actions. Various THE commands have CUA options to           allow the user to customise the behaviour individual keys or the           mouse to behave in a CUA manner. <P></DD>
+<DD> Where behaviour is not related to particular key or mouse actions,           this command provides the mechanism for changing the behaviour.           The behaviour that SET INTERFACE affects: <P></DD>
+<DD>   - entering text in the filearea with a marked CUA block will
+</DD><DD>   first delete the block and reposition the cursor
+</DD><DD>   - executing <A HREF = "../commsos/SOSDELCHAR.html">SOS DELCHAR</A> or <A HREF = "../commsos/SOSDELBACK.html">SOS DELBACK</A>  will delete the
+</DD><DD>   marked CUA block
+</DD><DD>   - executing any positioning command, such as <A HREF = "../comm/CURSOR.html">CURSOR</A>  DOWN,
+</DD><DD>    <A HREF = "../comm/FORWARD.html">FORWARD</A> or <A HREF = "../comm/CURSOR.html">CURSOR</A>  MOUSE, will unmark the CUA block
+<P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible with KEDIT for Windows.
+<P></DD>
+<DT> <B>Default:</B> <BR></DT>
+<DD> CLASSIC <P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "../comm/MARK.html">MARK</A>, <A HREF = "../comm/CURSOR.html">CURSOR</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

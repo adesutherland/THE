@@ -1,0 +1,732 @@
+<HTML>
+<HEAD><TITLE>THE Reference - SOS Commands </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="the64.png" ALT="THE"> </CENTER>
+<P><HR><A NAME="SOSCOMMANDREFERENCE"></A>
+<H2> SOS COMMAND REFERENCE </H2>
+<HR>
+<A NAME="SOSADDLINE"></A>
+<DL><DT>
+<h3>SOS ADDLINE -  add blank line after focus line </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS ADDline <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS ADDLINE command inserts a blank line in the file following           the focus line. The cursor is placed in the column under the first           non-blank in the focus line. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: Compatible.
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSLINEADD">SOS LINEADD</A>, <A HREF = "commsos.html#SOSDELLINE">SOS DELLINE</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<A NAME="SOSBLOCKEND"></A>
+<DL><DT>
+<h3>SOS BLOCKEND -  move cursor to end of marked block </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS BLOCKEnd <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS BLOCKEND command moves the cursor to the ending line           and column of the marked block.  If the cursor is on the command           line, the last line of the marked block becomes the current line. <P></DD>
+<DD> If no marked block is in the current file, an error is displayed. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSBLOCKSTART">SOS BLOCKSTART</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSBLOCKSTART"></A>
+<DL><DT>
+<h3>SOS BLOCKSTART -  move cursor to start of marked block </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS BLOCKStart <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS BLOCKSTART command moves the cursor to the starting line           and column of the marked block.  If the cursor is on the command           line, the first line of the marked block becomes the current line. <P></DD>
+<DD> If no marked block is in the current file, an error is displayed. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSBLOCKEND">SOS BLOCKEND</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSBOTTOMEDGE"></A>
+<DL><DT>
+<h3>SOS BOTTOMEDGE -  move cursor to bottom edge of FILEAREA </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS BOTTOMEdge <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS BOTTOMEDGE command moves the cursor to the last           enterable line in the <A HREF = "glossary.html#FILEAREA">filearea</A> or <A HREF = "glossary.html#PREFIXAREA">prefix area</A> . If the cursor           is on the command line, the cursor moves to the first           enterable line of the <A HREF = "glossary.html#FILEAREA">filearea</A> . <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSTOPEDGE">SOS TOPEDGE</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSCUADELBACK"></A>
+<DL><DT>
+<h3>SOS CUADELBACK -  delete the character to the left of the cursor </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS CUADELBAck <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS CUADELBACK command deletes the character to the right of the           current cursor position.  It differs from <A HREF = "commsos.html#SOSDELBACK">SOS DELBACK</A>  in the case           when the cursor is in the first column of the file and in the           FILEAREA. Then, the cursor first moves to the last character of the           previous line, and deletes this character. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: N/A
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSDELBACK">SOS DELBACK</A>, <A HREF = "commsos.html#SOSCUADELCHAR">SOS CUADELCHAR</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<A NAME="SOSCUADELCHAR"></A>
+<DL><DT>
+<h3>SOS CUADELCHAR -  delete character under cursor </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS CUADELChar <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS CUADELCHAR command deletes the character under the cursor.           Text to the right is shifted to the left.           It differs from <A HREF = "commsos.html#SOSDELCHAR">SOS DELCHAR</A>  in the case when the cursor is after           the last character of the line and in the FILEAREA. Then, the           next line is joined with the current line. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: N/A
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSCURDELBACK">SOS CURDELBACK</A>, <A HREF = "commsos.html#SOSDELCHAR">SOS DELCHAR</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<A NAME="SOSCURRENT"></A>
+<DL><DT>
+<h3>SOS CURRENT -  move cursor to current line </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS CURRent <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS CURRENT command moves the cursor to the current column           of the cursor line from any window. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<A NAME="SOSCURSORADJ"></A>
+<DL><DT>
+<h3>SOS CURSORADJ -  move first non-blank character to cursor </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS CURSORAdj <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS CURSORADJ command moves text in the <A HREF = "glossary.html#FOCUSLINE">focus line</A>  so that           the first non-blank character appears under the cursor position. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSCURSORSHIFT">SOS CURSORSHIFT</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<A NAME="SOSCURSORSHIFT"></A>
+<DL><DT>
+<h3>SOS CURSORSHIFT -  move text to right of cursor to cursor </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS CURSORSHIFT <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS CURSORSHIFT command moves text in the <A HREF = "glossary.html#FOCUSLINE">focus line</A>  so that           the first non-blank character to the right of the cursor is           shifted to under the cursor position. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: N/A
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSCURSORADJ">SOS CURSORADJ</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<A NAME="SOSDELBACK"></A>
+<DL><DT>
+<h3>SOS DELBACK -  delete the character to the left of the cursor </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS DELBAck <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS DELBACK command moves the cursor one character to the left           and deletes the character now under the cursor. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSDELCHAR">SOS DELCHAR</A>, <A HREF = "commsos.html#SOSCUADELCHAR">SOS CUADELCHAR</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<A NAME="SOSDELCHAR"></A>
+<DL><DT>
+<h3>SOS DELCHAR -  delete character under cursor </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS DELChar <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS DELCHAR command deletes the character under the cursor.           Text to the right is shifted to the left. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSDELBACK">SOS DELBACK</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<A NAME="SOSDELEND"></A>
+<DL><DT>
+<h3>SOS DELEND -  delete to end of line </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS DELEnd <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS DELEND command deletes all characters from the current           column to the end of line. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSDELLINE"></A>
+<DL><DT>
+<h3>SOS DELLINE -  delete focus line </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS DELLine <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS DELLINE command deletes the <A HREF = "glossary.html#FOCUSLINE">focus line</A> . <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: Compatible.
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSLINEDEL">SOS LINEDEL</A>, <A HREF = "commsos.html#SOSADDLINE">SOS ADDLINE</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<A NAME="SOSDELWORD"></A>
+<DL><DT>
+<h3>SOS DELWORD -  delete word at or right of cursor </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS DELWord <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS DELWORD command deletes the word at or to the right           of the current cursor position and any spaces following the           word. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<A NAME="SOSDOPREFIX"></A>
+<DL><DT>
+<h3>SOS DOPREFIX -  execute any pending prefix commands </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS DOPREfix <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS DOPREFIX command executes any pending prefix commands. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<A NAME="SOSEDIT"></A>
+<DL><DT>
+<h3>SOS EDIT -  edit a file from directory list </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS EDIT <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS EDIT command allows the user to edit a file, chosen from           a directory list (the file DIR.DIR). <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible with default definition for Alt-X key.
+<P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSENDCHAR"></A>
+<DL><DT>
+<h3>SOS ENDCHAR -  move cursor to end of focus line </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS ENDChar <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS ENDCHAR command moves the cursor to the position after           the last character displayed in the current window. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSSTARTENDCHAR">SOS STARTENDCHAR</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSEXECUTE"></A>
+<DL><DT>
+<h3>SOS EXECUTE -  move cursor to command line and execute command </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS EXecute <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS EXECUTE command moves the cursor to the <A HREF = "glossary.html#COMMANDLINE">command line</A>            and executes any command that is displayed there. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible
+<P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSFIRSTCHAR"></A>
+<DL><DT>
+<h3>SOS FIRSTCHAR -  move cursor to first non-blank of field </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS FIRSTCHar <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS FIRSTCHAR command moves the cursor to the first           non-blank character of the cursor field. For the <A HREF = "glossary.html#PREFIXAREA">prefix area</A>            the cursor moves to the first column. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSFIRSTCOL">SOS FIRSTCOL</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSFIRSTCOL"></A>
+<DL><DT>
+<h3>SOS FIRSTCOL -  move cursor to first column of field </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS FIRSTCOl <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS FIRSTCOL command moves the cursor to the first           column of the <A HREF = "glossary.html#CURSORFIELD">cursor field</A> . <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSFIRSTCHAR">SOS FIRSTCHAR</A>, <A HREF = "commsos.html#SOSLASTCOL">SOS LASTCOL</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSINSTAB"></A>
+<DL><DT>
+<h3>SOS INSTAB -  shift text to next tab column </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS INSTAB <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS INSTAB command shifts all text from the current cursor           position in the <A HREF = "glossary.html#FILEAREA">filearea</A>  to the next tab column. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commset.html#SETTABS">SET TABS</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSLASTCOL"></A>
+<DL><DT>
+<h3>SOS LASTCOL -  move cursor to last column of field </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS LASTCOl <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS LASTCOL command moves the cursor to the last column           of the <A HREF = "glossary.html#CURSORFIELD">cursor field</A> . <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: N/A
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSFIRSTCOL,SOSRIGHTEDGE">SOS FIRSTCOL, SOS RIGHTEDGE</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSLEFTEDGE"></A>
+<DL><DT>
+<h3>SOS LEFTEDGE -  move cursor to left edge of window </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS LEFTEdge <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS LEFTEDGE command moves the cursor to the leftmost edge           of the <A HREF = "glossary.html#FILEAREA">filearea</A> if not on the command line or to the leftmost           edge of the command line if on the <A HREF = "glossary.html#COMMANDLINE">command line</A> . <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSRIGHTEDGE">SOS RIGHTEDGE</A>, <A HREF = "commsos.html#SOSPREFIX">SOS PREFIX</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSLINEADD"></A>
+<DL><DT>
+<h3>SOS LINEADD -  add blank line after focus line </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS LINEAdd <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS LINEADD command inserts a blank line in the file following           the <A HREF = "glossary.html#FOCUSLINE">focus line</A> . The cursor is placed in the column under the first           non-blank in the <A HREF = "glossary.html#FOCUSLINE">focus line</A> . <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: Compatible.
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSADDLINE">SOS ADDLINE</A>, <A HREF = "commsos.html#SOSLINEDEL">SOS LINEDEL</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<A NAME="SOSLINEDEL"></A>
+<DL><DT>
+<h3>SOS LINEDEL -  delete focus line </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS LINEDel <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS LINEDEL command deletes the <A HREF = "glossary.html#FOCUSLINE">focus line</A> . <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: Compatible.
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSDELLINE">SOS DELLINE</A>, <A HREF = "commsos.html#SOSLINEADD">SOS LINEADD</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<A NAME="SOSMAKECURR"></A>
+<DL><DT>
+<h3>SOS MAKECURR -  make focus line the current line </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS MAKECURR <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS MAKECURR command set the <A HREF = "glossary.html#CURRENTLINE">current line</A> to the <A HREF = "glossary.html#FOCUSLINE">focus line</A> . <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<A NAME="SOSMARGINL"></A>
+<DL><DT>
+<h3>SOS MARGINL -  move cursor to the left margin column </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS MARGINL <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS MARGINL command moves the cursor to the left margin           column. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSMARGINR">SOS MARGINR</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<A NAME="SOSMARGINR"></A>
+<DL><DT>
+<h3>SOS MARGINR -  move cursor to the right margin column </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS MARGINR <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS MARGINR command moves the cursor to the right margin           column. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSMARGINL">SOS MARGINL</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<A NAME="SOSPARINDENT"></A>
+<DL><DT>
+<h3>SOS PARINDENT -  move cursor to the paragraph indent column </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS PARINDent <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS PARINDENT command moves the cursor to the paragraph           indent column. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+</DD><DD>   Although, when issued from the command line, nothing
+</DD><DD>   happens.
+<P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<A NAME="SOSPASTECMDLINE"></A>
+<DL><DT>
+<h3>SOS PASTECMDLINE -  copy contents of marked block to command line </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS PASTECMDline <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS PASTECMDLINE command copies the contents of the marked           block to the command line at the current cursor location. <P></DD>
+<DD> Marked blocks that span one line only are allowed to be pasted. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: N/A
+<P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete </DD>
+</DL><P>
+<HR>
+<A NAME="SOSPREFIX"></A>
+<DL><DT>
+<h3>SOS PREFIX -  move cursor to leftmost edge of prefix area </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS PREfix <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS PREFIX command moves the cursor to the leftmost edge           of the <A HREF = "glossary.html#PREFIXAREA">prefix area</A> if the cursor is in the <A HREF = "glossary.html#FILEAREA">filearea</A> or the <A HREF = "glossary.html#PREFIXAREA">prefix area</A> . The command has no effect when executed from the <A HREF = "glossary.html#COMMANDLINE">command line</A> . <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSLEFTEDGE">SOS LEFTEDGE</A>, <A HREF = "commsos.html#SOSRIGHTEDGE">SOS RIGHTEDGE</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSQCMND"></A>
+<DL><DT>
+<h3>SOS QCMND -  move cursor to command line and clear </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS QCmnd <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS QCMND command moves the cursor to the first column of           the <A HREF = "glossary.html#COMMANDLINE">command line</A>  and clears it. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSEXECUTE">SOS EXECUTE</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSRIGHTEDGE"></A>
+<DL><DT>
+<h3>SOS RIGHTEDGE -  move cursor to right edge of window </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS RIGHTEdge <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS RIGHTEDGE command moves the cursor to the rightmost edge           of the <A HREF = "glossary.html#FILEAREA">filearea</A> if not on the command line or to the rightmost           edge of the command line if on the <A HREF = "glossary.html#COMMANDLINE">command line</A> . <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSLEFTEDGE">SOS LEFTEDGE</A>, <A HREF = "commsos.html#SOSPREFIX">SOS PREFIX</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSSETTAB"></A>
+<DL><DT>
+<h3>SOS SETTAB -  set a tab column at the cursor position </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS SETTAB <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS SETTAB command sets a tab column at the position of the           cursor in the <A HREF = "glossary.html#FILEAREA">filearea</A> .  This command is ignored if issued           elsewhere.           If a tab column is already set at the cursor position, the tab           column is cleared. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Kedit does not toggle the tab column, but only sets it.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commset.html#SETTABS">SET TABS</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSSTARTENDCHAR"></A>
+<DL><DT>
+<h3>SOS STARTENDCHAR -  move cursor to end/start of focus line </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS STARTENDChar <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS STARTENDCHAR command moves the cursor to the first character           displayed in the <A HREF = "glossary.html#CURSORFIELD">cursor field</A> , if the cursor is after the last           character displayed in the <A HREF = "glossary.html#CURSORFIELD">cursor field</A> , or to the position after           the last character displayed in the <A HREF = "glossary.html#CURSORFIELD">cursor field</A> , if the cursor is           anywhere else. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: N/A
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSENDCHAR">SOS ENDCHAR</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSTABB"></A>
+<DL><DT>
+<h3>SOS TABB -  move cursor to previous tab stop </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS TABB <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS TABB command causes the cursor to move to the previous tab           column as set by the <A HREF = "commset.html#SETTABS">SET TABS</A>  command.           If the resulting column is beyond the left hand edge of the main           window, the window will scroll half a window. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: Does not allow arguments.
+</DD><DD>   KEDIT: Compatible. See below.
+</DD><DD>   Does not line tab to next line if before the left hand tab column.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commset.html#SETTABS">SET TABS</A>, <A HREF = "commsos.html#SOSTABF">SOS TABF</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSTABF"></A>
+<DL><DT>
+<h3>SOS TABF -  move cursor to next tab stop </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS TABf <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS TABF command causes the cursor to move to the next tab column           as set by the <A HREF = "commset.html#SETTABS">SET TABS</A>  command.           If the resulting column is beyond the right hand edge of the main           window, the window will scroll half a window. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: Does not allow arguments.
+</DD><DD>   KEDIT: Compatible. See below.
+</DD><DD>   Does not line tab to next line if after the right hand tab column.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commset.html#SETTABS">SET TABS</A>, <A HREF = "commsos.html#SOSTABB">SOS TABB</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSTABFIELDB"></A>
+<DL><DT>
+<h3>SOS TABFIELDB -  move cursor to previous enterable field </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS TABFIELDB <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS TABFIELDB command causes the cursor to move to the first           column of the current enterable field. If the cursor is already           in the first column of the current field the cursor moves to the           first column of the previous enterable field on the screen.           This command is intended to mimic the behaviour of the SHIFT-TAB           key on a 3270 terminal. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSTABFIELDF">SOS TABFIELDF</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSTABFIELDF"></A>
+<DL><DT>
+<h3>SOS TABFIELDF -  move cursor to next enterable field </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS TABFIELDf <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS TABFIELDF command causes the cursor to move to the next           enterable field on the screen. This command is intended to           mimic the behaviour of the TAB key on a 3270 terminal. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSTABFIELDB">SOS TABFIELDB</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSTABWORDB"></A>
+<DL><DT>
+<h3>SOS TABWORDB -  move cursor to beginning of previous word </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS TABWORDB <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS TABWORDB command causes the cursor to move to the first           character of the word to the left or to the start of the line if           no more words precede.           If the resulting column is beyond the left hand edge of the <A HREF = "glossary.html#FILEAREA">filearea</A> , the window will scroll half a window. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSTABWORDF">SOS TABWORDF</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSTABWORDF"></A>
+<DL><DT>
+<h3>SOS TABWORDF -  move cursor to start of next word </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS TABWORDf <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS TABWORDF command causes the cursor to move to the first           character of the next word to the right or to the end of the line           if no more words follow.           If the resulting column is beyond the right hand edge of the <A HREF = "glossary.html#FILEAREA">filearea</A> , the window will scroll half a window. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSTABWORDB">SOS TABWORDB</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSTOPEDGE"></A>
+<DL><DT>
+<h3>SOS TOPEDGE -  move cursor to top edge of filearea </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS TOPEdge <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS TOPEDGE command moves the cursor to the first enterable           line in the <A HREF = "glossary.html#FILEAREA">filearea</A> or <A HREF = "glossary.html#PREFIXAREA">prefix area</A> . If the cursor is on the <A HREF = "glossary.html#COMMANDLINE">command line</A> , the cursor moves to the first enterable line of           the <A HREF = "glossary.html#FILEAREA">filearea</A> . <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "commsos.html#SOSBOTTOMEDGE">SOS BOTTOMEDGE</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<A NAME="SOSUNDO"></A>
+<DL><DT>
+<h3>SOS UNDO -  undo changes to the current line </h3></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> SOS UNDO <I></I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SOS UNDO command causes the contents of the <A HREF = "glossary.html#FOCUSLINE">focus line</A> (or the <A HREF = "glossary.html#COMMANDLINE">command line</A> ) to be reset to the contents before the cursor was           positioned there. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

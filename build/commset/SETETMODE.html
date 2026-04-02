@@ -1,0 +1,39 @@
+<HTML>
+<HEAD><TITLE>THE Reference - SET Commands - set etmode </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>SET ETMODE</B> -  indicate if extended display mode is possible <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> [SET] ETMODE <I>ON|OFF [character list]</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SET ETMODE command allows the user to specify which characters           in a character set are to be displayed as their actual representation. <P></DD>
+<DD> Those characters not explicitly specified to be displayed as they are           represented, will be displayed as the <A HREF = "../commset/SETNONDISP.html">SET NONDISP</A> character in the           colour specified by <A HREF = "../commset/SETCOLOUR.html">SET COLOUR</A>  NONDISP. Characters below 32, will           be displayed with an alphabetic character representing the "control"           code. <P></DD>
+<DD> e.g.           character code with a value of 7, will display as "G" in the colour           specified by <A HREF = "../commset/SETCOLOUR.html">SET COLOUR</A>  NONDISP. <P></DD>
+<DD> <I>ON</I>  with no optional  <I>character list</I>  will display ALL           characters as their actual representation. <P></DD>
+<DD> <I>OFF</I>  with no optional  <I>character list</I>  will display control           characters below ASCII 32, as a "control" character; characters           greater than ASCII 126 will be displayed as the <A HREF = "../commset/SETNONDISP.html">SET NONDISP</A>            characters. On ASCII based machines, [SET] ETMODE OFF is           equivalent  to [SET] ETMODE ON 32-126. On EBCDIC based machines           [SET] ETMODE OFF is equivalent to [SET] ETMODE ON ??-?? <P></DD>
+<DD> The  <I>character list</I>  is a list of positive numbers between 0 and           255 (inclusive).  The format of this character list can be either           a single number; e.g. 124, or a range of numbers specified; e.g.           32-126. (The first number must be less than or equal to the second           number). <P></DD>
+<DD> As an example; ETMODE ON 32-127 160-250  would result in the           characters with a decimal value between 32 and 127 inclusive           and 160 and 250 inclusive being displayed as their actual           representation (depending on the current font), and the           characters between 0 and 31 inclusive, being displayed as           an equivalent "control" character; characters between 128 and           159 inclusive and 250 to 255 being displayed with the <A HREF = "../commset/SETNONDISP.html">SET NONDISP</A>            character. <P></DD>
+<DD> Up to 20 character specifiers (single number or range) can be           specified. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: Similar function but deals with Double-Byte characters
+</DD><DD>   KEDIT: N/A
+<P></DD>
+<DT> <B>Default:</B> <BR></DT>
+<DD> ON - DOS/OS2/WIN32 <P></DD>
+<DD> ON 32-255 - X11 <P></DD>
+<DD> OFF - UNIX/AMIGA/QNX <P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "../commset/SETNONDISP.html">SET NONDISP</A>, <A HREF = "../commset/SETCOLOUR.html">SET COLOUR</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

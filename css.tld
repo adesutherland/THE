@@ -1,0 +1,53 @@
+*
+* This file contains the THE Language Definition for CSS files
+* It is based heavily on Kedit's KLD file format.
+*
+* Name = *CSS
+*
+:case
+  respect
+:number
+  c
+:option
+  function ( blank default alt 4
+:identifier
+  [a-zA-Z!-] [a-zA-Z0-9:-]
+:string
+  single
+  double
+:comment
+  paired /* */ nest
+  line // any
+:label
+*  delimiter : firstnonblank
+:match
+* not implemented
+  { }
+:header
+  line # column 1
+  line . column 1
+  line @ column 1
+:keyword
+  display: alt j
+  position: alt j
+  top: alt j
+  left: alt j
+  float: alt j
+  width: alt j
+  height: alt j
+  background: alt j
+  z-index: alt j
+  !important alt u
+  em alt u
+  px alt u
+  none
+  normal
+  center
+  middle
+  right
+  left
+:function
+  rgba
+  url
+:postcompare
+  class [-\\/\\+\\=\\*\\<\\>|%&,] alt w

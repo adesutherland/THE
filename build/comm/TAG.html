@@ -1,0 +1,37 @@
+<HTML>
+<HEAD><TITLE>THE Reference - Commands - tag </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>TAG</B> -  displays lines matching target in different colour <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> TAG <I>[More|Less] [rtarget|Focus]</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The TAG command is similar to the <A HREF = "../comm/ALL.html">ALL</A> command, in that it allows           lines that match the specified target to be displayed.  Where it           differs from <A HREF = "../comm/ALL.html">ALL</A> is that the lines that don 't match are still           displayed, but the lines that do match are displayed in the colour           specified by <A HREF = "../commset/SETCOLOUR.html">SET COLOUR</A>  HIGHLIGHT.           This target consists of any number of individual targets           separated by ' & ' (logical and) or ' | ' (logical or).' <P></DD>
+<DD> For example, to display all lines in a file that contain the           strings  'ball'  and  'cat'  on the same line or the named lines           .fred or .bill, use the following command <P></DD>
+<DD> TAG /ball/ & /cat/ | .fred | .bill <P></DD>
+<DD> Logical operators act left to right, with no precedence for &. <P></DD>
+<DD> TAG without any arguments displays all lines without any highlighting. <P></DD>
+<DD> If <A HREF = "../commset/SETHIGHLIGHT.html">SET HIGHLIGHT</A> is not set to TAGGED, then if the specified  <I>rtarget</I>            is found, <A HREF = "../commset/SETHIGHLIGHT.html">SET HIGHLIGHT</A>  is set to TAGGED. <P></DD>
+<DD> When the optional  <I>More</I>  argument is specified, all lines that match           the  <I>rtarget</I>  are highlighted in addition to those already highlighted. <P></DD>
+<DD> When the optional  <I>Less</I>  argument is specified, all lines that match           the  <I>rtarget</I>  and are currently highlighted have their highlighting           removed. <P></DD>
+<DD> If  <I>FOCUS</I>  is specified in place of  <I>rtarget</I> , the <A HREF = "../misc/glossary.html#FOCUSLINE">focus line</A>  is           tagged. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+</DD><DD>   FOCUS is a THE enhancement.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "../comm/ALL.html">ALL</A>, <A HREF = "../commset/SETHIGHLIGHT.html">SET HIGHLIGHT</A>, <A HREF = "../commset/SETCOLOUR.html">SET COLOUR</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

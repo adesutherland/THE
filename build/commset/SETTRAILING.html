@@ -1,0 +1,30 @@
+<HTML>
+<HEAD><TITLE>THE Reference - SET Commands - set trailing </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>SET TRAILING</B> -  specify how to treat trailing blanks on lines <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> [SET] TRAILING <I>ON|OFF|REMOVE|SINGLE|EMPTY</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SET TRAILING set command determines how trailing blanks on           lines are handled when written to disk.           TRAILING ON means that THE will not treat trailing blanks any           differently from any other characters in the file. Trailing blanks           are left on the line while reading in and editing, and retained           when the file is written to disk.           With TRAILING OFF, THE will remove trailing blanks when a file is           read, remove them during an edit session, and not write any trailing           blanks to the file.           With TRAILING REMOVE, THE will leave trailing blanks on the end of a           line when the file is read in and during editing, but will remove           trailing blanks when a file is written to disk.           TRAILING SINGLE is the same as TRAILING OFF, except that a single           blank character is appended to the end of every line when the file           is written.           TRAILING EMPTY is the same as TRAILING OFF, except that otherwise           empty lines will be written with a single trailing blank. <P></DD>
+<DD> Note that the default for this under THE is ON. This is because of           the way that THE processes profile files.  If the default was OFF,           and you had TRAILING ON in your profile, then there would be no           way to retain the original trailing blanks. <P></DD>
+<DD> If THE is started with -u switch, then any change to TRAILING is ignored;           the file will be handled as though TRAILING ON is in effect. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible. REMOVE is an THE extension.
+<P></DD>
+<DT> <B>Default:</B> <BR></DT>
+<DD> ON <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete.  Some trailing blank behaviour while editing files incomplete. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

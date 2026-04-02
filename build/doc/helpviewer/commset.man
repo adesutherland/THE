@@ -1,0 +1,4071 @@
+     
+     
+     ========================================================================
+     SET COMMAND REFERENCE
+     ========================================================================
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set alt - change alteration counts
+     
+     SYNTAX
+          [SET] ALT [n] [m]
+     
+     DESCRIPTION
+          The SET ALT command allows the user to change the alteration counts.
+          This command is usually called from within a macro.
+     
+          The first number; 'n' sets the number of changes since the last
+          AUTOSAVE was issued.
+     
+          The second number; 'm' sets the number of changes since the last
+          SAVE or SSAVE command was issued.
+     
+          All options can be specified as the current EQUIVCHAR to retain the
+          existing value.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          OFF
+     
+     SEE ALSO
+          <SET EQUIVCHAR>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set arbchar - set arbitrary character(s) for targets
+     
+     SYNTAX
+          [SET] ARBchar ON|OFF [char1] [char2]
+     
+     DESCRIPTION
+          Set the character to use as an 'arbitrary character' in string
+          targets. The first arbitrary character matches a group of zero
+          or more characters, the second will match exactly one character.
+     
+          All options can be specified as the current EQUIVCHAR to retain the
+          existing value.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+                 Single arbitrary character not supported.
+          KEDIT: Compatible.
+                 Arbitrary character not supported in <CHANGE> or <SCHANGE> commands.
+     
+     DEFAULT
+          Off $ ?
+     
+     SEE ALSO
+          <SET EQUIVCHAR>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set autocolor - specifies which parser to use for syntax highlighting
+     
+     SYNTAX
+          [SET] AUTOCOLOR mask parser [MAGIC]
+     
+     DESCRIPTION
+          The SET AUTOCOLOR command allows the user to specify which syntax
+          highlighting <parser> is to be used for which file masks.
+     
+          The 'parser' argument specifies a syntax highlighting <parser> that
+          already exists, either as a default <parser>, or added by the user
+          with <SET PARSER>.  The special parser name of '*NULL' can be
+          specified; this will effectively remove the association between
+          the <parser> and the file mask.
+     
+          The 'mask' argument specifies the file mask (or <magic number>) to
+          associate with the specified parser.  The 'mask' can be any valid
+          file mask for the operating system. eg *.c fred.* joe.?
+     
+          If the 'magic' option is specified, the 'mask' argument refers to
+          the last element of the <magic number> that is specified in the
+          first line of a Unix shell script comment. eg if the first line of
+          a shell script contains:
+          #!/usr/local/bin/rexx
+          then the file mask argument would be specified as "rexx".
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Similar. KEDIT does not have MAGIC option.
+     
+     DEFAULT
+          See <QUERY> AUTOCOLOR
+     
+     SEE ALSO
+          <SET COLORING>, <SET ECOLOUR>, <SET PARSER>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set autocolour - specifies which parser to use for syntax highlighting
+     
+     SYNTAX
+          [SET] AUTOCOLOUR mask parser [MAGIC]
+     
+     DESCRIPTION
+          The SET AUTOCOLOUR command is a synonym for the <SET AUTOCOLOR> command.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Similar. KEDIT does not have MAGIC option.
+     
+     DEFAULT
+          See <QUERY> AUTOCOLOR
+     
+     SEE ALSO
+          <SET AUTOCOLOR>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set autosave - set autosave period
+     
+     SYNTAX
+          [SET] AUtosave n|OFF
+     
+     DESCRIPTION
+          The SET AUTOSAVE command sets the interval between automatic saves
+          of the file, or turns it off altogether.  The interval 'n' refers
+          to the number of alterations made to the file.  Hence a value of
+          10 for 'n' would result in the file being automatically saved after
+          each 10 alterations have been made to the file.
+     
+          It is not possible to set AUTOSAVE for 'pseudo' files such as the
+          directory listing 'file', Rexx output 'file' and the key definitions
+          'file'
+     
+     COMPATIBILITY
+          XEDIT: Does not support [mode] option.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          OFF
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set autoscroll - set rate of automatic horizontal scrolling
+     
+     SYNTAX
+          [SET] AUTOSCroll n|OFF|Half
+     
+     DESCRIPTION
+          The SET AUTOSCROLL allows the user to set the rate at which automatic
+          horizontal scrolling occurs.
+     
+          When the cursor reaches the last (or first) column of the <filearea>
+          the <filearea> can automatically scroll if AUTOSCROLL is not 'OFF' and
+          a <CURSOR> RIGHT or <CURSOR> LEFT command is issued.
+          How many columns are scrolled is determined by the setting of AUTOSCROLL.
+     
+          If AUTOSCROLL is set to 'HALF', then half the number of columns in the
+          <filearea> window are scrolled.  Any other value will result in that
+          many columns scrolled, or the full width of the <filearea> window if
+          the set number of columns is larger.
+     
+          Autoscrolling does not occur if the key pressed is assigned to
+          <CURSOR> SCREEN LEFT or RIGHT, which is the case if <SET COMPAT> XEDIT
+          key definitions are active.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          HALF
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set backup - indicate if a backup copy of the file is to be kept
+     
+     SYNTAX
+          [SET] BACKup OFF|TEMP|KEEP|ON|INPLACE [suffix]
+     
+     DESCRIPTION
+          The SET BACKUP command allows the user to determine if a backup copy
+          of the original file is to be kept when the file being edited is
+          saved or filed.
+     
+          'KEEP' and 'ON' options are the same. 'ON' is
+          kept for compatibility with previous versions of THE.
+     
+          With 'OFF', the file being written to disk will replace an
+          existing file. There is a chance that you will end up with neither
+          the old version of the file or the new one if problems occur
+          while the file is being written.
+     
+          With 'TEMP' or 'KEEP' options, the file being written is first
+          renamed to the filename with a .bak extension. The file in memory
+          is then written to disk. If 'TEMP' is in effect, the backup
+          file is then deleted.
+     
+          With 'INPLACE', the file being written is first copied to a file
+          with a .bak extension. The file in memory is then written to disk
+          in place of the original.  This option ensures that all operating
+          system file attributes are retained.
+     
+          The optional 'suffix' specifies the string to append to the file name
+          of the backup copy including a period if required. The maximum length
+          of 'suffix' is 100 characters.
+          By default this is ".bak".
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+                 'suffix' is a THE extension
+     
+     DEFAULT
+          KEEP
+     
+     SEE ALSO
+          <FILE>, <FFILE>, <SAVE>, <SSAVE>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set beep - turn on or off the audible alarm when displaying errors
+     
+     SYNTAX
+          [SET] BEEP ON|OFF
+     
+     DESCRIPTION
+          The SET BEEP command allows the user to determine if an audible
+          alarm is sounded when an error is displayed.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          OFF
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set boundmark - set bounds marker display
+     
+     SYNTAX
+          [SET] BOUNDMARK OFF|Zone|TRunc|MARgins|TABs|Verify
+     
+     DESCRIPTION
+          The BOUNDMARK command indicates if boundary markers are to be
+          displayed and if so, where. Boundary markers are vertical lines
+          drawn before or after certain columns within the <filearea>.
+          This command only has a visible effect on GUI platforms, currently
+          only the X11 port.
+     
+          'OFF' turns off the display of boundary markers.
+     
+          'ZONE' turns on the display of boundary markers, before the zone
+          start column and after the zone end column.
+     
+          'TRUNC' turns on the display of boundary markers, after the
+          truncation column. Not supported.
+     
+          'MARGINS' turns on the display of boundary markers, before the left
+          margin and after the right margin.
+     
+          'TABS' turns on the display of boundary markers, before each tab
+          column.
+     
+          'VERIFY' turns on the display of boundary markers, before each verify
+          column. Not supported.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible, but no support for TRUNC or VERIFY option.
+     
+     DEFAULT
+          Zone
+     
+     STATUS
+          Incomplete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set case - set case sensitivity parameters
+     
+     SYNTAX
+          [SET] CASE Mixed|Lower|Upper [Respect|Ignore] [Respect|Ignore] [Respect|Ignore] [Mixed|Lower|Upper] [Mixed|Lower|Upper]
+     
+     DESCRIPTION
+          The CASE command sets the editor's handling of the case of text.
+     
+          The first option (which is mandatory) controls how text is entered
+          by the user in the <filearea>. When 'LOWER' or 'UPPER' are in effect,
+          the shift or caps lock keys have no effect on the text being entered.
+          When 'MIXED' is in effect, text is entered in the case set by the use
+          of the shift and caps lock keys.
+     
+          The second option determines how the editor determines if a string
+          target matches text in the file when the target is used in a <LOCATE>
+          command.  With 'IGNORE' in effect, a match is
+          found irrespective of the case of the target or the found text.
+          The following strings are treated as equivalent: the THE The ThE...
+          With 'RESPECT' in effect, the target and text must be the same case.
+          Therefore a target of 'The' only matches text containing 'The', not
+          'THE' or 'ThE' etc.
+     
+          The third option determines how the editor determines if a string
+          target matches text in the file when the target is used in a <CHANGE>
+          command.  With 'IGNORE' in effect, a match is
+          found irrespective of the case of the target or the found text.
+          The following strings are treated as equivalent: the THE The ThE...
+          With 'RESPECT' in effect, the target and text must be the same case.
+          Therefore a target of 'The' only matches text containing 'The', not
+          'THE' or 'ThE' etc.
+     
+          The fourth option determines how the editor determines the sort
+          order of upper and lower case with the <SORT> command.
+          With 'IGNORE' in effect, upper and lower case letters are treated as
+          equivalent.
+          With 'RESPECT' in effect, upper and lower case letters are treated as
+          different values and uppercase characters will sort before lowercase
+          characters.
+     
+          The fifth option controls how text is entered by the user on the
+          <command line>. The allowed values and behaviour are the same as for
+          the first option.
+     
+          The sixth option controls how text is entered by the user in the
+          <prefix area>. The allowed values and behaviour are the same as for
+          the first option.
+     
+          All options can be specified as the current EQUIVCHAR to retain the
+          existing value.
+     
+     COMPATIBILITY
+          XEDIT: Adds support for case significance in CHANGE commands.
+          KEDIT: Adds support for LOWER option.
+          Both:  Adds support for case significance in SORT command.
+     
+     DEFAULT
+          Mixed Ignore Respect Respect
+     
+     SEE ALSO
+          <SET EQUIVCHAR>
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set clearerrorkey - specify which key clears the message line
+     
+     SYNTAX
+          [SET] CLEARErrorkey *|keyname
+     
+     DESCRIPTION
+          The SET CLEARERRORKEY command allows the user to specify which
+          key clears the message line.  By default, any key pressed will
+          cause the message line to be cleared.  The keyname specified
+          is the name returned via the <SHOWKEY> command.
+     
+          As the <QUERY> command also uses the same mechanism for displaying
+          its results as errors, then this command affects when results from
+          the <QUERY> command are cleared.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          *
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set clearscreen - indicate if the screen is to be cleared on exit
+     
+     SYNTAX
+          [SET] CLEARScreen ON|OFF
+     
+     DESCRIPTION
+          The SET CLEARSCREEN command allows the user to request that the
+          screen be cleared on exit from THE.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          OFF
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set clock - turn on or off display of time on status line
+     
+     SYNTAX
+          [SET] CLOCK ON|OFF
+     
+     DESCRIPTION
+          The SET CLOCK command turns on or off the display of the time on the
+          <status line>.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          ON
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set cmdarrows - sets the behaviour of the up and down arrow keys
+     
+     SYNTAX
+          [SET] CMDArrows Retrieve|Tab
+     
+     DESCRIPTION
+          The SET CMDARROWS command determines the action that occurs when the
+          up and down arrows keys are hit while on the <command line>.
+     
+          'RETRIEVE' will set the up and down arrows to retrieve the last or
+          next command entered on the <command line>.
+     
+          'TAB' will set the up and down arrows to move to the last
+          or first line respectively of the main window.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          RETRIEVE
+     
+     SEE ALSO
+          <CURSOR>, <?>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set cmdline - sets the position of the command line.
+     
+     SYNTAX
+          [SET] CMDline ON|OFF|Top|Bottom
+     
+     DESCRIPTION
+          The SET CMDLINE command sets the position of the <command line>,
+          either at the top of the screen, the bottom of the screen or off.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+                 CMDLINE ON is equivalent to CMDLINE Bottom
+          KEDIT: Compatible.
+     
+     DEFAULT
+          BOTTOM
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set color - set colors for display
+     
+     SYNTAX
+          [SET] COLOR  area [modifier[...]] [foreground] [ON] [background]
+          [SET] COLOR  area [modifier[...]] ON|OFF
+          [SET] COLOUR color red blue green
+          [SET] COLOUR BOLD FONT|BRIGHT
+     
+     DESCRIPTION
+          The SET COLOR command changes the colors or display attributes of
+          various display areas in THE.
+     
+          Valid values for 'area':
+     
+               ALERT           - alert boxes; see <ALERT>
+               Arrow           - command line prompt
+               Block           - marked <block>
+               BOUNDmarker     - bound markers (GUI platforms only)
+               CBlock          - <current line> if in marked <block>
+               CHIghlight      - highlighted line if the same as <current line>
+               Cmdline         - <command line>
+               CTofeof         - as for TOfeof if the same as <current line>
+               CUrline         - the <current line>
+               CURSORline      - the line in <filearea> that the cursor is or was on
+               Divider         - dividing line between vertical split screens
+               Filearea        - area containing file lines
+               GAP             - the gap between the <prefix area> and <filearea>
+               CGAP            - the gap between the <prefix area> and <filearea> - current
+               HIghlight       - highlighted line
+               Idline          - line containing file specific info
+               Msgline         - error messages
+               Nondisp         - Non-display characters (<SET ETMODE> OFF)
+               Pending         - pending commands in <prefix area>
+               PRefix          - <prefix area>
+               CPRefix         - <prefix area> if the same as <current line>
+               Reserved        - default for <reserved line>
+               Scale           - line showing <scale line>
+               SHadow          - hidden line marker lines
+               SLK             - soft label keys
+               STatarea        - line showing status of editing session
+               Tabline         - line showing tab positions
+               TOfeof          - <Top-of-File line> and <Bottom-of-File line>
+               DIALOG          - background of a dialog box; see <DIALOG>
+               DIALOGBORDER    - border for a dialog box
+               DIALOGEDITFIELD - edit field of a dialog box
+               DIALOGBUTTON    - inactive button in a dialog box
+               DIALOGABUTTON   - active button in a dialog box
+               POPUP           - all non-highlighted lines in a popup; see <POPUP>
+               POPUPBORDER     - border for a popup
+               POPUPCURLINE    - the highlighted line in a popup
+               POPUPDIVIDER    - dividing line in a popup
+               *               - All areas (second format only)
+     
+          Valid values for 'foreground', 'background' and 'color':
+     
+               BLAck
+               BLUe
+               Brown
+               Green
+               GRAy
+               GREy
+               Cyan
+               RED
+               Magenta
+               Pink
+               Turquoise
+               Yellow
+               White
+     
+          Valid values for 'modifier':
+     
+               NORmal
+               BLInk
+               BOld
+               BRIght
+               High
+               REVerse
+               Underline
+               DARK
+               Italic - only available on X11 port with valid Italic font, on
+                        Windows with "GUI" PDcurses, and the SDL2 port.
+     
+          The second format of this command allows the user to turn on or off
+          any of the valid modifiers.
+     
+          The third format of this command allows the user to change the intensity
+          of specified colors on platforms that support changing the content of a
+          color (X11, SDL2, Windows GUI).  The specified color can be changed by supplying
+          the intensity of red, green and blue. These are numeric values between 0
+          and 1000 inclusive.  eg To change 'red' to 'blue': SET COLOR RED 0 0 1000.
+          All characters being displayed as 'red' will be displayed with the specified
+          intensities. Note that this behaviour is not consistent across platforms, and
+          should be considered experimental at this stage.
+     
+          The fourth format of this command allows the BOLD modifier to be displayed as
+          an actual bold font, or as a brighter colour than the normal, non-bold colour.
+          This format is only supported on platforms that support different fonts. (SDL2)
+     
+          It is an error to attempt to set a colour on a mono display.
+     
+     COMPATIBILITY
+          XEDIT: Functionally compatible. See below.
+          KEDIT: Functionally compatible. See below.
+          Does not implement all modifiers.
+     
+     DEFAULT
+          Depends on compatibility mode setting and monitor type.
+     
+     SEE ALSO
+          <SET COMPAT>, <SET COLOUR>, <SET ECOLOUR>, <DIALOG>, <POPUP>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set colour - set colours for display
+     
+     SYNTAX
+          [SET] COLOUR area [modifier[...]] [foreground] [on background]
+          [SET] COLOUR area [modifier[...]] ON|OFF
+          [SET] COLOUR colour red blue green
+          [SET] COLOUR BOLD FONT|BRIGHT
+     
+     DESCRIPTION
+          The SET COLOUR command is a synonym for the <SET COLOR> command.
+     
+     COMPATIBILITY
+          XEDIT: Functionally compatible. See below.
+          KEDIT: Functionally compatible. See below.
+          Does not implement all modifiers.
+     
+     DEFAULT
+          Depends on compatibility mode setting and monitor type.
+     
+     SEE ALSO
+          <SET COLOR>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set coloring - enable or disable syntax highlighting
+     
+     SYNTAX
+          [SET] COLORING ON|OFF [AUTO|parser]
+     
+     DESCRIPTION
+          The SET COLORING command allows the user to turn on or off syntax
+          highlighting for current file.  It also allows the <parser> used to be
+          specified explicitly, or automatically determined by the file
+          extension or <magic number>.
+     
+          ON turns on syntax highlighting for the current file, OFF turns it
+          off.
+     
+          AUTO determines the <parser> to use for the current file based on the
+          file extension.  The <parser> to use is controlled by the <SET AUTOCOLOR>
+          command.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          ON AUTO
+     
+     SEE ALSO
+          <SET COLOURING>, <SET ECOLOUR>, <SET AUTOCOLOR>, <SET PARSER>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set colouring - enable or disable syntax highlighting
+     
+     SYNTAX
+          [SET] COLOURING ON|OFF [AUTO|parser]
+     
+     DESCRIPTION
+          The SET COLOURING command is a synonym for the <SET COLORING> command.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          ON AUTO
+     
+     SEE ALSO
+          <SET COLORING>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set compat - set compatibility mode
+     
+     SYNTAX
+          [SET] COMPat The|Xedit|Kedit|KEDITW|Ispf|= [The|Xedit|Kedit|KEDITW|Ispf|=] [The|Xedit|Kedit|KEDITW|Ispf|=]
+     
+     DESCRIPTION
+          The SET COMPAT command changes some settings of THE to make it
+          more compatible with the look and/or feel of XEDIT, KEDIT,
+          KEDIT for Windows, or ISPF.
+     
+          This command is most useful as the first <SET> command in a
+          profile file. It will change the default settings of THE to
+          initially look and behave like the chosen editor. You can then
+          make any additional changes in THE by issuing other <SET> commands.
+     
+          It is recommended that this command NOT be executed from the
+          command line, particularly if you have 2 files being displayed
+          at the same time.  Although the command works, things may look
+          and behave strangely :-)
+     
+          The first parameter affects the look of THE, the second parameter
+          affects the feel of THE, and the third parameter determines
+          which default function key settings you require.
+     
+          Any of the parameters can be specified as =, which will not
+          change that aspect of THE's compatibility.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          THE THE THE
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set ctlchar - define control character attributes
+     
+     SYNTAX
+          [SET] CTLchar OFF
+          [SET] CTLchar char Escape | OFF
+          [SET] CTLchar char Protect|Noprotect [modifier[...]] fore [ON back]
+     
+     DESCRIPTION
+          The SET CTLCHAR command defines control characters to be used when
+          displaying a <reserved line>.  Control characters determine how parts
+          of a <reserved line> are displayed.
+     
+          See <SET COLOUR> for valid values for 'modifier', 'fore' and 'back'.
+     
+          The 'Protect' and 'Noprotect' arguments are ignored.
+     
+     COMPATIBILITY
+          XEDIT: Similar, but does not support all parameters.
+          KEDIT: N/A.
+     
+     DEFAULT
+          OFF
+     
+     SEE ALSO
+          <SET COLOUR>, <SET RESERVED>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set curline - set position of current line on screen
+     
+     SYNTAX
+          [SET] CURLine [ON] M[+n|-n] | [+|-]n
+     
+     DESCRIPTION
+          The SET CURLINE command sets the position of the <current line> to
+          the physical screen line specified by supplied arguments.
+     
+          The first form of parameters is:
+     
+          M[+n|-n]
+          this sets the <current line> to be relative to the middle of
+          the screen. A positive value adds to the middle line number,
+          a negative subtracts from it.
+          e.g. M+3 on a 24 line screen will be line 15
+              M-5 on a 24 line screen will be line 7
+     
+          The second form of parameters is:
+     
+          [+|-]n
+          this sets the <current line> to be relative to the top of the
+          screen (if positive or no sign) or relative to the bottom
+          of the screen if negative.
+          e.g. +3 or 3 will set current line to line 3
+              -3 on a 24 line screen will be line 21
+     
+          If the resulting line is outside the bounds of the screen
+          the position of the current line will become the middle line
+          on the screen.
+     
+          It is optional to specify the ON argument.
+     
+          It is an error to try to position the CURLINE on the same
+          line as a line already allocated by one of <SET HEXSHOW>,
+          <SET RESERVED>, <SET SCALE> or <SET TABLINE>.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          M
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set cursorstay - set on or off the behaviour of the cursor on a scroll
+     
+     SYNTAX
+          [SET] CURSORSTay ON|OFF
+     
+     DESCRIPTION
+          The SETCURSORSTAY command allows the user to set the behaviour of
+          the cursor when the file is scrolled with a <FORWARD> or <BACKWARD>
+          command.
+     
+          Before this command was introduced, the position of the cursor
+          after the file was scrolled depended on <SET COMPAT>; for
+          THE, the cursor moved to the current line, for XEDIT and KEDIT
+          modes the cursor stayed on the same screen line.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          ON
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set defsort - specify the order in which files appear in DIR.DIR
+     
+     SYNTAX
+          [SET] DEFSORT OFF|DIRectory|Size|Date|Time|Name [Ascending|Descending]
+     
+     DESCRIPTION
+          The SET DEFSORT command allows the user to determine the order
+          in which files appear in a DIR.DIR file.
+     
+          'Directory' specifies that directories within the current directory
+          are shown before other files.
+     
+          'Size' specifies that the size of the file determines the order
+          in which files are displayed.
+     
+          'Date' specifies that the date of the last change to the file
+          determines the order in which files are displayed. If the dates
+          are the same, the time the file was last changed is used as a
+          secondary sort key.
+     
+          'Time' specifies that the time of the file determines the order
+          in which files are displayed.
+     
+          'Name' specifies that the name of the file determines the order in
+          which files are displayed. This is the default.  Files are sorted
+          by name as a secondary sort key when any of the above options are
+          specified and two files have equal values for that sort option.
+     
+          'OFF' indicates that no ordering of the files in the directory
+          is performed.  On directories with a large number of files, this
+          option results in a displayed DIR.DIR file much quicker than any
+          sorted display.
+     
+          The second parameter specifies if the sort order is ascending or
+          descending.
+     
+          If this command is issued while the DIR.DIR pseudo file is the current
+          file, the settings are applied immediately.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Similar in functionality.
+     
+     DEFAULT
+          NAME ASCENDING
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set dirinclude - set the file mask for directory command
+     
+     SYNTAX
+          [SET] DIRInclude *
+          [SET] DIRInclude [Normal] [Readonly] [System] [Hidden] [Directory]
+     
+     DESCRIPTION
+          The DIRINCLUDE command sets the file mask for files that will be
+          displayed on subsequent DIRECTORY commands. The operand "*" will
+          set the mask to all files, the other options will set the
+          mask to include those options specified together with "normal"
+          files e.g.
+     
+             DIRINCLUDE R S
+     
+          will display readonly and system files together with "normal" files
+          the next time the DIRECTORY command is issued.
+     
+          The effects of DIRINCLUDE are ignored in the Unix version.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          *
+     
+     SEE ALSO
+          <DIRECTORY>, <LS>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set display - specify which level of lines to display
+     
+     SYNTAX
+          [SET] DISPlay n [m|*]
+     
+     DESCRIPTION
+          The SET DISPLAY command sets the selection level for lines to be
+          displayed on the screen.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          0 0
+     
+     SEE ALSO
+          <SET SCOPE>, <SET SELECT>, <ALL>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set ecolor - set colors for syntax highlighting
+     
+     SYNTAX
+          [SET] ECOLOR char [modifier[...]] [foreground] [on background]
+          [SET] ECOLOR char [modifier[...]] ON|OFF
+     
+     DESCRIPTION
+          The SET ECOLOR command allows the user to specify the colors of
+          each category of items used in syntax highlighting.
+     
+          'char' refers to one of the following valid values:
+     
+          A - comments
+          B - strings
+          C - numbers
+          D - keywords
+          E - labels
+          F - preprocessor directives
+          G - header lines
+          H - extra right paren, matchable keyword (N/A)
+          I - level 1 paren
+          J - level 1 matchable keyword (N/A)
+          K - level 1 matchable preprocessor keyword (N/A)
+          L - level 2 paren, matchable keyword (N/A)
+          M - level 3 paren, matchable keyword (N/A)
+          N - level 4 paren, matchable keyword (N/A)
+          O - level 5 paren, matchable keyword (N/A)
+          P - level 6 paren, matchable keyword (N/A)
+          Q - level 7 paren, matchable keyword (N/A)
+          R - level 8 paren or higher, matchable keyword (N/A)
+          S - incomplete string
+          T - HTML markup tags
+          U - HTML character/entity references
+          V - Builtin functions
+          W - not used
+          X - not used
+          Y - not used
+          Z - not used
+          1 - alternate keyword color 1
+          2 - alternate keyword color 2
+          3 - alternate keyword color 3
+          4 - alternate keyword color 4
+          5 - alternate keyword color 5
+          6 - alternate keyword color 6
+          7 - alternate keyword color 7
+          8 - alternate keyword color 8
+          9 - alternate keyword color 9
+          N/A indicates that this capability is not yet implemented.
+     
+          For valid values for 'modifier', 'foreground' and 'background'
+          see <SET COLOR>.
+     
+          The second format of this command allows the user to turn on or off
+          any of the valid modifiers.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          See <QUERY> ECOLOR
+     
+     SEE ALSO
+          <SET COLORING>, <SET AUTOCOLOR>, <SET PARSER>, <SET COLOR>
+          Appendix 4
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set ecolour - set colours for syntax highlighting
+     
+     SYNTAX
+          [SET] ECOLOUR char [modifier[...]] [foreground] [on background]
+          [SET] ECOLOUR char [modifier[...]] ON|OFF
+     
+     DESCRIPTION
+          The SET ECOLOUR command allows the user to specify the colours of
+          each category of items used in syntax highlighting.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          See <QUERY> ECOLOR
+     
+     SEE ALSO
+          <SET COLOURING>, <SET AUTOCOLOUR>, <SET PARSER>, <SET COLOUR>
+          Appendix 4
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set eolout - set end of line terminating character(s)
+     
+     SYNTAX
+          [SET] EOLout CRLF|LF|CR|NONE
+     
+     DESCRIPTION
+          The EOLOUT command allows the user to specify the combination of
+          characters that terminate a line. Lines of text in Unix files are
+          usually terminated with a 'LF', DOS file usually end with a 'CR' and
+          'LF' combination. Files on the Apple Macintosh are usually terminated
+          with a 'CR'.
+     
+          The 'NONE' option can be used to specify that no end of line
+          character is written.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          LF - UNIX
+          CRLF - DOS/OS2/WIN32
+          NONE - if THE started with -u option
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set equivchar - set the equivalence character
+     
+     SYNTAX
+          [SET] EQUIVChar char
+     
+     DESCRIPTION
+          The SET EQUIVChar command allows the user to change the character
+          that is used to specify equivalence in command parameters.
+     
+          In many THE commands, an equivalence character, usually '=', can
+          be used as a parameter to default to values in the current file
+          or view.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          =
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set errorformat - set format of error messages
+     
+     SYNTAX
+          [SET] ERRORFormat Normal|Extended
+     
+     DESCRIPTION
+          The ERRORFORMAT command allows the user to specify if extended information
+          is displayed with error messages.
+          The 'Normal' format is an error number, error text and option arguments following.
+          The 'Extended' format prefixes the 'Normal' format with the command being executed
+          at the time of the error. This assists in tracking down errors inside macros.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          Normal
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set erroroutput - indicate whether THE error messages are echoed to screen
+     
+     SYNTAX
+          [SET] ERROROUTput ON|OFF
+     
+     DESCRIPTION
+          With SET ERROROUTPUT OFF, THE error messages are shown in the MSGLINE.
+          With SET ERROROUTPUT ON, THE error messages are also displayed in the window
+          in which THE was started, provided one exists.
+          This is particularly useful when tracing THE macros as the error message
+          is shown afte the invocation of the command that caused the error.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          OFF
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set etmode - indicate if extended display mode is possible
+     
+     SYNTAX
+          [SET] ETMODE ON|OFF [character list]
+     
+     DESCRIPTION
+          The SET ETMODE command allows the user to specify which characters
+          in a character set are to be displayed as their actual representation.
+     
+          Those characters not explicitly specified to be displayed as they are
+          represented, will be displayed as the <SET NONDISP> character in the
+          colour specified by <SET COLOUR> NONDISP. Characters below 32, will
+          be displayed with an alphabetic character representing the "control"
+          code.
+     
+          e.g.
+          character code with a value of 7, will display as "G" in the colour
+          specified by <SET COLOUR> NONDISP.
+     
+          'ON' with no optional 'character list' will display ALL
+          characters as their actual representation.
+     
+          'OFF' with no optional 'character list' will display control
+          characters below ASCII 32, as a "control" character; characters
+          greater than ASCII 126 will be displayed as the <SET NONDISP>
+          characters. On ASCII based machines, [SET] ETMODE OFF is
+          equivalent  to [SET] ETMODE ON 32-126. On EBCDIC based machines
+          [SET] ETMODE OFF is equivalent to [SET] ETMODE ON ??-??
+     
+          The 'character list' is a list of positive numbers between 0 and
+          255 (inclusive).  The format of this character list can be either
+          a single number; e.g. 124, or a range of numbers specified; e.g.
+          32-126. (The first number must be less than or equal to the second
+          number).
+     
+          As an example; ETMODE ON 32-127 160-250  would result in the
+          characters with a decimal value between 32 and 127 inclusive
+          and 160 and 250 inclusive being displayed as their actual
+          representation (depending on the current font), and the
+          characters between 0 and 31 inclusive, being displayed as
+          an equivalent "control" character; characters between 128 and
+          159 inclusive and 250 to 255 being displayed with the <SET NONDISP>
+          character.
+     
+          Up to 20 character specifiers (single number or range) can be
+          specified.
+     
+     COMPATIBILITY
+          XEDIT: Similar function but deals with Double-Byte characters
+          KEDIT: N/A
+     
+     DEFAULT
+          ON - DOS/OS2/WIN32
+          ON 32-255 - X11
+          OFF - UNIX/AMIGA/QNX
+     
+     SEE ALSO
+          <SET NONDISP>, <SET COLOUR>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set file display name - change the display filename of the file being edited
+     
+     SYNTAX
+          [SET] FDISPLAY displayname
+     
+     DESCRIPTION
+          The SET FDISPLAY command allows the user to change the display filename of
+          the file currently being edited as shown on the <IDLINE>.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     SEE ALSO
+          <SET FPATH>, <SET FNAME>, <SET FEXT>, <SET FMODE>, <SET EQUIVCHAR>, <SET FDISPLAY>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set fext - change the extension of the existing file
+     
+     SYNTAX
+          [SET] FExt ext
+          [SET] FType ext
+     
+     DESCRIPTION
+          The SET FEXT command allows the user to change the extension of
+          the file currently being edited. The extension is the characters
+          after the last period.
+     
+          See <SET FILENAME> for a full explanation of THE's definitions
+          of fpath, filename, fname, fext and fmode.
+     
+          It is not possible to use this command on pseudo files.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     SEE ALSO
+          <SET FNAME>, <SET FILENAME>, <SET FTYPE>, <SET FMODE>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set filename - change the filename of the file being edited
+     
+     SYNTAX
+          [SET] FILEName filename
+     
+     DESCRIPTION
+          The SET FILEName command allows the user to change the filename of
+          the file currently being edited.
+     
+          In THE, a fully qualified file name consists of a file path and a
+          file name.  THE treats all characters up to and including the
+          last directory separator (usually / or \) as the file's path.
+          From the first character after the end of the file's path, to
+          the end of the fully qualified file name is the file name.
+     
+          A file name is further broken down into a fname and fext.
+          The fname of a file consists of all characters from the start
+          of the filename up to but not including the last period (if
+          there is one).  The fext of a file consists of all characters
+          from the end of the filename up to but not including the last
+          period. If there is no period in the filename then the fext is
+          empty.
+     
+          The fmode of a file is equivalent to the drive letter of the file's
+          path. This is only valid under DOS, OS/2 and Windows ports.
+     
+          Some examples.
+     
+          *----------------------------------------------------------------
+          Full File Name     File            File     Fname  Fext     Fmode
+                             Path            Name
+          -----------------------------------------------------------------
+          /usr/local/bin/the /usr/local/bin/ the      the             N/A
+          c:\tools\the.exe   c:\tools\       the.exe  the    exe      c
+          /etc/a.b.c         /etc/           a.b.c    a.b    c        N/A
+          *----------------------------------------------------------------
+     
+          A limited amount of validation of the resulting file name is
+          carried out by this command, but some errors in the file name
+          will not be evident until the file is saved.
+     
+          A leading "=" indicates that the fname portion of the current file
+          name is be retained.  This is equivalent to the command
+          <SET FEXT>.  A trailing "=" indicates that the fext portion of
+          the current file name is to be retained. This is equivalent to the
+          command <SET FNAME>.
+     
+          Only one "=" is allowed in the parameter.
+     
+          Some examples.
+     
+          *----------------------------------------------------------------
+          File Name   Parameter  New File Name
+          -----------------------------------------------------------------
+          a.b.c       fred.c=    fred.c.c      SET FNAME fred.c
+          a.b.c       fred.c.=   fred.c..c     SET FNAME fred.c.
+          a.b.c       =fred      a.c.fred      SET FEXT fred
+          a.b.c       =.fred     a.c..fred     SET FEXT .fred
+          a           =d         a.d           SET FEXT d
+          a.b.c       =          a.b.c         does nothing
+          *----------------------------------------------------------------
+     
+          It is not possible to use this command on pseudo files.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SET FPATH>, <SET FNAME>, <SET FEXT>, <SET FMODE>, <SET EQUIVCHAR>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set filetabs - determine if and where where file tabs are positioned
+     
+     SYNTAX
+          [SET] FILETABS ON|OFF
+     
+     DESCRIPTION
+          The SET FILETABS command allows the user to determine if file tabs
+          are to be displayed and where. FILETABS is a single line at the
+          top of the display showing all files currently in the ring, except
+          the current file.
+          It provides a mechanism where the user running THE with mouse support
+          can simply click on the filename in the FILETABS line to change focus
+          to that file.
+     
+          The colour of the file tabs can be set with <SET COLOUR> FILETABS.
+          The colour of the file dividers can be set with <SET COLOUR> FILETABSDIV.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     SEE ALSO
+          <SET COLOUR>, <TABFILE>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set fmode - change the drive letter of the existing file
+     
+     SYNTAX
+          [SET] FMode d[:]
+     
+     DESCRIPTION
+          The SET FMode command allows the user to change the drive letter
+          of the file currently being edited.
+     
+          This command is only valid under the DOS, OS/2 and Windows ports.
+     
+          See <SET FILENAME> for a full explanation of THE's definitions
+          of fpath, filename, fname, fext and fmode.
+     
+          It is not possible to use this command on pseudo files.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible
+     
+     SEE ALSO
+          <SET FNAME>, <SET FILENAME>, <SET FEXT>, <SET FPATH>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set fname - change the filename of the file being edited
+     
+     SYNTAX
+          [SET] FName filename
+     
+     DESCRIPTION
+          The SET FNAME command allows the user to change the fname of
+          the file currently being edited.
+     
+          See <SET FILENAME> for a full explanation of THE's definitions
+          of fpath, filename, fname, fext and fmode.
+     
+          A limited amount of validation of the resulting file name is
+          carried out by this command, but some errors in the file name
+          will not be evident until the file is saved.
+     
+          It is not possible to use this command on pseudo files.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SET FPATH>, <SET FILENAME>, <SET FEXT>, <SET FMODE>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set fpath - change the path of the existing file
+     
+     SYNTAX
+          [SET] FPath path
+     
+     DESCRIPTION
+          The SET FPATH command allows the user to change the path of
+          the file currently being edited.
+     
+          The 'path' parameter can be specified with or without the
+          trailing directory separator.  Under DOS, OS/2 and Windows ports,
+          the drive letter is considered part of the file's path.
+     
+          See <SET FILENAME> for a full explanation of THE's definitions
+          of fpath, filename, fname, fext and fmode.
+     
+          It is not possible to use this command on pseudo files.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     SEE ALSO
+          <SET FNAME>, <SET FILENAME>, <SET FEXT>, <SET FMODE>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set ftype - change the extension of the existing file
+     
+     SYNTAX
+          [SET] FType ext
+     
+     DESCRIPTION
+          The SET FTYPE is a synonym for <SET FEXT>.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     SEE ALSO
+          <SET FNAME>, <SET FILENAME>, <SET FEXT>, <SET FMODE>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set fullfname - specify if complete filename to be displayed
+     
+     SYNTAX
+          [SET] FULLFName ON|OFF
+     
+     DESCRIPTION
+          The SET FULLFNAME command allows the user to determine if the
+          fully qualified filename is displayed on the IDLINE or just the
+          FNAME component.
+          See <SET FILENAME> for a full explanation of THE's definitions
+          of fpath, filename, fname, fext and fmode.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          ON
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set header - turn on or off syntax highlighting headers
+     
+     SYNTAX
+          [SET] HEADer section ON|OFF
+     
+     DESCRIPTION
+          The SET HEADER command allows fine tuning of which sections of a
+          TLD file are to be applied for the current view.
+     
+          'section' refers to one of the following headers that can be specified
+          in a TLD file:
+          NUMBER, COMMENT, STRING, KEYWORD, FUNCTION, HEADER, LABEL, MATCH,
+          COLUMN, POSTCOMPARE, MARKUP, DIRECTORY.
+          'section' can also be specified as '*', in which case all headers
+          are applied or not applied.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          * ON
+     
+     SEE ALSO
+          <SET PARSER>, <SET COLORING>, <SET AUTOCOLOR>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set hex - set how hexadecimal strings are treated in string operands
+     
+     SYNTAX
+          [SET] HEX ON|OFF
+     
+     DESCRIPTION
+          The SET HEX set command determines whether hexadecimal strings are
+          treated as such in string operands.
+     
+          With the 'ON' option, any string operand of the form
+             /x'31 32 33'/ or
+             /d'49 50 51'/
+          will be converted to /123/ before the command is executed.
+     
+          With the 'OFF' option, no conversion is done.
+     
+          This conversion should work wherever a string operand is used
+          in any command.
+     
+     COMPATIBILITY
+          XEDIT: Adds support for decimal representation. See below.
+          KEDIT: Compatible. See below.
+          Spaces must separate each character representation.
+     
+     DEFAULT
+          OFF
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set hexdisplay - turn on or off display of character under cursor
+     
+     SYNTAX
+          [SET] HEXDISPlay ON|OFF
+     
+     DESCRIPTION
+          The SET HEXDISPLAY command turns on or off the display of the
+          character under the cursor on the <status line>.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          ON
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set hexshow - turn on or off hex display of current line
+     
+     SYNTAX
+          [SET] HEXShow ON|OFF [M[+n|-n]|[+|-]n]
+     
+     DESCRIPTION
+          The SET HEXShow command indicates if and where a hexadecimal
+          representation of the <current line> will be displayed.
+     
+          The first form of parameters is:
+     
+          M[+n|-n]
+          this sets the hexshow line to be relative to the middle of
+          the screen. A positive value adds to the middle line number,
+          a negative subtracts from it.
+          e.g. M+3 on a 24 line screen will be line 15
+              M-5 on a 24 line screen will be line 7
+     
+          The second form of parameters is:
+     
+          [+|-]n
+          this sets the hexshow line to be relative to the top of the
+          screen (if positive or no sign) or relative to the bottom
+          of the screen if negative.
+          e.g. +3 or 3 will set current line to line 3
+              -3 on a 24 line screen will be line 21
+     
+          If the resulting line is outside the bounds of the screen
+          the position of the hexshow line will become the middle line
+          on the screen.
+     
+          The position argument specifies the position of the first line
+          of the hexadecimal display.
+     
+          It is an error to try to position the HEXSHOW lines on the same
+          line as <SET CURLINE>.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          OFF 7
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set highlight - specify which lines (if any) are to be highlighted
+     
+     SYNTAX
+          [SET] HIGHlight OFF|TAGged|ALTered|SELect n [m]
+     
+     DESCRIPTION
+          The SET HIGHLIGHT command allows for the user to specify which
+          lines are to be displayed in the highlighted colour.
+     
+          'OFF' turns all highlighting display off
+     
+          'TAGGED' displays all tagged lines in the highlight colour.
+     
+          'ALTERED' displays all lines that have been added or
+          changed in the current session in the highlight colour.
+     
+          'SELECT n [m]' displays all lines with the specified selection
+          level in highlight colour.
+     
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible
+     
+     DEFAULT
+          OFF
+     
+     SEE ALSO
+          <SET SELECT>, <TAG>, <SET LINEFLAG>
+     
+     STATUS
+          Ccomplete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set idline - specify if IDLINE is displayed
+     
+     SYNTAX
+          [SET] IDline ON|OFF
+     
+     DESCRIPTION
+          The SET IDLINE set command determines if the <idline> for a file is
+          displayed or not.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          ON
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set impcmscp - set implied operating system command processing
+     
+     SYNTAX
+          [SET] IMPcmscp ON|OFF
+     
+     DESCRIPTION
+          The SET IMPCMSCP command is used to set implied operating system
+          command processing from the command line. By turning this feature
+          on you can then issue an operating system command without the need
+          to prefix the operating system command with the <OS> command.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: N/A
+     
+     DEFAULT
+          ON
+     
+     SEE ALSO
+          <SET IMPOS>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set impmacro - set implied macro command processing
+     
+     SYNTAX
+          [SET] IMPMACro ON|OFF
+     
+     DESCRIPTION
+          The SET IMPMACRO command is used to set implied macro processing
+          from the command line. By turning this feature on you can then
+          issue a <macro> command without the need to prefix the macro name
+          with the <MACRO> command.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          ON
+     
+     SEE ALSO
+          <MACRO>, <SET MACROPATH>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set impos - set implied operating system command processing
+     
+     SYNTAX
+          [SET] IMPOS ON|OFF
+     
+     DESCRIPTION
+          The SET IMPOS command is used to set implied operating system
+          command processing from the command line. By turning this feature
+          on you can then issue an operating system command without the need
+          to prefix the operating system command with the <OS> command.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: N/A
+     
+     DEFAULT
+          ON
+     
+     SEE ALSO
+          <SET IMPCMSCP>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set inputmode - set input mode behaviour
+     
+     SYNTAX
+          [SET] INPUTMode OFF|FUll|LIne
+     
+     DESCRIPTION
+          The SET INPUTMODE command changes the way THE handles input.
+     
+          When INPUTMODE LINE is in effect, pressing the ENTER key while
+          in the <filearea> will result in a new line being added.
+     
+          When INPUTMODE OFF is in effect, pressing the ENTER key while
+          in the <filearea> will result in the cursor moving to the
+          beginning of the next line; scrolling the screen if necessary.
+     
+          When INPUTMODE FULL is in effect, pressing the ENTER key while
+          in the <filearea> will result in the cursor moving to the
+          beginning of the next line; scrolling the screen if necessary.
+     
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          LINE
+     
+     SEE ALSO
+          <INPUT>
+     
+     STATUS
+          Incomplete. No support for FULL option.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set insertmode - put editor into or out of insert mode
+     
+     SYNTAX
+          [SET] INSERTMode ON|OFF|TOGGLE
+     
+     DESCRIPTION
+          The SET INSERTMODE command enable the user to set the insert mode
+          within THE.
+     
+          The 'TOGGLE' option turns insert mode 'ON' if it is currently
+          'OFF' and vice versa.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          OFF
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set interface - set overall behaviour of THE
+     
+     SYNTAX
+          [SET] INTerface CLASSIC|CUA
+     
+     DESCRIPTION
+          The SET INTERFACE command changes the behaviour of several operations
+          within THE.  THE normally operates in a block-mode manner, however
+          many applications conform to the Common User Access (CUA) standard
+          developed by IBM.  This command specifies that CUA behaviour should
+          occur on various actions during the edit session.
+     
+          The major differences between CLASSIC and CUA behaviour involve
+          keyboard and mouse actions. Various THE commands have CUA options to
+          allow the user to customise the behaviour individual keys or the
+          mouse to behave in a CUA manner.
+     
+          Where behaviour is not related to particular key or mouse actions,
+          this command provides the mechanism for changing the behaviour.
+          The behaviour that SET INTERFACE affects:
+     
+          - entering text in the filearea with a marked CUA block will
+            first delete the block and reposition the cursor
+          - executing <SOS DELCHAR> or <SOS DELBACK> will delete the
+            marked CUA block
+          - executing any positioning command, such as <CURSOR> DOWN,
+            <FORWARD> or <CURSOR> MOUSE, will unmark the CUA block
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible with KEDIT for Windows.
+     
+     DEFAULT
+          CLASSIC
+     
+     SEE ALSO
+          <MARK> <CURSOR>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set lastop - set the contents of the lastop argument
+     
+     SYNTAX
+          [SET] LASTOP operand text
+     
+     DESCRIPTION
+          The SET LASTOP command sets the values of the specified 'operand' to the
+          'text' supplied. This command is most useful when run from a macro, to
+          set the string to be passed to the next invocation of the equivalent
+          'operand' command; eg LOCATE, FIND, etc.
+     
+          Because THE does not save the contents of the lastop from a command when
+          run from a macro, sometimes the macro is intended to set this value. This
+          command allows that capability.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <LOCATE>, <FIND>, <SEARCH>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set lineflag - set the line characteristics of lines
+     
+     SYNTAX
+          [SET] LINEFLAG CHAnge|NOCHange NEW|NONEW TAG|NOTAG [target]
+     
+     DESCRIPTION
+          The SET LINEFLAGS command controls the line characteristics of lines
+          in a file.
+     
+          Each line in a file has certain characteristics associated with it
+          depending on how the line has been modified.  On reading a file from
+          disk, all lines in the file are set to their default values.
+     
+          Once a line is modified, or tagged, the characteristics of the line
+          are set appropriately.  A line that is added, is set to NEW; a line
+          that is changed is set to CHANGE, and a line that is tagged with the
+          <TAG> command, is set to TAG.  All three characteristics can be on
+          at the one time.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          NOCHANGE NONEW NOTAG
+     
+     SEE ALSO
+          <TAG>, <SET HIGHLIGHT>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set linend - allow/disallow multiple commands on command line
+     
+     SYNTAX
+          [SET] LINENd ON|OFF [character]
+     
+     DESCRIPTION
+          The SET LINEND command allows or disallows the execution of multiple
+          commands on the <command line>. When setting LINEND ON, a 'character'
+          is specified as the LINEND character which delimits each command.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          OFF #
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set macro - indicate if macros executed before commands
+     
+     SYNTAX
+          SET MACRO ON|OFF
+     
+     DESCRIPTION
+          The SET MACRO command allows the user to determine if macros
+          are executed before a built-in command of the same name.
+     
+          This command MUST be prefixed with <SET> to distinguish it
+          from the <MACRO> command.
+     
+          A macro with the same name as a built-in command will only
+          be executed before the built-in command if <SET IMPMACRO>
+          is ON, <SET MACRO> is ON, and the command was NOT executed
+          with the <COMMAND> command.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: N/A
+     
+     DEFAULT
+          OFF
+     
+     SEE ALSO
+          <MACRO>, <SET IMPMACRO>, <COMMAND>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set macroext - set default macro extension value
+     
+     SYNTAX
+          [SET] MACROExt [ext]
+     
+     DESCRIPTION
+          The SET MACROEXT command sets the value of the file extension to be
+          used for <macro> files. When a macro file name is specified on the
+          <command line>, a period '.', then this value will be appended.
+          If no value is specified for 'ext', then THE assumes that the
+          supplied macro file name is the fully specified name for a macro.
+     
+          The length of 'ext' must be 10 characters or less.
+     
+          The macro extension is only appended to a file if that file does
+          not include any path specifiers.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          the
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set macropath - set default path for macro commands
+     
+     SYNTAX
+          [SET] MACROPath PATH|path[s]
+     
+     DESCRIPTION
+          The SET MACROPATH command sets up the search path from which macro
+          command files are executed. Each directory is separated by a
+          colon (Unix) or semi-colon (DOS & OS/2). Only 20 directories are
+          allowed to be specified.
+     
+          When 'PATH' is specified, the search path is set to the system
+          PATH environment variable.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Incompatible.
+     
+     DEFAULT
+          Path specified by env variable THE_MACRO_PATH
+     
+     SEE ALSO
+          <MACRO>, <SET IMPMACRO>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set margins - set left and right margins for wordwrap
+     
+     SYNTAX
+          [SET] MARgins left right [[+|-]indent]
+     
+     DESCRIPTION
+          The SET MARGINS command sets the 'left' and 'right' margins and the
+          number of columns to 'indent' a paragraph.
+     
+          These values are used with the <SET WORDWRAP> option.
+     
+          All options can be specified as the current EQUIVCHAR to retain the
+          existing value.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          1 72 +0
+     
+     SEE ALSO
+          <SET WORDWRAP>, <SET EQUIVCHAR>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set mouse - turn mouse support on or off
+     
+     SYNTAX
+          [SET] MOUSE ON|OFF
+     
+     DESCRIPTION
+          The SET MOUSE command allows the user to turn on or off mouse
+          support in THE.  With mouse support, THE commands assigned to
+          a mouse button event will be executed.  See APPENDIX 3 for
+          details on default mouse support.
+     
+          If the platform does not support mouse operations, the default
+          setting will be OFF.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible. Does not support all options.
+     
+     DEFAULT
+          ON - if mouse supported, OFF - otherwise
+     
+     SEE ALSO
+          <DEFINE>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set mouseclick - set interval for mouse click events
+     
+     SYNTAX
+          [SET] MOUSECLick n
+     
+     DESCRIPTION
+          The SET MOUSECLICK command specifies the time interval in milliseconds
+          that THE uses to determine if a mouse button CLICK is returned or a pair
+          of mouse button PRESS and RELEASE events are returned.
+          See APPENDIX 3 for details on default mouse support.
+     
+          If the platform does not support mouse operations, the command is ignored.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     NOTES
+          Setting this value to 0 results in only mouse button PRESS/RELEASE events
+          being returned.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set msgline - set position and size of message line
+     
+     SYNTAX
+          [SET] MSGLine ON M[+n|-n]|[+|-]n [lines] [Overlay]
+          [SET] MSGLine CLEAR
+     
+     DESCRIPTION
+          The SET MSGLINE set command specifies the position of the
+          <message line> and the size of the message line window.
+     
+          The first form of positional parameters is:
+     
+          M[+n|-n]
+          this sets the first line to be relative to the middle of
+          the screen. A positive value adds to the middle line number,
+          a negative subtracts from it.
+          e.g. M+3 on a 24 line screen will be line 15
+              M-5 on a 24 line screen will be line 7
+     
+          The second form of positional parameters is:
+     
+          [+|-]n
+          this sets the first line to be relative to the top of the
+          screen (if positive or no sign) or relative to the bottom
+          of the screen if negative.
+          e.g. +3 or 3 will set first line to line 3
+              -3 on a 24 line screen will set first line to line 21
+     
+          If the resulting line is outside the bounds of the screen
+          the position of the message line will become the middle line
+          on the screen.
+     
+          The 'lines' argument specifies the maximum number of lines of
+          error messages to display at the one time.  If this value is
+          specified as a whole number it must be less than or equal to the
+          number of lines that could fit on the screen from the starting row.
+          '*' can be specified to indicate that as many lines as possible should
+          be displayed.
+     
+          All options can be specified as the current EQUIVCHAR to retain the
+          existing value.
+     
+          The second format of the command clears the messages being displayed.
+          This is useful in macros where you need to display an error message
+          but also want to be able to clear it.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+                 The OVERLAY option is the default but ignored.
+                 The second format is not supported.
+          KEDIT: Compatible
+                 The OVERLAY option is the default but ignored.
+                 The second format is not supported.
+     
+     DEFAULT
+          ON 2 5 Overlay
+     
+     SEE ALSO
+          <SET EQUIVCHAR>
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set msgmode - set display of messages on or off
+     
+     SYNTAX
+          [SET] MSGMode ON|OFF [Short|Long]
+     
+     DESCRIPTION
+          The SET MSGMODE set command determines whether error messages will
+          be displayed or suppressed.
+     
+     COMPATIBILITY
+          XEDIT: Does not implement [Short|Long] options.
+          KEDIT: Compatible
+     
+     DEFAULT
+          ON
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set newlines - set position of cursor after adding blank line
+     
+     SYNTAX
+          [SET] NEWLines Aligned|Left
+     
+     DESCRIPTION
+          The SET NEWLINES set command determines where the cursor displays
+          after a new line is added to the file.
+     
+          With 'ALIGNED', the cursor will display in the column of the new line
+          immediately underneath the first non-blank character in the line
+          above.
+          With 'LEFT', the cursor will display in the first column of the new
+          line.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Same command, different functionality.
+     
+     DEFAULT
+          Aligned
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set nondisp - specify character to display for non-displaying characters
+     
+     SYNTAX
+          [SET] NONDisp character
+     
+     DESCRIPTION
+          The SET NONDISP command allows the user to change the 'character'
+          that is displayed for non-displaying commands when <SET ETMODE>
+          is OFF.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: N/A
+     
+     DEFAULT
+          #
+     
+     SEE ALSO
+          <SET ETMODE>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set number - turn prefix numbers on or off
+     
+     SYNTAX
+          [SET] NUMber ON|OFF
+     
+     DESCRIPTION
+          The SET NUMBER command allows the user to set the display of
+          numbers in the <prefix area>.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          ON
+     
+     SEE ALSO
+          <SET PREFIX>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set pagewrap - determine if page scrolling wraps at bottom/top of file
+     
+     SYNTAX
+          [SET] PAGEWRAP ON|OFF
+     
+     DESCRIPTION
+          The SET PAGEWRAP command allows the user to turn on or off the
+          automatic wrapping of <FORWARD> and <BACKWARD> commands when the cursor
+          is at the <Bottom-of-File line> or <Top-of-File line> respectively.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          ON
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set parser - associates a language definition file with a parser
+     
+     SYNTAX
+          [SET] PARSER parser file
+     
+     DESCRIPTION
+          The SET PARSER defines a new syntax highlighting <parser>; 'parser' based
+          on a language definition file; 'file'.
+     
+          The 'file' is looked for in the directories specified by <SET MACROPATH>.
+     
+          To specify one of the builtin parsers, prefix the filename with '*'.
+          Therefore to define a <parser> called FRED using the builtin C parser,
+          the command would be: SET PARSER FRED *C.TLD.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SET COLORING>, <SET ECOLOUR>, <SET AUTOCOLOR>, <SET MACROPATH>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set pending - set status of pending prefix commands
+     
+     SYNTAX
+          [SET] PENDing ON string
+          [SET] PENDing OFF
+          [SET] PENDing BLOCK string
+     
+     DESCRIPTION
+          The SET PENDING command allows the user to insert or remove commands
+          from the pending prefix list.
+     
+          ON string, simulates the user typing 'string' in the <prefix area>
+          of the <focus line>.
+     
+          OFF, removes any pending prefix command from the focus line.
+     
+          BLOCK string, simulates the user typing 'string' in the PREFIX
+          area of the focus line and identifies the prefix command to be
+          a BLOCK command.
+     
+     COMPATIBILITY
+          XEDIT: Does not support ERROR option.
+          KEDIT: N/A
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set point - assign a name to the current line
+     
+     SYNTAX
+          [SET] Point .name [OFF]
+     
+     DESCRIPTION
+          The SET POINT command assigns the specified name to the
+          <focus line>, or removes the name from the line with the specified
+          name.
+          A valid line name must start with a '.' followed by alphanumeric
+          characters. e.g. .a .fred and .3AB are valid names.
+     
+          When a line is moved within the same file, its line name stays
+          with the line.
+     
+          Multiple names can be assigned to the same line.
+     COMPATIBILITY
+          XEDIT: Compatible. See below.
+          KEDIT: Compatible. See below.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set position - determine if LINE/COL is displayed on idline
+     
+     SYNTAX
+          [SET] POSition ON|OFF
+     
+     DESCRIPTION
+          The SET POSITION command allows the user to turn on or off the
+          display of LINE/COL on the <idline>.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          ON
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set prefix - set prefix area attributes
+     
+     SYNTAX
+          [SET] PREfix ON [Left|Right] [m [n]]
+          [SET] PREfix Nulls [Left|Right] [m [n]]
+          [SET] PREfix OFF
+          [SET] PREfix Synonym newname oldname
+          [SET] PREfix GAP n [LINE]
+     
+     DESCRIPTION
+          The first form of the SET PREFIX command allows the user to display
+          the <prefix area> and optionally to select the position where the
+          prefix should be displayed.
+     
+          The second form of the SET PREFIX command is functionally the same
+          as the first form. The difference is that when the prefix area
+          is displayed with <SET NUMBER> ON, numbers are displayed with leading
+          spaces rather than zeros; with <SET NUMBER> OFF, blanks are displayed
+          instead of equal signs.
+     
+          The first and second forms of the SET PREFIX command allows the user
+          to specify the width of the prefix area and optionally a gap between
+          the prefix area and the filearea.
+          'm' can be specified as an unsigned number between 2 and 20 inclusive.
+          'n' can be specified as an unsigned number between 0 and 18, but less
+          than the number specified in 'm'.
+     
+          The third form, turns the display of the prefix area off.
+          Executed from within the profile, the only effect is that the
+          defaults for all files is changed.
+          Executed from the command line, the SET PREFIX command changes the
+          current window displays to reflect the required options.
+     
+          The fourth form of the SET PREFIX command allows the user to specify
+          a synonym for a prefix command or Rexx prefix macro. The 'newname'
+          is the command entered in the prefix area and 'oldname' corresponds
+          to an existing prefix command or a Rexx macro file in the MACROPATH
+          ending in .the or whatever the value of <SET MACROEXT> is at the time the
+          prefix command is executed. The 'oldname' can also be the fully
+          qualified filename of a Rexx macro.
+          To turn off a prefix synonym, call SET PREFIX newname oldname where
+          'newname' and 'oldname' are the same and 'newname' is an existing prefix
+          command or macro.
+     
+          The fifth form of the SET PREFIX command allows the user to specify
+          the width of the gap between the prefix area and the file area and
+          whether a vertical line should be displayed in that gap.
+          'n' can be specified as an unsigned number between 0 and 18, but less
+          than the current prefix width.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+          Specification of prefix width ang gap is a THE-only option. Kedit has
+          SET PREFIXWIDTH to set prefix width, but not gap.
+     
+     DEFAULT
+          ON Left 6 0
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set printer - define printer spooler name
+     
+     SYNTAX
+          [SET] PRINTER spooler|[OPTION options]
+     
+     DESCRIPTION
+          The SET PRINTER command sets up the print spooler name to determine
+          where output from the <PRINT> command goes.
+     
+          The 'options' can be one of the following:
+          CPI n                           (characters per inch)
+          LPI n                           (lines per inch)
+          ORIENTation Portrait|Landscape
+          FONT fontname                   (name of fixed width font)
+     
+          No checking is done for printer options. i.e. You may specify a
+          font that THE doesn't know about, and the printing process may
+          not work after that.
+     
+          The defaults for page layout for Win32 are:
+          CPI 16
+          LPI 8
+          ORIENTation Portrait
+          FONT LinePrinter BM
+     
+          'options' are only valid for Win32 platform.
+          Printer output for the Win32 platform ALWAYS goes to the default
+          printer. Therefore, the 'spooler' option is invalid on this
+          platform.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible. THE adds more functionality.
+     
+     DEFAULT
+          LPT1 - DOS/OS2, lpr - Unix, default - Win32
+     
+     SEE ALSO
+          <PRINT>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set pscreen - set physical size of screen
+     
+     SYNTAX
+          [SET] PSCReen height [width] [RESET|PRESET]
+     
+     DESCRIPTION
+          The SET PSCREEN command allows the user to adjust the size of the
+          physical screen to the size specified by 'height' and 'width'.
+     
+          This command does not work on all platforms.
+     
+          The optional argument [RESET|PRESET] are ignored; they are there
+          for Kedit compatibility.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible. Ignores RESET|PRESET argument
+     
+     DEFAULT
+          System Dependent
+     
+     STATUS
+          Incomplete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set readonly - allow/disallow changes to a file if it is readonly
+     
+     SYNTAX
+          [SET] READONLY ON|OFF|FORCE [File]
+     
+     DESCRIPTION
+          The SET READONLY command allows the user to disallow changes to
+          files if they are readonly.  Normally, if a file is readonly, THE
+          allows the user to make changes to the file contents while in the
+          editing session, but does not allow the file to be saved.
+     
+          With READONLY ON, THE disallows any changes to be made to the
+          contents of the file in memory, in much the same way that THE
+          disallows changes to be made to any files, if THE is started
+          with the -r command line switch.
+     
+          With READONLY FORCE, THE disallows any changes to be made to the
+          contents of the file in memory, in the same way that THE
+          disallows changes to be made to any files, if THE is started
+          with the -r command line switch.
+     
+          While the -r command line switch disallows changes to be made to
+          any files, SET READONLY ON, only disallows changes to be made to
+          readonly files. SET READONLY FORCE disallows changes to be made to
+          the any files irrespective of whether they are readonly on disk.
+     
+          With the [File] option, SET READONLY ON and SET READONLY FORCE
+          will result in the current file being readonly. SET READONLY OFF
+          will allow changes to be made to the current file, provided the
+          global READONLY status is OFF.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          OFF
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set regexp - specify the regular expression syntax to use
+     
+     SYNTAX
+          [SET] REGEXP syntax
+     
+     DESCRIPTION
+          The SET REGEXP command allows the user specify which of the many
+          regular expression syntaxes to use when using regular expressions
+          in a <target>.
+          The 'syntax' can be specified as one of:
+     
+               EMACS
+               AWK
+               POSIX_AWK
+               GREP
+               EGREP
+               POSIX_EGREP
+               SED
+               POSIX_BASIC
+               POSIX_MINIMAL_BASIC
+               POSIX_EXTENDED
+               POSIX_MINIMAL_EXTENDED
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          EMACS
+     
+     SEE ALSO
+          <LOCATE>, <ALL>
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set reprofile - indicate if profile file to be executed for all files
+     
+     SYNTAX
+          [SET] REPROFile ON|OFF
+     
+     DESCRIPTION
+          The SET REPROFILE command allows the user to determine if the
+          <profile> file is to reexecuted for files subsequently edited.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          OFF
+     
+     SEE ALSO
+          <XEDIT>, <EDIT>, <THE>
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set reserved - display a reserved line
+     
+     SYNTAX
+          [SET] RESERved [AUTOSCroll] *|+|-n [colour] [text|OFF]
+     
+     DESCRIPTION
+          The SET RESERVED command reserves a line for the display of arbitrary
+          text by the user. The position is determined by +|-n.
+          This number, if positive, specifies the line relative from the
+          top of the display. A negative number is relative from the
+          bottom of the display.
+     
+          By specifying a line, say +3, then the third line from the top will
+          be reserved, with the supplied text being displayed in that line.
+     
+          The <idline> of a file will always be displayed after any reserved
+          lines.
+     
+          The <status line> is not considered part of the displayable area,
+          so any positioning specifications ignore that line.
+     
+          A <reserved line> can only be turned off by identifying it in the
+          same way that it was defined.  If a <reserved line> was added with
+          the position specification of -1, it cannot be turned off with
+          a position specification of 23, even though both position
+          specifiers result in the same display line.
+     
+          All reserved lines may be turned of by specifying * as the number
+          of lines.
+     
+          By default, reserved lines are fixed; that is the left portion of
+          the reserved line that can be displayed stays displayed irrespective
+          of whether the file contents have been scrolled left or right.
+          With the 'AUTOSCroll' option, the text of the reserved line is
+          scrolled with the file contents using the same settings as
+          <SET AUTOSCROLL>.
+     
+          The colour option specifies the colours to use to display the
+          reserved line. The format of this colour specifier is the same
+          as for <SET COLOUR>. If no colour is specified, the colour of the
+          reserved line will be the colour set by any <SET COLOUR> RESERVED
+          command for the view or white on black by default.
+     
+          The text of reserved lines can also included embedded control
+          characters to control the colour of portions of the text.
+          Assume the following <SET CTLCHAR> commands have been issued:
+     
+               SET CTLCHAR ! ESCAPE
+               SET CTLCHAR @ PROTECT BOLD RED ON WHITE
+               SET CTLCHAR % PROTECT GREEN ON BLACK
+     
+          Then to display a <reserved line> using the specified colours:
+     
+               SET RESERVED -1 normal!@bold red on white!%green on black
+     
+          It is an error to try to reserve a line which is the same line as
+          <SET CURLINE>.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+                 AUTOSCroll option is a THE extension.
+     
+     SEE ALSO
+          <SET COLOUR>, <SET CTLCHAR>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set rexxhalt - halt Rexx macro after specified number of events
+     
+     SYNTAX
+          [SET] REXXHALT Command|Function n|OFF
+     
+     DESCRIPTION
+          The SET REXXHALT command specifies how many calls to subcommands or
+          functions can be made in a macro before a Rexx HALT condition is raised.
+     
+          A Rexx HALT condition can be triggered by the user at the prompt displayed
+          when the <message line> is full.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          OFF
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set rexxoutput - indicate where Rexx output is to go
+     
+     SYNTAX
+          [SET] REXXOUTput File|Display n
+     
+     DESCRIPTION
+          The SET REXXOUTPUT command indicates where output from the Rexx
+          interpreter is to go; either captured to a file in the ring
+          or displayed in a scrolling fashion on the screen.
+     
+          Also specified is the maximum number of lines from the Rexx
+          interpreter that are to be displayed or captured. This is
+          particularly useful when a Rexx <macro> gets into an infinite
+          loop.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          Display 1000
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set scale - set position and status of scale line on screen
+     
+     SYNTAX
+          [SET] SCALe ON|OFF [M[+n|-n]|[+|-]n]
+     
+     DESCRIPTION
+          The SET SCALE command sets the position and status of the scale line
+          for the current view.
+     
+          The first form of parameters is:
+     
+          M[+n|-n]
+          this sets the <scale line> to be relative to the middle of
+          the screen. A positive value adds to the middle line number,
+          a negative subtracts from it.
+          e.g. M+3 on a 24 line screen will be line 15
+              M-5 on a 24 line screen will be line 7
+     
+          The second form of parameters is:
+     
+          [+|-]n
+          this sets the <scale line> to be relative to the top of the
+          screen (if positive or no sign) or relative to the bottom
+          of the screen if negative.
+          e.g. +3 or 3 will set current line to line 3
+              -3 on a 24 line screen will be line 21
+     
+          If the resulting line is outside the bounds of the screen
+          the position of the current line will become the middle line
+          on the screen.
+     
+          It is an error to try to position the SCALE line on the same
+          line as <SET CURLINE>.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          OFF M+1
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set scope - sets which lines are to be excluded from commands
+     
+     SYNTAX
+          [SET] SCOPE All|Display
+     
+     DESCRIPTION
+          The SET SCOPE command indicates whether lines not displayed as
+          the result of a <SET DISPLAY> or <ALL> command are included in
+          the scope of lines to be acted upon by other THE commands.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          Display
+     
+     SEE ALSO
+          <SET DISPLAY>, <SET SELECT>, <ALL>
+     
+     STATUS
+          Completed.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set screen - specify number of screens displayed
+     
+     SYNTAX
+          [SET] SCReen n [Horizontal|Vertical]
+          [SET] SCReen Size l1|* [l2|*]
+          [SET] SCReen Width c1|* [c2|*]
+     
+     DESCRIPTION
+          The SET SCREEN command specifies the number of views of file(s) to
+          display on screen at once. If the number of views specified is 2
+          and only one file is currently in the <ring>, two views of the
+          same file are displayed.
+     
+          The second form of SET SCREEN allows the user to specify the
+          number of lines that each screen occupies.  The sum of 'l1' and
+          'l2' must equal to lscreen.5 or lscreen.5 - 1 if the <status line>
+          is displayed.
+     
+          The value of 'l1' specifies the size of the topmost screen; 'l2'
+          specifies the size of the bottommost screen.
+     
+          Either 'l1' or 'l2' can be set to *, but not both.  The * signifies
+          that the screen size for the specified screen will be the remainder
+          of the full display window after the size of the other screen
+          has been subtracted.
+     
+          The third form of SET SCREEN allows the user to specify the
+          number of columns that each screen occupies.  The sum of 'c1' and
+          'c2' must equal to lscreen.6.
+     
+          The value of 'c1' specifies the size of the leftmost screen; 'c2'
+          specifies the size of the rightmost screen.
+     
+          Either 'c1' or 'c2' can be set to *, but not both.  The * signifies
+          that the screen size for the specified screen will be the remainder
+          of the full display window after the size of the other screen
+          has been subtracted.
+     
+          The THE display can only be split into 1 or 2 screens.
+     
+     COMPATIBILITY
+          XEDIT: Does not support Define options.
+          KEDIT: Does not support Split option.
+          A maximum of 2 screens are supported.
+     
+     DEFAULT
+          1
+     
+     SEE ALSO
+          <SET STATUSLINE>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set select - sets the selection level for the specified lines
+     
+     SYNTAX
+          [SET] SELect [+|-]n [target]
+     
+     DESCRIPTION
+          The SET SELECT command sets the selection level for the indicated
+          lines equal to 'n' (if no signs are specified) or adds or subtracts
+          'n' from the selection level currently set for the lines in the
+          target.
+          'n' cannot be larger than 50000
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          0
+     
+     SEE ALSO
+          <SET SCOPE>, <SET DISPLAY>, <ALL>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set shadow - determines if shadow lines are displayed or not
+     
+     SYNTAX
+          [SET] SHADOW ON|OFF
+     
+     DESCRIPTION
+          The SET SHADOW command indicates whether <shadow line>s are to be
+          displayed.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          ON
+     
+     SEE ALSO
+          <SET DISPLAY>, <SET SELECT>, <ALL>
+     
+     STATUS
+          Completed.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set slk - set Soft Label Key definitions
+     
+     SYNTAX
+          [SET] SLK n|ON|OFF [text]
+     
+     DESCRIPTION
+          The SET SLK command allows the user to specify a short text
+          description to be displayed on the bottom of the screen, using
+          the terminal's built-in Soft Label Keys, on the last line of
+          the screen.
+     
+          The 'n' argument of the command represents the label
+          number from left to right, with the first label numbered 1.
+     
+          'OFF' turns off display of the Soft Label Keys.
+     
+          'ON' restores the display of the Soft Label Keys.
+     
+          The main use for this command is to describe the function assigned
+          to a function key, in place of a <reserved line>.
+     
+          On those platforms that support a pointing device, clicking the
+          left mouse button on the Soft Label Key, is equivalent to pressing
+          the associated function key.
+     
+          See COMMAND LINE SWITCHES in the THE manual for details on the number
+          and format of Soft Label Keys.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          ON  - if support for Soft Label Keys is available
+     
+     SEE ALSO
+          <SET COLOUR>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set span - specify if a string target can span multiple lines (unavailable)
+     
+     SYNTAX
+          [SET] SPAN ON|OFF [Blank|Noblank [n|*]]
+     
+     DESCRIPTION
+          The SET SPAN set command determines if a character string that is
+          the subject of a target search can span more than one line of the
+          file.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: N/A
+     
+     DEFAULT
+          OFF Blank 2
+     
+     STATUS
+          Not started.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set spill - specify if a string target can span multiple lines (unavailable)
+     
+     SYNTAX
+          [SET] SPILL ON|OFF|WORD
+     
+     DESCRIPTION
+          The SET SPILL set command determines how characters are spilt
+          off the end of a line when the length of the line exceeds the
+          truncation column.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: N/A
+     
+     DEFAULT
+          OFF
+     
+     STATUS
+          Not started.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set statopt - set display options on statusline
+     
+     SYNTAX
+          [SET] STATOPT ON option column [length [prompt] ]
+          [SET] STATOPT OFF option|*
+     
+     DESCRIPTION
+          The SET STATOPT command allows the user to specify which internal
+          settings of THE are to be displayed on the <status line>.
+     
+          The 'option' argument is any value returned by the <EXTRACT>
+          command. eg NBFILE.1.
+     
+          The syntax of the ON option, displays the specified value, at the
+          position in the <status line> specified by 'column'.  If supplied,
+          'length' specifies the number of characters, beginning at the
+          first character of the returned value, to display.  A value of 0
+          indicates that the full value if to be displayed.  The optional
+          'prompt' argument, allows the user to specify a string to display
+          immediately before the returned value.
+     
+          OFF, removes the specified 'option' from displaying.  If '*'
+          is specified, all displayed options will be removed.
+     
+          'column' is relative to the start of the <status line>.  The
+          value of 'column' must be > 9, so that the version of THE is
+          not obscured.
+     
+          Options will be displayed in the order in which they are set.
+     
+          If <SET CLOCK> or <SET HEX> are ON, these will take precedence
+          over options specified with this command.
+     
+          The more values you display the longer it will take THE to display
+          the <status line>.  Also, some values that are available via
+          <EXTRACT> are not really suitable for use here. eg CURLINE.3.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          ON NBFILE.1 13 0 Files=
+          ON WIDTH.1 23 0 Width=
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set statusline - set position of status line
+     
+     SYNTAX
+          [SET] STATUSLine Top|Bottom|Off|GUI
+     
+     DESCRIPTION
+     
+          The SET STATUSLINE command determines the position of the
+          <status line> for the editing session. TOP will place the status
+          line on the first line of the screen; BOTTOM will place the status
+          line on the last line of the screen; OFF turns off the display of
+          the status line.
+     
+          The GUI option is only meaningful for those platforms that support
+          a separate status line window. If specified for non-GUI ports, the
+          GUI option is equivalent to OFF.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+                 Added GUI option for THEdit port.
+     
+     DEFAULT
+          Bottom
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set stay - set condition of cursor position after CHANGE/LOCATE commands
+     
+     SYNTAX
+          [SET] STAY ON|OFF
+     
+     DESCRIPTION
+          The SET STAY set command determines what line is displayed as the
+          current line after an unsuccessful <LOCATE> or successful <CHANGE>
+          command.
+     
+          With STAY ON, the <current line> remains where it currently is.
+     
+          With STAY OFF, after an unsuccessful <LOCATE>, the <current line>
+          becomes the <Bottom-of-File line> (or <Top-of-File line> if direction
+          is backwards).
+     
+          After a successful <CHANGE>, the <current line> is the last
+          line affected by the <CHANGE> command.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          ON
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set synonym - define synonyms for commands (unavailable)
+     
+     SYNTAX
+          [SET] SYNonym ON|OFF
+          [SET] SYNonym [LINEND char] newname [n] definition
+     
+     DESCRIPTION
+          The SET SYNONYM command allows the user to define synonyms for
+          commands or macros.
+     
+          The first format indicates if synonym processing is to be performed.
+     
+          The second format defines a command synonym.
+     
+          The synonym is 'newname', which effectively adds a new THE
+          command with the definition specified by 'definition'.  The 'n'
+          parameter defines the minimum length of the abbreviation for
+          the new command
+          An optional LINEND character can be specified prior to 'newname'
+          if the 'definition' contains multiple commands.
+     
+          'definition' can be of the form:
+          [REXX] command [args] [#command [args] [...]]
+          (where # represents the LINEND character specified prior to
+          'newname')
+     
+          If the optional keyword; 'REXX', is supplied, the remainder of the
+          command line is treated as a Rexx macro and is passed onto the
+          Rexx interpreter (if you have one) for execution.
+     
+          Only 1 level of synonym processing is carried out; therefore
+          a synonym cannot be specified in the 'definition'.
+     
+     COMPATIBILITY
+          XEDIT: Compatible. Does not support format that can reorder parameters.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          OFF
+     
+     STATUS
+          Incomplete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set tabkey - set characteristics of the SOS TABF command
+     
+     SYNTAX
+          [SET] TABKey Tab|Character Tab|Character
+     
+     DESCRIPTION
+          The SET TABKEY sets the action to be taken when the <SOS TABF>
+          command is executed. Depending on the insert mode, the <SOS TABF>
+          command will either display a raw tab character or will move to
+          the next tab column.
+     
+          The first operand refers to the behaviour of the <SOS TABF> command
+          when <SET INSERTMODE> is OFF.
+     
+          The second operand specifies the behaviour when the <SOS TABF>
+          command is executed when <SET INSERTMODE> is ON.
+     
+          All options can be specified as the current EQUIVCHAR to retain the
+          existing value.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          Tab Character
+     
+     SEE ALSO
+          <SET EQUIVCHAR>
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set tabline - set position and status of tab line on screen
+     
+     SYNTAX
+          [SET] TABLine ON|OFF [M[+n|-n]|[+|-]n]
+     
+     DESCRIPTION
+          The SET TABLINE command sets the position and status of the <tab line>
+          for the current view.
+     
+          The first form of parameters is:
+     
+          M[+n|-n]
+          this sets the <tab line> to be relative to the middle of
+          the screen. A positive value adds to the middle line number,
+          a negative subtracts from it.
+          e.g. M+3 on a 24 line screen will be line 15
+              M-5 on a 24 line screen will be line 7
+     
+          The second form of parameters is:
+     
+          [+|-]n
+          this sets the <tab line> to be relative to the top of the
+          screen (if positive or no sign) or relative to the bottom
+          of the screen if negative.
+          e.g. +3 or 3 will set current line to line 3
+              -3 on a 24 line screen will be line 21
+     
+          If the resulting line is outside the bounds of the screen
+          the position of the current line will become the middle line
+          on the screen.
+     
+          It is an error to try to position the TABL line on the same
+          line as <SET CURLINE>.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          OFF -3
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set tabs - set tab columns or tab length
+     
+     SYNTAX
+          [SET] TABS n1 [n2 ... n32]
+          [SET] TABS INCR n
+          [SET] TABS OFF
+     
+     DESCRIPTION
+          The SET TABS command determines the position of tab columns in THE.
+     
+          The first format of SET TABS, specifies individual tab columns. Each
+          column must be greater than the column to its left.
+     
+          The second format specifies the tab increment to use. ie each tab
+          column will be set at each 'n' columns.
+     
+          The third format specifies that no tab columns are to be set.
+     
+          Tab columns are used by <SOS TABF>, <SOS TABB> and <SOS SETTAB>
+          commands to position the cursor and also by the <COMPRESS> and
+          <EXPAND> commands.
+     
+     COMPATIBILITY
+          XEDIT: Compatible. Does not support OFF option.
+          KEDIT: Compatible. Does not support OFF option.
+     
+     DEFAULT
+          INCR 8
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set tabsin - set tab processing on file input
+     
+     SYNTAX
+          [SET] TABSIn ON|OFF [n]
+     
+     DESCRIPTION
+          The SET TABSIN command determines if tabs read from a file are to be
+          expanded to spaces and if so how many spaces.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Does not support TABQUOTE option.
+     
+     DEFAULT
+          OFF 8
+     
+     SEE ALSO
+          <SET TABSOUT>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set tabsout - set tab processing on file output
+     
+     SYNTAX
+          [SET] TABSOut ON|OFF [n]
+     
+     DESCRIPTION
+          The SET TABSOUT command determines if spaces written to a file are to
+          be compressed to tabs and if so how many spaces.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          OFF 8
+     
+     SEE ALSO
+          <SET TABSIN>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set targetsave - set type(s) of targets to save for subsequent LOCATEs
+     
+     SYNTAX
+          [SET] TARGETSAVE ALL|NONE| STRING REGEXP ABSOLUTE RELATIVE POINT BLANK
+     
+     DESCRIPTION
+          The SET TARGETSAVE command allows you to specify which target
+          types are saved for subsequent calls to the LOCATE command without any
+          parameters.
+     
+          By default; SET TARGETSAVE ALL, the LOCATE command without any
+          parameters, locates the last target irrespective of the type of target.
+     
+          SET TARGETSAVE NONE turns off saving of targets, but does not delete
+          any already saved target.
+     
+          Any combination of the target types, STRING, REGEXP, ABSOLUTE, RELATIVE,
+          POINT, or BLANK can be supplied. e.g. SET TARGETSAVE STRING POINT.
+     
+          As an example, having SET TARGETTYPE STRING then the only target saved
+          will be one that has a string target component.
+          i.e. if you executed LOCATE /fred/ then LOCATE :3 then LOCATE, the final
+          LOCATE will look for /fred/ NOT :3
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          ALL
+     
+     SEE ALSO
+          <LOCATE>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set thighlight - specify if text highlighting is supported
+     
+     SYNTAX
+          [SET] THIGHlight ON|OFF
+     
+     DESCRIPTION
+          The SET THIGHLIGHT command allows the user to specify if a the result
+          of a string <LOCATE> command should be highlighted.  The colour that is
+          used to highlight the found string is set by the THIGHLIGHT option
+          of <SET COLOUR>.
+          The found string is highlighted until a new line is added or deleted, a
+          command is issued from the command line, another <LOCATE> or <CLOCATE>
+          command is executed, a block is marked, or <RESET> THIGHLIGHT is executed.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          ON - THE/KEDIT/KEDITW OFF - XEDIT/ISPF
+     
+     SEE ALSO
+          <LOCATE>, <SET COLOUR>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set timecheck - specify if time stamp checking done
+     
+     SYNTAX
+          [SET] TIMECHECK ON|OFF
+     
+     DESCRIPTION
+          The SET TIMECHECK command allows the user to specify if a check
+          is made of the modification time of the file being saved at the
+          time of saving.  This is done to alert the user if a file has
+          changed since they began editing the file.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          ON
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set tofeof - specify if TOF and BOF lines are displayed
+     
+     SYNTAX
+          [SET] TOFEOF ON|OFF
+     
+     DESCRIPTION
+          The SET TOFEOF command allows the user to specify if the
+          <Top-of-File line> and the <Bottom-of-File line> are displayed.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          ON
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set trailing - specify how to treat trailing blanks on lines
+     
+     SYNTAX
+          [SET] TRAILING ON|OFF|REMOVE|SINGLE|EMPTY
+     
+     DESCRIPTION
+          The SET TRAILING set command determines how trailing blanks on
+          lines are handled when written to disk.
+          TRAILING ON means that THE will not treat trailing blanks any
+          differently from any other characters in the file. Trailing blanks
+          are left on the line while reading in and editing, and retained
+          when the file is written to disk.
+          With TRAILING OFF, THE will remove trailing blanks when a file is
+          read, remove them during an edit session, and not write any trailing
+          blanks to the file.
+          With TRAILING REMOVE, THE will leave trailing blanks on the end of a
+          line when the file is read in and during editing, but will remove
+          trailing blanks when a file is written to disk.
+          TRAILING SINGLE is the same as TRAILING OFF, except that a single
+          blank character is appended to the end of every line when the file
+          is written.
+          TRAILING EMPTY is the same as TRAILING OFF, except that otherwise
+          empty lines will be written with a single trailing blank.
+     
+          Note that the default for this under THE is ON. This is because of
+          the way that THE processes profile files.  If the default was OFF,
+          and you had TRAILING ON in your profile, then there would be no
+          way to retain the original trailing blanks.
+     
+          If THE is started with -u switch, then any change to TRAILING is ignored;
+          the file will be handled as though TRAILING ON is in effect.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible. REMOVE is an THE extension.
+     
+     DEFAULT
+          ON
+     
+     STATUS
+          Complete.  Some trailing blank behaviour while editing files incomplete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set trunc - specify the truncation column
+     
+     SYNTAX
+          [SET] TRunc n|*
+     
+     DESCRIPTION
+          The SET TRUNC set command determines the truncation column.  This
+          is the rightmost column of text upon which THE commands are
+          effective.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          *
+     
+     STATUS
+          Incomplete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set typeahead - set behaviour of screen redraw
+     
+     SYNTAX
+          [SET] TYPEAhead ON|OFF
+     
+     DESCRIPTION
+          The SET TYPEAHEAD set command determines whether or not THE uses the
+          curses screen display optimization techniques.
+     
+          With TYPEAHEAD ON, curses will abort screen display if a keystroke
+          is pending.
+     
+          With TYPEAHEAD OFF, curses will not abort screen display if a
+          keystroke is pending.
+     
+          For BSD based curses, this function has no effect.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          OFF
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set undoing - turn on or off undo facility for the current file
+     
+     SYNTAX
+          [SET] UNDOING ON|OFF
+     
+     DESCRIPTION
+          The SET UNDOING command allows the user to turn on or off the
+          undo facility for the current file.
+     
+          At this stage in the development of THE, setting UNDOING to OFF
+          stops THE from saving changes made to lines in a file, and
+          prevents those lines from being able to be RECOVERed.
+     
+          Setting UNDOING to OFF will increase the speed at which THE can
+          execute CHANGE and DELETE commands.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Does not support optional arguments.
+     
+     DEFAULT
+          ON
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set untaa - specifies if "Unsigned Numerical Targets Are Absolute"
+     
+     SYNTAX
+          [SET] UNTAA ON|OFF
+     
+     DESCRIPTION
+          The SET UNTAA command allows the user to turn on or off the
+          behaviour of unsigned numerical targets.
+     
+          Numerical targets have the form [:|;|+|-]nn. By default, if the
+          optional portion of the target is not supplied, then a '+' is
+          assumed.  WIth SET UNTAA set to ON, if the optional portion of the
+          target is not supplied, then a ':' is assumed.
+     
+          Caution:  This SET command affects all numerical targets, not
+          just targets in the LOCATE command.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          OFF
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set verify - set column display limits
+     
+     SYNTAX
+          [SET] Verify first [last]
+     
+     DESCRIPTION
+          The SET VERIFY command sets the column limits for the display of the
+          current file. 'first' specifies the first column to be displayed
+          and 'last' specifies the last column to be displayed.
+     
+          If no 'last' option is specified '*' is assumed.
+     
+          All options can be specified as the current EQUIVCHAR to retain the
+          existing value.
+     
+     COMPATIBILITY
+          XEDIT: Does not implement HEX display nor multiple column pairs.
+          KEDIT: Does not implement HEX display nor multiple column pairs.
+     
+     DEFAULT
+          1 *
+     
+     SEE ALSO
+          <SET ZONE>, <SET EQUIVCHAR>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set width - set width of maximum line that THE can edit
+     
+     SYNTAX
+          [SET] WIDTH n
+     
+     DESCRIPTION
+          The SET WIDTH command specifies the maximum length that a line
+          can be within the edit session. This command is effectively the
+          same as the -w command line switch.
+     
+          The value 'n' MUST be between 10 and 2000000000.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          512
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set word - controls what THE considers a word to be
+     
+     SYNTAX
+          [SET] WORD NONBlank|ALPHAnum
+     
+     DESCRIPTION
+          The SET WORD set command determines what sequence of characters THE
+          considers a word to be. This is used in command such as <SOS DELWORD>,
+          <SOS TABWORDF> and <MARK> WORD to specify the boundaries of the word.
+     
+          The default setting for SET WORD is 'NONBlank'. THE treats all
+          sequences of characters separated by a blank (ASCII 32) as words.
+     
+          With 'ALPHAnum' THE treats a group of consecutive alphanumeric
+          characters as a word.  THE also includes the underscore character
+          and characters with an ASCII value > 128 as alphanumeric.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          NONBlank
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set wordwrap - set wordwrap feature on or off
+     
+     SYNTAX
+          [SET] WORDWrap ON|OFF
+     
+     DESCRIPTION
+          The SET WORDWRAP set command determines whether wordwrap occurs when
+          the cursor moves past the right margin (as set by the <SET MARGINS>
+          command).
+     
+          With WORDWRAP ON, the line, from the beginning of the word that
+          exceeds the right margin, is wrapped onto the next line. The cursor
+          position stays in the same position relative to the current word.
+     
+          With WORDWRAP OFF, no word wrap occurs.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          OFF
+     
+     SEE ALSO
+          <SET MARGINS>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set wrap - enable/disable string locates around the end of the file
+     
+     SYNTAX
+          [SET] WRap ON|OFF
+     
+     DESCRIPTION
+          The SET WRAP set command determines whether THE will look for a
+          string target off the ends of the file.
+     
+          With WRAP OFF, THE will attempt to locate a string target from the
+          current line to the end of file (or top of file if the locate is
+          a backwards search).
+     
+          With WRAP ON, THE will attempt to locate a string target from the
+          current line to the end of file (or top of file if the locate is
+          a backwars search) and wrap around the end of the file and continue
+          searching until the current line is reached.
+     
+          If the string target is located after wrapping around the end of
+          the file, the message 'Wrapped...' is displayed.
+     
+          Commands affected by SET WRAP are; <LOCATE>, <FIND>, <NFIND>,
+          <FINDUP> and <NFINDUP>.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          OFF
+     
+     SEE ALSO
+          <LOCATE>, <FIND>, <NFIND>, <FINDUP>, <NFINDUP>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set xterminal - set X terminal to execute under X
+     
+     SYNTAX
+          [SET] XTERMinal program
+     
+     DESCRIPTION
+          The SET XTERMINAL set command allows the user to specify the full
+          qualified file name of the program to run when the <OS>, <DOS> or <!>
+          command is entered without parameters when running the X version
+          of THE.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          System dependent but usually one of:
+     
+               /usr/bin/X11/xterm
+               /usr/openwin/bin/xterm
+     
+          The default value is set by the configure script.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set zone - set column limits for editing
+     
+     SYNTAX
+          [SET] Zone first [last]
+     
+     DESCRIPTION
+          The SET ZONE command sets the column limits for various other editor
+          commands, such as <LOCATE> and <CHANGE>. It effectively restricts
+          to the specified columns those parts of the file which can be
+          acted upon.
+     
+          If no 'last' option is specified '*' is assumed.
+     
+          All options can be specified as the current EQUIVCHAR to retain the
+          existing value.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          1 *
+     
+     SEE ALSO
+          <SET VERIFY>, <SET EQUIVCHAR>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+
+
+
+
+

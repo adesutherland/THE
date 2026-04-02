@@ -1,0 +1,28 @@
+<HTML>
+<HEAD><TITLE>THE Reference - Commands - input </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>INPUT</B> -  insert the command line contents into the file <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> Input <I>[string]</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The INPUT command inserts the  <I>string</I>  specified on the <A HREF = "../misc/glossary.html#COMMANDLINE">command line</A> into the current file after the <A HREF = "../misc/glossary.html#CURRENTLINE">current line</A> . <P></DD>
+<DD> If <A HREF = "../commset/SETINPUTMODE.html">SET INPUTMODE</A> FULL is in effect, and the INPUT command is           entered on the command line with no arguments, THE is put into           full input mode.  If the <A HREF = "../misc/glossary.html#PREFIXAREA">prefix area</A> is on, it is turned off,           the cursor moved to the <A HREF = "../misc/glossary.html#FILEAREA">filearea</A> and blank lines inserted           into the file from the <A HREF = "../misc/glossary.html#CURRENTLINE">current line</A>  to the end of the screen. <P></DD>
+<DD> To get out of full input mode, press the key assigned to the <A HREF = "../comm/CURSOR.html">CURSOR</A>  HOME [SAVE] command. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: Does not provide full input mode option.
+</DD><DD>   KEDIT: Does not provide full input mode option.
+<P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. Except for full input mode capability. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

@@ -1,0 +1,93 @@
+                      Welcome to THE, The Hessling Editor.
+
+INTRODUCTION
+------------
+
+THE is a full-screen character mode text editor based on the VM/CMS editor
+XEDIT and many features of KEDIT written by Mansfield Software.
+
+THE has currently been ported to the following platforms:
+- most Unix systems; text mode and native X11 application
+- OpenEdition on OS/390
+- Linux
+- 32bit DOS
+- OS/2
+- Win32
+- QNX
+- Amiga
+- BeOS/Haiku
+- macOS
+
+THE OS/2 port is similar to EPM, runs within an OS/2 command window and is
+HPFS aware. THE also uses the OS/2 Rexx interpreter to execute macro files.
+An extensive interface exists between THE and Rexx giving THE the complete
+power of Rexx.
+
+Rexx support in the DOS DPMI and VCPI ports, QNX, Amiga and BeOS ports is
+provided by the free Rexx interpreter, Regina, which is available from
+https://regina-rexx.sourceforge.net
+THE OS/2 version uses the Rexx interpreter that is supplied with OS/2.
+The Win7/Win10/Win11 ports can use one of several Rexx interpreters; principally
+Regina and ooRexx.
+
+For Unix ports, Rexx support is available with Regina and ooRexx.
+
+
+THELIST: A Mailing list for announcements and discussion of THE.
+---------------------------------------------------------------
+
+A mailing list has been created for discussion of THE. You can subscribe
+to it by sending an email message to listserv@uiuc.edu with the body of
+the email message containing:
+
+SUBSCRIBE THELIST Your Name
+
+eg.
+SUBSCRIBE THELIST Joe Bloggs
+
+To send messages to other subscribers, send an email message to
+thelist@uiuc.edu
+
+
+Where to get THE
+----------------
+
+THE is distributed under the terms of the GNU General Public License.
+For more details see the file COPYING that should have accompanied this
+file.
+
+THE is available from:
+
+https://hessling-editor.sourceforge.net
+
+Pre-compiled binaries for various platforms are available from the site above.
+
+Notes on Source Distribution:
+----------------------------
+
+THE uses curses as its screen handler. This makes it portable but not
+necessarily as fast as native screen handling routines.
+
+The can be built with ncurses or PDCursesMod (https://github.com/rexx-org/PDCursesMod);
+the latter source is embedded within the THE source distribution.
+This enable THE to be packaged and not rely on a port of PDCursesMod that currently
+does not have the ability to be packaged.
+
+To assist with configuring THE to compile under Unix, a "configure" script
+is included. This script should be able to set up most, if not all
+requirements for compilation. Run configure with the --help switch to
+determine what configuration options are available.
+
+If you find bugs or major inconsistencies, please let me know. If you
+manage to compile and run on a different platform to the above, please
+send me any changes to the code and the makefile, so I can include the
+patches in the official release.
+
+Enjoy, Mark.
+
+------------------------------------------------------------------------
+ Mark Hessling,  mark@rexx.org  https://www.rexx.org/
+ Author of THE, a Free XEDIT/KEDIT editor, Rexx/SQL, Rexx/DW, Rexx/cURL...
+ Maintainer of Regina Rexx interpreter and Rexx/tk
+ Use Rexx ? join the Rexx Language Association: https://www.rexxla.org
+------------------------------------------------------------------------

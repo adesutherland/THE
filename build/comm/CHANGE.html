@@ -1,0 +1,35 @@
+<HTML>
+<HEAD><TITLE>THE Reference - Commands - change </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>CHANGE</B> -  change one string to another <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> Change <I>[/string1/string2/ [target] [n] [m]]</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The CHANGE command changes one string of text to another. <P></DD>
+<DD> The first parameter to the change command is the old and new           string values, separated by delimiters.           The first non alphabetic character after the  'change'  command           is the delimiter. <P></DD>
+<DD> <A HREF = "../misc/glossary.html#TARGET"> <I>target</I> </A>  specifies how many lines are to be searched for           occurrences of  <I>string1</I>  to be changed. <P></DD>
+<DD> <I>n</I>  determines how many occurrences of  <I>string1</I>  are to be           changed to  <I>string2</I>  on each line.  <I>n</I>  may be specified as            '*'  which will result in all occurrences of  <I>string1</I>  will           be changed.   '*'  is equivalent to the current WIDTH of the           line. <P></DD>
+<DD> <I>m</I>  determines from which occurrence of  <I>string1</I>  on the line           changes are to commence. <P></DD>
+<DD> If no arguments are supplied to the CHANGE command, the last           change command, if any, is re-executed. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: Compatible. ARBCHAR not supported however.
+</DD><DD>   KEDIT: Compatible. ARBCHAR not supported however.
+<P></DD>
+<DT> <B>Default:</B> <BR></DT>
+<DD> 1 1 1 <P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "../comm/SCHANGE.html">SCHANGE</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

@@ -1,0 +1,1022 @@
+     
+     
+     ========================================================================
+     SOS COMMAND REFERENCE
+     ========================================================================
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos addline - add blank line after focus line
+     
+     SYNTAX
+          SOS ADDline
+     
+     DESCRIPTION
+          The SOS ADDLINE command inserts a blank line in the file following
+          the focus line. The cursor is placed in the column under the first
+          non-blank in the focus line.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SOS LINEADD>, <SOS DELLINE>
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos blockend - move cursor to end of marked block
+     
+     SYNTAX
+          SOS BLOCKEnd
+     
+     DESCRIPTION
+          The SOS BLOCKEND command moves the cursor to the ending line
+          and column of the marked block.  If the cursor is on the command
+          line, the last line of the marked block becomes the current line.
+     
+          If no marked block is in the current file, an error is displayed.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SOS BLOCKSTART>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos blockstart - move cursor to start of marked block
+     
+     SYNTAX
+          SOS BLOCKStart
+     
+     DESCRIPTION
+          The SOS BLOCKSTART command moves the cursor to the starting line
+          and column of the marked block.  If the cursor is on the command
+          line, the first line of the marked block becomes the current line.
+     
+          If no marked block is in the current file, an error is displayed.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SOS BLOCKEND>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos bottomedge - move cursor to bottom edge of FILEAREA
+     
+     SYNTAX
+          SOS BOTTOMEdge
+     
+     DESCRIPTION
+          The SOS BOTTOMEDGE command moves the cursor to the last
+          enterable line in the <filearea> or <prefix area>. If the cursor
+          is on the command line, the cursor moves to the first
+          enterable line of the <filearea>.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SOS TOPEDGE>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos cuadelback - delete the character to the left of the cursor
+     
+     SYNTAX
+          SOS CUADELBAck
+     
+     DESCRIPTION
+          The SOS CUADELBACK command deletes the character to the right of the
+          current cursor position.  It differs from <SOS DELBACK> in the case
+          when the cursor is in the first column of the file and in the
+          FILEAREA. Then, the cursor first moves to the last character of the
+          previous line, and deletes this character.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     SEE ALSO
+          <SOS DELBACK>, <SOS CUADELCHAR>
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos cuadelchar - delete character under cursor
+     
+     SYNTAX
+          SOS CUADELChar
+     
+     DESCRIPTION
+          The SOS CUADELCHAR command deletes the character under the cursor.
+          Text to the right is shifted to the left.
+          It differs from <SOS DELCHAR> in the case when the cursor is after
+          the last character of the line and in the FILEAREA. Then, the
+          next line is joined with the current line.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     SEE ALSO
+          <SOS CURDELBACK>, <SOS DELCHAR>
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos current - move cursor to current line
+     
+     SYNTAX
+          SOS CURRent
+     
+     DESCRIPTION
+          The SOS CURRENT command moves the cursor to the current column
+          of the cursor line from any window.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos cursoradj - move first non-blank character to cursor
+     
+     SYNTAX
+          SOS CURSORAdj
+     
+     DESCRIPTION
+          The SOS CURSORADJ command moves text in the <focus line> so that
+          the first non-blank character appears under the cursor position.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SOS CURSORSHIFT>
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos cursorshift - move text to right of cursor to cursor
+     
+     SYNTAX
+          SOS CURSORSHIFT
+     
+     DESCRIPTION
+          The SOS CURSORSHIFT command moves text in the <focus line> so that
+          the first non-blank character to the right of the cursor is
+          shifted to under the cursor position.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     SEE ALSO
+          <SOS CURSORADJ>
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos delback - delete the character to the left of the cursor
+     
+     SYNTAX
+          SOS DELBAck
+     
+     DESCRIPTION
+          The SOS DELBACK command moves the cursor one character to the left
+          and deletes the character now under the cursor.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SOS DELCHAR>, <SOS CUADELCHAR>
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos delchar - delete character under cursor
+     
+     SYNTAX
+          SOS DELChar
+     
+     DESCRIPTION
+          The SOS DELCHAR command deletes the character under the cursor.
+          Text to the right is shifted to the left.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SOS DELBACK>
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos delend - delete to end of line
+     
+     SYNTAX
+          SOS DELEnd
+     
+     DESCRIPTION
+          The SOS DELEND command deletes all characters from the current
+          column to the end of line.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos delline - delete focus line
+     
+     SYNTAX
+          SOS DELLine
+     
+     DESCRIPTION
+          The SOS DELLINE command deletes the <focus line>.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SOS LINEDEL>, <SOS ADDLINE>
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos delword - delete word at or right of cursor
+     
+     SYNTAX
+          SOS DELWord
+     
+     DESCRIPTION
+          The SOS DELWORD command deletes the word at or to the right
+          of the current cursor position and any spaces following the
+          word.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos doprefix - execute any pending prefix commands
+     
+     SYNTAX
+          SOS DOPREfix
+     
+     DESCRIPTION
+          The SOS DOPREFIX command executes any pending prefix commands.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos edit - edit a file from directory list
+     
+     SYNTAX
+          SOS EDIT
+     
+     DESCRIPTION
+          The SOS EDIT command allows the user to edit a file, chosen from
+          a directory list (the file DIR.DIR).
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible with default definition for Alt-X key.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos endchar - move cursor to end of focus line
+     
+     SYNTAX
+          SOS ENDChar
+     
+     DESCRIPTION
+          The SOS ENDCHAR command moves the cursor to the position after
+          the last character displayed in the current window.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SOS STARTENDCHAR>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos execute - move cursor to command line and execute command
+     
+     SYNTAX
+          SOS EXecute
+     
+     DESCRIPTION
+          The SOS EXECUTE command moves the cursor to the <command line>
+          and executes any command that is displayed there.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos firstchar - move cursor to first non-blank of field
+     
+     SYNTAX
+          SOS FIRSTCHar
+     
+     DESCRIPTION
+          The SOS FIRSTCHAR command moves the cursor to the first
+          non-blank character of the cursor field. For the <prefix area>
+          the cursor moves to the first column.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible
+     
+     SEE ALSO
+          <SOS FIRSTCOL>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos firstcol - move cursor to first column of field
+     
+     SYNTAX
+          SOS FIRSTCOl
+     
+     DESCRIPTION
+          The SOS FIRSTCOL command moves the cursor to the first
+          column of the <cursor field>.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible
+     
+     SEE ALSO
+          <SOS FIRSTCHAR>, <SOS LASTCOL>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos instab - shift text to next tab column
+     
+     SYNTAX
+          SOS INSTAB
+     
+     DESCRIPTION
+          The SOS INSTAB command shifts all text from the current cursor
+          position in the <filearea> to the next tab column.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SET TABS>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos lastcol - move cursor to last column of field
+     
+     SYNTAX
+          SOS LASTCOl
+     
+     DESCRIPTION
+          The SOS LASTCOL command moves the cursor to the last column
+          of the <cursor field>.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     SEE ALSO
+          <SOS FIRSTCOL, SOS RIGHTEDGE>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos leftedge - move cursor to left edge of window
+     
+     SYNTAX
+          SOS LEFTEdge
+     
+     DESCRIPTION
+          The SOS LEFTEDGE command moves the cursor to the leftmost edge
+          of the <filearea> if not on the command line or to the leftmost
+          edge of the command line if on the <command line>.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible
+     
+     SEE ALSO
+          <SOS RIGHTEDGE>, <SOS PREFIX>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos lineadd - add blank line after focus line
+     
+     SYNTAX
+          SOS LINEAdd
+     
+     DESCRIPTION
+          The SOS LINEADD command inserts a blank line in the file following
+          the <focus line>. The cursor is placed in the column under the first
+          non-blank in the <focus line>.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SOS ADDLINE>, <SOS LINEDEL>
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos linedel - delete focus line
+     
+     SYNTAX
+          SOS LINEDel
+     
+     DESCRIPTION
+          The SOS LINEDEL command deletes the <focus line>.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SOS DELLINE>, <SOS LINEADD>
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos makecurr - make focus line the current line
+     
+     SYNTAX
+          SOS MAKECURR
+     
+     DESCRIPTION
+          The SOS MAKECURR command set the <current line> to the <focus line>.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos marginl - move cursor to the left margin column
+     
+     SYNTAX
+          SOS MARGINL
+     
+     DESCRIPTION
+          The SOS MARGINL command moves the cursor to the left margin
+          column.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SOS MARGINR>
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos marginr - move cursor to the right margin column
+     
+     SYNTAX
+          SOS MARGINR
+     
+     DESCRIPTION
+          The SOS MARGINR command moves the cursor to the right margin
+          column.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SOS MARGINL>
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos parindent - move cursor to the paragraph indent column
+     
+     SYNTAX
+          SOS PARINDent
+     
+     DESCRIPTION
+          The SOS PARINDENT command moves the cursor to the paragraph
+          indent column.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+                 Although, when issued from the command line, nothing
+                 happens.
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos pastecmdline - copy contents of marked block to command line
+     
+     SYNTAX
+          SOS PASTECMDline
+     
+     DESCRIPTION
+          The SOS PASTECMDLINE command copies the contents of the marked
+          block to the command line at the current cursor location.
+     
+          Marked blocks that span one line only are allowed to be pasted.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos prefix - move cursor to leftmost edge of prefix area
+     
+     SYNTAX
+          SOS PREfix
+     
+     DESCRIPTION
+          The SOS PREFIX command moves the cursor to the leftmost edge
+          of the <prefix area> if the cursor is in the <filearea> or the
+          <prefix area>. The command has no effect when executed from the
+          <command line>.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible
+     
+     SEE ALSO
+          <SOS LEFTEDGE>, <SOS RIGHTEDGE>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos qcmnd - move cursor to command line and clear
+     
+     SYNTAX
+          SOS QCmnd
+     
+     DESCRIPTION
+          The SOS QCMND command moves the cursor to the first column of
+          the <command line> and clears it.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible
+     
+     SEE ALSO
+          <SOS EXECUTE>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos rightedge - move cursor to right edge of window
+     
+     SYNTAX
+          SOS RIGHTEdge
+     
+     DESCRIPTION
+          The SOS RIGHTEDGE command moves the cursor to the rightmost edge
+          of the <filearea> if not on the command line or to the rightmost
+          edge of the command line if on the <command line>.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible
+     
+     SEE ALSO
+          <SOS LEFTEDGE>, <SOS PREFIX>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos settab - set a tab column at the cursor position
+     
+     SYNTAX
+          SOS SETTAB
+     
+     DESCRIPTION
+          The SOS SETTAB command sets a tab column at the position of the
+          cursor in the <filearea>.  This command is ignored if issued
+          elsewhere.
+          If a tab column is already set at the cursor position, the tab
+          column is cleared.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Kedit does not toggle the tab column, but only sets it.
+     
+     SEE ALSO
+          <SET TABS>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos startendchar - move cursor to end/start of focus line
+     
+     SYNTAX
+          SOS STARTENDChar
+     
+     DESCRIPTION
+          The SOS STARTENDCHAR command moves the cursor to the first character
+          displayed in the <cursor field>, if the cursor is after the last
+          character displayed in the <cursor field>, or to the position after
+          the last character displayed in the <cursor field>, if the cursor is
+          anywhere else.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     SEE ALSO
+          <SOS ENDCHAR>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos tabb - move cursor to previous tab stop
+     
+     SYNTAX
+          SOS TABB
+     
+     DESCRIPTION
+          The SOS TABB command causes the cursor to move to the previous tab
+          column as set by the <SET TABS> command.
+          If the resulting column is beyond the left hand edge of the main
+          window, the window will scroll half a window.
+     
+     COMPATIBILITY
+          XEDIT: Does not allow arguments.
+          KEDIT: Compatible. See below.
+          Does not line tab to next line if before the left hand tab column.
+     
+     SEE ALSO
+          <SET TABS>, <SOS TABF>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos tabf - move cursor to next tab stop
+     
+     SYNTAX
+          SOS TABf
+     
+     DESCRIPTION
+          The SOS TABF command causes the cursor to move to the next tab column
+          as set by the <SET TABS> command.
+          If the resulting column is beyond the right hand edge of the main
+          window, the window will scroll half a window.
+     
+     COMPATIBILITY
+          XEDIT: Does not allow arguments.
+          KEDIT: Compatible. See below.
+          Does not line tab to next line if after the right hand tab column.
+     
+     SEE ALSO
+          <SET TABS>, <SOS TABB>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos tabfieldb - move cursor to previous enterable field
+     
+     SYNTAX
+          SOS TABFIELDB
+     
+     DESCRIPTION
+          The SOS TABFIELDB command causes the cursor to move to the first
+          column of the current enterable field. If the cursor is already
+          in the first column of the current field the cursor moves to the
+          first column of the previous enterable field on the screen.
+          This command is intended to mimic the behaviour of the SHIFT-TAB
+          key on a 3270 terminal.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SOS TABFIELDF>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos tabfieldf - move cursor to next enterable field
+     
+     SYNTAX
+          SOS TABFIELDf
+     
+     DESCRIPTION
+          The SOS TABFIELDF command causes the cursor to move to the next
+          enterable field on the screen. This command is intended to
+          mimic the behaviour of the TAB key on a 3270 terminal.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SOS TABFIELDB>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos tabwordb - move cursor to beginning of previous word
+     
+     SYNTAX
+          SOS TABWORDB
+     
+     DESCRIPTION
+          The SOS TABWORDB command causes the cursor to move to the first
+          character of the word to the left or to the start of the line if
+          no more words precede.
+          If the resulting column is beyond the left hand edge of the
+          <filearea>, the window will scroll half a window.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SOS TABWORDF>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos tabwordf - move cursor to start of next word
+     
+     SYNTAX
+          SOS TABWORDf
+     
+     DESCRIPTION
+          The SOS TABWORDF command causes the cursor to move to the first
+          character of the next word to the right or to the end of the line
+          if no more words follow.
+          If the resulting column is beyond the right hand edge of the
+          <filearea>, the window will scroll half a window.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SOS TABWORDB>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos topedge - move cursor to top edge of filearea
+     
+     SYNTAX
+          SOS TOPEdge
+     
+     DESCRIPTION
+          The SOS TOPEDGE command moves the cursor to the first enterable
+          line in the <filearea> or <prefix area>. If the cursor is on the
+          <command line>, the cursor moves to the first enterable line of
+          the <filearea>.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          <SOS BOTTOMEDGE>
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos undo - undo changes to the current line
+     
+     SYNTAX
+          SOS UNDO
+     
+     DESCRIPTION
+          The SOS UNDO command causes the contents of the <focus line> (or the
+          <command line>) to be reset to the contents before the cursor was
+          positioned there.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+
+
+
+
+

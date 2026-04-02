@@ -1,0 +1,52 @@
+<HTML>
+<HEAD><TITLE>THE Reference - Appendix 1 </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="the64.png" ALT="THE"> </CENTER>
+<A NAME="APPENDIX1"></A>
+<H2> APPENDIX 1 - ENVIRONMENT VARIABLES </H2>
+<HR>
+  THE defines the following environment variables: <P>
+<DL>
+<DT><B>      THE_HOME_DIR </B></DT>
+<DD>    the directory in which THE looks for its help file(s) and macro(s) <P></DD>
+</DL>
+<DL>
+<DT><B>      THE_HELP_FILE </B></DT>
+<DD>    the fully qualified file name containing help information. <P></DD>
+</DL>
+<DL>
+<DT><B>      THE_PROFILE_FILE </B></DT>
+<DD>   the fully qualified file name for the default <A HREF = "glossary.html#PROFILE">profile</A>  file. <P></DD>
+</DL>
+<DL>
+<DT><B>      THE_MACRO_PATH </B></DT>
+<DD>   a list of all directories in which THE is to look for <A HREF = "glossary.html#MACRO">macro</A>  files. <P></DD>
+</DL>
+  THE is also influenced by the following Rexx/Trans environment variables: <P>
+  REXXTRANS_INTERPRETER and REXXTRANS_TRACEFILE - See the Rexx/Trans documentation at http://rexxtrans.sourceforge.net/doc/index.html <P>
+<HR>
+<CENTER><h3>Environment Variable Use under UNIX</h3></CENTER>
+<HR>
+  If no environment variable; THE_HOME_DIR, is set prior to starting THE, THE uses /usr/local/THE/ as the default value for ${THE_HOME_DIR} if running under Unix.  This can be changed when running the configure script. See the file INSTALL for further details. <P>
+  The default value of THE_HELP_FILE is THE_Help.txt. With no environment variables set, the help file to be looked for will be /usr/local/THE/THE_Help.txt. If THE_HOME_DIR environment variable was set to /usr/opt/etc or changed in the.c, the help file will be /usr/opt/etc/THE_Help.txt. <P>
+  The name of the default profile file is $HOME/.therc. If this file does not exist and THE is built from source with the --with-global-profile switch then THE will execute the "global" profile file specified with that switch. <P>
+  The default value of THE_MACRO_PATH is ${THE_HOME_DIR}:. THE will look for a macro file first in ${THE_HOME_DIR} and then in the current directory. So with no environment variables set, THE looks for macros in $(THE_HOME_DIR} first and if no file exists in that directory, THE will look in the current directory. If the file does not exist in either of these places, an error message will be displayed. The format of THE_MACRO_PATH is dir1:dir2:dir3 Each directory is separated by colons. By default, up to 20 directories may be specified. This can be changed in the.h when building or by the <A HREF = "commset.html#SETMACROPATH">SET MACROPATH</A>  command. <P>
+<HR>
+<CENTER><h3>Environment Variable Use under OS/2, DOS and Win95/NT</h3></CENTER>
+<HR>
+<B><CENTER>                               *********</CENTER></B>
+  Under some circumstances the following default behaviour does not occur. The reason is that THE.EXE sometimes cannot determine where it was run from.  This is a due to the different ways that different operating systems behave and how the C compiler used to build THE behaves. <P>
+  It is probably better to explicitly set the environment variables than hope that your particular environment will work as documented below. <P>
+<B><CENTER>                               *********</CENTER></B>
+  By default THE_HOME_DIR is set to the directory from which THE was invoked. Assuming THE.EXE resides in d:\tools, THE_HOME_DIR will equate to d:\tools\. <P>
+  The default value of THE_HELP_FILE is THE_Help.txt. <P>
+  The name of the default profile file is ${THE_HOME_DIR}profile.the. <P>
+  The default value of THE_MACRO_PATH is ${THE_HOME_DIR};. THE will look for a macro file first in THE_HOME_DIR and then in the current directory. So with no environment variables set, THE first looks for macros in the directory from which THE was invoked and then in the current directory. If the file does not exist in either directory, an error message is displayed. The format of THE_MACRO_PATH is dir1;dir2;dir3 Each directory is separated by semi-colons. By default, up to 20 directories may be specified. This can be changed by the <A HREF = "commset.html#SETMACROPATH">SET MACROPATH</A>  command. <P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

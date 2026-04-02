@@ -1,0 +1,46 @@
+<HTML>
+<HEAD><TITLE>THE Reference - SET Commands - set tabline </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>SET TABLINE</B> -  set position and status of tab line on screen <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> [SET] TABLine <I>ON|OFF [M[+n|-n]|[+|-]n]</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SET TABLINE command sets the position and status of the <A HREF = "../misc/glossary.html#TABLINE">tab line</A>            for the current view. <P></DD>
+<DD> The first form of parameters is: <P></DD>
+<DD>   M[+n|-n]
+</DD><DD>   this sets the <A HREF = "../misc/glossary.html#TABLINE">tab line</A>  to be relative to the middle of
+</DD><DD>   the screen. A positive value adds to the middle line number,
+</DD><DD>   a negative subtracts from it.
+</DD><DD>   e.g. M+3 on a 24 line screen will be line 15
+</DD><DD>   M-5 on a 24 line screen will be line 7
+<P></DD>
+<DD> The second form of parameters is: <P></DD>
+<DD>   [+|-]n
+</DD><DD>   this sets the <A HREF = "../misc/glossary.html#TABLINE">tab line</A>  to be relative to the top of the
+</DD><DD>   screen (if positive or no sign) or relative to the bottom
+</DD><DD>   of the screen if negative.
+</DD><DD>   e.g. +3 or 3 will set current line to line 3
+</DD><DD>   -3 on a 24 line screen will be line 21
+<P></DD>
+<DD> If the resulting line is outside the bounds of the screen           the position of the current line will become the middle line           on the screen. <P></DD>
+<DD> It is an error to try to position the TABL line on the same           line as <A HREF = "../commset/SETCURLINE.html">SET CURLINE</A> . <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: Compatible.
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>Default:</B> <BR></DT>
+<DD> OFF -3 <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

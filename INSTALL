@@ -1,0 +1,87 @@
+                     The Hessling Editor
+
+               Installation Notes for Un*x Port
+               --------------------------------
+
+Please read ALL of these notes before building THE!
+
+Installing THE from source
+==========================
+To install THE, you first need to configure it.  This is done by
+executing the configure script provided in this archive.  Because
+THE can be configured to run with different Curses libraries and
+with different Rexx interpreters, there are quite a few options
+available when configuring.  To see these options, run:
+
+% configure --help
+
+If you are interested in building different versions of THE on the
+one platform; like the X11 version and a text mode version, then you can
+do something like this.
+
+To build a text-mode version of THE with ncurses and Regina:
+------------------------------------------------------------
+
+% mkdir ncurses
+% cd ncurses
+% ../configure --with-rexx=regina --with-curses=ncurses
+% make
+
+To build the X11 version of THE with builtin PDCursesMod and ooRexx:
+-------------------------------------------------------------------
+
+% mkdir xcurses
+% cd xcurses
+% ../configure --with-curses=x11
+               --with-rexx=oorexx
+               --with-rexxincdir=[where oorexx is installed]/api
+               --with-rexxlibdir=[where oorexx is installed]/api
+% make
+
+The configure script looks in some common places for all the libraries (both
+curses and Rexx).  These are defined in the configure script. Some of the
+common directories are $HOME/include, /usr/local/include for header files
+and $HOME/lib and /usr/local/lib for libraries.  There are several others;
+see 'configure' for the full list.
+If you build THE with the same Rexx interpreter, you can set REXXINCDIR and
+REXXLIBDIR environment variables to the include and lib directories
+respectively.
+These switches --with-rexxincdir and --with-rexxlibdir override the values
+set in REXXINCDIR and REXXLIBDIR.
+If you build THE with the same curses library, you can set CURSESINCDIR and
+CURSESLIBDIR environment variables to the include and lib directories
+respectively.
+These switches --with-cursesincdir and --with-curseslibdir override the values
+set in CURSESINCDIR and CURSESLIBDIR.
+
+Once you have THE compiled, it can then be installed.  By default, the
+THE executables will be installed into /usr/local/bin, while the supplied
+macros will be installed into /usr/local/share/the.  The base path "/usr/local"
+can be changed by adding the --prefix=path (where path is the base path)
+to the configure command.
+eg. to install THE into /opt/bin and /opt/share/the, configure --prefix=/opt ...
+
+Installing from packages:
+========================
+
+Installing THE from the default packing system is preferred. Packages for .deb, .rpm, .apk and .hpkg
+can be built from the source.
+
+The configure step as described above is done as per normal, but the make step involves specifying
+the package type appropriate for the operating system you are building for. This assumes you have the
+necessary build tools installed on your system.
+
+eg building a .deb package for Regina and SDL2 (wide char support):
+% configure --with-rexx=regina --with-curses=pdcurses-sdl2w
+% make deb
+
+At the end of a successful build the packages built are shown.
+
+For each variant the following packages are built:
+- the-doc_[version]_[platform].[package type]
+- the-common_[version]_[platform].[package type]
+- the-[variant]-[interpreter]_[version]_[platform].[package type]
+
+the-[variant]... contains the variant-specific executable; the-sdl2w using the example above
+the-common... package consists of the "the" executable which can run any installed variant and all of the sample
+   macros, syntax and language files

@@ -1,0 +1,1995 @@
+<HTML>
+<HEAD><TITLE>THE Reference - Query and Extract </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="the64.png" ALT="THE"> </CENTER>
+<A NAME="QUERY,EXTRACTANDSTATUS"></A>
+<HR><H2> QUERY, EXTRACT and STATUS </H2>
+<HR><DL>
+<DD> The following lists the valid variables that can be queried and also shows what values are returned. For both <A HREF = "comm.html#QUERY">QUERY</A> and <A HREF = "comm.html#STATUS">STATUS</A> , the values are concatenated together and displayed as a single line. For <A HREF = "comm.html#EXTRACT">EXTRACT</A>  the REXX variables that are set are defined. The capitalised portion of the variable is the minimum abbreviation recognised. <P></DD>
+<DD> The bracketed text at the end of the description indicates from which commands a valid response will be supplied. </DD>
+<DD> (Q-Query, E-Extract, M-Modify and S-Status). <P></DD>
+<A NAME="ALT"></A>
+<DT>
+<h3>ALT</h3>
+</DT>
+<DD> The number of alterations to the current file since the last <A HREF = "comm.html#SAVE">SAVE</A> or automatic save via <A HREF = "commset.html#SETAUTOSAVE">SET AUTOSAVE</A> . Can be set by <A HREF = "commset.html#SETALT">SET ALT</A> </DD>
+<DD> (QES) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>alt.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>alt.1</TD><TD>-</TD><TD>  Number of alterations since last SAVE or autosave</TD></TR>
+<TR><TD>alt.2</TD><TD>-</TD><TD>  Number of alterations since last SAVE</TD></TR>
+</TABLE><P></DD>
+<A NAME="ARBCHAR"></A>
+<DT>
+<h3>ARBchar</h3>
+</DT>
+<DD> The status of <A HREF = "commset.html#SETARBCHAR">SET ARBCHAR</A>  and the ARBCHAR characters. </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>arbchar.0</TD><TD>-</TD><TD>  3</TD></TR>
+<TR><TD>arbchar.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+<TR><TD>arbchar.2</TD><TD>-</TD><TD>  multiple match character</TD></TR>
+<TR><TD>arbchar.3</TD><TD>-</TD><TD>  single match character</TD></TR>
+</TABLE><P></DD>
+<A NAME="AUTOCOLOR"></A>
+<DT>
+<h3>AUTOCOLOR [*|mask]</h3>
+</DT>
+<A NAME="AUTOCOLOUR"></A>
+<DT>
+<h3>AUTOCOLOUR [*|mask]</h3>
+</DT>
+<DD> The status of auto colouring for the supplied file mask or "magic number". Set by <A HREF = "commset.html#SETAUTOCOLOR">SET AUTOCOLOR</A> or <A HREF = "commset.html#SETAUTOCOLOUR">SET AUTOCOLOUR</A> . The variable name is spelt the save way that the option is specified. </DD>
+<DD> (QES) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>autocolor.0</TD><TD>-</TD><TD>  3</TD></TR>
+<TR><TD>autocolor.1</TD><TD>-</TD><TD>  filemask or "magic number"</TD></TR>
+<TR><TD>autocolor.2</TD><TD>-</TD><TD>  name of parser associated or "NULL"</TD></TR>
+<TR><TD>autocolor.3</TD><TD>-</TD><TD>  MAGIC (if "magic number") or empty</TD></TR>
+</TABLE><P></DD>
+<DD> If no file mask or "magic number" is supplied as a parameter or  <I>*</I>  is passed, details of all parser mappings are set as follows: <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>autocolor.0</TD><TD>-</TD><TD>  number of parser mappings</TD></TR>
+<TR><TD>autocolor.1</TD><TD>-</TD><TD>  first mapping (mask parser [MAGIC])</TD></TR>
+<TR><TD>autocolor.n</TD><TD>-</TD><TD>  nth mapping</TD></TR>
+</TABLE><P></DD>
+<A NAME="AUTOSAVE"></A>
+<DT>
+<h3>AUtosave</h3>
+</DT>
+<DD> The status of <A HREF = "commset.html#SETAUTOSAVE">SET AUTOSAVE</A>  and/or the frequency setting. </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>autosave.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>autosave.1</TD><TD>-</TD><TD>  OFF|n</TD></TR>
+</TABLE><P></DD>
+<A NAME="AUTOSCROLL"></A>
+<DT>
+<h3>AUTOSCroll</h3>
+</DT>
+<DD> The status of <A HREF = "commset.html#SETAUTOSCROLL">SET AUTOSCROLL</A>  and/or the frequency setting. </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>autoscroll.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>autoscroll.1</TD><TD>-</TD><TD>  OFF|HALF|n</TD></TR>
+</TABLE><P></DD>
+<A NAME="BACKUP"></A>
+<DT>
+<h3>BACKup</h3>
+</DT>
+<DD> Indicates if a backup file is kept after editing and what the backup suffix is. </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>backup.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>backup.1</TD><TD>-</TD><TD>  ON|OFF|TEMP|KEEP|INPLACE</TD></TR>
+<TR><TD>backup.2</TD><TD>-</TD><TD>  backup suffix string</TD></TR>
+</TABLE><P></DD>
+<A NAME="BEEP"></A>
+<DT>
+<h3>BEEP</h3>
+</DT>
+<DD> Indicates if the bell is sounded on display of error messages. Set by <A HREF = "commset.html#SETBEEP">SET BEEP</A> </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>beep.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>beep.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="BLOCK"></A>
+<DT>
+<h3>BLOCK</h3>
+</DT>
+<DD> Returns information about the marked <A HREF = "glossary.html#BLOCK">block</A> , if any. </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>block.0</TD><TD>-</TD><TD>  6 if a marked block exists, or 1 for NONE</TD></TR>
+<TR><TD>block.1</TD><TD>-</TD><TD>  type of marked block (LINE|BOX|NONE|WORD|COLUMN|CUA)</TD></TR>
+<TR><TD>block.2</TD><TD>-</TD><TD>  line number of start of block</TD></TR>
+<TR><TD>block.3</TD><TD>-</TD><TD>  column number of start of block</TD></TR>
+<TR><TD>block.4</TD><TD>-</TD><TD>  line number of end of block</TD></TR>
+<TR><TD>block.5</TD><TD>-</TD><TD>  column number of end of block</TD></TR>
+<TR><TD>block.6</TD><TD>-</TD><TD>  file name containing marked block</TD></TR>
+</TABLE><P></DD>
+<A NAME="CASE"></A>
+<DT>
+<h3>CASE</h3>
+</DT>
+<DD> The settings related to the CASE of characters entered, searched for, changed and sorted. Set by <A HREF = "commset.html#SETCASE">SET CASE</A> </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>case.0</TD><TD>-</TD><TD>  6</TD></TR>
+<TR><TD>case.1</TD><TD>-</TD><TD>  MIXED|UPPER|LOWER</TD></TR>
+<TR><TD>case.2</TD><TD>-</TD><TD>  RESPECT|IGNORE</TD></TR>
+<TR><TD>case.3</TD><TD>-</TD><TD>  RESPECT|IGNORE</TD></TR>
+<TR><TD>case.4</TD><TD>-</TD><TD>  RESPECT|IGNORE</TD></TR>
+<TR><TD>case.5</TD><TD>-</TD><TD>  MIXED|UPPER|LOWER</TD></TR>
+<TR><TD>case.6</TD><TD>-</TD><TD>  MIXED|UPPER|LOWER</TD></TR>
+</TABLE><P></DD>
+<A NAME="CLEARERRORKEY"></A>
+<DT>
+<h3>CLEARErrorkey</h3>
+</DT>
+<DD> Returns the key that clears the <A HREF = "glossary.html#MESSAGELINE">message line</A> . If no specific key is defined, ie ALL keys perform a reset, then * is returned. Set by <A HREF = "commset.html#SETCLEARERRORKEY">SET CLEARERRORKEY</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>clearerrorkey.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>clearerrorkey.1</TD><TD>-</TD><TD>  keyname|*</TD></TR>
+</TABLE><P></DD>
+<A NAME="CLEARSCREEN"></A>
+<DT>
+<h3>CLEARScreen</h3>
+</DT>
+<DD> Indicates if the screen is cleared on exit from THE. Set by <A HREF = "commset.html#SETCLEARSCREEN">SET CLEARSCREEN</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>clearscreen.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>clearscreen.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="CLOCK"></A>
+<DT>
+<h3>CLOCK</h3>
+</DT>
+<DD> Indicates if the time is displayed on the status line. Set by <A HREF = "commset.html#SETCLOCK">SET CLOCK</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>clock.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>clock.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="CMDARROWS"></A>
+<DT>
+<h3>CMDArrows</h3>
+</DT>
+<DD> Returns the settings for arrow key behaviour on <A HREF = "glossary.html#COMMANDLINE">command line</A> . Set by <A HREF = "commset.html#SETCMDARROWS">SET CMDARROWS</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>cmdarrows.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>cmdarrows.1</TD><TD>-</TD><TD>  RETRIEVE|TAB</TD></TR>
+</TABLE><P></DD>
+<A NAME="CMDLINE"></A>
+<DT>
+<h3>CMDline</h3>
+</DT>
+<DD> The settings for the <A HREF = "glossary.html#COMMANDLINE">command line</A> . Set by <A HREF = "commset.html#SETCMDLINE">SET CMDLINE</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD> If CMDLINE OFF <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>cmdline.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>cmdline.1</TD><TD>-</TD><TD>  OFF</TD></TR>
+</TABLE><P></DD>
+<DD> If CMDLINE ON, BOTTOM or TOP <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>cmdline.0</TD><TD>-</TD><TD>  3</TD></TR>
+<TR><TD>cmdline.1</TD><TD>-</TD><TD>  ON|TOP|BOTTOM</TD></TR>
+<TR><TD>cmdline.2 *</TD><TD>-</TD><TD>  line number within window of command line</TD></TR>
+<TR><TD>cmdline.3 *</TD><TD>-</TD><TD>  contents of command line</TD></TR>
+</TABLE><P></DD>
+<DD> * these values are only returned with <A HREF = "comm.html#EXTRACT">EXTRACT</A> <P></DD>
+<A NAME="COLOR"></A>
+<DT>
+<h3>COLOR [*|area]</h3>
+</DT>
+<A NAME="COLOUR"></A>
+<DT>
+<h3>COLOUR [*|area]</h3>
+</DT>
+<DD> Displays the current color settings for the file. Set by <A HREF = "commset.html#SETCOLOR">SET COLOR</A> or <A HREF = "commset.html#SETCOLOUR">SET COLOUR</A> . The variable name is spelt the save way that the option is specified. <P></DD>
+<DD> With the [ <I>*</I> ] option, (or no option), returns color settings for all areas of the screen. </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>color.0</TD><TD>-</TD><TD>  40</TD></TR>
+<TR><TD>color.1</TD><TD>-</TD><TD>  FILEAREA        followed by its color</TD></TR>
+<TR><TD>color.2</TD><TD>-</TD><TD>  CURLINE         followed by its color</TD></TR>
+<TR><TD>color.3</TD><TD>-</TD><TD>  BLOCK           followed by its color</TD></TR>
+<TR><TD>color.4</TD><TD>-</TD><TD>  CBLOCK          followed by its color</TD></TR>
+<TR><TD>color.5</TD><TD>-</TD><TD>  CMDLINE         followed by its color</TD></TR>
+<TR><TD>color.6</TD><TD>-</TD><TD>  IDLINE          followed by its color</TD></TR>
+<TR><TD>color.7</TD><TD>-</TD><TD>  MSGLINE         followed by its color</TD></TR>
+<TR><TD>color.8</TD><TD>-</TD><TD>  ARROW           followed by its color</TD></TR>
+<TR><TD>color.9</TD><TD>-</TD><TD>  PREFIX          followed by its color</TD></TR>
+<TR><TD>color.10</TD><TD>-</TD><TD>  CPREFIX         followed by its color</TD></TR>
+<TR><TD>color.11</TD><TD>-</TD><TD>  PENDING         followed by its color</TD></TR>
+<TR><TD>color.12</TD><TD>-</TD><TD>  SCALE           followed by its color</TD></TR>
+<TR><TD>color.13</TD><TD>-</TD><TD>  TOFEOF          followed by its color</TD></TR>
+<TR><TD>color.14</TD><TD>-</TD><TD>  CTOFEOF         followed by its color</TD></TR>
+<TR><TD>color.15</TD><TD>-</TD><TD>  TABLINE         followed by its color</TD></TR>
+<TR><TD>color.16</TD><TD>-</TD><TD>  SHADOW          followed by its color</TD></TR>
+<TR><TD>color.17</TD><TD>-</TD><TD>  STATAREA        followed by its color</TD></TR>
+<TR><TD>color.18</TD><TD>-</TD><TD>  DIVIDER         followed by its color</TD></TR>
+<TR><TD>color.19</TD><TD>-</TD><TD>  RESERVED        followed by its color</TD></TR>
+<TR><TD>color.20</TD><TD>-</TD><TD>  NONDISP         followed by its color</TD></TR>
+<TR><TD>color.21</TD><TD>-</TD><TD>  HIGHLIGHT       followed by its color</TD></TR>
+<TR><TD>color.22</TD><TD>-</TD><TD>  CHIGHLIGHT      followed by its color</TD></TR>
+<TR><TD>color.23</TD><TD>-</TD><TD>  THIGHLIGHT      followed by its color</TD></TR>
+<TR><TD>color.24</TD><TD>-</TD><TD>  SLK             followed by its color</TD></TR>
+<TR><TD>color.25</TD><TD>-</TD><TD>  GAP             followed by its color</TD></TR>
+<TR><TD>color.26</TD><TD>-</TD><TD>  CGAP            followed by its color</TD></TR>
+<TR><TD>color.27</TD><TD>-</TD><TD>  ALERT           followed by its color</TD></TR>
+<TR><TD>color.28</TD><TD>-</TD><TD>  DIALOG          followed by its color</TD></TR>
+<TR><TD>color.29</TD><TD>-</TD><TD>  BOUNDMARKER     followed by its color</TD></TR>
+<TR><TD>color.30</TD><TD>-</TD><TD>  FILETABS        followed by its color</TD></TR>
+<TR><TD>color.31</TD><TD>-</TD><TD>  FILETABSDIV     followed by its color</TD></TR>
+<TR><TD>color.32</TD><TD>-</TD><TD>  CURSORLINE      followed by its color</TD></TR>
+<TR><TD>color.33</TD><TD>-</TD><TD>  DIALOGBORDER    followed by its color</TD></TR>
+<TR><TD>color.34</TD><TD>-</TD><TD>  DIALOGEDITFIELD followed by its color</TD></TR>
+<TR><TD>color.35</TD><TD>-</TD><TD>  DIALOGBUTTON    followed by its color</TD></TR>
+<TR><TD>color.36</TD><TD>-</TD><TD>  DIALOGABUTTON   followed by its color</TD></TR>
+<TR><TD>color.37</TD><TD>-</TD><TD>  POPUPBORDER     followed by its color</TD></TR>
+<TR><TD>color.38</TD><TD>-</TD><TD>  POPUPCURLINE    followed by its color</TD></TR>
+<TR><TD>color.39</TD><TD>-</TD><TD>  POPUP           followed by its color</TD></TR>
+<TR><TD>color.40</TD><TD>-</TD><TD>  POPUPDIVIDER    followed by its color</TD></TR>
+</TABLE><P></DD>
+<DD> With the [ <I>area</I> ] option, returns color settings for the specified area of the screen. </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>color.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>color.1</TD><TD>-</TD><TD>   <I>area</I>  followed by its color</TD></TR>
+</TABLE><P></DD>
+<A NAME="COLORING"></A>
+<DT>
+<h3>COLORING</h3>
+</DT>
+<A NAME="COLOURING"></A>
+<DT>
+<h3>COLOURING</h3>
+</DT>
+<DD> Displays the current color settings for the file. The variable name is spelt the same way that the option is specified. Set by <A HREF = "commset.html#SETCOLORING">SET COLORING</A> or <A HREF = "commset.html#SETCOLOURING">SET COLOURING</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>coloring.0</TD><TD>-</TD><TD>  3</TD></TR>
+<TR><TD>coloring.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+<TR><TD>coloring.2</TD><TD>-</TD><TD>  AUTO|parser (if coloring.1 is ON)</TD></TR>
+<TR><TD>coloring.3</TD><TD>-</TD><TD>  parser (if coloring.1 is ON)</TD></TR>
+</TABLE><P></DD>
+<A NAME="COLUMN"></A>
+<DT>
+<h3>COLUMN</h3>
+</DT>
+<DD> Displays the current value of the focus column. </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>column.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>column.1</TD><TD>-</TD><TD>  Column number of focus column</TD></TR>
+</TABLE><P></DD>
+<A NAME="COMPAT"></A>
+<DT>
+<h3>COMPAT</h3>
+</DT>
+<DD> The settings for the compatibility mode. Set by <A HREF = "commset.html#SETCOMPAT">SET COMPAT</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>compat.0</TD><TD>-</TD><TD>  3</TD></TR>
+<TR><TD>compat.1</TD><TD>-</TD><TD>  THE|XEDIT|KEDIT|KEDITW|ISPF (compatibility LOOK)</TD></TR>
+<TR><TD>compat.2</TD><TD>-</TD><TD>  THE|XEDIT|KEDIT|KEDITW|ISPF (compatibility FEEL)</TD></TR>
+<TR><TD>compat.3</TD><TD>-</TD><TD>  THE|XEDIT|KEDIT|KEDITW|ISPF (compatibility KEYS)</TD></TR>
+</TABLE><P></DD>
+<A NAME="CTLCHAR"></A>
+<DT>
+<h3>CTLchar [*|char]</h3>
+</DT>
+<DD> The definitions of control characters that affect the display of <A HREF = "glossary.html#RESERVEDLINE">reserved line</A> s. Set by <A HREF = "commset.html#SETCTLCHAR">SET CTLCHAR</A> . </DD>
+<DD> (QES) <P></DD>
+<DD> With the [ <I>*</I> ] option, (or no option), returns a list of all control characters that have been defined. <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>ctlchar.0</TD><TD>-</TD><TD>  1 if ctlchar.1 is OFF, otherwise 3</TD></TR>
+<TR><TD>ctlchar.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+<TR><TD>ctlchar.2</TD><TD>-</TD><TD>  The character defined as the escape character.</TD></TR>
+<TR><TD>ctlchar.3</TD><TD>-</TD><TD>  List of defined control characters, if any.</TD></TR>
+</TABLE><P></DD>
+<DD> With the [ <I>char</I> ] option, returns color settings for the specified control character. <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>ctlchar.0</TD><TD>-</TD><TD>  1 if ctlchar.1 is OFF, otherwise 2</TD></TR>
+<TR><TD>ctlchar.1</TD><TD>-</TD><TD>  PROTECT|NOPROTECT|OFF</TD></TR>
+<TR><TD>ctlchar.2</TD><TD>-</TD><TD>  The color defined for this control character.</TD></TR>
+</TABLE><P></DD>
+<A NAME="CURLINE"></A>
+<DT>
+<h3>CURline</h3>
+</DT>
+<DD> The value and position of the <A HREF = "glossary.html#CURRENTLINE">current line</A> within the current file. Set by <A HREF = "commset.html#SETCURLINE">SET CURLINE</A> . Also provides the contents of the <A HREF = "glossary.html#FOCUSLINE">focus line</A> and an indication of the status of the <A HREF = "glossary.html#FOCUSLINE">focus line</A>  for the current session. </DD>
+<DD> (QEMS) <P></DD>
+<DD> With <A HREF = "comm.html#EXTRACT">EXTRACT</A>  command: <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>curline.0</TD><TD>-</TD><TD>  6</TD></TR>
+<TR><TD>curline.1</TD><TD>-</TD><TD>  curline setting</TD></TR>
+<TR><TD>curline.2</TD><TD>-</TD><TD>  line number within window of current line</TD></TR>
+<TR><TD>curline.3</TD><TD>-</TD><TD>  contents of <A HREF = "glossary.html#FOCUSLINE">focus line</A></TD></TR>
+<TR><TD>curline.4</TD><TD>-</TD><TD>  ON|OFF (ON if line has changed or been added this session)</TD></TR>
+<TR><TD>curline.5</TD><TD>-</TD><TD>  OLD|OLD CHANGED|NEW|NEW CHANGED</TD></TR>
+<TR><TD>curline.6</TD><TD>-</TD><TD>  selection level of focus line (same as select.1)</TD></TR>
+</TABLE><P></DD>
+<DD> Note: If <A HREF = "commset.html#SETCOMPAT">SET COMPAT</A> (feel) is set to XEDIT, curline.3 will always return the contents of the <A HREF = "glossary.html#CURRENTLINE">current line</A> . <P></DD>
+<DD> The setting of curline.5 is as follows: OLD:            The line existed in its current form in the file before THE began. OLD CHANGED:    The line was in the file before THE started, but has been changed during the current editing session. NEW:            The line has been added to the file during the current edit session and not been changed. NEW CHANGED:    The line has been added to the file during the current editing session and has been changed. <P></DD>
+<DD> With <A HREF = "comm.html#QUERY">QUERY</A> , <A HREF = "comm.html#MODIFY">MODIFY</A> and <A HREF = "comm.html#STATUS">STATUS</A>  commands: <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>curline.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>curline.1</TD><TD>-</TD><TD>  curline setting</TD></TR>
+</TABLE><P></DD>
+<A NAME="CURSOR"></A>
+<DT>
+<h3>CURSor</h3>
+</DT>
+<DD> The position of the cursor within the displayed screen and file at the time the <A HREF = "comm.html#EXTRACT">EXTRACT</A> /CURSOR/ is issued and the position of the cursor at the time the <A HREF = "glossary.html#MACRO">macro</A> was issued. If the cursor is not in the <A HREF = "glossary.html#FILEAREA">filearea</A> , then line and column values will be set to -1. </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>cursor.0</TD><TD>-</TD><TD>  8</TD></TR>
+<TR><TD>cursor.1</TD><TD>-</TD><TD>  line number of cursor in screen (current)</TD></TR>
+<TR><TD>cursor.2</TD><TD>-</TD><TD>  column number of cursor in screen (current)</TD></TR>
+<TR><TD>cursor.3</TD><TD>-</TD><TD>  line number of cursor in file (current)</TD></TR>
+<TR><TD>cursor.4</TD><TD>-</TD><TD>  column number of cursor in file (current)</TD></TR>
+<TR><TD>cursor.5</TD><TD>-</TD><TD>  line number of cursor in screen (original)</TD></TR>
+<TR><TD>cursor.6</TD><TD>-</TD><TD>  column number of cursor in screen (original)</TD></TR>
+<TR><TD>cursor.7</TD><TD>-</TD><TD>  line number of cursor in file (original)</TD></TR>
+<TR><TD>cursor.8</TD><TD>-</TD><TD>  column number of cursor in file (original)</TD></TR>
+</TABLE><P></DD>
+<A NAME="CURSORSTAY"></A>
+<DT>
+<h3>CURSORSTay</h3>
+</DT>
+<DD> The setting for the behaviour of the cursor after a file scroll. Set by <A HREF = "commset.html#SETCURSORSTAY">SET CURSORSTAY</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>cursorstay.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>cursorstay.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="DEFINE"></A>
+<DT>
+<h3>DEFINE [key|KEY|MOUSE|*]</h3>
+</DT>
+<DD> Returns details about the commands associated with a keyboard key or mouse key.  The details returned are the same as those displayed by the <A HREF = "comm.html#SHOWKEY">SHOWKEY</A> command. Set by <A HREF = "comm.html#DEFINE">DEFINE</A> . <P></DD>
+<DD> The following forms are available: <P></DD>
+<DD> With no parameter or  <I>*</I> , all details about all key and mouse event definitions are returned. (Similar to <A HREF = "comm.html#SHOWKEY">SHOWKEY</A>  ALL) </DD>
+<DD> (E) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>define.0</TD><TD>-</TD><TD>  number of all definitions</TD></TR>
+<TR><TD>define.1</TD><TD>-</TD><TD>  command assigned to the 1st key or mouse</TD></TR>
+<TR><TD>define.n</TD><TD>-</TD><TD>  command assigned to the nth key or mouse</TD></TR>
+</TABLE><P></DD>
+<DD> With a parameter of  <I>KEY</I> , all details about all key definitions are returned. </DD>
+<DD> (E) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>define.0</TD><TD>-</TD><TD>  number of key definitions</TD></TR>
+<TR><TD>define.1</TD><TD>-</TD><TD>  command assigned to the 1st key</TD></TR>
+<TR><TD>define.n</TD><TD>-</TD><TD>  command assigned to the nth key</TD></TR>
+</TABLE><P></DD>
+<DD> With a parameter of  <I>MOUSE</I> , all details about all mouse event definitions are returned. </DD>
+<DD> (E) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>define.0</TD><TD>-</TD><TD>  number of mouse definitions</TD></TR>
+<TR><TD>define.1</TD><TD>-</TD><TD>  command assigned to the 1st mouse event</TD></TR>
+<TR><TD>define.n</TD><TD>-</TD><TD>  command assigned to the nth mouse event</TD></TR>
+</TABLE><P></DD>
+<DD> With a  <I>key</I>  mnemonic specified, details about this one key are returned. The displayed output from a <A HREF = "comm.html#QUERY">QUERY</A> DEFINE is in the same format as for the <A HREF = "comm.html#DEFINE">DEFINE</A>  command. </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>define.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>define.1</TD><TD>-</TD><TD>  command assigned to the key</TD></TR>
+</TABLE><P></DD>
+<A NAME="DEFSORT"></A>
+<DT>
+<h3>DEFSORT</h3>
+</DT>
+<DD> Specifies the order in which files are sorted in the DIR.DIR file. Set by <A HREF = "commset.html#SETDEFSORT">SET DEFSORT</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>defsort.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>defsort.1</TD><TD>-</TD><TD>  DIRECTORY|NAME|SIZE|TIME|DATE|OFF</TD></TR>
+<TR><TD>defsort.2</TD><TD>-</TD><TD>  ASCENDING|DESCENDING</TD></TR>
+</TABLE><P></DD>
+<A NAME="DIRFILEID"></A>
+<DT>
+<h3>DIRFILEID</h3>
+</DT>
+<DD> The value of the path and filename of the <A HREF = "glossary.html#FOCUSLINE">focus line</A>  in a DIR.DIR file. </DD>
+<DD> (E) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>dirfileid.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>dirfileid.1</TD><TD>-</TD><TD>  full path of directory</TD></TR>
+<TR><TD>dirfileid.2</TD><TD>-</TD><TD>  file name at <A HREF = "glossary.html#FOCUSLINE">focus line</A></TD></TR>
+</TABLE><P></DD>
+<DD> If the <A HREF = "glossary.html#FOCUSLINE">focus line</A> is <A HREF = "glossary.html#BOTTOM-OF-FILELINE">Bottom-of-File line</A> or <A HREF = "glossary.html#TOP-OF-FILELINE">Top-of-File line</A>  then: <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>dirfileid.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>dirfileid.1</TD><TD>-</TD><TD>  full path of directory</TD></TR>
+</TABLE><P></DD>
+<A NAME="DIRINCLUDE"></A>
+<DT>
+<h3>DIRInclude</h3>
+</DT>
+<DD> The value of the file type masks currently in place for display in DIR.DIR file. Set by <A HREF = "commset.html#SETDIRINCLUDE">SET DIRINCLUDE</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>dirinclude.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>dirinclude.1</TD><TD>-</TD><TD>  list of file types shown in DIR.DIR file</TD></TR>
+</TABLE><P></DD>
+<A NAME="DISPLAY"></A>
+<DT>
+<h3>DISPlay</h3>
+</DT>
+<DD> Indicates the range of selection levels current. Set by <A HREF = "commset.html#SETDISPLAY">SET DISPLAY</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>display.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>display.1</TD><TD>-</TD><TD>  display low value</TD></TR>
+<TR><TD>display.2</TD><TD>-</TD><TD>  display high value</TD></TR>
+</TABLE><P></DD>
+<A NAME="ECOLOR"></A>
+<DT>
+<h3>ECOLOR [*|category]</h3>
+</DT>
+<A NAME="ECOLOUR"></A>
+<DT>
+<h3>ECOLOUR [*|category]</h3>
+</DT>
+<DD> Displays the current color settings for syntax highlighting. Set by <A HREF = "commset.html#SETECOLOR">SET ECOLOR</A> or <A HREF = "commset.html#SETECOLOUR">SET ECOLOUR</A> . The variable name is spelt the save way that the option is specified. <P></DD>
+<DD> With the [ <I>*</I> ] option, (or no option), returns color settings for all categories. </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>ecolor.0</TD><TD>-</TD><TD>  35</TD></TR>
+<TR><TD>ecolor.1</TD><TD>-</TD><TD>  A followed by its color</TD></TR>
+<TR><TD>ecolor.2</TD><TD>-</TD><TD>  B followed by its color</TD></TR>
+<TR><TD>ecolor.3</TD><TD>-</TD><TD>  C followed by its color</TD></TR>
+<TR><TD>ecolor.4</TD><TD>-</TD><TD>  D followed by its color</TD></TR>
+<TR><TD>ecolor.5</TD><TD>-</TD><TD>  E followed by its color</TD></TR>
+<TR><TD>ecolor.6</TD><TD>-</TD><TD>  F followed by its color</TD></TR>
+<TR><TD>ecolor.7</TD><TD>-</TD><TD>  G followed by its color</TD></TR>
+<TR><TD>ecolor.8</TD><TD>-</TD><TD>  H followed by its color</TD></TR>
+<TR><TD>ecolor.9</TD><TD>-</TD><TD>  I followed by its color</TD></TR>
+<TR><TD>ecolor.10</TD><TD>-</TD><TD>  J followed by its color</TD></TR>
+<TR><TD>ecolor.11</TD><TD>-</TD><TD>  K followed by its color</TD></TR>
+<TR><TD>ecolor.12</TD><TD>-</TD><TD>  L followed by its color</TD></TR>
+<TR><TD>ecolor.13</TD><TD>-</TD><TD>  M followed by its color</TD></TR>
+<TR><TD>ecolor.14</TD><TD>-</TD><TD>  N followed by its color</TD></TR>
+<TR><TD>ecolor.15</TD><TD>-</TD><TD>  O followed by its color</TD></TR>
+<TR><TD>ecolor.16</TD><TD>-</TD><TD>  P followed by its color</TD></TR>
+<TR><TD>ecolor.17</TD><TD>-</TD><TD>  Q followed by its color</TD></TR>
+<TR><TD>ecolor.18</TD><TD>-</TD><TD>  R followed by its color</TD></TR>
+<TR><TD>ecolor.19</TD><TD>-</TD><TD>  S followed by its color</TD></TR>
+<TR><TD>ecolor.20</TD><TD>-</TD><TD>  T followed by its color</TD></TR>
+<TR><TD>ecolor.21</TD><TD>-</TD><TD>  U followed by its color</TD></TR>
+<TR><TD>ecolor.22</TD><TD>-</TD><TD>  V followed by its color</TD></TR>
+<TR><TD>ecolor.23</TD><TD>-</TD><TD>  W followed by its color</TD></TR>
+<TR><TD>ecolor.24</TD><TD>-</TD><TD>  X followed by its color</TD></TR>
+<TR><TD>ecolor.25</TD><TD>-</TD><TD>  Y followed by its color</TD></TR>
+<TR><TD>ecolor.26</TD><TD>-</TD><TD>  Z followed by its color</TD></TR>
+<TR><TD>ecolor.27</TD><TD>-</TD><TD>  1 followed by its color</TD></TR>
+<TR><TD>ecolor.28</TD><TD>-</TD><TD>  2 followed by its color</TD></TR>
+<TR><TD>ecolor.29</TD><TD>-</TD><TD>  3 followed by its color</TD></TR>
+<TR><TD>ecolor.30</TD><TD>-</TD><TD>  4 followed by its color</TD></TR>
+<TR><TD>ecolor.31</TD><TD>-</TD><TD>  5 followed by its color</TD></TR>
+<TR><TD>ecolor.32</TD><TD>-</TD><TD>  6 followed by its color</TD></TR>
+<TR><TD>ecolor.33</TD><TD>-</TD><TD>  7 followed by its color</TD></TR>
+<TR><TD>ecolor.34</TD><TD>-</TD><TD>  8 followed by its color</TD></TR>
+<TR><TD>ecolor.35</TD><TD>-</TD><TD>  9 followed by its color</TD></TR>
+</TABLE><P></DD>
+<DD> With the [ <I>category</I> ] option, returns color settings for the specified syntax highlighting category. </DD>
+<DD> (E) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>color.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>color.1</TD><TD>-</TD><TD>  [ <I>category</I> ] followed by its color</TD></TR>
+</TABLE><P></DD>
+<A NAME="EFILEID"></A>
+<DT>
+<h3>EFILEId</h3>
+</DT>
+<DD> The original full filename of the current file. See <A HREF = "commset.html#SETFILENAME">SET FILENAME</A>  for a full description of the components of a file name. EFILEID.2 differs from the value returned by KEDIT. </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>efileid.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>efileid.1</TD><TD>-</TD><TD>  Original full file name.</TD></TR>
+<TR><TD>efileid.2</TD><TD>-</TD><TD>  Original file name used to edit the file.</TD></TR>
+</TABLE><P></DD>
+<A NAME="EOF"></A>
+<DT>
+<h3>EOF</h3>
+</DT>
+<DD> Indicates if the <A HREF = "glossary.html#CURRENTLINE">current line</A> is on the <A HREF = "glossary.html#BOTTOM-OF-FILELINE">Bottom-of-File line</A> . </DD>
+<DD> (QES) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>eof.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>eof.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="EOLOUT"></A>
+<DT>
+<h3>EOLout</h3>
+</DT>
+<DD> Returns the value of the end-of-line character(s). </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>eolout.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>eolout.1</TD><TD>-</TD><TD>  LF|CRLF|CR|NONE</TD></TR>
+</TABLE><P></DD>
+<A NAME="EQUIVCHAR"></A>
+<DT>
+<h3>EQUIVChar</h3>
+</DT>
+<DD> Returns the equivalence character. Set by <A HREF = "commset.html#SETEQUIVCHAR">SET EQUIVCHAR</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>equivchar.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>equivchar.1</TD><TD>-</TD><TD>  equivalence character</TD></TR>
+</TABLE><P></DD>
+<A NAME="ERRORFORMAT"></A>
+<DT>
+<h3>ERRORFormat</h3>
+</DT>
+<DD> Indicates if THE errors are displayed with extended information. Set by <A HREF = "commset.html#SETERRORFORMAT">SET ERRORFORMAT</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>errorformat.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>errorformat.1</TD><TD>-</TD><TD>  NORMAL|EXTENDED</TD></TR>
+</TABLE><P></DD>
+<A NAME="ERROROUTPUT"></A>
+<DT>
+<h3>ERROROUTput</h3>
+</DT>
+<DD> Indicates if THE errors are also echoed to the calling window. Set by <A HREF = "commset.html#SETERROROUTPUT">SET ERROROUTPUT</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>erroroutput.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>erroroutput.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="ETMODE"></A>
+<DT>
+<h3>ETMODE</h3>
+</DT>
+<DD> Indicates if extended display mode is set. Set by <A HREF = "commset.html#SETETMODE">SET ETMODE</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>etmode.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>etmode.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+<TR><TD>etmode.2</TD><TD>-</TD><TD>  character ranges if not all ON or OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="FEXT"></A>
+<DT>
+<h3>FExt</h3>
+</DT>
+<DD> The extension of the current file. The characters following the trailing  <I>.</I>  character. Same as FType. </DD>
+<DD> (QEM) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>fext.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>fext.1</TD><TD>-</TD><TD>  File extension.</TD></TR>
+</TABLE><P></DD>
+<A NAME="FDISPLAY"></A>
+<DT>
+<h3>FDISPLAY</h3>
+</DT>
+<DD> The optional file display name of the current file. </DD>
+<DD> (QEM) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>fdisplay.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>fdisplay.1</TD><TD>-</TD><TD>  File display name.</TD></TR>
+</TABLE><P></DD>
+<A NAME="FIELD"></A>
+<DT>
+<h3>FIELD</h3>
+</DT>
+<DD> Details about the current cursor field. </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>field.0</TD><TD>-</TD><TD>  4</TD></TR>
+<TR><TD>field.1</TD><TD>-</TD><TD>  contents of the cursor field</TD></TR>
+<TR><TD>field.2</TD><TD>-</TD><TD>  character under the cursor</TD></TR>
+<TR><TD>field.3</TD><TD>-</TD><TD>  column position in the cursor field</TD></TR>
+<TR><TD>field.4</TD><TD>-</TD><TD>  COMMAND|TEXT|PREFIX</TD></TR>
+</TABLE><P></DD>
+<A NAME="FIELDWORD"></A>
+<DT>
+<h3>FIELDWORD</h3>
+</DT>
+<DD> Details about the word closest to the cursor in the current cursor field. </DD>
+<DD> (E) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>fieldword.0</TD><TD>-</TD><TD>  3</TD></TR>
+<TR><TD>fieldword.1</TD><TD>-</TD><TD>  word as defined by <A HREF = "commset.html#SETWORD">SET WORD</A>  ALPHANUM</TD></TR>
+<TR><TD>fieldword.2</TD><TD>-</TD><TD>  word as defined by <A HREF = "commset.html#SETWORD">SET WORD</A>  NONBLANK</TD></TR>
+<TR><TD>fieldword.3</TD><TD>-</TD><TD>  starting column of word</TD></TR>
+</TABLE><P></DD>
+<A NAME="FILENAME"></A>
+<DT>
+<h3>FILEName</h3>
+</DT>
+<DD> The full filename of the current file, including any file extension. </DD>
+<DD> (QEM) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>filename.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>filename.1</TD><TD>-</TD><TD>  Full file name.</TD></TR>
+</TABLE><P></DD>
+<A NAME="FILESTATUS"></A>
+<DT>
+<h3>FILESTATUS</h3>
+</DT>
+<DD> Details about the status of the file being edited. </DD>
+<DD> (QEM) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>filestatus.0</TD><TD>-</TD><TD>  3</TD></TR>
+<TR><TD>filestatus.1</TD><TD>-</TD><TD>  sharing mode - NONE</TD></TR>
+<TR><TD>filestatus.2</TD><TD>-</TD><TD>  access type - READONLY|READWRITE</TD></TR>
+<TR><TD>filestatus.3</TD><TD>-</TD><TD>  end of line - CR/LF/CRLF/NONE</TD></TR>
+</TABLE><P></DD>
+<A NAME="FILETABS"></A>
+<DT>
+<h3>FILETABS</h3>
+</DT>
+<DD> Indicates if the <A HREF = "glossary.html#FILETABS">filetabs</A>  window is displayed or not. </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>filetabs.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>filetabs.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="FMODE"></A>
+<DT>
+<h3>FMode</h3>
+</DT>
+<DD> The file mode of the current file. Under Un*x, this will always return an empty string. Other platforms returns the first character of the file's path. ie the disk drive. </DD>
+<DD> (QEM) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>fmode.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>fmode.1</TD><TD>-</TD><TD>  File mode.</TD></TR>
+</TABLE><P></DD>
+<A NAME="FNAME"></A>
+<DT>
+<h3>FName</h3>
+</DT>
+<DD> The fname portion of the current file. See <A HREF = "commset.html#SETFILENAME">SET FILENAME</A>  for a full description of the components of a file name. </DD>
+<DD> (QEM) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>fname.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>fname.1</TD><TD>-</TD><TD>  File name.</TD></TR>
+</TABLE><P></DD>
+<A NAME="FPATH"></A>
+<DT>
+<h3>FPath</h3>
+</DT>
+<DD> The path name of the current file. This includes a trailing directory separator. </DD>
+<DD> (QEM) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>fpath.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>fpath.1</TD><TD>-</TD><TD>  File path.</TD></TR>
+</TABLE><P></DD>
+<A NAME="FTYPE"></A>
+<DT>
+<h3>FType</h3>
+</DT>
+<DD> The extension of the current file. The characters following the trailing  <I>.</I>  character. </DD>
+<DD> (QEM) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>ftype.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>ftype.1</TD><TD>-</TD><TD>  File extension.</TD></TR>
+</TABLE><P></DD>
+<A NAME="FULLFNAME"></A>
+<DT>
+<h3>FULLFName</h3>
+</DT>
+<DD> Indicates if the fully qualified filename is displayed on the <A HREF = "glossary.html#IDLINE">idline</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>fullfname.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>fullfname.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="GETENV"></A>
+<DT>
+<h3>GETENV variable</h3>
+</DT>
+<DD> The value of the supplied environment  <I>variable</I>  or ***invalid*** if the  <I>variable</I>  does not exist. On platforms other than Unix the supplied variable name is uppercased before obtaining the environment variable value. </DD>
+<DD> (E) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>getenv.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>getenv.1</TD><TD>-</TD><TD>  value of variable</TD></TR>
+</TABLE><P></DD>
+<A NAME="HEX"></A>
+<DT>
+<h3>HEX</h3>
+</DT>
+<DD> Indicates if hexadecimal values in commands are interpreted as hexadecimal values or not. Set by <A HREF = "commset.html#SETHEX">SET HEX</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>hex.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>hex.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="HEADER"></A>
+<DT>
+<h3>HEADer</h3>
+</DT>
+<DD> Returns details about which sections of a TLD file are to be applied to the current view. Do not rely on the position of a particular header in the returned stem. Set by <A HREF = "commset.html#SETHEADER">SET HEADER</A> . </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>header.0</TD><TD>-</TD><TD>  11</TD></TR>
+<TR><TD>header.1</TD><TD>-</TD><TD>  section ON|OFF</TD></TR>
+<TR><TD>header.2</TD><TD>-</TD><TD>  section ON|OFF</TD></TR>
+<TR><TD>header.3</TD><TD>-</TD><TD>  section ON|OFF</TD></TR>
+<TR><TD>header.4</TD><TD>-</TD><TD>  section ON|OFF</TD></TR>
+<TR><TD>header.5</TD><TD>-</TD><TD>  section ON|OFF</TD></TR>
+<TR><TD>header.6</TD><TD>-</TD><TD>  section ON|OFF</TD></TR>
+<TR><TD>header.7</TD><TD>-</TD><TD>  section ON|OFF</TD></TR>
+<TR><TD>header.8</TD><TD>-</TD><TD>  section ON|OFF</TD></TR>
+<TR><TD>header.9</TD><TD>-</TD><TD>  section ON|OFF</TD></TR>
+<TR><TD>header.10</TD><TD>-</TD><TD>  section ON|OFF</TD></TR>
+<TR><TD>header.11</TD><TD>-</TD><TD>  section ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="HEXDISPLAY"></A>
+<DT>
+<h3>HEXDISPlay</h3>
+</DT>
+<DD> Indicates if the current character is displayed on the <A HREF = "glossary.html#STATUSLINE">status line</A> . Set by <A HREF = "commset.html#SETHEXDISPLAY">SET HEXDISPLAY</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>hexdisplay.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>hexdisplay.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="HEXSHOW"></A>
+<DT>
+<h3>HEXShow</h3>
+</DT>
+<DD> Returns details of HEXSHOW placement. Set by <A HREF = "commset.html#SETHEXSHOW">SET HEXSHOW</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>hexshow.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>hexshow.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+<TR><TD>hexshow.2</TD><TD>-</TD><TD>  line displaying first hexshow line</TD></TR>
+</TABLE><P></DD>
+<A NAME="HIGHLIGHT"></A>
+<DT>
+<h3>HIGHlight</h3>
+</DT>
+<DD> Returns details of HIGHLIGHT settings. Set by <A HREF = "commset.html#SETHIGHLIGHT">SET HIGHLIGHT</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>highlight.0</TD><TD>-</TD><TD>  1 or 3 (if highlight.1 = SELECT)</TD></TR>
+<TR><TD>highlight.1</TD><TD>-</TD><TD>  OFF|ALTERED|TAGGED|SELECT</TD></TR>
+<TR><TD>highlight.2</TD><TD>-</TD><TD>  minimum (or only) selection level for SELECT</TD></TR>
+<TR><TD>highlight.3</TD><TD>-</TD><TD>  maximum selection level for SELECT</TD></TR>
+</TABLE><P></DD>
+<A NAME="IDLINE"></A>
+<DT>
+<h3>IDline [*]</h3>
+</DT>
+<DD> Indicates if the <A HREF = "glossary.html#IDLINE">idline</A> is displayed for a file. Set by <A HREF = "commset.html#SETIDLINE">SET IDLINE</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>idline.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>idline.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<DD> With [ <I>*</I> ] option with EXTRACT, the contents of the <A HREF = "glossary.html#IDLINE">idline</A>  is also returned. </DD>
+<DD> (E) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>idline.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>idline.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+<TR><TD>idline.2</TD><TD>-</TD><TD>  contents of <A HREF = "glossary.html#IDLINE">idline</A> .</TD></TR>
+</TABLE><P></DD>
+<A NAME="IMPMACRO"></A>
+<DT>
+<h3>IMPMACro</h3>
+</DT>
+<DD> Indicates if implied <A HREF = "glossary.html#MACRO">macro</A> processing is on or off. Set by <A HREF = "commset.html#SETIMPMACRO">SET IMPMACRO</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>impmacro.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>impmacro.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="IMPOS"></A>
+<DT>
+<h3>IMPOS</h3>
+</DT>
+<DD> Indicates if implied operating system command processing is on or off. Set by <A HREF = "commset.html#SETIMPOS">SET IMPOS</A> or <A HREF = "commset.html#SETIMPCMSCP">SET IMPCMSCP</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>impos.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>impos.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="INPUTMODE"></A>
+<DT>
+<h3>INPUTMode</h3>
+</DT>
+<DD> Indicates the inputmode for the current view. Set by <A HREF = "commset.html#SETINPUTMODE">SET INPUTMODE</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>inputmode.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>inputmode.1</TD><TD>-</TD><TD>  OFF|FULL|LINE</TD></TR>
+</TABLE><P></DD>
+<A NAME="INSERTMODE"></A>
+<DT>
+<h3>INSERTmode</h3>
+</DT>
+<DD> Indicates if currently in insert mode or overstrike mode. Set by <A HREF = "commset.html#SETINSERTMODE">SET INSERTMODE</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>insertmode.1</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>insertmode.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="LASTMSG"></A>
+<DT>
+<h3>LASTmsg</h3>
+</DT>
+<DD> Return the text of the last error message generated. </DD>
+<DD> (E) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>lastmsg.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>lastmsg.1</TD><TD>-</TD><TD>  text of last message.</TD></TR>
+</TABLE><P></DD>
+<A NAME="LASTKEY"></A>
+<DT>
+<h3>LASTKEY [n]</h3>
+</DT>
+<DD> Return information about the last key, or the nth last key pressed. Only the last 8 keys are retained. </DD>
+<DD> (E) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>lastkey.0</TD><TD>-</TD><TD>  4</TD></TR>
+<TR><TD>lastkey.1</TD><TD>-</TD><TD>  name of the key.</TD></TR>
+<TR><TD>lastkey.2</TD><TD>-</TD><TD>  character associated with the key (if applicable)</TD></TR>
+<TR><TD>lastkey.3</TD><TD>-</TD><TD>  curses mnemonic code</TD></TR>
+<TR><TD>lastkey.4</TD><TD>-</TD><TD>  shift status. see <A HREF = "comm.html#READV">READV</A>  for details</TD></TR>
+</TABLE><P></DD>
+<A NAME="LASTOP"></A>
+<DT>
+<h3>LASTOP [command|*]</h3>
+</DT>
+<DD> Returns the last operand from selected commands.  command can be one of ALter, Change, CLocate COUnt, Find, Locate SCHange or TFind. </DD>
+<DD> (QE) <P></DD>
+<DD> EXTract /LASTOP command/ sets: <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>lastop.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>lastop.1</TD><TD>-</TD><TD>  command and its last operand</TD></TR>
+</TABLE><P></DD>
+<DD> If no command is supplied as a parameter or  <I>*</I>  is passed, details of all last operands are set as follows: <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>lastop.0</TD><TD>-</TD><TD>  9</TD></TR>
+<TR><TD>lastop.1</TD><TD>-</TD><TD>  "alter" and its last operand (not implemented)</TD></TR>
+<TR><TD>lastop.2</TD><TD>-</TD><TD>  "change" and its last operand</TD></TR>
+<TR><TD>lastop.3</TD><TD>-</TD><TD>  "clocate" and its last operand (not implemented)</TD></TR>
+<TR><TD>lastop.4</TD><TD>-</TD><TD>  "count" and its last operand (not implemented)</TD></TR>
+<TR><TD>lastop.5</TD><TD>-</TD><TD>  "find" and its last operand</TD></TR>
+<TR><TD>lastop.6</TD><TD>-</TD><TD>  "locate" and its last operand</TD></TR>
+<TR><TD>lastop.7</TD><TD>-</TD><TD>  "schange" and its last operand</TD></TR>
+<TR><TD>lastop.8</TD><TD>-</TD><TD>  "tfind" and its last operand (not implemented)</TD></TR>
+<TR><TD>lastop.9</TD><TD>-</TD><TD>  "search" and its last operand</TD></TR>
+</TABLE><P></DD>
+<A NAME="LASTRC"></A>
+<DT>
+<h3>LASTRC</h3>
+</DT>
+<DD> Returns the return code from last command issued from <A HREF = "glossary.html#COMMANDLINE">command line</A> . </DD>
+<DD> (QES) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>lastrc.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>lastrc.1</TD><TD>-</TD><TD>  Last return code.</TD></TR>
+</TABLE><P></DD>
+<A NAME="LENGTH"></A>
+<DT>
+<h3>LENgth</h3>
+</DT>
+<DD> Length of the current line. </DD>
+<DD> (QES) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>length.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>length.1</TD><TD>-</TD><TD>  Length of current line.</TD></TR>
+</TABLE><P></DD>
+<A NAME="LINE"></A>
+<DT>
+<h3>LIne</h3>
+</DT>
+<DD> Line number of <A HREF = "glossary.html#FOCUSLINE">focus line</A> in current file; or <A HREF = "glossary.html#CURRENTLINE">current line</A> if <A HREF = "commset.html#SETCOMPAT">SET COMPAT</A>  (feel) is set to XEDIT. </DD>
+<DD> (QES) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>line.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>line.1</TD><TD>-</TD><TD>  Line number</TD></TR>
+</TABLE><P></DD>
+<A NAME="LINEFLAG"></A>
+<DT>
+<h3>LINEFLAG</h3>
+</DT>
+<DD> Returns information about the flags set on the <A HREF = "glossary.html#FOCUSLINE">focus line</A> , or <A HREF = "glossary.html#CURRENTLINE">current line</A> if <A HREF = "commset.html#SETCOMPAT">SET COMPAT</A>  (feel) is set to XEDIT. </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>lineflag.0</TD><TD>-</TD><TD>  3</TD></TR>
+<TR><TD>lineflag.1</TD><TD>-</TD><TD>  NEW|NONEW</TD></TR>
+<TR><TD>lineflag.2</TD><TD>-</TD><TD>  CHANGE|NOCHANGE</TD></TR>
+<TR><TD>lineflag.3</TD><TD>-</TD><TD>  TAG|NOTAG</TD></TR>
+</TABLE><P></DD>
+<A NAME="LINEND"></A>
+<DT>
+<h3>LINENd</h3>
+</DT>
+<DD> Indicates if multiple commands allowed on command line and the delimiter. Set by <A HREF = "commset.html#SETLINEND">SET LINEND</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>linend.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>linend.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+<TR><TD>linend.2</TD><TD>-</TD><TD>  delimiter</TD></TR>
+</TABLE><P></DD>
+<A NAME="LSCREEN"></A>
+<DT>
+<h3>LScreen</h3>
+</DT>
+<DD> Displays the size of the current screen and window. Also shows the upper left corner of the window. </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>lscreen.0</TD><TD>-</TD><TD>  6</TD></TR>
+<TR><TD>lscreen.1</TD><TD>-</TD><TD>  height of current screen</TD></TR>
+<TR><TD>lscreen.2</TD><TD>-</TD><TD>  width of current screen</TD></TR>
+<TR><TD>lscreen.3</TD><TD>-</TD><TD>  screen line of upper left corner of screen</TD></TR>
+<TR><TD>lscreen.4</TD><TD>-</TD><TD>  screen column of upper left corner of screen</TD></TR>
+<TR><TD>lscreen.5</TD><TD>-</TD><TD>  height of display</TD></TR>
+<TR><TD>lscreen.6</TD><TD>-</TD><TD>  width of display</TD></TR>
+</TABLE><P></DD>
+<A NAME="MACRO"></A>
+<DT>
+<h3>MACRO</h3>
+</DT>
+<DD> Indicates if macros are executed before commands. Set by <A HREF = "commset.html#SETMACRO">SET MACRO</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>macro.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>macro.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="MACROEXT"></A>
+<DT>
+<h3>MACROExt</h3>
+</DT>
+<DD> The current setting for a macro's file extension. Set by <A HREF = "commset.html#SETMACROEXT">SET MACROEXT</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>macroext.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>macroext.1</TD><TD>-</TD><TD>  Default file extension</TD></TR>
+</TABLE><P></DD>
+<A NAME="MACROPATH"></A>
+<DT>
+<h3>MACROPath</h3>
+</DT>
+<DD> The path that THE looks for by default for macro files. Set by <A HREF = "commset.html#SETMACROPATH">SET MACROPATH</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>macropath.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>macropath.1</TD><TD>-</TD><TD>  Path for macro files.</TD></TR>
+</TABLE><P></DD>
+<A NAME="MARGINS"></A>
+<DT>
+<h3>MARgins</h3>
+</DT>
+<DD> The settings for left and right margins and paragraph indent. Set by <A HREF = "commset.html#SETMARGINS">SET MARGINS</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>margins.0</TD><TD>-</TD><TD>  3</TD></TR>
+<TR><TD>margins.1</TD><TD>-</TD><TD>  left column</TD></TR>
+<TR><TD>margins.2</TD><TD>-</TD><TD>  right column</TD></TR>
+<TR><TD>margins.3</TD><TD>-</TD><TD>  indent value (column or offset from left margin)</TD></TR>
+</TABLE><P></DD>
+<A NAME="MONITOR"></A>
+<DT>
+<h3>MONITOR</h3>
+</DT>
+<DD> Indicates if the combination of monitor and the curses package supports colour. If the curses package supports colour, then monitor.1 is set to COLOR and monitor.2 can be COLOR or MONO depending on whether the monitor supports colour. If monitor.1 is MONO then monitor.2 will also be set to MONO. </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>monitor.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>monitor.1</TD><TD>-</TD><TD>  COLOR|MONO</TD></TR>
+<TR><TD>monitor.2</TD><TD>-</TD><TD>  COLOR|MONO</TD></TR>
+</TABLE><P></DD>
+<A NAME="MOUSE"></A>
+<DT>
+<h3>MOUSE</h3>
+</DT>
+<DD> Indicates if the mouse is supported as an input device. Set by <A HREF = "commset.html#SETMOUSE">SET MOUSE</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>mouse.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>mouse.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="MOUSECLICK"></A>
+<DT>
+<h3>MOUSEClick</h3>
+</DT>
+<DD> Returns the time in milliseconds that THE uses to distinguish between a mouse CLICK and a pair of PRESS/RELEASE events. Set by <A HREF = "commset.html#SETMOUSECLICK">SET MOUSECLICK</A> . </DD>
+<DD> (QEM) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>mouseclick.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>mouseclick.1</TD><TD>-</TD><TD>  a positive number, 0 or -1 if no mouse support</TD></TR>
+</TABLE><P></DD>
+<A NAME="MSGLINE"></A>
+<DT>
+<h3>MSGLine</h3>
+</DT>
+<DD> Returns details of where the <A HREF = "glossary.html#MESSAGELINE">message line</A> is displayed. Set by <A HREF = "commset.html#SETMSGLINE">SET MSGLINE</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>msgline.0</TD><TD>-</TD><TD>  4</TD></TR>
+<TR><TD>msgline.1</TD><TD>-</TD><TD>  ON</TD></TR>
+<TR><TD>msgline.2</TD><TD>-</TD><TD>  line position of <A HREF = "glossary.html#MESSAGELINE">message line</A></TD></TR>
+<TR><TD>msgline.3</TD><TD>-</TD><TD>  number of message lines available</TD></TR>
+<TR><TD>msgline.4</TD><TD>-</TD><TD>  OVERLAY (returned for compatibility reasons)</TD></TR>
+</TABLE><P></DD>
+<A NAME="MSGMODE"></A>
+<DT>
+<h3>MSGMode</h3>
+</DT>
+<DD> Indicates if messages are suppressed. Set by <A HREF = "commset.html#SETMSGMODE">SET MSGMODE</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>msgmode.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>msgmode.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+<TR><TD>msgmode.2</TD><TD>-</TD><TD>  LONG</TD></TR>
+</TABLE><P></DD>
+<A NAME="NBFILE"></A>
+<DT>
+<h3>NBFile</h3>
+</DT>
+<DD> Returns with the number of files currently in the <A HREF = "glossary.html#RING">ring</A> . </DD>
+<DD> (QES) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>nbfile.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>nbfile.1</TD><TD>-</TD><TD>  Number of files in ring</TD></TR>
+</TABLE><P></DD>
+<A NAME="NBSCOPE"></A>
+<DT>
+<h3>NBScope</h3>
+</DT>
+<DD> Returns with the number of lines currently in scope. If SCOPE ALL is in effect, this will be the same number as SIZE. </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>nbscope.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>nbscope.1</TD><TD>-</TD><TD>  Number of lines in scope</TD></TR>
+<TR><TD>nbscope.2</TD><TD>-</TD><TD>  Line number of focus line in scope</TD></TR>
+</TABLE><P></DD>
+<A NAME="NEWLINES"></A>
+<DT>
+<h3>NEWLines</h3>
+</DT>
+<DD> Indicates if NEWLINES variable is set to LEFT or ALIGNED. Set by <A HREF = "commset.html#SETNEWLINES">SET NEWLINES</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>newlines.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>newlines.1</TD><TD>-</TD><TD>  ALIGNED|LEFT</TD></TR>
+</TABLE><P></DD>
+<A NAME="NONDISP"></A>
+<DT>
+<h3>NONDisp</h3>
+</DT>
+<DD> Returns the character that is displayed for extended characters that are not displayed. Set by <A HREF = "commset.html#SETNONDISP">SET NONDISP</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>nondisp.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>nondisp.1</TD><TD>-</TD><TD>  char</TD></TR>
+</TABLE><P></DD>
+<A NAME="NUMBER"></A>
+<DT>
+<h3>NUMber</h3>
+</DT>
+<DD> Indicates if line numbers are displayed in the prefix area. Set by <A HREF = "commset.html#SETNUMBER">SET NUMBER</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>number.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>number.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="PAGEWRAP"></A>
+<DT>
+<h3>PAGEWRAP</h3>
+</DT>
+<DD> Indicates if the scrolling the file view using the <A HREF = "comm.html#FORWARD">FORWARD</A> and <A HREF = "comm.html#BACKWARD">BACKWARD</A> commands will wrap if the cursor is at the <A HREF = "glossary.html#BOTTOM-OF-FILELINE">Bottom-of-File line</A> or <A HREF = "glossary.html#TOP-OF-FILELINE">Top-of-File line</A> respectively. Set by <A HREF = "commset.html#SETPAGEWRAP">SET PAGEWRAP</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>pagewrap.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>pagewrap.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="PARSER"></A>
+<DT>
+<h3>PARSER [*|parser]</h3>
+</DT>
+<DD> Displays the filename of the THE Language Defintion file from which a syntax highlighting parser was loaded. Set by <A HREF = "commset.html#SETPARSER">SET PARSER</A> . </DD>
+<DD> (QES) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>parser.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>parser.1</TD><TD>-</TD><TD>  Name of parser</TD></TR>
+<TR><TD>parser.2</TD><TD>-</TD><TD>  Filename of TLD file</TD></TR>
+</TABLE><P></DD>
+<DD> If no parser is supplied as a parameter or  <I>*</I>  is passed, details of all parsers are set as follows: <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>parser.0</TD><TD>-</TD><TD>  number of parsers currently defined</TD></TR>
+<TR><TD>parser.1</TD><TD>-</TD><TD>  name and filename of first parser</TD></TR>
+<TR><TD>parser.i</TD><TD>-</TD><TD>  name and filename of ith parser</TD></TR>
+</TABLE><P></DD>
+<A NAME="PENDING"></A>
+<DT>
+<h3>PENDing [BLOCK] [OLDNAME] name|* [target1 [target2]</h3>
+</DT>
+<DD> Returns information about pending prefix commands. </DD>
+<DD> (E) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>pending.0</TD><TD>-</TD><TD>  7</TD></TR>
+<TR><TD>pending.1</TD><TD>-</TD><TD>  line number in file</TD></TR>
+<TR><TD>pending.2</TD><TD>-</TD><TD>  newname - actual name entered in prefix area</TD></TR>
+<TR><TD>pending.3</TD><TD>-</TD><TD>  oldname - original name of macro after synonym resolution</TD></TR>
+<TR><TD>pending.4</TD><TD>-</TD><TD>  BLOCK or null</TD></TR>
+<TR><TD>pending.5</TD><TD>-</TD><TD>  value of first operand</TD></TR>
+<TR><TD>pending.6</TD><TD>-</TD><TD>  value of second operand</TD></TR>
+<TR><TD>pending.7</TD><TD>-</TD><TD>  value of third operand</TD></TR>
+</TABLE><P></DD>
+<A NAME="POINT"></A>
+<DT>
+<h3>Point [*]</h3>
+</DT>
+<DD> Returns the name and line number of the <A HREF = "glossary.html#FOCUSLINE">focus line</A> , or names and line numbers of all lines in a file if  <I>*</I>  is specified. If <A HREF = "commset.html#SETCOMPAT">SET COMPAT</A> (feel) is set to XEDIT, then the name and line number of the <A HREF = "glossary.html#CURRENTLINE">current line</A> is returned, rather than the name and line number of the <A HREF = "glossary.html#FOCUSLINE">focus line</A> . <P></DD>
+<DD> (QE) <P></DD>
+<DD> With no arguments: <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>point.0</TD><TD>-</TD><TD>  0 or 1       (0 if focus line not named)</TD></TR>
+<TR><TD>point.1</TD><TD>-</TD><TD>  line number and name of line (if line is named)</TD></TR>
+</TABLE><P></DD>
+<DD> With [ <I>*</I> ] argument: </DD>
+<DD> (E) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>point.0</TD><TD>-</TD><TD>  number of named lines in the file</TD></TR>
+<TR><TD>point.1</TD><TD>-</TD><TD>  line number and name for first named line</TD></TR>
+<TR><TD>point.n</TD><TD>-</TD><TD>  line number and name for nth named line</TD></TR>
+</TABLE><P></DD>
+<DD> Only point.0 and point.1 are available using implied extract functions. <P></DD>
+<A NAME="POSITION"></A>
+<DT>
+<h3>POSition</h3>
+</DT>
+<DD> Indicates if LINE/COL is displayed on <A HREF = "glossary.html#IDLINE">idline</A> . Set by <A HREF = "commset.html#SETPOSITION">SET POSITION</A> . </DD>
+<DD> (QMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>position.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>position.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<DD> The current/focus line/column is also returned via <A HREF = "comm.html#EXTRACT">EXTRACT</A> . </DD>
+<DD> (E) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>position.0</TD><TD>-</TD><TD>  3</TD></TR>
+<TR><TD>position.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+<TR><TD>position.2</TD><TD>-</TD><TD>  current or focus line</TD></TR>
+<TR><TD>position.3</TD><TD>-</TD><TD>  current or focus column</TD></TR>
+</TABLE><P></DD>
+<A NAME="PREFIX"></A>
+<DT>
+<h3>PREfix [Synonym *|name]</h3>
+</DT>
+<DD> Indicates if prefix is displayed for the view and if displayed where is is displayed. See <A HREF = "commset.html#SETPREFIX">SET PREFIX</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>prefix.0</TD><TD>-</TD><TD>  1 or 2     (1 if prefix.1 is OFF, 2 otherwise)</TD></TR>
+<TR><TD>prefix.1</TD><TD>-</TD><TD>  ON|OFF|NULLS</TD></TR>
+<TR><TD>prefix.2</TD><TD>-</TD><TD>  LEFT|RIGHT        (if prefix.1 is ON or NULLS)</TD></TR>
+<TR><TD>prefix.3</TD><TD>-</TD><TD>  width of prefix area</TD></TR>
+<TR><TD>prefix.4</TD><TD>-</TD><TD>  width of prefix gap</TD></TR>
+</TABLE><P></DD>
+<DD> With [ <I>Synonym name</I> ] option, the macroname associated with the synonym  <I>name</I>  is returned. If  <I>name</I>  is not a synonym then  <I>name</I>  is returned as the macroname. </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>prefix.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>prefix.1</TD><TD>-</TD><TD>  synonym macroname</TD></TR>
+</TABLE><P></DD>
+<DD> With [ <I>Synonym *</I> ] option, all prefix synonyms are returned. </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>prefix.0</TD><TD>-</TD><TD>  number of prefix synonyms</TD></TR>
+<TR><TD>prefix.1</TD><TD>-</TD><TD>  synonym macroname</TD></TR>
+<TR><TD>prefix.n</TD><TD>-</TD><TD>  synonym macroname</TD></TR>
+</TABLE><P></DD>
+<A NAME="PRINTER"></A>
+<DT>
+<h3>PRINTER</h3>
+</DT>
+<DD> Returns the value of the printer port or spooler. Set by <A HREF = "commset.html#SETPRINTER">SET PRINTER</A> </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>printer.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>printer.1</TD><TD>-</TD><TD>  port or spooler name</TD></TR>
+</TABLE><P></DD>
+<A NAME="PROFILE"></A>
+<DT>
+<h3>PROFile</h3>
+</DT>
+<DD> Returns the value of the profile file being used. </DD>
+<DD> (QES) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>profile.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>profile.1</TD><TD>-</TD><TD>  profile file name of blank if none being used</TD></TR>
+</TABLE><P></DD>
+<A NAME="READONLY"></A>
+<DT>
+<h3>READONLY</h3>
+</DT>
+<DD> Indicates if the file being edited is allowed to be altered. Set by <A HREF = "commset.html#SETREADONLY">SET READONLY</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>readonly.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>readonly.1</TD><TD>-</TD><TD>  ON|OFF|FORCE</TD></TR>
+</TABLE><P></DD>
+<A NAME="REGEXP"></A>
+<DT>
+<h3>REGEXP</h3>
+</DT>
+<DD> Return the type of regular expression syntax currently used for targets. Set by <A HREF = "commset.html#SETREGEXP">SET REGEXP</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>regexp.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>regexp.1</TD><TD>-</TD><TD>  EMACS|AWK|POSIX_AWK|GREP|EGREP|POSIX_EGREP|SED|POSIX_BASIC</TD></TR>
+<TR><TD></TD><TD>-</TD><TD>  |POSIX_MINIMAL_BASIC|POSIX_EXTENDED|POSIX_MINIMAL_EXTENDED</TD></TR>
+</TABLE><P></DD>
+<A NAME="REPROFILE"></A>
+<DT>
+<h3>REPROFile</h3>
+</DT>
+<DD> Indicates if the specified (or implied) profile file is re-executed each time a file is added to the ring. Set by <A HREF = "commset.html#SETREPROFILE">SET REPROFILE</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>reprofle.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>reprofle.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="RESERVED"></A>
+<DT>
+<h3>RESERved [*]</h3>
+</DT>
+<DD> Return with list of the screen rows that have been reserved. Set by <A HREF = "commset.html#SETRESERVED">SET RESERVED</A> . </DD>
+<DD> (QES) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>reserved.0</TD><TD>-</TD><TD>  0 if no reserved lines; 1 otherwise</TD></TR>
+<TR><TD>reserved.1</TD><TD>-</TD><TD>  list of screen row numbers reserved</TD></TR>
+</TABLE><P></DD>
+<DD> With [ <I>*</I> ] option, the line number, followed by the colour specification and <A HREF = "glossary.html#RESERVEDLINE">reserved line</A>  contents are returned; one variable for each reserved line. </DD>
+<DD> (E) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>reserved.0</TD><TD>-</TD><TD>  the number of reserved lines</TD></TR>
+<TR><TD>reserved.1</TD><TD>-</TD><TD>  first reserved line</TD></TR>
+<TR><TD>reserved.2</TD><TD>-</TD><TD>  second reserved line</TD></TR>
+<TR><TD>reserved.n</TD><TD>-</TD><TD>  nth reserved line</TD></TR>
+</TABLE><P></DD>
+<A NAME="REXX"></A>
+<DT>
+<h3>REXX</h3>
+</DT>
+<DD> Returns the version details of the Rexx interpreter (if any) in the same format as PARSE VERSION. </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>rexx.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>rexx.1</TD><TD>-</TD><TD>  Version strings</TD></TR>
+</TABLE><P></DD>
+<A NAME="REXXHALT"></A>
+<DT>
+<h3>REXXHalt</h3>
+</DT>
+<DD> Returns details on when a <A HREF = "glossary.html#REXX">REXX</A> macro can be halted during execution. Set by <A HREF = "commset.html#SETREXXHALT">SET REXXHALT</A> . </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>rexxhalt.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>rexxhalt.1</TD><TD>-</TD><TD>  Number of command calls or OFF</TD></TR>
+<TR><TD>rexxhalt.2</TD><TD>-</TD><TD>  Number of function calls or OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="REXXOUTPUT"></A>
+<DT>
+<h3>REXXOUTput</h3>
+</DT>
+<DD> Indicates if <A HREF = "glossary.html#REXX">REXX</A> output is captured to a file or not and the line number limit of lines to be displayed. Set by <A HREF = "commset.html#SETREXXOUTPUT">SET REXXOUTPUT</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>rexxoutput.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>rexxoutput.1</TD><TD>-</TD><TD>  FILE|DISPLAY</TD></TR>
+<TR><TD>rexxoutput.2</TD><TD>-</TD><TD>  line number limit</TD></TR>
+</TABLE><P></DD>
+<A NAME="RING"></A>
+<DT>
+<h3>RING</h3>
+</DT>
+<DD> Returns details of each file being edited. </DD>
+<DD> (QE) <P></DD>
+<DD> With <A HREF = "commset.html#SETCOMPAT">SET COMPAT</A>  (feel) set to XEDIT, the values set are: <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>ring.0</TD><TD>-</TD><TD>  number of variables returned (ring.1 + 1)</TD></TR>
+<TR><TD>ring.1</TD><TD>-</TD><TD>  number of files in the <A HREF = "glossary.html#RING">ring</A></TD></TR>
+<TR><TD>ring.2</TD><TD>-</TD><TD>  IDLINE of first file in the ring</TD></TR>
+<TR><TD>ring.3</TD><TD>-</TD><TD>  IDLINE of second file in the ring</TD></TR>
+<TR><TD>ring.n</TD><TD>-</TD><TD>  IDLINE of nth file in the ring</TD></TR>
+</TABLE><P></DD>
+<DD> With <A HREF = "commset.html#SETCOMPAT">SET COMPAT</A>  (feel) set to THE or KEDIT, the values set are: <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>ring.0</TD><TD>-</TD><TD>  number of files in the <A HREF = "glossary.html#RING">ring</A></TD></TR>
+<TR><TD>ring.1</TD><TD>-</TD><TD>  IDLINE of first file in the ring</TD></TR>
+<TR><TD>ring.2</TD><TD>-</TD><TD>  IDLINE of second file in the ring</TD></TR>
+<TR><TD>ring.n</TD><TD>-</TD><TD>  IDLINE of nth file in the ring</TD></TR>
+</TABLE><P></DD>
+<DD> Only ring.0 and ring.1 are available using implied extract functions. <P></DD>
+<A NAME="SCALE"></A>
+<DT>
+<h3>SCALe</h3>
+</DT>
+<DD> Returns details of <A HREF = "glossary.html#SCALELINE">scale line</A> . Set by <A HREF = "commset.html#SETSCALE">SET SCALE</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>scale.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>scale.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+<TR><TD>scale.2</TD><TD>-</TD><TD>  line displaying scale line</TD></TR>
+</TABLE><P></DD>
+<A NAME="SCOPE"></A>
+<DT>
+<h3>SCOPE</h3>
+</DT>
+<DD> Returns information about whether <A HREF = "glossary.html#SHADOWLINE">shadow line</A> s will be affected by commands or not. Set by <A HREF = "commset.html#SETSCOPE">SET SCOPE</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>scope.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>scope.1</TD><TD>-</TD><TD>  ALL|DISPLAY</TD></TR>
+</TABLE><P></DD>
+<A NAME="SCREEN"></A>
+<DT>
+<h3>SCReen</h3>
+</DT>
+<DD> Returns the number and orientation of THE screens. Set by <A HREF = "commset.html#SETSCREEN">SET SCREEN</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>screen.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>screen.1</TD><TD>-</TD><TD>  Number of screens displayed</TD></TR>
+<TR><TD>screen.2</TD><TD>-</TD><TD>  HORIZONTAL|VERTICAL</TD></TR>
+</TABLE><P></DD>
+<A NAME="SELECT"></A>
+<DT>
+<h3>SELect</h3>
+</DT>
+<DD> Returns the selection level of the <A HREF = "glossary.html#FOCUSLINE">focus line</A> and the maximum selection level for the file. Set by <A HREF = "commset.html#SETSELECT">SET SELECT</A> and <A HREF = "comm.html#ALL">ALL</A> commands. If <A HREF = "commset.html#SETCOMPAT">SET COMPAT</A> (feel) XEDIT is set, then the selection level of the <A HREF = "glossary.html#CURRENTLINE">current line</A> is returned instead of the selection level of the <A HREF = "glossary.html#FOCUSLINE">focus line</A> . </DD>
+<DD> (QES) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>select.0</TD><TD>-</TD><TD>  3</TD></TR>
+<TR><TD>select.1</TD><TD>-</TD><TD>  selection level of focus line</TD></TR>
+<TR><TD>select.2</TD><TD>-</TD><TD>  maximum selection level for file</TD></TR>
+<TR><TD>select.3</TD><TD>-</TD><TD>  maximum valid selection level</TD></TR>
+</TABLE><P></DD>
+<A NAME="SHADOW"></A>
+<DT>
+<h3>SHADow</h3>
+</DT>
+<DD> Returns the status of the display of shadow lines. Set by <A HREF = "commset.html#SETSHADOW">SET SHADOW</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>shadow.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>shadow.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="SHOWKEY"></A>
+<DT>
+<h3>SHOWkey key</h3>
+</DT>
+<DD> Returns the commands and parameters assigned to the  <I>key</I>  passed as an argument.  This keyvalue is returned as READV.3 from a call to <A HREF = "comm.html#READV">READV</A>  KEY. </DD>
+<DD> (E) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>showkey.0</TD><TD>-</TD><TD>  the number of commands assigned</TD></TR>
+<TR><TD>showkey.1</TD><TD>-</TD><TD>  first command/parameter assigned</TD></TR>
+<TR><TD>showkey.n</TD><TD>-</TD><TD>  last command/parameter assigned</TD></TR>
+</TABLE><P></DD>
+<DD> If no  <I>key</I>  supplied as a parameter: <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>showkey.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>showkey.1</TD><TD>-</TD><TD>  INVALID KEY</TD></TR>
+</TABLE><P></DD>
+<DD> This item is not available as an implied extract function. <P></DD>
+<A NAME="SIZE"></A>
+<DT>
+<h3>SIze</h3>
+</DT>
+<DD> Returns the number of lines in the current file. </DD>
+<DD> (QES) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>size.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>size.1</TD><TD>-</TD><TD>  Lines in current file.</TD></TR>
+</TABLE><P></DD>
+<A NAME="SLK"></A>
+<DT>
+<h3>SLK [*|number]</h3>
+</DT>
+<DD> Returns details about Soft Label Keys. <P></DD>
+<DD> With no optional argument. </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>slk.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>slk.1</TD><TD>-</TD><TD>  ON|OFF|UNAVAILABLE</TD></TR>
+<TR><TD>slk.2</TD><TD>-</TD><TD>  value of -k switch from command line</TD></TR>
+<DD> UNAVAILABLE is returned if the -k switch is not supplied on command line. ON is returned if -k switch supplied and SLK are showing. OFF is returned if -k switch supplied but SLK are not showing. <P></DD>
+<DD> With [ <I>number</I> ] option, details about the specific label are returned. </DD>
+<DD> (QE) <P></DD>
+</TABLE><P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>slk.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>slk.1</TD><TD>-</TD><TD>  label for SLK</TD></TR>
+</TABLE><P></DD>
+<DD> With [ <I>*</I> ] option, details about all labels are returned. </DD>
+<DD> (E) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>slk.0</TD><TD>-</TD><TD>  number of labels defined</TD></TR>
+<TR><TD>slk.1</TD><TD>-</TD><TD>  label for first SLK</TD></TR>
+<TR><TD>slk.n</TD><TD>-</TD><TD>  label of nth SLK</TD></TR>
+</TABLE><P></DD>
+<A NAME="STATOPT"></A>
+<DT>
+<h3>STATOPT [*|option]</h3>
+</DT>
+<DD> Displays the current status options in effect on the <A HREF = "glossary.html#STATUSLINE">status line</A> . Set by <A HREF = "commset.html#SETSTATOPT">SET STATOPT</A> <P></DD>
+<DD> With the [ <I>*</I> ] option, (or no option), returns settings for all options that are in effect. The returned settings are the same as the arguments specified in the <A HREF = "commset.html#SETSTATOPT">SET STATOPT</A>  command. </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>statopt.0</TD><TD>-</TD><TD>  the number of status options in effect</TD></TR>
+<TR><TD>statopt.1</TD><TD>-</TD><TD>  the first status option in effect</TD></TR>
+<TR><TD>statopt.2</TD><TD>-</TD><TD>  the second status option in effect</TD></TR>
+<TR><TD>statopt.n</TD><TD>-</TD><TD>  the nth status option in effect</TD></TR>
+</TABLE><P></DD>
+<DD> With the [ <I>option</I> ] option, returns settings for the specified option. If the option is invalid or has net been set, the status will be returned as OFF. </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>statopt.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>statopt.1</TD><TD>-</TD><TD>  the status option settings</TD></TR>
+</TABLE><P></DD>
+<A NAME="STATUSLINE"></A>
+<DT>
+<h3>STATUSLine</h3>
+</DT>
+<DD> Indicates if the <A HREF = "glossary.html#STATUSLINE">status line</A> is displayed and if so, where. Set by <A HREF = "commset.html#SETSTATUSLINE">SET STATUSLINE</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>statusline.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>statusline.1</TD><TD>-</TD><TD>  TOP|BOTTOM|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="STAY"></A>
+<DT>
+<h3>STAY</h3>
+</DT>
+<DD> Indicates if the focus line stays where it is after a successful THE command or an unsuccessful <A HREF = "comm.html#LOCATE">LOCATE</A> command.  Set by <A HREF = "commset.html#SETSTAY">SET STAY</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>stay.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>stay.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="SYNELEM"></A>
+<DT>
+<h3>SYNELEM [Cursor|row col|File line column]</h3>
+</DT>
+<DD> Returns the syntax highlighting element at the indicated position in the <A HREF = "glossary.html#FILEAREA">file area</A> . UNKNOWN will be returned if syntax highlighting is not active for the current file. With [ <I>Cursor</I> ], the default, the syntax highlighting element at the position of the cursor in the <A HREF = "glossary.html#FILEAREA">file area</A> will be returned. NONE will be returned if the cursor is not in the <A HREF = "glossary.html#FILEAREA">file area</A> , or if there is no syntax highlighting element at the cursor position. With [ <I>row col</I> ], the syntax highlighting element at the position specified by [ <I>row</I> ] and [ <I>col</I> ] (relative to the top left of the <A HREF = "glossary.html#FILEAREA">file area</A> , (1,1), will be returned. With [ <I>File line column</I> ], the syntax highlighting element at the position specified by [ <I>line</I> ] and [ <I>column</I> ] (relative to the line and column in the file will be returned. If the specified file location is not in view, UNKNOWN will be returned. NONE will be returned if there is no syntax highlighting element at the specified position. <P></DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>synelem.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>synelem.1</TD><TD>-</TD><TD>  NONE|COMMENT|FUNCTION|HEADER|INCOMPLETESTRING|KEYWORD|LABEL|MARKUP|MATCH|NUMBER|POSTCOMPARE|PREPROCESSOR|STRING|UNKNOWN</TD></TR>
+</TABLE><P></DD>
+<A NAME="SYNONYM"></A>
+<DT>
+<h3>SYNonym [*|name]</h3>
+</DT>
+<DD> Indicates if synonym processing is on or off. Set by <A HREF = "commset.html#SETSYNONYM">SET SYNONYM</A>  command. </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>synonym.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>synonym.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<DD> With [ <I>name</I> ] option, details about the defined synonym are returned. </DD>
+<DD> (QE) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>synonym.0</TD><TD>-</TD><TD>  4</TD></TR>
+<TR><TD>synonym.1</TD><TD>-</TD><TD>  synonym name</TD></TR>
+<TR><TD>synonym.2</TD><TD>-</TD><TD>  length of minimum abbreviation</TD></TR>
+<TR><TD>synonym.3</TD><TD>-</TD><TD>  definition</TD></TR>
+<TR><TD>synonym.4</TD><TD>-</TD><TD>  linend character (if specified)</TD></TR>
+</TABLE><P></DD>
+<DD> With [ <I>*</I> ] option, details about all defined synonyms are returned. </DD>
+<DD> (E) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>synonym.0</TD><TD>-</TD><TD>  number of synonyms defined</TD></TR>
+<TR><TD>synonym.1</TD><TD>-</TD><TD>  synonym definition of first synonym</TD></TR>
+<TR><TD>synonym.n</TD><TD>-</TD><TD>  synonym definition of nth synonym</TD></TR>
+</TABLE><P></DD>
+<A NAME="TABKEY"></A>
+<DT>
+<h3>TABKey</h3>
+</DT>
+<DD> Returns settings about behaviour of TAB key. tabkey.1 indicates behaviour while not in insert mode tabkey.2 indicates behaviour while in insert mode Set by <A HREF = "commset.html#SETTABKEY">SET TABKEY</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>tabkey.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>tabkey.1</TD><TD>-</TD><TD>  TAB|CHARACTER</TD></TR>
+<TR><TD>tabkey.2</TD><TD>-</TD><TD>  TAB|CHARACTER</TD></TR>
+</TABLE><P></DD>
+<A NAME="TABLINE"></A>
+<DT>
+<h3>TABLine</h3>
+</DT>
+<DD> Returns details of if and where the <A HREF = "glossary.html#TABLINE">tab line</A> is displayed. Set by <A HREF = "commset.html#SETTABLINE">SET TABLINE</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>tabline.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>tabline.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+<TR><TD>tabline.2</TD><TD>-</TD><TD>  line displaying tab line</TD></TR>
+</TABLE><P></DD>
+<A NAME="TABS"></A>
+<DT>
+<h3>TABS</h3>
+</DT>
+<DD> Returns settings about tab columns. Set by <A HREF = "commset.html#SETTABS">SET TABS</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>tabs.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>tabs.1</TD><TD>-</TD><TD>  actual tab columns or "INCR n"</TD></TR>
+</TABLE><P></DD>
+<A NAME="TABSIN"></A>
+<DT>
+<h3>TABSIn</h3>
+</DT>
+<DD> Indicates if TABSIN processing is on or off and the size of the tabs setting. Set by <A HREF = "commset.html#SETTABSIN">SET TABSIN</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>tabsin.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>tabsin.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+<TR><TD>tabsin.2</TD><TD>-</TD><TD>  size of tabs</TD></TR>
+</TABLE><P></DD>
+<A NAME="TABSOUT"></A>
+<DT>
+<h3>TABSOut</h3>
+</DT>
+<DD> Indicates if TABSOUT processing is on or off and the size of the tabs setting. Set by <A HREF = "commset.html#SETTABSOUT">SET TABSOUT</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>tabsout.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>tabsout.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+<TR><TD>tabsout.2</TD><TD>-</TD><TD>  size of tabs</TD></TR>
+</TABLE><P></DD>
+<A NAME="TARGETSAVE"></A>
+<DT>
+<h3>TARGETSAVE</h3>
+</DT>
+<DD> Indicates the type of targets saved for subsequent LOCATE commands. Set by <A HREF = "commset.html#SETTARGETSAVE">SET TARGETSAVE</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>targetsave.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>targetsave.1</TD><TD>-</TD><TD>  ALL|NONE|list of target types</TD></TR>
+</TABLE><P></DD>
+<A NAME="TERMINAL"></A>
+<DT>
+<h3>TERMinal</h3>
+</DT>
+<DD> Identifies the terminal type currently being used. </DD>
+<DD> (QES) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>terminal.0</TD><TD>-</TD><TD>  4</TD></TR>
+<TR><TD>terminal.1</TD><TD>-</TD><TD>  DOS|OS2|X11|WIN32|SDL|VT|$TERM value under Unix</TD></TR>
+<TR><TD>terminal.2</TD><TD>-</TD><TD>  terminal size - rows (THE extension)</TD></TR>
+<TR><TD>terminal.3</TD><TD>-</TD><TD>  terminal size - columns (THE extension)</TD></TR>
+<TR><TD>terminal.4</TD><TD>-</TD><TD>  terminal variant (THE extension)</TD></TR>
+</TABLE><P></DD>
+<A NAME="THIGHLIGHT"></A>
+<DT>
+<h3>THIGHlight</h3>
+</DT>
+<DD> Indicates if text highlighting is on. ie a found string target is highlighted. Set by <A HREF = "commset.html#SETTHIGHLIGHT">SET THIGHLIGHT</A> </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>thighlight.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>thighlight.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="TIMECHECK"></A>
+<DT>
+<h3>TIMECHECK</h3>
+</DT>
+<DD> Indicates the status of TIMECHECK for the current file. </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>timecheck.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>timecheck.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="TOF"></A>
+<DT>
+<h3>TOF</h3>
+</DT>
+<DD> Indicates if the <A HREF = "glossary.html#CURRENTLINE">current line</A> is on the <A HREF = "glossary.html#TOP-OF-FILELINE">Top-of-File line</A> . </DD>
+<DD> (QES) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>tof.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>tof.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="TOFEOF"></A>
+<DT>
+<h3>TOFEOF</h3>
+</DT>
+<DD> Indicates if the <A HREF = "glossary.html#TOP-OF-FILELINE">Top-of-File line</A> and the <A HREF = "glossary.html#BOTTOM-OF-FILELINE">Bottom-of-File line</A>  are displayed. </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>tofeof.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>tofeof.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="TRAILING"></A>
+<DT>
+<h3>TRAILING</h3>
+</DT>
+<DD> Indicates how trailing blanks on lines are handled when the file is saved. Set by <A HREF = "commset.html#SETTRAILING">SET TRAILING</A> </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>trailing.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>trailing.1</TD><TD>-</TD><TD>  ON|OFF|REMOVE|EMPTY|SINGLE</TD></TR>
+</TABLE><P></DD>
+<A NAME="TYPEAHEAD"></A>
+<DT>
+<h3>TYPEAhead</h3>
+</DT>
+<DD> Indicates if THE will wait until all keyboard input has been processed before updating the screen display. Set by <A HREF = "commset.html#SETTYPEAHEAD">SET TYPEAHEAD</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>typeahead.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>typeahead.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="UNDOING"></A>
+<DT>
+<h3>UNDOING</h3>
+</DT>
+<DD> Indicates if the undo facility is available or not. Set by <A HREF = "commset.html#SETUNDOING">SET UNDOING</A> </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>undoing.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>undoing.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="UNTAA"></A>
+<DT>
+<h3>UNTAA</h3>
+</DT>
+<DD> Indicates if "unsigned numbers are absolute". Set by <A HREF = "commset.html#SETUNTAA">SET UNTAA</A> </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>untaa.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>untaa.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="UTF8"></A>
+<DT>
+<h3>UTF8</h3>
+</DT>
+<DD> Indicates if the UTF8 support is built in. </DD>
+<DD> (QES) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>utf8.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>utf8.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="VARIANT"></A>
+<DT>
+<h3>VARiant</h3>
+</DT>
+<DD> Identifies the variant of THE being run. </DD>
+<DD> (QES) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>variant.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>variant.1</TD><TD>-</TD><TD>  terminal variant; con, conw, sdl1, sdl1w, etc</TD></TR>
+</TABLE><P></DD>
+<A NAME="VERIFY"></A>
+<DT>
+<h3>Verify</h3>
+</DT>
+<DD> Returns verify column settings. Set by <A HREF = "commset.html#SETVERIFY">SET VERIFY</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>verify.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>verify.1</TD><TD>-</TD><TD>  Column pair of verify start and end columns.</TD></TR>
+</TABLE><P></DD>
+<A NAME="VERSHIFT"></A>
+<DT>
+<h3>VERShift</h3>
+</DT>
+<DD> Returns the value of the <A HREF = "glossary.html#VERSHIFT">vershift</A>  internal variable. </DD>
+<DD> (QES) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>vershift.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>vershift.1</TD><TD>-</TD><TD>  VERSHIFT value</TD></TR>
+</TABLE><P></DD>
+<A NAME="VERSION"></A>
+<DT>
+<h3>VERSION</h3>
+</DT>
+<DD> Returns information about name of application (THE) and version information. </DD>
+<DD> (QES) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>version.0</TD><TD>-</TD><TD>  5</TD></TR>
+<TR><TD>version.1</TD><TD>-</TD><TD>  THE</TD></TR>
+<TR><TD>version.2</TD><TD>-</TD><TD>  version string e.g. 1.5</TD></TR>
+<TR><TD>version.3</TD><TD>-</TD><TD>  platform version (DOS,OS2,UNIX,X11,WIN32,...)</TD></TR>
+<TR><TD>version.4</TD><TD>-</TD><TD>  version status information e.g. release date, beta</TD></TR>
+<TR><TD>version.5</TD><TD>-</TD><TD>  platform kernel (DOS,OS2,Linux,WIN32,...)</TD></TR>
+</TABLE><P></DD>
+<A NAME="WIDTH"></A>
+<DT>
+<h3>Width</h3>
+</DT>
+<DD> Returns maximum line width setting. Set by -w command line switch on starting THE. </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>width.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>width.1</TD><TD>-</TD><TD>  Maximum line width value.</TD></TR>
+</TABLE><P></DD>
+<A NAME="WORD"></A>
+<DT>
+<h3>WORD</h3>
+</DT>
+<DD> Specifies how THE defines a word. Set by <A HREF = "commset.html#SETWORD">SET WORD</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>word.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>word.1</TD><TD>-</TD><TD>  ALPHANUM|NONBLANK</TD></TR>
+</TABLE><P></DD>
+<A NAME="WORDWRAP"></A>
+<DT>
+<h3>WORDWrap</h3>
+</DT>
+<DD> Indicates if WORDWRAP is on or off. Set by <A HREF = "commset.html#SETWORDWRAP">SET WORDWRAP</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>wordwrap.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>wordwrap.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="WRAP"></A>
+<DT>
+<h3>WRap</h3>
+</DT>
+<DD> Indicates if WRAP is on or off. Set by <A HREF = "commset.html#SETWRAP">SET WRAP</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>wrap.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>wrap.1</TD><TD>-</TD><TD>  ON|OFF</TD></TR>
+</TABLE><P></DD>
+<A NAME="XTERMINAL"></A>
+<DT>
+<h3>XTERMinal</h3>
+</DT>
+<DD> Returns the current value of the X11 terminal program. Only applicable in X version. Set by <A HREF = "commset.html#SETXTERMINAL">SET XTERMINAL</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>xterminal.0</TD><TD>-</TD><TD>  1</TD></TR>
+<TR><TD>xterminal.1</TD><TD>-</TD><TD>  X11 terminal program</TD></TR>
+</TABLE><P></DD>
+<A NAME="ZONE"></A>
+<DT>
+<h3>Zone</h3>
+</DT>
+<DD> Returns zone column settings. Set by <A HREF = "commset.html#SETZONE">SET ZONE</A> . </DD>
+<DD> (QEMS) <P></DD>
+<DD><TABLE BORDER=0 CELLSPACING=1 CELLPADDING=1>
+<TR><TD>zone.0</TD><TD>-</TD><TD>  2</TD></TR>
+<TR><TD>zone.1</TD><TD>-</TD><TD>  Zone start column</TD></TR>
+<TR><TD>zone.2</TD><TD>-</TD><TD>  Zone end column</TD></TR>
+</TABLE><P></DD>
+</DL>
+<A NAME="IMPLIEDEXTRACT"></A>
+<HR><H2> IMPLIED EXTRACT </H2>
+<HR><DL>
+<DD> The above <A HREF = "glossary.html#REXX">REXX</A> variables set by the <A HREF = "comm.html#EXTRACT">EXTRACT</A>  command may also be obtained by a REXX macro as an implied EXTRACT. Each variable above that may be set by an explicit EXTRACT command may also be e.g. The REXX commands: <P></DD>
+<dd><br><table width="100%" border="1" cellpadding="4" cellspacing="0" bgcolor="#cccccc"><tr><td><blockquote>
+'EXTRACT /SIZE/CURLINE/'<br>
+Say size.1 curline.1<br>
+</blockquote></td></tr></table><br></dd>
+<DD> may be substituted with: <P></DD>
+<dd><br><table width="100%" border="1" cellpadding="4" cellspacing="0" bgcolor="#cccccc"><tr><td><blockquote>
+Say size.1() curline.1()<br>
+</blockquote></td></tr></table><br></dd>
+</DL>
+<A NAME="BOOLEANFUNCTIONS"></A>
+<HR><H2> BOOLEAN FUNCTIONS </H2>
+<HR><DL>
+<DD> THE also provides other information to the REXX interpreter via boolean functions. These functions return either  <I>1</I>  or  <I>0</I>  depending on the information queried. <P></DD>
+<A NAME="AFTER()"></A>
+<DT>
+<h3>after()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the cursor is currently after the last non-blank character on the line, or if the line is blank. <P></DD>
+<A NAME="ALTKEY()"></A>
+<DT>
+<h3>altkey()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if at the time the last key was pressed, the ALT key was also being held down. <P></DD>
+<A NAME="ALT()"></A>
+<DT>
+<h3>alt()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the file being edited has changed since the last SAVE. i.e. if the value of alt.2 is non zero. <P></DD>
+<A NAME="BLANK()"></A>
+<DT>
+<h3>blank()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the line the <A HREF = "glossary.html#CURSORFIELD">cursor field</A>  is completely blank. <P></DD>
+<A NAME="BATCH()"></A>
+<DT>
+<h3>batch()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if THE is being run in batch mode. ie THE was started with the -b switch. <P></DD>
+<A NAME="BLOCK()"></A>
+<DT>
+<h3>block()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the marked <A HREF = "glossary.html#BLOCK">block</A>  is within the current view. <P></DD>
+<A NAME="BEFORE()"></A>
+<DT>
+<h3>before()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the cursor is currently before the first non-blank character on the line, or if the line is blank. <P></DD>
+<A NAME="BOTTOMEDGE()"></A>
+<DT>
+<h3>bottomedge()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the cursor is on the bottom edge of the <A HREF = "glossary.html#FILEAREA">filearea</A> or <A HREF = "glossary.html#PREFIXAREA">prefix area</A> . <P></DD>
+<A NAME="COMMAND()"></A>
+<DT>
+<h3>command()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the <A HREF = "glossary.html#COMMANDLINE">command line</A>  is on. This is different to the definition in KEDIT; "Returns  <I>1</I>  if the cursor is on the command line." To get the equivalent KEDIT functionality use incommand(); <P></DD>
+<A NAME="CTRL()"></A>
+<DT>
+<h3>ctrl()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if at the time the last key was pressed, the CTRL key was also being held down. <P></DD>
+<A NAME="CURRENT()"></A>
+<DT>
+<h3>current()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the cursor is on the <A HREF = "glossary.html#CURRENTLINE">current line</A> . <P></DD>
+<A NAME="DIR()"></A>
+<DT>
+<h3>dir()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the current file is the special DIR.DIR file. <P></DD>
+<A NAME="END()"></A>
+<DT>
+<h3>end()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the cursor is on the last non-blank character on the line. <P></DD>
+<A NAME="EOF()"></A>
+<DT>
+<h3>eof()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the cursor is on the <A HREF = "glossary.html#BOTTOM-OF-FILELINE">Bottom-of-File line</A> and the cursor is not on the <A HREF = "glossary.html#COMMANDLINE">command line</A> . <P></DD>
+<A NAME="FIRST()"></A>
+<DT>
+<h3>first()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the cursor is in column 1 of the current window. <P></DD>
+<A NAME="FOCUSEOF()"></A>
+<DT>
+<h3>focuseof()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the focus line is the <A HREF = "glossary.html#BOTTOM-OF-FILELINE">Bottom-of-File line</A>  whether the cursor is on it or not. <P></DD>
+<A NAME="FOCUSTOF()"></A>
+<DT>
+<h3>focustof()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the <A HREF = "glossary.html#FOCUSLINE">focus line</A> is the <A HREF = "glossary.html#TOP-OF-FILELINE">Top-of-File line</A>  whether the cursor is on it or not. <P></DD>
+<A NAME="INBLOCK()"></A>
+<DT>
+<h3>inblock()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the cursor is in the marked <A HREF = "glossary.html#BLOCK">block</A> . <P></DD>
+<A NAME="INCOMMAND()"></A>
+<DT>
+<h3>incommand()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the cursor is on the <A HREF = "glossary.html#COMMANDLINE">command line</A> . <P></DD>
+<A NAME="INITIAL()"></A>
+<DT>
+<h3>initial()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the function is called when THE is executing the <A HREF = "glossary.html#PROFILE">profile</A> against files specified on the Operating System command line. Once THE is ready to accept the first keystroke, not as a result of a command from within <A HREF = "glossary.html#PROFILE">profile</A> , this function returns 0; <P></DD>
+<A NAME="INPREFIX()"></A>
+<DT>
+<h3>inprefix()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the cursor is located in the <A HREF = "glossary.html#PREFIXAREA">prefix area</A> . <P></DD>
+<A NAME="INSERTMODE()"></A>
+<DT>
+<h3>insertmode()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if THE is in INSERT mode. <P></DD>
+<A NAME="LEFTEDGE()"></A>
+<DT>
+<h3>leftedge()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the cursor is on the left edge of the <A HREF = "glossary.html#FILEAREA">filearea</A> . <P></DD>
+<A NAME="MODIFIABLE()"></A>
+<DT>
+<h3>modifiable()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the cursor is located in an area that can be changed. i.e. not on <A HREF = "glossary.html#TOP-OF-FILELINE">Top-of-File line</A> or <A HREF = "glossary.html#BOTTOM-OF-FILELINE">Bottom-of-File line</A> nor on a <A HREF = "glossary.html#SHADOWLINE">shadow line</A> . <P></DD>
+<A NAME="RIGHTEDGE()"></A>
+<DT>
+<h3>rightedge()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the cursor is on the right edge of the <A HREF = "glossary.html#FILEAREA">filearea</A> . <P></DD>
+<A NAME="SHADOW()"></A>
+<DT>
+<h3>shadow()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the cursor is on a <A HREF = "glossary.html#SHADOWLINE">shadow line</A> . <P></DD>
+<A NAME="SHIFT()"></A>
+<DT>
+<h3>shift()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if at the time the last key was pressed, the SHIFT key was also being held down. <P></DD>
+<A NAME="SPACECHAR()"></A>
+<DT>
+<h3>spacechar()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the cursor is on a space character. <P></DD>
+<A NAME="TOF()"></A>
+<DT>
+<h3>tof()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the cursor is on the <A HREF = "glossary.html#TOP-OF-FILELINE">Top-of-File line</A> and the cursor is not on the <A HREF = "glossary.html#COMMANDLINE">command line</A> . <P></DD>
+<A NAME="TOPEDGE()"></A>
+<DT>
+<h3>topedge()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the cursor is on the top edge of the <A HREF = "glossary.html#FILEAREA">filearea</A> . <P></DD>
+<A NAME="VERONE()"></A>
+<DT>
+<h3>verone()</h3>
+</DT>
+<DD> Returns  <I>1</I>  if the column 1 of the file is being displayed in column 1. <P></DD>
+</DL>
+<A NAME="OTHERFUNCTIONS"></A>
+<HR><H2> OTHER FUNCTIONS </H2>
+<HR><DL>
+<DD> The following functions provide features to simplify THE macros written in REXX. <P></DD>
+<A NAME="VALID_TARGET(TARGET[,ANYTHING])"></A>
+<DT>
+<h3>valid_target(target[,anything])</h3>
+</DT>
+<DD> The first argument is the <A HREF = "glossary.html#TARGET">target</A>  to be validated. If a second, optional argument is supplied, the target to be validated can consist of a target followed by any optional characters. This can be useful if the arguments to a macro consist of a target followed by another argument. If a valid target is supplied, the remainder of the string passed to valid_target() is returned following the first line affected and the number of lines to the target. <P></DD>
+<DD> Returns  <I>ERROR</I>  if the supplied target is invalid. Returns  <I>NOTFOUND</I>  if the supplied target is valid, but not found. <P></DD>
+<DD> If a valid target, returns the first line affected by the target followed by the number of lines to the target, and optionally the remainder of the argument. e.g. <P></DD>
+<DD> if the focus line is 12 and valid_target() is called as <P></DD>
+<dd><br><table width="100%" border="1" cellpadding="4" cellspacing="0" bgcolor="#cccccc"><tr><td><blockquote>
+result = valid_target(":7")      ===> result = "12 -5"<br>
+</blockquote></td></tr></table><br></dd>
+<DD> if the focus line is 12 and valid_target is called as <P></DD>
+<dd><br><table width="100%" border="1" cellpadding="4" cellspacing="0" bgcolor="#cccccc"><tr><td><blockquote>
+result = valid_target(":7 /fred/",junk), ===> result = "12 -5 /fred/"<br>
+</blockquote></td></tr></table><br></dd>
+<A NAME="RUN_OS(COMMAND[,STDIN_STEM[,STDOUT_STEM[,STDERR_STEM]]])"></A>
+<DT>
+<h3>run_os(command[,stdin_stem[,stdout_stem[,stderr_stem]]])</h3>
+</DT>
+<DD> This function allows the macro writer to call an operating system command and have the standard streams;  <I>stdin</I> ,  <I>stdout</I>  and  <I>stderr</I>  redirected to or from REXX arrays. <P></DD>
+<DD> The first argument is the operating system command to execute. The command can include any command line switches appropriate to the command. <P></DD>
+<DD> All other arguments comprise a stem name (including a trailing  <I>.</I> ) which refers to the REXX arrays where  <I>stdin</I> ,  <I>stdout</I>  and  <I>stderr</I>  are to be redirected. <P></DD>
+<DD> As with all REXX arrays, the value of the 0th element (stem.0) contains the number of elements in the array. <P></DD>
+<DD> The only restriction with the names of the stem variables is that the stem name for the  <I>stdin</I>  stem cannot be the same as the stem for  <I>stdout</I>  or  <I>stderr</I> . <P></DD>
+<DD> The stem name for  <I>stdout</I>  and  <I>stderr</I>  can be the same; the contents of the resulting output stems will consist of  <I>stdout</I>  and  <I>stderr</I>  in the order that the command generates this output. <P></DD>
+<DD> Return values: <P></DD>
+<DD> 0    - successful </DD>
+<DD> 1005 - invalid argument or syntax </DD>
+<DD> 1012 - problems with system redirection of streams </DD>
+<DD> 1094 - out of memory </DD>
+<DD> 1099 - error interfacing to REXX interpreter </DD>
+<DD> all other numbers, return code from operating system command <P></DD>
+<DD> e.g. to spell check the words "The Hessling Editr" with ispell <P></DD>
+<dd><br><table width="100%" border="1" cellpadding="4" cellspacing="0" bgcolor="#cccccc"><tr><td><blockquote>
+in.0 = 3<br>
+in.1 = "The"<br>
+in.2 = "Hessling"<br>
+in.3 = "Editr"<br>
+rc = run_os("ispell -a","in.","out.")<br>
+</blockquote></td></tr></table><br></dd>
+<DD> sets: <P></DD>
+<DD> out.0 --> 3 </DD>
+<DD> out.1 --> "*" </DD>
+<DD> out.2 --> "#" </DD>
+<DD> out.3 --> "& edits edit editor" </DD>
+</DL>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

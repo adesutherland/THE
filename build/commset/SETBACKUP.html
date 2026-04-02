@@ -1,0 +1,36 @@
+<HTML>
+<HEAD><TITLE>THE Reference - SET Commands - set backup </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>SET BACKUP</B> -  indicate if a backup copy of the file is to be kept <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> [SET] BACKup <I>OFF|TEMP|KEEP|ON|INPLACE [suffix]</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SET BACKUP command allows the user to determine if a backup copy           of the original file is to be kept when the file being edited is           saved or filed. <P></DD>
+<DD> <I>KEEP</I>  and  <I>ON</I>  options are the same.  <I>ON</I>  is           kept for compatibility with previous versions of THE. <P></DD>
+<DD> With  <I>OFF</I> , the file being written to disk will replace an           existing file. There is a chance that you will end up with neither           the old version of the file or the new one if problems occur           while the file is being written. <P></DD>
+<DD> With  <I>TEMP</I>  or  <I>KEEP</I>  options, the file being written is first           renamed to the filename with a .bak extension. The file in memory           is then written to disk. If  <I>TEMP</I>  is in effect, the backup           file is then deleted. <P></DD>
+<DD> With  <I>INPLACE</I> , the file being written is first copied to a file           with a .bak extension. The file in memory is then written to disk           in place of the original.  This option ensures that all operating           system file attributes are retained. <P></DD>
+<DD> The optional  <I>suffix</I>  specifies the string to append to the file name           of the backup copy including a period if required. The maximum length           of  <I>suffix</I>  is 100 characters.           By default this is ".bak". <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+</DD><DD>    <I>suffix</I>  is a THE extension
+<P></DD>
+<DT> <B>Default:</B> <BR></DT>
+<DD> KEEP <P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "../comm/FILE.html">FILE</A>, <A HREF = "../comm/FFILE.html">FFILE</A>, <A HREF = "../comm/SAVE.html">SAVE</A>, <A HREF = "../comm/SSAVE.html">SSAVE</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

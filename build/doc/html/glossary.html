@@ -1,0 +1,91 @@
+<HTML>
+<HEAD><TITLE>THE Reference - Glossary </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="the64.png" ALT="THE"> </CENTER>
+<HR><A NAME="GLOSSARY"></A>
+<H2> GLOSSARY </H2>
+<HR><P>
+<DL>
+<DT><A NAME="BLOCK"> <B>block</B> </A></DT>
+<DD> A portion of the file being edited; usually highlighted. A block can be one of <A HREF = "glossary.html#LINEBLOCK">line block</A> , <A HREF = "glossary.html#BOXBLOCK">box block</A> , <A HREF = "glossary.html#WORDBLOCK">word block</A> , <A HREF = "glossary.html#COLUMNBLOCK">column block</A> , or <A HREF = "glossary.html#STREAMBLOCK">stream block</A> . <P></DD>
+<DT><A NAME="BOTTOM-OF-FILELINE"> <B>Bottom-of-File line</B> </A></DT>
+<DD> A line marker, identifying the end of the file. <P></DD>
+<DT><A NAME="BOXBLOCK"> <B>box block</B> </A></DT>
+<DD> A type of <A HREF = "glossary.html#BLOCK">block</A> .  It is a rectangular portion of the <A HREF = "glossary.html#FILEAREA">filearea</A> . <P></DD>
+<DT><A NAME="COLUMNBLOCK"> <B>column block</B> </A></DT>
+<DD> A type of <A HREF = "glossary.html#BLOCK">block</A> .  It is similar to a <A HREF = "glossary.html#BOXBLOCK">box block</A>  except that a columnar portion of every line in the file is included. <P></DD>
+<DT><A NAME="COLUMNTARGET"> <B>column target</B> </A></DT>
+<DD> A method of referring to some part of a line being edited. <P></DD>
+<DT><A NAME="COMMANDLINE"> <B>command line</B> </A></DT>
+<DD> The area of the display, usually identified by an arrow prompt, &quot;====&gt;&quot;, where THE commands are entered. <P></DD>
+<DT><A NAME="CURRENTCOLUMN"> <B>current column</B> </A></DT>
+<DD> The column in the <A HREF = "glossary.html#FILEAREA">filearea</A> , marked by the &quot;|&quot; character on the <A HREF = "glossary.html#SCALELINE">scale line</A> . <P></DD>
+<DT><A NAME="CURRENTLINE"> <B>current line</B> </A></DT>
+<DD> The line in the <A HREF = "glossary.html#FILEAREA">filearea</A> , normally highlighted, from which commands entered on the <A HREF = "glossary.html#COMMANDLINE">command line</A>  take effect. <P></DD>
+<DT><A NAME="CURSORFIELD"> <B>cursor field</B> </A></DT>
+<DD> The &quot;field&quot; in which the cursor is currently located. This can be the <A HREF = "glossary.html#PREFIXAREA">prefix area</A> , <A HREF = "glossary.html#COMMANDLINE">command line</A> or <A HREF = "glossary.html#FILEAREA">filearea</A> . <P></DD>
+<DT><A NAME="FILEAREA"> <B>filearea</B> </A></DT>
+<DD> That part of the screen display where the contents of the file being edited are displayed. <P></DD>
+<DT><A NAME="FILETABS"> <B>filetabs</B> </A></DT>
+<DD> An optional display component that shows the names of files currently in the <A HREF = "glossary.html#RING">ring</A> . Can be used by versions of THE that support mouse actions to bring the clicked file to the front of the <A HREF = "glossary.html#RING">ring</A> <P></DD>
+<DT><A NAME="FOCUSCOLUMN"> <B>focus column</B> </A></DT>
+<DD> The column in the <A HREF = "glossary.html#FILEAREA">filearea</A> which currently has the focus. If the cursor is in the <A HREF = "glossary.html#FILEAREA">filearea</A> , it is the column on which the cursor is displayed. If the cursor is in the <A HREF = "glossary.html#COMMANDLINE">command line</A> or <A HREF = "glossary.html#PREFIXAREA">prefix area</A> , the focus column is the <A HREF = "glossary.html#CURRENTCOLUMN">current column</A> . <P></DD>
+<DT><A NAME="FOCUSLINE"> <B>focus line</B> </A></DT>
+<DD> The line in the <A HREF = "glossary.html#FILEAREA">filearea</A> which currently has the focus. If the cursor is in the <A HREF = "glossary.html#FILEAREA">filearea</A> or <A HREF = "glossary.html#PREFIXAREA">prefix area</A> , it is the line on which the cursor is displayed. If the cursor is on the <A HREF = "glossary.html#COMMANDLINE">command line</A> , the focus line is the <A HREF = "glossary.html#CURRENTLINE">current line</A> . All THE commands operate relative to the focus line. <P></DD>
+<DT><A NAME="IDLINE"> <B>idline</B> </A></DT>
+<DD> That part of the screen display which shows details about the file being edited. <P></DD>
+<DT><A NAME="LINEBLOCK"> <B>line block</B> </A></DT>
+<DD> A type of <A HREF = "glossary.html#BLOCK">block</A> .  It consists of consecutive lines within the <A HREF = "glossary.html#FILEAREA">filearea</A> . <P></DD>
+<DT><A NAME="MACRO"> <B>macro</B> </A></DT>
+<DD> A file containing a sequence of THE commands. Macros can be written in <A HREF = "glossary.html#REXX">REXX</A>  if a supported REXX interpreter is available. <P></DD>
+<DD> *** NOTE *** <P></DD>
+<DD> If REXX support is NOT enabled in THE, the first line of the THE macro file MUST contain the comment: <P></DD>
+<DD> /*NOREXX*/ <P></DD>
+<DT><A NAME="MAGICNUMBER"> <B>magic number</B> </A></DT>
+<DD> A magic number is used on Un*x systems to identify the type of a file. It was originally used in binary files to identify the file, but the concept was also extended to text files; particularly shell scripts; to enable to shell to determine which interpreter should be used to execute the contents of a file. These magic numbers in text files are really magic &quot;strings&quot; and it is these strings that are used by the THE syntax highlighting feature to automatically determine the <A HREF = "glossary.html#PARSER">parser</A>  to be used to highlight a file. <P></DD>
+<DT><A NAME="MESSAGELINE"> <B>message line</B> </A></DT>
+<DD> That portion of the screen used to display messages. <P></DD>
+<DT><A NAME="PREFIXAREA"> <B>prefix area</B> </A></DT>
+<DD> That part of the screen display where prefix commands can be entered. It also displays the line number of each line in the file if <A HREF = "commset.html#SETNUMBER">SET NUMBER</A>  is ON. <P></DD>
+<DT><A NAME="PARSER"> <B>parser</B> </A></DT>
+<DD> A mechanism that translates text strings into identifiable tokens. <P></DD>
+<DT><A NAME="PROFILE"> <B>profile</B> </A></DT>
+<DD> A <A HREF = "glossary.html#MACRO">macro</A>  file that is executed at the start of an editing session. <P></DD>
+<DT><A NAME="RELATIVETARGET"> <B>relative target</B> </A></DT>
+<DD> A subset of <A HREF = "glossary.html#TARGET">target</A> , but only supports targets that are relative to the <A HREF = "glossary.html#FOCUSLINE">focus line</A> , like 3, -5, *. <P></DD>
+<DT><A NAME="RESERVEDLINE"> <B>reserved line</B> </A></DT>
+<DD> A line within the <A HREF = "glossary.html#FILEAREA">filearea</A> that contains user text that the user can define with the <A HREF = "commset.html#SETRESERVED">SET RESERVED</A>  command. <P></DD>
+<DT><A NAME="REXX"> <B>REXX</B> </A></DT>
+<DD> A powerful, easy-to-learn macro language available on most platforms. THE uses REXX as its macro language. <P></DD>
+<DT><A NAME="RING"> <B>ring</B> </A></DT>
+<DD> The set of files currently being edited are arranged in a ring formation. <P></DD>
+<DT><A NAME="SCALELINE"> <B>scale line</B> </A></DT>
+<DD> A line in the <A HREF = "glossary.html#FILEAREA">filearea</A>  showing column positions. <P></DD>
+<DT><A NAME="SHADOWLINE"> <B>shadow line</B> </A></DT>
+<DD> A line which signifies how many lines have been excluded from display. See <A HREF = "commset.html#SETSHADOW">SET SHADOW</A> , <A HREF = "commset.html#SETSELECT">SET SELECT</A> . <P></DD>
+<DT><A NAME="STATUSLINE"> <B>status line</B> </A></DT>
+<DD> That part of the screen display showing details about the entire THE session. <P></DD>
+<DT><A NAME="STREAMBLOCK"> <B>stream block</B> </A></DT>
+<DD> A type of <A HREF = "glossary.html#BLOCK">block</A> .  It is a stream of characters that span one or more consecutive lines in the <A HREF = "glossary.html#FILEAREA">filearea</A> . <P></DD>
+<DT><A NAME="STRINGTARGET"> <B>string target</B> </A></DT>
+<DD> A subset of <A HREF = "glossary.html#TARGET">target</A> that refers to a string of characters enclosed between <A HREF = "glossary.html#STRINGTARGETDELIMITER">string target delimiter</A> s. <P></DD>
+<DT><A NAME="STRINGTARGETDELIMITER"> <B>string target delimiter</B> </A></DT>
+<DD> The character that determines the start and optional ending of a <A HREF = "glossary.html#STRINGTARGET">string target</A> .  A delimiter can consist of one of the following characters: /\@`#$%(){}[]&quot;\ <P></DD>
+<DT><A NAME="TABLINE"> <B>tab line</B> </A></DT>
+<DD> A line in the <A HREF = "glossary.html#FILEAREA">filearea</A>  which displays the currently set TAB stops. <P></DD>
+<DT><A NAME="TARGET"> <B>target</B> </A></DT>
+<DD> A method of referring to some part of the file being edited. <P></DD>
+<DT><A NAME="TOP-OF-FILELINE"> <B>Top-of-File line</B> </A></DT>
+<DD> A line marker, identifying the beginning of the file. <P></DD>
+<DT><A NAME="VERSHIFT"> <B>vershift</B> </A></DT>
+<DD> An internal number which defines the number of columns the displayed text is offset from the verify setting as a result of automatically scrolling horizontally, or by the use of the <A HREF = "comm.html#LEFT">LEFT</A> , <A HREF = "comm.html#RIGHT">RIGHT</A> , or <A HREF = "comm.html#RGTLEFT">RGTLEFT</A>  commands. <P></DD>
+<DT><A NAME="WORDBLOCK"> <B>word block</B> </A></DT>
+<DD> A type of <A HREF = "glossary.html#BLOCK">block</A> .  It consists of a contiguous series of characters that comprise a word.  A word is defined by the current setting of <A HREF = "commset.html#SETWORD">SET WORD</A> . <P></DD>
+</DL><HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

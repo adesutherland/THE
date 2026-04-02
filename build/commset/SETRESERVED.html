@@ -1,0 +1,45 @@
+<HTML>
+<HEAD><TITLE>THE Reference - SET Commands - set reserved </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>SET RESERVED</B> -  display a reserved line <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> [SET] RESERved <I>[AUTOSCroll] *|+|-n [colour] [text|OFF]</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SET RESERVED command reserves a line for the display of arbitrary           text by the user. The position is determined by +|-n.           This number, if positive, specifies the line relative from the           top of the display. A negative number is relative from the           bottom of the display. <P></DD>
+<DD> By specifying a line, say +3, then the third line from the top will           be reserved, with the supplied text being displayed in that line. <P></DD>
+<DD> The <A HREF = "../misc/glossary.html#IDLINE">idline</A>  of a file will always be displayed after any reserved           lines. <P></DD>
+<DD> The <A HREF = "../misc/glossary.html#STATUSLINE">status line</A>  is not considered part of the displayable area,           so any positioning specifications ignore that line. <P></DD>
+<DD> A <A HREF = "../misc/glossary.html#RESERVEDLINE">reserved line</A> can only be turned off by identifying it in the           same way that it was defined.  If a <A HREF = "../misc/glossary.html#RESERVEDLINE">reserved line</A>  was added with           the position specification of -1, it cannot be turned off with           a position specification of 23, even though both position           specifiers result in the same display line. <P></DD>
+<DD> All reserved lines may be turned of by specifying * as the number           of lines. <P></DD>
+<DD> By default, reserved lines are fixed; that is the left portion of           the reserved line that can be displayed stays displayed irrespective           of whether the file contents have been scrolled left or right.           With the  <I>AUTOSCroll</I>  option, the text of the reserved line is           scrolled with the file contents using the same settings as <A HREF = "../commset/SETAUTOSCROLL.html">SET AUTOSCROLL</A> . <P></DD>
+<DD> The colour option specifies the colours to use to display the           reserved line. The format of this colour specifier is the same           as for <A HREF = "../commset/SETCOLOUR.html">SET COLOUR</A> . If no colour is specified, the colour of the           reserved line will be the colour set by any <A HREF = "../commset/SETCOLOUR.html">SET COLOUR</A>  RESERVED           command for the view or white on black by default. <P></DD>
+<DD> The text of reserved lines can also included embedded control           characters to control the colour of portions of the text.           Assume the following <A HREF = "../commset/SETCTLCHAR.html">SET CTLCHAR</A>  commands have been issued: <P></DD>
+<DD>   SET CTLCHAR ! ESCAPE
+</DD><DD>   SET CTLCHAR @ PROTECT BOLD RED ON WHITE
+</DD><DD>   SET CTLCHAR % PROTECT GREEN ON BLACK
+<P></DD>
+<DD> Then to display a <A HREF = "../misc/glossary.html#RESERVEDLINE">reserved line</A>  using the specified colours: <P></DD>
+<DD>   SET RESERVED -1 normal!@bold red on white!%green on black
+<P></DD>
+<DD> It is an error to try to reserve a line which is the same line as <A HREF = "../commset/SETCURLINE.html">SET CURLINE</A> . <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: Compatible.
+</DD><DD>   KEDIT: Compatible.
+</DD><DD>   AUTOSCroll option is a THE extension.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "../commset/SETCOLOUR.html">SET COLOUR</A>, <A HREF = "../commset/SETCTLCHAR.html">SET CTLCHAR</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

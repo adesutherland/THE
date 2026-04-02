@@ -1,0 +1,535 @@
+/*
+ * A Rexx macro to edit and save remote files
+ *
+ * Syntax:
+ *    [macro] remote[.the] edit scp://remote[:port]/path-to-file/filename.txt
+ *    [macro] remote[.the] xedit scp://remote[:port]/path-to-file/filename.txt
+ *    [macro] remote[.the] the scp://remote[:port]/path-to-file/filename.txt
+ *    [macro] remote[.the] save [scp://remote[:port]/path-to-file/filename.txt]
+ *    [macro] remote[.the] ssave [scp://remote[:port]/path-to-file/filename.txt]
+ *    [macro] remote[.the] file [scp://remote[:port]/path-to-file/filename.txt]
+ *    [macro] remote[.the] ffile [scp://remote[:port]/path-to-file/filename.txt]
+ *    [macro] remote[.the] quit
+ *    [macro] remote[.the] qquit
+ *    To define a scheme (a URI shortcut):
+ *    [macro] remote[.the] scheme scheme:// scp://remote[:port]/path-to-file/filename.txt
+ *    To list defined schemes:
+ *    [macro] remote[.the] scheme list
+ *
+ * Notes
+ *   Uses EDITV to store mapping of local temp file to remote file and schemes
+ *   Requires that public key infrastructure has been configured between local machine
+ *   and the remote machine
+ *
+ * Examples
+ *   In THE profile file:
+ *
+ *   'synonym scheme 6 macro remote.the scheme'
+ *   'synonym edit 4 macro remote.the edit'
+ *   'synonym xedit 1 macro remote.the edit'
+ *   'synonym the 3 macro remote.the edit'
+ *   'synonym quit 4 macro remote.the quit'
+ *   'synonym save 4 macro remote.the save'
+ *   'synonym file 4 macro remote.the file'
+ *   'synonym qquit 2 macro remote.the qquit'
+ *   'synonym ssave 2 macro remote.the save'
+ *   'synonym ffile 2 macro remote.the ffile'
+ *   'nomsg scheme home:// scp://mark@home/home/mark/'
+ *
+ *   Then:
+ *   =====> the home://.ssh/known_hosts
+ *
+ * TODO
+ *   CANCEL, GET, PUT
+ *   Support = in remote file spec
+ */
+valid_actions = 'EDIT SAVE SSAVE FILE FFILE QUIT QQUIT SCHEME'
+Parse Arg action remotefile
+action = Upper( action )
+If Wordpos( action, valid_actions ) = 0 Then
+   Do
+      'EMSG Invalid action:' action -- error invalid remote action
+      Return 1
+   End
+!globalv = 'curlerror. !global.'
+!global.!remote = 1
+-- load external function packages the first time we run this macro but not if we are running SCHEME action
+If action \= 'SCHEME' Then
+   Do
+      If RxFuncQuery( 'sysfiledelete' ) Then
+         Do
+            Call RxFuncAdd 'sysloadfuncs','rexxutil','sysloadfuncs'
+            If result = 40 Then
+               Do
+                  'EMSG Unable to edit remote files as RexxUtil package is not available.'
+                  !global.!remote = 0
+               End
+            Else
+               Do
+                  Call sysloadfuncs
+               End
+         End
+      If RxFuncQuery( 'CurlPerform' ) Then
+         Do
+            Call RxFuncAdd 'CurlLoadFuncs', 'rexxcurl', 'CurlLoadFuncs'
+            If result = 40 Then
+               Do
+                  'EMSG Unable to edit remote files as Rexx/CURL package is not available.'
+                  !global.!remote = 0
+               End
+            Else
+               Do
+                  Call CURLLoadFuncs
+               End
+         End
+   End
+rcode = 0
+Select
+   When action = 'SCHEME' Then
+      Do
+         Parse Arg action scheme remotefile
+         rcode = RemoteScheme( scheme, remotefile )
+      End
+   When !global.!remote = 0 Then 'COMMAND' action remotefile
+   When action = 'EDIT' Then rcode = EditRemote( remotefile )
+   When action = 'SAVE' Then rcode = SaveRemote( action, remotefile )
+   When action = 'SSAVE' Then rcode = SaveRemote( action, remotefile )
+   When action = 'FILE' Then rcode = SaveRemote( action, remotefile )
+   When action = 'FFILE' Then rcode = SaveRemote( action, remotefile )
+   When action = 'QUIT' Then rcode = QuitRemote( action, remotefile )
+   When action = 'QQUIT' Then rcode = QuitRemote( action, remotefile )
+   Otherwise
+      Do
+         'EMSG Invalid action:' action -- error invalid remote action
+      End
+End
+Return rcode
+
+EditRemote: Procedure Expose (!globalv)
+Parse Arg remotefile
+If remotefile = '' Then
+   Do
+      'COMMAND EDIT'
+      Return 0
+   End
+-- is the current file remote and we have leading '=' ?
+If Left( remotefile, 1 ) = '=' Then
+   Do
+      'EDITV GETF !SCHEMEIDX'
+      If Datatype( !schemeidx, 'NUM' ) Then
+         Do
+            'EDITV GET !SCHEMENAME.'!schemeidx
+            remotefile = !schemename.!schemeidx || Substr( remotefile, 3 )
+         End
+   End
+-- is the supplied file a remote spec?
+Parse Value GetRemoteFilename( remotefile ) With !schemeidx schemename schemetarget
+If !schemeidx = 0 Then
+   Do
+      'COMMAND EDIT' remotefile
+      Return 0
+   End
+-- is the file already in the ring?
+Parse Value FindFileByRemote( remotefile ) With idx localfile
+If localfile \= '' Then
+   Do
+      'COMMAND EDIT' localfile
+      Return 0
+   End
+translatedremotefile = TranslateRemote( schemetarget, remotefile )
+-- we need to get the remote file into the ring
+-- generate temporary file name
+pos = Lastpos( '/', remotefile )
+fn = Substr( remotefile, pos + 1 )
+localfile = SysTempFileName( 'remote-?????-'fn )
+-- get the remote file and save it into localfile
+rcode = GetRemoteFile( translatedremotefile, localfile )
+If rcode = 1 Then
+   Do
+      Call SysFileDelete localfile
+   Return 1
+End
+'COMMAND EDIT' localfile
+'SET FDISPLAY' remotefile
+-- add to editv values; reusing any blank entries
+Parse Value GetRemoteIndex() With idx idxtotal
+'EDITV SETL !REMOTE.'idx remotefile
+'EDITV SETL !LOCAL.'idx localfile
+!remote.0 = idxtotal
+!local.0 = idxtotal
+'EDITV PUT !LOCAL.0 !REMOTE.0'
+'EDITV SETF !REMOTEIDX' idx
+'EDITV PUTF !SCHEMEIDX'
+'SET MSGLINE CLEAR'
+--'EDITV LIST'
+--'SET FTAG *remote*' idx
+
+Return 0
+
+QuitRemote: Procedure Expose (!globalv)
+Parse Arg action, remotefile
+If remotefile \= '' Then
+   Do
+      'EMSG Error 0001: Invalid operand:' remotefile
+      Return 1
+   End
+
+'EDITV GETF !REMOTEIDX'
+/*
+tag = ftag.1()
+If Word( tag, 1 ) \= '*remote*' Then
+*/
+If !remoteidx = '' Then
+   Do
+      -- not a remote file; treat it as a normal file
+      'COMMAND' action
+      Return 0
+   End
+
+-- is a remote file
+If action = 'QUIT' & alt.2() > 0 Then
+   Do
+      'EMSG Error 0022: File has been changed - use QQUIT to really quit'
+      Return 1
+   End
+
+-- get the current file name
+localfile = filename.1()
+-- remove local file from ring and disk and sort out editv variables
+'COMMAND' action
+Call SysFileDelete localfile
+--idx = Word( tag, 2 )
+'EDITV SET !REMOTE.'!remoteidx
+'EDITV SET !LOCAL.'!remoteidx
+Return 0
+
+SaveRemote: Procedure Expose (!globalv)
+Parse Arg action, iremotefile
+-- is current file remote?
+'EDITV GETF !REMOTEIDX !SCHEMEIDX'
+If !remoteidx = '' Then
+   Do
+     -- current file is normal, and optional destination is normal, use default behaviour
+     'COMMAND' action iremotefile
+     Return 0
+   End
+'EDITV GET'  !remote.!remoteidx
+remotefile = !remote.!remoteidx
+Parse Value GetRemoteFilename( remotefile ) With !schemeidx schemename schemetarget
+localfile = fpath.1() || filename.1()
+-- to get here either the current file is remote or the destination is remote
+If iremotefile = '' & !remoteidx \= '' Then
+   Do
+      -- saving remote to itself
+--      'EDITV GET !REMOTE.'!remoteidx
+--      remotefile = !remote.!remoteidx
+      isremote = 1
+   End
+Else
+   Do
+      isremote = 0
+   End
+If \isremote Then
+   Do
+      -- current file is remote (or local) and saving to local
+     'COMMAND' action remotefile
+   End
+Else
+   Do
+      -- current file is remote or local and saving to remote
+      translatedremotefile = TranslateRemote( schemetarget, remotefile )
+      -- have to save the current local file
+      'EXTRACT /BACKUP'
+      'BACKUP OFF' -- don't save a backup file locally
+      'COMMAND' action
+      'BACKUP' backup.1
+      -- send the local file to the remote site
+      rcode = PutRemoteFile( translatedremotefile, localfile )
+   End
+If !remoteidx \= '' Then
+   Do
+      -- remote file; clean up if FILE or FFILE
+      If action = 'FILE' | action = 'FFILE' Then
+         Do
+            -- clean up editv variables
+            Call SysFileDelete localfile
+            'EDITV SET !REMOTE.'!remoteidx
+            'EDITV SET !LOCAL.'!remoteidx
+         End
+   End
+Return 0
+
+-- save/clear the scheme
+-- coldroom://  -> scp://pi@coldroom/home/pi/ColdRoom/
+-- coldroom://coldroom.rexx
+-- coldroom://data/coldroom.conf
+RemoteScheme: Procedure Expose (!globalv)
+Parse Arg scheme, remotefile
+If Upper( scheme ) = 'LIST' Then
+   Do
+      'EDITV GETSTEM !SCHEMENAME.'
+      If Datatype( !schemename.0, 'NUM' ) Then
+         Do
+            'EDITV GETSTEM !SCHEMETARGET.'
+            Do i = 1 To !schemename.0
+               If !schemename.i \= '' Then
+                  Do
+                     'MSG Scheme:' !schemename.i '==>' !schemetarget.i
+                  End
+            End
+         End
+      Else
+         Do
+            'EMSG No scheme definitions'
+         End
+      Return 0
+   End
+If Right( scheme, 3 ) \= '://' Then
+   Do
+      'EMSG Supplied scheme: "'scheme'" is invalid'
+      Return 1
+   End
+If Right( remotefile, 1 ) \= '/' Then
+   Do
+      remotefile ||= '/'
+   End
+-- get the existing scheme definition if it exists
+Parse Value FindScheme( scheme ) With idx . schemetarget
+If idx \= 0 Then
+   Do
+      -- existing scheme; change it
+      'EDITV SET !SCHEMETARGET.'idx remotefile
+      If remotefile = '' Then
+         Do
+            'EDITV SET !SCHEMENAME.'idx
+            'MSG Scheme:' scheme 'cleared'
+         End
+      Else
+         Do
+            'MSG Scheme:' scheme 'modified to' remotefile
+         End
+      Return 0
+   End
+-- new scheme
+If remotefile = '' Then
+   Do
+      'EMSG New scheme requires a target'
+      Return 1
+   End
+-- add to editv values
+'EDITV GET !SCHEMENAME.0'
+If !schemename.0 = '' Then !schemename.0 = 0
+idx = !schemename.0 + 1
+'EDITV SETL !SCHEMENAME.'idx scheme
+'EDITV SETL !SCHEMETARGET.'idx remotefile
+!schemename.0 = idx
+!schemetarget.0 = idx
+'EDITV PUT !SCHEMETARGET.0 !SCHEMENAME.0'
+'MSG Scheme:' scheme 'added with target:' remotefile
+Return 0
+
+FindScheme: Procedure Expose (!globalv)
+Parse Arg scheme
+schemetarget = ''
+idx = 0
+'EDITV GETSTEM !SCHEMENAME.'
+If Datatype( !schemename.0, 'NUM' ) Then
+   Do
+      'EDITV GETSTEM !SCHEMETARGET.'
+      Do i = 1 To !schemename.0
+         If !schemename.i = scheme Then
+            Do
+               schemetarget = !schemetarget.i
+               idx = i
+               Leave
+            End
+      End
+   End
+Return idx schemename schemetarget
+
+GetRemoteFilename: Procedure Expose (!globalv)
+Parse Arg base '://' rem
+If base = '' & rem = '' Then Return 0
+-- have a possible scheme; look it up
+Return Findscheme( base'://' )
+
+GetRemoteIndex: Procedure
+!remote.0 = 0 -- EDITV GETSTEM won't set !remote.0 if it doesn't exist
+'EDITV GETSTEM !REMOTE.'
+If !remote.0 = '' | !remote.0 = 0 Then Return 1 1
+Do i = 1 To !remote.0
+   If !remote.i = '' | Left( !remote.i, 1 ) = '!' Then Return i !remote.0
+End
+idx = !remote.0 + 1
+Return idx idx
+
+FindFileByRemote: Procedure Expose (!globalv)
+Parse Arg remotefile
+localfile = ''
+idx = 0
+'EDITV GET !REMOTE.0'
+If Datatype( !remote.0, 'NUM' ) Then
+   Do
+      Do i = 1 To !remote.0
+         'EDITV GET !REMOTE.'i '!LOCAL.'i
+         If !remote.i = remotefile Then
+            Do
+               localfile = !local.i
+               idx = i
+               Leave
+            End
+      End
+   End
+Return idx localfile
+
+FindFileByLocal: Procedure Expose (!globalv)
+Parse Arg localfile
+remotefile = ''
+idx = 0
+'EDITV GET !LOCAL.0'
+If Datatype( !local.0, 'NUM' ) Then
+   Do
+      Do i = 1 To !local.0
+         'EDITV GET !REMOTE.'i '!LOCAL.'i
+         If !local.i = localfile Then
+            Do
+               remotefile = !remote.i
+               idx = i
+               Leave
+            End
+      End
+   End
+Return idx remotefile
+
+TranslateRemote: Procedure Expose (!globalv)
+Parse Arg schemetarget, base '://' rem
+Return schemetarget || rem
+/*
+scheme = base'://'
+translatedfile = ''
+'EDITV GET !SCHEMENAME.0'
+If Datatype( !schemename.0, 'NUM' ) Then
+   Do
+      Do i = 1 To !schemename.0
+         'EDITV GET !SCHEMENAME.'i '!SCHEMETARGET.'i
+         If !schemename.i = scheme Then
+            Do
+               translatedfile = !schemetarget.i || rem
+               Leave
+            End
+      End
+   End
+Return translatedfile
+*/
+
+GetRemoteFile: Procedure Expose (!globalv)
+Parse Arg remotefile, localfile
+'MSG Getting' remotefile
+rcode = 0
+curl = CurlInit()
+If curl \= '' Then
+   Do
+      Call CurlSetopt curl, 'URL', remotefile
+      If curlerror.intcode \= 0 Then
+         Do
+            'EMSG Error setting URL option:' GetCurlError()
+            Return 1
+         End
+      Call CurlSetopt curl, 'FOLLOWLOCATION', 1
+      If curlerror.intcode \= 0 Then
+         Do
+            'EMSG Error setting FOLLOWLOCATION option:' GetCurlError()
+            Return 1
+         End
+      Call CurlSetopt curl, 'OUTFILE', localfile
+      If curlerror.intcode \= 0 Then
+         Do
+            'EMSG Error setting OUTFILE option:' GetCurlError()
+            Return 1
+         End
+      Call CurlSetopt curl, 'SSLVERIFYPEER', 0
+      If curlerror.intcode \= 0 Then
+         Do
+            'EMSG Error setting SSLVERIFYPEER option:' GetCurlError()
+            Return 1
+         End
+      Call CurlSetopt curl, 'SSLVERIFYHOST', 0
+      If curlerror.intcode \= 0 Then
+         Do
+            'EMSG Error setting SSLVERIFYHOST option:' GetCurlError()
+            Return 1
+         End
+      Call CurlPerform curl
+      If curlerror.intcode \= 0 Then
+         Do
+            'EMSG Error getting source of' remotefile ':' GetCurlError()
+            Return 1
+         End
+      /*
+       * Cleanup the connection
+       */
+      Call CurlCLeanup curl
+   End
+Return rcode
+
+PutRemoteFile: Procedure Expose (!globalv)
+Parse Arg remotefile, localfile
+'MSG Sending' remotefile
+rcode = 0
+curl = CurlInit()
+If curl \= '' Then
+   Do
+      Call CurlSetopt curl, 'URL', remotefile
+      If curlerror.intcode \= 0 Then
+         Do
+            'EMSG Error setting URL option:' GetCurlError()
+            Return 1
+         End
+      Call CurlSetopt curl, 'FOLLOWLOCATION', 1
+      If curlerror.intcode \= 0 Then
+         Do
+            'EMSG Error setting FOLLOWLOCATION option:' GetCurlError()
+            Return 1
+         End
+      Call CurlSetopt curl, 'INFILE', localfile
+      If curlerror.intcode \= 0 Then
+         Do
+            'EMSG Error setting INFILE option:' GetCurlError()
+            Return 1
+         End
+      Call CurlSetopt curl, 'UPLOAD', 1
+      If curlerror.intcode \= 0 Then
+         Do
+            'EMSG Error setting UPLOAD option:' GetCurlError()
+            Return 1
+         End
+      Call CurlSetopt curl, 'SSLVERIFYPEER', 0
+      If curlerror.intcode \= 0 Then
+         Do
+            'EMSG Error setting SSLVERIFYPEER option:' GetCurlError()
+            Return 1
+         End
+      Call CurlSetopt curl, 'SSLVERIFYHOST', 0
+      If curlerror.intcode \= 0 Then
+         Do
+            'EMSG Error setting SSLVERIFYHOST option:' GetCurlError()
+            Return 1
+         End
+      Call CurlPerform curl
+      If curlerror.intcode \= 0 Then
+         Do
+            'EMSG Error sending source of' remotefile ':' GetCurlError()
+            Return 1
+         End
+      /*
+       * Cleanup the connection
+       */
+      Call CurlCLeanup curl
+   End
+'SET MSGLINE CLEAR'
+Return rcode
+
+GetCurlError: Procedure Expose (!globalv)
+If curlerror.curlcode \= 0 Then error = 'cURL error:' curlerror.curlcode '-' curlerror.curlerrm
+Else error = 'RexxCURL error:' curlerror.intcode '-' curlerror.interrm
+Return error

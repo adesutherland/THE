@@ -1,0 +1,229 @@
+*
+* This file contains the THE Language Definition for PHP
+* It is based heavily on Kedit's KLD file format.
+*
+* Name = *PHP
+*
+:case
+  ignore
+:option
+  rexx
+  function ( noblank default alt 4
+:number
+  rexx
+:identifier
+  [a-zA-Z!?_@#$.<] [a-zA-Z0-9.!?_@#$] [a-zA-Z0-9.!?_@#$>]
+:string
+  single backslash
+  double backslash
+:comment
+  paired /* */ nest
+  line // any
+  line # any
+  paired <!-- --> nonest
+:markup
+  tag < >
+  reference & ;
+:label
+  delimiter : firstnonblank
+:match
+  ( )
+:header
+  line #! column 1
+  line :: any
+:keyword
+  <?php alt 3
+  ?> alt 3
+  auto
+  bool
+  break
+  case
+  char
+  class alt 1
+  const
+  continue
+  default
+  defined alt f
+  delete
+  do
+  double
+  else
+  enum
+  extern
+  function alt 1
+  float
+  for
+  goto
+  if
+  int
+  long
+  new
+  private
+  public
+  register
+  return
+  short
+  signed
+  sizeof
+  static
+  struct
+  switch
+  this
+  typedef
+  union
+  unsigned
+  void
+  volatile
+  while
+:function
+  !empty
+  !isset
+  abort
+  abs
+  acos
+  asctime
+  asin
+  assert
+  atan
+  atan2
+  atexit
+  atof
+  atoi
+  atol
+  bsearch
+  calloc
+  ceil
+  clearerr
+  clock
+  cos
+  cosh
+  ctime
+  ctype
+  die
+  difftime
+  div
+  empty
+  exit
+  exp
+  fabs
+  fclose
+  feof
+  ferror
+  fflush
+  fgetc
+  fgetpos
+  fgets
+  floor
+  fmod
+  fopen
+  fprintf
+  fputc
+  fputs
+  fread
+  free
+  freopen
+  frexp
+  fscanf
+  fseek
+  fsetpos
+  ftell
+  fwrite
+  getc
+  getchar
+  getenv
+  gets
+  gmtime
+  include
+  include_once
+  isalnum
+  isalpha
+  isascii
+  iscntrl
+  isdigit
+  isgraph
+  islower
+  isprint
+  ispunct
+  isset
+  isspace
+  isupper
+  isxdigit
+  labs
+  ldexp
+  ldiv
+  localtime
+  log
+  log10
+  longjmp
+  malloc
+  memchr
+  memcmp
+  memcpy
+  memmove
+  memset
+  mktime
+  modf
+  mysqli_error
+  mysqli_fetch_assoc
+  mysqli_num_rows
+  mysqli_query
+  mysqli_select_db
+  perror
+  pow
+  printf
+  putc
+  putchar
+  puts
+  qsort
+  raise
+  rand
+  realloc
+  remove
+  require
+  require_once
+  rewind
+  scanf
+  setbuf
+  setjmp
+  setvbuf
+  signal
+  sin
+  sinh
+  sprintf
+  sqrt
+  srand
+  sscanf
+  strcat
+  strchr
+  strcmp
+  strcoll
+  strcpy
+  strcspn
+  strerror
+  strftime
+  strlen
+  strncat
+  strncmp
+  strncpy
+  strpbrk
+  strrchr
+  strspn
+  strstr
+  strtod
+  strtok
+  strtol
+  strtoul
+  strxfrm
+  system
+  tan
+  tanh
+  time
+  tmpfile
+  tmpnam
+  tolower
+  toupper
+  vfprintf
+  vprintf
+  vsprintf
+:postcompare
+  class [-\\/\\+\\=\\*\\<\\>|%&,] alt w

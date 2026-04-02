@@ -1,0 +1,33 @@
+<HTML>
+<HEAD><TITLE>THE Reference - Commands - print </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>PRINT</B> -  send text to default printer or print spooler <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> PRint <I>[target] [n]</I> <P></DD>
+<DD> PRint <I>LINE [text]</I> <P></DD>
+<DD> PRint <I>STRING [text]</I> <P></DD>
+<DD> PRint <I>FORMfeed</I> <P></DD>
+<DD> PRint <I>CLOSE</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The PRINT command writes a portion of the current file to the default           printer or print spooler, or text entered on the command line. <P></DD>
+<DD> PRINT [ <A HREF = "../misc/glossary.html#TARGET"> <I>target</I> </A> ] [ <I>n</I> ]              Sends text from the file contents up to the <A HREF = "../misc/glossary.html#TARGET"> <I>target</I> </A>  to the printer              followed by a CR/LF (DOS) or LF(UNIX) after each line.              When [ <I>n</I> ] is specified, this sends a formfeed after [ <I>n</I> ] successive              lines of text.           PRINT  <I>LINE</I>  [ <I>text</I> ]              Sends the remainder of the  <I>text</I>  on the command line to the printer              followed by a LF(UNIX), CR(MAC) or CR/LF (DOS).           PRINT  <I>STRING</I>  [ <I>text</I> ]              Sends the remainder of the  <I>text</I>  on the command line to the printer              without any trailing line terminator.           PRINT  <I>FORMfeed</I>                Sends a formfeed (^L) character to the printer.           PRINT  <I>CLOSE</I>                Closes the printer spooler. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "../commset/SETPRINTER.html">SET PRINTER</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

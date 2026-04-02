@@ -1,0 +1,35 @@
+<HTML>
+<HEAD><TITLE>THE Reference - SET Commands - set synonym </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>SET SYNONYM</B> -  define synonyms for commands (unavailable) <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> [SET] SYNonym <I>ON|OFF</I> <P></DD>
+<DD> [SET] SYNonym <I>[LINEND char] newname [n] definition</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SET SYNONYM command allows the user to define synonyms for           commands or macros. <P></DD>
+<DD> The first format indicates if synonym processing is to be performed. <P></DD>
+<DD> The second format defines a command synonym. <P></DD>
+<DD> The synonym is  <I>newname</I> , which effectively adds a new THE           command with the definition specified by  <I>definition</I> .  The  <I>n</I>            parameter defines the minimum length of the abbreviation for           the new command           An optional LINEND character can be specified prior to  <I>newname</I>            if the  <I>definition</I>  contains multiple commands. <P></DD>
+<DD> <I>definition</I>  can be of the form:           [REXX] command [args] [#command [args] [...]]           (where # represents the LINEND character specified prior to            <I>newname</I> ) <P></DD>
+<DD> If the optional keyword;  'REXX' , is supplied, the remainder of the           command line is treated as a Rexx macro and is passed onto the           Rexx interpreter (if you have one) for execution. <P></DD>
+<DD> Only 1 level of synonym processing is carried out; therefore           a synonym cannot be specified in the  <I>definition</I> . <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: Compatible. Does not support format that can reorder parameters.
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>Default:</B> <BR></DT>
+<DD> OFF <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Incomplete. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

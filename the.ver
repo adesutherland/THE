@@ -1,0 +1,7 @@
+#
+# Use full month and no spaces in date
+#
+VER=40
+VER_DOT=4.0
+VER_DATE="29-Dec-2022"
+VER_BASE=4.0

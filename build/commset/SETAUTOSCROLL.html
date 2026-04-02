@@ -1,0 +1,31 @@
+<HTML>
+<HEAD><TITLE>THE Reference - SET Commands - set autoscroll </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>SET AUTOSCROLL</B> -  set rate of automatic horizontal scrolling <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> [SET] AUTOSCroll <I>n|OFF|Half</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SET AUTOSCROLL allows the user to set the rate at which automatic           horizontal scrolling occurs. <P></DD>
+<DD> When the cursor reaches the last (or first) column of the <A HREF = "../misc/glossary.html#FILEAREA">filearea</A> the <A HREF = "../misc/glossary.html#FILEAREA">filearea</A> can automatically scroll if AUTOSCROLL is not  <I>OFF</I>  and           a <A HREF = "../comm/CURSOR.html">CURSOR</A> RIGHT or <A HREF = "../comm/CURSOR.html">CURSOR</A>  LEFT command is issued.           How many columns are scrolled is determined by the setting of AUTOSCROLL. <P></DD>
+<DD> If AUTOSCROLL is set to  <I>HALF</I> , then half the number of columns in the <A HREF = "../misc/glossary.html#FILEAREA">filearea</A> window are scrolled.  Any other value will result in that           many columns scrolled, or the full width of the <A HREF = "../misc/glossary.html#FILEAREA">filearea</A>  window if           the set number of columns is larger. <P></DD>
+<DD> Autoscrolling does not occur if the key pressed is assigned to <A HREF = "../comm/CURSOR.html">CURSOR</A> SCREEN LEFT or RIGHT, which is the case if <A HREF = "../commset/SETCOMPAT.html">SET COMPAT</A>  XEDIT           key definitions are active. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>Default:</B> <BR></DT>
+<DD> HALF <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

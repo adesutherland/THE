@@ -1,0 +1,38 @@
+The files in this directory are intended to be used with PDCurses to enable THE to be configured
+correctly.
+
+In the past, PDCurses was able to be installed as a package; rpm and deb, but that capability has
+been removed and it is now far harder to build a program that uses PDCurses.
+
+To use these files it is assumed that you are going to build one of the THE variants that use PDCurses
+on a Linux platform.  These variants are x11, sdl1, or sdl2 with or without UTF8 support.
+
+Note UTF8 support should be considered experimental at this stage.
+
+Assuming you have downloaded a recent source package of PDCurses and unpacked this in /home/mark/src/PDCurses
+execute the following commands to build PDCurses and THE with the x11 variant (without UTF8 support).
+Also the assumption is that THE source has been unpacked in /home/mark/THE and we will be using Regina as
+the Rexx interpreter.
+
+% cd /home/mark/src/PDCurses/x11
+% ./configure
+% make
+
+Copy the pkgconfig files to /usr/local/lib/pkgconfig
+Edit the appropriate *.pc file, in this case libpdcurses-x11.pc, and change the line that begins with "prefix"
+to: prefix=/home/mark/src/PDCurses
+
+We can now build THE.
+
+% cd /home/mark/THE
+% ./configure --with-rexx=regina --with-curses=pdcurses-x11
+% make
+
+You should now have 2 binaries; "the" and "the-x11"
+
+You can install the package with:
+% sudo make install
+
+or build an installable package with:
+% make deb|rpm
+

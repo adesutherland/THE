@@ -1,0 +1,248 @@
+/***********************************************************************
+ * Description: REXX macro to fold/unfold code between pairs of keywords
+ * Syntax:      fold [unfold]
+ ***********************************************************************/
+Trace O
+Parse Upper Arg action
+Select
+   When action = 'UNFOLD' Then
+      Do
+         Call Unfold
+      End
+   When action = '' Then
+      Do
+         Call Fold
+      End
+   Otherwise
+      Do
+         'EMSG Invalid argument: "'action'". Must be blank or UNFOLD'
+         Exit 0
+      End
+End
+Return
+
+Fold: Procedure
+idx = 0
+-- Rexx
+idx+=1;string.idx='> DO SELECT	END'
+idx+=1;string.idx='< END	DO SELECT'
+-- C
+idx+=1;string.idx= '> {	}'
+idx+=1;string.idx= '< }	{'
+-- HTML
+idx+=1;string.idx= '> <?REXX	?>'
+idx+=1;string.idx= '> <?PHP	?>'
+idx+=1;string.idx= '< ?>	<?REXX <?PHP'
+idx+=1;string.idx='> <DIV <DIV>	</DIV>'
+idx+=1;string.idx='< </DIV>	<DIV <DIV>'
+idx+=1;string.idx='> <TABLE <TABLE>	</TABLE>'
+idx+=1;string.idx='< </TABLE>	<TABLE <TABLE>'
+idx+=1;string.idx='> <TR <TR>	</TR>'
+idx+=1;string.idx='< </TR>	<TR <TR>'
+idx+=1;string.idx='> <TD <TD>	</TD>'
+idx+=1;string.idx='< </TD>	<TD <TD>'
+idx+=1;string.idx='> <TH <TH>	</TH>'
+idx+=1;string.idx='< </TH>	<TH <TH>'
+idx+=1;string.idx='> <FORM <FORM>	</FORM>'
+idx+=1;string.idx='< </FORM>	<FORM <FORM>'
+idx+=1;string.idx='> <UL <UL>	</UL>'
+idx+=1;string.idx='< </UL>	<UL <UL>'
+idx+=1;string.idx='> <OL <OL>	</OL>'
+idx+=1;string.idx='< </OL>	<OL <OL>'
+idx+=1;string.idx='> <TBODY <TBODY>	</TBODY>'
+idx+=1;string.idx='< </TBODY>	<TBODY <TBODY>'
+idx+=1;string.idx='> <SELECT <SELECT>	</SELECT>'
+idx+=1;string.idx='< </SELECT>	<SELECT <SELECT>'
+idx+=1;string.idx='> <SPAN <SPAN>	</SPAN>'
+idx+=1;string.idx='< </SPAN>	<SPAN <SPAN>'
+-- others
+idx+=1;string.idx='> #IF #IFDEF	#ENDIF'
+idx+=1;string.idx='< #ENDIF	#IF'
+idx+=1;string.idx='> BEGIN	END;'
+idx+=1;string.idx='< END;	BEGIN'
+idx+=1;string.idx='> IF	ENDIF'
+idx+=1;string.idx='< ENDIF	IF'
+idx+=1;string.idx='> LOOP	ENDLOOP'
+idx+=1;string.idx='< ENDLOOP	LOOP'
+idx+=1;string.idx='> \BEGIN{	\END{'                      /* added by A. Pool */
+idx+=1;string.idx='< \END{	\BEGIN{'                      /* added by A. Pool */
+idx+=1;string.idx= '> #ELSE	#ENDIF'
+num_string = idx
+tab = '09'x
+'EXTRACT /LINE/CURLINE/'/* get the focus line contents and line number */
+save_current_line = line.1
+keyword = Word( Translate( Space( curline.3 ) ), 1 )
+stridx = 0
+Do i = 1 To num_string                             /* find a keyword...*/
+/*
+   source = Word( string.i, 2 )
+   If keyword = source | Abbrev( keyword, source) Then
+*/
+   Parse Var string.i direction source (tab) target
+   If Wordpos(keyword, source) \= 0 Then
+      Do
+        stridx = i
+        Leave
+      End
+End
+If stridx = 0 Then                       /* if no keyword found, error */
+   Do
+     'EMSG Unknown match string:' keyword
+     Return
+   End
+/*
+ * We have a keyword on the current line, look for its pair
+ */
+'preserve'
+num_source = 1
+num_target = 0
+--direction = Word( string.stridx, 1 )
+--source = Word( string.stridx, 2 )
+--target = Word( string.stridx, 3 )
+Parse Var string.stridx direction source (tab) target
+Do Forever                                  /* find matching keyword...*/
+   If direction = '>' Then 'N'
+   Else 'U'
+   If rc \= 0 Then Leave
+   'EXTRACT /CURLINE/'
+   line = Translate( Space( curline.3 ) )
+   keyword = Word( line, 1 )
+   Select
+     When Wordpos(keyword, source) \= 0 Then
+        Do
+           -- check if the matching source line ends in a target; if so ignore the line
+           Do i = 1 To Words( target )
+              t = Word( target, i )
+              l = Length( t )
+              If Right( line, l ) \= t Then num_source = num_source + 1
+           End
+        End
+     When Wordpos(keyword, target) \= 0 Then num_target = num_target + 1
+     Otherwise Nop
+   End
+   If num_source = num_target Then                 /* if match found...*/
+      Do
+        -- we have a match between save_current_line and current_line
+        'EXTRACT /LINE'
+        If direction = '>' Then
+           Do
+              top_line = save_current_line
+              bottom_line = line.1
+           End
+        Else
+           Do
+              top_line = line.1
+              bottom_line = save_current_line
+           End
+        -- if we have lines in between; fold them
+        num = bottom_line - top_line
+        If num > 1 Then
+           Do
+              'SCOPE ALL'
+              -- get an available level
+              level = getLevel()
+              -- set a .point on the top and bottom lines
+              bottom_point = '.fold_end_'level
+              ':'bottom_line
+              'SET POINT' bottom_point
+              top_point = '.fold_start_'level
+              ':'top_line
+              'SET POINT' top_point
+              ':'||top_line
+              Do i = 1 To num-1
+                 'N'
+                 'SET SELECT' level
+              End
+              ':'||save_current_line
+              'SOS MAKECURR'
+           End
+        'restore'
+        Return
+      End
+End
+'EMSG No matching target' target  'found for' source
+':'||save_current_line
+'restore'
+Return
+
+Unfold: Procedure
+'preserve'
+'EXTRACT /POINT/LINE'
+save_current_line = line.1
+level = 0
+direction = ''
+Do i = 2 To Words( point.1 )
+   name = Word( point.1, i )
+   Select
+      When Left( name, 12 ) = '.fold_start_' Then
+         Do
+            level = Substr( name, 13 )
+            direction = 'N'
+            Leave i
+         End
+      When Left( name, 10 ) = '.fold_end_' Then
+         Do
+            level = Substr( name, 11 )
+            direction = 'U'
+            Leave i
+         End
+      Otherwise Nop
+   End
+End
+If direction \= '' Then Call DoUnfold name, direction, save_current_line, level
+Else 'EMSG Not a folded line'
+'restore'
+Return
+
+getLevel: Procedure
+'EXTRACT /SELECT'
+'EDITV GETF _FOLD'
+level = 0
+Do i = select.3 To 0 By -1
+   If Wordpos( i, _fold ) = 0 Then
+      Do
+         'EDITV SETFL _FOLD' _fold i
+         level = i
+         Leave i
+      End
+End
+Return level
+
+/*
+ * Remove the specified level from the list of used levels so it can be reused
+ */
+resetLevel: Procedure
+Parse Arg level
+'EDITV GETF _FOLD'
+pos = Wordpos( level, _fold )
+If pos \= 0 Then
+   Do
+      _fold = Delword( _fold, pos, 1 )
+      'EDITV SETFL _FOLD' _fold
+   End
+Return
+
+DoUnfold: Procedure
+Parse Arg current_name, direction, save_current_line, level
+'EXTRACT /SCOPE'
+save_scope = scope.1
+'SCOPE ALL'
+Do Forever
+   direction
+   'EXTRACT /POINT'
+   name = Word( point.1, 2 )
+   If direction = 'U' Then name = '.fold_start_'level
+   Else name = '.fold_end_'level
+   If name = Word( point.1, 2 ) Then
+      Do
+         'SET POINT' name 'OFF' -- reset name
+         Leave
+      End
+   'SET SELECT 0'
+End
+'SET SCOPE' save_scope
+':'save_current_line
+'SET POINT' current_name 'OFF' -- reset name
+'SOS MAKECURR'
+Call resetLevel level
+Return

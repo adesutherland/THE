@@ -1,0 +1,32 @@
+<HTML>
+<HEAD><TITLE>THE Reference - SET Commands - set readonly </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>SET READONLY</B> -  allow/disallow changes to a file if it is readonly <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> [SET] READONLY <I>ON|OFF|FORCE [File]</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SET READONLY command allows the user to disallow changes to           files if they are readonly.  Normally, if a file is readonly, THE           allows the user to make changes to the file contents while in the           editing session, but does not allow the file to be saved. <P></DD>
+<DD> With READONLY ON, THE disallows any changes to be made to the           contents of the file in memory, in much the same way that THE           disallows changes to be made to any files, if THE is started           with the -r command line switch. <P></DD>
+<DD> With READONLY FORCE, THE disallows any changes to be made to the           contents of the file in memory, in the same way that THE           disallows changes to be made to any files, if THE is started           with the -r command line switch. <P></DD>
+<DD> While the -r command line switch disallows changes to be made to           any files, SET READONLY ON, only disallows changes to be made to           readonly files. SET READONLY FORCE disallows changes to be made to           the any files irrespective of whether they are readonly on disk. <P></DD>
+<DD> With the [File] option, SET READONLY ON and SET READONLY FORCE           will result in the current file being readonly. SET READONLY OFF           will allow changes to be made to the current file, provided the           global READONLY status is OFF. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: N/A
+<P></DD>
+<DT> <B>Default:</B> <BR></DT>
+<DD> OFF <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

@@ -1,0 +1,36 @@
+<HTML>
+<HEAD><TITLE>THE Reference - Commands - define </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>DEFINE</B> -  assign one or many commands to a key or mouse event <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> DEFine <I>key-name [REXX] [command [args] [[#command [args]...]]]</I> <P></DD>
+<DD> DEFine <I>mouse-key-definition IN window [REXX] [command [args] [[#command [args]...]]]</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The DEFINE command allows the user to assign one or many           commands and optional parameter(s) to a key or a mouse button           specification. <P></DD>
+<DD> Commands may be abbreviated. <P></DD>
+<DD> If multiple commands are assigned, then the LINEND setting           must be ON and the LINEND character must match the character           that delimits the commands at the time that the DEFINE command           is executed. LINEND can be OFF at the time the key is pressed. <P></DD>
+<DD> With no arguments, any existing definition for that key is           removed and the key reverts back to its default assignation (if           it had any). <P></DD>
+<DD> <I>key-name</I>  corresponds to the key name shown with the <A HREF = "../comm/SHOWKEY.html">SHOWKEY</A>  command. <P></DD>
+<DD> If the optional keyword;  <I>REXX</I> , is supplied, the remainder of the           command line is treated as a Rexx macro and is passed onto the           Rexx interpreter (if you have one) for execution. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+</DD><DD>   KEDIT does not allow multiple commands except as KEXX
+</DD><DD>   macros.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "../comm/SHOWKEY.html">SHOWKEY</A>, <A HREF = "../commset/SETLINEND.html">SET LINEND</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

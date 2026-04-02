@@ -1,0 +1,57 @@
+<HTML>
+<HEAD><TITLE>THE Reference - SET Commands - set filename </TITLE></HEAD>
+<BODY BGCOLOR="#F1EDD1" LINK = "#0000FF" VLINK = "#FF0022" ALINK = "#808000">
+<CENTER> <img WIDTH="64" HEIGHT="64" HSPACE="20" SRC="../images/the64.png"" ALT="THE"> </CENTER>
+<HR>
+<DL><DT>
+<B>SET FILENAME</B> -  change the filename of the file being edited <BR><BR></DT>
+<DT> <B>Syntax:</B> <BR></DT>
+<DD> [SET] FILEName <I>filename</I> <P></DD>
+<DT> <B>Description:</B> <BR></DT>
+<DD> The SET FILEName command allows the user to change the filename of           the file currently being edited. <P></DD>
+<DD> In THE, a fully qualified file name consists of a file path and a           file name.  THE treats all characters up to and including the           last directory separator (usually / or \) as the file 's path.           From the first character after the end of the file' s path, to           the end of the fully qualified file name is the file name. <P></DD>
+<DD> A file name is further broken down into a fname and fext.           The fname of a file consists of all characters from the start           of the filename up to but not including the last period (if           there is one).  The fext of a file consists of all characters           from the end of the filename up to but not including the last           period. If there is no period in the filename then the fext is           empty. <P></DD>
+<DD> The fmode of a file is equivalent to the drive letter of the file 's           path. This is only valid under DOS, OS/2 and Windows ports.' <P></DD>
+<DD> Some examples. <P></DD>
+<PRE>
+          Full File Name     File            File     Fname  Fext     Fmode
+                             Path            Name
+          -----------------------------------------------------------------
+          /usr/local/bin/the /usr/local/bin/ the      the             N/A
+          c:\tools\the.exe   c:\tools\       the.exe  the    exe      c
+          /etc/a.b.c         /etc/           a.b.c    a.b    c        N/A
+</PRE><P>
+<DD>  <P></DD>
+<DD> A limited amount of validation of the resulting file name is           carried out by this command, but some errors in the file name           will not be evident until the file is saved. <P></DD>
+<DD> A leading "=" indicates that the fname portion of the current file           name is be retained.  This is equivalent to the command <A HREF = "../commset/SETFEXT.html">SET FEXT</A> .  A trailing "=" indicates that the fext portion of           the current file name is to be retained. This is equivalent to the           command <A HREF = "../commset/SETFNAME.html">SET FNAME</A> . <P></DD>
+<DD> Only one "=" is allowed in the parameter. <P></DD>
+<DD> Some examples. <P></DD>
+<PRE>
+          File Name   Parameter  New File Name
+          -----------------------------------------------------------------
+          a.b.c       fred.c=    fred.c.c      SET FNAME fred.c
+          a.b.c       fred.c.=   fred.c..c     SET FNAME fred.c.
+          a.b.c       =fred      a.c.fred      SET FEXT fred
+          a.b.c       =.fred     a.c..fred     SET FEXT .fred
+          a           =d         a.d           SET FEXT d
+          a.b.c       =          a.b.c         does nothing
+</PRE><P>
+<DD>  <P></DD>
+<DD> It is not possible to use this command on pseudo files. <P></DD>
+<DT> <B>Compatibility:</B> <BR></DT>
+<DD>   XEDIT: N/A
+</DD><DD>   KEDIT: Compatible.
+<P></DD>
+<DT> <B>See Also:</B> <BR></DT>
+<DD>  <A HREF = "../commset/SETFPATH.html">SET FPATH</A>, <A HREF = "../commset/SETFNAME.html">SET FNAME</A>, <A HREF = "../commset/SETFEXT.html">SET FEXT</A>, <A HREF = "../commset/SETFMODE.html">SET FMODE</A>, <A HREF = "../commset/SETEQUIVCHAR.html">SET EQUIVCHAR</A> <P></DD>
+<DT> <B>Status:</B> <BR></DT>
+<DD> Complete. </DD>
+</DL><P>
+<HR>
+<ADDRESS>
+The Hessling Editor is Copyright &copy; <A HREF = "http://www.rexx.org/">Mark Hessling</A>, 1990-2024
+&lt;<A HREF = "mailto:mark@rexx.org">mark@rexx.org</A>&gt;
+<BR>Generated on: 1 Aug 2024
+</ADDRESS><HR>
+Return to <A HREF = "../index.html#TOC"> Table of Contents </A><BR>
+</BODY> </HTML>

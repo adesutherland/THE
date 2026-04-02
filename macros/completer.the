@@ -1,0 +1,234 @@
+/***********************************************************************
+ *                                                                     *
+ * Macro  completer.the   V1.0  (THE)                                  *
+ *                                                                     *
+ * Author:   Mark Hessling                                             *
+ * Based On: complete.the from Pablo Garcia-Abia                       *
+ * Date:     26/12/2022                                                *
+ *                                                                     *
+ * Syntax:   define key completer.the alternative_command              *
+ *                                                                     *
+ * Requires: rexxutil                                                  *
+ *                                                                     *
+ * Description:                                                        *
+ *                                                                     *
+ *    Macro to complete filenames in the command line, whenever the    *
+ *    first command typed is one of the following:                     *
+ *                                                                     *
+ *                    XEDIT  FFILE  FILE  MACRO     LS                 *
+ *                    THE    SSAVE  SAVE  OSREDIR   DIRECTORY          *
+ *                    EDIT   GET    PUTD  STATUS                       *
+ *                                                                     *
+ *    Otherwise, an alternative command is executed.                   *
+ *                                                                     *
+ *    When the filename is being typed in the command line, a double   *
+ *    equal sign (==) is always substituted by the whole filename      *
+ *    (without path) of the file being edited.                         *
+ *                                                                     *
+ *    A single equal sign (=) in a given field (delimitied by the      *
+ *    selected separator) is substituted by the corresponding field    *
+ *    of the filename of the file being edited.                        *
+ *                                                                     *
+ *    The separator is taken as the character preceding the equal      *
+ *    sign unless it is the first in the string. In that case, the     *
+ *    character following the '=' is taken as separator. The dot       *
+ *    '.' is used as a separator in ill cases.                         *
+ *                                                                     *
+ *    More sophisticated completion may be implemented in the future   *
+ *    for other commands, eventually.                                  *
+ *                                                                     *
+ *                                                                     *
+ * Example:                                                            *
+ *                                                                     *
+ *    To use it, define a key in the following way:                    *
+ *                                                                     *
+ *         DEFINE keyname MACRO complete alternative_command           *
+ *                                                                     *
+ *    For example:                                                     *
+ *                                                                     *
+ *         define TAB macro complete sos tabfieldf                     *
+ *                                                                     *
+ *    In this example, the TAB key will complete filenames when typed  *
+ *    IN the CMDline (after XEDIT, THE or any other allowed command).  *
+ *    Otherwise it will execute "sos tabfieldf".                       *
+ *                                                                     *
+ *                                                                     *
+ * Note:  more sophisticated completion may be implemented in the      *
+ *        future for other commands, eventually.                       *
+ *                                                                     *
+ *                                                                     *
+ * Version history:                                                    *
+ *                                                                     *
+ * 1.3 (14/01/98)  - follow up directory tree when looking for         *
+ *                   completions: UNIX ok, to be checked in OS2.       *
+ *                   Not implemented in other OS.                      *
+ *                 - FJW: OS-dependent corrections (thanks)            *
+ *                 - substitution of '=' and '=='                      *
+ * 1.2 (11/12/97)  added list of commands allowed for file completion  *
+ * 1.1 (10/12/97)  bug on ambiguities output corrected                 *
+ * 1.0 (10/12/97)  first version                                       *
+ *                                                                     *
+ * Bugs, comments and/or questions to Pablo.Garcia.Abia@cern.ch        *
+ ***********************************************************************/
+Parse Arg alt_command
+
+If translate(alt_command) == 'HELP' Then Signal HELP
+
+rcode = RxFuncAdd( 'sysfiletree', 'rexxutil', 'sysfiletree' )
+'msg' rcode
+If rcode = 40 Then
+   Do
+     'EMSG completer.the requires the RexxUtil external function package.'
+     Exit 0
+   End
+
+'PRESERVE'
+
+'EXTRACT /CMDLINE/CURSOR/MSGLINE/LSCREEN/FPATH/FILENAME/VERSION'
+
+If cmdline.1 = 'OFF' Then Exit
+
+If cursor.3 = -1 & words(cmdline.3) > 0 Then Call COMPLETE
+Else alt_command
+
+'RESTORE'
+
+Exit 0
+
+/* Filename completion */
+
+COMPLETE:
+
+os = version.3
+
+oricmd = Word(cmdline.3,1)
+cmd = Translate(oricmd)
+str = Subword( cmdline.3, 2 )
+appendstar = 1
+Select
+   When Left( str, 1 ) = '~' Then str = Value( 'HOME', , 'ENVIRONMENT' ) || Substr( str, 2 )
+   When Left( str, 2 ) = '==' Then str = Directory() || Substr( str, 3 )
+   When Left( str, 1 ) = '=' Then
+      Do
+         rep = fpath.1
+         -- do we have scheme support and is the current file a remote file?
+         i = FindScheme( fdisplay.1() )
+         If i \= 0 Then
+            Do
+               'EDITV GET !SCHEMENAME.'i
+               rep = !schemename.i
+            End
+         str = rep || Substr( str, 3 )
+      End
+   Otherwise Nop
+End
+If Right( str, 1 ) = '=' Then
+   Do
+      str = Left( str, Length( str ) - 1 )||filename.1
+      appendstar = 0
+   End
+/* Match one of these commands */
+
+list_cmd = "XEDIT THE EDIT FFILE FILE SAVE SSAVE LS DIRECTORY GET PUTD PUT MACRO OSREDIR STATUS"
+list_abb = "1     3   1    2     4    4    2     2  3         3   4    3   5     3       4     "
+
+match = 0
+
+Do i = 1 To words(list_cmd)
+   If Abbrev(word(list_cmd,i),cmd,word(list_abb,i)) Then
+   Do
+      match = 1
+      Leave
+   End
+End
+
+/* no command matched */
+If match \= 1 Then
+   Do
+      alt_command
+      Return
+End
+
+remote = 0
+/* support schemes */
+i = FindScheme( str )
+If i \= 0 Then
+   Do
+      -- we have a scheme
+      -- convert scp://aa@bb.company.com:8122/home/aa/ and aa://fred into
+      -- ssh -p 8122 aa@bb.company.com 'ls -dp /home/aa/fred*
+      'EDITV GET !SCHEMETARGET.'i '!SCHEMENAME.'i
+      current_schemename = !schemename.i
+      current_schemetarget = !schemetarget.i
+      Parse Var !schemetarget.i . '//' server '/' path
+      Parse Var str . (!schemename.i) file
+      Parse Var server server ':' port
+      If port \= '' Then port = '-p' port
+      Else port = ''
+      cmd = 'ssh' port server '"ls -dp' '/'path||file'*"'
+      remote = 1
+      'MSG Getting list of matching files from' !schemename.i
+      x = run_os(cmd, ,'stdout.', 'stderr.')
+   End
+Else
+   Do
+      stderr.0 = 0
+      x = sysfiletree( str'*', 'stdout.', 'bo' )
+      If stdout.0 > 1 Then Call sysstemsort 'stdout.', 'ascending', 'insensitive'
+   End
+'SET MSGLINE CLEAR'
+Select
+   When stderr.0 > 0 Then 'EMSG' stderr.1
+   When stdout.0 = 0 Then 'EMSG' 'No matching files'
+   When stdout.0 = 1 Then
+      Do
+         If remote Then
+            Do
+               Parse Var stdout.1 (path) rem
+               cmd = oricmd current_schemename||rem
+            End
+         Else
+            Do
+               cmd = oricmd stdout.1
+            End
+         'CMSG' cmd
+      End
+   Otherwise
+      Do
+         delim = d2c(127)
+
+         items = delim
+         Do i = 1 To stdout.0
+            items = items||stdout.i||delim
+         End
+
+         'POPUP CENTRE ESCAPE esc' items
+         If popup.1 \= '' Then
+            Do
+               If remote Then
+                  Do
+                     Parse Var popup.1 (path) rem
+                     cmd = oricmd current_schemename||rem
+                  End
+               Else
+                  Do
+                     cmd = oricmd popup.1
+                  End
+               'CMSG' cmd
+            End
+      End
+End
+Return
+
+FindScheme: Procedure
+Parse Arg str
+'EDITV GET !SCHEMENAME.0'
+If Datatype( !schemename.0 ) = 'NUM' & !schemename.0 > 0 Then
+   Do
+      'EDITV GETSTEM !SCHEMENAME.'
+      Do i = 1 To !schemename.0
+         len = Length( !schemename.i )
+         If Left( str, len ) = !schemename.i Then Return i
+      End
+   End
+Return 0
