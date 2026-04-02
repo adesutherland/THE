@@ -11,6 +11,9 @@ The primary goals of this fork are:
 2. **C99 Compliance:** The entire codebase has been strictly refactored from pre-ANSI (K&R) C to the **C99** standard, resolving hundreds of compiler warnings on modern compilers (Clang/GCC).
 3. **CREXX Integration:** This fork is specifically designed to support the integration of [CREXX](https://github.com/crexx-org), bringing a modern, high-performance, and deeply integrated Rexx scripting engine natively into the editor.
 
+## Architecture
+For developers and contributors, a high-level overview of the editor's internal design, event loop, and data structures is available in the [Architecture Overview](doc/architecture.md).
+
 ---
 
 ## Building and Installing
