@@ -2293,6 +2293,14 @@ short execute_command_file(FILE *fp)
          i++;
       }
    }
+
+   if (i > 0)
+   {
+      line_number++;
+      profile_command_line[i] = '\0';
+      rc = process_command_line(profile_command_line,line_number);
+   }
+
    TRACE_RETURN();
    return(rc);
 }
