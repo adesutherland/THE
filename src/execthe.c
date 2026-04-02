@@ -56,7 +56,7 @@
 
 char *the_version = THE_VERSION;
 char *the_release = THE_VERSION_DATE;
-char *the_copyright = "Copyright 1991-2022 Mark Hessling";
+char *the_copyright = "Copyright 1991-2026 Mark Hessling";
 
 struct the_variant_t
 {

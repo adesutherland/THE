@@ -8,7 +8,6 @@
 /* This is particularly useful on macOS where the Home key can be tricky. */
 'define f4 cursor prefix'
 'define s-tab cursor home save'
-'define c-bksp sos delback'
 'define backspace sos delback'
 
 /* Display a startup message */

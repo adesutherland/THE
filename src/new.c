@@ -52,7 +52,7 @@
 
 char *the_version = THE_VERSION;
 char *the_release = THE_VERSION_DATE;
-char *the_copyright = "Copyright 1991-2011 Mark Hessling";
+char *the_copyright = "Copyright 1991-2026 Mark Hessling";
 
 #ifdef PATH_MAX
 /* if you don't use PATH_MAX (by #including <limits.h>

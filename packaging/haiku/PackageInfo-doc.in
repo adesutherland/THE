@@ -7,7 +7,7 @@ packager    "Mark Hessling <mark@rexx.org>"
 architecture any
 version      @VERSION_UNQUOTED@-1
 copyrights {
-             "1991-2020 Mark Hessling"
+             "1991-2026 Mark Hessling"
            }
 licenses   {
              "GNU GPL v2"

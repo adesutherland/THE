@@ -5,7 +5,7 @@
 /***********************************************************************/
 /*
  * THE - The Hessling Editor. A text editor similar to VM/CMS xedit.
- * Copyright (C) 1991-2013 Mark Hessling
+ * Copyright (C) 1991-2026 Mark Hessling
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -3772,7 +3772,7 @@ int find_key_name(CHARTYPE *keyname)
    TRACE_FUNCTION("commutil.c:find_key_name");
    for (i=0;key_table[i].mnemonic != NULL;i++)
    {
-      if ( my_stricmp( keyname, key_table[i].mnemonic ) == 0 )
+      if ( my_stricmp( (char *)keyname, (char *)key_table[i].mnemonic ) == 0 )
       {
          key = key_table[i].key_value;
          break;

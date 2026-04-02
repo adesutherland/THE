@@ -3,7 +3,7 @@
 /***********************************************************************/
 /*
  * THE - The Hessling Editor. A text editor similar to VM/CMS xedit.
- * Copyright (C) 1991-2022 Mark Hessling
+ * Copyright (C) 1991-2026 Mark Hessling
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -121,7 +121,7 @@ static void init_signals(void);
 
    CHARTYPE *the_version = (CHARTYPE *)THE_VERSION;
    CHARTYPE *the_release = (CHARTYPE *)THE_VERSION_DATE;
-   CHARTYPE *the_copyright = (CHARTYPE *)"Copyright 1991-2022 Mark Hessling";
+   CHARTYPE *the_copyright = (CHARTYPE *)"Copyright 1991-2026 Mark Hessling";
    CHARTYPE *term_name;  /* $TERM value */
    CHARTYPE *tempfilename = (CHARTYPE *)NULL;
    CHARTYPE *stdinprofile = (CHARTYPE *)NULL;

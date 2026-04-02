@@ -3,7 +3,7 @@
 /***********************************************************************/
 /*
  * MANEXT - A program to extract manual pages from C source code.
- * Copyright (C) 1991-2013 Mark Hessling
+ * Copyright (C) 1991-2026 Mark Hessling
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -267,7 +267,7 @@ int main(int argc,char *argv[])
 void display_info(void)
 /***********************************************************************/
 {
- fprintf(stderr,"\nMANEXT 1.00 Copyright (C) 1991-1999 Mark Hessling\n");
+ fprintf(stderr,"\nMANEXT 1.00 Copyright (C) 1991-2026 Mark Hessling\n");
  fprintf(stderr,"All rights reserved.\n");
  fprintf(stderr,"MANEXT is distributed under the terms of the GNU\n");
  fprintf(stderr,"General Public License and comes with NO WARRANTY.\n");
