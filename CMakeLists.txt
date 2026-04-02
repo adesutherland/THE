@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 project(THE C)
 
 set(THE_VERSION "4.0.CREXX")
-set(THE_VERSION_DATE "29-Dec-2022")
+set(THE_VERSION_DATE "02-Apr-2026")
 
 # --- Options ---
 option(USE_XCURSES "Build with XCurses (X11)" OFF)
@@ -70,6 +70,7 @@ add_compile_definitions(
     NOREXX=1
     HAVE_WATTRSET=1
     HAVE_TOUCHLINE=1
+    THE_TRACE=1
 )
 
 # Standard and Warnings
@@ -204,6 +205,7 @@ set(THE_SOURCES
     src/target.c
     src/the.c
     src/mygetopt.c
+    src/trace.c
     src/util.c
 )
 

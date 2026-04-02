@@ -3,7 +3,7 @@
 /***********************************************************************/
 /*
  * THE - The Hessling Editor. A text editor similar to VM/CMS xedit.
- * Copyright (C) 1991-2013 Mark Hessling
+ * Copyright (C) 1991-2026 Mark Hessling
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -62,10 +62,10 @@ void editor(void)
    {
       if (error_window != NULL)
       {
+         wmove(CURRENT_WINDOW,y,x);
+         wnoutrefresh(CURRENT_WINDOW);
          touchwin(error_window);
          wrefresh(error_window);
-         wmove(CURRENT_WINDOW,y,x);
-         wrefresh(CURRENT_WINDOW);
       }
    }
 #ifdef MSWIN
