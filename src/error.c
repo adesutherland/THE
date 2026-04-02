@@ -464,6 +464,7 @@ static void open_msgline(ROWTYPE base, ROWTYPE off,ROWTYPE rows)
 #ifdef HAVE_KEYPAD
    keypad( error_window, TRUE );
 #endif
+   leaveok( error_window, TRUE );
    TRACE_RETURN();
    return;
 }
