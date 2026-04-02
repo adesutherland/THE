@@ -55,6 +55,9 @@
 #if !defined(PDCURSES) || defined(USE_XCURSES)
 #include <getch.h>
 
+extern bool error_on_screen;
+extern WINDOW *error_window;
+
 #define NORMAL 100
 #define ESCAPE 200
 #define FKEY   300
@@ -77,7 +80,10 @@ int my_getch (WINDOW *winptr)
 #ifdef VMS1
       c = keypress();
 #else
-      c = wgetch( winptr );
+      if (error_on_screen && error_window != NULL)
+         c = wgetch( error_window );
+      else
+         c = wgetch( winptr );
 # if defined(USE_NCURSES) && defined(EINTR) && defined(KEY_RESIZE)
       if ( c == ERR )
       {
@@ -86,7 +92,12 @@ int my_getch (WINDOW *winptr)
          else
          {
             if ( errno == 0 )
-               c = wgetch( winptr );
+            {
+               if (error_on_screen && error_window != NULL)
+                  c = wgetch( error_window );
+               else
+                  c = wgetch( winptr );
+            }
          }
       }
 # endif
