@@ -1552,6 +1552,13 @@ int setup_profile_files(CHARTYPE *specified_prf)
    strrmdup(strtrans(local_prf,OSLASH,ISLASH),ISLASH,TRUE);
    if (file_readable(local_prf))
       return(rc);
+#if defined(UNIX)
+   strcpy((DEFCHAR *)local_prf,(DEFCHAR *)the_home_dir);
+   strcat((DEFCHAR *)local_prf,(DEFCHAR *)"profile.the");
+   strrmdup(strtrans(local_prf,OSLASH,ISLASH),ISLASH,TRUE);
+   if (file_readable(local_prf))
+      return(rc);
+#endif
    /*
     * To get here, no profile files to be executed.
     */

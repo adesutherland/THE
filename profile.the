@@ -6,8 +6,10 @@
 
 /* Bind F4 and Shift-Tab to move the cursor to the prefix area. */
 /* This is particularly useful on macOS where the Home key can be tricky. */
-'define f4 sos prefix'
-'define s-tab sos tabb'
+'define f4 cursor prefix'
+'define s-tab cursor cmdline'
+'define c-bksp sos delback'
+'define backspace sos delback'
 
 /* Display a startup message */
 'msg Welcome to THE (The Hessling Editor) - CREXX Edition'
