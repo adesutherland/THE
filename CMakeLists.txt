@@ -211,9 +211,23 @@ if(USE_UTF8)
 endif()
 
 # --- Executable ---
-set(EXECUTABLE_NAME "the-${THE_VARIANT}")
+set(EXECUTABLE_NAME "the")
 add_executable(${EXECUTABLE_NAME} ${THE_SOURCES})
 target_link_libraries(${EXECUTABLE_NAME} ${CURSES_LIBRARIES})
 
-# Basic install target for now
+# Setup Release Directory in Build Folder
+set(RELEASE_DIR "${CMAKE_CURRENT_BINARY_DIR}/release")
+
+add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${RELEASE_DIR}
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${EXECUTABLE_NAME}> ${RELEASE_DIR}/${EXECUTABLE_NAME}
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/doc/THE_Help.txt ${RELEASE_DIR}/THE_Help.txt
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/profile.the ${RELEASE_DIR}/profile.the
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/syntax ${RELEASE_DIR}/syntax
+    COMMENT "Copying executable and resources to ${RELEASE_DIR}"
+)
+
+# Install Targets
 install(TARGETS ${EXECUTABLE_NAME} DESTINATION bin)
+install(FILES doc/THE_Help.txt profile.the DESTINATION share/the)
+install(DIRECTORY syntax/ DESTINATION share/the/syntax)

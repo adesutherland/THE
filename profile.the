@@ -1,0 +1,13 @@
+/* THE Default Profile */
+/* 
+   This profile is executed when THE starts up.
+   It contains a few sensible defaults and key bindings.
+*/
+
+/* Bind F4 and Shift-Tab to move the cursor to the prefix area. */
+/* This is particularly useful on macOS where the Home key can be tricky. */
+'define f4 sos prefix'
+'define s-tab sos tabb'
+
+/* Display a startup message */
+'msg Welcome to THE (The Hessling Editor) - CREXX Edition'
