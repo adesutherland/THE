@@ -2393,14 +2393,18 @@ short Cursor(CHARTYPE *params)
             /*
              * If the cursor is in the command line or there is no prefix on, exit.
              */
-            if ( CURRENT_VIEW->current_window == WINDOW_COMMAND
-            ||  !CURRENT_VIEW->prefix )
+            if ( !CURRENT_VIEW->prefix )
             {
                ;
             }
             else
             {
-               if ( CURRENT_VIEW->current_window == WINDOW_FILEAREA )
+               if ( CURRENT_VIEW->current_window == WINDOW_COMMAND )
+               {
+                  THEcursor_home( current_screen, CURRENT_VIEW, TRUE );
+                  rc = Sos_prefix( (CHARTYPE *)"" );
+               }
+               else if ( CURRENT_VIEW->current_window == WINDOW_FILEAREA )
                   rc = Sos_prefix( (CHARTYPE *)"" );
                else
                   rc = Sos_leftedge( (CHARTYPE *)"" );
