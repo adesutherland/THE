@@ -76,6 +76,12 @@ void editor(void)
    {
       if ( process_key( -1, FALSE ) != RC_OK )
          break;
+
+#ifdef USE_SDSLH
+      if (sdslh_comm && CURRENT_FILE && CURRENT_FILE->cb) {
+         process_delta(CURRENT_FILE->cb);
+      }
+#endif
    }
    TRACE_RETURN();
    return;

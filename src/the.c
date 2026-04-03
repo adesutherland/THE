@@ -342,9 +342,13 @@ int main(int argc, char *argv[])
    
 #ifdef USE_SDSLH
    editor_init();
-   sdslh_comm = create_socket_communication_functions("127.0.0.1", 8080);
+   char *parser_path = getenv("SDSLH_PARSER");
+   if (!parser_path) {
+       parser_path = "tp";
+   }
+   sdslh_comm = create_stdio_communication_functions(parser_path);
    if (!sdslh_comm) {
-       fprintf(stderr, "Failed to initialize SDSLH communication\n");
+       fprintf(stderr, "Failed to initialize SDSLH communication via STDIO\n");
    }
 #endif
 
@@ -1698,6 +1702,19 @@ void cleanup(void)
 /***********************************************************************/
 {
    TRACE_FUNCTION("the.c:     cleanup");
+
+#ifdef USE_SDSLH
+   if (sdslh_comm && CURRENT_FILE && CURRENT_FILE->cb) {
+       fprintf(stderr, "DEBUG: Calling process_delta in cleanup with txn_count=%zu\n", CURRENT_FILE->cb->transaction_count);
+       process_delta(CURRENT_FILE->cb);
+       /* Wait briefly to allow the detached process_delta thread to send its message before we exit. */
+#ifdef WIN32
+       Sleep(1000);
+#else
+       sleep(1);
+#endif
+   }
+#endif
 
    if (curses_started)
    {

@@ -1216,6 +1216,28 @@ LINE *add_LINE( LINE *first, LINE *curr, CHARTYPE *line, LENGTHTYPE len, SELECTT
    curr_line->flags.changed_flag = FALSE;
    curr_line->flags.tag_flag = FALSE;
    curr_line->flags.save_tag_flag = FALSE;
+
+   fprintf(stderr, "DEBUG: add_LINE called len=%d new_flag=%d\n", len, new_flag);
+
+#ifdef USE_SDSLH
+   if (sdslh_comm && CURRENT_VIEW && CURRENT_FILE && CURRENT_FILE->cb && new_flag) {
+       if (first == CURRENT_FILE->first_line) {
+           int idx = -2;
+           LINE *p = curr_line;
+           while (p) { idx++; p = p->prev; }
+           fprintf(stderr, "DEBUG: add_LINE adding transaction at idx=%d\n", idx);
+           if (idx >= 0) {
+               Transaction txn = { TRANSACTION_ADDLINE, idx, 0, NULL, 1 };
+               editor_apply_transaction(CURRENT_FILE->cb, txn);
+               if (curr_line->length > 0) {
+                   Transaction add_txn = { TRANSACTION_ADDCHARS, idx, 0, (char *)curr_line->line, 0 };
+                   editor_apply_transaction(CURRENT_FILE->cb, add_txn);
+               }
+           }
+       }
+   }
+#endif
+
    /*
     * If this is the first line of the file, and the current parser for the
     * file is NULL, see if we can use one of the magic string parsers...
@@ -1262,6 +1284,20 @@ LINE *delete_LINE( LINE **first, LINE **last, LINE *curr, short direction, bool 
 /***********************************************************************/
 {
    TRACE_FUNCTION("util.c:    delete_LINE");
+
+#ifdef USE_SDSLH
+   fprintf(stderr, "DEBUG: delete_LINE called. sdslh_comm=%p CURRENT_VIEW=%p CURRENT_FILE=%p cb=%p\n", sdslh_comm, CURRENT_VIEW, CURRENT_FILE, CURRENT_FILE ? CURRENT_FILE->cb : NULL);
+   if (sdslh_comm && CURRENT_VIEW && CURRENT_FILE && CURRENT_FILE->cb && (*first == CURRENT_FILE->first_line)) {
+       int idx = -2;
+       LINE *p = curr;
+       while (p) { idx++; p = p->prev; }
+       if (idx >= 0) {
+           Transaction txn = { TRANSACTION_DELETELINE, idx, 0, NULL, 1 };
+           editor_apply_transaction(CURRENT_FILE->cb, txn);
+       }
+   }
+#endif
+
    if ( delete_names )
    {
       if ( curr->first_name != (THELIST *)NULL )
@@ -1688,9 +1724,25 @@ short post_process_line(VIEW_DETAILS *the_view,LINETYPE line_number,LINE *known_
    /*
     * Copy the contents of rec into the line.
     */
+   LENGTHTYPE old_length = curr->length;
    memcpy( curr->line, rec, rec_len );
    curr->length = rec_len;
    *(curr->line+rec_len) = '\0';
+
+#ifdef USE_SDSLH
+   if (sdslh_comm && the_view->file_for_view && the_view->file_for_view->cb && curr->flags.changed_flag) {
+       fprintf(stderr, "DEBUG: post_process_line adding transaction\n");
+       if (old_length > 0) {
+           Transaction del_txn = { TRANSACTION_DELETECHARS, line_number - 1, 0, NULL, old_length };
+           editor_apply_transaction(the_view->file_for_view->cb, del_txn);
+       }
+       if (rec_len > 0) {
+           Transaction add_txn = { TRANSACTION_ADDCHARS, line_number - 1, 0, (char *)curr->line, 0 };
+           editor_apply_transaction(the_view->file_for_view->cb, add_txn);
+       }
+   }
+#endif
+
    /*
     * If this is the first line of the file, and the current parser for the
     * file is NULL, see if we can use one of the magic string parsers...
