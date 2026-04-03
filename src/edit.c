@@ -175,6 +175,15 @@ int process_key(int key, bool mouse_details_present)
    {
       build_screen(current_screen);
       display_screen(current_screen);
+      if (error_on_screen && error_window != NULL)
+      {
+         getyx(CURRENT_WINDOW,y,x);
+         touchwin(error_window);
+         wnoutrefresh(error_window);
+         wmove(CURRENT_WINDOW,y,x);
+         wnoutrefresh(CURRENT_WINDOW);
+         doupdate();
+      }
       TRACE_RETURN();
       return(RC_OK);
    }
