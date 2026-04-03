@@ -35,6 +35,9 @@
 
 #include <the.h>
 #include <proto.h>
+#ifdef USE_SDSLH
+#include "thread_utils.h"
+#endif
 
 bool prefix_changed=FALSE;
 
@@ -116,7 +119,31 @@ int process_key(int key, bool mouse_details_present)
 #endif
    if (key == (-1))
    {
+#ifdef USE_SDSLH
+      if (sdslh_comm && CURRENT_FILE && CURRENT_FILE->cb && editor_is_parsing_thread_active()) {
+         for (;;) {
+             if (check_parse_complete_event() == 1) {
+                 reset_parse_complete_event();
+                 key = -2; /* THE_KEY_PARSE_COMPLETE */
+                 break;
+             }
+             nodelay(CURRENT_WINDOW, TRUE);
+             key = my_getch( CURRENT_WINDOW );
+             nodelay(CURRENT_WINDOW, FALSE);
+             if (key != ERR) break;
+             napms(10);
+         }
+      } else {
+         if (sdslh_comm && check_parse_complete_event() == 1) {
+             reset_parse_complete_event();
+             key = -2; /* THE_KEY_PARSE_COMPLETE */
+         } else {
+             key = my_getch( CURRENT_WINDOW );
+         }
+      }
+#else
       key = my_getch( CURRENT_WINDOW );
+#endif
    }
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
    if (key != KEY_MOUSE)
@@ -139,6 +166,15 @@ int process_key(int key, bool mouse_details_present)
    {
       (void)THE_Resize(0,0);
       (void)THERefresh((CHARTYPE *)"");
+      TRACE_RETURN();
+      return(RC_OK);
+   }
+#endif
+#ifdef USE_SDSLH
+   if ( key == -2 )
+   {
+      build_screen(current_screen);
+      display_screen(current_screen);
       TRACE_RETURN();
       return(RC_OK);
    }

@@ -634,6 +634,9 @@ short Text(CHARTYPE *params)
                   put_char( CURRENT_WINDOW, chtype_key|attr, ADDCHAR );
             }
             rec_len = calculate_rec_len( (INSERTMODEx)?ADJUST_INSERT:ADJUST_OVERWRITE, rec, rec_len, CURRENT_VIEW->verify_col+x, 1, CURRENT_FILE->trailing );
+#ifdef USE_SDSLH
+            sdslh_update_current_line(y);
+#endif
             /*
              * If THIGHLIGHT on focus line, reset it.
              */
@@ -784,7 +787,11 @@ short Text(CHARTYPE *params)
     * build and redisplay the window.
     */
    if (CURRENT_FILE->colouring
-   &&  CURRENT_FILE->parser
+   &&  (CURRENT_FILE->parser
+#ifdef USE_SDSLH
+        || CURRENT_FILE->cb
+#endif
+       )
    &&  CURRENT_VIEW->current_window == WINDOW_FILEAREA)
       need_to_build_screen = TRUE;
    /*

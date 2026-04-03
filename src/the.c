@@ -1705,7 +1705,7 @@ void cleanup(void)
 
 #ifdef USE_SDSLH
    if (sdslh_comm && CURRENT_FILE && CURRENT_FILE->cb) {
-       fprintf(stderr, "DEBUG: Calling process_delta in cleanup with txn_count=%zu\n", CURRENT_FILE->cb->transaction_count);
+
        process_delta(CURRENT_FILE->cb);
        /* Wait briefly to allow the detached process_delta thread to send its message before we exit. */
 #ifdef WIN32

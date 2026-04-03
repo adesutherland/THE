@@ -2189,6 +2189,78 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
        * the line has been determined as parseable, build the colours in
        * the highlighting array based on the line's contents.
        */
+#ifdef USE_SDSLH
+      if (line_parseable && SCREEN_FILE(scrno)->cb && scurr->length > 0) {
+          LINETYPE cb_line_idx = scurr->line_number - 1;
+          if (cb_line_idx >= 0 && cb_line_idx < (LINETYPE)SCREEN_FILE(scrno)->cb->line_count) {
+              CodeBufferLine *cb_line = &SCREEN_FILE(scrno)->cb->lines[cb_line_idx];
+              if (!scurr->highlight_type) {
+                  scurr->highlight_type = (unsigned char *)(*the_malloc)(scurr->length);
+              }
+              if (scurr->highlight_type) {
+                  scurr->is_highlighting = TRUE;
+                  memset(scurr->highlight_type, THE_SYNTAX_NONE, scurr->length);
+                  
+                  chtype normal_colour;
+                  if (scurr->is_cursor_line && scurr->is_cursor_line_filearea_different)
+                      normal_colour = set_colour(SCREEN_FILE(scrno)->attr+ATTR_CURSORLINE);
+                  else if (scurr->is_current_line)
+                      normal_colour = set_colour(SCREEN_FILE(scrno)->attr+ATTR_CURLINE);
+                  else
+                      normal_colour = set_colour(SCREEN_FILE(scrno)->attr+ATTR_FILEAREA);
+                      
+                  for (size_t i = 0; i < THE_MAX_SCREEN_WIDTH; i++) {
+                      scurr->highlighting[i] = normal_colour;
+                  }
+
+                  LENGTHTYPE vcol = SCREEN_VIEW(scrno)->verify_col - 1;
+                  size_t min_len = scurr->length < cb_line->length ? scurr->length : cb_line->length;
+                  for (size_t i = 0; i < min_len; i++) {
+                      int type = cb_line->characters[i].token_type;
+                      unsigned char the_type = THE_SYNTAX_NONE;
+                      chtype current_colour = normal_colour;
+                      switch(type) {
+                          case LEXER_COMMENT: 
+                              the_type = THE_SYNTAX_COMMENT; 
+                              current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_COMMENTS);
+                              break;
+                          case LEXER_STRING_LITERAL: 
+                              the_type = THE_SYNTAX_STRING; 
+                              current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_STRINGS);
+                              break;
+                          case LEXER_NUMBER_LITERAL: 
+                              the_type = THE_SYNTAX_NUMBER; 
+                              current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_NUMBERS);
+                              break;
+                          case LEXER_KEYWORD: 
+                              the_type = THE_SYNTAX_KEYWORD; 
+                              current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_KEYWORDS);
+                              break;
+                          case LEXER_IDENTIFIER: 
+                              the_type = THE_SYNTAX_LABEL; 
+                              current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_LABEL);
+                              break;
+                          case LEXER_OPERATOR:
+                          case LEXER_OPERATOR_ASSIGN:
+                          case LEXER_OPERATOR_ARITHMETIC:
+                          case LEXER_OPERATOR_LOGICAL:
+                              the_type = THE_SYNTAX_MATCH; 
+                              current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_LEVEL_1_PAREN);
+                              break;
+                          default:
+                              the_type = THE_SYNTAX_NONE; 
+                              current_colour = normal_colour;
+                              break;
+                      }
+                      scurr->highlight_type[i] = the_type;
+                      if (i >= vcol && i - vcol < THE_MAX_SCREEN_WIDTH) {
+                          scurr->highlighting[i - vcol] = current_colour;
+                      }
+                  }
+              }
+          }
+      } else
+#endif
       if (line_parseable
       &&  SCREEN_FILE(scrno)->colouring
       &&  SCREEN_FILE(scrno)->parser

@@ -40,6 +40,7 @@ $Id: the.h,v 1.97 2022/12/27 02:43:49 mark Exp $
 #include "dslsyntax_editor.h"
 #include "serialization.h"
 extern CommunicationFunctions *sdslh_comm;
+void sdslh_update_current_line(unsigned short y);
 #endif
 /*
  * Handle Win32 console when using PDCurses GUI

@@ -3116,6 +3116,9 @@ static short sosdelchar( bool cua )
    {
       memdeln( rec, CURRENT_VIEW->verify_col - 1 + x, rec_len, 1 );
       rec_len--;
+#ifdef USE_SDSLH
+      sdslh_update_current_line(y);
+#endif
       /*
        * If there is a character off the right edge of the screen, display it
        * in the last character of the main window.
@@ -3148,7 +3151,11 @@ static short sosdelchar( bool cua )
    if ( ( CURRENT_VIEW == MARK_VIEW
       &&  CURRENT_VIEW->focus_line >= MARK_VIEW->mark_start_line
       &&  CURRENT_VIEW->focus_line <= MARK_VIEW->mark_end_line )
-   ||   ( CURRENT_FILE->colouring && CURRENT_FILE->parser ) )
+   ||   ( CURRENT_FILE->colouring && (CURRENT_FILE->parser
+#ifdef USE_SDSLH
+          || CURRENT_FILE->cb
+#endif
+        ) ) )
    {
       build_screen( current_screen );
       display_screen( current_screen );

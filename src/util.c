@@ -1165,10 +1165,30 @@ CHARTYPE *strtrans( CHARTYPE *str, CHARTYPE oldch, CHARTYPE newch )
          *(str+i) = newch;
    }
    return(str);
-}
-/***********************************************************************/
-LINE *add_LINE( LINE *first, LINE *curr, CHARTYPE *line, LENGTHTYPE len, SELECTTYPE select, bool new_flag )
-/***********************************************************************/
+   }
+
+   #ifdef USE_SDSLH
+   void sdslh_update_current_line(unsigned short y) {
+   if (sdslh_comm && CURRENT_FILE && CURRENT_FILE->cb && CURRENT_VIEW->current_window == WINDOW_FILEAREA) {
+       LINETYPE line_number = CURRENT_SCREEN.sl[y].line_number;
+       if (line_number > 0 && line_number <= (LINETYPE)CURRENT_FILE->cb->line_count) {
+           LENGTHTYPE cb_length = CURRENT_FILE->cb->lines[line_number - 1].length;
+           if (cb_length > 0) {
+               Transaction del_txn = { TRANSACTION_DELETECHARS, line_number - 1, 0, NULL, cb_length };
+               editor_apply_transaction(CURRENT_FILE->cb, del_txn);
+           }
+           if (rec_len > 0) {
+               rec[rec_len] = '\0';
+               Transaction add_txn = { TRANSACTION_ADDCHARS, line_number - 1, 0, (char *)rec, 0 };
+               editor_apply_transaction(CURRENT_FILE->cb, add_txn);
+           }
+       }
+   }
+   }
+   #endif
+
+   /***********************************************************************/
+   LINE *add_LINE( LINE *first, LINE *curr, CHARTYPE *line, LENGTHTYPE len, SELECTTYPE select, bool new_flag )/***********************************************************************/
 /* Adds a member of the linked list for the specified file containing  */
 /* the line contents and length.                                       */
 /* PARAMETERS:                                                         */
@@ -1217,7 +1237,7 @@ LINE *add_LINE( LINE *first, LINE *curr, CHARTYPE *line, LENGTHTYPE len, SELECTT
    curr_line->flags.tag_flag = FALSE;
    curr_line->flags.save_tag_flag = FALSE;
 
-   fprintf(stderr, "DEBUG: add_LINE called len=%d new_flag=%d\n", len, new_flag);
+
 
 #ifdef USE_SDSLH
    if (sdslh_comm && CURRENT_VIEW && CURRENT_FILE && CURRENT_FILE->cb && new_flag) {
@@ -1225,7 +1245,6 @@ LINE *add_LINE( LINE *first, LINE *curr, CHARTYPE *line, LENGTHTYPE len, SELECTT
            int idx = -2;
            LINE *p = curr_line;
            while (p) { idx++; p = p->prev; }
-           fprintf(stderr, "DEBUG: add_LINE adding transaction at idx=%d\n", idx);
            if (idx >= 0) {
                Transaction txn = { TRANSACTION_ADDLINE, idx, 0, NULL, 1 };
                editor_apply_transaction(CURRENT_FILE->cb, txn);
@@ -1286,7 +1305,6 @@ LINE *delete_LINE( LINE **first, LINE **last, LINE *curr, short direction, bool 
    TRACE_FUNCTION("util.c:    delete_LINE");
 
 #ifdef USE_SDSLH
-   fprintf(stderr, "DEBUG: delete_LINE called. sdslh_comm=%p CURRENT_VIEW=%p CURRENT_FILE=%p cb=%p\n", sdslh_comm, CURRENT_VIEW, CURRENT_FILE, CURRENT_FILE ? CURRENT_FILE->cb : NULL);
    if (sdslh_comm && CURRENT_VIEW && CURRENT_FILE && CURRENT_FILE->cb && (*first == CURRENT_FILE->first_line)) {
        int idx = -2;
        LINE *p = curr;
@@ -1731,9 +1749,9 @@ short post_process_line(VIEW_DETAILS *the_view,LINETYPE line_number,LINE *known_
 
 #ifdef USE_SDSLH
    if (sdslh_comm && the_view->file_for_view && the_view->file_for_view->cb && curr->flags.changed_flag) {
-       fprintf(stderr, "DEBUG: post_process_line adding transaction\n");
-       if (old_length > 0) {
-           Transaction del_txn = { TRANSACTION_DELETECHARS, line_number - 1, 0, NULL, old_length };
+       LENGTHTYPE cb_length = the_view->file_for_view->cb->lines[line_number - 1].length;
+       if (cb_length > 0) {
+           Transaction del_txn = { TRANSACTION_DELETECHARS, line_number - 1, 0, NULL, cb_length };
            editor_apply_transaction(the_view->file_for_view->cb, del_txn);
        }
        if (rec_len > 0) {
