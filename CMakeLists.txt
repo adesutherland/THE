@@ -11,6 +11,7 @@ option(USE_SDLCURSES "Build with SDL Curses" OFF)
 option(USE_VTCURSES "Build with VT Curses" OFF)
 option(USE_WIDE_CHAR "Enable wide character support" OFF)
 option(USE_UTF8 "Enable UTF-8 support" OFF)
+option(USE_SDSLH "Build with DSL Syntax Highlighter support" OFF)
 
 # Determine basic curses type based on options
 if(USE_XCURSES)
@@ -156,11 +157,39 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 # --- Find Dependencies ---
 find_package(Curses REQUIRED)
 
+if(USE_SDSLH)
+    add_compile_definitions(USE_SDSLH=1)
+    
+    # Try finding in the sibling directory first
+    set(SDSLH_LOCAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../DSL-Syntax-Highlighter/codebuffer")
+    if(EXISTS "${SDSLH_LOCAL_DIR}/CMakeLists.txt")
+        message(STATUS "Found local DSL-Syntax-Highlighter at ${SDSLH_LOCAL_DIR}")
+        add_subdirectory("${SDSLH_LOCAL_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/sdslh" EXCLUDE_FROM_ALL)
+        set(SDSLH_INCLUDE_DIR "${SDSLH_LOCAL_DIR}")
+        set(SDSLH_LIBRARY dslsyntax_editor)
+    else()
+        message(STATUS "Local DSL-Syntax-Highlighter not found, fetching from GitHub...")
+        include(FetchContent)
+        FetchContent_Declare(
+            sdslh
+            GIT_REPOSITORY https://github.com/crexx-org/DSL-Syntax-Highlighter.git
+            GIT_TAG main
+        )
+        FetchContent_MakeAvailable(sdslh)
+        set(SDSLH_INCLUDE_DIR "${sdslh_SOURCE_DIR}/codebuffer")
+        set(SDSLH_LIBRARY dslsyntax_editor)
+    endif()
+endif()
+
 # --- Include Directories ---
 include_directories(
     ${CMAKE_SOURCE_DIR}/src
     ${CURSES_INCLUDE_DIRS}
 )
+
+if(USE_SDSLH)
+    include_directories(${SDSLH_INCLUDE_DIR})
+endif()
 
 # --- Source Files ---
 set(THE_SOURCES
@@ -217,6 +246,10 @@ endif()
 set(EXECUTABLE_NAME "the")
 add_executable(${EXECUTABLE_NAME} ${THE_SOURCES})
 target_link_libraries(${EXECUTABLE_NAME} ${CURSES_LIBRARIES})
+
+if(USE_SDSLH)
+    target_link_libraries(${EXECUTABLE_NAME} ${SDSLH_LIBRARY})
+endif()
 
 # Setup Release Directory in Build Folder
 set(RELEASE_DIR "${CMAKE_CURRENT_BINARY_DIR}/release")

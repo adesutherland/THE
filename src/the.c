@@ -38,6 +38,10 @@
 #include <proto.h>
 #include <time.h>
 
+#ifdef USE_SDSLH
+CommunicationFunctions *sdslh_comm = NULL;
+#endif
+
 #include "mygetopt.h"
 
 #if defined(DOS) || defined(OS2)
@@ -335,6 +339,15 @@ int main(int argc, char *argv[])
 #endif
    TRACE_INITIALISE();
    TRACE_FUNCTION("the.c:     main");
+   
+#ifdef USE_SDSLH
+   editor_init();
+   sdslh_comm = create_socket_communication_functions("127.0.0.1", 8080);
+   if (!sdslh_comm) {
+       fprintf(stderr, "Failed to initialize SDSLH communication\n");
+   }
+#endif
+
    /*
     * Set our locale
     */

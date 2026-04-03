@@ -34,6 +34,13 @@ $Id: the.h,v 1.97 2022/12/27 02:43:49 mark Exp $
 */
 
 #include "thedefs.h"
+
+#ifdef USE_SDSLH
+#include "dslsyntax_common.h"
+#include "dslsyntax_editor.h"
+#include "serialization.h"
+extern CommunicationFunctions *sdslh_comm;
+#endif
 /*
  * Handle Win32 console when using PDCurses GUI
  */
@@ -1497,6 +1504,9 @@ typedef struct
    THE_PPC *last_ppc;                        /* last pending prefix command */
    CHARTYPE eolfirst;       /* indicates termination of first line read */
    int readonly;                 /* have we set the file to be readonly */
+#ifdef USE_SDSLH
+   CodeBuffer *cb;               /* DSL Syntax Highlighter buffer */
+#endif
 } FILE_DETAILS;
 
 typedef struct
