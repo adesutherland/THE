@@ -2191,6 +2191,7 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
        */
 #ifdef USE_SDSLH
       if (line_parseable && SCREEN_FILE(scrno)->cb && scurr->length > 0) {
+          enter_codeblock_critical_section();
           LINETYPE cb_line_idx = scurr->line_number - 1;
           if (cb_line_idx >= 0 && cb_line_idx < (LINETYPE)SCREEN_FILE(scrno)->cb->line_count) {
               CodeBufferLine *cb_line = &SCREEN_FILE(scrno)->cb->lines[cb_line_idx];
@@ -2216,7 +2217,14 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                   LENGTHTYPE vcol = SCREEN_VIEW(scrno)->verify_col - 1;
                   size_t min_len = scurr->length < cb_line->length ? scurr->length : cb_line->length;
                   for (size_t i = 0; i < min_len; i++) {
-                      int type = cb_line->characters[i].token_type;
+                      int type = LEXER_TOKEN;
+                      int severity = CB_NONE;
+                      
+                      if (cb_line->characters != NULL) {
+                          type = cb_line->characters[i].token_type;
+                          severity = cb_line->characters[i].severity;
+                      }
+
                       unsigned char the_type = THE_SYNTAX_NONE;
                       chtype current_colour = normal_colour;
                       switch(type) {
@@ -2252,6 +2260,13 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                               current_colour = normal_colour;
                               break;
                       }
+                      
+                      if (severity == CB_ERROR) {
+                          current_colour |= A_REVERSE;
+                      } else if (severity == CB_WARNING) {
+                          current_colour |= A_UNDERLINE;
+                      }
+                      
                       scurr->highlight_type[i] = the_type;
                       if (i >= vcol && i - vcol < THE_MAX_SCREEN_WIDTH) {
                           scurr->highlighting[i - vcol] = current_colour;
@@ -2259,6 +2274,7 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                   }
               }
           }
+          exit_codeblock_critical_section();
       } else
 #endif
       if (line_parseable

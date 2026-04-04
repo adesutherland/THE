@@ -2730,7 +2730,7 @@ short Statopt(CHARTYPE *params)
          }
          len = 0;
          col = atoi( (DEFCHAR *)word[2] );
-         if ( col > COLS )
+         if ( curses_started && COLS > 0 && col > COLS )
          {
             display_error( 6, word[2], FALSE );
             TRACE_RETURN();

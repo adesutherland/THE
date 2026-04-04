@@ -153,9 +153,10 @@ extern ExtractFunction extract_nbscope;
 extern ExtractFunction extract_newlines;
 extern ExtractFunction extract_nondisp;
 extern ExtractFunction extract_number;
-extern ExtractFunction extract_parser;
 extern ExtractFunction extract_pagewrap;
+extern ExtractFunction extract_parser;
 extern ExtractFunction extract_pending;
+extern ExtractFunction extract_pmsg;
 extern ExtractFunction extract_point;
 extern ExtractFunction extract_position;
 extern ExtractFunction extract_prefix;
@@ -2115,6 +2116,7 @@ QUERY_ITEM _THE_FAR query_item[] =
    {(CHARTYPE *)"pagewrap",        8, 8,ITEM_PAGEWRAP,      1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_pagewrap               },
    {(CHARTYPE *)"parser",          6, 6,ITEM_PARSER,        5, 0,          LVL_FILE,QUERY_QUERY             |QUERY_EXTRACT             ,extract_parser                 },
    {(CHARTYPE *)"pending",         7, 4,ITEM_PENDING,       7, 1,          LVL_VIEW,                         QUERY_EXTRACT             ,extract_pending                },
+   {(CHARTYPE *)"pmsg",            4, 4,ITEM_PMSG,          1, 1,          LVL_VIEW,QUERY_QUERY             |QUERY_EXTRACT             ,extract_pmsg                   },
    {(CHARTYPE *)"point",           5, 1,ITEM_POINT,         1, 1,          LVL_VIEW,QUERY_QUERY             |QUERY_EXTRACT             ,extract_point                  },
    {(CHARTYPE *)"position",        8, 3,ITEM_POSITION,      3, 3,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_position               },
    {(CHARTYPE *)"prefix",          6, 3,ITEM_PREFIX,        0, 4,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_prefix                 },

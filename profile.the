@@ -10,5 +10,48 @@
 'define s-tab cursor home save'
 'define backspace sos delback'
 
+/* Configure a modern dark view (CMS XEDIT inspired) */
+'set color gap green on black'
+'set color cgap green on black'
+'set color arrow yellow on black'
+'set color filearea green on black dark'
+'set color curline green on black'
+'set color cursorline green on black'
+'set color prefix blue on black'
+'set color cprefix black on blue'
+'set color tofeof blue on black'
+'set color ctofeof blue on black'
+'set color cmdline white on black'
+'set color msgline red on black'
+'set color idline cyan on black'
+'set color scale cyan on black'
+'set color pending red high on black'
+'set color shadow white on black'
+'set color statarea cyan on black'
+'set prefix gap 1'
+
+/* Display the parser message dynamically on the status line */
+'set statopt off width.1'
+'set statopt off nbfile.1'
+'set statopt on pmsg.1 23 45 Msg='
+
+/* Syntax Highlighting Colors (Modern Dark Theme) */
+'set ecolor A pink on black dark'
+'set ecolor B yellow on black dark'
+'set ecolor C yellow on black dark'
+'set ecolor D white on black dark'
+'set ecolor E cyan on black dark'
+'set ecolor F white on black dark'
+'set ecolor G white on black dark'
+
+'set ecolor I white on black dark'
+'set ecolor L white on black dark'
+'set ecolor M white on black dark'
+'set ecolor N white on black dark'
+'set ecolor O white on black dark'
+'set ecolor P white on black dark'
+'set ecolor Q white on black dark'
+'set ecolor R white on black dark'
+
 /* Display a startup message */
 'msg Welcome to THE (The Hessling Editor) - CREXX Edition'
