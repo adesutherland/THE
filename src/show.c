@@ -973,8 +973,17 @@ void show_statarea(void)
    /*
     * Refresh the STATUS LINE.
     */
+   int stat_attr = ATTR_STATAREA;
+   if (current_parser_severity == CB_ERROR) {
+       stat_attr = ATTR_PMSGERROR;
+   } else if (current_parser_severity == CB_WARNING) {
+       stat_attr = ATTR_PMSGWARN;
+   } else if (current_parser_severity == CB_INFORMATION) {
+       stat_attr = ATTR_PMSGINFO;
+   }
+
    INIT_LINE_OUTPUT( statarea, 0 );
-   ADD_LINE_OUTPUT( linebuf, strlen( (DEFCHAR*)linebuf ), set_colour( CURRENT_FILE->attr+ATTR_STATAREA) );
+   ADD_LINE_OUTPUT( linebuf, strlen( (DEFCHAR*)linebuf ), set_colour( CURRENT_FILE->attr+stat_attr) );
    END_LINE_OUTPUT();
 #ifdef USE_UTF8
    if ( key > 127 )
@@ -1001,11 +1010,21 @@ void clear_statarea(void)
    {
       case 'T':
       case 'B':
-         INIT_LINE_OUTPUT( statarea, 0 );
-         FILL_LINE_OUTPUT(' ', COLS,
-                          (CURRENT_VIEW == NULL || CURRENT_FILE == NULL) ? A_NORMAL :
-                                 set_colour( CURRENT_FILE->attr+ATTR_STATAREA ) );
-         END_LINE_OUTPUT();
+         {
+             int stat_attr = ATTR_STATAREA;
+             if (current_parser_severity == CB_ERROR) {
+                 stat_attr = ATTR_PMSGERROR;
+             } else if (current_parser_severity == CB_WARNING) {
+                 stat_attr = ATTR_PMSGWARN;
+             } else if (current_parser_severity == CB_INFORMATION) {
+                 stat_attr = ATTR_PMSGINFO;
+             }
+             INIT_LINE_OUTPUT( statarea, 0 );
+             FILL_LINE_OUTPUT(' ', COLS,
+                              (CURRENT_VIEW == NULL || CURRENT_FILE == NULL) ? A_NORMAL :
+                                     set_colour( CURRENT_FILE->attr+stat_attr ) );
+             END_LINE_OUTPUT();
+         }
          break;
       default:
          break;
@@ -2262,9 +2281,11 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                       }
                       
                       if (severity == CB_ERROR) {
-                          current_colour |= A_REVERSE;
+                          current_colour = set_colour(SCREEN_FILE(scrno)->attr+ATTR_CBERROR);
                       } else if (severity == CB_WARNING) {
-                          current_colour |= A_UNDERLINE;
+                          current_colour = set_colour(SCREEN_FILE(scrno)->attr+ATTR_CBWARN);
+                      } else if (severity == CB_INFORMATION) {
+                          current_colour = set_colour(SCREEN_FILE(scrno)->attr+ATTR_CBINFO);
                       }
                       
                       scurr->highlight_type[i] = the_type;
@@ -3636,7 +3657,15 @@ short advance_view(VIEW_DETAILS *next_view,short direction)
    {
       if (statarea != NULL)
       {
-         wattrset(statarea,set_colour(CURRENT_FILE->attr+ATTR_STATAREA));
+         int stat_attr = ATTR_STATAREA;
+         if (current_parser_severity == CB_ERROR) {
+             stat_attr = ATTR_PMSGERROR;
+         } else if (current_parser_severity == CB_WARNING) {
+             stat_attr = ATTR_PMSGWARN;
+         } else if (current_parser_severity == CB_INFORMATION) {
+             stat_attr = ATTR_PMSGINFO;
+         }
+         wattrset(statarea,set_colour(CURRENT_FILE->attr+stat_attr));
          redraw_window(statarea);
          touchwin(statarea);
       }

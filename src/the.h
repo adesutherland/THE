@@ -891,7 +891,13 @@ extern void ClosedownConsole( int );
 #define ATTR_POP_CURLINE 37
 #define ATTR_POPUP 38
 #define ATTR_POP_DIVIDER 39
-#define ATTR_MAX        40
+#define ATTR_CBERROR    40
+#define ATTR_CBWARN     41
+#define ATTR_CBINFO     42
+#define ATTR_PMSGERROR  43
+#define ATTR_PMSGWARN   44
+#define ATTR_PMSGINFO   45
+#define ATTR_MAX        46
 /*--------------------- -- ecolour defines -----------------------------*/
 #define ECOLOUR_COMMENTS               0
 #define ECOLOUR_STRINGS                1
@@ -2123,7 +2129,7 @@ typedef struct query_item QUERY_ITEM;
 
 /* maximum number of variables that can be returned via EXTRACT */
 /* this MUST be max of ECOLOUR_MAX and ATTR_MAX */
-#define MAX_VARIABLES_RETURNED               ECOLOUR_MAX
+#define MAX_VARIABLES_RETURNED               ATTR_MAX
 
 /* structure for list of TLD headers */
 typedef struct

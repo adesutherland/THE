@@ -31,12 +31,21 @@
 'set prefix gap 1'
 
 /* Display the parser message dynamically on the status line */
-'set statopt off width.1'
-'set statopt off nbfile.1'
+'set statopt off *'
 'set statopt on pmsg.1 23 45 Msg='
 
+/* Diagnostic token colors in the file area */
+'set color cberror white on red'
+'set color cbwarn black on yellow'
+'set color cbinfo white on blue'
+
+/* Dynamic Status Line colors */
+'set color pmsgerror white high on red'
+'set color pmsgwarn black on yellow'
+'set color pmsginfo white on blue'
+
 /* Syntax Highlighting Colors (Modern Dark Theme) */
-'set ecolor A pink on black dark'
+'set ecolor A green on black bold'
 'set ecolor B yellow on black dark'
 'set ecolor C yellow on black dark'
 'set ecolor D white on black dark'

@@ -93,6 +93,7 @@ static void init_signals(void);
    bool colour_support=TRUE;         /* indicates if colour is supported */
    bool initial=TRUE;
    bool been_interactive=FALSE;
+   int current_parser_severity=0;
    CHARTYPE *rec=NULL;
    LENGTHTYPE rec_len = 0;                              /* length of rec */
    CHARTYPE *trec=NULL;

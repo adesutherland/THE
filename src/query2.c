@@ -402,6 +402,7 @@ short extract_pmsg(short number_variables,short itemno,CHARTYPE *itemargs,CHARTY
    LENGTHTYPE current_file_column=(-1);
 
    strcpy((DEFCHAR *)query_rsrvd, "");
+   current_parser_severity = 0;
    get_cursor_position(&screen_line, &screen_column, &current_file_line, &current_file_column);
 
 #ifdef USE_SDSLH
@@ -413,6 +414,7 @@ short extract_pmsg(short number_variables,short itemno,CHARTYPE *itemargs,CHARTY
            if (ch->node && ch->node->message) {
                strncpy((DEFCHAR *)query_rsrvd, ch->node->message, sizeof(query_rsrvd) - 1);
                query_rsrvd[sizeof(query_rsrvd) - 1] = '\0';
+               current_parser_severity = ch->node->severity;
            }
        }
    }

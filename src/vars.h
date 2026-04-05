@@ -182,6 +182,7 @@ extern bool           error_on_screen,
                       colour_support,
                       initial,
                       been_interactive;
+extern int            current_parser_severity;
 extern CHARTYPE       *rec;
 extern LENGTHTYPE     rec_len;
 extern CHARTYPE       *trec;
