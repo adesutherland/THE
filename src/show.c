@@ -969,7 +969,7 @@ void show_statarea(void)
    /*
     * Display INSERTMODE toggle.
     */
-   strcpy( (DEFCHAR*)linebuf + max( 0, (COLS-5) ), (INSERTMODEx) ? " Ins" : "    " );
+   strcpy( (DEFCHAR*)linebuf + max( 0, (COLS-5) ), (INSERTMODEx) ? " Ins " : "     " );
    /*
     * Refresh the STATUS LINE.
     */
