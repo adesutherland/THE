@@ -1,0 +1,289 @@
+# THE Command Reference
+
+## COMMAND REFERENCE
+
+- [ADD](ADD.md) - add blank line
+- [ALERT](ALERT.md) - display a user configurable dialog box with notification
+- [ALL](ALL.md) - select and display restricted set of lines
+- [BACKWARD](BACKWARD.md) - scroll backward by number of screens or lines
+- [BOTTOM](BOTTOM.md) - move to the bottom of the file
+- [CANCEL](CANCEL.md) - quit from all files in the ring
+- [CAPPEND](CAPPEND.md) - append text after column pointer
+- [CCANCEL](CCANCEL.md) - qquit from all files in the ring
+- [CDELETE](CDELETE.md) - delete text starting at column pointer
+- [CFIRST](CFIRST.md) - move column pointer to beginning of zone
+- [CHANGE](CHANGE.md) - change one string to another
+- [CINSERT](CINSERT.md) - insert text starting at the column pointer
+- [CLAST](CLAST.md) - move the column pointer to end of zone
+- [CLIPBOARD](CLIPBOARD.md) - manipulate system clipboard
+- [CLOCATE](CLOCATE.md) - move the column pointer
+- [CMATCH](CMATCH.md) - find matching bracket character
+- [CMSG](CMSG.md) - display text on command line
+- [COMMAND](COMMAND.md) - execute a command without translation
+- [COMPRESS](COMPRESS.md) - reduce spaces to tabs
+- [CONTROLCHAR](CONTROLCHAR.md) - allow control characters to be entered
+- [COPY](COPY.md) - copies text from one position to another
+- [COVERLAY](COVERLAY.md) - overlay text starting at the column pointer
+- [CREPLACE](CREPLACE.md) - replace text starting at the column pointer
+- [CURSOR](CURSOR.md) - move cursor to specified position
+- [DEFINE](DEFINE.md) - assign one or many commands to a key or mouse event
+- [DELETE](DELETE.md) - delete lines from a file
+- [DIALOG](DIALOG.md) - display a user configurable dialog box
+- [DIRECTORY](DIRECTORY.md) - list the specified directory as an editable file
+- [DOS](DOS.md) - execute an operating system command
+- [DOSNOWAIT](DOSNOWAIT.md) - execute an operating system command - no prompt
+- [DOSQUIET](DOSQUIET.md) - execute an operating system command quietly
+- [DOWN](DOWN.md) - move forward in the file a number of lines
+- [DUPLICATE](DUPLICATE.md) - duplicate lines
+- [EDIT](EDIT.md) - edit another file or switch to next file
+- [EDITV](EDITV.md) - set and retrieve persistent macro variables
+- [EMSG](EMSG.md) - display message
+- [ENTER](ENTER.md) - execute a command
+- [EXPAND](EXPAND.md) - expand tab characters to spaces
+- [EXTRACT](EXTRACT.md) - obtain various internal information about THE
+- [FFILE](FFILE.md) - force a FILE of the current file to disk
+- [FILE](FILE.md) - write the current file to disk and remove from ring
+- [FILLBOX](FILLBOX.md) - fill the marked block with a character
+- [FIND](FIND.md) - locate forwards the line which begins with the supplied string
+- [FINDUP](FINDUP.md) - locate backwards the line which begins with the supplied
+- [FORWARD](FORWARD.md) - scroll forward by number of screens or lines
+- [FUP](FUP.md) - locate backwards the line which begins with the supplied string
+- [GET](GET.md) - insert into file the contents of specified file
+- [HELP](HELP.md) - edit help file for THE
+- [HIT](HIT.md) - simulate hitting of the named key
+- [INPUT](INPUT.md) - insert the command line contents into the file
+- [JOIN](JOIN.md) - join a line with the line following
+- [KEDIT](KEDIT.md) - edit another file or switch to next file
+- [LEFT](LEFT.md) - scroll the screen to the left
+- [LOCATE](LOCATE.md) - search for a target
+- [LOWERCASE](LOWERCASE.md) - change uppercase characters to lowercase
+- [LS](LS.md) - list the specified directory as an editable file
+- [MACRO](MACRO.md) - execute a macro command file
+- [MARK](MARK.md) - mark a portion of text
+- [MODIFY](MODIFY.md) - display current SET command for alteration
+- [MOVE](MOVE.md) - move a portion of text
+- [MSG](MSG.md) - display message on error line
+- [NEXT](NEXT.md) - move forward in the file a number of lines
+- [NEXTWINDOW](NEXTWINDOW.md) - switch focus of editing session to another file
+- [NFIND](NFIND.md) - locate forwards the line which does NOT begin with the supplied
+- [NFINDUP](NFINDUP.md) - locate backwards the line which does NOT begin with the
+- [NFUP](NFUP.md) - locate backwards the line which does NOT begin with the
+- [NOMSG](NOMSG.md) - execute a command suppressing any messages
+- [NOP](NOP.md) - no operation command
+- [OS](OS.md) - execute an operating system command
+- [OSNOWAIT](OSNOWAIT.md) - execute an operating system command - no prompt
+- [OSQUIET](OSQUIET.md) - execute an operating system command quietly
+- [OSREDIR](OSREDIR.md) - execute an operating system command and capture output
+- [OVERLAYBOX](OVERLAYBOX.md) - overlay marked block on current cursor position
+- [POPUP](POPUP.md) - display popup menu
+- [PRESERVE](PRESERVE.md) - save various editor settings
+- [PREVWINDOW](PREVWINDOW.md) - switch focus of editing session to another file
+- [PRINT](PRINT.md) - send text to default printer or print spooler
+- [PUT](PUT.md) - write part of a file to another
+- [PUTD](PUTD.md) - write part of a file to another and delete
+- [QQUIT](QQUIT.md) - exit from the current file without saving changes
+- [QUERY](QUERY.md) - display various option settings
+- [QUIT](QUIT.md) - exit from the current file if no changes made
+- [READV](READV.md) - read keystrokes and pass to macro
+- [RECORD](RECORD.md) - records all keystrokes into a macro file
+- [RECOVER](RECOVER.md) - recover changed or deleted lines
+- [REDIT](REDIT.md) - re-edit the current file
+- [REDRAW](REDRAW.md) - redraw the current screen
+- [REFRESH](REFRESH.md) - refresh the contents of the current screen
+- [REPEAT](REPEAT.md) - repeat the last command
+- [REPLACE](REPLACE.md) - replace the current line with supplied text
+- [RESET](RESET.md) - cancel the marked block or prefix commands or both
+- [RESTORE](RESTORE.md) - restore various editor settings
+- [REXX](REXX.md) - execute Rexx instructions
+- [RGTLEFT](RGTLEFT.md) - scroll the screen to the left or right
+- [RIGHT](RIGHT.md) - scroll the screen to the right
+- [SAVE](SAVE.md) - save changes to current file
+- [SCHANGE](SCHANGE.md) - selectively change strings
+- [SEARCH](SEARCH.md) - locate a string
+- [SET](SET.md) - execute various set commands
+- [SHIFT](SHIFT.md) - move text left or right
+- [SHOWKEY](SHOWKEY.md) - display current key value and command assignation
+- [SORT](SORT.md) - sort selected lines in a file
+- [SOS](SOS.md) - execute various sos commands
+- [SPLIT](SPLIT.md) - split a line into two lines
+- [SPLTJOIN](SPLTJOIN.md) - split/join two lines
+- [SSAVE](SSAVE.md) - force SAVE to specified file
+- [STATUS](STATUS.md) - display current settings of various variables
+- [SUSPEND](SUSPEND.md) - suspend THE and return to operating system
+- [TABFILE](TABFILE.md) - edit the file under the file tab or shift FILETABS view
+- [TAG](TAG.md) - displays lines matching target in different colour
+- [TEXT](TEXT.md) - simulate keyboard entry of characters
+- [THE](THE.md) - edit another file or switch to next file
+- [TOASCII](TOASCII.md) - convert the target from EBCDIC to ASCII
+- [TOP](TOP.md) - move to the top of the file
+- [UP](UP.md) - move backward in the file a number of lines
+- [UPPERCASE](UPPERCASE.md) - change lowercase characters to uppercase
+- [XEDIT](XEDIT.md) - edit another file or switch to next file
+- [?](QUESTION.md) - retrieve - return the next/prior command on the command line
+- [=](EQUALS.md) - re-execute the last command issued on the command line
+- [!](BANG.md) - execute an operating system command
+- [&](AMPERSAND.md) - execute and re-display command
+
+## SET COMMAND REFERENCE
+
+- [SET ALT](SET_ALT.md) - change alteration counts
+- [SET ARBCHAR](SET_ARBCHAR.md) - set arbitrary character(s) for targets
+- [SET AUTOCOLOR](SET_AUTOCOLOR.md) - specifies which parser to use for syntax highlighting
+- [SET AUTOCOLOUR](SET_AUTOCOLOUR.md) - specifies which parser to use for syntax
+- [SET AUTOSAVE](SET_AUTOSAVE.md) - set autosave period
+- [SET AUTOSCROLL](SET_AUTOSCROLL.md) - set rate of automatic horizontal scrolling
+- [SET BACKUP](SET_BACKUP.md) - indicate if a backup copy of the file is to be kept
+- [SET BEEP](SET_BEEP.md) - turn on or off the audible alarm when displaying errors
+- [SET BOUNDMARK](SET_BOUNDMARK.md) - set bounds marker display
+- [SET CASE](SET_CASE.md) - set case sensitivity parameters
+- [SET CLEARERRORKEY](SET_CLEARERRORKEY.md) - specify which key clears the message line
+- [SET CLEARSCREEN](SET_CLEARSCREEN.md) - indicate if the screen is to be cleared on exit
+- [SET CLOCK](SET_CLOCK.md) - turn on or off display of time on status line
+- [SET CMDARROWS](SET_CMDARROWS.md) - sets the behaviour of the up and down arrow keys
+- [SET CMDLINE](SET_CMDLINE.md) - sets the position of the command line.
+- [SET COLOR](SET_COLOR.md) - set colors for display
+- [SET COLOUR](SET_COLOUR.md) - set colours for display
+- [SET COLORING](SET_COLORING.md) - enable or disable syntax highlighting
+- [SET COLOURING](SET_COLOURING.md) - enable or disable syntax highlighting
+- [SET COMPAT](SET_COMPAT.md) - set compatibility mode
+- [SET CTLCHAR](SET_CTLCHAR.md) - define control character attributes
+- [SET CURLINE](SET_CURLINE.md) - set position of current line on screen
+- [SET CURSORSTAY](SET_CURSORSTAY.md) - set on or off the behaviour of the cursor on a scroll
+- [SET DEFSORT](SET_DEFSORT.md) - specify the order in which files appear in DIR.DIR
+- [SET DIRINCLUDE](SET_DIRINCLUDE.md) - set the file mask for directory command
+- [SET DISPLAY](SET_DISPLAY.md) - specify which level of lines to display
+- [SET ECOLOR](SET_ECOLOR.md) - set colors for syntax highlighting
+- [SET ECOLOUR](SET_ECOLOUR.md) - set colours for syntax highlighting
+- [SET EOLOUT](SET_EOLOUT.md) - set end of line terminating character(s)
+- [SET EQUIVCHAR](SET_EQUIVCHAR.md) - set the equivalence character
+- [SET ERRORFORMAT](SET_ERRORFORMAT.md) - set format of error messages
+- [SET ERROROUTPUT](SET_ERROROUTPUT.md) - indicate whether THE error messages are echoed
+- [SET ETMODE](SET_ETMODE.md) - indicate if extended display mode is possible
+- [SET FILE DISPLAY NAME](SET_FILE_DISPLAY_NAME.md) - change the display filename of the file being
+- [SET FEXT](SET_FEXT.md) - change the extension of the existing file
+- [SET FILENAME](SET_FILENAME.md) - change the filename of the file being edited
+- [SET FILETABS](SET_FILETABS.md) - determine if and where where file tabs are positioned
+- [SET FMODE](SET_FMODE.md) - change the drive letter of the existing file
+- [SET FNAME](SET_FNAME.md) - change the filename of the file being edited
+- [SET FPATH](SET_FPATH.md) - change the path of the existing file
+- [SET FTYPE](SET_FTYPE.md) - change the extension of the existing file
+- [SET FULLFNAME](SET_FULLFNAME.md) - specify if complete filename to be displayed
+- [SET HEADER](SET_HEADER.md) - turn on or off syntax highlighting headers
+- [SET HEX](SET_HEX.md) - set how hexadecimal strings are treated in string operands
+- [SET HEXDISPLAY](SET_HEXDISPLAY.md) - turn on or off display of character under cursor
+- [SET HEXSHOW](SET_HEXSHOW.md) - turn on or off hex display of current line
+- [SET HIGHLIGHT](SET_HIGHLIGHT.md) - specify which lines (if any) are to be highlighted
+- [SET IDLINE](SET_IDLINE.md) - specify if IDLINE is displayed
+- [SET IMPCMSCP](SET_IMPCMSCP.md) - set implied operating system command processing
+- [SET IMPMACRO](SET_IMPMACRO.md) - set implied macro command processing
+- [SET IMPOS](SET_IMPOS.md) - set implied operating system command processing
+- [SET INPUTMODE](SET_INPUTMODE.md) - set input mode behaviour
+- [SET INSERTMODE](SET_INSERTMODE.md) - put editor into or out of insert mode
+- [SET INTERFACE](SET_INTERFACE.md) - set overall behaviour of THE
+- [SET LASTOP](SET_LASTOP.md) - set the contents of the lastop argument
+- [SET LINEFLAG](SET_LINEFLAG.md) - set the line characteristics of lines
+- [SET LINEND](SET_LINEND.md) - allow/disallow multiple commands on command line
+- [SET MACRO](SET_MACRO.md) - indicate if macros executed before commands
+- [SET MACROEXT](SET_MACROEXT.md) - set default macro extension value
+- [SET MACROPATH](SET_MACROPATH.md) - set default path for macro commands
+- [SET MARGINS](SET_MARGINS.md) - set left and right margins for wordwrap
+- [SET MOUSE](SET_MOUSE.md) - turn mouse support on or off
+- [SET MOUSECLICK](SET_MOUSECLICK.md) - set interval for mouse click events
+- [SET MSGLINE](SET_MSGLINE.md) - set position and size of message line
+- [SET MSGMODE](SET_MSGMODE.md) - set display of messages on or off
+- [SET NEWLINES](SET_NEWLINES.md) - set position of cursor after adding blank line
+- [SET NONDISP](SET_NONDISP.md) - specify character to display for non-displaying
+- [SET NUMBER](SET_NUMBER.md) - turn prefix numbers on or off
+- [SET PAGEWRAP](SET_PAGEWRAP.md) - determine if page scrolling wraps at bottom/top of file
+- [SET PARSER](SET_PARSER.md) - associates a language definition file with a parser
+- [SET PENDING](SET_PENDING.md) - set status of pending prefix commands
+- [SET POINT](SET_POINT.md) - assign a name to the current line
+- [SET POSITION](SET_POSITION.md) - determine if LINE/COL is displayed on idline
+- [SET PREFIX](SET_PREFIX.md) - set prefix area attributes
+- [SET PRINTER](SET_PRINTER.md) - define printer spooler name
+- [SET PSCREEN](SET_PSCREEN.md) - set physical size of screen
+- [SET READONLY](SET_READONLY.md) - allow/disallow changes to a file if it is readonly
+- [SET REGEXP](SET_REGEXP.md) - specify the regular expression syntax to use
+- [SET REPROFILE](SET_REPROFILE.md) - indicate if profile file to be executed for all files
+- [SET RESERVED](SET_RESERVED.md) - display a reserved line
+- [SET REXXHALT](SET_REXXHALT.md) - halt Rexx macro after specified number of events
+- [SET REXXOUTPUT](SET_REXXOUTPUT.md) - indicate where Rexx output is to go
+- [SET SCALE](SET_SCALE.md) - set position and status of scale line on screen
+- [SET SCOPE](SET_SCOPE.md) - sets which lines are to be excluded from commands
+- [SET SCREEN](SET_SCREEN.md) - specify number of screens displayed
+- [SET SELECT](SET_SELECT.md) - sets the selection level for the specified lines
+- [SET SHADOW](SET_SHADOW.md) - determines if shadow lines are displayed or not
+- [SET SLK](SET_SLK.md) - set Soft Label Key definitions
+- [SET SPAN](SET_SPAN.md) - specify if a string target can span multiple lines
+- [SET SPILL](SET_SPILL.md) - specify if a string target can span multiple lines
+- [SET STATOPT](SET_STATOPT.md) - set display options on statusline
+- [SET STATUSLINE](SET_STATUSLINE.md) - set position of status line
+- [SET STAY](SET_STAY.md) - set condition of cursor position after CHANGE/LOCATE
+- [SET SYNONYM](SET_SYNONYM.md) - define synonyms for commands (unavailable)
+- [SET TABKEY](SET_TABKEY.md) - set characteristics of the SOS TABF command
+- [SET TABLINE](SET_TABLINE.md) - set position and status of tab line on screen
+- [SET TABS](SET_TABS.md) - set tab columns or tab length
+- [SET TABSIN](SET_TABSIN.md) - set tab processing on file input
+- [SET TABSOUT](SET_TABSOUT.md) - set tab processing on file output
+- [SET TARGETSAVE](SET_TARGETSAVE.md) - set type(s) of targets to save for subsequent
+- [SET THIGHLIGHT](SET_THIGHLIGHT.md) - specify if text highlighting is supported
+- [SET TIMECHECK](SET_TIMECHECK.md) - specify if time stamp checking done
+- [SET TOFEOF](SET_TOFEOF.md) - specify if TOF and BOF lines are displayed
+- [SET TRAILING](SET_TRAILING.md) - specify how to treat trailing blanks on lines
+- [SET TRUNC](SET_TRUNC.md) - specify the truncation column
+- [SET TYPEAHEAD](SET_TYPEAHEAD.md) - set behaviour of screen redraw
+- [SET UNDOING](SET_UNDOING.md) - turn on or off undo facility for the current file
+- [SET UNTAA](SET_UNTAA.md) - specifies if "Unsigned Numerical Targets Are Absolute"
+- [SET VERIFY](SET_VERIFY.md) - set column display limits
+- [SET WIDTH](SET_WIDTH.md) - set width of maximum line that THE can edit
+- [SET WORD](SET_WORD.md) - controls what THE considers a word to be
+- [SET WORDWRAP](SET_WORDWRAP.md) - set wordwrap feature on or off
+- [SET WRAP](SET_WRAP.md) - enable/disable string locates around the end of the file
+- [SET XTERMINAL](SET_XTERMINAL.md) - set X terminal to execute under X
+- [SET ZONE](SET_ZONE.md) - set column limits for editing
+
+## SOS COMMAND REFERENCE
+
+- [SOS ADDLINE](SOS_ADDLINE.md) - add blank line after focus line
+- [SOS BLOCKEND](SOS_BLOCKEND.md) - move cursor to end of marked block
+- [SOS BLOCKSTART](SOS_BLOCKSTART.md) - move cursor to start of marked block
+- [SOS BOTTOMEDGE](SOS_BOTTOMEDGE.md) - move cursor to bottom edge of FILEAREA
+- [SOS CUADELBACK](SOS_CUADELBACK.md) - delete the character to the left of the cursor
+- [SOS CUADELCHAR](SOS_CUADELCHAR.md) - delete character under cursor
+- [SOS CURRENT](SOS_CURRENT.md) - move cursor to current line
+- [SOS CURSORADJ](SOS_CURSORADJ.md) - move first non-blank character to cursor
+- [SOS CURSORSHIFT](SOS_CURSORSHIFT.md) - move text to right of cursor to cursor
+- [SOS DELBACK](SOS_DELBACK.md) - delete the character to the left of the cursor
+- [SOS DELCHAR](SOS_DELCHAR.md) - delete character under cursor
+- [SOS DELEND](SOS_DELEND.md) - delete to end of line
+- [SOS DELLINE](SOS_DELLINE.md) - delete focus line
+- [SOS DELWORD](SOS_DELWORD.md) - delete word at or right of cursor
+- [SOS DOPREFIX](SOS_DOPREFIX.md) - execute any pending prefix commands
+- [SOS EDIT](SOS_EDIT.md) - edit a file from directory list
+- [SOS ENDCHAR](SOS_ENDCHAR.md) - move cursor to end of focus line
+- [SOS EXECUTE](SOS_EXECUTE.md) - move cursor to command line and execute command
+- [SOS FIRSTCHAR](SOS_FIRSTCHAR.md) - move cursor to first non-blank of field
+- [SOS FIRSTCOL](SOS_FIRSTCOL.md) - move cursor to first column of field
+- [SOS INSTAB](SOS_INSTAB.md) - shift text to next tab column
+- [SOS LASTCOL](SOS_LASTCOL.md) - move cursor to last column of field
+- [SOS LEFTEDGE](SOS_LEFTEDGE.md) - move cursor to left edge of window
+- [SOS LINEADD](SOS_LINEADD.md) - add blank line after focus line
+- [SOS LINEDEL](SOS_LINEDEL.md) - delete focus line
+- [SOS MAKECURR](SOS_MAKECURR.md) - make focus line the current line
+- [SOS MARGINL](SOS_MARGINL.md) - move cursor to the left margin column
+- [SOS MARGINR](SOS_MARGINR.md) - move cursor to the right margin column
+- [SOS PARINDENT](SOS_PARINDENT.md) - move cursor to the paragraph indent column
+- [SOS PASTECMDLINE](SOS_PASTECMDLINE.md) - copy contents of marked block to command line
+- [SOS PREFIX](SOS_PREFIX.md) - move cursor to leftmost edge of prefix area
+- [SOS QCMND](SOS_QCMND.md) - move cursor to command line and clear
+- [SOS RIGHTEDGE](SOS_RIGHTEDGE.md) - move cursor to right edge of window
+- [SOS SETTAB](SOS_SETTAB.md) - set a tab column at the cursor position
+- [SOS STARTENDCHAR](SOS_STARTENDCHAR.md) - move cursor to end/start of focus line
+- [SOS TABB](SOS_TABB.md) - move cursor to previous tab stop
+- [SOS TABF](SOS_TABF.md) - move cursor to next tab stop
+- [SOS TABFIELDB](SOS_TABFIELDB.md) - move cursor to previous enterable field
+- [SOS TABFIELDF](SOS_TABFIELDF.md) - move cursor to next enterable field
+- [SOS TABWORDB](SOS_TABWORDB.md) - move cursor to beginning of previous word
+- [SOS TABWORDF](SOS_TABWORDF.md) - move cursor to start of next word
+- [SOS TOPEDGE](SOS_TOPEDGE.md) - move cursor to top edge of filearea
+- [SOS UNDO](SOS_UNDO.md) - undo changes to the current line
