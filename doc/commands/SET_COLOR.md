@@ -11,6 +11,7 @@
 
 ## Description
 The SET COLOR command changes the colors or display attributes of various display areas in THE.
+
 Valid values for area :
 - ALERT - alert boxes; see ALERT
 - Arrow - command line prompt
@@ -56,8 +57,9 @@ Valid values for area :
 - POPUPBORDER - border for a popup
 - POPUPCURLINE - the highlighted line in a popup
 - POPUPDIVIDER - dividing line in a popup
-- * - All areas (second format only)
-Valid values for foreground , background and color :
+- \* - All areas (second format only)
+
+Valid values for foreground, background and color :
 - BLAck
 - BLUe
 - Brown
@@ -71,7 +73,8 @@ Valid values for foreground , background and color :
 - Turquoise
 - Yellow
 - White
-Valid values for modifier :
+
+- Valid values for modifier :
 - NORmal
 - BLInk
 - BOld
@@ -82,7 +85,8 @@ Valid values for modifier :
 - DARK
 - Italic - only available on X11 port with valid Italic font, on
 Windows with "GUI" PDcurses, and the SDL2 port.
-The second format of this command allows the user to turn on or off any of the valid modifiers.
+
+- The second format of this command allows the user to turn on or off any of the valid modifiers.
 
 The third format of this command allows the user to change the intensity of specified colors on
 platforms that support changing the content of a color (X11, SDL2, Windows GUI). The specified
@@ -93,6 +97,7 @@ consistent across platforms, and should be considered experimental at this stage
 The fourth format of this command allows the BOLD modifier to be displayed as an actual bold font,
 or as a brighter colour than the normal, non-bold colour. This format is only supported on platforms
 that support different fonts. (SDL2)
+
 It is an error to attempt to set a colour on a mono display.
 
 ## Compatibility
