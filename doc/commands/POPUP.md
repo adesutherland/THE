@@ -35,7 +35,7 @@ KEYS specifies a list of keynames that can be used to exit from the popup with a
 keynames that are valid with the DEFINE command are allowed. A maximum of 20 keynames can be
 specified.
 On return from the popup menu, the following Rexx variables are set:
-popup.0 = 4
+- popup.0 = 4
 popup.1 = Item selected or empty string if no item selected.
 popup.2 = Item number selected or zero if no item selected.
 popup.3 = Item number on which the cursor was last positioned.
@@ -46,10 +46,10 @@ or on the border of the window.
 Keyboard keys that take effect in the POPUP command are CURU, CURD, CURL, CURR, PGUP,
 PGDN and ENTER.
 The colours used for the popup are:
-Border - SET COLOR POPUPBORDER
-Non-current line - SET COLOR POPUP
-Current line - SET COLOR POPUPCURLINE
-Divider line - SET COLOR POPUPDIVIDER
+- Border - SET COLOR POPUPBORDER
+- Non-current line - SET COLOR POPUP
+- Current line - SET COLOR POPUPCURLINE
+- Divider line - SET COLOR POPUPDIVIDER
 
 ## Compatibility
 XEDIT: N/A

@@ -1,5 +1,5 @@
 # ?
-**retrieve - return the next/prior command on the command line**
+- **retrieve - return the next/prior command on the command line**
 
 ## Syntax
 ```text

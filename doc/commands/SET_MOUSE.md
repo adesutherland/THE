@@ -17,7 +17,7 @@ XEDIT: N/A
 KEDIT: Compatible. Does not support all options.
 
 ## Default
-ON - if mouse supported, OFF - otherwise
+- ON - if mouse supported, OFF - otherwise
 
 ## See Also
 DEFINE

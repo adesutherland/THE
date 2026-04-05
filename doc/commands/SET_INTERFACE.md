@@ -20,7 +20,7 @@ mechanism for changing the behaviour. The behaviour that SET INTERFACE affects:
 - entering text in the filearea with a marked CUA block will
 first delete the block and reposition the cursor
 - executing SOS DELCHAR or SOS DELBACK will delete the
-marked CUA block
+- marked CUA block
 - executing any positioning command, such as CURSOR DOWN,
 FORWARD or CURSOR MOUSE, will unmark the CUA block
 

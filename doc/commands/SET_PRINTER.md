@@ -23,7 +23,7 @@ XEDIT: N/A
 KEDIT: Compatible. THE adds more functionality.
 
 ## Default
-LPT1 - DOS/OS2, lpr - Unix, default - Win32
+- LPT1 - DOS/OS2, lpr - Unix, default - Win32
 
 ## See Also
 PRINT

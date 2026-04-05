@@ -11,14 +11,14 @@
 The SET MSGLINE set command specifies the position of the message line and the size of the
 message line window.
 The first form of positional parameters is:
-M[+n|-n]
+- M[+n|-n]
 this sets the first line to be relative to the middle of
 the screen. A positive value adds to the middle line number,
 a negative subtracts from it.
 e.g. M+3 on a 24 line screen will be line 15
 M-5 on a 24 line screen will be line 7
 The second form of positional parameters is:
-[+|-]n
+- [+|-]n
 
 this sets the first line to be relative to the top of the
 screen (if positive or no sign) or relative to the bottom

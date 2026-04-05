@@ -25,7 +25,7 @@ XEDIT: N/A
 KEDIT: N/A
 
 ## Default
-ON - if support for Soft Label Keys is available
+- ON - if support for Soft Label Keys is available
 
 ## See Also
 SET COLOUR

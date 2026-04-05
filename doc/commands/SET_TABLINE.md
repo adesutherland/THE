@@ -9,14 +9,14 @@
 ## Description
 The SET TABLINE command sets the position and status of the tab line for the current view.
 The first form of parameters is:
-M[+n|-n]
+- M[+n|-n]
 this sets the tab line to be relative to the middle of
 the screen. A positive value adds to the middle line number,
 a negative subtracts from it.
 e.g. M+3 on a 24 line screen will be line 15
 M-5 on a 24 line screen will be line 7
 The second form of parameters is:
-[+|-]n
+- [+|-]n
 this sets the tab line to be relative to the top of the
 screen (if positive or no sign) or relative to the bottom
 of the screen if negative.

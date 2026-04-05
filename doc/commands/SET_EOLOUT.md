@@ -17,9 +17,9 @@ XEDIT: N/A
 KEDIT: N/A
 
 ## Default
-LF - UNIX
-CRLF - DOS/OS2/WIN32
-NONE - if THE started with -u option
+- LF - UNIX
+- CRLF - DOS/OS2/WIN32
+- NONE - if THE started with -u option
 
 ## Status
 Complete.

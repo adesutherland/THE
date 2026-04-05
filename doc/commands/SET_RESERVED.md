@@ -30,7 +30,7 @@ will be the colour set by any SET COLOUR RESERVED command for the view or white 
 default.
 The text of reserved lines can also included embedded control characters to control the colour of
 portions of the text. Assume the following SET CTLCHAR commands have been issued:
-SET CTLCHAR ! ESCAPE
+- SET CTLCHAR ! ESCAPE
 SET CTLCHAR @ PROTECT BOLD RED ON WHITE
 SET CTLCHAR % PROTECT GREEN ON BLACK
 Then to display a reserved line using the specified colours:

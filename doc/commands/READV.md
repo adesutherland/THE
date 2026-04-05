@@ -13,13 +13,13 @@ keystrokes ( KEY ) or a complete line of text ( Cmdline ).
 The READV Cmdline can take optional initial text to be displayed on the command line.
 The 'macro' obtains the entered information by setting Rexx variables. These are set as follows.
 KEY option:
-readv.0 = 4
+- readv.0 = 4
 readv.1 = name of key (empty if unknown)
 readv.2 = ASCII value of key (null if not an ASCII code)
 readv.3 = curses key value (or ASCII code if an ASCII code)
 readv.4 = shift status (see below)
 CMDLINE option:
-readv.0 = 1
+- readv.0 = 1
 readv.1 = contents of command line
 
 While editing the command in READV Cmdline , any key redefinitions you have made will be in
