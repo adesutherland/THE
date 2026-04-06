@@ -192,7 +192,10 @@ void display_prompt (CHARTYPE *);
 int expose_msgline (void);
                                                              /* file.c */
 short get_file (CHARTYPE *);
-LINE *read_file (FILE *,LINE *,CHARTYPE *,LINETYPE,LINETYPE,bool);
+#ifdef USE_SDSLH
+void sdslh_init_file(FILE_DETAILS *);
+#endif
+LINE *read_file ( FILE *, LINE *, CHARTYPE *, LINETYPE, LINETYPE, bool );
 LINE *read_fixed_file (FILE *,LINE *,CHARTYPE *,LINETYPE,LINETYPE);
 short save_file (FILE_DETAILS *,CHARTYPE *,bool,LINETYPE,LINETYPE,LINETYPE *,bool,LENGTHTYPE,LENGTHTYPE,bool,bool,bool);
 void increment_alt (FILE_DETAILS *);
@@ -660,6 +663,7 @@ short Save (CHARTYPE *);
 short Scope (CHARTYPE *);
 short Scale (CHARTYPE *);
 short THESearch (CHARTYPE *);
+short Sdslh (CHARTYPE *);
 short Select (CHARTYPE *);
 short Set (CHARTYPE *);
 short Schange (CHARTYPE *);

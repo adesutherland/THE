@@ -34,12 +34,10 @@ $Id: the.h,v 1.97 2022/12/27 02:43:49 mark Exp $
 */
 
 #include "thedefs.h"
-
 #ifdef USE_SDSLH
 #include "dslsyntax_common.h"
 #include "dslsyntax_editor.h"
 #include "serialization.h"
-extern CommunicationFunctions *sdslh_comm;
 void sdslh_update_current_line(unsigned short y);
 #endif
 /*
@@ -1393,6 +1391,13 @@ struct parser_details
     */
    bool have_executable;
    CHARTYPE executable_option_alternate;
+#ifdef USE_SDSLH
+   /*
+    * SDSLH features
+    */
+   bool is_sdslh_parser;
+   CHARTYPE sdslh_path[MAX_FILE_NAME+1];
+#endif
 };
 typedef struct parser_details PARSER_DETAILS;
 
@@ -1513,6 +1518,7 @@ typedef struct
    int readonly;                 /* have we set the file to be readonly */
 #ifdef USE_SDSLH
    CodeBuffer *cb;               /* DSL Syntax Highlighter buffer */
+   CommunicationFunctions *sdslh_comm; /* Parser communication process */
 #endif
 } FILE_DETAILS;
 

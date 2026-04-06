@@ -39,7 +39,6 @@
 #include <time.h>
 
 #ifdef USE_SDSLH
-CommunicationFunctions *sdslh_comm = NULL;
 #endif
 
 #include "mygetopt.h"
@@ -343,14 +342,6 @@ int main(int argc, char *argv[])
    
 #ifdef USE_SDSLH
    editor_init();
-   char *parser_path = getenv("SDSLH_PARSER");
-   if (!parser_path) {
-       parser_path = "tp";
-   }
-   sdslh_comm = create_stdio_communication_functions(parser_path);
-   if (!sdslh_comm) {
-       fprintf(stderr, "Failed to initialize SDSLH communication via STDIO\n");
-   }
 #endif
 
    /*
@@ -1705,16 +1696,21 @@ void cleanup(void)
    TRACE_FUNCTION("the.c:     cleanup");
 
 #ifdef USE_SDSLH
-   if (sdslh_comm && CURRENT_FILE && CURRENT_FILE->cb) {
-
-       process_delta(CURRENT_FILE->cb);
-       /* Wait briefly to allow the detached process_delta thread to send its message before we exit. */
-#ifdef WIN32
-       Sleep(1000);
-#else
-       sleep(1);
-#endif
+   VIEW_DETAILS *vd;
+   for (vd = vd_first; vd != NULL; vd = vd->next) {
+       if (vd->file_for_view && vd->file_for_view->sdslh_comm && vd->file_for_view->cb) {
+           process_delta(vd->file_for_view->cb);
+           // Nullify so we don't process the same file multiple times if there are multiple views
+           vd->file_for_view->sdslh_comm = NULL; 
+       }
    }
+   /* Wait briefly to allow the detached process_delta thread to send its message before we exit. */
+#ifdef WIN32
+   Sleep(1000);
+#else
+   sleep(1);
+#endif
+   editor_free();
 #endif
 
    if (curses_started)

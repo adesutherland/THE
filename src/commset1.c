@@ -2007,6 +2007,9 @@ short Colouring(CHARTYPE *params)
    }
    CURRENT_FILE->parser = new_parser;
    CURRENT_FILE->colouring = new_colouring;
+#ifdef USE_SDSLH
+   sdslh_init_file(CURRENT_FILE);
+#endif
    /*
     * If all is OK, redisplay the screen to get the new colouring
     */

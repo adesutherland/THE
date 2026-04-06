@@ -974,6 +974,7 @@ void show_statarea(void)
     * Refresh the STATUS LINE.
     */
    int stat_attr = ATTR_STATAREA;
+#ifdef USE_SDSLH
    if (current_parser_severity == CB_ERROR) {
        stat_attr = ATTR_PMSGERROR;
    } else if (current_parser_severity == CB_WARNING) {
@@ -981,6 +982,7 @@ void show_statarea(void)
    } else if (current_parser_severity == CB_INFORMATION) {
        stat_attr = ATTR_PMSGINFO;
    }
+#endif
 
    INIT_LINE_OUTPUT( statarea, 0 );
    ADD_LINE_OUTPUT( linebuf, strlen( (DEFCHAR*)linebuf ), set_colour( CURRENT_FILE->attr+stat_attr) );
@@ -1012,6 +1014,7 @@ void clear_statarea(void)
       case 'B':
          {
              int stat_attr = ATTR_STATAREA;
+#ifdef USE_SDSLH
              if (current_parser_severity == CB_ERROR) {
                  stat_attr = ATTR_PMSGERROR;
              } else if (current_parser_severity == CB_WARNING) {
@@ -1019,6 +1022,7 @@ void clear_statarea(void)
              } else if (current_parser_severity == CB_INFORMATION) {
                  stat_attr = ATTR_PMSGINFO;
              }
+#endif
              INIT_LINE_OUTPUT( statarea, 0 );
              FILL_LINE_OUTPUT(' ', COLS,
                               (CURRENT_VIEW == NULL || CURRENT_FILE == NULL) ? A_NORMAL :
@@ -2280,6 +2284,7 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                               break;
                       }
                       
+#ifdef USE_SDSLH
                       if (severity == CB_ERROR) {
                           current_colour = set_colour(SCREEN_FILE(scrno)->attr+ATTR_CBERROR);
                       } else if (severity == CB_WARNING) {
@@ -2287,6 +2292,7 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                       } else if (severity == CB_INFORMATION) {
                           current_colour = set_colour(SCREEN_FILE(scrno)->attr+ATTR_CBINFO);
                       }
+#endif
                       
                       scurr->highlight_type[i] = the_type;
                       if (i >= vcol && i - vcol < THE_MAX_SCREEN_WIDTH) {
@@ -3658,6 +3664,7 @@ short advance_view(VIEW_DETAILS *next_view,short direction)
       if (statarea != NULL)
       {
          int stat_attr = ATTR_STATAREA;
+#ifdef USE_SDSLH
          if (current_parser_severity == CB_ERROR) {
              stat_attr = ATTR_PMSGERROR;
          } else if (current_parser_severity == CB_WARNING) {
@@ -3665,6 +3672,7 @@ short advance_view(VIEW_DETAILS *next_view,short direction)
          } else if (current_parser_severity == CB_INFORMATION) {
              stat_attr = ATTR_PMSGINFO;
          }
+#endif
          wattrset(statarea,set_colour(CURRENT_FILE->attr+stat_attr));
          redraw_window(statarea);
          touchwin(statarea);

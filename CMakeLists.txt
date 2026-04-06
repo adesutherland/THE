@@ -11,7 +11,7 @@ option(USE_SDLCURSES "Build with SDL Curses" OFF)
 option(USE_VTCURSES "Build with VT Curses" OFF)
 option(USE_WIDE_CHAR "Enable wide character support" OFF)
 option(USE_UTF8 "Enable UTF-8 support" OFF)
-option(USE_SDSLH "Build with DSL Syntax Highlighter support" OFF)
+option(USE_SDSLH "Build with DSL Syntax Highlighter support" ON)
 
 # Determine basic curses type based on options
 if(USE_XCURSES)
@@ -161,11 +161,11 @@ if(USE_SDSLH)
     add_compile_definitions(USE_SDSLH=1)
     
     # Try finding in the sibling directory first
-    set(SDSLH_LOCAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../DSL-Syntax-Highlighter/codebuffer")
+    set(SDSLH_LOCAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../DSL-Syntax-Highlighter")
     if(EXISTS "${SDSLH_LOCAL_DIR}/CMakeLists.txt")
         message(STATUS "Found local DSL-Syntax-Highlighter at ${SDSLH_LOCAL_DIR}")
         add_subdirectory("${SDSLH_LOCAL_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/sdslh" EXCLUDE_FROM_ALL)
-        set(SDSLH_INCLUDE_DIR "${SDSLH_LOCAL_DIR}")
+        set(SDSLH_INCLUDE_DIR "${SDSLH_LOCAL_DIR}/codebuffer")
         set(SDSLH_LIBRARY dslsyntax_editor)
     else()
         message(STATUS "Local DSL-Syntax-Highlighter not found, fetching from GitHub...")
@@ -267,3 +267,7 @@ add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
 install(TARGETS ${EXECUTABLE_NAME} DESTINATION bin)
 install(FILES doc/THE_Help.txt profile.the DESTINATION share/the)
 install(DIRECTORY syntax/ DESTINATION share/the/syntax)
+
+# --- Automated Testing ---
+enable_testing()
+add_test(NAME integration_test COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/integration_test.sh)

@@ -2287,6 +2287,77 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
+short Sdslh(CHARTYPE *params)
+/***********************************************************************/
+{
+#define SDSLH_PARAMS 2
+   CHARTYPE *word[SDSLH_PARAMS+1];
+   CHARTYPE strip[SDSLH_PARAMS];
+   unsigned short num_params=0;
+   PARSER_DETAILS *curr=NULL,*old_parser=NULL;
+   PARSER_MAPPING *curr_mapping=first_parser_mapping;
+   VIEW_DETAILS *curr_vd=vd_first;
+
+   TRACE_FUNCTION("commset2.c:Sdslh");
+   
+#ifndef USE_SDSLH
+   display_error(0,(CHARTYPE *)"SDSLH support not compiled in",FALSE);
+   TRACE_RETURN();
+   return(RC_INVALID_OPERAND);
+#else
+   /*
+    * Validate parameters.
+    */
+   strip[0]=STRIP_BOTH;
+   strip[1]=STRIP_BOTH;
+   num_params = param_split(params,word,SDSLH_PARAMS,WORD_DELIMS,TEMP_PARAM,strip,FALSE);
+   /*
+    * If no arguments, error.
+    */
+   if (num_params < 2)
+   {
+      display_error(3,(CHARTYPE *)"",FALSE);
+      TRACE_RETURN();
+      return(RC_INVALID_OPERAND);
+   }
+
+   /* Check if a parser with this name already exists */
+   old_parser = parserll_find(first_parser,word[0]);
+
+   /* Add new parser */
+   curr = parserll_add(first_parser,last_parser, sizeof(PARSER_DETAILS));
+   if (first_parser == NULL)
+      first_parser = curr;
+   last_parser = curr;
+
+   strcpy((DEFCHAR *)curr->parser_name,(DEFCHAR *)word[0]);
+   strcpy((DEFCHAR *)curr->sdslh_path,(DEFCHAR *)word[1]);
+   curr->is_sdslh_parser = TRUE;
+
+   if (old_parser)
+   {
+      while (curr_vd != (VIEW_DETAILS *)NULL)
+      {
+         if (curr_vd->file_for_view->parser == old_parser)
+         {
+            curr_vd->file_for_view->parser = curr;
+         }
+         curr_vd = curr_vd->next;
+      }
+      for(;curr_mapping!=NULL;curr_mapping=curr_mapping->next)
+      {
+         if (curr_mapping->parser == old_parser)
+            curr_mapping->parser = curr;
+      }
+      destroy_parser(old_parser);
+      parserll_del(&first_parser,&last_parser,old_parser,DIRECTION_FORWARD);
+   }
+
+   TRACE_RETURN();
+   return(RC_OK);
+#endif
+}
+
 short Select(CHARTYPE *params)
 /***********************************************************************/
 {

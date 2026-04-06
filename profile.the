@@ -10,6 +10,11 @@
 'define s-tab cursor home save'
 'define backspace sos delback'
 
+/* Load Parser */
+'SET SDSLH tp /usr/local/bin/tp'
+'SET AUTOCOLOR *.toy tp'
+'SET COLORING ON AUTO'
+
 /* Configure a modern dark view (CMS XEDIT inspired) */
 'set color gap green on black'
 'set color cgap green on black'

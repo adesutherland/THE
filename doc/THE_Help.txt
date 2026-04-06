@@ -587,6 +587,9 @@
  [SET] SCReen Width c1|* [c2|*]
        specify number of screens displayed and their sizes
        Default: 1
+ [SET] SDSLH parser executable_path
+       registers an external SDSLH parser
+       Default: N/A
  [SET] SELect [+|-]n [target]
        sets the selection level for the specified lines
        Default: 0

@@ -690,32 +690,7 @@ short get_file(CHARTYPE *filename)
       find_auto_parser(CURRENT_FILE);
       
 #ifdef USE_SDSLH
-   if (sdslh_comm && CURRENT_FILE->cb == NULL) {
-      char *full_text = NULL;
-      size_t total_len = 0;
-      LINE *lcurr = CURRENT_FILE->first_line->next;
-      while (lcurr->next != NULL) {
-         total_len += lcurr->length + 1;
-         lcurr = lcurr->next;
-      }
-      full_text = (*the_malloc)(total_len + 1);
-      if (full_text) {
-         full_text[0] = '\0';
-         char *p = full_text;
-         lcurr = CURRENT_FILE->first_line->next;
-         while (lcurr->next != NULL) {
-            memcpy(p, lcurr->line, lcurr->length);
-            p += lcurr->length;
-            *p++ = '\n';
-            lcurr = lcurr->next;
-         }
-         *p = '\0';
-         CURRENT_FILE->cb = create_code_buffer(sdslh_comm, NULL);
-         InitialLoad *initial = create_initial_load((char *)CURRENT_FILE->fname, full_text);
-         load_initial_content(CURRENT_FILE->cb, initial);
-         (*the_free)(full_text);
-      }
-   }
+   sdslh_init_file(CURRENT_FILE);
 #endif
 
    TRACE_RETURN();
@@ -1983,6 +1958,21 @@ short free_file_memory(bool free_file_lines)
       (*the_free)(CURRENT_FILE->preserved_file_details);
       CURRENT_FILE->preserved_file_details = NULL;
    }
+
+#ifdef USE_SDSLH
+   if (CURRENT_FILE->sdslh_comm && CURRENT_FILE->cb) {
+       process_delta(CURRENT_FILE->cb);
+       // Wait briefly for the delta thread to send the message
+#ifdef WIN32
+       Sleep(100);
+#else
+       usleep(100000);
+#endif
+       // Clean up in full implementation.
+       CURRENT_FILE->sdslh_comm = NULL;
+   }
+#endif
+
    /*
     * Free the FILE_DETAILS structure...
     */
@@ -2378,3 +2368,39 @@ CHARTYPE *read_file_into_memory(CHARTYPE *filename,int *buffer_size)
    TRACE_RETURN();
    return(buffer);
 }
+
+#ifdef USE_SDSLH
+void sdslh_init_file(FILE_DETAILS *fd) {
+   if (fd->parser && fd->parser->is_sdslh_parser && fd->cb == NULL) {
+      if (fd->sdslh_comm == NULL) {
+          fd->sdslh_comm = create_stdio_communication_functions((char *)fd->parser->sdslh_path);
+      }
+      if (fd->sdslh_comm) {
+         char *full_text = NULL;
+         size_t total_len = 0;
+         LINE *lcurr = fd->first_line->next;
+         while (lcurr->next != NULL) {
+            total_len += lcurr->length + 1;
+            lcurr = lcurr->next;
+         }
+         full_text = (*the_malloc)(total_len + 1);
+         if (full_text) {
+            full_text[0] = '\0';
+            char *p = full_text;
+            lcurr = fd->first_line->next;
+            while (lcurr->next != NULL) {
+               if (lcurr->length > 0) memcpy(p, lcurr->line, lcurr->length);
+               p += lcurr->length;
+               *p++ = '\n';
+               lcurr = lcurr->next;
+            }
+            *p = '\0';
+            fd->cb = create_code_buffer(fd->sdslh_comm, NULL);
+            InitialLoad *initial = create_initial_load((char *)fd->fname, full_text);
+            load_initial_content(fd->cb, initial);
+            (*the_free)(full_text);
+         }
+      }
+   }
+}
+#endif

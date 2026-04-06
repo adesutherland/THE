@@ -81,7 +81,7 @@ void editor(void)
          break;
 
 #ifdef USE_SDSLH
-      if (sdslh_comm && CURRENT_FILE && CURRENT_FILE->cb) {
+      if (CURRENT_FILE && CURRENT_FILE->sdslh_comm && CURRENT_FILE->cb) {
          process_delta(CURRENT_FILE->cb);
       }
 #endif
@@ -120,7 +120,7 @@ int process_key(int key, bool mouse_details_present)
    if (key == (-1))
    {
 #ifdef USE_SDSLH
-      if (sdslh_comm && CURRENT_FILE && CURRENT_FILE->cb && editor_is_parsing_thread_active()) {
+      if (CURRENT_FILE && CURRENT_FILE->sdslh_comm && CURRENT_FILE->cb && editor_is_parsing_thread_active()) {
          for (;;) {
              if (check_parse_complete_event() == 1) {
                  reset_parse_complete_event();
@@ -134,7 +134,7 @@ int process_key(int key, bool mouse_details_present)
              napms(10);
          }
       } else {
-         if (sdslh_comm && check_parse_complete_event() == 1) {
+         if (CURRENT_FILE && CURRENT_FILE->sdslh_comm && check_parse_complete_event() == 1) {
              reset_parse_complete_event();
              key = -2; /* THE_KEY_PARSE_COMPLETE */
          } else {

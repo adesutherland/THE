@@ -1169,7 +1169,7 @@ CHARTYPE *strtrans( CHARTYPE *str, CHARTYPE oldch, CHARTYPE newch )
 
    #ifdef USE_SDSLH
    void sdslh_update_current_line(unsigned short y) {
-       if (sdslh_comm && CURRENT_FILE && CURRENT_FILE->cb && CURRENT_VIEW->current_window == WINDOW_FILEAREA) {
+       if (CURRENT_FILE && CURRENT_FILE->sdslh_comm && CURRENT_FILE->cb && CURRENT_VIEW->current_window == WINDOW_FILEAREA) {
            LINETYPE line_number = CURRENT_SCREEN.sl[y].line_number;
            if (line_number > 0 && line_number <= (LINETYPE)CURRENT_FILE->cb->line_count) {
                rec[rec_len] = '\0';
@@ -1231,7 +1231,7 @@ CHARTYPE *strtrans( CHARTYPE *str, CHARTYPE oldch, CHARTYPE newch )
 
 
 #ifdef USE_SDSLH
-   if (sdslh_comm && CURRENT_VIEW && CURRENT_FILE && CURRENT_FILE->cb && new_flag) {
+   if (CURRENT_VIEW && CURRENT_FILE && CURRENT_FILE->sdslh_comm && CURRENT_FILE->cb && new_flag) {
        if (first == CURRENT_FILE->first_line) {
            int idx = -2;
            LINE *p = curr_line;
@@ -1296,7 +1296,7 @@ LINE *delete_LINE( LINE **first, LINE **last, LINE *curr, short direction, bool 
    TRACE_FUNCTION("util.c:    delete_LINE");
 
 #ifdef USE_SDSLH
-   if (sdslh_comm && CURRENT_VIEW && CURRENT_FILE && CURRENT_FILE->cb && (*first == CURRENT_FILE->first_line)) {
+   if (CURRENT_VIEW && CURRENT_FILE && CURRENT_FILE->sdslh_comm && CURRENT_FILE->cb && (*first == CURRENT_FILE->first_line)) {
        int idx = -2;
        LINE *p = curr;
        while (p) { idx++; p = p->prev; }
@@ -1739,7 +1739,7 @@ short post_process_line(VIEW_DETAILS *the_view,LINETYPE line_number,LINE *known_
    *(curr->line+rec_len) = '\0';
 
 #ifdef USE_SDSLH
-   if (sdslh_comm && the_view->file_for_view && the_view->file_for_view->cb && curr->flags.changed_flag) {
+   if (the_view && the_view->file_for_view && the_view->file_for_view->sdslh_comm && the_view->file_for_view->cb && curr->flags.changed_flag) {
        cb_sync_line(the_view->file_for_view->cb, line_number - 1, (const char *)curr->line);
    }
 #endif
