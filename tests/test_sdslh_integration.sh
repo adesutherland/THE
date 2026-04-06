@@ -2,10 +2,10 @@
 
 # Setup paths dynamically so it can be run via CTest or directly
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-THE_BIN="$DIR/cmake-build-debug/release/the"
+THE_BIN="$DIR/../cmake-build-debug/release/the"
 
 # We must run from the source root so THE finds the profile and file
-cd "$DIR"
+cd "$DIR/.."
 
 # Clean up old log
 rm -f parser.log editor.log editor_stderr.log

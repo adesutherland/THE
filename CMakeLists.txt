@@ -270,4 +270,4 @@ install(DIRECTORY syntax/ DESTINATION share/the/syntax)
 
 # --- Automated Testing ---
 enable_testing()
-add_test(NAME integration_test COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/integration_test.sh)
+add_test(NAME test_sdslh_integration COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdslh_integration.sh)

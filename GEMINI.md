@@ -15,7 +15,7 @@ THE has been successfully integrated with the **DSL Syntax Highlighter (SDSLH)**
 - [x] **Concurrency**: Complete. Critical sections safely wrap the renderer and the `pmsg` extraction logic.
 - [x] **Visuals**: Complete. Dark theme active, with token and diagnostic highlighting functioning perfectly.
 - [x] **Messages**: Complete. Real-time cursor-tracking error messages populate the status line without hanging or crashing.
-- [x] **Testing**: Automated `integration_test.sh` correctly executes and passes.
+- [x] **Testing**: Automated tests moved to standard `tests/` directory. `test_sdslh_integration.sh` correctly executes and passes via CTest.
 
 ## Next Steps
 - Awaiting user evaluation of the new IDE-like status line messages.

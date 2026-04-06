@@ -52,3 +52,5 @@ doc/html/
 THE_Help_*
 migrate_c99.py
 fix_knr.py
+/editor_stderr.log
+/parser.log
