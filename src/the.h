@@ -39,6 +39,7 @@ $Id: the.h,v 1.97 2022/12/27 02:43:49 mark Exp $
 #include "dslsyntax_editor.h"
 #include "serialization.h"
 void sdslh_update_current_line(unsigned short y);
+void ui_log(const char *fmt, ...);
 #endif
 /*
  * Handle Win32 console when using PDCurses GUI

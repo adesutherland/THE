@@ -11,7 +11,7 @@
 'define backspace sos delback'
 
 /* Load Parser */
-'SET SDSLH tp /usr/local/bin/tp'
+'SET SDSLH tp /usr/local/bin/tp -s'
 'SET AUTOCOLOR *.toy tp'
 'SET COLORING ON AUTO'
 
@@ -28,7 +28,7 @@
 'set color ctofeof #569CD6 on #1E1E1E'
 'set color cmdline #D4D4D4 on #2D2D30'
 'set color msgline tomato on #1E1E1E'
-'set color idline white on dodgerblue'
+'set color idline darkblue on dodgerblue'
 'set color scale cadetblue on #1E1E1E'
 'set color pending #CE9178 on #1E1E1E'
 'set color shadow #858585 on #1E1E1E'

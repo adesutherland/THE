@@ -808,9 +808,13 @@ void show_statarea(void)
 
    TRACE_FUNCTION("show.c:    show_statarea");
    /*
-    * If the status line is off, just exit...
+    * Reset parser severity at the start of every status line refresh.
+    * It will be updated by extract_pmsg if it is called via format_options.
     */
-   if ( STATUSLINEx == 'O' || !curses_started || CURRENT_VIEW == NULL )
+   current_parser_severity = 0;
+   /*
+    * If the status line is off, just exit...
+    */   if ( STATUSLINEx == 'O' || !curses_started || CURRENT_VIEW == NULL )
    {
       TRACE_RETURN();
       return;

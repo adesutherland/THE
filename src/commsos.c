@@ -721,13 +721,21 @@ short Sos_delend(CHARTYPE *params)
     */
    if (CURRENT_VIEW->current_window == WINDOW_FILEAREA)
    {
+#ifdef USE_SDSLH
+      sdslh_update_current_line(y);
+#endif
       if ((CURRENT_VIEW == MARK_VIEW
       &&  CURRENT_VIEW->focus_line >= MARK_VIEW->mark_start_line
       &&  CURRENT_VIEW->focus_line <= MARK_VIEW->mark_end_line)
-      || (CURRENT_FILE->colouring && CURRENT_FILE->parser))
+      || (CURRENT_FILE->colouring && (CURRENT_FILE->parser
+#ifdef USE_SDSLH
+          || CURRENT_FILE->cb
+#endif
+         )))
       {
          build_screen(current_screen);
          display_screen(current_screen);
+         show_statarea();
       }
    }
    TRACE_RETURN();
@@ -874,8 +882,12 @@ short Sos_delword(CHARTYPE *params)
       case WINDOW_FILEAREA:
          rec_len -= num_cols;
          rc = execute_move_cursor(  current_screen, CURRENT_VIEW, first_col );
+#ifdef USE_SDSLH
+         sdslh_update_current_line(y);
+#endif
          build_screen( current_screen );
          display_screen( current_screen );
+         show_statarea();
          break;
       case WINDOW_COMMAND:
          cmd_rec_len -= num_cols;
@@ -3007,6 +3019,9 @@ static short sosdelback( bool cua )
 
    memdeln( rec, CURRENT_VIEW->verify_col - 1 + x, rec_len, 1 );
    rec_len--;
+#ifdef USE_SDSLH
+   sdslh_update_current_line(y);
+#endif
    /*
     * If there is a character off the right edge of the screen, display it
     * in the last character of the main window.
@@ -3024,11 +3039,17 @@ static short sosdelback( bool cua )
    if ( ( CURRENT_VIEW == MARK_VIEW
       &&  CURRENT_VIEW->focus_line >= MARK_VIEW->mark_start_line
       &&  CURRENT_VIEW->focus_line <= MARK_VIEW->mark_end_line )
-   || ( CURRENT_FILE->colouring && CURRENT_FILE->parser ) )
+   || ( CURRENT_FILE->colouring && (CURRENT_FILE->parser
+#ifdef USE_SDSLH
+          || CURRENT_FILE->cb
+#endif
+        ) ) )
    {
       build_screen( current_screen );
       display_screen( current_screen );
+      show_statarea();
    }
+   TRACE_RETURN();
    return rc;
 }
 
@@ -3159,6 +3180,7 @@ static short sosdelchar( bool cua )
    {
       build_screen( current_screen );
       display_screen( current_screen );
+      show_statarea();
    }
 
    TRACE_RETURN();

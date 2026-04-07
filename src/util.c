@@ -1177,8 +1177,18 @@ CHARTYPE *strtrans( CHARTYPE *str, CHARTYPE oldch, CHARTYPE newch )
            }
        }
    }
-   #endif
-   /***********************************************************************/
+
+   void ui_log(const char *fmt, ...) {
+       FILE *f = fopen("ui_debug.log", "a");
+       if (!f) return;
+       va_list args;
+       va_start(args, fmt);
+       vfprintf(f, fmt, args);
+       va_end(args);
+       fprintf(f, "\n");
+       fclose(f);
+   }
+   #endif   /***********************************************************************/
    LINE *add_LINE( LINE *first, LINE *curr, CHARTYPE *line, LENGTHTYPE len, SELECTTYPE select, bool new_flag )/***********************************************************************/
 /* Adds a member of the linked list for the specified file containing  */
 /* the line contents and length.                                       */
