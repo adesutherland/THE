@@ -106,6 +106,9 @@ COMMAND command[] =
  {(CHARTYPE *)"cursor",      0,  KEY_RIGHT,       Cursor,           FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,TRUE, FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)"right"},  /* comm1.c */
  {(CHARTYPE *)"cursor",      0,  KEY_LEFT,        Cursor,           FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,TRUE, FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)"left"},  /* comm1.c */
  {(CHARTYPE *)"cursor",      0,  KEY_DOWN,        Cursor,           FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)"down"},  /* comm1.c */
+#ifdef KEY_SDOWN
+ {(CHARTYPE *)"cursor",      0,  KEY_SDOWN,       Cursor,           FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)"sdown"},  /* comm1.c */
+#endif
  {(CHARTYPE *)"cursor",      0,  KEY_UP,          Cursor,           FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)"up"},  /* comm1.c */
 #endif
 #if defined(HAVE_SB_INIT)

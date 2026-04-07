@@ -2198,6 +2198,19 @@ short Cursor(CHARTYPE *params)
                time_to_leave = TRUE;
                break;
             }
+            if (equal((CHARTYPE *)"sdown",word[idx],5))
+            {
+               if (num_params > 1)
+               {
+                  state = CURSOR_ERROR;
+                  error_message = word[idx];
+                  error_number = 1;
+                  break;
+               }
+               rc = THEcursor_sdown( current_screen, CURRENT_VIEW, CURSOR_ESCREEN );
+               time_to_leave = TRUE;
+               break;
+            }
             if (equal((CHARTYPE *)"home",word[idx],4))
             {
                state = CURSOR_HOME;
@@ -2485,6 +2498,19 @@ short Cursor(CHARTYPE *params)
                   break;
                }
                rc = THEcursor_down( current_screen, CURRENT_VIEW, state );
+               time_to_leave = TRUE;
+               break;
+            }
+            if (equal((CHARTYPE *)"sdown",word[idx],5))
+            {
+               if (num_params > 2)
+               {
+                  state = CURSOR_ERROR;
+                  error_message = word[idx];
+                  error_number = 1;
+                  break;
+               }
+               rc = THEcursor_sdown( current_screen, CURRENT_VIEW, state );
                time_to_leave = TRUE;
                break;
             }

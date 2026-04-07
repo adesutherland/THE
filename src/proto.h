@@ -442,6 +442,7 @@ short THEcursor_home ( CHARTYPE, VIEW_DETAILS *, bool );
 short THEcursor_left (short,bool);
 short THEcursor_right (short,bool);
 short THEcursor_up (short);
+short THEcursor_sdown ( CHARTYPE, VIEW_DETAILS *, short );
 short THEcursor_move ( CHARTYPE, VIEW_DETAILS *, bool, bool, short, short );
 short THEcursor_goto (LINETYPE,LENGTHTYPE);
 short THEcursor_mouse (void);

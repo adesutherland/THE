@@ -6,7 +6,8 @@
 
 /* Bind F4 and Shift-Tab to move the cursor to the prefix area. */
 /* This is particularly useful on macOS where the Home key can be tricky. */
-'define f4 cursor prefix'
+/* 'define f4 cursor prefix' */
+'SET CMDARROWS TAB'
 'define s-tab cursor home save'
 'define backspace sos delback'
 

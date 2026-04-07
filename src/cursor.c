@@ -133,13 +133,25 @@ short THEcursor_down( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short escre
             if ( x + curr_view->verify_col > min(rec_len,curr_view->verify_end) )
                rc = execute_move_cursor( curr_screen, curr_view, rec_len );
          }
+         else if ( rc == RC_TOF_EOF_REACHED && CMDARROWSTABCMDx )
+         {
+             rc = THEcursor_cmdline( curr_screen, curr_view, 1 );
+         }
          break;
       case WINDOW_COMMAND:
          /*
           * Cycle forward  through the command list or tab to first line.
           */
          if ( CMDARROWSTABCMDx )
-            rc = Sos_topedge( (CHARTYPE *)"" );
+         {
+            CHARTYPE *current_command = get_next_command( DIRECTION_FORWARD, 1 );
+            wmove( CURRENT_WINDOW_COMMAND, 0, 0 );
+            my_wclrtoeol( CURRENT_WINDOW_COMMAND );
+            if ( current_command != (CHARTYPE *)NULL )
+            {
+               Cmsg( current_command );
+            }
+         }
          else
             rc = Retrieve( (CHARTYPE *)"+" );
          break;
@@ -148,6 +160,47 @@ short THEcursor_down( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short escre
          break;
    }
    INTENTIONALLY_UNUSED_VARIABLE(y);
+   TRACE_RETURN();
+   return(rc);
+}
+/***********************************************************************/
+short THEcursor_sdown( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short escreen)
+/***********************************************************************/
+{
+   short rc=RC_OK;
+   short x,y;
+
+   TRACE_FUNCTION("cursor.c:  THEcursor_sdown");
+   /*
+    * If in READV CMDLINE, return without doing anything
+    */
+   if ( in_readv )
+   {
+      TRACE_RETURN();
+      return(RC_OK);
+   }
+   switch( curr_view->current_window )
+   {
+      case WINDOW_PREFIX:
+      case WINDOW_FILEAREA:
+         /* Shift-down in file area falls back to normal down */
+         rc = THEcursor_down( curr_screen, curr_view, escreen );
+         break;
+      case WINDOW_COMMAND:
+         /*
+          * Retrieve newer command from history.
+          */
+         if ( CMDARROWSTABCMDx )
+            rc = Retrieve( (CHARTYPE *)"+" );
+         else
+            rc = Retrieve( (CHARTYPE *)"+" );
+         break;
+      default:
+         display_error( 2, (CHARTYPE *)"", FALSE );
+         break;
+   }
+   INTENTIONALLY_UNUSED_VARIABLE(y);
+   INTENTIONALLY_UNUSED_VARIABLE(x);
    TRACE_RETURN();
    return(rc);
 }
@@ -320,12 +373,14 @@ short THEcursor_left(short escreen,bool kedit_defaults)
             }
             else
             {
-               if ( compatible_feel == COMPAT_KEDIT
-               ||   compatible_feel == COMPAT_KEDITW )
+               if ( ( CURRENT_VIEW->prefix & PREFIX_LOCATION_MASK ) == PREFIX_LEFT )
                {
-                  if ( ( CURRENT_VIEW->prefix & PREFIX_LOCATION_MASK ) == PREFIX_LEFT )
-                     rc = Sos_prefix( (CHARTYPE *)"" );
-                  rc = Sos_lastcol((CHARTYPE *)"");
+                   rc = Sos_prefix( (CHARTYPE *)"" );
+                   if (rc == RC_OK && CURRENT_WINDOW_PREFIX != NULL)
+                   {
+                       int prefix_w = getmaxx(CURRENT_WINDOW_PREFIX);
+                       wmove(CURRENT_WINDOW_PREFIX, y, prefix_w - 1);
+                   }
                }
             }
          }
