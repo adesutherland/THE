@@ -50,22 +50,17 @@
 'set color pmsginfo white on #007ACC'
 
 /* Syntax Highlighting Colors (Modern Dark Theme) */
-'set ecolor A #6A9955 on #1E1E1E' /* Comments */
-'set ecolor B #CE9178 on #1E1E1E' /* Strings */
-'set ecolor C #CE9178 on #1E1E1E' /* Incomplete Strings */
-'set ecolor D #569CD6 on #1E1E1E' /* Keywords */
-'set ecolor E #DCDCAA on #1E1E1E' /* Functions/Methods */
-'set ecolor F #B5CEA8 on #1E1E1E' /* Numbers */
-'set ecolor G #D4D4D4 on #1E1E1E' /* Operators/Punctuation */
-
-'set ecolor I #9CDCFE on #1E1E1E' /* Variables/Identifiers */
-'set ecolor L #4EC9B0 on #1E1E1E' /* Types/Classes */
-'set ecolor M #C586C0 on #1E1E1E' /* Control Flow */
-'set ecolor N #D16969 on #1E1E1E' /* Escapes/Regex */
-'set ecolor O #9CDCFE on #1E1E1E'
-'set ecolor P #9CDCFE on #1E1E1E'
-'set ecolor Q #9CDCFE on #1E1E1E'
-'set ecolor R #9CDCFE on #1E1E1E'
+'set ecolor comment #6A9955 on #1E1E1E'
+'set ecolor string #CE9178 on #1E1E1E'
+'set ecolor incomplete_string #CE9178 on #1E1E1E'
+'set ecolor keyword #569CD6 on #1E1E1E'
+'set ecolor identifier #9CDCFE on #1E1E1E'
+'set ecolor number #B5CEA8 on #1E1E1E'
+'set ecolor operator #D4D4D4 on #1E1E1E'
+'set ecolor paren #D4D4D4 on #1E1E1E'
+'set ecolor level1_paren #D4D4D4 on #1E1E1E'
+'set ecolor level2_paren #DCDCAA on #1E1E1E'
+'set ecolor function #DCDCAA on #1E1E1E'
 
 /* Display a startup message */
 'msg Welcome to THE (The Hessling Editor) - CREXX Edition'

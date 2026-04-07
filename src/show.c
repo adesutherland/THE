@@ -2267,23 +2267,37 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                               the_type = THE_SYNTAX_NUMBER; 
                               current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_NUMBERS);
                               break;
-                          case LEXER_KEYWORD: 
-                              the_type = THE_SYNTAX_KEYWORD; 
+                          case LEXER_KEYWORD:
+                              the_type = THE_SYNTAX_KEYWORD;
                               current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_KEYWORDS);
                               break;
-                          case LEXER_IDENTIFIER: 
-                              the_type = THE_SYNTAX_LABEL; 
+                          case LEXER_IDENTIFIER:
+                              the_type = THE_SYNTAX_LABEL;
                               current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_LABEL);
                               break;
                           case LEXER_OPERATOR:
                           case LEXER_OPERATOR_ASSIGN:
                           case LEXER_OPERATOR_ARITHMETIC:
                           case LEXER_OPERATOR_LOGICAL:
-                              the_type = THE_SYNTAX_MATCH; 
+                              the_type = THE_SYNTAX_MATCH;
                               current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_LEVEL_1_PAREN);
                               break;
-                          default:
-                              the_type = THE_SYNTAX_NONE; 
+                          case LEXER_SEPARATOR:
+                          case LEXER_STATEMENT_SEPARATOR:
+                          case LEXER_LH_BLOCK:
+                          case LEXER_RH_BLOCK:
+                          case LEXER_LH_CODEBLOCK:
+                          case LEXER_RH_CODEBLOCK:
+                          case LEXER_LH_EXPR:
+                          case LEXER_RH_EXPR:
+                              the_type = THE_SYNTAX_MATCH;
+                              current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_LEVEL_2_PAREN);
+                              break;
+                          case PARSE_TREE_FUNCTION:
+                              the_type = THE_SYNTAX_LABEL;
+                              current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_FUNCTIONS);
+                              break;
+                          default:                              the_type = THE_SYNTAX_NONE; 
                               current_colour = normal_colour;
                               break;
                       }

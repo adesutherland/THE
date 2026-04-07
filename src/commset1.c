@@ -3142,6 +3142,72 @@ SEE ALSO
 STATUS
      Complete.
 **man-end**********************************************************************/
+short get_ecolour_area(CHARTYPE *word)
+{
+    struct {
+        const char *name;
+        short area;
+    } descriptive_areas[] = {
+        {"comment", ECOLOUR_COMMENTS},
+        {"string", ECOLOUR_STRINGS},
+        {"number", ECOLOUR_NUMBERS},
+        {"keyword", ECOLOUR_KEYWORDS},
+        {"label", ECOLOUR_LABEL},
+        {"identifier", ECOLOUR_LABEL},
+        {"preprocessor", ECOLOUR_PREDIR},
+        {"macro", ECOLOUR_PREDIR},
+        {"header", ECOLOUR_HEADER},
+        {"paren", ECOLOUR_LEVEL_1_PAREN},
+        {"match", ECOLOUR_LEVEL_1_PAREN},
+        {"operator", ECOLOUR_LEVEL_1_PAREN},
+        {"function", ECOLOUR_FUNCTIONS},
+        {"directory", ECOLOUR_DIRECTORY},
+        {"link", ECOLOUR_LINK},
+        {"executable", ECOLOUR_EXECUTABLE},
+        {"incomplete_string", ECOLOUR_INC_STRING},
+        {"html_tag", ECOLOUR_HTML_TAG},
+        {"html_char", ECOLOUR_HTML_CHAR},
+        {"level1_keyword", ECOLOUR_LEVEL_1_KEYWORD},
+        {"level1_paren", ECOLOUR_LEVEL_1_PAREN},
+        {"level2_paren", ECOLOUR_LEVEL_2_PAREN},
+        {"level3_paren", ECOLOUR_LEVEL_3_PAREN},
+        {"level4_paren", ECOLOUR_LEVEL_4_PAREN},
+        {"level5_paren", ECOLOUR_LEVEL_5_PAREN},
+        {"level6_paren", ECOLOUR_LEVEL_6_PAREN},
+        {"level7_paren", ECOLOUR_LEVEL_7_PAREN},
+        {"level8_paren", ECOLOUR_LEVEL_8_PAREN},
+        {"alt_keyword1", ECOLOUR_ALT_KEYWORD_1},
+        {"alt_keyword2", ECOLOUR_ALT_KEYWORD_2},
+        {"alt_keyword3", ECOLOUR_ALT_KEYWORD_3},
+        {"alt_keyword4", ECOLOUR_ALT_KEYWORD_4},
+        {"alt_keyword5", ECOLOUR_ALT_KEYWORD_5},
+        {"alt_keyword6", ECOLOUR_ALT_KEYWORD_6},
+        {"alt_keyword7", ECOLOUR_ALT_KEYWORD_7},
+        {"alt_keyword8", ECOLOUR_ALT_KEYWORD_8},
+        {"alt_keyword9", ECOLOUR_ALT_KEYWORD_9},
+        {NULL, -1}
+    };
+    
+    if (strlen((DEFCHAR *)word) == 1) {
+        CHARTYPE ch = word[0];
+        if (ch >= 'A' && ch <= 'Z')
+            return ch - 'A';
+        else if (ch >= 'a' && ch <= 'z')
+            return ch - 'a';
+        else if (ch >= '1' && ch <= '9')
+            return ch - '1' + 26;
+        else if (ch == '*')
+            return -2;
+    }
+    
+    for (int i = 0; descriptive_areas[i].name != NULL; i++) {
+        if (my_stricmp((char *)word, (char *)descriptive_areas[i].name) == 0) {
+            return descriptive_areas[i].area;
+        }
+    }
+    return -1;
+}
+
 short Ecolour(CHARTYPE *params)
 
 /***********************************************************************/
@@ -3150,12 +3216,11 @@ short Ecolour(CHARTYPE *params)
    CHARTYPE *word[ECOL_PARAMS+1];
    CHARTYPE strip[ECOL_PARAMS];
    unsigned short num_params=0;
-   short area=0,off;
+   short area=0;
    register short i=0;
    COLOUR_ATTR attr,tmp_attr;
    CHARTYPE *dummy=NULL;
    bool any_colours=FALSE;
-   CHARTYPE ch;
    short word1_len,modifier_set=COL_MODIFIER_NO_SET;
 
    TRACE_FUNCTION("commset1.c:Ecolour");
@@ -3174,9 +3239,9 @@ short Ecolour(CHARTYPE *params)
     * second format.
     */
    word1_len = strlen( (DEFCHAR *)word[1] );
-   if ( my_stricmp( (DEFCHAR *)word[1]+word1_len-2, "ON" ) == 0 )
+   if ( my_stricmp( (char *)word[1]+word1_len-2, "ON" ) == 0 )
       modifier_set = COL_MODIFIER_SET_ON;
-   else if ( my_stricmp( (DEFCHAR *)word[1]+word1_len-3, "OFF" ) == 0 )
+   else if ( my_stricmp( (char *)word[1]+word1_len-3, "OFF" ) == 0 )
       modifier_set = COL_MODIFIER_SET_OFF;
    if ( modifier_set )
    {
@@ -3184,22 +3249,8 @@ short Ecolour(CHARTYPE *params)
        * Check that the supplied area matches one of the values in the area
        * array and that the length is at least as long as the minimum.
        */
-      if (strlen((DEFCHAR *)word[0]) != 1)
-      {
-         display_error(1,word[0],FALSE);
-         TRACE_RETURN();
-         return(RC_INVALID_OPERAND);
-      }
-      ch = word[0][0];
-      if (ch >= 'A' && ch <= 'Z')
-         off = 'A';
-      else if (ch >= 'a' && ch <= 'z')
-         off = 'a';
-      else if (ch >= '1' && ch <= '9')
-         off = '1' - 26; /* Beware: --x == +x */
-      else if (ch == '*' )
-         off = -1;
-      else
+      area = get_ecolour_area(word[0]);
+      if (area == -1)
       {
          display_error(1,word[0],FALSE);
          TRACE_RETURN();
@@ -3214,7 +3265,7 @@ short Ecolour(CHARTYPE *params)
          TRACE_RETURN();
          return(RC_INVALID_OPERAND);
       }
-      if ( off == (-1) )
+      if ( area == -2 )
       {
          for ( i = 0; i < ECOLOUR_MAX; i++ )
          {
@@ -3238,7 +3289,6 @@ short Ecolour(CHARTYPE *params)
       }
       else
       {
-         area = ch - off;
          attr = CURRENT_FILE->ecolour[area];
          if ( modifier_set == COL_MODIFIER_SET_ON )
          {
@@ -3263,26 +3313,13 @@ short Ecolour(CHARTYPE *params)
        * Check that the supplied area matches one of the values in the area
        * array and that the length is at least as long as the minimum.
        */
-      if (strlen((DEFCHAR *)word[0]) != 1)
+      area = get_ecolour_area(word[0]);
+      if (area == -1 || area == -2)
       {
          display_error(1,word[0],FALSE);
          TRACE_RETURN();
          return(RC_INVALID_OPERAND);
       }
-      ch = word[0][0];
-      if (ch >= 'A' && ch <= 'Z')
-         off = 'A';
-      else if (ch >= 'a' && ch <= 'z')
-         off = 'a';
-      else if (ch >= '1' && ch <= '9')
-         off = '1' - 26; /* Beware: --x == +x */
-      else
-      {
-         display_error(1,word[0],FALSE);
-         TRACE_RETURN();
-         return(RC_INVALID_OPERAND);
-      }
-      area = ch - off;
       attr = CURRENT_FILE->ecolour[area];
       /*
        * Determine colours and modifiers.
