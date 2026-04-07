@@ -18,6 +18,7 @@
  |  m      | move line                    | move line                    |
  |  d      | delete line                  | delete line                  |
  |  x      | exclude line                 | exclude line                 |
+ |  fo     | fold AST code block          | fold AST code block          |
  |  "      | N/A                          | duplicate line               |
  |  r      | repeat line                  | N/A                          |
  |  o      | overlay line                 | overlay line                 |

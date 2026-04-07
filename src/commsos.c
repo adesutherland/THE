@@ -3186,3 +3186,78 @@ static short sosdelchar( bool cua )
    TRACE_RETURN();
    return(RC_OK);
 }
+
+#ifdef USE_SDSLH
+/*man-start*********************************************************************
+COMMAND
+     SOS TOGGLEFOLD - Fold or unfold the AST node at the cursor
+
+SYNTAX
+     [SOS] TOGGLEFOLD
+
+DESCRIPTION
+     The SOS TOGGLEFOLD command folds or unfolds the AST code block starting at 
+     the cursor.
+
+COMPATIBILITY
+     XEDIT: N/A
+     KEDIT: N/A
+
+STATUS
+     Complete.
+**man-end**********************************************************************/
+short Sos_toggle_fold(CHARTYPE *params)
+/***********************************************************************/
+{
+   short rc=RC_OK;
+   unsigned short y=0,x=0;
+   LINETYPE current_file_line=(-1L);
+   LENGTHTYPE current_file_column=(-1);
+   int start_line = -1, end_line = -1;
+
+   TRACE_FUNCTION("commsos.c: Sos_toggle_fold");
+   if (CURRENT_VIEW->current_window != WINDOW_FILEAREA)
+   {
+       TRACE_RETURN();
+       return(rc);
+   }
+   
+   LINETYPE screen_line=0;
+   LENGTHTYPE screen_column=0;
+   get_cursor_position(&screen_line, &screen_column, &current_file_line, &current_file_column);
+
+   if (CURRENT_FILE->cb && current_file_line > 0 && current_file_line <= (LINETYPE)CURRENT_FILE->cb->line_count) {
+       enter_codeblock_critical_section();
+       CodeBufferLine *line = &CURRENT_FILE->cb->lines[current_file_line - 1];
+       if (current_file_column >= 0 && current_file_column < line->length) {
+           CodeBufferCharacter *c = &line->characters[current_file_column];
+           if (c->node && c->subtree_type != 0 && c->subtree_lines > 0) {
+               cb_get_subtree_line_bounds(CURRENT_FILE->cb, c->node, &start_line, &end_line);
+           }
+       }
+       exit_codeblock_critical_section();
+   }
+
+   if (start_line != -1 && end_line > start_line) {
+       LINETYPE target_line = start_line + 2; 
+       LINETYPE lines_to_exclude = end_line - start_line - 1;
+       if (lines_to_exclude > 0 && target_line + lines_to_exclude - 1 <= CURRENT_FILE->number_lines) {
+           LINE *curr = lll_find(CURRENT_FILE->first_line, CURRENT_FILE->last_line, target_line, CURRENT_FILE->number_lines);
+           if (curr) {
+               bool is_currently_shown = IN_SCOPE(CURRENT_VIEW, curr);
+               short new_select = is_currently_shown ? ((short)CURRENT_VIEW->display_high + 1) : 0;
+               while(lines_to_exclude != 0 && curr) {
+                   curr->select = new_select;
+                   curr = curr->next;
+                   lines_to_exclude--;
+               }
+               build_screen(current_screen);
+               display_screen(current_screen);
+           }
+       }
+   }
+
+   TRACE_RETURN();
+   return(rc);
+}
+#endif

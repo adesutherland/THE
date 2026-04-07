@@ -37,7 +37,7 @@
 
 /* Display the parser message dynamically on the status line */
 'set statopt off *'
-'set statopt on pmsg.1 23 45 Msg='
+'set statopt on pmsg.1 15 45'
 
 /* Diagnostic token colors in the file area */
 'set color cberror white on firebrick'

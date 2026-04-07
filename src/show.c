@@ -1783,6 +1783,44 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
    LENGTHTYPE mark_end_col=0;
 
    TRACE_FUNCTION("show.c:    build_lines_for_display");
+#ifdef USE_SDSLH
+   LINETYPE match_line1 = -1L;
+   LENGTHTYPE match_col1 = -1;
+   LINETYPE match_line2 = -1L;
+   LENGTHTYPE match_col2 = -1;
+   
+   if (SCREEN_FILE(scrno)->cb && CURRENT_VIEW == SCREEN_VIEW(scrno)) {
+       LINETYPE screen_line=0;
+       LENGTHTYPE screen_column=0;
+       LINETYPE current_file_line=(-1L);
+       LENGTHTYPE current_file_column=(-1);
+       get_cursor_position(&screen_line, &screen_column, &current_file_line, &current_file_column);
+       if (current_file_line > 0 && current_file_line <= (LINETYPE)SCREEN_FILE(scrno)->cb->line_count) {
+           enter_codeblock_critical_section();
+           CodeBufferLine *line = &SCREEN_FILE(scrno)->cb->lines[current_file_line - 1];
+           if (current_file_column > 0 && current_file_column <= line->length) {
+               CodeBufferCharacter *c = &line->characters[current_file_column - 1];
+               if (c->node && (c->token_type == LEXER_LH_CODEBLOCK || c->token_type == LEXER_RH_CODEBLOCK || 
+                               c->token_type == LEXER_LH_EXPR || c->token_type == LEXER_RH_EXPR || 
+                               c->token_type == LEXER_LH_BLOCK || c->token_type == LEXER_RH_BLOCK || 
+                               c->token_type == LEXER_SEPARATOR)) {
+                   CB_Node *matched = cb_find_matching_bracket(c->node);
+                   if (matched) {
+                       size_t m_line = 0, m_col = 0;
+                       get_code_buffer_part(SCREEN_FILE(scrno)->cb, matched->pos, 1, &m_line, &m_col, NULL);
+                       if (m_line > 0) {
+                           match_line1 = current_file_line - 1;
+                           match_col1 = current_file_column - 1;
+                           match_line2 = (LINETYPE)(m_line - 1);
+                           match_col2 = (LENGTHTYPE)m_col;
+                       }
+                   }
+               }
+           }
+           exit_codeblock_critical_section();
+       }
+   }
+#endif
    /*
     * Determine the row that is the focus line.
     */
@@ -2303,15 +2341,19 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                       }
                       
 #ifdef USE_SDSLH
-                      if (severity == CB_ERROR) {
-                          current_colour = set_colour(SCREEN_FILE(scrno)->attr+ATTR_CBERROR);
-                      } else if (severity == CB_WARNING) {
-                          current_colour = set_colour(SCREEN_FILE(scrno)->attr+ATTR_CBWARN);
-                      } else if (severity == CB_INFORMATION) {
-                          current_colour = set_colour(SCREEN_FILE(scrno)->attr+ATTR_CBINFO);
-                      }
-#endif
-                      
+                       if (severity == CB_ERROR) {
+                           current_colour = set_colour(SCREEN_FILE(scrno)->attr+ATTR_CBERROR);
+                       } else if (severity == CB_WARNING) {
+                           current_colour = set_colour(SCREEN_FILE(scrno)->attr+ATTR_CBWARN);
+                       } else if (severity == CB_INFORMATION) {
+                           current_colour = set_colour(SCREEN_FILE(scrno)->attr+ATTR_CBINFO);
+                       }
+
+                       if ((cb_line_idx == match_line1 && (LENGTHTYPE)i == match_col1) ||
+                           (cb_line_idx == match_line2 && (LENGTHTYPE)i == match_col2)) {
+                           current_colour |= A_REVERSE;
+                       }
+#endif                      
                       scurr->highlight_type[i] = the_type;
                       if (i >= vcol && i - vcol < THE_MAX_SCREEN_WIDTH) {
                           scurr->highlighting[i - vcol] = current_colour;

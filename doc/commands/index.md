@@ -286,5 +286,6 @@
 - [SOS TABFIELDF](SOS_TABFIELDF.md) - move cursor to next enterable field
 - [SOS TABWORDB](SOS_TABWORDB.md) - move cursor to beginning of previous word
 - [SOS TABWORDF](SOS_TABWORDF.md) - move cursor to start of next word
+- [SOS TOGGLEFOLD](SOS_TOGGLEFOLD.md) - fold or unfold the AST node at the cursor
 - [SOS TOPEDGE](SOS_TOPEDGE.md) - move cursor to top edge of filearea
 - [SOS UNDO](SOS_UNDO.md) - undo changes to the current line

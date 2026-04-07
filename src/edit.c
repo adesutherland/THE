@@ -285,6 +285,17 @@ int process_key(int key, bool mouse_details_present)
 
    show_statarea();
 
+#ifdef USE_SDSLH
+   /* Re-evaluate bracket matching on cursor movement */
+   if (CURRENT_FILE && CURRENT_FILE->cb && CURRENT_VIEW->current_window == WINDOW_FILEAREA) {
+       unsigned short cur_y, cur_x;
+       getyx(CURRENT_WINDOW, cur_y, cur_x);
+       build_screen(current_screen);
+       display_screen(current_screen);
+       wmove(CURRENT_WINDOW, cur_y, cur_x);
+   }
+#endif
+
    if (display_screens > 1
    &&  SCREEN_FILE(0) == SCREEN_FILE(1))
    {

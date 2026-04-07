@@ -436,6 +436,9 @@ COMMAND command[] =
  {(CHARTYPE *)"tabfieldb",   9,  (-1),            Sos_tabfieldb,    FALSE,FALSE,TRUE, TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commsos.c */
  {(CHARTYPE *)"tabfieldf",   8,  (-1),            Sos_tabfieldf,    FALSE,FALSE,TRUE, TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commsos.c */
  {(CHARTYPE *)"topedge",     4,  (-1),            Sos_topedge,      FALSE,FALSE,TRUE, TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commsos.c */
+#ifdef USE_SDSLH
+ {(CHARTYPE *)"togglefold",  10, (-1),            Sos_toggle_fold,  FALSE,FALSE,TRUE, TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commsos.c */
+#endif
  {(CHARTYPE *)"blockstart",  6,  (-1),            Sos_blockstart,   FALSE,FALSE,TRUE, TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commsos.c */
  {(CHARTYPE *)"blockend",    6,  (-1),            Sos_blockend,     FALSE,FALSE,TRUE, TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commsos.c */
  {(CHARTYPE *)"cursoradj",   7,  KEY_C_a,         Sos_cursoradj,    FALSE,FALSE,TRUE, FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_FOCUS  ,(CHARTYPE *)""},  /* commsos.c */

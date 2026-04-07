@@ -57,6 +57,9 @@ static short prefix_tabline (THE_PPC *,short,LINETYPE);
 static short prefix_scale (THE_PPC *,short,LINETYPE);
 static short prefix_show (THE_PPC *,short,LINETYPE);
 static short prefix_exclude (THE_PPC *,short,LINETYPE);
+#ifdef USE_SDSLH
+static short prefix_fold (THE_PPC *,short,LINETYPE);
+#endif
 static short prefix_block_duplicate (THE_PPC *,short,LINETYPE);
 static short prefix_block_copy (THE_PPC *,short,LINETYPE);
 static short prefix_block_move (THE_PPC *,short,LINETYPE);
@@ -99,7 +102,11 @@ static CHARTYPE pending_screen;
 /* the above two defines correspond to the position in the pc[] array  */
 /* and should be changed if the position in pc[] array changes.        */
 
+#ifdef USE_SDSLH
+#define NUMBER_PREFIX_COMMANDS 34
+#else
 #define NUMBER_PREFIX_COMMANDS 33
+#endif
    static PREFIX_COMMAND _THE_FAR pc[2][NUMBER_PREFIX_COMMANDS] =
    {
       {
@@ -137,6 +144,9 @@ static CHARTYPE pending_screen;
          {(CHARTYPE *)"\"",    1,PC_IS_ACTION, PC_MULTIPLES,   PC_NO_FULL_TARGET,PC_NOT_BLOCK,PC_TARGET_NOT_REQD,PC_INVALID_TOF,PC_INVALID_BOF,PC_INVALID_RO,prefix_duplicate,                1L,      PC_RESPECT_SCOPE,PC_NO_USE_LAST_IN_SCOPE,40,NULL,FALSE,FALSE},
          {(CHARTYPE *)"s",     1,PC_IS_ACTION, PC_MULTIPLES,   PC_FULL_TARGET,   PC_NOT_BLOCK,PC_TARGET_NOT_REQD,PC_INVALID_TOF,PC_INVALID_BOF,PC_VALID_RO,  prefix_show,                     MAX_LONG,PC_IGNORE_SCOPE, PC_USE_LAST_IN_SCOPE,   30,NULL,FALSE,TRUE },
          {(CHARTYPE *)"x",     1,PC_IS_ACTION, PC_MULTIPLES,   PC_FULL_TARGET,   PC_NOT_BLOCK,PC_TARGET_NOT_REQD,PC_INVALID_TOF,PC_INVALID_BOF,PC_VALID_RO,  prefix_exclude,                  1L,      PC_RESPECT_SCOPE,PC_NO_USE_LAST_IN_SCOPE,30,NULL,FALSE,FALSE},
+#ifdef USE_SDSLH
+         {(CHARTYPE *)"fo",    2,PC_IS_ACTION, PC_MULTIPLES,   PC_NO_FULL_TARGET,PC_NOT_BLOCK,PC_TARGET_NOT_REQD,PC_INVALID_TOF,PC_INVALID_BOF,PC_VALID_RO,  prefix_fold,                     1L,      PC_RESPECT_SCOPE,PC_NO_USE_LAST_IN_SCOPE,30,NULL,FALSE,FALSE},
+#endif
          {(CHARTYPE *)"<",     1,PC_IS_ACTION, PC_MULTIPLES,   PC_NO_FULL_TARGET,PC_NOT_BLOCK,PC_TARGET_NOT_REQD,PC_INVALID_TOF,PC_INVALID_BOF,PC_INVALID_RO,prefix_shift_left,               1L,      PC_RESPECT_SCOPE,PC_NO_USE_LAST_IN_SCOPE,30,NULL,FALSE,FALSE},
          {(CHARTYPE *)">",     1,PC_IS_ACTION, PC_MULTIPLES,   PC_NO_FULL_TARGET,PC_NOT_BLOCK,PC_TARGET_NOT_REQD,PC_INVALID_TOF,PC_INVALID_BOF,PC_INVALID_RO,prefix_shift_right,              1L,      PC_RESPECT_SCOPE,PC_NO_USE_LAST_IN_SCOPE,30,NULL,FALSE,FALSE},
          {(CHARTYPE *)"(",     1,PC_IS_ACTION, PC_MULTIPLES,   PC_NO_FULL_TARGET,PC_NOT_BLOCK,PC_TARGET_NOT_REQD,PC_INVALID_TOF,PC_INVALID_BOF,PC_INVALID_RO,prefix_bounds_shift_left,        1L,      PC_RESPECT_SCOPE,PC_NO_USE_LAST_IN_SCOPE,30,NULL,FALSE,FALSE},
@@ -179,6 +189,9 @@ static CHARTYPE pending_screen;
          {(CHARTYPE *)"r",     1,PC_IS_ACTION, PC_MULTIPLES,   PC_NO_FULL_TARGET,PC_NOT_BLOCK,PC_TARGET_NOT_REQD,PC_INVALID_TOF,PC_INVALID_BOF,PC_INVALID_RO,prefix_duplicate,                1L,      PC_RESPECT_SCOPE,PC_NO_USE_LAST_IN_SCOPE,40,NULL,FALSE,FALSE},
          {(CHARTYPE *)"s",     1,PC_IS_ACTION, PC_MULTIPLES,   PC_FULL_TARGET,   PC_NOT_BLOCK,PC_TARGET_NOT_REQD,PC_INVALID_TOF,PC_INVALID_BOF,PC_VALID_RO,  prefix_show,                     MAX_LONG,PC_IGNORE_SCOPE, PC_USE_LAST_IN_SCOPE,   30,NULL,FALSE,TRUE },
          {(CHARTYPE *)"x",     1,PC_IS_ACTION, PC_MULTIPLES,   PC_FULL_TARGET,   PC_NOT_BLOCK,PC_TARGET_NOT_REQD,PC_INVALID_TOF,PC_INVALID_BOF,PC_VALID_RO,  prefix_exclude,                  1L,      PC_RESPECT_SCOPE,PC_NO_USE_LAST_IN_SCOPE,30,NULL,FALSE,FALSE},
+#ifdef USE_SDSLH
+         {(CHARTYPE *)"fo",    2,PC_IS_ACTION, PC_MULTIPLES,   PC_NO_FULL_TARGET,PC_NOT_BLOCK,PC_TARGET_NOT_REQD,PC_INVALID_TOF,PC_INVALID_BOF,PC_VALID_RO,  prefix_fold,                     1L,      PC_RESPECT_SCOPE,PC_NO_USE_LAST_IN_SCOPE,30,NULL,FALSE,FALSE},
+#endif
          {(CHARTYPE *)"<",     1,PC_IS_ACTION, PC_MULTIPLES,   PC_NO_FULL_TARGET,PC_NOT_BLOCK,PC_TARGET_NOT_REQD,PC_INVALID_TOF,PC_INVALID_BOF,PC_INVALID_RO,prefix_shift_left,               1L,      PC_RESPECT_SCOPE,PC_NO_USE_LAST_IN_SCOPE,30,NULL,FALSE,FALSE},
          {(CHARTYPE *)">",     1,PC_IS_ACTION, PC_MULTIPLES,   PC_NO_FULL_TARGET,PC_NOT_BLOCK,PC_TARGET_NOT_REQD,PC_INVALID_TOF,PC_INVALID_BOF,PC_INVALID_RO,prefix_shift_right,              1L,      PC_RESPECT_SCOPE,PC_NO_USE_LAST_IN_SCOPE,30,NULL,FALSE,FALSE},
          {(CHARTYPE *)"(",     1,PC_IS_ACTION, PC_MULTIPLES,   PC_NO_FULL_TARGET,PC_NOT_BLOCK,PC_TARGET_NOT_REQD,PC_INVALID_TOF,PC_INVALID_BOF,PC_INVALID_RO,prefix_bounds_shift_left,        1L,      PC_RESPECT_SCOPE,PC_NO_USE_LAST_IN_SCOPE,30,NULL,FALSE,FALSE},
@@ -1975,3 +1988,48 @@ static short post_prefix_add(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lin
    INTENTIONALLY_UNUSED_VARIABLE(x);
    return(rc);
 }
+
+#ifdef USE_SDSLH
+static short prefix_fold(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lines)
+{
+   short rc=RC_OK;
+   LINETYPE top_line = curr_ppc->ppc_line_number;
+   LINE *curr=NULL;
+   int start_line = -1, end_line = -1;
+
+   clear_pending_prefix_command( curr_ppc, PENDING_FILE, (LINE *)NULL );
+   if (TOF(top_line) || BOF(top_line))
+      return(-1);
+
+   if (PENDING_FILE->cb && top_line > 0 && top_line <= (LINETYPE)PENDING_FILE->cb->line_count) {
+       enter_codeblock_critical_section();
+       CodeBufferLine *line = &PENDING_FILE->cb->lines[top_line - 1];
+       for (size_t i = 0; i < line->length; i++) {
+           CodeBufferCharacter *c = &line->characters[i];
+           if (c->node && c->subtree_type != 0 && c->subtree_lines > 0) {
+               cb_get_subtree_line_bounds(PENDING_FILE->cb, c->node, &start_line, &end_line);
+               if (end_line > start_line) {
+                   break;
+               }
+           }
+       }
+       exit_codeblock_critical_section();
+   }
+
+   if (start_line != -1 && end_line > start_line) {
+       LINETYPE target_line = start_line + 2; 
+       LINETYPE lines_to_exclude = end_line - start_line - 1;
+
+       if (lines_to_exclude > 0 && target_line + lines_to_exclude - 1 <= PENDING_FILE->number_lines) {
+           curr = lll_find(PENDING_FILE->first_line, PENDING_FILE->last_line, target_line, PENDING_FILE->number_lines);
+           while(lines_to_exclude != 0 && curr) {
+               if (IN_SCOPE(PENDING_VIEW,curr))
+                   curr->select = (short)PENDING_VIEW->display_high + 1;
+               curr = curr->next;
+               lines_to_exclude--;
+           }
+       }
+   }
+   return(rc);
+}
+#endif

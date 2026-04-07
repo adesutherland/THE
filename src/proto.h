@@ -717,6 +717,9 @@ short Sos_tabwordb (CHARTYPE *);
 short Sos_tabwordf (CHARTYPE *);
 short Sos_topedge (CHARTYPE *);
 short Sos_undo (CHARTYPE *);
+#ifdef USE_SDSLH
+short Sos_toggle_fold (CHARTYPE *);
+#endif
 short Span (CHARTYPE *);
 short Spill (CHARTYPE *);
 short Split (CHARTYPE *);
