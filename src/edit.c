@@ -286,13 +286,41 @@ int process_key(int key, bool mouse_details_present)
    show_statarea();
 
 #ifdef USE_SDSLH
-   /* Re-evaluate bracket matching on cursor movement */
+   /* Re-evaluate bracket matching on cursor movement only if a bracket is involved */
    if (CURRENT_FILE && CURRENT_FILE->cb && CURRENT_VIEW->current_window == WINDOW_FILEAREA) {
+       static bool was_on_bracket = FALSE;
+       bool is_on_bracket = FALSE;
        unsigned short cur_y, cur_x;
        getyx(CURRENT_WINDOW, cur_y, cur_x);
-       build_screen(current_screen);
-       display_screen(current_screen);
-       wmove(CURRENT_WINDOW, cur_y, cur_x);
+       LINETYPE screen_line=0;
+       LENGTHTYPE screen_column=0;
+       LINETYPE current_file_line=(-1L);
+       LENGTHTYPE current_file_column=(-1);
+       get_cursor_position(&screen_line, &screen_column, &current_file_line, &current_file_column);
+       
+       if (current_file_line > 0 && current_file_line <= (LINETYPE)CURRENT_FILE->cb->line_count) {
+           enter_codeblock_critical_section();
+           CodeBufferLine *line = &CURRENT_FILE->cb->lines[current_file_line - 1];
+           if (current_file_column > 0 && current_file_column <= line->length) {
+               CodeBufferCharacter *c = &line->characters[current_file_column - 1];
+               if (c->token_type == LEXER_LH_CODEBLOCK || c->token_type == LEXER_RH_CODEBLOCK || 
+                   c->token_type == LEXER_LH_EXPR || c->token_type == LEXER_RH_EXPR ||
+                   c->token_type == LEXER_LH_BLOCK || c->token_type == LEXER_RH_BLOCK || 
+                   c->token_type == LEXER_SEPARATOR) {
+                   is_on_bracket = TRUE;
+               }
+           }
+           exit_codeblock_critical_section();
+       }
+       
+       if (is_on_bracket || was_on_bracket) {
+           build_screen(current_screen);
+           display_screen(current_screen);
+           wmove(CURRENT_WINDOW, cur_y, cur_x);
+           /* Force correct cursor position into virtual screen */
+           wnoutrefresh(CURRENT_WINDOW);
+       }
+       was_on_bracket = is_on_bracket;
    }
 #endif
 

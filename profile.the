@@ -21,7 +21,7 @@
 'set color cgap #6A9955 on #1E1E1E'
 'set color arrow #569CD6 on #1E1E1E'
 'set color filearea #D4D4D4 on #1E1E1E'
-'set color curline #D4D4D4 on #2D2D30'
+'set color curline #E6F7FF on #264F78'
 'set color cursorline #D4D4D4 on #2D2D30'
 'set color prefix #858585 on #252526'
 'set color cprefix #D4D4D4 on #007ACC'

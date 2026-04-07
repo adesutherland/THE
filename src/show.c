@@ -2292,33 +2292,35 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
 
                       unsigned char the_type = THE_SYNTAX_NONE;
                       chtype current_colour = normal_colour;
+                      int ecolour_idx = -1;
+                      
                       switch(type) {
                           case LEXER_COMMENT: 
                               the_type = THE_SYNTAX_COMMENT; 
-                              current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_COMMENTS);
+                              ecolour_idx = ECOLOUR_COMMENTS;
                               break;
                           case LEXER_STRING_LITERAL: 
                               the_type = THE_SYNTAX_STRING; 
-                              current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_STRINGS);
+                              ecolour_idx = ECOLOUR_STRINGS;
                               break;
                           case LEXER_NUMBER_LITERAL: 
                               the_type = THE_SYNTAX_NUMBER; 
-                              current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_NUMBERS);
+                              ecolour_idx = ECOLOUR_NUMBERS;
                               break;
                           case LEXER_KEYWORD:
                               the_type = THE_SYNTAX_KEYWORD;
-                              current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_KEYWORDS);
+                              ecolour_idx = ECOLOUR_KEYWORDS;
                               break;
                           case LEXER_IDENTIFIER:
                               the_type = THE_SYNTAX_LABEL;
-                              current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_LABEL);
+                              ecolour_idx = ECOLOUR_LABEL;
                               break;
                           case LEXER_OPERATOR:
                           case LEXER_OPERATOR_ASSIGN:
                           case LEXER_OPERATOR_ARITHMETIC:
                           case LEXER_OPERATOR_LOGICAL:
                               the_type = THE_SYNTAX_MATCH;
-                              current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_LEVEL_1_PAREN);
+                              ecolour_idx = ECOLOUR_LEVEL_1_PAREN;
                               break;
                           case LEXER_SEPARATOR:
                           case LEXER_STATEMENT_SEPARATOR:
@@ -2329,17 +2331,26 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                           case LEXER_LH_EXPR:
                           case LEXER_RH_EXPR:
                               the_type = THE_SYNTAX_MATCH;
-                              current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_LEVEL_2_PAREN);
+                              ecolour_idx = ECOLOUR_LEVEL_2_PAREN;
                               break;
                           case PARSE_TREE_FUNCTION:
                               the_type = THE_SYNTAX_LABEL;
-                              current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ECOLOUR_FUNCTIONS);
+                              ecolour_idx = ECOLOUR_FUNCTIONS;
                               break;
-                          default:                              the_type = THE_SYNTAX_NONE; 
-                              current_colour = normal_colour;
+                          default:
+                              the_type = THE_SYNTAX_NONE; 
                               break;
                       }
                       
+                      if (ecolour_idx != -1) {
+                          if (scurr->is_cursor_line && scurr->is_cursor_line_filearea_different)
+                              current_colour = merge_curline_colour(SCREEN_FILE(scrno)->attr+ATTR_CURSORLINE, SCREEN_FILE(scrno)->ecolour+ecolour_idx);
+                          else if (scurr->is_current_line)
+                              current_colour = merge_curline_colour(SCREEN_FILE(scrno)->attr+ATTR_CURLINE, SCREEN_FILE(scrno)->ecolour+ecolour_idx);
+                          else
+                              current_colour = set_colour(SCREEN_FILE(scrno)->ecolour+ecolour_idx);
+                      }
+
 #ifdef USE_SDSLH
                        if (severity == CB_ERROR) {
                            current_colour = set_colour(SCREEN_FILE(scrno)->attr+ATTR_CBERROR);
