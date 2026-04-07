@@ -264,6 +264,15 @@ add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
 )
 
 # Install Targets
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  # Fallback to local user bin to avoid sudo permission errors during testing
+  if(WIN32)
+    set(CMAKE_INSTALL_PREFIX "$ENV{USERPROFILE}/.local" CACHE PATH "Default install prefix" FORCE)
+  else()
+    set(CMAKE_INSTALL_PREFIX "$ENV{HOME}/.local" CACHE PATH "Default install prefix" FORCE)
+  endif()
+endif()
+
 install(TARGETS ${EXECUTABLE_NAME} DESTINATION bin)
 install(FILES doc/THE_Help.txt profile.the DESTINATION share/the)
 install(DIRECTORY syntax/ DESTINATION share/the/syntax)
