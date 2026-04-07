@@ -1438,26 +1438,8 @@ static void init_signals(void)
 void init_colour_pairs(void)
 /***********************************************************************/
 {
-   short fg,bg;
-
    TRACE_FUNCTION("the.c:     init_colour_pairs");
-#ifdef A_COLOR
-   /*
-    * Force the use of 8 colours instead of using COLORS;
-    * THE only knows about 8 basic colours. Change suggested
-    * by William McBrine
-    */
-   for ( fg = 0; fg < 8; fg++ )
-   {
-      for ( bg = 0; bg < 8; bg++ )
-      {
-         if ( ATTR2PAIR( fg, bg ) <= COLOR_PAIRS )
-         {
-            init_pair( (short)ATTR2PAIR( fg, bg ), fg, bg );
-         }
-      }
-   }
-#endif
+   /* Dynamic allocation now handles pairs on demand. */
    TRACE_RETURN();
    return;
 }

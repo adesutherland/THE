@@ -636,9 +636,15 @@ extern void ClosedownConsole( int );
 #endif
 #endif
 
-#define ATTR2PAIR(fg,bg) (bg|(fg<<3))
-#define FOREFROMPAIR(p)  (p>>3)
-#define BACKFROMPAIR(p)  (p&0x07)
+#define ATTR2PAIR(fg,bg) THE_alloc_pair(fg,bg)
+#define FOREFROMPAIR(p)  THE_fg_from_pair(p)
+#define BACKFROMPAIR(p)  THE_bg_from_pair(p)
+
+#ifdef A_COLOR
+int THE_alloc_pair(int fg, int bg);
+int THE_fg_from_pair(int pair);
+int THE_bg_from_pair(int pair);
+#endif
 
 #ifndef max
 # define max(a,b)        (((a) > (b)) ? (a) : (b))

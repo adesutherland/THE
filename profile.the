@@ -15,24 +15,24 @@
 'SET AUTOCOLOR *.toy tp'
 'SET COLORING ON AUTO'
 
-/* Configure a modern dark view (CMS XEDIT inspired) */
-'set color gap green on black'
-'set color cgap green on black'
-'set color arrow yellow on black'
-'set color filearea green on black dark'
-'set color curline green on black'
-'set color cursorline green on black'
-'set color prefix blue on black'
-'set color cprefix black on blue'
-'set color tofeof blue on black'
-'set color ctofeof blue on black'
-'set color cmdline white on black'
-'set color msgline red on black'
-'set color idline cyan on black'
-'set color scale cyan on black'
-'set color pending red high on black'
-'set color shadow white on black'
-'set color statarea cyan on black'
+/* Configure a modern dark view (VS Code Dark+ Inspired) */
+'set color gap #6A9955 on #1E1E1E'
+'set color cgap #6A9955 on #1E1E1E'
+'set color arrow #569CD6 on #1E1E1E'
+'set color filearea #D4D4D4 on #1E1E1E'
+'set color curline #D4D4D4 on #2D2D30'
+'set color cursorline #D4D4D4 on #2D2D30'
+'set color prefix #858585 on #252526'
+'set color cprefix #D4D4D4 on #007ACC'
+'set color tofeof #569CD6 on #1E1E1E'
+'set color ctofeof #569CD6 on #1E1E1E'
+'set color cmdline #D4D4D4 on #2D2D30'
+'set color msgline tomato on #1E1E1E'
+'set color idline white on dodgerblue'
+'set color scale cadetblue on #1E1E1E'
+'set color pending #CE9178 on #1E1E1E'
+'set color shadow #858585 on #1E1E1E'
+'set color statarea white on #007ACC'
 'set prefix gap 1'
 
 /* Display the parser message dynamically on the status line */
@@ -40,32 +40,32 @@
 'set statopt on pmsg.1 23 45 Msg='
 
 /* Diagnostic token colors in the file area */
-'set color cberror white on red'
-'set color cbwarn black on yellow'
-'set color cbinfo white on blue'
+'set color cberror white on firebrick'
+'set color cbwarn black on gold'
+'set color cbinfo white on #007ACC'
 
 /* Dynamic Status Line colors */
-'set color pmsgerror white high on red'
-'set color pmsgwarn black on yellow'
-'set color pmsginfo white on blue'
+'set color pmsgerror white on firebrick'
+'set color pmsgwarn black on gold'
+'set color pmsginfo white on #007ACC'
 
 /* Syntax Highlighting Colors (Modern Dark Theme) */
-'set ecolor A green on black bold'
-'set ecolor B yellow on black dark'
-'set ecolor C yellow on black dark'
-'set ecolor D white on black dark'
-'set ecolor E cyan on black dark'
-'set ecolor F white on black dark'
-'set ecolor G white on black dark'
+'set ecolor A #6A9955 on #1E1E1E' /* Comments */
+'set ecolor B #CE9178 on #1E1E1E' /* Strings */
+'set ecolor C #CE9178 on #1E1E1E' /* Incomplete Strings */
+'set ecolor D #569CD6 on #1E1E1E' /* Keywords */
+'set ecolor E #DCDCAA on #1E1E1E' /* Functions/Methods */
+'set ecolor F #B5CEA8 on #1E1E1E' /* Numbers */
+'set ecolor G #D4D4D4 on #1E1E1E' /* Operators/Punctuation */
 
-'set ecolor I white on black dark'
-'set ecolor L white on black dark'
-'set ecolor M white on black dark'
-'set ecolor N white on black dark'
-'set ecolor O white on black dark'
-'set ecolor P white on black dark'
-'set ecolor Q white on black dark'
-'set ecolor R white on black dark'
+'set ecolor I #9CDCFE on #1E1E1E' /* Variables/Identifiers */
+'set ecolor L #4EC9B0 on #1E1E1E' /* Types/Classes */
+'set ecolor M #C586C0 on #1E1E1E' /* Control Flow */
+'set ecolor N #D16969 on #1E1E1E' /* Escapes/Regex */
+'set ecolor O #9CDCFE on #1E1E1E'
+'set ecolor P #9CDCFE on #1E1E1E'
+'set ecolor Q #9CDCFE on #1E1E1E'
+'set ecolor R #9CDCFE on #1E1E1E'
 
 /* Display a startup message */
 'msg Welcome to THE (The Hessling Editor) - CREXX Edition'

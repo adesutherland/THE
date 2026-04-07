@@ -37,8 +37,55 @@
 
 #include <the.h>
 #include <proto.h>
+#include "extended_colors.h"
 
 #ifdef A_COLOR
+
+#define MAX_THE_PAIRS 32767
+static short pair_fg[MAX_THE_PAIRS];
+static short pair_bg[MAX_THE_PAIRS];
+static int next_the_pair = 1;
+
+int THE_alloc_pair(int fg, int bg) {
+    int i;
+    for (i = 1; i < next_the_pair; i++) {
+        if (pair_fg[i] == fg && pair_bg[i] == bg) return i;
+    }
+    if (next_the_pair < COLOR_PAIRS && next_the_pair < MAX_THE_PAIRS) {
+        pair_fg[next_the_pair] = fg;
+        pair_bg[next_the_pair] = bg;
+#if defined(PDC_BUILD) && PDC_BUILD >= 3400
+        init_extended_pair(next_the_pair, fg, bg);
+#else
+        init_pair((short)next_the_pair, (short)fg, (short)bg);
+#endif
+        return next_the_pair++;
+    }
+    return 1;
+}
+
+int THE_fg_from_pair(int pair) { return pair > 0 && pair < next_the_pair ? pair_fg[pair] : 0; }
+int THE_bg_from_pair(int pair) { return pair > 0 && pair < next_the_pair ? pair_bg[pair] : 0; }
+
+static int THE_alloc_color(int r, int g, int b) {
+    if (!can_change_color()) return COLOR_WHITE;
+    static int next_color = -1;
+    if (next_color == -1) next_color = COLORS - 1;
+    if (next_color > 15) {
+        int c = next_color--;
+        // Curses init_color expects 0-1000
+        int cr = (r * 1000) / 255;
+        int cg = (g * 1000) / 255;
+        int cb = (b * 1000) / 255;
+#if defined(PDC_BUILD) && PDC_BUILD >= 3400
+        init_extended_color(c, cr, cg, cb);
+#else
+        init_color((short)c, (short)cr, (short)cg, (short)cb);
+#endif
+        return c;
+    }
+    return COLOR_WHITE;
+}
 static COLOUR_DEF _THE_FAR the_colours[ATTR_MAX] =
 {
    /* foreground   background   modifier  mono                     */
@@ -703,6 +750,38 @@ short parse_colours(CHARTYPE *attrib,COLOUR_ATTR *pattr,CHARTYPE **rem,bool spar
       }
       if (spare_pos && found)
          break;
+
+      if (!found) {
+         int ext_color = is_valid_colour(p);
+         if (ext_color != -1) {
+            found = any_found = TRUE;
+            if (!colour_support) {
+               display_error(61,(CHARTYPE *)p,FALSE);
+               (*the_free)(string);
+               TRACE_RETURN();
+               return(RC_INVALID_OPERAND);
+            }
+            switch(num_colours) {
+               case 0: fg = ext_color; num_colours++; break;
+               case 1: bg = ext_color; num_colours++; break;
+               default:
+                  if (spare) {
+                     spare_pos = TRUE;
+                     *rem = (CHARTYPE *)attrib+offset;
+                     break;
+                  }
+                  display_error(1,(CHARTYPE *)p,FALSE);
+                  (*the_free)(string);
+                  TRACE_RETURN();
+                  return(RC_INVALID_OPERAND);
+            }
+            offset = p-oldp+strlen((DEFCHAR *)p)+1;
+         }
+      }
+
+      if (spare_pos && found)
+         break;
+
       if (!found)
       {
          if (equal((CHARTYPE *)"on",p,2)
@@ -1092,6 +1171,7 @@ int is_valid_colour( CHARTYPE *colour )
 
    TRACE_FUNCTION("colour.c:  is_valid_colour");
 
+   /* Check standard 16 colors first */
    for ( i = 0; valid_attribs[i].attrib != NULL; i++ )
    {
       if ( equal(valid_attribs[i].attrib, colour, valid_attribs[i].attrib_min_len )
@@ -1101,6 +1181,26 @@ int is_valid_colour( CHARTYPE *colour )
          return valid_attribs[i].actual_attrib;
       }
    }
+
+   /* Check for hex RGB color (#RRGGBB) */
+   if (colour[0] == '#' && strlen((char *)colour) == 7) {
+       int r, g, b;
+       if (sscanf((char *)colour + 1, "%02x%02x%02x", &r, &g, &b) == 3) {
+           int c = THE_alloc_color(r, g, b);
+           TRACE_RETURN();
+           return c;
+       }
+   }
+
+   /* Check for extended SVG/X11 colors */
+   for (i = 0; extended_colors[i].name != NULL; i++) {
+       if (strcasecmp(extended_colors[i].name, (char *)colour) == 0) {
+           int c = THE_alloc_color(extended_colors[i].r, extended_colors[i].g, extended_colors[i].b);
+           TRACE_RETURN();
+           return c;
+       }
+   }
+
    TRACE_RETURN();
    return (-1);
 }

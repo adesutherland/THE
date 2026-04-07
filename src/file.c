@@ -2197,6 +2197,27 @@ static short process_command_line(CHARTYPE *profile_command_line,LINETYPE line_n
    bool strip=FALSE;
 
    TRACE_FUNCTION("file.c:    process_command_line");
+   
+   /* Strip leading whitespace */
+   while (*profile_command_line == ' ' || *profile_command_line == '\t') {
+       profile_command_line++;
+   }
+   
+   /* Strip trailing whitespace */
+   len = strlen((DEFCHAR *)profile_command_line);
+   while (len > 0 && (profile_command_line[len-1] == ' ' || profile_command_line[len-1] == '\t' || profile_command_line[len-1] == '\r')) {
+       profile_command_line[len-1] = '\0';
+       len--;
+   }
+
+   /*
+    * If the line is empty now, return RC_OK
+    */
+   if (len == 0) {
+       TRACE_RETURN();
+       return(RC_OK);
+   }
+
    /*
     * If the first line of the macro file does not contain the comment
     * 'NOREXX' abort further processing of the macro file.
@@ -2217,11 +2238,24 @@ static short process_command_line(CHARTYPE *profile_command_line,LINETYPE line_n
       TRACE_RETURN();
       return(RC_OK);
    }
+   
+   /* Ignore REXX keywords used as standalone commands gracefully */
+   if (my_stricmp((DEFCHAR *)profile_command_line, (DEFCHAR *)"return") == 0 ||
+       my_stricmp((DEFCHAR *)profile_command_line, (DEFCHAR *)"exit") == 0 ||
+       my_stricmp((DEFCHAR *)profile_command_line, (DEFCHAR *)"pull") == 0 ||
+       memcmp(profile_command_line, "parse ", 6) == 0 ||
+       memcmp(profile_command_line, "if ", 3) == 0 ||
+       memcmp(profile_command_line, "do ", 3) == 0)
+   {
+       display_error(0, (CHARTYPE *)"Warning: Profile contains unsupported REXX statements (compiled with NOREXX)", FALSE);
+       TRACE_RETURN();
+       return(RC_OK);
+   }
+
    /*
     * If the line begins and ends with a quote, single or double, strip
     * the quotes.
     */
-   len = strlen((DEFCHAR *)profile_command_line);
    if (*(profile_command_line) == '\''
    &&  *(profile_command_line+len-1) == '\'')
       strip = TRUE;
