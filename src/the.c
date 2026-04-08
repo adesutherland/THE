@@ -473,31 +473,80 @@ int main(int argc, char *argv[])
       if ((the_home_dir[strlen((DEFCHAR *)the_home_dir)-1]) != ISLASH)
          strcat((DEFCHAR *)the_home_dir,(DEFCHAR *)ISTR_SLASH);
    }
-#ifdef THE_HOME_DIR
    else
    {
-      /* set by --with-homedir configure switch */
-      strcpy((DEFCHAR *)the_home_dir,THE_HOME_DIR);
-      strrmdup(strtrans(the_home_dir,OSLASH,ISLASH),ISLASH,TRUE);
-      if ((the_home_dir[strlen((DEFCHAR *)the_home_dir)-1]) != ISLASH)
-         strcat((DEFCHAR *)the_home_dir,(DEFCHAR *)ISTR_SLASH);
-   }
+      const char *search_dirs[] = {
+#if defined(__APPLE__)
+         "~/.local/share/the/",
+         "/usr/local/share/the/",
+         "/opt/homebrew/share/the/",
+#elif defined(UNIX)
+         "~/.local/share/the/",
+         "/usr/local/share/the/",
+         "/usr/share/the/",
 #else
-   else
-   {
-# if defined(UNIX)
-      strcpy((DEFCHAR *)the_home_dir,(DEFCHAR *)THE_HOME_DIR);
-# else
-      strcpy((DEFCHAR *)the_home_dir,(DEFCHAR *)argv[0]);
-      strrmdup(strtrans(the_home_dir,OSLASH,ISLASH),ISLASH,TRUE);
-      i = strzreveq(the_home_dir,ISLASH);
-      if (i != (-1))
-         the_home_dir[i+1] = '\0';
-      else
-         the_home_dir[0] = '\0';
-# endif
-   }
+         /* Windows paths */
+         "~/AppData/Roaming/THE/",
+         "~/.local/share/the/",
 #endif
+         NULL
+      };
+      int dir_idx = 0;
+      bool found = FALSE;
+      CHARTYPE expanded_dir[MAX_FILE_NAME+1];
+      CHARTYPE test_file[MAX_FILE_NAME+1];
+
+      while (search_dirs[dir_idx] != NULL)
+      {
+         /* Expand ~ to user_home_dir */
+         if (search_dirs[dir_idx][0] == '~' && search_dirs[dir_idx][1] == '/') {
+            strcpy((DEFCHAR *)expanded_dir, (DEFCHAR *)user_home_dir);
+            strcat((DEFCHAR *)expanded_dir, (DEFCHAR *)(search_dirs[dir_idx] + 2));
+         } else {
+            strcpy((DEFCHAR *)expanded_dir, (DEFCHAR *)search_dirs[dir_idx]);
+         }
+         
+         strrmdup(strtrans(expanded_dir,OSLASH,ISLASH),ISLASH,TRUE);
+         if (expanded_dir[strlen((DEFCHAR *)expanded_dir)-1] != ISLASH)
+            strcat((DEFCHAR *)expanded_dir,(DEFCHAR *)ISTR_SLASH);
+
+         /* Check if it exists by checking for profile.the */
+         strcpy((DEFCHAR *)test_file, (DEFCHAR *)expanded_dir);
+         strcat((DEFCHAR *)test_file, (DEFCHAR *)"profile.the");
+         if (file_readable(test_file)) {
+            strcpy((DEFCHAR *)the_home_dir, (DEFCHAR *)expanded_dir);
+            found = TRUE;
+            break;
+         }
+         /* Also check for the_help.txt */
+         strcpy((DEFCHAR *)test_file, (DEFCHAR *)expanded_dir);
+         strcat((DEFCHAR *)test_file, (DEFCHAR *)"the_help.txt");
+         if (file_readable(test_file)) {
+            strcpy((DEFCHAR *)the_home_dir, (DEFCHAR *)expanded_dir);
+            found = TRUE;
+            break;
+         }
+         dir_idx++;
+      }
+      
+      if (!found) {
+#if defined(UNIX)
+         strcpy((DEFCHAR *)the_home_dir, (DEFCHAR *)user_home_dir);
+         strcat((DEFCHAR *)the_home_dir, (DEFCHAR *)".local/share/the/");
+         strrmdup(strtrans(the_home_dir,OSLASH,ISLASH),ISLASH,TRUE);
+#else
+         strcpy((DEFCHAR *)the_home_dir,(DEFCHAR *)argv[0]);
+         strrmdup(strtrans(the_home_dir,OSLASH,ISLASH),ISLASH,TRUE);
+         {
+            int sep_idx = strzreveq(the_home_dir,ISLASH);
+            if (sep_idx != (-1))
+               the_home_dir[sep_idx+1] = '\0';
+            else
+               the_home_dir[0] = '\0';
+         }
+#endif
+      }
+   }
    /*
     * Get THE_MACRO_PATH environment variable. If not set set up default
     * to be THE_HOME_DIR followed by the current directory.

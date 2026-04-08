@@ -355,9 +355,6 @@
 /* Defines a global profile name */
 #cmakedefine THE_GLOBAL_PROFILE 1
 
-/* Defines home directory */
-#define THE_HOME_DIR "/Users/adriansutherland/.local/share/the/"
-
 /* define if you have PDC_set_function_key */
 #cmakedefine HAVE_PDC_SET_FUNCTION_KEY 1
 
