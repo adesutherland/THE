@@ -912,16 +912,16 @@ int THE_bg_from_pair(int pair);
 #define ECOLOUR_PREDIR                 5
 #define ECOLOUR_HEADER                 6
 #define ECOLOUR_EXTRA_R_PAREN          7
-#define ECOLOUR_LEVEL_1_PAREN          8
-#define ECOLOUR_LEVEL_1_KEYWORD        9
-#define ECOLOUR_LEVEL_1_PREDIR        10
-#define ECOLOUR_LEVEL_2_PAREN         11
-#define ECOLOUR_LEVEL_3_PAREN         12
-#define ECOLOUR_LEVEL_4_PAREN         13
-#define ECOLOUR_LEVEL_5_PAREN         14
-#define ECOLOUR_LEVEL_6_PAREN         15
-#define ECOLOUR_LEVEL_7_PAREN         16
-#define ECOLOUR_LEVEL_8_PAREN         17
+#define ECOLOUR_MATCH                  8
+#define ECOLOUR_OPERATOR               9
+#define ECOLOUR_PAREN                 10
+#define ECOLOUR_UNUSED_11             11
+#define ECOLOUR_UNUSED_12             12
+#define ECOLOUR_UNUSED_13             13
+#define ECOLOUR_UNUSED_14             14
+#define ECOLOUR_UNUSED_15             15
+#define ECOLOUR_UNUSED_16             16
+#define ECOLOUR_UNUSED_17             17
 #define ECOLOUR_INC_STRING            18
 #define ECOLOUR_HTML_TAG              19
 #define ECOLOUR_HTML_CHAR             20
@@ -1023,24 +1023,8 @@ int THE_bg_from_pair(int pair);
 #define HEADER_DIRECTORY              0x800
 #define HEADER_ALL                    (HEADER_NUMBER|HEADER_COMMENT|HEADER_STRING|HEADER_KEYWORD|HEADER_FUNCTION|HEADER_HEADER|HEADER_LABEL|HEADER_MATCH|HEADER_COLUMN|HEADER_POSTCOMPARE|HEADER_MARKUP|HEADER_DIRECTORY)
 /*--------------------------- defines for syntax highlighting status -----------*/
-#define THE_SYNTAX_NONE               ' '
-#define THE_SYNTAX_UNKNOWN            '?'
-#define THE_SYNTAX_COMMENT            'C'
-#define THE_SYNTAX_FUNCTION           'F'
-#define THE_SYNTAX_HEADER             'H'
-#define THE_SYNTAX_INCOMPLETESTRING   's'
-#define THE_SYNTAX_KEYWORD            'K'
-#define THE_SYNTAX_LABEL              'L'
-#define THE_SYNTAX_MARKUP             'M'
-#define THE_SYNTAX_MATCH              'm'
-#define THE_SYNTAX_NUMBER             'N'
-#define THE_SYNTAX_POSTCOMPARE        'P'
-#define THE_SYNTAX_PREPROCESSOR       '#'
-#define THE_SYNTAX_STRING             'S'
-#define THE_SYNTAX_DIRECTORY          'd'
-#define THE_SYNTAX_LINK               'l'
-#define THE_SYNTAX_EXTENSION          'e'
-#define THE_SYNTAX_EXECUTABLE         'E'
+#define ECOLOUR_NONE               ECOLOUR_MAX
+#define ECOLOUR_UNKNOWN            (ECOLOUR_MAX + 1)
 /*--------------------------- defines for EXTRACT DEFINE -----------------------*/
 #define KEY_TYPE_ALL        0
 #define KEY_TYPE_KEY        1

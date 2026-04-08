@@ -1,4 +1,4 @@
-SET SDSLH tp ../DSL-Syntax-Highlighter/cmake-build-debug/toyparser/tp -d
+SET SDSLH tp /Users/adriansutherland/.local/bin/tp -d
 SET AUTOCOLOR *.toy tp
 SET COLORING ON AUTO
 INPUT // test comment

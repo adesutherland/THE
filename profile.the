@@ -61,10 +61,9 @@
 'set ecolor keyword #569CD6 on #1E1E1E'
 'set ecolor identifier #9CDCFE on #1E1E1E'
 'set ecolor number #B5CEA8 on #1E1E1E'
-'set ecolor operator #D4D4D4 on #1E1E1E'
-'set ecolor paren #D4D4D4 on #1E1E1E'
-'set ecolor level1_paren #D4D4D4 on #1E1E1E'
-'set ecolor level2_paren #DCDCAA on #1E1E1E'
+'set ecolor operator #C586C0 on #1E1E1E'
+'set ecolor paren #FFD700 on #1E1E1E'
+'set ecolor match #FFD700 on #1E1E1E'
 'set ecolor function #DCDCAA on #1E1E1E'
 
 /* Display a startup message */

@@ -1789,55 +1789,59 @@ short extract_synelem( short number_variables, short itemno, CHARTYPE *itemargs,
 
    switch ( syntax_element )
    {
-      case THE_SYNTAX_NONE:
+      case ECOLOUR_NONE:
          item_values[1].value = (CHARTYPE *)"NONE";
          item_values[1].len = 4;
          break;
-      case THE_SYNTAX_COMMENT:
+      case ECOLOUR_COMMENTS:
          item_values[1].value = (CHARTYPE *)"COMMENT";
          item_values[1].len = 7;
          break;
-      case THE_SYNTAX_FUNCTION:
+      case ECOLOUR_FUNCTIONS:
          item_values[1].value = (CHARTYPE *)"FUNCTION";
          item_values[1].len = 8;
          break;
-      case THE_SYNTAX_HEADER:
+      case ECOLOUR_HEADER:
          item_values[1].value = (CHARTYPE *)"HEADER";
          item_values[1].len = 6;
          break;
-      case THE_SYNTAX_INCOMPLETESTRING:
+      case ECOLOUR_INC_STRING:
          item_values[1].value = (CHARTYPE *)"INCOMPLETESTRING";
          item_values[1].len = 16;
          break;
-      case THE_SYNTAX_KEYWORD:
+      case ECOLOUR_KEYWORDS:
          item_values[1].value = (CHARTYPE *)"KEYWORD";
          item_values[1].len = 7;
          break;
-      case THE_SYNTAX_LABEL:
+      case ECOLOUR_LABEL:
          item_values[1].value = (CHARTYPE *)"LABEL";
          item_values[1].len = 5;
          break;
-      case THE_SYNTAX_MARKUP:
+      case ECOLOUR_HTML_TAG:
          item_values[1].value = (CHARTYPE *)"MARKUP";
          item_values[1].len = 6;
          break;
-      case THE_SYNTAX_MATCH:
+      case ECOLOUR_MATCH:
          item_values[1].value = (CHARTYPE *)"MATCH";
          item_values[1].len = 5;
          break;
-      case THE_SYNTAX_NUMBER:
+      case ECOLOUR_OPERATOR:
+         item_values[1].value = (CHARTYPE *)"OPERATOR";
+         item_values[1].len = 8;
+         break;
+      case ECOLOUR_PAREN:
+         item_values[1].value = (CHARTYPE *)"PAREN";
+         item_values[1].len = 5;
+         break;
+      case ECOLOUR_NUMBERS:
          item_values[1].value = (CHARTYPE *)"NUMBER";
          item_values[1].len = 6;
          break;
-      case THE_SYNTAX_POSTCOMPARE:
-         item_values[1].value = (CHARTYPE *)"POSTCOMPARE";
-         item_values[1].len = 11;
-         break;
-      case THE_SYNTAX_PREPROCESSOR:
+      case ECOLOUR_PREDIR:
          item_values[1].value = (CHARTYPE *)"PREPROCESSOR";
          item_values[1].len = 12;
          break;
-      case THE_SYNTAX_STRING:
+      case ECOLOUR_STRINGS:
          item_values[1].value = (CHARTYPE *)"STRING";
          item_values[1].len = 6;
          break;

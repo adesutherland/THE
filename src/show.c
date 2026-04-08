@@ -2142,7 +2142,7 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
           */
          scurr->highlight_type = (unsigned char *)(*the_malloc)(scurr->length);
          if ( scurr->highlight_type )
-            memset( scurr->highlight_type, THE_SYNTAX_NONE, scurr->length );
+            memset( scurr->highlight_type, ECOLOUR_NONE, scurr->length );
          if (marked)
          {
             switch(MARK_VIEW->mark_type)
@@ -2265,7 +2265,7 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
               }
               if (scurr->highlight_type) {
                   scurr->is_highlighting = TRUE;
-                  memset(scurr->highlight_type, THE_SYNTAX_NONE, scurr->length);
+                  memset(scurr->highlight_type, ECOLOUR_NONE, scurr->length);
                   
                   chtype normal_colour;
                   if (scurr->is_cursor_line && scurr->is_cursor_line_filearea_different)
@@ -2290,37 +2290,30 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                           severity = cb_line->characters[i].severity;
                       }
 
-                      unsigned char the_type = THE_SYNTAX_NONE;
+                      int ecolour_idx = ECOLOUR_NONE;
                       chtype current_colour = normal_colour;
-                      int ecolour_idx = -1;
                       
                       switch(type) {
                           case LEXER_COMMENT: 
-                              the_type = THE_SYNTAX_COMMENT; 
                               ecolour_idx = ECOLOUR_COMMENTS;
                               break;
                           case LEXER_STRING_LITERAL: 
-                              the_type = THE_SYNTAX_STRING; 
                               ecolour_idx = ECOLOUR_STRINGS;
                               break;
                           case LEXER_NUMBER_LITERAL: 
-                              the_type = THE_SYNTAX_NUMBER; 
                               ecolour_idx = ECOLOUR_NUMBERS;
                               break;
                           case LEXER_KEYWORD:
-                              the_type = THE_SYNTAX_KEYWORD;
                               ecolour_idx = ECOLOUR_KEYWORDS;
                               break;
                           case LEXER_IDENTIFIER:
-                              the_type = THE_SYNTAX_LABEL;
                               ecolour_idx = ECOLOUR_LABEL;
                               break;
                           case LEXER_OPERATOR:
                           case LEXER_OPERATOR_ASSIGN:
                           case LEXER_OPERATOR_ARITHMETIC:
                           case LEXER_OPERATOR_LOGICAL:
-                              the_type = THE_SYNTAX_MATCH;
-                              ecolour_idx = ECOLOUR_LEVEL_1_PAREN;
+                              ecolour_idx = ECOLOUR_OPERATOR;
                               break;
                           case LEXER_SEPARATOR:
                           case LEXER_STATEMENT_SEPARATOR:
@@ -2330,19 +2323,16 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                           case LEXER_RH_CODEBLOCK:
                           case LEXER_LH_EXPR:
                           case LEXER_RH_EXPR:
-                              the_type = THE_SYNTAX_MATCH;
-                              ecolour_idx = ECOLOUR_LEVEL_2_PAREN;
+                              ecolour_idx = ECOLOUR_PAREN;
                               break;
                           case PARSE_TREE_FUNCTION:
-                              the_type = THE_SYNTAX_LABEL;
                               ecolour_idx = ECOLOUR_FUNCTIONS;
                               break;
                           default:
-                              the_type = THE_SYNTAX_NONE; 
                               break;
                       }
                       
-                      if (ecolour_idx != -1) {
+                      if (ecolour_idx != ECOLOUR_NONE) {
                           if (scurr->is_cursor_line && scurr->is_cursor_line_filearea_different)
                               current_colour = merge_curline_colour(SCREEN_FILE(scrno)->attr+ATTR_CURSORLINE, SCREEN_FILE(scrno)->ecolour+ecolour_idx);
                           else if (scurr->is_current_line)
@@ -2365,7 +2355,7 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                            current_colour |= A_REVERSE;
                        }
 #endif                      
-                      scurr->highlight_type[i] = the_type;
+                      scurr->highlight_type[i] = ecolour_idx;
                       if (i >= vcol && i - vcol < THE_MAX_SCREEN_WIDTH) {
                           scurr->highlighting[i - vcol] = current_colour;
                       }

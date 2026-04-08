@@ -124,11 +124,11 @@ static long find_comment( CHARTYPE scrno, SHOW_LINE *scurr,FILE_DETAILS *fd, LEN
    TRACE_FUNCTION( "parser.c:  find_comment" );
    for ( i = start; i < length; i++ )
    {
-      if ( scurr->highlight_type[i] == THE_SYNTAX_NONE
-      ||   scurr->highlight_type[i] == THE_SYNTAX_INCOMPLETESTRING
-      ||   scurr->highlight_type[i] == THE_SYNTAX_COMMENT
-      ||   scurr->highlight_type[i] == THE_SYNTAX_POSTCOMPARE
-      ||   scurr->highlight_type[i] == THE_SYNTAX_MARKUP )
+      if ( scurr->highlight_type[i] == ECOLOUR_NONE
+      ||   scurr->highlight_type[i] == ECOLOUR_INC_STRING
+      ||   scurr->highlight_type[i] == ECOLOUR_COMMENTS
+      ||   scurr->highlight_type[i] == ECOLOUR_KEYWORDS
+      ||   scurr->highlight_type[i] == ECOLOUR_HTML_TAG )
       {
          /* if the current syntax setting for the current character is NOT set, then we can test for a comment... */
          if ( start_delim )
@@ -236,7 +236,7 @@ static long find_line_comments( CHARTYPE scrno, FILE_DETAILS *fd, SHOW_LINE *scu
          case 0:  /* 'any' column */
             for ( i = 0; i < len; i++ )
             {
-               if ( scurr->highlight_type[i] == THE_SYNTAX_NONE )
+               if ( scurr->highlight_type[i] == ECOLOUR_NONE )
                {
                   /* if the current syntax setting for the current character is NOT set, then we can test for a comment... */
                   if ( fd->parser->case_sensitive )
@@ -289,7 +289,7 @@ static long find_line_comments( CHARTYPE scrno, FILE_DETAILS *fd, SHOW_LINE *scu
          case MAX_INT:  /* 'firstnonblank' */
             for ( i = 0; i < len; i++ )
             {
-               if ( scurr->highlight_type[i] == THE_SYNTAX_NONE )
+               if ( scurr->highlight_type[i] == ECOLOUR_NONE )
                {
                   /* if the current syntax setting for the current character is NOT set, then we can test for a comment... */
                   if ( fd->parser->case_sensitive )
@@ -346,7 +346,7 @@ static long find_line_comments( CHARTYPE scrno, FILE_DETAILS *fd, SHOW_LINE *scu
          default:    /* specific column */
             for ( i = curr->column; i < len; i++ )
             {
-               if ( scurr->highlight_type[i] == THE_SYNTAX_NONE )
+               if ( scurr->highlight_type[i] == ECOLOUR_NONE )
                {
                   /* if the current syntax setting for the current character is NOT set, then we can test for a comment... */
                   if ( fd->parser->case_sensitive )
@@ -403,7 +403,7 @@ static short parse_line_comments(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scur
          {
             scurr->highlighting[i-vcol] = comment_colour;
          }
-         scurr->highlight_type[i] = THE_SYNTAX_COMMENT;
+         scurr->highlight_type[i] = ECOLOUR_COMMENTS;
          if (work[i] != THE_CHAR_SPACE)
          {
             number_blanks++;
@@ -521,7 +521,7 @@ static int set_paired_comments( CHARTYPE scrno, FILE_DETAILS *fd, comment_loc *l
             {
                scurr->highlighting[j-vcol] = comment_colour;
             }
-            scurr->highlight_type[j] = THE_SYNTAX_COMMENT;
+            scurr->highlight_type[j] = ECOLOUR_COMMENTS;
          }
       }
    }
@@ -617,12 +617,12 @@ short parse_paired_comments(CHARTYPE scrno,FILE_DETAILS *fd)
    /*
     * Starting with the first displayed line of the file, search until the end of the displayed
     * part of the file for a start or end paired comment.
-    * Only look for matches where the highlight_type for a displayed character is THE_SYNTAX_NONE
+    * Only look for matches where the highlight_type for a displayed character is ECOLOUR_NONE
     *
     * If we find a match for a 'start of comment' then search for the 'end of comment' from the character after
     * the match to the end of the current line, and on subsequent lines forward. Ignore the highlight_type
     * when looking for the 'end of comment' ONLY on the same line as the 'start of comment'. For all other
-    * lines ignore characters with highlight_type != THE_SYNTAX_NONE.
+    * lines ignore characters with highlight_type != ECOLOUR_NONE.
     * If the 'end of comment' is found, set highlight_type for all characters between 'start of comment' and
     * 'end of comment' and repeat the above from the character position after the 'end of comment'
     * If we did not find 'end of comment', set highlight_type from 'start of comment' to end of display, and
@@ -631,7 +631,7 @@ short parse_paired_comments(CHARTYPE scrno,FILE_DETAILS *fd)
     * If we find a match for an 'end of comment' then search for the 'start of comment' from the character
     * before the match to the start of the current line, and on subsequent lines backwards. Ignore the highlight_type
     * when looking for the 'start of comment' ONLY on the same line as the 'start of comment'. For all other
-    * lines ignore characters with highlight_type != THE_SYNTAX_NONE.
+    * lines ignore characters with highlight_type != ECOLOUR_NONE.
     *
     * Repeat the above until we have parsed every line in the view
     */
@@ -772,7 +772,7 @@ static short parse_strings(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                   {
                      scurr->highlighting[off] = string_colour;
                   }
-                  scurr->highlight_type[i] = THE_SYNTAX_STRING;
+                  scurr->highlight_type[i] = ECOLOUR_STRINGS;
                   if ( work[i] != THE_CHAR_SPACE )
                   {
                      number_blanks++;
@@ -789,7 +789,7 @@ static short parse_strings(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                   {
                      scurr->highlighting[off] = string_colour;
                   }
-                  scurr->highlight_type[i] = THE_SYNTAX_STRING;
+                  scurr->highlight_type[i] = ECOLOUR_STRINGS;
                   if (work[i] != THE_CHAR_SPACE)
                   {
                      number_blanks++;
@@ -828,7 +828,7 @@ static short parse_strings(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                {
                   scurr->highlighting[off] = string_colour;
                }
-               scurr->highlight_type[i] = THE_SYNTAX_STRING;
+               scurr->highlight_type[i] = ECOLOUR_STRINGS;
                if (work[i] != THE_CHAR_SPACE)
                {
                   number_blanks++;
@@ -856,7 +856,7 @@ static short parse_strings(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                {
                   scurr->highlighting[off] = string_colour;
                }
-               scurr->highlight_type[i] = THE_SYNTAX_STRING;
+               scurr->highlight_type[i] = ECOLOUR_STRINGS;
                if (work[i] != THE_CHAR_SPACE)
                {
                   number_blanks++;
@@ -876,7 +876,7 @@ static short parse_strings(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
             {
                scurr->highlighting[i-vcol] = incomplete_string_colour;
             }
-            scurr->highlight_type[i] = THE_SYNTAX_INCOMPLETESTRING;
+            scurr->highlight_type[i] = ECOLOUR_INC_STRING;
          }
       }
    }
@@ -992,7 +992,7 @@ static short parse_markup_tag(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
       colour = merge_curline_colour(fd->attr+ATTR_CURLINE,fd->ecolour+ECOLOUR_HTML_TAG);
    else
       colour = set_colour(fd->ecolour+ECOLOUR_HTML_TAG);
-   rc = parse_delimiters(scrno,fd,scurr,fd->parser->markup_tag_start_delim,fd->parser->markup_tag_end_delim,colour,THE_SYNTAX_MARKUP);
+   rc = parse_delimiters(scrno,fd,scurr,fd->parser->markup_tag_start_delim,fd->parser->markup_tag_end_delim,colour,ECOLOUR_HTML_TAG);
    TRACE_RETURN();
    return rc;
 }
@@ -1012,7 +1012,7 @@ static short parse_markup_reference(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *s
       colour = merge_curline_colour(fd->attr+ATTR_CURLINE,fd->ecolour+ECOLOUR_HTML_CHAR);
    else
       colour = set_colour(fd->ecolour+ECOLOUR_HTML_CHAR);
-   rc = parse_delimiters(scrno,fd,scurr,fd->parser->markup_reference_start_delim,fd->parser->markup_reference_end_delim,colour,THE_SYNTAX_MARKUP);
+   rc = parse_delimiters(scrno,fd,scurr,fd->parser->markup_reference_start_delim,fd->parser->markup_reference_end_delim,colour,ECOLOUR_HTML_TAG);
    TRACE_RETURN();
    return rc;
 }
@@ -1105,7 +1105,7 @@ static short parse_headers(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                   {
                      scurr->highlighting[i-vcol] = header_colour;
                   }
-                  scurr->highlight_type[i] = THE_SYNTAX_HEADER;
+                  scurr->highlight_type[i] = ECOLOUR_HEADER;
                   if (work[i] != THE_CHAR_SPACE)
                   {
                      number_blanks++;
@@ -1160,7 +1160,7 @@ static short parse_headers(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                   {
                      scurr->highlighting[i-vcol] = header_colour;
                   }
-                  scurr->highlight_type[i] = THE_SYNTAX_HEADER;
+                  scurr->highlight_type[i] = ECOLOUR_HEADER;
                   if (work[i] != THE_CHAR_SPACE)
                   {
                      number_blanks++;
@@ -1181,7 +1181,7 @@ static short parse_headers(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                      {
                         scurr->highlighting[k-vcol] = header_colour;
                      }
-                     scurr->highlight_type[k] = THE_SYNTAX_HEADER;
+                     scurr->highlight_type[k] = ECOLOUR_HEADER;
                      if (work[k] != THE_CHAR_SPACE)
                      {
                         number_blanks++;
@@ -1240,7 +1240,7 @@ static short parse_labels(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
             {
                scurr->highlighting[i-vcol] = label_colour;
             }
-            scurr->highlight_type[i] = THE_SYNTAX_LABEL;
+            scurr->highlight_type[i] = ECOLOUR_LABEL;
             if (work[i] != THE_CHAR_SPACE)
             {
                number_blanks++;
@@ -1306,7 +1306,7 @@ static short parse_labels(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                   {
                      scurr->highlighting[i-vcol] = label_colour;
                   }
-                  scurr->highlight_type[i] = THE_SYNTAX_LABEL;
+                  scurr->highlight_type[i] = ECOLOUR_LABEL;
                   if (work[i] != THE_CHAR_SPACE)
                   {
                      number_blanks++;
@@ -1377,9 +1377,9 @@ static short parse_labels(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                   if ( i >= vcol && i-vcol < THE_MAX_SCREEN_WIDTH )
                   {
                      scurr->highlighting[i-vcol] = label_colour;
-                     scurr->highlight_type[i-vcol] = THE_SYNTAX_LABEL;
+                     scurr->highlight_type[i-vcol] = ECOLOUR_LABEL;
                   }
-                  scurr->highlight_type[i] = THE_SYNTAX_LABEL;
+                  scurr->highlight_type[i] = ECOLOUR_LABEL;
                   if ( work[i] != THE_CHAR_SPACE )
                   {
                      number_blanks++;
@@ -1399,7 +1399,7 @@ static short parse_labels(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                      {
                         scurr->highlighting[k-vcol] = label_colour;
                      }
-                     scurr->highlight_type[k] = THE_SYNTAX_LABEL;
+                     scurr->highlight_type[k] = ECOLOUR_LABEL;
                      if (work[k] != THE_CHAR_SPACE)
                      {
                         number_blanks++;
@@ -1434,11 +1434,11 @@ static short parse_match(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
     */
    if ( scurr->is_cursor_line
    &&   scurr->is_cursor_line_filearea_different )
-      paren_colour = merge_curline_colour(fd->attr+ATTR_CURSORLINE,fd->ecolour+ECOLOUR_LEVEL_1_PAREN);
+      paren_colour = merge_curline_colour(fd->attr+ATTR_CURSORLINE,fd->ecolour+ECOLOUR_MATCH);
    else if ( scurr->is_current_line )
-      paren_colour = merge_curline_colour(fd->attr+ATTR_CURLINE,fd->ecolour+ECOLOUR_LEVEL_1_PAREN);
+      paren_colour = merge_curline_colour(fd->attr+ATTR_CURLINE,fd->ecolour+ECOLOUR_MATCH);
    else
-      paren_colour = set_colour(fd->ecolour+ECOLOUR_LEVEL_1_PAREN);
+      paren_colour = set_colour(fd->ecolour+ECOLOUR_MATCH);
 
    vcol = SCREEN_VIEW(scrno)->verify_col-1;
    for ( i = 0; i < len; i++ )
@@ -1456,7 +1456,7 @@ static short parse_match(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
          {
             scurr->highlighting[off] = paren_colour;
          }
-         scurr->highlight_type[i] = THE_SYNTAX_MATCH;
+         scurr->highlight_type[i] = ECOLOUR_MATCH;
          work[off] = THE_CHAR_SPACE;
          number_blanks++;
       }
@@ -1503,7 +1503,7 @@ static short parse_directory(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
          if ( work[0] == 'd' )
          {
             alternate = fd->parser->directory_option_alternate;
-            type = THE_SYNTAX_DIRECTORY;
+            type = ECOLOUR_DIRECTORY;
             found = TRUE;
          }
          else if ( len >= 9 )
@@ -1511,7 +1511,7 @@ static short parse_directory(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
             if ( memcmp( work+4, "(dir)", 5 ) == 0 )
             {
                alternate = fd->parser->directory_option_alternate;
-               type = THE_SYNTAX_DIRECTORY;
+               type = ECOLOUR_DIRECTORY;
                found = TRUE;
             }
          }
@@ -1528,7 +1528,7 @@ static short parse_directory(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
          if ( work[0] == 'l' )
          {
             alternate = fd->parser->link_option_alternate;
-            type = THE_SYNTAX_LINK;
+            type = ECOLOUR_LINK;
             found = TRUE;
          }
       }
@@ -1550,7 +1550,7 @@ static short parse_directory(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                if ( memcmp( work+start, curr->extension, curr->extension_length ) == 0 )
                {
                   alternate = curr->alternate;
-                  type = THE_SYNTAX_EXTENSION;
+                  type = ECOLOUR_EXECUTABLE;
                   found = TRUE;
                   break;
                }
@@ -1560,7 +1560,7 @@ static short parse_directory(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                if ( memcmpi( work+start, curr->extension, curr->extension_length ) == 0 )
                {
                   alternate = curr->alternate;
-                  type = THE_SYNTAX_EXTENSION;
+                  type = ECOLOUR_EXECUTABLE;
                   found = TRUE;
                   break;
                }
@@ -1578,21 +1578,21 @@ static short parse_directory(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
       &&   work[3] == 'x' )
       {
          alternate = fd->parser->executable_option_alternate;
-         type = THE_SYNTAX_EXECUTABLE;
+         type = ECOLOUR_EXECUTABLE;
          found = TRUE;
       }
       else if ( len >= 7
       &&   work[6] == 'x' )
       {
          alternate = fd->parser->executable_option_alternate;
-         type = THE_SYNTAX_EXECUTABLE;
+         type = ECOLOUR_EXECUTABLE;
          found = TRUE;
       }
       else if ( len >= 10
       &&   work[9] == 'x' )
       {
          alternate = fd->parser->executable_option_alternate;
-         type = THE_SYNTAX_EXECUTABLE;
+         type = ECOLOUR_EXECUTABLE;
          found = TRUE;
       }
    }
@@ -1706,7 +1706,7 @@ static short parse_postcompare(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                   {
                      scurr->highlighting[i-vcol] = postcompare_colour;
                   }
-                  scurr->highlight_type[i] = THE_SYNTAX_POSTCOMPARE;
+                  scurr->highlight_type[i] = ECOLOUR_KEYWORDS;
                   work[i] = THE_CHAR_SPACE;
                   number_blanks++;
                }
@@ -1904,7 +1904,7 @@ static short parse_keywords(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                      {
                         scurr->highlighting[i-vcol] = number_colour;
                      }
-                     scurr->highlight_type[i] = THE_SYNTAX_NUMBER;
+                     scurr->highlight_type[i] = ECOLOUR_NUMBERS;
                      if ( work[i] != THE_CHAR_SPACE )
                      {
                         work[i] = THE_CHAR_SPACE;
@@ -1953,7 +1953,7 @@ static short parse_keywords(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                   {
                      scurr->highlighting[i-vcol] = keyword_colour;
                   }
-                  scurr->highlight_type[i] = THE_SYNTAX_KEYWORD;
+                  scurr->highlight_type[i] = ECOLOUR_KEYWORDS;
                   work[i] = THE_CHAR_SPACE;
                   number_blanks++;
                }
@@ -1978,7 +1978,7 @@ static short parse_keywords(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                         {
                            scurr->highlighting[i-vcol] = number_colour;
                         }
-                        scurr->highlight_type[i] = THE_SYNTAX_NUMBER;
+                        scurr->highlight_type[i] = ECOLOUR_NUMBERS;
                         if ( work[i] != THE_CHAR_SPACE )
                         {
                            work[i] = THE_CHAR_SPACE;
@@ -2173,7 +2173,7 @@ static short parse_functions(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                            {
                               scurr->highlighting[(word_start+j)-vcol] = keyword_colour;
                            }
-                           scurr->highlight_type[(word_start+j)] = THE_SYNTAX_KEYWORD;
+                           scurr->highlight_type[(word_start+j)] = ECOLOUR_KEYWORDS;
                            if ( work[word_start+j] != THE_CHAR_SPACE )
                            {
                               work[word_start+j] = THE_CHAR_SPACE;
@@ -2235,7 +2235,7 @@ static short parse_functions(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                {
                   scurr->highlighting[i-vcol] = function_colour;
                }
-               scurr->highlight_type[i] = THE_SYNTAX_FUNCTION;
+               scurr->highlight_type[i] = ECOLOUR_FUNCTIONS;
                work[i] = THE_CHAR_SPACE;
                number_blanks++;
             }
@@ -2270,7 +2270,7 @@ static short parse_functions(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                      {
                         scurr->highlighting[i-vcol] = function_colour;
                      }
-                     scurr->highlight_type[i] = THE_SYNTAX_FUNCTION;
+                     scurr->highlight_type[i] = ECOLOUR_FUNCTIONS;
                      if ( work[i] != THE_CHAR_SPACE )
                      {
                         work[i] = THE_CHAR_SPACE;
@@ -2368,7 +2368,7 @@ static short parse_preprocessor(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr
                      {
                         scurr->highlighting[k-vcol] = keyword_colour;
                      }
-                     scurr->highlight_type[k] = THE_SYNTAX_KEYWORD;
+                     scurr->highlight_type[k] = ECOLOUR_KEYWORDS;
                      work[k] = THE_CHAR_SPACE;
                      number_blanks++;
                   }
@@ -2376,7 +2376,7 @@ static short parse_preprocessor(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr
                   {
                      scurr->highlighting[preprocessor_char_start_pos-vcol] = keyword_colour;
                   }
-                  scurr->highlight_type[preprocessor_char_start_pos] = THE_SYNTAX_KEYWORD;
+                  scurr->highlight_type[preprocessor_char_start_pos] = ECOLOUR_KEYWORDS;
                   work[preprocessor_char_start_pos] = THE_CHAR_SPACE;
                   number_blanks++;
                }
@@ -4734,13 +4734,13 @@ CHARTYPE get_syntax_element( CHARTYPE scrno, int row, int col )
    if ( row > screen[scrno].rows[WINDOW_FILEAREA]
    ||   col > screen[scrno].cols[WINDOW_FILEAREA] )
    {
-      syntax_element = THE_SYNTAX_UNKNOWN;
+      syntax_element = ECOLOUR_UNKNOWN;
    }
    else
    {
       scurr += row;
       if ( col+vcol >= scurr->length )
-         syntax_element = THE_SYNTAX_UNKNOWN;
+         syntax_element = ECOLOUR_UNKNOWN;
       else
          syntax_element = scurr->highlight_type[col+vcol];
    }
