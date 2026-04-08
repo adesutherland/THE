@@ -1833,6 +1833,18 @@ short extract_synelem( short number_variables, short itemno, CHARTYPE *itemargs,
          item_values[1].value = (CHARTYPE *)"PAREN";
          item_values[1].len = 5;
          break;
+      case ECOLOUR_TYPES:
+         item_values[1].value = (CHARTYPE *)"TYPE";
+         item_values[1].len = 4;
+         break;
+      case ECOLOUR_CONSTANTS:
+         item_values[1].value = (CHARTYPE *)"CONSTANT";
+         item_values[1].len = 8;
+         break;
+      case ECOLOUR_PUNCTUATION:
+         item_values[1].value = (CHARTYPE *)"PUNCTUATION";
+         item_values[1].len = 11;
+         break;
       case ECOLOUR_NUMBERS:
          item_values[1].value = (CHARTYPE *)"NUMBER";
          item_values[1].len = 6;

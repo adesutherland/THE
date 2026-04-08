@@ -915,9 +915,9 @@ int THE_bg_from_pair(int pair);
 #define ECOLOUR_MATCH                  8
 #define ECOLOUR_OPERATOR               9
 #define ECOLOUR_PAREN                 10
-#define ECOLOUR_UNUSED_11             11
-#define ECOLOUR_UNUSED_12             12
-#define ECOLOUR_UNUSED_13             13
+#define ECOLOUR_TYPES                 11
+#define ECOLOUR_CONSTANTS             12
+#define ECOLOUR_PUNCTUATION           13
 #define ECOLOUR_UNUSED_14             14
 #define ECOLOUR_UNUSED_15             15
 #define ECOLOUR_UNUSED_16             16

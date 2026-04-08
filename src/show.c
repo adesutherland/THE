@@ -2306,6 +2306,19 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                           case LEXER_KEYWORD:
                               ecolour_idx = ECOLOUR_KEYWORDS;
                               break;
+                          case LEXER_PREPROCESSOR:
+                              ecolour_idx = ECOLOUR_PREDIR;
+                              break;
+                          case LEXER_TYPE_IDENTIFIER:
+                              ecolour_idx = ECOLOUR_TYPES;
+                              break;
+                          case LEXER_FUNCTION_IDENTIFIER:
+                          case PARSE_TREE_FUNCTION:
+                              ecolour_idx = ECOLOUR_FUNCTIONS;
+                              break;
+                          case LEXER_CONSTANT_IDENTIFIER:
+                              ecolour_idx = ECOLOUR_CONSTANTS;
+                              break;
                           case LEXER_IDENTIFIER:
                               ecolour_idx = ECOLOUR_LABEL;
                               break;
@@ -2317,6 +2330,8 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                               break;
                           case LEXER_SEPARATOR:
                           case LEXER_STATEMENT_SEPARATOR:
+                              ecolour_idx = ECOLOUR_PUNCTUATION;
+                              break;
                           case LEXER_LH_BLOCK:
                           case LEXER_RH_BLOCK:
                           case LEXER_LH_CODEBLOCK:
@@ -2324,9 +2339,6 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                           case LEXER_LH_EXPR:
                           case LEXER_RH_EXPR:
                               ecolour_idx = ECOLOUR_PAREN;
-                              break;
-                          case PARSE_TREE_FUNCTION:
-                              ecolour_idx = ECOLOUR_FUNCTIONS;
                               break;
                           default:
                               break;
