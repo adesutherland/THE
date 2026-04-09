@@ -2331,7 +2331,16 @@ short Sdslh(CHARTYPE *params)
    last_parser = curr;
 
    strcpy((DEFCHAR *)curr->parser_name,(DEFCHAR *)word[0]);
+#if defined(UNIX)
+   if (word[1][0] == '~' && word[1][1] == '/') {
+      strcpy((DEFCHAR *)curr->sdslh_path, (DEFCHAR *)user_home_dir);
+      strcat((DEFCHAR *)curr->sdslh_path, (DEFCHAR *)(word[1] + 2));
+   } else {
+      strcpy((DEFCHAR *)curr->sdslh_path, (DEFCHAR *)word[1]);
+   }
+#else
    strcpy((DEFCHAR *)curr->sdslh_path,(DEFCHAR *)word[1]);
+#endif
    curr->is_sdslh_parser = TRUE;
 
    if (old_parser)
