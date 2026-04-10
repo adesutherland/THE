@@ -80,23 +80,24 @@ outopts
    will always return FALSE.
 
 ### Portability
-                             X/Open  ncurses  NetBSD
-    clearok                     Y       Y       Y
-    idlok                       Y       Y       Y
-    idcok                       Y       Y       Y
-    immedok                     Y       Y       Y
-    leaveok                     Y       Y       Y
-    setscrreg                   Y       Y       Y
-    wsetscrreg                  Y       Y       Y
-    wgetscrreg                  -       Y       -
-    scrollok                    Y       Y       Y
-    is_cleared                  -       Y       -
-    is_idlok                    -       Y       -
-    is_idcok                    -       Y       -
-    is_immedok                  -       Y       -
-    is_leaveok                  -       Y       Y
-    is_scrollok                 -       Y       -
-    raw_output                  -       -       -
+   Function              | X/Open | ncurses | NetBSD
+   :---------------------|:------:|:-------:|:------:
+   clearok               |    Y   |    Y    |   Y
+   idlok                 |    Y   |    Y    |   Y
+   idcok                 |    Y   |    Y    |   Y
+   immedok               |    Y   |    Y    |   Y
+   leaveok               |    Y   |    Y    |   Y
+   setscrreg             |    Y   |    Y    |   Y
+   wsetscrreg            |    Y   |    Y    |   Y
+   wgetscrreg            |    -   |    Y    |   -
+   scrollok              |    Y   |    Y    |   Y
+   is_cleared            |    -   |    Y    |   -
+   is_idlok              |    -   |    Y    |   -
+   is_idcok              |    -   |    Y    |   -
+   is_immedok            |    -   |    Y    |   -
+   is_leaveok            |    -   |    Y    |   Y
+   is_scrollok           |    -   |    Y    |   -
+   raw_output            |    -   |    -    |   -
 
 **man-end****************************************************************/
 
@@ -164,8 +165,7 @@ int wsetscrreg(WINDOW *win, int top, int bottom)
     PDC_LOG(("wsetscrreg() - called: top %d bottom %d\n", top, bottom));
 
     assert( win);
-    if (win && 0 <= top && top <= win->_cury &&
-        win->_cury <= bottom && bottom < win->_maxy)
+    if (win && 0 <= top && top <= bottom && bottom < win->_maxy)
     {
         win->_tmarg = top;
         win->_bmarg = bottom;

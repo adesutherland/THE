@@ -1,6 +1,7 @@
-/* PDCurses */
+/* PDCursesMod */
 
 #include <curspriv.h>
+#include <stdlib.h>
 #include <assert.h>
 
 /*man-start**************************************************************
@@ -58,9 +59,9 @@ kernel
    milliseconds. draino() is an archaic equivalent. Note that since
    napms() attempts to give up a time slice and yield control back to
    the OS, all times are approximate. (In DOS, the delay is actually
-   rounded down to 50ms (1/20th sec) intervals, with a minimum of one
-   interval; i.e., 1-99 will wait 50ms, 100-149 will wait 100ms, etc.)
-   0 returns immediately.
+   rounded to the nearest 'tick' (~55 milliseconds),  with a minimum of
+   one interval; i.e., 1-82 will wait ~55ms, 83-137 will wait ~110ms,
+   etc.)  0 returns immediately.
 
    resetterm(), fixterm() and saveterm() are archaic equivalents for
    reset_shell_mode(), reset_prog_mode() and def_prog_mode(),
@@ -72,27 +73,26 @@ kernel
    curs_set(), which returns the previous visibility.
 
 ### Portability
-                             X/Open  ncurses  NetBSD
-    def_prog_mode               Y       Y       Y
-    def_shell_mode              Y       Y       Y
-    reset_prog_mode             Y       Y       Y
-    reset_shell_mode            Y       Y       Y
-    resetty                     Y       Y       Y
-    savetty                     Y       Y       Y
-    ripoffline                  Y       Y       Y
-    curs_set                    Y       Y       Y
-    napms                       Y       Y       Y
-    fixterm                     -       Y       -
-    resetterm                   -       Y       -
-    saveterm                    -       Y       -
-    draino                      -       -       -
+   Function              | X/Open | ncurses | NetBSD
+   :---------------------|:------:|:-------:|:------:
+   def_prog_mode         |    Y   |    Y    |   Y
+   def_shell_mode        |    Y   |    Y    |   Y
+   reset_prog_mode       |    Y   |    Y    |   Y
+   reset_shell_mode      |    Y   |    Y    |   Y
+   resetty               |    Y   |    Y    |   Y
+   savetty               |    Y   |    Y    |   Y
+   ripoffline            |    Y   |    Y    |   Y
+   curs_set              |    Y   |    Y    |   Y
+   napms                 |    Y   |    Y    |   Y
+   fixterm               |    -   |    Y    |   -
+   resetterm             |    -   |    Y    |   -
+   saveterm              |    -   |    Y    |   -
+   draino                |    -   |    -    |   -
 
 **man-end****************************************************************/
 
 #include <string.h>
 
-RIPPEDOFFLINE linesripped[5];
-char linesrippedoff = 0;
 
 static struct cttyset
 {
@@ -115,10 +115,22 @@ static int _restore_mode(int i)
 {
     if (ctty[i].been_set == TRUE)
     {
-        void *opaque = SP->opaque;
+        WINDOW **window_list = SP->window_list;
+        const int n_windows = SP->n_windows;
+        struct _pdc_pair *pairs = SP->pairs;
+        const int pairs_allocated = SP->pairs_allocated;
+        hash_idx_t *pair_hash_tbl = SP->pair_hash_tbl;
+        const int pair_hash_tbl_size = SP->pair_hash_tbl_size;
+        const int pair_hash_tbl_used = SP->pair_hash_tbl_used;
 
         memcpy(SP, &(ctty[i].saved), sizeof(SCREEN));
-        SP->opaque = opaque;
+        SP->window_list = window_list;
+        SP->n_windows = n_windows;
+        SP->pairs = pairs;
+        SP->pairs_allocated = pairs_allocated;
+        SP->pair_hash_tbl = pair_hash_tbl;
+        SP->pair_hash_tbl_size = pair_hash_tbl_size;
+        SP->pair_hash_tbl_used = pair_hash_tbl_used;
 
         if (ctty[i].saved.raw_out)
             raw();
@@ -263,7 +275,7 @@ int napms(int ms)
         curs_set(curs_state);
     }
 
-    if (ms)
+    if( ms > 0)
         PDC_napms(ms);
 
     return OK;
@@ -271,11 +283,23 @@ int napms(int ms)
 
 int ripoffline(int line, int (*init)(WINDOW *, int))
 {
+    static RIPPEDOFFLINE *linesripped = NULL;
+    static int linesrippedoff = 0;
+
     PDC_LOG(("ripoffline() - called: line=%d\n", line));
 
-    assert( init);
-    if (linesrippedoff < 5 && line && init)
+    if( !init && SP)
+    {                 /* copy ripped-off line data into the SCREEN struct */
+        SP->linesripped = linesripped;
+        SP->linesrippedoff = linesrippedoff;
+        linesripped = NULL;
+        return OK;
+    }
+    assert( line && init);
+    if (linesrippedoff < MAX_RIPPEDOFFLINES && line && init)
     {
+        if( !linesripped)
+            linesripped = calloc( MAX_RIPPEDOFFLINES, sizeof( RIPPEDOFFLINE));
         linesripped[(int)linesrippedoff].line = line;
         linesripped[(int)linesrippedoff++].init = init;
 

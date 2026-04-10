@@ -46,13 +46,14 @@ refresh
    All functions return OK on success and ERR on error.
 
 ### Portability
-                             X/Open  ncurses  NetBSD
-    refresh                     Y       Y       Y
-    wrefresh                    Y       Y       Y
-    wnoutrefresh                Y       Y       Y
-    doupdate                    Y       Y       Y
-    redrawwin                   Y       Y       Y
-    wredrawln                   Y       Y       Y
+   Function              | X/Open | ncurses | NetBSD
+   :---------------------|:------:|:-------:|:------:
+   refresh               |    Y   |    Y    |   Y
+   wrefresh              |    Y   |    Y    |   Y
+   wnoutrefresh          |    Y   |    Y    |   Y
+   doupdate              |    Y   |    Y    |   Y
+   redrawwin             |    Y   |    Y    |   Y
+   wredrawln             |    Y   |    Y    |   Y
 
 **man-end****************************************************************/
 
@@ -146,6 +147,76 @@ int wnoutrefresh(WINDOW *win)
     return OK;
 }
 
+/* The following ensures that PDC_transform_line() is fed a maximum of
+MAX_PACKET_LEN at a time;  'dummy' characters in cells next to fullwidth
+characters are not sent;  and we break packets after combining characters
+and fullwidth characters,  avoiding some possible mis-alignment issues.
+If the cursor is shown,  that character is drawn by itself,  with
+SP->drawing_cursor set to the actual desired cursor (which,  on some
+platforms,  varies as SP->blink_state flips).      */
+
+void PDC_transform_line_sliced( int lineno, int x, int len, const chtype *srcp)
+{
+    assert( x >= 0);
+    assert( len > 0);
+    assert( x + len <= COLS);
+    assert( lineno >= 0);
+    assert( lineno < SP->lines);
+    if( lineno == SP->cursrow && x <= SP->curscol && x + len > SP->curscol)
+    {
+        const int vis = (SP->visibility >> (SP->blink_state ? 8 : 0)) & 0xff;
+
+        if( vis)
+        {
+            const int before = SP->curscol - x;
+
+            if( before)   /* some text before the cursor */
+            {
+                PDC_transform_line_sliced( lineno, x, before, srcp);
+                x += before;
+                len -= before;
+                srcp += before;
+            }
+            if( len > 1)    /* some text after the cursor */
+                PDC_transform_line_sliced( lineno, x + 1, len - 1, srcp + 1);
+            len = 1;        /* ...and now just the cursor itself */
+            SP->drawing_cursor = vis;
+        }
+    }
+#ifdef PDC_WIDE
+    if( x && (*srcp & A_CHARTEXT) == DUMMY_CHAR_NEXT_TO_FULLWIDTH)
+    {                   /* starting on a dummy next to a fullwidth */
+        x--;
+        srcp--;
+        len++;
+    }
+#endif
+    while( len)
+    {
+#ifdef PDC_WIDE
+        int i = 1;
+        chtype ch;
+
+        while( i < MAX_PACKET_LEN - 1
+                     && (ch = (srcp[i - 1] & A_CHARTEXT)) < MAX_UNICODE
+                     && i < len)
+           i++;
+        if( i == 1 && ch == MAX_UNICODE)
+            fprintf( stderr, "line %d, x=%d, len=%d\n", lineno, x, len);
+        assert( i > 1 || ch != MAX_UNICODE);
+        PDC_transform_line( lineno, x,
+                          i - ((ch == MAX_UNICODE) ? 1 : 0), srcp);
+#else
+        const int i = min( len, MAX_PACKET_LEN - 1);
+        PDC_transform_line( lineno, x, i, srcp);
+#endif
+        x += i;
+        len -= i;
+        srcp += i;
+    }
+    SP->drawing_cursor = 0;
+}
+
 int doupdate(void)
 {
     int y;
@@ -214,7 +285,7 @@ int doupdate(void)
 
                 if (len)
                 {
-                    PDC_transform_line(y, first, len, src + first);
+                    PDC_transform_line_sliced(y, first, len, src + first);
                     memcpy(dest + first, src + first, len * sizeof(chtype));
                     first += len;
                 }
@@ -248,7 +319,7 @@ int wrefresh(WINDOW *win)
 
     PDC_LOG(("wrefresh() - called\n"));
 
-    assert( win);
+    assert( win && !(win->_flags & (_PAD|_SUBPAD)) );
     if ( !win || (win->_flags & (_PAD|_SUBPAD)) )
         return ERR;
 

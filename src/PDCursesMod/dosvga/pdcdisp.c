@@ -9,6 +9,7 @@
 #endif
 
 #include "../common/acs_defs.h"
+#include "../common/pdccolor.h"
 
 #ifdef __DJGPP__
 #include <go32.h>
@@ -19,6 +20,10 @@
 /* For Watcom, we need conio.h, but the Curses macro for getch fouls it up */
 #undef getch
 #include <conio.h>
+#define outportb(a, b) outp((a), (b))
+#endif
+
+#ifdef __DMC__
 #define outportb(a, b) outp((a), (b))
 #endif
 
@@ -365,6 +370,12 @@ static void _transform_line_4(int lineno, int x, int len, const chtype *srcp)
     outportb(0x3c5, 0xF);
 }
 
+/* The 'common' color handling code assumes red is in the least
+significant byte.  The VGA handling puts blue in that byte.  So
+we need to swap bits 0-7 with those in 16-23.   */
+
+#define flip_rgb( RGB)  RGB = (RGB >> 16) | (RGB & 0xff00) | ((RGB & 0xff) << 16)
+
 /* PDC_transform_line for 8, 15, 16, 24 and 32 bit pixels */
 
 static void _transform_line_8(int lineno, int x, int len, const chtype *srcp)
@@ -395,7 +406,8 @@ static void _transform_line_8(int lineno, int x, int len, const chtype *srcp)
     {
         chtype glyph = srcp[col];
         unsigned ch;
-        unsigned long colors, fore, back;
+        unsigned long colors;
+        uint32_t fore, back;
 
         /* Get the index into the font */
         ch = glyph & A_CHARTEXT;
@@ -414,8 +426,9 @@ static void _transform_line_8(int lineno, int x, int len, const chtype *srcp)
         back = (colors >> 16) & 0xFFFF;
         if (PDC_state.bits_per_pixel > 8)
         {
-            fore = PDC_state.colors[fore].mapped;
-            back = PDC_state.colors[back].mapped;
+            PDC_get_rgb_values( glyph, &fore, &back);
+            flip_rgb( fore);
+            flip_rgb( back);
         }
         /*
          * If this is ever run on big endian hardware, we'll need to shift
@@ -548,12 +561,12 @@ static unsigned long _get_colors(chtype glyph)
 void PDC_private_cursor_off(void)
 {
     /* This gets called before atrtab is set up; avoid a null dereference */
-    if (!SP || !SP->opaque || !SP->opaque->pairs)
+    if (!SP || !SP->pairs)
         return;
 
     PDC_state.cursor_visible = FALSE;
-    if (PDC_state.cursor_row < (unsigned)LINES
-    &&  PDC_state.cursor_col < (unsigned)COLS)
+    if (PDC_state.cursor_row < LINES
+    &&  PDC_state.cursor_col < COLS)
     {
         static const chtype space = ' ';
 
@@ -569,7 +582,7 @@ void PDC_private_cursor_on(int row, int col)
     PDC_state.cursor_visible = TRUE;
     PDC_state.cursor_row = row;
     PDC_state.cursor_col = col;
-    if (row < (unsigned)LINES && col < (unsigned)COLS)
+    if (row < LINES && col < COLS)
     {
         static const chtype space = ' ';
 

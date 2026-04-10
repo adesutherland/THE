@@ -1,6 +1,6 @@
 /* Public Domain Curses */
 
-/* $Id: pdcwin.h,v 1.8 2022/12/25 20:57:01 mark Exp $ */
+/* $Id: pdcwin.h,v 1.6 2008/07/13 06:36:32 wmcbrine Exp $ */
 
 #if defined(_MSC_VER) && !defined(_CRT_SECURE_NO_DEPRECATE)
 # define _CRT_SECURE_NO_DEPRECATE 1   /* kill nonsense warnings */

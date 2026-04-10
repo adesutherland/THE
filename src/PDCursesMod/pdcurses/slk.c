@@ -30,6 +30,7 @@ slk
 
     wchar_t *slk_wlabel(int labnum);
     attr_t slk_attr( void);            (ncurses extension)
+    int extended_slk_color( int pair); (ncurses extension)
 
 ### Description
 
@@ -39,7 +40,9 @@ slk
    the useable screen, depending on the format selected.
 
    The line(s) removed from the screen are used as a separate window, in
-   which SLKs are displayed.
+   which SLKs are displayed.  Mouse clicks on the SLKs are returned as
+   KEY_F() (function key) presses;  for example,  clicking on the leftmost
+   SLK will cause KEY_F(1) to be added to the key queue.
 
    slk_init() requires a single parameter which describes the format of
    the SLKs as follows:
@@ -66,29 +69,35 @@ slk
    slk_refresh(), slk_noutrefresh() and slk_touch() are analogous to
    refresh(), noutrefresh() and touch().
 
+   slk_color() is analogous to color_set(),  and is similarly limited
+   to 16-bit color pairs.  extended_slk_color() allows the ability to
+   access color pairs beyond 64K.
+
 ### Return Value
 
    All functions return OK on success and ERR on error.
 
 ### Portability
-                             X/Open  ncurses  NetBSD
-    slk_init                    Y       Y       Y
-    slk_set                     Y       Y       Y
-    slk_refresh                 Y       Y       Y
-    slk_noutrefresh             Y       Y       Y
-    slk_label                   Y       Y       Y
-    slk_clear                   Y       Y       Y
-    slk_restore                 Y       Y       Y
-    slk_touch                   Y       Y       Y
-    slk_attron                  Y       Y       Y
-    slk_attrset                 Y       Y       Y
-    slk_attroff                 Y       Y       Y
-    slk_attr_on                 Y       Y       Y
-    slk_attr_set                Y       Y       Y
-    slk_attr_off                Y       Y       Y
-    slk_attr                    -       Y       -
-    slk_wset                    Y       Y       Y
-    slk_wlabel                  -       -       -
+   Function              | X/Open | ncurses | NetBSD
+   :---------------------|:------:|:-------:|:------:
+   slk_init              |    Y   |    Y    |   Y
+   slk_set               |    Y   |    Y    |   Y
+   slk_refresh           |    Y   |    Y    |   Y
+   slk_noutrefresh       |    Y   |    Y    |   Y
+   slk_label             |    Y   |    Y    |   Y
+   slk_clear             |    Y   |    Y    |   Y
+   slk_restore           |    Y   |    Y    |   Y
+   slk_touch             |    Y   |    Y    |   Y
+   slk_attron            |    Y   |    Y    |   Y
+   slk_attrset           |    Y   |    Y    |   Y
+   slk_attroff           |    Y   |    Y    |   Y
+   slk_attr_on           |    Y   |    Y    |   Y
+   slk_attr_set          |    Y   |    Y    |   Y
+   slk_attr_off          |    Y   |    Y    |   Y
+   slk_attr              |    -   |    Y    |   -
+   slk_wset              |    Y   |    Y    |   Y
+   slk_wlabel            |    -   |    -    |   -
+   extended_slk_color    |    -   |    Y    |   -
 
 **man-end****************************************************************/
 
@@ -437,9 +446,9 @@ attr_t slk_attr( void)
     PDC_LOG(("slk_attrset() - called\n"));
 
     assert( SP);
-    if (!SP)
-        return ERR;
     assert( SP->slk_winptr);
+    if (!SP || !SP->slk_winptr)
+        return A_REVERSE;           /* default attribute for SLK */
 
     return( SP->slk_winptr->_attrs & (A_ATTRIBUTES & ~A_COLOR));
 }

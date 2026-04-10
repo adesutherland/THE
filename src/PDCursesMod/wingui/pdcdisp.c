@@ -135,7 +135,7 @@ box) in place of any visible cursor.  */
 static int PDC_current_cursor_state( void)
 {
     extern HWND PDC_hWnd;
-    const int shift_amount = (PDC_blink_state ? 0 : 8);
+    const int shift_amount = (SP->blink_state ? 8 : 0);
     const int cursor_style_for_unfocussed_window =
                PDC_CURSOR( PDC_CURSOR_OUTLINE, PDC_CURSOR_OUTLINE);
     int cursor_style;
@@ -156,49 +156,47 @@ static void redraw_cursor( const HDC hdc)
         redraw_cursor_from_index( hdc, cursor_style);
 }
 
-/* position "hardware" cursor at (y, x).  We don't have a for-real hardware */
-/* cursor in this version,  of course,  but we can fake it.  Note that much */
-/* of the logic was borrowed from the SDL version.  In particular,  the     */
-/* cursor is moved by first overwriting the "original" location.            */
+#ifndef USER_DEFAULT_SCREEN_DPI /* defined in newer versions of WinUser.h */
+#define USER_DEFAULT_SCREEN_DPI 96
+#endif
 
-void PDC_gotoyx(int row, int col)
+/* if the calling application marks itself as "DPI aware", we want to make sure
+that we scale the user's font appropriately. the GetDpiForSystem call is only
+available on Windows 10 and newer, so we load the DLL dynamically and find the
+function address at runtime. if the method isn't available, that means we're on
+and older operating system, so we just return the original value */
+static LONG scale_font_for_current_dpi( LONG size)
 {
-    PDC_LOG(("PDC_gotoyx() - called: row %d col %d from row %d col %d\n",
-             row, col, SP->cursrow, SP->curscol));
+    HMODULE user32Dll = LoadLibrary( _T("User32.dll"));
 
-                /* clear the old cursor,  if it's on-screen: */
-    if( SP->cursrow >= 0 && SP->curscol >= 0 &&
-         SP->cursrow < SP->lines && SP->curscol < SP->cols)
+    if ( user32Dll)
     {
-        const int temp_visibility = SP->visibility;
+        /* https://msdn.microsoft.com/en-us/library/windows/desktop/mt748623(v=vs.85).aspx */
 
-        SP->visibility = 0;
-        PDC_transform_line( SP->cursrow, SP->curscol, 1,
-                           curscr->_y[SP->cursrow] + SP->curscol);
-        SP->visibility = temp_visibility;
+        FARPROC getDpiForSystem = GetProcAddress( user32Dll, "GetDpiForSystem");
+
+        if ( getDpiForSystem)
+        {
+            size = MulDiv( size, (UINT)getDpiForSystem(), USER_DEFAULT_SCREEN_DPI);
+        }
+
+        FreeLibrary( user32Dll);
     }
 
-               /* ...then draw the new (assuming it's actually visible).    */
-               /* This used to require some logic.  Now the redraw_cursor() */
-               /* function figures out what cursor should be drawn, if any. */
-    if( SP->visibility)
-    {
-        extern HWND PDC_hWnd;
-        HDC hdc = GetDC( PDC_hWnd) ;
-
-        SP->curscol = col;
-        SP->cursrow = row;
-        redraw_cursor( hdc);
-        ReleaseDC( PDC_hWnd, hdc) ;
-    }
+    return size;
 }
 
-int PDC_font_size = 12;
-TCHAR PDC_font_name[80];
+int PDC_font_size = -1;
+TCHAR PDC_font_name[128];
 
 static LOGFONT PDC_get_logical_font( const int font_idx)
 {
     LOGFONT lf;
+
+    if ( PDC_font_size < 0)
+    {
+        PDC_font_size = scale_font_for_current_dpi( 12); /* default 12 points */
+    }
 
     memset(&lf, 0, sizeof(LOGFONT));        /* Clear out structure. */
     lf.lfHeight = -PDC_font_size;
@@ -271,10 +269,6 @@ int PDC_choose_a_new_font( void)
    int PDC_expand_combined_characters( const cchar_t c, cchar_t *added);  /* addch.c */
 #endif
 
-#ifdef PDC_WIDE
-const chtype MAX_UNICODE = 0x110000;
-#endif
-
 #ifdef USE_FALLBACK_FONT
 GLYPHSET *PDC_unicode_range_data = NULL;
 
@@ -299,7 +293,7 @@ static bool character_is_in_font( chtype ichar)
     for( i = PDC_unicode_range_data->cRanges; i; i--, wptr++)
       if( wptr->wcLow > ichar)
          return( FALSE);
-      else if( wptr->wcLow + wptr->cGlyphs > ichar)
+      else if( wptr->wcLow + wptr->cGlyphs > (WCHAR)ichar)
          return( TRUE);
                /* Didn't find it in any range;  it must not be in the font */
     return( FALSE);
@@ -333,14 +327,13 @@ static HFONT hFonts[N_CACHED_FONTS];
 
 #define BUFFSIZE 50
 
-void PDC_transform_line_given_hdc( const HDC hdc, const int lineno,
+static void PDC_transform_line_given_hdc( const HDC hdc, const int lineno,
                              int x, int len, const chtype *srcp)
 {
     HFONT hOldFont = (HFONT)0;
     extern int PDC_cxChar, PDC_cyChar;
     int i, curr_color = -1;
     attr_t font_attrib = (attr_t)-1;
-    int cursor_overwritten = FALSE;
     PACKED_RGB foreground_rgb = 0;
     chtype prev_ch = 0;
 
@@ -361,28 +354,12 @@ void PDC_transform_line_given_hdc( const HDC hdc, const int lineno,
 #endif
         return;
     }
-                     /* Seems to me as if the input text to this function */
-    if( x < 0)       /* should _never_ be off-screen.  But it sometimes is. */
-    {                /* Clipping is therefore necessary. */
-        len += x;
-        srcp -= x;
-        x = 0;
-    }
-    len++;    /* draw an extra char to avoid leaving garbage on screen */
-    if( len > SP->cols - x)
-        len = SP->cols - x;
-    if( lineno >= SP->lines || len <= 0 || lineno < 0)
-        return;
-    if( x)           /* back up by one character to avoid */
-    {                /* leaving garbage on the screen */
-        x--;
-        len++;
-        srcp--;
-    }
-    if( lineno == SP->cursrow && SP->curscol >= x && SP->curscol < x + len)
-        if( PDC_current_cursor_state( ))
-            cursor_overwritten = TRUE;
-
+    assert( x >= 0);
+    assert( len <= SP->cols - x);
+    assert( lineno < SP->lines && len > 0 && lineno >= 0);
+#ifdef PDC_WIDE
+    assert( (srcp[len - 1] & A_CHARTEXT) != MAX_UNICODE);
+#endif
 
     while( len)
     {
@@ -411,8 +388,8 @@ void PDC_transform_line_given_hdc( const HDC hdc, const int lineno,
             {               /* >64K values into 16-bit wchar_t: */
                 ch -= 0x10000;
                 buff[olen] = (wchar_t)( 0xd800 | (ch >> 10));
-                lpDx[olen] = 0;                   /* ^ upper 10 bits */
-                olen++;
+                lpDx[olen] = 0;
+                olen++;                           /* ^ upper 10 bits */
                 ch = (wchar_t)( 0xdc00 | (ch & 0x3ff));  /* lower 10 bits */
             }
             if( ch > MAX_UNICODE)      /* chars & fullwidth supported */
@@ -456,9 +433,9 @@ void PDC_transform_line_given_hdc( const HDC hdc, const int lineno,
             lpDx[olen] = PDC_cxChar;
 #ifdef PDC_WIDE
             if( ch != MAX_UNICODE)
-               olen++;
+                olen++;
             else if( olen)          /* prev char is double-width */
-               lpDx[olen - 1] = 2 * PDC_cxChar;
+                lpDx[olen - 1] = 2 * PDC_cxChar;
 #else
             olen++;
 #endif
@@ -501,14 +478,18 @@ void PDC_transform_line_given_hdc( const HDC hdc, const int lineno,
         clip_rect.left = x * PDC_cxChar;
         clip_rect.top = lineno * PDC_cyChar;
         clip_rect.right = clip_rect.left + i * PDC_cxChar;
+#ifdef PDC_WIDE
+        if( 2 == PDC_wcwidth( (uint32_t)( *srcp & A_CHARTEXT)))  /* allow extra */
+            clip_rect.right += PDC_cxChar;        /* space for a fullwidth char */
+#endif
         clip_rect.bottom = clip_rect.top + PDC_cyChar;
         ExtTextOutW( hdc, clip_rect.left, clip_rect.top,
                            ETO_CLIPPED | ETO_OPAQUE, &clip_rect,
                            buff, olen, (olen > 1 ? lpDx : NULL));
-#ifdef A_OVERLINE
-        if( *srcp & (A_UNDERLINE | A_RIGHTLINE | A_LEFTLINE | A_OVERLINE | A_STRIKEOUT))
+#ifdef WA_TOP
+        if( *srcp & (WA_UNDERLINE | WA_RIGHT | WA_LEFT | WA_TOP | WA_STRIKEOUT))
 #else
-        if( *srcp & (A_UNDERLINE | A_RIGHTLINE | A_LEFTLINE))
+        if( *srcp & (WA_UNDERLINE | WA_RIGHT | WA_LEFT))
 #endif
         {
             const int y1 = clip_rect.top;
@@ -521,30 +502,30 @@ void PDC_transform_line_given_hdc( const HDC hdc, const int lineno,
             const HPEN pen = CreatePen( PS_SOLID, 1, (COLORREF)rgb);
             const HPEN old_pen = SelectObject( hdc, pen);
 
-            if( *srcp & A_UNDERLINE)
+            if( *srcp & WA_UNDERLINE)
             {
                 MoveToEx( hdc, x1, y2, NULL);
                 LineTo(   hdc, x2, y2);
             }
-#ifdef A_OVERLINE
-            if( *srcp & A_OVERLINE)
+#ifdef WA_TOP
+            if( *srcp & WA_TOP)
             {
                 MoveToEx( hdc, x1, y1, NULL);
                 LineTo(   hdc, x2, y1);
             }
-            if( *srcp & A_STRIKEOUT)
+            if( *srcp & WA_STRIKEOUT)
             {
                 MoveToEx( hdc, x1, (y1 + y2) / 2, NULL);
                 LineTo(   hdc, x2, (y1 + y2) / 2);
             }
 #endif
-            if( *srcp & A_RIGHTLINE)
+            if( *srcp & WA_RIGHT)
                 for( j = 0; j < i; j++)
                 {
                     MoveToEx( hdc, x2 - j * PDC_cxChar - 1, y1, NULL);
                     LineTo(   hdc, x2 - j * PDC_cxChar - 1, y2);
                 }
-            if( *srcp & A_LEFTLINE)
+            if( *srcp & WA_LEFT)
                 for( j = 0; j < i; j++)
                 {
                     MoveToEx( hdc, x1 + j * PDC_cxChar, y1, NULL);
@@ -559,9 +540,11 @@ void PDC_transform_line_given_hdc( const HDC hdc, const int lineno,
     }
     SelectObject( hdc, hOldFont);
                /* ...did we step on the cursor?  If so,  redraw it: */
-    if( cursor_overwritten)
+    if( SP->drawing_cursor && PDC_current_cursor_state( ))
         redraw_cursor( hdc);
 }
+
+HDC override_hdc;
 
 void PDC_transform_line(int lineno, int x, int len, const chtype *srcp)
 {
@@ -570,8 +553,12 @@ void PDC_transform_line(int lineno, int x, int len, const chtype *srcp)
     else
     {
         extern HWND PDC_hWnd;
-        const HDC hdc = GetDC( PDC_hWnd) ;
+        const HDC hdc = (override_hdc ? override_hdc : GetDC( PDC_hWnd)) ;
 
+        assert( len);
+#ifdef PDC_WIDE
+        assert( (srcp[len - 1] & A_CHARTEXT) != MAX_UNICODE);
+#endif
         PDC_transform_line_given_hdc( hdc, lineno, x, len, srcp);
         ReleaseDC( PDC_hWnd, hdc);
     }
@@ -579,4 +566,11 @@ void PDC_transform_line(int lineno, int x, int len, const chtype *srcp)
 
 void PDC_doupdate(void)
 {
+    MSG msg;
+
+    while( PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) )
+    {
+       TranslateMessage(&msg);
+       DispatchMessage(&msg);
+    }
 }

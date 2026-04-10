@@ -1,8 +1,5 @@
 /* PDCurses */
 
-#include <curspriv.h>
-#include <assert.h>
-
 /*man-start**************************************************************
 
 panel
@@ -47,7 +44,7 @@ panel
    bottom_panel() places pan at the bottom of the deck. The size,
    location and contents of the panel are unchanged.
 
-   del_panel() deletes pan, but not its associated winwow.
+   del_panel() deletes pan, but not its associated window.
 
    hide_panel() removes a panel from the deck and thus hides it from
    view.
@@ -71,7 +68,8 @@ panel
 
    ceiling_panel() returns a pointer to the top panel in the deck.
 
-   panel_hidden() returns OK if pan is hidden and ERR if it is not.
+   panel_hidden() returns TRUE if pan is hidden, FALSE if not and
+   ERR if pan is NULL.
 
    panel_userptr() - Each panel has a user pointer available for
    maintaining relevant information. This function returns a pointer to
@@ -100,221 +98,157 @@ panel
 
    Each routine that returns a pointer to an object returns NULL if an
    error occurs. Each panel routine that returns an integer, returns OK
-   if it executes successfully and ERR if it does not.
+   if it executes successfully and ERR if it does not, with the exception
+   of panel_hidden returning TRUE/FALSE/ERR.
 
 ### Portability
-                             X/Open  ncurses  NetBSD
-    bottom_panel                -       Y       Y
-    del_panel                   -       Y       Y
-    hide_panel                  -       Y       Y
-    move_panel                  -       Y       Y
-    new_panel                   -       Y       Y
-    panel_above                 -       Y       Y
-    panel_below                 -       Y       Y
-    ground_panel                -       Y       N
-    ceiling_panel               -       Y       N
-    panel_hidden                -       Y       Y
-    panel_userptr               -       Y       Y
-    panel_window                -       Y       Y
-    replace_panel               -       Y       Y
-    set_panel_userptr           -       Y       Y
-    show_panel                  -       Y       Y
-    top_panel                   -       Y       Y
-    update_panels               -       Y       Y
+   Function              | X/Open | ncurses | NetBSD
+   :---------------------|:------:|:-------:|:------:
+   bottom_panel          |    -   |    Y    |   Y
+   del_panel             |    -   |    Y    |   Y
+   hide_panel            |    -   |    Y    |   Y
+   move_panel            |    -   |    Y    |   Y
+   new_panel             |    -   |    Y    |   Y
+   panel_above           |    -   |    Y    |   Y
+   panel_below           |    -   |    Y    |   Y
+   ground_panel          |    -   |    Y    |   N
+   ceiling_panel         |    -   |    Y    |   N
+   panel_hidden          |    -   |    Y    |   Y
+   panel_userptr         |    -   |    Y    |   Y
+   panel_window          |    -   |    Y    |   Y
+   replace_panel         |    -   |    Y    |   Y
+   set_panel_userptr     |    -   |    Y    |   Y
+   show_panel            |    -   |    Y    |   Y
+   top_panel             |    -   |    Y    |   Y
+   update_panels         |    -   |    Y    |   Y
+
+  Note: Before PDC_BUILD 4500 panel_hidden did not return the expected
+        values TRUE (1) and FALSE (0), but OK (0) and ERR (-1).
 
   Credits:
     Original Author - Warren Tucker <wht@n4hgf.mt-park.ga.us>
 
 **man-end****************************************************************/
 
-#include <panel.h>
 #include <stdlib.h>
 
-typedef struct panelobs PANELOBS;
+#include <assert.h>
 
-struct panelobs
-{
-    struct panelobs *above;
-    struct panel *pan;
-};
+#include "curspriv.h"
+#include <panel.h>
 
 struct panel
 {
     WINDOW *win;
-    int wstarty;
-    int wendy;
-    int wstartx;
-    int wendx;
     struct panel *below;
     struct panel *above;
     const void *user;
-    struct panelobs *obscure;
 };
 
-static PANEL *_bottom_panel = (PANEL *)0;
-static PANEL *_top_panel = (PANEL *)0;
 static PANEL _stdscr_pseudo_panel;
 
-#ifdef PANEL_DEBUG
+/* The 'deck' of panels is maintained as a circularly linked list,
+with the stdscr pseudo-panel always in the list.  Thus,  the bottom
+panel is the one above the stdscr pseudo-panel,  and the top panel
+is the one below the stdscr pseudo-panel.  The advantage of this is
+that the list always has at least one element and the links are
+never NULLs.  So there are no edge cases to check.  The bit about
+the top panel being below stdscr can be a little disorienting,
+though. */
 
-static void dPanel(char *text, PANEL *pan)
+#define _bottom_panel  _stdscr_pseudo_panel.above
+#define _top_panel     _stdscr_pseudo_panel.below
+
+static bool _windows_overlapped( const WINDOW *win1, const WINDOW *win2)
 {
-    PDC_LOG(("%s id=%s b=%s a=%s y=%d x=%d", text, pan->user,
-             pan->below ? pan->below->user : "--",
-             pan->above ? pan->above->user : "--",
-             pan->wstarty, pan->wstartx));
-}
-
-static void dStack(char *fmt, int num, PANEL *pan)
-{
-    char s80[80];
-
-    sprintf(s80, fmt, num, pan);
-    PDC_LOG(("%s b=%s t=%s", s80, _bottom_panel ? _bottom_panel->user : "--",
-             _top_panel    ? _top_panel->user    : "--"));
-
-    if (pan)
-        PDC_LOG(("pan id=%s", pan->user));
-
-    pan = _bottom_panel;
-
-    while (pan)
-    {
-        dPanel("stk", pan);
-        pan = pan->above;
-    }
-}
-
-/* debugging hook for wnoutrefresh */
-
-static void Wnoutrefresh(PANEL *pan)
-{
-    dPanel("wnoutrefresh", pan);
-    wnoutrefresh(pan->win);
-}
-
-static void Touchpan(PANEL *pan)
-{
-    dPanel("Touchpan", pan);
-    touchwin(pan->win);
-}
-
-static void Touchline(PANEL *pan, int start, int count)
-{
-    char s80[80];
-
-    sprintf(s80, "Touchline s=%d c=%d", start, count);
-    dPanel(s80, pan);
-    touchline(pan->win, start, count);
-}
-
-#else   /* PANEL_DEBUG */
-
-#define dPanel(text, pan)
-#define dStack(fmt, num, pan)
-#define Wnoutrefresh(pan) wnoutrefresh((pan)->win)
-#define Touchpan(pan) touchwin((pan)->win)
-#define Touchline(pan, start, count) touchline((pan)->win, start, count)
-
-#endif  /* PANEL_DEBUG */
-
-static bool _panels_overlapped(PANEL *pan1, PANEL *pan2)
-{
-    assert( pan1);
-    assert( pan2);
-    if (!pan1 || !pan2)
+    assert( win1);
+    assert( win2);
+    assert( win1 != win2);
+    if (!win1 || !win2)
         return FALSE;
-
-    return ((pan1->wstarty >= pan2->wstarty && pan1->wstarty < pan2->wendy)
-         || (pan2->wstarty >= pan1->wstarty && pan2->wstarty < pan1->wendy))
-        && ((pan1->wstartx >= pan2->wstartx && pan1->wstartx < pan2->wendx)
-         || (pan2->wstartx >= pan1->wstartx && pan2->wstartx < pan1->wendx));
-}
-
-static void _free_obscure(PANEL *pan)
-{
-    PANELOBS *tobs = pan->obscure;  /* "this" one */
-    PANELOBS *nobs;                 /* "next" one */
-
-    while (tobs)
+    else
     {
-        nobs = tobs->above;
-        free((char *)tobs);
-        tobs = nobs;
-    }
-    pan->obscure = (PANELOBS *)0;
-}
+        const int maxx1 = getbegx( win1) + getmaxx( win1);
+        const int maxy1 = getbegy( win1) + getmaxy( win1);
+        const int maxx2 = getbegx( win2) + getmaxx( win2);
+        const int maxy2 = getbegy( win2) + getmaxy( win2);
 
-static void _override(PANEL *pan, int show)
-{
-    int y;
-    PANEL *pan2;
-    PANELOBS *tobs = pan->obscure;      /* "this" one */
-
-    if (show == 1)
-        Touchpan(pan);
-    else if (!show)
-    {
-        Touchpan(pan);
-        Touchpan(&_stdscr_pseudo_panel);
-    }
-    else if (show == -1)
-        while (tobs && (tobs->pan != pan))
-            tobs = tobs->above;
-
-    while (tobs)
-    {
-        if ((pan2 = tobs->pan) != pan)
-            for (y = pan->wstarty; y < pan->wendy; y++)
-                if ((y >= pan2->wstarty) && (y < pan2->wendy) &&
-                   ((is_linetouched(pan->win, y - pan->wstarty)) ||
-                    (is_linetouched(stdscr, y))))
-                    Touchline(pan2, y - pan2->wstarty, 1);
-
-        tobs = tobs->above;
+        return( getbegx( win1) < maxx2 && getbegx( win2) < maxx1
+             && getbegy( win1) < maxy2 && getbegy( win2) < maxy1);
     }
 }
 
-static void _calculate_obscure(void)
+/* If parts of win that overlap win2 have been touched,
+'handle_overlap()' will touch the corresponding parts of win2.  This
+closely resembles the touchoverlap() function,  except that only the
+touched parts of 'win' will result in touching of 'win2'. */
+
+static void _handle_overlap( const WINDOW *win, WINDOW *win2)
 {
-    PANEL *pan, *pan2;
-    PANELOBS *tobs;     /* "this" one */
-    PANELOBS *lobs;     /* last one */
-
-    pan = _bottom_panel;
-
-    while (pan)
+    if( _windows_overlapped( win, win2))
     {
-        if (pan->obscure)
-            _free_obscure(pan);
+        const int start_x = max( getbegx( win), getbegx( win2));
+        const int end_x   = min( getbegx( win) + getmaxx( win) ,
+                                 getbegx( win2) + getmaxx( win2));
+        const int start_y = max( getbegy( win), getbegy( win2));
+        const int end_y   = min( getbegy( win) + getmaxy( win) ,
+                                 getbegy( win2) + getmaxy( win2));
+        int firstch, lastch, y;
 
-        lobs = (PANELOBS *)0;
-        pan2 = _bottom_panel;
-
-        while (pan2)
-        {
-            if (_panels_overlapped(pan, pan2))
+        for( y = start_y; y < end_y; y++)
+            if( PDC_touched_range( win, y - getbegy( win),
+                           &firstch, &lastch))
             {
-                if ((tobs = malloc(sizeof(PANELOBS))) == NULL)
-                    return;
-
-                tobs->pan = pan2;
-                dPanel("obscured", pan2);
-                tobs->above = (PANELOBS *)0;
-
-                if (lobs)
-                    lobs->above = tobs;
-                else
-                    pan->obscure = tobs;
-
-                lobs  = tobs;
+                firstch += getbegx( win);
+                lastch += getbegx( win);
+                if( firstch < end_x && lastch > start_x)
+                {
+                    firstch -= getbegx( win2);
+                    if( firstch < 0)
+                        firstch = 0;
+                    lastch -= getbegx( win2);
+                    if( lastch > getmaxx( win2) - 1)
+                        lastch = getmaxx( win2) - 1;
+                    PDC_mark_cells_as_changed( win2, y - getbegy( win2),
+                        firstch, lastch);
+                }
             }
+    }
+}
 
-            pan2 = pan2->above;
-        }
+/* When a panel is hidden or deleted,  we need to update any
+parts of panels that intersect that rectangle.  So we call
+_override( pan, ALL_PANELS_IN_DECK).
 
-        _override(pan, 1);
-        pan = pan->above;
+When a panel is added or moved to the top,  we just have to make
+sure that that panel is touched.  update_panels() will ensure that
+panels above it get touched.
+
+Replacing or moving a panel combined both of the above : first,
+we 'hide'/'delete' it from its current location,  then add it at
+its new location,  touched so it'll get updated at that location.
+
+When a panel is added at the bottom,  any parts of panels above
+it need to be redrawn.  So we call _override( pan, PANELS_ABOVE)
+to ensure the overlapping regions are touched. */
+
+#define PANELS_ABOVE 1
+#define PANELS_BELOW 2
+#define ALL_PANELS_IN_DECK (PANELS_ABOVE | PANELS_BELOW)
+
+static void _override( const PANEL *pan, const int flags)
+{
+    PANEL *tpan;
+
+    if( flags & PANELS_BELOW)       /* go from stdscr and work up */
+    {
+        for( tpan = &_stdscr_pseudo_panel; tpan != pan; tpan = tpan->above)
+           _handle_overlap( pan->win, tpan->win);
+    }
+    if( flags & PANELS_ABOVE)
+    {
+        for( tpan = pan->above; tpan != &_stdscr_pseudo_panel; tpan = tpan->above)
+           _handle_overlap( pan->win, tpan->win);
     }
 }
 
@@ -322,112 +256,47 @@ static void _calculate_obscure(void)
 
 static bool _panel_is_linked(const PANEL *pan)
 {
-    PANEL *pan2 = _bottom_panel;
-
-    while (pan2)
-    {
-        if (pan2 == pan)
-            return TRUE;
-
-        pan2 = pan2->above;
-    }
-
-    return FALSE;
+    assert( (pan->below && pan->above) || (!pan->below && !pan->above));
+    return( pan->above != NULL);
 }
 
 /* link panel into stack at top */
 
 static void _panel_link_top(PANEL *pan)
 {
-#ifdef PANEL_DEBUG
-    dStack("<lt%d>", 1, pan);
-    if (_panel_is_linked(pan))
-        return;
-#endif
-    pan->above = (PANEL *)0;
-    pan->below = (PANEL *)0;
+    assert( !_panel_is_linked(pan));
+    assert( pan != _top_panel);
 
-    if (_top_panel)
-    {
-        _top_panel->above = pan;
-        pan->below = _top_panel;
-    }
-
-    _top_panel = pan;
-
-    if (!_bottom_panel)
-        _bottom_panel = pan;
-
-    _calculate_obscure();
-    dStack("<lt%d>", 9, pan);
+    pan->above = &_stdscr_pseudo_panel;
+    pan->below = _top_panel;
+    pan->above->below = pan->below->above = pan;
 }
 
 /* link panel into stack at bottom */
 
 static void _panel_link_bottom(PANEL *pan)
 {
-#ifdef PANEL_DEBUG
-    dStack("<lb%d>", 1, pan);
-    if (_panel_is_linked(pan))
-        return;
-#endif
-    pan->above = (PANEL *)0;
-    pan->below = (PANEL *)0;
+    assert( !_panel_is_linked(pan));
+    assert( pan != _bottom_panel);
 
-    if (_bottom_panel)
-    {
-        _bottom_panel->below = pan;
-        pan->above = _bottom_panel;
-    }
-
-    _bottom_panel = pan;
-
-    if (!_top_panel)
-        _top_panel = pan;
-
-    _calculate_obscure();
-    dStack("<lb%d>", 9, pan);
+    pan->above = _bottom_panel;
+    pan->below = &_stdscr_pseudo_panel;
+    pan->above->below = pan->below->above = pan;
 }
 
 static void _panel_unlink(PANEL *pan)
 {
-    PANEL *prev;
-    PANEL *next;
+    PANEL *above = pan->above;
+    PANEL *below = pan->below;
 
-#ifdef PANEL_DEBUG
-    dStack("<u%d>", 1, pan);
-    if (!_panel_is_linked(pan))
-        return;
-#endif
-    _override(pan, 0);
-    _free_obscure(pan);
-
-    prev = pan->below;
-    next = pan->above;
-
-    /* if non-zero, we will not update the list head */
-
-    if (prev)
-    {
-        prev->above = next;
-        if(next)
-            next->below = prev;
-    }
-    else if (next)
-        next->below = prev;
-
-    if (pan == _bottom_panel)
-        _bottom_panel = next;
-
-    if (pan == _top_panel)
-        _top_panel = prev;
-
-    _calculate_obscure();
-
-    pan->above = (PANEL *)0;
-    pan->below = (PANEL *)0;
-    dStack("<u%d>", 9, pan);
-
+    assert( pan->below);
+    assert( pan->above);
+    assert( pan != &_stdscr_pseudo_panel);
+    assert( _bottom_panel);
+    pan->above->below = below;
+    pan->below->above = above;
+    pan->above = pan->below = NULL;
+    assert( _bottom_panel);
 }
 
 /************************************************************************
@@ -444,9 +313,11 @@ int bottom_panel(PANEL *pan)
         return OK;
 
     if (_panel_is_linked(pan))
-        hide_panel(pan);
+        _panel_unlink(pan);
 
     _panel_link_bottom(pan);
+    touchwin( pan->win);
+    _override( pan, PANELS_ABOVE);
 
     return OK;
 }
@@ -456,9 +327,7 @@ int del_panel(PANEL *pan)
     assert( pan);
     if (pan)
     {
-        if (_panel_is_linked(pan))
-            hide_panel(pan);
-
+        hide_panel(pan);
         free((char *)pan);
         return OK;
     }
@@ -469,16 +338,20 @@ int del_panel(PANEL *pan)
 int hide_panel(PANEL *pan)
 {
     assert( pan);
+    assert( pan != &_stdscr_pseudo_panel);
     if (!pan)
         return ERR;
-
     if (!_panel_is_linked(pan))
     {
+        assert( !pan->above);
+        assert( !pan->below);
         pan->above = (PANEL *)0;
         pan->below = (PANEL *)0;
         return ERR;
     }
 
+    touchwin( pan->win);
+    _override( pan, ALL_PANELS_IN_DECK);
     _panel_unlink(pan);
 
     return OK;
@@ -487,30 +360,20 @@ int hide_panel(PANEL *pan)
 int move_panel(PANEL *pan, int starty, int startx)
 {
     WINDOW *win;
-    int maxy, maxx, rval;
 
     assert( pan);
     if (!pan)
         return ERR;
 
     if (_panel_is_linked(pan))
-        _override(pan, 0);
+    {
+        touchwin( pan->win);
+        _override( pan, ALL_PANELS_IN_DECK);
+    }
 
     win = pan->win;
 
-    rval = mvwin(win, starty, startx);
-    if( rval != ERR)
-    {
-        getbegyx(win, pan->wstarty, pan->wstartx);
-        getmaxyx(win, maxy, maxx);
-        pan->wendy = pan->wstarty + maxy;
-        pan->wendx = pan->wstartx + maxx;
-    }
-
-    if (_panel_is_linked(pan))
-        _calculate_obscure();
-
-    return rval;
+    return mvwin(win, starty, startx);
 }
 
 PANEL *new_panel(WINDOW *win)
@@ -526,31 +389,16 @@ PANEL *new_panel(WINDOW *win)
     if (!_stdscr_pseudo_panel.win)
     {
         _stdscr_pseudo_panel.win = stdscr;
-        _stdscr_pseudo_panel.wstarty = 0;
-        _stdscr_pseudo_panel.wstartx = 0;
-        _stdscr_pseudo_panel.wendy = LINES;
-        _stdscr_pseudo_panel.wendx = COLS;
         _stdscr_pseudo_panel.user = "stdscr";
-        _stdscr_pseudo_panel.obscure = (PANELOBS *)0;
+        _top_panel = _bottom_panel = &_stdscr_pseudo_panel;
     }
 
     if (pan)
     {
-        int maxy, maxx;
-
         pan->win = win;
         pan->above = (PANEL *)0;
         pan->below = (PANEL *)0;
-        getbegyx(win, pan->wstarty, pan->wstartx);
-        getmaxyx(win, maxy, maxx);
-        pan->wendy = pan->wstarty + maxy;
-        pan->wendx = pan->wstartx + maxx;
-#ifdef PANEL_DEBUG
-        pan->user = "new";
-#else
-        pan->user = (char *)0;
-#endif
-        pan->obscure = (PANELOBS *)0;
+        pan->user = NULL;
         show_panel(pan);
     }
 
@@ -559,12 +407,20 @@ PANEL *new_panel(WINDOW *win)
 
 PANEL *panel_above(const PANEL *pan)
 {
-    return pan ? pan->above : _bottom_panel;
+    PANEL *rval = (pan ? pan->above : _bottom_panel);
+
+    if( rval == &_stdscr_pseudo_panel)
+        rval = NULL;
+    return rval;
 }
 
 PANEL *panel_below(const PANEL *pan)
 {
-    return pan ? pan->below : _top_panel;
+    PANEL *rval = (pan ? pan->below : _top_panel);
+
+    if( rval == &_stdscr_pseudo_panel)
+        rval = NULL;
+    return rval;
 }
 
 PANEL *ceiling_panel( SCREEN *sp)
@@ -581,11 +437,10 @@ PANEL *ground_panel( SCREEN *sp)
 
 int panel_hidden(const PANEL *pan)
 {
-    assert( pan);
     if (!pan)
         return ERR;
 
-    return _panel_is_linked(pan) ? ERR : OK;
+    return _panel_is_linked(pan) ? FALSE : TRUE;
 }
 
 const void *panel_userptr(const PANEL *pan)
@@ -607,24 +462,21 @@ WINDOW *panel_window(const PANEL *pan)
 
 int replace_panel(PANEL *pan, WINDOW *win)
 {
-    int maxy, maxx;
-
     assert( pan);
     assert( win);
     if (!pan)
         return ERR;
 
     if (_panel_is_linked(pan))
-        _override(pan, 0);
+    {
+        touchwin( pan->win);
+        _override(pan, ALL_PANELS_IN_DECK);
+    }
 
     pan->win = win;
-    getbegyx(win, pan->wstarty, pan->wstartx);
-    getmaxyx(win, maxy, maxx);
-    pan->wendy = pan->wstarty + maxy;
-    pan->wendx = pan->wstartx + maxx;
 
     if (_panel_is_linked(pan))
-        _calculate_obscure();
+        touchwin( pan->win);
 
     return OK;
 }
@@ -649,8 +501,9 @@ int show_panel(PANEL *pan)
         return OK;
 
     if (_panel_is_linked(pan))
-        hide_panel(pan);
+        _panel_unlink( pan);
 
+    touchwin( pan->win);
     _panel_link_top(pan);
 
     return OK;
@@ -662,29 +515,36 @@ int top_panel(PANEL *pan)
     return show_panel(pan);
 }
 
+/* When we call update_panels(),  we have to look at every panel,
+starting from _stdscr_pseudo_panel and going up.  If a panel
+has been touched,  and the touched region corresponds to an
+overlapping panel,  then the overlapping parts need to be touched
+as well.  This boils down to looping through the linked list of
+panels and calling _override( PANELS_ABOVE) for each one.  */
+
 void update_panels(void)
 {
-    PANEL *pan;
+    PANEL *pan = _bottom_panel;
 
     PDC_LOG(("update_panels() - called\n"));
 
-    pan = _bottom_panel;
-
-    while (pan)
-    {
-        _override(pan, -1);
+    assert( pan);
+    while( pan != &_stdscr_pseudo_panel)     /* look at each panel;  update */
+    {                                        /* any panels that overlap it */
+        _handle_overlap( stdscr, pan->win);
+        _override( pan, PANELS_ABOVE);
         pan = pan->above;
     }
 
     if (is_wintouched(stdscr))
-        Wnoutrefresh(&_stdscr_pseudo_panel);
+        wnoutrefresh( stdscr);
 
     pan = _bottom_panel;
 
-    while (pan)
+    while (pan != &_stdscr_pseudo_panel)
     {
-        if (is_wintouched(pan->win) || !pan->above)
-            Wnoutrefresh(pan);
+        if (is_wintouched(pan->win))
+            wnoutrefresh( pan->win);
 
         pan = pan->above;
     }

@@ -180,9 +180,16 @@ static int _handle_alt_keys(int key)
 static int _process_key_event(void)
 {
     int i, key = 0;
+    static int repeat_count;
+    static int _key_already_handled = 0;
 #ifdef PDC_WIDE
     size_t bytes;
 #endif
+
+    if( event.key.repeat && event.type == SDL_KEYDOWN)
+        repeat_count++;
+    else
+        repeat_count = 0;
 
     if (event.type == SDL_KEYUP)
     {
@@ -204,6 +211,8 @@ static int _process_key_event(void)
 
         if (!(SDL_GetModState() & KMOD_NUM))
             SP->key_modifiers &= ~PDC_KEY_MODIFIER_NUMLOCK;
+        if( !repeat_count)
+            SP->key_modifiers &= ~PDC_KEY_MODIFIER_REPEAT;
 
         if (SP->return_key_modifiers && event.key.keysym.sym == oldkey)
         {
@@ -255,12 +264,15 @@ static int _process_key_event(void)
             _stored_timestamp = event.text.timestamp;
             rval = -1;
         }
+        _key_already_handled = rval;
         return( rval);
     }
 
     oldkey = event.key.keysym.sym;
     if (SDL_GetModState() & KMOD_NUM)
         SP->key_modifiers |= PDC_KEY_MODIFIER_NUMLOCK;
+    if( repeat_count)
+        SP->key_modifiers |= PDC_KEY_MODIFIER_REPEAT;
 
     switch (event.key.keysym.sym)
     {
@@ -290,10 +302,9 @@ static int _process_key_event(void)
                 (key_table[i].numkeypad && (event.key.keysym.mod & KMOD_NUM)))
             {
                 key = key_table[i].shifted;
-#ifdef __linux
+/* Is the following really Linux-only? */
                 if( (key >= '0' && key <= '9') || strchr( ".+-*/", key))
                     key = -1;
-#endif
             }
             else if (event.key.keysym.mod & KMOD_CTRL)
             {
@@ -315,8 +326,15 @@ static int _process_key_event(void)
     }
 
     /* SDL with TextInput ignores keys with CTRL */
-    if (key && SP->key_modifiers & PDC_KEY_MODIFIER_CONTROL)
-        return _handle_alt_keys(key);
+    if( key)
+        if( SP->key_modifiers & (PDC_KEY_MODIFIER_CONTROL | PDC_KEY_MODIFIER_ALT))
+        {
+            int rval = _handle_alt_keys( key);
+
+            if( rval == _key_already_handled)
+                rval = -1;         /* don't return this key twice */
+            return( rval);
+        }
     return -1;
 }
 
@@ -348,7 +366,7 @@ static int _process_mouse_event(void)
 
     SP->mouse_status.x = (event.motion.x - pdc_xoffset) / pdc_fwidth;
     SP->mouse_status.y = (event.motion.y - pdc_yoffset) / pdc_fheight;
-    if( SP->mouse_status.x >= COLS || SP->mouse_status.y >= LINES)
+    if( SP->mouse_status.x >= COLS || SP->mouse_status.y >= SP->lines)
         return -1;
 
     if (event.type == SDL_MOUSEMOTION)
@@ -401,14 +419,22 @@ static int _process_mouse_event(void)
         {
             SDL_Event rel;
 
-            napms(SP->mouse_wait);
-
-            if (SDL_PollEvent(&rel))
+            while (action != BUTTON_TRIPLE_CLICKED && SDL_WaitEventTimeout(&rel, SP->mouse_wait))
             {
                 if (rel.type == SDL_MOUSEBUTTONUP && rel.button.button == btn)
-                    action = BUTTON_CLICKED;
-                else
+                {
+                    if (action == BUTTON_PRESSED)
+                        action = BUTTON_CLICKED;
+                    else if (action == BUTTON_CLICKED)
+                        action = BUTTON_DOUBLE_CLICKED;
+                    else if (action == BUTTON_DOUBLE_CLICKED)
+                        action = BUTTON_TRIPLE_CLICKED;
+                }
+                else if(rel.type != SDL_MOUSEBUTTONDOWN || rel.button.button != btn)
+                {
                     SDL_PushEvent(&rel);
+                    break;
+                }
             }
         }
 
@@ -446,15 +472,21 @@ int PDC_get_key(void)
     case SDL_WINDOWEVENT:
         if (SDL_WINDOWEVENT_SIZE_CHANGED == event.window.event)
         {
+            const int prev_rows = pdc_sheight / pdc_fheight;
+            const int prev_cols = pdc_swidth / pdc_fwidth;
+            bool size_actually_changed;
+
             pdc_screen = SDL_GetWindowSurface(pdc_window);
             pdc_sheight = pdc_screen->h - pdc_xoffset;
             pdc_swidth = pdc_screen->w - pdc_yoffset;
-            if( curscr)
+            size_actually_changed = ( pdc_sheight / pdc_fheight != prev_rows ||
+                                      pdc_swidth / pdc_fwidth != prev_cols);
+            if( size_actually_changed && curscr)
             {
                 touchwin(curscr);
                 wrefresh(curscr);
             }
-            if (!SP->resized)
+            if( size_actually_changed && !SP->resized)
             {
                 SP->resized = TRUE;
                 return KEY_RESIZE;
@@ -474,8 +506,6 @@ int PDC_get_key(void)
     case SDL_TEXTINPUT:
         PDC_mouse_set();
         return _process_key_event();
-    case SDL_USEREVENT:
-        PDC_blink_text();
     }
 
     return -1;

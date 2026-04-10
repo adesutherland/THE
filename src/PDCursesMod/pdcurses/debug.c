@@ -1,4 +1,4 @@
-/* PDCurses */
+/* PDCursesMod */
 
 #include <curspriv.h>
 #include <assert.h>
@@ -43,13 +43,14 @@ debug
    it to enable this (may affect performance).
 
 ### Portability
-                             X/Open  ncurses  NetBSD
-    traceon                     -       -       -
-    traceoff                    -       -       -
-    trace                       -       Y       -
-    curses_trace                -       Y       -
-    PDC_debug                   -       -       -
-    _tracef                     -       Y       -
+   Function              | X/Open | ncurses | NetBSD
+   :---------------------|:------:|:-------:|:------:
+   traceon               |    -   |    -    |   -
+   traceoff              |    -   |    -    |   -
+   trace                 |    -   |    Y    |   -
+   curses_trace          |    -   |    Y    |   -
+   PDC_debug             |    -   |    -    |   -
+   _tracef               |    -   |    Y    |   -
 
 **man-end****************************************************************/
 
@@ -80,7 +81,7 @@ void PDC_debug(const char *fmt, ...)
        by setting the environment variable PDC_TRACE_FLUSH. This may
        impact performance. */
 
-    if (SP->opaque->want_trace_fflush)
+    if (SP->want_trace_fflush)
         fflush(SP->dbfp);
 
     /* If with PDC_TRACE_FLUSH enabled you are still losing logging in
@@ -115,9 +116,9 @@ void traceon(void)
         return;
     }
 
-    SP->opaque->trace_flags = TRACE_MAXIMUM;
+    SP->trace_flags = TRACE_MAXIMUM;
     if (getenv("PDC_TRACE_FLUSH"))
-        SP->opaque->want_trace_fflush = TRUE;
+        SP->want_trace_fflush = TRUE;
 
     PDC_LOG(("traceon() - called\n"));
 }
@@ -132,19 +133,19 @@ void traceoff(void)
 
     fclose(SP->dbfp);
     SP->dbfp = NULL;
-    SP->opaque->trace_flags = TRACE_DISABLE;
-    SP->opaque->want_trace_fflush = FALSE;
+    SP->trace_flags = TRACE_DISABLE;
+    SP->want_trace_fflush = FALSE;
 }
 
 unsigned curses_trace( const unsigned param)
 {
-    const unsigned rval = SP->opaque->trace_flags;
+    const unsigned rval = SP->trace_flags;
 
     assert( SP);
     if( SP)
     {
         param ? traceon( ) : traceoff( );
-        SP->opaque->trace_flags = param;
+        SP->trace_flags = param;
     }
     PDC_LOG(("curses_trace() - called\n"));
     return( rval);

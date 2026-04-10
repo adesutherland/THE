@@ -12,16 +12,14 @@ See 'pdccolor.txt' for a rationale of how this works. */
 #define PACKED_RGB uint32_t
 
 #ifndef PACK_RGB
-   #define PACK_RGB( red, green, blue) ((red) | ((green)<<8) | ((PACKED_RGB)(blue) << 16))
+   #define PACK_RGB( red, green, blue) ((PACKED_RGB)(red) | ((PACKED_RGB)(green)<<8) | ((PACKED_RGB)(blue) << 16))
 #endif
 
 #include <curspriv.h>
 #include "pdccolor.h"
 
-int PDC_blink_state = 0;
-
 static PACKED_RGB *rgbs;   /* the 'standard' 256-color palette,  plus any allocated */
-static int palette_size;
+static int _palette_size;
 
 PACKED_RGB PDC_default_color( int idx)
 {
@@ -80,7 +78,7 @@ PACKED_RGB PDC_get_palette_entry( const int idx)
 {
    PACKED_RGB rval;
 
-   if( idx < palette_size)
+   if( idx < _palette_size)
    {
       assert( idx >= 0);
       rval = rgbs[idx];
@@ -97,22 +95,22 @@ int PDC_set_palette_entry( const int idx, const PACKED_RGB rgb)
 {
    int rval, i;
 
-   if( idx >= palette_size)
+   if( idx >= _palette_size)
       {
-      int new_size = palette_size;
+      int new_size = _palette_size;
       const int initial_palette_size = 8;
 
       if( !new_size)
          new_size = initial_palette_size;
       while( new_size <= idx)
          new_size *= 2;
-      rgbs = realloc( rgbs, new_size * sizeof( PACKED_RGB));
+      rgbs = (PACKED_RGB *)realloc( rgbs, new_size * sizeof( PACKED_RGB));
       assert( rgbs);
       if( !rgbs)
          return( -1);
-      for( i = palette_size; i < new_size; i++)
+      for( i = _palette_size; i < new_size; i++)
          rgbs[i] = PDC_default_color( i);
-      palette_size = new_size;
+      _palette_size = new_size;
       }
    rval = (rgbs[idx] == rgb ? 1 : 0);
    rgbs[idx] = rgb;
@@ -190,7 +188,7 @@ void PDC_get_rgb_values( const chtype srcp,
     {
         if( !(SP->termattrs & A_BLINK))   /* convert 'blinking' to 'bold' */
             intensify_backgnd = TRUE;
-        else if( PDC_blink_state)
+        else if( SP->blink_state & 1)
             reverse_colors ^= 1;
     }
     if( default_foreground)

@@ -77,19 +77,20 @@ getch
    character or function key token.
 
 ### Portability
-                             X/Open  ncurses  NetBSD
-    getch                       Y       Y       Y
-    wgetch                      Y       Y       Y
-    mvgetch                     Y       Y       Y
-    mvwgetch                    Y       Y       Y
-    ungetch                     Y       Y       Y
-    flushinp                    Y       Y       Y
-    get_wch                     Y       Y       Y
-    wget_wch                    Y       Y       Y
-    mvget_wch                   Y       Y       Y
-    mvwget_wch                  Y       Y       Y
-    unget_wch                   Y       Y       Y
-    PDC_get_key_modifiers       -       -       -
+   Function              | X/Open | ncurses | NetBSD
+   :---------------------|:------:|:-------:|:------:
+   getch                 |    Y   |    Y    |   Y
+   wgetch                |    Y   |    Y    |   Y
+   mvgetch               |    Y   |    Y    |   Y
+   mvwgetch              |    Y   |    Y    |   Y
+   ungetch               |    Y   |    Y    |   Y
+   flushinp              |    Y   |    Y    |   Y
+   get_wch               |    Y   |    Y    |   Y
+   wget_wch              |    Y   |    Y    |   Y
+   mvget_wch             |    Y   |    Y    |   Y
+   mvwget_wch            |    Y   |    Y    |   Y
+   unget_wch             |    Y   |    Y    |   Y
+   PDC_get_key_modifiers |    -   |    -    |   -
 
 **man-end****************************************************************/
 
@@ -228,7 +229,7 @@ static void _copy(void)
 
 #ifdef PDC_WIDE
     wtmp = (wchar_t *)malloc((len + 1) * sizeof(wchar_t));
-    len *= 3;
+    len *= 4;
 #endif
     tmp = (char *)malloc(len + 1);
 
@@ -278,8 +279,8 @@ static int _paste(void)
         return -1;
 
 #ifdef PDC_WIDE
-    wpaste = (wchar_t *)malloc(len * sizeof(wchar_t));
-    len = (long)PDC_mbstowcs(wpaste, paste, len);
+    wpaste = (wchar_t *)malloc((len + 1) * sizeof(wchar_t));
+    len = (long)PDC_mbstowcs(wpaste, paste, len + 1);
 #endif
     newmax = len + SP->c_ungind;
     if (newmax > SP->c_ungmax)
@@ -305,7 +306,7 @@ static int _paste(void)
 
 static int _mouse_key(void)
 {
-    int i, key = KEY_MOUSE;
+    int i, key = (int)KEY_MOUSE;
     const int changes = SP->mouse_status.changes;
     const mmask_t mbe = SP->_trap_mbe;
     bool can_select = !(mbe & (BUTTON1_MOVED | BUTTON1_PRESSED | BUTTON1_RELEASED));
@@ -406,12 +407,49 @@ static int _mouse_key(void)
     return key;
 }
 
-/* ftime() is consided obsolete.  But it's all we have for
+/* ftime() is considered obsolete.  But it's all we have for
 millisecond precision on older compilers/systems.  We'll
-use gettimeofday() when available.        */
+use clock_gettime() or gettimeofday() when available. */
 
-#if defined(__TURBOC__) || defined(__EMX__) || defined(__DJGPP__) || \
-    defined( __DMC__) || defined(__WATCOMC__) || defined(_MSC_VER)
+#include <time.h>
+#ifdef __has_include
+   #if __has_include(<sys/time.h>)
+       #include <sys/time.h>
+   #endif
+#endif
+
+#if defined( _POSIX_C_SOURCE) && (_POSIX_C_SOURCE >= 199309L) \
+     && (!defined( __MINGW32__) || defined( CLOCK_REALTIME))
+   /* only newer MinGW environments have clock_gettime and
+      those have CLOCK_REALTIME as a macro */
+   #define HAVE_CLOCK_GETTIME
+#elif defined( _DEFAULT_SOURCE) || defined( _BSD_SOURCE) \
+     || defined( __FreeBSD__) || defined( __MINGW32__)
+   /* POSIX.1-2008 marks gettimeofday() as obsolete,
+      recommending the use of clock_gettime instead, so we
+      only use that alternative to POSIX_C conditionally */
+   #define HAVE_GETTIMEOFDAY
+#endif
+
+#if defined( HAVE_CLOCK_GETTIME)
+long PDC_millisecs( void)
+{
+    struct timespec t;
+
+    clock_gettime( CLOCK_REALTIME, &t);
+    return( t.tv_sec * 1000 + t.tv_nsec / 1000000);
+}
+
+#elif defined( HAVE_GETTIMEOFDAY)
+long PDC_millisecs( void)
+{
+    struct timeval t;
+
+    gettimeofday( &t, NULL);
+    return( t.tv_sec * 1000 + t.tv_usec / 1000);
+}
+
+#else    /* neither gettimeofday() or clock_gettime() available */
 #include <sys/timeb.h>
 
 long PDC_millisecs( void)
@@ -420,16 +458,6 @@ long PDC_millisecs( void)
 
     ftime( &t);
     return( (long)t.time * 1000L + (long)t.millitm);
-}
-#else
-#include <sys/time.h>
-
-long PDC_millisecs( void)
-{
-    struct timeval t;
-
-    gettimeofday( &t, NULL);
-    return( t.tv_sec * 1000 + t.tv_usec / 1000);
 }
 #endif
 
@@ -467,11 +495,11 @@ bool PDC_is_function_key( const int key)
 
 #define WAIT_FOREVER    -1
 
-int wgetch(WINDOW *win)
+static int _raw_wgetch_no_surrogate_pairs( WINDOW *win)
 {
     int key = ERR, remaining_millisecs;
 
-    PDC_LOG(("wgetch() - called\n"));
+    PDC_LOG(("_raw_wgetch_no_surrogate_pairs() - called\n"));
 
     assert( SP);
     assert( win);
@@ -629,6 +657,22 @@ int wgetch(WINDOW *win)
     }
 }
 
+static int _raw_wgetch( WINDOW *win)
+{
+   int rval = _raw_wgetch_no_surrogate_pairs( win);
+
+#ifdef PDC_WIDE
+   if( IS_HIGH_SURROGATE( rval))
+      {
+      const int c = _raw_wgetch_no_surrogate_pairs( win);
+
+      if( IS_LOW_SURROGATE( c))
+         rval = ((rval - 0xd800) << 10) + 0x10000 + c - 0xdc00;
+      }
+#endif
+   return( rval);
+}
+
 int mvgetch(int y, int x)
 {
     PDC_LOG(("mvgetch() - called\n"));
@@ -701,6 +745,47 @@ int PDC_return_key_modifiers(bool flag)
     return PDC_modifiers_set();
 }
 
+int wgetch(WINDOW *win)
+{
+#ifndef PDC_WIDE
+    return( _raw_wgetch( win));
+#else
+    static unsigned char buffered[8];
+    static size_t n_buff = 0;
+    int rval;
+
+    if( n_buff)
+    {
+        size_t i;
+        rval = buffered[0];
+        n_buff--;
+        for( i = 0; i < n_buff; i++)
+            buffered[i] = buffered[i + 1];
+    }
+    else
+    {
+        rval = _raw_wgetch(win);
+        if( rval != ERR && (rval < 0 || rval > 127)
+                  && !PDC_is_function_key( rval))
+        {
+            wchar_t c[2];
+
+            c[0] = (wchar_t)rval;
+            c[1] = L'\0';
+            n_buff = PDC_wcstombs( (char *)buffered, c, sizeof( buffered));
+            if( (int)n_buff <= 0)
+            {
+                n_buff = 0;
+                rval = ERR;
+            }
+            else     /* successfully converted to multi-byte string */
+                rval = wgetch( win);
+        }
+    }
+    return( rval);
+#endif
+}
+
 #ifdef PDC_WIDE
 int wget_wch(WINDOW *win, wint_t *wch)
 {
@@ -712,7 +797,7 @@ int wget_wch(WINDOW *win, wint_t *wch)
     if (!wch)
         return ERR;
 
-    key = wgetch(win);
+    key = _raw_wgetch(win);
 
     if (key == ERR)
         return ERR;

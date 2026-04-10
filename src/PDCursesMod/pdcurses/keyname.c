@@ -1,6 +1,7 @@
 /* PDCurses */
 
 #include <curspriv.h>
+#include <assert.h>
 
 /*man-start**************************************************************
 
@@ -27,10 +28,11 @@ keyname
    function is an ncurses extension.
 
 ### Portability
-                             X/Open  ncurses  NetBSD
-    keyname                     Y       Y       Y
-    key_name                    Y       Y       Y
-    has_key                     -       Y       Y
+   Function              | X/Open | ncurses | NetBSD
+   :---------------------|:------:|:-------:|:------:
+   keyname               |    Y   |    Y    |   Y
+   key_name              |    Y   |    Y    |   Y
+   has_key               |    -   |    Y    |   Y
 
 **man-end****************************************************************/
 
@@ -38,7 +40,7 @@ keyname
 
 char *keyname(int key)
 {
-    static char _keyname[14];
+    static char _keyname[16];
 
     /* Key names must be in exactly the same order as in curses.h */
 
@@ -112,12 +114,20 @@ char *keyname(int key)
               "LAUNCH_MAIL", "MEDIA_SELECT",
               "LAUNCH_APP1", "LAUNCH_APP2", "LAUNCH_APP3", "LAUNCH_APP4",
               "LAUNCH_APP5", "LAUNCH_APP6", "LAUNCH_APP7", "LAUNCH_APP8",
-              "LAUNCH_APP9", "LAUNCH_APP10" };
+              "LAUNCH_APP9", "LAUNCH_APP10", "FOCUS_IN", "FOCUS_OUT" };
+    const size_t n_keys = sizeof( key_names) / sizeof( key_names[0]);
 
     PDC_LOG(("keyname() - called: key %d\n", key));
 
-    strcpy(_keyname, ((key >= 0) && (key < 0x80)) ? unctrl((chtype)key) :
-           has_key(key) ? key_names[key - KEY_MIN] : "UNKNOWN KEY");
+    if( key >= 0 && key < 0x80)
+        strcpy( _keyname, unctrl( (chtype)key));
+    else if( has_key(key) && (size_t)( key - KEY_MIN) < n_keys)
+    {
+        assert( strlen( key_names[key - KEY_MIN]) < sizeof( _keyname));
+        strcpy( _keyname, key_names[key - KEY_MIN]);
+    }
+    else
+        strcpy( _keyname, "UNKNOWN KEY");
 
     return _keyname;
 }

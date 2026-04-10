@@ -4,6 +4,8 @@
 #include <tchar.h>
 #include <assert.h>
 #include "../common/pdccolor.h"
+#include "../common/mouse.c"
+#include "../common/blink.c"
 #ifdef WIN32_LEAN_AND_MEAN
    #ifdef PDC_WIDE
       #include <shellapi.h>
@@ -14,8 +16,8 @@
 /* COLOR_PAIR to attribute encoding table. */
 
 static int menu_shown = 1;
-static int min_lines = 25, max_lines = 25;
-static int min_cols = 80, max_cols = 80;
+static int min_lines = 20, max_lines = 200;
+static int min_cols = 60, max_cols = 800;
 
 #if !defined( CHTYPE_32) && defined( PDC_WIDE)
     #define USING_COMBINING_CHARACTER_SCHEME
@@ -33,12 +35,9 @@ functions.        */
 #define INLINE static inline
 #endif
 
-static int add_mouse( int button, const int action, const int x, const int y);
 static int keep_size_within_bounds( int *lines, int *cols);
 INLINE int set_default_sizes_from_registry( const int n_cols, const int n_rows,
                const int xloc, const int yloc);
-void PDC_transform_line_given_hdc( const HDC hdc, const int lineno,
-                             int x, int len, const chtype *srcp);
 int PDC_get_mouse_event_from_queue( void);     /* pdcscrn.c */
 
 /* We have a 'base' standard palette of 256 colors,  plus a true-color
@@ -46,10 +45,10 @@ cube of 16 million colors. */
 
 #define N_COLORS 256 + 256 * 256 * 256;
 
-#ifdef A_OVERLINE
-#define A_ALL_LINES (A_UNDERLINE | A_LEFTLINE | A_RIGHTLINE | A_OVERLINE | A_STRIKEOUT)
+#ifdef WA_TOP
+#define WA_ALL_LINES (WA_UNDERLINE | WA_LEFT | WA_RIGHT | WA_TOP | WA_STRIKEOUT)
 #else
-#define A_ALL_LINES (A_UNDERLINE | A_LEFTLINE | A_RIGHTLINE)
+#define WA_ALL_LINES (WA_UNDERLINE | WA_LEFT | WA_RIGHT)
 #endif
 
    /* If PDC_MAX_MOUSE_BUTTONS is undefined,  it means the user hasn't     */
@@ -1215,9 +1214,8 @@ an exact number of rows/columns results in cascading resize attempts.
 So we check on initialization to see if we're in Wine;  if we are,
 resizes are skipped. */
 
-typedef const char *(CDECL *wine_version_func)(void);
 
-static wine_version_func wine_version;
+static FARPROC wine_version;
 
 static void HandleSize( const WPARAM wParam, const LPARAM lParam)
 {
@@ -1367,13 +1365,17 @@ static void HandlePaint( HWND hwnd )
     SelectObject(memory_dc, old_brush);
 
     /* paint all the rows */
-    if (curscr && curscr->_y && PDC_n_cols > 0 && PDC_n_rows > 0)
+    if (curscr && curscr->_y && PDC_n_cols > 0 && PDC_n_rows > 0
+               && PDC_n_cols == COLS && PDC_n_rows == LINES)
     {
         int i;
+        extern HDC override_hdc;
 
+        override_hdc = memory_dc;
         for (i = 0; i < PDC_n_rows; i++)
             if (i < SP->lines && curscr->_y[i])
-                PDC_transform_line_given_hdc(memory_dc, i, 0, PDC_n_cols, curscr->_y[i]);
+                PDC_transform_line_sliced( i, 0, PDC_n_cols, curscr->_y[i]);
+        override_hdc = 0;
     }
     BlitBackBuffer();
     EndPaint(hwnd, &ps);
@@ -1487,47 +1489,23 @@ static void HandleSyskeyDown( const WPARAM wParam, const LPARAM lParam,
         SP->key_modifiers |= PDC_KEY_MODIFIER_REPEAT;
 }
 
+static int convert_key_modifiers_for_mouse( const int key_modifiers)
+{
+   int mouse_modifiers = 0;
+
+   if( key_modifiers & PDC_KEY_MODIFIER_ALT)
+      mouse_modifiers |= PDC_BUTTON_ALT;
+   if( key_modifiers & PDC_KEY_MODIFIER_SHIFT)
+      mouse_modifiers |= PDC_BUTTON_SHIFT;
+   if( key_modifiers & PDC_KEY_MODIFIER_CONTROL)
+      mouse_modifiers |= PDC_BUTTON_CONTROL;
+   return( mouse_modifiers);
+}
+
 static void HandleTimer( const WPARAM wParam )
 {
-    int i;           /* see WndProc() notes */
-
     INTENTIONALLY_UNUSED_PARAMETER( wParam);
-    PDC_blink_state ^= 1;
-    if( SP->termattrs & A_BLINK)
-    {
-        for( i = 0; i < SP->lines; i++)
-        {
-            if( curscr->_y[i])
-            {
-                int j = 0;
-                chtype *line = curscr->_y[i];
-
-                /* skip over starting text that isn't blinking: */
-                while( j < SP->cols)
-                {
-                    int k;
-
-                    while( j < SP->cols && !(line[j] & A_BLINK))
-                        j++;
-                    k = j;
-                    while( j < SP->cols && (line[j] & A_BLINK))
-                        j++;
-                    if( k != j)
-                        PDC_transform_line( i, k, j - k, line + k);
-                }
-            }
-/*          else
-                MessageBox( 0, "NULL _y[] found\n", "PDCurses", MB_OK);  */
-        }
-    }
-    if( SP->cursrow >=SP->lines || SP->curscol >= SP->cols
-        || SP->cursrow < 0 || SP->curscol < 0
-        || !curscr->_y || !curscr->_y[SP->cursrow])
-            debug_printf( "Cursor off-screen: %d %d, %d %d\n",
-                          SP->cursrow, SP->curscol, SP->lines, SP->cols);
-    else if( PDC_CURSOR_IS_BLINKING)
-             PDC_transform_line( SP->cursrow, SP->curscol, 1,
-                                 curscr->_y[SP->cursrow] + SP->curscol);
+    PDC_check_for_blinking( );
 }
 
       /* Options to enlarge/shrink the font are currently commented out. */
@@ -1575,163 +1553,12 @@ INLINE void HandleMenuToggle( bool *ptr_ignore_resize)
     InvalidateRect( PDC_hWnd, NULL, FALSE);
 }
 
-typedef struct
-{
-   int x, y;
-   int button, action;
-   int button_flags;    /* Alt, shift, ctrl */
-} PDC_mouse_event;
-
-/* As "combined" mouse events (i.e.,  clicks and double- and triple-clicks
-along with the usual mouse moves,  button presses and releases,  and wheel
-movements) occur,  we add them to a queue.  They are removed for each
-KEY_MOUSE event from getch( ),  and SP->mouse_status is set to reflect
-what the mouse was doing at that event.
-
-Seven queued mouse events is possibly overkill.       */
-
-#define MAX_MOUSE_QUEUE       7
-
-static PDC_mouse_event mouse_queue[MAX_MOUSE_QUEUE];
-static int n_mouse_queue = 0;
-
-int PDC_get_mouse_event_from_queue( void)
-{
-    size_t i;
-
-    if( !n_mouse_queue)
-        return( -1);
-    memset(&SP->mouse_status, 0, sizeof(MOUSE_STATUS));
-    if( mouse_queue->action == BUTTON_MOVED)
-    {
-        if( mouse_queue->button < 0)
-            SP->mouse_status.changes = PDC_MOUSE_MOVED;
-        else
-        {
-            SP->mouse_status.changes = PDC_MOUSE_MOVED | (1 << mouse_queue->button);
-            SP->mouse_status.button[mouse_queue->button] = BUTTON_MOVED;
-        }
-    }
-    else
-    {
-        if( mouse_queue->button < PDC_MAX_MOUSE_BUTTONS)
-        {
-            SP->mouse_status.button[mouse_queue->button] = (short)mouse_queue->action;
-            if( mouse_queue->button < 3)
-               SP->mouse_status.changes = (1 << mouse_queue->button);
-            else
-               SP->mouse_status.changes = (0x40 << mouse_queue->button);
-        }
-        else if( mouse_queue->button == WHEEL_EVENT)
-             SP->mouse_status.changes |= mouse_queue->action;
-    }
-    SP->mouse_status.x = mouse_queue->x;
-    SP->mouse_status.y = mouse_queue->y;
-    for (i = 0; i < PDC_MAX_MOUSE_BUTTONS; i++)
-        SP->mouse_status.button[i] |= mouse_queue->button_flags;
-    n_mouse_queue--;
-    memmove( mouse_queue, mouse_queue + 1, n_mouse_queue * sizeof( PDC_mouse_event));
-    return( 0);
-}
-
-static void add_mouse_event_to_queue( const int button, const int action,
-            const int x, const int y)
-{
-    if( x < PDC_n_cols && y < PDC_n_rows && n_mouse_queue < MAX_MOUSE_QUEUE)
-    {
-        int button_flags = 0;
-
-        mouse_queue[n_mouse_queue].button = button;
-        mouse_queue[n_mouse_queue].action = action;
-        mouse_queue[n_mouse_queue].x = x;
-        mouse_queue[n_mouse_queue].y = y;
-        if( GetKeyState( VK_MENU) & 0x8000)
-            button_flags |= PDC_BUTTON_ALT;
-
-        if( GetKeyState( VK_SHIFT) & 0x8000)
-            button_flags |= PDC_BUTTON_SHIFT;
-
-        if( GetKeyState( VK_CONTROL) & 0x8000)
-            button_flags |= PDC_BUTTON_CONTROL;
-        mouse_queue[n_mouse_queue].button_flags = button_flags;
-        n_mouse_queue++;
-        add_key_to_queue( KEY_MOUSE);
-    }
-}
-
-/* 'button_count' is zero if a button hasn't been pressed;  one if it
-has been;  two if pressed/released (clicked);  three if clicked and
-pressed again... all the way up to six if it's been triple-clicked. */
-
-static int add_mouse( int button, const int action, const int x, const int y)
-{
-   bool flush_events_to_queue = (button == -1 || action == BUTTON_MOVED);
-   static int mouse_state = 0, button_count[PDC_MAX_MOUSE_BUTTONS];
-   static int prev_x, prev_y = -1;
-   const bool actually_moved = (x != prev_x || y != prev_y);
-   size_t i;
-
-   if( action == BUTTON_RELEASED)
-   {
-       mouse_state &= ~(1 << button);
-       if( !button_count[button - 1])   /* a release with no matching press */
-       {
-           add_mouse_event_to_queue( button - 1, BUTTON_RELEASED, x, y);
-           return( 0);
-       }
-       else if( button_count[button - 1] & 1)
-       {
-           button_count[button - 1]++;
-           if( button_count[button - 1] == 6)    /* triple-click completed */
-               flush_events_to_queue = TRUE;
-       }
-   }
-   else if( action == BUTTON_PRESSED && !(button_count[button - 1] & 1))
-   {
-      mouse_state |= (1 << button);
-      button_count[button - 1]++;
-   }
-   if( button >= 0)
-   {
-      prev_x = x;
-      prev_y = y;
-   }
-   if( action == BUTTON_MOVED)
-   {
-       if( !actually_moved)     /* have to move to a new character cell, */
-           return( -1);         /* not just a new pixel */
-       button = -1;        /* assume no buttons down */
-       for( i = 0; i < PDC_MAX_MOUSE_BUTTONS; i++)
-           if( (mouse_state >> i) & 1)
-               button = (int)i;
-       if( button == -1 && !(SP->_trap_mbe & REPORT_MOUSE_POSITION))
-           return( -1);
-   }
-
-   if( flush_events_to_queue)
-       for( i = 0; i < PDC_MAX_MOUSE_BUTTONS; i++)
-           if( button_count[i])
-           {
-               const int events[4] = { 0, BUTTON_CLICKED,
-                           BUTTON_DOUBLE_CLICKED, BUTTON_TRIPLE_CLICKED };
-
-               assert( button_count[i] > 0 && button_count[i] < 7);
-               if( button_count[i] >= 2)
-                  add_mouse_event_to_queue( (int)i, events[button_count[i] / 2], prev_x, prev_y);
-               if( button_count[i] & 1)
-                  add_mouse_event_to_queue( (int)i, BUTTON_PRESSED, prev_x, prev_y);
-               button_count[i] = 0;
-           }
-   if( action == BUTTON_MOVED)
-      add_mouse_event_to_queue( button - 1, action, x, y);
-   debug_printf( "Button %d, act %d\n", button, action);
-   return( 0);
-}
-
 /* Note that there are two types of WM_TIMER timer messages.  One type
 indicates that SP->mouse_wait milliseconds have elapsed since a mouse
-button was pressed;  that's handled as described in the above notes.
-The other type,  issued every half second,  indicates that blinking
+button was pressed or released,  and that accumulated mouse events
+should be handled.  See '../common/mouse.c' for details.
+
+   The other type,  issued every half second,  indicates that blinking
 should take place.  For these,  HandleTimer() is called (see above).
 
    On WM_PAINT,  we determine what parts of 'curscr' would be covered by
@@ -1747,9 +1574,12 @@ Note,  though,  that in Win9x,  detection of the Shift keys is hardware
 dependent;  if you've an unusual keyboard,  both Shift keys may be
 detected as right, or both as left. */
 
-#if defined(_WIN32) && defined(__GNUC__)
+#if defined(__has_attribute)
+#if __has_attribute(force_align_arg_pointer)
 #define ALIGN_STACK __attribute__((force_align_arg_pointer))
-#else
+#endif
+#endif
+#if !defined(ALIGN_STACK)
 #define ALIGN_STACK
 #endif
 
@@ -1761,7 +1591,12 @@ static LRESULT ALIGN_STACK CALLBACK WndProc (const HWND hwnd,
     static int xbutton_pressed = 0;
     static int modified_key_to_return = 0;
     static bool ignore_resize = FALSE;
-    int button, action;
+    int button, i;
+    bool wait_for_more_mouse = FALSE;
+    const int modifiers = convert_key_modifiers_for_mouse( SP->key_modifiers);
+    const int mouse_x = LOWORD( lParam) / PDC_cxChar;
+    const int mouse_y = HIWORD( lParam) / PDC_cyChar;
+
 
     PDC_hWnd = hwnd;
     if( !hwnd)
@@ -1801,12 +1636,14 @@ static LRESULT ALIGN_STACK CALLBACK WndProc (const HWND hwnd,
                 while( mouse_wheel_vertical_loc > mouse_wheel_sensitivity / 2)
                 {
                     mouse_wheel_vertical_loc -= mouse_wheel_sensitivity;
-                    add_mouse_event_to_queue( WHEEL_EVENT, PDC_MOUSE_WHEEL_UP, pt.x, pt.y);
+                    _add_raw_mouse_event( 0, PDC_MOUSE_WHEEL_UP, modifiers,
+                                                pt.x, pt.y);
                 }
                 while( mouse_wheel_vertical_loc < -mouse_wheel_sensitivity / 2)
                 {
                     mouse_wheel_vertical_loc += mouse_wheel_sensitivity;
-                    add_mouse_event_to_queue( WHEEL_EVENT, PDC_MOUSE_WHEEL_DOWN, pt.x, pt.y);
+                    _add_raw_mouse_event( 0, PDC_MOUSE_WHEEL_DOWN, modifiers,
+                                                pt.x, pt.y);
                 }
             }
             else       /* must be a horizontal event: */
@@ -1815,60 +1652,63 @@ static LRESULT ALIGN_STACK CALLBACK WndProc (const HWND hwnd,
                 while( mouse_wheel_horizontal_loc > mouse_wheel_sensitivity / 2)
                 {
                     mouse_wheel_horizontal_loc -= mouse_wheel_sensitivity;
-                    add_mouse_event_to_queue( WHEEL_EVENT, PDC_MOUSE_WHEEL_RIGHT, pt.x, pt.y);
+                    _add_raw_mouse_event( 0, PDC_MOUSE_WHEEL_RIGHT, modifiers,
+                                                pt.x, pt.y);
                 }
                 while( mouse_wheel_horizontal_loc < -mouse_wheel_sensitivity / 2)
                 {
                     mouse_wheel_horizontal_loc += mouse_wheel_sensitivity;
-                    add_mouse_event_to_queue( WHEEL_EVENT, PDC_MOUSE_WHEEL_LEFT, pt.x, pt.y);
+                    _add_raw_mouse_event( 0, PDC_MOUSE_WHEEL_LEFT, modifiers,
+                                                pt.x, pt.y);
                 }
             }
         }
+        for( i = _mlist_count; i; i--)
+            add_key_to_queue( KEY_MOUSE);
         return 0;
 
     case WM_MOUSEMOVE:
         {
-        const int mouse_x = LOWORD( lParam) / PDC_cxChar;
-        const int mouse_y = HIWORD( lParam) / PDC_cyChar;
-
-        if( add_mouse( 0, BUTTON_MOVED, mouse_x, mouse_y))
-            modified_key_to_return = 0;
+        _add_raw_mouse_event( 0, BUTTON_MOVED, modifiers, mouse_x, mouse_y);
+        for( i = _mlist_count; i; i--)
+            add_key_to_queue( KEY_MOUSE);
         }
         return 0;
 
     case WM_LBUTTONDOWN:
-        button = 1;
-        action = BUTTON_PRESSED;
+        wait_for_more_mouse = _add_raw_mouse_event( 0, BUTTON_PRESSED,
+                                               modifiers, mouse_x, mouse_y);
         break;
 
     case WM_LBUTTONUP:
-        button = 1;
-        action = BUTTON_RELEASED;
+        wait_for_more_mouse = _add_raw_mouse_event( 0, BUTTON_RELEASED,
+                                               modifiers, mouse_x, mouse_y);
         break;
 
     case WM_RBUTTONDOWN:
-        button = 3;
-        action = BUTTON_PRESSED;
+        wait_for_more_mouse = _add_raw_mouse_event( 2, BUTTON_PRESSED,
+                                               modifiers, mouse_x, mouse_y);
         break;
 
     case WM_RBUTTONUP:
-        button = 3;
-        action = BUTTON_RELEASED;
+        wait_for_more_mouse = _add_raw_mouse_event( 2, BUTTON_RELEASED,
+                                               modifiers, mouse_x, mouse_y);
         break;
 
     case WM_MBUTTONDOWN:
-        button = 2;
-        action = BUTTON_PRESSED;
+        wait_for_more_mouse = _add_raw_mouse_event( 1, BUTTON_PRESSED,
+                                               modifiers, mouse_x, mouse_y);
         break;
 
     case WM_MBUTTONUP:
-        button = 2;
-        action = BUTTON_RELEASED;
+        wait_for_more_mouse = _add_raw_mouse_event( 1, BUTTON_RELEASED,
+                                               modifiers, mouse_x, mouse_y);
         break;
 
     case WM_XBUTTONDOWN:
         button = ((wParam & MK_XBUTTON1) ? 3 : 4);
-        action = BUTTON_PRESSED;
+        wait_for_more_mouse = _add_raw_mouse_event( button, BUTTON_PRESSED,
+                                               modifiers, mouse_x, mouse_y);
         xbutton_pressed = button;
         break;
 
@@ -1881,8 +1721,8 @@ static LRESULT ALIGN_STACK CALLBACK WndProc (const HWND hwnd,
           /* track of which buttons are currently pressed.                */
         button = ((wParam & MK_XBUTTON1) ? 3 : 4);
 #endif
-        button = xbutton_pressed;
-        action = BUTTON_RELEASED;
+        wait_for_more_mouse = _add_raw_mouse_event( xbutton_pressed,  BUTTON_RELEASED,
+                                               modifiers, mouse_x, mouse_y);
         break;
 
     case WM_MOVE:
@@ -1904,8 +1744,8 @@ static LRESULT ALIGN_STACK CALLBACK WndProc (const HWND hwnd,
         {
             modified_key_to_return = numpad_unicode_value;
             numpad_unicode_value = 0;
-            SP->key_modifiers = 0;
         }
+        SP->key_modifiers = 0;
         if( modified_key_to_return )
         {
             add_key_to_queue( modified_key_to_return );
@@ -1939,7 +1779,8 @@ static LRESULT ALIGN_STACK CALLBACK WndProc (const HWND hwnd,
         if( wParam != TIMER_ID_FOR_BLINKING)
         {
             KillTimer( PDC_hWnd, (int)wParam);
-            add_mouse( -1, -1, -1, -1);
+            for( i = _mlist_count; i; i--)
+               add_key_to_queue( KEY_MOUSE);
         }
         else if( SP && curscr && curscr->_y)
         {
@@ -1995,14 +1836,17 @@ static LRESULT ALIGN_STACK CALLBACK WndProc (const HWND hwnd,
         return DefWindowProc( hwnd, message, wParam, lParam) ;
     }
 
-    /* mouse button handling code */
-    assert(button != -1);
-    add_mouse(button, action, LOWORD(lParam) / PDC_cxChar, HIWORD(lParam) / PDC_cyChar);
+    if( wait_for_more_mouse)
+        SetTimer(hwnd, 0, SP->mouse_wait, NULL);
+    else       /* flush any cached mouse events */
+        for( i = _mlist_count; i; i--)
+            add_key_to_queue( KEY_MOUSE);
+#ifdef PROBABLY_NOT_NEEDED_NOW
     if (action == BUTTON_PRESSED)
         SetCapture(hwnd);
     else
         ReleaseCapture();
-    SetTimer(hwnd, 0, SP->mouse_wait, NULL);
+#endif
     return 0;
 }
 
@@ -2200,6 +2044,11 @@ INLINE int set_up_window( void)
     return( 0);
 }
 
+/* In casting function pointers,  we first cast them through a void function pointer.
+This suppresses cast-function-type warnings on gcc and MinGW.   */
+
+#define VOID_FN_PTR (void(*)(void))
+
 /* open the physical screen -- allocate SP, miscellaneous intialization,
    and may save the existing screen for later restoration.
 
@@ -2213,14 +2062,38 @@ INLINE int set_up_window( void)
 #define MAX_LINES   50000
 #define MAX_COLUMNS 50000
 
+#if !defined( __DMC__)
+   #if !defined( MSC_VER) || (MSC_VER > 1100)
+      typedef HRESULT (WINAPI *dpi_aware_func_t)(int);
+      #define USE_VOID_FN_PTR_TRICK
+   #endif
+#endif
+
 int PDC_scr_open(void)
 {
     const HMODULE hntdll = GetModuleHandle( _T("ntdll.dll"));
+    const HMODULE shcoredll = GetModuleHandle(_T("Shcore.dll"));
 
     PDC_LOG(("PDC_scr_open() - called\n"));
 
     if( hntdll)
-        wine_version = (wine_version_func)GetProcAddress(hntdll, "wine_get_version");
+        wine_version = GetProcAddress(hntdll, "wine_get_version");
+
+    if ( shcoredll) {
+        static int ADJUST_DPI_PER_MONITOR = 2;
+#ifdef USE_VOID_FN_PTR_TRICK
+        dpi_aware_func_t set_process_dpi_awareness_func = (dpi_aware_func_t)
+                VOID_FN_PTR GetProcAddress(shcoredll, "SetProcessDpiAwareness");
+#else
+    FARPROC set_process_dpi_awareness_func =
+                            GetProcAddress(shcoredll, "SetProcessDpiAwareness");
+#endif
+
+        if ( set_process_dpi_awareness_func) {
+            set_process_dpi_awareness_func(ADJUST_DPI_PER_MONITOR);
+        }
+    }
+
     COLORS = N_COLORS;  /* should give this a try and see if it works! */
     if (!SP || PDC_init_palette( ))
         return ERR;
@@ -2232,9 +2105,8 @@ int PDC_scr_open(void)
     SP->curscol = SP->cursrow = 0;
     SP->audible = TRUE;
     SP->mono = FALSE;
-    SP->termattrs = A_BOLD | A_COLOR | A_LEFTLINE | A_RIGHTLINE
-               | A_OVERLINE | A_UNDERLINE | A_STRIKEOUT | A_ITALIC
-               | A_DIM | A_REVERSE;
+    SP->termattrs = A_COLOR | WA_ITALIC | WA_UNDERLINE | WA_LEFT | WA_RIGHT |
+                    WA_REVERSE | WA_STRIKEOUT | WA_TOP | WA_BLINK | WA_DIM | WA_BOLD;
 
 #ifdef NO_LONGER_AVAILABLE
             /* (Jan 2020 : the wmcbrine flavor lacks Xinitscr) */

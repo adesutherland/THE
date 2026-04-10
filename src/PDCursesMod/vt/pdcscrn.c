@@ -23,15 +23,13 @@ static struct termios orig_term;
 #include "../common/pdccolor.h"
 #include "../common/pdccolor.c"
 
-#ifdef USING_COMBINING_CHARACTER_SCHEME
-int PDC_expand_combined_characters( const cchar_t c, cchar_t *added);
-#endif
-
 #ifdef DOS
 int PDC_is_ansi = TRUE;
 #else
 int PDC_is_ansi = FALSE;
 #endif
+
+int PDC_rows = -1, PDC_cols = -1;
 
 #ifdef _WIN32
 
@@ -56,6 +54,18 @@ accordingly.  (In DOS,  PDC_is_ansi is always true -- there's no xterm-like
 support there.  On non-MS platforms,  PDC_is_ansi is always false...
 though that should be revisited for the Linux console,  and probably
 elsewhere.)  */
+
+static int PDC_get_screen_size( int *n_cols, int *n_rows)
+{
+    const HANDLE hOut = GetStdHandle( STD_OUTPUT_HANDLE);
+    CONSOLE_SCREEN_BUFFER_INFO ScreenBufferInfo;
+
+    assert( INVALID_HANDLE_VALUE != hOut);
+    GetConsoleScreenBufferInfo( hOut, &ScreenBufferInfo);
+    *n_cols = ScreenBufferInfo.srWindow.Right - ScreenBufferInfo.srWindow.Left + 1;
+    *n_rows = ScreenBufferInfo.srWindow.Bottom - ScreenBufferInfo.srWindow.Top + 1;
+    return( 0);
+}
 
 static int set_win10_for_vt_codes( const bool setting_mode)
 {
@@ -94,14 +104,13 @@ static int set_win10_for_vt_codes( const bool setting_mode)
               /* If we've gotten this far,  the terminal has been  */
               /* set up to process xterm-like sequences : */
     PDC_is_ansi = FALSE;
+    if( setting_mode)
+        PDC_get_screen_size( &PDC_cols, &PDC_rows);
     return( 0);
 }
 #endif
 
-int PDC_rows = -1, PDC_cols = -1;
 bool PDC_resize_occurred = FALSE;
-const int STDIN = 0;
-chtype PDC_capabilities = 0;
 static mmask_t _stored_trap_mbe;
 
 /* COLOR_PAIR to attribute encoding table. */
@@ -111,21 +120,23 @@ void PDC_reset_prog_mode( void)
 #ifdef USE_TERMIOS
     struct termios term;
 
-    tcgetattr( STDIN, &orig_term);
+    tcgetattr( fileno( SP->input_fd), &orig_term);
     memcpy( &term, &orig_term, sizeof( term));
     term.c_lflag &= ~(ICANON | ECHO);
     term.c_iflag &= ~ICRNL;
     term.c_cc[VSUSP] = _POSIX_VDISABLE;   /* disable Ctrl-Z */
     term.c_cc[VSTOP] = _POSIX_VDISABLE;   /* disable Ctrl-S */
     term.c_cc[VSTART] = _POSIX_VDISABLE;   /* disable Ctrl-Q */
-    tcsetattr( STDIN, TCSANOW, &term);
+    tcsetattr( fileno( SP->input_fd), TCSANOW, &term);
 #endif
-#ifndef _WIN32
+#if !defined( _WIN32) && !defined( DOS)
     if( !PDC_is_ansi)
-        PDC_puts_to_stdout( "\033[?1006h");    /* Set SGR mouse tracking,  if available */
+        PDC_puts_to_stdout( CSI "?1006h");    /* Set SGR mouse tracking,  if available */
 #endif
+#ifndef DOS
     if( !SP->_preserve)
-       PDC_puts_to_stdout( "\033[?47h");      /* Save screen */
+       PDC_puts_to_stdout( CSI "?47h");      /* Save screen */
+#endif
     PDC_puts_to_stdout( "\033" "7");         /* save cursor & attribs (VT100) */
 
     SP->_trap_mbe = _stored_trap_mbe;
@@ -151,9 +162,9 @@ int PDC_resize_screen(int nlines, int ncols)
       char tbuff[50];
 
 #ifdef HAVE_SNPRINTF
-      snprintf( tbuff, sizeof( tbuff), "\033[8;%d;%dt", nlines, ncols);
+      snprintf( tbuff, sizeof( tbuff), CSI "8;%d;%dt", nlines, ncols);
 #else
-      sprintf( tbuff, "\033[8;%d;%dt", nlines, ncols);
+      sprintf( tbuff, CSI "8;%d;%dt", nlines, ncols);
 #endif
       PDC_puts_to_stdout( tbuff);
       PDC_rows = nlines;
@@ -174,14 +185,16 @@ void PDC_save_screen_mode(int i)
 
 void PDC_scr_close( void)
 {
-#ifndef _WIN32
+#if !defined( _WIN32) && !defined( DOS)
    if( !PDC_is_ansi)
-       PDC_puts_to_stdout( "\033[?1006l");    /* Turn off SGR mouse tracking */
+       PDC_puts_to_stdout( CSI "?1006l");    /* Turn off SGR mouse tracking */
 #endif
    PDC_puts_to_stdout( "\033" "8");         /* restore cursor & attribs (VT100) */
-   PDC_puts_to_stdout( "\033[m");         /* set default screen attributes */
-   PDC_puts_to_stdout( "\033[?47l");      /* restore screen */
+   PDC_puts_to_stdout( CSI "m");         /* set default screen attributes */
+#if !defined( DOS)
+   PDC_puts_to_stdout( CSI "?47l");      /* restore screen */
    PDC_curs_set( 2);          /* blinking block cursor */
+#endif
    PDC_gotoyx( PDC_cols - 1, 0);
    _stored_trap_mbe = SP->_trap_mbe;
    SP->_trap_mbe = 0;
@@ -190,10 +203,11 @@ void PDC_scr_close( void)
    set_win10_for_vt_codes( FALSE);
 #else
    #if !defined( DOS)
-      tcsetattr( STDIN, TCSANOW, &orig_term);
+      tcsetattr( fileno( SP->input_fd), TCSANOW, &orig_term);
    #endif
 #endif
    PDC_doupdate( );
+   PDC_flushinp( );
    PDC_puts_to_stdout( NULL);      /* free internal cache */
    return;
 }
@@ -207,12 +221,15 @@ void PDC_scr_free( void)
 }
 
 #ifdef USE_TERMIOS
+
+int PDC_get_terminal_fd( void);        /* pdckbd.c */
+
 static void sigwinchHandler( int sig)
 {
    struct winsize ws;
 
    INTENTIONALLY_UNUSED_PARAMETER( sig);
-   if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) != -1)
+   if( -1 != ioctl( PDC_get_terminal_fd( ), TIOCGWINSZ, &ws))
       if( PDC_rows != ws.ws_row || PDC_cols != ws.ws_col)
          {
          PDC_rows = ws.ws_row;
@@ -249,6 +266,7 @@ int PDC_scr_open(void)
     char *capabilities = getenv( "PDC_VT");
     char *term_env = getenv( "TERM");
     const char *colorterm = getenv( "COLORTERM");
+    chtype PDC_capabilities = 0;
 #ifdef USE_TERMIOS
     struct sigaction sa;
 #endif
@@ -283,7 +301,7 @@ int PDC_scr_open(void)
     if (!SP || PDC_init_palette( ))
         return ERR;
 
-    setbuf( stdin, NULL);
+    setbuf( SP->input_fd, NULL);
 #ifdef USE_TERMIOS
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
@@ -305,9 +323,15 @@ int PDC_scr_open(void)
     {
         const char *env = getenv("PDC_LINES");
 
-        PDC_rows = (env ? atoi( env) : 25);
+        if( env)
+           PDC_rows = atoi( env);
+        if( PDC_rows < 2)
+           PDC_rows = 24;
         env = getenv( "PDC_COLS");
-        PDC_cols = (env ? atoi( env) : 80);
+        if( env)
+           PDC_cols = atoi( env);
+        if( PDC_cols < 2)
+           PDC_cols = 80;
     }
 #endif
     SP->mouse_wait = PDC_CLICK_PERIOD;
@@ -371,18 +395,18 @@ int PDC_color_content( int color, int *red, int *green, int *blue)
 {
     const PACKED_RGB col = PDC_get_palette_entry( color);
 
-    *red = DIVROUND( Get_RValue(col) * 1000, 255);
-    *green = DIVROUND( Get_GValue(col) * 1000, 255);
-    *blue = DIVROUND( Get_BValue(col) * 1000, 255);
+    *red =   DIVROUND( (int32_t)Get_RValue(col) * (int32_t)1000, (int32_t)255);
+    *green = DIVROUND( (int32_t)Get_GValue(col) * (int32_t)1000, (int32_t)255);
+    *blue =  DIVROUND( (int32_t)Get_BValue(col) * (int32_t)1000, (int32_t)255);
 
     return OK;
 }
 
 int PDC_init_color( int color, int red, int green, int blue)
 {
-    const PACKED_RGB new_rgb = PACK_RGB(DIVROUND(red * 255, 1000),
-                                 DIVROUND(green * 255, 1000),
-                                 DIVROUND(blue * 255, 1000));
+    const PACKED_RGB new_rgb = PACK_RGB(DIVROUND((int32_t)red   * (int32_t)255, (int32_t)1000),
+                                        DIVROUND((int32_t)green * (int32_t)255, (int32_t)1000),
+                                        DIVROUND((int32_t)blue  * (int32_t)255, (int32_t)1000));
 
     if( !PDC_set_palette_entry( color, new_rgb))
         curscr->_clear = TRUE;

@@ -2,6 +2,7 @@
 
 #include <curspriv.h>
 #include <assert.h>
+#include <string.h>
 
 /*man-start**************************************************************
 
@@ -32,60 +33,70 @@ scroll
    All functions return OK on success and ERR on error.
 
 ### Portability
-                             X/Open  ncurses  NetBSD
-    scroll                      Y       Y       Y
-    scrl                        Y       Y       Y
-    wscrl                       Y       Y       Y
+   Function              | X/Open | ncurses | NetBSD
+   :---------------------|:------:|:-------:|:------:
+   scroll                |    Y   |    Y    |   Y
+   scrl                  |    Y   |    Y    |   Y
+   wscrl                 |    Y   |    Y    |   Y
 
 **man-end****************************************************************/
 
-int wscrl(WINDOW *win, int n)
+int PDC_wscrl(WINDOW *win, const int top, const int bottom, int n)
 {
-    int i, l, dir, start, end;
-    chtype blank, *temp;
+    int start, end, n_lines;
+    chtype blank, *tptr, *endptr;
 
     /* Check if window scrolls. Valid for window AND pad */
 
     assert( win);
-    if (!win || !win->_scroll || !n)
+    if (!win || !n)
         return ERR;
 
     blank = win->_bkgd;
+    start = top;
+    end = bottom + 1;
+    n_lines = end - start;
 
-    if (n > 0)
+    if (n > 0)             /* scroll up */
     {
-        start = win->_tmarg;
-        end = win->_bmarg;
-        dir = 1;
+        if( n > n_lines)
+            n = n_lines;
+        memmove( win->_y[start], win->_y[start + n],
+                     (n_lines - n) * win->_maxx * sizeof( chtype));
+        tptr = win->_y[end - n];
     }
-    else
+    else                  /* scroll down */
     {
-        start = win->_bmarg;
-        end = win->_tmarg;
-        dir = -1;
-    }
-
-    for (l = 0; l < (n * dir); l++)
-    {
-        temp = win->_y[start];
-
-        /* re-arrange line pointers */
-
-        for (i = start; i != end; i += dir)
-            win->_y[i] = win->_y[i + dir];
-
-        win->_y[end] = temp;
-
-        /* make a blank line */
-
-        for (i = 0; i < win->_maxx; i++)
-            *temp++ = blank;
+        n = -n;
+        if( n > n_lines)
+            n = n_lines;
+        memmove( win->_y[start + n], win->_y[start],
+                     (n_lines - n) * win->_maxx * sizeof( chtype));
+        tptr = win->_y[top];
     }
 
-    touchline(win, win->_tmarg, win->_bmarg - win->_tmarg + 1);
+        /* make blank lines */
 
-    PDC_sync(win);
+    endptr = tptr + n * win->_maxx;
+    while( tptr < endptr)
+        *tptr++ = blank;
+
+    touchline(win, start, n_lines);
     return OK;
+}
+
+int wscrl(WINDOW *win, int n)
+{
+    int rval;
+
+    assert( win);
+    if (!win || !win->_scroll || !n)
+        rval = ERR;
+    else
+        rval = PDC_wscrl( win, win->_tmarg, win->_bmarg, n);
+    if( OK == rval)
+        PDC_sync( win);
+    return( rval);
 }
 
 int scrl(int n)

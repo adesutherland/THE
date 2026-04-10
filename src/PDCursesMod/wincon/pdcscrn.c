@@ -89,10 +89,8 @@ typedef struct _CONSOLE_SCREEN_BUFFER_INFOEX {
 typedef CONSOLE_SCREEN_BUFFER_INFOEX    *PCONSOLE_SCREEN_BUFFER_INFOEX;
 #endif
 
-typedef BOOL (WINAPI *SetConsoleScreenBufferInfoExFn)(HANDLE hConsoleOutput,
-    PCONSOLE_SCREEN_BUFFER_INFOEX lpConsoleScreenBufferInfoEx);
-typedef BOOL (WINAPI *GetConsoleScreenBufferInfoExFn)(HANDLE hConsoleOutput,
-    PCONSOLE_SCREEN_BUFFER_INFOEX lpConsoleScreenBufferInfoEx);
+typedef BOOL (WINAPI *SetConsoleScreenBufferInfoExFn) (HANDLE, CONSOLE_SCREEN_BUFFER_INFOEX *);
+typedef BOOL (WINAPI *GetConsoleScreenBufferInfoExFn) (HANDLE, CONSOLE_SCREEN_BUFFER_INFOEX *);
 
 static SetConsoleScreenBufferInfoExFn pSetConsoleScreenBufferInfoEx = NULL;
 static GetConsoleScreenBufferInfoExFn pGetConsoleScreenBufferInfoEx = NULL;
@@ -378,6 +376,11 @@ void PDC_scr_free(void)
     SetConsoleCtrlHandler(_ctrl_break, FALSE);
 }
 
+/* In casting function pointers,  we first cast them through a void function pointer.
+This suppresses cast-function-type warnings on gcc and MinGW.   */
+
+#define VOID_FN_PTR (void(*)(void))
+
 /* open the physical screen -- miscellaneous initialization, may save
    the existing screen for later restoration */
 
@@ -399,12 +402,15 @@ int PDC_scr_open(void)
     _reset_old_colors();
 
     std_con_out =
-    pdc_con_out = GetStdHandle(STD_OUTPUT_HANDLE);
-    pdc_con_in = GetStdHandle(STD_INPUT_HANDLE);
+    pdc_con_out = CreateFile(TEXT("CONOUT$"), GENERIC_READ | GENERIC_WRITE,
+                             FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+    pdc_con_in = CreateFile(TEXT("CONIN$"), GENERIC_READ | GENERIC_WRITE,
+                            FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
 
-    if (GetFileType(pdc_con_in) != FILE_TYPE_CHAR)
+    if (pdc_con_out == INVALID_HANDLE_VALUE ||
+        pdc_con_in == INVALID_HANDLE_VALUE)
     {
-        fprintf(stderr, "\nRedirection is not supported.\n");
+        fprintf(stderr, "\nCannot open console.\n");
         exit(1);
     }
 
@@ -481,10 +487,10 @@ int PDC_scr_open(void)
 
     h_kernel = GetModuleHandleA("kernel32.dll");
     pGetConsoleScreenBufferInfoEx =
-        (GetConsoleScreenBufferInfoExFn)GetProcAddress(h_kernel,
+        (GetConsoleScreenBufferInfoExFn) VOID_FN_PTR GetProcAddress(h_kernel,
         "GetConsoleScreenBufferInfoEx");
     pSetConsoleScreenBufferInfoEx =
-        (SetConsoleScreenBufferInfoExFn)GetProcAddress(h_kernel,
+        (SetConsoleScreenBufferInfoExFn) VOID_FN_PTR GetProcAddress(h_kernel,
         "SetConsoleScreenBufferInfoEx");
 
     return OK;

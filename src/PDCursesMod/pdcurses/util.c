@@ -1,4 +1,4 @@
-/* PDCurses */
+/* PDCursesMod */
 
 #include <curspriv.h>
 #include <assert.h>
@@ -20,6 +20,10 @@ util
     int setcchar(cchar_t *wcval, const wchar_t *wch, const attr_t attrs,
                  short color_pair, const void *opts);
     wchar_t *wunctrl(cchar_t *wc);
+
+    int PDC_mbtowc(wchar_t *pwc, const char *s, size_t n);
+    size_t PDC_mbstowcs(wchar_t *dest, const char *src, size_t n);
+    size_t PDC_wcstombs(char *dest, const wchar_t *src, size_t n);
 
 ### Description
 
@@ -45,6 +49,13 @@ util
    the opts argument is non-NULL,  it is treated as a pointer to an
    integer containing the desired color pair and color_pair is ignored.
 
+   PDC_mbtowc(),  PDC_mbstowcs(), and PDC_wcstombs() correspond to the
+   POSIX and C99 standard functions mbtowc(),  mbstowcs(),  and
+   wcstombs().  If the library is built for "forced" UTF8 encoding,
+   the PDC_* functions do UTF8 encoding and decoding.  If it is built
+   without forced encoding,  then the standard library functions are
+   used instead.
+
 ### Return Value
 
    wunctrl() returns NULL on failure. delay_output() always returns OK.
@@ -55,14 +66,18 @@ util
    setcchar() returns OK or ERR.
 
 ### Portability
-                             X/Open  ncurses  NetBSD
-    unctrl                      Y       Y       Y
-    filter                      Y       Y       Y
-    use_env                     Y       Y       Y
-    delay_output                Y       Y       Y
-    getcchar                    Y       Y       Y
-    setcchar                    Y       Y       Y
-    wunctrl                     Y       Y       Y
+   Function              | X/Open | ncurses | NetBSD
+   :---------------------|:------:|:-------:|:------:
+   unctrl                |    Y   |    Y    |   Y
+   filter                |    Y   |    Y    |   Y
+   use_env               |    Y   |    Y    |   Y
+   delay_output          |    Y   |    Y    |   Y
+   getcchar              |    Y   |    Y    |   Y
+   setcchar              |    Y   |    Y    |   Y
+   wunctrl               |    Y   |    Y    |   Y
+   PDC_mbtowc            |    -   |    -    |   -
+   PDC_mbstowcs          |    -   |    -    |   -
+   PDC_wcstombs          |    -   |    -    |   -
 
 **man-end****************************************************************/
 
@@ -119,7 +134,7 @@ int delay_output(int ms)
     return napms(ms);
 }
 
-int PDC_wc_to_utf8( char *dest, const int32_t code)
+PDCEX int PDC_wc_to_utf8( char *dest, const int32_t code)
 {
    int n_bytes_out;
 
@@ -179,10 +194,6 @@ int PDC_wc_to_utf8( char *dest, const int32_t code)
    contain exactly as many values as the input array,  _unless_ the input
    has Unicode surrogate pairs in it.  In that case,  each input pair will
    result in only one output value. */
-
-#define IS_HIGH_SURROGATE( x)  ((x) >= 0xd800 && (x) < 0xdc00)
-#define IS_LOW_SURROGATE( x)   ((x) >= 0xdc00 && (x) < 0xe000)
-#define IS_SURROGATE( x)       ((x) >= 0xd800 && (x) < 0xe000)
 
 static int _wchar_to_int32_array( int32_t *obuff, const int obuffsize, const wchar_t *wch)
 {
@@ -257,7 +268,7 @@ static int _int32_to_wchar_array( wchar_t *obuff, const int obuffsize, const int
    int PDC_expand_combined_characters( const cchar_t c, cchar_t *added);
    int PDC_find_combined_char_idx( const cchar_t root, const cchar_t added);
 
-   #define COMBINED_CHAR_START          0x110001
+   #define COMBINED_CHAR_START          (MAX_UNICODE + 1)
 #endif
 
 int getcchar(const cchar_t *wcval, wchar_t *wch, attr_t *attrs,
@@ -411,8 +422,8 @@ int PDC_mbtowc(wchar_t *pwc, const char *s, size_t n)
                   && IS_CONTINUATION_BYTE( string[3]))
         {
             key = ((key & 0x07) << 18) | ((string[1] & 0x3f) << 12) |
-                  ((string[2] & 0x3f) << 6) | (string[2] & 0x3f);
-            if( key <= 0x10ffff)
+                  ((string[2] & 0x3f) << 6) | (string[3] & 0x3f);
+            if( key < MAX_UNICODE)
                 i = 4;     /* four-byte sequence : U+10000 to U+10FFFF */
         }
     }
@@ -468,8 +479,19 @@ size_t PDC_wcstombs(char *dest, const wchar_t *src, size_t n)
     if (!src || !dest)
         return 0;
 
-    while (*src && i < n)
+    while( i + 4 < n && *src)
        i += PDC_wc_to_utf8( dest + i, *src++);
+    while( i < n && *src)
+    {
+       char tbuff[4];
+       size_t count = (size_t)PDC_wc_to_utf8( tbuff, *src++);
+
+       assert( count <= n - i);  /* partial UTF-8 decoding indicates error */
+       if( count > n - i)
+           count = n - i;
+       memcpy( dest + i, tbuff, count);
+       i += count;
+    }
 # else
     size_t i = wcstombs(dest, src, n);
 # endif

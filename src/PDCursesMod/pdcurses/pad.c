@@ -63,14 +63,15 @@ pad
    All functions except is_pad() return OK on success and ERR on error.
 
 ### Portability
-                             X/Open  ncurses  NetBSD
-    newpad                      Y       Y       Y
-    subpad                      Y       Y       Y
-    prefresh                    Y       Y       Y
-    pnoutrefresh                Y       Y       Y
-    pechochar                   Y       Y       Y
-    pecho_wchar                 Y       Y       Y
-    is_pad                      -       Y       Y
+   Function              | X/Open | ncurses | NetBSD
+   :---------------------|:------:|:-------:|:------:
+   newpad                |    Y   |    Y    |   Y
+   subpad                |    Y   |    Y    |   Y
+   prefresh              |    Y   |    Y    |   Y
+   pnoutrefresh          |    Y   |    Y    |   Y
+   pechochar             |    Y   |    Y    |   Y
+   pecho_wchar           |    Y   |    Y    |   Y
+   is_pad                |    -   |    Y    |   Y
 
 **man-end****************************************************************/
 
@@ -86,6 +87,7 @@ WINDOW *newpad(int nlines, int ncols)
 
     PDC_LOG(("newpad() - called: lines=%d cols=%d\n", nlines, ncols));
 
+    assert( nlines > 0 && ncols > 0);
     win = PDC_makenew(nlines, ncols, 0, 0);
     if (win)
         win = PDC_makelines(win);
@@ -119,7 +121,7 @@ WINDOW *subpad(WINDOW *orig, int nlines, int ncols, int begy, int begx)
     PDC_LOG(("subpad() - called: lines=%d cols=%d begy=%d begx=%d\n",
              nlines, ncols, begy, begx));
 
-    assert( orig);
+    assert( orig && (orig->_flags & _PAD));
     if (!orig || !(orig->_flags & _PAD))
         return (WINDOW *)NULL;
 
@@ -136,6 +138,7 @@ WINDOW *subpad(WINDOW *orig, int nlines, int ncols, int begy, int begx)
     if (!ncols)
         ncols = orig->_maxx - begx;
 
+    assert( nlines > 0 && ncols > 0);
     win = PDC_makenew(nlines, ncols, begy, begx);
     if (!win)
         return (WINDOW *)NULL;

@@ -42,13 +42,6 @@
 #  define PDC_FAR
 # endif
 
-/* Information about the current video state */
-struct PDC_color
-{
-    short r, g, b;
-    unsigned long mapped;
-};
-
 struct PDC_video_state
 {
     /* Information about the current video mode: */
@@ -92,8 +85,6 @@ struct PDC_video_state
     int cursor_col;
     unsigned char cursor_start;
     unsigned char cursor_end;
-
-    struct PDC_color colors[PDC_MAXCOL];
 };
 extern struct PDC_video_state PDC_state;
 
@@ -107,7 +98,9 @@ extern void PDC_private_cursor_on(int row, int col);
 # else
 #  define _FAR_POINTER(s,o) (0xe0000000 + (((int)(s)) << 4) + ((int)(o)))
 # endif
-# define _FP_SEGMENT(p)     (unsigned short)((((long)p) >> 4) & 0xffff)
+# ifndef __WATCOMC__
+#  define _FP_SEG(p)     (unsigned short)((((long)p) >> 4) & 0xffff)
+# endif
 #else
 # ifdef __TURBOC__
 #  define _FAR_POINTER(s,o) MK_FP(s,o)
@@ -119,9 +112,14 @@ extern void PDC_private_cursor_on(int row, int col);
 #   define _FAR_POINTER(s,o) (((long)s << 16) | (long)o)
 #  endif
 # endif
-# define _FP_SEGMENT(p)     (unsigned short)(((long)p) >> 4)
+# ifndef __WATCOMC__
+#  define _FP_SEG(p)     (unsigned short)(((long)p) >> 4)
+# endif
 #endif
-#define _FP_OFFSET(p)       ((unsigned short)p & 0x000f)
+
+#ifndef __WATCOMC__
+# define _FP_OFF(p)       ((unsigned short)p & 0x000f)
+#endif
 
 #ifdef __DJGPP__
 # include <sys/movedata.h>

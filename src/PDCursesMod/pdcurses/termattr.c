@@ -1,4 +1,4 @@
-/* PDCurses */
+/* PDCursesMod */
 
 #include <curspriv.h>
 #include <assert.h>
@@ -30,8 +30,8 @@ termattr
    baudrate() is supposed to return the output speed of the terminal. In
    PDCurses, it simply returns INT_MAX.
 
-   has_ic and has_il() return TRUE. These functions have meaning in some
-   other implementations of curses.
+   has_ic and has_il() return TRUE,  indicating that the terminal has the
+   capability to insert and delete characters and lines,  respectively.
 
    erasechar() and killchar() return ^H and ^U, respectively -- the
    ERASE and KILL characters. In other curses implementations, these may
@@ -55,19 +55,20 @@ termattr
    character, ^W.
 
 ### Portability
-                             X/Open  ncurses  NetBSD
-    baudrate                    Y       Y       Y
-    erasechar                   Y       Y       Y
-    has_ic                      Y       Y       Y
-    has_il                      Y       Y       Y
-    killchar                    Y       Y       Y
-    longname                    Y       Y       Y
-    termattrs                   Y       Y       Y
-    termname                    Y       Y       Y
-    erasewchar                  Y       Y       Y
-    killwchar                   Y       Y       Y
-    term_attrs                  Y       Y       Y
-    wordchar                    -       -       -
+   Function              | X/Open | ncurses | NetBSD
+   :---------------------|:------:|:-------:|:------:
+   baudrate              |    Y   |    Y    |   Y
+   erasechar             |    Y   |    Y    |   Y
+   has_ic                |    Y   |    Y    |   Y
+   has_il                |    Y   |    Y    |   Y
+   killchar              |    Y   |    Y    |   Y
+   longname              |    Y   |    Y    |   Y
+   termattrs             |    Y   |    Y    |   Y
+   termname              |    Y   |    Y    |   Y
+   erasewchar            |    Y   |    Y    |   Y
+   killwchar             |    Y   |    Y    |   Y
+   term_attrs            |    Y   |    Y    |   Y
+   wordchar              |    -   |    -    |   -
 
 **man-end****************************************************************/
 
@@ -121,7 +122,7 @@ chtype termattrs(void)
 {
     PDC_LOG(("termattrs() - called\n"));
 
-    return SP ? SP->termattrs : (chtype)0;
+    return SP ? (chtype)SP->termattrs : (chtype)0;
 }
 
 attr_t term_attrs(void)

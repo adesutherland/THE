@@ -1,4 +1,4 @@
-/* PDCurses */
+/* PDCursesMod */
 
 #include <curspriv.h>
 #include <assert.h>
@@ -50,14 +50,15 @@ touch
    is_wintouched() and is_linetouched().
 
 ### Portability
-                             X/Open  ncurses  NetBSD
-    touchwin                    Y       Y       Y
-    touchline                   Y       Y       Y
-    untouchwin                  Y       Y       Y
-    wtouchln                    Y       Y       Y
-    is_linetouched              Y       Y       Y
-    is_wintouched               Y       Y       Y
-    touchoverlap                -       -       Y
+   Function              | X/Open | ncurses | NetBSD
+   :---------------------|:------:|:-------:|:------:
+   touchwin              |    Y   |    Y    |   Y
+   touchline             |    Y   |    Y    |   Y
+   untouchwin            |    Y   |    Y    |   Y
+   wtouchln              |    Y   |    Y    |   Y
+   is_linetouched        |    Y   |    Y    |   Y
+   is_wintouched         |    Y   |    Y    |   Y
+   touchoverlap          |    -   |    -    |   Y
 
 **man-end****************************************************************/
 
@@ -65,6 +66,9 @@ void PDC_set_changed_cells_range( WINDOW *win, const int y, const int start, con
 {
     assert( win);
     assert( y >= 0 && y < win->_maxy);
+    assert( start >= 0 || start == _NO_CHANGE);
+    assert( start <= end);
+    assert( end < win->_maxx);
     win->_firstch[y] = start;
     win->_lastch[y] = end;
 }
@@ -81,6 +85,9 @@ void PDC_mark_cells_as_changed( WINDOW *win, const int y, const int start, const
 {
     assert( win);
     assert( y >= 0 && y < win->_maxy);
+    assert( start >= 0 || start == _NO_CHANGE);
+    assert( start <= end);
+    assert( end < win->_maxx);
     if( win->_firstch[y] == _NO_CHANGE)
     {
         win->_firstch[y] = start;
@@ -92,6 +99,23 @@ void PDC_mark_cells_as_changed( WINDOW *win, const int y, const int start, const
             win->_firstch[y] = start;
         if( win->_lastch[y] < end)
             win->_lastch[y] = end;
+    }
+}
+
+bool PDC_touched_range( const WINDOW *win, const int y, int *firstch, int *lastch)
+{
+    assert( win);
+    assert( y >= 0 && y < win->_maxy);
+    if( win->_firstch[y] == _NO_CHANGE)
+    {
+        *firstch = *lastch = 0;
+        return( FALSE);
+    }
+    else
+    {
+        *firstch = win->_firstch[y];
+        *lastch = win->_lastch[y];
+        return( TRUE);
     }
 }
 
@@ -123,8 +147,8 @@ int touchline(WINDOW *win, int start, int count)
     PDC_LOG(("touchline() - called: win=%p start %d count %d\n",
              win, start, count));
 
-    assert( win);
-    if (!win || start > win->_maxy || start + count > win->_maxy)
+    assert( win && count > 0 && start >= 0 && start + count <= win->_maxy);
+    if (!win || count <= 0 || start < 0 || start + count > win->_maxy)
         return ERR;
 
     for (i = start; i < start + count; i++)
@@ -156,8 +180,8 @@ int wtouchln(WINDOW *win, int y, int n, int changed)
     PDC_LOG(("wtouchln() - called: win=%p y=%d n=%d changed=%d\n",
              win, y, n, changed));
 
-    assert( win);
-    if (!win || y > win->_maxy || y + n > win->_maxy)
+    assert( win && n >= 0 && y + n <= win->_maxy);
+    if (!win || n < 0 || y + n > win->_maxy)
         return ERR;
 
     for (i = y; i < y + n; i++)
@@ -175,8 +199,8 @@ bool is_linetouched(WINDOW *win, int line)
 {
     PDC_LOG(("is_linetouched() - called: win=%p line=%d\n", win, line));
 
-    assert( win);
-    if (!win || line > win->_maxy || line < 0)
+    assert( win && line < win->_maxy && line >= 0);
+    if (!win || line >= win->_maxy || line < 0)
         return FALSE;
 
     return (win->_firstch[line] != _NO_CHANGE) ? TRUE : FALSE;
@@ -214,7 +238,7 @@ int touchoverlap(const WINDOW *win1, WINDOW *win2)
     endx = min(win1->_maxx + win1->_begx, win2->_maxx + win2->_begx);
 
     if (starty >= endy || startx >= endx)
-        return OK;
+        return OK;       /* there is no overlap */
 
     starty -= win2->_begy;
     startx -= win2->_begx;
@@ -223,7 +247,7 @@ int touchoverlap(const WINDOW *win1, WINDOW *win2)
     endx -= 1;
 
     for (y = starty; y < endy; y++)
-        PDC_set_changed_cells_range( win2, y, startx, endx);
+        PDC_mark_cells_as_changed( win2, y, startx, endx);
 
     return OK;
 }

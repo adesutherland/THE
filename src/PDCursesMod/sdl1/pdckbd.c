@@ -95,9 +95,25 @@ bool PDC_check_key(void)
     return haveevent;
 }
 
+int SDL_WaitEventTimeout( SDL_Event *event, int timeout_ms)
+{
+   int rval = 0;
+
+   while( timeout_ms && !rval)
+      {
+      const int slice_ms = (timeout_ms > 20 ? 20 : timeout_ms);
+
+      napms( slice_ms);
+      rval = SDL_PollEvent( event);
+      timeout_ms -= slice_ms;
+      }
+   return( rval);
+}
+
 static int _process_key_event(void)
 {
     int i, key = 0;
+    static int prev_key = -1;     /* used to detect repeats */
 
     SP->key_modifiers = 0L;
 
@@ -123,7 +139,7 @@ static int _process_key_event(void)
                 break;
             }
         }
-
+        prev_key = -1;
         return -1;
     }
 
@@ -208,6 +224,10 @@ static int _process_key_event(void)
     if( key == 3 && !SP->raw_inp)
         exit( 0);
 
+    if( key > 0 && prev_key == key)
+        SP->key_modifiers |= PDC_KEY_MODIFIER_REPEAT;
+    prev_key = key;
+
     return key ? key : -1;
 }
 
@@ -231,7 +251,7 @@ static int _process_mouse_event(void)
 
     SP->mouse_status.x = (event.motion.x - pdc_xoffset) / pdc_fwidth;
     SP->mouse_status.y = (event.motion.y - pdc_yoffset) / pdc_fheight;
-    if( SP->mouse_status.x >= COLS || SP->mouse_status.y >= LINES)
+    if( SP->mouse_status.x >= COLS || SP->mouse_status.y >= SP->lines)
         return -1;
 
     if (event.type == SDL_MOUSEMOTION)
@@ -291,14 +311,22 @@ static int _process_mouse_event(void)
         {
             SDL_Event rel;
 
-            napms(SP->mouse_wait);
-
-            if (SDL_PollEvent(&rel))
+            while( action != BUTTON_TRIPLE_CLICKED && SDL_WaitEventTimeout(&rel, SP->mouse_wait))
             {
                 if (rel.type == SDL_MOUSEBUTTONUP && rel.button.button == btn)
-                    action = BUTTON_CLICKED;
-                else
+                {
+                    if( action == BUTTON_PRESSED)
+                        action = BUTTON_CLICKED;
+                    else if( action == BUTTON_CLICKED)
+                        action = BUTTON_DOUBLE_CLICKED;
+                    else if( action == BUTTON_DOUBLE_CLICKED)
+                        action = BUTTON_TRIPLE_CLICKED;
+                }
+                else if(rel.type != SDL_MOUSEBUTTONDOWN || rel.button.button != btn)
+                {
                     SDL_PushEvent(&rel);
+                    break;
+                }
             }
         }
 
@@ -356,8 +384,6 @@ int PDC_get_key(void)
     case SDL_KEYDOWN:
         PDC_mouse_set();
         return _process_key_event();
-    case SDL_USEREVENT:
-        PDC_blink_text();
     }
 
     return -1;

@@ -20,19 +20,17 @@ extern int PDC_key_queue[KEY_QUEUE_SIZE];
 bool PDC_check_key(void)
 {
     MSG msg;
-    extern HWND PDC_hWnd;
 
-    while( PeekMessage(&msg, PDC_hWnd, WM_KEYFIRST, WM_KEYLAST, PM_REMOVE) )
+    while( PDC_key_queue_low == PDC_key_queue_high
+                       && PeekMessage( &msg, NULL, 0, 0, PM_REMOVE) )
     {
        TranslateMessage(&msg);
        DispatchMessage(&msg);
     }
-    if( PDC_key_queue_low != PDC_key_queue_high)
-        return TRUE;
-    return FALSE;
+    return( PDC_key_queue_low != PDC_key_queue_high);
 }
 
-int PDC_get_mouse_event_from_queue( void);     /* pdcscrn.c */
+bool _get_mouse_event( MOUSE_STATUS *mstatus);     /* ../common/mouse.c */
 
 /* return the next available key or mouse event */
 
@@ -54,7 +52,7 @@ int PDC_get_key(void)
                     PDC_key_queue_low = 0;
             }
          if( rval == KEY_MOUSE)
-            PDC_get_mouse_event_from_queue( );
+            _get_mouse_event( &SP->mouse_status);
     }
     return rval;
 }
@@ -66,7 +64,7 @@ void PDC_flushinp(void)
 {
     PDC_LOG(("PDC_flushinp() - called\n"));
     PDC_key_queue_low = PDC_key_queue_high = 0;
-    while( !PDC_get_mouse_event_from_queue( ))
+    while( _get_mouse_event( &SP->mouse_status))
         ;
 }
 

@@ -1,4 +1,4 @@
-/* PDCurses */
+/* PDCursesMod */
 
 #include <curspriv.h>
 #include <assert.h>
@@ -43,7 +43,7 @@ attr
     int wchgat(WINDOW *win, int n, attr_t attr, short color,
                const void *opts);
 
-    chtype getattrs(WINDOW *win);
+    chtype getattrs(const WINDOW *win);
 
     int underend(void);
     int wunderend(WINDOW *win);
@@ -81,7 +81,7 @@ attr
    attributes. In PDCurses, these are the same as A_*, and there is no
    difference in behavior from the chtype-based functions.  If opts is
    non-NULL,  it is used as a pointer to an integer and the color pair
-   is stored in it (this is an ncurses extension).
+   is stored in it (this is an ncurses and PDCursesMod extension).
 
    wattr_get() retrieves the attributes and color pair for the specified
    window.
@@ -102,36 +102,37 @@ attr
    All functions return OK on success and ERR on error.
 
 ### Portability
-                             X/Open  ncurses  NetBSD
-    attroff                     Y       Y       Y
-    wattroff                    Y       Y       Y
-    attron                      Y       Y       Y
-    wattron                     Y       Y       Y
-    attrset                     Y       Y       Y
-    wattrset                    Y       Y       Y
-    standend                    Y       Y       Y
-    wstandend                   Y       Y       Y
-    standout                    Y       Y       Y
-    wstandout                   Y       Y       Y
-    color_set                   Y       Y       Y
-    wcolor_set                  Y       Y       Y
-    attr_get                    Y       Y       Y
-    wattr_get                   Y       Y       Y
-    attr_on                     Y       Y       Y
-    wattr_on                    Y       Y       Y
-    attr_off                    Y       Y       Y
-    wattr_off                   Y       Y       Y
-    attr_set                    Y       Y       Y
-    wattr_set                   Y       Y       Y
-    chgat                       Y       Y       Y
-    wchgat                      Y       Y       Y
-    mvchgat                     Y       Y       Y
-    mvwchgat                    Y       Y       Y
-    getattrs                    -       Y       Y
-    underend                    -       -       Y
-    wunderend                   -       -       Y
-    underscore                  -       -       Y
-    wunderscore                 -       -       Y
+   Function              | X/Open | ncurses | NetBSD
+   :---------------------|:------:|:-------:|:------:
+   attroff               |    Y   |    Y    |   Y
+   wattroff              |    Y   |    Y    |   Y
+   attron                |    Y   |    Y    |   Y
+   wattron               |    Y   |    Y    |   Y
+   attrset               |    Y   |    Y    |   Y
+   wattrset              |    Y   |    Y    |   Y
+   standend              |    Y   |    Y    |   Y
+   wstandend             |    Y   |    Y    |   Y
+   standout              |    Y   |    Y    |   Y
+   wstandout             |    Y   |    Y    |   Y
+   color_set             |    Y   |    Y    |   Y
+   wcolor_set            |    Y   |    Y    |   Y
+   attr_get              |    Y   |    Y    |   Y
+   wattr_get             |    Y   |    Y    |   Y
+   attr_on               |    Y   |    Y    |   Y
+   wattr_on              |    Y   |    Y    |   Y
+   attr_off              |    Y   |    Y    |   Y
+   wattr_off             |    Y   |    Y    |   Y
+   attr_set              |    Y   |    Y    |   Y
+   wattr_set             |    Y   |    Y    |   Y
+   chgat                 |    Y   |    Y    |   Y
+   wchgat                |    Y   |    Y    |   Y
+   mvchgat               |    Y   |    Y    |   Y
+   mvwchgat              |    Y   |    Y    |   Y
+   getattrs              |    -   |    Y    |   Y
+   underend              |    -   |    -    |   Y
+   wunderend             |    -   |    -    |   Y
+   underscore            |    -   |    -    |   Y
+   wunderscore           |    -   |    -    |   Y
 
 **man-end****************************************************************/
 
@@ -235,7 +236,7 @@ int wstandout(WINDOW *win)
     return wattrset(win, A_STANDOUT);
 }
 
-chtype getattrs(WINDOW *win)
+chtype getattrs(const WINDOW *win)
 {
     assert( win);
     return win ? win->_attrs : 0;
@@ -340,7 +341,7 @@ int wattr_set(WINDOW *win, attr_t attrs, short color_pair, void *opts)
 
 int attr_set(attr_t attrs, short color_pair, void *opts)
 {
-    PDC_LOG(("attr_get() - called\n"));
+    PDC_LOG(("attr_set() - called\n"));
 
     return wattr_set(stdscr, attrs, color_pair, opts);
 }

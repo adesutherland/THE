@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -8,7 +9,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include "pdcfb.h"
-#include "psf.c"
+#include "../common/psf.c"
 
 struct video_info PDC_fb;
 
@@ -17,11 +18,7 @@ struct video_info PDC_fb;
 #else       /* using Linux framebuffer */
     #include <linux/fb.h>
 #endif
-#ifdef PDC_WIDE
-   #include "psf_wide.h"
-#else
-   #include "../dosvga/font.h"
-#endif
+#include "../common/psf_wide.h"
 
 static struct termios orig_term;
 
@@ -54,11 +51,6 @@ void PDC_reset_prog_mode( void)
     term.c_cc[VSTOP] = _POSIX_VDISABLE;   /* disable Ctrl-S */
     term.c_cc[VSTART] = _POSIX_VDISABLE;   /* disable Ctrl-Q */
     tcsetattr( STDIN, TCSANOW, &term);
-    PDC_puts_to_stdout( "\033[?1006h");    /* Set SGR mouse tracking,  if available */
-#ifdef HOW_DO_WE_PRESERVE_THE_SCREEN
-    if( !SP->_preserve)
-       PDC_puts_to_stdout( "\033[?47h");      /* Save screen */
-#endif
     SP->_trap_mbe = _stored_trap_mbe;
     PDC_mouse_set( );          /* clear any mouse event captures */
     PDC_resize_occurred = FALSE;
@@ -122,14 +114,18 @@ static void _unload_font( void)
 static int _framebuffer_fd;
 #endif
 
+void PDC_draw_rectangle( const int xpix, const int ypix,  /* pdcdisp.c */
+                  const int xsize, const int ysize, const uint32_t color);
+
 void PDC_scr_close( void)
 {
    _stored_trap_mbe = SP->_trap_mbe;
    SP->_trap_mbe = 0;
    PDC_mouse_set( );          /* clear any mouse event captures */
    tcsetattr( STDIN, TCSANOW, &orig_term);
+   PDC_draw_rectangle( 0, 0, PDC_fb.xres, PDC_fb.yres, 0);
    PDC_doupdate( );
-   PDC_puts_to_stdout( NULL);      /* free internal cache */
+   printf( "\033[?25h\033[?0c");    /* restore cursor */
 #ifdef USE_DRM
    close_drm( );
 #else
@@ -163,10 +159,86 @@ static void sigintHandler( int sig)
         PDC_n_ctrl_c++;
 }
 
-void PDC_draw_rectangle( const int xpix, const int ypix,  /* pdcdisp.c */
-                  const int xsize, const int ysize, const uint32_t color);
-
 static int curr_font;
+
+int PDC_orientation = 0;
+
+/* Unless the screen width is an exact multiple of the font width and the
+screen height is an exact multiple of the font height,  there will be a few
+unused columns and rows of pixels at the right and bottom of the screen. */
+
+static void _clear_unused_part_of_screen( void)
+{
+   const int right_edge = PDC_fb.xres % PDC_font_info.width;
+   const int bottom_edge = PDC_fb.yres % PDC_font_info.height;
+
+           /* Clear unused area below last row : */
+    PDC_draw_rectangle( 0, PDC_fb.yres - bottom_edge, PDC_fb.xres, bottom_edge, 0);
+           /* And unused area after last column : */
+    PDC_draw_rectangle( PDC_fb.xres - right_edge, 0, right_edge, PDC_fb.yres, 0);
+}
+
+/* This takes an already-loaded font and rotates the glyphs 90 degrees
+clockwise.  Rotations of 180 and 270 degrees are handled by calling
+this function two or three times. */
+
+void PDC_rotate_font( void)
+{
+   struct font_info new_font;
+   uint32_t i;
+   int stride, ostride;
+   uint8_t *new_glyphs;
+
+   memcpy( &new_font, &PDC_font_info, sizeof( struct font_info));
+   new_font.height = PDC_font_info.width;
+   new_font.width = PDC_font_info.height;
+   stride = (PDC_font_info.width + 7) >> 3;
+   ostride = (new_font.width + 7) >> 3;
+   new_font.charsize = ostride * new_font.height;
+   new_glyphs = (uint8_t *)calloc( new_font.charsize * new_font.n_glyphs, 1);
+   new_font.glyphs = new_glyphs;
+   for( i = 0; i < new_font.n_glyphs; i++)
+      {
+      int x, y;
+      const uint8_t *src = PDC_font_info.glyphs + i * PDC_font_info.charsize;
+      uint8_t *dest = new_glyphs + i * new_font.charsize;
+
+      src += PDC_font_info.charsize - stride;
+      for( y = 0; y < (int)PDC_font_info.height; y++, src -= stride)
+         for( x = 0; x < (int)PDC_font_info.width; x++)
+            if( (src[x >> 3] << (x & 7)) & 128)
+               dest[x * ostride + (y >> 3)] |= (128 >> (y & 7));
+      }
+   memcpy( &PDC_font_info, &new_font, sizeof( struct font_info));
+   PDC_orientation = (PDC_orientation + 1) & 3;
+   if( PDC_orientation & 1)
+      {
+      PDC_rows = PDC_fb.xres / PDC_font_info.width;
+      PDC_cols = PDC_fb.yres / PDC_font_info.height;
+#ifdef HAVE_MOUSE
+      PDC_mouse_x = PDC_mouse_x * PDC_fb.yres / PDC_fb.xres;
+      PDC_mouse_y = PDC_mouse_y * PDC_fb.xres / PDC_fb.yres;
+#endif
+      }
+   else
+      {
+      PDC_cols = PDC_fb.xres / PDC_font_info.width;
+      PDC_rows = PDC_fb.yres / PDC_font_info.height;
+#ifdef HAVE_MOUSE
+      PDC_mouse_x = PDC_mouse_x * PDC_fb.xres / PDC_fb.yres;
+      PDC_mouse_y = PDC_mouse_y * PDC_fb.yres / PDC_fb.xres;
+#endif
+      }
+   PDC_resize_occurred = TRUE;
+   SP->cols = PDC_cols;
+   SP->lines = PDC_rows;
+   if (SP)
+       SP->resized = TRUE;
+   if( _loaded_font_bytes)
+      free( _loaded_font_bytes);
+   _loaded_font_bytes = new_glyphs;
+   _clear_unused_part_of_screen( );
+}
 
 static int _load_psf_font( const int font_num)
 {
@@ -221,7 +293,7 @@ static int _load_psf_font( const int font_num)
 
 #ifdef PDC_WIDE
             /* If there's no Unicode info,  the font is probably a CP437 one. */
-            /* We can use the data in uni_info.h to make the translations. */
+            /* We can use the table in 'psf_wide.h' (our default font).       */
     if( !PDC_font_info.unicode_info)
        PDC_font_info.unicode_info =  _decipher_psf2_unicode_table(
                font_bytes + UNICODE_INFO_OFFSET, UNICODE_INFO_SIZE,
@@ -232,27 +304,24 @@ static int _load_psf_font( const int font_num)
         const int new_cols = PDC_fb.xres / PDC_font_info.width;
         const int new_rows = PDC_fb.yres / PDC_font_info.height;
         static bool first_load = TRUE;
+        int orientation = PDC_orientation;
 
-        if( PDC_rows != new_rows || PDC_cols != new_cols)
+        PDC_rows = new_rows;
+        PDC_cols = new_cols;
+        PDC_orientation = 0;
+        while( orientation--)
+            PDC_rotate_font( );
+        if( !first_load)
         {
-            PDC_rows = new_rows;
-            PDC_cols = new_cols;
-            if( !first_load)
-            {
-                PDC_resize_occurred = TRUE;
-                if (SP)
-                    SP->resized = TRUE;
-            }
-            first_load = FALSE;
+            PDC_resize_occurred = TRUE;
+            if (SP)
+                SP->resized = TRUE;
         }
+        first_load = FALSE;
         rval = 0;
         curr_font = font_num;
-               /* Clear area below last row : */
-        PDC_draw_rectangle( 0, new_rows * PDC_font_info.height,
-               PDC_fb.xres, PDC_fb.yres - new_rows * PDC_font_info.height, 0);
-               /* And area after last column : */
-        PDC_draw_rectangle( new_cols * PDC_font_info.width, 0,
-               PDC_fb.xres - new_cols * PDC_font_info.width, PDC_fb.yres, 0);
+        if( !PDC_orientation)
+            _clear_unused_part_of_screen( );
     }
     else
         rval = -1;
@@ -269,14 +338,53 @@ int PDC_cycle_font( void)
 #define MAX_LINES 1000
 #define MAX_COLUMNS 1000
 
+#ifdef USE_DRM
+static int curr_screen_number = 0;
+
+int PDC_cycle_display( void)
+{
+    int error;
+
+    if( !can_set_master || n_connectors < 2)      /* can't reset */
+        return( -1);               /* or can't cycle the display */
+    close_drm( );
+    curr_screen_number++;
+    error = init_drm( curr_screen_number);
+    if( error)
+    {
+        fprintf( stderr, "Error %d on DRM opening\n", error);
+        return( -1);
+    }
+    SP->lines = PDC_get_rows();
+    SP->cols = PDC_get_columns();
+    if (SP->lines < 2 || SP->lines > MAX_LINES
+       || SP->cols < 2 || SP->cols > MAX_COLUMNS)
+    {
+        fprintf(stderr, "LINES value must be >= 2 and <= %d: got %d\n",
+                MAX_LINES, SP->lines);
+        fprintf(stderr, "COLS value must be >= 2 and <= %d: got %d\n",
+                MAX_COLUMNS, SP->cols);
+
+        return ERR;
+    }
+
+    PDC_resize_occurred = TRUE;
+    return( 0);
+}
+#endif
+
 int PDC_scr_open(void)
 {
     struct sigaction sa;
-    int error;
-
+    int error, i;
+    const char *orientation = getenv( "PDC_ORIENT");
 #ifdef USE_DRM
+    const char *screen_number = getenv( "PDC_SCREEN");
+
     PDC_LOG(("PDC_scr_open called\n"));
-    error = init_drm( "/dev/dri/card0", "def");
+    if( screen_number)
+        curr_screen_number = atoi( screen_number);
+    error = init_drm( curr_screen_number);
     if( error)
     {
         fprintf( stderr, "Error %d on DRM opening\n", error);
@@ -310,6 +418,8 @@ int PDC_scr_open(void)
         return( -4);
 
 #endif
+    printf( "\033[?25l\033[?1c");    /* Shut off cursor */
+    fflush( stdout);
     PDC_has_rgb_color = (PDC_fb.bits_per_pixel > 8);
     if( PDC_has_rgb_color)
        COLORS = 256 + (256 * 256 * 256);
@@ -336,7 +446,8 @@ int PDC_scr_open(void)
     SP->mono = FALSE;
     SP->orig_attr = TRUE;
     SP->orig_fore = SP->orig_back = -1;
-    SP->termattrs = A_UNDERLINE | A_DIM | A_STANDOUT | A_STRIKEOUT | A_BLINK;
+    SP->termattrs = A_COLOR | WA_ITALIC | WA_UNDERLINE | WA_LEFT | WA_RIGHT |
+                    WA_REVERSE | WA_STRIKEOUT | WA_TOP | WA_BLINK | WA_DIM | WA_BOLD;
 
     SP->lines = PDC_get_rows();
     SP->cols = PDC_get_columns();
@@ -354,15 +465,16 @@ int PDC_scr_open(void)
 
     SP->_preserve = (getenv("PDC_PRESERVE_SCREEN") != NULL);
     if( PDC_fb.bits_per_pixel == 8)        /* 256 color palette */
-    {
-        int i, r, g, b;
-
         for( i = 0; i < 256; i++)
         {
-        PDC_color_content( i, &r, &g, &b);
-        PDC_init_color( i, r, g, b);
+           int r, g, b;
+
+           PDC_color_content( i, &r, &g, &b);
+           PDC_init_color( i, r, g, b);
         }
-    }
+    if( orientation)
+        for( i = (atoi( orientation) & 3); i; i--)
+            PDC_rotate_font( );
     PDC_reset_prog_mode();
     PDC_LOG(("PDC_scr_open exit\n"));
     return( 0);

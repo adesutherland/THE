@@ -1,4 +1,8 @@
-#define USE_UNICODE_ACS_CHARS 1
+#ifdef DOS
+   #define USE_UNICODE_ACS_CHARS 0
+#else
+   #define USE_UNICODE_ACS_CHARS 1
+#endif
 
 #include <wchar.h>
 #include <assert.h>
@@ -12,40 +16,19 @@
     #include <unistd.h>
 #endif
 
-#define USE_UNICODE_ACS_CHARS 1
-
 #include "curspriv.h"
 #include "pdcvt.h"
 #include "../common/acs_defs.h"
 #include "../common/pdccolor.h"
 
-                   /* Rarely,  writes to stdout fail if a signal handler is
-                      called.  In which case we just try to write out the
-                      remainder of the buffer until success happens.     */
-
-#define TBUFF_SIZE 512
-
-static void put_to_stdout( const char *buff, size_t bytes_out)
+int PDC_get_terminal_fd( void)
 {
-    static char *tbuff = NULL;
-    static size_t bytes_cached;
     static int stdout_fd = -1;
-
-    if( !buff && !tbuff)
-        return;
-
-    if( !buff && bytes_out == 1)        /* release memory at shutdown */
-    {
-        free( tbuff);
-        tbuff = NULL;
-        bytes_cached = 0;
-        return;
-    }
 
     if( stdout_fd == -1)
       {
-#ifdef _WIN32
-//    if( FILE_TYPE_CHAR == GetFileType( GetStdHandle( STD_OUTPUT_HANDLE)))
+#if defined( _WIN32) || defined( __DMC__)
+/*    if( FILE_TYPE_CHAR == GetFileType( GetStdHandle( STD_OUTPUT_HANDLE)))  */
       stdout_fd = 2;
 #else
       if( isatty( STDOUT_FILENO))
@@ -59,9 +42,35 @@ static void put_to_stdout( const char *buff, size_t bytes_out)
          }
 #endif
       }
+   return( stdout_fd);
+}
+
+                   /* Rarely,  writes to stdout fail if a signal handler is
+                      called.  In which case we just try to write out the
+                      remainder of the buffer until success happens.     */
+
+#define TBUFF_SIZE 512
+
+static void put_to_stdout( const char *buff, size_t bytes_out)
+{
+    static char *tbuff = NULL;
+    static size_t bytes_cached;
+    int stdout_fd;
+
+    if( !buff && !tbuff)
+        return;
+
+    if( !buff && bytes_out == 1)        /* release memory at shutdown */
+    {
+        free( tbuff);
+        tbuff = NULL;
+        bytes_cached = 0;
+        return;
+    }
 
     if( buff && !tbuff)
         tbuff = (char *)malloc( TBUFF_SIZE);
+    stdout_fd = PDC_get_terminal_fd( );
     while( bytes_out || (!buff && bytes_cached))
     {
         if( buff)
@@ -102,34 +111,50 @@ void PDC_gotoyx(int y, int x)
    char tbuff[50];
 
 #ifdef HAVE_SNPRINTF
-   snprintf( tbuff, sizeof( tbuff), "\033[%d;%dH", y + 1, x + 1);
+   snprintf( tbuff, sizeof( tbuff), CSI "%d;%dH", y + 1, x + 1);
 #else
-   sprintf( tbuff, "\033[%d;%dH", y + 1, x + 1);
+   sprintf( tbuff, CSI "%d;%dH", y + 1, x + 1);
 #endif
    PDC_puts_to_stdout( tbuff);
    PDC_doupdate( );
 }
 
-#define RESET_ATTRS   "\033[0m"
-#define ITALIC_ON     "\033[3m"
-#define ITALIC_OFF    "\033[23m"
-#define UNDERLINE_ON  "\033[4m"
-#define UNDERLINE_OFF "\033[24m"
-#define BLINK_ON      "\033[5m"
-#define BLINK_OFF     "\033[25m"
-#define BOLD_ON       "\033[1m"
-#define BOLD_OFF      "\033[22m"
-#define DIM_ON        "\033[2m"
-#define DIM_OFF       "\033[22m"
-#define REVERSE_ON    "\033[7m"
-#define STRIKEOUT_ON  "\033[9m"
-
-const chtype MAX_UNICODE = 0x110000;
+#define RESET_ATTRS   CSI "0m"
+#define ITALIC_ON     CSI "3m"
+#define ITALIC_OFF    CSI "23m"
+#define UNDERLINE_ON  CSI "4m"
+#define UNDERLINE_OFF CSI "24m"
+#define BLINK_ON      CSI "5m"
+#define BLINK_OFF     CSI "25m"
+#define BOLD_ON       CSI "1m"
+#define BOLD_OFF      CSI "22m"
+#define DIM_ON        CSI "2m"
+#define DIM_OFF       CSI "22m"
+#define REVERSE_ON    CSI "7m"
+#define STRIKEOUT_ON  CSI "9m"
 
 /* see 'addch.c' for an explanation of how combining chars are handled. */
 
 #ifdef USING_COMBINING_CHARACTER_SCHEME
    int PDC_expand_combined_characters( const cchar_t c, cchar_t *added);  /* addch.c */
+
+static size_t _unpack_combined_character( wchar_t *obuff, const size_t buffsize,
+                                       const cchar_t ch)
+{
+    cchar_t root, newchar;
+    size_t rval = 1;
+
+    root = ch;
+    while( rval < buffsize && (root = PDC_expand_combined_characters( root,
+                       &newchar)) > MAX_UNICODE)
+       obuff[rval++] = (wchar_t)newchar;
+    obuff[0] = (wchar_t)root;
+    if( rval < buffsize)
+       obuff[rval++] = (wchar_t)newchar;
+    assert( rval < buffsize);
+    assert( rval > 1);
+    return( rval);
+}
 #endif
 
 static void color_string( char *otext, const PACKED_RGB rgb)
@@ -191,14 +216,14 @@ static void reset_color( char *obuff, const chtype ch)
     if( bg != prev_bg)
         {
         if( bg == (PACKED_RGB)-1)   /* default background */
-            strcpy( obuff, "\033[49m");
+            strcpy( obuff, CSI "49m");
         else if( !bg)
-            strcpy( obuff, "\033[40m");
+            strcpy( obuff, CSI "40m");
         else if( COLORS == 16)
-            sprintf( obuff, "\033[4%dm", get_sixteen_color_idx( bg));
+            sprintf( obuff, CSI "4%dm", get_sixteen_color_idx( bg));
         else
             {
-            strcpy( obuff, "\033[48;");
+            strcpy( obuff, CSI "48;");
             color_string( obuff + 5, bg);
             }
         prev_bg = bg;
@@ -208,12 +233,12 @@ static void reset_color( char *obuff, const chtype ch)
         {
         obuff += strlen( obuff);
         if( fg == (PACKED_RGB)-1)   /* default foreground */
-            strcpy( obuff, "\033[39m");
+            strcpy( obuff, CSI "39m");
         else if( COLORS == 16)
-            sprintf( obuff, "\033[3%dm", get_sixteen_color_idx( fg));
+            sprintf( obuff, CSI "3%dm", get_sixteen_color_idx( fg));
         else
             {
-            strcpy( obuff, "\033[38;");
+            strcpy( obuff, CSI "38;");
             color_string( obuff + 5, fg);
             }
         prev_fg = fg;
@@ -242,6 +267,11 @@ void PDC_transform_line(int lineno, int x, int len, const chtype *srcp)
     assert( lineno >= 0);
     assert( lineno < SP->lines);
     assert( len > 0);
+    assert( len < MAX_PACKET_LEN);
+#ifdef DOS           /* can't write to last cell at lower right */
+    if( lineno == SP->lines - 1 && len == SP->cols - x)
+        len--;
+#endif
     PDC_gotoyx( lineno, x);
     if( force_reset_all_attribs || (!x && !lineno))
     {
@@ -255,6 +285,10 @@ void PDC_transform_line(int lineno, int x, int len, const chtype *srcp)
        chtype changes = *srcp ^ prev_ch;
        size_t bytes_out = 0;
 
+#ifdef PDC_WIDE
+       assert( ch != MAX_UNICODE);
+       assert( len == 1 || ch < MAX_UNICODE);
+#endif
        if( _is_altcharset( *srcp))
           ch = (int)acs_map[ch & 0x7f];
        if( ch < (int)' ' || (ch >= 0x80 && ch <= 0x9f))
@@ -273,8 +307,10 @@ void PDC_transform_line(int lineno, int x, int len, const chtype *srcp)
           strcat( obuff, (*srcp & A_UNDERLINE) ? UNDERLINE_ON : UNDERLINE_OFF);
        if( changes & A_ITALIC)
           strcat( obuff, (*srcp & A_ITALIC) ? ITALIC_ON : ITALIC_OFF);
+#ifndef DOS
        if( changes & A_REVERSE)
           strcat( obuff, REVERSE_ON);
+#endif
 #ifndef _WIN32                /* MS doesn't support strikeout text */
        if( changes & A_STRIKEOUT)
           strcat( obuff, STRIKEOUT_ON);
@@ -282,43 +318,55 @@ void PDC_transform_line(int lineno, int x, int len, const chtype *srcp)
        if( SP->termattrs & changes & A_BLINK)
           strcat( obuff, (*srcp & A_BLINK) ? BLINK_ON : BLINK_OFF);
        if( changes & (A_COLOR | A_STANDOUT | A_BLINK | A_REVERSE))
+#ifdef DOS
+          reset_color( obuff + strlen( obuff), *srcp);
+#else
           reset_color( obuff + strlen( obuff), *srcp & ~A_REVERSE);
+#endif
        PDC_puts_to_stdout( obuff);
 #ifdef USING_COMBINING_CHARACTER_SCHEME
-       if( ch > (int)MAX_UNICODE)      /* chars & fullwidth supported */
+       if( ch > (int)MAX_UNICODE)      /* combining char sequence */
        {
-           cchar_t root, newchar;
+           wchar_t unpacked[10];
+           size_t i, n_wchars = _unpack_combined_character( unpacked, 10, ch);
 
-           root = ch;
-           while( (root = PDC_expand_combined_characters( root,
-                              &newchar)) > MAX_UNICODE)
-               ;
-           bytes_out = PDC_wc_to_utf8( obuff, (wchar_t)root);
-           root = ch;
-           while( (root = PDC_expand_combined_characters( root,
-                              &newchar)) > MAX_UNICODE)
-               {
-               bytes_out += PDC_wc_to_utf8( obuff + bytes_out, (wchar_t)newchar);
+           for( i = bytes_out = 0; i < n_wchars; i++)
+           {
+               bytes_out += PDC_wc_to_utf8( obuff + bytes_out, (wchar_t)unpacked[i]);
                if( bytes_out > OBUFF_SIZE - 6)
                   {
                   put_to_stdout( obuff, bytes_out);
                   bytes_out = 0;
                   }
-               }
-           bytes_out += PDC_wc_to_utf8( obuff + bytes_out, (wchar_t)newchar);
+           }
        }
        else if( ch < (int)MAX_UNICODE)
 #endif
        {
+#ifdef DOS
+           bytes_out = 1;
+           *obuff = (char)ch;
+#else
            bytes_out = PDC_wc_to_utf8( obuff, (wchar_t)ch);
+#endif
+#ifdef PDC_WIDE
            while( count < len && !((srcp[0] ^ srcp[count]) & ~A_CHARTEXT)
                         && (ch = (srcp[count] & A_CHARTEXT)) < (int)MAX_UNICODE)
            {
+#else
+           while( count < len && !((srcp[0] ^ srcp[count]) & ~A_CHARTEXT))
+           {
+               ch = srcp[count] & A_CHARTEXT;
+#endif
                if( _is_altcharset( srcp[count]))
                   ch = (int)acs_map[ch & 0x7f];
+#ifdef DOS
+               obuff[bytes_out++] = (char)ch;
+#else
                if( ch < (int)' ' || (ch >= 0x80 && ch <= 0x9f))
                   ch = ' ';
                bytes_out += PDC_wc_to_utf8( obuff + bytes_out, (wchar_t)ch);
+#endif
                if( bytes_out > OBUFF_SIZE - 6)
                   {
                   put_to_stdout( obuff, bytes_out);

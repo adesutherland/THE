@@ -10,26 +10,29 @@
 
 Define before inclusion (only those needed):
 
-    XCURSES         if building / built for X11
-    PDC_RGB         if you want to use RGB color definitions
-                    (Red = 1, Green = 2, Blue = 4) instead of BGR
-    PDC_WIDE        if building / built with wide-character support
-    PDC_FORCE_UTF8  if forcing use of UTF8 (implies PDC_WIDE)
-    PDC_DLL_BUILD   if building / built as a Windows DLL
-    PDC_NCMOUSE     to use the ncurses mouse API instead
-                    of PDCurses' traditional mouse API
+   Macro          | Meaning / value
+   :--------------|---------------------------------------------------
+   XCURSES        | if building / built for X11
+   PDC_RGB        | RGB color (Red = 1, Green = 2, Blue = 4) vs. BGR
+   PDC_WIDE       | if building / built with wide-character support
+   PDC_FORCE_UTF8 | if forcing use of UTF8 (implies PDC_WIDE)
+   PDC_DLL_BUILD  | if building / built as a Windows DLL
+   PDC_NCMOUSE    | use ncurses mouse API vs. traditional PDCurses*
 
 Defined by this header:
 
-    PDCURSES        PDCurses-only features are available
-    PDC_BUILD       API build version
-    PDC_VER_MAJOR   major version number
-    PDC_VER_MINOR   minor version number
-    PDC_VER_CHANGE  version change number
-    PDC_VER_YEAR    year of version
-    PDC_VER_MONTH   month of version
-    PDC_VER_DAY     day of month of version
-    PDC_VERDOT      version string
+   Macro          | Meaning / value
+   :--------------|---------------------------------------------------
+   PDCURSES       | PDCurses-only features are available
+   PDCURSESMOD    | PDCursesMod-only features are available
+   PDC_BUILD      | API build version
+   PDC_VER_MAJOR  | major version number
+   PDC_VER_MINOR  | minor version number
+   PDC_VER_CHANGE | version change number
+   PDC_VER_YEAR   | year of version
+   PDC_VER_MONTH  | month of version
+   PDC_VER_DAY    | day of month of version
+   PDC_VERDOT     | version string
 
 **man-end****************************************************************/
 
@@ -38,11 +41,11 @@ Defined by this header:
          /* NOTE : For version changes that are not backward compatible, */
          /* the 'endwin_*' #defines below should be updated.             */
 #define PDC_VER_MAJOR    4
-#define PDC_VER_MINOR    3
-#define PDC_VER_CHANGE   5
-#define PDC_VER_YEAR   2022
-#define PDC_VER_MONTH    12
-#define PDC_VER_DAY      15
+#define PDC_VER_MINOR    5
+#define PDC_VER_CHANGE   4
+#define PDC_VER_YEAR   2026
+#define PDC_VER_MONTH   01
+#define PDC_VER_DAY     07
 
 #define PDC_STRINGIZE( x) #x
 #define PDC_stringize( x) PDC_STRINGIZE( x)
@@ -51,9 +54,17 @@ Defined by this header:
                    PDC_stringize( PDC_VER_MINOR) "." \
                    PDC_stringize( PDC_VER_CHANGE)
 
+#if PDC_VER_MONTH < 10
+#define PDC_VER_YMD PDC_stringize( PDC_VER_YEAR) "-" \
+                "0" PDC_stringize( PDC_VER_MONTH) "-" \
+                    PDC_stringize( PDC_VER_DAY)
+#else
 #define PDC_VER_YMD PDC_stringize( PDC_VER_YEAR) "-" \
                     PDC_stringize( PDC_VER_MONTH) "-" \
                     PDC_stringize( PDC_VER_DAY)
+#endif
+
+#define PDC_VERSION_PATCH (PDC_VER_YEAR * 10000 + PDC_VER_MONTH * 100 + PDC_VER_DAY)
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
 # define PDC_99         1
@@ -66,11 +77,12 @@ Defined by this header:
 /*----------------------------------------------------------------------*/
 
 #include <stdarg.h>
+#include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
 
 #if defined( PDC_FORCE_UTF8) && !defined( PDC_WIDE)
-   #define PDC_WIDE
+   #define PDC_WIDE 1
 #endif
 
 #ifdef PDC_WIDE
@@ -124,7 +136,10 @@ extern "C"
 typedef unsigned char bool;
 #endif
 
-#if defined( CHTYPE_32)
+#if defined( CHTYPE_16)
+   typedef uint16_t chtype; /* 8-bit attr + 8-bit char */
+   typedef uint32_t mmask_t;
+#elif defined( CHTYPE_32)
    typedef uint32_t chtype;       /* chtypes will be 32 bits */
    typedef uint32_t mmask_t;
 #else
@@ -160,7 +175,9 @@ enum PDC_port
     PDC_PORT_VT = 7,
     PDC_PORT_DOSVGA = 8,
     PDC_PORT_PLAN9 = 9,
-    PDC_PORT_LINUX_FB = 10
+    PDC_PORT_LINUX_FB = 10,
+    PDC_PORT_OPENGL = 11,
+    PDC_PORT_OS2GUI = 12
 };
 
 /* Use this structure with PDC_get_version() for run-time info about the
@@ -267,13 +284,18 @@ typedef struct
 
 /* With the "traditional" 32-bit mmask_t,  mouse move and triple-clicks
 share the same bit and can't be distinguished.  64-bit mmask_ts allow us
-to make the distinction,  and will allow other events to be added later. */
+to make the distinction,  and will allow other events to be added later.
+
+Note that the BUTTONn_MOVED masks are PDCurses*-specific,  and won't work
+if PDC_NCMOUSE is defined.  For portable code,  use REPORT_MOUSE_POSITION
+to get all mouse movement events,  and keep track of press/release events
+to determine which button(s) are held at a given time.            */
 
 #ifdef PDC_LONG_MMASK
-   #define BUTTON1_MOVED           (mmask_t)0x20      /* PDCurses */
+   #define BUTTON1_MOVED           (mmask_t)0x20  /* PDCurses* only; deprecated */
    #define PDC_BITS_PER_BUTTON     6
 #else
-   #define BUTTON1_MOVED           (mmask_t)0x10      /* PDCurses */
+   #define BUTTON1_MOVED           (mmask_t)0x10  /* PDCurses* only; deprecated */
    #define PDC_BITS_PER_BUTTON     5
 #endif
 
@@ -284,6 +306,7 @@ to make the distinction,  and will allow other events to be added later. */
 #define BUTTON2_CLICKED        PDC_SHIFTED_BUTTON( BUTTON1_CLICKED,        2)
 #define BUTTON2_DOUBLE_CLICKED PDC_SHIFTED_BUTTON( BUTTON1_DOUBLE_CLICKED, 2)
 #define BUTTON2_TRIPLE_CLICKED PDC_SHIFTED_BUTTON( BUTTON1_TRIPLE_CLICKED, 2)
+             /* mouse move events are PDCurses*-only;  deprecated */
 #define BUTTON2_MOVED          PDC_SHIFTED_BUTTON( BUTTON1_MOVED,          2)
 
 #define BUTTON3_RELEASED       PDC_SHIFTED_BUTTON( BUTTON1_RELEASED,       3)
@@ -297,7 +320,7 @@ to make the distinction,  and will allow other events to be added later. */
    BUTTON5_PRESSED are returned for mouse scroll wheel up and down;
    otherwise PDCurses doesn't support buttons 4 and 5... except
    as described above for WinGUI,  and perhaps to be extended to
-   other PDCurses flavors  */
+   other PDCursesMod flavors  */
 
 #define BUTTON4_RELEASED       PDC_SHIFTED_BUTTON( BUTTON1_RELEASED,       4)
 #define BUTTON4_PRESSED        PDC_SHIFTED_BUTTON( BUTTON1_PRESSED,        4)
@@ -319,7 +342,14 @@ to make the distinction,  and will allow other events to be added later. */
 #define BUTTON_MODIFIER_ALT     (MOUSE_WHEEL_SCROLL << 3)
 #define REPORT_MOUSE_POSITION   (MOUSE_WHEEL_SCROLL << 4)
 
-#define ALL_MOUSE_EVENTS        (REPORT_MOUSE_POSITION - 1)
+#if defined(PDC_NCMOUSE)      /* ncurses lacks button move and wheel scroll events */
+   #define ALL_BUTTON_MOVE_EVENTS  (BUTTON1_MOVED | BUTTON2_MOVED \
+                  | BUTTON3_MOVED | BUTTON4_MOVED | BUTTON5_MOVED)
+   #define ALL_MOUSE_EVENTS      ((REPORT_MOUSE_POSITION - 1) \
+                  ^ ALL_BUTTON_MOVE_EVENTS ^ MOUSE_WHEEL_SCROLL)
+#else                      /* the 'classic' interface has all events */
+   #define ALL_MOUSE_EVENTS        (REPORT_MOUSE_POSITION - 1)
+#endif
 
 /* ncurses mouse interface */
 
@@ -352,102 +382,8 @@ typedef struct
  *
  */
 
-/* Avoid using the WINDOW or SCREEN structs directly -- doing so
-   makes your code PDCurses*-only and may result in future binary
-   incompatibility;  use the corresponding functions if possible.
-   These structs may eventually be made private. */
-
-typedef struct _win       /* definition of a window */
-{
-    int   _cury;          /* current pseudo-cursor */
-    int   _curx;
-    int   _maxy;          /* max window coordinates */
-    int   _maxx;
-    int   _begy;          /* origin on screen */
-    int   _begx;
-    int   _flags;         /* window properties */
-    chtype _attrs;        /* standard attributes and colors */
-    chtype _bkgd;         /* background, normally blank */
-    bool  _clear;         /* causes clear at next refresh */
-    bool  _leaveit;       /* leaves cursor where it is */
-    bool  _scroll;        /* allows window scrolling */
-    bool  _nodelay;       /* input character wait flag */
-    bool  _immed;         /* immediate update flag */
-    bool  _sync;          /* synchronise window ancestors */
-    bool  _use_keypad;    /* flags keypad key mode active */
-    chtype **_y;          /* pointer to line pointer array */
-    int   *_firstch;      /* first changed character in line */
-    int   *_lastch;       /* last changed character in line */
-    int   _tmarg;         /* top of scrolling region */
-    int   _bmarg;         /* bottom of scrolling region */
-    int   _delayms;       /* milliseconds of delay for getch() */
-    int   _parx, _pary;   /* coords relative to parent (0,0) */
-    struct _win *_parent; /* subwin's pointer to parent win */
-    int   _pminrow, _pmincol;    /* saved position used only for pads */
-    int   _sminrow, _smaxrow;    /* saved position used only for pads */
-    int   _smincol, _smaxcol;    /* saved position used only for pads */
-} WINDOW;
-
-/* See above warning against directly accessing SCREEN elements. */
-
-typedef struct
-{
-    bool  alive;          /* if initscr() called, and not endwin() */
-    bool  autocr;         /* if cr -> lf */
-    bool  cbreak;         /* if terminal unbuffered */
-    bool  echo;           /* if terminal echo */
-    bool  raw_inp;        /* raw input mode (v. cooked input) */
-    bool  raw_out;        /* raw output mode (7 v. 8 bits) */
-    bool  audible;        /* FALSE if the bell is visual */
-    bool  mono;           /* TRUE if current screen is mono */
-    bool  resized;        /* TRUE if TERM has been resized */
-    bool  orig_attr;      /* TRUE if we have the original colors */
-    short orig_fore;      /* original screen foreground color */
-    short orig_back;      /* original screen foreground color */
-    int   cursrow;        /* position of physical cursor */
-    int   curscol;        /* position of physical cursor */
-    int   visibility;     /* visibility of cursor */
-    int   orig_cursor;    /* original cursor size */
-    int   lines;          /* new value for LINES */
-    int   cols;           /* new value for COLS */
-    mmask_t _trap_mbe;             /* trap these mouse button events */
-    int   mouse_wait;              /* time to wait (in ms) for a
-                                      button release after a press, in
-                                      order to count it as a click */
-    int   slklines;                /* lines in use by slk_init() */
-    WINDOW *slk_winptr;            /* window for slk */
-    int   linesrippedoff;          /* lines ripped off via ripoffline() */
-    int   linesrippedoffontop;     /* lines ripped off on
-                                      top via ripoffline() */
-    int   delaytenths;             /* 1/10ths second to wait block
-                                      getch() for */
-    bool  _preserve;               /* TRUE if screen background
-                                      to be preserved */
-    int   _restore;                /* specifies if screen background
-                                      to be restored, and how */
-    unsigned long key_modifiers;   /* key modifiers (SHIFT, CONTROL, etc.)
-                                      on last key press */
-    bool  return_key_modifiers;    /* TRUE if modifier keys are
-                                      returned as "real" keys */
-    bool  in_endwin;               /* if we're in endwin(),  we should use
-                                      only signal-safe code */
-    MOUSE_STATUS mouse_status;     /* last returned mouse status */
-    short line_color;     /* color of line attributes - default -1 */
-    attr_t termattrs;     /* attribute capabilities */
-    WINDOW *lastscr;      /* the last screen image */
-    FILE *dbfp;           /* debug trace file pointer */
-    bool  color_started;  /* TRUE after start_color() */
-    bool  dirty;          /* redraw on napms() after init_color() */
-    int   sel_start;      /* start of selection (y * COLS + x) */
-    int   sel_end;        /* end of selection */
-    int  *c_buffer;       /* character buffer */
-    int   c_pindex;       /* putter index */
-    int   c_gindex;       /* getter index */
-    int  *c_ungch;        /* array of ungotten chars */
-    int   c_ungind;       /* ungetch() push index */
-    int   c_ungmax;       /* allocated size of ungetch() buffer */
-    struct _opaque_screen_t *opaque;    /* internal library variables */
-} SCREEN;
+typedef struct _win WINDOW;
+typedef struct _screen SCREEN;
 
 /*----------------------------------------------------------------------
  *
@@ -459,7 +395,7 @@ typedef struct
 # ifdef CURSES_LIBRARY
 #  define PDCEX __declspec(dllexport) extern
 # else
-#  define PDCEX __declspec(dllimport)
+#  define PDCEX __declspec(dllimport) extern
 # endif
 #else
 # define PDCEX extern
@@ -469,7 +405,6 @@ PDCEX  int          LINES;        /* terminal height */
 PDCEX  int          COLS;         /* terminal width */
 PDCEX  WINDOW       *stdscr;      /* the default screen window */
 PDCEX  WINDOW       *curscr;      /* the current screen image */
-PDCEX  SCREEN       *SP;          /* curses variables */
 PDCEX  MOUSE_STATUS Mouse_status;
 PDCEX  int          COLORS;
 PDCEX  int          COLOR_PAIRS;
@@ -482,142 +417,182 @@ PDCEX  char         ttytype[];    /* terminal name/description */
 Text Attributes
 ===============
 
-By default,  PDCurses uses 64-bit integers for its chtype.  All chtypes
+By default,  PDCursesMod uses 64-bit integers for its chtype.  All chtypes
 have bits devoted to character data,  attribute data,  and color pair data.
-There are three configurations supported :
+There are four configurations supported :
 
 Default, 64-bit chtype,  both wide- and 8-bit character builds:
--------------------------------------------------------------------------------
-|63|62|..|53|52|..|34|33|32|31|30|29|28|..|22|21|20|19|18|17|16|..| 3| 2| 1| 0|
--------------------------------------------------------------------------------
-  unused    |color pair |        modifiers      |         character eg 'a'
+
+   color pair    | unused |  modifiers      | character eg 'a'
+   --------------|--------|-----------------------|--------------------
+   63 62 .. 45 44|43 .. 39|37 36 35 .. 22 21|20 19 18 .. 3 2 1 0
 
    21 character bits (0-20),  enough for full Unicode coverage
-   12 attribute bits (21-32)
-   20 color pair bits (33-52),  enough for 1048576 color pairs
-   11 currently unused bits (53-63)
+   17 attribute bits (21-37)
+    6 currently unused bits (38-43)
+   20 color pair bits (44-63),  enough for 1048576 color pairs
 
 32-bit chtypes with wide characters (CHTYPE_32 and PDC_WIDE are #defined):
-    +--------------------------------------------------------------------+
-    |31|30|29|28|27|26|25|24|23|22|21|20|19|18|17|16|15|14|13|..| 2| 1| 0|
-    +--------------------------------------------------------------------+
-          color pair        |     modifiers         |   character eg 'a'
+
+   color pair       | modifiers             | character eg 'a'
+   -----------------|-----------------------|--------------------
+   31 30 29 .. 25 24|23 22 21 20 19 18 17 16|15 14 13 .. 2 1 0
+
    16 character bits (0-16),  enough for BMP (Unicode below 64K)
    8 attribute bits (16-23)
    8 color pair bits (24-31),  for 256 color pairs
 
 32-bit chtypes with narrow characters (CHTYPE_32 #defined,  PDC_WIDE is not):
-    +--------------------------------------------------------------------+
-    |31|30|29|28|..|22|21|20|19|18|17|16|..|12|11|10| 9| 8| 7| 6|..| 1| 0|
-    +--------------------------------------------------------------------+
-          color pair        |     modifiers               |character
+
+   color pair          |     modifiers       |character
+   --------------------|---------------------|----------------
+   31 30 29 .. 22 21 20|19 18 17 16 .. 10 9 8|7 6 5 4 3 2 1
+
    8 character bits (0-7);  only 8-bit charsets will work
    12 attribute bits (8-19)
    12 color pair bits (20-31),  for 4096 pairs
 
-All attribute modifier schemes include eight "basic" bits:  bold, underline,
-right-line, left-line, italic, reverse and blink attributes,  plus the
-alternate character set indicator. For default and 32-bit narrow builds,
-three more bits are used for overlined, dimmed, and strikeout attributes;
-a fourth bit is reserved.
+16-bit chtypes (CHTYPE_16 #defined,  must be narrow characters) :
+
+   color pair    |modifs |character
+   --------------|-------|--------------
+   15 14 13 12 11|10 9 8 |7 6 5 4 3 2 1
+
+   8 character bits (0-7);  only 8-bit charsets will work
+   3 attribute bits (8-10) : bold,  reverse,  blink
+   5 color pair bits (11-15),  for 32 pairs
+
+Except for 16-bit chtypes,  all attribute modifier schemes include eight
+"basic" bits:  bold, underline, right-line, left-line, italic, reverse
+and blink attributes,  plus the alternate character set indicator. For
+32-bit narrow builds, three more bits are used for overlined, dimmed,
+and strikeout attributes; a fourth bit is reserved.
 
 Default chtypes have enough character bits to support the full range of
 Unicode,  all attributes,  and 2^20 = 1048576 color pairs.  Note,  though,
-that as of 2022 Jun 17,  only WinGUI,  VT,  X11,  Linux framebuffer,  and
-SDLn have COLOR_PAIRS = 1048576.  Other platforms (DOSVGA,  Plan9, WinCon)
-may join them.  Some (DOS,  OS/2) simply do not have full-color
-capability.
+that as of 2025 Dec 30,  only WinGUI,  VT,  X11 and X11new,  Linux
+framebuffer,  DOSVGA,  OpenGL,  and SDLn have COLOR_PAIRS = 1048576.
+Plan9 and WinCon may join them.  DOS and OS/2 lack full-color capability.
 
 **man-end****************************************************************/
 
 /*** Video attribute macros ***/
 
-#define A_NORMAL      (chtype)0
+#define WA_NORMAL      (chtype)0
 
-#ifndef CHTYPE_32
+#ifdef CHTYPE_16
+   # define PDC_CHARTEXT_BITS      8
+   # define PDC_ATTRIBUTE_BITS     3
+   # define PDC_UNUSED_BITS        0
+   # define PDC_COLOR_BITS         5
+#elif !defined( CHTYPE_32)
             /* 64-bit chtypes,  both wide- and narrow */
     # define PDC_CHARTEXT_BITS   21
-    # define PDC_ATTRIBUTE_BITS  12
-    # define PDC_COLOR_BITS      20
+    # define PDC_ATTRIBUTE_BITS  17
+    # define PDC_UNUSED_BITS      6
+    #if INT_MAX > 65536
+       # define PDC_COLOR_BITS      20
+    #else
+       # define PDC_COLOR_BITS      13
+    #endif
 # else
 #ifdef PDC_WIDE
             /* 32-bit chtypes,  wide character */
     # define PDC_CHARTEXT_BITS      16
     # define PDC_ATTRIBUTE_BITS      8
+    # define PDC_UNUSED_BITS         0
     # define PDC_COLOR_BITS          8
 #else
             /* 32-bit chtypes,  narrow (8-bit) characters */
     # define PDC_CHARTEXT_BITS      8
     # define PDC_ATTRIBUTE_BITS    12
+    # define PDC_UNUSED_BITS        0
     # define PDC_COLOR_BITS        12
 #endif
 #endif
 
-# define PDC_COLOR_SHIFT (PDC_CHARTEXT_BITS + PDC_ATTRIBUTE_BITS)
+# define PDC_COLOR_SHIFT (PDC_CHARTEXT_BITS + PDC_ATTRIBUTE_BITS + PDC_UNUSED_BITS)
 # define A_COLOR       ((((chtype)1 << PDC_COLOR_BITS) - 1) << PDC_COLOR_SHIFT)
 # define A_ATTRIBUTES (((((chtype)1 << PDC_ATTRIBUTE_BITS) - 1) << PDC_CHARTEXT_BITS) | A_COLOR)
 # define A_CHARTEXT     (((chtype)1 << PDC_CHARTEXT_BITS) - 1)
 
 #define PDC_ATTRIBUTE_BIT( N)  ((chtype)1 << (N))
-# define A_ALTCHARSET   PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS)
-# define A_RIGHT        PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 1)
-# define A_LEFT         PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 2)
-# define A_INVIS        PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 3)
-# define A_UNDERLINE    PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 4)
-# define A_REVERSE      PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 5)
-# define A_BLINK        PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 6)
-# define A_BOLD         PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 7)
-#if PDC_COLOR_BITS >= 11
-    # define A_OVERLINE   PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 8)
-    # define A_STRIKEOUT  PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 9)
-    # define A_DIM        PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 10)
-/*  Reserved bit :        PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 11) */
+#ifdef CHTYPE_16
+# define WA_BOLD         WA_NORMAL
+# define WA_RIGHT        WA_NORMAL
+# define WA_LEFT         WA_NORMAL
+# define WA_ITALIC       WA_NORMAL
+# define WA_UNDERLINE    WA_NORMAL
+# define WA_REVERSE      PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS)
+# define WA_BLINK        PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 1)
+# define WA_ALTCHARSET   PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 2)
 #else
-    # define A_DIM        A_NORMAL
-    # define A_OVERLINE   A_NORMAL
-    # define A_STRIKEOUT  A_NORMAL
+# define WA_ALTCHARSET   PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS)
+# define WA_RIGHT        PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 1)
+# define WA_LEFT         PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 2)
+# define WA_ITALIC       PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 3)
+# define WA_UNDERLINE    PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 4)
+# define WA_REVERSE      PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 5)
+# define WA_BLINK        PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 6)
+# define WA_BOLD         PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 7)
 #endif
-
-#define A_ITALIC      A_INVIS
-#define A_PROTECT    (A_UNDERLINE | A_LEFT | A_RIGHT | A_OVERLINE)
-#define A_STANDOUT    (A_REVERSE | A_BOLD) /* X/Open */
-
-#define A_HORIZONTAL  A_NORMAL
-#define A_LOW         A_NORMAL
-#define A_TOP         A_NORMAL
-#define A_VERTICAL    A_NORMAL
+#if PDC_COLOR_BITS >= 11
+    # define WA_TOP        PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 8)
+    # define WA_STRIKEOUT  PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 9)
+    # define WA_DIM        PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 10)
+/*  Reserved bit :         PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 11) */
+#else
+    # define WA_DIM        WA_NORMAL
+    # define WA_TOP        WA_NORMAL
+    # define WA_STRIKEOUT  WA_NORMAL
+#endif
+#if PDC_COLOR_BITS >= 17
+    # define WA_HORIZONTAL PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 11)
+    # define WA_VERTICAL   PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 12)
+    # define WA_INVIS      PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 13)
+    # define WA_LOW        PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 14)
+    # define WA_PROTECT    PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 15)
+    # define WA_STANDOUT   PDC_ATTRIBUTE_BIT( PDC_CHARTEXT_BITS + 16)
+#else
+    # define WA_HORIZONTAL 0
+    # define WA_VERTICAL   0
+    # define WA_INVIS      0
+    # define WA_LOW        WA_UNDERLINE
+    # define WA_PROTECT    (WA_UNDERLINE | WA_LEFT | WA_RIGHT | WA_TOP)
+    # define WA_STANDOUT   (WA_REVERSE | WA_BOLD) /* X/Open */
+#endif
 
 #define CHR_MSK       A_CHARTEXT           /* Obsolete */
 #define ATR_MSK       A_ATTRIBUTES         /* Obsolete */
 #define ATR_NRM       A_NORMAL             /* Obsolete */
 
-#define A_LEFTLINE    A_LEFT
-#define A_RIGHTLINE   A_RIGHT
+/* X/Open A_ defines. */
 
-/* For use with attr_t -- X/Open says, "these shall be distinct", so
-   this is a non-conforming implementation. */
+#define A_ALTCHARSET WA_ALTCHARSET
+#define A_BLINK      WA_BLINK
+#define A_BOLD       WA_BOLD
+#define A_DIM        WA_DIM
+#define A_INVIS      WA_INVIS
+#define A_REVERSE    WA_REVERSE
+#define A_PROTECT    WA_PROTECT
+#define A_STANDOUT   WA_STANDOUT
+#define A_UNDERLINE  WA_UNDERLINE
 
-#define WA_NORMAL     A_NORMAL
+/* ncurses and PDCurses extension A_ defines. */
 
-#define WA_ALTCHARSET A_ALTCHARSET
-#define WA_BLINK      A_BLINK
-#define WA_BOLD       A_BOLD
-#define WA_DIM        A_DIM
-#define WA_INVIS      A_INVIS
-#define WA_ITALIC     A_ITALIC
-#define WA_LEFT       A_LEFT
-#define WA_PROTECT    A_PROTECT
-#define WA_REVERSE    A_REVERSE
-#define WA_RIGHT      A_RIGHT
-#define WA_STANDOUT   A_STANDOUT
-#define WA_UNDERLINE  A_UNDERLINE
+#define A_NORMAL     WA_NORMAL
+#define A_LEFT       WA_LEFT
+#define A_RIGHT      WA_RIGHT
+#define A_LOW        WA_LOW
+#define A_TOP        WA_TOP
+#define A_HORIZONTAL WA_HORIZONTAL
+#define A_VERTICAL   WA_VERTICAL
 
-#define WA_HORIZONTAL A_HORIZONTAL
-#define WA_LOW        A_LOW
-#define WA_TOP        A_TOP
-#define WA_VERTICAL   A_VERTICAL
+/* A_ITALIC and WA_ITALIC are PDCurses and ncurses extensions.
+   A_STRIKEOUT and WA_STRIKEOUT are PDCursesMod extensions.   */
 
-#define WA_ATTRIBUTES A_ATTRIBUTES
+#define A_ITALIC     WA_ITALIC
+#define A_STRIKEOUT  WA_STRIKEOUT
 
 /*** Alternate character set macros ***/
 
@@ -637,8 +612,95 @@ capability.
 #define ACS_HLINE         PDC_ACS('_')
 #define ACS_VLINE         PDC_ACS('`')
 
-/* PDCurses-only ACS chars.  Don't use if ncurses compatibility matters.
-Some won't work in non-wide X11 builds (see 'acs_defs.h' for details). */
+/* Box char aliases.  The four characters tell you if a Single
+line points up, right, down,  and/or left from the center;
+or if it's Blank;  or if it's Thick or Double. */
+
+#define ACS_BSSB      ACS_ULCORNER
+#define ACS_SSBB      ACS_LLCORNER
+#define ACS_BBSS      ACS_URCORNER
+#define ACS_SBBS      ACS_LRCORNER
+#define ACS_SBSS      ACS_RTEE
+#define ACS_SSSB      ACS_LTEE
+#define ACS_SSBS      ACS_BTEE
+#define ACS_BSSS      ACS_TTEE
+#define ACS_BSBS      ACS_HLINE
+#define ACS_SBSB      ACS_VLINE
+#define ACS_SSSS      ACS_PLUS
+
+/* The following Single/Double,  Double,  and Double/Single box
+characters and their aliases are PDCursesMod extensions.  ncurses
+does have the wide-character versions of the Double-line box
+characters (and adds Thick box characters).  Aside from that,
+consider these to be completely non-portable. */
+
+#define ACS_SD_LRCORNER   PDC_ACS(';')
+#define ACS_SD_URCORNER   PDC_ACS('<')
+#define ACS_SD_ULCORNER   PDC_ACS('=')
+#define ACS_SD_LLCORNER   PDC_ACS('>')
+#define ACS_SD_LTEE       PDC_ACS('@')
+#define ACS_SD_RTEE       PDC_ACS('A')
+#define ACS_SD_BTEE       PDC_ACS('B')
+#define ACS_SD_TTEE       PDC_ACS('C')
+#define ACS_SD_PLUS       PDC_ACS('?')
+
+#define ACS_SBBD          ACS_SD_LRCORNER
+#define ACS_BBSD          ACS_SD_URCORNER
+#define ACS_BDSB          ACS_SD_ULCORNER
+#define ACS_SDBB          ACS_SD_LLCORNER
+#define ACS_SDSB          ACS_SD_LTEE
+#define ACS_SBSD          ACS_SD_RTEE
+#define ACS_SDBD          ACS_SD_BTEE
+#define ACS_BDSD          ACS_SD_TTEE
+#define ACS_SDSD          ACS_SD_PLUS
+
+#define ACS_D_LRCORNER    PDC_ACS('D')
+#define ACS_D_URCORNER    PDC_ACS('E')
+#define ACS_D_ULCORNER    PDC_ACS('F')
+#define ACS_D_LLCORNER    PDC_ACS('G')
+#define ACS_D_LTEE        PDC_ACS('I')
+#define ACS_D_RTEE        PDC_ACS('J')
+#define ACS_D_BTEE        PDC_ACS('K')
+#define ACS_D_TTEE        PDC_ACS('L')
+#define ACS_D_HLINE       PDC_ACS('a')
+#define ACS_D_VLINE       PDC_ACS('b')
+#define ACS_D_PLUS        PDC_ACS('H')
+
+#define ACS_DBBD          ACS_D_LRCORNER
+#define ACS_BBDD          ACS_D_URCORNER
+#define ACS_BDDB          ACS_D_ULCORNER
+#define ACS_DDBB          ACS_D_LLCORNER
+#define ACS_DDDB          ACS_D_LTEE
+#define ACS_DBDD          ACS_D_RTEE
+#define ACS_DDBD          ACS_D_BTEE
+#define ACS_BDDD          ACS_D_TTEE
+#define ACS_BDBD          ACS_D_HLINE
+#define ACS_DBDB          ACS_D_VLINE
+#define ACS_DDDD          ACS_D_PLUS
+
+#define ACS_DS_LRCORNER   PDC_ACS('M')
+#define ACS_DS_URCORNER   PDC_ACS('N')
+#define ACS_DS_ULCORNER   PDC_ACS('O')
+#define ACS_DS_LLCORNER   PDC_ACS('P')
+#define ACS_DS_LTEE       PDC_ACS('R')
+#define ACS_DS_RTEE       PDC_ACS('S')
+#define ACS_DS_BTEE       PDC_ACS('T')
+#define ACS_DS_TTEE       PDC_ACS('U')
+#define ACS_DS_PLUS       PDC_ACS('Q')
+
+#define ACS_DBBS      ACS_DS_LRCORNER
+#define ACS_BBDS      ACS_DS_URCORNER
+#define ACS_BSDB      ACS_DS_ULCORNER
+#define ACS_DSBB      ACS_DS_LLCORNER
+#define ACS_DSDB      ACS_DS_LTEE
+#define ACS_DBDS      ACS_DS_RTEE
+#define ACS_DSBS      ACS_DS_BTEE
+#define ACS_BSDS      ACS_DS_TTEE
+#define ACS_DSDS      ACS_DS_PLUS
+
+/* PDCursesMod-only ACS chars.  Don't use if compatibility with any
+other curses implementation matters.  Some won't work in non-wide
+X11 builds (see 'common/acs_defs.h' for details).  Best avoided. */
 
 #define ACS_CENT          PDC_ACS('{')
 #define ACS_YEN           PDC_ACS('|')
@@ -647,8 +709,6 @@ Some won't work in non-wide X11 builds (see 'acs_defs.h' for details). */
 #define ACS_QUARTER       PDC_ACS('\'')
 #define ACS_LEFT_ANG_QU   PDC_ACS(')')
 #define ACS_RIGHT_ANG_QU  PDC_ACS('*')
-#define ACS_D_HLINE       PDC_ACS('a')
-#define ACS_D_VLINE       PDC_ACS('b')
 #define ACS_CLUB          PDC_ACS( 11)
 #define ACS_HEART         PDC_ACS( 12)
 #define ACS_SPADE         PDC_ACS( 13)
@@ -697,36 +757,6 @@ Some won't work in non-wide X11 builds (see 'acs_defs.h' for details). */
 #define ACS_CENTER_SQU    PDC_ACS(30)
 #define ACS_F_WITH_HOOK   PDC_ACS(31)
 
-#define ACS_SD_LRCORNER   PDC_ACS(';')
-#define ACS_SD_URCORNER   PDC_ACS('<')
-#define ACS_SD_ULCORNER   PDC_ACS('=')
-#define ACS_SD_LLCORNER   PDC_ACS('>')
-#define ACS_SD_PLUS       PDC_ACS('?')
-#define ACS_SD_LTEE       PDC_ACS('@')
-#define ACS_SD_RTEE       PDC_ACS('A')
-#define ACS_SD_BTEE       PDC_ACS('B')
-#define ACS_SD_TTEE       PDC_ACS('C')
-
-#define ACS_D_LRCORNER    PDC_ACS('D')
-#define ACS_D_URCORNER    PDC_ACS('E')
-#define ACS_D_ULCORNER    PDC_ACS('F')
-#define ACS_D_LLCORNER    PDC_ACS('G')
-#define ACS_D_PLUS        PDC_ACS('H')
-#define ACS_D_LTEE        PDC_ACS('I')
-#define ACS_D_RTEE        PDC_ACS('J')
-#define ACS_D_BTEE        PDC_ACS('K')
-#define ACS_D_TTEE        PDC_ACS('L')
-
-#define ACS_DS_LRCORNER   PDC_ACS('M')
-#define ACS_DS_URCORNER   PDC_ACS('N')
-#define ACS_DS_ULCORNER   PDC_ACS('O')
-#define ACS_DS_LLCORNER   PDC_ACS('P')
-#define ACS_DS_PLUS       PDC_ACS('Q')
-#define ACS_DS_LTEE       PDC_ACS('R')
-#define ACS_DS_RTEE       PDC_ACS('S')
-#define ACS_DS_BTEE       PDC_ACS('T')
-#define ACS_DS_TTEE       PDC_ACS('U')
-
 /* VT100-compatible symbols -- other */
 
 #define ACS_S1            PDC_ACS('l')
@@ -761,38 +791,9 @@ Some won't work in non-wide X11 builds (see 'acs_defs.h' for details). */
 #define ACS_NEQUAL        PDC_ACS('%')
 #define ACS_STERLING      PDC_ACS('~')
 
-/* Box char aliases.  The four characters tell you if a Single
-line points up, right, down,  and/or left from the center;
-or if it's Blank;  or if it's Thick or Double.  The Thick
-ones are an ncurses extension;  the Double and Single/Double
-ones are a PDCursesMod extension. */
-
-#define ACS_BSSB      ACS_ULCORNER
-#define ACS_SSBB      ACS_LLCORNER
-#define ACS_BBSS      ACS_URCORNER
-#define ACS_SBBS      ACS_LRCORNER
-#define ACS_SBSS      ACS_RTEE
-#define ACS_SSSB      ACS_LTEE
-#define ACS_SSBS      ACS_BTEE
-#define ACS_BSSS      ACS_TTEE
-#define ACS_BSBS      ACS_HLINE
-#define ACS_SBSB      ACS_VLINE
-#define ACS_SSSS      ACS_PLUS
-
 /* cchar_t aliases */
 
 #ifdef PDC_WIDE
-# define WACS_LRCORNER      (&(acs_map['V']))
-# define WACS_URCORNER      (&(acs_map['W']))
-# define WACS_ULCORNER      (&(acs_map['X']))
-# define WACS_LLCORNER      (&(acs_map['Y']))
-# define WACS_PLUS          (&(acs_map['Z']))
-# define WACS_LTEE          (&(acs_map['[']))
-# define WACS_RTEE          (&(acs_map['\\']))
-# define WACS_BTEE          (&(acs_map[']']))
-# define WACS_TTEE          (&(acs_map['^']))
-# define WACS_HLINE         (&(acs_map['_']))
-# define WACS_VLINE         (&(acs_map['`']))
 
 # define WACS_CENT          (&(acs_map['{']))
 # define WACS_YEN           (&(acs_map['|']))
@@ -851,6 +852,36 @@ ones are a PDCursesMod extension. */
 # define WACS_CENTER_SQU    (&(acs_map[30]))
 # define WACS_F_WITH_HOOK   (&(acs_map[31]))
 
+/* See above comments about box characters and their aliases. The
+following eleven characters,  for single-line boxes,  are the only
+portable ones.  The thick and double-line characters are ncurses
+extensions.  The 'mixed' single-double and double-single
+characters are PDCursesMod extensions and totally non-portable. */
+
+# define WACS_LRCORNER      (&(acs_map['V']))
+# define WACS_URCORNER      (&(acs_map['W']))
+# define WACS_ULCORNER      (&(acs_map['X']))
+# define WACS_LLCORNER      (&(acs_map['Y']))
+# define WACS_PLUS          (&(acs_map['Z']))
+# define WACS_LTEE          (&(acs_map['[']))
+# define WACS_RTEE          (&(acs_map['\\']))
+# define WACS_BTEE          (&(acs_map[']']))
+# define WACS_TTEE          (&(acs_map['^']))
+# define WACS_HLINE         (&(acs_map['_']))
+# define WACS_VLINE         (&(acs_map['`']))
+
+# define WACS_SBBS     WACS_LRCORNER
+# define WACS_BBSS     WACS_URCORNER
+# define WACS_BSSB     WACS_ULCORNER
+# define WACS_SSBB     WACS_LLCORNER
+# define WACS_SSSS     WACS_PLUS
+# define WACS_SSSB     WACS_LTEE
+# define WACS_SBSS     WACS_RTEE
+# define WACS_SSBS     WACS_BTEE
+# define WACS_BSSS     WACS_TTEE
+# define WACS_BSBS     WACS_HLINE
+# define WACS_SBSB     WACS_VLINE
+
 # define WACS_SD_LRCORNER   (&(acs_map[';']))
 # define WACS_SD_URCORNER   (&(acs_map['<']))
 # define WACS_SD_ULCORNER   (&(acs_map['=']))
@@ -861,6 +892,16 @@ ones are a PDCursesMod extension. */
 # define WACS_SD_BTEE       (&(acs_map['B']))
 # define WACS_SD_TTEE       (&(acs_map['C']))
 
+# define WACS_SBBD     WACS_SD_LRCORNER
+# define WACS_BBSD     WACS_SD_URCORNER
+# define WACS_BDSB     WACS_SD_ULCORNER
+# define WACS_SDBB     WACS_SD_LLCORNER
+# define WACS_SDSD     WACS_SD_PLUS
+# define WACS_SDSB     WACS_SD_LTEE
+# define WACS_SBSD     WACS_SD_RTEE
+# define WACS_SDBD     WACS_SD_BTEE
+# define WACS_BDSD     WACS_SD_TTEE
+
 # define WACS_D_LRCORNER    (&(acs_map['D']))
 # define WACS_D_URCORNER    (&(acs_map['E']))
 # define WACS_D_ULCORNER    (&(acs_map['F']))
@@ -870,6 +911,18 @@ ones are a PDCursesMod extension. */
 # define WACS_D_RTEE        (&(acs_map['J']))
 # define WACS_D_BTEE        (&(acs_map['K']))
 # define WACS_D_TTEE        (&(acs_map['L']))
+
+# define WACS_DBBD     WACS_D_LRCORNER
+# define WACS_BBDD     WACS_D_URCORNER
+# define WACS_BDDB     WACS_D_ULCORNER
+# define WACS_DDBB     WACS_D_LLCORNER
+# define WACS_DDDD     WACS_D_PLUS
+# define WACS_DDDB     WACS_D_LTEE
+# define WACS_DBDD     WACS_D_RTEE
+# define WACS_DDBD     WACS_D_BTEE
+# define WACS_BDDD     WACS_D_TTEE
+# define WACS_BDBD     WACS_D_HLINE
+# define WACS_DBDB     WACS_D_VLINE
 
 # define WACS_T_LRCORNER    (&(acs_map[0]))
 # define WACS_T_URCORNER    (&(acs_map[1]))
@@ -883,6 +936,18 @@ ones are a PDCursesMod extension. */
 # define WACS_T_HLINE       (&(acs_map[9]))
 # define WACS_T_VLINE       (&(acs_map[10]))
 
+# define WACS_TBBT     WACS_T_LRCORNER
+# define WACS_BBTT     WACS_T_URCORNER
+# define WACS_BTTB     WACS_T_ULCORNER
+# define WACS_TTBB     WACS_T_LLCORNER
+# define WACS_TTTT     WACS_T_PLUS
+# define WACS_TTTB     WACS_T_LTEE
+# define WACS_TBTT     WACS_T_RTEE
+# define WACS_TTBT     WACS_T_BTEE
+# define WACS_BTTS     WACS_T_TTEE
+# define WACS_BTBT     WACS_T_HLINE
+# define WACS_TBTB     WACS_T_VLINE
+
 # define WACS_DS_LRCORNER   (&(acs_map['M']))
 # define WACS_DS_URCORNER   (&(acs_map['N']))
 # define WACS_DS_ULCORNER   (&(acs_map['O']))
@@ -893,6 +958,16 @@ ones are a PDCursesMod extension. */
 # define WACS_DS_BTEE       (&(acs_map['T']))
 # define WACS_DS_TTEE       (&(acs_map['U']))
 
+# define WACS_DBBS     WACS_DS_LRCORNER
+# define WACS_BBDS     WACS_DS_URCORNER
+# define WACS_BSDB     WACS_DS_ULCORNER
+# define WACS_DSBB     WACS_DS_LLCORNER
+# define WACS_DSDS     WACS_DS_PLUS
+# define WACS_DSDB     WACS_DS_LTEE
+# define WACS_DBDS     WACS_DS_RTEE
+# define WACS_DSBS     WACS_DS_BTEE
+# define WACS_BSDS     WACS_DS_TTEE
+
 # define WACS_S1            (&(acs_map['l']))
 # define WACS_S9            (&(acs_map['o']))
 # define WACS_DIAMOND       (&(acs_map['j']))
@@ -900,7 +975,6 @@ ones are a PDCursesMod extension. */
 # define WACS_DEGREE        (&(acs_map['w']))
 # define WACS_PLMINUS       (&(acs_map['x']))
 # define WACS_BULLET        (&(acs_map['h']))
-
 
 # define WACS_LARROW        (&(acs_map['!']))
 # define WACS_RARROW        (&(acs_map[' ']))
@@ -918,30 +992,6 @@ ones are a PDCursesMod extension. */
 # define WACS_PI            (&(acs_map['$']))
 # define WACS_NEQUAL        (&(acs_map['%']))
 # define WACS_STERLING      (&(acs_map['~']))
-
-# define WACS_BSSB     WACS_ULCORNER
-# define WACS_SSBB     WACS_LLCORNER
-# define WACS_BBSS     WACS_URCORNER
-# define WACS_SBBS     WACS_LRCORNER
-# define WACS_SBSS     WACS_RTEE
-# define WACS_SSSB     WACS_LTEE
-# define WACS_SSBS     WACS_BTEE
-# define WACS_BSSS     WACS_TTEE
-# define WACS_BSBS     WACS_HLINE
-# define WACS_SBSB     WACS_VLINE
-# define WACS_SSSS     WACS_PLUS
-
-# define WACS_BTTB     WACS_T_ULCORNER
-# define WACS_TTBB     WACS_T_LLCORNER
-# define WACS_BBTT     WACS_T_URCORNER
-# define WACS_TBBT     WACS_T_LRCORNER
-# define WACS_TBTT     WACS_T_RTEE
-# define WACS_TTTB     WACS_T_LTEE
-# define WACS_TTBT     WACS_T_BTEE
-# define WACS_BTTS     WACS_T_TTEE
-# define WACS_BTBT     WACS_T_HLINE
-# define WACS_TBTB     WACS_T_VLINE
-# define WACS_TTTT     WACS_T_PLUS
 #endif
 
 /*** Color macros ***/
@@ -1258,9 +1308,17 @@ ones are a PDCursesMod extension. */
 #define KEY_LAUNCH_APP8       (KEY_OFFSET + 0x140)
 #define KEY_LAUNCH_APP9       (KEY_OFFSET + 0x141)
 #define KEY_LAUNCH_APP10      (KEY_OFFSET + 0x142)
+   /* 0x200 - 0x142 = 0xbe = 190(decimal) keys are currently reserved */
+
+/* The following may,  eventually,  be used to note that the PDCursesMod
+window has received or lost input focus,  on platforms where such can
+make sense.    */
+
+#define KEY_FOCUS_IN          (KEY_OFFSET + 0x143)
+#define KEY_FOCUS_OUT         (KEY_OFFSET + 0x144)
 
 #define KEY_MIN       KEY_BREAK         /* Minimum curses key value */
-#define KEY_MAX       KEY_LAUNCH_APP10  /* Maximum curses key */
+#define KEY_MAX       (KEY_OFFSET + 0x200)  /* Maximum curses key */
 
 #define KEY_F(n)      (KEY_F0 + (n))
 
@@ -1319,22 +1377,28 @@ PDCEX  int     echo(void);
 #ifdef PDC_WIDE
    #ifdef PDC_FORCE_UTF8
       #ifdef CHTYPE_32
-         #define endwin endwin_u32_4302
+         #define endwin endwin_u32_4400
+      #elif defined CHTYPE_16
+         #define endwin endwin_u16_4400
       #else
-         #define endwin endwin_u64_4302
+         #define endwin endwin_u64_4400
       #endif
    #else
       #ifdef CHTYPE_32
-         #define endwin endwin_w32_4302
+         #define endwin endwin_w32_4400
+      #elif defined CHTYPE_16
+         #define endwin endwin_w16_4400
       #else
-         #define endwin endwin_w64_4302
+         #define endwin endwin_w64_4400
       #endif
    #endif
 #else       /* 8-bit chtypes */
    #ifdef CHTYPE_32
-      #define endwin endwin_x32_4302
+      #define endwin endwin_x32_4400
+   #elif defined CHTYPE_16
+      #define endwin endwin_x16_4400
    #else
-      #define endwin endwin_x64_4302
+      #define endwin endwin_x64_4400
    #endif
 #endif
 
@@ -1470,6 +1534,7 @@ PDCEX  int     scroll(WINDOW *);
 PDCEX  int     scrollok(WINDOW *, bool);
 PDCEX  SCREEN *set_term(SCREEN *);
 PDCEX  int     setscrreg(int, int);
+PDCEX  attr_t  slk_attr(void);
 PDCEX  int     slk_attroff(const chtype);
 PDCEX  int     slk_attr_off(const attr_t, void *);
 PDCEX  int     slk_attron(const chtype);
@@ -1670,15 +1735,15 @@ PDCEX  int     wvline_set(WINDOW *, const cchar_t *, int);
 
 /* Quasi-standard */
 
-PDCEX  chtype  getattrs(WINDOW *);
-PDCEX  int     getbegx(WINDOW *);
-PDCEX  int     getbegy(WINDOW *);
-PDCEX  int     getmaxx(WINDOW *);
-PDCEX  int     getmaxy(WINDOW *);
-PDCEX  int     getparx(WINDOW *);
-PDCEX  int     getpary(WINDOW *);
-PDCEX  int     getcurx(WINDOW *);
-PDCEX  int     getcury(WINDOW *);
+PDCEX  chtype  getattrs( const WINDOW *);
+PDCEX  int     getbegx( const WINDOW *);
+PDCEX  int     getbegy( const WINDOW *);
+PDCEX  int     getmaxx( const WINDOW *);
+PDCEX  int     getmaxy( const WINDOW *);
+PDCEX  int     getparx( const WINDOW *);
+PDCEX  int     getpary( const WINDOW *);
+PDCEX  int     getcurx( const WINDOW *);
+PDCEX  int     getcury( const WINDOW *);
 PDCEX  void    traceoff(void);
 PDCEX  void    traceon(void);
 PDCEX  void    trace( const unsigned);
@@ -1714,7 +1779,6 @@ PDCEX  bool    is_idlok(const WINDOW *);
 PDCEX  bool    is_immedok(const WINDOW *);
 PDCEX  bool    is_keypad(const WINDOW *);
 PDCEX  bool    is_leaveok(const WINDOW *);
-PDCEX  bool    is_leaveok(const WINDOW *);
 PDCEX  bool    is_nodelay(const WINDOW *);
 PDCEX  bool    is_notimeout(const WINDOW *);
 PDCEX  bool    is_pad(const WINDOW *);
@@ -1734,6 +1798,7 @@ PDCEX  int     mouseinterval(int);
 PDCEX  mmask_t mousemask(mmask_t, mmask_t *);
 PDCEX  bool    mouse_trafo(int *, int *, bool);
 PDCEX  int     nc_getmouse(MEVENT *);
+PDCEX  mmask_t nc_mousemask(mmask_t, mmask_t *);
 PDCEX  int     ungetmouse(MEVENT *);
 PDCEX  bool    wenclose(const WINDOW *, int, int);
 PDCEX  bool    wmouse_trafo(const WINDOW *, int *, int *, bool);
@@ -1762,8 +1827,12 @@ PDCEX  char    wordchar(void);
 PDCEX  wchar_t *slk_wlabel(int);
 #endif
 
-PDCEX  bool    PDC_getcbreak(void);
-PDCEX  bool    PDC_getecho(void);
+PDCEX  int     is_cbreak( void);
+PDCEX  int     is_echo( void);
+PDCEX  int     is_nl( void);
+PDCEX  int     is_raw( void);
+PDCEX  bool    PDC_getcbreak(void);    /* deprecated;  use is_cbreak() */
+PDCEX  bool    PDC_getecho(void);      /* deprecated;  use is_echo()   */
 PDCEX  void    PDC_debug(const char *, ...);
 PDCEX  void    _tracef(const char *, ...);
 PDCEX  void    PDC_get_version(PDC_VERSION *);
@@ -1772,7 +1841,6 @@ PDCEX  int     PDC_set_blink(bool);
 PDCEX  int     PDC_set_bold(bool);
 PDCEX  int     PDC_set_line_color(short);
 PDCEX  void    PDC_set_title(const char *);
-PDCEX  int     PDC_set_box_type( const int box_type);
 
 PDCEX  int     PDC_clearclipboard(void);
 PDCEX  int     PDC_freeclipboard(char *);
@@ -1837,22 +1905,20 @@ PDCEX  int     wunderscore(WINDOW *);
 #define getparyx(w, y, x)  (y = getpary(w), x = getparx(w))
 #define getyx(w, y, x)     (y = getcury(w), x = getcurx(w))
 
-#define getsyx(y, x)       { if (curscr->_leaveit) (y)=(x)=-1; \
+#define getsyx(y, x)       { if (is_leaveok( curscr)) (y)=(x)=-1; \
                              else getyx(curscr,(y),(x)); }
 
 #ifdef NCURSES_MOUSE_VERSION
+PDCEX  mmask_t nc_mousemask(mmask_t, mmask_t *);
+
 # define getmouse(x) nc_getmouse(x)
+# define mousemask(x, ret_mask) nc_mousemask(x, ret_mask)
 #endif
 
 /* Deprecated */
 
 #define PDC_save_key_modifiers(x)  (OK)
 #define PDC_get_input_fd()         0
-
-/* masks for PDC_set_box_type() */
-
-#define PDC_BOX_DOUBLED_V        1
-#define PDC_BOX_DOUBLED_H        2
 
 /* return codes from PDC_getclipboard() and PDC_setclipboard() calls */
 
@@ -1868,6 +1934,15 @@ PDCEX  int     wunderscore(WINDOW *);
 #define PDC_KEY_MODIFIER_ALT     4
 #define PDC_KEY_MODIFIER_NUMLOCK 8
 #define PDC_KEY_MODIFIER_REPEAT  16
+
+/* Modifier masks not used at present,  but which could be added to at  */
+/* least some platforms.  'Super' usually corresponds to the 'Windows' key. */
+
+#define PDC_KEY_MODIFIER_SUPER      0x20
+#define PDC_KEY_MODIFIER_CAPSLOCK   0x40
+#define PDC_KEY_MODIFIER_META       0x80
+#define PDC_KEY_MODIFIER_HYPER      0x100
+#define PDC_KEY_MODIFIER_MENU       0x200
 
 /* Bitflags for trace(), curses_trace(),  for ncurses compatibility.
 Values were copied from ncurses.  Note that those involving terminfo,

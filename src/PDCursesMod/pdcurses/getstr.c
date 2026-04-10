@@ -1,4 +1,4 @@
-/* PDCurses */
+/* PDCursesMod */
 
 #include <curspriv.h>
 #include <assert.h>
@@ -48,23 +48,24 @@ getstr
    These functions return ERR on failure or any other value on success.
 
 ### Portability
-                             X/Open  ncurses  NetBSD
-    getstr                      Y       Y       Y
-    wgetstr                     Y       Y       Y
-    mvgetstr                    Y       Y       Y
-    mvwgetstr                   Y       Y       Y
-    getnstr                     Y       Y       Y
-    wgetnstr                    Y       Y       Y
-    mvgetnstr                   Y       Y       Y
-    mvwgetnstr                  Y       Y       Y
-    get_wstr                    Y       Y       Y
-    wget_wstr                   Y       Y       Y
-    mvget_wstr                  Y       Y       Y
-    mvwget_wstr                 Y       Y       Y
-    getn_wstr                   Y       Y       Y
-    wgetn_wstr                  Y       Y       Y
-    mvgetn_wstr                 Y       Y       Y
-    mvwgetn_wstr                Y       Y       Y
+   Function              | X/Open | ncurses | NetBSD
+   :---------------------|:------:|:-------:|:------:
+   getstr                |    Y   |    Y    |   Y
+   wgetstr               |    Y   |    Y    |   Y
+   mvgetstr              |    Y   |    Y    |   Y
+   mvwgetstr             |    Y   |    Y    |   Y
+   getnstr               |    Y   |    Y    |   Y
+   wgetnstr              |    Y   |    Y    |   Y
+   mvgetnstr             |    Y   |    Y    |   Y
+   mvwgetnstr            |    Y   |    Y    |   Y
+   get_wstr              |    Y   |    Y    |   Y
+   wget_wstr             |    Y   |    Y    |   Y
+   mvget_wstr            |    Y   |    Y    |   Y
+   mvwget_wstr           |    Y   |    Y    |   Y
+   getn_wstr             |    Y   |    Y    |   Y
+   wgetn_wstr            |    Y   |    Y    |   Y
+   mvgetn_wstr           |    Y   |    Y    |   Y
+   mvwgetn_wstr          |    Y   |    Y    |   Y
 
 **man-end****************************************************************/
 
@@ -292,7 +293,7 @@ static void _clear_preceding_char( WINDOW *win, const int ch)
 
 int wgetn_wstr(WINDOW *win, wint_t *wstr, int n)
 {
-    int ch, i, num, x, chars;
+    int i, num, x, chars;
     wint_t *p;
     bool stop, oldecho, oldcbreak, oldnodelay;
 
@@ -322,7 +323,9 @@ int wgetn_wstr(WINDOW *win, wint_t *wstr, int n)
 
     while (!stop)
     {
-        ch = wgetch(win);
+        wint_t ch;
+
+        wget_wch( win, &ch);
 
         switch (ch)
         {
@@ -394,7 +397,7 @@ int wgetn_wstr(WINDOW *win, wint_t *wstr, int n)
             {
                 if( ch < KEY_MIN || ch >= KEY_MAX)
                 {
-                    *p++ = (wint_t)ch;
+                    *p++ = ch;
                     if (oldecho)
                         waddch(win, ch);
                     chars++;

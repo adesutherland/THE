@@ -37,7 +37,8 @@ static void _set_ansi_color(short f, short b, attr_t attr)
 {
     char esc[64], *p;
     short tmp, underline;
-    bool italic;
+    bool italic, set_transparent_bg;
+    size_t initial_len;
 
     if (f < 16 && !pdc_color[f].mapped)
         f = pdc_curstoansi[f];
@@ -57,7 +58,15 @@ static void _set_ansi_color(short f, short b, attr_t attr)
 
     p = esc + sprintf(esc, "\x1b[");
 
-    if (f != pdc_oldf)
+    set_transparent_bg = (b == 0 && b != pdc_oldb);
+    if (set_transparent_bg)
+    {
+        p += sprintf(p, "m\x1b[");
+        pdc_oldb = b;
+    }
+    initial_len = strlen(esc);
+
+    if (f != pdc_oldf || set_transparent_bg)
     {
         if (f < 8 && !pdc_color[f].mapped)
             p += sprintf(p, "%d", f + 30);
@@ -79,7 +88,7 @@ static void _set_ansi_color(short f, short b, attr_t attr)
 
     if (b != pdc_oldb)
     {
-        if (strlen(esc) > 2)
+        if (strlen(esc) > initial_len)
             p += sprintf(p, ";");
 
         if (b < 8 && !pdc_color[b].mapped)
@@ -100,9 +109,9 @@ static void _set_ansi_color(short f, short b, attr_t attr)
         pdc_oldb = b;
     }
 
-    if (italic != in_italic)
+    if (italic != in_italic || set_transparent_bg)
     {
-        if (strlen(esc) > 2)
+        if (strlen(esc) > initial_len )
             p += sprintf(p, ";");
 
         if (italic)
@@ -113,9 +122,9 @@ static void _set_ansi_color(short f, short b, attr_t attr)
         in_italic = italic;
     }
 
-    if (underline != pdc_oldu)
+    if (underline != pdc_oldu || set_transparent_bg)
     {
-        if (strlen(esc) > 2)
+        if (strlen(esc) > initial_len )
             p += sprintf(p, ";");
 
         if (underline)
@@ -139,12 +148,14 @@ static void _set_ansi_color(short f, short b, attr_t attr)
     }
 }
 
-#define MAX_PACKET_SIZE 128
+/* see 'addch.c' for an explanation of how combining chars are handled. */
+
+#ifdef USING_COMBINING_CHARACTER_SCHEME
+   int PDC_expand_combined_characters( const cchar_t c, cchar_t *added);  /* addch.c */
+#endif
 
 #ifdef PDC_WIDE
-const chtype MAX_UNICODE = 0x10ffff;
-const chtype DUMMY_CHAR_NEXT_TO_FULLWIDTH = 0x110000;
-
+#define IS_SUPPLEMENTAL_MULTILINGUAL_PLANE( c) ((c) & 0x1f0000)
 #endif
 
 static void _show_run_of_ansi_characters( const attr_t attr,
@@ -152,9 +163,9 @@ static void _show_run_of_ansi_characters( const attr_t attr,
                            const int lineno, const int x, const chtype *srcp, const int len)
 {
 #ifdef PDC_WIDE
-    WCHAR buffer[MAX_PACKET_SIZE];
+    WCHAR buffer[MAX_PACKET_LEN];
 #else
-    char buffer[MAX_PACKET_SIZE];
+    char buffer[MAX_PACKET_LEN];
 #endif
     int j, n_out;
 
@@ -169,8 +180,17 @@ static void _show_run_of_ansi_characters( const attr_t attr,
             ch = ' ';
 
 #ifdef PDC_WIDE
-        if( (ch & A_CHARTEXT) != DUMMY_CHAR_NEXT_TO_FULLWIDTH)
-            buffer[n_out++] = (WCHAR)( ch & A_CHARTEXT);
+        ch &= A_CHARTEXT;
+        if( ch <= MAX_UNICODE)
+        {
+            if( IS_SUPPLEMENTAL_MULTILINGUAL_PLANE( ch))
+            {
+                buffer[n_out++] = (WCHAR)((ch - 0x10000) >> 10 | 0xD800); /* first UTF-16 unit */
+                buffer[n_out++] = (WCHAR)(ch & 0x3FF) | 0xDC00;   /* second UTF-16 unit */
+            }
+        else
+            buffer[n_out++] = (WCHAR)ch;
+        }
 #else
         buffer[n_out++] = (char)( ch & A_CHARTEXT);
 #endif
@@ -185,11 +205,11 @@ static void _show_run_of_ansi_characters( const attr_t attr,
 #endif
 }
 
-static void _show_run_of_nonansi_characters( const attr_t attr,
+static void _show_run_of_nonansi_characters( attr_t attr,
                            int fore, int back, const bool blink,
                            const int lineno, const int x, const chtype *srcp, const int len)
 {
-    CHAR_INFO buffer[MAX_PACKET_SIZE];
+    CHAR_INFO buffer[MAX_PACKET_LEN];
     COORD bufSize, bufPos;
     SMALL_RECT sr;
     WORD mapped_attr;
@@ -220,13 +240,44 @@ static void _show_run_of_nonansi_characters( const attr_t attr,
         if (blink && blinked_off)
             ch = ' ';
 
-        buffer[n_out].Attributes = mapped_attr;
 #ifdef PDC_WIDE
-            if( (ch & A_CHARTEXT) != DUMMY_CHAR_NEXT_TO_FULLWIDTH)
+        ch &= A_CHARTEXT;
+#ifdef USING_COMBINING_CHARACTER_SCHEME
+        if( ch > DUMMY_CHAR_NEXT_TO_FULLWIDTH)
+        {
+            cchar_t added[10], root = ch;
+            int n_combined = 0;
+
+            while( (root = PDC_expand_combined_characters( root,
+                                   &added[n_combined])) > MAX_UNICODE)
+                n_combined++;
+            buffer[n_out++].Char.UnicodeChar = (WCHAR)root;
+            ch = (chtype)added[n_combined];
+            while( n_combined)
+            {
+                n_combined--;
+                buffer[n_out++].Char.UnicodeChar = (WCHAR)added[n_combined];
+            }
+        }
 #endif
-           buffer[n_out++].Char.UnicodeChar = (WCHAR)( ch & A_CHARTEXT);
+        if( ch <= MAX_UNICODE)
+        {
+            if( IS_SUPPLEMENTAL_MULTILINGUAL_PLANE( ch))
+            {
+                buffer[n_out++].Char.UnicodeChar = (WCHAR)((ch - 0x10000) >> 10 | 0xD800); /* first UTF-16 unit */
+                buffer[n_out++].Char.UnicodeChar = (WCHAR)(ch & 0x3FF) | 0xDC00;   /* second UTF-16 unit */
+            }
+            else
+                buffer[n_out++].Char.UnicodeChar = (WCHAR)ch;
+        }
+#else
+        buffer[n_out++].Char.UnicodeChar = (WCHAR)( ch & A_CHARTEXT);
+#endif
+
     }
 
+    for( j = 0; j < n_out; j++)
+        buffer[j].Attributes = mapped_attr;
     bufPos.X = bufPos.Y = 0;
     bufSize.X = (SHORT)n_out;
     bufSize.Y = 1;
@@ -238,20 +289,14 @@ static void _show_run_of_nonansi_characters( const attr_t attr,
     WriteConsoleOutput(pdc_con_out, buffer, bufSize, bufPos, &sr);
 }
 
-static void _new_packet(attr_t attr, int lineno, int x, int len, const chtype *srcp)
+static void _new_packet( attr_t attr, const int lineno,
+                                 int x, int len, const chtype *srcp)
 {
     int fore, back;
     bool blink, ansi;
 
     assert( len >= 0);
-    while( len > MAX_PACKET_SIZE)
-    {
-        _new_packet( attr, lineno, x, MAX_PACKET_SIZE, srcp);
-        srcp += MAX_PACKET_SIZE;
-        x += MAX_PACKET_SIZE;
-        len -= MAX_PACKET_SIZE;
-    }
-
+    assert( len < MAX_PACKET_LEN);
     if (pdc_ansi && (lineno == (SP->lines - 1)) && ((x + len) == SP->cols))
     {
         len--;
@@ -263,7 +308,7 @@ static void _new_packet(attr_t attr, int lineno, int x, int len, const chtype *s
         return;
     }
 
-    extended_pair_content(PAIR_NUMBER(attr), &fore, &back);
+    extended_pair_content( (int)PAIR_NUMBER(attr), &fore, &back);
     ansi = pdc_ansi || (fore >= 16 || back >= 16);
     blink = (SP->termattrs & A_BLINK) && (attr & A_BLINK);
 
@@ -295,11 +340,11 @@ void PDC_transform_line(int lineno, int x, int len, const chtype *srcp)
 
     PDC_LOG(("PDC_transform_line() - called: lineno=%d\n", lineno));
 
-    old_attr = *srcp & (A_ATTRIBUTES ^ A_ALTCHARSET);
+    old_attr = *srcp & (A_ATTRIBUTES | A_ALTCHARSET);
 
     for (i = 1, j = 1; j < len; i++, j++)
     {
-        attr = srcp[i] & (A_ATTRIBUTES ^ A_ALTCHARSET);
+        attr = srcp[i] & (A_ATTRIBUTES | A_ALTCHARSET);
 
         if (attr != old_attr)
         {
@@ -343,7 +388,7 @@ void PDC_blink_text(void)
                 k = j;
                 while (k < SP->cols && (srcp[k] & A_BLINK))
                     k++;
-                PDC_transform_line(i, j, k - j, srcp + j);
+                PDC_transform_line_sliced( i, j, k - j, srcp + j);
                 j = k;
             }
     }
