@@ -37,7 +37,7 @@
 #include <the.h>
 #include <proto.h>
 
-#if defined(UNIX) || defined(__EMX__)
+#if (defined(UNIX) && !defined(_WIN32)) || defined(__EMX__)
 # include <pwd.h>
 #endif
 #include <errno.h>

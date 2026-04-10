@@ -412,7 +412,9 @@ int main(int argc, char *argv[])
     * command-line switches. (future possibility)
     */
 #if defined(UNIX)
-   if ( (envptr = getenv( "HOME" ) ) != NULL )
+   if ( (envptr = getenv( "HOME" ) ) == NULL )
+      envptr = getenv( "USERPROFILE" );
+   if ( envptr != NULL )
    {
       if ( ((envptr==NULL) ? 0 : strlen( (DEFCHAR *)envptr )) > MAX_FILE_NAME )
       {
@@ -1459,8 +1461,10 @@ static void init_signals(void)
 {
    TRACE_FUNCTION("the.c:     init_signals");
 #ifdef UNIX
+#if !defined(_WIN32) && !defined(WIN32)
    signal(SIGQUIT,handle_signal);
    signal(SIGHUP,handle_signal);
+# endif
    signal(SIGABRT,handle_signal);
    signal(SIGFPE,handle_signal);
    signal(SIGSEGV,handle_signal);

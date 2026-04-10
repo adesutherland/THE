@@ -549,11 +549,15 @@ CHARTYPE *file_attrs(ATTR_TYPE attrs,CHARTYPE *str_attr,int facl)
    str_attr[1] = (attrs & S_IRUSR) ? 'r' : '-';
    str_attr[2] = (attrs & S_IWUSR) ? 'w' : '-';
    str_attr[3] = (attrs & S_IXUSR) ? 'x' : '-';
+#ifdef S_ISUID
    str_attr[3] = (attrs & S_ISUID) ? 's' : str_attr[3];
+#endif
    str_attr[4] = (attrs & S_IRGRP) ? 'r' : '-';
    str_attr[5] = (attrs & S_IWGRP) ? 'w' : '-';
    str_attr[6] = (attrs & S_IXGRP) ? 'x' : '-';
+#ifdef S_ISGID
    str_attr[6] = (attrs & S_ISGID) ? 's' : str_attr[6];
+#endif
    str_attr[7] = (attrs & S_IROTH) ? 'r' : '-';
    str_attr[8] = (attrs & S_IWOTH) ? 'w' : '-';
    str_attr[9] = (attrs & S_IXOTH) ? 'x' : '-';

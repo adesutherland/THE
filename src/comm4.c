@@ -2681,7 +2681,7 @@ short Suspend(CHARTYPE *params)
 /***********************************************************************/
 {
    short rc=RC_OK;
-#if defined(UNIX) && !defined(USE_XCURSES) && !defined(USE_SDLCURSES)
+#if defined(UNIX) && !defined(_WIN32) && !defined(USE_XCURSES) && !defined(USE_SDLCURSES)
    void (*func)(int);
 #endif
 
@@ -2692,7 +2692,7 @@ short Suspend(CHARTYPE *params)
       TRACE_RETURN();
       return(RC_INVALID_OPERAND);
    }
-#if defined(UNIX) && !defined(USE_XCURSES) && !defined(USE_SDLCURSES)
+#if defined(UNIX) && !defined(_WIN32) && !defined(USE_XCURSES) && !defined(USE_SDLCURSES)
    if (strcmp("/bin/sh",getenv("SHELL")) == 0)
    {
       display_error(40,(CHARTYPE *)"",FALSE);

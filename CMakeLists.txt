@@ -65,7 +65,6 @@ add_compile_definitions(
     THE_VERSION_DATE="${THE_VERSION_DATE}"
     THE_VARIANT="${THE_VARIANT}"
     BUILD3001=1
-    USE_NCURSES=1
     HAVE_RESIZETERM=1
     CAN_RESIZE=1
     NOREXX=1
@@ -73,6 +72,10 @@ add_compile_definitions(
     HAVE_TOUCHLINE=1
     THE_TRACE=1
 )
+
+if(NOT WIN32)
+    add_compile_definitions(USE_NCURSES=1)
+endif()
 
 # Standard and Warnings
 set(CMAKE_C_STANDARD 99)
@@ -155,7 +158,13 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 
 # --- Find Dependencies ---
-find_package(Curses REQUIRED)
+if(WIN32)
+    add_subdirectory(src/PDCursesMod EXCLUDE_FROM_ALL)
+    set(CURSES_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/src/PDCursesMod)
+    set(CURSES_LIBRARIES wincon_pdcurses)
+else()
+    find_package(Curses REQUIRED)
+endif()
 
 if(USE_SDSLH)
     add_compile_definitions(USE_SDSLH=1)
@@ -263,6 +272,13 @@ add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
     COMMENT "Copying executable and resources to ${RELEASE_DIR}"
 )
 
+if(WIN32)
+    add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${CURSES_LIBRARIES}> ${RELEASE_DIR}/
+        COMMENT "Copying PDCurses DLL to ${RELEASE_DIR}"
+    )
+endif()
+
 # Install Targets
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   # Fallback to local user bin to avoid sudo permission errors during testing
@@ -274,6 +290,9 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 endif()
 
 install(TARGETS ${EXECUTABLE_NAME} DESTINATION bin)
+if(WIN32)
+    install(FILES $<TARGET_FILE:${CURSES_LIBRARIES}> DESTINATION bin)
+endif()
 install(FILES doc/THE_Help.txt profile.the DESTINATION share/the)
 install(DIRECTORY syntax/ DESTINATION share/the/syntax)
 

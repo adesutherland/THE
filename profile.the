@@ -12,11 +12,11 @@
 'define backspace sos delback'
 
 /* Load Parser */
-'SET SDSLH tp /Users/adriansutherland/.local/bin/tp -s'
+'SET SDSLH tp ~/.local/bin/tp -s'
 'SET AUTOCOLOR *.toy tp'
 
 /* Load cREXX Compiler in Parser Mode */
-'SET SDSLH rxc /Users/adriansutherland/.local/bin/rxc --parser'
+'SET SDSLH rxc ~/.local/bin/rxc --parser'
 'SET AUTOCOLOR *.rexx rxc'
 'SET COLORING ON AUTO'
 

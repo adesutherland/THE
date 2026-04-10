@@ -60,7 +60,9 @@ int PDC_curs_set(int visibility)
         break;
     default:            /* normal visibility */
         cci.bVisible = TRUE;
-        cci.dwSize = SP->orig_cursor;
+        cci.dwSize = SP ? SP->orig_cursor : 25;
+        if (cci.dwSize < 1 || cci.dwSize > 100)
+            cci.dwSize = 25;
         break;
     }
 

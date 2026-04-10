@@ -11,6 +11,7 @@ _deps/
 
 # Build Directories
 build/
+build-*/
 cmake-build-*/
 cmake-build/
 out/

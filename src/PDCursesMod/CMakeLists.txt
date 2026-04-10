@@ -5,7 +5,7 @@ if(NOT CMAKE_BUILD_TYPE)
     message(STATUS "CMAKE_BUILD_TYPE not set, defaulting to MinSizeRel.")
 endif()
 
-set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_SOURCE_DIR}/cmake")
+set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 include (get_version)
 project(pdcurses VERSION "${CURSES_VERSION}" LANGUAGES C)
@@ -64,7 +64,7 @@ else()
         
     endif()
 
-    if(UNIX)
+    if(UNIX AND NOT WIN32)
         add_subdirectory(vt)
     endif()
 
@@ -78,6 +78,6 @@ else()
    
 endif()
 
-add_custom_target(uninstall "${CMAKE_COMMAND}" -P "${CMAKE_SOURCE_DIR}/cmake/make_uninstall.cmake")
+add_custom_target(uninstall "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/make_uninstall.cmake")
 
 set(CPACK_COMPONENTS_ALL applications)
