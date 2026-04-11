@@ -10,6 +10,8 @@
 'SET CMDARROWS TAB'
 'define s-tab cursor home save'
 'define backspace sos delback'
+'define ins insertmode toggle'
+'define f5 insertmode toggle'
 
 /* Load Parser */
 'SET SDSLH tp ~/.local/bin/tp -s'

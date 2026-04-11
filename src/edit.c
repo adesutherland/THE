@@ -350,6 +350,9 @@ int process_key(int key, bool mouse_details_present)
    wmove(CURRENT_WINDOW,y,x);
    wrefresh(CURRENT_WINDOW);
 #else
+   getyx(CURRENT_WINDOW,y,x);
+   wmove(CURRENT_WINDOW,y,x);
+   wnoutrefresh(CURRENT_WINDOW);
    doupdate();
 #endif
    TRACE_RETURN();

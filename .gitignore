@@ -16,6 +16,7 @@ cmake-build-*/
 cmake-build/
 out/
 bin/
+.idea/
 
 # C/C++ Build Artifacts
 *.o

@@ -491,6 +491,13 @@ void clear_msgline(int key)
       if (display_screens > 1)
          redraw_screen((CHARTYPE)(other_screen));
       redraw_screen(current_screen);
+      if (CURRENT_VIEW != NULL && CURRENT_WINDOW != NULL)
+      {
+         int y, x;
+         getyx(CURRENT_WINDOW, y, x);
+         wmove(CURRENT_WINDOW, y, x);
+         wnoutrefresh(CURRENT_WINDOW);
+      }
       doupdate();
    }
    TRACE_RETURN();
@@ -526,6 +533,13 @@ int expose_msgline(void)
    CHARTYPE *prompt;
 
    TRACE_FUNCTION("error.c:   expose_msgline");
+
+   if (!curses_started)
+   {
+      TRACE_RETURN();
+      return RC_OK;
+   }
+
    /*
     * If msgmode is off, don't display any errors.
     */
