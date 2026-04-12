@@ -58,6 +58,10 @@ extern LINETYPE       key_number_lines;
 extern AREAS          valid_areas[ATTR_MAX];
 
 /* default.c */
+extern CursorShape    cursorstyle_insert_shape;
+extern CursorBlink    cursorstyle_insert_blink;
+extern CursorShape    cursorstyle_over_shape;
+extern CursorBlink    cursorstyle_over_blink;
 extern bool           BEEPx,
                       CAPREXXOUTx,
                       ERROROUTPUTx,

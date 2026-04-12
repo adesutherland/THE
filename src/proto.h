@@ -540,6 +540,7 @@ short Ctlchar (CHARTYPE *);
 short Curline (CHARTYPE *);
 short Cursor (CHARTYPE *);
 short CursorStay (CHARTYPE *);
+short Cursorstyle (CHARTYPE *);
 short Define (CHARTYPE *);
 short Defsort (CHARTYPE *);
 short DeleteLine (CHARTYPE *);

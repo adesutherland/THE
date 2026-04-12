@@ -5418,6 +5418,113 @@ short Insertmode(CHARTYPE *params)
    TRACE_RETURN();
    return(RC_OK);
 }
+
+/*man-start*********************************************************************
+COMMAND
+     set cursorstyle - set the cursor shape for insert and overwrite modes
+
+SYNTAX
+     [SET] CURSORStyle INSERT|OVERWRITE BLOCK|UNDERLINE|IBEAM [BLINK|STEADY]
+
+DESCRIPTION
+     The SET CURSORSTYLE command sets the appearance of the cursor in
+     INSERT and OVERWRITE (replace) modes.
+     
+     NOTE: Explicit cursor shapes are only fully supported when THE is 
+     run under NCURSES in a modern terminal emulator.
+
+COMPATIBILITY
+     XEDIT: N/A
+     KEDIT: N/A
+
+DEFAULT
+     INSERT IBEAM BLINK
+     OVERWRITE BLOCK STEADY
+
+STATUS
+     Complete.
+**man-end**********************************************************************/
+short Cursorstyle(CHARTYPE *params)
+/***********************************************************************/
+{
+#define CURSORSTYLE_PARAMS 3
+   CHARTYPE *word[CURSORSTYLE_PARAMS+1];
+   CHARTYPE strip[CURSORSTYLE_PARAMS];
+   unsigned short num_params=0;
+   bool is_insert = FALSE;
+   CursorShape shape;
+   CursorBlink blink = CURSOR_STEADY;
+   
+   TRACE_FUNCTION("commset1.c:Cursorstyle");
+   
+   strip[0]=STRIP_BOTH;
+   strip[1]=STRIP_BOTH;
+   strip[2]=STRIP_BOTH;
+   num_params = param_split(params,word,CURSORSTYLE_PARAMS,WORD_DELIMS,TEMP_PARAM,strip,FALSE);
+   
+   if (num_params < 2)
+   {
+      display_error(3,(CHARTYPE *)"",FALSE);
+      TRACE_RETURN();
+      return(RC_INVALID_OPERAND);
+   }
+   if (num_params > 3)
+   {
+      display_error(2,(CHARTYPE *)"",FALSE);
+      TRACE_RETURN();
+      return(RC_INVALID_OPERAND);
+   }
+   
+   if (equal((CHARTYPE *)"insert", word[0], 6)) {
+      is_insert = TRUE;
+      blink = CURSOR_BLINK; /* default if not specified */
+   } else if (equal((CHARTYPE *)"overwrite", word[0], 9)) {
+      is_insert = FALSE;
+   } else {
+      display_error(1,word[0],FALSE);
+      TRACE_RETURN();
+      return RC_INVALID_OPERAND;
+   }
+   
+   if (equal((CHARTYPE *)"block", word[1], 5)) {
+      shape = CURSOR_BLOCK;
+   } else if (equal((CHARTYPE *)"underline", word[1], 9)) {
+      shape = CURSOR_UNDERLINE;
+   } else if (equal((CHARTYPE *)"ibeam", word[1], 5)) {
+      shape = CURSOR_IBEAM;
+   } else {
+      display_error(1,word[1],FALSE);
+      TRACE_RETURN();
+      return RC_INVALID_OPERAND;
+   }
+   
+   if (num_params == 3) {
+      if (equal((CHARTYPE *)"blink", word[2], 5)) {
+         blink = CURSOR_BLINK;
+      } else if (equal((CHARTYPE *)"steady", word[2], 6)) {
+         blink = CURSOR_STEADY;
+      } else {
+         display_error(1,word[2],FALSE);
+         TRACE_RETURN();
+         return RC_INVALID_OPERAND;
+      }
+   }
+   
+   if (is_insert) {
+      cursorstyle_insert_shape = shape;
+      cursorstyle_insert_blink = blink;
+   } else {
+      cursorstyle_over_shape = shape;
+      cursorstyle_over_blink = blink;
+   }
+   
+   if (curses_started)
+      draw_cursor(TRUE);
+   
+   TRACE_RETURN();
+   return RC_OK;
+}
+
 /*man-start*********************************************************************
 COMMAND
      set interface - set overall behaviour of THE

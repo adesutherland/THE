@@ -412,6 +412,9 @@
  [SET] CURSORSTay ON|OFF
        set on or off the behaviour of the cursor on a scroll
        Default: ON
+ [SET] CURSORStyle INSERT|OVERWRITE BLOCK|UNDERLINE|IBEAM [BLINK|STEADY]
+       set the cursor shape for insert and overwrite modes
+       Default: INSERT IBEAM BLINK, OVERWRITE BLOCK STEADY
  [SET] DEFSORT OFF|DIRectory|Size|Date|Time|Name [Ascending|Descending]
        specify the order in which files appear in DIR.DIR
        Default: NAME ASCENDING

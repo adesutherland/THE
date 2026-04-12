@@ -189,6 +189,7 @@ COMMAND command[] =
  {(CHARTYPE *)"creplace",    2,  (-1),            Creplace,         TRUE, FALSE,FALSE,FALSE,FALSE,STRIP_NONE,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm1.c */
  {(CHARTYPE *)"curline",     4,  (-1),            Curline,          TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"cursorstay",  8,  (-1),            CursorStay,       TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
+ {(CHARTYPE *)"cursorstyle",11,  (-1),            Cursorstyle,      TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"define",      3,  (-1),            Define,           TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm2.c */
  {(CHARTYPE *)"delete",      3,  (-1),            DeleteLine,       TRUE, FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""}, /* comm2.c */
 #if defined(DOS) || defined(OS2) || defined(WIN32)

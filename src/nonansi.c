@@ -1680,14 +1680,30 @@ void draw_cursor(bool visible)
 #ifdef HAVE_CURS_SET
    if (visible)
    {
-      if (INSERTMODEx)
+      CursorShape shape = INSERTMODEx ? cursorstyle_insert_shape : cursorstyle_over_shape;
+      CursorBlink blink = INSERTMODEx ? cursorstyle_insert_blink : cursorstyle_over_blink;
+
+#ifdef USE_NCURSES
+      int seq = 1; /* blinking block */
+      if (shape == CURSOR_BLOCK && blink == CURSOR_BLINK) seq = 1;
+      else if (shape == CURSOR_BLOCK && blink == CURSOR_STEADY) seq = 2;
+      else if (shape == CURSOR_UNDERLINE && blink == CURSOR_BLINK) seq = 3;
+      else if (shape == CURSOR_UNDERLINE && blink == CURSOR_STEADY) seq = 4;
+      else if (shape == CURSOR_IBEAM && blink == CURSOR_BLINK) seq = 5;
+      else if (shape == CURSOR_IBEAM && blink == CURSOR_STEADY) seq = 6;
+      
+      printf("\033[%d q", seq);
+      fflush(stdout);
+#endif
+
+      if (shape == CURSOR_BLOCK)
       {
          curs_set(1);   /* First set to displayed... */
          curs_set(2);   /* ...then try to make it more visible */
       }
       else
       {
-         curs_set(1);   /* underline cursor */
+         curs_set(1);   /* underline or ibeam fallback for pdcurses */
       }
    }
    else

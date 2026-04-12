@@ -886,6 +886,40 @@ short extract_cursorstay(short number_variables,short itemno,CHARTYPE *itemargs,
    return set_on_off_value(scroll_cursor_stay,1);
 }
 /***********************************************************************/
+short extract_cursorstyle(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
+/***********************************************************************/
+{
+   switch(cursorstyle_insert_shape)
+   {
+      case CURSOR_BLOCK: item_values[1].value = (CHARTYPE *)"BLOCK"; item_values[1].len = 5; break;
+      case CURSOR_UNDERLINE: item_values[1].value = (CHARTYPE *)"UNDERLINE"; item_values[1].len = 9; break;
+      case CURSOR_IBEAM: item_values[1].value = (CHARTYPE *)"IBEAM"; item_values[1].len = 5; break;
+   }
+   if (cursorstyle_insert_blink == CURSOR_BLINK)
+   {
+      item_values[2].value = (CHARTYPE *)"BLINK"; item_values[2].len = 5;
+   }
+   else
+   {
+      item_values[2].value = (CHARTYPE *)"STEADY"; item_values[2].len = 6;
+   }
+   switch(cursorstyle_over_shape)
+   {
+      case CURSOR_BLOCK: item_values[3].value = (CHARTYPE *)"BLOCK"; item_values[3].len = 5; break;
+      case CURSOR_UNDERLINE: item_values[3].value = (CHARTYPE *)"UNDERLINE"; item_values[3].len = 9; break;
+      case CURSOR_IBEAM: item_values[3].value = (CHARTYPE *)"IBEAM"; item_values[3].len = 5; break;
+   }
+   if (cursorstyle_over_blink == CURSOR_BLINK)
+   {
+      item_values[4].value = (CHARTYPE *)"BLINK"; item_values[4].len = 5;
+   }
+   else
+   {
+      item_values[4].value = (CHARTYPE *)"STEADY"; item_values[4].len = 6;
+   }
+   return number_variables;
+}
+/***********************************************************************/
 short extract_current_function(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {

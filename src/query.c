@@ -79,6 +79,7 @@ extern ExtractFunction extract_ctlchar;
 extern ExtractFunction extract_curline;
 extern ExtractFunction extract_cursor;
 extern ExtractFunction extract_cursorstay;
+extern ExtractFunction extract_cursorstyle;
 extern ExtractFunction extract_current_function;
 extern ExtractFunction extract_define;
 extern ExtractFunction extract_defsort;
@@ -2052,6 +2053,7 @@ QUERY_ITEM _THE_FAR query_item[] =
    {(CHARTYPE *)"curline",         7, 3,ITEM_CURLINE,       6, 6,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_curline                },
    {(CHARTYPE *)"cursor",          6, 4,ITEM_CURSOR,        8, 8,          LVL_VIEW,QUERY_QUERY             |QUERY_EXTRACT             ,extract_cursor                 },
    {(CHARTYPE *)"cursorstay",     10, 8,ITEM_CURSORSTAY,    1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_cursorstay             },
+   {(CHARTYPE *)"cursorstyle",    11, 11,ITEM_CURSORSTYLE,   4, 4,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_cursorstyle            },
    {(CHARTYPE *)"define",          6, 6,ITEM_DEFINE,        1, 0,          LVL_GLOB,QUERY_QUERY             |QUERY_EXTRACT             ,extract_define                 },
    {(CHARTYPE *)"defsort",         7, 7,ITEM_DEFSORT,       2, 2,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_defsort                },
    {(CHARTYPE *)"dirfileid",       9, 9,ITEM_DIRFILEID,     2, 2,          LVL_FILE,                         QUERY_EXTRACT             ,extract_dirfileid              },

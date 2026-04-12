@@ -35,7 +35,7 @@
 'set color ctofeof #569CD6 on #1E1E1E'
 'set color cmdline #D4D4D4 on #2D2D30'
 'set color msgline tomato on #1E1E1E'
-'set color idline darkblue on dodgerblue'
+'set color idline white on #007ACC'
 'set color scale cadetblue on #1E1E1E'
 'set color pending #CE9178 on #1E1E1E'
 'set color shadow #858585 on #1E1E1E'
@@ -71,6 +71,10 @@
 'set ecolor punctuation #D4D4D4 on #1E1E1E'
 'set ecolor paren #D4D4D4 on #1E1E1E'
 'set ecolor match black on #4D4D4D'
+
+/* Cursor Styles */
+'set cursorstyle insert ibeam blink'
+'set cursorstyle overwrite block steady'
 
 /* Display a startup message */
 'msg Welcome to THE (The Hessling Editor) - CREXX Edition'

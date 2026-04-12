@@ -2136,6 +2136,9 @@ typedef struct
    LINETYPE the_header;
 } the_header_mapping;
 
+typedef enum { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_IBEAM } CursorShape;
+typedef enum { CURSOR_STEADY, CURSOR_BLINK } CursorBlink;
+
 #if defined(HAVE_STRICMP)
 # define my_stricmp stricmp
 #elif defined(HAVE_STRCMPI)
