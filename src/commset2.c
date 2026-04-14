@@ -2309,7 +2309,7 @@ short Sdslh(CHARTYPE *params)
     * Validate parameters.
     */
    strip[0]=STRIP_BOTH;
-   strip[1]=STRIP_BOTH;
+   strip[1]=STRIP_NONE;
    num_params = param_split(params,word,SDSLH_PARAMS,WORD_DELIMS,TEMP_PARAM,strip,FALSE);
    /*
     * If no arguments, error.

@@ -120,26 +120,27 @@ int process_key(int key, bool mouse_details_present)
    if (key == (-1))
    {
 #ifdef USE_SDSLH
-      if (CURRENT_FILE && CURRENT_FILE->sdslh_comm && CURRENT_FILE->cb && editor_is_parsing_thread_active()) {
-         for (;;) {
-             if (check_parse_complete_event() == 1) {
-                 reset_parse_complete_event();
-                 key = -2; /* THE_KEY_PARSE_COMPLETE */
-                 break;
-             }
-             nodelay(CURRENT_WINDOW, TRUE);
-             key = my_getch( CURRENT_WINDOW );
-             nodelay(CURRENT_WINDOW, FALSE);
-             if (key != ERR) break;
-             napms(10);
-         }
+      if (CURRENT_FILE && CURRENT_FILE->sdslh_comm && CURRENT_FILE->cb) {
+          if (check_parse_complete_event() == 1) {
+              reset_parse_complete_event();
+              key = -2;
+          } else {
+              /* Wait for input with a 200ms timeout to allow background events to trigger a redraw */
+              wtimeout(CURRENT_WINDOW, 200); 
+              key = my_getch( CURRENT_WINDOW );
+              wtimeout(CURRENT_WINDOW, -1); /* Back to blocking */
+              if (key == ERR) {
+                  /* Timeout occurred, check event again */
+                  if (check_parse_complete_event() == 1) {
+                      reset_parse_complete_event();
+                      key = -2;
+                  } else {
+                      key = -1; /* No input, no event - return to main loop */
+                  }
+              }
+          }
       } else {
-         if (CURRENT_FILE && CURRENT_FILE->sdslh_comm && check_parse_complete_event() == 1) {
-             reset_parse_complete_event();
-             key = -2; /* THE_KEY_PARSE_COMPLETE */
-         } else {
-             key = my_getch( CURRENT_WINDOW );
-         }
+          key = my_getch( CURRENT_WINDOW );
       }
 #else
       key = my_getch( CURRENT_WINDOW );
@@ -175,6 +176,7 @@ int process_key(int key, bool mouse_details_present)
    {
       build_screen(current_screen);
       display_screen(current_screen);
+      show_statarea();
       if (error_on_screen && error_window != NULL)
       {
          getyx(CURRENT_WINDOW,y,x);

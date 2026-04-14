@@ -903,6 +903,9 @@ int THE_bg_from_pair(int pair);
 #define ATTR_PMSGWARN   44
 #define ATTR_PMSGINFO   45
 #define ATTR_MAX        46
+#ifdef USE_SDSLH
+#define KEY_PARSE_COMPLETE 0x1000
+#endif
 /*--------------------- -- ecolour defines -----------------------------*/
 #define ECOLOUR_COMMENTS               0
 #define ECOLOUR_STRINGS                1

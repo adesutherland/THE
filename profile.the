@@ -18,8 +18,13 @@
 'SET AUTOCOLOR *.toy tp'
 
 /* Load cREXX Compiler in Parser Mode */
-'SET SDSLH rxc ~/.local/bin/rxc --parser'
+'SET SDSLH rxc ~/.local/bin/rxc --syntaxhighlight'
 'SET AUTOCOLOR *.rexx rxc'
+
+/* Load cREXX Assembler in Parser Mode */
+'SET SDSLH rxas ~/.local/bin/rxas --syntaxhighlight'
+'SET AUTOCOLOR *.rxas rxas'
+
 'SET COLORING ON AUTO'
 
 /* Configure a modern dark view (VS Code Dark+ Inspired) */
