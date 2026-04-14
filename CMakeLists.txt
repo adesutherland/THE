@@ -81,8 +81,14 @@ endif()
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
-    add_compile_options(-Wno-deprecated-non-prototype)
+# Only add warning-silencing flags for compilers that support and use them.
+# The flag below is a Clang-specific warning control; GCC (cc1) does not recognize it.
+if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+    include(CheckCCompilerFlag)
+    check_c_compiler_flag("-Wno-deprecated-non-prototype" HAS_FLAG_NO_DEPRECATED_NON_PROTOTYPE)
+    if(HAS_FLAG_NO_DEPRECATED_NON_PROTOTYPE)
+        add_compile_options(-Wno-deprecated-non-prototype)
+    endif()
 endif()
 
 # Platform specifics

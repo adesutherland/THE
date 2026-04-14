@@ -350,7 +350,13 @@ extern void ClosedownConsole( int );
 #  define UNIX 1
 #endif
 
-#if defined(UNIX) || defined(VMS)
+/*
+ * Define platform-dependent path separator macros for UNIX/VMS only if they
+ * haven't already been defined by an earlier platform block (e.g. WIN32).
+ * This prevents macro redefinition warnings when both UNIX and WIN32-style
+ * macros are visible via generated config headers.
+ */
+#if (defined(UNIX) || defined(VMS)) && !defined(ESLASH)
 #  define ESLASH '/'
 #  define ESTR_SLASH (CHARTYPE *)"/"
 #  define OSLASH '\\'

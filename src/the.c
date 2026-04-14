@@ -37,6 +37,9 @@
 #include <the.h>
 #include <proto.h>
 #include <time.h>
+#ifdef WIN32
+#  include <windows.h>
+#endif
 
 #ifdef USE_SDSLH
 #endif
