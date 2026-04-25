@@ -496,7 +496,7 @@ static int add_entry( char *start, char *addr, int bin_no )
     * requested bin in hashtable
     */
    ptr = &mem[ indeks++ ] ;
-   ptr->next = hashtable[tmp=mem_hash_func((unsigned long)addr)] ;
+   ptr->next = hashtable[tmp=mem_hash_func((uintptr_t)addr)] ;
    ptr->size = bin_no ;
    ptr->start = start ;
    hashtable[tmp] = ptr ;
@@ -631,7 +631,7 @@ void give_a_block( void *ptr )
     * hashtable that returns memory size given a specific address
     */
    cptr = (char*)ptr ;
-   mptr = hashtable[ mem_hash_func( ((unsigned long)cptr) ) ] ;
+   mptr = hashtable[ mem_hash_func( ((uintptr_t)cptr) ) ] ;
 
    /*
     * For each element in the list attached to the specific hashvalue,
@@ -690,7 +690,7 @@ void *resize_a_block( void *ptr, size_t size )
     * hashtable that returns memory size given a specific address
     */
    cptr = (char*)ptr ;
-   mptr = hashtable[ mem_hash_func( ((unsigned long)cptr) ) ] ;
+   mptr = hashtable[ mem_hash_func( ((uintptr_t)cptr) ) ] ;
 
    /*
     * For each element in the list attached to the specific hashvalue,

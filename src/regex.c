@@ -37,6 +37,7 @@
  */
 # include <stdio.h>
 # include <stdlib.h>
+# include <stdint.h>
 #endif
 
 /* The `emacs' switch turns on certain matching commands
@@ -3922,7 +3923,8 @@ re_match_2 (bufp, string1, size1, string2, size2, pos, regs, stop)
                           regstart[r] = old_regstart[r];
 
                           /* xx why this test?  */
-                          if ((long) old_regend[r] >= (long) regstart[r])
+                          /* Use uintptr_t for portable pointer-address comparison on 32/64-bit. */
+                          if ((uintptr_t) old_regend[r] >= (uintptr_t) regstart[r])
                             regend[r] = old_regend[r];
                         }
                     }

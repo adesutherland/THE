@@ -41,6 +41,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
+#include <string.h>
 
 void trace_initialise(void);
 void trace_function(char *);

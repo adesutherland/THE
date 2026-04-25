@@ -39,6 +39,9 @@
 #include <errno.h>
 #include "directry.h"
 #include "thematch.h"
+#ifdef WIN32
+#  include <windows.h>
+#endif
 
 #if defined(DOS) || defined(OS2)
 #include <io.h>
@@ -2430,8 +2433,10 @@ void sdslh_init_file(FILE_DETAILS *fd) {
             }
             *p = '\0';
             const char *sdslh_log = getenv("THE_SDSLH_LOG");
+#ifdef SDSLH_ENABLE_LOGGING
             if (sdslh_log && *sdslh_log)
                cb_log_init(sdslh_log);
+#endif
             fd->cb = create_code_buffer(fd->sdslh_comm, NULL);
             InitialLoad *initial = create_initial_load((char *)fd->fname, full_text);
             load_initial_content(fd->cb, initial);
