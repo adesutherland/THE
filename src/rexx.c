@@ -2135,28 +2135,44 @@ short initialise_rexx
       (void)
 /***********************************************************************/
 {
+#ifdef USE_CREXX
+ return(initialise_crexx());
+#else
  return(RC_INVALID_ENVIRON);                        /* force an error */
+#endif
 }
 /***********************************************************************/
 short finalise_rexx
       (void)
 /***********************************************************************/
 {
+#ifdef USE_CREXX
+ return(finalise_crexx());
+#else
  return(RC_OK);
+#endif
 }
 /***********************************************************************/
 short execute_macro_file
       (CHARTYPE *filename,CHARTYPE *params,short *macrorc,bool interactive)
 /***********************************************************************/
 {
+#ifdef USE_CREXX
+ return(execute_crexx_macro_file(filename,params,macrorc,interactive));
+#else
  return(RC_OK);
+#endif
 }
 /***********************************************************************/
 short execute_macro_instore
       (CHARTYPE *commands,short *macrorc,CHARTYPE **pcode,int *pcode_len,int *tokenised,int macro_ident)
 /***********************************************************************/
 {
+#ifdef USE_CREXX
+ return(execute_crexx_macro_instore(commands,macrorc,pcode,pcode_len,tokenised,macro_ident));
+#else
  return(RC_OK);
+#endif
 }
 /***********************************************************************/
 short set_rexx_variable
@@ -2179,8 +2195,12 @@ CHARTYPE *get_rexx_interpreter_version
       (CHARTYPE *buf)
 /***********************************************************************/
 {
+#ifdef USE_CREXX
+ return(get_crexx_interpreter_version(buf));
+#else
  strcpy((DEFCHAR *)buf,"NONE");
  return(buf);
+#endif
 }
 
 /***********************************************************************/

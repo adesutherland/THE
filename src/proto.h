@@ -411,6 +411,12 @@ short execute_macro_instore (CHARTYPE *,short *,CHARTYPE **,int *,int *,int);
 short get_rexx_variable (CHARTYPE *,CHARTYPE **,int *);
 short set_rexx_variable (CHARTYPE *,CHARTYPE *,LENGTHTYPE,int);
 CHARTYPE *get_rexx_interpreter_version (CHARTYPE *);
+                                                           /* crexx.c */
+short initialise_crexx (void);
+short finalise_crexx (void);
+short execute_crexx_macro_file (CHARTYPE *,CHARTYPE *,short *,bool);
+short execute_crexx_macro_instore (CHARTYPE *,short *,CHARTYPE **,int *,int *,int);
+CHARTYPE *get_crexx_interpreter_version (CHARTYPE *);
                                                            /* os2eas.c */
 #if defined(OS2)
 bool ReadEAs (CHARTYPE *);

@@ -2429,7 +2429,9 @@ void sdslh_init_file(FILE_DETAILS *fd) {
                lcurr = lcurr->next;
             }
             *p = '\0';
-            cb_log_init("the_editor.log");
+            const char *sdslh_log = getenv("THE_SDSLH_LOG");
+            if (sdslh_log && *sdslh_log)
+               cb_log_init(sdslh_log);
             fd->cb = create_code_buffer(fd->sdslh_comm, NULL);
             InitialLoad *initial = create_initial_load((char *)fd->fname, full_text);
             load_initial_content(fd->cb, initial);

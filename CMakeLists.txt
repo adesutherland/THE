@@ -12,6 +12,7 @@ option(USE_VTCURSES "Build with VT Curses" OFF)
 option(USE_WIDE_CHAR "Enable wide character support" OFF)
 option(USE_UTF8 "Enable UTF-8 support" OFF)
 option(USE_SDSLH "Build with DSL Syntax Highlighter support" ON)
+option(USE_CREXX "Build with embedded CREXX profile/macro support" ON)
 
 # Determine basic curses type based on options
 if(USE_XCURSES)
@@ -174,7 +175,8 @@ if(USE_SDSLH)
     set(SDSLH_LOCAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../DSL-Syntax-Highlighter")
     if(EXISTS "${SDSLH_LOCAL_DIR}/CMakeLists.txt")
         message(STATUS "Found local DSL-Syntax-Highlighter at ${SDSLH_LOCAL_DIR}")
-        add_subdirectory("${SDSLH_LOCAL_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/sdslh" EXCLUDE_FROM_ALL)
+        set(DSL_Syntax_Highlighter_SOURCE_DIR "${SDSLH_LOCAL_DIR}")
+        add_subdirectory("${SDSLH_LOCAL_DIR}/codebuffer" "${CMAKE_CURRENT_BINARY_DIR}/sdslh-codebuffer" EXCLUDE_FROM_ALL)
         set(SDSLH_INCLUDE_DIR "${SDSLH_LOCAL_DIR}/codebuffer")
         set(SDSLH_LIBRARY dslsyntax_editor)
     else()
@@ -185,9 +187,69 @@ if(USE_SDSLH)
             GIT_REPOSITORY https://github.com/crexx-org/DSL-Syntax-Highlighter.git
             GIT_TAG main
         )
-        FetchContent_MakeAvailable(sdslh)
+        FetchContent_GetProperties(sdslh)
+        if(NOT sdslh_POPULATED)
+            FetchContent_Populate(sdslh)
+        endif()
+        set(DSL_Syntax_Highlighter_SOURCE_DIR "${sdslh_SOURCE_DIR}")
+        add_subdirectory("${sdslh_SOURCE_DIR}/codebuffer" "${CMAKE_CURRENT_BINARY_DIR}/sdslh-codebuffer" EXCLUDE_FROM_ALL)
         set(SDSLH_INCLUDE_DIR "${sdslh_SOURCE_DIR}/codebuffer")
         set(SDSLH_LIBRARY dslsyntax_editor)
+    endif()
+endif()
+
+set(THE_USE_CREXX FALSE)
+if(USE_CREXX)
+    find_library(CREXXSAA_LIBRARY
+        NAMES crexxsaa
+        HINTS
+            "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-debug/bin"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-release/bin"
+            "$ENV{HOME}/.local/bin"
+    )
+    find_path(CREXXSAA_INCLUDE_DIR
+        NAMES crexxsaa.h
+        HINTS
+            "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/interpreter"
+            "$ENV{HOME}/.local/include"
+            "$ENV{HOME}/.local/bin"
+    )
+    find_program(CREXX_RXC_EXECUTABLE
+        NAMES rxc
+        HINTS
+            "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-debug/bin"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-release/bin"
+            "$ENV{HOME}/.local/bin"
+    )
+    find_program(CREXX_RXAS_EXECUTABLE
+        NAMES rxas
+        HINTS
+            "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-debug/bin"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-release/bin"
+            "$ENV{HOME}/.local/bin"
+    )
+    find_file(CREXX_LIBRARY_RXBIN
+        NAMES library.rxbin
+        HINTS
+            "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-debug/bin"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-release/bin"
+            "$ENV{HOME}/.local/bin"
+    )
+    if(CREXXSAA_LIBRARY AND CREXXSAA_INCLUDE_DIR AND CREXX_RXC_EXECUTABLE AND CREXX_RXAS_EXECUTABLE AND CREXX_LIBRARY_RXBIN)
+        get_filename_component(CREXX_IMPORT_DIR "${CREXX_LIBRARY_RXBIN}" DIRECTORY)
+        get_filename_component(CREXXSAA_LIBRARY_DIR "${CREXXSAA_LIBRARY}" DIRECTORY)
+        set(THE_USE_CREXX TRUE)
+        message(STATUS "Found CREXXSAA library: ${CREXXSAA_LIBRARY}")
+        message(STATUS "Found CREXX import directory: ${CREXX_IMPORT_DIR}")
+        add_compile_definitions(
+            USE_CREXX=1
+            THE_CREXX_RXC="${CREXX_RXC_EXECUTABLE}"
+            THE_CREXX_RXAS="${CREXX_RXAS_EXECUTABLE}"
+            THE_CREXX_IMPORT_DIR="${CREXX_IMPORT_DIR}"
+            THE_CREXX_LIBRARY_RXBIN="${CREXX_LIBRARY_RXBIN}"
+        )
+    else()
+        message(STATUS "CREXXSAA support disabled; missing crexxsaa, rxc, rxas, or library.rxbin")
     endif()
 endif()
 
@@ -199,6 +261,9 @@ include_directories(
 
 if(USE_SDSLH)
     include_directories(${SDSLH_INCLUDE_DIR})
+endif()
+if(THE_USE_CREXX)
+    include_directories(${CREXXSAA_INCLUDE_DIR})
 endif()
 
 # --- Source Files ---
@@ -215,6 +280,7 @@ set(THE_SOURCES
     src/commset2.c
     src/commsos.c
     src/commutil.c
+    src/crexx.c
     src/cursor.c
     src/default.c
     src/directry.c
@@ -260,6 +326,18 @@ target_link_libraries(${EXECUTABLE_NAME} ${CURSES_LIBRARIES})
 if(USE_SDSLH)
     target_link_libraries(${EXECUTABLE_NAME} ${SDSLH_LIBRARY})
 endif()
+if(THE_USE_CREXX)
+    target_link_libraries(${EXECUTABLE_NAME} ${CREXXSAA_LIBRARY})
+    if(APPLE)
+        set(THE_CREXX_INSTALL_RPATH "@loader_path")
+    else()
+        set(THE_CREXX_INSTALL_RPATH "$ORIGIN")
+    endif()
+    set_target_properties(${EXECUTABLE_NAME} PROPERTIES
+        BUILD_RPATH "${CREXXSAA_LIBRARY_DIR}"
+        INSTALL_RPATH "${THE_CREXX_INSTALL_RPATH}"
+    )
+endif()
 
 # Setup Release Directory in Build Folder
 set(RELEASE_DIR "${CMAKE_CURRENT_BINARY_DIR}/release")
@@ -300,3 +378,8 @@ install(DIRECTORY syntax/ DESTINATION share/the/syntax)
 # --- Automated Testing ---
 enable_testing()
 add_test(NAME test_sdslh_integration COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdslh_integration.sh)
+set_tests_properties(test_sdslh_integration PROPERTIES SKIP_RETURN_CODE 77)
+if(THE_USE_CREXX)
+    add_test(NAME test_crexx_profile COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_crexx_profile.sh)
+    set_tests_properties(test_crexx_profile PROPERTIES SKIP_RETURN_CODE 77)
+endif()
