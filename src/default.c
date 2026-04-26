@@ -968,13 +968,14 @@ short default_file_attributes(FILE_DETAILS *fd)
    /*
     * Set defaults for the current file based on the settings for the
     * previous file. The defaults to copy are:
-    * - colours, reserved lines.
+    * - colours, syntax colours, reserved lines.
     */
    if (fd != NULL)
    {
       CURRENT_FILE->trailing = fd->trailing;
       CURRENT_FILE->display_actual_filename = fd->display_actual_filename;
       memcpy(CURRENT_FILE->attr,fd->attr,ATTR_MAX*sizeof(COLOUR_ATTR));
+      memcpy(CURRENT_FILE->ecolour,fd->ecolour,ECOLOUR_MAX*sizeof(COLOUR_ATTR));
       /*
        * If in XEDIT compatibility mode, don't copy reserved lines to the
        * new file.

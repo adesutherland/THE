@@ -146,7 +146,9 @@ the -p ~/.local/share/the/profile_crexx.the myprog.rexx
 The helper macros behind `F8` and `F9` are `crexxcompile.the` and
 `crexxrun.the`. They are intended for interactive editor sessions; THE batch
 mode rejects `OS` commands, so batch tests should call the CREXX toolchain
-directly rather than using those key helpers.
+directly rather than using those key helpers. Both macros extract the active
+file's full editor id before invoking `crexx`, so switching files in the ring
+changes the compile/run target.
 
 ## Batch smoke testing
 

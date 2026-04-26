@@ -2,12 +2,10 @@ options levelb
 import rxfnsb
 address the
 
-fpath = .string[]
-filename = .string[]
-address the "extract /fpath/" expose fpath[]
-address the "extract /filename/" expose filename[]
+efileid = .string[]
+address the "extract /efileid/" expose efileid[]
 
-source = fpath[1] || filename[1]
+source = efileid[1]
 if source = "" then do
   'emsg CREXXRUN no current file'
 end

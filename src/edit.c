@@ -121,8 +121,8 @@ int process_key(int key, bool mouse_details_present)
    {
 #ifdef USE_SDSLH
       if (CURRENT_FILE && CURRENT_FILE->sdslh_comm && CURRENT_FILE->cb) {
-          if (check_parse_complete_event() == 1) {
-              reset_parse_complete_event();
+          if (cb_check_parse_complete_event(CURRENT_FILE->cb) == 1) {
+              cb_reset_parse_complete_event(CURRENT_FILE->cb);
               key = -2;
           } else {
               /* Wait for input with a 200ms timeout to allow background events to trigger a redraw */
@@ -131,8 +131,8 @@ int process_key(int key, bool mouse_details_present)
               wtimeout(CURRENT_WINDOW, -1); /* Back to blocking */
               if (key == ERR) {
                   /* Timeout occurred, check event again */
-                  if (check_parse_complete_event() == 1) {
-                      reset_parse_complete_event();
+                  if (cb_check_parse_complete_event(CURRENT_FILE->cb) == 1) {
+                      cb_reset_parse_complete_event(CURRENT_FILE->cb);
                       key = -2;
                   } else {
                       key = -1; /* No input, no event - return to main loop */

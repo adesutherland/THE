@@ -2438,7 +2438,7 @@ void sdslh_init_file(FILE_DETAILS *fd) {
                cb_log_init(sdslh_log);
 #endif
             fd->cb = create_code_buffer(fd->sdslh_comm, NULL);
-            InitialLoad *initial = create_initial_load((char *)fd->fname, full_text);
+            InitialLoad *initial = create_initial_load((char *)(fd->efileid ? fd->efileid : fd->fname), full_text);
             load_initial_content(fd->cb, initial);
             (*the_free)(full_text);
          }

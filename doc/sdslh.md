@@ -43,5 +43,18 @@ By default, `profile.the` maps these areas to a modern dark theme inspired by VS
 'set ecolor match black on #4D4D4D'
 ```
 
+`ECOLOR` settings are inherited by files opened later in the file ring, so a
+profile's syntax theme applies consistently across mixed `.rexx`, `.rxas`, and
+other SDSLH-backed files.
+
 ## Note on Bracket Matching (`ECOLOUR_MATCH`)
 Unlike other tokens which are determined directly by the external parser, `ECOLOUR_MATCH` is applied dynamically by THE's rendering engine when the user's cursor is positioned directly over a structural parenthesis, brace, or bracket. It replaces the classic `A_REVERSE` logic to allow full 24-bit RGB customization of the match indicator.
+
+## Document Identity and Parser Results
+
+THE sends the file's full editor file id to SDSLH as the document identity. This
+keeps parser-side import resolution and retained syntax state separate for files
+with the same basename in different directories.
+
+Parser completion notifications are checked per file buffer, so a background
+parse result for one open file does not consume the redraw signal for another.
