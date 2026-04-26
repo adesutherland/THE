@@ -416,6 +416,8 @@ short initialise_crexx (void);
 short finalise_crexx (void);
 short execute_crexx_macro_file (CHARTYPE *,CHARTYPE *,short *,bool);
 short execute_crexx_macro_instore (CHARTYPE *,short *,CHARTYPE **,int *,int *,int);
+short set_crexx_variable (CHARTYPE *,CHARTYPE *,LENGTHTYPE,int);
+short get_crexx_variable (CHARTYPE *,CHARTYPE **,int *);
 CHARTYPE *get_crexx_interpreter_version (CHARTYPE *);
                                                            /* os2eas.c */
 #if defined(OS2)
@@ -761,6 +763,7 @@ short Undoing (CHARTYPE *);
 short Untaa (CHARTYPE *);
 short Up (CHARTYPE *);
 short Uppercase (CHARTYPE *);
+short Validtarget (CHARTYPE *);
 short Verify (CHARTYPE *);
 short Width (CHARTYPE *);
 short Word (CHARTYPE *);

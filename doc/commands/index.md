@@ -118,6 +118,7 @@
 - [TOP](TOP.md) - move to the top of the file
 - [UP](UP.md) - move backward in the file a number of lines
 - [UPPERCASE](UPPERCASE.md) - change lowercase characters to uppercase
+- [VALIDTARGET](VALIDTARGET.md) - validate a target and return parsed range details
 - [XEDIT](XEDIT.md) - edit another file or switch to next file
 - [?](QUESTION.md) - retrieve - return the next/prior command on the command line
 - [=](EQUALS.md) - re-execute the last command issued on the command line

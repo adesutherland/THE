@@ -362,6 +362,102 @@ short execute_crexx_macro_instore(
    return(rc);
 }
 
+static char *crexx_variable_name(CHARTYPE *name,int suffix)
+{
+   char *variable_name=NULL;
+   size_t len=0;
+
+   if (name == NULL)
+      return(NULL);
+   len = strlen((char *)name) + 32;
+   variable_name = (char *)(*the_malloc)(len);
+   if (variable_name == NULL)
+      return(NULL);
+   if (suffix == -1)
+      snprintf(variable_name,len,"%s",(char *)name);
+   else
+      snprintf(variable_name,len,"%s.%d",(char *)name,suffix);
+   return(variable_name);
+}
+
+short set_crexx_variable(CHARTYPE *name,CHARTYPE *value,LENGTHTYPE value_length,int suffix)
+{
+   char *variable_name=NULL;
+   int rc=0;
+
+   TRACE_FUNCTION("crexx.c:   set_crexx_variable");
+   if (the_crexx_context == NULL)
+   {
+      TRACE_RETURN();
+      return(RC_INVALID_ENVIRON);
+   }
+   variable_name = crexx_variable_name(name,suffix);
+   if (variable_name == NULL)
+   {
+      TRACE_RETURN();
+      return(RC_OUT_OF_MEMORY);
+   }
+
+   rc = crexxsaa_address_variable_set(
+      the_crexx_context,
+      variable_name,
+      (char *)value,
+      (size_t)value_length);
+   (*the_free)(variable_name);
+   if (rc != CREXXSAA_VARIABLE_OK)
+   {
+      crexx_display_error("Unable to update CREXX variable",
+                          crexxsaa_last_error(the_crexx_context));
+      TRACE_RETURN();
+      return(RC_SYSTEM_ERROR);
+   }
+   TRACE_RETURN();
+   return(RC_OK);
+}
+
+short get_crexx_variable(CHARTYPE *name,CHARTYPE **value,int *value_length)
+{
+   char *crexx_value=NULL;
+   size_t crexx_value_length=0;
+   int rc=0;
+
+   TRACE_FUNCTION("crexx.c:   get_crexx_variable");
+   if (value != NULL)
+      *value = NULL;
+   if (value_length != NULL)
+      *value_length = 0;
+   if (the_crexx_context == NULL || name == NULL || value == NULL || value_length == NULL)
+   {
+      TRACE_RETURN();
+      return(RC_INVALID_ENVIRON);
+   }
+
+   rc = crexxsaa_address_variable_get_alloc(
+      the_crexx_context,
+      (char *)name,
+      &crexx_value,
+      &crexx_value_length);
+   if (rc != CREXXSAA_VARIABLE_OK)
+   {
+      TRACE_RETURN();
+      return(RC_INVALID_ENVIRON);
+   }
+
+   *value = (CHARTYPE *)(*the_malloc)(crexx_value_length + 1);
+   if (*value == NULL)
+   {
+      crexxsaa_free(crexx_value);
+      TRACE_RETURN();
+      return(RC_OUT_OF_MEMORY);
+   }
+   memcpy(*value,crexx_value,crexx_value_length);
+   (*value)[crexx_value_length] = '\0';
+   *value_length = (int)crexx_value_length;
+   crexxsaa_free(crexx_value);
+   TRACE_RETURN();
+   return(RC_OK);
+}
+
 CHARTYPE *get_crexx_interpreter_version(CHARTYPE *buf)
 {
    strcpy((char *)buf,"CREXXSAA");
@@ -412,6 +508,25 @@ CHARTYPE *get_crexx_interpreter_version(CHARTYPE *buf)
 {
    strcpy((char *)buf,"CREXX unavailable");
    return(buf);
+}
+
+short set_crexx_variable(CHARTYPE *name,CHARTYPE *value,LENGTHTYPE value_length,int suffix)
+{
+   (void)name;
+   (void)value;
+   (void)value_length;
+   (void)suffix;
+   return(RC_INVALID_ENVIRON);
+}
+
+short get_crexx_variable(CHARTYPE *name,CHARTYPE **value,int *value_length)
+{
+   (void)name;
+   if (value != NULL)
+      *value = NULL;
+   if (value_length != NULL)
+      *value_length = 0;
+   return(RC_INVALID_ENVIRON);
 }
 
 #endif

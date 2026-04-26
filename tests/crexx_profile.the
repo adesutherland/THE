@@ -1,4 +1,46 @@
 options levelb
+import rxfnsb
 address the
+
+filename = .string[]
+address the "extract /filename/" expose filename[]
+if filename[1] \= "" then 'emsg CREXX_EXPOSE_FILENAME'
+
+fpath = ""
+address the "extract /fpath/" expose fpath
+if fpath \= "" then 'emsg CREXX_EXPOSE_SCALAR_STEM_ALIAS'
+
+the_value = "from-expose"
+address the "editv put the_value" expose the_value
+the_value = ""
+address the "editv get the_value" expose the_value
+if the_value = "from-expose" then 'emsg CREXX_EDITV_EXPOSE_ROUNDTRIP'
+
+scalar_value = "from-scalar-alias"
+address the "editv put scalar_value.1" expose scalar_value
+scalar_value = ""
+address the "editv get scalar_value.1" expose scalar_value
+if scalar_value = "from-scalar-alias" then 'emsg CREXX_EDITV_SCALAR_STEM_ALIAS'
+
+validtarget = .string[]
+address the "validtarget 1" expose validtarget[]
+if validtarget[1] = "0 1" then 'emsg CREXX_VALIDTARGET_BASIC'
+
+address the "validtarget spare 1 /tail/" expose validtarget[]
+if validtarget[1] = "0 1 /tail/" then 'emsg CREXX_VALIDTARGET_SPARE'
+
+address the "validtarget /not-present-in-profile-smoke/" expose validtarget[]
+if validtarget[1] = "NOTFOUND" then 'emsg CREXX_VALIDTARGET_NOTFOUND'
+
+pool = .standardaddresssandbox()
+address the "extract /filename/" sandbox pool
+if pool.get("filename.1") \= "" then 'emsg CREXX_SANDBOX_FILENAME'
+
+call pool.set("THE_VALUE", "from-sandbox")
+address the "editv put the_value" sandbox pool
+call pool.set("THE_VALUE", "")
+address the "editv get the_value" sandbox pool
+if pool.get("THE_VALUE") = "from-sandbox" then 'emsg CREXX_EDITV_SANDBOX_ROUNDTRIP'
+
 'emsg CREXX_PROFILE_HOSTED'
 'file'

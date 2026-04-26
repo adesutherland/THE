@@ -42,6 +42,15 @@ run_the() {
 
 run_the first
 grep -q "CREXX_PROFILE_HOSTED" "${WORK_DIR}/first.err"
+grep -q "CREXX_EXPOSE_FILENAME" "${WORK_DIR}/first.err"
+grep -q "CREXX_EXPOSE_SCALAR_STEM_ALIAS" "${WORK_DIR}/first.err"
+grep -q "CREXX_EDITV_EXPOSE_ROUNDTRIP" "${WORK_DIR}/first.err"
+grep -q "CREXX_EDITV_SCALAR_STEM_ALIAS" "${WORK_DIR}/first.err"
+grep -q "CREXX_VALIDTARGET_BASIC" "${WORK_DIR}/first.err"
+grep -q "CREXX_VALIDTARGET_SPARE" "${WORK_DIR}/first.err"
+grep -q "CREXX_VALIDTARGET_NOTFOUND" "${WORK_DIR}/first.err"
+grep -q "CREXX_SANDBOX_FILENAME" "${WORK_DIR}/first.err"
+grep -q "CREXX_EDITV_SANDBOX_ROUNDTRIP" "${WORK_DIR}/first.err"
 grep -q "CREXXSAA cache miss:" "${WORK_DIR}/first.err"
 
 if ! find "${CACHE_DIR}" -name '*.rxbin' | grep -q .; then
@@ -51,6 +60,13 @@ fi
 
 run_the second
 grep -q "CREXX_PROFILE_HOSTED" "${WORK_DIR}/second.err"
+grep -q "CREXX_EXPOSE_SCALAR_STEM_ALIAS" "${WORK_DIR}/second.err"
+grep -q "CREXX_EDITV_EXPOSE_ROUNDTRIP" "${WORK_DIR}/second.err"
+grep -q "CREXX_EDITV_SCALAR_STEM_ALIAS" "${WORK_DIR}/second.err"
+grep -q "CREXX_VALIDTARGET_BASIC" "${WORK_DIR}/second.err"
+grep -q "CREXX_VALIDTARGET_SPARE" "${WORK_DIR}/second.err"
+grep -q "CREXX_VALIDTARGET_NOTFOUND" "${WORK_DIR}/second.err"
+grep -q "CREXX_EDITV_SANDBOX_ROUNDTRIP" "${WORK_DIR}/second.err"
 grep -q "CREXXSAA cache hit:" "${WORK_DIR}/second.err"
 
 cat > "${PROFILE}" <<'PROFILE_EOF'

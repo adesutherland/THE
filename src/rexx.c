@@ -2179,7 +2179,15 @@ short set_rexx_variable
       (CHARTYPE *name,CHARTYPE *value,LENGTHTYPE value_length,int suffix)
 /***********************************************************************/
 {
+#ifdef USE_CREXX
+ return(set_crexx_variable(name,value,value_length,suffix));
+#else
+ (void)name;
+ (void)value;
+ (void)value_length;
+ (void)suffix;
  return(RC_OK);
+#endif
 }
 
 /***********************************************************************/
@@ -2187,7 +2195,16 @@ short get_rexx_variable
       (CHARTYPE *name,CHARTYPE **value,int *value_length)
 /***********************************************************************/
 {
+#ifdef USE_CREXX
+ return(get_crexx_variable(name,value,value_length));
+#else
+ (void)name;
+ if (value != NULL)
+    *value = NULL;
+ if (value_length != NULL)
+    *value_length = 0;
  return(RC_OK);
+#endif
 }
 
 /***********************************************************************/

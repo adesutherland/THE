@@ -1146,6 +1146,153 @@ short Uppercase(CHARTYPE *params)
 }
 /*man-start*********************************************************************
 COMMAND
+     validtarget - validate a THE target and return parsed range details
+
+SYNTAX
+     VALIDTarget [SPARE] target
+
+DESCRIPTION
+     The VALIDTARGET command validates a THE target using the same target
+     parser used by THE commands. It is intended for macros that need the
+     old valid_target() helper behaviour without using a Rexx external
+     function interface.
+
+     The command sets the following Rexx variables:
+
+          VALIDTARGET.0 - 1
+          VALIDTARGET.1 - ERROR, NOTFOUND, or "line count [spare]"
+
+     SPARE allows the target operand to be followed by additional text. When
+     present, that additional text is appended to VALIDTARGET.1 after the
+     parsed line and count.
+
+COMPATIBILITY
+     XEDIT: N/A
+     KEDIT: N/A
+
+STATUS
+     Complete.
+**man-end**********************************************************************/
+short Validtarget(CHARTYPE *params)
+/***********************************************************************/
+{
+#define VALIDTARGET_PARAMS 2
+   CHARTYPE *word[VALIDTARGET_PARAMS+1];
+   CHARTYPE strip[VALIDTARGET_PARAMS];
+   CHARTYPE *target_text=NULL;
+   CHARTYPE *result=(CHARTYPE *)"ERROR";
+   CHARTYPE *spare_text=NULL;
+   CHARTYPE *spare_copy=NULL;
+   CHARTYPE one[2];
+   TARGET target;
+   LINETYPE true_line=0L;
+   long target_type=TARGET_NORMAL|TARGET_BLOCK_CURRENT|TARGET_ALL;
+   short rc=RC_OK;
+   unsigned short num_params=0;
+   bool spare=FALSE;
+   size_t target_len=0;
+
+   TRACE_FUNCTION("comm5.c:   Validtarget");
+   one[0] = '1';
+   one[1] = '\0';
+
+   if (!in_macro || !rexx_support)
+   {
+      display_error(53,(CHARTYPE *)"",FALSE);
+      TRACE_RETURN();
+      return(RC_INVALID_ENVIRON);
+   }
+
+   params = MyStrip(params,STRIP_BOTH,' ');
+   if (!blank_field(params))
+   {
+      strip[0] = STRIP_BOTH;
+      strip[1] = STRIP_NONE;
+      num_params = param_split(params,word,VALIDTARGET_PARAMS,WORD_DELIMS,TEMP_PARAM,strip,FALSE);
+      if (num_params > 0 && equal((CHARTYPE *)"spare",word[0],5))
+      {
+         spare = TRUE;
+         if (num_params > 1)
+            target_text = MyStrip(word[1],STRIP_BOTH,' ');
+      }
+      else
+         target_text = params;
+   }
+
+   if (target_text != NULL && !blank_field(target_text))
+   {
+      if (spare)
+         target_type = target_type | TARGET_SPARE;
+
+      target_len = strlen((DEFCHAR *)target_text);
+      if (target_buffer == NULL)
+      {
+         target_buffer = (CHARTYPE *)(*the_malloc)(sizeof(CHARTYPE)*(target_len+30));
+         target_buffer_len = target_len+30;
+      }
+      else
+      {
+         if (target_buffer_len < target_len+30)
+         {
+            target_buffer = (CHARTYPE *)(*the_realloc)(target_buffer,sizeof(CHARTYPE)*(target_len+30));
+            target_buffer_len = target_len+30;
+         }
+      }
+      if (target_buffer == (CHARTYPE *)NULL)
+      {
+         display_error(30,(CHARTYPE *)"",FALSE);
+         TRACE_RETURN();
+         return(RC_OUT_OF_MEMORY);
+      }
+
+      memcpy(target_buffer,target_text,target_len);
+      *(target_buffer+target_len) = '\0';
+      true_line = (in_prefix_macro) ? prefix_current_line : get_true_line(TRUE);
+
+      initialise_target(&target);
+      rc = validate_target(target_buffer,&target,target_type,true_line,FALSE,FALSE);
+      if (rc == RC_TARGET_NOT_FOUND)
+         result = (CHARTYPE *)"NOTFOUND";
+      else if (rc == RC_OK)
+      {
+         if (spare && target.spare != (-1))
+         {
+            spare_text = MyStrip(target.rt[target.spare].string,STRIP_BOTH,' ');
+            spare_copy = (CHARTYPE *)(*the_malloc)(strlen((DEFCHAR *)spare_text)+1);
+            if (spare_copy == (CHARTYPE *)NULL)
+            {
+               free_target(&target);
+               display_error(30,(CHARTYPE *)"",FALSE);
+               TRACE_RETURN();
+               return(RC_OUT_OF_MEMORY);
+            }
+            strcpy((DEFCHAR *)spare_copy,(DEFCHAR *)spare_text);
+            sprintf((DEFCHAR *)target_buffer,"%ld %ld %s",target.true_line,target.num_lines,
+                                          spare_copy);
+            (*the_free)(spare_copy);
+            spare_copy = NULL;
+         }
+         else
+            sprintf((DEFCHAR *)target_buffer,"%ld %ld",target.true_line,target.num_lines);
+         result = target_buffer;
+      }
+      free_target(&target);
+   }
+
+   rc = set_rexx_variable((CHARTYPE *)"VALIDTARGET",one,1,0);
+   if (rc == RC_OK)
+      rc = set_rexx_variable((CHARTYPE *)"VALIDTARGET",result,strlen((DEFCHAR *)result),1);
+   if (rc == RC_SYSTEM_ERROR)
+   {
+      display_error(54,(CHARTYPE *)"",FALSE);
+      TRACE_RETURN();
+      return(RC_SYSTEM_ERROR);
+   }
+   TRACE_RETURN();
+   return(RC_OK);
+}
+/*man-start*********************************************************************
+COMMAND
      xedit - edit another file or switch to next file
 
 SYNTAX
