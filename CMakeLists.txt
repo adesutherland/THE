@@ -353,6 +353,9 @@ add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${EXECUTABLE_NAME}> ${RELEASE_DIR}/${EXECUTABLE_NAME}
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/doc/THE_Help.txt ${RELEASE_DIR}/THE_Help.txt
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/profile.the ${RELEASE_DIR}/profile.the
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/profile_crexx.the ${RELEASE_DIR}/profile_crexx.the
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/crexxcompile.the ${RELEASE_DIR}/crexxcompile.the
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/crexxrun.the ${RELEASE_DIR}/crexxrun.the
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/syntax ${RELEASE_DIR}/syntax
     COMMENT "Copying executable and resources to ${RELEASE_DIR}"
 )
@@ -378,7 +381,7 @@ install(TARGETS ${EXECUTABLE_NAME} DESTINATION bin)
 if(WIN32)
     install(FILES $<TARGET_FILE:${CURSES_LIBRARIES}> DESTINATION bin)
 endif()
-install(FILES doc/THE_Help.txt profile.the DESTINATION share/the)
+install(FILES doc/THE_Help.txt profile.the profile_crexx.the crexxcompile.the crexxrun.the DESTINATION share/the)
 install(DIRECTORY syntax/ DESTINATION share/the/syntax)
 
 # --- Automated Testing ---

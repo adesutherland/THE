@@ -1,0 +1,20 @@
+options levelb
+import rxfnsb
+address the
+
+fpath = .string[]
+filename = .string[]
+address the "extract /fpath/" expose fpath[]
+address the "extract /filename/" expose filename[]
+
+source = fpath[1] || filename[1]
+if source = "" then do
+  'emsg CREXXCOMPILE no current file'
+end
+else do
+  'save'
+  command = 'crexx -noexec "' || source || '"'
+  'msg ' || command
+  'os ' || command
+  if rc \= 0 then 'emsg CREXXCOMPILE rc ' || rc
+end

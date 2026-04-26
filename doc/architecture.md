@@ -31,10 +31,10 @@ THE manages state through three primary structures:
 - **`build_screen()`**: When the event loop is ready, this function traverses the `VIEW_DETAILS` and `FILE_DETAILS` structures to populate the logical ncurses display buffers.
 - **`display_screen()`**: Flushes the logical buffers to the physical terminal using optimized ncurses calls (`wnoutrefresh`, `doupdate`).
 
-### 6. Scripting and Extension (`src/rexx.c`)
+### 6. Scripting and Extension (`src/rexx.c`, `src/crexx.c`)
 - **Rexx Integration**: THE is deeply integrated with the Rexx scripting language. Macros written in Rexx can be executed to automate editor tasks.
 - **Two-Way Bridge**: The C codebase calls out to the Rexx interpreter to run scripts, and Rexx scripts call back into THE's command subsystem (`execute_macro()`) to mutate editor state.
-- **CREXX Future**: This architectural seam is where the new, high-performance CREXX engine is being integrated to replace legacy interpreters like Regina.
+- **CREXX Bridge**: When built with CREXX support, THE uses `crexxsaa` to compile/cache CREXX source profiles and macros, run existing `.rxbin` macros, and register `ADDRESS THE` as a native callback environment. CREXX scripts then issue normal THE commands through the existing command subsystem. See [CREXX Integration](crexx.md).
 
 ---
 *This document was generated as part of the C99/CMake modernization effort to assist future contributors in navigating the codebase.*

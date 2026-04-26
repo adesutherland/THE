@@ -12,7 +12,7 @@ The primary goals of this fork are:
 3. **CREXX Integration:** This fork is specifically designed to support the integration of [CREXX](https://github.com/crexx-org), bringing a modern, high-performance, and deeply integrated Rexx scripting engine natively into the editor.
 
 ## Architecture
-For developers and contributors, a high-level overview of the editor's internal design, event loop, and data structures is available in the [Architecture Overview](doc/architecture.md).
+For developers and contributors, a high-level overview of the editor's internal design, event loop, and data structures is available in the [Architecture Overview](doc/architecture.md). The CREXX bridge is documented separately in [CREXX Integration](doc/crexx.md).
 
 ---
 
@@ -28,7 +28,7 @@ make
 make install
 ```
 
-By default, the `install` target will stage the `the` executable and the necessary configuration files (like `THE_Help.txt`, `syntax/` highlights, and `profile.the`) into a standard release directory structure.
+By default, the `install` target will stage the `the` executable and the necessary configuration files (like `THE_Help.txt`, `syntax/` highlights, `profile.the`, and the optional CREXX helper profile/macros) into a standard release directory structure.
 
 ## Quick Tips for macOS Users
 

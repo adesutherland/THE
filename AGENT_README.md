@@ -9,10 +9,15 @@
 - **Codebase Standardization**: The entire C codebase has been strictly refactored from pre-ANSI (K&R) C to the **C99 standard**. All legacy `#ifdef HAVE_PROTO` blocks and `Args()` macros were stripped to ensure strict compliance and eliminate hundreds of compiler warnings on modern Clang/GCC compilers.
 - **Architecture & Extensibility**: The project maintains a clean separation between file data models, ncurses rendering views, and command execution logic. For a detailed breakdown of the codebase structure, see the [Architecture Overview](doc/architecture.md).
 
-## 2. Next Steps & CREXX Integration
-This fork is explicitly tailored for the integration of the modern [CREXX](https://github.com/crexx-org) scripting engine. 
+## 2. CREXX Integration
+This fork is explicitly tailored for the modern [CREXX](https://github.com/crexx-org) scripting engine.
 
-### Future Integration Goals:
-1. **Re-enabling Rexx**: Currently, `NOREXX=1` is hardcoded in the CMake configuration to bypass the legacy interpreter integrations (Regina, uni-REXX, etc.). The next phase involves adding a `find_package(CREXX)` block to CMake and mapping the new CREXX API into the `src/rexx.c` subsystem.
-2. **Platform Testing**: The CMake build has been fully verified on macOS (Darwin). Further testing is required to validate the build on Windows (potentially utilizing the embedded `PDCursesMod` or external PDCurses) and Linux.
-3. **Packaging**: The CMake `install()` targets currently stage the executable and resources into a `release/` directory. Future updates may involve integrating `CPack` to generate distributable `.dmg`, `.deb`, or `.zip` files seamlessly.
+### Current Integration:
+1. **Hosted Profiles and Macros**: THE builds with `NOREXX=1` for legacy interpreters, but `USE_CREXX=ON` enables the `src/crexx.c` bridge through `crexxsaa`.
+2. **ADDRESS THE**: CREXX scripts run with a native `ADDRESS THE` environment, so profile and macro commands flow through THE's existing command subsystem.
+3. **Source Cache**: CREXX source profiles/macros are compiled and cached by `crexxsaa`; existing `.rxbin` macros can be run directly.
+4. **Documentation**: The current bridge contract is documented in [CREXX Integration](doc/crexx.md).
+
+### Remaining Goals:
+1. **Platform Testing**: macOS and local development workflows are the main proven path. Windows and Linux should continue to be validated in CI and packaging tests.
+2. **Packaging**: The CMake `install()` targets stage the executable and resources into a release directory. Future updates may involve integrating `CPack` to generate distributable `.dmg`, `.deb`, or `.zip` files.
