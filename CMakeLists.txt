@@ -13,6 +13,13 @@ option(USE_WIDE_CHAR "Enable wide character support" OFF)
 option(USE_UTF8 "Enable UTF-8 support" OFF)
 option(USE_SDSLH "Build with DSL Syntax Highlighter support" ON)
 option(USE_CREXX "Build with embedded CREXX profile/macro support" ON)
+set(DSLSH_LOCAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../DSL-Syntax-Highlighter"
+        CACHE PATH "Path to a local DSL-Syntax-Highlighter checkout")
+option(DSLSH_PREFER_LOCAL "Prefer a local/sibling DSL-Syntax-Highlighter checkout when present" ON)
+set(DSLSH_GIT_REPOSITORY "https://github.com/adesutherland/DSL-Syntax-Highlighter.git"
+        CACHE STRING "DSL-Syntax-Highlighter Git repository")
+set(DSLSH_GIT_TAG "develop"
+        CACHE STRING "DSL-Syntax-Highlighter Git branch, tag, or commit SHA")
 
 # Determine basic curses type based on options
 if(USE_XCURSES)
@@ -176,31 +183,30 @@ endif()
 
 if(USE_SDSLH)
     add_compile_definitions(USE_SDSLH=1)
-    
-    # Try finding in the sibling directory first
-    set(SDSLH_LOCAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../DSL-Syntax-Highlighter")
-    if(EXISTS "${SDSLH_LOCAL_DIR}/CMakeLists.txt")
-        message(STATUS "Found local DSL-Syntax-Highlighter at ${SDSLH_LOCAL_DIR}")
-        set(DSL_Syntax_Highlighter_SOURCE_DIR "${SDSLH_LOCAL_DIR}")
-        add_subdirectory("${SDSLH_LOCAL_DIR}/codebuffer" "${CMAKE_CURRENT_BINARY_DIR}/sdslh-codebuffer" EXCLUDE_FROM_ALL)
-        set(SDSLH_INCLUDE_DIR "${SDSLH_LOCAL_DIR}/codebuffer")
-        set(SDSLH_LIBRARY dslsyntax_editor)
+
+    if(DSLSH_PREFER_LOCAL AND EXISTS "${DSLSH_LOCAL_DIR}/codebuffer/CMakeLists.txt")
+        message(STATUS "Using local DSL-Syntax-Highlighter at ${DSLSH_LOCAL_DIR}")
+        set(DSLSH_SOURCE_DIR "${DSLSH_LOCAL_DIR}")
+        add_subdirectory("${DSLSH_SOURCE_DIR}/codebuffer" "${CMAKE_CURRENT_BINARY_DIR}/sdslh-codebuffer" EXCLUDE_FROM_ALL)
     else()
-        message(STATUS "Local DSL-Syntax-Highlighter not found, fetching from GitHub...")
         include(FetchContent)
+        message(STATUS "Fetching DSL-Syntax-Highlighter ${DSLSH_GIT_TAG} from ${DSLSH_GIT_REPOSITORY}")
         FetchContent_Declare(
-            sdslh
-            GIT_REPOSITORY https://github.com/crexx-org/DSL-Syntax-Highlighter.git
-            GIT_TAG main
+            dsl_syntax_highlighter
+            GIT_REPOSITORY ${DSLSH_GIT_REPOSITORY}
+            GIT_TAG ${DSLSH_GIT_TAG}
+            SOURCE_SUBDIR codebuffer
         )
-        FetchContent_GetProperties(sdslh)
-        if(NOT sdslh_POPULATED)
-            FetchContent_Populate(sdslh)
-        endif()
-        set(DSL_Syntax_Highlighter_SOURCE_DIR "${sdslh_SOURCE_DIR}")
-        add_subdirectory("${sdslh_SOURCE_DIR}/codebuffer" "${CMAKE_CURRENT_BINARY_DIR}/sdslh-codebuffer" EXCLUDE_FROM_ALL)
-        set(SDSLH_INCLUDE_DIR "${sdslh_SOURCE_DIR}/codebuffer")
-        set(SDSLH_LIBRARY dslsyntax_editor)
+        FetchContent_MakeAvailable(dsl_syntax_highlighter)
+        FetchContent_GetProperties(dsl_syntax_highlighter)
+        set(DSLSH_SOURCE_DIR "${dsl_syntax_highlighter_SOURCE_DIR}")
+    endif()
+
+    if(TARGET dslsyntax_editor)
+        target_include_directories(dslsyntax_editor PUBLIC "${DSLSH_SOURCE_DIR}/codebuffer")
+    endif()
+    if(NOT TARGET DSLSH::editor AND TARGET dslsyntax_editor)
+        add_library(DSLSH::editor ALIAS dslsyntax_editor)
     endif()
 endif()
 
@@ -265,9 +271,6 @@ include_directories(
     ${CURSES_INCLUDE_DIRS}
 )
 
-if(USE_SDSLH)
-    include_directories(${SDSLH_INCLUDE_DIR})
-endif()
 if(THE_USE_CREXX)
     include_directories(${CREXXSAA_INCLUDE_DIR})
 endif()
@@ -330,7 +333,7 @@ add_executable(${EXECUTABLE_NAME} ${THE_SOURCES})
 target_link_libraries(${EXECUTABLE_NAME} ${CURSES_LIBRARIES})
 
 if(USE_SDSLH)
-    target_link_libraries(${EXECUTABLE_NAME} ${SDSLH_LIBRARY})
+    target_link_libraries(${EXECUTABLE_NAME} DSLSH::editor)
 endif()
 if(THE_USE_CREXX)
     target_link_libraries(${EXECUTABLE_NAME} ${CREXXSAA_LIBRARY})

@@ -30,6 +30,28 @@ make install
 
 By default, the `install` target will stage the `the` executable and the necessary configuration files (like `THE_Help.txt`, `syntax/` highlights, `profile.the`, and the optional CREXX helper profile/macros) into a standard release directory structure.
 
+### DSL Syntax Highlighter Dependency
+
+When `USE_SDSLH` is enabled, THE builds only the DSLSH editor middleware from
+`DSL-Syntax-Highlighter/codebuffer`. It does not build DSLSH parser adapters.
+
+If `../DSL-Syntax-Highlighter` exists, CMake uses that local checkout. If not,
+CMake fetches DSLSH from `DSLSH_GIT_REPOSITORY` at `DSLSH_GIT_TAG`.
+
+```bash
+# Follow the configured branch, currently develop.
+cmake -S . -B cmake-build
+
+# Pin to a stable tag or exact WIP commit.
+cmake -S . -B cmake-build -DDSLSH_GIT_TAG=<tag-or-commit-sha>
+
+# Ignore a sibling checkout and fetch the configured ref.
+cmake -S . -B cmake-build -DDSLSH_PREFER_LOCAL=OFF
+```
+
+Use a branch name for easy "latest DSLSH" development. Use a tag or commit SHA
+when THE needs a reproducible DSLSH version.
+
 ## Quick Tips for macOS Users
 
 By default, THE utilizes the `Home` key to toggle between the command line and the file editing area. However, the `Home` key behaves inconsistently across different Mac terminal emulators.
