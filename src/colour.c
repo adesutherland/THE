@@ -68,6 +68,23 @@ int THE_fg_from_pair(int pair) { return pair > 0 && pair < next_the_pair ? pair_
 int THE_bg_from_pair(int pair) { return pair > 0 && pair < next_the_pair ? pair_bg[pair] : 0; }
 
 static int THE_alloc_color(int r, int g, int b) {
+    typedef struct {
+        int r;
+        int g;
+        int b;
+        int colour;
+    } RGB_COLOUR_CACHE;
+    static RGB_COLOUR_CACHE colour_cache[256];
+    static int colour_cache_count = 0;
+    int i;
+
+    for (i = 0; i < colour_cache_count; i++) {
+        if (colour_cache[i].r == r
+        &&  colour_cache[i].g == g
+        &&  colour_cache[i].b == b)
+            return colour_cache[i].colour;
+    }
+
     if (!can_change_color()) return COLOR_WHITE;
     static int next_color = -1;
     if (next_color == -1) next_color = COLORS - 1;
@@ -82,6 +99,13 @@ static int THE_alloc_color(int r, int g, int b) {
 #else
         init_color((short)c, (short)cr, (short)cg, (short)cb);
 #endif
+        if (colour_cache_count < (int)(sizeof(colour_cache)/sizeof(colour_cache[0]))) {
+            colour_cache[colour_cache_count].r = r;
+            colour_cache[colour_cache_count].g = g;
+            colour_cache[colour_cache_count].b = b;
+            colour_cache[colour_cache_count].colour = c;
+            colour_cache_count++;
+        }
         return c;
     }
     return COLOR_WHITE;

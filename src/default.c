@@ -402,6 +402,7 @@ void set_file_defaults(FILE_DETAILS *filep)
    filep->timecheck = TRUE;
    filep->undoing = TRUE;
    filep->autocolour = TRUE;
+   filep->filectlchar = FALSE;
    set_up_default_colours( filep, (COLOUR_ATTR *)NULL, ATTR_MAX );
    set_up_default_ecolours( filep );
    filep->trailing = TRAILING_ON;
@@ -965,6 +966,11 @@ short default_file_attributes(FILE_DETAILS *fd)
    CURRENT_FILE->preserved_file_details = NULL;
    CURRENT_FILE->fp =              NULL;
    CURRENT_FILE->parser =          NULL;
+#ifdef USE_SDSLH
+   CURRENT_FILE->cb =              NULL;
+   CURRENT_FILE->sdslh_comm =      NULL;
+   CURRENT_FILE->sdslh_parser =    NULL;
+#endif
    /*
     * Set defaults for the current file based on the settings for the
     * previous file. The defaults to copy are:

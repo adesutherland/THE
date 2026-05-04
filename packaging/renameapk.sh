@@ -23,6 +23,6 @@ for a in $apks; do
   bname=`basename $fname .apk`
   dname=`dirname $fname`
   newname=$pdir/$bname-$machine-$dist.apk
-  cp $fname $newname
+  /bin/cp $fname $newname
   done;
 ls -l $pdir/*.apk

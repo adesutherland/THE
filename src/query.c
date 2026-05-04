@@ -105,6 +105,7 @@ extern ExtractFunction extract_focuseof_function;
 extern ExtractFunction extract_focustof_function;
 extern ExtractFunction extract_filename;
 extern ExtractFunction extract_filestatus;
+extern ExtractFunction extract_filectlchar;
 extern ExtractFunction extract_filetabs;
 extern ExtractFunction extract_fmode;
 extern ExtractFunction extract_fname;
@@ -803,6 +804,14 @@ FILESTATUS
      filestatus.1    - sharing mode - NONE
      filestatus.2    - access type - READONLY|READWRITE
      filestatus.3    - end of line - CR/LF/CRLF/NONE
+
+FILECTLCHAR
+     Indicates if CTLCHAR markup is interpreted in file-area lines for
+     the current file.
+     (QEMS)
+
+     filectlchar.0   - 1
+     filectlchar.1   - ON|OFF
 
 FILETABS
      Indicates if the <filetabs> window is displayed or not.
@@ -2072,6 +2081,7 @@ QUERY_ITEM _THE_FAR query_item[] =
    {(CHARTYPE *)"fext",            4, 2,ITEM_FEXT,          1, 1,          LVL_FILE,QUERY_QUERY|             QUERY_EXTRACT|QUERY_MODIFY,extract_ftype                  },
    {(CHARTYPE *)"field",           5, 5,ITEM_FIELD,         4, 4,          LVL_VIEW,QUERY_QUERY|             QUERY_EXTRACT             ,extract_field                  },
    {(CHARTYPE *)"fieldword",       9, 9,ITEM_FIELDWORD,     3, 3,          LVL_VIEW,                         QUERY_EXTRACT             ,extract_fieldword              },
+   {(CHARTYPE *)"filectlchar",    11, 8,ITEM_FILECTLCHAR,   1, 1,          LVL_FILE,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_filectlchar            },
    {(CHARTYPE *)"filename",        8, 5,ITEM_FILENAME,      1, 1,          LVL_FILE,QUERY_QUERY|             QUERY_EXTRACT|QUERY_MODIFY,extract_filename               },
    {(CHARTYPE *)"filestatus",     10,10,ITEM_FILESTATUS,    3, 3,          LVL_FILE,QUERY_QUERY|             QUERY_EXTRACT|QUERY_MODIFY,extract_filestatus             },
    {(CHARTYPE *)"filetabs",        8, 8,ITEM_FILETABS,      1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_filetabs               },

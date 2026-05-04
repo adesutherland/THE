@@ -21,7 +21,7 @@ fi
 
 rm -rf "${WORK_DIR}"
 mkdir -p "${WORK_DIR}"
-cp "${SCRIPT_DIR}/crexx_profile.the" "${PROFILE}"
+/bin/cp "${SCRIPT_DIR}/crexx_profile.the" "${PROFILE}"
 printf 'profile smoke\n' > "${SAMPLE}"
 
 run_the() {
@@ -45,13 +45,17 @@ grep -q "CREXX_PROFILE_HOSTED" "${WORK_DIR}/first.err"
 grep -q "CREXX_EXPOSE_FILENAME" "${WORK_DIR}/first.err"
 grep -q "CREXX_EXPOSE_SCALAR_STEM_ALIAS" "${WORK_DIR}/first.err"
 grep -q "CREXX_EDITV_EXPOSE_ROUNDTRIP" "${WORK_DIR}/first.err"
+grep -q "CREXX_FILECTLCHAR_ON" "${WORK_DIR}/first.err"
 grep -q "CREXX_EDITV_SCALAR_STEM_ALIAS" "${WORK_DIR}/first.err"
 grep -q "CREXX_VALIDTARGET_BASIC" "${WORK_DIR}/first.err"
 grep -q "CREXX_VALIDTARGET_SPARE" "${WORK_DIR}/first.err"
 grep -q "CREXX_VALIDTARGET_NOTFOUND" "${WORK_DIR}/first.err"
 grep -q "CREXX_SANDBOX_FILENAME" "${WORK_DIR}/first.err"
 grep -q "CREXX_EDITV_SANDBOX_ROUNDTRIP" "${WORK_DIR}/first.err"
+grep -q "CREXX_INPUTSTEM_ROUNDTRIP" "${WORK_DIR}/first.err"
 grep -q "CREXXSAA cache miss:" "${WORK_DIR}/first.err"
+printf 'alpha\n  beta # raw\ngamma\n' > "${WORK_DIR}/expected.txt"
+cmp "${WORK_DIR}/expected.txt" "${SAMPLE}"
 
 if ! find "${CACHE_DIR}" -name '*.rxbin' | grep -q .; then
   echo "Expected CREXXSAA cache to contain a compiled rxbin" >&2
@@ -62,12 +66,15 @@ run_the second
 grep -q "CREXX_PROFILE_HOSTED" "${WORK_DIR}/second.err"
 grep -q "CREXX_EXPOSE_SCALAR_STEM_ALIAS" "${WORK_DIR}/second.err"
 grep -q "CREXX_EDITV_EXPOSE_ROUNDTRIP" "${WORK_DIR}/second.err"
+grep -q "CREXX_FILECTLCHAR_ON" "${WORK_DIR}/second.err"
 grep -q "CREXX_EDITV_SCALAR_STEM_ALIAS" "${WORK_DIR}/second.err"
 grep -q "CREXX_VALIDTARGET_BASIC" "${WORK_DIR}/second.err"
 grep -q "CREXX_VALIDTARGET_SPARE" "${WORK_DIR}/second.err"
 grep -q "CREXX_VALIDTARGET_NOTFOUND" "${WORK_DIR}/second.err"
 grep -q "CREXX_EDITV_SANDBOX_ROUNDTRIP" "${WORK_DIR}/second.err"
+grep -q "CREXX_INPUTSTEM_ROUNDTRIP" "${WORK_DIR}/second.err"
 grep -q "CREXXSAA cache hit:" "${WORK_DIR}/second.err"
+cmp "${WORK_DIR}/expected.txt" "${SAMPLE}"
 
 cat > "${PROFILE}" <<'PROFILE_EOF'
 options levelb

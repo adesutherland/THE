@@ -1747,6 +1747,73 @@ static void build_lines(CHARTYPE scrno,short direction,LINE *curr,
    return;
 }
 /***********************************************************************/
+static chtype merge_filectlchar_colour(chtype base, COLOUR_ATTR *ctlattr)
+/***********************************************************************/
+{
+#ifdef A_COLOR
+   int base_pair = PAIR_NUMBER(base & A_COLOR);
+   int bg = BACKFROMPAIR(base_pair);
+   int fg = FOREFROMPAIR(ctlattr->pair);
+   int pair = ATTR2PAIR(fg,bg);
+
+   return((base & ~A_COLOR) | COLOR_PAIR(pair) | ctlattr->mod);
+#else
+   return(base | ctlattr->mono);
+#endif
+}
+/***********************************************************************/
+static bool apply_ctlchar_to_file_line(FILE_DETAILS *screen_file, SHOW_LINE *scurr)
+/***********************************************************************/
+{
+   LENGTHTYPE source=0,target=0;
+   chtype current_colour;
+   bool found;
+   int j;
+
+   if ( !screen_file->filectlchar
+   ||   !CTLCHARx
+   ||   scurr->contents == NULL
+   ||   scurr->length < 1 )
+      return(FALSE);
+
+   current_colour = scurr->normal_colour;
+   while( source < scurr->length
+   &&     target < THE_MAX_SCREEN_WIDTH )
+   {
+      if ( scurr->contents[source] == ctlchar_escape
+      &&   source + 1 < scurr->length )
+      {
+         found = FALSE;
+         for ( j = 0; j < MAX_CTLCHARS; j++ )
+         {
+            if ( ctlchar_char[j] == scurr->contents[source+1] )
+            {
+               if ( ctlchar_attr[j].pair == -1 )
+                  current_colour = scurr->normal_colour;
+               else
+                  current_colour = merge_filectlchar_colour(scurr->normal_colour,&ctlchar_attr[j]);
+               source += 2;
+               found = TRUE;
+               break;
+            }
+         }
+         if ( found )
+            continue;
+         source++;
+         continue;
+      }
+      scurr->filectlchar_disp[target] = scurr->contents[source];
+      scurr->highlighting[target] = current_colour;
+      source++;
+      target++;
+   }
+   scurr->filectlchar_disp[target] = '\0';
+   scurr->contents = scurr->filectlchar_disp;
+   scurr->length = target;
+   scurr->is_highlighting = TRUE;
+   return(TRUE);
+}
+/***********************************************************************/
 static void build_lines_for_display(CHARTYPE scrno,short direction,
                                     short rows,short start_row)
 /***********************************************************************/
@@ -1789,7 +1856,11 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
    LINETYPE match_line2 = -1L;
    LENGTHTYPE match_col2 = -1;
    
-   if (SCREEN_FILE(scrno)->cb && CURRENT_VIEW == SCREEN_VIEW(scrno)) {
+   if (SCREEN_FILE(scrno)->colouring
+   &&  SCREEN_FILE(scrno)->parser
+   &&  SCREEN_FILE(scrno)->parser->is_sdslh_parser
+   &&  SCREEN_FILE(scrno)->cb
+   &&  CURRENT_VIEW == SCREEN_VIEW(scrno)) {
        LINETYPE screen_line=0;
        LENGTHTYPE screen_column=0;
        LINETYPE current_file_line=(-1L);
@@ -2250,12 +2321,25 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
          }
       }
       /*
+       * If FILECTLCHAR is ON, interpret CTLCHAR sequences in normal file
+       * lines for display and let that display markup take precedence over
+       * parser-based syntax highlighting.
+       */
+      if (line_parseable
+      &&  apply_ctlchar_to_file_line(SCREEN_FILE(scrno),scurr))
+         line_parseable = FALSE;
+      /*
        * If we are using colouring and we are not using the NULL parser and
        * the line has been determined as parseable, build the colours in
        * the highlighting array based on the line's contents.
        */
 #ifdef USE_SDSLH
-      if (line_parseable && SCREEN_FILE(scrno)->cb && scurr->length > 0) {
+      if (line_parseable
+      &&  SCREEN_FILE(scrno)->colouring
+      &&  SCREEN_FILE(scrno)->parser
+      &&  SCREEN_FILE(scrno)->parser->is_sdslh_parser
+      &&  SCREEN_FILE(scrno)->cb
+      &&  scurr->length > 0) {
           enter_codeblock_critical_section();
           LINETYPE cb_line_idx = scurr->line_number - 1;
           if (cb_line_idx >= 0 && cb_line_idx < (LINETYPE)SCREEN_FILE(scrno)->cb->line_count) {

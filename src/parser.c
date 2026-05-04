@@ -4625,6 +4625,7 @@ PARSER_DETAILS *find_auto_parser(FILE_DETAILS *fd)
     * If the filemask uses "magic" check the magic number of the first
     * line of the file.
     */
+   fd->parser = NULL;
    for(;curr_mapping!=NULL;curr_mapping=curr_mapping->next)
    {
       if (find_parser_mapping(fd,curr_mapping))

@@ -620,6 +620,9 @@ short Autocolour(CHARTYPE *params)
       &&  find_parser_mapping(curr_view->file_for_view,curr))
       {
          curr_view->file_for_view->parser = parser;
+#ifdef USE_SDSLH
+         sdslh_init_file(curr_view->file_for_view);
+#endif
          if (curr_view->file_for_view == SCREEN_FILE(current_screen))
             redisplay_current = TRUE;
          if (display_screens > 1
@@ -2315,8 +2318,9 @@ SYNTAX
 
 DESCRIPTION
      The SET CTLCHAR command defines control characters to be used when
-     displaying a <reserved line>.  Control characters determine how parts
-     of a <reserved line> are displayed.
+     displaying a <reserved line>, or when <SET FILECTLCHAR> is ON, ordinary
+     file-area lines. Control characters determine how parts of the displayed
+     line are displayed.
 
      See <SET COLOUR> for valid values for 'modifier', 'fore' and 'back'.
 
@@ -2330,7 +2334,7 @@ DEFAULT
      OFF
 
 SEE ALSO
-     <SET COLOUR>, <SET RESERVED>
+     <SET COLOUR>, <SET FILECTLCHAR>, <SET RESERVED>
 
 STATUS
      Complete.
@@ -4277,6 +4281,49 @@ short THEFiletabs(CHARTYPE *params)
       if ( curses_started )
          display_screen( current_screen );
    }
+   TRACE_RETURN();
+   return(rc);
+}
+/*man-start*********************************************************************
+COMMAND
+     set filectlchar - interpret CTLCHAR markup in file-area lines
+
+SYNTAX
+     [SET] FILECTLChar ON|OFF
+
+DESCRIPTION
+     The SET FILECTLCHAR command controls whether normal file-area lines
+     in the current file are displayed using the control character
+     definitions from <SET CTLCHAR>. When ON, CTLCHAR escape sequences
+     are not displayed; instead they change the display attributes of
+     the following text.
+
+     FILECTLCHAR is intended for generated output buffers and simple
+     XEDIT-style display panels. It affects display only. The Protect
+     and Noprotect attributes stored by SET CTLCHAR are still ignored by
+     THE editing commands.
+
+COMPATIBILITY
+     XEDIT: Similar to the undocumented READ NOCHANGE file-line CTLCHAR
+     behaviour.
+     KEDIT: N/A
+
+DEFAULT
+     OFF
+
+SEE ALSO
+     <SET CTLCHAR>, <SET RESERVED>
+
+STATUS
+     Complete.
+**man-end**********************************************************************/
+short Filectlchar(CHARTYPE *params)
+/***********************************************************************/
+{
+   short rc=RC_OK;
+
+   TRACE_FUNCTION("commset1.c:Filectlchar");
+   rc = execute_set_on_off(params,&CURRENT_FILE->filectlchar,TRUE);
    TRACE_RETURN();
    return(rc);
 }

@@ -16,6 +16,12 @@ the_value = ""
 address the "editv get the_value" expose the_value
 if the_value = "from-expose" then 'emsg CREXX_EDITV_EXPOSE_ROUNDTRIP'
 
+filectlchar = .string[]
+address the "set filectlchar on"
+address the "extract /filectlchar/" expose filectlchar[]
+if filectlchar[1] = "ON" then 'emsg CREXX_FILECTLCHAR_ON'
+address the "set filectlchar off"
+
 scalar_value = "from-scalar-alias"
 address the "editv put scalar_value.1" expose scalar_value
 scalar_value = ""
@@ -41,6 +47,17 @@ address the "editv put the_value" sandbox pool
 call pool.set("THE_VALUE", "")
 address the "editv get the_value" sandbox pool
 if pool.get("THE_VALUE") = "from-sandbox" then 'emsg CREXX_EDITV_SANDBOX_ROUNDTRIP'
+
+input_lines = .string[]
+input_lines[1] = "alpha"
+input_lines[2] = "  beta # raw"
+input_lines[3] = "gamma"
+address the "all"
+address the "top"
+address the "delete *"
+address the "inputstem input_lines." expose input_lines[]
+address the "save"
+if rc = 0 then 'emsg CREXX_INPUTSTEM_ROUNDTRIP'
 
 'emsg CREXX_PROFILE_HOSTED'
 'file'

@@ -5558,6 +5558,7 @@ short execute_preserve(VIEW_DETAILS *src_vd, PRESERVED_VIEW_DETAILS **preserved_
    (*preserved_file_details)->tabsout_on                = src_fd->tabsout_on;
    (*preserved_file_details)->tabsout_num               = src_fd->tabsout_num;
    (*preserved_file_details)->trailing                  = src_fd->trailing;
+   (*preserved_file_details)->filectlchar               = src_fd->filectlchar;
    memcpy( (*preserved_file_details)->attr,               src_fd->attr, ATTR_MAX*sizeof(COLOUR_ATTR) );
    memcpy( (*preserved_file_details)->ecolour,            src_fd->ecolour, ECOLOUR_MAX*sizeof(COLOUR_ATTR) );
    (*preserved_file_details)->colouring                 = src_fd->colouring;
@@ -5665,6 +5666,7 @@ short execute_restore(VIEW_DETAILS *dst_vd, PRESERVED_VIEW_DETAILS **preserved_v
    dst_fd->tabsout_on                = (*preserved_file_details)->tabsout_on;
    dst_fd->tabsout_num               = (*preserved_file_details)->tabsout_num;
    dst_fd->trailing                  = (*preserved_file_details)->trailing;
+   dst_fd->filectlchar               = (*preserved_file_details)->filectlchar;
    memcpy( dst_fd->attr,               (*preserved_file_details)->attr, ATTR_MAX*sizeof(COLOUR_ATTR) );
    memcpy( dst_fd->ecolour,            (*preserved_file_details)->ecolour, ECOLOUR_MAX*sizeof(COLOUR_ATTR) );
    dst_fd->colouring                 = (*preserved_file_details)->colouring;

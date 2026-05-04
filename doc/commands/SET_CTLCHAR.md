@@ -9,8 +9,9 @@
 ```
 
 ## Description
-The SET CTLCHAR command defines control characters to be used when displaying a reserved line .
-Control characters determine how parts of a reserved line are displayed.
+The SET CTLCHAR command defines control characters to be used when displaying a reserved line or,
+when SET FILECTLCHAR is ON, ordinary file-area lines.
+Control characters determine how parts of the displayed line are displayed.
 See SET COLOUR for valid values for modifier , fore and back .
 The Protect and Noprotect arguments are ignored.
 
@@ -22,7 +23,7 @@ KEDIT: N/A.
 OFF
 
 ## See Also
-SET COLOUR, SET RESERVED
+SET COLOUR, SET FILECTLCHAR, SET RESERVED
 
 ## Status
 Complete.

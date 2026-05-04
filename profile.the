@@ -28,6 +28,26 @@ address the
 'SET SDSLH rxas ~/.local/bin/rxas --syntaxhighlight'
 'SET AUTOCOLOR *.rxas rxas'
 
+/* Load Markdown Parser */
+'SET SDSLH mdp ~/.local/bin/mdp --syntaxhighlight'
+'SET AUTOCOLOR *.md mdp'
+'SET AUTOCOLOR *.markdown mdp'
+
+/* Load C Parser */
+'SET SDSLH dslsh-c ~/.local/bin/dslsh-c --syntaxhighlight'
+'SET AUTOCOLOR *.c dslsh-c'
+'SET AUTOCOLOR *.h dslsh-c'
+
+/* Load Python Parser */
+'SET SDSLH pyp ~/.local/bin/pyp --syntaxhighlight'
+'SET AUTOCOLOR *.py pyp'
+
+/* Load JavaScript Parser */
+'SET SDSLH jsp ~/.local/bin/jsp --syntaxhighlight'
+'SET AUTOCOLOR *.js jsp'
+'SET AUTOCOLOR *.mjs jsp'
+'SET AUTOCOLOR *.cjs jsp'
+
 'SET COLORING ON AUTO'
 
 /* Configure a modern dark view (VS Code Dark+ Inspired) */

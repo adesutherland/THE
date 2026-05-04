@@ -194,6 +194,7 @@ int expose_msgline (void);
 short get_file (CHARTYPE *);
 #ifdef USE_SDSLH
 void sdslh_init_file(FILE_DETAILS *);
+void sdslh_shutdown_file(FILE_DETAILS *);
 #endif
 LINE *read_file ( FILE *, LINE *, CHARTYPE *, LINETYPE, LINETYPE, bool );
 LINE *read_fixed_file (FILE *,LINE *,CHARTYPE *,LINETYPE,LINETYPE);
@@ -570,6 +571,7 @@ short Expand (CHARTYPE *);
 short Extract (CHARTYPE *);
 short Ffile (CHARTYPE *);
 short File (CHARTYPE *);
+short Filectlchar (CHARTYPE *);
 short THEFiletabs (CHARTYPE *);
 short Fillbox (CHARTYPE *);
 short Find (CHARTYPE *);
@@ -594,6 +596,7 @@ short Idline (CHARTYPE *);
 short Impmacro (CHARTYPE *);
 short Impos (CHARTYPE *);
 short Input (CHARTYPE *);
+short Inputstem (CHARTYPE *);
 short Inputmode (CHARTYPE *);
 short Insertmode (CHARTYPE *);
 short THEInterface (CHARTYPE *);

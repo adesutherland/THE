@@ -208,6 +208,17 @@ if(USE_SDSLH)
     if(NOT TARGET DSLSH::editor AND TARGET dslsyntax_editor)
         add_library(DSLSH::editor ALIAS dslsyntax_editor)
     endif()
+
+    find_program(THE_MDP_EXECUTABLE
+        NAMES mdp
+        HINTS
+            "${DSLSH_LOCAL_DIR}/cmake-build-debug/parsers/markdown"
+            "${DSLSH_LOCAL_DIR}/cmake-build-release/parsers/markdown"
+            "$ENV{HOME}/.local/bin"
+    )
+    if(THE_MDP_EXECUTABLE)
+        message(STATUS "Found Markdown SDSLH parser: ${THE_MDP_EXECUTABLE}")
+    endif()
 endif()
 
 set(THE_USE_CREXX FALSE)
@@ -370,6 +381,13 @@ if(WIN32)
     )
 endif()
 
+if(THE_MDP_EXECUTABLE)
+    add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy ${THE_MDP_EXECUTABLE} ${RELEASE_DIR}/mdp
+        COMMENT "Copying Markdown SDSLH parser to ${RELEASE_DIR}"
+    )
+endif()
+
 # Install Targets
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   # Fallback to local user bin to avoid sudo permission errors during testing
@@ -381,6 +399,9 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 endif()
 
 install(TARGETS ${EXECUTABLE_NAME} DESTINATION bin)
+if(THE_MDP_EXECUTABLE)
+    install(PROGRAMS ${THE_MDP_EXECUTABLE} DESTINATION bin)
+endif()
 if(WIN32)
     install(FILES $<TARGET_FILE:${CURSES_LIBRARIES}> DESTINATION bin)
 endif()
@@ -391,6 +412,8 @@ install(DIRECTORY syntax/ DESTINATION share/the/syntax)
 enable_testing()
 add_test(NAME test_sdslh_integration COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdslh_integration.sh)
 set_tests_properties(test_sdslh_integration PROPERTIES SKIP_RETURN_CODE 77)
+add_test(NAME test_sdslh_multifile_lifecycle COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdslh_multifile_lifecycle.sh)
+set_tests_properties(test_sdslh_multifile_lifecycle PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME test_file_ecolor_inheritance COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_file_ecolor_inheritance.sh)
 set_tests_properties(test_file_ecolor_inheritance PROPERTIES SKIP_RETURN_CODE 77)
 if(THE_USE_CREXX)

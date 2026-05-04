@@ -52,6 +52,7 @@
 - [HELP](HELP.md) - edit help file for THE
 - [HIT](HIT.md) - simulate hitting of the named key
 - [INPUT](INPUT.md) - insert the command line contents into the file
+- [INPUTSTEM](INPUTSTEM.md) - insert lines from a Rexx stem variable
 - [JOIN](JOIN.md) - join a line with the line following
 - [KEDIT](KEDIT.md) - edit another file or switch to next file
 - [LEFT](LEFT.md) - scroll the screen to the left
@@ -163,6 +164,7 @@
 - [SET FILE DISPLAY NAME](SET_FILE_DISPLAY_NAME.md) - change the display filename of the file being
 - [SET FEXT](SET_FEXT.md) - change the extension of the existing file
 - [SET FILENAME](SET_FILENAME.md) - change the filename of the file being edited
+- [SET FILECTLCHAR](SET_FILECTLCHAR.md) - interpret CTLCHAR markup in file-area lines
 - [SET FILETABS](SET_FILETABS.md) - determine if and where where file tabs are positioned
 - [SET FMODE](SET_FMODE.md) - change the drive letter of the existing file
 - [SET FNAME](SET_FNAME.md) - change the filename of the file being edited

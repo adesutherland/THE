@@ -1549,6 +1549,12 @@ short extract_filestatus(short number_variables,short itemno,CHARTYPE *itemargs,
    return number_variables;
 }
 /***********************************************************************/
+short extract_filectlchar(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
+/***********************************************************************/
+{
+   return set_on_off_value(CURRENT_FILE->filectlchar,1);
+}
+/***********************************************************************/
 short extract_filetabs(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {

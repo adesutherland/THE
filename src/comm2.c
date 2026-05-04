@@ -2115,6 +2115,150 @@ short Input(CHARTYPE *params)
 }
 /*man-start*********************************************************************
 COMMAND
+     inputstem - insert lines from a Rexx stem variable
+
+SYNTAX
+     INPUTSTEM stem.
+
+DESCRIPTION
+     The INPUTSTEM command inserts the lines from a Rexx stem variable into
+     the current file after the current line. stem.0 is read as the number
+     of lines, and stem.1 through stem.n are inserted in order.
+
+     INPUTSTEM is intended for use by Rexx macros that call ADDRESS THE
+     with an EXPOSE clause. For example:
+
+          out = .string[]
+          out.1 = "first line"
+          out.2 = "second line"
+          address the "inputstem out." expose out[]
+
+COMPATIBILITY
+     XEDIT: N/A.
+     KEDIT: N/A.
+
+STATUS
+     Complete.
+**man-end**********************************************************************/
+static CHARTYPE *inputstem_variable_name(CHARTYPE *stem,long index)
+/***********************************************************************/
+{
+   CHARTYPE *name=NULL;
+   size_t name_length=0;
+
+   name_length = strlen((DEFCHAR *)stem) + 32;
+   name = (CHARTYPE *)(*the_malloc)(name_length * sizeof(CHARTYPE));
+   if (name == NULL)
+      return(NULL);
+   sprintf((DEFCHAR *)name,"%s%ld",(DEFCHAR *)stem,index);
+   return(name);
+}
+
+short Inputstem(CHARTYPE *params)
+/***********************************************************************/
+{
+   CHARTYPE *stem=NULL;
+   CHARTYPE *name=NULL;
+   CHARTYPE *value=NULL;
+   int value_length=0;
+   LENGTHTYPE insert_length=0;
+   long count=0L;
+   long i=0L;
+   short rc=RC_OK;
+   size_t stem_length=0;
+   bool free_value=FALSE;
+
+   TRACE_FUNCTION("comm2.c:   Inputstem");
+   if (blank_field(params))
+   {
+      display_error(3,(CHARTYPE *)"",FALSE);
+      TRACE_RETURN();
+      return(RC_INVALID_OPERAND);
+   }
+
+   stem = MyStrip(params,STRIP_BOTH,' ');
+   stem_length = strlen((DEFCHAR *)stem);
+   if (stem_length == 0)
+   {
+      display_error(3,(CHARTYPE *)"",FALSE);
+      TRACE_RETURN();
+      return(RC_INVALID_OPERAND);
+   }
+   if (stem[stem_length - 1] != (CHARTYPE)'.')
+   {
+      display_error(149,stem,FALSE);
+      TRACE_RETURN();
+      return(RC_INVALID_OPERAND);
+   }
+
+   name = inputstem_variable_name(stem,0L);
+   if (name == NULL)
+   {
+      display_error(30,(CHARTYPE *)"",FALSE);
+      TRACE_RETURN();
+      return(RC_OUT_OF_MEMORY);
+   }
+   rc = get_rexx_variable(name,&value,&value_length);
+   (*the_free)(name);
+   if (rc != RC_OK)
+   {
+      display_error(0,(CHARTYPE *)"INPUTSTEM unable to read stem.0",FALSE);
+      TRACE_RETURN();
+      return(rc);
+   }
+   if (value_length > 0)
+      count = atol((DEFCHAR *)value);
+   if (value != NULL)
+      (*the_free)(value);
+   if (count < 0L)
+      count = 0L;
+
+   post_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL,TRUE);
+   for (i = 1L; i <= count; i++)
+   {
+      name = inputstem_variable_name(stem,i);
+      if (name == NULL)
+      {
+         display_error(30,(CHARTYPE *)"",FALSE);
+         TRACE_RETURN();
+         return(RC_OUT_OF_MEMORY);
+      }
+      value = NULL;
+      value_length = 0;
+      rc = get_rexx_variable(name,&value,&value_length);
+      (*the_free)(name);
+      if (rc != RC_OK)
+      {
+         display_error(0,(CHARTYPE *)"INPUTSTEM unable to read stem entry",FALSE);
+         TRACE_RETURN();
+         return(rc);
+      }
+      free_value = (value != NULL);
+      if (value == NULL)
+      {
+         value = (CHARTYPE *)"";
+         value_length = 0;
+      }
+      insert_length = (LENGTHTYPE)value_length;
+      if (insert_length > max_line_length)
+      {
+         display_error(0,(CHARTYPE *)"Truncated",FALSE);
+         insert_length = max_line_length;
+      }
+      rc = insert_new_line(current_screen,CURRENT_VIEW,value,insert_length,1L,get_true_line(TRUE),TRUE,TRUE,TRUE,CURRENT_VIEW->display_low,TRUE,FALSE);
+      if (free_value)
+         (*the_free)(value);
+      if (rc != RC_OK)
+      {
+         TRACE_RETURN();
+         return(rc);
+      }
+   }
+   TRACE_RETURN();
+   return(RC_OK);
+}
+/*man-start*********************************************************************
+COMMAND
      join - join a line with the line following
 
 SYNTAX

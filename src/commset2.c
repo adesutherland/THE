@@ -227,6 +227,9 @@ short Parser(CHARTYPE *params)
          if (curr_vd->file_for_view->parser == old_parser)
          {
             curr_vd->file_for_view->parser = curr;
+#ifdef USE_SDSLH
+            sdslh_init_file(curr_vd->file_for_view);
+#endif
          }
          curr_vd = curr_vd->next;
       }
@@ -2350,6 +2353,9 @@ short Sdslh(CHARTYPE *params)
          if (curr_vd->file_for_view->parser == old_parser)
          {
             curr_vd->file_for_view->parser = curr;
+#ifdef USE_SDSLH
+            sdslh_init_file(curr_vd->file_for_view);
+#endif
          }
          curr_vd = curr_vd->next;
       }

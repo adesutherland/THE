@@ -95,6 +95,7 @@ typedef enum {
     ITEM_FIELDWORD,
     ITEM_FILENAME,
     ITEM_FILESTATUS,
+    ITEM_FILECTLCHAR,
     ITEM_FILETABS,
     ITEM_FMODE,
     ITEM_FNAME,
@@ -243,4 +244,3 @@ typedef enum {
 /*---------------------------------------------------------------------*/
 /* The following are item number defines for the 'other' functions.    */
 /*---------------------------------------------------------------------*/
-

@@ -1736,18 +1736,8 @@ void cleanup(void)
 #ifdef USE_SDSLH
    VIEW_DETAILS *vd;
    for (vd = vd_first; vd != NULL; vd = vd->next) {
-       if (vd->file_for_view && vd->file_for_view->sdslh_comm && vd->file_for_view->cb) {
-           process_delta(vd->file_for_view->cb);
-           // Nullify so we don't process the same file multiple times if there are multiple views
-           vd->file_for_view->sdslh_comm = NULL; 
-       }
+       sdslh_shutdown_file(vd->file_for_view);
    }
-   /* Wait briefly to allow the detached process_delta thread to send its message before we exit. */
-#ifdef WIN32
-   Sleep(1000);
-#else
-   sleep(1);
-#endif
    editor_free();
 #endif
 

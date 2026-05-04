@@ -177,6 +177,8 @@
        simulate hitting of the named key
  Input [string]
        insert the command line contents into the file
+ INPUTStem stem.
+       insert lines from a Rexx stem variable
  Join [ALigned] [Column|CURSOR]
        join a line with the line following
  Kedit [file]
@@ -451,6 +453,8 @@
        change the extension of the existing file
  [SET] FILEName filename
        change the filename of the file being edited
+ [SET] FILECTLChar ON|OFF
+       interpret CTLCHAR markup in file-area lines
  [SET] FILETABS ON|OFF
        determine if and where where file tabs are positioned
  [SET] FMode d[:]

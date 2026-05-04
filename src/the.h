@@ -1461,6 +1461,7 @@ typedef struct
    bool timecheck;
    CHARTYPE tabsout_num;
    short trailing;       /* how to handle trailing spaces on file write */
+   bool filectlchar;       /* use CTLCHAR markup in displayed file lines */
    bool colouring;            /* specifies if syntax highlighting is on */
    bool autocolour;                    /* specifies if AUTOCOLOUR is on */
    PARSER_DETAILS *parser;     /* parser to use for syntax highlighting */
@@ -1479,6 +1480,7 @@ typedef struct
    bool timecheck;                          /* file time stamp checking */
    CHARTYPE tabsout_num;                 /* length of tab stops on file */
    short trailing;       /* how to handle trailing spaces on file write */
+   bool filectlchar;       /* use CTLCHAR markup in displayed file lines */
    bool colouring;            /* specifies if syntax highlighting is on */
    bool autocolour;                    /* specifies if AUTOCOLOUR is on */
    PARSER_DETAILS *parser;     /* parser to use for syntax highlighting */
@@ -1519,6 +1521,7 @@ typedef struct
 #ifdef USE_SDSLH
    CodeBuffer *cb;               /* DSL Syntax Highlighter buffer */
    CommunicationFunctions *sdslh_comm; /* Parser communication process */
+   PARSER_DETAILS *sdslh_parser; /* parser used to initialise cb */
 #endif
 } FILE_DETAILS;
 
@@ -1739,6 +1742,7 @@ struct show_line
     * The following 2 array MUST be the same size
     */
    chtype highlighting[THE_MAX_SCREEN_WIDTH];    /* array of colours for syntax highlighting */
+   CHARTYPE filectlchar_disp[THE_MAX_SCREEN_WIDTH+1]; /* file line after CTLCHAR markup */
 //   CHARTYPE highlight_type[THE_MAX_SCREEN_WIDTH];    /* array of syntax types for later querying */
    unsigned char *highlight_type;
    bool is_highlighting;  /* TRUE if this line contains syntax highlighting */
