@@ -46,6 +46,24 @@ static void expect_pos(const char *name, TextPos pos, size_t byte_offset,
    expect_int(field, pos.cell_column, cell_column);
 }
 
+static void expect_slice(const char *name, TextCellSlice slice,
+                         size_t start_byte, size_t end_byte,
+                         int leading_cells, int content_cells, int trailing_cells)
+{
+   char field[128];
+
+   snprintf(field, sizeof(field), "%s.start", name);
+   expect_size(field, slice.start.byte_offset, start_byte);
+   snprintf(field, sizeof(field), "%s.end", name);
+   expect_size(field, slice.end.byte_offset, end_byte);
+   snprintf(field, sizeof(field), "%s.leading", name);
+   expect_int(field, slice.leading_cells, leading_cells);
+   snprintf(field, sizeof(field), "%s.content", name);
+   expect_int(field, slice.content_cells, content_cells);
+   snprintf(field, sizeof(field), "%s.trailing", name);
+   expect_int(field, slice.trailing_cells, trailing_cells);
+}
+
 static void test_ascii(void)
 {
    static const CHARTYPE s[] = { 'a', 'b', 'c' };
@@ -89,6 +107,19 @@ static void test_emoji_snap(void)
    expect_pos("emoji.cell1.back", textpos_from_cell(s, sizeof(s), 1, TEXT_SNAP_BACKWARD), 1, 1, 1);
    expect_pos("emoji.cell1.forward", textpos_from_cell(s, sizeof(s), 1, TEXT_SNAP_FORWARD), 5, 2, 3);
    expect_pos("emoji.cell2.nearest", textpos_from_cell(s, sizeof(s), 2, TEXT_SNAP_NEAREST), 5, 2, 3);
+}
+
+static void test_cell_slices(void)
+{
+   static const CHARTYPE s[] = { 'A', 0xF0, 0x9F, 0x98, 0x80, 'B' };
+   static const CHARTYPE combining[] = { 'e', 0xCC, 0x81, 'x' };
+
+   expect_slice("slice.all", textpos_slice_cells(s, sizeof(s), 0, 4), 0, 6, 0, 4, 0);
+   expect_slice("slice.before.clipped.emoji", textpos_slice_cells(s, sizeof(s), 0, 2), 0, 1, 0, 1, 1);
+   expect_slice("slice.emoji.exact", textpos_slice_cells(s, sizeof(s), 1, 2), 1, 5, 0, 2, 0);
+   expect_slice("slice.inside.emoji", textpos_slice_cells(s, sizeof(s), 2, 2), 5, 6, 1, 1, 0);
+   expect_slice("slice.past.end", textpos_slice_cells(s, sizeof(s), 8, 3), 6, 6, 0, 0, 3);
+   expect_slice("slice.combining", textpos_slice_cells(combining, sizeof(combining), 0, 1), 0, 3, 0, 1, 0);
 }
 
 static void test_combining_phase1_invariant(void)
@@ -140,6 +171,7 @@ int main(void)
    test_ascii();
    test_accent_and_cjk();
    test_emoji_snap();
+   test_cell_slices();
    test_combining_phase1_invariant();
    test_invalid_utf8_progress();
    test_encode();

@@ -50,6 +50,15 @@ typedef struct
    int valid;
 } TextCodepoint;
 
+typedef struct
+{
+   TextPos start;
+   TextPos end;
+   int leading_cells;
+   int content_cells;
+   int trailing_cells;
+} TextCellSlice;
+
 TextPos textpos_begin(void);
 TextPos textpos_from_byte(const CHARTYPE *line, size_t len, size_t byte_offset);
 TextPos textpos_from_codepoint(const CHARTYPE *line, size_t len, size_t codepoint_index);
@@ -57,6 +66,7 @@ TextPos textpos_from_cell(const CHARTYPE *line, size_t len, int cell_column, Tex
 TextPos textpos_next_codepoint(const CHARTYPE *line, size_t len, TextPos pos);
 TextPos textpos_prev_codepoint(const CHARTYPE *line, size_t len, TextPos pos);
 TextCodepoint textpos_codepoint_at(const CHARTYPE *line, size_t len, TextPos pos);
+TextCellSlice textpos_slice_cells(const CHARTYPE *line, size_t len, int start_cell, int width_cells);
 size_t textpos_count_codepoints(const CHARTYPE *line, size_t len);
 int text_codepoint_cell_width(uint32_t codepoint);
 size_t text_utf8_encode(uint32_t codepoint, CHARTYPE out[4]);

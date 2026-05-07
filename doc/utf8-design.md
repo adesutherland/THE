@@ -60,6 +60,14 @@ typedef struct {
     FilePos file;
     ScreenPos screen;
 } EditorPos;
+
+typedef struct {
+    TextPos start;
+    TextPos end;
+    int leading_cells;
+    int content_cells;
+    int trailing_cells;
+} TextCellSlice;
 ```
 
 Phase 1 invariant:
@@ -83,6 +91,7 @@ TextPos textpos_from_codepoint(const CHARTYPE *line, size_t len, size_t codepoin
 TextPos textpos_from_cell(const CHARTYPE *line, size_t len, int cell_column, TextSnap snap);
 TextPos textpos_next_codepoint(const CHARTYPE *line, size_t len, TextPos pos);
 TextPos textpos_prev_codepoint(const CHARTYPE *line, size_t len, TextPos pos);
+TextCellSlice textpos_slice_cells(const CHARTYPE *line, size_t len, int start_cell, int width_cells);
 ```
 
 Rules:
@@ -92,6 +101,9 @@ Rules:
 - Invalid UTF-8 bytes decode as U+FFFD and consume one byte, so scanning always
   progresses.
 - Phase 1 cluster index is always copied from code point index.
+- Display slices are expressed in cells. If a slice starts or ends inside a
+  wide character, the partial character is omitted and represented as leading
+  or trailing padding cells.
 
 ## Mouse And Cell Snapping
 
@@ -166,9 +178,20 @@ Current automated coverage:
 
 - `tests/test_textpos.c` covers canonical Phase 1 position construction,
   byte-boundary normalization, code point counting, cell-width mapping,
-  invalid UTF-8 progress, and UTF-8 encoding.
+  cell-based display slicing, invalid UTF-8 progress, and UTF-8 encoding.
 - A fresh macOS CMake build with default options verifies that UTF-8/wide
   curses configuration no longer requires `<ncursesw/ncurses.h>`.
+
+Manual renderer fixture:
+
+- `tests/fixtures/utf8-render.txt` is a valid UTF-8 file for visual/manual
+  checks in THE.
+- Use it to inspect accented text, CJK double-width characters,
+  single-codepoint emoji, combining marks, and horizontal viewport clipping.
+- Invalid UTF-8 is intentionally excluded from this manual text fixture because
+  editors and source tools may silently normalize or repair invalid byte
+  sequences. Keep invalid-byte coverage in byte-oriented automated tests or
+  generated binary fixtures.
 
 ## Implementation Status
 
@@ -185,12 +208,18 @@ Current automated coverage:
   duplicate typedef warnings.
 - 2026-05-07: Corrected the wide-character header gate in `src/the.h` to use
   `USE_WIDE_CHAR`, matching the new default wide build path.
+- 2026-05-07: Added `TextCellSlice` and migrated the UTF-8 file-line renderer
+  in `src/show.c` to clip and pad by terminal cells. The renderer now emits
+  code points through `setcchar`/wide curses on both fast and slow paths, and
+  target highlighting uses byte-range overlap instead of code point counts.
+- 2026-05-07: Added `tests/fixtures/utf8-render.txt` as a manual renderer
+  fixture for visual checks while migrating cursor, mouse, and syntax paths.
 
 ## Next Implementation Slice
 
-- Migrate rendering layout in `src/show.c` to consume `TextPos` and cell
-  widths instead of code point counts.
-- Replace the slow UTF-8 curses path with portable wide-character emission via
-  `setcchar` and `wadd_wch`/`wadd_wchnstr` equivalents.
-- Add rendering-focused tests for clipping, padding, highlighting, and cursor
-  placement around wide characters and combining marks.
+- Migrate cursor positioning and mouse hit-testing to return/use `EditorPos`
+  with byte, code point, cluster, and cell fields populated.
+- Audit syntax highlighting producers so highlight arrays are explicitly
+  indexed by the same semantic unit the renderer consumes.
+- Add integration coverage for cursor placement and mouse hit-testing around
+  wide characters and combining marks.

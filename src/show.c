@@ -78,6 +78,9 @@
 #endif
 
 #include <time.h>
+#ifdef USE_UTF8
+# include <wchar.h>
+#endif
 
 /*------------------------ function definitions -----------------------*/
 static void build_lines(CHARTYPE,short,LINE *,short,short);
@@ -142,10 +145,33 @@ static int _fast_maxx = 0,_fast_pos;
 #endif
 
 #ifdef USE_UTF8
-#define mysetchar(dest, ch, colour) {                      \
-                  wchar_t wch=ch;                          \
-                  setcchar( dest, &wch, colour, PAIR_NUMBER(colour & A_COLOR), NULL ); \
-                  }
+static void show_codepoint_to_wchars(uint32_t ch, wchar_t wch[3])
+{
+   if ((ch >= 0xD800u && ch <= 0xDFFFu) || ch > 0x10FFFFu)
+      ch = TEXT_INVALID_CODEPOINT;
+# if defined(WCHAR_MAX) && WCHAR_MAX <= 0xFFFFu
+   if (ch > 0xFFFFu)
+   {
+      ch -= 0x10000u;
+      wch[0] = (wchar_t)(0xD800u + (ch >> 10));
+      wch[1] = (wchar_t)(0xDC00u + (ch & 0x3FFu));
+      wch[2] = L'\0';
+      return;
+   }
+# endif
+   wch[0] = (wchar_t)ch;
+   wch[1] = L'\0';
+}
+
+static void show_set_utf8_cchar(cchar_t *dest, uint32_t ch, chtype colour)
+{
+   wchar_t wch[3];
+
+   show_codepoint_to_wchars(ch, wch);
+   setcchar(dest, wch, colour, PAIR_NUMBER(colour & A_COLOR), NULL);
+}
+
+#define mysetchar(dest, ch, colour) show_set_utf8_cchar((dest), (uint32_t)(ch), (colour))
 #else
 #define mysetchar(dest, ch, colour ) {                   \
                   setcchar( dest, &ch, colour, 0, NULL ); \
@@ -166,6 +192,18 @@ static WINDOW *_fast_win; /* buffered for waddchnstr */
 DEBUGDUMPDETAIL(fprintf(stderr,"%s %d(%s): INIT_LINE_OUTPUT: line: %d\n", __FILE__,__LINE__,__func__,line );) \
                         }
 # ifdef USE_UTF8
+static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
+{
+   if (ch < 256 && etmode_flag[ch])
+   {
+      CHARTYPE cc = (CHARTYPE)ch;
+      ch = (uint32_t)etmode_table[cc];
+      colour = (etmode_table[cc] & A_COLOR);
+   }
+   show_set_utf8_cchar(linebufch + _fast_col, ch, colour);
+   _fast_col++;
+}
+
 /* length MUST be number of characters: u8_strlen(); NOT bytes: strlen() */
 #  define ADD_LINE_OUTPUT(line,length,colour) {                \
                        LENGTHTYPE l = length;                  \
@@ -310,13 +348,26 @@ static chtype _fast_colour = (chtype) -1l; /* buffering prevents unnecessary
                         PARATEST_INIT_LINE(win,line); \
                         wmove(_fast_win,line,0); }
 # ifdef USE_UTF8
+static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
+{
+   cchar_t out;
+
+   if (ch < 256 && etmode_flag[ch])
+   {
+      CHARTYPE cc = (CHARTYPE)ch;
+      ch = (uint32_t)etmode_table[cc];
+      colour = (etmode_table[cc] & A_COLOR);
+   }
+   show_set_utf8_cchar(&out, ch, colour);
+   wadd_wch(_fast_win, &out);
+}
+
 #  define ADD_LINE_OUTPUT(line,length,colour) {                  \
                        chtype col = colour;                    \
                        LENGTHTYPE l = length;                  \
                        CHARTYPE *src;                          \
                        u_int32_t ch;                           \
                        int pos=0;                              \
-cchar_t t; \
                        PARATEST_ADD_LINE(l,"ADD_LINE_OUTPUT"); \
                    /*    if (col != _fast_colour)   */             \
                    /*    {   */                                  \
@@ -326,13 +377,7 @@ cchar_t t; \
                        src = line;                             \
                        while (l--) {                             \
                           ch = u8_nextchar( src, &pos );       \
-if ( ch > 255 ) { \
-t.chars[0] = ch; \
-t.attr = _fast_colour; \
-wadd_wch(_fast_win,&t); \
-} \
-else \
-                          waddch(_fast_win,ch|_fast_colour);                 \
+                          show_add_utf8_codepoint(ch,_fast_colour); \
                        } }
 #  define ADD_SYNTAX_LINE_OUTPUT(line,length,highlight) {        \
                        LENGTHTYPE l = length;                  \
@@ -350,7 +395,7 @@ else \
                              wattrset(_fast_win,*highl);       \
                           }                                    \
                           ch = u8_nextchar( src, &pos );       \
-                          waddch(_fast_win,ch);              \
+                          show_add_utf8_codepoint(ch,*highl);  \
                           highl++;                             \
                        } }
 #  define FILL_LINE_OUTPUT(c,length,colour) {                      \
@@ -363,7 +408,7 @@ else \
                            wattrset(_fast_win,col);              \
                           }                                      \
                         while (l--)                              \
-                           waddch(_fast_win,C);                  \
+                           show_add_utf8_codepoint((uint32_t)C,col); \
                         }
 # else
 #  define ADD_LINE_OUTPUT(line,length,colour) {                  \
@@ -2734,6 +2779,146 @@ static void show_lines(CHARTYPE scrno)
    return;
 }
 #define TMP_EXTRA 1
+#ifdef USE_UTF8
+static int show_utf8_cells_overlap(TextCodepoint item, LENGTHTYPE start_col, LENGTHTYPE end_col)
+{
+   int item_start;
+   int item_end;
+
+   if (end_col < start_col || end_col < 0)
+      return 0;
+
+   item_start = item.pos.cell_column;
+   item_end = item_start + ((item.cell_width > 0) ? item.cell_width : 1) - 1;
+   return (item_start <= end_col && item_end >= start_col);
+}
+
+static int show_utf8_byte_range_overlap(TextCodepoint item, LENGTHTYPE start, LENGTHTYPE length)
+{
+   size_t item_start;
+   size_t item_end;
+   size_t range_start;
+   size_t range_end;
+
+   if (length <= 0 || start < 0)
+      return 0;
+
+   item_start = item.pos.byte_offset;
+   item_end = item_start + item.byte_length;
+   range_start = (size_t)start;
+   range_end = range_start + (size_t)length;
+   return (item_start < range_end && item_end > range_start);
+}
+
+static int show_utf8_target_highlight_applies(CHARTYPE scrno, SHOW_LINE *scurr, TextCodepoint item)
+{
+   int i;
+
+   if ( !SCREEN_VIEW(scrno)->thighlight_on
+   ||   !SCREEN_VIEW(scrno)->thighlight_active
+   ||   SCREEN_VIEW(scrno)->thighlight_target.true_line != scurr->line_number )
+      return 0;
+
+   for (i = 0; i < SCREEN_VIEW(scrno)->thighlight_target.num_targets; i++)
+   {
+      if ( SCREEN_VIEW(scrno)->thighlight_target.rt[i].found
+      &&   !SCREEN_VIEW(scrno)->thighlight_target.rt[i].not_target
+      &&   show_utf8_byte_range_overlap(item,
+               SCREEN_VIEW(scrno)->thighlight_target.rt[i].start,
+               SCREEN_VIEW(scrno)->thighlight_target.rt[i].found_length) )
+      {
+         return 1;
+      }
+   }
+   return 0;
+}
+
+static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr, chtype *high)
+{
+   SHOW_LINE *current = &(screen[scrno].sl[row]);
+   CHARTYPE *line = current->contents;
+   LENGTHTYPE blength = current->length;
+   LENGTHTYPE cvcol;
+   LENGTHTYPE vlen;
+   COLTYPE ccols = screen[scrno].cols[WINDOW_FILEAREA];
+   int fillverify;
+   int visible_cols;
+   TextCellSlice slice;
+   TextPos pos;
+   chtype normal = current->normal_colour;
+   chtype other = current->other_colour;
+   chtype target_colour = set_colour(SCREEN_FILE(scrno)->attr + ATTR_THIGHLIGHT);
+   int highlight_index = 0;
+
+   if ( current->line_type == LINE_RESERVED
+   &&   !current->rsrvd->autoscroll )
+   {
+      cvcol = 0;
+      vlen = ccols;
+   }
+   else
+   {
+      cvcol = SCREEN_VIEW(scrno)->verify_col - 1;
+      vlen = SCREEN_VIEW(scrno)->verify_end - SCREEN_VIEW(scrno)->verify_start + 1;
+   }
+
+   INIT_LINE_OUTPUT(SCREEN_WINDOW_FILEAREA(scrno), row);
+
+   if ( ccols > vlen )
+   {
+      fillverify = ccols - vlen;
+      visible_cols = vlen;
+   }
+   else
+   {
+      fillverify = 0;
+      visible_cols = ccols;
+   }
+
+   /* Avoid shifting text when a viewport edge cuts through a wide code point. */
+   slice = textpos_slice_cells(line, blength, (int)cvcol, visible_cols);
+   if ( slice.leading_cells )
+      FILL_LINE_OUTPUT(' ', slice.leading_cells, normal);
+
+   pos = slice.start;
+   while (pos.byte_offset < slice.end.byte_offset)
+   {
+      TextCodepoint item = textpos_codepoint_at(line, blength, pos);
+      chtype colour = normal;
+
+      if (item.byte_length == 0)
+         break;
+
+      if ( show_utf8_cells_overlap(item, current->other_start_col, current->other_end_col) )
+      {
+         colour = other;
+      }
+      else if ( current->is_highlighting
+      &&        !current->highlight
+      &&        high != NULL
+      &&        highlight_index < THE_MAX_SCREEN_WIDTH )
+      {
+         colour = high[highlight_index];
+      }
+
+      if ( show_utf8_target_highlight_applies(scrno, scurr, item) )
+         colour = target_colour;
+
+      if (item.cell_width > 0)
+         PARATEST_ADD_LINE(item.cell_width, "ADD_UTF8_CELL_OUTPUT");
+      show_add_utf8_codepoint(item.codepoint, colour);
+      highlight_index++;
+      pos = textpos_next_codepoint(line, blength, pos);
+   }
+
+   if ( slice.trailing_cells )
+      FILL_LINE_OUTPUT(' ', slice.trailing_cells, normal);
+   if ( fillverify )
+      FILL_LINE_OUTPUT(' ', fillverify, normal);
+
+   END_LINE_OUTPUT();
+}
+#endif
 /***********************************************************************/
 static void show_a_line(CHARTYPE scrno,short row, SHOW_LINE *scurr)
 /***********************************************************************/
@@ -2781,6 +2966,12 @@ static void show_a_line(CHARTYPE scrno,short row, SHOW_LINE *scurr)
       TRACE_RETURN();
       return;
    }
+
+#ifdef USE_UTF8
+   show_a_line_utf8_cells(scrno, row, scurr, high);
+   TRACE_RETURN();
+   return;
+#endif
 
    if ( current->line_type == LINE_RESERVED
    &&   !current->rsrvd->autoscroll )

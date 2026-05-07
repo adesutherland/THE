@@ -271,6 +271,87 @@ TextPos textpos_from_cell(const CHARTYPE *line, size_t len, int cell_column, Tex
    return pos;
 }
 
+TextCellSlice textpos_slice_cells(const CHARTYPE *line, size_t len, int start_cell, int width_cells)
+{
+   TextCellSlice slice;
+   TextPos pos;
+   int end_cell;
+
+   slice.start = textpos_begin();
+   slice.end = textpos_begin();
+   slice.leading_cells = 0;
+   slice.content_cells = 0;
+   slice.trailing_cells = width_cells < 0 ? 0 : width_cells;
+
+   if (width_cells <= 0)
+      return slice;
+   if (start_cell < 0)
+      start_cell = 0;
+
+   end_cell = start_cell + width_cells;
+   pos = textpos_begin();
+
+   while (pos.byte_offset < len)
+   {
+      TextCodepoint item = decode_at_canonical(line, len, pos);
+      TextPos next;
+      int char_end;
+
+      if (item.byte_length == 0)
+         break;
+
+      next = pos;
+      next.byte_offset += item.byte_length;
+      next.codepoint_index++;
+      next.cluster_index = next.codepoint_index;
+      next.cell_column += item.cell_width;
+      char_end = next.cell_column;
+
+      if (item.cell_width > 0 && start_cell > pos.cell_column && start_cell < char_end)
+      {
+         slice.leading_cells = char_end - start_cell;
+         pos = next;
+         break;
+      }
+      if (char_end > start_cell || item.cell_width == 0)
+         break;
+
+      pos = next;
+   }
+
+   slice.start = pos;
+   slice.end = pos;
+
+   while (pos.byte_offset < len)
+   {
+      TextCodepoint item = decode_at_canonical(line, len, pos);
+      TextPos next;
+
+      if (item.byte_length == 0)
+         break;
+
+      next = pos;
+      next.byte_offset += item.byte_length;
+      next.codepoint_index++;
+      next.cluster_index = next.codepoint_index;
+      next.cell_column += item.cell_width;
+
+      if (item.cell_width > 0 && next.cell_column > end_cell)
+         break;
+
+      slice.end = next;
+      pos = next;
+   }
+
+   slice.content_cells = slice.end.cell_column - slice.start.cell_column;
+   if (slice.content_cells < 0)
+      slice.content_cells = 0;
+   slice.trailing_cells = width_cells - slice.leading_cells - slice.content_cells;
+   if (slice.trailing_cells < 0)
+      slice.trailing_cells = 0;
+   return slice;
+}
+
 size_t textpos_count_codepoints(const CHARTYPE *line, size_t len)
 {
    return textpos_from_byte(line, len, len).codepoint_index;

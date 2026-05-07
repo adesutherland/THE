@@ -1,0 +1,32 @@
+UTF-8 renderer manual fixture
+Open this file in THE with a UTF-8 terminal and move VERIFY/CURSOR across the marked lines.
+Invalid UTF-8 is intentionally not included here; byte-invalid cases live in tests/test_textpos.c.
+
+ASCII ruler:
+0123456789|0123456789|0123456789|0123456789|0123456789|
+
+Accents and Latin:
+cafe café café naïve résumé coöperate Ångström
+precomposed: café élève São Tomé
+combining: é éx x é ée
+
+CJK width checks:
+A漢B 中日韓 A字B 한글 A語B
+wide near ruler:
+0123456789|0123456789|0123456789|
+A漢B漢C漢D漢E漢F漢G漢H漢I漢J
+
+Single-codepoint emoji width checks:
+A😀B A🚀B A🧪B A✅B A⭐B
+emoji near ruler:
+0123456789|0123456789|0123456789|
+A😀B🚀C🧪D✅E⭐F😀G🚀H
+
+Mixed line:
+plain 😀 café 漢字 é end 🚀 résumé 中
+
+Viewport clipping checks:
+Use VERIFY or horizontal scrolling so the first visible cell lands before, on, and inside the wide characters below.
+clip-emoji: 0123456789A😀B0123456789C🚀D0123456789
+clip-cjk:   0123456789A漢B0123456789C字D0123456789
+clip-mixed: 0123456789A😀B漢C é D🚀E0123456789
