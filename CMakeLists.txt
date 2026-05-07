@@ -9,8 +9,8 @@ set(THE_VERSION_DATE "02-Apr-2026")
 option(USE_XCURSES "Build with XCurses (X11)" OFF)
 option(USE_SDLCURSES "Build with SDL Curses" OFF)
 option(USE_VTCURSES "Build with VT Curses" OFF)
-option(USE_WIDE_CHAR "Enable wide character support" OFF)
-option(USE_UTF8 "Enable UTF-8 support" OFF)
+option(USE_WIDE_CHAR "Enable wide character support" ON)
+option(USE_UTF8 "Enable UTF-8 support" ON)
 option(USE_SDSLH "Build with DSL Syntax Highlighter support" ON)
 option(USE_CREXX "Build with embedded CREXX profile/macro support" ON)
 set(DSLSH_LOCAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../DSL-Syntax-Highlighter"
@@ -20,6 +20,11 @@ set(DSLSH_GIT_REPOSITORY "https://github.com/adesutherland/DSL-Syntax-Highlighte
         CACHE STRING "DSL-Syntax-Highlighter Git repository")
 set(DSLSH_GIT_TAG "develop"
         CACHE STRING "DSL-Syntax-Highlighter Git branch, tag, or commit SHA")
+
+if(USE_UTF8 AND NOT USE_WIDE_CHAR)
+    message(STATUS "USE_UTF8 requires wide character support; enabling USE_WIDE_CHAR")
+    set(USE_WIDE_CHAR ON CACHE BOOL "Enable wide character support" FORCE)
+endif()
 
 # Determine basic curses type based on options
 if(USE_XCURSES)
@@ -121,6 +126,9 @@ check_include_file("stdint.h" HAVE_STDINT_H)
 check_include_file("inttypes.h" HAVE_INTTYPES_H)
 check_include_file("string.h" HAVE_STRING_H)
 check_include_file("time.h" HAVE_TIME_H)
+check_include_file("curses.h" HAVE_CURSES_H)
+check_include_file("ncurses.h" HAVE_NCURSES_H)
+check_include_file("ncursesw/ncurses.h" HAVE_NCURSESW_NCURSES_H)
 check_include_file("sys/acl.h" HAVE_SYS_ACL_H)
 check_include_file("sys/mode.h" HAVE_SYS_MODE_H)
 check_include_file("sys/file.h" HAVE_SYS_FILE_H)
@@ -174,10 +182,21 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 # --- Find Dependencies ---
 if(WIN32)
+    if(USE_WIDE_CHAR)
+        set(PDC_WIDE ON CACHE BOOL "Build PDCurses with wide character support" FORCE)
+        add_compile_definitions(PDC_WIDE)
+    endif()
+    if(USE_UTF8)
+        set(PDC_UTF8 ON CACHE BOOL "Build PDCurses with forced UTF-8 support" FORCE)
+        add_compile_definitions(PDC_FORCE_UTF8)
+    endif()
     add_subdirectory(src/PDCursesMod EXCLUDE_FROM_ALL)
     set(CURSES_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/src/PDCursesMod)
     set(CURSES_LIBRARIES wincon_pdcurses)
 else()
+    if((USE_WIDE_CHAR OR USE_UTF8) AND NOT APPLE)
+        set(CURSES_NEED_WIDE TRUE)
+    endif()
     find_package(Curses REQUIRED)
 endif()
 
@@ -329,6 +348,7 @@ set(THE_SOURCES
     src/sort.c
     src/target.c
     src/the.c
+    src/textpos.c
     src/mygetopt.c
     src/trace.c
     src/util.c
@@ -410,6 +430,9 @@ install(DIRECTORY syntax/ DESTINATION share/the/syntax)
 
 # --- Automated Testing ---
 enable_testing()
+add_executable(test_textpos tests/test_textpos.c src/textpos.c)
+target_include_directories(test_textpos PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+add_test(NAME test_textpos COMMAND test_textpos)
 add_test(NAME test_sdslh_integration COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdslh_integration.sh)
 set_tests_properties(test_sdslh_integration PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME test_sdslh_multifile_lifecycle COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdslh_multifile_lifecycle.sh)

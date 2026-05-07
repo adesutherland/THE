@@ -351,7 +351,15 @@ int main(int argc, char *argv[])
     * Set our locale
     */
 #if defined(HAVE_SETLOCALE)
-   setlocale( LC_ALL, ".utf8" );
+   if ( setlocale( LC_ALL, "" ) == NULL )
+   {
+# if defined(USE_UTF8)
+      if ( setlocale( LC_ALL, "C.UTF-8" ) == NULL )
+         (void)setlocale( LC_ALL, "en_US.UTF-8" );
+# else
+      (void)setlocale( LC_ALL, "C" );
+# endif
+   }
 #endif
   /*
    * Ensure that CURRENT_VIEW is NULL before starting. This is to ensure

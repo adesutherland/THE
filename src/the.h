@@ -71,10 +71,16 @@ extern void ClosedownConsole( int );
 
 #if defined(USE_NCURSES)
 # if defined(USE_UTF8)
-#  define _XOPEN_SOURCE_EXTENDED
+#  ifndef _XOPEN_SOURCE_EXTENDED
+#   define _XOPEN_SOURCE_EXTENDED 1
+#  endif
+# endif
+# if defined(USE_UTF8) && defined(HAVE_NCURSESW_NCURSES_H) && !defined(__APPLE__)
 #  include <ncursesw/ncurses.h>
-# else
+# elif defined(HAVE_NCURSES_H) || !defined(HAVE_CONFIG_H)
 #  include <ncurses.h>
+# else
+#  include <curses.h>
 # endif
 # define CURSES_H_INCLUDED
 #endif
@@ -118,6 +124,8 @@ extern void ClosedownConsole( int );
 #ifndef CURSES_H_INCLUDED
 #  include <curses.h>
 #endif
+
+#include "textpos.h"
 
 
 /*
@@ -397,7 +405,7 @@ extern void ClosedownConsole( int );
 # include <ctype.h>
 #endif
 
-#if defined(HAVE_WCTYPE_H) && defined(DUSE_WIDE_CHAR)
+#if defined(HAVE_WCTYPE_H) && defined(USE_WIDE_CHAR)
 # include <wctype.h>
 #endif
 
