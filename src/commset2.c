@@ -35,6 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "utf8term.h"
 
 /*#define DEBUG 1*/
 
@@ -4338,6 +4339,43 @@ short Undoing(CHARTYPE *params)
 
    TRACE_FUNCTION("commset2.c:Undoing");
    rc = execute_set_on_off(params,&CURRENT_FILE->undoing,TRUE);
+   TRACE_RETURN();
+   return(rc);
+}
+/*man-start*********************************************************************
+COMMAND
+     set utf8 - configures physical UTF-8 terminal behaviour
+
+SYNTAX
+     [SET] UTF8 TERMINAL CLASS class [INTENT intent] setting
+
+DESCRIPTION
+     The SET UTF8 command configures the physical terminal profile used
+     by UTF-8 rendering.  These settings describe terminal layout, cursor,
+     output, and repaint behaviour only; editor text movement and commands
+     continue to use the logical UTF-8 text model.
+
+STATUS
+     Incomplete.
+**man-end**********************************************************************/
+short Utf8(CHARTYPE *params)
+/***********************************************************************/
+{
+   short rc=RC_OK;
+
+   TRACE_FUNCTION("commset2.c:Utf8");
+   if (params == NULL || strcmp((DEFCHAR *)params,"") == 0)
+   {
+      display_error(3,(CHARTYPE *)"",FALSE);
+      TRACE_RETURN();
+      return(RC_INVALID_OPERAND);
+   }
+   if (utf8_terminal_profile_apply_line((const char *)params)
+   !=  UTF8_TERMINAL_PROFILE_APPLIED)
+   {
+      display_error(1,params,FALSE);
+      rc = RC_INVALID_OPERAND;
+   }
    TRACE_RETURN();
    return(rc);
 }

@@ -546,6 +546,7 @@ COMMAND command[] =
  {(CHARTYPE *)"undoing",     7,  (-1),            Undoing,          TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset2.c */
  {(CHARTYPE *)"up",          1,  (-1),            Up,               TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm5.c */
  {(CHARTYPE *)"uppercase",   3,  (-1),            Uppercase,        TRUE, FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm5.c */
+ {(CHARTYPE *)"utf8",        4,  (-1),            Utf8,             TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset2.c */
  {(CHARTYPE *)"validtarget",  6,  (-1),            Validtarget,      TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm5.c */
  {(CHARTYPE *)"verify",      1,  (-1),            Verify,           TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset2.c */
  {(CHARTYPE *)"width",       5,  (-1),            Width,            TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset2.c */

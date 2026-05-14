@@ -36,6 +36,7 @@
 #define MAIN 1
 #include <the.h>
 #include <proto.h>
+#include "utf8term.h"
 #include <time.h>
 #ifdef WIN32
 #  include <windows.h>
@@ -360,6 +361,9 @@ int main(int argc, char *argv[])
       (void)setlocale( LC_ALL, "C" );
 # endif
    }
+#endif
+#ifdef USE_UTF8
+   (void)utf8_terminal_profile_init_from_environment();
 #endif
   /*
    * Ensure that CURRENT_VIEW is NULL before starting. This is to ensure
