@@ -618,6 +618,55 @@ short Text(CHARTYPE *params)
                }
                break;
             }
+#ifdef USE_UTF8
+            {
+               LENGTHTYPE logical_cell = show_utf8_logical_col_from_display(rec, rec_len,
+                                                                             CURRENT_VIEW->verify_col - 1,
+                                                                             x,
+                                                                             TEXT_SNAP_BACKWARD);
+               TextPos edit_pos = textpos_from_cell(rec, rec_len,
+                                                     logical_cell,
+                                                     TEXT_SNAP_BACKWARD);
+               LENGTHTYPE edit_byte = (LENGTHTYPE)edit_pos.byte_offset;
+
+               if (logical_cell + 1 > CURRENT_VIEW->verify_end)
+                  break;
+               if (edit_byte >= max_line_length)
+                  break;
+
+               if ( INSERTMODEx )
+               {
+                  rec = meminschr( rec, real_key, edit_byte, max_line_length, rec_len );
+                  rec_len = calculate_rec_len( ADJUST_INSERT, rec, rec_len,
+                                               edit_byte + 1, 1, CURRENT_FILE->trailing );
+               }
+               else
+               {
+                  TextCluster cluster = textpos_cluster_at(rec, rec_len, edit_pos);
+                  LENGTHTYPE replace_len = (LENGTHTYPE)cluster.byte_length;
+
+                  if (replace_len > 1)
+                  {
+                     memdeln( rec, edit_byte, rec_len, replace_len );
+                     rec_len = calculate_rec_len( ADJUST_DELETE, rec, rec_len,
+                                                  edit_byte + 1, replace_len,
+                                                  CURRENT_FILE->trailing );
+                     rec = meminschr( rec, real_key, edit_byte, max_line_length, rec_len );
+                     rec_len = calculate_rec_len( ADJUST_INSERT, rec, rec_len,
+                                                  edit_byte + 1, 1,
+                                                  CURRENT_FILE->trailing );
+                  }
+                  else
+                  {
+                     rec[edit_byte] = real_key;
+                     rec_len = calculate_rec_len( ADJUST_OVERWRITE, rec, rec_len,
+                                                  edit_byte + 1, 1,
+                                                  CURRENT_FILE->trailing );
+                  }
+               }
+               need_to_build_screen = TRUE;
+            }
+#else
             if ( (LENGTHTYPE)(x+CURRENT_VIEW->verify_start) > (LENGTHTYPE)(CURRENT_VIEW->verify_end) )
                break;
             if ( INSERTMODEx )
@@ -634,6 +683,7 @@ short Text(CHARTYPE *params)
                   put_char( CURRENT_WINDOW, chtype_key|attr, ADDCHAR );
             }
             rec_len = calculate_rec_len( (INSERTMODEx)?ADJUST_INSERT:ADJUST_OVERWRITE, rec, rec_len, CURRENT_VIEW->verify_col+x, 1, CURRENT_FILE->trailing );
+#endif
 #ifdef USE_SDSLH
             sdslh_update_current_line(y);
 #endif
@@ -653,7 +703,14 @@ short Text(CHARTYPE *params)
             /* this could cause a window scroll.            */
             if ( CURRENT_VIEW->wordwrap
             &&   rec_len > CURRENT_VIEW->margin_right )
+#ifdef USE_UTF8
+               execute_wrap_word(show_utf8_logical_col_from_display(rec, rec_len,
+                                                                     CURRENT_VIEW->verify_col - 1,
+                                                                     x,
+                                                                     TEXT_SNAP_BACKWARD) + 1);
+#else
                execute_wrap_word( x + CURRENT_VIEW->verify_col );
+#endif
             else
             {
                /* this is done here so that the show_page() in */
@@ -666,6 +723,9 @@ short Text(CHARTYPE *params)
      /*           wrefresh(CURRENT_WINDOW); */
                   THEcursor_right( TRUE, FALSE );
                }
+#else
+#ifdef USE_UTF8
+               THEcursor_right( TRUE, FALSE );
 #else
                if (INSERTMODEx
                || x == CURRENT_SCREEN.cols[WINDOW_FILEAREA]-1)
@@ -683,6 +743,7 @@ short Text(CHARTYPE *params)
                   wmove(CURRENT_WINDOW,y,newx);
 # endif
                }
+#endif
 #endif
             }
             /*
@@ -732,8 +793,12 @@ short Text(CHARTYPE *params)
              * the case where we have just scrolled right, the contents is displayed correctly.
              * We need to redisplay the cmdline if we just scrolled
              */
+#ifdef USE_UTF8
+            display_cmdline( current_screen, CURRENT_VIEW );
+#else
             if ( x == CURRENT_SCREEN.cols[WINDOW_COMMAND]-1 )
                display_cmdline( current_screen, CURRENT_VIEW );
+#endif
             break;
          case WINDOW_PREFIX:
             prefix_changed = TRUE;
@@ -763,6 +828,9 @@ short Text(CHARTYPE *params)
                pre_rec_len = 0;
             else
                pre_rec_len = new_len+1;
+#ifdef USE_UTF8
+            display_prefix_line( current_screen, CURRENT_VIEW );
+#endif
             break;
       }
    }

@@ -230,6 +230,10 @@ bool IsPathAndFilenameValid (CHARTYPE *);
 LINE *getclipboard (LINE *, int);
 short setclipboard (FILE_DETAILS *,CHARTYPE *,bool,LINETYPE,LINETYPE,LINETYPE,LINETYPE *,bool,LENGTHTYPE,LENGTHTYPE,bool,bool,int);
 void draw_cursor (bool);
+CursorShape current_cursor_shape (void);
+CursorBlink current_cursor_blink (void);
+CursorPresentation current_cursor_presentation (void);
+bool current_cursor_uses_software (void);
 int is_a_dir_stat (ATTR_TYPE);
 int is_a_dir_dir (ATTR_TYPE);
                                                            /* parser.c */
@@ -259,6 +263,13 @@ void display_filetabs (VIEW_DETAILS *);
 void build_screen (CHARTYPE);
 void display_screen (CHARTYPE);
 void display_cmdline ( CHARTYPE, VIEW_DETAILS * );
+void display_prefix_line ( CHARTYPE, VIEW_DETAILS * );
+#ifdef USE_UTF8
+int show_utf8_display_col_from_logical (const CHARTYPE *, size_t, int, int);
+int show_utf8_logical_col_from_display (const CHARTYPE *, size_t, int, int, TextSnap);
+void show_utf8_trace_cursor_motion (CHARTYPE, short, int, int, int, LENGTHTYPE);
+void show_utf8_filearea_cursor_transition (CHARTYPE, short, int, int);
+#endif
 void show_marked_block (void);
 void redraw_window (WINDOW *);
 void repaint_screen (void);
@@ -444,6 +455,12 @@ int thematch (char *,char *,int);
 short execute_sort (CHARTYPE *);
                                                            /* cursor.c */
 short THEcursor_cmdline ( CHARTYPE, VIEW_DETAILS *, short );
+void cursor_focus_capture (CHARTYPE);
+bool cursor_focus_filearea_cursor (CHARTYPE, short, int *, CursorShape *);
+bool cursor_focus_command_cursor (CHARTYPE, short *, short *, CursorShape *);
+bool cursor_focus_prefix_cursor (CHARTYPE, short, int *, CursorShape *);
+void cursor_focus_redraw (CHARTYPE, VIEW_DETAILS *);
+short cursor_focus_enter_command (CHARTYPE, VIEW_DETAILS *, short, bool);
 short THEcursor_column (void);
 short THEcursor_down ( CHARTYPE, VIEW_DETAILS *, short );
 short THEcursor_file (bool,LINETYPE,LENGTHTYPE);

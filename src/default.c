@@ -39,9 +39,9 @@
 /*--------------------------- global data -----------------------------*/
 /*#define DEBUG 1*/
 
-CursorShape cursorstyle_insert_shape = CURSOR_IBEAM;
-CursorBlink cursorstyle_insert_blink = CURSOR_BLINK;
-CursorShape cursorstyle_over_shape = CURSOR_BLOCK;
+CursorShape cursorstyle_insert_shape = CURSOR_BLOCK;
+CursorBlink cursorstyle_insert_blink = CURSOR_STEADY;
+CursorShape cursorstyle_over_shape = CURSOR_UNDERLINE;
 CursorBlink cursorstyle_over_blink = CURSOR_STEADY;
 
  bool BEEPx;

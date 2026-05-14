@@ -46,6 +46,22 @@ static void expect_pos(const char *name, TextPos pos, size_t byte_offset,
    expect_int(field, pos.cell_column, cell_column);
 }
 
+static void expect_pos_full(const char *name, TextPos pos, size_t byte_offset,
+                            size_t codepoint_index, size_t cluster_index,
+                            int cell_column)
+{
+   char field[128];
+
+   snprintf(field, sizeof(field), "%s.byte", name);
+   expect_size(field, pos.byte_offset, byte_offset);
+   snprintf(field, sizeof(field), "%s.codepoint", name);
+   expect_size(field, pos.codepoint_index, codepoint_index);
+   snprintf(field, sizeof(field), "%s.cluster", name);
+   expect_size(field, pos.cluster_index, cluster_index);
+   snprintf(field, sizeof(field), "%s.cell", name);
+   expect_int(field, pos.cell_column, cell_column);
+}
+
 static void expect_slice(const char *name, TextCellSlice slice,
                          size_t start_byte, size_t end_byte,
                          int leading_cells, int content_cells, int trailing_cells)
@@ -62,6 +78,22 @@ static void expect_slice(const char *name, TextCellSlice slice,
    expect_int(field, slice.content_cells, content_cells);
    snprintf(field, sizeof(field), "%s.trailing", name);
    expect_int(field, slice.trailing_cells, trailing_cells);
+}
+
+static void expect_cluster(const char *name, TextCluster cluster,
+                           size_t start_byte, size_t end_byte,
+                           size_t codepoint_count, int cell_width)
+{
+   char field[128];
+
+   snprintf(field, sizeof(field), "%s.start", name);
+   expect_size(field, cluster.pos.byte_offset, start_byte);
+   snprintf(field, sizeof(field), "%s.end", name);
+   expect_size(field, cluster.end.byte_offset, end_byte);
+   snprintf(field, sizeof(field), "%s.codepoints", name);
+   expect_size(field, cluster.codepoint_count, codepoint_count);
+   snprintf(field, sizeof(field), "%s.width", name);
+   expect_int(field, cluster.cell_width, cell_width);
 }
 
 static void test_ascii(void)
@@ -135,6 +167,85 @@ static void test_combining_phase1_invariant(void)
    expect_pos("combining.end", textpos_from_byte(s, sizeof(s), sizeof(s)), 4, 3, 2);
 }
 
+static void test_grapheme_clusters(void)
+{
+   static const CHARTYPE combining[] = { 'A', 'e', 0xCC, 0x81, 'B' };
+   static const CHARTYPE flag[] = { 'A', 0xF0, 0x9F, 0x87, 0xBA,
+                                    0xF0, 0x9F, 0x87, 0xB8, 'B' };
+   static const CHARTYPE keycap[] = { 'A', '1',
+                                      0xEF, 0xB8, 0x8F,
+                                      0xE2, 0x83, 0xA3, 'B' };
+   static const CHARTYPE couple_heart[] = { 'A', 0xF0, 0x9F, 0x91, 0xA9,
+                                            0xE2, 0x80, 0x8D,
+                                            0xE2, 0x9D, 0xA4,
+                                            0xEF, 0xB8, 0x8F,
+                                            0xE2, 0x80, 0x8D,
+                                            0xF0, 0x9F, 0x91, 0xA8, 'B' };
+   static const CHARTYPE family[] = { 'A', 0xF0, 0x9F, 0x91, 0xA8,
+                                      0xE2, 0x80, 0x8D,
+                                      0xF0, 0x9F, 0x91, 0xA9,
+                                      0xE2, 0x80, 0x8D,
+                                      0xF0, 0x9F, 0x91, 0xA7,
+                                      0xE2, 0x80, 0x8D,
+                                      0xF0, 0x9F, 0x91, 0xA6, 'B' };
+   TextPos pos;
+
+   pos = textpos_next_cluster(combining, sizeof(combining), textpos_begin());
+   expect_cluster("cluster.combining", textpos_cluster_at(combining, sizeof(combining), pos),
+                  1, 4, 2, 1);
+   expect_pos_full("cluster.combining.cell1.back",
+                   textpos_from_cell(combining, sizeof(combining), 1, TEXT_SNAP_BACKWARD),
+                   1, 1, 1, 1);
+   expect_pos_full("cluster.combining.cell1.forward",
+                   textpos_from_cell(combining, sizeof(combining), 1, TEXT_SNAP_FORWARD),
+                   4, 3, 2, 2);
+   expect_size("cluster.combining.count", textpos_count_clusters(combining, sizeof(combining)), 3);
+
+   pos = textpos_next_cluster(flag, sizeof(flag), textpos_begin());
+   expect_cluster("cluster.flag", textpos_cluster_at(flag, sizeof(flag), pos),
+                  1, 9, 2, 2);
+   expect_pos_full("cluster.flag.middle.back",
+                   textpos_from_cell(flag, sizeof(flag), 2, TEXT_SNAP_BACKWARD),
+                   1, 1, 1, 1);
+   expect_pos_full("cluster.flag.middle.forward",
+                   textpos_from_cell(flag, sizeof(flag), 2, TEXT_SNAP_FORWARD),
+                   9, 3, 2, 3);
+   expect_size("cluster.flag.count", textpos_count_clusters(flag, sizeof(flag)), 3);
+
+   pos = textpos_next_cluster(keycap, sizeof(keycap), textpos_begin());
+   expect_cluster("cluster.keycap", textpos_cluster_at(keycap, sizeof(keycap), pos),
+                  1, 8, 3, 1);
+   expect_pos_full("cluster.keycap.cell1.back",
+                   textpos_from_cell(keycap, sizeof(keycap), 1, TEXT_SNAP_BACKWARD),
+                   1, 1, 1, 1);
+   expect_pos_full("cluster.keycap.cell1.forward",
+                   textpos_from_cell(keycap, sizeof(keycap), 1, TEXT_SNAP_FORWARD),
+                   8, 4, 2, 2);
+   expect_size("cluster.keycap.count", textpos_count_clusters(keycap, sizeof(keycap)), 3);
+
+   pos = textpos_next_cluster(couple_heart, sizeof(couple_heart), textpos_begin());
+   expect_cluster("cluster.couple_heart", textpos_cluster_at(couple_heart, sizeof(couple_heart), pos),
+                  1, 21, 6, 5);
+   expect_pos_full("cluster.couple_heart.middle.back",
+                   textpos_from_cell(couple_heart, sizeof(couple_heart), 3, TEXT_SNAP_BACKWARD),
+                   1, 1, 1, 1);
+   expect_pos_full("cluster.couple_heart.middle.forward",
+                   textpos_from_cell(couple_heart, sizeof(couple_heart), 3, TEXT_SNAP_FORWARD),
+                   21, 7, 2, 6);
+   expect_size("cluster.couple_heart.count", textpos_count_clusters(couple_heart, sizeof(couple_heart)), 3);
+
+   pos = textpos_next_cluster(family, sizeof(family), textpos_begin());
+   expect_cluster("cluster.family", textpos_cluster_at(family, sizeof(family), pos),
+                  1, 26, 7, 8);
+   expect_pos_full("cluster.family.middle.back",
+                   textpos_from_cell(family, sizeof(family), 4, TEXT_SNAP_BACKWARD),
+                   1, 1, 1, 1);
+   expect_pos_full("cluster.family.middle.forward",
+                   textpos_from_cell(family, sizeof(family), 4, TEXT_SNAP_FORWARD),
+                   26, 8, 2, 9);
+   expect_size("cluster.family.count", textpos_count_clusters(family, sizeof(family)), 3);
+}
+
 static void test_invalid_utf8_progress(void)
 {
    static const CHARTYPE s[] = { 'A', 0xF0, 0x28, 0x8C, 0x28, 'B' };
@@ -173,6 +284,7 @@ int main(void)
    test_emoji_snap();
    test_cell_slices();
    test_combining_phase1_invariant();
+   test_grapheme_clusters();
    test_invalid_utf8_progress();
    test_encode();
 

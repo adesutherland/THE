@@ -1,5 +1,9 @@
 #include "textpos.h"
 
+#ifdef USE_UTF8PROC
+# include <utf8proc.h>
+#endif
+
 #define UTF8_CONTINUATION(c) ((((unsigned char)(c)) & 0xC0u) == 0x80u)
 
 typedef struct
@@ -39,6 +43,17 @@ static TextPos make_pos(size_t byte_offset, size_t codepoint_index, int cell_col
    pos.byte_offset = byte_offset;
    pos.codepoint_index = codepoint_index;
    pos.cluster_index = codepoint_index;
+   pos.cell_column = cell_column;
+   return pos;
+}
+
+static TextPos make_cluster_pos(size_t byte_offset, size_t codepoint_index,
+                                size_t cluster_index, int cell_column)
+{
+   TextPos pos;
+   pos.byte_offset = byte_offset;
+   pos.codepoint_index = codepoint_index;
+   pos.cluster_index = cluster_index;
    pos.cell_column = cell_column;
    return pos;
 }
@@ -128,6 +143,92 @@ static TextCodepoint decode_at_canonical(const CHARTYPE *line, size_t len, TextP
    return item;
 }
 
+static TextPos advance_codepoint(TextPos pos, TextCodepoint item)
+{
+   pos.byte_offset += item.byte_length;
+   pos.codepoint_index++;
+   pos.cell_column += item.cell_width;
+   return pos;
+}
+
+static int is_regional_indicator(uint32_t codepoint)
+{
+   return codepoint >= 0x1F1E6u && codepoint <= 0x1F1FFu;
+}
+
+static int grapheme_break_between(uint32_t left, uint32_t right, int *state, int regional_count)
+{
+#ifdef USE_UTF8PROC
+   utf8proc_int32_t utf8proc_state = (utf8proc_int32_t)*state;
+   int breaks = utf8proc_grapheme_break_stateful((utf8proc_int32_t)left,
+                                                 (utf8proc_int32_t)right,
+                                                 &utf8proc_state);
+   *state = (int)utf8proc_state;
+   return breaks;
+#else
+   if (text_codepoint_cell_width(right) == 0)
+      return 0;
+   if (left == 0x200Du)
+      return 0;
+   if (is_regional_indicator(left)
+   &&  is_regional_indicator(right)
+   &&  (regional_count % 2) == 1)
+      return 0;
+   return 1;
+#endif
+}
+
+static TextCluster cluster_at_canonical(const CHARTYPE *line, size_t len, TextPos pos)
+{
+   TextCluster cluster;
+   TextCodepoint item;
+   TextPos end;
+   uint32_t previous = 0;
+   int state = 0;
+   int regional_count = 0;
+   int cell_width = 0;
+
+   cluster.pos = pos;
+   cluster.end = pos;
+   cluster.byte_length = 0;
+   cluster.codepoint_count = 0;
+   cluster.cell_width = 0;
+   cluster.valid = 0;
+
+   item = decode_at_canonical(line, len, pos);
+   if (item.byte_length == 0)
+      return cluster;
+
+   while (item.byte_length != 0)
+   {
+      if (cluster.codepoint_count != 0
+      &&  grapheme_break_between(previous, item.codepoint, &state, regional_count))
+         break;
+
+      cluster.valid = cluster.valid || item.valid;
+      cluster.byte_length += item.byte_length;
+      cluster.codepoint_count++;
+      cell_width += item.cell_width;
+      previous = item.codepoint;
+
+      if (is_regional_indicator(item.codepoint))
+         regional_count++;
+      else
+         regional_count = 0;
+
+      end = advance_codepoint(pos, item);
+      pos = end;
+      item = decode_at_canonical(line, len, pos);
+   }
+
+   cluster.cell_width = cell_width;
+   cluster.end = make_cluster_pos(pos.byte_offset,
+                                  pos.codepoint_index,
+                                  cluster.pos.cluster_index + 1,
+                                  cluster.pos.cell_column + cell_width);
+   return cluster;
+}
+
 TextPos textpos_begin(void)
 {
    return make_pos(0, 0, 0);
@@ -136,6 +237,11 @@ TextPos textpos_begin(void)
 TextCodepoint textpos_codepoint_at(const CHARTYPE *line, size_t len, TextPos pos)
 {
    pos = textpos_from_byte(line, len, pos.byte_offset);
+   return decode_at_canonical(line, len, pos);
+}
+
+TextCodepoint textpos_codepoint_at_boundary(const CHARTYPE *line, size_t len, TextPos pos)
+{
    return decode_at_canonical(line, len, pos);
 }
 
@@ -234,41 +340,75 @@ TextPos textpos_from_cell(const CHARTYPE *line, size_t len, int cell_column, Tex
 
    while (pos.byte_offset < len)
    {
-      TextCodepoint item = decode_at_canonical(line, len, pos);
-      TextPos next;
+      TextCluster cluster = cluster_at_canonical(line, len, pos);
       int start = pos.cell_column;
-      int end;
+      int end = cluster.end.cell_column;
 
-      if (item.byte_length == 0)
+      if (cluster.byte_length == 0)
          break;
 
-      next = pos;
-      next.byte_offset += item.byte_length;
-      next.codepoint_index++;
-      next.cluster_index = next.codepoint_index;
-      next.cell_column += item.cell_width;
-      end = next.cell_column;
-
-      if (item.cell_width == 0)
+      if (cluster.cell_width == 0)
       {
-         pos = next;
+         pos = cluster.end;
          continue;
       }
 
       if (cell_column < end)
       {
          if (snap == TEXT_SNAP_FORWARD)
-            return next;
+            return cluster.end;
          if (snap == TEXT_SNAP_NEAREST
-         &&  (cell_column - start) * 2 >= item.cell_width)
-            return next;
+         &&  (cell_column - start) * 2 >= cluster.cell_width)
+            return cluster.end;
          return pos;
       }
 
-      pos = next;
+      pos = cluster.end;
    }
 
    return pos;
+}
+
+TextCluster textpos_cluster_at(const CHARTYPE *line, size_t len, TextPos pos)
+{
+   pos = textpos_from_cell(line, len, pos.cell_column, TEXT_SNAP_BACKWARD);
+   return cluster_at_canonical(line, len, pos);
+}
+
+TextCluster textpos_cluster_at_boundary(const CHARTYPE *line, size_t len, TextPos pos)
+{
+   return cluster_at_canonical(line, len, pos);
+}
+
+TextPos textpos_next_cluster(const CHARTYPE *line, size_t len, TextPos pos)
+{
+   TextCluster cluster;
+
+   pos = textpos_from_cell(line, len, pos.cell_column, TEXT_SNAP_BACKWARD);
+   cluster = cluster_at_canonical(line, len, pos);
+   if (cluster.byte_length == 0)
+      return pos;
+   return cluster.end;
+}
+
+TextPos textpos_prev_cluster(const CHARTYPE *line, size_t len, TextPos pos)
+{
+   TextPos current = textpos_begin();
+   TextPos previous = current;
+   size_t target = clamp_byte_offset(len, pos.byte_offset);
+
+   while (current.byte_offset < target)
+   {
+      TextCluster cluster = cluster_at_canonical(line, len, current);
+      if (cluster.byte_length == 0)
+         break;
+      if (cluster.end.byte_offset > target)
+         break;
+      previous = current;
+      current = cluster.end;
+   }
+
+   return previous;
 }
 
 TextCellSlice textpos_slice_cells(const CHARTYPE *line, size_t len, int start_cell, int width_cells)
@@ -293,30 +433,24 @@ TextCellSlice textpos_slice_cells(const CHARTYPE *line, size_t len, int start_ce
 
    while (pos.byte_offset < len)
    {
-      TextCodepoint item = decode_at_canonical(line, len, pos);
-      TextPos next;
+      TextCluster cluster = cluster_at_canonical(line, len, pos);
       int char_end;
 
-      if (item.byte_length == 0)
+      if (cluster.byte_length == 0)
          break;
 
-      next = pos;
-      next.byte_offset += item.byte_length;
-      next.codepoint_index++;
-      next.cluster_index = next.codepoint_index;
-      next.cell_column += item.cell_width;
-      char_end = next.cell_column;
+      char_end = cluster.end.cell_column;
 
-      if (item.cell_width > 0 && start_cell > pos.cell_column && start_cell < char_end)
+      if (cluster.cell_width > 0 && start_cell > pos.cell_column && start_cell < char_end)
       {
          slice.leading_cells = char_end - start_cell;
-         pos = next;
+         pos = cluster.end;
          break;
       }
-      if (char_end > start_cell || item.cell_width == 0)
+      if (char_end > start_cell || cluster.cell_width == 0)
          break;
 
-      pos = next;
+      pos = cluster.end;
    }
 
    slice.start = pos;
@@ -324,23 +458,16 @@ TextCellSlice textpos_slice_cells(const CHARTYPE *line, size_t len, int start_ce
 
    while (pos.byte_offset < len)
    {
-      TextCodepoint item = decode_at_canonical(line, len, pos);
-      TextPos next;
+      TextCluster cluster = cluster_at_canonical(line, len, pos);
 
-      if (item.byte_length == 0)
+      if (cluster.byte_length == 0)
          break;
 
-      next = pos;
-      next.byte_offset += item.byte_length;
-      next.codepoint_index++;
-      next.cluster_index = next.codepoint_index;
-      next.cell_column += item.cell_width;
-
-      if (item.cell_width > 0 && next.cell_column > end_cell)
+      if (cluster.cell_width > 0 && cluster.end.cell_column > end_cell)
          break;
 
-      slice.end = next;
-      pos = next;
+      slice.end = cluster.end;
+      pos = cluster.end;
    }
 
    slice.content_cells = slice.end.cell_column - slice.start.cell_column;
@@ -357,8 +484,26 @@ size_t textpos_count_codepoints(const CHARTYPE *line, size_t len)
    return textpos_from_byte(line, len, len).codepoint_index;
 }
 
+size_t textpos_count_clusters(const CHARTYPE *line, size_t len)
+{
+   TextPos pos = textpos_begin();
+
+   while (pos.byte_offset < len)
+   {
+      TextCluster cluster = cluster_at_canonical(line, len, pos);
+      if (cluster.byte_length == 0)
+         break;
+      pos = cluster.end;
+   }
+   return pos.cluster_index;
+}
+
 int text_codepoint_cell_width(uint32_t codepoint)
 {
+#ifdef USE_UTF8PROC
+   int width = utf8proc_charwidth((utf8proc_int32_t)codepoint);
+   return (width < 0) ? 0 : width;
+#endif
    static const CodepointRange combining[] = {
       {0x0300u, 0x036Fu}, {0x0483u, 0x0489u}, {0x0591u, 0x05BDu},
       {0x05BFu, 0x05BFu}, {0x05C1u, 0x05C2u}, {0x05C4u, 0x05C5u},

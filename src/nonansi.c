@@ -1673,6 +1673,41 @@ static void PDC_curs_set(int visibility)
 #endif
 
 /***********************************************************************/
+CursorShape current_cursor_shape(void)
+/***********************************************************************/
+{
+   return INSERTMODEx ? cursorstyle_insert_shape : cursorstyle_over_shape;
+}
+
+/***********************************************************************/
+CursorBlink current_cursor_blink(void)
+/***********************************************************************/
+{
+   return INSERTMODEx ? cursorstyle_insert_blink : cursorstyle_over_blink;
+}
+
+/***********************************************************************/
+CursorPresentation current_cursor_presentation(void)
+/***********************************************************************/
+{
+#ifdef USE_UTF8
+   if (CURRENT_VIEW != NULL
+   &&  (CURRENT_VIEW->current_window == WINDOW_FILEAREA
+     || CURRENT_VIEW->current_window == WINDOW_PREFIX
+     || CURRENT_VIEW->current_window == WINDOW_COMMAND))
+      return CURSOR_PRESENTATION_SOFTWARE;
+#endif
+   return CURSOR_PRESENTATION_HARDWARE;
+}
+
+/***********************************************************************/
+bool current_cursor_uses_software(void)
+/***********************************************************************/
+{
+   return current_cursor_presentation() == CURSOR_PRESENTATION_SOFTWARE;
+}
+
+/***********************************************************************/
 void draw_cursor(bool visible)
 /***********************************************************************/
 {
@@ -1680,8 +1715,18 @@ void draw_cursor(bool visible)
 #ifdef HAVE_CURS_SET
    if (visible)
    {
-      CursorShape shape = INSERTMODEx ? cursorstyle_insert_shape : cursorstyle_over_shape;
-      CursorBlink blink = INSERTMODEx ? cursorstyle_insert_blink : cursorstyle_over_blink;
+      CursorShape shape;
+      CursorBlink blink;
+
+      if (current_cursor_uses_software())
+      {
+         curs_set(0);
+         TRACE_RETURN();
+         return;
+      }
+
+      shape = current_cursor_shape();
+      blink = current_cursor_blink();
 
 #ifdef USE_NCURSES
       int seq = 1; /* blinking block */

@@ -38,6 +38,470 @@
 #include <the.h>
 #include <proto.h>
 
+#ifdef USE_UTF8
+typedef struct
+{
+   bool valid;
+   CHARTYPE screen;
+   CHARTYPE window;
+   int row;
+   int col;
+} CursorFocusSnapshot;
+
+static CursorFocusSnapshot cursor_focus_snapshot = { FALSE, 0, WINDOW_FILEAREA, 0, 0 };
+
+static int cursor_utf8_filearea_logical_cell_from_display(CHARTYPE curr_screen,
+                                                          VIEW_DETAILS *curr_view,
+                                                          int display_col,
+                                                          TextSnap snap);
+
+static bool cursor_focus_software_window(CHARTYPE window)
+{
+   return window == WINDOW_FILEAREA
+       || window == WINDOW_PREFIX
+       || window == WINDOW_COMMAND;
+}
+
+static void cursor_focus_clamp_to_window(CHARTYPE scrno, CHARTYPE window, int *row, int *col)
+{
+   WINDOW *win = screen[scrno].win[window];
+   int maxy;
+   int maxx;
+
+   if (win == NULL)
+      return;
+
+   maxy = getmaxy(win);
+   maxx = getmaxx(win);
+   if (*row < 0)
+      *row = 0;
+   if (*col < 0)
+      *col = 0;
+   if (maxy > 0 && *row >= maxy)
+      *row = (short)(maxy - 1);
+   if (maxx > 0 && *col >= maxx)
+      *col = (short)(maxx - 1);
+}
+
+void cursor_focus_capture(CHARTYPE scrno)
+{
+   int row = 0;
+   int col = 0;
+   WINDOW *win;
+   VIEW_DETAILS *view = SCREEN_VIEW(scrno);
+
+   cursor_focus_snapshot.valid = FALSE;
+   if (scrno != current_screen
+   ||  view == NULL
+   ||  !cursor_focus_software_window(view->current_window))
+      return;
+
+   win = SCREEN_WINDOW(scrno);
+   if (win == NULL)
+      return;
+
+   getyx(win, row, col);
+   cursor_focus_clamp_to_window(scrno, view->current_window, &row, &col);
+   if (view->current_window == WINDOW_FILEAREA)
+      col = cursor_utf8_filearea_logical_cell_from_display(scrno, view, col,
+                                                           TEXT_SNAP_BACKWARD)
+          - ((int)view->verify_col - 1);
+   cursor_focus_snapshot.valid = TRUE;
+   cursor_focus_snapshot.screen = scrno;
+   cursor_focus_snapshot.window = view->current_window;
+   cursor_focus_snapshot.row = row;
+   cursor_focus_snapshot.col = col;
+}
+
+static bool cursor_focus_snapshot_for(CHARTYPE scrno, CHARTYPE window)
+{
+   return cursor_focus_snapshot.valid
+       && cursor_focus_snapshot.screen == scrno
+       && cursor_focus_snapshot.window == window
+       && current_cursor_uses_software();
+}
+
+bool cursor_focus_filearea_cursor(CHARTYPE scrno, short row, int *col, CursorShape *shape)
+{
+   if (!cursor_focus_snapshot_for(scrno, WINDOW_FILEAREA)
+   ||  cursor_focus_snapshot.row != row)
+      return FALSE;
+   if (col != NULL)
+      *col = cursor_focus_snapshot.col;
+   if (shape != NULL)
+      *shape = current_cursor_shape();
+   return TRUE;
+}
+
+bool cursor_focus_command_cursor(CHARTYPE scrno, short *row, short *col, CursorShape *shape)
+{
+   if (!cursor_focus_snapshot_for(scrno, WINDOW_COMMAND))
+      return FALSE;
+   if (row != NULL)
+      *row = (short)cursor_focus_snapshot.row;
+   if (col != NULL)
+      *col = (short)cursor_focus_snapshot.col;
+   if (shape != NULL)
+      *shape = current_cursor_shape();
+   return TRUE;
+}
+
+bool cursor_focus_prefix_cursor(CHARTYPE scrno, short row, int *col, CursorShape *shape)
+{
+   if (!cursor_focus_snapshot_for(scrno, WINDOW_PREFIX)
+   ||  cursor_focus_snapshot.row != row)
+      return FALSE;
+   if (col != NULL)
+      *col = cursor_focus_snapshot.col;
+   if (shape != NULL)
+      *shape = current_cursor_shape();
+   return TRUE;
+}
+
+void cursor_focus_redraw(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
+{
+   if (!curses_started || curr_view == NULL)
+      return;
+
+   build_screen(curr_screen);
+   display_screen(curr_screen);
+   show_statarea();
+   doupdate();
+   draw_cursor(TRUE);
+}
+
+static void cursor_focus_redraw_if_software(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
+{
+   if (current_cursor_uses_software())
+   {
+      if (curr_view != NULL
+      &&  curr_view->current_window == WINDOW_PREFIX
+      &&  prefix_changed)
+      {
+         display_prefix_line(curr_screen, curr_view);
+         show_statarea();
+         doupdate();
+         draw_cursor(TRUE);
+      }
+      else
+         cursor_focus_redraw(curr_screen, curr_view);
+   }
+}
+
+short cursor_focus_enter_command(CHARTYPE curr_screen, VIEW_DETAILS *curr_view,
+                                 short col, bool refresh)
+{
+   if (in_readv || SCREEN_WINDOW_COMMAND(curr_screen) == NULL)
+      return RC_OK;
+
+   if (col < 1)
+      col = 1;
+   if (curr_view->current_window != WINDOW_COMMAND)
+   {
+      curr_view->previous_window = curr_view->current_window;
+      post_process_line(curr_view, curr_view->focus_line, (LINE *)NULL, TRUE);
+      curr_view->current_window = WINDOW_COMMAND;
+   }
+   wmove(SCREEN_WINDOW_COMMAND(curr_screen), 0, col - 1);
+   curr_view->cmdline_col = col - 1;
+   cmd_verify_col = 1;
+   if (refresh)
+      cursor_focus_redraw(curr_screen, curr_view);
+   return RC_OK;
+}
+
+static int cursor_utf8_filearea_cell(void)
+{
+   int y = 0;
+   int x = 0;
+
+   getyx(SCREEN_WINDOW_FILEAREA(current_screen), y, x);
+   INTENTIONALLY_UNUSED_VARIABLE(y);
+   return cursor_utf8_filearea_logical_cell_from_display(current_screen,
+                                                         CURRENT_VIEW,
+                                                         x,
+                                                         TEXT_SNAP_BACKWARD);
+}
+
+static TextPos cursor_utf8_filearea_pos_from_cell(int cell)
+{
+   return textpos_from_cell(rec, rec_len, cell, TEXT_SNAP_BACKWARD);
+}
+
+static TextPos cursor_utf8_filearea_end_pos(void)
+{
+   return textpos_from_byte(rec, rec_len, rec_len);
+}
+
+static short cursor_utf8_move_filearea_to_cell(int cell)
+{
+   if (cell < 0)
+      cell = 0;
+   return execute_move_cursor(current_screen, CURRENT_VIEW, (LENGTHTYPE)cell);
+}
+
+static int cursor_utf8_filearea_logical_cell_from_display(CHARTYPE curr_screen,
+                                                          VIEW_DETAILS *curr_view,
+                                                          int display_col,
+                                                          TextSnap snap)
+{
+   INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
+   if (curr_view == NULL)
+      return display_col;
+   return show_utf8_logical_col_from_display(rec, rec_len,
+                                             (int)curr_view->verify_col - 1,
+                                             display_col, snap);
+}
+
+static void cursor_utf8_repaint_filearea_motion(CHARTYPE curr_screen,
+                                                VIEW_DETAILS *curr_view,
+                                                short old_row,
+                                                int old_logical_cell,
+                                                LENGTHTYPE old_verify_col)
+{
+   short new_row = 0;
+   short new_col = 0;
+   int viewport_col;
+   int new_logical_cell;
+
+   if (!current_cursor_uses_software())
+      return;
+
+   getyx(SCREEN_WINDOW_FILEAREA(curr_screen), new_row, new_col);
+   if (curr_view == NULL
+   ||  curr_view->verify_col != old_verify_col
+   ||  new_row != old_row)
+   {
+      cursor_focus_redraw(curr_screen, curr_view);
+      return;
+   }
+
+   viewport_col = (int)curr_view->verify_col - 1;
+   new_logical_cell = cursor_utf8_filearea_logical_cell_from_display(curr_screen,
+                                                                     curr_view,
+                                                                     new_col,
+                                                                     TEXT_SNAP_BACKWARD);
+   show_utf8_trace_cursor_motion(curr_screen, old_row, old_logical_cell,
+                                 new_logical_cell, new_col,
+                                 curr_view->verify_col);
+   show_utf8_filearea_cursor_transition(curr_screen, old_row,
+                                        old_logical_cell - viewport_col,
+                                        new_logical_cell - viewport_col);
+   wmove(SCREEN_WINDOW_FILEAREA(curr_screen), new_row, new_col);
+   show_statarea();
+   doupdate();
+   draw_cursor(TRUE);
+}
+
+static bool cursor_utf8_filearea_left(short escreen, short *rc)
+{
+   short old_y = 0;
+   short old_x = 0;
+   LENGTHTYPE old_verify_col;
+   int current_cell;
+   int old_logical_cell;
+   int target_cell;
+   TextPos current_pos;
+   TextPos end_pos;
+
+   if (CURRENT_VIEW->current_window != WINDOW_FILEAREA)
+      return FALSE;
+
+   getyx(SCREEN_WINDOW_FILEAREA(current_screen), old_y, old_x);
+   old_verify_col = CURRENT_VIEW->verify_col;
+   current_cell = cursor_utf8_filearea_cell();
+   old_logical_cell = current_cell;
+   if (current_cell <= 0)
+      return FALSE;
+
+   end_pos = cursor_utf8_filearea_end_pos();
+   if (current_cell > end_pos.cell_column)
+   {
+      target_cell = current_cell - 1;
+   }
+   else
+   {
+      current_pos = cursor_utf8_filearea_pos_from_cell(current_cell);
+      if (current_cell != current_pos.cell_column)
+         target_cell = current_pos.cell_column;
+      else
+         target_cell = textpos_prev_cluster(rec, rec_len, current_pos).cell_column;
+   }
+
+   *rc = cursor_utf8_move_filearea_to_cell(target_cell);
+   if (*rc == RC_OK)
+      cursor_utf8_repaint_filearea_motion(current_screen, CURRENT_VIEW,
+                                          old_y, old_logical_cell, old_verify_col);
+   INTENTIONALLY_UNUSED_VARIABLE(escreen);
+   INTENTIONALLY_UNUSED_VARIABLE(old_x);
+   return TRUE;
+}
+
+static bool cursor_utf8_filearea_right(short escreen, short *rc)
+{
+   short old_y = 0;
+   short old_x = 0;
+   LENGTHTYPE old_verify_col;
+   int current_cell;
+   int old_logical_cell;
+   int target_cell;
+   TextPos current_pos;
+   TextPos end_pos;
+
+   if (CURRENT_VIEW->current_window != WINDOW_FILEAREA)
+      return FALSE;
+
+   getyx(SCREEN_WINDOW_FILEAREA(current_screen), old_y, old_x);
+   old_verify_col = CURRENT_VIEW->verify_col;
+   current_cell = cursor_utf8_filearea_cell();
+   old_logical_cell = current_cell;
+   if (current_cell + 1 > max_line_length)
+      return TRUE;
+
+   end_pos = cursor_utf8_filearea_end_pos();
+   if (escreen == CURSOR_CUA
+   &&  current_cell >= min(end_pos.cell_column, (int)CURRENT_VIEW->verify_end))
+      return FALSE;
+
+   if (current_cell >= end_pos.cell_column)
+   {
+      target_cell = current_cell + 1;
+   }
+   else
+   {
+      current_pos = cursor_utf8_filearea_pos_from_cell(current_cell);
+      target_cell = textpos_next_cluster(rec, rec_len, current_pos).cell_column;
+      if (target_cell <= current_cell)
+         target_cell = current_cell + 1;
+   }
+
+   *rc = cursor_utf8_move_filearea_to_cell(target_cell);
+   if (*rc == RC_OK)
+      cursor_utf8_repaint_filearea_motion(current_screen, CURRENT_VIEW,
+                                          old_y, old_logical_cell, old_verify_col);
+   INTENTIONALLY_UNUSED_VARIABLE(old_x);
+   return TRUE;
+}
+
+static void cursor_utf8_snap_filearea_to_cluster_start(CHARTYPE curr_screen,
+                                                       VIEW_DETAILS *curr_view)
+{
+   int y = 0;
+   int x = 0;
+   int cell;
+   TextPos pos;
+
+   if (curr_view == NULL || curr_view->current_window != WINDOW_FILEAREA)
+      return;
+
+   getyx(SCREEN_WINDOW_FILEAREA(curr_screen), y, x);
+   cell = cursor_utf8_filearea_logical_cell_from_display(curr_screen,
+                                                         curr_view,
+                                                         x,
+                                                         TEXT_SNAP_BACKWARD);
+   pos = textpos_from_cell(rec, rec_len, cell, TEXT_SNAP_BACKWARD);
+   if (pos.cell_column != cell)
+      execute_move_cursor(curr_screen, curr_view, (LENGTHTYPE)pos.cell_column);
+   INTENTIONALLY_UNUSED_VARIABLE(y);
+}
+
+static void cursor_utf8_move_filearea_display_col(CHARTYPE curr_screen,
+                                                  VIEW_DETAILS *curr_view,
+                                                  short row, int display_col)
+{
+   int logical_col = cursor_utf8_filearea_logical_cell_from_display(curr_screen,
+                                                                    curr_view,
+                                                                    display_col,
+                                                                    TEXT_SNAP_BACKWARD);
+   TextPos pos;
+
+   if (logical_col < 0)
+      logical_col = 0;
+   pos = textpos_from_cell(rec, rec_len, logical_col, TEXT_SNAP_BACKWARD);
+   wmove(SCREEN_WINDOW_FILEAREA(curr_screen), row,
+         show_utf8_display_col_from_logical(rec, rec_len,
+                                            (int)curr_view->verify_col - 1,
+                                            pos.cell_column));
+}
+#else
+void cursor_focus_capture(CHARTYPE scrno)
+{
+   INTENTIONALLY_UNUSED_VARIABLE(scrno);
+}
+
+void cursor_focus_redraw(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
+{
+   INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
+   INTENTIONALLY_UNUSED_VARIABLE(curr_view);
+}
+
+bool cursor_focus_filearea_cursor(CHARTYPE scrno, short row, int *col, CursorShape *shape)
+{
+   INTENTIONALLY_UNUSED_VARIABLE(scrno);
+   INTENTIONALLY_UNUSED_VARIABLE(row);
+   INTENTIONALLY_UNUSED_VARIABLE(col);
+   INTENTIONALLY_UNUSED_VARIABLE(shape);
+   return FALSE;
+}
+
+bool cursor_focus_command_cursor(CHARTYPE scrno, short *row, short *col, CursorShape *shape)
+{
+   INTENTIONALLY_UNUSED_VARIABLE(scrno);
+   INTENTIONALLY_UNUSED_VARIABLE(row);
+   INTENTIONALLY_UNUSED_VARIABLE(col);
+   INTENTIONALLY_UNUSED_VARIABLE(shape);
+   return FALSE;
+}
+
+bool cursor_focus_prefix_cursor(CHARTYPE scrno, short row, int *col, CursorShape *shape)
+{
+   INTENTIONALLY_UNUSED_VARIABLE(scrno);
+   INTENTIONALLY_UNUSED_VARIABLE(row);
+   INTENTIONALLY_UNUSED_VARIABLE(col);
+   INTENTIONALLY_UNUSED_VARIABLE(shape);
+   return FALSE;
+}
+
+static void cursor_focus_redraw_if_software(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
+{
+   INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
+   INTENTIONALLY_UNUSED_VARIABLE(curr_view);
+}
+
+static void cursor_utf8_snap_filearea_to_cluster_start(CHARTYPE curr_screen,
+                                                       VIEW_DETAILS *curr_view)
+{
+   INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
+   INTENTIONALLY_UNUSED_VARIABLE(curr_view);
+}
+
+static void cursor_utf8_move_filearea_display_col(CHARTYPE curr_screen,
+                                                  VIEW_DETAILS *curr_view,
+                                                  short row, int display_col)
+{
+   INTENTIONALLY_UNUSED_VARIABLE(curr_view);
+   wmove(SCREEN_WINDOW_FILEAREA(curr_screen), row, display_col);
+}
+
+short cursor_focus_enter_command(CHARTYPE curr_screen, VIEW_DETAILS *curr_view,
+                                 short col, bool refresh)
+{
+   INTENTIONALLY_UNUSED_VARIABLE(refresh);
+   if (in_readv || SCREEN_WINDOW_COMMAND(curr_screen) == NULL)
+      return RC_OK;
+   if (curr_view->current_window != WINDOW_COMMAND)
+   {
+      curr_view->previous_window = curr_view->current_window;
+      post_process_line(curr_view, curr_view->focus_line, (LINE *)NULL, TRUE);
+      curr_view->current_window = WINDOW_COMMAND;
+   }
+   wmove(SCREEN_WINDOW_COMMAND(curr_screen), 0, col - 1);
+   curr_view->cmdline_col = col - 1;
+   cmd_verify_col = 1;
+   return RC_OK;
+}
+#endif
+
 /***********************************************************************/
 short THEcursor_cmdline( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short col)
 /***********************************************************************/
@@ -61,15 +525,7 @@ short THEcursor_cmdline( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short co
       TRACE_RETURN();
       return(rc);
    }
-   if ( curr_view->current_window != WINDOW_COMMAND )
-   {
-      curr_view->previous_window = curr_view->current_window;
-      post_process_line( curr_view, curr_view->focus_line, (LINE *)NULL, TRUE );
-      curr_view->current_window = WINDOW_COMMAND;
-   }
-   wmove( SCREEN_WINDOW(curr_screen), 0, col-1 );
-   curr_view->cmdline_col = col-1;
-   cmd_verify_col = 1;
+   rc = cursor_focus_enter_command(curr_screen, curr_view, col, TRUE);
    TRACE_RETURN();
    return(rc);
 }
@@ -130,9 +586,20 @@ short THEcursor_down( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short escre
          &&   escreen == CURSOR_CUA )
          {
             getyx( SCREEN_WINDOW_FILEAREA(curr_screen), y, x );
+#ifdef USE_UTF8
+            if ( cursor_utf8_filearea_logical_cell_from_display(curr_screen,
+                                                                 curr_view,
+                                                                 x,
+                                                                 TEXT_SNAP_BACKWARD)
+                 > min(textpos_from_byte(rec, rec_len, rec_len).cell_column, (int)curr_view->verify_end) )
+               rc = execute_move_cursor( curr_screen, curr_view, textpos_from_byte(rec, rec_len, rec_len).cell_column );
+#else
             if ( x + curr_view->verify_col > min(rec_len,curr_view->verify_end) )
                rc = execute_move_cursor( curr_screen, curr_view, rec_len );
+#endif
          }
+         if (rc == RC_OK)
+            cursor_utf8_snap_filearea_to_cluster_start(curr_screen, curr_view);
          else if ( rc == RC_TOF_EOF_REACHED && CMDARROWSTABCMDx )
          {
              rc = THEcursor_cmdline( curr_screen, curr_view, 1 );
@@ -160,6 +627,7 @@ short THEcursor_down( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short escre
          break;
    }
    INTENTIONALLY_UNUSED_VARIABLE(y);
+   cursor_focus_redraw_if_software(curr_screen, curr_view);
    TRACE_RETURN();
    return(rc);
 }
@@ -286,11 +754,14 @@ short THEcursor_home( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool save )
    }
    else
    {
-      post_process_line( curr_view, curr_view->focus_line, (LINE *)NULL, TRUE );
-      curr_view->current_window = WINDOW_COMMAND;
-      wmove( SCREEN_WINDOW(curr_screen), 0, 0 );
+      rc = cursor_focus_enter_command(curr_screen, curr_view, 1, FALSE);
    }
-   build_screen( curr_screen );
+#ifdef USE_UTF8
+   if (current_cursor_uses_software())
+      cursor_focus_redraw(curr_screen, curr_view);
+   else
+#endif
+      build_screen( curr_screen );
    TRACE_RETURN();
    return(rc);
 }
@@ -314,12 +785,20 @@ short THEcursor_left(short escreen,bool kedit_defaults)
       escreen = CURSOR_SCREEN;
 
    getyx(CURRENT_WINDOW,y,x);
+#ifdef USE_UTF8
+   if (cursor_utf8_filearea_left(escreen, &rc))
+   {
+      TRACE_RETURN();
+      return(rc);
+   }
+#endif
    /*
     * For all windows, if we are not at left column, move 1 pos to left.
     */
    if ( x > 0 )
    {
       wmove( CURRENT_WINDOW, y, x - 1 );
+      cursor_focus_redraw_if_software(current_screen, CURRENT_VIEW);
       TRACE_RETURN();
       return(RC_OK);
    }
@@ -415,6 +894,7 @@ short THEcursor_left(short escreen,bool kedit_defaults)
       default:
          break;
    }
+   cursor_focus_redraw_if_software(current_screen, CURRENT_VIEW);
    TRACE_RETURN();
    return(rc);
 }
@@ -440,7 +920,11 @@ short THEcursor_right(short escreen,bool kedit_defaults)
       /*
        * Check for going past end of line - max_line_length
        */
+#ifdef USE_UTF8
+      if ( cursor_utf8_filearea_cell() + 1 > max_line_length )
+#else
       if ( CURRENT_VIEW->verify_col+x+1 > max_line_length )
+#endif
       {
          TRACE_RETURN();
          return(RC_OK);
@@ -450,8 +934,13 @@ short THEcursor_right(short escreen,bool kedit_defaults)
        * move the cursor to the first column of the next line; that line
        * which is in scope
        */
+#ifdef USE_UTF8
+      if ( escreen == CURSOR_CUA
+      &&   cursor_utf8_filearea_cell() >= min(textpos_from_byte(rec, rec_len, rec_len).cell_column, (int)CURRENT_VIEW->verify_end) )
+#else
       if ( escreen == CURSOR_CUA
       &&   x + CURRENT_VIEW->verify_col > min(rec_len,CURRENT_VIEW->verify_end) )
+#endif
       {
          rc = scroll_line( current_screen, CURRENT_VIEW, DIRECTION_FORWARD, 1L, FALSE, escreen );
          rc = Sos_firstcol( (CHARTYPE *)"" );
@@ -459,12 +948,20 @@ short THEcursor_right(short escreen,bool kedit_defaults)
          return(rc);
       }
    }
+#ifdef USE_UTF8
+   if (cursor_utf8_filearea_right(escreen, &rc))
+   {
+      TRACE_RETURN();
+      return(rc);
+   }
+#endif
    /*
     * For all windows, if we are not at right column, move 1 pos to right.
     */
    if ( x < right_column )
    {
       wmove( CURRENT_WINDOW, y, x+1 );
+      cursor_focus_redraw_if_software(current_screen, CURRENT_VIEW);
       TRACE_RETURN();
       return(RC_OK);
    }
@@ -519,6 +1016,7 @@ short THEcursor_right(short escreen,bool kedit_defaults)
       default:
          break;
    }
+   cursor_focus_redraw_if_software(current_screen, CURRENT_VIEW);
    TRACE_RETURN();
    return(rc);
 }
@@ -548,9 +1046,20 @@ short THEcursor_up(short escreen)
          &&   escreen == CURSOR_CUA )
          {
             getyx( CURRENT_WINDOW_FILEAREA, y, x );
+#ifdef USE_UTF8
+            if ( cursor_utf8_filearea_logical_cell_from_display(current_screen,
+                                                                 CURRENT_VIEW,
+                                                                 x,
+                                                                 TEXT_SNAP_BACKWARD)
+                 > min(textpos_from_byte(rec, rec_len, rec_len).cell_column, (int)CURRENT_VIEW->verify_end) )
+               rc = execute_move_cursor( current_screen, CURRENT_VIEW, textpos_from_byte(rec, rec_len, rec_len).cell_column );
+#else
             if ( x + CURRENT_VIEW->verify_col > min( rec_len, CURRENT_VIEW->verify_end) )
                rc = execute_move_cursor( current_screen, CURRENT_VIEW, rec_len );
+#endif
          }
+         if (rc == RC_OK)
+            cursor_utf8_snap_filearea_to_cluster_start(current_screen, CURRENT_VIEW);
          break;
       case WINDOW_COMMAND:
          /*
@@ -575,6 +1084,7 @@ short THEcursor_up(short escreen)
          break;
    }
    INTENTIONALLY_UNUSED_VARIABLE(y);
+   cursor_focus_redraw_if_software(current_screen, CURRENT_VIEW);
    TRACE_RETURN();
    return(rc);
 }
@@ -656,6 +1166,7 @@ short THEcursor_move( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool show_e
       wmove( SCREEN_WINDOW_FILEAREA(curr_screen), row, col );
       curr_view->focus_line = screen[curr_screen].sl[row].line_number;
       pre_process_line( curr_view, curr_view->focus_line, (LINE *)NULL );
+      cursor_utf8_snap_filearea_to_cluster_start(curr_screen, curr_view);
    }
    else
    {
@@ -713,9 +1224,9 @@ short THEcursor_move( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool show_e
                return(RC_TOF_EOF_REACHED);/* this is a strange RC :-( */
             }
             rc = do_Sos_current( (CHARTYPE *)"", curr_screen, curr_view );
-            wmove( SCREEN_WINDOW_FILEAREA(curr_screen), row, col );
             curr_view->focus_line = screen[curr_screen].sl[row].line_number;
             pre_process_line( curr_view, curr_view->focus_line, (LINE *)NULL );
+            cursor_utf8_move_filearea_display_col(curr_screen, curr_view, row, col);
             /*
              * If the colours of FILEAREA and CURSORLINE are different, we need
              * to display the screen.
@@ -1443,6 +1954,7 @@ short go_to_new_field(long save_where,long where)
       }
    }
    wmove(CURRENT_WINDOW,where_row,0);
+   cursor_focus_redraw_if_software(current_screen, CURRENT_VIEW);
    TRACE_RETURN();
    return(rc);
 }
@@ -1467,7 +1979,11 @@ void get_cursor_position(LINETYPE *screen_line, LENGTHTYPE *screen_column, LINET
    {
       case WINDOW_FILEAREA:
          *file_line = CURRENT_VIEW->focus_line;
+#ifdef USE_UTF8
+         *file_column = cursor_utf8_filearea_cell() + 1;
+#else
          *file_column = CURRENT_VIEW->verify_col + x;
+#endif
          break;
       case WINDOW_PREFIX:
          *file_line = CURRENT_VIEW->focus_line;

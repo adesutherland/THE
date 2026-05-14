@@ -2905,9 +2905,9 @@ static short sosdelback( bool cua )
             if ( cmd_verify_col != new_verify_col )
             {
                cmd_verify_col = new_verify_col;
-               display_cmdline( current_screen, CURRENT_VIEW );
-               wmove( CURRENT_WINDOW, y, new_screen_col );
             }
+            display_cmdline( current_screen, CURRENT_VIEW );
+            wmove( CURRENT_WINDOW, y, new_screen_col );
          }
          else
          {
@@ -2936,6 +2936,9 @@ static short sosdelback( bool cua )
             memdeln( pre_rec, x - 1, pre_rec_len, 1 );
             pre_rec_len --;
          }
+#ifdef USE_UTF8
+         display_prefix_line( current_screen, CURRENT_VIEW );
+#endif
          TRACE_RETURN();
          return(RC_OK);
          break;
@@ -3071,6 +3074,13 @@ static short sosdelchar( bool cua )
             display_cmdline( current_screen, CURRENT_VIEW );
             wmove( CURRENT_WINDOW, y, x );
          }
+#ifdef USE_UTF8
+         else
+         {
+            display_cmdline( current_screen, CURRENT_VIEW );
+            wmove( CURRENT_WINDOW, y, x );
+         }
+#endif
          TRACE_RETURN();
          return(RC_OK);
          break;
@@ -3082,6 +3092,9 @@ static short sosdelchar( bool cua )
             memdeln( pre_rec, x, pre_rec_len, 1 );
             pre_rec_len--;
          }
+#ifdef USE_UTF8
+         display_prefix_line( current_screen, CURRENT_VIEW );
+#endif
          TRACE_RETURN();
          return(RC_OK);
          break;

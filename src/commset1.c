@@ -5461,7 +5461,10 @@ short Insertmode(CHARTYPE *params)
       return(RC_INVALID_OPERAND);
    }
    if (curses_started)
-      draw_cursor(TRUE);
+   {
+      show_statarea();
+      cursor_focus_redraw(current_screen, CURRENT_VIEW);
+   }
    TRACE_RETURN();
    return(RC_OK);
 }
@@ -5472,21 +5475,22 @@ COMMAND
 
 SYNTAX
      [SET] CURSORStyle INSERT|OVERWRITE BLOCK|UNDERLINE|IBEAM [BLINK|STEADY]
+     [SET] CURSORStyle MAINFRAME|3270|MODERN|BLOCK|UNDERLINE
 
 DESCRIPTION
      The SET CURSORSTYLE command sets the appearance of the cursor in
      INSERT and OVERWRITE (replace) modes.
-     
-     NOTE: Explicit cursor shapes are only fully supported when THE is 
-     run under NCURSES in a modern terminal emulator.
+
+     In UTF-8 editor windows THE draws a software cursor so cursor placement
+     remains consistent over wide and composed characters. IBEAM falls back to
+     underline for the software cursor.
 
 COMPATIBILITY
      XEDIT: N/A
      KEDIT: N/A
 
 DEFAULT
-     INSERT IBEAM BLINK
-     OVERWRITE BLOCK STEADY
+     MAINFRAME
 
 STATUS
      Complete.
@@ -5511,6 +5515,48 @@ short Cursorstyle(CHARTYPE *params)
    
    if (num_params < 2)
    {
+      if (num_params == 1)
+      {
+         if (equal((CHARTYPE *)"mainframe", word[0], 9)
+         ||  equal((CHARTYPE *)"3270", word[0], 4))
+         {
+            cursorstyle_insert_shape = CURSOR_BLOCK;
+            cursorstyle_insert_blink = CURSOR_STEADY;
+            cursorstyle_over_shape = CURSOR_UNDERLINE;
+            cursorstyle_over_blink = CURSOR_STEADY;
+         }
+         else if (equal((CHARTYPE *)"modern", word[0], 6))
+         {
+            cursorstyle_insert_shape = CURSOR_UNDERLINE;
+            cursorstyle_insert_blink = CURSOR_STEADY;
+            cursorstyle_over_shape = CURSOR_BLOCK;
+            cursorstyle_over_blink = CURSOR_STEADY;
+         }
+         else if (equal((CHARTYPE *)"block", word[0], 5))
+         {
+            cursorstyle_insert_shape = CURSOR_BLOCK;
+            cursorstyle_insert_blink = CURSOR_STEADY;
+            cursorstyle_over_shape = CURSOR_BLOCK;
+            cursorstyle_over_blink = CURSOR_STEADY;
+         }
+         else if (equal((CHARTYPE *)"underline", word[0], 9))
+         {
+            cursorstyle_insert_shape = CURSOR_UNDERLINE;
+            cursorstyle_insert_blink = CURSOR_STEADY;
+            cursorstyle_over_shape = CURSOR_UNDERLINE;
+            cursorstyle_over_blink = CURSOR_STEADY;
+         }
+         else
+         {
+            display_error(1,word[0],FALSE);
+            TRACE_RETURN();
+            return RC_INVALID_OPERAND;
+         }
+         if (curses_started)
+            draw_cursor(TRUE);
+         TRACE_RETURN();
+         return RC_OK;
+      }
       display_error(3,(CHARTYPE *)"",FALSE);
       TRACE_RETURN();
       return(RC_INVALID_OPERAND);

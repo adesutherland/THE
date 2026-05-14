@@ -77,9 +77,39 @@
 # include <cur04.h>
 #endif
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #ifdef USE_UTF8
 # include <wchar.h>
+# ifndef THE_UTF8_FLAG_OVERHANG_DEFAULT
+#  ifdef __APPLE__
+#   define THE_UTF8_FLAG_OVERHANG_DEFAULT 1
+#  else
+#   define THE_UTF8_FLAG_OVERHANG_DEFAULT 0
+#  endif
+# endif
+# ifndef THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT
+#  ifdef __APPLE__
+#   define THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT 2
+#  else
+#   define THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT 0
+#  endif
+# endif
+# ifndef THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT
+#  define THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT 0
+# endif
+# ifndef THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT
+#  ifdef __APPLE__
+#   define THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT 6
+#  else
+#   define THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT 0
+#  endif
+# endif
+# ifndef THE_UTF8_ZWJ_WIDTH_DEFAULT
+#  define THE_UTF8_ZWJ_WIDTH_DEFAULT 0
+# endif
 #endif
 
 /*------------------------ function definitions -----------------------*/
@@ -169,6 +199,747 @@ static void show_set_utf8_cchar(cchar_t *dest, uint32_t ch, chtype colour)
 
    show_codepoint_to_wchars(ch, wch);
    setcchar(dest, wch, colour, PAIR_NUMBER(colour & A_COLOR), NULL);
+}
+
+static FILE *show_utf8_trace_file(void)
+{
+   static FILE *trace = NULL;
+   static int initialised = FALSE;
+   const char *path;
+
+   if (initialised)
+      return trace;
+   initialised = TRUE;
+
+   path = getenv("THE_UTF8_RENDER_TRACE");
+   if (path == NULL || *path == '\0')
+      return NULL;
+   if (strcmp(path, "1") == 0)
+      path = "/tmp/the-utf8-render.log";
+   if (strcmp(path, "stderr") == 0)
+      return stderr;
+
+   trace = fopen(path, "a");
+   return trace;
+}
+
+static TextPos show_utf8_advance_codepoint_pos(TextPos pos, TextCodepoint item)
+{
+   if (item.byte_length == 0)
+      return pos;
+   pos.byte_offset += item.byte_length;
+   pos.codepoint_index++;
+   pos.cell_column += item.cell_width;
+   return pos;
+}
+
+static int show_utf8_line_is_ascii(const CHARTYPE *line, size_t len)
+{
+   size_t i;
+
+   if (line == NULL)
+      return TRUE;
+   for (i = 0; i < len; i++)
+   {
+      if (((unsigned char)line[i]) >= 0x80u)
+         return FALSE;
+   }
+   return TRUE;
+}
+
+static void show_utf8_trace_codepoints(FILE *trace, const CHARTYPE *line,
+                                       size_t len, TextCluster cluster)
+{
+   TextPos pos = cluster.pos;
+
+   while (pos.byte_offset < cluster.end.byte_offset)
+   {
+      TextCodepoint item = textpos_codepoint_at_boundary(line, len, pos);
+
+      if (item.byte_length == 0)
+         break;
+      fprintf(trace, " U+%X(w%d)", item.codepoint, item.cell_width);
+      pos = show_utf8_advance_codepoint_pos(pos, item);
+   }
+}
+
+static void show_utf8_trace_filearea_cluster(CHARTYPE scrno, short row,
+                                             SHOW_LINE *scurr, LENGTHTYPE cvcol,
+                                             TextCluster cluster,
+                                             const CHARTYPE *line, size_t len,
+                                             int logical_screen_col,
+                                             int screen_col, int clear_width,
+                                             int display_width,
+                                             int cursor_visible, int cursor_col,
+                                             int cursor_hit, int after_write_col,
+                                             int after_force_col)
+{
+   FILE *trace = show_utf8_trace_file();
+
+   if (trace == NULL)
+      return;
+
+   fprintf(trace,
+           "filearea screen=%u row=%d line=%ld cvcol=%ld cursor_visible=%d cursor_col=%d "
+           "cluster=%zu bytes=%zu..%zu cps=%zu..%zu logical_cells=%d..%d width=%d "
+           "logical_screen_col=%d screen_col=%d clear=%d display_width=%d "
+           "cursor_hit=%d curses_after_write=%d forced_col=%d cps:",
+           (unsigned)scrno,
+           (int)row,
+           (long)((scurr != NULL) ? scurr->line_number : 0),
+           (long)cvcol,
+           cursor_visible,
+           cursor_col,
+           cluster.pos.cluster_index,
+           cluster.pos.byte_offset,
+           cluster.end.byte_offset,
+           cluster.pos.codepoint_index,
+           cluster.end.codepoint_index,
+           cluster.pos.cell_column,
+           cluster.end.cell_column,
+           cluster.cell_width,
+           logical_screen_col,
+           screen_col,
+           clear_width,
+           display_width,
+           cursor_hit,
+           after_write_col,
+           after_force_col);
+   show_utf8_trace_codepoints(trace, line, len, cluster);
+   fputc('\n', trace);
+   fflush(trace);
+}
+
+void show_utf8_trace_cursor_motion(CHARTYPE scrno, short row,
+                                   int old_logical_col, int new_logical_col,
+                                   int new_display_col, LENGTHTYPE verify_col)
+{
+   FILE *trace = show_utf8_trace_file();
+
+   if (trace == NULL)
+      return;
+
+   fprintf(trace,
+           "cursor-motion screen=%u row=%d verify_col=%ld old_logical=%d "
+           "new_logical=%d new_display=%d\n",
+           (unsigned)scrno,
+           (int)row,
+           (long)verify_col,
+           old_logical_col,
+           new_logical_col,
+           new_display_col);
+   fflush(trace);
+}
+
+static void show_utf8_trace_filearea_target(CHARTYPE scrno, short row,
+                                            SHOW_LINE *scurr, LENGTHTYPE cvcol,
+                                            TextCluster cluster,
+                                            const CHARTYPE *line, size_t len,
+                                            int logical_screen_col,
+                                            int display_col, int display_width,
+                                            int cursor)
+{
+   FILE *trace = show_utf8_trace_file();
+
+   if (trace == NULL)
+      return;
+
+   fprintf(trace,
+           "cursor-target screen=%u row=%d line=%ld cvcol=%ld cursor=%d "
+           "cluster=%zu bytes=%zu..%zu cps=%zu..%zu logical_cells=%d..%d width=%d "
+           "logical_screen_col=%d display_col=%d display_width=%d cps:",
+           (unsigned)scrno,
+           (int)row,
+           (long)((scurr != NULL) ? scurr->line_number : 0),
+           (long)cvcol,
+           cursor,
+           cluster.pos.cluster_index,
+           cluster.pos.byte_offset,
+           cluster.end.byte_offset,
+           cluster.pos.codepoint_index,
+           cluster.end.codepoint_index,
+           cluster.pos.cell_column,
+           cluster.end.cell_column,
+           cluster.cell_width,
+           logical_screen_col,
+           display_col,
+           display_width);
+   show_utf8_trace_codepoints(trace, line, len, cluster);
+   fputc('\n', trace);
+   fflush(trace);
+}
+
+static int show_utf8_copy_status_text(char field[21], int offset, const char *text)
+{
+   int available;
+   int len;
+   int truncated = FALSE;
+
+   if (offset < 0)
+      offset = 0;
+   if (offset >= 20)
+      return TRUE;
+
+   available = 20 - offset;
+   len = (int)strlen(text);
+   if (len > available)
+   {
+      len = available;
+      truncated = TRUE;
+   }
+   if (len > 0)
+      memcpy(field + offset, text, (size_t)len);
+   if (truncated && available >= 3)
+   {
+      field[17] = '.';
+      field[18] = '.';
+      field[19] = '.';
+   }
+   field[20] = '\0';
+   return truncated;
+}
+
+static int show_utf8_codepoint_is_regional(uint32_t codepoint)
+{
+   return codepoint >= 0x1F1E6u && codepoint <= 0x1F1FFu;
+}
+
+static int show_utf8_env_int_default(const char *name, int default_value)
+{
+   const char *value = getenv(name);
+   char *end = NULL;
+   long parsed;
+
+   if (value == NULL || *value == '\0')
+      return default_value;
+
+   parsed = strtol(value, &end, 10);
+   if (end == value || (end != NULL && *end != '\0'))
+      return default_value;
+   if (parsed < 0)
+      parsed = 0;
+   if (parsed > THE_MAX_SCREEN_WIDTH)
+      parsed = THE_MAX_SCREEN_WIDTH;
+   return (int)parsed;
+}
+
+static int show_utf8_cluster_contains_codepoint(const CHARTYPE *line, size_t len,
+                                                TextCluster cluster,
+                                                uint32_t codepoint)
+{
+   TextPos pos = cluster.pos;
+
+   while (pos.byte_offset < cluster.end.byte_offset)
+   {
+      TextCodepoint item = textpos_codepoint_at_boundary(line, len, pos);
+
+      if (item.byte_length == 0)
+         break;
+      if (item.codepoint == codepoint)
+         return TRUE;
+      pos = show_utf8_advance_codepoint_pos(pos, item);
+   }
+   return FALSE;
+}
+
+static int show_utf8_cluster_is_regional_flag(const CHARTYPE *line, size_t len,
+                                              TextCluster cluster)
+{
+   TextPos pos = cluster.pos;
+   int regional_count = 0;
+
+   while (pos.byte_offset < cluster.end.byte_offset)
+   {
+      TextCodepoint item = textpos_codepoint_at_boundary(line, len, pos);
+
+      if (item.byte_length == 0)
+         break;
+      if (!show_utf8_codepoint_is_regional(item.codepoint))
+         return FALSE;
+      regional_count++;
+      pos = show_utf8_advance_codepoint_pos(pos, item);
+   }
+   return regional_count == 2;
+}
+
+static int show_utf8_flag_overhang_enabled(void)
+{
+   static int initialised = FALSE;
+   static int enabled = FALSE;
+
+   if (!initialised)
+   {
+      enabled = show_utf8_env_int_default("THE_UTF8_FLAG_OVERHANG",
+                                          THE_UTF8_FLAG_OVERHANG_DEFAULT) != 0;
+      initialised = TRUE;
+   }
+   return enabled;
+}
+
+static int show_utf8_emoji_presentation_width(void)
+{
+   static int initialised = FALSE;
+   static int width = 0;
+
+   if (!initialised)
+   {
+      width = show_utf8_env_int_default("THE_UTF8_EMOJI_PRESENTATION_WIDTH",
+                                        THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT);
+      initialised = TRUE;
+   }
+   return width;
+}
+
+static int show_utf8_keycap_paint_width(void)
+{
+   static int initialised = FALSE;
+   static int width = 0;
+
+   if (!initialised)
+   {
+      width = show_utf8_env_int_default("THE_UTF8_KEYCAP_PAINT_WIDTH",
+                                        THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT);
+      initialised = TRUE;
+   }
+   return width;
+}
+
+static int show_utf8_heart_zwj_width(void)
+{
+   static int initialised = FALSE;
+   static int width = 0;
+
+   if (!initialised)
+   {
+      width = show_utf8_env_int_default("THE_UTF8_HEART_ZWJ_WIDTH",
+                                        THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT);
+      initialised = TRUE;
+   }
+   return width;
+}
+
+static int show_utf8_zwj_width(void)
+{
+   static int initialised = FALSE;
+   static int width = 0;
+
+   if (!initialised)
+   {
+      width = show_utf8_env_int_default("THE_UTF8_ZWJ_WIDTH",
+                                        THE_UTF8_ZWJ_WIDTH_DEFAULT);
+      initialised = TRUE;
+   }
+   return width;
+}
+
+static int show_utf8_cluster_is_emoji_presentation(const CHARTYPE *line, size_t len,
+                                                   TextCluster cluster)
+{
+   return cluster.codepoint_count > 1
+       && (show_utf8_cluster_contains_codepoint(line, len, cluster, 0x20E3u)
+        || show_utf8_cluster_contains_codepoint(line, len, cluster, 0xFE0Fu));
+}
+
+static int show_utf8_cluster_is_keycap(const CHARTYPE *line, size_t len,
+                                       TextCluster cluster)
+{
+   return cluster.codepoint_count > 1
+       && show_utf8_cluster_contains_codepoint(line, len, cluster, 0x20E3u);
+}
+
+static int show_utf8_cluster_is_heart_zwj(const CHARTYPE *line, size_t len,
+                                          TextCluster cluster)
+{
+   return show_utf8_cluster_contains_codepoint(line, len, cluster, 0x200Du)
+       && show_utf8_cluster_contains_codepoint(line, len, cluster, 0x2764u);
+}
+
+static int show_utf8_cluster_display_width(const CHARTYPE *line, size_t len,
+                                           TextCluster cluster)
+{
+   int logical_width = (cluster.cell_width > 0) ? cluster.cell_width : 1;
+   int display_width = logical_width;
+   int policy_width;
+
+   if (cluster.codepoint_count == 1)
+      return display_width;
+
+   if (show_utf8_flag_overhang_enabled()
+   &&  show_utf8_cluster_is_regional_flag(line, len, cluster))
+   {
+      /*
+       * Apple Terminal reports normal cursor advance for regional flags while
+       * the color glyph can visibly paint into the following cell. Keep the
+       * logical model at two cells, but reserve the paint footprint here.
+       */
+      display_width = logical_width + 1;
+   }
+   else if (show_utf8_cluster_is_heart_zwj(line, len, cluster)
+   &&      (policy_width = show_utf8_heart_zwj_width()) > 0)
+   {
+      /*
+       * Apple Terminal currently falls back for the two-face heart ZWJ
+       * samples by painting the two faces and the emoji heart as visible
+       * components. Reserve that physical footprint by default; terminals
+       * that shape the sequence into one glyph can override this to 2.
+       */
+      display_width = policy_width;
+   }
+   else if (show_utf8_cluster_contains_codepoint(line, len, cluster, 0x200Du)
+   &&      (policy_width = show_utf8_zwj_width()) > 0)
+   {
+      display_width = policy_width;
+   }
+   else if (show_utf8_cluster_is_emoji_presentation(line, len, cluster)
+   &&      (policy_width = show_utf8_emoji_presentation_width()) > 0
+   &&       display_width < policy_width)
+   {
+      display_width = policy_width;
+   }
+
+   return display_width;
+}
+
+static int show_utf8_cluster_paint_width(const CHARTYPE *line, size_t len,
+                                         TextCluster cluster)
+{
+   int paint_width = show_utf8_cluster_display_width(line, len, cluster);
+   int policy_width;
+
+   if (paint_width <= 0)
+      paint_width = (cluster.cell_width > 0) ? cluster.cell_width : 1;
+
+   if (show_utf8_cluster_is_keycap(line, len, cluster)
+   &&  (policy_width = show_utf8_keycap_paint_width()) > paint_width)
+   {
+      /*
+       * Apple Terminal keycaps need a wider repaint footprint than their
+       * cursor advance. Keep cursor/display mapping at the terminal advance,
+       * but clear and draw enough cells to avoid stale keycap pixels.
+       */
+      paint_width = policy_width;
+   }
+   return paint_width;
+}
+
+int show_utf8_display_col_from_logical(const CHARTYPE *line, size_t len,
+                                       int viewport_col, int logical_col)
+{
+   TextPos pos;
+   int display_col = 0;
+   int last_logical_col;
+
+   if (logical_col <= viewport_col)
+      return 0;
+
+   pos = textpos_from_cell(line, len, viewport_col, TEXT_SNAP_BACKWARD);
+   last_logical_col = viewport_col;
+   while (pos.byte_offset < len)
+   {
+      TextCluster cluster = textpos_cluster_at_boundary(line, len, pos);
+      int logical_start;
+      int logical_end;
+
+      if (cluster.byte_length == 0)
+         break;
+
+      logical_start = cluster.pos.cell_column;
+      logical_end = cluster.end.cell_column;
+      if (logical_end <= viewport_col)
+      {
+         pos = cluster.end;
+         last_logical_col = logical_end;
+         continue;
+      }
+      if (logical_start >= logical_col)
+         break;
+
+      if (logical_start < viewport_col)
+      {
+         int clipped_end = (logical_col < logical_end) ? logical_col : logical_end;
+         display_col += clipped_end - viewport_col;
+         last_logical_col = clipped_end;
+      }
+      else if (logical_end <= logical_col)
+      {
+         display_col += show_utf8_cluster_display_width(line, len, cluster);
+         last_logical_col = logical_end;
+      }
+      else
+      {
+         display_col += logical_col - logical_start;
+         last_logical_col = logical_col;
+      }
+
+      if (logical_end >= logical_col)
+         break;
+      pos = cluster.end;
+   }
+
+   if (logical_col > last_logical_col)
+      display_col += logical_col - last_logical_col;
+   return display_col;
+}
+
+int show_utf8_logical_col_from_display(const CHARTYPE *line, size_t len,
+                                       int viewport_col, int display_col,
+                                       TextSnap snap)
+{
+   TextPos pos;
+   int screen_col = 0;
+   int last_logical_col;
+
+   if (viewport_col < 0)
+      viewport_col = 0;
+   if (display_col <= 0)
+      return viewport_col;
+
+   pos = textpos_from_cell(line, len, viewport_col, TEXT_SNAP_BACKWARD);
+   last_logical_col = viewport_col;
+   while (pos.byte_offset < len)
+   {
+      TextCluster cluster = textpos_cluster_at_boundary(line, len, pos);
+      int logical_start;
+      int logical_end;
+      int logical_width;
+      int display_width;
+
+      if (cluster.byte_length == 0)
+         break;
+
+      logical_start = cluster.pos.cell_column;
+      logical_end = cluster.end.cell_column;
+      logical_width = (cluster.cell_width > 0) ? cluster.cell_width : 1;
+      display_width = show_utf8_cluster_display_width(line, len, cluster);
+      if (display_width <= 0)
+         display_width = logical_width;
+
+      if (logical_end <= viewport_col)
+      {
+         pos = cluster.end;
+         last_logical_col = logical_end;
+         continue;
+      }
+
+      if (logical_start < viewport_col)
+      {
+         int clipped_width = logical_end - viewport_col;
+
+         if (clipped_width < 0)
+            clipped_width = 0;
+         if (display_col < screen_col + clipped_width)
+            return viewport_col;
+         screen_col += clipped_width;
+         pos = cluster.end;
+         last_logical_col = logical_end;
+         continue;
+      }
+
+      if (display_col < screen_col + display_width)
+      {
+         int offset = display_col - screen_col;
+
+         if (display_width == logical_width)
+            return logical_start + min(offset, logical_width - 1);
+         if (snap == TEXT_SNAP_FORWARD)
+            return logical_end;
+         if (snap == TEXT_SNAP_NEAREST && offset * 2 >= display_width)
+            return logical_end;
+         return logical_start;
+      }
+
+      screen_col += display_width;
+      last_logical_col = logical_end;
+      pos = cluster.end;
+   }
+
+   if (display_col > screen_col)
+      last_logical_col += display_col - screen_col;
+   return last_logical_col;
+}
+
+#ifndef CCHARW_MAX
+# define CCHARW_MAX 5
+#endif
+
+static int show_cluster_to_wchars(const CHARTYPE *line, size_t len,
+                                  TextCluster cluster, wchar_t wch[CCHARW_MAX])
+{
+   TextPos pos = cluster.pos;
+   int out = 0;
+   int spacing_codepoints = 0;
+
+   while (pos.byte_offset < cluster.end.byte_offset)
+   {
+      TextCodepoint item = textpos_codepoint_at_boundary(line, len, pos);
+      wchar_t one[3];
+      int i;
+
+      if (item.byte_length == 0)
+         break;
+
+      if (item.cell_width > 0)
+      {
+         spacing_codepoints++;
+         if (spacing_codepoints > 1)
+            return 0;
+      }
+
+      if (item.codepoint < 256 && etmode_flag[item.codepoint])
+         item.codepoint = (uint32_t)etmode_table[(CHARTYPE)item.codepoint];
+
+      show_codepoint_to_wchars(item.codepoint, one);
+      for (i = 0; one[i] != L'\0'; i++)
+      {
+         if (out >= CCHARW_MAX - 1)
+            return 0;
+         wch[out++] = one[i];
+      }
+      pos = show_utf8_advance_codepoint_pos(pos, item);
+   }
+
+   if (out == 0)
+      return 0;
+   wch[out] = L'\0';
+   return 1;
+}
+
+static int show_cluster_to_wide_string(const CHARTYPE *line, size_t len,
+                                       TextCluster cluster, wchar_t *wch,
+                                       size_t wch_size)
+{
+   TextPos pos = cluster.pos;
+   size_t out = 0;
+
+   if (wch_size == 0)
+      return 0;
+   while (pos.byte_offset < cluster.end.byte_offset)
+   {
+      TextCodepoint item = textpos_codepoint_at_boundary(line, len, pos);
+      wchar_t one[3];
+      int i;
+
+      if (item.byte_length == 0)
+         break;
+      if (item.codepoint < 256 && etmode_flag[item.codepoint])
+         item.codepoint = (uint32_t)etmode_table[(CHARTYPE)item.codepoint];
+      show_codepoint_to_wchars(item.codepoint, one);
+      for (i = 0; one[i] != L'\0'; i++)
+      {
+         if (out >= wch_size - 1)
+            return 0;
+         wch[out++] = one[i];
+      }
+      pos = show_utf8_advance_codepoint_pos(pos, item);
+   }
+   if (out == 0)
+      return 0;
+   wch[out] = L'\0';
+   return 1;
+}
+
+static void show_write_utf8_cluster_at(WINDOW *win, int row, int col,
+                                       const CHARTYPE *line, size_t len,
+                                       TextCluster cluster, chtype colour,
+                                       int expected_width,
+                                       int *after_write_col,
+                                       int *after_force_col)
+{
+   wchar_t wch[THE_MAX_SCREEN_WIDTH + 1];
+   int next_col;
+   int maxx;
+   int after_y = -1;
+   int after_x = -1;
+
+   if (after_write_col != NULL)
+      *after_write_col = -1;
+   if (after_force_col != NULL)
+      *after_force_col = -1;
+   if (win == NULL)
+      return;
+   maxx = getmaxx(win);
+   if (row < 0 || col >= maxx)
+      return;
+   if (col < 0)
+      col = 0;
+
+   wmove(win, row, col);
+   if (show_cluster_to_wide_string(line, len, cluster, wch,
+                                   sizeof(wch) / sizeof(wch[0])))
+   {
+      wattrset(win, colour);
+      waddwstr(win, wch);
+      getyx(win, after_y, after_x);
+      INTENTIONALLY_UNUSED_VARIABLE(after_y);
+      if (after_write_col != NULL)
+         *after_write_col = after_x;
+   }
+   next_col = col + ((expected_width > 0) ? expected_width : 1);
+   if (next_col >= maxx)
+      next_col = maxx - 1;
+   if (next_col >= 0)
+      wmove(win, row, next_col);
+   getyx(win, after_y, after_x);
+   INTENTIONALLY_UNUSED_VARIABLE(after_y);
+   if (after_force_col != NULL)
+      *after_force_col = after_x;
+}
+
+static void show_fill_cells_at(WINDOW *win, int row, int col, int width, chtype colour)
+{
+   int maxy;
+   int maxx;
+   int i;
+
+   if (win == NULL || width <= 0)
+      return;
+   maxy = getmaxy(win);
+   maxx = getmaxx(win);
+   if (row < 0 || row >= maxy || col >= maxx)
+      return;
+   if (col < 0)
+   {
+      width += col;
+      col = 0;
+   }
+   if (width <= 0)
+      return;
+   if (col + width > maxx)
+      width = maxx - col;
+
+   wmove(win, row, col);
+   for (i = 0; i < width; i++)
+      waddch(win, ' ' | colour);
+}
+
+static void show_write_ascii_cells_at(WINDOW *win, int row, int col,
+                                      const char *text, int width,
+                                      chtype colour)
+{
+   int maxy;
+   int maxx;
+   int i;
+
+   if (win == NULL || text == NULL || width <= 0)
+      return;
+   maxy = getmaxy(win);
+   maxx = getmaxx(win);
+   if (row < 0 || row >= maxy || col >= maxx)
+      return;
+   if (col < 0)
+   {
+      text -= col;
+      width += col;
+      col = 0;
+   }
+   if (width <= 0)
+      return;
+   if (col + width > maxx)
+      width = maxx - col;
+
+   wmove(win, row, col);
+   for (i = 0; i < width && text[i] != '\0'; i++)
+      waddch(win, ((unsigned char)text[i]) | colour);
 }
 
 #define mysetchar(dest, ch, colour) show_set_utf8_cchar((dest), (uint32_t)(ch), (colour))
@@ -564,6 +1335,87 @@ static void display_syntax_line_left(WINDOW *win, chtype colour, CHARTYPE *str,
    END_LINE_OUTPUT();
 }
 
+#ifdef USE_UTF8
+static chtype show_software_cursor_attr(CHARTYPE scrno, chtype base, CursorShape shape)
+{
+   if (shape == CURSOR_BLOCK)
+      return set_colour(SCREEN_FILE(scrno)->attr+ATTR_CBLOCK);
+#ifdef A_UNDERLINE
+   return base | A_UNDERLINE;
+#else
+   return set_colour(SCREEN_FILE(scrno)->attr+ATTR_CBLOCK);
+#endif
+}
+
+static void show_draw_software_chtype_cell(CHARTYPE scrno, WINDOW *win,
+                                           short row, int col,
+                                           chtype base, CursorShape shape)
+{
+   chtype cell;
+   chtype ch;
+   int maxy;
+   int maxx;
+
+   if (win == NULL)
+      return;
+   maxy = getmaxy(win);
+   maxx = getmaxx(win);
+   if (row < 0 || row >= maxy || col < 0 || col >= maxx)
+      return;
+
+   cell = mvwinch(win, row, col);
+   ch = cell & A_CHARTEXT;
+   if ((cell & A_ATTRIBUTES) != 0)
+      base = cell & A_ATTRIBUTES;
+   if (ch == 0)
+      ch = ' ';
+   mvwaddch(win, row, col, ch | show_software_cursor_attr(scrno, base, shape));
+}
+
+static void show_draw_software_blank_cell(CHARTYPE scrno, WINDOW *win,
+                                          short row, int col,
+                                          chtype base, CursorShape shape)
+{
+   int maxy;
+   int maxx;
+
+   if (win == NULL)
+      return;
+   maxy = getmaxy(win);
+   maxx = getmaxx(win);
+   if (row < 0 || row >= maxy || col < 0 || col >= maxx)
+      return;
+
+   mvwaddch(win, row, col, ' ' | show_software_cursor_attr(scrno, base, shape));
+}
+
+static void show_draw_software_command_cursor(CHARTYPE scrno, VIEW_DETAILS *view)
+{
+   short row = 0;
+   short col = 0;
+   CursorShape shape = CURSOR_BLOCK;
+   chtype base;
+
+   if (view == NULL
+   ||  !cursor_focus_command_cursor(scrno, &row, &col, &shape))
+      return;
+
+   base = set_colour(view->file_for_view->attr + (inDIALOG ? ATTR_DIA_EDITFIELD : ATTR_CMDLINE));
+   show_draw_software_chtype_cell(scrno, SCREEN_WINDOW_COMMAND(scrno), row, col, base, shape);
+}
+
+static void show_draw_software_prefix_cursor(CHARTYPE scrno, short row)
+{
+   int col = 0;
+   CursorShape shape = CURSOR_BLOCK;
+
+   if (!cursor_focus_prefix_cursor(scrno, row, &col, &shape))
+      return;
+   show_draw_software_chtype_cell(scrno, SCREEN_WINDOW_PREFIX(scrno), row, col,
+                                  set_colour(SCREEN_FILE(scrno)->attr + ATTR_PREFIX), shape);
+}
+#endif
+
 /***********************************************************************/
 static void display_line_center(WINDOW *win, chtype colour, CHARTYPE *str,
                               int line, int width, int fillchar)
@@ -843,7 +1695,15 @@ void show_statarea(void)
 {
    short y=0,x=0;
 #ifdef USE_UTF8
-   int charpos;
+   int charpos = 0;
+   int draw_status_cluster = FALSE;
+   int status_field_width = 0;
+   int status_cluster_offset = 0;
+   int status_cluster_display_width = 1;
+   char status_field[21];
+   const CHARTYPE *status_cluster_line = NULL;
+   size_t status_cluster_len = 0;
+   TextCluster status_cluster = {0};
 #endif
    int key=0;
    time_t timer;
@@ -922,13 +1782,13 @@ void show_statarea(void)
    {
       timer = time(NULL);
       tblock = localtime(&timer);
-      sprintf((DEFCHAR*)linebuf+max(0,(COLS-27)),"%2d:%02d%s ",
+      sprintf((DEFCHAR*)linebuf+max(0,(COLS-((HEXDISPLAYx) ? 36 : 27))),"%2d:%02d%s ",
            (tblock->tm_hour > 12) ? (tblock->tm_hour-12) : (tblock->tm_hour),
             tblock->tm_min,
            (tblock->tm_hour >= 12) ? ("pm") : ("am"));
    }
    else
-      strcpy((DEFCHAR*)linebuf+max(0,(COLS-27)),"        ");
+      strcpy((DEFCHAR*)linebuf+max(0,(COLS-((HEXDISPLAYx) ? 36 : 27))),"        ");
    /*
     * Display HEXDISPLAY.
     */
@@ -940,8 +1800,17 @@ void show_statarea(void)
          case WINDOW_FILEAREA:
 #ifdef USE_UTF8
          {
-            int col = u8_offset( (char *)rec, CURRENT_VIEW->verify_col-1+x );
-            key = u8_nextchar( (char *)rec, &col );
+            int logical_cell = show_utf8_logical_col_from_display(rec, rec_len,
+                                                                  CURRENT_VIEW->verify_col - 1,
+                                                                  x,
+                                                                  TEXT_SNAP_BACKWARD);
+
+            status_cluster_line = rec;
+            status_cluster_len = rec_len;
+            status_cluster = textpos_cluster_at(status_cluster_line, status_cluster_len,
+               textpos_from_cell(status_cluster_line, status_cluster_len,
+                                 logical_cell,
+                                 TEXT_SNAP_BACKWARD));
          }
 #else
 # ifdef VMS
@@ -954,8 +1823,12 @@ void show_statarea(void)
          case WINDOW_COMMAND:
 #ifdef USE_UTF8
          {
-            int col = u8_offset( (char *)cmd_rec, x+cmd_verify_col-1 );
-            key = u8_nextchar( (char *)cmd_rec, &col );
+            status_cluster_line = cmd_rec;
+            status_cluster_len = cmd_rec_len;
+            status_cluster = textpos_cluster_at(status_cluster_line, status_cluster_len,
+               textpos_from_cell(status_cluster_line, status_cluster_len,
+                                 x + cmd_verify_col - 1,
+                                 TEXT_SNAP_BACKWARD));
          }
 #else
 # ifdef VMS
@@ -968,8 +1841,12 @@ void show_statarea(void)
          case WINDOW_PREFIX:
 #ifdef USE_UTF8
          {
-            int col = u8_offset( (char *)pre_rec, x );
-            key = u8_nextchar( (char *)pre_rec, &col );
+            status_cluster_line = pre_rec;
+            status_cluster_len = pre_rec_len;
+            status_cluster = textpos_cluster_at(status_cluster_line, status_cluster_len,
+               textpos_from_cell(status_cluster_line, status_cluster_len,
+                                 x,
+                                 TEXT_SNAP_BACKWARD));
          }
 #else
 # ifdef VMS
@@ -981,25 +1858,123 @@ void show_statarea(void)
             break;
       }
 #ifdef USE_UTF8
-      /*
-       * If the character where the cursor is positioned is larger than one character
-       * display just the character and the hex values - no decimal)
-       */
-      if ( key > 255 )
+   status_field[0] = '\0';
+   charpos = max(0,(COLS-27));
+   {
+      char codebuf[128];
+      TextPos pos;
+      size_t code_len = 0;
+      int field_truncated = FALSE;
+      int glyph_cells = 1;
+      int code_col = 0;
+
+      status_field_width = min(20, max(0, (COLS-7) - charpos));
+      codebuf[0] = '\0';
+      pos = status_cluster.pos;
+         while (status_cluster_line != NULL
+         &&     pos.byte_offset < status_cluster.end.byte_offset)
+         {
+            TextCodepoint item = textpos_codepoint_at_boundary(status_cluster_line,
+                                                               status_cluster_len,
+                                                               pos);
+            char one[24];
+
+            if (item.byte_length == 0)
+               break;
+            snprintf(one, sizeof(one), "%sU+%X", (code_len == 0) ? "" : "+", item.codepoint);
+            if (code_len + strlen(one) < sizeof(codebuf))
+            {
+               strcpy(codebuf + code_len, one);
+               code_len += strlen(one);
+            }
+            else
+            {
+               field_truncated = TRUE;
+            }
+            pos = show_utf8_advance_codepoint_pos(pos, item);
+         }
+
+         if (codebuf[0] == '\0')
+            strcpy(codebuf, "U+0");
+
+      memset(status_field, ' ', sizeof(status_field));
+      status_field[20] = '\0';
+      if (status_cluster_line == NULL || status_cluster.byte_length == 0)
       {
-         char buf[100];
-         int sz=100;
-         charpos = max(0,(COLS-19));
-//         sprintf((DEFCHAR*)linebuf+charpos,"' '=%02X      ", key );
-         u8_escape_wchar( buf, sz, key );
-         sprintf((DEFCHAR*)linebuf+charpos,"' '=%s", buf );
+         status_field[0] = '[';
+         status_field[1] = ' ';
+         status_field[2] = ']';
+         status_field[3] = ' ';
+         field_truncated = show_utf8_copy_status_text(status_field, 4, codebuf);
+      }
+      else if (status_cluster.codepoint_count == 1)
+      {
+         TextCodepoint item = textpos_codepoint_at_boundary(status_cluster_line,
+                                                            status_cluster_len,
+                                                            status_cluster.pos);
+         if (item.codepoint >= 32 && item.codepoint < 127)
+         {
+            status_field[0] = '[';
+            status_field[1] = (char)item.codepoint;
+            status_field[2] = ']';
+            status_field[3] = ' ';
+            field_truncated = show_utf8_copy_status_text(status_field, 4, codebuf);
+         }
+         else
+         {
+            glyph_cells = show_utf8_cluster_display_width(status_cluster_line,
+                                                          status_cluster_len,
+                                                          status_cluster);
+            glyph_cells = min(glyph_cells, 8);
+            status_cluster_display_width = glyph_cells;
+            status_cluster_offset = 1;
+            status_field[0] = '[';
+            if (1 + glyph_cells < 20)
+               status_field[1 + glyph_cells] = ']';
+            if (2 + glyph_cells < 20)
+               status_field[2 + glyph_cells] = ' ';
+            code_col = min(19, glyph_cells + 3);
+            field_truncated = show_utf8_copy_status_text(status_field, code_col, codebuf);
+            draw_status_cluster = TRUE;
+         }
       }
       else
-#endif
+      {
+         glyph_cells = show_utf8_cluster_display_width(status_cluster_line,
+                                                       status_cluster_len,
+                                                       status_cluster);
+         glyph_cells = min(glyph_cells, 8);
+         status_cluster_display_width = glyph_cells;
+         status_cluster_offset = 1;
+         status_field[0] = '[';
+         if (1 + glyph_cells < 20)
+            status_field[1 + glyph_cells] = ']';
+         if (2 + glyph_cells < 20)
+            status_field[2 + glyph_cells] = ' ';
+         code_col = min(19, glyph_cells + 3);
+         field_truncated = show_utf8_copy_status_text(status_field, code_col, codebuf);
+         draw_status_cluster = TRUE;
+      }
+      if (field_truncated)
+      {
+         status_field[17] = '.';
+         status_field[18] = '.';
+         status_field[19] = '.';
+         status_field[20] = '\0';
+      }
+      if (status_field_width > 0)
+      {
+         memset((DEFCHAR *)linebuf + charpos, ' ', (size_t)status_field_width);
+         memcpy((DEFCHAR *)linebuf + charpos, status_field,
+                min(status_field_width, (int)strlen(status_field)));
+      }
+   }
+#else
       {
          sprintf((DEFCHAR*)linebuf+max(0,(COLS-19)),"'%c'=%02X/%03d  ",
                        (unsigned char) ((key == 0) ? ' ' : key),key,key);
       }
+#endif
    }
    else
       strcpy((DEFCHAR*)linebuf+max(0,(COLS-19)),"            ");
@@ -1018,7 +1993,7 @@ void show_statarea(void)
    /*
     * Display INSERTMODE toggle.
     */
-   strcpy( (DEFCHAR*)linebuf + max( 0, (COLS-5) ), (INSERTMODEx) ? " Ins " : "     " );
+   strcpy( (DEFCHAR*)linebuf + max( 0, (COLS-5) ), (INSERTMODEx) ? " INS " : "     " );
    /*
     * Refresh the STATUS LINE.
     */
@@ -1033,15 +2008,23 @@ void show_statarea(void)
    }
 #endif
 
+   chtype status_colour = set_colour( CURRENT_FILE->attr+stat_attr );
+
    INIT_LINE_OUTPUT( statarea, 0 );
-   ADD_LINE_OUTPUT( linebuf, strlen( (DEFCHAR*)linebuf ), set_colour( CURRENT_FILE->attr+stat_attr) );
+   ADD_LINE_OUTPUT( linebuf, strlen( (DEFCHAR*)linebuf ), status_colour );
    END_LINE_OUTPUT();
 #ifdef USE_UTF8
-   if ( key > 127 )
+   if ( status_field_width > 0 )
    {
-      cchar_t dest;
-      mysetchar( &dest, key, 0 );
-      mvwadd_wchnstr(statarea , 0, charpos+1, &dest, 1);
+      show_fill_cells_at(statarea, 0, charpos, status_field_width, status_colour);
+      show_write_ascii_cells_at(statarea, 0, charpos, status_field,
+                                status_field_width, status_colour);
+   }
+   if ( draw_status_cluster )
+   {
+      show_write_utf8_cluster_at(statarea, 0, charpos + status_cluster_offset, status_cluster_line,
+                                 status_cluster_len, status_cluster,
+                                 status_colour, status_cluster_display_width, NULL, NULL);
    }
 #endif
    wnoutrefresh( statarea );
@@ -1312,6 +2295,11 @@ void display_screen(CHARTYPE scrno)
    if (SCREEN_VIEW(scrno)->current_window == WINDOW_COMMAND)
       getyx(SCREEN_PREV_WINDOW(scrno),savey,savex);
    getyx(SCREEN_WINDOW(scrno),y,x);
+   cursor_focus_capture(scrno);
+#ifdef USE_UTF8
+   if (SCREEN_VIEW(scrno)->current_window == WINDOW_COMMAND)
+      display_cmdline(scrno, SCREEN_VIEW(scrno));
+#endif
    /*
     * Display the built lines...
     */
@@ -1390,15 +2378,60 @@ void display_cmdline( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
        * Display the contents of the cmdline from the cmd_verify_col
        */
       getyx( SCREEN_WINDOW_COMMAND(curr_screen), y, x );
+#ifdef USE_UTF8
+      if (curr_screen == current_screen
+      &&  curr_view->current_window == WINDOW_COMMAND)
+         cursor_focus_capture(curr_screen);
+#endif
       if ( inDIALOG )
          display_line_left( SCREEN_WINDOW_COMMAND(curr_screen), set_colour( curr_view->file_for_view->attr+ATTR_DIA_EDITFIELD), cmd_rec+cmd_verify_col-1, cmd_rec_len, 0, screen[curr_screen].cols[WINDOW_COMMAND] );
       else
          display_line_left( SCREEN_WINDOW_COMMAND(curr_screen), set_colour( curr_view->file_for_view->attr+ATTR_CMDLINE), cmd_rec+cmd_verify_col-1, cmd_rec_len, 0, screen[curr_screen].cols[WINDOW_COMMAND] );
+#ifdef USE_UTF8
+      show_draw_software_command_cursor(curr_screen, curr_view);
+#endif
       wnoutrefresh( SCREEN_WINDOW_COMMAND(curr_screen) );
       wmove( SCREEN_WINDOW_COMMAND(curr_screen), y, x );
    }
    /* TODO */
    TRACE_RETURN();
+   return;
+}
+/***********************************************************************/
+void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
+/***********************************************************************/
+{
+#ifdef USE_UTF8
+   unsigned short x=0,y=0;
+   int width;
+
+   TRACE_FUNCTION("show.c:    display_prefix_line");
+   if ( batch_only
+   ||  !curses_started
+   ||  curr_view == NULL
+   ||  SCREEN_WINDOW_PREFIX(curr_screen) == NULL )
+   {
+      TRACE_RETURN();
+      return;
+   }
+
+   getyx( SCREEN_WINDOW_PREFIX(curr_screen), y, x );
+   cursor_focus_capture(curr_screen);
+   width = curr_view->prefix_width - curr_view->prefix_gap;
+   display_line_left( SCREEN_WINDOW_PREFIX(curr_screen),
+                      set_colour(curr_view->file_for_view->attr + ATTR_PENDING),
+                      pre_rec,
+                      width,
+                      y,
+                      width );
+   show_draw_software_prefix_cursor(curr_screen, y);
+   wnoutrefresh( SCREEN_WINDOW_PREFIX(curr_screen) );
+   wmove( SCREEN_WINDOW_PREFIX(curr_screen), y, x );
+   TRACE_RETURN();
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
+   INTENTIONALLY_UNUSED_VARIABLE(curr_view);
+#endif
    return;
 }
 /***********************************************************************/
@@ -2604,6 +3637,9 @@ static void show_lines(CHARTYPE scrno)
 #endif
             }
          }
+#ifdef USE_UTF8
+         show_draw_software_prefix_cursor(scrno, i);
+#endif
       }
       /*
        * Display any shadow line. No need to test to see if SHADOW is ON as
@@ -2780,7 +3816,7 @@ static void show_lines(CHARTYPE scrno)
 }
 #define TMP_EXTRA 1
 #ifdef USE_UTF8
-static int show_utf8_cells_overlap(TextCodepoint item, LENGTHTYPE start_col, LENGTHTYPE end_col)
+static int show_utf8_cells_overlap(TextCluster cluster, LENGTHTYPE start_col, LENGTHTYPE end_col)
 {
    int item_start;
    int item_end;
@@ -2788,12 +3824,12 @@ static int show_utf8_cells_overlap(TextCodepoint item, LENGTHTYPE start_col, LEN
    if (end_col < start_col || end_col < 0)
       return 0;
 
-   item_start = item.pos.cell_column;
-   item_end = item_start + ((item.cell_width > 0) ? item.cell_width : 1) - 1;
+   item_start = cluster.pos.cell_column;
+   item_end = item_start + ((cluster.cell_width > 0) ? cluster.cell_width : 1) - 1;
    return (item_start <= end_col && item_end >= start_col);
 }
 
-static int show_utf8_byte_range_overlap(TextCodepoint item, LENGTHTYPE start, LENGTHTYPE length)
+static int show_utf8_byte_range_overlap(TextCluster cluster, LENGTHTYPE start, LENGTHTYPE length)
 {
    size_t item_start;
    size_t item_end;
@@ -2803,14 +3839,14 @@ static int show_utf8_byte_range_overlap(TextCodepoint item, LENGTHTYPE start, LE
    if (length <= 0 || start < 0)
       return 0;
 
-   item_start = item.pos.byte_offset;
-   item_end = item_start + item.byte_length;
+   item_start = cluster.pos.byte_offset;
+   item_end = item_start + cluster.byte_length;
    range_start = (size_t)start;
    range_end = range_start + (size_t)length;
    return (item_start < range_end && item_end > range_start);
 }
 
-static int show_utf8_target_highlight_applies(CHARTYPE scrno, SHOW_LINE *scurr, TextCodepoint item)
+static int show_utf8_target_highlight_applies(CHARTYPE scrno, SHOW_LINE *scurr, TextCluster cluster)
 {
    int i;
 
@@ -2823,7 +3859,7 @@ static int show_utf8_target_highlight_applies(CHARTYPE scrno, SHOW_LINE *scurr, 
    {
       if ( SCREEN_VIEW(scrno)->thighlight_target.rt[i].found
       &&   !SCREEN_VIEW(scrno)->thighlight_target.rt[i].not_target
-      &&   show_utf8_byte_range_overlap(item,
+      &&   show_utf8_byte_range_overlap(cluster,
                SCREEN_VIEW(scrno)->thighlight_target.rt[i].start,
                SCREEN_VIEW(scrno)->thighlight_target.rt[i].found_length) )
       {
@@ -2841,14 +3877,17 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr, 
    LENGTHTYPE cvcol;
    LENGTHTYPE vlen;
    COLTYPE ccols = screen[scrno].cols[WINDOW_FILEAREA];
-   int fillverify;
    int visible_cols;
    TextCellSlice slice;
    TextPos pos;
+   int screen_col;
    chtype normal = current->normal_colour;
    chtype other = current->other_colour;
    chtype target_colour = set_colour(SCREEN_FILE(scrno)->attr + ATTR_THIGHLIGHT);
-   int highlight_index = 0;
+   int cursor_col = 0;
+   int cursor_visible = FALSE;
+   int cursor_drawn = FALSE;
+   CursorShape cursor_shape = CURSOR_BLOCK;
 
    if ( current->line_type == LINE_RESERVED
    &&   !current->rsrvd->autoscroll )
@@ -2862,61 +3901,291 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr, 
       vlen = SCREEN_VIEW(scrno)->verify_end - SCREEN_VIEW(scrno)->verify_start + 1;
    }
 
-   INIT_LINE_OUTPUT(SCREEN_WINDOW_FILEAREA(scrno), row);
-
    if ( ccols > vlen )
    {
-      fillverify = ccols - vlen;
       visible_cols = vlen;
    }
    else
    {
-      fillverify = 0;
       visible_cols = ccols;
    }
 
+   cursor_visible = cursor_focus_filearea_cursor(scrno, row, &cursor_col, &cursor_shape);
+   show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, 0, ccols, normal);
+
    /* Avoid shifting text when a viewport edge cuts through a wide code point. */
    slice = textpos_slice_cells(line, blength, (int)cvcol, visible_cols);
-   if ( slice.leading_cells )
-      FILL_LINE_OUTPUT(' ', slice.leading_cells, normal);
 
    pos = slice.start;
+   screen_col = slice.leading_cells;
    while (pos.byte_offset < slice.end.byte_offset)
    {
-      TextCodepoint item = textpos_codepoint_at(line, blength, pos);
+      TextCluster cluster = textpos_cluster_at_boundary(line, blength, pos);
       chtype colour = normal;
+      int item_width;
+      int item_logical_screen_col;
+      int item_screen_col;
+      int item_display_width;
+      int item_paint_width;
+      int clear_width;
+      int cursor_hit = FALSE;
+      int after_write_col = -1;
+      int after_force_col = -1;
 
-      if (item.byte_length == 0)
+      if (cluster.byte_length == 0)
          break;
 
-      if ( show_utf8_cells_overlap(item, current->other_start_col, current->other_end_col) )
+      item_width = (cluster.cell_width > 0) ? cluster.cell_width : 0;
+      item_logical_screen_col = cluster.pos.cell_column - (int)cvcol;
+      item_screen_col = screen_col;
+      item_display_width = show_utf8_cluster_display_width(line, blength, cluster);
+      item_paint_width = show_utf8_cluster_paint_width(line, blength, cluster);
+      if (item_logical_screen_col < 0 || item_logical_screen_col >= visible_cols
+      ||  item_screen_col >= ccols)
+      {
+         pos = cluster.end;
+         screen_col += (item_display_width > 0) ? item_display_width : 1;
+         continue;
+      }
+
+      if ( show_utf8_cells_overlap(cluster, current->other_start_col, current->other_end_col) )
       {
          colour = other;
       }
       else if ( current->is_highlighting
       &&        !current->highlight
       &&        high != NULL
-      &&        highlight_index < THE_MAX_SCREEN_WIDTH )
+      &&        cluster.pos.codepoint_index < THE_MAX_SCREEN_WIDTH )
       {
-         colour = high[highlight_index];
+         colour = high[cluster.pos.codepoint_index];
       }
 
-      if ( show_utf8_target_highlight_applies(scrno, scurr, item) )
+      if ( show_utf8_target_highlight_applies(scrno, scurr, cluster) )
          colour = target_colour;
 
-      if (item.cell_width > 0)
-         PARATEST_ADD_LINE(item.cell_width, "ADD_UTF8_CELL_OUTPUT");
-      show_add_utf8_codepoint(item.codepoint, colour);
-      highlight_index++;
-      pos = textpos_next_codepoint(line, blength, pos);
+      if ( cursor_visible
+      &&   item_width > 0
+      &&   cursor_col >= item_logical_screen_col
+      &&   cursor_col < item_logical_screen_col + item_width )
+      {
+         colour = show_software_cursor_attr(scrno, colour, cursor_shape);
+         cursor_drawn = TRUE;
+         cursor_hit = TRUE;
+      }
+
+      if (item_paint_width > 0)
+         PARATEST_ADD_LINE(item_paint_width, "ADD_UTF8_CLUSTER_OUTPUT");
+      clear_width = (item_paint_width > 0) ? item_paint_width : 1;
+      if (item_screen_col + clear_width > ccols)
+         clear_width = ccols - item_screen_col;
+      show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, item_screen_col,
+                         clear_width, colour);
+      show_write_utf8_cluster_at(SCREEN_WINDOW_FILEAREA(scrno), row, item_screen_col,
+                                 line, blength, cluster, colour,
+                                 item_display_width, &after_write_col, &after_force_col);
+      show_utf8_trace_filearea_cluster(scrno, row, scurr, cvcol, cluster,
+                                       line, blength, item_logical_screen_col,
+                                       item_screen_col, clear_width,
+                                       item_paint_width, cursor_visible,
+                                       cursor_col, cursor_hit, after_write_col,
+                                       after_force_col);
+      pos = cluster.end;
+      screen_col += (item_display_width > 0) ? item_display_width : 1;
    }
 
-   if ( slice.trailing_cells )
-      FILL_LINE_OUTPUT(' ', slice.trailing_cells, normal);
-   if ( fillverify )
-      FILL_LINE_OUTPUT(' ', fillverify, normal);
+   if ( cursor_visible
+   &&  !cursor_drawn
+   &&   cursor_col >= 0
+   &&   cursor_col < ccols )
+   {
+      int cursor_display_col = show_utf8_display_col_from_logical(line, blength,
+                                                                  (int)cvcol,
+                                                                  (int)cvcol + cursor_col);
+      if (cursor_display_col >= 0 && cursor_display_col < ccols)
+         show_draw_software_blank_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno), row,
+                                       cursor_display_col, normal, cursor_shape);
+   }
+}
 
-   END_LINE_OUTPUT();
+static chtype show_utf8_filearea_cluster_colour(CHARTYPE scrno, SHOW_LINE *scurr,
+                                                TextCluster cluster, chtype *high)
+{
+   chtype colour = scurr->normal_colour;
+
+   if ( show_utf8_cells_overlap(cluster, scurr->other_start_col, scurr->other_end_col) )
+   {
+      colour = scurr->other_colour;
+   }
+   else if ( scurr->is_highlighting
+   &&        !scurr->highlight
+   &&        high != NULL
+   &&        cluster.pos.codepoint_index < THE_MAX_SCREEN_WIDTH )
+   {
+      colour = high[cluster.pos.codepoint_index];
+   }
+
+   if ( show_utf8_target_highlight_applies(scrno, scurr, cluster) )
+      colour = set_colour(SCREEN_FILE(scrno)->attr + ATTR_THIGHLIGHT);
+
+   return colour;
+}
+
+static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
+                                              int logical_screen_col,
+                                              bool cursor, CursorShape shape)
+{
+   SHOW_LINE *current;
+   CHARTYPE *line;
+   LENGTHTYPE blength;
+   LENGTHTYPE cvcol;
+   TextPos line_end;
+   TextPos pos;
+   TextCluster cluster;
+   chtype normal;
+   chtype colour;
+   chtype *high;
+   int display_col;
+   int display_width;
+   int paint_width;
+   int ccols;
+
+   if (SCREEN_WINDOW_FILEAREA(scrno) == NULL
+   ||  row < 0
+   ||  row >= screen[scrno].rows[WINDOW_FILEAREA])
+      return;
+
+   ccols = screen[scrno].cols[WINDOW_FILEAREA];
+   if (logical_screen_col < 0 || logical_screen_col >= ccols)
+      return;
+
+   current = &(screen[scrno].sl[row]);
+   normal = current->normal_colour;
+   line = current->contents;
+   if (line == NULL)
+   {
+      if (cursor)
+         show_draw_software_blank_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno),
+                                       row, logical_screen_col, normal, shape);
+      else
+         show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row,
+                            logical_screen_col, 1, normal);
+      return;
+   }
+
+   if ( current->line_type == LINE_RESERVED
+   &&   current->rsrvd->autoscroll )
+      high = current->rsrvd->highlighting + SCREEN_VIEW(scrno)->verify_col - 1;
+   else
+      high = current->highlighting;
+
+   blength = current->length;
+   cvcol = SCREEN_VIEW(scrno)->verify_col - 1;
+   line_end = textpos_from_byte(line, blength, blength);
+   if ((int)cvcol + logical_screen_col >= line_end.cell_column)
+   {
+      display_col = show_utf8_display_col_from_logical(line, blength,
+                                                       (int)cvcol,
+                                                       (int)cvcol + logical_screen_col);
+      if (display_col >= 0 && display_col < ccols)
+      {
+         if (cursor)
+            show_draw_software_blank_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno),
+                                          row, display_col, normal, shape);
+         else
+            show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row,
+                               display_col, 1, normal);
+      }
+      return;
+   }
+
+   pos = textpos_from_cell(line, blength, (int)cvcol + logical_screen_col,
+                           TEXT_SNAP_BACKWARD);
+   cluster = textpos_cluster_at_boundary(line, blength, pos);
+   if (cluster.byte_length == 0)
+      return;
+
+   colour = show_utf8_filearea_cluster_colour(scrno, current, cluster, high);
+   if (cursor)
+      colour = show_software_cursor_attr(scrno, colour, shape);
+
+   display_col = show_utf8_display_col_from_logical(line, blength, (int)cvcol,
+                                                    cluster.pos.cell_column);
+   display_width = show_utf8_cluster_display_width(line, blength, cluster);
+   if (display_width <= 0)
+      display_width = (cluster.cell_width > 0) ? cluster.cell_width : 1;
+   paint_width = show_utf8_cluster_paint_width(line, blength, cluster);
+   if (paint_width <= 0)
+      paint_width = display_width;
+   if (display_col < 0 || display_col >= ccols)
+      return;
+   if (display_col + paint_width > ccols)
+      paint_width = ccols - display_col;
+
+   if (paint_width > display_width)
+   {
+      TextPos repaint_pos = cluster.pos;
+      int span_end = display_col + paint_width;
+
+      show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, display_col,
+                         paint_width, normal);
+      while (repaint_pos.byte_offset < blength)
+      {
+         TextCluster repaint_cluster;
+         chtype repaint_colour;
+         int repaint_display_col;
+         int repaint_display_width;
+
+         repaint_cluster = textpos_cluster_at_boundary(line, blength, repaint_pos);
+         if (repaint_cluster.byte_length == 0)
+            break;
+         repaint_display_col = show_utf8_display_col_from_logical(line, blength,
+                                                                  (int)cvcol,
+                                                                  repaint_cluster.pos.cell_column);
+         if (repaint_display_col >= span_end || repaint_display_col >= ccols)
+            break;
+         repaint_display_width = show_utf8_cluster_display_width(line, blength,
+                                                                 repaint_cluster);
+         if (repaint_display_width <= 0)
+            repaint_display_width = (repaint_cluster.cell_width > 0)
+                                  ? repaint_cluster.cell_width : 1;
+         if (repaint_display_col + repaint_display_width > ccols)
+            repaint_display_width = ccols - repaint_display_col;
+         repaint_colour = show_utf8_filearea_cluster_colour(scrno, current,
+                                                            repaint_cluster, high);
+         if (cursor
+         &&  repaint_cluster.pos.byte_offset == cluster.pos.byte_offset)
+            repaint_colour = show_software_cursor_attr(scrno, repaint_colour, shape);
+         show_write_utf8_cluster_at(SCREEN_WINDOW_FILEAREA(scrno), row,
+                                    repaint_display_col, line, blength,
+                                    repaint_cluster, repaint_colour,
+                                    repaint_display_width, NULL, NULL);
+         repaint_pos = repaint_cluster.end;
+      }
+      return;
+   }
+
+   show_utf8_trace_filearea_target(scrno, row, current, cvcol, cluster,
+                                   line, blength, logical_screen_col,
+                                   display_col, display_width, cursor);
+
+   show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, display_col,
+                      display_width, colour);
+   show_write_utf8_cluster_at(SCREEN_WINDOW_FILEAREA(scrno), row, display_col,
+                              line, blength, cluster, colour,
+                              display_width, NULL, NULL);
+}
+
+void show_utf8_filearea_cursor_transition(CHARTYPE scrno, short row,
+                                          int old_logical_screen_col,
+                                          int new_logical_screen_col)
+{
+   CursorShape shape = current_cursor_shape();
+
+   show_utf8_repaint_filearea_target(scrno, row, old_logical_screen_col,
+                                     FALSE, shape);
+   show_utf8_repaint_filearea_target(scrno, row, new_logical_screen_col,
+                                     TRUE, shape);
+   wnoutrefresh(SCREEN_WINDOW_FILEAREA(scrno));
 }
 #endif
 /***********************************************************************/
@@ -2963,14 +4232,26 @@ static void show_a_line(CHARTYPE scrno,short row, SHOW_LINE *scurr)
       INIT_LINE_OUTPUT(SCREEN_WINDOW_FILEAREA(scrno),row);
       FILL_LINE_OUTPUT(' ',ccols,normal);
       END_LINE_OUTPUT();
+#ifdef USE_UTF8
+      {
+         int cursor_col = 0;
+         CursorShape cursor_shape = CURSOR_BLOCK;
+         if (cursor_focus_filearea_cursor(scrno, row, &cursor_col, &cursor_shape))
+            show_draw_software_blank_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno), row,
+                                          cursor_col, normal, cursor_shape);
+      }
+#endif
       TRACE_RETURN();
       return;
    }
 
 #ifdef USE_UTF8
-   show_a_line_utf8_cells(scrno, row, scurr, high);
-   TRACE_RETURN();
-   return;
+   if (!show_utf8_line_is_ascii(line, current->length))
+   {
+      show_a_line_utf8_cells(scrno, row, scurr, high);
+      TRACE_RETURN();
+      return;
+   }
 #endif
 
    if ( current->line_type == LINE_RESERVED
@@ -3284,6 +4565,16 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d: ccols %d cother_end_col %d bother_end_col
       }
    }
    END_LINE_OUTPUT();
+#ifdef USE_UTF8
+   {
+      int cursor_col = 0;
+      CursorShape cursor_shape = CURSOR_BLOCK;
+
+      if (cursor_focus_filearea_cursor(scrno, row, &cursor_col, &cursor_shape))
+         show_draw_software_chtype_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno), row,
+                                        cursor_col, normal, cursor_shape);
+   }
+#endif
    TRACE_RETURN();
    return;
 }

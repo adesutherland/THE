@@ -1,0 +1,24 @@
+# name	class	policy_width	codepoints
+# Extend this fixture with new platform samples. The codepoints column accepts
+# space, comma, or plus separated U+XXXX / 0xXXXX values.
+ascii-x	ascii	1	U+78
+combining-e-acute	combining	1	U+65 U+301
+combining-stack	combining-stack	1	U+61 U+301 U+327
+cjk-han	wide	2	U+6F22
+ambiguous-middot	ambiguous	1	U+00B7
+emoji-grin	emoji	2	U+1F600
+heart-text	text-variation	1	U+2764
+heart-emoji	emoji-variation	2	U+2764 U+FE0F
+check-emoji	emoji-variation	2	U+2714 U+FE0F
+thumbs-skin	modifier	2	U+1F44D U+1F3FB
+keycap-1	keycap	2	U+31 U+FE0F U+20E3
+keycap-hash	keycap	2	U+23 U+FE0F U+20E3
+keycap-star	keycap	2	U+2A U+FE0F U+20E3
+flag-us	regional-flag	2	U+1F1FA U+1F1F8
+flag-ca	regional-flag	2	U+1F1E8 U+1F1E6
+woman-laptop	short-zwj	2	U+1F469 U+200D U+1F4BB
+person-rocket	short-zwj	2	U+1F9D1 U+200D U+1F680
+woman-heart-man	heart-zwj	6	U+1F469 U+200D U+2764 U+FE0F U+200D U+1F468
+family	family-zwj	6	U+1F468 U+200D U+1F469 U+200D U+1F467 U+200D U+1F466
+tag-flag-england	tag-flag	2	U+1F3F4 U+E0067 U+E0062 U+E0065 U+E006E U+E0067 U+E007F
+private-use-e0b0	private-use	1	U+E0B0

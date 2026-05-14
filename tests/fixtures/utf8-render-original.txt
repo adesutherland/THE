@@ -73,11 +73,3 @@ four-person clusters: A👨‍👩‍👧‍👦B A👩‍👩‍👧‍👦B A�
 four-person near ruler:
 0123456789|0123456789|0123456789|
 A👨‍👩‍👧‍👦B👩‍👩‍👧‍👦C👨‍👨‍👧‍👦D👩‍👨‍👧‍👦E
-
-macOS Terminal regression focus:
-- Cursor left/right over these lines should leave no stale software-cursor image.
-- Cursor left from B should stop on the preceding cluster, not inside or after it.
-- Cursor right from the cluster should stop on B, not skip B or remain stuck.
-mac-keycap-tight: A1️⃣B#️⃣C*️⃣D
-mac-flag-tight: A🇺🇸B🇨🇦C🇬🇧D
-mac-2face-tight: A👩‍❤️‍👨B👨‍❤️‍👨C👩‍❤️‍👩D

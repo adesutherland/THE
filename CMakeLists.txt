@@ -11,8 +11,19 @@ option(USE_SDLCURSES "Build with SDL Curses" OFF)
 option(USE_VTCURSES "Build with VT Curses" OFF)
 option(USE_WIDE_CHAR "Enable wide character support" ON)
 option(USE_UTF8 "Enable UTF-8 support" ON)
+option(USE_UTF8PROC "Use utf8proc for Unicode grapheme clusters and character widths" ON)
 option(USE_SDSLH "Build with DSL Syntax Highlighter support" ON)
 option(USE_CREXX "Build with embedded CREXX profile/macro support" ON)
+set(THE_UTF8_FLAG_OVERHANG_DEFAULT "AUTO"
+        CACHE STRING "Default regional-flag extra display cells: AUTO, 0, or 1")
+set(THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT "AUTO"
+        CACHE STRING "Default display width for one-cell emoji-presentation/keycap clusters: AUTO, 0 to disable, or a positive cell width")
+set(THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT "AUTO"
+        CACHE STRING "Default paint footprint width for keycap clusters: AUTO, 0 to disable, or a positive cell width")
+set(THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT "AUTO"
+        CACHE STRING "Default display width for heart/couple ZWJ clusters: AUTO, 0 to disable, or a positive cell width")
+set(THE_UTF8_ZWJ_WIDTH_DEFAULT "AUTO"
+        CACHE STRING "Default display width for all other ZWJ clusters: AUTO, 0 to disable, or a positive cell width")
 set(DSLSH_LOCAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../DSL-Syntax-Highlighter"
         CACHE PATH "Path to a local DSL-Syntax-Highlighter checkout")
 option(DSLSH_PREFER_LOCAL "Prefer a local/sibling DSL-Syntax-Highlighter checkout when present" ON)
@@ -24,6 +35,58 @@ set(DSLSH_GIT_TAG "develop"
 if(USE_UTF8 AND NOT USE_WIDE_CHAR)
     message(STATUS "USE_UTF8 requires wide character support; enabling USE_WIDE_CHAR")
     set(USE_WIDE_CHAR ON CACHE BOOL "Enable wide character support" FORCE)
+endif()
+
+if(USE_UTF8)
+    if(THE_UTF8_FLAG_OVERHANG_DEFAULT STREQUAL "AUTO")
+        if(APPLE)
+            set(THE_UTF8_FLAG_OVERHANG_DEFAULT_RESOLVED 1)
+        else()
+            set(THE_UTF8_FLAG_OVERHANG_DEFAULT_RESOLVED 0)
+        endif()
+    else()
+        set(THE_UTF8_FLAG_OVERHANG_DEFAULT_RESOLVED ${THE_UTF8_FLAG_OVERHANG_DEFAULT})
+    endif()
+
+    if(THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT STREQUAL "AUTO")
+        if(APPLE)
+            set(THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT_RESOLVED 2)
+        else()
+            set(THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT_RESOLVED 0)
+        endif()
+    else()
+        set(THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT_RESOLVED ${THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT})
+    endif()
+
+    if(THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT STREQUAL "AUTO")
+        set(THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT_RESOLVED 0)
+    else()
+        set(THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT_RESOLVED ${THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT})
+    endif()
+
+    if(THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT STREQUAL "AUTO")
+        if(APPLE)
+            set(THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT_RESOLVED 6)
+        else()
+            set(THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT_RESOLVED 0)
+        endif()
+    else()
+        set(THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT_RESOLVED ${THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT})
+    endif()
+
+    if(THE_UTF8_ZWJ_WIDTH_DEFAULT STREQUAL "AUTO")
+        set(THE_UTF8_ZWJ_WIDTH_DEFAULT_RESOLVED 0)
+    else()
+        set(THE_UTF8_ZWJ_WIDTH_DEFAULT_RESOLVED ${THE_UTF8_ZWJ_WIDTH_DEFAULT})
+    endif()
+
+    add_compile_definitions(
+        THE_UTF8_FLAG_OVERHANG_DEFAULT=${THE_UTF8_FLAG_OVERHANG_DEFAULT_RESOLVED}
+        THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT=${THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT_RESOLVED}
+        THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT=${THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT_RESOLVED}
+        THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT=${THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT_RESOLVED}
+        THE_UTF8_ZWJ_WIDTH_DEFAULT=${THE_UTF8_ZWJ_WIDTH_DEFAULT_RESOLVED}
+    )
 endif()
 
 # Determine basic curses type based on options
@@ -240,6 +303,27 @@ if(USE_SDSLH)
     endif()
 endif()
 
+if(USE_UTF8 AND USE_UTF8PROC)
+    find_package(utf8proc QUIET)
+    if(TARGET utf8proc::utf8proc)
+        set(THE_UTF8PROC_TARGET utf8proc::utf8proc)
+    elseif(TARGET utf8proc)
+        set(THE_UTF8PROC_TARGET utf8proc)
+    else()
+        include(FetchContent)
+        set(UTF8PROC_INSTALL OFF CACHE BOOL "Enable installation of utf8proc" FORCE)
+        set(UTF8PROC_ENABLE_TESTING OFF CACHE BOOL "Enable testing of utf8proc" FORCE)
+        FetchContent_Declare(
+            utf8proc
+            GIT_REPOSITORY https://github.com/JuliaStrings/utf8proc.git
+            GIT_TAG v2.11.3
+        )
+        FetchContent_MakeAvailable(utf8proc)
+        set(THE_UTF8PROC_TARGET utf8proc)
+    endif()
+    add_compile_definitions(USE_UTF8PROC=1)
+endif()
+
 set(THE_USE_CREXX FALSE)
 if(USE_CREXX)
     find_library(CREXXSAA_LIBRARY
@@ -362,6 +446,9 @@ endif()
 set(EXECUTABLE_NAME "the")
 add_executable(${EXECUTABLE_NAME} ${THE_SOURCES})
 target_link_libraries(${EXECUTABLE_NAME} ${CURSES_LIBRARIES})
+if(USE_UTF8 AND USE_UTF8PROC)
+    target_link_libraries(${EXECUTABLE_NAME} ${THE_UTF8PROC_TARGET})
+endif()
 
 if(USE_SDSLH)
     target_link_libraries(${EXECUTABLE_NAME} DSLSH::editor)
@@ -408,6 +495,12 @@ if(THE_MDP_EXECUTABLE)
     )
 endif()
 
+if(USE_UTF8 AND USE_WIDE_CHAR)
+    add_executable(utf8_terminal_probe tools/utf8_terminal_probe.c)
+    target_include_directories(utf8_terminal_probe PRIVATE ${CURSES_INCLUDE_DIRS})
+    target_link_libraries(utf8_terminal_probe ${CURSES_LIBRARIES})
+endif()
+
 # Install Targets
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   # Fallback to local user bin to avoid sudo permission errors during testing
@@ -432,7 +525,20 @@ install(DIRECTORY syntax/ DESTINATION share/the/syntax)
 enable_testing()
 add_executable(test_textpos tests/test_textpos.c src/textpos.c)
 target_include_directories(test_textpos PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+if(USE_UTF8 AND USE_UTF8PROC)
+    target_link_libraries(test_textpos ${THE_UTF8PROC_TARGET})
+    target_compile_definitions(test_textpos PRIVATE USE_UTF8PROC=1)
+endif()
 add_test(NAME test_textpos COMMAND test_textpos)
+if(USE_UTF8)
+    add_executable(test_utf8_fixture tests/test_utf8_fixture.c src/textpos.c)
+    target_include_directories(test_utf8_fixture PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+    if(USE_UTF8PROC)
+        target_link_libraries(test_utf8_fixture ${THE_UTF8PROC_TARGET})
+        target_compile_definitions(test_utf8_fixture PRIVATE USE_UTF8PROC=1)
+    endif()
+    add_test(NAME test_utf8_fixture COMMAND test_utf8_fixture ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/utf8-render.txt)
+endif()
 add_test(NAME test_sdslh_integration COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdslh_integration.sh)
 set_tests_properties(test_sdslh_integration PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME test_sdslh_multifile_lifecycle COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdslh_multifile_lifecycle.sh)

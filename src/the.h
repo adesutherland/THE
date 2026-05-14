@@ -2159,6 +2159,7 @@ typedef struct
 
 typedef enum { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_IBEAM } CursorShape;
 typedef enum { CURSOR_STEADY, CURSOR_BLINK } CursorBlink;
+typedef enum { CURSOR_PRESENTATION_HARDWARE, CURSOR_PRESENTATION_SOFTWARE } CursorPresentation;
 
 #if defined(HAVE_STRICMP)
 # define my_stricmp stricmp
