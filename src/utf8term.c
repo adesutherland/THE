@@ -251,6 +251,177 @@ const Utf8TerminalProfileEntry *utf8_terminal_profile_lookup(
    return profile_entry_for(feature_class, intent);
 }
 
+static TextPos utf8_terminal_advance_codepoint_pos(TextPos pos,
+                                                   TextCodepoint item)
+{
+   if (item.byte_length == 0)
+      return pos;
+   pos.byte_offset += item.byte_length;
+   pos.codepoint_index++;
+   pos.cell_column += item.cell_width;
+   return pos;
+}
+
+static int utf8_terminal_codepoint_is_regional(uint32_t codepoint)
+{
+   return codepoint >= 0x1F1E6u && codepoint <= 0x1F1FFu;
+}
+
+static int utf8_terminal_codepoint_is_tag(uint32_t codepoint)
+{
+   return codepoint >= 0xE0020u && codepoint <= 0xE007Fu;
+}
+
+static int utf8_terminal_codepoint_is_modifier(uint32_t codepoint)
+{
+   return codepoint >= 0x1F3FBu && codepoint <= 0x1F3FFu;
+}
+
+static int utf8_terminal_codepoint_is_private_use(uint32_t codepoint)
+{
+   return (codepoint >= 0xE000u && codepoint <= 0xF8FFu)
+       || (codepoint >= 0xF0000u && codepoint <= 0xFFFFDu)
+       || (codepoint >= 0x100000u && codepoint <= 0x10FFFDu);
+}
+
+static int utf8_terminal_codepoint_is_emojiish(uint32_t codepoint)
+{
+   return (codepoint >= 0x1F000u && codepoint <= 0x1FAFFu)
+       || (codepoint >= 0x2600u && codepoint <= 0x27BFu);
+}
+
+Utf8TerminalClass utf8_terminal_classify_cluster(const CHARTYPE *line,
+                                                 size_t len,
+                                                 TextCluster cluster)
+{
+   TextPos pos = cluster.pos;
+   uint32_t first_codepoint = 0;
+   int codepoints = 0;
+   int spacing_codepoints = 0;
+   int regional_codepoints = 0;
+   int all_regional = 1;
+   int zwj_count = 0;
+   int contains_keycap = 0;
+   int contains_text_variation = 0;
+   int contains_emoji_variation = 0;
+   int contains_modifier = 0;
+   int contains_heart = 0;
+   int contains_tag = 0;
+
+   if (line == NULL || cluster.byte_length == 0)
+      return UTF8_TERM_CLASS_UNKNOWN;
+
+   while (pos.byte_offset < cluster.end.byte_offset)
+   {
+      TextCodepoint item = textpos_codepoint_at_boundary(line, len, pos);
+
+      if (item.byte_length == 0)
+         break;
+      if (codepoints == 0)
+         first_codepoint = item.codepoint;
+      codepoints++;
+      if (item.cell_width > 0)
+         spacing_codepoints++;
+      if (utf8_terminal_codepoint_is_regional(item.codepoint))
+         regional_codepoints++;
+      else
+         all_regional = 0;
+      if (item.codepoint == 0x200Du)
+         zwj_count++;
+      else if (item.codepoint == 0x20E3u)
+         contains_keycap = 1;
+      else if (item.codepoint == 0xFE0Eu)
+         contains_text_variation = 1;
+      else if (item.codepoint == 0xFE0Fu)
+         contains_emoji_variation = 1;
+      else if (utf8_terminal_codepoint_is_modifier(item.codepoint))
+         contains_modifier = 1;
+      else if (item.codepoint == 0x2764u)
+         contains_heart = 1;
+      else if (utf8_terminal_codepoint_is_tag(item.codepoint))
+         contains_tag = 1;
+      pos = utf8_terminal_advance_codepoint_pos(pos, item);
+   }
+
+   if (codepoints == 0)
+      return UTF8_TERM_CLASS_UNKNOWN;
+   if (contains_keycap)
+      return UTF8_TERM_CLASS_KEYCAP;
+   if (all_regional && regional_codepoints == 2)
+      return UTF8_TERM_CLASS_REGIONAL_FLAG;
+   if (contains_tag)
+      return UTF8_TERM_CLASS_TAG_FLAG;
+   if (zwj_count > 0)
+   {
+      if (contains_heart)
+         return UTF8_TERM_CLASS_HEART_ZWJ;
+      if (zwj_count >= 2 || spacing_codepoints >= 3)
+         return UTF8_TERM_CLASS_FAMILY_ZWJ;
+      return UTF8_TERM_CLASS_SHORT_ZWJ;
+   }
+   if (contains_modifier)
+      return UTF8_TERM_CLASS_MODIFIER;
+   if (contains_emoji_variation)
+      return UTF8_TERM_CLASS_EMOJI_VARIATION;
+   if (contains_text_variation)
+      return UTF8_TERM_CLASS_TEXT_VARIATION;
+   if (codepoints > 1)
+   {
+      if (cluster.cell_width <= 1)
+      {
+         if (codepoints > 2)
+            return UTF8_TERM_CLASS_COMBINING_STACK;
+         return UTF8_TERM_CLASS_COMBINING;
+      }
+      if (utf8_terminal_codepoint_is_emojiish(first_codepoint))
+         return UTF8_TERM_CLASS_EMOJI;
+      return UTF8_TERM_CLASS_WIDE;
+   }
+   if (utf8_terminal_codepoint_is_private_use(first_codepoint))
+      return UTF8_TERM_CLASS_PRIVATE_USE;
+   if (first_codepoint < 0x80u)
+      return UTF8_TERM_CLASS_ASCII;
+   if (cluster.cell_width == 0)
+      return UTF8_TERM_CLASS_COMBINING;
+   if (utf8_terminal_codepoint_is_emojiish(first_codepoint))
+      return UTF8_TERM_CLASS_EMOJI;
+   if (cluster.cell_width >= 2)
+      return UTF8_TERM_CLASS_WIDE;
+   return UTF8_TERM_CLASS_AMBIGUOUS;
+}
+
+const Utf8TerminalProfileEntry *utf8_terminal_profile_lookup_cluster(
+   const CHARTYPE *line, size_t len, TextCluster cluster,
+   Utf8TerminalIntent preferred_intent)
+{
+   Utf8TerminalClass feature_class;
+   Utf8TerminalIntent intent = preferred_intent;
+   const Utf8TerminalProfileEntry *entry;
+
+   feature_class = utf8_terminal_classify_cluster(line, len, cluster);
+   if (feature_class == UTF8_TERM_CLASS_UNKNOWN)
+      return NULL;
+   if (feature_class != UTF8_TERM_CLASS_SHORT_ZWJ
+   &&  feature_class != UTF8_TERM_CLASS_HEART_ZWJ
+   &&  feature_class != UTF8_TERM_CLASS_FAMILY_ZWJ)
+   {
+      intent = UTF8_TERM_INTENT_NORMAL;
+   }
+   else if (intent == UTF8_TERM_INTENT_UNKNOWN
+        ||  intent == UTF8_TERM_INTENT_NORMAL)
+   {
+      intent = UTF8_TERM_INTENT_GROUP;
+   }
+
+   entry = utf8_terminal_profile_lookup(feature_class, intent);
+   if (entry != NULL)
+      return entry;
+   if (intent != UTF8_TERM_INTENT_NORMAL)
+      return utf8_terminal_profile_lookup(feature_class,
+                                          UTF8_TERM_INTENT_NORMAL);
+   return NULL;
+}
+
 static int parse_positive_int(const char *token, int *out)
 {
    char *end = NULL;

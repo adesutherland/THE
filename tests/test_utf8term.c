@@ -57,6 +57,13 @@ static void expect_profile(const char *name,
    expect_int(name, entry->replacement_strategy, replacement_strategy);
 }
 
+static TextCluster cluster_after_leading_ascii(const CHARTYPE *line, size_t len)
+{
+   TextPos pos = textpos_next_cluster(line, len, textpos_begin());
+
+   return textpos_cluster_at_boundary(line, len, pos);
+}
+
 static void test_coded_defaults(void)
 {
    utf8_terminal_profile_reset();
@@ -154,6 +161,132 @@ static void test_terminal_identity(void)
                   UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST);
 }
 
+static void test_cluster_classification(void)
+{
+#ifdef USE_UTF8PROC
+   static const CHARTYPE keycap[] = { 'A', '1',
+                                      0xEF, 0xB8, 0x8F,
+                                      0xE2, 0x83, 0xA3, 'B' };
+   static const CHARTYPE flag[] = { 'A',
+                                    0xF0, 0x9F, 0x87, 0xAC,
+                                    0xF0, 0x9F, 0x87, 0xA7, 'B' };
+   static const CHARTYPE short_zwj[] = { 'A',
+                                         0xF0, 0x9F, 0x91, 0xA9,
+                                         0xE2, 0x80, 0x8D,
+                                         0xF0, 0x9F, 0x92, 0xBB, 'B' };
+   static const CHARTYPE heart_zwj[] = { 'A',
+                                         0xF0, 0x9F, 0x91, 0xA9,
+                                         0xE2, 0x80, 0x8D,
+                                         0xE2, 0x9D, 0xA4,
+                                         0xEF, 0xB8, 0x8F,
+                                         0xE2, 0x80, 0x8D,
+                                         0xF0, 0x9F, 0x91, 0xA8, 'B' };
+   static const CHARTYPE family_zwj[] = { 'A',
+                                          0xF0, 0x9F, 0x91, 0xA8,
+                                          0xE2, 0x80, 0x8D,
+                                          0xF0, 0x9F, 0x91, 0xA9,
+                                          0xE2, 0x80, 0x8D,
+                                          0xF0, 0x9F, 0x91, 0xA7,
+                                          0xE2, 0x80, 0x8D,
+                                          0xF0, 0x9F, 0x91, 0xA6, 'B' };
+   static const CHARTYPE modifier[] = { 'A',
+                                        0xF0, 0x9F, 0x91, 0x8D,
+                                        0xF0, 0x9F, 0x8F, 0xBB, 'B' };
+
+   expect_int("class.keycap",
+              utf8_terminal_classify_cluster(
+                 keycap, sizeof(keycap),
+                 cluster_after_leading_ascii(keycap, sizeof(keycap))),
+              UTF8_TERM_CLASS_KEYCAP);
+   expect_int("class.regional.flag",
+              utf8_terminal_classify_cluster(
+                 flag, sizeof(flag),
+                 cluster_after_leading_ascii(flag, sizeof(flag))),
+              UTF8_TERM_CLASS_REGIONAL_FLAG);
+   expect_int("class.short.zwj",
+              utf8_terminal_classify_cluster(
+                 short_zwj, sizeof(short_zwj),
+                 cluster_after_leading_ascii(short_zwj, sizeof(short_zwj))),
+              UTF8_TERM_CLASS_SHORT_ZWJ);
+   expect_int("class.heart.zwj",
+              utf8_terminal_classify_cluster(
+                 heart_zwj, sizeof(heart_zwj),
+                 cluster_after_leading_ascii(heart_zwj, sizeof(heart_zwj))),
+              UTF8_TERM_CLASS_HEART_ZWJ);
+   expect_int("class.family.zwj",
+              utf8_terminal_classify_cluster(
+                 family_zwj, sizeof(family_zwj),
+                 cluster_after_leading_ascii(family_zwj, sizeof(family_zwj))),
+              UTF8_TERM_CLASS_FAMILY_ZWJ);
+   expect_int("class.modifier",
+              utf8_terminal_classify_cluster(
+                 modifier, sizeof(modifier),
+                 cluster_after_leading_ascii(modifier, sizeof(modifier))),
+              UTF8_TERM_CLASS_MODIFIER);
+#endif
+}
+
+static void test_cluster_profile_lookup(void)
+{
+#ifdef USE_UTF8PROC
+   static const CHARTYPE short_zwj[] = { 'A',
+                                         0xF0, 0x9F, 0x91, 0xA9,
+                                         0xE2, 0x80, 0x8D,
+                                         0xF0, 0x9F, 0x92, 0xBB, 'B' };
+   TextCluster cluster;
+   const Utf8TerminalProfileEntry *entry;
+
+   cluster = cluster_after_leading_ascii(short_zwj, sizeof(short_zwj));
+   utf8_terminal_profile_reset();
+   entry = utf8_terminal_profile_lookup_cluster(short_zwj, sizeof(short_zwj),
+                                                cluster,
+                                                UTF8_TERM_INTENT_GROUP);
+   if (entry == NULL)
+   {
+      fprintf(stderr, "lookup.short.group: missing profile entry\n");
+      failures++;
+   }
+   else
+   {
+      expect_int("lookup.short.group.output", entry->output_method,
+                 UTF8_TERM_OUTPUT_NATIVE);
+      expect_int("lookup.short.group.layout", entry->layout_width, 2);
+   }
+
+   expect_int("lookup.apple.apply",
+              utf8_terminal_profile_apply_apple_terminal(), 45);
+   entry = utf8_terminal_profile_lookup_cluster(short_zwj, sizeof(short_zwj),
+                                                cluster,
+                                                UTF8_TERM_INTENT_GROUP);
+   if (entry == NULL)
+   {
+      fprintf(stderr, "lookup.apple.short.group: missing profile entry\n");
+      failures++;
+   }
+   else
+   {
+      expect_int("lookup.apple.short.group.output", entry->output_method,
+                 UTF8_TERM_OUTPUT_SUBSTITUTE);
+      expect_int("lookup.apple.short.group.layout", entry->layout_width, 1);
+   }
+
+   entry = utf8_terminal_profile_lookup_cluster(short_zwj, sizeof(short_zwj),
+                                                cluster,
+                                                UTF8_TERM_INTENT_COMPONENTS);
+   if (entry == NULL)
+   {
+      fprintf(stderr, "lookup.apple.short.components: missing profile entry\n");
+      failures++;
+   }
+   else
+   {
+      expect_int("lookup.apple.short.components.output", entry->output_method,
+                 UTF8_TERM_OUTPUT_NATIVE);
+      expect_int("lookup.apple.short.components.layout", entry->layout_width, 4);
+   }
+#endif
+}
+
 static void test_physical_policy_does_not_change_logical_textpos(void)
 {
 #ifdef USE_UTF8PROC
@@ -189,6 +322,8 @@ int main(int argc, char **argv)
    test_line_parser();
    test_profile_files(argv[1], argv[2]);
    test_terminal_identity();
+   test_cluster_classification();
+   test_cluster_profile_lookup();
    test_physical_policy_does_not_change_logical_textpos();
 
    if (failures != 0)

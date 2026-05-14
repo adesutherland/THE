@@ -14,16 +14,6 @@ option(USE_UTF8 "Enable UTF-8 support" ON)
 option(USE_UTF8PROC "Use utf8proc for Unicode grapheme clusters and character widths" ON)
 option(USE_SDSLH "Build with DSL Syntax Highlighter support" ON)
 option(USE_CREXX "Build with embedded CREXX profile/macro support" ON)
-set(THE_UTF8_FLAG_OVERHANG_DEFAULT "AUTO"
-        CACHE STRING "Default regional-flag extra display cells: AUTO, 0, or 1")
-set(THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT "AUTO"
-        CACHE STRING "Default display width for one-cell emoji-presentation/keycap clusters: AUTO, 0 to disable, or a positive cell width")
-set(THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT "AUTO"
-        CACHE STRING "Default paint footprint width for keycap clusters: AUTO, 0 to disable, or a positive cell width")
-set(THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT "AUTO"
-        CACHE STRING "Default display width for heart/couple ZWJ clusters: AUTO, 0 to disable, or a positive cell width")
-set(THE_UTF8_ZWJ_WIDTH_DEFAULT "AUTO"
-        CACHE STRING "Default display width for all other ZWJ clusters: AUTO, 0 to disable, or a positive cell width")
 set(DSLSH_LOCAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../DSL-Syntax-Highlighter"
         CACHE PATH "Path to a local DSL-Syntax-Highlighter checkout")
 option(DSLSH_PREFER_LOCAL "Prefer a local/sibling DSL-Syntax-Highlighter checkout when present" ON)
@@ -35,58 +25,6 @@ set(DSLSH_GIT_TAG "develop"
 if(USE_UTF8 AND NOT USE_WIDE_CHAR)
     message(STATUS "USE_UTF8 requires wide character support; enabling USE_WIDE_CHAR")
     set(USE_WIDE_CHAR ON CACHE BOOL "Enable wide character support" FORCE)
-endif()
-
-if(USE_UTF8)
-    if(THE_UTF8_FLAG_OVERHANG_DEFAULT STREQUAL "AUTO")
-        if(APPLE)
-            set(THE_UTF8_FLAG_OVERHANG_DEFAULT_RESOLVED 1)
-        else()
-            set(THE_UTF8_FLAG_OVERHANG_DEFAULT_RESOLVED 0)
-        endif()
-    else()
-        set(THE_UTF8_FLAG_OVERHANG_DEFAULT_RESOLVED ${THE_UTF8_FLAG_OVERHANG_DEFAULT})
-    endif()
-
-    if(THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT STREQUAL "AUTO")
-        if(APPLE)
-            set(THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT_RESOLVED 2)
-        else()
-            set(THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT_RESOLVED 0)
-        endif()
-    else()
-        set(THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT_RESOLVED ${THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT})
-    endif()
-
-    if(THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT STREQUAL "AUTO")
-        set(THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT_RESOLVED 0)
-    else()
-        set(THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT_RESOLVED ${THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT})
-    endif()
-
-    if(THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT STREQUAL "AUTO")
-        if(APPLE)
-            set(THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT_RESOLVED 6)
-        else()
-            set(THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT_RESOLVED 0)
-        endif()
-    else()
-        set(THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT_RESOLVED ${THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT})
-    endif()
-
-    if(THE_UTF8_ZWJ_WIDTH_DEFAULT STREQUAL "AUTO")
-        set(THE_UTF8_ZWJ_WIDTH_DEFAULT_RESOLVED 0)
-    else()
-        set(THE_UTF8_ZWJ_WIDTH_DEFAULT_RESOLVED ${THE_UTF8_ZWJ_WIDTH_DEFAULT})
-    endif()
-
-    add_compile_definitions(
-        THE_UTF8_FLAG_OVERHANG_DEFAULT=${THE_UTF8_FLAG_OVERHANG_DEFAULT_RESOLVED}
-        THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT=${THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT_RESOLVED}
-        THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT=${THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT_RESOLVED}
-        THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT=${THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT_RESOLVED}
-        THE_UTF8_ZWJ_WIDTH_DEFAULT=${THE_UTF8_ZWJ_WIDTH_DEFAULT_RESOLVED}
-    )
 endif()
 
 # Determine basic curses type based on options

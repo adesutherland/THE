@@ -3,6 +3,8 @@
 
 #include <stddef.h>
 
+#include "textpos.h"
+
 /*
  * UTF-8 terminal profiles describe physical terminal behaviour only.
  * Editor commands, text storage, and macro-visible character movement must
@@ -86,6 +88,12 @@ int utf8_terminal_profile_apply_line(const char *line);
 int utf8_terminal_profile_apply_file(const char *path, int *settings_loaded);
 const Utf8TerminalProfileEntry *utf8_terminal_profile_lookup(
    Utf8TerminalClass feature_class, Utf8TerminalIntent intent);
+Utf8TerminalClass utf8_terminal_classify_cluster(const CHARTYPE *line,
+                                                 size_t len,
+                                                 TextCluster cluster);
+const Utf8TerminalProfileEntry *utf8_terminal_profile_lookup_cluster(
+   const CHARTYPE *line, size_t len, TextCluster cluster,
+   Utf8TerminalIntent preferred_intent);
 size_t utf8_terminal_profile_entry_count(void);
 const Utf8TerminalProfileEntry *utf8_terminal_profile_entry_at(size_t index);
 

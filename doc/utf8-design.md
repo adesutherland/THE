@@ -405,33 +405,12 @@ Unicode segmentation failure.
 
 The clean implementation keeps flags literal and logical-width-correct. Visual
 overhang compensation is applied as a separate display-cell policy, not by
-changing `TextPos.cell_column`. The current implementation still exposes a few
-environment-variable diagnostics while the terminal profile is being designed:
-
-- `THE_UTF8_FLAG_OVERHANG_DEFAULT=AUTO`: resolves to `1` on macOS and `0`
-  elsewhere. It reserves one extra physical display cell after regional flag
-  pairs because Apple Terminal has shown flag paint-overhang behavior. At
-  runtime, set `THE_UTF8_FLAG_OVERHANG=0` to disable it for comparison.
-- `THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT=AUTO`: resolves to `2` on macOS
-  and `0` elsewhere. It reserves two physical cells for one-cell emoji
-  presentation/keycap clusters that Apple Terminal paints wider than the
-  logical model.
-- `THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT=AUTO`: resolves to `6` on macOS and `0`
-  elsewhere. It handles couple/heart ZWJ sequences where Apple Terminal paints
-  the two face emoji and emoji heart as visible fallback components. Set
-  `THE_UTF8_HEART_ZWJ_WIDTH=2` on terminals that shape the sequence into one
-  two-cell glyph.
-- `THE_UTF8_ZWJ_WIDTH_DEFAULT=AUTO`: currently resolves to `0` on all
-  platforms. It is intentionally conservative; generic ZWJ families are not
-  forced unless a platform probe or manual testing proves that a terminal needs
-  a specific display width.
-
-Runtime overrides with the same names minus `_DEFAULT`
-(`THE_UTF8_FLAG_OVERHANG`, `THE_UTF8_EMOJI_PRESENTATION_WIDTH`,
-`THE_UTF8_HEART_ZWJ_WIDTH`, and `THE_UTF8_ZWJ_WIDTH`) are diagnostic switches.
-They should not change saved file content or the API-facing position model.
-The target design is to replace this ad hoc set with the terminal-profile table
-described above.
+changing `TextPos.cell_column`. The file-area renderer now derives physical
+layout width, cursor width, and ZWJ output method from the active terminal
+profile. The older ad hoc `THE_UTF8_*_WIDTH` and flag-overhang diagnostic
+switches have been retired from the renderer path; equivalent terminal
+differences should be represented with `SET UTF8 TERMINAL CLASS ...` profile
+entries.
 
 Display slicing is cluster-aware. If a viewport starts or ends inside a
 multi-cell cluster, the partial cluster is omitted and replaced with padding

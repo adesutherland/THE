@@ -83,33 +83,7 @@
 #include <time.h>
 #ifdef USE_UTF8
 # include <wchar.h>
-# ifndef THE_UTF8_FLAG_OVERHANG_DEFAULT
-#  ifdef __APPLE__
-#   define THE_UTF8_FLAG_OVERHANG_DEFAULT 1
-#  else
-#   define THE_UTF8_FLAG_OVERHANG_DEFAULT 0
-#  endif
-# endif
-# ifndef THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT
-#  ifdef __APPLE__
-#   define THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT 2
-#  else
-#   define THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT 0
-#  endif
-# endif
-# ifndef THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT
-#  define THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT 0
-# endif
-# ifndef THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT
-#  ifdef __APPLE__
-#   define THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT 6
-#  else
-#   define THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT 0
-#  endif
-# endif
-# ifndef THE_UTF8_ZWJ_WIDTH_DEFAULT
-#  define THE_UTF8_ZWJ_WIDTH_DEFAULT 0
-# endif
+# include "utf8term.h"
 #endif
 
 /*------------------------ function definitions -----------------------*/
@@ -399,226 +373,52 @@ static int show_utf8_copy_status_text(char field[21], int offset, const char *te
    return truncated;
 }
 
-static int show_utf8_codepoint_is_regional(uint32_t codepoint)
+#define THE_UTF8_SUBSTITUTE_CODEPOINT 0x25A1u
+
+static const Utf8TerminalProfileEntry *show_utf8_cluster_profile(
+   const CHARTYPE *line, size_t len, TextCluster cluster)
 {
-   return codepoint >= 0x1F1E6u && codepoint <= 0x1F1FFu;
+   return utf8_terminal_profile_lookup_cluster(line, len, cluster,
+                                               UTF8_TERM_INTENT_GROUP);
 }
 
-static int show_utf8_env_int_default(const char *name, int default_value)
+static int show_utf8_cluster_logical_width(TextCluster cluster)
 {
-   const char *value = getenv(name);
-   char *end = NULL;
-   long parsed;
-
-   if (value == NULL || *value == '\0')
-      return default_value;
-
-   parsed = strtol(value, &end, 10);
-   if (end == value || (end != NULL && *end != '\0'))
-      return default_value;
-   if (parsed < 0)
-      parsed = 0;
-   if (parsed > THE_MAX_SCREEN_WIDTH)
-      parsed = THE_MAX_SCREEN_WIDTH;
-   return (int)parsed;
-}
-
-static int show_utf8_cluster_contains_codepoint(const CHARTYPE *line, size_t len,
-                                                TextCluster cluster,
-                                                uint32_t codepoint)
-{
-   TextPos pos = cluster.pos;
-
-   while (pos.byte_offset < cluster.end.byte_offset)
-   {
-      TextCodepoint item = textpos_codepoint_at_boundary(line, len, pos);
-
-      if (item.byte_length == 0)
-         break;
-      if (item.codepoint == codepoint)
-         return TRUE;
-      pos = show_utf8_advance_codepoint_pos(pos, item);
-   }
-   return FALSE;
-}
-
-static int show_utf8_cluster_is_regional_flag(const CHARTYPE *line, size_t len,
-                                              TextCluster cluster)
-{
-   TextPos pos = cluster.pos;
-   int regional_count = 0;
-
-   while (pos.byte_offset < cluster.end.byte_offset)
-   {
-      TextCodepoint item = textpos_codepoint_at_boundary(line, len, pos);
-
-      if (item.byte_length == 0)
-         break;
-      if (!show_utf8_codepoint_is_regional(item.codepoint))
-         return FALSE;
-      regional_count++;
-      pos = show_utf8_advance_codepoint_pos(pos, item);
-   }
-   return regional_count == 2;
-}
-
-static int show_utf8_flag_overhang_enabled(void)
-{
-   static int initialised = FALSE;
-   static int enabled = FALSE;
-
-   if (!initialised)
-   {
-      enabled = show_utf8_env_int_default("THE_UTF8_FLAG_OVERHANG",
-                                          THE_UTF8_FLAG_OVERHANG_DEFAULT) != 0;
-      initialised = TRUE;
-   }
-   return enabled;
-}
-
-static int show_utf8_emoji_presentation_width(void)
-{
-   static int initialised = FALSE;
-   static int width = 0;
-
-   if (!initialised)
-   {
-      width = show_utf8_env_int_default("THE_UTF8_EMOJI_PRESENTATION_WIDTH",
-                                        THE_UTF8_EMOJI_PRESENTATION_WIDTH_DEFAULT);
-      initialised = TRUE;
-   }
-   return width;
-}
-
-static int show_utf8_keycap_paint_width(void)
-{
-   static int initialised = FALSE;
-   static int width = 0;
-
-   if (!initialised)
-   {
-      width = show_utf8_env_int_default("THE_UTF8_KEYCAP_PAINT_WIDTH",
-                                        THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT);
-      initialised = TRUE;
-   }
-   return width;
-}
-
-static int show_utf8_heart_zwj_width(void)
-{
-   static int initialised = FALSE;
-   static int width = 0;
-
-   if (!initialised)
-   {
-      width = show_utf8_env_int_default("THE_UTF8_HEART_ZWJ_WIDTH",
-                                        THE_UTF8_HEART_ZWJ_WIDTH_DEFAULT);
-      initialised = TRUE;
-   }
-   return width;
-}
-
-static int show_utf8_zwj_width(void)
-{
-   static int initialised = FALSE;
-   static int width = 0;
-
-   if (!initialised)
-   {
-      width = show_utf8_env_int_default("THE_UTF8_ZWJ_WIDTH",
-                                        THE_UTF8_ZWJ_WIDTH_DEFAULT);
-      initialised = TRUE;
-   }
-   return width;
-}
-
-static int show_utf8_cluster_is_emoji_presentation(const CHARTYPE *line, size_t len,
-                                                   TextCluster cluster)
-{
-   return cluster.codepoint_count > 1
-       && (show_utf8_cluster_contains_codepoint(line, len, cluster, 0x20E3u)
-        || show_utf8_cluster_contains_codepoint(line, len, cluster, 0xFE0Fu));
-}
-
-static int show_utf8_cluster_is_keycap(const CHARTYPE *line, size_t len,
-                                       TextCluster cluster)
-{
-   return cluster.codepoint_count > 1
-       && show_utf8_cluster_contains_codepoint(line, len, cluster, 0x20E3u);
-}
-
-static int show_utf8_cluster_is_heart_zwj(const CHARTYPE *line, size_t len,
-                                          TextCluster cluster)
-{
-   return show_utf8_cluster_contains_codepoint(line, len, cluster, 0x200Du)
-       && show_utf8_cluster_contains_codepoint(line, len, cluster, 0x2764u);
+   return (cluster.cell_width > 0) ? cluster.cell_width : 1;
 }
 
 static int show_utf8_cluster_display_width(const CHARTYPE *line, size_t len,
                                            TextCluster cluster)
 {
-   int logical_width = (cluster.cell_width > 0) ? cluster.cell_width : 1;
-   int display_width = logical_width;
-   int policy_width;
+   const Utf8TerminalProfileEntry *entry;
 
-   if (cluster.codepoint_count == 1)
-      return display_width;
+   entry = show_utf8_cluster_profile(line, len, cluster);
+   if (entry != NULL && entry->layout_width > 0)
+      return entry->layout_width;
+   return show_utf8_cluster_logical_width(cluster);
+}
 
-   if (show_utf8_flag_overhang_enabled()
-   &&  show_utf8_cluster_is_regional_flag(line, len, cluster))
-   {
-      /*
-       * Apple Terminal reports normal cursor advance for regional flags while
-       * the color glyph can visibly paint into the following cell. Keep the
-       * logical model at two cells, but reserve the paint footprint here.
-       */
-      display_width = logical_width + 1;
-   }
-   else if (show_utf8_cluster_is_heart_zwj(line, len, cluster)
-   &&      (policy_width = show_utf8_heart_zwj_width()) > 0)
-   {
-      /*
-       * Apple Terminal currently falls back for the two-face heart ZWJ
-       * samples by painting the two faces and the emoji heart as visible
-       * components. Reserve that physical footprint by default; terminals
-       * that shape the sequence into one glyph can override this to 2.
-       */
-      display_width = policy_width;
-   }
-   else if (show_utf8_cluster_contains_codepoint(line, len, cluster, 0x200Du)
-   &&      (policy_width = show_utf8_zwj_width()) > 0)
-   {
-      display_width = policy_width;
-   }
-   else if (show_utf8_cluster_is_emoji_presentation(line, len, cluster)
-   &&      (policy_width = show_utf8_emoji_presentation_width()) > 0
-   &&       display_width < policy_width)
-   {
-      display_width = policy_width;
-   }
+static int show_utf8_cluster_cursor_width(const CHARTYPE *line, size_t len,
+                                          TextCluster cluster)
+{
+   const Utf8TerminalProfileEntry *entry;
 
-   return display_width;
+   entry = show_utf8_cluster_profile(line, len, cluster);
+   if (entry != NULL && entry->cursor_width > 0)
+      return entry->cursor_width;
+   return show_utf8_cluster_display_width(line, len, cluster);
 }
 
 static int show_utf8_cluster_paint_width(const CHARTYPE *line, size_t len,
                                          TextCluster cluster)
 {
    int paint_width = show_utf8_cluster_display_width(line, len, cluster);
-   int policy_width;
+   int cursor_width = show_utf8_cluster_cursor_width(line, len, cluster);
 
    if (paint_width <= 0)
-      paint_width = (cluster.cell_width > 0) ? cluster.cell_width : 1;
-
-   if (show_utf8_cluster_is_keycap(line, len, cluster)
-   &&  (policy_width = show_utf8_keycap_paint_width()) > paint_width)
-   {
-      /*
-       * Apple Terminal keycaps need a wider repaint footprint than their
-       * cursor advance. Keep cursor/display mapping at the terminal advance,
-       * but clear and draw enough cells to avoid stale keycap pixels.
-       */
-      paint_width = policy_width;
-   }
+      paint_width = show_utf8_cluster_logical_width(cluster);
+   if (cursor_width > paint_width)
+      paint_width = cursor_width;
    return paint_width;
 }
 
@@ -766,8 +566,16 @@ static int show_cluster_to_wchars(const CHARTYPE *line, size_t len,
                                   TextCluster cluster, wchar_t wch[CCHARW_MAX])
 {
    TextPos pos = cluster.pos;
+   const Utf8TerminalProfileEntry *entry;
    int out = 0;
    int spacing_codepoints = 0;
+
+   entry = show_utf8_cluster_profile(line, len, cluster);
+   if (entry != NULL && entry->output_method == UTF8_TERM_OUTPUT_SUBSTITUTE)
+   {
+      show_codepoint_to_wchars(THE_UTF8_SUBSTITUTE_CODEPOINT, wch);
+      return 1;
+   }
 
    while (pos.byte_offset < cluster.end.byte_offset)
    {
@@ -777,6 +585,13 @@ static int show_cluster_to_wchars(const CHARTYPE *line, size_t len,
 
       if (item.byte_length == 0)
          break;
+      if (entry != NULL
+      &&  entry->output_method == UTF8_TERM_OUTPUT_EXPANDED
+      &&  item.codepoint == 0x200Du)
+      {
+         pos = show_utf8_advance_codepoint_pos(pos, item);
+         continue;
+      }
 
       if (item.cell_width > 0)
       {
@@ -809,10 +624,19 @@ static int show_cluster_to_wide_string(const CHARTYPE *line, size_t len,
                                        size_t wch_size)
 {
    TextPos pos = cluster.pos;
+   const Utf8TerminalProfileEntry *entry;
    size_t out = 0;
 
    if (wch_size == 0)
       return 0;
+   entry = show_utf8_cluster_profile(line, len, cluster);
+   if (entry != NULL && entry->output_method == UTF8_TERM_OUTPUT_SUBSTITUTE)
+   {
+      if (wch_size < 2)
+         return 0;
+      show_codepoint_to_wchars(THE_UTF8_SUBSTITUTE_CODEPOINT, wch);
+      return 1;
+   }
    while (pos.byte_offset < cluster.end.byte_offset)
    {
       TextCodepoint item = textpos_codepoint_at_boundary(line, len, pos);
@@ -821,6 +645,13 @@ static int show_cluster_to_wide_string(const CHARTYPE *line, size_t len,
 
       if (item.byte_length == 0)
          break;
+      if (entry != NULL
+      &&  entry->output_method == UTF8_TERM_OUTPUT_EXPANDED
+      &&  item.codepoint == 0x200Du)
+      {
+         pos = show_utf8_advance_codepoint_pos(pos, item);
+         continue;
+      }
       if (item.codepoint < 256 && etmode_flag[item.codepoint])
          item.codepoint = (uint32_t)etmode_table[(CHARTYPE)item.codepoint];
       show_codepoint_to_wchars(item.codepoint, one);
