@@ -168,10 +168,44 @@ static void test_line_parser(void)
    expect_substitute_codepoint("line.short.group.substitute.codepoint",
                                UTF8_TERM_CLASS_SHORT_ZWJ,
                                UTF8_TERM_INTENT_GROUP, 0x0040u);
-   expect_int("line.components.substitute.invalid",
+   expect_int("line.components.substitute",
               utf8_terminal_profile_apply_line(
                  "SET UTF8 TERMINAL CLASS short-zwj INTENT components OUTPUT substitute U+0040"),
-              UTF8_TERMINAL_PROFILE_INVALID);
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_profile("line.short.components.substitute", UTF8_TERM_CLASS_SHORT_ZWJ,
+                  UTF8_TERM_INTENT_COMPONENTS, UTF8_TERM_OUTPUT_SUBSTITUTE,
+                  1, 1, UTF8_TERM_STRATEGY_CHANGED_CELLS,
+                  UTF8_TERM_STRATEGY_CHANGED_CELLS);
+
+   utf8_terminal_profile_reset();
+   expect_int("line.keycap.substitute",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF8 TERMINAL CLASS keycap OUTPUT substitute U+002A"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_profile("line.keycap.substitute.profile", UTF8_TERM_CLASS_KEYCAP,
+                  UTF8_TERM_INTENT_NORMAL, UTF8_TERM_OUTPUT_SUBSTITUTE, 1, 1,
+                  UTF8_TERM_STRATEGY_CHANGED_CELLS,
+                  UTF8_TERM_STRATEGY_CHANGED_CELLS);
+   expect_substitute_codepoint("line.keycap.substitute.codepoint",
+                               UTF8_TERM_CLASS_KEYCAP,
+                               UTF8_TERM_INTENT_NORMAL, 0x002Au);
+   expect_int("line.flag.substitute",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF8 TERMINAL CLASS regional-flag OUTPUT substitute U+25A1"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_profile("line.flag.substitute.profile",
+                  UTF8_TERM_CLASS_REGIONAL_FLAG, UTF8_TERM_INTENT_NORMAL,
+                  UTF8_TERM_OUTPUT_SUBSTITUTE, 1, 1,
+                  UTF8_TERM_STRATEGY_CHANGED_CELLS,
+                  UTF8_TERM_STRATEGY_CHANGED_CELLS);
+   expect_int("line.ascii.substitute",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF8 TERMINAL CLASS ascii OUTPUT substitute U+00B7"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_profile("line.ascii.substitute.profile", UTF8_TERM_CLASS_ASCII,
+                  UTF8_TERM_INTENT_NORMAL, UTF8_TERM_OUTPUT_SUBSTITUTE, 1, 1,
+                  UTF8_TERM_STRATEGY_CHANGED_CELLS,
+                  UTF8_TERM_STRATEGY_CHANGED_CELLS);
 
    expect_int("line.invalid.class",
               utf8_terminal_profile_apply_line(

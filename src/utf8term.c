@@ -245,7 +245,7 @@ Utf8TerminalIntent utf8_terminal_toggle_display_intent(void)
    return display_intent;
 }
 
-static int strategy_rank(Utf8TerminalStrategy strategy)
+int utf8_terminal_strategy_rank(Utf8TerminalStrategy strategy)
 {
    switch (strategy)
    {
@@ -279,7 +279,8 @@ Utf8TerminalStrategy utf8_terminal_cursor_transition_strategy(
       old_strategy = old_entry->cursor_strategy;
    if (new_entry != NULL)
       new_strategy = new_entry->cursor_strategy;
-   if (strategy_rank(new_strategy) > strategy_rank(old_strategy))
+   if (utf8_terminal_strategy_rank(new_strategy)
+    >  utf8_terminal_strategy_rank(old_strategy))
       return new_strategy;
    return old_strategy;
 }
@@ -689,12 +690,13 @@ const char *utf8_terminal_strategy_name(Utf8TerminalStrategy strategy)
 static Utf8TerminalOutput coerce_output_for_intent(Utf8TerminalIntent intent,
                                                    Utf8TerminalOutput output)
 {
+   if (output == UTF8_TERM_OUTPUT_SUBSTITUTE)
+      return UTF8_TERM_OUTPUT_SUBSTITUTE;
    if (intent == UTF8_TERM_INTENT_NORMAL)
       return UTF8_TERM_OUTPUT_NATIVE;
    if (intent == UTF8_TERM_INTENT_GROUP)
    {
-      if (output == UTF8_TERM_OUTPUT_NATIVE
-      ||  output == UTF8_TERM_OUTPUT_SUBSTITUTE)
+      if (output == UTF8_TERM_OUTPUT_NATIVE)
          return output;
       return UTF8_TERM_OUTPUT_NATIVE;
    }

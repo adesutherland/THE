@@ -1,6 +1,6 @@
 # UTF-8 Enablement Handover
 
-Last updated: 2026-05-14.
+Last updated: 2026-05-19.
 
 ## Current State
 
@@ -14,6 +14,19 @@ THE's UTF-8 work is split into two models:
 Do not fix terminal paint problems by changing logical cluster segmentation.
 The logical model stays stable; terminal quirks belong in terminal profiles.
 
+THE now has a shared UTF-8 repair planner in `src/utf8repair.c`. Cursor
+movement and replacement/full-line redraw ask this planner how far left the
+physical repair must start, then `show.c` executes the plan. Strategy meaning
+should be added or changed there first, not duplicated in renderer branches.
+All feature classes, including ASCII, can use the same strategy machinery; the
+ASCII fast path is only an optimization when the active ASCII profile is the
+native one-cell `changed_cells` default.
+
+The probe is expected to mirror that model. Its calibration UI presents output
+and strategy choices consistently across classes; ZWJ working and keycaps
+failing should be treated as profile/strategy evidence, not as permission to add
+class-specific renderer behavior.
+
 ## Important Artifacts
 
 - `doc/utf8-design.md`: detailed design, findings, and historical log.
@@ -23,7 +36,8 @@ The logical model stays stable; terminal quirks belong in terminal profiles.
 - `tools/utf8_terminal_profiles/macos-apple-terminal-poc34-overrides.the`:
   captured macOS Apple Terminal override baseline.
 - `tests/fixtures/utf8-render.txt`: manual editor fixture for UTF-8 rendering.
-- `tests/test_utf8_fixture.c` and `tests/test_textpos.c`: UTF-8 fixture and
+- `tests/test_utf8repair.c`, `tests/test_utf8term.c`, `tests/test_utf8_fixture.c`,
+  and `tests/test_textpos.c`: repair planning, terminal-profile, fixture, and
   text-position regression coverage.
 
 ## macOS Apple Terminal Baseline
@@ -79,12 +93,12 @@ Validate the definitive coded-default profile non-visually:
 
 ## Next Work
 
-1. Implement THE-side loading/defaulting for the proposed
-   `SET UTF8 TERMINAL CLASS ...` instruction shape.
-2. Wire the macOS Apple Terminal baseline into the physical renderer without
-   changing logical grapheme behavior.
-3. Validate view, cursor movement, and replacement independently against
-   `tests/fixtures/utf8-render.txt`.
+1. Continue manual keycap investigation against the shared repair planner:
+   verify cursor movement, scroll redraw, and replacement separately.
+2. If a strategy is wrong, fix or extend the generic planner/profile vocabulary
+   rather than adding keycap-specific renderer branches.
+3. Keep replacement old-line hints covered; replacing a troublesome cluster with
+   plain ASCII can still require the old cluster's repair boundary.
 4. Add platform probes and baselines for other terminal stacks only after the
    macOS profile path is proven in THE.
 
@@ -112,5 +126,5 @@ configuration architecture:
   Linux, Windows Terminal, iTerm2, or other curses stacks without calibration.
 - Cursor movement success does not prove replacement safety. Replacement has a
   separate strategy field for that reason.
-- `substitute` is a physical display choice for grouped ZWJ intent. The file
+- `substitute` is a physical display choice for any class/intent. The file
   bytes and logical grapheme cluster remain unchanged.

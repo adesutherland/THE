@@ -83,6 +83,7 @@
 #include <time.h>
 #ifdef USE_UTF8
 # include <wchar.h>
+# include "utf8repair.h"
 # include "utf8term.h"
 #endif
 
@@ -221,6 +222,20 @@ static int show_utf8_line_is_ascii(const CHARTYPE *line, size_t len)
    return TRUE;
 }
 
+static int show_utf8_ascii_profile_fast_path_ok(void)
+{
+   const Utf8TerminalProfileEntry *entry;
+
+   entry = utf8_terminal_profile_lookup(UTF8_TERM_CLASS_ASCII,
+                                        UTF8_TERM_INTENT_NORMAL);
+   return entry != NULL
+       && entry->output_method == UTF8_TERM_OUTPUT_NATIVE
+       && entry->layout_width == 1
+       && entry->cursor_width == 1
+       && entry->cursor_strategy == UTF8_TERM_STRATEGY_CHANGED_CELLS
+       && entry->replacement_strategy == UTF8_TERM_STRATEGY_CHANGED_CELLS;
+}
+
 typedef struct
 {
    LINETYPE line_number;
@@ -245,7 +260,8 @@ void show_utf8_note_line_replacement(LINETYPE line_number, const CHARTYPE *line,
    show_utf8_clear_line_replacement_hint();
    if (line_number < 0L || line == NULL || length <= 0)
       return;
-   if (show_utf8_line_is_ascii(line, (size_t)length))
+   if (show_utf8_line_is_ascii(line, (size_t)length)
+   &&  show_utf8_ascii_profile_fast_path_ok())
       return;
    utf8_line_replacement_hint.line = (CHARTYPE *)(*the_malloc)((size_t)length);
    if (utf8_line_replacement_hint.line == NULL)
@@ -3782,18 +3798,6 @@ static int show_utf8_target_highlight_applies(CHARTYPE scrno, SHOW_LINE *scurr, 
    return 0;
 }
 
-static int show_utf8_strategy_rank(Utf8TerminalStrategy strategy);
-static TextPos show_utf8_visible_start_pos(CHARTYPE *line, LENGTHTYPE blength,
-                                           LENGTHTYPE cvcol);
-static TextPos show_utf8_first_visible_feature_pos(CHARTYPE *line,
-                                                   LENGTHTYPE blength,
-                                                   LENGTHTYPE cvcol,
-                                                   Utf8TerminalClass feature_class,
-                                                   TextPos fallback);
-static Utf8TerminalStrategy show_utf8_replacement_strategy_start_pos(
-   CHARTYPE *line, LENGTHTYPE blength, LENGTHTYPE cvcol,
-   int visible_cols, TextCellSlice slice, TextPos *start_pos);
-
 static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr, chtype *high)
 {
    SHOW_LINE *current = &(screen[scrno].sl[row]);
@@ -3813,10 +3817,8 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr, 
    int cursor_visible = FALSE;
    int cursor_drawn = FALSE;
    CursorShape cursor_shape = CURSOR_BLOCK;
-   TextPos replacement_start;
-   TextPos old_replacement_start;
-   Utf8TerminalStrategy replacement_strategy;
-   Utf8TerminalStrategy old_replacement_strategy;
+   Utf8RepairPlan replacement_plan;
+   Utf8RepairPlan old_replacement_plan;
    int replacement_clear_col = 0;
 
    if ( current->line_type == LINE_RESERVED
@@ -3844,12 +3846,12 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr, 
 
    /* Avoid shifting text when a viewport edge cuts through a wide code point. */
    slice = textpos_slice_cells(line, blength, (int)cvcol, visible_cols);
-   replacement_strategy = show_utf8_replacement_strategy_start_pos(
-                             line, blength, cvcol, visible_cols, slice,
-                             &replacement_start);
+   replacement_plan = utf8_repair_plan_for_replacement(
+                         line, blength, (int)cvcol, slice,
+                         utf8_terminal_display_intent());
    replacement_clear_col = show_utf8_display_col_from_logical(
                               line, blength, (int)cvcol,
-                              replacement_start.cell_column);
+                              replacement_plan.start_pos.cell_column);
    if (show_utf8_line_replacement_hint_matches(current))
    {
       TextCellSlice old_slice = textpos_slice_cells(
@@ -3858,34 +3860,22 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr, 
                                    (int)cvcol, visible_cols);
       int old_clear_col;
 
-      old_replacement_strategy = show_utf8_replacement_strategy_start_pos(
-                                    utf8_line_replacement_hint.line,
-                                    utf8_line_replacement_hint.length, cvcol,
-                                    visible_cols, old_slice,
-                                    &old_replacement_start);
+      old_replacement_plan = utf8_repair_plan_for_replacement(
+                                utf8_line_replacement_hint.line,
+                                utf8_line_replacement_hint.length, (int)cvcol,
+                                old_slice, utf8_terminal_display_intent());
       old_clear_col = show_utf8_display_col_from_logical(
                          utf8_line_replacement_hint.line,
                          utf8_line_replacement_hint.length, (int)cvcol,
-                         old_replacement_start.cell_column);
-      if ( show_utf8_strategy_rank(old_replacement_strategy)
-         > show_utf8_strategy_rank(replacement_strategy) )
+                         old_replacement_plan.start_pos.cell_column);
+      if (utf8_repair_plan_prefer(&old_replacement_plan, old_clear_col,
+                                  &replacement_plan, replacement_clear_col))
       {
-         replacement_strategy = old_replacement_strategy;
-         replacement_clear_col = old_clear_col;
-      }
-      else if ( show_utf8_strategy_rank(old_replacement_strategy)
-              == show_utf8_strategy_rank(replacement_strategy)
-             && old_clear_col >= 0
-             && (replacement_clear_col < 0 || old_clear_col < replacement_clear_col) )
-      {
+         replacement_plan = old_replacement_plan;
          replacement_clear_col = old_clear_col;
       }
    }
-   if (replacement_strategy == UTF8_TERM_STRATEGY_CLEAR_CHANGED_SUFFIX_FAST
-   ||  replacement_strategy == UTF8_TERM_STRATEGY_CLEAR_FROM_ONE_PRIOR_CLUSTER
-   ||  replacement_strategy == UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST
-   ||  replacement_strategy == UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_PAUSE
-   ||  replacement_strategy == UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST)
+   if (replacement_plan.extent == UTF8_REPAIR_EXTENT_SUFFIX)
    {
       int clear_col = replacement_clear_col;
 
@@ -3896,10 +3886,13 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr, 
          show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, clear_col,
                             ccols - clear_col, normal);
          touchline(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
-         wnoutrefresh(SCREEN_WINDOW_FILEAREA(scrno));
-         doupdate();
-         if (replacement_strategy == UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_PAUSE)
-            napms(25);
+         if (replacement_plan.flush != UTF8_REPAIR_FLUSH_NONE)
+         {
+            wnoutrefresh(SCREEN_WINDOW_FILEAREA(scrno));
+            doupdate();
+            if (replacement_plan.flush == UTF8_REPAIR_FLUSH_PAUSE)
+               napms(25);
+         }
       }
    }
    show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, 0, ccols, normal);
@@ -3993,7 +3986,7 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr, 
          show_draw_software_blank_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno), row,
                                        cursor_display_col, normal, cursor_shape);
    }
-   if (replacement_strategy == UTF8_TERM_STRATEGY_LINE)
+   if (replacement_plan.extent == UTF8_REPAIR_EXTENT_LINE)
       touchline(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
    if (show_utf8_line_replacement_hint_matches(current))
       show_utf8_clear_line_replacement_hint();
@@ -4207,197 +4200,6 @@ static int show_utf8_target_cluster(CHARTYPE *line, LENGTHTYPE blength,
    return TRUE;
 }
 
-static TextPos show_utf8_visible_start_pos(CHARTYPE *line, LENGTHTYPE blength,
-                                           LENGTHTYPE cvcol)
-{
-   return textpos_from_cell(line, blength, (int)cvcol, TEXT_SNAP_FORWARD);
-}
-
-static int show_utf8_strategy_rank(Utf8TerminalStrategy strategy)
-{
-   switch (strategy)
-   {
-      case UTF8_TERM_STRATEGY_CHANGED_CELLS:
-         return 0;
-      case UTF8_TERM_STRATEGY_LINE:
-         return 1;
-      case UTF8_TERM_STRATEGY_CLEAR_CHANGED_SUFFIX_FAST:
-         return 2;
-      case UTF8_TERM_STRATEGY_CLEAR_FROM_ONE_PRIOR_CLUSTER:
-         return 3;
-      case UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST:
-         return 4;
-      case UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_PAUSE:
-         return 5;
-      case UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST:
-         return 6;
-      default:
-         return 0;
-   }
-}
-
-static TextPos show_utf8_first_visible_feature_pos(CHARTYPE *line,
-                                                   LENGTHTYPE blength,
-                                                   LENGTHTYPE cvcol,
-                                                   Utf8TerminalClass feature_class,
-                                                   TextPos fallback)
-{
-   TextPos pos = show_utf8_visible_start_pos(line, blength, cvcol);
-
-   while (pos.byte_offset < blength)
-   {
-      TextCluster cluster = textpos_cluster_at_boundary(line, blength, pos);
-      const Utf8TerminalProfileEntry *entry;
-
-      if (cluster.byte_length == 0)
-         break;
-      entry = show_utf8_cluster_profile(line, blength, cluster);
-      if (entry != NULL && entry->feature_class == feature_class)
-         return cluster.pos;
-      pos = cluster.end;
-   }
-   return fallback;
-}
-
-static Utf8TerminalStrategy show_utf8_replacement_strategy_start_pos(
-   CHARTYPE *line, LENGTHTYPE blength, LENGTHTYPE cvcol,
-   int visible_cols, TextCellSlice slice, TextPos *start_pos)
-{
-   TextPos pos = slice.start;
-   TextPos visible_start = show_utf8_visible_start_pos(line, blength, cvcol);
-   TextCluster selected_cluster;
-   const Utf8TerminalProfileEntry *selected_entry = NULL;
-   Utf8TerminalStrategy selected_strategy = UTF8_TERM_STRATEGY_CHANGED_CELLS;
-   int selected_valid = FALSE;
-
-   if (start_pos != NULL)
-      *start_pos = visible_start;
-   while (pos.byte_offset < slice.end.byte_offset)
-   {
-      TextCluster cluster = textpos_cluster_at_boundary(line, blength, pos);
-      const Utf8TerminalProfileEntry *entry;
-
-      if (cluster.byte_length == 0)
-         break;
-      entry = show_utf8_cluster_profile(line, blength, cluster);
-      if (entry != NULL
-      &&  show_utf8_strategy_rank(entry->replacement_strategy)
-        > show_utf8_strategy_rank(selected_strategy))
-      {
-         selected_strategy = entry->replacement_strategy;
-         selected_entry = entry;
-         selected_cluster = cluster;
-         selected_valid = TRUE;
-      }
-      pos = cluster.end;
-   }
-
-   if (start_pos == NULL || !selected_valid)
-      return selected_strategy;
-   switch (selected_strategy)
-   {
-      case UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST:
-      case UTF8_TERM_STRATEGY_LINE:
-         *start_pos = visible_start;
-         break;
-
-      case UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST:
-      case UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_PAUSE:
-         if (selected_entry != NULL)
-            *start_pos = show_utf8_first_visible_feature_pos(
-                            line, blength, cvcol,
-                            selected_entry->feature_class,
-                            selected_cluster.pos);
-         else
-            *start_pos = selected_cluster.pos;
-         break;
-
-      case UTF8_TERM_STRATEGY_CLEAR_FROM_ONE_PRIOR_CLUSTER:
-      {
-         TextPos prior = textpos_prev_cluster(line, blength,
-                                              selected_cluster.pos);
-
-         if (prior.byte_offset < visible_start.byte_offset)
-            *start_pos = visible_start;
-         else if (prior.byte_offset < selected_cluster.pos.byte_offset)
-            *start_pos = prior;
-         else
-            *start_pos = selected_cluster.pos;
-         break;
-      }
-
-      case UTF8_TERM_STRATEGY_CLEAR_CHANGED_SUFFIX_FAST:
-      default:
-         *start_pos = selected_cluster.pos;
-         break;
-   }
-
-   INTENTIONALLY_UNUSED_VARIABLE(visible_cols);
-   return selected_strategy;
-}
-
-static TextPos show_utf8_cursor_strategy_start_pos(CHARTYPE *line,
-                                                   LENGTHTYPE blength,
-                                                   LENGTHTYPE cvcol,
-                                                   Utf8TerminalStrategy strategy,
-                                                   TextCluster old_cluster,
-                                                   int old_valid,
-                                                   const Utf8TerminalProfileEntry *old_entry,
-                                                   TextCluster new_cluster,
-                                                   int new_valid,
-                                                   const Utf8TerminalProfileEntry *new_entry)
-{
-   TextPos visible_start = show_utf8_visible_start_pos(line, blength, cvcol);
-   TextCluster earliest = new_valid ? new_cluster : old_cluster;
-   int earliest_valid = new_valid || old_valid;
-   const Utf8TerminalProfileEntry *active_entry = NULL;
-
-   if (old_valid && (!earliest_valid
-   ||  old_cluster.pos.byte_offset < earliest.pos.byte_offset))
-   {
-      earliest = old_cluster;
-      earliest_valid = TRUE;
-   }
-   if (old_entry != NULL && old_entry->cursor_strategy == strategy)
-      active_entry = old_entry;
-   else if (new_entry != NULL && new_entry->cursor_strategy == strategy)
-      active_entry = new_entry;
-
-   if (!earliest_valid)
-      return visible_start;
-
-   switch (strategy)
-   {
-      case UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST:
-         return visible_start;
-
-      case UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST:
-      case UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_PAUSE:
-         if (active_entry != NULL)
-            return show_utf8_first_visible_feature_pos(line, blength, cvcol,
-                                                       active_entry->feature_class,
-                                                       earliest.pos);
-         return earliest.pos;
-
-      case UTF8_TERM_STRATEGY_CLEAR_FROM_ONE_PRIOR_CLUSTER:
-      {
-         TextPos prior = textpos_prev_cluster(line, blength, earliest.pos);
-
-         if (prior.byte_offset < visible_start.byte_offset)
-            return visible_start;
-         if (prior.byte_offset < earliest.pos.byte_offset)
-            return prior;
-         return earliest.pos;
-      }
-
-      case UTF8_TERM_STRATEGY_CLEAR_CHANGED_SUFFIX_FAST:
-         return earliest.pos;
-
-      default:
-         return earliest.pos;
-   }
-}
-
 static void show_utf8_repaint_filearea_suffix(CHARTYPE scrno, short row,
                                               SHOW_LINE *current,
                                               chtype *high,
@@ -4476,6 +4278,7 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
    const Utf8TerminalProfileEntry *old_entry;
    const Utf8TerminalProfileEntry *new_entry;
    Utf8TerminalStrategy strategy;
+   Utf8RepairPlan plan;
    int old_valid;
    int new_valid;
    int old_display_col = -1;
@@ -4502,11 +4305,14 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
    new_valid = show_utf8_target_cluster(line, blength, cvcol,
                                         new_logical_screen_col, &new_cluster,
                                         &new_entry, &new_display_col);
-   strategy = utf8_terminal_cursor_transition_strategy(old_entry, new_entry);
-   if (strategy == UTF8_TERM_STRATEGY_CHANGED_CELLS)
+   plan = utf8_repair_plan_for_cursor(line, blength, (int)cvcol,
+                                      old_cluster, old_valid, old_entry,
+                                      new_cluster, new_valid, new_entry);
+   strategy = plan.strategy;
+   if (plan.extent == UTF8_REPAIR_EXTENT_CHANGED_CELLS)
    {
       start_pos = textpos_begin();
-      show_utf8_trace_cursor_strategy(scrno, row, cvcol, "fallback_changed_cells",
+      show_utf8_trace_cursor_strategy(scrno, row, cvcol, "changed_cells",
                                       strategy, old_valid, old_entry,
                                       old_cluster, old_logical_screen_col,
                                       old_display_col, new_valid, new_entry,
@@ -4521,15 +4327,16 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
    else
       high = current->highlighting;
 
-   if (strategy == UTF8_TERM_STRATEGY_LINE)
+   if (plan.extent == UTF8_REPAIR_EXTENT_LINE)
    {
-      start_pos = show_utf8_visible_start_pos(line, blength, cvcol);
+      start_pos = plan.start_pos;
       show_utf8_trace_cursor_strategy(scrno, row, cvcol, "line",
                                       strategy, old_valid, old_entry,
                                       old_cluster, old_logical_screen_col,
                                       old_display_col, new_valid, new_entry,
                                       new_cluster, new_logical_screen_col,
-                                      new_display_col, TRUE, start_pos, 0);
+                                      new_display_col, plan.start_valid,
+                                      start_pos, 0);
       show_a_line_utf8_cells(scrno, row, current, high);
       touchline(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
       return TRUE;
@@ -4537,11 +4344,7 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
 
    normal = current->normal_colour;
    ccols = screen[scrno].cols[WINDOW_FILEAREA];
-   start_pos = show_utf8_cursor_strategy_start_pos(line, blength, cvcol,
-                                                   strategy, old_cluster,
-                                                   old_valid, old_entry,
-                                                   new_cluster, new_valid,
-                                                   new_entry);
+   start_pos = plan.start_pos;
    start_display_col = show_utf8_display_col_from_logical(line, blength,
                                                           (int)cvcol,
                                                           start_pos.cell_column);
@@ -4579,10 +4382,13 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
    show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, start_display_col,
                       ccols - start_display_col, normal);
    touchline(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
-   wnoutrefresh(SCREEN_WINDOW_FILEAREA(scrno));
-   doupdate();
-   if (strategy == UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_PAUSE)
-      napms(25);
+   if (plan.flush != UTF8_REPAIR_FLUSH_NONE)
+   {
+      wnoutrefresh(SCREEN_WINDOW_FILEAREA(scrno));
+      doupdate();
+      if (plan.flush == UTF8_REPAIR_FLUSH_PAUSE)
+         napms(25);
+   }
 
    show_utf8_repaint_filearea_suffix(scrno, row, current, high, start_pos,
                                      new_cluster, new_valid, shape);
@@ -4673,7 +4479,8 @@ static void show_a_line(CHARTYPE scrno,short row, SHOW_LINE *scurr)
 
 #ifdef USE_UTF8
    if (!show_utf8_line_is_ascii(line, current->length)
-   ||  show_utf8_line_replacement_hint_matches(current))
+   ||  show_utf8_line_replacement_hint_matches(current)
+   ||  !show_utf8_ascii_profile_fast_path_ok())
    {
       show_a_line_utf8_cells(scrno, row, scurr, high);
       TRACE_RETURN();

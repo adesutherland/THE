@@ -53,29 +53,51 @@ logical cell column, snap to the start of the containing grapheme cluster, and
 edit whole clusters. They must not use terminal-profile layout widths to decide
 what bytes to insert, delete, or replace.
 
-The terminal profile should be keyed by feature class and terminal identity.
-Each feature-class entry should eventually contain:
+The terminal profile is keyed by feature class, display intent, and terminal
+identity. Each entry describes how one logical cluster class is physically
+written and repaired on the active terminal:
 
 ```text
 feature_class
 display_intent
 output_method
+substitute_codepoint
 layout_width
 cursor_background_width
-paint_footprint_width
-repaint_strategy
+cursor_strategy
 replacement_strategy
-probe_source
 ```
 
 `layout_width` and `cursor_background_width` are the physical widths used by
 the renderer and software cursor. They are not byte counts, code point counts,
-or necessarily utf8proc's logical cell width. `paint_footprint_width` is the
-number of physical cells that must be cleared for a single cluster when a local
-clear is safe. `repaint_strategy` records how far left THE must reset terminal
-composition state before repainting. `replacement_strategy` is intentionally
-separate because editing text can invalidate more terminal state than cursor
-movement; it still needs dedicated probes.
+or necessarily utf8proc's logical cell width. `output_method` is `native`,
+`expanded`, or `substitute`; substitute output is available to any class and
+intent and is still only a display choice. `cursor_strategy` records how far
+left THE must reset terminal composition state before repainting during cursor
+movement. `replacement_strategy` is intentionally separate because editing text
+can invalidate more terminal state than cursor movement.
+
+The approved renderer refactor is to route every physical repair through one
+shared plan:
+
+```text
+profile entry + purpose + logical line slice -> repair plan
+```
+
+The plan names the selected strategy, the logical start `TextPos`, whether the
+repair covers changed cells, a suffix, or the whole line, and whether a clear
+must be flushed or paused before repaint. `show.c` should execute this plan; it
+should not reinterpret the strategy independently for cursor movement and text
+replacement. Keycaps, ZWJ sequences, flags, combining marks, and even ASCII are
+all ordinary profile entries. ASCII may keep a fast path only when its active
+profile is the native one-cell `changed_cells` default and there is no old-line
+repair hint.
+
+The terminal probe must follow the same rule. Calibration output methods and
+cursor/replacement strategies are not ZWJ-only or keycap-only menus: every class
+can choose from the same physical output and repair vocabulary. A class may
+still have only a `normal` intent entry, but that entry can select native or
+substitute output and any generic strategy.
 
 Current Apple Terminal findings from `utf8_terminal_probe`:
 
@@ -115,18 +137,24 @@ Current Apple Terminal findings from `utf8_terminal_probe`:
   candidates so this can be tested as a physical terminal footprint issue
   rather than a logical-cluster issue.
 
-For mixed lines, the renderer should use the strongest repaint strategy needed
-by any cluster in the affected render run. A plain ASCII suffix can remain fast,
-but once a keycap-like "poison" cluster exists to the left of the changed
-target, the safe repaint boundary may be that first poison cluster rather than
-the changed cell.
+For mixed lines, the renderer should use the strongest repair plan needed by any
+cluster in the affected render run. A plain ASCII suffix can remain fast, but
+once a keycap-like cluster to the left requires a composition reset, the safe
+repaint boundary may be that first matching cluster rather than the changed
+cell.
 
-The intended implementation order is:
+The current implementation order is:
 
-1. Prove the physical behavior in `utf8_terminal_probe`.
-2. Add or update a terminal-profile entry.
-3. Validate one narrow THE-side experiment against the manual fixture.
-4. Promote the setting to a built-in default or documented user override.
+1. Keep proof tools and profile fragments as physical terminal evidence only.
+2. Maintain one shared repair planner with focused unit coverage for cursor and
+   replacement purposes.
+3. Make `show.c` execute the shared plan for cursor transitions and full-line
+   redraw/replacement.
+4. Let all classes, including ASCII, use the same strategy and substitute-output
+   machinery; keep fast paths as optimizations only when the active profile
+   makes them equivalent.
+5. Promote settings to built-in defaults or documented user overrides only after
+   probe output and THE-side fixture testing agree.
 
 ## Units
 

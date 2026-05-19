@@ -91,6 +91,7 @@ int utf8_terminal_profile_apply_file(const char *path, int *settings_loaded);
 Utf8TerminalIntent utf8_terminal_display_intent(void);
 int utf8_terminal_set_display_intent(Utf8TerminalIntent intent);
 Utf8TerminalIntent utf8_terminal_toggle_display_intent(void);
+int utf8_terminal_strategy_rank(Utf8TerminalStrategy strategy);
 Utf8TerminalStrategy utf8_terminal_cursor_transition_strategy(
    const Utf8TerminalProfileEntry *old_entry,
    const Utf8TerminalProfileEntry *new_entry);

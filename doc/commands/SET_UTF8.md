@@ -23,10 +23,13 @@ The UTF8 INTENT form selects the global display intent used when THE renders
 clusters that have intent-specific physical profiles. It does not affect the
 logical text model.
 
-- GROUP renders an intent-aware cluster as one grouped glyph when the terminal
-  profile supports that form. This is the default.
-- COMPONENTS renders an intent-aware cluster as visible component parts when
-  the terminal profile supports that form.
+- GROUP prefers the grouped physical profile for intent-aware classes. For a
+  ZWJ sequence this usually means one composed glyph, or a configured
+  substitute when the terminal cannot reliably render the grouped sequence.
+  This is the default.
+- COMPONENTS prefers the components physical profile for intent-aware classes.
+  For a ZWJ sequence this usually means the visible component characters, with
+  joiners expanded or removed according to the configured OUTPUT method.
 - TOGGLE switches between GROUP and COMPONENTS.
 
 For example, a ZWJ sequence such as a family emoji may have a GROUP profile
@@ -71,13 +74,18 @@ OUTPUT specifies how the class is written to the terminal. Supported methods are
 - expanded - write component characters for a decomposed display
 - substitute - write a substitute display character
 
-When method is substitute, an optional Unicode codepoint may follow the method. The
-codepoint is scoped to that class and intent. This allows, for example, `short-zwj`,
-`heart-zwj`, and `family-zwj` group profiles to use different substitute glyphs:
+When method is substitute, an optional Unicode codepoint may follow the method.
+The codepoint is scoped to that class and intent. Substitute output can be used
+for any class, not only ZWJ group profiles. For example:
 
 ```text
 SET UTF8 TERMINAL CLASS short-zwj INTENT group OUTPUT substitute U+0040
+SET UTF8 TERMINAL CLASS keycap OUTPUT substitute U+25A1
+SET UTF8 TERMINAL CLASS regional-flag OUTPUT substitute U+25A1
 ```
+
+Expanded output is meaningful for component-style profiles. For normal and
+group profiles, unsupported expanded requests are treated as native output.
 
 CURSORSTRATEGY specifies the repaint strategy used when the cursor moves across the class.
 REPLACESTRATEGY specifies the repaint strategy used after text replacement or overlay.

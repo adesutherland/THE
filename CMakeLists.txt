@@ -372,6 +372,7 @@ set(THE_SOURCES
     src/the.c
     src/textedit.c
     src/textpos.c
+    src/utf8repair.c
     src/utf8term.c
     src/mygetopt.c
     src/trace.c
@@ -497,6 +498,21 @@ if(USE_UTF8)
         COMMAND test_utf8term
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/utf8_terminal_profiles/defaults-poc34.the
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/utf8_terminal_profiles/macos-apple-terminal-poc34-overrides.the)
+
+    add_executable(test_utf8repair tests/test_utf8repair.c src/utf8repair.c src/utf8term.c src/textpos.c)
+    target_include_directories(test_utf8repair PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+    if(USE_UTF8PROC)
+        target_link_libraries(test_utf8repair ${THE_UTF8PROC_TARGET})
+        target_compile_definitions(test_utf8repair PRIVATE USE_UTF8PROC=1)
+    endif()
+    add_test(NAME test_utf8repair COMMAND test_utf8repair)
+
+    if(USE_WIDE_CHAR)
+        add_test(NAME test_utf8_terminal_probe_no_visual
+            COMMAND utf8_terminal_probe calibrate keycap --no-visual
+                --profile ${CMAKE_CURRENT_BINARY_DIR}/utf8-terminal-probe-smoke.the
+                --report ${CMAKE_CURRENT_BINARY_DIR}/utf8-terminal-probe-smoke.txt)
+    endif()
 endif()
 add_test(NAME test_sdslh_integration COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdslh_integration.sh)
 set_tests_properties(test_sdslh_integration PROPERTIES SKIP_RETURN_CODE 77)

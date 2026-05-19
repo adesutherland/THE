@@ -962,6 +962,38 @@ static void log_raw_environment(ProbeConfig *cfg)
    reportf(cfg, "\n");
 }
 
+static void log_headless_environment(ProbeConfig *cfg)
+{
+   time_t now = time(NULL);
+   int rows = -1;
+   int cols = -1;
+#if !defined(_WIN32)
+   struct winsize ws;
+
+   if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0)
+   {
+      rows = ws.ws_row;
+      cols = ws.ws_col;
+   }
+#endif
+
+   reportf(cfg, "# THE UTF-8 terminal probe\n");
+   reportf(cfg, "probe_version=%s\n", UTF8_TERMINAL_PROBE_VERSION);
+   reportf(cfg, "mode=headless\n");
+   reportf(cfg, "time=%s", ctime(&now));
+   reportf(cfg, "locale=%s\n", setlocale(LC_CTYPE, NULL));
+   reportf(cfg, "MB_CUR_MAX=%d\n", (int)MB_CUR_MAX);
+   reportf(cfg, "sizeof_wchar_t=%d\n", (int)sizeof(wchar_t));
+   reportf(cfg, "TERM=%s\n", getenv("TERM") ? getenv("TERM") : "");
+   reportf(cfg, "TERM_PROGRAM=%s\n", getenv("TERM_PROGRAM") ? getenv("TERM_PROGRAM") : "");
+   reportf(cfg, "COLORTERM=%s\n", getenv("COLORTERM") ? getenv("COLORTERM") : "");
+   reportf(cfg, "cases=%s\n", cfg->cases_path ? cfg->cases_path : "built-in");
+   reportf(cfg, "case_count=%zu\n", cfg->sample_count);
+   reportf(cfg, "screen_rows=%d\n", rows);
+   reportf(cfg, "screen_cols=%d\n", cols);
+   reportf(cfg, "\n");
+}
+
 static void run_matrix_probe(ProbeConfig *cfg)
 {
    size_t s;
@@ -2128,6 +2160,7 @@ static int testchain_mode_valid(const char *mode)
    return mode == NULL
        || strcmp(mode, "line") == 0
        || strcmp(mode, "cell") == 0
+       || strcmp(mode, "suffix") == 0
        || strcmp(mode, "paintfirstcluster") == 0
        || strcmp(mode, "touchfirstcluster") == 0
        || strcmp(mode, "clearfirstcluster") == 0
@@ -2787,6 +2820,7 @@ static void run_testchain_probe(ProbeConfig *cfg)
    int paintfirst = testchain_mode_is(cfg, "paintfirstcluster");
    int touchfirst = testchain_mode_is(cfg, "touchfirstcluster");
    int clearfirst = testchain_mode_is(cfg, "clearfirstcluster");
+   int suffix = testchain_mode_is(cfg, "suffix");
    int flashfirstfast = testchain_mode_is(cfg, "flashfirstfast");
    int flashfirst = testchain_mode_is(cfg, "flashfirstcluster");
    int flashwhole = testchain_mode_is(cfg, "flashwhole");
@@ -2817,6 +2851,8 @@ static void run_testchain_probe(ProbeConfig *cfg)
          int target = testchain_path_target((int)i);
          int start_target = flashwhole ? 0
                           : firststrategy ? testchain_first_cluster_target()
+                          : suffix ? testchain_flash_start(report_old_target,
+                                                           target, 0)
                           : flashback
                           ? testchain_flash_start(report_old_target, target,
                                                   back_clusters)
@@ -2840,7 +2876,8 @@ static void run_testchain_probe(ProbeConfig *cfg)
             cfg->testchain_cursor_width, testchain_mode_name(cfg),
             UTF8_TERMINAL_PROBE_VERSION);
    mvprintw(1, 0, "Pattern is XX-A-C-B-A-C-B-A-C-C-C-B-A-C-B-A-C-B-XX; flashback counts prior clusters.");
-   if (testchain_mode_is(cfg, "cell") || flashback || firststrategy || flashwhole)
+   if (testchain_mode_is(cfg, "cell") || suffix || flashback
+   ||  firststrategy || flashwhole)
       draw_testchain_base(sample, row, col, cfg->testchain_layout_width);
    nodelay(stdscr, TRUE);
    for (;;)
@@ -2848,6 +2885,7 @@ static void run_testchain_probe(ProbeConfig *cfg)
       int target = testchain_path_target(step);
       int start_target = flashwhole ? 0
                        : firststrategy ? testchain_first_cluster_target()
+                       : suffix ? testchain_flash_start(old_target, target, 0)
                        : flashback
                        ? testchain_flash_start(old_target, target,
                                                back_clusters)
@@ -2862,6 +2900,14 @@ static void run_testchain_probe(ProbeConfig *cfg)
          draw_testchain_step(sample, row, col, cfg->testchain_layout_width,
                              cfg->testchain_cursor_width, old_target, target,
                              cursor_attr);
+      }
+      else if (suffix)
+      {
+         draw_testchain_resetfrom(sample, row, col,
+                                  cfg->testchain_layout_width,
+                                  cfg->testchain_cursor_width, old_target,
+                                  target, start_target, cursor_attr,
+                                  1, 1, 0, 0);
       }
       else if (flashback)
       {
@@ -2922,11 +2968,6 @@ static int calibration_entry_seen(const CalibrationEntry *entries, size_t count,
             return 1;
       }
    return 0;
-}
-
-static int calibration_entry_is_zwj(const CalibrationEntry *entry)
-{
-   return strstr(entry->feature_class, "zwj") != NULL;
 }
 
 static int calibration_entry_is_normal_intent(const CalibrationEntry *entry)
@@ -3187,7 +3228,6 @@ static int calibration_select_view(ProbeConfig *cfg, CalibrationEntry *entry)
                entry->layout_width, entry->cursor_width);
       mvprintw(2, 0, "Keys: j/k move, 1-9 choose visible row, Enter accept, q quit. Showing %d-%d of %d.",
                top + 1, top + visible_rows, candidate_count);
-      if (calibration_entry_is_zwj(entry))
       {
          char cps[256];
 
@@ -3267,6 +3307,7 @@ static void draw_chain_strategy_frame(const ProbeSample *sample, int row,
    int paintfirst = strcmp(strategy, "paintfirstcluster") == 0;
    int touchfirst = strcmp(strategy, "touchfirstcluster") == 0;
    int clearfirst = strcmp(strategy, "clearfirstcluster") == 0;
+   int suffix = strcmp(strategy, "suffix") == 0;
    int flashfirstfast = strcmp(strategy, "flashfirstfast") == 0;
    int flashfirst = strcmp(strategy, "flashfirstcluster") == 0;
    int flashwhole = strcmp(strategy, "flashwhole") == 0;
@@ -3274,6 +3315,7 @@ static void draw_chain_strategy_frame(const ProbeSample *sample, int row,
                     || flashfirstfast || flashfirst;
    int start_target = flashwhole ? 0
                     : firststrategy ? testchain_first_cluster_target()
+                    : suffix ? testchain_flash_start(old_target, target, 0)
                     : flashback
                     ? testchain_flash_start(old_target, target, back_clusters)
                     : -1;
@@ -3282,6 +3324,12 @@ static void draw_chain_strategy_frame(const ProbeSample *sample, int row,
    {
       draw_testchain_step(sample, row, col, layout_width, cursor_width,
                           old_target, target, cursor_attr);
+   }
+   else if (suffix)
+   {
+      draw_testchain_resetfrom(sample, row, col, layout_width, cursor_width,
+                               old_target, target, start_target, cursor_attr,
+                               1, 1, 0, 0);
    }
    else if (flashback)
    {
@@ -3462,6 +3510,7 @@ static void draw_replacement_strategy_frame(const ProbeSample *sample, int row,
    int start_target = changed_target;
    int start_cell;
    int width_cells;
+   int pause_ms = 0;
 
    if (strcmp(strategy, "cell") == 0)
    {
@@ -3475,8 +3524,16 @@ static void draw_replacement_strategy_frame(const ProbeSample *sample, int row,
 
    if (strcmp(strategy, "suffix") == 0)
       start_target = changed_target;
-   else if (strcmp(strategy, "clearfirstfast") == 0)
+   else if (strcmp(strategy, "flashbackcluster1") == 0)
+      start_target = changed_target > 0 ? changed_target - 1 : 0;
+   else if (strcmp(strategy, "clearfirstfast") == 0
+   ||       strcmp(strategy, "flashfirstfast") == 0)
       start_target = 1;
+   else if (strcmp(strategy, "flashfirstcluster") == 0)
+   {
+      start_target = 1;
+      pause_ms = 25;
+   }
    else if (strcmp(strategy, "flashwhole") == 0)
       start_target = 0;
    else
@@ -3492,6 +3549,8 @@ static void draw_replacement_strategy_frame(const ProbeSample *sample, int row,
                       A_NORMAL);
    touchline(stdscr, row, 1);
    refresh();
+   if (pause_ms > 0)
+      napms(pause_ms);
    draw_replacement_span(sample, row, col, layout_width, new_state,
                          start_target, REPLACE_TARGETS - 1);
 }
@@ -3513,29 +3572,17 @@ static int calibration_select_strategy(ProbeConfig *cfg,
                                        CalibrationEntry *entry,
                                        int replacement)
 {
-   static const StrategyCandidate cursor_strategies[] =
+   static const StrategyCandidate strategies[] =
    {
       { "cell", "old/new cells only", 10 },
       { "line", "complete run repaint", 20 },
-      { "flashbackcluster1", "clear from one prior cluster", 30 },
-      { "flashfirstfast", "clear from first cluster, flush, repaint", 40 },
-      { "flashfirstcluster", "same with a short pause", 50 },
-      { "flashwhole", "clear whole run, flush, repaint", 60 }
-   };
-   static const StrategyCandidate replacement_strategies[] =
-   {
-      { "cell", "changed target only", 10 },
-      { "line", "complete sample repaint", 20 },
       { "suffix", "clear changed suffix, flush, repaint", 30 },
-      { "clearfirstfast", "clear from first cluster, flush, repaint", 40 },
-      { "flashwhole", "clear whole sample, flush, repaint", 60 }
+      { "flashbackcluster1", "clear from one prior cluster", 40 },
+      { "flashfirstfast", "clear from first cluster, flush, repaint", 50 },
+      { "flashfirstcluster", "same with a short pause", 60 },
+      { "flashwhole", "clear whole run, flush, repaint", 70 }
    };
-   const StrategyCandidate *strategies = replacement
-                                      ? replacement_strategies
-                                      : cursor_strategies;
-   int strategy_count = replacement
-                      ? (int)(sizeof(replacement_strategies) / sizeof(replacement_strategies[0]))
-                      : (int)(sizeof(cursor_strategies) / sizeof(cursor_strategies[0]));
+   int strategy_count = (int)(sizeof(strategies) / sizeof(strategies[0]));
    int selected = strategy_index_by_name(strategies, strategy_count,
                                          replacement
                                          ? entry->replacement_strategy
@@ -3706,6 +3753,8 @@ static const char *profile_to_cursor_strategy(const char *strategy)
       return "cell";
    if (strcmp(strategy, "line") == 0)
       return "line";
+   if (strcmp(strategy, "clear_changed_suffix_fast") == 0)
+      return "suffix";
    if (strcmp(strategy, "clear_from_one_prior_cluster") == 0)
       return "flashbackcluster1";
    if (strcmp(strategy, "clear_from_first_cluster_fast") == 0)
@@ -3726,9 +3775,13 @@ static const char *profile_to_replacement_strategy(const char *strategy)
    if (strcmp(strategy, "clear_changed_suffix_fast") == 0)
       return "suffix";
    if (strcmp(strategy, "clear_from_first_cluster_fast") == 0)
-      return "clearfirstfast";
+      return "flashfirstfast";
+   if (strcmp(strategy, "clear_from_first_cluster_pause") == 0)
+      return "flashfirstcluster";
    if (strcmp(strategy, "clear_whole_fast") == 0)
       return "flashwhole";
+   if (strcmp(strategy, "clear_from_one_prior_cluster") == 0)
+      return "flashbackcluster1";
    return "line";
 }
 
@@ -3753,11 +3806,12 @@ static const char *intent_for_legacy_output_method(const char *method)
 static int output_method_allowed_for_intent(const char *intent,
                                             const char *method)
 {
+   if (strcmp(method, "substitute") == 0)
+      return 1;
    if (strcmp(intent, "normal") == 0)
       return strcmp(method, "native") == 0;
    if (strcmp(intent, "group") == 0)
-      return strcmp(method, "native") == 0
-          || strcmp(method, "substitute") == 0;
+      return strcmp(method, "native") == 0;
    if (strcmp(intent, "components") == 0)
       return strcmp(method, "native") == 0
           || strcmp(method, "expanded") == 0;
@@ -3770,6 +3824,8 @@ static const char *coerce_output_method_for_intent(const char *intent,
    method = known_output_method(method);
    if (output_method_allowed_for_intent(intent, method))
       return method;
+   if (strcmp(method, "substitute") == 0)
+      return "substitute";
    if (strcmp(intent, "components") == 0)
       return "expanded";
    if (strcmp(intent, "group") == 0)
@@ -4081,11 +4137,31 @@ static int write_calibration_profile(ProbeConfig *cfg,
    for (i = 0; i < count; i++)
    {
       const CalibrationEntry *entry = &entries[i];
+      int substitute_output = strcmp(entry->output_method, "substitute") == 0;
 
       if (calibration_entry_is_default(entry))
          continue;
       if (calibration_entry_is_normal_intent(entry))
       {
+         if (substitute_output)
+         {
+            write_rexx_profile_command(
+               fp, "SET UTF8 TERMINAL CLASS %s OUTPUT %s U+%04X",
+               entry->feature_class, entry->output_method,
+               (unsigned int)entry->substitute_codepoint);
+         }
+         else if (strcmp(entry->output_method, "native") != 0)
+         {
+            write_rexx_profile_command(
+               fp, "SET UTF8 TERMINAL CLASS %s OUTPUT %s",
+               entry->feature_class, entry->output_method);
+         }
+         if (substitute_output)
+         {
+            fprintf(fp, "\n");
+            written++;
+            continue;
+         }
          write_rexx_profile_command(
             fp, "SET UTF8 TERMINAL CLASS %s LAYOUT %d CURSOR %d",
             entry->feature_class, entry->layout_width, entry->cursor_width);
@@ -4101,7 +4177,7 @@ static int write_calibration_profile(ProbeConfig *cfg,
       }
       else
       {
-         if (strcmp(entry->output_method, "substitute") == 0)
+         if (substitute_output)
          {
             write_rexx_profile_command(
                fp, "SET UTF8 TERMINAL CLASS %s INTENT %s OUTPUT %s U+%04X",
@@ -4115,7 +4191,7 @@ static int write_calibration_profile(ProbeConfig *cfg,
                entry->feature_class, entry->display_intent,
                entry->output_method);
          }
-         if (strcmp(entry->output_method, "substitute") != 0)
+         if (!substitute_output)
          {
             write_rexx_profile_command(
                fp, "SET UTF8 TERMINAL CLASS %s INTENT %s LAYOUT %d CURSOR %d",
@@ -4154,41 +4230,40 @@ static int calibration_select_output_method(ProbeConfig *cfg,
                                             CalibrationEntry *entries,
                                             size_t count)
 {
-   static const char *group_methods[] =
+   static const char *basic_methods[] =
    {
       "native", "substitute"
    };
-   static const char *group_descriptions[] =
+   static const char *basic_descriptions[] =
    {
-      "emit stored sequence and accept terminal-native grouped shaping if it works",
-      "use a configured replacement character/string; no ZWJ probe widths needed"
+      "emit the stored logical UTF-8 cluster",
+      "emit the configured replacement code point for this class/intent"
    };
-   static const int group_scores[] =
+   static const int basic_scores[] =
    {
       10, 40
    };
    static const char *component_methods[] =
    {
-      "native", "expanded"
+      "native", "expanded", "substitute"
    };
    static const char *component_descriptions[] =
    {
-      "emit stored sequence and accept terminal-native component fallback if it works",
-      "emit component code points with U+200D suppressed for file display"
+      "emit the stored logical UTF-8 cluster",
+      "emit component code points with U+200D suppressed for file display",
+      "emit the configured replacement code point for this class/intent"
    };
    static const int component_scores[] =
    {
-      10, 20
+      10, 20, 40
    };
-   const char **methods = group_methods;
-   const char **descriptions = group_descriptions;
-   const int *scores = group_scores;
-   int method_count = (int)(sizeof(group_methods) / sizeof(group_methods[0]));
+   const char **methods = basic_methods;
+   const char **descriptions = basic_descriptions;
+   const int *scores = basic_scores;
+   int method_count = (int)(sizeof(basic_methods) / sizeof(basic_methods[0]));
    int selected = 0;
    int i;
 
-   if (!calibration_entry_is_zwj(entry))
-      return 0;
    if (strcmp(entry->display_intent, "components") == 0)
    {
       methods = component_methods;
@@ -4210,7 +4285,7 @@ static int calibration_select_output_method(ProbeConfig *cfg,
       char logical_cps[256];
 
       erase();
-      mvprintw(0, 0, "calibrate ZWJ output %s/%s intent=%s %s",
+      mvprintw(0, 0, "calibrate output %s/%s intent=%s %s",
                entry->feature_class, entry->sample->name, entry->display_intent,
                UTF8_TERMINAL_PROBE_VERSION);
       mvprintw(1, 0, "Current: %s. This choice is used by the view/cursor/replace screens.",
@@ -4324,8 +4399,7 @@ static const char *calibration_effective_utf8(const CalibrationEntry *entry,
    size_t zwj_len = strlen(ZWJ_UTF8);
    size_t used = 0;
 
-   if (!calibration_entry_is_zwj(entry)
-   ||  strcmp(entry->output_method, "native") == 0)
+   if (strcmp(entry->output_method, "native") == 0)
       return src;
    if (strcmp(entry->output_method, "substitute") == 0)
    {
@@ -4424,8 +4498,7 @@ static int configure_calibration_entry(ProbeConfig *cfg,
 
    if (calibration_select_output_method(cfg, entry, entries, count) != 0)
       return calibration_entry_changed(&before, entry);
-   if (calibration_entry_is_zwj(entry)
-   &&  strcmp(entry->output_method, "substitute") == 0)
+   if (strcmp(entry->output_method, "substitute") == 0)
    {
       apply_output_method_defaults(entry);
       return calibration_entry_changed(&before, entry);
@@ -4583,7 +4656,6 @@ static void run_calibration_probe(ProbeConfig *cfg)
    }
 
    read_calibration_profile(cfg, entries, count);
-   curs_set(0);
    if (cfg->no_visual)
    {
       for (i = 0; i < count; i++)
@@ -4594,9 +4666,11 @@ static void run_calibration_probe(ProbeConfig *cfg)
                  entries[i].layout_width, entries[i].cursor_width,
                  entries[i].cursor_strategy, entries[i].replacement_strategy);
       reportf(cfg, "calibrate_profile_write_skipped,no_visual=1\n");
+      reportf(cfg, "\n");
+      return;
    }
-   else
-      calibration_main_menu(cfg, entries, count);
+   curs_set(0);
+   calibration_main_menu(cfg, entries, count);
    reportf(cfg, "\n");
    curs_set(1);
 }
@@ -4687,7 +4761,7 @@ static void usage(const char *argv0)
    printf("       %s --testcursor selector layout_width cursor_width [mode] [--report path] [--timeout-ms n]\n", argv0);
    printf("          mode is frame, cell, line, flashline, flashcell, flashpair, or flashfrom0..6; default is frame\n");
    printf("       %s --testchain selector layout_width cursor_width [mode] [--report path] [--timeout-ms n]\n", argv0);
-   printf("          mode is line, cell, paintfirstcluster, touchfirstcluster, clearfirstcluster,\n");
+   printf("          mode is line, cell, suffix, paintfirstcluster, touchfirstcluster, clearfirstcluster,\n");
    printf("          flashfirstfast, flashfirstcluster, flashwhole, or flashbackcluster0..6; default is flashbackcluster1\n");
    printf("       %s --list\n", argv0);
    printf("       %s --version\n", argv0);
@@ -4712,6 +4786,7 @@ int main(int argc, char **argv)
    ProbeConfig cfg;
    int i;
    int list_only = 0;
+   int headless_calibrate_only;
 
    memset(&cfg, 0, sizeof(cfg));
    cfg.report_path = "/tmp/the-utf8-terminal-probe.txt";
@@ -4925,7 +5000,7 @@ int main(int argc, char **argv)
       }
       if (!testchain_mode_valid(cfg.testchain_mode))
       {
-         fprintf(stderr, "testchain mode must be line, cell, paintfirstcluster, touchfirstcluster, clearfirstcluster, flashfirstfast, flashfirstcluster, flashwhole, or flashbackcluster0..6\n");
+         fprintf(stderr, "testchain mode must be line, cell, suffix, paintfirstcluster, touchfirstcluster, clearfirstcluster, flashfirstfast, flashfirstcluster, flashwhole, or flashbackcluster0..6\n");
          return 2;
       }
    }
@@ -4954,6 +5029,16 @@ int main(int argc, char **argv)
       return 2;
    }
 
+   headless_calibrate_only = cfg.no_visual
+                           && cfg.calibrate
+                           && !cfg.curses_poc
+                           && !cfg.utfvis
+                           && !cfg.testcursor
+                           && !cfg.testchain
+                           && !cfg.run_matrix
+                           && !cfg.run_motion
+                           && !cfg.run_poc;
+
    if (cfg.raw_poc)
    {
 #if defined(_WIN32)
@@ -4970,6 +5055,16 @@ int main(int argc, char **argv)
 #endif
       fclose(cfg.report);
       printf("\nUTF-8 terminal probe %s report written to %s\n",
+             UTF8_TERMINAL_PROBE_VERSION, cfg.report_path);
+      return 0;
+   }
+
+   if (headless_calibrate_only)
+   {
+      log_headless_environment(&cfg);
+      run_calibration_probe(&cfg);
+      fclose(cfg.report);
+      printf("UTF-8 terminal probe %s report written to %s\n",
              UTF8_TERMINAL_PROBE_VERSION, cfg.report_path);
       return 0;
    }
