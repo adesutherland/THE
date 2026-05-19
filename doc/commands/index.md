@@ -238,6 +238,7 @@
 - [SET TYPEAHEAD](SET_TYPEAHEAD.md) - set behaviour of screen redraw
 - [SET UNDOING](SET_UNDOING.md) - turn on or off undo facility for the current file
 - [SET UNTAA](SET_UNTAA.md) - specifies if "Unsigned Numerical Targets Are Absolute"
+- [SET UTF8](SET_UTF8.md) - configure physical UTF-8 terminal behaviour
 - [SET VERIFY](SET_VERIFY.md) - set column display limits
 - [SET WIDTH](SET_WIDTH.md) - set width of maximum line that THE can edit
 - [SET WORD](SET_WORD.md) - controls what THE considers a word to be

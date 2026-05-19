@@ -42,6 +42,27 @@
 /*--------------------------- global data -----------------------------*/
 bool rexx_output=FALSE;
 
+static void refresh_utf8_terminal_display(void)
+{
+   int scrno;
+
+   if ( batch_only
+   ||   !curses_started
+   ||   (in_macro && !interactive_in_macro)
+   ||   display_screens < 1 )
+      return;
+
+   for (scrno = 0; scrno < display_screens && scrno < MAX_SCREENS; scrno++)
+   {
+      if ( screen[scrno].screen_view == NULL
+      ||   screen[scrno].screen_view->file_for_view == NULL
+      ||   screen[scrno].sl == NULL )
+         continue;
+      build_screen((CHARTYPE)scrno);
+      display_screen((CHARTYPE)scrno);
+   }
+}
+
 /*man-start*********************************************************************
 COMMAND
      set pagewrap - determine if page scrolling wraps at bottom/top of file
@@ -4347,13 +4368,16 @@ COMMAND
      set utf8 - configures physical UTF-8 terminal behaviour
 
 SYNTAX
+     [SET] UTF8 INTENT GROUP|COMPONENTS|TOGGLE
      [SET] UTF8 TERMINAL CLASS class [INTENT intent] setting
 
 DESCRIPTION
      The SET UTF8 command configures the physical terminal profile used
      by UTF-8 rendering.  These settings describe terminal layout, cursor,
      output, and repaint behaviour only; editor text movement and commands
-     continue to use the logical UTF-8 text model.
+     continue to use the logical UTF-8 text model.  The INTENT form selects
+     whether intent-aware clusters are rendered as grouped glyphs or visible
+     components.
 
 STATUS
      Incomplete.
@@ -4376,6 +4400,8 @@ short Utf8(CHARTYPE *params)
       display_error(1,params,FALSE);
       rc = RC_INVALID_OPERAND;
    }
+   else
+      refresh_utf8_terminal_display();
    TRACE_RETURN();
    return(rc);
 }

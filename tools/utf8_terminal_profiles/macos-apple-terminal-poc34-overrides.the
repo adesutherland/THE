@@ -1,76 +1,69 @@
-* macOS Apple Terminal UTF-8 physical terminal baseline.
-*
-* Captured by visual calibration on 2026-05-14 using:
-*   utf8_terminal_probe 2026-05-13-poc34
-*   TERM=xterm-256color
-*   TERM_PROGRAM=Apple_Terminal
-*
-* This is an override fragment, not a complete table. Apply it on top of:
-*   tools/utf8_terminal_profiles/defaults-poc34.the
-*
-* Rows not listed here matched the coded defaults during calibration.
-*
-* These command names are the target THE instruction shape. Until THE
-* implements them, keep this file with the probe report and use it as the
-* macOS baseline for renderer integration work.
+/* macOS Apple Terminal UTF-8 terminal settings. */
+/* Captured by visual calibration on 2026-05-14. */
+/* Probe: utf8_terminal_probe 2026-05-13-poc34. */
+/* TERM=xterm-256color; TERM_PROGRAM=Apple_Terminal. */
+/* Override fragment; apply after tools/utf8_terminal_profiles/defaults-poc34.the. */
+/* Rows not listed here matched the coded defaults during calibration. */
 
-SET UTF8 TERMINAL CLASS combining LAYOUT 1 CURSOR 1
-SET UTF8 TERMINAL CLASS combining CURSORSTRATEGY changed_cells
-SET UTF8 TERMINAL CLASS combining REPLACESTRATEGY changed_cells
+address the
 
-SET UTF8 TERMINAL CLASS combining-stack LAYOUT 1 CURSOR 1
-SET UTF8 TERMINAL CLASS combining-stack CURSORSTRATEGY changed_cells
-SET UTF8 TERMINAL CLASS combining-stack REPLACESTRATEGY changed_cells
+'SET UTF8 TERMINAL CLASS combining LAYOUT 1 CURSOR 1'
+'SET UTF8 TERMINAL CLASS combining CURSORSTRATEGY changed_cells'
+'SET UTF8 TERMINAL CLASS combining REPLACESTRATEGY changed_cells'
 
-SET UTF8 TERMINAL CLASS wide LAYOUT 2 CURSOR 2
-SET UTF8 TERMINAL CLASS wide CURSORSTRATEGY changed_cells
-SET UTF8 TERMINAL CLASS wide REPLACESTRATEGY line
+'SET UTF8 TERMINAL CLASS combining-stack LAYOUT 1 CURSOR 1'
+'SET UTF8 TERMINAL CLASS combining-stack CURSORSTRATEGY changed_cells'
+'SET UTF8 TERMINAL CLASS combining-stack REPLACESTRATEGY changed_cells'
 
-SET UTF8 TERMINAL CLASS emoji LAYOUT 2 CURSOR 2
-SET UTF8 TERMINAL CLASS emoji CURSORSTRATEGY changed_cells
-SET UTF8 TERMINAL CLASS emoji REPLACESTRATEGY line
+'SET UTF8 TERMINAL CLASS wide LAYOUT 2 CURSOR 2'
+'SET UTF8 TERMINAL CLASS wide CURSORSTRATEGY changed_cells'
+'SET UTF8 TERMINAL CLASS wide REPLACESTRATEGY line'
 
-SET UTF8 TERMINAL CLASS text-variation LAYOUT 1 CURSOR 1
-SET UTF8 TERMINAL CLASS text-variation CURSORSTRATEGY changed_cells
-SET UTF8 TERMINAL CLASS text-variation REPLACESTRATEGY changed_cells
+'SET UTF8 TERMINAL CLASS emoji LAYOUT 2 CURSOR 2'
+'SET UTF8 TERMINAL CLASS emoji CURSORSTRATEGY changed_cells'
+'SET UTF8 TERMINAL CLASS emoji REPLACESTRATEGY line'
 
-SET UTF8 TERMINAL CLASS emoji-variation LAYOUT 2 CURSOR 2
-SET UTF8 TERMINAL CLASS emoji-variation CURSORSTRATEGY changed_cells
-SET UTF8 TERMINAL CLASS emoji-variation REPLACESTRATEGY line
+'SET UTF8 TERMINAL CLASS text-variation LAYOUT 1 CURSOR 1'
+'SET UTF8 TERMINAL CLASS text-variation CURSORSTRATEGY changed_cells'
+'SET UTF8 TERMINAL CLASS text-variation REPLACESTRATEGY changed_cells'
 
-SET UTF8 TERMINAL CLASS modifier LAYOUT 4 CURSOR 4
-SET UTF8 TERMINAL CLASS modifier CURSORSTRATEGY changed_cells
-SET UTF8 TERMINAL CLASS modifier REPLACESTRATEGY line
+'SET UTF8 TERMINAL CLASS emoji-variation LAYOUT 2 CURSOR 2'
+'SET UTF8 TERMINAL CLASS emoji-variation CURSORSTRATEGY changed_cells'
+'SET UTF8 TERMINAL CLASS emoji-variation REPLACESTRATEGY line'
 
-SET UTF8 TERMINAL CLASS keycap LAYOUT 2 CURSOR 2
-SET UTF8 TERMINAL CLASS keycap CURSORSTRATEGY clear_from_first_cluster_fast
-SET UTF8 TERMINAL CLASS keycap REPLACESTRATEGY clear_from_first_cluster_fast
+'SET UTF8 TERMINAL CLASS modifier LAYOUT 4 CURSOR 4'
+'SET UTF8 TERMINAL CLASS modifier CURSORSTRATEGY changed_cells'
+'SET UTF8 TERMINAL CLASS modifier REPLACESTRATEGY line'
 
-SET UTF8 TERMINAL CLASS short-zwj INTENT group OUTPUT substitute
+'SET UTF8 TERMINAL CLASS keycap LAYOUT 2 CURSOR 2'
+'SET UTF8 TERMINAL CLASS keycap CURSORSTRATEGY clear_from_first_cluster_fast'
+'SET UTF8 TERMINAL CLASS keycap REPLACESTRATEGY clear_from_first_cluster_fast'
 
-SET UTF8 TERMINAL CLASS short-zwj INTENT components OUTPUT native
-SET UTF8 TERMINAL CLASS short-zwj INTENT components LAYOUT 4 CURSOR 4
-SET UTF8 TERMINAL CLASS short-zwj INTENT components CURSORSTRATEGY changed_cells
-SET UTF8 TERMINAL CLASS short-zwj INTENT components REPLACESTRATEGY line
+'SET UTF8 TERMINAL CLASS short-zwj INTENT group OUTPUT substitute U+0040'
 
-SET UTF8 TERMINAL CLASS heart-zwj INTENT group OUTPUT substitute
+'SET UTF8 TERMINAL CLASS short-zwj INTENT components OUTPUT native'
+'SET UTF8 TERMINAL CLASS short-zwj INTENT components LAYOUT 4 CURSOR 4'
+'SET UTF8 TERMINAL CLASS short-zwj INTENT components CURSORSTRATEGY changed_cells'
+'SET UTF8 TERMINAL CLASS short-zwj INTENT components REPLACESTRATEGY line'
 
-SET UTF8 TERMINAL CLASS heart-zwj INTENT components OUTPUT expanded
-SET UTF8 TERMINAL CLASS heart-zwj INTENT components LAYOUT 6 CURSOR 6
-SET UTF8 TERMINAL CLASS heart-zwj INTENT components CURSORSTRATEGY changed_cells
-SET UTF8 TERMINAL CLASS heart-zwj INTENT components REPLACESTRATEGY line
+'SET UTF8 TERMINAL CLASS heart-zwj INTENT group OUTPUT substitute U+0040'
 
-SET UTF8 TERMINAL CLASS family-zwj INTENT group OUTPUT substitute
+'SET UTF8 TERMINAL CLASS heart-zwj INTENT components OUTPUT expanded'
+'SET UTF8 TERMINAL CLASS heart-zwj INTENT components LAYOUT 6 CURSOR 6'
+'SET UTF8 TERMINAL CLASS heart-zwj INTENT components CURSORSTRATEGY changed_cells'
+'SET UTF8 TERMINAL CLASS heart-zwj INTENT components REPLACESTRATEGY line'
 
-SET UTF8 TERMINAL CLASS family-zwj INTENT components OUTPUT expanded
-SET UTF8 TERMINAL CLASS family-zwj INTENT components LAYOUT 8 CURSOR 8
-SET UTF8 TERMINAL CLASS family-zwj INTENT components CURSORSTRATEGY changed_cells
-SET UTF8 TERMINAL CLASS family-zwj INTENT components REPLACESTRATEGY line
+'SET UTF8 TERMINAL CLASS family-zwj INTENT group OUTPUT substitute U+0040'
 
-SET UTF8 TERMINAL CLASS tag-flag LAYOUT 2 CURSOR 2
-SET UTF8 TERMINAL CLASS tag-flag CURSORSTRATEGY changed_cells
-SET UTF8 TERMINAL CLASS tag-flag REPLACESTRATEGY line
+'SET UTF8 TERMINAL CLASS family-zwj INTENT components OUTPUT expanded'
+'SET UTF8 TERMINAL CLASS family-zwj INTENT components LAYOUT 8 CURSOR 8'
+'SET UTF8 TERMINAL CLASS family-zwj INTENT components CURSORSTRATEGY changed_cells'
+'SET UTF8 TERMINAL CLASS family-zwj INTENT components REPLACESTRATEGY line'
 
-SET UTF8 TERMINAL CLASS private-use LAYOUT 1 CURSOR 1
-SET UTF8 TERMINAL CLASS private-use CURSORSTRATEGY changed_cells
-SET UTF8 TERMINAL CLASS private-use REPLACESTRATEGY changed_cells
+'SET UTF8 TERMINAL CLASS tag-flag LAYOUT 2 CURSOR 2'
+'SET UTF8 TERMINAL CLASS tag-flag CURSORSTRATEGY changed_cells'
+'SET UTF8 TERMINAL CLASS tag-flag REPLACESTRATEGY line'
+
+'SET UTF8 TERMINAL CLASS private-use LAYOUT 1 CURSOR 1'
+'SET UTF8 TERMINAL CLASS private-use CURSORSTRATEGY changed_cells'
+'SET UTF8 TERMINAL CLASS private-use REPLACESTRATEGY changed_cells'

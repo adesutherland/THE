@@ -2,6 +2,7 @@
 #define _XOPEN_SOURCE_EXTENDED 1
 
 #include <curses.h>
+#include <ctype.h>
 #include <errno.h>
 #include <locale.h>
 #include <stdarg.h>
@@ -122,6 +123,7 @@ typedef struct
    const char *display_intent;
    const char *output_method;
    const struct CalibrationDefault *defaults;
+   uint32_t substitute_codepoint;
    int layout_width;
    int cursor_width;
    const char *cursor_strategy;
@@ -147,37 +149,39 @@ typedef struct CalibrationDefault
    const char *feature_class;
    const char *display_intent;
    const char *output_method;
+   uint32_t substitute_codepoint;
    int layout_width;
    int cursor_width;
    const char *cursor_strategy;
    const char *replacement_strategy;
 } CalibrationDefault;
 
+#define ZWJ_UTF8 "\xE2\x80\x8D"
+#define U8_ZWJ_SUBSTITUTE_CODEPOINT 0x0040u
+
 static const CalibrationDefault calibration_defaults[] =
 {
-   { "ascii", "normal", "native", 1, 1, "cell", "cell" },
-   { "combining", "normal", "native", 1, 1, "line", "line" },
-   { "combining-stack", "normal", "native", 1, 1, "line", "line" },
-   { "wide", "normal", "native", 2, 2, "cell", "cell" },
-   { "ambiguous", "normal", "native", 1, 1, "cell", "cell" },
-   { "emoji", "normal", "native", 2, 2, "line", "line" },
-   { "text-variation", "normal", "native", 1, 1, "line", "line" },
-   { "emoji-variation", "normal", "native", 2, 2, "line", "line" },
-   { "modifier", "normal", "native", 2, 2, "line", "line" },
-   { "keycap", "normal", "native", 2, 2, "flashfirstfast", "flashwhole" },
-   { "regional-flag", "normal", "native", 3, 3, "cell", "suffix" },
-   { "short-zwj", "group", "native", 2, 2, "line", "line" },
-   { "short-zwj", "components", "expanded", 4, 4, "line", "line" },
-   { "heart-zwj", "group", "native", 6, 6, "line", "line" },
-   { "heart-zwj", "components", "expanded", 6, 6, "line", "line" },
-   { "family-zwj", "group", "native", 6, 6, "line", "line" },
-   { "family-zwj", "components", "expanded", 8, 8, "line", "line" },
-   { "tag-flag", "normal", "native", 2, 2, "line", "line" },
-   { "private-use", "normal", "native", 1, 1, "line", "line" }
+   { "ascii", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 1, 1, "cell", "cell" },
+   { "combining", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 1, 1, "line", "line" },
+   { "combining-stack", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 1, 1, "line", "line" },
+   { "wide", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 2, 2, "cell", "cell" },
+   { "ambiguous", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 1, 1, "cell", "cell" },
+   { "emoji", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 2, 2, "line", "line" },
+   { "text-variation", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 1, 1, "line", "line" },
+   { "emoji-variation", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 2, 2, "line", "line" },
+   { "modifier", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 2, 2, "line", "line" },
+   { "keycap", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 2, 2, "flashfirstfast", "flashwhole" },
+   { "regional-flag", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 3, 3, "cell", "suffix" },
+   { "short-zwj", "group", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 2, 2, "line", "line" },
+   { "short-zwj", "components", "expanded", U8_ZWJ_SUBSTITUTE_CODEPOINT, 4, 4, "line", "line" },
+   { "heart-zwj", "group", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 6, 6, "line", "line" },
+   { "heart-zwj", "components", "expanded", U8_ZWJ_SUBSTITUTE_CODEPOINT, 6, 6, "line", "line" },
+   { "family-zwj", "group", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 6, 6, "line", "line" },
+   { "family-zwj", "components", "expanded", U8_ZWJ_SUBSTITUTE_CODEPOINT, 8, 8, "line", "line" },
+   { "tag-flag", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 2, 2, "line", "line" },
+   { "private-use", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 1, 1, "line", "line" }
 };
 
-#define ZWJ_UTF8 "\xE2\x80\x8D"
-#define U8_ZWJ_SUBSTITUTE "@"
 #define MAX_VIEW_CANDIDATES 32
 
 static const ProbeSample samples[] =
@@ -278,6 +282,55 @@ static char *trim_field(char *text)
    return text;
 }
 
+static int probe_line_starts_word_ci(const char *text, const char *word)
+{
+   size_t len = strlen(word);
+   size_t i;
+
+   if (strlen(text) < len)
+      return 0;
+   for (i = 0; i < len; i++)
+   {
+      if (tolower((unsigned char)text[i]) != tolower((unsigned char)word[i]))
+         return 0;
+   }
+   return text[len] == '\0'
+       || text[len] == ' '
+       || text[len] == '\t'
+       || text[len] == '\r'
+       || text[len] == '\n';
+}
+
+static const char *profile_instruction_from_line(char *line, char *out,
+                                                 size_t out_cap)
+{
+   char *p = trim_field(line);
+
+   if (*p == '\0' || *p == '*' || *p == '#'
+   ||  (p[0] == '/' && p[1] == '*'))
+      return NULL;
+   if (probe_line_starts_word_ci(p, "address")
+   ||  probe_line_starts_word_ci(p, "options"))
+      return NULL;
+   if (*p == '\'' || *p == '"')
+   {
+      char quote = *p++;
+      size_t len = 0;
+
+      while (*p != '\0' && *p != quote)
+      {
+         if (len + 1 >= out_cap)
+            return NULL;
+         out[len++] = *p++;
+      }
+      if (*p != quote)
+         return NULL;
+      out[len] = '\0';
+      return out;
+   }
+   return p;
+}
+
 static size_t append_utf8_codepoint(char *out, size_t used, size_t out_cap,
                                     uint32_t codepoint)
 {
@@ -350,6 +403,27 @@ static char *parse_codepoint_field(const char *field)
    }
 
    return (count > 0) ? probe_strdup(out) : NULL;
+}
+
+static int parse_profile_codepoint(const char *field, uint32_t *codepoint)
+{
+   const char *p = field;
+   char *end = NULL;
+   unsigned long parsed;
+
+   if (field == NULL || *field == '\0' || codepoint == NULL)
+      return 0;
+   if ((p[0] == 'U' || p[0] == 'u') && p[1] == '+')
+      p += 2;
+   else if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X'))
+      p += 2;
+   parsed = strtoul(p, &end, 16);
+   if (end == p || *end != '\0' || parsed == 0 || parsed > 0x10FFFFul)
+      return 0;
+   if (parsed >= 0xD800ul && parsed <= 0xDFFFul)
+      return 0;
+   *codepoint = (uint32_t)parsed;
+   return 1;
 }
 
 static int load_probe_cases(ProbeConfig *cfg, const char *path)
@@ -2965,6 +3039,7 @@ static size_t collect_calibration_entries(ProbeConfig *cfg,
       entries[count].display_intent = defaults->display_intent;
       entries[count].output_method = defaults->output_method;
       entries[count].defaults = defaults;
+      entries[count].substitute_codepoint = defaults->substitute_codepoint;
       entries[count].layout_width = defaults->layout_width;
       entries[count].cursor_width = defaults->cursor_width;
       entries[count].cursor_strategy = defaults->cursor_strategy;
@@ -3710,6 +3785,8 @@ static void apply_output_method_defaults(CalibrationEntry *entry)
       entry->cursor_width = 1;
       entry->cursor_strategy = "cell";
       entry->replacement_strategy = "cell";
+      if (entry->substitute_codepoint == 0)
+         entry->substitute_codepoint = U8_ZWJ_SUBSTITUTE_CODEPOINT;
    }
 }
 
@@ -3741,6 +3818,7 @@ static void copy_calibration_physical_settings(CalibrationEntry *entry,
    entry->cursor_width = source->cursor_width;
    entry->cursor_strategy = source->cursor_strategy;
    entry->replacement_strategy = source->replacement_strategy;
+   entry->substitute_codepoint = source->substitute_codepoint;
 }
 
 static void copy_calibration_default_physical_settings(
@@ -3750,6 +3828,7 @@ static void copy_calibration_default_physical_settings(
    entry->cursor_width = defaults->cursor_width;
    entry->cursor_strategy = defaults->cursor_strategy;
    entry->replacement_strategy = defaults->replacement_strategy;
+   entry->substitute_codepoint = defaults->substitute_codepoint;
 }
 
 static void apply_output_method_physical_settings(CalibrationEntry *entry,
@@ -3809,26 +3888,43 @@ static int read_calibration_profile(ProbeConfig *cfg,
 
    while (fgets(line, sizeof(line), fp) != NULL)
    {
+      char command[512];
+      const char *profile_line;
       char klass[96];
       char intent[96];
       char word[96];
+      char codepoint_word[96];
       int layout_width;
       int cursor_width;
+      int output_fields;
       CalibrationEntry *entry;
 
-      if (sscanf(line, "SET UTF8 TERMINAL CLASS %95s INTENT %95s OUTPUT %95s",
-                 klass, intent, word) == 3)
+      profile_line = profile_instruction_from_line(line, command,
+                                                   sizeof(command));
+      if (profile_line == NULL)
+         continue;
+
+      output_fields = sscanf(profile_line,
+                             "SET UTF8 TERMINAL CLASS %95s INTENT %95s OUTPUT %95s %95s",
+                             klass, intent, word, codepoint_word);
+      if (output_fields >= 3)
       {
          entry = find_calibration_entry_for(entries, count, klass, intent);
          if (entry != NULL)
          {
+            uint32_t codepoint;
+
             entry->output_method = coerce_output_method_for_intent(
                                       entry->display_intent, word);
+            if (strcmp(entry->output_method, "substitute") == 0
+            &&  output_fields == 4
+            &&  parse_profile_codepoint(codepoint_word, &codepoint))
+               entry->substitute_codepoint = codepoint;
             apply_output_method_defaults(entry);
             loaded++;
          }
       }
-      else if (sscanf(line, "SET UTF8 TERMINAL CLASS %95s INTENT %95s LAYOUT %d CURSOR %d",
+      else if (sscanf(profile_line, "SET UTF8 TERMINAL CLASS %95s INTENT %95s LAYOUT %d CURSOR %d",
                       klass, intent, &layout_width, &cursor_width) == 4)
       {
          entry = find_calibration_entry_for(entries, count, klass, intent);
@@ -3839,7 +3935,7 @@ static int read_calibration_profile(ProbeConfig *cfg,
             loaded++;
          }
       }
-      else if (sscanf(line, "SET UTF8 TERMINAL CLASS %95s INTENT %95s CURSORSTRATEGY %95s",
+      else if (sscanf(profile_line, "SET UTF8 TERMINAL CLASS %95s INTENT %95s CURSORSTRATEGY %95s",
                       klass, intent, word) == 3)
       {
          entry = find_calibration_entry_for(entries, count, klass, intent);
@@ -3849,7 +3945,7 @@ static int read_calibration_profile(ProbeConfig *cfg,
             loaded++;
          }
       }
-      else if (sscanf(line, "SET UTF8 TERMINAL CLASS %95s INTENT %95s REPLACESTRATEGY %95s",
+      else if (sscanf(profile_line, "SET UTF8 TERMINAL CLASS %95s INTENT %95s REPLACESTRATEGY %95s",
                       klass, intent, word) == 3)
       {
          entry = find_calibration_entry_for(entries, count, klass, intent);
@@ -3859,7 +3955,7 @@ static int read_calibration_profile(ProbeConfig *cfg,
             loaded++;
          }
       }
-      else if (sscanf(line, "SET UTF8 TERMINAL CLASS %95s LAYOUT %d CURSOR %d",
+      else if (sscanf(profile_line, "SET UTF8 TERMINAL CLASS %95s LAYOUT %d CURSOR %d",
                  klass, &layout_width, &cursor_width) == 3)
       {
          entry = find_calibration_entry(entries, count, klass);
@@ -3870,7 +3966,7 @@ static int read_calibration_profile(ProbeConfig *cfg,
             loaded++;
          }
       }
-      else if (sscanf(line, "SET UTF8 TERMINAL CLASS %95s CURSORSTRATEGY %95s",
+      else if (sscanf(profile_line, "SET UTF8 TERMINAL CLASS %95s CURSORSTRATEGY %95s",
                       klass, word) == 2)
       {
          entry = find_calibration_entry(entries, count, klass);
@@ -3880,7 +3976,7 @@ static int read_calibration_profile(ProbeConfig *cfg,
             loaded++;
          }
       }
-      else if (sscanf(line, "SET UTF8 TERMINAL CLASS %95s REPLACESTRATEGY %95s",
+      else if (sscanf(profile_line, "SET UTF8 TERMINAL CLASS %95s REPLACESTRATEGY %95s",
                       klass, word) == 2)
       {
          entry = find_calibration_entry(entries, count, klass);
@@ -3890,7 +3986,7 @@ static int read_calibration_profile(ProbeConfig *cfg,
             loaded++;
          }
       }
-      else if (sscanf(line, "SET UTF8 TERMINAL CLASS %95s ZWJDISPLAY %95s",
+      else if (sscanf(profile_line, "SET UTF8 TERMINAL CLASS %95s ZWJDISPLAY %95s",
                       klass, word) == 2)
       {
          const char *method = known_output_method(word);
@@ -3917,6 +4013,37 @@ static int read_calibration_profile(ProbeConfig *cfg,
 
 static int calibration_entry_is_default(const CalibrationEntry *entry);
 
+static void write_rexx_profile_comment(FILE *fp, const char *text)
+{
+   fputs("/* ", fp);
+   while (*text != '\0')
+   {
+      if (text[0] == '*' && text[1] == '/')
+      {
+         fputs("* /", fp);
+         text += 2;
+         continue;
+      }
+      if (*text == '\r' || *text == '\n')
+         fputc(' ', fp);
+      else
+         fputc(*text, fp);
+      text++;
+   }
+   fputs(" */\n", fp);
+}
+
+static void write_rexx_profile_command(FILE *fp, const char *fmt, ...)
+{
+   va_list ap;
+   char command[512];
+
+   va_start(ap, fmt);
+   vsnprintf(command, sizeof(command), fmt, ap);
+   va_end(ap);
+   fprintf(fp, "'%s'\n", command);
+}
+
 static int write_calibration_profile(ProbeConfig *cfg,
                                      const CalibrationEntry *entries,
                                      size_t count)
@@ -3935,13 +4062,22 @@ static int write_calibration_profile(ProbeConfig *cfg,
       return -1;
    }
 
-   fprintf(fp, "* Proposed THE UTF-8 physical terminal profile\n");
-   fprintf(fp, "* generated_by=utf8_terminal_probe %s\n",
-           UTF8_TERMINAL_PROBE_VERSION);
-   fprintf(fp, "* TERM=%s\n", term);
-   fprintf(fp, "* TERM_PROGRAM=%s\n", program);
-   fprintf(fp, "* These command names are the target THE instruction shape.\n");
-   fprintf(fp, "* Until THE implements them, keep this file with the probe report.\n\n");
+   write_rexx_profile_comment(fp, "THE UTF-8 terminal settings.");
+   write_rexx_profile_comment(fp, "generated_by=utf8_terminal_probe "
+                                  UTF8_TERMINAL_PROBE_VERSION);
+   if (*term != '\0')
+   {
+      char comment[256];
+      snprintf(comment, sizeof(comment), "TERM=%s", term);
+      write_rexx_profile_comment(fp, comment);
+   }
+   if (*program != '\0')
+   {
+      char comment[256];
+      snprintf(comment, sizeof(comment), "TERM_PROGRAM=%s", program);
+      write_rexx_profile_comment(fp, comment);
+   }
+   fprintf(fp, "address the\n\n");
    for (i = 0; i < count; i++)
    {
       const CalibrationEntry *entry = &entries[i];
@@ -3950,39 +4086,57 @@ static int write_calibration_profile(ProbeConfig *cfg,
          continue;
       if (calibration_entry_is_normal_intent(entry))
       {
-         fprintf(fp, "SET UTF8 TERMINAL CLASS %s LAYOUT %d CURSOR %d\n",
-                 entry->feature_class, entry->layout_width,
-                 entry->cursor_width);
-         fprintf(fp, "SET UTF8 TERMINAL CLASS %s CURSORSTRATEGY %s\n",
-                 entry->feature_class,
-                 profile_strategy_name(entry->cursor_strategy));
-         fprintf(fp, "SET UTF8 TERMINAL CLASS %s REPLACESTRATEGY %s\n\n",
-                 entry->feature_class,
-                 profile_strategy_name(entry->replacement_strategy));
+         write_rexx_profile_command(
+            fp, "SET UTF8 TERMINAL CLASS %s LAYOUT %d CURSOR %d",
+            entry->feature_class, entry->layout_width, entry->cursor_width);
+         write_rexx_profile_command(
+            fp, "SET UTF8 TERMINAL CLASS %s CURSORSTRATEGY %s",
+            entry->feature_class,
+            profile_strategy_name(entry->cursor_strategy));
+         write_rexx_profile_command(
+            fp, "SET UTF8 TERMINAL CLASS %s REPLACESTRATEGY %s",
+            entry->feature_class,
+            profile_strategy_name(entry->replacement_strategy));
+         fprintf(fp, "\n");
       }
       else
       {
-         fprintf(fp, "SET UTF8 TERMINAL CLASS %s INTENT %s OUTPUT %s\n",
-                 entry->feature_class, entry->display_intent,
-                 entry->output_method);
+         if (strcmp(entry->output_method, "substitute") == 0)
+         {
+            write_rexx_profile_command(
+               fp, "SET UTF8 TERMINAL CLASS %s INTENT %s OUTPUT %s U+%04X",
+               entry->feature_class, entry->display_intent,
+               entry->output_method, (unsigned int)entry->substitute_codepoint);
+         }
+         else
+         {
+            write_rexx_profile_command(
+               fp, "SET UTF8 TERMINAL CLASS %s INTENT %s OUTPUT %s",
+               entry->feature_class, entry->display_intent,
+               entry->output_method);
+         }
          if (strcmp(entry->output_method, "substitute") != 0)
          {
-            fprintf(fp, "SET UTF8 TERMINAL CLASS %s INTENT %s LAYOUT %d CURSOR %d\n",
-                    entry->feature_class, entry->display_intent,
-                    entry->layout_width, entry->cursor_width);
-            fprintf(fp, "SET UTF8 TERMINAL CLASS %s INTENT %s CURSORSTRATEGY %s\n",
-                    entry->feature_class, entry->display_intent,
-                    profile_strategy_name(entry->cursor_strategy));
-            fprintf(fp, "SET UTF8 TERMINAL CLASS %s INTENT %s REPLACESTRATEGY %s\n",
-                    entry->feature_class, entry->display_intent,
-                    profile_strategy_name(entry->replacement_strategy));
+            write_rexx_profile_command(
+               fp, "SET UTF8 TERMINAL CLASS %s INTENT %s LAYOUT %d CURSOR %d",
+               entry->feature_class, entry->display_intent,
+               entry->layout_width, entry->cursor_width);
+            write_rexx_profile_command(
+               fp, "SET UTF8 TERMINAL CLASS %s INTENT %s CURSORSTRATEGY %s",
+               entry->feature_class, entry->display_intent,
+               profile_strategy_name(entry->cursor_strategy));
+            write_rexx_profile_command(
+               fp, "SET UTF8 TERMINAL CLASS %s INTENT %s REPLACESTRATEGY %s",
+               entry->feature_class, entry->display_intent,
+               profile_strategy_name(entry->replacement_strategy));
          }
          fprintf(fp, "\n");
       }
       written++;
    }
    if (written == 0)
-      fprintf(fp, "* No overrides. Built-in UTF-8 terminal defaults apply.\n");
+      write_rexx_profile_comment(fp,
+         "No overrides. Built-in UTF-8 terminal defaults apply.");
    fclose(fp);
    reportf(cfg, "calibrate_profile,path=%s,count=%zu,overrides=%zu\n",
            cfg->profile_path, count, written);
@@ -4174,7 +4328,15 @@ static const char *calibration_effective_utf8(const CalibrationEntry *entry,
    ||  strcmp(entry->output_method, "native") == 0)
       return src;
    if (strcmp(entry->output_method, "substitute") == 0)
-      return U8_ZWJ_SUBSTITUTE;
+   {
+      size_t used;
+
+      if (buffer_size == 0)
+         return src;
+      used = append_utf8_codepoint(buffer, 0, buffer_size,
+                                   entry->substitute_codepoint);
+      return used > 0 ? buffer : src;
+   }
    if (strcmp(entry->output_method, "expanded") != 0)
       return src;
 
@@ -4220,6 +4382,7 @@ static void copy_calibration_settings(CalibrationEntry *entry,
    entry->cursor_strategy = source->cursor_strategy;
    entry->replacement_strategy = source->replacement_strategy;
    entry->output_method = source->output_method;
+   entry->substitute_codepoint = source->substitute_codepoint;
 }
 
 static int calibration_entry_changed(const CalibrationEntry *left,
@@ -4229,7 +4392,8 @@ static int calibration_entry_changed(const CalibrationEntry *left,
        || left->cursor_width != right->cursor_width
        || strcmp(left->cursor_strategy, right->cursor_strategy) != 0
        || strcmp(left->replacement_strategy, right->replacement_strategy) != 0
-       || strcmp(left->output_method, right->output_method) != 0;
+       || strcmp(left->output_method, right->output_method) != 0
+       || left->substitute_codepoint != right->substitute_codepoint;
 }
 
 static int calibration_entry_is_default(const CalibrationEntry *entry)
@@ -4244,7 +4408,8 @@ static int calibration_entry_is_default(const CalibrationEntry *entry)
        && strcmp(entry->replacement_strategy,
                  defaults->replacement_strategy) == 0
        && strcmp(entry->display_intent, defaults->display_intent) == 0
-       && strcmp(entry->output_method, defaults->output_method) == 0;
+       && strcmp(entry->output_method, defaults->output_method) == 0
+       && entry->substitute_codepoint == defaults->substitute_codepoint;
 }
 
 static int configure_calibration_entry(ProbeConfig *cfg,

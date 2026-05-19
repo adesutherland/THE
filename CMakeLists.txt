@@ -370,6 +370,7 @@ set(THE_SOURCES
     src/sort.c
     src/target.c
     src/the.c
+    src/textedit.c
     src/textpos.c
     src/utf8term.c
     src/mygetopt.c
@@ -477,6 +478,14 @@ if(USE_UTF8)
         target_compile_definitions(test_utf8_fixture PRIVATE USE_UTF8PROC=1)
     endif()
     add_test(NAME test_utf8_fixture COMMAND test_utf8_fixture ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/utf8-render.txt)
+
+    add_executable(test_textedit tests/test_textedit.c src/textedit.c src/textpos.c src/utf8term.c)
+    target_include_directories(test_textedit PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+    if(USE_UTF8PROC)
+        target_link_libraries(test_textedit ${THE_UTF8PROC_TARGET})
+        target_compile_definitions(test_textedit PRIVATE USE_UTF8PROC=1)
+    endif()
+    add_test(NAME test_textedit COMMAND test_textedit)
 
     add_executable(test_utf8term tests/test_utf8term.c src/utf8term.c src/textpos.c)
     target_include_directories(test_utf8term PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})

@@ -3,9 +3,11 @@
 This directory stores terminal-specific UTF-8 physical display baselines
 captured by `tools/utf8_terminal_probe.c`.
 
-These files are proposed THE instruction fragments. They are not yet consumed
-by the editor directly; they document the profile data that the renderer and
-future `SET UTF8 TERMINAL ...` implementation should use.
+These files are REXX/THE profile fragments. Comments use `/* ... */`, and
+the actual settings are quoted THE instructions so the files can be run as
+profile scripts or copied into an existing THE profile. Substitute output
+settings should include the per-class codepoint, for example
+`OUTPUT substitute U+0040`.
 
 - `defaults-poc34.the`: complete default table for
   `utf8_terminal_probe 2026-05-13-poc34`, mirrored from

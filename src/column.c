@@ -37,6 +37,9 @@
 
 #include <the.h>
 #include <proto.h>
+#ifdef USE_UTF8
+# include "textedit.h"
+#endif
 
 /***********************************************************************/
 short column_command(CHARTYPE *cmd_text,int cmd_type)
@@ -46,7 +49,8 @@ short column_command(CHARTYPE *cmd_text,int cmd_type)
    LINETYPE true_line=0L;
    short rc=RC_OK;
    LENGTHTYPE len_params=0;
-   unsigned short y=0,x=0;
+   LENGTHTYPE x=0;
+   int y=0,screen_x=0;
 
    TRACE_FUNCTION("column.c:  column_command");
    /*
@@ -113,9 +117,49 @@ short column_command(CHARTYPE *cmd_text,int cmd_type)
          }
       }
       if (curses_started)
-         getyx(CURRENT_WINDOW,y,x);
-      x = CURRENT_VIEW->verify_col-1+x;
+         getyx(CURRENT_WINDOW,y,screen_x);
+#ifdef USE_UTF8
+      if (!CURRENT_VIEW->hex)
+      {
+         x = show_utf8_logical_col_from_display(rec, rec_len,
+                                                CURRENT_VIEW->verify_col - 1,
+                                                screen_x,
+                                                TEXT_SNAP_BACKWARD);
+      }
+      else
+#endif
+      x = CURRENT_VIEW->verify_col - 1 + screen_x;
    }
+#ifdef USE_UTF8
+   if (!CURRENT_VIEW->hex)
+   {
+      TextPos end_pos;
+
+      show_utf8_note_line_replacement(true_line, rec, rec_len);
+      switch(cmd_type)
+      {
+         case COLUMN_CAPPEND:
+            end_pos = textpos_from_byte(rec, rec_len, rec_len);
+            CURRENT_VIEW->current_column = end_pos.cell_column + 1;
+            rec_len = textedit_append_utf8(rec, rec_len, max_line_length,
+                                           cmd_text, len_params);
+            break;
+         case COLUMN_CINSERT:
+            rec_len = textedit_insert_utf8(rec, rec_len, max_line_length, x,
+                                           cmd_text, len_params);
+            break;
+         case COLUMN_COVERLAY:
+            rec_len = textedit_overlay_utf8(rec, rec_len, max_line_length, x,
+                                            cmd_text, len_params);
+            break;
+         case COLUMN_CREPLACE:
+            rec_len = textedit_replace_utf8(rec, rec_len, max_line_length, x,
+                                            cmd_text, len_params);
+            break;
+      }
+   }
+   else
+#endif
    switch(cmd_type)
    {
       case COLUMN_CAPPEND:

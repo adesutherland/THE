@@ -47,6 +47,12 @@ Do not repair terminal paint bugs by changing logical cluster boundaries. If
 Apple Terminal, xterm, Windows Terminal, or a curses stack paints a cluster
 differently, that belongs in a terminal profile.
 
+Column-oriented edit commands are part of the logical model. `CINSERT`,
+`CREPLACE`, and `COVERLAY` convert any file-area display coordinate back to a
+logical cell column, snap to the start of the containing grapheme cluster, and
+edit whole clusters. They must not use terminal-profile layout widths to decide
+what bytes to insert, delete, or replace.
+
 The terminal profile should be keyed by feature class and terminal identity.
 Each feature-class entry should eventually contain:
 
@@ -818,11 +824,17 @@ Terminal probe tool:
   The eventual ZWJ shape may need intent-qualified commands, for example:
 
   ```text
+  SET UTF8 INTENT components
   SET UTF8 TERMINAL CLASS family-zwj INTENT group OUTPUT native
   SET UTF8 TERMINAL CLASS family-zwj INTENT group LAYOUT 2 CURSOR 2
   SET UTF8 TERMINAL CLASS family-zwj INTENT components OUTPUT expanded
   SET UTF8 TERMINAL CLASS family-zwj INTENT components LAYOUT 8 CURSOR 8
   ```
+
+  `SET UTF8 INTENT group|components|toggle` selects the global display intent
+  used at render time for intent-aware classes. Classes with only normal
+  profiles, such as `keycap`, still use their normal class profile regardless
+  of the global intent.
 
   Non-visual calibration runs report the loaded settings but do not rewrite the
   profile.
