@@ -103,7 +103,7 @@ Version 3.3RC3 22-03-2013 (Mageia only)
      o Support multiple paired comment specifications in TLD file
      o Merged the html.tld and js.tld files
  --- New features:
-     o Added QUERY UTF8 to indicate if UTF8 support is enabled. Note UTF8 support is incomplete
+     o Added QUERY UTF to indicate if UTF support is enabled. Note UTF support is incomplete
        and only available by building THE from source; not from binary packages
 
 Version 3.3RC2 21-Feb-2012 (MacOS X only)

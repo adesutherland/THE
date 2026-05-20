@@ -785,7 +785,7 @@ short Undoing (CHARTYPE *);
 short Untaa (CHARTYPE *);
 short Up (CHARTYPE *);
 short Uppercase (CHARTYPE *);
-short Utf8 (CHARTYPE *);
+short Utf (CHARTYPE *);
 short Validtarget (CHARTYPE *);
 short Verify (CHARTYPE *);
 short Width (CHARTYPE *);

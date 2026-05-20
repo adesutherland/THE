@@ -4,10 +4,10 @@
 #include <stddef.h>
 
 #include "textpos.h"
-#include "utf8term_defaults.h"
+#include "utfterm_defaults.h"
 
 /*
- * UTF-8 terminal profiles describe physical terminal behaviour only.
+ * UTF terminal profiles describe physical terminal behaviour only.
  * Editor commands, text storage, and macro-visible character movement must
  * continue to use the logical TextPos/utf8proc model.
  */
@@ -40,12 +40,12 @@ typedef enum
 
 typedef enum
 {
-   UTF8_TERM_INTENT_UNKNOWN = -1,
-   UTF8_TERM_INTENT_NORMAL = 0,
-   UTF8_TERM_INTENT_GROUP,
-   UTF8_TERM_INTENT_COMPONENTS,
-   UTF8_TERM_INTENT_COUNT
-} Utf8TerminalIntent;
+   UTF8_TERM_DISPLAY_UNKNOWN = -1,
+   UTF8_TERM_DISPLAY_NORMAL = 0,
+   UTF8_TERM_DISPLAY_GROUPED,
+   UTF8_TERM_DISPLAY_COMPONENTS,
+   UTF8_TERM_DISPLAY_COUNT
+} Utf8TerminalDisplayMode;
 
 typedef enum
 {
@@ -62,17 +62,16 @@ typedef enum
    UTF8_TERM_STRATEGY_CHANGED_CELLS = 0,
    UTF8_TERM_STRATEGY_LINE,
    UTF8_TERM_STRATEGY_CLEAR_CHANGED_SUFFIX_FAST,
-   UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST,
-   UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_PAUSE,
-   UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST,
    UTF8_TERM_STRATEGY_CLEAR_FROM_ONE_PRIOR_CLUSTER,
+   UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST,
+   UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST,
    UTF8_TERM_STRATEGY_COUNT
 } Utf8TerminalStrategy;
 
 typedef struct
 {
    Utf8TerminalClass feature_class;
-   Utf8TerminalIntent display_intent;
+   Utf8TerminalDisplayMode display_mode;
    Utf8TerminalOutput output_method;
    uint32_t substitute_codepoint;
    int layout_width;
@@ -88,31 +87,31 @@ int utf8_terminal_profile_apply_terminal_identity(const char *term,
 int utf8_terminal_profile_apply_apple_terminal(void);
 int utf8_terminal_profile_apply_line(const char *line);
 int utf8_terminal_profile_apply_file(const char *path, int *settings_loaded);
-Utf8TerminalIntent utf8_terminal_display_intent(void);
-int utf8_terminal_set_display_intent(Utf8TerminalIntent intent);
-Utf8TerminalIntent utf8_terminal_toggle_display_intent(void);
+Utf8TerminalDisplayMode utf8_terminal_display_mode(void);
+int utf8_terminal_set_display_mode(Utf8TerminalDisplayMode display);
+Utf8TerminalDisplayMode utf8_terminal_toggle_display_mode(void);
 int utf8_terminal_strategy_rank(Utf8TerminalStrategy strategy);
 Utf8TerminalStrategy utf8_terminal_cursor_transition_strategy(
    const Utf8TerminalProfileEntry *old_entry,
    const Utf8TerminalProfileEntry *new_entry);
 const Utf8TerminalProfileEntry *utf8_terminal_profile_lookup(
-   Utf8TerminalClass feature_class, Utf8TerminalIntent intent);
+   Utf8TerminalClass feature_class, Utf8TerminalDisplayMode display);
 Utf8TerminalClass utf8_terminal_classify_cluster(const CHARTYPE *line,
                                                  size_t len,
                                                  TextCluster cluster);
 const Utf8TerminalProfileEntry *utf8_terminal_profile_lookup_cluster(
    const CHARTYPE *line, size_t len, TextCluster cluster,
-   Utf8TerminalIntent preferred_intent);
+   Utf8TerminalDisplayMode preferred_display);
 size_t utf8_terminal_profile_entry_count(void);
 const Utf8TerminalProfileEntry *utf8_terminal_profile_entry_at(size_t index);
 
 Utf8TerminalClass utf8_terminal_class_from_name(const char *name);
-Utf8TerminalIntent utf8_terminal_intent_from_name(const char *name);
+Utf8TerminalDisplayMode utf8_terminal_display_from_name(const char *name);
 Utf8TerminalOutput utf8_terminal_output_from_name(const char *name);
 Utf8TerminalStrategy utf8_terminal_strategy_from_name(const char *name);
 
 const char *utf8_terminal_class_name(Utf8TerminalClass feature_class);
-const char *utf8_terminal_intent_name(Utf8TerminalIntent intent);
+const char *utf8_terminal_display_name(Utf8TerminalDisplayMode display);
 const char *utf8_terminal_output_name(Utf8TerminalOutput output);
 const char *utf8_terminal_strategy_name(Utf8TerminalStrategy strategy);
 

@@ -209,7 +209,7 @@ extern ExtractFunction extract_typeahead;
 extern ExtractFunction extract_ui;
 extern ExtractFunction extract_undoing;
 extern ExtractFunction extract_untaa;
-extern ExtractFunction extract_utf8;
+extern ExtractFunction extract_utf;
 extern ExtractFunction extract_variant;
 extern ExtractFunction extract_verify;
 extern ExtractFunction extract_vershift;
@@ -1712,12 +1712,12 @@ UNTAA
      untaa.0         - 1
      untaa.1         - ON|OFF
 
-UTF8
-     Indicates if the UTF8 support is built in.
+UTF
+     Indicates if UTF support is built in.
      (QES)
 
-     utf8.0          - 1
-     utf8.1          - ON|OFF
+     utf.0           - 1
+     utf.1           - ON|OFF
 
 VARiant
      Identifies the variant of THE being run.
@@ -2173,7 +2173,7 @@ QUERY_ITEM _THE_FAR query_item[] =
    {(CHARTYPE *)"ui",              2, 2,ITEM_UI,            1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT             ,extract_ui                     },
    {(CHARTYPE *)"undoing",         7, 7,ITEM_UNDOING,       1, 1,          LVL_FILE,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_undoing                },
    {(CHARTYPE *)"untaa",           5, 5,ITEM_UNTAA,         1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_untaa                  },
-   {(CHARTYPE *)"utf8",            4, 4,ITEM_UTF8,          1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT             ,extract_utf8                   },
+   {(CHARTYPE *)"utf",             3, 3,ITEM_UTF,           1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT             ,extract_utf                    },
    {(CHARTYPE *)"variant",         7, 3,ITEM_VARIANT,       1, 1,          LVL_FILE,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT             ,extract_variant                },
    {(CHARTYPE *)"verify",          6, 1,ITEM_VERIFY,        1, 1,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_verify                 },
    {(CHARTYPE *)"vershift",        8, 4,ITEM_VERSHIFT,      1, 1,          LVL_VIEW,QUERY_QUERY             |QUERY_EXTRACT             ,extract_vershift               },

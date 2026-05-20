@@ -13,7 +13,7 @@
 #include <time.h>
 #include <wchar.h>
 
-#include "utf8term_defaults.h"
+#include "utfterm_defaults.h"
 
 #if defined(_WIN32)
 # include <io.h>
@@ -39,7 +39,7 @@
 # define THE_SYSTEM_PROFILE_DIR "/tmp"
 #endif
 
-#define UTF8_TERMINAL_PROBE_VERSION "v1"
+#define UTF_TERMINAL_PROBE_VERSION "v1"
 #define PROBE_PROFILE_PATH_MAX 4096
 
 #define U8_COMBINING_E_ACUTE "e\xCC\x81"
@@ -106,6 +106,7 @@ typedef struct
    size_t sample_count;
    int pause;
    int no_visual;
+   int write_profile;
    int run_matrix;
    int run_motion;
    int run_diagnostic;
@@ -134,7 +135,7 @@ typedef struct
 {
    const ProbeSample *sample;
    const char *feature_class;
-   const char *display_intent;
+   const char *display_mode;
    const char *output_method;
    const struct CalibrationDefault *defaults;
    uint32_t substitute_codepoint;
@@ -161,7 +162,7 @@ typedef struct
 typedef struct CalibrationDefault
 {
    const char *feature_class;
-   const char *display_intent;
+   const char *display_mode;
    const char *output_method;
    uint32_t substitute_codepoint;
    int layout_width;
@@ -171,8 +172,8 @@ typedef struct CalibrationDefault
 } CalibrationDefault;
 
 #define ZWJ_UTF8 "\xE2\x80\x8D"
-#define PROBE_CALIBRATION_DEFAULT(feature_class, feature_class_name, display_intent, display_intent_name, output_method, output_method_name, substitute_codepoint, layout_width, cursor_width, cursor_strategy, cursor_strategy_name, replacement_strategy, replacement_strategy_name) \
-   { feature_class_name, display_intent_name, output_method_name, substitute_codepoint, layout_width, cursor_width, cursor_strategy_name, replacement_strategy_name },
+#define PROBE_CALIBRATION_DEFAULT(feature_class, feature_class_name, display_mode, display_mode_name, output_method, output_method_name, substitute_codepoint, layout_width, cursor_width, cursor_strategy, cursor_strategy_name, replacement_strategy, replacement_strategy_name) \
+   { feature_class_name, display_mode_name, output_method_name, substitute_codepoint, layout_width, cursor_width, cursor_strategy_name, replacement_strategy_name },
 
 static const CalibrationDefault calibration_defaults[] =
 {
@@ -910,8 +911,8 @@ static void log_environment(ProbeConfig *cfg)
 {
    time_t now = time(NULL);
 
-   reportf(cfg, "# THE UTF-8 terminal probe\n");
-   reportf(cfg, "probe_version=%s\n", UTF8_TERMINAL_PROBE_VERSION);
+   reportf(cfg, "# THE UTF terminal probe\n");
+   reportf(cfg, "probe_version=%s\n", UTF_TERMINAL_PROBE_VERSION);
    reportf(cfg, "time=%s", ctime(&now));
    reportf(cfg, "locale=%s\n", setlocale(LC_CTYPE, NULL));
    reportf(cfg, "MB_CUR_MAX=%d\n", (int)MB_CUR_MAX);
@@ -944,8 +945,8 @@ static void log_raw_environment(ProbeConfig *cfg)
    }
 #endif
 
-   reportf(cfg, "# THE UTF-8 terminal probe\n");
-   reportf(cfg, "probe_version=%s\n", UTF8_TERMINAL_PROBE_VERSION);
+   reportf(cfg, "# THE UTF terminal probe\n");
+   reportf(cfg, "probe_version=%s\n", UTF_TERMINAL_PROBE_VERSION);
    reportf(cfg, "mode=raw_diagnostic\n");
    reportf(cfg, "time=%s", ctime(&now));
    reportf(cfg, "locale=%s\n", setlocale(LC_CTYPE, NULL));
@@ -976,8 +977,8 @@ static void log_headless_environment(ProbeConfig *cfg)
    }
 #endif
 
-   reportf(cfg, "# THE UTF-8 terminal probe\n");
-   reportf(cfg, "probe_version=%s\n", UTF8_TERMINAL_PROBE_VERSION);
+   reportf(cfg, "# THE UTF terminal probe\n");
+   reportf(cfg, "probe_version=%s\n", UTF_TERMINAL_PROBE_VERSION);
    reportf(cfg, "mode=headless\n");
    reportf(cfg, "time=%s", ctime(&now));
    reportf(cfg, "locale=%s\n", setlocale(LC_CTYPE, NULL));
@@ -1001,7 +1002,7 @@ static void run_matrix_probe(ProbeConfig *cfg)
    cfg->row = 2;
    if (!cfg->no_visual)
    {
-      mvprintw(0, 0, "UTF-8 terminal probe: width and write-method matrix");
+      mvprintw(0, 0, "UTF terminal probe: width and write-method matrix");
       mvprintw(1, cfg->data_col, "0....5....10...15...20");
    }
    reportf(cfg, "section=matrix\n");
@@ -1471,7 +1472,7 @@ static void run_raw_terminal_diagnostic_probe(ProbeConfig *cfg)
    {
       terminal_move(0, 0);
       terminal_write("Raw ANSI-only keycap diagnostic ");
-      terminal_write(UTF8_TERMINAL_PROBE_VERSION);
+      terminal_write(UTF_TERMINAL_PROBE_VERSION);
       terminal_write(": no curses initialization, hardware cursor hidden");
       terminal_move(1, 0);
       terminal_write("Compare paint width, cursor width, and reverse-vs-marker styling");
@@ -1942,7 +1943,7 @@ static void utfvis_draw_header(const char *selector, int sample_col, int sample_
 
    erase();
    mvprintw(0, 0, "utfvis %s %s: static THE-style background cursor",
-            selector ? selector : "focus", UTF8_TERMINAL_PROBE_VERSION);
+            selector ? selector : "focus", UTF_TERMINAL_PROBE_VERSION);
    mvprintw(1, 0, "Rows paint A-cluster-B-space-A. L=layout cells, C=cursor background cells.");
    for (t = 0; t < sizeof(targets) / sizeof(targets[0]); t++)
       mvprintw(3, sample_col + (int)t * sample_stride, "%-10s", targets[t]);
@@ -2130,7 +2131,7 @@ static int testcursor_mode_valid(const char *mode)
 
 static const char *testchain_mode_name(const ProbeConfig *cfg)
 {
-   return cfg->testchain_mode ? cfg->testchain_mode : "flashbackcluster1";
+   return cfg->testchain_mode ? cfg->testchain_mode : "prev";
 }
 
 static int testchain_mode_is(const ProbeConfig *cfg, const char *mode)
@@ -2138,35 +2139,23 @@ static int testchain_mode_is(const ProbeConfig *cfg, const char *mode)
    return strcmp(testchain_mode_name(cfg), mode) == 0;
 }
 
-static int testchain_mode_flashback(const char *mode, int *back_clusters)
+static int testchain_mode_prev(const char *mode, int *prior_clusters)
 {
-   const char *prefix = "flashbackcluster";
-   size_t prefix_len = strlen(prefix);
-
-   if (mode == NULL || strncmp(mode, prefix, prefix_len) != 0)
+   if (mode == NULL || strcmp(mode, "prev") != 0)
       return 0;
-   if (mode[prefix_len] < '0' || mode[prefix_len] > '6'
-   ||  mode[prefix_len + 1] != '\0')
-      return 0;
-   *back_clusters = mode[prefix_len] - '0';
+   *prior_clusters = 1;
    return 1;
 }
 
 static int testchain_mode_valid(const char *mode)
 {
-   int back_clusters = 0;
-
    return mode == NULL
        || strcmp(mode, "line") == 0
-       || strcmp(mode, "cell") == 0
+       || strcmp(mode, "cells") == 0
        || strcmp(mode, "suffix") == 0
-       || strcmp(mode, "paintfirstcluster") == 0
-       || strcmp(mode, "touchfirstcluster") == 0
-       || strcmp(mode, "clearfirstcluster") == 0
-       || strcmp(mode, "flashfirstfast") == 0
-       || strcmp(mode, "flashfirstcluster") == 0
-       || strcmp(mode, "flashwhole") == 0
-       || testchain_mode_flashback(mode, &back_clusters);
+       || strcmp(mode, "prev") == 0
+       || strcmp(mode, "first") == 0
+       || strcmp(mode, "whole") == 0;
 }
 
 static int testcursor_is_cluster_target(int target)
@@ -2309,7 +2298,6 @@ static void draw_testcursor_flash_frame(const ProbeSample *sample, int row,
    curses_clear_cells(row, col - 1, total_width + 2, A_NORMAL);
    touchline(stdscr, row, 1);
    refresh();
-   napms(25);
    draw_testcursor_frame(sample, row, col, layout_width, cursor_width,
                          target, cursor_attr, 1);
 }
@@ -2336,7 +2324,6 @@ static void draw_testcursor_flash_span(const ProbeSample *sample, int row,
    curses_clear_cells(row, col + start_cell, width_cells, A_NORMAL);
    touchline(stdscr, row, 1);
    refresh();
-   napms(25);
    draw_testcursor_span_normal(sample, row, col, layout_width,
                                first_target, last_target);
    draw_testcursor_target(sample, row, col, layout_width, cursor_width,
@@ -2360,7 +2347,6 @@ static void draw_testcursor_flash_suffix(const ProbeSample *sample, int row,
    curses_clear_cells(row, col + start_cell, width_cells, A_NORMAL);
    touchline(stdscr, row, 1);
    refresh();
-   napms(25);
    draw_testcursor_span_normal(sample, row, col, layout_width, first_target, 6);
    draw_testcursor_target(sample, row, col, layout_width, cursor_width,
                           new_target, cursor_attr);
@@ -2409,7 +2395,7 @@ static void run_testcursor_probe(ProbeConfig *cfg)
    mvprintw(0, 0, "testcursor %s L%d C%d mode=%s %s: press any key to stop",
             cfg->testcursor_selector, cfg->testcursor_layout_width,
             cfg->testcursor_cursor_width, testcursor_mode_name(cfg),
-            UTF8_TERMINAL_PROBE_VERSION);
+            UTF_TERMINAL_PROBE_VERSION);
    mvprintw(1, 0, "Pattern is A-cluster-B-space-A-cluster-B.");
    (void)testcursor_mode_flashfrom(testcursor_mode_name(cfg), &flashfrom_target);
    if (testcursor_mode_needs_base(cfg))
@@ -2667,42 +2653,42 @@ static void draw_testchain_span_normal(const ProbeSample *sample, int row,
                               widths[target], A_NORMAL);
 }
 
-static int testchain_flash_start(int old_target, int new_target,
-                                 int back_clusters)
+static int testchain_suffix_start(int old_target, int new_target,
+                                  int prior_clusters)
 {
    int start = old_target >= 0 && old_target < new_target
              ? old_target : new_target;
    int target;
 
-   if (back_clusters <= 0)
+   if (prior_clusters <= 0)
       return start < 0 ? 0 : start;
    target = start;
    if (target >= 0 && testchain_is_cluster_target(target))
-      back_clusters--;
-   while (back_clusters > 0 && target > 0)
+      prior_clusters--;
+   while (prior_clusters > 0 && target > 0)
    {
       target--;
       if (testchain_is_cluster_target(target))
       {
          start = target;
-         back_clusters--;
+         prior_clusters--;
       }
    }
-   if (back_clusters > 0)
+   if (prior_clusters > 0)
       start = 0;
    if (start < 0)
       start = 0;
    return start;
 }
 
-static void draw_testchain_flashback(const ProbeSample *sample, int row,
-                                     int col, int layout_width,
-                                     int cursor_width, int old_target,
-                                     int new_target, int back_clusters,
-                                     attr_t cursor_attr)
+static void draw_testchain_prev(const ProbeSample *sample, int row,
+                                int col, int layout_width,
+                                int cursor_width, int old_target,
+                                int new_target, int prior_clusters,
+                                attr_t cursor_attr)
 {
-   int start_target = testchain_flash_start(old_target, new_target,
-                                            back_clusters);
+   int start_target = testchain_suffix_start(old_target, new_target,
+                                            prior_clusters);
    int start_cell;
    int width_cells;
 
@@ -2715,14 +2701,13 @@ static void draw_testchain_flashback(const ProbeSample *sample, int row,
    curses_clear_cells(row, col + start_cell, width_cells, A_NORMAL);
    touchline(stdscr, row, 1);
    refresh();
-   napms(25);
    draw_testchain_span_normal(sample, row, col, layout_width, start_target,
                               TESTCHAIN_TARGETS - 1);
    draw_testchain_target(sample, row, col, layout_width, cursor_width,
                          new_target, cursor_attr);
 }
 
-static void draw_testchain_flashfrom(const ProbeSample *sample, int row,
+static void draw_testchain_clearfrom(const ProbeSample *sample, int row,
                                      int col, int layout_width,
                                      int cursor_width, int old_target,
                                      int new_target, int start_target,
@@ -2744,7 +2729,6 @@ static void draw_testchain_flashfrom(const ProbeSample *sample, int row,
    curses_clear_cells(row, col + start_cell, width_cells, A_NORMAL);
    touchline(stdscr, row, 1);
    refresh();
-   napms(25);
    draw_testchain_span_normal(sample, row, col, layout_width, start_target,
                               TESTCHAIN_TARGETS - 1);
    draw_testchain_target(sample, row, col, layout_width, cursor_width,
@@ -2756,7 +2740,7 @@ static void draw_testchain_resetfrom(const ProbeSample *sample, int row,
                                      int cursor_width, int old_target,
                                      int new_target, int start_target,
                                      attr_t cursor_attr, int clear_first,
-                                     int separate_refresh, int pause_ms,
+                                     int separate_refresh,
                                      int touch_after_repaint)
 {
    int start_cell;
@@ -2778,11 +2762,7 @@ static void draw_testchain_resetfrom(const ProbeSample *sample, int row,
       touchline(stdscr, row, 1);
    }
    if (separate_refresh)
-   {
       refresh();
-      if (pause_ms > 0)
-         napms(pause_ms);
-   }
    draw_testchain_span_normal(sample, row, col, layout_width, start_target,
                               TESTCHAIN_TARGETS - 1);
    draw_testchain_target(sample, row, col, layout_width, cursor_width,
@@ -2813,18 +2793,11 @@ static void run_testchain_probe(ProbeConfig *cfg)
    int delay = cfg->timeout_ms > 0 ? cfg->timeout_ms : 200;
    int step = 0;
    int old_target = -1;
-   int back_clusters = 1;
-   int flashback = testchain_mode_flashback(testchain_mode_name(cfg),
-                                            &back_clusters);
-   int paintfirst = testchain_mode_is(cfg, "paintfirstcluster");
-   int touchfirst = testchain_mode_is(cfg, "touchfirstcluster");
-   int clearfirst = testchain_mode_is(cfg, "clearfirstcluster");
+   int prior_clusters = 1;
+   int prev = testchain_mode_prev(testchain_mode_name(cfg), &prior_clusters);
    int suffix = testchain_mode_is(cfg, "suffix");
-   int flashfirstfast = testchain_mode_is(cfg, "flashfirstfast");
-   int flashfirst = testchain_mode_is(cfg, "flashfirstcluster");
-   int flashwhole = testchain_mode_is(cfg, "flashwhole");
-   int firststrategy = paintfirst || touchfirst || clearfirst
-                    || flashfirstfast || flashfirst;
+   int firststrategy = testchain_mode_is(cfg, "first");
+   int whole = testchain_mode_is(cfg, "whole");
 
    reportf(cfg, "section=testchain selector=%s layout_width=%d cursor_width=%d mode=%s pattern=XX-A-cluster-B-A-cluster-B-A-cluster-cluster-cluster-B-A-cluster-B-A-cluster-B-XX\n",
            cfg->testchain_selector ? cfg->testchain_selector : "",
@@ -2848,13 +2821,13 @@ static void run_testchain_probe(ProbeConfig *cfg)
       for (i = 0; i < (size_t)path_len; i++)
       {
          int target = testchain_path_target((int)i);
-         int start_target = flashwhole ? 0
+         int start_target = whole ? 0
                           : firststrategy ? testchain_first_cluster_target()
-                          : suffix ? testchain_flash_start(report_old_target,
+                          : suffix ? testchain_suffix_start(report_old_target,
                                                            target, 0)
-                          : flashback
-                          ? testchain_flash_start(report_old_target, target,
-                                                  back_clusters)
+                          : prev
+                          ? testchain_suffix_start(report_old_target, target,
+                                                  prior_clusters)
                           : -1;
 
          reportf(cfg, "testchain,%s,target=%s,start=%s,layout_width=%d,cursor_width=%d,mode=%s\n",
@@ -2873,28 +2846,28 @@ static void run_testchain_probe(ProbeConfig *cfg)
    mvprintw(0, 0, "testchain %s L%d C%d mode=%s %s: press any key to stop",
             cfg->testchain_selector, cfg->testchain_layout_width,
             cfg->testchain_cursor_width, testchain_mode_name(cfg),
-            UTF8_TERMINAL_PROBE_VERSION);
-   mvprintw(1, 0, "Pattern is XX-A-C-B-A-C-B-A-C-C-C-B-A-C-B-A-C-B-XX; flashback counts prior clusters.");
-   if (testchain_mode_is(cfg, "cell") || suffix || flashback
-   ||  firststrategy || flashwhole)
+            UTF_TERMINAL_PROBE_VERSION);
+   mvprintw(1, 0, "Pattern is XX-A-C-B-A-C-B-A-C-C-C-B-A-C-B-A-C-B-XX; prev clears from one prior cluster.");
+   if (testchain_mode_is(cfg, "cells") || suffix || prev
+   ||  firststrategy || whole)
       draw_testchain_base(sample, row, col, cfg->testchain_layout_width);
    nodelay(stdscr, TRUE);
    for (;;)
    {
       int target = testchain_path_target(step);
-      int start_target = flashwhole ? 0
+      int start_target = whole ? 0
                        : firststrategy ? testchain_first_cluster_target()
-                       : suffix ? testchain_flash_start(old_target, target, 0)
-                       : flashback
-                       ? testchain_flash_start(old_target, target,
-                                               back_clusters)
+                       : suffix ? testchain_suffix_start(old_target, target, 0)
+                       : prev
+                       ? testchain_suffix_start(old_target, target,
+                                               prior_clusters)
                        : -1;
 
       mvprintw(3, 0, "sample=%s class=%s target=%-9s start=%-9s step=%d   ",
                sample->name, sample->klass, testchain_target_name(target),
                start_target >= 0 ? testchain_target_name(start_target) : "-",
                step);
-      if (testchain_mode_is(cfg, "cell"))
+      if (testchain_mode_is(cfg, "cells"))
       {
          draw_testchain_step(sample, row, col, cfg->testchain_layout_width,
                              cfg->testchain_cursor_width, old_target, target,
@@ -2906,27 +2879,26 @@ static void run_testchain_probe(ProbeConfig *cfg)
                                   cfg->testchain_layout_width,
                                   cfg->testchain_cursor_width, old_target,
                                   target, start_target, cursor_attr,
-                                  1, 1, 0, 0);
+                                  1, 1, 0);
       }
-      else if (flashback)
+      else if (prev)
       {
-         draw_testchain_flashback(sample, row, col,
-                                  cfg->testchain_layout_width,
-                                  cfg->testchain_cursor_width, old_target,
-                                  target, back_clusters, cursor_attr);
+         draw_testchain_prev(sample, row, col,
+                             cfg->testchain_layout_width,
+                             cfg->testchain_cursor_width, old_target,
+                             target, prior_clusters, cursor_attr);
       }
-      else if (paintfirst || touchfirst || clearfirst || flashfirstfast)
+      else if (firststrategy)
       {
          draw_testchain_resetfrom(sample, row, col,
                                   cfg->testchain_layout_width,
                                   cfg->testchain_cursor_width, old_target,
                                   target, start_target, cursor_attr,
-                                  clearfirst || flashfirstfast,
-                                  flashfirstfast, 0, touchfirst);
+                                  1, 1, 0);
       }
-      else if (flashfirst || flashwhole)
+      else if (whole)
       {
-         draw_testchain_flashfrom(sample, row, col,
+         draw_testchain_clearfrom(sample, row, col,
                                   cfg->testchain_layout_width,
                                   cfg->testchain_cursor_width, old_target,
                                   target, start_target, cursor_attr);
@@ -2955,35 +2927,35 @@ static void run_testchain_probe(ProbeConfig *cfg)
 }
 
 static int calibration_entry_seen(const CalibrationEntry *entries, size_t count,
-                                  const char *klass, const char *intent)
+                                  const char *klass, const char *display)
 {
    size_t i;
 
    for (i = 0; i < count; i++)
       if (strcmp(entries[i].feature_class, klass) == 0)
       {
-         if (intent == NULL
-         ||  strcmp(entries[i].display_intent, intent) == 0)
+         if (display == NULL
+         ||  strcmp(entries[i].display_mode, display) == 0)
             return 1;
       }
    return 0;
 }
 
-static int calibration_entry_is_normal_intent(const CalibrationEntry *entry)
+static int calibration_entry_is_normal_display(const CalibrationEntry *entry)
 {
-   return strcmp(entry->display_intent, "normal") == 0;
+   return strcmp(entry->display_mode, "normal") == 0;
 }
 
 static CalibrationEntry *find_calibration_entry_for(CalibrationEntry *entries,
                                                     size_t count,
                                                     const char *feature_class,
-                                                    const char *intent)
+                                                    const char *display)
 {
    size_t i;
 
    for (i = 0; i < count; i++)
       if (strcmp(entries[i].feature_class, feature_class) == 0
-      &&  strcmp(entries[i].display_intent, intent) == 0)
+      &&  strcmp(entries[i].display_mode, display) == 0)
          return &entries[i];
    return NULL;
 }
@@ -3007,18 +2979,18 @@ static CalibrationEntry *find_calibration_entry(CalibrationEntry *entries,
                                                 const char *feature_class)
 {
    size_t i;
-   CalibrationEntry *group = NULL;
+   CalibrationEntry *grouped = NULL;
 
    for (i = 0; i < count; i++)
       if (strcmp(entries[i].feature_class, feature_class) == 0)
       {
-         if (strcmp(entries[i].display_intent, "normal") == 0)
+         if (strcmp(entries[i].display_mode, "normal") == 0)
             return &entries[i];
-         if (strcmp(entries[i].display_intent, "group") == 0)
-            group = &entries[i];
+         if (strcmp(entries[i].display_mode, "grouped") == 0)
+            grouped = &entries[i];
       }
-   if (group != NULL)
-      return group;
+   if (grouped != NULL)
+      return grouped;
    for (i = 0; i < count; i++)
       if (strcmp(entries[i].feature_class, feature_class) == 0)
          return &entries[i];
@@ -3072,11 +3044,11 @@ static size_t collect_calibration_entries(ProbeConfig *cfg,
       ||  !calibration_default_matches_selector(defaults, sample, selector))
          continue;
       if (calibration_entry_seen(entries, count, defaults->feature_class,
-                                 defaults->display_intent))
+                                 defaults->display_mode))
          continue;
       entries[count].sample = sample;
       entries[count].feature_class = defaults->feature_class;
-      entries[count].display_intent = defaults->display_intent;
+      entries[count].display_mode = defaults->display_mode;
       entries[count].output_method = defaults->output_method;
       entries[count].defaults = defaults;
       entries[count].substitute_codepoint = defaults->substitute_codepoint;
@@ -3219,10 +3191,10 @@ static int calibration_select_view(ProbeConfig *cfg, CalibrationEntry *entry)
          top = selected - visible_rows + 1;
 
       erase();
-      mvprintw(0, 0, "calibrate view %s/%s intent=%s output=%s %s",
+      mvprintw(0, 0, "calibrate view %s/%s display=%s output=%s %s",
                entry->feature_class, entry->sample->name,
-               entry->display_intent, entry->output_method,
-               UTF8_TERMINAL_PROBE_VERSION);
+               entry->display_mode, entry->output_method,
+               UTF_TERMINAL_PROBE_VERSION);
       mvprintw(1, 0, "Current L%d C%d. Choose the row whose plain, cluster-cursor, and B-cursor cells look aligned.",
                entry->layout_width, entry->cursor_width);
       mvprintw(2, 0, "Keys: j/k move, 1-9 choose visible row, Enter accept, q quit. Showing %d-%d of %d.",
@@ -3301,25 +3273,19 @@ static void draw_chain_strategy_frame(const ProbeSample *sample, int row,
                                       int old_target, int target,
                                       attr_t cursor_attr)
 {
-   int back_clusters = 1;
-   int flashback = testchain_mode_flashback(strategy, &back_clusters);
-   int paintfirst = strcmp(strategy, "paintfirstcluster") == 0;
-   int touchfirst = strcmp(strategy, "touchfirstcluster") == 0;
-   int clearfirst = strcmp(strategy, "clearfirstcluster") == 0;
+   int prior_clusters = 1;
+   int prev = testchain_mode_prev(strategy, &prior_clusters);
    int suffix = strcmp(strategy, "suffix") == 0;
-   int flashfirstfast = strcmp(strategy, "flashfirstfast") == 0;
-   int flashfirst = strcmp(strategy, "flashfirstcluster") == 0;
-   int flashwhole = strcmp(strategy, "flashwhole") == 0;
-   int firststrategy = paintfirst || touchfirst || clearfirst
-                    || flashfirstfast || flashfirst;
-   int start_target = flashwhole ? 0
+   int firststrategy = strcmp(strategy, "first") == 0;
+   int whole = strcmp(strategy, "whole") == 0;
+   int start_target = whole ? 0
                     : firststrategy ? testchain_first_cluster_target()
-                    : suffix ? testchain_flash_start(old_target, target, 0)
-                    : flashback
-                    ? testchain_flash_start(old_target, target, back_clusters)
+                    : suffix ? testchain_suffix_start(old_target, target, 0)
+                    : prev
+                    ? testchain_suffix_start(old_target, target, prior_clusters)
                     : -1;
 
-   if (strcmp(strategy, "cell") == 0)
+   if (strcmp(strategy, "cells") == 0)
    {
       draw_testchain_step(sample, row, col, layout_width, cursor_width,
                           old_target, target, cursor_attr);
@@ -3328,23 +3294,22 @@ static void draw_chain_strategy_frame(const ProbeSample *sample, int row,
    {
       draw_testchain_resetfrom(sample, row, col, layout_width, cursor_width,
                                old_target, target, start_target, cursor_attr,
-                               1, 1, 0, 0);
+                               1, 1, 0);
    }
-   else if (flashback)
+   else if (prev)
    {
-      draw_testchain_flashback(sample, row, col, layout_width, cursor_width,
-                               old_target, target, back_clusters, cursor_attr);
+      draw_testchain_prev(sample, row, col, layout_width, cursor_width,
+                          old_target, target, prior_clusters, cursor_attr);
    }
-   else if (paintfirst || touchfirst || clearfirst || flashfirstfast)
+   else if (firststrategy)
    {
       draw_testchain_resetfrom(sample, row, col, layout_width, cursor_width,
                                old_target, target, start_target, cursor_attr,
-                               clearfirst || flashfirstfast,
-                               flashfirstfast, 0, touchfirst);
+                               1, 1, 0);
    }
-   else if (flashfirst || flashwhole)
+   else if (whole)
    {
-      draw_testchain_flashfrom(sample, row, col, layout_width, cursor_width,
+      draw_testchain_clearfrom(sample, row, col, layout_width, cursor_width,
                                old_target, target, start_target, cursor_attr);
    }
    else
@@ -3509,9 +3474,8 @@ static void draw_replacement_strategy_frame(const ProbeSample *sample, int row,
    int start_target = changed_target;
    int start_cell;
    int width_cells;
-   int pause_ms = 0;
 
-   if (strcmp(strategy, "cell") == 0)
+   if (strcmp(strategy, "cells") == 0)
    {
       replacement_union_range(layout_width, old_state, new_state, changed_target,
                               changed_target, &start_cell, &width_cells);
@@ -3523,17 +3487,11 @@ static void draw_replacement_strategy_frame(const ProbeSample *sample, int row,
 
    if (strcmp(strategy, "suffix") == 0)
       start_target = changed_target;
-   else if (strcmp(strategy, "flashbackcluster1") == 0)
+   else if (strcmp(strategy, "prev") == 0)
       start_target = changed_target > 0 ? changed_target - 1 : 0;
-   else if (strcmp(strategy, "clearfirstfast") == 0
-   ||       strcmp(strategy, "flashfirstfast") == 0)
+   else if (strcmp(strategy, "first") == 0)
       start_target = 1;
-   else if (strcmp(strategy, "flashfirstcluster") == 0)
-   {
-      start_target = 1;
-      pause_ms = 25;
-   }
-   else if (strcmp(strategy, "flashwhole") == 0)
+   else if (strcmp(strategy, "whole") == 0)
       start_target = 0;
    else
    {
@@ -3548,8 +3506,6 @@ static void draw_replacement_strategy_frame(const ProbeSample *sample, int row,
                       A_NORMAL);
    touchline(stdscr, row, 1);
    refresh();
-   if (pause_ms > 0)
-      napms(pause_ms);
    draw_replacement_span(sample, row, col, layout_width, new_state,
                          start_target, REPLACE_TARGETS - 1);
 }
@@ -3573,13 +3529,12 @@ static int calibration_select_strategy(ProbeConfig *cfg,
 {
    static const StrategyCandidate strategies[] =
    {
-      { "cell", "old/new cells only", 10 },
-      { "line", "complete run repaint", 20 },
+      { "cells", "repaint changed cells only", 10 },
+      { "line", "repaint visible line/run", 20 },
       { "suffix", "clear changed suffix, flush, repaint", 30 },
-      { "flashbackcluster1", "clear from one prior cluster", 40 },
-      { "flashfirstfast", "clear from first cluster, flush, repaint", 50 },
-      { "flashfirstcluster", "same with a short pause", 60 },
-      { "flashwhole", "clear whole run, flush, repaint", 70 }
+      { "prev", "clear from one prior cluster, flush, repaint", 40 },
+      { "first", "clear from first matching cluster, flush, repaint", 50 },
+      { "whole", "clear whole run, flush, repaint", 60 }
    };
    int strategy_count = (int)(sizeof(strategies) / sizeof(strategies[0]));
    int selected = strategy_index_by_name(strategies, strategy_count,
@@ -3590,6 +3545,7 @@ static int calibration_select_strategy(ProbeConfig *cfg,
    int old_target = -1;
    int old_state = 0;
    int reset_sample = 1;
+   int show_help = 0;
    int row = 14;
    int col = cfg->data_col;
    int delay = cfg->timeout_ms > 0 ? cfg->timeout_ms : 200;
@@ -3614,10 +3570,10 @@ static int calibration_select_strategy(ProbeConfig *cfg,
       mvprintw(0, 0, "calibrate %s %s/%s %s/%s L%d C%d %s",
                replacement ? "replace" : "cursor",
                entry->feature_class, entry->sample->name,
-               entry->display_intent, entry->output_method,
+               entry->display_mode, entry->output_method,
                entry->layout_width, entry->cursor_width,
-               UTF8_TERMINAL_PROBE_VERSION);
-      mvprintw(1, 0, "Current: %s. Keys: n/p choose strategy, g or Enter accept, q back",
+               UTF_TERMINAL_PROBE_VERSION);
+      mvprintw(1, 0, "Current: %s. Keys: n/p choose strategy, h help, g or Enter accept, q back",
                strategies[selected].name);
       mvprintw(2, 0, "strategy=%s score=%d - %s                         ",
                strategies[selected].name, strategies[selected].preference_score,
@@ -3638,6 +3594,12 @@ static int calibration_select_strategy(ProbeConfig *cfg,
                      strategies[option].label);
             attrset(A_NORMAL);
          }
+      }
+      if (show_help)
+      {
+         mvprintw(10, 0, "Help: cells=repaint targets, line=visible run, suffix=changed-to-end.          ");
+         mvprintw(11, 0, "      prev=one cluster before, first=first matching cluster, whole=whole run.");
+         mvprintw(12, 0, "      Clearing strategies flush after blanking, then repaint immediately.   ");
       }
 
       if (reset_sample)
@@ -3693,6 +3655,12 @@ static int calibration_select_strategy(ProbeConfig *cfg,
       if (ch == 'g' || ch == 'G' || ch == '\n' || ch == '\r'
       ||  ch == KEY_ENTER)
          break;
+      if (ch == 'h' || ch == 'H')
+      {
+         show_help = !show_help;
+         erase();
+         continue;
+      }
       if (ch == 'n' || ch == 'j' || ch == KEY_RIGHT || ch == KEY_DOWN)
       {
          selected = (selected + 1) % strategy_count;
@@ -3724,64 +3692,44 @@ static int calibration_select_strategy(ProbeConfig *cfg,
    return 0;
 }
 
-static const char *profile_strategy_name(const char *strategy)
+static const char *known_profile_strategy(const char *strategy)
 {
    if (strategy == NULL)
-      return "normal";
-   if (strcmp(strategy, "cell") == 0)
-      return "changed_cells";
+      return NULL;
+   if (strcmp(strategy, "cells") == 0)
+      return "cells";
    if (strcmp(strategy, "line") == 0)
       return "line";
    if (strcmp(strategy, "suffix") == 0)
-      return "clear_changed_suffix_fast";
-   if (strcmp(strategy, "clearfirstfast") == 0
-   ||  strcmp(strategy, "flashfirstfast") == 0)
-      return "clear_from_first_cluster_fast";
-   if (strcmp(strategy, "flashfirstcluster") == 0)
-      return "clear_from_first_cluster_pause";
-   if (strcmp(strategy, "flashwhole") == 0)
-      return "clear_whole_fast";
-   if (strcmp(strategy, "flashbackcluster1") == 0)
-      return "clear_from_one_prior_cluster";
-   return strategy;
+      return "suffix";
+   if (strcmp(strategy, "prev") == 0)
+      return "prev";
+   if (strcmp(strategy, "first") == 0)
+      return "first";
+   if (strcmp(strategy, "whole") == 0)
+      return "whole";
+   return NULL;
+}
+
+static const char *profile_strategy_name(const char *strategy)
+{
+   const char *known = known_profile_strategy(strategy);
+
+   return known != NULL ? known : "line";
 }
 
 static const char *profile_to_cursor_strategy(const char *strategy)
 {
-   if (strcmp(strategy, "changed_cells") == 0)
-      return "cell";
-   if (strcmp(strategy, "line") == 0)
-      return "line";
-   if (strcmp(strategy, "clear_changed_suffix_fast") == 0)
-      return "suffix";
-   if (strcmp(strategy, "clear_from_one_prior_cluster") == 0)
-      return "flashbackcluster1";
-   if (strcmp(strategy, "clear_from_first_cluster_fast") == 0)
-      return "flashfirstfast";
-   if (strcmp(strategy, "clear_from_first_cluster_pause") == 0)
-      return "flashfirstcluster";
-   if (strcmp(strategy, "clear_whole_fast") == 0)
-      return "flashwhole";
-   return "line";
+   const char *known = known_profile_strategy(strategy);
+
+   return known != NULL ? known : "line";
 }
 
 static const char *profile_to_replacement_strategy(const char *strategy)
 {
-   if (strcmp(strategy, "changed_cells") == 0)
-      return "cell";
-   if (strcmp(strategy, "line") == 0)
-      return "line";
-   if (strcmp(strategy, "clear_changed_suffix_fast") == 0)
-      return "suffix";
-   if (strcmp(strategy, "clear_from_first_cluster_fast") == 0)
-      return "flashfirstfast";
-   if (strcmp(strategy, "clear_from_first_cluster_pause") == 0)
-      return "flashfirstcluster";
-   if (strcmp(strategy, "clear_whole_fast") == 0)
-      return "flashwhole";
-   if (strcmp(strategy, "clear_from_one_prior_cluster") == 0)
-      return "flashbackcluster1";
-   return "line";
+   const char *known = known_profile_strategy(strategy);
+
+   return known != NULL ? known : "line";
 }
 
 static const char *known_output_method(const char *method)
@@ -3795,39 +3743,39 @@ static const char *known_output_method(const char *method)
    return "native";
 }
 
-static const char *intent_for_legacy_output_method(const char *method)
+static const char *display_for_legacy_output_method(const char *method)
 {
    if (strcmp(method, "expanded") == 0)
       return "components";
-   return "group";
+   return "grouped";
 }
 
-static int output_method_allowed_for_intent(const char *intent,
+static int output_method_allowed_for_display(const char *display,
                                             const char *method)
 {
    if (strcmp(method, "substitute") == 0)
       return 1;
-   if (strcmp(intent, "normal") == 0)
+   if (strcmp(display, "normal") == 0)
       return strcmp(method, "native") == 0;
-   if (strcmp(intent, "group") == 0)
+   if (strcmp(display, "grouped") == 0)
       return strcmp(method, "native") == 0;
-   if (strcmp(intent, "components") == 0)
+   if (strcmp(display, "components") == 0)
       return strcmp(method, "native") == 0
           || strcmp(method, "expanded") == 0;
    return 0;
 }
 
-static const char *coerce_output_method_for_intent(const char *intent,
+static const char *coerce_output_method_for_display(const char *display,
                                                    const char *method)
 {
    method = known_output_method(method);
-   if (output_method_allowed_for_intent(intent, method))
+   if (output_method_allowed_for_display(display, method))
       return method;
    if (strcmp(method, "substitute") == 0)
       return "substitute";
-   if (strcmp(intent, "components") == 0)
+   if (strcmp(display, "components") == 0)
       return "expanded";
-   if (strcmp(intent, "group") == 0)
+   if (strcmp(display, "grouped") == 0)
       return "native";
    return "native";
 }
@@ -3838,15 +3786,15 @@ static void apply_output_method_defaults(CalibrationEntry *entry)
    {
       entry->layout_width = 1;
       entry->cursor_width = 1;
-      entry->cursor_strategy = "cell";
-      entry->replacement_strategy = "cell";
+      entry->cursor_strategy = "cells";
+      entry->replacement_strategy = "cells";
       if (entry->substitute_codepoint == 0)
          entry->substitute_codepoint = UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT;
    }
 }
 
 static const CalibrationDefault *find_calibration_default_for_output(
-   const char *feature_class, const char *intent, const char *output_method)
+   const char *feature_class, const char *display, const char *output_method)
 {
    size_t i;
    const CalibrationDefault *class_output = NULL;
@@ -3858,7 +3806,7 @@ static const CalibrationDefault *find_calibration_default_for_output(
       if (strcmp(defaults->feature_class, feature_class) != 0
       ||  strcmp(defaults->output_method, output_method) != 0)
          continue;
-      if (strcmp(defaults->display_intent, intent) == 0)
+      if (strcmp(defaults->display_mode, display) == 0)
          return defaults;
       if (class_output == NULL)
          class_output = defaults;
@@ -3895,7 +3843,7 @@ static void apply_output_method_physical_settings(CalibrationEntry *entry,
    const CalibrationDefault *defaults;
    const char *coerced_output;
 
-   coerced_output = coerce_output_method_for_intent(entry->display_intent,
+   coerced_output = coerce_output_method_for_display(entry->display_mode,
                                                     output_method);
    if (strcmp(entry->output_method, coerced_output) == 0)
    {
@@ -3919,7 +3867,7 @@ static void apply_output_method_physical_settings(CalibrationEntry *entry,
    }
 
    defaults = find_calibration_default_for_output(entry->feature_class,
-                                                 entry->display_intent,
+                                                 entry->display_mode,
                                                  entry->output_method);
    if (defaults != NULL)
       copy_calibration_default_physical_settings(entry, defaults);
@@ -3946,7 +3894,7 @@ static int read_calibration_profile(ProbeConfig *cfg,
       char command[512];
       const char *profile_line;
       char klass[96];
-      char intent[96];
+      char display[96];
       char word[96];
       char codepoint_word[96];
       int layout_width;
@@ -3960,17 +3908,17 @@ static int read_calibration_profile(ProbeConfig *cfg,
          continue;
 
       output_fields = sscanf(profile_line,
-                             "SET UTF8 TERMINAL CLASS %95s INTENT %95s OUTPUT %95s %95s",
-                             klass, intent, word, codepoint_word);
+                             "SET UTF TERMINAL CLASS %95s DISPLAY %95s OUTPUT %95s %95s",
+                             klass, display, word, codepoint_word);
       if (output_fields >= 3)
       {
-         entry = find_calibration_entry_for(entries, count, klass, intent);
+         entry = find_calibration_entry_for(entries, count, klass, display);
          if (entry != NULL)
          {
             uint32_t codepoint;
 
-            entry->output_method = coerce_output_method_for_intent(
-                                      entry->display_intent, word);
+            entry->output_method = coerce_output_method_for_display(
+                                      entry->display_mode, word);
             if (strcmp(entry->output_method, "substitute") == 0
             &&  output_fields == 4
             &&  parse_profile_codepoint(codepoint_word, &codepoint))
@@ -3979,10 +3927,10 @@ static int read_calibration_profile(ProbeConfig *cfg,
             loaded++;
          }
       }
-      else if (sscanf(profile_line, "SET UTF8 TERMINAL CLASS %95s INTENT %95s LAYOUT %d CURSOR %d",
-                      klass, intent, &layout_width, &cursor_width) == 4)
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s DISPLAY %95s LAYOUT %d CURSOR %d",
+                      klass, display, &layout_width, &cursor_width) == 4)
       {
-         entry = find_calibration_entry_for(entries, count, klass, intent);
+         entry = find_calibration_entry_for(entries, count, klass, display);
          if (entry != NULL && layout_width > 0 && cursor_width > 0)
          {
             entry->layout_width = layout_width;
@@ -3990,27 +3938,27 @@ static int read_calibration_profile(ProbeConfig *cfg,
             loaded++;
          }
       }
-      else if (sscanf(profile_line, "SET UTF8 TERMINAL CLASS %95s INTENT %95s CURSORSTRATEGY %95s",
-                      klass, intent, word) == 3)
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s DISPLAY %95s CURSORSTRATEGY %95s",
+                      klass, display, word) == 3)
       {
-         entry = find_calibration_entry_for(entries, count, klass, intent);
+         entry = find_calibration_entry_for(entries, count, klass, display);
          if (entry != NULL)
          {
             entry->cursor_strategy = profile_to_cursor_strategy(word);
             loaded++;
          }
       }
-      else if (sscanf(profile_line, "SET UTF8 TERMINAL CLASS %95s INTENT %95s REPLACESTRATEGY %95s",
-                      klass, intent, word) == 3)
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s DISPLAY %95s REPLACESTRATEGY %95s",
+                      klass, display, word) == 3)
       {
-         entry = find_calibration_entry_for(entries, count, klass, intent);
+         entry = find_calibration_entry_for(entries, count, klass, display);
          if (entry != NULL)
          {
             entry->replacement_strategy = profile_to_replacement_strategy(word);
             loaded++;
          }
       }
-      else if (sscanf(profile_line, "SET UTF8 TERMINAL CLASS %95s LAYOUT %d CURSOR %d",
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s LAYOUT %d CURSOR %d",
                  klass, &layout_width, &cursor_width) == 3)
       {
          entry = find_calibration_entry(entries, count, klass);
@@ -4021,7 +3969,7 @@ static int read_calibration_profile(ProbeConfig *cfg,
             loaded++;
          }
       }
-      else if (sscanf(profile_line, "SET UTF8 TERMINAL CLASS %95s CURSORSTRATEGY %95s",
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s CURSORSTRATEGY %95s",
                       klass, word) == 2)
       {
          entry = find_calibration_entry(entries, count, klass);
@@ -4031,7 +3979,7 @@ static int read_calibration_profile(ProbeConfig *cfg,
             loaded++;
          }
       }
-      else if (sscanf(profile_line, "SET UTF8 TERMINAL CLASS %95s REPLACESTRATEGY %95s",
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s REPLACESTRATEGY %95s",
                       klass, word) == 2)
       {
          entry = find_calibration_entry(entries, count, klass);
@@ -4041,20 +3989,20 @@ static int read_calibration_profile(ProbeConfig *cfg,
             loaded++;
          }
       }
-      else if (sscanf(profile_line, "SET UTF8 TERMINAL CLASS %95s ZWJDISPLAY %95s",
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s ZWJDISPLAY %95s",
                       klass, word) == 2)
       {
          const char *method = known_output_method(word);
-         const char *legacy_intent = intent_for_legacy_output_method(method);
+         const char *legacy_display = display_for_legacy_output_method(method);
 
          entry = find_calibration_entry_for(entries, count, klass,
-                                            legacy_intent);
+                                            legacy_display);
          if (entry == NULL)
             entry = find_calibration_entry(entries, count, klass);
          if (entry != NULL)
          {
-            entry->output_method = coerce_output_method_for_intent(
-                                      entry->display_intent, method);
+            entry->output_method = coerce_output_method_for_display(
+                                      entry->display_mode, method);
             apply_output_method_defaults(entry);
             loaded++;
          }
@@ -4130,9 +4078,9 @@ static int write_calibration_profile(ProbeConfig *cfg,
       return -1;
    }
 
-   write_rexx_profile_comment(fp, "THE UTF-8 terminal settings.");
-   write_rexx_profile_comment(fp, "generated_by=utf8_terminal_probe "
-                                  UTF8_TERMINAL_PROBE_VERSION);
+   write_rexx_profile_comment(fp, "THE UTF terminal settings.");
+   write_rexx_profile_comment(fp, "generated_by=utf_terminal_probe "
+                                  UTF_TERMINAL_PROBE_VERSION);
    write_rexx_profile_commentf(fp, "generated_at=%s", ctime(&now));
    write_rexx_profile_commentf(fp, "platform=%s", THE_PLATFORM_NAME);
    write_rexx_profile_commentf(fp, "profile_name=%s", THE_SYSTEM_PROFILE_NAME);
@@ -4160,19 +4108,19 @@ static int write_calibration_profile(ProbeConfig *cfg,
 
       if (calibration_entry_is_default(entry))
          continue;
-      if (calibration_entry_is_normal_intent(entry))
+      if (calibration_entry_is_normal_display(entry))
       {
          if (substitute_output)
          {
             write_rexx_profile_command(
-               fp, "SET UTF8 TERMINAL CLASS %s OUTPUT %s U+%04X",
+               fp, "SET UTF TERMINAL CLASS %s OUTPUT %s U+%04X",
                entry->feature_class, entry->output_method,
                (unsigned int)entry->substitute_codepoint);
          }
          else if (strcmp(entry->output_method, "native") != 0)
          {
             write_rexx_profile_command(
-               fp, "SET UTF8 TERMINAL CLASS %s OUTPUT %s",
+               fp, "SET UTF TERMINAL CLASS %s OUTPUT %s",
                entry->feature_class, entry->output_method);
          }
          if (substitute_output)
@@ -4182,14 +4130,14 @@ static int write_calibration_profile(ProbeConfig *cfg,
             continue;
          }
          write_rexx_profile_command(
-            fp, "SET UTF8 TERMINAL CLASS %s LAYOUT %d CURSOR %d",
+            fp, "SET UTF TERMINAL CLASS %s LAYOUT %d CURSOR %d",
             entry->feature_class, entry->layout_width, entry->cursor_width);
          write_rexx_profile_command(
-            fp, "SET UTF8 TERMINAL CLASS %s CURSORSTRATEGY %s",
+            fp, "SET UTF TERMINAL CLASS %s CURSORSTRATEGY %s",
             entry->feature_class,
             profile_strategy_name(entry->cursor_strategy));
          write_rexx_profile_command(
-            fp, "SET UTF8 TERMINAL CLASS %s REPLACESTRATEGY %s",
+            fp, "SET UTF TERMINAL CLASS %s REPLACESTRATEGY %s",
             entry->feature_class,
             profile_strategy_name(entry->replacement_strategy));
          fprintf(fp, "\n");
@@ -4199,30 +4147,30 @@ static int write_calibration_profile(ProbeConfig *cfg,
          if (substitute_output)
          {
             write_rexx_profile_command(
-               fp, "SET UTF8 TERMINAL CLASS %s INTENT %s OUTPUT %s U+%04X",
-               entry->feature_class, entry->display_intent,
+               fp, "SET UTF TERMINAL CLASS %s DISPLAY %s OUTPUT %s U+%04X",
+               entry->feature_class, entry->display_mode,
                entry->output_method, (unsigned int)entry->substitute_codepoint);
          }
          else
          {
             write_rexx_profile_command(
-               fp, "SET UTF8 TERMINAL CLASS %s INTENT %s OUTPUT %s",
-               entry->feature_class, entry->display_intent,
+               fp, "SET UTF TERMINAL CLASS %s DISPLAY %s OUTPUT %s",
+               entry->feature_class, entry->display_mode,
                entry->output_method);
          }
          if (!substitute_output)
          {
             write_rexx_profile_command(
-               fp, "SET UTF8 TERMINAL CLASS %s INTENT %s LAYOUT %d CURSOR %d",
-               entry->feature_class, entry->display_intent,
+               fp, "SET UTF TERMINAL CLASS %s DISPLAY %s LAYOUT %d CURSOR %d",
+               entry->feature_class, entry->display_mode,
                entry->layout_width, entry->cursor_width);
             write_rexx_profile_command(
-               fp, "SET UTF8 TERMINAL CLASS %s INTENT %s CURSORSTRATEGY %s",
-               entry->feature_class, entry->display_intent,
+               fp, "SET UTF TERMINAL CLASS %s DISPLAY %s CURSORSTRATEGY %s",
+               entry->feature_class, entry->display_mode,
                profile_strategy_name(entry->cursor_strategy));
             write_rexx_profile_command(
-               fp, "SET UTF8 TERMINAL CLASS %s INTENT %s REPLACESTRATEGY %s",
-               entry->feature_class, entry->display_intent,
+               fp, "SET UTF TERMINAL CLASS %s DISPLAY %s REPLACESTRATEGY %s",
+               entry->feature_class, entry->display_mode,
                profile_strategy_name(entry->replacement_strategy));
          }
          fprintf(fp, "\n");
@@ -4231,7 +4179,7 @@ static int write_calibration_profile(ProbeConfig *cfg,
    }
    if (written == 0)
       write_rexx_profile_comment(fp,
-         "No overrides. Built-in UTF-8 terminal defaults apply.");
+         "No overrides. Built-in UTF terminal defaults apply.");
    fclose(fp);
    reportf(cfg, "calibrate_profile,path=%s,count=%zu,overrides=%zu\n",
            cfg->profile_path, count, written);
@@ -4256,7 +4204,7 @@ static int calibration_select_output_method(ProbeConfig *cfg,
    static const char *basic_descriptions[] =
    {
       "emit the stored logical UTF-8 cluster",
-      "emit the configured replacement code point for this class/intent"
+      "emit the configured replacement code point for this class/display"
    };
    static const int basic_scores[] =
    {
@@ -4270,7 +4218,7 @@ static int calibration_select_output_method(ProbeConfig *cfg,
    {
       "emit the stored logical UTF-8 cluster",
       "emit component code points with U+200D suppressed for file display",
-      "emit the configured replacement code point for this class/intent"
+      "emit the configured replacement code point for this class/display"
    };
    static const int component_scores[] =
    {
@@ -4283,14 +4231,14 @@ static int calibration_select_output_method(ProbeConfig *cfg,
    int selected = 0;
    int i;
 
-   if (strcmp(entry->display_intent, "components") == 0)
+   if (strcmp(entry->display_mode, "components") == 0)
    {
       methods = component_methods;
       descriptions = component_descriptions;
       scores = component_scores;
       method_count = (int)(sizeof(component_methods) / sizeof(component_methods[0]));
    }
-   entry->output_method = coerce_output_method_for_intent(entry->display_intent,
+   entry->output_method = coerce_output_method_for_display(entry->display_mode,
                                                           entry->output_method);
    for (i = 0; i < method_count; i++)
       if (strcmp(entry->output_method, methods[i]) == 0)
@@ -4304,9 +4252,9 @@ static int calibration_select_output_method(ProbeConfig *cfg,
       char logical_cps[256];
 
       erase();
-      mvprintw(0, 0, "calibrate output %s/%s intent=%s %s",
-               entry->feature_class, entry->sample->name, entry->display_intent,
-               UTF8_TERMINAL_PROBE_VERSION);
+      mvprintw(0, 0, "calibrate output %s/%s display=%s %s",
+               entry->feature_class, entry->sample->name, entry->display_mode,
+               UTF_TERMINAL_PROBE_VERSION);
       mvprintw(1, 0, "Current: %s. This choice is used by the view/cursor/replace screens.",
                methods[selected]);
       mvprintw(2, 0, "Keys: n/p choose, Enter accept, q back");
@@ -4500,7 +4448,7 @@ static int calibration_entry_is_default(const CalibrationEntry *entry)
        && strcmp(entry->cursor_strategy, defaults->cursor_strategy) == 0
        && strcmp(entry->replacement_strategy,
                  defaults->replacement_strategy) == 0
-       && strcmp(entry->display_intent, defaults->display_intent) == 0
+       && strcmp(entry->display_mode, defaults->display_mode) == 0
        && strcmp(entry->output_method, defaults->output_method) == 0
        && entry->substitute_codepoint == defaults->substitute_codepoint;
 }
@@ -4560,12 +4508,12 @@ static void draw_calibration_menu(ProbeConfig *cfg,
    int i;
 
    erase();
-   mvprintw(0, 0, "UTF-8 terminal calibration %s",
-            UTF8_TERMINAL_PROBE_VERSION);
+   mvprintw(0, 0, "UTF terminal calibration %s",
+            UTF_TERMINAL_PROBE_VERSION);
    mvprintw(1, 0, "Profile: %s %s", cfg->profile_path,
             dirty ? "(modified)" : "(clean)");
    mvprintw(2, 0, "Enter configure, j/k move, s save, q quit without saving");
-   mvprintw(4, 0, "   class              intent     output     sample             src      L/C   cursor                 replace");
+   mvprintw(4, 0, "   class              display     output     sample             src      L/C   cursor                 replace");
    for (row = 0; row < visible_rows; row++)
    {
       i = top + row;
@@ -4575,7 +4523,7 @@ static void draw_calibration_menu(ProbeConfig *cfg,
          attrset(A_REVERSE);
       mvprintw(5 + row, 0, "%c %-18s %-10s %-10s %-18s %-8s %2d/%-2d %-22s %-22s",
                i == selected ? '>' : ' ',
-               entries[i].feature_class, entries[i].display_intent,
+               entries[i].feature_class, entries[i].display_mode,
                entries[i].output_method, entries[i].sample->name,
                calibration_entry_is_default(&entries[i]) ? "default" : "override",
                entries[i].layout_width, entries[i].cursor_width,
@@ -4642,9 +4590,9 @@ static int calibration_main_menu(ProbeConfig *cfg,
                                          &entries[selected]))
             dirty = 1;
          reportf(cfg,
-                 "calibrate,class=%s,intent=%s,output=%s,sample=%s,layout_width=%d,cursor_width=%d,cursor_strategy=%s,replacement_strategy=%s\n",
+                 "calibrate,class=%s,display=%s,output=%s,sample=%s,layout_width=%d,cursor_width=%d,cursor_strategy=%s,replacement_strategy=%s\n",
                  entries[selected].feature_class,
-                 entries[selected].display_intent,
+                 entries[selected].display_mode,
                  entries[selected].output_method,
                  entries[selected].sample->name,
                  entries[selected].layout_width, entries[selected].cursor_width,
@@ -4679,12 +4627,20 @@ static void run_calibration_probe(ProbeConfig *cfg)
    {
       for (i = 0; i < count; i++)
          reportf(cfg,
-                 "calibrate,class=%s,intent=%s,output=%s,sample=%s,layout_width=%d,cursor_width=%d,cursor_strategy=%s,replacement_strategy=%s\n",
-                 entries[i].feature_class, entries[i].display_intent,
+                 "calibrate,class=%s,display=%s,output=%s,sample=%s,layout_width=%d,cursor_width=%d,cursor_strategy=%s,replacement_strategy=%s\n",
+                 entries[i].feature_class, entries[i].display_mode,
                  entries[i].output_method, entries[i].sample->name,
                  entries[i].layout_width, entries[i].cursor_width,
                  entries[i].cursor_strategy, entries[i].replacement_strategy);
-      reportf(cfg, "calibrate_profile_write_skipped,no_visual=1\n");
+      if (cfg->write_profile)
+      {
+         if (write_calibration_profile(cfg, entries, count) == 0)
+            reportf(cfg, "calibrate_profile_write_requested,no_visual=1\n");
+      }
+      else
+      {
+         reportf(cfg, "calibrate_profile_write_skipped,no_visual=1\n");
+      }
       reportf(cfg, "\n");
       return;
    }
@@ -4719,7 +4675,7 @@ static void run_terminal_absolute_diagnostic_probe(ProbeConfig *cfg)
    if (!cfg->no_visual)
    {
       mvprintw(0, 0, "Terminal-absolute keycap diagnostic %s: watch raw '^' marker below target cell",
-               UTF8_TERMINAL_PROBE_VERSION);
+               UTF_TERMINAL_PROBE_VERSION);
       mvprintw(1, 0, "Cell rows repaint old/new only; span rows clear and redraw A-keycap-B-space-A");
       mvprintw(1, cfg->data_col, "0123456789");
    }
@@ -4790,6 +4746,7 @@ static int set_profile_path_from_dir(ProbeConfig *cfg, const char *dir)
 static void usage(const char *argv0)
 {
    printf("usage: %s [calibrate [selector]] [--profile path|--profile-dir dir] [--timeout-ms n]\n", argv0);
+   printf("          add --no-visual --write-profile to validate and rewrite a profile without UI\n");
    printf("       %s list\n", argv0);
    printf("       %s view [selector] [--pause]\n", argv0);
    printf("       %s cursor selector layout_width cursor_width [mode] [--timeout-ms n]\n", argv0);
@@ -4807,8 +4764,7 @@ static void usage(const char *argv0)
    printf("       %s --testcursor selector layout_width cursor_width [mode] [--timeout-ms n]\n", argv0);
    printf("          mode is frame, cell, line, flashline, flashcell, flashpair, or flashfrom0..6; default is frame\n");
    printf("       %s --testchain selector layout_width cursor_width [mode] [--timeout-ms n]\n", argv0);
-   printf("          mode is line, cell, suffix, paintfirstcluster, touchfirstcluster, clearfirstcluster,\n");
-   printf("          flashfirstfast, flashfirstcluster, flashwhole, or flashbackcluster0..6; default is flashbackcluster1\n");
+   printf("          mode is cells, line, suffix, prev, first, or whole; default is prev\n");
    printf("       %s --list\n", argv0);
    printf("       %s --version\n", argv0);
 }
@@ -4870,7 +4826,7 @@ int main(int argc, char **argv)
       }
       else if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "version") == 0)
       {
-         printf("utf8_terminal_probe %s\n", UTF8_TERMINAL_PROBE_VERSION);
+         printf("utf_terminal_probe %s\n", UTF_TERMINAL_PROBE_VERSION);
          return 0;
       }
       else if (strcmp(argv[i], "--list") == 0 || strcmp(argv[i], "list") == 0)
@@ -4907,6 +4863,10 @@ int main(int argc, char **argv)
       else if (strcmp(argv[i], "--no-visual") == 0)
       {
          cfg.no_visual = 1;
+      }
+      else if (strcmp(argv[i], "--write-profile") == 0)
+      {
+         cfg.write_profile = 1;
       }
       else if (strcmp(argv[i], "--no-motion") == 0)
       {
@@ -5072,7 +5032,7 @@ int main(int argc, char **argv)
       }
       if (!testchain_mode_valid(cfg.testchain_mode))
       {
-         fprintf(stderr, "testchain mode must be line, cell, suffix, paintfirstcluster, touchfirstcluster, clearfirstcluster, flashfirstfast, flashfirstcluster, flashwhole, or flashbackcluster0..6\n");
+         fprintf(stderr, "testchain mode must be cells, line, suffix, prev, first, or whole\n");
          return 2;
       }
    }
@@ -5131,13 +5091,13 @@ int main(int argc, char **argv)
       if (cfg.report != NULL)
       {
          fclose(cfg.report);
-         printf("\nUTF-8 terminal probe %s report written to %s\n",
-                UTF8_TERMINAL_PROBE_VERSION, cfg.report_path);
+         printf("\nUTF terminal probe %s report written to %s\n",
+                UTF_TERMINAL_PROBE_VERSION, cfg.report_path);
       }
       else
       {
-         printf("\nUTF-8 terminal probe %s complete\n",
-                UTF8_TERMINAL_PROBE_VERSION);
+         printf("\nUTF terminal probe %s complete\n",
+                UTF_TERMINAL_PROBE_VERSION);
       }
       return 0;
    }
@@ -5149,13 +5109,13 @@ int main(int argc, char **argv)
       if (cfg.report != NULL)
       {
          fclose(cfg.report);
-         printf("UTF-8 terminal probe %s report written to %s\n",
-                UTF8_TERMINAL_PROBE_VERSION, cfg.report_path);
+         printf("UTF terminal probe %s report written to %s\n",
+                UTF_TERMINAL_PROBE_VERSION, cfg.report_path);
       }
       else
       {
-         printf("UTF-8 terminal probe %s complete\n",
-                UTF8_TERMINAL_PROBE_VERSION);
+         printf("UTF terminal probe %s complete\n",
+                UTF_TERMINAL_PROBE_VERSION);
       }
       return 0;
    }
@@ -5191,13 +5151,13 @@ int main(int argc, char **argv)
    if (cfg.report != NULL)
    {
       fclose(cfg.report);
-      printf("UTF-8 terminal probe %s report written to %s\n",
-             UTF8_TERMINAL_PROBE_VERSION, cfg.report_path);
+      printf("UTF terminal probe %s report written to %s\n",
+             UTF_TERMINAL_PROBE_VERSION, cfg.report_path);
    }
    else
    {
-      printf("UTF-8 terminal probe %s complete\n",
-             UTF8_TERMINAL_PROBE_VERSION);
+      printf("UTF terminal probe %s complete\n",
+             UTF_TERMINAL_PROBE_VERSION);
    }
    return 0;
 }

@@ -27,9 +27,9 @@ This section is the current source of truth. The later historical log records
 the path taken to get here, including several probe results and THE-side
 experiments that were useful but have since been superseded.
 
-For a concise thread-to-thread handover, see `doc/utf8-handover.md`. The coded
+For a concise thread-to-thread handover, see `doc/utf-handover.md`. The coded
 default physical terminal table is shared by THE and the probe in
-`src/utf8term_defaults.h`. The current macOS Apple Terminal calibration baseline
+`src/utfterm_defaults.h`. The current macOS Apple Terminal calibration baseline
 is `system-osx.the`, the same system profile that THE loads before the user
 profile.
 
@@ -53,13 +53,13 @@ logical cell column, snap to the start of the containing grapheme cluster, and
 edit whole clusters. They must not use terminal-profile layout widths to decide
 what bytes to insert, delete, or replace.
 
-The terminal profile is keyed by feature class, display intent, and terminal
+The terminal profile is keyed by feature class, display mode, and terminal
 identity. Each entry describes how one logical cluster class is physically
 written and repaired on the active terminal:
 
 ```text
 feature_class
-display_intent
+display_mode
 output_method
 substitute_codepoint
 layout_width
@@ -72,7 +72,7 @@ replacement_strategy
 the renderer and software cursor. They are not byte counts, code point counts,
 or necessarily utf8proc's logical cell width. `output_method` is `native`,
 `expanded`, or `substitute`; substitute output is available to any class and
-intent and is still only a display choice. `cursor_strategy` records how far
+display mode and is still only a display choice. `cursor_strategy` records how far
 left THE must reset terminal composition state before repainting during cursor
 movement. `replacement_strategy` is intentionally separate because editing text
 can invalidate more terminal state than cursor movement.
@@ -86,20 +86,20 @@ profile entry + purpose + logical line slice -> repair plan
 
 The plan names the selected strategy, the logical start `TextPos`, whether the
 repair covers changed cells, a suffix, or the whole line, and whether a clear
-must be flushed or paused before repaint. `show.c` should execute this plan; it
-should not reinterpret the strategy independently for cursor movement and text
+must be flushed before repaint. `show.c` should execute this plan; it should
+not reinterpret the strategy independently for cursor movement and text
 replacement. Keycaps, ZWJ sequences, flags, combining marks, and even ASCII are
 all ordinary profile entries. ASCII may keep a fast path only when its active
-profile is the native one-cell `changed_cells` default and there is no old-line
-repair hint.
+profile is the native one-cell `cells` default and there is no old-line repair
+hint.
 
 The terminal probe must follow the same rule. Calibration output methods and
 cursor/replacement strategies are not ZWJ-only or keycap-only menus: every class
 can choose from the same physical output and repair vocabulary. A class may
-still have only a `normal` intent entry, but that entry can select native or
+still have only a `normal` display mode entry, but that entry can select native or
 substitute output and any generic strategy.
 
-Current Apple Terminal findings from `utf8_terminal_probe`:
+Current Apple Terminal findings from `utf_terminal_probe`:
 
 - Regional flags are the control success case. `--testcursor flag 3 3 line`
   walks cleanly in Apple Terminal.
@@ -110,20 +110,20 @@ Current Apple Terminal findings from `utf8_terminal_probe`:
   terminal appears to keep composition state for the preceding keycap, so
   repainting only the following `B`/space can make the `B` visually join or
   collapse into the keycap.
-- For multi-keycap rows, `flashfirstcluster` and `flashwhole` work. The fastest
-  known working keycap reset is `flashfirstfast`: clear from the first keycap
+- For multi-keycap rows, `first` and `whole` work. The fastest
+  known working keycap reset is `first`: clear from the first keycap
   in the rendered run, flush that blank, then repaint immediately with no
   delay.
-- Local `flashcell`, `flashpair`, and `flashbackcluster*` repairs are not
-  reliable for keycaps on Apple Terminal. They can collapse clusters going
-  right and recover them going left, which points to terminal composition state
-  rather than a THE logical cursor bug.
+- Local target-only and `prev` repairs are not reliable for keycaps on Apple
+  Terminal. They can collapse clusters going right and recover them going left,
+  which points to terminal composition state rather than a THE logical cursor
+  bug.
 - Replacement behavior has not yet been proven. Do not promote the cursor
   movement strategy into text replacement until a replacement probe shows it is
   correct.
-- For ZWJ classes, the probe must distinguish user display intent from terminal
-  output method. `group` intent can be satisfied by good native shaping or by a
-  configured substitute. `components` intent can be satisfied by good native
+- For ZWJ classes, the probe must distinguish user display mode from terminal
+  output method. `grouped` display mode can be satisfied by good native shaping or by a
+  configured substitute. `components` display mode can be satisfied by good native
   fallback or by expanded output with U+200D removed. These are different
   physical terminal samples even though they are the same logical editor
   cluster.
@@ -441,9 +441,9 @@ The clean implementation keeps flags literal and logical-width-correct. Visual
 overhang compensation is applied as a separate display-cell policy, not by
 changing `TextPos.cell_column`. The file-area renderer now derives physical
 layout width, cursor width, and ZWJ output method from the active terminal
-profile. The older ad hoc `THE_UTF8_*_WIDTH` and flag-overhang diagnostic
+profile. The older ad hoc `THE_UTF_*_WIDTH` and flag-overhang diagnostic
 switches have been retired from the renderer path; equivalent terminal
-differences should be represented with `SET UTF8 TERMINAL CLASS ...` profile
+differences should be represented with `SET UTF TERMINAL CLASS ...` profile
 entries.
 
 Display slicing is cluster-aware. If a viewport starts or ends inside a
@@ -489,7 +489,7 @@ layout with a two-cell software cursor on Apple Terminal. The bug is not that
 the following `B` should move to a third cell; it is that local repaint after a
 keycap can reuse stale terminal composition state. The current proven reset is
 to clear from the first keycap in the rendered run, flush the blank state, and
-then repaint immediately (`flashfirstfast` in `utf8_terminal_probe`).
+then repaint immediately (`first` in `utf_terminal_probe`).
 
 Regional-indicator flags are deliberately separate from the ZWJ case. On some
 terminals the flag glyph paints correctly but either the cursor advance or the
@@ -516,29 +516,29 @@ change when a terminal displays a family emoji as one combined glyph, four
 visible people, or a mix of components. The difference is physical rendering,
 not editor text identity.
 
-There are two user-facing display intents for joined clusters:
+There are two user-facing display modes for joined clusters:
 
-- `group`: show the logical cluster as one grouped icon or replacement
+- `grouped`: show the logical cluster as one grouped icon or replacement
   character. The replacement character/string is user-configurable and may later
   be keyed by exact sequence or feature class.
 - `components`: show the component code points separately in the file area,
   while keeping one logical "fat" cursor/editing position spanning all displayed
   component cells.
 
-Those intents are separate from the terminal output method used to realize
+Those display modes are separate from the terminal output method used to realize
 them:
 
 - `native`: emit the stored UTF-8 sequence, including U+200D joiners, and let
   the terminal/font decide whether it shapes the sequence into one glyph or
   falls back to visible components. Native output may satisfy either user
-  intent on a particular terminal: it can produce a good grouped glyph, or it
+  display mode on a particular terminal: it can produce a good grouped glyph, or it
   can produce a good component fallback.
 - `expanded`: emit the component code points with U+200D suppressed for
   file-area rendering only. This is the explicit implementation of the
-  `components` intent when native output collapses the sequence or paints it
+  `components` display mode when native output collapses the sequence or paints it
   poorly.
 - `substitute`: emit a configured replacement code point/string for the
-  `group` intent. For the ZWJ probe itself, a simple one-character substitute
+  `grouped` display mode. For the ZWJ probe itself, a simple one-character substitute
   does not need special ZWJ terminal measurements; it follows the normal
   physical rules for whatever substitute character the user configured.
 
@@ -548,7 +548,7 @@ sequences; the standard representation is the sequence itself, and shaping is
 owned by the terminal, font, and emoji implementation. THE can ask for native
 grouping only by emitting the literal sequence. If native output falls back to
 components, THE must either reserve the observed physical component width or use
-a configured substitute for the grouped intent.
+a configured substitute for the grouped display.
 
 A configured substitute is a valid logical-to-physical display mapping, but it
 is not the same as terminal shaping. It may be semantically approximate: for
@@ -569,7 +569,7 @@ replacement probes because one logical cluster may cover many physical cells.
 THE should ship with conservative built-in terminal policy defaults for known
 platform/terminal combinations, but those defaults must be overrideable without
 rebuilding. The proposed calibration utility is an interactive probe built from
-`utf8_terminal_probe`:
+`utf_terminal_probe`:
 
 - It presents one feature class at a time, for example `1/N keycaps`,
   `2/N regional flags`, `3/N emoji presentation`, `4/N ZWJ fallback`, and so on.
@@ -589,7 +589,7 @@ identity. Each entry should contain at least:
 
 ```text
 feature_class
-display_intent
+display_mode
 output_method
 layout_width
 cursor_background_width
@@ -600,16 +600,17 @@ cursor_style_strategy
 probe_source
 ```
 
-For non-ZWJ classes, `display_intent` and `output_method` can be omitted or
-treated as `normal/native`. For ZWJ classes, the profile should keep separate
-physical entries for `group` and `components` intent whenever native output is
-being evaluated for either mode. A substitute-only `group` entry may not need
+For classes with no display-specific variants, `display_mode` and
+`output_method` can be omitted or treated as `normal/native`. For ZWJ classes,
+the profile should keep separate
+physical entries for `grouped` and `components` display mode whenever native output is
+being evaluated for either mode. A substitute-only `grouped` entry may not need
 ZWJ-specific probe measurements because THE will render the configured
 substitute as an ordinary character/string.
 
 `layout_width` can often be approximated automatically with cursor-position
 queries. `cursor_background_width`, `paint_footprint_width`,
-`repaint_strategy`, `replacement_strategy`, and the ZWJ intent/output mapping
+`repaint_strategy`, `replacement_strategy`, and the ZWJ display/output mapping
 usually require visual confirmation because common terminal protocols do not
 report which neighbouring cells a color glyph painted over or which composition
 state the terminal retained. The utility should therefore combine automatic
@@ -623,10 +624,10 @@ feature_class=keycap
 layout_width=2
 cursor_background_width=2
 paint_footprint_width=2
-repaint_strategy=clear_from_first_cluster_fast
+repaint_strategy=first
 replacement_strategy=unproven
 cursor_style_strategy=background_cells
-probe_source=testchain_flashfirstfast
+probe_source=testchain_first
 ```
 
 The intended workflow is:
@@ -697,7 +698,7 @@ Foundation tests:
 Editor integration tests:
 
 - Batch read/save preserves UTF-8 bytes.
-- `QUERY UTF8` reports enabled by default.
+- `QUERY UTF` reports enabled by default.
 - Cursor movement and mouse hit-testing use `TextPos`.
 - Rendering clips and pads by cells, not bytes or code points.
 - Syntax highlighting offsets map through canonical positions.
@@ -710,7 +711,7 @@ Current automated coverage:
   UTF-8 encoding, and representative UAX #29 grapheme break cases. It also
   pins cluster-aware cell snapping and cluster widths for combining sequences,
   regional-indicator flags, and ZWJ emoji.
-- `tests/test_utf8_fixture.c` is wired into CTest and validates the manual
+- `tests/test_utf_fixture.c` is wired into CTest and validates the manual
   UTF-8 fixture is valid UTF-8. It also asserts the fixture still contains the
   required combining, regional-flag, two-face ZWJ, and four-face ZWJ samples,
   and that each `A<cluster>B` sample is three editor grapheme clusters.
@@ -719,13 +720,13 @@ Current automated coverage:
 
 Manual renderer fixture:
 
-- `tests/fixtures/utf8-render.txt` is a valid UTF-8 file for visual/manual
+- `tests/fixtures/utf-render.txt` is a valid UTF-8 file for visual/manual
   checks in THE. It includes inline manual test notes.
 - Use it to inspect ASCII, accented text, combining marks, CJK double-width
   characters, single-codepoint emoji, emoji modifiers, variation selectors,
   keycaps, regional-indicator flags, short ZWJ emoji, two-face ZWJ emoji,
   four-face ZWJ emoji, mixed lines, and horizontal viewport clipping.
-- Set `THE_UTF8_RENDER_TRACE=/tmp/the-utf8-render.log` while running THE to
+- Set `THE_UTF_RENDER_TRACE=/tmp/the-utf-render.log` while running THE to
   capture the live file-area renderer's cluster decisions. The trace records
   each drawn cluster's code points, utf8proc logical cell width, screen column,
   clear width, cursor-hit decision, curses cursor column after writing, and the
@@ -738,26 +739,26 @@ Manual renderer fixture:
 
 Terminal probe tool:
 
-- Build `utf8_terminal_probe` to investigate terminal and curses behavior
+- Build `utf_terminal_probe` to investigate terminal and curses behavior
   outside THE's editor state:
 
   ```sh
-  cmake --build cmake-build-debug --target utf8_terminal_probe
-  ./cmake-build-debug/utf8_terminal_probe --cases tools/utf8_terminal_probe_cases.tsv --pause
+  cmake --build cmake-build-debug --target utf_terminal_probe
+  ./cmake-build-debug/utf_terminal_probe --cases tools/utf_terminal_probe_cases.tsv --pause
   ```
 
   To remove curses from the experiment entirely, run the raw ANSI-only
   diagnostic:
 
   ```sh
-  ./cmake-build-debug/utf8_terminal_probe --raw-diagnostic --report /tmp/the-utf8-raw-diagnostic.txt --pause
+  ./cmake-build-debug/utf_terminal_probe --raw-diagnostic --report /tmp/the-utf-raw-diagnostic.txt --pause
   ```
 
   To keep curses in the loop while still isolating THE, run the focused visual
   diagnostic:
 
   ```sh
-  ./cmake-build-debug/utf8_terminal_probe --curses-diagnostic --report /tmp/the-utf8-curses-diagnostic.txt --pause
+  ./cmake-build-debug/utf_terminal_probe --curses-diagnostic --report /tmp/the-utf-curses-diagnostic.txt --pause
   ```
 
   To inspect one UTF family, use `--utfvis`. Selectors can be sample names
@@ -765,7 +766,7 @@ Terminal probe tool:
   `zwj`, aliases such as `flag`, or `all`:
 
   ```sh
-  ./cmake-build-debug/utf8_terminal_probe view flag --pause
+  ./cmake-build-debug/utf_terminal_probe view flag --pause
   ```
 
   To animate the THE-style background cursor across `A-cluster-B-space-A-cluster-B`,
@@ -773,7 +774,7 @@ Terminal probe tool:
   a repaint mode:
 
   ```sh
-  ./cmake-build-debug/utf8_terminal_probe cursor flag 3 3 line --timeout-ms 200
+  ./cmake-build-debug/utf_terminal_probe cursor flag 3 3 line --timeout-ms 200
   ```
 
   To create or edit a terminal-profile fragment interactively, run calibration
@@ -781,30 +782,30 @@ Terminal probe tool:
   class name, or `all`; the default is `all`:
 
   ```sh
-  ./cmake-build-debug/utf8_terminal_probe calibrate all --profile-dir ./cmake-build-debug/release --timeout-ms 200
+  ./cmake-build-debug/utf_terminal_probe calibrate all --profile-dir ./cmake-build-debug/release --timeout-ms 200
   ```
 
-  Bare `utf8_terminal_probe` is equivalent to `utf8_terminal_probe calibrate`.
+  Bare `utf_terminal_probe` is equivalent to `utf_terminal_probe calibrate`.
   The simplified user-facing commands are:
 
   ```text
-  utf8_terminal_probe calibrate [selector]
-  utf8_terminal_probe list
-  utf8_terminal_probe view [selector]
-  utf8_terminal_probe cursor selector layout_width cursor_width [mode]
-  utf8_terminal_probe chain selector layout_width cursor_width [mode]
+  utf_terminal_probe calibrate [selector]
+  utf_terminal_probe list
+  utf_terminal_probe view [selector]
+  utf_terminal_probe cursor selector layout_width cursor_width [mode]
+  utf_terminal_probe chain selector layout_width cursor_width [mode]
   ```
 
   Calibration mode reads the existing profile when present, then opens a main
   screen listing each selected feature class and its current view, cursor,
-  replacement, and ZWJ intent/output settings. `Enter` configures the selected
+  replacement, and ZWJ display/output settings. `Enter` configures the selected
   class, `s` saves the profile, and `q` quits without saving.
 
-  For complex joined clusters, the UI should be organized as two intent rows
+  For complex joined clusters, the UI should be organized as two display mode rows
   rather than one flat ZWJ-policy choice:
 
   ```text
-  family-zwj group       native literal     L? C? cursor=? replace=?   or substitute
+  family-zwj grouped       native literal     L? C? cursor=? replace=?   or substitute
   family-zwj components  native fallback    L? C? cursor=? replace=?   or expanded
   ```
 
@@ -812,7 +813,7 @@ Terminal probe tool:
   the separate component code points under one fat logical cursor. The probe is
   choosing how the terminal can physically realize that display: native literal
   output if it happens to produce the desired appearance, expanded output with
-  U+200D removed for component mode, or a configured substitute for group mode.
+  U+200D removed for component mode, or a configured substitute for grouped mode.
   Substitute mode is mostly outside the terminal probe unless the substitute
   itself is a special-width character; the ZWJ-specific measurements are needed
   for native and expanded output. Native and expanded rows each have their own
@@ -828,12 +829,12 @@ Terminal probe tool:
 
   When more than one output method works, prefer the lowest-scored row. In
   general that means the least-transforming working method wins: native grouped
-  output before substitute for `group` intent, and native component fallback
-  before explicit expanded output for `components` intent. Expanded output is
+  output before substitute for `grouped` display mode, and native component fallback
+  before explicit expanded output for `components` display mode. Expanded output is
   still the right choice when native paints incorrectly or leaves unstable
   cursor/replacement behavior.
 
-  After selecting a ZWJ intent row and output method, the following display/view,
+  After selecting a ZWJ display mode row and output method, the following display/view,
   cursor-walk, and replacement screens use that exact physical sample. The view
   screen shows the current/default/policy choices plus integer `1..12`
   layout/cursor candidates and common layout/cursor hybrids. Cursor and
@@ -843,25 +844,25 @@ Terminal probe tool:
   Built-in defaults are applied before reading the profile, and saved profiles
   contain only classes that differ from those coded defaults. The generated
   profile is a proposed THE instruction fragment, using commands such as
-  `SET UTF8 TERMINAL CLASS keycap LAYOUT 2 CURSOR 2` and
-  `SET UTF8 TERMINAL CLASS keycap REPLACESTRATEGY clear_from_first_cluster_fast`.
-  The eventual ZWJ shape may need intent-qualified commands, for example:
+  `SET UTF TERMINAL CLASS keycap LAYOUT 2 CURSOR 2` and
+  `SET UTF TERMINAL CLASS keycap REPLACESTRATEGY first`.
+  The eventual ZWJ shape may need display-qualified commands, for example:
 
   ```text
-  SET UTF8 INTENT components
-  SET UTF8 TERMINAL CLASS family-zwj INTENT group OUTPUT native
-  SET UTF8 TERMINAL CLASS family-zwj INTENT group LAYOUT 2 CURSOR 2
-  SET UTF8 TERMINAL CLASS family-zwj INTENT components OUTPUT expanded
-  SET UTF8 TERMINAL CLASS family-zwj INTENT components LAYOUT 8 CURSOR 8
+  SET UTF DISPLAY components
+  SET UTF TERMINAL CLASS family-zwj DISPLAY grouped OUTPUT native
+  SET UTF TERMINAL CLASS family-zwj DISPLAY grouped LAYOUT 2 CURSOR 2
+  SET UTF TERMINAL CLASS family-zwj DISPLAY components OUTPUT expanded
+  SET UTF TERMINAL CLASS family-zwj DISPLAY components LAYOUT 8 CURSOR 8
   ```
 
-  `SET UTF8 INTENT group|components|toggle` selects the global display intent
-  used at render time for intent-aware classes. Classes with only normal
-  profiles, such as `keycap`, still use their normal class profile regardless
-  of the global intent.
+  `SET UTF DISPLAY grouped|components|toggle` selects the global display mode
+  used at render time. THE tries that display profile for every class and falls
+  back to the normal profile when a class has no display-specific row.
 
-  Non-visual calibration runs report the loaded settings but do not rewrite the
-  profile.
+  Non-visual calibration runs report the loaded settings without rewriting the
+  profile by default. Add `--write-profile` when a scripted run should validate
+  and rewrite the profile.
 
   `testcursor` modes are `frame` (redraw the sample each step and let curses
   optimize), `cell` (redraw only the old and new cursor targets), and `line`
@@ -874,26 +875,20 @@ Terminal probe tool:
   target span plus one following target. `flashfrom0` through `flashfrom6`
   blank and refresh a suffix of the sample before repainting, where the index
   maps to `A1`, `cluster1`, `B1`, `space`, `A2`, `cluster2`, and `B2`.
-  `--testchain selector layout_width cursor_width flashbackclusterN` repeats a
-  selected grapheme cluster seven times in
-  `XX-A-cluster-B-A-cluster-B-A-cluster-cluster-cluster-B-A-cluster-B-A-cluster-B-XX`
-  and starts each blank/repaint suffix at the nearest `N` prior grapheme
-  clusters. `flashfirstcluster` always starts at the first repeated cluster, and
-  `flashwhole` starts at the leading `XX`. These modes test the terminal as a
-  grapheme-composition state machine rather than as a byte or single-cell
-  repaint problem, including a deliberate three-cluster run with no ASCII
-  separator. Probe version `2026-05-12-poc25` adds first-cluster reset strategy
-  variants: `paintfirstcluster` repaints from the first cluster without a clear,
-  `touchfirstcluster` additionally marks the row dirty, `clearfirstcluster`
-  clears and repaints in one refresh, `flashfirstfast` clears and flushes before
-  repainting without a delay, and `flashfirstcluster` keeps the known-working
-  clear/flush/repaint path with a small pause.
+  `--testchain selector layout_width cursor_width [cells|line|suffix|prev|first|whole]`
+  repeats a selected grapheme cluster seven times in
+  `XX-A-cluster-B-A-cluster-B-A-cluster-cluster-cluster-B-A-cluster-B-A-cluster-B-XX`.
+  `suffix` starts at the changed cluster, `prev` starts one cluster earlier,
+  `first` starts at the first repeated cluster, and `whole` starts at the
+  leading `XX`. These modes test the terminal as a grapheme-composition state
+  machine rather than as a byte or single-cell repaint problem, including a
+  deliberate three-cluster run with no ASCII separator.
 
 - The probe writes representative ASCII, combining, CJK, emoji, keycap,
   regional-flag, and ZWJ samples through several output paths: raw terminal
   UTF-8, `waddwstr`, one `wadd_wch` per code point, `wadd_wchnstr`, and
   whole-cluster `cchar_t` where curses can represent the cluster.
-- `tools/utf8_terminal_probe_cases.tsv` is the extensible probe fixture. Add
+- `tools/utf_terminal_probe_cases.tsv` is the extensible probe fixture. Add
   new rows as `name<TAB>class<TAB>policy_width<TAB>U+...`; the codepoint list
   accepts spaces, commas, or pluses between `U+XXXX` values.
 - Diagnostic reports can record curses' virtual cursor position and the
@@ -937,17 +932,17 @@ Terminal probe tool:
   as the complete-line repaint baseline and adds flash modes to test whether
   Apple Terminal needs a real blank/refresh boundary before keycap repaint.
   The `flashfrom*` modes find the minimum safe left repaint boundary.
-  `--testchain` generalizes that result across repeated clusters so we can
-  compare repainting from the changed cluster, the nearest prior cluster, or an
-  earlier prior cluster. Its `flashfirstcluster` and `flashwhole` modes test
-  whether a row containing multiple keycaps must be repainted from the first
-  keycap in the run or from the leading non-keycap anchor.
+  `--testchain` generalizes that result across repeated clusters with the
+  strategy names `cells`, `line`, `suffix`, `prev`, `first`, and `whole`.
+  Its `first` and `whole` modes test whether a row containing multiple keycaps
+  must be repainted from the first keycap in the run or from the leading
+  non-keycap anchor.
 
 ## Current Work Plan
 
 The next UTF-8 work should prioritize proof tools over more renderer changes:
 
-- Continue extending `utf8_terminal_probe --calibrate` into a user-friendly
+- Continue extending `utf_terminal_probe --calibrate` into a user-friendly
   calibration tool with sections for display, cursor walking, and replacement.
 - Cover at least these feature classes: ASCII/simple BMP, combining marks, CJK
   wide characters, emoji presentation selectors, emoji modifiers, keycaps,
@@ -957,26 +952,26 @@ The next UTF-8 work should prioritize proof tools over more renderer changes:
   `text-variation`, `emoji-variation`, `modifier`, `keycap`, `regional-flag`,
   `short-zwj`, `heart-zwj`, `family-zwj`, `tag-flag`, and `private-use`.
 
-  Current coded defaults live in `src/utf8term_defaults.h` and are compiled
+  Current coded defaults live in `src/utfterm_defaults.h` and are compiled
   into both THE and the probe:
 
   ```text
-  ascii normal/native:          L1 C1 cursor=changed_cells replace=changed_cells
+  ascii normal/native:          L1 C1 cursor=cells replace=cells
   combining normal/native:      L1 C1 cursor=line replace=line
   combining-stack normal/native:L1 C1 cursor=line replace=line
-  wide normal/native:           L2 C2 cursor=changed_cells replace=changed_cells
-  ambiguous normal/native:      L1 C1 cursor=changed_cells replace=changed_cells
+  wide normal/native:           L2 C2 cursor=cells replace=cells
+  ambiguous normal/native:      L1 C1 cursor=cells replace=cells
   emoji normal/native:          L2 C2 cursor=line replace=line
   text-variation normal/native: L1 C1 cursor=line replace=line
   emoji-variation normal/native:L2 C2 cursor=line replace=line
   modifier normal/native:       L2 C2 cursor=line replace=line
-  keycap normal/native:         L2 C2 cursor=clear_from_first_cluster_fast replace=clear_whole_fast
-  regional-flag normal/native:  L3 C3 cursor=changed_cells replace=clear_changed_suffix_fast
-  short-zwj group/native:       L2 C2 cursor=line replace=line
+  keycap normal/native:         L2 C2 cursor=first replace=whole
+  regional-flag normal/native:  L3 C3 cursor=cells replace=suffix
+  short-zwj grouped/native:       L2 C2 cursor=line replace=line
   short-zwj components/expanded:L4 C4 cursor=line replace=line
-  heart-zwj group/native:       L6 C6 cursor=line replace=line
+  heart-zwj grouped/native:       L6 C6 cursor=line replace=line
   heart-zwj components/expanded:L6 C6 cursor=line replace=line
-  family-zwj group/native:      L6 C6 cursor=line replace=line
+  family-zwj grouped/native:      L6 C6 cursor=line replace=line
   family-zwj components/expanded:L8 C8 cursor=line replace=line
   tag-flag normal/native:       L2 C2 cursor=line replace=line
   private-use normal/native:    L1 C1 cursor=line replace=line
@@ -986,32 +981,32 @@ The next UTF-8 work should prioritize proof tools over more renderer changes:
   platform name, so on macOS `--profile-dir DIR` reads and writes
   `DIR/system-osx.the`. THE loads that file before the user profile; `-n`
   skips only the user profile.
-- Treat the ZWJ user intent and output method as inputs to the rest of
+- Treat the ZWJ user display and output method as inputs to the rest of
   calibration. A terminal may use native literal output for grouped display of
   one ZWJ family, native fallback for component display of another, and
   explicitly expanded output for a third.
 - Add replacement probes before changing THE replacement behavior for keycaps
   or ZWJ clusters. Cursor movement success is not enough evidence for editing.
 - After the probe proves a profile entry, validate one THE-side change at a
-  time against `tests/fixtures/utf8-render.txt`.
+  time against `tests/fixtures/utf-render.txt`.
 
 For Apple Terminal today, the saved baseline profile is `system-osx.the`. It is
 the one generated profile that THE consumes before the user profile. Key rows
 are:
 
 ```text
-regional-flag normal/native: default L3 C3 cursor=changed_cells replace=clear_changed_suffix_fast
-keycap normal/native:        L2 C2 cursor=clear_from_first_cluster_fast replace=clear_from_first_cluster_fast
-modifier normal/native:      L4 C4 cursor=changed_cells replace=line
-short-zwj group:             substitute
-short-zwj components/native: L4 C4 cursor=changed_cells replace=line
-heart-zwj group:             substitute
-heart-zwj components/expanded:L6 C6 cursor=changed_cells replace=line
-family-zwj group:            substitute
-family-zwj components/expanded:L8 C8 cursor=changed_cells replace=line
+regional-flag normal/native: default L3 C3 cursor=cells replace=suffix
+keycap normal/native:        L2 C2 cursor=first replace=first
+modifier normal/native:      L4 C4 cursor=cells replace=line
+short-zwj grouped:             substitute
+short-zwj components/native: L4 C4 cursor=cells replace=line
+heart-zwj grouped:             substitute
+heart-zwj components/expanded:L6 C6 cursor=cells replace=line
+family-zwj grouped:            substitute
+family-zwj components/expanded:L8 C8 cursor=cells replace=line
 ```
 
-The ZWJ rows remain intent/output specific. Apple Terminal can display some ZWJ
+The ZWJ rows remain display/output specific. Apple Terminal can display some ZWJ
 families as separate visible components, while other terminals may shape the
 same stored bytes into one glyph. The calibration tool records the physical
 result without changing THE's logical model.
@@ -1028,8 +1023,8 @@ Calibration Utility" sections above for the active strategy.
   `TextPos` helpers plus tests.
 - 2026-05-07: Added `src/textpos.h` and `src/textpos.c` as the shared
   position/UTF-8 foundation. Added `tests/test_textpos.c` and wired it into
-  CTest. Verified `cmake --build /tmp/the-utf8-phase1 --target the
-  test_textpos -j2` and `ctest --test-dir /tmp/the-utf8-phase1
+  CTest. Verified `cmake --build /tmp/the-utf-phase1 --target the
+  test_textpos -j2` and `ctest --test-dir /tmp/the-utf-phase1
   --output-on-failure` pass on macOS.
 - 2026-05-07: Added an include guard to `src/thedefs.h` so shared UTF-8
   headers can safely include the foundational type definitions without
@@ -1040,7 +1035,7 @@ Calibration Utility" sections above for the active strategy.
   in `src/show.c` to clip and pad by terminal cells. The renderer now emits
   code points through `setcchar`/wide curses on both fast and slow paths, and
   target highlighting uses byte-range overlap instead of code point counts.
-- 2026-05-07: Added `tests/fixtures/utf8-render.txt` as a manual renderer
+- 2026-05-07: Added `tests/fixtures/utf-render.txt` as a manual renderer
   fixture for visual checks while migrating cursor, mouse, and syntax paths.
 - 2026-05-07: Added virtual `TextPos` constructors and shared `FilePos`,
   `ScreenPos`, and `EditorPos` constructors. Migrated UTF-8 file-area cursor
@@ -1083,7 +1078,7 @@ Calibration Utility" sections above for the active strategy.
   macOS Terminal.app. ZWJ sequences remain one editing cluster, but their cell
   width follows what the terminal actually paints unless a runtime probe proves
   two-cell shaping is available.
-- 2026-05-07: Added `THE_UTF8_FLAG_FALLBACK=1` as an opt-in diagnostic
+- 2026-05-07: Added `THE_UTF_FLAG_FALLBACK=1` as an opt-in diagnostic
   mitigation for terminals that paint regional-indicator flags as two-cell
   glyphs but only advance the cursor by one cell.
 - 2026-05-07: Added per-cluster output-position reconciliation after UTF-8
@@ -1099,8 +1094,8 @@ Calibration Utility" sections above for the active strategy.
 - 2026-05-07: Added regional-flag overhang policy. Apple Terminal reports a
   two-cell cursor advance for flags but paints the flag artwork into the
   following cell, so THE treats literal regional flags as three display cells on
-  Apple Terminal unless `THE_UTF8_FLAG_OVERHANG=0` or
-  `THE_UTF8_FLAG_FALLBACK=1` is set.
+  Apple Terminal unless `THE_UTF_FLAG_OVERHANG=0` or
+  `THE_UTF_FLAG_FALLBACK=1` is set.
 - 2026-05-07: Split logical `TextPos.cell_column` from terminal display cells.
   Regional flags remain two logical cells for cursor movement, status, and
   API-facing positions; Apple Terminal's extra flag paint cell is now applied
@@ -1181,11 +1176,11 @@ Calibration Utility" sections above for the active strategy.
   no-leading-zero `U+` code points and `...` truncation, F5 insert/overwrite
   toggles repaint the software cursor immediately, and file-area `TEXT`
   overwrite replaces the focused grapheme cluster instead of a raw byte.
-- 2026-05-09: Rebuilt `tests/fixtures/utf8-render.txt` from scratch as a manual
+- 2026-05-09: Rebuilt `tests/fixtures/utf-render.txt` from scratch as a manual
   acceptance fixture with inline instructions and coverage for ASCII, accents,
   combining marks, CJK, emoji, modifiers, keycaps, flags, short ZWJ, two-face
   ZWJ, four-face ZWJ, mixed text, and horizontal clipping. Added
-  `tests/test_utf8_fixture.c` so CTest validates the fixture remains valid
+  `tests/test_utf_fixture.c` so CTest validates the fixture remains valid
   UTF-8 and retains the required complex-cluster samples.
 - 2026-05-09: Tightened the clean cursor invariant: file-area cursor movement,
   vertical entry, and mouse/screen entry should land only on grapheme-cluster
@@ -1203,7 +1198,7 @@ Calibration Utility" sections above for the active strategy.
   grapheme content: it now clears and writes each cluster at the cell column
   supplied by the text-position model, so following characters are placed from
   THE's utf8proc layout instead of inheriting curses' or the terminal's previous
-  glyph state. A guarded `THE_UTF8_RENDER_TRACE` diagnostic records the live
+  glyph state. A guarded `THE_UTF_RENDER_TRACE` diagnostic records the live
   model/draw/cursor values for the remaining flag/keycap investigation.
 - 2026-05-09: Reintroduced the POC's missing logical-to-physical file-area
   display mapping. `TextPos.cell_column` remains the utf8proc/editor model, but
@@ -1254,9 +1249,9 @@ Calibration Utility" sections above for the active strategy.
 - 2026-05-10: Reverted attempted keycap fixes that changed the targeted repaint
   shape or forced whole-row redraw. Neither changed the macOS Terminal symptom,
   so the next step is movement/write-column instrumentation rather than another
-  repaint guess. `THE_UTF8_RENDER_TRACE` now also records cursor-motion mapping
+  repaint guess. `THE_UTF_RENDER_TRACE` now also records cursor-motion mapping
   and targeted cursor repaint columns.
-- 2026-05-10: Added `utf8_terminal_probe`, a standalone curses/raw-terminal
+- 2026-05-10: Added `utf_terminal_probe`, a standalone curses/raw-terminal
   probe for keycaps, regional flags, ZWJ sequences, and related cursor advance
   cases. Future terminal-specific fixes should be proven in this harness before
   changing THE's renderer again.
@@ -1270,7 +1265,7 @@ Calibration Utility" sections above for the active strategy.
   next `A`, so the remaining fix direction should be a terminal-absolute
   output/resync strategy, validated in the probe before touching THE again.
 - 2026-05-10: Promoted the probe inputs into
-  `tools/utf8_terminal_probe_cases.tsv` and added a terminal-absolute POC
+  `tools/utf_terminal_probe_cases.tsv` and added a terminal-absolute POC
   section. The POC uses raw absolute cursor-target redraws with reverse-video
   styling after either raw or curses base painting, so we can keep extending the
   fixture and compare platform behavior before changing THE's renderer.
@@ -1299,11 +1294,11 @@ Calibration Utility" sections above for the active strategy.
 - 2026-05-10: Applied the first THE-side validation of the split policy.
   `show_utf8_cluster_display_width()` remains the cursor/display-advance width,
   while file-area painting now uses a separate keycap paint footprint controlled
-  by `THE_UTF8_KEYCAP_PAINT_WIDTH`/`THE_UTF8_KEYCAP_PAINT_WIDTH_DEFAULT`.
+  by `THE_UTF_KEYCAP_PAINT_WIDTH`/`THE_UTF_KEYCAP_PAINT_WIDTH_DEFAULT`.
 - 2026-05-10: Disabled the speculative keycap paint-footprint default after THE
   still failed the main fixture: the raw ANSI result did not prove that curses'
   virtual-screen model could replay the same layout. The split-policy code
-  remains available behind `THE_UTF8_KEYCAP_PAINT_WIDTH`, but the default is
+  remains available behind `THE_UTF_KEYCAP_PAINT_WIDTH`, but the default is
   neutral until the curses POC identifies a working model.
 - 2026-05-11: Trimmed `--curses-poc` to the promising keycap rows and added
   THE-like block and underline software-cursor variants. Long scenario labels
@@ -1331,22 +1326,16 @@ Calibration Utility" sections above for the active strategy.
   repainted suffix.
 - 2026-05-11: Added `--testchain`, which repeats the selected grapheme cluster
   in `A-cluster-B-A-cluster-B-A-cluster-B` and animates a THE-style cursor
-  across the chain. Its `flashbackcluster0..6` modes blank/repaint a suffix
-  starting at the changed cluster or at the nearest prior grapheme cluster(s),
+  across the chain. Its suffix-repair modes blank/repaint from the changed
+  cluster, one prior cluster, the first matching cluster, or the whole run,
   which tests the Apple Terminal keycap failure as a composition-state-machine
-  boundary rather than a byte-position problem. Probe version
-  `2026-05-12-poc23` adds `flashfirstcluster` and `flashwhole` after testing
-  showed `flashbackcluster2` can still fail at the final `B`, apparently by
-  collapsing the cluster before it. These modes check whether the safe boundary
-  is the first poison/keycap cluster in the rendered run or the full run start.
+  boundary rather than a byte-position problem.
 - 2026-05-12: Extended `--testchain` in probe version `2026-05-12-poc24` to
   seven repeated clusters with leading/trailing `XX` and a deliberate
   three-cluster run with no ASCII separators. This should make the keycap
   repaint-boundary result definitive enough to guide THE's reset strategy.
-- 2026-05-12: Added first-cluster reset strategy variants in probe version
-  `2026-05-12-poc25` to find the cheapest working reset. The sequence to test
-  is `paintfirstcluster`, `touchfirstcluster`, `clearfirstcluster`,
-  `flashfirstfast`, and finally the known-working `flashfirstcluster`.
+- 2026-05-12: Reduced the tested repair vocabulary to the reusable strategies
+  `cells`, `line`, `suffix`, `prev`, `first`, and `whole`.
 - 2026-05-12: Added probe version `2026-05-12-poc26` with `--calibrate`.
   Calibration mode walks selected feature classes through view/layout choice,
   cursor-walk repaint strategy, and replacement repaint strategy, then writes
@@ -1379,8 +1368,8 @@ Calibration Utility" sections above for the active strategy.
   wider integer candidates up to twelve cells for family/long-ZWJ fallbacks, and
   non-visual calibration reports loaded settings without rewriting the profile.
 - 2026-05-13: Added probe version `2026-05-13-poc33`. ZWJ calibration entries
-  are now intent-qualified: each built-in ZWJ class has separate `group/native`
-  and `components/expanded` rows. Group rows can switch to `substitute` and then
+  are now display-qualified: each built-in ZWJ class has separate `grouped/native`
+  and `components/expanded` rows. Grouped rows can switch to `substitute` and then
   skip ZWJ-specific physical measurement; component rows can switch between
   native fallback and explicit expanded output.
 - 2026-05-13: Added probe version `2026-05-13-poc34`. The ZWJ output-method

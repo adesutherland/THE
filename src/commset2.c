@@ -35,7 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "utf8term.h"
+#include "utfterm.h"
 
 /*#define DEBUG 1*/
 
@@ -4365,29 +4365,28 @@ short Undoing(CHARTYPE *params)
 }
 /*man-start*********************************************************************
 COMMAND
-     set utf8 - configures physical UTF-8 terminal behaviour
+     set utf - configures physical UTF terminal behaviour
 
 SYNTAX
-     [SET] UTF8 INTENT GROUP|COMPONENTS|TOGGLE
-     [SET] UTF8 TERMINAL CLASS class [INTENT intent] setting
+     [SET] UTF DISPLAY GROUPED|COMPONENTS|TOGGLE
+     [SET] UTF TERMINAL CLASS class [DISPLAY display] setting
 
 DESCRIPTION
-     The SET UTF8 command configures the physical terminal profile used
+     The SET UTF command configures the physical terminal profile used
      by UTF-8 rendering.  These settings describe terminal layout, cursor,
      output, and repaint behaviour only; editor text movement and commands
-     continue to use the logical UTF-8 text model.  The INTENT form selects
-     whether intent-aware clusters are rendered as grouped glyphs or visible
-     components.
+     continue to use the logical UTF-8 text model.  DISPLAY selects the
+     preferred grouped or component profile where one is configured.
 
 STATUS
      Incomplete.
 **man-end**********************************************************************/
-short Utf8(CHARTYPE *params)
+short Utf(CHARTYPE *params)
 /***********************************************************************/
 {
    short rc=RC_OK;
 
-   TRACE_FUNCTION("commset2.c:Utf8");
+   TRACE_FUNCTION("commset2.c:Utf");
    if (params == NULL || strcmp((DEFCHAR *)params,"") == 0)
    {
       display_error(3,(CHARTYPE *)"",FALSE);

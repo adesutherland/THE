@@ -185,7 +185,7 @@ typedef enum {
     ITEM_UI,
     ITEM_UNDOING,
     ITEM_UNTAA,
-    ITEM_UTF8,
+    ITEM_UTF,
     ITEM_VARIANT,
     ITEM_VERIFY,
     ITEM_VERSHIFT,

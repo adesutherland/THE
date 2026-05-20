@@ -29,6 +29,10 @@ printf 'system profile smoke\n' > "${SAMPLE}"
 cat > "${THE_HOME}/${SYSTEM_PROFILE_NAME}" <<'PROFILE_EOF'
 options levelb
 address the
+'set utf display components'
+utf = .string[]
+address the "extract /utf/" expose utf[]
+if utf[1] = "ON" then 'emsg QUERY_UTF_ON'
 'emsg SYSTEM_PROFILE_RAN'
 PROFILE_EOF
 
@@ -44,6 +48,7 @@ env THE_HOME_DIR="${THE_HOME}" \
   > "${WORK_DIR}/with-user.out" 2> "${WORK_DIR}/with-user.err"
 
 grep -q "SYSTEM_PROFILE_RAN" "${WORK_DIR}/with-user.err"
+grep -q "QUERY_UTF_ON" "${WORK_DIR}/with-user.err"
 grep -q "USER_PROFILE_RAN" "${WORK_DIR}/with-user.err"
 
 system_line="$(grep -n "SYSTEM_PROFILE_RAN" "${WORK_DIR}/with-user.err" | head -n 1 | cut -d: -f1)"
@@ -58,6 +63,7 @@ env THE_HOME_DIR="${THE_HOME}" \
   > "${WORK_DIR}/no-user.out" 2> "${WORK_DIR}/no-user.err"
 
 grep -q "SYSTEM_PROFILE_RAN" "${WORK_DIR}/no-user.err"
+grep -q "QUERY_UTF_ON" "${WORK_DIR}/no-user.err"
 if grep -q "USER_PROFILE_RAN" "${WORK_DIR}/no-user.err"; then
   echo "-n should skip the user profile but keep the system profile" >&2
   exit 1

@@ -1,4 +1,4 @@
-#include "utf8repair.h"
+#include "utfrepair.h"
 
 #include <string.h>
 
@@ -6,9 +6,6 @@ static Utf8RepairFlush flush_for_strategy(Utf8TerminalStrategy strategy)
 {
    switch (strategy)
    {
-      case UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_PAUSE:
-         return UTF8_REPAIR_FLUSH_PAUSE;
-
       case UTF8_TERM_STRATEGY_CLEAR_CHANGED_SUFFIX_FAST:
       case UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST:
       case UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST:
@@ -63,7 +60,7 @@ TextPos utf8_repair_visible_start_pos(const CHARTYPE *line, size_t len,
 
 TextPos utf8_repair_first_visible_feature_pos(
    const CHARTYPE *line, size_t len, int viewport_col,
-   Utf8TerminalClass feature_class, Utf8TerminalIntent intent,
+   Utf8TerminalClass feature_class, Utf8TerminalDisplayMode display,
    TextPos fallback)
 {
    TextPos pos = utf8_repair_visible_start_pos(line, len, viewport_col);
@@ -75,7 +72,7 @@ TextPos utf8_repair_first_visible_feature_pos(
 
       if (cluster.byte_length == 0)
          break;
-      entry = utf8_terminal_profile_lookup_cluster(line, len, cluster, intent);
+      entry = utf8_terminal_profile_lookup_cluster(line, len, cluster, display);
       if (entry != NULL && entry->feature_class == feature_class)
          return cluster.pos;
       pos = cluster.end;
@@ -142,7 +139,7 @@ static TextPos start_for_strategy(const CHARTYPE *line, size_t len,
                                   int anchor_valid,
                                   Utf8TerminalClass feature_class,
                                   int feature_valid,
-                                  Utf8TerminalIntent intent)
+                                  Utf8TerminalDisplayMode display)
 {
    TextPos visible_start;
 
@@ -157,10 +154,9 @@ static TextPos start_for_strategy(const CHARTYPE *line, size_t len,
          return visible_start;
 
       case UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST:
-      case UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_PAUSE:
          if (feature_valid)
             return utf8_repair_first_visible_feature_pos(
-               line, len, viewport_col, feature_class, intent,
+               line, len, viewport_col, feature_class, display,
                anchor_cluster.pos);
          return anchor_cluster.pos;
 
@@ -231,15 +227,14 @@ Utf8RepairPlan utf8_repair_plan_for_cursor(
    else if (new_entry != NULL && new_entry->cursor_strategy == strategy)
       feature_class = new_entry->feature_class;
 
-   if (strategy == UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST
-   ||  strategy == UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_PAUSE)
+   if (strategy == UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST)
    {
       start_pos = start_for_strategy(line, len, viewport_col, strategy,
                                      selected_valid ? selected : earliest,
                                      selected_valid || earliest_valid,
                                      feature_class,
                                      feature_class != UTF8_TERM_CLASS_UNKNOWN,
-                                     utf8_terminal_display_intent());
+                                     utf8_terminal_display_mode());
    }
    else
    {
@@ -247,7 +242,7 @@ Utf8RepairPlan utf8_repair_plan_for_cursor(
                                      earliest, earliest_valid,
                                      feature_class,
                                      feature_class != UTF8_TERM_CLASS_UNKNOWN,
-                                     utf8_terminal_display_intent());
+                                     utf8_terminal_display_mode());
    }
 
    apply_strategy_to_plan(&plan, strategy, feature_class, start_pos,
@@ -259,7 +254,7 @@ Utf8RepairPlan utf8_repair_plan_for_cursor(
 
 Utf8RepairPlan utf8_repair_plan_for_replacement(
    const CHARTYPE *line, size_t len, int viewport_col, TextCellSlice slice,
-   Utf8TerminalIntent intent)
+   Utf8TerminalDisplayMode display)
 {
    TextPos visible_start;
    TextPos pos;
@@ -282,7 +277,7 @@ Utf8RepairPlan utf8_repair_plan_for_replacement(
 
       if (cluster.byte_length == 0)
          break;
-      entry = utf8_terminal_profile_lookup_cluster(line, len, cluster, intent);
+      entry = utf8_terminal_profile_lookup_cluster(line, len, cluster, display);
       if (entry != NULL
       &&  utf8_terminal_strategy_rank(entry->replacement_strategy)
         > utf8_terminal_strategy_rank(selected_strategy))
@@ -300,7 +295,7 @@ Utf8RepairPlan utf8_repair_plan_for_replacement(
 
    start_pos = start_for_strategy(line, len, viewport_col, selected_strategy,
                                   selected_cluster, selected_valid,
-                                  selected_entry->feature_class, 1, intent);
+                                  selected_entry->feature_class, 1, display);
    apply_strategy_to_plan(&plan, selected_strategy,
                           selected_entry->feature_class, start_pos, 1);
    return plan;

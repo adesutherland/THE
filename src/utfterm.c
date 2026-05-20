@@ -1,4 +1,4 @@
-#include "utf8term.h"
+#include "utfterm.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -17,8 +17,8 @@ typedef struct
 typedef struct
 {
    const char *name;
-   Utf8TerminalIntent value;
-} IntentName;
+   Utf8TerminalDisplayMode value;
+} DisplayName;
 
 typedef struct
 {
@@ -53,12 +53,12 @@ static const ClassName class_names[] =
    { NULL, UTF8_TERM_CLASS_UNKNOWN }
 };
 
-static const IntentName intent_names[] =
+static const DisplayName display_names[] =
 {
-   { "normal", UTF8_TERM_INTENT_NORMAL },
-   { "group", UTF8_TERM_INTENT_GROUP },
-   { "components", UTF8_TERM_INTENT_COMPONENTS },
-   { NULL, UTF8_TERM_INTENT_UNKNOWN }
+   { "normal", UTF8_TERM_DISPLAY_NORMAL },
+   { "grouped", UTF8_TERM_DISPLAY_GROUPED },
+   { "components", UTF8_TERM_DISPLAY_COMPONENTS },
+   { NULL, UTF8_TERM_DISPLAY_UNKNOWN }
 };
 
 static const OutputName output_names[] =
@@ -73,25 +73,17 @@ static const OutputName output_names[] =
 
 static const StrategyName strategy_names[] =
 {
-   { "changed_cells", UTF8_TERM_STRATEGY_CHANGED_CELLS },
-   { "cell", UTF8_TERM_STRATEGY_CHANGED_CELLS },
+   { "cells", UTF8_TERM_STRATEGY_CHANGED_CELLS },
    { "line", UTF8_TERM_STRATEGY_LINE },
-   { "clear_changed_suffix_fast", UTF8_TERM_STRATEGY_CLEAR_CHANGED_SUFFIX_FAST },
    { "suffix", UTF8_TERM_STRATEGY_CLEAR_CHANGED_SUFFIX_FAST },
-   { "clear_from_first_cluster_fast", UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST },
-   { "flashfirstfast", UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST },
-   { "clearfirstfast", UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST },
-   { "clear_from_first_cluster_pause", UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_PAUSE },
-   { "flashfirstcluster", UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_PAUSE },
-   { "clear_whole_fast", UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST },
-   { "flashwhole", UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST },
-   { "clear_from_one_prior_cluster", UTF8_TERM_STRATEGY_CLEAR_FROM_ONE_PRIOR_CLUSTER },
-   { "flashbackcluster1", UTF8_TERM_STRATEGY_CLEAR_FROM_ONE_PRIOR_CLUSTER },
+   { "prev", UTF8_TERM_STRATEGY_CLEAR_FROM_ONE_PRIOR_CLUSTER },
+   { "first", UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST },
+   { "whole", UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST },
    { NULL, UTF8_TERM_STRATEGY_UNKNOWN }
 };
 
-#define UTF8_TERM_DEFAULT_ENTRY(feature_class, feature_class_name, display_intent, display_intent_name, output_method, output_method_name, substitute_codepoint, layout_width, cursor_width, cursor_strategy, cursor_strategy_name, replacement_strategy, replacement_strategy_name) \
-   { feature_class, display_intent, output_method, substitute_codepoint, layout_width, cursor_width, cursor_strategy, replacement_strategy },
+#define UTF8_TERM_DEFAULT_ENTRY(feature_class, feature_class_name, display_mode, display_mode_name, output_method, output_method_name, substitute_codepoint, layout_width, cursor_width, cursor_strategy, cursor_strategy_name, replacement_strategy, replacement_strategy_name) \
+   { feature_class, display_mode, output_method, substitute_codepoint, layout_width, cursor_width, cursor_strategy, replacement_strategy },
 
 static const Utf8TerminalProfileEntry default_entries[] =
 {
@@ -104,55 +96,55 @@ static Utf8TerminalProfileEntry profile_entries[
    sizeof(default_entries) / sizeof(default_entries[0])
 ];
 static int profile_initialised = 0;
-static Utf8TerminalIntent display_intent = UTF8_TERM_INTENT_GROUP;
+static Utf8TerminalDisplayMode display_mode = UTF8_TERM_DISPLAY_GROUPED;
 
 static const char *apple_terminal_overrides[] =
 {
-   "SET UTF8 TERMINAL CLASS combining LAYOUT 1 CURSOR 1",
-   "SET UTF8 TERMINAL CLASS combining CURSORSTRATEGY changed_cells",
-   "SET UTF8 TERMINAL CLASS combining REPLACESTRATEGY changed_cells",
-   "SET UTF8 TERMINAL CLASS combining-stack LAYOUT 1 CURSOR 1",
-   "SET UTF8 TERMINAL CLASS combining-stack CURSORSTRATEGY changed_cells",
-   "SET UTF8 TERMINAL CLASS combining-stack REPLACESTRATEGY changed_cells",
-   "SET UTF8 TERMINAL CLASS wide LAYOUT 2 CURSOR 2",
-   "SET UTF8 TERMINAL CLASS wide CURSORSTRATEGY changed_cells",
-   "SET UTF8 TERMINAL CLASS wide REPLACESTRATEGY line",
-   "SET UTF8 TERMINAL CLASS emoji LAYOUT 2 CURSOR 2",
-   "SET UTF8 TERMINAL CLASS emoji CURSORSTRATEGY changed_cells",
-   "SET UTF8 TERMINAL CLASS emoji REPLACESTRATEGY line",
-   "SET UTF8 TERMINAL CLASS text-variation LAYOUT 1 CURSOR 1",
-   "SET UTF8 TERMINAL CLASS text-variation CURSORSTRATEGY changed_cells",
-   "SET UTF8 TERMINAL CLASS text-variation REPLACESTRATEGY changed_cells",
-   "SET UTF8 TERMINAL CLASS emoji-variation LAYOUT 2 CURSOR 2",
-   "SET UTF8 TERMINAL CLASS emoji-variation CURSORSTRATEGY changed_cells",
-   "SET UTF8 TERMINAL CLASS emoji-variation REPLACESTRATEGY line",
-   "SET UTF8 TERMINAL CLASS modifier LAYOUT 4 CURSOR 4",
-   "SET UTF8 TERMINAL CLASS modifier CURSORSTRATEGY changed_cells",
-   "SET UTF8 TERMINAL CLASS modifier REPLACESTRATEGY line",
-   "SET UTF8 TERMINAL CLASS keycap LAYOUT 2 CURSOR 2",
-   "SET UTF8 TERMINAL CLASS keycap CURSORSTRATEGY clear_from_first_cluster_fast",
-   "SET UTF8 TERMINAL CLASS keycap REPLACESTRATEGY clear_from_first_cluster_fast",
-   "SET UTF8 TERMINAL CLASS short-zwj INTENT group OUTPUT substitute U+0040",
-   "SET UTF8 TERMINAL CLASS short-zwj INTENT components OUTPUT native",
-   "SET UTF8 TERMINAL CLASS short-zwj INTENT components LAYOUT 4 CURSOR 4",
-   "SET UTF8 TERMINAL CLASS short-zwj INTENT components CURSORSTRATEGY changed_cells",
-   "SET UTF8 TERMINAL CLASS short-zwj INTENT components REPLACESTRATEGY line",
-   "SET UTF8 TERMINAL CLASS heart-zwj INTENT group OUTPUT substitute U+0040",
-   "SET UTF8 TERMINAL CLASS heart-zwj INTENT components OUTPUT expanded",
-   "SET UTF8 TERMINAL CLASS heart-zwj INTENT components LAYOUT 6 CURSOR 6",
-   "SET UTF8 TERMINAL CLASS heart-zwj INTENT components CURSORSTRATEGY changed_cells",
-   "SET UTF8 TERMINAL CLASS heart-zwj INTENT components REPLACESTRATEGY line",
-   "SET UTF8 TERMINAL CLASS family-zwj INTENT group OUTPUT substitute U+0040",
-   "SET UTF8 TERMINAL CLASS family-zwj INTENT components OUTPUT expanded",
-   "SET UTF8 TERMINAL CLASS family-zwj INTENT components LAYOUT 8 CURSOR 8",
-   "SET UTF8 TERMINAL CLASS family-zwj INTENT components CURSORSTRATEGY changed_cells",
-   "SET UTF8 TERMINAL CLASS family-zwj INTENT components REPLACESTRATEGY line",
-   "SET UTF8 TERMINAL CLASS tag-flag LAYOUT 2 CURSOR 2",
-   "SET UTF8 TERMINAL CLASS tag-flag CURSORSTRATEGY changed_cells",
-   "SET UTF8 TERMINAL CLASS tag-flag REPLACESTRATEGY line",
-   "SET UTF8 TERMINAL CLASS private-use LAYOUT 1 CURSOR 1",
-   "SET UTF8 TERMINAL CLASS private-use CURSORSTRATEGY changed_cells",
-   "SET UTF8 TERMINAL CLASS private-use REPLACESTRATEGY changed_cells"
+   "SET UTF TERMINAL CLASS combining LAYOUT 1 CURSOR 1",
+   "SET UTF TERMINAL CLASS combining CURSORSTRATEGY cells",
+   "SET UTF TERMINAL CLASS combining REPLACESTRATEGY cells",
+   "SET UTF TERMINAL CLASS combining-stack LAYOUT 1 CURSOR 1",
+   "SET UTF TERMINAL CLASS combining-stack CURSORSTRATEGY cells",
+   "SET UTF TERMINAL CLASS combining-stack REPLACESTRATEGY cells",
+   "SET UTF TERMINAL CLASS wide LAYOUT 2 CURSOR 2",
+   "SET UTF TERMINAL CLASS wide CURSORSTRATEGY cells",
+   "SET UTF TERMINAL CLASS wide REPLACESTRATEGY line",
+   "SET UTF TERMINAL CLASS emoji LAYOUT 2 CURSOR 2",
+   "SET UTF TERMINAL CLASS emoji CURSORSTRATEGY cells",
+   "SET UTF TERMINAL CLASS emoji REPLACESTRATEGY line",
+   "SET UTF TERMINAL CLASS text-variation LAYOUT 1 CURSOR 1",
+   "SET UTF TERMINAL CLASS text-variation CURSORSTRATEGY cells",
+   "SET UTF TERMINAL CLASS text-variation REPLACESTRATEGY cells",
+   "SET UTF TERMINAL CLASS emoji-variation LAYOUT 2 CURSOR 2",
+   "SET UTF TERMINAL CLASS emoji-variation CURSORSTRATEGY cells",
+   "SET UTF TERMINAL CLASS emoji-variation REPLACESTRATEGY line",
+   "SET UTF TERMINAL CLASS modifier LAYOUT 4 CURSOR 4",
+   "SET UTF TERMINAL CLASS modifier CURSORSTRATEGY cells",
+   "SET UTF TERMINAL CLASS modifier REPLACESTRATEGY line",
+   "SET UTF TERMINAL CLASS keycap LAYOUT 2 CURSOR 2",
+   "SET UTF TERMINAL CLASS keycap CURSORSTRATEGY first",
+   "SET UTF TERMINAL CLASS keycap REPLACESTRATEGY first",
+   "SET UTF TERMINAL CLASS short-zwj DISPLAY grouped OUTPUT substitute U+0040",
+   "SET UTF TERMINAL CLASS short-zwj DISPLAY components OUTPUT native",
+   "SET UTF TERMINAL CLASS short-zwj DISPLAY components LAYOUT 4 CURSOR 4",
+   "SET UTF TERMINAL CLASS short-zwj DISPLAY components CURSORSTRATEGY cells",
+   "SET UTF TERMINAL CLASS short-zwj DISPLAY components REPLACESTRATEGY line",
+   "SET UTF TERMINAL CLASS heart-zwj DISPLAY grouped OUTPUT substitute U+0040",
+   "SET UTF TERMINAL CLASS heart-zwj DISPLAY components OUTPUT expanded",
+   "SET UTF TERMINAL CLASS heart-zwj DISPLAY components LAYOUT 6 CURSOR 6",
+   "SET UTF TERMINAL CLASS heart-zwj DISPLAY components CURSORSTRATEGY cells",
+   "SET UTF TERMINAL CLASS heart-zwj DISPLAY components REPLACESTRATEGY line",
+   "SET UTF TERMINAL CLASS family-zwj DISPLAY grouped OUTPUT substitute U+0040",
+   "SET UTF TERMINAL CLASS family-zwj DISPLAY components OUTPUT expanded",
+   "SET UTF TERMINAL CLASS family-zwj DISPLAY components LAYOUT 8 CURSOR 8",
+   "SET UTF TERMINAL CLASS family-zwj DISPLAY components CURSORSTRATEGY cells",
+   "SET UTF TERMINAL CLASS family-zwj DISPLAY components REPLACESTRATEGY line",
+   "SET UTF TERMINAL CLASS tag-flag LAYOUT 2 CURSOR 2",
+   "SET UTF TERMINAL CLASS tag-flag CURSORSTRATEGY cells",
+   "SET UTF TERMINAL CLASS tag-flag REPLACESTRATEGY line",
+   "SET UTF TERMINAL CLASS private-use LAYOUT 1 CURSOR 1",
+   "SET UTF TERMINAL CLASS private-use CURSORSTRATEGY cells",
+   "SET UTF TERMINAL CLASS private-use REPLACESTRATEGY cells"
 };
 
 static int ascii_equal_ci(const char *left, const char *right)
@@ -181,34 +173,34 @@ static void ensure_profile_initialised(void)
 void utf8_terminal_profile_reset(void)
 {
    memcpy(profile_entries, default_entries, sizeof(default_entries));
-   display_intent = UTF8_TERM_INTENT_GROUP;
+   display_mode = UTF8_TERM_DISPLAY_GROUPED;
    profile_initialised = 1;
 }
 
-Utf8TerminalIntent utf8_terminal_display_intent(void)
+Utf8TerminalDisplayMode utf8_terminal_display_mode(void)
 {
    ensure_profile_initialised();
-   return display_intent;
+   return display_mode;
 }
 
-int utf8_terminal_set_display_intent(Utf8TerminalIntent intent)
+int utf8_terminal_set_display_mode(Utf8TerminalDisplayMode display)
 {
    ensure_profile_initialised();
-   if (intent != UTF8_TERM_INTENT_GROUP
-   &&  intent != UTF8_TERM_INTENT_COMPONENTS)
+   if (display != UTF8_TERM_DISPLAY_GROUPED
+   &&  display != UTF8_TERM_DISPLAY_COMPONENTS)
       return UTF8_TERMINAL_PROFILE_INVALID;
-   display_intent = intent;
+   display_mode = display;
    return UTF8_TERMINAL_PROFILE_APPLIED;
 }
 
-Utf8TerminalIntent utf8_terminal_toggle_display_intent(void)
+Utf8TerminalDisplayMode utf8_terminal_toggle_display_mode(void)
 {
    ensure_profile_initialised();
-   if (display_intent == UTF8_TERM_INTENT_COMPONENTS)
-      display_intent = UTF8_TERM_INTENT_GROUP;
+   if (display_mode == UTF8_TERM_DISPLAY_COMPONENTS)
+      display_mode = UTF8_TERM_DISPLAY_GROUPED;
    else
-      display_intent = UTF8_TERM_INTENT_COMPONENTS;
-   return display_intent;
+      display_mode = UTF8_TERM_DISPLAY_COMPONENTS;
+   return display_mode;
 }
 
 int utf8_terminal_strategy_rank(Utf8TerminalStrategy strategy)
@@ -225,10 +217,8 @@ int utf8_terminal_strategy_rank(Utf8TerminalStrategy strategy)
          return 3;
       case UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST:
          return 4;
-      case UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_PAUSE:
-         return 5;
       case UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST:
-         return 6;
+         return 5;
       default:
          return 0;
    }
@@ -265,7 +255,7 @@ const Utf8TerminalProfileEntry *utf8_terminal_profile_entry_at(size_t index)
 }
 
 static Utf8TerminalProfileEntry *profile_entry_for(Utf8TerminalClass feature_class,
-                                                   Utf8TerminalIntent intent)
+                                                   Utf8TerminalDisplayMode display)
 {
    size_t i;
 
@@ -273,16 +263,16 @@ static Utf8TerminalProfileEntry *profile_entry_for(Utf8TerminalClass feature_cla
    for (i = 0; i < utf8_terminal_profile_entry_count(); i++)
    {
       if (profile_entries[i].feature_class == feature_class
-      &&  profile_entries[i].display_intent == intent)
+      &&  profile_entries[i].display_mode == display)
          return &profile_entries[i];
    }
    return NULL;
 }
 
 const Utf8TerminalProfileEntry *utf8_terminal_profile_lookup(
-   Utf8TerminalClass feature_class, Utf8TerminalIntent intent)
+   Utf8TerminalClass feature_class, Utf8TerminalDisplayMode display)
 {
-   return profile_entry_for(feature_class, intent);
+   return profile_entry_for(feature_class, display);
 }
 
 static TextPos utf8_terminal_advance_codepoint_pos(TextPos pos,
@@ -426,33 +416,27 @@ Utf8TerminalClass utf8_terminal_classify_cluster(const CHARTYPE *line,
 
 const Utf8TerminalProfileEntry *utf8_terminal_profile_lookup_cluster(
    const CHARTYPE *line, size_t len, TextCluster cluster,
-   Utf8TerminalIntent preferred_intent)
+   Utf8TerminalDisplayMode preferred_display)
 {
    Utf8TerminalClass feature_class;
-   Utf8TerminalIntent intent = preferred_intent;
+   Utf8TerminalDisplayMode display = preferred_display;
    const Utf8TerminalProfileEntry *entry;
 
    feature_class = utf8_terminal_classify_cluster(line, len, cluster);
    if (feature_class == UTF8_TERM_CLASS_UNKNOWN)
       return NULL;
-   if (feature_class != UTF8_TERM_CLASS_SHORT_ZWJ
-   &&  feature_class != UTF8_TERM_CLASS_HEART_ZWJ
-   &&  feature_class != UTF8_TERM_CLASS_FAMILY_ZWJ)
+   if (display == UTF8_TERM_DISPLAY_UNKNOWN
+        ||  display == UTF8_TERM_DISPLAY_NORMAL)
    {
-      intent = UTF8_TERM_INTENT_NORMAL;
-   }
-   else if (intent == UTF8_TERM_INTENT_UNKNOWN
-        ||  intent == UTF8_TERM_INTENT_NORMAL)
-   {
-      intent = UTF8_TERM_INTENT_GROUP;
+      display = UTF8_TERM_DISPLAY_GROUPED;
    }
 
-   entry = utf8_terminal_profile_lookup(feature_class, intent);
+   entry = utf8_terminal_profile_lookup(feature_class, display);
    if (entry != NULL)
       return entry;
-   if (intent != UTF8_TERM_INTENT_NORMAL)
+   if (display != UTF8_TERM_DISPLAY_NORMAL)
       return utf8_terminal_profile_lookup(feature_class,
-                                          UTF8_TERM_INTENT_NORMAL);
+                                          UTF8_TERM_DISPLAY_NORMAL);
    return NULL;
 }
 
@@ -558,16 +542,16 @@ Utf8TerminalClass utf8_terminal_class_from_name(const char *name)
    return UTF8_TERM_CLASS_UNKNOWN;
 }
 
-Utf8TerminalIntent utf8_terminal_intent_from_name(const char *name)
+Utf8TerminalDisplayMode utf8_terminal_display_from_name(const char *name)
 {
    size_t i;
 
-   for (i = 0; intent_names[i].name != NULL; i++)
+   for (i = 0; display_names[i].name != NULL; i++)
    {
-      if (ascii_equal_ci(intent_names[i].name, name))
-         return intent_names[i].value;
+      if (ascii_equal_ci(display_names[i].name, name))
+         return display_names[i].value;
    }
-   return UTF8_TERM_INTENT_UNKNOWN;
+   return UTF8_TERM_DISPLAY_UNKNOWN;
 }
 
 Utf8TerminalOutput utf8_terminal_output_from_name(const char *name)
@@ -606,14 +590,14 @@ const char *utf8_terminal_class_name(Utf8TerminalClass feature_class)
    return "unknown";
 }
 
-const char *utf8_terminal_intent_name(Utf8TerminalIntent intent)
+const char *utf8_terminal_display_name(Utf8TerminalDisplayMode display)
 {
    size_t i;
 
-   for (i = 0; intent_names[i].name != NULL; i++)
+   for (i = 0; display_names[i].name != NULL; i++)
    {
-      if (intent_names[i].value == intent)
-         return intent_names[i].name;
+      if (display_names[i].value == display)
+         return display_names[i].name;
    }
    return "unknown";
 }
@@ -635,38 +619,36 @@ const char *utf8_terminal_strategy_name(Utf8TerminalStrategy strategy)
    switch (strategy)
    {
       case UTF8_TERM_STRATEGY_CHANGED_CELLS:
-         return "changed_cells";
+         return "cells";
       case UTF8_TERM_STRATEGY_LINE:
          return "line";
       case UTF8_TERM_STRATEGY_CLEAR_CHANGED_SUFFIX_FAST:
-         return "clear_changed_suffix_fast";
-      case UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST:
-         return "clear_from_first_cluster_fast";
-      case UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_PAUSE:
-         return "clear_from_first_cluster_pause";
-      case UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST:
-         return "clear_whole_fast";
+         return "suffix";
       case UTF8_TERM_STRATEGY_CLEAR_FROM_ONE_PRIOR_CLUSTER:
-         return "clear_from_one_prior_cluster";
+         return "prev";
+      case UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST:
+         return "first";
+      case UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST:
+         return "whole";
       default:
          return "unknown";
    }
 }
 
-static Utf8TerminalOutput coerce_output_for_intent(Utf8TerminalIntent intent,
+static Utf8TerminalOutput coerce_output_for_display(Utf8TerminalDisplayMode display,
                                                    Utf8TerminalOutput output)
 {
    if (output == UTF8_TERM_OUTPUT_SUBSTITUTE)
       return UTF8_TERM_OUTPUT_SUBSTITUTE;
-   if (intent == UTF8_TERM_INTENT_NORMAL)
+   if (display == UTF8_TERM_DISPLAY_NORMAL)
       return UTF8_TERM_OUTPUT_NATIVE;
-   if (intent == UTF8_TERM_INTENT_GROUP)
+   if (display == UTF8_TERM_DISPLAY_GROUPED)
    {
       if (output == UTF8_TERM_OUTPUT_NATIVE)
          return output;
       return UTF8_TERM_OUTPUT_NATIVE;
    }
-   if (intent == UTF8_TERM_INTENT_COMPONENTS)
+   if (display == UTF8_TERM_DISPLAY_COMPONENTS)
    {
       if (output == UTF8_TERM_OUTPUT_NATIVE
       ||  output == UTF8_TERM_OUTPUT_EXPANDED)
@@ -694,7 +676,7 @@ static int apply_output(Utf8TerminalProfileEntry *entry, Utf8TerminalOutput outp
       return UTF8_TERMINAL_PROFILE_INVALID;
    if (has_substitute_codepoint && output != UTF8_TERM_OUTPUT_SUBSTITUTE)
       return UTF8_TERMINAL_PROFILE_INVALID;
-   coerced_output = coerce_output_for_intent(entry->display_intent, output);
+   coerced_output = coerce_output_for_display(entry->display_mode, output);
    if (has_substitute_codepoint && coerced_output != UTF8_TERM_OUTPUT_SUBSTITUTE)
       return UTF8_TERMINAL_PROFILE_INVALID;
    entry->output_method = coerced_output;
@@ -707,11 +689,11 @@ static int apply_output(Utf8TerminalProfileEntry *entry, Utf8TerminalOutput outp
    return UTF8_TERMINAL_PROFILE_APPLIED;
 }
 
-static Utf8TerminalIntent legacy_intent_for_output(Utf8TerminalOutput output)
+static Utf8TerminalDisplayMode legacy_display_for_output(Utf8TerminalOutput output)
 {
    if (output == UTF8_TERM_OUTPUT_EXPANDED)
-      return UTF8_TERM_INTENT_COMPONENTS;
-   return UTF8_TERM_INTENT_GROUP;
+      return UTF8_TERM_DISPLAY_COMPONENTS;
+   return UTF8_TERM_DISPLAY_GROUPED;
 }
 
 int utf8_terminal_profile_apply_line(const char *line)
@@ -720,7 +702,7 @@ int utf8_terminal_profile_apply_line(const char *line)
    int count;
    int index = 0;
    Utf8TerminalClass feature_class;
-   Utf8TerminalIntent intent = UTF8_TERM_INTENT_NORMAL;
+   Utf8TerminalDisplayMode display = UTF8_TERM_DISPLAY_NORMAL;
    Utf8TerminalProfileEntry *entry;
 
    ensure_profile_initialised();
@@ -733,21 +715,21 @@ int utf8_terminal_profile_apply_line(const char *line)
       return UTF8_TERMINAL_PROFILE_IGNORED;
    if (index < count && ascii_equal_ci(tokens[index], "set"))
       index++;
-   if (index < count && ascii_equal_ci(tokens[index], "utf8"))
+   if (index < count && ascii_equal_ci(tokens[index], "utf"))
       index++;
-   if (index < count && ascii_equal_ci(tokens[index], "intent"))
+   if (index < count && ascii_equal_ci(tokens[index], "display"))
    {
-      Utf8TerminalIntent requested_intent;
+      Utf8TerminalDisplayMode requested_display;
 
       if (index + 2 != count)
          return UTF8_TERMINAL_PROFILE_INVALID;
       if (ascii_equal_ci(tokens[index + 1], "toggle"))
       {
-         (void)utf8_terminal_toggle_display_intent();
+         (void)utf8_terminal_toggle_display_mode();
          return UTF8_TERMINAL_PROFILE_APPLIED;
       }
-      requested_intent = utf8_terminal_intent_from_name(tokens[index + 1]);
-      return utf8_terminal_set_display_intent(requested_intent);
+      requested_display = utf8_terminal_display_from_name(tokens[index + 1]);
+      return utf8_terminal_set_display_mode(requested_display);
    }
    if (index >= count || !ascii_equal_ci(tokens[index], "terminal"))
       return UTF8_TERMINAL_PROFILE_INVALID;
@@ -772,21 +754,21 @@ int utf8_terminal_profile_apply_line(const char *line)
       output = utf8_terminal_output_from_name(tokens[index + 1]);
       if (output == UTF8_TERM_OUTPUT_UNKNOWN)
          return UTF8_TERMINAL_PROFILE_INVALID;
-      entry = profile_entry_for(feature_class, legacy_intent_for_output(output));
+      entry = profile_entry_for(feature_class, legacy_display_for_output(output));
       return apply_output(entry, output, 0, 0);
    }
 
-   if (index < count && ascii_equal_ci(tokens[index], "intent"))
+   if (index < count && ascii_equal_ci(tokens[index], "display"))
    {
       if (index + 1 >= count)
          return UTF8_TERMINAL_PROFILE_INVALID;
-      intent = utf8_terminal_intent_from_name(tokens[index + 1]);
-      if (intent == UTF8_TERM_INTENT_UNKNOWN)
+      display = utf8_terminal_display_from_name(tokens[index + 1]);
+      if (display == UTF8_TERM_DISPLAY_UNKNOWN)
          return UTF8_TERMINAL_PROFILE_INVALID;
       index += 2;
    }
 
-   entry = profile_entry_for(feature_class, intent);
+   entry = profile_entry_for(feature_class, display);
    if (entry == NULL || index >= count)
       return UTF8_TERMINAL_PROFILE_INVALID;
 
@@ -921,7 +903,7 @@ int utf8_terminal_profile_init_from_environment(void)
       return rc;
    loaded += rc;
 
-   profile_path = getenv("THE_UTF8_TERMINAL_PROFILE");
+   profile_path = getenv("THE_UTF_TERMINAL_PROFILE");
    if (profile_path != NULL && *profile_path != '\0')
    {
       int file_settings = 0;

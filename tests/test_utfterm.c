@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "textpos.h"
-#include "utf8term.h"
+#include "utfterm.h"
 
 static int failures = 0;
 
@@ -24,10 +25,19 @@ static void expect_size(const char *name, size_t got, size_t want)
    }
 }
 
-static const Utf8TerminalProfileEntry *expect_entry(
-   const char *name, Utf8TerminalClass feature_class, Utf8TerminalIntent intent)
+static void expect_string(const char *name, const char *got, const char *want)
 {
-   const Utf8TerminalProfileEntry *entry = utf8_terminal_profile_lookup(feature_class, intent);
+   if (strcmp(got, want) != 0)
+   {
+      fprintf(stderr, "%s: got %s want %s\n", name, got, want);
+      failures++;
+   }
+}
+
+static const Utf8TerminalProfileEntry *expect_entry(
+   const char *name, Utf8TerminalClass feature_class, Utf8TerminalDisplayMode display)
+{
+   const Utf8TerminalProfileEntry *entry = utf8_terminal_profile_lookup(feature_class, display);
 
    if (entry == NULL)
    {
@@ -39,14 +49,14 @@ static const Utf8TerminalProfileEntry *expect_entry(
 
 static void expect_profile(const char *name,
                            Utf8TerminalClass feature_class,
-                           Utf8TerminalIntent intent,
+                           Utf8TerminalDisplayMode display,
                            Utf8TerminalOutput output,
                            int layout_width,
                            int cursor_width,
                            Utf8TerminalStrategy cursor_strategy,
                            Utf8TerminalStrategy replacement_strategy)
 {
-   const Utf8TerminalProfileEntry *entry = expect_entry(name, feature_class, intent);
+   const Utf8TerminalProfileEntry *entry = expect_entry(name, feature_class, display);
 
    if (entry == NULL)
       return;
@@ -59,10 +69,10 @@ static void expect_profile(const char *name,
 
 static void expect_substitute_codepoint(const char *name,
                                         Utf8TerminalClass feature_class,
-                                        Utf8TerminalIntent intent,
+                                        Utf8TerminalDisplayMode display,
                                         uint32_t codepoint)
 {
-   const Utf8TerminalProfileEntry *entry = expect_entry(name, feature_class, intent);
+   const Utf8TerminalProfileEntry *entry = expect_entry(name, feature_class, display);
 
    if (entry == NULL)
       return;
@@ -80,47 +90,65 @@ static void test_coded_defaults(void)
 {
    utf8_terminal_profile_reset();
    expect_size("entry.count", utf8_terminal_profile_entry_count(), 19);
-   expect_int("default.display.intent", utf8_terminal_display_intent(),
-              UTF8_TERM_INTENT_GROUP);
-   expect_profile("default.ascii", UTF8_TERM_CLASS_ASCII, UTF8_TERM_INTENT_NORMAL,
+   expect_int("default.display.mode", utf8_terminal_display_mode(),
+              UTF8_TERM_DISPLAY_GROUPED);
+   expect_profile("default.ascii", UTF8_TERM_CLASS_ASCII, UTF8_TERM_DISPLAY_NORMAL,
                   UTF8_TERM_OUTPUT_NATIVE, 1, 1,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS);
-   expect_profile("default.keycap", UTF8_TERM_CLASS_KEYCAP, UTF8_TERM_INTENT_NORMAL,
+   expect_profile("default.keycap", UTF8_TERM_CLASS_KEYCAP, UTF8_TERM_DISPLAY_NORMAL,
                   UTF8_TERM_OUTPUT_NATIVE, 2, 2,
                   UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST,
                   UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST);
-   expect_profile("default.flag", UTF8_TERM_CLASS_REGIONAL_FLAG, UTF8_TERM_INTENT_NORMAL,
+   expect_profile("default.flag", UTF8_TERM_CLASS_REGIONAL_FLAG, UTF8_TERM_DISPLAY_NORMAL,
                   UTF8_TERM_OUTPUT_NATIVE, 3, 3,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
                   UTF8_TERM_STRATEGY_CLEAR_CHANGED_SUFFIX_FAST);
-   expect_profile("default.short.zwj.group", UTF8_TERM_CLASS_SHORT_ZWJ,
-                  UTF8_TERM_INTENT_GROUP, UTF8_TERM_OUTPUT_NATIVE, 2, 2,
+   expect_profile("default.short.zwj.grouped", UTF8_TERM_CLASS_SHORT_ZWJ,
+                  UTF8_TERM_DISPLAY_GROUPED, UTF8_TERM_OUTPUT_NATIVE, 2, 2,
                   UTF8_TERM_STRATEGY_LINE, UTF8_TERM_STRATEGY_LINE);
 }
 
 static void test_line_parser(void)
 {
    utf8_terminal_profile_reset();
-   expect_int("line.intent.components",
-              utf8_terminal_profile_apply_line("SET UTF8 INTENT components"),
+   expect_int("line.display.components",
+              utf8_terminal_profile_apply_line("SET UTF DISPLAY components"),
               UTF8_TERMINAL_PROFILE_APPLIED);
-   expect_int("line.intent.components.value", utf8_terminal_display_intent(),
-              UTF8_TERM_INTENT_COMPONENTS);
-   expect_int("line.intent.toggle",
-              utf8_terminal_profile_apply_line("SET UTF8 INTENT TOGGLE"),
+   expect_int("line.display.components.value", utf8_terminal_display_mode(),
+              UTF8_TERM_DISPLAY_COMPONENTS);
+   expect_int("line.display.grouped",
+              utf8_terminal_profile_apply_line("SET UTF DISPLAY grouped"),
               UTF8_TERMINAL_PROFILE_APPLIED);
-   expect_int("line.intent.toggle.value", utf8_terminal_display_intent(),
-              UTF8_TERM_INTENT_GROUP);
-   expect_int("line.intent.normal.invalid",
-              utf8_terminal_profile_apply_line("SET UTF8 INTENT normal"),
+   expect_int("line.display.grouped.value", utf8_terminal_display_mode(),
+              UTF8_TERM_DISPLAY_GROUPED);
+   expect_int("line.display.toggle",
+              utf8_terminal_profile_apply_line("SET UTF DISPLAY TOGGLE"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_int("line.display.toggle.value", utf8_terminal_display_mode(),
+              UTF8_TERM_DISPLAY_COMPONENTS);
+   expect_int("line.display.toggle.back",
+              utf8_terminal_profile_apply_line("SET UTF DISPLAY TOGGLE"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_int("line.display.toggle.back.value", utf8_terminal_display_mode(),
+              UTF8_TERM_DISPLAY_GROUPED);
+   expect_int("line.display.normal.invalid",
+              utf8_terminal_profile_apply_line("SET UTF DISPLAY normal"),
               UTF8_TERMINAL_PROFILE_INVALID);
-   expect_int("line.intent.normal.keeps.value", utf8_terminal_display_intent(),
-              UTF8_TERM_INTENT_GROUP);
+   expect_int("line.display.normal.keeps.value", utf8_terminal_display_mode(),
+              UTF8_TERM_DISPLAY_GROUPED);
+   expect_int("line.display.group.invalid",
+              utf8_terminal_profile_apply_line("SET UTF DISPLAY group"),
+              UTF8_TERMINAL_PROFILE_INVALID);
+   expect_int("line.display.group.keeps.value", utf8_terminal_display_mode(),
+              UTF8_TERM_DISPLAY_GROUPED);
+   expect_int("line.old.intent.invalid",
+              utf8_terminal_profile_apply_line("SET UTF INTENT components"),
+              UTF8_TERMINAL_PROFILE_INVALID);
 
    expect_int("line.layout",
               utf8_terminal_profile_apply_line(
-                 "SET UTF8 TERMINAL CLASS keycap LAYOUT 9 CURSOR 8"),
+                 "SET UTF TERMINAL CLASS keycap LAYOUT 9 CURSOR 8"),
               UTF8_TERMINAL_PROFILE_APPLIED);
    expect_int("line.rexx.comment",
               utf8_terminal_profile_apply_line("/* generated setting */"),
@@ -133,84 +161,126 @@ static void test_line_parser(void)
               UTF8_TERMINAL_PROFILE_IGNORED);
    expect_int("line.rexx.quoted",
               utf8_terminal_profile_apply_line(
-                 "'SET UTF8 TERMINAL CLASS keycap LAYOUT 7 CURSOR 6'"),
+                 "'SET UTF TERMINAL CLASS keycap LAYOUT 7 CURSOR 6'"),
               UTF8_TERMINAL_PROFILE_APPLIED);
    expect_profile("line.keycap.quoted", UTF8_TERM_CLASS_KEYCAP,
-                  UTF8_TERM_INTENT_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 7, 6,
+                  UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 7, 6,
                   UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST,
                   UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST);
    expect_int("line.layout.restore",
               utf8_terminal_profile_apply_line(
-                 "SET UTF8 TERMINAL CLASS keycap LAYOUT 9 CURSOR 8"),
+                 "SET UTF TERMINAL CLASS keycap LAYOUT 9 CURSOR 8"),
               UTF8_TERMINAL_PROFILE_APPLIED);
    expect_profile("line.keycap.layout", UTF8_TERM_CLASS_KEYCAP,
-                  UTF8_TERM_INTENT_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 9, 8,
+                  UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 9, 8,
                   UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST,
                   UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST);
 
    expect_int("line.replacement",
               utf8_terminal_profile_apply_line(
-                 "terminal class keycap replacestrategy clear_from_first_cluster_fast"),
+                 "terminal class keycap replacestrategy first"),
               UTF8_TERMINAL_PROFILE_APPLIED);
    expect_profile("line.keycap.replacement", UTF8_TERM_CLASS_KEYCAP,
-                  UTF8_TERM_INTENT_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 9, 8,
+                  UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 9, 8,
                   UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST,
                   UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST);
 
    expect_int("line.substitute.codepoint",
               utf8_terminal_profile_apply_line(
-                 "SET UTF8 TERMINAL CLASS short-zwj INTENT group OUTPUT substitute U+0040"),
+                 "SET UTF TERMINAL CLASS short-zwj DISPLAY grouped OUTPUT substitute U+0040"),
               UTF8_TERMINAL_PROFILE_APPLIED);
-   expect_profile("line.short.group.substitute", UTF8_TERM_CLASS_SHORT_ZWJ,
-                  UTF8_TERM_INTENT_GROUP, UTF8_TERM_OUTPUT_SUBSTITUTE, 1, 1,
+   expect_profile("line.short.grouped.substitute", UTF8_TERM_CLASS_SHORT_ZWJ,
+                  UTF8_TERM_DISPLAY_GROUPED, UTF8_TERM_OUTPUT_SUBSTITUTE, 1, 1,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS);
-   expect_substitute_codepoint("line.short.group.substitute.codepoint",
+   expect_substitute_codepoint("line.short.grouped.substitute.codepoint",
                                UTF8_TERM_CLASS_SHORT_ZWJ,
-                               UTF8_TERM_INTENT_GROUP, 0x0040u);
+                               UTF8_TERM_DISPLAY_GROUPED, 0x0040u);
    expect_int("line.components.substitute",
               utf8_terminal_profile_apply_line(
-                 "SET UTF8 TERMINAL CLASS short-zwj INTENT components OUTPUT substitute U+0040"),
+                 "SET UTF TERMINAL CLASS short-zwj DISPLAY components OUTPUT substitute U+0040"),
               UTF8_TERMINAL_PROFILE_APPLIED);
    expect_profile("line.short.components.substitute", UTF8_TERM_CLASS_SHORT_ZWJ,
-                  UTF8_TERM_INTENT_COMPONENTS, UTF8_TERM_OUTPUT_SUBSTITUTE,
+                  UTF8_TERM_DISPLAY_COMPONENTS, UTF8_TERM_OUTPUT_SUBSTITUTE,
                   1, 1, UTF8_TERM_STRATEGY_CHANGED_CELLS,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS);
 
    utf8_terminal_profile_reset();
    expect_int("line.keycap.substitute",
               utf8_terminal_profile_apply_line(
-                 "SET UTF8 TERMINAL CLASS keycap OUTPUT substitute U+002A"),
+                 "SET UTF TERMINAL CLASS keycap OUTPUT substitute U+002A"),
               UTF8_TERMINAL_PROFILE_APPLIED);
    expect_profile("line.keycap.substitute.profile", UTF8_TERM_CLASS_KEYCAP,
-                  UTF8_TERM_INTENT_NORMAL, UTF8_TERM_OUTPUT_SUBSTITUTE, 1, 1,
+                  UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_SUBSTITUTE, 1, 1,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS);
    expect_substitute_codepoint("line.keycap.substitute.codepoint",
                                UTF8_TERM_CLASS_KEYCAP,
-                               UTF8_TERM_INTENT_NORMAL, 0x002Au);
+                               UTF8_TERM_DISPLAY_NORMAL, 0x002Au);
    expect_int("line.flag.substitute",
               utf8_terminal_profile_apply_line(
-                 "SET UTF8 TERMINAL CLASS regional-flag OUTPUT substitute U+25A1"),
+                 "SET UTF TERMINAL CLASS regional-flag OUTPUT substitute U+25A1"),
               UTF8_TERMINAL_PROFILE_APPLIED);
    expect_profile("line.flag.substitute.profile",
-                  UTF8_TERM_CLASS_REGIONAL_FLAG, UTF8_TERM_INTENT_NORMAL,
+                  UTF8_TERM_CLASS_REGIONAL_FLAG, UTF8_TERM_DISPLAY_NORMAL,
                   UTF8_TERM_OUTPUT_SUBSTITUTE, 1, 1,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS);
    expect_int("line.ascii.substitute",
               utf8_terminal_profile_apply_line(
-                 "SET UTF8 TERMINAL CLASS ascii OUTPUT substitute U+00B7"),
+                 "SET UTF TERMINAL CLASS ascii OUTPUT substitute U+00B7"),
               UTF8_TERMINAL_PROFILE_APPLIED);
    expect_profile("line.ascii.substitute.profile", UTF8_TERM_CLASS_ASCII,
-                  UTF8_TERM_INTENT_NORMAL, UTF8_TERM_OUTPUT_SUBSTITUTE, 1, 1,
+                  UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_SUBSTITUTE, 1, 1,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS);
 
    expect_int("line.invalid.class",
               utf8_terminal_profile_apply_line(
-                 "SET UTF8 TERMINAL CLASS made-up LAYOUT 1 CURSOR 1"),
+                 "SET UTF TERMINAL CLASS made-up LAYOUT 1 CURSOR 1"),
               UTF8_TERMINAL_PROFILE_INVALID);
+}
+
+static void test_strategy_names(void)
+{
+   expect_int("strategy.cells", utf8_terminal_strategy_from_name("cells"),
+              UTF8_TERM_STRATEGY_CHANGED_CELLS);
+   expect_int("strategy.line", utf8_terminal_strategy_from_name("line"),
+              UTF8_TERM_STRATEGY_LINE);
+   expect_int("strategy.suffix", utf8_terminal_strategy_from_name("suffix"),
+              UTF8_TERM_STRATEGY_CLEAR_CHANGED_SUFFIX_FAST);
+   expect_int("strategy.prev", utf8_terminal_strategy_from_name("prev"),
+              UTF8_TERM_STRATEGY_CLEAR_FROM_ONE_PRIOR_CLUSTER);
+   expect_int("strategy.first", utf8_terminal_strategy_from_name("first"),
+              UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST);
+   expect_int("strategy.whole", utf8_terminal_strategy_from_name("whole"),
+              UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST);
+   expect_int("strategy.old.changed.invalid",
+              utf8_terminal_strategy_from_name("changed_cells"),
+              UTF8_TERM_STRATEGY_UNKNOWN);
+   expect_int("strategy.old.pause.invalid",
+              utf8_terminal_strategy_from_name(
+                 "clear_from_first_cluster_pause"),
+              UTF8_TERM_STRATEGY_UNKNOWN);
+
+   expect_string("strategy.name.cells",
+                 utf8_terminal_strategy_name(UTF8_TERM_STRATEGY_CHANGED_CELLS),
+                 "cells");
+   expect_string("strategy.name.suffix",
+                 utf8_terminal_strategy_name(
+                    UTF8_TERM_STRATEGY_CLEAR_CHANGED_SUFFIX_FAST),
+                 "suffix");
+   expect_string("strategy.name.prev",
+                 utf8_terminal_strategy_name(
+                    UTF8_TERM_STRATEGY_CLEAR_FROM_ONE_PRIOR_CLUSTER),
+                 "prev");
+   expect_string("strategy.name.first",
+                 utf8_terminal_strategy_name(
+                    UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST),
+                 "first");
+   expect_string("strategy.name.whole",
+                 utf8_terminal_strategy_name(UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST),
+                 "whole");
 }
 
 static void test_profile_file(const char *profile_path)
@@ -223,28 +293,28 @@ static void test_profile_file(const char *profile_path)
               UTF8_TERMINAL_PROFILE_APPLIED);
    expect_int("system.loaded", loaded, 45);
    expect_profile("system.modifier", UTF8_TERM_CLASS_MODIFIER,
-                  UTF8_TERM_INTENT_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 4, 4,
+                  UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 4, 4,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
                   UTF8_TERM_STRATEGY_LINE);
    expect_profile("system.keycap", UTF8_TERM_CLASS_KEYCAP,
-                  UTF8_TERM_INTENT_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 2, 2,
+                  UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 2, 2,
                   UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST,
                   UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST);
    expect_profile("system.short.group", UTF8_TERM_CLASS_SHORT_ZWJ,
-                  UTF8_TERM_INTENT_GROUP, UTF8_TERM_OUTPUT_SUBSTITUTE, 1, 1,
+                  UTF8_TERM_DISPLAY_GROUPED, UTF8_TERM_OUTPUT_SUBSTITUTE, 1, 1,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS);
    expect_substitute_codepoint("system.short.group.codepoint",
                                UTF8_TERM_CLASS_SHORT_ZWJ,
-                               UTF8_TERM_INTENT_GROUP, 0x25A1u);
+                               UTF8_TERM_DISPLAY_GROUPED, 0x25A1u);
    expect_substitute_codepoint("system.heart.group.codepoint",
                                UTF8_TERM_CLASS_HEART_ZWJ,
-                               UTF8_TERM_INTENT_GROUP, 0x2665u);
+                               UTF8_TERM_DISPLAY_GROUPED, 0x2665u);
    expect_substitute_codepoint("system.family.group.codepoint",
                                UTF8_TERM_CLASS_FAMILY_ZWJ,
-                               UTF8_TERM_INTENT_GROUP, 0x2302u);
+                               UTF8_TERM_DISPLAY_GROUPED, 0x2302u);
    expect_profile("system.short.components", UTF8_TERM_CLASS_SHORT_ZWJ,
-                  UTF8_TERM_INTENT_COMPONENTS, UTF8_TERM_OUTPUT_NATIVE, 4, 4,
+                  UTF8_TERM_DISPLAY_COMPONENTS, UTF8_TERM_OUTPUT_NATIVE, 4, 4,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
                   UTF8_TERM_STRATEGY_LINE);
 }
@@ -257,7 +327,7 @@ static void test_terminal_identity(void)
                  "xterm-256color", "Apple_Terminal"),
               45);
    expect_profile("identity.apple.keycap", UTF8_TERM_CLASS_KEYCAP,
-                  UTF8_TERM_INTENT_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 2, 2,
+                  UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 2, 2,
                   UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST,
                   UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST);
 }
@@ -344,7 +414,7 @@ static void test_cluster_profile_lookup(void)
    utf8_terminal_profile_reset();
    entry = utf8_terminal_profile_lookup_cluster(short_zwj, sizeof(short_zwj),
                                                 cluster,
-                                                UTF8_TERM_INTENT_GROUP);
+                                                UTF8_TERM_DISPLAY_GROUPED);
    if (entry == NULL)
    {
       fprintf(stderr, "lookup.short.group: missing profile entry\n");
@@ -361,7 +431,7 @@ static void test_cluster_profile_lookup(void)
               utf8_terminal_profile_apply_apple_terminal(), 45);
    entry = utf8_terminal_profile_lookup_cluster(short_zwj, sizeof(short_zwj),
                                                 cluster,
-                                                UTF8_TERM_INTENT_GROUP);
+                                                UTF8_TERM_DISPLAY_GROUPED);
    if (entry == NULL)
    {
       fprintf(stderr, "lookup.apple.short.group: missing profile entry\n");
@@ -376,7 +446,7 @@ static void test_cluster_profile_lookup(void)
 
    entry = utf8_terminal_profile_lookup_cluster(short_zwj, sizeof(short_zwj),
                                                 cluster,
-                                                UTF8_TERM_INTENT_COMPONENTS);
+                                                UTF8_TERM_DISPLAY_COMPONENTS);
    if (entry == NULL)
    {
       fprintf(stderr, "lookup.apple.short.components: missing profile entry\n");
@@ -393,15 +463,15 @@ static void test_cluster_profile_lookup(void)
    utf8_terminal_profile_reset();
    expect_int("lookup.keycap.apply",
               utf8_terminal_profile_apply_line(
-                 "SET UTF8 TERMINAL CLASS keycap LAYOUT 9 CURSOR 8"),
+                 "SET UTF TERMINAL CLASS keycap LAYOUT 9 CURSOR 8"),
               UTF8_TERMINAL_PROFILE_APPLIED);
    expect_int("lookup.keycap.replacement.apply",
               utf8_terminal_profile_apply_line(
-                 "SET UTF8 TERMINAL CLASS keycap REPLACESTRATEGY clear_from_first_cluster_fast"),
+                 "SET UTF TERMINAL CLASS keycap REPLACESTRATEGY first"),
               UTF8_TERMINAL_PROFILE_APPLIED);
    entry = utf8_terminal_profile_lookup_cluster(keycap, sizeof(keycap),
                                                 cluster,
-                                                UTF8_TERM_INTENT_COMPONENTS);
+                                                UTF8_TERM_DISPLAY_COMPONENTS);
    if (entry == NULL)
    {
       fprintf(stderr, "lookup.keycap: missing profile entry\n");
@@ -409,8 +479,8 @@ static void test_cluster_profile_lookup(void)
    }
    else
    {
-      expect_int("lookup.keycap.intent", entry->display_intent,
-                 UTF8_TERM_INTENT_NORMAL);
+      expect_int("lookup.keycap.display", entry->display_mode,
+                 UTF8_TERM_DISPLAY_NORMAL);
       expect_int("lookup.keycap.layout", entry->layout_width, 9);
       expect_int("lookup.keycap.cursor", entry->cursor_width, 8);
       expect_int("lookup.keycap.cursor.strategy", entry->cursor_strategy,
@@ -421,19 +491,19 @@ static void test_cluster_profile_lookup(void)
       expect_int("lookup.keycap.transition.strategy",
                  utf8_terminal_cursor_transition_strategy(
                     utf8_terminal_profile_lookup(UTF8_TERM_CLASS_ASCII,
-                                                 UTF8_TERM_INTENT_NORMAL),
+                                                 UTF8_TERM_DISPLAY_NORMAL),
                     entry),
                  UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST);
    }
 
    cluster = cluster_after_leading_ascii(short_zwj, sizeof(short_zwj));
    utf8_terminal_profile_reset();
-   expect_int("lookup.global.intent.components",
-              utf8_terminal_profile_apply_line("SET UTF8 INTENT components"),
+   expect_int("lookup.global.display.components",
+              utf8_terminal_profile_apply_line("SET UTF DISPLAY components"),
               UTF8_TERMINAL_PROFILE_APPLIED);
    entry = utf8_terminal_profile_lookup_cluster(short_zwj, sizeof(short_zwj),
                                                 cluster,
-                                                utf8_terminal_display_intent());
+                                                utf8_terminal_display_mode());
    if (entry == NULL)
    {
       fprintf(stderr, "lookup.global.short.components: missing profile entry\n");
@@ -460,7 +530,7 @@ static void test_physical_policy_does_not_change_logical_textpos(void)
    utf8_terminal_profile_reset();
    expect_int("logical.profile.apply",
               utf8_terminal_profile_apply_line(
-                 "SET UTF8 TERMINAL CLASS keycap LAYOUT 9 CURSOR 9"),
+                 "SET UTF TERMINAL CLASS keycap LAYOUT 9 CURSOR 9"),
               UTF8_TERMINAL_PROFILE_APPLIED);
 
    pos = textpos_next_cluster(keycap, sizeof(keycap), textpos_begin());
@@ -481,6 +551,7 @@ int main(int argc, char **argv)
 
    test_coded_defaults();
    test_line_parser();
+   test_strategy_names();
    test_profile_file(argv[1]);
    test_terminal_identity();
    test_cluster_classification();
@@ -489,7 +560,7 @@ int main(int argc, char **argv)
 
    if (failures != 0)
    {
-      fprintf(stderr, "utf8term tests failed: %d\n", failures);
+      fprintf(stderr, "utfterm tests failed: %d\n", failures);
       return 1;
    }
    return 0;

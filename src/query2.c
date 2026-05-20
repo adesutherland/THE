@@ -2238,7 +2238,7 @@ short extract_untaa(short number_variables,short itemno,CHARTYPE *itemargs,CHART
 }
 
 /***********************************************************************/
-short extract_utf8(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
+short extract_utf(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
 #ifdef USE_UTF8

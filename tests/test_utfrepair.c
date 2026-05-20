@@ -2,8 +2,8 @@
 #include <string.h>
 
 #include "textpos.h"
-#include "utf8repair.h"
-#include "utf8term.h"
+#include "utfrepair.h"
+#include "utfterm.h"
 
 static int failures = 0;
 
@@ -37,7 +37,7 @@ static const Utf8TerminalProfileEntry *entry_for_cluster(const CHARTYPE *line,
                                                          TextCluster cluster)
 {
    return utf8_terminal_profile_lookup_cluster(line, len, cluster,
-                                               utf8_terminal_display_intent());
+                                               utf8_terminal_display_mode());
 }
 
 static void test_cursor_keycap_first_feature(void)
@@ -82,7 +82,7 @@ static void test_cursor_ascii_can_use_first_feature(void)
    utf8_terminal_profile_reset();
    expect_int("cursor.ascii.apply",
               utf8_terminal_profile_apply_line(
-                 "SET UTF8 TERMINAL CLASS ascii CURSORSTRATEGY clear_from_first_cluster_fast"),
+                 "SET UTF TERMINAL CLASS ascii CURSORSTRATEGY first"),
               UTF8_TERMINAL_PROFILE_APPLIED);
 
    old_cluster = cluster_at_cell(line, len, 3);
@@ -111,12 +111,12 @@ static void test_replacement_one_prior_cluster(void)
    utf8_terminal_profile_reset();
    expect_int("replace.oneprior.apply",
               utf8_terminal_profile_apply_line(
-                 "SET UTF8 TERMINAL CLASS keycap REPLACESTRATEGY clear_from_one_prior_cluster"),
+                 "SET UTF TERMINAL CLASS keycap REPLACESTRATEGY prev"),
               UTF8_TERMINAL_PROFILE_APPLIED);
 
    slice = textpos_slice_cells(line, sizeof(line), 0, 10);
    plan = utf8_repair_plan_for_replacement(
-      line, sizeof(line), 0, slice, utf8_terminal_display_intent());
+      line, sizeof(line), 0, slice, utf8_terminal_display_mode());
 
    expect_int("replace.oneprior.strategy", plan.strategy,
               UTF8_TERM_STRATEGY_CLEAR_FROM_ONE_PRIOR_CLUSTER);
@@ -142,16 +142,16 @@ static void test_replacement_old_line_can_dominate(void)
    utf8_terminal_profile_reset();
    expect_int("replace.old.apply",
               utf8_terminal_profile_apply_line(
-                 "SET UTF8 TERMINAL CLASS keycap REPLACESTRATEGY clear_from_first_cluster_fast"),
+                 "SET UTF TERMINAL CLASS keycap REPLACESTRATEGY first"),
               UTF8_TERMINAL_PROFILE_APPLIED);
 
    old_slice = textpos_slice_cells(old_line, sizeof(old_line), 0, 10);
    new_slice = textpos_slice_cells(new_line, sizeof(new_line) - 1, 0, 10);
    old_plan = utf8_repair_plan_for_replacement(
-      old_line, sizeof(old_line), 0, old_slice, utf8_terminal_display_intent());
+      old_line, sizeof(old_line), 0, old_slice, utf8_terminal_display_mode());
    new_plan = utf8_repair_plan_for_replacement(
       new_line, sizeof(new_line) - 1, 0, new_slice,
-      utf8_terminal_display_intent());
+      utf8_terminal_display_mode());
 
    expect_int("replace.old.strategy", old_plan.strategy,
               UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST);
@@ -175,12 +175,12 @@ static void test_replacement_ascii_can_use_first_feature(void)
    utf8_terminal_profile_reset();
    expect_int("replace.ascii.apply",
               utf8_terminal_profile_apply_line(
-                 "SET UTF8 TERMINAL CLASS ascii REPLACESTRATEGY clear_from_first_cluster_fast"),
+                 "SET UTF TERMINAL CLASS ascii REPLACESTRATEGY first"),
               UTF8_TERMINAL_PROFILE_APPLIED);
 
    slice = textpos_slice_cells(line, len, 1, 3);
    plan = utf8_repair_plan_for_replacement(
-      line, len, 1, slice, utf8_terminal_display_intent());
+      line, len, 1, slice, utf8_terminal_display_mode());
 
    expect_int("replace.ascii.strategy", plan.strategy,
               UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST);
@@ -200,7 +200,7 @@ int main(void)
 
    if (failures != 0)
    {
-      fprintf(stderr, "%d UTF-8 repair tests failed\n", failures);
+      fprintf(stderr, "%d UTF repair tests failed\n", failures);
       return 1;
    }
    return 0;

@@ -2,7 +2,7 @@
 #define THE_UTF8REPAIR_H
 
 #include "textpos.h"
-#include "utf8term.h"
+#include "utfterm.h"
 
 typedef enum
 {
@@ -14,8 +14,7 @@ typedef enum
 typedef enum
 {
    UTF8_REPAIR_FLUSH_NONE = 0,
-   UTF8_REPAIR_FLUSH_FAST,
-   UTF8_REPAIR_FLUSH_PAUSE
+   UTF8_REPAIR_FLUSH_FAST
 } Utf8RepairFlush;
 
 typedef struct
@@ -33,7 +32,7 @@ TextPos utf8_repair_visible_start_pos(const CHARTYPE *line, size_t len,
                                       int viewport_col);
 TextPos utf8_repair_first_visible_feature_pos(
    const CHARTYPE *line, size_t len, int viewport_col,
-   Utf8TerminalClass feature_class, Utf8TerminalIntent intent,
+   Utf8TerminalClass feature_class, Utf8TerminalDisplayMode display,
    TextPos fallback);
 Utf8RepairPlan utf8_repair_plan_for_cursor(
    const CHARTYPE *line, size_t len, int viewport_col,
@@ -43,7 +42,7 @@ Utf8RepairPlan utf8_repair_plan_for_cursor(
    const Utf8TerminalProfileEntry *new_entry);
 Utf8RepairPlan utf8_repair_plan_for_replacement(
    const CHARTYPE *line, size_t len, int viewport_col, TextCellSlice slice,
-   Utf8TerminalIntent intent);
+   Utf8TerminalDisplayMode display);
 int utf8_repair_plan_prefer(const Utf8RepairPlan *candidate,
                             int candidate_start_col,
                             const Utf8RepairPlan *current,

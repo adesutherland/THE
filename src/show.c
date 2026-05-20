@@ -83,8 +83,8 @@
 #include <time.h>
 #ifdef USE_UTF8
 # include <wchar.h>
-# include "utf8repair.h"
-# include "utf8term.h"
+# include "utfrepair.h"
+# include "utfterm.h"
 #endif
 
 /*------------------------ function definitions -----------------------*/
@@ -186,11 +186,11 @@ static FILE *show_utf8_trace_file(void)
       return trace;
    initialised = TRUE;
 
-   path = getenv("THE_UTF8_RENDER_TRACE");
+   path = getenv("THE_UTF_RENDER_TRACE");
    if (path == NULL || *path == '\0')
       return NULL;
    if (strcmp(path, "1") == 0)
-      path = "/tmp/the-utf8-render.log";
+      path = "/tmp/the-utf-render.log";
    if (strcmp(path, "stderr") == 0)
       return stderr;
 
@@ -227,7 +227,7 @@ static int show_utf8_ascii_profile_fast_path_ok(void)
    const Utf8TerminalProfileEntry *entry;
 
    entry = utf8_terminal_profile_lookup(UTF8_TERM_CLASS_ASCII,
-                                        UTF8_TERM_INTENT_NORMAL);
+                                        UTF8_TERM_DISPLAY_NORMAL);
    return entry != NULL
        && entry->output_method == UTF8_TERM_OUTPUT_NATIVE
        && entry->layout_width == 1
@@ -477,7 +477,7 @@ static const Utf8TerminalProfileEntry *show_utf8_cluster_profile(
    const CHARTYPE *line, size_t len, TextCluster cluster)
 {
    return utf8_terminal_profile_lookup_cluster(line, len, cluster,
-                                               utf8_terminal_display_intent());
+                                               utf8_terminal_display_mode());
 }
 
 static int show_utf8_cluster_logical_width(TextCluster cluster)
@@ -3848,7 +3848,7 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr, 
    slice = textpos_slice_cells(line, blength, (int)cvcol, visible_cols);
    replacement_plan = utf8_repair_plan_for_replacement(
                          line, blength, (int)cvcol, slice,
-                         utf8_terminal_display_intent());
+                         utf8_terminal_display_mode());
    replacement_clear_col = show_utf8_display_col_from_logical(
                               line, blength, (int)cvcol,
                               replacement_plan.start_pos.cell_column);
@@ -3861,9 +3861,9 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr, 
       int old_clear_col;
 
       old_replacement_plan = utf8_repair_plan_for_replacement(
-                                utf8_line_replacement_hint.line,
-                                utf8_line_replacement_hint.length, (int)cvcol,
-                                old_slice, utf8_terminal_display_intent());
+                                 utf8_line_replacement_hint.line,
+                                 utf8_line_replacement_hint.length, (int)cvcol,
+                                 old_slice, utf8_terminal_display_mode());
       old_clear_col = show_utf8_display_col_from_logical(
                          utf8_line_replacement_hint.line,
                          utf8_line_replacement_hint.length, (int)cvcol,
@@ -3890,8 +3890,6 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr, 
          {
             wnoutrefresh(SCREEN_WINDOW_FILEAREA(scrno));
             doupdate();
-            if (replacement_plan.flush == UTF8_REPAIR_FLUSH_PAUSE)
-               napms(25);
          }
       }
    }
@@ -4312,7 +4310,7 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
    if (plan.extent == UTF8_REPAIR_EXTENT_CHANGED_CELLS)
    {
       start_pos = textpos_begin();
-      show_utf8_trace_cursor_strategy(scrno, row, cvcol, "changed_cells",
+      show_utf8_trace_cursor_strategy(scrno, row, cvcol, "cells",
                                       strategy, old_valid, old_entry,
                                       old_cluster, old_logical_screen_col,
                                       old_display_col, new_valid, new_entry,
@@ -4386,8 +4384,6 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
    {
       wnoutrefresh(SCREEN_WINDOW_FILEAREA(scrno));
       doupdate();
-      if (plan.flush == UTF8_REPAIR_FLUSH_PAUSE)
-         napms(25);
    }
 
    show_utf8_repaint_filearea_suffix(scrno, row, current, high, start_pos,

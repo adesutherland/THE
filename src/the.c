@@ -36,7 +36,7 @@
 #define MAIN 1
 #include <the.h>
 #include <proto.h>
-#include "utf8term.h"
+#include "utfterm.h"
 #include <time.h>
 #ifdef WIN32
 #  include <windows.h>

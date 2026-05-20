@@ -2,7 +2,7 @@
 #include <string.h>
 
 #include "textedit.h"
-#include "utf8term.h"
+#include "utfterm.h"
 
 static int failures = 0;
 
@@ -118,7 +118,7 @@ static void test_physical_profile_does_not_change_logical_replace(void)
 
    utf8_terminal_profile_reset();
    utf8_terminal_profile_apply_line(
-      "SET UTF8 TERMINAL CLASS keycap LAYOUT 9 CURSOR 9");
+      "SET UTF TERMINAL CLASS keycap LAYOUT 9 CURSOR 9");
    copy_bytes(line, keycap, sizeof(keycap));
    len = textedit_replace_utf8(line, sizeof(keycap), sizeof(line) - 1,
                                1, (const CHARTYPE *)"X", 1);

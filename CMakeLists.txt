@@ -389,8 +389,8 @@ set(THE_SOURCES
     src/the.c
     src/textedit.c
     src/textpos.c
-    src/utf8repair.c
-    src/utf8term.c
+    src/utfrepair.c
+    src/utfterm.c
     src/mygetopt.c
     src/trace.c
     src/util.c
@@ -445,9 +445,9 @@ if(USE_UTF8 AND EXISTS "${THE_SYSTEM_PROFILE_SOURCE}")
         COMMAND ${CMAKE_COMMAND} -E make_directory ${RELEASE_DIR}
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${THE_SYSTEM_PROFILE_SOURCE} ${RELEASE_DIR}/${THE_SYSTEM_PROFILE_NAME}
         DEPENDS ${THE_SYSTEM_PROFILE_SOURCE}
-        COMMENT "Copying UTF-8 system profile ${THE_SYSTEM_PROFILE_NAME} to ${RELEASE_DIR}"
+        COMMENT "Copying UTF system profile ${THE_SYSTEM_PROFILE_NAME} to ${RELEASE_DIR}"
     )
-    add_custom_target(copy_utf8_system_profile ALL
+    add_custom_target(copy_utf_system_profile ALL
         DEPENDS ${RELEASE_DIR}/${THE_SYSTEM_PROFILE_NAME}
     )
 endif()
@@ -460,9 +460,9 @@ if(WIN32)
 endif()
 
 if(USE_UTF8 AND USE_WIDE_CHAR)
-    add_executable(utf8_terminal_probe tools/utf8_terminal_probe.c)
-    target_include_directories(utf8_terminal_probe PRIVATE ${CURSES_INCLUDE_DIRS})
-    target_link_libraries(utf8_terminal_probe ${CURSES_LIBRARIES})
+    add_executable(utf_terminal_probe tools/utf_terminal_probe.c)
+    target_include_directories(utf_terminal_probe PRIVATE ${CURSES_INCLUDE_DIRS})
+    target_link_libraries(utf_terminal_probe ${CURSES_LIBRARIES})
 endif()
 
 # Install Targets
@@ -486,15 +486,15 @@ if(USE_UTF8 AND USE_UTF8PROC)
 endif()
 add_test(NAME test_textpos COMMAND test_textpos)
 if(USE_UTF8)
-    add_executable(test_utf8_fixture tests/test_utf8_fixture.c src/textpos.c)
-    target_include_directories(test_utf8_fixture PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+    add_executable(test_utf_fixture tests/test_utf_fixture.c src/textpos.c)
+    target_include_directories(test_utf_fixture PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
     if(USE_UTF8PROC)
-        target_link_libraries(test_utf8_fixture ${THE_UTF8PROC_TARGET})
-        target_compile_definitions(test_utf8_fixture PRIVATE USE_UTF8PROC=1)
+        target_link_libraries(test_utf_fixture ${THE_UTF8PROC_TARGET})
+        target_compile_definitions(test_utf_fixture PRIVATE USE_UTF8PROC=1)
     endif()
-    add_test(NAME test_utf8_fixture COMMAND test_utf8_fixture ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/utf8-render.txt)
+    add_test(NAME test_utf_fixture COMMAND test_utf_fixture ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/utf-render.txt)
 
-    add_executable(test_textedit tests/test_textedit.c src/textedit.c src/textpos.c src/utf8term.c)
+    add_executable(test_textedit tests/test_textedit.c src/textedit.c src/textpos.c src/utfterm.c)
     target_include_directories(test_textedit PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
     if(USE_UTF8PROC)
         target_link_libraries(test_textedit ${THE_UTF8PROC_TARGET})
@@ -502,28 +502,31 @@ if(USE_UTF8)
     endif()
     add_test(NAME test_textedit COMMAND test_textedit)
 
-    add_executable(test_utf8term tests/test_utf8term.c src/utf8term.c src/textpos.c)
-    target_include_directories(test_utf8term PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+    add_executable(test_utfterm tests/test_utfterm.c src/utfterm.c src/textpos.c)
+    target_include_directories(test_utfterm PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
     if(USE_UTF8PROC)
-        target_link_libraries(test_utf8term ${THE_UTF8PROC_TARGET})
-        target_compile_definitions(test_utf8term PRIVATE USE_UTF8PROC=1)
+        target_link_libraries(test_utfterm ${THE_UTF8PROC_TARGET})
+        target_compile_definitions(test_utfterm PRIVATE USE_UTF8PROC=1)
     endif()
-    add_test(NAME test_utf8term
-        COMMAND test_utf8term
+    add_test(NAME test_utfterm
+        COMMAND test_utfterm
             ${CMAKE_CURRENT_SOURCE_DIR}/system-osx.the)
 
-    add_executable(test_utf8repair tests/test_utf8repair.c src/utf8repair.c src/utf8term.c src/textpos.c)
-    target_include_directories(test_utf8repair PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+    add_executable(test_utfrepair tests/test_utfrepair.c src/utfrepair.c src/utfterm.c src/textpos.c)
+    target_include_directories(test_utfrepair PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
     if(USE_UTF8PROC)
-        target_link_libraries(test_utf8repair ${THE_UTF8PROC_TARGET})
-        target_compile_definitions(test_utf8repair PRIVATE USE_UTF8PROC=1)
+        target_link_libraries(test_utfrepair ${THE_UTF8PROC_TARGET})
+        target_compile_definitions(test_utfrepair PRIVATE USE_UTF8PROC=1)
     endif()
-    add_test(NAME test_utf8repair COMMAND test_utf8repair)
+    add_test(NAME test_utfrepair COMMAND test_utfrepair)
 
     if(USE_WIDE_CHAR)
-        add_test(NAME test_utf8_terminal_probe_no_visual
-            COMMAND utf8_terminal_probe calibrate keycap --no-visual
+        add_test(NAME test_utf_terminal_probe_no_visual
+            COMMAND utf_terminal_probe calibrate keycap --no-visual
                 --profile-dir ${CMAKE_CURRENT_BINARY_DIR})
+        add_test(NAME test_utf_terminal_probe_profile
+            COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_utf_probe_profile.sh)
+        set_tests_properties(test_utf_terminal_probe_profile PROPERTIES SKIP_RETURN_CODE 77)
     endif()
     add_test(NAME test_system_profile COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_system_profile.sh)
     set_tests_properties(test_system_profile PROPERTIES SKIP_RETURN_CODE 77)
