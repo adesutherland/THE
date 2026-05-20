@@ -300,9 +300,6 @@ static void cursor_utf8_repaint_filearea_motion(CHARTYPE curr_screen,
       new_display_col = maxx - 1;
    if (new_display_col < 0)
       new_display_col = 0;
-   show_utf8_trace_cursor_motion(curr_screen, old_row, old_logical_cell,
-                                 new_logical_cell, new_display_col,
-                                 curr_view->verify_col);
    show_utf8_filearea_cursor_transition(curr_screen, old_row,
                                         old_logical_cell - viewport_col,
                                         new_logical_cell - viewport_col);

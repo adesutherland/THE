@@ -176,28 +176,6 @@ static void show_set_utf8_cchar(cchar_t *dest, uint32_t ch, chtype colour)
    setcchar(dest, wch, colour, PAIR_NUMBER(colour & A_COLOR), NULL);
 }
 
-static FILE *show_utf8_trace_file(void)
-{
-   static FILE *trace = NULL;
-   static int initialised = FALSE;
-   const char *path;
-
-   if (initialised)
-      return trace;
-   initialised = TRUE;
-
-   path = getenv("THE_UTF_RENDER_TRACE");
-   if (path == NULL || *path == '\0')
-      return NULL;
-   if (strcmp(path, "1") == 0)
-      path = "/tmp/the-utf-render.log";
-   if (strcmp(path, "stderr") == 0)
-      return stderr;
-
-   trace = fopen(path, "a");
-   return trace;
-}
-
 static TextPos show_utf8_advance_codepoint_pos(TextPos pos, TextCodepoint item)
 {
    if (item.byte_length == 0)
@@ -276,215 +254,6 @@ static int show_utf8_line_replacement_hint_matches(SHOW_LINE *scurr)
    return utf8_line_replacement_hint.line != NULL
        && scurr != NULL
        && scurr->line_number == utf8_line_replacement_hint.line_number;
-}
-
-static void show_utf8_trace_codepoints(FILE *trace, const CHARTYPE *line,
-                                       size_t len, TextCluster cluster)
-{
-   TextPos pos = cluster.pos;
-
-   while (pos.byte_offset < cluster.end.byte_offset)
-   {
-      TextCodepoint item = textpos_codepoint_at_boundary(line, len, pos);
-
-      if (item.byte_length == 0)
-         break;
-      fprintf(trace, " U+%X(w%d)", item.codepoint, item.cell_width);
-      pos = show_utf8_advance_codepoint_pos(pos, item);
-   }
-}
-
-static void show_utf8_trace_filearea_cluster(CHARTYPE scrno, short row,
-                                             SHOW_LINE *scurr, LENGTHTYPE cvcol,
-                                             TextCluster cluster,
-                                             const CHARTYPE *line, size_t len,
-                                             int logical_screen_col,
-                                             int screen_col, int clear_width,
-                                             int display_width,
-                                             int cursor_width,
-                                             int paint_width,
-                                             int cursor_visible, int cursor_col,
-                                             int cursor_display_col,
-                                             int cursor_logical_hit,
-                                             int cursor_display_hit,
-                                             int cursor_hit, int after_write_col,
-                                             int after_force_col)
-{
-   FILE *trace = show_utf8_trace_file();
-   const Utf8TerminalProfileEntry *entry;
-
-   if (trace == NULL)
-      return;
-
-   entry = utf8_terminal_profile_lookup_cluster(line, len, cluster,
-                                                utf8_terminal_display_mode());
-   fprintf(trace,
-           "filearea screen=%u row=%d line=%ld cvcol=%ld cursor_visible=%d cursor_col=%d "
-           "cursor_display_col=%d "
-           "cluster=%zu bytes=%zu..%zu cps=%zu..%zu logical_cells=%d..%d width=%d "
-           "class=%s layout=%d cursor_width=%d cursor_strategy=%s replace_strategy=%s "
-           "logical_screen_col=%d screen_col=%d clear=%d display_width=%d "
-           "paint_width=%d cursor_logical_hit=%d cursor_display_hit=%d cursor_hit=%d "
-           "curses_after_write=%d forced_col=%d cps:",
-           (unsigned)scrno,
-           (int)row,
-           (long)((scurr != NULL) ? scurr->line_number : 0),
-           (long)cvcol,
-           cursor_visible,
-           cursor_col,
-           cursor_display_col,
-           cluster.pos.cluster_index,
-           cluster.pos.byte_offset,
-           cluster.end.byte_offset,
-           cluster.pos.codepoint_index,
-           cluster.end.codepoint_index,
-           cluster.pos.cell_column,
-           cluster.end.cell_column,
-           cluster.cell_width,
-           entry != NULL ? utf8_terminal_class_name(entry->feature_class) : "-",
-           entry != NULL ? entry->layout_width : 0,
-           cursor_width,
-           entry != NULL ? utf8_terminal_strategy_name(entry->cursor_strategy) : "-",
-           entry != NULL ? utf8_terminal_strategy_name(entry->replacement_strategy) : "-",
-           logical_screen_col,
-           screen_col,
-           clear_width,
-           display_width,
-           paint_width,
-           cursor_logical_hit,
-           cursor_display_hit,
-           cursor_hit,
-           after_write_col,
-           after_force_col);
-   show_utf8_trace_codepoints(trace, line, len, cluster);
-   fputc('\n', trace);
-   fflush(trace);
-}
-
-void show_utf8_trace_cursor_motion(CHARTYPE scrno, short row,
-                                   int old_logical_col, int new_logical_col,
-                                   int new_display_col, LENGTHTYPE verify_col)
-{
-   FILE *trace = show_utf8_trace_file();
-
-   if (trace == NULL)
-      return;
-
-   fprintf(trace,
-           "cursor-motion screen=%u row=%d verify_col=%ld old_logical=%d "
-           "new_logical=%d new_display=%d\n",
-           (unsigned)scrno,
-           (int)row,
-           (long)verify_col,
-           old_logical_col,
-           new_logical_col,
-           new_display_col);
-   fflush(trace);
-}
-
-static void show_utf8_trace_filearea_target(CHARTYPE scrno, short row,
-                                            SHOW_LINE *scurr, LENGTHTYPE cvcol,
-                                            TextCluster cluster,
-                                            const CHARTYPE *line, size_t len,
-                                            int logical_screen_col,
-                                            int display_col, int display_width,
-                                            int cursor)
-{
-   FILE *trace = show_utf8_trace_file();
-
-   if (trace == NULL)
-      return;
-
-   fprintf(trace,
-           "cursor-target screen=%u row=%d line=%ld cvcol=%ld cursor=%d "
-           "cluster=%zu bytes=%zu..%zu cps=%zu..%zu logical_cells=%d..%d width=%d "
-           "logical_screen_col=%d display_col=%d display_width=%d cps:",
-           (unsigned)scrno,
-           (int)row,
-           (long)((scurr != NULL) ? scurr->line_number : 0),
-           (long)cvcol,
-           cursor,
-           cluster.pos.cluster_index,
-           cluster.pos.byte_offset,
-           cluster.end.byte_offset,
-           cluster.pos.codepoint_index,
-           cluster.end.codepoint_index,
-           cluster.pos.cell_column,
-           cluster.end.cell_column,
-           cluster.cell_width,
-           logical_screen_col,
-           display_col,
-           display_width);
-   show_utf8_trace_codepoints(trace, line, len, cluster);
-   fputc('\n', trace);
-   fflush(trace);
-}
-
-static void show_utf8_trace_filearea_blank_target(CHARTYPE scrno, short row,
-                                                  SHOW_LINE *scurr,
-                                                  LENGTHTYPE cvcol,
-                                                  int logical_screen_col,
-                                                  int display_col, int cursor)
-{
-   FILE *trace = show_utf8_trace_file();
-
-   if (trace == NULL)
-      return;
-
-   fprintf(trace,
-           "cursor-target screen=%u row=%d line=%ld cvcol=%ld cursor=%d "
-           "cluster=blank logical_screen_col=%d display_col=%d\n",
-           (unsigned)scrno,
-           (int)row,
-           (long)((scurr != NULL) ? scurr->line_number : 0),
-           (long)cvcol,
-           cursor,
-           logical_screen_col,
-           display_col);
-   fflush(trace);
-}
-
-static void show_utf8_trace_cursor_strategy(
-   CHARTYPE scrno, short row, LENGTHTYPE cvcol, const char *action,
-   Utf8TerminalStrategy strategy,
-   int old_valid, const Utf8TerminalProfileEntry *old_entry,
-   TextCluster old_cluster, int old_logical_screen_col, int old_display_col,
-   int new_valid, const Utf8TerminalProfileEntry *new_entry,
-   TextCluster new_cluster, int new_logical_screen_col, int new_display_col,
-   int start_valid, TextPos start_pos, int start_display_col)
-{
-   FILE *trace = show_utf8_trace_file();
-
-   if (trace == NULL)
-      return;
-
-   fprintf(trace,
-           "cursor-strategy screen=%u row=%d cvcol=%ld action=%s strategy=%s "
-           "old_valid=%d old_class=%s old_logical=%d old_display=%d old_bytes=%zu..%zu "
-           "new_valid=%d new_class=%s new_logical=%d new_display=%d new_bytes=%zu..%zu "
-           "start_valid=%d start_cell=%d start_display=%d start_byte=%zu\n",
-           (unsigned)scrno,
-           (int)row,
-           (long)cvcol,
-           action,
-           utf8_terminal_strategy_name(strategy),
-           old_valid,
-           old_entry != NULL ? utf8_terminal_class_name(old_entry->feature_class) : "-",
-           old_logical_screen_col,
-           old_display_col,
-           old_valid ? old_cluster.pos.byte_offset : 0,
-           old_valid ? old_cluster.end.byte_offset : 0,
-           new_valid,
-           new_entry != NULL ? utf8_terminal_class_name(new_entry->feature_class) : "-",
-           new_logical_screen_col,
-           new_display_col,
-           new_valid ? new_cluster.pos.byte_offset : 0,
-           new_valid ? new_cluster.end.byte_offset : 0,
-           start_valid,
-           start_valid ? start_pos.cell_column : -1,
-           start_valid ? start_display_col : -1,
-           start_valid ? start_pos.byte_offset : 0);
-   fflush(trace);
 }
 
 static int show_utf8_copy_status_text(char field[21], int offset, const char *text)
@@ -814,20 +583,12 @@ static int show_cluster_to_wide_string(const CHARTYPE *line, size_t len,
 static void show_write_utf8_cluster_at(WINDOW *win, int row, int col,
                                        const CHARTYPE *line, size_t len,
                                        TextCluster cluster, chtype colour,
-                                       int expected_width,
-                                       int *after_write_col,
-                                       int *after_force_col)
+                                       int expected_width)
 {
    wchar_t wch[THE_MAX_SCREEN_WIDTH + 1];
    int next_col;
    int maxx;
-   int after_y = -1;
-   int after_x = -1;
 
-   if (after_write_col != NULL)
-      *after_write_col = -1;
-   if (after_force_col != NULL)
-      *after_force_col = -1;
    if (win == NULL)
       return;
    maxx = getmaxx(win);
@@ -842,20 +603,12 @@ static void show_write_utf8_cluster_at(WINDOW *win, int row, int col,
    {
       wattrset(win, colour);
       waddwstr(win, wch);
-      getyx(win, after_y, after_x);
-      INTENTIONALLY_UNUSED_VARIABLE(after_y);
-      if (after_write_col != NULL)
-         *after_write_col = after_x;
    }
    next_col = col + ((expected_width > 0) ? expected_width : 1);
    if (next_col >= maxx)
       next_col = maxx - 1;
    if (next_col >= 0)
       wmove(win, row, next_col);
-   getyx(win, after_y, after_x);
-   INTENTIONALLY_UNUSED_VARIABLE(after_y);
-   if (after_force_col != NULL)
-      *after_force_col = after_x;
 }
 
 static void show_fill_cells_at(WINDOW *win, int row, int col, int width, chtype colour)
@@ -2001,7 +1754,7 @@ void show_statarea(void)
    {
       show_write_utf8_cluster_at(statarea, 0, charpos + status_cluster_offset, status_cluster_line,
                                  status_cluster_len, status_cluster,
-                                 status_colour, status_cluster_display_width, NULL, NULL);
+                                 status_colour, status_cluster_display_width);
    }
 #endif
    wnoutrefresh( statarea );
@@ -3962,9 +3715,6 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr, 
       int clear_width;
       int cursor_logical_hit = FALSE;
       int cursor_display_hit = FALSE;
-      int cursor_hit = FALSE;
-      int after_write_col = -1;
-      int after_force_col = -1;
 
       if (cluster.byte_length == 0)
          break;
@@ -4016,7 +3766,6 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr, 
       {
          colour = show_software_cursor_attr(scrno, colour, cursor_shape);
          cursor_drawn = TRUE;
-         cursor_hit = TRUE;
       }
 
       if (item_paint_width > 0)
@@ -4028,16 +3777,7 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr, 
                          clear_width, colour);
       show_write_utf8_cluster_at(SCREEN_WINDOW_FILEAREA(scrno), row, item_screen_col,
                                  line, blength, cluster, colour,
-                                 item_display_width, &after_write_col, &after_force_col);
-      show_utf8_trace_filearea_cluster(scrno, row, scurr, cvcol, cluster,
-                                       line, blength, item_logical_screen_col,
-                                       item_screen_col, clear_width,
-                                       item_display_width, item_cursor_width,
-                                       item_paint_width, cursor_visible,
-                                       cursor_col, cursor_display_col,
-                                       cursor_logical_hit, cursor_display_hit,
-                                       cursor_hit, after_write_col,
-                                       after_force_col);
+                                 item_display_width);
       pos = cluster.end;
       screen_col += (item_display_width > 0) ? item_display_width : 1;
    }
@@ -4142,9 +3882,6 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
                                                        (int)cvcol + logical_screen_col);
       if (display_col >= 0 && display_col < ccols)
       {
-         show_utf8_trace_filearea_blank_target(scrno, row, current, cvcol,
-                                               logical_screen_col,
-                                               display_col, cursor);
          if (cursor)
             show_draw_software_blank_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno),
                                           row, display_col, normal, shape);
@@ -4215,21 +3952,17 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
          show_write_utf8_cluster_at(SCREEN_WINDOW_FILEAREA(scrno), row,
                                     repaint_display_col, line, blength,
                                     repaint_cluster, repaint_colour,
-                                    repaint_display_width, NULL, NULL);
+                                    repaint_display_width);
          repaint_pos = repaint_cluster.end;
       }
       return;
    }
 
-   show_utf8_trace_filearea_target(scrno, row, current, cvcol, cluster,
-                                   line, blength, logical_screen_col,
-                                   display_col, display_width, cursor);
-
    show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, display_col,
                       display_width, colour);
    show_write_utf8_cluster_at(SCREEN_WINDOW_FILEAREA(scrno), row, display_col,
                               line, blength, cluster, colour,
-                              display_width, NULL, NULL);
+                              display_width);
 }
 
 static int show_utf8_target_cluster(CHARTYPE *line, LENGTHTYPE blength,
@@ -4282,12 +4015,10 @@ static void show_utf8_repaint_filearea_suffix(CHARTYPE scrno, short row,
    LENGTHTYPE cvcol = SCREEN_VIEW(scrno)->verify_col - 1;
    COLTYPE ccols = screen[scrno].cols[WINDOW_FILEAREA];
    TextPos pos = start_pos;
-   FILE *trace = show_utf8_trace_file();
 
    while (pos.byte_offset < blength)
    {
       TextCluster cluster = textpos_cluster_at_boundary(line, blength, pos);
-      const Utf8TerminalProfileEntry *entry;
       chtype colour;
       int display_col;
       int display_width;
@@ -4318,36 +4049,12 @@ static void show_utf8_repaint_filearea_suffix(CHARTYPE scrno, short row,
          clear_width = ccols - display_col;
 
       colour = show_utf8_filearea_cluster_colour(scrno, current, cluster, high);
-      entry = show_utf8_cluster_profile(line, blength, cluster);
-
-      if (trace != NULL)
-      {
-         fprintf(trace,
-                 "suffix-repaint screen=%u row=%d line=%ld cvcol=%ld "
-                 "cluster=%zu class=%s logical=%d..%d display_col=%d "
-                 "clear=%d display_width=%d paint_width=%d cps:",
-                 (unsigned)scrno,
-                 (int)row,
-                 (long)current->line_number,
-                 (long)cvcol,
-                 cluster.pos.cluster_index,
-                 entry != NULL ? utf8_terminal_class_name(entry->feature_class) : "-",
-                 cluster.pos.cell_column,
-                 cluster.end.cell_column,
-                 display_col,
-                 clear_width,
-                 display_width,
-                 paint_width);
-         show_utf8_trace_codepoints(trace, line, blength, cluster);
-         fputc('\n', trace);
-         fflush(trace);
-      }
 
       show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, display_col,
                          clear_width, colour);
       show_write_utf8_cluster_at(SCREEN_WINDOW_FILEAREA(scrno), row,
                                  display_col, line, blength, cluster,
-                                 colour, display_width, NULL, NULL);
+                                 colour, display_width);
       pos = cluster.end;
    }
 }
@@ -4403,13 +4110,6 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
    strategy = plan.strategy;
    if (plan.extent == UTF8_REPAIR_EXTENT_CHANGED_CELLS)
    {
-      start_pos = textpos_begin();
-      show_utf8_trace_cursor_strategy(scrno, row, cvcol, "cells",
-                                      strategy, old_valid, old_entry,
-                                      old_cluster, old_logical_screen_col,
-                                      old_display_col, new_valid, new_entry,
-                                      new_cluster, new_logical_screen_col,
-                                      new_display_col, FALSE, start_pos, -1);
       return FALSE;
    }
 
@@ -4421,14 +4121,6 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
 
    if (plan.extent == UTF8_REPAIR_EXTENT_LINE)
    {
-      start_pos = plan.start_pos;
-      show_utf8_trace_cursor_strategy(scrno, row, cvcol, "line",
-                                      strategy, old_valid, old_entry,
-                                      old_cluster, old_logical_screen_col,
-                                      old_display_col, new_valid, new_entry,
-                                      new_cluster, new_logical_screen_col,
-                                      new_display_col, plan.start_valid,
-                                      start_pos, 0);
       show_a_line_utf8_cells(scrno, row, current, high);
       touchline(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
       return TRUE;
@@ -4444,22 +4136,8 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
       start_display_col = 0;
    if (start_display_col >= ccols)
    {
-      show_utf8_trace_cursor_strategy(scrno, row, cvcol, "fallback_start_offscreen",
-                                      strategy, old_valid, old_entry,
-                                      old_cluster, old_logical_screen_col,
-                                      old_display_col, new_valid, new_entry,
-                                      new_cluster, new_logical_screen_col,
-                                      new_display_col, TRUE, start_pos,
-                                      start_display_col);
       return FALSE;
    }
-   show_utf8_trace_cursor_strategy(scrno, row, cvcol, "clear_suffix",
-                                   strategy, old_valid, old_entry,
-                                   old_cluster, old_logical_screen_col,
-                                   old_display_col, new_valid, new_entry,
-                                   new_cluster, new_logical_screen_col,
-                                   new_display_col, TRUE, start_pos,
-                                   start_display_col);
 
    if (old_display_col >= 0 && old_display_col < start_display_col)
       show_utf8_repaint_filearea_target(scrno, row, old_logical_screen_col,

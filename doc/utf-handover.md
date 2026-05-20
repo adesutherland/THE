@@ -117,14 +117,11 @@ after validation.
 
 1. Continue manual keycap investigation against the shared repair planner:
    verify cursor movement, scroll redraw, and replacement separately.
-2. Use `THE_UTF_RENDER_TRACE=/tmp/the-utf-render.log` to compare THE's logical
-   cursor cell, physical display column, class, layout, cursor width, and chosen
-   strategy against the probe's `testchain` output.
-3. If a strategy is wrong, fix or extend the generic planner/profile vocabulary
+2. If a strategy is wrong, fix or extend the generic planner/profile vocabulary
    rather than adding keycap-specific renderer branches.
-4. Keep replacement old-line hints covered; replacing a troublesome cluster with
+3. Keep replacement old-line hints covered; replacing a troublesome cluster with
    plain ASCII can still require the old cluster's repair boundary.
-5. Add platform probes and baselines for other terminal stacks only after the
+4. Add platform probes and baselines for other terminal stacks only after the
    macOS profile path is proven in THE.
 
 ## Sequencing Advice

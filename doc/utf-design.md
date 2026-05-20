@@ -726,12 +726,6 @@ Manual renderer fixture:
   characters, single-codepoint emoji, emoji modifiers, variation selectors,
   keycaps, regional-indicator flags, short ZWJ emoji, two-face ZWJ emoji,
   four-face ZWJ emoji, mixed lines, and horizontal viewport clipping.
-- Set `THE_UTF_RENDER_TRACE=/tmp/the-utf-render.log` while running THE to
-  capture the live file-area renderer's cluster decisions. The trace records
-  each drawn cluster's code points, utf8proc logical cell width, screen column,
-  clear width, cursor-hit decision, curses cursor column after writing, and the
-  forced post-write column. This is intended to distinguish a wrong logical
-  width from a terminal paint/compositing mismatch.
 - Invalid UTF-8 is intentionally excluded from this manual text fixture because
   editors and source tools may silently normalize or repair invalid byte
   sequences. Keep invalid-byte coverage in byte-oriented automated tests or
@@ -1198,8 +1192,7 @@ Calibration Utility" sections above for the active strategy.
   grapheme content: it now clears and writes each cluster at the cell column
   supplied by the text-position model, so following characters are placed from
   THE's utf8proc layout instead of inheriting curses' or the terminal's previous
-  glyph state. A guarded `THE_UTF_RENDER_TRACE` diagnostic records the live
-  model/draw/cursor values for the remaining flag/keycap investigation.
+  glyph state.
 - 2026-05-09: Reintroduced the POC's missing logical-to-physical file-area
   display mapping. `TextPos.cell_column` remains the utf8proc/editor model, but
   file rendering reserves wider physical paint footprints for macOS regional
@@ -1247,10 +1240,7 @@ Calibration Utility" sections above for the active strategy.
   column back through `show_utf8_logical_col_from_display()` before selecting
   the focused cluster.
 - 2026-05-10: Reverted attempted keycap fixes that changed the targeted repaint
-  shape or forced whole-row redraw. Neither changed the macOS Terminal symptom,
-  so the next step is movement/write-column instrumentation rather than another
-  repaint guess. `THE_UTF_RENDER_TRACE` now also records cursor-motion mapping
-  and targeted cursor repaint columns.
+  shape or forced whole-row redraw. Neither changed the macOS Terminal symptom.
 - 2026-05-10: Added `utf_terminal_probe`, a standalone curses/raw-terminal
   probe for keycaps, regional flags, ZWJ sequences, and related cursor advance
   cases. Future terminal-specific fixes should be proven in this harness before

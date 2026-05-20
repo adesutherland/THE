@@ -268,7 +268,6 @@ void display_prefix_line ( CHARTYPE, VIEW_DETAILS * );
 #ifdef USE_UTF8
 int show_utf8_display_col_from_logical (const CHARTYPE *, size_t, int, int);
 int show_utf8_logical_col_from_display (const CHARTYPE *, size_t, int, int, TextSnap);
-void show_utf8_trace_cursor_motion (CHARTYPE, short, int, int, int, LENGTHTYPE);
 void show_utf8_note_line_replacement (LINETYPE, const CHARTYPE *, LENGTHTYPE);
 void show_utf8_filearea_cursor_transition (CHARTYPE, short, int, int);
 #endif
