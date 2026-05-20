@@ -459,6 +459,7 @@ short execute_sort (CHARTYPE *);
 short THEcursor_cmdline ( CHARTYPE, VIEW_DETAILS *, short );
 void cursor_focus_capture (CHARTYPE);
 bool cursor_focus_filearea_cursor (CHARTYPE, short, int *, CursorShape *);
+bool cursor_focus_filearea_display_cursor (CHARTYPE, short, int *);
 bool cursor_focus_command_cursor (CHARTYPE, short *, short *, CursorShape *);
 bool cursor_focus_prefix_cursor (CHARTYPE, short, int *, CursorShape *);
 void cursor_focus_redraw (CHARTYPE, VIEW_DETAILS *);

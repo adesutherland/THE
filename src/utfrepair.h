@@ -36,8 +36,10 @@ TextPos utf8_repair_first_visible_feature_pos(
    TextPos fallback);
 Utf8RepairPlan utf8_repair_plan_for_cursor(
    const CHARTYPE *line, size_t len, int viewport_col,
+   int old_logical_col,
    TextCluster old_cluster, int old_valid,
    const Utf8TerminalProfileEntry *old_entry,
+   int new_logical_col,
    TextCluster new_cluster, int new_valid,
    const Utf8TerminalProfileEntry *new_entry);
 Utf8RepairPlan utf8_repair_plan_for_replacement(

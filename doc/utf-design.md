@@ -1376,6 +1376,23 @@ Calibration Utility" sections above for the active strategy.
   screen now renders each candidate using that output method's own physical
   L/C and repaint settings, shows those settings in the row title, and displays
   a preference score so the user can choose the cheapest working method.
+- 2026-05-20: Made cursor repair strategy selection consider the affected
+  visible line prefix, not only the old and new cursor cells. This preserves
+  the "worse repair strategy wins" rule for movements like `B` to the following
+  space after a keycap, while remaining conservative: clusters to the right of
+  the cursor transition do not influence earlier ASCII-only cursor movement.
+  `--testchain` now includes explicit space targets after selected `B` cells so
+  the probe can exercise the same transition as the THE fixture.
+- 2026-05-20: Extended that same cursor-context rule to synthetic cells after
+  line end. When both cursor endpoints are past the record end there is no
+  `TextCluster` under either endpoint, but the affected visible prefix can still
+  contain a stronger repair requirement such as keycap `first`/`whole`.
+- 2026-05-20: Reduced one more dependency on curses as the source of truth for
+  UTF file-area cursor motion. Left/right UTF movement now passes the target
+  logical cell into the repaint path and computes the physical display column
+  from that logical cell when painting/parking the hidden cursor. This is a
+  stepping stone toward an explicit logical cursor layer for all file-area cursor
+  commands.
 
 ## Future Performance Roadmap
 

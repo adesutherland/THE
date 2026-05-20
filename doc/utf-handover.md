@@ -27,6 +27,33 @@ and strategy choices consistently across classes; ZWJ working and keycaps
 failing should be treated as profile/strategy evidence, not as permission to add
 class-specific renderer behavior.
 
+Cursor investigation now records both coordinates: the logical editor cell used
+to select the `TextCluster`, and the physical terminal display column used to
+paint the software cursor. This keeps the keycap case visible without changing
+logical text positioning: a keycap may remain one logical cell while the terminal
+profile gives it a two-cell layout and cursor footprint.
+
+The file-area cursor still needs a fuller logical cursor layer. The current UTF
+left/right path now carries the target logical cell through repaint and uses the
+physical curses cursor only as a parked implementation detail, but other cursor
+commands may still derive their live position from curses. Long term, file-area
+cursor state should be `{row, logical_cell}` first, with physical display columns
+computed only by the renderer/driver.
+
+The generic suffix-style cursor repair now follows the probe order: clear the
+selected suffix, flush that blank state when requested, repaint the suffix in
+normal attributes, then overlay the new software cursor target. This avoids
+mixing keycap/flag/ZWJ glyph repaint with cursor styling during the suffix pass.
+
+Cursor strategy selection uses the shared strategy ranking for the affected
+visible line prefix, not only the old and new cursor cells. This matters for
+ASCII-to-ASCII motion immediately after a troublesome cluster: moving from `B`
+to the following space in `A keycap B space` still inherits the keycap repair
+strategy because the terminal state to the left can affect the physical cells
+being touched. The same rule applies after line end: synthetic visible cells
+past record end still use the line prefix, so a keycap/flag/ZWJ earlier on the
+visible line can keep the conservative repair strategy active.
+
 ## Important Artifacts
 
 - `doc/utf-design.md`: detailed design, findings, and historical log.
@@ -90,11 +117,14 @@ after validation.
 
 1. Continue manual keycap investigation against the shared repair planner:
    verify cursor movement, scroll redraw, and replacement separately.
-2. If a strategy is wrong, fix or extend the generic planner/profile vocabulary
+2. Use `THE_UTF_RENDER_TRACE=/tmp/the-utf-render.log` to compare THE's logical
+   cursor cell, physical display column, class, layout, cursor width, and chosen
+   strategy against the probe's `testchain` output.
+3. If a strategy is wrong, fix or extend the generic planner/profile vocabulary
    rather than adding keycap-specific renderer branches.
-3. Keep replacement old-line hints covered; replacing a troublesome cluster with
+4. Keep replacement old-line hints covered; replacing a troublesome cluster with
    plain ASCII can still require the old cluster's repair boundary.
-4. Add platform probes and baselines for other terminal stacks only after the
+5. Add platform probes and baselines for other terminal stacks only after the
    macOS profile path is proven in THE.
 
 ## Sequencing Advice

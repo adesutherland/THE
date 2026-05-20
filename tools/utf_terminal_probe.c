@@ -2463,17 +2463,17 @@ static void run_testcursor_probe(ProbeConfig *cfg)
    reportf(cfg, "\n");
 }
 
-#define TESTCHAIN_TARGETS 21
+#define TESTCHAIN_TARGETS 25
 
 static int testchain_is_cluster_target(int target)
 {
    return target == 3
-       || target == 6
-       || target == 9
-       || target == 10
+       || target == 7
        || target == 11
-       || target == 14
-       || target == 17;
+       || target == 12
+       || target == 13
+       || target == 17
+       || target == 21;
 }
 
 static int testchain_first_cluster_target(void)
@@ -2491,10 +2491,10 @@ static const char *testchain_item_text(const ProbeSample *sample, int target)
    static const char *ascii_targets[TESTCHAIN_TARGETS] =
    {
       "X", "X",
-      "A", NULL, "B",
-      "A", NULL, "B",
-      "A", NULL, NULL, NULL, "B",
-      "A", NULL, "B",
+      "A", NULL, "B", " ",
+      "A", NULL, "B", " ",
+      "A", NULL, NULL, NULL, "B", " ",
+      "A", NULL, "B", " ",
       "A", NULL, "B",
       "X", "X"
    };
@@ -2511,10 +2511,10 @@ static const char *testchain_target_name(int target)
    static const char *names[TESTCHAIN_TARGETS] =
    {
       "leadX1", "leadX2",
-      "A1", "cluster1", "B1",
-      "A2", "cluster2", "B2",
-      "A3", "cluster3", "cluster4", "cluster5", "B5",
-      "A6", "cluster6", "B6",
+      "A1", "cluster1", "B1", "space1",
+      "A2", "cluster2", "B2", "space2",
+      "A3", "cluster3", "cluster4", "cluster5", "B5", "space5",
+      "A6", "cluster6", "B6", "space6",
       "A7", "cluster7", "B7",
       "trailX1", "trailX2"
    };
@@ -2540,7 +2540,11 @@ static void testchain_offsets(int layout_width, int offsets[TESTCHAIN_TARGETS],
 
 static int testchain_total_width(int layout_width)
 {
-   return 14 + (7 * layout_width);
+   int offsets[TESTCHAIN_TARGETS];
+   int widths[TESTCHAIN_TARGETS];
+
+   testchain_offsets(layout_width, offsets, widths);
+   return offsets[TESTCHAIN_TARGETS - 1] + widths[TESTCHAIN_TARGETS - 1];
 }
 
 static void draw_testchain_base(const ProbeSample *sample, int row, int col,
@@ -2799,7 +2803,7 @@ static void run_testchain_probe(ProbeConfig *cfg)
    int firststrategy = testchain_mode_is(cfg, "first");
    int whole = testchain_mode_is(cfg, "whole");
 
-   reportf(cfg, "section=testchain selector=%s layout_width=%d cursor_width=%d mode=%s pattern=XX-A-cluster-B-A-cluster-B-A-cluster-cluster-cluster-B-A-cluster-B-A-cluster-B-XX\n",
+   reportf(cfg, "section=testchain selector=%s layout_width=%d cursor_width=%d mode=%s pattern=XX-A-cluster-B-space-A-cluster-B-space-A-cluster-cluster-cluster-B-space-A-cluster-B-space-A-cluster-B-XX\n",
            cfg->testchain_selector ? cfg->testchain_selector : "",
            cfg->testchain_layout_width, cfg->testchain_cursor_width,
            testchain_mode_name(cfg));
@@ -2847,7 +2851,7 @@ static void run_testchain_probe(ProbeConfig *cfg)
             cfg->testchain_selector, cfg->testchain_layout_width,
             cfg->testchain_cursor_width, testchain_mode_name(cfg),
             UTF_TERMINAL_PROBE_VERSION);
-   mvprintw(1, 0, "Pattern is XX-A-C-B-A-C-B-A-C-C-C-B-A-C-B-A-C-B-XX; prev clears from one prior cluster.");
+   mvprintw(1, 0, "Pattern is XX-A-C-B-SP-A-C-B-SP-A-C-C-C-B-SP-A-C-B-SP-A-C-B-XX; prev clears from one prior cluster.");
    if (testchain_mode_is(cfg, "cells") || suffix || prev
    ||  firststrategy || whole)
       draw_testchain_base(sample, row, col, cfg->testchain_layout_width);

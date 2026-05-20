@@ -132,6 +132,65 @@ static TextCluster selected_strategy_cluster(
    return selected;
 }
 
+static TextCluster visible_context_strategy_cluster(
+   const CHARTYPE *line, size_t len, int viewport_col,
+   int old_logical_col,
+   TextCluster old_cluster, int old_valid,
+   int new_logical_col,
+   TextCluster new_cluster, int new_valid,
+   Utf8TerminalStrategy strategy, Utf8TerminalDisplayMode display,
+   const Utf8TerminalProfileEntry **entry_out,
+   int *valid)
+{
+   TextPos pos;
+   TextCluster selected;
+   int limit_cell = -1;
+   int best_rank;
+
+   memset(&selected, 0, sizeof(selected));
+   *entry_out = NULL;
+   *valid = 0;
+   if (old_logical_col >= 0)
+      limit_cell = old_logical_col;
+   else if (old_valid)
+      limit_cell = old_cluster.pos.cell_column;
+   if (new_logical_col >= 0 && new_logical_col > limit_cell)
+      limit_cell = new_logical_col;
+   else if (new_logical_col < 0
+   &&       new_valid
+   &&       new_cluster.pos.cell_column > limit_cell)
+      limit_cell = new_cluster.pos.cell_column;
+   if (limit_cell < 0)
+      return selected;
+
+   best_rank = utf8_terminal_strategy_rank(strategy);
+   pos = utf8_repair_visible_start_pos(line, len, viewport_col);
+   while (pos.byte_offset < len)
+   {
+      TextCluster cluster = textpos_cluster_at_boundary(line, len, pos);
+      const Utf8TerminalProfileEntry *entry;
+      int rank;
+
+      if (cluster.byte_length == 0
+      ||  cluster.pos.cell_column > limit_cell)
+         break;
+      entry = utf8_terminal_profile_lookup_cluster(line, len, cluster, display);
+      if (entry != NULL)
+      {
+         rank = utf8_terminal_strategy_rank(entry->cursor_strategy);
+         if (rank > best_rank)
+         {
+            selected = cluster;
+            *entry_out = entry;
+            *valid = 1;
+            best_rank = rank;
+         }
+      }
+      pos = cluster.end;
+   }
+   return selected;
+}
+
 static TextPos start_for_strategy(const CHARTYPE *line, size_t len,
                                   int viewport_col,
                                   Utf8TerminalStrategy strategy,
@@ -194,8 +253,10 @@ static void apply_strategy_to_plan(Utf8RepairPlan *plan,
 
 Utf8RepairPlan utf8_repair_plan_for_cursor(
    const CHARTYPE *line, size_t len, int viewport_col,
+   int old_logical_col,
    TextCluster old_cluster, int old_valid,
    const Utf8TerminalProfileEntry *old_entry,
+   int new_logical_col,
    TextCluster new_cluster, int new_valid,
    const Utf8TerminalProfileEntry *new_entry)
 {
@@ -204,14 +265,19 @@ Utf8RepairPlan utf8_repair_plan_for_cursor(
    Utf8TerminalStrategy strategy;
    TextCluster earliest;
    TextCluster selected;
+   TextCluster context;
    const Utf8TerminalProfileEntry *selected_entry;
+   const Utf8TerminalProfileEntry *context_entry;
    Utf8TerminalClass feature_class = UTF8_TERM_CLASS_UNKNOWN;
    int earliest_valid;
    int selected_valid;
+   int context_valid;
    TextPos start_pos;
+   int context_selected = 0;
 
    visible_start = utf8_repair_visible_start_pos(line, len, viewport_col);
    plan = utf8_repair_plan_default(visible_start);
+
    strategy = utf8_terminal_cursor_transition_strategy(old_entry, new_entry);
 
    earliest = earliest_cluster(old_cluster, old_valid, new_cluster, new_valid,
@@ -220,6 +286,19 @@ Utf8RepairPlan utf8_repair_plan_for_cursor(
                                         new_cluster, new_valid, new_entry,
                                         strategy, &selected_entry,
                                         &selected_valid);
+   context = visible_context_strategy_cluster(
+      line, len, viewport_col, old_logical_col, old_cluster, old_valid,
+      new_logical_col, new_cluster, new_valid,
+      strategy, utf8_terminal_display_mode(), &context_entry, &context_valid);
+   if (context_valid && context_entry != NULL)
+   {
+      strategy = context_entry->cursor_strategy;
+      selected = context;
+      selected_entry = context_entry;
+      selected_valid = 1;
+      context_selected = 1;
+   }
+
    if (selected_valid && selected_entry != NULL)
       feature_class = selected_entry->feature_class;
    else if (old_entry != NULL && old_entry->cursor_strategy == strategy)
@@ -239,7 +318,9 @@ Utf8RepairPlan utf8_repair_plan_for_cursor(
    else
    {
       start_pos = start_for_strategy(line, len, viewport_col, strategy,
-                                     earliest, earliest_valid,
+                                     context_selected ? selected : earliest,
+                                     context_selected ? selected_valid
+                                                      : earliest_valid,
                                      feature_class,
                                      feature_class != UTF8_TERM_CLASS_UNKNOWN,
                                      utf8_terminal_display_mode());

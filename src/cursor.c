@@ -46,9 +46,10 @@ typedef struct
    CHARTYPE window;
    int row;
    int col;
+   int display_col;
 } CursorFocusSnapshot;
 
-static CursorFocusSnapshot cursor_focus_snapshot = { FALSE, 0, WINDOW_FILEAREA, 0, 0 };
+static CursorFocusSnapshot cursor_focus_snapshot = { FALSE, 0, WINDOW_FILEAREA, 0, 0, 0 };
 
 static int cursor_utf8_filearea_logical_cell_from_display(CHARTYPE curr_screen,
                                                           VIEW_DETAILS *curr_view,
@@ -102,6 +103,7 @@ void cursor_focus_capture(CHARTYPE scrno)
 
    getyx(win, row, col);
    cursor_focus_clamp_to_window(scrno, view->current_window, &row, &col);
+   cursor_focus_snapshot.display_col = col;
    if (view->current_window == WINDOW_FILEAREA)
       col = cursor_utf8_filearea_logical_cell_from_display(scrno, view, col,
                                                            TEXT_SNAP_BACKWARD)
@@ -130,6 +132,16 @@ bool cursor_focus_filearea_cursor(CHARTYPE scrno, short row, int *col, CursorSha
       *col = cursor_focus_snapshot.col;
    if (shape != NULL)
       *shape = current_cursor_shape();
+   return TRUE;
+}
+
+bool cursor_focus_filearea_display_cursor(CHARTYPE scrno, short row, int *col)
+{
+   if (!cursor_focus_snapshot_for(scrno, WINDOW_FILEAREA)
+   ||  cursor_focus_snapshot.row != row)
+      return FALSE;
+   if (col != NULL)
+      *col = cursor_focus_snapshot.display_col;
    return TRUE;
 }
 
@@ -257,17 +269,20 @@ static void cursor_utf8_repaint_filearea_motion(CHARTYPE curr_screen,
                                                 VIEW_DETAILS *curr_view,
                                                 short old_row,
                                                 int old_logical_cell,
+                                                int new_logical_cell,
                                                 LENGTHTYPE old_verify_col)
 {
    short new_row = 0;
    short new_col = 0;
    int viewport_col;
-   int new_logical_cell;
+   int new_display_col;
+   int maxx;
 
    if (!current_cursor_uses_software())
       return;
 
    getyx(SCREEN_WINDOW_FILEAREA(curr_screen), new_row, new_col);
+   INTENTIONALLY_UNUSED_VARIABLE(new_col);
    if (curr_view == NULL
    ||  curr_view->verify_col != old_verify_col
    ||  new_row != old_row)
@@ -277,17 +292,21 @@ static void cursor_utf8_repaint_filearea_motion(CHARTYPE curr_screen,
    }
 
    viewport_col = (int)curr_view->verify_col - 1;
-   new_logical_cell = cursor_utf8_filearea_logical_cell_from_display(curr_screen,
-                                                                     curr_view,
-                                                                     new_col,
-                                                                     TEXT_SNAP_BACKWARD);
+   new_display_col = show_utf8_display_col_from_logical(rec, rec_len,
+                                                        viewport_col,
+                                                        new_logical_cell);
+   maxx = getmaxx(SCREEN_WINDOW_FILEAREA(curr_screen));
+   if (new_display_col >= maxx)
+      new_display_col = maxx - 1;
+   if (new_display_col < 0)
+      new_display_col = 0;
    show_utf8_trace_cursor_motion(curr_screen, old_row, old_logical_cell,
-                                 new_logical_cell, new_col,
+                                 new_logical_cell, new_display_col,
                                  curr_view->verify_col);
    show_utf8_filearea_cursor_transition(curr_screen, old_row,
                                         old_logical_cell - viewport_col,
                                         new_logical_cell - viewport_col);
-   wmove(SCREEN_WINDOW_FILEAREA(curr_screen), new_row, new_col);
+   wmove(SCREEN_WINDOW_FILEAREA(curr_screen), new_row, new_display_col);
    show_statarea();
    doupdate();
    draw_cursor(TRUE);
@@ -331,7 +350,8 @@ static bool cursor_utf8_filearea_left(short escreen, short *rc)
    *rc = cursor_utf8_move_filearea_to_cell(target_cell);
    if (*rc == RC_OK)
       cursor_utf8_repaint_filearea_motion(current_screen, CURRENT_VIEW,
-                                          old_y, old_logical_cell, old_verify_col);
+                                          old_y, old_logical_cell, target_cell,
+                                          old_verify_col);
    INTENTIONALLY_UNUSED_VARIABLE(escreen);
    INTENTIONALLY_UNUSED_VARIABLE(old_x);
    return TRUE;
@@ -378,7 +398,8 @@ static bool cursor_utf8_filearea_right(short escreen, short *rc)
    *rc = cursor_utf8_move_filearea_to_cell(target_cell);
    if (*rc == RC_OK)
       cursor_utf8_repaint_filearea_motion(current_screen, CURRENT_VIEW,
-                                          old_y, old_logical_cell, old_verify_col);
+                                          old_y, old_logical_cell, target_cell,
+                                          old_verify_col);
    INTENTIONALLY_UNUSED_VARIABLE(old_x);
    return TRUE;
 }
@@ -441,6 +462,14 @@ bool cursor_focus_filearea_cursor(CHARTYPE scrno, short row, int *col, CursorSha
    INTENTIONALLY_UNUSED_VARIABLE(row);
    INTENTIONALLY_UNUSED_VARIABLE(col);
    INTENTIONALLY_UNUSED_VARIABLE(shape);
+   return FALSE;
+}
+
+bool cursor_focus_filearea_display_cursor(CHARTYPE scrno, short row, int *col)
+{
+   INTENTIONALLY_UNUSED_VARIABLE(scrno);
+   INTENTIONALLY_UNUSED_VARIABLE(row);
+   INTENTIONALLY_UNUSED_VARIABLE(col);
    return FALSE;
 }
 
