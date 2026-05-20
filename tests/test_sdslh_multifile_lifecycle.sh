@@ -34,7 +34,6 @@ find_mdp() {
   for candidate in \
     "${THE_SDSLH_MDP:-}" \
     "${HOME}/.local/bin/mdp" \
-    "${BUILD_DIR}/release/mdp" \
     "${ROOT_DIR}/../DSL-Syntax-Highlighter/cmake-build-debug/parsers/markdown/mdp"; do
     if [[ -n "${candidate}" && -x "${candidate}" ]]; then
       printf '%s\n' "${candidate}"

@@ -22,10 +22,34 @@ set(DSLSH_GIT_REPOSITORY "https://github.com/adesutherland/DSL-Syntax-Highlighte
 set(DSLSH_GIT_TAG "develop"
         CACHE STRING "DSL-Syntax-Highlighter Git branch, tag, or commit SHA")
 
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  # Fallback to local user bin to avoid sudo permission errors during testing
+  if(WIN32)
+    set(CMAKE_INSTALL_PREFIX "$ENV{USERPROFILE}/.local" CACHE PATH "Default install prefix" FORCE)
+  else()
+    set(CMAKE_INSTALL_PREFIX "$ENV{HOME}/.local" CACHE PATH "Default install prefix" FORCE)
+  endif()
+endif()
+
 if(USE_UTF8 AND NOT USE_WIDE_CHAR)
     message(STATUS "USE_UTF8 requires wide character support; enabling USE_WIDE_CHAR")
     set(USE_WIDE_CHAR ON CACHE BOOL "Enable wide character support" FORCE)
 endif()
+
+if(APPLE)
+    set(THE_PLATFORM_NAME "osx")
+elseif(WIN32)
+    set(THE_PLATFORM_NAME "windows")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(THE_PLATFORM_NAME "linux")
+elseif(UNIX)
+    set(THE_PLATFORM_NAME "unix")
+else()
+    set(THE_PLATFORM_NAME "generic")
+endif()
+set(THE_SYSTEM_PROFILE_NAME "system-${THE_PLATFORM_NAME}.the")
+set(THE_SYSTEM_PROFILE_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/share/the")
+set(THE_SYSTEM_PROFILE_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/${THE_SYSTEM_PROFILE_NAME}")
 
 # Determine basic curses type based on options
 if(USE_XCURSES)
@@ -78,6 +102,9 @@ add_compile_definitions(
     THE_VERSION="${THE_VERSION}"
     THE_VERSION_DATE="${THE_VERSION_DATE}"
     THE_VARIANT="${THE_VARIANT}"
+    THE_PLATFORM_NAME="${THE_PLATFORM_NAME}"
+    THE_SYSTEM_PROFILE_NAME="${THE_SYSTEM_PROFILE_NAME}"
+    THE_SYSTEM_PROFILE_DIR="${THE_SYSTEM_PROFILE_INSTALL_DIR}"
     BUILD3001=1
     HAVE_RESIZETERM=1
     CAN_RESIZE=1
@@ -229,16 +256,6 @@ if(USE_SDSLH)
         add_library(DSLSH::editor ALIAS dslsyntax_editor)
     endif()
 
-    find_program(THE_MDP_EXECUTABLE
-        NAMES mdp
-        HINTS
-            "${DSLSH_LOCAL_DIR}/cmake-build-debug/parsers/markdown"
-            "${DSLSH_LOCAL_DIR}/cmake-build-release/parsers/markdown"
-            "$ENV{HOME}/.local/bin"
-    )
-    if(THE_MDP_EXECUTABLE)
-        message(STATUS "Found Markdown SDSLH parser: ${THE_MDP_EXECUTABLE}")
-    endif()
 endif()
 
 if(USE_UTF8 AND USE_UTF8PROC)
@@ -422,17 +439,23 @@ add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
     COMMENT "Copying executable and resources to ${RELEASE_DIR}"
 )
 
+if(USE_UTF8 AND EXISTS "${THE_SYSTEM_PROFILE_SOURCE}")
+    add_custom_command(
+        OUTPUT ${RELEASE_DIR}/${THE_SYSTEM_PROFILE_NAME}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${RELEASE_DIR}
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${THE_SYSTEM_PROFILE_SOURCE} ${RELEASE_DIR}/${THE_SYSTEM_PROFILE_NAME}
+        DEPENDS ${THE_SYSTEM_PROFILE_SOURCE}
+        COMMENT "Copying UTF-8 system profile ${THE_SYSTEM_PROFILE_NAME} to ${RELEASE_DIR}"
+    )
+    add_custom_target(copy_utf8_system_profile ALL
+        DEPENDS ${RELEASE_DIR}/${THE_SYSTEM_PROFILE_NAME}
+    )
+endif()
+
 if(WIN32)
     add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${CURSES_LIBRARIES}> ${RELEASE_DIR}/
         COMMENT "Copying PDCurses DLL to ${RELEASE_DIR}"
-    )
-endif()
-
-if(THE_MDP_EXECUTABLE)
-    add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy ${THE_MDP_EXECUTABLE} ${RELEASE_DIR}/mdp
-        COMMENT "Copying Markdown SDSLH parser to ${RELEASE_DIR}"
     )
 endif()
 
@@ -443,23 +466,14 @@ if(USE_UTF8 AND USE_WIDE_CHAR)
 endif()
 
 # Install Targets
-if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  # Fallback to local user bin to avoid sudo permission errors during testing
-  if(WIN32)
-    set(CMAKE_INSTALL_PREFIX "$ENV{USERPROFILE}/.local" CACHE PATH "Default install prefix" FORCE)
-  else()
-    set(CMAKE_INSTALL_PREFIX "$ENV{HOME}/.local" CACHE PATH "Default install prefix" FORCE)
-  endif()
-endif()
-
 install(TARGETS ${EXECUTABLE_NAME} DESTINATION bin)
-if(THE_MDP_EXECUTABLE)
-    install(PROGRAMS ${THE_MDP_EXECUTABLE} DESTINATION bin)
-endif()
 if(WIN32)
     install(FILES $<TARGET_FILE:${CURSES_LIBRARIES}> DESTINATION bin)
 endif()
 install(FILES doc/THE_Help.txt profile.the profile_crexx.the crexxcompile.the crexxrun.the DESTINATION share/the)
+if(USE_UTF8)
+    install(FILES "${RELEASE_DIR}/${THE_SYSTEM_PROFILE_NAME}" DESTINATION share/the OPTIONAL)
+endif()
 install(DIRECTORY syntax/ DESTINATION share/the/syntax)
 
 # --- Automated Testing ---
@@ -496,8 +510,7 @@ if(USE_UTF8)
     endif()
     add_test(NAME test_utf8term
         COMMAND test_utf8term
-            ${CMAKE_CURRENT_SOURCE_DIR}/tools/utf8_terminal_profiles/defaults-poc34.the
-            ${CMAKE_CURRENT_SOURCE_DIR}/tools/utf8_terminal_profiles/macos-apple-terminal-poc34-overrides.the)
+            ${CMAKE_CURRENT_SOURCE_DIR}/system-osx.the)
 
     add_executable(test_utf8repair tests/test_utf8repair.c src/utf8repair.c src/utf8term.c src/textpos.c)
     target_include_directories(test_utf8repair PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
@@ -510,9 +523,10 @@ if(USE_UTF8)
     if(USE_WIDE_CHAR)
         add_test(NAME test_utf8_terminal_probe_no_visual
             COMMAND utf8_terminal_probe calibrate keycap --no-visual
-                --profile ${CMAKE_CURRENT_BINARY_DIR}/utf8-terminal-probe-smoke.the
-                --report ${CMAKE_CURRENT_BINARY_DIR}/utf8-terminal-probe-smoke.txt)
+                --profile-dir ${CMAKE_CURRENT_BINARY_DIR})
     endif()
+    add_test(NAME test_system_profile COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_system_profile.sh)
+    set_tests_properties(test_system_profile PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 add_test(NAME test_sdslh_integration COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdslh_integration.sh)
 set_tests_properties(test_sdslh_integration PROPERTIES SKIP_RETURN_CODE 77)

@@ -7,69 +7,6 @@
 options levelb
 address the
 
-/* UTF Setup */
-'SET UTF8 TERMINAL CLASS combining LAYOUT 1 CURSOR 1'
-'SET UTF8 TERMINAL CLASS combining CURSORSTRATEGY changed_cells'
-'SET UTF8 TERMINAL CLASS combining REPLACESTRATEGY changed_cells'
-
-'SET UTF8 TERMINAL CLASS combining-stack LAYOUT 1 CURSOR 1'
-'SET UTF8 TERMINAL CLASS combining-stack CURSORSTRATEGY changed_cells'
-'SET UTF8 TERMINAL CLASS combining-stack REPLACESTRATEGY changed_cells'
-
-'SET UTF8 TERMINAL CLASS wide LAYOUT 2 CURSOR 2'
-'SET UTF8 TERMINAL CLASS wide CURSORSTRATEGY changed_cells'
-'SET UTF8 TERMINAL CLASS wide REPLACESTRATEGY line'
-
-'SET UTF8 TERMINAL CLASS emoji LAYOUT 2 CURSOR 2'
-'SET UTF8 TERMINAL CLASS emoji CURSORSTRATEGY changed_cells'
-'SET UTF8 TERMINAL CLASS emoji REPLACESTRATEGY line'
-
-'SET UTF8 TERMINAL CLASS text-variation LAYOUT 1 CURSOR 1'
-'SET UTF8 TERMINAL CLASS text-variation CURSORSTRATEGY changed_cells'
-'SET UTF8 TERMINAL CLASS text-variation REPLACESTRATEGY changed_cells'
-
-'SET UTF8 TERMINAL CLASS emoji-variation LAYOUT 2 CURSOR 2'
-'SET UTF8 TERMINAL CLASS emoji-variation CURSORSTRATEGY changed_cells'
-'SET UTF8 TERMINAL CLASS emoji-variation REPLACESTRATEGY line'
-
-'SET UTF8 TERMINAL CLASS modifier LAYOUT 4 CURSOR 4'
-'SET UTF8 TERMINAL CLASS modifier CURSORSTRATEGY changed_cells'
-'SET UTF8 TERMINAL CLASS modifier REPLACESTRATEGY line'
-
-'SET UTF8 TERMINAL CLASS keycap LAYOUT 2 CURSOR 2'
-'SET UTF8 TERMINAL CLASS keycap CURSORSTRATEGY clear_from_first_cluster_fast'
-'SET UTF8 TERMINAL CLASS keycap REPLACESTRATEGY clear_from_first_cluster_fast'
-
-/* Group substitutes are per class/intent and keep the file text logical. */
-'SET UTF8 TERMINAL CLASS short-zwj INTENT group OUTPUT substitute U+25A1'
-
-'SET UTF8 TERMINAL CLASS short-zwj INTENT components OUTPUT native'
-'SET UTF8 TERMINAL CLASS short-zwj INTENT components LAYOUT 4 CURSOR 4'
-'SET UTF8 TERMINAL CLASS short-zwj INTENT components CURSORSTRATEGY changed_cells'
-'SET UTF8 TERMINAL CLASS short-zwj INTENT components REPLACESTRATEGY line'
-
-'SET UTF8 TERMINAL CLASS heart-zwj INTENT group OUTPUT substitute U+2665'
-
-'SET UTF8 TERMINAL CLASS heart-zwj INTENT components OUTPUT expanded'
-'SET UTF8 TERMINAL CLASS heart-zwj INTENT components LAYOUT 6 CURSOR 6'
-'SET UTF8 TERMINAL CLASS heart-zwj INTENT components CURSORSTRATEGY changed_cells'
-'SET UTF8 TERMINAL CLASS heart-zwj INTENT components REPLACESTRATEGY line'
-
-'SET UTF8 TERMINAL CLASS family-zwj INTENT group OUTPUT substitute U+2302'
-
-'SET UTF8 TERMINAL CLASS family-zwj INTENT components OUTPUT expanded'
-'SET UTF8 TERMINAL CLASS family-zwj INTENT components LAYOUT 8 CURSOR 8'
-'SET UTF8 TERMINAL CLASS family-zwj INTENT components CURSORSTRATEGY changed_cells'
-'SET UTF8 TERMINAL CLASS family-zwj INTENT components REPLACESTRATEGY line'
-
-'SET UTF8 TERMINAL CLASS tag-flag LAYOUT 2 CURSOR 2'
-'SET UTF8 TERMINAL CLASS tag-flag CURSORSTRATEGY changed_cells'
-'SET UTF8 TERMINAL CLASS tag-flag REPLACESTRATEGY line'
-
-'SET UTF8 TERMINAL CLASS private-use LAYOUT 1 CURSOR 1'
-'SET UTF8 TERMINAL CLASS private-use CURSORSTRATEGY changed_cells'
-'SET UTF8 TERMINAL CLASS private-use REPLACESTRATEGY changed_cells'
-
 /* Bind F4 and Shift-Tab to move the cursor to the prefix area. */
 /* This is particularly useful on macOS where the Home key can be tricky. */
 /* 'define f4 cursor prefix' */

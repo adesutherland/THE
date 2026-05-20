@@ -65,6 +65,7 @@ static DWORD THEDropProc( CLIPFORMAT cf, HGLOBAL hData, HWND hWnd, DWORD dwKeySt
 static RETSIGTYPE handle_signal(int);
 # endif
 static void display_info(CHARTYPE *);
+static int setup_system_profile_file(void);
 static void init_signals(void);
 /*--------------------------- global data -----------------------------*/
    WINDOW *statarea=NULL,*error_window=NULL,*divider=NULL,*filetabs=NULL;
@@ -139,6 +140,9 @@ static void init_signals(void);
 #else
 # define THE_PROFILE_FILE "PROFILE.THE"
 #endif
+#ifndef THE_SYSTEM_PROFILE_NAME
+# define THE_SYSTEM_PROFILE_NAME "system-generic.the"
+#endif
 
 #ifdef THE_SINGLE_INSTANCE_ENABLED
 # define THE_FIFO_FILE ".thefifo"
@@ -192,6 +196,7 @@ static void init_signals(void);
    CHARTYPE _THE_FAR spooler_name[MAX_FILE_NAME+1];
 
    CHARTYPE *prf_arg=(CHARTYPE *)NULL;
+   CHARTYPE *system_prf=(CHARTYPE *)NULL;
    CHARTYPE *local_prf=(CHARTYPE *)NULL;
    CHARTYPE *specified_prf=(CHARTYPE *)NULL;
 
@@ -723,7 +728,7 @@ int main(int argc, char *argv[])
          case 'm':        /* force into MONO */
             colour_support = FALSE;
             break;
-         case 'n':        /* do not execute any profile file */
+         case 'n':        /* do not execute the user profile file */
             execute_profile = FALSE;
             break;
          case 'r':        /* run in readonly mode */
@@ -934,6 +939,11 @@ int main(int argc, char *argv[])
    /*
     * Override any default paths,filenames etc if supplied on command line
     */
+   if ( setup_system_profile_file() != RC_OK )
+   {
+      cleanup();
+      return(8);
+   }
    if (specified_prf
    &&  *specified_prf == '-'
    &&  batch_only)
@@ -1086,10 +1096,9 @@ int main(int argc, char *argv[])
            return(21);
         }
         pre_process_line(CURRENT_VIEW,0L,(LINE *)NULL);
-        if (execute_profile)
+        if (system_prf != (CHARTYPE *)NULL || execute_profile)
         {
-           if (local_prf != (CHARTYPE *)NULL)
-              rc = get_profile(local_prf,prf_arg);
+           rc = get_startup_profiles();
            if (error_on_screen)
            {
               /* If we generated a message, don't just throw it away, keep it for the display loop. */
@@ -1405,6 +1414,8 @@ fclose( fp);
 
    if (local_prf != NULL)
       (*the_free)(local_prf);
+   if (system_prf != NULL)
+      (*the_free)(system_prf);
    if (prf_arg != NULL)
       (*the_free)(prf_arg);
    free_recovery_list();
@@ -1629,6 +1640,25 @@ int setup_profile_files(CHARTYPE *specified_prf)
    return(rc);
 }
 /***********************************************************************/
+static int setup_system_profile_file(void)
+/***********************************************************************/
+{
+#if defined(USE_UTF8)
+   if ((system_prf = (CHARTYPE *)(*the_malloc)((MAX_FILE_NAME+1)*sizeof(CHARTYPE))) == NULL)
+      return(RC_OUT_OF_MEMORY);
+
+   strcpy((DEFCHAR *)system_prf,(DEFCHAR *)the_home_dir);
+   strcat((DEFCHAR *)system_prf,(DEFCHAR *)THE_SYSTEM_PROFILE_NAME);
+   strrmdup(strtrans(system_prf,OSLASH,ISLASH),ISLASH,TRUE);
+   if (file_readable(system_prf))
+      return(RC_OK);
+
+   (*the_free)(system_prf);
+   system_prf = (CHARTYPE *)NULL;
+#endif
+   return(RC_OK);
+}
+/***********************************************************************/
 static void display_info(CHARTYPE *argv0)
 /***********************************************************************/
 {
@@ -1644,7 +1674,7 @@ static void display_info(CHARTYPE *argv0)
 #endif
    fprintf(stdout,"\nwhere:\n\n");
    fprintf(stdout,"-h,--help              show this message\n");
-   fprintf(stdout,"-n                     do not execute a profile file\n");
+   fprintf(stdout,"-n                     do not execute the user profile file\n");
    fprintf(stdout,"-m                     force display into mono\n");
    fprintf(stdout,"-r                     run THE in read-only mode\n");
    fprintf(stdout,"-s                     turn off signal trapping (Unix only)\n");

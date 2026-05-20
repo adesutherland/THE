@@ -169,6 +169,7 @@ void set_global_feel_defaults (void);
 void set_file_defaults (FILE_DETAILS *);
 void set_view_defaults (VIEW_DETAILS *);
 short get_profile (CHARTYPE *,CHARTYPE *);
+short get_startup_profiles (void);
 short defaults_for_first_file (void);
 short defaults_for_other_files (VIEW_DETAILS *);
 short default_file_attributes (FILE_DETAILS *);

@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 #include "textpos.h"
+#include "utf8term_defaults.h"
 
 /*
  * UTF-8 terminal profiles describe physical terminal behaviour only.
@@ -14,7 +15,6 @@
 #define UTF8_TERMINAL_PROFILE_INVALID (-1)
 #define UTF8_TERMINAL_PROFILE_IGNORED 0
 #define UTF8_TERMINAL_PROFILE_APPLIED 1
-#define UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT UINT32_C(0x25A1)
 
 typedef enum
 {

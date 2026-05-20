@@ -213,40 +213,37 @@ static void test_line_parser(void)
               UTF8_TERMINAL_PROFILE_INVALID);
 }
 
-static void test_profile_files(const char *defaults_path, const char *macos_path)
+static void test_profile_file(const char *profile_path)
 {
    int loaded = 0;
 
    utf8_terminal_profile_reset();
-   expect_int("defaults.file",
-              utf8_terminal_profile_apply_file(defaults_path, &loaded),
+   expect_int("system.file",
+              utf8_terminal_profile_apply_file(profile_path, &loaded),
               UTF8_TERMINAL_PROFILE_APPLIED);
-   expect_int("defaults.loaded", loaded, 63);
-   expect_profile("defaults.file.keycap", UTF8_TERM_CLASS_KEYCAP,
-                  UTF8_TERM_INTENT_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 2, 2,
-                  UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST,
-                  UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST);
-
-   expect_int("macos.file",
-              utf8_terminal_profile_apply_file(macos_path, &loaded),
-              UTF8_TERMINAL_PROFILE_APPLIED);
-   expect_int("macos.loaded", loaded, 45);
-   expect_profile("macos.modifier", UTF8_TERM_CLASS_MODIFIER,
+   expect_int("system.loaded", loaded, 45);
+   expect_profile("system.modifier", UTF8_TERM_CLASS_MODIFIER,
                   UTF8_TERM_INTENT_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 4, 4,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
                   UTF8_TERM_STRATEGY_LINE);
-   expect_profile("macos.keycap", UTF8_TERM_CLASS_KEYCAP,
+   expect_profile("system.keycap", UTF8_TERM_CLASS_KEYCAP,
                   UTF8_TERM_INTENT_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 2, 2,
                   UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST,
                   UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST);
-   expect_profile("macos.short.group", UTF8_TERM_CLASS_SHORT_ZWJ,
+   expect_profile("system.short.group", UTF8_TERM_CLASS_SHORT_ZWJ,
                   UTF8_TERM_INTENT_GROUP, UTF8_TERM_OUTPUT_SUBSTITUTE, 1, 1,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS);
-   expect_substitute_codepoint("macos.short.group.codepoint",
+   expect_substitute_codepoint("system.short.group.codepoint",
                                UTF8_TERM_CLASS_SHORT_ZWJ,
-                               UTF8_TERM_INTENT_GROUP, 0x0040u);
-   expect_profile("macos.short.components", UTF8_TERM_CLASS_SHORT_ZWJ,
+                               UTF8_TERM_INTENT_GROUP, 0x25A1u);
+   expect_substitute_codepoint("system.heart.group.codepoint",
+                               UTF8_TERM_CLASS_HEART_ZWJ,
+                               UTF8_TERM_INTENT_GROUP, 0x2665u);
+   expect_substitute_codepoint("system.family.group.codepoint",
+                               UTF8_TERM_CLASS_FAMILY_ZWJ,
+                               UTF8_TERM_INTENT_GROUP, 0x2302u);
+   expect_profile("system.short.components", UTF8_TERM_CLASS_SHORT_ZWJ,
                   UTF8_TERM_INTENT_COMPONENTS, UTF8_TERM_OUTPUT_NATIVE, 4, 4,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
                   UTF8_TERM_STRATEGY_LINE);
@@ -476,15 +473,15 @@ static void test_physical_policy_does_not_change_logical_textpos(void)
 
 int main(int argc, char **argv)
 {
-   if (argc != 3)
+   if (argc != 2)
    {
-      fprintf(stderr, "usage: %s defaults-poc34.the macos-overrides.the\n", argv[0]);
+      fprintf(stderr, "usage: %s system-profile.the\n", argv[0]);
       return 2;
    }
 
    test_coded_defaults();
    test_line_parser();
-   test_profile_files(argv[1], argv[2]);
+   test_profile_file(argv[1]);
    test_terminal_identity();
    test_cluster_classification();
    test_cluster_profile_lookup();

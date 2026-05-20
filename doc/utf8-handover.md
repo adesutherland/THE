@@ -1,6 +1,6 @@
 # UTF-8 Enablement Handover
 
-Last updated: 2026-05-19.
+Last updated: 2026-05-20.
 
 ## Current State
 
@@ -31,10 +31,10 @@ class-specific renderer behavior.
 
 - `doc/utf8-design.md`: detailed design, findings, and historical log.
 - `tools/utf8_terminal_probe.c`: interactive terminal calibration/probe tool.
-- `tools/utf8_terminal_profiles/defaults-poc34.the`: definitive default
-  physical terminal table for probe version `2026-05-13-poc34`.
-- `tools/utf8_terminal_profiles/macos-apple-terminal-poc34-overrides.the`:
-  captured macOS Apple Terminal override baseline.
+- `src/utf8term_defaults.h`: shared THE/probe coded default physical terminal
+  table.
+- `system-osx.the`: macOS system UTF-8 profile consumed by THE and generated
+  by the probe.
 - `tests/fixtures/utf8-render.txt`: manual editor fixture for UTF-8 rendering.
 - `tests/test_utf8repair.c`, `tests/test_utf8term.c`, `tests/test_utf8_fixture.c`,
   and `tests/test_textpos.c`: repair planning, terminal-profile, fixture, and
@@ -42,13 +42,8 @@ class-specific renderer behavior.
 
 ## macOS Apple Terminal Baseline
 
-The current macOS baseline was captured visually with
-`utf8_terminal_probe 2026-05-13-poc34` on Apple Terminal
-(`TERM=xterm-256color`, `TERM_PROGRAM=Apple_Terminal`).
-
-The saved baseline is an override fragment. It should be applied on top of
-`tools/utf8_terminal_profiles/defaults-poc34.the`. Important observed choices
-include:
+The current macOS baseline is `system-osx.the`. It is a complete system
+profile, not a defaults-plus-overrides pair. Important observed choices include:
 
 - `regional-flag`: default `L3 C3`, cursor `changed_cells`, replacement
   `clear_changed_suffix_fast`.
@@ -72,23 +67,20 @@ Open interactive calibration:
 
 ```sh
 ./cmake-build-debug/utf8_terminal_probe calibrate all \
-  --profile /tmp/the-utf8-terminal-profile.the
+  --profile-dir ./cmake-build-debug/release
 ```
+
+On macOS this reads and writes `system-osx.the` in the selected directory. THE
+loads that system profile before the user profile; `-n` suppresses only the
+user profile. The install rule copies the build release copy, so calibrating
+`cmake-build-debug/release/system-osx.the` before install carries that generated
+profile into the installed `share/the` directory.
 
 Validate the saved macOS profile non-visually:
 
 ```sh
 ./cmake-build-debug/utf8_terminal_probe calibrate all --no-visual \
-  --profile tools/utf8_terminal_profiles/macos-apple-terminal-poc34-overrides.the \
-  --report /tmp/the-utf8-macos-profile-check.txt
-```
-
-Validate the definitive coded-default profile non-visually:
-
-```sh
-./cmake-build-debug/utf8_terminal_probe calibrate all --no-visual \
-  --profile tools/utf8_terminal_profiles/defaults-poc34.the \
-  --report /tmp/the-utf8-default-profile-check.txt
+  --profile system-osx.the
 ```
 
 ## Next Work

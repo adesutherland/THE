@@ -10,7 +10,7 @@
 
   Where:
     -h or -?      Display usage information and version.
-    -n            Do not execute a profile file.
+    -n            Do not execute the user profile file.
     -m            Force display into mono, ignoring colour support.
     -r            Run THE in read-only mode.
     -s            A debugging aid for Unix versions. Turns off signal trapping.

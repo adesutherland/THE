@@ -505,10 +505,9 @@ short EditFile(CHARTYPE *fn, bool external_command_line)
    {
       profile_file_executions++;
       in_reprofile = TRUE;
-      if (execute_profile)
+      if (system_prf != (CHARTYPE *)NULL || execute_profile)
       {
-         if (local_prf != (CHARTYPE *)NULL)
-            rc = get_profile(local_prf,prf_arg);
+         rc = get_startup_profiles();
       }
       in_reprofile = FALSE;
    }

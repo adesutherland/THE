@@ -13,6 +13,8 @@
 #include <time.h>
 #include <wchar.h>
 
+#include "utf8term_defaults.h"
+
 #if defined(_WIN32)
 # include <io.h>
 # define isatty _isatty
@@ -27,7 +29,18 @@
 # define CCHARW_MAX 5
 #endif
 
-#define UTF8_TERMINAL_PROBE_VERSION "2026-05-13-poc34"
+#ifndef THE_PLATFORM_NAME
+# define THE_PLATFORM_NAME "generic"
+#endif
+#ifndef THE_SYSTEM_PROFILE_NAME
+# define THE_SYSTEM_PROFILE_NAME "system-generic.the"
+#endif
+#ifndef THE_SYSTEM_PROFILE_DIR
+# define THE_SYSTEM_PROFILE_DIR "/tmp"
+#endif
+
+#define UTF8_TERMINAL_PROBE_VERSION "v1"
+#define PROBE_PROFILE_PATH_MAX 4096
 
 #define U8_COMBINING_E_ACUTE "e\xCC\x81"
 #define U8_COMBINING_STACK "a\xCC\x81\xCC\xA7"
@@ -78,15 +91,16 @@ typedef enum
 
 typedef enum
 {
-   POC_CELL_REPAINT,
-   POC_SPAN_REPAINT
-} PocRepaintMode;
+   DIAGNOSTIC_CELL_REPAINT,
+   DIAGNOSTIC_SPAN_REPAINT
+} DiagnosticRepaintMode;
 
 typedef struct
 {
    FILE *report;
    const char *report_path;
    const char *profile_path;
+   char profile_path_storage[PROBE_PROFILE_PATH_MAX];
    const char *cases_path;
    ProbeSample *samples;
    size_t sample_count;
@@ -94,9 +108,9 @@ typedef struct
    int no_visual;
    int run_matrix;
    int run_motion;
-   int run_poc;
-   int raw_poc;
-   int curses_poc;
+   int run_diagnostic;
+   int raw_diagnostic;
+   int curses_diagnostic;
    int utfvis;
    const char *utfvis_selector;
    int testcursor;
@@ -157,30 +171,15 @@ typedef struct CalibrationDefault
 } CalibrationDefault;
 
 #define ZWJ_UTF8 "\xE2\x80\x8D"
-#define U8_ZWJ_SUBSTITUTE_CODEPOINT 0x0040u
+#define PROBE_CALIBRATION_DEFAULT(feature_class, feature_class_name, display_intent, display_intent_name, output_method, output_method_name, substitute_codepoint, layout_width, cursor_width, cursor_strategy, cursor_strategy_name, replacement_strategy, replacement_strategy_name) \
+   { feature_class_name, display_intent_name, output_method_name, substitute_codepoint, layout_width, cursor_width, cursor_strategy_name, replacement_strategy_name },
 
 static const CalibrationDefault calibration_defaults[] =
 {
-   { "ascii", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 1, 1, "cell", "cell" },
-   { "combining", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 1, 1, "line", "line" },
-   { "combining-stack", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 1, 1, "line", "line" },
-   { "wide", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 2, 2, "cell", "cell" },
-   { "ambiguous", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 1, 1, "cell", "cell" },
-   { "emoji", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 2, 2, "line", "line" },
-   { "text-variation", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 1, 1, "line", "line" },
-   { "emoji-variation", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 2, 2, "line", "line" },
-   { "modifier", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 2, 2, "line", "line" },
-   { "keycap", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 2, 2, "flashfirstfast", "flashwhole" },
-   { "regional-flag", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 3, 3, "cell", "suffix" },
-   { "short-zwj", "group", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 2, 2, "line", "line" },
-   { "short-zwj", "components", "expanded", U8_ZWJ_SUBSTITUTE_CODEPOINT, 4, 4, "line", "line" },
-   { "heart-zwj", "group", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 6, 6, "line", "line" },
-   { "heart-zwj", "components", "expanded", U8_ZWJ_SUBSTITUTE_CODEPOINT, 6, 6, "line", "line" },
-   { "family-zwj", "group", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 6, 6, "line", "line" },
-   { "family-zwj", "components", "expanded", U8_ZWJ_SUBSTITUTE_CODEPOINT, 8, 8, "line", "line" },
-   { "tag-flag", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 2, 2, "line", "line" },
-   { "private-use", "normal", "native", U8_ZWJ_SUBSTITUTE_CODEPOINT, 1, 1, "line", "line" }
+   UTF8_TERMINAL_DEFAULT_PROFILE_ENTRIES(PROBE_CALIBRATION_DEFAULT)
 };
+
+#undef PROBE_CALIBRATION_DEFAULT
 
 #define MAX_VIEW_CANDIDATES 32
 
@@ -947,7 +946,7 @@ static void log_raw_environment(ProbeConfig *cfg)
 
    reportf(cfg, "# THE UTF-8 terminal probe\n");
    reportf(cfg, "probe_version=%s\n", UTF8_TERMINAL_PROBE_VERSION);
-   reportf(cfg, "mode=raw_poc\n");
+   reportf(cfg, "mode=raw_diagnostic\n");
    reportf(cfg, "time=%s", ctime(&now));
    reportf(cfg, "locale=%s\n", setlocale(LC_CTYPE, NULL));
    reportf(cfg, "MB_CUR_MAX=%d\n", (int)MB_CUR_MAX);
@@ -1178,7 +1177,7 @@ static void run_keycap_motion_probe(ProbeConfig *cfg)
    reportf(cfg, "\n");
 }
 
-static void show_poc_step(ProbeConfig *cfg, const char *scenario,
+static void show_diagnostic_step(ProbeConfig *cfg, const char *scenario,
                           int old_index, int new_index, const char *target,
                           const char *mode, int guard_cells)
 {
@@ -1221,7 +1220,7 @@ static void raw_absolute_motion_step(ProbeConfig *cfg, const char *scenario,
    int expected_dsr_row = row + 1;
    int expected_dsr_col = col + offsets[new_index] + 1;
 
-   show_poc_step(cfg, scenario, old_index, new_index, names[new_index], "cell", 0);
+   show_diagnostic_step(cfg, scenario, old_index, new_index, names[new_index], "cell", 0);
    if (old_index >= 0)
       write_motion_cluster(METHOD_RAW_UTF8, row, col + offsets[old_index],
                            clusters[old_index], widths[old_index], A_NORMAL);
@@ -1240,7 +1239,7 @@ static void raw_absolute_motion_step(ProbeConfig *cfg, const char *scenario,
    }
 
    reportf(cfg,
-           "poc,%s,mode=cell,old=%d,new=%d,target=%s,expected_dsr=%d:%d,curses_expected=%d:%d,dsr=%d:%d\n",
+           "diagnostic,%s,mode=cell,old=%d,new=%d,target=%s,expected_dsr=%d:%d,curses_expected=%d:%d,dsr=%d:%d\n",
            scenario, old_index, new_index, names[new_index],
            expected_dsr_row, expected_dsr_col, cy, cx, tr, tc);
    if (cfg->pause)
@@ -1283,7 +1282,7 @@ static void raw_span_repaint_step(ProbeConfig *cfg, const char *scenario,
    if (clear_width < 1)
       clear_width = 1;
 
-   show_poc_step(cfg, scenario, old_index, new_index, names[new_index],
+   show_diagnostic_step(cfg, scenario, old_index, new_index, names[new_index],
                  "span", guard_cells);
    terminal_move(row, clear_start);
    for (i = 0; i < clear_width; i++)
@@ -1301,7 +1300,7 @@ static void raw_span_repaint_step(ProbeConfig *cfg, const char *scenario,
    }
 
    reportf(cfg,
-           "poc,%s,mode=span,guard=%d,old=%d,new=%d,target=%s,expected_dsr=%d:%d,curses_expected=%d:%d,dsr=%d:%d\n",
+           "diagnostic,%s,mode=span,guard=%d,old=%d,new=%d,target=%s,expected_dsr=%d:%d,curses_expected=%d:%d,dsr=%d:%d\n",
            scenario, guard_cells, old_index, new_index, names[new_index],
            expected_dsr_row, expected_dsr_col, cy, cx, tr, tc);
    if (cfg->pause)
@@ -1310,7 +1309,7 @@ static void raw_span_repaint_step(ProbeConfig *cfg, const char *scenario,
       napms(350);
 }
 
-static void raw_poc_status(ProbeConfig *cfg, const char *scenario,
+static void raw_diagnostic_status(ProbeConfig *cfg, const char *scenario,
                            const char *repaint, const char *style,
                            int paint_width, int cursor_width, int old_index,
                            int new_index, const char *target)
@@ -1374,7 +1373,7 @@ static void raw_write_keycap_layout(int row, int col, int keycap_width,
                            reverse_style && i == highlight_index ? A_REVERSE : A_NORMAL);
 }
 
-static void raw_terminal_poc_step(ProbeConfig *cfg, const char *scenario,
+static void raw_terminal_diagnostic_step(ProbeConfig *cfg, const char *scenario,
                                   int row, int col, int paint_width,
                                   int cursor_width, int span_repaint,
                                   int reverse_style, int old_index,
@@ -1402,7 +1401,7 @@ static void raw_terminal_poc_step(ProbeConfig *cfg, const char *scenario,
    expected_dsr_row = row + 1;
    expected_dsr_col = cx + 1;
 
-   raw_poc_status(cfg, scenario, repaint, style, paint_width, cursor_width,
+   raw_diagnostic_status(cfg, scenario, repaint, style, paint_width, cursor_width,
                   old_index, new_index, names[new_index]);
    if (span_repaint)
    {
@@ -1435,14 +1434,14 @@ static void raw_terminal_poc_step(ProbeConfig *cfg, const char *scenario,
    }
 
    reportf(cfg,
-           "raw_poc,%s,repaint=%s,style=%s,paint_width=%d,cursor_width=%d,old=%d,new=%d,target=%s,expected_dsr=%d:%d,dsr=%d:%d\n",
+           "raw_diagnostic,%s,repaint=%s,style=%s,paint_width=%d,cursor_width=%d,old=%d,new=%d,target=%s,expected_dsr=%d:%d,dsr=%d:%d\n",
            scenario, repaint, style, paint_width, cursor_width, old_index,
            new_index, names[new_index], expected_dsr_row, expected_dsr_col,
            tr, tc);
    raw_pause_or_sleep(cfg);
 }
 
-static void run_raw_terminal_poc_probe(ProbeConfig *cfg)
+static void run_raw_terminal_diagnostic_probe(ProbeConfig *cfg)
 {
    struct
    {
@@ -1467,11 +1466,11 @@ static void run_raw_terminal_poc_probe(ProbeConfig *cfg)
 
    terminal_clear_screen();
    terminal_show_cursor(0);
-   reportf(cfg, "section=raw_terminal_poc\n");
+   reportf(cfg, "section=raw_terminal_diagnostic\n");
    if (!cfg->no_visual)
    {
       terminal_move(0, 0);
-      terminal_write("Raw ANSI-only keycap POC ");
+      terminal_write("Raw ANSI-only keycap diagnostic ");
       terminal_write(UTF8_TERMINAL_PROBE_VERSION);
       terminal_write(": no curses initialization, hardware cursor hidden");
       terminal_move(1, 0);
@@ -1490,23 +1489,23 @@ static void run_raw_terminal_poc_probe(ProbeConfig *cfg)
          terminal_write(cases[i].scenario);
       }
       raw_write_keycap_layout(row, cfg->data_col, cases[i].paint_width, -1, 0);
-      raw_terminal_poc_step(cfg, cases[i].scenario, row, cfg->data_col,
+      raw_terminal_diagnostic_step(cfg, cases[i].scenario, row, cfg->data_col,
                             cases[i].paint_width, cases[i].cursor_width,
                             cases[i].span_repaint, cases[i].reverse_style,
                             -1, 0);
-      raw_terminal_poc_step(cfg, cases[i].scenario, row, cfg->data_col,
+      raw_terminal_diagnostic_step(cfg, cases[i].scenario, row, cfg->data_col,
                             cases[i].paint_width, cases[i].cursor_width,
                             cases[i].span_repaint, cases[i].reverse_style,
                             0, 1);
-      raw_terminal_poc_step(cfg, cases[i].scenario, row, cfg->data_col,
+      raw_terminal_diagnostic_step(cfg, cases[i].scenario, row, cfg->data_col,
                             cases[i].paint_width, cases[i].cursor_width,
                             cases[i].span_repaint, cases[i].reverse_style,
                             1, 2);
-      raw_terminal_poc_step(cfg, cases[i].scenario, row, cfg->data_col,
+      raw_terminal_diagnostic_step(cfg, cases[i].scenario, row, cfg->data_col,
                             cases[i].paint_width, cases[i].cursor_width,
                             cases[i].span_repaint, cases[i].reverse_style,
                             2, 3);
-      raw_terminal_poc_step(cfg, cases[i].scenario, row, cfg->data_col,
+      raw_terminal_diagnostic_step(cfg, cases[i].scenario, row, cfg->data_col,
                             cases[i].paint_width, cases[i].cursor_width,
                             cases[i].span_repaint, cases[i].reverse_style,
                             3, 4);
@@ -1680,7 +1679,7 @@ static int keycap_layout_clear_width(int layout_width, int repair_width)
    return (layout_cells > repair_cells ? layout_cells : repair_cells) + 2;
 }
 
-static void curses_poc_clear_surface(int row, int col, int width)
+static void curses_diagnostic_clear_surface(int row, int col, int width)
 {
    int clear_col = col - 2;
    int clear_width = width + 4;
@@ -1712,7 +1711,7 @@ static void raw_repair_cluster_layout(int row, int col,
                            i == highlight_index ? highlight_attr : A_NORMAL);
 }
 
-static void curses_poc_status(ProbeConfig *cfg, const char *scenario,
+static void curses_diagnostic_status(ProbeConfig *cfg, const char *scenario,
                               ProbeMethod method, int layout_width,
                               int repair_width, int cursor_width,
                               int span_repaint, CursesCursorMode cursor_mode,
@@ -1745,7 +1744,7 @@ static void curses_poc_status(ProbeConfig *cfg, const char *scenario,
    (void)span_repaint;
 }
 
-static void curses_terminal_poc_step(ProbeConfig *cfg, const char *scenario,
+static void curses_terminal_diagnostic_step(ProbeConfig *cfg, const char *scenario,
                                      const char *middle_cluster,
                                      const char *middle_name,
                                      ProbeMethod method, int row, int col,
@@ -1780,12 +1779,12 @@ static void curses_terminal_poc_step(ProbeConfig *cfg, const char *scenario,
    if (new_index == 1 && (keycap_backdrop_width > 0 || mask_width > 0))
       cluster_cursor_attr = A_NORMAL;
 
-   curses_poc_status(cfg, scenario, method, layout_width, repair_width,
+   curses_diagnostic_status(cfg, scenario, method, layout_width, repair_width,
                      cursor_width, span_repaint, cursor_mode, post_refresh_raw,
                      old_index, new_index, names[new_index]);
    if (span_repaint)
    {
-      curses_poc_clear_surface(row, col, clear_width);
+      curses_diagnostic_clear_surface(row, col, clear_width);
       curses_draw_cluster_layout(method, row, col, middle_cluster,
                                  layout_width, new_index,
                                  cluster_cursor_attr);
@@ -1866,7 +1865,7 @@ static void curses_terminal_poc_step(ProbeConfig *cfg, const char *scenario,
       tc = -1;
    }
    reportf(cfg,
-           "curses_poc,%s,method=%s,layout_width=%d,repair_width=%d,cursor_width=%d,repaint=%s,style=%s,post_refresh_raw=%d,old=%d,new=%d,target=%s,curses_expected=%d:%d,dsr=%d:%d\n",
+           "curses_diagnostic,%s,method=%s,layout_width=%d,repair_width=%d,cursor_width=%d,repaint=%s,style=%s,post_refresh_raw=%d,old=%d,new=%d,target=%s,curses_expected=%d:%d,dsr=%d:%d\n",
            scenario, method_name(method), layout_width, repair_width,
            cursor_width, span_repaint ? "span" : "cell",
            curses_cursor_mode_name(cursor_mode), post_refresh_raw,
@@ -2056,7 +2055,7 @@ static void run_utfvis_probe(ProbeConfig *cfg, const char *selector)
    reportf(cfg, "\n");
 }
 
-static void run_curses_terminal_poc_probe(ProbeConfig *cfg)
+static void run_curses_terminal_diagnostic_probe(ProbeConfig *cfg)
 {
    run_utfvis_probe(cfg, "focus");
 }
@@ -3842,7 +3841,7 @@ static void apply_output_method_defaults(CalibrationEntry *entry)
       entry->cursor_strategy = "cell";
       entry->replacement_strategy = "cell";
       if (entry->substitute_codepoint == 0)
-         entry->substitute_codepoint = U8_ZWJ_SUBSTITUTE_CODEPOINT;
+         entry->substitute_codepoint = UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT;
    }
 }
 
@@ -4089,6 +4088,17 @@ static void write_rexx_profile_comment(FILE *fp, const char *text)
    fputs(" */\n", fp);
 }
 
+static void write_rexx_profile_commentf(FILE *fp, const char *fmt, ...)
+{
+   va_list ap;
+   char comment[512];
+
+   va_start(ap, fmt);
+   vsnprintf(comment, sizeof(comment), fmt, ap);
+   va_end(ap);
+   write_rexx_profile_comment(fp, comment);
+}
+
 static void write_rexx_profile_command(FILE *fp, const char *fmt, ...)
 {
    va_list ap;
@@ -4108,6 +4118,8 @@ static int write_calibration_profile(ProbeConfig *cfg,
    size_t i;
    const char *term = getenv("TERM") ? getenv("TERM") : "";
    const char *program = getenv("TERM_PROGRAM") ? getenv("TERM_PROGRAM") : "";
+   const char *colorterm = getenv("COLORTERM") ? getenv("COLORTERM") : "";
+   time_t now = time(NULL);
    size_t written = 0;
 
    fp = fopen(cfg->profile_path, "w");
@@ -4121,18 +4133,25 @@ static int write_calibration_profile(ProbeConfig *cfg,
    write_rexx_profile_comment(fp, "THE UTF-8 terminal settings.");
    write_rexx_profile_comment(fp, "generated_by=utf8_terminal_probe "
                                   UTF8_TERMINAL_PROBE_VERSION);
+   write_rexx_profile_commentf(fp, "generated_at=%s", ctime(&now));
+   write_rexx_profile_commentf(fp, "platform=%s", THE_PLATFORM_NAME);
+   write_rexx_profile_commentf(fp, "profile_name=%s", THE_SYSTEM_PROFILE_NAME);
+   write_rexx_profile_commentf(fp, "selector=%s",
+                               cfg->calibrate_selector ? cfg->calibrate_selector : "all");
+   write_rexx_profile_commentf(fp, "entry_count=%zu", count);
+   write_rexx_profile_commentf(fp, "cases=%s",
+                               cfg->cases_path ? cfg->cases_path : "built-in");
+   write_rexx_profile_commentf(fp, "case_count=%zu", cfg->sample_count);
+   write_rexx_profile_commentf(fp, "locale=%s", setlocale(LC_CTYPE, NULL));
+   write_rexx_profile_commentf(fp, "MB_CUR_MAX=%d", (int)MB_CUR_MAX);
+   write_rexx_profile_commentf(fp, "sizeof_wchar_t=%d", (int)sizeof(wchar_t));
    if (*term != '\0')
-   {
-      char comment[256];
-      snprintf(comment, sizeof(comment), "TERM=%s", term);
-      write_rexx_profile_comment(fp, comment);
-   }
+      write_rexx_profile_commentf(fp, "TERM=%s", term);
    if (*program != '\0')
-   {
-      char comment[256];
-      snprintf(comment, sizeof(comment), "TERM_PROGRAM=%s", program);
-      write_rexx_profile_comment(fp, comment);
-   }
+      write_rexx_profile_commentf(fp, "TERM_PROGRAM=%s", program);
+   if (*colorterm != '\0')
+      write_rexx_profile_commentf(fp, "COLORTERM=%s", colorterm);
+   fprintf(fp, "options levelb\n");
    fprintf(fp, "address the\n\n");
    for (i = 0; i < count; i++)
    {
@@ -4675,31 +4694,31 @@ static void run_calibration_probe(ProbeConfig *cfg)
    curs_set(1);
 }
 
-static void run_terminal_absolute_poc_probe(ProbeConfig *cfg)
+static void run_terminal_absolute_diagnostic_probe(ProbeConfig *cfg)
 {
    struct
    {
       const char *scenario;
       ProbeMethod base_method;
-      PocRepaintMode repaint_mode;
+      DiagnosticRepaintMode repaint_mode;
       int guard_cells;
    } cases[] =
    {
-      { "absolute_raw_base_cell", METHOD_RAW_UTF8, POC_CELL_REPAINT, 0 },
-      { "waddwstr_base_raw_cell", METHOD_WADDWSTR, POC_CELL_REPAINT, 0 },
-      { "cchar_base_raw_cell", METHOD_CCHAR_CLUSTER, POC_CELL_REPAINT, 0 },
-      { "absolute_raw_base_span", METHOD_RAW_UTF8, POC_SPAN_REPAINT, 0 },
-      { "waddwstr_base_raw_span", METHOD_WADDWSTR, POC_SPAN_REPAINT, 0 },
-      { "cchar_base_raw_span", METHOD_CCHAR_CLUSTER, POC_SPAN_REPAINT, 0 },
-      { "cchar_base_raw_span_guard", METHOD_CCHAR_CLUSTER, POC_SPAN_REPAINT, 1 }
+      { "absolute_raw_base_cell", METHOD_RAW_UTF8, DIAGNOSTIC_CELL_REPAINT, 0 },
+      { "waddwstr_base_raw_cell", METHOD_WADDWSTR, DIAGNOSTIC_CELL_REPAINT, 0 },
+      { "cchar_base_raw_cell", METHOD_CCHAR_CLUSTER, DIAGNOSTIC_CELL_REPAINT, 0 },
+      { "absolute_raw_base_span", METHOD_RAW_UTF8, DIAGNOSTIC_SPAN_REPAINT, 0 },
+      { "waddwstr_base_raw_span", METHOD_WADDWSTR, DIAGNOSTIC_SPAN_REPAINT, 0 },
+      { "cchar_base_raw_span", METHOD_CCHAR_CLUSTER, DIAGNOSTIC_SPAN_REPAINT, 0 },
+      { "cchar_base_raw_span_guard", METHOD_CCHAR_CLUSTER, DIAGNOSTIC_SPAN_REPAINT, 1 }
    };
    size_t i;
 
    erase();
-   reportf(cfg, "section=terminal_absolute_poc\n");
+   reportf(cfg, "section=terminal_absolute_diagnostic\n");
    if (!cfg->no_visual)
    {
-      mvprintw(0, 0, "Terminal-absolute keycap POC %s: watch raw '^' marker below target cell",
+      mvprintw(0, 0, "Terminal-absolute keycap diagnostic %s: watch raw '^' marker below target cell",
                UTF8_TERMINAL_PROBE_VERSION);
       mvprintw(1, 0, "Cell rows repaint old/new only; span rows clear and redraw A-keycap-B-space-A");
       mvprintw(1, cfg->data_col, "0123456789");
@@ -4722,7 +4741,7 @@ static void run_terminal_absolute_poc_probe(ProbeConfig *cfg)
       }
       draw_motion_base(cases[i].base_method, row, cfg->data_col);
       refresh();
-      if (cases[i].repaint_mode == POC_CELL_REPAINT)
+      if (cases[i].repaint_mode == DIAGNOSTIC_CELL_REPAINT)
       {
          raw_absolute_motion_step(cfg, cases[i].scenario, row, cfg->data_col, -1, 0);
          raw_absolute_motion_step(cfg, cases[i].scenario, row, cfg->data_col, 0, 1);
@@ -4743,24 +4762,51 @@ static void run_terminal_absolute_poc_probe(ProbeConfig *cfg)
    reportf(cfg, "\n");
 }
 
+static int set_profile_path_from_dir(ProbeConfig *cfg, const char *dir)
+{
+   const char *path_dir = (dir != NULL && *dir != '\0') ? dir : ".";
+   size_t len = strlen(path_dir);
+   int needs_sep = 1;
+   int written;
+
+   if (len > 0
+   && (path_dir[len - 1] == '/'
+   ||  path_dir[len - 1] == '\\'))
+      needs_sep = 0;
+
+   written = snprintf(cfg->profile_path_storage,
+                      sizeof(cfg->profile_path_storage),
+                      "%s%s%s",
+                      path_dir,
+                      needs_sep ? "/" : "",
+                      THE_SYSTEM_PROFILE_NAME);
+   if (written < 0 || (size_t)written >= sizeof(cfg->profile_path_storage))
+      return -1;
+
+   cfg->profile_path = cfg->profile_path_storage;
+   return 0;
+}
+
 static void usage(const char *argv0)
 {
-   printf("usage: %s [calibrate [selector]] [--profile path] [--report path] [--timeout-ms n]\n", argv0);
+   printf("usage: %s [calibrate [selector]] [--profile path|--profile-dir dir] [--timeout-ms n]\n", argv0);
    printf("       %s list\n", argv0);
-   printf("       %s view [selector] [--report path] [--pause]\n", argv0);
-   printf("       %s cursor selector layout_width cursor_width [mode] [--report path] [--timeout-ms n]\n", argv0);
-   printf("       %s chain selector layout_width cursor_width [mode] [--report path] [--timeout-ms n]\n", argv0);
+   printf("       %s view [selector] [--pause]\n", argv0);
+   printf("       %s cursor selector layout_width cursor_width [mode] [--timeout-ms n]\n", argv0);
+   printf("       %s chain selector layout_width cursor_width [mode] [--timeout-ms n]\n", argv0);
    printf("\n");
    printf("common selectors: all, focus, keycap, flag, flags, zwj, or any listed class/sample\n");
    printf("calibrate defaults to selector=all and writes only overrides from coded defaults.\n");
+   printf("default profile: %s/%s for platform %s\n",
+          THE_SYSTEM_PROFILE_DIR, THE_SYSTEM_PROFILE_NAME, THE_PLATFORM_NAME);
    printf("\n");
-   printf("diagnostic compatibility:\n");
-   printf("       %s --raw-poc [--report path] [--pause] [--timeout-ms n]\n", argv0);
-   printf("       %s --curses-poc [--report path] [--pause] [--timeout-ms n]\n", argv0);
-   printf("       %s --utfvis selector [--report path] [--pause]\n", argv0);
-   printf("       %s --testcursor selector layout_width cursor_width [mode] [--report path] [--timeout-ms n]\n", argv0);
+   printf("diagnostics:\n");
+   printf("       %s --raw-diagnostic [--report path] [--pause] [--timeout-ms n]\n", argv0);
+   printf("       %s --curses-diagnostic [--report path] [--pause] [--timeout-ms n]\n", argv0);
+   printf("       %s --utfvis selector [--pause]\n", argv0);
+   printf("       %s --testcursor selector layout_width cursor_width [mode] [--timeout-ms n]\n", argv0);
    printf("          mode is frame, cell, line, flashline, flashcell, flashpair, or flashfrom0..6; default is frame\n");
-   printf("       %s --testchain selector layout_width cursor_width [mode] [--report path] [--timeout-ms n]\n", argv0);
+   printf("       %s --testchain selector layout_width cursor_width [mode] [--timeout-ms n]\n", argv0);
    printf("          mode is line, cell, suffix, paintfirstcluster, touchfirstcluster, clearfirstcluster,\n");
    printf("          flashfirstfast, flashfirstcluster, flashwhole, or flashbackcluster0..6; default is flashbackcluster1\n");
    printf("       %s --list\n", argv0);
@@ -4787,13 +4833,22 @@ int main(int argc, char **argv)
    int i;
    int list_only = 0;
    int headless_calibrate_only;
+   const char *default_profile_dir;
 
    memset(&cfg, 0, sizeof(cfg));
-   cfg.report_path = "/tmp/the-utf8-terminal-probe.txt";
-   cfg.profile_path = "/tmp/the-utf8-terminal-profile.the";
+   cfg.report_path = NULL;
+   default_profile_dir = getenv("THE_SYSTEM_PROFILE_DIR");
+   if (default_profile_dir == NULL || *default_profile_dir == '\0')
+      default_profile_dir = THE_SYSTEM_PROFILE_DIR;
+   if (set_profile_path_from_dir(&cfg, default_profile_dir) != 0)
+   {
+      fprintf(stderr, "Default profile path is too long: %s/%s\n",
+              default_profile_dir, THE_SYSTEM_PROFILE_NAME);
+      return 2;
+   }
    cfg.run_matrix = 1;
    cfg.run_motion = 1;
-   cfg.run_poc = 1;
+   cfg.run_diagnostic = 1;
    cfg.timeout_ms = 200;
    cfg.data_col = 38;
 
@@ -4803,7 +4858,7 @@ int main(int argc, char **argv)
       cfg.calibrate_selector = "all";
       cfg.run_matrix = 0;
       cfg.run_motion = 0;
-      cfg.run_poc = 0;
+      cfg.run_diagnostic = 0;
    }
 
    for (i = 1; i < argc; i++)
@@ -4834,6 +4889,17 @@ int main(int argc, char **argv)
       {
          cfg.profile_path = argv[++i];
       }
+      else if (strcmp(argv[i], "--profile-dir") == 0 && i + 1 < argc)
+      {
+         const char *profile_dir = argv[++i];
+
+         if (set_profile_path_from_dir(&cfg, profile_dir) != 0)
+         {
+            fprintf(stderr, "Profile path is too long: %s/%s\n",
+                    profile_dir, THE_SYSTEM_PROFILE_NAME);
+            return 2;
+         }
+      }
       else if (strcmp(argv[i], "--pause") == 0)
       {
          cfg.pause = 1;
@@ -4846,20 +4912,20 @@ int main(int argc, char **argv)
       {
          cfg.run_motion = 0;
       }
-      else if (strcmp(argv[i], "--no-poc") == 0)
+      else if (strcmp(argv[i], "--no-diagnostic") == 0)
       {
-         cfg.run_poc = 0;
+         cfg.run_diagnostic = 0;
       }
-      else if (strcmp(argv[i], "--raw-poc") == 0 || strcmp(argv[i], "raw") == 0)
+      else if (strcmp(argv[i], "--raw-diagnostic") == 0)
       {
-         cfg.raw_poc = 1;
+         cfg.raw_diagnostic = 1;
       }
-      else if (strcmp(argv[i], "--curses-poc") == 0 || strcmp(argv[i], "curses") == 0)
+      else if (strcmp(argv[i], "--curses-diagnostic") == 0)
       {
-         cfg.curses_poc = 1;
+         cfg.curses_diagnostic = 1;
          cfg.run_matrix = 0;
          cfg.run_motion = 0;
-         cfg.run_poc = 0;
+         cfg.run_diagnostic = 0;
       }
       else if ((strcmp(argv[i], "--utfvis") == 0
       ||        strcmp(argv[i], "utfvis") == 0
@@ -4872,7 +4938,7 @@ int main(int argc, char **argv)
             cfg.utfvis_selector = "focus";
          cfg.run_matrix = 0;
          cfg.run_motion = 0;
-         cfg.run_poc = 0;
+         cfg.run_diagnostic = 0;
       }
       else if ((strcmp(argv[i], "--testcursor") == 0
       ||        strcmp(argv[i], "testcursor") == 0
@@ -4904,7 +4970,7 @@ int main(int argc, char **argv)
          }
          cfg.run_matrix = 0;
          cfg.run_motion = 0;
-         cfg.run_poc = 0;
+         cfg.run_diagnostic = 0;
       }
       else if ((strcmp(argv[i], "--testchain") == 0
       ||        strcmp(argv[i], "testchain") == 0
@@ -4923,7 +4989,7 @@ int main(int argc, char **argv)
          }
          cfg.run_matrix = 0;
          cfg.run_motion = 0;
-         cfg.run_poc = 0;
+         cfg.run_diagnostic = 0;
       }
       else if ((strcmp(argv[i], "--calibrate") == 0 || strcmp(argv[i], "calibrate") == 0))
       {
@@ -4934,7 +5000,7 @@ int main(int argc, char **argv)
             cfg.calibrate_selector = "all";
          cfg.run_matrix = 0;
          cfg.run_motion = 0;
-         cfg.run_poc = 0;
+         cfg.run_diagnostic = 0;
       }
       else if (strcmp(argv[i], "--testcursor-mode") == 0 && i + 1 < argc)
       {
@@ -4961,6 +5027,12 @@ int main(int argc, char **argv)
 
    if (load_probe_cases(&cfg, cfg.cases_path) != 0)
       return 2;
+   if (cfg.calibrate && cfg.report_path != NULL)
+   {
+      fprintf(stderr, "--report is for diagnostics; calibration writes probe details into %s\n",
+              cfg.profile_path);
+      return 2;
+   }
    if (cfg.utfvis && find_first_sample(&cfg, cfg.utfvis_selector) == NULL)
    {
       fprintf(stderr, "No UTF-8 probe sample matched '%s'\n", cfg.utfvis_selector);
@@ -5022,40 +5094,51 @@ int main(int argc, char **argv)
       return 2;
    }
 
-   cfg.report = fopen(cfg.report_path, "w");
-   if (cfg.report == NULL)
+   if (cfg.report_path != NULL)
    {
-      fprintf(stderr, "%s: %s\n", cfg.report_path, strerror(errno));
-      return 2;
+      cfg.report = fopen(cfg.report_path, "w");
+      if (cfg.report == NULL)
+      {
+         fprintf(stderr, "%s: %s\n", cfg.report_path, strerror(errno));
+         return 2;
+      }
    }
 
    headless_calibrate_only = cfg.no_visual
                            && cfg.calibrate
-                           && !cfg.curses_poc
+                           && !cfg.curses_diagnostic
                            && !cfg.utfvis
                            && !cfg.testcursor
                            && !cfg.testchain
                            && !cfg.run_matrix
                            && !cfg.run_motion
-                           && !cfg.run_poc;
+                           && !cfg.run_diagnostic;
 
-   if (cfg.raw_poc)
+   if (cfg.raw_diagnostic)
    {
 #if defined(_WIN32)
       log_raw_environment(&cfg);
-      run_raw_terminal_poc_probe(&cfg);
+      run_raw_terminal_diagnostic_probe(&cfg);
 #else
       struct termios saved_termios;
       int raw_enabled = enable_raw_input(&saved_termios) == 0;
 
       log_raw_environment(&cfg);
-      run_raw_terminal_poc_probe(&cfg);
+      run_raw_terminal_diagnostic_probe(&cfg);
       if (raw_enabled)
          restore_raw_input(&saved_termios);
 #endif
-      fclose(cfg.report);
-      printf("\nUTF-8 terminal probe %s report written to %s\n",
-             UTF8_TERMINAL_PROBE_VERSION, cfg.report_path);
+      if (cfg.report != NULL)
+      {
+         fclose(cfg.report);
+         printf("\nUTF-8 terminal probe %s report written to %s\n",
+                UTF8_TERMINAL_PROBE_VERSION, cfg.report_path);
+      }
+      else
+      {
+         printf("\nUTF-8 terminal probe %s complete\n",
+                UTF8_TERMINAL_PROBE_VERSION);
+      }
       return 0;
    }
 
@@ -5063,9 +5146,17 @@ int main(int argc, char **argv)
    {
       log_headless_environment(&cfg);
       run_calibration_probe(&cfg);
-      fclose(cfg.report);
-      printf("UTF-8 terminal probe %s report written to %s\n",
-             UTF8_TERMINAL_PROBE_VERSION, cfg.report_path);
+      if (cfg.report != NULL)
+      {
+         fclose(cfg.report);
+         printf("UTF-8 terminal probe %s report written to %s\n",
+                UTF8_TERMINAL_PROBE_VERSION, cfg.report_path);
+      }
+      else
+      {
+         printf("UTF-8 terminal probe %s complete\n",
+                UTF8_TERMINAL_PROBE_VERSION);
+      }
       return 0;
    }
 
@@ -5079,8 +5170,8 @@ int main(int argc, char **argv)
       cfg.data_col = 26;
 
    log_environment(&cfg);
-   if (cfg.curses_poc)
-      run_curses_terminal_poc_probe(&cfg);
+   if (cfg.curses_diagnostic)
+      run_curses_terminal_diagnostic_probe(&cfg);
    if (cfg.utfvis)
       run_utfvis_probe(&cfg, cfg.utfvis_selector);
    if (cfg.testcursor)
@@ -5093,12 +5184,20 @@ int main(int argc, char **argv)
       run_matrix_probe(&cfg);
    if (cfg.run_motion)
       run_keycap_motion_probe(&cfg);
-   if (cfg.run_poc)
-      run_terminal_absolute_poc_probe(&cfg);
+   if (cfg.run_diagnostic)
+      run_terminal_absolute_diagnostic_probe(&cfg);
    finish_probe_page(&cfg);
    endwin();
-   fclose(cfg.report);
-   printf("UTF-8 terminal probe %s report written to %s\n",
-          UTF8_TERMINAL_PROBE_VERSION, cfg.report_path);
+   if (cfg.report != NULL)
+   {
+      fclose(cfg.report);
+      printf("UTF-8 terminal probe %s report written to %s\n",
+             UTF8_TERMINAL_PROBE_VERSION, cfg.report_path);
+   }
+   else
+   {
+      printf("UTF-8 terminal probe %s complete\n",
+             UTF8_TERMINAL_PROBE_VERSION);
+   }
    return 0;
 }

@@ -27,11 +27,11 @@ This section is the current source of truth. The later historical log records
 the path taken to get here, including several probe results and THE-side
 experiments that were useful but have since been superseded.
 
-For a concise thread-to-thread handover, see `doc/utf8-handover.md`. The
-definitive `2026-05-13-poc34` coded default table is saved at
-`tools/utf8_terminal_profiles/defaults-poc34.the`. The current macOS Apple
-Terminal calibration baseline is saved at
-`tools/utf8_terminal_profiles/macos-apple-terminal-poc34-overrides.the`.
+For a concise thread-to-thread handover, see `doc/utf8-handover.md`. The coded
+default physical terminal table is shared by THE and the probe in
+`src/utf8term_defaults.h`. The current macOS Apple Terminal calibration baseline
+is `system-osx.the`, the same system profile that THE loads before the user
+profile.
 
 THE has two deliberately separate UTF-8 models:
 
@@ -743,21 +743,21 @@ Terminal probe tool:
 
   ```sh
   cmake --build cmake-build-debug --target utf8_terminal_probe
-  ./cmake-build-debug/utf8_terminal_probe --cases tools/utf8_terminal_probe_cases.tsv --report /tmp/the-utf8-terminal-probe.txt --pause
+  ./cmake-build-debug/utf8_terminal_probe --cases tools/utf8_terminal_probe_cases.tsv --pause
   ```
 
-  To remove curses from the experiment entirely, run the raw ANSI-only POC:
+  To remove curses from the experiment entirely, run the raw ANSI-only
+  diagnostic:
 
   ```sh
-  ./cmake-build-debug/utf8_terminal_probe --raw-poc --report /tmp/the-utf8-raw-poc.txt --pause
+  ./cmake-build-debug/utf8_terminal_probe --raw-diagnostic --report /tmp/the-utf8-raw-diagnostic.txt --pause
   ```
 
   To keep curses in the loop while still isolating THE, run the focused visual
-  probe. `--curses-poc` is now a compatibility alias for the keycap/flag focus
-  set:
+  diagnostic:
 
   ```sh
-  ./cmake-build-debug/utf8_terminal_probe --curses-poc --report /tmp/the-utf8-curses-poc.txt --pause
+  ./cmake-build-debug/utf8_terminal_probe --curses-diagnostic --report /tmp/the-utf8-curses-diagnostic.txt --pause
   ```
 
   To inspect one UTF family, use `--utfvis`. Selectors can be sample names
@@ -765,7 +765,7 @@ Terminal probe tool:
   `zwj`, aliases such as `flag`, or `all`:
 
   ```sh
-  ./cmake-build-debug/utf8_terminal_probe --utfvis flag --report /tmp/the-utf8-flag.txt --pause
+  ./cmake-build-debug/utf8_terminal_probe view flag --pause
   ```
 
   To animate the THE-style background cursor across `A-cluster-B-space-A-cluster-B`,
@@ -773,7 +773,7 @@ Terminal probe tool:
   a repaint mode:
 
   ```sh
-  ./cmake-build-debug/utf8_terminal_probe --testcursor flag 3 3 line --report /tmp/the-utf8-cursor.txt --timeout-ms 200
+  ./cmake-build-debug/utf8_terminal_probe cursor flag 3 3 line --timeout-ms 200
   ```
 
   To create or edit a terminal-profile fragment interactively, run calibration
@@ -781,7 +781,7 @@ Terminal probe tool:
   class name, or `all`; the default is `all`:
 
   ```sh
-  ./cmake-build-debug/utf8_terminal_probe calibrate --profile /tmp/the-utf8-terminal-profile.the --report /tmp/the-utf8-calibrate.txt --timeout-ms 200
+  ./cmake-build-debug/utf8_terminal_probe calibrate all --profile-dir ./cmake-build-debug/release --timeout-ms 200
   ```
 
   Bare `utf8_terminal_probe` is equivalent to `utf8_terminal_probe calibrate`.
@@ -794,10 +794,6 @@ Terminal probe tool:
   utf8_terminal_probe cursor selector layout_width cursor_width [mode]
   utf8_terminal_probe chain selector layout_width cursor_width [mode]
   ```
-
-  The old `--utfvis`, `--testcursor`, `--testchain`, `--raw-poc`, and
-  `--curses-poc` flags remain as diagnostic compatibility aliases, but normal
-  calibration should use the simplified commands above.
 
   Calibration mode reads the existing profile when present, then opens a main
   screen listing each selected feature class and its current view, cursor,
@@ -900,37 +896,37 @@ Terminal probe tool:
 - `tools/utf8_terminal_probe_cases.tsv` is the extensible probe fixture. Add
   new rows as `name<TAB>class<TAB>policy_width<TAB>U+...`; the codepoint list
   accepts spaces, commas, or pluses between `U+XXXX` values.
-- The report records curses' virtual cursor position and the terminal's
-  physical cursor position from `CSI 6 n` so we can separate curses accounting
-  from terminal cursor advance. The visual keycap-motion panel reproduces the
+- Diagnostic reports can record curses' virtual cursor position and the
+  terminal's physical cursor position from `CSI 6 n` so we can separate curses
+  accounting from terminal cursor advance. The visual keycap-motion panel reproduces the
   `A1️⃣B A` cursor path without changing THE, which lets platform probes and
-  POC fixes be compared before renderer changes are attempted.
-- The terminal-absolute POC section compares raw absolute repaint strategies.
+  diagnostic fixes be compared before renderer changes are attempted.
+- The terminal-absolute diagnostic section compares raw absolute repaint strategies.
   Cell rows redraw only the old and new cursor targets. Span rows clear and
   redraw the whole `A`/keycap/`B`/space/`A` neighborhood, with an optional guard
   cell. It runs both a pure-raw base case and mixed cases where curses draws the
   base row before raw absolute overlay repair. Curses is flushed before the raw
   overlay, and the terminal is queried before any later curses refresh can
   reassert curses' keycap-width state. Because reverse video over color emoji
-  is not reliably visible in Apple Terminal, the POC also draws a raw ASCII `^`
+  is not reliably visible in Apple Terminal, the diagnostic also draws a raw ASCII `^`
   marker below the target cell. This is the fixture for proving an output/resync
   strategy before it is adapted to THE.
-- The `--raw-poc` mode never calls `initscr()`. It writes only ANSI escape
+- The `--raw-diagnostic` mode never calls `initscr()`. It writes only ANSI escape
   sequences and UTF-8 bytes, and compares keycap reservations of two, three, and
   four terminal cells. It also compares reverse-video cursor styling with a
   marker-only row so we can separate curses effects, paint-footprint width, and
   reverse-video emoji repaint artifacts. Probe version `2026-05-12-poc25` hides
   the terminal hardware cursor and includes hybrid rows where keycap paint
   reservation is wider than the terminal's two-cell cursor advance.
-- The `--utfvis` mode calls `initscr()` and lets curses own the screen. It
+- The `view`/`--utfvis` mode calls `initscr()` and lets curses own the screen. It
   renders a static matrix of independent samples selected by name, class, alias,
   or `all`. Each cell is freshly painted with a THE-style background cursor on
   `A`, the cluster, `B`, the space, or the final `A`; there is no animation, DSR
   query, raw repair, or repeated repaint of the same sample. Probe version
   `2026-05-12-poc25` compares layout-cell width (`L`) with cursor-background
-  width (`C`) for the selected UTF family. The old `--curses-poc` mode remains
-  as a compatibility alias for `--utfvis focus`, meaning keycaps plus flags.
-- The `--testcursor` mode animates the same THE-style background cursor across
+  width (`C`) for the selected UTF family. The `--curses-diagnostic` mode keeps
+  curses in the loop for focused diagnostic rows.
+- The `cursor`/`--testcursor` mode animates the same THE-style background cursor across
   `A-cluster-B-space-A-cluster-B` using explicit layout and cursor-background
   widths. This is the probe for movement bugs: once a static `utfvis` row looks
   right, `testcursor` shows whether repeated repainting can move left and right
@@ -961,8 +957,8 @@ The next UTF-8 work should prioritize proof tools over more renderer changes:
   `text-variation`, `emoji-variation`, `modifier`, `keycap`, `regional-flag`,
   `short-zwj`, `heart-zwj`, `family-zwj`, `tag-flag`, and `private-use`.
 
-  Current coded defaults are mirrored in
-  `tools/utf8_terminal_profiles/defaults-poc34.the`:
+  Current coded defaults live in `src/utf8term_defaults.h` and are compiled
+  into both THE and the probe:
 
   ```text
   ascii normal/native:          L1 C1 cursor=changed_cells replace=changed_cells
@@ -986,7 +982,10 @@ The next UTF-8 work should prioritize proof tools over more renderer changes:
   private-use normal/native:    L1 C1 cursor=line replace=line
   ```
 - Let the user step through strategy choices and save the selected profile as
-  THE configuration commands or an equivalent profile file.
+  the platform system profile. The probe and THE share the same compiled
+  platform name, so on macOS `--profile-dir DIR` reads and writes
+  `DIR/system-osx.the`. THE loads that file before the user profile; `-n`
+  skips only the user profile.
 - Treat the ZWJ user intent and output method as inputs to the rest of
   calibration. A terminal may use native literal output for grouped display of
   one ZWJ family, native fallback for component display of another, and
@@ -996,12 +995,9 @@ The next UTF-8 work should prioritize proof tools over more renderer changes:
 - After the probe proves a profile entry, validate one THE-side change at a
   time against `tests/fixtures/utf8-render.txt`.
 
-For Apple Terminal today, the saved baseline profile is
-`tools/utf8_terminal_profiles/macos-apple-terminal-poc34-overrides.the`.
-It was captured visually on 2026-05-14 with
-`utf8_terminal_probe 2026-05-13-poc34`, `TERM=xterm-256color`, and
-`TERM_PROGRAM=Apple_Terminal`. It is an override fragment to apply on top of
-the probe's coded defaults. Key rows are:
+For Apple Terminal today, the saved baseline profile is `system-osx.the`. It is
+the one generated profile that THE consumes before the user profile. Key rows
+are:
 
 ```text
 regional-flag normal/native: default L3 C3 cursor=changed_cells replace=clear_changed_suffix_fast

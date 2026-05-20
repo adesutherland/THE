@@ -681,6 +681,21 @@ short get_profile(CHARTYPE *prf_file,CHARTYPE *prf_arg)
    return(RC_OK);
 }
 /***********************************************************************/
+short get_startup_profiles(void)
+/***********************************************************************/
+{
+   short rc=RC_OK;
+
+   TRACE_FUNCTION("default.c: get_startup_profiles");
+   if (system_prf != (CHARTYPE *)NULL)
+      rc = get_profile(system_prf,(CHARTYPE *)NULL);
+   if (execute_profile
+   &&  local_prf != (CHARTYPE *)NULL)
+      rc = get_profile(local_prf,prf_arg);
+   TRACE_RETURN();
+   return(rc);
+}
+/***********************************************************************/
 short defaults_for_first_file(void)
 /***********************************************************************/
 {

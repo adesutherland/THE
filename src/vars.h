@@ -255,6 +255,7 @@ extern CHARTYPE       _THE_FAR curr_path[MAX_FILE_NAME+1],
 extern int            max_macro_dirs,
                       total_macro_dirs;
 extern CHARTYPE       *prf_arg,
+                      *system_prf,
                       *local_prf,
                       *specified_prf;
 extern CHARTYPE       tabkey_insert,
