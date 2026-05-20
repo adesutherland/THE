@@ -126,6 +126,7 @@ extern void ClosedownConsole( int );
 #endif
 
 #include "textpos.h"
+#include "logcursor.h"
 
 
 /*
@@ -1700,6 +1701,7 @@ struct view_details
    PRESERVED_VIEW_DETAILS *preserved_view_details;
    LINETYPE current_line;      /* line in file displayed on current row */
    LENGTHTYPE current_column;   /* column in line of last column target */
+   LogicalCursorState logical_cursor;       /* driver-free cursor state */
    short y[VIEW_WINDOWS];               /* y coordinate for each window */
    short x[VIEW_WINDOWS];               /* x coordinate for each window */
    LINETYPE focus_line;                 /* line in file where cursor is */

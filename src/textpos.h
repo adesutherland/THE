@@ -82,6 +82,14 @@ TextCodepoint textpos_codepoint_at_boundary(const CHARTYPE *line, size_t len, Te
 TextCluster textpos_cluster_at(const CHARTYPE *line, size_t len, TextPos pos);
 TextCluster textpos_cluster_at_boundary(const CHARTYPE *line, size_t len, TextPos pos);
 TextCellSlice textpos_slice_cells(const CHARTYPE *line, size_t len, int start_cell, int width_cells);
+FilePos filepos_make(LINETYPE line_number, TextPos text);
+ScreenPos screenpos_make(short row, short col);
+EditorPos editorpos_make(LINETYPE line_number, TextPos text, short screen_row, short screen_col);
+TextPos textpos_from_codepoint_virtual(const CHARTYPE *line, size_t len, size_t codepoint_index);
+TextPos textpos_from_cluster(const CHARTYPE *line, size_t len, size_t cluster_index);
+TextPos textpos_from_cluster_virtual(const CHARTYPE *line, size_t len, size_t cluster_index);
+TextPos textpos_from_cell_virtual(const CHARTYPE *line, size_t len, int cell_column, TextSnap snap);
+TextPos textpos_prev_cell_boundary(const CHARTYPE *line, size_t len, TextPos pos);
 size_t textpos_count_codepoints(const CHARTYPE *line, size_t len);
 size_t textpos_count_clusters(const CHARTYPE *line, size_t len);
 int text_codepoint_cell_width(uint32_t codepoint);

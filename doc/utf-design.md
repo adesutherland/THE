@@ -47,6 +47,32 @@ Do not repair terminal paint bugs by changing logical cluster boundaries. If
 Apple Terminal, xterm, Windows Terminal, or a curses stack paints a cluster
 differently, that belongs in a terminal profile.
 
+The approved architectural direction is a strict driver split:
+
+- Logical editor code owns file text, prefix text, command-line text, focus,
+  logical cursor positions, `TextPos`, and normalized key/mouse intentions.
+- The curses driver owns curses windows, `getyx()`, `wmove()`, `wgetch()`,
+  mouse event decoding, physical display columns, hardware cursor placement,
+  refresh ordering, and UTF terminal repair strategy execution.
+- Data may flow from logical state to the curses driver, and from the curses
+  input driver back as normalized editor events. Logical code must not call
+  curses directly.
+
+This split applies to all editor-controlled zones, not only the file area.
+Command-line entry, prefix commands, status/input prompts that THE paints, and
+future UI drivers must use the same model: logical mutation first, physical
+driver rendering second. Prompts or dialogs that intentionally remain
+curses-native can be isolated behind the driver boundary, but they should not
+leak curses coordinates into editor text operations.
+
+Implementation is incremental. The first step is to make the logical position
+foundation complete and tested, including virtual positions past end-of-text.
+Next, a logical cursor/focus component can be added to `VIEW_DETAILS`; only
+after that should existing cursor, command-line, prefix, and input paths be
+migrated behind a curses-driver adapter. Each step must preserve the rule that
+terminal profiles affect physical display and repair only, never logical text
+identity or edit positions.
+
 Column-oriented edit commands are part of the logical model. `CINSERT`,
 `CREPLACE`, and `COVERLAY` convert any file-area display coordinate back to a
 logical cell column, snap to the start of the containing grapheme cluster, and

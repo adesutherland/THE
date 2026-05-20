@@ -96,6 +96,18 @@ static void expect_cluster(const char *name, TextCluster cluster,
    expect_int(field, cluster.cell_width, cell_width);
 }
 
+static void expect_filepos(const char *name, FilePos pos, LINETYPE line_number,
+                           size_t byte_offset, size_t codepoint_index,
+                           size_t cluster_index, int cell_column)
+{
+   char field[128];
+
+   snprintf(field, sizeof(field), "%s.line", name);
+   expect_int(field, (int)pos.line_number, (int)line_number);
+   expect_pos_full(name, pos.text, byte_offset, codepoint_index,
+                   cluster_index, cell_column);
+}
+
 static void test_ascii(void)
 {
    static const CHARTYPE s[] = { 'a', 'b', 'c' };
@@ -246,6 +258,63 @@ static void test_grapheme_clusters(void)
    expect_size("cluster.family.count", textpos_count_clusters(family, sizeof(family)), 3);
 }
 
+static void test_virtual_positions(void)
+{
+   static const CHARTYPE s[] = { 'A', 0xF0, 0x9F, 0x98, 0x80, 'B' };
+   TextPos end;
+   FilePos file;
+   ScreenPos screen;
+   EditorPos editor;
+
+   end = textpos_from_cluster(s, sizeof(s), (size_t)-1);
+   expect_pos_full("virtual.end", end, 6, 3, 3, 4);
+
+   expect_pos_full("virtual.codepoint.clamped",
+                   textpos_from_codepoint(s, sizeof(s), 5),
+                   6, 3, 3, 4);
+   expect_pos_full("virtual.codepoint.extended",
+                   textpos_from_codepoint_virtual(s, sizeof(s), 5),
+                   6, 5, 5, 6);
+
+   expect_pos_full("virtual.cluster.start",
+                   textpos_from_cluster(s, sizeof(s), 1),
+                   1, 1, 1, 1);
+   expect_pos_full("virtual.cluster.clamped",
+                   textpos_from_cluster(s, sizeof(s), 5),
+                   6, 3, 3, 4);
+   expect_pos_full("virtual.cluster.extended",
+                   textpos_from_cluster_virtual(s, sizeof(s), 5),
+                   6, 5, 5, 6);
+
+   expect_pos_full("virtual.cell.inside.wide",
+                   textpos_from_cell_virtual(s, sizeof(s), 2, TEXT_SNAP_NEAREST),
+                   5, 2, 2, 3);
+   expect_pos_full("virtual.cell.extended",
+                   textpos_from_cell_virtual(s, sizeof(s), 8, TEXT_SNAP_BACKWARD),
+                   6, 7, 7, 8);
+   expect_pos_full("virtual.prev.from.extended",
+                   textpos_prev_cell_boundary(s, sizeof(s),
+                      textpos_from_cell_virtual(s, sizeof(s), 8, TEXT_SNAP_BACKWARD)),
+                   6, 6, 6, 7);
+   expect_pos_full("virtual.prev.from.after.emoji",
+                   textpos_prev_cell_boundary(s, sizeof(s),
+                      textpos_from_cell(s, sizeof(s), 3, TEXT_SNAP_BACKWARD)),
+                   1, 1, 1, 1);
+
+   file = filepos_make(42, textpos_from_cluster(s, sizeof(s), 1));
+   expect_filepos("virtual.filepos", file, 42, 1, 1, 1, 1);
+
+   screen = screenpos_make(2, 7);
+   expect_int("virtual.screen.row", screen.row, 2);
+   expect_int("virtual.screen.col", screen.col, 7);
+
+   editor = editorpos_make(43, textpos_from_cell_virtual(s, sizeof(s), 6, TEXT_SNAP_BACKWARD),
+                           4, 9);
+   expect_filepos("virtual.editor.file", editor.file, 43, 6, 5, 5, 6);
+   expect_int("virtual.editor.screen.row", editor.screen.row, 4);
+   expect_int("virtual.editor.screen.col", editor.screen.col, 9);
+}
+
 static void test_invalid_utf8_progress(void)
 {
    static const CHARTYPE s[] = { 'A', 0xF0, 0x28, 0x8C, 0x28, 'B' };
@@ -285,6 +354,7 @@ int main(void)
    test_cell_slices();
    test_combining_phase1_invariant();
    test_grapheme_clusters();
+   test_virtual_positions();
    test_invalid_utf8_progress();
    test_encode();
 

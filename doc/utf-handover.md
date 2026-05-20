@@ -115,14 +115,47 @@ after validation.
 
 ## Next Work
 
-1. Continue manual keycap investigation against the shared repair planner:
-   verify cursor movement, scroll redraw, and replacement separately.
-2. If a strategy is wrong, fix or extend the generic planner/profile vocabulary
-   rather than adding keycap-specific renderer branches.
-3. Keep replacement old-line hints covered; replacing a troublesome cluster with
-   plain ASCII can still require the old cluster's repair boundary.
-4. Add platform probes and baselines for other terminal stacks only after the
-   macOS profile path is proven in THE.
+The next refactor is the logical/physical split. Treat this section as the
+stored implementation plan when resuming after context compression.
+
+Progress as of this update: steps 1 and 2 have passive implementation and unit
+coverage. Existing runtime cursor behavior is intentionally unchanged so the
+live migration can happen behind tests.
+
+1. Finish the pure logical position foundation:
+   implement and test virtual `TextPos` constructors so file-area, prefix, and
+   command-line code can represent positions past end-of-text without consulting
+   curses. Done.
+2. Introduce a logical cursor/focus model owned by `VIEW_DETAILS`, covering file
+   area, prefix, command line, and other editor-controlled zones. The model must
+   store logical row/line, logical cell/TextPos, desired horizontal cell for
+   vertical movement, and focus owner. It must not include curses `WINDOW *`,
+   `getyx()`, `wmove()`, or physical terminal columns. Passive model done in
+   `src/logcursor.c`; live cursor paths still need migration.
+3. Add a curses-driver boundary that consumes logical cursor/focus state and
+   materializes it on the terminal. This boundary maps logical cells to physical
+   display columns, invokes the shared UTF repair planner, parks the hardware
+   cursor when needed, and performs curses refreshes.
+4. Move file-area cursor commands onto the logical model first. Left/right,
+   up/down, home/end, virtual-space movement after end-of-line, and status
+   reporting should update/query logical state; the curses driver then paints the
+   result.
+5. Move command-line and prefix behavior onto the same model. Command-line
+   editing and prefix commands are editor-controlled text zones, so their cursor
+   mutation and repaint events must be logical first and curses-driver second.
+6. Split input in the same style. `getch.c`/`mouse.c` should be curses input
+   drivers that return normalized editor input events plus optional raw curses
+   metadata for legacy queries. Command dispatch should consume normalized
+   logical events.
+7. Add fake-driver tests before broad rewiring. Unit tests should cover logical
+   movement without curses and driver tests should verify the physical operations
+   requested for keycap/flag/ZWJ lines.
+8. Keep the terminal-profile rule intact throughout: strategy and output
+   decisions stay physical and profile-driven; logical cluster boundaries and
+   edit positions never change to repair a terminal paint issue.
+
+After each step, build and run the UTF and non-UTF test suites before moving to
+the next step.
 
 ## Sequencing Advice
 

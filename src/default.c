@@ -514,6 +514,7 @@ void set_view_defaults(VIEW_DETAILS *viewp)
       viewp->current_window =        WINDOW_COMMAND;
       viewp->previous_window =       WINDOW_FILEAREA;
    }
+   logical_cursor_state_init(&viewp->logical_cursor);
    /*
     * Set defaults for individual environments next...
     */
@@ -751,6 +752,7 @@ short defaults_for_first_file(void)
       CURRENT_VIEW->current_window =        WINDOW_COMMAND;
       CURRENT_VIEW->previous_window =       WINDOW_FILEAREA;
    }
+   logical_cursor_state_init(&CURRENT_VIEW->logical_cursor);
    CURRENT_VIEW->preserved_view_details = (PRESERVED_VIEW_DETAILS *)NULL;
    TRACE_RETURN();
    return(RC_OK);
@@ -950,6 +952,7 @@ short defaults_for_other_files(VIEW_DETAILS *base_view)
       CURRENT_VIEW->current_window =        WINDOW_COMMAND;
       CURRENT_VIEW->previous_window =       WINDOW_FILEAREA;
    }
+   logical_cursor_state_init(&CURRENT_VIEW->logical_cursor);
    CURRENT_VIEW->preserved_view_details = (PRESERVED_VIEW_DETAILS *)NULL;
    initialise_target( &CURRENT_VIEW->thighlight_target );
    TRACE_RETURN();

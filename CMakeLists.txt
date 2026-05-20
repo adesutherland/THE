@@ -369,6 +369,7 @@ set(THE_SOURCES
     src/thematch.c
     src/getch.c
     src/linked.c
+    src/logcursor.c
     src/mouse.c
     src/memory.c
     src/nonansi.c
@@ -485,6 +486,13 @@ if(USE_UTF8 AND USE_UTF8PROC)
     target_compile_definitions(test_textpos PRIVATE USE_UTF8PROC=1)
 endif()
 add_test(NAME test_textpos COMMAND test_textpos)
+add_executable(test_logcursor tests/test_logcursor.c src/logcursor.c src/textpos.c)
+target_include_directories(test_logcursor PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+if(USE_UTF8 AND USE_UTF8PROC)
+    target_link_libraries(test_logcursor ${THE_UTF8PROC_TARGET})
+    target_compile_definitions(test_logcursor PRIVATE USE_UTF8PROC=1)
+endif()
+add_test(NAME test_logcursor COMMAND test_logcursor)
 if(USE_UTF8)
     add_executable(test_utf_fixture tests/test_utf_fixture.c src/textpos.c)
     target_include_directories(test_utf_fixture PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})

@@ -58,6 +58,14 @@ static TextPos make_cluster_pos(size_t byte_offset, size_t codepoint_index,
    return pos;
 }
 
+static TextPos make_virtual_pos(TextPos pos, size_t extra_cells)
+{
+   pos.codepoint_index += extra_cells;
+   pos.cluster_index += extra_cells;
+   pos.cell_column += (int)extra_cells;
+   return pos;
+}
+
 static TextCodepoint decode_at_canonical(const CHARTYPE *line, size_t len, TextPos pos)
 {
    TextCodepoint item;
@@ -234,6 +242,30 @@ TextPos textpos_begin(void)
    return make_pos(0, 0, 0);
 }
 
+FilePos filepos_make(LINETYPE line_number, TextPos text)
+{
+   FilePos pos;
+   pos.line_number = line_number;
+   pos.text = text;
+   return pos;
+}
+
+ScreenPos screenpos_make(short row, short col)
+{
+   ScreenPos pos;
+   pos.row = row;
+   pos.col = col;
+   return pos;
+}
+
+EditorPos editorpos_make(LINETYPE line_number, TextPos text, short screen_row, short screen_col)
+{
+   EditorPos pos;
+   pos.file = filepos_make(line_number, text);
+   pos.screen = screenpos_make(screen_row, screen_col);
+   return pos;
+}
+
 TextCodepoint textpos_codepoint_at(const CHARTYPE *line, size_t len, TextPos pos)
 {
    pos = textpos_from_byte(line, len, pos.byte_offset);
@@ -285,6 +317,15 @@ TextPos textpos_from_codepoint(const CHARTYPE *line, size_t len, size_t codepoin
       pos.cell_column += item.cell_width;
    }
 
+   return pos;
+}
+
+TextPos textpos_from_codepoint_virtual(const CHARTYPE *line, size_t len, size_t codepoint_index)
+{
+   TextPos pos = textpos_from_codepoint(line, len, codepoint_index);
+
+   if (pos.codepoint_index < codepoint_index)
+      pos = make_virtual_pos(pos, codepoint_index - pos.codepoint_index);
    return pos;
 }
 
@@ -369,6 +410,15 @@ TextPos textpos_from_cell(const CHARTYPE *line, size_t len, int cell_column, Tex
    return pos;
 }
 
+TextPos textpos_from_cell_virtual(const CHARTYPE *line, size_t len, int cell_column, TextSnap snap)
+{
+   TextPos pos = textpos_from_cell(line, len, cell_column, snap);
+
+   if (cell_column > pos.cell_column)
+      pos = make_virtual_pos(pos, (size_t)(cell_column - pos.cell_column));
+   return pos;
+}
+
 TextCluster textpos_cluster_at(const CHARTYPE *line, size_t len, TextPos pos)
 {
    pos = textpos_from_cell(line, len, pos.cell_column, TEXT_SNAP_BACKWARD);
@@ -391,6 +441,30 @@ TextPos textpos_next_cluster(const CHARTYPE *line, size_t len, TextPos pos)
    return cluster.end;
 }
 
+TextPos textpos_from_cluster(const CHARTYPE *line, size_t len, size_t cluster_index)
+{
+   TextPos pos = textpos_begin();
+
+   while (pos.byte_offset < len && pos.cluster_index < cluster_index)
+   {
+      TextCluster cluster = cluster_at_canonical(line, len, pos);
+      if (cluster.byte_length == 0)
+         break;
+      pos = cluster.end;
+   }
+
+   return pos;
+}
+
+TextPos textpos_from_cluster_virtual(const CHARTYPE *line, size_t len, size_t cluster_index)
+{
+   TextPos pos = textpos_from_cluster(line, len, cluster_index);
+
+   if (pos.cluster_index < cluster_index)
+      pos = make_virtual_pos(pos, cluster_index - pos.cluster_index);
+   return pos;
+}
+
 TextPos textpos_prev_cluster(const CHARTYPE *line, size_t len, TextPos pos)
 {
    TextPos current = textpos_begin();
@@ -409,6 +483,15 @@ TextPos textpos_prev_cluster(const CHARTYPE *line, size_t len, TextPos pos)
    }
 
    return previous;
+}
+
+TextPos textpos_prev_cell_boundary(const CHARTYPE *line, size_t len, TextPos pos)
+{
+   TextPos end = textpos_from_cluster(line, len, (size_t)-1);
+
+   if (pos.cell_column > end.cell_column)
+      return textpos_from_cell_virtual(line, len, pos.cell_column - 1, TEXT_SNAP_BACKWARD);
+   return textpos_prev_cluster(line, len, textpos_from_cell(line, len, pos.cell_column, TEXT_SNAP_BACKWARD));
 }
 
 TextCellSlice textpos_slice_cells(const CHARTYPE *line, size_t len, int start_cell, int width_cells)
