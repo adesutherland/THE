@@ -157,6 +157,10 @@ static void test_input_mapping(void)
 
    expect_int("input.text.parse", llm_driver_input_from_text('x', &input), 1);
    expect_int("input.text.key", input.key_code, 'x');
+   expect_int("input.legacy.parse",
+              llm_driver_input_from_legacy_key(KEY_LEFT, &input), 1);
+   expect_int("input.legacy.kind", input.kind, LLM_DRIVER_INPUT_KEY);
+   expect_int("input.legacy.key", input.key_code, KEY_LEFT);
 
    expect_int("input.command.parse", llm_driver_input_from_command("next", &input), 1);
    expect_int("input.command.legacy", llm_driver_input_to_legacy_key(&input, &key), 0);

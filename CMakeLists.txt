@@ -369,6 +369,7 @@ set(THE_SOURCES
     src/file.c
     src/thematch.c
     src/getch.c
+    src/inputevent.c
     src/linked.c
     src/logcursor.c
     src/llmdriver.c
@@ -502,6 +503,9 @@ if(USE_UTF8 AND USE_UTF8PROC)
     target_compile_definitions(test_logcursor PRIVATE USE_UTF8PROC=1)
 endif()
 add_test(NAME test_logcursor COMMAND test_logcursor)
+add_executable(test_inputevent tests/test_inputevent.c src/inputevent.c)
+target_include_directories(test_inputevent PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+add_test(NAME test_inputevent COMMAND test_inputevent)
 add_executable(test_uidriver tests/test_uidriver.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_uidriver PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8 AND USE_UTF8PROC)
@@ -519,14 +523,14 @@ if(USE_SDSLH)
     target_link_libraries(test_screenframe DSLSH::editor)
 endif()
 add_test(NAME test_screenframe COMMAND test_screenframe)
-add_executable(test_llmdriver tests/test_llmdriver.c src/llmdriver.c src/uidriver.c src/logcursor.c src/textpos.c)
+add_executable(test_llmdriver tests/test_llmdriver.c src/llmdriver.c src/inputevent.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmdriver PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8 AND USE_UTF8PROC)
     target_link_libraries(test_llmdriver ${THE_UTF8PROC_TARGET})
     target_compile_definitions(test_llmdriver PRIVATE USE_UTF8PROC=1)
 endif()
 add_test(NAME test_llmdriver COMMAND test_llmdriver)
-add_executable(test_llmruntime tests/test_llmruntime.c src/llmruntime.c src/llmdriver.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
+add_executable(test_llmruntime tests/test_llmruntime.c src/llmruntime.c src/llmdriver.c src/inputevent.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmruntime PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8 AND USE_UTF8PROC)
     target_link_libraries(test_llmruntime ${THE_UTF8PROC_TARGET})

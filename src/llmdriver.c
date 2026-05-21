@@ -1,73 +1,8 @@
 #include "llmdriver.h"
 
-#include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-
-#include "getch.h"
-
-#ifdef KEY_TAB
-# define LLM_DRIVER_KEY_TAB KEY_TAB
-#else
-# define LLM_DRIVER_KEY_TAB 0x9
-#endif
-
-typedef struct
-{
-   const char *name;
-   int key_code;
-} LlmKeyName;
-
-typedef struct
-{
-   const char *name;
-   LlmDriverDebugCommand command;
-} LlmDebugName;
-
-static const LlmKeyName llm_key_names[] =
-{
-   { "left", KEY_LEFT },
-   { "right", KEY_RIGHT },
-   { "up", KEY_UP },
-   { "down", KEY_DOWN },
-   { "home", KEY_HOME },
-   { "end", KEY_END },
-   { "pageup", KEY_PPAGE },
-   { "pgup", KEY_PPAGE },
-   { "pagedown", KEY_NPAGE },
-   { "pgdn", KEY_NPAGE },
-   { "enter", KEY_ENTER },
-   { "return", KEY_RETURN },
-   { "esc", KEY_ESC },
-   { "escape", KEY_ESC },
-   { "tab", LLM_DRIVER_KEY_TAB },
-   { "backtab", KEY_BTAB },
-   { "btab", KEY_BTAB },
-   { "backspace", KEY_BACKSPACE },
-   { "delete", KEY_DC },
-   { "del", KEY_DC },
-   { "insert", KEY_IC },
-   { NULL, 0 }
-};
-
-static const LlmDebugName llm_debug_names[] =
-{
-   { "describe-focus", LLM_DRIVER_DEBUG_DESCRIBE_FOCUS },
-   { "focus", LLM_DRIVER_DEBUG_DESCRIBE_FOCUS },
-   { "describe-row", LLM_DRIVER_DEBUG_DESCRIBE_ROW },
-   { "row", LLM_DRIVER_DEBUG_DESCRIBE_ROW },
-   { "list-visible-rows", LLM_DRIVER_DEBUG_LIST_VISIBLE_ROWS },
-   { "visible-rows", LLM_DRIVER_DEBUG_LIST_VISIBLE_ROWS },
-   { "dump-cursor-mapping", LLM_DRIVER_DEBUG_DUMP_CURSOR_MAPPING },
-   { "cursor-mapping", LLM_DRIVER_DEBUG_DUMP_CURSOR_MAPPING },
-   { "dump-driver-ops", LLM_DRIVER_DEBUG_DUMP_DRIVER_OPS },
-   { "driver-ops", LLM_DRIVER_DEBUG_DUMP_DRIVER_OPS },
-   { "explain-last-render", LLM_DRIVER_DEBUG_EXPLAIN_LAST_RENDER },
-   { "last-render", LLM_DRIVER_DEBUG_EXPLAIN_LAST_RENDER },
-   { NULL, LLM_DRIVER_DEBUG_NONE }
-};
 
 static void copy_text(char *dest, size_t dest_len, const char *src)
 {
@@ -102,20 +37,6 @@ static void copy_text_n(char *dest, size_t dest_len, const char *src, size_t src
    if (len > 0)
       memcpy(dest, src, len);
    dest[len] = '\0';
-}
-
-static int ascii_equal_ci(const char *left, const char *right)
-{
-   if (left == NULL || right == NULL)
-      return 0;
-   while (*left != '\0' && *right != '\0')
-   {
-      if (tolower((unsigned char)*left) != tolower((unsigned char)*right))
-         return 0;
-      left++;
-      right++;
-   }
-   return *left == '\0' && *right == '\0';
 }
 
 static int appendf(char *out, size_t out_len, size_t *used, const char *fmt, ...)
@@ -591,186 +512,70 @@ size_t llm_driver_format_semantic_view(const LlmDriverScreenView *view,
 
 const char *llm_driver_input_kind_name(LlmDriverInputKind kind)
 {
-   switch (kind)
-   {
-      case LLM_DRIVER_INPUT_TEXT:
-         return "text";
-      case LLM_DRIVER_INPUT_KEY:
-         return "key";
-      case LLM_DRIVER_INPUT_COMMAND:
-         return "command";
-      case LLM_DRIVER_INPUT_LOGICAL_HIT:
-         return "logical-hit";
-      case LLM_DRIVER_INPUT_DEBUG:
-         return "debug";
-      case LLM_DRIVER_INPUT_NONE:
-      default:
-         return "none";
-   }
+   return the_input_kind_name(kind);
 }
 
 const char *llm_driver_debug_command_name(LlmDriverDebugCommand command)
 {
-   switch (command)
-   {
-      case LLM_DRIVER_DEBUG_DESCRIBE_FOCUS:
-         return "describe-focus";
-      case LLM_DRIVER_DEBUG_DESCRIBE_ROW:
-         return "describe-row";
-      case LLM_DRIVER_DEBUG_LIST_VISIBLE_ROWS:
-         return "list-visible-rows";
-      case LLM_DRIVER_DEBUG_DUMP_CURSOR_MAPPING:
-         return "dump-cursor-mapping";
-      case LLM_DRIVER_DEBUG_DUMP_DRIVER_OPS:
-         return "dump-driver-ops";
-      case LLM_DRIVER_DEBUG_EXPLAIN_LAST_RENDER:
-         return "explain-last-render";
-      case LLM_DRIVER_DEBUG_NONE:
-      default:
-         return "none";
-   }
+   return the_input_debug_command_name(command);
 }
 
 LlmDriverInput llm_driver_input_none(void)
 {
-   LlmDriverInput input;
-
-   memset(&input, 0, sizeof(input));
-   input.kind = LLM_DRIVER_INPUT_NONE;
-   input.key_code = -1;
-   return input;
+   return the_input_event_none();
 }
 
 int llm_driver_input_from_text(uint32_t codepoint, LlmDriverInput *out)
 {
-   if (out == NULL)
-      return 0;
-   *out = llm_driver_input_none();
-   out->kind = LLM_DRIVER_INPUT_TEXT;
-   out->codepoint = codepoint;
-   if (codepoint <= 0x7Fu)
-      out->key_code = (int)codepoint;
-   return 1;
+   return the_input_event_from_text(codepoint, out);
 }
 
 int llm_driver_input_from_key_name(const char *name, LlmDriverInput *out)
 {
-   size_t i;
+   return the_input_event_from_key_name(name, out);
+}
 
-   if (out == NULL || name == NULL)
-      return 0;
-   *out = llm_driver_input_none();
-   if ((name[0] == 'f' || name[0] == 'F') && isdigit((unsigned char)name[1]))
-   {
-      char *end = NULL;
-      long number = strtol(name + 1, &end, 10);
-
-      if (end != NULL && *end == '\0' && number >= 1 && number <= 64)
-      {
-         out->kind = LLM_DRIVER_INPUT_KEY;
-         out->key_code = KEY_F((int)number);
-         return 1;
-      }
-   }
-
-   for (i = 0; llm_key_names[i].name != NULL; i++)
-   {
-      if (ascii_equal_ci(name, llm_key_names[i].name))
-      {
-         out->kind = LLM_DRIVER_INPUT_KEY;
-         out->key_code = llm_key_names[i].key_code;
-         return 1;
-      }
-   }
-   return 0;
+int llm_driver_input_from_legacy_key(int key_code, LlmDriverInput *out)
+{
+   return the_input_event_from_legacy_key(key_code, out);
 }
 
 int llm_driver_input_from_command(const char *command, LlmDriverInput *out)
 {
-   if (out == NULL)
-      return 0;
-   *out = llm_driver_input_none();
-   out->kind = LLM_DRIVER_INPUT_COMMAND;
-   copy_text(out->command, sizeof(out->command), command);
-   return out->command[0] != '\0';
+   return the_input_event_from_command(command, out);
 }
 
 int llm_driver_input_from_logical_hit(LogicalCursorZone zone,
                                       LINETYPE line_number, int row,
                                       int cell, LlmDriverInput *out)
 {
-   if (out == NULL)
-      return 0;
-   *out = llm_driver_input_none();
-   out->kind = LLM_DRIVER_INPUT_LOGICAL_HIT;
-   out->target.zone = zone;
-   out->target.line_number = line_number;
-   out->target.row = row;
-   out->target.cell = cell;
-   return zone != LOGICAL_CURSOR_ZONE_NONE && row >= 0 && cell >= 0;
+   return the_input_event_from_logical_hit(zone, line_number, row, cell, out);
 }
 
 int llm_driver_input_from_debug_command(const char *name,
                                         LlmDriverInput *out)
 {
-   size_t i;
-
-   if (out == NULL || name == NULL)
-      return 0;
-   *out = llm_driver_input_none();
-   for (i = 0; llm_debug_names[i].name != NULL; i++)
-   {
-      if (ascii_equal_ci(name, llm_debug_names[i].name))
-      {
-         out->kind = LLM_DRIVER_INPUT_DEBUG;
-         out->debug_command = llm_debug_names[i].command;
-         return 1;
-      }
-   }
-   return 0;
+   return the_input_event_from_debug_command(name, out);
 }
 
 int llm_driver_input_to_legacy_key(const LlmDriverInput *input, int *key_code)
 {
-   if (input == NULL || key_code == NULL)
-      return 0;
-   if (input->kind != LLM_DRIVER_INPUT_TEXT
-   &&  input->kind != LLM_DRIVER_INPUT_KEY)
-      return 0;
-   if (input->key_code < 0)
-      return 0;
-   *key_code = input->key_code;
-   return 1;
+   return the_input_event_to_legacy_key(input, key_code);
 }
 
 void llm_driver_input_queue_init(LlmDriverInputQueue *queue)
 {
-   if (queue != NULL)
-      memset(queue, 0, sizeof(*queue));
+   the_input_queue_init(queue);
 }
 
 int llm_driver_input_queue_push(LlmDriverInputQueue *queue, LlmDriverInput input)
 {
-   if (queue == NULL || queue->count >= LLM_DRIVER_INPUT_QUEUE_MAX)
-      return 0;
-   queue->items[queue->tail] = input;
-   queue->tail = (queue->tail + 1) % LLM_DRIVER_INPUT_QUEUE_MAX;
-   queue->count++;
-   return 1;
+   return the_input_queue_push(queue, input);
 }
 
 int llm_driver_input_queue_pop_legacy_key(LlmDriverInputQueue *queue, int *key_code)
 {
-   LlmDriverInput input;
-
-   if (queue == NULL || key_code == NULL || queue->count == 0)
-      return 0;
-   input = queue->items[queue->head];
-   if (!llm_driver_input_to_legacy_key(&input, key_code))
-      return 0;
-   queue->head = (queue->head + 1) % LLM_DRIVER_INPUT_QUEUE_MAX;
-   queue->count--;
-   return 1;
+   return the_input_queue_pop_legacy_key(queue, key_code);
 }
 
 void llm_driver_debug_snapshot_init(LlmDriverDebugSnapshot *debug,

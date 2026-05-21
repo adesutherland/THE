@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "inputevent.h"
 #include "logcursor.h"
 #include "uidriver.h"
 
@@ -11,7 +12,7 @@
 #define LLM_DRIVER_MAX_COLS 1000
 #define LLM_DRIVER_MAX_PREFIX 20
 #define LLM_DRIVER_MAX_COMMAND 256
-#define LLM_DRIVER_INPUT_QUEUE_MAX 128
+#define LLM_DRIVER_INPUT_QUEUE_MAX THE_INPUT_QUEUE_MAX
 
 typedef struct
 {
@@ -39,44 +40,25 @@ typedef struct
    char status[LLM_DRIVER_MAX_COMMAND + 1];
 } LlmDriverScreenView;
 
-typedef enum
-{
-   LLM_DRIVER_INPUT_NONE = 0,
-   LLM_DRIVER_INPUT_TEXT,
-   LLM_DRIVER_INPUT_KEY,
-   LLM_DRIVER_INPUT_COMMAND,
-   LLM_DRIVER_INPUT_LOGICAL_HIT,
-   LLM_DRIVER_INPUT_DEBUG
-} LlmDriverInputKind;
+#define LLM_DRIVER_INPUT_NONE THE_INPUT_NONE
+#define LLM_DRIVER_INPUT_TEXT THE_INPUT_TEXT
+#define LLM_DRIVER_INPUT_KEY THE_INPUT_KEY
+#define LLM_DRIVER_INPUT_COMMAND THE_INPUT_COMMAND
+#define LLM_DRIVER_INPUT_LOGICAL_HIT THE_INPUT_LOGICAL_HIT
+#define LLM_DRIVER_INPUT_DEBUG THE_INPUT_DEBUG
 
-typedef enum
-{
-   LLM_DRIVER_DEBUG_NONE = 0,
-   LLM_DRIVER_DEBUG_DESCRIBE_FOCUS,
-   LLM_DRIVER_DEBUG_DESCRIBE_ROW,
-   LLM_DRIVER_DEBUG_LIST_VISIBLE_ROWS,
-   LLM_DRIVER_DEBUG_DUMP_CURSOR_MAPPING,
-   LLM_DRIVER_DEBUG_DUMP_DRIVER_OPS,
-   LLM_DRIVER_DEBUG_EXPLAIN_LAST_RENDER
-} LlmDriverDebugCommand;
+#define LLM_DRIVER_DEBUG_NONE THE_INPUT_DEBUG_NONE
+#define LLM_DRIVER_DEBUG_DESCRIBE_FOCUS THE_INPUT_DEBUG_DESCRIBE_FOCUS
+#define LLM_DRIVER_DEBUG_DESCRIBE_ROW THE_INPUT_DEBUG_DESCRIBE_ROW
+#define LLM_DRIVER_DEBUG_LIST_VISIBLE_ROWS THE_INPUT_DEBUG_LIST_VISIBLE_ROWS
+#define LLM_DRIVER_DEBUG_DUMP_CURSOR_MAPPING THE_INPUT_DEBUG_DUMP_CURSOR_MAPPING
+#define LLM_DRIVER_DEBUG_DUMP_DRIVER_OPS THE_INPUT_DEBUG_DUMP_DRIVER_OPS
+#define LLM_DRIVER_DEBUG_EXPLAIN_LAST_RENDER THE_INPUT_DEBUG_EXPLAIN_LAST_RENDER
 
-typedef struct
-{
-   LogicalCursorZone zone;
-   LINETYPE line_number;
-   int row;
-   int cell;
-} LlmDriverLogicalTarget;
-
-typedef struct
-{
-   LlmDriverInputKind kind;
-   uint32_t codepoint;
-   int key_code;
-   char command[LLM_DRIVER_MAX_COMMAND + 1];
-   LlmDriverLogicalTarget target;
-   LlmDriverDebugCommand debug_command;
-} LlmDriverInput;
+typedef TheInputKind LlmDriverInputKind;
+typedef TheInputDebugCommand LlmDriverDebugCommand;
+typedef TheInputLogicalTarget LlmDriverLogicalTarget;
+typedef TheInputEvent LlmDriverInput;
 
 typedef struct
 {
@@ -117,13 +99,7 @@ typedef struct
    int compact;
 } LlmDriverFormatOptions;
 
-typedef struct
-{
-   LlmDriverInput items[LLM_DRIVER_INPUT_QUEUE_MAX];
-   size_t head;
-   size_t tail;
-   size_t count;
-} LlmDriverInputQueue;
+typedef TheInputQueue LlmDriverInputQueue;
 
 void llm_driver_screen_view_init(LlmDriverScreenView *view, int rows, int cols,
                                  LogicalCursor cursor);
@@ -156,6 +132,7 @@ const char *llm_driver_debug_command_name(LlmDriverDebugCommand command);
 LlmDriverInput llm_driver_input_none(void);
 int llm_driver_input_from_text(uint32_t codepoint, LlmDriverInput *out);
 int llm_driver_input_from_key_name(const char *name, LlmDriverInput *out);
+int llm_driver_input_from_legacy_key(int key_code, LlmDriverInput *out);
 int llm_driver_input_from_command(const char *command, LlmDriverInput *out);
 int llm_driver_input_from_logical_hit(LogicalCursorZone zone,
                                       LINETYPE line_number, int row,
