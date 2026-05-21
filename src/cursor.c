@@ -37,6 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 
 #ifdef USE_UTF8
 typedef struct
@@ -172,14 +173,7 @@ bool cursor_focus_prefix_cursor(CHARTYPE scrno, short row, int *col, CursorShape
 
 void cursor_focus_redraw(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
 {
-   if (!curses_started || curr_view == NULL)
-      return;
-
-   build_screen(curr_screen);
-   display_screen(curr_screen);
-   show_statarea();
-   doupdate();
-   draw_cursor(TRUE);
+   curses_driver_redraw_screen_cursor(curr_screen, curr_view);
 }
 
 static void cursor_focus_redraw_if_software(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
@@ -191,9 +185,7 @@ static void cursor_focus_redraw_if_software(CHARTYPE curr_screen, VIEW_DETAILS *
       &&  prefix_changed)
       {
          display_prefix_line(curr_screen, curr_view);
-         show_statarea();
-         doupdate();
-         draw_cursor(TRUE);
+         curses_driver_refresh_cursor(curr_screen);
       }
       else
          cursor_focus_redraw(curr_screen, curr_view);
@@ -260,9 +252,9 @@ static int cursor_utf8_filearea_logical_cell_from_display(CHARTYPE curr_screen,
    INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
    if (curr_view == NULL)
       return display_col;
-   return show_utf8_logical_col_from_display(rec, rec_len,
-                                             (int)curr_view->verify_col - 1,
-                                             display_col, snap);
+   return curses_driver_logical_col_from_display(rec, rec_len,
+                                                 (int)curr_view->verify_col - 1,
+                                                 display_col, snap);
 }
 
 static void cursor_utf8_repaint_filearea_motion(CHARTYPE curr_screen,
@@ -272,41 +264,10 @@ static void cursor_utf8_repaint_filearea_motion(CHARTYPE curr_screen,
                                                 int new_logical_cell,
                                                 LENGTHTYPE old_verify_col)
 {
-   short new_row = 0;
-   short new_col = 0;
-   int viewport_col;
-   int new_display_col;
-   int maxx;
-
-   if (!current_cursor_uses_software())
-      return;
-
-   getyx(SCREEN_WINDOW_FILEAREA(curr_screen), new_row, new_col);
-   INTENTIONALLY_UNUSED_VARIABLE(new_col);
-   if (curr_view == NULL
-   ||  curr_view->verify_col != old_verify_col
-   ||  new_row != old_row)
-   {
-      cursor_focus_redraw(curr_screen, curr_view);
-      return;
-   }
-
-   viewport_col = (int)curr_view->verify_col - 1;
-   new_display_col = show_utf8_display_col_from_logical(rec, rec_len,
-                                                        viewport_col,
-                                                        new_logical_cell);
-   maxx = getmaxx(SCREEN_WINDOW_FILEAREA(curr_screen));
-   if (new_display_col >= maxx)
-      new_display_col = maxx - 1;
-   if (new_display_col < 0)
-      new_display_col = 0;
-   show_utf8_filearea_cursor_transition(curr_screen, old_row,
-                                        old_logical_cell - viewport_col,
-                                        new_logical_cell - viewport_col);
-   wmove(SCREEN_WINDOW_FILEAREA(curr_screen), new_row, new_display_col);
-   show_statarea();
-   doupdate();
-   draw_cursor(TRUE);
+   curses_driver_filearea_cursor_transition(curr_screen, curr_view,
+                                            rec, rec_len, old_row,
+                                            old_logical_cell, new_logical_cell,
+                                            old_verify_col);
 }
 
 static bool cursor_utf8_filearea_left(short escreen, short *rc)
@@ -436,10 +397,8 @@ static void cursor_utf8_move_filearea_display_col(CHARTYPE curr_screen,
    if (logical_col < 0)
       logical_col = 0;
    pos = textpos_from_cell(rec, rec_len, logical_col, TEXT_SNAP_BACKWARD);
-   wmove(SCREEN_WINDOW_FILEAREA(curr_screen), row,
-         show_utf8_display_col_from_logical(rec, rec_len,
-                                            (int)curr_view->verify_col - 1,
-                                            pos.cell_column));
+   curses_driver_move_filearea_cursor(curr_screen, curr_view, rec, rec_len,
+                                      row, pos.cell_column);
 }
 #else
 void cursor_focus_capture(CHARTYPE scrno)

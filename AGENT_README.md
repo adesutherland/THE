@@ -8,6 +8,7 @@
 - **IDE Support**: The project is now natively supported by modern C/C++ IDEs like CLion out-of-the-box.
 - **Codebase Standardization**: The entire C codebase has been strictly refactored from pre-ANSI (K&R) C to the **C99 standard**. All legacy `#ifdef HAVE_PROTO` blocks and `Args()` macros were stripped to ensure strict compliance and eliminate hundreds of compiler warnings on modern Clang/GCC compilers.
 - **Architecture & Extensibility**: The project maintains a clean separation between file data models, ncurses rendering views, and command execution logic. For a detailed breakdown of the codebase structure, see the [Architecture Overview](doc/architecture.md).
+- **LLM Driver Direction**: The emerging LLM mode exposes a logical screen/cursor view and normalized input events without screen scraping curses output. For the agent-facing contract and current limitations, see the [LLM Mode Agent Guide](doc/llm-mode.md).
 
 ## 2. CREXX Integration
 This fork is explicitly tailored for the modern [CREXX](https://github.com/crexx-org) scripting engine.

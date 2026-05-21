@@ -54,9 +54,11 @@ The approved architectural direction is a strict driver split:
 - The curses driver owns curses windows, `getyx()`, `wmove()`, `wgetch()`,
   mouse event decoding, physical display columns, hardware cursor placement,
   refresh ordering, and UTF terminal repair strategy execution.
+- The LLM driver owns a text-oriented view of the same logical screen state and
+  accepts normalized text/key/command input without exposing curses coordinates.
 - Data may flow from logical state to the curses driver, and from the curses
-  input driver back as normalized editor events. Logical code must not call
-  curses directly.
+  input driver or LLM driver back as normalized editor events. Logical code
+  must not call curses directly.
 
 This split applies to all editor-controlled zones, not only the file area.
 Command-line entry, prefix commands, status/input prompts that THE paints, and
@@ -65,13 +67,15 @@ driver rendering second. Prompts or dialogs that intentionally remain
 curses-native can be isolated behind the driver boundary, but they should not
 leak curses coordinates into editor text operations.
 
-Implementation is incremental. The first step is to make the logical position
-foundation complete and tested, including virtual positions past end-of-text.
-Next, a logical cursor/focus component can be added to `VIEW_DETAILS`; only
-after that should existing cursor, command-line, prefix, and input paths be
-migrated behind a curses-driver adapter. Each step must preserve the rule that
-terminal profiles affect physical display and repair only, never logical text
-identity or edit positions.
+Implementation is incremental. The logical position foundation and passive
+logical cursor/focus model are in place. The current driver boundary work has
+started by extracting UTF layout mapping into `src/utflayout.c`, adding a thin
+`src/cursesdriver.c` adapter for file-area logical/display cursor conversion,
+cursor repaint transitions, and curses refreshes, and adding `src/llmdriver.c`
+as the first non-curses driver surface. Existing command-line, prefix, and
+input paths still need broader migration behind those adapters. Each step must
+preserve the rule that terminal profiles affect physical display and repair
+only, never logical text identity or edit positions.
 
 Column-oriented edit commands are part of the logical model. `CINSERT`,
 `CREPLACE`, and `COVERLAY` convert any file-area display coordinate back to a

@@ -359,6 +359,7 @@ set(THE_SOURCES
     src/commsos.c
     src/commutil.c
     src/crexx.c
+    src/cursesdriver.c
     src/cursor.c
     src/default.c
     src/directry.c
@@ -370,6 +371,7 @@ set(THE_SOURCES
     src/getch.c
     src/linked.c
     src/logcursor.c
+    src/llmdriver.c
     src/mouse.c
     src/memory.c
     src/nonansi.c
@@ -390,6 +392,7 @@ set(THE_SOURCES
     src/the.c
     src/textedit.c
     src/textpos.c
+    src/utflayout.c
     src/utfrepair.c
     src/utfterm.c
     src/mygetopt.c
@@ -493,6 +496,13 @@ if(USE_UTF8 AND USE_UTF8PROC)
     target_compile_definitions(test_logcursor PRIVATE USE_UTF8PROC=1)
 endif()
 add_test(NAME test_logcursor COMMAND test_logcursor)
+add_executable(test_llmdriver tests/test_llmdriver.c src/llmdriver.c src/logcursor.c src/textpos.c)
+target_include_directories(test_llmdriver PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+if(USE_UTF8 AND USE_UTF8PROC)
+    target_link_libraries(test_llmdriver ${THE_UTF8PROC_TARGET})
+    target_compile_definitions(test_llmdriver PRIVATE USE_UTF8PROC=1)
+endif()
+add_test(NAME test_llmdriver COMMAND test_llmdriver)
 if(USE_UTF8)
     add_executable(test_utf_fixture tests/test_utf_fixture.c src/textpos.c)
     target_include_directories(test_utf_fixture PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
@@ -519,6 +529,14 @@ if(USE_UTF8)
     add_test(NAME test_utfterm
         COMMAND test_utfterm
             ${CMAKE_CURRENT_SOURCE_DIR}/system-osx.the)
+
+    add_executable(test_utflayout tests/test_utflayout.c src/utflayout.c src/utfterm.c src/textpos.c)
+    target_include_directories(test_utflayout PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+    if(USE_UTF8PROC)
+        target_link_libraries(test_utflayout ${THE_UTF8PROC_TARGET})
+        target_compile_definitions(test_utflayout PRIVATE USE_UTF8PROC=1)
+    endif()
+    add_test(NAME test_utflayout COMMAND test_utflayout)
 
     add_executable(test_utfrepair tests/test_utfrepair.c src/utfrepair.c src/utfterm.c src/textpos.c)
     target_include_directories(test_utfrepair PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})

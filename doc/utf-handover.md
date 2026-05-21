@@ -40,6 +40,14 @@ commands may still derive their live position from curses. Long term, file-area
 cursor state should be `{row, logical_cell}` first, with physical display columns
 computed only by the renderer/driver.
 
+The first driver-boundary slice is now present. `src/utflayout.c` owns pure
+logical-to-physical UTF cell mapping without curses calls. `src/cursesdriver.c`
+wraps file-area curses cursor target calculation, movement, cursor repaint
+transitions, and refresh. `src/show.c` keeps its existing public helpers but
+delegates layout mapping to `utflayout`. `src/llmdriver.c` adds a passive
+LLM-friendly screen snapshot plus normalized text/key/command input structures;
+it is not yet wired into the live input loop.
+
 The generic suffix-style cursor repair now follows the probe order: clear the
 selected suffix, flush that blank state when requested, repaint the suffix in
 normal attributes, then overlay the new software cursor target. This avoids
@@ -60,12 +68,16 @@ visible line can keep the conservative repair strategy active.
 - `tools/utf_terminal_probe.c`: interactive terminal calibration/probe tool.
 - `src/utfterm_defaults.h`: shared THE/probe coded default physical terminal
   table.
+- `src/utflayout.c`, `src/cursesdriver.c`, `src/llmdriver.c`: first driver
+  boundary modules for UTF layout, curses materialization, and an LLM-oriented
+  screen/input surface.
 - `system-osx.the`: macOS system UTF-8 profile consumed by THE and generated
   by the probe.
 - `tests/fixtures/utf-render.txt`: manual editor fixture for UTF-8 rendering.
 - `tests/test_utfrepair.c`, `tests/test_utfterm.c`, `tests/test_utf_fixture.c`,
-  and `tests/test_textpos.c`: repair planning, terminal-profile, fixture, and
-  text-position regression coverage.
+  `tests/test_utflayout.c`, `tests/test_llmdriver.c`, and `tests/test_textpos.c`:
+  repair planning, terminal-profile, fixture, layout, driver, and text-position
+  regression coverage.
 
 ## macOS Apple Terminal Baseline
 
@@ -119,8 +131,9 @@ The next refactor is the logical/physical split. Treat this section as the
 stored implementation plan when resuming after context compression.
 
 Progress as of this update: steps 1 and 2 have passive implementation and unit
-coverage. Existing runtime cursor behavior is intentionally unchanged so the
-live migration can happen behind tests.
+coverage. Step 3 has its first adapter slice. Existing runtime cursor behavior
+is intentionally only lightly touched so the live migration can happen behind
+tests.
 
 1. Finish the pure logical position foundation:
    implement and test virtual `TextPos` constructors so file-area, prefix, and
@@ -135,7 +148,9 @@ live migration can happen behind tests.
 3. Add a curses-driver boundary that consumes logical cursor/focus state and
    materializes it on the terminal. This boundary maps logical cells to physical
    display columns, invokes the shared UTF repair planner, parks the hardware
-   cursor when needed, and performs curses refreshes.
+   cursor when needed, and performs curses refreshes. Initial file-area
+   logical/display mapping and cursor transition/refresh adapter done; broader
+   repair ownership still needs to move fully behind the driver.
 4. Move file-area cursor commands onto the logical model first. Left/right,
    up/down, home/end, virtual-space movement after end-of-line, and status
    reporting should update/query logical state; the curses driver then paints the
@@ -147,10 +162,14 @@ live migration can happen behind tests.
    drivers that return normalized editor input events plus optional raw curses
    metadata for legacy queries. Command dispatch should consume normalized
    logical events.
-7. Add fake-driver tests before broad rewiring. Unit tests should cover logical
+7. Keep the LLM driver aligned with the same interface. It should expose a
+   logical screen/cursor view and accept normalized text/key/command input, so
+   an LLM client can exercise editor behavior without depending on curses
+   coordinates or terminal escape behavior.
+8. Add fake-driver tests before broad rewiring. Unit tests should cover logical
    movement without curses and driver tests should verify the physical operations
    requested for keycap/flag/ZWJ lines.
-8. Keep the terminal-profile rule intact throughout: strategy and output
+9. Keep the terminal-profile rule intact throughout: strategy and output
    decisions stay physical and profile-driven; logical cluster boundaries and
    edit positions never change to repair a terminal paint issue.
 

@@ -37,6 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 
 /***********************************************************************/
 static short selective_change(TARGET *target,CHARTYPE *old_str,LENGTHTYPE len_old_str,CHARTYPE *new_str,
@@ -2915,13 +2916,11 @@ short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTH
             display_screen( curr_screen );
          }
 #ifdef USE_UTF8
-         new_screen_col = (COLTYPE)show_utf8_display_col_from_logical(rec, rec_len,
-                                                                      (int)curr_view->verify_col - 1,
-                                                                      (int)col);
-         if (new_screen_col >= screen[curr_screen].cols[WINDOW_FILEAREA])
-            new_screen_col = screen[curr_screen].cols[WINDOW_FILEAREA] - 1;
-#endif
+         curses_driver_move_filearea_cursor(curr_screen, curr_view,
+                                            rec, rec_len, y, (int)col);
+#else
          wmove( SCREEN_WINDOW(curr_screen), y, new_screen_col );
+#endif
          break;
       case WINDOW_COMMAND:
          getyx( SCREEN_WINDOW(curr_screen), y, x );
