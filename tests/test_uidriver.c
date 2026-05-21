@@ -56,6 +56,42 @@ static void test_frame_rejects_eof_cursor(void)
    expect_int("frame.eof.cursor.valid", frame.cursor.valid, 0);
 }
 
+static void test_cursor_must_match_row_role_and_line(void)
+{
+   UiFrame frame;
+   LogicalCursor file_cursor;
+   LogicalCursor prefix_cursor;
+
+   ui_frame_init(&frame, 24, 80);
+   expect_int("frame.same_row.prefix",
+              ui_frame_set_row(&frame, 0, UI_ROW_PREFIX, 41, 3, 0,
+                               (const CHARTYPE *)"000041", 6, 1), 1);
+   expect_int("frame.same_row.file",
+              ui_frame_set_row(&frame, 1, UI_ROW_FILE, 42, 3, 0,
+                               (const CHARTYPE *)"bravo", 5, 1), 1);
+
+   file_cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_FILEAREA, 41, 3,
+                                     textpos_from_cell_virtual(NULL, 0, 2,
+                                                               TEXT_SNAP_BACKWARD));
+   expect_int("frame.file.cursor.wrong.line",
+              ui_frame_set_cursor(&frame, file_cursor), 0);
+
+   file_cursor.line_number = 42;
+   expect_int("frame.file.cursor.match",
+              ui_frame_set_cursor(&frame, file_cursor), 1);
+   expect_int("frame.file.cursor.role",
+              ui_row_role_from_cursor_zone(file_cursor.zone), UI_ROW_FILE);
+
+   frame.cursor.valid = 0;
+   prefix_cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_PREFIX, 41, 3,
+                                       textpos_from_cell_virtual(NULL, 0, 1,
+                                                                 TEXT_SNAP_BACKWARD));
+   expect_int("frame.prefix.cursor.match",
+              ui_frame_set_cursor(&frame, prefix_cursor), 1);
+   expect_int("frame.prefix.cursor.role",
+              ui_row_role_from_cursor_zone(prefix_cursor.zone), UI_ROW_PREFIX);
+}
+
 static void test_fake_driver_materializes_cursor_once(void)
 {
    UiFrame frame;
@@ -90,6 +126,7 @@ int main(void)
 {
    test_row_roles();
    test_frame_rejects_eof_cursor();
+   test_cursor_must_match_row_role_and_line();
    test_fake_driver_materializes_cursor_once();
 
    if (failures != 0)

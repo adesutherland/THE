@@ -85,6 +85,48 @@ static void cursor_focus_clamp_to_window(CHARTYPE scrno, CHARTYPE window, int *r
       *col = (short)(maxx - 1);
 }
 
+static bool cursor_focus_capture_filearea_logical(CHARTYPE scrno, VIEW_DETAILS *view)
+{
+   LogicalCursor logical;
+   SHOW_LINE *show_row;
+   const CHARTYPE *line;
+   size_t len;
+   int viewport_col;
+
+   if (view == NULL
+   ||  screen[scrno].sl == NULL
+   ||  screen[scrno].cols[WINDOW_FILEAREA] <= 0)
+      return FALSE;
+
+   logical = view->logical_cursor.current;
+   if (!logical.valid
+   ||  logical.zone != LOGICAL_CURSOR_ZONE_FILEAREA
+   ||  logical.line_number != view->focus_line
+   ||  logical.zone_row < 0
+   ||  logical.zone_row >= screen[scrno].rows[WINDOW_FILEAREA])
+      return FALSE;
+
+   show_row = &screen[scrno].sl[logical.zone_row];
+   if (show_row->line_type == LINE_TOF
+   ||  show_row->line_type == LINE_EOF
+   ||  show_row->line_type == LINE_OUT_OF_BOUNDS_ABOVE
+   ||  show_row->line_type == LINE_OUT_OF_BOUNDS_BELOW
+   ||  show_row->line_number != logical.line_number)
+      return FALSE;
+
+   line = (show_row->contents != NULL) ? show_row->contents : rec;
+   len = (show_row->contents != NULL) ? show_row->length : rec_len;
+   viewport_col = (int)view->verify_col - 1;
+   cursor_focus_snapshot.valid = TRUE;
+   cursor_focus_snapshot.screen = scrno;
+   cursor_focus_snapshot.window = WINDOW_FILEAREA;
+   cursor_focus_snapshot.row = logical.zone_row;
+   cursor_focus_snapshot.col = logical.text.cell_column - viewport_col;
+   cursor_focus_snapshot.display_col = curses_driver_display_col_from_logical(
+      line, len, viewport_col, logical.text.cell_column);
+   return TRUE;
+}
+
 void cursor_focus_capture(CHARTYPE scrno)
 {
    int row = 0;
@@ -96,6 +138,10 @@ void cursor_focus_capture(CHARTYPE scrno)
    if (scrno != current_screen
    ||  view == NULL
    ||  !cursor_focus_software_window(view->current_window))
+      return;
+
+   if (view->current_window == WINDOW_FILEAREA
+   &&  cursor_focus_capture_filearea_logical(scrno, view))
       return;
 
    win = SCREEN_WINDOW(scrno);

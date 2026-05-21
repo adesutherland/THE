@@ -56,6 +56,25 @@ int ui_row_role_allows_cursor(UiRowRole role)
    }
 }
 
+UiRowRole ui_row_role_from_cursor_zone(LogicalCursorZone zone)
+{
+   switch (zone)
+   {
+      case LOGICAL_CURSOR_ZONE_FILEAREA:
+         return UI_ROW_FILE;
+      case LOGICAL_CURSOR_ZONE_PREFIX:
+         return UI_ROW_PREFIX;
+      case LOGICAL_CURSOR_ZONE_COMMAND:
+         return UI_ROW_COMMAND;
+      case LOGICAL_CURSOR_ZONE_PROMPT:
+         return UI_ROW_PROMPT;
+      case LOGICAL_CURSOR_ZONE_STATUS:
+      case LOGICAL_CURSOR_ZONE_NONE:
+      default:
+         return UI_ROW_EMPTY;
+   }
+}
+
 void ui_frame_init(UiFrame *frame, int rows, int cols)
 {
    if (frame == NULL)
@@ -87,45 +106,44 @@ int ui_frame_set_row(UiFrame *frame, size_t index, UiRowRole role,
    return 1;
 }
 
-int ui_frame_set_cursor(UiFrame *frame, LogicalCursor cursor)
+int ui_frame_find_cursor_row(const UiFrame *frame, LogicalCursor cursor,
+                             size_t *index)
 {
    size_t i;
+   UiRowRole role;
 
    if (frame == NULL || !cursor.valid)
       return 0;
+   role = ui_row_role_from_cursor_zone(cursor.zone);
+   if (!ui_row_role_allows_cursor(role))
+      return 0;
+
    for (i = 0; i < frame->row_count; i++)
    {
-      UiFrameRow *row = &frame->row[i];
+      const UiFrameRow *row = &frame->row[i];
 
       if (!ui_row_role_allows_cursor(row->role))
          continue;
-      if (row->screen_row == cursor.zone_row)
-      {
-         frame->cursor.valid = 1;
-         frame->cursor.cursor = cursor;
-         return 1;
-      }
+      if (row->role != role)
+         continue;
+      if (row->screen_row != cursor.zone_row)
+         continue;
+      if (row->role == UI_ROW_FILE && row->line_number != cursor.line_number)
+         continue;
+      if (index != NULL)
+         *index = i;
+      return 1;
    }
    return 0;
 }
 
-static UiRowRole ui_row_role_from_cursor_zone(LogicalCursorZone zone)
+int ui_frame_set_cursor(UiFrame *frame, LogicalCursor cursor)
 {
-   switch (zone)
-   {
-      case LOGICAL_CURSOR_ZONE_FILEAREA:
-         return UI_ROW_FILE;
-      case LOGICAL_CURSOR_ZONE_PREFIX:
-         return UI_ROW_PREFIX;
-      case LOGICAL_CURSOR_ZONE_COMMAND:
-         return UI_ROW_COMMAND;
-      case LOGICAL_CURSOR_ZONE_PROMPT:
-         return UI_ROW_PROMPT;
-      case LOGICAL_CURSOR_ZONE_STATUS:
-      case LOGICAL_CURSOR_ZONE_NONE:
-      default:
-         return UI_ROW_EMPTY;
-   }
+   if (!ui_frame_find_cursor_row(frame, cursor, NULL))
+      return 0;
+   frame->cursor.valid = 1;
+   frame->cursor.cursor = cursor;
+   return 1;
 }
 
 void ui_driver_op_log_init(UiDriverOpLog *log)

@@ -75,11 +75,14 @@ typedef struct
 
 const char *ui_row_role_name(UiRowRole role);
 int ui_row_role_allows_cursor(UiRowRole role);
+UiRowRole ui_row_role_from_cursor_zone(LogicalCursorZone zone);
 void ui_frame_init(UiFrame *frame, int rows, int cols);
 int ui_frame_set_row(UiFrame *frame, size_t index, UiRowRole role,
                      LINETYPE line_number, int screen_row,
                      int logical_start_col, const CHARTYPE *text,
                      size_t text_len, int editable);
+int ui_frame_find_cursor_row(const UiFrame *frame, LogicalCursor cursor,
+                             size_t *index);
 int ui_frame_set_cursor(UiFrame *frame, LogicalCursor cursor);
 
 void ui_driver_op_log_init(UiDriverOpLog *log);
