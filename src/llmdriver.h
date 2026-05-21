@@ -95,6 +95,28 @@ typedef struct
    char last_render[LLM_DRIVER_MAX_COLS + 1];
 } LlmDriverDebugSnapshot;
 
+typedef enum
+{
+   LLM_DRIVER_VIEW_FULL = 0,
+   LLM_DRIVER_VIEW_FILEAREA,
+   LLM_DRIVER_VIEW_RESERVED,
+   LLM_DRIVER_VIEW_PREFIX,
+   LLM_DRIVER_VIEW_FOCUS
+} LlmDriverViewMode;
+
+typedef struct
+{
+   LlmDriverViewMode mode;
+   int first_row;
+   int row_count;
+   int max_text_cols;
+   int include_prefix;
+   int include_command;
+   int include_status;
+   int include_cursor;
+   int compact;
+} LlmDriverFormatOptions;
+
 typedef struct
 {
    LlmDriverInput items[LLM_DRIVER_INPUT_QUEUE_MAX];
@@ -122,8 +144,12 @@ void llm_driver_screen_view_set_status(LlmDriverScreenView *view,
                                        const char *status);
 size_t llm_driver_format_screen_view(const LlmDriverScreenView *view,
                                      char *out, size_t out_len);
+void llm_driver_format_options_init(LlmDriverFormatOptions *options);
 size_t llm_driver_format_semantic_view(const LlmDriverScreenView *view,
                                        char *out, size_t out_len);
+size_t llm_driver_format_semantic_view_with_options(
+   const LlmDriverScreenView *view, const LlmDriverFormatOptions *options,
+   char *out, size_t out_len);
 
 const char *llm_driver_input_kind_name(LlmDriverInputKind kind);
 const char *llm_driver_debug_command_name(LlmDriverDebugCommand command);

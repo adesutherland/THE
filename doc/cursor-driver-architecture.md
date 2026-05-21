@@ -83,6 +83,12 @@ should make THE comfortable and reliable for an LLM to operate:
   "explain last render decision".
 - avoid ambiguous screen scraping. Repeated calls should return deterministic
   JSON-like structures that can be compared in tests and summarized in logs.
+- minimize tokens by exposing view modes: file-area only, reserved/status rows
+  only, prefix commands only, focus row only, and full screen when explicitly
+  requested.
+- support row ranges, text truncation, optional prefix/command/status/cursor
+  metadata, and compact field names so scrolling through a file does not
+  repeatedly resend stable screen chrome.
 - support debug workflows for THE itself: capture a reproducible scenario,
   replay normalized input, compare logical frame output, and compare physical
   driver operation logs.
@@ -93,7 +99,26 @@ normalization, so LLM automation and manual terminal use exercise one code path.
 
 ## Current Problem
 
-The current implementation still has multiple physical cursor authorities:
+The implementation is being migrated away from multiple physical cursor
+authorities. Some old paths remain, but the first stable checkpoints are now in
+place:
+
+- `src/uidriver.c` defines a logical frame, row roles, cursor overlays, and a
+  fake driver operation log.
+- `src/cursesdriver.c` materializes UTF file-area logical cursor requests and
+  owns logical-to-physical display column mapping for the curses path.
+- UTF file-area left/right movement, text insertion, `SOS DELBACK`, and
+  `SOS DELCHAR` now prefer `VIEW_DETAILS.logical_cursor` and derive edit byte
+  ranges from logical `TextPos`.
+- software cursor overlay capture for the file area is logical-first and rejects
+  EOF/TOF/out-of-bounds rows by row role and line number.
+- command-line and prefix focus now record logical cursor zones, so the renderer
+  no longer needs to treat those areas only as curses positions.
+- `src/llmdriver.c` can build role-aware semantic snapshots from `UiFrame`,
+  accept logical-hit and debug input events, and format cursor mapping plus
+  driver operation logs for deterministic diagnostics.
+
+The remaining implementation still has several physical cursor authorities:
 
 - `cursor.c` directly reads and writes curses cursor positions.
 - `execute.c`, `comm5.c`, and `commsos.c` contain direct `getyx`/`wmove`
@@ -109,7 +134,10 @@ being treated as logical editor state.
 
 ## Refactor Sequence
 
-Each step is intended to be buildable, testable, and committable.
+Each step is intended to be buildable, testable, and committable. Steps 1-7
+have an initial implementation checkpoint. Step 8 remains deliberately
+incomplete until the live renderer no longer needs direct `show.c` access to
+curses.
 
 1. Record architecture and add guardrails.
    Add this document, update `doc/utf-handover.md`, and add a script/CTest that
@@ -131,18 +159,20 @@ Each step is intended to be buildable, testable, and committable.
    from curses `x`.
 
 5. Consolidate software cursor painting.
-   Remove per-branch cursor overlays in `show.c`. Rendering should build a
-   logical frame with at most one cursor overlay for the active zone, and the
-   curses driver should paint it once.
+   The cursor overlay is now represented in `UiFrame` and file-area capture is
+   logical-first. The remaining work is to make `show.c` build a full logical
+   frame and have the curses driver paint each overlay from that frame, removing
+   the remaining per-branch overlay calls.
 
 6. Bring prefix and command line under the same model.
-   Prefix and command-line editing get logical cursor state, logical viewport,
-   and driver-owned rendering just like the file area.
+   Prefix and command-line focus now have logical cursor state. The remaining
+   work is to move their editing and viewport logic behind normalized command
+   helpers instead of direct curses cursor reads.
 
 7. Normalize input.
-   Convert curses keyboard/mouse input into normalized input events before
-   command dispatch. Route LLM input through the same event type, with semantic
-   inspection/debug commands for reproducible editor diagnostics.
+   `llmdriver` now has normalized text/key/command/logical-hit/debug event
+   structures. The remaining work is to make curses keyboard/mouse collection
+   feed the same event type before command dispatch.
 
 8. Tighten guardrails.
    Once the migration is complete, make the curses-boundary test strict: editor

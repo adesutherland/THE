@@ -77,6 +77,71 @@ static void test_semantic_view_from_frame(void)
    expect_contains("semantic.text", out, "\"text\": \"bravo\"");
 }
 
+static void test_compact_filearea_view_options(void)
+{
+   LlmDriverScreenView view;
+   LlmDriverFormatOptions options;
+   LogicalCursor cursor;
+   char out[2048];
+
+   cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_FILEAREA, 12, 1,
+                                textpos_from_cell_virtual(NULL, 0, 3,
+                                                          TEXT_SNAP_BACKWARD));
+   llm_driver_screen_view_init(&view, 6, 80, cursor);
+   llm_driver_screen_view_set_row(&view, 0, UI_ROW_TOF, 0, 0, 0,
+                                  "", "*** Top of File ***", 0, 0);
+   llm_driver_screen_view_set_row(&view, 1, UI_ROW_FILE, 12, 1, 0,
+                                  "000012", "bravo-long-line", 1, 1);
+   llm_driver_screen_view_set_row(&view, 2, UI_ROW_EOF, 13, 2, 0,
+                                  "", "*** Bottom of File ***", 0, 0);
+
+   llm_driver_format_options_init(&options);
+   options.mode = LLM_DRIVER_VIEW_FILEAREA;
+   options.compact = 1;
+   options.include_prefix = 0;
+   options.include_command = 0;
+   options.include_status = 0;
+   options.max_text_cols = 5;
+   llm_driver_format_semantic_view_with_options(&view, &options,
+                                                out, sizeof(out));
+
+   expect_contains("compact.mode", out, "\"mode\":\"filearea\"");
+   expect_contains("compact.file.text", out, "\"t\":\"bravo...\"");
+   expect_int("compact.hides.tof", strstr(out, "Top of File") == NULL, 1);
+   expect_int("compact.hides.eof", strstr(out, "Bottom of File") == NULL, 1);
+   expect_int("compact.hides.prefix", strstr(out, "\"p\"") == NULL, 1);
+}
+
+static void test_reserved_view_options(void)
+{
+   LlmDriverScreenView view;
+   LlmDriverFormatOptions options;
+   LogicalCursor cursor;
+   char out[2048];
+
+   cursor = logical_cursor_invalid();
+   llm_driver_screen_view_init(&view, 6, 80, cursor);
+   llm_driver_screen_view_set_row(&view, 0, UI_ROW_FILE, 12, 1, 0,
+                                  "000012", "bravo", 1, 0);
+   llm_driver_screen_view_set_row(&view, 1, UI_ROW_SCALE, 0, 2, 0,
+                                  "", "....+....1", 0, 0);
+   llm_driver_screen_view_set_row(&view, 2, UI_ROW_BOUNDS, 0, 3, 0,
+                                  "", "<-------->", 0, 0);
+
+   llm_driver_format_options_init(&options);
+   options.mode = LLM_DRIVER_VIEW_RESERVED;
+   options.compact = 1;
+   options.include_cursor = 0;
+   options.include_command = 0;
+   options.include_status = 0;
+   llm_driver_format_semantic_view_with_options(&view, &options,
+                                                out, sizeof(out));
+
+   expect_contains("reserved.scale", out, "\"role\":\"scale\"");
+   expect_contains("reserved.bounds", out, "\"role\":\"bounds\"");
+   expect_int("reserved.hides.file", strstr(out, "bravo") == NULL, 1);
+}
+
 static void test_input_mapping(void)
 {
    LlmDriverInput input;
@@ -151,6 +216,8 @@ int main(void)
 {
    test_screen_view_format();
    test_semantic_view_from_frame();
+   test_compact_filearea_view_options();
+   test_reserved_view_options();
    test_input_mapping();
    test_debug_snapshot_format();
 

@@ -189,6 +189,97 @@ static int append_json_string(char *out, size_t out_len, size_t *used,
    return appendf(out, out_len, used, "\"");
 }
 
+static int append_json_string_limited(char *out, size_t out_len, size_t *used,
+                                      const char *text, int max_cols)
+{
+   char limited[LLM_DRIVER_MAX_COLS + 4];
+   size_t len;
+   size_t keep;
+
+   if (text == NULL || max_cols <= 0)
+      return append_json_string(out, out_len, used, text);
+   len = strlen(text);
+   if ((int)len <= max_cols)
+      return append_json_string(out, out_len, used, text);
+   keep = (size_t)max_cols;
+   if (keep > sizeof(limited) - 4)
+      keep = sizeof(limited) - 4;
+   memcpy(limited, text, keep);
+   limited[keep++] = '.';
+   limited[keep++] = '.';
+   limited[keep++] = '.';
+   limited[keep] = '\0';
+   return append_json_string(out, out_len, used, limited);
+}
+
+static const char *llm_driver_view_mode_name(LlmDriverViewMode mode)
+{
+   switch (mode)
+   {
+      case LLM_DRIVER_VIEW_FILEAREA:
+         return "filearea";
+      case LLM_DRIVER_VIEW_RESERVED:
+         return "reserved";
+      case LLM_DRIVER_VIEW_PREFIX:
+         return "prefix";
+      case LLM_DRIVER_VIEW_FOCUS:
+         return "focus";
+      case LLM_DRIVER_VIEW_FULL:
+      default:
+         return "full";
+   }
+}
+
+static int llm_driver_row_is_reserved(UiRowRole role)
+{
+   switch (role)
+   {
+      case UI_ROW_TOF:
+      case UI_ROW_EOF:
+      case UI_ROW_RESERVED:
+      case UI_ROW_BOUNDS:
+      case UI_ROW_SCALE:
+      case UI_ROW_TABLINE:
+      case UI_ROW_STATUS:
+      case UI_ROW_PROMPT:
+         return 1;
+      case UI_ROW_EMPTY:
+      case UI_ROW_FILE:
+      case UI_ROW_PREFIX:
+      case UI_ROW_COMMAND:
+      default:
+         return 0;
+   }
+}
+
+static int llm_driver_row_matches_options(const LlmDriverScreenLine *line,
+                                          const LlmDriverFormatOptions *options)
+{
+   if (line == NULL || options == NULL)
+      return 0;
+   if (options->first_row >= 0 && line->logical_row < options->first_row)
+      return 0;
+   if (options->row_count >= 0
+   &&  options->first_row >= 0
+   &&  line->logical_row >= options->first_row + options->row_count)
+      return 0;
+
+   switch (options->mode)
+   {
+      case LLM_DRIVER_VIEW_FILEAREA:
+         return line->role == UI_ROW_FILE;
+      case LLM_DRIVER_VIEW_RESERVED:
+         return llm_driver_row_is_reserved(line->role);
+      case LLM_DRIVER_VIEW_PREFIX:
+         return line->prefix[0] != '\0' || line->role == UI_ROW_PREFIX;
+      case LLM_DRIVER_VIEW_FOCUS:
+         return line->current || line->cursor;
+      case LLM_DRIVER_VIEW_FULL:
+      default:
+         return 1;
+   }
+}
+
 void llm_driver_screen_view_init(LlmDriverScreenView *view, int rows, int cols,
                                  LogicalCursor cursor)
 {
@@ -326,20 +417,107 @@ size_t llm_driver_format_screen_view(const LlmDriverScreenView *view,
    return used;
 }
 
-size_t llm_driver_format_semantic_view(const LlmDriverScreenView *view,
-                                       char *out, size_t out_len)
+void llm_driver_format_options_init(LlmDriverFormatOptions *options)
+{
+   if (options == NULL)
+      return;
+   memset(options, 0, sizeof(*options));
+   options->mode = LLM_DRIVER_VIEW_FULL;
+   options->first_row = -1;
+   options->row_count = -1;
+   options->max_text_cols = 0;
+   options->include_prefix = 1;
+   options->include_command = 1;
+   options->include_status = 1;
+   options->include_cursor = 1;
+   options->compact = 0;
+}
+
+size_t llm_driver_format_semantic_view_with_options(
+   const LlmDriverScreenView *view, const LlmDriverFormatOptions *options,
+   char *out, size_t out_len)
 {
    size_t used = 0;
    size_t i;
+   LlmDriverFormatOptions local_options;
+   size_t emitted = 0;
 
    if (out == NULL || out_len == 0)
       return 0;
    out[0] = '\0';
    if (view == NULL)
       return 0;
+   if (options == NULL)
+   {
+      llm_driver_format_options_init(&local_options);
+      options = &local_options;
+   }
+
+   if (options->compact)
+   {
+      appendf(out, out_len, &used,
+              "{\"mode\":");
+      append_json_string(out, out_len, &used,
+                         llm_driver_view_mode_name(options->mode));
+      appendf(out, out_len, &used,
+              ",\"rows\":%d,\"cols\":%d", view->rows, view->cols);
+      if (options->include_cursor)
+      {
+         appendf(out, out_len, &used,
+                 ",\"focus\":{\"zone\":");
+         append_json_string(out, out_len, &used,
+                            logical_cursor_zone_name(view->cursor.zone));
+         appendf(out, out_len, &used,
+                 ",\"line\":%ld,\"row\":%d,\"cell\":%d}",
+                 (long)view->cursor.line_number,
+                 view->cursor.zone_row,
+                 view->cursor.text.cell_column);
+      }
+      if (options->include_command)
+      {
+         appendf(out, out_len, &used, ",\"command\":");
+         append_json_string(out, out_len, &used, view->command_line);
+      }
+      if (options->include_status)
+      {
+         appendf(out, out_len, &used, ",\"status\":");
+         append_json_string(out, out_len, &used, view->status);
+      }
+      appendf(out, out_len, &used, ",\"screen_rows\":[");
+      for (i = 0; i < view->line_count; i++)
+      {
+         const LlmDriverScreenLine *line = &view->lines[i];
+
+         if (!llm_driver_row_matches_options(line, options))
+            continue;
+         appendf(out, out_len, &used, "%s{\"r\":%d,\"role\":",
+                 (emitted > 0) ? "," : "", line->logical_row);
+         append_json_string(out, out_len, &used, ui_row_role_name(line->role));
+         appendf(out, out_len, &used,
+                 ",\"line\":%ld,\"cur\":%d",
+                 (long)line->line_number, line->cursor);
+         if (options->include_prefix)
+         {
+            appendf(out, out_len, &used, ",\"p\":");
+            append_json_string_limited(out, out_len, &used, line->prefix,
+                                       options->max_text_cols);
+         }
+         appendf(out, out_len, &used, ",\"t\":");
+         append_json_string_limited(out, out_len, &used, line->text,
+                                    options->max_text_cols);
+         appendf(out, out_len, &used, "}");
+         emitted++;
+      }
+      appendf(out, out_len, &used, "]}\n");
+      return used;
+   }
 
    appendf(out, out_len, &used,
-           "{\n  \"screen\": {\"rows\": %d, \"cols\": %d},\n",
+           "{\n  \"mode\": ");
+   append_json_string(out, out_len, &used,
+                      llm_driver_view_mode_name(options->mode));
+   appendf(out, out_len, &used,
+           ",\n  \"screen\": {\"rows\": %d, \"cols\": %d},\n",
            view->rows, view->cols);
    appendf(out, out_len, &used,
            "  \"focus\": {\"zone\": ");
@@ -351,17 +529,28 @@ size_t llm_driver_format_semantic_view(const LlmDriverScreenView *view,
            view->cursor.zone_row,
            view->cursor.text.cell_column,
            view->cursor.desired_cell);
-   appendf(out, out_len, &used, "  \"command\": ");
-   append_json_string(out, out_len, &used, view->command_line);
-   appendf(out, out_len, &used, ",\n  \"status\": ");
-   append_json_string(out, out_len, &used, view->status);
-   appendf(out, out_len, &used, ",\n  \"rows\": [\n");
+   if (options->include_command)
+   {
+      appendf(out, out_len, &used, "  \"command\": ");
+      append_json_string(out, out_len, &used, view->command_line);
+      appendf(out, out_len, &used, ",\n");
+   }
+   if (options->include_status)
+   {
+      appendf(out, out_len, &used, "  \"status\": ");
+      append_json_string(out, out_len, &used, view->status);
+      appendf(out, out_len, &used, ",\n");
+   }
+   appendf(out, out_len, &used, "  \"rows\": [\n");
    for (i = 0; i < view->line_count; i++)
    {
       const LlmDriverScreenLine *line = &view->lines[i];
 
+      if (!llm_driver_row_matches_options(line, options))
+         continue;
       appendf(out, out_len, &used,
-              "    {\"index\": %zu, \"role\": ", i);
+              "    %s{\"index\": %zu, \"role\": ",
+              (emitted > 0) ? "," : "", i);
       append_json_string(out, out_len, &used,
                          ui_row_role_name(line->role));
       appendf(out, out_len, &used,
@@ -374,14 +563,29 @@ size_t llm_driver_format_semantic_view(const LlmDriverScreenView *view,
               line->editable,
               line->current,
               line->cursor);
-      append_json_string(out, out_len, &used, line->prefix);
+      if (options->include_prefix)
+         append_json_string_limited(out, out_len, &used, line->prefix,
+                                    options->max_text_cols);
+      else
+         append_json_string(out, out_len, &used, "");
       appendf(out, out_len, &used, ", \"text\": ");
-      append_json_string(out, out_len, &used, line->text);
-      appendf(out, out_len, &used, "}%s\n",
-              (i + 1 < view->line_count) ? "," : "");
+      append_json_string_limited(out, out_len, &used, line->text,
+                                 options->max_text_cols);
+      appendf(out, out_len, &used, "}\n");
+      emitted++;
    }
    appendf(out, out_len, &used, "  ]\n}\n");
    return used;
+}
+
+size_t llm_driver_format_semantic_view(const LlmDriverScreenView *view,
+                                       char *out, size_t out_len)
+{
+   LlmDriverFormatOptions options;
+
+   llm_driver_format_options_init(&options);
+   return llm_driver_format_semantic_view_with_options(view, &options,
+                                                       out, out_len);
 }
 
 const char *llm_driver_input_kind_name(LlmDriverInputKind kind)

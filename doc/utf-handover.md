@@ -33,20 +33,23 @@ paint the software cursor. This keeps the keycap case visible without changing
 logical text positioning: a keycap may remain one logical cell while the terminal
 profile gives it a two-cell layout and cursor footprint.
 
-The file-area cursor still needs a fuller logical cursor layer. The current UTF
-left/right path now carries the target logical cell through repaint and uses the
-physical curses cursor only as a parked implementation detail, but other cursor
-commands may still derive their live position from curses. Long term, file-area
-cursor state should be `{row, logical_cell}` first, with physical display columns
-computed only by the renderer/driver.
+The file-area cursor now has a logical-first layer. UTF left/right movement,
+logical cursor repaint, text insertion, `SOS DELBACK`, and `SOS DELCHAR` prefer
+`VIEW_DETAILS.logical_cursor` and convert to byte offsets through `TextPos`.
+The physical curses cursor is still parked by the curses driver, but the logical
+row/cell is the authority for the migrated UTF paths. Other legacy cursor
+commands still need migration before the boundary can be made strict.
 
-The first driver-boundary slice is now present. `src/utflayout.c` owns pure
-logical-to-physical UTF cell mapping without curses calls. `src/cursesdriver.c`
-wraps file-area curses cursor target calculation, movement, cursor repaint
-transitions, and refresh. `src/show.c` keeps its existing public helpers but
-delegates layout mapping to `utflayout`. `src/llmdriver.c` adds a passive
-LLM-friendly screen snapshot plus normalized text/key/command input structures;
-it is not yet wired into the live input loop.
+The first driver-boundary slices are now present. `src/utflayout.c` owns pure
+logical-to-physical UTF cell mapping without curses calls. `src/uidriver.c`
+defines logical row roles, frames, cursor overlays, and fake-driver operation
+logs. `src/cursesdriver.c` wraps file-area curses cursor target calculation,
+movement, cursor repaint transitions, and refresh. `src/show.c` keeps its
+existing public helpers but delegates layout mapping to `utflayout`.
+`src/llmdriver.c` now exposes role-aware semantic snapshots, compact token-saving
+view modes, logical-hit input events, debug command events, cursor mapping
+diagnostics, and driver operation log formatting; it is not yet wired into the
+live input loop.
 
 The generic suffix-style cursor repair now follows the probe order: clear the
 selected suffix, flush that blank state when requested, repaint the suffix in
@@ -111,12 +114,14 @@ layer.
 - `doc/utf-design.md`: detailed design, findings, and historical log.
 - `doc/cursor-driver-architecture.md`: approved logical UI/physical driver
   separation plan and ownership rules.
+- `doc/llm-driver-agent-guide.md`: agent-facing LLM driver requirements,
+  semantic snapshot contract, input model, and debugging commands.
 - `tools/utf_terminal_probe.c`: interactive terminal calibration/probe tool.
 - `src/utfterm_defaults.h`: shared THE/probe coded default physical terminal
   table.
-- `src/utflayout.c`, `src/cursesdriver.c`, `src/llmdriver.c`: first driver
-  boundary modules for UTF layout, curses materialization, and an LLM-oriented
-  screen/input surface.
+- `src/utflayout.c`, `src/uidriver.c`, `src/cursesdriver.c`, `src/llmdriver.c`:
+  first driver boundary modules for UTF layout, logical UI frames, curses
+  materialization, and an LLM-oriented semantic screen/input/debug surface.
 - `system-osx.the`: macOS system UTF-8 profile consumed by THE and generated
   by the probe.
 - `tests/fixtures/utf-render.txt`: manual editor fixture for UTF-8 rendering.
@@ -173,9 +178,9 @@ after validation.
 
 ## Next Work
 
-The active refactor is the logical UI/physical driver split. Treat this section
-and `doc/cursor-driver-architecture.md` as the stored implementation plan when
-resuming after context compression.
+The active refactor is the logical UI/physical driver split. Treat this section,
+`doc/cursor-driver-architecture.md`, and `doc/llm-driver-agent-guide.md` as the
+stored implementation plan when resuming after context compression.
 
 The target architecture is:
 
@@ -190,27 +195,35 @@ not read or move curses windows. The curses driver owns physical columns,
 software cursor painting, UTF repair execution, refresh ordering, hardware
 cursor parking, and all curses calls. The LLM driver must use the same logical
 screen and normalized input model. It is a first-class UI driver: it should
-return semantic, deterministic screen snapshots; accept normalized logical input;
-and expose debug/introspection commands such as cursor mapping, visible row
-listing, pending driver operations, and last-render explanation.
+return semantic, deterministic, token-aware screen snapshots; accept normalized
+logical input; and expose debug/introspection commands such as cursor mapping,
+visible row listing, pending driver operations, and last-render explanation.
+Normal LLM scrolling should use compact `filearea` views with prefixes,
+command/status chrome, and long text omitted unless requested.
 
 Execution is intentionally stepwise, with a build, CTest run, and commit after
-each meaningful step:
+each meaningful step. Current checkpoint status:
 
-1. Document the architecture and add guardrails.
-2. Add logical UI frame and fake-driver operation types with unit coverage.
-3. Route file-area cursor movement through logical requests.
-4. Route file-area editing through logical `TextPos` positions.
-5. Consolidate software cursor painting into one driver-owned path.
-6. Bring prefix and command-line cursor/editing behavior under the same model.
-7. Normalize curses, mouse, and LLM input through a shared event type.
-8. Tighten the guardrails so editor logic cannot call curses directly.
+1. Document the architecture and add guardrails: done.
+2. Add logical UI frame and fake-driver operation types with unit coverage:
+   done.
+3. Route file-area cursor movement through logical requests: initial UTF
+   left/right path done.
+4. Route file-area editing through logical `TextPos` positions: initial text,
+   delete-back, and delete-char path done.
+5. Consolidate software cursor painting into one driver-owned path: partial.
+   File-area overlay capture is logical-first and `UiFrame` rejects invalid
+   row-role overlays; `show.c` still needs full-frame rendering.
+6. Bring prefix and command-line cursor/editing behavior under the same model:
+   partial. Focus has logical cursor state; editing paths still need migration.
+7. Normalize curses, mouse, and LLM input through a shared event type: partial.
+   LLM event structures exist; curses/mouse input still needs routing.
+8. Tighten the guardrails so editor logic cannot call curses directly: pending.
 
-Current progress before this sequence: virtual `TextPos`, passive
-`LogicalCursorState`, `utflayout`, an initial `cursesdriver` adapter, and passive
-`llmdriver` structures exist with unit coverage. They are foundations, not the
-finished architecture. Runtime cursor code still has multiple physical paths and
-must be migrated.
+Runtime cursor code still has multiple physical paths and must be migrated. The
+guardrail test is intentionally permissive while the live renderer is still
+being split; tighten it only after the remaining command, prefix, mouse, and
+renderer paths have driver-owned equivalents.
 
 After each step run:
 
