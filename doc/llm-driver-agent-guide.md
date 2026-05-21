@@ -124,16 +124,21 @@ Implemented foundation:
 
 - `src/uidriver.c` frame rows, row roles, cursor overlay validation, and driver
   operation logs.
+- `src/screenframe.c` live frame snapshots for the current file-area rows.
+- `src/inputevent.c` shared normalized text/key/command/logical-hit/debug
+  events, legacy key conversion, and input queues.
 - `src/llmdriver.c` semantic screen view formatting.
 - compact view formatting with `full`, `filearea`, `reserved`, `prefix`, and
   `focus` modes.
-- logical-hit and debug input event structures.
+- LLM compatibility wrappers around the shared input event layer.
 - debug snapshot formatting for focus, cursor mapping, driver ops, and last
   render explanation.
 
 Remaining work:
 
-- connect live THE state to `UiFrame` creation for every screen area.
+- extend live `UiFrame` creation beyond the file area so command, prompt,
+  status, and reserved UI state all have one logical snapshot.
 - expose the formatting options through the runtime LLM driver command/API.
-- route curses keyboard and mouse input through the same normalized event layer.
+- route curses keyboard and mouse collection through `TheInputEvent` before
+  command dispatch.
 - implement delta views once the frame builder can retain previous snapshots.

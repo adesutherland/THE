@@ -105,8 +105,12 @@ place:
 
 - `src/uidriver.c` defines a logical frame, row roles, cursor overlays, and a
   fake driver operation log.
+- `src/screenframe.c` builds live `UiFrame` snapshots from THE's current
+  file-area rows, including prefix metadata and row-role validation.
 - `src/cursesdriver.c` materializes UTF file-area logical cursor requests and
   owns logical-to-physical display column mapping for the curses path.
+- `src/inputevent.c` defines normalized input events shared by curses-facing
+  key codes and LLM-facing text/key/command/logical-hit/debug requests.
 - UTF file-area left/right movement, text insertion, `SOS DELBACK`, and
   `SOS DELCHAR` now prefer `VIEW_DETAILS.logical_cursor` and derive edit byte
   ranges from logical `TextPos`.
@@ -114,9 +118,13 @@ place:
   EOF/TOF/out-of-bounds rows by row role and line number.
 - command-line and prefix focus now record logical cursor zones, so the renderer
   no longer needs to treat those areas only as curses positions.
+- `show.c` builds a live `UiFrame` during full file-area redraw and uses that
+  frame to decide file-area and prefix software cursor overlays. The old
+  snapshot path remains only as a fallback for targeted redraws that do not yet
+  receive a full frame.
 - `src/llmdriver.c` can build role-aware semantic snapshots from `UiFrame`,
-  accept logical-hit and debug input events, and format cursor mapping plus
-  driver operation logs for deterministic diagnostics.
+  accept normalized input events through the shared input layer, and format
+  cursor mapping plus driver operation logs for deterministic diagnostics.
 
 The remaining implementation still has several physical cursor authorities:
 
@@ -159,10 +167,11 @@ curses.
    from curses `x`.
 
 5. Consolidate software cursor painting.
-   The cursor overlay is now represented in `UiFrame` and file-area capture is
-   logical-first. The remaining work is to make `show.c` build a full logical
-   frame and have the curses driver paint each overlay from that frame, removing
-   the remaining per-branch overlay calls.
+   The cursor overlay is represented in `UiFrame`. Full file-area redraw now
+   builds a live frame and uses it for file-area and prefix software cursor
+   overlay selection. The remaining work is to move the actual curses painting
+   calls behind a driver renderer and remove targeted-redraw fallbacks that
+   still rely on the legacy cursor snapshot.
 
 6. Bring prefix and command line under the same model.
    Prefix and command-line focus now have logical cursor state. The remaining
@@ -170,9 +179,10 @@ curses.
    helpers instead of direct curses cursor reads.
 
 7. Normalize input.
-   `llmdriver` now has normalized text/key/command/logical-hit/debug event
-   structures. The remaining work is to make curses keyboard/mouse collection
-   feed the same event type before command dispatch.
+   `inputevent` now owns normalized text/key/command/logical-hit/debug events,
+   legacy key-code conversion, and an input queue. `llmdriver` delegates to
+   that shared layer. The remaining work is to make curses keyboard and mouse
+   collection feed `TheInputEvent` before command dispatch.
 
 8. Tighten guardrails.
    Once the migration is complete, make the curses-boundary test strict: editor

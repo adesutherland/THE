@@ -43,13 +43,16 @@ commands still need migration before the boundary can be made strict.
 The first driver-boundary slices are now present. `src/utflayout.c` owns pure
 logical-to-physical UTF cell mapping without curses calls. `src/uidriver.c`
 defines logical row roles, frames, cursor overlays, and fake-driver operation
-logs. `src/cursesdriver.c` wraps file-area curses cursor target calculation,
-movement, cursor repaint transitions, and refresh. `src/show.c` keeps its
-existing public helpers but delegates layout mapping to `utflayout`.
-`src/llmdriver.c` now exposes role-aware semantic snapshots, compact token-saving
-view modes, logical-hit input events, debug command events, cursor mapping
-diagnostics, and driver operation log formatting; it is not yet wired into the
-live input loop.
+logs. `src/screenframe.c` builds live `UiFrame` snapshots from THE's current
+file-area rows. `src/cursesdriver.c` wraps file-area curses cursor target
+calculation, movement, cursor repaint transitions, and refresh. `src/show.c`
+keeps its existing public helpers but now builds a live frame during full
+file-area redraw and uses it to select file-area and prefix software cursor
+overlays. `src/inputevent.c` owns normalized text/key/command/logical-hit/debug
+events and legacy key conversion. `src/llmdriver.c` now exposes role-aware
+semantic snapshots, compact token-saving view modes, shared normalized input
+wrappers, cursor mapping diagnostics, and driver operation log formatting; it
+is not yet wired into the live input loop.
 
 The generic suffix-style cursor repair now follows the probe order: clear the
 selected suffix, flush that blank state when requested, repaint the suffix in
@@ -119,16 +122,19 @@ layer.
 - `tools/utf_terminal_probe.c`: interactive terminal calibration/probe tool.
 - `src/utfterm_defaults.h`: shared THE/probe coded default physical terminal
   table.
-- `src/utflayout.c`, `src/uidriver.c`, `src/cursesdriver.c`, `src/llmdriver.c`:
-  first driver boundary modules for UTF layout, logical UI frames, curses
-  materialization, and an LLM-oriented semantic screen/input/debug surface.
+- `src/utflayout.c`, `src/uidriver.c`, `src/screenframe.c`,
+  `src/cursesdriver.c`, `src/inputevent.c`, `src/llmdriver.c`: first driver
+  boundary modules for UTF layout, logical UI frames, live frame capture,
+  curses materialization, normalized input, and an LLM-oriented semantic
+  screen/debug surface.
 - `system-osx.the`: macOS system UTF-8 profile consumed by THE and generated
   by the probe.
 - `tests/fixtures/utf-render.txt`: manual editor fixture for UTF-8 rendering.
 - `tests/test_utfrepair.c`, `tests/test_utfterm.c`, `tests/test_utf_fixture.c`,
-  `tests/test_utflayout.c`, `tests/test_llmdriver.c`, and `tests/test_textpos.c`:
-  repair planning, terminal-profile, fixture, layout, driver, and text-position
-  regression coverage.
+  `tests/test_utflayout.c`, `tests/test_inputevent.c`,
+  `tests/test_llmdriver.c`, and `tests/test_textpos.c`: repair planning,
+  terminal-profile, fixture, layout, normalized input, driver, and
+  text-position regression coverage.
 
 ## macOS Apple Terminal Baseline
 
@@ -212,12 +218,15 @@ each meaningful step. Current checkpoint status:
 4. Route file-area editing through logical `TextPos` positions: initial text,
    delete-back, and delete-char path done.
 5. Consolidate software cursor painting into one driver-owned path: partial.
-   File-area overlay capture is logical-first and `UiFrame` rejects invalid
-   row-role overlays; `show.c` still needs full-frame rendering.
+   Full file-area redraw now builds a live `UiFrame` and uses it for file-area
+   and prefix overlay ownership; targeted redraws and the actual curses paint
+   operations still need to move behind the driver.
 6. Bring prefix and command-line cursor/editing behavior under the same model:
    partial. Focus has logical cursor state; editing paths still need migration.
 7. Normalize curses, mouse, and LLM input through a shared event type: partial.
-   LLM event structures exist; curses/mouse input still needs routing.
+   `src/inputevent.c` owns the shared event type, legacy key conversion, and
+   queue; LLM wrappers use it. Curses/mouse input still needs routing through
+   it before command dispatch.
 8. Tighten the guardrails so editor logic cannot call curses directly: pending.
 
 Runtime cursor code still has multiple physical paths and must be migrated. The

@@ -15,6 +15,8 @@ logical_files=(
   src/textpos.h
   src/textedit.c
   src/textedit.h
+  src/inputevent.c
+  src/inputevent.h
   src/utflayout.c
   src/utflayout.h
   src/utfrepair.c
