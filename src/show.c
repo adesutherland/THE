@@ -83,6 +83,7 @@
 #include <time.h>
 #ifdef USE_UTF8
 # include <wchar.h>
+# include "screenframe.h"
 # include "utflayout.h"
 # include "utfrepair.h"
 # include "utfterm.h"
@@ -92,7 +93,11 @@
 static void build_lines(CHARTYPE,short,LINE *,short,short);
 static void build_lines_for_display(CHARTYPE,short,short,short);
 static void show_lines(CHARTYPE);
+#ifdef USE_UTF8
+static void show_a_line(CHARTYPE,short,SHOW_LINE *, const UiFrame *);
+#else
 static void show_a_line(CHARTYPE,short,SHOW_LINE *);
+#endif
 static void set_prefix_contents(CHARTYPE,LINE *,short,LINETYPE,bool);
 static void show_hex_line(CHARTYPE,short);
 static LINETYPE displayed_max_line_length = 0; /* max length of displayed line */
@@ -981,6 +986,54 @@ static void show_draw_software_blank_cell(CHARTYPE scrno, WINDOW *win,
    mvwaddch(win, row, col, ' ');
 }
 
+static int show_frame_cursor_col(const UiFrame *frame, UiRowRole role,
+                                 LINETYPE line_number, short row,
+                                 int viewport_col, int *col,
+                                 CursorShape *shape)
+{
+   LogicalCursor cursor;
+
+   if (frame == NULL
+   ||  !ui_frame_cursor_for_row(frame, role, line_number, row, &cursor))
+      return FALSE;
+   if (col != NULL)
+      *col = cursor.text.cell_column - viewport_col;
+   if (shape != NULL)
+      *shape = current_cursor_shape();
+   return TRUE;
+}
+
+static int show_filearea_cursor_col(const UiFrame *frame, CHARTYPE scrno,
+                                    short row, LINETYPE line_number,
+                                    int viewport_col, int *col,
+                                    CursorShape *shape)
+{
+   if (frame != NULL)
+      return show_frame_cursor_col(frame, UI_ROW_FILE, line_number, row,
+                                   viewport_col, col, shape);
+   return cursor_focus_filearea_cursor(scrno, row, col, shape);
+}
+
+static int show_filearea_cursor_display_col(const UiFrame *frame, CHARTYPE scrno,
+                                            short row, LINETYPE line_number,
+                                            const CHARTYPE *line, size_t len,
+                                            int viewport_col, int *col)
+{
+   LogicalCursor cursor;
+
+   if (frame != NULL)
+   {
+      if (!ui_frame_cursor_for_row(frame, UI_ROW_FILE, line_number, row,
+                                   &cursor))
+         return FALSE;
+      if (col != NULL)
+         *col = show_utf8_display_col_from_logical(line, len, viewport_col,
+                                                   cursor.text.cell_column);
+      return TRUE;
+   }
+   return cursor_focus_filearea_display_cursor(scrno, row, col);
+}
+
 static void show_draw_software_command_cursor(CHARTYPE scrno, VIEW_DETAILS *view)
 {
    short row = 0;
@@ -996,12 +1049,21 @@ static void show_draw_software_command_cursor(CHARTYPE scrno, VIEW_DETAILS *view
    show_draw_software_chtype_cell(scrno, SCREEN_WINDOW_COMMAND(scrno), row, col, base, shape);
 }
 
-static void show_draw_software_prefix_cursor(CHARTYPE scrno, short row)
+static void show_draw_software_prefix_cursor(CHARTYPE scrno, short row,
+                                             const UiFrame *frame)
 {
    int col = 0;
    CursorShape shape = CURSOR_BLOCK;
 
-   if (!cursor_focus_prefix_cursor(scrno, row, &col, &shape))
+   if (frame != NULL)
+   {
+      SHOW_LINE *show_row = &screen[scrno].sl[row];
+
+      if (!show_frame_cursor_col(frame, UI_ROW_PREFIX, show_row->line_number,
+                                 row, 0, &col, &shape))
+         return;
+   }
+   else if (!cursor_focus_prefix_cursor(scrno, row, &col, &shape))
       return;
    show_draw_software_chtype_cell(scrno, SCREEN_WINDOW_PREFIX(scrno), row, col,
                                   set_colour(SCREEN_FILE(scrno)->attr + ATTR_PREFIX), shape);
@@ -2016,7 +2078,7 @@ void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
                       width,
                       y,
                       width );
-   show_draw_software_prefix_cursor(curr_screen, y);
+   show_draw_software_prefix_cursor(curr_screen, y, NULL);
    wnoutrefresh( SCREEN_WINDOW_PREFIX(curr_screen) );
    wmove( SCREEN_WINDOW_PREFIX(curr_screen), y, x );
    TRACE_RETURN();
@@ -3164,8 +3226,18 @@ static void show_lines(CHARTYPE scrno)
    char _THE_FAR buffer[60];
    CHARTYPE *ptr;
    SHOW_LINE *scurr = screen[scrno].sl;
+#ifdef USE_UTF8
+   UiFrame frame;
+   const UiFrame *cursor_frame = NULL;
+#endif
 
    TRACE_FUNCTION("show.c:    show_lines");
+#ifdef USE_UTF8
+   if (scrno == current_screen
+   &&  current_cursor_uses_software()
+   &&  screenframe_build(scrno, &frame))
+      cursor_frame = &frame;
+#endif
    for (i=0,scurr=screen[scrno].sl;i<screen[scrno].rows[WINDOW_FILEAREA];i++,scurr++)
    {
       /*
@@ -3230,7 +3302,7 @@ static void show_lines(CHARTYPE scrno)
             }
          }
 #ifdef USE_UTF8
-         show_draw_software_prefix_cursor(scrno, i);
+         show_draw_software_prefix_cursor(scrno, i, cursor_frame);
 #endif
       }
       /*
@@ -3396,7 +3468,11 @@ static void show_lines(CHARTYPE scrno)
       /*
        * Display marked LINE block line(s).
        */
+#ifdef USE_UTF8
+      show_a_line(scrno,i,scurr,cursor_frame);
+#else
       show_a_line(scrno,i,scurr);
+#endif
    }
    if (SCREEN_WINDOW_PREFIX(scrno) != NULL)
       wattrset(SCREEN_WINDOW_PREFIX(scrno),set_colour(SCREEN_FILE(scrno)->attr+ATTR_PENDING));
@@ -3461,7 +3537,8 @@ static int show_utf8_target_highlight_applies(CHARTYPE scrno, SHOW_LINE *scurr, 
    return 0;
 }
 
-static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr, chtype *high)
+static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
+                                   chtype *high, const UiFrame *frame)
 {
    SHOW_LINE *current = &(screen[scrno].sl[row]);
    CHARTYPE *line = current->contents;
@@ -3506,9 +3583,14 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr, 
       visible_cols = ccols;
    }
 
-   cursor_visible = cursor_focus_filearea_cursor(scrno, row, &cursor_col, &cursor_shape);
+   cursor_visible = show_filearea_cursor_col(frame, scrno, row,
+                                             current->line_number,
+                                             (int)cvcol, &cursor_col,
+                                             &cursor_shape);
    if (cursor_visible
-   &&  !cursor_focus_filearea_display_cursor(scrno, row, &cursor_display_col))
+   &&  !show_filearea_cursor_display_col(frame, scrno, row,
+                                         current->line_number, line, blength,
+                                         (int)cvcol, &cursor_display_col))
       cursor_display_col = -1;
 
    /* Avoid shifting text when a viewport edge cuts through a wide code point. */
@@ -3988,7 +4070,7 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
 
    if (plan.extent == UTF8_REPAIR_EXTENT_LINE)
    {
-      show_a_line_utf8_cells(scrno, row, current, high);
+      show_a_line_utf8_cells(scrno, row, current, high, NULL);
       touchline(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
       return TRUE;
    }
@@ -4078,7 +4160,11 @@ void show_utf8_filearea_cursor_transition(CHARTYPE scrno, short row,
 }
 #endif
 /***********************************************************************/
-static void show_a_line(CHARTYPE scrno,short row, SHOW_LINE *scurr)
+static void show_a_line(CHARTYPE scrno,short row, SHOW_LINE *scurr
+#ifdef USE_UTF8
+                        , const UiFrame *frame
+#endif
+)
 /***********************************************************************/
 {
    LENGTHTYPE vend,vlen,blanks_after_length;
@@ -4125,7 +4211,9 @@ static void show_a_line(CHARTYPE scrno,short row, SHOW_LINE *scurr)
       {
          int cursor_col = 0;
          CursorShape cursor_shape = CURSOR_BLOCK;
-         if (cursor_focus_filearea_cursor(scrno, row, &cursor_col, &cursor_shape))
+         if (show_filearea_cursor_col(frame, scrno, row,
+                                      current->line_number, 0,
+                                      &cursor_col, &cursor_shape))
             show_draw_software_blank_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno), row,
                                           cursor_col, normal, cursor_shape);
       }
@@ -4139,7 +4227,7 @@ static void show_a_line(CHARTYPE scrno,short row, SHOW_LINE *scurr)
    ||  show_utf8_line_replacement_hint_matches(current)
    ||  !show_utf8_ascii_profile_fast_path_ok())
    {
-      show_a_line_utf8_cells(scrno, row, scurr, high);
+      show_a_line_utf8_cells(scrno, row, scurr, high, frame);
       TRACE_RETURN();
       return;
    }
@@ -4461,7 +4549,10 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d: ccols %d cother_end_col %d bother_end_col
       int cursor_col = 0;
       CursorShape cursor_shape = CURSOR_BLOCK;
 
-      if (cursor_focus_filearea_cursor(scrno, row, &cursor_col, &cursor_shape))
+      if (show_filearea_cursor_col(frame, scrno, row,
+                                   current->line_number,
+                                   (int)SCREEN_VIEW(scrno)->verify_col - 1,
+                                   &cursor_col, &cursor_shape))
          show_draw_software_chtype_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno), row,
                                         cursor_col, normal, cursor_shape);
    }

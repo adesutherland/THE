@@ -72,6 +72,7 @@ static void test_builds_filearea_frame(void)
    rows[1].contents = (CHARTYPE *)"bravo";
    rows[1].length = 5;
    rows[1].main_enterable = TRUE;
+   rows[1].prefix_enterable = TRUE;
    strcpy((char *)rows[1].prefix, "000042");
    rows[2].line_type = LINE_EOF;
    rows[2].line_number = 43;
@@ -91,6 +92,8 @@ static void test_builds_filearea_frame(void)
                "bravo");
    expect_strn("screenframe.file.prefix", frame.row[1].prefix,
                frame.row[1].prefix_len, "000042");
+   expect_int("screenframe.file.prefix.editable",
+              frame.row[1].prefix_editable, 1);
    expect_int("screenframe.cursor.valid", frame.cursor.valid, 1);
    expect_int("screenframe.cursor.row", frame.cursor.cursor.zone_row, 1);
    expect_int("screenframe.eof.role", frame.row[2].role, UI_ROW_EOF);

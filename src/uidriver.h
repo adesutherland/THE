@@ -35,6 +35,7 @@ typedef struct
    int logical_start_col;
    const CHARTYPE *prefix;
    size_t prefix_len;
+   int prefix_editable;
    const CHARTYPE *text;
    size_t text_len;
    int editable;
@@ -87,9 +88,13 @@ int ui_frame_set_row(UiFrame *frame, size_t index, UiRowRole role,
                      int logical_start_col, const CHARTYPE *text,
                      size_t text_len, int editable);
 int ui_frame_set_row_prefix(UiFrame *frame, size_t index,
-                            const CHARTYPE *prefix, size_t prefix_len);
+                            const CHARTYPE *prefix, size_t prefix_len,
+                            int editable);
 int ui_frame_find_cursor_row(const UiFrame *frame, LogicalCursor cursor,
                              size_t *index);
+int ui_frame_cursor_for_row(const UiFrame *frame, UiRowRole role,
+                            LINETYPE line_number, int screen_row,
+                            LogicalCursor *cursor);
 int ui_frame_set_cursor(UiFrame *frame, LogicalCursor cursor);
 
 void ui_driver_op_log_init(UiDriverOpLog *log);

@@ -96,7 +96,8 @@ int screenframe_build(CHARTYPE scrno, UiFrame *frame)
          return 0;
       }
       ui_frame_set_row_prefix(frame, i, show_row->prefix,
-                              strlen((const char *)show_row->prefix));
+                              strlen((const char *)show_row->prefix),
+                              show_row->prefix_enterable);
    }
 
    ui_frame_set_cursor(frame, view->logical_cursor.current);

@@ -116,7 +116,8 @@ int ui_frame_set_row(UiFrame *frame, size_t index, UiRowRole role,
 }
 
 int ui_frame_set_row_prefix(UiFrame *frame, size_t index,
-                            const CHARTYPE *prefix, size_t prefix_len)
+                            const CHARTYPE *prefix, size_t prefix_len,
+                            int editable)
 {
    UiFrameRow *row;
 
@@ -125,6 +126,7 @@ int ui_frame_set_row_prefix(UiFrame *frame, size_t index,
    row = &frame->row[index];
    row->prefix = prefix;
    row->prefix_len = prefix_len;
+   row->prefix_editable = editable != 0;
    return 1;
 }
 
@@ -144,11 +146,21 @@ int ui_frame_find_cursor_row(const UiFrame *frame, LogicalCursor cursor,
    {
       const UiFrameRow *row = &frame->row[i];
 
+      if (row->screen_row != cursor.zone_row)
+         continue;
+      if (role == UI_ROW_PREFIX)
+      {
+         if (row->role != UI_ROW_PREFIX && !row->prefix_editable)
+            continue;
+         if (row->line_number != cursor.line_number)
+            continue;
+         if (index != NULL)
+            *index = i;
+         return 1;
+      }
       if (!ui_row_role_allows_cursor(row->role))
          continue;
       if (row->role != role)
-         continue;
-      if (row->screen_row != cursor.zone_row)
          continue;
       if (row->role == UI_ROW_FILE && row->line_number != cursor.line_number)
          continue;
@@ -157,6 +169,35 @@ int ui_frame_find_cursor_row(const UiFrame *frame, LogicalCursor cursor,
       return 1;
    }
    return 0;
+}
+
+int ui_frame_cursor_for_row(const UiFrame *frame, UiRowRole role,
+                            LINETYPE line_number, int screen_row,
+                            LogicalCursor *cursor)
+{
+   size_t index;
+   const UiFrameRow *row;
+   UiRowRole cursor_role;
+
+   if (cursor != NULL)
+      *cursor = logical_cursor_invalid();
+   if (frame == NULL
+   ||  !frame->cursor.valid
+   ||  !ui_frame_find_cursor_row(frame, frame->cursor.cursor, &index))
+      return 0;
+
+   row = &frame->row[index];
+   cursor_role = ui_row_role_from_cursor_zone(frame->cursor.cursor.zone);
+   if (cursor_role != role)
+      return 0;
+   if (row->screen_row != screen_row)
+      return 0;
+   if ((role == UI_ROW_FILE || role == UI_ROW_PREFIX)
+   &&  row->line_number != line_number)
+      return 0;
+   if (cursor != NULL)
+      *cursor = frame->cursor.cursor;
+   return 1;
 }
 
 int ui_frame_set_cursor(UiFrame *frame, LogicalCursor cursor)

@@ -96,6 +96,32 @@ static void test_cursor_must_match_row_role_and_line(void)
               ui_row_role_from_cursor_zone(prefix_cursor.zone), UI_ROW_PREFIX);
 }
 
+static void test_cursor_for_row_handles_shared_prefix_row(void)
+{
+   UiFrame frame;
+   LogicalCursor cursor;
+   LogicalCursor found;
+
+   ui_frame_init(&frame, 24, 80);
+   expect_int("frame.shared.file",
+              ui_frame_set_row(&frame, 0, UI_ROW_FILE, 42, 3, 0,
+                               (const CHARTYPE *)"bravo", 5, 1), 1);
+   expect_int("frame.shared.prefix",
+              ui_frame_set_row_prefix(&frame, 0, (const CHARTYPE *)"000042",
+                                      6, 1), 1);
+
+   cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_PREFIX, 42, 3,
+                                textpos_from_cell_virtual(NULL, 0, 2,
+                                                          TEXT_SNAP_BACKWARD));
+   expect_int("frame.shared.prefix.cursor",
+              ui_frame_set_cursor(&frame, cursor), 1);
+   expect_int("frame.shared.prefix.find",
+              ui_frame_cursor_for_row(&frame, UI_ROW_PREFIX, 42, 3, &found), 1);
+   expect_int("frame.shared.prefix.cell", found.text.cell_column, 2);
+   expect_int("frame.shared.file.miss",
+              ui_frame_cursor_for_row(&frame, UI_ROW_FILE, 42, 3, &found), 0);
+}
+
 static void test_fake_driver_materializes_cursor_once(void)
 {
    UiFrame frame;
@@ -131,6 +157,7 @@ int main(void)
    test_row_roles();
    test_frame_rejects_eof_cursor();
    test_cursor_must_match_row_role_and_line();
+   test_cursor_for_row_handles_shared_prefix_row();
    test_fake_driver_materializes_cursor_once();
 
    if (failures != 0)
