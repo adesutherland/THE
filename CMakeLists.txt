@@ -392,6 +392,7 @@ set(THE_SOURCES
     src/the.c
     src/textedit.c
     src/textpos.c
+    src/uidriver.c
     src/utflayout.c
     src/utfrepair.c
     src/utfterm.c
@@ -506,7 +507,7 @@ if(USE_UTF8 AND USE_UTF8PROC)
     target_compile_definitions(test_uidriver PRIVATE USE_UTF8PROC=1)
 endif()
 add_test(NAME test_uidriver COMMAND test_uidriver)
-add_executable(test_llmdriver tests/test_llmdriver.c src/llmdriver.c src/logcursor.c src/textpos.c)
+add_executable(test_llmdriver tests/test_llmdriver.c src/llmdriver.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmdriver PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8 AND USE_UTF8PROC)
     target_link_libraries(test_llmdriver ${THE_UTF8PROC_TARGET})

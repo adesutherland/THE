@@ -20,6 +20,12 @@ typedef struct
    int key_code;
 } LlmKeyName;
 
+typedef struct
+{
+   const char *name;
+   LlmDriverDebugCommand command;
+} LlmDebugName;
+
 static const LlmKeyName llm_key_names[] =
 {
    { "left", KEY_LEFT },
@@ -46,6 +52,23 @@ static const LlmKeyName llm_key_names[] =
    { NULL, 0 }
 };
 
+static const LlmDebugName llm_debug_names[] =
+{
+   { "describe-focus", LLM_DRIVER_DEBUG_DESCRIBE_FOCUS },
+   { "focus", LLM_DRIVER_DEBUG_DESCRIBE_FOCUS },
+   { "describe-row", LLM_DRIVER_DEBUG_DESCRIBE_ROW },
+   { "row", LLM_DRIVER_DEBUG_DESCRIBE_ROW },
+   { "list-visible-rows", LLM_DRIVER_DEBUG_LIST_VISIBLE_ROWS },
+   { "visible-rows", LLM_DRIVER_DEBUG_LIST_VISIBLE_ROWS },
+   { "dump-cursor-mapping", LLM_DRIVER_DEBUG_DUMP_CURSOR_MAPPING },
+   { "cursor-mapping", LLM_DRIVER_DEBUG_DUMP_CURSOR_MAPPING },
+   { "dump-driver-ops", LLM_DRIVER_DEBUG_DUMP_DRIVER_OPS },
+   { "driver-ops", LLM_DRIVER_DEBUG_DUMP_DRIVER_OPS },
+   { "explain-last-render", LLM_DRIVER_DEBUG_EXPLAIN_LAST_RENDER },
+   { "last-render", LLM_DRIVER_DEBUG_EXPLAIN_LAST_RENDER },
+   { NULL, LLM_DRIVER_DEBUG_NONE }
+};
+
 static void copy_text(char *dest, size_t dest_len, const char *src)
 {
    size_t len;
@@ -55,6 +78,25 @@ static void copy_text(char *dest, size_t dest_len, const char *src)
    if (src == NULL)
       src = "";
    len = strlen(src);
+   if (len >= dest_len)
+      len = dest_len - 1;
+   if (len > 0)
+      memcpy(dest, src, len);
+   dest[len] = '\0';
+}
+
+static void copy_text_n(char *dest, size_t dest_len, const char *src, size_t src_len)
+{
+   size_t len;
+
+   if (dest == NULL || dest_len == 0)
+      return;
+   if (src == NULL)
+   {
+      dest[0] = '\0';
+      return;
+   }
+   len = src_len;
    if (len >= dest_len)
       len = dest_len - 1;
    if (len > 0)
@@ -97,6 +139,56 @@ static int appendf(char *out, size_t out_len, size_t *used, const char *fmt, ...
    return 1;
 }
 
+static int append_json_string(char *out, size_t out_len, size_t *used,
+                              const char *text)
+{
+   const unsigned char *ptr;
+
+   if (!appendf(out, out_len, used, "\""))
+      return 0;
+   if (text == NULL)
+      text = "";
+   for (ptr = (const unsigned char *)text; *ptr != '\0'; ptr++)
+   {
+      switch (*ptr)
+      {
+         case '\\':
+            if (!appendf(out, out_len, used, "\\\\"))
+               return 0;
+            break;
+         case '"':
+            if (!appendf(out, out_len, used, "\\\""))
+               return 0;
+            break;
+         case '\n':
+            if (!appendf(out, out_len, used, "\\n"))
+               return 0;
+            break;
+         case '\r':
+            if (!appendf(out, out_len, used, "\\r"))
+               return 0;
+            break;
+         case '\t':
+            if (!appendf(out, out_len, used, "\\t"))
+               return 0;
+            break;
+         default:
+            if (*ptr < 0x20)
+            {
+               if (!appendf(out, out_len, used, "\\u%04x", *ptr))
+                  return 0;
+            }
+            else
+            {
+               if (!appendf(out, out_len, used, "%c", *ptr))
+                  return 0;
+            }
+            break;
+      }
+   }
+   return appendf(out, out_len, used, "\"");
+}
+
 void llm_driver_screen_view_init(LlmDriverScreenView *view, int rows, int cols,
                                  LogicalCursor cursor)
 {
@@ -115,6 +207,17 @@ int llm_driver_screen_view_set_line(LlmDriverScreenView *view, size_t index,
                                     const char *prefix, const char *text,
                                     int current)
 {
+   return llm_driver_screen_view_set_row(view, index, UI_ROW_FILE,
+                                         line_number, logical_row, 0,
+                                         prefix, text, 1, current);
+}
+
+int llm_driver_screen_view_set_row(LlmDriverScreenView *view, size_t index,
+                                   UiRowRole role, LINETYPE line_number,
+                                   int logical_row, int logical_start_col,
+                                   const char *prefix, const char *text,
+                                   int editable, int current)
+{
    LlmDriverScreenLine *line;
 
    if (view == NULL || index >= LLM_DRIVER_MAX_ROWS)
@@ -122,11 +225,52 @@ int llm_driver_screen_view_set_line(LlmDriverScreenView *view, size_t index,
    line = &view->lines[index];
    line->line_number = line_number;
    line->logical_row = logical_row;
+   line->role = role;
+   line->logical_start_col = logical_start_col;
+   line->editable = editable;
    line->current = current;
+   line->cursor = view->cursor.valid
+               && view->cursor.zone_row == logical_row
+               && ui_row_role_from_cursor_zone(view->cursor.zone) == role;
    copy_text(line->prefix, sizeof(line->prefix), prefix);
    copy_text(line->text, sizeof(line->text), text);
    if (index >= view->line_count)
       view->line_count = index + 1;
+   return 1;
+}
+
+int llm_driver_screen_view_from_frame(const UiFrame *frame,
+                                      LlmDriverScreenView *view)
+{
+   size_t i;
+
+   if (frame == NULL || view == NULL)
+      return 0;
+   llm_driver_screen_view_init(view, frame->rows, frame->cols,
+                               frame->cursor.valid
+                               ? frame->cursor.cursor
+                               : logical_cursor_invalid());
+   for (i = 0; i < frame->row_count && i < LLM_DRIVER_MAX_ROWS; i++)
+   {
+      const UiFrameRow *row = &frame->row[i];
+      LlmDriverScreenLine *line = &view->lines[i];
+      size_t cursor_index = 0;
+      int has_cursor = frame->cursor.valid
+                    && ui_frame_find_cursor_row(frame, frame->cursor.cursor,
+                                                &cursor_index);
+
+      line->line_number = row->line_number;
+      line->logical_row = row->screen_row;
+      line->role = row->role;
+      line->logical_start_col = row->logical_start_col;
+      line->editable = row->editable;
+      line->current = has_cursor && cursor_index == i;
+      line->cursor = line->current;
+      line->prefix[0] = '\0';
+      copy_text_n(line->text, sizeof(line->text), (const char *)row->text,
+                  row->text_len);
+      view->line_count = i + 1;
+   }
    return 1;
 }
 
@@ -182,6 +326,64 @@ size_t llm_driver_format_screen_view(const LlmDriverScreenView *view,
    return used;
 }
 
+size_t llm_driver_format_semantic_view(const LlmDriverScreenView *view,
+                                       char *out, size_t out_len)
+{
+   size_t used = 0;
+   size_t i;
+
+   if (out == NULL || out_len == 0)
+      return 0;
+   out[0] = '\0';
+   if (view == NULL)
+      return 0;
+
+   appendf(out, out_len, &used,
+           "{\n  \"screen\": {\"rows\": %d, \"cols\": %d},\n",
+           view->rows, view->cols);
+   appendf(out, out_len, &used,
+           "  \"focus\": {\"zone\": ");
+   append_json_string(out, out_len, &used,
+                      logical_cursor_zone_name(view->cursor.zone));
+   appendf(out, out_len, &used,
+           ", \"line\": %ld, \"row\": %d, \"cell\": %d, \"desired_cell\": %d},\n",
+           (long)view->cursor.line_number,
+           view->cursor.zone_row,
+           view->cursor.text.cell_column,
+           view->cursor.desired_cell);
+   appendf(out, out_len, &used, "  \"command\": ");
+   append_json_string(out, out_len, &used, view->command_line);
+   appendf(out, out_len, &used, ",\n  \"status\": ");
+   append_json_string(out, out_len, &used, view->status);
+   appendf(out, out_len, &used, ",\n  \"rows\": [\n");
+   for (i = 0; i < view->line_count; i++)
+   {
+      const LlmDriverScreenLine *line = &view->lines[i];
+
+      appendf(out, out_len, &used,
+              "    {\"index\": %zu, \"role\": ", i);
+      append_json_string(out, out_len, &used,
+                         ui_row_role_name(line->role));
+      appendf(out, out_len, &used,
+              ", \"line\": %ld, \"screen_row\": %d, \"start_cell\": %d, "
+              "\"editable\": %d, \"current\": %d, \"cursor\": %d, "
+              "\"prefix\": ",
+              (long)line->line_number,
+              line->logical_row,
+              line->logical_start_col,
+              line->editable,
+              line->current,
+              line->cursor);
+      append_json_string(out, out_len, &used, line->prefix);
+      appendf(out, out_len, &used, ", \"text\": ");
+      append_json_string(out, out_len, &used, line->text);
+      appendf(out, out_len, &used, "}%s\n",
+              (i + 1 < view->line_count) ? "," : "");
+   }
+   appendf(out, out_len, &used, "  ]\n}\n");
+   return used;
+}
+
 const char *llm_driver_input_kind_name(LlmDriverInputKind kind)
 {
    switch (kind)
@@ -192,7 +394,33 @@ const char *llm_driver_input_kind_name(LlmDriverInputKind kind)
          return "key";
       case LLM_DRIVER_INPUT_COMMAND:
          return "command";
+      case LLM_DRIVER_INPUT_LOGICAL_HIT:
+         return "logical-hit";
+      case LLM_DRIVER_INPUT_DEBUG:
+         return "debug";
       case LLM_DRIVER_INPUT_NONE:
+      default:
+         return "none";
+   }
+}
+
+const char *llm_driver_debug_command_name(LlmDriverDebugCommand command)
+{
+   switch (command)
+   {
+      case LLM_DRIVER_DEBUG_DESCRIBE_FOCUS:
+         return "describe-focus";
+      case LLM_DRIVER_DEBUG_DESCRIBE_ROW:
+         return "describe-row";
+      case LLM_DRIVER_DEBUG_LIST_VISIBLE_ROWS:
+         return "list-visible-rows";
+      case LLM_DRIVER_DEBUG_DUMP_CURSOR_MAPPING:
+         return "dump-cursor-mapping";
+      case LLM_DRIVER_DEBUG_DUMP_DRIVER_OPS:
+         return "dump-driver-ops";
+      case LLM_DRIVER_DEBUG_EXPLAIN_LAST_RENDER:
+         return "explain-last-render";
+      case LLM_DRIVER_DEBUG_NONE:
       default:
          return "none";
    }
@@ -262,6 +490,41 @@ int llm_driver_input_from_command(const char *command, LlmDriverInput *out)
    return out->command[0] != '\0';
 }
 
+int llm_driver_input_from_logical_hit(LogicalCursorZone zone,
+                                      LINETYPE line_number, int row,
+                                      int cell, LlmDriverInput *out)
+{
+   if (out == NULL)
+      return 0;
+   *out = llm_driver_input_none();
+   out->kind = LLM_DRIVER_INPUT_LOGICAL_HIT;
+   out->target.zone = zone;
+   out->target.line_number = line_number;
+   out->target.row = row;
+   out->target.cell = cell;
+   return zone != LOGICAL_CURSOR_ZONE_NONE && row >= 0 && cell >= 0;
+}
+
+int llm_driver_input_from_debug_command(const char *name,
+                                        LlmDriverInput *out)
+{
+   size_t i;
+
+   if (out == NULL || name == NULL)
+      return 0;
+   *out = llm_driver_input_none();
+   for (i = 0; llm_debug_names[i].name != NULL; i++)
+   {
+      if (ascii_equal_ci(name, llm_debug_names[i].name))
+      {
+         out->kind = LLM_DRIVER_INPUT_DEBUG;
+         out->debug_command = llm_debug_names[i].command;
+         return 1;
+      }
+   }
+   return 0;
+}
+
 int llm_driver_input_to_legacy_key(const LlmDriverInput *input, int *key_code)
 {
    if (input == NULL || key_code == NULL)
@@ -303,4 +566,103 @@ int llm_driver_input_queue_pop_legacy_key(LlmDriverInputQueue *queue, int *key_c
    queue->head = (queue->head + 1) % LLM_DRIVER_INPUT_QUEUE_MAX;
    queue->count--;
    return 1;
+}
+
+void llm_driver_debug_snapshot_init(LlmDriverDebugSnapshot *debug,
+                                    LogicalCursor focus)
+{
+   if (debug == NULL)
+      return;
+   memset(debug, 0, sizeof(*debug));
+   debug->focus = focus;
+   debug->cursor_mapping.logical_cell = focus.text.cell_column;
+   ui_driver_op_log_init(&debug->driver_ops);
+}
+
+void llm_driver_debug_snapshot_set_cursor_mapping(
+   LlmDriverDebugSnapshot *debug, int viewport_col, int logical_cell,
+   int raw_display_col, int display_col, int visible)
+{
+   if (debug == NULL)
+      return;
+   debug->cursor_mapping.viewport_col = viewport_col;
+   debug->cursor_mapping.logical_cell = logical_cell;
+   debug->cursor_mapping.raw_display_col = raw_display_col;
+   debug->cursor_mapping.display_col = display_col;
+   debug->cursor_mapping.visible = visible;
+}
+
+void llm_driver_debug_snapshot_set_last_render(LlmDriverDebugSnapshot *debug,
+                                               const char *last_render)
+{
+   if (debug != NULL)
+      copy_text(debug->last_render, sizeof(debug->last_render), last_render);
+}
+
+static const char *driver_op_kind_name(UiDriverOpKind kind)
+{
+   switch (kind)
+   {
+      case UI_DRIVER_OP_ROW:
+         return "row";
+      case UI_DRIVER_OP_CURSOR:
+         return "cursor";
+      case UI_DRIVER_OP_REFRESH:
+         return "refresh";
+      case UI_DRIVER_OP_NONE:
+      default:
+         return "none";
+   }
+}
+
+size_t llm_driver_format_debug_snapshot(const LlmDriverDebugSnapshot *debug,
+                                        char *out, size_t out_len)
+{
+   size_t used = 0;
+   size_t i;
+
+   if (out == NULL || out_len == 0)
+      return 0;
+   out[0] = '\0';
+   if (debug == NULL)
+      return 0;
+
+   appendf(out, out_len, &used,
+           "{\n  \"focus\": {\"zone\": ");
+   append_json_string(out, out_len, &used,
+                      logical_cursor_zone_name(debug->focus.zone));
+   appendf(out, out_len, &used,
+           ", \"line\": %ld, \"row\": %d, \"cell\": %d},\n",
+           (long)debug->focus.line_number,
+           debug->focus.zone_row,
+           debug->focus.text.cell_column);
+   appendf(out, out_len, &used,
+           "  \"cursor_mapping\": {\"viewport_col\": %d, "
+           "\"logical_cell\": %d, \"raw_display_col\": %d, "
+           "\"display_col\": %d, \"visible\": %d},\n",
+           debug->cursor_mapping.viewport_col,
+           debug->cursor_mapping.logical_cell,
+           debug->cursor_mapping.raw_display_col,
+           debug->cursor_mapping.display_col,
+           debug->cursor_mapping.visible);
+   appendf(out, out_len, &used, "  \"last_render\": ");
+   append_json_string(out, out_len, &used, debug->last_render);
+   appendf(out, out_len, &used, ",\n  \"driver_ops\": [\n");
+   for (i = 0; i < debug->driver_ops.count; i++)
+   {
+      const UiDriverOp *op = &debug->driver_ops.op[i];
+
+      appendf(out, out_len, &used,
+              "    {\"index\": %zu, \"kind\": ", i);
+      append_json_string(out, out_len, &used, driver_op_kind_name(op->kind));
+      appendf(out, out_len, &used,
+              ", \"role\": ");
+      append_json_string(out, out_len, &used, ui_row_role_name(op->role));
+      appendf(out, out_len, &used,
+              ", \"row\": %d, \"col\": %d, \"line\": %ld}%s\n",
+              op->row, op->col, (long)op->line_number,
+              (i + 1 < debug->driver_ops.count) ? "," : "");
+   }
+   appendf(out, out_len, &used, "  ]\n}\n");
+   return used;
 }
