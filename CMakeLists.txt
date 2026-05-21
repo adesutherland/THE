@@ -372,6 +372,7 @@ set(THE_SOURCES
     src/linked.c
     src/logcursor.c
     src/llmdriver.c
+    src/llmruntime.c
     src/mouse.c
     src/memory.c
     src/nonansi.c
@@ -525,6 +526,16 @@ if(USE_UTF8 AND USE_UTF8PROC)
     target_compile_definitions(test_llmdriver PRIVATE USE_UTF8PROC=1)
 endif()
 add_test(NAME test_llmdriver COMMAND test_llmdriver)
+add_executable(test_llmruntime tests/test_llmruntime.c src/llmruntime.c src/llmdriver.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
+target_include_directories(test_llmruntime PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+if(USE_UTF8 AND USE_UTF8PROC)
+    target_link_libraries(test_llmruntime ${THE_UTF8PROC_TARGET})
+    target_compile_definitions(test_llmruntime PRIVATE USE_UTF8PROC=1)
+endif()
+if(USE_SDSLH)
+    target_link_libraries(test_llmruntime DSLSH::editor)
+endif()
+add_test(NAME test_llmruntime COMMAND test_llmruntime)
 if(USE_UTF8)
     add_executable(test_utf_fixture tests/test_utf_fixture.c src/textpos.c)
     target_include_directories(test_utf_fixture PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
