@@ -482,6 +482,9 @@ install(DIRECTORY syntax/ DESTINATION share/the/syntax)
 
 # --- Automated Testing ---
 enable_testing()
+add_test(NAME test_curses_boundary
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_curses_boundary.sh
+            ${CMAKE_CURRENT_SOURCE_DIR})
 add_executable(test_textpos tests/test_textpos.c src/textpos.c)
 target_include_directories(test_textpos PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8 AND USE_UTF8PROC)
