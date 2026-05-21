@@ -1829,6 +1829,9 @@ short do_Sos_prefix( CHARTYPE *params, CHARTYPE curr_screen, VIEW_DETAILS *curr_
       curr_view->current_window = WINDOW_PREFIX;
    x = 0;
    wmove( SCREEN_WINDOW(curr_screen), y, x );
+#ifdef USE_UTF8
+   cursor_focus_capture(curr_screen);
+#endif
    TRACE_RETURN();
    return(rc);
 }

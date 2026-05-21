@@ -127,6 +127,131 @@ static bool cursor_focus_capture_filearea_logical(CHARTYPE scrno, VIEW_DETAILS *
    return TRUE;
 }
 
+static void cursor_focus_store_command_logical(VIEW_DETAILS *view, int row, int col)
+{
+   LogicalCursor cursor;
+   int logical_col;
+
+   if (view == NULL)
+      return;
+   if (row < 0)
+      row = 0;
+   if (col < 0)
+      col = 0;
+   logical_col = cmd_verify_col - 1 + col;
+   cursor = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_COMMAND, 0, row,
+                                     cmd_rec, cmd_rec_len, logical_col,
+                                     TEXT_SNAP_BACKWARD, 1);
+   logical_cursor_state_focus(&view->logical_cursor, cursor);
+}
+
+static void cursor_focus_store_prefix_logical(CHARTYPE scrno, VIEW_DETAILS *view,
+                                              int row, int col)
+{
+   SHOW_LINE *show_row;
+   LogicalCursor cursor;
+   size_t len;
+
+   if (view == NULL
+   ||  screen[scrno].sl == NULL
+   ||  row < 0
+   ||  row >= screen[scrno].rows[WINDOW_FILEAREA])
+      return;
+   if (col < 0)
+      col = 0;
+   show_row = &screen[scrno].sl[row];
+   if (show_row->line_type == LINE_TOF
+   ||  show_row->line_type == LINE_EOF
+   ||  !show_row->prefix_enterable)
+      return;
+   len = strlen((DEFCHAR *)show_row->prefix);
+   cursor = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_PREFIX,
+                                     show_row->line_number, row,
+                                     show_row->prefix, len, col,
+                                     TEXT_SNAP_BACKWARD, 1);
+   logical_cursor_state_focus(&view->logical_cursor, cursor);
+}
+
+static void cursor_focus_sync_logical_from_window(CHARTYPE scrno, VIEW_DETAILS *view)
+{
+   WINDOW *win;
+   int row = 0;
+   int col = 0;
+
+   if (view == NULL
+   ||  !cursor_focus_software_window(view->current_window))
+      return;
+
+   win = SCREEN_WINDOW(scrno);
+   if (win == NULL)
+      return;
+
+   getyx(win, row, col);
+   cursor_focus_clamp_to_window(scrno, view->current_window, &row, &col);
+   switch (view->current_window)
+   {
+      case WINDOW_COMMAND:
+         cursor_focus_store_command_logical(view, row, col);
+         break;
+      case WINDOW_PREFIX:
+         cursor_focus_store_prefix_logical(scrno, view, row, col);
+         break;
+      default:
+         break;
+   }
+}
+
+static bool cursor_focus_capture_command_logical(CHARTYPE scrno, VIEW_DETAILS *view)
+{
+   LogicalCursor logical;
+   int viewport_col;
+
+   if (view == NULL)
+      return FALSE;
+   logical = view->logical_cursor.current;
+   if (!logical.valid
+   ||  logical.zone != LOGICAL_CURSOR_ZONE_COMMAND)
+      return FALSE;
+
+   viewport_col = cmd_verify_col - 1;
+   cursor_focus_snapshot.valid = TRUE;
+   cursor_focus_snapshot.screen = scrno;
+   cursor_focus_snapshot.window = WINDOW_COMMAND;
+   cursor_focus_snapshot.row = logical.zone_row;
+   cursor_focus_snapshot.col = logical.text.cell_column - viewport_col;
+   cursor_focus_snapshot.display_col = cursor_focus_snapshot.col;
+   return TRUE;
+}
+
+static bool cursor_focus_capture_prefix_logical(CHARTYPE scrno, VIEW_DETAILS *view)
+{
+   LogicalCursor logical;
+   SHOW_LINE *show_row;
+
+   if (view == NULL
+   ||  screen[scrno].sl == NULL)
+      return FALSE;
+   logical = view->logical_cursor.current;
+   if (!logical.valid
+   ||  logical.zone != LOGICAL_CURSOR_ZONE_PREFIX
+   ||  logical.zone_row < 0
+   ||  logical.zone_row >= screen[scrno].rows[WINDOW_FILEAREA])
+      return FALSE;
+
+   show_row = &screen[scrno].sl[logical.zone_row];
+   if (show_row->line_number != logical.line_number
+   ||  !show_row->prefix_enterable)
+      return FALSE;
+
+   cursor_focus_snapshot.valid = TRUE;
+   cursor_focus_snapshot.screen = scrno;
+   cursor_focus_snapshot.window = WINDOW_PREFIX;
+   cursor_focus_snapshot.row = logical.zone_row;
+   cursor_focus_snapshot.col = logical.text.cell_column;
+   cursor_focus_snapshot.display_col = logical.text.cell_column;
+   return TRUE;
+}
+
 void cursor_focus_capture(CHARTYPE scrno)
 {
    int row = 0;
@@ -142,6 +267,12 @@ void cursor_focus_capture(CHARTYPE scrno)
 
    if (view->current_window == WINDOW_FILEAREA
    &&  cursor_focus_capture_filearea_logical(scrno, view))
+      return;
+   if (view->current_window == WINDOW_COMMAND
+   &&  cursor_focus_capture_command_logical(scrno, view))
+      return;
+   if (view->current_window == WINDOW_PREFIX
+   &&  cursor_focus_capture_prefix_logical(scrno, view))
       return;
 
    win = SCREEN_WINDOW(scrno);
@@ -160,6 +291,7 @@ void cursor_focus_capture(CHARTYPE scrno)
    cursor_focus_snapshot.window = view->current_window;
    cursor_focus_snapshot.row = row;
    cursor_focus_snapshot.col = col;
+   cursor_focus_sync_logical_from_window(scrno, view);
 }
 
 static bool cursor_focus_snapshot_for(CHARTYPE scrno, CHARTYPE window)
@@ -224,6 +356,7 @@ void cursor_focus_redraw(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
 
 static void cursor_focus_redraw_if_software(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
 {
+   cursor_focus_sync_logical_from_window(curr_screen, curr_view);
    if (current_cursor_uses_software())
    {
       if (curr_view != NULL
@@ -255,6 +388,7 @@ short cursor_focus_enter_command(CHARTYPE curr_screen, VIEW_DETAILS *curr_view,
    wmove(SCREEN_WINDOW_COMMAND(curr_screen), 0, col - 1);
    curr_view->cmdline_col = col - 1;
    cmd_verify_col = 1;
+   cursor_focus_store_command_logical(curr_view, 0, col - 1);
    if (refresh)
       cursor_focus_redraw(curr_screen, curr_view);
    return RC_OK;
