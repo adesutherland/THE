@@ -232,6 +232,23 @@ static int cursor_utf8_filearea_cell(void)
       current_screen, CURRENT_VIEW, x, TEXT_SNAP_BACKWARD);
 }
 
+static short cursor_utf8_filearea_row(void)
+{
+   int y = 0;
+   int x = 0;
+   LogicalCursor logical;
+
+   logical = CURRENT_VIEW->logical_cursor.current;
+   if (logical.valid
+   &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+   &&  logical.line_number == CURRENT_VIEW->focus_line)
+      return (short)logical.zone_row;
+
+   getyx(SCREEN_WINDOW_FILEAREA(current_screen), y, x);
+   INTENTIONALLY_UNUSED_VARIABLE(x);
+   return (short)y;
+}
+
 static TextPos cursor_utf8_filearea_pos_from_cell(int cell)
 {
    return textpos_from_cell(rec, rec_len, cell, TEXT_SNAP_BACKWARD);
@@ -289,7 +306,7 @@ static bool cursor_utf8_filearea_left(short escreen, short *rc)
    if (CURRENT_VIEW->current_window != WINDOW_FILEAREA)
       return FALSE;
 
-   getyx(SCREEN_WINDOW_FILEAREA(current_screen), old_y, old_x);
+   old_y = cursor_utf8_filearea_row();
    old_verify_col = CURRENT_VIEW->verify_col;
    current_cell = cursor_utf8_filearea_cell();
    old_logical_cell = current_cell;
@@ -334,7 +351,7 @@ static bool cursor_utf8_filearea_right(short escreen, short *rc)
    if (CURRENT_VIEW->current_window != WINDOW_FILEAREA)
       return FALSE;
 
-   getyx(SCREEN_WINDOW_FILEAREA(current_screen), old_y, old_x);
+   old_y = cursor_utf8_filearea_row();
    old_verify_col = CURRENT_VIEW->verify_col;
    current_cell = cursor_utf8_filearea_cell();
    old_logical_cell = current_cell;
@@ -774,7 +791,6 @@ short THEcursor_left(short escreen,bool kedit_defaults)
    &&  kedit_defaults)
       escreen = CURSOR_SCREEN;
 
-   getyx(CURRENT_WINDOW,y,x);
 #ifdef USE_UTF8
    if (cursor_utf8_filearea_left(escreen, &rc))
    {
@@ -782,6 +798,7 @@ short THEcursor_left(short escreen,bool kedit_defaults)
       return(rc);
    }
 #endif
+   getyx(CURRENT_WINDOW,y,x);
    /*
     * For all windows, if we are not at left column, move 1 pos to left.
     */
@@ -903,6 +920,13 @@ short THEcursor_right(short escreen,bool kedit_defaults)
    if (CURRENT_VIEW->prefix
    &&  kedit_defaults)
       escreen = CURSOR_SCREEN;
+#ifdef USE_UTF8
+   if (cursor_utf8_filearea_right(escreen, &rc))
+   {
+      TRACE_RETURN();
+      return(rc);
+   }
+#endif
    getyx(CURRENT_WINDOW,y,x);
    right_column = getmaxx( CURRENT_WINDOW ) - 1;
    if ( CURRENT_VIEW->current_window == WINDOW_FILEAREA )
@@ -938,13 +962,6 @@ short THEcursor_right(short escreen,bool kedit_defaults)
          return(rc);
       }
    }
-#ifdef USE_UTF8
-   if (cursor_utf8_filearea_right(escreen, &rc))
-   {
-      TRACE_RETURN();
-      return(rc);
-   }
-#endif
    /*
     * For all windows, if we are not at right column, move 1 pos to right.
     */

@@ -2895,6 +2895,28 @@ short execute_select(CHARTYPE *params,bool relative,short off)
    return(rc);
 }
 /***********************************************************************/
+#ifdef USE_UTF8
+static short execute_filearea_logical_row(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
+{
+   short y = 0;
+   short x = 0;
+   LogicalCursor logical;
+
+   if (curr_view != NULL)
+   {
+      logical = curr_view->logical_cursor.current;
+      if (logical.valid
+      &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+      &&  logical.line_number == curr_view->focus_line)
+         return (short)logical.zone_row;
+   }
+
+   getyx(SCREEN_WINDOW(curr_screen), y, x);
+   INTENTIONALLY_UNUSED_VARIABLE(x);
+   return y;
+}
+#endif
+/***********************************************************************/
 short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTHTYPE col )
 /***********************************************************************/
 {
@@ -2907,7 +2929,11 @@ short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTH
    switch( curr_view->current_window )
    {
       case WINDOW_FILEAREA:
+#ifdef USE_UTF8
+         y = execute_filearea_logical_row(curr_screen, curr_view);
+#else
          getyx( SCREEN_WINDOW(curr_screen), y, x );
+#endif
 #ifdef USE_UTF8
       {
          int old_viewport_col = (int)curr_view->verify_col - 1;
