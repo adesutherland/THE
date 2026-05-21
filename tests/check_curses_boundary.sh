@@ -23,6 +23,8 @@ logical_files=(
   src/utfterm.h
   src/llmdriver.c
   src/llmdriver.h
+  src/uidriver.c
+  src/uidriver.h
 )
 
 violations="$(

@@ -63,6 +63,34 @@ than raw curses coordinates.
 The LLM driver must use the same normalized input and logical screen model, so
 an LLM client exercises the same editor behavior as a curses terminal.
 
+### LLM Driver Requirements
+
+The LLM driver is a real UI driver, not a convenience dump of terminal text. It
+should make THE comfortable and reliable for an LLM to operate:
+
+- expose a stable semantic screen snapshot with row roles, line numbers, prefix
+  text, file text, command text, status text, marks, current focus, and logical
+  cursor position.
+- use logical coordinates (`zone`, `line_number`, `row`, `cell`) rather than
+  terminal escape positions.
+- preserve enough physical metadata for debugging (`display_col`, terminal
+  class, repair strategy, and driver operation log) without making the LLM
+  depend on curses behavior.
+- accept normalized input events: text insertion, named key actions, mouse-like
+  logical hits, command submission, and higher-level editor intents.
+- provide safe introspection commands such as "describe focus", "describe row",
+  "list visible rows", "dump cursor mapping", "dump pending driver ops", and
+  "explain last render decision".
+- avoid ambiguous screen scraping. Repeated calls should return deterministic
+  JSON-like structures that can be compared in tests and summarized in logs.
+- support debug workflows for THE itself: capture a reproducible scenario,
+  replay normalized input, compare logical frame output, and compare physical
+  driver operation logs.
+
+The LLM driver should not bypass editor commands or mutate editor buffers
+directly. It should feed the same command/input layer used by curses after input
+normalization, so LLM automation and manual terminal use exercise one code path.
+
 ## Current Problem
 
 The current implementation still has multiple physical cursor authorities:
@@ -113,7 +141,8 @@ Each step is intended to be buildable, testable, and committable.
 
 7. Normalize input.
    Convert curses keyboard/mouse input into normalized input events before
-   command dispatch. Route LLM input through the same event type.
+   command dispatch. Route LLM input through the same event type, with semantic
+   inspection/debug commands for reproducible editor diagnostics.
 
 8. Tighten guardrails.
    Once the migration is complete, make the curses-boundary test strict: editor

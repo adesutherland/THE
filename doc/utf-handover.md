@@ -189,7 +189,10 @@ The logical layer owns focus, file line, logical screen row, row role, logical
 not read or move curses windows. The curses driver owns physical columns,
 software cursor painting, UTF repair execution, refresh ordering, hardware
 cursor parking, and all curses calls. The LLM driver must use the same logical
-screen and normalized input model.
+screen and normalized input model. It is a first-class UI driver: it should
+return semantic, deterministic screen snapshots; accept normalized logical input;
+and expose debug/introspection commands such as cursor mapping, visible row
+listing, pending driver operations, and last-render explanation.
 
 Execution is intentionally stepwise, with a build, CTest run, and commit after
 each meaningful step:
