@@ -357,7 +357,8 @@ int llm_driver_screen_view_from_frame(const UiFrame *frame,
       line->editable = row->editable;
       line->current = has_cursor && cursor_index == i;
       line->cursor = line->current;
-      line->prefix[0] = '\0';
+      copy_text_n(line->prefix, sizeof(line->prefix),
+                  (const char *)row->prefix, row->prefix_len);
       copy_text_n(line->text, sizeof(line->text), (const char *)row->text,
                   row->text_len);
       view->line_count = i + 1;

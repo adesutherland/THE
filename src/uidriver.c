@@ -24,6 +24,12 @@ const char *ui_row_role_name(UiRowRole role)
          return "scale";
       case UI_ROW_TABLINE:
          return "tabline";
+      case UI_ROW_SHADOW:
+         return "shadow";
+      case UI_ROW_HEX:
+         return "hex";
+      case UI_ROW_OUT_OF_BOUNDS:
+         return "out-of-bounds";
       case UI_ROW_STATUS:
          return "status";
       case UI_ROW_PROMPT:
@@ -50,6 +56,9 @@ int ui_row_role_allows_cursor(UiRowRole role)
       case UI_ROW_BOUNDS:
       case UI_ROW_SCALE:
       case UI_ROW_TABLINE:
+      case UI_ROW_SHADOW:
+      case UI_ROW_HEX:
+      case UI_ROW_OUT_OF_BOUNDS:
       case UI_ROW_STATUS:
       default:
          return 0;
@@ -103,6 +112,19 @@ int ui_frame_set_row(UiFrame *frame, size_t index, UiRowRole role,
    row->editable = editable && ui_row_role_allows_cursor(role);
    if (index >= frame->row_count)
       frame->row_count = index + 1;
+   return 1;
+}
+
+int ui_frame_set_row_prefix(UiFrame *frame, size_t index,
+                            const CHARTYPE *prefix, size_t prefix_len)
+{
+   UiFrameRow *row;
+
+   if (frame == NULL || index >= frame->row_count)
+      return 0;
+   row = &frame->row[index];
+   row->prefix = prefix;
+   row->prefix_len = prefix_len;
    return 1;
 }
 

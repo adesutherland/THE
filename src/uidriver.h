@@ -20,6 +20,9 @@ typedef enum
    UI_ROW_BOUNDS,
    UI_ROW_SCALE,
    UI_ROW_TABLINE,
+   UI_ROW_SHADOW,
+   UI_ROW_HEX,
+   UI_ROW_OUT_OF_BOUNDS,
    UI_ROW_STATUS,
    UI_ROW_PROMPT
 } UiRowRole;
@@ -30,6 +33,8 @@ typedef struct
    LINETYPE line_number;
    int screen_row;
    int logical_start_col;
+   const CHARTYPE *prefix;
+   size_t prefix_len;
    const CHARTYPE *text;
    size_t text_len;
    int editable;
@@ -81,6 +86,8 @@ int ui_frame_set_row(UiFrame *frame, size_t index, UiRowRole role,
                      LINETYPE line_number, int screen_row,
                      int logical_start_col, const CHARTYPE *text,
                      size_t text_len, int editable);
+int ui_frame_set_row_prefix(UiFrame *frame, size_t index,
+                            const CHARTYPE *prefix, size_t prefix_len);
 int ui_frame_find_cursor_row(const UiFrame *frame, LogicalCursor cursor,
                              size_t *index);
 int ui_frame_set_cursor(UiFrame *frame, LogicalCursor cursor);

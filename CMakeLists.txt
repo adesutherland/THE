@@ -385,6 +385,7 @@ set(THE_SOURCES
     src/reserved.c
     src/rexx.c
     src/scroll.c
+    src/screenframe.c
     src/show.c
     src/single.c
     src/sort.c
@@ -507,6 +508,16 @@ if(USE_UTF8 AND USE_UTF8PROC)
     target_compile_definitions(test_uidriver PRIVATE USE_UTF8PROC=1)
 endif()
 add_test(NAME test_uidriver COMMAND test_uidriver)
+add_executable(test_screenframe tests/test_screenframe.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
+target_include_directories(test_screenframe PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+if(USE_UTF8 AND USE_UTF8PROC)
+    target_link_libraries(test_screenframe ${THE_UTF8PROC_TARGET})
+    target_compile_definitions(test_screenframe PRIVATE USE_UTF8PROC=1)
+endif()
+if(USE_SDSLH)
+    target_link_libraries(test_screenframe DSLSH::editor)
+endif()
+add_test(NAME test_screenframe COMMAND test_screenframe)
 add_executable(test_llmdriver tests/test_llmdriver.c src/llmdriver.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmdriver PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8 AND USE_UTF8PROC)

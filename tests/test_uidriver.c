@@ -27,12 +27,16 @@ static void test_row_roles(void)
 {
    expect_str("role.file", ui_row_role_name(UI_ROW_FILE), "file");
    expect_str("role.eof", ui_row_role_name(UI_ROW_EOF), "eof");
+   expect_str("role.shadow", ui_row_role_name(UI_ROW_SHADOW), "shadow");
+   expect_str("role.hex", ui_row_role_name(UI_ROW_HEX), "hex");
+   expect_str("role.out", ui_row_role_name(UI_ROW_OUT_OF_BOUNDS), "out-of-bounds");
    expect_int("role.file.cursor", ui_row_role_allows_cursor(UI_ROW_FILE), 1);
    expect_int("role.prefix.cursor", ui_row_role_allows_cursor(UI_ROW_PREFIX), 1);
    expect_int("role.command.cursor", ui_row_role_allows_cursor(UI_ROW_COMMAND), 1);
    expect_int("role.eof.cursor", ui_row_role_allows_cursor(UI_ROW_EOF), 0);
    expect_int("role.tof.cursor", ui_row_role_allows_cursor(UI_ROW_TOF), 0);
    expect_int("role.status.cursor", ui_row_role_allows_cursor(UI_ROW_STATUS), 0);
+   expect_int("role.hex.cursor", ui_row_role_allows_cursor(UI_ROW_HEX), 0);
 }
 
 static void test_frame_rejects_eof_cursor(void)
