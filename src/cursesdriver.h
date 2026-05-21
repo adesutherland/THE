@@ -11,6 +11,7 @@ typedef struct
 {
    LogicalCursor logical;
    int viewport_col;
+   int raw_display_col;
    int display_col;
    int window_cols;
    int visible;
@@ -22,6 +23,10 @@ int curses_driver_display_col_from_logical(const CHARTYPE *line, size_t len,
 int curses_driver_logical_col_from_display(const CHARTYPE *line, size_t len,
                                            int viewport_col, int display_col,
                                            TextSnap snap);
+int curses_driver_viewport_col_for_logical(const CHARTYPE *line, size_t len,
+                                           int current_viewport_col,
+                                           int logical_col, int window_cols,
+                                           int *display_col, int *visible);
 short curses_driver_refresh_cursor(CHARTYPE scrno);
 short curses_driver_redraw_screen_cursor(CHARTYPE scrno, struct view_details *view);
 CursesDriverCursorTarget curses_driver_filearea_target(

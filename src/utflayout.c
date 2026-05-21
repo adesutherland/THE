@@ -5,6 +5,11 @@ static int min_int(int left, int right)
    return (left < right) ? left : right;
 }
 
+static int max_int(int left, int right)
+{
+   return (left > right) ? left : right;
+}
+
 const Utf8TerminalProfileEntry *utf8_layout_cluster_profile(
    const CHARTYPE *line, size_t len, TextCluster cluster)
 {
@@ -186,4 +191,56 @@ int utf8_layout_logical_col_from_display(const CHARTYPE *line, size_t len,
    if (display_col > screen_col)
       last_logical_col += display_col - screen_col;
    return last_logical_col;
+}
+
+Utf8LayoutViewport utf8_layout_viewport_for_logical_col(
+   const CHARTYPE *line, size_t len, int current_viewport_col,
+   int logical_col, int visible_cols)
+{
+   Utf8LayoutViewport target;
+   int preferred_display_col;
+   int low;
+   int high;
+   int best;
+
+   current_viewport_col = max_int(current_viewport_col, 0);
+   logical_col = max_int(logical_col, 0);
+   target.viewport_col = current_viewport_col;
+   target.display_col = utf8_layout_display_col_from_logical(
+      line, len, current_viewport_col, logical_col);
+   target.visible = logical_col >= current_viewport_col
+                 && visible_cols > 0
+                 && target.display_col < visible_cols;
+   if (target.visible || visible_cols <= 0)
+      return target;
+
+   preferred_display_col = visible_cols / 2 - 1;
+   if (preferred_display_col < 0)
+      preferred_display_col = 0;
+
+   low = 0;
+   high = logical_col;
+   best = logical_col;
+   while (low <= high)
+   {
+      int mid = low + (high - low) / 2;
+      int display_col = utf8_layout_display_col_from_logical(line, len, mid,
+                                                             logical_col);
+
+      if (display_col <= preferred_display_col)
+      {
+         best = mid;
+         high = mid - 1;
+      }
+      else
+      {
+         low = mid + 1;
+      }
+   }
+
+   target.viewport_col = best;
+   target.display_col = utf8_layout_display_col_from_logical(line, len, best,
+                                                             logical_col);
+   target.visible = target.display_col < visible_cols;
+   return target;
 }

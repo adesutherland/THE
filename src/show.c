@@ -3945,6 +3945,11 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
    TextPos start_pos;
    int start_display_col;
    int ccols;
+   int line_end_display_col;
+   int old_target_display_col;
+   int new_target_display_col;
+   int clear_end_col;
+   int clear_width;
 
    if (SCREEN_WINDOW_FILEAREA(scrno) == NULL
    ||  row < 0
@@ -4011,8 +4016,31 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
       show_utf8_repaint_filearea_target(scrno, row, new_logical_screen_col,
                                         TRUE, shape);
 
+   line_end_display_col = show_utf8_display_col_from_logical(
+      line, blength, (int)cvcol,
+      textpos_from_byte(line, blength, blength).cell_column);
+   old_target_display_col = show_utf8_display_col_from_logical(
+      line, blength, (int)cvcol, (int)cvcol + old_logical_screen_col);
+   new_target_display_col = show_utf8_display_col_from_logical(
+      line, blength, (int)cvcol, (int)cvcol + new_logical_screen_col);
+   clear_end_col = line_end_display_col;
+   if (old_target_display_col + 1 > clear_end_col)
+      clear_end_col = old_target_display_col + 1;
+   if (new_target_display_col + 1 > clear_end_col)
+      clear_end_col = new_target_display_col + 1;
+   clear_end_col += 2;
+   if (clear_end_col > ccols)
+      clear_end_col = ccols;
+   if (clear_end_col <= start_display_col)
+      clear_end_col = start_display_col + 1;
+   if (clear_end_col > ccols)
+      clear_end_col = ccols;
+   clear_width = clear_end_col - start_display_col;
+   if (clear_width < 1)
+      clear_width = 1;
+
    show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, start_display_col,
-                      ccols - start_display_col, normal);
+                      clear_width, normal);
    touchline(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
    if (plan.flush != UTF8_REPAIR_FLUSH_NONE)
    {

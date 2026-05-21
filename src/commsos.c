@@ -37,11 +37,87 @@
 
 #include <the.h>
 #include <proto.h>
+#ifdef USE_UTF8
+# include "logcursor.h"
+#endif
 
 /*#define DEBUG 1*/
 
 static short sosdelback ( bool );
 static short sosdelchar ( bool );
+
+#ifdef USE_UTF8
+static int sos_utf8_filearea_current_cell(unsigned short y, unsigned short x)
+{
+   LogicalCursor logical;
+
+   logical = CURRENT_VIEW->logical_cursor.current;
+   if (logical.valid
+   &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+   &&  logical.line_number == CURRENT_VIEW->focus_line
+   &&  logical.zone_row == y)
+      return logical.text.cell_column;
+
+   return show_utf8_logical_col_from_display(rec, rec_len,
+                                             CURRENT_VIEW->verify_col - 1,
+                                             x, TEXT_SNAP_BACKWARD);
+}
+
+static LENGTHTYPE sos_utf8_rec_len_after_delete(LENGTHTYPE old_len,
+                                                LENGTHTYPE delete_byte,
+                                                LENGTHTYPE delete_len)
+{
+   if (delete_byte >= old_len)
+      return old_len;
+   if (delete_len > old_len - delete_byte)
+      delete_len = old_len - delete_byte;
+   if (CURRENT_FILE->trailing == TRAILING_OFF)
+      return calculate_rec_len(ADJUST_DELETE, rec, old_len, delete_byte + 1,
+                               delete_len, CURRENT_FILE->trailing);
+   return old_len - delete_len;
+}
+
+static int sos_utf8_delete_filearea_cluster(unsigned short y, int delete_cell)
+{
+   TextPos pos;
+   TextCluster cluster;
+   LENGTHTYPE delete_byte;
+   LENGTHTYPE delete_len;
+   LENGTHTYPE old_len;
+
+   if (delete_cell < 0)
+      delete_cell = 0;
+   pos = textpos_from_cell(rec, rec_len, delete_cell, TEXT_SNAP_BACKWARD);
+   cluster = textpos_cluster_at_boundary(rec, rec_len, pos);
+   if (!cluster.valid || cluster.byte_length == 0)
+      return FALSE;
+
+   old_len = rec_len;
+   delete_byte = (LENGTHTYPE)cluster.pos.byte_offset;
+   delete_len = (LENGTHTYPE)cluster.byte_length;
+   memdeln(rec, delete_byte, rec_len, delete_len);
+   rec_len = sos_utf8_rec_len_after_delete(old_len, delete_byte, delete_len);
+#ifdef USE_SDSLH
+   sdslh_update_current_line(y);
+#endif
+   return TRUE;
+}
+
+static void sos_utf8_refresh_filearea(void)
+{
+   build_screen(current_screen);
+   display_screen(current_screen);
+   if ( ( CURRENT_VIEW == MARK_VIEW
+      &&  CURRENT_VIEW->focus_line >= MARK_VIEW->mark_start_line
+      &&  CURRENT_VIEW->focus_line <= MARK_VIEW->mark_end_line )
+   ||   ( CURRENT_FILE->colouring && (CURRENT_FILE->parser
+#ifdef USE_SDSLH
+          || CURRENT_FILE->cb
+#endif
+        ) ) )
+      show_statarea();
+}
+#endif
 
 /*man-start*********************************************************************
 
@@ -3007,6 +3083,42 @@ static short sosdelback( bool cua )
          return(RC_OK);
       }
    }
+#ifdef USE_UTF8
+   {
+      int current_cell;
+      TextPos end_pos;
+      TextPos delete_pos;
+
+      current_cell = sos_utf8_filearea_current_cell(y, x);
+      end_pos = textpos_from_byte(rec, rec_len, rec_len);
+      if (current_cell <= 0)
+      {
+         TRACE_RETURN();
+         return(RC_OK);
+      }
+      if (current_cell > end_pos.cell_column)
+      {
+         rc = execute_move_cursor(current_screen, CURRENT_VIEW,
+                                  (LENGTHTYPE)(current_cell - 1));
+         sos_utf8_refresh_filearea();
+         TRACE_RETURN();
+         return(rc);
+      }
+
+      delete_pos = textpos_prev_cluster(rec, rec_len,
+                                        textpos_from_cell_virtual(rec, rec_len,
+                                                                  current_cell,
+                                                                  TEXT_SNAP_BACKWARD));
+      if (sos_utf8_delete_filearea_cluster(y, delete_pos.cell_column))
+      {
+         rc = execute_move_cursor(current_screen, CURRENT_VIEW,
+                                  (LENGTHTYPE)delete_pos.cell_column);
+         sos_utf8_refresh_filearea();
+      }
+      TRACE_RETURN();
+      return(rc);
+   }
+#endif
    THEcursor_left( TRUE, FALSE );
    /*
     * If we are after the last character of the line, exit.
@@ -3060,7 +3172,7 @@ static short sosdelback( bool cua )
 static short sosdelchar( bool cua )
 {
    unsigned short x=0,y=0;
-   short rc;
+   short rc=RC_OK;
 
    getyx( CURRENT_WINDOW, y, x );
    switch ( CURRENT_VIEW->current_window )
@@ -3141,6 +3253,35 @@ static short sosdelchar( bool cua )
       TRACE_RETURN();
       return(RC_OK);
    }
+
+#ifdef USE_UTF8
+   {
+      int current_cell;
+      TextPos end_pos;
+
+      current_cell = sos_utf8_filearea_current_cell(y, x);
+      end_pos = textpos_from_byte(rec, rec_len, rec_len);
+      if (current_cell >= end_pos.cell_column)
+      {
+         if (cua)
+         {
+            rc = execute_split_join(SPLTJOIN_JOIN, TRUE, TRUE);
+            TRACE_RETURN();
+            return(rc);
+         }
+         TRACE_RETURN();
+         return(RC_OK);
+      }
+      if (sos_utf8_delete_filearea_cluster(y, current_cell))
+      {
+         rc = execute_move_cursor(current_screen, CURRENT_VIEW,
+                                  (LENGTHTYPE)current_cell);
+         sos_utf8_refresh_filearea();
+      }
+      TRACE_RETURN();
+      return(rc);
+   }
+#endif
 
    my_wdelch( CURRENT_WINDOW );
    /*

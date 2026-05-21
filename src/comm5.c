@@ -533,6 +533,10 @@ short Text(CHARTYPE *params)
    bool need_to_build_screen=FALSE;
    bool save_in_macro=in_macro;
    LENGTHTYPE new_len;
+#ifdef USE_UTF8
+   bool utf8_filearea_text_edited=FALSE;
+   LENGTHTYPE utf8_filearea_next_cell=0;
+#endif
 
    TRACE_FUNCTION("comm5.c:   Text");
 #ifdef THE_TRACE
@@ -576,6 +580,10 @@ short Text(CHARTYPE *params)
       len_params = strlen( (DEFCHAR *)params );
    for ( i = 0; i < len_params; i++ )
    {
+#ifdef USE_UTF8
+      utf8_filearea_text_edited = FALSE;
+      utf8_filearea_next_cell = 0;
+#endif
       real_key = case_translate( (CHARTYPE)*(params+i) );
 #ifdef VMS
       chtype_key = (chtype)real_key;
@@ -665,6 +673,8 @@ short Text(CHARTYPE *params)
                   }
                }
                need_to_build_screen = TRUE;
+               utf8_filearea_text_edited = TRUE;
+               utf8_filearea_next_cell = logical_cell + 1;
             }
 #else
             if ( (LENGTHTYPE)(x+CURRENT_VIEW->verify_start) > (LENGTHTYPE)(CURRENT_VIEW->verify_end) )
@@ -725,7 +735,11 @@ short Text(CHARTYPE *params)
                }
 #else
 #ifdef USE_UTF8
-               THEcursor_right( TRUE, FALSE );
+               if (utf8_filearea_text_edited)
+                  execute_move_cursor(current_screen, CURRENT_VIEW,
+                                      utf8_filearea_next_cell);
+               else
+                  THEcursor_right( TRUE, FALSE );
 #else
                if (INSERTMODEx
                || x == CURRENT_SCREEN.cols[WINDOW_FILEAREA]-1)

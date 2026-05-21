@@ -49,22 +49,26 @@ void trace_return(void);
 void trace_string(char *,...);
 void trace_constant(char *);
 
-static char trace_save_str[40];
-static char trace_env[40];
+static char *trace_env=NULL;
 static FILE *trace_fp;
 static short trace_number=0,trace_level=(-1);
 /***********************************************************************/
 void trace_initialise(void)
 /***********************************************************************/
 {
-   char *trace_env_ptr=getenv( "THE_TRACE" );
+   const char *trace_env_ptr=getenv( "THE_TRACE" );
+   char *new_trace_env=NULL;
 
    trace_fp = NULL;
    if ( trace_env_ptr == NULL )
       return;
-   strcpy( trace_env, trace_env_ptr );
+   new_trace_env = (char *)malloc( strlen( trace_env_ptr ) + 1 );
+   if ( new_trace_env == NULL )
+      return;
+   strcpy( new_trace_env, trace_env_ptr );
+   free( trace_env );
+   trace_env = new_trace_env;
    trace_number = trace_level = 0;
-   strcpy( trace_save_str, "" );
    return;
 }
 /***********************************************************************/

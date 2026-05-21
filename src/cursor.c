@@ -218,13 +218,18 @@ static int cursor_utf8_filearea_cell(void)
 {
    int y = 0;
    int x = 0;
+   LogicalCursor logical;
 
    getyx(SCREEN_WINDOW_FILEAREA(current_screen), y, x);
-   INTENTIONALLY_UNUSED_VARIABLE(y);
-   return cursor_utf8_filearea_logical_cell_from_display(current_screen,
-                                                         CURRENT_VIEW,
-                                                         x,
-                                                         TEXT_SNAP_BACKWARD);
+   logical = CURRENT_VIEW->logical_cursor.current;
+   if (logical.valid
+   &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+   &&  logical.line_number == CURRENT_VIEW->focus_line
+   &&  logical.zone_row == y)
+      return logical.text.cell_column;
+
+   return cursor_utf8_filearea_logical_cell_from_display(
+      current_screen, CURRENT_VIEW, x, TEXT_SNAP_BACKWARD);
 }
 
 static TextPos cursor_utf8_filearea_pos_from_cell(int cell)

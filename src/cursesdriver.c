@@ -50,6 +50,63 @@ int curses_driver_logical_col_from_display(const CHARTYPE *line, size_t len,
 #endif
 }
 
+int curses_driver_viewport_col_for_logical(const CHARTYPE *line, size_t len,
+                                           int current_viewport_col,
+                                           int logical_col, int window_cols,
+                                           int *display_col, int *visible)
+{
+#ifdef USE_UTF8
+   Utf8LayoutViewport target;
+
+   current_viewport_col = current_viewport_col < 0 ? 0 : current_viewport_col;
+   logical_col = logical_col < 0 ? 0 : logical_col;
+   target = utf8_layout_viewport_for_logical_col(line, len,
+                                                 current_viewport_col,
+                                                 logical_col, window_cols);
+   if (display_col != NULL)
+      *display_col = target.display_col;
+   if (visible != NULL)
+      *visible = target.visible;
+   return target.viewport_col;
+#else
+   int target_display_col;
+   int target_visible;
+   int preferred_display_col;
+
+   INTENTIONALLY_UNUSED_VARIABLE(line);
+   INTENTIONALLY_UNUSED_VARIABLE(len);
+   if (current_viewport_col < 0)
+      current_viewport_col = 0;
+   if (logical_col < 0)
+      logical_col = 0;
+   target_display_col = logical_col - current_viewport_col;
+   target_visible = target_display_col >= 0
+                 && window_cols > 0
+                 && target_display_col < window_cols;
+   if (target_visible || window_cols <= 0)
+   {
+      if (display_col != NULL)
+         *display_col = target_display_col;
+      if (visible != NULL)
+         *visible = target_visible;
+      return current_viewport_col;
+   }
+
+   preferred_display_col = window_cols / 2 - 1;
+   if (preferred_display_col < 0)
+      preferred_display_col = 0;
+   current_viewport_col = logical_col - preferred_display_col;
+   if (current_viewport_col < 0)
+      current_viewport_col = 0;
+   target_display_col = logical_col - current_viewport_col;
+   if (display_col != NULL)
+      *display_col = target_display_col;
+   if (visible != NULL)
+      *visible = window_cols > 0 && target_display_col < window_cols;
+   return current_viewport_col;
+#endif
+}
+
 short curses_driver_refresh_cursor(CHARTYPE scrno)
 {
    INTENTIONALLY_UNUSED_VARIABLE(scrno);
@@ -78,15 +135,16 @@ CursesDriverCursorTarget curses_driver_filearea_target(
    target.logical = cursor;
    target.viewport_col = viewport_col;
    target.window_cols = window_cols;
+   target.raw_display_col = 0;
    target.display_col = 0;
    target.visible = 0;
    if (!cursor.valid)
       return target;
-   target.display_col = curses_driver_display_col_from_logical(
+   target.raw_display_col = curses_driver_display_col_from_logical(
       line, len, viewport_col, cursor.text.cell_column);
    target.visible = cursor.text.cell_column >= viewport_col
-                 && (window_cols <= 0 || target.display_col < window_cols);
-   target.display_col = curses_driver_clamp_display_col(target.display_col,
+                 && (window_cols <= 0 || target.raw_display_col < window_cols);
+   target.display_col = curses_driver_clamp_display_col(target.raw_display_col,
                                                         window_cols);
    return target;
 }
@@ -106,6 +164,7 @@ short curses_driver_move_filearea_cursor(CHARTYPE scrno, struct view_details *vi
    target = curses_driver_filearea_target(cursor, line, len,
                                           (int)view->verify_col - 1,
                                           screen[scrno].cols[WINDOW_FILEAREA]);
+   logical_cursor_state_focus(&view->logical_cursor, cursor);
    wmove(SCREEN_WINDOW_FILEAREA(scrno), row, target.display_col);
    return RC_OK;
 }
@@ -130,7 +189,9 @@ short curses_driver_filearea_cursor_transition(CHARTYPE scrno,
    if (view == NULL
    ||  view->verify_col != old_verify_col
    ||  new_row != old_row)
+   {
       return curses_driver_redraw_screen_cursor(scrno, view);
+   }
 
    viewport_col = (int)view->verify_col - 1;
 #ifdef USE_UTF8

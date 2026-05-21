@@ -1,6 +1,6 @@
 # UTF-8 Enablement Handover
 
-Last updated: 2026-05-20.
+Last updated: 2026-05-21.
 
 ## Current State
 
@@ -61,6 +61,50 @@ strategy because the terminal state to the left can affect the physical cells
 being touched. The same rule applies after line end: synthetic visible cells
 past record end still use the line prefix, so a keycap/flag/ZWJ earlier on the
 visible line can keep the conservative repair strategy active.
+
+UTF file-area cursor movement now distinguishes logical viewport start from
+physical display visibility. `verify_col` remains a logical editor column, but
+the UTF branch of `execute_move_cursor()` asks the curses driver whether the
+target logical column is physically visible on the current line. That decision
+uses `src/utflayout.c`, so a line containing keycaps can shift the logical
+viewport before the old logical-only `column_in_view()` test would have done so.
+This is intentionally line-specific: the same logical cursor column may have a
+different physical display column on a plain ASCII line, a keycap line, a flag
+line, or a ZWJ/substitute-output line.
+
+Temporary cursor tracing has been removed from the baseline, but the important
+finding should be kept. The macOS build uses ncurses (`USE_NCURSES=1`, linked
+to `/usr/lib/libncurses.5.4.dylib`), not PDCurses. The focused trace across the
+keycap fixture showed THE advancing the logical target and curses-driver display
+target correctly through end-of-line. For example, a move to logical cell 25 on
+the three-keycap line mapped to display column 28, the virtual after-EOL span
+was selected, and the driver then moved to display column 28. The visible jump
+therefore does not look like a logical cursor or viewport calculation failure.
+
+The trace also showed why the diagnostic dot experiment was useful but not a
+real fix. Painting after-EOL cells as `.` suppressed the symptom because the
+terminal had visible non-space glyphs to materialize, while repainting normal
+spaces still left the issue. Span-clearing and per-cell blank trials did not
+produce a durable repair, so the remaining bug appears to sit below logical
+mapping in THE's curses refresh/materialization path or in terminal treatment of
+blank cells after keycap glyphs.
+
+The latest file-area repair path bounds suffix-strategy clearing to the visible
+span that can actually be affected by the old cursor, the new cursor, and the
+current logical line end. That keeps THE closer to the working probe sequence
+and avoids asking ncurses to clear long real-trailing-space runs when a short
+cursor repair is enough. File-area `SOS DELBACK` and `SOS DELCHAR` now use the
+logical UTF cursor and `TextPos` cluster byte ranges before mutating `rec`,
+instead of deriving edit offsets from the curses physical column.
+
+The next useful keycap step is a minimal one-line demonstrator, ideally with a
+single carefully chosen line containing keycaps followed by real spaces and then
+after-EOL cursor movement. Compare that against the probe's working
+`first`/`whole` paths by recording the logical cursor request and the physical
+curses operations emitted by the driver. THE must produce the same physical
+sequence through the curses driver, without changing or depending on ncurses
+internals and without putting class-specific keycap behavior into the logical
+layer.
 
 ## Important Artifacts
 
@@ -149,8 +193,9 @@ tests.
    materializes it on the terminal. This boundary maps logical cells to physical
    display columns, invokes the shared UTF repair planner, parks the hardware
    cursor when needed, and performs curses refreshes. Initial file-area
-   logical/display mapping and cursor transition/refresh adapter done; broader
-   repair ownership still needs to move fully behind the driver.
+   logical/display mapping, cursor transition/refresh adapter, and
+   physical-aware horizontal viewport selection done; broader repair ownership
+   still needs to move fully behind the driver.
 4. Move file-area cursor commands onto the logical model first. Left/right,
    up/down, home/end, virtual-space movement after end-of-line, and status
    reporting should update/query logical state; the curses driver then paints the

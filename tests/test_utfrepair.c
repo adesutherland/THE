@@ -121,6 +121,57 @@ static void test_cursor_line_context_can_select_worse_strategy(void)
 #endif
 }
 
+static void test_cursor_line_context_applies_inside_trailing_spaces(void)
+{
+#ifdef USE_UTF8PROC
+   static const CHARTYPE line[] = {
+      'A', '1', 0xEF, 0xB8, 0x8F, 0xE2, 0x83, 0xA3, 'B',
+      ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '
+   };
+   TextCluster old_cluster;
+   TextCluster new_cluster;
+   Utf8RepairPlan plan;
+
+   utf8_terminal_profile_reset();
+   old_cluster = cluster_at_cell(line, sizeof(line), 6);
+   new_cluster = cluster_at_cell(line, sizeof(line), 7);
+   plan = utf8_repair_plan_for_cursor(
+      line, sizeof(line), 0,
+      6,
+      old_cluster, 1, entry_for_cluster(line, sizeof(line), old_cluster),
+      7,
+      new_cluster, 1, entry_for_cluster(line, sizeof(line), new_cluster));
+
+   expect_int("cursor.context.trailing.strategy", plan.strategy,
+              UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST);
+   expect_int("cursor.context.trailing.class", plan.feature_class,
+              UTF8_TERM_CLASS_KEYCAP);
+   expect_int("cursor.context.trailing.start.valid", plan.start_valid, 1);
+   expect_int("cursor.context.trailing.start.cell", plan.start_pos.cell_column, 1);
+   expect_size("cursor.context.trailing.start.byte", plan.start_pos.byte_offset, 1);
+
+   expect_int("cursor.context.trailing.whole.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS keycap CURSORSTRATEGY whole"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   plan = utf8_repair_plan_for_cursor(
+      line, sizeof(line), 0,
+      6,
+      old_cluster, 1, entry_for_cluster(line, sizeof(line), old_cluster),
+      7,
+      new_cluster, 1, entry_for_cluster(line, sizeof(line), new_cluster));
+
+   expect_int("cursor.context.trailing.whole.strategy", plan.strategy,
+              UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST);
+   expect_int("cursor.context.trailing.whole.class", plan.feature_class,
+              UTF8_TERM_CLASS_KEYCAP);
+   expect_int("cursor.context.trailing.whole.start.cell",
+              plan.start_pos.cell_column, 0);
+   expect_size("cursor.context.trailing.whole.start.byte",
+               plan.start_pos.byte_offset, 0);
+#endif
+}
+
 static void test_cursor_line_context_ignores_future_feature(void)
 {
 #ifdef USE_UTF8PROC
@@ -421,6 +472,7 @@ int main(void)
 {
    test_cursor_keycap_first_feature();
    test_cursor_line_context_can_select_worse_strategy();
+   test_cursor_line_context_applies_inside_trailing_spaces();
    test_cursor_line_context_ignores_future_feature();
    test_cursor_line_context_applies_after_line_end();
    test_cursor_ascii_can_use_first_feature();

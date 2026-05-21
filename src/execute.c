@@ -2908,6 +2908,25 @@ short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTH
    {
       case WINDOW_FILEAREA:
          getyx( SCREEN_WINDOW(curr_screen), y, x );
+#ifdef USE_UTF8
+      {
+         int old_viewport_col = (int)curr_view->verify_col - 1;
+         int new_viewport_col;
+         int window_cols = screen[curr_screen].cols[WINDOW_FILEAREA];
+
+         new_viewport_col = curses_driver_viewport_col_for_logical(
+            rec, rec_len, old_viewport_col, (int)col, window_cols,
+            NULL, NULL);
+         if (curr_view->verify_col != (LENGTHTYPE)new_viewport_col + 1)
+         {
+            curr_view->verify_col = (LENGTHTYPE)new_viewport_col + 1;
+            build_screen(curr_screen);
+            display_screen(curr_screen);
+         }
+         curses_driver_move_filearea_cursor(curr_screen, curr_view,
+                                            rec, rec_len, y, (int)col);
+      }
+#else
          calculate_new_column( curr_screen, curr_view, x, curr_view->verify_col, col, &new_screen_col, &new_verify_col );
          if ( curr_view->verify_col != new_verify_col )
          {
@@ -2915,10 +2934,6 @@ short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTH
             build_screen( curr_screen );
             display_screen( curr_screen );
          }
-#ifdef USE_UTF8
-         curses_driver_move_filearea_cursor(curr_screen, curr_view,
-                                            rec, rec_len, y, (int)col);
-#else
          wmove( SCREEN_WINDOW(curr_screen), y, new_screen_col );
 #endif
          break;

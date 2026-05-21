@@ -45,9 +45,50 @@ static void test_keycap_physical_layout(void)
                                                    TEXT_SNAP_FORWARD), 2);
 }
 
+static void test_keycap_viewport_uses_physical_width(void)
+{
+   static const CHARTYPE keycaps[] = {
+      'A', '1', 0xEF, 0xB8, 0x8F, 0xE2, 0x83, 0xA3, 'B',
+      'A', '2', 0xEF, 0xB8, 0x8F, 0xE2, 0x83, 0xA3, 'B',
+      'A', '3', 0xEF, 0xB8, 0x8F, 0xE2, 0x83, 0xA3, 'B'
+   };
+   TextPos end;
+   Utf8LayoutViewport target;
+   int logical_col;
+   int logical_visible_cols = 15;
+
+   utf8_terminal_profile_reset();
+   utf8_terminal_profile_apply_line("SET UTF TERMINAL CLASS keycap LAYOUT 2 CURSOR 2");
+
+   end = textpos_from_byte(keycaps, sizeof(keycaps), sizeof(keycaps));
+   expect_int("keycaps.line.logical.width", end.cell_column, 9);
+   expect_int("keycaps.line.physical.width",
+              utf8_layout_display_col_from_logical(keycaps, sizeof(keycaps),
+                                                   0, end.cell_column),
+              12);
+
+   logical_col = 14;
+   expect_int("keycaps.logical.target.in.old.viewport",
+              logical_col < logical_visible_cols, 1);
+   expect_int("keycaps.physical.target.outside.old.viewport",
+              utf8_layout_display_col_from_logical(keycaps, sizeof(keycaps),
+                                                   0, logical_col)
+                 >= logical_visible_cols,
+              1);
+
+   target = utf8_layout_viewport_for_logical_col(keycaps, sizeof(keycaps),
+                                                 0, logical_col,
+                                                 logical_visible_cols);
+   expect_int("keycaps.viewport.shifted", target.viewport_col > 0, 1);
+   expect_int("keycaps.viewport.visible", target.visible, 1);
+   expect_int("keycaps.viewport.physical.in.range",
+              target.display_col < logical_visible_cols, 1);
+}
+
 int main(void)
 {
    test_keycap_physical_layout();
+   test_keycap_viewport_uses_physical_width();
 
    if (failures != 0)
    {
