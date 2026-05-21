@@ -127,6 +127,29 @@ static void test_physical_profile_does_not_change_logical_replace(void)
 #endif
 }
 
+static void test_physical_profile_does_not_change_logical_insert(void)
+{
+#ifdef USE_UTF8PROC
+   static const CHARTYPE keycap[] = { 'A', '1',
+                                      0xEF, 0xB8, 0x8F,
+                                      0xE2, 0x83, 0xA3, 'B' };
+   static const CHARTYPE want[] = { 'A', 'X', '1',
+                                    0xEF, 0xB8, 0x8F,
+                                    0xE2, 0x83, 0xA3, 'B' };
+   CHARTYPE line[64];
+   LENGTHTYPE len;
+
+   utf8_terminal_profile_reset();
+   utf8_terminal_profile_apply_line(
+      "SET UTF TERMINAL CLASS keycap LAYOUT 9 CURSOR 9");
+   copy_bytes(line, keycap, sizeof(keycap));
+   len = textedit_insert_utf8(line, sizeof(keycap), sizeof(line) - 1,
+                              1, (const CHARTYPE *)"X", 1);
+   expect_bytes("insert.ignores.physical.profile", line, len,
+                want, sizeof(want));
+#endif
+}
+
 int main(void)
 {
    test_replace_starts_at_cluster_boundary();
@@ -134,6 +157,7 @@ int main(void)
    test_insert_inside_cluster_uses_cluster_start();
    test_overlay_advances_by_logical_clusters();
    test_physical_profile_does_not_change_logical_replace();
+   test_physical_profile_does_not_change_logical_insert();
 
    if (failures != 0)
    {

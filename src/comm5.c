@@ -38,6 +38,26 @@
 #include <the.h>
 #include <proto.h>
 
+#ifdef USE_UTF8
+static int text_utf8_filearea_logical_cursor(unsigned short *row, int *cell)
+{
+   LogicalCursor logical;
+
+   if (CURRENT_VIEW == NULL)
+      return FALSE;
+   logical = CURRENT_VIEW->logical_cursor.current;
+   if (!logical.valid
+   ||  logical.zone != LOGICAL_CURSOR_ZONE_FILEAREA
+   ||  logical.line_number != CURRENT_VIEW->focus_line)
+      return FALSE;
+   if (row != NULL)
+      *row = (unsigned short)logical.zone_row;
+   if (cell != NULL)
+      *cell = logical.text.cell_column;
+   return TRUE;
+}
+#endif
+
 static bool ispf_special_lines_entry( short line_type, int ch, CHARTYPE real_key )
 {
    bool need_to_build_screen=FALSE;
@@ -536,6 +556,8 @@ short Text(CHARTYPE *params)
 #ifdef USE_UTF8
    bool utf8_filearea_text_edited=FALSE;
    LENGTHTYPE utf8_filearea_next_cell=0;
+   unsigned short utf8_filearea_row=0;
+   int utf8_filearea_cell=(-1);
 #endif
 
    TRACE_FUNCTION("comm5.c:   Text");
@@ -592,6 +614,16 @@ short Text(CHARTYPE *params)
 #endif
 
       getyx( CURRENT_WINDOW, y, x );
+#ifdef USE_UTF8
+      utf8_filearea_cell = (-1);
+      utf8_filearea_row = y;
+      if ( CURRENT_VIEW->current_window == WINDOW_FILEAREA
+      &&   text_utf8_filearea_logical_cursor(&utf8_filearea_row,
+                                             &utf8_filearea_cell) )
+      {
+         y = utf8_filearea_row;
+      }
+#endif
 
 #if defined(USE_EXTCURSES)
       attr = CURRENT_WINDOW->_a[y][x];
@@ -628,10 +660,13 @@ short Text(CHARTYPE *params)
             }
 #ifdef USE_UTF8
             {
-               LENGTHTYPE logical_cell = show_utf8_logical_col_from_display(rec, rec_len,
-                                                                             CURRENT_VIEW->verify_col - 1,
-                                                                             x,
-                                                                             TEXT_SNAP_BACKWARD);
+               LENGTHTYPE logical_cell = (utf8_filearea_cell >= 0)
+                                       ? utf8_filearea_cell
+                                       : show_utf8_logical_col_from_display(
+                                            rec, rec_len,
+                                            CURRENT_VIEW->verify_col - 1,
+                                            x,
+                                            TEXT_SNAP_BACKWARD);
                TextPos edit_pos = textpos_from_cell(rec, rec_len,
                                                      logical_cell,
                                                      TEXT_SNAP_BACKWARD);
@@ -714,10 +749,13 @@ short Text(CHARTYPE *params)
             if ( CURRENT_VIEW->wordwrap
             &&   rec_len > CURRENT_VIEW->margin_right )
 #ifdef USE_UTF8
-               execute_wrap_word(show_utf8_logical_col_from_display(rec, rec_len,
-                                                                     CURRENT_VIEW->verify_col - 1,
-                                                                     x,
-                                                                     TEXT_SNAP_BACKWARD) + 1);
+               execute_wrap_word(((utf8_filearea_cell >= 0)
+                                  ? (LENGTHTYPE)utf8_filearea_cell
+                                  : show_utf8_logical_col_from_display(
+                                       rec, rec_len,
+                                       CURRENT_VIEW->verify_col - 1,
+                                       x,
+                                       TEXT_SNAP_BACKWARD)) + 1);
 #else
                execute_wrap_word( x + CURRENT_VIEW->verify_col );
 #endif

@@ -47,17 +47,32 @@ static short sosdelback ( bool );
 static short sosdelchar ( bool );
 
 #ifdef USE_UTF8
-static int sos_utf8_filearea_current_cell(unsigned short y, unsigned short x)
+static int sos_utf8_filearea_logical_cursor(unsigned short *row, int *cell)
 {
    LogicalCursor logical;
 
    logical = CURRENT_VIEW->logical_cursor.current;
    if (logical.valid
    &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
-   &&  logical.line_number == CURRENT_VIEW->focus_line
-   &&  logical.zone_row == y)
-      return logical.text.cell_column;
+   &&  logical.line_number == CURRENT_VIEW->focus_line)
+   {
+      if (row != NULL)
+         *row = (unsigned short)logical.zone_row;
+      if (cell != NULL)
+         *cell = logical.text.cell_column;
+      return TRUE;
+   }
+   return FALSE;
+}
 
+static int sos_utf8_filearea_current_cell(unsigned short y, unsigned short x)
+{
+   int cell;
+
+   if (sos_utf8_filearea_logical_cursor(NULL, &cell))
+      return cell;
+
+   INTENTIONALLY_UNUSED_VARIABLE(y);
    return show_utf8_logical_col_from_display(rec, rec_len,
                                              CURRENT_VIEW->verify_col - 1,
                                              x, TEXT_SNAP_BACKWARD);
@@ -2933,6 +2948,15 @@ static short sosdelback( bool cua )
    short rc=RC_OK;
 
    getyx( CURRENT_WINDOW, y, x );
+#ifdef USE_UTF8
+   if (CURRENT_VIEW->current_window == WINDOW_FILEAREA)
+   {
+      unsigned short logical_y = y;
+
+      if (sos_utf8_filearea_logical_cursor(&logical_y, NULL))
+         y = logical_y;
+   }
+#endif
    switch( CURRENT_VIEW->current_window )
    {
       case WINDOW_FILEAREA:
@@ -3175,6 +3199,15 @@ static short sosdelchar( bool cua )
    short rc=RC_OK;
 
    getyx( CURRENT_WINDOW, y, x );
+#ifdef USE_UTF8
+   if (CURRENT_VIEW->current_window == WINDOW_FILEAREA)
+   {
+      unsigned short logical_y = y;
+
+      if (sos_utf8_filearea_logical_cursor(&logical_y, NULL))
+         y = logical_y;
+   }
+#endif
    switch ( CURRENT_VIEW->current_window )
    {
       case WINDOW_COMMAND:
