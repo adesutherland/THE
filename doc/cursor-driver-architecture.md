@@ -1,0 +1,149 @@
+# Cursor Driver Architecture
+
+Last updated: 2026-05-21.
+
+## Goal
+
+THE must separate editor intent from terminal mechanics. Editor commands should
+work in logical terms: file lines, screen rows, logical text cells, grapheme
+clusters, command-line text, prefix text, and focus zones. Physical drivers then
+materialize that logical state for curses, an LLM client, or another future UI.
+
+The rule is:
+
+```text
+editor command -> logical UI model -> physical driver
+physical input -> normalized input event -> editor command
+```
+
+Editor command code must not infer logical state from curses cursor state. UTF
+repair strategies, cursor widths, replacement widths, and terminal quirks are
+physical concerns and belong behind the physical driver boundary.
+
+## Ownership
+
+### Logical Layer
+
+The logical layer owns:
+
+- focused zone: file area, prefix, command line, prompt/dialog, status.
+- logical file line number.
+- logical screen row and row role.
+- logical text position (`TextPos`) and desired horizontal cell.
+- logical viewport start (`verify_col` as a logical column).
+- editable/non-editable row decisions.
+- text mutation byte ranges derived from logical `TextPos`.
+
+The logical layer may use `textpos`, `logcursor`, `utflayout`, and terminal
+profile metadata where it needs to ask whether a logical cursor is physically
+visible. It must not call curses.
+
+### Physical Driver Layer
+
+The physical driver owns:
+
+- curses `WINDOW *` access.
+- `getyx`, `wmove`, `wadd*`, `mvwadd*`, `touchline`, `wnoutrefresh`,
+  `doupdate`, and hardware cursor parking.
+- logical-to-physical display column mapping.
+- software cursor painting.
+- UTF repair strategy execution.
+- physical refresh ordering.
+
+For the current curses UI, this boundary is implemented by `cursesdriver.c`
+plus the rendering code that is being moved behind it from `show.c`.
+
+### Input Drivers
+
+Input drivers own device-specific input collection. They return normalized
+events: text input, named keys, mouse hit requests, and command submission.
+Command dispatch should consume normalized input and logical cursor state rather
+than raw curses coordinates.
+
+The LLM driver must use the same normalized input and logical screen model, so
+an LLM client exercises the same editor behavior as a curses terminal.
+
+## Current Problem
+
+The current implementation still has multiple physical cursor authorities:
+
+- `cursor.c` directly reads and writes curses cursor positions.
+- `execute.c`, `comm5.c`, and `commsos.c` contain direct `getyx`/`wmove`
+  cursor paths.
+- `show.c` captures a physical cursor position, paints software cursor overlays
+  in several branches, and then restores curses cursor state.
+- `cursesdriver.c` owns only part of the file-area UTF cursor path.
+
+The visible symptoms follow from that split authority: EOF/prefix underline,
+stale software cursor after scroll, incorrect after-EOL edits, and keycap
+cursor jumps can all be caused by stale or inconsistent physical cursor state
+being treated as logical editor state.
+
+## Refactor Sequence
+
+Each step is intended to be buildable, testable, and committable.
+
+1. Record architecture and add guardrails.
+   Add this document, update `doc/utf-handover.md`, and add a script/CTest that
+   reports direct curses calls outside the approved driver/rendering boundary.
+
+2. Add logical UI frame and fake driver types.
+   Introduce small driver-neutral structures for row roles, logical cells,
+   cursor overlays, and physical operation recording. Add unit coverage before
+   changing live behavior.
+
+3. Route file-area cursor movement through logical requests.
+   `THEcursor_left/right/up/down/home/move/goto/file` should update
+   `VIEW_DETAILS.logical_cursor` and ask the curses driver to materialize the
+   result. Direct `wmove`/`getyx` use in these paths should disappear.
+
+4. Route file-area editing through logical positions.
+   `Text`, `SOS DELBACK`, `SOS DELCHAR`, word movement, tab movement, and
+   after-EOL behavior should derive byte offsets from logical `TextPos`, not
+   from curses `x`.
+
+5. Consolidate software cursor painting.
+   Remove per-branch cursor overlays in `show.c`. Rendering should build a
+   logical frame with at most one cursor overlay for the active zone, and the
+   curses driver should paint it once.
+
+6. Bring prefix and command line under the same model.
+   Prefix and command-line editing get logical cursor state, logical viewport,
+   and driver-owned rendering just like the file area.
+
+7. Normalize input.
+   Convert curses keyboard/mouse input into normalized input events before
+   command dispatch. Route LLM input through the same event type.
+
+8. Tighten guardrails.
+   Once the migration is complete, make the curses-boundary test strict: editor
+   logic files may not call curses directly. Obsolete legacy platform paths
+   outside macOS, Linux, and Windows can be removed when they block the cleanup.
+
+## Testing Strategy
+
+Every step should run:
+
+```sh
+cmake --build cmake-build-debug -j2
+ctest --test-dir cmake-build-debug --output-on-failure
+```
+
+Coverage should increase as ownership moves:
+
+- logical cursor unit tests for file-area, prefix, command line, virtual cells,
+  and row roles.
+- fake-driver tests for physical operations requested by keycap, flag, ZWJ, and
+  ASCII lines.
+- fixture validation for `tests/fixtures/utf-render.txt` and focused keycap
+  demonstrators.
+- manual macOS terminal smoke tests only after unit/fake-driver behavior is
+  deterministic.
+
+## Keycap Debugging Rule
+
+Do not special-case keycaps in editor logic. Keycaps are just one terminal
+profile class that can select conservative physical repair strategies. If a
+keycap line fails but ZWJ works, compare logical frame output and driver
+operation logs. Fix the shared driver path, strategy planner, or terminal
+profile, not logical cluster boundaries.
