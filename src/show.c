@@ -1728,25 +1728,8 @@ void display_filetabs( VIEW_DETAILS *start)
 void redraw_window(WINDOW *win)
 /***********************************************************************/
 {
-   register short i=0,j=0;
-   chtype ch=0;
-   CursesDriverWindowCursor cursor;
-
    TRACE_FUNCTION( "show.c:    redraw_window" );
-   cursor = curses_driver_capture_window_cursor(win);
-   for ( i = 0; i < getmaxx( win ); i++ )
-   {
-      for ( j = 0; j < getmaxy( win ); j++ )
-      {
-         curses_driver_move_window_cursor(win, j, i);
-         ch = curses_driver_read_window_cell(win);
-#ifndef VMS
-         ch &= A_CHARTEXT;
-#endif
-         put_char( win, ch, ADDCHAR );
-      }
-   }
-   curses_driver_restore_window_cursor(win, cursor);
+   curses_driver_redraw_window(win);
    TRACE_RETURN();
    return;
 }

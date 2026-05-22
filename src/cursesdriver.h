@@ -74,6 +74,7 @@ void curses_driver_add_chtype(WINDOW *win, chtype ch);
 #ifdef USE_UTF8
 void curses_driver_add_cchar(WINDOW *win, const cchar_t *ch);
 #endif
+void curses_driver_redraw_window(WINDOW *win);
 short curses_driver_refresh_cursor(CHARTYPE scrno);
 short curses_driver_redraw_screen_cursor(CHARTYPE scrno, struct view_details *view);
 CursesDriverCursorTarget curses_driver_filearea_target(

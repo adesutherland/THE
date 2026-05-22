@@ -371,6 +371,32 @@ void curses_driver_add_cchar(WINDOW *win, const cchar_t *ch)
 }
 #endif
 
+void curses_driver_redraw_window(WINDOW *win)
+{
+   short i;
+   short j;
+   chtype ch;
+   CursesDriverWindowCursor cursor;
+
+   if (win == NULL)
+      return;
+
+   cursor = curses_driver_capture_window_cursor(win);
+   for (i = 0; i < getmaxx(win); i++)
+   {
+      for (j = 0; j < getmaxy(win); j++)
+      {
+         curses_driver_move_window_cursor(win, j, i);
+         ch = curses_driver_read_window_cell(win);
+#ifndef VMS
+         ch &= A_CHARTEXT;
+#endif
+         put_char(win, ch, ADDCHAR);
+      }
+   }
+   curses_driver_restore_window_cursor(win, cursor);
+}
+
 short curses_driver_refresh_cursor(CHARTYPE scrno)
 {
    INTENTIONALLY_UNUSED_VARIABLE(scrno);
