@@ -1089,6 +1089,7 @@ short THEcursor_left(short escreen,bool kedit_defaults)
 /***********************************************************************/
 {
    unsigned short x=0,y=0;
+   CursesDriverWindowCursor cursor;
    short rc=RC_OK;
 
    /*
@@ -1110,13 +1111,18 @@ short THEcursor_left(short escreen,bool kedit_defaults)
       return(rc);
    }
 #endif
-   getyx(CURRENT_WINDOW,y,x);
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   if (cursor.valid)
+   {
+      y = cursor.row;
+      x = cursor.col;
+   }
    /*
     * For all windows, if we are not at left column, move 1 pos to left.
     */
    if ( x > 0 )
    {
-      wmove( CURRENT_WINDOW, y, x - 1 );
+      curses_driver_move_window_cursor(CURRENT_WINDOW, y, x - 1);
       cursor_focus_redraw_if_software(current_screen, CURRENT_VIEW);
       TRACE_RETURN();
       return(RC_OK);
@@ -1167,7 +1173,8 @@ short THEcursor_left(short escreen,bool kedit_defaults)
                   CURRENT_VIEW->verify_col = CURRENT_VIEW->verify_col-num_cols;
                build_screen( current_screen );
                display_screen( current_screen );
-               wmove( CURRENT_WINDOW, y, curr_col - CURRENT_VIEW->verify_col );
+               curses_driver_move_window_cursor(
+                  CURRENT_WINDOW, y, curr_col - CURRENT_VIEW->verify_col);
             }
             else
             {
@@ -1177,7 +1184,8 @@ short THEcursor_left(short escreen,bool kedit_defaults)
                    if (rc == RC_OK && CURRENT_WINDOW_PREFIX != NULL)
                    {
                        int prefix_w = getmaxx(CURRENT_WINDOW_PREFIX);
-                       wmove(CURRENT_WINDOW_PREFIX, y, prefix_w - 1);
+                       curses_driver_move_window_cursor(CURRENT_WINDOW_PREFIX,
+                                                        y, prefix_w - 1);
                    }
                }
             }
@@ -1195,7 +1203,8 @@ short THEcursor_left(short escreen,bool kedit_defaults)
                cmd_verify_col = 1;
             else
                cmd_verify_col = cmd_verify_col - num_cols;
-            wmove( CURRENT_WINDOW, y, curr_col - cmd_verify_col );
+            curses_driver_move_window_cursor(CURRENT_WINDOW, y,
+                                             curr_col - cmd_verify_col);
             display_cmdline( current_screen, CURRENT_VIEW );
             cursor_focus_refresh( current_screen, CURRENT_VIEW );
          }
@@ -1223,6 +1232,7 @@ short THEcursor_right(short escreen,bool kedit_defaults)
 /***********************************************************************/
 {
    unsigned short x=0,y=0,tempx=0;
+   CursesDriverWindowCursor cursor;
    COLTYPE right_column=0;
    short rc=RC_OK;
 
@@ -1240,7 +1250,12 @@ short THEcursor_right(short escreen,bool kedit_defaults)
       return(rc);
    }
 #endif
-   getyx(CURRENT_WINDOW,y,x);
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   if (cursor.valid)
+   {
+      y = cursor.row;
+      x = cursor.col;
+   }
    right_column = getmaxx( CURRENT_WINDOW ) - 1;
    if ( CURRENT_VIEW->current_window == WINDOW_FILEAREA )
    {
@@ -1280,7 +1295,7 @@ short THEcursor_right(short escreen,bool kedit_defaults)
     */
    if ( x < right_column )
    {
-      wmove( CURRENT_WINDOW, y, x+1 );
+      curses_driver_move_window_cursor(CURRENT_WINDOW, y, x + 1);
       cursor_focus_redraw_if_software(current_screen, CURRENT_VIEW);
       TRACE_RETURN();
       return(RC_OK);
@@ -1297,7 +1312,7 @@ short THEcursor_right(short escreen,bool kedit_defaults)
             if (CURRENT_VIEW->prefix)
                rc = Sos_prefix((CHARTYPE *)"");
             else
-               wmove(CURRENT_WINDOW,y,0); /* this should move down a line too */
+               curses_driver_move_window_cursor(CURRENT_WINDOW, y, 0); /* this should move down a line too */
          }
          else
          {
@@ -1312,7 +1327,8 @@ short THEcursor_right(short escreen,bool kedit_defaults)
                CURRENT_VIEW->verify_col += num_cols;
                build_screen(current_screen);
                display_screen(current_screen);
-               wmove(CURRENT_WINDOW,y,curr_col-CURRENT_VIEW->verify_col+2);
+               curses_driver_move_window_cursor(
+                  CURRENT_WINDOW, y, curr_col - CURRENT_VIEW->verify_col + 2);
             }
          }
          break;
@@ -1329,7 +1345,8 @@ short THEcursor_right(short escreen,bool kedit_defaults)
 
             num_cols = min( num_cols, CURRENT_SCREEN.cols[WINDOW_COMMAND] );
             cmd_verify_col += num_cols;
-            wmove( CURRENT_WINDOW, y, curr_col - cmd_verify_col + 2 );
+            curses_driver_move_window_cursor(CURRENT_WINDOW, y,
+                                             curr_col - cmd_verify_col + 2);
             display_cmdline( current_screen, CURRENT_VIEW );
             cursor_focus_refresh( current_screen, CURRENT_VIEW );
          }
