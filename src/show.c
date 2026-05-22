@@ -1036,6 +1036,27 @@ static int show_filearea_cursor_display_col(const UiFrame *frame, CHARTYPE scrno
    return cursor_focus_filearea_display_cursor(scrno, row, col);
 }
 
+static void show_draw_filearea_marker_cursor(const UiFrame *frame, CHARTYPE scrno,
+                                             short row, LINETYPE line_number,
+                                             UiRowRole role, chtype normal)
+{
+   int cursor_col = 0;
+   CursorShape cursor_shape = CURSOR_BLOCK;
+
+   if (frame != NULL)
+   {
+      if (!show_frame_cursor_col(frame, role, line_number, row,
+                                 (int)SCREEN_VIEW(scrno)->verify_col - 1,
+                                 &cursor_col, &cursor_shape))
+         return;
+   }
+   else if (!cursor_focus_filearea_cursor(scrno, row, &cursor_col, &cursor_shape))
+      return;
+
+   show_draw_software_chtype_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno), row,
+                                  cursor_col, normal, cursor_shape);
+}
+
 static void show_draw_software_command_cursor(CHARTYPE scrno, VIEW_DETAILS *view)
 {
    short row = 0;
@@ -3454,6 +3475,11 @@ static void show_lines(CHARTYPE scrno)
                            (SCREEN_VIEW(scrno)->tofeof) ? strlen( (DEFCHAR *)TOP_OF_FILE ) : 0,
                            i,
                            filearea_cols);
+#ifdef USE_UTF8
+         show_draw_filearea_marker_cursor(cursor_frame, scrno, i,
+                                          scurr->line_number, UI_ROW_TOF,
+                                          scurr->normal_colour);
+#endif
          continue;
       }
       if (scurr->line_type == LINE_EOF)
@@ -3465,6 +3491,11 @@ static void show_lines(CHARTYPE scrno)
                            (SCREEN_VIEW(scrno)->tofeof) ? strlen( (DEFCHAR *)BOTTOM_OF_FILE ) : 0,
                            i,
                            filearea_cols);
+#ifdef USE_UTF8
+         show_draw_filearea_marker_cursor(cursor_frame, scrno, i,
+                                          scurr->line_number, UI_ROW_EOF,
+                                          scurr->normal_colour);
+#endif
          continue;
       }
       /*

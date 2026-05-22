@@ -33,16 +33,17 @@ static void test_row_roles(void)
    expect_int("role.file.cursor", ui_row_role_allows_cursor(UI_ROW_FILE), 1);
    expect_int("role.prefix.cursor", ui_row_role_allows_cursor(UI_ROW_PREFIX), 1);
    expect_int("role.command.cursor", ui_row_role_allows_cursor(UI_ROW_COMMAND), 1);
-   expect_int("role.eof.cursor", ui_row_role_allows_cursor(UI_ROW_EOF), 0);
-   expect_int("role.tof.cursor", ui_row_role_allows_cursor(UI_ROW_TOF), 0);
+   expect_int("role.eof.cursor", ui_row_role_allows_cursor(UI_ROW_EOF), 1);
+   expect_int("role.tof.cursor", ui_row_role_allows_cursor(UI_ROW_TOF), 1);
    expect_int("role.status.cursor", ui_row_role_allows_cursor(UI_ROW_STATUS), 0);
    expect_int("role.hex.cursor", ui_row_role_allows_cursor(UI_ROW_HEX), 0);
 }
 
-static void test_frame_rejects_eof_cursor(void)
+static void test_frame_accepts_eof_navigation_cursor(void)
 {
    UiFrame frame;
    LogicalCursor cursor;
+   LogicalCursor found;
 
    ui_frame_init(&frame, 24, 80);
    expect_int("frame.set.file", ui_frame_set_row(&frame, 0, UI_ROW_FILE,
@@ -56,8 +57,13 @@ static void test_frame_rejects_eof_cursor(void)
    cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_FILEAREA, 2, 1,
                                 textpos_from_cell_virtual(NULL, 0, 4,
                                                           TEXT_SNAP_BACKWARD));
-   expect_int("frame.eof.cursor.rejected", ui_frame_set_cursor(&frame, cursor), 0);
-   expect_int("frame.eof.cursor.valid", frame.cursor.valid, 0);
+   expect_int("frame.eof.cursor.accepted", ui_frame_set_cursor(&frame, cursor), 1);
+   expect_int("frame.eof.cursor.valid", frame.cursor.valid, 1);
+   expect_int("frame.eof.cursor.find",
+              ui_frame_cursor_for_row(&frame, UI_ROW_EOF, 2, 1, &found), 1);
+   expect_int("frame.eof.cursor.cell", found.text.cell_column, 4);
+   expect_int("frame.eof.cursor.not.file",
+              ui_frame_cursor_for_row(&frame, UI_ROW_FILE, 2, 1, &found), 0);
 }
 
 static void test_cursor_must_match_row_role_and_line(void)
@@ -155,7 +161,7 @@ static void test_fake_driver_materializes_cursor_once(void)
 int main(void)
 {
    test_row_roles();
-   test_frame_rejects_eof_cursor();
+   test_frame_accepts_eof_navigation_cursor();
    test_cursor_must_match_row_role_and_line();
    test_cursor_for_row_handles_shared_prefix_row();
    test_fake_driver_materializes_cursor_once();

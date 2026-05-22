@@ -48,10 +48,10 @@ int ui_row_role_allows_cursor(UiRowRole role)
       case UI_ROW_PREFIX:
       case UI_ROW_COMMAND:
       case UI_ROW_PROMPT:
-         return 1;
-      case UI_ROW_EMPTY:
       case UI_ROW_TOF:
       case UI_ROW_EOF:
+         return 1;
+      case UI_ROW_EMPTY:
       case UI_ROW_RESERVED:
       case UI_ROW_BOUNDS:
       case UI_ROW_SCALE:
@@ -63,6 +63,13 @@ int ui_row_role_allows_cursor(UiRowRole role)
       default:
          return 0;
    }
+}
+
+static int ui_row_role_displays_filearea_cursor(UiRowRole role)
+{
+   return role == UI_ROW_FILE
+       || role == UI_ROW_TOF
+       || role == UI_ROW_EOF;
 }
 
 UiRowRole ui_row_role_from_cursor_zone(LogicalCursorZone zone)
@@ -160,9 +167,16 @@ int ui_frame_find_cursor_row(const UiFrame *frame, LogicalCursor cursor,
       }
       if (!ui_row_role_allows_cursor(row->role))
          continue;
-      if (row->role != role)
+      if (role == UI_ROW_FILE)
+      {
+         if (!ui_row_role_displays_filearea_cursor(row->role))
+            continue;
+      }
+      else if (row->role != role)
+      {
          continue;
-      if (row->role == UI_ROW_FILE && row->line_number != cursor.line_number)
+      }
+      if (role == UI_ROW_FILE && row->line_number != cursor.line_number)
          continue;
       if (index != NULL)
          *index = i;
@@ -188,11 +202,21 @@ int ui_frame_cursor_for_row(const UiFrame *frame, UiRowRole role,
 
    row = &frame->row[index];
    cursor_role = ui_row_role_from_cursor_zone(frame->cursor.cursor.zone);
-   if (cursor_role != role)
+   if (cursor_role == UI_ROW_FILE)
+   {
+      if (!ui_row_role_displays_filearea_cursor(role))
+         return 0;
+      if (row->role != role)
+         return 0;
+   }
+   else if (cursor_role != role)
+   {
       return 0;
+   }
    if (row->screen_row != screen_row)
       return 0;
-   if ((role == UI_ROW_FILE || role == UI_ROW_PREFIX)
+   if (((cursor_role == UI_ROW_FILE && ui_row_role_displays_filearea_cursor(role))
+    ||  role == UI_ROW_PREFIX)
    &&  row->line_number != line_number)
       return 0;
    if (cursor != NULL)

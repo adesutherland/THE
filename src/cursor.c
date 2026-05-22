@@ -107,15 +107,21 @@ static bool cursor_focus_capture_filearea_logical(CHARTYPE scrno, VIEW_DETAILS *
       return FALSE;
 
    show_row = &screen[scrno].sl[logical.zone_row];
-   if (show_row->line_type == LINE_TOF
-   ||  show_row->line_type == LINE_EOF
-   ||  show_row->line_type == LINE_OUT_OF_BOUNDS_ABOVE
+   if (show_row->line_type == LINE_OUT_OF_BOUNDS_ABOVE
    ||  show_row->line_type == LINE_OUT_OF_BOUNDS_BELOW
    ||  show_row->line_number != logical.line_number)
       return FALSE;
 
-   line = (show_row->contents != NULL) ? show_row->contents : rec;
-   len = (show_row->contents != NULL) ? show_row->length : rec_len;
+   if (show_row->line_type == LINE_TOF || show_row->line_type == LINE_EOF)
+   {
+      line = (const CHARTYPE *)"";
+      len = 0;
+   }
+   else
+   {
+      line = (show_row->contents != NULL) ? show_row->contents : rec;
+      len = (show_row->contents != NULL) ? show_row->length : rec_len;
+   }
    viewport_col = (int)view->verify_col - 1;
    cursor_focus_snapshot.valid = TRUE;
    cursor_focus_snapshot.screen = scrno;
@@ -190,15 +196,20 @@ static void cursor_focus_store_filearea_logical(CHARTYPE scrno, VIEW_DETAILS *vi
    if (display_col < 0)
       display_col = 0;
    show_row = &screen[scrno].sl[row];
-   if (show_row->line_type == LINE_TOF
-   ||  show_row->line_type == LINE_EOF
-   ||  show_row->line_type == LINE_OUT_OF_BOUNDS_ABOVE
-   ||  show_row->line_type == LINE_OUT_OF_BOUNDS_BELOW
-   ||  show_row->line_number == 0)
+   if (show_row->line_type == LINE_OUT_OF_BOUNDS_ABOVE
+   ||  show_row->line_type == LINE_OUT_OF_BOUNDS_BELOW)
       return;
 
-   line = (show_row->contents != NULL) ? show_row->contents : rec;
-   len = (show_row->contents != NULL) ? show_row->length : rec_len;
+   if (show_row->line_type == LINE_TOF || show_row->line_type == LINE_EOF)
+   {
+      line = (const CHARTYPE *)"";
+      len = 0;
+   }
+   else
+   {
+      line = (show_row->contents != NULL) ? show_row->contents : rec;
+      len = (show_row->contents != NULL) ? show_row->length : rec_len;
+   }
    viewport_col = (int)view->verify_col - 1;
    logical_col = curses_driver_logical_col_from_display(line, len,
                                                         viewport_col,

@@ -97,6 +97,14 @@ static void test_builds_filearea_frame(void)
    expect_int("screenframe.cursor.valid", frame.cursor.valid, 1);
    expect_int("screenframe.cursor.row", frame.cursor.cursor.zone_row, 1);
    expect_int("screenframe.eof.role", frame.row[2].role, UI_ROW_EOF);
+
+   cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_FILEAREA, 43, 2,
+                                textpos_from_cell_virtual(NULL, 0, 0,
+                                                          TEXT_SNAP_BACKWARD));
+   logical_cursor_state_focus(&view.logical_cursor, cursor);
+   expect_int("screenframe.eof.cursor.build", screenframe_build(0, &frame), 1);
+   expect_int("screenframe.eof.cursor.valid", frame.cursor.valid, 1);
+   expect_int("screenframe.eof.cursor.row", frame.cursor.cursor.zone_row, 2);
 }
 
 int main(void)
