@@ -1438,11 +1438,18 @@ short THEcursor_move( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool show_e
    unsigned short x=0,y=0;
    unsigned short max_row=0,min_row=0,max_col=0;
    short idx=(-1);
+   CursesDriverWindowCursor cursor;
    SHOW_LINE *show_row=NULL;
 
    TRACE_FUNCTION("cursor.c:  THEcursor_move");
 
-   getyx( SCREEN_WINDOW_FILEAREA(curr_screen), y, x );
+   cursor = curses_driver_capture_window_cursor(
+      SCREEN_WINDOW_FILEAREA(curr_screen));
+   if (cursor.valid)
+   {
+      y = cursor.row;
+      x = cursor.col;
+   }
    /*
     * Always post_process_line() for CURRENT_VIEW
     */
@@ -1508,7 +1515,8 @@ short THEcursor_move( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool show_e
             curr_view->current_window = WINDOW_FILEAREA;
             break;
       }
-      wmove( SCREEN_WINDOW_FILEAREA(curr_screen), row, col );
+      curses_driver_move_window_cursor(SCREEN_WINDOW_FILEAREA(curr_screen),
+                                       row, col);
       curr_view->focus_line = screen[curr_screen].sl[row].line_number;
       pre_process_line( curr_view, curr_view->focus_line, (LINE *)NULL );
       cursor_utf8_snap_filearea_to_cluster_start(curr_screen, curr_view);
@@ -1593,7 +1601,8 @@ short THEcursor_move( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool show_e
             }
             rc = do_Sos_current( (CHARTYPE *)"", curr_screen, curr_view );
             rc = do_Sos_prefix( (CHARTYPE *)"", curr_screen, curr_view );
-            wmove( SCREEN_WINDOW_PREFIX(curr_screen), row, col );
+            curses_driver_move_window_cursor(SCREEN_WINDOW_PREFIX(curr_screen),
+                                             row, col);
             curr_view->focus_line = screen[curr_screen].sl[row].line_number;
             pre_process_line( curr_view, curr_view->focus_line, (LINE *)NULL );
             break;
