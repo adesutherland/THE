@@ -283,6 +283,15 @@ void curses_driver_restore_window_cursor(WINDOW *win,
    curses_driver_move_window_cursor(win, cursor.row, cursor.col);
 }
 
+void curses_driver_clear_line_at(WINDOW *win, short row, chtype colour)
+{
+   if (win == NULL)
+      return;
+   curses_driver_move_window_cursor(win, row, 0);
+   wattrset(win, colour);
+   my_wclrtoeol(win);
+}
+
 short curses_driver_refresh_cursor(CHARTYPE scrno)
 {
    INTENTIONALLY_UNUSED_VARIABLE(scrno);

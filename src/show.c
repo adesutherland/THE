@@ -3349,9 +3349,8 @@ static void show_lines(CHARTYPE scrno)
        */
       if (scurr->line_type & LINE_HEXSHOW)
       {
-         wmove(screen_window_filearea,i,0);
-         wattrset(screen_window_filearea,scurr->normal_colour);
-         my_wclrtoeol(screen_window_filearea);
+         curses_driver_clear_line_at(screen_window_filearea, i,
+                                     scurr->normal_colour);
          show_hex_line(scrno,i);
          continue;
       }

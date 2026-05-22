@@ -56,6 +56,7 @@ CursesDriverWindowCursor curses_driver_capture_window_cursor(WINDOW *win);
 void curses_driver_move_window_cursor(WINDOW *win, short row, short col);
 void curses_driver_restore_window_cursor(WINDOW *win,
                                          CursesDriverWindowCursor cursor);
+void curses_driver_clear_line_at(WINDOW *win, short row, chtype colour);
 short curses_driver_refresh_cursor(CHARTYPE scrno);
 short curses_driver_redraw_screen_cursor(CHARTYPE scrno, struct view_details *view);
 CursesDriverCursorTarget curses_driver_filearea_target(
