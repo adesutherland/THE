@@ -76,6 +76,8 @@ static void test_builds_filearea_frame(void)
    strcpy((char *)rows[1].prefix, "000042");
    rows[2].line_type = LINE_EOF;
    rows[2].line_number = 43;
+   rows[2].prefix_enterable = TRUE;
+   strcpy((char *)rows[2].prefix, "======");
 
    cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_FILEAREA, 42, 1,
                                 textpos_from_cell_virtual(NULL, 0, 3,
@@ -105,6 +107,16 @@ static void test_builds_filearea_frame(void)
    expect_int("screenframe.eof.cursor.build", screenframe_build(0, &frame), 1);
    expect_int("screenframe.eof.cursor.valid", frame.cursor.valid, 1);
    expect_int("screenframe.eof.cursor.row", frame.cursor.cursor.zone_row, 2);
+
+   cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_PREFIX, 43, 2,
+                                textpos_from_cell_virtual(NULL, 0, 2,
+                                                          TEXT_SNAP_BACKWARD));
+   logical_cursor_state_focus(&view.logical_cursor, cursor);
+   expect_int("screenframe.eof.prefix.cursor.build", screenframe_build(0, &frame), 1);
+   expect_int("screenframe.eof.prefix.cursor.valid", frame.cursor.valid, 1);
+   expect_int("screenframe.eof.prefix.cursor.row", frame.cursor.cursor.zone_row, 2);
+   expect_int("screenframe.eof.prefix.cursor.cell",
+              frame.cursor.cursor.text.cell_column, 2);
 }
 
 int main(void)

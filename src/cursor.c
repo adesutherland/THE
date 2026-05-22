@@ -39,6 +39,13 @@
 #include <proto.h>
 #include "cursesdriver.h"
 
+static bool cursor_show_row_is_boundary(const SHOW_LINE *show_row)
+{
+   return show_row != NULL
+       && (show_row->line_type == LINE_TOF
+        || show_row->line_type == LINE_EOF);
+}
+
 #ifdef USE_UTF8
 typedef struct
 {
@@ -166,9 +173,7 @@ static void cursor_focus_store_prefix_logical(CHARTYPE scrno, VIEW_DETAILS *view
    if (col < 0)
       col = 0;
    show_row = &screen[scrno].sl[row];
-   if (show_row->line_type == LINE_TOF
-   ||  show_row->line_type == LINE_EOF
-   ||  !show_row->prefix_enterable)
+   if (!show_row->prefix_enterable && !cursor_show_row_is_boundary(show_row))
       return;
    len = strlen((DEFCHAR *)show_row->prefix);
    cursor = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_PREFIX,
@@ -293,7 +298,7 @@ static bool cursor_focus_capture_prefix_logical(CHARTYPE scrno, VIEW_DETAILS *vi
 
    show_row = &screen[scrno].sl[logical.zone_row];
    if (show_row->line_number != logical.line_number
-   ||  !show_row->prefix_enterable)
+   ||  (!show_row->prefix_enterable && !cursor_show_row_is_boundary(show_row)))
       return FALSE;
 
    cursor_focus_snapshot.valid = TRUE;
@@ -829,6 +834,7 @@ short THEcursor_down( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short escre
 {
    short rc=RC_OK;
    short x,y;
+   bool was_bof = FALSE;
 
    TRACE_FUNCTION("cursor.c:  THEcursor_down");
    /*
@@ -843,6 +849,7 @@ short THEcursor_down( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short escre
    {
       case WINDOW_PREFIX:
       case WINDOW_FILEAREA:
+         was_bof = VIEW_FOCUS_BOF(curr_view);
          rc = scroll_line( curr_screen, curr_view, DIRECTION_FORWARD, 1L, FALSE, escreen );
          if ( rc == RC_OK
          &&   escreen == CURSOR_CUA )
@@ -862,7 +869,10 @@ short THEcursor_down( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short escre
          }
          if (rc == RC_OK)
             cursor_utf8_snap_filearea_to_cluster_start(curr_screen, curr_view);
-         else if ( rc == RC_TOF_EOF_REACHED && CMDARROWSTABCMDx )
+         else if ( rc == RC_TOF_EOF_REACHED
+         &&        CMDARROWSTABCMDx
+         &&        was_bof
+         &&        curr_view->current_window != WINDOW_COMMAND )
          {
              rc = THEcursor_cmdline( curr_screen, curr_view, 1 );
          }
@@ -1361,6 +1371,7 @@ short THEcursor_move( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool show_e
    unsigned short x=0,y=0;
    unsigned short max_row=0,min_row=0,max_col=0;
    short idx=(-1);
+   SHOW_LINE *show_row=NULL;
 
    TRACE_FUNCTION("cursor.c:  THEcursor_move");
 
@@ -1396,8 +1407,12 @@ short THEcursor_move( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool show_e
                row = min_row;
             else
             {
-               if ( screen[curr_screen].sl[row-1].main_enterable )
+               show_row = &screen[curr_screen].sl[row-1];
+               if ( show_row->main_enterable
+               ||   cursor_show_row_is_boundary(show_row) )
+               {
                   row--;
+               }
                else
                {
                   if ( show_errors )
@@ -1480,7 +1495,8 @@ short THEcursor_move( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool show_e
       {
          case WINDOW_FILEAREA:
             row = get_row_for_tof_eof( row, curr_screen );
-            if ( !screen[curr_screen].sl[row].main_enterable )
+            if ( !screen[curr_screen].sl[row].main_enterable
+            &&   !cursor_show_row_is_boundary(&screen[curr_screen].sl[row]) )
             {
                if ( show_errors )
                   display_error( 63, (CHARTYPE *)"", FALSE );
@@ -1503,7 +1519,8 @@ short THEcursor_move( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool show_e
             break;
          case WINDOW_PREFIX:
             row = get_row_for_tof_eof( row, curr_screen );
-            if ( !screen[curr_screen].sl[row].prefix_enterable )
+            if ( !screen[curr_screen].sl[row].prefix_enterable
+            &&   !cursor_show_row_is_boundary(&screen[curr_screen].sl[row]) )
             {
                if ( show_errors )
                   display_error( 63, (CHARTYPE *)"", FALSE );
@@ -2120,12 +2137,14 @@ bool enterable_field(long where)
    switch(where & WHERE_WINDOW_MASK)
    {
       case WHERE_WINDOW_FILEAREA:
-         if (!screen[scrn].sl[row].main_enterable)
+         if (!screen[scrn].sl[row].main_enterable
+         &&  !cursor_show_row_is_boundary(&screen[scrn].sl[row]))
             rc = FALSE;
          break;
       case WHERE_WINDOW_PREFIX_LEFT:
       case WHERE_WINDOW_PREFIX_RIGHT:
-         if (!screen[scrn].sl[row].prefix_enterable)
+         if (!screen[scrn].sl[row].prefix_enterable
+         &&  !cursor_show_row_is_boundary(&screen[scrn].sl[row]))
             rc = FALSE;
          break;
       case WHERE_WINDOW_CMDLINE_TOP:

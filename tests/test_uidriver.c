@@ -66,6 +66,33 @@ static void test_frame_accepts_eof_navigation_cursor(void)
               ui_frame_cursor_for_row(&frame, UI_ROW_FILE, 2, 1, &found), 0);
 }
 
+static void test_frame_accepts_eof_prefix_cursor(void)
+{
+   UiFrame frame;
+   LogicalCursor cursor;
+   LogicalCursor found;
+
+   ui_frame_init(&frame, 24, 80);
+   expect_int("frame.set.eof.prefix.row",
+              ui_frame_set_row(&frame, 0, UI_ROW_EOF, 2, 1, 0,
+                               (const CHARTYPE *)"*** Bottom of File ***",
+                               22, 0), 1);
+   expect_int("frame.set.eof.prefix",
+              ui_frame_set_row_prefix(&frame, 0, (const CHARTYPE *)"======",
+                                      6, 1), 1);
+
+   cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_PREFIX, 2, 1,
+                                textpos_from_cell_virtual(NULL, 0, 2,
+                                                          TEXT_SNAP_BACKWARD));
+   expect_int("frame.eof.prefix.cursor.accepted",
+              ui_frame_set_cursor(&frame, cursor), 1);
+   expect_int("frame.eof.prefix.cursor.find",
+              ui_frame_cursor_for_row(&frame, UI_ROW_PREFIX, 2, 1, &found), 1);
+   expect_int("frame.eof.prefix.cursor.cell", found.text.cell_column, 2);
+   expect_int("frame.eof.prefix.not.marker",
+              ui_frame_cursor_for_row(&frame, UI_ROW_EOF, 2, 1, &found), 0);
+}
+
 static void test_cursor_must_match_row_role_and_line(void)
 {
    UiFrame frame;
@@ -162,6 +189,7 @@ int main(void)
 {
    test_row_roles();
    test_frame_accepts_eof_navigation_cursor();
+   test_frame_accepts_eof_prefix_cursor();
    test_cursor_must_match_row_role_and_line();
    test_cursor_for_row_handles_shared_prefix_row();
    test_fake_driver_materializes_cursor_once();
