@@ -175,14 +175,6 @@ static void show_codepoint_to_wchars(uint32_t ch, wchar_t wch[3])
    wch[1] = L'\0';
 }
 
-static void show_set_utf8_cchar(cchar_t *dest, uint32_t ch, chtype colour)
-{
-   wchar_t wch[3];
-
-   show_codepoint_to_wchars(ch, wch);
-   setcchar(dest, wch, colour, PAIR_NUMBER(colour & A_COLOR), NULL);
-}
-
 static TextPos show_utf8_advance_codepoint_pos(TextPos pos, TextCodepoint item)
 {
    if (item.byte_length == 0)
@@ -473,7 +465,7 @@ static void show_write_ascii_cells_at(WINDOW *win, int row, int col,
    curses_driver_write_ascii_cells_at(win, row, col, text, width, colour);
 }
 
-#define mysetchar(dest, ch, colour) show_set_utf8_cchar((dest), (uint32_t)(ch), (colour))
+#define mysetchar(dest, ch, colour) curses_driver_set_cchar_codepoint((dest), (uint32_t)(ch), (colour))
 #else
 #define mysetchar(dest, ch, colour ) {                   \
                   setcchar( dest, &ch, colour, 0, NULL ); \
@@ -502,7 +494,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
       ch = (uint32_t)etmode_table[cc];
       colour = (etmode_table[cc] & A_COLOR);
    }
-   show_set_utf8_cchar(linebufch + _fast_col, ch, colour);
+   curses_driver_set_cchar_codepoint(linebufch + _fast_col, ch, colour);
    _fast_col++;
 }
 
@@ -660,7 +652,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
       ch = (uint32_t)etmode_table[cc];
       colour = (etmode_table[cc] & A_COLOR);
    }
-   show_set_utf8_cchar(&out, ch, colour);
+   curses_driver_set_cchar_codepoint(&out, ch, colour);
    curses_driver_add_cchar(_fast_win, &out);
 }
 
@@ -4434,12 +4426,7 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d: ccols %d cother_end_col %d bother_end_col
                   /*
                    * Get the current character at the column position and change its colour
                    */
-                  wchar_t wch[6]; /* 6 should be enough to receive; we should only get 1 */
-                  const wchar_t *pwch = (const wchar_t *)&wch;
-                  attr_t attrs;
-                  short pair;
-                  getcchar( &linebufch[idx], wch, &attrs, &pair, NULL );
-                  setcchar( &linebufch[idx], pwch, 0, PAIR_NUMBER(other & A_COLOR), NULL );
+                  curses_driver_recolour_cchar(&linebufch[idx], other);
                }
             }
 #else

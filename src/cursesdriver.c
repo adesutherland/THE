@@ -166,6 +166,48 @@ void curses_driver_draw_software_blank_cell(CHARTYPE scrno, WINDOW *win,
 }
 
 #ifdef USE_UTF8
+static void curses_driver_codepoint_to_wchars(uint32_t ch, wchar_t wch[3])
+{
+   if ((ch >= 0xD800u && ch <= 0xDFFFu) || ch > 0x10FFFFu)
+      ch = TEXT_INVALID_CODEPOINT;
+# if defined(WCHAR_MAX) && WCHAR_MAX <= 0xFFFFu
+   if (ch > 0xFFFFu)
+   {
+      ch -= 0x10000u;
+      wch[0] = (wchar_t)(0xD800u + (ch >> 10));
+      wch[1] = (wchar_t)(0xDC00u + (ch & 0x3FFu));
+      wch[2] = L'\0';
+      return;
+   }
+# endif
+   wch[0] = (wchar_t)ch;
+   wch[1] = L'\0';
+}
+
+void curses_driver_set_cchar_codepoint(cchar_t *dest, uint32_t ch,
+                                       chtype colour)
+{
+   wchar_t wch[3];
+
+   if (dest == NULL)
+      return;
+   curses_driver_codepoint_to_wchars(ch, wch);
+   setcchar(dest, wch, colour, PAIR_NUMBER(colour & A_COLOR), NULL);
+}
+
+void curses_driver_recolour_cchar(cchar_t *cell, chtype colour)
+{
+   wchar_t wch[6];
+   const wchar_t *pwch = (const wchar_t *)&wch;
+   attr_t attrs;
+   short pair;
+
+   if (cell == NULL)
+      return;
+   getcchar(cell, wch, &attrs, &pair, NULL);
+   setcchar(cell, pwch, 0, PAIR_NUMBER(colour & A_COLOR), NULL);
+}
+
 void curses_driver_write_wide_string_at(WINDOW *win, int row, int col,
                                         const wchar_t *text, chtype colour,
                                         int expected_width)

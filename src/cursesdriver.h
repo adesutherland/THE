@@ -43,6 +43,9 @@ void curses_driver_draw_software_blank_cell(CHARTYPE scrno, WINDOW *win,
                                             short row, int col, chtype base,
                                             CursorShape shape);
 #ifdef USE_UTF8
+void curses_driver_set_cchar_codepoint(cchar_t *dest, uint32_t ch,
+                                       chtype colour);
+void curses_driver_recolour_cchar(cchar_t *cell, chtype colour);
 void curses_driver_write_wide_string_at(WINDOW *win, int row, int col,
                                         const wchar_t *text, chtype colour,
                                         int expected_width);
