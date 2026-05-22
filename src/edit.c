@@ -35,6 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 #ifdef USE_SDSLH
 #include "thread_utils.h"
 #endif
@@ -45,7 +46,7 @@ bool prefix_changed=FALSE;
 void editor(void)
 /***********************************************************************/
 {
-   short y=0,x=0;
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION("edit.c:    editor");
    /*
@@ -58,21 +59,23 @@ void editor(void)
    if (display_screens > 1)
       display_screen((CHARTYPE)(other_screen));
 
-   getyx(CURRENT_WINDOW,y,x);
-   wmove(CURRENT_WINDOW,y,x);
-   wrefresh(CURRENT_WINDOW);
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   curses_driver_restore_window_cursor(CURRENT_WINDOW, cursor);
+   curses_driver_refresh_window(CURRENT_WINDOW);
+   curses_driver_update();
    if (error_on_screen)
    {
       if (error_window != NULL)
       {
-         wmove(CURRENT_WINDOW,y,x);
-         wnoutrefresh(CURRENT_WINDOW);
-         touchwin(error_window);
-         wrefresh(error_window);
+         curses_driver_restore_window_cursor(CURRENT_WINDOW, cursor);
+         curses_driver_refresh_window(CURRENT_WINDOW);
+         curses_driver_touch_window(error_window);
+         curses_driver_refresh_window(error_window);
+         curses_driver_update();
       }
    }
 #ifdef MSWIN
-   draw_cursor(TRUE);
+   curses_driver_present_cursor(TRUE);
 #endif
 
    for ( ; ; )
