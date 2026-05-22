@@ -1829,7 +1829,7 @@ void display_screen(CHARTYPE scrno)
    /*
     * Turn off the cursor.
     */
-   draw_cursor(FALSE);
+   curses_driver_present_cursor(FALSE);
    /*
     * Display the IDLINE window...
     */
@@ -1898,7 +1898,7 @@ void display_screen(CHARTYPE scrno)
    /*
     * Lastly, turn the cursor back on again.
     */
-   draw_cursor(TRUE);
+   curses_driver_present_cursor(TRUE);
    /*
     * Restore the position of previous window if on command line.
     */

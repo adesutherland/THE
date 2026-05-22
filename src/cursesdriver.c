@@ -332,12 +332,17 @@ void curses_driver_update(void)
    doupdate();
 }
 
+void curses_driver_present_cursor(bool visible)
+{
+   draw_cursor(visible);
+}
+
 short curses_driver_refresh_cursor(CHARTYPE scrno)
 {
    INTENTIONALLY_UNUSED_VARIABLE(scrno);
    show_statarea();
    curses_driver_update();
-   draw_cursor(TRUE);
+   curses_driver_present_cursor(TRUE);
    return RC_OK;
 }
 

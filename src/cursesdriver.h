@@ -63,6 +63,7 @@ void curses_driver_touch_line(WINDOW *win, int start, int count);
 void curses_driver_clear_line_at(WINDOW *win, short row, chtype colour);
 void curses_driver_refresh_window(WINDOW *win);
 void curses_driver_update(void);
+void curses_driver_present_cursor(bool visible);
 short curses_driver_refresh_cursor(CHARTYPE scrno);
 short curses_driver_redraw_screen_cursor(CHARTYPE scrno, struct view_details *view);
 CursesDriverCursorTarget curses_driver_filearea_target(
