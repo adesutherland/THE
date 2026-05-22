@@ -97,15 +97,16 @@ void editor(void)
 int process_key(int key, bool mouse_details_present)
 /***********************************************************************/
 {
-   unsigned short x=0,y=0;
+   CursesDriverWindowCursor cursor;
    short rc=RC_OK;
    CHARTYPE string_key[2];
 
    TRACE_FUNCTION("edit.c:    process_key");
 #if defined(USE_EXTCURSES)
-   getyx(CURRENT_WINDOW,y,x);
-   wmove(CURRENT_WINDOW,y,x);
-   wrefresh(CURRENT_WINDOW);
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   curses_driver_restore_window_cursor(CURRENT_WINDOW, cursor);
+   curses_driver_refresh_window(CURRENT_WINDOW);
+   curses_driver_update();
 #endif
    string_key[1] = '\0';
 
@@ -182,12 +183,12 @@ int process_key(int key, bool mouse_details_present)
       show_statarea();
       if (error_on_screen && error_window != NULL)
       {
-         getyx(CURRENT_WINDOW,y,x);
-         touchwin(error_window);
-         wnoutrefresh(error_window);
-         wmove(CURRENT_WINDOW,y,x);
-         wnoutrefresh(CURRENT_WINDOW);
-         doupdate();
+         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+         curses_driver_touch_window(error_window);
+         curses_driver_refresh_window(error_window);
+         curses_driver_restore_window_cursor(CURRENT_WINDOW, cursor);
+         curses_driver_refresh_window(CURRENT_WINDOW);
+         curses_driver_update();
       }
       TRACE_RETURN();
       return(RC_OK);
@@ -246,9 +247,10 @@ int process_key(int key, bool mouse_details_present)
           * Refresh the status area to reflect we are no longer recording
           */
          show_statarea();
-         getyx(CURRENT_WINDOW,y,x);
-         wmove(CURRENT_WINDOW,y,x);
-         wrefresh(CURRENT_WINDOW);
+         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+         curses_driver_restore_window_cursor(CURRENT_WINDOW, cursor);
+         curses_driver_refresh_window(CURRENT_WINDOW);
+         curses_driver_update();
          TRACE_RETURN();
          return(RC_OK);
       }
@@ -295,12 +297,12 @@ int process_key(int key, bool mouse_details_present)
    if (CURRENT_FILE && CURRENT_FILE->cb && CURRENT_VIEW->current_window == WINDOW_FILEAREA) {
        static bool was_on_bracket = FALSE;
        bool is_on_bracket = FALSE;
-       unsigned short cur_y, cur_x;
-       getyx(CURRENT_WINDOW, cur_y, cur_x);
+       CursesDriverWindowCursor bracket_cursor;
        LINETYPE screen_line=0;
        LENGTHTYPE screen_column=0;
        LINETYPE current_file_line=(-1L);
        LENGTHTYPE current_file_column=(-1);
+       bracket_cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
        get_cursor_position(&screen_line, &screen_column, &current_file_line, &current_file_column);
        
        if (current_file_line > 0 && current_file_line <= (LINETYPE)CURRENT_FILE->cb->line_count) {
@@ -321,9 +323,9 @@ int process_key(int key, bool mouse_details_present)
        if (is_on_bracket || was_on_bracket) {
            build_screen(current_screen);
            display_screen(current_screen);
-           wmove(CURRENT_WINDOW, cur_y, cur_x);
+           curses_driver_restore_window_cursor(CURRENT_WINDOW, bracket_cursor);
            /* Force correct cursor position into virtual screen */
-           wnoutrefresh(CURRENT_WINDOW);
+           curses_driver_refresh_window(CURRENT_WINDOW);
        }
        was_on_bracket = is_on_bracket;
    }
@@ -340,25 +342,26 @@ int process_key(int key, bool mouse_details_present)
    refresh_screen(current_screen);
    if (error_on_screen)
    {
-      getyx(CURRENT_WINDOW,y,x);
+      cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
       if (error_window != NULL)
       {
-         touchwin(error_window);
-         wnoutrefresh(error_window);
+         curses_driver_touch_window(error_window);
+         curses_driver_refresh_window(error_window);
       }
-      wmove(CURRENT_WINDOW,y,x);
-      wnoutrefresh(CURRENT_WINDOW);
+      curses_driver_restore_window_cursor(CURRENT_WINDOW, cursor);
+      curses_driver_refresh_window(CURRENT_WINDOW);
    }
 
 #ifdef HAVE_BROKEN_SYSVR4_CURSES
-   getyx(CURRENT_WINDOW,y,x);
-   wmove(CURRENT_WINDOW,y,x);
-   wrefresh(CURRENT_WINDOW);
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   curses_driver_restore_window_cursor(CURRENT_WINDOW, cursor);
+   curses_driver_refresh_window(CURRENT_WINDOW);
+   curses_driver_update();
 #else
-   getyx(CURRENT_WINDOW,y,x);
-   wmove(CURRENT_WINDOW,y,x);
-   wnoutrefresh(CURRENT_WINDOW);
-   doupdate();
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   curses_driver_restore_window_cursor(CURRENT_WINDOW, cursor);
+   curses_driver_refresh_window(CURRENT_WINDOW);
+   curses_driver_update();
 #endif
    TRACE_RETURN();
    return(RC_OK);
