@@ -1363,7 +1363,7 @@ short THEcursor_up(short escreen)
 /***********************************************************************/
 {
    short rc=RC_OK;
-   short x,y;
+   short x = 0;
    CHARTYPE *current_command=NULL;
 
    TRACE_FUNCTION("cursor.c:  THEcursor_up");
@@ -1383,7 +1383,11 @@ short THEcursor_up(short escreen)
          if ( rc == RC_OK
          &&   escreen == CURSOR_CUA )
          {
-            getyx( CURRENT_WINDOW_FILEAREA, y, x );
+            CursesDriverWindowCursor cursor =
+               curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
+
+            if (cursor.valid)
+               x = cursor.col;
 #ifdef USE_UTF8
             if ( cursor_utf8_filearea_logical_cell_from_display(current_screen,
                                                                  CURRENT_VIEW,
@@ -1408,7 +1412,7 @@ short THEcursor_up(short escreen)
          else
          {
             current_command = get_next_command( DIRECTION_FORWARD, 1 );
-            wmove( CURRENT_WINDOW_COMMAND, 0, 0 );
+            curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND, 0, 0);
             my_wclrtoeol( CURRENT_WINDOW_COMMAND );
             if ( current_command != (CHARTYPE *)NULL )
             {
@@ -1421,7 +1425,6 @@ short THEcursor_up(short escreen)
          rc = RC_INVALID_OPERAND;
          break;
    }
-   INTENTIONALLY_UNUSED_VARIABLE(y);
    cursor_focus_redraw_if_software(current_screen, CURRENT_VIEW);
    TRACE_RETURN();
    return(rc);
