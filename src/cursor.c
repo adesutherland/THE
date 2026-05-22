@@ -249,8 +249,9 @@ static void cursor_focus_store_filearea_logical(CHARTYPE scrno, VIEW_DETAILS *vi
 static void cursor_focus_sync_logical_from_window(CHARTYPE scrno, VIEW_DETAILS *view)
 {
    WINDOW *win;
-   int row = 0;
-   int col = 0;
+   CursesDriverWindowCursor cursor;
+   int row;
+   int col;
 
    if (view == NULL
    ||  !cursor_focus_software_window(view->current_window))
@@ -260,7 +261,11 @@ static void cursor_focus_sync_logical_from_window(CHARTYPE scrno, VIEW_DETAILS *
    if (win == NULL)
       return;
 
-   getyx(win, row, col);
+   cursor = curses_driver_capture_window_cursor(win);
+   if (!cursor.valid)
+      return;
+   row = cursor.row;
+   col = cursor.col;
    cursor_focus_clamp_to_window(scrno, view->current_window, &row, &col);
    switch (view->current_window)
    {
@@ -334,6 +339,7 @@ void cursor_focus_capture(CHARTYPE scrno)
    int row = 0;
    int col = 0;
    WINDOW *win;
+   CursesDriverWindowCursor cursor;
    VIEW_DETAILS *view = SCREEN_VIEW(scrno);
 
    cursor_focus_snapshot.valid = FALSE;
@@ -356,7 +362,11 @@ void cursor_focus_capture(CHARTYPE scrno)
    if (win == NULL)
       return;
 
-   getyx(win, row, col);
+   cursor = curses_driver_capture_window_cursor(win);
+   if (!cursor.valid)
+      return;
+   row = cursor.row;
+   col = cursor.col;
    cursor_focus_clamp_to_window(scrno, view->current_window, &row, &col);
    cursor_focus_snapshot.display_col = col;
    if (view->current_window == WINDOW_FILEAREA)
@@ -473,7 +483,8 @@ short cursor_focus_enter_command(CHARTYPE curr_screen, VIEW_DETAILS *curr_view,
       post_process_line(curr_view, curr_view->focus_line, (LINE *)NULL, TRUE);
       curr_view->current_window = WINDOW_COMMAND;
    }
-   wmove(SCREEN_WINDOW_COMMAND(curr_screen), 0, col - 1);
+   curses_driver_move_window_cursor(SCREEN_WINDOW_COMMAND(curr_screen), 0,
+                                    col - 1);
    curr_view->cmdline_col = col - 1;
    cmd_verify_col = 1;
    cursor_focus_store_command_logical(curr_view, 0, col - 1);
