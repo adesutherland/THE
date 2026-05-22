@@ -143,10 +143,10 @@ place:
   no longer needs to treat those areas only as curses positions.
 - `show.c` builds a live `UiFrame` during full file-area redraw and uses that
   frame to decide file-area and prefix software cursor overlays. The actual
-  software-cursor cell painting primitives and render-entry cursor
-  save/restore helpers now live behind `cursesdriver.c`. The old snapshot path
-  remains only as a fallback for targeted redraws that do not yet receive a full
-  frame.
+  software-cursor cell painting, UTF/ascii cell write/fill primitives, and
+  render-entry cursor save/restore helpers now live behind `cursesdriver.c`.
+  The old snapshot path remains only as a fallback for targeted redraws that do
+  not yet receive a full frame.
 - `src/llmdriver.c` can build role-aware semantic snapshots from `UiFrame`,
   accept normalized input events through the shared input layer, and format
   cursor mapping plus driver operation logs for deterministic diagnostics.
@@ -198,11 +198,11 @@ curses.
 5. Consolidate software cursor painting.
    The cursor overlay is represented in `UiFrame`. Full file-area redraw now
    builds a live frame and uses it for file-area and prefix software cursor
-   overlay selection. Software-cursor attribute, cell painting, and render
-   cursor save/restore helpers now live in the curses driver. The remaining
-   work is to move targeted redraw requests to driver-level logical render
-   operations and remove fallbacks that still rely on the legacy cursor
-   snapshot.
+   overlay selection. Software-cursor attribute, cell painting, UTF/ascii cell
+   write/fill primitives, and render cursor save/restore helpers now live in
+   the curses driver. The remaining work is to move targeted redraw requests to
+   driver-level logical render operations and remove fallbacks that still rely
+   on the legacy cursor snapshot.
 
 6. Bring prefix and command line under the same model.
    Prefix and command-line focus now have logical cursor state. The remaining

@@ -454,88 +454,23 @@ static void show_write_utf8_cluster_at(WINDOW *win, int row, int col,
                                        int expected_width)
 {
    wchar_t wch[THE_MAX_SCREEN_WIDTH + 1];
-   int next_col;
-   int maxx;
 
-   if (win == NULL)
-      return;
-   maxx = getmaxx(win);
-   if (row < 0 || col >= maxx)
-      return;
-   if (col < 0)
-      col = 0;
-
-   wmove(win, row, col);
    if (show_cluster_to_wide_string(line, len, cluster, wch,
                                    sizeof(wch) / sizeof(wch[0])))
-   {
-      wattrset(win, colour);
-      waddwstr(win, wch);
-   }
-   next_col = col + ((expected_width > 0) ? expected_width : 1);
-   if (next_col >= maxx)
-      next_col = maxx - 1;
-   if (next_col >= 0)
-      wmove(win, row, next_col);
+      curses_driver_write_wide_string_at(win, row, col, wch, colour,
+                                         expected_width);
 }
 
 static void show_fill_cells_at(WINDOW *win, int row, int col, int width, chtype colour)
 {
-   int maxy;
-   int maxx;
-   int i;
-
-   if (win == NULL || width <= 0)
-      return;
-   maxy = getmaxy(win);
-   maxx = getmaxx(win);
-   if (row < 0 || row >= maxy || col >= maxx)
-      return;
-   if (col < 0)
-   {
-      width += col;
-      col = 0;
-   }
-   if (width <= 0)
-      return;
-   if (col + width > maxx)
-      width = maxx - col;
-
-   wattrset(win, colour);
-   wmove(win, row, col);
-   for (i = 0; i < width; i++)
-      waddch(win, ' ');
+   curses_driver_fill_cells_at(win, row, col, width, colour);
 }
 
 static void show_write_ascii_cells_at(WINDOW *win, int row, int col,
                                       const char *text, int width,
                                       chtype colour)
 {
-   int maxy;
-   int maxx;
-   int i;
-
-   if (win == NULL || text == NULL || width <= 0)
-      return;
-   maxy = getmaxy(win);
-   maxx = getmaxx(win);
-   if (row < 0 || row >= maxy || col >= maxx)
-      return;
-   if (col < 0)
-   {
-      text -= col;
-      width += col;
-      col = 0;
-   }
-   if (width <= 0)
-      return;
-   if (col + width > maxx)
-      width = maxx - col;
-
-   wattrset(win, colour);
-   wmove(win, row, col);
-   for (i = 0; i < width && text[i] != '\0'; i++)
-      waddch(win, (unsigned char)text[i]);
+   curses_driver_write_ascii_cells_at(win, row, col, text, width, colour);
 }
 
 #define mysetchar(dest, ch, colour) show_set_utf8_cchar((dest), (uint32_t)(ch), (colour))

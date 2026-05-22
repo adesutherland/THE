@@ -42,6 +42,16 @@ void curses_driver_draw_software_chtype_cell(CHARTYPE scrno, WINDOW *win,
 void curses_driver_draw_software_blank_cell(CHARTYPE scrno, WINDOW *win,
                                             short row, int col, chtype base,
                                             CursorShape shape);
+#ifdef USE_UTF8
+void curses_driver_write_wide_string_at(WINDOW *win, int row, int col,
+                                        const wchar_t *text, chtype colour,
+                                        int expected_width);
+void curses_driver_fill_cells_at(WINDOW *win, int row, int col, int width,
+                                 chtype colour);
+void curses_driver_write_ascii_cells_at(WINDOW *win, int row, int col,
+                                        const char *text, int width,
+                                        chtype colour);
+#endif
 CursesDriverWindowCursor curses_driver_capture_window_cursor(WINDOW *win);
 void curses_driver_move_window_cursor(WINDOW *win, short row, short col);
 void curses_driver_restore_window_cursor(WINDOW *win,
