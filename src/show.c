@@ -5021,7 +5021,6 @@ void calculate_new_column( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, COLTYP
 short prepare_view(CHARTYPE scrn)
 /***********************************************************************/
 {
-   int y=0,x=0;
    VIEW_DETAILS *screen_view = SCREEN_VIEW(scrn);
 
    TRACE_FUNCTION("show.c:    prepare_view");
@@ -5037,11 +5036,15 @@ short prepare_view(CHARTYPE scrn)
    }
    if (curses_started)
    {
-      getyx(SCREEN_WINDOW_FILEAREA(scrn),y,x);
-      y = get_row_for_focus_line(scrn,screen_view->focus_line,
-                                 screen_view->current_row);
-   /* ensure column from WINDOW is in view */
-      wmove(SCREEN_WINDOW_FILEAREA(scrn),y,x);
+      CursesDriverWindowCursor cursor =
+         curses_driver_capture_window_cursor(SCREEN_WINDOW_FILEAREA(scrn));
+
+      /* ensure column from WINDOW is in view */
+      curses_driver_move_window_cursor(
+         SCREEN_WINDOW_FILEAREA(scrn),
+         get_row_for_focus_line(scrn, screen_view->focus_line,
+                                screen_view->current_row),
+         cursor.valid ? cursor.col : 0);
    }
 
    TRACE_RETURN();
