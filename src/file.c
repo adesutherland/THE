@@ -35,6 +35,7 @@
 
 #include "the.h"
 #include "proto.h"
+#include "cursesdriver.h"
 
 #include <errno.h>
 #include "directry.h"
@@ -1603,7 +1604,7 @@ short free_view_memory(bool free_file_lines,bool display_the_screen)
    VIEW_DETAILS *save_current_view=NULL;
    CHARTYPE save_current_screen=0;
    short rc=RC_OK;
-   int y=0,x=0;
+   CursesDriverWindowCursor cursor;
    int scenario=0;
    ROWTYPE save_cmd_line=0;
    CHARTYPE save_prefix=0;
@@ -1822,11 +1823,15 @@ short free_view_memory(bool free_file_lines,bool display_the_screen)
          display_screen(current_screen);
       if (curses_started)
       {
-         wmove(CURRENT_WINDOW_FILEAREA,CURRENT_VIEW->y[WINDOW_FILEAREA],CURRENT_VIEW->x[WINDOW_FILEAREA]);
+         curses_driver_move_window_cursor(CURRENT_WINDOW_FILEAREA,
+                                          CURRENT_VIEW->y[WINDOW_FILEAREA],
+                                          CURRENT_VIEW->x[WINDOW_FILEAREA]);
          if (CURRENT_WINDOW_PREFIX != NULL)
-            wmove(CURRENT_WINDOW_PREFIX,CURRENT_VIEW->y[WINDOW_PREFIX],CURRENT_VIEW->x[WINDOW_PREFIX]);
-         getyx(CURRENT_WINDOW,y,x);
-         wmove(CURRENT_WINDOW,y,x);
+            curses_driver_move_window_cursor(CURRENT_WINDOW_PREFIX,
+                                             CURRENT_VIEW->y[WINDOW_PREFIX],
+                                             CURRENT_VIEW->x[WINDOW_PREFIX]);
+         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+         curses_driver_restore_window_cursor(CURRENT_WINDOW, cursor);
       }
    }
    TRACE_RETURN();
