@@ -473,6 +473,21 @@ if(USE_UTF8 AND USE_WIDE_CHAR)
     target_link_libraries(utf_terminal_probe ${CURSES_LIBRARIES})
 endif()
 
+add_executable(the_agent
+    tools/the_agent.c
+    src/agentdriver.c
+    src/llmdriver.c
+    src/inputevent.c
+    src/uidriver.c
+    src/logcursor.c
+    src/textpos.c
+)
+target_include_directories(the_agent PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+if(USE_UTF8 AND USE_UTF8PROC)
+    target_link_libraries(the_agent ${THE_UTF8PROC_TARGET})
+    target_compile_definitions(the_agent PRIVATE USE_UTF8PROC=1)
+endif()
+
 # Install Targets
 install(TARGETS ${EXECUTABLE_NAME} DESTINATION bin)
 if(WIN32)
@@ -537,6 +552,12 @@ if(USE_UTF8 AND USE_UTF8PROC)
     target_compile_definitions(test_agentdriver PRIVATE USE_UTF8PROC=1)
 endif()
 add_test(NAME test_agentdriver COMMAND test_agentdriver)
+add_test(NAME test_the_agent_script
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_agent_script.sh
+            $<TARGET_FILE:the_agent>)
+add_test(NAME test_the_agent_no_curses
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_agent_no_curses.sh
+            $<TARGET_FILE:the_agent>)
 add_executable(test_llmruntime tests/test_llmruntime.c src/llmruntime.c src/llmdriver.c src/inputevent.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmruntime PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8 AND USE_UTF8PROC)

@@ -10,11 +10,12 @@ screen scraping.
 The first passive implementation is in `src/llmdriver.c` and
 `src/llmdriver.h`, with coverage in `tests/test_llmdriver.c`.
 
-The next proof point is a separate no-curses agent executable rather than a
-runtime switch inside the curses editor. It should be interactive over
-stdin/stdout, use the same `LlmDriverScreenView` and `TheInputEvent` contracts,
-and link no curses libraries or curses driver sources. Treat that target as the
-first live LLM surface while the full editor input loop is still being migrated.
+The first live proof target is `the_agent`, a separate no-curses executable
+rather than a runtime switch inside the curses editor. It is interactive over
+stdin/stdout, uses the same `LlmDriverScreenView` and `TheInputEvent`
+contracts, and is covered by a build guard that rejects curses dependencies and
+curses-driver symbols. Treat that target as the first agent surface while the
+full editor input loop is still being migrated.
 
 ## Design Intent
 
@@ -85,6 +86,16 @@ The current compatibility bridge can convert `text` and `key` inputs to legacy
 THE key codes. `command` input is preserved as a command string and must be
 routed through command execution in a later step; it is not a key-code event.
 
+`the_agent` accepts these normalized events over stdin:
+
+- `key NAME`
+- `text TEXT`
+- `command COMMAND`
+- `debug NAME`
+
+It also accepts `look` requests that format the current logical screen snapshot
+without changing editor state.
+
 ## Agent Usage Rules
 
 When LLM mode is wired:
@@ -138,9 +149,19 @@ cmake --build cmake-build-debug --target test_llmdriver -j2
 The non-UTF build also includes this test because the LLM driver is not a UTF
 terminal repair feature.
 
+`tests/test_agentdriver.c`, `tests/test_the_agent_script.sh`, and
+`tests/check_agent_no_curses.sh` verify the live proof target:
+
+- loading a file into a logical buffer.
+- compact `filearea` and `focus` snapshots.
+- normalized key movement and command/text insertion.
+- no curses dynamic dependency or exposed curses-driver symbols in
+  `the_agent`.
+
 ## Next Implementation Steps
 
-1. Add a no-curses agent executable for LLM operation.
+1. Expand the no-curses agent driver toward THE's real command executor while
+   preserving the no-curses boundary.
 2. Build screen snapshots from the live logical cursor/focus model rather than
    ad hoc curses state.
 3. Route command input through THE command execution.

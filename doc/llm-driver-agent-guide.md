@@ -133,13 +133,53 @@ Implemented foundation:
 - LLM compatibility wrappers around the shared input event layer.
 - debug snapshot formatting for focus, cursor mapping, driver ops, and last
   render explanation.
+- `src/agentdriver.c` and `tools/the_agent.c`, a no-curses proof target that
+  opens a file, emits LLM snapshots, accepts normalized stdin commands, and
+  edits a small logical buffer without linking curses or the curses driver.
 
-Next proof point:
+## No-Curses Agent Executable
 
-- add a no-curses agent executable that opens files, emits LLM snapshots, and
-  accepts normalized stdin commands. This target should be usable by an agent
-  before the full curses input loop is migrated, and its build must prove that
-  LLM interaction does not require curses or the curses driver.
+`the_agent` is the first live LLM surface. It is intentionally smaller than the
+full editor: it proves the logical/LLM contracts without curses, but it does
+not yet route into THE's complete command executor, prefix command machinery, or
+syntax/color subsystems.
+
+Build it with:
+
+```sh
+cmake --build cmake-build-debug --target the_agent -j2
+```
+
+Run it against a file:
+
+```sh
+./cmake-build-debug/the_agent --rows 24 --cols 80 path/to/file.txt
+```
+
+Supported stdin commands:
+
+- `look [full|filearea|reserved|prefix|focus] [compact] [max=N]`
+- `look ... [prefix=0|1] [command=0|1] [status=0|1] [cursor=0|1]`
+- `key left|right|up|down|home|end|pageup|pagedown|backspace|delete`
+- `text TEXT` for literal text input.
+- `command COMMAND` for logical editor commands implemented by the proof
+  driver, such as `goto N`, `top`, `bottom`, `insert TEXT`, `delete`,
+  `backspace`, `rows N`, `cols N`, `save`, and `write`.
+- `debug NAME` to pass a normalized debug request.
+- `quit` or `exit`.
+
+Example agent loop:
+
+```sh
+printf 'look filearea compact max=80\nkey right\nlook focus compact prefix=0\nquit\n' \
+  | ./cmake-build-debug/the_agent tests/fixtures/utf-render.txt
+```
+
+The guardrail test is:
+
+```sh
+ctest --test-dir cmake-build-debug -R 'test_the_agent_no_curses' --output-on-failure
+```
 
 Remaining work:
 

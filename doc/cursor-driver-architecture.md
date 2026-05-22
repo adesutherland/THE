@@ -101,14 +101,14 @@ normalization, so LLM automation and manual terminal use exercise one code path.
 
 ### 2026-05-22 Review
 
-The current documents and code agree on the core boundary, but the next proof
-point must be executable rather than descriptive: build an agent-interactive THE
-target that links the logical editor/LLM driver modules and deliberately omits
-curses, `show.c`, and `cursesdriver.c`. That target should open a file, expose
-semantic LLM snapshots, accept normalized text/key/command input, and edit a
-small logical buffer through `TextPos`/`LogicalCursor`. It is not expected to
-replace the full curses editor yet; its purpose is to prove that useful editor
-interaction can happen without terminal state or curses calls.
+The current documents and code agree on the core boundary, and the first
+executable proof now exists as `the_agent`: an agent-interactive target that
+links the logical editor/LLM driver modules and deliberately omits curses,
+`show.c`, and `cursesdriver.c`. That target opens a file, exposes semantic LLM
+snapshots, accepts normalized text/key/command input, and edits a small logical
+buffer through `TextPos`/`LogicalCursor`. It is not expected to replace the full
+curses editor yet; its purpose is to prove that useful editor interaction can
+happen without terminal state or curses calls.
 
 The proof target must satisfy these checks:
 
@@ -148,6 +148,9 @@ place:
 - `src/llmdriver.c` can build role-aware semantic snapshots from `UiFrame`,
   accept normalized input events through the shared input layer, and format
   cursor mapping plus driver operation logs for deterministic diagnostics.
+- `src/agentdriver.c` plus `tools/the_agent.c` provide a no-curses executable
+  proof target with scripted agent interaction and a no-curses dependency
+  guard.
 
 The remaining implementation still has several physical cursor authorities:
 
@@ -213,10 +216,11 @@ curses.
    outside macOS, Linux, and Windows can be removed when they block the cleanup.
 
 9. Add a no-curses agent proof target.
-   Add an executable agent driver that uses `uidriver`, `llmdriver`,
-   `inputevent`, `logcursor`, and `textpos` without linking curses. This gives
-   agents a functional interactive surface and gives the refactor a concrete
-   separation proof while the full curses editor is still being migrated.
+   Done as `the_agent`. The executable agent driver uses `uidriver`,
+   `llmdriver`, `inputevent`, `logcursor`, and `textpos` without linking
+   curses. It gives agents a functional interactive surface and gives the
+   refactor a concrete separation proof while the full curses editor is still
+   being migrated.
 
 ## Testing Strategy
 
