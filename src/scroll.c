@@ -125,6 +125,7 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
 {
    short rc=RC_OK;
    unsigned short x=0,y=0,iscrollbar=scrollbar;
+   CursesDriverWindowCursor cursor;
    bool on_file_edge=FALSE,on_screen_edge=FALSE;
    short number_focus_rows=0;
    bool leave_cursor=FALSE;
@@ -153,7 +154,12 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
    switch( iscrollbar )
    {
       case FALSE:
-         getyx( SCREEN_WINDOW(curr_screen), y, x );
+         cursor = curses_driver_capture_window_cursor(SCREEN_WINDOW(curr_screen));
+         if (cursor.valid)
+         {
+            y = cursor.row;
+            x = cursor.col;
+         }
          if ( direction == DIRECTION_FORWARD )
          {
             edge_line = curr_view->file_for_view->number_lines+1L;
@@ -176,7 +182,12 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
          {
             if ( SCREEN_WINDOW_COMMAND(curr_screen) == NULL )
             {
-               getyx( SCREEN_WINDOW(curr_screen), y, x );
+               cursor = curses_driver_capture_window_cursor(SCREEN_WINDOW(curr_screen));
+               if (cursor.valid)
+               {
+                  y = cursor.row;
+                  x = cursor.col;
+               }
                if ( direction == DIRECTION_FORWARD )
                   rc = find_first_focus_line( curr_screen, &y );
                else
@@ -185,7 +196,8 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
                {
                   curr_view->focus_line = screen[curr_screen].sl[y].line_number;
                   pre_process_line( curr_view, curr_view->focus_line, (LINE *)NULL );
-                  wmove(SCREEN_WINDOW( curr_screen), y, x );
+                  curses_driver_move_window_cursor(SCREEN_WINDOW(curr_screen),
+                                                   y, x);
                }
                break;
             }
@@ -210,7 +222,7 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
             build_screen( curr_screen );
             display_screen( curr_screen );
             y = get_row_for_focus_line( curr_screen, curr_view->focus_line, curr_view->current_row );
-            wmove( SCREEN_WINDOW( curr_screen), y, x );
+            curses_driver_move_window_cursor(SCREEN_WINDOW(curr_screen), y, x);
             break;
          }
          /*
@@ -224,14 +236,15 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
             pre_process_line( curr_view, curr_view->focus_line, (LINE *)NULL );
             build_screen( curr_screen );
             display_screen( curr_screen );
-            wmove( SCREEN_WINDOW(curr_screen), yoff1, x );
+            curses_driver_move_window_cursor(SCREEN_WINDOW(curr_screen),
+                                             yoff1, x);
             break;
          }
          /*
           * We are in the middle of the window, so just move the cursor up or
           * down 1 line.
           */
-         wmove( SCREEN_WINDOW(curr_screen), yoff2, x );
+         curses_driver_move_window_cursor(SCREEN_WINDOW(curr_screen), yoff2, x);
          rc = post_process_line( curr_view, curr_view->focus_line, (LINE *)NULL, TRUE );
          curr_view->focus_line = new_focus_line;
          pre_process_line( curr_view, curr_view->focus_line, (LINE *)NULL );
@@ -252,8 +265,9 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
             THEcursor_move( curr_screen, curr_view, TRUE, TRUE, (short)longy, (short)longx );
             show_heading( curr_screen );
             if ( curr_view->id_line )
-               wnoutrefresh( SCREEN_WINDOW_IDLINE(curr_screen) );
-            wrefresh( SCREEN_WINDOW(curr_screen) );
+               curses_driver_refresh_window(SCREEN_WINDOW_IDLINE(curr_screen));
+            curses_driver_refresh_window(SCREEN_WINDOW(curr_screen));
+            curses_driver_update();
          }
          break;
    }
