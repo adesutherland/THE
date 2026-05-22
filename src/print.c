@@ -35,6 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 
 #if !defined(WIN32) || defined(__CYGWIN32__)
 static void print_shadow_line(FILE *,CHARTYPE *,LINETYPE);
@@ -373,6 +374,7 @@ void print_line(bool close_spooler,LINETYPE true_line,LINETYPE num_lines,
  LINETYPE abs_num_lines=(num_lines < 0L ? -num_lines : num_lines);
  short direction=(num_lines < 0L ? DIRECTION_BACKWARD : DIRECTION_FORWARD);
  unsigned short y=0,x=0;
+ CursesDriverWindowCursor cursor;
  bool lines_based_on_scope=(target_type==TARGET_BLOCK_CURRENT)?FALSE:TRUE;
  LINETYPE start=0L,end=0L,len=0L;
  CHARTYPE *ptr=NULL;
@@ -444,9 +446,14 @@ void print_line(bool close_spooler,LINETYPE true_line,LINETYPE num_lines,
  if (curses_started)
    {
     if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
-       getyx(CURRENT_WINDOW_FILEAREA,y,x);
+       cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
     else
-       getyx(CURRENT_WINDOW,y,x);
+       cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+    if (cursor.valid)
+      {
+       y = cursor.row;
+       x = cursor.col;
+      }
    }
  curr = lll_find(CURRENT_FILE->first_line,CURRENT_FILE->last_line,true_line,CURRENT_FILE->number_lines);
  for (j=0L,num_actual_lines=0L;;j++)
@@ -590,9 +597,9 @@ void print_line(bool close_spooler,LINETYPE true_line,LINETYPE num_lines,
     y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,
                                CURRENT_VIEW->current_row);
     if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
-       wmove(CURRENT_WINDOW_FILEAREA,y,x);
+       curses_driver_move_window_cursor(CURRENT_WINDOW_FILEAREA, y, x);
     else
-       wmove(CURRENT_WINDOW,y,x);
+       curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
    }
  TRACE_RETURN();
  return;
