@@ -1041,7 +1041,8 @@ short THEcursor_home( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool save )
 /***********************************************************************/
 {
    CHARTYPE last_win=0;
-   unsigned short x=0,y=0;
+   CursesDriverWindowCursor cursor;
+   unsigned short y=0;
    short rc=RC_OK;
 
    TRACE_FUNCTION("cursor.c:  THEcursor_home");
@@ -1065,9 +1066,10 @@ short THEcursor_home( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool save )
          curr_view->current_window = last_win;
       else
          curr_view->current_window = WINDOW_FILEAREA;
-      getyx( SCREEN_WINDOW(curr_screen), y, x );
+      cursor = curses_driver_capture_window_cursor(SCREEN_WINDOW(curr_screen));
       y = get_row_for_focus_line( curr_screen, curr_view->focus_line, curr_view->current_row );
-      wmove( SCREEN_WINDOW(curr_screen), y, x );
+      curses_driver_move_window_cursor(SCREEN_WINDOW(curr_screen), y,
+                                       cursor.valid ? cursor.col : 0);
    }
    else
    {
