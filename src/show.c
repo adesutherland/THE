@@ -591,7 +591,7 @@ DEBUGDUMPDETAIL(fprintf(stderr,"x%x ", c );) \
                        }                                       \
 DEBUGDUMPDETAIL(fprintf(stderr,"\n");)                                          \
                         }
-#  define END_LINE_OUTPUT() { wadd_wchnstr(_fast_win,            \
+#  define END_LINE_OUTPUT() { curses_driver_write_cchar_span(_fast_win, \
                                      linebufch,                  \
                                      _fast_col);                 \
 DEBUGDUMPDETAIL(fprintf(stderr,"%s %d(%s): END_LINE_OUTPUT\n", __FILE__,__LINE__,__func__);) \
@@ -634,7 +634,7 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d(%s): END_LINE_OUTPUT\n", __FILE__,__LINE__
                         while (l--)                              \
                            *dest++ = C;                          \
                         }
-#  define END_LINE_OUTPUT() { waddchnstr(_fast_win,                \
+#  define END_LINE_OUTPUT() { curses_driver_write_chtype_span(_fast_win, \
                                      linebufch,                  \
                                      _fast_col);                 \
                           }
@@ -661,7 +661,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
       colour = (etmode_table[cc] & A_COLOR);
    }
    show_set_utf8_cchar(&out, ch, colour);
-   wadd_wch(_fast_win, &out);
+   curses_driver_add_cchar(_fast_win, &out);
 }
 
 #  define ADD_LINE_OUTPUT(line,length,colour) {                  \
@@ -725,7 +725,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                        }                                     \
                        src = line;                             \
                        while (l--)                             \
-                          waddch(_fast_win,*src++);            \
+                          curses_driver_add_chtype(_fast_win,*src++); \
                        }
 #  define ADD_SYNTAX_LINE_OUTPUT(line,length,highlight) {        \
                        LENGTHTYPE l = length;                  \
@@ -740,7 +740,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                              _fast_colour = *highl;            \
                              curses_driver_set_window_attr(_fast_win,*highl);       \
                           }                                    \
-                          waddch(_fast_win,*src);              \
+                          curses_driver_add_chtype(_fast_win,*src);   \
                           src++;                               \
                           highl++;                             \
                        } }
@@ -754,7 +754,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                            curses_driver_set_window_attr(_fast_win,col);              \
                           }                                      \
                         while (l--)                              \
-                           waddch(_fast_win,C);                  \
+                           curses_driver_add_chtype(_fast_win,C);      \
                         }
 # endif
 # define END_LINE_OUTPUT()

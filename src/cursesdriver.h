@@ -64,6 +64,16 @@ void curses_driver_clear_line_at(WINDOW *win, short row, chtype colour);
 void curses_driver_refresh_window(WINDOW *win);
 void curses_driver_update(void);
 void curses_driver_present_cursor(bool visible);
+#ifdef HAVE_WADDCHNSTR
+void curses_driver_write_chtype_span(WINDOW *win, const chtype *text, int len);
+# ifdef USE_UTF8
+void curses_driver_write_cchar_span(WINDOW *win, const cchar_t *text, int len);
+# endif
+#endif
+void curses_driver_add_chtype(WINDOW *win, chtype ch);
+#ifdef USE_UTF8
+void curses_driver_add_cchar(WINDOW *win, const cchar_t *ch);
+#endif
 short curses_driver_refresh_cursor(CHARTYPE scrno);
 short curses_driver_redraw_screen_cursor(CHARTYPE scrno, struct view_details *view);
 CursesDriverCursorTarget curses_driver_filearea_target(

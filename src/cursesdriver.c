@@ -337,6 +337,40 @@ void curses_driver_present_cursor(bool visible)
    draw_cursor(visible);
 }
 
+#ifdef HAVE_WADDCHNSTR
+void curses_driver_write_chtype_span(WINDOW *win, const chtype *text, int len)
+{
+   if (win == NULL || text == NULL || len <= 0)
+      return;
+   waddchnstr(win, text, len);
+}
+
+# ifdef USE_UTF8
+void curses_driver_write_cchar_span(WINDOW *win, const cchar_t *text, int len)
+{
+   if (win == NULL || text == NULL || len <= 0)
+      return;
+   wadd_wchnstr(win, text, len);
+}
+# endif
+#endif
+
+void curses_driver_add_chtype(WINDOW *win, chtype ch)
+{
+   if (win == NULL)
+      return;
+   waddch(win, ch);
+}
+
+#ifdef USE_UTF8
+void curses_driver_add_cchar(WINDOW *win, const cchar_t *ch)
+{
+   if (win == NULL || ch == NULL)
+      return;
+   wadd_wch(win, ch);
+}
+#endif
+
 short curses_driver_refresh_cursor(CHARTYPE scrno)
 {
    INTENTIONALLY_UNUSED_VARIABLE(scrno);
