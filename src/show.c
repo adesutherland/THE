@@ -490,7 +490,7 @@ static WINDOW *_fast_win; /* buffered for waddchnstr */
                         _fast_win = win;              \
                         _fast_col = 0;                \
                         PARATEST_INIT_LINE(win,line); \
-                        wmove(_fast_win,line,0);     \
+                        curses_driver_move_window_cursor(_fast_win,line,0); \
 DEBUGDUMPDETAIL(fprintf(stderr,"%s %d(%s): INIT_LINE_OUTPUT: line: %d\n", __FILE__,__LINE__,__func__,line );) \
                         }
 # ifdef USE_UTF8
@@ -648,7 +648,7 @@ static chtype _fast_colour = (chtype) -1l; /* buffering prevents unnecessary
                         _fast_win = win;              \
                         _fast_colour = (chtype) -1;   \
                         PARATEST_INIT_LINE(win,line); \
-                        wmove(_fast_win,line,0); }
+                        curses_driver_move_window_cursor(_fast_win,line,0); }
 # ifdef USE_UTF8
 static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
 {
