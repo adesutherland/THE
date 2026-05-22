@@ -788,7 +788,8 @@ static void cursor_utf8_move_filearea_display_col(CHARTYPE curr_screen,
                                                   short row, int display_col)
 {
    INTENTIONALLY_UNUSED_VARIABLE(curr_view);
-   wmove(SCREEN_WINDOW_FILEAREA(curr_screen), row, display_col);
+   curses_driver_move_window_cursor(SCREEN_WINDOW_FILEAREA(curr_screen),
+                                    row, display_col);
 }
 
 short cursor_focus_enter_command(CHARTYPE curr_screen, VIEW_DETAILS *curr_view,
@@ -803,7 +804,8 @@ short cursor_focus_enter_command(CHARTYPE curr_screen, VIEW_DETAILS *curr_view,
       post_process_line(curr_view, curr_view->focus_line, (LINE *)NULL, TRUE);
       curr_view->current_window = WINDOW_COMMAND;
    }
-   wmove(SCREEN_WINDOW_COMMAND(curr_screen), 0, col - 1);
+   curses_driver_move_window_cursor(SCREEN_WINDOW_COMMAND(curr_screen),
+                                    0, col - 1);
    curr_view->cmdline_col = col - 1;
    cmd_verify_col = 1;
    return RC_OK;
