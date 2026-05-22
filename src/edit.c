@@ -371,7 +371,8 @@ int process_key(int key, bool mouse_details_present)
 short EditFile(CHARTYPE *fn, bool external_command_line)
 /***********************************************************************/
 {
-   short rc=RC_OK,y=0,x=0;
+   short rc=RC_OK;
+   CursesDriverWindowCursor cursor;
    VIEW_DETAILS *save_current_view=NULL;
    VIEW_DETAILS *previous_current_view=NULL;
    CHARTYPE save_prefix=0;
@@ -418,12 +419,24 @@ short EditFile(CHARTYPE *fn, bool external_command_line)
    {
       if (CURRENT_WINDOW_COMMAND != NULL)
       {
-         wmove(CURRENT_WINDOW_COMMAND,0,0);
+         curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND, 0, 0);
          my_wclrtoeol(CURRENT_WINDOW_COMMAND);
       }
-      getyx(CURRENT_WINDOW_FILEAREA,CURRENT_VIEW->y[WINDOW_FILEAREA],CURRENT_VIEW->x[WINDOW_FILEAREA]);
+      cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
+      if (cursor.valid)
+      {
+         CURRENT_VIEW->y[WINDOW_FILEAREA] = cursor.row;
+         CURRENT_VIEW->x[WINDOW_FILEAREA] = cursor.col;
+      }
       if (CURRENT_WINDOW_PREFIX != NULL)
-         getyx(CURRENT_WINDOW_PREFIX,CURRENT_VIEW->y[WINDOW_PREFIX],CURRENT_VIEW->x[WINDOW_PREFIX]);
+      {
+         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW_PREFIX);
+         if (cursor.valid)
+         {
+            CURRENT_VIEW->y[WINDOW_PREFIX] = cursor.row;
+            CURRENT_VIEW->x[WINDOW_PREFIX] = cursor.col;
+         }
+      }
    }
    if (number_of_files > 0)
    {
@@ -489,18 +502,25 @@ short EditFile(CHARTYPE *fn, bool external_command_line)
    {
       if (CURRENT_VIEW->in_ring)
       {
-         wmove(CURRENT_WINDOW_FILEAREA,CURRENT_VIEW->y[WINDOW_FILEAREA],CURRENT_VIEW->x[WINDOW_FILEAREA]);
+         curses_driver_move_window_cursor(CURRENT_WINDOW_FILEAREA,
+                                          CURRENT_VIEW->y[WINDOW_FILEAREA],
+                                          CURRENT_VIEW->x[WINDOW_FILEAREA]);
          if (CURRENT_WINDOW_PREFIX != NULL)
-            wmove(CURRENT_WINDOW_PREFIX,CURRENT_VIEW->y[WINDOW_PREFIX],CURRENT_VIEW->x[WINDOW_PREFIX]);
-         getyx(CURRENT_WINDOW,y,x);
-         wmove(CURRENT_WINDOW,y,x);
+            curses_driver_move_window_cursor(CURRENT_WINDOW_PREFIX,
+                                             CURRENT_VIEW->y[WINDOW_PREFIX],
+                                             CURRENT_VIEW->x[WINDOW_PREFIX]);
+         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+         curses_driver_restore_window_cursor(CURRENT_WINDOW, cursor);
       }
       else
       {
          if (CURRENT_FILE->pseudo_file == PSEUDO_DIR)
-            wmove(CURRENT_WINDOW_FILEAREA,CURRENT_VIEW->current_row,FILE_START-1);
+            curses_driver_move_window_cursor(CURRENT_WINDOW_FILEAREA,
+                                             CURRENT_VIEW->current_row,
+                                             FILE_START - 1);
          else
-            wmove(CURRENT_WINDOW_FILEAREA,CURRENT_VIEW->current_row,0);
+            curses_driver_move_window_cursor(CURRENT_WINDOW_FILEAREA,
+                                             CURRENT_VIEW->current_row, 0);
       }
    }
    /*
@@ -545,16 +565,16 @@ short EditFile(CHARTYPE *fn, bool external_command_line)
    {
       display_screen(current_screen);
       if (CURRENT_WINDOW_COMMAND != NULL)
-         wmove(CURRENT_WINDOW_COMMAND,0,0);
+         curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND, 0, 0);
       if (CURRENT_WINDOW_PREFIX != NULL)
-         touchwin(CURRENT_WINDOW_PREFIX);
+         curses_driver_touch_window(CURRENT_WINDOW_PREFIX);
       if (CURRENT_WINDOW_GAP != NULL)
-         touchwin(CURRENT_WINDOW_GAP);
+         curses_driver_touch_window(CURRENT_WINDOW_GAP);
       if (CURRENT_WINDOW_COMMAND != NULL)
-         touchwin(CURRENT_WINDOW_COMMAND);
+         curses_driver_touch_window(CURRENT_WINDOW_COMMAND);
       if (CURRENT_WINDOW_IDLINE != NULL)
-         touchwin(CURRENT_WINDOW_IDLINE);
-      touchwin(CURRENT_WINDOW_FILEAREA);
+         curses_driver_touch_window(CURRENT_WINDOW_IDLINE);
+      curses_driver_touch_window(CURRENT_WINDOW_FILEAREA);
       show_statarea();
    }
    /*
