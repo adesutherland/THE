@@ -1252,7 +1252,7 @@ void show_heading(CHARTYPE scrno)
 void show_statarea(void)
 /***********************************************************************/
 {
-   short y=0,x=0;
+   int x=0;
 #ifdef USE_UTF8
    int charpos = 0;
    int draw_status_cluster = FALSE;
@@ -1353,7 +1353,10 @@ void show_statarea(void)
     */
    if (HEXDISPLAYx)
    {
-      getyx(CURRENT_WINDOW,y,x);
+      CursesDriverWindowCursor cursor =
+         curses_driver_capture_window_cursor(CURRENT_WINDOW);
+
+      x = cursor.valid ? cursor.col : 0;
       switch(CURRENT_VIEW->current_window)
       {
          case WINDOW_FILEAREA:
@@ -1587,7 +1590,6 @@ void show_statarea(void)
    }
 #endif
    wnoutrefresh( statarea );
-   INTENTIONALLY_UNUSED_VARIABLE(y);
    TRACE_RETURN();
    return;
 }
