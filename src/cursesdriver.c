@@ -283,20 +283,53 @@ void curses_driver_restore_window_cursor(WINDOW *win,
    curses_driver_move_window_cursor(win, cursor.row, cursor.col);
 }
 
+void curses_driver_set_window_attr(WINDOW *win, chtype colour)
+{
+   if (win == NULL)
+      return;
+   wattrset(win, colour);
+}
+
+void curses_driver_touch_window(WINDOW *win)
+{
+   if (win == NULL)
+      return;
+   touchwin(win);
+}
+
+void curses_driver_touch_line(WINDOW *win, int start, int count)
+{
+   if (win == NULL)
+      return;
+   touchline(win, start, count);
+}
+
 void curses_driver_clear_line_at(WINDOW *win, short row, chtype colour)
 {
    if (win == NULL)
       return;
    curses_driver_move_window_cursor(win, row, 0);
-   wattrset(win, colour);
+   curses_driver_set_window_attr(win, colour);
    my_wclrtoeol(win);
+}
+
+void curses_driver_refresh_window(WINDOW *win)
+{
+   if (win == NULL)
+      return;
+   wnoutrefresh(win);
+}
+
+void curses_driver_update(void)
+{
+   doupdate();
 }
 
 short curses_driver_refresh_cursor(CHARTYPE scrno)
 {
    INTENTIONALLY_UNUSED_VARIABLE(scrno);
    show_statarea();
-   doupdate();
+   curses_driver_update();
    draw_cursor(TRUE);
    return RC_OK;
 }

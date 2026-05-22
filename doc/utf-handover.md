@@ -46,10 +46,10 @@ defines logical row roles, frames, cursor overlays, and fake-driver operation
 logs. `src/screenframe.c` builds live `UiFrame` snapshots from THE's current
 file-area rows. `src/cursesdriver.c` wraps file-area curses cursor target
 calculation, movement, software cursor cell painting, UTF/ascii cell write/fill
-primitives, render-entry cursor save/restore, cursor repaint transitions, and
-refresh. `src/show.c` keeps its existing public helpers but now builds a live
-frame during full file-area redraw and uses it to select file-area and prefix
-software cursor overlays.
+primitives, render-entry cursor save/restore, renderer attribute/touch/refresh
+mechanics, cursor repaint transitions, and refresh. `src/show.c` keeps its
+existing public helpers but now builds a live frame during full file-area redraw
+and uses it to select file-area and prefix software cursor overlays.
 `src/inputevent.c` owns normalized text/key/command/logical-hit/debug events
 and legacy key conversion. `src/llmdriver.c` now exposes role-aware semantic
 snapshots, compact token-saving view modes, shared normalized input wrappers,
@@ -223,7 +223,8 @@ each meaningful step. Current checkpoint status:
    Full file-area redraw now builds a live `UiFrame` and uses it for file-area
    and prefix overlay ownership; software-cursor attribute, cell painting,
    UTF/ascii cell write/fill primitives, and render-entry cursor save/restore
-   helpers now live in `cursesdriver.c`. Targeted redraws still need to become
+   helpers now live in `cursesdriver.c`. Renderer attribute/touch/refresh calls
+   also go through driver helpers. Targeted redraws still need to become
    driver-level logical render requests instead of relying on legacy snapshots.
 6. Bring prefix and command-line cursor/editing behavior under the same model:
    partial. Focus has logical cursor state; editing paths still need migration.

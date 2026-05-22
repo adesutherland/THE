@@ -674,7 +674,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                    /*    if (col != _fast_colour)   */             \
                    /*    {   */                                  \
                           _fast_colour = col;                  \
-                 /*         wattrset(_fast_win,col);   */          \
+                 /*         curses_driver_set_window_attr(_fast_win,col);   */          \
                   /*     } */                                    \
                        src = line;                             \
                        while (l--) {                             \
@@ -694,7 +694,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                           if (*highl != _fast_colour)          \
                           {                                    \
                              _fast_colour = *highl;            \
-                             wattrset(_fast_win,*highl);       \
+                             curses_driver_set_window_attr(_fast_win,*highl);       \
                           }                                    \
                           ch = u8_nextchar( src, &pos );       \
                           show_add_utf8_codepoint(ch,*highl);  \
@@ -707,7 +707,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                         if (col != _fast_colour)                 \
                           {                                      \
                            _fast_colour = col;                   \
-                           wattrset(_fast_win,col);              \
+                           curses_driver_set_window_attr(_fast_win,col);              \
                           }                                      \
                         while (l--)                              \
                            show_add_utf8_codepoint((uint32_t)C,col); \
@@ -721,7 +721,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                        if (col != _fast_colour)                \
                        {                                     \
                           _fast_colour = col;                  \
-                          wattrset(_fast_win,col);             \
+                          curses_driver_set_window_attr(_fast_win,col);             \
                        }                                     \
                        src = line;                             \
                        while (l--)                             \
@@ -738,7 +738,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                           if (*highl != _fast_colour)          \
                           {                                    \
                              _fast_colour = *highl;            \
-                             wattrset(_fast_win,*highl);       \
+                             curses_driver_set_window_attr(_fast_win,*highl);       \
                           }                                    \
                           waddch(_fast_win,*src);              \
                           src++;                               \
@@ -751,7 +751,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                         if (col != _fast_colour)                 \
                           {                                      \
                            _fast_colour = col;                   \
-                           wattrset(_fast_win,col);              \
+                           curses_driver_set_window_attr(_fast_win,col);              \
                           }                                      \
                         while (l--)                              \
                            waddch(_fast_win,C);                  \
@@ -1244,7 +1244,7 @@ void show_heading(CHARTYPE scrno)
                     set_colour( screen_file->attr + ATTR_IDLINE ) );
    END_LINE_OUTPUT();
 
-   wnoutrefresh( screen_window_idline );
+   curses_driver_refresh_window( screen_window_idline );
    TRACE_RETURN();
    return;
 }
@@ -1589,7 +1589,7 @@ void show_statarea(void)
                                  status_colour, status_cluster_display_width);
    }
 #endif
-   wnoutrefresh( statarea );
+   curses_driver_refresh_window( statarea );
    TRACE_RETURN();
    return;
 }
@@ -1719,7 +1719,7 @@ void display_filetabs( VIEW_DETAILS *start)
          ADD_LINE_OUTPUT( (CHARTYPE *)"  ", 2, normal );
       }
       END_LINE_OUTPUT();
-      wnoutrefresh( filetabs );
+      curses_driver_refresh_window( filetabs );
    }
    TRACE_RETURN();
    return;
@@ -1838,17 +1838,17 @@ void display_screen(CHARTYPE scrno)
     */
    if (SCREEN_WINDOW_ARROW(scrno) != NULL)
    {
-      wattrset(SCREEN_WINDOW_ARROW(scrno),set_colour(SCREEN_FILE(scrno)->attr+ATTR_ARROW));
+      curses_driver_set_window_attr(SCREEN_WINDOW_ARROW(scrno),set_colour(SCREEN_FILE(scrno)->attr+ATTR_ARROW));
       redraw_window(SCREEN_WINDOW_ARROW(scrno));
-      touchwin(SCREEN_WINDOW_ARROW(scrno));
-      wnoutrefresh(SCREEN_WINDOW_ARROW(scrno));
+      curses_driver_touch_window(SCREEN_WINDOW_ARROW(scrno));
+      curses_driver_refresh_window(SCREEN_WINDOW_ARROW(scrno));
    }
    if (SCREEN_WINDOW_COMMAND(scrno) != NULL)
    {
-      wattrset(SCREEN_WINDOW_COMMAND(scrno),set_colour(SCREEN_FILE(scrno)->attr+ATTR_CMDLINE));
+      curses_driver_set_window_attr(SCREEN_WINDOW_COMMAND(scrno),set_colour(SCREEN_FILE(scrno)->attr+ATTR_CMDLINE));
       redraw_window(SCREEN_WINDOW_COMMAND(scrno));
-      touchwin(SCREEN_WINDOW_COMMAND(scrno));
-      wnoutrefresh(SCREEN_WINDOW_COMMAND(scrno));
+      curses_driver_touch_window(SCREEN_WINDOW_COMMAND(scrno));
+      curses_driver_refresh_window(SCREEN_WINDOW_COMMAND(scrno));
    }
    /*
     * Save the position of previous window if on command line.
@@ -1890,10 +1890,10 @@ void display_screen(CHARTYPE scrno)
     * Refresh the windows.
     */
    if (SCREEN_WINDOW_PREFIX(scrno) != NULL)
-      wnoutrefresh(SCREEN_WINDOW_PREFIX(scrno));
+      curses_driver_refresh_window(SCREEN_WINDOW_PREFIX(scrno));
    if (SCREEN_WINDOW_GAP(scrno) != NULL)
-      wnoutrefresh(SCREEN_WINDOW_GAP(scrno));
-   wnoutrefresh(SCREEN_WINDOW_FILEAREA(scrno));
+      curses_driver_refresh_window(SCREEN_WINDOW_GAP(scrno));
+   curses_driver_refresh_window(SCREEN_WINDOW_FILEAREA(scrno));
    /*
     * Lastly, turn the cursor back on again.
     */
@@ -1954,7 +1954,7 @@ void display_cmdline( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
 #ifdef USE_UTF8
       show_draw_software_command_cursor(curr_screen, curr_view);
 #endif
-      wnoutrefresh( SCREEN_WINDOW_COMMAND(curr_screen) );
+      curses_driver_refresh_window( SCREEN_WINDOW_COMMAND(curr_screen) );
       curses_driver_restore_window_cursor(SCREEN_WINDOW_COMMAND(curr_screen),
                                           command_cursor);
    }
@@ -1993,7 +1993,7 @@ void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
                       row,
                       width );
    show_draw_software_prefix_cursor(curr_screen, row, NULL);
-   wnoutrefresh( SCREEN_WINDOW_PREFIX(curr_screen) );
+   curses_driver_refresh_window( SCREEN_WINDOW_PREFIX(curr_screen) );
    curses_driver_restore_window_cursor(SCREEN_WINDOW_PREFIX(curr_screen),
                                        prefix_cursor);
    TRACE_RETURN();
@@ -3399,10 +3399,10 @@ static void show_lines(CHARTYPE scrno)
 #endif
    }
    if (SCREEN_WINDOW_PREFIX(scrno) != NULL)
-      wattrset(SCREEN_WINDOW_PREFIX(scrno),set_colour(SCREEN_FILE(scrno)->attr+ATTR_PENDING));
+      curses_driver_set_window_attr(SCREEN_WINDOW_PREFIX(scrno),set_colour(SCREEN_FILE(scrno)->attr+ATTR_PENDING));
    if (SCREEN_WINDOW_GAP(scrno) != NULL)
-      wattrset(SCREEN_WINDOW_GAP(scrno),set_colour(SCREEN_FILE(scrno)->attr+ATTR_GAP));
-   wattrset(screen_window_filearea,set_colour(SCREEN_FILE(scrno)->attr+ATTR_FILEAREA));
+      curses_driver_set_window_attr(SCREEN_WINDOW_GAP(scrno),set_colour(SCREEN_FILE(scrno)->attr+ATTR_GAP));
+   curses_driver_set_window_attr(screen_window_filearea,set_colour(SCREEN_FILE(scrno)->attr+ATTR_FILEAREA));
    TRACE_RETURN();
    return;
 }
@@ -3558,11 +3558,11 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
       {
          show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, clear_col,
                             ccols - clear_col, normal);
-         touchline(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
+         curses_driver_touch_line(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
          if (replacement_plan.flush != UTF8_REPAIR_FLUSH_NONE)
          {
-            wnoutrefresh(SCREEN_WINDOW_FILEAREA(scrno));
-            doupdate();
+            curses_driver_refresh_window(SCREEN_WINDOW_FILEAREA(scrno));
+            curses_driver_update();
          }
       }
    }
@@ -3667,7 +3667,7 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
                                                 normal, cursor_shape);
    }
    if (replacement_plan.extent == UTF8_REPAIR_EXTENT_LINE)
-      touchline(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
+      curses_driver_touch_line(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
    if (show_utf8_line_replacement_hint_matches(current))
       show_utf8_clear_line_replacement_hint();
 }
@@ -4002,7 +4002,7 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
    if (plan.extent == UTF8_REPAIR_EXTENT_LINE)
    {
       show_a_line_utf8_cells(scrno, row, current, high, NULL);
-      touchline(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
+      curses_driver_touch_line(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
       return TRUE;
    }
 
@@ -4054,11 +4054,11 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
 
    show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, start_display_col,
                       clear_width, normal);
-   touchline(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
+   curses_driver_touch_line(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
    if (plan.flush != UTF8_REPAIR_FLUSH_NONE)
    {
-      wnoutrefresh(SCREEN_WINDOW_FILEAREA(scrno));
-      doupdate();
+      curses_driver_refresh_window(SCREEN_WINDOW_FILEAREA(scrno));
+      curses_driver_update();
    }
 
    show_utf8_repaint_filearea_suffix(scrno, row, current, high, start_pos);
@@ -4079,7 +4079,7 @@ void show_utf8_filearea_cursor_transition(CHARTYPE scrno, short row,
                                                   new_logical_screen_col,
                                                   shape))
    {
-      wnoutrefresh(SCREEN_WINDOW_FILEAREA(scrno));
+      curses_driver_refresh_window(SCREEN_WINDOW_FILEAREA(scrno));
       return;
    }
 
@@ -4087,7 +4087,7 @@ void show_utf8_filearea_cursor_transition(CHARTYPE scrno, short row,
                                      FALSE, shape);
    show_utf8_repaint_filearea_target(scrno, row, new_logical_screen_col,
                                      TRUE, shape);
-   wnoutrefresh(SCREEN_WINDOW_FILEAREA(scrno));
+   curses_driver_refresh_window(SCREEN_WINDOW_FILEAREA(scrno));
 }
 #endif
 /***********************************************************************/
@@ -4623,7 +4623,7 @@ void touch_screen(CHARTYPE scrno)
    {
       win = screen[scrno].win[i];
       if (win != (WINDOW *)NULL)
-         touchwin(win);
+         curses_driver_touch_window(win);
    }
    TRACE_RETURN();
    return;
@@ -4638,21 +4638,21 @@ void refresh_screen(CHARTYPE scrno)
     */
    show_heading(scrno);
    if (SCREEN_WINDOW_FILEAREA(scrno) != SCREEN_WINDOW(scrno))
-      wnoutrefresh(SCREEN_WINDOW_FILEAREA(scrno));
+      curses_driver_refresh_window(SCREEN_WINDOW_FILEAREA(scrno));
    if (SCREEN_WINDOW_PREFIX(scrno) != (WINDOW *)NULL
    &&  SCREEN_WINDOW_PREFIX(scrno) != SCREEN_WINDOW(scrno))
-      wnoutrefresh(SCREEN_WINDOW_PREFIX(scrno));
+      curses_driver_refresh_window(SCREEN_WINDOW_PREFIX(scrno));
    if (SCREEN_WINDOW_GAP(scrno) != (WINDOW *)NULL)
-      wnoutrefresh(SCREEN_WINDOW_GAP(scrno));
+      curses_driver_refresh_window(SCREEN_WINDOW_GAP(scrno));
    if (SCREEN_WINDOW_ARROW(scrno) != (WINDOW *)NULL)
    {
-      touchwin(SCREEN_WINDOW_ARROW(scrno));
-      wnoutrefresh(SCREEN_WINDOW_ARROW(scrno));
+      curses_driver_touch_window(SCREEN_WINDOW_ARROW(scrno));
+      curses_driver_refresh_window(SCREEN_WINDOW_ARROW(scrno));
    }
    if (SCREEN_WINDOW_COMMAND(scrno) != (WINDOW *)NULL
    &&  SCREEN_WINDOW_COMMAND(scrno) != SCREEN_WINDOW(scrno))
-      wnoutrefresh(SCREEN_WINDOW_COMMAND(scrno));
-   wnoutrefresh(SCREEN_WINDOW(scrno));
+      curses_driver_refresh_window(SCREEN_WINDOW_COMMAND(scrno));
+   curses_driver_refresh_window(SCREEN_WINDOW(scrno));
    /*
     * Turn on the cursor.
     */
@@ -4672,34 +4672,34 @@ void redraw_screen(CHARTYPE scrno)
        */
       if (SCREEN_WINDOW_COMMAND(scrno) != NULL)
       {
-         wattrset(SCREEN_WINDOW_COMMAND(scrno),set_colour(SCREEN_FILE(scrno)->attr+ATTR_CMDLINE));
-         touchwin(SCREEN_WINDOW_COMMAND(scrno));
-         wnoutrefresh(SCREEN_WINDOW_COMMAND(scrno));
+         curses_driver_set_window_attr(SCREEN_WINDOW_COMMAND(scrno),set_colour(SCREEN_FILE(scrno)->attr+ATTR_CMDLINE));
+         curses_driver_touch_window(SCREEN_WINDOW_COMMAND(scrno));
+         curses_driver_refresh_window(SCREEN_WINDOW_COMMAND(scrno));
       }
       if (SCREEN_WINDOW_ARROW(scrno) != NULL)
       {
-         wattrset(SCREEN_WINDOW_ARROW(scrno),set_colour(SCREEN_FILE(scrno)->attr+ATTR_ARROW));
-         touchwin(SCREEN_WINDOW_ARROW(scrno));
-         wnoutrefresh(SCREEN_WINDOW_ARROW(scrno));
+         curses_driver_set_window_attr(SCREEN_WINDOW_ARROW(scrno),set_colour(SCREEN_FILE(scrno)->attr+ATTR_ARROW));
+         curses_driver_touch_window(SCREEN_WINDOW_ARROW(scrno));
+         curses_driver_refresh_window(SCREEN_WINDOW_ARROW(scrno));
       }
       if (SCREEN_WINDOW_IDLINE(scrno) != NULL)
       {
-         wattrset(SCREEN_WINDOW_IDLINE(scrno),set_colour(SCREEN_FILE(scrno)->attr+ATTR_IDLINE));
-         touchwin(SCREEN_WINDOW_IDLINE(scrno));
-         wnoutrefresh(SCREEN_WINDOW_IDLINE(scrno));
+         curses_driver_set_window_attr(SCREEN_WINDOW_IDLINE(scrno),set_colour(SCREEN_FILE(scrno)->attr+ATTR_IDLINE));
+         curses_driver_touch_window(SCREEN_WINDOW_IDLINE(scrno));
+         curses_driver_refresh_window(SCREEN_WINDOW_IDLINE(scrno));
       }
       if (SCREEN_WINDOW_PREFIX(scrno) != NULL)
       {
-         touchwin(SCREEN_WINDOW_PREFIX(scrno));
-         wnoutrefresh(SCREEN_WINDOW_PREFIX(scrno));
+         curses_driver_touch_window(SCREEN_WINDOW_PREFIX(scrno));
+         curses_driver_refresh_window(SCREEN_WINDOW_PREFIX(scrno));
       }
       if (SCREEN_WINDOW_GAP(scrno) != NULL)
       {
-         touchwin(SCREEN_WINDOW_GAP(scrno));
-         wnoutrefresh(SCREEN_WINDOW_GAP(scrno));
+         curses_driver_touch_window(SCREEN_WINDOW_GAP(scrno));
+         curses_driver_refresh_window(SCREEN_WINDOW_GAP(scrno));
       }
-      touchwin(SCREEN_WINDOW_FILEAREA(scrno));
-      wnoutrefresh(SCREEN_WINDOW_FILEAREA(scrno));
+      curses_driver_touch_window(SCREEN_WINDOW_FILEAREA(scrno));
+      curses_driver_refresh_window(SCREEN_WINDOW_FILEAREA(scrno));
       /*
        * Turn on the cursor. - no MH
        * MH    draw_cursor(TRUE);
@@ -5256,18 +5256,18 @@ short advance_view(VIEW_DETAILS *next_view,short direction)
              stat_attr = ATTR_PMSGINFO;
          }
 #endif
-         wattrset(statarea,set_colour(CURRENT_FILE->attr+stat_attr));
+         curses_driver_set_window_attr(statarea,set_colour(CURRENT_FILE->attr+stat_attr));
          redraw_window(statarea);
-         touchwin(statarea);
+         curses_driver_touch_window(statarea);
       }
 
       if (divider != NULL)
       {
          if (display_screens > 1
          && !horizontal)
-            wattrset(divider,set_colour(CURRENT_FILE->attr+ATTR_DIVIDER));
-         touchwin(divider);
-         wnoutrefresh(divider);
+            curses_driver_set_window_attr(divider,set_colour(CURRENT_FILE->attr+ATTR_DIVIDER));
+         curses_driver_touch_window(divider);
+         curses_driver_refresh_window(divider);
       }
       curses_driver_move_window_cursor(CURRENT_WINDOW_FILEAREA,
                                        CURRENT_VIEW->y[WINDOW_FILEAREA],
@@ -5299,9 +5299,9 @@ short THE_Resize(int rows, int cols)
    if ( rows && cols )
       resizeterm(rows,cols);
    endwin();
-   doupdate();  /* make ncurses set LINES and COLS properly */
-   wnoutrefresh( stdscr );
-   /* wnoutrefresh( curscr ); */
+   curses_driver_update();  /* make ncurses set LINES and COLS properly */
+   curses_driver_refresh_window( stdscr );
+   /* curses_driver_refresh_window( curscr ); */
    ncurses_screen_resized = FALSE;
 #elif defined(HAVE_RESIZE_TERM)
    resize_term(rows,cols);
