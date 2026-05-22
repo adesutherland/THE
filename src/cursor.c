@@ -1724,9 +1724,15 @@ long where_now(void)
 {
    long rc=0L;
    unsigned short x=0,y=0;
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION("cursor.c:  where_now");
-   getyx(CURRENT_WINDOW,y,x);
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   if (cursor.valid)
+   {
+      y = cursor.row;
+      x = cursor.col;
+   }
    switch(CURRENT_VIEW->current_window)
    {
       case WINDOW_FILEAREA:
@@ -2309,7 +2315,7 @@ short go_to_new_field(long save_where,long where)
             break;
       }
    }
-   wmove(CURRENT_WINDOW,where_row,0);
+   curses_driver_move_window_cursor(CURRENT_WINDOW, where_row, 0);
    cursor_focus_redraw_if_software(current_screen, CURRENT_VIEW);
    TRACE_RETURN();
    return(rc);
@@ -2320,11 +2326,17 @@ void get_cursor_position(LINETYPE *screen_line, LENGTHTYPE *screen_column, LINET
 {
    unsigned short y=0,x=0;
    unsigned short begy=0,begx=0;
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION("cursor.c:  get_cursor_position");
    if (curses_started)
    {
-      getyx(CURRENT_WINDOW,y,x);
+      cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+      if (cursor.valid)
+      {
+         y = cursor.row;
+         x = cursor.col;
+      }
       getbegyx(CURRENT_WINDOW,begy,begx);
       *screen_line = (LINETYPE)(y + begy + 1L);
       *screen_column = (LENGTHTYPE)(x + begx + 1L);
