@@ -17,6 +17,13 @@ typedef struct
    int visible;
 } CursesDriverCursorTarget;
 
+typedef struct
+{
+   short row;
+   short col;
+   int valid;
+} CursesDriverWindowCursor;
+
 int curses_driver_clamp_display_col(int display_col, int window_cols);
 int curses_driver_display_col_from_logical(const CHARTYPE *line, size_t len,
                                            int viewport_col, int logical_col);
@@ -35,6 +42,10 @@ void curses_driver_draw_software_chtype_cell(CHARTYPE scrno, WINDOW *win,
 void curses_driver_draw_software_blank_cell(CHARTYPE scrno, WINDOW *win,
                                             short row, int col, chtype base,
                                             CursorShape shape);
+CursesDriverWindowCursor curses_driver_capture_window_cursor(WINDOW *win);
+void curses_driver_move_window_cursor(WINDOW *win, short row, short col);
+void curses_driver_restore_window_cursor(WINDOW *win,
+                                         CursesDriverWindowCursor cursor);
 short curses_driver_refresh_cursor(CHARTYPE scrno);
 short curses_driver_redraw_screen_cursor(CHARTYPE scrno, struct view_details *view);
 CursesDriverCursorTarget curses_driver_filearea_target(

@@ -81,8 +81,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "cursesdriver.h"
 #ifdef USE_UTF8
-# include "cursesdriver.h"
 # include <wchar.h>
 # include "screenframe.h"
 # include "utflayout.h"
@@ -1793,15 +1793,15 @@ void redraw_window(WINDOW *win)
 {
    register short i=0,j=0;
    chtype ch=0;
-   short y=0,x=0;
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION( "show.c:    redraw_window" );
-   getyx( win, y, x );
+   cursor = curses_driver_capture_window_cursor(win);
    for ( i = 0; i < getmaxx( win ); i++ )
    {
       for ( j = 0; j < getmaxy( win ); j++ )
       {
-         wmove( win, j, i );
+         curses_driver_move_window_cursor(win, j, i);
 #ifdef VMS
          ch = (chtype)(winch( win ) );
 #else
@@ -1810,7 +1810,7 @@ void redraw_window(WINDOW *win)
          put_char( win, ch, ADDCHAR );
       }
    }
-   wmove( win, y, x );
+   curses_driver_restore_window_cursor(win, cursor);
    TRACE_RETURN();
    return;
 }
@@ -1870,8 +1870,8 @@ void build_screen(CHARTYPE scrno)
 void display_screen(CHARTYPE scrno)
 /***********************************************************************/
 {
-   unsigned short x=0,y=0;
-   unsigned short savex=0,savey=0;
+   CursesDriverWindowCursor screen_cursor;
+   CursesDriverWindowCursor previous_cursor = { 0, 0, 0 };
    short crow;
 
    TRACE_FUNCTION("show.c:    display_screen");
@@ -1917,8 +1917,9 @@ void display_screen(CHARTYPE scrno)
     * Save the position of previous window if on command line.
     */
    if (SCREEN_VIEW(scrno)->current_window == WINDOW_COMMAND)
-      getyx(SCREEN_PREV_WINDOW(scrno),savey,savex);
-   getyx(SCREEN_WINDOW(scrno),y,x);
+      previous_cursor = curses_driver_capture_window_cursor(
+         SCREEN_PREV_WINDOW(scrno));
+   screen_cursor = curses_driver_capture_window_cursor(SCREEN_WINDOW(scrno));
    cursor_focus_capture(scrno);
 #ifdef USE_UTF8
    if (SCREEN_VIEW(scrno)->current_window == WINDOW_COMMAND)
@@ -1964,8 +1965,9 @@ void display_screen(CHARTYPE scrno)
     * Restore the position of previous window if on command line.
     */
    if (SCREEN_VIEW(scrno)->current_window == WINDOW_COMMAND)
-      wmove(SCREEN_PREV_WINDOW(scrno),savey,savex);
-   wmove(SCREEN_WINDOW(scrno),y,x);
+      curses_driver_restore_window_cursor(SCREEN_PREV_WINDOW(scrno),
+                                          previous_cursor);
+   curses_driver_restore_window_cursor(SCREEN_WINDOW(scrno), screen_cursor);
 #if defined(HAVE_SB_INIT)
    if (SBx
    && scrno == current_screen)
@@ -1986,7 +1988,7 @@ void display_screen(CHARTYPE scrno)
 void display_cmdline( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
 /***********************************************************************/
 {
-   unsigned short x=0,y=0;
+   CursesDriverWindowCursor command_cursor;
 
    TRACE_FUNCTION("show.c:    display_cmdline");
    if ( batch_only
@@ -2001,7 +2003,8 @@ void display_cmdline( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
        * Clear the cmdline from the beginning to the end
        * Display the contents of the cmdline from the cmd_verify_col
        */
-      getyx( SCREEN_WINDOW_COMMAND(curr_screen), y, x );
+      command_cursor = curses_driver_capture_window_cursor(
+         SCREEN_WINDOW_COMMAND(curr_screen));
 #ifdef USE_UTF8
       if (curr_screen == current_screen
       &&  curr_view->current_window == WINDOW_COMMAND)
@@ -2015,7 +2018,8 @@ void display_cmdline( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
       show_draw_software_command_cursor(curr_screen, curr_view);
 #endif
       wnoutrefresh( SCREEN_WINDOW_COMMAND(curr_screen) );
-      wmove( SCREEN_WINDOW_COMMAND(curr_screen), y, x );
+      curses_driver_restore_window_cursor(SCREEN_WINDOW_COMMAND(curr_screen),
+                                          command_cursor);
    }
    /* TODO */
    TRACE_RETURN();
@@ -2026,8 +2030,9 @@ void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
 /***********************************************************************/
 {
 #ifdef USE_UTF8
-   unsigned short x=0,y=0;
+   CursesDriverWindowCursor prefix_cursor;
    int width;
+   short row;
 
    TRACE_FUNCTION("show.c:    display_prefix_line");
    if ( batch_only
@@ -2039,18 +2044,21 @@ void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
       return;
    }
 
-   getyx( SCREEN_WINDOW_PREFIX(curr_screen), y, x );
+   prefix_cursor = curses_driver_capture_window_cursor(
+      SCREEN_WINDOW_PREFIX(curr_screen));
+   row = prefix_cursor.valid ? prefix_cursor.row : 0;
    cursor_focus_capture(curr_screen);
    width = curr_view->prefix_width - curr_view->prefix_gap;
    display_line_left( SCREEN_WINDOW_PREFIX(curr_screen),
                       set_colour(curr_view->file_for_view->attr + ATTR_PENDING),
                       pre_rec,
                       width,
-                      y,
+                      row,
                       width );
-   show_draw_software_prefix_cursor(curr_screen, y, NULL);
+   show_draw_software_prefix_cursor(curr_screen, row, NULL);
    wnoutrefresh( SCREEN_WINDOW_PREFIX(curr_screen) );
-   wmove( SCREEN_WINDOW_PREFIX(curr_screen), y, x );
+   curses_driver_restore_window_cursor(SCREEN_WINDOW_PREFIX(curr_screen),
+                                       prefix_cursor);
    TRACE_RETURN();
 #else
    INTENTIONALLY_UNUSED_VARIABLE(curr_screen);

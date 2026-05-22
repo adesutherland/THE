@@ -164,6 +164,36 @@ void curses_driver_draw_software_blank_cell(CHARTYPE scrno, WINDOW *win,
    wattrset(win, base);
 }
 
+CursesDriverWindowCursor curses_driver_capture_window_cursor(WINDOW *win)
+{
+   CursesDriverWindowCursor cursor;
+
+   cursor.row = 0;
+   cursor.col = 0;
+   cursor.valid = 0;
+   if (win == NULL)
+      return cursor;
+
+   getyx(win, cursor.row, cursor.col);
+   cursor.valid = 1;
+   return cursor;
+}
+
+void curses_driver_move_window_cursor(WINDOW *win, short row, short col)
+{
+   if (win == NULL)
+      return;
+   wmove(win, row, col);
+}
+
+void curses_driver_restore_window_cursor(WINDOW *win,
+                                         CursesDriverWindowCursor cursor)
+{
+   if (win == NULL || !cursor.valid)
+      return;
+   curses_driver_move_window_cursor(win, cursor.row, cursor.col);
+}
+
 short curses_driver_refresh_cursor(CHARTYPE scrno)
 {
    INTENTIONALLY_UNUSED_VARIABLE(scrno);
