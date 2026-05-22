@@ -37,6 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 
 /*#define DEBUG 1*/
 
@@ -983,7 +984,8 @@ STATUS
 short Enter(CHARTYPE *params)
 /***********************************************************************/
 {
-   unsigned short x=0,y=0;
+   unsigned short y=0;
+   CursesDriverWindowCursor cursor;
    short rc=RC_OK;
 
    TRACE_FUNCTION("comm2.c:   Enter");
@@ -1039,11 +1041,12 @@ short Enter(CHARTYPE *params)
             }
          }
          THEcursor_down( current_screen, CURRENT_VIEW, TRUE );
-         getyx(CURRENT_WINDOW,y,x);
-         wmove(CURRENT_WINDOW,y,0);
+         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+         if (cursor.valid)
+            y = cursor.row;
+         curses_driver_move_window_cursor(CURRENT_WINDOW, y, 0);
          break;
    }
-   INTENTIONALLY_UNUSED_VARIABLE(x);
    TRACE_RETURN();
    return(rc);
 }
@@ -1349,6 +1352,7 @@ short Fillbox(CHARTYPE *params)
    int key=0;
    short len_params=0;
    short y=0,x=0;
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION("comm2.c:   Fillbox");
    post_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL,TRUE);
@@ -1400,10 +1404,16 @@ short Fillbox(CHARTYPE *params)
    if (CURRENT_VIEW->current_window != WINDOW_COMMAND
    && len_params != 1)
    {
-      getyx(CURRENT_WINDOW,y,x);
+      cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+      if (cursor.valid)
+      {
+         y = cursor.row;
+         x = cursor.col;
+      }
       display_prompt((CHARTYPE *)"Enter fill character...");
-      wmove(CURRENT_WINDOW_FILEAREA,y,x);
-      wrefresh(CURRENT_WINDOW_FILEAREA);
+      curses_driver_move_window_cursor(CURRENT_WINDOW_FILEAREA, y, x);
+      curses_driver_refresh_window(CURRENT_WINDOW_FILEAREA);
+      curses_driver_update();
       while(1)
       {
          key = my_getch( CURRENT_WINDOW );
