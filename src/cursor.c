@@ -842,7 +842,7 @@ short THEcursor_column(void)
 /***********************************************************************/
 {
    short rc=RC_OK;
-   unsigned short x=0,y=0;
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION("cursor.c:  THEcursor_column");
    /*
@@ -859,13 +859,13 @@ short THEcursor_column(void)
          rc = THEcursor_home( current_screen, CURRENT_VIEW, FALSE );
          break;
       case WINDOW_PREFIX:
-         getyx(CURRENT_WINDOW,y,x);
+         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
          CURRENT_VIEW->current_window = WINDOW_FILEAREA;
-         wmove(CURRENT_WINDOW,y,0);
+         curses_driver_move_window_cursor(CURRENT_WINDOW,
+                                          cursor.valid ? cursor.row : 0, 0);
          break;
    }
    rc = execute_move_cursor( current_screen, CURRENT_VIEW, CURRENT_VIEW->current_column-1 );
-   INTENTIONALLY_UNUSED_VARIABLE(x);
    TRACE_RETURN();
    return(rc);
 }
@@ -874,7 +874,7 @@ short THEcursor_down( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short escre
 /***********************************************************************/
 {
    short rc=RC_OK;
-   short x,y;
+   short x = 0;
    bool was_bof = FALSE;
 
    TRACE_FUNCTION("cursor.c:  THEcursor_down");
@@ -895,7 +895,12 @@ short THEcursor_down( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short escre
          if ( rc == RC_OK
          &&   escreen == CURSOR_CUA )
          {
-            getyx( SCREEN_WINDOW_FILEAREA(curr_screen), y, x );
+            CursesDriverWindowCursor cursor =
+               curses_driver_capture_window_cursor(
+                  SCREEN_WINDOW_FILEAREA(curr_screen));
+
+            if (cursor.valid)
+               x = cursor.col;
 #ifdef USE_UTF8
             if ( cursor_utf8_filearea_logical_cell_from_display(curr_screen,
                                                                  curr_view,
@@ -925,7 +930,7 @@ short THEcursor_down( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short escre
          if ( CMDARROWSTABCMDx )
          {
             CHARTYPE *current_command = get_next_command( DIRECTION_FORWARD, 1 );
-            wmove( CURRENT_WINDOW_COMMAND, 0, 0 );
+            curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND, 0, 0);
             my_wclrtoeol( CURRENT_WINDOW_COMMAND );
             if ( current_command != (CHARTYPE *)NULL )
             {
@@ -939,7 +944,6 @@ short THEcursor_down( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short escre
          display_error( 2, (CHARTYPE *)"", FALSE );
          break;
    }
-   INTENTIONALLY_UNUSED_VARIABLE(y);
    cursor_focus_redraw_if_software(curr_screen, curr_view);
    TRACE_RETURN();
    return(rc);
