@@ -106,7 +106,10 @@ short scroll_page(short direction,LINETYPE num_pages,bool scrollbar)
          y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line, CURRENT_VIEW->current_row);
          curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
          if (scrollbar)
+         {
             curses_driver_refresh_window(CURRENT_WINDOW);
+            curses_driver_update();
+         }
       }
    }
    if (CURRENT_TOF || CURRENT_BOF)
