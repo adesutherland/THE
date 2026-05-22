@@ -24,7 +24,15 @@ TEXT
 look filearea compact max=40
 key right
 look focus compact prefix=0
-command goto 2
+focus command
+text goto 2
+look focus compact prefix=0
+key left
+look focus compact prefix=0
+key right
+look focus compact prefix=0
+key enter
+look focus compact prefix=0
 command end
 type Z
 look filearea compact max=40
@@ -34,6 +42,10 @@ CMDS
 rg '"mode":"filearea"' "$out" >/dev/null
 rg '"mode":"focus"' "$out" >/dev/null
 rg '"cell":1' "$out" >/dev/null
+rg '"zone":"command"' "$out" >/dev/null
+rg '"role":"command"' "$out" >/dev/null
+rg '"cell":5' "$out" >/dev/null
+rg '"cell":6' "$out" >/dev/null
 rg 'A1' "$out" >/dev/null
 rg 'BZ' "$out" >/dev/null
 rg '"ok":1' "$out" >/dev/null

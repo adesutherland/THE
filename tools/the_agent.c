@@ -117,8 +117,9 @@ static void print_ack(int ok, const AgentDriver *driver)
 static void usage(FILE *out)
 {
    fputs("usage: the_agent [--rows N] [--cols N] [file]\n", out);
-   fputs("stdin commands: look, key NAME, text TEXT, command THE-COMMAND, quit\n",
+   fputs("stdin commands: look, focus command|filearea, key NAME, text TEXT,\n",
          out);
+   fputs("                command THE-COMMAND, quit\n", out);
 }
 
 static void parse_view_options(char *args, LlmDriverFormatOptions *options)

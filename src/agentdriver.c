@@ -224,15 +224,35 @@ static int agent_line_end_cell(const AgentDriverLine *line)
    return textpos_from_byte(line->text, line->len, line->len).cell_column;
 }
 
-static TextPos agent_cursor_text_pos(const AgentDriver *driver)
+static size_t agent_command_len(const AgentDriver *driver)
 {
-   const AgentDriverLine *line = agent_current_line_const(driver);
+   if (driver == NULL)
+      return 0;
+   return strlen(driver->command_line);
+}
 
-   if (line == NULL)
-      return textpos_begin();
-   return textpos_from_cell_virtual(line->text, line->len,
-                                    driver->cursor_cell,
-                                    TEXT_SNAP_BACKWARD);
+static int agent_command_end_cell(const AgentDriver *driver)
+{
+   size_t len;
+
+   if (driver == NULL)
+      return 0;
+   len = agent_command_len(driver);
+   return textpos_from_byte((const CHARTYPE *)driver->command_line, len,
+                            len).cell_column;
+}
+
+static void agent_clamp_command_cursor(AgentDriver *driver)
+{
+   int end_cell;
+
+   if (driver == NULL)
+      return;
+   end_cell = agent_command_end_cell(driver);
+   if (driver->command_cursor_cell < 0)
+      driver->command_cursor_cell = 0;
+   if (driver->command_cursor_cell > end_cell)
+      driver->command_cursor_cell = end_cell;
 }
 
 static void agent_clamp_cursor(AgentDriver *driver)
@@ -318,6 +338,44 @@ static int agent_insert_bytes(AgentDriver *driver, const CHARTYPE *text,
    return 1;
 }
 
+static int agent_insert_command_bytes(AgentDriver *driver, const CHARTYPE *text,
+                                      size_t len)
+{
+   size_t command_len;
+   size_t offset;
+   size_t keep_len;
+   TextPos pos;
+
+   if (driver == NULL || text == NULL)
+      return 0;
+   command_len = agent_command_len(driver);
+   if (command_len >= LLM_DRIVER_MAX_COMMAND)
+   {
+      agent_set_status(driver, "command line full");
+      return 0;
+   }
+   if (len > LLM_DRIVER_MAX_COMMAND - command_len)
+      keep_len = LLM_DRIVER_MAX_COMMAND - command_len;
+   else
+      keep_len = len;
+   agent_clamp_command_cursor(driver);
+   pos = textpos_from_cell((const CHARTYPE *)driver->command_line,
+                           command_len, driver->command_cursor_cell,
+                           TEXT_SNAP_BACKWARD);
+   offset = pos.byte_offset;
+   memmove(driver->command_line + offset + keep_len,
+           driver->command_line + offset,
+           command_len - offset + 1);
+   if (keep_len > 0)
+      memcpy(driver->command_line + offset, text, keep_len);
+   driver->command_cursor_cell =
+      textpos_from_byte((const CHARTYPE *)driver->command_line,
+                        agent_command_len(driver),
+                        offset + keep_len).cell_column;
+   agent_set_status(driver, "command edited");
+   return keep_len == len;
+}
+
 static int agent_delete_at_cursor(AgentDriver *driver)
 {
    AgentDriverLine *line;
@@ -340,6 +398,35 @@ static int agent_delete_at_cursor(AgentDriver *driver)
    agent_line_delete(line, pos.byte_offset, cluster.byte_length);
    driver->dirty = 1;
    agent_set_status(driver, "deleted");
+   return 1;
+}
+
+static int agent_delete_command_at_cursor(AgentDriver *driver)
+{
+   size_t command_len;
+   TextPos pos;
+   TextCluster cluster;
+
+   if (driver == NULL)
+      return 0;
+   command_len = agent_command_len(driver);
+   agent_clamp_command_cursor(driver);
+   pos = textpos_from_cell((const CHARTYPE *)driver->command_line,
+                           command_len, driver->command_cursor_cell,
+                           TEXT_SNAP_BACKWARD);
+   if (pos.byte_offset >= command_len)
+   {
+      agent_set_status(driver, "nothing to delete");
+      return 1;
+   }
+   cluster = textpos_cluster_at_boundary((const CHARTYPE *)driver->command_line,
+                                         command_len, pos);
+   if (cluster.byte_length == 0)
+      return 0;
+   memmove(driver->command_line + pos.byte_offset,
+           driver->command_line + pos.byte_offset + cluster.byte_length,
+           command_len - pos.byte_offset - cluster.byte_length + 1);
+   agent_set_status(driver, "command edited");
    return 1;
 }
 
@@ -381,11 +468,73 @@ static int agent_backspace(AgentDriver *driver)
    return 0;
 }
 
+static int agent_backspace_command(AgentDriver *driver)
+{
+   size_t command_len;
+   TextPos pos;
+   TextPos prev;
+
+   if (driver == NULL)
+      return 0;
+   command_len = agent_command_len(driver);
+   agent_clamp_command_cursor(driver);
+   if (driver->command_cursor_cell <= 0)
+   {
+      agent_set_status(driver, "start of command");
+      return 1;
+   }
+   pos = textpos_from_cell((const CHARTYPE *)driver->command_line,
+                           command_len, driver->command_cursor_cell,
+                           TEXT_SNAP_BACKWARD);
+   prev = textpos_prev_cluster((const CHARTYPE *)driver->command_line,
+                               command_len, pos);
+   if (pos.byte_offset > prev.byte_offset)
+   {
+      memmove(driver->command_line + prev.byte_offset,
+              driver->command_line + pos.byte_offset,
+              command_len - pos.byte_offset + 1);
+      driver->command_cursor_cell = prev.cell_column;
+      agent_set_status(driver, "command edited");
+      return 1;
+   }
+   return 0;
+}
+
+static void agent_move_command_horizontal(AgentDriver *driver, int delta)
+{
+   LogicalCursor cursor;
+   size_t len;
+
+   if (driver == NULL)
+      return;
+   len = agent_command_len(driver);
+   agent_clamp_command_cursor(driver);
+   cursor = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_COMMAND, 0, 0,
+                                     (const CHARTYPE *)driver->command_line,
+                                     len, driver->command_cursor_cell,
+                                     TEXT_SNAP_BACKWARD, 0);
+   if (delta < 0)
+      cursor = logical_cursor_move_left(cursor,
+                                        (const CHARTYPE *)driver->command_line,
+                                        len, 0);
+   else
+      cursor = logical_cursor_move_right(cursor,
+                                         (const CHARTYPE *)driver->command_line,
+                                         len, 0);
+   driver->command_cursor_cell = cursor.text.cell_column;
+   agent_set_status(driver, "command cursor moved");
+}
+
 static void agent_move_horizontal(AgentDriver *driver, int delta)
 {
    AgentDriverLine *line;
    LogicalCursor cursor;
 
+   if (driver != NULL && driver->focus_zone == LOGICAL_CURSOR_ZONE_COMMAND)
+   {
+      agent_move_command_horizontal(driver, delta);
+      return;
+   }
    line = agent_current_line(driver);
    if (driver == NULL || line == NULL)
       return;
@@ -462,6 +611,7 @@ static int agent_set_command_line(AgentDriver *driver, const char *command)
    if (driver == NULL)
       return 0;
    agent_copy_text(driver->command_line, sizeof(driver->command_line), command);
+   driver->command_cursor_cell = agent_command_end_cell(driver);
    return 1;
 }
 
@@ -474,9 +624,27 @@ static int agent_apply_command(AgentDriver *driver, const char *command)
       return 0;
    agent_copy_text(buffer, sizeof(buffer), command);
    text = agent_trim(buffer);
-   agent_set_command_line(driver, text);
    if (text == NULL || *text == '\0')
       return 0;
+
+   if (agent_ascii_equal_ci(text, "focus command")
+   ||  agent_ascii_equal_ci(text, "focus commandline")
+   ||  agent_ascii_equal_ci(text, "focus cmdline"))
+   {
+      driver->focus_zone = LOGICAL_CURSOR_ZONE_COMMAND;
+      agent_clamp_command_cursor(driver);
+      agent_set_status(driver, "command focused");
+      return 1;
+   }
+   if (agent_ascii_equal_ci(text, "focus file")
+   ||  agent_ascii_equal_ci(text, "focus filearea"))
+   {
+      driver->focus_zone = LOGICAL_CURSOR_ZONE_FILEAREA;
+      agent_set_status(driver, "filearea focused");
+      return 1;
+   }
+
+   agent_set_command_line(driver, text);
 
    if (agent_ascii_equal_ci(text, "look"))
    {
@@ -553,11 +721,21 @@ static int agent_apply_command(AgentDriver *driver, const char *command)
       return 0;
    }
    if (agent_ascii_starts_ci(text, "insert "))
+   {
+      if (driver->focus_zone == LOGICAL_CURSOR_ZONE_COMMAND)
+         return agent_insert_command_bytes(driver, (const CHARTYPE *)(text + 7),
+                                           strlen(text + 7));
       return agent_insert_bytes(driver, (const CHARTYPE *)(text + 7),
                                 strlen(text + 7));
+   }
    if (agent_ascii_starts_ci(text, "type "))
+   {
+      if (driver->focus_zone == LOGICAL_CURSOR_ZONE_COMMAND)
+         return agent_insert_command_bytes(driver, (const CHARTYPE *)(text + 5),
+                                           strlen(text + 5));
       return agent_insert_bytes(driver, (const CHARTYPE *)(text + 5),
                                 strlen(text + 5));
+   }
    if (agent_ascii_equal_ci(text, "save")
    ||  agent_ascii_equal_ci(text, "write"))
       return agent_driver_save_file(driver, NULL);
@@ -577,6 +755,7 @@ void agent_driver_init(AgentDriver *driver, int rows, int cols)
    memset(driver, 0, sizeof(*driver));
    driver->rows = rows > 0 ? rows : 24;
    driver->cols = cols > 0 ? cols : 80;
+   driver->focus_zone = LOGICAL_CURSOR_ZONE_FILEAREA;
    agent_append_line(driver, "", 0);
    agent_set_status(driver, "ready");
 }
@@ -726,6 +905,7 @@ int agent_driver_screen_view(const AgentDriver *driver,
    size_t row_index = 0;
    int content_rows;
    int file_start_row = 0;
+   int command_row;
    int status_row;
    char prefixes[UI_DRIVER_MAX_ROWS][LLM_DRIVER_MAX_PREFIX + 1];
    LogicalCursor cursor = logical_cursor_invalid();
@@ -734,7 +914,10 @@ int agent_driver_screen_view(const AgentDriver *driver,
       return 0;
    ui_frame_init(&frame, driver->rows, driver->cols);
    status_row = driver->rows > 0 ? driver->rows - 1 : 0;
-   content_rows = driver->rows > 1 ? driver->rows - 1 : 1;
+   command_row = driver->rows > 1 ? driver->rows - 2 : 0;
+   if (command_row < 0)
+      command_row = 0;
+   content_rows = driver->rows > 2 ? driver->rows - 2 : 1;
 
    if (driver->top_line == 0 && content_rows > 1)
    {
@@ -781,9 +964,27 @@ int agent_driver_screen_view(const AgentDriver *driver,
 
    if (driver->rows > 1 && row_index < UI_DRIVER_MAX_ROWS)
    {
+      ui_frame_set_row(&frame, row_index, UI_ROW_COMMAND, 0, command_row, 0,
+                       (const CHARTYPE *)driver->command_line,
+                       strlen(driver->command_line), 1);
+      row_index++;
+   }
+
+   if (driver->rows > 2 && row_index < UI_DRIVER_MAX_ROWS)
+   {
       ui_frame_set_row(&frame, row_index, UI_ROW_STATUS, 0, status_row, 0,
                        (const CHARTYPE *)driver->status,
                        strlen(driver->status), 0);
+   }
+
+   if (driver->focus_zone == LOGICAL_CURSOR_ZONE_COMMAND)
+   {
+      cursor = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_COMMAND, 0,
+                                        command_row,
+                                        (const CHARTYPE *)driver->command_line,
+                                        strlen(driver->command_line),
+                                        driver->command_cursor_cell,
+                                        TEXT_SNAP_BACKWARD, 0);
    }
 
    if (!cursor.valid)
@@ -836,6 +1037,8 @@ int agent_driver_apply_input(AgentDriver *driver, const TheInputEvent *input)
          len = text_utf8_encode(input->codepoint, bytes);
          if (len == 0)
             return 0;
+         if (driver->focus_zone == LOGICAL_CURSOR_ZONE_COMMAND)
+            return agent_insert_command_bytes(driver, bytes, len);
          return agent_insert_bytes(driver, bytes, len);
       case THE_INPUT_KEY:
          switch (input->key_code)
@@ -853,19 +1056,50 @@ int agent_driver_apply_input(AgentDriver *driver, const TheInputEvent *input)
                agent_move_vertical(driver, 1);
                return 1;
             case KEY_HOME:
-               driver->cursor_cell = 0;
-               driver->desired_cell = 0;
+               if (driver->focus_zone == LOGICAL_CURSOR_ZONE_COMMAND)
+                  driver->command_cursor_cell = 0;
+               else
+               {
+                  driver->cursor_cell = 0;
+                  driver->desired_cell = 0;
+               }
                agent_set_status(driver, "cursor moved");
                return 1;
             case KEY_END:
-               driver->cursor_cell = agent_line_end_cell(agent_current_line(driver));
-               driver->desired_cell = driver->cursor_cell;
+               if (driver->focus_zone == LOGICAL_CURSOR_ZONE_COMMAND)
+                  driver->command_cursor_cell = agent_command_end_cell(driver);
+               else
+               {
+                  driver->cursor_cell = agent_line_end_cell(agent_current_line(driver));
+                  driver->desired_cell = driver->cursor_cell;
+               }
                agent_set_status(driver, "cursor moved");
                return 1;
             case KEY_BACKSPACE:
+               if (driver->focus_zone == LOGICAL_CURSOR_ZONE_COMMAND)
+                  return agent_backspace_command(driver);
                return agent_backspace(driver);
             case KEY_DC:
+               if (driver->focus_zone == LOGICAL_CURSOR_ZONE_COMMAND)
+                  return agent_delete_command_at_cursor(driver);
                return agent_delete_at_cursor(driver);
+            case KEY_ENTER:
+            case KEY_RETURN:
+            {
+               char command[LLM_DRIVER_MAX_COMMAND + 1];
+               if (driver->focus_zone != LOGICAL_CURSOR_ZONE_COMMAND)
+               {
+                  agent_set_status(driver, "enter ignored");
+                  return 1;
+               }
+               agent_copy_text(command, sizeof(command), driver->command_line);
+               driver->focus_zone = LOGICAL_CURSOR_ZONE_FILEAREA;
+               return agent_apply_command(driver, command);
+            }
+            case KEY_ESC:
+               driver->focus_zone = LOGICAL_CURSOR_ZONE_FILEAREA;
+               agent_set_status(driver, "filearea focused");
+               return 1;
             case KEY_PPAGE:
                agent_move_vertical(driver, -(driver->rows > 1 ? driver->rows - 1 : 1));
                return 1;
@@ -881,6 +1115,7 @@ int agent_driver_apply_input(AgentDriver *driver, const TheInputEvent *input)
       case THE_INPUT_LOGICAL_HIT:
          if (input->target.zone == LOGICAL_CURSOR_ZONE_FILEAREA)
          {
+            driver->focus_zone = LOGICAL_CURSOR_ZONE_FILEAREA;
             if (input->target.line_number > 0)
                driver->cursor_line = (size_t)input->target.line_number - 1;
             else if (input->target.row >= 0)
@@ -891,6 +1126,14 @@ int agent_driver_apply_input(AgentDriver *driver, const TheInputEvent *input)
             driver->desired_cell = driver->cursor_cell;
             agent_ensure_visible(driver);
             agent_set_status(driver, "cursor moved");
+            return 1;
+         }
+         if (input->target.zone == LOGICAL_CURSOR_ZONE_COMMAND)
+         {
+            driver->focus_zone = LOGICAL_CURSOR_ZONE_COMMAND;
+            driver->command_cursor_cell = input->target.cell;
+            agent_clamp_command_cursor(driver);
+            agent_set_status(driver, "command focused");
             return 1;
          }
          agent_set_status(driver, "unsupported target");

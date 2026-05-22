@@ -94,7 +94,10 @@ routed through command execution in a later step; it is not a key-code event.
 - `debug NAME`
 
 It also accepts `look` requests that format the current logical screen snapshot
-without changing editor state.
+without changing editor state, and `focus command` / `focus filearea` requests
+that move the logical input focus. In command focus, left/right/home/end,
+delete, backspace, and text input operate on the command line; `key enter`
+submits the edited command.
 
 ## Agent Usage Rules
 
@@ -155,6 +158,7 @@ terminal repair feature.
 - loading a file into a logical buffer.
 - compact `filearea` and `focus` snapshots.
 - normalized key movement and command/text insertion.
+- command-line focus, command cursor movement, and Enter submission.
 - no curses dynamic dependency or exposed curses-driver symbols in
   `the_agent`.
 

@@ -25,10 +25,12 @@ typedef struct
    int dirty;
    int rows;
    int cols;
+   LogicalCursorZone focus_zone;
    size_t top_line;
    size_t cursor_line;
    int cursor_cell;
    int desired_cell;
+   int command_cursor_cell;
    char command_line[LLM_DRIVER_MAX_COMMAND + 1];
    char status[AGENT_DRIVER_STATUS_MAX + 1];
 } AgentDriver;

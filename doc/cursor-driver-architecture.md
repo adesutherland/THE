@@ -106,9 +106,9 @@ executable proof now exists as `the_agent`: an agent-interactive target that
 links the logical editor/LLM driver modules and deliberately omits curses,
 `show.c`, and `cursesdriver.c`. That target opens a file, exposes semantic LLM
 snapshots, accepts normalized text/key/command input, and edits a small logical
-buffer through `TextPos`/`LogicalCursor`. It is not expected to replace the full
-curses editor yet; its purpose is to prove that useful editor interaction can
-happen without terminal state or curses calls.
+buffer and command-line focus through `TextPos`/`LogicalCursor`. It is not
+expected to replace the full curses editor yet; its purpose is to prove that
+useful editor interaction can happen without terminal state or curses calls.
 
 The proof target must satisfy these checks:
 
@@ -150,7 +150,8 @@ place:
   cursor mapping plus driver operation logs for deterministic diagnostics.
 - `src/agentdriver.c` plus `tools/the_agent.c` provide a no-curses executable
   proof target with scripted agent interaction and a no-curses dependency
-  guard.
+  guard. The proof target now covers both file-area focus and command-line
+  focus/cursor movement.
 
 The remaining implementation still has several physical cursor authorities:
 

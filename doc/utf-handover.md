@@ -230,8 +230,10 @@ each meaningful step. Current checkpoint status:
 8. Tighten the guardrails so editor logic cannot call curses directly: pending.
 9. Add a no-curses agent proof target: done. `the_agent` opens files, accepts
    normalized agent input, emits semantic LLM snapshots, and links no curses
-   library or curses driver source. It proves the logical editor/LLM surface can
-   function independently while the full curses editor is still being migrated.
+   library or curses driver source. It covers file-area and command-line focus,
+   including command cursor movement and Enter submission. It proves the logical
+   editor/LLM surface can function independently while the full curses editor is
+   still being migrated.
 
 Runtime cursor code still has multiple physical paths and must be migrated. The
 guardrail test is intentionally permissive while the live renderer is still

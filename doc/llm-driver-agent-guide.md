@@ -160,11 +160,14 @@ Supported stdin commands:
 
 - `look [full|filearea|reserved|prefix|focus] [compact] [max=N]`
 - `look ... [prefix=0|1] [command=0|1] [status=0|1] [cursor=0|1]`
+- `focus command` or `focus filearea` to move the logical input focus.
 - `key left|right|up|down|home|end|pageup|pagedown|backspace|delete`
-- `text TEXT` for literal text input.
+- `text TEXT` for literal text input at the current logical focus. In command
+  focus this edits the command line; in file-area focus this edits the file.
 - `command COMMAND` for logical editor commands implemented by the proof
   driver, such as `goto N`, `top`, `bottom`, `insert TEXT`, `delete`,
   `backspace`, `rows N`, `cols N`, `save`, and `write`.
+- `key enter` submits the edited command line when command focus is active.
 - `debug NAME` to pass a normalized debug request.
 - `quit` or `exit`.
 
@@ -172,6 +175,13 @@ Example agent loop:
 
 ```sh
 printf 'look filearea compact max=80\nkey right\nlook focus compact prefix=0\nquit\n' \
+  | ./cmake-build-debug/the_agent tests/fixtures/utf-render.txt
+```
+
+Command-line editing example:
+
+```sh
+printf 'focus command\ntext goto 2\nkey left\nlook focus compact prefix=0\nkey right\nkey enter\nlook focus compact prefix=0\nquit\n' \
   | ./cmake-build-debug/the_agent tests/fixtures/utf-render.txt
 ```
 

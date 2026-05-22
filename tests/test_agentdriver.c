@@ -20,6 +20,20 @@ static void expect_contains(const char *text, const char *needle,
    expect_true(text != NULL && strstr(text, needle) != NULL, message);
 }
 
+static void apply_text_chars(AgentDriver *driver, const char *text)
+{
+   TheInputEvent input;
+   const unsigned char *ptr;
+
+   for (ptr = (const unsigned char *)text; *ptr != '\0'; ptr++)
+   {
+      expect_true(the_input_event_from_text((uint32_t)*ptr, &input),
+                  "make text input");
+      expect_true(agent_driver_apply_input(driver, &input),
+                  "apply text input");
+   }
+}
+
 int main(void)
 {
    AgentDriver driver;
@@ -64,6 +78,46 @@ int main(void)
    agent_driver_format(&driver, &options, out, sizeof(out));
    expect_contains(out, "\"mode\":\"focus\"", "focus view mode");
    expect_contains(out, "\"cur\":1", "focus current row");
+
+   agent_driver_free(&driver);
+   agent_driver_init(&driver, 6, 80);
+   expect_true(agent_driver_set_text(&driver, "one\ntwo\n"),
+               "set command cursor text");
+   expect_true(the_input_event_from_command("focus command", &input),
+               "make command focus");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply command focus");
+   apply_text_chars(&driver, "goto 2");
+
+   options.mode = LLM_DRIVER_VIEW_FOCUS;
+   options.compact = 1;
+   options.include_prefix = 0;
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"zone\":\"command\"", "command focus zone");
+   expect_contains(out, "\"role\":\"command\"", "command row visible");
+   expect_contains(out, "\"cell\":6", "command cursor after text");
+
+   expect_true(the_input_event_from_key_name("left", &input),
+               "make command left");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply command left");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"cell\":5", "command cursor moves left");
+
+   expect_true(the_input_event_from_key_name("right", &input),
+               "make command right");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply command right");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"cell\":6", "command cursor moves right");
+
+   expect_true(the_input_event_from_key_name("enter", &input),
+               "make command enter");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply command enter");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"zone\":\"filearea\"", "enter returns to filearea");
+   expect_contains(out, "\"line\":2", "entered command executed");
 
    agent_driver_free(&driver);
    return failures == 0 ? 0 : 1;
