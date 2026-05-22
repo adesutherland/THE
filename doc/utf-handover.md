@@ -1,6 +1,6 @@
 # UTF-8 Enablement Handover
 
-Last updated: 2026-05-21.
+Last updated: 2026-05-22.
 
 ## Current State
 
@@ -228,6 +228,11 @@ each meaningful step. Current checkpoint status:
    queue; LLM wrappers use it. Curses/mouse input still needs routing through
    it before command dispatch.
 8. Tighten the guardrails so editor logic cannot call curses directly: pending.
+9. Add a no-curses agent proof target: next. This target should open files,
+   accept normalized agent input, emit semantic LLM snapshots, and link no
+   curses library or curses driver source. It proves the logical editor/LLM
+   surface can function independently while the full curses editor is still
+   being migrated.
 
 Runtime cursor code still has multiple physical paths and must be migrated. The
 guardrail test is intentionally permissive while the live renderer is still

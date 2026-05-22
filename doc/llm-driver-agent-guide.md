@@ -1,6 +1,6 @@
 # LLM Driver Agent Guide
 
-Last updated: 2026-05-21.
+Last updated: 2026-05-22.
 
 ## Purpose
 
@@ -133,6 +133,13 @@ Implemented foundation:
 - LLM compatibility wrappers around the shared input event layer.
 - debug snapshot formatting for focus, cursor mapping, driver ops, and last
   render explanation.
+
+Next proof point:
+
+- add a no-curses agent executable that opens files, emits LLM snapshots, and
+  accepts normalized stdin commands. This target should be usable by an agent
+  before the full curses input loop is migrated, and its build must prove that
+  LLM interaction does not require curses or the curses driver.
 
 Remaining work:
 

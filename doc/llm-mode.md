@@ -10,10 +10,11 @@ screen scraping.
 The first passive implementation is in `src/llmdriver.c` and
 `src/llmdriver.h`, with coverage in `tests/test_llmdriver.c`.
 
-This is not yet a live command-line mode. There is currently no supported
-runtime switch such as `--llm`, and the live editor input loop is not yet wired
-to the LLM driver. Treat the current code as the contract foundation for the
-next architecture steps.
+The next proof point is a separate no-curses agent executable rather than a
+runtime switch inside the curses editor. It should be interactive over
+stdin/stdout, use the same `LlmDriverScreenView` and `TheInputEvent` contracts,
+and link no curses libraries or curses driver sources. Treat that target as the
+first live LLM surface while the full editor input loop is still being migrated.
 
 ## Design Intent
 
@@ -139,7 +140,7 @@ terminal repair feature.
 
 ## Next Implementation Steps
 
-1. Add a live mode switch or embedding entry point for LLM operation.
+1. Add a no-curses agent executable for LLM operation.
 2. Build screen snapshots from the live logical cursor/focus model rather than
    ad hoc curses state.
 3. Route command input through THE command execution.

@@ -1,6 +1,6 @@
 # Cursor Driver Architecture
 
-Last updated: 2026-05-21.
+Last updated: 2026-05-22.
 
 ## Goal
 
@@ -99,6 +99,29 @@ normalization, so LLM automation and manual terminal use exercise one code path.
 
 ## Current Problem
 
+### 2026-05-22 Review
+
+The current documents and code agree on the core boundary, but the next proof
+point must be executable rather than descriptive: build an agent-interactive THE
+target that links the logical editor/LLM driver modules and deliberately omits
+curses, `show.c`, and `cursesdriver.c`. That target should open a file, expose
+semantic LLM snapshots, accept normalized text/key/command input, and edit a
+small logical buffer through `TextPos`/`LogicalCursor`. It is not expected to
+replace the full curses editor yet; its purpose is to prove that useful editor
+interaction can happen without terminal state or curses calls.
+
+The proof target must satisfy these checks:
+
+- no curses libraries in the target link line or dynamic dependencies.
+- no `cursesdriver.c`, `show.c`, or curses-window symbols in the target source
+  closure.
+- interactive stdin/stdout protocol suitable for an agent loop.
+- semantic `full`, `filearea`, `focus`, `reserved`, and `prefix` snapshots
+  using the existing LLM formatter.
+- normalized key/text/command handling through `TheInputEvent`.
+- tests that exercise file loading, cursor motion, text insertion, compact
+  views, and the no-curses build guard.
+
 The implementation is being migrated away from multiple physical cursor
 authorities. Some old paths remain, but the first stable checkpoints are now in
 place:
@@ -188,6 +211,12 @@ curses.
    Once the migration is complete, make the curses-boundary test strict: editor
    logic files may not call curses directly. Obsolete legacy platform paths
    outside macOS, Linux, and Windows can be removed when they block the cleanup.
+
+9. Add a no-curses agent proof target.
+   Add an executable agent driver that uses `uidriver`, `llmdriver`,
+   `inputevent`, `logcursor`, and `textpos` without linking curses. This gives
+   agents a functional interactive surface and gives the refactor a concrete
+   separation proof while the full curses editor is still being migrated.
 
 ## Testing Strategy
 
