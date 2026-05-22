@@ -4956,7 +4956,16 @@ char *get_current_position(CHARTYPE scrno,LINETYPE *line,LENGTHTYPE *col)
 
    TRACE_FUNCTION("show.c:    get_current_position");
    if ( curses_started )
-      getyx( SCREEN_WINDOW(scrno), y, x );
+   {
+      CursesDriverWindowCursor cursor =
+         curses_driver_capture_window_cursor(SCREEN_WINDOW(scrno));
+
+      if (cursor.valid)
+      {
+         y = cursor.row;
+         x = cursor.col;
+      }
+   }
    scurr = screen[scrno].sl + y;
    switch( SCREEN_VIEW(scrno)->current_window )
    {
