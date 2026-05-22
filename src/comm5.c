@@ -37,6 +37,9 @@
 
 #include <the.h>
 #include <proto.h>
+#ifdef USE_UTF8
+# include "textedit.h"
+#endif
 
 #ifdef USE_UTF8
 static int text_utf8_filearea_logical_cursor(unsigned short *row, int *cell)
@@ -667,46 +670,25 @@ short Text(CHARTYPE *params)
                                             CURRENT_VIEW->verify_col - 1,
                                             x,
                                             TEXT_SNAP_BACKWARD);
-               TextPos edit_pos = textpos_from_cell(rec, rec_len,
-                                                     logical_cell,
-                                                     TEXT_SNAP_BACKWARD);
-               LENGTHTYPE edit_byte = (LENGTHTYPE)edit_pos.byte_offset;
 
                if (logical_cell + 1 > CURRENT_VIEW->verify_end)
                   break;
-               if (edit_byte >= max_line_length)
+               if (logical_cell >= max_line_length)
                   break;
 
                if ( INSERTMODEx )
                {
-                  rec = meminschr( rec, real_key, edit_byte, max_line_length, rec_len );
-                  rec_len = calculate_rec_len( ADJUST_INSERT, rec, rec_len,
-                                               edit_byte + 1, 1, CURRENT_FILE->trailing );
+                  rec_len = textedit_insert_utf8(rec, rec_len, max_line_length,
+                                                 logical_cell, &real_key, 1);
                }
                else
                {
-                  TextCluster cluster = textpos_cluster_at(rec, rec_len, edit_pos);
-                  LENGTHTYPE replace_len = (LENGTHTYPE)cluster.byte_length;
-
-                  if (replace_len > 1)
-                  {
-                     memdeln( rec, edit_byte, rec_len, replace_len );
-                     rec_len = calculate_rec_len( ADJUST_DELETE, rec, rec_len,
-                                                  edit_byte + 1, replace_len,
-                                                  CURRENT_FILE->trailing );
-                     rec = meminschr( rec, real_key, edit_byte, max_line_length, rec_len );
-                     rec_len = calculate_rec_len( ADJUST_INSERT, rec, rec_len,
-                                                  edit_byte + 1, 1,
-                                                  CURRENT_FILE->trailing );
-                  }
-                  else
-                  {
-                     rec[edit_byte] = real_key;
-                     rec_len = calculate_rec_len( ADJUST_OVERWRITE, rec, rec_len,
-                                                  edit_byte + 1, 1,
-                                                  CURRENT_FILE->trailing );
-                  }
+                  rec_len = textedit_replace_utf8(rec, rec_len, max_line_length,
+                                                  logical_cell, &real_key, 1);
                }
+               if (CURRENT_FILE->trailing == TRAILING_OFF)
+                  rec_len = calculate_rec_len(ADJUST_OVERWRITE, rec, rec_len,
+                                              1, 1, CURRENT_FILE->trailing);
                need_to_build_screen = TRUE;
                utf8_filearea_text_edited = TRUE;
                utf8_filearea_next_cell = logical_cell + 1;

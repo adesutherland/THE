@@ -150,6 +150,36 @@ static void test_physical_profile_does_not_change_logical_insert(void)
 #endif
 }
 
+static void test_insert_after_eol_materializes_blanks(void)
+{
+   static const CHARTYPE want[] = { 'A', 'B', ' ', ' ', ' ', 'X' };
+   CHARTYPE line[64];
+   LENGTHTYPE len;
+
+   copy_bytes(line, (const CHARTYPE *)"AB", 2);
+   len = textedit_insert_utf8(line, 2, sizeof(line) - 1,
+                              5, (const CHARTYPE *)"X", 1);
+   expect_bytes("insert.virtual.eol.pads", line, len, want, sizeof(want));
+}
+
+static void test_replace_after_eol_materializes_blanks(void)
+{
+   static const CHARTYPE keycap[] = { 'A', '1',
+                                      0xEF, 0xB8, 0x8F,
+                                      0xE2, 0x83, 0xA3, 'B' };
+   static const CHARTYPE want[] = { 'A', '1',
+                                    0xEF, 0xB8, 0x8F,
+                                    0xE2, 0x83, 0xA3, 'B',
+                                    ' ', ' ', 'Z' };
+   CHARTYPE line[64];
+   LENGTHTYPE len;
+
+   copy_bytes(line, keycap, sizeof(keycap));
+   len = textedit_replace_utf8(line, sizeof(keycap), sizeof(line) - 1,
+                               5, (const CHARTYPE *)"Z", 1);
+   expect_bytes("replace.virtual.eol.pads", line, len, want, sizeof(want));
+}
+
 int main(void)
 {
    test_replace_starts_at_cluster_boundary();
@@ -158,6 +188,8 @@ int main(void)
    test_overlay_advances_by_logical_clusters();
    test_physical_profile_does_not_change_logical_replace();
    test_physical_profile_does_not_change_logical_insert();
+   test_insert_after_eol_materializes_blanks();
+   test_replace_after_eol_materializes_blanks();
 
    if (failures != 0)
    {
