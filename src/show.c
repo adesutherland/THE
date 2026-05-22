@@ -966,6 +966,7 @@ static void show_draw_software_chtype_cell(CHARTYPE scrno, WINDOW *win,
       ch = ' ';
    wattrset(win, show_software_cursor_attr(scrno, base, shape));
    mvwaddch(win, row, col, ch);
+   wattrset(win, base);
 }
 
 static void show_draw_software_blank_cell(CHARTYPE scrno, WINDOW *win,
@@ -984,6 +985,7 @@ static void show_draw_software_blank_cell(CHARTYPE scrno, WINDOW *win,
 
    wattrset(win, show_software_cursor_attr(scrno, base, shape));
    mvwaddch(win, row, col, ' ');
+   wattrset(win, base);
 }
 
 static int show_frame_cursor_col(const UiFrame *frame, UiRowRole role,

@@ -2923,6 +2923,7 @@ short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTH
    short y=0,x=0;
    COLTYPE new_screen_col=0;
    LENGTHTYPE new_verify_col=0;
+   bool cmd_verify_changed=FALSE;
 
    TRACE_FUNCTION("execute.c: execute_move_cursor");
 
@@ -2966,12 +2967,20 @@ short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTH
       case WINDOW_COMMAND:
          getyx( SCREEN_WINDOW(curr_screen), y, x );
          calculate_new_column( curr_screen, curr_view, x, cmd_verify_col, col, &new_screen_col, &new_verify_col );
+         cmd_verify_changed = FALSE;
          if ( cmd_verify_col != new_verify_col )
          {
             cmd_verify_col = new_verify_col;
-            display_cmdline( curr_screen, curr_view );
+            cmd_verify_changed = TRUE;
          }
          wmove( SCREEN_WINDOW(curr_screen), y, new_screen_col );
+#ifdef USE_UTF8
+         display_cmdline( curr_screen, curr_view );
+         cursor_focus_refresh( curr_screen, curr_view );
+#else
+         if ( cmd_verify_changed )
+            display_cmdline( curr_screen, curr_view );
+#endif
          break;
       default: /* PREFIX */
          /*

@@ -122,6 +122,7 @@ static void sos_utf8_refresh_filearea(void)
 {
    build_screen(current_screen);
    display_screen(current_screen);
+   cursor_focus_present(current_screen);
    if ( ( CURRENT_VIEW == MARK_VIEW
       &&  CURRENT_VIEW->focus_line >= MARK_VIEW->mark_start_line
       &&  CURRENT_VIEW->focus_line <= MARK_VIEW->mark_end_line )
@@ -1513,6 +1514,7 @@ short Sos_leftedge(CHARTYPE *params)
    if ( CURRENT_VIEW->current_window == WINDOW_PREFIX )
       CURRENT_VIEW->current_window = WINDOW_FILEAREA;
    wmove( CURRENT_WINDOW, y, 0 );
+   cursor_focus_refresh( current_screen, CURRENT_VIEW );
    INTENTIONALLY_UNUSED_VARIABLE(x);
    TRACE_RETURN();
    return(RC_OK);
@@ -1772,8 +1774,9 @@ short Sos_pastecmdline(CHARTYPE *params)
       {
          cmd_verify_col = new_verify_col;
       }
-      display_cmdline( current_screen, CURRENT_VIEW );
       wmove( CURRENT_WINDOW, y, new_screen_col );
+      display_cmdline( current_screen, CURRENT_VIEW );
+      cursor_focus_refresh( current_screen, CURRENT_VIEW );
    }
    TRACE_RETURN();
    return(rc);
@@ -1829,9 +1832,7 @@ short do_Sos_prefix( CHARTYPE *params, CHARTYPE curr_screen, VIEW_DETAILS *curr_
       curr_view->current_window = WINDOW_PREFIX;
    x = 0;
    wmove( SCREEN_WINDOW(curr_screen), y, x );
-#ifdef USE_UTF8
-   cursor_focus_capture(curr_screen);
-#endif
+   cursor_focus_refresh(curr_screen, curr_view);
    TRACE_RETURN();
    return(rc);
 }
@@ -1909,6 +1910,7 @@ short Sos_rightedge(CHARTYPE *params)
       CURRENT_VIEW->current_window = WINDOW_FILEAREA;
    x = getmaxx(CURRENT_WINDOW)-1;
    wmove(CURRENT_WINDOW,y,x);
+   cursor_focus_refresh( current_screen, CURRENT_VIEW );
    TRACE_RETURN();
    return(rc);
 }
@@ -3009,8 +3011,9 @@ static short sosdelback( bool cua )
             {
                cmd_verify_col = new_verify_col;
             }
-            display_cmdline( current_screen, CURRENT_VIEW );
             wmove( CURRENT_WINDOW, y, new_screen_col );
+            display_cmdline( current_screen, CURRENT_VIEW );
+            cursor_focus_refresh( current_screen, CURRENT_VIEW );
          }
          else
          {
@@ -3021,6 +3024,7 @@ static short sosdelback( bool cua )
                cmd_rec_len--;
             }
             display_cmdline( current_screen, CURRENT_VIEW );
+            cursor_focus_refresh( current_screen, CURRENT_VIEW );
          }
          TRACE_RETURN();
          return(RC_OK);
@@ -3041,6 +3045,7 @@ static short sosdelback( bool cua )
          }
 #ifdef USE_UTF8
          display_prefix_line( current_screen, CURRENT_VIEW );
+         cursor_focus_refresh( current_screen, CURRENT_VIEW );
 #endif
          TRACE_RETURN();
          return(RC_OK);
@@ -3219,14 +3224,16 @@ static short sosdelchar( bool cua )
          {
             memdeln( cmd_rec, x + cmd_verify_col - 1, cmd_rec_len, 1 );
             cmd_rec_len--;
-            display_cmdline( current_screen, CURRENT_VIEW );
             wmove( CURRENT_WINDOW, y, x );
+            display_cmdline( current_screen, CURRENT_VIEW );
+            cursor_focus_refresh( current_screen, CURRENT_VIEW );
          }
 #ifdef USE_UTF8
          else
          {
-            display_cmdline( current_screen, CURRENT_VIEW );
             wmove( CURRENT_WINDOW, y, x );
+            display_cmdline( current_screen, CURRENT_VIEW );
+            cursor_focus_refresh( current_screen, CURRENT_VIEW );
          }
 #endif
          TRACE_RETURN();
@@ -3242,6 +3249,7 @@ static short sosdelchar( bool cua )
          }
 #ifdef USE_UTF8
          display_prefix_line( current_screen, CURRENT_VIEW );
+         cursor_focus_refresh( current_screen, CURRENT_VIEW );
 #endif
          TRACE_RETURN();
          return(RC_OK);

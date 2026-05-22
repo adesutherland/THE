@@ -462,6 +462,8 @@ bool cursor_focus_filearea_display_cursor (CHARTYPE, short, int *);
 bool cursor_focus_command_cursor (CHARTYPE, short *, short *, CursorShape *);
 bool cursor_focus_prefix_cursor (CHARTYPE, short, int *, CursorShape *);
 void cursor_focus_redraw (CHARTYPE, VIEW_DETAILS *);
+void cursor_focus_refresh (CHARTYPE, VIEW_DETAILS *);
+void cursor_focus_present (CHARTYPE);
 short cursor_focus_enter_command (CHARTYPE, VIEW_DETAILS *, short, bool);
 short THEcursor_column (void);
 short THEcursor_down ( CHARTYPE, VIEW_DETAILS *, short );

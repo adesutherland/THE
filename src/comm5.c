@@ -847,6 +847,7 @@ short Text(CHARTYPE *params)
              */
 #ifdef USE_UTF8
             display_cmdline( current_screen, CURRENT_VIEW );
+            cursor_focus_refresh( current_screen, CURRENT_VIEW );
 #else
             if ( x == CURRENT_SCREEN.cols[WINDOW_COMMAND]-1 )
                display_cmdline( current_screen, CURRENT_VIEW );
@@ -882,6 +883,7 @@ short Text(CHARTYPE *params)
                pre_rec_len = new_len+1;
 #ifdef USE_UTF8
             display_prefix_line( current_screen, CURRENT_VIEW );
+            cursor_focus_refresh( current_screen, CURRENT_VIEW );
 #endif
             break;
       }
@@ -928,6 +930,9 @@ short Text(CHARTYPE *params)
    {
       build_screen(current_screen);
       display_screen(current_screen);
+#ifdef USE_UTF8
+      cursor_focus_present(current_screen);
+#endif
    }
    /*
     * Set in_macro back to its original value...

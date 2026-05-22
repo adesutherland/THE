@@ -85,10 +85,43 @@ static void test_keycap_viewport_uses_physical_width(void)
               target.display_col < logical_visible_cols, 1);
 }
 
+static void test_keycap_trailing_cells_stay_logical(void)
+{
+   static const CHARTYPE keycap_tail[] = {
+      'A', '1', 0xEF, 0xB8, 0x8F, 0xE2, 0x83, 0xA3, 'B',
+      ' ', ' ', ' ', ' ', ' '
+   };
+   TextPos end;
+
+   utf8_terminal_profile_reset();
+   utf8_terminal_profile_apply_line("SET UTF TERMINAL CLASS keycap LAYOUT 2 CURSOR 2");
+
+   end = textpos_from_byte(keycap_tail, sizeof(keycap_tail), sizeof(keycap_tail));
+   expect_int("keycap.tail.logical.width", end.cell_column, 8);
+   expect_int("keycap.tail.physical.width",
+              utf8_layout_display_col_from_logical(keycap_tail,
+                                                   sizeof(keycap_tail),
+                                                   0, end.cell_column),
+              9);
+   expect_int("keycap.tail.display.fifth-space",
+              utf8_layout_logical_col_from_display(keycap_tail,
+                                                   sizeof(keycap_tail),
+                                                   0, 8,
+                                                   TEXT_SNAP_BACKWARD),
+              7);
+   expect_int("keycap.tail.after-line",
+              utf8_layout_logical_col_from_display(keycap_tail,
+                                                   sizeof(keycap_tail),
+                                                   0, 9,
+                                                   TEXT_SNAP_BACKWARD),
+              8);
+}
+
 int main(void)
 {
    test_keycap_physical_layout();
    test_keycap_viewport_uses_physical_width();
+   test_keycap_trailing_cells_stay_logical();
 
    if (failures != 0)
    {

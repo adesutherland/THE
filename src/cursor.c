@@ -172,6 +172,45 @@ static void cursor_focus_store_prefix_logical(CHARTYPE scrno, VIEW_DETAILS *view
    logical_cursor_state_focus(&view->logical_cursor, cursor);
 }
 
+static void cursor_focus_store_filearea_logical(CHARTYPE scrno, VIEW_DETAILS *view,
+                                                int row, int display_col)
+{
+   SHOW_LINE *show_row;
+   LogicalCursor cursor;
+   const CHARTYPE *line;
+   size_t len;
+   int logical_col;
+   int viewport_col;
+
+   if (view == NULL
+   ||  screen[scrno].sl == NULL
+   ||  row < 0
+   ||  row >= screen[scrno].rows[WINDOW_FILEAREA])
+      return;
+   if (display_col < 0)
+      display_col = 0;
+   show_row = &screen[scrno].sl[row];
+   if (show_row->line_type == LINE_TOF
+   ||  show_row->line_type == LINE_EOF
+   ||  show_row->line_type == LINE_OUT_OF_BOUNDS_ABOVE
+   ||  show_row->line_type == LINE_OUT_OF_BOUNDS_BELOW
+   ||  show_row->line_number == 0)
+      return;
+
+   line = (show_row->contents != NULL) ? show_row->contents : rec;
+   len = (show_row->contents != NULL) ? show_row->length : rec_len;
+   viewport_col = (int)view->verify_col - 1;
+   logical_col = curses_driver_logical_col_from_display(line, len,
+                                                        viewport_col,
+                                                        display_col,
+                                                        TEXT_SNAP_BACKWARD);
+   cursor = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_FILEAREA,
+                                     show_row->line_number, row,
+                                     line, len, logical_col,
+                                     TEXT_SNAP_BACKWARD, 1);
+   logical_cursor_state_focus(&view->logical_cursor, cursor);
+}
+
 static void cursor_focus_sync_logical_from_window(CHARTYPE scrno, VIEW_DETAILS *view)
 {
    WINDOW *win;
@@ -190,6 +229,9 @@ static void cursor_focus_sync_logical_from_window(CHARTYPE scrno, VIEW_DETAILS *
    cursor_focus_clamp_to_window(scrno, view->current_window, &row, &col);
    switch (view->current_window)
    {
+      case WINDOW_FILEAREA:
+         cursor_focus_store_filearea_logical(scrno, view, row, col);
+         break;
       case WINDOW_COMMAND:
          cursor_focus_store_command_logical(view, row, col);
          break;
@@ -369,6 +411,17 @@ static void cursor_focus_redraw_if_software(CHARTYPE curr_screen, VIEW_DETAILS *
       else
          cursor_focus_redraw(curr_screen, curr_view);
    }
+}
+
+void cursor_focus_refresh(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
+{
+   cursor_focus_redraw_if_software(curr_screen, curr_view);
+}
+
+void cursor_focus_present(CHARTYPE curr_screen)
+{
+   if (current_cursor_uses_software())
+      curses_driver_refresh_cursor(curr_screen);
 }
 
 short cursor_focus_enter_command(CHARTYPE curr_screen, VIEW_DETAILS *curr_view,
@@ -653,6 +706,17 @@ static void cursor_focus_redraw_if_software(CHARTYPE curr_screen, VIEW_DETAILS *
 {
    INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
    INTENTIONALLY_UNUSED_VARIABLE(curr_view);
+}
+
+void cursor_focus_refresh(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
+{
+   INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
+   INTENTIONALLY_UNUSED_VARIABLE(curr_view);
+}
+
+void cursor_focus_present(CHARTYPE curr_screen)
+{
+   INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
 }
 
 static void cursor_utf8_snap_filearea_to_cluster_start(CHARTYPE curr_screen,
@@ -1063,8 +1127,9 @@ short THEcursor_left(short escreen,bool kedit_defaults)
                cmd_verify_col = 1;
             else
                cmd_verify_col = cmd_verify_col - num_cols;
-            display_cmdline( current_screen, CURRENT_VIEW );
             wmove( CURRENT_WINDOW, y, curr_col - cmd_verify_col );
+            display_cmdline( current_screen, CURRENT_VIEW );
+            cursor_focus_refresh( current_screen, CURRENT_VIEW );
          }
          else
          {
@@ -1196,8 +1261,9 @@ short THEcursor_right(short escreen,bool kedit_defaults)
 
             num_cols = min( num_cols, CURRENT_SCREEN.cols[WINDOW_COMMAND] );
             cmd_verify_col += num_cols;
-            display_cmdline( current_screen, CURRENT_VIEW );
             wmove( CURRENT_WINDOW, y, curr_col - cmd_verify_col + 2 );
+            display_cmdline( current_screen, CURRENT_VIEW );
+            cursor_focus_refresh( current_screen, CURRENT_VIEW );
          }
          break;
       default:
@@ -1450,6 +1516,8 @@ short THEcursor_move( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool show_e
             break;
       }
    }
+   if (rc == RC_OK)
+      cursor_focus_refresh(curr_screen, curr_view);
    TRACE_RETURN();
    return(rc);
 }
