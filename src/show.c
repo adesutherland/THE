@@ -1739,10 +1739,9 @@ void redraw_window(WINDOW *win)
       for ( j = 0; j < getmaxy( win ); j++ )
       {
          curses_driver_move_window_cursor(win, j, i);
-#ifdef VMS
-         ch = (chtype)(winch( win ) );
-#else
-         ch = (chtype)(winch( win ) & A_CHARTEXT );
+         ch = curses_driver_read_window_cell(win);
+#ifndef VMS
+         ch &= A_CHARTEXT;
 #endif
          put_char( win, ch, ADDCHAR );
       }
@@ -1756,20 +1755,22 @@ void redraw_window(WINDOW *win)
 void repaint_screen(void)
 /***********************************************************************/
 {
-   short y=0,x=0;
+   CursesDriverWindowCursor cursor;
+   short y=0;
 
    TRACE_FUNCTION("show.c:    repaint_screen");
 
-   getyx(CURRENT_WINDOW,y,x);
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
    y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,
                               CURRENT_VIEW->current_row);
-   if (x > CURRENT_SCREEN.cols[WINDOW_FILEAREA])
-      x = 0;
+   if (cursor.valid && cursor.col > CURRENT_SCREEN.cols[WINDOW_FILEAREA])
+      cursor.col = 0;
    pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
    build_screen(current_screen);
    display_screen(current_screen);
    /* show_heading();*/
-   wmove(CURRENT_WINDOW,y,x);
+   curses_driver_move_window_cursor(CURRENT_WINDOW, y,
+                                    cursor.valid ? cursor.col : 0);
 
    TRACE_RETURN();
    return;

@@ -283,6 +283,13 @@ void curses_driver_restore_window_cursor(WINDOW *win,
    curses_driver_move_window_cursor(win, cursor.row, cursor.col);
 }
 
+chtype curses_driver_read_window_cell(WINDOW *win)
+{
+   if (win == NULL)
+      return 0;
+   return (chtype)winch(win);
+}
+
 void curses_driver_set_window_attr(WINDOW *win, chtype colour)
 {
    if (win == NULL)

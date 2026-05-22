@@ -56,6 +56,7 @@ CursesDriverWindowCursor curses_driver_capture_window_cursor(WINDOW *win);
 void curses_driver_move_window_cursor(WINDOW *win, short row, short col);
 void curses_driver_restore_window_cursor(WINDOW *win,
                                          CursesDriverWindowCursor cursor);
+chtype curses_driver_read_window_cell(WINDOW *win);
 void curses_driver_set_window_attr(WINDOW *win, chtype colour);
 void curses_driver_touch_window(WINDOW *win);
 void curses_driver_touch_line(WINDOW *win, int start, int count);
