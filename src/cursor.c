@@ -497,9 +497,16 @@ static int cursor_utf8_filearea_cell(void)
 {
    int y = 0;
    int x = 0;
+   CursesDriverWindowCursor cursor;
    LogicalCursor logical;
 
-   getyx(SCREEN_WINDOW_FILEAREA(current_screen), y, x);
+   cursor = curses_driver_capture_window_cursor(
+      SCREEN_WINDOW_FILEAREA(current_screen));
+   if (cursor.valid)
+   {
+      y = cursor.row;
+      x = cursor.col;
+   }
    logical = CURRENT_VIEW->logical_cursor.current;
    if (logical.valid
    &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
@@ -514,7 +521,7 @@ static int cursor_utf8_filearea_cell(void)
 static short cursor_utf8_filearea_row(void)
 {
    int y = 0;
-   int x = 0;
+   CursesDriverWindowCursor cursor;
    LogicalCursor logical;
 
    logical = CURRENT_VIEW->logical_cursor.current;
@@ -523,8 +530,10 @@ static short cursor_utf8_filearea_row(void)
    &&  logical.line_number == CURRENT_VIEW->focus_line)
       return (short)logical.zone_row;
 
-   getyx(SCREEN_WINDOW_FILEAREA(current_screen), y, x);
-   INTENTIONALLY_UNUSED_VARIABLE(x);
+   cursor = curses_driver_capture_window_cursor(
+      SCREEN_WINDOW_FILEAREA(current_screen));
+   if (cursor.valid)
+      y = cursor.row;
    return (short)y;
 }
 
@@ -666,15 +675,18 @@ static bool cursor_utf8_filearea_right(short escreen, short *rc)
 static void cursor_utf8_snap_filearea_to_cluster_start(CHARTYPE curr_screen,
                                                        VIEW_DETAILS *curr_view)
 {
-   int y = 0;
    int x = 0;
+   CursesDriverWindowCursor cursor;
    int cell;
    TextPos pos;
 
    if (curr_view == NULL || curr_view->current_window != WINDOW_FILEAREA)
       return;
 
-   getyx(SCREEN_WINDOW_FILEAREA(curr_screen), y, x);
+   cursor = curses_driver_capture_window_cursor(
+      SCREEN_WINDOW_FILEAREA(curr_screen));
+   if (cursor.valid)
+      x = cursor.col;
    cell = cursor_utf8_filearea_logical_cell_from_display(curr_screen,
                                                          curr_view,
                                                          x,
@@ -682,7 +694,6 @@ static void cursor_utf8_snap_filearea_to_cluster_start(CHARTYPE curr_screen,
    pos = textpos_from_cell(rec, rec_len, cell, TEXT_SNAP_BACKWARD);
    if (pos.cell_column != cell)
       execute_move_cursor(curr_screen, curr_view, (LENGTHTYPE)pos.cell_column);
-   INTENTIONALLY_UNUSED_VARIABLE(y);
 }
 
 static void cursor_utf8_move_filearea_display_col(CHARTYPE curr_screen,
