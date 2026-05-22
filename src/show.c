@@ -5059,7 +5059,6 @@ short advance_view(VIEW_DETAILS *next_view,short direction)
    ROWTYPE save_cmd_line=0;
    short save_gap=0,save_prefix_width=0;
    bool save_id_line=0;
-   int y=0,x=0;
    short rc=RC_OK;
 
    TRACE_FUNCTION("show.c:    advance_view");
@@ -5121,12 +5120,30 @@ short advance_view(VIEW_DETAILS *next_view,short direction)
    {
       if (CURRENT_WINDOW_COMMAND != NULL)
       {
-         wmove(CURRENT_WINDOW_COMMAND,0,0);
+         curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND, 0, 0);
          my_wclrtoeol(CURRENT_WINDOW_COMMAND);
       }
-      getyx(CURRENT_WINDOW_FILEAREA,CURRENT_VIEW->y[WINDOW_FILEAREA],CURRENT_VIEW->x[WINDOW_FILEAREA]);
+      {
+         CursesDriverWindowCursor cursor =
+            curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
+
+         if (cursor.valid)
+         {
+            CURRENT_VIEW->y[WINDOW_FILEAREA] = cursor.row;
+            CURRENT_VIEW->x[WINDOW_FILEAREA] = cursor.col;
+         }
+      }
       if (CURRENT_WINDOW_PREFIX != NULL)
-         getyx(CURRENT_WINDOW_PREFIX,CURRENT_VIEW->y[WINDOW_PREFIX],CURRENT_VIEW->x[WINDOW_PREFIX]);
+      {
+         CursesDriverWindowCursor cursor =
+            curses_driver_capture_window_cursor(CURRENT_WINDOW_PREFIX);
+
+         if (cursor.valid)
+         {
+            CURRENT_VIEW->y[WINDOW_PREFIX] = cursor.row;
+            CURRENT_VIEW->x[WINDOW_PREFIX] = cursor.col;
+         }
+      }
    }
    /*
     * If more than one screen is displayed and the file displayed in each
@@ -5244,11 +5261,15 @@ short advance_view(VIEW_DETAILS *next_view,short direction)
          touchwin(divider);
          wnoutrefresh(divider);
       }
-      wmove(CURRENT_WINDOW_FILEAREA,CURRENT_VIEW->y[WINDOW_FILEAREA],CURRENT_VIEW->x[WINDOW_FILEAREA]);
+      curses_driver_move_window_cursor(CURRENT_WINDOW_FILEAREA,
+                                       CURRENT_VIEW->y[WINDOW_FILEAREA],
+                                       CURRENT_VIEW->x[WINDOW_FILEAREA]);
       if (CURRENT_WINDOW_PREFIX != NULL)
-         wmove(CURRENT_WINDOW_PREFIX,CURRENT_VIEW->y[WINDOW_PREFIX],CURRENT_VIEW->x[WINDOW_PREFIX]);
-      getyx(CURRENT_WINDOW,y,x);
-      wmove(CURRENT_WINDOW,y,x);
+         curses_driver_move_window_cursor(CURRENT_WINDOW_PREFIX,
+                                          CURRENT_VIEW->y[WINDOW_PREFIX],
+                                          CURRENT_VIEW->x[WINDOW_PREFIX]);
+      curses_driver_restore_window_cursor(
+         CURRENT_WINDOW, curses_driver_capture_window_cursor(CURRENT_WINDOW));
    }
    TRACE_RETURN();
    return(RC_OK);
