@@ -1,7 +1,6 @@
-#include "cursesdriver.h"
-
 #include "the.h"
 #include "proto.h"
+#include "cursesdriver.h"
 
 #ifdef USE_UTF8
 # include "utflayout.h"
@@ -105,6 +104,64 @@ int curses_driver_viewport_col_for_logical(const CHARTYPE *line, size_t len,
       *visible = window_cols > 0 && target_display_col < window_cols;
    return current_viewport_col;
 #endif
+}
+
+chtype curses_driver_software_cursor_attr(CHARTYPE scrno, chtype base,
+                                          CursorShape shape)
+{
+   if (shape == CURSOR_BLOCK)
+      return set_colour(SCREEN_FILE(scrno)->attr+ATTR_CBLOCK);
+#ifdef A_UNDERLINE
+   return base | A_UNDERLINE;
+#else
+   return set_colour(SCREEN_FILE(scrno)->attr+ATTR_CBLOCK);
+#endif
+}
+
+void curses_driver_draw_software_chtype_cell(CHARTYPE scrno, WINDOW *win,
+                                             short row, int col, chtype base,
+                                             CursorShape shape)
+{
+   chtype cell;
+   chtype ch;
+   int maxy;
+   int maxx;
+
+   if (win == NULL)
+      return;
+   maxy = getmaxy(win);
+   maxx = getmaxx(win);
+   if (row < 0 || row >= maxy || col < 0 || col >= maxx)
+      return;
+
+   cell = mvwinch(win, row, col);
+   ch = cell & A_CHARTEXT;
+   if ((cell & A_ATTRIBUTES) != 0)
+      base = cell & A_ATTRIBUTES;
+   if (ch == 0)
+      ch = ' ';
+   wattrset(win, curses_driver_software_cursor_attr(scrno, base, shape));
+   mvwaddch(win, row, col, ch);
+   wattrset(win, base);
+}
+
+void curses_driver_draw_software_blank_cell(CHARTYPE scrno, WINDOW *win,
+                                            short row, int col, chtype base,
+                                            CursorShape shape)
+{
+   int maxy;
+   int maxx;
+
+   if (win == NULL)
+      return;
+   maxy = getmaxy(win);
+   maxx = getmaxx(win);
+   if (row < 0 || row >= maxy || col < 0 || col >= maxx)
+      return;
+
+   wattrset(win, curses_driver_software_cursor_attr(scrno, base, shape));
+   mvwaddch(win, row, col, ' ');
+   wattrset(win, base);
 }
 
 short curses_driver_refresh_cursor(CHARTYPE scrno)

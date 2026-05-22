@@ -82,6 +82,7 @@
 #include <string.h>
 #include <time.h>
 #ifdef USE_UTF8
+# include "cursesdriver.h"
 # include <wchar.h>
 # include "screenframe.h"
 # include "utflayout.h"
@@ -931,63 +932,6 @@ static void display_syntax_line_left(WINDOW *win, chtype colour, CHARTYPE *str,
 }
 
 #ifdef USE_UTF8
-static chtype show_software_cursor_attr(CHARTYPE scrno, chtype base, CursorShape shape)
-{
-   if (shape == CURSOR_BLOCK)
-      return set_colour(SCREEN_FILE(scrno)->attr+ATTR_CBLOCK);
-#ifdef A_UNDERLINE
-   return base | A_UNDERLINE;
-#else
-   return set_colour(SCREEN_FILE(scrno)->attr+ATTR_CBLOCK);
-#endif
-}
-
-static void show_draw_software_chtype_cell(CHARTYPE scrno, WINDOW *win,
-                                           short row, int col,
-                                           chtype base, CursorShape shape)
-{
-   chtype cell;
-   chtype ch;
-   int maxy;
-   int maxx;
-
-   if (win == NULL)
-      return;
-   maxy = getmaxy(win);
-   maxx = getmaxx(win);
-   if (row < 0 || row >= maxy || col < 0 || col >= maxx)
-      return;
-
-   cell = mvwinch(win, row, col);
-   ch = cell & A_CHARTEXT;
-   if ((cell & A_ATTRIBUTES) != 0)
-      base = cell & A_ATTRIBUTES;
-   if (ch == 0)
-      ch = ' ';
-   wattrset(win, show_software_cursor_attr(scrno, base, shape));
-   mvwaddch(win, row, col, ch);
-   wattrset(win, base);
-}
-
-static void show_draw_software_blank_cell(CHARTYPE scrno, WINDOW *win,
-                                          short row, int col,
-                                          chtype base, CursorShape shape)
-{
-   int maxy;
-   int maxx;
-
-   if (win == NULL)
-      return;
-   maxy = getmaxy(win);
-   maxx = getmaxx(win);
-   if (row < 0 || row >= maxy || col < 0 || col >= maxx)
-      return;
-
-   wattrset(win, show_software_cursor_attr(scrno, base, shape));
-   mvwaddch(win, row, col, ' ');
-   wattrset(win, base);
-}
-
 static int show_frame_cursor_col(const UiFrame *frame, UiRowRole role,
                                  LINETYPE line_number, short row,
                                  int viewport_col, int *col,
@@ -1053,8 +997,9 @@ static void show_draw_filearea_marker_cursor(const UiFrame *frame, CHARTYPE scrn
    else if (!cursor_focus_filearea_cursor(scrno, row, &cursor_col, &cursor_shape))
       return;
 
-   show_draw_software_chtype_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno), row,
-                                  cursor_col, normal, cursor_shape);
+   curses_driver_draw_software_chtype_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno),
+                                           row, cursor_col, normal,
+                                           cursor_shape);
 }
 
 static void show_draw_software_command_cursor(CHARTYPE scrno, VIEW_DETAILS *view)
@@ -1069,7 +1014,8 @@ static void show_draw_software_command_cursor(CHARTYPE scrno, VIEW_DETAILS *view
       return;
 
    base = set_colour(view->file_for_view->attr + (inDIALOG ? ATTR_DIA_EDITFIELD : ATTR_CMDLINE));
-   show_draw_software_chtype_cell(scrno, SCREEN_WINDOW_COMMAND(scrno), row, col, base, shape);
+   curses_driver_draw_software_chtype_cell(scrno, SCREEN_WINDOW_COMMAND(scrno),
+                                           row, col, base, shape);
 }
 
 static void show_draw_software_prefix_cursor(CHARTYPE scrno, short row,
@@ -1088,8 +1034,9 @@ static void show_draw_software_prefix_cursor(CHARTYPE scrno, short row,
    }
    else if (!cursor_focus_prefix_cursor(scrno, row, &col, &shape))
       return;
-   show_draw_software_chtype_cell(scrno, SCREEN_WINDOW_PREFIX(scrno), row, col,
-                                  set_colour(SCREEN_FILE(scrno)->attr + ATTR_PREFIX), shape);
+   curses_driver_draw_software_chtype_cell(
+      scrno, SCREEN_WINDOW_PREFIX(scrno), row, col,
+      set_colour(SCREEN_FILE(scrno)->attr + ATTR_PREFIX), shape);
 }
 #endif
 
@@ -3741,7 +3688,8 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
 
       if ( cursor_logical_hit || cursor_display_hit )
       {
-         colour = show_software_cursor_attr(scrno, colour, cursor_shape);
+         colour = curses_driver_software_cursor_attr(scrno, colour,
+                                                     cursor_shape);
          cursor_drawn = TRUE;
       }
 
@@ -3769,8 +3717,10 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
                                  line, blength, (int)cvcol,
                                  (int)cvcol + cursor_col);
       if (cursor_display_col >= 0 && cursor_display_col < ccols)
-         show_draw_software_blank_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno), row,
-                                       cursor_display_col, normal, cursor_shape);
+         curses_driver_draw_software_blank_cell(scrno,
+                                                SCREEN_WINDOW_FILEAREA(scrno),
+                                                row, cursor_display_col,
+                                                normal, cursor_shape);
    }
    if (replacement_plan.extent == UTF8_REPAIR_EXTENT_LINE)
       touchline(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
@@ -3835,8 +3785,10 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
    if (line == NULL)
    {
       if (cursor)
-         show_draw_software_blank_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno),
-                                       row, logical_screen_col, normal, shape);
+         curses_driver_draw_software_blank_cell(scrno,
+                                                SCREEN_WINDOW_FILEAREA(scrno),
+                                                row, logical_screen_col,
+                                                normal, shape);
       else
          show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row,
                             logical_screen_col, 1, normal);
@@ -3860,8 +3812,9 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
       if (display_col >= 0 && display_col < ccols)
       {
          if (cursor)
-            show_draw_software_blank_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno),
-                                          row, display_col, normal, shape);
+            curses_driver_draw_software_blank_cell(
+               scrno, SCREEN_WINDOW_FILEAREA(scrno), row, display_col, normal,
+               shape);
          else
             show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row,
                                display_col, 1, normal);
@@ -3877,7 +3830,7 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
 
    colour = show_utf8_filearea_cluster_colour(scrno, current, cluster, high);
    if (cursor)
-      colour = show_software_cursor_attr(scrno, colour, shape);
+      colour = curses_driver_software_cursor_attr(scrno, colour, shape);
 
    display_col = show_utf8_display_col_from_logical(line, blength, (int)cvcol,
                                                     cluster.pos.cell_column);
@@ -3925,7 +3878,8 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
                                                             repaint_cluster, high);
          if (cursor
          &&  repaint_cluster.pos.byte_offset == cluster.pos.byte_offset)
-            repaint_colour = show_software_cursor_attr(scrno, repaint_colour, shape);
+            repaint_colour = curses_driver_software_cursor_attr(
+               scrno, repaint_colour, shape);
          show_write_utf8_cluster_at(SCREEN_WINDOW_FILEAREA(scrno), row,
                                     repaint_display_col, line, blength,
                                     repaint_cluster, repaint_colour,
@@ -4247,8 +4201,9 @@ static void show_a_line(CHARTYPE scrno,short row, SHOW_LINE *scurr
          if (show_filearea_cursor_col(frame, scrno, row,
                                       current->line_number, 0,
                                       &cursor_col, &cursor_shape))
-            show_draw_software_blank_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno), row,
-                                          cursor_col, normal, cursor_shape);
+            curses_driver_draw_software_blank_cell(
+               scrno, SCREEN_WINDOW_FILEAREA(scrno), row, cursor_col, normal,
+               cursor_shape);
       }
 #endif
       TRACE_RETURN();
@@ -4586,8 +4541,9 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d: ccols %d cother_end_col %d bother_end_col
                                    current->line_number,
                                    (int)SCREEN_VIEW(scrno)->verify_col - 1,
                                    &cursor_col, &cursor_shape))
-         show_draw_software_chtype_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno), row,
-                                        cursor_col, normal, cursor_shape);
+         curses_driver_draw_software_chtype_cell(
+            scrno, SCREEN_WINDOW_FILEAREA(scrno), row, cursor_col, normal,
+            cursor_shape);
    }
 #endif
    TRACE_RETURN();

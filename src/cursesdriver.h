@@ -27,6 +27,14 @@ int curses_driver_viewport_col_for_logical(const CHARTYPE *line, size_t len,
                                            int current_viewport_col,
                                            int logical_col, int window_cols,
                                            int *display_col, int *visible);
+chtype curses_driver_software_cursor_attr(CHARTYPE scrno, chtype base,
+                                          CursorShape shape);
+void curses_driver_draw_software_chtype_cell(CHARTYPE scrno, WINDOW *win,
+                                             short row, int col, chtype base,
+                                             CursorShape shape);
+void curses_driver_draw_software_blank_cell(CHARTYPE scrno, WINDOW *win,
+                                            short row, int col, chtype base,
+                                            CursorShape shape);
 short curses_driver_refresh_cursor(CHARTYPE scrno);
 short curses_driver_redraw_screen_cursor(CHARTYPE scrno, struct view_details *view);
 CursesDriverCursorTarget curses_driver_filearea_target(

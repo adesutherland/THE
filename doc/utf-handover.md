@@ -45,14 +45,15 @@ logical-to-physical UTF cell mapping without curses calls. `src/uidriver.c`
 defines logical row roles, frames, cursor overlays, and fake-driver operation
 logs. `src/screenframe.c` builds live `UiFrame` snapshots from THE's current
 file-area rows. `src/cursesdriver.c` wraps file-area curses cursor target
-calculation, movement, cursor repaint transitions, and refresh. `src/show.c`
-keeps its existing public helpers but now builds a live frame during full
-file-area redraw and uses it to select file-area and prefix software cursor
-overlays. `src/inputevent.c` owns normalized text/key/command/logical-hit/debug
-events and legacy key conversion. `src/llmdriver.c` now exposes role-aware
-semantic snapshots, compact token-saving view modes, shared normalized input
-wrappers, cursor mapping diagnostics, and driver operation log formatting; it
-is not yet wired into the live input loop.
+calculation, movement, software cursor cell painting, cursor repaint
+transitions, and refresh. `src/show.c` keeps its existing public helpers but
+now builds a live frame during full file-area redraw and uses it to select
+file-area and prefix software cursor overlays. `src/inputevent.c` owns
+normalized text/key/command/logical-hit/debug events and legacy key conversion.
+`src/llmdriver.c` now exposes role-aware semantic snapshots, compact
+token-saving view modes, shared normalized input wrappers, cursor mapping
+diagnostics, and driver operation log formatting; it is not yet wired into the
+live input loop.
 
 The generic suffix-style cursor repair now follows the probe order: clear the
 selected suffix, flush that blank state when requested, repaint the suffix in
@@ -219,8 +220,9 @@ each meaningful step. Current checkpoint status:
    delete-back, and delete-char path done.
 5. Consolidate software cursor painting into one driver-owned path: partial.
    Full file-area redraw now builds a live `UiFrame` and uses it for file-area
-   and prefix overlay ownership; targeted redraws and the actual curses paint
-   operations still need to move behind the driver.
+   and prefix overlay ownership; software-cursor attribute and cell painting
+   now live in `cursesdriver.c`. Targeted redraws still need to become
+   driver-level logical render requests instead of relying on legacy snapshots.
 6. Bring prefix and command-line cursor/editing behavior under the same model:
    partial. Focus has logical cursor state; editing paths still need migration.
 7. Normalize curses, mouse, and LLM input through a shared event type: partial.
