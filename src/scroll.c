@@ -37,12 +37,14 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 
 /***********************************************************************/
 short scroll_page(short direction,LINETYPE num_pages,bool scrollbar)
 /***********************************************************************/
 {
    short y=0,x=0,save_y=0,rc;
+   CursesDriverWindowCursor cursor;
    bool save_scroll_cursor_stay=scroll_cursor_stay;
 
    TRACE_FUNCTION("scroll.c:  scroll_page");
@@ -92,14 +94,19 @@ short scroll_page(short direction,LINETYPE num_pages,bool scrollbar)
     */
    if (curses_started)
    {
-      getyx(CURRENT_WINDOW,y,x);
+      cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+      if (cursor.valid)
+      {
+         y = cursor.row;
+         x = cursor.col;
+      }
       display_screen(current_screen);
       if (CURRENT_VIEW->current_window != WINDOW_COMMAND)
       {
          y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line, CURRENT_VIEW->current_row);
-         wmove(CURRENT_WINDOW,y,x);
+         curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
          if (scrollbar)
-            wrefresh(CURRENT_WINDOW);
+            curses_driver_refresh_window(CURRENT_WINDOW);
       }
    }
    if (CURRENT_TOF || CURRENT_BOF)
