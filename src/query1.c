@@ -36,6 +36,7 @@
 #include <the.h>
 #include <proto.h>
 
+#include "cursesdriver.h"
 #include <query.h>
 
 short extract_point_settings(short,CHARTYPE *);
@@ -61,6 +62,23 @@ extern CHARTYPE query_num8[50];
 extern CHARTYPE query_rsrvd[MAX_FILE_NAME+1];
 static LINE *curr;
 
+static void query1_capture_window_cursor(WINDOW *win, short *y, short *x)
+{
+   CursesDriverWindowCursor cursor;
+
+   if (y != NULL)
+      *y = 0;
+   if (x != NULL)
+      *x = 0;
+   cursor = curses_driver_capture_window_cursor(win);
+   if (!cursor.valid)
+      return;
+   if (y != NULL)
+      *y = cursor.row;
+   if (x != NULL)
+      *x = cursor.col;
+}
+
 /***********************************************************************/
 short extract_after_function(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
@@ -75,7 +93,7 @@ short extract_after_function(short number_variables,short itemno,CHARTYPE *itema
    }
    else
    {
-      getyx(CURRENT_WINDOW,y,x);
+      query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
       bool_flag = FALSE;
       switch(CURRENT_VIEW->current_window)
       {
@@ -253,7 +271,7 @@ short extract_before_function(short number_variables,short itemno,CHARTYPE *item
    }
    else
    {
-      getyx(CURRENT_WINDOW,y,x);
+      query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
       bool_flag = FALSE;
       switch(CURRENT_VIEW->current_window)
       {
@@ -349,7 +367,7 @@ short extract_bottomedge_function(short number_variables,short itemno,CHARTYPE *
       item_values[1].len = 1;
       return 1;
    }
-   getyx(CURRENT_WINDOW,y,x);
+   query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
    INTENTIONALLY_UNUSED_VARIABLE(x);
    return set_boolean_value((bool)(CURRENT_VIEW->current_window == WINDOW_FILEAREA && y == CURRENT_SCREEN.rows[WINDOW_FILEAREA]-1),(short)1);
 }
@@ -629,7 +647,7 @@ short extract_column(short number_variables,short itemno,CHARTYPE *itemargs,CHAR
       sprintf((DEFCHAR *)query_num1,"%ld",CURRENT_VIEW->current_column);
    else
    {
-      getyx(CURRENT_WINDOW,y,x);
+      query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
       sprintf((DEFCHAR *)query_num1,"%ld",x+CURRENT_VIEW->verify_col);
    }
    item_values[1].value = query_num1;
@@ -1183,7 +1201,7 @@ short extract_end_function(short number_variables,short itemno,CHARTYPE *itemarg
       return 1;
    }
    item_values[1].value = (CHARTYPE *)"0"; /* set FALSE by default */
-   getyx(CURRENT_WINDOW,y,x);
+   query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
    switch(CURRENT_VIEW->current_window)
    {
       case WINDOW_FILEAREA:
@@ -1311,7 +1329,7 @@ short extract_field(short number_variables,short itemno,CHARTYPE *itemargs,CHART
       item_values[1].len = 1;
       return 1;
    }
-   getyx(CURRENT_WINDOW,y,x);
+   query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
    switch(CURRENT_VIEW->current_window)
    {
       case WINDOW_FILEAREA:
@@ -1359,7 +1377,7 @@ short extract_fieldword(short number_variables,short itemno,CHARTYPE *itemargs,C
    LENGTHTYPE word_len;
    CHARTYPE *tmpbuf;
 
-   getyx(CURRENT_WINDOW,y,x);
+   query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
    switch(CURRENT_VIEW->current_window)
    {
       case WINDOW_FILEAREA:
@@ -1477,7 +1495,7 @@ short extract_first_function(short number_variables,short itemno,CHARTYPE *itema
       item_values[1].len = 1;
       return 1;
    }
-   getyx(CURRENT_WINDOW,y,x);
+   query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
    INTENTIONALLY_UNUSED_VARIABLE(y);
    return set_boolean_value((bool)(x == 0 && CURRENT_VIEW->verify_col == 1),(short)1);
 }
@@ -1838,7 +1856,7 @@ short extract_inblock_function(short number_variables,short itemno,CHARTYPE *ite
    if (CURRENT_VIEW == MARK_VIEW
    &&  CURRENT_VIEW->current_window == WINDOW_FILEAREA)
    {
-      getyx(CURRENT_WINDOW_FILEAREA,y,x);
+      query1_capture_window_cursor(CURRENT_WINDOW_FILEAREA,&y,&x);
       switch(MARK_VIEW->mark_type)
       {
          case M_LINE:
@@ -2148,7 +2166,7 @@ short extract_leftedge_function(short number_variables,short itemno,CHARTYPE *it
       item_values[1].len = 1;
       return 1;
    }
-   getyx(CURRENT_WINDOW,y,x);
+   query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
    INTENTIONALLY_UNUSED_VARIABLE(y);
    return set_boolean_value((bool)(CURRENT_VIEW->current_window == WINDOW_FILEAREA && x == 0),(short)1);
 }
