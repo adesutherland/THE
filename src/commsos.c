@@ -2139,12 +2139,9 @@ short Sos_startendchar(CHARTYPE *params)
             rc = Sos_endchar( (CHARTYPE *)"" );
          break;
       case WINDOW_FILEAREA:
-#ifdef USE_UTF8
-         charnum = u8_charnum( (char *)rec, rec_len );
-#else
-         charnum = rec_len;
-#endif
-         if (x + CURRENT_VIEW->verify_col > min( charnum, CURRENT_VIEW->verify_end ) )
+         charnum = (LENGTHTYPE)textpos_from_byte(rec, rec_len,
+                                                  rec_len).cell_column;
+         if (sos_filearea_current_column(y, x) > min( charnum, CURRENT_VIEW->verify_end ) )
             rc = Sos_firstcol( (CHARTYPE *)"" );
          else
             rc = Sos_endchar( (CHARTYPE *)"" );
@@ -3018,7 +3015,6 @@ static short sosdelback( bool cua )
    short rc=RC_OK;
 
    getyx( CURRENT_WINDOW, y, x );
-#ifdef USE_UTF8
    if (CURRENT_VIEW->current_window == WINDOW_FILEAREA)
    {
       unsigned short logical_y = y;
@@ -3026,7 +3022,6 @@ static short sosdelback( bool cua )
       if (sos_filearea_logical_cursor(&logical_y, NULL))
          y = logical_y;
    }
-#endif
    switch( CURRENT_VIEW->current_window )
    {
       case WINDOW_FILEAREA:
@@ -3217,19 +3212,29 @@ static short sosdelback( bool cua )
    }
 #endif
    THEcursor_left( TRUE, FALSE );
+   {
+      CursesDriverWindowCursor cursor =
+         curses_driver_capture_window_cursor(CURRENT_WINDOW);
+
+      if (cursor.valid)
+      {
+         y = (unsigned short)cursor.row;
+         x = (unsigned short)cursor.col;
+      }
+   }
    /*
     * If we are after the last character of the line, exit.
     */
-   if ( x + CURRENT_VIEW->verify_col - 1 > rec_len )
+   if (sos_filearea_current_cell(y, x)
+   >=  textpos_from_byte(rec, rec_len, rec_len).cell_column)
    {
       TRACE_RETURN();
       return(RC_OK);
    }
 
-   getyx( CURRENT_WINDOW, y, x );
    my_wdelch( CURRENT_WINDOW );
 
-   memdeln( rec, CURRENT_VIEW->verify_col - 1 + x, rec_len, 1 );
+   memdeln( rec, sos_filearea_current_byte(y, x), rec_len, 1 );
    rec_len--;
 #ifdef USE_SDSLH
    sdslh_update_current_line(y);
@@ -3272,7 +3277,6 @@ static short sosdelchar( bool cua )
    short rc=RC_OK;
 
    getyx( CURRENT_WINDOW, y, x );
-#ifdef USE_UTF8
    if (CURRENT_VIEW->current_window == WINDOW_FILEAREA)
    {
       unsigned short logical_y = y;
@@ -3280,7 +3284,6 @@ static short sosdelchar( bool cua )
       if (sos_filearea_logical_cursor(&logical_y, NULL))
          y = logical_y;
    }
-#endif
    switch ( CURRENT_VIEW->current_window )
    {
       case WINDOW_COMMAND:
@@ -3396,9 +3399,10 @@ static short sosdelchar( bool cua )
    /*
     * If we are not after the last character of the line...
     */
-   if ( x + CURRENT_VIEW->verify_col <= rec_len )
+   if (sos_filearea_current_cell(y, x)
+   <   textpos_from_byte(rec, rec_len, rec_len).cell_column)
    {
-      memdeln( rec, CURRENT_VIEW->verify_col - 1 + x, rec_len, 1 );
+      memdeln( rec, sos_filearea_current_byte(y, x), rec_len, 1 );
       rec_len--;
 #ifdef USE_SDSLH
       sdslh_update_current_line(y);
