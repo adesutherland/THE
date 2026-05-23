@@ -82,6 +82,12 @@ static int sos_filearea_current_cell(unsigned short y, unsigned short x)
 #endif
 }
 
+static LENGTHTYPE sos_filearea_current_column(unsigned short y,
+                                              unsigned short x)
+{
+   return (LENGTHTYPE)sos_filearea_current_cell(y, x) + 1;
+}
+
 #ifdef USE_UTF8
 static LENGTHTYPE sos_utf8_rec_len_after_delete(LENGTHTYPE old_len,
                                                 LENGTHTYPE delete_byte,
@@ -1430,7 +1436,7 @@ short Sos_instab(CHARTYPE *params)
       return(rc);
    }
    getyx( CURRENT_WINDOW, y, x );
-   col = x + CURRENT_VIEW->verify_col;
+   col = sos_filearea_current_column(y, x);
    for ( i = 0; i < CURRENT_VIEW->numtabs; i++ )
    {
       if ( col < CURRENT_VIEW->tabs[i] )
@@ -2155,7 +2161,7 @@ short Sos_tabb(CHARTYPE *params)
          return(RC_OK);
          break;
       case WINDOW_FILEAREA:
-         current_col = x + CURRENT_VIEW->verify_col;
+         current_col = sos_filearea_current_column(y, x);
          verify_col = CURRENT_VIEW->verify_col;
          break;
       case WINDOW_COMMAND:
@@ -2272,7 +2278,7 @@ short Sos_tabf(CHARTYPE *params)
          return(RC_OK);
          break;
       case WINDOW_FILEAREA:
-         current_col = x + CURRENT_VIEW->verify_col;
+         current_col = sos_filearea_current_column(y, x);
          verify_col = CURRENT_VIEW->verify_col;
          break;
       case WINDOW_COMMAND:
