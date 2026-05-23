@@ -310,6 +310,21 @@ CursesDriverWindowCursor curses_driver_capture_window_cursor(WINDOW *win)
    return cursor;
 }
 
+CursesDriverWindowOrigin curses_driver_window_origin(WINDOW *win)
+{
+   CursesDriverWindowOrigin origin;
+
+   origin.row = 0;
+   origin.col = 0;
+   origin.valid = 0;
+   if (win == NULL)
+      return origin;
+
+   getbegyx(win, origin.row, origin.col);
+   origin.valid = 1;
+   return origin;
+}
+
 void curses_driver_move_window_cursor(WINDOW *win, short row, short col)
 {
    if (win == NULL)

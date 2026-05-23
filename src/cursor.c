@@ -2327,8 +2327,8 @@ void get_cursor_position(LINETYPE *screen_line, LENGTHTYPE *screen_column, LINET
 /***********************************************************************/
 {
    unsigned short y=0,x=0;
-   unsigned short begy=0,begx=0;
    CursesDriverWindowCursor cursor;
+   CursesDriverWindowOrigin origin;
 
    TRACE_FUNCTION("cursor.c:  get_cursor_position");
    if (curses_started)
@@ -2339,9 +2339,9 @@ void get_cursor_position(LINETYPE *screen_line, LENGTHTYPE *screen_column, LINET
          y = cursor.row;
          x = cursor.col;
       }
-      getbegyx(CURRENT_WINDOW,begy,begx);
-      *screen_line = (LINETYPE)(y + begy + 1L);
-      *screen_column = (LENGTHTYPE)(x + begx + 1L);
+      origin = curses_driver_window_origin(CURRENT_WINDOW);
+      *screen_line = (LINETYPE)(y + (origin.valid ? origin.row : 0) + 1L);
+      *screen_column = (LENGTHTYPE)(x + (origin.valid ? origin.col : 0) + 1L);
    }
    else
       *screen_line = *screen_column = (-1L);
