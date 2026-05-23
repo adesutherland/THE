@@ -39,6 +39,7 @@
 #include "proto.h"
 #include "key.h"
 #include "command.h"
+#include "cursesdriver.h"
 
 static CHARTYPE *build_defined_key_definition(int, CHARTYPE *,DEFINE *,int);
 static void save_last_command(CHARTYPE *,CHARTYPE *);
@@ -1637,20 +1638,25 @@ void cleanup_command_line(void)
    }
    if (CURRENT_WINDOW_COMMAND != (WINDOW *)NULL)
    {
-      wmove(CURRENT_WINDOW_COMMAND,0,0);
+      curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND,0,0);
       my_wclrtoeol(CURRENT_WINDOW_COMMAND);
    }
    memset(cmd_rec,' ',max_line_length);
    cmd_rec_len = 0;
    if (CURRENT_WINDOW_COMMAND != (WINDOW *)NULL)
    {
-      if (CURRENT_VIEW->cmdline_col == (-1))
-         wmove(CURRENT_WINDOW_COMMAND,0,cmd_rec_len);
-      else
-         wmove(CURRENT_WINDOW_COMMAND,0,CURRENT_VIEW->cmdline_col);
+      curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND,0,0);
    }
    CURRENT_VIEW->cmdline_col = (-1);
    cmd_verify_col = 1;
+   if (CURRENT_WINDOW_COMMAND != (WINDOW *)NULL
+   &&  CURRENT_VIEW->current_window == WINDOW_COMMAND)
+   {
+      cursor_focus_refresh(current_screen, CURRENT_VIEW);
+      curses_driver_refresh_window(CURRENT_WINDOW_COMMAND);
+      curses_driver_update();
+      curses_driver_present_cursor(TRUE);
+   }
    TRACE_RETURN();
    return;
 }
