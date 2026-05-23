@@ -268,6 +268,34 @@ static CHARTYPE _THE_FAR *error_message[] =
 static void open_msgline(ROWTYPE,ROWTYPE,ROWTYPE);
 
 /***********************************************************************/
+int message_history_count(void)
+/***********************************************************************/
+{
+   return errors_displayed;
+}
+/***********************************************************************/
+const CHARTYPE *message_history_get(int index, LENGTHTYPE *len)
+/***********************************************************************/
+{
+   LINE *curr_error = first_error;
+   int i = 0;
+
+   if (len != NULL)
+      *len = 0;
+   if (index < 0)
+      return NULL;
+   while (curr_error != NULL && i < index)
+   {
+      curr_error = curr_error->next;
+      i++;
+   }
+   if (curr_error == NULL || curr_error->line == NULL)
+      return NULL;
+   if (len != NULL)
+      *len = curr_error->length;
+   return curr_error->line;
+}
+/***********************************************************************/
 int display_error(unsigned short err_num,CHARTYPE *mess,bool ignore_bell)
 /***********************************************************************/
 {

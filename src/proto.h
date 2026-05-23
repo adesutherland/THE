@@ -188,6 +188,8 @@ int process_key (int,bool);
 short EditFile (CHARTYPE *,bool);
                                                             /* error.c */
 int display_error (unsigned short ,CHARTYPE *,bool);
+int message_history_count (void);
+const CHARTYPE *message_history_get (int,LENGTHTYPE *);
 void clear_msgline (int);
 void display_prompt (CHARTYPE *);
 int expose_msgline (void);

@@ -144,6 +144,7 @@ extern ExtractFunction extract_macro;
 extern ExtractFunction extract_macroext;
 extern ExtractFunction extract_macropath;
 extern ExtractFunction extract_margins;
+extern ExtractFunction extract_messages;
 extern ExtractFunction extract_modifiable_function;
 extern ExtractFunction extract_monitor;
 extern ExtractFunction extract_mouse;
@@ -2115,6 +2116,7 @@ QUERY_ITEM _THE_FAR query_item[] =
    {(CHARTYPE *)"macroext",        8, 6,ITEM_MACROEXT,      1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_macroext               },
    {(CHARTYPE *)"macropath",       9, 6,ITEM_MACROPATH,     1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_macropath              },
    {(CHARTYPE *)"margins",         7, 3,ITEM_MARGINS,       3, 3,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_margins                },
+   {(CHARTYPE *)"messages",        8, 4,ITEM_MESSAGES,      0, 0,          LVL_GLOB,QUERY_QUERY             |QUERY_EXTRACT             ,extract_messages               },
    {(CHARTYPE *)"monitor",         7, 7,ITEM_MONITOR,       2, 2,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT             ,extract_monitor                },
    {(CHARTYPE *)"mouse",           5, 5,ITEM_MOUSE,         1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_mouse                  },
    {(CHARTYPE *)"mouseclick",     10, 7,ITEM_MOUSECLICK,    1, 1,          LVL_GLOB,QUERY_QUERY             |QUERY_EXTRACT|QUERY_MODIFY,extract_mouseclick             },
@@ -2582,6 +2584,9 @@ short get_number_dynamic_items( int qitem )
       case ITEM_AUTOCOLOR:
       case ITEM_AUTOCOLOUR:
          for(mapping=first_parser_mapping;mapping!=NULL;mapping=mapping->next,number_variables++);
+         break;
+      case ITEM_MESSAGES:
+         number_variables = message_history_count();
          break;
       case ITEM_SYNONYM:
          for (synonym=first_synonym;synonym!=NULL;synonym=synonym->next,number_variables++);

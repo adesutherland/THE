@@ -13,6 +13,10 @@ The '/' in the syntax clause represents any delimiter character.
 For a complete list of 'item's that can be extracted, see the section; QUERY, EXTRACT and STATUS
 .'
 
+`EXTRACT /MESSAGES/` returns the current remembered message list for macros:
+`messages.0` is the number of messages and `messages.n` is the nth message,
+oldest first. `EXTRACT /MESSAGES n/` returns the latest `n` messages.
+
 ## Compatibility
 XEDIT: Compatible.
 KEDIT: Compatible.

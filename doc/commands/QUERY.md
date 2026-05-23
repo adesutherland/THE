@@ -14,6 +14,9 @@ For a complete list of 'item's that can be extracted, see the section; QUERY, EX
 Results of the QUERY command are displayed at the top of the display window, and ignore the
 setting of SET MSGLINE .
 
+`QUERY MESSAGES` redisplays the remembered message list. `QUERY MESSAGES n`
+shows the latest `n` messages.
+
 ## Compatibility
 XEDIT: Compatible functionality, but not all options.
 KEDIT: Compatible functionality, but not all options.

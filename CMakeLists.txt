@@ -628,6 +628,8 @@ add_test(NAME test_sdslh_multifile_lifecycle COMMAND bash ${CMAKE_CURRENT_SOURCE
 set_tests_properties(test_sdslh_multifile_lifecycle PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME test_file_ecolor_inheritance COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_file_ecolor_inheritance.sh)
 set_tests_properties(test_file_ecolor_inheritance PROPERTIES SKIP_RETURN_CODE 77)
+add_test(NAME test_message_history COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_message_history.sh)
+set_tests_properties(test_message_history PROPERTIES SKIP_RETURN_CODE 77)
 if(THE_USE_CREXX)
     add_test(NAME test_crexx_profile COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_crexx_profile.sh)
     set_tests_properties(test_crexx_profile PROPERTIES SKIP_RETURN_CODE 77)

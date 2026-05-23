@@ -212,6 +212,86 @@ short extract_msgmode(short number_variables,short itemno,CHARTYPE *itemargs,CHA
    return number_variables;
 }
 /***********************************************************************/
+short extract_messages(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
+/***********************************************************************/
+{
+   int count = message_history_count();
+   int limit = count;
+   int start = 0;
+   int i;
+   short rc = RC_OK;
+   CHARTYPE num[20];
+
+   INTENTIONALLY_UNUSED_VARIABLE(argc);
+   INTENTIONALLY_UNUSED_VARIABLE(arg);
+   INTENTIONALLY_UNUSED_VARIABLE(arglen);
+   INTENTIONALLY_UNUSED_VARIABLE(number_variables);
+
+   if (itemargs != NULL
+   &&  !blank_field(itemargs)
+   &&  strcmp((DEFCHAR *)itemargs, "*") != 0)
+   {
+      if (!valid_positive_integer(itemargs))
+      {
+         display_error(1,itemargs,FALSE);
+         return EXTRACT_ARG_ERROR;
+      }
+      limit = atoi((DEFCHAR *)itemargs);
+      if (limit > count)
+         limit = count;
+   }
+   start = count - limit;
+   if (start < 0)
+      start = 0;
+
+   if (query_type == QUERY_QUERY)
+   {
+      if (CURRENT_VIEW != NULL && limit > 0)
+      {
+         ROWTYPE save_msgline_rows = CURRENT_VIEW->msgline_rows;
+         bool save_msgmode_status = CURRENT_VIEW->msgmode_status;
+
+         CURRENT_VIEW->msgline_rows = (terminal_lines > 1)
+                                    ? min(terminal_lines - 1, limit)
+                                    : limit;
+         CURRENT_VIEW->msgmode_status = TRUE;
+         rc = expose_msgline();
+         CURRENT_VIEW->msgline_rows = save_msgline_rows;
+         CURRENT_VIEW->msgmode_status = save_msgmode_status;
+      }
+      INTENTIONALLY_UNUSED_VARIABLE(rc);
+      return EXTRACT_VARIABLES_SET;
+   }
+
+   if (query_type == QUERY_EXTRACT)
+   {
+      sprintf((DEFCHAR *)num,"%d",limit);
+      rc = set_rexx_variable(query_item[itemno].name,num,
+                             strlen((DEFCHAR *)num),0);
+      for (i = 0; rc == RC_OK && i < limit; i++)
+      {
+         LENGTHTYPE len = 0;
+         const CHARTYPE *message = message_history_get(start + i, &len);
+
+         if (message == NULL)
+         {
+            message = (const CHARTYPE *)"";
+            len = 0;
+         }
+         rc = set_rexx_variable(query_item[itemno].name,
+                                (CHARTYPE *)message,len,i + 1);
+      }
+      if (rc == RC_SYSTEM_ERROR)
+      {
+         display_error(54,(CHARTYPE *)"",FALSE);
+         return EXTRACT_ARG_ERROR;
+      }
+      return EXTRACT_VARIABLES_SET;
+   }
+
+   return limit;
+}
+/***********************************************************************/
 short extract_nbfile(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
