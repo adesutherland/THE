@@ -37,24 +37,23 @@
 
 #include <the.h>
 #include <proto.h>
-#ifdef USE_UTF8
-# include "logcursor.h"
-#endif
+#include "logcursor.h"
 
 /*#define DEBUG 1*/
 
 static short sosdelback ( bool );
 static short sosdelchar ( bool );
 
-#ifdef USE_UTF8
-static int sos_utf8_filearea_logical_cursor(unsigned short *row, int *cell)
+static int sos_filearea_logical_cursor(unsigned short *row, int *cell)
 {
    LogicalCursor logical;
 
    logical = CURRENT_VIEW->logical_cursor.current;
    if (logical.valid
    &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
-   &&  logical.line_number == CURRENT_VIEW->focus_line)
+   &&  logical.line_number == CURRENT_VIEW->focus_line
+   &&  logical.zone_row >= 0
+   &&  logical.text.cell_column >= 0)
    {
       if (row != NULL)
          *row = (unsigned short)logical.zone_row;
@@ -65,19 +64,25 @@ static int sos_utf8_filearea_logical_cursor(unsigned short *row, int *cell)
    return FALSE;
 }
 
-static int sos_utf8_filearea_current_cell(unsigned short y, unsigned short x)
+static int sos_filearea_current_cell(unsigned short y, unsigned short x)
 {
    int cell;
 
-   if (sos_utf8_filearea_logical_cursor(NULL, &cell))
+   if (sos_filearea_logical_cursor(NULL, &cell))
       return cell;
 
+#ifdef USE_UTF8
    INTENTIONALLY_UNUSED_VARIABLE(y);
    return show_utf8_logical_col_from_display(rec, rec_len,
                                              CURRENT_VIEW->verify_col - 1,
                                              x, TEXT_SNAP_BACKWARD);
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(y);
+   return x + CURRENT_VIEW->verify_col - 1;
+#endif
 }
 
+#ifdef USE_UTF8
 static LENGTHTYPE sos_utf8_rec_len_after_delete(LENGTHTYPE old_len,
                                                 LENGTHTYPE delete_byte,
                                                 LENGTHTYPE delete_len)
@@ -584,7 +589,7 @@ short Sos_cursoradj(CHARTYPE *params)
             TRACE_RETURN();
             return(RC_INVALID_ENVIRON);
          }
-         col = x + CURRENT_VIEW->verify_col - 1;
+         col = sos_filearea_current_cell(y, x);
          first_non_blank_col = strzne( rec, ' ' );
          if ( first_non_blank_col == (-1) )
             first_non_blank_col = 0;
@@ -644,7 +649,7 @@ short Sos_cursorshift(CHARTYPE *params)
             TRACE_RETURN();
             return(RC_INVALID_ENVIRON);
          }
-         col = x + CURRENT_VIEW->verify_col - 1;
+         col = sos_filearea_current_cell(y, x);
          first_non_blank_col = col + strzne(rec+col,' ');
          num_cols = first_non_blank_col - col;
          if ( num_cols > 0 )
@@ -752,6 +757,7 @@ short Sos_delend(CHARTYPE *params)
 /***********************************************************************/
 {
    LENGTHTYPE i,col;
+   int logical_cell=0;
    unsigned short x=0,y=0;
 
    TRACE_FUNCTION("commsos.c: Sos_delend");
@@ -775,7 +781,10 @@ short Sos_delend(CHARTYPE *params)
             TRACE_RETURN();
             return(RC_INVALID_ENVIRON);
          }
-         col = x + CURRENT_VIEW->verify_col - 1;
+         if (sos_filearea_logical_cursor(&y, &logical_cell))
+            col = (LENGTHTYPE)logical_cell;
+         else
+            col = sos_filearea_current_cell(y, x);
          for (i=col;i<max_line_length;i++)
             rec[i] = ' ';
          if (rec_len > col)
@@ -2958,7 +2967,7 @@ static short sosdelback( bool cua )
    {
       unsigned short logical_y = y;
 
-      if (sos_utf8_filearea_logical_cursor(&logical_y, NULL))
+      if (sos_filearea_logical_cursor(&logical_y, NULL))
          y = logical_y;
    }
 #endif
@@ -3121,7 +3130,7 @@ static short sosdelback( bool cua )
       TextPos end_pos;
       TextPos delete_pos;
 
-      current_cell = sos_utf8_filearea_current_cell(y, x);
+      current_cell = sos_filearea_current_cell(y, x);
       end_pos = textpos_from_byte(rec, rec_len, rec_len);
       if (current_cell <= 0)
       {
@@ -3212,7 +3221,7 @@ static short sosdelchar( bool cua )
    {
       unsigned short logical_y = y;
 
-      if (sos_utf8_filearea_logical_cursor(&logical_y, NULL))
+      if (sos_filearea_logical_cursor(&logical_y, NULL))
          y = logical_y;
    }
 #endif
@@ -3303,7 +3312,7 @@ static short sosdelchar( bool cua )
       int current_cell;
       TextPos end_pos;
 
-      current_cell = sos_utf8_filearea_current_cell(y, x);
+      current_cell = sos_filearea_current_cell(y, x);
       end_pos = textpos_from_byte(rec, rec_len, rec_len);
       if (current_cell >= end_pos.cell_column)
       {
