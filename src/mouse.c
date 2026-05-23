@@ -68,6 +68,7 @@ MEVENT ncurses_mouse_event;
 #define MOUSE_BUTTON_MASK(x)    ((x) & 0x00F80) /* 00000000111110000000 */
 #define MOUSE_WINDOW_MASK(x)    ((x) & 0x0007F) /* 00000000000001111111 */
 #endif
+#define MOUSE_ACTION_BITS       MOUSE_ACTION_MASK(-1)
 /*
  * Button modifiers
  */
@@ -308,28 +309,32 @@ short get_mouse_info(int *button,int *button_action,int *button_modifier)
    else
       *button_modifier = 0;
 
-   if (ncurses_mouse_event.bstate & BUTTON1_RELEASED
-   ||  ncurses_mouse_event.bstate & BUTTON2_RELEASED
-   ||  ncurses_mouse_event.bstate & BUTTON3_RELEASED)
-      *button_action = BUTTON_RELEASED;
+   /*
+    * Prefer synthesized click events when ncurses reports them together
+    * with lower-level press/release bits.
+    */
+   if (ncurses_mouse_event.bstate & BUTTON1_DOUBLE_CLICKED
+   ||  ncurses_mouse_event.bstate & BUTTON2_DOUBLE_CLICKED
+   ||  ncurses_mouse_event.bstate & BUTTON3_DOUBLE_CLICKED)
+      *button_action = BUTTON_DOUBLE_CLICKED;
    else
    {
-      if (ncurses_mouse_event.bstate & BUTTON1_PRESSED
-      ||  ncurses_mouse_event.bstate & BUTTON2_PRESSED
-      ||  ncurses_mouse_event.bstate & BUTTON3_PRESSED)
-         *button_action = BUTTON_PRESSED;
+      if (ncurses_mouse_event.bstate & BUTTON1_CLICKED
+      ||  ncurses_mouse_event.bstate & BUTTON2_CLICKED
+      ||  ncurses_mouse_event.bstate & BUTTON3_CLICKED)
+         *button_action = BUTTON_CLICKED;
       else
       {
-         if (ncurses_mouse_event.bstate & BUTTON1_CLICKED
-         ||  ncurses_mouse_event.bstate & BUTTON2_CLICKED
-         ||  ncurses_mouse_event.bstate & BUTTON3_CLICKED)
-            *button_action = BUTTON_CLICKED;
+         if (ncurses_mouse_event.bstate & BUTTON1_PRESSED
+         ||  ncurses_mouse_event.bstate & BUTTON2_PRESSED
+         ||  ncurses_mouse_event.bstate & BUTTON3_PRESSED)
+            *button_action = BUTTON_PRESSED;
          else
          {
-            if (ncurses_mouse_event.bstate & BUTTON1_DOUBLE_CLICKED
-            ||  ncurses_mouse_event.bstate & BUTTON2_DOUBLE_CLICKED
-            ||  ncurses_mouse_event.bstate & BUTTON3_DOUBLE_CLICKED)
-               *button_action = BUTTON_DOUBLE_CLICKED;
+            if (ncurses_mouse_event.bstate & BUTTON1_RELEASED
+            ||  ncurses_mouse_event.bstate & BUTTON2_RELEASED
+            ||  ncurses_mouse_event.bstate & BUTTON3_RELEASED)
+               *button_action = BUTTON_RELEASED;
          }
       }
    }
@@ -593,6 +598,21 @@ int mouse_info_to_key(int w, int button, int button_action, int button_modifier)
    return(MOUSE_INFO_TO_KEY(w,button,button_action,button_modifier));
 }
 #endif
+/***********************************************************************/
+int mouse_key_to_click_key(int key)
+/***********************************************************************/
+{
+   int action=0;
+
+   TRACE_FUNCTION("mouse.c:   mouse_key_to_click_key");
+   action = MOUSE_ACTION_MASK(key);
+   if (action == MOUSE_PRESS
+   ||  action == MOUSE_RELEASE)
+      key = (key & ~MOUSE_ACTION_BITS) | MOUSE_CLICK;
+
+   TRACE_RETURN();
+   return(key);
+}
 /***********************************************************************/
 CHARTYPE *mouse_key_number_to_name(int key_number, CHARTYPE *key_name, int *shift)
 /***********************************************************************/

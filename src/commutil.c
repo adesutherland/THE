@@ -3903,7 +3903,7 @@ int readv_cmdline(CHARTYPE *initial, WINDOW *dw, int start_col)
    return( rc );
 }
 /***********************************************************************/
-short execute_mouse_commands(int key)
+static short execute_mouse_defined_commands(int key,bool *matched)
 /***********************************************************************/
 {
    DEFINE *curr=(DEFINE *)NULL;
@@ -3911,7 +3911,7 @@ short execute_mouse_commands(int key)
    short rc=RC_OK;
    short macrorc=0;
 
-   TRACE_FUNCTION("commutil.c:execute_mouse_commands");
+   TRACE_FUNCTION("commutil.c:execute_mouse_defined_commands");
 //fprintf(stderr, "%s %d:execute_mouse_commands: key: %x\n",__FILE__,__LINE__,key);
    curr = first_mouse_define;
    while(curr != (DEFINE *)NULL)
@@ -3919,6 +3919,8 @@ short execute_mouse_commands(int key)
 //fprintf(stderr, "%s %d: def_funkey: %x command %d params: %s\n",__FILE__,__LINE__,curr->def_funkey,curr->def_command,curr->def_params);
       if (key == curr->def_funkey)
       {
+         if (matched != NULL)
+            *matched = TRUE;
          /*
           * If running in read-only mode and the function selected is not valid
           * display an error.
@@ -3994,6 +3996,29 @@ short execute_mouse_commands(int key)
       if (curr == NULL)
          break;
       curr = curr->next;
+   }
+   TRACE_RETURN();
+   return(rc);
+}
+/***********************************************************************/
+short execute_mouse_commands(int key)
+/***********************************************************************/
+{
+   short rc=RC_OK;
+   bool matched=FALSE;
+   int click_key=0;
+
+   TRACE_FUNCTION("commutil.c:execute_mouse_commands");
+   rc = execute_mouse_defined_commands(key,&matched);
+   if (!matched)
+   {
+      /*
+       * Some curses backends deliver the first gesture as a raw
+       * press/release before later gestures are synthesized as clicks.
+       */
+      click_key = mouse_key_to_click_key(key);
+      if (click_key != key)
+         rc = execute_mouse_defined_commands(click_key,&matched);
    }
    TRACE_RETURN();
    return(rc);
