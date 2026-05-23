@@ -700,6 +700,29 @@ short insert_new_line(CHARTYPE curr_screen, VIEW_DETAILS *curr_view, CHARTYPE *l
    return(RC_OK);
 }
 /***********************************************************************/
+static bool execute_filearea_logical_cursor(LENGTHTYPE *cell, unsigned short *row)
+/***********************************************************************/
+{
+   LogicalCursor logical;
+
+   if (CURRENT_VIEW == NULL)
+      return FALSE;
+
+   logical = CURRENT_VIEW->logical_cursor.current;
+   if (logical.valid
+   &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+   &&  logical.line_number == CURRENT_VIEW->focus_line
+   &&  logical.zone_row >= 0)
+   {
+      if (cell != NULL)
+         *cell = (LENGTHTYPE)logical.text.cell_column;
+      if (row != NULL)
+         *row = (unsigned short)logical.zone_row;
+      return TRUE;
+   }
+   return FALSE;
+}
+/***********************************************************************/
 short execute_os_command(CHARTYPE *cmd,bool quiet,bool pause)
 /***********************************************************************/
 {
@@ -1980,7 +2003,11 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
    }
    else
    {
-      if (curses_started)
+      if (execute_filearea_logical_cursor(&col, &y))
+      {
+         true_line = CURRENT_VIEW->focus_line;
+      }
+      else if (curses_started)
       {
          getyx(CURRENT_WINDOW_FILEAREA,y,x);
          col = (x+CURRENT_VIEW->verify_col-1);
