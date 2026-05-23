@@ -509,7 +509,6 @@ void reset_saved_mouse_pos (void);
 void get_saved_mouse_pos (int *, int *);
 void initialise_mouse_commands (void);
 int mouse_info_to_key (int,int,int,int);
-int mouse_key_to_click_key (int);
 CHARTYPE *mouse_key_number_to_name (int,CHARTYPE *,int *);
 int find_mouse_key_value (CHARTYPE *);
 int find_mouse_key_value_in_window (CHARTYPE *,CHARTYPE *);
