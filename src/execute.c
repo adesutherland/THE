@@ -846,23 +846,25 @@ short execute_os_command(CHARTYPE *cmd,bool quiet,bool pause)
 short execute_makecurr( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LINETYPE line)
 /***********************************************************************/
 {
-   unsigned short y=0,x=0;
+   short y=0,x=0;
+   WINDOW *win=NULL;
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION( "execute.c: execute_makecurr" );
    post_process_line( CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL, TRUE );
 
    curr_view->current_line = line;
    if ( curr_view->current_window == WINDOW_PREFIX )
-      getyx( SCREEN_WINDOW(curr_screen), y, x );
+      win = SCREEN_WINDOW(curr_screen);
    else
-      getyx( SCREEN_WINDOW_FILEAREA(curr_screen), y, x );
+      win = SCREEN_WINDOW_FILEAREA(curr_screen);
+   cursor = curses_driver_capture_window_cursor(win);
+   if (cursor.valid)
+      x = cursor.col;
    build_screen( curr_screen );
    display_screen( curr_screen );
    y = get_row_for_focus_line( curr_screen, curr_view->focus_line, curr_view->current_row );
-   if ( curr_view->current_window == WINDOW_PREFIX )
-      wmove( SCREEN_WINDOW(curr_screen), y, x );
-   else
-      wmove( SCREEN_WINDOW_FILEAREA(curr_screen), y, x );
+   curses_driver_move_window_cursor(win, y, x);
    TRACE_RETURN();
    return(RC_OK);
 }
