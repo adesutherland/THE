@@ -1992,6 +1992,7 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
    LINE *curr=NULL;
    LINETYPE true_line=0L;
    LENGTHTYPE col=0;
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION("execute.c: execute_split_join");
    /*
@@ -2011,7 +2012,12 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
       }
       else if (curses_started)
       {
-         getyx(CURRENT_WINDOW_FILEAREA,y,x);
+         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
+         if (cursor.valid)
+         {
+            y = (unsigned short)cursor.row;
+            x = (unsigned short)cursor.col;
+         }
          col = (x+CURRENT_VIEW->verify_col-1);
          true_line = CURRENT_VIEW->focus_line;
       }
@@ -2041,7 +2047,12 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
     */
    curr = lll_find(CURRENT_FILE->first_line,CURRENT_FILE->last_line,true_line,CURRENT_FILE->number_lines);
 
-   getyx(CURRENT_WINDOW,y,x);
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   if (cursor.valid)
+   {
+      y = (unsigned short)cursor.row;
+      x = (unsigned short)cursor.col;
+   }
    switch(action)
    {
       case SPLTJOIN_SPLIT:
@@ -2155,7 +2166,7 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
           */
          CURRENT_FILE->number_lines--;
          if (CURRENT_VIEW->current_window == WINDOW_FILEAREA)
-            wmove(CURRENT_WINDOW,y,x);
+            curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
          break;
    }
    /*
@@ -2179,7 +2190,7 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
          {
             y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,
                                     CURRENT_VIEW->current_row);
-            wmove(CURRENT_WINDOW,y,x);
+            curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
          }
       }
    }
