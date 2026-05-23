@@ -1,6 +1,6 @@
 # UTF-8 Enablement Handover
 
-Last updated: 2026-05-22.
+Last updated: 2026-05-23.
 
 ## Current State
 
@@ -47,14 +47,23 @@ logs. `src/screenframe.c` builds live `UiFrame` snapshots from THE's current
 file-area rows. `src/cursesdriver.c` wraps file-area curses cursor target
 calculation, movement, software cursor cell painting, UTF/ascii cell write/fill
 primitives, render-entry cursor save/restore, renderer attribute/touch/refresh
-mechanics, cursor repaint transitions, and refresh. `src/show.c` keeps its
-existing public helpers but now builds a live frame during full file-area redraw
-and uses it to select file-area and prefix software cursor overlays.
+mechanics, cursor repaint transitions, refresh, window cursor capture/restore,
+window origin/size reads, and input timeouts. `src/show.c` keeps its existing
+public helpers but now builds a live frame during full file-area redraw and
+uses it to select file-area and prefix software cursor overlays.
 `src/inputevent.c` owns normalized text/key/command/logical-hit/debug events
 and legacy key conversion. `src/llmdriver.c` now exposes role-aware semantic
 snapshots, compact token-saving view modes, shared normalized input wrappers,
 cursor mapping diagnostics, and driver operation log formatting; it is not yet
 wired into the live input loop.
+
+The macro/agent visibility layer has two distinct message surfaces. THE message
+history remains available through `EXTRACT /MESSAGES/` and `QUERY MESSAGES`.
+SDSLH syntax diagnostics are available through `SDSLHWAIT`, `EXTRACT /PMSGS/`,
+and `QUERY PMSGS`; `pmsgs.n` records include line, column, severity, code, and
+message text. The SDSLH diagnostic collector walks the parse tree, so scripts
+can see zero-length parser diagnostics as well as messages attached to visible
+tokens.
 
 The generic suffix-style cursor repair now follows the probe order: clear the
 selected suffix, flush that blank state when requested, repaint the suffix in
@@ -227,7 +236,9 @@ each meaningful step. Current checkpoint status:
    also go through driver helpers. Targeted redraws still need to become
    driver-level logical render requests instead of relying on legacy snapshots.
 6. Bring prefix and command-line cursor/editing behavior under the same model:
-   partial. Focus has logical cursor state; editing paths still need migration.
+   partial. Focus has logical cursor state. `src/comm5.c` text, top, and
+   retrieve cursor primitives now use driver wrappers, but command/prefix
+   editing still needs to stop deriving behavior from physical cursor columns.
 7. Normalize curses, mouse, and LLM input through a shared event type: partial.
    `src/inputevent.c` owns the shared event type, legacy key conversion, and
    queue; LLM wrappers use it. Curses/mouse input still needs routing through
@@ -240,10 +251,13 @@ each meaningful step. Current checkpoint status:
    editor/LLM surface can function independently while the full curses editor is
    still being migrated.
 
-Runtime cursor code still has multiple physical paths and must be migrated. The
-guardrail test is intentionally permissive while the live renderer is still
-being split; tighten it only after the remaining command, prefix, mouse, and
-renderer paths have driver-owned equivalents.
+Runtime cursor code still has multiple physical paths and must be migrated.
+`src/cursor.c`, `src/comm5.c`, `src/query1.c`, `src/query2.c`, and `src/edit.c`
+no longer contain direct `getyx`, `wmove`, `getbegyx`, `getmaxx`, `getmaxy`,
+or `wtimeout` calls, but many other legacy command, SOS, utility, mouse, and
+renderer paths still do. The guardrail test is intentionally permissive while
+the live renderer is still being split; tighten it only after the remaining
+command, prefix, mouse, and renderer paths have driver-owned equivalents.
 
 After each step run:
 

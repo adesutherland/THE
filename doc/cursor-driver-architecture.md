@@ -1,6 +1,6 @@
 # Cursor Driver Architecture
 
-Last updated: 2026-05-22.
+Last updated: 2026-05-23.
 
 ## Goal
 
@@ -99,7 +99,7 @@ normalization, so LLM automation and manual terminal use exercise one code path.
 
 ## Current Problem
 
-### 2026-05-22 Review
+### 2026-05-23 Review
 
 The current documents and code agree on the core boundary, and the first
 executable proof now exists as `the_agent`: an agent-interactive target that
@@ -131,7 +131,10 @@ place:
 - `src/screenframe.c` builds live `UiFrame` snapshots from THE's current
   file-area rows, including prefix metadata and row-role validation.
 - `src/cursesdriver.c` materializes UTF file-area logical cursor requests and
-  owns logical-to-physical display column mapping for the curses path.
+  owns logical-to-physical display column mapping for the curses path. It also
+  wraps common physical window operations used by migrated code, including
+  cursor capture/move/restore, window origin/size reads, refresh/update,
+  attribute/touch helpers, and input timeouts.
 - `src/inputevent.c` defines normalized input events shared by curses-facing
   key codes and LLM-facing text/key/command/logical-hit/debug requests.
 - UTF file-area left/right movement, text insertion, `SOS DELBACK`, and
@@ -155,15 +158,26 @@ place:
   proof target with scripted agent interaction and a no-curses dependency
   guard. The proof target now covers both file-area focus and command-line
   focus/cursor movement.
+- Macro/agent-visible diagnostics now include both THE message history and
+  SDSLH parser diagnostics: `EXTRACT /MESSAGES/`, `QUERY MESSAGES`,
+  `SDSLHWAIT`, `EXTRACT /PMSGS/`, and `QUERY PMSGS`. SDSLH diagnostics are
+  collected from the parse tree, including zero-length parser messages that are
+  not attached to a painted character.
+- `src/cursor.c`, `src/comm5.c`, `src/query1.c`, `src/query2.c`, and
+  `src/edit.c` no longer contain direct `getyx`, `wmove`, `getbegyx`,
+  `getmaxx`, `getmaxy`, or `wtimeout` calls; those paths now go through
+  `cursesdriver.c` wrappers.
 
 The remaining implementation still has several physical cursor authorities:
 
-- `cursor.c` directly reads and writes curses cursor positions.
-- `execute.c`, `comm5.c`, and `commsos.c` contain direct `getyx`/`wmove`
-  cursor paths.
+- `execute.c`, `commsos.c`, and several legacy command/utility modules still
+  contain direct `getyx`/`wmove` cursor paths.
 - `show.c` captures a physical cursor position, paints software cursor overlays
   in several branches, and then restores curses cursor state.
-- `cursesdriver.c` owns only part of the file-area UTF cursor path.
+- `cursesdriver.c` owns the migrated physical primitives, but many callers
+  still make logical decisions from legacy physical coordinates before calling
+  the driver. The next separation slices should replace those decisions with
+  logical focus/row/cell state rather than merely wrapping more calls.
 
 The visible symptoms follow from that split authority: EOF/prefix underline,
 stale software cursor after scroll, incorrect after-EOL edits, and keycap
