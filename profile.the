@@ -23,6 +23,9 @@ address the
 /* Load cREXX Compiler in Parser Mode */
 'SET SDSLH rxc ~/.local/bin/rxc --syntaxhighlight'
 'SET AUTOCOLOR *.rexx rxc'
+'SET AUTOCOLOR *.crexx rxc'
+'SET AUTOCOLOR *.crx rxc'
+'SET AUTOCOLOR *.the rxc'
 
 /* Load cREXX Assembler in Parser Mode */
 'SET SDSLH rxas ~/.local/bin/rxas --syntaxhighlight'

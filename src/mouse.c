@@ -37,6 +37,9 @@
 
 #include <the.h>
 #include <proto.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 /*
  * Following #defines to cater for those platforms that don't
@@ -134,6 +137,41 @@ static CHARTYPE *button_action_names[] =
    (CHARTYPE *)"S", /* scrolled */
 };
 
+static FILE *mouse_trace_file(void)
+{
+   static short checked=0;
+   static FILE *trace=NULL;
+   char *path=NULL;
+
+   if (!checked)
+   {
+      checked = 1;
+      path = getenv("THE_MOUSE_TRACE");
+      if (path != NULL && *path != '\0')
+         trace = fopen(path,"a");
+   }
+   return trace;
+}
+
+void mouse_trace_message(const char *area, const char *format, ...)
+{
+   FILE *trace=mouse_trace_file();
+   va_list args;
+
+   if (trace == NULL)
+      return;
+   fprintf(trace,"mouse %s",area == NULL ? "trace" : area);
+   if (format != NULL && *format != '\0')
+   {
+      fputc(' ',trace);
+      va_start(args,format);
+      vfprintf(trace,format,args);
+      va_end(args);
+   }
+   fputc('\n',trace);
+   fflush(trace);
+}
+
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
 /*
  * These two variables are saved by each mouse key press or reset to -1
@@ -156,6 +194,9 @@ short get_mouse_info(int *button,int *button_action,int *button_modifier)
     */
    last_mouse_x_pos = MOUSE_X_POS;
    last_mouse_y_pos = MOUSE_Y_POS;
+   mouse_trace_message("pdc-raw",
+                       "x=%d y=%d changed=%d moved=%d",
+                       MOUSE_X_POS,MOUSE_Y_POS,A_BUTTON_CHANGED,MOUSE_MOVED);
    if (A_BUTTON_CHANGED)
    {
       if (BUTTON_CHANGED(1))
@@ -219,6 +260,10 @@ short get_mouse_info(int *button,int *button_action,int *button_modifier)
       *button = *button_action = *button_modifier = 0;
       rc = RC_INVALID_OPERAND;
    }
+   mouse_trace_message("pdc-decode",
+                       "rc=%d button=%d action=%d modifier=%d x=%d y=%d",
+                       rc,*button,*button_action,*button_modifier,
+                       last_mouse_x_pos,last_mouse_y_pos);
    TRACE_RETURN();
    return(rc);
 }
@@ -263,9 +308,26 @@ short get_mouse_info(int *button,int *button_action,int *button_modifier)
 /***********************************************************************/
 {
    short rc=RC_OK;
+   int getmouse_rc=OK;
 
    TRACE_FUNCTION("mouse.c:  get_mouse_info");
-   getmouse(&ncurses_mouse_event);
+   getmouse_rc = getmouse(&ncurses_mouse_event);
+   mouse_trace_message("ncurses-getmouse",
+                       "rc=%d id=%ld x=%d y=%d z=%d bstate=0x%lx",
+                       getmouse_rc,(long)ncurses_mouse_event.id,
+                       ncurses_mouse_event.x,ncurses_mouse_event.y,
+                       ncurses_mouse_event.z,
+                       (unsigned long)ncurses_mouse_event.bstate);
+   if (getmouse_rc != OK)
+   {
+      *button = *button_action = *button_modifier = 0;
+      mouse_trace_message("ncurses-decode",
+                          "rc=%d button=%d action=%d modifier=%d",
+                          RC_INVALID_OPERAND,*button,*button_action,
+                          *button_modifier);
+      TRACE_RETURN();
+      return RC_INVALID_OPERAND;
+   }
    /*
     * Save the current mouse position
     */
@@ -294,6 +356,10 @@ short get_mouse_info(int *button,int *button_action,int *button_modifier)
          else
          {
             *button = *button_action = *button_modifier = 0;
+            mouse_trace_message("ncurses-decode",
+                                "rc=%d button=%d action=%d modifier=%d",
+                                RC_INVALID_OPERAND,*button,*button_action,
+                                *button_modifier);
             TRACE_RETURN();
             return RC_INVALID_OPERAND;
          }
@@ -333,6 +399,10 @@ short get_mouse_info(int *button,int *button_action,int *button_modifier)
          }
       }
    }
+   mouse_trace_message("ncurses-decode",
+                       "rc=%d button=%d action=%d modifier=%d x=%d y=%d",
+                       rc,*button,*button_action,*button_modifier,
+                       last_mouse_x_pos,last_mouse_y_pos);
    TRACE_RETURN();
    return(rc);
 }
@@ -351,21 +421,29 @@ short THEMouse(CHARTYPE *params)
    int key=0;
 
    TRACE_FUNCTION( "mouse.c:  THEMouse" );
+   rc = get_mouse_info(&curr_button,&curr_button_action,&curr_button_modifier);
+   if (rc != RC_OK)
+   {
+      mouse_trace_message("THEMouse-invalid", "rc=%d", rc);
+      TRACE_RETURN();
+      return(rc);
+   }
    which_window_is_mouse_in( &scrn, &w );
+   mouse_trace_message("THEMouse-window",
+                       "screen=%d window=%d saved_x=%d saved_y=%d",
+                       scrn,w,last_mouse_x_pos,last_mouse_y_pos);
    if (w == (-1)) /* shouldn't happen! */
    {
       TRACE_RETURN();
       return(RC_OK);
    }
-   rc = get_mouse_info(&curr_button,&curr_button_action,&curr_button_modifier);
-   if (rc != RC_OK)
-   {
-      TRACE_RETURN();
-      return(rc);
-   }
    key = MOUSE_INFO_TO_KEY(w,curr_button,curr_button_action,curr_button_modifier);
 //fprintf(stderr, "%s %d:THEMouse button: %d button_action: %d button_modifier: %d window: %d x: %d y: %d key: %x\n",__FILE__,__LINE__,curr_button,curr_button_action,curr_button_modifier,w,Mouse_status.x, Mouse_status.y,key );
    rc = execute_mouse_commands(key);
+   mouse_trace_message("THEMouse-dispatch",
+                       "rc=%d window=%d button=%d action=%d modifier=%d key=0x%x",
+                       rc,w,curr_button,curr_button_action,
+                       curr_button_modifier,key);
    TRACE_RETURN();
    return(rc);
 }

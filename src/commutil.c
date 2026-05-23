@@ -3910,6 +3910,7 @@ short execute_mouse_commands(int key)
    CHARTYPE *key_cmd=NULL;
    short rc=RC_OK;
    short macrorc=0;
+   bool matched=FALSE;
 
    TRACE_FUNCTION("commutil.c:execute_mouse_commands");
 //fprintf(stderr, "%s %d:execute_mouse_commands: key: %x\n",__FILE__,__LINE__,key);
@@ -3919,6 +3920,13 @@ short execute_mouse_commands(int key)
 //fprintf(stderr, "%s %d: def_funkey: %x command %d params: %s\n",__FILE__,__LINE__,curr->def_funkey,curr->def_command,curr->def_params);
       if (key == curr->def_funkey)
       {
+         matched = TRUE;
+         mouse_trace_message("execute-match",
+                             "key=0x%x command=%d params=%s",
+                             key,curr->def_command,
+                             (DEFCHAR *)(curr->def_params == NULL
+                                ? (CHARTYPE *)""
+                                : curr->def_params));
          /*
           * If running in read-only mode and the function selected is not valid
           * display an error.
@@ -3995,6 +4003,8 @@ short execute_mouse_commands(int key)
          break;
       curr = curr->next;
    }
+   mouse_trace_message("execute-result","key=0x%x matched=%d rc=%d",
+                       key,matched,rc);
    TRACE_RETURN();
    return(rc);
 }

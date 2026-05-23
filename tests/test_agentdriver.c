@@ -57,11 +57,23 @@ int main(void)
    expect_contains(out, "alpha", "first line visible");
    expect_contains(out, "A1", "keycap line visible");
 
+   expect_true(the_input_event_from_logical_hit(LOGICAL_CURSOR_ZONE_FILEAREA,
+                                                2, 1, 1, &input),
+               "make first logical hit");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply first logical hit");
+   options.mode = LLM_DRIVER_VIEW_FOCUS;
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"zone\":\"filearea\"", "logical hit filearea focus");
+   expect_contains(out, "\"line\":2", "logical hit target line");
+   expect_contains(out, "\"cell\":1", "logical hit target cell");
+   options.mode = LLM_DRIVER_VIEW_FILEAREA;
+
    expect_true(the_input_event_from_key_name("right", &input),
                "make right key");
    expect_true(agent_driver_apply_input(&driver, &input), "apply right key");
    agent_driver_format(&driver, &options, out, sizeof(out));
-   expect_contains(out, "\"cell\":1", "cursor moved right");
+   expect_contains(out, "\"cell\":2", "cursor moved right");
 
    expect_true(the_input_event_from_command("goto 2", &input), "make goto");
    expect_true(agent_driver_apply_input(&driver, &input), "apply goto");

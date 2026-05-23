@@ -36,6 +36,8 @@
 #ifdef HAVE_ERRNO_H
 # include <errno.h>
 #endif
+#include <stdio.h>
+#include <stdlib.h>
 
 #if defined(USE_NCURSES)
 # include <ncurses.h>
@@ -59,6 +61,42 @@
 #define ESCAPE 200
 #define FKEY   300
 #define BRACK  400
+
+static FILE *mouse_getch_trace_file(void)
+{
+   static short checked=0;
+   static FILE *trace=NULL;
+   char *path=NULL;
+
+   if (!checked)
+   {
+      checked = 1;
+      path = getenv("THE_MOUSE_TRACE");
+      if (path != NULL && *path != '\0')
+         trace = fopen(path,"a");
+   }
+   return trace;
+}
+
+#  ifdef MSWIN
+static void mouse_getch_trace(WINDOW far *winptr, int key)
+#  else
+static void mouse_getch_trace(WINDOW *winptr, int key)
+#  endif
+{
+   FILE *trace=mouse_getch_trace_file();
+
+   if (trace == NULL)
+      return;
+#ifdef KEY_MOUSE
+   fprintf(trace,"getch win=%p key=%d key_mouse=%d is_mouse=%d\n",
+           (void *)winptr,key,KEY_MOUSE,(key == KEY_MOUSE));
+#else
+   fprintf(trace,"getch win=%p key=%d key_mouse=unavailable is_mouse=0\n",
+           (void *)winptr,key);
+#endif
+   fflush(trace);
+}
 
 /***********************************************************************/
 #  ifdef MSWIN
@@ -91,6 +129,7 @@ int my_getch (WINDOW *winptr)
       }
 # endif
 #endif
+      mouse_getch_trace(winptr,c);
       switch (state)
       {
          case BRACK:
