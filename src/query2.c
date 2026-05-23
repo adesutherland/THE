@@ -36,6 +36,7 @@
 #include <the.h>
 #include <proto.h>
 
+#include "cursesdriver.h"
 #include <query.h>
 
 short extract_point_settings(short,CHARTYPE *);
@@ -60,6 +61,23 @@ extern CHARTYPE query_num7[10];
 extern CHARTYPE query_num8[10];
 extern CHARTYPE query_rsrvd[MAX_FILE_NAME+100];
 static LINE *curr;
+
+static void query2_capture_window_cursor(WINDOW *win, short *y, short *x)
+{
+   CursesDriverWindowCursor cursor;
+
+   if (y != NULL)
+      *y = 0;
+   if (x != NULL)
+      *x = 0;
+   cursor = curses_driver_capture_window_cursor(win);
+   if (!cursor.valid)
+      return;
+   if (y != NULL)
+      *y = cursor.row;
+   if (x != NULL)
+      *x = cursor.col;
+}
 
 /***********************************************************************/
 short extract_macro(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
@@ -119,7 +137,7 @@ short extract_modifiable_function(short number_variables,short itemno,CHARTYPE *
              bool_flag = FALSE;
              break;
          }
-         getyx(CURRENT_WINDOW,y,x);
+         query2_capture_window_cursor(CURRENT_WINDOW,&y,&x);
          if (FOCUS_TOF
          ||  FOCUS_BOF
          ||  CURRENT_SCREEN.sl[y].line_type == LINE_SHADOW)
@@ -1212,9 +1230,9 @@ short extract_rightedge_function(short number_variables,short itemno,CHARTYPE *i
       item_values[1].len = 1;
       return number_variables;
    }
-   getyx(CURRENT_WINDOW,y,x);
+   query2_capture_window_cursor(CURRENT_WINDOW,&y,&x);
    INTENTIONALLY_UNUSED_VARIABLE(y);
-   return set_boolean_value((bool)(CURRENT_VIEW->current_window == WINDOW_FILEAREA && x == getmaxx(CURRENT_WINDOW)-1),(short)1);
+   return set_boolean_value((bool)(CURRENT_VIEW->current_window == WINDOW_FILEAREA && x == CURRENT_SCREEN.cols[WINDOW_FILEAREA]-1),(short)1);
 }
 /***********************************************************************/
 short extract_ring(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
@@ -1418,7 +1436,7 @@ short extract_shadow_function(short number_variables,short itemno,CHARTYPE *item
             bool_flag = FALSE;
             break;
          }
-         getyx(CURRENT_WINDOW,y,x);
+         query2_capture_window_cursor(CURRENT_WINDOW,&y,&x);
          if (CURRENT_SCREEN.sl[y].line_type == LINE_SHADOW)
             bool_flag = TRUE;
          else
@@ -1734,7 +1752,7 @@ short extract_stay(short number_variables,short itemno,CHARTYPE *itemargs,CHARTY
 short extract_synelem( short number_variables, short itemno, CHARTYPE *itemargs, CHARTYPE query_type, LINETYPE argc, CHARTYPE *arg, LINETYPE arglen )
 /***********************************************************************/
 {
-   unsigned short y=0,x=0;
+   short y=0,x=0;
    CHARTYPE syntax_element;
 #define SYN_PARAMS  4
    CHARTYPE *word[PEN_PARAMS+1];
@@ -1769,7 +1787,7 @@ short extract_synelem( short number_variables, short itemno, CHARTYPE *itemargs,
        * Determine position of cursor relative to ESCREEN
        * This should result in a direct entry into the highlight_type array
        */
-      getyx(CURRENT_WINDOW,y,x);
+      query2_capture_window_cursor(CURRENT_WINDOW,&y,&x);
       syntax_element = get_syntax_element( current_screen, y, x );
    }
    else if ( equal( (CHARTYPE *)"file", word[0], 1 ) )
@@ -2229,7 +2247,7 @@ short extract_topedge_function(short number_variables,short itemno,CHARTYPE *ite
       item_values[1].len = 1;
       return 1;
    }
-   getyx(CURRENT_WINDOW,y,x);
+   query2_capture_window_cursor(CURRENT_WINDOW,&y,&x);
    INTENTIONALLY_UNUSED_VARIABLE(x);
    return set_boolean_value((bool)(CURRENT_VIEW->current_window == WINDOW_FILEAREA && y == 0),(short)1);
 }
