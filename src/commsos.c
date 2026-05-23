@@ -37,6 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 #include "logcursor.h"
 
 /*#define DEBUG 1*/
@@ -1488,12 +1489,17 @@ short Sos_lastcol(CHARTYPE *params)
 /***********************************************************************/
 {
    short rc=RC_OK;
-   unsigned short y=0,x=0;
+   short y=0,x=0;
+   CursesDriverWindowCursor cursor;
+   CursesDriverWindowSize size;
 
    TRACE_FUNCTION( "commsos.c: Sos_lastcol" );
-   getyx( CURRENT_WINDOW, y, x );
-   x = getmaxx( CURRENT_WINDOW ) - 1;
-   wmove( CURRENT_WINDOW, y, x );
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   if (cursor.valid)
+      y = cursor.row;
+   size = curses_driver_window_size(CURRENT_WINDOW);
+   x = (size.valid && size.cols > 0) ? size.cols - 1 : 0;
+   curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
    TRACE_RETURN();
    return(rc);
 }
@@ -1522,15 +1528,17 @@ STATUS
 short Sos_leftedge(CHARTYPE *params)
 /***********************************************************************/
 {
-   unsigned short y=0,x=0;
+   short y=0;
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION( "commsos.c: Sos_leftedge" );
-   getyx( CURRENT_WINDOW, y, x );
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   if (cursor.valid)
+      y = cursor.row;
    if ( CURRENT_VIEW->current_window == WINDOW_PREFIX )
       CURRENT_VIEW->current_window = WINDOW_FILEAREA;
-   wmove( CURRENT_WINDOW, y, 0 );
+   curses_driver_move_window_cursor(CURRENT_WINDOW, y, 0);
    cursor_focus_refresh( current_screen, CURRENT_VIEW );
-   INTENTIONALLY_UNUSED_VARIABLE(x);
    TRACE_RETURN();
    return(RC_OK);
 }
@@ -1917,14 +1925,19 @@ short Sos_rightedge(CHARTYPE *params)
 /***********************************************************************/
 {
    short rc=RC_OK;
-   unsigned short y=0,x=0;
+   short y=0,x=0;
+   CursesDriverWindowCursor cursor;
+   CursesDriverWindowSize size;
 
    TRACE_FUNCTION("commsos.c: Sos_rightedge");
-   getyx(CURRENT_WINDOW,y,x);
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   if (cursor.valid)
+      y = cursor.row;
    if (CURRENT_VIEW->current_window == WINDOW_PREFIX)
       CURRENT_VIEW->current_window = WINDOW_FILEAREA;
-   x = getmaxx(CURRENT_WINDOW)-1;
-   wmove(CURRENT_WINDOW,y,x);
+   size = curses_driver_window_size(CURRENT_WINDOW);
+   x = (size.valid && size.cols > 0) ? size.cols - 1 : 0;
+   curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
    cursor_focus_refresh( current_screen, CURRENT_VIEW );
    TRACE_RETURN();
    return(rc);
