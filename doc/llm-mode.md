@@ -63,6 +63,11 @@ tokens, and are exposed as logical names such as `keyword`, `string`,
 categories with different colours, but the LLM contract remains the category
 name and the logical cell range.
 
+Parser diagnostics are editor state too. In the full editor, macros and agents
+can use `SDSLHWAIT` followed by `EXTRACT /PMSGS/` to list all SDSLH messages in
+the current file without relying on status-line colour or the cursor being on
+the diagnostic token.
+
 The formatted view is intentionally line-oriented. A typical snapshot looks like:
 
 ```text

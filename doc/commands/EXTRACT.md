@@ -17,6 +17,11 @@ For a complete list of 'item's that can be extracted, see the section; QUERY, EX
 `messages.0` is the number of messages and `messages.n` is the nth message,
 oldest first. `EXTRACT /MESSAGES n/` returns the latest `n` messages.
 
+`EXTRACT /PMSGS/` returns SDSLH parser diagnostics for the current file:
+`pmsgs.0` is the number of diagnostics and each `pmsgs.n` contains
+`line column severity code message`. Use `SDSLHWAIT` before extracting after a
+scripted edit when the macro needs the latest parse result.
+
 ## Compatibility
 XEDIT: Compatible.
 KEDIT: Compatible.

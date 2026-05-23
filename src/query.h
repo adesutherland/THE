@@ -142,6 +142,7 @@ typedef enum {
     ITEM_PARSER,
     ITEM_PENDING,
     ITEM_PMSG,
+    ITEM_PMSGS,
     ITEM_POINT,
     ITEM_POSITION,
     ITEM_PREFIX,

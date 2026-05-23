@@ -526,6 +526,361 @@ short extract_pmsg(short number_variables,short itemno,CHARTYPE *itemargs,CHARTY
 
 /***********************************************************************/
 
+#ifdef USE_SDSLH
+typedef struct SdslhParserMessage
+{
+   const CB_Node *node;
+   LINETYPE line;
+   LENGTHTYPE column;
+   CB_Severity severity;
+   CHARTYPE *code;
+   CHARTYPE *message;
+} SdslhParserMessage;
+
+typedef struct PmsgsCollectContext
+{
+   CodeBuffer *cb;
+   SdslhParserMessage **messages;
+   int *count;
+   int *capacity;
+   short rc;
+} PmsgsCollectContext;
+
+static const char *pmsgs_severity_name(CB_Severity severity)
+{
+   switch(severity)
+   {
+      case CB_INFORMATION:
+         return "INFORMATION";
+      case CB_WARNING:
+         return "WARNING";
+      case CB_ERROR:
+         return "ERROR";
+      case CB_NONE:
+      default:
+         return "NONE";
+   }
+}
+
+static CHARTYPE *pmsgs_duplicate_field(const char *value,const char *fallback)
+{
+   const char *source=(value != NULL && value[0] != '\0') ? value : fallback;
+   size_t len=strlen(source);
+   CHARTYPE *copy=(CHARTYPE *)(*the_malloc)((len + 1) * sizeof(CHARTYPE));
+
+   if (copy == NULL)
+      return NULL;
+
+   memcpy(copy,source,len + 1);
+   return copy;
+}
+
+static void pmsgs_free(SdslhParserMessage *messages,int count)
+{
+   int i;
+
+   if (messages == NULL)
+      return;
+
+   for (i = 0; i < count; i++)
+   {
+      if (messages[i].code != NULL)
+         (*the_free)(messages[i].code);
+      if (messages[i].message != NULL)
+         (*the_free)(messages[i].message);
+   }
+   (*the_free)(messages);
+}
+
+static short pmsgs_append(SdslhParserMessage **messages,int *count,int *capacity,
+                          const CB_Node *node,LINETYPE line,LENGTHTYPE column)
+{
+   SdslhParserMessage *resized=NULL;
+   SdslhParserMessage *entry=NULL;
+   int next_capacity;
+
+   if (*count == *capacity)
+   {
+      next_capacity = (*capacity == 0) ? 8 : (*capacity * 2);
+      if (*messages == NULL)
+         resized = (SdslhParserMessage *)(*the_malloc)(next_capacity * sizeof(SdslhParserMessage));
+      else
+         resized = (SdslhParserMessage *)(*the_realloc)(*messages,next_capacity * sizeof(SdslhParserMessage));
+
+      if (resized == NULL)
+         return RC_SYSTEM_ERROR;
+
+      *messages = resized;
+      *capacity = next_capacity;
+   }
+
+   entry = &(*messages)[*count];
+   entry->node = node;
+   entry->line = line;
+   entry->column = column;
+   entry->severity = node->severity;
+   entry->code = pmsgs_duplicate_field(node->message_code,"-");
+   entry->message = pmsgs_duplicate_field(node->message,"");
+
+   if (entry->code == NULL || entry->message == NULL)
+   {
+      if (entry->code != NULL)
+         (*the_free)(entry->code);
+      if (entry->message != NULL)
+         (*the_free)(entry->message);
+      entry->code = NULL;
+      entry->message = NULL;
+      return RC_SYSTEM_ERROR;
+   }
+
+   (*count)++;
+   return RC_OK;
+}
+
+static void pmsgs_node_location(CodeBuffer *cb,const CB_Node *node,LINETYPE *line,LENGTHTYPE *column)
+{
+   size_t found_line=0;
+   size_t found_col=0;
+   size_t current_pos=0;
+   size_t line_idx;
+   size_t length;
+   size_t offset;
+
+   *line = 0;
+   *column = 0;
+
+   if (cb == NULL || node == NULL || cb->line_count == 0)
+      return;
+
+   length = (node->length > 0) ? node->length : 1;
+   if (get_code_buffer_part(cb,node->pos,length,&found_line,&found_col,NULL) != NULL)
+   {
+      *line = (LINETYPE)found_line;
+      *column = (LENGTHTYPE)found_col + 1;
+      return;
+   }
+
+   for (line_idx = 0; line_idx < cb->line_count; line_idx++)
+   {
+      size_t line_length=cb->lines[line_idx].length;
+      size_t span=line_length + 1;
+
+      if (node->pos >= current_pos && node->pos <= current_pos + span)
+      {
+         offset = node->pos - current_pos;
+         if (offset > line_length)
+            offset = line_length;
+         *line = (LINETYPE)line_idx + 1;
+         *column = (LENGTHTYPE)offset + 1;
+         return;
+      }
+      current_pos += span;
+   }
+
+   *line = (LINETYPE)cb->line_count;
+   *column = (LENGTHTYPE)cb->lines[cb->line_count - 1].length + 1;
+}
+
+static void pmsgs_collect_node(CB_Node *node,size_t depth,void *user_data)
+{
+   PmsgsCollectContext *context=(PmsgsCollectContext *)user_data;
+   LINETYPE line=0;
+   LENGTHTYPE column=0;
+
+   INTENTIONALLY_UNUSED_VARIABLE(depth);
+
+   if (context == NULL || context->rc != RC_OK || node == NULL)
+      return;
+
+   if (node->message == NULL
+   ||  node->message[0] == '\0'
+   ||  node->severity == CB_NONE)
+      return;
+
+   pmsgs_node_location(context->cb,node,&line,&column);
+   context->rc = pmsgs_append(context->messages,context->count,context->capacity,
+                              node,line,column);
+}
+
+static short pmsgs_collect(SdslhParserMessage **messages,int *count)
+{
+   short rc=RC_OK;
+   int capacity=0;
+   CodeBuffer *cb=NULL;
+   PmsgsCollectContext context;
+
+   *messages = NULL;
+   *count = 0;
+
+   if (CURRENT_FILE == NULL || CURRENT_FILE->cb == NULL)
+      return RC_OK;
+
+   if (enter_codeblock_critical_section() != 0)
+      return RC_SYSTEM_ERROR;
+
+   cb = CURRENT_FILE->cb;
+   if (cb->parse_tree != NULL)
+   {
+      context.cb = cb;
+      context.messages = messages;
+      context.count = count;
+      context.capacity = &capacity;
+      context.rc = RC_OK;
+      cb_walk_tree_top_down(cb->parse_tree,pmsgs_collect_node,&context);
+      rc = context.rc;
+   }
+
+   if (exit_codeblock_critical_section() != 0 && rc == RC_OK)
+      rc = RC_SYSTEM_ERROR;
+
+   if (rc != RC_OK)
+   {
+      pmsgs_free(*messages,*count);
+      *messages = NULL;
+      *count = 0;
+   }
+
+   return rc;
+}
+
+static CHARTYPE *pmsgs_make_record(const SdslhParserMessage *message,bool query_record,int index)
+{
+   const char *severity=pmsgs_severity_name(message->severity);
+   const char *code=(const char *)message->code;
+   const char *text=(const char *)message->message;
+   size_t size=strlen(severity) + strlen(code) + strlen(text) + 128;
+   CHARTYPE *record=(CHARTYPE *)(*the_malloc)(size * sizeof(CHARTYPE));
+
+   if (record == NULL)
+      return NULL;
+
+   if (query_record)
+   {
+      snprintf((DEFCHAR *)record,size,
+               "pmsgs.%d line=%ld column=%ld severity=%s code=%s message=%s",
+               index,(long)message->line,(long)message->column,severity,code,text);
+   }
+   else
+   {
+      snprintf((DEFCHAR *)record,size,"%ld %ld %s %s %s",
+               (long)message->line,(long)message->column,severity,code,text);
+   }
+
+   return record;
+}
+#endif
+
+/***********************************************************************/
+short extract_pmsgs(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
+/***********************************************************************/
+{
+   short rc=RC_OK;
+   CHARTYPE num[20];
+#ifdef USE_SDSLH
+   SdslhParserMessage *messages=NULL;
+   int count=0;
+   int i;
+   CHARTYPE *record=NULL;
+#endif
+
+   INTENTIONALLY_UNUSED_VARIABLE(argc);
+   INTENTIONALLY_UNUSED_VARIABLE(arg);
+   INTENTIONALLY_UNUSED_VARIABLE(arglen);
+   INTENTIONALLY_UNUSED_VARIABLE(number_variables);
+
+   if (itemargs != NULL && !blank_field(itemargs))
+   {
+      display_error(1,itemargs,FALSE);
+      return EXTRACT_ARG_ERROR;
+   }
+
+#ifndef USE_SDSLH
+   if (query_type == QUERY_QUERY)
+   {
+      display_error(0,(CHARTYPE *)"SDSLH support not compiled in",TRUE);
+      return EXTRACT_VARIABLES_SET;
+   }
+
+   if (query_type == QUERY_EXTRACT)
+   {
+      strcpy((DEFCHAR *)num,"0");
+      rc = set_rexx_variable(query_item[itemno].name,num,strlen((DEFCHAR *)num),0);
+      if (rc == RC_SYSTEM_ERROR)
+      {
+         display_error(54,(CHARTYPE *)"",FALSE);
+         return EXTRACT_ARG_ERROR;
+      }
+      return EXTRACT_VARIABLES_SET;
+   }
+
+   return 0;
+#else
+   rc = pmsgs_collect(&messages,&count);
+   if (rc != RC_OK)
+   {
+      display_error(54,(CHARTYPE *)"",FALSE);
+      return EXTRACT_ARG_ERROR;
+   }
+
+   if (query_type == QUERY_QUERY)
+   {
+      if (count == 0)
+      {
+         display_error(0,(CHARTYPE *)"No SDSLH parser messages",TRUE);
+      }
+      else
+      {
+         for (i = 0; i < count; i++)
+         {
+            record = pmsgs_make_record(&messages[i],TRUE,i + 1);
+            if (record == NULL)
+            {
+               pmsgs_free(messages,count);
+               display_error(54,(CHARTYPE *)"",FALSE);
+               return EXTRACT_ARG_ERROR;
+            }
+            display_error(0,record,TRUE);
+            (*the_free)(record);
+         }
+      }
+
+      pmsgs_free(messages,count);
+      return EXTRACT_VARIABLES_SET;
+   }
+
+   if (query_type == QUERY_EXTRACT)
+   {
+      sprintf((DEFCHAR *)num,"%d",count);
+      rc = set_rexx_variable(query_item[itemno].name,num,strlen((DEFCHAR *)num),0);
+      for (i = 0; rc == RC_OK && i < count; i++)
+      {
+         record = pmsgs_make_record(&messages[i],FALSE,i + 1);
+         if (record == NULL)
+         {
+            rc = RC_SYSTEM_ERROR;
+            break;
+         }
+         rc = set_rexx_variable(query_item[itemno].name,record,
+                                strlen((DEFCHAR *)record),i + 1);
+         (*the_free)(record);
+      }
+
+      pmsgs_free(messages,count);
+      if (rc == RC_SYSTEM_ERROR)
+      {
+         display_error(54,(CHARTYPE *)"",FALSE);
+         return EXTRACT_ARG_ERROR;
+      }
+      return EXTRACT_VARIABLES_SET;
+   }
+
+   pmsgs_free(messages,count);
+   return count;
+#endif
+}
+
+/***********************************************************************/
+
 short extract_pending(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {

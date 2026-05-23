@@ -17,6 +17,9 @@ setting of SET MSGLINE .
 `QUERY MESSAGES` redisplays the remembered message list. `QUERY MESSAGES n`
 shows the latest `n` messages.
 
+`QUERY PMSGS` lists SDSLH parser diagnostics for the current file. Each entry
+shows the diagnostic line, column, severity, code, and message.
+
 ## Compatibility
 XEDIT: Compatible functionality, but not all options.
 KEDIT: Compatible functionality, but not all options.

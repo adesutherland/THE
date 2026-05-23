@@ -38,7 +38,7 @@ fi
 
 rm -rf "${WORK_DIR}"
 mkdir -p "${WORK_DIR}"
-printf '// test comment\n' > "${SAMPLE}"
+printf 'int x = 1\n' > "${SAMPLE}"
 cat > "${PROFILE}" <<PROFILE_EOF
 options levelb
 address the
@@ -46,6 +46,10 @@ address the
 'set autocolor *.toy tp'
 'set coloring on auto'
 'sdslhwait 5000'
+pmsgs = .string[]
+address the "extract /pmsgs/" expose pmsgs[]
+if pmsgs[0] = "1" then 'emsg SDSLH_PMSGS_COUNT_OK'
+if pmsgs[1] = "2 1 ERROR - Expected semicolon after statement" then 'emsg SDSLH_PMSGS_ENTRY_OK'
 'input // delayed delta comment'
 'sdslhwait 5000'
 'qquit'
@@ -61,12 +65,14 @@ PARSE_COUNT="$(grep -c "base_parse_buffer: starting parse" "${WORK_DIR}/parser.l
 
 if grep -q "base_load_initial_content" "${WORK_DIR}/parser.log" \
   && [[ "${PARSE_COUNT}" -ge 2 ]] \
-  && grep -q "base_parse_buffer: starting parse, lines=3" "${WORK_DIR}/parser.log"; then
-  echo "Integration Test Passed: Handshake, initial load, and delayed delta parse successful."
+  && grep -q "base_parse_buffer: starting parse, lines=3" "${WORK_DIR}/parser.log" \
+  && grep -q "SDSLH_PMSGS_COUNT_OK" "${WORK_DIR}/editor_stderr.log" \
+  && grep -q "SDSLH_PMSGS_ENTRY_OK" "${WORK_DIR}/editor_stderr.log"; then
+  echo "Integration Test Passed: Handshake, diagnostics extract, initial load, and delayed delta parse successful."
   exit 0
 fi
 
-echo "Integration Test Failed: SDSLH initial load or delayed delta parse not observed." >&2
+echo "Integration Test Failed: SDSLH initial load, diagnostics extract, or delayed delta parse not observed." >&2
 echo "--- editor stderr ---" >&2
 cat "${WORK_DIR}/editor_stderr.log" >&2 || true
 echo "--- editor log ---" >&2
