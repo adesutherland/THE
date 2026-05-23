@@ -325,6 +325,22 @@ CursesDriverWindowOrigin curses_driver_window_origin(WINDOW *win)
    return origin;
 }
 
+CursesDriverWindowSize curses_driver_window_size(WINDOW *win)
+{
+   CursesDriverWindowSize size;
+
+   size.rows = 0;
+   size.cols = 0;
+   size.valid = 0;
+   if (win == NULL)
+      return size;
+
+   size.rows = (short)getmaxy(win);
+   size.cols = (short)getmaxx(win);
+   size.valid = 1;
+   return size;
+}
+
 void curses_driver_move_window_cursor(WINDOW *win, short row, short col)
 {
    if (win == NULL)

@@ -31,6 +31,13 @@ typedef struct
    int valid;
 } CursesDriverWindowOrigin;
 
+typedef struct
+{
+   short rows;
+   short cols;
+   int valid;
+} CursesDriverWindowSize;
+
 int curses_driver_clamp_display_col(int display_col, int window_cols);
 int curses_driver_display_col_from_logical(const CHARTYPE *line, size_t len,
                                            int viewport_col, int logical_col);
@@ -64,6 +71,7 @@ void curses_driver_write_ascii_cells_at(WINDOW *win, int row, int col,
 #endif
 CursesDriverWindowCursor curses_driver_capture_window_cursor(WINDOW *win);
 CursesDriverWindowOrigin curses_driver_window_origin(WINDOW *win);
+CursesDriverWindowSize curses_driver_window_size(WINDOW *win);
 void curses_driver_move_window_cursor(WINDOW *win, short row, short col);
 void curses_driver_restore_window_cursor(WINDOW *win,
                                          CursesDriverWindowCursor cursor);

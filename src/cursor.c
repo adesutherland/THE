@@ -93,22 +93,22 @@ static bool cursor_focus_software_window(CHARTYPE window)
 static void cursor_focus_clamp_to_window(CHARTYPE scrno, CHARTYPE window, int *row, int *col)
 {
    WINDOW *win = screen[scrno].win[window];
-   int maxy;
-   int maxx;
+   CursesDriverWindowSize size;
 
    if (win == NULL)
       return;
 
-   maxy = getmaxy(win);
-   maxx = getmaxx(win);
+   size = curses_driver_window_size(win);
+   if (!size.valid)
+      return;
    if (*row < 0)
       *row = 0;
    if (*col < 0)
       *col = 0;
-   if (maxy > 0 && *row >= maxy)
-      *row = (short)(maxy - 1);
-   if (maxx > 0 && *col >= maxx)
-      *col = (short)(maxx - 1);
+   if (size.rows > 0 && *row >= size.rows)
+      *row = (short)(size.rows - 1);
+   if (size.cols > 0 && *col >= size.cols)
+      *col = (short)(size.cols - 1);
 }
 
 static bool cursor_focus_capture_filearea_logical(CHARTYPE scrno, VIEW_DETAILS *view)
@@ -1185,9 +1185,11 @@ short THEcursor_left(short escreen,bool kedit_defaults)
                    rc = Sos_prefix( (CHARTYPE *)"" );
                    if (rc == RC_OK && CURRENT_WINDOW_PREFIX != NULL)
                    {
-                       int prefix_w = getmaxx(CURRENT_WINDOW_PREFIX);
-                       curses_driver_move_window_cursor(CURRENT_WINDOW_PREFIX,
-                                                        y, prefix_w - 1);
+                       CursesDriverWindowSize prefix_size =
+                          curses_driver_window_size(CURRENT_WINDOW_PREFIX);
+                       if (prefix_size.valid && prefix_size.cols > 0)
+                          curses_driver_move_window_cursor(CURRENT_WINDOW_PREFIX,
+                                                           y, prefix_size.cols - 1);
                    }
                }
             }
@@ -1235,6 +1237,7 @@ short THEcursor_right(short escreen,bool kedit_defaults)
 {
    unsigned short x=0,y=0,tempx=0;
    CursesDriverWindowCursor cursor;
+   CursesDriverWindowSize window_size;
    COLTYPE right_column=0;
    short rc=RC_OK;
 
@@ -1258,7 +1261,8 @@ short THEcursor_right(short escreen,bool kedit_defaults)
       y = cursor.row;
       x = cursor.col;
    }
-   right_column = getmaxx( CURRENT_WINDOW ) - 1;
+   window_size = curses_driver_window_size(CURRENT_WINDOW);
+   right_column = (window_size.valid && window_size.cols > 0) ? window_size.cols - 1 : 0;
    if ( CURRENT_VIEW->current_window == WINDOW_FILEAREA )
    {
       /*
@@ -1318,7 +1322,7 @@ short THEcursor_right(short escreen,bool kedit_defaults)
          }
          else
          {
-            tempx = getmaxx(CURRENT_WINDOW);
+            tempx = curses_driver_window_size(CURRENT_WINDOW).cols;
             if (x == tempx-1
             &&  CURRENT_VIEW->autoscroll != 0)
             {
@@ -1338,7 +1342,7 @@ short THEcursor_right(short escreen,bool kedit_defaults)
          rc = Sos_leftedge( (CHARTYPE *)"" );
          break;
       case WINDOW_COMMAND:
-         tempx = getmaxx( CURRENT_WINDOW );
+         tempx = curses_driver_window_size(CURRENT_WINDOW).cols;
          if ( x == tempx - 1
          &&  CURRENT_VIEW->autoscroll != 0 )
          {
