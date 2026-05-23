@@ -701,6 +701,7 @@ short Scope (CHARTYPE *);
 short Scale (CHARTYPE *);
 short THESearch (CHARTYPE *);
 short Sdslh (CHARTYPE *);
+short Sdslhwait (CHARTYPE *);
 short Select (CHARTYPE *);
 short Set (CHARTYPE *);
 short Schange (CHARTYPE *);

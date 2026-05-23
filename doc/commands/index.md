@@ -215,6 +215,7 @@
 - [SET SCOPE](SET_SCOPE.md) - sets which lines are to be excluded from commands
 - [SET SCREEN](SET_SCREEN.md) - specify number of screens displayed
 - [SET SDSLH](SET_SDSLH.md) - registers an external SDSLH parser
+- [SDSLHWAIT](SDSLHWAIT.md) - waits for SDSLH syntax parsing to complete
 - [SET SELECT](SET_SELECT.md) - sets the selection level for the specified lines
 - [SET SHADOW](SET_SHADOW.md) - determines if shadow lines are displayed or not
 - [SET SLK](SET_SLK.md) - set Soft Label Key definitions

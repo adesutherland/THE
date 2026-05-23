@@ -597,6 +597,8 @@
  [SET] SDSLH parser executable_path
        registers an external SDSLH parser
        Default: N/A
+ SDSLHWAIT [milliseconds]
+       waits for SDSLH syntax parsing to complete
  [SET] SELect [+|-]n [target]
        sets the selection level for the specified lines
        Default: 0

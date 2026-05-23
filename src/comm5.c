@@ -106,6 +106,120 @@ static bool ispf_special_lines_entry( short line_type, int ch, CHARTYPE real_key
    return need_to_build_screen;
 }
 
+static void sdslhwait_refresh_screen(void)
+{
+   if (!curses_started || CURRENT_VIEW == NULL)
+      return;
+   build_screen(current_screen);
+   display_screen(current_screen);
+   show_statarea();
+}
+
+/*man-start*********************************************************************
+COMMAND
+     sdslhwait - wait for SDSLH syntax parsing to complete
+
+SYNTAX
+     SDSLHWAIT [milliseconds]
+
+DESCRIPTION
+     The SDSLHWAIT command waits for the current file's SDSLH parser to
+     complete any active background parse. If the editor has pending text
+     changes for SDSLH, it first sends those changes to the parser.
+
+     This is primarily useful for macros and tests that need deterministic
+     SDSLH syntax state after scripted edits. Interactive editing normally
+     schedules and redraws SDSLH updates from the editor loop.
+
+     If milliseconds is omitted, SDSLHWAIT waits up to 2000 milliseconds.
+
+COMPATIBILITY
+     XEDIT: N/A
+     KEDIT: N/A
+
+STATUS
+     Complete.
+**man-end**********************************************************************/
+short Sdslhwait(CHARTYPE *params)
+/***********************************************************************/
+{
+#define SDSLHWAIT_PARAMS 2
+#define SDSLHWAIT_DEFAULT_MS 2000
+#define SDSLHWAIT_MAX_MS 60000
+#define SDSLHWAIT_POLL_MS 20
+   CHARTYPE *word[SDSLHWAIT_PARAMS+1];
+   CHARTYPE strip[SDSLHWAIT_PARAMS];
+   unsigned short num_params=0;
+   int timeout_ms=SDSLHWAIT_DEFAULT_MS;
+   int elapsed_ms=0;
+
+   TRACE_FUNCTION("comm5.c:   Sdslhwait");
+
+   if (params != NULL && strcmp((DEFCHAR *)params,"") != 0)
+   {
+      strip[0]=STRIP_BOTH;
+      strip[1]=STRIP_BOTH;
+      num_params = param_split(params,word,SDSLHWAIT_PARAMS,WORD_DELIMS,TEMP_PARAM,strip,FALSE);
+      if (num_params > 1 || !valid_positive_integer(word[0]))
+      {
+         display_error(1,(CHARTYPE *)params,FALSE);
+         TRACE_RETURN();
+         return(RC_INVALID_OPERAND);
+      }
+      timeout_ms = atoi((DEFCHAR *)word[0]);
+      if (timeout_ms > SDSLHWAIT_MAX_MS)
+      {
+         display_error(1,word[0],FALSE);
+         TRACE_RETURN();
+         return(RC_INVALID_OPERAND);
+      }
+   }
+
+#ifndef USE_SDSLH
+   display_error(0,(CHARTYPE *)"SDSLH support not compiled in",FALSE);
+   TRACE_RETURN();
+   return(RC_INVALID_OPERAND);
+#else
+   if (CURRENT_FILE == NULL || CURRENT_FILE->sdslh_comm == NULL || CURRENT_FILE->cb == NULL)
+   {
+      display_error(0,(CHARTYPE *)"SDSLH is not active for the current file",FALSE);
+      TRACE_RETURN();
+      return(RC_INVALID_OPERAND);
+   }
+
+   if (!cb_check_parse_complete_event(CURRENT_FILE->cb)
+   &&  !CURRENT_FILE->cb->async_parse_active
+   &&  CURRENT_FILE->cb->transaction_count > 0)
+      process_delta(CURRENT_FILE->cb);
+
+   for (;;)
+   {
+      if (cb_check_parse_complete_event(CURRENT_FILE->cb))
+      {
+         cb_reset_parse_complete_event(CURRENT_FILE->cb);
+         sdslhwait_refresh_screen();
+         TRACE_RETURN();
+         return(RC_OK);
+      }
+      if (!CURRENT_FILE->cb->async_parse_active
+      &&  CURRENT_FILE->cb->transaction_count == 0)
+      {
+         sdslhwait_refresh_screen();
+         TRACE_RETURN();
+         return(RC_OK);
+      }
+      if (elapsed_ms >= timeout_ms)
+      {
+         display_error(0,(CHARTYPE *)"SDSLHWAIT timed out waiting for parser",FALSE);
+         TRACE_RETURN();
+         return(RC_INVALID_OPERAND);
+      }
+      napms(SDSLHWAIT_POLL_MS);
+      elapsed_ms += SDSLHWAIT_POLL_MS;
+   }
+#endif
+}
+
 /*#define DEBUG 1*/
 /*man-start*********************************************************************
 COMMAND

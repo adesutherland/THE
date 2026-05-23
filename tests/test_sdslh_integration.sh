@@ -45,24 +45,36 @@ address the
 'set sdslh tp ${TP_BIN} -d'
 'set autocolor *.toy tp'
 'set coloring on auto'
-'input // test comment'
+'sdslhwait 5000'
+'input // delayed delta comment'
+'sdslhwait 5000'
 'qquit'
 PROFILE_EOF
 
 (
   cd "${WORK_DIR}"
   rm -f parser.log editor.log editor_stderr.log the.out
-  "${THE_BIN}" -b -p "${PROFILE}" "${SAMPLE}" > the.out 2> editor_stderr.log
+  THE_SDSLH_LOG="${WORK_DIR}/editor.log" "${THE_BIN}" -b -p "${PROFILE}" "${SAMPLE}" > the.out 2> editor_stderr.log
 )
 
-if grep -q "base_load_initial_content" "${WORK_DIR}/parser.log"; then
-  echo "Integration Test Passed: Handshake and initial load successful."
+PARSE_COUNT="$(grep -c "base_parse_buffer: starting parse" "${WORK_DIR}/parser.log" || true)"
+
+if grep -q "base_load_initial_content" "${WORK_DIR}/parser.log" \
+  && [[ "${PARSE_COUNT}" -ge 2 ]] \
+  && grep -q "base_parse_buffer: starting parse, lines=3" "${WORK_DIR}/parser.log"; then
+  echo "Integration Test Passed: Handshake, initial load, and delayed delta parse successful."
   exit 0
 fi
 
-echo "Integration Test Failed: Handshake not found in parser log." >&2
+echo "Integration Test Failed: SDSLH initial load or delayed delta parse not observed." >&2
 echo "--- editor stderr ---" >&2
 cat "${WORK_DIR}/editor_stderr.log" >&2 || true
+echo "--- editor log ---" >&2
+if [[ -f "${WORK_DIR}/editor.log" ]]; then
+  cat "${WORK_DIR}/editor.log" >&2
+else
+  echo "No editor.log found" >&2
+fi
 echo "--- parser log ---" >&2
 cat "${WORK_DIR}/parser.log" >&2 || echo "No parser.log found" >&2
 exit 1
