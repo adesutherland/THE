@@ -89,6 +89,21 @@ static LENGTHTYPE sos_filearea_current_column(unsigned short y,
    return (LENGTHTYPE)sos_filearea_current_cell(y, x) + 1;
 }
 
+static LENGTHTYPE sos_filearea_current_byte(unsigned short y, unsigned short x)
+{
+   int cell = sos_filearea_current_cell(y, x);
+   TextPos pos = textpos_from_cell(rec, rec_len, cell, TEXT_SNAP_BACKWARD);
+
+   return (LENGTHTYPE)pos.byte_offset;
+}
+
+static LENGTHTYPE sos_filearea_byte_to_cell(LENGTHTYPE byte_offset)
+{
+   TextPos pos = textpos_from_byte(rec, rec_len, (size_t)byte_offset);
+
+   return (LENGTHTYPE)pos.cell_column;
+}
+
 #ifdef USE_UTF8
 static LENGTHTYPE sos_utf8_rec_len_after_delete(LENGTHTYPE old_len,
                                                 LENGTHTYPE delete_byte,
@@ -933,6 +948,7 @@ short Sos_delword(CHARTYPE *params)
    LENGTHTYPE first_col=0,last_col=0;
    unsigned short x=0,y=0;
    LENGTHTYPE num_cols=0,left_col=0,temp_rec_len=0;
+   LENGTHTYPE current_pos=0,target_col=0;
    CHARTYPE *temp_rec=NULL;
 
    TRACE_FUNCTION( "commsos.c: Sos_delword" );
@@ -948,6 +964,11 @@ short Sos_delword(CHARTYPE *params)
          return(RC_INVALID_ENVIRON);
          break;
       case WINDOW_FILEAREA:
+      {
+         unsigned short logical_y = y;
+
+         if (sos_filearea_logical_cursor(&logical_y, NULL))
+            y = logical_y;
          /*
           * If running in read-only mode and an attempt is made to execute this
           * command in the MAIN window, then error...
@@ -967,14 +988,17 @@ short Sos_delword(CHARTYPE *params)
          temp_rec = rec;
          temp_rec_len = rec_len;
          left_col = CURRENT_VIEW->verify_col-1;
+         current_pos = sos_filearea_current_byte(y, x);
          break;
+      }
       case WINDOW_COMMAND:
          temp_rec = (CHARTYPE *)cmd_rec;
          temp_rec_len = cmd_rec_len;
          left_col = cmd_verify_col;
+         current_pos = x + left_col;
          break;
    }
-   if ( get_word( temp_rec, temp_rec_len, x + left_col, &first_col, &last_col ) == 0 )
+   if ( get_word( temp_rec, temp_rec_len, current_pos, &first_col, &last_col ) == 0 )
    {
       TRACE_RETURN();
       return(0);
@@ -989,7 +1013,8 @@ short Sos_delword(CHARTYPE *params)
    {
       case WINDOW_FILEAREA:
          rec_len -= num_cols;
-         rc = execute_move_cursor(  current_screen, CURRENT_VIEW, first_col );
+         target_col = sos_filearea_byte_to_cell(first_col);
+         rc = execute_move_cursor(  current_screen, CURRENT_VIEW, target_col );
 #ifdef USE_SDSLH
          sdslh_update_current_line(y);
 #endif
@@ -2510,7 +2535,7 @@ short Sos_tabwordb(CHARTYPE *params)
    CHARTYPE *temp_rec=NULL;
    LENGTHTYPE i=0;
    bool blank_found=FALSE;
-   LENGTHTYPE left_col=0;
+   LENGTHTYPE left_col=0,current_pos=0,target_col=0;
    LENGTHTYPE verify_col=0;
    COLTYPE new_screen_col=0;
    LENGTHTYPE new_verify_col=0;
@@ -2533,6 +2558,7 @@ short Sos_tabwordb(CHARTYPE *params)
       case WINDOW_FILEAREA:
          temp_rec = rec;
          verify_col = CURRENT_VIEW->verify_col;
+         current_pos = sos_filearea_current_byte(y, x);
          break;
       case WINDOW_COMMAND:
          temp_rec = (CHARTYPE *)cmd_rec;
@@ -2540,6 +2566,8 @@ short Sos_tabwordb(CHARTYPE *params)
          break;
    }
    left_col = verify_col - 1;
+   if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
+      current_pos = left_col + x;
    /*
     * Determine the start of the prior word, or go to the start of the
     * line if already at or before beginning of prior word.
@@ -2551,7 +2579,7 @@ short Sos_tabwordb(CHARTYPE *params)
       /*
        * Word break is non-blank
        */
-      for ( i = left_col + x; i > (-1); i-- )
+      for ( i = current_pos; i > (-1); i-- )
       {
          switch( word_break )
          {
@@ -2583,9 +2611,9 @@ short Sos_tabwordb(CHARTYPE *params)
        * Word break is non-blank
        */
       word_break = 0;
-      this_char = *(temp_rec+left_col+x);
+      this_char = *(temp_rec+current_pos);
       current_char_type = my_isalphanum( this_char );
-      for ( i = left_col + x; i > (-1); i-- )
+      for ( i = current_pos; i > (-1); i-- )
       {
          switch( word_break )
          {
@@ -2651,11 +2679,14 @@ short Sos_tabwordb(CHARTYPE *params)
      }
    if (start_word_col == (-1))
       start_word_col = 0;
+   target_col = start_word_col;
+   if (CURRENT_VIEW->current_window == WINDOW_FILEAREA)
+      target_col = sos_filearea_byte_to_cell(start_word_col);
 
 #ifdef VERSHIFT
-   rc = execute_move_cursor( current_screen, CURRENT_VIEW, start_word_col );
+   rc = execute_move_cursor( current_screen, CURRENT_VIEW, target_col );
 #else
-   calculate_new_column( current_screen, CURRENT_VIEW, x, verify_col, start_word_col, &new_screen_col, &new_verify_col );
+   calculate_new_column( current_screen, CURRENT_VIEW, x, verify_col, target_col, &new_screen_col, &new_verify_col );
    if ( verify_col != new_verify_col )
    {
       switch( CURRENT_VIEW->current_window )
@@ -2706,7 +2737,7 @@ short Sos_tabwordf(CHARTYPE *params)
 {
    unsigned short x=0,y=0;
    LENGTHTYPE temp_rec_len=0;
-   LENGTHTYPE start_word_col=0,left_col=0;
+   LENGTHTYPE start_word_col=0,left_col=0,current_pos=0,target_col=0;
    LENGTHTYPE verify_col=0;
    bool word_break=FALSE;
    short current_char_type=0;
@@ -2733,6 +2764,7 @@ short Sos_tabwordf(CHARTYPE *params)
          temp_rec = rec;
          temp_rec_len = rec_len;
          verify_col = CURRENT_VIEW->verify_col;
+         current_pos = sos_filearea_current_byte(y, x);
          break;
       case WINDOW_COMMAND:
          temp_rec = (CHARTYPE *)cmd_rec;
@@ -2741,11 +2773,13 @@ short Sos_tabwordf(CHARTYPE *params)
          break;
    }
    left_col = verify_col - 1;
+   if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
+      current_pos = x + left_col;
    /*
     * If we are after the last column of the line, then just ignore the
     * command and leave the cursor where it is.
     */
-   if ((x + left_col) > temp_rec_len)
+   if (current_pos > temp_rec_len)
    {
       TRACE_RETURN();
       return(RC_OK);
@@ -2761,7 +2795,7 @@ short Sos_tabwordf(CHARTYPE *params)
       /*
        * Word break is non-blank
        */
-      for (i=left_col+x;i<temp_rec_len;i++)
+      for (i=current_pos;i<temp_rec_len;i++)
       {
          if (*(temp_rec+i) == ' ')
             word_break = TRUE;
@@ -2780,9 +2814,9 @@ short Sos_tabwordf(CHARTYPE *params)
       /*
        * Word break is non-blank
        */
-      this_char = *(temp_rec+left_col+x);
+      this_char = *(temp_rec+current_pos);
       current_char_type = my_isalphanum(this_char);
-      for (i=left_col+x;i<temp_rec_len;i++)
+      for (i=current_pos;i<temp_rec_len;i++)
       {
          switch(current_char_type)
          {
@@ -2817,11 +2851,14 @@ short Sos_tabwordf(CHARTYPE *params)
    }
    if (start_word_col == (-1))
       start_word_col = temp_rec_len;
+   target_col = start_word_col;
+   if (CURRENT_VIEW->current_window == WINDOW_FILEAREA)
+      target_col = sos_filearea_byte_to_cell(start_word_col);
 
 #ifdef VERSHIFT
-   rc = execute_move_cursor( current_screen, CURRENT_VIEW, start_word_col );
+   rc = execute_move_cursor( current_screen, CURRENT_VIEW, target_col );
 #else
-   calculate_new_column( current_screen, CURRENT_VIEW, x, verify_col, start_word_col, &new_screen_col, &new_verify_col );
+   calculate_new_column( current_screen, CURRENT_VIEW, x, verify_col, target_col, &new_screen_col, &new_verify_col );
    if ( verify_col != new_verify_col )
    {
       switch( CURRENT_VIEW->current_window )
