@@ -1973,7 +1973,7 @@ short Sos_settab(CHARTYPE *params)
       return(rc);
    }
    getyx(CURRENT_WINDOW,y,x);
-   col = x + CURRENT_VIEW->verify_col;
+   col = sos_filearea_current_column(y, x);
    for (i=0;i<CURRENT_VIEW->numtabs;i++)
    {
       if (CURRENT_VIEW->tabs[i] == col)
