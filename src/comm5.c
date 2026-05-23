@@ -37,6 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 #ifdef USE_UTF8
 # include "textedit.h"
 #endif
@@ -660,8 +661,9 @@ short Text(CHARTYPE *params)
    unsigned short y=0;
    LENGTHTYPE len_params=0L;
 #if defined(HAVE_BROKEN_COLORS)
-   int junky,newx;
+   int newx=0;
 #endif
+   CursesDriverWindowCursor cursor;
 #if defined(USE_EXTCURSES)
    ATTR attr=0;
 #else
@@ -730,7 +732,12 @@ short Text(CHARTYPE *params)
       chtype_key = (chtype)(real_key & A_CHARTEXT);
 #endif
 
-      getyx( CURRENT_WINDOW, y, x );
+      cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+      if (cursor.valid)
+      {
+         y = cursor.row;
+         x = cursor.col;
+      }
 #ifdef USE_UTF8
       utf8_filearea_cell = (-1);
       utf8_filearea_row = y;
@@ -863,7 +870,7 @@ short Text(CHARTYPE *params)
 #if defined(USE_EXTCURSES)
                if ( x == CURRENT_SCREEN.cols[WINDOW_FILEAREA]-1 )
                {
-                  wmove( CURRENT_WINDOW, y, x );
+                  curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
      /*           wrefresh(CURRENT_WINDOW); */
                   THEcursor_right( TRUE, FALSE );
                }
@@ -887,8 +894,10 @@ short Text(CHARTYPE *params)
                    * scrolling the screen horizontally, and then position
                    * the cursor with the OLD y value, and the NEW x value;
                    */
-                  getyx(CURRENT_WINDOW,junky,newx);
-                  wmove(CURRENT_WINDOW,y,newx);
+                  cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+                  if (cursor.valid)
+                     newx = cursor.col;
+                  curses_driver_move_window_cursor(CURRENT_WINDOW,y,newx);
 # endif
                }
 #endif
@@ -954,7 +963,7 @@ short Text(CHARTYPE *params)
             if (pre_rec_len == 0)
             {
                x = 0;
-               wmove(CURRENT_WINDOW,y,x);
+               curses_driver_move_window_cursor(CURRENT_WINDOW,y,x);
                my_wclrtoeol(CURRENT_WINDOW);
                wrefresh(CURRENT_WINDOW);
             }
@@ -971,7 +980,8 @@ short Text(CHARTYPE *params)
                pre_rec[x] = real_key;
                put_char(CURRENT_WINDOW,chtype_key,ADDCHAR);
             }
-            wmove(CURRENT_WINDOW,y,min(x+1,CURRENT_VIEW->prefix_width-CURRENT_VIEW->prefix_gap-1));
+            curses_driver_move_window_cursor(
+               CURRENT_WINDOW,y,min(x+1,CURRENT_VIEW->prefix_width-CURRENT_VIEW->prefix_gap-1));
             new_len = memrevne(pre_rec,' ',CURRENT_VIEW->prefix_width);
             if (new_len == (-1))
                pre_rec_len = 0;
@@ -1241,6 +1251,8 @@ short Top(CHARTYPE *params)
 {
    short rc=RC_TOF_EOF_REACHED;
    unsigned short x=0,y=0;
+   CursesDriverWindowCursor cursor;
+   WINDOW *cursor_window=NULL;
 
    TRACE_FUNCTION("comm5.c:   Top");
    /*
@@ -1260,17 +1272,19 @@ short Top(CHARTYPE *params)
    pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
    if (curses_started)
    {
-      if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
-         getyx(CURRENT_PREV_WINDOW,y,x);
-      else
-         getyx(CURRENT_WINDOW,y,x);
+      cursor_window = (CURRENT_VIEW->current_window == WINDOW_COMMAND)
+                    ? CURRENT_PREV_WINDOW
+                    : CURRENT_WINDOW;
+      cursor = curses_driver_capture_window_cursor(cursor_window);
+      if (cursor.valid)
+      {
+         y = cursor.row;
+         x = cursor.col;
+      }
       display_screen(current_screen);
       y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,
                                  CURRENT_VIEW->current_row);
-      if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
-         wmove(CURRENT_PREV_WINDOW,y,x);
-      else
-         wmove(CURRENT_WINDOW,y,x);
+      curses_driver_move_window_cursor(cursor_window,y,x);
    }
    TRACE_RETURN();
    return(rc);
@@ -1645,7 +1659,7 @@ short Retrieve(CHARTYPE *params)
    }
    if (save_params)
       (*the_free)(save_params);
-   wmove(CURRENT_WINDOW_COMMAND,0,0);
+   curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND,0,0);
    my_wclrtoeol(CURRENT_WINDOW_COMMAND);
    if (current_command != (CHARTYPE *)NULL)
       Cmsg(current_command);
