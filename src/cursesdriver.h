@@ -75,6 +75,7 @@ void curses_driver_clear_line_at(WINDOW *win, short row, chtype colour);
 void curses_driver_refresh_window(WINDOW *win);
 void curses_driver_update(void);
 void curses_driver_present_cursor(bool visible);
+void curses_driver_set_window_timeout(WINDOW *win, int milliseconds);
 #ifdef HAVE_WADDCHNSTR
 void curses_driver_write_chtype_span(WINDOW *win, const chtype *text, int len);
 # ifdef USE_UTF8

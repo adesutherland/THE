@@ -394,6 +394,13 @@ void curses_driver_present_cursor(bool visible)
    draw_cursor(visible);
 }
 
+void curses_driver_set_window_timeout(WINDOW *win, int milliseconds)
+{
+   if (win == NULL)
+      return;
+   wtimeout(win, milliseconds);
+}
+
 #ifdef HAVE_WADDCHNSTR
 void curses_driver_write_chtype_span(WINDOW *win, const chtype *text, int len)
 {

@@ -130,9 +130,9 @@ int process_key(int key, bool mouse_details_present)
               key = -2;
           } else {
               /* Wait for input with a 200ms timeout to allow background events to trigger a redraw */
-              wtimeout(CURRENT_WINDOW, 200); 
+              curses_driver_set_window_timeout(CURRENT_WINDOW, 200);
               key = my_getch( CURRENT_WINDOW );
-              wtimeout(CURRENT_WINDOW, -1); /* Back to blocking */
+              curses_driver_set_window_timeout(CURRENT_WINDOW, -1); /* Back to blocking */
               if (key == ERR) {
                   /* Timeout occurred, check event again */
                   if (cb_check_parse_complete_event(CURRENT_FILE->cb) == 1) {
