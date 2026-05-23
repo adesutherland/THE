@@ -40,6 +40,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "cursesdriver.h"
 
 /*
  * Following #defines to cater for those platforms that don't
@@ -273,7 +274,8 @@ short get_mouse_info(int *button,int *button_action,int *button_modifier)
 void wmouse_position(WINDOW *win, int *y, int *x)
 /***********************************************************************/
 {
-   int begy,begx,maxy,maxx;
+   CursesDriverWindowOrigin origin;
+   CursesDriverWindowSize size;
 
    TRACE_FUNCTION("mouse.c:  wmouse_position");
    /*
@@ -286,19 +288,21 @@ void wmouse_position(WINDOW *win, int *y, int *x)
       TRACE_RETURN();
       return;
    }
-   getbegyx(win,begy,begx);
-   getmaxyx(win,maxy,maxx);
-   if (begy > ncurses_mouse_event.y
-   ||  begx > ncurses_mouse_event.x
-   ||  begy+maxy <= ncurses_mouse_event.y
-   ||  begx+maxx <= ncurses_mouse_event.x)
+   origin = curses_driver_window_origin(win);
+   size = curses_driver_window_size(win);
+   if (!origin.valid
+   ||  !size.valid
+   ||  origin.row > ncurses_mouse_event.y
+   ||  origin.col > ncurses_mouse_event.x
+   ||  origin.row+size.rows <= ncurses_mouse_event.y
+   ||  origin.col+size.cols <= ncurses_mouse_event.x)
    {
       *x = *y = (-1);
    }
    else
    {
-      *x = ncurses_mouse_event.x - begx;
-      *y = ncurses_mouse_event.y - begy;
+      *x = ncurses_mouse_event.x - origin.col;
+      *y = ncurses_mouse_event.y - origin.row;
    }
    TRACE_RETURN();
    return;
