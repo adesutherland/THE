@@ -30,12 +30,13 @@ width quirks.
 The driver split is:
 
 - Logical editor model: file text, prefix text, command-line text, focus,
-  logical cursor position, grapheme-aware `TextPos`, and normalized input
-  events.
+  logical cursor position, grapheme-aware `TextPos`, logical syntax/style
+  categories, and normalized input events.
 - Curses driver: curses windows, refreshes, hardware cursor movement, physical
   display columns, mouse decoding, and terminal-specific UTF repair.
 - LLM driver: logical screen snapshot, logical cursor/focus information, status
-  text, command line text, and normalized text/key/command input.
+  text, command line text, logical syntax/style spans, and normalized
+  text/key/command input.
 
 The LLM driver must remain independent of terminal profiles. Terminal profiles
 describe physical display behavior only. They must not change the logical text,
@@ -51,9 +52,16 @@ logical cursor position, or input event that an agent sees.
 - `cursor_screen_row` and `cursor_screen_col`: screen coordinates for display
   and debugging. These are not a substitute for the logical cursor.
 - `lines`: visible file-area rows with line number, logical row, prefix text,
-  line text, and current-line marker.
+  line text, logical syntax/style spans, and current-line marker.
 - `command_line`: the command area text when available.
 - `status`: status text when available.
+
+Style spans describe parser/editor categories, not terminal colours. They are
+derived from THE's existing `ECOLOUR_*`/parser state, including SDSLH-backed
+tokens, and are exposed as logical names such as `keyword`, `string`,
+`comment`, `function`, or `operator`. A curses profile may paint those
+categories with different colours, but the LLM contract remains the category
+name and the logical cell range.
 
 The formatted view is intentionally line-oriented. A typical snapshot looks like:
 

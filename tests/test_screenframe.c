@@ -51,6 +51,13 @@ static void test_builds_filearea_frame(void)
 {
    VIEW_DETAILS view;
    SHOW_LINE rows[3];
+   unsigned char file_styles[5] = {
+      ECOLOUR_KEYWORDS,
+      ECOLOUR_KEYWORDS,
+      ECOLOUR_NONE,
+      ECOLOUR_STRINGS,
+      ECOLOUR_STRINGS
+   };
    UiFrame frame;
    LogicalCursor cursor;
 
@@ -71,6 +78,7 @@ static void test_builds_filearea_frame(void)
    rows[1].line_number = 42;
    rows[1].contents = (CHARTYPE *)"bravo";
    rows[1].length = 5;
+   rows[1].highlight_type = file_styles;
    rows[1].main_enterable = TRUE;
    rows[1].prefix_enterable = TRUE;
    strcpy((char *)rows[1].prefix, "000042");
@@ -96,6 +104,17 @@ static void test_builds_filearea_frame(void)
                frame.row[1].prefix_len, "000042");
    expect_int("screenframe.file.prefix.editable",
               frame.row[1].prefix_editable, 1);
+   expect_int("screenframe.file.style.count", (int)frame.row[1].style_count, 2);
+   expect_int("screenframe.file.style0.start",
+              frame.row[1].styles[0].start_cell, 0);
+   expect_int("screenframe.file.style0.len",
+              frame.row[1].styles[0].cell_count, 2);
+   expect_int("screenframe.file.style0.kind",
+              frame.row[1].styles[0].style, UI_SYNTAX_KEYWORD);
+   expect_int("screenframe.file.style1.start",
+              frame.row[1].styles[1].start_cell, 3);
+   expect_int("screenframe.file.style1.kind",
+              frame.row[1].styles[1].style, UI_SYNTAX_STRING);
    expect_int("screenframe.cursor.valid", frame.cursor.valid, 1);
    expect_int("screenframe.cursor.row", frame.cursor.cursor.zone_row, 1);
    expect_int("screenframe.eof.role", frame.row[2].role, UI_ROW_EOF);

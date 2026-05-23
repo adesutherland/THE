@@ -65,6 +65,74 @@ int ui_row_role_allows_cursor(UiRowRole role)
    }
 }
 
+const char *ui_syntax_style_name(UiSyntaxStyle style)
+{
+   switch (style)
+   {
+      case UI_SYNTAX_COMMENT:
+         return "comment";
+      case UI_SYNTAX_STRING:
+         return "string";
+      case UI_SYNTAX_NUMBER:
+         return "number";
+      case UI_SYNTAX_KEYWORD:
+         return "keyword";
+      case UI_SYNTAX_IDENTIFIER:
+         return "identifier";
+      case UI_SYNTAX_PREPROCESSOR:
+         return "preprocessor";
+      case UI_SYNTAX_HEADER:
+         return "header";
+      case UI_SYNTAX_INCOMPLETE_STRING:
+         return "incomplete-string";
+      case UI_SYNTAX_MARKUP:
+         return "markup";
+      case UI_SYNTAX_MATCH:
+         return "match";
+      case UI_SYNTAX_OPERATOR:
+         return "operator";
+      case UI_SYNTAX_PAREN:
+         return "paren";
+      case UI_SYNTAX_TYPE:
+         return "type";
+      case UI_SYNTAX_CONSTANT:
+         return "constant";
+      case UI_SYNTAX_PUNCTUATION:
+         return "punctuation";
+      case UI_SYNTAX_FUNCTION:
+         return "function";
+      case UI_SYNTAX_DIRECTORY:
+         return "directory";
+      case UI_SYNTAX_LINK:
+         return "link";
+      case UI_SYNTAX_EXECUTABLE:
+         return "executable";
+      case UI_SYNTAX_ALT_KEYWORD_1:
+         return "alt-keyword-1";
+      case UI_SYNTAX_ALT_KEYWORD_2:
+         return "alt-keyword-2";
+      case UI_SYNTAX_ALT_KEYWORD_3:
+         return "alt-keyword-3";
+      case UI_SYNTAX_ALT_KEYWORD_4:
+         return "alt-keyword-4";
+      case UI_SYNTAX_ALT_KEYWORD_5:
+         return "alt-keyword-5";
+      case UI_SYNTAX_ALT_KEYWORD_6:
+         return "alt-keyword-6";
+      case UI_SYNTAX_ALT_KEYWORD_7:
+         return "alt-keyword-7";
+      case UI_SYNTAX_ALT_KEYWORD_8:
+         return "alt-keyword-8";
+      case UI_SYNTAX_ALT_KEYWORD_9:
+         return "alt-keyword-9";
+      case UI_SYNTAX_UNKNOWN:
+         return "unknown";
+      case UI_SYNTAX_NONE:
+      default:
+         return "none";
+   }
+}
+
 static int ui_row_role_displays_filearea_cursor(UiRowRole role)
 {
    return role == UI_ROW_FILE
@@ -117,6 +185,7 @@ int ui_frame_set_row(UiFrame *frame, size_t index, UiRowRole role,
    row->text = text;
    row->text_len = text_len;
    row->editable = editable && ui_row_role_allows_cursor(role);
+   row->style_count = 0;
    if (index >= frame->row_count)
       frame->row_count = index + 1;
    return 1;
@@ -134,6 +203,26 @@ int ui_frame_set_row_prefix(UiFrame *frame, size_t index,
    row->prefix = prefix;
    row->prefix_len = prefix_len;
    row->prefix_editable = editable != 0;
+   return 1;
+}
+
+int ui_frame_add_row_style(UiFrame *frame, size_t index, int start_cell,
+                           int cell_count, UiSyntaxStyle style)
+{
+   UiFrameRow *row;
+   UiStyleRun *run;
+
+   if (frame == NULL || index >= frame->row_count)
+      return 0;
+   if (start_cell < 0 || cell_count <= 0 || style == UI_SYNTAX_NONE)
+      return 0;
+   row = &frame->row[index];
+   if (row->style_count >= UI_DRIVER_MAX_STYLE_RUNS)
+      return 0;
+   run = &row->styles[row->style_count++];
+   run->start_cell = start_cell;
+   run->cell_count = cell_count;
+   run->style = style;
    return 1;
 }
 

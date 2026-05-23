@@ -30,6 +30,10 @@ static void test_row_roles(void)
    expect_str("role.shadow", ui_row_role_name(UI_ROW_SHADOW), "shadow");
    expect_str("role.hex", ui_row_role_name(UI_ROW_HEX), "hex");
    expect_str("role.out", ui_row_role_name(UI_ROW_OUT_OF_BOUNDS), "out-of-bounds");
+   expect_str("syntax.keyword", ui_syntax_style_name(UI_SYNTAX_KEYWORD),
+              "keyword");
+   expect_str("syntax.function", ui_syntax_style_name(UI_SYNTAX_FUNCTION),
+              "function");
    expect_int("role.file.cursor", ui_row_role_allows_cursor(UI_ROW_FILE), 1);
    expect_int("role.prefix.cursor", ui_row_role_allows_cursor(UI_ROW_PREFIX), 1);
    expect_int("role.command.cursor", ui_row_role_allows_cursor(UI_ROW_COMMAND), 1);
@@ -37,6 +41,30 @@ static void test_row_roles(void)
    expect_int("role.tof.cursor", ui_row_role_allows_cursor(UI_ROW_TOF), 1);
    expect_int("role.status.cursor", ui_row_role_allows_cursor(UI_ROW_STATUS), 0);
    expect_int("role.hex.cursor", ui_row_role_allows_cursor(UI_ROW_HEX), 0);
+}
+
+static void test_frame_carries_style_runs(void)
+{
+   UiFrame frame;
+
+   ui_frame_init(&frame, 24, 80);
+   expect_int("frame.style.set.row",
+              ui_frame_set_row(&frame, 0, UI_ROW_FILE, 42, 7, 0,
+                               (const CHARTYPE *)"say \"hi\"", 8, 1), 1);
+   expect_int("frame.style.add.keyword",
+              ui_frame_add_row_style(&frame, 0, 0, 3, UI_SYNTAX_KEYWORD), 1);
+   expect_int("frame.style.add.string",
+              ui_frame_add_row_style(&frame, 0, 4, 4, UI_SYNTAX_STRING), 1);
+   expect_int("frame.style.reject.none",
+              ui_frame_add_row_style(&frame, 0, 0, 1, UI_SYNTAX_NONE), 0);
+   expect_int("frame.style.count", (int)frame.row[0].style_count, 2);
+   expect_int("frame.style0.start", frame.row[0].styles[0].start_cell, 0);
+   expect_int("frame.style0.len", frame.row[0].styles[0].cell_count, 3);
+   expect_int("frame.style0.kind", frame.row[0].styles[0].style,
+              UI_SYNTAX_KEYWORD);
+   expect_int("frame.style1.start", frame.row[0].styles[1].start_cell, 4);
+   expect_int("frame.style1.kind", frame.row[0].styles[1].style,
+              UI_SYNTAX_STRING);
 }
 
 static void test_frame_accepts_eof_navigation_cursor(void)
@@ -192,6 +220,7 @@ int main(void)
    test_frame_accepts_eof_prefix_cursor();
    test_cursor_must_match_row_role_and_line();
    test_cursor_for_row_handles_shared_prefix_row();
+   test_frame_carries_style_runs();
    test_fake_driver_materializes_cursor_once();
 
    if (failures != 0)

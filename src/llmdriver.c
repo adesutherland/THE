@@ -133,6 +133,87 @@ static int append_json_string_limited(char *out, size_t out_len, size_t *used,
    return append_json_string(out, out_len, used, limited);
 }
 
+static int visible_style_run_count(const UiStyleRun *styles, size_t style_count,
+                                   int max_text_cols)
+{
+   size_t i;
+   int count = 0;
+
+   for (i = 0; i < style_count; i++)
+   {
+      const UiStyleRun *run = &styles[i];
+
+      if (run->style == UI_SYNTAX_NONE
+      ||  run->start_cell < 0
+      ||  run->cell_count <= 0)
+      {
+         continue;
+      }
+      if (max_text_cols > 0 && run->start_cell >= max_text_cols)
+         continue;
+      count++;
+   }
+   return count;
+}
+
+static int style_run_visible_len(const UiStyleRun *run, int max_text_cols)
+{
+   int len;
+
+   if (run == NULL || run->cell_count <= 0)
+      return 0;
+   len = run->cell_count;
+   if (max_text_cols > 0 && run->start_cell + len > max_text_cols)
+      len = max_text_cols - run->start_cell;
+   return len > 0 ? len : 0;
+}
+
+static int append_style_runs(char *out, size_t out_len, size_t *used,
+                             const UiStyleRun *styles, size_t style_count,
+                             int max_text_cols, int compact)
+{
+   size_t i;
+   int emitted = 0;
+
+   if (visible_style_run_count(styles, style_count, max_text_cols) == 0)
+      return 1;
+   if (!appendf(out, out_len, used, compact ? ",\"s\":[" : ", \"styles\": ["))
+      return 0;
+   for (i = 0; i < style_count; i++)
+   {
+      const UiStyleRun *run = &styles[i];
+      int len = style_run_visible_len(run, max_text_cols);
+
+      if (run->style == UI_SYNTAX_NONE || run->start_cell < 0 || len <= 0)
+         continue;
+      if (compact)
+      {
+         if (!appendf(out, out_len, used, "%s[%d,%d,",
+                      emitted > 0 ? "," : "", run->start_cell, len))
+            return 0;
+         if (!append_json_string(out, out_len, used,
+                                 ui_syntax_style_name(run->style)))
+            return 0;
+         if (!appendf(out, out_len, used, "]"))
+            return 0;
+      }
+      else
+      {
+         if (!appendf(out, out_len, used,
+                      "%s{\"start\": %d, \"len\": %d, \"style\": ",
+                      emitted > 0 ? ", " : "", run->start_cell, len))
+            return 0;
+         if (!append_json_string(out, out_len, used,
+                                 ui_syntax_style_name(run->style)))
+            return 0;
+         if (!appendf(out, out_len, used, "}"))
+            return 0;
+      }
+      emitted++;
+   }
+   return appendf(out, out_len, used, "]");
+}
+
 static const char *llm_driver_view_mode_name(LlmDriverViewMode mode)
 {
    switch (mode)
@@ -244,6 +325,7 @@ int llm_driver_screen_view_set_row(LlmDriverScreenView *view, size_t index,
    line->cursor = view->cursor.valid
                && view->cursor.zone_row == logical_row
                && ui_row_role_from_cursor_zone(view->cursor.zone) == role;
+   line->style_count = 0;
    copy_text(line->prefix, sizeof(line->prefix), prefix);
    copy_text(line->text, sizeof(line->text), text);
    if (index >= view->line_count)
@@ -278,6 +360,12 @@ int llm_driver_screen_view_from_frame(const UiFrame *frame,
       line->editable = row->editable;
       line->current = has_cursor && cursor_index == i;
       line->cursor = line->current;
+      line->style_count = row->style_count;
+      if (line->style_count > UI_DRIVER_MAX_STYLE_RUNS)
+         line->style_count = UI_DRIVER_MAX_STYLE_RUNS;
+      if (line->style_count > 0)
+         memcpy(line->styles, row->styles,
+                line->style_count * sizeof(line->styles[0]));
       copy_text_n(line->prefix, sizeof(line->prefix),
                   (const char *)row->prefix, row->prefix_len);
       copy_text_n(line->text, sizeof(line->text), (const char *)row->text,
@@ -427,6 +515,8 @@ size_t llm_driver_format_semantic_view_with_options(
          appendf(out, out_len, &used, ",\"t\":");
          append_json_string_limited(out, out_len, &used, line->text,
                                     options->max_text_cols);
+         append_style_runs(out, out_len, &used, line->styles,
+                           line->style_count, options->max_text_cols, 1);
          appendf(out, out_len, &used, "}");
          emitted++;
       }
@@ -493,6 +583,8 @@ size_t llm_driver_format_semantic_view_with_options(
       appendf(out, out_len, &used, ", \"text\": ");
       append_json_string_limited(out, out_len, &used, line->text,
                                  options->max_text_cols);
+      append_style_runs(out, out_len, &used, line->styles,
+                        line->style_count, options->max_text_cols, 0);
       appendf(out, out_len, &used, "}\n");
       emitted++;
    }

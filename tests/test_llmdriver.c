@@ -57,6 +57,8 @@ static void test_semantic_view_from_frame(void)
    ui_frame_init(&frame, 10, 80);
    ui_frame_set_row(&frame, 0, UI_ROW_FILE, 12, 1, 0,
                     (const CHARTYPE *)"bravo", 5, 1);
+   ui_frame_add_row_style(&frame, 0, 0, 2, UI_SYNTAX_KEYWORD);
+   ui_frame_add_row_style(&frame, 0, 3, 2, UI_SYNTAX_STRING);
    ui_frame_set_row(&frame, 1, UI_ROW_EOF, 13, 2, 0,
                     (const CHARTYPE *)"*** Bottom of File ***", 22, 0);
    cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_FILEAREA, 12, 1,
@@ -75,10 +77,16 @@ static void test_semantic_view_from_frame(void)
    expect_contains("semantic.cursor", out, "\"cursor\": 1");
    expect_contains("semantic.command", out, "\"command\": \"====> next\"");
    expect_contains("semantic.text", out, "\"text\": \"bravo\"");
+   expect_contains("semantic.styles", out, "\"styles\": [");
+   expect_contains("semantic.style.keyword", out,
+                   "{\"start\": 0, \"len\": 2, \"style\": \"keyword\"}");
+   expect_contains("semantic.style.string", out,
+                   "{\"start\": 3, \"len\": 2, \"style\": \"string\"}");
 }
 
 static void test_compact_filearea_view_options(void)
 {
+   UiFrame frame;
    LlmDriverScreenView view;
    LlmDriverFormatOptions options;
    LogicalCursor cursor;
@@ -87,13 +95,17 @@ static void test_compact_filearea_view_options(void)
    cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_FILEAREA, 12, 1,
                                 textpos_from_cell_virtual(NULL, 0, 3,
                                                           TEXT_SNAP_BACKWARD));
-   llm_driver_screen_view_init(&view, 6, 80, cursor);
-   llm_driver_screen_view_set_row(&view, 0, UI_ROW_TOF, 0, 0, 0,
-                                  "", "*** Top of File ***", 0, 0);
-   llm_driver_screen_view_set_row(&view, 1, UI_ROW_FILE, 12, 1, 0,
-                                  "000012", "bravo-long-line", 1, 1);
-   llm_driver_screen_view_set_row(&view, 2, UI_ROW_EOF, 13, 2, 0,
-                                  "", "*** Bottom of File ***", 0, 0);
+   ui_frame_init(&frame, 6, 80);
+   ui_frame_set_row(&frame, 0, UI_ROW_TOF, 0, 0, 0,
+                    (const CHARTYPE *)"*** Top of File ***", 19, 0);
+   ui_frame_set_row(&frame, 1, UI_ROW_FILE, 12, 1, 0,
+                    (const CHARTYPE *)"bravo-long-line", 15, 1);
+   ui_frame_set_row_prefix(&frame, 1, (const CHARTYPE *)"000012", 6, 1);
+   ui_frame_add_row_style(&frame, 1, 0, 15, UI_SYNTAX_FUNCTION);
+   ui_frame_set_row(&frame, 2, UI_ROW_EOF, 13, 2, 0,
+                    (const CHARTYPE *)"*** Bottom of File ***", 22, 0);
+   ui_frame_set_cursor(&frame, cursor);
+   llm_driver_screen_view_from_frame(&frame, &view);
 
    llm_driver_format_options_init(&options);
    options.mode = LLM_DRIVER_VIEW_FILEAREA;
@@ -107,6 +119,7 @@ static void test_compact_filearea_view_options(void)
 
    expect_contains("compact.mode", out, "\"mode\":\"filearea\"");
    expect_contains("compact.file.text", out, "\"t\":\"bravo...\"");
+   expect_contains("compact.styles", out, "\"s\":[[0,5,\"function\"]]");
    expect_int("compact.hides.tof", strstr(out, "Top of File") == NULL, 1);
    expect_int("compact.hides.eof", strstr(out, "Bottom of File") == NULL, 1);
    expect_int("compact.hides.prefix", strstr(out, "\"p\"") == NULL, 1);

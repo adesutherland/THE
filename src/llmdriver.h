@@ -25,6 +25,8 @@ typedef struct
    int cursor;
    char prefix[LLM_DRIVER_MAX_PREFIX + 1];
    char text[LLM_DRIVER_MAX_COLS + 1];
+   UiStyleRun styles[UI_DRIVER_MAX_STYLE_RUNS];
+   size_t style_count;
 } LlmDriverScreenLine;
 
 typedef struct
