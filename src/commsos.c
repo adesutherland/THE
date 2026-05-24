@@ -3122,8 +3122,11 @@ static short sosdelback( bool cua )
          }
          break;
       case WINDOW_COMMAND:
-         if ( x == 0
-         &&   cmd_verify_col == 1 )
+      {
+         LENGTHTYPE command_col;
+
+         command_col = sos_command_current_cell(x);
+         if ( command_col <= 0 )
          {
             /*
              * We are at the first position of the cmdline
@@ -3131,57 +3134,38 @@ static short sosdelback( bool cua )
             TRACE_RETURN();
             return(RC_OK);
          }
-         if ( x == 0 )
+         if ( command_col <= cmd_rec_len )
          {
-            /*
-             * We are at the left edge of the CMDLINE with the CMDLINE scrolled
-             * so we will need to move the cursor somewhere to the right and
-             * scroll the CMDLINE to the left.
-             */
-            COLTYPE new_screen_col=0;
-            LENGTHTYPE new_verify_col=0;
-            if ( x + cmd_verify_col - 1 <= cmd_rec_len )
-            {
-               memdeln( cmd_rec, x - 1 + cmd_verify_col - 1, cmd_rec_len, 1 );
-               cmd_rec_len--;
-            }
-            calculate_new_column( current_screen, CURRENT_VIEW, x, cmd_verify_col, x + cmd_verify_col -2, &new_screen_col, &new_verify_col );
-            if ( cmd_verify_col != new_verify_col )
-            {
-               cmd_verify_col = new_verify_col;
-            }
-            wmove( CURRENT_WINDOW, y, new_screen_col );
-            display_cmdline( current_screen, CURRENT_VIEW );
-            cursor_focus_refresh( current_screen, CURRENT_VIEW );
+            memdeln( cmd_rec, command_col - 1, cmd_rec_len, 1 );
+            cmd_rec_len--;
          }
-         else
-         {
-            wmove( CURRENT_WINDOW, y, x - 1 );
-            if ( x + cmd_verify_col - 1 <= cmd_rec_len )
-            {
-               memdeln( cmd_rec, x - 1 + cmd_verify_col - 1, cmd_rec_len, 1 );
-               cmd_rec_len--;
-            }
-            display_cmdline( current_screen, CURRENT_VIEW );
-            cursor_focus_refresh( current_screen, CURRENT_VIEW );
-         }
+         execute_move_cursor( current_screen, CURRENT_VIEW, command_col - 1 );
+         display_cmdline( current_screen, CURRENT_VIEW );
+         cursor_focus_refresh( current_screen, CURRENT_VIEW );
          TRACE_RETURN();
          return(RC_OK);
          break;
+      }
       case WINDOW_PREFIX:
-         if ( x == 0 )
+      {
+         LENGTHTYPE prefix_col;
+
+         y = sos_prefix_current_row(y);
+         prefix_col = sos_prefix_current_cell(x);
+         if ( prefix_col <= 0 )
          {
             TRACE_RETURN();
             return(RC_OK);
          }
-         wmove( CURRENT_WINDOW, y, x - 1 );
-         if ( x <= pre_rec_len )
+         sos_store_prefix_cursor(y, prefix_col - 1);
+         if ( prefix_col <= pre_rec_len )
          {
             prefix_changed = TRUE;
             my_wdelch( CURRENT_WINDOW );
-            memdeln( pre_rec, x - 1, pre_rec_len, 1 );
+            memdeln( pre_rec, prefix_col - 1, pre_rec_len, 1 );
             pre_rec_len --;
          }
+         sos_store_prefix_cursor(y, prefix_col - 1);
 #ifdef USE_UTF8
          display_prefix_line( current_screen, CURRENT_VIEW );
          cursor_focus_refresh( current_screen, CURRENT_VIEW );
@@ -3189,6 +3173,7 @@ static short sosdelback( bool cua )
          TRACE_RETURN();
          return(RC_OK);
          break;
+      }
       default:
          break;
    }
@@ -3366,34 +3351,37 @@ static short sosdelchar( bool cua )
    switch ( CURRENT_VIEW->current_window )
    {
       case WINDOW_COMMAND:
-         my_wdelch( CURRENT_WINDOW );
-         if ( x + cmd_verify_col <= cmd_rec_len )
+      {
+         LENGTHTYPE command_col;
+
+         command_col = sos_command_current_cell(x);
+         if ( command_col < cmd_rec_len )
          {
-            memdeln( cmd_rec, x + cmd_verify_col - 1, cmd_rec_len, 1 );
+            memdeln( cmd_rec, command_col, cmd_rec_len, 1 );
             cmd_rec_len--;
-            wmove( CURRENT_WINDOW, y, x );
-            display_cmdline( current_screen, CURRENT_VIEW );
-            cursor_focus_refresh( current_screen, CURRENT_VIEW );
          }
-#ifdef USE_UTF8
-         else
-         {
-            wmove( CURRENT_WINDOW, y, x );
-            display_cmdline( current_screen, CURRENT_VIEW );
-            cursor_focus_refresh( current_screen, CURRENT_VIEW );
-         }
-#endif
+         execute_move_cursor( current_screen, CURRENT_VIEW, command_col );
+         display_cmdline( current_screen, CURRENT_VIEW );
+         cursor_focus_refresh( current_screen, CURRENT_VIEW );
          TRACE_RETURN();
          return(RC_OK);
          break;
+      }
       case WINDOW_PREFIX:
-         if ( x < pre_rec_len )
+      {
+         LENGTHTYPE prefix_col;
+
+         y = sos_prefix_current_row(y);
+         prefix_col = sos_prefix_current_cell(x);
+         sos_store_prefix_cursor(y, prefix_col);
+         if ( prefix_col < pre_rec_len )
          {
             my_wdelch( CURRENT_WINDOW );
             prefix_changed = TRUE;
-            memdeln( pre_rec, x, pre_rec_len, 1 );
+            memdeln( pre_rec, prefix_col, pre_rec_len, 1 );
             pre_rec_len--;
          }
+         sos_store_prefix_cursor(y, prefix_col);
 #ifdef USE_UTF8
          display_prefix_line( current_screen, CURRENT_VIEW );
          cursor_focus_refresh( current_screen, CURRENT_VIEW );
@@ -3401,6 +3389,7 @@ static short sosdelchar( bool cua )
          TRACE_RETURN();
          return(RC_OK);
          break;
+      }
       case WINDOW_FILEAREA:
          /*
           * If running in read-only mode and an attempt is made to execute this
