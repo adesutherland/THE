@@ -911,29 +911,49 @@ short Text(CHARTYPE *params)
                need_to_build_screen = TRUE;
             break;
          case WINDOW_COMMAND:
+         {
+            LogicalCursor logical;
+            LENGTHTYPE command_col;
+            short command_screen_col;
+
+            logical = CURRENT_VIEW->logical_cursor.current;
+            if (logical.valid
+            &&  logical.zone == LOGICAL_CURSOR_ZONE_COMMAND)
+               command_col = logical.text.cell_column;
+            else if (CURRENT_VIEW->cmdline_col >= 0)
+               command_col = cmd_verify_col - 1 + CURRENT_VIEW->cmdline_col;
+            else
+               command_col = x + cmd_verify_col - 1;
+            if (command_col < 0)
+               command_col = 0;
+            if (command_col >= max_line_length)
+               break;
+            if (!column_in_view(current_screen, command_col))
+               execute_move_cursor(current_screen, CURRENT_VIEW, command_col);
+            command_screen_col = (short)(command_col - (cmd_verify_col - 1));
+            if (command_screen_col < 0)
+               command_screen_col = 0;
+            if (command_screen_col >= CURRENT_SCREEN.cols[WINDOW_COMMAND])
+               command_screen_col = CURRENT_SCREEN.cols[WINDOW_COMMAND] - 1;
+            curses_driver_move_window_cursor(CURRENT_WINDOW, 0, command_screen_col);
+            x = command_screen_col;
             if (INSERTMODEx)
             {
-               cmd_rec = (CHARTYPE *)meminschr( (CHARTYPE *)cmd_rec, real_key, x+(cmd_verify_col-1), max_line_length, cmd_rec_len );
+               cmd_rec = (CHARTYPE *)meminschr( (CHARTYPE *)cmd_rec, real_key, command_col, max_line_length, cmd_rec_len );
                put_char( CURRENT_WINDOW, chtype_key, INSCHAR );
 #ifndef OLD_CMD
-               cmd_rec_len = max( x+cmd_verify_col, cmd_rec_len+1); /* GFUC3 */
-#endif
-#if !defined(USE_EXTCURSES)
-               THEcursor_right( TRUE, FALSE );
+               cmd_rec_len = max( command_col+1, cmd_rec_len+1); /* GFUC3 */
 #endif
             }
             else
             {
-               cmd_rec[x+(cmd_verify_col-1)] = real_key;
+               cmd_rec[command_col] = real_key;
 #ifndef OLD_CMD
-               cmd_rec_len = max( x+cmd_verify_col, cmd_rec_len );
+               cmd_rec_len = max( command_col+1, cmd_rec_len );
 #endif
                if ( x == CURRENT_SCREEN.cols[WINDOW_COMMAND]-1 )
                {
                   put_char( CURRENT_WINDOW, chtype_key, INSCHAR );
-#if !defined(USE_EXTCURSES)
-                  THEcursor_right( TRUE, FALSE );
-#endif
                }
                else
                   put_char( CURRENT_WINDOW, chtype_key, ADDCHAR );
@@ -945,19 +965,9 @@ short Text(CHARTYPE *params)
             else
                cmd_rec_len = new_len + 1;
 #endif
-            /*
-             * The cursor is now in the correct column for all cases and apart from
-             * the case where we have just scrolled right, the contents is displayed correctly.
-             * We need to redisplay the cmdline if we just scrolled
-             */
-#ifdef USE_UTF8
-            display_cmdline( current_screen, CURRENT_VIEW );
-            cursor_focus_refresh( current_screen, CURRENT_VIEW );
-#else
-            if ( x == CURRENT_SCREEN.cols[WINDOW_COMMAND]-1 )
-               display_cmdline( current_screen, CURRENT_VIEW );
-#endif
+            execute_move_cursor( current_screen, CURRENT_VIEW, command_col+1 );
             break;
+         }
          case WINDOW_PREFIX:
             prefix_changed = TRUE;
             if (pre_rec_len == 0)
