@@ -1988,11 +1988,13 @@ short Sos_qcmnd(CHARTYPE *params)
    {
       if ( CURRENT_WINDOW_COMMAND != (WINDOW *)NULL )
       {
-         wmove( CURRENT_WINDOW_COMMAND, 0, 0 );
+         curses_driver_move_window_cursor( CURRENT_WINDOW_COMMAND, 0, 0 );
          my_wclrtoeol( CURRENT_WINDOW_COMMAND );
       }
       memset( cmd_rec, ' ', max_line_length );
       cmd_rec_len = 0;
+      cmd_verify_col = 1;
+      rc = execute_move_cursor( current_screen, CURRENT_VIEW, 0 );
    }
    TRACE_RETURN();
    return(rc);
