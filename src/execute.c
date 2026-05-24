@@ -3005,15 +3005,24 @@ short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTH
 #endif
          break;
       case WINDOW_COMMAND:
-         getyx( SCREEN_WINDOW(curr_screen), y, x );
-         calculate_new_column( curr_screen, curr_view, x, cmd_verify_col, col, &new_screen_col, &new_verify_col );
+      {
+         LogicalCursor logical;
+
+         if ( col < 0 )
+            col = 0;
+         calculate_new_column( curr_screen, curr_view, 0, cmd_verify_col, col, &new_screen_col, &new_verify_col );
          cmd_verify_changed = FALSE;
          if ( cmd_verify_col != new_verify_col )
          {
             cmd_verify_col = new_verify_col;
             cmd_verify_changed = TRUE;
          }
-         wmove( SCREEN_WINDOW(curr_screen), y, new_screen_col );
+         curses_driver_move_window_cursor( SCREEN_WINDOW(curr_screen), 0, new_screen_col );
+         curr_view->cmdline_col = new_screen_col;
+         logical = logical_cursor_from_cell( LOGICAL_CURSOR_ZONE_COMMAND,
+                                             0, 0, cmd_rec, cmd_rec_len,
+                                             (int)col, TEXT_SNAP_BACKWARD, 1 );
+         logical_cursor_state_focus( &curr_view->logical_cursor, logical );
 #ifdef USE_UTF8
          display_cmdline( curr_screen, curr_view );
          cursor_focus_refresh( curr_screen, curr_view );
@@ -3022,6 +3031,7 @@ short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTH
             display_cmdline( curr_screen, curr_view );
 #endif
          break;
+      }
       default: /* PREFIX */
          /*
           * Don't do anything for PREFIX window...
