@@ -1630,6 +1630,8 @@ fprintf(stderr,"%s %d: Command: [%s] idline: %d\n",__FILE__,__LINE__,command_ent
 void cleanup_command_line(void)
 /***********************************************************************/
 {
+   LogicalCursor logical;
+
    TRACE_FUNCTION("commutil.c:cleanup_command_line");
    if (!curses_started || in_macro || number_of_views == 0)
    {
@@ -1647,8 +1649,17 @@ void cleanup_command_line(void)
    {
       curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND,0,0);
    }
-   CURRENT_VIEW->cmdline_col = (-1);
    cmd_verify_col = 1;
+   if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
+   {
+      logical = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_COMMAND,
+                                         0, 0, cmd_rec, cmd_rec_len,
+                                         0, TEXT_SNAP_BACKWARD, 1);
+      logical_cursor_state_focus(&CURRENT_VIEW->logical_cursor, logical);
+      CURRENT_VIEW->cmdline_col = 0;
+   }
+   else
+      CURRENT_VIEW->cmdline_col = (-1);
    if (CURRENT_WINDOW_COMMAND != (WINDOW *)NULL
    &&  CURRENT_VIEW->current_window == WINDOW_COMMAND)
    {
