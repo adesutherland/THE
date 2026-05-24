@@ -137,8 +137,16 @@ void curses_driver_draw_software_chtype_cell(CHARTYPE scrno, WINDOW *win,
 
    cell = mvwinch(win, row, col);
    ch = cell & A_CHARTEXT;
-   if ((cell & A_ATTRIBUTES) != 0)
-      base = cell & A_ATTRIBUTES;
+   {
+      chtype attrs = cell & A_ATTRIBUTES;
+
+#ifdef A_UNDERLINE
+      if (shape == CURSOR_UNDERLINE)
+         attrs &= ~A_UNDERLINE;
+#endif
+      if (attrs != 0)
+         base = attrs;
+   }
    if (ch == 0)
       ch = ' ';
    wattrset(win, curses_driver_software_cursor_attr(scrno, base, shape));
@@ -232,6 +240,7 @@ void curses_driver_write_wide_string_at(WINDOW *win, int row, int col,
       next_col = maxx - 1;
    if (next_col >= 0)
       wmove(win, row, next_col);
+   wattrset(win, A_NORMAL);
 }
 
 void curses_driver_fill_cells_at(WINDOW *win, int row, int col, int width,
@@ -261,6 +270,7 @@ void curses_driver_fill_cells_at(WINDOW *win, int row, int col, int width,
    wmove(win, row, col);
    for (i = 0; i < width; i++)
       waddch(win, ' ');
+   wattrset(win, A_NORMAL);
 }
 
 void curses_driver_write_ascii_cells_at(WINDOW *win, int row, int col,
@@ -292,6 +302,7 @@ void curses_driver_write_ascii_cells_at(WINDOW *win, int row, int col,
    wmove(win, row, col);
    for (i = 0; i < width && text[i] != '\0'; i++)
       waddch(win, (unsigned char)text[i]);
+   wattrset(win, A_NORMAL);
 }
 #endif
 
