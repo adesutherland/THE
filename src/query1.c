@@ -62,15 +62,27 @@ extern CHARTYPE query_num8[50];
 extern CHARTYPE query_rsrvd[MAX_FILE_NAME+1];
 static LINE *curr;
 
-static int query1_capture_window_cursor(WINDOW *win, short *y, short *x)
+static int query1_capture_active_driver_cursor(CHARTYPE window_id,
+                                               short *y, short *x)
 {
    CursesDriverWindowCursor cursor;
+   WINDOW *win;
 
    if (y != NULL)
       *y = 0;
    if (x != NULL)
       *x = 0;
-   if (!curses_started || win == NULL)
+   if (window_id < WINDOW_FILEAREA || window_id > WINDOW_FILETABS)
+      return FALSE;
+   if (!curses_started)
+      return FALSE;
+   /*
+    * This is the active-driver query point for legacy physical cursor
+    * snapshots. Curses is the only provider here today; keep callers named
+    * for the active driver so this can become a real dispatch point later.
+    */
+   win = CURRENT_SCREEN.win[window_id];
+   if (win == NULL)
       return FALSE;
    cursor = curses_driver_capture_window_cursor(win);
    if (!cursor.valid)
@@ -166,7 +178,8 @@ static LENGTHTYPE query1_filearea_cursor_cell(void)
    if (query1_logical_cursor_cell(LOGICAL_CURSOR_ZONE_FILEAREA, TRUE,
                                   CURRENT_VIEW->focus_line, &cell))
       return cell;
-   if (!query1_capture_window_cursor(CURRENT_WINDOW,&y,&x))
+   if (!query1_capture_active_driver_cursor(CURRENT_VIEW->current_window,
+                                            &y,&x))
       return (CURRENT_VIEW->current_column > 0)
            ? CURRENT_VIEW->current_column - 1
            : 0;
@@ -190,7 +203,8 @@ static LENGTHTYPE query1_command_cursor_cell(void)
       return cell;
    if (CURRENT_VIEW->cmdline_col >= 0)
       return cmd_verify_col - 1 + CURRENT_VIEW->cmdline_col;
-   if (!query1_capture_window_cursor(CURRENT_WINDOW,&y,&x))
+   if (!query1_capture_active_driver_cursor(CURRENT_VIEW->current_window,
+                                            &y,&x))
       return 0;
    INTENTIONALLY_UNUSED_VARIABLE(y);
    return x + cmd_verify_col - 1;
@@ -204,7 +218,8 @@ static LENGTHTYPE query1_prefix_cursor_cell(void)
    if (query1_logical_cursor_cell(LOGICAL_CURSOR_ZONE_PREFIX, TRUE,
                                   CURRENT_VIEW->focus_line, &cell))
       return cell;
-   if (!query1_capture_window_cursor(CURRENT_WINDOW,&y,&x))
+   if (!query1_capture_active_driver_cursor(CURRENT_VIEW->current_window,
+                                            &y,&x))
       return 0;
    INTENTIONALLY_UNUSED_VARIABLE(y);
    return x;
@@ -497,7 +512,7 @@ short extract_bottomedge_function(short number_variables,short itemno,CHARTYPE *
       item_values[1].len = 1;
       return 1;
    }
-   query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
+   query1_capture_active_driver_cursor(CURRENT_VIEW->current_window,&y,&x);
    INTENTIONALLY_UNUSED_VARIABLE(x);
    return set_boolean_value((bool)(CURRENT_VIEW->current_window == WINDOW_FILEAREA && y == CURRENT_SCREEN.rows[WINDOW_FILEAREA]-1),(short)1);
 }
@@ -1451,7 +1466,7 @@ short extract_field(short number_variables,short itemno,CHARTYPE *itemargs,CHART
       item_values[1].len = 1;
       return 1;
    }
-   query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
+   query1_capture_active_driver_cursor(CURRENT_VIEW->current_window,&y,&x);
    switch(CURRENT_VIEW->current_window)
    {
       case WINDOW_FILEAREA:
@@ -1499,7 +1514,7 @@ short extract_fieldword(short number_variables,short itemno,CHARTYPE *itemargs,C
    LENGTHTYPE word_len;
    CHARTYPE *tmpbuf;
 
-   query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
+   query1_capture_active_driver_cursor(CURRENT_VIEW->current_window,&y,&x);
    switch(CURRENT_VIEW->current_window)
    {
       case WINDOW_FILEAREA:
@@ -2285,7 +2300,7 @@ short extract_leftedge_function(short number_variables,short itemno,CHARTYPE *it
       item_values[1].len = 1;
       return 1;
    }
-   query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
+   query1_capture_active_driver_cursor(CURRENT_VIEW->current_window,&y,&x);
    INTENTIONALLY_UNUSED_VARIABLE(y);
    return set_boolean_value((bool)(CURRENT_VIEW->current_window == WINDOW_FILEAREA && x == 0),(short)1);
 }
