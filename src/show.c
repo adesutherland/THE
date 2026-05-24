@@ -2004,8 +2004,8 @@ void display_cmdline( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
 void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
 /***********************************************************************/
 {
-#ifdef USE_UTF8
    CursesDriverWindowCursor prefix_cursor;
+   LogicalCursor logical;
    int width;
    short row;
 
@@ -2022,6 +2022,13 @@ void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
    prefix_cursor = curses_driver_capture_window_cursor(
       SCREEN_WINDOW_PREFIX(curr_screen));
    row = prefix_cursor.valid ? prefix_cursor.row : 0;
+   logical = curr_view->logical_cursor.current;
+   if (curr_view->current_window == WINDOW_PREFIX
+   &&  logical.valid
+   &&  logical.zone == LOGICAL_CURSOR_ZONE_PREFIX
+   &&  logical.zone_row >= 0
+   &&  logical.zone_row < screen[curr_screen].rows[WINDOW_FILEAREA])
+      row = (short)logical.zone_row;
    cursor_focus_capture(curr_screen);
    width = curr_view->prefix_width - curr_view->prefix_gap;
    display_line_left( SCREEN_WINDOW_PREFIX(curr_screen),
@@ -2030,15 +2037,13 @@ void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
                       width,
                       row,
                       width );
+#ifdef USE_UTF8
    show_draw_software_prefix_cursor(curr_screen, row, NULL);
+#endif
    curses_driver_refresh_window( SCREEN_WINDOW_PREFIX(curr_screen) );
    curses_driver_restore_window_cursor(SCREEN_WINDOW_PREFIX(curr_screen),
                                        prefix_cursor);
    TRACE_RETURN();
-#else
-   INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
-   INTENTIONALLY_UNUSED_VARIABLE(curr_view);
-#endif
    return;
 }
 /***********************************************************************/

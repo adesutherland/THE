@@ -42,6 +42,152 @@
 # include "textedit.h"
 #endif
 
+static LENGTHTYPE text_command_logical_cell(short fallback_col)
+{
+   LogicalCursor logical;
+   LENGTHTYPE cell;
+
+   logical = CURRENT_VIEW->logical_cursor.current;
+   if (logical.valid
+   &&  logical.zone == LOGICAL_CURSOR_ZONE_COMMAND
+   &&  logical.text.cell_column >= 0)
+      return (LENGTHTYPE)logical.text.cell_column;
+   if (CURRENT_VIEW->cmdline_col >= 0)
+      return cmd_verify_col - 1 + CURRENT_VIEW->cmdline_col;
+   cell = cmd_verify_col - 1 + fallback_col;
+   return (cell < 0) ? 0 : cell;
+}
+
+static void text_set_command_logical_cell(LENGTHTYPE cell)
+{
+   if (cell < 0)
+      cell = 0;
+   (void)execute_move_cursor(current_screen, CURRENT_VIEW, cell);
+   display_cmdline(current_screen, CURRENT_VIEW);
+   cursor_focus_refresh(current_screen, CURRENT_VIEW);
+}
+
+static int text_command_char(CHARTYPE real_key, short fallback_col)
+{
+   LENGTHTYPE command_col;
+#ifdef OLD_CMD
+   LENGTHTYPE new_len;
+#endif
+
+   command_col = text_command_logical_cell(fallback_col);
+   if (command_col >= max_line_length)
+      return FALSE;
+   if (INSERTMODEx)
+   {
+      cmd_rec = (CHARTYPE *)meminschr((CHARTYPE *)cmd_rec, real_key,
+                                      command_col, max_line_length,
+                                      cmd_rec_len);
+#ifndef OLD_CMD
+      cmd_rec_len = max(command_col + 1, cmd_rec_len + 1); /* GFUC3 */
+#endif
+   }
+   else
+   {
+      cmd_rec[command_col] = real_key;
+#ifndef OLD_CMD
+      cmd_rec_len = max(command_col + 1, cmd_rec_len);
+#endif
+   }
+#ifdef OLD_CMD
+   new_len = memrevne(cmd_rec, ' ', max_line_length);
+   if (new_len == (-1))
+      cmd_rec_len = 0;
+   else
+      cmd_rec_len = new_len + 1;
+#endif
+   text_set_command_logical_cell(command_col + 1);
+   return TRUE;
+}
+
+static int text_prefix_row_cell(short fallback_row, short fallback_col,
+                                short *row, LENGTHTYPE *cell)
+{
+   LogicalCursor logical;
+   short prefix_width;
+
+   prefix_width = CURRENT_VIEW->prefix_width - CURRENT_VIEW->prefix_gap;
+   if (prefix_width <= 0)
+      return FALSE;
+   logical = CURRENT_VIEW->logical_cursor.current;
+   if (logical.valid
+   &&  logical.zone == LOGICAL_CURSOR_ZONE_PREFIX
+   &&  logical.line_number == CURRENT_VIEW->focus_line)
+   {
+      fallback_row = (short)logical.zone_row;
+      fallback_col = (short)logical.text.cell_column;
+   }
+   if (fallback_row < 0)
+      fallback_row = 0;
+   if (fallback_row >= CURRENT_SCREEN.rows[WINDOW_FILEAREA])
+      fallback_row = CURRENT_SCREEN.rows[WINDOW_FILEAREA] - 1;
+   if (fallback_col < 0)
+      fallback_col = 0;
+   if (fallback_col >= prefix_width)
+      fallback_col = prefix_width - 1;
+   if (row != NULL)
+      *row = fallback_row;
+   if (cell != NULL)
+      *cell = fallback_col;
+   return TRUE;
+}
+
+static void text_set_prefix_logical_cell(short row, LENGTHTYPE cell)
+{
+   LogicalCursor logical;
+
+   logical = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_PREFIX,
+                                      CURRENT_VIEW->focus_line, row,
+                                      pre_rec, pre_rec_len, (int)cell,
+                                      TEXT_SNAP_BACKWARD, 1);
+   logical_cursor_state_focus(&CURRENT_VIEW->logical_cursor, logical);
+   if (CURRENT_WINDOW_PREFIX != NULL)
+      curses_driver_move_window_cursor(CURRENT_WINDOW_PREFIX, row, (short)cell);
+   display_prefix_line(current_screen, CURRENT_VIEW);
+   cursor_focus_refresh(current_screen, CURRENT_VIEW);
+}
+
+static int text_prefix_char(CHARTYPE real_key, short fallback_row,
+                            short fallback_col)
+{
+   short prefix_row;
+   short prefix_width;
+   short next_prefix_col;
+   LENGTHTYPE prefix_col;
+   LENGTHTYPE new_len;
+
+   prefix_changed = TRUE;
+   prefix_width = CURRENT_VIEW->prefix_width - CURRENT_VIEW->prefix_gap;
+   if (prefix_width <= 0)
+      return FALSE;
+   if (!text_prefix_row_cell(fallback_row, fallback_col,
+                             &prefix_row, &prefix_col))
+      return FALSE;
+   if (pre_rec_len == 0)
+      prefix_col = 0;
+   if (INSERTMODEx)
+   {
+      if (pre_rec_len == prefix_width)
+         return FALSE;
+      pre_rec = (CHARTYPE *)meminschr((CHARTYPE *)pre_rec, real_key,
+                                      prefix_col, prefix_width, pre_rec_len);
+   }
+   else
+      pre_rec[prefix_col] = real_key;
+   next_prefix_col = min(prefix_col + 1, prefix_width - 1);
+   new_len = memrevne(pre_rec, ' ', CURRENT_VIEW->prefix_width);
+   if (new_len == (-1))
+      pre_rec_len = 0;
+   else
+      pre_rec_len = new_len + 1;
+   text_set_prefix_logical_cell(prefix_row, next_prefix_col);
+   return TRUE;
+}
+
 #ifdef USE_UTF8
 static int text_utf8_filearea_logical_cursor(unsigned short *row, int *cell)
 {
@@ -671,7 +817,6 @@ short Text(CHARTYPE *params)
 #endif
    bool need_to_build_screen=FALSE;
    bool save_in_macro=in_macro;
-   LENGTHTYPE new_len;
 #ifdef USE_UTF8
    bool utf8_filearea_text_edited=FALSE;
    LENGTHTYPE utf8_filearea_next_cell=0;
@@ -911,139 +1056,11 @@ short Text(CHARTYPE *params)
                need_to_build_screen = TRUE;
             break;
          case WINDOW_COMMAND:
-         {
-            LogicalCursor logical;
-            LENGTHTYPE command_col;
-            short command_screen_col;
-
-            logical = CURRENT_VIEW->logical_cursor.current;
-            if (logical.valid
-            &&  logical.zone == LOGICAL_CURSOR_ZONE_COMMAND)
-               command_col = logical.text.cell_column;
-            else if (CURRENT_VIEW->cmdline_col >= 0)
-               command_col = cmd_verify_col - 1 + CURRENT_VIEW->cmdline_col;
-            else
-               command_col = x + cmd_verify_col - 1;
-            if (command_col < 0)
-               command_col = 0;
-            if (command_col >= max_line_length)
-               break;
-            if (!column_in_view(current_screen, command_col))
-               execute_move_cursor(current_screen, CURRENT_VIEW, command_col);
-            command_screen_col = (short)(command_col - (cmd_verify_col - 1));
-            if (command_screen_col < 0)
-               command_screen_col = 0;
-            if (command_screen_col >= CURRENT_SCREEN.cols[WINDOW_COMMAND])
-               command_screen_col = CURRENT_SCREEN.cols[WINDOW_COMMAND] - 1;
-            curses_driver_move_window_cursor(CURRENT_WINDOW, 0, command_screen_col);
-            x = command_screen_col;
-            if (INSERTMODEx)
-            {
-               cmd_rec = (CHARTYPE *)meminschr( (CHARTYPE *)cmd_rec, real_key, command_col, max_line_length, cmd_rec_len );
-               put_char( CURRENT_WINDOW, chtype_key, INSCHAR );
-#ifndef OLD_CMD
-               cmd_rec_len = max( command_col+1, cmd_rec_len+1); /* GFUC3 */
-#endif
-            }
-            else
-            {
-               cmd_rec[command_col] = real_key;
-#ifndef OLD_CMD
-               cmd_rec_len = max( command_col+1, cmd_rec_len );
-#endif
-               if ( x == CURRENT_SCREEN.cols[WINDOW_COMMAND]-1 )
-               {
-                  put_char( CURRENT_WINDOW, chtype_key, INSCHAR );
-               }
-               else
-                  put_char( CURRENT_WINDOW, chtype_key, ADDCHAR );
-            }
-#ifdef OLD_CMD
-            new_len = memrevne( cmd_rec, ' ', max_line_length );
-            if ( new_len == (-1) )
-               cmd_rec_len = 0;
-            else
-               cmd_rec_len = new_len + 1;
-#endif
-            execute_move_cursor( current_screen, CURRENT_VIEW, command_col+1 );
+            (void)text_command_char(real_key, x);
             break;
-         }
          case WINDOW_PREFIX:
-         {
-            LogicalCursor logical;
-            short prefix_row;
-            short prefix_width;
-            short next_prefix_col;
-            LENGTHTYPE prefix_col;
-
-            prefix_changed = TRUE;
-            prefix_width = CURRENT_VIEW->prefix_width-CURRENT_VIEW->prefix_gap;
-            if (prefix_width <= 0)
-               break;
-            logical = CURRENT_VIEW->logical_cursor.current;
-            if (logical.valid
-            &&  logical.zone == LOGICAL_CURSOR_ZONE_PREFIX
-            &&  logical.line_number == CURRENT_VIEW->focus_line)
-            {
-               prefix_row = (short)logical.zone_row;
-               prefix_col = logical.text.cell_column;
-            }
-            else
-            {
-               prefix_row = (short)y;
-               prefix_col = x;
-            }
-            if (prefix_row < 0)
-               prefix_row = 0;
-            if (prefix_row >= CURRENT_SCREEN.rows[WINDOW_FILEAREA])
-               prefix_row = CURRENT_SCREEN.rows[WINDOW_FILEAREA]-1;
-            if (prefix_col < 0)
-               prefix_col = 0;
-            if (prefix_col >= prefix_width)
-               prefix_col = prefix_width-1;
-            y = prefix_row;
-            x = prefix_col;
-            curses_driver_move_window_cursor(CURRENT_WINDOW,y,x);
-            if (pre_rec_len == 0)
-            {
-               x = 0;
-               prefix_col = 0;
-               curses_driver_move_window_cursor(CURRENT_WINDOW,y,x);
-               my_wclrtoeol(CURRENT_WINDOW);
-               wrefresh(CURRENT_WINDOW);
-            }
-            if (INSERTMODEx)
-            {
-               if (pre_rec_len == prefix_width)
-                  break;
-               pre_rec = (CHARTYPE *)meminschr((CHARTYPE *)pre_rec,
-                               real_key,prefix_col,prefix_width,pre_rec_len);
-               put_char(CURRENT_WINDOW,chtype_key,INSCHAR);
-            }
-            else
-            {
-               pre_rec[prefix_col] = real_key;
-               put_char(CURRENT_WINDOW,chtype_key,ADDCHAR);
-            }
-            next_prefix_col = min(prefix_col+1,prefix_width-1);
-            curses_driver_move_window_cursor(CURRENT_WINDOW,y,next_prefix_col);
-            new_len = memrevne(pre_rec,' ',CURRENT_VIEW->prefix_width);
-            if (new_len == (-1))
-               pre_rec_len = 0;
-            else
-               pre_rec_len = new_len+1;
-            logical = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_PREFIX,
-                                               CURRENT_VIEW->focus_line, y,
-                                               pre_rec, pre_rec_len,
-                                               next_prefix_col,
-                                               TEXT_SNAP_BACKWARD, 1);
-            logical_cursor_state_focus(&CURRENT_VIEW->logical_cursor, logical);
-#ifdef USE_UTF8
-            display_prefix_line( current_screen, CURRENT_VIEW );
-            cursor_focus_refresh( current_screen, CURRENT_VIEW );
-#endif
+            (void)text_prefix_char(real_key, y, x);
             break;
-         }
       }
    }
    if (in_macro)
@@ -1711,10 +1728,9 @@ short Retrieve(CHARTYPE *params)
    }
    if (save_params)
       (*the_free)(save_params);
-   curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND,0,0);
-   my_wclrtoeol(CURRENT_WINDOW_COMMAND);
-   if (current_command != (CHARTYPE *)NULL)
-      Cmsg(current_command);
+   Cmsg((current_command != (CHARTYPE *)NULL)
+        ? current_command
+        : (CHARTYPE *)"");
    TRACE_RETURN();
    return(RC_OK);
 }

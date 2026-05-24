@@ -1624,12 +1624,21 @@ STATUS
 short Cmsg(CHARTYPE *params)
 /***********************************************************************/
 {
+   TextPos end_pos;
+
    TRACE_FUNCTION("comm1.c:   Cmsg");
    memset( cmd_rec, ' ', max_line_length );
    cmd_rec_len = strlen( (DEFCHAR *)params );
    memcpy( cmd_rec, params, cmd_rec_len );
    display_cmdline( current_screen, CURRENT_VIEW );
-   Sos_endchar( (CHARTYPE *)"" );
+   if (CURRENT_VIEW != NULL
+   &&  CURRENT_VIEW->current_window == WINDOW_COMMAND)
+   {
+      end_pos = textpos_from_byte(cmd_rec, cmd_rec_len, cmd_rec_len);
+      (void)execute_move_cursor(current_screen, CURRENT_VIEW,
+                                (LENGTHTYPE)end_pos.cell_column);
+      cursor_focus_refresh(current_screen, CURRENT_VIEW);
+   }
    TRACE_RETURN();
    return(RC_OK);
 }

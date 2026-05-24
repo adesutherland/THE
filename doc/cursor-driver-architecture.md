@@ -1,6 +1,6 @@
 # Cursor Driver Architecture
 
-Last updated: 2026-05-23.
+Last updated: 2026-05-24.
 
 ## Goal
 
@@ -221,9 +221,11 @@ curses.
    still rely on the legacy cursor snapshot.
 
 6. Bring prefix and command line under the same model.
-   Prefix and command-line focus now have logical cursor state. The remaining
-   work is to move their editing and viewport logic behind normalized command
-   helpers instead of direct curses cursor reads.
+   Prefix and command-line focus now have logical cursor state. Normal `TEXT`
+   editing for both areas mutates logical command/prefix buffers and redraws
+   through area display helpers, and position/field reporting prefers logical
+   cells. Remaining work in these areas is SOS/key-navigation cleanup and
+   routing input through normalized events.
 
 7. Normalize input.
    `inputevent` now owns normalized text/key/command/logical-hit/debug events,
@@ -270,3 +272,22 @@ profile class that can select conservative physical repair strategies. If a
 keycap line fails but ZWJ works, compare logical frame output and driver
 operation logs. Fix the shared driver path, strategy planner, or terminal
 profile, not logical cluster boundaries.
+
+## Current Sequence
+
+The active post-normal-area sequence is:
+
+1. Migrate `commsos.c` in larger related groups: edge/navigation commands,
+   command-line helpers, prefix helpers, then delete/insert paths. Replace
+   physical cursor decisions with logical focus/row/cell state.
+2. Migrate ordinary `execute.c` cursor effects. Keep popup/dialog code separate
+   until logical popup objects exist.
+3. Add logical popup/dialog objects so curses and LLM drivers can render them
+   differently without making the logical layer imitate curses windows.
+4. Convert remaining targeted renderer redraw paths to driver-level logical
+   render requests.
+5. Move utility/window lifecycle operations behind driver-owned resize,
+   refresh, transient-window, and error/status operations.
+6. Normalize curses keyboard and mouse input into `TheInputEvent`.
+7. Tighten direct-curses guardrails once migrated editor logic has driver
+   equivalents.

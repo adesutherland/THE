@@ -1,6 +1,6 @@
 # UTF-8 Enablement Handover
 
-Last updated: 2026-05-23.
+Last updated: 2026-05-24.
 
 ## Current State
 
@@ -236,9 +236,12 @@ each meaningful step. Current checkpoint status:
    also go through driver helpers. Targeted redraws still need to become
    driver-level logical render requests instead of relying on legacy snapshots.
 6. Bring prefix and command-line cursor/editing behavior under the same model:
-   partial. Focus has logical cursor state. `src/comm5.c` text, top, and
-   retrieve cursor primitives now use driver wrappers, but command/prefix
-   editing still needs to stop deriving behavior from physical cursor columns.
+   done for the normal text-entry surface. Focus has logical cursor state,
+   `TEXT` edits for command-line and prefix areas now mutate the logical
+   command/prefix buffers and redraw through the area display helpers, and
+   `FIELD`/`FIELDWORD`/line-column reporting prefer logical cells. Remaining
+   command and prefix work is now mostly SOS/key-navigation cleanup, not the
+   core area ownership model.
 7. Normalize curses, mouse, and LLM input through a shared event type: partial.
    `src/inputevent.c` owns the shared event type, legacy key conversion, and
    queue; LLM wrappers use it. Curses/mouse input still needs routing through
@@ -258,6 +261,28 @@ or `wtimeout` calls, but many other legacy command, SOS, utility, mouse, and
 renderer paths still do. The guardrail test is intentionally permissive while
 the live renderer is still being split; tighten it only after the remaining
 command, prefix, mouse, and renderer paths have driver-owned equivalents.
+
+Near-term migration sequence:
+
+1. Normal areas: complete the command-line, prefix, and status/line-column
+   surfaces so they report logical focus/row/cell state rather than physical
+   curses cursor state. This is the current completed checkpoint.
+2. SOS commands: move `commsos.c` edge/navigation/delete helpers in larger
+   groups. Prefer logical focus, row role, and cell state; use active-driver
+   queries only as temporary fallback.
+3. `execute.c`: split ordinary file/command cursor effects from prompt/dialog
+   and popup mechanics. Move normal cursor/focus updates first; leave popup
+   behavior for a logical popup design.
+4. Logical popups/dialogs: introduce logical popup/dialog objects and let
+   curses and LLM drivers materialize them differently.
+5. Renderer cleanup: convert targeted redraws to driver-level logical render
+   requests and remove legacy cursor snapshot fallbacks from `show.c`.
+6. Utilities/window lifecycle: move resize, refresh ordering, transient
+   windows, and error/status window mechanics behind driver-owned operations.
+7. Input and mouse: make curses keyboard and mouse collection produce
+   `TheInputEvent` before command dispatch, matching the LLM driver.
+8. Guardrails: make direct-curses checks strict once editor logic has
+   driver-owned equivalents.
 
 After each step run:
 

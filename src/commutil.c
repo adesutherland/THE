@@ -2173,7 +2173,7 @@ LENGTHTYPE get_true_column(bool respect_compat)
 /***********************************************************************/
 {
    LENGTHTYPE true_column=0;
-   short x,y;
+   LogicalCursor logical;
 
    TRACE_FUNCTION("commutil.c:get_true_column");
    /*
@@ -2185,10 +2185,23 @@ LENGTHTYPE get_true_column(bool respect_compat)
       true_column = CURRENT_VIEW->current_column;
    else
    {
-      getyx(CURRENT_WINDOW_FILEAREA,y,x);
-      true_column = CURRENT_VIEW->verify_col + x;
+      logical = CURRENT_VIEW->logical_cursor.current;
+      if (logical.valid
+      &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+      &&  logical.line_number == CURRENT_VIEW->focus_line
+      &&  logical.text.cell_column >= 0)
+         true_column = (LENGTHTYPE)logical.text.cell_column + 1;
+      else if (curses_started)
+      {
+         CursesDriverWindowCursor cursor =
+            curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
+
+         true_column = CURRENT_VIEW->verify_col
+                     + (cursor.valid ? cursor.col : 0);
+      }
+      else
+         true_column = CURRENT_VIEW->current_column;
    }
-   INTENTIONALLY_UNUSED_VARIABLE(y);
    TRACE_RETURN();
    return(true_column);
 }
