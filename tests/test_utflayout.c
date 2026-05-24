@@ -163,7 +163,7 @@ static void test_zwj_display_mapping_snaps_to_cluster_start(void)
                                                   TEXT_SNAP_BACKWARD);
    snapped = textpos_from_cell(short_zwj, sizeof(short_zwj), raw_cell,
                                TEXT_SNAP_BACKWARD);
-   expect_int("short-zwj.components.raw-inside", raw_cell, 3);
+   expect_int("short-zwj.components.display-inside", raw_cell, 1);
    expect_int("short-zwj.components.snapped-start", snapped.cell_column, 1);
 
    utf8_terminal_profile_reset();
@@ -174,6 +174,12 @@ static void test_zwj_display_mapping_snaps_to_cluster_start(void)
    expect_int("heart-zwj.logical.start", cluster.pos.cell_column, 1);
    expect_int("heart-zwj.logical.end", cluster.end.cell_column, 6);
    expect_int("heart-zwj.grouped.display.inside",
+              utf8_layout_logical_col_from_display(heart_zwj,
+                                                   sizeof(heart_zwj), 0, 4,
+                                                   TEXT_SNAP_BACKWARD),
+              1);
+   utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_COMPONENTS);
+   expect_int("heart-zwj.components.display.inside",
               utf8_layout_logical_col_from_display(heart_zwj,
                                                    sizeof(heart_zwj), 0, 4,
                                                    TEXT_SNAP_BACKWARD),

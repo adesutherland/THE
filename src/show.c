@@ -390,9 +390,32 @@ static int show_cluster_to_wchars(const CHARTYPE *line, size_t len,
    return 1;
 }
 
+static int show_utf8_class_is_zwj(Utf8TerminalClass feature_class)
+{
+   return feature_class == UTF8_TERM_CLASS_SHORT_ZWJ
+       || feature_class == UTF8_TERM_CLASS_HEART_ZWJ
+       || feature_class == UTF8_TERM_CLASS_FAMILY_ZWJ;
+}
+
+static int show_status_cluster_force_expanded(const CHARTYPE *line, size_t len,
+                                              TextCluster cluster)
+{
+   const Utf8TerminalProfileEntry *entry;
+   Utf8TerminalClass feature_class;
+
+   if (utf8_terminal_display_mode() != UTF8_TERM_DISPLAY_COMPONENTS)
+      return FALSE;
+   entry = show_utf8_cluster_profile(line, len, cluster);
+   if (entry == NULL || entry->output_method != UTF8_TERM_OUTPUT_NATIVE)
+      return FALSE;
+   feature_class = utf8_terminal_classify_cluster(line, len, cluster);
+   return show_utf8_class_is_zwj(feature_class);
+}
+
 static int show_cluster_to_wide_string(const CHARTYPE *line, size_t len,
                                        TextCluster cluster, wchar_t *wch,
-                                       size_t wch_size)
+                                       size_t wch_size,
+                                       int force_expanded)
 {
    TextPos pos = cluster.pos;
    const Utf8TerminalProfileEntry *entry;
@@ -416,8 +439,9 @@ static int show_cluster_to_wide_string(const CHARTYPE *line, size_t len,
 
       if (item.byte_length == 0)
          break;
-      if (entry != NULL
-      &&  entry->output_method == UTF8_TERM_OUTPUT_EXPANDED
+      if ((force_expanded
+      ||   (entry != NULL
+      &&    entry->output_method == UTF8_TERM_OUTPUT_EXPANDED))
       &&  item.codepoint == 0x200Du)
       {
          pos = show_utf8_advance_codepoint_pos(pos, item);
@@ -448,7 +472,23 @@ static void show_write_utf8_cluster_at(WINDOW *win, int row, int col,
    wchar_t wch[THE_MAX_SCREEN_WIDTH + 1];
 
    if (show_cluster_to_wide_string(line, len, cluster, wch,
-                                   sizeof(wch) / sizeof(wch[0])))
+                                   sizeof(wch) / sizeof(wch[0]), FALSE))
+      curses_driver_write_wide_string_at(win, row, col, wch, colour,
+                                         expected_width);
+}
+
+static void show_write_utf8_status_cluster_at(WINDOW *win, int row, int col,
+                                              const CHARTYPE *line, size_t len,
+                                              TextCluster cluster,
+                                              chtype colour,
+                                              int expected_width)
+{
+   wchar_t wch[THE_MAX_SCREEN_WIDTH + 1];
+
+   if (show_cluster_to_wide_string(line, len, cluster, wch,
+                                   sizeof(wch) / sizeof(wch[0]),
+                                   show_status_cluster_force_expanded(line, len,
+                                                                      cluster)))
       curses_driver_write_wide_string_at(win, row, col, wch, colour,
                                          expected_width);
 }
@@ -1595,9 +1635,12 @@ void show_statarea(void)
    }
    if ( draw_status_cluster )
    {
-      show_write_utf8_cluster_at(statarea, 0, charpos + status_cluster_offset, status_cluster_line,
-                                 status_cluster_len, status_cluster,
-                                 status_colour, status_cluster_display_width);
+      show_write_utf8_status_cluster_at(statarea, 0,
+                                        charpos + status_cluster_offset,
+                                        status_cluster_line,
+                                        status_cluster_len, status_cluster,
+                                        status_colour,
+                                        status_cluster_display_width);
    }
 #endif
    curses_driver_refresh_window( statarea );

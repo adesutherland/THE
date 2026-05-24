@@ -1,10 +1,5 @@
 #include "utflayout.h"
 
-static int min_int(int left, int right)
-{
-   return (left < right) ? left : right;
-}
-
 static int max_int(int left, int right)
 {
    return (left > right) ? left : right;
@@ -174,8 +169,6 @@ int utf8_layout_logical_col_from_display(const CHARTYPE *line, size_t len,
       {
          int offset = display_col - screen_col;
 
-         if (display_width == logical_width)
-            return logical_start + min_int(offset, logical_width - 1);
          if (snap == TEXT_SNAP_FORWARD)
             return logical_end;
          if (snap == TEXT_SNAP_NEAREST && offset * 2 >= display_width)
