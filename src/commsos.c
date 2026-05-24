@@ -1435,13 +1435,15 @@ short Sos_firstchar(CHARTYPE *params)
    switch( CURRENT_VIEW->current_window )
    {
       case WINDOW_PREFIX:
-         wmove( CURRENT_WINDOW, y, 0 );
+         y = sos_prefix_current_row(y);
+         sos_store_prefix_cursor(y, 0);
          TRACE_RETURN();
          return(rc);
       case WINDOW_COMMAND:
          new_col = memne( cmd_rec, ' ', cmd_rec_len );
          break;
       case WINDOW_FILEAREA:
+         (void)sos_filearea_logical_cursor(&y, NULL);
          curr = CURRENT_SCREEN.sl[y].current;
          new_col = memne( curr->line, ' ', curr->length );
          break;
@@ -1488,20 +1490,16 @@ short Sos_firstcol(CHARTYPE *params)
    switch( CURRENT_VIEW->current_window )
    {
       case WINDOW_COMMAND:
-         if ( cmd_verify_col != 1 )
-         {
-            cmd_verify_col = 1;
-            display_cmdline( current_screen, CURRENT_VIEW );
-         }
+         rc = execute_move_cursor( current_screen, CURRENT_VIEW, 0 );
          break;
       case WINDOW_PREFIX:
+         y = sos_prefix_current_row(y);
+         sos_store_prefix_cursor(y, 0);
          break;
       case WINDOW_FILEAREA:
-         if ( CURRENT_VIEW->verify_col != 1 )
-            rc = execute_move_cursor( current_screen, CURRENT_VIEW, 0 );
+         rc = execute_move_cursor( current_screen, CURRENT_VIEW, 0 );
          break;
    }
-   wmove( CURRENT_WINDOW, y, 0 );
    INTENTIONALLY_UNUSED_VARIABLE(x);
    TRACE_RETURN();
    return(rc);
@@ -2196,15 +2194,16 @@ short Sos_startendchar(CHARTYPE *params)
    switch( CURRENT_VIEW->current_window )
    {
       case WINDOW_PREFIX:
+         y = sos_prefix_current_row(y);
 #ifdef USE_UTF8
          charnum = u8_charnum( (char *)pre_rec, pre_rec_len );
 #else
          charnum = pre_rec_len;
 #endif
-         if ( x >= charnum )
-            wmove( CURRENT_WINDOW, y, 0 );
+         if ( sos_prefix_current_cell(x) >= charnum )
+            sos_store_prefix_cursor( y, 0 );
          else
-            wmove( CURRENT_WINDOW, y, charnum );
+            sos_store_prefix_cursor( y, charnum );
          break;
       case WINDOW_COMMAND:
 #ifdef USE_UTF8
@@ -2212,7 +2211,7 @@ short Sos_startendchar(CHARTYPE *params)
 #else
          charnum = cmd_rec_len;
 #endif
-         if ( x + cmd_verify_col > charnum )
+         if ( sos_command_current_cell(x) + 1 > charnum )
             rc = Sos_firstcol( (CHARTYPE *)"" );
          else
             rc = Sos_endchar( (CHARTYPE *)"" );
@@ -2258,9 +2257,6 @@ short Sos_tabb(CHARTYPE *params)
 {
    unsigned short x=0,y=0;
    LENGTHTYPE prev_tab_col=0,current_col=0;
-   COLTYPE new_screen_col=0;
-   LENGTHTYPE new_verify_col=0;
-   LENGTHTYPE verify_col=0;
    short rc=RC_OK;
 
    TRACE_FUNCTION( "commsos.c: Sos_tabb" );
@@ -2276,11 +2272,9 @@ short Sos_tabb(CHARTYPE *params)
          break;
       case WINDOW_FILEAREA:
          current_col = sos_filearea_current_column(y, x);
-         verify_col = CURRENT_VIEW->verify_col;
          break;
       case WINDOW_COMMAND:
-         current_col = x + cmd_verify_col;
-         verify_col = cmd_verify_col;
+         current_col = sos_command_current_cell(x) + 1;
          break;
    }
    /*
@@ -2301,27 +2295,7 @@ short Sos_tabb(CHARTYPE *params)
     */
    prev_tab_col--;                               /* zero base the column */
 
-#ifdef VERSHIFT
    rc = execute_move_cursor( current_screen, CURRENT_VIEW, prev_tab_col );
-#else
-   calculate_new_column( current_screen, CURRENT_VIEW, x, verify_col, prev_tab_col, &new_screen_col, &new_verify_col );
-   if ( verify_col != new_verify_col )
-   {
-      switch( CURRENT_VIEW->current_window )
-      {
-         case WINDOW_COMMAND:
-            cmd_verify_col = new_verify_col;
-            display_cmdline( current_screen, CURRENT_VIEW );
-            break;
-         case WINDOW_FILEAREA:
-            CURRENT_VIEW->verify_col = new_verify_col;
-            build_screen( current_screen );
-            display_screen( current_screen );
-            break;
-      }
-   }
-   wmove( CURRENT_WINDOW, y, new_screen_col );
-#endif
 
    TRACE_RETURN();
    return(rc);
@@ -2355,9 +2329,6 @@ short Sos_tabf(CHARTYPE *params)
 {
    unsigned short x=0,y=0;
    LENGTHTYPE next_tab_col=0,current_col=0;
-   COLTYPE new_screen_col=0;
-   LENGTHTYPE new_verify_col=0;
-   LENGTHTYPE verify_col=0;
    short rc=RC_OK;
 
    TRACE_FUNCTION( "commsos.c: Sos_tabf" );
@@ -2393,11 +2364,9 @@ short Sos_tabf(CHARTYPE *params)
          break;
       case WINDOW_FILEAREA:
          current_col = sos_filearea_current_column(y, x);
-         verify_col = CURRENT_VIEW->verify_col;
          break;
       case WINDOW_COMMAND:
-         current_col = x + cmd_verify_col;
-         verify_col = cmd_verify_col;
+         current_col = sos_command_current_cell(x) + 1;
          break;
    }
    /*
@@ -2426,27 +2395,7 @@ short Sos_tabf(CHARTYPE *params)
     */
    next_tab_col--;                               /* zero base the column */
 
-#ifdef VERSHIFT
    rc = execute_move_cursor( current_screen, CURRENT_VIEW, next_tab_col );
-#else
-   calculate_new_column( current_screen, CURRENT_VIEW, x, verify_col, next_tab_col, &new_screen_col, &new_verify_col );
-   if ( verify_col != new_verify_col )
-   {
-      switch( CURRENT_VIEW->current_window )
-      {
-         case WINDOW_COMMAND:
-            cmd_verify_col = new_verify_col;
-            display_cmdline( current_screen, CURRENT_VIEW );
-            break;
-         case WINDOW_FILEAREA:
-            CURRENT_VIEW->verify_col = new_verify_col;
-            build_screen( current_screen );
-            display_screen( current_screen );
-            break;
-      }
-   }
-   wmove( CURRENT_WINDOW, y, new_screen_col );
-#endif
 
    TRACE_RETURN();
    return(rc);
