@@ -62,21 +62,67 @@ extern CHARTYPE query_num8[10];
 extern CHARTYPE query_rsrvd[MAX_FILE_NAME+100];
 static LINE *curr;
 
-static void query2_capture_window_cursor(WINDOW *win, short *y, short *x)
+static int query2_capture_active_driver_cursor(CHARTYPE window_id,
+                                               short *y, short *x)
 {
    CursesDriverWindowCursor cursor;
+   WINDOW *win;
 
    if (y != NULL)
       *y = 0;
    if (x != NULL)
       *x = 0;
+   if (window_id < WINDOW_FILEAREA || window_id > WINDOW_FILETABS)
+      return FALSE;
+   if (!curses_started)
+      return FALSE;
+   win = CURRENT_SCREEN.win[window_id];
+   if (win == NULL)
+      return FALSE;
    cursor = curses_driver_capture_window_cursor(win);
    if (!cursor.valid)
-      return;
+      return FALSE;
    if (y != NULL)
       *y = cursor.row;
    if (x != NULL)
       *x = cursor.col;
+   return TRUE;
+}
+
+static int query2_filearea_cursor_row(short *row)
+{
+   LogicalCursor logical;
+   short y=0,x=0;
+
+   logical = CURRENT_VIEW->logical_cursor.current;
+   if (logical.valid
+   &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+   &&  logical.line_number == CURRENT_VIEW->focus_line
+   &&  logical.zone_row >= 0
+   &&  logical.zone_row < CURRENT_SCREEN.rows[WINDOW_FILEAREA])
+   {
+      if (row != NULL)
+         *row = (short)logical.zone_row;
+      return TRUE;
+   }
+   if (!query2_capture_active_driver_cursor(CURRENT_VIEW->current_window,
+                                            &y,&x))
+      return FALSE;
+   INTENTIONALLY_UNUSED_VARIABLE(x);
+   if (y < 0 || y >= CURRENT_SCREEN.rows[WINDOW_FILEAREA])
+      return FALSE;
+   if (row != NULL)
+      *row = y;
+   return TRUE;
+}
+
+static int query2_filearea_cursor_is_shadow(void)
+{
+   short row=0;
+
+   if (!query2_filearea_cursor_row(&row))
+      return FALSE;
+   return (CURRENT_SCREEN.sl[row].line_type == LINE_SHADOW);
 }
 
 /***********************************************************************/
@@ -127,7 +173,6 @@ short extract_modifiable_function(short number_variables,short itemno,CHARTYPE *
 /***********************************************************************/
 {
    bool bool_flag=FALSE;
-   short y=0,x=0;
 
    switch(CURRENT_VIEW->current_window)
    {
@@ -137,10 +182,9 @@ short extract_modifiable_function(short number_variables,short itemno,CHARTYPE *
              bool_flag = FALSE;
              break;
          }
-         query2_capture_window_cursor(CURRENT_WINDOW,&y,&x);
          if (FOCUS_TOF
          ||  FOCUS_BOF
-         ||  CURRENT_SCREEN.sl[y].line_type == LINE_SHADOW)
+         ||  query2_filearea_cursor_is_shadow())
              bool_flag = FALSE;
          else
              bool_flag = TRUE;
@@ -149,7 +193,6 @@ short extract_modifiable_function(short number_variables,short itemno,CHARTYPE *
          bool_flag = TRUE;
          break;
    }
-   INTENTIONALLY_UNUSED_VARIABLE(x);
    return set_boolean_value((bool)bool_flag,(short)1);
 }
 /***********************************************************************/
@@ -1585,7 +1628,7 @@ short extract_rightedge_function(short number_variables,short itemno,CHARTYPE *i
       item_values[1].len = 1;
       return number_variables;
    }
-   query2_capture_window_cursor(CURRENT_WINDOW,&y,&x);
+   query2_capture_active_driver_cursor(CURRENT_VIEW->current_window,&y,&x);
    INTENTIONALLY_UNUSED_VARIABLE(y);
    return set_boolean_value((bool)(CURRENT_VIEW->current_window == WINDOW_FILEAREA && x == CURRENT_SCREEN.cols[WINDOW_FILEAREA]-1),(short)1);
 }
@@ -1781,7 +1824,6 @@ short extract_shadow_function(short number_variables,short itemno,CHARTYPE *item
 /***********************************************************************/
 {
    bool bool_flag=FALSE;
-   short y=0,x=0;
 
    switch(CURRENT_VIEW->current_window)
    {
@@ -1791,8 +1833,7 @@ short extract_shadow_function(short number_variables,short itemno,CHARTYPE *item
             bool_flag = FALSE;
             break;
          }
-         query2_capture_window_cursor(CURRENT_WINDOW,&y,&x);
-         if (CURRENT_SCREEN.sl[y].line_type == LINE_SHADOW)
+         if (query2_filearea_cursor_is_shadow())
             bool_flag = TRUE;
          else
             bool_flag = FALSE;
@@ -1801,7 +1842,6 @@ short extract_shadow_function(short number_variables,short itemno,CHARTYPE *item
          bool_flag = FALSE;
          break;
    }
-   INTENTIONALLY_UNUSED_VARIABLE(x);
    return set_boolean_value((bool)bool_flag,(short)1);
 }
 /***********************************************************************/
@@ -2142,7 +2182,7 @@ short extract_synelem( short number_variables, short itemno, CHARTYPE *itemargs,
        * Determine position of cursor relative to ESCREEN
        * This should result in a direct entry into the highlight_type array
        */
-      query2_capture_window_cursor(CURRENT_WINDOW,&y,&x);
+      query2_capture_active_driver_cursor(CURRENT_VIEW->current_window,&y,&x);
       syntax_element = get_syntax_element( current_screen, y, x );
    }
    else if ( equal( (CHARTYPE *)"file", word[0], 1 ) )
@@ -2595,6 +2635,7 @@ short extract_topedge_function(short number_variables,short itemno,CHARTYPE *ite
 /***********************************************************************/
 {
    short y=0,x=0;
+   bool bool_flag=FALSE;
 
    if (batch_only)
    {
@@ -2602,9 +2643,12 @@ short extract_topedge_function(short number_variables,short itemno,CHARTYPE *ite
       item_values[1].len = 1;
       return 1;
    }
-   query2_capture_window_cursor(CURRENT_WINDOW,&y,&x);
+   if (CURRENT_VIEW->current_window == WINDOW_FILEAREA)
+      bool_flag = (bool)(query2_filearea_cursor_row(&y) && y == 0);
+   else
+      query2_capture_active_driver_cursor(CURRENT_VIEW->current_window,&y,&x);
    INTENTIONALLY_UNUSED_VARIABLE(x);
-   return set_boolean_value((bool)(CURRENT_VIEW->current_window == WINDOW_FILEAREA && y == 0),(short)1);
+   return set_boolean_value(bool_flag,(short)1);
 }
 /***********************************************************************/
 short extract_trailing(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
