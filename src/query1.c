@@ -62,7 +62,7 @@ extern CHARTYPE query_num8[50];
 extern CHARTYPE query_rsrvd[MAX_FILE_NAME+1];
 static LINE *curr;
 
-static void query1_capture_window_cursor(WINDOW *win, short *y, short *x)
+static int query1_capture_window_cursor(WINDOW *win, short *y, short *x)
 {
    CursesDriverWindowCursor cursor;
 
@@ -70,13 +70,16 @@ static void query1_capture_window_cursor(WINDOW *win, short *y, short *x)
       *y = 0;
    if (x != NULL)
       *x = 0;
+   if (!curses_started || win == NULL)
+      return FALSE;
    cursor = curses_driver_capture_window_cursor(win);
    if (!cursor.valid)
-      return;
+      return FALSE;
    if (y != NULL)
       *y = cursor.row;
    if (x != NULL)
       *x = cursor.col;
+   return TRUE;
 }
 
 static LENGTHTYPE query1_text_end_cell(const CHARTYPE *line, LENGTHTYPE len)
@@ -163,7 +166,10 @@ static LENGTHTYPE query1_filearea_cursor_cell(void)
    if (query1_logical_cursor_cell(LOGICAL_CURSOR_ZONE_FILEAREA, TRUE,
                                   CURRENT_VIEW->focus_line, &cell))
       return cell;
-   query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
+   if (!query1_capture_window_cursor(CURRENT_WINDOW,&y,&x))
+      return (CURRENT_VIEW->current_column > 0)
+           ? CURRENT_VIEW->current_column - 1
+           : 0;
    INTENTIONALLY_UNUSED_VARIABLE(y);
 #ifdef USE_UTF8
    return (LENGTHTYPE)show_utf8_logical_col_from_display(
@@ -184,7 +190,8 @@ static LENGTHTYPE query1_command_cursor_cell(void)
       return cell;
    if (CURRENT_VIEW->cmdline_col >= 0)
       return cmd_verify_col - 1 + CURRENT_VIEW->cmdline_col;
-   query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
+   if (!query1_capture_window_cursor(CURRENT_WINDOW,&y,&x))
+      return 0;
    INTENTIONALLY_UNUSED_VARIABLE(y);
    return x + cmd_verify_col - 1;
 }
@@ -197,7 +204,8 @@ static LENGTHTYPE query1_prefix_cursor_cell(void)
    if (query1_logical_cursor_cell(LOGICAL_CURSOR_ZONE_PREFIX, TRUE,
                                   CURRENT_VIEW->focus_line, &cell))
       return cell;
-   query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
+   if (!query1_capture_window_cursor(CURRENT_WINDOW,&y,&x))
+      return 0;
    INTENTIONALLY_UNUSED_VARIABLE(y);
    return x;
 }
