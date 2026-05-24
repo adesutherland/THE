@@ -1255,6 +1255,7 @@ void show_statarea(void)
    const CHARTYPE *status_cluster_line = NULL;
    size_t status_cluster_len = 0;
    TextCluster status_cluster = {0};
+   LogicalCursor logical_status_cursor;
 #endif
    int key=0;
    time_t timer;
@@ -1348,6 +1349,9 @@ void show_statarea(void)
       CursesDriverWindowCursor cursor =
          curses_driver_capture_window_cursor(CURRENT_WINDOW);
 
+#ifdef USE_UTF8
+      logical_status_cursor = CURRENT_VIEW->logical_cursor.current;
+#endif
       x = cursor.valid ? cursor.col : 0;
       switch(CURRENT_VIEW->current_window)
       {
@@ -1359,6 +1363,10 @@ void show_statarea(void)
                                                                   x,
                                                                   TEXT_SNAP_BACKWARD);
 
+            if (logical_status_cursor.valid
+            &&  logical_status_cursor.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+            &&  logical_status_cursor.line_number == CURRENT_VIEW->focus_line)
+               logical_cell = logical_status_cursor.text.cell_column;
             status_cluster_line = rec;
             status_cluster_len = rec_len;
             status_cluster = textpos_cluster_at(status_cluster_line, status_cluster_len,
@@ -1377,11 +1385,16 @@ void show_statarea(void)
          case WINDOW_COMMAND:
 #ifdef USE_UTF8
          {
+            int logical_cell = x + cmd_verify_col - 1;
+
+            if (logical_status_cursor.valid
+            &&  logical_status_cursor.zone == LOGICAL_CURSOR_ZONE_COMMAND)
+               logical_cell = logical_status_cursor.text.cell_column;
             status_cluster_line = cmd_rec;
             status_cluster_len = cmd_rec_len;
             status_cluster = textpos_cluster_at(status_cluster_line, status_cluster_len,
                textpos_from_cell(status_cluster_line, status_cluster_len,
-                                 x + cmd_verify_col - 1,
+                                 logical_cell,
                                  TEXT_SNAP_BACKWARD));
          }
 #else
@@ -1395,11 +1408,17 @@ void show_statarea(void)
          case WINDOW_PREFIX:
 #ifdef USE_UTF8
          {
+            int logical_cell = x;
+
+            if (logical_status_cursor.valid
+            &&  logical_status_cursor.zone == LOGICAL_CURSOR_ZONE_PREFIX
+            &&  logical_status_cursor.line_number == CURRENT_VIEW->focus_line)
+               logical_cell = logical_status_cursor.text.cell_column;
             status_cluster_line = pre_rec;
             status_cluster_len = pre_rec_len;
             status_cluster = textpos_cluster_at(status_cluster_line, status_cluster_len,
                textpos_from_cell(status_cluster_line, status_cluster_len,
-                                 x,
+                                 logical_cell,
                                  TEXT_SNAP_BACKWARD));
          }
 #else
