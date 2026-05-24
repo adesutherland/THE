@@ -79,11 +79,133 @@ static void query1_capture_window_cursor(WINDOW *win, short *y, short *x)
       *x = cursor.col;
 }
 
+static LENGTHTYPE query1_text_end_cell(const CHARTYPE *line, LENGTHTYPE len)
+{
+   if (len < 0)
+      len = 0;
+#ifdef USE_UTF8
+   {
+      TextPos end = textpos_from_byte(line, (size_t)len, (size_t)len);
+
+      return (LENGTHTYPE)end.cell_column;
+   }
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(line);
+   return len;
+#endif
+}
+
+static LENGTHTYPE query1_text_first_nonblank_cell(CHARTYPE *line,
+                                                  LENGTHTYPE len)
+{
+   LENGTHTYPE first;
+
+   if (len <= 0)
+      return -1;
+   first = memne(line, ' ', len);
+#ifdef USE_UTF8
+   if (first >= 0)
+   {
+      TextPos pos = textpos_from_byte(line, (size_t)len, (size_t)first);
+      first = (LENGTHTYPE)pos.cell_column;
+   }
+#endif
+   return first;
+}
+
+static bool query1_text_cell_is_end(const CHARTYPE *line, LENGTHTYPE len,
+                                    LENGTHTYPE cell)
+{
+   if (len <= 0 || cell < 0)
+      return FALSE;
+#ifdef USE_UTF8
+   {
+      TextPos pos = textpos_from_cell(line, (size_t)len, (int)cell,
+                                      TEXT_SNAP_BACKWARD);
+      TextCluster cluster = textpos_cluster_at_boundary(line, (size_t)len,
+                                                        pos);
+      LENGTHTYPE end_cell = query1_text_end_cell(line, len);
+
+      return (bool)(cluster.valid
+                 && cluster.byte_length > 0
+                 && cluster.end.cell_column >= end_cell);
+   }
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(line);
+   return (bool)(cell == len - 1);
+#endif
+}
+
+static int query1_logical_cursor_cell(LogicalCursorZone zone, int check_line,
+                                      LINETYPE line_number,
+                                      LENGTHTYPE *cell)
+{
+   LogicalCursor logical;
+
+   logical = CURRENT_VIEW->logical_cursor.current;
+   if (!logical.valid
+   ||  logical.zone != zone
+   ||  logical.text.cell_column < 0)
+      return FALSE;
+   if (check_line
+   &&  logical.line_number != line_number)
+      return FALSE;
+   if (cell != NULL)
+      *cell = (LENGTHTYPE)logical.text.cell_column;
+   return TRUE;
+}
+
+static LENGTHTYPE query1_filearea_cursor_cell(void)
+{
+   short y=0,x=0;
+   LENGTHTYPE cell;
+
+   if (query1_logical_cursor_cell(LOGICAL_CURSOR_ZONE_FILEAREA, TRUE,
+                                  CURRENT_VIEW->focus_line, &cell))
+      return cell;
+   query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
+   INTENTIONALLY_UNUSED_VARIABLE(y);
+#ifdef USE_UTF8
+   return (LENGTHTYPE)show_utf8_logical_col_from_display(
+             rec, rec_len, CURRENT_VIEW->verify_col - 1, x,
+             TEXT_SNAP_BACKWARD);
+#else
+   return x + CURRENT_VIEW->verify_col - 1;
+#endif
+}
+
+static LENGTHTYPE query1_command_cursor_cell(void)
+{
+   short y=0,x=0;
+   LENGTHTYPE cell;
+
+   if (query1_logical_cursor_cell(LOGICAL_CURSOR_ZONE_COMMAND, FALSE,
+                                  0, &cell))
+      return cell;
+   if (CURRENT_VIEW->cmdline_col >= 0)
+      return cmd_verify_col - 1 + CURRENT_VIEW->cmdline_col;
+   query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
+   INTENTIONALLY_UNUSED_VARIABLE(y);
+   return x + cmd_verify_col - 1;
+}
+
+static LENGTHTYPE query1_prefix_cursor_cell(void)
+{
+   short y=0,x=0;
+   LENGTHTYPE cell;
+
+   if (query1_logical_cursor_cell(LOGICAL_CURSOR_ZONE_PREFIX, TRUE,
+                                  CURRENT_VIEW->focus_line, &cell))
+      return cell;
+   query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
+   INTENTIONALLY_UNUSED_VARIABLE(y);
+   return x;
+}
+
 /***********************************************************************/
 short extract_after_function(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   short y=0,x=0;
    bool bool_flag=FALSE;
 
    if (batch_only)
@@ -93,26 +215,27 @@ short extract_after_function(short number_variables,short itemno,CHARTYPE *itema
    }
    else
    {
-      query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
       bool_flag = FALSE;
       switch(CURRENT_VIEW->current_window)
       {
          case WINDOW_FILEAREA:
-            if ((x+CURRENT_VIEW->verify_col-1) >= rec_len)
+            if (query1_filearea_cursor_cell()
+            >=  query1_text_end_cell(rec, rec_len))
                bool_flag = TRUE;
             break;
          case WINDOW_COMMAND:
-            if (x >= cmd_rec_len)
+            if (query1_command_cursor_cell()
+            >=  query1_text_end_cell(cmd_rec, cmd_rec_len))
                bool_flag = TRUE;
             break;
          case WINDOW_PREFIX:
-            if (x >= pre_rec_len)
+            if (query1_prefix_cursor_cell()
+            >=  query1_text_end_cell(pre_rec, pre_rec_len))
                bool_flag = TRUE;
             break;
       }
       set_boolean_value(bool_flag,1);
    }
-   INTENTIONALLY_UNUSED_VARIABLE(y);
    return 1; /* number of values set */
 }
 
@@ -261,7 +384,6 @@ short extract_beep(short number_variables,short itemno,CHARTYPE *itemargs,CHARTY
 short extract_before_function(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   short y=0,x=0;
    bool bool_flag=FALSE;
 
    if (batch_only)
@@ -271,16 +393,17 @@ short extract_before_function(short number_variables,short itemno,CHARTYPE *item
    }
    else
    {
-      query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
       bool_flag = FALSE;
       switch(CURRENT_VIEW->current_window)
       {
          case WINDOW_FILEAREA:
-            if ((x+CURRENT_VIEW->verify_col-1) < memne(rec,' ',rec_len))
+            if (query1_filearea_cursor_cell()
+            <   query1_text_first_nonblank_cell(rec, rec_len))
                bool_flag = TRUE;
             break;
          case WINDOW_COMMAND:
-            if (x < memne(cmd_rec,' ',cmd_rec_len))
+            if (query1_command_cursor_cell()
+            <   query1_text_first_nonblank_cell(cmd_rec, cmd_rec_len))
                bool_flag = TRUE;
             break;
          case WINDOW_PREFIX:/* cursor can't go before 1st non-blank */
@@ -288,7 +411,6 @@ short extract_before_function(short number_variables,short itemno,CHARTYPE *item
       }
       set_boolean_value((bool)bool_flag,(short)1);
    }
-   INTENTIONALLY_UNUSED_VARIABLE(y);
    return number_variables;
 }
 
@@ -640,19 +762,14 @@ short extract_colouring(short number_variables,short itemno,CHARTYPE *itemargs,C
 short extract_column(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   short y=0,x=0;
-
    if (batch_only
    ||  CURRENT_VIEW->current_window != WINDOW_FILEAREA)
       sprintf((DEFCHAR *)query_num1,"%ld",CURRENT_VIEW->current_column);
    else
-   {
-      query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
-      sprintf((DEFCHAR *)query_num1,"%ld",x+CURRENT_VIEW->verify_col);
-   }
+      sprintf((DEFCHAR *)query_num1,"%ld",
+              query1_filearea_cursor_cell() + 1);
    item_values[1].value = query_num1;
    item_values[1].len = strlen((DEFCHAR *)query_num1);
-   INTENTIONALLY_UNUSED_VARIABLE(y);
    return number_variables;
 }
 /***********************************************************************/
@@ -1192,8 +1309,6 @@ short extract_ecolour(short number_variables,short itemno,CHARTYPE *itemargs,CHA
 short extract_end_function(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   short y=0,x=0;
-
    if (batch_only)
    {
       item_values[1].value = (CHARTYPE *)"0";
@@ -1201,26 +1316,25 @@ short extract_end_function(short number_variables,short itemno,CHARTYPE *itemarg
       return 1;
    }
    item_values[1].value = (CHARTYPE *)"0"; /* set FALSE by default */
-   query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
    switch(CURRENT_VIEW->current_window)
    {
       case WINDOW_FILEAREA:
-         if (x+CURRENT_VIEW->verify_col == rec_len)
+         if (query1_text_cell_is_end(rec, rec_len,
+                                     query1_filearea_cursor_cell()))
             item_values[1].value = (CHARTYPE *)"1";
          break;
       case WINDOW_PREFIX:
-         if (pre_rec_len > 0
-         &&  pre_rec_len-1 == x)
+         if (query1_text_cell_is_end(pre_rec, pre_rec_len,
+                                     query1_prefix_cursor_cell()))
             item_values[1].value = (CHARTYPE *)"1";
          break;
       case WINDOW_COMMAND:
-         if (cmd_rec_len > 0
-         &&  cmd_rec_len-1 == x)
+         if (query1_text_cell_is_end(cmd_rec, cmd_rec_len,
+                                     query1_command_cursor_cell()))
             item_values[1].value = (CHARTYPE *)"1";
          break;
    }
    item_values[1].len = 1;
-   INTENTIONALLY_UNUSED_VARIABLE(y);
    return number_variables;
 }
 /***********************************************************************/
@@ -1487,17 +1601,15 @@ short extract_fieldword(short number_variables,short itemno,CHARTYPE *itemargs,C
 short extract_first_function(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   short y=0,x=0;
-
    if (batch_only)
    {
       item_values[1].value = (CHARTYPE *)"0";
       item_values[1].len = 1;
       return 1;
    }
-   query1_capture_window_cursor(CURRENT_WINDOW,&y,&x);
-   INTENTIONALLY_UNUSED_VARIABLE(y);
-   return set_boolean_value((bool)(x == 0 && CURRENT_VIEW->verify_col == 1),(short)1);
+   return set_boolean_value((bool)(CURRENT_VIEW->current_window == WINDOW_FILEAREA
+                                && query1_filearea_cursor_cell() == 0),
+                            (short)1);
 }
 /***********************************************************************/
 short extract_focuseof_function(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
