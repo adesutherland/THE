@@ -128,6 +128,82 @@ static LENGTHTYPE query1_text_first_nonblank_cell(CHARTYPE *line,
    return first;
 }
 
+static LENGTHTYPE query1_text_byte_from_cell(const CHARTYPE *line,
+                                             LENGTHTYPE len,
+                                             LENGTHTYPE cell)
+{
+   if (len <= 0 || cell <= 0)
+      return 0;
+#ifdef USE_UTF8
+   {
+      TextPos pos = textpos_from_cell(line, (size_t)len, (int)cell,
+                                      TEXT_SNAP_BACKWARD);
+
+      return (LENGTHTYPE)pos.byte_offset;
+   }
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(line);
+   return (cell > len) ? len : cell;
+#endif
+}
+
+static LENGTHTYPE query1_text_cell_from_byte(const CHARTYPE *line,
+                                             LENGTHTYPE len,
+                                             LENGTHTYPE byte_offset)
+{
+   if (len <= 0 || byte_offset <= 0)
+      return 0;
+   if (byte_offset > len)
+      byte_offset = len;
+#ifdef USE_UTF8
+   {
+      TextPos pos = textpos_from_byte(line, (size_t)len,
+                                      (size_t)byte_offset);
+
+      return (LENGTHTYPE)pos.cell_column;
+   }
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(line);
+   return byte_offset;
+#endif
+}
+
+static LENGTHTYPE query1_text_character_at_cell(CHARTYPE *line,
+                                                LENGTHTYPE len,
+                                                LENGTHTYPE cell,
+                                                CHARTYPE *out,
+                                                size_t out_size)
+{
+   LENGTHTYPE out_len;
+
+   if (out != NULL && out_size > 0)
+      out[0] = '\0';
+   if (line == NULL || len <= 0 || cell < 0 || out == NULL || out_size == 0)
+      return 0;
+#ifdef USE_UTF8
+   {
+      TextPos pos = textpos_from_cell(line, (size_t)len, (int)cell,
+                                      TEXT_SNAP_BACKWARD);
+      TextCluster cluster = textpos_cluster_at_boundary(line, (size_t)len,
+                                                        pos);
+
+      if (!cluster.valid || cluster.byte_length == 0)
+         return 0;
+      out_len = (LENGTHTYPE)cluster.byte_length;
+      if ((size_t)out_len >= out_size)
+         out_len = (LENGTHTYPE)out_size - 1;
+      memcpy(out, line + cluster.pos.byte_offset, (size_t)out_len);
+   }
+#else
+   if (cell >= len)
+      return 0;
+   out_len = 1;
+   out[0] = line[cell];
+#endif
+   out[out_len] = '\0';
+   return out_len;
+}
+
 static bool query1_text_cell_is_end(const CHARTYPE *line, LENGTHTYPE len,
                                     LENGTHTYPE cell)
 {
@@ -223,6 +299,52 @@ static LENGTHTYPE query1_prefix_cursor_cell(void)
       return 0;
    INTENTIONALLY_UNUSED_VARIABLE(y);
    return x;
+}
+
+static int query1_current_field(CHARTYPE **line, LENGTHTYPE *len,
+                                LENGTHTYPE *cell, CHARTYPE **area,
+                                LENGTHTYPE *area_len)
+{
+   switch(CURRENT_VIEW->current_window)
+   {
+      case WINDOW_FILEAREA:
+         if (line != NULL)
+            *line = rec;
+         if (len != NULL)
+            *len = rec_len;
+         if (cell != NULL)
+            *cell = query1_filearea_cursor_cell();
+         if (area != NULL)
+            *area = (CHARTYPE *)"TEXT";
+         if (area_len != NULL)
+            *area_len = 4;
+         return TRUE;
+      case WINDOW_PREFIX:
+         if (line != NULL)
+            *line = pre_rec;
+         if (len != NULL)
+            *len = pre_rec_len;
+         if (cell != NULL)
+            *cell = query1_prefix_cursor_cell();
+         if (area != NULL)
+            *area = (CHARTYPE *)"PREFIX";
+         if (area_len != NULL)
+            *area_len = 6;
+         return TRUE;
+      case WINDOW_COMMAND:
+         if (line != NULL)
+            *line = cmd_rec;
+         if (len != NULL)
+            *len = cmd_rec_len;
+         if (cell != NULL)
+            *cell = query1_command_cursor_cell();
+         if (area != NULL)
+            *area = (CHARTYPE *)"COMMAND";
+         if (area_len != NULL)
+            *area_len = 7;
+         return TRUE;
+   }
+   return FALSE;
 }
 
 /***********************************************************************/
@@ -1457,8 +1579,12 @@ short extract_etmode(short number_variables,short itemno,CHARTYPE *itemargs,CHAR
 short extract_field(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   int i=0;
-   short y=0,x=0;
+   CHARTYPE *ptr=NULL;
+   CHARTYPE *area=NULL;
+   LENGTHTYPE len=0;
+   LENGTHTYPE cell=0;
+   LENGTHTYPE area_len=0;
+   LENGTHTYPE char_len=0;
 
    if (batch_only)
    {
@@ -1466,80 +1592,49 @@ short extract_field(short number_variables,short itemno,CHARTYPE *itemargs,CHART
       item_values[1].len = 1;
       return 1;
    }
-   query1_capture_active_driver_cursor(CURRENT_VIEW->current_window,&y,&x);
-   switch(CURRENT_VIEW->current_window)
+   if (!query1_current_field(&ptr, &len, &cell, &area, &area_len))
    {
-      case WINDOW_FILEAREA:
-         item_values[1].value = rec;
-         item_values[1].len = rec_len;
-         i = x+CURRENT_VIEW->verify_col;
-         query_num1[0] = rec[i-1];
-         item_values[4].value = (CHARTYPE*)"TEXT";
-         item_values[4].len = 4;
-         break;
-      case WINDOW_PREFIX:
-         item_values[1].value = pre_rec;
-         item_values[1].len = pre_rec_len;
-         i = x+1;
-         query_num1[0] = pre_rec[i-1];
-         item_values[4].value = (CHARTYPE*)"PREFIX";
-         item_values[4].len = 6;
-         break;
-      case WINDOW_COMMAND:
-         item_values[1].value = cmd_rec;
-         item_values[1].len = cmd_rec_len;
-         i = x+1;
-         query_num1[0] = cmd_rec[i-1];
-         item_values[4].value = (CHARTYPE*)"COMMAND";
-         item_values[4].len = 7;
-         break;
+      ptr = (CHARTYPE *)"";
+      len = 0;
+      cell = 0;
+      area = (CHARTYPE *)"";
+      area_len = 0;
    }
-   query_num1[1] = '\0';
+   item_values[1].value = ptr;
+   item_values[1].len = len;
+   char_len = query1_text_character_at_cell(ptr, len, cell, query_num1,
+                                            sizeof(query_num1));
    item_values[2].value = query_num1;
-   item_values[2].len = 1;
-   sprintf((DEFCHAR*)query_num2,"%d",i);
+   item_values[2].len = char_len;
+   sprintf((DEFCHAR*)query_num2,"%ld",cell+1);
    item_values[3].value = query_num2;
    item_values[3].len = strlen((DEFCHAR*)query_num2);
-   INTENTIONALLY_UNUSED_VARIABLE(y);
+   item_values[4].value = area;
+   item_values[4].len = area_len;
    return number_variables;
 }
 /***********************************************************************/
 short extract_fieldword(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   short y=0,x=0,rc;
-   LENGTHTYPE real_col=0;
-   LENGTHTYPE first_col,last_col,len=0;
+   short rc;
+   LENGTHTYPE cursor_byte=0;
+   LENGTHTYPE cursor_cell=0;
+   LENGTHTYPE first_col=0,last_col=0,len=0;
    CHARTYPE *ptr=NULL,save_word;
    LENGTHTYPE word_len;
    CHARTYPE *tmpbuf;
 
-   query1_capture_active_driver_cursor(CURRENT_VIEW->current_window,&y,&x);
-   switch(CURRENT_VIEW->current_window)
-   {
-      case WINDOW_FILEAREA:
-       ptr = rec;
-       len = rec_len;
-       real_col = x+CURRENT_VIEW->verify_col;
-       break;
-      case WINDOW_PREFIX:
-       ptr = pre_rec;
-       len = pre_rec_len;
-       real_col = x+1;
-       break;
-      case WINDOW_COMMAND:
-       ptr = cmd_rec;
-       len = cmd_rec_len;
-       real_col = x+1;
-       break;
-   }
+   if (!query1_current_field(&ptr, &len, &cursor_cell, NULL, NULL))
+      ptr = (CHARTYPE *)"";
+   cursor_byte = query1_text_byte_from_cell(ptr, len, cursor_cell);
    save_word = CURRENT_VIEW->word;
    /*
     * Get the word based on an alphanumeric word setting...
     */
    CURRENT_VIEW->word = 'A';
    if ( len == 0
-   ||   get_fieldword( ptr, len, real_col-1, &first_col, &last_col ) == 0 )
+   ||   get_fieldword( ptr, len, cursor_byte, &first_col, &last_col ) == 0 )
    {
       rc = set_rexx_variable( query_item[itemno].name, (CHARTYPE *)"", 0, 1 );
    }
@@ -1569,7 +1664,7 @@ short extract_fieldword(short number_variables,short itemno,CHARTYPE *itemargs,C
     */
    CURRENT_VIEW->word = 'N';
    if ( len == 0
-   ||   get_fieldword( ptr, len, real_col-1,&first_col,&last_col) == 0)
+   ||   get_fieldword( ptr, len, cursor_byte, &first_col, &last_col ) == 0 )
    {
       rc = set_rexx_variable( query_item[itemno].name, (CHARTYPE *)"", 0, 2 );
    }
@@ -1597,7 +1692,8 @@ short extract_fieldword(short number_variables,short itemno,CHARTYPE *itemargs,C
    /*
     * Set the starting column
     */
-   word_len = sprintf( (DEFCHAR *)query_num1, "%ld", first_col+1 );
+   word_len = sprintf( (DEFCHAR *)query_num1, "%ld",
+                       query1_text_cell_from_byte(ptr, len, first_col) + 1 );
    rc = set_rexx_variable( query_item[itemno].name, query_num1, word_len, 3 );
    if ( rc == RC_SYSTEM_ERROR )
    {
@@ -1617,7 +1713,6 @@ short extract_fieldword(short number_variables,short itemno,CHARTYPE *itemargs,C
    }
    CURRENT_VIEW->word = save_word;
 
-   INTENTIONALLY_UNUSED_VARIABLE(y);
    return EXTRACT_VARIABLES_SET;
 }
 /***********************************************************************/
