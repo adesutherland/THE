@@ -1955,8 +1955,8 @@ short extract_impos(short number_variables,short itemno,CHARTYPE *itemargs,CHART
 short extract_inblock_function(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   short y=0,x=0;
    bool bool_flag=FALSE;
+   LENGTHTYPE cursor_col=0;
 
    if (batch_only)
    {
@@ -1968,7 +1968,7 @@ short extract_inblock_function(short number_variables,short itemno,CHARTYPE *ite
    if (CURRENT_VIEW == MARK_VIEW
    &&  CURRENT_VIEW->current_window == WINDOW_FILEAREA)
    {
-      query1_capture_window_cursor(CURRENT_WINDOW_FILEAREA,&y,&x);
+      cursor_col = query1_filearea_cursor_cell() + 1;
       switch(MARK_VIEW->mark_type)
       {
          case M_LINE:
@@ -1981,8 +1981,8 @@ short extract_inblock_function(short number_variables,short itemno,CHARTYPE *ite
          case M_COLUMN:
             if ((CURRENT_VIEW->focus_line >= MARK_VIEW->mark_start_line)
             &&  (CURRENT_VIEW->focus_line <= MARK_VIEW->mark_end_line)
-            &&  (x + CURRENT_VIEW->verify_start >= MARK_VIEW->mark_start_col)
-            &&  (x + CURRENT_VIEW->verify_start <= MARK_VIEW->mark_end_col))
+            &&  (cursor_col >= MARK_VIEW->mark_start_col)
+            &&  (cursor_col <= MARK_VIEW->mark_end_col))
                bool_flag = TRUE;
             break;
          case M_STREAM:
@@ -1997,8 +1997,8 @@ short extract_inblock_function(short number_variables,short itemno,CHARTYPE *ite
                /*
                 * Single-line block
                 */
-               if (x + CURRENT_VIEW->verify_start >= MARK_VIEW->mark_start_col
-               &&  x + CURRENT_VIEW->verify_start <= MARK_VIEW->mark_end_col)
+               if (cursor_col >= MARK_VIEW->mark_start_col
+               &&  cursor_col <= MARK_VIEW->mark_end_col)
                {
                   bool_flag = TRUE;
                   break;
@@ -2013,13 +2013,13 @@ short extract_inblock_function(short number_variables,short itemno,CHARTYPE *ite
              * Multi-line stream block
              */
             if (CURRENT_VIEW->focus_line == MARK_VIEW->mark_start_line
-            &&  x + CURRENT_VIEW->verify_start >= MARK_VIEW->mark_start_col)
+            &&  cursor_col >= MARK_VIEW->mark_start_col)
             {
                bool_flag = TRUE;
                break;
             }
             if (CURRENT_VIEW->focus_line == MARK_VIEW->mark_end_line
-            &&  x + CURRENT_VIEW->verify_start <= MARK_VIEW->mark_end_col)
+            &&  cursor_col <= MARK_VIEW->mark_end_col)
             {
                bool_flag = TRUE;
                break;
@@ -2036,7 +2036,6 @@ short extract_inblock_function(short number_variables,short itemno,CHARTYPE *ite
             break;
       }
    }
-   INTENTIONALLY_UNUSED_VARIABLE(y);
    return set_boolean_value((bool)bool_flag,(short)1);
 }
 /***********************************************************************/
