@@ -4923,8 +4923,76 @@ char *get_current_position(CHARTYPE scrno,LINETYPE *line,LENGTHTYPE *col)
    short y=0,x=0;
    char *ret=NULL;
    SHOW_LINE *scurr;
+   VIEW_DETAILS *view;
+   LogicalCursor logical;
 
    TRACE_FUNCTION("show.c:    get_current_position");
+   view = SCREEN_VIEW(scrno);
+   logical = (view != NULL) ? view->logical_cursor.current
+                            : logical_cursor_invalid();
+   if (logical.valid)
+   {
+      switch (logical.zone)
+      {
+         case LOGICAL_CURSOR_ZONE_COMMAND:
+            if (view->current_window == WINDOW_COMMAND)
+            {
+               *line = view->current_line;
+               *col = (LENGTHTYPE)logical.text.cell_column + 1;
+               TRACE_RETURN();
+               return ret;
+            }
+            break;
+         case LOGICAL_CURSOR_ZONE_FILEAREA:
+            if (view->current_window == WINDOW_FILEAREA
+            &&  screen[scrno].sl != NULL
+            &&  logical.line_number == view->focus_line
+            &&  logical.zone_row >= 0
+            &&  logical.zone_row < screen[scrno].rows[WINDOW_FILEAREA])
+            {
+               scurr = screen[scrno].sl + logical.zone_row;
+               *line = view->focus_line;
+               *col = (LENGTHTYPE)logical.text.cell_column + 1;
+               if (compatible_look == COMPAT_ISPF)
+               {
+                  if (scurr->line_type & LINE_TABLINE)
+                     ret = "TABS";
+                  else if (scurr->line_type & LINE_SCALE)
+                     ret = "COLS";
+                  else if (scurr->line_type & LINE_BOUNDS)
+                     ret = "BNDS";
+               }
+               TRACE_RETURN();
+               return ret;
+            }
+            break;
+         case LOGICAL_CURSOR_ZONE_PREFIX:
+            if (view->current_window == WINDOW_PREFIX
+            &&  screen[scrno].sl != NULL
+            &&  logical.line_number == view->focus_line
+            &&  logical.zone_row >= 0
+            &&  logical.zone_row < screen[scrno].rows[WINDOW_FILEAREA])
+            {
+               scurr = screen[scrno].sl + logical.zone_row;
+               *line = view->focus_line;
+               *col = (LENGTHTYPE)logical.text.cell_column + 1;
+               if (compatible_look == COMPAT_ISPF)
+               {
+                  if (scurr->line_type & LINE_TABLINE)
+                     ret = "TABS";
+                  else if (scurr->line_type & LINE_SCALE)
+                     ret = "COLS";
+                  else if (scurr->line_type & LINE_BOUNDS)
+                     ret = "BNDS";
+               }
+               TRACE_RETURN();
+               return ret;
+            }
+            break;
+         default:
+            break;
+      }
+   }
    if ( curses_started )
    {
       CursesDriverWindowCursor cursor =
