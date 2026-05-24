@@ -969,39 +969,81 @@ short Text(CHARTYPE *params)
             break;
          }
          case WINDOW_PREFIX:
+         {
+            LogicalCursor logical;
+            short prefix_row;
+            short prefix_width;
+            short next_prefix_col;
+            LENGTHTYPE prefix_col;
+
             prefix_changed = TRUE;
+            prefix_width = CURRENT_VIEW->prefix_width-CURRENT_VIEW->prefix_gap;
+            if (prefix_width <= 0)
+               break;
+            logical = CURRENT_VIEW->logical_cursor.current;
+            if (logical.valid
+            &&  logical.zone == LOGICAL_CURSOR_ZONE_PREFIX
+            &&  logical.line_number == CURRENT_VIEW->focus_line)
+            {
+               prefix_row = (short)logical.zone_row;
+               prefix_col = logical.text.cell_column;
+            }
+            else
+            {
+               prefix_row = (short)y;
+               prefix_col = x;
+            }
+            if (prefix_row < 0)
+               prefix_row = 0;
+            if (prefix_row >= CURRENT_SCREEN.rows[WINDOW_FILEAREA])
+               prefix_row = CURRENT_SCREEN.rows[WINDOW_FILEAREA]-1;
+            if (prefix_col < 0)
+               prefix_col = 0;
+            if (prefix_col >= prefix_width)
+               prefix_col = prefix_width-1;
+            y = prefix_row;
+            x = prefix_col;
+            curses_driver_move_window_cursor(CURRENT_WINDOW,y,x);
             if (pre_rec_len == 0)
             {
                x = 0;
+               prefix_col = 0;
                curses_driver_move_window_cursor(CURRENT_WINDOW,y,x);
                my_wclrtoeol(CURRENT_WINDOW);
                wrefresh(CURRENT_WINDOW);
             }
             if (INSERTMODEx)
             {
-               if (pre_rec_len == (CURRENT_VIEW->prefix_width-CURRENT_VIEW->prefix_gap))
+               if (pre_rec_len == prefix_width)
                   break;
                pre_rec = (CHARTYPE *)meminschr((CHARTYPE *)pre_rec,
-                               real_key,x,CURRENT_VIEW->prefix_width-CURRENT_VIEW->prefix_gap,pre_rec_len);
+                               real_key,prefix_col,prefix_width,pre_rec_len);
                put_char(CURRENT_WINDOW,chtype_key,INSCHAR);
             }
             else
             {
-               pre_rec[x] = real_key;
+               pre_rec[prefix_col] = real_key;
                put_char(CURRENT_WINDOW,chtype_key,ADDCHAR);
             }
-            curses_driver_move_window_cursor(
-               CURRENT_WINDOW,y,min(x+1,CURRENT_VIEW->prefix_width-CURRENT_VIEW->prefix_gap-1));
+            next_prefix_col = min(prefix_col+1,prefix_width-1);
+            curses_driver_move_window_cursor(CURRENT_WINDOW,y,next_prefix_col);
             new_len = memrevne(pre_rec,' ',CURRENT_VIEW->prefix_width);
             if (new_len == (-1))
                pre_rec_len = 0;
             else
                pre_rec_len = new_len+1;
+            logical = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_PREFIX,
+                                               CURRENT_VIEW->focus_line, y,
+                                               pre_rec, pre_rec_len,
+                                               next_prefix_col,
+                                               TEXT_SNAP_BACKWARD, 1);
+            logical_cursor_state_focus(&CURRENT_VIEW->logical_cursor, logical);
 #ifdef USE_UTF8
             display_prefix_line( current_screen, CURRENT_VIEW );
             cursor_focus_refresh( current_screen, CURRENT_VIEW );
 #endif
             break;
+         }
       }
    }
    if (in_macro)
