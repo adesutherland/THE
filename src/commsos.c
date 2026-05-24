@@ -104,6 +104,75 @@ static LENGTHTYPE sos_filearea_byte_to_cell(LENGTHTYPE byte_offset)
    return (LENGTHTYPE)pos.cell_column;
 }
 
+static LENGTHTYPE sos_command_current_cell(unsigned short x)
+{
+   LogicalCursor logical;
+
+   logical = CURRENT_VIEW->logical_cursor.current;
+   if (logical.valid
+   &&  logical.zone == LOGICAL_CURSOR_ZONE_COMMAND
+   &&  logical.text.cell_column >= 0)
+      return (LENGTHTYPE)logical.text.cell_column;
+   if (CURRENT_VIEW->cmdline_col >= 0)
+      return cmd_verify_col - 1 + CURRENT_VIEW->cmdline_col;
+   return x + cmd_verify_col - 1;
+}
+
+static short sos_prefix_active_width(void)
+{
+   short width;
+
+   width = CURRENT_VIEW->prefix_width - CURRENT_VIEW->prefix_gap;
+   return (width > 0) ? width : 0;
+}
+
+static unsigned short sos_prefix_current_row(unsigned short y)
+{
+   LogicalCursor logical;
+
+   logical = CURRENT_VIEW->logical_cursor.current;
+   if (logical.valid
+   &&  logical.zone == LOGICAL_CURSOR_ZONE_PREFIX
+   &&  logical.line_number == CURRENT_VIEW->focus_line
+   &&  logical.zone_row >= 0
+   &&  logical.zone_row < CURRENT_SCREEN.rows[WINDOW_FILEAREA])
+      return (unsigned short)logical.zone_row;
+   return y;
+}
+
+static LENGTHTYPE sos_prefix_current_cell(unsigned short x)
+{
+   LogicalCursor logical;
+
+   logical = CURRENT_VIEW->logical_cursor.current;
+   if (logical.valid
+   &&  logical.zone == LOGICAL_CURSOR_ZONE_PREFIX
+   &&  logical.line_number == CURRENT_VIEW->focus_line
+   &&  logical.text.cell_column >= 0)
+      return (LENGTHTYPE)logical.text.cell_column;
+   return x;
+}
+
+static void sos_store_prefix_cursor(unsigned short row, LENGTHTYPE cell)
+{
+   LogicalCursor logical;
+   short width;
+
+   width = sos_prefix_active_width();
+   if (width <= 0)
+      return;
+   if (cell < 0)
+      cell = 0;
+   if (cell >= width)
+      cell = width - 1;
+   curses_driver_move_window_cursor(CURRENT_WINDOW, row, (short)cell);
+   logical = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_PREFIX,
+                                      CURRENT_VIEW->focus_line, row,
+                                      pre_rec, pre_rec_len, (int)cell,
+                                      TEXT_SNAP_BACKWARD, 1);
+   logical_cursor_state_focus(&CURRENT_VIEW->logical_cursor, logical);
+}
+
 #ifdef USE_UTF8
 static LENGTHTYPE sos_utf8_rec_len_after_delete(LENGTHTYPE old_len,
                                                 LENGTHTYPE delete_byte,
@@ -817,22 +886,31 @@ short Sos_delend(CHARTYPE *params)
          /*
           * Get a temporary value for position in cmd_rec
           */
-         col = x + cmd_verify_col - 1;
+         col = sos_command_current_cell(x);
          for ( i = col; i < cmd_rec_len; i++ )
             cmd_rec[i] = ' ';
          if ( cmd_rec_len > col )
             cmd_rec_len = col;
-         my_wclrtoeol( CURRENT_WINDOW );
+         execute_move_cursor(current_screen, CURRENT_VIEW, col);
+         display_cmdline(current_screen, CURRENT_VIEW);
+         cursor_focus_refresh(current_screen, CURRENT_VIEW);
          break;
       case WINDOW_PREFIX:
-         if (x < pre_rec_len)
+         y = sos_prefix_current_row(y);
+         col = sos_prefix_current_cell(x);
+         if (col < pre_rec_len)
          {
             prefix_changed = TRUE;
-            for (i=x;i<CURRENT_VIEW->prefix_width-CURRENT_VIEW->prefix_gap;i++)
+            for (i=col;i<sos_prefix_active_width();i++)
                pre_rec[i] = ' ';
-            if (pre_rec_len > x)
-               pre_rec_len = x;
+            if (pre_rec_len > col)
+               pre_rec_len = col;
+            sos_store_prefix_cursor(y, col);
             my_wclrtoeol(CURRENT_WINDOW);
+#ifdef USE_UTF8
+            display_prefix_line(current_screen, CURRENT_VIEW);
+            cursor_focus_refresh(current_screen, CURRENT_VIEW);
+#endif
          }
          break;
       default:
@@ -1243,12 +1321,13 @@ short Sos_endchar(CHARTYPE *params)
    switch( CURRENT_VIEW->current_window )
    {
       case WINDOW_PREFIX:
+         y = sos_prefix_current_row(y);
 #ifdef USE_UTF8
          charnum = u8_charnum( (char *)pre_rec, pre_rec_len );
 #else
          charnum = pre_rec_len;
 #endif
-         wmove( CURRENT_WINDOW, y, min( charnum, CURRENT_VIEW->prefix_width - CURRENT_VIEW->prefix_gap - 1 ) );
+         sos_store_prefix_cursor( y, min( charnum, sos_prefix_active_width() - 1 ) );
          rc = RC_OK;
          break;
       case WINDOW_COMMAND:
@@ -2965,7 +3044,7 @@ STATUS
 short Sos_undo(CHARTYPE *params)
 /***********************************************************************/
 {
-   unsigned short x=0,y=0;
+   unsigned short y=0;
 
    TRACE_FUNCTION("commsos.c: Sos_undo");
    /*
@@ -2987,21 +3066,21 @@ short Sos_undo(CHARTYPE *params)
       case WINDOW_COMMAND:
          memset(cmd_rec,' ',max_line_length);
          cmd_rec_len = 0;
-         wmove(CURRENT_WINDOW,0,0);
+         cmd_verify_col = 1;
+         execute_move_cursor(current_screen, CURRENT_VIEW, 0);
          my_wclrtoeol(CURRENT_WINDOW);
          break;
       case WINDOW_PREFIX:
          prefix_changed = TRUE;
          memset(pre_rec,' ',MAX_PREFIX_WIDTH);
          pre_rec_len = 0;
-         getyx(CURRENT_WINDOW,y,x);
-         wmove(CURRENT_WINDOW,y,0);
+         y = sos_prefix_current_row(y);
+         sos_store_prefix_cursor(y,0);
          my_wclrtoeol(CURRENT_WINDOW);
          break;
       default:
          break;
    }
-   INTENTIONALLY_UNUSED_VARIABLE(x);
    TRACE_RETURN();
    return(RC_OK);
 }
