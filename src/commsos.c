@@ -45,6 +45,21 @@
 static short sosdelback ( bool );
 static short sosdelchar ( bool );
 
+static int sos_capture_current_cursor_fallback(unsigned short *row,
+                                               unsigned short *col)
+{
+   CursesDriverWindowCursor cursor;
+
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   if (!cursor.valid)
+      return FALSE;
+   if (row != NULL)
+      *row = (unsigned short)cursor.row;
+   if (col != NULL)
+      *col = (unsigned short)cursor.col;
+   return TRUE;
+}
+
 static int sos_filearea_logical_cursor(unsigned short *row, int *cell)
 {
    LogicalCursor logical;
@@ -83,6 +98,8 @@ static int sos_filearea_current_cell(unsigned short y, unsigned short x)
 #endif
 }
 
+static LENGTHTYPE sos_command_current_cell(unsigned short x);
+
 static LENGTHTYPE sos_filearea_current_column(unsigned short y,
                                               unsigned short x)
 {
@@ -102,6 +119,83 @@ static LENGTHTYPE sos_filearea_byte_to_cell(LENGTHTYPE byte_offset)
    TextPos pos = textpos_from_byte(rec, rec_len, (size_t)byte_offset);
 
    return (LENGTHTYPE)pos.cell_column;
+}
+
+static int sos_filearea_saved_cell(VIEW_DETAILS *view, LENGTHTYPE *cell)
+{
+   LogicalCursor logical;
+
+   if (view == NULL || cell == NULL)
+      return FALSE;
+   logical = view->logical_cursor.current;
+   if (logical.valid
+   &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+   &&  logical.text.cell_column >= 0)
+   {
+      *cell = (LENGTHTYPE)logical.text.cell_column;
+      return TRUE;
+   }
+   logical = view->logical_cursor.previous;
+   if (logical.valid
+   &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+   &&  logical.text.cell_column >= 0)
+   {
+      *cell = (LENGTHTYPE)logical.text.cell_column;
+      return TRUE;
+   }
+   return FALSE;
+}
+
+static unsigned short sos_filearea_focus_row(CHARTYPE scrno,
+                                             VIEW_DETAILS *view)
+{
+   LogicalCursor logical;
+   short row;
+
+   if (view == NULL)
+      return 0;
+   logical = view->logical_cursor.current;
+   if (logical.valid
+   &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+   &&  logical.line_number == view->focus_line
+   &&  logical.zone_row >= 0
+   &&  logical.zone_row < screen[scrno].rows[WINDOW_FILEAREA])
+      return (unsigned short)logical.zone_row;
+   row = get_row_for_focus_line(scrno, view->focus_line, view->current_row);
+   if (row < 0)
+      row = 0;
+   if (screen[scrno].rows[WINDOW_FILEAREA] <= 0)
+      return 0;
+   if (row >= screen[scrno].rows[WINDOW_FILEAREA])
+      row = (short)(screen[scrno].rows[WINDOW_FILEAREA] - 1);
+   return (unsigned short)row;
+}
+
+static void sos_store_filearea_cursor(CHARTYPE scrno, VIEW_DETAILS *view,
+                                      unsigned short row, LENGTHTYPE cell)
+{
+   LogicalCursor logical;
+
+   if (view == NULL)
+      return;
+   if (cell < 0)
+      cell = 0;
+   logical = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_FILEAREA,
+                                      view->focus_line, row, rec, rec_len,
+                                      (int)cell, TEXT_SNAP_BACKWARD, 1);
+   logical_cursor_state_focus(&view->logical_cursor, logical);
+   curses_driver_move_filearea_cursor(scrno, view, rec, rec_len, row,
+                                      (int)cell);
+}
+
+static LENGTHTYPE sos_filearea_edge_cell_from_command(unsigned short x)
+{
+   LENGTHTYPE cell;
+
+   cell = sos_command_current_cell(x);
+   if ((CURRENT_VIEW->prefix & PREFIX_LOCATION_MASK) != PREFIX_LEFT)
+      cell += CURRENT_VIEW->prefix_width;
+   return cell;
 }
 
 static LENGTHTYPE sos_command_current_cell(unsigned short x)
@@ -165,12 +259,12 @@ static void sos_store_prefix_cursor(unsigned short row, LENGTHTYPE cell)
       cell = 0;
    if (cell >= width)
       cell = width - 1;
-   curses_driver_move_window_cursor(CURRENT_WINDOW, row, (short)cell);
    logical = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_PREFIX,
                                       CURRENT_VIEW->focus_line, row,
                                       pre_rec, pre_rec_len, (int)cell,
                                       TEXT_SNAP_BACKWARD, 1);
    logical_cursor_state_focus(&CURRENT_VIEW->logical_cursor, logical);
+   curses_driver_move_window_cursor(CURRENT_WINDOW_PREFIX, row, (short)cell);
 }
 
 #ifdef USE_UTF8
@@ -474,9 +568,10 @@ short Sos_bottomedge(CHARTYPE *params)
 {
    short rc=RC_OK;
    unsigned short y=0,x=0,row=0;
+   LENGTHTYPE cell=0;
 
    TRACE_FUNCTION("commsos.c: Sos_bottomedge");
-   getyx(CURRENT_WINDOW,y,x);
+   (void)sos_capture_current_cursor_fallback(&y, &x);
    /*
     * Get the last enterable row. If an error, stay where we are...
     */
@@ -491,24 +586,36 @@ short Sos_bottomedge(CHARTYPE *params)
    switch(CURRENT_VIEW->current_window)
    {
       case WINDOW_COMMAND:
-         if ((CURRENT_VIEW->prefix&PREFIX_LOCATION_MASK) != PREFIX_LEFT)
-            x += CURRENT_VIEW->prefix_width;
+         cell = sos_filearea_edge_cell_from_command(x);
          CURRENT_VIEW->focus_line = CURRENT_SCREEN.sl[row].line_number;
          pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
          CURRENT_VIEW->current_window = WINDOW_FILEAREA;
-         wmove(CURRENT_WINDOW,row,x);
+         sos_store_filearea_cursor(current_screen, CURRENT_VIEW, row, cell);
          break;
       case WINDOW_FILEAREA:
-      case WINDOW_PREFIX:
+         y = sos_filearea_focus_row(current_screen, CURRENT_VIEW);
+         cell = sos_filearea_current_cell(y, x);
          if (row != y)                            /* different rows */
          {
             post_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL,TRUE);
             CURRENT_VIEW->focus_line = CURRENT_SCREEN.sl[row].line_number;
             pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
-            wmove(CURRENT_WINDOW,row,x);
          }
+         sos_store_filearea_cursor(current_screen, CURRENT_VIEW, row, cell);
+         break;
+      case WINDOW_PREFIX:
+         y = sos_prefix_current_row(y);
+         cell = sos_prefix_current_cell(x);
+         if (row != y)                            /* different rows */
+         {
+            post_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL,TRUE);
+            CURRENT_VIEW->focus_line = CURRENT_SCREEN.sl[row].line_number;
+            pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
+         }
+         sos_store_prefix_cursor(row, cell);
          break;
    }
+   cursor_focus_refresh(current_screen, CURRENT_VIEW);
    TRACE_RETURN();
    return(rc);
 }
@@ -608,11 +715,15 @@ short do_Sos_current( CHARTYPE *params, CHARTYPE curr_screen, VIEW_DETAILS *curr
 /***********************************************************************/
 {
    short rc=RC_OK;
-   unsigned short x=0,y=0;
+   unsigned short y=0;
+   LENGTHTYPE cell=0;
    bool same_line=TRUE;
 
    TRACE_FUNCTION("commsos.c: Sos_current");
-   getyx( SCREEN_WINDOW_FILEAREA(curr_screen), y, x );
+   if (!sos_filearea_saved_cell(curr_view, &cell))
+      cell = curr_view->current_column - 1;
+   if (cell < 0)
+      cell = 0;
    switch ( curr_view->current_window )
    {
       case WINDOW_FILEAREA:
@@ -623,21 +734,22 @@ short do_Sos_current( CHARTYPE *params, CHARTYPE curr_screen, VIEW_DETAILS *curr
             same_line = FALSE;
          }
          y = get_row_for_focus_line( curr_screen, curr_view->focus_line, curr_view->current_row );
-         wmove( SCREEN_WINDOW_FILEAREA(curr_screen), y, x );
          if ( !same_line )
             pre_process_line( curr_view, curr_view->focus_line, (LINE *)NULL );
+         sos_store_filearea_cursor(curr_screen, curr_view, y, cell);
          break;
       case WINDOW_PREFIX:
       case WINDOW_COMMAND:
          curr_view->focus_line = curr_view->current_line;
          y = get_row_for_focus_line( curr_screen, curr_view->focus_line, curr_view->current_row );
          curr_view->current_window = WINDOW_FILEAREA;
-         wmove( SCREEN_WINDOW_FILEAREA(curr_screen), y, x );
          pre_process_line( curr_view, curr_view->focus_line, (LINE *)NULL );
+         sos_store_filearea_cursor(curr_screen, curr_view, y, cell);
          break;
       default:
          break;
    }
+   cursor_focus_refresh(curr_screen, curr_view);
    TRACE_RETURN();
    return(rc);
 }
@@ -1591,17 +1703,32 @@ short Sos_lastcol(CHARTYPE *params)
 /***********************************************************************/
 {
    short rc=RC_OK;
-   short y=0,x=0;
-   CursesDriverWindowCursor cursor;
    CursesDriverWindowSize size;
+   unsigned short row=0;
+   LENGTHTYPE cell=0;
 
    TRACE_FUNCTION( "commsos.c: Sos_lastcol" );
-   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
-   if (cursor.valid)
-      y = cursor.row;
+   (void)sos_capture_current_cursor_fallback(&row, NULL);
    size = curses_driver_window_size(CURRENT_WINDOW);
-   x = (size.valid && size.cols > 0) ? size.cols - 1 : 0;
-   curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
+   cell = (size.valid && size.cols > 0) ? size.cols - 1 : 0;
+   switch (CURRENT_VIEW->current_window)
+   {
+      case WINDOW_COMMAND:
+         cell += cmd_verify_col - 1;
+         rc = execute_move_cursor(current_screen, CURRENT_VIEW, cell);
+         break;
+      case WINDOW_PREFIX:
+         row = sos_prefix_current_row(row);
+         sos_store_prefix_cursor(row, cell);
+         cursor_focus_refresh(current_screen, CURRENT_VIEW);
+         break;
+      case WINDOW_FILEAREA:
+         cell += CURRENT_VIEW->verify_col - 1;
+         rc = execute_move_cursor(current_screen, CURRENT_VIEW, cell);
+         break;
+      default:
+         break;
+   }
    TRACE_RETURN();
    return(rc);
 }
@@ -1630,16 +1757,18 @@ STATUS
 short Sos_leftedge(CHARTYPE *params)
 /***********************************************************************/
 {
-   short y=0;
-   CursesDriverWindowCursor cursor;
+   unsigned short row=0;
 
    TRACE_FUNCTION( "commsos.c: Sos_leftedge" );
-   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
-   if (cursor.valid)
-      y = cursor.row;
+   (void)sos_capture_current_cursor_fallback(&row, NULL);
    if ( CURRENT_VIEW->current_window == WINDOW_PREFIX )
+   {
+      row = sos_prefix_current_row(row);
       CURRENT_VIEW->current_window = WINDOW_FILEAREA;
-   curses_driver_move_window_cursor(CURRENT_WINDOW, y, 0);
+      sos_store_filearea_cursor(current_screen, CURRENT_VIEW, row, 0);
+   }
+   else
+      execute_move_cursor(current_screen, CURRENT_VIEW, 0);
    cursor_focus_refresh( current_screen, CURRENT_VIEW );
    TRACE_RETURN();
    return(RC_OK);
@@ -1935,9 +2064,10 @@ short do_Sos_prefix( CHARTYPE *params, CHARTYPE curr_screen, VIEW_DETAILS *curr_
 /***********************************************************************/
 {
    short rc=RC_OK;
-   unsigned short y=0,x=0;
+   unsigned short y=0;
 
    TRACE_FUNCTION("commsos.c: Sos_prefix");
+   (void)sos_capture_current_cursor_fallback(&y, NULL);
    /*
     * If the cursor is in the command line or there is no prefix on, exit.
     */
@@ -1948,11 +2078,13 @@ short do_Sos_prefix( CHARTYPE *params, CHARTYPE curr_screen, VIEW_DETAILS *curr_
       return(RC_OK);
    }
    post_process_line( curr_view, curr_view->focus_line, (LINE *)NULL, TRUE );
-   getyx( SCREEN_WINDOW(curr_screen), y, x );
-   if (curr_view->current_window == WINDOW_FILEAREA )
+   if (curr_view->current_window == WINDOW_FILEAREA)
+      y = sos_filearea_focus_row(curr_screen, curr_view);
+   else
+      y = sos_prefix_current_row(y);
+   if (curr_view->current_window == WINDOW_FILEAREA)
       curr_view->current_window = WINDOW_PREFIX;
-   x = 0;
-   wmove( SCREEN_WINDOW(curr_screen), y, x );
+   sos_store_prefix_cursor(y, 0);
    cursor_focus_refresh(curr_screen, curr_view);
    TRACE_RETURN();
    return(rc);
@@ -2025,19 +2157,34 @@ short Sos_rightedge(CHARTYPE *params)
 /***********************************************************************/
 {
    short rc=RC_OK;
-   short y=0,x=0;
-   CursesDriverWindowCursor cursor;
    CursesDriverWindowSize size;
+   unsigned short row=0;
+   LENGTHTYPE cell=0;
 
    TRACE_FUNCTION("commsos.c: Sos_rightedge");
-   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
-   if (cursor.valid)
-      y = cursor.row;
+   (void)sos_capture_current_cursor_fallback(&row, NULL);
    if (CURRENT_VIEW->current_window == WINDOW_PREFIX)
+   {
+      row = sos_prefix_current_row(row);
       CURRENT_VIEW->current_window = WINDOW_FILEAREA;
+   }
+   else
+      row = sos_filearea_focus_row(current_screen, CURRENT_VIEW);
    size = curses_driver_window_size(CURRENT_WINDOW);
-   x = (size.valid && size.cols > 0) ? size.cols - 1 : 0;
-   curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
+   cell = (size.valid && size.cols > 0) ? size.cols - 1 : 0;
+   switch (CURRENT_VIEW->current_window)
+   {
+      case WINDOW_COMMAND:
+         cell += cmd_verify_col - 1;
+         rc = execute_move_cursor(current_screen, CURRENT_VIEW, cell);
+         break;
+      case WINDOW_FILEAREA:
+         cell += CURRENT_VIEW->verify_col - 1;
+         sos_store_filearea_cursor(current_screen, CURRENT_VIEW, row, cell);
+         break;
+      default:
+         break;
+   }
    cursor_focus_refresh( current_screen, CURRENT_VIEW );
    TRACE_RETURN();
    return(rc);
@@ -2877,9 +3024,10 @@ short Sos_topedge(CHARTYPE *params)
 {
   short rc=RC_OK;
   unsigned short y=0,x=0,row=0;
+  LENGTHTYPE cell=0;
 
   TRACE_FUNCTION("commsos.c: Sos_topedge");
-  getyx(CURRENT_WINDOW,y,x);
+  (void)sos_capture_current_cursor_fallback(&y, &x);
   /*
    * Get the last enterable row. If an error, stay where we are...
    */
@@ -2894,24 +3042,36 @@ short Sos_topedge(CHARTYPE *params)
   switch(CURRENT_VIEW->current_window)
   {
      case WINDOW_COMMAND:
-        if ((CURRENT_VIEW->prefix&PREFIX_LOCATION_MASK) != PREFIX_LEFT)
-           x += CURRENT_VIEW->prefix_width;
+        cell = sos_filearea_edge_cell_from_command(x);
         CURRENT_VIEW->focus_line = CURRENT_SCREEN.sl[row].line_number;
         pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
         CURRENT_VIEW->current_window = WINDOW_FILEAREA;
-        wmove(CURRENT_WINDOW,row,x);
+        sos_store_filearea_cursor(current_screen, CURRENT_VIEW, row, cell);
         break;
      case WINDOW_FILEAREA:
-     case WINDOW_PREFIX:
+        y = sos_filearea_focus_row(current_screen, CURRENT_VIEW);
+        cell = sos_filearea_current_cell(y, x);
         if (row != y)                            /* different rows */
         {
            post_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL,TRUE);
            CURRENT_VIEW->focus_line = CURRENT_SCREEN.sl[row].line_number;
            pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
-           wmove(CURRENT_WINDOW,row,x);
         }
+        sos_store_filearea_cursor(current_screen, CURRENT_VIEW, row, cell);
+        break;
+     case WINDOW_PREFIX:
+        y = sos_prefix_current_row(y);
+        cell = sos_prefix_current_cell(x);
+        if (row != y)                            /* different rows */
+        {
+           post_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL,TRUE);
+           CURRENT_VIEW->focus_line = CURRENT_SCREEN.sl[row].line_number;
+           pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
+        }
+        sos_store_prefix_cursor(row, cell);
         break;
   }
+  cursor_focus_refresh(current_screen, CURRENT_VIEW);
   TRACE_RETURN();
   return(rc);
 }
