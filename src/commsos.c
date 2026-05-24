@@ -1025,7 +1025,7 @@ short Sos_delword(CHARTYPE *params)
    short rc=RC_OK;
    LENGTHTYPE first_col=0,last_col=0;
    unsigned short x=0,y=0;
-   LENGTHTYPE num_cols=0,left_col=0,temp_rec_len=0;
+   LENGTHTYPE num_cols=0,temp_rec_len=0;
    LENGTHTYPE current_pos=0,target_col=0;
    CHARTYPE *temp_rec=NULL;
 
@@ -1065,15 +1065,13 @@ short Sos_delword(CHARTYPE *params)
          }
          temp_rec = rec;
          temp_rec_len = rec_len;
-         left_col = CURRENT_VIEW->verify_col-1;
          current_pos = sos_filearea_current_byte(y, x);
          break;
       }
       case WINDOW_COMMAND:
          temp_rec = (CHARTYPE *)cmd_rec;
          temp_rec_len = cmd_rec_len;
-         left_col = cmd_verify_col;
-         current_pos = x + left_col;
+         current_pos = sos_command_current_cell(x);
          break;
    }
    if ( get_word( temp_rec, temp_rec_len, current_pos, &first_col, &last_col ) == 0 )
@@ -1102,7 +1100,9 @@ short Sos_delword(CHARTYPE *params)
          break;
       case WINDOW_COMMAND:
          cmd_rec_len -= num_cols;
+         rc = execute_move_cursor( current_screen, CURRENT_VIEW, first_col );
          display_cmdline( current_screen, CURRENT_VIEW );
+         cursor_focus_refresh( current_screen, CURRENT_VIEW );
          break;
    }
    TRACE_RETURN();
@@ -1844,9 +1844,8 @@ short Sos_pastecmdline(CHARTYPE *params)
    LINE *curr=NULL;
    LENGTHTYPE start_col=0,end_col=0;
    LENGTHTYPE cursor_location=0;
-   LENGTHTYPE new_verify_col=0;
-   COLTYPE new_screen_col=0;
-   LENGTHTYPE verify_col=0;
+   LENGTHTYPE command_col=0;
+   LENGTHTYPE paste_len=0;
 
    TRACE_FUNCTION( "commsos.c: Sos_pastecmdline" );
    if ( CURRENT_VIEW->current_window != WINDOW_COMMAND )
@@ -1879,27 +1878,24 @@ short Sos_pastecmdline(CHARTYPE *params)
       end_col = MARK_VIEW->mark_end_col - 1;
    }
    getyx( CURRENT_WINDOW, y, x );
+   command_col = sos_command_current_cell(x);
+   paste_len = end_col - start_col + 1;
    if ( INSERTMODEx )
    {
-      meminsmem( cmd_rec, curr->line + start_col, end_col - start_col + 1, x + cmd_verify_col - 1, max_line_length, cmd_rec_len );
-      cmd_rec_len = max( cmd_rec_len, x + cmd_verify_col - 1 ) + end_col - start_col + 1;
+      meminsmem( cmd_rec, curr->line + start_col, paste_len, command_col, max_line_length, cmd_rec_len );
+      cmd_rec_len = max( cmd_rec_len, command_col ) + paste_len;
    }
    else
    {
-      memcpy( cmd_rec + x + cmd_verify_col - 1, curr->line + start_col, end_col - start_col + 1 );
-      cmd_rec_len = max( x + end_col - start_col + 1 + cmd_verify_col - 1, cmd_rec_len );
+      memcpy( cmd_rec + command_col, curr->line + start_col, paste_len );
+      cmd_rec_len = max( command_col + paste_len, cmd_rec_len );
    }
 
    if ( curses_started
    &&   CURRENT_WINDOW_COMMAND != (WINDOW *)NULL )
    {
-      cursor_location = x + cmd_verify_col - 1 + end_col - start_col + 1;
-      calculate_new_column(  current_screen, CURRENT_VIEW, x, cmd_verify_col, cursor_location, &new_screen_col, &new_verify_col );
-      if ( verify_col != new_verify_col )
-      {
-         cmd_verify_col = new_verify_col;
-      }
-      wmove( CURRENT_WINDOW, y, new_screen_col );
+      cursor_location = command_col + paste_len;
+      execute_move_cursor( current_screen, CURRENT_VIEW, cursor_location );
       display_cmdline( current_screen, CURRENT_VIEW );
       cursor_focus_refresh( current_screen, CURRENT_VIEW );
    }
@@ -2560,10 +2556,7 @@ short Sos_tabwordb(CHARTYPE *params)
    CHARTYPE *temp_rec=NULL;
    LENGTHTYPE i=0;
    bool blank_found=FALSE;
-   LENGTHTYPE left_col=0,current_pos=0,target_col=0;
-   LENGTHTYPE verify_col=0;
-   COLTYPE new_screen_col=0;
-   LENGTHTYPE new_verify_col=0;
+   LENGTHTYPE current_pos=0,target_col=0;
    short current_char_type=0;
    CHARTYPE this_char=0;
    short rc=RC_OK;
@@ -2582,17 +2575,13 @@ short Sos_tabwordb(CHARTYPE *params)
          break;
       case WINDOW_FILEAREA:
          temp_rec = rec;
-         verify_col = CURRENT_VIEW->verify_col;
          current_pos = sos_filearea_current_byte(y, x);
          break;
       case WINDOW_COMMAND:
          temp_rec = (CHARTYPE *)cmd_rec;
-         verify_col = cmd_verify_col;
+         current_pos = sos_command_current_cell(x);
          break;
    }
-   left_col = verify_col - 1;
-   if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
-      current_pos = left_col + x;
    /*
     * Determine the start of the prior word, or go to the start of the
     * line if already at or before beginning of prior word.
@@ -2708,27 +2697,7 @@ short Sos_tabwordb(CHARTYPE *params)
    if (CURRENT_VIEW->current_window == WINDOW_FILEAREA)
       target_col = sos_filearea_byte_to_cell(start_word_col);
 
-#ifdef VERSHIFT
    rc = execute_move_cursor( current_screen, CURRENT_VIEW, target_col );
-#else
-   calculate_new_column( current_screen, CURRENT_VIEW, x, verify_col, target_col, &new_screen_col, &new_verify_col );
-   if ( verify_col != new_verify_col )
-   {
-      switch( CURRENT_VIEW->current_window )
-      {
-         case WINDOW_COMMAND:
-            cmd_verify_col = new_verify_col;
-            display_cmdline( current_screen, CURRENT_VIEW );
-            break;
-         case WINDOW_FILEAREA:
-            CURRENT_VIEW->verify_col = new_verify_col;
-            build_screen( current_screen );
-            display_screen( current_screen );
-            break;
-      }
-   }
-   wmove( CURRENT_WINDOW, y, new_screen_col );
-#endif
 
    TRACE_RETURN();
    return(rc);
@@ -2762,15 +2731,12 @@ short Sos_tabwordf(CHARTYPE *params)
 {
    unsigned short x=0,y=0;
    LENGTHTYPE temp_rec_len=0;
-   LENGTHTYPE start_word_col=0,left_col=0,current_pos=0,target_col=0;
-   LENGTHTYPE verify_col=0;
+   LENGTHTYPE start_word_col=0,current_pos=0,target_col=0;
    bool word_break=FALSE;
    short current_char_type=0;
    CHARTYPE *temp_rec=NULL;
    CHARTYPE this_char=0;
    LENGTHTYPE i=0;
-   COLTYPE new_screen_col=0;
-   LENGTHTYPE new_verify_col=0;
    short rc=RC_OK;
 
    TRACE_FUNCTION("commsos.c: Sos_tabwordf");
@@ -2788,18 +2754,14 @@ short Sos_tabwordf(CHARTYPE *params)
       case WINDOW_FILEAREA:
          temp_rec = rec;
          temp_rec_len = rec_len;
-         verify_col = CURRENT_VIEW->verify_col;
          current_pos = sos_filearea_current_byte(y, x);
          break;
       case WINDOW_COMMAND:
          temp_rec = (CHARTYPE *)cmd_rec;
          temp_rec_len = cmd_rec_len;
-         verify_col = cmd_verify_col;
+         current_pos = sos_command_current_cell(x);
          break;
    }
-   left_col = verify_col - 1;
-   if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
-      current_pos = x + left_col;
    /*
     * If we are after the last column of the line, then just ignore the
     * command and leave the cursor where it is.
@@ -2880,27 +2842,7 @@ short Sos_tabwordf(CHARTYPE *params)
    if (CURRENT_VIEW->current_window == WINDOW_FILEAREA)
       target_col = sos_filearea_byte_to_cell(start_word_col);
 
-#ifdef VERSHIFT
    rc = execute_move_cursor( current_screen, CURRENT_VIEW, target_col );
-#else
-   calculate_new_column( current_screen, CURRENT_VIEW, x, verify_col, target_col, &new_screen_col, &new_verify_col );
-   if ( verify_col != new_verify_col )
-   {
-      switch( CURRENT_VIEW->current_window )
-      {
-         case WINDOW_COMMAND:
-            cmd_verify_col = new_verify_col;
-            display_cmdline( current_screen, CURRENT_VIEW );
-            break;
-         case WINDOW_FILEAREA:
-            CURRENT_VIEW->verify_col = new_verify_col;
-            build_screen( current_screen );
-            display_screen( current_screen );
-            break;
-      }
-   }
-   wmove( CURRENT_WINDOW, y, new_screen_col );
-#endif
 
    TRACE_RETURN();
    return(rc);
