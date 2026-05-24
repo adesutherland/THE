@@ -117,11 +117,75 @@ static void test_keycap_trailing_cells_stay_logical(void)
               8);
 }
 
+static void test_zwj_display_mapping_snaps_to_cluster_start(void)
+{
+   static const CHARTYPE short_zwj[] = {
+      'A',
+      0xF0, 0x9F, 0x91, 0xA9, 0xE2, 0x80, 0x8D,
+      0xF0, 0x9F, 0x92, 0xBB,
+      'B'
+   };
+   static const CHARTYPE heart_zwj[] = {
+      'A',
+      0xF0, 0x9F, 0x91, 0xA9, 0xE2, 0x80, 0x8D,
+      0xE2, 0x9D, 0xA4, 0xEF, 0xB8, 0x8F,
+      0xE2, 0x80, 0x8D, 0xF0, 0x9F, 0x91, 0xA8,
+      'B'
+   };
+   TextCluster cluster;
+   TextPos snapped;
+   int raw_cell;
+
+   utf8_terminal_profile_reset();
+   cluster = textpos_cluster_at_boundary(
+      short_zwj, sizeof(short_zwj),
+      textpos_from_cell(short_zwj, sizeof(short_zwj), 1,
+                        TEXT_SNAP_BACKWARD));
+   expect_int("short-zwj.logical.start", cluster.pos.cell_column, 1);
+   expect_int("short-zwj.logical.end", cluster.end.cell_column, 5);
+   expect_int("short-zwj.grouped.display.width",
+              utf8_layout_cluster_display_width(short_zwj, sizeof(short_zwj),
+                                                cluster),
+              2);
+   expect_int("short-zwj.grouped.display.inside",
+              utf8_layout_logical_col_from_display(short_zwj,
+                                                   sizeof(short_zwj), 0, 2,
+                                                   TEXT_SNAP_BACKWARD),
+              1);
+
+   utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_COMPONENTS);
+   expect_int("short-zwj.components.display.width",
+              utf8_layout_cluster_display_width(short_zwj, sizeof(short_zwj),
+                                                cluster),
+              4);
+   raw_cell = utf8_layout_logical_col_from_display(short_zwj,
+                                                  sizeof(short_zwj), 0, 3,
+                                                  TEXT_SNAP_BACKWARD);
+   snapped = textpos_from_cell(short_zwj, sizeof(short_zwj), raw_cell,
+                               TEXT_SNAP_BACKWARD);
+   expect_int("short-zwj.components.raw-inside", raw_cell, 3);
+   expect_int("short-zwj.components.snapped-start", snapped.cell_column, 1);
+
+   utf8_terminal_profile_reset();
+   cluster = textpos_cluster_at_boundary(
+      heart_zwj, sizeof(heart_zwj),
+      textpos_from_cell(heart_zwj, sizeof(heart_zwj), 1,
+                        TEXT_SNAP_BACKWARD));
+   expect_int("heart-zwj.logical.start", cluster.pos.cell_column, 1);
+   expect_int("heart-zwj.logical.end", cluster.end.cell_column, 6);
+   expect_int("heart-zwj.grouped.display.inside",
+              utf8_layout_logical_col_from_display(heart_zwj,
+                                                   sizeof(heart_zwj), 0, 4,
+                                                   TEXT_SNAP_BACKWARD),
+              1);
+}
+
 int main(void)
 {
    test_keycap_physical_layout();
    test_keycap_viewport_uses_physical_width();
    test_keycap_trailing_cells_stay_logical();
+   test_zwj_display_mapping_snaps_to_cluster_start();
 
    if (failures != 0)
    {

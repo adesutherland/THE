@@ -567,6 +567,10 @@ static int cursor_utf8_filearea_logical_cell_from_display(CHARTYPE curr_screen,
                                                  display_col, snap);
 }
 
+static void cursor_utf8_move_filearea_display_col(CHARTYPE curr_screen,
+                                                  VIEW_DETAILS *curr_view,
+                                                  short row, int display_col);
+
 static void cursor_utf8_repaint_filearea_motion(CHARTYPE curr_screen,
                                                 VIEW_DETAILS *curr_view,
                                                 short old_row,
@@ -675,25 +679,18 @@ static bool cursor_utf8_filearea_right(short escreen, short *rc)
 static void cursor_utf8_snap_filearea_to_cluster_start(CHARTYPE curr_screen,
                                                        VIEW_DETAILS *curr_view)
 {
-   int x = 0;
    CursesDriverWindowCursor cursor;
-   int cell;
-   TextPos pos;
 
    if (curr_view == NULL || curr_view->current_window != WINDOW_FILEAREA)
       return;
 
    cursor = curses_driver_capture_window_cursor(
       SCREEN_WINDOW_FILEAREA(curr_screen));
-   if (cursor.valid)
-      x = cursor.col;
-   cell = cursor_utf8_filearea_logical_cell_from_display(curr_screen,
-                                                         curr_view,
-                                                         x,
-                                                         TEXT_SNAP_BACKWARD);
-   pos = textpos_from_cell(rec, rec_len, cell, TEXT_SNAP_BACKWARD);
-   if (pos.cell_column != cell)
-      execute_move_cursor(curr_screen, curr_view, (LENGTHTYPE)pos.cell_column);
+   if (!cursor.valid)
+      return;
+
+   cursor_utf8_move_filearea_display_col(curr_screen, curr_view, cursor.row,
+                                         cursor.col);
 }
 
 static void cursor_utf8_move_filearea_display_col(CHARTYPE curr_screen,
