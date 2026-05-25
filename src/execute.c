@@ -1317,7 +1317,8 @@ short rearrange_line_blocks(CHARTYPE command,CHARTYPE source,
 {
    LINETYPE j=0,k=0;
    short rc=RC_OK;
-   static unsigned short y=0,x=0;
+   static unsigned short y=0;
+   LENGTHTYPE cell=0;
    bool dst_inside_src=FALSE,lines_added=FALSE,reset_block=FALSE;
    bool dest_in_block=FALSE;
    short direction=0;
@@ -1534,8 +1535,17 @@ command,source,start_line,end_line,dest_line);
    /*
     * This block of commands is for sorting out cursor position...
     */
-   if (curses_started)
-      getyx(CURRENT_WINDOW,y,x);
+   if (dst_view->current_window != WINDOW_COMMAND
+   &&  dst_view == CURRENT_SCREEN.screen_view)
+   {
+      y = (unsigned short)get_row_for_focus_line(current_screen,
+                                                 dst_view->focus_line,
+                                                 dst_view->current_row);
+      if (dst_view->current_window == WINDOW_PREFIX)
+         cell = execute_prefix_cursor_cell(dst_view);
+      else
+         cell = execute_filearea_cursor_cell(dst_view);
+   }
    switch(command)
    {
       case COMMAND_COPY:
@@ -1754,8 +1764,11 @@ command,source,start_line,end_line,dest_line);
    if (dst_view->current_window != WINDOW_COMMAND
    &&  dst_view == CURRENT_SCREEN.screen_view)
    {
-      if (curses_started)
-         wmove(CURRENT_WINDOW,y,x);
+      if (dst_view->current_window == WINDOW_PREFIX)
+         execute_move_prefix_cursor(current_screen, dst_view, y, cell);
+      else
+         curses_driver_move_filearea_cursor(current_screen, dst_view,
+                                            rec, rec_len, y, (int)cell);
    }
    TRACE_RETURN();
    return(RC_OK);

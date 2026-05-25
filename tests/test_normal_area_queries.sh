@@ -59,6 +59,12 @@ field = .string[]
 address the "extract /field/" expose field[]
 say "COLUMN_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
 
+'cursor file 1 4'
+'duplicate 1 1'
+field = .string[]
+address the "extract /field/" expose field[]
+say "DUP_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
+
 'qquit'
 PROFILE_EOF
 
@@ -83,5 +89,6 @@ grep -q "CMD_FIELD=abc::4:COMMAND" "${WORK_DIR}/combined.txt"
 grep -q "CMD_FIELD2=aZc:c:3:COMMAND" "${WORK_DIR}/combined.txt"
 grep -q "PREFIX_FIELD=ab::3:PREFIX" "${WORK_DIR}/combined.txt"
 grep -q "COLUMN_FIELD=b:7:TEXT" "${WORK_DIR}/combined.txt"
+grep -q "DUP_FIELD=h:4:TEXT" "${WORK_DIR}/combined.txt"
 
 echo "Normal area query test passed."
