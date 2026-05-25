@@ -61,8 +61,10 @@ wired into the live input loop.
 replacement for the full editor integration path. It can exercise logical file
 and command focus, normalized key/text input, and a small command subset, but it
 does not yet route arbitrary THE commands or SOS commands such as
-`SOS TOPEDGE` through the real command dispatcher. Use it as an extra LLM-driver
-smoke layer, not as the only proof for command behavior.
+`SOS TOPEDGE` through the real command dispatcher. The agent now exposes this
+boundary directly: `capabilities` reports the supported agent subset and an
+unsupported command returns a stable diagnostic with a capabilities hint. Use it
+as an extra LLM-driver smoke layer, not as the only proof for command behavior.
 
 The macro/agent visibility layer has two distinct message surfaces. THE message
 history remains available through `EXTRACT /MESSAGES/` and `QUERY MESSAGES`.
@@ -77,8 +79,10 @@ and SOS behavior because they run through the live command processor. Their
 limitations should be made explicit in tests and docs when they matter: they
 require a CREXX-enabled build, a working CREXX compiler/import directory, and a
 pty-capable host; failures can be compiler/interface errors rather than editor
-regressions; and they do not prove no-curses behavior. Prefer CREXX for full
-editor command coverage and `the_agent` for driver-boundary/no-curses coverage.
+regressions; and they do not prove no-curses behavior. Skip messages should
+name the missing prerequisite rather than collapsing all failures into a generic
+test skip. Prefer CREXX for full editor command coverage and `the_agent` for
+driver-boundary/no-curses coverage.
 
 The generic suffix-style cursor repair now follows the probe order: clear the
 selected suffix, flush that blank state when requested, repaint the suffix in
@@ -158,9 +162,10 @@ layer.
 - `tests/fixtures/utf-render.txt`: manual editor fixture for UTF-8 rendering.
 - `tests/test_utfrepair.c`, `tests/test_utfterm.c`, `tests/test_utf_fixture.c`,
   `tests/test_utflayout.c`, `tests/test_inputevent.c`,
-  `tests/test_llmdriver.c`, and `tests/test_textpos.c`: repair planning,
-  terminal-profile, fixture, layout, normalized input, driver, and
-  text-position regression coverage.
+  `tests/test_llmdriver.c`, `tests/test_agentdriver.c`,
+  `tests/test_the_agent_capabilities.sh`, and `tests/test_textpos.c`: repair
+  planning, terminal-profile, fixture, layout, normalized input, driver,
+  agent-surface, and text-position regression coverage.
 
 ## macOS Apple Terminal Baseline
 
@@ -283,16 +288,16 @@ Near-term migration sequence:
    surfaces so they report logical focus/row/cell state rather than physical
    curses cursor state. This is complete.
 2. SOS commands: move `commsos.c` edge/navigation/delete helpers in larger
-   groups. Edge navigation has an initial logical-first checkpoint; continue
-   with command-line helpers, prefix helpers, tab/word movement, and delete/
-   insert paths. Prefer logical focus, row role, and cell state; use active-
-   driver queries only as temporary fallback.
-3. Test-surface exposure: as gaps are discovered, expose generally useful
-   agent and CREXX limitations rather than hiding them in ad hoc smoke notes.
-   Near-term examples are agent capability/introspection output, explicit
-   unsupported-command responses for `the_agent`, and docs/tests that mark when
-   CREXX coverage is unavailable or is testing the full curses editor rather
-   than the no-curses driver.
+   groups. `commsos.c` now has a logical-first checkpoint across edge/
+   navigation, command-line helpers, prefix helpers, tab/word movement, and
+   delete paths. Remaining SOS-related work should focus on non-`commsos.c`
+   callers, normalized input routing, and retiring the active-driver fallback
+   once every caller supplies logical row/cell state.
+3. Test-surface exposure: initial checkpoint done. `the_agent` has stable
+   capability/introspection output and explicit unsupported-command responses;
+   CREXX test skips now identify missing build/runtime prerequisites more
+   clearly. Continue adding surface declarations when new agent limitations,
+   CREXX interface limitations, or pty-host assumptions are discovered.
 4. `execute.c`: split ordinary file/command cursor effects from prompt/dialog
    and popup mechanics. Move normal cursor/focus updates first; leave popup
    behavior for a logical popup design.

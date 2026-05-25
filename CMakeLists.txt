@@ -556,6 +556,9 @@ add_test(NAME test_agentdriver COMMAND test_agentdriver)
 add_test(NAME test_the_agent_script
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_agent_script.sh
             $<TARGET_FILE:the_agent>)
+add_test(NAME test_the_agent_capabilities
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_agent_capabilities.sh
+            $<TARGET_FILE:the_agent>)
 add_test(NAME test_the_agent_no_curses
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_agent_no_curses.sh
             $<TARGET_FILE:the_agent>)
@@ -618,19 +621,37 @@ if(USE_UTF8)
                 --profile-dir ${CMAKE_CURRENT_BINARY_DIR})
         add_test(NAME test_utf_terminal_probe_profile
             COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_utf_probe_profile.sh)
-        set_tests_properties(test_utf_terminal_probe_profile PROPERTIES SKIP_RETURN_CODE 77)
+        set_tests_properties(test_utf_terminal_probe_profile PROPERTIES
+            SKIP_RETURN_CODE 77
+            ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+        )
     endif()
     add_test(NAME test_system_profile COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_system_profile.sh)
-    set_tests_properties(test_system_profile PROPERTIES SKIP_RETURN_CODE 77)
+    set_tests_properties(test_system_profile PROPERTIES
+        SKIP_RETURN_CODE 77
+        ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+    )
 endif()
 add_test(NAME test_sdslh_integration COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdslh_integration.sh)
-set_tests_properties(test_sdslh_integration PROPERTIES SKIP_RETURN_CODE 77)
+set_tests_properties(test_sdslh_integration PROPERTIES
+    SKIP_RETURN_CODE 77
+    ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+)
 add_test(NAME test_sdslh_multifile_lifecycle COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdslh_multifile_lifecycle.sh)
-set_tests_properties(test_sdslh_multifile_lifecycle PROPERTIES SKIP_RETURN_CODE 77)
+set_tests_properties(test_sdslh_multifile_lifecycle PROPERTIES
+    SKIP_RETURN_CODE 77
+    ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+)
 add_test(NAME test_file_ecolor_inheritance COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_file_ecolor_inheritance.sh)
-set_tests_properties(test_file_ecolor_inheritance PROPERTIES SKIP_RETURN_CODE 77)
+set_tests_properties(test_file_ecolor_inheritance PROPERTIES
+    SKIP_RETURN_CODE 77
+    ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+)
 add_test(NAME test_message_history COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_message_history.sh)
-set_tests_properties(test_message_history PROPERTIES SKIP_RETURN_CODE 77)
+set_tests_properties(test_message_history PROPERTIES
+    SKIP_RETURN_CODE 77
+    ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+)
 if(THE_USE_CREXX)
     add_test(NAME test_field_queries COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_field_queries.sh)
     set_tests_properties(test_field_queries PROPERTIES
@@ -665,5 +686,8 @@ if(THE_USE_CREXX)
         ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
     )
     add_test(NAME test_crexx_profile COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_crexx_profile.sh)
-    set_tests_properties(test_crexx_profile PROPERTIES SKIP_RETURN_CODE 77)
+    set_tests_properties(test_crexx_profile PROPERTIES
+        SKIP_RETURN_CODE 77
+        ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+    )
 endif()

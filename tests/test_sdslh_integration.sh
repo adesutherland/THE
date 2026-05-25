@@ -31,6 +31,11 @@ if [[ ! -x "${THE_BIN}" ]]; then
   exit 77
 fi
 
+if grep -aq "CREXX unavailable" "${THE_BIN}"; then
+  echo "Skipping SDSLH integration test; THE was built without CREXX support" >&2
+  exit 77
+fi
+
 if ! TP_BIN="$(find_tp)"; then
   echo "Skipping SDSLH integration test; tp parser executable is missing" >&2
   exit 77

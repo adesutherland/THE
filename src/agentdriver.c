@@ -744,7 +744,7 @@ static int agent_apply_command(AgentDriver *driver, const char *command)
    if (agent_ascii_starts_ci(text, "write "))
       return agent_driver_save_file(driver, agent_trim(text + 6));
 
-   agent_set_status(driver, "unknown command");
+   agent_set_status(driver, "unsupported command");
    return 0;
 }
 

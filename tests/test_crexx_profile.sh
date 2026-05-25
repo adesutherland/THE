@@ -14,8 +14,28 @@ CACHE_DIR="${WORK_DIR}/cache"
 PROFILE="${WORK_DIR}/crexx_profile.the"
 SAMPLE="${WORK_DIR}/sample.txt"
 
-if [[ ! -x "${THE_BIN}" || ! -x "${RXC}" || ! -x "${RXAS}" || ! -f "${CREXX_LIBRARY_RXBIN}" ]]; then
-  echo "Skipping CREXX profile test; THE or CREXX build outputs are missing" >&2
+if [[ ! -x "${THE_BIN}" ]]; then
+  echo "Skipping CREXX profile test; THE build output is missing: ${THE_BIN}" >&2
+  exit 77
+fi
+
+if grep -aq "CREXX unavailable" "${THE_BIN}"; then
+  echo "Skipping CREXX profile test; THE was built without CREXX support" >&2
+  exit 77
+fi
+
+if [[ ! -x "${RXC}" ]]; then
+  echo "Skipping CREXX profile test; CREXX compiler is missing: ${RXC}" >&2
+  exit 77
+fi
+
+if [[ ! -x "${RXAS}" ]]; then
+  echo "Skipping CREXX profile test; CREXX assembler is missing: ${RXAS}" >&2
+  exit 77
+fi
+
+if [[ ! -f "${CREXX_LIBRARY_RXBIN}" ]]; then
+  echo "Skipping CREXX profile test; CREXX import library is missing: ${CREXX_LIBRARY_RXBIN}" >&2
   exit 77
 fi
 

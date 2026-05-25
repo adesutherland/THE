@@ -106,10 +106,69 @@ static void print_json_string(const char *text)
    putchar('"');
 }
 
-static void print_ack(int ok, const AgentDriver *driver)
+static char *ack_logical_input(char *buffer, size_t buffer_len,
+                               const char *input)
 {
+   char *text;
+
+   copy_text(buffer, buffer_len, input);
+   text = trim(buffer);
+   if (ascii_starts_ci(text, "command "))
+      text = trim(text + 8);
+   return text;
+}
+
+static void print_unsupported_detail(const char *input)
+{
+   char buffer[4096];
+   char *logical_input = ack_logical_input(buffer, sizeof(buffer), input);
+
+   fputs(",\"unsupported\":{\"kind\":\"command\",\"input\":", stdout);
+   print_json_string(logical_input);
+   fputs(",\"surface\":\"the_agent\"", stdout);
+   fputs(",\"reason\":\"the_agent uses a no-curses command subset, not the full THE command dispatcher\"", stdout);
+   fputs(",\"capabilities_hint\":\"capabilities\"}", stdout);
+}
+
+static void print_ack(int ok, const AgentDriver *driver, const char *input)
+{
+   const char *status = agent_driver_status(driver);
+
    printf("{\"ok\":%d,\"status\":", ok ? 1 : 0);
-   print_json_string(agent_driver_status(driver));
+   print_json_string(status);
+   if (!ok && strcmp(status, "unsupported command") == 0)
+      print_unsupported_detail(input);
+   fputs("}\n", stdout);
+   fflush(stdout);
+}
+
+static void print_simple_ack(const char *status)
+{
+   fputs("{\"ok\":1,\"status\":", stdout);
+   print_json_string(status);
+   fputs("}\n", stdout);
+   fflush(stdout);
+}
+
+static void print_capabilities(void)
+{
+   fputs("{\"surface\":\"the_agent\"", stdout);
+   fputs(",\"driver\":\"llm\"", stdout);
+   fputs(",\"curses\":false", stdout);
+   fputs(",\"command_dispatcher\":\"agent-subset\"", stdout);
+   fputs(",\"full_the_dispatcher\":false", stdout);
+   fputs(",\"sos_commands\":false", stdout);
+   fputs(",\"crexx_macros\":false", stdout);
+   fputs(",\"prefix_commands\":false", stdout);
+   fputs(",\"popup_dialogs\":false", stdout);
+   fputs(",\"mouse\":false", stdout);
+   fputs(",\"inputs\":[\"look\",\"capabilities\",\"focus\",\"key\",\"text\",\"type\",\"command\",\"debug\",\"quit\"]", stdout);
+   fputs(",\"view_modes\":[\"full\",\"filearea\",\"reserved\",\"prefix\",\"focus\"]", stdout);
+   fputs(",\"supported_commands\":[\"focus command\",\"focus filearea\",\"left\",\"right\",\"up\",\"down\",\"home\",\"end\",\"top\",\"bottom\",\"delete\",\"backspace\",\"goto N\",\"rows N\",\"cols N\",\"insert TEXT\",\"type TEXT\",\"save [PATH]\",\"write [PATH]\"]", stdout);
+   fputs(",\"debug_commands\":[\"describe-focus\",\"describe-row\",\"list-visible-rows\",\"dump-cursor-mapping\",\"dump-driver-ops\",\"explain-last-render\"]", stdout);
+   fputs(",\"limitations\":[\"not wired to the full THE command dispatcher\",\"SOS commands are not supported by the agent subset\",\"CREXX macros require the full editor integration surface\",\"popups/dialogs and mouse input are not modeled yet\"]", stdout);
+   fputs(",\"use_crexx_for\":[\"full THE command execution\",\"SOS command behavior\",\"macro/profile integration\"]", stdout);
+   fputs(",\"use_agent_for\":[\"no-curses driver-boundary smoke\",\"logical snapshots\",\"normalized key/text input\"]", stdout);
    fputs("}\n", stdout);
    fflush(stdout);
 }
@@ -117,9 +176,9 @@ static void print_ack(int ok, const AgentDriver *driver)
 static void usage(FILE *out)
 {
    fputs("usage: the_agent [--rows N] [--cols N] [file]\n", out);
-   fputs("stdin commands: look, focus command|filearea, key NAME, text TEXT,\n",
+   fputs("stdin commands: look, capabilities, focus command|filearea,\n",
          out);
-   fputs("                command THE-COMMAND, quit\n", out);
+   fputs("                key NAME, text TEXT, command THE-COMMAND, quit\n", out);
 }
 
 static void parse_view_options(char *args, LlmDriverFormatOptions *options)
@@ -271,12 +330,19 @@ int main(int argc, char **argv)
          continue;
       if (ascii_equal_ci(command, "quit") || ascii_equal_ci(command, "exit"))
       {
-         print_ack(1, &driver);
+         print_simple_ack("bye");
          break;
       }
       if (ascii_equal_ci(command, "help"))
       {
          usage(stdout);
+         continue;
+      }
+      if (ascii_equal_ci(command, "capabilities")
+      ||  ascii_equal_ci(command, "capability")
+      ||  ascii_equal_ci(command, "debug capabilities"))
+      {
+         print_capabilities();
          continue;
       }
       if (ascii_equal_ci(command, "look")
@@ -295,7 +361,7 @@ int main(int argc, char **argv)
          fflush(stdout);
          continue;
       }
-      print_ack(apply_command_line(&driver, original), &driver);
+      print_ack(apply_command_line(&driver, original), &driver, original);
    }
 
    agent_driver_free(&driver);

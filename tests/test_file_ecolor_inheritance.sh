@@ -15,6 +15,11 @@ if [[ ! -x "${THE_BIN}" ]]; then
   exit 77
 fi
 
+if grep -aq "CREXX unavailable" "${THE_BIN}"; then
+  echo "Skipping file ECOLOR inheritance test; THE was built without CREXX support" >&2
+  exit 77
+fi
+
 rm -rf "${WORK_DIR}"
 mkdir -p "${WORK_DIR}"
 printf 'first\n' > "${FIRST}"

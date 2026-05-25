@@ -157,7 +157,10 @@ place:
 - `src/agentdriver.c` plus `tools/the_agent.c` provide a no-curses executable
   proof target with scripted agent interaction and a no-curses dependency
   guard. The proof target now covers both file-area focus and command-line
-  focus/cursor movement.
+  focus/cursor movement, reports its supported/unsupported surface through a
+  stable `capabilities` response, and returns explicit unsupported-command
+  diagnostics for full-editor commands that are not yet routed through the
+  agent subset.
 - Macro/agent-visible diagnostics now include both THE message history and
   SDSLH parser diagnostics: `EXTRACT /MESSAGES/`, `QUERY MESSAGES`,
   `SDSLHWAIT`, `EXTRACT /PMSGS/`, and `QUERY PMSGS`. SDSLH diagnostics are
@@ -170,8 +173,11 @@ place:
 
 The remaining implementation still has several physical cursor authorities:
 
-- `execute.c`, `commsos.c`, and several legacy command/utility modules still
-  contain direct `getyx`/`wmove` cursor paths.
+- `execute.c` and several legacy command/utility modules still contain direct
+  `getyx`/`wmove` cursor paths.
+- `commsos.c` no longer has direct curses cursor/window operations in SOS edit
+  and navigation logic. Its remaining driver contact points are an active
+  curses-driver cursor query fallback and prefix cursor materialization bridge.
 - `show.c` captures a physical cursor position, paints software cursor overlays
   in several branches, and then restores curses cursor state.
 - `cursesdriver.c` owns the migrated physical primitives, but many callers
@@ -277,16 +283,16 @@ profile, not logical cluster boundaries.
 
 The active post-normal-area sequence is:
 
-1. Migrate `commsos.c` in larger related groups: edge/navigation commands,
-   command-line helpers, prefix helpers, tab/word movement, then delete/insert
-   paths. Edge navigation has an initial logical-first checkpoint. Replace
-   physical cursor decisions with logical focus/row/cell state.
-2. Expose useful test-surface limitations as first-class facts. `the_agent`
-   should report capabilities and unsupported commands clearly while it grows
-   toward the real dispatcher. CREXX/pty tests should continue to state their
-   prerequisites and skip reasons because they test the live editor path, not
-   the no-curses driver. Add these disclosures when they increase regression
-   confidence across later slices.
+1. `commsos.c`: done for the current SOS edit/navigation slice. Edge/
+   navigation commands, command-line helpers, prefix helpers, tab/word
+   movement, and delete paths now use logical focus/row/cell state, with only
+   temporary driver bridge points left for fallback/query materialization.
+2. Test-surface exposure: initial checkpoint done. `the_agent` reports
+   capabilities and unsupported commands clearly while it grows toward the real
+   dispatcher. CREXX/pty tests state their prerequisites and skip reasons
+   because they test the live editor path, not the no-curses driver. Continue
+   adding these disclosures when they increase regression confidence across
+   later slices.
 3. Migrate ordinary `execute.c` cursor effects. Keep popup/dialog code separate
    until logical popup objects exist.
 4. Add logical popup/dialog objects so curses and LLM drivers can render them

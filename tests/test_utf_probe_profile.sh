@@ -23,6 +23,11 @@ if [[ ! -x "${PROBE_BIN}" || ! -x "${THE_BIN}" ]]; then
   exit 77
 fi
 
+if grep -aq "CREXX unavailable" "${THE_BIN}"; then
+  echo "Skipping UTF probe profile test; THE was built without CREXX support" >&2
+  exit 77
+fi
+
 rm -rf "${WORK_DIR}"
 mkdir -p "${THE_HOME}"
 printf 'probe profile smoke\n' > "${SAMPLE}"

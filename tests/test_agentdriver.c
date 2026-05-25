@@ -131,6 +131,13 @@ int main(void)
    expect_contains(out, "\"zone\":\"filearea\"", "enter returns to filearea");
    expect_contains(out, "\"line\":2", "entered command executed");
 
+   expect_true(the_input_event_from_command("sos topedge", &input),
+               "make unsupported command");
+   expect_true(!agent_driver_apply_input(&driver, &input),
+               "reject unsupported command");
+   expect_true(strcmp(agent_driver_status(&driver), "unsupported command") == 0,
+               "unsupported command status");
+
    agent_driver_free(&driver);
    return failures == 0 ? 0 : 1;
 }

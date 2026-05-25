@@ -19,10 +19,11 @@ full editor input loop is still being migrated.
 
 Current limitation: `the_agent` is not yet wired to THE's full command
 dispatcher. It covers logical file-area and command-line focus plus a small
-command subset, but arbitrary THE/SOS commands may return unsupported even
-though the full editor handles them. For those commands, use CREXX/pty
-integration tests or manual smoke tests until the agent dispatcher bridge
-exists.
+command subset, but arbitrary THE/SOS commands return an explicit unsupported
+command response even though the full editor handles them. Use the
+`capabilities` protocol command to inspect the stable supported/unsupported
+surface. For unsupported full-editor commands, use CREXX/pty integration tests
+or manual smoke tests until the agent dispatcher bridge exists.
 
 ## Design Intent
 
@@ -114,10 +115,11 @@ routed through command execution in a later step; it is not a key-code event.
 - `debug NAME`
 
 It also accepts `look` requests that format the current logical screen snapshot
-without changing editor state, and `focus command` / `focus filearea` requests
-that move the logical input focus. In command focus, left/right/home/end,
-delete, backspace, and text input operate on the command line; `key enter`
-submits the edited command.
+without changing editor state, `capabilities` requests that describe the
+current agent surface, and `focus command` / `focus filearea` requests that
+move the logical input focus. In command focus, left/right/home/end, delete,
+backspace, and text input operate on the command line; `key enter` submits the
+edited command.
 
 ## Agent Usage Rules
 
@@ -173,29 +175,32 @@ The non-UTF build also includes this test because the LLM driver is not a UTF
 terminal repair feature.
 
 `tests/test_agentdriver.c`, `tests/test_the_agent_script.sh`, and
-`tests/check_agent_no_curses.sh` verify the live proof target:
+`tests/test_the_agent_capabilities.sh`, and `tests/check_agent_no_curses.sh`
+verify the live proof target:
 
 - loading a file into a logical buffer.
 - compact `filearea` and `focus` snapshots.
 - normalized key movement and command/text insertion.
 - command-line focus, command cursor movement, and Enter submission.
+- stable capability output that says the agent uses an `agent-subset`
+  dispatcher.
+- stable unsupported-command output for full-editor commands that are not yet
+  routed through the agent.
 - no curses dynamic dependency or exposed curses-driver symbols in
   `the_agent`.
 
 ## Next Implementation Steps
 
-1. Add agent capability/introspection output so unsupported commands and missing
-   surfaces are explicit, stable, and testable.
-2. Expand the no-curses agent driver toward THE's real command executor while
+1. Expand the no-curses agent driver toward THE's real command executor while
    preserving the no-curses boundary. Prioritize generally useful command and
    SOS routing before one-off smoke helpers.
-3. Build screen snapshots from the live logical cursor/focus model rather than
+2. Build screen snapshots from the live logical cursor/focus model rather than
    ad hoc curses state.
-4. Route command input through THE command execution.
-5. Route key/text input through the same normalized input path used by curses.
-6. Add integration tests with a fake driver that exercises navigation, command
+3. Route command input through THE command execution.
+4. Route key/text input through the same normalized input path used by curses.
+5. Add integration tests with a fake driver that exercises navigation, command
    execution, prefix commands, and command-line editing without curses.
-7. Keep UTF behavior logical: whole grapheme clusters for editor movement and
+6. Keep UTF behavior logical: whole grapheme clusters for editor movement and
    edits, physical terminal strategy only inside curses rendering.
 
 ## CREXX Integration Notes
@@ -207,4 +212,6 @@ clear about their prerequisites and skip reasons: CREXX support must be enabled,
 the CREXX compiler/import runtime must be available, and `script(1)` or another
 pty wrapper must exist. CREXX test failures may be macro/compiler interface
 failures before they are editor regressions, so focused output labels and small
-profiles are preferred.
+profiles are preferred. A skipped CREXX test means the full-editor automation
+surface was unavailable; it does not weaken the no-curses `the_agent` boundary
+tests, which prove a different surface.
