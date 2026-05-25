@@ -685,6 +685,12 @@ if(THE_USE_CREXX)
         TIMEOUT 10
         ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
     )
+    add_test(NAME test_selective_change_prompt COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_selective_change_prompt.sh)
+    set_tests_properties(test_selective_change_prompt PROPERTIES
+        SKIP_RETURN_CODE 77
+        TIMEOUT 15
+        ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+    )
     add_test(NAME test_crexx_profile COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_crexx_profile.sh)
     set_tests_properties(test_crexx_profile PROPERTIES
         SKIP_RETURN_CODE 77

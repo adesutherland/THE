@@ -60,15 +60,15 @@ static short selective_change(TARGET *target,CHARTYPE *old_str,LENGTHTYPE len_ol
 /***********************************************************************/
 {
    register short i=0;
-   short y=0,x=0,rc=RC_OK;
+   short y=0,rc=RC_OK;
    int key=0;
    bool changed=FALSE;
    bool line_displayed=FALSE;
    TARGET save_target;
+   LENGTHTYPE target_cell=0;
 
    TRACE_FUNCTION("execute.c: selective_change");
 
-   getyx(CURRENT_WINDOW_FILEAREA,y,x);
                 /* move cursor to old string a la cmatch */
                 /* display message */
                 /* accept key - C next, - N change, - Q to quit */
@@ -95,15 +95,10 @@ static short selective_change(TARGET *target,CHARTYPE *old_str,LENGTHTYPE len_ol
       y = CURRENT_VIEW->current_row;
    }
 
-   if (start_col >= CURRENT_VIEW->verify_col-1
-   &&  start_col <= (CURRENT_SCREEN.cols[WINDOW_FILEAREA]+(CURRENT_VIEW->verify_col-1))-1)
-      x = start_col-(CURRENT_VIEW->verify_col-1);
-   else
-   {
-      x = CURRENT_SCREEN.cols[WINDOW_FILEAREA] / 2;
-      CURRENT_VIEW->verify_col = max(1,start_col-(short)x);
-      x = (start_col-(CURRENT_VIEW->verify_col-1));
-   }
+   target_cell = textpos_from_byte(rec, rec_len, (size_t)start_col).cell_column;
+   CURRENT_VIEW->verify_col = (LENGTHTYPE)curses_driver_viewport_col_for_logical(
+      rec, rec_len, (int)CURRENT_VIEW->verify_col - 1, (int)target_cell,
+      CURRENT_SCREEN.cols[WINDOW_FILEAREA], NULL, NULL) + 1;
 
    key = 0;
    changed = FALSE;
@@ -133,8 +128,9 @@ static short selective_change(TARGET *target,CHARTYPE *old_str,LENGTHTYPE len_ol
          display_prompt((CHARTYPE *)"Press 'N' for next,'C' to undo 'Q' to quit");
       else
          display_prompt((CHARTYPE *)"Press 'N' for next,'C' to change 'Q' to quit");
-      wmove(CURRENT_WINDOW_FILEAREA,y,x);
-      wrefresh(CURRENT_WINDOW_FILEAREA);
+      curses_driver_move_filearea_cursor(current_screen, CURRENT_VIEW,
+                                         rec, rec_len, y, (int)target_cell);
+      curses_driver_refresh_window(CURRENT_WINDOW_FILEAREA);
 
       key = my_getch( CURRENT_WINDOW_FILEAREA );
       clear_msgline(-1);
