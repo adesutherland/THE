@@ -60,6 +60,21 @@ static void expect_contains(const char *name, const char *haystack,
    }
 }
 
+static void expect_text_slice(const char *name, const CHARTYPE *got,
+                              size_t got_len, const char *want)
+{
+   size_t want_len = strlen(want);
+
+   if (got == NULL || got_len != want_len
+   ||  memcmp(got, want, want_len) != 0)
+   {
+      fprintf(stderr, "%s: got \"%.*s\" len %zu want \"%s\" len %zu\n",
+              name, (int)got_len, got == NULL ? "" : (const char *)got,
+              got_len, want, want_len);
+      failures++;
+   }
+}
+
 static void expect_not_contains(const char *name, const char *haystack,
                                 const char *needle)
 {
@@ -269,6 +284,43 @@ static void test_frame_backed_renderer_cursor_targets(void)
                                           &found), 0);
 }
 
+static void test_frame_backed_status_text_targets(void)
+{
+   UiFrame frame;
+   LogicalCursor cursor;
+   const CHARTYPE *text = NULL;
+   size_t text_len = 0;
+   int cell = -1;
+
+   cursor = virtual_cursor(LOGICAL_CURSOR_ZONE_FILEAREA, 1, VROW_ALPHA, 2);
+   expect_int("status.file.build", build_virtual_frame(&frame, cursor), 1);
+   expect_int("status.file.target",
+              ui_frame_cursor_text_target(&frame, &text, &text_len, &cell), 1);
+   expect_text_slice("status.file.text", text, text_len, "alpha = 1");
+   expect_int("status.file.cell", cell, 2);
+
+   cursor = virtual_cursor(LOGICAL_CURSOR_ZONE_PREFIX, 2, VROW_KEYCAP, 3);
+   expect_int("status.prefix.build", build_virtual_frame(&frame, cursor), 1);
+   expect_int("status.prefix.target",
+              ui_frame_cursor_text_target(&frame, &text, &text_len, &cell), 1);
+   expect_text_slice("status.prefix.text", text, text_len, "PEND  ");
+   expect_int("status.prefix.cell", cell, 3);
+
+   cursor = virtual_cursor(LOGICAL_CURSOR_ZONE_COMMAND, 0, VROW_COMMAND, 7);
+   expect_int("status.command.build", build_virtual_frame(&frame, cursor), 1);
+   expect_int("status.command.target",
+              ui_frame_cursor_text_target(&frame, &text, &text_len, &cell), 1);
+   expect_text_slice("status.command.text", text, text_len, "====> next");
+   expect_int("status.command.cell", cell, 7);
+
+   expect_int("status.no.frame",
+              ui_frame_cursor_text_target(NULL, &text, &text_len, &cell), 0);
+   cursor = logical_cursor_invalid();
+   expect_int("status.no.cursor.build", build_virtual_frame(&frame, cursor), 1);
+   expect_int("status.no.cursor.target",
+              ui_frame_cursor_text_target(&frame, &text, &text_len, &cell), 0);
+}
+
 static void test_compact_virtual_views(void)
 {
    UiFrame frame;
@@ -424,6 +476,7 @@ int main(void)
    test_virtual_frame_semantic_rows();
    test_prefix_and_command_cursor_overlays();
    test_frame_backed_renderer_cursor_targets();
+   test_frame_backed_status_text_targets();
    test_compact_virtual_views();
    test_fake_driver_debug_log();
    test_logical_hit_targets();

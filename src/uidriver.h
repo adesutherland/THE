@@ -148,6 +148,9 @@ int ui_frame_cursor_screen_cell(const UiFrame *frame, UiRowRole role,
                                 LINETYPE line_number, int screen_row,
                                 int viewport_col, int *screen_cell,
                                 LogicalCursor *cursor);
+int ui_frame_cursor_text_target(const UiFrame *frame,
+                                const CHARTYPE **text, size_t *text_len,
+                                int *cell);
 int ui_frame_set_cursor(UiFrame *frame, LogicalCursor cursor);
 
 void ui_driver_op_log_init(UiDriverOpLog *log);

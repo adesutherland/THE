@@ -1107,70 +1107,10 @@ static int show_status_target_from_logical(VIEW_DETAILS *view,
    return TRUE;
 }
 
-static int show_status_target_from_driver(VIEW_DETAILS *view,
-                                          const CHARTYPE **line,
-                                          size_t *len, int *cell)
-{
-   CursesDriverWindowCursor cursor;
-
-   if (line != NULL)
-      *line = NULL;
-   if (len != NULL)
-      *len = 0;
-   if (cell != NULL)
-      *cell = 0;
-   if (view == NULL
-   ||  CURRENT_WINDOW == NULL)
-      return FALSE;
-
-   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
-   if (!cursor.valid)
-      return FALSE;
-
-   /*
-    * Legacy fallback for paths that still move a curses window without
-    * publishing a LogicalCursor. Normal file/prefix/command focus should
-    * arrive through show_status_target_from_logical().
-    */
-   switch(view->current_window)
-   {
-      case WINDOW_FILEAREA:
-         if (line != NULL)
-            *line = rec;
-         if (len != NULL)
-            *len = rec_len;
-         if (cell != NULL)
-            *cell = curses_driver_logical_col_from_display(
-               rec, rec_len, (int)view->verify_col - 1, cursor.col,
-               TEXT_SNAP_BACKWARD);
-         return TRUE;
-      case WINDOW_COMMAND:
-         if (line != NULL)
-            *line = cmd_rec;
-         if (len != NULL)
-            *len = cmd_rec_len;
-         if (cell != NULL)
-            *cell = cursor.col + cmd_verify_col - 1;
-         return TRUE;
-      case WINDOW_PREFIX:
-         if (line != NULL)
-            *line = pre_rec;
-         if (len != NULL)
-            *len = pre_rec_len;
-         if (cell != NULL)
-            *cell = cursor.col;
-         return TRUE;
-      default:
-         return FALSE;
-   }
-}
-
 static int show_status_target(VIEW_DETAILS *view, const CHARTYPE **line,
                               size_t *len, int *cell)
 {
-   if (show_status_target_from_logical(view, line, len, cell))
-      return TRUE;
-   return show_status_target_from_driver(view, line, len, cell);
+   return show_status_target_from_logical(view, line, len, cell);
 }
 
 static short show_status_character_at(const CHARTYPE *line, size_t len,

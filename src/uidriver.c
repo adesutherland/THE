@@ -339,6 +339,58 @@ int ui_frame_cursor_screen_cell(const UiFrame *frame, UiRowRole role,
    return 1;
 }
 
+int ui_frame_cursor_text_target(const UiFrame *frame,
+                                const CHARTYPE **text, size_t *text_len,
+                                int *cell)
+{
+   size_t index;
+   const UiFrameRow *row;
+   LogicalCursor cursor;
+
+   if (text != NULL)
+      *text = NULL;
+   if (text_len != NULL)
+      *text_len = 0;
+   if (cell != NULL)
+      *cell = 0;
+   if (frame == NULL
+   ||  !frame->cursor.valid
+   ||  !ui_frame_find_cursor_row(frame, frame->cursor.cursor, &index))
+      return 0;
+
+   row = &frame->row[index];
+   cursor = frame->cursor.cursor;
+   switch (cursor.zone)
+   {
+      case LOGICAL_CURSOR_ZONE_FILEAREA:
+         if (text != NULL)
+            *text = row->text;
+         if (text_len != NULL)
+            *text_len = row->text_len;
+         break;
+      case LOGICAL_CURSOR_ZONE_PREFIX:
+         if (text != NULL)
+            *text = row->prefix;
+         if (text_len != NULL)
+            *text_len = row->prefix_len;
+         break;
+      case LOGICAL_CURSOR_ZONE_COMMAND:
+      case LOGICAL_CURSOR_ZONE_PROMPT:
+         if (text != NULL)
+            *text = row->text;
+         if (text_len != NULL)
+            *text_len = row->text_len;
+         break;
+      case LOGICAL_CURSOR_ZONE_STATUS:
+      case LOGICAL_CURSOR_ZONE_NONE:
+      default:
+         return 0;
+   }
+   if (cell != NULL)
+      *cell = cursor.text.cell_column;
+   return 1;
+}
+
 int ui_frame_set_cursor(UiFrame *frame, LogicalCursor cursor)
 {
    if (!ui_frame_find_cursor_row(frame, cursor, NULL))
