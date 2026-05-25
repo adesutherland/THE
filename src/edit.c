@@ -36,6 +36,7 @@
 #include <the.h>
 #include <proto.h>
 #include "cursesdriver.h"
+#include "inputevent.h"
 #ifdef USE_SDSLH
 #include "thread_utils.h"
 #endif
@@ -98,6 +99,7 @@ int process_key(int key, bool mouse_details_present)
 /***********************************************************************/
 {
    CursesDriverWindowCursor cursor;
+   TheInputEvent input_event;
    short rc=RC_OK;
    CHARTYPE string_key[2];
 
@@ -131,7 +133,7 @@ int process_key(int key, bool mouse_details_present)
           } else {
               /* Wait for input with a 200ms timeout to allow background events to trigger a redraw */
               curses_driver_set_window_timeout(CURRENT_WINDOW, 200);
-              key = my_getch( CURRENT_WINDOW );
+              key = curses_driver_read_window_key(CURRENT_WINDOW);
               curses_driver_set_window_timeout(CURRENT_WINDOW, -1); /* Back to blocking */
               if (key == ERR) {
                   /* Timeout occurred, check event again */
@@ -144,11 +146,18 @@ int process_key(int key, bool mouse_details_present)
               }
           }
       } else {
-          key = my_getch( CURRENT_WINDOW );
+          key = curses_driver_read_window_key(CURRENT_WINDOW);
       }
 #else
-      key = my_getch( CURRENT_WINDOW );
+      key = curses_driver_read_window_key(CURRENT_WINDOW);
 #endif
+   }
+   if (the_input_event_from_legacy_key(key, &input_event))
+   {
+      int normalized_key = key;
+
+      if (the_input_event_to_legacy_key(&input_event, &normalized_key))
+         key = normalized_key;
    }
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
    if (key != KEY_MOUSE)

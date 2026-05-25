@@ -898,7 +898,74 @@ static void display_syntax_line_left(WINDOW *win, chtype colour, CHARTYPE *str,
    END_LINE_OUTPUT();
 }
 
+static int show_logical_file_position(CHARTYPE scrno, LINETYPE *line,
+                                      LENGTHTYPE *column)
+{
+   VIEW_DETAILS *view;
+   LogicalCursor cursor;
+
+   if (line != NULL)
+      *line = -1L;
+   if (column != NULL)
+      *column = -1;
+   if (scrno >= MAX_SCREENS)
+      return FALSE;
+
+   view = SCREEN_VIEW(scrno);
+   if (view == NULL
+   ||  view->current_window != WINDOW_FILEAREA)
+      return FALSE;
+
+   cursor = view->logical_cursor.current;
+   if (!cursor.valid
+   ||  cursor.zone != LOGICAL_CURSOR_ZONE_FILEAREA
+   ||  cursor.line_number <= 0
+   ||  cursor.line_number != view->focus_line)
+      return FALSE;
+
+   if (line != NULL)
+      *line = cursor.line_number;
+   if (column != NULL)
+      *column = (LENGTHTYPE)cursor.text.cell_column + 1;
+   return TRUE;
+}
+
 #ifdef USE_UTF8
+static int show_build_cursor_frame(CHARTYPE scrno, UiFrame *frame)
+{
+   return scrno == current_screen
+       && current_cursor_uses_software()
+       && screenframe_build(scrno, frame);
+}
+
+static int show_logical_command_cursor(CHARTYPE scrno, VIEW_DETAILS *view,
+                                       short *row, short *col,
+                                       CursorShape *shape)
+{
+   LogicalCursor cursor;
+   int screen_col;
+
+   if (scrno != current_screen
+   ||  !current_cursor_uses_software()
+   ||  view == NULL
+   ||  view->current_window != WINDOW_COMMAND)
+      return FALSE;
+
+   cursor = view->logical_cursor.current;
+   if (!cursor.valid
+   ||  cursor.zone != LOGICAL_CURSOR_ZONE_COMMAND)
+      return FALSE;
+
+   screen_col = cursor.text.cell_column - (cmd_verify_col - 1);
+   if (row != NULL)
+      *row = (short)((cursor.zone_row >= 0) ? cursor.zone_row : 0);
+   if (col != NULL)
+      *col = (short)screen_col;
+   if (shape != NULL)
+      *shape = current_cursor_shape();
+   return TRUE;
+}
+
 static int show_frame_cursor_col(const UiFrame *frame, UiRowRole role,
                                  LINETYPE line_number, short row,
                                  int viewport_col, int *col,
@@ -977,7 +1044,7 @@ static void show_draw_software_command_cursor(CHARTYPE scrno, VIEW_DETAILS *view
    chtype base;
 
    if (view == NULL
-   ||  !cursor_focus_command_cursor(scrno, &row, &col, &shape))
+   ||  !show_logical_command_cursor(scrno, view, &row, &col, &shape))
       return;
 
    base = set_colour(view->file_for_view->attr + (inDIALOG ? ATTR_DIA_EDITFIELD : ATTR_CMDLINE));
@@ -1980,11 +2047,6 @@ void display_cmdline( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
        */
       command_cursor = curses_driver_capture_window_cursor(
          SCREEN_WINDOW_COMMAND(curr_screen));
-#ifdef USE_UTF8
-      if (curr_screen == current_screen
-      &&  curr_view->current_window == WINDOW_COMMAND)
-         cursor_focus_capture(curr_screen);
-#endif
       if ( inDIALOG )
          display_line_left( SCREEN_WINDOW_COMMAND(curr_screen), set_colour( curr_view->file_for_view->attr+ATTR_DIA_EDITFIELD), cmd_rec+cmd_verify_col-1, cmd_rec_len, 0, screen[curr_screen].cols[WINDOW_COMMAND] );
       else
@@ -2006,6 +2068,10 @@ void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
 {
    CursesDriverWindowCursor prefix_cursor;
    LogicalCursor logical;
+#ifdef USE_UTF8
+   UiFrame frame;
+   const UiFrame *cursor_frame = NULL;
+#endif
    int width;
    short row;
 
@@ -2029,7 +2095,16 @@ void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
    &&  logical.zone_row >= 0
    &&  logical.zone_row < screen[curr_screen].rows[WINDOW_FILEAREA])
       row = (short)logical.zone_row;
-   cursor_focus_capture(curr_screen);
+#ifdef USE_UTF8
+   if (show_build_cursor_frame(curr_screen, &frame))
+   {
+      size_t index;
+
+      cursor_frame = &frame;
+      if (ui_frame_find_cursor_row(&frame, frame.cursor.cursor, &index))
+         row = (short)frame.row[index].screen_row;
+   }
+#endif
    width = curr_view->prefix_width - curr_view->prefix_gap;
    display_line_left( SCREEN_WINDOW_PREFIX(curr_screen),
                       set_colour(curr_view->file_for_view->attr + ATTR_PENDING),
@@ -2038,7 +2113,7 @@ void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
                       row,
                       width );
 #ifdef USE_UTF8
-   show_draw_software_prefix_cursor(curr_screen, row, NULL);
+   show_draw_software_prefix_cursor(curr_screen, row, cursor_frame);
 #endif
    curses_driver_refresh_window( SCREEN_WINDOW_PREFIX(curr_screen) );
    curses_driver_restore_window_cursor(SCREEN_WINDOW_PREFIX(curr_screen),
@@ -2551,12 +2626,12 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
    &&  SCREEN_FILE(scrno)->parser->is_sdslh_parser
    &&  SCREEN_FILE(scrno)->cb
    &&  CURRENT_VIEW == SCREEN_VIEW(scrno)) {
-       LINETYPE screen_line=0;
-       LENGTHTYPE screen_column=0;
        LINETYPE current_file_line=(-1L);
        LENGTHTYPE current_file_column=(-1);
-       get_cursor_position(&screen_line, &screen_column, &current_file_line, &current_file_column);
-       if (current_file_line > 0 && current_file_line <= (LINETYPE)SCREEN_FILE(scrno)->cb->line_count) {
+       if (show_logical_file_position(scrno, &current_file_line,
+                                      &current_file_column)
+       && current_file_line > 0
+       && current_file_line <= (LINETYPE)SCREEN_FILE(scrno)->cb->line_count) {
            enter_codeblock_critical_section();
            CodeBufferLine *line = &SCREEN_FILE(scrno)->cb->lines[current_file_line - 1];
            if (current_file_column > 0 && current_file_column <= line->length) {
@@ -3191,9 +3266,7 @@ static void show_lines(CHARTYPE scrno)
 
    TRACE_FUNCTION("show.c:    show_lines");
 #ifdef USE_UTF8
-   if (scrno == current_screen
-   &&  current_cursor_uses_software()
-   &&  screenframe_build(scrno, &frame))
+   if (show_build_cursor_frame(scrno, &frame))
       cursor_frame = &frame;
 #endif
    for (i=0,scurr=screen[scrno].sl;i<screen[scrno].rows[WINDOW_FILEAREA];i++,scurr++)
@@ -4006,6 +4079,8 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
    int new_target_display_col;
    int clear_end_col;
    int clear_width;
+   UiFrame frame;
+   const UiFrame *cursor_frame = NULL;
 
    if (SCREEN_WINDOW_FILEAREA(scrno) == NULL
    ||  row < 0
@@ -4044,7 +4119,9 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
 
    if (plan.extent == UTF8_REPAIR_EXTENT_LINE)
    {
-      show_a_line_utf8_cells(scrno, row, current, high, NULL);
+      if (show_build_cursor_frame(scrno, &frame))
+         cursor_frame = &frame;
+      show_a_line_utf8_cells(scrno, row, current, high, cursor_frame);
       curses_driver_touch_line(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
       return TRUE;
    }

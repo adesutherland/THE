@@ -61,12 +61,20 @@ primitives, render-entry cursor save/restore, renderer attribute/touch/refresh
 mechanics, cursor repaint transitions, refresh, window cursor capture/restore,
 window origin/size reads, and input timeouts. `src/show.c` keeps its existing
 public helpers but now builds a live frame during full file-area redraw and
-uses it to select file-area and prefix software cursor overlays.
+uses it to select file-area and prefix software cursor overlays. Targeted
+command-line redraw uses the live logical command cursor directly; targeted
+prefix redraw builds a `UiFrame` when possible; SDSLH bracket highlighting
+uses logical file focus instead of `get_cursor_position()`; and UTF whole-line
+cursor-repair repaint can reuse a frame-backed overlay. Narrow legacy fallbacks
+remain for renderer paths without a frame or logical area model.
 `src/inputevent.c` owns normalized text/key/command/logical-hit/debug events
-and legacy key conversion. `src/llmdriver.c` now exposes role-aware semantic
+and legacy key conversion. The live curses loop now reads through
+`cursesdriver.c` and normalizes collected key codes through `TheInputEvent`
+before passing the equivalent legacy key to the existing dispatcher. Mouse and
+resize key behavior is preserved at the compatibility-key level; logical mouse
+hit events remain later work. `src/llmdriver.c` now exposes role-aware semantic
 snapshots, compact token-saving view modes, shared normalized input wrappers,
-cursor mapping diagnostics, and driver operation log formatting; it is not yet
-wired into the live input loop.
+cursor mapping diagnostics, and driver operation log formatting.
 
 `the_agent` is useful as a no-curses proof target, but it is not yet a complete
 replacement for the full editor integration path. It can exercise logical file
@@ -264,8 +272,11 @@ each meaningful step. Current checkpoint status:
    and prefix overlay ownership; software-cursor attribute, cell painting,
    UTF/ascii cell write/fill primitives, and render-entry cursor save/restore
    helpers now live in `cursesdriver.c`. Renderer attribute/touch/refresh calls
-   also go through driver helpers. Targeted redraws still need to become
-   driver-level logical render requests instead of relying on legacy snapshots.
+   also go through driver helpers. Targeted command-line redraw, targeted
+   prefix redraw, SDSLH bracket matching, and UTF whole-line cursor repair now
+   use logical or frame-backed cursor data. Broader targeted redraws still need
+   to become driver-level logical render requests instead of relying on legacy
+   snapshots.
 6. Bring prefix and command-line cursor/editing behavior under the same model:
    done for the normal text-entry surface. Focus has logical cursor state,
    `TEXT` edits for command-line and prefix areas now mutate the logical
@@ -275,8 +286,9 @@ each meaningful step. Current checkpoint status:
    core area ownership model.
 7. Normalize curses, mouse, and LLM input through a shared event type: partial.
    `src/inputevent.c` owns the shared event type, legacy key conversion, and
-   queue; LLM wrappers use it. Curses/mouse input still needs routing through
-   it before command dispatch.
+   queue; LLM wrappers use it. The main curses key path now normalizes through
+   `TheInputEvent` before legacy dispatch. Remaining work is direct normalized
+   dispatch where safe and logical mouse-hit event routing.
 8. Tighten the guardrails so editor logic cannot call curses directly: pending.
 9. Add a no-curses agent proof target: done. `the_agent` opens files, accepts
    normalized agent input, emits semantic LLM snapshots, and links no curses
@@ -338,12 +350,13 @@ Near-term migration sequence:
    for a logical popup design.
 5. Logical popups/dialogs: introduce logical popup/dialog objects and let
    curses and LLM drivers materialize them differently.
-6. Renderer cleanup: convert targeted redraws to driver-level logical render
-   requests and remove legacy cursor snapshot fallbacks from `show.c`.
+6. Renderer cleanup: continue converting targeted redraws to driver-level
+   logical render requests and remove the remaining status/view-switch/
+   fallback cursor snapshot paths from `show.c`.
 7. Utilities/window lifecycle: move resize, refresh ordering, transient
    windows, and error/status window mechanics behind driver-owned operations.
-8. Input and mouse: make curses keyboard and mouse collection produce
-   `TheInputEvent` before command dispatch, matching the LLM driver.
+8. Input and mouse: expand the compatibility key adapter into direct
+   normalized dispatch where safe, and route mouse hits to logical targets.
 9. Guardrails: make direct-curses checks strict once editor logic has
    driver-owned equivalents.
 
@@ -356,122 +369,38 @@ cmake --build cmake-build-noutf8 -j2
 ctest --test-dir cmake-build-noutf8 --output-on-failure
 ```
 
-Latest verification after the `execute.c` transient-window wrapper slice: UTF
-build/CTest was green, 31/31. no-UTF build/CTest was green, 16/16 with
-CREXX/SDSLH-dependent tests skipped as intended. Focused LLM/`the_agent` smoke
-passed in both UTF and no-UTF builds. Manual smoke test was reported green
-before the latest ordinary `execute.c` slices.
+Latest verification after the renderer targeted-redraw and input compatibility
+adapter slice: UTF build/CTest was green, 31/31. no-UTF build/CTest was green,
+16/16 with CREXX/SDSLH-dependent tests skipped as intended. Focused
+LLM/`the_agent` smoke passed in both UTF and no-UTF builds.
 
-## Suggested Next Large Slice
+## Suggested Next Slice
 
-The next useful large slice should combine two related but separable pieces:
-renderer targeted-redraw cleanup first, then curses keyboard/mouse input
-normalization. This keeps the slice substantial while still diagnosable: the
-renderer work is about removing legacy physical cursor snapshot fallbacks from
-redraw paths, and the input work is about adapting curses-collected input into
-the existing `TheInputEvent` model before dispatch. If the renderer cleanup
-uncovers popup/dialog requirements, document that split rather than forcing
-popup/dialogs into the logical cursor layer without a real model.
+Continue the renderer/input split without forcing popup/dialog behavior into the
+logical cursor layer.
 
-Copy/paste prompt for the next session:
+Good next renderer targets:
 
-```text
-We are continuing THE logical UI / curses driver separation in
-/Users/adrian/CLionProjects/THE.
+- status/HEXDISPLAY in `show_statarea()`, which still has a physical cursor
+  fallback for character inspection.
+- `prepare_view()`/`advance_view()` view-switch cursor preservation, which still
+  stores and restores physical rows/columns for old paths.
+- remaining `show.c` helper fallbacks that call `cursor_focus_*` without a
+  live `UiFrame`.
 
-Please read first:
-- doc/cursor-driver-architecture.md
-- doc/utf-handover.md
-- doc/llm-mode.md
+Good next input targets:
 
-Current recent commits:
-- 9f4d97c Update handover for next driver slice
-- 9101f5b Route execute transient windows through driver
-- e76f027 Update execute cursor handover status
-- d88abf7 Route selective change prompt cursor logically
-- 91ba101 Route insert line cursor through logical state
-- b5dd7f2 Update cursor driver handover progress
-- 41cc276 Preserve block cursor via logical cells
-- 7208f7e Preserve makecurr cursor via logical cells
-- 76a5425 Route execute cursor moves through logical row
+- keep `process_key()` behavior stable while moving more dispatch decisions to
+  `TheInputEvent` consumers rather than converting immediately back to a legacy
+  key.
+- model curses mouse clicks as logical-hit events for file area, prefix,
+  command line, status, file tabs, and divider/window hits while preserving the
+  existing mouse key definitions.
+- add focused `inputevent` or small adapter tests first; use CREXX/pty tests
+  only where full editor dispatch behavior needs proof.
 
-Current status:
-- Worktree was clean after commit 9f4d97c.
-- UTF build/CTest was green: 31/31.
-- no-UTF build/CTest was green: 16/16, with CREXX/SDSLH-dependent tests skipped
-  as intended.
-- Focused LLM/the_agent smoke was green in both UTF and no-UTF builds:
-  - test_llmdriver
-  - test_agentdriver
-  - test_the_agent_script
-  - test_the_agent_capabilities
-  - test_the_agent_no_curses
-  - test_llmruntime
-
-Completed execute.c cursor/driver slices:
-- execute_move_cursor() derives file-area row from logical cursor/focus state.
-- execute_makecurr() preserves cursor through logical file-area/prefix cells.
-- rearrange_line_blocks() preserves normal block copy/move/delete cursor through
-  logical cells.
-- insert_new_line() derives target row/cell from logical focus state and
-  materializes file-area or prefix focus through the driver.
-- selective_change() prompt cursor placement derives from the match TextPos and
-  driver viewport visibility, not physical curses cursor state.
-- The remaining execute.c OS shell bridge, EDITV LIST screen, popup placement,
-  and dialog/popup transient-window mechanics now go through cursesdriver
-  wrappers. src/execute.c no longer calls common direct curses primitives, and
-  tests/check_curses_boundary.sh guards that.
-
-Next architectural target, large slice:
-1. First do renderer targeted-redraw cleanup.
-   - Focus on `src/show.c` paths that still depend on legacy physical cursor
-     snapshots or fallback overlay decisions instead of live logical `UiFrame`
-     state.
-   - Convert targeted redraws toward driver-level logical render requests or
-     frame-backed cursor overlay decisions. The aim is that redraw code should
-     not infer file-area/prefix cursor meaning from physical `getyx`/`wmove`
-     state.
-   - Keep software cursor painting, UTF/ascii cell writes, refresh/touch/update,
-     and physical cursor parking in `cursesdriver.c`.
-   - Do not special-case keycaps or terminal classes in logical renderer code.
-     Use existing terminal profile/layout/repair machinery.
-   - If a targeted redraw cannot be made frame-backed cleanly in this slice,
-     document the remaining split and leave a narrow fallback rather than
-     inventing a partial logical popup/dialog model.
-
-2. Then do curses keyboard/mouse normalization.
-   - Route curses-collected keyboard and mouse input through `TheInputEvent`
-     before command dispatch where it is safe and localized.
-   - Reuse `src/inputevent.c` conversions and queues. Do not create a second
-     event language.
-   - Preserve existing key behavior, including function keys, resize handling,
-     mouse status/window hits, and command-line/file-area text entry.
-   - Add focused tests around `inputevent` conversion or any new adapter logic.
-     Use CREXX/pty tests only where full-editor dispatch behavior needs proof;
-     use `the_agent` only for no-curses driver/LLM surface proof.
-
-Guardrails and constraints:
-- Keep normal file/command cursor/focus decisions logical. Do not reintroduce
-  logical decisions based on physical `getyx`/`wmove` state.
-- Do not force popup/dialog behavior into the logical cursor layer unless you
-  introduce a real logical popup/dialog model. If popup/dialog mechanics block a
-  clean migration, document the split and leave that model for a later slice.
-- Extend `tests/check_curses_boundary.sh` only for files or modules fully
-  cleaned in this slice. Prefer tightening guardrails incrementally by file
-  rather than making a broad strict rule too early.
-- Update doc/utf-handover.md and doc/cursor-driver-architecture.md with the
-  completed slice and remaining renderer/input debt.
-- Commit after the green, safe slice.
-
-Suggested verification:
-- cmake --build cmake-build-codex-debug -j2
-- ctest --test-dir cmake-build-codex-debug --output-on-failure
-- cmake --build cmake-build-noutf8 -j2
-- ctest --test-dir cmake-build-noutf8 --output-on-failure
-- Focused LLM/the_agent smoke:
-  ctest --test-dir cmake-build-codex-debug --output-on-failure -R 'test_(llmdriver|agentdriver|llmruntime|the_agent_script|the_agent_capabilities|the_agent_no_curses)'
-  ctest --test-dir cmake-build-noutf8 --output-on-failure -R 'test_(llmdriver|agentdriver|llmruntime|the_agent_script|the_agent_capabilities|the_agent_no_curses)'
-```
+Suggested verification remains both full build trees, both full CTest suites,
+and the focused LLM/`the_agent` smoke in UTF and no-UTF builds.
 
 ## Sequencing Advice
 

@@ -65,6 +65,36 @@ static void test_legacy_key_normalization(void)
    expect_int("legacy.left.to.key",
               the_input_event_to_legacy_key(&input, &key), 1);
    expect_int("legacy.left.key", key, KEY_LEFT);
+
+   expect_int("legacy.return.parse",
+              the_input_event_from_legacy_key(KEY_RETURN, &input), 1);
+   expect_int("legacy.return.kind", input.kind, THE_INPUT_KEY);
+   expect_int("legacy.return.to.key",
+              the_input_event_to_legacy_key(&input, &key), 1);
+   expect_int("legacy.return.key", key, KEY_RETURN);
+
+   expect_int("legacy.f44.parse",
+              the_input_event_from_legacy_key(KEY_F(44), &input), 1);
+   expect_int("legacy.f44.kind", input.kind, THE_INPUT_KEY);
+   expect_int("legacy.f44.to.key",
+              the_input_event_to_legacy_key(&input, &key), 1);
+   expect_int("legacy.f44.key", key, KEY_F(44));
+#ifdef KEY_RESIZE
+   expect_int("legacy.resize.parse",
+              the_input_event_from_legacy_key(KEY_RESIZE, &input), 1);
+   expect_int("legacy.resize.kind", input.kind, THE_INPUT_KEY);
+   expect_int("legacy.resize.to.key",
+              the_input_event_to_legacy_key(&input, &key), 1);
+   expect_int("legacy.resize.key", key, KEY_RESIZE);
+#endif
+#ifdef KEY_MOUSE
+   expect_int("legacy.mouse.parse",
+              the_input_event_from_legacy_key(KEY_MOUSE, &input), 1);
+   expect_int("legacy.mouse.kind", input.kind, THE_INPUT_KEY);
+   expect_int("legacy.mouse.to.key",
+              the_input_event_to_legacy_key(&input, &key), 1);
+   expect_int("legacy.mouse.key", key, KEY_MOUSE);
+#endif
 }
 
 static void test_commands_targets_debug_and_queue(void)

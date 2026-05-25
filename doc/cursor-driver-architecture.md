@@ -149,8 +149,16 @@ place:
   software-cursor cell painting, UTF/ascii cell write/fill primitives, and
   render-entry cursor save/restore helpers now live behind `cursesdriver.c`.
   Curses attribute, touch, refresh, and update calls from the renderer are also
-  routed through driver helpers. The old snapshot path remains only as a
-  fallback for targeted redraws that do not yet receive a full frame.
+  routed through driver helpers. Targeted command-line redraws now draw the
+  software cursor from live logical command focus, targeted prefix redraws build
+  a fresh `UiFrame` when possible, SDSLH bracket highlighting reads logical
+  file focus directly, and UTF whole-line cursor-repair redraws reuse a
+  frame-backed overlay. The old snapshot path remains only as a narrow fallback
+  for renderer paths that still do not have a frame or logical area model.
+- The main curses input loop now reads keys through `cursesdriver.c` and
+  normalizes the collected key with `TheInputEvent` before handing the same
+  legacy key code to existing dispatch. This is a compatibility adapter, not
+  yet a full logical mouse-hit or command-dispatch replacement.
 - `src/llmdriver.c` can build role-aware semantic snapshots from `UiFrame`,
   accept normalized input events through the shared input layer, and format
   cursor mapping plus driver operation logs for deterministic diagnostics.
@@ -196,8 +204,10 @@ The remaining implementation still has several physical cursor authorities:
 - `commsos.c` no longer has direct curses cursor/window operations in SOS edit
   and navigation logic. Its remaining driver contact points are an active
   curses-driver cursor query fallback and prefix cursor materialization bridge.
-- `show.c` captures a physical cursor position, paints software cursor overlays
-  in several branches, and then restores curses cursor state.
+- `show.c` still captures and restores physical cursor positions for render
+  entry/exit, status/hex display, view switching, and a few old targeted
+  fallbacks, but current command and prefix targeted cursor overlays no longer
+  require a fresh physical snapshot.
 - `cursesdriver.c` owns the migrated physical primitives, but many callers
   still make logical decisions from legacy physical coordinates before calling
   the driver. The next separation slices should replace those decisions with
@@ -240,9 +250,11 @@ curses.
    overlay selection. Software-cursor attribute, cell painting, UTF/ascii cell
    write/fill primitives, and render cursor save/restore helpers now live in
    the curses driver. Renderer attribute, touch, refresh, and update calls also
-   go through driver helpers. The remaining work is to move targeted redraw
-   requests to driver-level logical render operations and remove fallbacks that
-   still rely on the legacy cursor snapshot.
+   go through driver helpers. Targeted command-line redraw, targeted prefix
+   redraw, SDSLH bracket matching, and UTF whole-line cursor-repair repaint now
+   use logical or frame-backed cursor data. The remaining work is to move the
+   broader targeted redraw requests to driver-level logical render operations
+   and retire the remaining legacy snapshot fallbacks.
 
 6. Bring prefix and command line under the same model.
    Prefix and command-line focus now have logical cursor state. Normal `TEXT`
@@ -254,8 +266,11 @@ curses.
 7. Normalize input.
    `inputevent` now owns normalized text/key/command/logical-hit/debug events,
    legacy key-code conversion, and an input queue. `llmdriver` delegates to
-   that shared layer. The remaining work is to make curses keyboard and mouse
-   collection feed `TheInputEvent` before command dispatch.
+   that shared layer. The live curses loop now has a first compatibility
+   adapter: collected keys pass through `TheInputEvent` and then back to the
+   existing legacy key dispatcher. Remaining work is to make command dispatch
+   consume normalized events directly where practical and to model mouse hits
+   as logical targets instead of only legacy mouse key codes.
 
 8. Tighten guardrails.
    Once the migration is complete, make the curses-boundary test strict: editor
@@ -319,11 +334,14 @@ The active post-normal-area sequence is:
    there until logical popup/dialog and window-lifecycle objects exist.
 4. Add logical popup/dialog objects so curses and LLM drivers can render them
    differently without making the logical layer imitate curses windows.
-5. Convert remaining targeted renderer redraw paths to driver-level logical
-   render requests.
+5. Continue converting remaining targeted renderer redraw paths to driver-level
+   logical render requests, especially status/hex display, view-switch cursor
+   preservation, and non-frame fallback paths.
 6. Move utility/window lifecycle operations behind driver-owned resize,
    refresh, transient-window, and error/status operations.
-7. Normalize curses keyboard and mouse input into `TheInputEvent`.
+7. Expand curses input normalization beyond the compatibility key adapter:
+   dispatch normalized events directly where safe and convert mouse hits to
+   logical targets.
 8. Tighten direct-curses guardrails once migrated editor logic has driver
    equivalents.
 
