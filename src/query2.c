@@ -36,7 +36,6 @@
 #include <the.h>
 #include <proto.h>
 
-#include "cursesdriver.h"
 #include <query.h>
 
 short extract_point_settings(short,CHARTYPE *);
@@ -62,38 +61,28 @@ extern CHARTYPE query_num8[10];
 extern CHARTYPE query_rsrvd[MAX_FILE_NAME+100];
 static LINE *curr;
 
-static int query2_capture_active_driver_cursor(CHARTYPE window_id,
-                                               short *y, short *x)
+static LENGTHTYPE query2_filearea_cursor_cell(void)
 {
-   CursesDriverWindowCursor cursor;
-   WINDOW *win;
+   LogicalCursor logical;
 
-   if (y != NULL)
-      *y = 0;
-   if (x != NULL)
-      *x = 0;
-   if (window_id < WINDOW_FILEAREA || window_id > WINDOW_FILETABS)
-      return FALSE;
-   if (!curses_started)
-      return FALSE;
-   win = CURRENT_SCREEN.win[window_id];
-   if (win == NULL)
-      return FALSE;
-   cursor = curses_driver_capture_window_cursor(win);
-   if (!cursor.valid)
-      return FALSE;
-   if (y != NULL)
-      *y = cursor.row;
-   if (x != NULL)
-      *x = cursor.col;
-   return TRUE;
+   logical = CURRENT_VIEW->logical_cursor.current;
+   if (logical.valid
+   &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+   &&  logical.line_number == CURRENT_VIEW->focus_line
+   &&  logical.text.cell_column >= 0)
+      return (LENGTHTYPE)logical.text.cell_column;
+   return (CURRENT_VIEW->current_column > 0)
+        ? CURRENT_VIEW->current_column - 1
+        : 0;
 }
 
 static int query2_filearea_cursor_row(short *row)
 {
    LogicalCursor logical;
-   short y=0,x=0;
+   short y;
 
+   if (CURRENT_VIEW->current_window != WINDOW_FILEAREA)
+      return FALSE;
    logical = CURRENT_VIEW->logical_cursor.current;
    if (logical.valid
    &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
@@ -105,14 +94,31 @@ static int query2_filearea_cursor_row(short *row)
          *row = (short)logical.zone_row;
       return TRUE;
    }
-   if (!query2_capture_active_driver_cursor(CURRENT_VIEW->current_window,
-                                            &y,&x))
+   if (!line_in_view(current_screen,CURRENT_VIEW->focus_line))
       return FALSE;
-   INTENTIONALLY_UNUSED_VARIABLE(x);
+   y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,
+                              CURRENT_VIEW->current_row);
    if (y < 0 || y >= CURRENT_SCREEN.rows[WINDOW_FILEAREA])
       return FALSE;
    if (row != NULL)
       *row = y;
+   return TRUE;
+}
+
+static int query2_filearea_cursor_screen_position(short *row, short *col)
+{
+   short y;
+   LENGTHTYPE screen_col;
+
+   if (!query2_filearea_cursor_row(&y))
+      return FALSE;
+   screen_col = query2_filearea_cursor_cell() - (CURRENT_VIEW->verify_col - 1);
+   if (screen_col < 0 || screen_col >= CURRENT_SCREEN.cols[WINDOW_FILEAREA])
+      return FALSE;
+   if (row != NULL)
+      *row = y;
+   if (col != NULL)
+      *col = (short)screen_col;
    return TRUE;
 }
 
@@ -1620,7 +1626,7 @@ short extract_rexxoutput(short number_variables,short itemno,CHARTYPE *itemargs,
 short extract_rightedge_function(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   short y=0,x=0;
+   LENGTHTYPE screen_col;
 
    if (batch_only)
    {
@@ -1628,9 +1634,10 @@ short extract_rightedge_function(short number_variables,short itemno,CHARTYPE *i
       item_values[1].len = 1;
       return number_variables;
    }
-   query2_capture_active_driver_cursor(CURRENT_VIEW->current_window,&y,&x);
-   INTENTIONALLY_UNUSED_VARIABLE(y);
-   return set_boolean_value((bool)(CURRENT_VIEW->current_window == WINDOW_FILEAREA && x == CURRENT_SCREEN.cols[WINDOW_FILEAREA]-1),(short)1);
+   screen_col = query2_filearea_cursor_cell() - (CURRENT_VIEW->verify_col - 1);
+   return set_boolean_value((bool)(CURRENT_VIEW->current_window == WINDOW_FILEAREA
+                                && screen_col == CURRENT_SCREEN.cols[WINDOW_FILEAREA]-1),
+                            (short)1);
 }
 /***********************************************************************/
 short extract_ring(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
@@ -2182,7 +2189,13 @@ short extract_synelem( short number_variables, short itemno, CHARTYPE *itemargs,
        * Determine position of cursor relative to ESCREEN
        * This should result in a direct entry into the highlight_type array
        */
-      query2_capture_active_driver_cursor(CURRENT_VIEW->current_window,&y,&x);
+      if (!query2_filearea_cursor_screen_position(&y, &x))
+      {
+         item_values[1].value = (CHARTYPE *)"UNKNOWN";
+         item_values[1].len = 4;
+         TRACE_RETURN();
+         return(number_variables);
+      }
       syntax_element = get_syntax_element( current_screen, y, x );
    }
    else if ( equal( (CHARTYPE *)"file", word[0], 1 ) )
@@ -2634,7 +2647,7 @@ short extract_tof_function(short number_variables,short itemno,CHARTYPE *itemarg
 short extract_topedge_function(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   short y=0,x=0;
+   short y=0;
    bool bool_flag=FALSE;
 
    if (batch_only)
@@ -2645,9 +2658,6 @@ short extract_topedge_function(short number_variables,short itemno,CHARTYPE *ite
    }
    if (CURRENT_VIEW->current_window == WINDOW_FILEAREA)
       bool_flag = (bool)(query2_filearea_cursor_row(&y) && y == 0);
-   else
-      query2_capture_active_driver_cursor(CURRENT_VIEW->current_window,&y,&x);
-   INTENTIONALLY_UNUSED_VARIABLE(x);
    return set_boolean_value(bool_flag,(short)1);
 }
 /***********************************************************************/

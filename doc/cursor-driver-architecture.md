@@ -155,10 +155,11 @@ place:
   file focus directly, and UTF whole-line cursor-repair redraws reuse a
   frame-backed overlay. `show_statarea()` now inspects HEXDISPLAY text from the
   live logical file-area, prefix, or command cursor when one is available, and
-  `prepare_view()`/`advance_view()` prefer logical cursor targets when
-  preserving and restoring view-switch cursor positions. The old physical
-  snapshot path remains only as a narrow fallback for renderer paths that still
-  do not have a frame or logical area model.
+  `screenframe_build()` now rebases saved logical cursors onto rebuilt rows, so
+  view-switch restoration preserves file-area/prefix focus without physical
+  window snapshots. `prepare_view()` seeds an active file-area cursor from
+  editor-owned `current_column` when no logical cursor has been published yet,
+  and `advance_view()` restores only logical file-area/prefix cursor targets.
 - The main curses input loop now reads keys through `cursesdriver.c` and
   normalizes the collected key with `TheInputEvent` before handing the same
   legacy key code to existing dispatch. This is a compatibility adapter, not
@@ -195,6 +196,12 @@ place:
   `src/edit.c` no longer contain direct `getyx`, `wmove`, `getbegyx`,
   `getmaxx`, `getmaxy`, or `wtimeout` calls; those paths now go through
   `cursesdriver.c` wrappers.
+- `src/query1.c` and `src/query2.c` no longer have active-driver cursor
+  snapshot fallbacks. Field, edge, shadow, and synelem query paths now prefer
+  logical cursor state and fall back only to editor-owned state such as
+  `focus_line`, `current_row`, `current_column`, and `cmdline_col`. The
+  matching full-editor behavior is covered by focused CREXX/pty query and SOS
+  tests.
 
 The remaining implementation still has several physical cursor authorities:
 
@@ -209,10 +216,8 @@ The remaining implementation still has several physical cursor authorities:
   and navigation logic. Its remaining driver contact points are an active
   curses-driver cursor query fallback and prefix cursor materialization bridge.
 - `show.c` still captures and restores physical cursor positions for render
-  entry/exit and a few old targeted fallbacks. Status/HEXDISPLAY and
-  view-switch preservation now prefer logical cursor targets, but retain a
-  narrow physical snapshot fallback for paths that still move curses windows
-  without publishing logical cursor state.
+  entry/exit and a few old targeted redraw mechanics. Status/HEXDISPLAY and
+  view-switch preservation no longer use physical cursor snapshots.
 - `cursesdriver.c` owns the migrated physical primitives, but many callers
   still make logical decisions from legacy physical coordinates before calling
   the driver. The next separation slices should replace those decisions with
@@ -352,13 +357,15 @@ High-priority groups:
    key definitions at the driver edge while making behavior observable through
    inputevent/agent CTests.
 4. Renderer fallback purge. Use virtual renderer coverage to remove remaining
-   non-frame `cursor_focus_*` fallbacks, render entry/exit logical decisions,
-   and status/view-switch snapshot fallbacks from `show.c`. Physical
+   render entry/exit logical decisions and targeted redraw fallbacks from
+   `show.c`. Physical
    save/restore, refresh, touch/update, UTF/ascii cell writes, software cursor
    painting, and cursor parking stay in `cursesdriver.c`.
 5. Command/query fallback retirement. Retire active-driver row/cell fallbacks
    outside the renderer once equivalent logical query or agent/CREXX behavior
-   is covered. Tighten `tests/check_curses_boundary.sh` module by module.
+   is covered. `query1.c`/`query2.c` are cleaned; `commsos.c` still has an
+   active-driver cursor query fallback. Tighten `tests/check_curses_boundary.sh`
+   module by module.
 6. Logical popup/dialog/window lifecycle. Do this as a larger modeled slice
    only when popup/dialog/window state can appear in LLM snapshots and virtual
    screen tests. Until then, keep these as driver-owned physical mechanics.

@@ -71,10 +71,12 @@ possible; SDSLH bracket highlighting uses logical file focus instead of
 frame-backed overlay. Status/HEXDISPLAY now inspects only the live logical
 file-area, prefix, or command cursor and no longer falls back to a physical
 `CURRENT_WINDOW` snapshot; `test_virtual_screen` covers the matching logical
-text-target selection. `prepare_view()`/`advance_view()` now preserve and
-restore view-switch cursor positions from logical cursor targets before falling
-back to old window snapshots. Narrow legacy fallbacks remain for view-switch
-paths that still use physical cursor snapshots instead of a logical area model.
+text-target selection. `screenframe_build()` now rebases saved logical cursors
+onto rebuilt rows, and `prepare_view()`/`advance_view()` no longer preserve or
+restore view-switch cursor positions from physical window snapshots. When an
+active file-area view has not published a logical cursor yet, `prepare_view()`
+seeds the cursor from editor-owned `current_column` rather than the curses
+cursor.
 `src/inputevent.c` owns normalized text/key/command/logical-hit/debug events
 and legacy key conversion. The live curses loop now reads through
 `cursesdriver.c` and normalizes collected key codes through `TheInputEvent`
@@ -338,10 +340,13 @@ each meaningful step. Current checkpoint status:
 Runtime cursor code still has multiple physical paths and must be migrated.
 `src/cursor.c`, `src/comm5.c`, `src/query1.c`, `src/query2.c`, and `src/edit.c`
 no longer contain direct `getyx`, `wmove`, `getbegyx`, `getmaxx`, `getmaxy`,
-or `wtimeout` calls, but many other legacy command, SOS, utility, mouse, and
-renderer paths still do. The guardrail test is intentionally permissive while
-the live renderer is still being split; tighten it only after the remaining
-command, prefix, mouse, and renderer paths have driver-owned equivalents.
+or `wtimeout` calls. `src/query1.c` and `src/query2.c` also no longer have
+active-driver cursor snapshot fallbacks; field, edge, shadow, and synelem
+queries now use logical cursor state or editor-owned fallback state. Many other
+legacy command, SOS, utility, mouse, and renderer paths still have physical
+mechanics. The guardrail test is intentionally permissive while the live
+renderer is still being split; tighten it only after the remaining command,
+prefix, mouse, and renderer paths have driver-owned equivalents.
 
 Aggressive migration sequence:
 
@@ -377,13 +382,16 @@ Preferred order, with larger slices:
    boundary, but make dispatch decisions consume `TheInputEvent` when the
    behavior is covered by agent/inputevent CTests.
 4. Convert `show.c` fallbacks by render group, not by isolated helper:
-   view-switch fallbacks, full-screen render entry/exit, and UTF repair repaint
-   should all become frame-backed or driver-request-backed. Add virtual
-   renderer/fake driver CTests before tightening each fallback.
+   view-switch physical snapshot fallbacks are gone. Full-screen render
+   entry/exit and remaining targeted redraw decisions should become
+   frame-backed or driver-request-backed. Add virtual renderer/fake driver
+   CTests before tightening each fallback.
 5. Retire active-driver query/materialization fallbacks in non-renderer command
    code once the same row/cell behavior is visible through logical queries,
-   agent snapshots, or CREXX query tests. Tighten
-   `tests/check_curses_boundary.sh` immediately for each fully migrated module.
+   agent snapshots, or CREXX query tests. `query1.c`/`query2.c` are cleaned;
+   `commsos.c` still has an active-driver cursor query fallback and should be
+   handled with focused CREXX SOS coverage. Tighten `tests/check_curses_boundary.sh`
+   immediately for each fully migrated module.
 6. Introduce logical popup/dialog/window-lifecycle models as a single larger
    slice only when they can be exposed in LLM snapshots and virtual screen
    tests. Until then, keep those mechanics driver-owned physical behavior.
@@ -400,10 +408,11 @@ cmake --build cmake-build-noutf8 -j2
 ctest --test-dir cmake-build-noutf8 --output-on-failure
 ```
 
-Latest verification after the virtual UI/fake-driver harness slice: UTF
-build/CTest was green, 32/32. no-UTF build/CTest was green, 17/17 with
-SDSLH-dependent tests skipped as intended. Focused LLM/`the_agent` smoke passed
-as part of both full CTest suites.
+Latest verification after the query fallback slice: UTF build/CTest was green,
+32/32. no-UTF build/CTest was green, 17/17 with SDSLH-dependent tests skipped
+as intended. Focused LLM/`the_agent` smoke, CREXX/pty query tests, SOS
+navigation/edit tests, and selective-change prompt tests were green. A manual
+smake smoke was also reported green.
 
 ## Suggested Next Slices
 
@@ -417,10 +426,15 @@ High-value next slices:
   then remove the corresponding `show.c` non-frame fallback path in the same
   commit. The non-frame `cursor_focus_*` software-cursor overlay fallbacks have
   been retired, and status/HEXDISPLAY no longer has a physical cursor snapshot
-  fallback. Good next targets are view-switch physical snapshot fallbacks and
-  render entry/exit logical decisions. Keep physical cursor save/restore,
-  refresh, touch/update, UTF/ascii cell writes, software cursor painting, and
-  cursor parking in `cursesdriver.c`.
+  fallback. View-switch physical snapshot fallbacks are now retired too. Good
+  next targets are render entry/exit logical decisions and targeted redraw
+  paths that still infer state from physical cursor mechanics. Keep physical
+  cursor save/restore, refresh, touch/update, UTF/ascii cell writes, software
+  cursor painting, and cursor parking in `cursesdriver.c`.
+- SOS/query fallback purge: remove `commsos.c`'s active-driver cursor query
+  fallback by extending the existing CREXX SOS navigation/edit tests around the
+  affected commands, then derive row/cell decisions from logical cursor state
+  and editor-owned fallback state.
 - Agent command bridge: support a first real group of full-editor commands or
   SOS commands through normalized agent input, with `the_agent` CTests proving
   no-curses behavior and CREXX CTests proving full-editor parity where needed.
