@@ -102,7 +102,6 @@ address the "extract /field/" expose field[]
 say "FILE_CURSORSHIFT=" || field[2] || ":" || field[3] || ":" || field[4]
 
 'cursor file 2 2'
-'sos settab'
 'sos firstcol'
 'sos tabf'
 field = .string[]
@@ -110,7 +109,7 @@ address the "extract /field/" expose field[]
 say "FILE_SETTAB_TABF=" || field[3] || ":" || field[4]
 
 'cursor file 2 2'
-'sos instab nochar'
+'sos instab'
 field = .string[]
 address the "extract /field/" expose field[]
 say "FILE_INSTAB=" || field[3] || ":" || field[4]

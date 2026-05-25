@@ -75,6 +75,8 @@ typedef struct
 const char *the_input_kind_name(TheInputKind kind);
 const char *the_input_debug_command_name(TheInputDebugCommand command);
 const char *the_input_logical_target_kind_name(TheInputLogicalTargetKind kind);
+int the_input_logical_target_kind_from_name(const char *name,
+                                            TheInputLogicalTargetKind *kind);
 TheInputEvent the_input_event_none(void);
 int the_input_event_from_text(uint32_t codepoint, TheInputEvent *out);
 int the_input_event_from_key_name(const char *name, TheInputEvent *out);

@@ -165,6 +165,45 @@ const char *the_input_logical_target_kind_name(TheInputLogicalTargetKind kind)
    }
 }
 
+int the_input_logical_target_kind_from_name(const char *name,
+                                            TheInputLogicalTargetKind *kind)
+{
+   TheInputLogicalTargetKind parsed = THE_INPUT_TARGET_NONE;
+
+   if (name == NULL)
+      return 0;
+   if (input_ascii_equal_ci(name, "filearea")
+   ||  input_ascii_equal_ci(name, "file")
+   ||  input_ascii_equal_ci(name, "file-area"))
+      parsed = THE_INPUT_TARGET_FILEAREA;
+   else if (input_ascii_equal_ci(name, "prefix"))
+      parsed = THE_INPUT_TARGET_PREFIX;
+   else if (input_ascii_equal_ci(name, "command")
+   ||       input_ascii_equal_ci(name, "cmd")
+   ||       input_ascii_equal_ci(name, "cmdline")
+   ||       input_ascii_equal_ci(name, "commandline"))
+      parsed = THE_INPUT_TARGET_COMMAND;
+   else if (input_ascii_equal_ci(name, "prompt"))
+      parsed = THE_INPUT_TARGET_PROMPT;
+   else if (input_ascii_equal_ci(name, "status"))
+      parsed = THE_INPUT_TARGET_STATUS;
+   else if (input_ascii_equal_ci(name, "tabline")
+   ||       input_ascii_equal_ci(name, "tabs")
+   ||       input_ascii_equal_ci(name, "tab"))
+      parsed = THE_INPUT_TARGET_TABLINE;
+   else if (input_ascii_equal_ci(name, "divider"))
+      parsed = THE_INPUT_TARGET_DIVIDER;
+   else if (input_ascii_equal_ci(name, "window")
+   ||       input_ascii_equal_ci(name, "win"))
+      parsed = THE_INPUT_TARGET_WINDOW;
+   else
+      return 0;
+
+   if (kind != NULL)
+      *kind = parsed;
+   return 1;
+}
+
 static LogicalCursorZone input_zone_from_target_kind(TheInputLogicalTargetKind kind)
 {
    switch (kind)

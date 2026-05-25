@@ -664,6 +664,7 @@ if(THE_USE_CREXX)
     set_tests_properties(test_field_queries PROPERTIES
         SKIP_RETURN_CODE 77
         TIMEOUT 10
+        RESOURCE_LOCK the_pty_editor
         ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
     )
     if(USE_UTF8)
@@ -671,6 +672,8 @@ if(THE_USE_CREXX)
         set_tests_properties(test_field_queries_utf PROPERTIES
             SKIP_RETURN_CODE 77
             TIMEOUT 10
+            RESOURCE_LOCK the_pty_editor
+            DEPENDS test_field_queries
             ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
         )
     endif()
@@ -678,24 +681,31 @@ if(THE_USE_CREXX)
     set_tests_properties(test_normal_area_queries PROPERTIES
         SKIP_RETURN_CODE 77
         TIMEOUT 10
+        RESOURCE_LOCK the_pty_editor
         ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
     )
     add_test(NAME test_sos_navigation_queries COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sos_navigation_queries.sh)
     set_tests_properties(test_sos_navigation_queries PROPERTIES
         SKIP_RETURN_CODE 77
         TIMEOUT 10
+        RESOURCE_LOCK the_pty_editor
+        DEPENDS test_normal_area_queries
         ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
     )
     add_test(NAME test_sos_logical_edit_queries COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sos_logical_edit_queries.sh)
     set_tests_properties(test_sos_logical_edit_queries PROPERTIES
         SKIP_RETURN_CODE 77
         TIMEOUT 10
+        RESOURCE_LOCK the_pty_editor
+        DEPENDS test_sos_navigation_queries
         ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
     )
     add_test(NAME test_selective_change_prompt COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_selective_change_prompt.sh)
     set_tests_properties(test_selective_change_prompt PROPERTIES
         SKIP_RETURN_CODE 77
         TIMEOUT 15
+        RESOURCE_LOCK the_pty_editor
+        DEPENDS test_sos_logical_edit_queries
         ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
     )
     add_test(NAME test_crexx_profile COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_crexx_profile.sh)

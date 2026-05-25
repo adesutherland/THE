@@ -1244,15 +1244,13 @@ static int show_restore_view_logical_cursor(CHARTYPE scrno,
          {
             if (show_logical_prefix_cursor_target(scrno, view, &row, &col))
             {
-               curses_driver_move_window_cursor(SCREEN_WINDOW_PREFIX(scrno),
-                                                row, (short)col);
+               curses_driver_move_prefix_cursor(scrno, row, (short)col);
                restored = TRUE;
             }
             else if (show_view_filearea_cursor_target(scrno, view, &row,
                                                       NULL, NULL, NULL))
             {
-               curses_driver_move_window_cursor(SCREEN_WINDOW_PREFIX(scrno),
-                                                row, 0);
+               curses_driver_move_prefix_cursor(scrno, row, 0);
                restored = TRUE;
             }
          }

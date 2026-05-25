@@ -67,6 +67,22 @@ int main(void)
    expect_contains(out, "\"zone\":\"filearea\"", "logical hit filearea focus");
    expect_contains(out, "\"line\":2", "logical hit target line");
    expect_contains(out, "\"cell\":1", "logical hit target cell");
+
+   expect_true(the_input_event_from_logical_target(THE_INPUT_TARGET_PREFIX,
+                                                   2, 1, 2, 0, -1, &input),
+               "make prefix logical hit");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply prefix logical hit");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"zone\":\"prefix\"", "logical hit prefix focus");
+   expect_contains(out, "\"line\":2", "logical hit prefix line");
+   expect_contains(out, "\"cell\":2", "logical hit prefix cell");
+
+   expect_true(the_input_event_from_logical_hit(LOGICAL_CURSOR_ZONE_FILEAREA,
+                                                2, 1, 1, &input),
+               "make second logical hit");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply second logical hit");
    options.mode = LLM_DRIVER_VIEW_FILEAREA;
 
    expect_true(the_input_event_from_key_name("right", &input),
@@ -109,19 +125,28 @@ int main(void)
    expect_contains(out, "\"role\":\"command\"", "command row visible");
    expect_contains(out, "\"cell\":6", "command cursor after text");
 
+   expect_true(the_input_event_from_logical_target(THE_INPUT_TARGET_COMMAND,
+                                                   0, 4, 2, 0, -1, &input),
+               "make command logical hit");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply command logical hit");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"zone\":\"command\"", "logical hit command focus");
+   expect_contains(out, "\"cell\":2", "logical hit command cell");
+
    expect_true(the_input_event_from_key_name("left", &input),
                "make command left");
    expect_true(agent_driver_apply_input(&driver, &input),
                "apply command left");
    agent_driver_format(&driver, &options, out, sizeof(out));
-   expect_contains(out, "\"cell\":5", "command cursor moves left");
+   expect_contains(out, "\"cell\":1", "command cursor moves left");
 
    expect_true(the_input_event_from_key_name("right", &input),
                "make command right");
    expect_true(agent_driver_apply_input(&driver, &input),
                "apply command right");
    agent_driver_format(&driver, &options, out, sizeof(out));
-   expect_contains(out, "\"cell\":6", "command cursor moves right");
+   expect_contains(out, "\"cell\":2", "command cursor moves right");
 
    expect_true(the_input_event_from_key_name("enter", &input),
                "make command enter");
@@ -175,6 +200,84 @@ int main(void)
                "apply sos topedge");
    agent_driver_format(&driver, &options, out, sizeof(out));
    expect_contains(out, "\"line\":1", "sos topedge uses first visible file row");
+
+   expect_true(the_input_event_from_command("goto 1", &input),
+               "make goto for sos edit");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply goto for sos edit");
+   expect_true(the_input_event_from_command("sos rightedge", &input),
+               "make sos edit rightedge");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply sos edit rightedge");
+   expect_true(the_input_event_from_command("sos delback", &input),
+               "make sos delback");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply sos delback");
+   options.mode = LLM_DRIVER_VIEW_FILEAREA;
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"t\":\"on\"", "sos delback edits filearea");
+
+   expect_true(the_input_event_from_command("sos leftedge", &input),
+               "make sos edit leftedge");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply sos edit leftedge");
+   expect_true(the_input_event_from_command("sos delchar", &input),
+               "make sos delchar");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply sos delchar");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"t\":\"n\"", "sos delchar edits filearea");
+
+   expect_true(the_input_event_from_command("sos delend", &input),
+               "make sos delend");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply sos delend");
+   expect_true(strcmp(agent_driver_status(&driver), "deleted to end") == 0,
+               "sos delend status");
+
+   agent_driver_free(&driver);
+   agent_driver_init(&driver, 6, 80);
+   expect_true(agent_driver_set_text(&driver, "  trim\n"),
+               "set firstchar text");
+   expect_true(the_input_event_from_command("sos firstchar", &input),
+               "make sos firstchar");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply sos firstchar");
+   options.mode = LLM_DRIVER_VIEW_FOCUS;
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"cell\":2", "sos firstchar skips blanks");
+
+   expect_true(the_input_event_from_logical_target(THE_INPUT_TARGET_STATUS,
+                                                   0, 5, 0, 0, -1, &input),
+               "make status logical hit");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply status logical hit");
+   expect_true(strcmp(agent_driver_status(&driver), "status hit") == 0,
+               "status logical hit status");
+
+   expect_true(the_input_event_from_logical_target(THE_INPUT_TARGET_TABLINE,
+                                                   0, 0, 0, 0, -1, &input),
+               "make tabline logical hit");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply tabline logical hit");
+   expect_true(strcmp(agent_driver_status(&driver), "tabline hit") == 0,
+               "tabline logical hit status");
+
+   expect_true(the_input_event_from_logical_target(THE_INPUT_TARGET_DIVIDER,
+                                                   0, 3, 0, 0, -1, &input),
+               "make divider logical hit");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply divider logical hit");
+   expect_true(strcmp(agent_driver_status(&driver), "divider hit") == 0,
+               "divider logical hit status");
+
+   expect_true(the_input_event_from_logical_target(THE_INPUT_TARGET_WINDOW,
+                                                   0, 2, 0, 1, 0, &input),
+               "make window logical hit");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply window logical hit");
+   expect_true(strcmp(agent_driver_status(&driver), "window selected") == 0,
+               "window logical hit status");
 
    expect_true(the_input_event_from_command("sos delword", &input),
                "make unsupported command");

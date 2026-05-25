@@ -766,6 +766,13 @@ short curses_driver_redraw_screen_cursor(CHARTYPE scrno, struct view_details *vi
    return curses_driver_refresh_cursor(scrno);
 }
 
+void curses_driver_move_prefix_cursor(CHARTYPE scrno, short row, short col)
+{
+   if (scrno >= MAX_SCREENS || SCREEN_WINDOW_PREFIX(scrno) == NULL)
+      return;
+   curses_driver_move_window_cursor(SCREEN_WINDOW_PREFIX(scrno), row, col);
+}
+
 CursesDriverCursorTarget curses_driver_filearea_target(
    LogicalCursor cursor, const CHARTYPE *line, size_t len,
    int viewport_col, int window_cols)

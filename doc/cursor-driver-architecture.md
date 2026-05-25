@@ -165,7 +165,9 @@ place:
 - The main curses input loop now reads keys through `cursesdriver.c` and
   normalizes the collected key with `TheInputEvent` before handing the same
   legacy key code to existing dispatch. This is a compatibility adapter, not
-  yet a full logical mouse-hit or command-dispatch replacement.
+  yet a full command-dispatch replacement. The no-curses agent path now models
+  logical hit targets; live curses mouse packets still need to be converted to
+  those targets at the driver edge.
 - `src/llmdriver.c` can build role-aware semantic snapshots from `UiFrame`,
   accept normalized input events through the shared input layer, and format
   cursor mapping plus driver operation logs for deterministic diagnostics.
@@ -175,10 +177,12 @@ place:
   focus/cursor movement, reports its supported/unsupported surface through a
   stable `capabilities` response, and returns explicit unsupported-command
   diagnostics for full-editor commands that are not yet routed through the
-  agent subset. Its first command bridge covers the SOS navigation subset
+  agent subset. Its first command bridge covers the SOS navigation/edit subset
   (`TOPEDGE`, `BOTTOMEDGE`, `LEFTEDGE`, `RIGHTEDGE`, `FIRSTCOL`, `LASTCOL`,
-  `ENDCHAR`, `QCMND`, and `EXECUTE`) as logical cursor/focus operations without
-  linking curses.
+  `ENDCHAR`, `FIRSTCHAR`, `DELCHAR`, `CUADELCHAR`, `DELBACK`, `CUADELBACK`,
+  `DELEND`, `QCMND`, and `EXECUTE`) as logical cursor/focus/edit operations
+  without linking curses. It also accepts logical hit targets for file-area,
+  prefix, command, status, tabline, divider, and window selection surfaces.
 - Macro/agent-visible diagnostics now include both THE message history and
   SDSLH parser diagnostics: `EXTRACT /MESSAGES/`, `QUERY MESSAGES`,
   `SDSLHWAIT`, `EXTRACT /PMSGS/`, and `QUERY PMSGS`. SDSLH diagnostics are
@@ -292,8 +296,9 @@ curses.
    that shared layer. The live curses loop now has a first compatibility
    adapter: collected keys pass through `TheInputEvent` and then back to the
    existing legacy key dispatcher. Remaining work is to make command dispatch
-   consume normalized events directly where practical and to model mouse hits
-   as logical targets instead of only legacy mouse key codes.
+   consume normalized events directly where practical and to convert live
+   curses mouse packets into the logical targets now modeled by `inputevent`
+   and `the_agent`.
 
 8. Tighten guardrails.
    Once the migration is complete, make the curses-boundary test strict: editor
@@ -304,8 +309,10 @@ curses.
    Done as `the_agent`. The executable agent driver uses `uidriver`,
    `llmdriver`, `inputevent`, `logcursor`, and `textpos` without linking
    curses. It gives agents a functional interactive surface, including a first
-   SOS navigation subset, and gives the refactor a concrete separation proof
-   while the full curses editor is still being migrated.
+   SOS navigation/edit subset and logical hit handling for file-area, prefix,
+   command, status, tabline, divider, and window targets. That gives the
+   refactor a concrete separation proof while the full curses editor is still
+   being migrated.
 
 ## Testing Strategy
 
@@ -360,20 +367,22 @@ High-priority groups:
    state for file-area, prefix, command, status, tabline, divider, window
    selection, and UTF fixture rows. Compare semantic snapshots and fake-driver
    operation logs. This is the main accelerator for renderer migration.
-2. Agent command/input bridge. Expand `the_agent` beyond the subset dispatcher
-   by routing normalized text/key/command input through shared editor paths.
-   Add agent script CTests for every newly supported group and keep CREXX tests
-   for full-editor parity when the agent cannot yet run a command.
-3. Normalized input and mouse. Move dispatch decisions from legacy key
-   conversion to `TheInputEvent` consumers in groups: text, named navigation,
-   command submission, prefix editing, and logical mouse hits. Preserve legacy
-   key definitions at the driver edge while making behavior observable through
-   inputevent/agent CTests.
+2. Agent command/input bridge. `the_agent` now has a first SOS
+   navigation/edit group and logical hit input coverage. Continue expanding it
+   in behavior groups, keep `capabilities` exact for unsupported commands, and
+   add agent script CTests plus CREXX full-editor CTests where parity matters.
+3. Normalized input and mouse. `inputevent` and `the_agent` now model logical
+   hit targets for file-area, prefix, command, status, tabline, divider, and
+   window selection. The next input slice is live curses mouse conversion to
+   those targets, followed by dispatch groups that consume `TheInputEvent`
+   directly instead of legacy key codes.
 4. Renderer fallback purge. Use virtual renderer coverage to remove remaining
    targeted redraw fallbacks from `show.c`; full-screen render exit no longer
-   restores the active window from a captured physical cursor. Physical
-   save/restore, refresh, touch/update, UTF/ascii cell writes, software cursor
-   painting, and cursor parking stay in `cursesdriver.c`.
+   restores the active window from a captured physical cursor, and the
+   software-cursor redraw helper no longer infers logical focus from a captured
+   window cursor. Physical save/restore, refresh, touch/update, UTF/ascii cell
+   writes, software cursor painting, and cursor parking stay in
+   `cursesdriver.c`.
 5. Command/query fallback retirement. Retire active-driver row/cell fallbacks
    outside the renderer once equivalent logical query or agent/CREXX behavior
    is covered. `query1.c`, `query2.c`, and `commsos.c` are cleaned for the

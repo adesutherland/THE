@@ -69,6 +69,20 @@ static int ascii_starts_ci(const char *text, const char *prefix)
    return 1;
 }
 
+static int parse_long_token(const char *token, long *value)
+{
+   char *end = NULL;
+   long parsed;
+
+   if (token == NULL || *token == '\0' || value == NULL)
+      return 0;
+   parsed = strtol(token, &end, 10);
+   if (end == token || end == NULL || *end != '\0')
+      return 0;
+   *value = parsed;
+   return 1;
+}
+
 static void print_json_string(const char *text)
 {
    const unsigned char *ptr;
@@ -157,19 +171,19 @@ static void print_capabilities(void)
    fputs(",\"curses\":false", stdout);
    fputs(",\"command_dispatcher\":\"agent-subset\"", stdout);
    fputs(",\"full_the_dispatcher\":false", stdout);
-   fputs(",\"sos_commands\":\"navigation-subset\"", stdout);
+   fputs(",\"sos_commands\":\"navigation-and-edit-subset\"", stdout);
    fputs(",\"crexx_macros\":false", stdout);
    fputs(",\"prefix_commands\":false", stdout);
    fputs(",\"popup_dialogs\":false", stdout);
-   fputs(",\"mouse\":false", stdout);
-   fputs(",\"inputs\":[\"look\",\"capabilities\",\"focus\",\"key\",\"text\",\"type\",\"command\",\"debug\",\"quit\"]", stdout);
+   fputs(",\"mouse\":\"logical-hit-subset\"", stdout);
+   fputs(",\"inputs\":[\"look\",\"capabilities\",\"focus\",\"hit\",\"key\",\"text\",\"type\",\"command\",\"debug\",\"quit\"]", stdout);
    fputs(",\"view_modes\":[\"full\",\"filearea\",\"reserved\",\"prefix\",\"focus\"]", stdout);
-   fputs(",\"supported_commands\":[\"focus command\",\"focus filearea\",\"left\",\"right\",\"up\",\"down\",\"home\",\"end\",\"top\",\"bottom\",\"delete\",\"backspace\",\"goto N\",\"rows N\",\"cols N\",\"insert TEXT\",\"type TEXT\",\"save [PATH]\",\"write [PATH]\",\"sos NAVCOMMAND\"]", stdout);
-   fputs(",\"supported_sos_commands\":[\"topedge\",\"bottomedge\",\"leftedge\",\"rightedge\",\"firstcol\",\"lastcol\",\"endchar\",\"qcmnd\",\"execute\"]", stdout);
+   fputs(",\"supported_commands\":[\"focus command\",\"focus filearea\",\"hit TARGET LINE ROW CELL [SCREEN WINDOW]\",\"left\",\"right\",\"up\",\"down\",\"home\",\"end\",\"top\",\"bottom\",\"delete\",\"backspace\",\"goto N\",\"rows N\",\"cols N\",\"insert TEXT\",\"type TEXT\",\"save [PATH]\",\"write [PATH]\",\"sos COMMAND\"]", stdout);
+   fputs(",\"supported_sos_commands\":[\"topedge\",\"bottomedge\",\"leftedge\",\"rightedge\",\"firstcol\",\"lastcol\",\"endchar\",\"firstchar\",\"delchar\",\"cuadelchar\",\"delback\",\"cuadelback\",\"delend\",\"qcmnd\",\"execute\"]", stdout);
    fputs(",\"debug_commands\":[\"describe-focus\",\"describe-row\",\"list-visible-rows\",\"dump-cursor-mapping\",\"dump-driver-ops\",\"explain-last-render\"]", stdout);
-   fputs(",\"limitations\":[\"not wired to the full THE command dispatcher\",\"only SOS navigation commands are supported by the agent subset\",\"CREXX macros require the full editor integration surface\",\"popups/dialogs and mouse input are not modeled yet\"]", stdout);
+   fputs(",\"limitations\":[\"not wired to the full THE command dispatcher\",\"only SOS navigation/edit subset commands are supported by the agent subset\",\"CREXX macros require the full editor integration surface\",\"popup/dialog behavior is not modeled yet\",\"mouse support accepts logical hit targets, not terminal mouse packets\"]", stdout);
    fputs(",\"use_crexx_for\":[\"full THE command execution\",\"full SOS command behavior\",\"macro/profile integration\"]", stdout);
-   fputs(",\"use_agent_for\":[\"no-curses driver-boundary smoke\",\"logical snapshots\",\"normalized key/text input\"]", stdout);
+   fputs(",\"use_agent_for\":[\"no-curses driver-boundary smoke\",\"logical snapshots\",\"normalized key/text input\",\"logical hit input\"]", stdout);
    fputs("}\n", stdout);
    fflush(stdout);
 }
@@ -179,6 +193,7 @@ static void usage(FILE *out)
    fputs("usage: the_agent [--rows N] [--cols N] [file]\n", out);
    fputs("stdin commands: look, capabilities, focus command|filearea,\n",
          out);
+   fputs("                hit TARGET LINE ROW CELL [SCREEN WINDOW],\n", out);
    fputs("                key NAME, text TEXT, command THE-COMMAND, quit\n", out);
 }
 
@@ -247,6 +262,49 @@ static int apply_ascii_text(AgentDriver *driver, const char *text)
    return ok;
 }
 
+static int apply_logical_hit(AgentDriver *driver, char *args)
+{
+   TheInputLogicalTargetKind target_kind;
+   TheInputEvent input;
+   char *target;
+   char *line_text;
+   char *row_text;
+   char *cell_text;
+   char *screen_text;
+   char *window_text;
+   long line_number;
+   long row;
+   long cell;
+   long screen = -1;
+   long window_id = -1;
+
+   if (driver == NULL || args == NULL)
+      return 0;
+   target = strtok(args, " \t");
+   line_text = strtok(NULL, " \t");
+   row_text = strtok(NULL, " \t");
+   cell_text = strtok(NULL, " \t");
+   screen_text = strtok(NULL, " \t");
+   window_text = strtok(NULL, " \t");
+   if (!the_input_logical_target_kind_from_name(target, &target_kind)
+   ||  !parse_long_token(line_text, &line_number)
+   ||  !parse_long_token(row_text, &row)
+   ||  !parse_long_token(cell_text, &cell))
+      return 0;
+   if (screen_text != NULL && !parse_long_token(screen_text, &screen))
+      return 0;
+   if (window_text != NULL && !parse_long_token(window_text, &window_id))
+      return 0;
+   if (line_number < 0 || row < 0 || cell < 0)
+      return 0;
+   if (!the_input_event_from_logical_target(target_kind, (LINETYPE)line_number,
+                                            (int)row, (int)cell,
+                                            (int)screen, (int)window_id,
+                                            &input))
+      return 0;
+   return agent_driver_apply_input(driver, &input);
+}
+
 static int apply_command_line(AgentDriver *driver, char *line)
 {
    TheInputEvent input;
@@ -265,6 +323,8 @@ static int apply_command_line(AgentDriver *driver, char *line)
       return apply_ascii_text(driver, text + 5);
    if (ascii_starts_ci(text, "type "))
       return apply_ascii_text(driver, text + 5);
+   if (ascii_starts_ci(text, "hit "))
+      return apply_logical_hit(driver, trim(text + 4));
    if (ascii_starts_ci(text, "command "))
    {
       if (!the_input_event_from_command(trim(text + 8), &input))

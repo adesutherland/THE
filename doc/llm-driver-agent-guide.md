@@ -140,10 +140,13 @@ Implemented foundation:
 - `src/agentdriver.c` and `tools/the_agent.c`, a no-curses proof target that
   opens a file, emits LLM snapshots, accepts normalized stdin commands, and
   edits a small logical buffer without linking curses or the curses driver.
-- a first SOS navigation command bridge in `the_agent`, covering logical
+- a first SOS navigation/edit command bridge in `the_agent`, covering logical
   `TOPEDGE`, `BOTTOMEDGE`, `LEFTEDGE`, `RIGHTEDGE`, `FIRSTCOL`, `LASTCOL`,
-  `ENDCHAR`, `QCMND`, and `EXECUTE` behavior while leaving full SOS command
+  `ENDCHAR`, `FIRSTCHAR`, `DELCHAR`, `CUADELCHAR`, `DELBACK`, `CUADELBACK`,
+  `DELEND`, `QCMND`, and `EXECUTE` behavior while leaving full SOS command
   behavior explicitly unsupported.
+- logical hit handling in `the_agent` for file-area, prefix, command, status,
+  tabline, divider, and window selection targets.
 
 ## No-Curses Agent Executable
 
@@ -169,13 +172,14 @@ Supported stdin commands:
 - `look [full|filearea|reserved|prefix|focus] [compact] [max=N]`
 - `look ... [prefix=0|1] [command=0|1] [status=0|1] [cursor=0|1]`
 - `focus command` or `focus filearea` to move the logical input focus.
+- `hit TARGET LINE ROW CELL [SCREEN WINDOW]` for logical mouse-like targets.
 - `key left|right|up|down|home|end|pageup|pagedown|backspace|delete`
 - `text TEXT` for literal text input at the current logical focus. In command
   focus this edits the command line; in file-area focus this edits the file.
 - `command COMMAND` for logical editor commands implemented by the proof
   driver, such as `goto N`, `top`, `bottom`, `insert TEXT`, `delete`,
   `backspace`, `rows N`, `cols N`, `save`, `write`, and the supported SOS
-  navigation subset.
+  navigation/edit subset.
 - `key enter` submits the edited command line when command focus is active.
 - `debug NAME` to pass a normalized debug request.
 - `quit` or `exit`.
@@ -205,9 +209,9 @@ Remaining work:
 - extend live `UiFrame` creation beyond the file area so command, prompt,
   status, and reserved UI state all have one logical snapshot.
 - expose the formatting options through the runtime LLM driver command/API.
-- route curses keyboard and mouse collection through `TheInputEvent` before
-  command dispatch.
-- grow the agent command bridge beyond the SOS navigation subset without
+- route curses keyboard collection and live mouse-packet conversion through
+  `TheInputEvent` before command dispatch.
+- grow the agent command bridge beyond the SOS navigation/edit subset without
   removing explicit unsupported diagnostics for the remaining full-editor
   surface.
 - implement delta views once the frame builder can retain previous snapshots.

@@ -115,6 +115,7 @@ routed through command execution in a later step; it is not a key-code event.
 
 - `key NAME`
 - `text TEXT`
+- `hit TARGET LINE ROW CELL [SCREEN WINDOW]`
 - `command COMMAND`
 - `debug NAME`
 
@@ -123,8 +124,9 @@ without changing editor state, `capabilities` requests that describe the
 current agent surface, and `focus command` / `focus filearea` requests that
 move the logical input focus. In command focus, left/right/home/end, delete,
 backspace, and text input operate on the command line; `key enter` submits the
-edited command. `command sos ...` is supported only for the SOS navigation
-subset reported by `capabilities`.
+edited command. `hit` accepts logical file-area, prefix, command, status,
+tabline, divider, and window targets. `command sos ...` is supported only for
+the SOS navigation/edit subset reported by `capabilities`.
 
 ## Agent Usage Rules
 
@@ -189,9 +191,9 @@ verify the live proof target:
 - command-line focus, command cursor movement, and Enter submission.
 - stable capability output that says the agent uses an `agent-subset`
   dispatcher.
-- stable capability output for the partial SOS navigation bridge and stable
-  unsupported-command output for full-editor commands that are not yet routed
-  through the agent.
+- stable capability output for the partial SOS navigation/edit bridge, logical
+  hit input, and stable unsupported-command output for full-editor commands
+  that are not yet routed through the agent.
 - no curses dynamic dependency or exposed curses-driver symbols in
   `the_agent`.
 
@@ -210,10 +212,10 @@ the corresponding curses path is considered migrated.
 3. Route command, key, and text input through the same normalized event layer
    used by curses. Keep legacy key conversion as an edge adapter, not as the
    main dispatch model for newly migrated behavior.
-4. Add logical-hit input for mouse-like actions: file area, prefix, command
-   line, status, file tabs, divider, and window selection. Prove hit mapping
-   with `inputevent` or virtual-screen CTests before wiring live curses mouse
-   dispatch.
+4. Wire live curses mouse handling to logical-hit input for file area, prefix,
+   command line, status, file tabs, divider, and window selection. The
+   `inputevent`/agent side is now covered; the remaining work is driver-edge
+   mouse-packet conversion and full-editor dispatch.
 5. Use agent script CTests for no-curses parity and CREXX/pty CTests for
    full-editor parity until the agent command bridge can run the same command.
    Unsupported commands must stay explicit in `capabilities`.

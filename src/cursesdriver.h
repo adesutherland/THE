@@ -138,6 +138,7 @@ void curses_driver_add_cchar(WINDOW *win, const cchar_t *ch);
 void curses_driver_redraw_window(WINDOW *win);
 short curses_driver_refresh_cursor(CHARTYPE scrno);
 short curses_driver_redraw_screen_cursor(CHARTYPE scrno, struct view_details *view);
+void curses_driver_move_prefix_cursor(CHARTYPE scrno, short row, short col);
 CursesDriverCursorTarget curses_driver_filearea_target(
    LogicalCursor cursor, const CHARTYPE *line, size_t len,
    int viewport_col, int window_cols);

@@ -119,6 +119,16 @@ static void test_commands_targets_debug_and_queue(void)
    expect_str("target.area.name",
               the_input_logical_target_kind_name(input.target.kind),
               "filearea");
+   expect_int("target.area.name.parse",
+              the_input_logical_target_kind_from_name("file",
+                                                      &input.target.kind), 1);
+   expect_int("target.area.name.kind", input.target.kind,
+              THE_INPUT_TARGET_FILEAREA);
+   expect_int("target.command.alias.parse",
+              the_input_logical_target_kind_from_name("cmdline",
+                                                      &input.target.kind), 1);
+   expect_int("target.command.alias.kind", input.target.kind,
+              THE_INPUT_TARGET_COMMAND);
 
    expect_int("target.tabline.parse",
               the_input_event_from_logical_target(THE_INPUT_TARGET_TABLINE,

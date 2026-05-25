@@ -283,7 +283,7 @@ static void sos_store_prefix_cursor(unsigned short row, LENGTHTYPE cell)
                                       pre_rec, pre_rec_len, (int)cell,
                                       TEXT_SNAP_BACKWARD, 1);
    logical_cursor_state_focus(&CURRENT_VIEW->logical_cursor, logical);
-   curses_driver_move_window_cursor(CURRENT_WINDOW_PREFIX, row, (short)cell);
+   curses_driver_move_prefix_cursor(current_screen, row, (short)cell);
 }
 
 static void sos_current_logical_row_cell(unsigned short *row, LENGTHTYPE *cell)

@@ -82,10 +82,12 @@ editor-owned `current_column` rather than the curses cursor.
 and legacy key conversion. The live curses loop now reads through
 `cursesdriver.c` and normalizes collected key codes through `TheInputEvent`
 before passing the equivalent legacy key to the existing dispatcher. Mouse and
-resize key behavior is preserved at the compatibility-key level; logical mouse
-hit events remain later work. `src/llmdriver.c` now exposes role-aware semantic
-snapshots, compact token-saving view modes, shared normalized input wrappers,
-cursor mapping diagnostics, and driver operation log formatting.
+resize key behavior is preserved at the compatibility-key level; no-curses
+logical hit events are now modeled for the agent, while live curses mouse
+packets still need a driver-edge conversion slice. `src/llmdriver.c` now
+exposes role-aware semantic snapshots, compact token-saving view modes, shared
+normalized input wrappers, cursor mapping diagnostics, and driver operation log
+formatting.
 Full-screen render exit now materializes the active file-area, prefix, or
 command cursor from logical cursor state, with editor-owned fallback state for
 old paths that have not published a logical cursor yet, instead of restoring
@@ -106,16 +108,19 @@ legacy fallback groups instead of keeping both logical and physical authority
 alive in the dangerous middle ground.
 
 `the_agent` is useful as a no-curses proof target, but it is not yet a complete
-replacement for the full editor integration path. It can exercise logical file
-and command focus, normalized key/text input, a small command subset, and a
-first SOS navigation bridge: `SOS TOPEDGE`, `SOS BOTTOMEDGE`,
-`SOS LEFTEDGE`, `SOS RIGHTEDGE`, `SOS FIRSTCOL`, `SOS LASTCOL`,
-`SOS ENDCHAR`, `SOS QCMND`, and `SOS EXECUTE`. It still does not route
-arbitrary THE commands or full SOS edit/prefix behavior through the real command
-dispatcher. The agent exposes this boundary directly: `capabilities` reports
-`sos_commands` as a navigation subset and an unsupported command returns a
-stable diagnostic with a capabilities hint. Use it as an extra LLM-driver smoke
-layer, not as the only proof for command behavior.
+replacement for the full editor integration path. It can exercise logical file,
+prefix, and command focus; normalized key/text input; a small command subset;
+logical hit targets for file-area, prefix, command, status, tabline, divider,
+and window selection; and a first SOS navigation/edit bridge: `SOS TOPEDGE`,
+`SOS BOTTOMEDGE`, `SOS LEFTEDGE`, `SOS RIGHTEDGE`, `SOS FIRSTCOL`,
+`SOS LASTCOL`, `SOS ENDCHAR`, `SOS FIRSTCHAR`, `SOS DELCHAR`,
+`SOS CUADELCHAR`, `SOS DELBACK`, `SOS CUADELBACK`, `SOS DELEND`,
+`SOS QCMND`, and `SOS EXECUTE`. It still does not route arbitrary THE commands
+or full SOS prefix behavior through the real command dispatcher. The agent
+exposes this boundary directly: `capabilities` reports `sos_commands` as a
+navigation/edit subset and an unsupported command returns a stable diagnostic
+with a capabilities hint. Use it as an extra LLM-driver smoke layer, not as the
+only proof for command behavior.
 
 The macro/agent visibility layer has two distinct message surfaces. THE message
 history remains available through `EXTRACT /MESSAGES/` and `QUERY MESSAGES`.
@@ -320,16 +325,19 @@ each meaningful step. Current checkpoint status:
 7. Normalize curses, mouse, and LLM input through a shared event type: partial.
    `src/inputevent.c` owns the shared event type, legacy key conversion, and
    queue; LLM wrappers use it. The main curses key path now normalizes through
-   `TheInputEvent` before legacy dispatch. Remaining work is direct normalized
-   dispatch where safe and logical mouse-hit event routing.
+   `TheInputEvent` before legacy dispatch. `the_agent` now parses logical hit
+   targets for file-area, prefix, command, status, tabline, divider, and window
+   selection. Remaining work is direct normalized dispatch where safe and live
+   curses mouse-packet conversion to those logical targets.
 8. Tighten the guardrails so editor logic cannot call curses directly: pending.
 9. Add a no-curses agent proof target: done. `the_agent` opens files, accepts
    normalized agent input, emits semantic LLM snapshots, and links no curses
    library or curses driver source. It covers file-area and command-line focus,
-   including command cursor movement and Enter submission, and now bridges a
-   small SOS navigation subset through logical no-curses cursor/focus moves. It
-   proves the logical editor/LLM surface can function independently while the
-   full curses editor is still being migrated.
+   prefix logical hits, command cursor movement, Enter submission, logical hit
+   targets, and now bridges a small SOS navigation/edit subset through logical
+   no-curses cursor/focus/edit moves. It proves the logical editor/LLM surface
+   can function independently while the full curses editor is still being
+   migrated.
 10. Migrate ordinary `execute.c` cursor effects: partial. Six safe slices are
    complete and committed:
    - `76a5425 Route execute cursor moves through logical row`
@@ -424,21 +432,38 @@ cmake --build cmake-build-noutf8 -j2
 ctest --test-dir cmake-build-noutf8 --output-on-failure
 ```
 
-Latest verification after the targeted prefix redraw row fallback purge:
-`cmake-build-debug` UTF build/CTest was green, 32/32;
-`cmake-build-codex-debug` CTest was green, 32/32 after the CREXX debug rebuild
-restored real `libcrexxsaa.dylib`/`rxc` files; and no-UTF build/CTest was
-green, 17/17 with SDSLH-dependent tests skipped as intended. Focused
-LLM/`the_agent` smoke, `test_virtual_screen`, the no-curses guard, and the
-CREXX/pty normal/SOS navigation/edit tests were green. A manual `the_agent`
-smoke verified compact file/focus views plus the `SOS QCMND` and `SOS EXECUTE`
-bridge responses.
+Latest verification after the first-four-task logical cursor/driver slice:
+`cmake-build-debug` build and CTest are green, 32/32;
+`cmake-build-codex-debug` build and CTest are green, 32/32; and
+`cmake-build-noutf8` build and CTest are green, 17/17 with SDSLH-dependent
+tests skipped as intended. Focused input/agent/cursor coverage also passed:
+`test_inputevent`, `test_agentdriver`, `test_the_agent_script`,
+`test_the_agent_capabilities`, `test_the_agent_no_curses`,
+`test_curses_boundary`, `test_virtual_screen`, `test_normal_area_queries`, and
+`test_sos_navigation_queries`.
 
 ## Suggested Next Slices
 
 Use bigger, CTest-backed slices. A good slice now has three parts: expose the
 behavior through agent/LLM or a virtual screen, migrate the real path, then
 tighten a guardrail or capability declaration.
+
+Current first-four-task slice status:
+
+- Renderer fallback purge: `cursor_focus_redraw_if_software()` no longer
+  captures the physical window cursor to infer logical focus before repainting;
+  direct cursor moves touched in this slice now publish logical row/cell state
+  explicitly before software-cursor redraw.
+- SOS/prefix cleanup: prefix cursor materialization now goes through
+  `curses_driver_move_prefix_cursor()`, keeping the physical prefix-window move
+  behind the curses driver and leaving logical state as the editor authority.
+- Agent command bridge: `the_agent` now supports the first SOS navigation/edit
+  subset (`FIRSTCHAR`, `DELCHAR`, `CUADELCHAR`, `DELBACK`, `CUADELBACK`, and
+  `DELEND` added to the previous navigation/focus group) with agent CTests.
+- Normalized mouse/input: `the_agent` now parses `hit TARGET LINE ROW CELL
+  [SCREEN WINDOW]`; `inputevent` owns target-name parsing, and the agent driver
+  handles file-area, prefix, command, status, tabline, divider, and window
+  targets.
 
 High-value next slices:
 
@@ -448,23 +473,24 @@ High-value next slices:
   been retired, and status/HEXDISPLAY no longer has a physical cursor snapshot
   fallback. View-switch physical snapshot fallbacks and targeted prefix
   physical-row fallback are now retired too. Full-screen render exit no longer
-  restores the active window from a captured physical cursor. Good next targets
-  are any remaining targeted redraw paths that still infer state from physical
-  cursor mechanics. Keep physical cursor save/restore, refresh, touch/update,
-  UTF/ascii cell writes, software cursor painting, and cursor parking in
-  `cursesdriver.c`.
+  restores the active window from a captured physical cursor. The redraw helper
+  no longer syncs logical state from a captured window cursor. Good next
+  targets are the remaining `show.c` targeted redraw mechanics that still use
+  physical cursor capture for local restore/materialization. Keep physical
+  cursor save/restore, refresh, touch/update, UTF/ascii cell writes, software
+  cursor painting, and cursor parking in `cursesdriver.c`.
 - Follow-on SOS cleanup: with `commsos.c`'s active-driver cursor query fallback
   removed, the next useful SOS slices are tab-field/key-navigation paths that
-  still depend on legacy cursor helpers, plus reducing the remaining prefix
-  materialization bridge to a driver-owned operation with logical state as the
-  only editor authority.
-- Agent command bridge: support a first real group of full-editor commands or
-  SOS commands through normalized agent input, with `the_agent` CTests proving
-  no-curses behavior and CREXX CTests proving full-editor parity where needed.
-- Normalized mouse/input group: model curses mouse clicks as logical-hit events
-  for file area, prefix, command line, status, file tabs, divider, and window
-  selection. Add focused `inputevent`/adapter tests before connecting
-  `process_key()` to consume those events.
+  still depend on legacy cursor helpers, plus any remaining prefix
+  materialization call sites that should use the new driver-owned wrapper.
+- Agent command bridge: the first SOS edit group is now in the no-curses agent.
+  Next, either add another coherent SOS group or start routing a small group of
+  full-editor commands through normalized agent input, with CREXX CTests
+  proving full-editor parity where needed.
+- Normalized mouse/input group: no-curses logical hits are modeled. Next, map
+  live curses mouse clicks to `TheInputEvent` logical-hit targets for file
+  area, prefix, command line, status, file tabs, divider, and window selection,
+  then connect `process_key()`/mouse dispatch consumers group by group.
 - Guardrail ratchet: after each group lands, extend
   `tests/check_curses_boundary.sh` for the fully cleaned module or behavior
   class instead of waiting for the entire migration.
