@@ -45,8 +45,11 @@ logical file-area/prefix cells instead of capturing and restoring physical
 curses coordinates. `insert_new_line()` now derives its target row/cell from
 logical focus state and materializes file-area or prefix focus through the
 driver. `selective_change()` now moves its confirmation prompt cursor from the
-match's logical `TextPos` cell and driver viewport visibility. Other legacy
-cursor commands still need migration before the boundary can be made strict.
+match's logical `TextPos` cell and driver viewport visibility. The remaining
+`execute.c` OS shell bridge, `EDITV LIST` screen, popup placement, and
+popup/dialog transient-window mechanics now route through driver-owned physical
+wrappers rather than direct curses calls. Other legacy cursor commands still
+need migration before the boundary can be made strict.
 
 The first driver-boundary slices are now present. `src/utflayout.c` owns pure
 logical-to-physical UTF cell mapping without curses calls. `src/uidriver.c`
@@ -293,9 +296,10 @@ each meaningful step. Current checkpoint status:
    `selective_change()` prompt placement away from physical cursor state.
    CREXX/pty coverage was extended in `tests/test_normal_area_queries.sh`,
    `tests/test_sos_navigation_queries.sh`, and
-   `tests/test_selective_change_prompt.sh`. Remaining `execute.c` direct curses
-   paths are mainly OS suspend/resume bridge code, mouse/status/window-placement
-   paths, and popup/dialog mechanics.
+   `tests/test_selective_change_prompt.sh`. The OS suspend/resume bridge,
+   `EDITV LIST`, popup placement, and popup/dialog mechanics are still physical
+   behavior, but they now go through `cursesdriver.c` wrappers rather than
+   direct curses calls from `execute.c`.
 
 Runtime cursor code still has multiple physical paths and must be migrated.
 `src/cursor.c`, `src/comm5.c`, `src/query1.c`, `src/query2.c`, and `src/edit.c`
@@ -325,9 +329,10 @@ Near-term migration sequence:
    prompt/dialog and popup mechanics. `execute_move_cursor()`,
    `execute_makecurr()`, block rearrange cursor preservation,
    `insert_new_line()` cursor placement, and `selective_change()` prompt cursor
-   handling are migrated. The remaining direct curses calls in `execute.c` are
-   now mostly OS suspend/resume, popup/dialog, and mouse/status/window-placement
-   mechanics. Leave popup/dialog behavior for a logical popup design.
+   handling are migrated. The remaining OS suspend/resume, `EDITV LIST`,
+   popup/dialog, and mouse/status/window-placement mechanics are routed through
+   driver-owned physical wrappers. Leave popup/dialog behavior for a logical
+   popup design.
 5. Logical popups/dialogs: introduce logical popup/dialog objects and let
    curses and LLM drivers materialize them differently.
 6. Renderer cleanup: convert targeted redraws to driver-level logical render
@@ -348,11 +353,11 @@ cmake --build cmake-build-noutf8 -j2
 ctest --test-dir cmake-build-noutf8 --output-on-failure
 ```
 
-Latest verification after `d88abf7`: UTF build/CTest was green, 31/31. no-UTF
-build/CTest was green, 16/16 with CREXX-dependent tests skipped as intended.
-Focused `the_agent` script/capabilities/no-curses checks passed through CTest.
-Manual smoke test was reported green before the latest ordinary `execute.c`
-slices.
+Latest verification after the `execute.c` transient-window wrapper slice: UTF
+build/CTest was green, 31/31. no-UTF build/CTest was green, 16/16 with
+CREXX/SDSLH-dependent tests skipped as intended. Focused LLM/`the_agent` smoke
+passed in both UTF and no-UTF builds. Manual smoke test was reported green
+before the latest ordinary `execute.c` slices.
 
 ## Sequencing Advice
 

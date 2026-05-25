@@ -352,6 +352,75 @@ CursesDriverWindowSize curses_driver_window_size(WINDOW *win)
    return size;
 }
 
+CursesDriverScreenPoint curses_driver_window_cursor_screen_point(WINDOW *win)
+{
+   CursesDriverScreenPoint point;
+   CursesDriverWindowCursor cursor;
+   CursesDriverWindowOrigin origin;
+
+   point.row = -1;
+   point.col = -1;
+   point.valid = 0;
+   cursor = curses_driver_capture_window_cursor(win);
+   origin = curses_driver_window_origin(win);
+   if (!cursor.valid || !origin.valid)
+      return point;
+
+   point.row = (short)(cursor.row + origin.row);
+   point.col = (short)(cursor.col + origin.col);
+   point.valid = 1;
+   return point;
+}
+
+WINDOW *curses_driver_create_window(int rows, int cols, int row, int col)
+{
+   return newwin(rows, cols, row, col);
+}
+
+WINDOW *curses_driver_create_pad(int rows, int cols)
+{
+#ifdef HAVE_NEWPAD
+   return newpad(rows, cols);
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(rows);
+   INTENTIONALLY_UNUSED_VARIABLE(cols);
+   return NULL;
+#endif
+}
+
+WINDOW *curses_driver_create_relative_window(WINDOW *parent, int rows,
+                                             int cols, int row, int col)
+{
+#ifdef HAVE_DERWIN
+   return derwin(parent, rows, cols, row, col);
+#else
+   CursesDriverWindowOrigin origin;
+
+   origin = curses_driver_window_origin(parent);
+   if (!origin.valid)
+      return NULL;
+   return subwin(parent, rows, cols, origin.row + row, origin.col + col);
+#endif
+}
+
+void curses_driver_delete_window(WINDOW *win)
+{
+   if (win == NULL)
+      return;
+   delwin(win);
+}
+
+void curses_driver_enable_keypad(WINDOW *win, bool enabled)
+{
+   if (win == NULL)
+      return;
+#ifdef HAVE_KEYPAD
+   keypad(win, enabled ? TRUE : FALSE);
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(enabled);
+#endif
+}
+
 void curses_driver_move_window_cursor(WINDOW *win, short row, short col)
 {
    if (win == NULL)
@@ -379,6 +448,40 @@ void curses_driver_set_window_attr(WINDOW *win, chtype colour)
    if (win == NULL)
       return;
    wattrset(win, colour);
+}
+
+void curses_driver_set_window_background(WINDOW *win, chtype colour)
+{
+   if (win == NULL)
+      return;
+#ifdef HAVE_WBKGD
+   wbkgd(win, colour);
+#else
+   wattrset(win, colour);
+   wmove(win, 0, 0);
+   wclrtobot(win);
+#endif
+}
+
+void curses_driver_clear_window(WINDOW *win)
+{
+   if (win == NULL)
+      return;
+   wclear(win);
+}
+
+void curses_driver_clear_window_to_bottom(WINDOW *win)
+{
+   if (win == NULL)
+      return;
+   wclrtobot(win);
+}
+
+void curses_driver_clear_to_eol(WINDOW *win)
+{
+   if (win == NULL)
+      return;
+   my_wclrtoeol(win);
 }
 
 void curses_driver_touch_window(WINDOW *win)
@@ -411,6 +514,37 @@ void curses_driver_refresh_window(WINDOW *win)
    wnoutrefresh(win);
 }
 
+void curses_driver_refresh_window_now(WINDOW *win)
+{
+   if (win == NULL)
+      return;
+   wrefresh(win);
+}
+
+void curses_driver_refresh_standard_screen(void)
+{
+   refresh();
+}
+
+void curses_driver_refresh_pad(WINDOW *pad, int pad_row, int pad_col,
+                               int screen_top, int screen_left,
+                               int screen_bottom, int screen_right)
+{
+   if (pad == NULL)
+      return;
+#ifdef HAVE_PREFRESH
+   prefresh(pad, pad_row, pad_col, screen_top, screen_left,
+            screen_bottom, screen_right);
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(pad_row);
+   INTENTIONALLY_UNUSED_VARIABLE(pad_col);
+   INTENTIONALLY_UNUSED_VARIABLE(screen_top);
+   INTENTIONALLY_UNUSED_VARIABLE(screen_left);
+   INTENTIONALLY_UNUSED_VARIABLE(screen_bottom);
+   INTENTIONALLY_UNUSED_VARIABLE(screen_right);
+#endif
+}
+
 void curses_driver_update(void)
 {
    doupdate();
@@ -426,6 +560,131 @@ void curses_driver_set_window_timeout(WINDOW *win, int milliseconds)
    if (win == NULL)
       return;
    wtimeout(win, milliseconds);
+}
+
+void curses_driver_draw_box(WINDOW *win)
+{
+   if (win == NULL)
+      return;
+#if defined(HAVE_BOX)
+   box(win, 0, 0);
+#endif
+}
+
+void curses_driver_add_string(WINDOW *win, const char *text)
+{
+   if (win == NULL || text == NULL)
+      return;
+   waddstr(win, text);
+}
+
+void curses_driver_add_string_at(WINDOW *win, short row, short col,
+                                 const char *text)
+{
+   if (win == NULL || text == NULL)
+      return;
+   curses_driver_move_window_cursor(win, row, col);
+   curses_driver_add_string(win, text);
+}
+
+void curses_driver_add_chtype_at(WINDOW *win, short row, short col, chtype ch)
+{
+   if (win == NULL)
+      return;
+   curses_driver_move_window_cursor(win, row, col);
+   waddch(win, ch);
+}
+
+void curses_driver_draw_horizontal_line(WINDOW *win, chtype ch, int len)
+{
+   int i;
+
+   if (win == NULL || len <= 0)
+      return;
+#ifdef HAVE_WHLINE
+   whline(win, ch, len);
+#else
+   for (i = 0; i < len; i++)
+      waddch(win, ch);
+#endif
+}
+
+int curses_driver_read_window_key(WINDOW *win)
+{
+   if (win == NULL)
+      return ERR;
+   return my_getch(win);
+}
+
+int curses_driver_read_standard_key(void)
+{
+   return my_getch(stdscr);
+}
+
+int curses_driver_read_raw_standard_key(void)
+{
+   return wgetch(stdscr);
+}
+
+void curses_driver_mouse_position(WINDOW *win, int *row, int *col)
+{
+   if (row != NULL)
+      *row = -1;
+   if (col != NULL)
+      *col = -1;
+   if (win == NULL || row == NULL || col == NULL)
+      return;
+   wmouse_position(win, row, col);
+}
+
+void curses_driver_prepare_standard_screen_for_shell(void)
+{
+   attrset(A_NORMAL);
+   clear();
+   wmove(stdscr, 1, 0);
+   wrefresh(stdscr);
+}
+
+void curses_driver_force_background_and_refresh(WINDOW *win)
+{
+#if defined(HAVE_BROKEN_SYSVR4_CURSES)
+   CursesDriverWindowCursor cursor;
+
+   cursor = curses_driver_capture_window_cursor(win);
+   force_curses_background();
+   curses_driver_restore_window_cursor(win, cursor);
+   refresh();
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(win);
+#endif
+}
+
+void curses_driver_clear_standard_window(void)
+{
+   wclear(stdscr);
+}
+
+void curses_driver_set_standard_attr(chtype colour)
+{
+   attrset(colour);
+}
+
+void curses_driver_add_standard_string_at(short row, short col,
+                                          const char *text)
+{
+   if (text == NULL)
+      return;
+   mvaddstr(row, col, text);
+}
+
+void curses_driver_move_standard_cursor(short row, short col)
+{
+   move(row, col);
+}
+
+void curses_driver_add_standard_ch(chtype ch)
+{
+   addch(ch);
 }
 
 #ifdef HAVE_WADDCHNSTR

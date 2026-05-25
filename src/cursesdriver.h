@@ -38,6 +38,13 @@ typedef struct
    int valid;
 } CursesDriverWindowSize;
 
+typedef struct
+{
+   short row;
+   short col;
+   int valid;
+} CursesDriverScreenPoint;
+
 int curses_driver_clamp_display_col(int display_col, int window_cols);
 int curses_driver_display_col_from_logical(const CHARTYPE *line, size_t len,
                                            int viewport_col, int logical_col);
@@ -72,18 +79,52 @@ void curses_driver_write_ascii_cells_at(WINDOW *win, int row, int col,
 CursesDriverWindowCursor curses_driver_capture_window_cursor(WINDOW *win);
 CursesDriverWindowOrigin curses_driver_window_origin(WINDOW *win);
 CursesDriverWindowSize curses_driver_window_size(WINDOW *win);
+CursesDriverScreenPoint curses_driver_window_cursor_screen_point(WINDOW *win);
+WINDOW *curses_driver_create_window(int rows, int cols, int row, int col);
+WINDOW *curses_driver_create_pad(int rows, int cols);
+WINDOW *curses_driver_create_relative_window(WINDOW *parent, int rows,
+                                             int cols, int row, int col);
+void curses_driver_delete_window(WINDOW *win);
+void curses_driver_enable_keypad(WINDOW *win, bool enabled);
 void curses_driver_move_window_cursor(WINDOW *win, short row, short col);
 void curses_driver_restore_window_cursor(WINDOW *win,
                                          CursesDriverWindowCursor cursor);
 chtype curses_driver_read_window_cell(WINDOW *win);
 void curses_driver_set_window_attr(WINDOW *win, chtype colour);
+void curses_driver_set_window_background(WINDOW *win, chtype colour);
+void curses_driver_clear_window(WINDOW *win);
+void curses_driver_clear_window_to_bottom(WINDOW *win);
+void curses_driver_clear_to_eol(WINDOW *win);
 void curses_driver_touch_window(WINDOW *win);
 void curses_driver_touch_line(WINDOW *win, int start, int count);
 void curses_driver_clear_line_at(WINDOW *win, short row, chtype colour);
 void curses_driver_refresh_window(WINDOW *win);
+void curses_driver_refresh_window_now(WINDOW *win);
+void curses_driver_refresh_standard_screen(void);
+void curses_driver_refresh_pad(WINDOW *pad, int pad_row, int pad_col,
+                               int screen_top, int screen_left,
+                               int screen_bottom, int screen_right);
 void curses_driver_update(void);
 void curses_driver_present_cursor(bool visible);
 void curses_driver_set_window_timeout(WINDOW *win, int milliseconds);
+void curses_driver_draw_box(WINDOW *win);
+void curses_driver_add_string(WINDOW *win, const char *text);
+void curses_driver_add_string_at(WINDOW *win, short row, short col,
+                                 const char *text);
+void curses_driver_add_chtype_at(WINDOW *win, short row, short col, chtype ch);
+void curses_driver_draw_horizontal_line(WINDOW *win, chtype ch, int len);
+int curses_driver_read_window_key(WINDOW *win);
+int curses_driver_read_standard_key(void);
+int curses_driver_read_raw_standard_key(void);
+void curses_driver_mouse_position(WINDOW *win, int *row, int *col);
+void curses_driver_prepare_standard_screen_for_shell(void);
+void curses_driver_force_background_and_refresh(WINDOW *win);
+void curses_driver_clear_standard_window(void);
+void curses_driver_set_standard_attr(chtype colour);
+void curses_driver_add_standard_string_at(short row, short col,
+                                          const char *text);
+void curses_driver_move_standard_cursor(short row, short col);
+void curses_driver_add_standard_ch(chtype ch);
 #ifdef HAVE_WADDCHNSTR
 void curses_driver_write_chtype_span(WINDOW *win, const chtype *text, int len);
 # ifdef USE_UTF8

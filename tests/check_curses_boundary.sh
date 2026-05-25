@@ -39,4 +39,15 @@ if [[ -n "$violations" ]]; then
   exit 1
 fi
 
-printf '%s\n' "curses boundary check passed for logical foundation modules"
+execute_pattern='(^|[^A-Za-z0-9_])(attrset|clear|wclear|move|mvaddstr|addch|refresh|wrefresh|getyx|getbegyx|wmove|newwin|newpad|derwin|subwin|delwin|keypad|wbkgd|wattrset|wclrtobot|box|waddstr|waddch|touchwin|wnoutrefresh|prefresh|wgetch|my_getch|wmouse_position|whline|draw_cursor|force_curses_background)[[:space:]]*\('
+execute_violations="$(
+  rg -n "$execute_pattern" src/execute.c 2>/dev/null || true
+)"
+
+if [[ -n "$execute_violations" ]]; then
+  printf '%s\n' "Unexpected direct curses calls in src/execute.c; use cursesdriver wrappers:"
+  printf '%s\n' "$execute_violations"
+  exit 1
+fi
+
+printf '%s\n' "curses boundary check passed for logical modules and execute.c wrappers"
