@@ -284,13 +284,14 @@ each meaningful step. Current checkpoint status:
    including command cursor movement and Enter submission. It proves the logical
    editor/LLM surface can function independently while the full curses editor is
    still being migrated.
-10. Migrate ordinary `execute.c` cursor effects: partial. Five safe slices are
+10. Migrate ordinary `execute.c` cursor effects: partial. Six safe slices are
    complete and committed:
    - `76a5425 Route execute cursor moves through logical row`
    - `7208f7e Preserve makecurr cursor via logical cells`
    - `41cc276 Preserve block cursor via logical cells`
    - `91ba101 Route insert line cursor through logical state`
    - `d88abf7 Route selective change prompt cursor logically`
+   - `9101f5b Route execute transient windows through driver`
    These moved `execute_move_cursor()`, `execute_makecurr()`, and the ordinary
    block copy/move/delete cursor-preservation path, `insert_new_line()`, and
    `selective_change()` prompt placement away from physical cursor state.
@@ -325,14 +326,16 @@ Near-term migration sequence:
    CREXX test skips now identify missing build/runtime prerequisites more
    clearly. Continue adding surface declarations when new agent limitations,
    CREXX interface limitations, or pty-host assumptions are discovered.
-4. `execute.c`: continue splitting ordinary file/command cursor effects from
+4. `execute.c`: done for the current direct-curses-removal slice. It splits
+   ordinary file/command cursor effects from
    prompt/dialog and popup mechanics. `execute_move_cursor()`,
    `execute_makecurr()`, block rearrange cursor preservation,
    `insert_new_line()` cursor placement, and `selective_change()` prompt cursor
    handling are migrated. The remaining OS suspend/resume, `EDITV LIST`,
    popup/dialog, and mouse/status/window-placement mechanics are routed through
-   driver-owned physical wrappers. Leave popup/dialog behavior for a logical
-   popup design.
+   driver-owned physical wrappers, and the boundary test now rejects common
+   direct curses primitive calls in `src/execute.c`. Leave popup/dialog behavior
+   for a logical popup design.
 5. Logical popups/dialogs: introduce logical popup/dialog objects and let
    curses and LLM drivers materialize them differently.
 6. Renderer cleanup: convert targeted redraws to driver-level logical render
@@ -358,6 +361,96 @@ build/CTest was green, 31/31. no-UTF build/CTest was green, 16/16 with
 CREXX/SDSLH-dependent tests skipped as intended. Focused LLM/`the_agent` smoke
 passed in both UTF and no-UTF builds. Manual smoke test was reported green
 before the latest ordinary `execute.c` slices.
+
+## Suggested Next Large Slice
+
+The next useful large slice is the driver-owned utility/window lifecycle sweep.
+Do not start by designing logical popup/dialog objects unless that becomes
+necessary; first reduce the remaining physical-window debt that is clearly
+driver-owned. The highest-density remaining direct curses users outside
+`cursesdriver.c` and bundled PDCurses are `src/util.c`, `src/error.c`,
+`src/commutil.c`, `src/rexx.c`, and `src/prefix.c`, followed by command modules
+such as `src/comm1.c`, `src/comm3.c`, `src/comm4.c`, and `src/commset*.c`.
+Treat command modules carefully because some calls still imply logical cursor
+or command behavior, not just physical mechanics.
+
+Copy/paste prompt for the next session:
+
+```text
+We are continuing THE logical UI / curses driver separation in
+/Users/adrian/CLionProjects/THE.
+
+Please read first:
+- doc/cursor-driver-architecture.md
+- doc/utf-handover.md
+- doc/llm-mode.md
+
+Current recent commits:
+- 9101f5b Route execute transient windows through driver
+- e76f027 Update execute cursor handover status
+- d88abf7 Route selective change prompt cursor logically
+- 91ba101 Route insert line cursor through logical state
+- b5dd7f2 Update cursor driver handover progress
+- 41cc276 Preserve block cursor via logical cells
+- 7208f7e Preserve makecurr cursor via logical cells
+- 76a5425 Route execute cursor moves through logical row
+
+Current status:
+- Worktree was clean after commit 9101f5b.
+- UTF build/CTest was green: 31/31.
+- no-UTF build/CTest was green: 16/16, with CREXX/SDSLH-dependent tests skipped
+  as intended.
+- Focused LLM/the_agent smoke was green in both UTF and no-UTF builds:
+  - test_llmdriver
+  - test_agentdriver
+  - test_the_agent_script
+  - test_the_agent_capabilities
+  - test_the_agent_no_curses
+  - test_llmruntime
+
+Completed execute.c cursor/driver slices:
+- execute_move_cursor() derives file-area row from logical cursor/focus state.
+- execute_makecurr() preserves cursor through logical file-area/prefix cells.
+- rearrange_line_blocks() preserves normal block copy/move/delete cursor through
+  logical cells.
+- insert_new_line() derives target row/cell from logical focus state and
+  materializes file-area or prefix focus through the driver.
+- selective_change() prompt cursor placement derives from the match TextPos and
+  driver viewport visibility, not physical curses cursor state.
+- The remaining execute.c OS shell bridge, EDITV LIST screen, popup placement,
+  and dialog/popup transient-window mechanics now go through cursesdriver
+  wrappers. src/execute.c no longer calls common direct curses primitives, and
+  tests/check_curses_boundary.sh guards that.
+
+Next architectural target, large slice:
+- Move clearly physical utility/window lifecycle operations behind
+  cursesdriver wrappers, starting with high-density direct curses users:
+  src/util.c, src/error.c, src/commutil.c, src/rexx.c, and src/prefix.c.
+- Keep this as a physical-driver cleanup slice: resize, refresh ordering,
+  transient windows, status/error windows, screen/window cursor save/restore,
+  and raw key waits belong behind cursesdriver wrappers.
+- Do not convert logical editor decisions to use physical cursor state. If a
+  direct curses call is being used to decide file/prefix/command logical focus,
+  stop and migrate that decision to logical focus/row/cell state instead.
+- Do not force popup/dialog behavior into the logical cursor layer unless you
+  introduce a real logical popup/dialog model. If logical popup/dialog design is
+  needed, document the split and leave that model for a separate slice.
+- Extend tests/check_curses_boundary.sh only for files fully cleaned in this
+  slice. Prefer tightening guardrails incrementally by file rather than making a
+  broad strict rule too early.
+- Update doc/utf-handover.md and doc/cursor-driver-architecture.md with the
+  completed slice and remaining direct-curses debt.
+- Commit after the green, safe slice.
+
+Suggested verification:
+- cmake --build cmake-build-codex-debug -j2
+- ctest --test-dir cmake-build-codex-debug --output-on-failure
+- cmake --build cmake-build-noutf8 -j2
+- ctest --test-dir cmake-build-noutf8 --output-on-failure
+- Focused LLM/the_agent smoke:
+  ctest --test-dir cmake-build-codex-debug --output-on-failure -R 'test_(llmdriver|agentdriver|llmruntime|the_agent_script|the_agent_capabilities|the_agent_no_curses)'
+  ctest --test-dir cmake-build-noutf8 --output-on-failure -R 'test_(llmdriver|agentdriver|llmruntime|the_agent_script|the_agent_capabilities|the_agent_no_curses)'
+```
 
 ## Sequencing Advice
 
