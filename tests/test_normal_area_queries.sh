@@ -26,7 +26,7 @@ fi
 
 rm -rf "${WORK_DIR}"
 mkdir -p "${WORK_DIR}"
-printf 'alpha beta gamma\ntwo\n' > "${SAMPLE}"
+printf 'alpha beta gamma\ntwo\n   indented\n' > "${SAMPLE}"
 
 cat > "${PROFILE}" <<'PROFILE_EOF'
 options levelb
@@ -59,6 +59,18 @@ field = .string[]
 address the "extract /field/" expose field[]
 say "COLUMN_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
 
+'cursor file 3 6'
+'sos lineadd'
+field = .string[]
+address the "extract /field/" expose field[]
+say "LINEADD_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
+
+'cursor file 1 4'
+'input inserted'
+field = .string[]
+address the "extract /field/" expose field[]
+say "INPUT_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
+
 'cursor file 1 4'
 'duplicate 1 1'
 field = .string[]
@@ -89,6 +101,8 @@ grep -q "CMD_FIELD=abc::4:COMMAND" "${WORK_DIR}/combined.txt"
 grep -q "CMD_FIELD2=aZc:c:3:COMMAND" "${WORK_DIR}/combined.txt"
 grep -q "PREFIX_FIELD=ab::3:PREFIX" "${WORK_DIR}/combined.txt"
 grep -q "COLUMN_FIELD=b:7:TEXT" "${WORK_DIR}/combined.txt"
+grep -q "LINEADD_FIELD=:4:TEXT" "${WORK_DIR}/combined.txt"
+grep -q "INPUT_FIELD=e:4:TEXT" "${WORK_DIR}/combined.txt"
 grep -q "DUP_FIELD=h:4:TEXT" "${WORK_DIR}/combined.txt"
 
 echo "Normal area query test passed."

@@ -41,9 +41,18 @@
 
 static LENGTHTYPE execute_filearea_cursor_cell(VIEW_DETAILS *curr_view);
 static LENGTHTYPE execute_prefix_cursor_cell(VIEW_DETAILS *curr_view);
+static short execute_filearea_or_prefix_logical_row(CHARTYPE curr_screen,
+                                                    VIEW_DETAILS *curr_view);
+static LENGTHTYPE execute_filearea_display_cell(VIEW_DETAILS *curr_view);
 static void execute_move_prefix_cursor(CHARTYPE curr_screen,
                                        VIEW_DETAILS *curr_view,
                                        short row, LENGTHTYPE cell);
+static void execute_move_filearea_display_cursor(CHARTYPE curr_screen,
+                                                 VIEW_DETAILS *curr_view,
+                                                 const CHARTYPE *line,
+                                                 LENGTHTYPE len,
+                                                 short row,
+                                                 LENGTHTYPE display_cell);
 
 /***********************************************************************/
 static short selective_change(TARGET *target,CHARTYPE *old_str,LENGTHTYPE len_old_str,CHARTYPE *new_str,
@@ -570,8 +579,9 @@ short insert_new_line(CHARTYPE curr_screen, VIEW_DETAILS *curr_view, CHARTYPE *l
 {
    LINETYPE i;
    LINE *curr=NULL,*save_curr=NULL;
-   unsigned short x=0,y=0;
+   short y=0;
    LENGTHTYPE new_col=0;
+   short new_row=0;
    bool on_bottom_of_file=FALSE,on_bottom_of_screen=FALSE;
    short number_focus_rows=0;
    bool leave_cursor=FALSE;
@@ -636,9 +646,11 @@ short insert_new_line(CHARTYPE curr_screen, VIEW_DETAILS *curr_view, CHARTYPE *l
          case WINDOW_FILEAREA:
          case WINDOW_PREFIX:
             build_screen( curr_screen);
-            getyx( SCREEN_WINDOW(curr_screen), y, x );
+            y = execute_filearea_or_prefix_logical_row( curr_screen, curr_view );
             calculate_scroll_values( curr_screen, curr_view, &number_focus_rows, &new_focus_line, &new_current_line, &on_bottom_of_screen,&on_bottom_of_file, &leave_cursor, DIRECTION_FORWARD );
-            new_col = x;
+            new_col = ( curr_view->current_window == WINDOW_FILEAREA )
+                    ? execute_filearea_display_cell( curr_view )
+                    : execute_prefix_cursor_cell( curr_view );
             if ( curr_view->current_window == WINDOW_FILEAREA )
             {
                if ( !start_left_col )
@@ -661,9 +673,10 @@ short insert_new_line(CHARTYPE curr_screen, VIEW_DETAILS *curr_view, CHARTYPE *l
                            new_col = (new_col - curr_view->verify_col) + 1;
                         else
                         {
-                           x = screen[curr_screen].cols[WINDOW_FILEAREA] / 2;
-                           curr_view->verify_col = max( 1, new_col - (short)x + 2 );
-                           new_col = (curr_view->verify_col == 1) ? new_col : x - 1;
+                           LENGTHTYPE middle_col = screen[curr_screen].cols[WINDOW_FILEAREA] / 2;
+
+                           curr_view->verify_col = max( 1, new_col - middle_col + 2 );
+                           new_col = (curr_view->verify_col == 1) ? new_col : middle_col - 1;
                         }
                      }
                   }
@@ -681,7 +694,7 @@ short insert_new_line(CHARTYPE curr_screen, VIEW_DETAILS *curr_view, CHARTYPE *l
             {
                curr_view->current_line = new_current_line;
                curr_view->focus_line = new_focus_line;
-               wmove( SCREEN_WINDOW(curr_screen), y-((leave_cursor) ? 0 : 1), new_col );
+               new_row = y - ((leave_cursor) ? 0 : 1);
             }
             else
             {
@@ -689,12 +702,19 @@ short insert_new_line(CHARTYPE curr_screen, VIEW_DETAILS *curr_view, CHARTYPE *l
                 * We are in the middle of the window, so just move the cursor down
                 * 1 line.
                 */
-               wmove( SCREEN_WINDOW(curr_screen), y+number_focus_rows, new_col );
+               new_row = y + number_focus_rows;
                curr_view->focus_line = new_focus_line;
                if ( compatible_feel == COMPAT_XEDIT
                &&   !sos_command)
                   curr_view->current_line = new_current_line;
             }
+            if ( curr_view->current_window == WINDOW_FILEAREA )
+               execute_move_filearea_display_cursor( curr_screen, curr_view,
+                                                     line, len, new_row,
+                                                     new_col );
+            else
+               execute_move_prefix_cursor( curr_screen, curr_view, new_row,
+                                           new_col );
             break;
       }
    }
@@ -727,6 +747,40 @@ static bool execute_filearea_logical_cursor(LENGTHTYPE *cell, unsigned short *ro
       return TRUE;
    }
    return FALSE;
+}
+/***********************************************************************/
+static short execute_filearea_or_prefix_logical_row(CHARTYPE curr_screen,
+                                                    VIEW_DETAILS *curr_view)
+/***********************************************************************/
+{
+   LogicalCursor logical;
+   short row = 0;
+   short max_rows = 0;
+
+   if (curr_view != NULL)
+   {
+      logical = curr_view->logical_cursor.current;
+      if (logical.valid
+      &&  (logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+       ||  logical.zone == LOGICAL_CURSOR_ZONE_PREFIX)
+      &&  logical.line_number == curr_view->focus_line
+      &&  logical.zone_row >= 0)
+      {
+         row = (short)logical.zone_row;
+      }
+      else
+      {
+         row = get_row_for_focus_line(curr_screen, curr_view->focus_line,
+                                      curr_view->current_row);
+      }
+   }
+
+   max_rows = screen[curr_screen].rows[WINDOW_FILEAREA];
+   if (row < 0)
+      row = 0;
+   if (max_rows > 0 && row >= max_rows)
+      row = (short)(max_rows - 1);
+   return row;
 }
 /***********************************************************************/
 short execute_os_command(CHARTYPE *cmd,bool quiet,bool pause)
@@ -3021,6 +3075,22 @@ static LENGTHTYPE execute_filearea_cursor_cell(VIEW_DETAILS *curr_view)
                                       fallback);
 }
 /***********************************************************************/
+static LENGTHTYPE execute_filearea_display_cell(VIEW_DETAILS *curr_view)
+/***********************************************************************/
+{
+   LENGTHTYPE cell;
+   int display_col;
+
+   cell = execute_filearea_cursor_cell(curr_view);
+   if (curr_view == NULL)
+      return cell;
+   display_col = curses_driver_display_col_from_logical(
+      rec, rec_len, (int)curr_view->verify_col - 1, (int)cell);
+   if (display_col < 0)
+      display_col = 0;
+   return (LENGTHTYPE)display_col;
+}
+/***********************************************************************/
 static LENGTHTYPE execute_prefix_cursor_cell(VIEW_DETAILS *curr_view)
 /***********************************************************************/
 {
@@ -3060,6 +3130,34 @@ static void execute_move_prefix_cursor(CHARTYPE curr_screen,
    logical_cursor_state_focus(&curr_view->logical_cursor, logical);
    curses_driver_move_window_cursor(SCREEN_WINDOW_PREFIX(curr_screen),
                                     row, (short)cell);
+}
+/***********************************************************************/
+static void execute_move_filearea_display_cursor(CHARTYPE curr_screen,
+                                                 VIEW_DETAILS *curr_view,
+                                                 const CHARTYPE *line,
+                                                 LENGTHTYPE len,
+                                                 short row,
+                                                 LENGTHTYPE display_cell)
+/***********************************************************************/
+{
+   int logical_col;
+
+   if (curr_view == NULL)
+      return;
+   if (line == NULL)
+   {
+      line = (const CHARTYPE *)"";
+      len = 0;
+   }
+   if (display_cell < 0)
+      display_cell = 0;
+   logical_col = curses_driver_logical_col_from_display(
+      line, len, (int)curr_view->verify_col - 1, (int)display_cell,
+      TEXT_SNAP_BACKWARD);
+   if (logical_col < 0)
+      logical_col = 0;
+   curses_driver_move_filearea_cursor(curr_screen, curr_view, line, len,
+                                      row, logical_col);
 }
 /***********************************************************************/
 short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTHTYPE col )
