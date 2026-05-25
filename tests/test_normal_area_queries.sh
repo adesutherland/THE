@@ -26,7 +26,7 @@ fi
 
 rm -rf "${WORK_DIR}"
 mkdir -p "${WORK_DIR}"
-printf 'one\ntwo\n' > "${SAMPLE}"
+printf 'alpha beta gamma\ntwo\n' > "${SAMPLE}"
 
 cat > "${PROFILE}" <<'PROFILE_EOF'
 options levelb
@@ -53,6 +53,12 @@ field = .string[]
 address the "extract /field/" expose field[]
 say "PREFIX_FIELD=" || field[1] || ":" || field[2] || ":" || field[3] || ":" || field[4]
 
+'cursor file 1 1'
+'clocate /beta/'
+field = .string[]
+address the "extract /field/" expose field[]
+say "COLUMN_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
+
 'qquit'
 PROFILE_EOF
 
@@ -76,5 +82,6 @@ run_with_pty "${THE_BIN}" -p "${PROFILE}" "${SAMPLE}"
 grep -q "CMD_FIELD=abc::4:COMMAND" "${WORK_DIR}/combined.txt"
 grep -q "CMD_FIELD2=aZc:c:3:COMMAND" "${WORK_DIR}/combined.txt"
 grep -q "PREFIX_FIELD=ab::3:PREFIX" "${WORK_DIR}/combined.txt"
+grep -q "COLUMN_FIELD=b:7:TEXT" "${WORK_DIR}/combined.txt"
 
 echo "Normal area query test passed."

@@ -2935,32 +2935,41 @@ short execute_select(CHARTYPE *params,bool relative,short off)
    return(rc);
 }
 /***********************************************************************/
-#ifdef USE_UTF8
 static short execute_filearea_logical_row(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
 {
-   short y = 0;
-   short x = 0;
    LogicalCursor logical;
+   short row = 0;
+   short max_rows = 0;
 
    if (curr_view != NULL)
    {
       logical = curr_view->logical_cursor.current;
       if (logical.valid
       &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
-      &&  logical.line_number == curr_view->focus_line)
-         return (short)logical.zone_row;
+      &&  logical.line_number == curr_view->focus_line
+      &&  logical.zone_row >= 0)
+      {
+         row = (short)logical.zone_row;
+      }
+      else
+      {
+         row = get_row_for_focus_line(curr_screen, curr_view->focus_line,
+                                      curr_view->current_row);
+      }
    }
 
-   getyx(SCREEN_WINDOW(curr_screen), y, x);
-   INTENTIONALLY_UNUSED_VARIABLE(x);
-   return y;
+   max_rows = screen[curr_screen].rows[WINDOW_FILEAREA];
+   if (row < 0)
+      row = 0;
+   if (max_rows > 0 && row >= max_rows)
+      row = (short)(max_rows - 1);
+   return row;
 }
-#endif
 /***********************************************************************/
 short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTHTYPE col )
 /***********************************************************************/
 {
-   short y=0,x=0;
+   short y=0;
    COLTYPE new_screen_col=0;
    LENGTHTYPE new_verify_col=0;
    bool cmd_verify_changed=FALSE;
@@ -2970,12 +2979,7 @@ short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTH
    switch( curr_view->current_window )
    {
       case WINDOW_FILEAREA:
-#ifdef USE_UTF8
          y = execute_filearea_logical_row(curr_screen, curr_view);
-#else
-         getyx( SCREEN_WINDOW(curr_screen), y, x );
-#endif
-#ifdef USE_UTF8
       {
          int old_viewport_col = (int)curr_view->verify_col - 1;
          int new_viewport_col;
@@ -2993,16 +2997,6 @@ short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTH
          curses_driver_move_filearea_cursor(curr_screen, curr_view,
                                             rec, rec_len, y, (int)col);
       }
-#else
-         calculate_new_column( curr_screen, curr_view, x, curr_view->verify_col, col, &new_screen_col, &new_verify_col );
-         if ( curr_view->verify_col != new_verify_col )
-         {
-            curr_view->verify_col = new_verify_col;
-            build_screen( curr_screen );
-            display_screen( curr_screen );
-         }
-         wmove( SCREEN_WINDOW(curr_screen), y, new_screen_col );
-#endif
          break;
       case WINDOW_COMMAND:
       {
