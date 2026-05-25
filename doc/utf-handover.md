@@ -37,8 +37,13 @@ The file-area cursor now has a logical-first layer. UTF left/right movement,
 logical cursor repaint, text insertion, `SOS DELBACK`, and `SOS DELCHAR` prefer
 `VIEW_DETAILS.logical_cursor` and convert to byte offsets through `TextPos`.
 The physical curses cursor is still parked by the curses driver, but the logical
-row/cell is the authority for the migrated UTF paths. Other legacy cursor
-commands still need migration before the boundary can be made strict.
+row/cell is the authority for the migrated UTF paths. `execute_move_cursor()`
+now derives the file-area row from logical cursor/focus state in both UTF and
+no-UTF builds, and materializes the cursor through `cursesdriver.c`.
+`execute_makecurr()` and `rearrange_line_blocks()` preserve cursor position by
+logical file-area/prefix cells instead of capturing and restoring physical
+curses coordinates. Other legacy cursor commands still need migration before
+the boundary can be made strict.
 
 The first driver-boundary slices are now present. `src/utflayout.c` owns pure
 logical-to-physical UTF cell mapping without curses calls. `src/uidriver.c`
@@ -273,6 +278,18 @@ each meaningful step. Current checkpoint status:
    including command cursor movement and Enter submission. It proves the logical
    editor/LLM surface can function independently while the full curses editor is
    still being migrated.
+10. Migrate ordinary `execute.c` cursor effects: partial. Three safe slices are
+   complete and committed:
+   - `76a5425 Route execute cursor moves through logical row`
+   - `7208f7e Preserve makecurr cursor via logical cells`
+   - `41cc276 Preserve block cursor via logical cells`
+   These moved `execute_move_cursor()`, `execute_makecurr()`, and the ordinary
+   block copy/move/delete cursor-preservation path away from physical cursor
+   state. CREXX/pty coverage was extended in
+   `tests/test_normal_area_queries.sh` and `tests/test_sos_navigation_queries.sh`.
+   Remaining `execute.c` direct curses paths are mainly selective-change prompt
+   handling, insert-new-line cursor placement, OS suspend/resume bridge code,
+   mouse/status paths, and popup/dialog mechanics.
 
 Runtime cursor code still has multiple physical paths and must be migrated.
 `src/cursor.c`, `src/comm5.c`, `src/query1.c`, `src/query2.c`, and `src/edit.c`
@@ -298,9 +315,13 @@ Near-term migration sequence:
    CREXX test skips now identify missing build/runtime prerequisites more
    clearly. Continue adding surface declarations when new agent limitations,
    CREXX interface limitations, or pty-host assumptions are discovered.
-4. `execute.c`: split ordinary file/command cursor effects from prompt/dialog
-   and popup mechanics. Move normal cursor/focus updates first; leave popup
-   behavior for a logical popup design.
+4. `execute.c`: continue splitting ordinary file/command cursor effects from
+   prompt/dialog and popup mechanics. `execute_move_cursor()`,
+   `execute_makecurr()`, and block rearrange cursor preservation are migrated.
+   Next likely slices are `insert_new_line()` cursor placement and
+   `selective_change()` prompt cursor handling if they can be kept separate
+   from modal prompt design. Leave popup/dialog behavior for a logical popup
+   design.
 5. Logical popups/dialogs: introduce logical popup/dialog objects and let
    curses and LLM drivers materialize them differently.
 6. Renderer cleanup: convert targeted redraws to driver-level logical render
@@ -315,9 +336,16 @@ Near-term migration sequence:
 After each step run:
 
 ```sh
-cmake --build cmake-build-debug -j2
-ctest --test-dir cmake-build-debug --output-on-failure
+cmake --build cmake-build-codex-debug -j2
+ctest --test-dir cmake-build-codex-debug --output-on-failure
+cmake --build cmake-build-noutf8 -j2
+ctest --test-dir cmake-build-noutf8 --output-on-failure
 ```
+
+Latest verification after `41cc276`: UTF build/CTest was green, 30/30. no-UTF
+build/CTest was green, 16/16 with CREXX-dependent tests skipped as intended.
+Focused `the_agent` script/capabilities/no-curses checks passed through CTest.
+Manual smoke test was reported green after this slice.
 
 ## Sequencing Advice
 

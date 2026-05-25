@@ -166,6 +166,12 @@ place:
   `SDSLHWAIT`, `EXTRACT /PMSGS/`, and `QUERY PMSGS`. SDSLH diagnostics are
   collected from the parse tree, including zero-length parser messages that are
   not attached to a painted character.
+- Ordinary `execute.c` cursor migration has started. `execute_move_cursor()`
+  now derives file-area row from logical cursor/focus state and materializes the
+  cursor through `cursesdriver.c` in both UTF and no-UTF builds.
+  `execute_makecurr()` and the normal block rearrange cursor-preservation path
+  now preserve logical file-area/prefix cells rather than capturing and
+  restoring curses cursor coordinates.
 - `src/cursor.c`, `src/comm5.c`, `src/query1.c`, `src/query2.c`, and
   `src/edit.c` no longer contain direct `getyx`, `wmove`, `getbegyx`,
   `getmaxx`, `getmaxy`, or `wtimeout` calls; those paths now go through
@@ -173,8 +179,11 @@ place:
 
 The remaining implementation still has several physical cursor authorities:
 
-- `execute.c` and several legacy command/utility modules still contain direct
-  `getyx`/`wmove` cursor paths.
+- `execute.c` still contains direct `getyx`/`wmove` paths, but the ordinary
+  `execute_move_cursor()`, `execute_makecurr()`, and block rearrange cursor
+  preservation slices are migrated. Remaining `execute.c` direct curses paths
+  are mainly selective-change prompt handling, insert-new-line cursor placement,
+  OS suspend/resume bridge code, mouse/status paths, and popup/dialog mechanics.
 - `commsos.c` no longer has direct curses cursor/window operations in SOS edit
   and navigation logic. Its remaining driver contact points are an active
   curses-driver cursor query fallback and prefix cursor materialization bridge.
