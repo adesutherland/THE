@@ -66,18 +66,6 @@ static bool cursor_show_row_allows_prefix_cursor(const SHOW_LINE *show_row)
 }
 
 #ifdef USE_UTF8
-typedef struct
-{
-   bool valid;
-   CHARTYPE screen;
-   CHARTYPE window;
-   int row;
-   int col;
-   int display_col;
-} CursorFocusSnapshot;
-
-static CursorFocusSnapshot cursor_focus_snapshot = { FALSE, 0, WINDOW_FILEAREA, 0, 0, 0 };
-
 static int cursor_utf8_filearea_logical_cell_from_display(CHARTYPE curr_screen,
                                                           VIEW_DETAILS *curr_view,
                                                           int display_col,
@@ -109,54 +97,6 @@ static void cursor_focus_clamp_to_window(CHARTYPE scrno, CHARTYPE window, int *r
       *row = (short)(size.rows - 1);
    if (size.cols > 0 && *col >= size.cols)
       *col = (short)(size.cols - 1);
-}
-
-static bool cursor_focus_capture_filearea_logical(CHARTYPE scrno, VIEW_DETAILS *view)
-{
-   LogicalCursor logical;
-   SHOW_LINE *show_row;
-   const CHARTYPE *line;
-   size_t len;
-   int viewport_col;
-
-   if (view == NULL
-   ||  screen[scrno].sl == NULL
-   ||  screen[scrno].cols[WINDOW_FILEAREA] <= 0)
-      return FALSE;
-
-   logical = view->logical_cursor.current;
-   if (!logical.valid
-   ||  logical.zone != LOGICAL_CURSOR_ZONE_FILEAREA
-   ||  logical.line_number != view->focus_line
-   ||  logical.zone_row < 0
-   ||  logical.zone_row >= screen[scrno].rows[WINDOW_FILEAREA])
-      return FALSE;
-
-   show_row = &screen[scrno].sl[logical.zone_row];
-   if (show_row->line_type == LINE_OUT_OF_BOUNDS_ABOVE
-   ||  show_row->line_type == LINE_OUT_OF_BOUNDS_BELOW
-   ||  show_row->line_number != logical.line_number)
-      return FALSE;
-
-   if (show_row->line_type == LINE_TOF || show_row->line_type == LINE_EOF)
-   {
-      line = (const CHARTYPE *)"";
-      len = 0;
-   }
-   else
-   {
-      line = (show_row->contents != NULL) ? show_row->contents : rec;
-      len = (show_row->contents != NULL) ? show_row->length : rec_len;
-   }
-   viewport_col = (int)view->verify_col - 1;
-   cursor_focus_snapshot.valid = TRUE;
-   cursor_focus_snapshot.screen = scrno;
-   cursor_focus_snapshot.window = WINDOW_FILEAREA;
-   cursor_focus_snapshot.row = logical.zone_row;
-   cursor_focus_snapshot.col = logical.text.cell_column - viewport_col;
-   cursor_focus_snapshot.display_col = curses_driver_display_col_from_logical(
-      line, len, viewport_col, logical.text.cell_column);
-   return TRUE;
 }
 
 static void cursor_focus_store_command_logical(VIEW_DETAILS *view, int row, int col)
@@ -281,159 +221,6 @@ static void cursor_focus_sync_logical_from_window(CHARTYPE scrno, VIEW_DETAILS *
       default:
          break;
    }
-}
-
-static bool cursor_focus_capture_command_logical(CHARTYPE scrno, VIEW_DETAILS *view)
-{
-   LogicalCursor logical;
-   int viewport_col;
-
-   if (view == NULL)
-      return FALSE;
-   logical = view->logical_cursor.current;
-   if (!logical.valid
-   ||  logical.zone != LOGICAL_CURSOR_ZONE_COMMAND)
-      return FALSE;
-
-   viewport_col = cmd_verify_col - 1;
-   cursor_focus_snapshot.valid = TRUE;
-   cursor_focus_snapshot.screen = scrno;
-   cursor_focus_snapshot.window = WINDOW_COMMAND;
-   cursor_focus_snapshot.row = logical.zone_row;
-   cursor_focus_snapshot.col = logical.text.cell_column - viewport_col;
-   cursor_focus_snapshot.display_col = cursor_focus_snapshot.col;
-   return TRUE;
-}
-
-static bool cursor_focus_capture_prefix_logical(CHARTYPE scrno, VIEW_DETAILS *view)
-{
-   LogicalCursor logical;
-   SHOW_LINE *show_row;
-
-   if (view == NULL
-   ||  screen[scrno].sl == NULL)
-      return FALSE;
-   logical = view->logical_cursor.current;
-   if (!logical.valid
-   ||  logical.zone != LOGICAL_CURSOR_ZONE_PREFIX
-   ||  logical.zone_row < 0
-   ||  logical.zone_row >= screen[scrno].rows[WINDOW_FILEAREA])
-      return FALSE;
-
-   show_row = &screen[scrno].sl[logical.zone_row];
-   if (show_row->line_number != logical.line_number
-   ||  !cursor_show_row_allows_prefix_cursor(show_row))
-      return FALSE;
-
-   cursor_focus_snapshot.valid = TRUE;
-   cursor_focus_snapshot.screen = scrno;
-   cursor_focus_snapshot.window = WINDOW_PREFIX;
-   cursor_focus_snapshot.row = logical.zone_row;
-   cursor_focus_snapshot.col = logical.text.cell_column;
-   cursor_focus_snapshot.display_col = logical.text.cell_column;
-   return TRUE;
-}
-
-void cursor_focus_capture(CHARTYPE scrno)
-{
-   int row = 0;
-   int col = 0;
-   WINDOW *win;
-   CursesDriverWindowCursor cursor;
-   VIEW_DETAILS *view = SCREEN_VIEW(scrno);
-
-   cursor_focus_snapshot.valid = FALSE;
-   if (scrno != current_screen
-   ||  view == NULL
-   ||  !cursor_focus_software_window(view->current_window))
-      return;
-
-   if (view->current_window == WINDOW_FILEAREA
-   &&  cursor_focus_capture_filearea_logical(scrno, view))
-      return;
-   if (view->current_window == WINDOW_COMMAND
-   &&  cursor_focus_capture_command_logical(scrno, view))
-      return;
-   if (view->current_window == WINDOW_PREFIX
-   &&  cursor_focus_capture_prefix_logical(scrno, view))
-      return;
-
-   win = SCREEN_WINDOW(scrno);
-   if (win == NULL)
-      return;
-
-   cursor = curses_driver_capture_window_cursor(win);
-   if (!cursor.valid)
-      return;
-   row = cursor.row;
-   col = cursor.col;
-   cursor_focus_clamp_to_window(scrno, view->current_window, &row, &col);
-   cursor_focus_snapshot.display_col = col;
-   if (view->current_window == WINDOW_FILEAREA)
-      col = cursor_utf8_filearea_logical_cell_from_display(scrno, view, col,
-                                                           TEXT_SNAP_BACKWARD)
-          - ((int)view->verify_col - 1);
-   cursor_focus_snapshot.valid = TRUE;
-   cursor_focus_snapshot.screen = scrno;
-   cursor_focus_snapshot.window = view->current_window;
-   cursor_focus_snapshot.row = row;
-   cursor_focus_snapshot.col = col;
-   cursor_focus_sync_logical_from_window(scrno, view);
-}
-
-static bool cursor_focus_snapshot_for(CHARTYPE scrno, CHARTYPE window)
-{
-   return cursor_focus_snapshot.valid
-       && cursor_focus_snapshot.screen == scrno
-       && cursor_focus_snapshot.window == window
-       && current_cursor_uses_software();
-}
-
-bool cursor_focus_filearea_cursor(CHARTYPE scrno, short row, int *col, CursorShape *shape)
-{
-   if (!cursor_focus_snapshot_for(scrno, WINDOW_FILEAREA)
-   ||  cursor_focus_snapshot.row != row)
-      return FALSE;
-   if (col != NULL)
-      *col = cursor_focus_snapshot.col;
-   if (shape != NULL)
-      *shape = current_cursor_shape();
-   return TRUE;
-}
-
-bool cursor_focus_filearea_display_cursor(CHARTYPE scrno, short row, int *col)
-{
-   if (!cursor_focus_snapshot_for(scrno, WINDOW_FILEAREA)
-   ||  cursor_focus_snapshot.row != row)
-      return FALSE;
-   if (col != NULL)
-      *col = cursor_focus_snapshot.display_col;
-   return TRUE;
-}
-
-bool cursor_focus_command_cursor(CHARTYPE scrno, short *row, short *col, CursorShape *shape)
-{
-   if (!cursor_focus_snapshot_for(scrno, WINDOW_COMMAND))
-      return FALSE;
-   if (row != NULL)
-      *row = (short)cursor_focus_snapshot.row;
-   if (col != NULL)
-      *col = (short)cursor_focus_snapshot.col;
-   if (shape != NULL)
-      *shape = current_cursor_shape();
-   return TRUE;
-}
-
-bool cursor_focus_prefix_cursor(CHARTYPE scrno, short row, int *col, CursorShape *shape)
-{
-   if (!cursor_focus_snapshot_for(scrno, WINDOW_PREFIX)
-   ||  cursor_focus_snapshot.row != row)
-      return FALSE;
-   if (col != NULL)
-      *col = cursor_focus_snapshot.col;
-   if (shape != NULL)
-      *shape = current_cursor_shape();
-   return TRUE;
 }
 
 void cursor_focus_redraw(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
@@ -710,50 +497,10 @@ static void cursor_utf8_move_filearea_display_col(CHARTYPE curr_screen,
                                       row, pos.cell_column);
 }
 #else
-void cursor_focus_capture(CHARTYPE scrno)
-{
-   INTENTIONALLY_UNUSED_VARIABLE(scrno);
-}
-
 void cursor_focus_redraw(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
 {
    INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
    INTENTIONALLY_UNUSED_VARIABLE(curr_view);
-}
-
-bool cursor_focus_filearea_cursor(CHARTYPE scrno, short row, int *col, CursorShape *shape)
-{
-   INTENTIONALLY_UNUSED_VARIABLE(scrno);
-   INTENTIONALLY_UNUSED_VARIABLE(row);
-   INTENTIONALLY_UNUSED_VARIABLE(col);
-   INTENTIONALLY_UNUSED_VARIABLE(shape);
-   return FALSE;
-}
-
-bool cursor_focus_filearea_display_cursor(CHARTYPE scrno, short row, int *col)
-{
-   INTENTIONALLY_UNUSED_VARIABLE(scrno);
-   INTENTIONALLY_UNUSED_VARIABLE(row);
-   INTENTIONALLY_UNUSED_VARIABLE(col);
-   return FALSE;
-}
-
-bool cursor_focus_command_cursor(CHARTYPE scrno, short *row, short *col, CursorShape *shape)
-{
-   INTENTIONALLY_UNUSED_VARIABLE(scrno);
-   INTENTIONALLY_UNUSED_VARIABLE(row);
-   INTENTIONALLY_UNUSED_VARIABLE(col);
-   INTENTIONALLY_UNUSED_VARIABLE(shape);
-   return FALSE;
-}
-
-bool cursor_focus_prefix_cursor(CHARTYPE scrno, short row, int *col, CursorShape *shape)
-{
-   INTENTIONALLY_UNUSED_VARIABLE(scrno);
-   INTENTIONALLY_UNUSED_VARIABLE(row);
-   INTENTIONALLY_UNUSED_VARIABLE(col);
-   INTENTIONALLY_UNUSED_VARIABLE(shape);
-   return FALSE;
 }
 
 static void cursor_focus_redraw_if_software(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)

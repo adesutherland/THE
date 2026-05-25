@@ -61,16 +61,19 @@ primitives, render-entry cursor save/restore, renderer attribute/touch/refresh
 mechanics, cursor repaint transitions, refresh, window cursor capture/restore,
 window origin/size reads, and input timeouts. `src/show.c` keeps its existing
 public helpers but now builds a live frame during full file-area redraw and
-uses it to select file-area and prefix software cursor overlays. Targeted
-command-line redraw uses the live logical command cursor directly; targeted
-prefix redraw builds a `UiFrame` when possible; SDSLH bracket highlighting
-uses logical file focus instead of `get_cursor_position()`; and UTF whole-line
-cursor-repair repaint can reuse a frame-backed overlay. Status/HEXDISPLAY now
-inspects the live logical file-area, prefix, or command cursor when available,
-and `prepare_view()`/`advance_view()` now preserve and restore view-switch
-cursor positions from logical cursor targets before falling back to old window
-snapshots. Narrow legacy fallbacks remain for renderer paths without a frame or
-logical area model.
+uses it to select file-area and prefix software cursor overlays. The renderer
+no longer falls back to the old `cursor_focus_*` physical snapshot group when
+painting software cursor cells; frame-backed cursor target selection is covered
+by `test_virtual_screen`. Targeted command-line redraw uses the live logical
+command cursor directly; targeted prefix redraw builds a `UiFrame` when
+possible; SDSLH bracket highlighting uses logical file focus instead of
+`get_cursor_position()`; and UTF whole-line cursor-repair repaint can reuse a
+frame-backed overlay. Status/HEXDISPLAY now inspects the live logical
+file-area, prefix, or command cursor when available, and
+`prepare_view()`/`advance_view()` now preserve and restore view-switch cursor
+positions from logical cursor targets before falling back to old window
+snapshots. Narrow legacy fallbacks remain for status/view-switch paths that
+still use physical cursor snapshots instead of a logical area model.
 `src/inputevent.c` owns normalized text/key/command/logical-hit/debug events
 and legacy key conversion. The live curses loop now reads through
 `cursesdriver.c` and normalizes collected key codes through `TheInputEvent`
@@ -373,10 +376,9 @@ Preferred order, with larger slices:
    boundary, but make dispatch decisions consume `TheInputEvent` when the
    behavior is covered by agent/inputevent CTests.
 4. Convert `show.c` fallbacks by render group, not by isolated helper:
-   full-screen render entry/exit, remaining non-frame `cursor_focus_*`
-   fallbacks, status/view-switch fallbacks, and UTF repair repaint should all
-   become frame-backed or driver-request-backed. Add virtual renderer/fake
-   driver CTests before tightening each fallback.
+   status/view-switch fallbacks, full-screen render entry/exit, and UTF repair
+   repaint should all become frame-backed or driver-request-backed. Add virtual
+   renderer/fake driver CTests before tightening each fallback.
 5. Retire active-driver query/materialization fallbacks in non-renderer command
    code once the same row/cell behavior is visible through logical queries,
    agent snapshots, or CREXX query tests. Tighten
@@ -412,11 +414,11 @@ High-value next slices:
 
 - Renderer fallback purge: extend `test_virtual_screen` for each render group,
   then remove the corresponding `show.c` non-frame fallback path in the same
-  commit. Start with remaining non-frame `cursor_focus_*` fallbacks, render
-  entry/exit logical decisions, and status/view-switch physical snapshot
-  fallbacks. Keep physical cursor save/restore, refresh, touch/update,
-  UTF/ascii cell writes, software cursor painting, and cursor parking in
-  `cursesdriver.c`.
+  commit. The non-frame `cursor_focus_*` software-cursor overlay fallbacks have
+  been retired. Good next targets are status/view-switch physical snapshot
+  fallbacks and render entry/exit logical decisions. Keep physical cursor
+  save/restore, refresh, touch/update, UTF/ascii cell writes, software cursor
+  painting, and cursor parking in `cursesdriver.c`.
 - Agent command bridge: support a first real group of full-editor commands or
   SOS commands through normalized agent input, with `the_agent` CTests proving
   no-curses behavior and CREXX CTests proving full-editor parity where needed.

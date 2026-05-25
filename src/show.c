@@ -1324,47 +1324,37 @@ static int show_frame_cursor_col(const UiFrame *frame, UiRowRole role,
                                  int viewport_col, int *col,
                                  CursorShape *shape)
 {
-   LogicalCursor cursor;
-
-   if (frame == NULL
-   ||  !ui_frame_cursor_for_row(frame, role, line_number, row, &cursor))
+   if (!ui_frame_cursor_screen_cell(frame, role, line_number, row,
+                                    viewport_col, col, NULL))
       return FALSE;
-   if (col != NULL)
-      *col = cursor.text.cell_column - viewport_col;
    if (shape != NULL)
       *shape = current_cursor_shape();
    return TRUE;
 }
 
-static int show_filearea_cursor_col(const UiFrame *frame, CHARTYPE scrno,
-                                    short row, LINETYPE line_number,
+static int show_filearea_cursor_col(const UiFrame *frame, short row,
+                                    LINETYPE line_number,
                                     int viewport_col, int *col,
                                     CursorShape *shape)
 {
-   if (frame != NULL)
-      return show_frame_cursor_col(frame, UI_ROW_FILE, line_number, row,
-                                   viewport_col, col, shape);
-   return cursor_focus_filearea_cursor(scrno, row, col, shape);
+   return show_frame_cursor_col(frame, UI_ROW_FILE, line_number, row,
+                                viewport_col, col, shape);
 }
 
-static int show_filearea_cursor_display_col(const UiFrame *frame, CHARTYPE scrno,
-                                            short row, LINETYPE line_number,
+static int show_filearea_cursor_display_col(const UiFrame *frame, short row,
+                                            LINETYPE line_number,
                                             const CHARTYPE *line, size_t len,
                                             int viewport_col, int *col)
 {
    LogicalCursor cursor;
 
-   if (frame != NULL)
-   {
-      if (!ui_frame_cursor_for_row(frame, UI_ROW_FILE, line_number, row,
-                                   &cursor))
-         return FALSE;
-      if (col != NULL)
-         *col = show_utf8_display_col_from_logical(line, len, viewport_col,
-                                                   cursor.text.cell_column);
-      return TRUE;
-   }
-   return cursor_focus_filearea_display_cursor(scrno, row, col);
+   if (!ui_frame_cursor_for_row(frame, UI_ROW_FILE, line_number, row,
+                                &cursor))
+      return FALSE;
+   if (col != NULL)
+      *col = show_utf8_display_col_from_logical(line, len, viewport_col,
+                                                cursor.text.cell_column);
+   return TRUE;
 }
 
 static void show_draw_filearea_marker_cursor(const UiFrame *frame, CHARTYPE scrno,
@@ -1374,14 +1364,9 @@ static void show_draw_filearea_marker_cursor(const UiFrame *frame, CHARTYPE scrn
    int cursor_col = 0;
    CursorShape cursor_shape = CURSOR_BLOCK;
 
-   if (frame != NULL)
-   {
-      if (!show_frame_cursor_col(frame, role, line_number, row,
-                                 (int)SCREEN_VIEW(scrno)->verify_col - 1,
-                                 &cursor_col, &cursor_shape))
-         return;
-   }
-   else if (!cursor_focus_filearea_cursor(scrno, row, &cursor_col, &cursor_shape))
+   if (!show_frame_cursor_col(frame, role, line_number, row,
+                              (int)SCREEN_VIEW(scrno)->verify_col - 1,
+                              &cursor_col, &cursor_shape))
       return;
 
    curses_driver_draw_software_chtype_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno),
@@ -1410,16 +1395,17 @@ static void show_draw_software_prefix_cursor(CHARTYPE scrno, short row,
 {
    int col = 0;
    CursorShape shape = CURSOR_BLOCK;
+   SHOW_LINE *show_row;
 
-   if (frame != NULL)
-   {
-      SHOW_LINE *show_row = &screen[scrno].sl[row];
+   if (frame == NULL
+   ||  screen[scrno].sl == NULL
+   ||  row < 0
+   ||  row >= screen[scrno].rows[WINDOW_FILEAREA])
+      return;
 
-      if (!show_frame_cursor_col(frame, UI_ROW_PREFIX, show_row->line_number,
-                                 row, 0, &col, &shape))
-         return;
-   }
-   else if (!cursor_focus_prefix_cursor(scrno, row, &col, &shape))
+   show_row = &screen[scrno].sl[row];
+   if (!show_frame_cursor_col(frame, UI_ROW_PREFIX, show_row->line_number,
+                              row, 0, &col, &shape))
       return;
    curses_driver_draw_software_chtype_cell(
       scrno, SCREEN_WINDOW_PREFIX(scrno), row, col,
@@ -2247,7 +2233,6 @@ void display_screen(CHARTYPE scrno)
       previous_cursor = curses_driver_capture_window_cursor(
          SCREEN_PREV_WINDOW(scrno));
    screen_cursor = curses_driver_capture_window_cursor(SCREEN_WINDOW(scrno));
-   cursor_focus_capture(scrno);
 #ifdef USE_UTF8
    if (SCREEN_VIEW(scrno)->current_window == WINDOW_COMMAND)
       display_cmdline(scrno, SCREEN_VIEW(scrno));
@@ -3908,12 +3893,12 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
       visible_cols = ccols;
    }
 
-   cursor_visible = show_filearea_cursor_col(frame, scrno, row,
+   cursor_visible = show_filearea_cursor_col(frame, row,
                                              current->line_number,
                                              (int)cvcol, &cursor_col,
                                              &cursor_shape);
    if (cursor_visible
-   &&  !show_filearea_cursor_display_col(frame, scrno, row,
+   &&  !show_filearea_cursor_display_col(frame, row,
                                          current->line_number, line, blength,
                                          (int)cvcol, &cursor_display_col))
       cursor_display_col = -1;
@@ -4547,7 +4532,7 @@ static void show_a_line(CHARTYPE scrno,short row, SHOW_LINE *scurr
       {
          int cursor_col = 0;
          CursorShape cursor_shape = CURSOR_BLOCK;
-         if (show_filearea_cursor_col(frame, scrno, row,
+         if (show_filearea_cursor_col(frame, row,
                                       current->line_number, 0,
                                       &cursor_col, &cursor_shape))
             curses_driver_draw_software_blank_cell(
@@ -4881,7 +4866,7 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d: ccols %d cother_end_col %d bother_end_col
       int cursor_col = 0;
       CursorShape cursor_shape = CURSOR_BLOCK;
 
-      if (show_filearea_cursor_col(frame, scrno, row,
+      if (show_filearea_cursor_col(frame, row,
                                    current->line_number,
                                    (int)SCREEN_VIEW(scrno)->verify_col - 1,
                                    &cursor_col, &cursor_shape))

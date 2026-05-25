@@ -319,6 +319,26 @@ int ui_frame_cursor_for_row(const UiFrame *frame, UiRowRole role,
    return 1;
 }
 
+int ui_frame_cursor_screen_cell(const UiFrame *frame, UiRowRole role,
+                                LINETYPE line_number, int screen_row,
+                                int viewport_col, int *screen_cell,
+                                LogicalCursor *cursor)
+{
+   LogicalCursor found;
+
+   if (!ui_frame_cursor_for_row(frame, role, line_number, screen_row, &found))
+   {
+      if (cursor != NULL)
+         *cursor = logical_cursor_invalid();
+      return 0;
+   }
+   if (screen_cell != NULL)
+      *screen_cell = found.text.cell_column - viewport_col;
+   if (cursor != NULL)
+      *cursor = found;
+   return 1;
+}
+
 int ui_frame_set_cursor(UiFrame *frame, LogicalCursor cursor)
 {
    if (!ui_frame_find_cursor_row(frame, cursor, NULL))

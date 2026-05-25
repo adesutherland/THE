@@ -211,6 +211,64 @@ static void test_prefix_and_command_cursor_overlays(void)
    expect_contains("command.focus.text", out, "\"t\":\"====> next\"");
 }
 
+static void test_frame_backed_renderer_cursor_targets(void)
+{
+   UiFrame frame;
+   LogicalCursor cursor;
+   LogicalCursor found;
+   int screen_cell = -1;
+
+   cursor = virtual_cursor(LOGICAL_CURSOR_ZONE_FILEAREA, 2, VROW_KEYCAP, 5);
+   expect_int("renderer.file.build", build_virtual_frame(&frame, cursor), 1);
+   expect_int("renderer.file.target",
+              ui_frame_cursor_screen_cell(&frame, UI_ROW_FILE, 2,
+                                          VROW_KEYCAP, 1, &screen_cell,
+                                          &found), 1);
+   expect_int("renderer.file.screen.cell", screen_cell, 4);
+   expect_int("renderer.file.logical.cell", found.text.cell_column, 5);
+   expect_int("renderer.file.no.prefix",
+              ui_frame_cursor_screen_cell(&frame, UI_ROW_PREFIX, 2,
+                                          VROW_KEYCAP, 0, &screen_cell,
+                                          &found), 0);
+   expect_int("renderer.file.no.status",
+              ui_frame_cursor_screen_cell(&frame, UI_ROW_STATUS, 0,
+                                          VROW_STATUS, 0, &screen_cell,
+                                          &found), 0);
+   expect_int("renderer.file.no.row",
+              ui_frame_cursor_screen_cell(&frame, UI_ROW_FILE, 3,
+                                          VROW_ZWJ, 1, &screen_cell,
+                                          &found), 0);
+
+   cursor = virtual_cursor(LOGICAL_CURSOR_ZONE_PREFIX, 2, VROW_KEYCAP, 3);
+   expect_int("renderer.prefix.build", build_virtual_frame(&frame, cursor), 1);
+   expect_int("renderer.prefix.target",
+              ui_frame_cursor_screen_cell(&frame, UI_ROW_PREFIX, 2,
+                                          VROW_KEYCAP, 0, &screen_cell,
+                                          &found), 1);
+   expect_int("renderer.prefix.screen.cell", screen_cell, 3);
+   expect_int("renderer.prefix.no.file",
+              ui_frame_cursor_screen_cell(&frame, UI_ROW_FILE, 2,
+                                          VROW_KEYCAP, 0, &screen_cell,
+                                          &found), 0);
+
+   cursor = virtual_cursor(LOGICAL_CURSOR_ZONE_COMMAND, 0, VROW_COMMAND, 7);
+   expect_int("renderer.command.build", build_virtual_frame(&frame, cursor), 1);
+   expect_int("renderer.command.target",
+              ui_frame_cursor_screen_cell(&frame, UI_ROW_COMMAND, 0,
+                                          VROW_COMMAND, 0, &screen_cell,
+                                          &found), 1);
+   expect_int("renderer.command.screen.cell", screen_cell, 7);
+   expect_int("renderer.command.no.status",
+              ui_frame_cursor_screen_cell(&frame, UI_ROW_STATUS, 0,
+                                          VROW_STATUS, 0, &screen_cell,
+                                          &found), 0);
+
+   expect_int("renderer.no.frame",
+              ui_frame_cursor_screen_cell(NULL, UI_ROW_FILE, 2,
+                                          VROW_KEYCAP, 0, &screen_cell,
+                                          &found), 0);
+}
+
 static void test_compact_virtual_views(void)
 {
    UiFrame frame;
@@ -365,6 +423,7 @@ int main(void)
 {
    test_virtual_frame_semantic_rows();
    test_prefix_and_command_cursor_overlays();
+   test_frame_backed_renderer_cursor_targets();
    test_compact_virtual_views();
    test_fake_driver_debug_log();
    test_logical_hit_targets();

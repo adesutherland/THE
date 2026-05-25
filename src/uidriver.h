@@ -144,6 +144,10 @@ int ui_frame_find_cursor_row(const UiFrame *frame, LogicalCursor cursor,
 int ui_frame_cursor_for_row(const UiFrame *frame, UiRowRole role,
                             LINETYPE line_number, int screen_row,
                             LogicalCursor *cursor);
+int ui_frame_cursor_screen_cell(const UiFrame *frame, UiRowRole role,
+                                LINETYPE line_number, int screen_row,
+                                int viewport_col, int *screen_cell,
+                                LogicalCursor *cursor);
 int ui_frame_set_cursor(UiFrame *frame, LogicalCursor cursor);
 
 void ui_driver_op_log_init(UiDriverOpLog *log);
