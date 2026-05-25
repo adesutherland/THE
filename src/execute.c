@@ -39,6 +39,12 @@
 #include <proto.h>
 #include "cursesdriver.h"
 
+static LENGTHTYPE execute_filearea_cursor_cell(VIEW_DETAILS *curr_view);
+static LENGTHTYPE execute_prefix_cursor_cell(VIEW_DETAILS *curr_view);
+static void execute_move_prefix_cursor(CHARTYPE curr_screen,
+                                       VIEW_DETAILS *curr_view,
+                                       short row, LENGTHTYPE cell);
+
 /***********************************************************************/
 static short selective_change(TARGET *target,CHARTYPE *old_str,LENGTHTYPE len_old_str,CHARTYPE *new_str,
                        LENGTHTYPE len_new_str,LINETYPE true_line,LINETYPE last_true_line,LENGTHTYPE start_col)
@@ -846,25 +852,25 @@ short execute_os_command(CHARTYPE *cmd,bool quiet,bool pause)
 short execute_makecurr( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LINETYPE line)
 /***********************************************************************/
 {
-   short y=0,x=0;
-   WINDOW *win=NULL;
-   CursesDriverWindowCursor cursor;
+   short y=0;
+   LENGTHTYPE cell=0;
 
    TRACE_FUNCTION( "execute.c: execute_makecurr" );
    post_process_line( CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL, TRUE );
 
-   curr_view->current_line = line;
-   if ( curr_view->current_window == WINDOW_PREFIX )
-      win = SCREEN_WINDOW(curr_screen);
+   if (curr_view->current_window == WINDOW_PREFIX)
+      cell = execute_prefix_cursor_cell(curr_view);
    else
-      win = SCREEN_WINDOW_FILEAREA(curr_screen);
-   cursor = curses_driver_capture_window_cursor(win);
-   if (cursor.valid)
-      x = cursor.col;
+      cell = execute_filearea_cursor_cell(curr_view);
+   curr_view->current_line = line;
    build_screen( curr_screen );
    display_screen( curr_screen );
    y = get_row_for_focus_line( curr_screen, curr_view->focus_line, curr_view->current_row );
-   curses_driver_move_window_cursor(win, y, x);
+   if (curr_view->current_window == WINDOW_PREFIX)
+      execute_move_prefix_cursor(curr_screen, curr_view, y, cell);
+   else
+      curses_driver_move_filearea_cursor(curr_screen, curr_view, rec, rec_len,
+                                         y, (int)cell);
    TRACE_RETURN();
    return(RC_OK);
 }
@@ -2964,6 +2970,83 @@ static short execute_filearea_logical_row(CHARTYPE curr_screen, VIEW_DETAILS *cu
    if (max_rows > 0 && row >= max_rows)
       row = (short)(max_rows - 1);
    return row;
+}
+/***********************************************************************/
+static LENGTHTYPE execute_logical_cursor_cell(VIEW_DETAILS *curr_view,
+                                              LogicalCursorZone zone,
+                                              LINETYPE line_number,
+                                              LENGTHTYPE fallback)
+/***********************************************************************/
+{
+   LogicalCursor logical;
+
+   if (fallback < 0)
+      fallback = 0;
+   if (curr_view == NULL)
+      return fallback;
+
+   logical = curr_view->logical_cursor.current;
+   if (logical.valid
+   &&  logical.zone == zone
+   &&  logical.text.cell_column >= 0
+   &&  (zone == LOGICAL_CURSOR_ZONE_COMMAND
+    ||  logical.line_number == line_number))
+      return (LENGTHTYPE)logical.text.cell_column;
+
+   return fallback;
+}
+/***********************************************************************/
+static LENGTHTYPE execute_filearea_cursor_cell(VIEW_DETAILS *curr_view)
+/***********************************************************************/
+{
+   LENGTHTYPE fallback = 0;
+
+   if (curr_view != NULL && curr_view->current_column > 0)
+      fallback = curr_view->current_column - 1;
+   return execute_logical_cursor_cell(curr_view, LOGICAL_CURSOR_ZONE_FILEAREA,
+                                      curr_view != NULL ? curr_view->focus_line : 0,
+                                      fallback);
+}
+/***********************************************************************/
+static LENGTHTYPE execute_prefix_cursor_cell(VIEW_DETAILS *curr_view)
+/***********************************************************************/
+{
+   return execute_logical_cursor_cell(curr_view, LOGICAL_CURSOR_ZONE_PREFIX,
+                                      curr_view != NULL ? curr_view->focus_line : 0,
+                                      0);
+}
+/***********************************************************************/
+static void execute_move_prefix_cursor(CHARTYPE curr_screen,
+                                       VIEW_DETAILS *curr_view,
+                                       short row, LENGTHTYPE cell)
+/***********************************************************************/
+{
+   SHOW_LINE *show_row;
+   CursesDriverWindowSize size;
+   LogicalCursor logical;
+   size_t len;
+
+   if (curr_view == NULL
+   ||  SCREEN_WINDOW_PREFIX(curr_screen) == NULL
+   ||  row < 0
+   ||  row >= screen[curr_screen].rows[WINDOW_FILEAREA])
+      return;
+
+   if (cell < 0)
+      cell = 0;
+   size = curses_driver_window_size(SCREEN_WINDOW_PREFIX(curr_screen));
+   if (size.valid && size.cols > 0 && cell >= size.cols)
+      cell = size.cols - 1;
+
+   show_row = &screen[curr_screen].sl[row];
+   len = strlen((DEFCHAR *)show_row->prefix);
+   logical = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_PREFIX,
+                                      show_row->line_number, row,
+                                      show_row->prefix, len, (int)cell,
+                                      TEXT_SNAP_BACKWARD, 1);
+   logical_cursor_state_focus(&curr_view->logical_cursor, logical);
+   curses_driver_move_window_cursor(SCREEN_WINDOW_PREFIX(curr_screen),
+                                    row, (short)cell);
 }
 /***********************************************************************/
 short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTHTYPE col )

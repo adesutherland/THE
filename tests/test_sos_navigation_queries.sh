@@ -69,6 +69,12 @@ field = .string[]
 address the "extract /field/" expose field[]
 say "LEFTEDGE_FIELD=" || field[3] || ":" || field[4]
 
+'cursor file 6 4'
+'sos makecurr'
+field = .string[]
+address the "extract /field/" expose field[]
+say "MAKECURR_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
+
 'qquit'
 PROFILE_EOF
 
@@ -95,5 +101,6 @@ grep -q "TOP_FIELD=5:TEXT" "${WORK_DIR}/combined.txt"
 grep -q "PREFIX_TEXT_FIELD=zz:3:PREFIX" "${WORK_DIR}/combined.txt"
 grep -q "PREFIX_BOTTOM_FIELD=3:PREFIX" "${WORK_DIR}/combined.txt"
 grep -q "LEFTEDGE_FIELD=1:TEXT" "${WORK_DIR}/combined.txt"
+grep -q "MAKECURR_FIELD=e:4:TEXT" "${WORK_DIR}/combined.txt"
 
 echo "SOS navigation query test passed."
