@@ -45,21 +45,6 @@
 static short sosdelback ( bool );
 static short sosdelchar ( bool );
 
-static int sos_query_active_driver_cursor_fallback(unsigned short *row,
-                                                   unsigned short *col)
-{
-   CursesDriverWindowCursor cursor;
-
-   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
-   if (!cursor.valid)
-      return FALSE;
-   if (row != NULL)
-      *row = (unsigned short)cursor.row;
-   if (col != NULL)
-      *col = (unsigned short)cursor.col;
-   return TRUE;
-}
-
 static int sos_filearea_logical_cursor(unsigned short *row, int *cell)
 {
    LogicalCursor logical;
@@ -80,25 +65,18 @@ static int sos_filearea_logical_cursor(unsigned short *row, int *cell)
    return FALSE;
 }
 
-static int sos_filearea_current_cell(unsigned short y, unsigned short x)
+static LENGTHTYPE sos_filearea_current_cell(void)
 {
    int cell;
 
    if (sos_filearea_logical_cursor(NULL, &cell))
-      return cell;
-
-#ifdef USE_UTF8
-   INTENTIONALLY_UNUSED_VARIABLE(y);
-   return show_utf8_logical_col_from_display(rec, rec_len,
-                                             CURRENT_VIEW->verify_col - 1,
-                                             x, TEXT_SNAP_BACKWARD);
-#else
-   INTENTIONALLY_UNUSED_VARIABLE(y);
-   return x + CURRENT_VIEW->verify_col - 1;
-#endif
+      return (LENGTHTYPE)cell;
+   return (CURRENT_VIEW->current_column > 0)
+        ? CURRENT_VIEW->current_column - 1
+        : 0;
 }
 
-static LENGTHTYPE sos_command_current_cell(unsigned short x);
+static LENGTHTYPE sos_command_current_cell(void);
 
 static LENGTHTYPE sos_filearea_byte_to_cell(LENGTHTYPE byte_offset)
 {
@@ -213,17 +191,17 @@ static void sos_refresh_filearea_after_edit(unsigned short row)
       show_statarea();
 }
 
-static LENGTHTYPE sos_filearea_edge_cell_from_command(unsigned short x)
+static LENGTHTYPE sos_filearea_edge_cell_from_command(void)
 {
    LENGTHTYPE cell;
 
-   cell = sos_command_current_cell(x);
+   cell = sos_command_current_cell();
    if ((CURRENT_VIEW->prefix & PREFIX_LOCATION_MASK) != PREFIX_LEFT)
       cell += CURRENT_VIEW->prefix_width;
    return cell;
 }
 
-static LENGTHTYPE sos_command_current_cell(unsigned short x)
+static LENGTHTYPE sos_command_current_cell(void)
 {
    LogicalCursor logical;
 
@@ -234,7 +212,7 @@ static LENGTHTYPE sos_command_current_cell(unsigned short x)
       return (LENGTHTYPE)logical.text.cell_column;
    if (CURRENT_VIEW->cmdline_col >= 0)
       return cmd_verify_col - 1 + CURRENT_VIEW->cmdline_col;
-   return x + cmd_verify_col - 1;
+   return 0;
 }
 
 static short sos_prefix_active_width(void)
@@ -245,21 +223,37 @@ static short sos_prefix_active_width(void)
    return (width > 0) ? width : 0;
 }
 
-static unsigned short sos_prefix_current_row(unsigned short y)
+static unsigned short sos_prefix_current_row_for_view(CHARTYPE scrno,
+                                                      VIEW_DETAILS *view)
 {
    LogicalCursor logical;
+   short row;
 
-   logical = CURRENT_VIEW->logical_cursor.current;
+   if (view == NULL)
+      return 0;
+   logical = view->logical_cursor.current;
    if (logical.valid
    &&  logical.zone == LOGICAL_CURSOR_ZONE_PREFIX
-   &&  logical.line_number == CURRENT_VIEW->focus_line
+   &&  logical.line_number == view->focus_line
    &&  logical.zone_row >= 0
-   &&  logical.zone_row < CURRENT_SCREEN.rows[WINDOW_FILEAREA])
+   &&  logical.zone_row < screen[scrno].rows[WINDOW_FILEAREA])
       return (unsigned short)logical.zone_row;
-   return y;
+   row = get_row_for_focus_line(scrno, view->focus_line, view->current_row);
+   if (row < 0)
+      row = 0;
+   if (screen[scrno].rows[WINDOW_FILEAREA] <= 0)
+      return 0;
+   if (row >= screen[scrno].rows[WINDOW_FILEAREA])
+      row = (short)(screen[scrno].rows[WINDOW_FILEAREA] - 1);
+   return (unsigned short)row;
 }
 
-static LENGTHTYPE sos_prefix_current_cell(unsigned short x)
+static unsigned short sos_prefix_current_row(void)
+{
+   return sos_prefix_current_row_for_view(current_screen, CURRENT_VIEW);
+}
+
+static LENGTHTYPE sos_prefix_current_cell(void)
 {
    LogicalCursor logical;
 
@@ -269,7 +263,7 @@ static LENGTHTYPE sos_prefix_current_cell(unsigned short x)
    &&  logical.line_number == CURRENT_VIEW->focus_line
    &&  logical.text.cell_column >= 0)
       return (LENGTHTYPE)logical.text.cell_column;
-   return x;
+   return 0;
 }
 
 static void sos_store_prefix_cursor(unsigned short row, LENGTHTYPE cell)
@@ -294,23 +288,22 @@ static void sos_store_prefix_cursor(unsigned short row, LENGTHTYPE cell)
 
 static void sos_current_logical_row_cell(unsigned short *row, LENGTHTYPE *cell)
 {
-   unsigned short y=0,x=0;
+   unsigned short y=0;
    LENGTHTYPE logical_cell=0;
 
-   (void)sos_query_active_driver_cursor_fallback(&y, &x);
    switch (CURRENT_VIEW->current_window)
    {
       case WINDOW_COMMAND:
          y = 0;
-         logical_cell = sos_command_current_cell(x);
+         logical_cell = sos_command_current_cell();
          break;
       case WINDOW_PREFIX:
-         y = sos_prefix_current_row(y);
-         logical_cell = sos_prefix_current_cell(x);
+         y = sos_prefix_current_row();
+         logical_cell = sos_prefix_current_cell();
          break;
       case WINDOW_FILEAREA:
          y = sos_filearea_focus_row(current_screen, CURRENT_VIEW);
-         logical_cell = sos_filearea_current_cell(y, x);
+         logical_cell = sos_filearea_current_cell();
          break;
       default:
          logical_cell = 0;
@@ -622,11 +615,10 @@ short Sos_bottomedge(CHARTYPE *params)
 /***********************************************************************/
 {
    short rc=RC_OK;
-   unsigned short y=0,x=0,row=0;
+   unsigned short y=0,row=0;
    LENGTHTYPE cell=0;
 
    TRACE_FUNCTION("commsos.c: Sos_bottomedge");
-   (void)sos_query_active_driver_cursor_fallback(&y, &x);
    /*
     * Get the last enterable row. If an error, stay where we are...
     */
@@ -641,7 +633,7 @@ short Sos_bottomedge(CHARTYPE *params)
    switch(CURRENT_VIEW->current_window)
    {
       case WINDOW_COMMAND:
-         cell = sos_filearea_edge_cell_from_command(x);
+         cell = sos_filearea_edge_cell_from_command();
          CURRENT_VIEW->focus_line = CURRENT_SCREEN.sl[row].line_number;
          pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
          CURRENT_VIEW->current_window = WINDOW_FILEAREA;
@@ -649,7 +641,7 @@ short Sos_bottomedge(CHARTYPE *params)
          break;
       case WINDOW_FILEAREA:
          y = sos_filearea_focus_row(current_screen, CURRENT_VIEW);
-         cell = sos_filearea_current_cell(y, x);
+         cell = sos_filearea_current_cell();
          if (row != y)                            /* different rows */
          {
             post_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL,TRUE);
@@ -659,8 +651,8 @@ short Sos_bottomedge(CHARTYPE *params)
          sos_store_filearea_cursor(current_screen, CURRENT_VIEW, row, cell);
          break;
       case WINDOW_PREFIX:
-         y = sos_prefix_current_row(y);
-         cell = sos_prefix_current_cell(x);
+         y = sos_prefix_current_row();
+         cell = sos_prefix_current_cell();
          if (row != y)                            /* different rows */
          {
             post_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL,TRUE);
@@ -1458,7 +1450,7 @@ short Sos_endchar(CHARTYPE *params)
    switch( CURRENT_VIEW->current_window )
    {
       case WINDOW_PREFIX:
-         y = sos_prefix_current_row(y);
+         y = sos_prefix_current_row();
 #ifdef USE_UTF8
          charnum = u8_charnum( (char *)pre_rec, pre_rec_len );
 #else
@@ -1572,7 +1564,7 @@ short Sos_firstchar(CHARTYPE *params)
    switch( CURRENT_VIEW->current_window )
    {
       case WINDOW_PREFIX:
-         y = sos_prefix_current_row(y);
+         y = sos_prefix_current_row();
          sos_store_prefix_cursor(y, 0);
          TRACE_RETURN();
          return(rc);
@@ -1630,7 +1622,7 @@ short Sos_firstcol(CHARTYPE *params)
          rc = execute_move_cursor( current_screen, CURRENT_VIEW, 0 );
          break;
       case WINDOW_PREFIX:
-         y = sos_prefix_current_row(y);
+         y = sos_prefix_current_row();
          sos_store_prefix_cursor(y, 0);
          break;
       case WINDOW_FILEAREA:
@@ -1732,7 +1724,6 @@ short Sos_lastcol(CHARTYPE *params)
    LENGTHTYPE cell=0;
 
    TRACE_FUNCTION( "commsos.c: Sos_lastcol" );
-   (void)sos_query_active_driver_cursor_fallback(&row, NULL);
    size = curses_driver_window_size(CURRENT_WINDOW);
    cell = (size.valid && size.cols > 0) ? size.cols - 1 : 0;
    switch (CURRENT_VIEW->current_window)
@@ -1742,7 +1733,7 @@ short Sos_lastcol(CHARTYPE *params)
          rc = execute_move_cursor(current_screen, CURRENT_VIEW, cell);
          break;
       case WINDOW_PREFIX:
-         row = sos_prefix_current_row(row);
+         row = sos_prefix_current_row();
          sos_store_prefix_cursor(row, cell);
          cursor_focus_refresh(current_screen, CURRENT_VIEW);
          break;
@@ -1784,10 +1775,9 @@ short Sos_leftedge(CHARTYPE *params)
    unsigned short row=0;
 
    TRACE_FUNCTION( "commsos.c: Sos_leftedge" );
-   (void)sos_query_active_driver_cursor_fallback(&row, NULL);
    if ( CURRENT_VIEW->current_window == WINDOW_PREFIX )
    {
-      row = sos_prefix_current_row(row);
+      row = sos_prefix_current_row();
       CURRENT_VIEW->current_window = WINDOW_FILEAREA;
       sos_store_filearea_cursor(current_screen, CURRENT_VIEW, row, 0);
    }
@@ -2090,7 +2080,6 @@ short do_Sos_prefix( CHARTYPE *params, CHARTYPE curr_screen, VIEW_DETAILS *curr_
    unsigned short y=0;
 
    TRACE_FUNCTION("commsos.c: Sos_prefix");
-   (void)sos_query_active_driver_cursor_fallback(&y, NULL);
    /*
     * If the cursor is in the command line or there is no prefix on, exit.
     */
@@ -2104,7 +2093,7 @@ short do_Sos_prefix( CHARTYPE *params, CHARTYPE curr_screen, VIEW_DETAILS *curr_
    if (curr_view->current_window == WINDOW_FILEAREA)
       y = sos_filearea_focus_row(curr_screen, curr_view);
    else
-      y = sos_prefix_current_row(y);
+      y = sos_prefix_current_row_for_view(curr_screen, curr_view);
    if (curr_view->current_window == WINDOW_FILEAREA)
       curr_view->current_window = WINDOW_PREFIX;
    sos_store_prefix_cursor(y, 0);
@@ -2182,10 +2171,9 @@ short Sos_rightedge(CHARTYPE *params)
    LENGTHTYPE cell=0;
 
    TRACE_FUNCTION("commsos.c: Sos_rightedge");
-   (void)sos_query_active_driver_cursor_fallback(&row, NULL);
    if (CURRENT_VIEW->current_window == WINDOW_PREFIX)
    {
-      row = sos_prefix_current_row(row);
+      row = sos_prefix_current_row();
       CURRENT_VIEW->current_window = WINDOW_FILEAREA;
    }
    else
@@ -2359,7 +2347,7 @@ short Sos_startendchar(CHARTYPE *params)
    switch( CURRENT_VIEW->current_window )
    {
       case WINDOW_PREFIX:
-         y = sos_prefix_current_row(y);
+         y = sos_prefix_current_row();
 #ifdef USE_UTF8
          charnum = u8_charnum( (char *)pre_rec, pre_rec_len );
 #else
@@ -3051,11 +3039,10 @@ short Sos_topedge(CHARTYPE *params)
 /***********************************************************************/
 {
   short rc=RC_OK;
-  unsigned short y=0,x=0,row=0;
+  unsigned short y=0,row=0;
   LENGTHTYPE cell=0;
 
   TRACE_FUNCTION("commsos.c: Sos_topedge");
-  (void)sos_query_active_driver_cursor_fallback(&y, &x);
   /*
    * Get the last enterable row. If an error, stay where we are...
    */
@@ -3070,7 +3057,7 @@ short Sos_topedge(CHARTYPE *params)
   switch(CURRENT_VIEW->current_window)
   {
      case WINDOW_COMMAND:
-        cell = sos_filearea_edge_cell_from_command(x);
+        cell = sos_filearea_edge_cell_from_command();
         CURRENT_VIEW->focus_line = CURRENT_SCREEN.sl[row].line_number;
         pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
         CURRENT_VIEW->current_window = WINDOW_FILEAREA;
@@ -3078,7 +3065,7 @@ short Sos_topedge(CHARTYPE *params)
         break;
      case WINDOW_FILEAREA:
         y = sos_filearea_focus_row(current_screen, CURRENT_VIEW);
-        cell = sos_filearea_current_cell(y, x);
+        cell = sos_filearea_current_cell();
         if (row != y)                            /* different rows */
         {
            post_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL,TRUE);
@@ -3088,8 +3075,8 @@ short Sos_topedge(CHARTYPE *params)
         sos_store_filearea_cursor(current_screen, CURRENT_VIEW, row, cell);
         break;
      case WINDOW_PREFIX:
-        y = sos_prefix_current_row(y);
-        cell = sos_prefix_current_cell(x);
+        y = sos_prefix_current_row();
+        cell = sos_prefix_current_cell();
         if (row != y)                            /* different rows */
         {
            post_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL,TRUE);
@@ -3156,7 +3143,7 @@ short Sos_undo(CHARTYPE *params)
          prefix_changed = TRUE;
          memset(pre_rec,' ',MAX_PREFIX_WIDTH);
          pre_rec_len = 0;
-         y = sos_prefix_current_row(y);
+         y = sos_prefix_current_row();
          sos_store_prefix_cursor(y,0);
          display_prefix_line(current_screen, CURRENT_VIEW);
          cursor_focus_refresh(current_screen, CURRENT_VIEW);
@@ -3227,7 +3214,7 @@ static short sosdelback( bool cua )
       {
          LENGTHTYPE prefix_col;
 
-         y = sos_prefix_current_row(y);
+         y = sos_prefix_current_row();
          prefix_col = logical_cell;
          if ( prefix_col <= 0 )
          {
@@ -3412,7 +3399,7 @@ static short sosdelchar( bool cua )
       {
          LENGTHTYPE prefix_col;
 
-         y = sos_prefix_current_row(y);
+         y = sos_prefix_current_row();
          prefix_col = logical_cell;
          sos_store_prefix_cursor(y, prefix_col);
          if ( prefix_col < pre_rec_len )

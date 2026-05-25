@@ -213,8 +213,11 @@ The remaining implementation still has several physical cursor authorities:
   still physical behavior routed through `cursesdriver.c` wrappers. A real
   logical popup/dialog model remains a later slice.
 - `commsos.c` no longer has direct curses cursor/window operations in SOS edit
-  and navigation logic. Its remaining driver contact points are an active
-  curses-driver cursor query fallback and prefix cursor materialization bridge.
+  and navigation logic, and its active-driver cursor query fallback is gone.
+  SOS row/cell decisions now prefer `VIEW_DETAILS.logical_cursor` and fall back
+  to editor-owned state such as `current_column`, `cmdline_col`, and focus-line
+  row calculation. Prefix cursor materialization and edge-command window sizing
+  still go through `cursesdriver.c` as physical driver operations.
 - `show.c` still captures and restores physical cursor positions for render
   entry/exit and a few old targeted redraw mechanics. Status/HEXDISPLAY and
   view-switch preservation no longer use physical cursor snapshots.
@@ -363,9 +366,10 @@ High-priority groups:
    painting, and cursor parking stay in `cursesdriver.c`.
 5. Command/query fallback retirement. Retire active-driver row/cell fallbacks
    outside the renderer once equivalent logical query or agent/CREXX behavior
-   is covered. `query1.c`/`query2.c` are cleaned; `commsos.c` still has an
-   active-driver cursor query fallback. Tighten `tests/check_curses_boundary.sh`
-   module by module.
+   is covered. `query1.c`, `query2.c`, and `commsos.c` are cleaned for the
+   focused query/SOS row-cell fallback surface. Tighten
+   `tests/check_curses_boundary.sh` module by module as remaining command
+   helpers move behind logical state or driver-owned physical operations.
 6. Logical popup/dialog/window lifecycle. Do this as a larger modeled slice
    only when popup/dialog/window state can appear in LLM snapshots and virtual
    screen tests. Until then, keep these as driver-owned physical mechanics.

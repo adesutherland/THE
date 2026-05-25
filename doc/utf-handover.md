@@ -342,8 +342,12 @@ Runtime cursor code still has multiple physical paths and must be migrated.
 no longer contain direct `getyx`, `wmove`, `getbegyx`, `getmaxx`, `getmaxy`,
 or `wtimeout` calls. `src/query1.c` and `src/query2.c` also no longer have
 active-driver cursor snapshot fallbacks; field, edge, shadow, and synelem
-queries now use logical cursor state or editor-owned fallback state. Many other
-legacy command, SOS, utility, mouse, and renderer paths still have physical
+queries now use logical cursor state or editor-owned fallback state.
+`src/commsos.c` no longer has its active-driver cursor query fallback either:
+SOS row/cell decisions now prefer logical cursor state and fall back to
+`current_column`, `cmdline_col`, and focus-line row calculation, while prefix
+materialization and edge-command window sizing stay in the curses driver. Many
+other legacy command, utility, mouse, and renderer paths still have physical
 mechanics. The guardrail test is intentionally permissive while the live
 renderer is still being split; tighten it only after the remaining command,
 prefix, mouse, and renderer paths have driver-owned equivalents.
@@ -388,10 +392,10 @@ Preferred order, with larger slices:
    CTests before tightening each fallback.
 5. Retire active-driver query/materialization fallbacks in non-renderer command
    code once the same row/cell behavior is visible through logical queries,
-   agent snapshots, or CREXX query tests. `query1.c`/`query2.c` are cleaned;
-   `commsos.c` still has an active-driver cursor query fallback and should be
-   handled with focused CREXX SOS coverage. Tighten `tests/check_curses_boundary.sh`
-   immediately for each fully migrated module.
+   agent snapshots, or CREXX query tests. `query1.c`/`query2.c` are cleaned,
+   and `commsos.c`'s active-driver cursor query fallback is now removed with
+   focused CREXX SOS navigation/edit coverage. Tighten
+   `tests/check_curses_boundary.sh` immediately for each fully migrated module.
 6. Introduce logical popup/dialog/window-lifecycle models as a single larger
    slice only when they can be exposed in LLM snapshots and virtual screen
    tests. Until then, keep those mechanics driver-owned physical behavior.
@@ -408,11 +412,10 @@ cmake --build cmake-build-noutf8 -j2
 ctest --test-dir cmake-build-noutf8 --output-on-failure
 ```
 
-Latest verification after the query fallback slice: UTF build/CTest was green,
+Latest verification after the SOS fallback slice: UTF build/CTest was green,
 32/32. no-UTF build/CTest was green, 17/17 with SDSLH-dependent tests skipped
-as intended. Focused LLM/`the_agent` smoke, CREXX/pty query tests, SOS
-navigation/edit tests, and selective-change prompt tests were green. A manual
-smake smoke was also reported green.
+as intended. Focused LLM/`the_agent` smoke, `test_virtual_screen`, and the
+expanded CREXX/pty SOS navigation/edit tests were green.
 
 ## Suggested Next Slices
 
@@ -431,10 +434,11 @@ High-value next slices:
   paths that still infer state from physical cursor mechanics. Keep physical
   cursor save/restore, refresh, touch/update, UTF/ascii cell writes, software
   cursor painting, and cursor parking in `cursesdriver.c`.
-- SOS/query fallback purge: remove `commsos.c`'s active-driver cursor query
-  fallback by extending the existing CREXX SOS navigation/edit tests around the
-  affected commands, then derive row/cell decisions from logical cursor state
-  and editor-owned fallback state.
+- Follow-on SOS cleanup: with `commsos.c`'s active-driver cursor query fallback
+  removed, the next useful SOS slices are tab-field/key-navigation paths that
+  still depend on legacy cursor helpers, plus reducing the remaining prefix
+  materialization bridge to a driver-owned operation with logical state as the
+  only editor authority.
 - Agent command bridge: support a first real group of full-editor commands or
   SOS commands through normalized agent input, with `the_agent` CTests proving
   no-curses behavior and CREXX CTests proving full-editor parity where needed.

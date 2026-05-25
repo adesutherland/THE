@@ -89,6 +89,32 @@ field = .string[]
 address the "extract /field/" expose field[]
 say "FILE_DELWORD=" || field[1] || ":" || field[2] || ":" || field[3] || ":" || field[4]
 
+'cursor file 2 4'
+'sos cursoradj'
+field = .string[]
+address the "extract /field/" expose field[]
+say "FILE_CURSORADJ=" || field[2] || ":" || field[3] || ":" || field[4]
+
+'cursor file 2 2'
+'sos cursorshift'
+field = .string[]
+address the "extract /field/" expose field[]
+say "FILE_CURSORSHIFT=" || field[2] || ":" || field[3] || ":" || field[4]
+
+'cursor file 2 2'
+'sos settab'
+'sos firstcol'
+'sos tabf'
+field = .string[]
+address the "extract /field/" expose field[]
+say "FILE_SETTAB_TABF=" || field[3] || ":" || field[4]
+
+'cursor file 2 2'
+'sos instab nochar'
+field = .string[]
+address the "extract /field/" expose field[]
+say "FILE_INSTAB=" || field[3] || ":" || field[4]
+
 'set prefix on'
 'cursor file 2 1'
 'sos prefix'
@@ -134,6 +160,10 @@ grep -q "FILE_TABWORDF=b:7:TEXT" "${WORK_DIR}/combined.txt"
 grep -q "FILE_TABWORDF2=g:12:TEXT" "${WORK_DIR}/combined.txt"
 grep -q "FILE_TABWORDB=b:7:TEXT" "${WORK_DIR}/combined.txt"
 grep -q "FILE_DELWORD=alpha gamma:g:7:TEXT" "${WORK_DIR}/combined.txt"
+grep -q "FILE_CURSORADJ=d:4:TEXT" "${WORK_DIR}/combined.txt"
+grep -q "FILE_CURSORSHIFT=d:2:TEXT" "${WORK_DIR}/combined.txt"
+grep -q "FILE_SETTAB_TABF=5:TEXT" "${WORK_DIR}/combined.txt"
+grep -q "FILE_INSTAB=5:TEXT" "${WORK_DIR}/combined.txt"
 grep -q "PREFIX_DELCHAR=bc:b:1:PREFIX" "${WORK_DIR}/combined.txt"
 grep -q "PREFIX_DELBACK=b::2:PREFIX" "${WORK_DIR}/combined.txt"
 

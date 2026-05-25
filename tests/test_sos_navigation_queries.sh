@@ -41,6 +41,15 @@ field = .string[]
 address the "extract /field/" expose field[]
 say "CMD_TOP_FIELD=" || field[3] || ":" || field[4]
 
+'cursor cmdline 5'
+'set prefix on right 6 0'
+'sos topedge'
+field = .string[]
+address the "extract /field/" expose field[]
+say "CMD_TOP_RIGHT_FIELD=" || field[3] || ":" || field[4]
+
+'set prefix on left 6 0'
+'cursor cmdline 5'
 'sos bottomedge'
 field = .string[]
 address the "extract /field/" expose field[]
@@ -63,6 +72,11 @@ say "PREFIX_TEXT_FIELD=" || field[1] || ":" || field[3] || ":" || field[4]
 field = .string[]
 address the "extract /field/" expose field[]
 say "PREFIX_BOTTOM_FIELD=" || field[3] || ":" || field[4]
+
+'sos topedge'
+field = .string[]
+address the "extract /field/" expose field[]
+say "PREFIX_TOP_FIELD=" || field[3] || ":" || field[4]
 
 'sos leftedge'
 field = .string[]
@@ -96,10 +110,12 @@ run_with_pty() {
 run_with_pty "${THE_BIN}" -p "${PROFILE}" "${SAMPLE}"
 
 grep -q "CMD_TOP_FIELD=5:TEXT" "${WORK_DIR}/combined.txt"
+grep -q "CMD_TOP_RIGHT_FIELD=11:TEXT" "${WORK_DIR}/combined.txt"
 grep -q "BOTTOM_FIELD=5:TEXT" "${WORK_DIR}/combined.txt"
 grep -q "TOP_FIELD=5:TEXT" "${WORK_DIR}/combined.txt"
 grep -q "PREFIX_TEXT_FIELD=zz:3:PREFIX" "${WORK_DIR}/combined.txt"
 grep -q "PREFIX_BOTTOM_FIELD=3:PREFIX" "${WORK_DIR}/combined.txt"
+grep -q "PREFIX_TOP_FIELD=3:PREFIX" "${WORK_DIR}/combined.txt"
 grep -q "LEFTEDGE_FIELD=1:TEXT" "${WORK_DIR}/combined.txt"
 grep -q "MAKECURR_FIELD=e:4:TEXT" "${WORK_DIR}/combined.txt"
 
