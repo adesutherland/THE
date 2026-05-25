@@ -319,6 +319,47 @@ int ui_frame_cursor_for_row(const UiFrame *frame, UiRowRole role,
    return 1;
 }
 
+int ui_frame_cursor_screen_row(const UiFrame *frame, UiRowRole role,
+                               LINETYPE line_number, int *screen_row,
+                               LogicalCursor *cursor)
+{
+   size_t index;
+   const UiFrameRow *row;
+   UiRowRole cursor_role;
+
+   if (screen_row != NULL)
+      *screen_row = -1;
+   if (cursor != NULL)
+      *cursor = logical_cursor_invalid();
+   if (frame == NULL
+   ||  !frame->cursor.valid
+   ||  !ui_frame_find_cursor_row(frame, frame->cursor.cursor, &index))
+      return 0;
+
+   row = &frame->row[index];
+   cursor_role = ui_row_role_from_cursor_zone(frame->cursor.cursor.zone);
+   if (cursor_role == UI_ROW_FILE)
+   {
+      if (!ui_row_role_displays_filearea_cursor(role))
+         return 0;
+      if (row->role != role)
+         return 0;
+   }
+   else if (cursor_role != role)
+   {
+      return 0;
+   }
+   if (((cursor_role == UI_ROW_FILE && ui_row_role_displays_filearea_cursor(role))
+    ||  role == UI_ROW_PREFIX)
+   &&  row->line_number != line_number)
+      return 0;
+   if (screen_row != NULL)
+      *screen_row = row->screen_row;
+   if (cursor != NULL)
+      *cursor = frame->cursor.cursor;
+   return 1;
+}
+
 int ui_frame_cursor_screen_cell(const UiFrame *frame, UiRowRole role,
                                 LINETYPE line_number, int screen_row,
                                 int viewport_col, int *screen_cell,

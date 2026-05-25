@@ -284,6 +284,40 @@ static void test_frame_backed_renderer_cursor_targets(void)
                                           &found), 0);
 }
 
+static void test_frame_backed_targeted_redraw_rows(void)
+{
+   UiFrame frame;
+   LogicalCursor cursor;
+   LogicalCursor found;
+   int screen_row = -1;
+
+   cursor = virtual_cursor(LOGICAL_CURSOR_ZONE_PREFIX, 2, VROW_KEYCAP, 3);
+   expect_int("redraw.prefix.build", build_virtual_frame(&frame, cursor), 1);
+   expect_int("redraw.prefix.row",
+              ui_frame_cursor_screen_row(&frame, UI_ROW_PREFIX, 2,
+                                         &screen_row, &found), 1);
+   expect_int("redraw.prefix.screen.row", screen_row, VROW_KEYCAP);
+   expect_int("redraw.prefix.logical.cell", found.text.cell_column, 3);
+   expect_int("redraw.prefix.no.physical.row",
+              ui_frame_cursor_screen_row(&frame, UI_ROW_PREFIX, 1,
+                                         &screen_row, &found), 0);
+   expect_int("redraw.prefix.clears.row", screen_row, -1);
+
+   cursor = virtual_cursor(LOGICAL_CURSOR_ZONE_FILEAREA, 2, VROW_KEYCAP, 5);
+   expect_int("redraw.file.build", build_virtual_frame(&frame, cursor), 1);
+   expect_int("redraw.file.row",
+              ui_frame_cursor_screen_row(&frame, UI_ROW_FILE, 2,
+                                         &screen_row, &found), 1);
+   expect_int("redraw.file.screen.row", screen_row, VROW_KEYCAP);
+   expect_int("redraw.file.no.prefix",
+              ui_frame_cursor_screen_row(&frame, UI_ROW_PREFIX, 2,
+                                         &screen_row, &found), 0);
+
+   expect_int("redraw.no.frame",
+              ui_frame_cursor_screen_row(NULL, UI_ROW_PREFIX, 2,
+                                         &screen_row, &found), 0);
+}
+
 static void test_frame_backed_status_text_targets(void)
 {
    UiFrame frame;
@@ -532,6 +566,7 @@ int main(void)
    test_virtual_frame_semantic_rows();
    test_prefix_and_command_cursor_overlays();
    test_frame_backed_renderer_cursor_targets();
+   test_frame_backed_targeted_redraw_rows();
    test_frame_backed_status_text_targets();
    test_logical_view_switch_cursor_restoration();
    test_compact_virtual_views();

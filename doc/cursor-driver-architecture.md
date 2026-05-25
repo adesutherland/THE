@@ -150,10 +150,12 @@ place:
   render-entry cursor save/restore helpers now live behind `cursesdriver.c`.
   Curses attribute, touch, refresh, and update calls from the renderer are also
   routed through driver helpers. Targeted command-line redraws now draw the
-  software cursor from live logical command focus, targeted prefix redraws build
-  a fresh `UiFrame` when possible, SDSLH bracket highlighting reads logical
-  file focus directly, and UTF whole-line cursor-repair redraws reuse a
-  frame-backed overlay. `show_statarea()` now inspects HEXDISPLAY text from the
+  software cursor from live logical command focus, targeted prefix redraws pick
+  their row from logical prefix focus, a rebased `UiFrame` cursor, or
+  editor-owned focus-row state instead of the saved prefix-window cursor, SDSLH
+  bracket highlighting reads logical file focus directly, and UTF whole-line
+  cursor-repair redraws reuse a frame-backed overlay. `show_statarea()` now
+  inspects HEXDISPLAY text from the
   live logical file-area, prefix, or command cursor when one is available, and
   `screenframe_build()` now rebases saved logical cursors onto rebuilt rows, so
   view-switch restoration preserves file-area/prefix focus without physical
@@ -222,8 +224,8 @@ The remaining implementation still has several physical cursor authorities:
   row calculation. Prefix cursor materialization and edge-command window sizing
   still go through `cursesdriver.c` as physical driver operations.
 - `show.c` still captures and restores physical cursor positions for render
-  entry/exit and a few old targeted redraw mechanics. Status/HEXDISPLAY and
-  view-switch preservation no longer use physical cursor snapshots.
+  entry/exit. Status/HEXDISPLAY, targeted prefix row selection, and view-switch
+  preservation no longer use physical cursor snapshots.
 - `cursesdriver.c` owns the migrated physical primitives, but many callers
   still make logical decisions from legacy physical coordinates before calling
   the driver. The next separation slices should replace those decisions with
@@ -268,9 +270,11 @@ curses.
    the curses driver. Renderer attribute, touch, refresh, and update calls also
    go through driver helpers. Targeted command-line redraw, targeted prefix
    redraw, SDSLH bracket matching, and UTF whole-line cursor-repair repaint now
-   use logical or frame-backed cursor data. The remaining work is to move the
-   broader targeted redraw requests to driver-level logical render operations
-   and retire the remaining legacy snapshot fallbacks.
+   use logical or frame-backed cursor data; targeted prefix redraw also falls
+   back only to editor-owned focus-row state when no cursor frame is available.
+   The remaining work is to move broader targeted redraw requests to
+   driver-level logical render operations and retire the remaining legacy
+   snapshot fallbacks.
 
 6. Bring prefix and command line under the same model.
    Prefix and command-line focus now have logical cursor state. Normal `TEXT`

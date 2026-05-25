@@ -2253,13 +2253,12 @@ void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
 /***********************************************************************/
 {
    CursesDriverWindowCursor prefix_cursor;
-   LogicalCursor logical;
 #ifdef USE_UTF8
    UiFrame frame;
    const UiFrame *cursor_frame = NULL;
 #endif
    int width;
-   short row;
+   short row = 0;
 
    TRACE_FUNCTION("show.c:    display_prefix_line");
    if ( batch_only
@@ -2273,22 +2272,19 @@ void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
 
    prefix_cursor = curses_driver_capture_window_cursor(
       SCREEN_WINDOW_PREFIX(curr_screen));
-   row = prefix_cursor.valid ? prefix_cursor.row : 0;
-   logical = curr_view->logical_cursor.current;
-   if (curr_view->current_window == WINDOW_PREFIX
-   &&  logical.valid
-   &&  logical.zone == LOGICAL_CURSOR_ZONE_PREFIX
-   &&  logical.zone_row >= 0
-   &&  logical.zone_row < screen[curr_screen].rows[WINDOW_FILEAREA])
-      row = (short)logical.zone_row;
+   if (!show_logical_prefix_cursor_target(curr_screen, curr_view, &row, NULL)
+   &&  !show_view_filearea_cursor_target(curr_screen, curr_view, &row, NULL,
+                                         NULL, NULL))
+      row = 0;
 #ifdef USE_UTF8
    if (show_build_cursor_frame(curr_screen, &frame))
    {
-      size_t index;
+      int frame_row = -1;
 
       cursor_frame = &frame;
-      if (ui_frame_find_cursor_row(&frame, frame.cursor.cursor, &index))
-         row = (short)frame.row[index].screen_row;
+      if (ui_frame_cursor_screen_row(&frame, UI_ROW_PREFIX,
+                                     curr_view->focus_line, &frame_row, NULL))
+         row = (short)frame_row;
    }
 #endif
    width = curr_view->prefix_width - curr_view->prefix_gap;

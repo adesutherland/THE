@@ -65,18 +65,19 @@ uses it to select file-area and prefix software cursor overlays. The renderer
 no longer falls back to the old `cursor_focus_*` physical snapshot group when
 painting software cursor cells; frame-backed cursor target selection is covered
 by `test_virtual_screen`. Targeted command-line redraw uses the live logical
-command cursor directly; targeted prefix redraw builds a `UiFrame` when
-possible; SDSLH bracket highlighting uses logical file focus instead of
-`get_cursor_position()`; and UTF whole-line cursor-repair repaint can reuse a
-frame-backed overlay. Status/HEXDISPLAY now inspects only the live logical
-file-area, prefix, or command cursor and no longer falls back to a physical
-`CURRENT_WINDOW` snapshot; `test_virtual_screen` covers the matching logical
-text-target selection. `screenframe_build()` now rebases saved logical cursors
-onto rebuilt rows, and `prepare_view()`/`advance_view()` no longer preserve or
-restore view-switch cursor positions from physical window snapshots. When an
-active file-area view has not published a logical cursor yet, `prepare_view()`
-seeds the cursor from editor-owned `current_column` rather than the curses
-cursor.
+command cursor directly; targeted prefix redraw now chooses its row from
+logical prefix focus, a rebased `UiFrame` cursor, or editor-owned focus-row
+state instead of the saved prefix-window cursor; SDSLH bracket highlighting
+uses logical file focus instead of `get_cursor_position()`; and UTF whole-line
+cursor-repair repaint can reuse a frame-backed overlay. Status/HEXDISPLAY now
+inspects only the live logical file-area, prefix, or command cursor and no
+longer falls back to a physical `CURRENT_WINDOW` snapshot; `test_virtual_screen`
+covers the matching logical text-target and targeted redraw row selection.
+`screenframe_build()` now rebases saved logical cursors onto rebuilt rows, and
+`prepare_view()`/`advance_view()` no longer preserve or restore view-switch
+cursor positions from physical window snapshots. When an active file-area view
+has not published a logical cursor yet, `prepare_view()` seeds the cursor from
+editor-owned `current_column` rather than the curses cursor.
 `src/inputevent.c` owns normalized text/key/command/logical-hit/debug events
 and legacy key conversion. The live curses loop now reads through
 `cursesdriver.c` and normalizes collected key codes through `TheInputEvent`
@@ -376,9 +377,10 @@ Preferred order, with larger slices:
 1. Use the virtual UI harness as the renderer migration accelerator.
    `test_virtual_screen` now proves file-area, prefix, command, status,
    tabline, divider/window, UTF fixture rows, compact LLM views, cursor
-   overlays, logical hits, and fake-driver operation logs without curses. The
-   next renderer slices should extend this harness for the target behavior and
-   remove the matching legacy fallback group in the same commit.
+   overlays, targeted redraw row selection, logical hits, and fake-driver
+   operation logs without curses. The next renderer slices should extend this
+   harness for the target behavior and remove the matching legacy fallback
+   group in the same commit.
 2. Expand `the_agent` from an agent subset toward a real command/input bridge.
    Route normalized text/key/command events through shared editor input paths
    where possible, and keep explicit capability output for anything still
@@ -416,13 +418,15 @@ cmake --build cmake-build-noutf8 -j2
 ctest --test-dir cmake-build-noutf8 --output-on-failure
 ```
 
-Latest verification after the agent SOS navigation bridge slice: UTF
-build/CTest was green, 32/32. no-UTF build/CTest was green, 17/17 with
-SDSLH-dependent tests skipped as intended. Focused LLM/`the_agent` smoke,
-`test_virtual_screen`, the no-curses guard, and the CREXX/pty normal/SOS
-navigation/edit tests were green. A manual `the_agent` smoke verified
-`SOS BOTTOMEDGE`, `SOS QCMND`, and the unsupported-command diagnostic for
-`SOS DELWORD`.
+Latest verification after the targeted prefix redraw row fallback purge:
+`cmake-build-debug` UTF build/CTest was green, 32/32;
+`cmake-build-codex-debug` CTest was green, 32/32 after the CREXX debug rebuild
+restored real `libcrexxsaa.dylib`/`rxc` files; and no-UTF build/CTest was
+green, 17/17 with SDSLH-dependent tests skipped as intended. Focused
+LLM/`the_agent` smoke, `test_virtual_screen`, the no-curses guard, and the
+CREXX/pty normal/SOS navigation/edit tests were green. A manual `the_agent`
+smoke verified compact file/focus views plus the `SOS QCMND` and `SOS EXECUTE`
+bridge responses.
 
 ## Suggested Next Slices
 
@@ -436,11 +440,12 @@ High-value next slices:
   then remove the corresponding `show.c` non-frame fallback path in the same
   commit. The non-frame `cursor_focus_*` software-cursor overlay fallbacks have
   been retired, and status/HEXDISPLAY no longer has a physical cursor snapshot
-  fallback. View-switch physical snapshot fallbacks are now retired too. Good
-  next targets are render entry/exit logical decisions and targeted redraw
-  paths that still infer state from physical cursor mechanics. Keep physical
-  cursor save/restore, refresh, touch/update, UTF/ascii cell writes, software
-  cursor painting, and cursor parking in `cursesdriver.c`.
+  fallback. View-switch physical snapshot fallbacks and targeted prefix
+  physical-row fallback are now retired too. Good next targets are render
+  entry/exit logical decisions and any remaining targeted redraw paths that
+  still infer state from physical cursor mechanics. Keep physical cursor
+  save/restore, refresh, touch/update, UTF/ascii cell writes, software cursor
+  painting, and cursor parking in `cursesdriver.c`.
 - Follow-on SOS cleanup: with `commsos.c`'s active-driver cursor query fallback
   removed, the next useful SOS slices are tab-field/key-navigation paths that
   still depend on legacy cursor helpers, plus reducing the remaining prefix

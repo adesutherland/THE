@@ -136,7 +136,7 @@ Implemented foundation:
   render explanation.
 - `test_virtual_screen`, a no-curses virtual frame harness for file, prefix,
   command, status, tabline, divider, window, UTF fixture, compact-view, cursor,
-  logical-hit, and fake-driver operation coverage.
+  targeted redraw row, logical-hit, and fake-driver operation coverage.
 - `src/agentdriver.c` and `tools/the_agent.c`, a no-curses proof target that
   opens a file, emits LLM snapshots, accepts normalized stdin commands, and
   edits a small logical buffer without linking curses or the curses driver.
