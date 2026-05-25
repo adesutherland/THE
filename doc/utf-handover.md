@@ -100,12 +100,15 @@ alive in the dangerous middle ground.
 
 `the_agent` is useful as a no-curses proof target, but it is not yet a complete
 replacement for the full editor integration path. It can exercise logical file
-and command focus, normalized key/text input, and a small command subset, but it
-does not yet route arbitrary THE commands or SOS commands such as
-`SOS TOPEDGE` through the real command dispatcher. The agent now exposes this
-boundary directly: `capabilities` reports the supported agent subset and an
-unsupported command returns a stable diagnostic with a capabilities hint. Use it
-as an extra LLM-driver smoke layer, not as the only proof for command behavior.
+and command focus, normalized key/text input, a small command subset, and a
+first SOS navigation bridge: `SOS TOPEDGE`, `SOS BOTTOMEDGE`,
+`SOS LEFTEDGE`, `SOS RIGHTEDGE`, `SOS FIRSTCOL`, `SOS LASTCOL`,
+`SOS ENDCHAR`, `SOS QCMND`, and `SOS EXECUTE`. It still does not route
+arbitrary THE commands or full SOS edit/prefix behavior through the real command
+dispatcher. The agent exposes this boundary directly: `capabilities` reports
+`sos_commands` as a navigation subset and an unsupported command returns a
+stable diagnostic with a capabilities hint. Use it as an extra LLM-driver smoke
+layer, not as the only proof for command behavior.
 
 The macro/agent visibility layer has two distinct message surfaces. THE message
 history remains available through `EXTRACT /MESSAGES/` and `QUERY MESSAGES`.
@@ -316,9 +319,10 @@ each meaningful step. Current checkpoint status:
 9. Add a no-curses agent proof target: done. `the_agent` opens files, accepts
    normalized agent input, emits semantic LLM snapshots, and links no curses
    library or curses driver source. It covers file-area and command-line focus,
-   including command cursor movement and Enter submission. It proves the logical
-   editor/LLM surface can function independently while the full curses editor is
-   still being migrated.
+   including command cursor movement and Enter submission, and now bridges a
+   small SOS navigation subset through logical no-curses cursor/focus moves. It
+   proves the logical editor/LLM surface can function independently while the
+   full curses editor is still being migrated.
 10. Migrate ordinary `execute.c` cursor effects: partial. Six safe slices are
    complete and committed:
    - `76a5425 Route execute cursor moves through logical row`
@@ -412,10 +416,13 @@ cmake --build cmake-build-noutf8 -j2
 ctest --test-dir cmake-build-noutf8 --output-on-failure
 ```
 
-Latest verification after the SOS fallback slice: UTF build/CTest was green,
-32/32. no-UTF build/CTest was green, 17/17 with SDSLH-dependent tests skipped
-as intended. Focused LLM/`the_agent` smoke, `test_virtual_screen`, and the
-expanded CREXX/pty SOS navigation/edit tests were green.
+Latest verification after the agent SOS navigation bridge slice: UTF
+build/CTest was green, 32/32. no-UTF build/CTest was green, 17/17 with
+SDSLH-dependent tests skipped as intended. Focused LLM/`the_agent` smoke,
+`test_virtual_screen`, the no-curses guard, and the CREXX/pty normal/SOS
+navigation/edit tests were green. A manual `the_agent` smoke verified
+`SOS BOTTOMEDGE`, `SOS QCMND`, and the unsupported-command diagnostic for
+`SOS DELWORD`.
 
 ## Suggested Next Slices
 

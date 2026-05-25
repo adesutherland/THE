@@ -140,6 +140,10 @@ Implemented foundation:
 - `src/agentdriver.c` and `tools/the_agent.c`, a no-curses proof target that
   opens a file, emits LLM snapshots, accepts normalized stdin commands, and
   edits a small logical buffer without linking curses or the curses driver.
+- a first SOS navigation command bridge in `the_agent`, covering logical
+  `TOPEDGE`, `BOTTOMEDGE`, `LEFTEDGE`, `RIGHTEDGE`, `FIRSTCOL`, `LASTCOL`,
+  `ENDCHAR`, `QCMND`, and `EXECUTE` behavior while leaving full SOS command
+  behavior explicitly unsupported.
 
 ## No-Curses Agent Executable
 
@@ -170,7 +174,8 @@ Supported stdin commands:
   focus this edits the command line; in file-area focus this edits the file.
 - `command COMMAND` for logical editor commands implemented by the proof
   driver, such as `goto N`, `top`, `bottom`, `insert TEXT`, `delete`,
-  `backspace`, `rows N`, `cols N`, `save`, and `write`.
+  `backspace`, `rows N`, `cols N`, `save`, `write`, and the supported SOS
+  navigation subset.
 - `key enter` submits the edited command line when command focus is active.
 - `debug NAME` to pass a normalized debug request.
 - `quit` or `exit`.
@@ -202,4 +207,7 @@ Remaining work:
 - expose the formatting options through the runtime LLM driver command/API.
 - route curses keyboard and mouse collection through `TheInputEvent` before
   command dispatch.
+- grow the agent command bridge beyond the SOS navigation subset without
+  removing explicit unsupported diagnostics for the remaining full-editor
+  surface.
 - implement delta views once the frame builder can retain previous snapshots.

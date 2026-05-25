@@ -19,11 +19,15 @@ full editor input loop is still being migrated.
 
 Current limitation: `the_agent` is not yet wired to THE's full command
 dispatcher. It covers logical file-area and command-line focus plus a small
-command subset, but arbitrary THE/SOS commands return an explicit unsupported
-command response even though the full editor handles them. Use the
-`capabilities` protocol command to inspect the stable supported/unsupported
-surface. For unsupported full-editor commands, use CREXX/pty integration tests
-or manual smoke tests until the agent dispatcher bridge exists.
+command subset. The first SOS bridge is intentionally narrow:
+`SOS TOPEDGE`, `SOS BOTTOMEDGE`, `SOS LEFTEDGE`, `SOS RIGHTEDGE`,
+`SOS FIRSTCOL`, `SOS LASTCOL`, `SOS ENDCHAR`, `SOS QCMND`, and `SOS EXECUTE`
+map to logical no-curses cursor/focus moves. Other THE/SOS commands return an
+explicit unsupported command response even when the full editor handles them.
+Use the `capabilities` protocol command to inspect the stable
+supported/unsupported surface. For unsupported full-editor commands, use
+CREXX/pty integration tests or manual smoke tests until the agent dispatcher
+bridge exists.
 
 ## Design Intent
 
@@ -119,7 +123,8 @@ without changing editor state, `capabilities` requests that describe the
 current agent surface, and `focus command` / `focus filearea` requests that
 move the logical input focus. In command focus, left/right/home/end, delete,
 backspace, and text input operate on the command line; `key enter` submits the
-edited command.
+edited command. `command sos ...` is supported only for the SOS navigation
+subset reported by `capabilities`.
 
 ## Agent Usage Rules
 
@@ -184,8 +189,9 @@ verify the live proof target:
 - command-line focus, command cursor movement, and Enter submission.
 - stable capability output that says the agent uses an `agent-subset`
   dispatcher.
-- stable unsupported-command output for full-editor commands that are not yet
-  routed through the agent.
+- stable capability output for the partial SOS navigation bridge and stable
+  unsupported-command output for full-editor commands that are not yet routed
+  through the agent.
 - no curses dynamic dependency or exposed curses-driver symbols in
   `the_agent`.
 

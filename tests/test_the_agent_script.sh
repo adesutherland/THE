@@ -36,6 +36,16 @@ look focus compact prefix=0
 command end
 type Z
 look filearea compact max=40
+command sos qcmnd
+look focus compact prefix=0
+key esc
+command goto 2
+command sos rightedge
+look focus compact prefix=0
+command sos leftedge
+look focus compact prefix=0
+command sos topedge
+look focus compact prefix=0
 quit
 CMDS
 
@@ -44,8 +54,12 @@ rg '"mode":"focus"' "$out" >/dev/null
 rg '"cell":1' "$out" >/dev/null
 rg '"zone":"command"' "$out" >/dev/null
 rg '"role":"command"' "$out" >/dev/null
+rg '"line":1' "$out" >/dev/null
+rg '"line":2' "$out" >/dev/null
 rg '"cell":5' "$out" >/dev/null
 rg '"cell":6' "$out" >/dev/null
+rg '"cell":0' "$out" >/dev/null
+rg '"cell":4' "$out" >/dev/null
 rg 'A1' "$out" >/dev/null
 rg 'BZ' "$out" >/dev/null
 rg '"ok":1' "$out" >/dev/null

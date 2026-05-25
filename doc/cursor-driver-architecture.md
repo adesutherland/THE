@@ -173,7 +173,10 @@ place:
   focus/cursor movement, reports its supported/unsupported surface through a
   stable `capabilities` response, and returns explicit unsupported-command
   diagnostics for full-editor commands that are not yet routed through the
-  agent subset.
+  agent subset. Its first command bridge covers the SOS navigation subset
+  (`TOPEDGE`, `BOTTOMEDGE`, `LEFTEDGE`, `RIGHTEDGE`, `FIRSTCOL`, `LASTCOL`,
+  `ENDCHAR`, `QCMND`, and `EXECUTE`) as logical cursor/focus operations without
+  linking curses.
 - Macro/agent-visible diagnostics now include both THE message history and
   SDSLH parser diagnostics: `EXTRACT /MESSAGES/`, `QUERY MESSAGES`,
   `SDSLHWAIT`, `EXTRACT /PMSGS/`, and `QUERY PMSGS`. SDSLH diagnostics are
@@ -293,9 +296,9 @@ curses.
 9. Add a no-curses agent proof target.
    Done as `the_agent`. The executable agent driver uses `uidriver`,
    `llmdriver`, `inputevent`, `logcursor`, and `textpos` without linking
-   curses. It gives agents a functional interactive surface and gives the
-   refactor a concrete separation proof while the full curses editor is still
-   being migrated.
+   curses. It gives agents a functional interactive surface, including a first
+   SOS navigation subset, and gives the refactor a concrete separation proof
+   while the full curses editor is still being migrated.
 
 ## Testing Strategy
 

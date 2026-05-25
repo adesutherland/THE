@@ -131,7 +131,52 @@ int main(void)
    expect_contains(out, "\"zone\":\"filearea\"", "enter returns to filearea");
    expect_contains(out, "\"line\":2", "entered command executed");
 
+   expect_true(the_input_event_from_command("sos qcmnd", &input),
+               "make sos qcmnd");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply sos qcmnd");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"zone\":\"command\"", "sos qcmnd focuses command");
+   expect_contains(out, "\"cell\":0", "sos qcmnd first command cell");
+
+   expect_true(the_input_event_from_key_name("esc", &input),
+               "make esc");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply esc");
+   expect_true(the_input_event_from_command("goto 2", &input),
+               "make goto for sos navigation");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply goto for sos navigation");
+   expect_true(the_input_event_from_command("sos rightedge", &input),
+               "make sos rightedge");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply sos rightedge");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"line\":2", "sos rightedge preserves line");
+   expect_contains(out, "\"cell\":3", "sos rightedge goes to line end");
+
+   expect_true(the_input_event_from_command("sos leftedge", &input),
+               "make sos leftedge");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply sos leftedge");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"cell\":0", "sos leftedge goes to first cell");
+
+   expect_true(the_input_event_from_command("sos bottomedge", &input),
+               "make sos bottomedge");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply sos bottomedge");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"line\":2", "sos bottomedge uses last visible file row");
+
    expect_true(the_input_event_from_command("sos topedge", &input),
+               "make sos topedge");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply sos topedge");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"line\":1", "sos topedge uses first visible file row");
+
+   expect_true(the_input_event_from_command("sos delword", &input),
                "make unsupported command");
    expect_true(!agent_driver_apply_input(&driver, &input),
                "reject unsupported command");
