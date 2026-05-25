@@ -1029,6 +1029,46 @@ static int show_logical_filearea_cursor_target(CHARTYPE scrno,
    return TRUE;
 }
 
+static int show_view_filearea_cursor_target(CHARTYPE scrno,
+                                            VIEW_DETAILS *view,
+                                            short *row, int *logical_col,
+                                            const CHARTYPE **line,
+                                            size_t *len)
+{
+   short target_row;
+   int target_col;
+   const CHARTYPE *target_line;
+   size_t target_len = 0;
+
+   if (scrno >= MAX_SCREENS
+   ||  view == NULL
+   ||  screen[scrno].sl == NULL
+   ||  view->focus_line < 0)
+      return FALSE;
+
+   target_row = get_row_for_focus_line(scrno, view->focus_line,
+                                       view->current_row);
+   if (target_row < 0
+   ||  target_row >= screen[scrno].rows[WINDOW_FILEAREA])
+      return FALSE;
+   if (screen[scrno].sl[target_row].line_number != view->focus_line)
+      return FALSE;
+
+   target_col = (view->current_column > 0)
+              ? (int)view->current_column - 1
+              : 0;
+   target_line = show_filearea_text_for_row(scrno, target_row, &target_len);
+   if (row != NULL)
+      *row = target_row;
+   if (logical_col != NULL)
+      *logical_col = target_col;
+   if (line != NULL)
+      *line = target_line;
+   if (len != NULL)
+      *len = target_len;
+   return TRUE;
+}
+
 static int show_logical_prefix_cursor_target(CHARTYPE scrno,
                                              VIEW_DETAILS *view,
                                              short *row, int *col)
@@ -1125,60 +1165,8 @@ static short show_status_character_at(const CHARTYPE *line, size_t len,
 #endif
 }
 
-static int show_store_view_cursor_positions(CHARTYPE scrno, VIEW_DETAILS *view)
-{
-   int stored = FALSE;
-   short row = 0;
-   int col = 0;
-
-   if (view == NULL)
-      return FALSE;
-
-   if (show_logical_filearea_cursor_target(scrno, view, &row, NULL, &col,
-                                           NULL, NULL))
-   {
-      view->y[WINDOW_FILEAREA] = row;
-      view->x[WINDOW_FILEAREA] = (short)col;
-      stored = TRUE;
-   }
-   else if (SCREEN_WINDOW_FILEAREA(scrno) != NULL)
-   {
-      CursesDriverWindowCursor cursor =
-         curses_driver_capture_window_cursor(SCREEN_WINDOW_FILEAREA(scrno));
-
-      if (cursor.valid)
-      {
-         view->y[WINDOW_FILEAREA] = cursor.row;
-         view->x[WINDOW_FILEAREA] = cursor.col;
-      }
-   }
-
-   if (SCREEN_WINDOW_PREFIX(scrno) != NULL)
-   {
-      if (show_logical_prefix_cursor_target(scrno, view, &row, &col))
-      {
-         view->y[WINDOW_PREFIX] = row;
-         view->x[WINDOW_PREFIX] = (short)col;
-         stored = TRUE;
-      }
-      else
-      {
-         CursesDriverWindowCursor cursor =
-            curses_driver_capture_window_cursor(SCREEN_WINDOW_PREFIX(scrno));
-
-         if (cursor.valid)
-         {
-            view->y[WINDOW_PREFIX] = cursor.row;
-            view->x[WINDOW_PREFIX] = cursor.col;
-         }
-      }
-   }
-
-   return stored;
-}
-
-static int show_restore_view_cursor_positions(CHARTYPE scrno,
-                                              VIEW_DETAILS *view)
+static int show_restore_view_logical_cursor(CHARTYPE scrno,
+                                            VIEW_DETAILS *view)
 {
    int restored = FALSE;
    short row = 0;
@@ -1197,12 +1185,6 @@ static int show_restore_view_cursor_positions(CHARTYPE scrno,
                                          logical_col);
       restored = TRUE;
    }
-   else if (SCREEN_WINDOW_FILEAREA(scrno) != NULL)
-   {
-      curses_driver_move_window_cursor(SCREEN_WINDOW_FILEAREA(scrno),
-                                       view->y[WINDOW_FILEAREA],
-                                       view->x[WINDOW_FILEAREA]);
-   }
 
    if (SCREEN_WINDOW_PREFIX(scrno) != NULL)
    {
@@ -1211,12 +1193,6 @@ static int show_restore_view_cursor_positions(CHARTYPE scrno,
          curses_driver_move_window_cursor(SCREEN_WINDOW_PREFIX(scrno),
                                           row, (short)col);
          restored = TRUE;
-      }
-      else
-      {
-         curses_driver_move_window_cursor(SCREEN_WINDOW_PREFIX(scrno),
-                                          view->y[WINDOW_PREFIX],
-                                          view->x[WINDOW_PREFIX]);
       }
    }
 
@@ -5449,17 +5425,12 @@ short prepare_view(CHARTYPE scrn)
          curses_driver_move_filearea_cursor(scrn, screen_view, line, len,
                                             row, logical_col);
       }
-      else
+      else if (screen_view->current_window == WINDOW_FILEAREA
+      &&       show_view_filearea_cursor_target(scrn, screen_view, &row,
+                                                &logical_col, &line, &len))
       {
-         CursesDriverWindowCursor cursor =
-            curses_driver_capture_window_cursor(SCREEN_WINDOW_FILEAREA(scrn));
-
-         /* Legacy fallback for callers that have not published a logical cursor. */
-         curses_driver_move_window_cursor(
-            SCREEN_WINDOW_FILEAREA(scrn),
-            get_row_for_focus_line(scrn, screen_view->focus_line,
-                                   screen_view->current_row),
-            cursor.valid ? cursor.col : 0);
+         curses_driver_move_filearea_cursor(scrn, screen_view, line, len,
+                                            row, logical_col);
       }
    }
 
@@ -5529,8 +5500,9 @@ short advance_view(VIEW_DETAILS *next_view,short direction)
       }
    }
    /*
-    * Save the position of the cursor for the current view before getting
-    * the contents of the new file...
+    * Clear the command window before getting the contents of the new file.
+    * File-area and prefix cursor restoration is driven by logical cursor
+    * state on the view being selected.
     */
    if (curses_started)
    {
@@ -5539,7 +5511,6 @@ short advance_view(VIEW_DETAILS *next_view,short direction)
          curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND, 0, 0);
          my_wclrtoeol(CURRENT_WINDOW_COMMAND);
       }
-      show_store_view_cursor_positions(current_screen, CURRENT_VIEW);
    }
    /*
     * If more than one screen is displayed and the file displayed in each
@@ -5657,9 +5628,7 @@ short advance_view(VIEW_DETAILS *next_view,short direction)
          curses_driver_touch_window(divider);
          curses_driver_refresh_window(divider);
       }
-      show_restore_view_cursor_positions(current_screen, CURRENT_VIEW);
-      curses_driver_restore_window_cursor(
-         CURRENT_WINDOW, curses_driver_capture_window_cursor(CURRENT_WINDOW));
+      show_restore_view_logical_cursor(current_screen, CURRENT_VIEW);
    }
    TRACE_RETURN();
    return(RC_OK);

@@ -321,6 +321,62 @@ static void test_frame_backed_status_text_targets(void)
               ui_frame_cursor_text_target(&frame, &text, &text_len, &cell), 0);
 }
 
+static void test_logical_view_switch_cursor_restoration(void)
+{
+   UiFrame frame;
+   UiDriverOpLog log;
+   LogicalCursor saved;
+   LogicalCursor rebased;
+   LogicalCursor found;
+   int screen_cell = -1;
+
+   saved = virtual_cursor(LOGICAL_CURSOR_ZONE_FILEAREA, 2, VROW_KEYCAP, 5);
+   expect_int("viewswitch.file.build",
+              build_virtual_frame(&frame, logical_cursor_invalid()), 1);
+   frame.row[VROW_ALPHA].screen_row = VROW_KEYCAP;
+   frame.row[VROW_KEYCAP].screen_row = VROW_ALPHA;
+   expect_int("viewswitch.file.stale.row",
+              ui_frame_set_cursor(&frame, saved), 0);
+   expect_int("viewswitch.file.rebase",
+              ui_frame_rebase_cursor(&frame, saved, &rebased), 1);
+   expect_int("viewswitch.file.rebased.row", rebased.zone_row, VROW_ALPHA);
+   expect_int("viewswitch.file.restore",
+              ui_frame_set_cursor_rebased(&frame, saved), 1);
+   expect_int("viewswitch.file.restored.row",
+              frame.cursor.cursor.zone_row, VROW_ALPHA);
+   expect_int("viewswitch.file.target",
+              ui_frame_cursor_screen_cell(&frame, UI_ROW_FILE, 2,
+                                          VROW_ALPHA, 1, &screen_cell,
+                                          &found), 1);
+   expect_int("viewswitch.file.screen.cell", screen_cell, 4);
+   ui_driver_op_log_init(&log);
+   expect_int("viewswitch.file.materialize",
+              ui_fake_driver_materialize(&frame, &log), 1);
+   expect_int("viewswitch.file.cursor.row",
+              log.op[VROW_COUNT].row, VROW_ALPHA);
+
+   saved = virtual_cursor(LOGICAL_CURSOR_ZONE_PREFIX, 2, VROW_KEYCAP, 3);
+   expect_int("viewswitch.prefix.build",
+              build_virtual_frame(&frame, logical_cursor_invalid()), 1);
+   frame.row[VROW_ALPHA].screen_row = VROW_KEYCAP;
+   frame.row[VROW_KEYCAP].screen_row = VROW_ALPHA;
+   expect_int("viewswitch.prefix.stale.row",
+              ui_frame_set_cursor(&frame, saved), 0);
+   expect_int("viewswitch.prefix.restore",
+              ui_frame_set_cursor_rebased(&frame, saved), 1);
+   expect_int("viewswitch.prefix.restored.row",
+              frame.cursor.cursor.zone_row, VROW_ALPHA);
+   expect_int("viewswitch.prefix.target",
+              ui_frame_cursor_screen_cell(&frame, UI_ROW_PREFIX, 2,
+                                          VROW_ALPHA, 0, &screen_cell,
+                                          &found), 1);
+   expect_int("viewswitch.prefix.screen.cell", screen_cell, 3);
+   expect_int("viewswitch.prefix.old.row",
+              ui_frame_cursor_screen_cell(&frame, UI_ROW_PREFIX, 2,
+                                          VROW_KEYCAP, 0, &screen_cell,
+                                          &found), 0);
+}
+
 static void test_compact_virtual_views(void)
 {
    UiFrame frame;
@@ -477,6 +533,7 @@ int main(void)
    test_prefix_and_command_cursor_overlays();
    test_frame_backed_renderer_cursor_targets();
    test_frame_backed_status_text_targets();
+   test_logical_view_switch_cursor_restoration();
    test_compact_virtual_views();
    test_fake_driver_debug_log();
    test_logical_hit_targets();

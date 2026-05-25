@@ -152,6 +152,9 @@ int ui_frame_cursor_text_target(const UiFrame *frame,
                                 const CHARTYPE **text, size_t *text_len,
                                 int *cell);
 int ui_frame_set_cursor(UiFrame *frame, LogicalCursor cursor);
+int ui_frame_rebase_cursor(const UiFrame *frame, LogicalCursor cursor,
+                           LogicalCursor *rebased);
+int ui_frame_set_cursor_rebased(UiFrame *frame, LogicalCursor cursor);
 
 void ui_driver_op_log_init(UiDriverOpLog *log);
 int ui_driver_op_log_add(UiDriverOpLog *log, UiDriverOp op);

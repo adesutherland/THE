@@ -197,6 +197,6 @@ int screenframe_build(CHARTYPE scrno, UiFrame *frame)
       screenframe_add_syntax_styles(frame, i, show_row);
    }
 
-   ui_frame_set_cursor(frame, view->logical_cursor.current);
+   ui_frame_set_cursor_rebased(frame, view->logical_cursor.current);
    return 1;
 }

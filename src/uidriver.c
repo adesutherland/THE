@@ -400,6 +400,75 @@ int ui_frame_set_cursor(UiFrame *frame, LogicalCursor cursor)
    return 1;
 }
 
+int ui_frame_rebase_cursor(const UiFrame *frame, LogicalCursor cursor,
+                           LogicalCursor *rebased)
+{
+   size_t i;
+   UiRowRole role;
+
+   if (rebased != NULL)
+      *rebased = logical_cursor_invalid();
+   if (frame == NULL || !cursor.valid)
+      return 0;
+   if (ui_frame_find_cursor_row(frame, cursor, NULL))
+   {
+      if (rebased != NULL)
+         *rebased = cursor;
+      return 1;
+   }
+
+   role = ui_row_role_from_cursor_zone(cursor.zone);
+   if (!ui_row_role_allows_cursor(role))
+      return 0;
+
+   for (i = 0; i < frame->row_count; i++)
+   {
+      const UiFrameRow *row = &frame->row[i];
+      int matches = 0;
+
+      switch (cursor.zone)
+      {
+         case LOGICAL_CURSOR_ZONE_FILEAREA:
+            matches = ui_row_role_displays_filearea_cursor(row->role)
+                   && row->line_number == cursor.line_number;
+            break;
+         case LOGICAL_CURSOR_ZONE_PREFIX:
+            matches = (row->role == UI_ROW_PREFIX || row->prefix_editable)
+                   && row->line_number == cursor.line_number;
+            break;
+         case LOGICAL_CURSOR_ZONE_COMMAND:
+            matches = row->role == UI_ROW_COMMAND;
+            break;
+         case LOGICAL_CURSOR_ZONE_PROMPT:
+            matches = row->role == UI_ROW_PROMPT;
+            break;
+         case LOGICAL_CURSOR_ZONE_STATUS:
+         case LOGICAL_CURSOR_ZONE_NONE:
+         default:
+            matches = 0;
+            break;
+      }
+      if (!matches)
+         continue;
+      cursor.zone_row = row->screen_row;
+      if (rebased != NULL)
+         *rebased = cursor;
+      return 1;
+   }
+   return 0;
+}
+
+int ui_frame_set_cursor_rebased(UiFrame *frame, LogicalCursor cursor)
+{
+   LogicalCursor rebased;
+
+   if (!ui_frame_rebase_cursor(frame, cursor, &rebased))
+      return 0;
+   frame->cursor.valid = 1;
+   frame->cursor.cursor = rebased;
+   return 1;
+}
+
 void ui_driver_op_log_init(UiDriverOpLog *log)
 {
    if (log != NULL)
