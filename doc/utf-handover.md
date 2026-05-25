@@ -65,8 +65,12 @@ uses it to select file-area and prefix software cursor overlays. Targeted
 command-line redraw uses the live logical command cursor directly; targeted
 prefix redraw builds a `UiFrame` when possible; SDSLH bracket highlighting
 uses logical file focus instead of `get_cursor_position()`; and UTF whole-line
-cursor-repair repaint can reuse a frame-backed overlay. Narrow legacy fallbacks
-remain for renderer paths without a frame or logical area model.
+cursor-repair repaint can reuse a frame-backed overlay. Status/HEXDISPLAY now
+inspects the live logical file-area, prefix, or command cursor when available,
+and `prepare_view()`/`advance_view()` now preserve and restore view-switch
+cursor positions from logical cursor targets before falling back to old window
+snapshots. Narrow legacy fallbacks remain for renderer paths without a frame or
+logical area model.
 `src/inputevent.c` owns normalized text/key/command/logical-hit/debug events
 and legacy key conversion. The live curses loop now reads through
 `cursesdriver.c` and normalizes collected key codes through `TheInputEvent`
@@ -351,7 +355,7 @@ Near-term migration sequence:
 5. Logical popups/dialogs: introduce logical popup/dialog objects and let
    curses and LLM drivers materialize them differently.
 6. Renderer cleanup: continue converting targeted redraws to driver-level
-   logical render requests and remove the remaining status/view-switch/
+   logical render requests and remove the remaining render-entry and non-frame
    fallback cursor snapshot paths from `show.c`.
 7. Utilities/window lifecycle: move resize, refresh ordering, transient
    windows, and error/status window mechanics behind driver-owned operations.
@@ -369,10 +373,10 @@ cmake --build cmake-build-noutf8 -j2
 ctest --test-dir cmake-build-noutf8 --output-on-failure
 ```
 
-Latest verification after the renderer targeted-redraw and input compatibility
-adapter slice: UTF build/CTest was green, 31/31. no-UTF build/CTest was green,
-16/16 with CREXX/SDSLH-dependent tests skipped as intended. Focused
-LLM/`the_agent` smoke passed in both UTF and no-UTF builds.
+Latest verification after the status/view-switch renderer cleanup slice: UTF
+build/CTest was green, 31/31. no-UTF build/CTest was green, 16/16 with
+CREXX/SDSLH-dependent tests skipped as intended. Focused LLM/`the_agent` smoke
+passed in both UTF and no-UTF builds.
 
 ## Suggested Next Slice
 
@@ -381,12 +385,13 @@ logical cursor layer.
 
 Good next renderer targets:
 
-- status/HEXDISPLAY in `show_statarea()`, which still has a physical cursor
-  fallback for character inspection.
-- `prepare_view()`/`advance_view()` view-switch cursor preservation, which still
-  stores and restores physical rows/columns for old paths.
 - remaining `show.c` helper fallbacks that call `cursor_focus_*` without a
   live `UiFrame`.
+- render entry/exit cursor preservation in `display_screen()` and related full
+  repaint paths, while leaving physical save/restore itself in
+  `cursesdriver.c`.
+- the narrow status/view-switch physical snapshot fallback for legacy callers
+  that still do not publish logical cursor state.
 
 Good next input targets:
 

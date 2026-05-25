@@ -930,6 +930,359 @@ static int show_logical_file_position(CHARTYPE scrno, LINETYPE *line,
    return TRUE;
 }
 
+static const CHARTYPE *show_filearea_text_for_row(CHARTYPE scrno, short row,
+                                                  size_t *len)
+{
+   SHOW_LINE *show_row;
+
+   if (len != NULL)
+      *len = 0;
+   if (scrno >= MAX_SCREENS
+   ||  screen[scrno].sl == NULL
+   ||  row < 0
+   ||  row >= screen[scrno].rows[WINDOW_FILEAREA])
+      return (const CHARTYPE *)"";
+
+   show_row = &screen[scrno].sl[row];
+   if (show_row->line_type == LINE_TOF || show_row->line_type == LINE_EOF)
+      return (const CHARTYPE *)"";
+   if (show_row->contents != NULL)
+   {
+      if (len != NULL)
+         *len = show_row->length;
+      return show_row->contents;
+   }
+   if (len != NULL)
+      *len = rec_len;
+   return rec;
+}
+
+static int show_row_matches_logical_cursor(CHARTYPE scrno, VIEW_DETAILS *view,
+                                           LogicalCursor cursor, short *row)
+{
+   short candidate;
+   SHOW_LINE *show_row;
+
+   if (scrno >= MAX_SCREENS
+   ||  view == NULL
+   ||  screen[scrno].sl == NULL
+   ||  !cursor.valid
+   ||  cursor.line_number != view->focus_line)
+      return FALSE;
+
+   candidate = (short)cursor.zone_row;
+   if (candidate < 0
+   ||  candidate >= screen[scrno].rows[WINDOW_FILEAREA]
+   ||  screen[scrno].sl[candidate].line_number != cursor.line_number)
+   {
+      candidate = get_row_for_focus_line(scrno, cursor.line_number,
+                                         view->current_row);
+   }
+   if (candidate < 0
+   ||  candidate >= screen[scrno].rows[WINDOW_FILEAREA])
+      return FALSE;
+
+   show_row = &screen[scrno].sl[candidate];
+   if (show_row->line_number != cursor.line_number
+   ||  (show_row->line_type & (LINE_OUT_OF_BOUNDS_ABOVE
+                             | LINE_OUT_OF_BOUNDS_BELOW)))
+      return FALSE;
+
+   if (row != NULL)
+      *row = candidate;
+   return TRUE;
+}
+
+static int show_logical_filearea_cursor_target(CHARTYPE scrno,
+                                               VIEW_DETAILS *view,
+                                               short *row, int *logical_col,
+                                               int *display_col,
+                                               const CHARTYPE **line,
+                                               size_t *len)
+{
+   LogicalCursor cursor;
+   short target_row;
+   const CHARTYPE *target_line;
+   size_t target_len = 0;
+
+   if (view == NULL)
+      return FALSE;
+   cursor = view->logical_cursor.current;
+   if (!cursor.valid
+   ||  cursor.zone != LOGICAL_CURSOR_ZONE_FILEAREA
+   ||  !show_row_matches_logical_cursor(scrno, view, cursor, &target_row))
+      return FALSE;
+
+   target_line = show_filearea_text_for_row(scrno, target_row, &target_len);
+   if (row != NULL)
+      *row = target_row;
+   if (logical_col != NULL)
+      *logical_col = cursor.text.cell_column;
+   if (display_col != NULL)
+      *display_col = curses_driver_display_col_from_logical(
+         target_line, target_len, (int)view->verify_col - 1,
+         cursor.text.cell_column);
+   if (line != NULL)
+      *line = target_line;
+   if (len != NULL)
+      *len = target_len;
+   return TRUE;
+}
+
+static int show_logical_prefix_cursor_target(CHARTYPE scrno,
+                                             VIEW_DETAILS *view,
+                                             short *row, int *col)
+{
+   LogicalCursor cursor;
+   short target_row;
+
+   if (view == NULL)
+      return FALSE;
+   cursor = view->logical_cursor.current;
+   if (!cursor.valid
+   ||  cursor.zone != LOGICAL_CURSOR_ZONE_PREFIX
+   ||  !show_row_matches_logical_cursor(scrno, view, cursor, &target_row))
+      return FALSE;
+
+   if (row != NULL)
+      *row = target_row;
+   if (col != NULL)
+      *col = cursor.text.cell_column;
+   return TRUE;
+}
+
+static int show_status_target_from_logical(VIEW_DETAILS *view,
+                                           const CHARTYPE **line,
+                                           size_t *len, int *cell)
+{
+   LogicalCursor cursor;
+
+   if (line != NULL)
+      *line = NULL;
+   if (len != NULL)
+      *len = 0;
+   if (cell != NULL)
+      *cell = 0;
+   if (view == NULL)
+      return FALSE;
+
+   cursor = view->logical_cursor.current;
+   if (!cursor.valid || cursor.text.cell_column < 0)
+      return FALSE;
+
+   switch(view->current_window)
+   {
+      case WINDOW_FILEAREA:
+         if (cursor.zone != LOGICAL_CURSOR_ZONE_FILEAREA
+         ||  cursor.line_number != view->focus_line)
+            return FALSE;
+         if (line != NULL)
+            *line = rec;
+         if (len != NULL)
+            *len = rec_len;
+         break;
+      case WINDOW_COMMAND:
+         if (cursor.zone != LOGICAL_CURSOR_ZONE_COMMAND)
+            return FALSE;
+         if (line != NULL)
+            *line = cmd_rec;
+         if (len != NULL)
+            *len = cmd_rec_len;
+         break;
+      case WINDOW_PREFIX:
+         if (cursor.zone != LOGICAL_CURSOR_ZONE_PREFIX
+         ||  cursor.line_number != view->focus_line)
+            return FALSE;
+         if (line != NULL)
+            *line = pre_rec;
+         if (len != NULL)
+            *len = pre_rec_len;
+         break;
+      default:
+         return FALSE;
+   }
+
+   if (cell != NULL)
+      *cell = cursor.text.cell_column;
+   return TRUE;
+}
+
+static int show_status_target_from_driver(VIEW_DETAILS *view,
+                                          const CHARTYPE **line,
+                                          size_t *len, int *cell)
+{
+   CursesDriverWindowCursor cursor;
+
+   if (line != NULL)
+      *line = NULL;
+   if (len != NULL)
+      *len = 0;
+   if (cell != NULL)
+      *cell = 0;
+   if (view == NULL
+   ||  CURRENT_WINDOW == NULL)
+      return FALSE;
+
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   if (!cursor.valid)
+      return FALSE;
+
+   /*
+    * Legacy fallback for paths that still move a curses window without
+    * publishing a LogicalCursor. Normal file/prefix/command focus should
+    * arrive through show_status_target_from_logical().
+    */
+   switch(view->current_window)
+   {
+      case WINDOW_FILEAREA:
+         if (line != NULL)
+            *line = rec;
+         if (len != NULL)
+            *len = rec_len;
+         if (cell != NULL)
+            *cell = curses_driver_logical_col_from_display(
+               rec, rec_len, (int)view->verify_col - 1, cursor.col,
+               TEXT_SNAP_BACKWARD);
+         return TRUE;
+      case WINDOW_COMMAND:
+         if (line != NULL)
+            *line = cmd_rec;
+         if (len != NULL)
+            *len = cmd_rec_len;
+         if (cell != NULL)
+            *cell = cursor.col + cmd_verify_col - 1;
+         return TRUE;
+      case WINDOW_PREFIX:
+         if (line != NULL)
+            *line = pre_rec;
+         if (len != NULL)
+            *len = pre_rec_len;
+         if (cell != NULL)
+            *cell = cursor.col;
+         return TRUE;
+      default:
+         return FALSE;
+   }
+}
+
+static int show_status_target(VIEW_DETAILS *view, const CHARTYPE **line,
+                              size_t *len, int *cell)
+{
+   if (show_status_target_from_logical(view, line, len, cell))
+      return TRUE;
+   return show_status_target_from_driver(view, line, len, cell);
+}
+
+static short show_status_character_at(const CHARTYPE *line, size_t len,
+                                      int cell)
+{
+   if (line == NULL || cell < 0 || (size_t)cell >= len)
+      return (short)' ';
+#ifdef VMS
+   return (short)line[cell];
+#else
+   return (short)(((unsigned char)line[cell]) & A_CHARTEXT);
+#endif
+}
+
+static int show_store_view_cursor_positions(CHARTYPE scrno, VIEW_DETAILS *view)
+{
+   int stored = FALSE;
+   short row = 0;
+   int col = 0;
+
+   if (view == NULL)
+      return FALSE;
+
+   if (show_logical_filearea_cursor_target(scrno, view, &row, NULL, &col,
+                                           NULL, NULL))
+   {
+      view->y[WINDOW_FILEAREA] = row;
+      view->x[WINDOW_FILEAREA] = (short)col;
+      stored = TRUE;
+   }
+   else if (SCREEN_WINDOW_FILEAREA(scrno) != NULL)
+   {
+      CursesDriverWindowCursor cursor =
+         curses_driver_capture_window_cursor(SCREEN_WINDOW_FILEAREA(scrno));
+
+      if (cursor.valid)
+      {
+         view->y[WINDOW_FILEAREA] = cursor.row;
+         view->x[WINDOW_FILEAREA] = cursor.col;
+      }
+   }
+
+   if (SCREEN_WINDOW_PREFIX(scrno) != NULL)
+   {
+      if (show_logical_prefix_cursor_target(scrno, view, &row, &col))
+      {
+         view->y[WINDOW_PREFIX] = row;
+         view->x[WINDOW_PREFIX] = (short)col;
+         stored = TRUE;
+      }
+      else
+      {
+         CursesDriverWindowCursor cursor =
+            curses_driver_capture_window_cursor(SCREEN_WINDOW_PREFIX(scrno));
+
+         if (cursor.valid)
+         {
+            view->y[WINDOW_PREFIX] = cursor.row;
+            view->x[WINDOW_PREFIX] = cursor.col;
+         }
+      }
+   }
+
+   return stored;
+}
+
+static int show_restore_view_cursor_positions(CHARTYPE scrno,
+                                              VIEW_DETAILS *view)
+{
+   int restored = FALSE;
+   short row = 0;
+   int logical_col = 0;
+   int col = 0;
+   const CHARTYPE *line = NULL;
+   size_t len = 0;
+
+   if (view == NULL)
+      return FALSE;
+
+   if (show_logical_filearea_cursor_target(scrno, view, &row, &logical_col,
+                                           NULL, &line, &len))
+   {
+      curses_driver_move_filearea_cursor(scrno, view, line, len, row,
+                                         logical_col);
+      restored = TRUE;
+   }
+   else if (SCREEN_WINDOW_FILEAREA(scrno) != NULL)
+   {
+      curses_driver_move_window_cursor(SCREEN_WINDOW_FILEAREA(scrno),
+                                       view->y[WINDOW_FILEAREA],
+                                       view->x[WINDOW_FILEAREA]);
+   }
+
+   if (SCREEN_WINDOW_PREFIX(scrno) != NULL)
+   {
+      if (show_logical_prefix_cursor_target(scrno, view, &row, &col))
+      {
+         curses_driver_move_window_cursor(SCREEN_WINDOW_PREFIX(scrno),
+                                          row, (short)col);
+         restored = TRUE;
+      }
+      else
+      {
+         curses_driver_move_window_cursor(SCREEN_WINDOW_PREFIX(scrno),
+                                          view->y[WINDOW_PREFIX],
+                                          view->x[WINDOW_PREFIX]);
+      }
+   }
+
+   return restored;
+}
+
 #ifdef USE_UTF8
 static int show_build_cursor_frame(CHARTYPE scrno, UiFrame *frame)
 {
@@ -1351,7 +1704,6 @@ void show_heading(CHARTYPE scrno)
 void show_statarea(void)
 /***********************************************************************/
 {
-   int x=0;
 #ifdef USE_UTF8
    int charpos = 0;
    int draw_status_cluster = FALSE;
@@ -1362,8 +1714,10 @@ void show_statarea(void)
    const CHARTYPE *status_cluster_line = NULL;
    size_t status_cluster_len = 0;
    TextCluster status_cluster = {0};
-   LogicalCursor logical_status_cursor;
 #endif
+   const CHARTYPE *status_line = NULL;
+   size_t status_len = 0;
+   int status_cell = 0;
    int key=0;
    time_t timer;
    struct tm *tblock=NULL;
@@ -1453,89 +1807,20 @@ void show_statarea(void)
     */
    if (HEXDISPLAYx)
    {
-      CursesDriverWindowCursor cursor =
-         curses_driver_capture_window_cursor(CURRENT_WINDOW);
-
-#ifdef USE_UTF8
-      logical_status_cursor = CURRENT_VIEW->logical_cursor.current;
-#endif
-      x = cursor.valid ? cursor.col : 0;
-      switch(CURRENT_VIEW->current_window)
+      if (show_status_target(CURRENT_VIEW, &status_line, &status_len,
+                             &status_cell))
       {
-         case WINDOW_FILEAREA:
 #ifdef USE_UTF8
-         {
-            int logical_cell = show_utf8_logical_col_from_display(rec, rec_len,
-                                                                  CURRENT_VIEW->verify_col - 1,
-                                                                  x,
-                                                                  TEXT_SNAP_BACKWARD);
-
-            if (logical_status_cursor.valid
-            &&  logical_status_cursor.zone == LOGICAL_CURSOR_ZONE_FILEAREA
-            &&  logical_status_cursor.line_number == CURRENT_VIEW->focus_line)
-               logical_cell = logical_status_cursor.text.cell_column;
-            status_cluster_line = rec;
-            status_cluster_len = rec_len;
-            status_cluster = textpos_cluster_at(status_cluster_line, status_cluster_len,
-               textpos_from_cell(status_cluster_line, status_cluster_len,
-                                 logical_cell,
-                                 TEXT_SNAP_BACKWARD));
-         }
+         status_cluster_line = status_line;
+         status_cluster_len = status_len;
+         status_cluster = textpos_cluster_at(status_cluster_line, status_cluster_len,
+            textpos_from_cell(status_cluster_line, status_cluster_len,
+                              status_cell,
+                              TEXT_SNAP_BACKWARD));
 #else
-# ifdef VMS
-            key = (short)( *(rec+CURRENT_VIEW->verify_col-1+x) );
-# else
-            key = (short)( *(rec+CURRENT_VIEW->verify_col-1+x) & A_CHARTEXT );
-# endif
+         key = show_status_character_at(status_line, status_len,
+                                        status_cell);
 #endif
-            break;
-         case WINDOW_COMMAND:
-#ifdef USE_UTF8
-         {
-            int logical_cell = x + cmd_verify_col - 1;
-
-            if (logical_status_cursor.valid
-            &&  logical_status_cursor.zone == LOGICAL_CURSOR_ZONE_COMMAND)
-               logical_cell = logical_status_cursor.text.cell_column;
-            status_cluster_line = cmd_rec;
-            status_cluster_len = cmd_rec_len;
-            status_cluster = textpos_cluster_at(status_cluster_line, status_cluster_len,
-               textpos_from_cell(status_cluster_line, status_cluster_len,
-                                 logical_cell,
-                                 TEXT_SNAP_BACKWARD));
-         }
-#else
-# ifdef VMS
-            key = (short)( *(cmd_rec+x+cmd_verify_col-1) );
-# else
-            key = (short)( *(cmd_rec+x+cmd_verify_col-1) & A_CHARTEXT );
-# endif
-#endif
-            break;
-         case WINDOW_PREFIX:
-#ifdef USE_UTF8
-         {
-            int logical_cell = x;
-
-            if (logical_status_cursor.valid
-            &&  logical_status_cursor.zone == LOGICAL_CURSOR_ZONE_PREFIX
-            &&  logical_status_cursor.line_number == CURRENT_VIEW->focus_line)
-               logical_cell = logical_status_cursor.text.cell_column;
-            status_cluster_line = pre_rec;
-            status_cluster_len = pre_rec_len;
-            status_cluster = textpos_cluster_at(status_cluster_line, status_cluster_len,
-               textpos_from_cell(status_cluster_line, status_cluster_len,
-                                 logical_cell,
-                                 TEXT_SNAP_BACKWARD));
-         }
-#else
-# ifdef VMS
-            key = (short)( *(pre_rec+x) );
-# else
-            key = (short)( *(pre_rec+x) & A_CHARTEXT );
-# endif
-#endif
-            break;
       }
 #ifdef USE_UTF8
    status_field[0] = '\0';
@@ -5227,15 +5512,30 @@ short prepare_view(CHARTYPE scrn)
    }
    if (curses_started)
    {
-      CursesDriverWindowCursor cursor =
-         curses_driver_capture_window_cursor(SCREEN_WINDOW_FILEAREA(scrn));
+      short row = 0;
+      int logical_col = 0;
+      const CHARTYPE *line = NULL;
+      size_t len = 0;
 
-      /* ensure column from WINDOW is in view */
-      curses_driver_move_window_cursor(
-         SCREEN_WINDOW_FILEAREA(scrn),
-         get_row_for_focus_line(scrn, screen_view->focus_line,
-                                screen_view->current_row),
-         cursor.valid ? cursor.col : 0);
+      if (show_logical_filearea_cursor_target(scrn, screen_view, &row,
+                                              &logical_col, NULL,
+                                              &line, &len))
+      {
+         curses_driver_move_filearea_cursor(scrn, screen_view, line, len,
+                                            row, logical_col);
+      }
+      else
+      {
+         CursesDriverWindowCursor cursor =
+            curses_driver_capture_window_cursor(SCREEN_WINDOW_FILEAREA(scrn));
+
+         /* Legacy fallback for callers that have not published a logical cursor. */
+         curses_driver_move_window_cursor(
+            SCREEN_WINDOW_FILEAREA(scrn),
+            get_row_for_focus_line(scrn, screen_view->focus_line,
+                                   screen_view->current_row),
+            cursor.valid ? cursor.col : 0);
+      }
    }
 
    TRACE_RETURN();
@@ -5314,27 +5614,7 @@ short advance_view(VIEW_DETAILS *next_view,short direction)
          curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND, 0, 0);
          my_wclrtoeol(CURRENT_WINDOW_COMMAND);
       }
-      {
-         CursesDriverWindowCursor cursor =
-            curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
-
-         if (cursor.valid)
-         {
-            CURRENT_VIEW->y[WINDOW_FILEAREA] = cursor.row;
-            CURRENT_VIEW->x[WINDOW_FILEAREA] = cursor.col;
-         }
-      }
-      if (CURRENT_WINDOW_PREFIX != NULL)
-      {
-         CursesDriverWindowCursor cursor =
-            curses_driver_capture_window_cursor(CURRENT_WINDOW_PREFIX);
-
-         if (cursor.valid)
-         {
-            CURRENT_VIEW->y[WINDOW_PREFIX] = cursor.row;
-            CURRENT_VIEW->x[WINDOW_PREFIX] = cursor.col;
-         }
-      }
+      show_store_view_cursor_positions(current_screen, CURRENT_VIEW);
    }
    /*
     * If more than one screen is displayed and the file displayed in each
@@ -5452,13 +5732,7 @@ short advance_view(VIEW_DETAILS *next_view,short direction)
          curses_driver_touch_window(divider);
          curses_driver_refresh_window(divider);
       }
-      curses_driver_move_window_cursor(CURRENT_WINDOW_FILEAREA,
-                                       CURRENT_VIEW->y[WINDOW_FILEAREA],
-                                       CURRENT_VIEW->x[WINDOW_FILEAREA]);
-      if (CURRENT_WINDOW_PREFIX != NULL)
-         curses_driver_move_window_cursor(CURRENT_WINDOW_PREFIX,
-                                          CURRENT_VIEW->y[WINDOW_PREFIX],
-                                          CURRENT_VIEW->x[WINDOW_PREFIX]);
+      show_restore_view_cursor_positions(current_screen, CURRENT_VIEW);
       curses_driver_restore_window_cursor(
          CURRENT_WINDOW, curses_driver_capture_window_cursor(CURRENT_WINDOW));
    }

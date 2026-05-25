@@ -153,8 +153,12 @@ place:
   software cursor from live logical command focus, targeted prefix redraws build
   a fresh `UiFrame` when possible, SDSLH bracket highlighting reads logical
   file focus directly, and UTF whole-line cursor-repair redraws reuse a
-  frame-backed overlay. The old snapshot path remains only as a narrow fallback
-  for renderer paths that still do not have a frame or logical area model.
+  frame-backed overlay. `show_statarea()` now inspects HEXDISPLAY text from the
+  live logical file-area, prefix, or command cursor when one is available, and
+  `prepare_view()`/`advance_view()` prefer logical cursor targets when
+  preserving and restoring view-switch cursor positions. The old physical
+  snapshot path remains only as a narrow fallback for renderer paths that still
+  do not have a frame or logical area model.
 - The main curses input loop now reads keys through `cursesdriver.c` and
   normalizes the collected key with `TheInputEvent` before handing the same
   legacy key code to existing dispatch. This is a compatibility adapter, not
@@ -205,9 +209,10 @@ The remaining implementation still has several physical cursor authorities:
   and navigation logic. Its remaining driver contact points are an active
   curses-driver cursor query fallback and prefix cursor materialization bridge.
 - `show.c` still captures and restores physical cursor positions for render
-  entry/exit, status/hex display, view switching, and a few old targeted
-  fallbacks, but current command and prefix targeted cursor overlays no longer
-  require a fresh physical snapshot.
+  entry/exit and a few old targeted fallbacks. Status/HEXDISPLAY and
+  view-switch preservation now prefer logical cursor targets, but retain a
+  narrow physical snapshot fallback for paths that still move curses windows
+  without publishing logical cursor state.
 - `cursesdriver.c` owns the migrated physical primitives, but many callers
   still make logical decisions from legacy physical coordinates before calling
   the driver. The next separation slices should replace those decisions with
@@ -335,8 +340,8 @@ The active post-normal-area sequence is:
 4. Add logical popup/dialog objects so curses and LLM drivers can render them
    differently without making the logical layer imitate curses windows.
 5. Continue converting remaining targeted renderer redraw paths to driver-level
-   logical render requests, especially status/hex display, view-switch cursor
-   preservation, and non-frame fallback paths.
+   logical render requests, especially non-frame fallback paths and render
+   entry/exit cursor preservation.
 6. Move utility/window lifecycle operations behind driver-owned resize,
    refresh, transient-window, and error/status operations.
 7. Expand curses input normalization beyond the compatibility key adapter:
