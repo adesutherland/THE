@@ -1,6 +1,6 @@
 # LLM Driver Agent Guide
 
-Last updated: 2026-05-22.
+Last updated: 2026-05-25.
 
 ## Purpose
 
@@ -18,7 +18,7 @@ on demand.
   `cell`.
 - Return row roles, not terminal decoration. Important roles include `file`,
   `prefix`, `command`, `tof`, `eof`, `reserved`, `bounds`, `scale`, `tabline`,
-  `status`, and `prompt`.
+  `status`, `prompt`, `divider`, and `window`.
 - Keep the file bytes and logical UTF clusters separate from physical display
   width, cursor width, and repair strategy.
 - Prefer deterministic compact JSON-like output over terminal text.
@@ -111,7 +111,8 @@ An agent skill can wrap the LLM driver with high-level actions:
 - `send_key(name)`: normalized key input.
 - `type_text(text)`: normalized text input.
 - `run_command(command)`: THE command-line submission.
-- `hit(zone,line,row,cell)`: logical mouse-like hit target.
+- `hit(target,line,row,cell)`: logical mouse-like hit target for file area,
+  prefix, command line, status, tabline, divider, or window selection.
 - `debug_cursor()`: focus plus cursor mapping.
 - `debug_render()`: driver ops plus last render explanation.
 
@@ -133,6 +134,9 @@ Implemented foundation:
 - LLM compatibility wrappers around the shared input event layer.
 - debug snapshot formatting for focus, cursor mapping, driver ops, and last
   render explanation.
+- `test_virtual_screen`, a no-curses virtual frame harness for file, prefix,
+  command, status, tabline, divider, window, UTF fixture, compact-view, cursor,
+  logical-hit, and fake-driver operation coverage.
 - `src/agentdriver.c` and `tools/the_agent.c`, a no-curses proof target that
   opens a file, emits LLM snapshots, accepts normalized stdin commands, and
   edits a small logical buffer without linking curses or the curses driver.

@@ -139,6 +139,75 @@ const char *the_input_debug_command_name(TheInputDebugCommand command)
    }
 }
 
+const char *the_input_logical_target_kind_name(TheInputLogicalTargetKind kind)
+{
+   switch (kind)
+   {
+      case THE_INPUT_TARGET_FILEAREA:
+         return "filearea";
+      case THE_INPUT_TARGET_PREFIX:
+         return "prefix";
+      case THE_INPUT_TARGET_COMMAND:
+         return "command";
+      case THE_INPUT_TARGET_PROMPT:
+         return "prompt";
+      case THE_INPUT_TARGET_STATUS:
+         return "status";
+      case THE_INPUT_TARGET_TABLINE:
+         return "tabline";
+      case THE_INPUT_TARGET_DIVIDER:
+         return "divider";
+      case THE_INPUT_TARGET_WINDOW:
+         return "window";
+      case THE_INPUT_TARGET_NONE:
+      default:
+         return "none";
+   }
+}
+
+static LogicalCursorZone input_zone_from_target_kind(TheInputLogicalTargetKind kind)
+{
+   switch (kind)
+   {
+      case THE_INPUT_TARGET_FILEAREA:
+         return LOGICAL_CURSOR_ZONE_FILEAREA;
+      case THE_INPUT_TARGET_PREFIX:
+         return LOGICAL_CURSOR_ZONE_PREFIX;
+      case THE_INPUT_TARGET_COMMAND:
+         return LOGICAL_CURSOR_ZONE_COMMAND;
+      case THE_INPUT_TARGET_PROMPT:
+         return LOGICAL_CURSOR_ZONE_PROMPT;
+      case THE_INPUT_TARGET_STATUS:
+         return LOGICAL_CURSOR_ZONE_STATUS;
+      case THE_INPUT_TARGET_TABLINE:
+      case THE_INPUT_TARGET_DIVIDER:
+      case THE_INPUT_TARGET_WINDOW:
+      case THE_INPUT_TARGET_NONE:
+      default:
+         return LOGICAL_CURSOR_ZONE_NONE;
+   }
+}
+
+static TheInputLogicalTargetKind input_target_kind_from_zone(LogicalCursorZone zone)
+{
+   switch (zone)
+   {
+      case LOGICAL_CURSOR_ZONE_FILEAREA:
+         return THE_INPUT_TARGET_FILEAREA;
+      case LOGICAL_CURSOR_ZONE_PREFIX:
+         return THE_INPUT_TARGET_PREFIX;
+      case LOGICAL_CURSOR_ZONE_COMMAND:
+         return THE_INPUT_TARGET_COMMAND;
+      case LOGICAL_CURSOR_ZONE_PROMPT:
+         return THE_INPUT_TARGET_PROMPT;
+      case LOGICAL_CURSOR_ZONE_STATUS:
+         return THE_INPUT_TARGET_STATUS;
+      case LOGICAL_CURSOR_ZONE_NONE:
+      default:
+         return THE_INPUT_TARGET_NONE;
+   }
+}
+
 TheInputEvent the_input_event_none(void)
 {
    TheInputEvent input;
@@ -215,6 +284,25 @@ int the_input_event_from_command(const char *command, TheInputEvent *out)
    return out->command[0] != '\0';
 }
 
+int the_input_event_from_logical_target(TheInputLogicalTargetKind kind,
+                                        LINETYPE line_number, int row,
+                                        int cell, int screen, int window_id,
+                                        TheInputEvent *out)
+{
+   if (out == NULL)
+      return 0;
+   *out = the_input_event_none();
+   out->kind = THE_INPUT_LOGICAL_HIT;
+   out->target.kind = kind;
+   out->target.zone = input_zone_from_target_kind(kind);
+   out->target.line_number = line_number;
+   out->target.row = row;
+   out->target.cell = cell;
+   out->target.screen = screen;
+   out->target.window_id = window_id;
+   return kind != THE_INPUT_TARGET_NONE && row >= 0 && cell >= 0;
+}
+
 int the_input_event_from_logical_hit(LogicalCursorZone zone,
                                      LINETYPE line_number, int row,
                                      int cell, TheInputEvent *out)
@@ -223,11 +311,12 @@ int the_input_event_from_logical_hit(LogicalCursorZone zone,
       return 0;
    *out = the_input_event_none();
    out->kind = THE_INPUT_LOGICAL_HIT;
+   out->target.kind = input_target_kind_from_zone(zone);
    out->target.zone = zone;
    out->target.line_number = line_number;
    out->target.row = row;
    out->target.cell = cell;
-   return zone != LOGICAL_CURSOR_ZONE_NONE && row >= 0 && cell >= 0;
+   return out->target.kind != THE_INPUT_TARGET_NONE && row >= 0 && cell >= 0;
 }
 
 int the_input_event_from_debug_command(const char *name,

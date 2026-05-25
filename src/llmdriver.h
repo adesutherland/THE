@@ -57,8 +57,19 @@ typedef struct
 #define LLM_DRIVER_DEBUG_DUMP_DRIVER_OPS THE_INPUT_DEBUG_DUMP_DRIVER_OPS
 #define LLM_DRIVER_DEBUG_EXPLAIN_LAST_RENDER THE_INPUT_DEBUG_EXPLAIN_LAST_RENDER
 
+#define LLM_DRIVER_TARGET_NONE THE_INPUT_TARGET_NONE
+#define LLM_DRIVER_TARGET_FILEAREA THE_INPUT_TARGET_FILEAREA
+#define LLM_DRIVER_TARGET_PREFIX THE_INPUT_TARGET_PREFIX
+#define LLM_DRIVER_TARGET_COMMAND THE_INPUT_TARGET_COMMAND
+#define LLM_DRIVER_TARGET_PROMPT THE_INPUT_TARGET_PROMPT
+#define LLM_DRIVER_TARGET_STATUS THE_INPUT_TARGET_STATUS
+#define LLM_DRIVER_TARGET_TABLINE THE_INPUT_TARGET_TABLINE
+#define LLM_DRIVER_TARGET_DIVIDER THE_INPUT_TARGET_DIVIDER
+#define LLM_DRIVER_TARGET_WINDOW THE_INPUT_TARGET_WINDOW
+
 typedef TheInputKind LlmDriverInputKind;
 typedef TheInputDebugCommand LlmDriverDebugCommand;
+typedef TheInputLogicalTargetKind LlmDriverLogicalTargetKind;
 typedef TheInputLogicalTarget LlmDriverLogicalTarget;
 typedef TheInputEvent LlmDriverInput;
 
@@ -131,11 +142,16 @@ size_t llm_driver_format_semantic_view_with_options(
 
 const char *llm_driver_input_kind_name(LlmDriverInputKind kind);
 const char *llm_driver_debug_command_name(LlmDriverDebugCommand command);
+const char *llm_driver_logical_target_kind_name(LlmDriverLogicalTargetKind kind);
 LlmDriverInput llm_driver_input_none(void);
 int llm_driver_input_from_text(uint32_t codepoint, LlmDriverInput *out);
 int llm_driver_input_from_key_name(const char *name, LlmDriverInput *out);
 int llm_driver_input_from_legacy_key(int key_code, LlmDriverInput *out);
 int llm_driver_input_from_command(const char *command, LlmDriverInput *out);
+int llm_driver_input_from_logical_target(LlmDriverLogicalTargetKind kind,
+                                         LINETYPE line_number, int row,
+                                         int cell, int screen, int window_id,
+                                         LlmDriverInput *out);
 int llm_driver_input_from_logical_hit(LogicalCursorZone zone,
                                       LINETYPE line_number, int row,
                                       int cell, LlmDriverInput *out);

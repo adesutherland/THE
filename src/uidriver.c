@@ -34,6 +34,10 @@ const char *ui_row_role_name(UiRowRole role)
          return "status";
       case UI_ROW_PROMPT:
          return "prompt";
+      case UI_ROW_DIVIDER:
+         return "divider";
+      case UI_ROW_WINDOW:
+         return "window";
       case UI_ROW_EMPTY:
       default:
          return "empty";
@@ -60,6 +64,8 @@ int ui_row_role_allows_cursor(UiRowRole role)
       case UI_ROW_HEX:
       case UI_ROW_OUT_OF_BOUNDS:
       case UI_ROW_STATUS:
+      case UI_ROW_DIVIDER:
+      case UI_ROW_WINDOW:
       default:
          return 0;
    }

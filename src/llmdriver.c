@@ -244,6 +244,8 @@ static int llm_driver_row_is_reserved(UiRowRole role)
       case UI_ROW_TABLINE:
       case UI_ROW_STATUS:
       case UI_ROW_PROMPT:
+      case UI_ROW_DIVIDER:
+      case UI_ROW_WINDOW:
          return 1;
       case UI_ROW_EMPTY:
       case UI_ROW_FILE:
@@ -612,6 +614,11 @@ const char *llm_driver_debug_command_name(LlmDriverDebugCommand command)
    return the_input_debug_command_name(command);
 }
 
+const char *llm_driver_logical_target_kind_name(LlmDriverLogicalTargetKind kind)
+{
+   return the_input_logical_target_kind_name(kind);
+}
+
 LlmDriverInput llm_driver_input_none(void)
 {
    return the_input_event_none();
@@ -635,6 +642,15 @@ int llm_driver_input_from_legacy_key(int key_code, LlmDriverInput *out)
 int llm_driver_input_from_command(const char *command, LlmDriverInput *out)
 {
    return the_input_event_from_command(command, out);
+}
+
+int llm_driver_input_from_logical_target(LlmDriverLogicalTargetKind kind,
+                                         LINETYPE line_number, int row,
+                                         int cell, int screen, int window_id,
+                                         LlmDriverInput *out)
+{
+   return the_input_event_from_logical_target(kind, line_number, row, cell,
+                                             screen, window_id, out);
 }
 
 int llm_driver_input_from_logical_hit(LogicalCursorZone zone,

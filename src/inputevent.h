@@ -30,12 +30,28 @@ typedef enum
    THE_INPUT_DEBUG_EXPLAIN_LAST_RENDER
 } TheInputDebugCommand;
 
+typedef enum
+{
+   THE_INPUT_TARGET_NONE = 0,
+   THE_INPUT_TARGET_FILEAREA,
+   THE_INPUT_TARGET_PREFIX,
+   THE_INPUT_TARGET_COMMAND,
+   THE_INPUT_TARGET_PROMPT,
+   THE_INPUT_TARGET_STATUS,
+   THE_INPUT_TARGET_TABLINE,
+   THE_INPUT_TARGET_DIVIDER,
+   THE_INPUT_TARGET_WINDOW
+} TheInputLogicalTargetKind;
+
 typedef struct
 {
+   TheInputLogicalTargetKind kind;
    LogicalCursorZone zone;
    LINETYPE line_number;
    int row;
    int cell;
+   int screen;
+   int window_id;
 } TheInputLogicalTarget;
 
 typedef struct
@@ -58,11 +74,16 @@ typedef struct
 
 const char *the_input_kind_name(TheInputKind kind);
 const char *the_input_debug_command_name(TheInputDebugCommand command);
+const char *the_input_logical_target_kind_name(TheInputLogicalTargetKind kind);
 TheInputEvent the_input_event_none(void);
 int the_input_event_from_text(uint32_t codepoint, TheInputEvent *out);
 int the_input_event_from_key_name(const char *name, TheInputEvent *out);
 int the_input_event_from_legacy_key(int key_code, TheInputEvent *out);
 int the_input_event_from_command(const char *command, TheInputEvent *out);
+int the_input_event_from_logical_target(TheInputLogicalTargetKind kind,
+                                        LINETYPE line_number, int row,
+                                        int cell, int screen, int window_id,
+                                        TheInputEvent *out);
 int the_input_event_from_logical_hit(LogicalCursorZone zone,
                                      LINETYPE line_number, int row,
                                      int cell, TheInputEvent *out);

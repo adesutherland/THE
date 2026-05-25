@@ -25,7 +25,9 @@ typedef enum
    UI_ROW_HEX,
    UI_ROW_OUT_OF_BOUNDS,
    UI_ROW_STATUS,
-   UI_ROW_PROMPT
+   UI_ROW_PROMPT,
+   UI_ROW_DIVIDER,
+   UI_ROW_WINDOW
 } UiRowRole;
 
 typedef enum

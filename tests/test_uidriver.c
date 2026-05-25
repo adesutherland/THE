@@ -29,6 +29,8 @@ static void test_row_roles(void)
    expect_str("role.eof", ui_row_role_name(UI_ROW_EOF), "eof");
    expect_str("role.shadow", ui_row_role_name(UI_ROW_SHADOW), "shadow");
    expect_str("role.hex", ui_row_role_name(UI_ROW_HEX), "hex");
+   expect_str("role.divider", ui_row_role_name(UI_ROW_DIVIDER), "divider");
+   expect_str("role.window", ui_row_role_name(UI_ROW_WINDOW), "window");
    expect_str("role.out", ui_row_role_name(UI_ROW_OUT_OF_BOUNDS), "out-of-bounds");
    expect_str("syntax.keyword", ui_syntax_style_name(UI_SYNTAX_KEYWORD),
               "keyword");
@@ -41,6 +43,8 @@ static void test_row_roles(void)
    expect_int("role.tof.cursor", ui_row_role_allows_cursor(UI_ROW_TOF), 1);
    expect_int("role.status.cursor", ui_row_role_allows_cursor(UI_ROW_STATUS), 0);
    expect_int("role.hex.cursor", ui_row_role_allows_cursor(UI_ROW_HEX), 0);
+   expect_int("role.divider.cursor", ui_row_role_allows_cursor(UI_ROW_DIVIDER), 0);
+   expect_int("role.window.cursor", ui_row_role_allows_cursor(UI_ROW_WINDOW), 0);
 }
 
 static void test_frame_carries_style_runs(void)

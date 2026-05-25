@@ -114,7 +114,26 @@ static void test_commands_targets_debug_and_queue(void)
               the_input_event_from_logical_hit(LOGICAL_CURSOR_ZONE_FILEAREA,
                                                99, 4, 7, &input), 1);
    expect_int("target.kind", input.kind, THE_INPUT_LOGICAL_HIT);
+   expect_int("target.area", input.target.kind, THE_INPUT_TARGET_FILEAREA);
    expect_int("target.cell", input.target.cell, 7);
+   expect_str("target.area.name",
+              the_input_logical_target_kind_name(input.target.kind),
+              "filearea");
+
+   expect_int("target.tabline.parse",
+              the_input_event_from_logical_target(THE_INPUT_TARGET_TABLINE,
+                                                  0, 0, 12, 0, -1, &input), 1);
+   expect_int("target.tabline.kind", input.target.kind, THE_INPUT_TARGET_TABLINE);
+   expect_int("target.tabline.zone", input.target.zone, LOGICAL_CURSOR_ZONE_NONE);
+   expect_str("target.tabline.name",
+              the_input_logical_target_kind_name(input.target.kind),
+              "tabline");
+
+   expect_int("target.window.parse",
+              the_input_event_from_logical_target(THE_INPUT_TARGET_WINDOW,
+                                                  0, 2, 0, 1, 0, &input), 1);
+   expect_int("target.window.screen", input.target.screen, 1);
+   expect_int("target.window.id", input.target.window_id, 0);
 
    expect_int("debug.parse",
               the_input_event_from_debug_command("cursor-mapping", &input), 1);

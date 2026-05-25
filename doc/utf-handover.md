@@ -80,6 +80,18 @@ hit events remain later work. `src/llmdriver.c` now exposes role-aware semantic
 snapshots, compact token-saving view modes, shared normalized input wrappers,
 cursor mapping diagnostics, and driver operation log formatting.
 
+The virtual UI harness baseline is now in place as `test_virtual_screen`.
+`src/uidriver.c` has logical `divider` and `window` row roles, and
+`src/inputevent.c` has target-kind metadata for file-area, prefix, command,
+status, tabline, divider, and window logical hits. The harness builds
+driver-neutral `UiFrame` states for file rows, prefixes, command/status rows,
+tabline, divider/window rows, and UTF keycap/ZWJ fixture rows; then it verifies
+semantic LLM views, compact modes, cursor overlays, logical-hit payloads, and
+fake-driver/debug operation logs without curses. This is the new accelerator:
+renderer migration should use this and related no-curses tests to remove whole
+legacy fallback groups instead of keeping both logical and physical authority
+alive in the dangerous middle ground.
+
 `the_agent` is useful as a no-curses proof target, but it is not yet a complete
 replacement for the full editor integration path. It can exercise logical file
 and command focus, normalized key/text input, and a small command subset, but it
@@ -185,10 +197,11 @@ layer.
 - `tests/fixtures/utf-render.txt`: manual editor fixture for UTF-8 rendering.
 - `tests/test_utfrepair.c`, `tests/test_utfterm.c`, `tests/test_utf_fixture.c`,
   `tests/test_utflayout.c`, `tests/test_inputevent.c`,
-  `tests/test_llmdriver.c`, `tests/test_agentdriver.c`,
+  `tests/test_llmdriver.c`, `tests/test_virtual_screen.c`,
+  `tests/test_agentdriver.c`,
   `tests/test_the_agent_capabilities.sh`, and `tests/test_textpos.c`: repair
-  planning, terminal-profile, fixture, layout, normalized input, driver,
-  agent-surface, and text-position regression coverage.
+  planning, terminal-profile, fixture, layout, normalized input, virtual
+  screen/fake-driver, agent-surface, and text-position regression coverage.
 
 ## macOS Apple Terminal Baseline
 
@@ -343,11 +356,12 @@ surfaces in the same commit:
 
 Preferred order, with larger slices:
 
-1. Build a virtual UI harness. Add CTests that create file-area, prefix,
-   command, status, tabline, divider, and UTF fixture frames without curses,
-   then verify logical cursor overlays, row roles, compact LLM views, and fake
-   driver operation logs. This becomes the default proof surface for renderer
-   migrations before touching terminal paint code.
+1. Use the virtual UI harness as the renderer migration accelerator.
+   `test_virtual_screen` now proves file-area, prefix, command, status,
+   tabline, divider/window, UTF fixture rows, compact LLM views, cursor
+   overlays, logical hits, and fake-driver operation logs without curses. The
+   next renderer slices should extend this harness for the target behavior and
+   remove the matching legacy fallback group in the same commit.
 2. Expand `the_agent` from an agent subset toward a real command/input bridge.
    Route normalized text/key/command events through shared editor input paths
    where possible, and keep explicit capability output for anything still
@@ -383,10 +397,10 @@ cmake --build cmake-build-noutf8 -j2
 ctest --test-dir cmake-build-noutf8 --output-on-failure
 ```
 
-Latest verification after the status/view-switch renderer cleanup slice: UTF
-build/CTest was green, 31/31. no-UTF build/CTest was green, 16/16 with
-CREXX/SDSLH-dependent tests skipped as intended. Focused LLM/`the_agent` smoke
-passed in both UTF and no-UTF builds.
+Latest verification after the virtual UI/fake-driver harness slice: UTF
+build/CTest was green, 32/32. no-UTF build/CTest was green, 17/17 with
+SDSLH-dependent tests skipped as intended. Focused LLM/`the_agent` smoke passed
+as part of both full CTest suites.
 
 ## Suggested Next Slices
 
@@ -396,10 +410,13 @@ tighten a guardrail or capability declaration.
 
 High-value next slices:
 
-- Virtual renderer harness: add `test_virtual_screen` or equivalent coverage
-  for file/prefix/command/status/tab/divider frames, cursor overlays, compact
-  LLM views, and fake-driver operation logs. Use it to make future renderer
-  changes visible without a terminal.
+- Renderer fallback purge: extend `test_virtual_screen` for each render group,
+  then remove the corresponding `show.c` non-frame fallback path in the same
+  commit. Start with remaining non-frame `cursor_focus_*` fallbacks, render
+  entry/exit logical decisions, and status/view-switch physical snapshot
+  fallbacks. Keep physical cursor save/restore, refresh, touch/update,
+  UTF/ascii cell writes, software cursor painting, and cursor parking in
+  `cursesdriver.c`.
 - Agent command bridge: support a first real group of full-editor commands or
   SOS commands through normalized agent input, with `the_agent` CTests proving
   no-curses behavior and CREXX CTests proving full-editor parity where needed.
@@ -407,10 +424,6 @@ High-value next slices:
   for file area, prefix, command line, status, file tabs, divider, and window
   selection. Add focused `inputevent`/adapter tests before connecting
   `process_key()` to consume those events.
-- Renderer fallback purge: after virtual renderer coverage exists, remove the
-  remaining `show.c` non-frame `cursor_focus_*` fallbacks and render entry/exit
-  physical-decision points as one group. Physical cursor save/restore and
-  refresh mechanics stay in `cursesdriver.c`.
 - Guardrail ratchet: after each group lands, extend
   `tests/check_curses_boundary.sh` for the fully cleaned module or behavior
   class instead of waiting for the entire migration.
