@@ -319,36 +319,49 @@ profile, not logical cluster boundaries.
 
 ## Current Sequence
 
-The active post-normal-area sequence is:
+The active sequence is now intentionally aggressive. We are past the point
+where isolated cleanup slices reduce risk; they leave too many half-migrated
+paths alive. Prefer larger behavior groups when the group can be made visible
+through `the_agent`, `llmdriver`, a fake/virtual screen CTest, or CREXX/pty in
+the same commit.
 
-1. `commsos.c`: done for the current SOS edit/navigation slice. Edge/
-   navigation commands, command-line helpers, prefix helpers, tab/word
-   movement, and delete paths now use logical focus/row/cell state, with only
-   temporary driver bridge points left for fallback/query materialization.
-2. Test-surface exposure: initial checkpoint done. `the_agent` reports
-   capabilities and unsupported commands clearly while it grows toward the real
-   dispatcher. CREXX/pty tests state their prerequisites and skip reasons
-   because they test the live editor path, not the no-curses driver. Continue
-   adding these disclosures when they increase regression confidence across
-   later slices.
-3. Migrate ordinary `execute.c` cursor effects. The current checkpoint covers
-   `execute_move_cursor()`, `execute_makecurr()`, block cursor preservation,
-   `insert_new_line()`, and `selective_change()` prompt placement. The
-   remaining OS bridge, `EDITV LIST`, mouse/status/window-placement, and
-   popup/dialog code is separated as driver-owned physical mechanics. Keep it
-   there until logical popup/dialog and window-lifecycle objects exist.
-4. Add logical popup/dialog objects so curses and LLM drivers can render them
-   differently without making the logical layer imitate curses windows.
-5. Continue converting remaining targeted renderer redraw paths to driver-level
-   logical render requests, especially non-frame fallback paths and render
-   entry/exit cursor preservation.
-6. Move utility/window lifecycle operations behind driver-owned resize,
-   refresh, transient-window, and error/status operations.
-7. Expand curses input normalization beyond the compatibility key adapter:
-   dispatch normalized events directly where safe and convert mouse hits to
-   logical targets.
-8. Tighten direct-curses guardrails once migrated editor logic has driver
-   equivalents.
+Done for a migration slice means:
+
+- the behavior is observable through a no-curses agent/LLM surface, a virtual
+  screen/fake-driver test, a CREXX full-editor test, or a focused unit CTest;
+- the real curses path uses the same logical input/frame/cursor data as the
+  test surface;
+- remaining unsupported behavior is declared through `the_agent capabilities`
+  or a documented fallback;
+- direct-curses guardrails are tightened for any module or behavior class that
+  is fully cleaned.
+
+High-priority groups:
+
+1. Virtual UI harness. Build CTests that synthesize `UiFrame`/logical screen
+   state for file-area, prefix, command, status, tabline, divider, window
+   selection, and UTF fixture rows. Compare semantic snapshots and fake-driver
+   operation logs. This is the main accelerator for renderer migration.
+2. Agent command/input bridge. Expand `the_agent` beyond the subset dispatcher
+   by routing normalized text/key/command input through shared editor paths.
+   Add agent script CTests for every newly supported group and keep CREXX tests
+   for full-editor parity when the agent cannot yet run a command.
+3. Normalized input and mouse. Move dispatch decisions from legacy key
+   conversion to `TheInputEvent` consumers in groups: text, named navigation,
+   command submission, prefix editing, and logical mouse hits. Preserve legacy
+   key definitions at the driver edge while making behavior observable through
+   inputevent/agent CTests.
+4. Renderer fallback purge. Use virtual renderer coverage to remove remaining
+   non-frame `cursor_focus_*` fallbacks, render entry/exit logical decisions,
+   and status/view-switch snapshot fallbacks from `show.c`. Physical
+   save/restore, refresh, touch/update, UTF/ascii cell writes, software cursor
+   painting, and cursor parking stay in `cursesdriver.c`.
+5. Command/query fallback retirement. Retire active-driver row/cell fallbacks
+   outside the renderer once equivalent logical query or agent/CREXX behavior
+   is covered. Tighten `tests/check_curses_boundary.sh` module by module.
+6. Logical popup/dialog/window lifecycle. Do this as a larger modeled slice
+   only when popup/dialog/window state can appear in LLM snapshots and virtual
+   screen tests. Until then, keep these as driver-owned physical mechanics.
 
 ## Test Surface Limits
 
@@ -366,3 +379,6 @@ The test surfaces intentionally cover different risks:
   generally useful gap found during manual testing should become either a
   `the_agent` capability/unsupported-command disclosure, a CREXX test, or a
   driver/unit test before the related area is considered closed.
+- Virtual screen and fake-driver tests should become the preferred proof for
+  renderer migration because they can compare semantic rows, cursor overlays,
+  and requested physical operations without depending on curses paint timing.

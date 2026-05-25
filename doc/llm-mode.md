@@ -189,17 +189,28 @@ verify the live proof target:
 - no curses dynamic dependency or exposed curses-driver symbols in
   `the_agent`.
 
-## Next Implementation Steps
+## Aggressive Next Steps
 
-1. Expand the no-curses agent driver toward THE's real command executor while
-   preserving the no-curses boundary. Prioritize generally useful command and
-   SOS routing before one-off smoke helpers.
-2. Build screen snapshots from the live logical cursor/focus model rather than
-   ad hoc curses state.
-3. Route command input through THE command execution.
-4. Route key/text input through the same normalized input path used by curses.
-5. Add integration tests with a fake driver that exercises navigation, command
-   execution, prefix commands, and command-line editing without curses.
+LLM mode is now a migration accelerator, not just a passive proof target. New
+driver-boundary work should be visible to agents, fake drivers, or CTest before
+the corresponding curses path is considered migrated.
+
+1. Add a virtual screen/fake-driver harness that can build `UiFrame` snapshots,
+   drive normalized input, and compare semantic rows, cursor overlays, compact
+   views, and fake-driver operation logs without curses.
+2. Expand the no-curses agent driver toward THE's real command executor in
+   useful groups. Prefer a batch of navigation/SOS/prefix/command behaviors
+   with script coverage over one-off smoke helpers.
+3. Route command, key, and text input through the same normalized event layer
+   used by curses. Keep legacy key conversion as an edge adapter, not as the
+   main dispatch model for newly migrated behavior.
+4. Add logical-hit input for mouse-like actions: file area, prefix, command
+   line, status, file tabs, divider, and window selection. Prove hit mapping
+   with `inputevent` or virtual-screen CTests before wiring live curses mouse
+   dispatch.
+5. Use agent script CTests for no-curses parity and CREXX/pty CTests for
+   full-editor parity until the agent command bridge can run the same command.
+   Unsupported commands must stay explicit in `capabilities`.
 6. Keep UTF behavior logical: whole grapheme clusters for editor movement and
    edits, physical terminal strategy only inside curses rendering.
 
