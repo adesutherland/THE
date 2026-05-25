@@ -171,7 +171,11 @@ place:
   cursor through `cursesdriver.c` in both UTF and no-UTF builds.
   `execute_makecurr()` and the normal block rearrange cursor-preservation path
   now preserve logical file-area/prefix cells rather than capturing and
-  restoring curses cursor coordinates.
+  restoring curses cursor coordinates. `insert_new_line()` now places the
+  inserted-line cursor from logical row/cell state and materializes file-area or
+  prefix focus through the driver. `selective_change()` now positions its
+  prompt cursor from the match's logical `TextPos` cell and driver viewport
+  visibility rather than from the physical curses cursor.
 - `src/cursor.c`, `src/comm5.c`, `src/query1.c`, `src/query2.c`, and
   `src/edit.c` no longer contain direct `getyx`, `wmove`, `getbegyx`,
   `getmaxx`, `getmaxy`, or `wtimeout` calls; those paths now go through
@@ -179,11 +183,12 @@ place:
 
 The remaining implementation still has several physical cursor authorities:
 
-- `execute.c` still contains direct `getyx`/`wmove` paths, but the ordinary
-  `execute_move_cursor()`, `execute_makecurr()`, and block rearrange cursor
-  preservation slices are migrated. Remaining `execute.c` direct curses paths
-  are mainly selective-change prompt handling, insert-new-line cursor placement,
-  OS suspend/resume bridge code, mouse/status paths, and popup/dialog mechanics.
+- `execute.c` still contains direct `getyx`/`wmove` paths, but ordinary cursor
+  effects for `execute_move_cursor()`, `execute_makecurr()`, block rearrange
+  cursor preservation, `insert_new_line()`, and `selective_change()` prompt
+  placement are migrated. Remaining `execute.c` direct curses paths are mainly
+  OS suspend/resume bridge code, mouse/status/window-placement paths, and
+  popup/dialog mechanics.
 - `commsos.c` no longer has direct curses cursor/window operations in SOS edit
   and navigation logic. Its remaining driver contact points are an active
   curses-driver cursor query fallback and prefix cursor materialization bridge.
@@ -302,8 +307,11 @@ The active post-normal-area sequence is:
    because they test the live editor path, not the no-curses driver. Continue
    adding these disclosures when they increase regression confidence across
    later slices.
-3. Migrate ordinary `execute.c` cursor effects. Keep popup/dialog code separate
-   until logical popup objects exist.
+3. Migrate ordinary `execute.c` cursor effects. The current checkpoint covers
+   `execute_move_cursor()`, `execute_makecurr()`, block cursor preservation,
+   `insert_new_line()`, and `selective_change()` prompt placement. Keep the
+   remaining OS bridge, mouse/status/window-placement, and popup/dialog code
+   separate until logical popup/dialog and window-lifecycle objects exist.
 4. Add logical popup/dialog objects so curses and LLM drivers can render them
    differently without making the logical layer imitate curses windows.
 5. Convert remaining targeted renderer redraw paths to driver-level logical
