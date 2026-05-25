@@ -364,15 +364,14 @@ before the latest ordinary `execute.c` slices.
 
 ## Suggested Next Large Slice
 
-The next useful large slice is the driver-owned utility/window lifecycle sweep.
-Do not start by designing logical popup/dialog objects unless that becomes
-necessary; first reduce the remaining physical-window debt that is clearly
-driver-owned. The highest-density remaining direct curses users outside
-`cursesdriver.c` and bundled PDCurses are `src/util.c`, `src/error.c`,
-`src/commutil.c`, `src/rexx.c`, and `src/prefix.c`, followed by command modules
-such as `src/comm1.c`, `src/comm3.c`, `src/comm4.c`, and `src/commset*.c`.
-Treat command modules carefully because some calls still imply logical cursor
-or command behavior, not just physical mechanics.
+The next useful large slice should combine two related but separable pieces:
+renderer targeted-redraw cleanup first, then curses keyboard/mouse input
+normalization. This keeps the slice substantial while still diagnosable: the
+renderer work is about removing legacy physical cursor snapshot fallbacks from
+redraw paths, and the input work is about adapting curses-collected input into
+the existing `TheInputEvent` model before dispatch. If the renderer cleanup
+uncovers popup/dialog requirements, document that split rather than forcing
+popup/dialogs into the logical cursor layer without a real model.
 
 Copy/paste prompt for the next session:
 
@@ -386,6 +385,7 @@ Please read first:
 - doc/llm-mode.md
 
 Current recent commits:
+- 9f4d97c Update handover for next driver slice
 - 9101f5b Route execute transient windows through driver
 - e76f027 Update execute cursor handover status
 - d88abf7 Route selective change prompt cursor logically
@@ -396,7 +396,7 @@ Current recent commits:
 - 76a5425 Route execute cursor moves through logical row
 
 Current status:
-- Worktree was clean after commit 9101f5b.
+- Worktree was clean after commit 9f4d97c.
 - UTF build/CTest was green: 31/31.
 - no-UTF build/CTest was green: 16/16, with CREXX/SDSLH-dependent tests skipped
   as intended.
@@ -423,23 +423,44 @@ Completed execute.c cursor/driver slices:
   tests/check_curses_boundary.sh guards that.
 
 Next architectural target, large slice:
-- Move clearly physical utility/window lifecycle operations behind
-  cursesdriver wrappers, starting with high-density direct curses users:
-  src/util.c, src/error.c, src/commutil.c, src/rexx.c, and src/prefix.c.
-- Keep this as a physical-driver cleanup slice: resize, refresh ordering,
-  transient windows, status/error windows, screen/window cursor save/restore,
-  and raw key waits belong behind cursesdriver wrappers.
-- Do not convert logical editor decisions to use physical cursor state. If a
-  direct curses call is being used to decide file/prefix/command logical focus,
-  stop and migrate that decision to logical focus/row/cell state instead.
+1. First do renderer targeted-redraw cleanup.
+   - Focus on `src/show.c` paths that still depend on legacy physical cursor
+     snapshots or fallback overlay decisions instead of live logical `UiFrame`
+     state.
+   - Convert targeted redraws toward driver-level logical render requests or
+     frame-backed cursor overlay decisions. The aim is that redraw code should
+     not infer file-area/prefix cursor meaning from physical `getyx`/`wmove`
+     state.
+   - Keep software cursor painting, UTF/ascii cell writes, refresh/touch/update,
+     and physical cursor parking in `cursesdriver.c`.
+   - Do not special-case keycaps or terminal classes in logical renderer code.
+     Use existing terminal profile/layout/repair machinery.
+   - If a targeted redraw cannot be made frame-backed cleanly in this slice,
+     document the remaining split and leave a narrow fallback rather than
+     inventing a partial logical popup/dialog model.
+
+2. Then do curses keyboard/mouse normalization.
+   - Route curses-collected keyboard and mouse input through `TheInputEvent`
+     before command dispatch where it is safe and localized.
+   - Reuse `src/inputevent.c` conversions and queues. Do not create a second
+     event language.
+   - Preserve existing key behavior, including function keys, resize handling,
+     mouse status/window hits, and command-line/file-area text entry.
+   - Add focused tests around `inputevent` conversion or any new adapter logic.
+     Use CREXX/pty tests only where full-editor dispatch behavior needs proof;
+     use `the_agent` only for no-curses driver/LLM surface proof.
+
+Guardrails and constraints:
+- Keep normal file/command cursor/focus decisions logical. Do not reintroduce
+  logical decisions based on physical `getyx`/`wmove` state.
 - Do not force popup/dialog behavior into the logical cursor layer unless you
-  introduce a real logical popup/dialog model. If logical popup/dialog design is
-  needed, document the split and leave that model for a separate slice.
-- Extend tests/check_curses_boundary.sh only for files fully cleaned in this
-  slice. Prefer tightening guardrails incrementally by file rather than making a
-  broad strict rule too early.
+  introduce a real logical popup/dialog model. If popup/dialog mechanics block a
+  clean migration, document the split and leave that model for a later slice.
+- Extend `tests/check_curses_boundary.sh` only for files or modules fully
+  cleaned in this slice. Prefer tightening guardrails incrementally by file
+  rather than making a broad strict rule too early.
 - Update doc/utf-handover.md and doc/cursor-driver-architecture.md with the
-  completed slice and remaining direct-curses debt.
+  completed slice and remaining renderer/input debt.
 - Commit after the green, safe slice.
 
 Suggested verification:
