@@ -1091,6 +1091,52 @@ static int show_logical_prefix_cursor_target(CHARTYPE scrno,
    return TRUE;
 }
 
+static int show_command_cursor_target(CHARTYPE scrno, VIEW_DETAILS *view,
+                                      short *row, int *col)
+{
+   LogicalCursor cursor;
+   int target_row = 0;
+   int target_col = 0;
+
+   if (scrno >= MAX_SCREENS
+   ||  view == NULL
+   ||  view->current_window != WINDOW_COMMAND
+   ||  SCREEN_WINDOW_COMMAND(scrno) == NULL)
+      return FALSE;
+
+   cursor = view->logical_cursor.current;
+   if (cursor.valid
+   &&  cursor.zone == LOGICAL_CURSOR_ZONE_COMMAND
+   &&  cursor.text.cell_column >= 0)
+   {
+      target_row = (cursor.zone_row >= 0) ? cursor.zone_row : 0;
+      target_col = cursor.text.cell_column - (cmd_verify_col - 1);
+   }
+   else if (view->cmdline_col >= 0)
+   {
+      target_col = view->cmdline_col;
+   }
+
+   if (target_row < 0)
+      target_row = 0;
+   if (target_row >= screen[scrno].rows[WINDOW_COMMAND])
+      target_row = screen[scrno].rows[WINDOW_COMMAND] - 1;
+   if (target_row < 0)
+      target_row = 0;
+   if (target_col < 0)
+      target_col = 0;
+   if (target_col >= screen[scrno].cols[WINDOW_COMMAND])
+      target_col = screen[scrno].cols[WINDOW_COMMAND] - 1;
+   if (target_col < 0)
+      target_col = 0;
+
+   if (row != NULL)
+      *row = (short)target_row;
+   if (col != NULL)
+      *col = target_col;
+   return TRUE;
+}
+
 static int show_status_target_from_logical(VIEW_DETAILS *view,
                                            const CHARTYPE **line,
                                            size_t *len, int *cell)
@@ -1178,25 +1224,75 @@ static int show_restore_view_logical_cursor(CHARTYPE scrno,
    if (view == NULL)
       return FALSE;
 
-   if (show_logical_filearea_cursor_target(scrno, view, &row, &logical_col,
-                                           NULL, &line, &len))
+   switch(view->current_window)
    {
-      curses_driver_move_filearea_cursor(scrno, view, line, len, row,
-                                         logical_col);
-      restored = TRUE;
-   }
+      case WINDOW_FILEAREA:
+         if (show_logical_filearea_cursor_target(scrno, view, &row,
+                                                 &logical_col, NULL,
+                                                 &line, &len)
+         ||  show_view_filearea_cursor_target(scrno, view, &row,
+                                              &logical_col, &line, &len))
+         {
+            curses_driver_move_filearea_cursor(scrno, view, line, len, row,
+                                               logical_col);
+            restored = TRUE;
+         }
+         break;
 
-   if (SCREEN_WINDOW_PREFIX(scrno) != NULL)
-   {
-      if (show_logical_prefix_cursor_target(scrno, view, &row, &col))
-      {
-         curses_driver_move_window_cursor(SCREEN_WINDOW_PREFIX(scrno),
-                                          row, (short)col);
-         restored = TRUE;
-      }
+      case WINDOW_PREFIX:
+         if (SCREEN_WINDOW_PREFIX(scrno) != NULL)
+         {
+            if (show_logical_prefix_cursor_target(scrno, view, &row, &col))
+            {
+               curses_driver_move_window_cursor(SCREEN_WINDOW_PREFIX(scrno),
+                                                row, (short)col);
+               restored = TRUE;
+            }
+            else if (show_view_filearea_cursor_target(scrno, view, &row,
+                                                      NULL, NULL, NULL))
+            {
+               curses_driver_move_window_cursor(SCREEN_WINDOW_PREFIX(scrno),
+                                                row, 0);
+               restored = TRUE;
+            }
+         }
+         break;
+
+      case WINDOW_COMMAND:
+         if (show_command_cursor_target(scrno, view, &row, &col))
+         {
+            curses_driver_move_window_cursor(SCREEN_WINDOW_COMMAND(scrno),
+                                             row, (short)col);
+            restored = TRUE;
+         }
+         break;
+
+      default:
+         break;
    }
 
    return restored;
+}
+
+static void show_refresh_cursor_window(CHARTYPE scrno, VIEW_DETAILS *view)
+{
+   if (view == NULL)
+      return;
+
+   switch(view->current_window)
+   {
+      case WINDOW_FILEAREA:
+         curses_driver_refresh_window(SCREEN_WINDOW_FILEAREA(scrno));
+         break;
+      case WINDOW_PREFIX:
+         curses_driver_refresh_window(SCREEN_WINDOW_PREFIX(scrno));
+         break;
+      case WINDOW_COMMAND:
+         curses_driver_refresh_window(SCREEN_WINDOW_COMMAND(scrno));
+         break;
+      default:
+         break;
+   }
 }
 
 #ifdef USE_UTF8
@@ -2099,7 +2195,6 @@ void build_screen(CHARTYPE scrno)
 void display_screen(CHARTYPE scrno)
 /***********************************************************************/
 {
-   CursesDriverWindowCursor screen_cursor;
    CursesDriverWindowCursor previous_cursor = { 0, 0, 0 };
    short crow;
 
@@ -2148,7 +2243,6 @@ void display_screen(CHARTYPE scrno)
    if (SCREEN_VIEW(scrno)->current_window == WINDOW_COMMAND)
       previous_cursor = curses_driver_capture_window_cursor(
          SCREEN_PREV_WINDOW(scrno));
-   screen_cursor = curses_driver_capture_window_cursor(SCREEN_WINDOW(scrno));
 #ifdef USE_UTF8
    if (SCREEN_VIEW(scrno)->current_window == WINDOW_COMMAND)
       display_cmdline(scrno, SCREEN_VIEW(scrno));
@@ -2185,6 +2279,8 @@ void display_screen(CHARTYPE scrno)
    if (SCREEN_WINDOW_GAP(scrno) != NULL)
       curses_driver_refresh_window(SCREEN_WINDOW_GAP(scrno));
    curses_driver_refresh_window(SCREEN_WINDOW_FILEAREA(scrno));
+   if (show_restore_view_logical_cursor(scrno, SCREEN_VIEW(scrno)))
+      show_refresh_cursor_window(scrno, SCREEN_VIEW(scrno));
    /*
     * Lastly, turn the cursor back on again.
     */
@@ -2195,7 +2291,6 @@ void display_screen(CHARTYPE scrno)
    if (SCREEN_VIEW(scrno)->current_window == WINDOW_COMMAND)
       curses_driver_restore_window_cursor(SCREEN_PREV_WINDOW(scrno),
                                           previous_cursor);
-   curses_driver_restore_window_cursor(SCREEN_WINDOW(scrno), screen_cursor);
 #if defined(HAVE_SB_INIT)
    if (SBx
    && scrno == current_screen)
@@ -5246,16 +5341,22 @@ LINETYPE calculate_focus_line(LINETYPE fl,LINETYPE cl)
 char *get_current_position(CHARTYPE scrno,LINETYPE *line,LENGTHTYPE *col)
 /***********************************************************************/
 {
-   short y=0,x=0;
+   short y=0;
    char *ret=NULL;
-   SHOW_LINE *scurr;
+   SHOW_LINE *scurr=NULL;
    VIEW_DETAILS *view;
    LogicalCursor logical;
 
    TRACE_FUNCTION("show.c:    get_current_position");
    view = SCREEN_VIEW(scrno);
-   logical = (view != NULL) ? view->logical_cursor.current
-                            : logical_cursor_invalid();
+   if (view == NULL)
+   {
+      *line = -1L;
+      *col = -1;
+      TRACE_RETURN();
+      return ret;
+   }
+   logical = view->logical_cursor.current;
    if (logical.valid)
    {
       switch (logical.zone)
@@ -5319,47 +5420,49 @@ char *get_current_position(CHARTYPE scrno,LINETYPE *line,LENGTHTYPE *col)
             break;
       }
    }
-   if ( curses_started )
+   if (screen[scrno].sl != NULL)
    {
-      CursesDriverWindowCursor cursor =
-         curses_driver_capture_window_cursor(SCREEN_WINDOW(scrno));
-
-      if (cursor.valid)
-      {
-         y = cursor.row;
-         x = cursor.col;
-      }
+      y = get_row_for_focus_line(scrno, view->focus_line, view->current_row);
+      if (y < 0
+      ||  y >= screen[scrno].rows[WINDOW_FILEAREA])
+         y = view->current_row;
+      if (y >= 0
+      &&  y < screen[scrno].rows[WINDOW_FILEAREA])
+         scurr = screen[scrno].sl + y;
    }
-   scurr = screen[scrno].sl + y;
-   switch( SCREEN_VIEW(scrno)->current_window )
+   switch(view->current_window)
    {
       case WINDOW_COMMAND:
-         *line = SCREEN_VIEW(scrno)->current_line;
-         *col = (LENGTHTYPE)(x + 1 + cmd_verify_col - 1);
+         *line = view->current_line;
+         *col = (view->cmdline_col >= 0)
+              ? (LENGTHTYPE)(cmd_verify_col + view->cmdline_col)
+              : (LENGTHTYPE)cmd_verify_col;
          break;
       case WINDOW_FILEAREA:
-         *line = SCREEN_VIEW(scrno)->focus_line;
-         *col = (LENGTHTYPE)x + SCREEN_VIEW(scrno)->verify_col;
+         *line = view->focus_line;
+         *col = (view->current_column > 0)
+              ? view->current_column
+              : view->verify_col;
          if ( compatible_look == COMPAT_ISPF )
          {
-            if ( scurr->line_type & LINE_TABLINE )
+            if ( scurr != NULL && (scurr->line_type & LINE_TABLINE) )
                ret = "TABS";
-            else if ( scurr->line_type & LINE_SCALE )
+            else if ( scurr != NULL && (scurr->line_type & LINE_SCALE) )
                ret = "COLS";
-            else if ( scurr->line_type & LINE_BOUNDS )
+            else if ( scurr != NULL && (scurr->line_type & LINE_BOUNDS) )
                ret = "BNDS";
          }
          break;
       case WINDOW_PREFIX:
-         *line = SCREEN_VIEW(scrno)->focus_line;
-         *col = (LENGTHTYPE)(x + 1);
+         *line = view->focus_line;
+         *col = 1;
          if ( compatible_look == COMPAT_ISPF )
          {
-            if ( scurr->line_type & LINE_TABLINE )
+            if ( scurr != NULL && (scurr->line_type & LINE_TABLINE) )
                ret = "TABS";
-            else if ( scurr->line_type & LINE_SCALE )
+            else if ( scurr != NULL && (scurr->line_type & LINE_SCALE) )
                ret = "COLS";
-            else if ( scurr->line_type & LINE_BOUNDS )
+            else if ( scurr != NULL && (scurr->line_type & LINE_BOUNDS) )
                ret = "BNDS";
          }
          break;

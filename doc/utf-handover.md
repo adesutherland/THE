@@ -86,6 +86,12 @@ resize key behavior is preserved at the compatibility-key level; logical mouse
 hit events remain later work. `src/llmdriver.c` now exposes role-aware semantic
 snapshots, compact token-saving view modes, shared normalized input wrappers,
 cursor mapping diagnostics, and driver operation log formatting.
+Full-screen render exit now materializes the active file-area, prefix, or
+command cursor from logical cursor state, with editor-owned fallback state for
+old paths that have not published a logical cursor yet, instead of restoring
+the active window from a captured physical cursor. Position reporting uses the
+same logical/editor-owned state and no longer falls back to a curses window
+cursor snapshot.
 
 The virtual UI harness baseline is now in place as `test_virtual_screen`.
 `src/uidriver.c` has logical `divider` and `window` row roles, and
@@ -441,11 +447,12 @@ High-value next slices:
   commit. The non-frame `cursor_focus_*` software-cursor overlay fallbacks have
   been retired, and status/HEXDISPLAY no longer has a physical cursor snapshot
   fallback. View-switch physical snapshot fallbacks and targeted prefix
-  physical-row fallback are now retired too. Good next targets are render
-  entry/exit logical decisions and any remaining targeted redraw paths that
-  still infer state from physical cursor mechanics. Keep physical cursor
-  save/restore, refresh, touch/update, UTF/ascii cell writes, software cursor
-  painting, and cursor parking in `cursesdriver.c`.
+  physical-row fallback are now retired too. Full-screen render exit no longer
+  restores the active window from a captured physical cursor. Good next targets
+  are any remaining targeted redraw paths that still infer state from physical
+  cursor mechanics. Keep physical cursor save/restore, refresh, touch/update,
+  UTF/ascii cell writes, software cursor painting, and cursor parking in
+  `cursesdriver.c`.
 - Follow-on SOS cleanup: with `commsos.c`'s active-driver cursor query fallback
   removed, the next useful SOS slices are tab-field/key-navigation paths that
   still depend on legacy cursor helpers, plus reducing the remaining prefix

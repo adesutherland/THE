@@ -223,9 +223,12 @@ The remaining implementation still has several physical cursor authorities:
   to editor-owned state such as `current_column`, `cmdline_col`, and focus-line
   row calculation. Prefix cursor materialization and edge-command window sizing
   still go through `cursesdriver.c` as physical driver operations.
-- `show.c` still captures and restores physical cursor positions for render
-  entry/exit. Status/HEXDISPLAY, targeted prefix row selection, and view-switch
-  preservation no longer use physical cursor snapshots.
+- `show.c` no longer restores the active full-screen render cursor from a
+  captured physical position. Render exit now materializes file-area, prefix,
+  and command cursor targets from logical cursor state, with editor-owned
+  fallback state where needed. Status/HEXDISPLAY, targeted prefix row selection,
+  position reporting, and view-switch preservation no longer use physical
+  cursor snapshots.
 - `cursesdriver.c` owns the migrated physical primitives, but many callers
   still make logical decisions from legacy physical coordinates before calling
   the driver. The next separation slices should replace those decisions with
@@ -367,8 +370,8 @@ High-priority groups:
    key definitions at the driver edge while making behavior observable through
    inputevent/agent CTests.
 4. Renderer fallback purge. Use virtual renderer coverage to remove remaining
-   render entry/exit logical decisions and targeted redraw fallbacks from
-   `show.c`. Physical
+   targeted redraw fallbacks from `show.c`; full-screen render exit no longer
+   restores the active window from a captured physical cursor. Physical
    save/restore, refresh, touch/update, UTF/ascii cell writes, software cursor
    painting, and cursor parking stay in `cursesdriver.c`.
 5. Command/query fallback retirement. Retire active-driver row/cell fallbacks

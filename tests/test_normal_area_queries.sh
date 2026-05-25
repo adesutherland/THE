@@ -38,6 +38,9 @@ address the
 field = .string[]
 address the "extract /field/" expose field[]
 say "CMD_FIELD=" || field[1] || ":" || field[2] || ":" || field[3] || ":" || field[4]
+position = .string[]
+address the "extract /position/" expose position[]
+say "CMD_POSITION=" || position[2] || ":" || position[3]
 
 'cursor cmdline 2'
 'text Z'
@@ -52,6 +55,9 @@ say "CMD_FIELD2=" || field[1] || ":" || field[2] || ":" || field[3] || ":" || fi
 field = .string[]
 address the "extract /field/" expose field[]
 say "PREFIX_FIELD=" || field[1] || ":" || field[2] || ":" || field[3] || ":" || field[4]
+position = .string[]
+address the "extract /position/" expose position[]
+say "PREFIX_POSITION=" || position[2] || ":" || position[3]
 
 'cursor file 1 1'
 'clocate /beta/'
@@ -98,8 +104,10 @@ run_with_pty() {
 run_with_pty "${THE_BIN}" -p "${PROFILE}" "${SAMPLE}"
 
 grep -q "CMD_FIELD=abc::4:COMMAND" "${WORK_DIR}/combined.txt"
+grep -q "CMD_POSITION=0:4" "${WORK_DIR}/combined.txt"
 grep -q "CMD_FIELD2=aZc:c:3:COMMAND" "${WORK_DIR}/combined.txt"
 grep -q "PREFIX_FIELD=ab::3:PREFIX" "${WORK_DIR}/combined.txt"
+grep -q "PREFIX_POSITION=1:3" "${WORK_DIR}/combined.txt"
 grep -q "COLUMN_FIELD=b:7:TEXT" "${WORK_DIR}/combined.txt"
 grep -q "LINEADD_FIELD=:4:TEXT" "${WORK_DIR}/combined.txt"
 grep -q "INPUT_FIELD=e:4:TEXT" "${WORK_DIR}/combined.txt"
