@@ -15,6 +15,11 @@ if [[ ! -x "${THE_BIN}" ]]; then
   exit 77
 fi
 
+if grep -aq "CREXX unavailable" "${THE_BIN}"; then
+  echo "Skipping message history test; THE was built without CREXX" >&2
+  exit 77
+fi
+
 rm -rf "${WORK_DIR}"
 mkdir -p "${THE_HOME}"
 printf 'message history smoke\n' > "${SAMPLE}"
