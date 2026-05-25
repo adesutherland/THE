@@ -17,6 +17,13 @@ contracts, and is covered by a build guard that rejects curses dependencies and
 curses-driver symbols. Treat that target as the first agent surface while the
 full editor input loop is still being migrated.
 
+Current limitation: `the_agent` is not yet wired to THE's full command
+dispatcher. It covers logical file-area and command-line focus plus a small
+command subset, but arbitrary THE/SOS commands may return unsupported even
+though the full editor handles them. For those commands, use CREXX/pty
+integration tests or manual smoke tests until the agent dispatcher bridge
+exists.
+
 ## Design Intent
 
 LLM mode is a driver, not a terminal emulator.
@@ -177,13 +184,27 @@ terminal repair feature.
 
 ## Next Implementation Steps
 
-1. Expand the no-curses agent driver toward THE's real command executor while
-   preserving the no-curses boundary.
-2. Build screen snapshots from the live logical cursor/focus model rather than
+1. Add agent capability/introspection output so unsupported commands and missing
+   surfaces are explicit, stable, and testable.
+2. Expand the no-curses agent driver toward THE's real command executor while
+   preserving the no-curses boundary. Prioritize generally useful command and
+   SOS routing before one-off smoke helpers.
+3. Build screen snapshots from the live logical cursor/focus model rather than
    ad hoc curses state.
-3. Route command input through THE command execution.
-4. Route key/text input through the same normalized input path used by curses.
-5. Add integration tests with a fake driver that exercises navigation, command
+4. Route command input through THE command execution.
+5. Route key/text input through the same normalized input path used by curses.
+6. Add integration tests with a fake driver that exercises navigation, command
    execution, prefix commands, and command-line editing without curses.
-6. Keep UTF behavior logical: whole grapheme clusters for editor movement and
+7. Keep UTF behavior logical: whole grapheme clusters for editor movement and
    edits, physical terminal strategy only inside curses rendering.
+
+## CREXX Integration Notes
+
+CREXX remains the most useful automated surface for full-editor behavior while
+`the_agent` is incomplete. CREXX profile tests can drive real THE commands,
+including SOS commands, through a pty-backed editor instance. Keep these tests
+clear about their prerequisites and skip reasons: CREXX support must be enabled,
+the CREXX compiler/import runtime must be available, and `script(1)` or another
+pty wrapper must exist. CREXX test failures may be macro/compiler interface
+failures before they are editor regressions, so focused output labels and small
+profiles are preferred.

@@ -1,6 +1,6 @@
 # UTF-8 Enablement Handover
 
-Last updated: 2026-05-24.
+Last updated: 2026-05-25.
 
 ## Current State
 
@@ -57,6 +57,13 @@ snapshots, compact token-saving view modes, shared normalized input wrappers,
 cursor mapping diagnostics, and driver operation log formatting; it is not yet
 wired into the live input loop.
 
+`the_agent` is useful as a no-curses proof target, but it is not yet a complete
+replacement for the full editor integration path. It can exercise logical file
+and command focus, normalized key/text input, and a small command subset, but it
+does not yet route arbitrary THE commands or SOS commands such as
+`SOS TOPEDGE` through the real command dispatcher. Use it as an extra LLM-driver
+smoke layer, not as the only proof for command behavior.
+
 The macro/agent visibility layer has two distinct message surfaces. THE message
 history remains available through `EXTRACT /MESSAGES/` and `QUERY MESSAGES`.
 SDSLH syntax diagnostics are available through `SDSLHWAIT`, `EXTRACT /PMSGS/`,
@@ -64,6 +71,14 @@ and `QUERY PMSGS`; `pmsgs.n` records include line, column, severity, code, and
 message text. The SDSLH diagnostic collector walks the parse tree, so scripts
 can see zero-length parser diagnostics as well as messages attached to visible
 tokens.
+
+CREXX/pty tests remain the stronger full-editor integration surface for command
+and SOS behavior because they run through the live command processor. Their
+limitations should be made explicit in tests and docs when they matter: they
+require a CREXX-enabled build, a working CREXX compiler/import directory, and a
+pty-capable host; failures can be compiler/interface errors rather than editor
+regressions; and they do not prove no-curses behavior. Prefer CREXX for full
+editor command coverage and `the_agent` for driver-boundary/no-curses coverage.
 
 The generic suffix-style cursor repair now follows the probe order: clear the
 selected suffix, flush that blank state when requested, repaint the suffix in
@@ -266,22 +281,30 @@ Near-term migration sequence:
 
 1. Normal areas: complete the command-line, prefix, and status/line-column
    surfaces so they report logical focus/row/cell state rather than physical
-   curses cursor state. This is the current completed checkpoint.
+   curses cursor state. This is complete.
 2. SOS commands: move `commsos.c` edge/navigation/delete helpers in larger
-   groups. Prefer logical focus, row role, and cell state; use active-driver
-   queries only as temporary fallback.
-3. `execute.c`: split ordinary file/command cursor effects from prompt/dialog
+   groups. Edge navigation has an initial logical-first checkpoint; continue
+   with command-line helpers, prefix helpers, tab/word movement, and delete/
+   insert paths. Prefer logical focus, row role, and cell state; use active-
+   driver queries only as temporary fallback.
+3. Test-surface exposure: as gaps are discovered, expose generally useful
+   agent and CREXX limitations rather than hiding them in ad hoc smoke notes.
+   Near-term examples are agent capability/introspection output, explicit
+   unsupported-command responses for `the_agent`, and docs/tests that mark when
+   CREXX coverage is unavailable or is testing the full curses editor rather
+   than the no-curses driver.
+4. `execute.c`: split ordinary file/command cursor effects from prompt/dialog
    and popup mechanics. Move normal cursor/focus updates first; leave popup
    behavior for a logical popup design.
-4. Logical popups/dialogs: introduce logical popup/dialog objects and let
+5. Logical popups/dialogs: introduce logical popup/dialog objects and let
    curses and LLM drivers materialize them differently.
-5. Renderer cleanup: convert targeted redraws to driver-level logical render
+6. Renderer cleanup: convert targeted redraws to driver-level logical render
    requests and remove legacy cursor snapshot fallbacks from `show.c`.
-6. Utilities/window lifecycle: move resize, refresh ordering, transient
+7. Utilities/window lifecycle: move resize, refresh ordering, transient
    windows, and error/status window mechanics behind driver-owned operations.
-7. Input and mouse: make curses keyboard and mouse collection produce
+8. Input and mouse: make curses keyboard and mouse collection produce
    `TheInputEvent` before command dispatch, matching the LLM driver.
-8. Guardrails: make direct-curses checks strict once editor logic has
+9. Guardrails: make direct-curses checks strict once editor logic has
    driver-owned equivalents.
 
 After each step run:

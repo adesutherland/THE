@@ -1,6 +1,6 @@
 # Cursor Driver Architecture
 
-Last updated: 2026-05-24.
+Last updated: 2026-05-25.
 
 ## Goal
 
@@ -278,16 +278,40 @@ profile, not logical cluster boundaries.
 The active post-normal-area sequence is:
 
 1. Migrate `commsos.c` in larger related groups: edge/navigation commands,
-   command-line helpers, prefix helpers, then delete/insert paths. Replace
+   command-line helpers, prefix helpers, tab/word movement, then delete/insert
+   paths. Edge navigation has an initial logical-first checkpoint. Replace
    physical cursor decisions with logical focus/row/cell state.
-2. Migrate ordinary `execute.c` cursor effects. Keep popup/dialog code separate
+2. Expose useful test-surface limitations as first-class facts. `the_agent`
+   should report capabilities and unsupported commands clearly while it grows
+   toward the real dispatcher. CREXX/pty tests should continue to state their
+   prerequisites and skip reasons because they test the live editor path, not
+   the no-curses driver. Add these disclosures when they increase regression
+   confidence across later slices.
+3. Migrate ordinary `execute.c` cursor effects. Keep popup/dialog code separate
    until logical popup objects exist.
-3. Add logical popup/dialog objects so curses and LLM drivers can render them
+4. Add logical popup/dialog objects so curses and LLM drivers can render them
    differently without making the logical layer imitate curses windows.
-4. Convert remaining targeted renderer redraw paths to driver-level logical
+5. Convert remaining targeted renderer redraw paths to driver-level logical
    render requests.
-5. Move utility/window lifecycle operations behind driver-owned resize,
+6. Move utility/window lifecycle operations behind driver-owned resize,
    refresh, transient-window, and error/status operations.
-6. Normalize curses keyboard and mouse input into `TheInputEvent`.
-7. Tighten direct-curses guardrails once migrated editor logic has driver
+7. Normalize curses keyboard and mouse input into `TheInputEvent`.
+8. Tighten direct-curses guardrails once migrated editor logic has driver
    equivalents.
+
+## Test Surface Limits
+
+The test surfaces intentionally cover different risks:
+
+- `the_agent` proves no-curses driver behavior and logical snapshots. It does
+  not yet execute arbitrary THE/SOS commands through the real dispatcher, so a
+  command such as `SOS TOPEDGE` can be unsupported there even when the curses
+  editor and CREXX tests cover it.
+- CREXX/pty tests exercise the full editor command processor and are currently
+  the best automated surface for SOS command behavior. They require CREXX
+  support, the CREXX import/runtime files, and a pty-capable host, and they do
+  not prove the no-curses LLM driver path.
+- Manual smoke tests remain valuable for terminal paint regressions, but any
+  generally useful gap found during manual testing should become either a
+  `the_agent` capability/unsupported-command disclosure, a CREXX test, or a
+  driver/unit test before the related area is considered closed.
