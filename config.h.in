@@ -187,15 +187,6 @@
 /* Define if linking with dwindows.  */
 #cmakedefine USE_DWINDOWS 1
 
-/* Define if linking with XCurses.  */
-#cmakedefine USE_XCURSES 1
-
-/* Define if linking with PDCurses built with SDL.  */
-#cmakedefine USE_SDLCURSES 1
-
-/* Define if linking with PDCurses built with SDL.  */
-#cmakedefine USE_VTCURSES 1
-
 /* Define if linking with Curses include dir specified --with-cursesincdir.  */
 #cmakedefine LOCAL_CURSES 1
 

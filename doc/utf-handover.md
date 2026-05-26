@@ -26,6 +26,30 @@ New logical behavior must be proved through a no-curses surface first:
 `the_agent`, `llmdriver`, `llmruntime`, virtual/fake-driver tests, focused unit
 tests, or CREXX/pty full-editor tests.
 
+## Platform Policy
+
+Current supported build surfaces are intentionally narrow:
+
+- Linux/macOS: the CMake `the` target with system ncurses/curses, plus existing
+  no-curses tools and tests.
+- Windows: the CMake `the` target with the bundled PDCursesMod `wincon`
+  backend only.
+- No-curses/headless: `the_agent`, `the_llm_headless`, and their existing
+  focused tests.
+
+Dropped legacy support includes DOS, OS/2, Amiga, VMS, BeOS/Haiku packaging,
+QNX, X11/SDL/VT PDCurses variants, WinGUI PDCurses, Plan 9/framebuffer/OpenGL
+PDCurses backends, old Watcom/DJGPP/Borland/TurboC-style makefiles, bundled
+PDCurses demos/tests/CI, and obsolete package/pkg-config recipes not used by
+current CMake.
+
+This housekeeping pass deliberately removed unbuilt files and vendor ballast
+only. Many active source files still contain `#if defined(DOS)`,
+`#if defined(OS2)`, `#if defined(VMS)`, `#if defined(AMIGA)`, `USE_XCURSES`,
+`USE_SDLCURSES`, `USE_VTCURSES`, or similar compatibility branches. Leave
+those in place until a later scripted source simplification pass can remove
+them mechanically and verify the supported targets in one sweep.
+
 ## Done
 
 - UTF and cursor primitives are separated and tested:

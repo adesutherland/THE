@@ -436,11 +436,6 @@ short execute_crexx_macro_instore (CHARTYPE *,short *,CHARTYPE **,int *,int *,in
 short set_crexx_variable (CHARTYPE *,CHARTYPE *,LENGTHTYPE,int);
 short get_crexx_variable (CHARTYPE *,CHARTYPE **,int *);
 CHARTYPE *get_crexx_interpreter_version (CHARTYPE *);
-                                                           /* os2eas.c */
-#if defined(OS2)
-bool ReadEAs (CHARTYPE *);
-bool WriteEAs (CHARTYPE *);
-#endif
                                                             /* query.c */
 short find_query_item (CHARTYPE *,int,CHARTYPE *);
 short show_status (void);

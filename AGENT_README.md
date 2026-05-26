@@ -20,5 +20,5 @@ This fork is explicitly tailored for the modern [CREXX](https://github.com/crexx
 4. **Documentation**: The current bridge contract is documented in [CREXX Integration](doc/crexx.md).
 
 ### Remaining Goals:
-1. **Platform Testing**: macOS and local development workflows are the main proven path. Windows and Linux should continue to be validated in CI and packaging tests.
+1. **Platform Testing**: macOS and local development workflows are the main proven path. Windows and Linux should continue to be validated in CI and release smoke tests.
 2. **Packaging**: The CMake `install()` targets stage the executable and resources into a release directory. Future updates may involve integrating `CPack` to generate distributable `.dmg`, `.deb`, or `.zip` files.
