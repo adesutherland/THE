@@ -138,6 +138,11 @@ static void test_commands_targets_debug_and_queue(void)
    expect_str("target.tabline.name",
               the_input_logical_target_kind_name(input.target.kind),
               "tabline");
+   expect_int("target.filetabs.alias.parse",
+              the_input_logical_target_kind_from_name("filetabs",
+                                                      &input.target.kind), 1);
+   expect_int("target.filetabs.alias.kind", input.target.kind,
+              THE_INPUT_TARGET_TABLINE);
 
    expect_int("target.window.parse",
               the_input_event_from_logical_target(THE_INPUT_TARGET_WINDOW,

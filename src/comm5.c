@@ -38,6 +38,7 @@
 #include <the.h>
 #include <proto.h>
 #include "cursesdriver.h"
+#include "inputevent.h"
 #ifdef USE_UTF8
 # include "textedit.h"
 #endif
@@ -401,8 +402,7 @@ short Tabfile(CHARTYPE *params)
 {
    short rc=RC_OK;
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-   int x,y;
-   CHARTYPE scrn;
+   TheInputLogicalTarget target;
 #endif
    int w;
    VIEW_DETAILS *curr;
@@ -421,7 +421,12 @@ short Tabfile(CHARTYPE *params)
        * If called from command line, edit first file displayed
        */
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-      which_window_is_mouse_in( &scrn, &w );
+      if (get_saved_mouse_target(&target)
+      &&  target.kind == THE_INPUT_TARGET_TABLINE
+      &&  target.window_id == WINDOW_FILETABS)
+         w = WINDOW_FILETABS;
+      else
+         w = -1;
 #else
       w = -1;
 #endif
@@ -442,10 +447,9 @@ short Tabfile(CHARTYPE *params)
       }
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
       /*
-       * Get mouse position
+       * Get logical file-tab cell captured at the driver edge.
        */
-      wmouse_position( filetabs, &y, &x );
-      curr = find_filetab( x );
+      curr = find_filetab( target.cell );
       if ( curr != NULL )
       {
          strcpy( (DEFCHAR *)edit_fname, (DEFCHAR *)curr->file_for_view->fpath );

@@ -1,15 +1,16 @@
 # Cursor Driver Architecture
 
-Last updated: 2026-05-25.
+Last updated: 2026-05-26.
+
+This document is the ownership contract for the cursor/driver split. The active
+status ledger lives in `doc/utf-handover.md`.
 
 ## Goal
 
 THE must separate editor intent from terminal mechanics. Editor commands should
 work in logical terms: file lines, screen rows, logical text cells, grapheme
 clusters, command-line text, prefix text, and focus zones. Physical drivers then
-materialize that logical state for curses, an LLM client, or another future UI.
-
-The rule is:
+materialize that logical state for curses, an LLM client, or a future UI.
 
 ```text
 editor command -> logical UI model -> physical driver
@@ -17,8 +18,9 @@ physical input -> normalized input event -> editor command
 ```
 
 Editor command code must not infer logical state from curses cursor state. UTF
-repair strategies, cursor widths, replacement widths, and terminal quirks are
-physical concerns and belong behind the physical driver boundary.
+repair strategies, cursor widths, replacement widths, blank-cell quirks, and
+terminal refresh ordering are physical concerns and belong behind the physical
+driver boundary.
 
 ## Ownership
 
@@ -34,381 +36,145 @@ The logical layer owns:
 - editable/non-editable row decisions.
 - text mutation byte ranges derived from logical `TextPos`.
 
-The logical layer may use `textpos`, `logcursor`, `utflayout`, and terminal
-profile metadata where it needs to ask whether a logical cursor is physically
-visible. It must not call curses.
+The logical layer may use `textpos`, `logcursor`, `utflayout`, `uidriver`,
+`screenframe`, and terminal profile metadata when it needs to ask whether a
+logical cursor is physically visible. It must not call curses.
 
 ### Physical Driver Layer
 
 The physical driver owns:
 
 - curses `WINDOW *` access.
-- `getyx`, `wmove`, `wadd*`, `mvwadd*`, `touchline`, `wnoutrefresh`,
-  `doupdate`, and hardware cursor parking.
-- logical-to-physical display column mapping.
+- `getyx`, `wmove`, `wadd*`, `mvwadd*`, `touchline`, `touchwin`,
+  `wnoutrefresh`, `doupdate`, `wgetch`, input timeouts, and mouse packet
+  position decoding.
+- physical cursor save/restore and hardware cursor parking.
+- logical-to-physical display column mapping for the curses path.
 - software cursor painting.
 - UTF repair strategy execution.
-- physical refresh ordering.
+- cell writes/fills and physical refresh ordering.
 
-For the current curses UI, this boundary is implemented by `cursesdriver.c`
-plus the rendering code that is being moved behind it from `show.c`.
+For the current curses UI, these mechanics belong in `src/cursesdriver.c` or a
+clearly physical edge that is being migrated to that driver. Do not move
+physical cursor save/restore, refresh, touch/update, cell writes, software
+cursor painting, or cursor parking back into logical command code.
 
 ### Input Drivers
 
-Input drivers own device-specific input collection. They return normalized
-events: text input, named keys, mouse hit requests, and command submission.
-Command dispatch should consume normalized input and logical cursor state rather
-than raw curses coordinates.
+Input drivers own device-specific input collection and return normalized
+events: text input, named keys, mouse-like logical hits, command submission, and
+debug requests. Command dispatch should consume normalized input and logical
+cursor state rather than raw curses coordinates.
 
-The LLM driver must use the same normalized input and logical screen model, so
-an LLM client exercises the same editor behavior as a curses terminal.
+The current curses key loop has a compatibility adapter: it reads through
+`cursesdriver.c`, normalizes the key through `TheInputEvent`, then hands the
+equivalent legacy key to existing dispatch. That is a transition step, not the
+final architecture. Live curses mouse packets now follow the same transition
+pattern: `mouse.c` decodes terminal mouse packets and window-local physical
+coordinates at the driver edge, maps them to `TheInputEvent` logical-hit
+targets, and then routes legacy mouse-definition dispatch through the saved
+target window id. Migrated consumers such as `CURSOR MOUSE` and `TABFILE`
+consume logical target kind, line number, row, cell, screen, and window id
+instead of raw terminal coordinates.
 
-### LLM Driver Requirements
+### LLM Driver
 
-The LLM driver is a real UI driver, not a convenience dump of terminal text. It
-should make THE comfortable and reliable for an LLM to operate:
+The LLM driver is a UI driver, not screen scraping. It must expose deterministic
+semantic snapshots with row roles, line numbers, prefix text, file text,
+command/status text, marks, current focus, and logical cursor position. It
+should accept the same normalized text/key/command/logical-hit/debug events as
+other drivers.
 
-- expose a stable semantic screen snapshot with row roles, line numbers, prefix
-  text, file text, command text, status text, marks, current focus, and logical
-  cursor position.
-- use logical coordinates (`zone`, `line_number`, `row`, `cell`) rather than
-  terminal escape positions.
-- preserve enough physical metadata for debugging (`display_col`, terminal
-  class, repair strategy, and driver operation log) without making the LLM
-  depend on curses behavior.
-- accept normalized input events: text insertion, named key actions, mouse-like
-  logical hits, command submission, and higher-level editor intents.
-- provide safe introspection commands such as "describe focus", "describe row",
-  "list visible rows", "dump cursor mapping", "dump pending driver ops", and
-  "explain last render decision".
-- avoid ambiguous screen scraping. Repeated calls should return deterministic
-  JSON-like structures that can be compared in tests and summarized in logs.
-- minimize tokens by exposing view modes: file-area only, reserved/status rows
-  only, prefix commands only, focus row only, and full screen when explicitly
-  requested.
-- support row ranges, text truncation, optional prefix/command/status/cursor
-  metadata, and compact field names so scrolling through a file does not
-  repeatedly resend stable screen chrome.
-- support debug workflows for THE itself: capture a reproducible scenario,
-  replay normalized input, compare logical frame output, and compare physical
-  driver operation logs.
+Physical metadata such as display column, terminal class, repair strategy, and
+driver operation logs is useful for debugging, but agents must reason from
+logical coordinates: `zone`, `line_number`, row, and logical cell.
 
-The LLM driver should not bypass editor commands or mutate editor buffers
-directly. It should feed the same command/input layer used by curses after input
-normalization, so LLM automation and manual terminal use exercise one code path.
+## Current Checkpoint
 
-## Current Problem
+Closed checkpoints are summarized here; details and next tasks are in
+`doc/utf-handover.md`.
 
-### 2026-05-23 Review
+- `src/textpos.c`, `src/logcursor.c`, `src/utflayout.c`, `src/utfrepair.c`,
+  and `src/utfterm.c` provide the logical UTF and physical profile foundation.
+- `src/uidriver.c` defines logical row roles, frames, cursor overlays, and
+  fake-driver operation logs.
+- `src/screenframe.c` builds live file-area `UiFrame` snapshots and rebases
+  saved logical cursors onto rebuilt rows.
+- `src/cursesdriver.c` owns the migrated physical curses mechanics and
+  file-area logical-to-physical cursor materialization.
+- `src/inputevent.c` defines shared normalized input events.
+- `src/mousehit.c` maps driver-edge mouse packets to shared logical-hit
+  targets for normal live curses mouse dispatch.
+- `src/llmdriver.c` formats semantic snapshots, compact view modes, and debug
+  diagnostics.
+- `src/agentdriver.c` plus `tools/the_agent.c` provide the no-curses proof
+  target with capability reporting, explicit unsupported-command diagnostics,
+  logical hits, command/file focus, and the current SOS navigation/edit subset.
+- `show.c`, `execute.c`, `query1.c`, `query2.c`, and `commsos.c` have removed
+  several active-window cursor snapshot fallbacks from the focused cursor,
+  query, SOS, render-exit, status, prefix, and view-switch paths.
 
-The current documents and code agree on the core boundary, and the first
-executable proof now exists as `the_agent`: an agent-interactive target that
-links the logical editor/LLM driver modules and deliberately omits curses,
-`show.c`, and `cursesdriver.c`. That target opens a file, exposes semantic LLM
-snapshots, accepts normalized text/key/command input, and edits a small logical
-buffer and command-line focus through `TextPos`/`LogicalCursor`. It is not
-expected to replace the full curses editor yet; its purpose is to prove that
-useful editor interaction can happen without terminal state or curses calls.
+## Status Model
 
-The proof target must satisfy these checks:
+Use this status model for every future slice:
 
-- no curses libraries in the target link line or dynamic dependencies.
-- no `cursesdriver.c`, `show.c`, or curses-window symbols in the target source
-  closure.
-- interactive stdin/stdout protocol suitable for an agent loop.
-- semantic `full`, `filearea`, `focus`, `reserved`, and `prefix` snapshots
-  using the existing LLM formatter.
-- normalized key/text/command handling through `TheInputEvent`.
-- tests that exercise file loading, cursor motion, text insertion, compact
-  views, and the no-curses build guard.
+- `Done`: behavior is covered by a no-curses agent/LLM surface, virtual or
+  fake-driver CTest, CREXX/pty full-editor test, or focused unit CTest; the
+  live curses path uses the same logical data; unsupported behavior is declared;
+  and guardrails are tightened for any fully cleaned module or behavior class.
+- `In progress`: behavior has a logical foundation but still has legacy
+  dispatcher, renderer fallback, mouse, command, or physical-local mechanics.
+- `Completion step`: one of the three concrete finish-line steps in
+  `doc/utf-handover.md`.
+- `Deferred`: a larger model that should wait until it can appear in LLM
+  snapshots and virtual/fake-driver tests.
 
-The implementation is being migrated away from multiple physical cursor
-authorities. Some old paths remain, but the first stable checkpoints are now in
-place:
+The current active categories are:
 
-- `src/uidriver.c` defines a logical frame, row roles, cursor overlays, and a
-  fake driver operation log.
-- `src/screenframe.c` builds live `UiFrame` snapshots from THE's current
-  file-area rows, including prefix metadata and row-role validation.
-- `src/cursesdriver.c` materializes UTF file-area logical cursor requests and
-  owns logical-to-physical display column mapping for the curses path. It also
-  wraps common physical window operations used by migrated code, including
-  cursor capture/move/restore, window origin/size reads, refresh/update,
-  attribute/touch helpers, and input timeouts.
-- `src/inputevent.c` defines normalized input events shared by curses-facing
-  key codes and LLM-facing text/key/command/logical-hit/debug requests.
-- UTF file-area left/right movement, text insertion, `SOS DELBACK`, and
-  `SOS DELCHAR` now prefer `VIEW_DETAILS.logical_cursor` and derive edit byte
-  ranges from logical `TextPos`.
-- software cursor overlay capture for the file area is logical-first and rejects
-  EOF/TOF/out-of-bounds rows by row role and line number.
-- command-line and prefix focus now record logical cursor zones, so the renderer
-  no longer needs to treat those areas only as curses positions.
-- `show.c` builds a live `UiFrame` during full file-area redraw and uses that
-  frame to decide file-area and prefix software cursor overlays. The actual
-  software-cursor cell painting, UTF/ascii cell write/fill primitives, and
-  render-entry cursor save/restore helpers now live behind `cursesdriver.c`.
-  Curses attribute, touch, refresh, and update calls from the renderer are also
-  routed through driver helpers. Targeted command-line redraws now draw the
-  software cursor from live logical command focus, targeted prefix redraws pick
-  their row from logical prefix focus, a rebased `UiFrame` cursor, or
-  editor-owned focus-row state instead of the saved prefix-window cursor, SDSLH
-  bracket highlighting reads logical file focus directly, and UTF whole-line
-  cursor-repair redraws reuse a frame-backed overlay. `show_statarea()` now
-  inspects HEXDISPLAY text from the
-  live logical file-area, prefix, or command cursor when one is available, and
-  `screenframe_build()` now rebases saved logical cursors onto rebuilt rows, so
-  view-switch restoration preserves file-area/prefix focus without physical
-  window snapshots. `prepare_view()` seeds an active file-area cursor from
-  editor-owned `current_column` when no logical cursor has been published yet,
-  and `advance_view()` restores only logical file-area/prefix cursor targets.
-- The main curses input loop now reads keys through `cursesdriver.c` and
-  normalizes the collected key with `TheInputEvent` before handing the same
-  legacy key code to existing dispatch. This is a compatibility adapter, not
-  yet a full command-dispatch replacement. The no-curses agent path now models
-  logical hit targets; live curses mouse packets still need to be converted to
-  those targets at the driver edge.
-- `src/llmdriver.c` can build role-aware semantic snapshots from `UiFrame`,
-  accept normalized input events through the shared input layer, and format
-  cursor mapping plus driver operation logs for deterministic diagnostics.
-- `src/agentdriver.c` plus `tools/the_agent.c` provide a no-curses executable
-  proof target with scripted agent interaction and a no-curses dependency
-  guard. The proof target now covers both file-area focus and command-line
-  focus/cursor movement, reports its supported/unsupported surface through a
-  stable `capabilities` response, and returns explicit unsupported-command
-  diagnostics for full-editor commands that are not yet routed through the
-  agent subset. Its first command bridge covers the SOS navigation/edit subset
-  (`TOPEDGE`, `BOTTOMEDGE`, `LEFTEDGE`, `RIGHTEDGE`, `FIRSTCOL`, `LASTCOL`,
-  `ENDCHAR`, `FIRSTCHAR`, `DELCHAR`, `CUADELCHAR`, `DELBACK`, `CUADELBACK`,
-  `DELEND`, `QCMND`, and `EXECUTE`) as logical cursor/focus/edit operations
-  without linking curses. It also accepts logical hit targets for file-area,
-  prefix, command, status, tabline, divider, and window selection surfaces.
-- Macro/agent-visible diagnostics now include both THE message history and
-  SDSLH parser diagnostics: `EXTRACT /MESSAGES/`, `QUERY MESSAGES`,
-  `SDSLHWAIT`, `EXTRACT /PMSGS/`, and `QUERY PMSGS`. SDSLH diagnostics are
-  collected from the parse tree, including zero-length parser messages that are
-  not attached to a painted character.
-- Ordinary `execute.c` cursor migration has started. `execute_move_cursor()`
-  now derives file-area row from logical cursor/focus state and materializes the
-  cursor through `cursesdriver.c` in both UTF and no-UTF builds.
-  `execute_makecurr()` and the normal block rearrange cursor-preservation path
-  now preserve logical file-area/prefix cells rather than capturing and
-  restoring curses cursor coordinates. `insert_new_line()` now places the
-  inserted-line cursor from logical row/cell state and materializes file-area or
-  prefix focus through the driver. `selective_change()` now positions its
-  prompt cursor from the match's logical `TextPos` cell and driver viewport
-  visibility rather than from the physical curses cursor. The remaining
-  `execute.c` OS shell bridge, `EDITV LIST` screen, dialog/popup transient
-  windows, popup placement, and popup/dialog input mechanics now call
-  driver-owned physical wrappers instead of curses primitives directly.
-- `src/cursor.c`, `src/comm5.c`, `src/query1.c`, `src/query2.c`, and
-  `src/edit.c` no longer contain direct `getyx`, `wmove`, `getbegyx`,
-  `getmaxx`, `getmaxy`, or `wtimeout` calls; those paths now go through
-  `cursesdriver.c` wrappers.
-- `src/query1.c` and `src/query2.c` no longer have active-driver cursor
-  snapshot fallbacks. Field, edge, shadow, and synelem query paths now prefer
-  logical cursor state and fall back only to editor-owned state such as
-  `focus_line`, `current_row`, `current_column`, and `cmdline_col`. The
-  matching full-editor behavior is covered by focused CREXX/pty query and SOS
-  tests.
+- Done: logical UTF primitives, terminal profile/repair foundation, UI frame
+  and fake-driver foundation, LLM snapshot formatting, no-curses agent proof,
+  file-area logical cursor/editing foundation, major render cursor fallback
+  removals, execute wrapper migration, focused query/SOS active-driver fallback
+  removals, normalized live mouse input for normal `THEMouse` dispatch, and
+  baseline guardrails.
+- In progress: remaining completion steps in `doc/utf-handover.md`: close
+  command dispatch coverage and close renderer/terminal paint.
+- Deferred: full agent dispatcher integration, full prefix command machinery in
+  the agent, popup/dialog/window logical lifecycle, retained-frame delta views,
+  strict project-wide curses exclusion outside physical edges, and additional
+  terminal baselines.
 
-The remaining implementation still has several physical cursor authorities:
+## Guardrails
 
-- `execute.c` no longer calls the common curses cursor/window primitives
-  directly. Ordinary cursor effects for `execute_move_cursor()`,
-  `execute_makecurr()`, block rearrange cursor preservation, `insert_new_line()`,
-  and `selective_change()` prompt placement are logical-first, while OS
-  suspend/resume, `EDITV LIST`, popup placement, and popup/dialog mechanics are
-  still physical behavior routed through `cursesdriver.c` wrappers. A real
-  logical popup/dialog model remains a later slice.
-- `commsos.c` no longer has direct curses cursor/window operations in SOS edit
-  and navigation logic, and its active-driver cursor query fallback is gone.
-  SOS row/cell decisions now prefer `VIEW_DETAILS.logical_cursor` and fall back
-  to editor-owned state such as `current_column`, `cmdline_col`, and focus-line
-  row calculation. Prefix cursor materialization and edge-command window sizing
-  still go through `cursesdriver.c` as physical driver operations.
-- `show.c` no longer restores the active full-screen render cursor from a
-  captured physical position. Render exit now materializes file-area, prefix,
-  and command cursor targets from logical cursor state, with editor-owned
-  fallback state where needed. Status/HEXDISPLAY, targeted prefix row selection,
-  position reporting, and view-switch preservation no longer use physical
-  cursor snapshots.
-- `cursesdriver.c` owns the migrated physical primitives, but many callers
-  still make logical decisions from legacy physical coordinates before calling
-  the driver. The next separation slices should replace those decisions with
-  logical focus/row/cell state rather than merely wrapping more calls.
+Guardrails are only useful when they close with behavior coverage. Tighten them
+module by module, not by aspiration.
 
-The visible symptoms follow from that split authority: EOF/prefix underline,
-stale software cursor after scroll, incorrect after-EOL edits, and keycap
-cursor jumps can all be caused by stale or inconsistent physical cursor state
-being treated as logical editor state.
-
-## Refactor Sequence
-
-Each step is intended to be buildable, testable, and committable. Steps 1-7
-have an initial implementation checkpoint. Step 8 remains deliberately
-incomplete until the live renderer no longer needs direct `show.c` access to
-curses.
-
-1. Record architecture and add guardrails.
-   Add this document, update `doc/utf-handover.md`, and add a script/CTest that
-   reports direct curses calls outside the approved driver/rendering boundary.
-
-2. Add logical UI frame and fake driver types.
-   Introduce small driver-neutral structures for row roles, logical cells,
-   cursor overlays, and physical operation recording. Add unit coverage before
-   changing live behavior.
-
-3. Route file-area cursor movement through logical requests.
-   `THEcursor_left/right/up/down/home/move/goto/file` should update
-   `VIEW_DETAILS.logical_cursor` and ask the curses driver to materialize the
-   result. Direct `wmove`/`getyx` use in these paths should disappear.
-
-4. Route file-area editing through logical positions.
-   `Text`, `SOS DELBACK`, `SOS DELCHAR`, word movement, tab movement, and
-   after-EOL behavior should derive byte offsets from logical `TextPos`, not
-   from curses `x`.
-
-5. Consolidate software cursor painting.
-   The cursor overlay is represented in `UiFrame`. Full file-area redraw now
-   builds a live frame and uses it for file-area and prefix software cursor
-   overlay selection. Software-cursor attribute, cell painting, UTF/ascii cell
-   write/fill primitives, and render cursor save/restore helpers now live in
-   the curses driver. Renderer attribute, touch, refresh, and update calls also
-   go through driver helpers. Targeted command-line redraw, targeted prefix
-   redraw, SDSLH bracket matching, and UTF whole-line cursor-repair repaint now
-   use logical or frame-backed cursor data; targeted prefix redraw also falls
-   back only to editor-owned focus-row state when no cursor frame is available.
-   The remaining work is to move broader targeted redraw requests to
-   driver-level logical render operations and retire the remaining legacy
-   snapshot fallbacks.
-
-6. Bring prefix and command line under the same model.
-   Prefix and command-line focus now have logical cursor state. Normal `TEXT`
-   editing for both areas mutates logical command/prefix buffers and redraws
-   through area display helpers, and position/field reporting prefers logical
-   cells. Remaining work in these areas is SOS/key-navigation cleanup and
-   routing input through normalized events.
-
-7. Normalize input.
-   `inputevent` now owns normalized text/key/command/logical-hit/debug events,
-   legacy key-code conversion, and an input queue. `llmdriver` delegates to
-   that shared layer. The live curses loop now has a first compatibility
-   adapter: collected keys pass through `TheInputEvent` and then back to the
-   existing legacy key dispatcher. Remaining work is to make command dispatch
-   consume normalized events directly where practical and to convert live
-   curses mouse packets into the logical targets now modeled by `inputevent`
-   and `the_agent`.
-
-8. Tighten guardrails.
-   Once the migration is complete, make the curses-boundary test strict: editor
-   logic files may not call curses directly. Obsolete legacy platform paths
-   outside macOS, Linux, and Windows can be removed when they block the cleanup.
-
-9. Add a no-curses agent proof target.
-   Done as `the_agent`. The executable agent driver uses `uidriver`,
-   `llmdriver`, `inputevent`, `logcursor`, and `textpos` without linking
-   curses. It gives agents a functional interactive surface, including a first
-   SOS navigation/edit subset and logical hit handling for file-area, prefix,
-   command, status, tabline, divider, and window targets. That gives the
-   refactor a concrete separation proof while the full curses editor is still
-   being migrated.
-
-## Testing Strategy
-
-Every step should run:
-
-```sh
-cmake --build cmake-build-debug -j2
-ctest --test-dir cmake-build-debug --output-on-failure
-```
-
-Coverage should increase as ownership moves:
-
-- logical cursor unit tests for file-area, prefix, command line, virtual cells,
-  and row roles.
-- fake-driver tests for physical operations requested by keycap, flag, ZWJ, and
-  ASCII lines.
-- fixture validation for `tests/fixtures/utf-render.txt` and focused keycap
-  demonstrators.
-- manual macOS terminal smoke tests only after unit/fake-driver behavior is
-  deterministic.
-
-## Keycap Debugging Rule
-
-Do not special-case keycaps in editor logic. Keycaps are just one terminal
-profile class that can select conservative physical repair strategies. If a
-keycap line fails but ZWJ works, compare logical frame output and driver
-operation logs. Fix the shared driver path, strategy planner, or terminal
-profile, not logical cluster boundaries.
-
-## Current Sequence
-
-The active sequence is now intentionally aggressive. We are past the point
-where isolated cleanup slices reduce risk; they leave too many half-migrated
-paths alive. Prefer larger behavior groups when the group can be made visible
-through `the_agent`, `llmdriver`, a fake/virtual screen CTest, or CREXX/pty in
-the same commit.
-
-Done for a migration slice means:
-
-- the behavior is observable through a no-curses agent/LLM surface, a virtual
-  screen/fake-driver test, a CREXX full-editor test, or a focused unit CTest;
-- the real curses path uses the same logical input/frame/cursor data as the
-  test surface;
-- remaining unsupported behavior is declared through `the_agent capabilities`
-  or a documented fallback;
-- direct-curses guardrails are tightened for any module or behavior class that
-  is fully cleaned.
-
-High-priority groups:
-
-1. Virtual UI harness. Build CTests that synthesize `UiFrame`/logical screen
-   state for file-area, prefix, command, status, tabline, divider, window
-   selection, and UTF fixture rows. Compare semantic snapshots and fake-driver
-   operation logs. This is the main accelerator for renderer migration.
-2. Agent command/input bridge. `the_agent` now has a first SOS
-   navigation/edit group and logical hit input coverage. Continue expanding it
-   in behavior groups, keep `capabilities` exact for unsupported commands, and
-   add agent script CTests plus CREXX full-editor CTests where parity matters.
-3. Normalized input and mouse. `inputevent` and `the_agent` now model logical
-   hit targets for file-area, prefix, command, status, tabline, divider, and
-   window selection. The next input slice is live curses mouse conversion to
-   those targets, followed by dispatch groups that consume `TheInputEvent`
-   directly instead of legacy key codes.
-4. Renderer fallback purge. Use virtual renderer coverage to remove remaining
-   targeted redraw fallbacks from `show.c`; full-screen render exit no longer
-   restores the active window from a captured physical cursor, and the
-   software-cursor redraw helper no longer infers logical focus from a captured
-   window cursor. Physical save/restore, refresh, touch/update, UTF/ascii cell
-   writes, software cursor painting, and cursor parking stay in
-   `cursesdriver.c`.
-5. Command/query fallback retirement. Retire active-driver row/cell fallbacks
-   outside the renderer once equivalent logical query or agent/CREXX behavior
-   is covered. `query1.c`, `query2.c`, and `commsos.c` are cleaned for the
-   focused query/SOS row-cell fallback surface. Tighten
-   `tests/check_curses_boundary.sh` module by module as remaining command
-   helpers move behind logical state or driver-owned physical operations.
-6. Logical popup/dialog/window lifecycle. Do this as a larger modeled slice
-   only when popup/dialog/window state can appear in LLM snapshots and virtual
-   screen tests. Until then, keep these as driver-owned physical mechanics.
+- Logical foundation modules must stay curses-free.
+- `execute.c` direct curses calls are already guarded and should continue using
+  `cursesdriver.c` wrappers for physical behavior.
+- When a command, query, SOS, mouse, or renderer group is fully migrated, extend
+  `tests/check_curses_boundary.sh` for that newly closed surface.
+- `the_agent` must not link curses, `show.c`, or `cursesdriver.c`.
+- Capability output must remain exact when the no-curses agent supports only a
+  subset of full editor behavior.
 
 ## Test Surface Limits
 
-The test surfaces intentionally cover different risks:
-
 - `the_agent` proves no-curses driver behavior and logical snapshots. It does
-  not yet execute arbitrary THE/SOS commands through the real dispatcher, so a
-  command such as `SOS TOPEDGE` can be unsupported there even when the curses
-  editor and CREXX tests cover it.
-- CREXX/pty tests exercise the full editor command processor and are currently
-  the best automated surface for SOS command behavior. They require CREXX
-  support, the CREXX import/runtime files, and a pty-capable host, and they do
-  not prove the no-curses LLM driver path.
-- Manual smoke tests remain valuable for terminal paint regressions, but any
-  generally useful gap found during manual testing should become either a
-  `the_agent` capability/unsupported-command disclosure, a CREXX test, or a
-  driver/unit test before the related area is considered closed.
-- Virtual screen and fake-driver tests should become the preferred proof for
-  renderer migration because they can compare semantic rows, cursor overlays,
-  and requested physical operations without depending on curses paint timing.
+  not yet execute arbitrary THE/SOS commands through the real dispatcher.
+- CREXX/pty tests exercise the full editor command processor. They require
+  CREXX support, a working CREXX compiler/import runtime, and a pty-capable
+  host.
+- Virtual screen and fake-driver tests are the preferred proof for renderer
+  migration.
+- Manual terminal smoke tests are still needed for paint regressions, but any
+  generally useful finding should turn into a CTest, agent capability
+  disclosure, or focused driver diagnostic.
+
+## Keycap Rule
+
+Do not special-case keycaps in editor logic. Keycaps are one terminal profile
+class that can select conservative physical repair strategies. If a keycap line
+fails but ZWJ works, compare logical frame output and driver operation logs.
+Fix the shared physical driver path, strategy planner, or terminal profile, not
+logical cluster boundaries.

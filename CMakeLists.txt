@@ -376,6 +376,7 @@ set(THE_SOURCES
     src/llmdriver.c
     src/llmruntime.c
     src/mouse.c
+    src/mousehit.c
     src/memory.c
     src/nonansi.c
     src/parser.c
@@ -522,6 +523,9 @@ add_test(NAME test_logcursor COMMAND test_logcursor)
 add_executable(test_inputevent tests/test_inputevent.c src/inputevent.c)
 target_include_directories(test_inputevent PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 add_test(NAME test_inputevent COMMAND test_inputevent)
+add_executable(test_mousehit tests/test_mousehit.c src/mousehit.c src/inputevent.c)
+target_include_directories(test_mousehit PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+add_test(NAME test_mousehit COMMAND test_mousehit)
 add_executable(test_uidriver tests/test_uidriver.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_uidriver PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8 AND USE_UTF8PROC)

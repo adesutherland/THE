@@ -17,6 +17,8 @@ logical_files=(
   src/textedit.h
   src/inputevent.c
   src/inputevent.h
+  src/mousehit.c
+  src/mousehit.h
   src/utflayout.c
   src/utflayout.h
   src/utfrepair.c

@@ -1,12 +1,16 @@
 # LLM Driver Agent Guide
 
-Last updated: 2026-05-25.
+Last updated: 2026-05-26.
+
+This guide describes the agent-facing LLM driver surface. It intentionally
+avoids migration planning detail; use `doc/utf-handover.md` for status and
+next closable tasks.
 
 ## Purpose
 
 The LLM driver is a first-class THE UI driver. It should let an agent edit,
-navigate, inspect, and debug THE without scraping a terminal screen or depending
-on curses cursor behavior.
+navigate, inspect, and debug THE without scraping a terminal screen or
+depending on curses cursor behavior.
 
 The driver must minimize tokens by default. A useful agent loop should request
 only the semantic slice needed for the next action, then expand specific areas
@@ -19,53 +23,54 @@ on demand.
 - Return row roles, not terminal decoration. Important roles include `file`,
   `prefix`, `command`, `tof`, `eof`, `reserved`, `bounds`, `scale`, `tabline`,
   `status`, `prompt`, `divider`, and `window`.
-- Keep the file bytes and logical UTF clusters separate from physical display
-  width, cursor width, and repair strategy.
+- Keep file bytes and logical UTF clusters separate from physical display
+  width, cursor width, repair strategy, and terminal profile class.
 - Prefer deterministic compact JSON-like output over terminal text.
-- Let the agent choose the view mode and token budget.
-- Never let the LLM driver mutate buffers directly. It should submit normalized
-  input or editor commands through the same command layer as other drivers.
+- Let the agent choose view mode and token budget.
+- Never let the LLM driver mutate buffers directly. It should submit
+  normalized input or editor commands through the shared input/command layer.
 
 ## Token-Saving View Modes
 
-The LLM driver supports formatting options that should be exposed through the
-agent-facing interface:
+The LLM driver supports these formatting modes:
 
 - `full`: all visible semantic rows, command line, status, focus, prefixes, and
   text. Use sparingly.
-- `filearea`: only editable file rows. This is the default mode for scrolling
+- `filearea`: editable file rows only. This is the default for scrolling
   through a file.
-- `reserved`: only non-file informational rows such as TOF/EOF, scale, bounds,
-  tab lines, status, prompt, and reserved lines.
-- `prefix`: prefix command text only. Use when issuing or reviewing prefix
-  commands.
+- `reserved`: non-file informational rows such as TOF/EOF, scale, bounds, tab
+  lines, status, prompt, and reserved rows.
+- `prefix`: prefix command text only.
 - `focus`: only the row containing the logical cursor.
 
-Formatting options include:
+Formatting options:
 
-- `first_row` and `row_count` to restrict screen rows.
-- `max_text_cols` to truncate long lines.
-- `include_prefix` to omit prefix text while reading file content.
-- `include_command` and `include_status` to omit stable chrome while scrolling.
-- `include_cursor` to omit focus metadata for bulk content reads.
-- `compact` to use short field names in high-frequency loops.
+- `first_row` and `row_count` restrict screen rows.
+- `max_text_cols` truncates long lines.
+- `include_prefix`, `include_command`, `include_status`, and
+  `include_cursor` omit stable chrome while scrolling.
+- `compact` uses short field names for high-frequency loops.
 
-## Recommended Agent Workflows
+## Recommended Workflows
 
-### Reading and Scrolling
+### Reading And Scrolling
 
 Use `filearea`, compact output, hidden prefixes, hidden command/status, and a
-line-length cap. This gives the agent the text it needs without paying for
-prompt/status/prefix chrome on every scroll.
+line-length cap. Expand to `focus` or a small row range only when the next
+action depends on nearby context.
 
 Example shape:
 
 ```json
-{"mode":"filearea","rows":24,"cols":80,"screen_rows":[{"r":3,"role":"file","line":42,"cur":0,"t":"..."}]}
+{
+  "mode": "filearea",
+  "rows": 24,
+  "cols": 80,
+  "screen_rows": [
+    {"r": 3, "role": "file", "line": 42, "cur": 0, "t": "..."}
+  ]
+}
 ```
-
-When the agent needs context around the cursor, use `focus` first. Expand to a
-small `filearea` row range only if the next command depends on surrounding text.
 
 ### Prefix Commands
 
@@ -80,7 +85,7 @@ file scrolling unless the task specifically needs them.
 
 ### Debugging THE
 
-Use LLM debug commands rather than asking for a full screen dump:
+Use LLM debug commands rather than full screen dumps:
 
 - `describe-focus`: current logical zone, line, row, cell, and desired cell.
 - `describe-row`: role, line number, editable flag, and text for one row.
@@ -91,14 +96,8 @@ Use LLM debug commands rather than asking for a full screen dump:
 - `explain-last-render`: concise renderer decision summary, including UTF class
   and repair strategy when applicable.
 
-These commands are intended to make defects reproducible. A keycap cursor bug,
-for example, should be reduced to:
-
-1. visible rows in compact `filearea` mode;
-2. logical focus;
-3. cursor mapping;
-4. driver ops for the last movement;
-5. last render explanation.
+A keycap cursor bug should reduce to visible rows, logical focus, cursor
+mapping, driver operations for the last movement, and last-render explanation.
 
 ## Skill Wrapper Shape
 
@@ -111,57 +110,63 @@ An agent skill can wrap the LLM driver with high-level actions:
 - `send_key(name)`: normalized key input.
 - `type_text(text)`: normalized text input.
 - `run_command(command)`: THE command-line submission.
-- `hit(target,line,row,cell)`: logical mouse-like hit target for file area,
-  prefix, command line, status, tabline, divider, or window selection.
+- `hit(target,line,row,cell)`: logical mouse-like hit target.
 - `debug_cursor()`: focus plus cursor mapping.
 - `debug_render()`: driver ops plus last render explanation.
 
-The skill should default to the smallest view that can answer the immediate
-question, and only expand when the editor state is ambiguous.
+The wrapper should default to the smallest view that can answer the immediate
+question and expand only when editor state is ambiguous.
 
 ## Implementation Status
 
-Implemented foundation:
+Closed foundation:
 
-- `src/uidriver.c` frame rows, row roles, cursor overlay validation, and driver
-  operation logs.
-- `src/screenframe.c` live frame snapshots for the current file-area rows.
-- `src/inputevent.c` shared normalized text/key/command/logical-hit/debug
+- `src/uidriver.c`: frame rows, row roles, cursor overlay validation, cursor
+  rebasing, and fake-driver operation logs.
+- `src/screenframe.c`: live file-area snapshots for the current editor view.
+- `src/inputevent.c`: shared normalized text/key/command/logical-hit/debug
   events, legacy key conversion, and input queues.
-- `src/llmdriver.c` semantic screen view formatting.
-- compact view formatting with `full`, `filearea`, `reserved`, `prefix`, and
-  `focus` modes.
-- LLM compatibility wrappers around the shared input event layer.
-- debug snapshot formatting for focus, cursor mapping, driver ops, and last
-  render explanation.
-- `test_virtual_screen`, a no-curses virtual frame harness for file, prefix,
+- `src/mousehit.c`: shared no-curses mapping from driver-edge mouse packet
+  facts to logical-hit targets used by the normal live curses mouse path.
+- `src/llmdriver.c`: semantic screen view formatting, compact view modes,
+  compatibility wrappers, and debug snapshot formatting.
+- `test_virtual_screen`: no-curses virtual frame harness for file, prefix,
   command, status, tabline, divider, window, UTF fixture, compact-view, cursor,
-  targeted redraw row, logical-hit, and fake-driver operation coverage.
-- `src/agentdriver.c` and `tools/the_agent.c`, a no-curses proof target that
-  opens a file, emits LLM snapshots, accepts normalized stdin commands, and
-  edits a small logical buffer without linking curses or the curses driver.
-- a first SOS navigation/edit command bridge in `the_agent`, covering logical
-  `TOPEDGE`, `BOTTOMEDGE`, `LEFTEDGE`, `RIGHTEDGE`, `FIRSTCOL`, `LASTCOL`,
-  `ENDCHAR`, `FIRSTCHAR`, `DELCHAR`, `CUADELCHAR`, `DELBACK`, `CUADELBACK`,
-  `DELEND`, `QCMND`, and `EXECUTE` behavior while leaving full SOS command
-  behavior explicitly unsupported.
-- logical hit handling in `the_agent` for file-area, prefix, command, status,
-  tabline, divider, and window selection targets.
+  targeted-redraw row, logical-hit, and fake-driver operation coverage.
+- `src/agentdriver.c` and `tools/the_agent.c`: no-curses proof target with
+  file loading, LLM snapshots, normalized stdin commands, file-area focus,
+  command-line focus/editing, logical hits, and explicit capability reporting.
+
+Current agent subset:
+
+- Supported input commands: `look`, `capabilities`, `focus`, `hit`, `key`,
+  `text`, `type`, `command`, `debug`, and `quit`.
+- Supported logical-hit targets: file-area, prefix, command, prompt, status,
+  tabline/filetabs, divider, and window selection.
+- Supported SOS commands: `TOPEDGE`, `BOTTOMEDGE`, `LEFTEDGE`, `RIGHTEDGE`,
+  `FIRSTCOL`, `LASTCOL`, `ENDCHAR`, `FIRSTCHAR`, `DELCHAR`, `CUADELCHAR`,
+  `DELBACK`, `CUADELBACK`, `DELEND`, `QCMND`, and `EXECUTE`.
+- Unsupported full-editor commands return stable diagnostics and point callers
+  to `capabilities`.
+
+Not closed:
+
+- Full THE command dispatcher integration in `the_agent`.
+- Full prefix command machinery in `the_agent`.
+- Modal readv/popup/dialog mouse loops still use physical mouse handling until
+  logical popup/dialog/window lifecycle models exist.
+- Logical popup/dialog/window lifecycle snapshots.
+- Delta views from retained prior frames.
 
 ## No-Curses Agent Executable
 
-`the_agent` is the first live LLM surface. It is intentionally smaller than the
-full editor: it proves the logical/LLM contracts without curses, but it does
-not yet route into THE's complete command executor, prefix command machinery, or
-syntax/color subsystems.
-
-Build it with:
+Build:
 
 ```sh
 cmake --build cmake-build-debug --target the_agent -j2
 ```
 
-Run it against a file:
+Run against a file:
 
 ```sh
 ./cmake-build-debug/the_agent --rows 24 --cols 80 path/to/file.txt
@@ -171,47 +176,51 @@ Supported stdin commands:
 
 - `look [full|filearea|reserved|prefix|focus] [compact] [max=N]`
 - `look ... [prefix=0|1] [command=0|1] [status=0|1] [cursor=0|1]`
-- `focus command` or `focus filearea` to move the logical input focus.
-- `hit TARGET LINE ROW CELL [SCREEN WINDOW]` for logical mouse-like targets.
+- `capabilities`
+- `focus command` or `focus filearea`
+- `hit TARGET LINE ROW CELL [SCREEN WINDOW]`
 - `key left|right|up|down|home|end|pageup|pagedown|backspace|delete`
-- `text TEXT` for literal text input at the current logical focus. In command
-  focus this edits the command line; in file-area focus this edits the file.
-- `command COMMAND` for logical editor commands implemented by the proof
-  driver, such as `goto N`, `top`, `bottom`, `insert TEXT`, `delete`,
-  `backspace`, `rows N`, `cols N`, `save`, `write`, and the supported SOS
-  navigation/edit subset.
-- `key enter` submits the edited command line when command focus is active.
-- `debug NAME` to pass a normalized debug request.
-- `quit` or `exit`.
+- `text TEXT`
+- `command COMMAND`
+- `debug NAME`
+- `quit` or `exit`
 
 Example agent loop:
 
 ```sh
-printf 'look filearea compact max=80\nkey right\nlook focus compact prefix=0\nquit\n' \
+printf '%s\n' \
+  'look filearea compact max=80' \
+  'key right' \
+  'look focus compact prefix=0' \
+  'quit' \
   | ./cmake-build-debug/the_agent tests/fixtures/utf-render.txt
 ```
 
 Command-line editing example:
 
 ```sh
-printf 'focus command\ntext goto 2\nkey left\nlook focus compact prefix=0\nkey right\nkey enter\nlook focus compact prefix=0\nquit\n' \
+printf '%s\n' \
+  'focus command' \
+  'text goto 2' \
+  'key left' \
+  'look focus compact prefix=0' \
+  'key right' \
+  'key enter' \
+  'look focus compact prefix=0' \
+  'quit' \
   | ./cmake-build-debug/the_agent tests/fixtures/utf-render.txt
 ```
 
-The guardrail test is:
+Guardrail test:
 
 ```sh
 ctest --test-dir cmake-build-debug -R 'test_the_agent_no_curses' --output-on-failure
 ```
 
-Remaining work:
+Focused agent tests:
 
-- extend live `UiFrame` creation beyond the file area so command, prompt,
-  status, and reserved UI state all have one logical snapshot.
-- expose the formatting options through the runtime LLM driver command/API.
-- route curses keyboard collection and live mouse-packet conversion through
-  `TheInputEvent` before command dispatch.
-- grow the agent command bridge beyond the SOS navigation/edit subset without
-  removing explicit unsupported diagnostics for the remaining full-editor
-  surface.
-- implement delta views once the frame builder can retain previous snapshots.
+```sh
+ctest --test-dir cmake-build-debug \
+  -R 'test_agentdriver|test_the_agent_script|test_the_agent_capabilities|test_the_agent_no_curses' \
+  --output-on-failure
+```

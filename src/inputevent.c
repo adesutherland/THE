@@ -189,7 +189,9 @@ int the_input_logical_target_kind_from_name(const char *name,
       parsed = THE_INPUT_TARGET_STATUS;
    else if (input_ascii_equal_ci(name, "tabline")
    ||       input_ascii_equal_ci(name, "tabs")
-   ||       input_ascii_equal_ci(name, "tab"))
+   ||       input_ascii_equal_ci(name, "tab")
+   ||       input_ascii_equal_ci(name, "filetabs")
+   ||       input_ascii_equal_ci(name, "file-tabs"))
       parsed = THE_INPUT_TARGET_TABLINE;
    else if (input_ascii_equal_ci(name, "divider"))
       parsed = THE_INPUT_TARGET_DIVIDER;

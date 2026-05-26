@@ -1,54 +1,70 @@
 # LLM Mode Agent Guide
 
+Last updated: 2026-05-26.
+
 This document describes the intended LLM-facing mode for THE. It is written for
 agents and tool authors that need to inspect editor state and drive editor input
 without depending on curses escape sequences, physical terminal columns, or
 screen scraping.
 
+For active migration status and next closable tasks, read
+`doc/utf-handover.md`.
+
 ## Status
 
-The first passive implementation is in `src/llmdriver.c` and
-`src/llmdriver.h`, with coverage in `tests/test_llmdriver.c`.
+Implemented:
 
-The first live proof target is `the_agent`, a separate no-curses executable
-rather than a runtime switch inside the curses editor. It is interactive over
-stdin/stdout, uses the same `LlmDriverScreenView` and `TheInputEvent`
-contracts, and is covered by a build guard that rejects curses dependencies and
-curses-driver symbols. Treat that target as the first agent surface while the
-full editor input loop is still being migrated.
+- `src/llmdriver.c` and `src/llmdriver.h` format semantic snapshots,
+  token-saving view modes, normalized input wrappers, and debug diagnostics.
+- `src/inputevent.c` owns the shared text/key/command/logical-hit/debug event
+  model.
+- The normal live curses mouse path converts terminal packets into the same
+  `TheInputEvent` logical-hit targets used by the LLM/agent surfaces for
+  file-area, prefix, command, status, tabline/filetabs, divider, and window
+  hits.
+- `src/uidriver.c` and `src/screenframe.c` provide the logical frame surface
+  used by the LLM formatter and virtual/fake-driver tests.
+- `the_agent` is the first live no-curses proof target. It is interactive over
+  stdin/stdout, links no curses library or curses driver, and uses the same
+  `LlmDriverScreenView` and `TheInputEvent` contracts.
 
-Current limitation: `the_agent` is not yet wired to THE's full command
-dispatcher. It covers logical file-area and command-line focus plus a small
-command subset. The first SOS bridge is intentionally narrow:
-`SOS TOPEDGE`, `SOS BOTTOMEDGE`, `SOS LEFTEDGE`, `SOS RIGHTEDGE`,
-`SOS FIRSTCOL`, `SOS LASTCOL`, `SOS ENDCHAR`, `SOS QCMND`, and `SOS EXECUTE`
-map to logical no-curses cursor/focus moves. Other THE/SOS commands return an
-explicit unsupported command response even when the full editor handles them.
-Use the `capabilities` protocol command to inspect the stable
-supported/unsupported surface. For unsupported full-editor commands, use
-CREXX/pty integration tests or manual smoke tests until the agent dispatcher
-bridge exists.
+Current limitation:
+
+`the_agent` is an agent subset, not a runtime switch inside the full curses
+editor and not THE's full command dispatcher. It supports file-area and
+command-line focus, logical hits, normalized key/text input, a small command
+set, and this SOS navigation/edit subset:
+
+```text
+TOPEDGE BOTTOMEDGE LEFTEDGE RIGHTEDGE FIRSTCOL LASTCOL ENDCHAR FIRSTCHAR
+DELCHAR CUADELCHAR DELBACK CUADELBACK DELEND QCMND EXECUTE
+```
+
+Other THE/SOS commands return an explicit unsupported-command response. Use the
+`capabilities` protocol command to inspect the exact supported surface. Use
+CREXX/pty integration tests or manual full-editor smoke tests for behavior that
+is not yet routed through the agent subset.
 
 ## Design Intent
 
 LLM mode is a driver, not a terminal emulator.
 
 The curses driver materializes logical editor state onto a terminal. The LLM
-driver should expose the same logical editor state as structured text and accept
+driver exposes the same logical editor state as structured text and accepts
 normalized editor input. An agent should not infer editor state from ANSI
-escapes, hardware cursor position, terminal colour attributes, or terminal
-width quirks.
+escapes, hardware cursor position, terminal color attributes, or terminal width
+quirks.
 
-The driver split is:
+The split is:
 
 - Logical editor model: file text, prefix text, command-line text, focus,
   logical cursor position, grapheme-aware `TextPos`, logical syntax/style
   categories, and normalized input events.
 - Curses driver: curses windows, refreshes, hardware cursor movement, physical
-  display columns, mouse decoding, and terminal-specific UTF repair.
+  display columns, terminal mouse packets, and terminal-specific UTF repair.
 - LLM driver: logical screen snapshot, logical cursor/focus information, status
-  text, command line text, logical syntax/style spans, and normalized
-  text/key/command input.
+  text, command-line text, logical syntax/style spans, and normalized
+  text/key/command/logical-hit/debug input.
 
 The LLM driver must remain independent of terminal profiles. Terminal profiles
 describe physical display behavior only. They must not change the logical text,
@@ -61,42 +77,43 @@ logical cursor position, or input event that an agent sees.
 - `rows` and `cols`: the logical visible screen size reported to the agent.
 - `cursor`: the logical cursor, including zone, line number, zone row, and
   logical cell position.
-- `cursor_screen_row` and `cursor_screen_col`: screen coordinates for display
-  and debugging. These are not a substitute for the logical cursor.
-- `lines`: visible file-area rows with line number, logical row, prefix text,
-  line text, logical syntax/style spans, and current-line marker.
-- `command_line`: the command area text when available.
+- `cursor_screen_row` and `cursor_screen_col`: diagnostic screen coordinates.
+  These are not a substitute for the logical cursor.
+- `lines`: visible rows with row role, line number, logical row, prefix text,
+  line text, syntax/style spans, current-line marker, and cursor marker.
+- `command_line`: command area text when available.
 - `status`: status text when available.
 
-Style spans describe parser/editor categories, not terminal colours. They are
-derived from THE's existing `ECOLOUR_*`/parser state, including SDSLH-backed
-tokens, and are exposed as logical names such as `keyword`, `string`,
-`comment`, `function`, or `operator`. A curses profile may paint those
-categories with different colours, but the LLM contract remains the category
-name and the logical cell range.
+Style spans describe parser/editor categories, not terminal colors. They are
+derived from THE's existing `ECOLOUR_*`/parser state and are exposed as logical
+names such as `keyword`, `string`, `comment`, `function`, or `operator`.
 
 Parser diagnostics are editor state too. In the full editor, macros and agents
 can use `SDSLHWAIT` followed by `EXTRACT /PMSGS/` to list all SDSLH messages in
-the current file without relying on status-line colour or the cursor being on
-the diagnostic token.
+the current file without relying on status-line color or cursor placement.
 
-The formatted view is intentionally line-oriented. A typical snapshot looks like:
-
-```text
-screen rows=3 cols=80
-cursor zone=filearea line=12 row=1 cell=5 screen_row=1 screen_col=5
-command: ====> next
-status: LINE 12 COL 6
- 0000 line=11 prefix="000011" text="alpha"
->0001 line=12 prefix="000012" text="bravo"
-```
-
-Agents should use the `cursor` line and visible rows to decide the next editor
+Agents should use the cursor fields and visible rows to decide the next editor
 action. Do not parse terminal escape output or rely on physical cursor parking.
+
+## View Modes
+
+Use the smallest view that can answer the immediate question:
+
+- `full`: all visible semantic rows, command line, status, focus, prefixes, and
+  text.
+- `filearea`: editable file rows only. Use this for normal scrolling.
+- `reserved`: non-file informational rows such as TOF/EOF, scale, bounds, tab
+  lines, status, prompt, and reserved lines.
+- `prefix`: prefix command text only.
+- `focus`: the row containing the logical cursor.
+
+Formatting options include `first_row`, `row_count`, `max_text_cols`,
+`include_prefix`, `include_command`, `include_status`, `include_cursor`, and
+`compact`.
 
 ## Input Contract
 
-`LlmDriverInput` represents input at the editor boundary.
+`LlmDriverInput` and `TheInputEvent` represent input at the editor boundary.
 
 The current input kinds are:
 
@@ -105,132 +122,74 @@ The current input kinds are:
   `end`, `pageup`, `pagedown`, `enter`, `esc`, `tab`, `backtab`, `backspace`,
   `delete`, `insert`, or function keys `f1` through `f64`.
 - `command`: a command-line command such as `next`, `save`, or `set ...`.
+- `logical-hit`: a mouse-like logical target for file area, prefix, command,
+  prompt, status, tabline, divider, or window selection.
+- `debug`: a diagnostic request such as cursor mapping or driver ops.
 - `none`: no input.
 
-The current compatibility bridge can convert `text` and `key` inputs to legacy
-THE key codes. `command` input is preserved as a command string and must be
-routed through command execution in a later step; it is not a key-code event.
+The current curses bridge can convert text and key inputs back to legacy THE
+key codes. The normal live mouse path converts terminal mouse packets into
+logical-hit events before legacy mouse-definition dispatch. Command,
+logical-hit, and debug inputs are preserved as structured events and should be
+routed by migrated dispatch groups.
 
-`the_agent` accepts these normalized events over stdin:
+`the_agent` accepts these protocol commands:
 
+- `look [full|filearea|reserved|prefix|focus] [compact] [max=N]`
+- `look ... [prefix=0|1] [command=0|1] [status=0|1] [cursor=0|1]`
+- `capabilities`
+- `focus command` or `focus filearea`
+- `hit TARGET LINE ROW CELL [SCREEN WINDOW]`
 - `key NAME`
 - `text TEXT`
-- `hit TARGET LINE ROW CELL [SCREEN WINDOW]`
 - `command COMMAND`
 - `debug NAME`
-
-It also accepts `look` requests that format the current logical screen snapshot
-without changing editor state, `capabilities` requests that describe the
-current agent surface, and `focus command` / `focus filearea` requests that
-move the logical input focus. In command focus, left/right/home/end, delete,
-backspace, and text input operate on the command line; `key enter` submits the
-edited command. `hit` accepts logical file-area, prefix, command, status,
-tabline, divider, and window targets. `command sos ...` is supported only for
-the SOS navigation/edit subset reported by `capabilities`.
+- `quit` or `exit`
 
 ## Agent Usage Rules
 
-When LLM mode is wired:
-
 1. Read the latest screen snapshot before acting.
-2. Prefer command input for explicit editor commands.
+2. Prefer command input for explicit editor commands that the active surface
+   supports.
 3. Prefer key input for navigation that should behave like user cursor motion.
 4. Prefer text input for literal text insertion.
 5. After sending input, wait for the next snapshot before deciding on another
    action.
-6. Use logical cursor fields for reasoning about position. Treat physical screen
-   fields as diagnostic context only.
+6. Use logical cursor fields for reasoning about position. Treat physical
+   screen fields as diagnostic context only.
 7. Do not infer UTF layout from visible glyph width. A keycap, flag, ZWJ emoji,
    or combining sequence may have terminal-specific physical width while
    remaining one logical editor cluster.
 
 ## Development Rules
 
-Keep the LLM driver aligned with the same logical/physical architecture as the
-curses driver:
-
 - Do not add curses includes, `WINDOW *`, `getyx()`, `wmove()`, `wgetch()`, or
   terminal escape handling to `llmdriver.c`.
 - Do not expose terminal-profile layout widths as logical text position.
 - Do not make LLM input a separate command language. It should produce the same
   normalized editor events that curses input eventually produces.
-- Do not make the LLM driver depend on the current terminal. It should be usable
-  in tests and future non-terminal front ends.
+- Do not make the LLM driver depend on the current terminal.
 - Keep formatted output stable enough for agents, but prefer structured fields
   in code over string parsing when possible.
 
-## Current Test Coverage
+## Test Coverage
 
-`tests/test_llmdriver.c` verifies:
-
-- Screen snapshots format rows, cursor, command line, status line, and current
-  line marker.
-- Named keys map to legacy THE key codes.
-- Function keys map through `KEY_F(n)`.
-- ASCII text input maps to a legacy key code.
-- Command input is not treated as a legacy key.
-- The input queue preserves key/text ordering.
-
-Run the focused test with:
+Focused no-curses/LLM tests:
 
 ```sh
-cmake --build cmake-build-debug --target test_llmdriver -j2
-./cmake-build-debug/test_llmdriver
+cmake --build cmake-build-debug --target \
+  test_llmdriver test_virtual_screen test_agentdriver the_agent -j2
+ctest --test-dir cmake-build-debug \
+  -R 'test_llmdriver|test_virtual_screen|test_agentdriver|test_the_agent' \
+  --output-on-failure
 ```
 
-The non-UTF build also includes this test because the LLM driver is not a UTF
-terminal repair feature.
+Coverage includes semantic formatting, compact views, input conversion and
+queues, debug snapshots, virtual frames/fake-driver logs, logical hits, agent
+file loading, file-area and command-line focus, command cursor movement, Enter
+submission, capability output, unsupported-command diagnostics, and the current
+SOS subset.
 
-`tests/test_agentdriver.c`, `tests/test_the_agent_script.sh`, and
-`tests/test_the_agent_capabilities.sh`, and `tests/check_agent_no_curses.sh`
-verify the live proof target:
-
-- loading a file into a logical buffer.
-- compact `filearea` and `focus` snapshots.
-- normalized key movement and command/text insertion.
-- command-line focus, command cursor movement, and Enter submission.
-- stable capability output that says the agent uses an `agent-subset`
-  dispatcher.
-- stable capability output for the partial SOS navigation/edit bridge, logical
-  hit input, and stable unsupported-command output for full-editor commands
-  that are not yet routed through the agent.
-- no curses dynamic dependency or exposed curses-driver symbols in
-  `the_agent`.
-
-## Aggressive Next Steps
-
-LLM mode is now a migration accelerator, not just a passive proof target. New
-driver-boundary work should be visible to agents, fake drivers, or CTest before
-the corresponding curses path is considered migrated.
-
-1. Add a virtual screen/fake-driver harness that can build `UiFrame` snapshots,
-   drive normalized input, and compare semantic rows, cursor overlays, compact
-   views, and fake-driver operation logs without curses.
-2. Expand the no-curses agent driver toward THE's real command executor in
-   useful groups. Prefer a batch of navigation/SOS/prefix/command behaviors
-   with script coverage over one-off smoke helpers.
-3. Route command, key, and text input through the same normalized event layer
-   used by curses. Keep legacy key conversion as an edge adapter, not as the
-   main dispatch model for newly migrated behavior.
-4. Wire live curses mouse handling to logical-hit input for file area, prefix,
-   command line, status, file tabs, divider, and window selection. The
-   `inputevent`/agent side is now covered; the remaining work is driver-edge
-   mouse-packet conversion and full-editor dispatch.
-5. Use agent script CTests for no-curses parity and CREXX/pty CTests for
-   full-editor parity until the agent command bridge can run the same command.
-   Unsupported commands must stay explicit in `capabilities`.
-6. Keep UTF behavior logical: whole grapheme clusters for editor movement and
-   edits, physical terminal strategy only inside curses rendering.
-
-## CREXX Integration Notes
-
-CREXX remains the most useful automated surface for full-editor behavior while
-`the_agent` is incomplete. CREXX profile tests can drive real THE commands,
-including SOS commands, through a pty-backed editor instance. Keep these tests
-clear about their prerequisites and skip reasons: CREXX support must be enabled,
-the CREXX compiler/import runtime must be available, and `script(1)` or another
-pty wrapper must exist. CREXX test failures may be macro/compiler interface
-failures before they are editor regressions, so focused output labels and small
-profiles are preferred. A skipped CREXX test means the full-editor automation
-surface was unavailable; it does not weaken the no-curses `the_agent` boundary
-tests, which prove a different surface.
+CREXX/pty tests remain the stronger full-editor integration surface while
+`the_agent` is incomplete. A skipped CREXX test means that surface was
+unavailable; it does not weaken the no-curses agent boundary proof.

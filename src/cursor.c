@@ -38,6 +38,7 @@
 #include <the.h>
 #include <proto.h>
 #include "cursesdriver.h"
+#include "inputevent.h"
 
 static bool cursor_show_row_is_boundary(const SHOW_LINE *show_row)
 {
@@ -1441,20 +1442,168 @@ short THEcursor_goto(LINETYPE row, LENGTHTYPE col)
    return(rc);
 }
 /***********************************************************************/
+static short cursor_mouse_select_screen(const TheInputLogicalTarget *target)
+{
+#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+   int guard = 0;
+
+   if (target == NULL)
+      return RC_INVALID_ENVIRON;
+   if (target->screen < 0 || target->screen >= display_screens)
+      return RC_INVALID_ENVIRON;
+   while (current_screen != target->screen && guard < display_screens)
+   {
+      (void)Nextwindow((CHARTYPE *)"");
+      guard++;
+   }
+   return (current_screen == target->screen) ? RC_OK : RC_INVALID_ENVIRON;
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(target);
+   return RC_OK;
+#endif
+}
+
+static const CHARTYPE *cursor_mouse_filearea_line(short row, size_t *len)
+{
+   SHOW_LINE *show_row;
+
+   if (len != NULL)
+      *len = 0;
+   if (screen[current_screen].sl == NULL
+   ||  row < 0
+   ||  row >= screen[current_screen].rows[WINDOW_FILEAREA])
+      return (const CHARTYPE *)"";
+   show_row = &screen[current_screen].sl[row];
+   if (show_row->line_type == LINE_TOF || show_row->line_type == LINE_EOF)
+      return (const CHARTYPE *)"";
+   if (show_row->contents == NULL)
+   {
+      if (len != NULL)
+         *len = (size_t)rec_len;
+      return rec;
+   }
+   if (len != NULL)
+      *len = (size_t)show_row->length;
+   return show_row->contents;
+}
+
+static short cursor_mouse_filearea(const TheInputLogicalTarget *target)
+{
+   short row;
+   short rc;
+   const CHARTYPE *line;
+   size_t len;
+   LINETYPE row_line;
+
+   if (target == NULL || in_readv)
+      return RC_OK;
+   row = (short)target->row;
+   if (row < 0 || row >= screen[current_screen].rows[WINDOW_FILEAREA])
+      return RC_INVALID_OPERAND;
+   row = get_row_for_tof_eof(row, current_screen);
+   if (!cursor_show_row_allows_file_cursor(&screen[current_screen].sl[row]))
+      return RC_TOF_EOF_REACHED;
+
+   rc = do_Sos_current((CHARTYPE *)"", current_screen, CURRENT_VIEW);
+   if (rc != RC_OK)
+      return rc;
+   row_line = screen[current_screen].sl[row].line_number;
+   CURRENT_VIEW->focus_line = (target->line_number == row_line)
+                            ? target->line_number
+                            : row_line;
+   pre_process_line(CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL);
+   line = cursor_mouse_filearea_line(row, &len);
+   curses_driver_move_filearea_cursor(current_screen, CURRENT_VIEW, line, len,
+                                      row, target->cell);
+   if (set_colour(CURRENT_VIEW->file_for_view->attr+ATTR_FILEAREA)
+   !=  set_colour(CURRENT_VIEW->file_for_view->attr+ATTR_CURSORLINE))
+   {
+      build_screen(current_screen);
+      display_screen(current_screen);
+   }
+   cursor_focus_refresh(current_screen, CURRENT_VIEW);
+   return RC_OK;
+}
+
+static short cursor_mouse_prefix(const TheInputLogicalTarget *target)
+{
+   short row;
+   short rc;
+   LINETYPE row_line;
+
+   if (target == NULL || in_readv)
+      return RC_OK;
+   row = (short)target->row;
+   if (row < 0 || row >= screen[current_screen].rows[WINDOW_FILEAREA])
+      return RC_INVALID_OPERAND;
+   row = get_row_for_tof_eof(row, current_screen);
+   if (!cursor_show_row_allows_prefix_cursor(&screen[current_screen].sl[row]))
+      return RC_TOF_EOF_REACHED;
+
+   rc = do_Sos_current((CHARTYPE *)"", current_screen, CURRENT_VIEW);
+   if (rc == RC_OK)
+      rc = do_Sos_prefix((CHARTYPE *)"", current_screen, CURRENT_VIEW);
+   if (rc != RC_OK)
+      return rc;
+   row_line = screen[current_screen].sl[row].line_number;
+   CURRENT_VIEW->focus_line = (target->line_number == row_line)
+                            ? target->line_number
+                            : row_line;
+   pre_process_line(CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL);
+   curses_driver_move_prefix_cursor(current_screen, row, target->cell);
+   cursor_focus_store_logical_at(current_screen, CURRENT_VIEW, row,
+                                 target->cell);
+   cursor_focus_refresh(current_screen, CURRENT_VIEW);
+   return RC_OK;
+}
+
+static short cursor_mouse_command(const TheInputLogicalTarget *target)
+{
+   short rc;
+
+   if (target == NULL || in_readv)
+      return RC_OK;
+   rc = cursor_focus_enter_command(current_screen, CURRENT_VIEW, 1, TRUE);
+   if (rc != RC_OK)
+      return rc;
+   rc = execute_move_cursor(current_screen, CURRENT_VIEW,
+                            (LENGTHTYPE)target->cell);
+   cursor_focus_refresh(current_screen, CURRENT_VIEW);
+   return rc;
+}
+
+static short cursor_mouse_logical_target(const TheInputLogicalTarget *target)
+{
+   short rc;
+
+   rc = cursor_mouse_select_screen(target);
+   if (rc != RC_OK)
+      return rc;
+   switch (target->kind)
+   {
+      case THE_INPUT_TARGET_FILEAREA:
+         return cursor_mouse_filearea(target);
+      case THE_INPUT_TARGET_PREFIX:
+         return cursor_mouse_prefix(target);
+      case THE_INPUT_TARGET_COMMAND:
+         return cursor_mouse_command(target);
+      case THE_INPUT_TARGET_STATUS:
+      case THE_INPUT_TARGET_TABLINE:
+      case THE_INPUT_TARGET_DIVIDER:
+      case THE_INPUT_TARGET_WINDOW:
+         return RC_OK;
+      case THE_INPUT_TARGET_PROMPT:
+      case THE_INPUT_TARGET_NONE:
+      default:
+         return RC_INVALID_OPERAND;
+   }
+}
+/***********************************************************************/
 short THEcursor_mouse(void)
 /***********************************************************************/
 {
-#if defined(PDCURSES_MOUSE_ENABLED)
-#define MOUSE_Y (MOUSE_Y_POS+1-screen[scrn].screen_start_row)
-#define MOUSE_X (MOUSE_X_POS+1-screen[scrn].screen_start_col)
-#endif
-#if defined(NCURSES_MOUSE_VERSION)
-#define MOUSE_Y (ncurses_mouse_event.y+1-screen[scrn].screen_start_row)
-#define MOUSE_X (ncurses_mouse_event.x+1-screen[scrn].screen_start_col)
-#endif
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-   int w=0;
-   CHARTYPE scrn=0;
+   TheInputLogicalTarget target;
 #endif
    short rc=RC_OK;
 
@@ -1470,25 +1619,16 @@ short THEcursor_mouse(void)
       return(RC_OK);
    }
    /*
-    * First determine in which window the mouse is...
+    * Use the logical hit captured when the curses mouse packet entered the
+    * driver edge. Commands without a live mouse hit remain explicitly
+    * unsupported instead of re-reading terminal coordinates here.
     */
-   which_window_is_mouse_in(&scrn,&w);
-   if (w == (-1)) /* shouldn't happen! */
+   if (!get_saved_mouse_target(&target))
    {
       TRACE_RETURN();
       return(RC_INVALID_ENVIRON);
    }
-   /*
-    * If the mouse is in a different screen to the current one, move there
-    */
-   if (current_screen != scrn)
-   {
-      (void)Nextwindow((CHARTYPE *)"");
-   }
-   /*
-    * Move the cursor to the correct screen coordinates...
-    */
-   rc = THEcursor_move( current_screen, CURRENT_VIEW, TRUE, FALSE, (short)MOUSE_Y, (short)MOUSE_X );
+   rc = cursor_mouse_logical_target(&target);
 #endif
 
    TRACE_RETURN();

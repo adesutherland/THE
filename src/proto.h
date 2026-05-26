@@ -33,6 +33,8 @@
 $Id: proto.h,v 1.66 2022/07/06 06:39:20 mark Exp $
 */
 
+struct TheInputLogicalTarget;
+
                                                          /* commutil.c */
 CHARTYPE *get_key_name (int,int *);
 CHARTYPE *get_key_definition (int,int,bool,bool);
@@ -504,6 +506,7 @@ short get_mouse_info (int *,int *,int *);
 void which_window_is_mouse_in (CHARTYPE *,int *);
 void reset_saved_mouse_pos (void);
 void get_saved_mouse_pos (int *, int *);
+int get_saved_mouse_target (struct TheInputLogicalTarget *);
 void initialise_mouse_commands (void);
 int mouse_info_to_key (int,int,int,int);
 void mouse_trace_message (const char *, const char *, ...);

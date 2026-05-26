@@ -41,6 +41,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "cursesdriver.h"
+#include "inputevent.h"
+#include "mousehit.h"
 
 /*
  * Following #defines to cater for those platforms that don't
@@ -180,6 +182,7 @@ void mouse_trace_message(const char *area, const char *format, ...)
  */
 static int last_mouse_x_pos=-1;
 static int last_mouse_y_pos=-1;
+static TheInputEvent last_mouse_input;
 
 #if defined(PDCURSES_MOUSE_ENABLED)
 /***********************************************************************/
@@ -412,6 +415,221 @@ short get_mouse_info(int *button,int *button_action,int *button_modifier)
 }
 #endif
 
+static int mouse_window_position(CHARTYPE scrn, int w, int *row, int *col)
+{
+   WINDOW *win = NULL;
+
+   if (row != NULL)
+      *row = -1;
+   if (col != NULL)
+      *col = -1;
+   if (scrn >= display_screens || row == NULL || col == NULL)
+      return FALSE;
+
+   if (w >= 0 && w < VIEW_WINDOWS)
+      win = screen[scrn].win[w];
+   else if (w == WINDOW_STATAREA)
+      win = statarea;
+   else if (w == WINDOW_FILETABS)
+      win = filetabs;
+   else if (w == WINDOW_DIVIDER)
+      win = divider;
+
+   curses_driver_mouse_position(win, row, col);
+   return (*row != -1 && *col != -1);
+}
+
+static int mouse_locate_window(CHARTYPE *scrn, int *w, int *row, int *col)
+{
+   CHARTYPE i;
+   int j;
+
+   if (scrn != NULL)
+      *scrn = current_screen;
+   if (w != NULL)
+      *w = WINDOW_ALL;
+   if (row != NULL)
+      *row = -1;
+   if (col != NULL)
+      *col = -1;
+
+   for (i = 0; i < display_screens; i++)
+   {
+      for (j = 0; j < VIEW_WINDOWS; j++)
+      {
+         if (screen[i].win[j] != (WINDOW *)NULL
+         &&  mouse_window_position(i, j, row, col))
+         {
+            if (scrn != NULL)
+               *scrn = i;
+            if (w != NULL)
+               *w = j;
+            return TRUE;
+         }
+      }
+   }
+
+   if (mouse_window_position(current_screen, WINDOW_STATAREA, row, col))
+   {
+      if (w != NULL)
+         *w = WINDOW_STATAREA;
+      return TRUE;
+   }
+
+   if (mouse_window_position(current_screen, WINDOW_FILETABS, row, col))
+   {
+      if (w != NULL)
+         *w = WINDOW_FILETABS;
+      return TRUE;
+   }
+
+   if (display_screens > 1
+   &&  !horizontal
+   &&  mouse_window_position(current_screen, WINDOW_DIVIDER, row, col))
+   {
+      if (w != NULL)
+         *w = WINDOW_DIVIDER;
+      return TRUE;
+   }
+
+   return FALSE;
+}
+
+static TheMouseHitArea mouse_area_from_window(int w)
+{
+   switch (w)
+   {
+      case WINDOW_FILEAREA:
+         return THE_MOUSE_HIT_AREA_FILEAREA;
+      case WINDOW_PREFIX:
+         return THE_MOUSE_HIT_AREA_PREFIX;
+      case WINDOW_COMMAND:
+         return THE_MOUSE_HIT_AREA_COMMAND;
+      case WINDOW_STATAREA:
+         return THE_MOUSE_HIT_AREA_STATUS;
+      case WINDOW_FILETABS:
+         return THE_MOUSE_HIT_AREA_FILETABS;
+      case WINDOW_DIVIDER:
+         return THE_MOUSE_HIT_AREA_DIVIDER;
+      case WINDOW_ARROW:
+      case WINDOW_IDLINE:
+      case WINDOW_GAP:
+         return THE_MOUSE_HIT_AREA_WINDOW;
+      default:
+         return THE_MOUSE_HIT_AREA_NONE;
+   }
+}
+
+static LINETYPE mouse_line_number_for_hit(CHARTYPE scrn, TheMouseHitArea area,
+                                          int row)
+{
+   if ((area == THE_MOUSE_HIT_AREA_FILEAREA
+     || area == THE_MOUSE_HIT_AREA_PREFIX)
+   &&  scrn < display_screens
+   &&  screen[scrn].sl != NULL
+   &&  row >= 0
+   &&  row < screen[scrn].rows[WINDOW_FILEAREA])
+      return screen[scrn].sl[row].line_number;
+   return 0;
+}
+
+static const CHARTYPE *mouse_filearea_line_for_hit(CHARTYPE scrn, int row,
+                                                   size_t *len)
+{
+   SHOW_LINE *show_row;
+
+   if (len != NULL)
+      *len = 0;
+   if (scrn >= display_screens
+   ||  screen[scrn].sl == NULL
+   ||  row < 0
+   ||  row >= screen[scrn].rows[WINDOW_FILEAREA])
+      return (const CHARTYPE *)"";
+   show_row = &screen[scrn].sl[row];
+   if (show_row->line_type == LINE_TOF || show_row->line_type == LINE_EOF)
+      return (const CHARTYPE *)"";
+   if (show_row->contents == NULL)
+      return (const CHARTYPE *)"";
+   if (len != NULL)
+      *len = (size_t)show_row->length;
+   return show_row->contents;
+}
+
+static int mouse_cell_for_hit(CHARTYPE scrn, TheMouseHitArea area, int row,
+                              int col)
+{
+   VIEW_DETAILS *view;
+   const CHARTYPE *line;
+   size_t len;
+   int viewport_col;
+
+   if (col < 0)
+      col = 0;
+   switch (area)
+   {
+      case THE_MOUSE_HIT_AREA_FILEAREA:
+      {
+         int logical_col;
+
+         view = (scrn < display_screens) ? screen[scrn].screen_view : NULL;
+         viewport_col = (view != NULL) ? (int)view->verify_col - 1 : 0;
+         if (viewport_col < 0)
+            viewport_col = 0;
+         line = mouse_filearea_line_for_hit(scrn, row, &len);
+         logical_col = curses_driver_logical_col_from_display(
+            line, len, viewport_col, col, TEXT_SNAP_BACKWARD);
+         return (logical_col < 0) ? 0 : logical_col;
+      }
+      case THE_MOUSE_HIT_AREA_COMMAND:
+      {
+         int command_cell = cmd_verify_col - 1 + col;
+
+         return (command_cell < 0) ? 0 : command_cell;
+      }
+      default:
+         return col;
+   }
+}
+
+static int mouse_build_logical_input(TheInputEvent *input, CHARTYPE *scrn,
+                                     int *w)
+{
+   CHARTYPE hit_screen = current_screen;
+   int hit_window = WINDOW_ALL;
+   int row = -1;
+   int col = -1;
+   int cell = -1;
+   LINETYPE line_number = 0;
+   TheMouseHitArea area;
+
+   if (!mouse_locate_window(&hit_screen, &hit_window, &row, &col))
+   {
+      if (scrn != NULL)
+         *scrn = hit_screen;
+      if (w != NULL)
+         *w = hit_window;
+      if (input != NULL)
+         *input = the_input_event_none();
+      return FALSE;
+   }
+
+   area = mouse_area_from_window(hit_window);
+   line_number = mouse_line_number_for_hit(hit_screen, area, row);
+   cell = mouse_cell_for_hit(hit_screen, area, row, col);
+   if (scrn != NULL)
+      *scrn = hit_screen;
+   if (w != NULL)
+      *w = hit_window;
+   if (!the_mouse_hit_event_from_area(area, line_number, row, cell,
+                                      hit_screen, hit_window, input))
+   {
+      if (input != NULL)
+         *input = the_input_event_none();
+      return FALSE;
+   }
+   return TRUE;
+}
+
 /***********************************************************************/
 short THEMouse(CHARTYPE *params)
 /***********************************************************************/
@@ -423,6 +641,7 @@ short THEMouse(CHARTYPE *params)
    int curr_button_modifier=0;
    int curr_button=0;
    int key=0;
+   TheInputEvent input;
 
    TRACE_FUNCTION( "mouse.c:  THEMouse" );
    rc = get_mouse_info(&curr_button,&curr_button_action,&curr_button_modifier);
@@ -432,17 +651,29 @@ short THEMouse(CHARTYPE *params)
       TRACE_RETURN();
       return(rc);
    }
-   which_window_is_mouse_in( &scrn, &w );
-   mouse_trace_message("THEMouse-window",
-                       "screen=%d window=%d saved_x=%d saved_y=%d",
-                       scrn,w,last_mouse_x_pos,last_mouse_y_pos);
-   if (w == (-1)) /* shouldn't happen! */
+   if (!mouse_build_logical_input(&input, &scrn, &w))
    {
+      last_mouse_input = the_input_event_none();
+      key = MOUSE_INFO_TO_KEY(WINDOW_ALL, curr_button, curr_button_action,
+                              curr_button_modifier);
+      mouse_trace_message("THEMouse-target",
+                          "unsupported screen=%d window=%d saved_x=%d saved_y=%d key=0x%x",
+                          scrn,w,last_mouse_x_pos,last_mouse_y_pos,key);
+      rc = execute_mouse_commands(key);
       TRACE_RETURN();
-      return(RC_OK);
+      return(rc);
    }
+   last_mouse_input = input;
+   w = input.target.window_id;
    key = MOUSE_INFO_TO_KEY(w,curr_button,curr_button_action,curr_button_modifier);
 //fprintf(stderr, "%s %d:THEMouse button: %d button_action: %d button_modifier: %d window: %d x: %d y: %d key: %x\n",__FILE__,__LINE__,curr_button,curr_button_action,curr_button_modifier,w,Mouse_status.x, Mouse_status.y,key );
+   mouse_trace_message("THEMouse-target",
+                       "kind=%s line=%ld row=%d cell=%d screen=%d window=%d saved_x=%d saved_y=%d",
+                       the_input_logical_target_kind_name(input.target.kind),
+                       (long)input.target.line_number,input.target.row,
+                       input.target.cell,input.target.screen,
+                       input.target.window_id,last_mouse_x_pos,
+                       last_mouse_y_pos);
    rc = execute_mouse_commands(key);
    mouse_trace_message("THEMouse-dispatch",
                        "rc=%d window=%d button=%d action=%d modifier=%d key=0x%x",
@@ -455,76 +686,21 @@ short THEMouse(CHARTYPE *params)
 void which_window_is_mouse_in(CHARTYPE *scrn,int *w)
 /***********************************************************************/
 {
-   CHARTYPE i=0;
-   int j=0;
    int y=0,x=0;
 
    TRACE_FUNCTION("mouse.c:  which_window_is_mouse_in");
-   for (i=0;i<display_screens;i++)
+   if (mouse_locate_window(scrn, w, &y, &x))
    {
-      for (j=0;j<VIEW_WINDOWS;j++)
-      {
-         if (screen[i].win[j] != (WINDOW *)NULL)
-         {
-            wmouse_position(screen[i].win[j],&y,&x);
-            if (y != (-1)
-            &&  x != (-1))
-            {
-               *scrn = i;
-               *w = j;
-               TRACE_RETURN();
-               return;
-            }
-         }
-      }
-   }
-   /*
-    * To get here, the mouse is NOT in any of the view windows; is it in
-    * the status line ?
-    */
-   wmouse_position(statarea,&y,&x);
-   if (y != (-1)
-   &&  x != (-1))
-   {
-      *w = WINDOW_STATAREA;
-      *scrn = current_screen;
       TRACE_RETURN();
       return;
-   }
-   /*
-    * To get here, the mouse is NOT in any of the view windows; or the
-    * status line. Is it in the FILETABS window ?
-    */
-   wmouse_position( filetabs, &y, &x );
-   if ( y != (-1)
-   &&   x != (-1) )
-   {
-      *w = WINDOW_FILETABS;
-      *scrn = current_screen;
-      TRACE_RETURN();
-      return;
-   }
-   /*
-    * To get here, the mouse is NOT in any of the view windows; or the
-    * status line, or the FILETABS window. Is it in the DIVIDER window ?
-    */
-   if ( display_screens > 1
-   &&   !horizontal)
-   {
-      wmouse_position( divider, &y, &x );
-      if ( y != (-1)
-      &&   x != (-1) )
-      {
-         *w = WINDOW_DIVIDER;
-         *scrn = current_screen;
-         TRACE_RETURN();
-         return;
-      }
    }
    /*
     * To get here, the mouse is NOT in ANY window. Return an error.
     */
-   *w = WINDOW_ALL /* was (-1) */;
+   if (scrn != NULL)
+      *scrn = current_screen;
+   if (w != NULL)
+      *w = WINDOW_ALL /* was (-1) */;
    TRACE_RETURN();
    return;
 }
@@ -535,6 +711,7 @@ void reset_saved_mouse_pos(void)
    TRACE_FUNCTION("mouse.c:  reset_saved_mouse_pos");
    last_mouse_x_pos = -1;
    last_mouse_y_pos = -1;
+   last_mouse_input = the_input_event_none();
    TRACE_RETURN();
    return;
 }
@@ -547,6 +724,21 @@ void get_saved_mouse_pos(int *y, int *x)
    *y = last_mouse_y_pos;
    TRACE_RETURN();
    return;
+}
+/***********************************************************************/
+int get_saved_mouse_target(TheInputLogicalTarget *target)
+/***********************************************************************/
+{
+   TRACE_FUNCTION("mouse.c:  get_saved_mouse_target");
+   if (target != NULL
+   &&  last_mouse_input.kind == THE_INPUT_LOGICAL_HIT)
+   {
+      *target = last_mouse_input.target;
+      TRACE_RETURN();
+      return TRUE;
+   }
+   TRACE_RETURN();
+   return FALSE;
 }
 /***********************************************************************/
 void initialise_mouse_commands(void)

@@ -43,7 +43,7 @@ typedef enum
    THE_INPUT_TARGET_WINDOW
 } TheInputLogicalTargetKind;
 
-typedef struct
+typedef struct TheInputLogicalTarget
 {
    TheInputLogicalTargetKind kind;
    LogicalCursorZone zone;
