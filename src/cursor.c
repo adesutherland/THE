@@ -243,6 +243,12 @@ void cursor_focus_sync_current(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
    int row = 0;
    int col = 0;
 
+   /*
+    * Transitional bridge: when old command paths enter render without an
+    * editor-owned LogicalCursor, seed one from the physical window cursor.
+    * Close this only after filearea, prefix, and command entry points always
+    * update VIEW_DETAILS.logical_cursor before display_screen()/prepare_view().
+    */
    if (curr_view == NULL
    ||  !cursor_focus_software_window(curr_view->current_window))
       return;

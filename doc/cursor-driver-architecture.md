@@ -113,7 +113,15 @@ Closed checkpoints are summarized here; details and next tasks are in
   navigation/edit subset.
 - `show.c`, `execute.c`, `query1.c`, `query2.c`, and `commsos.c` have removed
   several active-window cursor snapshot fallbacks from the focused cursor,
-  query, SOS, render-exit, status, prefix, and view-switch paths.
+  query, SOS, render-exit, status, prefix, and view-switch paths. The closed
+  Step 3 renderer path now uses live `UiFrame` row/cell/text targets for UTF
+  file-area and prefix renderer decisions; command cursor placement requires
+  editor-owned logical command state.
+- `cursor_focus_sync_current()` remains only as a documented transition bridge:
+  it seeds logical cursor state from the physical window cursor when older
+  entry paths reach render without logical state. Remove it after all
+  file-area, prefix, and command entry points set `VIEW_DETAILS.logical_cursor`
+  before render.
 
 ## Status Model
 
@@ -138,12 +146,14 @@ The current active categories are:
   coverage, major render cursor fallback removals, execute wrapper migration,
   focused query/SOS active-driver fallback removals, normalized live mouse
   input for normal `THEMouse` dispatch, and baseline guardrails.
-- In progress: the remaining completion step in `doc/utf-handover.md`: close
-  renderer/terminal paint.
+- In progress: no active three-step completion item remains; remaining work is
+  deferred or larger than the closed cursor-driver proof loop.
 - Deferred: full agent dispatcher integration, full prefix command machinery in
-  the agent, popup/dialog/window logical lifecycle, retained-frame delta views,
-  strict project-wide curses exclusion outside physical edges, and additional
-  terminal baselines.
+  the agent, popup/dialog/window logical lifecycle, full live frames for
+  command/prompt/status/window rows, removal of the transitional cursor-focus
+  bridge, retained-frame delta views, strict project-wide curses exclusion
+  outside physical edges, the isolated keycap blank-cell physical
+  materialization/profile follow-up, and additional terminal baselines.
 
 ## Guardrails
 

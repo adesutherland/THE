@@ -260,6 +260,72 @@ static void test_cursor_line_context_applies_after_line_end(void)
 #endif
 }
 
+static void test_keycap_space_after_eol_demonstrator(void)
+{
+#ifdef USE_UTF8PROC
+   static const CHARTYPE line[] = {
+      'A', '1', 0xEF, 0xB8, 0x8F, 0xE2, 0x83, 0xA3,
+      'B', '#', 0xEF, 0xB8, 0x8F, 0xE2, 0x83, 0xA3,
+      'C', ' ', ' '
+   };
+   TextCluster old_cluster;
+   TextCluster new_cluster;
+   Utf8RepairPlan plan;
+   TextPos end;
+
+   end = textpos_from_byte(line, sizeof(line), sizeof(line));
+   expect_int("cursor.demo.end.cell", end.cell_column, 7);
+
+   utf8_terminal_profile_reset();
+   old_cluster = cluster_at_cell(line, sizeof(line), 5);
+   new_cluster = cluster_at_cell(line, sizeof(line), 6);
+   plan = utf8_repair_plan_for_cursor(
+      line, sizeof(line), 0,
+      5,
+      old_cluster, 1, entry_for_cluster(line, sizeof(line), old_cluster),
+      6,
+      new_cluster, 1, entry_for_cluster(line, sizeof(line), new_cluster));
+
+   expect_int("cursor.demo.spaces.first.strategy", plan.strategy,
+              UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST);
+   expect_int("cursor.demo.spaces.first.class", plan.feature_class,
+              UTF8_TERM_CLASS_KEYCAP);
+   expect_int("cursor.demo.spaces.first.start", plan.start_pos.cell_column, 1);
+
+   memset(&old_cluster, 0, sizeof(old_cluster));
+   memset(&new_cluster, 0, sizeof(new_cluster));
+   plan = utf8_repair_plan_for_cursor(
+      line, sizeof(line), 0,
+      7,
+      old_cluster, 0, NULL,
+      8,
+      new_cluster, 0, NULL);
+
+   expect_int("cursor.demo.eol.first.strategy", plan.strategy,
+              UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST);
+   expect_int("cursor.demo.eol.first.class", plan.feature_class,
+              UTF8_TERM_CLASS_KEYCAP);
+   expect_int("cursor.demo.eol.first.start", plan.start_pos.cell_column, 1);
+
+   expect_int("cursor.demo.whole.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS keycap CURSORSTRATEGY whole"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   plan = utf8_repair_plan_for_cursor(
+      line, sizeof(line), 0,
+      7,
+      old_cluster, 0, NULL,
+      8,
+      new_cluster, 0, NULL);
+
+   expect_int("cursor.demo.eol.whole.strategy", plan.strategy,
+              UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST);
+   expect_int("cursor.demo.eol.whole.class", plan.feature_class,
+              UTF8_TERM_CLASS_KEYCAP);
+   expect_int("cursor.demo.eol.whole.start", plan.start_pos.cell_column, 0);
+#endif
+}
+
 static void test_cursor_ascii_can_use_first_feature(void)
 {
    static const CHARTYPE line[] = "ABCDE";
@@ -475,6 +541,7 @@ int main(void)
    test_cursor_line_context_applies_inside_trailing_spaces();
    test_cursor_line_context_ignores_future_feature();
    test_cursor_line_context_applies_after_line_end();
+   test_keycap_space_after_eol_demonstrator();
    test_cursor_ascii_can_use_first_feature();
    test_cursor_whole_strategy_is_generic();
    test_replacement_one_prior_cluster();

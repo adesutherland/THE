@@ -109,36 +109,37 @@ tests depending on which risk the slice touches.
 - Macro and agent diagnostics now distinguish THE message history
   (`EXTRACT /MESSAGES/`, `QUERY MESSAGES`) from SDSLH parser diagnostics
   (`SDSLHWAIT`, `EXTRACT /PMSGS/`, `QUERY PMSGS`).
+- Renderer and terminal-paint Step 3 closed 2026-05-26. The UTF `show.c`
+  targeted file-area/prefix restore, `prepare_view()` cursor placement, and
+  one-line prefix repaint paths now choose row/cell/text targets from the live
+  `UiFrame` instead of falling back to view/current-row state. Command cursor
+  placement now requires editor-owned logical command state. The curses path
+  still performs physical cursor movement, refresh, touch/update, cell writes,
+  software cursor painting, and cursor parking through `cursesdriver.c`.
+- The Step 2 `cursor_focus_sync_current()` bridge remains documented as a
+  deliberate physical transition: it seeds `VIEW_DETAILS.logical_cursor` from
+  the physical window cursor only when older entry paths reach render without
+  logical state. Closure criteria are now explicit in code: remove it after
+  file-area, prefix, and command entry points always update logical cursor state
+  before `display_screen()`/`prepare_view()`.
+- The keycap one-line demonstrator is covered in no-curses tests. It walks a
+  line containing keycaps followed by real spaces and then after-EOL virtual
+  cursor cells, captures the logical cursor requests and fake-driver
+  row/cursor/refresh sequence in `test_virtual_screen`, and compares the same
+  line with the probe's working `first` and `whole` repair paths in
+  `test_utfrepair`.
+- For that demonstrator, the physical `cursesdriver.c` path remains a suffix
+  repaint sequence owned by the driver boundary: clear from the first keycap
+  cell for `first` or from the visible start for `whole`, touch the row,
+  refresh/update when the strategy requests a fast flush, repaint the suffix,
+  paint the blank software-cursor cell, and refresh the file-area window. This
+  is the same shape as the probe's working span repaint; the residual symptom
+  is therefore isolated below logical targets and repair-plan selection.
 
 ## In Progress
 
-- Renderer fallback purge. `show.c` still contains targeted redraw and local
-  physical cursor-preservation mechanics. Those are acceptable only while they
-  remain physical mechanics routed through `cursesdriver.c`; logical decisions
-  should continue moving to `UiFrame` or editor-owned state.
-- Normalized input. Curses key collection now passes through `TheInputEvent`
-  before legacy key dispatch, and the normal live mouse path now converts
-  driver-edge packets to logical-hit targets before legacy mouse-definition
-  dispatch. Command dispatch still mostly consumes legacy key codes, and modal
-  readv/popup/dialog mouse loops remain deferred physical behavior.
-- Agent command bridge. `the_agent` is useful and tested, but it remains an
-  intentional agent subset. It does not run THE's full command dispatcher,
-  full prefix command machinery, CREXX macro/profile behavior, popup/dialog
-  behavior, or arbitrary SOS commands.
-- Command and SOS cleanup. The focused Step 2 command/SOS coverage is closed.
-  Larger command groups such as full key-navigation and full prefix-command
-  machinery remain deferred rather than part of the completion path.
-- Guardrail ratchet. `tests/check_curses_boundary.sh` is intentionally
-  permissive outside logical modules and `execute.c`. Tighten it only when a
-  module or behavior group has equivalent logical or driver-owned coverage.
-- Live frame coverage. `screenframe_build()` captures the current live
-  file-area rows. Command, prompt, status, popup/dialog, and full window
-  lifecycle state still need broader live logical snapshots before they can be
-  treated as first-class non-curses UI state.
-- Keycap/blank-cell paint bug. Current evidence points below logical mapping,
-  in curses refresh/materialization or terminal treatment of blank cells after
-  keycap glyphs. Do not fix it by changing grapheme segmentation or adding
-  keycap-specific editor logic.
+No active three-step completion item remains. Remaining work is deferred or a
+larger slice below.
 
 ## Three-Step Completion Plan
 
@@ -170,16 +171,15 @@ deferred.
    coverage. `tests/check_curses_boundary.sh` now guards the no-curses agent
    files and the cleaned SOS physical cursor-call surface.
 
-3. Close renderer and terminal paint.
-   Remove the remaining `show.c` targeted-redraw logical fallbacks by replacing
-   them with frame-backed row/cell decisions. In the same step, add the keycap
-   one-line demonstrator and compare the emitted `cursesdriver.c` operation
-   sequence with the probe's working `first`/`whole` paths. Close when
-   `test_virtual_screen` covers the renderer decisions, the curses path uses
-   the same logical targets, physical save/restore, refresh, touch/update, cell
-   writes, software cursor painting, and cursor parking remain in
-   `cursesdriver.c`, and the keycap failure is either fixed or isolated to a
-   documented physical driver/profile bug.
+3. Close renderer and terminal paint. Closed 2026-05-26.
+   The UTF renderer now takes targeted file-area/prefix row and cell decisions
+   from the live `UiFrame`, and `test_virtual_screen` covers those frame-backed
+   targets plus the keycap/space/after-EOL demonstrator. `test_utfrepair`
+   compares that demonstrator with the probe's working `first` and `whole`
+   paths. The demonstrator passes in the logical/fake-driver surfaces; the
+   remaining visible keycap blank-cell symptom is isolated to physical
+   curses/terminal materialization or profile policy, not logical segmentation
+   or editor cursor targeting.
 
 ## Deferred Or Larger Slices
 
@@ -188,6 +188,19 @@ deferred.
 - Logical popup, dialog, and window lifecycle models. Until these have
   snapshots and virtual tests, keep their window management as driver-owned
   physical behavior.
+- Command, prompt, status, popup/dialog, and full window lifecycle rows as live
+  first-class `UiFrame` snapshots. Current live frame coverage is sufficient
+  for the closed file-area/prefix renderer target decisions.
+- Full normalized key-command dispatch after the current compatibility bridge.
+  Curses key collection is normalized before legacy dispatch, but most command
+  execution still consumes legacy key codes.
+- Removal of `cursor_focus_sync_current()` after all file-area, prefix, and
+  command entry paths set editor-owned logical cursor state before render.
+- The remaining keycap blank-cell terminal symptom. Logical target cells,
+  fake-driver operation sequence, and `first`/`whole` repair plans pass; the
+  next hypothesis is a physical curses refresh/materialization issue where
+  blank cells after keycap glyphs are not forced to the terminal even though
+  `cursesdriver.c` clears, touches, refreshes, and updates the affected row.
 - Delta LLM views based on retained previous frames.
 - A strict no-curses rule for all editor modules outside the driver/renderer
   boundary. Tighten module by module as coverage lands.

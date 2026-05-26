@@ -957,6 +957,88 @@ static const CHARTYPE *show_filearea_text_for_row(CHARTYPE scrno, short row,
    return rec;
 }
 
+#ifdef USE_UTF8
+static int show_build_renderer_frame(CHARTYPE scrno, UiFrame *frame)
+{
+   return screenframe_build(scrno, frame);
+}
+
+static int show_frame_filearea_cursor_target(const UiFrame *frame,
+                                             short *row, int *logical_col,
+                                             int *display_col,
+                                             const CHARTYPE **line,
+                                             size_t *len)
+{
+   size_t index = 0;
+   const UiFrameRow *frame_row;
+   LogicalCursor cursor;
+   const CHARTYPE *target_line;
+   size_t target_len;
+
+   if (line != NULL)
+      *line = NULL;
+   if (len != NULL)
+      *len = 0;
+   if (frame == NULL
+   ||  !frame->cursor.valid
+   ||  !ui_frame_find_cursor_row(frame, frame->cursor.cursor, &index))
+      return FALSE;
+
+   cursor = frame->cursor.cursor;
+   if (cursor.zone != LOGICAL_CURSOR_ZONE_FILEAREA)
+      return FALSE;
+
+   frame_row = &frame->row[index];
+   if (frame_row->role == UI_ROW_TOF || frame_row->role == UI_ROW_EOF)
+   {
+      target_line = (const CHARTYPE *)"";
+      target_len = 0;
+   }
+   else
+   {
+      target_line = frame_row->text != NULL ? frame_row->text
+                                            : (const CHARTYPE *)"";
+      target_len = frame_row->text != NULL ? frame_row->text_len : 0;
+   }
+   if (row != NULL)
+      *row = (short)frame_row->screen_row;
+   if (logical_col != NULL)
+      *logical_col = cursor.text.cell_column;
+   if (display_col != NULL)
+      *display_col = curses_driver_display_col_from_logical(
+         target_line, target_len, frame_row->logical_start_col,
+         cursor.text.cell_column);
+   if (line != NULL)
+      *line = target_line;
+   if (len != NULL)
+      *len = target_len;
+   return TRUE;
+}
+
+static int show_frame_prefix_cursor_target(const UiFrame *frame,
+                                           short *row, int *col)
+{
+   size_t index = 0;
+   const UiFrameRow *frame_row;
+   LogicalCursor cursor;
+
+   if (frame == NULL
+   ||  !frame->cursor.valid
+   ||  !ui_frame_find_cursor_row(frame, frame->cursor.cursor, &index))
+      return FALSE;
+
+   cursor = frame->cursor.cursor;
+   if (cursor.zone != LOGICAL_CURSOR_ZONE_PREFIX)
+      return FALSE;
+
+   frame_row = &frame->row[index];
+   if (row != NULL)
+      *row = (short)frame_row->screen_row;
+   if (col != NULL)
+      *col = cursor.text.cell_column;
+   return TRUE;
+}
+#else
 static int show_row_matches_logical_cursor(CHARTYPE scrno, VIEW_DETAILS *view,
                                            LogicalCursor cursor, short *row)
 {
@@ -1068,7 +1150,9 @@ static int show_view_filearea_cursor_target(CHARTYPE scrno,
       *len = target_len;
    return TRUE;
 }
+#endif
 
+#ifndef USE_UTF8
 static int show_logical_prefix_cursor_target(CHARTYPE scrno,
                                              VIEW_DETAILS *view,
                                              short *row, int *col)
@@ -1090,6 +1174,7 @@ static int show_logical_prefix_cursor_target(CHARTYPE scrno,
       *col = cursor.text.cell_column;
    return TRUE;
 }
+#endif
 
 static int show_command_cursor_target(CHARTYPE scrno, VIEW_DETAILS *view,
                                       short *row, int *col)
@@ -1112,10 +1197,8 @@ static int show_command_cursor_target(CHARTYPE scrno, VIEW_DETAILS *view,
       target_row = (cursor.zone_row >= 0) ? cursor.zone_row : 0;
       target_col = cursor.text.cell_column - (cmd_verify_col - 1);
    }
-   else if (view->cmdline_col >= 0)
-   {
-      target_col = view->cmdline_col;
-   }
+   else
+      return FALSE;
 
    if (target_row < 0)
       target_row = 0;
@@ -1220,18 +1303,33 @@ static int show_restore_view_logical_cursor(CHARTYPE scrno,
    int col = 0;
    const CHARTYPE *line = NULL;
    size_t len = 0;
+#ifdef USE_UTF8
+   UiFrame frame;
+   const UiFrame *cursor_frame = NULL;
+#endif
 
    if (view == NULL)
       return FALSE;
 
+#ifdef USE_UTF8
+   if (show_build_renderer_frame(scrno, &frame))
+      cursor_frame = &frame;
+#endif
+
    switch(view->current_window)
    {
       case WINDOW_FILEAREA:
+#ifdef USE_UTF8
+         if (show_frame_filearea_cursor_target(cursor_frame, &row,
+                                               &logical_col, NULL,
+                                               &line, &len))
+#else
          if (show_logical_filearea_cursor_target(scrno, view, &row,
                                                  &logical_col, NULL,
                                                  &line, &len)
          ||  show_view_filearea_cursor_target(scrno, view, &row,
                                               &logical_col, &line, &len))
+#endif
          {
             curses_driver_move_filearea_cursor(scrno, view, line, len, row,
                                                logical_col);
@@ -1242,17 +1340,23 @@ static int show_restore_view_logical_cursor(CHARTYPE scrno,
       case WINDOW_PREFIX:
          if (SCREEN_WINDOW_PREFIX(scrno) != NULL)
          {
+#ifdef USE_UTF8
+            if (show_frame_prefix_cursor_target(cursor_frame, &row, &col))
+#else
             if (show_logical_prefix_cursor_target(scrno, view, &row, &col))
+#endif
             {
                curses_driver_move_prefix_cursor(scrno, row, (short)col);
                restored = TRUE;
             }
+#ifndef USE_UTF8
             else if (show_view_filearea_cursor_target(scrno, view, &row,
                                                       NULL, NULL, NULL))
             {
                curses_driver_move_prefix_cursor(scrno, row, 0);
                restored = TRUE;
             }
+#endif
          }
          break;
 
@@ -2366,20 +2470,18 @@ void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
 
    prefix_cursor = curses_driver_capture_window_cursor(
       SCREEN_WINDOW_PREFIX(curr_screen));
+#ifdef USE_UTF8
+   if (show_build_renderer_frame(curr_screen, &frame))
+   {
+      if (current_cursor_uses_software() && curr_screen == current_screen)
+         cursor_frame = &frame;
+      (void)show_frame_prefix_cursor_target(&frame, &row, NULL);
+   }
+#else
    if (!show_logical_prefix_cursor_target(curr_screen, curr_view, &row, NULL)
    &&  !show_view_filearea_cursor_target(curr_screen, curr_view, &row, NULL,
                                          NULL, NULL))
       row = 0;
-#ifdef USE_UTF8
-   if (show_build_cursor_frame(curr_screen, &frame))
-   {
-      int frame_row = -1;
-
-      cursor_frame = &frame;
-      if (ui_frame_cursor_screen_row(&frame, UI_ROW_PREFIX,
-                                     curr_view->focus_line, &frame_row, NULL))
-         row = (short)frame_row;
-   }
 #endif
    width = curr_view->prefix_width - curr_view->prefix_gap;
    display_line_left( SCREEN_WINDOW_PREFIX(curr_screen),
@@ -5515,7 +5617,20 @@ short prepare_view(CHARTYPE scrn)
       int logical_col = 0;
       const CHARTYPE *line = NULL;
       size_t len = 0;
+#ifdef USE_UTF8
+      UiFrame frame;
+      const UiFrame *cursor_frame = NULL;
 
+      if (show_build_renderer_frame(scrn, &frame))
+         cursor_frame = &frame;
+      if (show_frame_filearea_cursor_target(cursor_frame, &row,
+                                            &logical_col, NULL,
+                                            &line, &len))
+      {
+         curses_driver_move_filearea_cursor(scrn, screen_view, line, len,
+                                            row, logical_col);
+      }
+#else
       if (show_logical_filearea_cursor_target(scrn, screen_view, &row,
                                               &logical_col, NULL,
                                               &line, &len))
@@ -5530,6 +5645,7 @@ short prepare_view(CHARTYPE scrn)
          curses_driver_move_filearea_cursor(scrn, screen_view, line, len,
                                             row, logical_col);
       }
+#endif
    }
 
    TRACE_RETURN();

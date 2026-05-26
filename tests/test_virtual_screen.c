@@ -24,6 +24,13 @@ static const CHARTYPE keycap_row[] =
    'B', ' ', 'k', 'e', 'y', 'c', 'a', 'p', 0
 };
 
+static const CHARTYPE keycap_space_row[] =
+{
+   'A', '1', 0xef, 0xb8, 0x8f, 0xe2, 0x83, 0xa3,
+   'B', '#', 0xef, 0xb8, 0x8f, 0xe2, 0x83, 0xa3,
+   'C', ' ', ' '
+};
+
 static const CHARTYPE zwj_row[] =
 {
    'A', 0xf0, 0x9f, 0x91, 0xa9, 0xe2, 0x80, 0x8d,
@@ -91,6 +98,14 @@ static LogicalCursor virtual_cursor(LogicalCursorZone zone, LINETYPE line,
    return logical_cursor_make(zone, line, row,
                               textpos_from_cell_virtual(NULL, 0, cell,
                                                         TEXT_SNAP_BACKWARD));
+}
+
+static LogicalCursor virtual_line_cursor(LogicalCursorZone zone, LINETYPE line_no,
+                                         int row, const CHARTYPE *line,
+                                         size_t len, int cell)
+{
+   return logical_cursor_from_cell(zone, line_no, row, line, len, cell,
+                                   TEXT_SNAP_BACKWARD, 1);
 }
 
 static int build_virtual_frame(UiFrame *frame, LogicalCursor cursor)
@@ -508,6 +523,58 @@ static void test_fake_driver_debug_log(void)
    expect_contains("debug.last.render", out, "virtual frame materialized");
 }
 
+static void test_keycap_space_after_eol_demonstrator(void)
+{
+#ifdef USE_UTF8PROC
+   static const int requested_cells[] = { 5, 6, 7, 8 };
+   UiFrame frame;
+   UiDriverOpLog log;
+   TextPos end;
+   size_t i;
+   const size_t len = sizeof(keycap_space_row);
+
+   end = textpos_from_byte(keycap_space_row, len, len);
+   expect_int("keycap.demo.end.cell", end.cell_column, 7);
+
+   for (i = 0; i < sizeof(requested_cells) / sizeof(requested_cells[0]); i++)
+   {
+      LogicalCursor cursor;
+      LogicalCursor found;
+      int screen_cell = -1;
+
+      ui_frame_init(&frame, 1, 32);
+      expect_int("keycap.demo.row",
+                 ui_frame_set_row(&frame, 0, UI_ROW_FILE, 42, 0, 0,
+                                  keycap_space_row, len, 1),
+                 1);
+      cursor = virtual_line_cursor(LOGICAL_CURSOR_ZONE_FILEAREA, 42, 0,
+                                   keycap_space_row, len, requested_cells[i]);
+      expect_int("keycap.demo.cursor.set",
+                 ui_frame_set_cursor(&frame, cursor), 1);
+      expect_int("keycap.demo.target",
+                 ui_frame_cursor_screen_cell(&frame, UI_ROW_FILE, 42, 0, 0,
+                                             &screen_cell, &found),
+                 1);
+      expect_int("keycap.demo.logical.cell",
+                 found.text.cell_column, requested_cells[i]);
+      expect_int("keycap.demo.screen.cell", screen_cell, requested_cells[i]);
+
+      ui_driver_op_log_init(&log);
+      expect_int("keycap.demo.materialize",
+                 ui_fake_driver_materialize(&frame, &log), 1);
+      expect_int("keycap.demo.op.count", (int)log.count, 3);
+      expect_int("keycap.demo.op.row", log.op[0].kind, UI_DRIVER_OP_ROW);
+      expect_int("keycap.demo.op.cursor", log.op[1].kind,
+                 UI_DRIVER_OP_CURSOR);
+      expect_int("keycap.demo.op.cursor.row", log.op[1].row, 0);
+      expect_int("keycap.demo.op.cursor.col",
+                 log.op[1].col, requested_cells[i]);
+      expect_int("keycap.demo.op.refresh", log.op[2].kind,
+                 UI_DRIVER_OP_REFRESH);
+   }
+#endif
+}
+
 static void test_logical_hit_targets(void)
 {
    LlmDriverInput input;
@@ -571,6 +638,7 @@ int main(void)
    test_logical_view_switch_cursor_restoration();
    test_compact_virtual_views();
    test_fake_driver_debug_log();
+   test_keycap_space_after_eol_demonstrator();
    test_logical_hit_targets();
 
    if (failures != 0)
