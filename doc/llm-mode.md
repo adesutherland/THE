@@ -24,9 +24,15 @@ Implemented:
   hits.
 - `src/uidriver.c` and `src/screenframe.c` provide the logical frame surface
   used by the LLM formatter and virtual/fake-driver tests.
+- `src/transientui.c` provides no-curses readv/dialog/popup snapshots with
+  geometry, row roles, focus, selected/active button or item, edit text, popup
+  viewport offsets, and logical hit targets.
 - `the_agent` is the first live no-curses proof target. It is interactive over
   stdin/stdout, links no curses library or curses driver, and uses the same
   `LlmDriverScreenView` and `TheInputEvent` contracts.
+- `the_llm_headless` is a no-curses executable skeleton for the broader
+  headless direction. It links the transient UI model and is checked for curses
+  dependencies and curses-driver symbols.
 
 Current limitation:
 
@@ -45,6 +51,10 @@ Other THE/SOS commands return an explicit unsupported-command response. Use the
 `capabilities` protocol command to inspect the exact supported surface. Use
 CREXX/pty integration tests or manual full-editor smoke tests for behavior that
 is not yet routed through the agent subset.
+
+Transient UI snapshots are proved in `test_transientui` and available through
+`the_llm_headless --transient-demo`. They are not yet integrated into the
+interactive `the_agent` protocol as live modal editor events.
 
 ## Design Intent
 
@@ -124,7 +134,8 @@ The current input kinds are:
   `delete`, `insert`, or function keys `f1` through `f64`.
 - `command`: a command-line command such as `next`, `save`, or `set ...`.
 - `logical-hit`: a mouse-like logical target for file area, prefix, command,
-  prompt, status, tabline, divider, or window selection.
+  prompt, status, tabline, divider, window selection, or transient UI hit
+  targets once that protocol surface is wired.
 - `debug`: a diagnostic request such as cursor mapping or driver ops.
 - `none`: no input.
 
@@ -166,6 +177,8 @@ routed by migrated dispatch groups.
 
 - Do not add curses includes, `WINDOW *`, `getyx()`, `wmove()`, `wgetch()`, or
   terminal escape handling to `llmdriver.c`.
+- Do not add curses includes, `WINDOW *`, or terminal APIs to `transientui.c`;
+  transient UI state must remain logical and reusable by curses, LLM, and tests.
 - Do not expose terminal-profile layout widths as logical text position.
 - Do not make LLM input a separate command language. It should produce the same
   normalized editor events that curses input eventually produces.
@@ -179,9 +192,10 @@ Focused no-curses/LLM tests:
 
 ```sh
 cmake --build cmake-build-debug --target \
-  test_llmdriver test_virtual_screen test_agentdriver the_agent -j2
+  test_llmdriver test_virtual_screen test_agentdriver test_transientui \
+  the_agent the_llm_headless -j2
 ctest --test-dir cmake-build-debug \
-  -R 'test_llmdriver|test_virtual_screen|test_agentdriver|test_the_agent' \
+  -R 'test_llmdriver|test_virtual_screen|test_agentdriver|test_transientui|test_the_agent|test_the_llm_headless_no_curses' \
   --output-on-failure
 ```
 
@@ -189,7 +203,8 @@ Coverage includes semantic formatting, compact views, input conversion and
 queues, debug snapshots, virtual frames/fake-driver logs, logical hits, agent
 file loading, file-area, prefix, and command-line focus, command cursor
 movement, Enter submission, capability output, unsupported-command
-diagnostics, and the closed Step 2 SOS subset.
+diagnostics, the closed Step 2 SOS subset, and no-curses transient UI state
+transitions for readv, dialog, and popup.
 
 CREXX/pty tests remain the stronger full-editor integration surface while
 `the_agent` is incomplete. A skipped CREXX test means that surface was

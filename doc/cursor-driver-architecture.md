@@ -105,6 +105,10 @@ Closed checkpoints are summarized here; details and next tasks are in
 - `src/inputevent.c` defines shared normalized input events.
 - `src/mousehit.c` maps driver-edge mouse packets to shared logical-hit
   targets for normal live curses mouse dispatch.
+- `src/transientui.c` defines the curses-free logical transient UI model for
+  readv, dialog, and popup snapshots: geometry, row roles, prompt/title/edit
+  text, buttons/items, selected/active state, viewport offsets, focus, and hit
+  targets.
 - `src/llmdriver.c` formats semantic snapshots, compact view modes, and debug
   diagnostics.
 - `src/agentdriver.c` plus `tools/the_agent.c` provide the no-curses proof
@@ -122,6 +126,17 @@ Closed checkpoints are summarized here; details and next tasks are in
   entry paths reach render without logical state. Remove it after all
   file-area, prefix, and command entry points set `VIEW_DETAILS.logical_cursor`
   before render.
+- The transient UI headless boundary is closed for readv, dialog, and popup.
+  `test_transientui` proves the model without curses, the curses paths
+  materialize snapshots before painting/handling modal input, and modal mouse
+  handling consumes logical hit targets where practical.
+- `the_llm_headless` is the current no-curses executable skeleton for the
+  broader LLM/headless editor direction. It links the transient model and is
+  checked by `test_the_llm_headless_no_curses`.
+- `tests/inventory_direct_curses.sh` is the repeatable debt sweep. Current
+  counts are `physical-input: 33`, `mouse-token: 30`, `physical-paint: 171`,
+  `driver-wrapper: 408`, and `window-state: 429`. The cleaned transient
+  functions have no raw `physical-input` or `physical-paint` findings.
 
 ## Status Model
 
@@ -133,10 +148,10 @@ Use this status model for every future slice:
   and guardrails are tightened for any fully cleaned module or behavior class.
 - `In progress`: behavior has a logical foundation but still has legacy
   dispatcher, renderer fallback, mouse, command, or physical-local mechanics.
-- `Completion step`: one of the three concrete finish-line steps in
-  `doc/utf-handover.md`.
-- `Deferred`: a larger model that should wait until it can appear in LLM
-  snapshots and virtual/fake-driver tests.
+- `Active slice`: the boundary task currently selected for closure in
+  `doc/utf-handover.md`; it may be `none` immediately after a slice closes.
+- `Deferred`: a larger model or capability gap that should wait until the
+  active boundary slice can expose it cleanly.
 
 The current active categories are:
 
@@ -145,15 +160,18 @@ The current active categories are:
   file-area logical cursor/editing foundation, command-dispatch Step 2
   coverage, major render cursor fallback removals, execute wrapper migration,
   focused query/SOS active-driver fallback removals, normalized live mouse
-  input for normal `THEMouse` dispatch, and baseline guardrails.
-- In progress: no active three-step completion item remains; remaining work is
-  deferred or larger than the closed cursor-driver proof loop.
+  input for normal `THEMouse` dispatch, transient readv/dialog/popup snapshot
+  model and curses-path materialization, `the_llm_headless`, and focused
+  guardrails.
+- Active slice: none selected after the transient UI closure. Choose the next
+  slice from the inventory-backed boundary debt in `doc/utf-handover.md`.
 - Deferred: full agent dispatcher integration, full prefix command machinery in
-  the agent, popup/dialog/window logical lifecycle, full live frames for
-  command/prompt/status/window rows, removal of the transitional cursor-focus
-  bridge, retained-frame delta views, strict project-wide curses exclusion
-  outside physical edges, the isolated keycap blank-cell physical
-  materialization/profile follow-up, and additional terminal baselines.
+  the agent, agent protocol integration for transient snapshots, full live
+  frames for command/prompt/status/window rows, removal of the transitional
+  cursor-focus bridge, retained-frame delta views, remaining direct curses debt
+  in legacy command/render/setup modules, the isolated keycap blank-cell
+  physical materialization/profile follow-up, and additional terminal
+  baselines.
 
 ## Guardrails
 
@@ -163,9 +181,14 @@ module by module, not by aspiration.
 - Logical foundation modules must stay curses-free.
 - `execute.c` direct curses calls are already guarded and should continue using
   `cursesdriver.c` wrappers for physical behavior.
+- `readv_cmdline()`, `execute_dialog()`, and `execute_popup()` are guarded as a
+  cleaned transient UI surface. Do not reintroduce raw curses input, refresh,
+  paint, or mouse-position calls there; add logical snapshot state first and
+  physical mechanics through `src/cursesdriver.c`.
 - When a command, query, SOS, mouse, or renderer group is fully migrated, extend
   `tests/check_curses_boundary.sh` for that newly closed surface.
 - `the_agent` must not link curses, `show.c`, or `cursesdriver.c`.
+- `the_llm_headless` must not link curses or `cursesdriver.c`.
 - Capability output must remain exact when the no-curses agent supports only a
   subset of full editor behavior.
 
@@ -173,6 +196,8 @@ module by module, not by aspiration.
 
 - `the_agent` proves no-curses driver behavior and logical snapshots. It does
   not yet execute arbitrary THE/SOS commands through the real dispatcher.
+- `the_llm_headless` proves the headless link boundary and can emit a transient
+  snapshot demo, but it is not yet the full editor runtime.
 - CREXX/pty tests exercise the full editor command processor. They require
   CREXX support, a working CREXX compiler/import runtime, and a pty-capable
   host.

@@ -38,6 +38,7 @@
 #include <the.h>
 #include <proto.h>
 #include "cursesdriver.h"
+#include "transientui.h"
 
 static LENGTHTYPE execute_filearea_cursor_cell(VIEW_DETAILS *curr_view);
 static LENGTHTYPE execute_prefix_cursor_cell(VIEW_DETAILS *curr_view);
@@ -53,6 +54,54 @@ static void execute_move_filearea_display_cursor(CHARTYPE curr_screen,
                                                  LENGTHTYPE len,
                                                  short row,
                                                  LENGTHTYPE display_cell);
+
+static TransientUiKey execute_transient_key_from_curses(int key)
+{
+   switch (key)
+   {
+      case 9:
+         return TRANSIENT_UI_KEY_TAB;
+      case 10:
+      case 13:
+         return TRANSIENT_UI_KEY_ENTER;
+      case 'q':
+         return TRANSIENT_UI_KEY_QUIT;
+#if defined(KEY_UP)
+      case KEY_UP:
+         return TRANSIENT_UI_KEY_UP;
+#endif
+#if defined(KEY_DOWN)
+      case KEY_DOWN:
+         return TRANSIENT_UI_KEY_DOWN;
+#endif
+#if defined(KEY_LEFT)
+      case KEY_LEFT:
+         return TRANSIENT_UI_KEY_LEFT;
+#endif
+#if defined(KEY_RIGHT)
+      case KEY_RIGHT:
+         return TRANSIENT_UI_KEY_RIGHT;
+#endif
+#if defined(KEY_PPAGE)
+      case KEY_PPAGE:
+         return TRANSIENT_UI_KEY_PAGEUP;
+#endif
+#if defined(KEY_NPAGE)
+      case KEY_NPAGE:
+         return TRANSIENT_UI_KEY_PAGEDOWN;
+#endif
+#if defined(KEY_HOME)
+      case KEY_HOME:
+         return TRANSIENT_UI_KEY_HOME;
+#endif
+#if defined(KEY_END)
+      case KEY_END:
+         return TRANSIENT_UI_KEY_END;
+#endif
+      default:
+         return TRANSIENT_UI_KEY_NONE;
+   }
+}
 
 /***********************************************************************/
 static short selective_change(TARGET *target,CHARTYPE *old_str,LENGTHTYPE len_old_str,CHARTYPE *new_str,
@@ -4161,6 +4210,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
    short title_length=0,initial_length=0,max_width,cursor_pos=0;
    short prompt_length=0,prompt_max_length=0,prompt_lines=0;
    DEFCHAR *prompt_line[MAXIMUM_DIALOG_LINES+2];
+   const char *dialog_prompt_line[MAXIMUM_DIALOG_LINES+2];
    WINDOW *dialog_win=NULL;
    WINDOW *save_command_window=NULL;
    CHARTYPE *save_cmd_rec=NULL;
@@ -4177,6 +4227,9 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
    bool in_editfield;
    LINETYPE save_max_line_length=0;
    CHARTYPE save_current_window = CURRENT_VIEW->current_window;
+   TransientUiButtonSpec dialog_button[3];
+   TransientUiDialogState dialog_state;
+   TransientUiSnapshot dialog_snapshot;
 
    TRACE_FUNCTION("execute.c: execute_dialog");
    /*
@@ -4201,6 +4254,8 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
       if ( strlen( prompt_line[prompt_lines-1] ) > prompt_max_length )
          prompt_max_length = strlen( prompt_line[prompt_lines-1] );
    }
+   for (i = 0; i < prompt_lines; i++)
+      dialog_prompt_line[i] = (const char *)prompt_line[i];
    /*
     * work out dimensions of dialog box based on length of prompt, title,
     * buttons, initial value and width of screen
@@ -4274,6 +4329,13 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
          button_col[1] = (dw_cols / 3) + ((dw_cols / 6) - (button_len[1] / 2));
          button_col[2] = (2 *(dw_cols / 3)) + ((dw_cols / 6) - (button_len[2] / 2));
          break;
+   }
+   for (i = 0; i < num_buttons; i++)
+   {
+      dialog_button[i].text = (const char *)button_text[i];
+      dialog_button[i].row = dw_lines - 3;
+      dialog_button[i].col = button_col[i];
+      dialog_button[i].width = button_len[i];
    }
    /*
     * Create the dialog window
@@ -4386,23 +4448,49 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
       in_editfield = FALSE;
       curses_driver_present_cursor(FALSE);
    }
+   transient_ui_dialog_state_init(&dialog_state, editfield, num_buttons,
+                                  default_button,
+                                  editfield ? (const char *)editfield_buf : "");
    inDIALOG = TRUE;
    while(1)
    {
+      dialog_state.has_editfield = editfield ? 1 : 0;
+      dialog_state.button_count = num_buttons;
+      dialog_state.active_button = default_button;
+      dialog_state.selected_button = item_selected;
+      dialog_state.focus = in_editfield
+                         ? TRANSIENT_UI_FOCUS_DIALOG_EDIT
+                         : TRANSIENT_UI_FOCUS_DIALOG_BUTTON;
+      if (editfield && editfield_buf != NULL)
+      {
+         transient_ui_readv_state_init(&dialog_state.edit,
+                                       (const char *)editfield_buf,
+                                       editfield_col >= 0 ? editfield_col : 0,
+                                       0, dw_cols - 4);
+      }
+      transient_ui_snapshot_build_dialog(
+         &dialog_snapshot, dw_y, dw_x, dw_lines, dw_cols,
+         (const char *)title, dialog_prompt_line, prompt_lines,
+         editfield ? (const char *)editfield_buf : "",
+         dialog_state.edit.cursor_cell, editfield, dialog_button,
+         num_buttons, &dialog_state);
       /*
        * Draw the buttons...
        */
-      for (i=0;i<num_buttons;i++)
+      for (i=0;i<(int)dialog_snapshot.button_count;i++)
       {
-         if (default_button == i)
+         const TransientUiButton *snapshot_button = &dialog_snapshot.buttons[i];
+
+         if (snapshot_button->active)
          {
             curses_driver_set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_DIA_ABUTTON));
-            cursor_pos = button_col[i];
+            cursor_pos = snapshot_button->col;
          }
          else
             curses_driver_set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_DIA_BUTTON));
-         curses_driver_add_string_at(dialog_win, dw_lines-3, button_col[i],
-                                     button_text[i]);
+         curses_driver_add_string_at(dialog_win, snapshot_button->row,
+                                     snapshot_button->col,
+                                     snapshot_button->text);
       }
       if (in_editfield)
       {
@@ -4458,15 +4546,15 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
       if (key == KEY_MOUSE)
       {
-         int b,ba,bm,y,x;
-         if (get_mouse_info(&b,&ba,&bm) != RC_OK)
+         CursesDriverMouseEvent mouse;
+         TransientUiAction action;
+
+         if (!curses_driver_read_mouse_event(dialog_win, &mouse))
             continue;
-         if (b != 1
-         ||  ba == BUTTON_PRESSED)
+         if (mouse.button != 1
+         ||  mouse.action == CURSES_DRIVER_MOUSE_ACTION_PRESSED)
             continue;
-         curses_driver_mouse_position(dialog_win, &y, &x);
-         if (y == -1
-         &&  x == -1)
+         if (!mouse.inside)
          {
             /*
              * Button 1 clicked or released outside of window; ignore it
@@ -4474,57 +4562,33 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
             continue;
          }
          /*
-          * Check that the mouse is clicked on a button
-          */
-         if ( y == dw_lines-3 )
-         {
-            bool found=FALSE;
-            for (i=0;i<num_buttons;i++)
-            {
-               if ( x >= button_col[i]
-               &&   x <= (button_col[i] + button_len[i]) )
-               {
-                  found = TRUE;
-                  break;
-               }
-            }
-            if (!found)
-               continue;
-         }
-         else if ( y == dw_lines-5
-         &&   editfield
-         &&   x > 1
-         &&   x < dw_cols-2 )
-         {
-            /*
-             * Clicked somewhere on the editfield
-             */
-            in_editfield = TRUE;
-            default_button = -1;
-            editfield_col = x - 2;
-            continue;
-         }
-         else
-         {
-            /*
-             * Clicked somewhere other than the button line
-             */
-            continue;
-         }
-         /*
           * Got a valid button. Check if its a click or press
           */
-         if (ba == BUTTON_CLICKED
-         ||  ba == BUTTON_RELEASED)
+         if (mouse.action == CURSES_DRIVER_MOUSE_ACTION_CLICKED
+         ||  mouse.action == CURSES_DRIVER_MOUSE_ACTION_RELEASED)
          {
+            action = transient_ui_dialog_handle_hit(&dialog_state,
+                                                    &dialog_snapshot,
+                                                    mouse.row, mouse.col);
+            if (action == TRANSIENT_UI_ACTION_FOCUS_CHANGED
+            &&  dialog_state.focus == TRANSIENT_UI_FOCUS_DIALOG_EDIT)
+            {
+               in_editfield = TRUE;
+               default_button = -1;
+               editfield_col = dialog_state.edit.cursor_cell;
+               continue;
+            }
+            if (action != TRANSIENT_UI_ACTION_ACCEPT)
+               continue;
             /*
              * Got a valid line. Redisplay it in highlighted mode.
              */
-            item_selected = i;
+            item_selected = dialog_state.selected_button;
             curses_driver_touch_window(dialog_win);
             curses_driver_set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_DIA_ABUTTON));
-            curses_driver_add_string_at(dialog_win, dw_lines-3, button_col[i],
-                                        button_text[i]);
+            curses_driver_add_string_at(dialog_win, dw_lines-3,
+                                        button_col[item_selected],
+                                        button_text[item_selected]);
             curses_driver_refresh_window_now(dialog_win);
             break;
          }
@@ -4533,26 +4597,22 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
       else
 #endif
       {
-         if (key == 9)
+         TransientUiKey transient_key = execute_transient_key_from_curses(key);
+         TransientUiAction action;
+
+         action = transient_ui_dialog_handle_key(&dialog_state, transient_key);
+         if (action == TRANSIENT_UI_ACTION_FOCUS_CHANGED)
          {
-           if (++default_button == num_buttons)
-           {
-              if (editfield)
-              {
-                 in_editfield = TRUE;
-              }
-              else
-                 default_button = 0;
-           }
+            in_editfield = dialog_state.focus == TRANSIENT_UI_FOCUS_DIALOG_EDIT;
+            default_button = dialog_state.active_button;
          }
-         else if (key == 'q')
+         else if (action == TRANSIENT_UI_ACTION_ACCEPT)
          {
-            item_selected = default_button;
+            item_selected = dialog_state.selected_button;
             break;
          }
-         else if (key == 10 || key == 13)
+         else if (action == TRANSIENT_UI_ACTION_CANCEL)
          {
-            item_selected = default_button;
             break;
          }
       }
@@ -5213,19 +5273,20 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
    WINDOW *pad;
    short item_selected=-1,highlighted_line;
    char _THE_FAR buf[20]; /* enough for a number */
-   bool time_to_quit;
    int x_offset=0,y_offset=0;
-   int x_overlap,y_overlap;
-   int offset_lines=0,scroll_lines;
+   int y_overlap;
+   int offset_lines=0;
    int escape_key_index = 0;
+   const char * const *popup_items = (const char * const *)args;
+   TransientUiPopupState popup_state;
+   TransientUiSnapshot popup_snapshot;
 
    TRACE_FUNCTION("execute.c: execute_popup");
 
    /*
     * Determine where to display the initial line
-    */
+   */
    y_overlap = pad_height - height;
-   x_overlap = pad_width - width;
 
    if ( initial == 0 )
    {
@@ -5258,6 +5319,11 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
          }
       }
    }
+   transient_ui_popup_state_init(&popup_state, height, width, pad_height,
+                                 pad_width, initial, num_args, popup_items);
+   highlighted_line = (short)popup_state.highlighted_item;
+   y_offset = popup_state.y_offset;
+   x_offset = popup_state.x_offset;
 
    /*
     * Create the popup menu window
@@ -5330,23 +5396,34 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
    }
    while(1)
    {
-      for (i=0;i<num_args;i++)
+      popup_state.highlighted_item = highlighted_line;
+      popup_state.selected_item = item_selected;
+      popup_state.y_offset = y_offset;
+      popup_state.x_offset = x_offset;
+      transient_ui_snapshot_build_popup(&popup_snapshot, screeny, screenx,
+                                        &popup_state, popup_items);
+      for (i=0;i<(int)popup_snapshot.row_count;i++)
       {
-         if ((args[i][0]) == '-')
+         const TransientUiRow *snapshot_row = &popup_snapshot.rows[i];
+         int item_index = snapshot_row->index;
+
+         if (snapshot_row->role == TRANSIENT_UI_ROW_POPUP_SEPARATOR)
          {
             curses_driver_set_window_attr(pad,set_colour(CURRENT_FILE->attr+ATTR_POP_DIVIDER));
-            curses_driver_move_window_cursor(pad,i,0);
+            curses_driver_move_window_cursor(pad,item_index,0);
             curses_driver_draw_horizontal_line(pad,0,pad_width-2);
          }
          else
          {
-            if (i == highlighted_line)
+            if (snapshot_row->active)
                curses_driver_set_window_attr(pad,set_colour(CURRENT_FILE->attr+ATTR_POP_CURLINE));
             else
                curses_driver_set_window_attr(pad,set_colour(CURRENT_FILE->attr+ATTR_POPUP));
-            curses_driver_add_string_at(pad,i,1,(DEFCHAR *)args[i]);
-            curses_driver_move_window_cursor(pad,i,1+strlen((DEFCHAR *)args[i]));
-            for (j=1+strlen((DEFCHAR *)args[i]);j<pad_width-3;j++)
+            curses_driver_add_string_at(pad,item_index,1,
+                                        (DEFCHAR *)snapshot_row->text);
+            curses_driver_move_window_cursor(pad,item_index,
+                                             1+strlen(snapshot_row->text));
+            for (j=1+strlen(snapshot_row->text);j<pad_width-3;j++)
             {
                curses_driver_add_chtype(pad,' ');
             }
@@ -5367,18 +5444,18 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
       if (key == KEY_MOUSE)
       {
-         int b,ba,bm,y,x;
-         if (get_mouse_info(&b,&ba,&bm) != RC_OK)
+         CursesDriverMouseEvent mouse;
+         TransientUiAction action;
+
+         if (!curses_driver_read_mouse_event(dialog_win, &mouse))
          {
            TRACE_RETURN();
            return(RC_OK);
          }
-         if (b != 1
-         ||  ba == BUTTON_PRESSED)
+         if (mouse.button != 1
+         ||  mouse.action == CURSES_DRIVER_MOUSE_ACTION_PRESSED)
             continue;
-         curses_driver_mouse_position(dialog_win, &y, &x);
-         if (y == -1
-         &&  x == -1)
+         if (!mouse.inside)
          {
             /*
              * Button 1 clicked or released outside of window; exit
@@ -5386,38 +5463,26 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
             break;
          }
          /*
-          * Check that the mouse is clicked on a valid item
-          */
-         if (y > 0 && y+1 < height && x > 0 && x+1 < width)
-         {
-            i = y-1;
-         }
-         else
-         {
-            /*
-             * Clicked on border
-             */
-            continue;
-         }
-         if ((args[i][0]) == '-')
-         {
-            /*
-             * Clicked on a line
-             */
-            continue;
-         }
-         /*
           * Got a valid line. Check if its a click or press
           */
-         if (ba == BUTTON_CLICKED
-         ||  ba == BUTTON_RELEASED)
+         if (mouse.action == CURSES_DRIVER_MOUSE_ACTION_CLICKED
+         ||  mouse.action == CURSES_DRIVER_MOUSE_ACTION_RELEASED)
          {
+            action = transient_ui_popup_handle_hit(&popup_state,
+                                                   &popup_snapshot,
+                                                   mouse.row, mouse.col);
+            if (action == TRANSIENT_UI_ACTION_CANCEL)
+               break;
+            if (action != TRANSIENT_UI_ACTION_ACCEPT)
+               continue;
             /*
              * Got a valid line. Redisplay it in highlighted mode.
              */
-            item_selected = i;
+            highlighted_line = (short)popup_state.highlighted_item;
+            item_selected = (short)popup_state.selected_item;
             curses_driver_set_window_attr(pad,set_colour(CURRENT_FILE->attr+ATTR_POPUP));
-            curses_driver_add_string_at(pad,i,1,(DEFCHAR *)args[i]);
+            curses_driver_add_string_at(pad,item_selected,1,
+                                        (DEFCHAR *)args[item_selected]);
             curses_driver_touch_window(pad);
             break;
          }
@@ -5426,204 +5491,37 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
       else
 #endif
       {
-         time_to_quit = FALSE;
-         switch( key )
+         TransientUiKey transient_key = execute_transient_key_from_curses(key);
+         TransientUiAction action = TRANSIENT_UI_ACTION_NONE;
+
+         if (transient_key != TRANSIENT_UI_KEY_NONE)
          {
-            case 9:
-#if defined(KEY_DOWN)
-            case KEY_DOWN:
-#endif
-               /* increment highlighted line and check we haven't gone past the end of the list */
-               if ( ++highlighted_line >= num_args )
-               {
-                  highlighted_line = num_args - 1;
-                  break;
-               }
-               offset_lines = 1;
-               scroll_lines = 0;
-               /* if the new highlighted line is a separator, find the next non-separator */
-               if (args[highlighted_line][0] == '-')
-               {
-                  offset_lines = get_non_separator_line( highlighted_line, num_args, args, 1 );
-                  if ( offset_lines == 0 )
-                     /*
-                      * we couldn't find a non-separator line before the end of the list, so leave the current
-                      * line as the highlighted line
-                      */
-                     highlighted_line--;
-                  else
-                  {
-                     /*
-                      * we found a non-separator line before the end of the list, so advance the
-                      * highlighted line by offset_lines and scroll the same number of lines
-                      */
-                     highlighted_line += offset_lines;
-                     scroll_lines = offset_lines;
-                  }
-               }
-               if ( y_overlap )
-               {
-                  /*
-                   * The number of lines in the list is > the window size...
-                   */
-                  if ( highlighted_line + 2 >= y_offset + height
-                  &&   y_offset < y_overlap )
-                     /*
-                      * The new highlighted line is now below the last displayed line.  Change the offset into
-                      * the list by the number of rows we scrolled in the above code.
-                      */
-                     y_offset += 1+scroll_lines;
-               }
+            action = transient_ui_popup_handle_key(&popup_state, popup_items,
+                                                   transient_key);
+            highlighted_line = (short)popup_state.highlighted_item;
+            y_offset = popup_state.y_offset;
+            x_offset = popup_state.x_offset;
+            if (action == TRANSIENT_UI_ACTION_ACCEPT)
+            {
+               item_selected = (short)popup_state.selected_item;
                break;
-#if defined(KEY_NPAGE)
-            case KEY_NPAGE:
-               /* advance a page full if we have plenty of lines remaining */
-               highlighted_line += (height-2);
-               y_offset += (height-2);
-               if ( highlighted_line + (height-2) >= num_args )
-               {
-                  highlighted_line = num_args - 1;
-                  y_offset = num_args - (height-2);
-               }
-
-               offset_lines = 1;
-               scroll_lines = 0;
-               /* if the new highlighted line is a separator, find the next non-separator */
-               if (args[highlighted_line][0] == '-')
-               {
-                  offset_lines = get_non_separator_line( highlighted_line, num_args, args, 1 );
-                  if ( offset_lines == 0 )
-                     /*
-                      * we couldn't find a non-separator line before the end of the list, so leave the current
-                      * line as the highlighted line. This won't work need something other than --
-                      */
-                     highlighted_line--;
-                  else
-                  {
-                     /*
-                      * we found a non-separator line before the end of the list, so advance the
-                      * highlighted line by offset_lines and scroll the same number of lines
-                      */
-                     highlighted_line += offset_lines;
-                     scroll_lines = offset_lines;
-                  }
-               }
+            }
+            if (action == TRANSIENT_UI_ACTION_CANCEL)
                break;
-#endif
-#if defined(KEY_UP)
-            case KEY_UP:
-               if (--highlighted_line < 0 )
-               {
-                  highlighted_line = 0;
-                  break;
-               }
-               offset_lines = 1;
-               scroll_lines = 0;
-               if (args[highlighted_line][0] == '-')
-               {
-                  offset_lines = get_non_separator_line( highlighted_line, num_args, args, -1 );
-                  if ( offset_lines == 0 )
-                     highlighted_line++;
-                  else
-                  {
-                     highlighted_line -= offset_lines;
-                     scroll_lines = offset_lines;
-                  }
-               }
-               if ( y_overlap )
-               {
-                  if ( highlighted_line+1 <= y_offset
-                  &&   y_offset )
-                     y_offset -= 1+scroll_lines;
-               }
-               break;
-#endif
-#if defined(KEY_PPAGE)
-            case KEY_PPAGE:
-               /* retreat a page full if we have plenty of lines remaining */
-               highlighted_line -= (height-2);
-               y_offset -= (height-2);
-               if ( highlighted_line < 0 )
-               {
-                  highlighted_line = 0;
-                  y_offset = 0;
-               }
-
-               offset_lines = 1;
-               scroll_lines = 0;
-               /* if the new highlighted line is a separator, find the next non-separator */
-               if (args[highlighted_line][0] == '-')
-               {
-                  offset_lines = get_non_separator_line( highlighted_line, num_args, args, 1 );
-                  if ( offset_lines == 0 )
-                     /*
-                      * we couldn't find a non-separator line before the end of the list, so leave the current
-                      * line as the highlighted line. This won't work need something other than --
-                      */
-                     highlighted_line--;
-                  else
-                  {
-                     /*
-                      * we found a non-separator line before the end of the list, so advance the
-                      * highlighted line by offset_lines and scroll the same number of lines
-                      */
-                     highlighted_line += offset_lines;
-                     scroll_lines = offset_lines;
-                  }
-               }
-               if ( y_offset < 0 )
-                  y_offset = 0;
-               break;
-#endif
-#if defined(KEY_RIGHT)
-            case KEY_RIGHT:
-               if ( x_overlap )
-               {
-                  if ( x_offset < x_overlap )
-                     x_offset++;
-               }
-               break;
-#endif
-#if defined(KEY_LEFT)
-            case KEY_LEFT:
-               if ( x_overlap )
-               {
-                  if ( x_offset )
-                     x_offset--;
-               }
-               break;
-#endif
-            case 10:
-            case 13:
-               item_selected = highlighted_line;
-               time_to_quit = TRUE;
-               break;
-            case 'q':
-               time_to_quit = TRUE;
-               break;
-            default:
-               if ( key == popup_escape_key )
-                  time_to_quit = TRUE;
-               else
-               {
-                  /*
-                   * What about other keys?
-                   */
-                  for ( j = 0; j < keyname_index; j++ )
-                  {
-                     if ( key == popup_escape_keys[j] )
-                     {
-                        item_selected = highlighted_line;
-                        time_to_quit = TRUE;
-                        escape_key_index = j+1;
-                        break;
-                     }
-                  }
-               }
-               break;
-
+            continue;
          }
-         if ( time_to_quit )
+         if ( key == popup_escape_key )
+            break;
+         for ( j = 0; j < keyname_index; j++ )
+         {
+            if ( key == popup_escape_keys[j] )
+            {
+               item_selected = highlighted_line;
+               escape_key_index = j+1;
+               break;
+            }
+         }
+         if ( j < keyname_index )
             break;
       }
    }

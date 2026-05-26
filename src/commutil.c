@@ -40,6 +40,7 @@
 #include "key.h"
 #include "command.h"
 #include "cursesdriver.h"
+#include "transientui.h"
 
 static CHARTYPE *build_defined_key_definition(int, CHARTYPE *,DEFINE *,int);
 static void save_last_command(CHARTYPE *,CHARTYPE *);
@@ -3824,6 +3825,8 @@ int readv_cmdline(CHARTYPE *initial, WINDOW *dw, int start_col)
    int key=0;
    short rc=RC_OK;
    CHARTYPE buf[3];
+   TransientUiReadvState readv_state;
+   TransientUiSnapshot readv_snapshot;
 
    TRACE_FUNCTION("commutil.c:readv_cmdline");
    if ( CURRENT_WINDOW_COMMAND == (WINDOW *)NULL )
@@ -3843,11 +3846,18 @@ int readv_cmdline(CHARTYPE *initial, WINDOW *dw, int start_col)
     * If we were called from execute_dialog, refresh the dialog window
     */
    if ( dw )
-      wnoutrefresh( dw );
-   wrefresh( CURRENT_WINDOW_COMMAND );
+      curses_driver_refresh_window( dw );
+   transient_ui_readv_state_init(&readv_state, (const char *)initial,
+                                 start_col == -1
+                                 ? (int)strlen((DEFCHAR *)initial)
+                                 : start_col,
+                                 0, (int)max_line_length);
+   transient_ui_snapshot_build_readv(&readv_snapshot, 0, 0,
+                                     (int)max_line_length, &readv_state);
+   curses_driver_refresh_window_now( CURRENT_WINDOW_COMMAND );
    while( 1 )
    {
-      key = my_getch( CURRENT_WINDOW_COMMAND );
+      key = curses_driver_read_window_key( CURRENT_WINDOW_COMMAND );
 #if defined(USE_XCURSES)
       if ( key == KEY_SF || key == KEY_SR )
          continue;
@@ -3855,15 +3865,15 @@ int readv_cmdline(CHARTYPE *initial, WINDOW *dw, int start_col)
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
       if (key == KEY_MOUSE)
       {
-         int b,ba,bm,y,x;
-         if (get_mouse_info(&b,&ba,&bm) != RC_OK)
+         CursesDriverMouseEvent mouse;
+         TransientUiHitTarget hit;
+
+         if (!curses_driver_read_mouse_event(CURRENT_WINDOW_COMMAND, &mouse))
             continue;
-         if (b != 1
-         ||  ba == BUTTON_PRESSED)
+         if (mouse.button != 1
+         ||  mouse.action == CURSES_DRIVER_MOUSE_ACTION_PRESSED)
             continue;
-         wmouse_position(CURRENT_WINDOW_COMMAND, &y, &x);
-         if (y == -1
-         &&  x == -1)
+         if (!mouse.inside)
          {
             /*
              * Button 1 clicked or released outside of window.
@@ -3879,13 +3889,21 @@ int readv_cmdline(CHARTYPE *initial, WINDOW *dw, int start_col)
          /*
           * Got a valid button. Check if its a click or press
           */
-         if (ba == BUTTON_CLICKED
-         ||  ba == BUTTON_RELEASED)
+         transient_ui_snapshot_build_readv(&readv_snapshot, 0, 0,
+                                           (int)max_line_length,
+                                           &readv_state);
+         if ((mouse.action == CURSES_DRIVER_MOUSE_ACTION_CLICKED
+         ||   mouse.action == CURSES_DRIVER_MOUSE_ACTION_RELEASED)
+         &&  transient_ui_hit_test(&readv_snapshot, mouse.row, mouse.col,
+                                   &hit)
+         &&  hit.kind == TRANSIENT_UI_HIT_EDIT)
          {
             /*
              * Got a mouse event
              */
-            wmove(CURRENT_WINDOW_COMMAND, 0, x );
+            readv_state.cursor_cell = mouse.col;
+            curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND, 0,
+                                             (short)mouse.col );
          }
          else
             continue;
@@ -3915,12 +3933,26 @@ int readv_cmdline(CHARTYPE *initial, WINDOW *dw, int start_col)
          }
       }
       show_statarea();
+      transient_ui_readv_state_init(&readv_state, "",
+                                    CURRENT_VIEW->cmdline_col >= 0
+                                    ? CURRENT_VIEW->cmdline_col : 0,
+                                    0, (int)max_line_length);
+      {
+         size_t snapshot_len = cmd_rec_len < TRANSIENT_UI_MAX_TEXT
+                             ? (size_t)cmd_rec_len : TRANSIENT_UI_MAX_TEXT;
+
+         if (snapshot_len > 0)
+            memcpy(readv_state.text, cmd_rec, snapshot_len);
+         readv_state.text[snapshot_len] = '\0';
+      }
+      transient_ui_snapshot_build_readv(&readv_snapshot, 0, 0,
+                                        (int)max_line_length, &readv_state);
       /*
        * If we were called from execute_dialog, refresh the dialog window
        */
       if ( dw )
-         wnoutrefresh( dw );
-      wrefresh( CURRENT_WINDOW_COMMAND );
+         curses_driver_refresh_window( dw );
+      curses_driver_refresh_window_now( CURRENT_WINDOW_COMMAND );
       if ( rc == RC_READV_TERM
       ||   rc == RC_READV_TERM_MOUSE )
          break;

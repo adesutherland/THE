@@ -128,6 +128,9 @@ Closed foundation:
   events, legacy key conversion, and input queues.
 - `src/mousehit.c`: shared no-curses mapping from driver-edge mouse packet
   facts to logical-hit targets used by the normal live curses mouse path.
+- `src/transientui.c`: no-curses readv/dialog/popup snapshot model with
+  geometry, row roles, focus, title/prompt/edit text, buttons/items, selected
+  state, popup viewport offsets, and logical hit targets.
 - `src/llmdriver.c`: semantic screen view formatting, compact view modes,
   compatibility wrappers, and debug snapshot formatting.
 - `test_virtual_screen`: no-curses virtual frame harness for file, prefix,
@@ -136,6 +139,9 @@ Closed foundation:
 - `src/agentdriver.c` and `tools/the_agent.c`: no-curses proof target with
   file loading, LLM snapshots, normalized stdin commands, file-area focus,
   command-line focus/editing, logical hits, and explicit capability reporting.
+- `tools/the_llm_headless.c`: no-curses executable skeleton for the broader
+  headless direction. It links the transient UI model and exposes
+  `--transient-demo` for inspecting transient snapshot formatting.
 
 Current agent subset:
 
@@ -156,9 +162,11 @@ Not closed:
 - Full prefix command machinery in `the_agent`. `SOS PREFIX` can focus the
   prefix field, but entering or executing prefix commands is still outside the
   no-curses agent subset.
-- Modal readv/popup/dialog mouse loops still use physical mouse handling until
-  logical popup/dialog/window lifecycle models exist.
-- Logical popup/dialog/window lifecycle snapshots.
+- Live transient readv/dialog/popup protocol integration in `the_agent`. The
+  logical model and curses-path materialization exist, but agents cannot yet
+  drive a real modal dialog/popup lifecycle through the interactive protocol.
+- Full logical window lifecycle snapshots outside the readv/dialog/popup
+  transient model.
 - Delta views from retained prior frames.
 
 ## No-Curses Agent Executable
@@ -225,5 +233,27 @@ Focused agent tests:
 ```sh
 ctest --test-dir cmake-build-debug \
   -R 'test_agentdriver|test_the_agent_script|test_the_agent_capabilities|test_the_agent_no_curses' \
+  --output-on-failure
+```
+
+## Headless Boundary
+
+Build:
+
+```sh
+cmake --build cmake-build-debug --target the_llm_headless test_transientui -j2
+```
+
+Inspect a transient snapshot:
+
+```sh
+./cmake-build-debug/the_llm_headless --transient-demo
+```
+
+Guardrail tests:
+
+```sh
+ctest --test-dir cmake-build-debug \
+  -R 'test_transientui|test_the_llm_headless_no_curses|test_curses_boundary' \
   --output-on-failure
 ```

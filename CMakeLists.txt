@@ -397,6 +397,7 @@ set(THE_SOURCES
     src/the.c
     src/textedit.c
     src/textpos.c
+    src/transientui.c
     src/uidriver.c
     src/utflayout.c
     src/utfrepair.c
@@ -490,6 +491,22 @@ if(USE_UTF8 AND USE_UTF8PROC)
     target_compile_definitions(the_agent PRIVATE USE_UTF8PROC=1)
 endif()
 
+add_executable(the_llm_headless
+    tools/the_llm_headless.c
+    src/agentdriver.c
+    src/llmdriver.c
+    src/inputevent.c
+    src/uidriver.c
+    src/logcursor.c
+    src/textpos.c
+    src/transientui.c
+)
+target_include_directories(the_llm_headless PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+if(USE_UTF8 AND USE_UTF8PROC)
+    target_link_libraries(the_llm_headless ${THE_UTF8PROC_TARGET})
+    target_compile_definitions(the_llm_headless PRIVATE USE_UTF8PROC=1)
+endif()
+
 # Install Targets
 install(TARGETS ${EXECUTABLE_NAME} DESTINATION bin)
 if(WIN32)
@@ -505,6 +522,9 @@ install(DIRECTORY syntax/ DESTINATION share/the/syntax)
 enable_testing()
 add_test(NAME test_curses_boundary
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_curses_boundary.sh
+            ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME test_curses_boundary_inventory
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/inventory_direct_curses.sh
             ${CMAKE_CURRENT_SOURCE_DIR})
 add_executable(test_textpos tests/test_textpos.c src/textpos.c)
 target_include_directories(test_textpos PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
@@ -523,6 +543,9 @@ add_test(NAME test_logcursor COMMAND test_logcursor)
 add_executable(test_inputevent tests/test_inputevent.c src/inputevent.c)
 target_include_directories(test_inputevent PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 add_test(NAME test_inputevent COMMAND test_inputevent)
+add_executable(test_transientui tests/test_transientui.c src/transientui.c)
+target_include_directories(test_transientui PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+add_test(NAME test_transientui COMMAND test_transientui)
 add_executable(test_mousehit tests/test_mousehit.c src/mousehit.c src/inputevent.c)
 target_include_directories(test_mousehit PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 add_test(NAME test_mousehit COMMAND test_mousehit)
@@ -573,6 +596,9 @@ add_test(NAME test_the_agent_capabilities
 add_test(NAME test_the_agent_no_curses
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_agent_no_curses.sh
             $<TARGET_FILE:the_agent>)
+add_test(NAME test_the_llm_headless_no_curses
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_no_curses_symbols.sh
+            $<TARGET_FILE:the_llm_headless>)
 add_executable(test_llmruntime tests/test_llmruntime.c src/llmruntime.c src/llmdriver.c src/inputevent.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmruntime PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8 AND USE_UTF8PROC)

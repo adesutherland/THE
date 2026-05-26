@@ -45,6 +45,26 @@ typedef struct
    int valid;
 } CursesDriverScreenPoint;
 
+typedef enum
+{
+   CURSES_DRIVER_MOUSE_ACTION_NONE = 0,
+   CURSES_DRIVER_MOUSE_ACTION_PRESSED,
+   CURSES_DRIVER_MOUSE_ACTION_RELEASED,
+   CURSES_DRIVER_MOUSE_ACTION_CLICKED,
+   CURSES_DRIVER_MOUSE_ACTION_OTHER
+} CursesDriverMouseAction;
+
+typedef struct
+{
+   int button;
+   CursesDriverMouseAction action;
+   int modifier;
+   int row;
+   int col;
+   int inside;
+   int valid;
+} CursesDriverMouseEvent;
+
 int curses_driver_clamp_display_col(int display_col, int window_cols);
 int curses_driver_display_col_from_logical(const CHARTYPE *line, size_t len,
                                            int viewport_col, int logical_col);
@@ -117,6 +137,7 @@ int curses_driver_read_window_key(WINDOW *win);
 int curses_driver_read_standard_key(void);
 int curses_driver_read_raw_standard_key(void);
 void curses_driver_mouse_position(WINDOW *win, int *row, int *col);
+int curses_driver_read_mouse_event(WINDOW *win, CursesDriverMouseEvent *event);
 void curses_driver_prepare_standard_screen_for_shell(void);
 void curses_driver_force_background_and_refresh(WINDOW *win);
 void curses_driver_clear_standard_window(void);

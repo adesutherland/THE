@@ -29,6 +29,8 @@ logical_files=(
   src/utfterm.h
   src/llmdriver.c
   src/llmdriver.h
+  src/transientui.c
+  src/transientui.h
   src/uidriver.c
   src/uidriver.h
   tools/the_agent.c
@@ -52,6 +54,38 @@ execute_violations="$(
 if [[ -n "$execute_violations" ]]; then
   printf '%s\n' "Unexpected direct curses calls in src/execute.c; use cursesdriver wrappers:"
   printf '%s\n' "$execute_violations"
+  exit 1
+fi
+
+extract_function() {
+  local file=$1
+  local name=$2
+  awk -v name="$name" '
+    $0 ~ "^[[:alpha:]_][[:alnum:]_[:space:]\\*]*[[:space:]]+" name "[[:space:]]*\\(" {
+      in_func=1
+    }
+    in_func {
+      print
+      opens += gsub(/\{/, "{")
+      closes += gsub(/\}/, "}")
+      if (opens > 0 && opens == closes)
+        exit
+    }
+  ' "$file"
+}
+
+transient_pattern='(^|[^A-Za-z0-9_])(attrset|clear|wclear|move|mvaddstr|addch|refresh|wrefresh|wnoutrefresh|getyx|getbegyx|wmove|newwin|newpad|derwin|subwin|delwin|keypad|wbkgd|wattrset|wclrtobot|box|waddstr|waddch|touchwin|wnoutrefresh|prefresh|wgetch|my_getch|wmouse_position|get_mouse_info|whline|draw_cursor|force_curses_background)[[:space:]]*\('
+transient_violations="$(
+  {
+    extract_function src/commutil.c readv_cmdline
+    extract_function src/execute.c execute_dialog
+    extract_function src/execute.c execute_popup
+  } | rg -n "$transient_pattern" 2>/dev/null || true
+)"
+
+if [[ -n "$transient_violations" ]]; then
+  printf '%s\n' "Unexpected direct curses calls in cleaned readv/dialog/popup transient UI paths:"
+  printf '%s\n' "$transient_violations"
   exit 1
 fi
 

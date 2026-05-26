@@ -2,6 +2,8 @@
 #include "proto.h"
 #include "cursesdriver.h"
 
+#include <string.h>
+
 #ifdef USE_UTF8
 # include <wchar.h>
 # include "utflayout.h"
@@ -635,6 +637,46 @@ void curses_driver_mouse_position(WINDOW *win, int *row, int *col)
    if (win == NULL || row == NULL || col == NULL)
       return;
    wmouse_position(win, row, col);
+}
+
+int curses_driver_read_mouse_event(WINDOW *win, CursesDriverMouseEvent *event)
+{
+   int button = 0;
+   int action = 0;
+   int modifier = 0;
+
+   if (event != NULL)
+   {
+      memset(event, 0, sizeof(*event));
+      event->row = -1;
+      event->col = -1;
+   }
+#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+   if (event == NULL)
+      return 0;
+   if (get_mouse_info(&button, &action, &modifier) != RC_OK)
+      return 0;
+   event->button = button;
+   event->modifier = modifier;
+   event->valid = 1;
+   if (action == BUTTON_PRESSED)
+      event->action = CURSES_DRIVER_MOUSE_ACTION_PRESSED;
+   else if (action == BUTTON_RELEASED)
+      event->action = CURSES_DRIVER_MOUSE_ACTION_RELEASED;
+   else if (action == BUTTON_CLICKED)
+      event->action = CURSES_DRIVER_MOUSE_ACTION_CLICKED;
+   else
+      event->action = CURSES_DRIVER_MOUSE_ACTION_OTHER;
+   curses_driver_mouse_position(win, &event->row, &event->col);
+   event->inside = event->row != -1 && event->col != -1;
+   return 1;
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(win);
+   INTENTIONALLY_UNUSED_VARIABLE(button);
+   INTENTIONALLY_UNUSED_VARIABLE(action);
+   INTENTIONALLY_UNUSED_VARIABLE(modifier);
+   return 0;
+#endif
 }
 
 void curses_driver_prepare_standard_screen_for_shell(void)
