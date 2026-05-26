@@ -236,6 +236,74 @@ void cursor_focus_refresh(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
    cursor_focus_redraw_if_software(curr_screen, curr_view);
 }
 
+void cursor_focus_sync_current(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
+{
+   CursesDriverWindowCursor cursor;
+   LogicalCursor logical;
+   int row = 0;
+   int col = 0;
+
+   if (curr_view == NULL
+   ||  !cursor_focus_software_window(curr_view->current_window))
+      return;
+
+   logical = curr_view->logical_cursor.current;
+   switch(curr_view->current_window)
+   {
+      case WINDOW_FILEAREA:
+         if (logical.valid
+         &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+         &&  logical.line_number == curr_view->focus_line)
+            return;
+         break;
+
+      case WINDOW_PREFIX:
+         if (logical.valid
+         &&  logical.zone == LOGICAL_CURSOR_ZONE_PREFIX
+         &&  logical.line_number == curr_view->focus_line)
+            return;
+         break;
+
+      case WINDOW_COMMAND:
+         if (logical.valid
+         &&  logical.zone == LOGICAL_CURSOR_ZONE_COMMAND)
+            return;
+         break;
+
+      default:
+         break;
+   }
+
+   cursor = curses_driver_capture_window_cursor(SCREEN_WINDOW(curr_screen));
+   if (cursor.valid)
+   {
+      row = cursor.row;
+      col = cursor.col;
+   }
+   else
+   {
+      switch(curr_view->current_window)
+      {
+         case WINDOW_FILEAREA:
+         case WINDOW_PREFIX:
+            row = get_row_for_focus_line(curr_screen, curr_view->focus_line,
+                                         curr_view->current_row);
+            if (row < 0)
+               row = 0;
+            break;
+
+         case WINDOW_COMMAND:
+            row = 0;
+            col = (curr_view->cmdline_col >= 0) ? curr_view->cmdline_col : 0;
+            break;
+
+         default:
+            break;
+      }
+   }
+   cursor_focus_store_logical_at(curr_screen, curr_view, row, col);
+}
+
 void cursor_focus_present(CHARTYPE curr_screen)
 {
    if (current_cursor_uses_software())
@@ -289,6 +357,116 @@ static int cursor_utf8_filearea_cell(void)
 
    return cursor_utf8_filearea_logical_cell_from_display(
       current_screen, CURRENT_VIEW, x, TEXT_SNAP_BACKWARD);
+}
+
+static short cursor_focus_row_for_focus(CHARTYPE curr_screen,
+                                        VIEW_DETAILS *curr_view)
+{
+   short row;
+
+   if (curr_view == NULL)
+      return 0;
+   row = get_row_for_focus_line(curr_screen, curr_view->focus_line,
+                                curr_view->current_row);
+   if (row < 0)
+      row = 0;
+   if (screen[curr_screen].rows[WINDOW_FILEAREA] > 0
+   &&  row >= screen[curr_screen].rows[WINDOW_FILEAREA])
+      row = (short)(screen[curr_screen].rows[WINDOW_FILEAREA] - 1);
+   return row;
+}
+
+static int cursor_focus_filearea_desired_cell(CHARTYPE curr_screen,
+                                              VIEW_DETAILS *curr_view)
+{
+   LogicalCursor logical;
+
+   INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
+   if (curr_view == NULL)
+      return 0;
+   logical = curr_view->logical_cursor.current;
+   if (logical.valid
+   &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+   &&  logical.line_number == curr_view->focus_line)
+      return logical.desired_cell;
+   return cursor_utf8_filearea_cell();
+}
+
+static int cursor_focus_prefix_desired_cell(CHARTYPE curr_screen,
+                                            VIEW_DETAILS *curr_view)
+{
+   CursesDriverWindowCursor cursor;
+   LogicalCursor logical;
+
+   if (curr_view == NULL)
+      return 0;
+   logical = curr_view->logical_cursor.current;
+   if (logical.valid
+   &&  logical.zone == LOGICAL_CURSOR_ZONE_PREFIX
+   &&  logical.line_number == curr_view->focus_line)
+      return logical.desired_cell;
+
+   cursor = curses_driver_capture_window_cursor(
+      SCREEN_WINDOW_PREFIX(curr_screen));
+   if (cursor.valid)
+      return cursor.col;
+   return 0;
+}
+
+static int cursor_focus_vertical_desired_cell(CHARTYPE curr_screen,
+                                              VIEW_DETAILS *curr_view)
+{
+   if (curr_view == NULL)
+      return 0;
+   switch(curr_view->current_window)
+   {
+      case WINDOW_FILEAREA:
+         return cursor_focus_filearea_desired_cell(curr_screen, curr_view);
+      case WINDOW_PREFIX:
+         return cursor_focus_prefix_desired_cell(curr_screen, curr_view);
+      default:
+         break;
+   }
+   return 0;
+}
+
+static void cursor_focus_restore_vertical(CHARTYPE curr_screen,
+                                          VIEW_DETAILS *curr_view,
+                                          int desired_cell)
+{
+   short row;
+   int row_int;
+   int col;
+   TextPos pos;
+
+   if (curr_view == NULL)
+      return;
+   row = cursor_focus_row_for_focus(curr_screen, curr_view);
+   switch(curr_view->current_window)
+   {
+      case WINDOW_FILEAREA:
+         if (desired_cell < 0)
+            desired_cell = 0;
+         pos = textpos_from_cell_virtual(rec, rec_len, desired_cell,
+                                         TEXT_SNAP_BACKWARD);
+         curses_driver_move_filearea_cursor(curr_screen, curr_view,
+                                            rec, rec_len, row,
+                                            pos.cell_column);
+         break;
+
+      case WINDOW_PREFIX:
+         row_int = row;
+         col = desired_cell;
+         cursor_focus_clamp_to_window(curr_screen, WINDOW_PREFIX, &row_int,
+                                      &col);
+         row = (short)row_int;
+         curses_driver_move_prefix_cursor(curr_screen, row, (short)col);
+         cursor_focus_store_prefix_logical(curr_screen, curr_view, row, col);
+         break;
+
+      default:
+         break;
+   }
 }
 
 static short cursor_utf8_filearea_row(void)
@@ -503,6 +681,12 @@ void cursor_focus_refresh(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
    INTENTIONALLY_UNUSED_VARIABLE(curr_view);
 }
 
+void cursor_focus_sync_current(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
+{
+   INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
+   INTENTIONALLY_UNUSED_VARIABLE(curr_view);
+}
+
 void cursor_focus_present(CHARTYPE curr_screen)
 {
    INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
@@ -539,6 +723,23 @@ static void cursor_utf8_move_filearea_display_col(CHARTYPE curr_screen,
    INTENTIONALLY_UNUSED_VARIABLE(curr_view);
    curses_driver_move_window_cursor(SCREEN_WINDOW_FILEAREA(curr_screen),
                                     row, display_col);
+}
+
+static int cursor_focus_vertical_desired_cell(CHARTYPE curr_screen,
+                                              VIEW_DETAILS *curr_view)
+{
+   INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
+   INTENTIONALLY_UNUSED_VARIABLE(curr_view);
+   return 0;
+}
+
+static void cursor_focus_restore_vertical(CHARTYPE curr_screen,
+                                          VIEW_DETAILS *curr_view,
+                                          int desired_cell)
+{
+   INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
+   INTENTIONALLY_UNUSED_VARIABLE(curr_view);
+   INTENTIONALLY_UNUSED_VARIABLE(desired_cell);
 }
 
 short cursor_focus_enter_command(CHARTYPE curr_screen, VIEW_DETAILS *curr_view,
@@ -629,6 +830,7 @@ short THEcursor_down( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short escre
    short rc=RC_OK;
    short x = 0;
    bool was_bof = FALSE;
+   int desired_cell = 0;
 
    TRACE_FUNCTION("cursor.c:  THEcursor_down");
    /*
@@ -643,31 +845,33 @@ short THEcursor_down( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short escre
    {
       case WINDOW_PREFIX:
       case WINDOW_FILEAREA:
+         desired_cell = cursor_focus_vertical_desired_cell(curr_screen,
+                                                           curr_view);
          was_bof = VIEW_FOCUS_BOF(curr_view);
          rc = scroll_line( curr_screen, curr_view, DIRECTION_FORWARD, 1L, FALSE, escreen );
          if ( rc == RC_OK
+         &&   curr_view->current_window == WINDOW_FILEAREA
          &&   escreen == CURSOR_CUA )
          {
+#ifdef USE_UTF8
+            x = (short)desired_cell;
+            if ( x > min(textpos_from_byte(rec, rec_len, rec_len).cell_column,
+                         (int)curr_view->verify_end) )
+               desired_cell = textpos_from_byte(rec, rec_len, rec_len).cell_column;
+#else
             CursesDriverWindowCursor cursor =
                curses_driver_capture_window_cursor(
                   SCREEN_WINDOW_FILEAREA(curr_screen));
 
             if (cursor.valid)
                x = cursor.col;
-#ifdef USE_UTF8
-            if ( cursor_utf8_filearea_logical_cell_from_display(curr_screen,
-                                                                 curr_view,
-                                                                 x,
-                                                                 TEXT_SNAP_BACKWARD)
-                 > min(textpos_from_byte(rec, rec_len, rec_len).cell_column, (int)curr_view->verify_end) )
-               rc = execute_move_cursor( curr_screen, curr_view, textpos_from_byte(rec, rec_len, rec_len).cell_column );
-#else
             if ( x + curr_view->verify_col > min(rec_len,curr_view->verify_end) )
                rc = execute_move_cursor( curr_screen, curr_view, rec_len );
 #endif
          }
          if (rc == RC_OK)
-            cursor_utf8_snap_filearea_to_cluster_start(curr_screen, curr_view);
+            cursor_focus_restore_vertical(curr_screen, curr_view,
+                                          desired_cell);
          else if ( rc == RC_TOF_EOF_REACHED
          &&        CMDARROWSTABCMDx
          &&        was_bof
@@ -1141,6 +1345,7 @@ short THEcursor_up(short escreen)
    short rc=RC_OK;
    short x = 0;
    CHARTYPE *current_command=NULL;
+   int desired_cell = 0;
 
    TRACE_FUNCTION("cursor.c:  THEcursor_up");
    /*
@@ -1155,29 +1360,31 @@ short THEcursor_up(short escreen)
    {
       case WINDOW_FILEAREA:
       case WINDOW_PREFIX:
+         desired_cell = cursor_focus_vertical_desired_cell(current_screen,
+                                                           CURRENT_VIEW);
          rc = scroll_line( current_screen, CURRENT_VIEW, DIRECTION_BACKWARD, 1L, FALSE, escreen );
          if ( rc == RC_OK
+         &&   CURRENT_VIEW->current_window == WINDOW_FILEAREA
          &&   escreen == CURSOR_CUA )
          {
+#ifdef USE_UTF8
+            x = (short)desired_cell;
+            if ( x > min(textpos_from_byte(rec, rec_len, rec_len).cell_column,
+                         (int)CURRENT_VIEW->verify_end) )
+               desired_cell = textpos_from_byte(rec, rec_len, rec_len).cell_column;
+#else
             CursesDriverWindowCursor cursor =
                curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
 
             if (cursor.valid)
                x = cursor.col;
-#ifdef USE_UTF8
-            if ( cursor_utf8_filearea_logical_cell_from_display(current_screen,
-                                                                 CURRENT_VIEW,
-                                                                 x,
-                                                                 TEXT_SNAP_BACKWARD)
-                 > min(textpos_from_byte(rec, rec_len, rec_len).cell_column, (int)CURRENT_VIEW->verify_end) )
-               rc = execute_move_cursor( current_screen, CURRENT_VIEW, textpos_from_byte(rec, rec_len, rec_len).cell_column );
-#else
             if ( x + CURRENT_VIEW->verify_col > min( rec_len, CURRENT_VIEW->verify_end) )
                rc = execute_move_cursor( current_screen, CURRENT_VIEW, rec_len );
 #endif
          }
          if (rc == RC_OK)
-            cursor_utf8_snap_filearea_to_cluster_start(current_screen, CURRENT_VIEW);
+            cursor_focus_restore_vertical(current_screen, CURRENT_VIEW,
+                                          desired_cell);
          break;
       case WINDOW_COMMAND:
          /*

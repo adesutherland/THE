@@ -66,19 +66,37 @@ tests depending on which risk the slice touches.
   command-line focus, accept normalized key/text/command/logical-hit/debug
   input, and keep unsupported full-editor commands explicit through
   `capabilities`.
-- `the_agent` has a first SOS navigation/edit subset:
+- `the_agent` has the small SOS/navigation/edit subset needed for
+  cursor-driver confidence:
   `TOPEDGE`, `BOTTOMEDGE`, `LEFTEDGE`, `RIGHTEDGE`, `FIRSTCOL`, `LASTCOL`,
   `ENDCHAR`, `FIRSTCHAR`, `DELCHAR`, `CUADELCHAR`, `DELBACK`,
-  `CUADELBACK`, `DELEND`, `QCMND`, and `EXECUTE`.
+  `CUADELBACK`, `DELEND`, `DELWORD`, `PREFIX`, `TABFIELDF`,
+  `TABFIELDB`, `QCMND`, and `EXECUTE`.
 - File-area logical cursor work is established for UTF left/right movement,
-  text insertion, `SOS DELBACK`, and `SOS DELCHAR`. These paths prefer
-  `VIEW_DETAILS.logical_cursor` and derive byte ranges through `TextPos`.
+  text insertion, `SOS DELBACK`, `SOS DELCHAR`, and `SOS DELWORD`.
+  These paths prefer `VIEW_DETAILS.logical_cursor` and derive byte ranges
+  through `TextPos`.
+- Command-dispatch coverage step 2 closed 2026-05-26. The no-curses agent
+  now covers `SOS DELWORD`, `SOS PREFIX`, `SOS TABFIELDF`, `SOS TABFIELDB`,
+  and the prefix/filearea edge cases for `TOPEDGE`, `BOTTOMEDGE`, and
+  `LEFTEDGE`, while `capabilities` still declares the agent subset and keeps
+  full prefix commands and full THE dispatcher behavior unsupported. Agent
+  CTests cover the no-curses behavior and capability output, CREXX/pty tests
+  cover the corresponding full-editor SOS behavior, and
+  `test_curses_boundary` now guards the agent files plus the cleaned
+  `commsos.c` physical cursor-call surface.
 - Renderer cursor ownership has moved substantially: full file-area redraw
   builds a live `UiFrame`; file-area, prefix, command, status/HEXDISPLAY,
   view-switch restoration, render-exit materialization, targeted prefix redraw,
   targeted command redraw, SDSLH bracket matching, and UTF whole-line repair
   use logical or frame-backed cursor data instead of active-window cursor
   snapshots.
+- Manual terminal smoke for the Step 2 baseline is green as of 2026-05-26:
+  startup paints a software cursor, prefix/file-area vertical movement keeps
+  logical cursor columns stable and visible, and command-line Shift-Tab back to
+  the file area repaints after the field transition. CREXX/pty coverage now
+  exercises the same column-preservation and tab-field cases where they are
+  query-observable.
 - `execute.c` no longer calls the guarded curses primitives directly. Ordinary
   cursor effects for move-cursor, make-current, block rearrange preservation,
   inserted-line placement, selective-change prompt placement, and transient
@@ -103,13 +121,13 @@ tests depending on which risk the slice touches.
   driver-edge packets to logical-hit targets before legacy mouse-definition
   dispatch. Command dispatch still mostly consumes legacy key codes, and modal
   readv/popup/dialog mouse loops remain deferred physical behavior.
-- Agent command bridge. `the_agent` is useful and tested, but it is still an
-  agent subset. It does not run THE's full command dispatcher, full prefix
-  command machinery, CREXX macro/profile behavior, popup/dialog behavior, or
-  arbitrary SOS commands.
-- Command and SOS cleanup. The active-driver row/cell fallback is gone from the
-  focused SOS/query paths, but tab-field, key-navigation, prefix-command, and
-  other legacy command groups still need behavior-group migrations.
+- Agent command bridge. `the_agent` is useful and tested, but it remains an
+  intentional agent subset. It does not run THE's full command dispatcher,
+  full prefix command machinery, CREXX macro/profile behavior, popup/dialog
+  behavior, or arbitrary SOS commands.
+- Command and SOS cleanup. The focused Step 2 command/SOS coverage is closed.
+  Larger command groups such as full key-navigation and full prefix-command
+  machinery remain deferred rather than part of the completion path.
 - Guardrail ratchet. `tests/check_curses_boundary.sh` is intentionally
   permissive outside logical modules and `execute.c`. Tighten it only when a
   module or behavior group has equivalent logical or driver-owned coverage.
@@ -139,14 +157,18 @@ deferred.
    `test_the_agent_no_curses`. Modal readv/popup/dialog mouse loops are
    excluded because those transient UI models are deferred.
 
-2. Close command dispatch coverage.
-   Add the remaining small SOS/navigation/edit cases needed for cursor-driver
-   confidence to `the_agent`: `SOS DELWORD`, tab-field movement, and
-   prefix/filearea edge navigation. Keep unsupported full-editor behavior
-   explicit in `capabilities`. Close when agent CTests cover the no-curses
-   behavior, CREXX/pty tests cover the same full-editor commands, and
-   `tests/check_curses_boundary.sh` is tightened for the cleaned command/SOS
-   surface.
+2. Close command dispatch coverage. Closed 2026-05-26.
+   `the_agent` now supports the remaining small SOS/navigation/edit cases
+   needed for cursor-driver confidence: `SOS DELWORD`, `SOS TABFIELDF`,
+   `SOS TABFIELDB`, `SOS PREFIX`, and the prefix/filearea edge-navigation
+   cases. Unsupported full-editor behavior remains explicit in
+   `capabilities`: the agent is still an agent subset, full prefix commands
+   are not modeled, and CREXX/profile behavior still belongs to the full
+   editor surface. Covered by `test_agentdriver`, `test_the_agent_script`,
+   `test_the_agent_capabilities`, `test_the_agent_no_curses`, and CREXX/pty
+   `test_sos_navigation_queries` plus existing `test_sos_logical_edit_queries`
+   coverage. `tests/check_curses_boundary.sh` now guards the no-curses agent
+   files and the cleaned SOS physical cursor-call surface.
 
 3. Close renderer and terminal paint.
    Remove the remaining `show.c` targeted-redraw logical fallbacks by replacing
@@ -192,9 +214,9 @@ A migration task is closed only when all applicable items are true:
 ## Test Surfaces
 
 - `the_agent`: no-curses driver-boundary proof for logical snapshots,
-  normalized input, command-line/file-area focus, logical hits, explicit
-  unsupported commands, and the current SOS subset. It does not prove the full
-  editor dispatcher.
+  normalized input, command-line/file-area/prefix focus, logical hits,
+  explicit unsupported commands, and the closed Step 2 SOS subset. It does not
+  prove the full editor dispatcher.
 - CREXX/pty tests: full-editor command and SOS behavior. They require CREXX
   support, a working CREXX compiler/import runtime, and a pty-capable host.
   Skip messages should name missing prerequisites.

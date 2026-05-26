@@ -2623,6 +2623,8 @@ short Sos_tabfieldb(CHARTYPE *params)
    post_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL,TRUE);
    rc = go_to_new_field(save_where,where);
    pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
+   if (rc == RC_OK)
+      cursor_focus_refresh(current_screen, CURRENT_VIEW);
    TRACE_RETURN();
    return(rc);
 }
@@ -2677,6 +2679,8 @@ short Sos_tabfieldf(CHARTYPE *params)
    post_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL,TRUE);
    rc = go_to_new_field(save_where,where);
    pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
+   if (rc == RC_OK)
+      cursor_focus_refresh(current_screen, CURRENT_VIEW);
    TRACE_RETURN();
    return(rc);
 }

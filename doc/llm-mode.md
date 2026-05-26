@@ -37,7 +37,8 @@ set, and this SOS navigation/edit subset:
 
 ```text
 TOPEDGE BOTTOMEDGE LEFTEDGE RIGHTEDGE FIRSTCOL LASTCOL ENDCHAR FIRSTCHAR
-DELCHAR CUADELCHAR DELBACK CUADELBACK DELEND QCMND EXECUTE
+DELCHAR CUADELCHAR DELBACK CUADELBACK DELEND DELWORD PREFIX TABFIELDF
+TABFIELDB QCMND EXECUTE
 ```
 
 Other THE/SOS commands return an explicit unsupported-command response. Use the
@@ -186,9 +187,9 @@ ctest --test-dir cmake-build-debug \
 
 Coverage includes semantic formatting, compact views, input conversion and
 queues, debug snapshots, virtual frames/fake-driver logs, logical hits, agent
-file loading, file-area and command-line focus, command cursor movement, Enter
-submission, capability output, unsupported-command diagnostics, and the current
-SOS subset.
+file loading, file-area, prefix, and command-line focus, command cursor
+movement, Enter submission, capability output, unsupported-command
+diagnostics, and the closed Step 2 SOS subset.
 
 CREXX/pty tests remain the stronger full-editor integration surface while
 `the_agent` is incomplete. A skipped CREXX test means that surface was

@@ -15,7 +15,7 @@ sample=$work_dir/sample.txt
 out=$work_dir/out.jsonl
 
 cat > "$sample" <<'TEXT'
-alpha
+alpha beta gamma
 A1️⃣B
 omega
 TEXT
@@ -54,7 +54,16 @@ command sos rightedge
 command sos delback
 look filearea compact max=40
 command sos leftedge
+command sos prefix
+look focus compact prefix=0
+command sos tabfieldf
+look focus compact prefix=0
+command sos tabfieldb
+look focus compact prefix=0
+command sos leftedge
 command sos delchar
+look filearea compact max=40
+command sos delword
 look filearea compact max=40
 hit status 0 5 0
 hit tabline 0 0 0
@@ -77,8 +86,9 @@ rg '"cell":0' "$out" >/dev/null
 rg '"cell":4' "$out" >/dev/null
 rg 'A1' "$out" >/dev/null
 rg 'BZ' "$out" >/dev/null
-rg '"t":"alph"' "$out" >/dev/null
-rg '"t":"lph"' "$out" >/dev/null
+rg '"t":"alpha beta gamm"' "$out" >/dev/null
+rg '"t":"lpha beta gamm"' "$out" >/dev/null
+rg '"t":"beta gamm"' "$out" >/dev/null
 rg '"status":"status hit"' "$out" >/dev/null
 rg '"status":"tabline hit"' "$out" >/dev/null
 rg '"status":"divider hit"' "$out" >/dev/null

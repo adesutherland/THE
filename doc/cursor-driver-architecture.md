@@ -109,7 +109,8 @@ Closed checkpoints are summarized here; details and next tasks are in
   diagnostics.
 - `src/agentdriver.c` plus `tools/the_agent.c` provide the no-curses proof
   target with capability reporting, explicit unsupported-command diagnostics,
-  logical hits, command/file focus, and the current SOS navigation/edit subset.
+  logical hits, command/file/prefix focus, and the closed Step 2 SOS
+  navigation/edit subset.
 - `show.c`, `execute.c`, `query1.c`, `query2.c`, and `commsos.c` have removed
   several active-window cursor snapshot fallbacks from the focused cursor,
   query, SOS, render-exit, status, prefix, and view-switch paths.
@@ -133,12 +134,12 @@ The current active categories are:
 
 - Done: logical UTF primitives, terminal profile/repair foundation, UI frame
   and fake-driver foundation, LLM snapshot formatting, no-curses agent proof,
-  file-area logical cursor/editing foundation, major render cursor fallback
-  removals, execute wrapper migration, focused query/SOS active-driver fallback
-  removals, normalized live mouse input for normal `THEMouse` dispatch, and
-  baseline guardrails.
-- In progress: remaining completion steps in `doc/utf-handover.md`: close
-  command dispatch coverage and close renderer/terminal paint.
+  file-area logical cursor/editing foundation, command-dispatch Step 2
+  coverage, major render cursor fallback removals, execute wrapper migration,
+  focused query/SOS active-driver fallback removals, normalized live mouse
+  input for normal `THEMouse` dispatch, and baseline guardrails.
+- In progress: the remaining completion step in `doc/utf-handover.md`: close
+  renderer/terminal paint.
 - Deferred: full agent dispatcher integration, full prefix command machinery in
   the agent, popup/dialog/window logical lifecycle, retained-frame delta views,
   strict project-wide curses exclusion outside physical edges, and additional

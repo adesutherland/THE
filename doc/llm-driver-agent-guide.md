@@ -145,14 +145,17 @@ Current agent subset:
   tabline/filetabs, divider, and window selection.
 - Supported SOS commands: `TOPEDGE`, `BOTTOMEDGE`, `LEFTEDGE`, `RIGHTEDGE`,
   `FIRSTCOL`, `LASTCOL`, `ENDCHAR`, `FIRSTCHAR`, `DELCHAR`, `CUADELCHAR`,
-  `DELBACK`, `CUADELBACK`, `DELEND`, `QCMND`, and `EXECUTE`.
+  `DELBACK`, `CUADELBACK`, `DELEND`, `DELWORD`, `PREFIX`, `TABFIELDF`,
+  `TABFIELDB`, `QCMND`, and `EXECUTE`.
 - Unsupported full-editor commands return stable diagnostics and point callers
   to `capabilities`.
 
 Not closed:
 
 - Full THE command dispatcher integration in `the_agent`.
-- Full prefix command machinery in `the_agent`.
+- Full prefix command machinery in `the_agent`. `SOS PREFIX` can focus the
+  prefix field, but entering or executing prefix commands is still outside the
+  no-curses agent subset.
 - Modal readv/popup/dialog mouse loops still use physical mouse handling until
   logical popup/dialog/window lifecycle models exist.
 - Logical popup/dialog/window lifecycle snapshots.

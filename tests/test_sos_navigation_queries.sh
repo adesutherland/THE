@@ -89,6 +89,59 @@ field = .string[]
 address the "extract /field/" expose field[]
 say "MAKECURR_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
 
+'set prefix on'
+'cursor file 2 1'
+'sos tabfieldb'
+field = .string[]
+address the "extract /field/" expose field[]
+say "TABFIELDB_TO_PREFIX=" || field[3] || ":" || field[4]
+
+'sos tabfieldf'
+field = .string[]
+address the "extract /field/" expose field[]
+say "TABFIELDF_TO_FILE=" || field[3] || ":" || field[4]
+
+'cursor cmdline 1'
+'sos tabfieldf'
+field = .string[]
+address the "extract /field/" expose field[]
+say "TABFIELDF_FROM_COMMAND=" || field[3] || ":" || field[4]
+
+'sos tabfieldb'
+field = .string[]
+address the "extract /field/" expose field[]
+say "TABFIELDB_TO_COMMAND=" || field[3] || ":" || field[4]
+
+'cursor cmdline 1'
+'sos tabfieldb'
+field = .string[]
+address the "extract /field/" expose field[]
+say "TABFIELDB_FROM_COMMAND=" || field[3] || ":" || field[4]
+
+'cursor file 5 5'
+'cursor escreen down'
+field = .string[]
+address the "extract /field/" expose field[]
+say "FILE_CURSOR_DOWN_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
+'cursor escreen up'
+field = .string[]
+address the "extract /field/" expose field[]
+say "FILE_CURSOR_UP_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
+
+'set prefix on'
+'cursor file 5 1'
+'sos prefix'
+'cursor right'
+'cursor right'
+'cursor escreen down'
+field = .string[]
+address the "extract /field/" expose field[]
+say "PREFIX_CURSOR_DOWN_FIELD=" || field[3] || ":" || field[4]
+'cursor escreen up'
+field = .string[]
+address the "extract /field/" expose field[]
+say "PREFIX_CURSOR_UP_FIELD=" || field[3] || ":" || field[4]
+
 'qquit'
 PROFILE_EOF
 
@@ -118,5 +171,14 @@ grep -q "PREFIX_BOTTOM_FIELD=3:PREFIX" "${WORK_DIR}/combined.txt"
 grep -q "PREFIX_TOP_FIELD=3:PREFIX" "${WORK_DIR}/combined.txt"
 grep -q "LEFTEDGE_FIELD=1:TEXT" "${WORK_DIR}/combined.txt"
 grep -q "MAKECURR_FIELD=e:4:TEXT" "${WORK_DIR}/combined.txt"
+grep -q "TABFIELDB_TO_PREFIX=1:PREFIX" "${WORK_DIR}/combined.txt"
+grep -q "TABFIELDF_TO_FILE=1:TEXT" "${WORK_DIR}/combined.txt"
+grep -q "TABFIELDF_FROM_COMMAND=1:PREFIX" "${WORK_DIR}/combined.txt"
+grep -q "TABFIELDB_TO_COMMAND=1:COMMAND" "${WORK_DIR}/combined.txt"
+grep -q "TABFIELDB_FROM_COMMAND=1:TEXT" "${WORK_DIR}/combined.txt"
+grep -q "FILE_CURSOR_DOWN_FIELD= :5:TEXT" "${WORK_DIR}/combined.txt"
+grep -q "FILE_CURSOR_UP_FIELD= :5:TEXT" "${WORK_DIR}/combined.txt"
+grep -q "PREFIX_CURSOR_DOWN_FIELD=3:PREFIX" "${WORK_DIR}/combined.txt"
+grep -q "PREFIX_CURSOR_UP_FIELD=3:PREFIX" "${WORK_DIR}/combined.txt"
 
 echo "SOS navigation query test passed."

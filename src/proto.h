@@ -462,6 +462,7 @@ short execute_sort (CHARTYPE *);
 short THEcursor_cmdline ( CHARTYPE, VIEW_DETAILS *, short );
 void cursor_focus_redraw (CHARTYPE, VIEW_DETAILS *);
 void cursor_focus_refresh (CHARTYPE, VIEW_DETAILS *);
+void cursor_focus_sync_current (CHARTYPE, VIEW_DETAILS *);
 void cursor_focus_present (CHARTYPE);
 short cursor_focus_enter_command (CHARTYPE, VIEW_DETAILS *, short, bool);
 short THEcursor_column (void);

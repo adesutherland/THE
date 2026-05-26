@@ -19,6 +19,8 @@ logical_files=(
   src/inputevent.h
   src/mousehit.c
   src/mousehit.h
+  src/agentdriver.c
+  src/agentdriver.h
   src/utflayout.c
   src/utflayout.h
   src/utfrepair.c
@@ -29,6 +31,7 @@ logical_files=(
   src/llmdriver.h
   src/uidriver.c
   src/uidriver.h
+  tools/the_agent.c
 )
 
 violations="$(
@@ -52,4 +55,15 @@ if [[ -n "$execute_violations" ]]; then
   exit 1
 fi
 
-printf '%s\n' "curses boundary check passed for logical modules and execute.c wrappers"
+sos_pattern='(^|[^A-Za-z0-9_])(getyx|wmove|mvwadd|wadd|touchline|touchwin|wnoutrefresh|doupdate|draw_cursor|curs_set|keypad|curses_driver_capture_window_cursor)[[:space:]]*\('
+sos_violations="$(
+  rg -n "$sos_pattern" src/commsos.c 2>/dev/null || true
+)"
+
+if [[ -n "$sos_violations" ]]; then
+  printf '%s\n' "Unexpected physical cursor/window calls in src/commsos.c SOS surface:"
+  printf '%s\n' "$sos_violations"
+  exit 1
+fi
+
+printf '%s\n' "curses boundary check passed for logical modules, agent, execute.c wrappers, and SOS cursor surface"

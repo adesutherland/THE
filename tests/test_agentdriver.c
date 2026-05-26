@@ -247,6 +247,112 @@ int main(void)
    agent_driver_format(&driver, &options, out, sizeof(out));
    expect_contains(out, "\"cell\":2", "sos firstchar skips blanks");
 
+   agent_driver_free(&driver);
+   agent_driver_init(&driver, 6, 80);
+   expect_true(agent_driver_set_text(&driver,
+                                     "alpha beta gamma\n"
+                                     "second line\n"
+                                     "third line\n"),
+               "set delword and tabfield text");
+   expect_true(the_input_event_from_logical_target(THE_INPUT_TARGET_FILEAREA,
+                                                   1, 1, 6, 0, -1, &input),
+               "make delword hit");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply delword hit");
+   expect_true(the_input_event_from_command("sos delword", &input),
+               "make sos delword");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply sos delword");
+   options.mode = LLM_DRIVER_VIEW_FOCUS;
+   options.compact = 1;
+   options.include_prefix = 0;
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "alpha gamma", "sos delword edits filearea word");
+   expect_contains(out, "\"cell\":6", "sos delword keeps deletion start");
+
+   expect_true(the_input_event_from_command("sos prefix", &input),
+               "make sos prefix");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply sos prefix");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"zone\":\"prefix\"", "sos prefix focuses prefix");
+   expect_contains(out, "\"cell\":0", "sos prefix first prefix cell");
+
+   expect_true(the_input_event_from_command("sos tabfieldf", &input),
+               "make sos tabfieldf");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply sos tabfieldf");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"zone\":\"filearea\"", "tabfieldf prefix to filearea");
+   expect_contains(out, "\"line\":1", "tabfieldf preserves row line");
+   expect_contains(out, "\"cell\":0", "tabfieldf goes to field start");
+
+   expect_true(the_input_event_from_command("sos tabfieldb", &input),
+               "make sos tabfieldb");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply sos tabfieldb");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"zone\":\"prefix\"", "tabfieldb filearea to prefix");
+   expect_contains(out, "\"line\":1", "tabfieldb preserves row line");
+
+   expect_true(the_input_event_from_command("sos bottomedge", &input),
+               "make prefix sos bottomedge");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply prefix sos bottomedge");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"zone\":\"prefix\"", "prefix bottomedge stays prefix");
+   expect_contains(out, "\"line\":3", "prefix bottomedge last visible line");
+
+   expect_true(the_input_event_from_command("sos topedge", &input),
+               "make prefix sos topedge");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply prefix sos topedge");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"zone\":\"prefix\"", "prefix topedge stays prefix");
+   expect_contains(out, "\"line\":1", "prefix topedge first visible line");
+
+   expect_true(the_input_event_from_command("sos leftedge", &input),
+               "make prefix sos leftedge");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply prefix sos leftedge");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"zone\":\"filearea\"", "prefix leftedge returns to filearea");
+   expect_contains(out, "\"cell\":0", "prefix leftedge first file cell");
+
+   expect_true(the_input_event_from_command("focus command", &input),
+               "make command focus for delword");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply command focus for delword");
+   apply_text_chars(&driver, "alpha beta");
+   expect_true(the_input_event_from_logical_target(THE_INPUT_TARGET_COMMAND,
+                                                   0, 4, 6, 0, -1, &input),
+               "make command delword hit");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply command delword hit");
+   expect_true(the_input_event_from_command("sos delword", &input),
+               "make command sos delword");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply command sos delword");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"zone\":\"command\"", "command delword stays command");
+   expect_contains(out, "\"command\":\"alpha \"", "command delword edits command line");
+
+   expect_true(the_input_event_from_command("sos tabfieldf", &input),
+               "make command sos tabfieldf");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply command sos tabfieldf");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"zone\":\"prefix\"", "tabfieldf command to prefix");
+   expect_contains(out, "\"line\":1", "tabfieldf command to first visible line");
+
+   expect_true(the_input_event_from_command("sos tabfieldb", &input),
+               "make top prefix sos tabfieldb");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply top prefix sos tabfieldb");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"zone\":\"command\"", "tabfieldb top prefix to command");
+   expect_contains(out, "\"cell\":0", "tabfieldb command first cell");
+
    expect_true(the_input_event_from_logical_target(THE_INPUT_TARGET_STATUS,
                                                    0, 5, 0, 0, -1, &input),
                "make status logical hit");
@@ -279,7 +385,7 @@ int main(void)
    expect_true(strcmp(agent_driver_status(&driver), "window selected") == 0,
                "window logical hit status");
 
-   expect_true(the_input_event_from_command("sos delword", &input),
+   expect_true(the_input_event_from_command("sos makecurr", &input),
                "make unsupported command");
    expect_true(!agent_driver_apply_input(&driver, &input),
                "reject unsupported command");
