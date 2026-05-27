@@ -160,7 +160,7 @@ int process_key(int key, bool mouse_details_present)
          key = normalized_key;
    }
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-   if (key != KEY_MOUSE)
+   if (!curses_driver_is_mouse_key(key))
    {
       if (!mouse_details_present)
          reset_saved_mouse_pos();
@@ -225,7 +225,7 @@ int process_key(int key, bool mouse_details_present)
     * Save details about the last key pressed
     */
    lastkeys[current_key] = key;
-   if ( key == KEY_MOUSE )
+   if (curses_driver_is_mouse_key(key))
    {
       lastkeys_is_mouse[current_key] = 1;
    }
@@ -267,7 +267,7 @@ int process_key(int key, bool mouse_details_present)
        * If we are recording a macro, write the key definintion
        * here
        */
-      write_macro( get_key_definition( key, THE_KEY_DEFINE_RAW, TRUE, (bool)((key == KEY_MOUSE) ? TRUE : FALSE ) ) );
+      write_macro( get_key_definition( key, THE_KEY_DEFINE_RAW, TRUE, (bool)(curses_driver_is_mouse_key(key) ? TRUE : FALSE ) ) );
    }
    save_for_repeat = 0;
    rc = function_key( key, OPTION_NORMAL, mouse_details_present );

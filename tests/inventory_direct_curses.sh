@@ -155,15 +155,19 @@ function is_preprocessor_define(line) {
   line = trim(line)
   return line ~ /^#[[:space:]]*define[[:space:]]/
 }
-function category(line, is_func_sig, is_define) {
+function is_preprocessor_undef(line) {
+  line = trim(line)
+  return line ~ /^#[[:space:]]*undef[[:space:]]/
+}
+function category(line, is_func_sig, is_define, is_undef) {
   if (line ~ /(^|[^A-Za-z0-9_])curses_driver_[A-Za-z0-9_]*[[:space:]]*\(/)
     return "driver-wrapper"
   if (!is_func_sig && !is_define && line ~ /(^|[^A-Za-z0-9_])(my_getch|wgetch|getch|get_mouse_info|wmouse_position)[[:space:]]*\(/)
     return "physical-input"
+  if (!is_define && !is_undef && line ~ /(^|[^A-Za-z0-9_])(KEY_MOUSE|MEVENT|getmouse|request_mouse_pos|MOUSE_X_POS|MOUSE_Y_POS|A_BUTTON_CHANGED|BUTTON_CHANGED|BUTTON_STATUS|BUTTON_ACTION_MASK|MOUSE_MOVED|BUTTON[123]_[A-Za-z0-9_]+|BUTTON_SHIFT|BUTTON_CONTROL|BUTTON_CTRL|BUTTON_ALT|BUTTON_PRESSED|BUTTON_RELEASED|BUTTON_CLICKED|BUTTON_DOUBLE_CLICKED|BUTTON_TRIPLE_CLICKED|BUTTON_MOVED|WHEEL_SCROLLED)([^A-Za-z0-9_]|$)/)
+    return "physical-input"
   if (!is_func_sig && !is_define && line ~ /(^|[^A-Za-z0-9_])(getyx|getbegyx|getmaxyx|wmove|mvwadd|wadd|wattr|touchline|touchwin|wnoutrefresh|doupdate|wrefresh|refresh|newwin|newpad|derwin|subwin|delwin|keypad|wbkgd|box|whline|prefresh|curs_set|draw_cursor)[[:space:]]*\(/)
     return "physical-paint"
-  if (!is_define && line ~ /(^|[^A-Za-z0-9_])(KEY_MOUSE|BUTTON_PRESSED|BUTTON_RELEASED|BUTTON_CLICKED)([^A-Za-z0-9_]|$)/)
-    return "mouse-token"
   if (line ~ /(^|[^A-Za-z0-9_])(WINDOW|SCREEN_WINDOW|CURRENT_WINDOW|CURRENT_WINDOW_[A-Za-z0-9_]*|SCREEN_WINDOW_[A-Za-z0-9_]*|stdscr|chtype|cchar_t)([^A-Za-z0-9_]|$)/)
     return "window-state"
   return ""
@@ -195,6 +199,7 @@ FNR == 1 {
   is_func_sig = is_function_signature(line)
   is_func_def = is_function_definition_line(line)
   is_define = is_preprocessor_define(line)
+  is_undef = is_preprocessor_undef(line)
   if (is_func_def) {
     sig = line
     sub(/\{.*/, "", sig)
@@ -204,7 +209,7 @@ FNR == 1 {
     if (n > 0 && parts[n] != "")
       fn = parts[n]
   }
-  cat = category(line, is_func_sig, is_define)
+  cat = category(line, is_func_sig, is_define, is_undef)
   if (cat != "")
     printf "%s\t%d\t%s\t%s\t%s\n", FILENAME, FNR, fn, cat, trim(raw)
 }

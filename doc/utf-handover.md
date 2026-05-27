@@ -59,6 +59,10 @@ them mechanically and verify the supported targets in one sweep.
   cursor/paint work: cursor capture/move/restore, window origin/size reads,
   input timeouts, refresh/update/touch helpers, cell writes/fills, software
   cursor painting, UTF repair execution, and cursor parking.
+- `src/cursesdriver.c` also owns raw curses mouse packet mechanics: raw
+  `KEY_MOUSE` translation to `THE_KEY_MOUSE`, PDC/ncurses packet storage,
+  button/action/modifier decoding, saved physical mouse coordinates, and
+  window-local mouse coordinate projection.
 - `src/uidriver.c`, `src/screenframe.c`, `src/llmdriver.c`, and
   `src/llmruntime.c` provide semantic frames, role-aware snapshots, cursor
   overlays, fake-driver operation logs, compact views, and debug formatting.
@@ -78,7 +82,8 @@ them mechanically and verify the supported targets in one sweep.
   curses.
 - The curses readv/dialog/popup paths now materialize transient snapshots and
   route modal mouse clicks through logical hit targets where practical. Raw
-  mouse decoding moved behind `curses_driver_read_mouse_event()`.
+  mouse packet decoding lives in `src/cursesdriver.c` behind
+  `curses_driver_read_mouse_event()` and `curses_driver_read_mouse_button()`.
 - `the_llm_headless` is a real no-curses LLM/headless build target. It links
   the agent, LLM formatter, input model, and transient UI model without
   `src/cursesdriver.c`; `test_the_llm_headless_no_curses` checks dependencies
@@ -121,10 +126,10 @@ them mechanically and verify the supported targets in one sweep.
 ## Active Slice
 
 No active migration slice is selected after closing the inventory ratchet,
-bulk physical wrapper pass, and physical input/paint cleanup. Pick the next
-slice from the debt buckets below and close it with the same proof pattern:
-no-curses model first, curses path uses that model, then guardrail the cleaned
-surface.
+bulk physical wrapper pass, physical input/paint cleanup, and raw mouse packet
+driver-ownership cleanup. Pick the next slice from the debt buckets below and
+close it with the same proof pattern: no-curses model first, curses path uses
+that model, then guardrail the cleaned surface.
 
 ## Direct Curses Inventory
 
@@ -144,15 +149,23 @@ Current ratcheted counts:
 
 - actionable `physical-input`: 0
 - actionable `physical-paint`: 0
-- actionable `mouse-token`: 24
-- actionable `window-state`: 397
-- allowed/migrated `driver-wrapper`: 629
+- actionable `mouse-token`: 0
+- actionable `window-state`: 394
+- allowed/migrated `driver-wrapper`: 643
 
 For the cleaned transient functions, the sweep finds no raw `physical-input` or
 `physical-paint` calls in `readv_cmdline()`, `execute_dialog()`, or
 `execute_popup()`. Remaining transient findings are explicitly classified:
-`WINDOW` ownership in the curses path, `KEY_MOUSE` branch tokens, and
-`curses_driver_*` physical wrapper calls.
+`WINDOW` ownership in the curses path and `curses_driver_*` physical wrapper
+calls. Direct `KEY_MOUSE` branch tokens now use the driver abstraction and no
+longer appear as mouse-token debt.
+
+The raw mouse packet guardrail is now stricter: outside `src/cursesdriver.*`,
+bundled PDCurses, and contrib code, raw `MEVENT`, `getmouse`,
+`request_mouse_pos`, `MOUSE_X_POS`, `MOUSE_Y_POS`, `BUTTON_CHANGED`,
+`BUTTON_STATUS`, `BUTTON_ACTION_MASK`, `MOUSE_MOVED`, `BUTTON1_*`,
+`BUTTON2_*`, `BUTTON3_*`, modifier button masks, wheel scroll tokens, and
+direct `KEY_MOUSE` are classified as actionable `physical-input`.
 
 The ratchet is a project-wide no-new-debt gate for actionable categories, not a
 must-fix-all-existing-debt gate. Reductions are allowed without updating every
@@ -161,11 +174,14 @@ treated as migrated/allowed and do not fail the ratchet.
 
 The wrapper passes reduced the current scanner's raw `physical-input` count
 from 16 to 12 to 0 and raw `physical-paint` count from 198 to 31 to 0. The
-latest cleanup slice specifically reduced `physical-input` from 12 to 0 and
-`physical-paint` from 31 to 0, with `mouse-token` unchanged at 24. The scanner
-also stops treating comments, prototypes/function names, `#if 0` bodies, and
-inactive `#if 0` arms before active `#else` branches as raw call sites.
-Windows PDCursesMod `wincon` was not build-verified in this pass.
+mouse-boundary cleanup kept `physical-input` and `physical-paint` at 0 under
+the stricter raw mouse scanner, reduced `mouse-token` from 24 to 0,
+`window-state` from 397 to 394, and moved the old raw packet decoding source of
+truth from `src/mouse.c` to `src/cursesdriver.c`. The scanner also stops
+treating comments, prototypes/function names, `#if 0` bodies, inactive `#if 0`
+arms before active `#else` branches, and raw-token `#undef` compatibility
+guards as raw call sites. Windows PDCursesMod `wincon` was not build-verified
+in this pass.
 
 ## Deferred Buckets
 
@@ -175,10 +191,10 @@ Boundary debt:
   render, setup, and header surfaces. These mostly reflect `WINDOW`, `chtype`,
   `cchar_t`, active-window macros, and the future renderer/window-state model,
   so they are intentionally deferred.
-- Remaining `mouse-token` findings are intentionally deferred unless adjacent
-  to a physical input path being migrated. They are currently branch tokens,
-  mouse key definitions, query/extract compatibility checks, and mouse-driver
-  button-action constants, not raw physical reads.
+- `mouse-token` is currently zero. Future raw mouse packet symbols outside the
+  driver should fail as actionable `physical-input`; editor-level mouse command
+  encoding should continue to use driver-owned button/action/modifier constants
+  or logical hit targets.
 - `driver-wrapper` entries outside the driver are allowed for migrated physical
   mechanics today, but many still indicate command code owning physical window
   timing or cursor placement. Classify them slice by slice.

@@ -87,14 +87,12 @@ static void test_legacy_key_normalization(void)
               the_input_event_to_legacy_key(&input, &key), 1);
    expect_int("legacy.resize.key", key, KEY_RESIZE);
 #endif
-#ifdef KEY_MOUSE
    expect_int("legacy.mouse.parse",
-              the_input_event_from_legacy_key(KEY_MOUSE, &input), 1);
+              the_input_event_from_legacy_key(THE_KEY_MOUSE, &input), 1);
    expect_int("legacy.mouse.kind", input.kind, THE_INPUT_KEY);
    expect_int("legacy.mouse.to.key",
               the_input_event_to_legacy_key(&input, &key), 1);
-   expect_int("legacy.mouse.key", key, KEY_MOUSE);
-#endif
+   expect_int("legacy.mouse.key", key, THE_KEY_MOUSE);
 }
 
 static void test_commands_targets_debug_and_queue(void)

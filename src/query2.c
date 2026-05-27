@@ -1451,16 +1451,8 @@ short extract_readv(short number_variables,short itemno,CHARTYPE *itemargs,CHART
          continue;
 #endif
 #if defined (PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-      if (key == KEY_MOUSE)
+      if (curses_driver_is_mouse_key(key))
       {
-#if 0
-         int b,ba,bm,w;
-         CHARTYPE scrn;
-         if (get_mouse_info(&b,&ba,&bm) != RC_OK)
-            continue;
-         which_window_is_mouse_in(&scrn,&w);
-         key = mouse_info_to_key(w,b,ba,bm);
-#endif
          mouse_key = TRUE;
       }
       else

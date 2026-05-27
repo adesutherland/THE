@@ -3869,7 +3869,7 @@ int readv_cmdline(CHARTYPE *initial, WINDOW *dw, int start_col)
          continue;
 #endif
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-      if (key == KEY_MOUSE)
+      if (curses_driver_is_mouse_key(key))
       {
          CursesDriverMouseEvent mouse;
          TransientUiHitTarget hit;

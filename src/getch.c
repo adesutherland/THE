@@ -52,6 +52,7 @@
 #endif
 
 int curses_driver_read_raw_window_key(WINDOW *win);
+int curses_driver_is_mouse_key(int key);
 
 /*
  * Do special character handling if using ncurses, xcurses
@@ -90,13 +91,8 @@ static void mouse_getch_trace(WINDOW *winptr, int key)
 
    if (trace == NULL)
       return;
-#ifdef KEY_MOUSE
-   fprintf(trace,"getch win=%p key=%d key_mouse=%d is_mouse=%d\n",
-           (void *)winptr,key,KEY_MOUSE,(key == KEY_MOUSE));
-#else
-   fprintf(trace,"getch win=%p key=%d key_mouse=unavailable is_mouse=0\n",
-           (void *)winptr,key);
-#endif
+   fprintf(trace,"getch win=%p key=%d is_mouse=%d\n",
+           (void *)winptr,key,curses_driver_is_mouse_key(key));
    fflush(trace);
 }
 

@@ -304,7 +304,7 @@ COMMAND command[] =
  {(CHARTYPE *)"mouse",       5,  (-1),            Mouse,            TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"mouseclick",  7,  (-1),            Mouseclick,       TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
- {(CHARTYPE *)"",            0,  KEY_MOUSE,       THEMouse,         FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm3.c */
+ {(CHARTYPE *)"",            0,  THE_KEY_MOUSE,   THEMouse,         FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm3.c */
 #endif
 #if defined(DOS) || defined(OS2) || defined(WIN32)
  {(CHARTYPE *)"mark",        0,  ALT_L,           Mark,             FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)"line"},  /* comm3.c */

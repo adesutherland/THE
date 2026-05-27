@@ -710,7 +710,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                   /*     } */                                    \
                        src = line;                             \
                        while (l--) {                             \
-                          ch = u8_nextchar( src, &pos );       \
+                          ch = u8_nextchar( (char *)src, &pos );       \
                           show_add_utf8_codepoint(ch,_fast_colour); \
                        } }
 #  define ADD_SYNTAX_LINE_OUTPUT(line,length,highlight) {        \
@@ -728,7 +728,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                              _fast_colour = *highl;            \
                              curses_driver_set_window_attr(_fast_win,*highl);       \
                           }                                    \
-                          ch = u8_nextchar( src, &pos );       \
+                          ch = u8_nextchar( (char *)src, &pos );       \
                           show_add_utf8_codepoint(ch,*highl);  \
                           highl++;                             \
                        } }

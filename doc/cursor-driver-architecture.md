@@ -46,8 +46,9 @@ The physical driver owns:
 
 - curses `WINDOW *` access.
 - `getyx`, `wmove`, `wadd*`, `mvwadd*`, `touchline`, `touchwin`,
-  `wnoutrefresh`, `doupdate`, `wgetch`, input timeouts, and mouse packet
-  position decoding.
+  `wnoutrefresh`, `doupdate`, `wgetch`, input timeouts, raw mouse key
+  translation, mouse packet storage, button/action/modifier decoding, and
+  mouse packet position decoding.
 - physical cursor save/restore and hardware cursor parking.
 - logical-to-physical display column mapping for the curses path.
 - software cursor painting.
@@ -68,14 +69,15 @@ cursor state rather than raw curses coordinates.
 
 The current curses key loop has a compatibility adapter: it reads through
 `cursesdriver.c`, normalizes the key through `TheInputEvent`, then hands the
-equivalent legacy key to existing dispatch. That is a transition step, not the
+equivalent legacy key to existing dispatch. Raw curses `KEY_MOUSE` is translated
+there to the editor-owned `THE_KEY_MOUSE`. That is a transition step, not the
 final architecture. Live curses mouse packets now follow the same transition
-pattern: `mouse.c` decodes terminal mouse packets and window-local physical
-coordinates at the driver edge, maps them to `TheInputEvent` logical-hit
-targets, and then routes legacy mouse-definition dispatch through the saved
-target window id. Migrated consumers such as `CURSOR MOUSE` and `TABFILE`
-consume logical target kind, line number, row, cell, screen, and window id
-instead of raw terminal coordinates.
+pattern: `cursesdriver.c` decodes terminal mouse packets and window-local
+physical coordinates, while `mouse.c` maps the driver-owned saved packet to
+`TheInputEvent` logical-hit targets and routes legacy mouse-definition dispatch
+through the saved target window id. Migrated consumers such as `CURSOR MOUSE`
+and `TABFILE` consume logical target kind, line number, row, cell, screen, and
+window id instead of raw terminal coordinates.
 
 ### LLM Driver
 
@@ -100,8 +102,8 @@ Closed checkpoints are summarized here; details and next tasks are in
   fake-driver operation logs.
 - `src/screenframe.c` builds live file-area `UiFrame` snapshots and rebases
   saved logical cursors onto rebuilt rows.
-- `src/cursesdriver.c` owns the migrated physical curses mechanics and
-  file-area logical-to-physical cursor materialization.
+- `src/cursesdriver.c` owns the migrated physical curses mechanics, raw mouse
+  packet decoding, and file-area logical-to-physical cursor materialization.
 - `src/inputevent.c` defines shared normalized input events.
 - `src/mousehit.c` maps driver-edge mouse packets to shared logical-hit
   targets for normal live curses mouse dispatch.
@@ -135,12 +137,12 @@ Closed checkpoints are summarized here; details and next tasks are in
   checked by `test_the_llm_headless_no_curses`.
 - `tests/inventory_direct_curses.sh` is the repeatable debt sweep and ratchet.
   Current counts are actionable `physical-input: 0`, `physical-paint: 0`,
-  `mouse-token: 24`, and `window-state: 397`; `driver-wrapper: 629` is
+  `mouse-token: 0`, and `window-state: 394`; `driver-wrapper: 643` is
   counted as migrated/allowed. The ratchet is available as both CTest
   `test_curses_boundary_inventory` and build target
   `curses_boundary_inventory`. The cleaned transient functions and current
-  project-wide inventory have no raw `physical-input` or `physical-paint`
-  findings outside `src/cursesdriver.*`.
+  project-wide inventory have no raw `physical-input`, `physical-paint`, or
+  `mouse-token` findings outside `src/cursesdriver.*`.
 
 ## Status Model
 
@@ -168,17 +170,18 @@ The current active categories are:
   model and curses-path materialization, `the_llm_headless`, focused
   guardrails, the no-new-debt direct-curses inventory ratchet, and
   project-wide removal of raw `physical-input`/`physical-paint` findings
-  outside the driver.
+  outside the driver, and driver ownership of raw mouse packet decoding.
 - Active slice: none selected after the inventory ratchet, bulk wrapper pass,
-  and physical input/paint cleanup. Choose the next slice from the
-  inventory-backed boundary debt in `doc/utf-handover.md`.
+  physical input/paint cleanup, and raw mouse packet driver-ownership cleanup.
+  Choose the next slice from the inventory-backed boundary debt in
+  `doc/utf-handover.md`.
 - Deferred: full agent dispatcher integration, full prefix command machinery in
   the agent, agent protocol integration for transient snapshots, full live
   frames for command/prompt/status/window rows, removal of the transitional
   cursor-focus bridge, retained-frame delta views, remaining direct curses
-  window-state/type and mouse-token debt in legacy command/render/setup
-  modules, the isolated keycap blank-cell physical materialization/profile
-  follow-up, and additional terminal baselines.
+  window-state/type debt in legacy command/render/setup modules, the isolated
+  keycap blank-cell physical materialization/profile follow-up, and additional
+  terminal baselines.
 
 ## Guardrails
 

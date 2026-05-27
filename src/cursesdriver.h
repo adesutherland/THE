@@ -54,6 +54,24 @@ typedef enum
    CURSES_DRIVER_MOUSE_ACTION_OTHER
 } CursesDriverMouseAction;
 
+enum
+{
+   CURSES_DRIVER_MOUSE_MODIFIER_NONE = 0,
+   CURSES_DRIVER_MOUSE_MODIFIER_SHIFT = 0010,
+   CURSES_DRIVER_MOUSE_MODIFIER_CONTROL = 0020,
+   CURSES_DRIVER_MOUSE_MODIFIER_ALT = 0040
+};
+
+enum
+{
+   CURSES_DRIVER_MOUSE_BUTTON_RELEASED = 0,
+   CURSES_DRIVER_MOUSE_BUTTON_PRESSED = 1,
+   CURSES_DRIVER_MOUSE_BUTTON_CLICKED = 2,
+   CURSES_DRIVER_MOUSE_BUTTON_DOUBLE_CLICKED = 3,
+   CURSES_DRIVER_MOUSE_BUTTON_MOVED = 5,
+   CURSES_DRIVER_MOUSE_WHEEL_SCROLLED = 6
+};
+
 typedef struct
 {
    int button;
@@ -137,7 +155,11 @@ int curses_driver_read_window_key(WINDOW *win);
 int curses_driver_read_standard_key(void);
 int curses_driver_read_raw_window_key(WINDOW *win);
 int curses_driver_read_raw_standard_key(void);
+int curses_driver_is_mouse_key(int key);
+int curses_driver_mouse_key_code(void);
 void curses_driver_mouse_position(WINDOW *win, int *row, int *col);
+void curses_driver_saved_mouse_position(int *row, int *col);
+void curses_driver_reset_mouse_position(void);
 int curses_driver_read_mouse_button(int *button, int *action, int *modifier);
 int curses_driver_read_mouse_event(WINDOW *win, CursesDriverMouseEvent *event);
 void curses_driver_prepare_standard_screen_for_shell(void);

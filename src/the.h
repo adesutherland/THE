@@ -921,6 +921,9 @@ int THE_bg_from_pair(int pair);
 #ifdef USE_SDSLH
 #define KEY_PARSE_COMPLETE 0x1000
 #endif
+#ifndef THE_KEY_MOUSE
+# define THE_KEY_MOUSE 0x1001
+#endif
 /*--------------------- -- ecolour defines -----------------------------*/
 #define ECOLOUR_COMMENTS               0
 #define ECOLOUR_STRINGS                1
@@ -2028,25 +2031,6 @@ struct regexp_syntax
 #define THE_FILE_UNKNOWN       0
 #define THE_FILE_EXISTS        1
 #define THE_FILE_NAME_TOO_LONG 2
-/*
- * Following are used for determining the button action of the mouse
- */
-#if !defined(BUTTON_RELEASED)
-# define BUTTON_RELEASED 0
-#endif
-#if !defined(BUTTON_PRESSED)
-# define BUTTON_PRESSED 1
-#endif
-#if !defined(BUTTON_CLICKED)
-# define BUTTON_CLICKED 2
-#endif
-#if !defined(BUTTON_DOUBLE_CLICKED)
-# define BUTTON_DOUBLE_CLICKED 3
-#endif
-#if !defined(BUTTON_MOVED)
-# define BUTTON_MOVED 5
-#endif
-
 #ifndef getbegyx
 # if defined(HAVE_BEGY)
 #  define getbegyx(win,y,x)       (y = (win)->begy, x = (win)->begx)

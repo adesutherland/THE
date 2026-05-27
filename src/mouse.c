@@ -44,18 +44,6 @@
 #include "inputevent.h"
 #include "mousehit.h"
 
-/*
- * Following #defines to cater for those platforms that don't
- * have mouse definitions in <curses.h>
- */
-#define MY_BUTTON_SHIFT           0010
-#define MY_BUTTON_CONTROL         0020
-#define MY_BUTTON_ALT             0040
-
-#if defined(NCURSES_MOUSE_VERSION)
-MEVENT ncurses_mouse_event;
-#endif
-
 /*   3         2         1         0
  * 210987654321098765432109876543210
  *                maaaaabbbbb
@@ -79,20 +67,20 @@ MEVENT ncurses_mouse_event;
  */
 #define MOUSE_MODIFIER_OFFSET   17 /* was 13 */
 #define MOUSE_NORMAL            0
-#define MOUSE_SHIFT             ((MY_BUTTON_SHIFT >> 3)   << MOUSE_MODIFIER_OFFSET)
-#define MOUSE_CONTROL           ((MY_BUTTON_CONTROL >> 3) << MOUSE_MODIFIER_OFFSET)
-#define MOUSE_ALT               ((MY_BUTTON_ALT >> 3)     << MOUSE_MODIFIER_OFFSET)
+#define MOUSE_SHIFT             ((CURSES_DRIVER_MOUSE_MODIFIER_SHIFT >> 3)   << MOUSE_MODIFIER_OFFSET)
+#define MOUSE_CONTROL           ((CURSES_DRIVER_MOUSE_MODIFIER_CONTROL >> 3) << MOUSE_MODIFIER_OFFSET)
+#define MOUSE_ALT               ((CURSES_DRIVER_MOUSE_MODIFIER_ALT >> 3)     << MOUSE_MODIFIER_OFFSET)
 /*
  * Button actions
  */
 #define MOUSE_ACTION_OFFSET     14 /* was 10 */
-#define MOUSE_PRESS             (BUTTON_PRESSED << MOUSE_ACTION_OFFSET)
-#define MOUSE_RELEASE           (BUTTON_RELEASED << MOUSE_ACTION_OFFSET)
-#define MOUSE_DRAG              (BUTTON_MOVED << MOUSE_ACTION_OFFSET)
-#define MOUSE_CLICK             (BUTTON_CLICKED << MOUSE_ACTION_OFFSET)
-#define MOUSE_DOUBLE_CLICK      (BUTTON_DOUBLE_CLICKED << MOUSE_ACTION_OFFSET)
-#if defined(PDCURSES_MOUSE_ENABLED) && defined(WHEEL_SCROLLED)
-#define MOUSE_SCROLLED          (WHEEL_SCROLLED << MOUSE_ACTION_OFFSET)
+#define MOUSE_PRESS             (CURSES_DRIVER_MOUSE_BUTTON_PRESSED << MOUSE_ACTION_OFFSET)
+#define MOUSE_RELEASE           (CURSES_DRIVER_MOUSE_BUTTON_RELEASED << MOUSE_ACTION_OFFSET)
+#define MOUSE_DRAG              (CURSES_DRIVER_MOUSE_BUTTON_MOVED << MOUSE_ACTION_OFFSET)
+#define MOUSE_CLICK             (CURSES_DRIVER_MOUSE_BUTTON_CLICKED << MOUSE_ACTION_OFFSET)
+#define MOUSE_DOUBLE_CLICK      (CURSES_DRIVER_MOUSE_BUTTON_DOUBLE_CLICKED << MOUSE_ACTION_OFFSET)
+#if defined(PDCURSES_MOUSE_ENABLED)
+#define MOUSE_SCROLLED          (CURSES_DRIVER_MOUSE_WHEEL_SCROLLED << MOUSE_ACTION_OFFSET)
 #endif
 /*
  * Button numbers
@@ -177,243 +165,9 @@ void mouse_trace_message(const char *area, const char *format, ...)
 
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
 /*
- * These two variables are saved by each mouse key press or reset to -1
- * when a normal key it pressed.
+ * The logical target saved by each mouse key press.
  */
-static int last_mouse_x_pos=-1;
-static int last_mouse_y_pos=-1;
 static TheInputEvent last_mouse_input;
-
-#if defined(PDCURSES_MOUSE_ENABLED)
-/***********************************************************************/
-short get_mouse_info(int *button,int *button_action,int *button_modifier)
-/***********************************************************************/
-{
-   short rc=RC_OK;
-
-   TRACE_FUNCTION("mouse.c:  get_mouse_info");
-   request_mouse_pos();
-   /*
-    * Save the current mouse position
-    */
-   last_mouse_x_pos = MOUSE_X_POS;
-   last_mouse_y_pos = MOUSE_Y_POS;
-   mouse_trace_message("pdc-raw",
-                       "x=%d y=%d changed=%d moved=%d",
-                       MOUSE_X_POS,MOUSE_Y_POS,A_BUTTON_CHANGED,MOUSE_MOVED);
-   if (A_BUTTON_CHANGED)
-   {
-      if (BUTTON_CHANGED(1))
-         *button = 1;
-      else if (BUTTON_CHANGED(2))
-         *button = 2;
-      else if (BUTTON_CHANGED(3))
-         *button = 3;
-      else
-      {
-         TRACE_RETURN();
-         return(RC_OK);
-      }
-      if (BUTTON_STATUS(*button) & BUTTON_SHIFT)
-         *button_modifier = MY_BUTTON_SHIFT;
-      else if (BUTTON_STATUS(*button) & BUTTON_CONTROL)
-         *button_modifier = MY_BUTTON_CONTROL;
-      else if (BUTTON_STATUS(*button) & BUTTON_ALT)
-         *button_modifier = MY_BUTTON_ALT;
-      else
-         *button_modifier = 0;
-      if (MOUSE_MOVED)
-         *button_action = BUTTON_MOVED;
-      else
-         *button_action = BUTTON_STATUS(*button) & BUTTON_ACTION_MASK;
-   }
-#if defined(MOUSE_WHEEL_UP) && defined(WHEEL_SCROLLED)
-   else if ( MOUSE_WHEEL_UP )
-   {
-      *button_action = WHEEL_SCROLLED;
-      *button = 4;
-      *button_modifier = 0;
-   }
-#endif
-#if defined(MOUSE_WHEEL_DOWN) && defined(WHEEL_SCROLLED)
-   else if ( MOUSE_WHEEL_DOWN )
-   {
-      *button_action = WHEEL_SCROLLED;
-      *button = 5;
-      *button_modifier = 0;
-   }
-#endif
-#if defined(MOUSE_WHEEL_LEFT) && defined(WHEEL_SCROLLED)
-   else if ( MOUSE_WHEEL_LEFT )
-   {
-      *button_action = WHEEL_SCROLLED;
-      *button = 6;
-      *button_modifier = 0;
-   }
-#endif
-#if defined(MOUSE_WHEEL_RIGHT) && defined(WHEEL_SCROLLED)
-   else if ( MOUSE_WHEEL_RIGHT )
-   {
-      *button_action = WHEEL_SCROLLED;
-      *button = 7;
-      *button_modifier = 0;
-   }
-#endif
-   else
-   {
-      *button = *button_action = *button_modifier = 0;
-      rc = RC_INVALID_OPERAND;
-   }
-   mouse_trace_message("pdc-decode",
-                       "rc=%d button=%d action=%d modifier=%d x=%d y=%d",
-                       rc,*button,*button_action,*button_modifier,
-                       last_mouse_x_pos,last_mouse_y_pos);
-   TRACE_RETURN();
-   return(rc);
-}
-#endif
-#if defined(NCURSES_MOUSE_VERSION)
-/***********************************************************************/
-void wmouse_position(WINDOW *win, int *y, int *x)
-/***********************************************************************/
-{
-   CursesDriverWindowOrigin origin;
-   CursesDriverWindowSize size;
-
-   TRACE_FUNCTION("mouse.c:  wmouse_position");
-   /*
-    * if the current mouse position is outside the provided window, put
-    * -1 in x and y
-    */
-   if (win == (WINDOW *)NULL)
-   {
-      *y = *x = (-1);
-      TRACE_RETURN();
-      return;
-   }
-   origin = curses_driver_window_origin(win);
-   size = curses_driver_window_size(win);
-   if (!origin.valid
-   ||  !size.valid
-   ||  origin.row > ncurses_mouse_event.y
-   ||  origin.col > ncurses_mouse_event.x
-   ||  origin.row+size.rows <= ncurses_mouse_event.y
-   ||  origin.col+size.cols <= ncurses_mouse_event.x)
-   {
-      *x = *y = (-1);
-   }
-   else
-   {
-      *x = ncurses_mouse_event.x - origin.col;
-      *y = ncurses_mouse_event.y - origin.row;
-   }
-   TRACE_RETURN();
-   return;
-}
-/***********************************************************************/
-short get_mouse_info(int *button,int *button_action,int *button_modifier)
-/***********************************************************************/
-{
-   short rc=RC_OK;
-   int getmouse_rc=OK;
-
-   TRACE_FUNCTION("mouse.c:  get_mouse_info");
-   getmouse_rc = getmouse(&ncurses_mouse_event);
-   mouse_trace_message("ncurses-getmouse",
-                       "rc=%d id=%ld x=%d y=%d z=%d bstate=0x%lx",
-                       getmouse_rc,(long)ncurses_mouse_event.id,
-                       ncurses_mouse_event.x,ncurses_mouse_event.y,
-                       ncurses_mouse_event.z,
-                       (unsigned long)ncurses_mouse_event.bstate);
-   if (getmouse_rc != OK)
-   {
-      *button = *button_action = *button_modifier = 0;
-      mouse_trace_message("ncurses-decode",
-                          "rc=%d button=%d action=%d modifier=%d",
-                          RC_INVALID_OPERAND,*button,*button_action,
-                          *button_modifier);
-      TRACE_RETURN();
-      return RC_INVALID_OPERAND;
-   }
-   /*
-    * Save the current mouse position
-    */
-   last_mouse_x_pos = ncurses_mouse_event.x;
-   last_mouse_y_pos = ncurses_mouse_event.y;
-
-   if (ncurses_mouse_event.bstate & BUTTON1_RELEASED
-   ||  ncurses_mouse_event.bstate & BUTTON1_PRESSED
-   ||  ncurses_mouse_event.bstate & BUTTON1_CLICKED
-   ||  ncurses_mouse_event.bstate & BUTTON1_DOUBLE_CLICKED)
-      *button = 1;
-   else
-   {
-      if (ncurses_mouse_event.bstate & BUTTON2_RELEASED
-      ||  ncurses_mouse_event.bstate & BUTTON2_PRESSED
-      ||  ncurses_mouse_event.bstate & BUTTON2_CLICKED
-      ||  ncurses_mouse_event.bstate & BUTTON2_DOUBLE_CLICKED)
-         *button = 2;
-      else
-      {
-         if (ncurses_mouse_event.bstate & BUTTON3_RELEASED
-         ||  ncurses_mouse_event.bstate & BUTTON3_PRESSED
-         ||  ncurses_mouse_event.bstate & BUTTON3_CLICKED
-         ||  ncurses_mouse_event.bstate & BUTTON3_DOUBLE_CLICKED)
-            *button = 3;
-         else
-         {
-            *button = *button_action = *button_modifier = 0;
-            mouse_trace_message("ncurses-decode",
-                                "rc=%d button=%d action=%d modifier=%d",
-                                RC_INVALID_OPERAND,*button,*button_action,
-                                *button_modifier);
-            TRACE_RETURN();
-            return RC_INVALID_OPERAND;
-         }
-      }
-   }
-   if (ncurses_mouse_event.bstate & BUTTON_SHIFT)
-      *button_modifier = MY_BUTTON_SHIFT;
-   else if (ncurses_mouse_event.bstate & BUTTON_CTRL)
-      *button_modifier = MY_BUTTON_CONTROL;
-   else if (ncurses_mouse_event.bstate & BUTTON_ALT)
-      *button_modifier = MY_BUTTON_ALT;
-   else
-      *button_modifier = 0;
-
-   if (ncurses_mouse_event.bstate & BUTTON1_RELEASED
-   ||  ncurses_mouse_event.bstate & BUTTON2_RELEASED
-   ||  ncurses_mouse_event.bstate & BUTTON3_RELEASED)
-      *button_action = BUTTON_RELEASED;
-   else
-   {
-      if (ncurses_mouse_event.bstate & BUTTON1_PRESSED
-      ||  ncurses_mouse_event.bstate & BUTTON2_PRESSED
-      ||  ncurses_mouse_event.bstate & BUTTON3_PRESSED)
-         *button_action = BUTTON_PRESSED;
-      else
-      {
-         if (ncurses_mouse_event.bstate & BUTTON1_CLICKED
-         ||  ncurses_mouse_event.bstate & BUTTON2_CLICKED
-         ||  ncurses_mouse_event.bstate & BUTTON3_CLICKED)
-            *button_action = BUTTON_CLICKED;
-         else
-         {
-            if (ncurses_mouse_event.bstate & BUTTON1_DOUBLE_CLICKED
-            ||  ncurses_mouse_event.bstate & BUTTON2_DOUBLE_CLICKED
-            ||  ncurses_mouse_event.bstate & BUTTON3_DOUBLE_CLICKED)
-               *button_action = BUTTON_DOUBLE_CLICKED;
-         }
-      }
-   }
-   mouse_trace_message("ncurses-decode",
-                       "rc=%d button=%d action=%d modifier=%d x=%d y=%d",
-                       rc,*button,*button_action,*button_modifier,
-                       last_mouse_x_pos,last_mouse_y_pos);
-   TRACE_RETURN();
-   return(rc);
-}
-#endif
 
 static int mouse_window_position(CHARTYPE scrn, int w, int *row, int *col)
 {
@@ -641,6 +395,8 @@ short THEMouse(CHARTYPE *params)
    int curr_button_modifier=0;
    int curr_button=0;
    int key=0;
+   int saved_mouse_x=-1;
+   int saved_mouse_y=-1;
    TheInputEvent input;
 
    TRACE_FUNCTION( "mouse.c:  THEMouse" );
@@ -651,6 +407,7 @@ short THEMouse(CHARTYPE *params)
       TRACE_RETURN();
       return(RC_INVALID_OPERAND);
    }
+   curses_driver_saved_mouse_position(&saved_mouse_y, &saved_mouse_x);
    if (!mouse_build_logical_input(&input, &scrn, &w))
    {
       last_mouse_input = the_input_event_none();
@@ -658,7 +415,7 @@ short THEMouse(CHARTYPE *params)
                               curr_button_modifier);
       mouse_trace_message("THEMouse-target",
                           "unsupported screen=%d window=%d saved_x=%d saved_y=%d key=0x%x",
-                          scrn,w,last_mouse_x_pos,last_mouse_y_pos,key);
+                          scrn,w,saved_mouse_x,saved_mouse_y,key);
       rc = execute_mouse_commands(key);
       TRACE_RETURN();
       return(rc);
@@ -672,8 +429,8 @@ short THEMouse(CHARTYPE *params)
                        the_input_logical_target_kind_name(input.target.kind),
                        (long)input.target.line_number,input.target.row,
                        input.target.cell,input.target.screen,
-                       input.target.window_id,last_mouse_x_pos,
-                       last_mouse_y_pos);
+                       input.target.window_id,saved_mouse_x,
+                       saved_mouse_y);
    rc = execute_mouse_commands(key);
    mouse_trace_message("THEMouse-dispatch",
                        "rc=%d window=%d button=%d action=%d modifier=%d key=0x%x",
@@ -709,8 +466,7 @@ void reset_saved_mouse_pos(void)
 /***********************************************************************/
 {
    TRACE_FUNCTION("mouse.c:  reset_saved_mouse_pos");
-   last_mouse_x_pos = -1;
-   last_mouse_y_pos = -1;
+   curses_driver_reset_mouse_position();
    last_mouse_input = the_input_event_none();
    TRACE_RETURN();
    return;
@@ -720,8 +476,7 @@ void get_saved_mouse_pos(int *y, int *x)
 /***********************************************************************/
 {
    TRACE_FUNCTION("mouse.c:  get_saved_mouse_pos");
-   *x = last_mouse_x_pos;
-   *y = last_mouse_y_pos;
+   curses_driver_saved_mouse_position(y, x);
    TRACE_RETURN();
    return;
 }
@@ -752,7 +507,7 @@ void initialise_mouse_commands(void)
    add_define(&first_mouse_define,&last_mouse_define,
             WINDOW_FILEAREA|MOUSE_LEFT|MOUSE_CLICK|MOUSE_NORMAL,
             (CHARTYPE *)"CURSOR MOUSE",FALSE,FALSE,0);
-#if defined(PDCURSES_MOUSE_ENABLED) && defined(WHEEL_SCROLLED)
+#if defined(PDCURSES_MOUSE_ENABLED)
    add_define(&first_mouse_define,&last_mouse_define,
             WINDOW_FILEAREA|THE_MOUSE_WHEEL_UP|MOUSE_SCROLLED,
             (CHARTYPE *)"BACK 5 LINES",FALSE,FALSE,0);
@@ -1001,7 +756,7 @@ int find_mouse_key_value( CHARTYPE *mnemonic )
       case 'd':
          ba = MOUSE_DRAG;
          break;
-#if defined(PDCURSES_MOUSE_ENABLED) && defined(WHEEL_SCROLLED)
+#if defined(PDCURSES_MOUSE_ENABLED)
       case 'S':
       case 's':
          ba = MOUSE_SCROLLED;

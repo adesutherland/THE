@@ -2246,7 +2246,7 @@ short ShowKey(CHARTYPE *params)
                continue;
 #endif
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-            if (key == KEY_MOUSE)
+            if (curses_driver_is_mouse_key(key))
             {
                int b,ba,bm,w;
                CHARTYPE scrn;
@@ -2654,8 +2654,8 @@ short Status(CHARTYPE *params)
             if ( key == KEY_SF || key == KEY_SR )
                continue;
 #endif
-#if defined(KEY_MOUSE)
-            if ( key == KEY_MOUSE )
+#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+            if (curses_driver_is_mouse_key(key))
                continue;
 #endif
 #ifdef CAN_RESIZE

@@ -327,6 +327,10 @@ $Id: getch.h,v 1.7 2022/01/17 05:31:18 mark Exp $
 #define KEY_MAX         0xfff             /* Maximum curses key */
 #endif
 
+#ifndef THE_KEY_MOUSE
+#define THE_KEY_MOUSE   0x1001            /* Editor-owned mouse key */
+#endif
+
 #define KEY_DELETE  127
 
 #if !defined(DOS) && !defined(OS2) && !defined(USE_XCURSES) && !defined(WIN32) && !defined(USE_SDLCURSES) && !defined(USE_VTCURSES)
@@ -658,4 +662,3 @@ $Id: getch.h,v 1.7 2022/01/17 05:31:18 mark Exp $
 #define KEY_A_DB1      0x429
 #define KEY_A_DB2      0x42a
 #define KEY_A_DB3      0x42b
-

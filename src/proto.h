@@ -492,12 +492,8 @@ CHARTYPE *get_colour_strings (COLOUR_ATTR *);
 int is_valid_colour ( CHARTYPE *colour );
                                                            /* column.c */
 short column_command (CHARTYPE *,int);
-                                                            /* mouse.c */
-#if defined(NCURSES_MOUSE_VERSION)
-void wmouse_position (WINDOW *, int *, int *);
-#endif
+                                                           /* mouse.c */
 short THEMouse (CHARTYPE *);
-short get_mouse_info (int *,int *,int *);
 void which_window_is_mouse_in (CHARTYPE *,int *);
 void reset_saved_mouse_pos (void);
 void get_saved_mouse_pos (int *, int *);

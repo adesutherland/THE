@@ -3757,8 +3757,8 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
             if ( key == KEY_SF || key == KEY_SR )
                continue;
 #endif
-#if defined(KEY_MOUSE)
-            if ( key == KEY_MOUSE )
+#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+            if (curses_driver_is_mouse_key(key))
                continue;
 #endif
 #ifdef CAN_RESIZE
@@ -4506,7 +4506,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
          curses_driver_present_cursor(FALSE);
          default_button = 0;
          editfield_col = -1;
-#if defined(KEY_MOUSE)
+#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
          if ( rc == RC_READV_TERM_MOUSE )
          {
             /*
@@ -4515,7 +4515,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
              * mouse was just clicked so we can check if the click happened
              * on a button
              */
-            key = KEY_MOUSE;
+            key = curses_driver_mouse_key_code();
          }
          else
 #endif
@@ -4544,7 +4544,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
          continue;
 #endif
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-      if (key == KEY_MOUSE)
+      if (curses_driver_is_mouse_key(key))
       {
          CursesDriverMouseEvent mouse;
          TransientUiAction action;
@@ -5442,7 +5442,7 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
          continue;
 #endif
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-      if (key == KEY_MOUSE)
+      if (curses_driver_is_mouse_key(key))
       {
          CursesDriverMouseEvent mouse;
          TransientUiAction action;

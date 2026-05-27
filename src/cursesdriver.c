@@ -687,23 +687,48 @@ void curses_driver_draw_horizontal_line(WINDOW *win, chtype ch, int len)
 #endif
 }
 
+static int curses_driver_translate_input_key(int key)
+{
+#ifdef KEY_MOUSE
+   if (key == KEY_MOUSE)
+      return THE_KEY_MOUSE;
+#endif
+   return key;
+}
+
+int curses_driver_mouse_key_code(void)
+{
+   return THE_KEY_MOUSE;
+}
+
+int curses_driver_is_mouse_key(int key)
+{
+   if (key == THE_KEY_MOUSE)
+      return 1;
+#ifdef KEY_MOUSE
+   if (key == KEY_MOUSE)
+      return 1;
+#endif
+   return 0;
+}
+
 int curses_driver_read_window_key(WINDOW *win)
 {
    if (win == NULL)
       return ERR;
-   return my_getch(win);
+   return curses_driver_translate_input_key(my_getch(win));
 }
 
 int curses_driver_read_standard_key(void)
 {
-   return my_getch(stdscr);
+   return curses_driver_translate_input_key(my_getch(stdscr));
 }
 
 int curses_driver_read_raw_window_key(WINDOW *win)
 {
    if (win == NULL)
       return ERR;
-   return wgetch(win);
+   return curses_driver_translate_input_key(wgetch(win));
 }
 
 int curses_driver_read_raw_standard_key(void)
@@ -711,15 +736,64 @@ int curses_driver_read_raw_standard_key(void)
    return curses_driver_read_raw_window_key(stdscr);
 }
 
+#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+static int curses_driver_last_mouse_col = -1;
+static int curses_driver_last_mouse_row = -1;
+#endif
+
+#if defined(NCURSES_MOUSE_VERSION)
+static MEVENT curses_driver_ncurses_mouse_event;
+#endif
+
+void curses_driver_reset_mouse_position(void)
+{
+#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+   curses_driver_last_mouse_col = -1;
+   curses_driver_last_mouse_row = -1;
+#endif
+}
+
+void curses_driver_saved_mouse_position(int *row, int *col)
+{
+   if (row != NULL)
+      *row = -1;
+   if (col != NULL)
+      *col = -1;
+#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+   if (row != NULL)
+      *row = curses_driver_last_mouse_row;
+   if (col != NULL)
+      *col = curses_driver_last_mouse_col;
+#endif
+}
+
 void curses_driver_mouse_position(WINDOW *win, int *row, int *col)
 {
+   CursesDriverWindowOrigin origin;
+   CursesDriverWindowSize size;
+
    if (row != NULL)
       *row = -1;
    if (col != NULL)
       *col = -1;
    if (win == NULL || row == NULL || col == NULL)
       return;
-   wmouse_position(win, row, col);
+#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+   origin = curses_driver_window_origin(win);
+   size = curses_driver_window_size(win);
+   if (!origin.valid
+   ||  !size.valid
+   ||  curses_driver_last_mouse_row < origin.row
+   ||  curses_driver_last_mouse_col < origin.col
+   ||  curses_driver_last_mouse_row >= origin.row + size.rows
+   ||  curses_driver_last_mouse_col >= origin.col + size.cols)
+      return;
+   *row = curses_driver_last_mouse_row - origin.row;
+   *col = curses_driver_last_mouse_col - origin.col;
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(origin);
+   INTENTIONALLY_UNUSED_VARIABLE(size);
+#endif
 }
 
 int curses_driver_read_mouse_event(WINDOW *win, CursesDriverMouseEvent *event)
@@ -741,11 +815,11 @@ int curses_driver_read_mouse_event(WINDOW *win, CursesDriverMouseEvent *event)
    event->button = button;
    event->modifier = modifier;
    event->valid = 1;
-   if (action == BUTTON_PRESSED)
+   if (action == CURSES_DRIVER_MOUSE_BUTTON_PRESSED)
       event->action = CURSES_DRIVER_MOUSE_ACTION_PRESSED;
-   else if (action == BUTTON_RELEASED)
+   else if (action == CURSES_DRIVER_MOUSE_BUTTON_RELEASED)
       event->action = CURSES_DRIVER_MOUSE_ACTION_RELEASED;
-   else if (action == BUTTON_CLICKED)
+   else if (action == CURSES_DRIVER_MOUSE_BUTTON_CLICKED)
       event->action = CURSES_DRIVER_MOUSE_ACTION_CLICKED;
    else
       event->action = CURSES_DRIVER_MOUSE_ACTION_OTHER;
@@ -754,14 +828,218 @@ int curses_driver_read_mouse_event(WINDOW *win, CursesDriverMouseEvent *event)
    return 1;
 }
 
+#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+static void curses_driver_clear_mouse_button(int *button, int *action,
+                                             int *modifier)
+{
+   if (button != NULL)
+      *button = 0;
+   if (action != NULL)
+      *action = 0;
+   if (modifier != NULL)
+      *modifier = 0;
+}
+#endif
+
+#if defined(PDCURSES_MOUSE_ENABLED)
+static int curses_driver_read_pdc_mouse_button(int *button, int *action,
+                                               int *modifier)
+{
+   int rc = RC_OK;
+
+   TRACE_FUNCTION("cursesdriver.c: curses_driver_read_pdc_mouse_button");
+   request_mouse_pos();
+   curses_driver_last_mouse_col = MOUSE_X_POS;
+   curses_driver_last_mouse_row = MOUSE_Y_POS;
+   mouse_trace_message("pdc-raw",
+                       "x=%d y=%d changed=%d moved=%d",
+                       MOUSE_X_POS, MOUSE_Y_POS, A_BUTTON_CHANGED,
+                       MOUSE_MOVED);
+   if (A_BUTTON_CHANGED)
+   {
+      if (BUTTON_CHANGED(1))
+         *button = 1;
+      else if (BUTTON_CHANGED(2))
+         *button = 2;
+      else if (BUTTON_CHANGED(3))
+         *button = 3;
+      else
+      {
+         TRACE_RETURN();
+         return 1;
+      }
+      if (BUTTON_STATUS(*button) & BUTTON_SHIFT)
+         *modifier = CURSES_DRIVER_MOUSE_MODIFIER_SHIFT;
+# if defined(BUTTON_CONTROL)
+      else if (BUTTON_STATUS(*button) & BUTTON_CONTROL)
+         *modifier = CURSES_DRIVER_MOUSE_MODIFIER_CONTROL;
+# elif defined(BUTTON_CTRL)
+      else if (BUTTON_STATUS(*button) & BUTTON_CTRL)
+         *modifier = CURSES_DRIVER_MOUSE_MODIFIER_CONTROL;
+# endif
+      else if (BUTTON_STATUS(*button) & BUTTON_ALT)
+         *modifier = CURSES_DRIVER_MOUSE_MODIFIER_ALT;
+      else
+         *modifier = CURSES_DRIVER_MOUSE_MODIFIER_NONE;
+      if (MOUSE_MOVED)
+         *action = CURSES_DRIVER_MOUSE_BUTTON_MOVED;
+      else
+         *action = BUTTON_STATUS(*button) & BUTTON_ACTION_MASK;
+   }
+# if defined(MOUSE_WHEEL_UP) && defined(WHEEL_SCROLLED)
+   else if (MOUSE_WHEEL_UP)
+   {
+      *action = CURSES_DRIVER_MOUSE_WHEEL_SCROLLED;
+      *button = 4;
+      *modifier = CURSES_DRIVER_MOUSE_MODIFIER_NONE;
+   }
+# endif
+# if defined(MOUSE_WHEEL_DOWN) && defined(WHEEL_SCROLLED)
+   else if (MOUSE_WHEEL_DOWN)
+   {
+      *action = CURSES_DRIVER_MOUSE_WHEEL_SCROLLED;
+      *button = 5;
+      *modifier = CURSES_DRIVER_MOUSE_MODIFIER_NONE;
+   }
+# endif
+# if defined(MOUSE_WHEEL_LEFT) && defined(WHEEL_SCROLLED)
+   else if (MOUSE_WHEEL_LEFT)
+   {
+      *action = CURSES_DRIVER_MOUSE_WHEEL_SCROLLED;
+      *button = 6;
+      *modifier = CURSES_DRIVER_MOUSE_MODIFIER_NONE;
+   }
+# endif
+# if defined(MOUSE_WHEEL_RIGHT) && defined(WHEEL_SCROLLED)
+   else if (MOUSE_WHEEL_RIGHT)
+   {
+      *action = CURSES_DRIVER_MOUSE_WHEEL_SCROLLED;
+      *button = 7;
+      *modifier = CURSES_DRIVER_MOUSE_MODIFIER_NONE;
+   }
+# endif
+   else
+   {
+      curses_driver_clear_mouse_button(button, action, modifier);
+      rc = RC_INVALID_OPERAND;
+   }
+   mouse_trace_message("pdc-decode",
+                       "rc=%d button=%d action=%d modifier=%d x=%d y=%d",
+                       rc, *button, *action, *modifier,
+                       curses_driver_last_mouse_col,
+                       curses_driver_last_mouse_row);
+   TRACE_RETURN();
+   return rc == RC_OK;
+}
+#endif
+
+#if defined(NCURSES_MOUSE_VERSION)
+static int curses_driver_read_ncurses_mouse_button(int *button, int *action,
+                                                  int *modifier)
+{
+   int getmouse_rc = OK;
+   int rc = RC_OK;
+
+   TRACE_FUNCTION("cursesdriver.c: curses_driver_read_ncurses_mouse_button");
+   getmouse_rc = getmouse(&curses_driver_ncurses_mouse_event);
+   mouse_trace_message("ncurses-getmouse",
+                       "rc=%d id=%ld x=%d y=%d z=%d bstate=0x%lx",
+                       getmouse_rc,
+                       (long)curses_driver_ncurses_mouse_event.id,
+                       curses_driver_ncurses_mouse_event.x,
+                       curses_driver_ncurses_mouse_event.y,
+                       curses_driver_ncurses_mouse_event.z,
+                       (unsigned long)curses_driver_ncurses_mouse_event.bstate);
+   if (getmouse_rc != OK)
+   {
+      curses_driver_clear_mouse_button(button, action, modifier);
+      mouse_trace_message("ncurses-decode",
+                          "rc=%d button=%d action=%d modifier=%d",
+                          RC_INVALID_OPERAND, *button, *action, *modifier);
+      TRACE_RETURN();
+      return 0;
+   }
+
+   curses_driver_last_mouse_col = curses_driver_ncurses_mouse_event.x;
+   curses_driver_last_mouse_row = curses_driver_ncurses_mouse_event.y;
+
+   if (curses_driver_ncurses_mouse_event.bstate & BUTTON1_RELEASED
+   ||  curses_driver_ncurses_mouse_event.bstate & BUTTON1_PRESSED
+   ||  curses_driver_ncurses_mouse_event.bstate & BUTTON1_CLICKED
+   ||  curses_driver_ncurses_mouse_event.bstate & BUTTON1_DOUBLE_CLICKED)
+      *button = 1;
+   else if (curses_driver_ncurses_mouse_event.bstate & BUTTON2_RELEASED
+        ||  curses_driver_ncurses_mouse_event.bstate & BUTTON2_PRESSED
+        ||  curses_driver_ncurses_mouse_event.bstate & BUTTON2_CLICKED
+        ||  curses_driver_ncurses_mouse_event.bstate & BUTTON2_DOUBLE_CLICKED)
+      *button = 2;
+   else if (curses_driver_ncurses_mouse_event.bstate & BUTTON3_RELEASED
+        ||  curses_driver_ncurses_mouse_event.bstate & BUTTON3_PRESSED
+        ||  curses_driver_ncurses_mouse_event.bstate & BUTTON3_CLICKED
+        ||  curses_driver_ncurses_mouse_event.bstate & BUTTON3_DOUBLE_CLICKED)
+      *button = 3;
+   else
+   {
+      curses_driver_clear_mouse_button(button, action, modifier);
+      mouse_trace_message("ncurses-decode",
+                          "rc=%d button=%d action=%d modifier=%d",
+                          RC_INVALID_OPERAND, *button, *action, *modifier);
+      TRACE_RETURN();
+      return 0;
+   }
+
+   if (curses_driver_ncurses_mouse_event.bstate & BUTTON_SHIFT)
+      *modifier = CURSES_DRIVER_MOUSE_MODIFIER_SHIFT;
+   else if (curses_driver_ncurses_mouse_event.bstate & BUTTON_CTRL)
+      *modifier = CURSES_DRIVER_MOUSE_MODIFIER_CONTROL;
+   else if (curses_driver_ncurses_mouse_event.bstate & BUTTON_ALT)
+      *modifier = CURSES_DRIVER_MOUSE_MODIFIER_ALT;
+   else
+      *modifier = CURSES_DRIVER_MOUSE_MODIFIER_NONE;
+
+   if (curses_driver_ncurses_mouse_event.bstate & BUTTON1_RELEASED
+   ||  curses_driver_ncurses_mouse_event.bstate & BUTTON2_RELEASED
+   ||  curses_driver_ncurses_mouse_event.bstate & BUTTON3_RELEASED)
+      *action = CURSES_DRIVER_MOUSE_BUTTON_RELEASED;
+   else if (curses_driver_ncurses_mouse_event.bstate & BUTTON1_PRESSED
+        ||  curses_driver_ncurses_mouse_event.bstate & BUTTON2_PRESSED
+        ||  curses_driver_ncurses_mouse_event.bstate & BUTTON3_PRESSED)
+      *action = CURSES_DRIVER_MOUSE_BUTTON_PRESSED;
+   else if (curses_driver_ncurses_mouse_event.bstate & BUTTON1_CLICKED
+        ||  curses_driver_ncurses_mouse_event.bstate & BUTTON2_CLICKED
+        ||  curses_driver_ncurses_mouse_event.bstate & BUTTON3_CLICKED)
+      *action = CURSES_DRIVER_MOUSE_BUTTON_CLICKED;
+   else if (curses_driver_ncurses_mouse_event.bstate & BUTTON1_DOUBLE_CLICKED
+        ||  curses_driver_ncurses_mouse_event.bstate & BUTTON2_DOUBLE_CLICKED
+        ||  curses_driver_ncurses_mouse_event.bstate & BUTTON3_DOUBLE_CLICKED)
+      *action = CURSES_DRIVER_MOUSE_BUTTON_DOUBLE_CLICKED;
+
+   mouse_trace_message("ncurses-decode",
+                       "rc=%d button=%d action=%d modifier=%d x=%d y=%d",
+                       rc, *button, *action, *modifier,
+                       curses_driver_last_mouse_col,
+                       curses_driver_last_mouse_row);
+   TRACE_RETURN();
+   return 1;
+}
+#endif
+
 int curses_driver_read_mouse_button(int *button, int *action, int *modifier)
 {
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
    int raw_button = 0;
    int raw_action = 0;
    int raw_modifier = 0;
+   int ok = 0;
 
-   if (get_mouse_info(&raw_button, &raw_action, &raw_modifier) != RC_OK)
+# if defined(PDCURSES_MOUSE_ENABLED)
+   ok = curses_driver_read_pdc_mouse_button(&raw_button, &raw_action,
+                                            &raw_modifier);
+# elif defined(NCURSES_MOUSE_VERSION)
+   ok = curses_driver_read_ncurses_mouse_button(&raw_button, &raw_action,
+                                                &raw_modifier);
+# endif
+   if (!ok)
       return 0;
    if (button != NULL)
       *button = raw_button;
