@@ -305,15 +305,15 @@ int display_error(unsigned short err_num,CHARTYPE *mess,bool ignore_bell)
    int new_last_message_length = 0;
    int x=0, y=0,ee_len=0;
    int rc=RC_OK;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("error.c:   display_error");
 
    if( curses_started
    &&  CURRENT_VIEW != NULL
-   &&  curses_driver_current_window_exists() )
+   &&  the_driver->current_window_exists() )
    {
-      cursor = curses_driver_capture_current_window_cursor();
+      cursor = the_driver->capture_current_window_cursor();
       if (cursor.valid)
       {
          y = cursor.row;
@@ -471,8 +471,8 @@ int display_error(unsigned short err_num,CHARTYPE *mess,bool ignore_bell)
 #endif
    if( curses_started
    &&  CURRENT_VIEW != NULL
-   &&  curses_driver_current_window_exists() )
-      curses_driver_move_current_window_cursor(y, x);
+   &&  the_driver->current_window_exists() )
+      the_driver->move_current_window_cursor(y, x);
    if ( first_screen_display )
       curses_driver_refresh_window_now(error_window);
    TRACE_RETURN();
@@ -521,26 +521,26 @@ void clear_msgline(int key)
    {
       errors_displayed = 0;
       error_on_screen = FALSE;
-      curses_driver_delete_global_window(CURSES_DRIVER_GLOBAL_ERROR);
+      the_driver->delete_global_window(THE_DRIVER_GLOBAL_ERROR);
       first_error = last_error = lll_free(first_error);
       if (display_screens > 1)
          redraw_screen((CHARTYPE)(other_screen));
       redraw_screen(current_screen);
-      if (CURRENT_VIEW != NULL && curses_driver_current_window_exists())
+      if (CURRENT_VIEW != NULL && the_driver->current_window_exists())
       {
          int y=0, x=0;
-         CursesDriverWindowCursor cursor;
+         TheDriverWindowCursor cursor;
 
-         cursor = curses_driver_capture_current_window_cursor();
+         cursor = the_driver->capture_current_window_cursor();
          if (cursor.valid)
          {
             y = cursor.row;
             x = cursor.col;
          }
-         curses_driver_move_current_window_cursor(y, x);
-         curses_driver_refresh_current_window();
+         the_driver->move_current_window_cursor(y, x);
+         the_driver->refresh_current_window();
       }
-      curses_driver_update();
+      the_driver->update();
    }
    TRACE_RETURN();
    return;

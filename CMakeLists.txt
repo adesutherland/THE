@@ -361,6 +361,7 @@ set(THE_SOURCES
     src/sort.c
     src/target.c
     src/the.c
+    src/thedriver.c
     src/textedit.c
     src/textpos.c
     src/transientui.c

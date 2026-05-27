@@ -35,7 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 
 #include <query.h>
 
@@ -1445,13 +1445,13 @@ short extract_readv(short number_variables,short itemno,CHARTYPE *itemargs,CHART
          (void)THERefresh((CHARTYPE *)"");
       }
 #endif
-      key = curses_driver_read_current_window_key();
+      key = the_driver->read_current_window_key();
 #ifdef CAN_RESIZE
       if (is_termresized())
          continue;
 #endif
 #if defined (PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-      if (curses_driver_is_mouse_key(key))
+      if (the_driver->is_mouse_key(key))
       {
          mouse_key = TRUE;
       }
@@ -2008,9 +2008,9 @@ short extract_spacechar_function(short number_variables,short itemno,CHARTYPE *i
       return 1;
    }
 #ifdef VMS
-   cursor_char = (CHARTYPE)( curses_driver_read_current_window_cell() );
+   cursor_char = (CHARTYPE)( the_driver->read_current_window_cell() );
 #else
-   cursor_char = (CHARTYPE)( curses_driver_read_current_window_cell() & A_CHARTEXT );
+   cursor_char = (CHARTYPE)( the_driver->read_current_window_cell() & A_CHARTEXT );
 #endif
    return set_boolean_value((bool)(cursor_char == ' '),(short)1);
 }

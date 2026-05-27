@@ -1062,7 +1062,7 @@ int main(int argc, char *argv[])
     /*
     * Set SCREEN values up...
     */
-   curses_driver_clear_current_screen_roles();
+   the_driver->clear_current_screen_roles();
    /*
     * Set up global defaults.
     */
@@ -1422,8 +1422,8 @@ fclose( fp);
    if (target_buffer != NULL)
       (*the_free)(target_buffer);
 
-   curses_driver_delete_global_window(CURSES_DRIVER_GLOBAL_DIVIDER);
-   curses_driver_delete_global_window(CURSES_DRIVER_GLOBAL_ERROR);
+   the_driver->delete_global_window(THE_DRIVER_GLOBAL_DIVIDER);
+   the_driver->delete_global_window(THE_DRIVER_GLOBAL_ERROR);
    if (last_message != NULL)
       (*the_free)(last_message);
    /*
@@ -1437,10 +1437,10 @@ fclose( fp);
 #if !defined(USE_XCURSES) && !defined(USE_WINGUICURSES) && !defined(USE_SDLCURSES)
    if (CLEARSCREENx)
    {
-      curses_driver_clear_standard_window();
-      curses_driver_move_standard_cursor(0,0);
-      curses_driver_set_standard_attr(A_NORMAL);
-      curses_driver_refresh_standard_screen();
+      the_driver->clear_standard_window();
+      the_driver->move_standard_cursor(0,0);
+      the_driver->set_standard_attr(A_NORMAL);
+      the_driver->refresh_standard_screen();
    }
    else
 #endif
@@ -1448,16 +1448,16 @@ fclose( fp);
     * ...otherwise, get the cursor to the bottom line.
     */
    {
-      if (curses_driver_global_window_exists(CURSES_DRIVER_GLOBAL_STATAREA))
+      if (the_driver->global_window_exists(THE_DRIVER_GLOBAL_STATAREA))
       {
-         curses_driver_add_global_string_at(CURSES_DRIVER_GLOBAL_STATAREA,0,4,"     ");
-         curses_driver_set_global_window_attr(CURSES_DRIVER_GLOBAL_STATAREA,A_NORMAL);
-         curses_driver_add_global_string_at(CURSES_DRIVER_GLOBAL_STATAREA,0,0,"THE - END");
-         curses_driver_refresh_global_window_now(CURSES_DRIVER_GLOBAL_STATAREA);
+         the_driver->add_global_string_at(THE_DRIVER_GLOBAL_STATAREA,0,4,"     ");
+         the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_STATAREA,A_NORMAL);
+         the_driver->add_global_string_at(THE_DRIVER_GLOBAL_STATAREA,0,0,"THE - END");
+         the_driver->refresh_global_window_now(THE_DRIVER_GLOBAL_STATAREA);
       }
    }
-   curses_driver_delete_global_window(CURSES_DRIVER_GLOBAL_STATAREA);
-   curses_driver_delete_global_window(CURSES_DRIVER_GLOBAL_FILETABS);
+   the_driver->delete_global_window(THE_DRIVER_GLOBAL_STATAREA);
+   the_driver->delete_global_window(THE_DRIVER_GLOBAL_FILETABS);
    last_option = first_option = lll_free(first_option);
    cleanup();
    CLOSEDOWNCONSOLE(0);
@@ -1769,19 +1769,19 @@ void cleanup(void)
    if (curses_started)
    {
       if (error_on_screen
-      &&  curses_driver_global_window_exists(CURSES_DRIVER_GLOBAL_ERROR))
+      &&  the_driver->global_window_exists(THE_DRIVER_GLOBAL_ERROR))
       {
          display_error(0,(CHARTYPE *)HIT_ANY_KEY,FALSE);
-         curses_driver_refresh_global_window_now(CURSES_DRIVER_GLOBAL_ERROR);
+         the_driver->refresh_global_window_now(THE_DRIVER_GLOBAL_ERROR);
 #ifdef KEY_RESIZE
          /*
           * Real hack here. If we have an error caused by editing the first file
           * like line too long, then we need to ignore all KEY_RESIZE events; XCurses
           * sends a resize on startup every time!
           */
-         while ( curses_driver_read_raw_standard_key() == KEY_RESIZE );
+         while ( the_driver->read_raw_standard_key() == KEY_RESIZE );
 #else
-         curses_driver_read_raw_standard_key();
+         the_driver->read_raw_standard_key();
 #endif
       }
       INSERTMODEx=FALSE;

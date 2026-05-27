@@ -1063,7 +1063,7 @@ short execute_macro_file
              */
             printf("\n%s",HIT_ANY_KEY);
             fflush(stdout);
-            (void)curses_driver_read_standard_key();
+            (void)the_driver->read_standard_key();
             resume_curses();
             if (number_of_files > 0)
             {
@@ -1207,7 +1207,7 @@ short execute_macro_instore
              */
             printf("\n%s",HIT_ANY_KEY);
             fflush(stdout);
-            (void)curses_driver_read_standard_key();
+            (void)the_driver->read_standard_key();
             resume_curses();
             if (number_of_files > 0)
             {

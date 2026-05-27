@@ -81,12 +81,12 @@ static bool cursor_focus_software_window(CHARTYPE window)
 
 static void cursor_focus_clamp_to_window(CHARTYPE scrno, CHARTYPE window, int *row, int *col)
 {
-   CursesDriverWindowSize size;
+   TheDriverWindowSize size;
 
-   if (!curses_driver_screen_role_exists(scrno, window))
+   if (!the_driver->screen_role_exists(scrno, window))
       return;
 
-   size = curses_driver_screen_role_size(scrno, window);
+   size = the_driver->screen_role_size(scrno, window);
    if (!size.valid)
       return;
    if (*row < 0)
@@ -175,7 +175,7 @@ static void cursor_focus_store_filearea_logical(CHARTYPE scrno, VIEW_DETAILS *vi
       len = (show_row->contents != NULL) ? show_row->length : rec_len;
    }
    viewport_col = (int)view->verify_col - 1;
-   logical_col = curses_driver_logical_col_from_display(line, len,
+   logical_col = the_driver->logical_col_from_display(line, len,
                                                         viewport_col,
                                                         display_col,
                                                         TEXT_SNAP_BACKWARD);
@@ -211,7 +211,7 @@ static void cursor_focus_store_logical_at(CHARTYPE scrno, VIEW_DETAILS *view,
 
 void cursor_focus_redraw(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
 {
-   curses_driver_redraw_screen_cursor(curr_screen, curr_view);
+   the_driver->redraw_screen_cursor(curr_screen, curr_view);
 }
 
 static void cursor_focus_redraw_if_software(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
@@ -223,7 +223,7 @@ static void cursor_focus_redraw_if_software(CHARTYPE curr_screen, VIEW_DETAILS *
       &&  prefix_changed)
       {
          display_prefix_line(curr_screen, curr_view);
-         curses_driver_refresh_cursor(curr_screen);
+         the_driver->refresh_cursor(curr_screen);
       }
       else
          cursor_focus_redraw(curr_screen, curr_view);
@@ -237,7 +237,7 @@ void cursor_focus_refresh(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
 
 void cursor_focus_sync_current(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
 {
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
    LogicalCursor logical;
    int row = 0;
    int col = 0;
@@ -312,13 +312,13 @@ void cursor_focus_sync_current(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
 void cursor_focus_present(CHARTYPE curr_screen)
 {
    if (current_cursor_uses_software())
-      curses_driver_refresh_cursor(curr_screen);
+      the_driver->refresh_cursor(curr_screen);
 }
 
 short cursor_focus_enter_command(CHARTYPE curr_screen, VIEW_DETAILS *curr_view,
                                  short col, bool refresh)
 {
-   if (in_readv || !curses_driver_screen_role_exists(curr_screen, WINDOW_COMMAND))
+   if (in_readv || !the_driver->screen_role_exists(curr_screen, WINDOW_COMMAND))
       return RC_OK;
 
    if (col < 1)
@@ -329,7 +329,7 @@ short cursor_focus_enter_command(CHARTYPE curr_screen, VIEW_DETAILS *curr_view,
       post_process_line(curr_view, curr_view->focus_line, (LINE *)NULL, TRUE);
       curr_view->current_window = WINDOW_COMMAND;
    }
-   curses_driver_move_screen_role_cursor(curr_screen, WINDOW_COMMAND, 0,
+   the_driver->move_screen_role_cursor(curr_screen, WINDOW_COMMAND, 0,
                                          col - 1);
    curr_view->cmdline_col = col - 1;
    cmd_verify_col = 1;
@@ -343,10 +343,10 @@ static int cursor_utf8_filearea_cell(void)
 {
    int y = 0;
    int x = 0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
    LogicalCursor logical;
 
-   cursor = curses_driver_capture_screen_role_cursor(current_screen,
+   cursor = the_driver->capture_screen_role_cursor(current_screen,
                                                      WINDOW_FILEAREA);
    if (cursor.valid)
    {
@@ -400,7 +400,7 @@ static int cursor_focus_filearea_desired_cell(CHARTYPE curr_screen,
 static int cursor_focus_prefix_desired_cell(CHARTYPE curr_screen,
                                             VIEW_DETAILS *curr_view)
 {
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
    LogicalCursor logical;
 
    if (curr_view == NULL)
@@ -411,7 +411,7 @@ static int cursor_focus_prefix_desired_cell(CHARTYPE curr_screen,
    &&  logical.line_number == curr_view->focus_line)
       return logical.desired_cell;
 
-   cursor = curses_driver_capture_screen_role_cursor(curr_screen,
+   cursor = the_driver->capture_screen_role_cursor(curr_screen,
                                                      WINDOW_PREFIX);
    if (cursor.valid)
       return cursor.col;
@@ -454,7 +454,7 @@ static void cursor_focus_restore_vertical(CHARTYPE curr_screen,
             desired_cell = 0;
          pos = textpos_from_cell_virtual(rec, rec_len, desired_cell,
                                          TEXT_SNAP_BACKWARD);
-         curses_driver_move_filearea_cursor(curr_screen, curr_view,
+         the_driver->move_filearea_cursor(curr_screen, curr_view,
                                             rec, rec_len, row,
                                             pos.cell_column);
          break;
@@ -465,7 +465,7 @@ static void cursor_focus_restore_vertical(CHARTYPE curr_screen,
          cursor_focus_clamp_to_window(curr_screen, WINDOW_PREFIX, &row_int,
                                       &col);
          row = (short)row_int;
-         curses_driver_move_prefix_cursor(curr_screen, row, (short)col);
+         the_driver->move_prefix_cursor(curr_screen, row, (short)col);
          cursor_focus_store_prefix_logical(curr_screen, curr_view, row, col);
          break;
 
@@ -477,7 +477,7 @@ static void cursor_focus_restore_vertical(CHARTYPE curr_screen,
 static short cursor_utf8_filearea_row(void)
 {
    int y = 0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
    LogicalCursor logical;
 
    logical = CURRENT_VIEW->logical_cursor.current;
@@ -486,7 +486,7 @@ static short cursor_utf8_filearea_row(void)
    &&  logical.line_number == CURRENT_VIEW->focus_line)
       return (short)logical.zone_row;
 
-   cursor = curses_driver_capture_screen_role_cursor(current_screen,
+   cursor = the_driver->capture_screen_role_cursor(current_screen,
                                                      WINDOW_FILEAREA);
    if (cursor.valid)
       y = cursor.row;
@@ -518,7 +518,7 @@ static int cursor_utf8_filearea_logical_cell_from_display(CHARTYPE curr_screen,
    INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
    if (curr_view == NULL)
       return display_col;
-   return curses_driver_logical_col_from_display(rec, rec_len,
+   return the_driver->logical_col_from_display(rec, rec_len,
                                                  (int)curr_view->verify_col - 1,
                                                  display_col, snap);
 }
@@ -534,7 +534,7 @@ static void cursor_utf8_repaint_filearea_motion(CHARTYPE curr_screen,
                                                 int new_logical_cell,
                                                 LENGTHTYPE old_verify_col)
 {
-   curses_driver_filearea_cursor_transition(curr_screen, curr_view,
+   the_driver->filearea_cursor_transition(curr_screen, curr_view,
                                             rec, rec_len, old_row,
                                             old_logical_cell, new_logical_cell,
                                             old_verify_col);
@@ -635,12 +635,12 @@ static bool cursor_utf8_filearea_right(short escreen, short *rc)
 static void cursor_utf8_snap_filearea_to_cluster_start(CHARTYPE curr_screen,
                                                        VIEW_DETAILS *curr_view)
 {
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    if (curr_view == NULL || curr_view->current_window != WINDOW_FILEAREA)
       return;
 
-   cursor = curses_driver_capture_screen_role_cursor(curr_screen,
+   cursor = the_driver->capture_screen_role_cursor(curr_screen,
                                                      WINDOW_FILEAREA);
    if (!cursor.valid)
       return;
@@ -662,7 +662,7 @@ static void cursor_utf8_move_filearea_display_col(CHARTYPE curr_screen,
    if (logical_col < 0)
       logical_col = 0;
    pos = textpos_from_cell(rec, rec_len, logical_col, TEXT_SNAP_BACKWARD);
-   curses_driver_move_filearea_cursor(curr_screen, curr_view, rec, rec_len,
+   the_driver->move_filearea_cursor(curr_screen, curr_view, rec, rec_len,
                                       row, pos.cell_column);
    cursor_focus_store_filearea_logical(curr_screen, curr_view, row,
                                        display_col);
@@ -751,7 +751,7 @@ short cursor_focus_enter_command(CHARTYPE curr_screen, VIEW_DETAILS *curr_view,
                                  short col, bool refresh)
 {
    INTENTIONALLY_UNUSED_VARIABLE(refresh);
-   if (in_readv || !curses_driver_screen_role_exists(curr_screen, WINDOW_COMMAND))
+   if (in_readv || !the_driver->screen_role_exists(curr_screen, WINDOW_COMMAND))
       return RC_OK;
    if (curr_view->current_window != WINDOW_COMMAND)
    {
@@ -759,7 +759,7 @@ short cursor_focus_enter_command(CHARTYPE curr_screen, VIEW_DETAILS *curr_view,
       post_process_line(curr_view, curr_view->focus_line, (LINE *)NULL, TRUE);
       curr_view->current_window = WINDOW_COMMAND;
    }
-   curses_driver_move_screen_role_cursor(curr_screen, WINDOW_COMMAND,
+   the_driver->move_screen_role_cursor(curr_screen, WINDOW_COMMAND,
                                          0, col - 1);
    curr_view->cmdline_col = col - 1;
    cmd_verify_col = 1;
@@ -785,7 +785,7 @@ short THEcursor_cmdline( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short co
    /*
     * If CMDLINE is OFF return without doing anything.
     */
-   if (!curses_driver_screen_role_exists(curr_screen, WINDOW_COMMAND))
+   if (!the_driver->screen_role_exists(curr_screen, WINDOW_COMMAND))
    {
       TRACE_RETURN();
       return(rc);
@@ -799,7 +799,7 @@ short THEcursor_column(void)
 /***********************************************************************/
 {
    short rc=RC_OK;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("cursor.c:  THEcursor_column");
    /*
@@ -816,9 +816,9 @@ short THEcursor_column(void)
          rc = THEcursor_home( current_screen, CURRENT_VIEW, FALSE );
          break;
       case WINDOW_PREFIX:
-         cursor = curses_driver_capture_current_window_cursor();
+         cursor = the_driver->capture_current_window_cursor();
          CURRENT_VIEW->current_window = WINDOW_FILEAREA;
-         curses_driver_move_current_window_cursor(cursor.valid ? cursor.row : 0, 0);
+         the_driver->move_current_window_cursor(cursor.valid ? cursor.row : 0, 0);
          cursor_focus_store_logical_at(current_screen, CURRENT_VIEW,
                                        cursor.valid ? cursor.row : 0, 0);
          break;
@@ -863,8 +863,8 @@ short THEcursor_down( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short escre
                          (int)curr_view->verify_end) )
                desired_cell = textpos_from_byte(rec, rec_len, rec_len).cell_column;
 #else
-            CursesDriverWindowCursor cursor =
-               curses_driver_capture_screen_role_cursor(curr_screen,
+            TheDriverWindowCursor cursor =
+               the_driver->capture_screen_role_cursor(curr_screen,
                                                         WINDOW_FILEAREA);
 
             if (cursor.valid)
@@ -891,9 +891,9 @@ short THEcursor_down( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short escre
          if ( CMDARROWSTABCMDx )
          {
             CHARTYPE *current_command = get_next_command( DIRECTION_FORWARD, 1 );
-            curses_driver_move_current_role_cursor(WINDOW_COMMAND, 0, 0);
+            the_driver->move_current_role_cursor(WINDOW_COMMAND, 0, 0);
             cursor_focus_store_command_logical(curr_view, 0, 0);
-            curses_driver_clear_current_role_to_eol(WINDOW_COMMAND);
+            the_driver->clear_current_role_to_eol(WINDOW_COMMAND);
             if ( current_command != (CHARTYPE *)NULL )
             {
                Cmsg( current_command );
@@ -1003,7 +1003,7 @@ short THEcursor_home( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool save )
 /***********************************************************************/
 {
    CHARTYPE last_win=0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
    unsigned short y=0;
    short rc=RC_OK;
 
@@ -1011,7 +1011,7 @@ short THEcursor_home( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool save )
    /*
     * If CMDLINE is OFF or in READV CMDLINE, return without doing anything
     */
-   if ( !curses_driver_screen_role_exists(curr_screen, WINDOW_COMMAND)
+   if ( !the_driver->screen_role_exists(curr_screen, WINDOW_COMMAND)
    ||   in_readv)
    {
       TRACE_RETURN();
@@ -1051,7 +1051,7 @@ short THEcursor_left(short escreen,bool kedit_defaults)
 /***********************************************************************/
 {
    unsigned short x=0,y=0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
    short rc=RC_OK;
 
    /*
@@ -1073,7 +1073,7 @@ short THEcursor_left(short escreen,bool kedit_defaults)
       return(rc);
    }
 #endif
-   cursor = curses_driver_capture_current_window_cursor();
+   cursor = the_driver->capture_current_window_cursor();
    if (cursor.valid)
    {
       y = cursor.row;
@@ -1084,7 +1084,7 @@ short THEcursor_left(short escreen,bool kedit_defaults)
     */
    if ( x > 0 )
    {
-      curses_driver_move_current_window_cursor(y, x - 1);
+      the_driver->move_current_window_cursor(y, x - 1);
       cursor_focus_store_logical_at(current_screen, CURRENT_VIEW, y, x - 1);
       cursor_focus_redraw_if_software(current_screen, CURRENT_VIEW);
       TRACE_RETURN();
@@ -1136,7 +1136,7 @@ short THEcursor_left(short escreen,bool kedit_defaults)
                   CURRENT_VIEW->verify_col = CURRENT_VIEW->verify_col-num_cols;
                build_screen( current_screen );
                display_screen( current_screen );
-               curses_driver_move_current_window_cursor(
+               the_driver->move_current_window_cursor(
                   y, curr_col - CURRENT_VIEW->verify_col);
                cursor_focus_store_logical_at(current_screen, CURRENT_VIEW, y,
                                              curr_col - CURRENT_VIEW->verify_col);
@@ -1146,13 +1146,13 @@ short THEcursor_left(short escreen,bool kedit_defaults)
                if ( ( CURRENT_VIEW->prefix & PREFIX_LOCATION_MASK ) == PREFIX_LEFT )
                {
                    rc = Sos_prefix( (CHARTYPE *)"" );
-                   if (rc == RC_OK && curses_driver_current_role_exists(WINDOW_PREFIX))
+                   if (rc == RC_OK && the_driver->current_role_exists(WINDOW_PREFIX))
                    {
-                      CursesDriverWindowSize prefix_size =
-                          curses_driver_current_role_size(WINDOW_PREFIX);
+                      TheDriverWindowSize prefix_size =
+                          the_driver->current_role_size(WINDOW_PREFIX);
                        if (prefix_size.valid && prefix_size.cols > 0)
                        {
-                          curses_driver_move_prefix_cursor(current_screen,
+                          the_driver->move_prefix_cursor(current_screen,
                                                            y, prefix_size.cols - 1);
                           cursor_focus_store_logical_at(current_screen,
                                                         CURRENT_VIEW, y,
@@ -1175,7 +1175,7 @@ short THEcursor_left(short escreen,bool kedit_defaults)
                cmd_verify_col = 1;
             else
                cmd_verify_col = cmd_verify_col - num_cols;
-            curses_driver_move_current_window_cursor(y,
+            the_driver->move_current_window_cursor(y,
                                              curr_col - cmd_verify_col);
             cursor_focus_store_command_logical(CURRENT_VIEW, y,
                                                curr_col - cmd_verify_col);
@@ -1206,8 +1206,8 @@ short THEcursor_right(short escreen,bool kedit_defaults)
 /***********************************************************************/
 {
    unsigned short x=0,y=0,tempx=0;
-   CursesDriverWindowCursor cursor;
-   CursesDriverWindowSize window_size;
+   TheDriverWindowCursor cursor;
+   TheDriverWindowSize window_size;
    COLTYPE right_column=0;
    short rc=RC_OK;
 
@@ -1225,13 +1225,13 @@ short THEcursor_right(short escreen,bool kedit_defaults)
       return(rc);
    }
 #endif
-   cursor = curses_driver_capture_current_window_cursor();
+   cursor = the_driver->capture_current_window_cursor();
    if (cursor.valid)
    {
       y = cursor.row;
       x = cursor.col;
    }
-   window_size = curses_driver_current_window_size();
+   window_size = the_driver->current_window_size();
    right_column = (window_size.valid && window_size.cols > 0) ? window_size.cols - 1 : 0;
    if ( CURRENT_VIEW->current_window == WINDOW_FILEAREA )
    {
@@ -1271,7 +1271,7 @@ short THEcursor_right(short escreen,bool kedit_defaults)
     */
    if ( x < right_column )
    {
-      curses_driver_move_current_window_cursor(y, x + 1);
+      the_driver->move_current_window_cursor(y, x + 1);
       cursor_focus_store_logical_at(current_screen, CURRENT_VIEW, y, x + 1);
       cursor_focus_redraw_if_software(current_screen, CURRENT_VIEW);
       TRACE_RETURN();
@@ -1290,13 +1290,13 @@ short THEcursor_right(short escreen,bool kedit_defaults)
                rc = Sos_prefix((CHARTYPE *)"");
             else
             {
-               curses_driver_move_current_window_cursor(y, 0); /* this should move down a line too */
+               the_driver->move_current_window_cursor(y, 0); /* this should move down a line too */
                cursor_focus_store_logical_at(current_screen, CURRENT_VIEW, y, 0);
             }
          }
          else
          {
-            tempx = curses_driver_current_window_size().cols;
+            tempx = the_driver->current_window_size().cols;
             if (x == tempx-1
             &&  CURRENT_VIEW->autoscroll != 0)
             {
@@ -1307,7 +1307,7 @@ short THEcursor_right(short escreen,bool kedit_defaults)
                CURRENT_VIEW->verify_col += num_cols;
                build_screen(current_screen);
                display_screen(current_screen);
-               curses_driver_move_current_window_cursor(
+               the_driver->move_current_window_cursor(
                   y, curr_col - CURRENT_VIEW->verify_col + 2);
                cursor_focus_store_logical_at(current_screen, CURRENT_VIEW, y,
                                              curr_col - CURRENT_VIEW->verify_col + 2);
@@ -1318,7 +1318,7 @@ short THEcursor_right(short escreen,bool kedit_defaults)
          rc = Sos_leftedge( (CHARTYPE *)"" );
          break;
       case WINDOW_COMMAND:
-         tempx = curses_driver_current_window_size().cols;
+         tempx = the_driver->current_window_size().cols;
          if ( x == tempx - 1
          &&  CURRENT_VIEW->autoscroll != 0 )
          {
@@ -1327,7 +1327,7 @@ short THEcursor_right(short escreen,bool kedit_defaults)
 
             num_cols = min( num_cols, CURRENT_SCREEN.cols[WINDOW_COMMAND] );
             cmd_verify_col += num_cols;
-            curses_driver_move_current_window_cursor(y,
+            the_driver->move_current_window_cursor(y,
                                              curr_col - cmd_verify_col + 2);
             cursor_focus_store_command_logical(CURRENT_VIEW, y,
                                                curr_col - cmd_verify_col + 2);
@@ -1377,7 +1377,7 @@ short THEcursor_up(short escreen)
                          (int)CURRENT_VIEW->verify_end) )
                desired_cell = textpos_from_byte(rec, rec_len, rec_len).cell_column;
 #else
-            CursesDriverWindowCursor cursor =
+            TheDriverWindowCursor cursor =
                curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
 
             if (cursor.valid)
@@ -1399,9 +1399,9 @@ short THEcursor_up(short escreen)
          else
          {
             current_command = get_next_command( DIRECTION_FORWARD, 1 );
-            curses_driver_move_current_role_cursor(WINDOW_COMMAND, 0, 0);
+            the_driver->move_current_role_cursor(WINDOW_COMMAND, 0, 0);
             cursor_focus_store_command_logical(CURRENT_VIEW, 0, 0);
-            curses_driver_clear_current_role_to_eol(WINDOW_COMMAND);
+            the_driver->clear_current_role_to_eol(WINDOW_COMMAND);
             if ( current_command != (CHARTYPE *)NULL )
             {
                Cmsg( current_command );
@@ -1426,12 +1426,12 @@ short THEcursor_move( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool show_e
    unsigned short x=0,y=0;
    unsigned short max_row=0,min_row=0,max_col=0;
    short idx=(-1);
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
    SHOW_LINE *show_row=NULL;
 
    TRACE_FUNCTION("cursor.c:  THEcursor_move");
 
-   cursor = curses_driver_capture_screen_role_cursor(curr_screen,
+   cursor = the_driver->capture_screen_role_cursor(curr_screen,
                                                      WINDOW_FILEAREA);
    if (cursor.valid)
    {
@@ -1591,7 +1591,7 @@ short THEcursor_move( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool show_e
             rc = do_Sos_prefix( (CHARTYPE *)"", curr_screen, curr_view );
             curr_view->focus_line = screen[curr_screen].sl[row].line_number;
             pre_process_line( curr_view, curr_view->focus_line, (LINE *)NULL );
-            curses_driver_move_prefix_cursor(curr_screen, row, col);
+            the_driver->move_prefix_cursor(curr_screen, row, col);
             cursor_focus_store_logical_at(curr_screen, curr_view, row, col);
             break;
          case WINDOW_COMMAND:
@@ -1724,7 +1724,7 @@ static short cursor_mouse_filearea(const TheInputLogicalTarget *target)
                             : row_line;
    pre_process_line(CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL);
    line = cursor_mouse_filearea_line(row, &len);
-   curses_driver_move_filearea_cursor(current_screen, CURRENT_VIEW, line, len,
+   the_driver->move_filearea_cursor(current_screen, CURRENT_VIEW, line, len,
                                       row, target->cell);
    if (set_colour(CURRENT_VIEW->file_for_view->attr+ATTR_FILEAREA)
    !=  set_colour(CURRENT_VIEW->file_for_view->attr+ATTR_CURSORLINE))
@@ -1761,7 +1761,7 @@ static short cursor_mouse_prefix(const TheInputLogicalTarget *target)
                             ? target->line_number
                             : row_line;
    pre_process_line(CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL);
-   curses_driver_move_prefix_cursor(current_screen, row, target->cell);
+   the_driver->move_prefix_cursor(current_screen, row, target->cell);
    cursor_focus_store_logical_at(current_screen, CURRENT_VIEW, row,
                                  target->cell);
    cursor_focus_refresh(current_screen, CURRENT_VIEW);
@@ -1851,10 +1851,10 @@ long where_now(void)
 {
    long rc=0L;
    unsigned short x=0,y=0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("cursor.c:  where_now");
-   cursor = curses_driver_capture_current_window_cursor();
+   cursor = the_driver->capture_current_window_cursor();
    if (cursor.valid)
    {
       y = cursor.row;
@@ -1899,7 +1899,7 @@ long what_current_now(void)
    long rc=0;
 
    TRACE_FUNCTION("cursor.c:  what_current_now");
-   if (curses_driver_current_role_exists(WINDOW_PREFIX))
+   if (the_driver->current_role_exists(WINDOW_PREFIX))
    {
       if ((CURRENT_VIEW->prefix & PREFIX_LOCATION_MASK) == PREFIX_LEFT)
          rc |= WHERE_WINDOW_PREFIX_LEFT;
@@ -2442,7 +2442,7 @@ short go_to_new_field(long save_where,long where)
             break;
       }
    }
-   curses_driver_move_current_window_cursor(where_row, 0);
+   the_driver->move_current_window_cursor(where_row, 0);
    cursor_focus_store_logical_at(current_screen, CURRENT_VIEW, where_row, 0);
    cursor_focus_redraw_if_software(current_screen, CURRENT_VIEW);
    TRACE_RETURN();
@@ -2453,19 +2453,19 @@ void get_cursor_position(LINETYPE *screen_line, LENGTHTYPE *screen_column, LINET
 /***********************************************************************/
 {
    unsigned short y=0,x=0;
-   CursesDriverWindowCursor cursor;
-   CursesDriverWindowOrigin origin;
+   TheDriverWindowCursor cursor;
+   TheDriverWindowOrigin origin;
 
    TRACE_FUNCTION("cursor.c:  get_cursor_position");
    if (curses_started)
    {
-      cursor = curses_driver_capture_current_window_cursor();
+      cursor = the_driver->capture_current_window_cursor();
       if (cursor.valid)
       {
          y = cursor.row;
          x = cursor.col;
       }
-      origin = curses_driver_current_window_origin();
+      origin = the_driver->current_window_origin();
       *screen_line = (LINETYPE)(y + (origin.valid ? origin.row : 0) + 1L);
       *screen_column = (LENGTHTYPE)(x + (origin.valid ? origin.col : 0) + 1L);
    }
@@ -2497,7 +2497,7 @@ short advance_focus_line(LINETYPE num_lines)
 /***********************************************************************/
 {
    unsigned short y=0,x=0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
    LINE *curr=NULL;
    LINETYPE actual_lines=num_lines;
    short direction=DIRECTION_FORWARD,rc=RC_OK;
@@ -2530,12 +2530,12 @@ short advance_focus_line(LINETYPE num_lines)
    display_screen(current_screen);
    if (curses_started)
    {
-      cursor = curses_driver_capture_current_window_cursor();
+      cursor = the_driver->capture_current_window_cursor();
       if (cursor.valid)
          x = cursor.col;
       y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,
                                CURRENT_VIEW->current_row);
-      curses_driver_move_current_window_cursor(y, x);
+      the_driver->move_current_window_cursor(y, x);
       cursor_focus_store_logical_at(current_screen, CURRENT_VIEW, y, x);
    }
    if (FOCUS_TOF || FOCUS_BOF)
@@ -2551,7 +2551,7 @@ short advance_current_line(LINETYPE num_lines)
    LINETYPE actual_lines=num_lines;
    short direction=DIRECTION_FORWARD;
    short y=0,x=0,rc=RC_OK;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("cursor.c:  advance_current_line");
    if (num_lines < 0L)
@@ -2586,7 +2586,7 @@ short advance_current_line(LINETYPE num_lines)
    {
       if (CURRENT_VIEW->current_window == WINDOW_FILEAREA)
       {
-         cursor = curses_driver_capture_current_window_cursor();
+         cursor = the_driver->capture_current_window_cursor();
          if (cursor.valid)
          {
             y = cursor.row;
@@ -2661,7 +2661,7 @@ void resolve_current_and_focus_lines( CHARTYPE curr_screen, VIEW_DETAILS *view, 
 /***********************************************************************/
 {
    short y=0,x=0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
    short save_compatible_feel=compatible_feel;
 
    TRACE_FUNCTION("cursor.c:  resolve_current_and_focus_lines");
@@ -2721,11 +2721,11 @@ void resolve_current_and_focus_lines( CHARTYPE curr_screen, VIEW_DETAILS *view, 
          display_screen( curr_screen );
          if ( curses_started )
          {
-            cursor = curses_driver_capture_screen_window_cursor(curr_screen);
+            cursor = the_driver->capture_screen_window_cursor(curr_screen);
             if (cursor.valid)
                x = cursor.col;
             y = get_row_for_focus_line( curr_screen, view->focus_line, view->current_row );
-            curses_driver_move_screen_window_cursor(curr_screen, y, x);
+            the_driver->move_screen_window_cursor(curr_screen, y, x);
          }
          break;
       case COMPAT_XEDIT:

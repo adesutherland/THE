@@ -51,8 +51,9 @@
 # include <curses.h>
 #endif
 
+#include "thedriver.h"
+
 int curses_driver_read_raw_window_key(WINDOW *win);
-int curses_driver_is_mouse_key(int key);
 
 /*
  * Do special character handling if using ncurses, xcurses
@@ -92,7 +93,7 @@ static void mouse_getch_trace(WINDOW *winptr, int key)
    if (trace == NULL)
       return;
    fprintf(trace,"getch win=%p key=%d is_mouse=%d\n",
-           (void *)winptr,key,curses_driver_is_mouse_key(key));
+           (void *)winptr,key,the_driver->is_mouse_key(key));
    fflush(trace);
 }
 

@@ -1639,16 +1639,16 @@ void cleanup_command_line(void)
       TRACE_RETURN();
       return;
    }
-   if (curses_driver_current_role_exists(WINDOW_COMMAND))
+   if (the_driver->current_role_exists(WINDOW_COMMAND))
    {
-      curses_driver_move_current_role_cursor(WINDOW_COMMAND,0,0);
-      curses_driver_clear_current_role_to_eol(WINDOW_COMMAND);
+      the_driver->move_current_role_cursor(WINDOW_COMMAND,0,0);
+      the_driver->clear_current_role_to_eol(WINDOW_COMMAND);
    }
    memset(cmd_rec,' ',max_line_length);
    cmd_rec_len = 0;
-   if (curses_driver_current_role_exists(WINDOW_COMMAND))
+   if (the_driver->current_role_exists(WINDOW_COMMAND))
    {
-      curses_driver_move_current_role_cursor(WINDOW_COMMAND,0,0);
+      the_driver->move_current_role_cursor(WINDOW_COMMAND,0,0);
    }
    cmd_verify_col = 1;
    if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
@@ -1661,13 +1661,13 @@ void cleanup_command_line(void)
    }
    else
       CURRENT_VIEW->cmdline_col = (-1);
-   if (curses_driver_current_role_exists(WINDOW_COMMAND)
+   if (the_driver->current_role_exists(WINDOW_COMMAND)
    &&  CURRENT_VIEW->current_window == WINDOW_COMMAND)
    {
       cursor_focus_refresh(current_screen, CURRENT_VIEW);
-      curses_driver_refresh_current_role(WINDOW_COMMAND);
-      curses_driver_update();
-      curses_driver_present_cursor(TRUE);
+      the_driver->refresh_current_role(WINDOW_COMMAND);
+      the_driver->update();
+      the_driver->present_cursor(TRUE);
    }
    TRACE_RETURN();
    return;
@@ -2194,7 +2194,7 @@ LENGTHTYPE get_true_column(bool respect_compat)
          true_column = (LENGTHTYPE)logical.text.cell_column + 1;
       else if (curses_started)
       {
-         CursesDriverWindowCursor cursor =
+         TheDriverWindowCursor cursor =
             curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
 
          true_column = CURRENT_VIEW->verify_col
@@ -3318,7 +3318,7 @@ short restore_THE(void)
 /***********************************************************************/
 {
    unsigned short y=0,x=0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("commutil.c:restore_THE");
    /*
@@ -3329,7 +3329,7 @@ short restore_THE(void)
       TRACE_RETURN();
       return(RC_OK);
    }
-   cursor = curses_driver_capture_current_window_cursor();
+   cursor = the_driver->capture_current_window_cursor();
    if (cursor.valid)
    {
       y = cursor.row;
@@ -3346,13 +3346,13 @@ short restore_THE(void)
       touch_screen((CHARTYPE)other_screen);
       refresh_screen((CHARTYPE)other_screen);
       if (!horizontal)
-         curses_driver_touch_and_refresh_global_window(CURSES_DRIVER_GLOBAL_DIVIDER);
+         the_driver->touch_and_refresh_global_window(THE_DRIVER_GLOBAL_DIVIDER);
    }
    touch_screen(current_screen);
-   if (curses_driver_global_window_exists(CURSES_DRIVER_GLOBAL_STATAREA))
-      curses_driver_touch_global_window(CURSES_DRIVER_GLOBAL_STATAREA);
-   if (curses_driver_global_window_exists(CURSES_DRIVER_GLOBAL_FILETABS))
-      curses_driver_touch_global_window(CURSES_DRIVER_GLOBAL_FILETABS);
+   if (the_driver->global_window_exists(THE_DRIVER_GLOBAL_STATAREA))
+      the_driver->touch_global_window(THE_DRIVER_GLOBAL_STATAREA);
+   if (the_driver->global_window_exists(THE_DRIVER_GLOBAL_FILETABS))
+      the_driver->touch_global_window(THE_DRIVER_GLOBAL_FILETABS);
 #if defined(HAVE_SLK_INIT)
    if ( max_slk_labels )
    {
@@ -3360,7 +3360,7 @@ short restore_THE(void)
       slk_noutrefresh();
    }
 #endif
-   curses_driver_move_current_window_cursor(y, x);
+   the_driver->move_current_window_cursor(y, x);
    TRACE_RETURN();
    return(RC_OK);
 }
@@ -3832,7 +3832,7 @@ int readv_cmdline(CHARTYPE *initial, WINDOW *dw, int start_col)
    TransientUiSnapshot readv_snapshot;
 
    TRACE_FUNCTION("commutil.c:readv_cmdline");
-   if ( !curses_driver_current_role_exists(WINDOW_COMMAND) )
+   if ( !the_driver->current_role_exists(WINDOW_COMMAND) )
    {
       display_error( 86, (CHARTYPE *)"", FALSE );
       TRACE_RETURN();
@@ -3866,15 +3866,15 @@ int readv_cmdline(CHARTYPE *initial, WINDOW *dw, int start_col)
          continue;
 #endif
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-      if (curses_driver_is_mouse_key(key))
+      if (the_driver->is_mouse_key(key))
       {
-         CursesDriverMouseEvent mouse;
+         TheDriverMouseEvent mouse;
          TransientUiHitTarget hit;
 
          if (!curses_driver_read_mouse_event(CURRENT_WINDOW_COMMAND, &mouse))
             continue;
          if (mouse.button != 1
-         ||  mouse.action == CURSES_DRIVER_MOUSE_ACTION_PRESSED)
+         ||  mouse.action == THE_DRIVER_MOUSE_ACTION_PRESSED)
             continue;
          if (!mouse.inside)
          {
@@ -3895,8 +3895,8 @@ int readv_cmdline(CHARTYPE *initial, WINDOW *dw, int start_col)
          transient_ui_snapshot_build_readv(&readv_snapshot, 0, 0,
                                            (int)max_line_length,
                                            &readv_state);
-         if ((mouse.action == CURSES_DRIVER_MOUSE_ACTION_CLICKED
-         ||   mouse.action == CURSES_DRIVER_MOUSE_ACTION_RELEASED)
+         if ((mouse.action == THE_DRIVER_MOUSE_ACTION_CLICKED
+         ||   mouse.action == THE_DRIVER_MOUSE_ACTION_RELEASED)
          &&  transient_ui_hit_test(&readv_snapshot, mouse.row, mouse.col,
                                    &hit)
          &&  hit.kind == TRANSIENT_UI_HIT_EDIT)

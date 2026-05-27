@@ -374,7 +374,7 @@ void print_line(bool close_spooler,LINETYPE true_line,LINETYPE num_lines,
  LINETYPE abs_num_lines=(num_lines < 0L ? -num_lines : num_lines);
  short direction=(num_lines < 0L ? DIRECTION_BACKWARD : DIRECTION_FORWARD);
  unsigned short y=0,x=0;
- CursesDriverWindowCursor cursor;
+ TheDriverWindowCursor cursor;
  bool lines_based_on_scope=(target_type==TARGET_BLOCK_CURRENT)?FALSE:TRUE;
  LINETYPE start=0L,end=0L,len=0L;
  CHARTYPE *ptr=NULL;
@@ -448,7 +448,7 @@ void print_line(bool close_spooler,LINETYPE true_line,LINETYPE num_lines,
     if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
        cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
     else
-       cursor = curses_driver_capture_current_window_cursor();
+       cursor = the_driver->capture_current_window_cursor();
     if (cursor.valid)
       {
        y = cursor.row;
@@ -599,7 +599,7 @@ void print_line(bool close_spooler,LINETYPE true_line,LINETYPE num_lines,
     if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
        curses_driver_move_window_cursor(CURRENT_WINDOW_FILEAREA, y, x);
     else
-       curses_driver_move_current_window_cursor(y, x);
+       the_driver->move_current_window_cursor(y, x);
    }
  TRACE_RETURN();
  return;

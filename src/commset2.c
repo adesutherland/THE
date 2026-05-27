@@ -1114,7 +1114,7 @@ short Pscreen(CHARTYPE *params)
 #if defined(CAN_RESIZE) || defined(OS2) || defined(WIN32)
    rc = THE_Resize( current_lines, current_cols );
    (void)THERefresh( (CHARTYPE *)"" );
-   curses_driver_present_cursor(TRUE);
+   the_driver->present_cursor(TRUE);
 #endif
    TRACE_RETURN();
    return( rc );
@@ -1413,7 +1413,7 @@ short Reserved(CHARTYPE *params)
    bool any_colours=FALSE;
    bool autoscroll = 0;
    RESERVED *curr=NULL;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION( "commset2.c:Reserved" );
    /*
@@ -1513,7 +1513,7 @@ short Reserved(CHARTYPE *params)
    {
       if ( curses_started )
       {
-         cursor = curses_driver_capture_current_window_cursor();
+         cursor = the_driver->capture_current_window_cursor();
          if (cursor.valid)
          {
             y = cursor.row;
@@ -1527,7 +1527,7 @@ short Reserved(CHARTYPE *params)
          CURRENT_VIEW->focus_line = new_focus_line;
          y = get_row_for_focus_line( current_screen, CURRENT_VIEW->focus_line, CURRENT_VIEW->current_row );
          if ( curses_started )
-            curses_driver_move_current_window_cursor(y, x);
+            the_driver->move_current_window_cursor(y, x);
          pre_process_line( CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL );
       }
    }
@@ -1753,7 +1753,7 @@ short Scale(CHARTYPE *params)
    short off=CURRENT_VIEW->scale_off;
    bool scalests=FALSE;
    unsigned short x=0,y=0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("commset2.c:Scale");
    strip[0]=STRIP_BOTH;
@@ -1809,7 +1809,7 @@ short Scale(CHARTYPE *params)
    {
       if (curses_started)
       {
-         cursor = curses_driver_capture_current_window_cursor();
+         cursor = the_driver->capture_current_window_cursor();
          if (cursor.valid)
          {
             y = cursor.row;
@@ -1819,7 +1819,7 @@ short Scale(CHARTYPE *params)
       CURRENT_VIEW->focus_line = get_focus_line_in_view(current_screen,CURRENT_VIEW->focus_line,y);
       y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,CURRENT_VIEW->current_row);
       if (curses_started)
-         curses_driver_move_current_window_cursor(y, x);
+         the_driver->move_current_window_cursor(y, x);
       pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
    }
    display_screen(current_screen);
@@ -1948,7 +1948,7 @@ short THEScreen(CHARTYPE *params)
    int size1=0,size2=0,offset=0;
    int width1=0,width2=0;
    bool diff_sizes=FALSE;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("commset2.c:THEScreen");
    strip[0]=STRIP_BOTH;
@@ -2205,15 +2205,15 @@ short THEScreen(CHARTYPE *params)
     */
    if (curses_started)
    {
-      cursor = curses_driver_capture_current_role_cursor(WINDOW_FILEAREA);
+      cursor = the_driver->capture_current_role_cursor(WINDOW_FILEAREA);
       if (cursor.valid)
       {
          CURRENT_VIEW->y[WINDOW_FILEAREA] = cursor.row;
          CURRENT_VIEW->x[WINDOW_FILEAREA] = cursor.col;
       }
-      if (curses_driver_current_role_exists(WINDOW_PREFIX))
+      if (the_driver->current_role_exists(WINDOW_PREFIX))
       {
-         cursor = curses_driver_capture_current_role_cursor(WINDOW_PREFIX);
+         cursor = the_driver->capture_current_role_cursor(WINDOW_PREFIX);
          if (cursor.valid)
          {
             CURRENT_VIEW->y[WINDOW_PREFIX] = cursor.row;
@@ -2236,7 +2236,7 @@ short THEScreen(CHARTYPE *params)
             free_a_view();
             CURRENT_VIEW = save_current_view;
          }
-         curses_driver_delete_global_window(CURSES_DRIVER_GLOBAL_DIVIDER);
+         the_driver->delete_global_window(THE_DRIVER_GLOBAL_DIVIDER);
          current_screen = 0;
          CURRENT_SCREEN.screen_view = CURRENT_VIEW = save_current_view;
          OTHER_SCREEN.screen_view = NULL;
@@ -2295,7 +2295,7 @@ short THEScreen(CHARTYPE *params)
    && curses_started)
    {
 /*    redraw_window(divider);*/
-      curses_driver_touch_and_refresh_global_window(CURSES_DRIVER_GLOBAL_DIVIDER);
+      the_driver->touch_and_refresh_global_window(THE_DRIVER_GLOBAL_DIVIDER);
    }
 
    if (display_screens > 1)
@@ -3049,7 +3049,7 @@ short Statusline(CHARTYPE *params)
          if (!horizontal)
          {
 /*          redraw_window(divider); */
-            curses_driver_touch_and_refresh_global_window(CURSES_DRIVER_GLOBAL_DIVIDER);
+            the_driver->touch_and_refresh_global_window(THE_DRIVER_GLOBAL_DIVIDER);
          }
       }
       build_screen( (CHARTYPE)(other_screen) );
@@ -3479,7 +3479,7 @@ short Tabline(CHARTYPE *params)
    short off=CURRENT_VIEW->tab_off;
    bool tabsts=FALSE;
    unsigned short x=0,y=0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("commset2.c:Tabline");
    strip[0]=STRIP_BOTH;
@@ -3535,7 +3535,7 @@ short Tabline(CHARTYPE *params)
    {
       if (curses_started)
       {
-         cursor = curses_driver_capture_current_window_cursor();
+         cursor = the_driver->capture_current_window_cursor();
          if (cursor.valid)
          {
             y = cursor.row;
@@ -3545,7 +3545,7 @@ short Tabline(CHARTYPE *params)
       CURRENT_VIEW->focus_line = get_focus_line_in_view(current_screen,CURRENT_VIEW->focus_line,y);
       y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,CURRENT_VIEW->current_row);
       if (curses_started)
-         curses_driver_move_current_window_cursor(y, x);
+         the_driver->move_current_window_cursor(y, x);
       pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
    }
    display_screen(current_screen);

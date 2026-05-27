@@ -47,7 +47,7 @@ bool prefix_changed=FALSE;
 void editor(void)
 /***********************************************************************/
 {
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("edit.c:    editor");
    /*
@@ -60,22 +60,22 @@ void editor(void)
    if (display_screens > 1)
       display_screen((CHARTYPE)(other_screen));
 
-   cursor = curses_driver_capture_current_window_cursor();
-   curses_driver_restore_current_window_cursor(cursor);
-   curses_driver_refresh_current_window();
-   curses_driver_update();
+   cursor = the_driver->capture_current_window_cursor();
+   the_driver->restore_current_window_cursor(cursor);
+   the_driver->refresh_current_window();
+   the_driver->update();
    if (error_on_screen)
    {
-      if (curses_driver_global_window_exists(CURSES_DRIVER_GLOBAL_ERROR))
+      if (the_driver->global_window_exists(THE_DRIVER_GLOBAL_ERROR))
       {
-         curses_driver_restore_current_window_cursor(cursor);
-         curses_driver_refresh_current_window();
-         curses_driver_touch_and_refresh_global_window(CURSES_DRIVER_GLOBAL_ERROR);
-         curses_driver_update();
+         the_driver->restore_current_window_cursor(cursor);
+         the_driver->refresh_current_window();
+         the_driver->touch_and_refresh_global_window(THE_DRIVER_GLOBAL_ERROR);
+         the_driver->update();
       }
    }
 #ifdef MSWIN
-   curses_driver_present_cursor(TRUE);
+   the_driver->present_cursor(TRUE);
 #endif
 
    for ( ; ; )
@@ -97,17 +97,17 @@ void editor(void)
 int process_key(int key, bool mouse_details_present)
 /***********************************************************************/
 {
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
    TheInputEvent input_event;
    short rc=RC_OK;
    CHARTYPE string_key[2];
 
    TRACE_FUNCTION("edit.c:    process_key");
 #if defined(USE_EXTCURSES)
-   cursor = curses_driver_capture_current_window_cursor();
+   cursor = the_driver->capture_current_window_cursor();
    curses_driver_restore_window_cursor(CURRENT_WINDOW, cursor);
-   curses_driver_refresh_current_window();
-   curses_driver_update();
+   the_driver->refresh_current_window();
+   the_driver->update();
 #endif
    string_key[1] = '\0';
 
@@ -132,7 +132,7 @@ int process_key(int key, bool mouse_details_present)
           } else {
               /* Wait for input with a 200ms timeout to allow background events to trigger a redraw */
               curses_driver_set_window_timeout(CURRENT_WINDOW, 200);
-              key = curses_driver_read_current_window_key();
+              key = the_driver->read_current_window_key();
               curses_driver_set_window_timeout(CURRENT_WINDOW, -1); /* Back to blocking */
               if (key == ERR) {
                   /* Timeout occurred, check event again */
@@ -145,10 +145,10 @@ int process_key(int key, bool mouse_details_present)
               }
           }
       } else {
-          key = curses_driver_read_current_window_key();
+          key = the_driver->read_current_window_key();
       }
 #else
-      key = curses_driver_read_current_window_key();
+      key = the_driver->read_current_window_key();
 #endif
    }
    if (the_input_event_from_legacy_key(key, &input_event))
@@ -159,7 +159,7 @@ int process_key(int key, bool mouse_details_present)
          key = normalized_key;
    }
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-   if (!curses_driver_is_mouse_key(key))
+   if (!the_driver->is_mouse_key(key))
    {
       if (!mouse_details_present)
          reset_saved_mouse_pos();
@@ -190,13 +190,13 @@ int process_key(int key, bool mouse_details_present)
       display_screen(current_screen);
       show_statarea();
       if (error_on_screen
-      &&  curses_driver_global_window_exists(CURSES_DRIVER_GLOBAL_ERROR))
+      &&  the_driver->global_window_exists(THE_DRIVER_GLOBAL_ERROR))
       {
-         cursor = curses_driver_capture_current_window_cursor();
-         curses_driver_touch_and_refresh_global_window(CURSES_DRIVER_GLOBAL_ERROR);
-         curses_driver_restore_current_window_cursor(cursor);
-         curses_driver_refresh_current_window();
-         curses_driver_update();
+         cursor = the_driver->capture_current_window_cursor();
+         the_driver->touch_and_refresh_global_window(THE_DRIVER_GLOBAL_ERROR);
+         the_driver->restore_current_window_cursor(cursor);
+         the_driver->refresh_current_window();
+         the_driver->update();
       }
       TRACE_RETURN();
       return(RC_OK);
@@ -224,7 +224,7 @@ int process_key(int key, bool mouse_details_present)
     * Save details about the last key pressed
     */
    lastkeys[current_key] = key;
-   if (curses_driver_is_mouse_key(key))
+   if (the_driver->is_mouse_key(key))
    {
       lastkeys_is_mouse[current_key] = 1;
    }
@@ -255,10 +255,10 @@ int process_key(int key, bool mouse_details_present)
           * Refresh the status area to reflect we are no longer recording
           */
          show_statarea();
-         cursor = curses_driver_capture_current_window_cursor();
+         cursor = the_driver->capture_current_window_cursor();
          curses_driver_restore_window_cursor(CURRENT_WINDOW, cursor);
-         curses_driver_refresh_current_window();
-         curses_driver_update();
+         the_driver->refresh_current_window();
+         the_driver->update();
          TRACE_RETURN();
          return(RC_OK);
       }
@@ -266,7 +266,7 @@ int process_key(int key, bool mouse_details_present)
        * If we are recording a macro, write the key definintion
        * here
        */
-      write_macro( get_key_definition( key, THE_KEY_DEFINE_RAW, TRUE, (bool)(curses_driver_is_mouse_key(key) ? TRUE : FALSE ) ) );
+      write_macro( get_key_definition( key, THE_KEY_DEFINE_RAW, TRUE, (bool)(the_driver->is_mouse_key(key) ? TRUE : FALSE ) ) );
    }
    save_for_repeat = 0;
    rc = function_key( key, OPTION_NORMAL, mouse_details_present );
@@ -305,12 +305,12 @@ int process_key(int key, bool mouse_details_present)
    if (CURRENT_FILE && CURRENT_FILE->cb && CURRENT_VIEW->current_window == WINDOW_FILEAREA) {
        static bool was_on_bracket = FALSE;
        bool is_on_bracket = FALSE;
-       CursesDriverWindowCursor bracket_cursor;
+       TheDriverWindowCursor bracket_cursor;
        LINETYPE screen_line=0;
        LENGTHTYPE screen_column=0;
        LINETYPE current_file_line=(-1L);
        LENGTHTYPE current_file_column=(-1);
-       bracket_cursor = curses_driver_capture_current_window_cursor();
+       bracket_cursor = the_driver->capture_current_window_cursor();
        get_cursor_position(&screen_line, &screen_column, &current_file_line, &current_file_column);
        
        if (current_file_line > 0 && current_file_line <= (LINETYPE)CURRENT_FILE->cb->line_count) {
@@ -333,7 +333,7 @@ int process_key(int key, bool mouse_details_present)
            display_screen(current_screen);
            curses_driver_restore_window_cursor(CURRENT_WINDOW, bracket_cursor);
            /* Force correct cursor position into virtual screen */
-           curses_driver_refresh_current_window();
+           the_driver->refresh_current_window();
        }
        was_on_bracket = is_on_bracket;
    }
@@ -350,25 +350,25 @@ int process_key(int key, bool mouse_details_present)
    refresh_screen(current_screen);
    if (error_on_screen)
    {
-      cursor = curses_driver_capture_current_window_cursor();
-      if (curses_driver_global_window_exists(CURSES_DRIVER_GLOBAL_ERROR))
+      cursor = the_driver->capture_current_window_cursor();
+      if (the_driver->global_window_exists(THE_DRIVER_GLOBAL_ERROR))
       {
-         curses_driver_touch_and_refresh_global_window(CURSES_DRIVER_GLOBAL_ERROR);
+         the_driver->touch_and_refresh_global_window(THE_DRIVER_GLOBAL_ERROR);
       }
-      curses_driver_restore_current_window_cursor(cursor);
-      curses_driver_refresh_current_window();
+      the_driver->restore_current_window_cursor(cursor);
+      the_driver->refresh_current_window();
    }
 
 #ifdef HAVE_BROKEN_SYSVR4_CURSES
-   cursor = curses_driver_capture_current_window_cursor();
+   cursor = the_driver->capture_current_window_cursor();
    curses_driver_restore_window_cursor(CURRENT_WINDOW, cursor);
-   curses_driver_refresh_current_window();
-   curses_driver_update();
+   the_driver->refresh_current_window();
+   the_driver->update();
 #else
-   cursor = curses_driver_capture_current_window_cursor();
+   cursor = the_driver->capture_current_window_cursor();
    curses_driver_restore_window_cursor(CURRENT_WINDOW, cursor);
-   curses_driver_refresh_current_window();
-   curses_driver_update();
+   the_driver->refresh_current_window();
+   the_driver->update();
 #endif
    TRACE_RETURN();
    return(RC_OK);
@@ -379,7 +379,7 @@ short EditFile(CHARTYPE *fn, bool external_command_line)
 /***********************************************************************/
 {
    short rc=RC_OK;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
    VIEW_DETAILS *save_current_view=NULL;
    VIEW_DETAILS *previous_current_view=NULL;
    CHARTYPE save_prefix=0;
@@ -424,20 +424,20 @@ short EditFile(CHARTYPE *fn, bool external_command_line)
    if (curses_started
    &&  number_of_files > 0)
    {
-      if (curses_driver_current_role_exists(WINDOW_COMMAND))
+      if (the_driver->current_role_exists(WINDOW_COMMAND))
       {
-         curses_driver_move_current_role_cursor(WINDOW_COMMAND, 0, 0);
-         curses_driver_clear_current_role_to_eol(WINDOW_COMMAND);
+         the_driver->move_current_role_cursor(WINDOW_COMMAND, 0, 0);
+         the_driver->clear_current_role_to_eol(WINDOW_COMMAND);
       }
-      cursor = curses_driver_capture_current_role_cursor(WINDOW_FILEAREA);
+      cursor = the_driver->capture_current_role_cursor(WINDOW_FILEAREA);
       if (cursor.valid)
       {
          CURRENT_VIEW->y[WINDOW_FILEAREA] = cursor.row;
          CURRENT_VIEW->x[WINDOW_FILEAREA] = cursor.col;
       }
-      if (curses_driver_current_role_exists(WINDOW_PREFIX))
+      if (the_driver->current_role_exists(WINDOW_PREFIX))
       {
-         cursor = curses_driver_capture_current_role_cursor(WINDOW_PREFIX);
+         cursor = the_driver->capture_current_role_cursor(WINDOW_PREFIX);
          if (cursor.valid)
          {
             CURRENT_VIEW->y[WINDOW_PREFIX] = cursor.row;
@@ -509,24 +509,24 @@ short EditFile(CHARTYPE *fn, bool external_command_line)
    {
       if (CURRENT_VIEW->in_ring)
       {
-         curses_driver_move_current_role_cursor(WINDOW_FILEAREA,
+         the_driver->move_current_role_cursor(WINDOW_FILEAREA,
                                                 CURRENT_VIEW->y[WINDOW_FILEAREA],
                                                 CURRENT_VIEW->x[WINDOW_FILEAREA]);
-         if (curses_driver_current_role_exists(WINDOW_PREFIX))
-            curses_driver_move_current_role_cursor(WINDOW_PREFIX,
+         if (the_driver->current_role_exists(WINDOW_PREFIX))
+            the_driver->move_current_role_cursor(WINDOW_PREFIX,
                                                    CURRENT_VIEW->y[WINDOW_PREFIX],
                                                    CURRENT_VIEW->x[WINDOW_PREFIX]);
-         cursor = curses_driver_capture_current_window_cursor();
-         curses_driver_restore_current_window_cursor(cursor);
+         cursor = the_driver->capture_current_window_cursor();
+         the_driver->restore_current_window_cursor(cursor);
       }
       else
       {
          if (CURRENT_FILE->pseudo_file == PSEUDO_DIR)
-            curses_driver_move_current_role_cursor(WINDOW_FILEAREA,
+            the_driver->move_current_role_cursor(WINDOW_FILEAREA,
                                                    CURRENT_VIEW->current_row,
                                                    FILE_START - 1);
          else
-            curses_driver_move_current_role_cursor(WINDOW_FILEAREA,
+            the_driver->move_current_role_cursor(WINDOW_FILEAREA,
                                                    CURRENT_VIEW->current_row, 0);
       }
    }
@@ -571,17 +571,17 @@ short EditFile(CHARTYPE *fn, bool external_command_line)
    if (curses_started)
    {
       display_screen(current_screen);
-      if (curses_driver_current_role_exists(WINDOW_COMMAND))
-         curses_driver_move_current_role_cursor(WINDOW_COMMAND, 0, 0);
-      if (curses_driver_current_role_exists(WINDOW_PREFIX))
-         curses_driver_touch_current_role(WINDOW_PREFIX);
-      if (curses_driver_current_role_exists(WINDOW_GAP))
-         curses_driver_touch_current_role(WINDOW_GAP);
-      if (curses_driver_current_role_exists(WINDOW_COMMAND))
-         curses_driver_touch_current_role(WINDOW_COMMAND);
-      if (curses_driver_current_role_exists(WINDOW_IDLINE))
-         curses_driver_touch_current_role(WINDOW_IDLINE);
-      curses_driver_touch_current_role(WINDOW_FILEAREA);
+      if (the_driver->current_role_exists(WINDOW_COMMAND))
+         the_driver->move_current_role_cursor(WINDOW_COMMAND, 0, 0);
+      if (the_driver->current_role_exists(WINDOW_PREFIX))
+         the_driver->touch_current_role(WINDOW_PREFIX);
+      if (the_driver->current_role_exists(WINDOW_GAP))
+         the_driver->touch_current_role(WINDOW_GAP);
+      if (the_driver->current_role_exists(WINDOW_COMMAND))
+         the_driver->touch_current_role(WINDOW_COMMAND);
+      if (the_driver->current_role_exists(WINDOW_IDLINE))
+         the_driver->touch_current_role(WINDOW_IDLINE);
+      the_driver->touch_current_role(WINDOW_FILEAREA);
       show_statarea();
    }
    /*

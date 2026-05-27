@@ -376,7 +376,7 @@ short Mark(CHARTYPE *params)
    LENGTHTYPE cont_len=0;
    int num[5]; /* must be at least as big as maximum number of args */
    CHARTYPE _THE_FAR buffer[100];
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("comm3.c:   Mark");
    /*
@@ -567,7 +567,7 @@ short Mark(CHARTYPE *params)
        * If we are in the file area or prefix area and the focus line is not
        * a real line, error.
        */
-      cursor = curses_driver_capture_current_window_cursor();
+      cursor = the_driver->capture_current_window_cursor();
       if (cursor.valid)
       {
          y = cursor.row;
@@ -590,7 +590,7 @@ short Mark(CHARTYPE *params)
       CURRENT_VIEW->mark_end_col = real_col;
       build_screen( current_screen );
       display_screen(current_screen);
-      curses_driver_move_current_window_cursor(y, x);
+      the_driver->move_current_window_cursor(y, x);
    }
    /*
     * With one parameter determine position of block...
@@ -611,7 +611,7 @@ short Mark(CHARTYPE *params)
        * If we are in the file area or prefix area and the focus line is not
        * a real line, error.
        */
-      cursor = curses_driver_capture_current_window_cursor();
+      cursor = the_driver->capture_current_window_cursor();
       if (cursor.valid)
       {
          y = cursor.row;
@@ -762,7 +762,7 @@ short Mark(CHARTYPE *params)
       }
       build_screen( current_screen );
       display_screen(current_screen);
-      curses_driver_move_current_window_cursor(y, x);
+      the_driver->move_current_window_cursor(y, x);
    }
    else
    {
@@ -992,7 +992,7 @@ short THEMove(CHARTYPE *params)
    short rc=RC_OK;
    LINETYPE start_line=0L,end_line=0L,num_lines=0L,dest_line=0L,lines_affected=0L;
    VIEW_DETAILS *old_mark_view=NULL;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("comm3.c:   THEMove");
    /*
@@ -1286,33 +1286,33 @@ short Nextwindow(CHARTYPE *params)
    CURRENT_VIEW = CURRENT_SCREEN.screen_view;
    if (curses_started)
    {
-      if (curses_driver_current_role_exists(WINDOW_COMMAND))
+      if (the_driver->current_role_exists(WINDOW_COMMAND))
       {
-         curses_driver_set_current_role_attr(WINDOW_COMMAND,set_colour(CURRENT_FILE->attr+ATTR_CMDLINE));
-         curses_driver_touch_and_refresh_current_role(WINDOW_COMMAND);
+         the_driver->set_current_role_attr(WINDOW_COMMAND,set_colour(CURRENT_FILE->attr+ATTR_CMDLINE));
+         the_driver->touch_and_refresh_current_role(WINDOW_COMMAND);
       }
-      if (curses_driver_current_role_exists(WINDOW_ARROW))
+      if (the_driver->current_role_exists(WINDOW_ARROW))
       {
-         curses_driver_set_current_role_attr(WINDOW_ARROW,set_colour(CURRENT_FILE->attr+ATTR_ARROW));
-         curses_driver_redraw_current_role(WINDOW_ARROW);
-         curses_driver_refresh_current_role(WINDOW_ARROW);
+         the_driver->set_current_role_attr(WINDOW_ARROW,set_colour(CURRENT_FILE->attr+ATTR_ARROW));
+         the_driver->redraw_current_role(WINDOW_ARROW);
+         the_driver->refresh_current_role(WINDOW_ARROW);
       }
-      if (curses_driver_global_window_exists(CURSES_DRIVER_GLOBAL_STATAREA))
+      if (the_driver->global_window_exists(THE_DRIVER_GLOBAL_STATAREA))
       {
-         curses_driver_set_global_window_attr(CURSES_DRIVER_GLOBAL_STATAREA,set_colour(CURRENT_FILE->attr+ATTR_STATAREA));
-         curses_driver_redraw_global_window(CURSES_DRIVER_GLOBAL_STATAREA);
+         the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_STATAREA,set_colour(CURRENT_FILE->attr+ATTR_STATAREA));
+         the_driver->redraw_global_window(THE_DRIVER_GLOBAL_STATAREA);
       }
-      if (curses_driver_current_role_exists(WINDOW_IDLINE))
+      if (the_driver->current_role_exists(WINDOW_IDLINE))
       {
-         curses_driver_set_current_role_attr(WINDOW_IDLINE,set_colour(CURRENT_FILE->attr+ATTR_IDLINE));
-         curses_driver_redraw_current_role(WINDOW_IDLINE);
+         the_driver->set_current_role_attr(WINDOW_IDLINE,set_colour(CURRENT_FILE->attr+ATTR_IDLINE));
+         the_driver->redraw_current_role(WINDOW_IDLINE);
       }
       if (display_screens > 1
       &&  !horizontal)
       {
-         curses_driver_set_global_window_attr(CURSES_DRIVER_GLOBAL_DIVIDER,set_colour(CURRENT_FILE->attr+ATTR_DIVIDER));
+         the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_DIVIDER,set_colour(CURRENT_FILE->attr+ATTR_DIVIDER));
          draw_divider();
-         curses_driver_refresh_global_window(CURSES_DRIVER_GLOBAL_DIVIDER);
+         the_driver->refresh_global_window(THE_DRIVER_GLOBAL_DIVIDER);
       }
    }
 /*   pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);  GFUC2 deleted */
@@ -1826,7 +1826,7 @@ short Overlaybox(CHARTYPE *params)
    short rc=RC_OK;
    LINE *curr=NULL;
    LINETYPE save_current_line=CURRENT_VIEW->current_line;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("comm3.c:   Overlaybox");
    /*
@@ -1864,7 +1864,7 @@ short Overlaybox(CHARTYPE *params)
    {
       if (CURRENT_VIEW->current_window != WINDOW_COMMAND)
       {
-         cursor = curses_driver_capture_current_window_cursor();
+         cursor = the_driver->capture_current_window_cursor();
          if (cursor.valid)
          {
             y = cursor.row;
@@ -1933,7 +1933,7 @@ short Overlaybox(CHARTYPE *params)
    display_screen(current_screen);
    if (curses_started
    && CURRENT_VIEW->current_window != WINDOW_COMMAND)
-      curses_driver_move_current_window_cursor(y, x);
+      the_driver->move_current_window_cursor(y, x);
 
    TRACE_RETURN();
    return(rc);

@@ -35,7 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 
 #include <query.h>
 
@@ -2275,7 +2275,7 @@ void set_key_values(int key, bool mouse_key)
    {
       int b,ba,bm,w;
       CHARTYPE scrn;
-      if ( curses_driver_read_mouse_button( &b, &ba, &bm ) )
+      if ( the_driver->read_mouse_button( &b, &ba, &bm ) )
       {
          which_window_is_mouse_in( &scrn, &w );
          key = mouse_info_to_key( w, b, ba, bm );
@@ -2414,7 +2414,7 @@ short show_status(void)
    col[0] = 0;
    for (i=1;i<STATUS_COLS;i++)
       col[i] = col[i-1]+column_width+1;
-   curses_driver_clear_standard_window();
+   the_driver->clear_standard_window();
    for (i=0; i<NUMBER_QUERY_ITEM; i++)
    {
       /*
@@ -2447,9 +2447,9 @@ short show_status(void)
          for (j=0;j<number_variables+1;j++)
          {
             if (j == 0)
-               curses_driver_set_standard_attr(A_BOLD);
-            curses_driver_add_standard_string_at(lineno,colno,(DEFCHAR *)item_values[j].value);
-            curses_driver_set_standard_attr(A_NORMAL);
+               the_driver->set_standard_attr(A_BOLD);
+            the_driver->add_standard_string_at(lineno,colno,(DEFCHAR *)item_values[j].value);
+            the_driver->set_standard_attr(A_NORMAL);
             colno += item_values[j].len+1;
          }
          colno--;
@@ -2481,8 +2481,8 @@ short show_status(void)
          }
       }
    }
-   curses_driver_add_standard_string_at(terminal_lines-2,0,HIT_ANY_KEY);
-   curses_driver_refresh_standard_screen();
+   the_driver->add_standard_string_at(terminal_lines-2,0,HIT_ANY_KEY);
+   the_driver->refresh_standard_screen();
 
    TRACE_RETURN();
    return(RC_OK);

@@ -37,7 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 #include "logcursor.h"
 
 /*#define DEBUG 1*/
@@ -166,7 +166,7 @@ static void sos_store_filearea_cursor(CHARTYPE scrno, VIEW_DETAILS *view,
                                       view->focus_line, row, rec, rec_len,
                                       (int)cell, TEXT_SNAP_BACKWARD, 1);
    logical_cursor_state_focus(&view->logical_cursor, logical);
-   curses_driver_move_filearea_cursor(scrno, view, rec, rec_len, row,
+   the_driver->move_filearea_cursor(scrno, view, rec, rec_len, row,
                                       (int)cell);
 }
 
@@ -283,7 +283,7 @@ static void sos_store_prefix_cursor(unsigned short row, LENGTHTYPE cell)
                                       pre_rec, pre_rec_len, (int)cell,
                                       TEXT_SNAP_BACKWARD, 1);
    logical_cursor_state_focus(&CURRENT_VIEW->logical_cursor, logical);
-   curses_driver_move_prefix_cursor(current_screen, row, (short)cell);
+   the_driver->move_prefix_cursor(current_screen, row, (short)cell);
 }
 
 static void sos_current_logical_row_cell(unsigned short *row, LENGTHTYPE *cell)
@@ -1719,12 +1719,12 @@ short Sos_lastcol(CHARTYPE *params)
 /***********************************************************************/
 {
    short rc=RC_OK;
-   CursesDriverWindowSize size;
+   TheDriverWindowSize size;
    unsigned short row=0;
    LENGTHTYPE cell=0;
 
    TRACE_FUNCTION( "commsos.c: Sos_lastcol" );
-   size = curses_driver_current_window_size();
+   size = the_driver->current_window_size();
    cell = (size.valid && size.cols > 0) ? size.cols - 1 : 0;
    switch (CURRENT_VIEW->current_window)
    {
@@ -2034,7 +2034,7 @@ short Sos_pastecmdline(CHARTYPE *params)
    }
 
    if ( curses_started
-   &&   curses_driver_current_role_exists(WINDOW_COMMAND) )
+   &&   the_driver->current_role_exists(WINDOW_COMMAND) )
    {
       cursor_location = command_col + paste_len;
       execute_move_cursor( current_screen, CURRENT_VIEW, cursor_location );
@@ -2166,7 +2166,7 @@ short Sos_rightedge(CHARTYPE *params)
 /***********************************************************************/
 {
    short rc=RC_OK;
-   CursesDriverWindowSize size;
+   TheDriverWindowSize size;
    unsigned short row=0;
    LENGTHTYPE cell=0;
 
@@ -2178,7 +2178,7 @@ short Sos_rightedge(CHARTYPE *params)
    }
    else
       row = sos_filearea_focus_row(current_screen, CURRENT_VIEW);
-   size = curses_driver_current_window_size();
+   size = the_driver->current_window_size();
    cell = (size.valid && size.cols > 0) ? size.cols - 1 : 0;
    switch (CURRENT_VIEW->current_window)
    {

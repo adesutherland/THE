@@ -537,7 +537,7 @@ short execute_prefix_commands(void)
       {
          if ( curses_started )
          {
-            CursesDriverWindowCursor cursor;
+            TheDriverWindowCursor cursor;
 
             cursor = curses_driver_capture_window_cursor( PENDING_WINDOW );
             if (cursor.valid)
@@ -562,7 +562,7 @@ short execute_prefix_commands(void)
       {
          if ( curses_started )
          {
-            CursesDriverWindowCursor cursor;
+            TheDriverWindowCursor cursor;
 
             cursor = curses_driver_capture_window_cursor( CURRENT_WINDOW );
             if (cursor.valid)
@@ -1996,7 +1996,7 @@ static short post_prefix_add(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lin
    unsigned short y=0,x=0;
 
    {
-      CursesDriverWindowCursor cursor;
+      TheDriverWindowCursor cursor;
 
       cursor = curses_driver_capture_window_cursor( PENDING_WINDOW );
       if (cursor.valid)

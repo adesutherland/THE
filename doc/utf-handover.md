@@ -22,6 +22,13 @@ painting, UTF repair execution, logical-to-physical display-column mapping, and
 hardware cursor parking. These mechanics stay in `src/cursesdriver.c` or in a
 temporary physical edge explicitly being migrated there.
 
+High-level editor code calls the current driver vtable through
+`the_driver->...`. The real vtable lives in `src/thedriver.h`, `src/thedriver.c`
+sets the current build's driver to the curses implementation, and
+`src/cursesdriver.c` publishes `the_curses_driver_ops`. `curses_driver_*` names
+are now curses implementation details or temporary physical edges that still
+traffic in `WINDOW *`, `chtype`/`cchar_t`, pads, or modal local windows.
+
 New logical behavior must be proved through a no-curses surface first:
 `the_agent`, `llmdriver`, `llmruntime`, virtual/fake-driver tests, focused unit
 tests, or CREXX/pty full-editor tests.
@@ -132,21 +139,29 @@ them mechanically and verify the supported targets in one sweep.
   dialog command-window role swapping, and mouse window projection by role.
   Legacy command, cursor, edit, query, scroll, error, and setup-adjacent paths
   now ask the driver for those physical windows by logical role.
+- The real driver vtable exists. `TheDriverOps` carries the migrated
+  current/screen/global role, cursor, touch/refresh/clear/attr, current-window
+  key/cell, mouse projection, standard-screen, and logical cursor operations.
+  Editor call sites use `the_driver->...`; `src/cursesdriver.c` keeps the
+  `curses_driver_*` function names as implementation-private entry points for
+  `the_curses_driver_ops` and for the remaining low-level physical edges.
 
 ## Active Slice
 
 No active migration slice is selected after closing the inventory ratchet,
 bulk physical wrapper pass, physical input/paint cleanup, raw mouse packet
-driver-ownership cleanup, corrected suffixed-paint cleanup, and the first
-active-window/window-handle cleanup. The next inventory-backed target is the
-remaining `show.c` renderer/display-line window-state surface or the deferred
-window lifecycle/prototype work. Keep the same proof pattern: no-curses model
-first, curses path uses that model, then guardrail the cleaned surface.
+driver-ownership cleanup, corrected suffixed-paint cleanup, the first
+active-window/window-handle cleanup, and the real driver-vtable migration. The
+next inventory-backed target is the remaining `show.c` renderer/display-line
+window-state surface or the deferred low-level `WINDOW *` lifecycle/prototype
+work. Keep the same proof pattern: no-curses model first, curses path uses that
+model, then guardrail the cleaned surface.
 
 ## Direct Curses Inventory
 
 `tests/inventory_direct_curses.sh` reports remaining direct curses dependencies
-outside `src/cursesdriver.*`, bundled PDCurses, and contrib code. It now has
+outside `src/cursesdriver.*`, `src/thedriver.*`, bundled PDCurses, and contrib
+code. It now has
 four useful modes:
 
 - default full inventory: every classified finding.
@@ -163,7 +178,7 @@ Current ratcheted counts:
 - actionable `physical-paint`: 0
 - actionable `mouse-token`: 0
 - actionable `window-state`: 251
-- allowed/migrated `driver-wrapper`: 779
+- allowed/migrated `driver-wrapper`: 274
 
 Current `window-state` summary:
 
@@ -185,12 +200,12 @@ window declarations, and `SCREEN_DETAILS.win`.
 For the cleaned transient functions, the sweep finds no raw `physical-input` or
 `physical-paint` calls in `readv_cmdline()`, `execute_dialog()`, or
 `execute_popup()`. Remaining transient findings are explicitly classified:
-`WINDOW` ownership in the curses path and `curses_driver_*` physical wrapper
+`WINDOW` ownership in the curses path and `curses_driver_*` physical edge
 calls. Direct `KEY_MOUSE` branch tokens now use the driver abstraction and no
 longer appear as mouse-token debt.
 
 The raw mouse packet guardrail is now stricter: outside `src/cursesdriver.*`,
-bundled PDCurses, and contrib code, raw `MEVENT`, `getmouse`,
+`src/thedriver.*`, bundled PDCurses, and contrib code, raw `MEVENT`, `getmouse`,
 `request_mouse_pos`, `MOUSE_X_POS`, `MOUSE_Y_POS`, `BUTTON_CHANGED`,
 `BUTTON_STATUS`, `BUTTON_ACTION_MASK`, `MOUSE_MOVED`, `BUTTON1_*`,
 `BUTTON2_*`, `BUTTON3_*`, modifier button masks, wheel scroll tokens, and
@@ -199,7 +214,10 @@ direct `KEY_MOUSE` are classified as actionable `physical-input`.
 The ratchet is a project-wide no-new-debt gate for actionable categories, not a
 must-fix-all-existing-debt gate. Reductions are allowed without updating every
 other bucket. `driver-wrapper` entries are counted for visibility but are
-treated as migrated/allowed and do not fail the ratchet.
+treated as migrated/allowed and do not fail the ratchet. New high-level editor
+call sites should use `the_driver->...`; new `curses_driver_*` call sites
+outside `src/cursesdriver.c` should be limited to unavoidable low-level
+physical edges.
 
 The older wrapper passes reduced the scanner's raw `physical-input` count from
 16 to 12 to 0 and raw `physical-paint` count from 198 to 31 to 0, but the
@@ -228,9 +246,11 @@ Boundary debt:
   driver should fail as actionable `physical-input`; editor-level mouse command
   encoding should continue to use driver-owned button/action/modifier constants
   or logical hit targets.
-- `driver-wrapper` entries outside the driver are allowed for migrated physical
-  mechanics today, but many still indicate command code owning physical window
-  timing or cursor placement. Classify them slice by slice.
+- Remaining `driver-wrapper` entries outside the driver are low-level physical
+  edges for `WINDOW *`, pads, renderer cell storage, modal local windows, and
+  compatibility helpers. High-level role/global/current-window operations have
+  moved to `the_driver->...`; classify the remaining physical edges slice by
+  slice.
 - Removal of `cursor_focus_sync_current()` after all file-area, prefix, and
   command entry paths set editor-owned logical cursor state before render.
 - Full live `UiFrame` snapshots for command, prompt, status, and window

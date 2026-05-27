@@ -70,6 +70,8 @@ done < <(
     ! -path 'src/contrib/*' \
     ! -name 'cursesdriver.c' \
     ! -name 'cursesdriver.h' \
+    ! -name 'thedriver.c' \
+    ! -name 'thedriver.h' \
     | sort
 )
 
@@ -253,7 +255,7 @@ print_summary() {
         winstate[window_state_bucket($1, $5)]++
     }
     END {
-      print "direct curses inventory summary (excluding src/cursesdriver.*, PDCurses, contrib):"
+      print "direct curses inventory summary (excluding src/cursesdriver.*, src/thedriver.*, PDCurses, contrib):"
       order[1] = "physical-input"
       order[2] = "physical-paint"
       order[3] = "mouse-token"
@@ -304,7 +306,7 @@ print_summary() {
 case "$mode" in
   full)
     findings="$(generate_findings)"
-    printf '%s\n' "direct curses inventory (excluding src/cursesdriver.*, PDCurses, contrib):"
+    printf '%s\n' "direct curses inventory (excluding src/cursesdriver.*, src/thedriver.*, PDCurses, contrib):"
     if [[ -n "$findings" ]]; then
       printf '%s\n' "$findings" |
         awk -F '\t' '{ printf "%s:%d:%s:%s:%s\n", $1, $2, $3, $4, $5 }'

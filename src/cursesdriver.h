@@ -3,99 +3,59 @@
 
 #include <stddef.h>
 
-#include "logcursor.h"
+#include "thedriver.h"
 
 struct view_details;
 
-typedef struct
-{
-   LogicalCursor logical;
-   int viewport_col;
-   int raw_display_col;
-   int display_col;
-   int window_cols;
-   int visible;
-} CursesDriverCursorTarget;
-
-typedef struct
-{
-   short row;
-   short col;
-   int valid;
-} CursesDriverWindowCursor;
-
-typedef struct
-{
-   short row;
-   short col;
-   int valid;
-} CursesDriverWindowOrigin;
-
-typedef struct
-{
-   short rows;
-   short cols;
-   int valid;
-} CursesDriverWindowSize;
-
-typedef struct
-{
-   short row;
-   short col;
-   int valid;
-} CursesDriverScreenPoint;
-
-typedef enum
-{
-   CURSES_DRIVER_MOUSE_ACTION_NONE = 0,
-   CURSES_DRIVER_MOUSE_ACTION_PRESSED,
-   CURSES_DRIVER_MOUSE_ACTION_RELEASED,
-   CURSES_DRIVER_MOUSE_ACTION_CLICKED,
-   CURSES_DRIVER_MOUSE_ACTION_OTHER
-} CursesDriverMouseAction;
+typedef TheDriverCursorTarget CursesDriverCursorTarget;
+typedef TheDriverWindowCursor CursesDriverWindowCursor;
+typedef TheDriverWindowOrigin CursesDriverWindowOrigin;
+typedef TheDriverWindowSize CursesDriverWindowSize;
+typedef TheDriverScreenPoint CursesDriverScreenPoint;
+typedef TheDriverMouseAction CursesDriverMouseAction;
 
 enum
 {
-   CURSES_DRIVER_MOUSE_MODIFIER_NONE = 0,
-   CURSES_DRIVER_MOUSE_MODIFIER_SHIFT = 0010,
-   CURSES_DRIVER_MOUSE_MODIFIER_CONTROL = 0020,
-   CURSES_DRIVER_MOUSE_MODIFIER_ALT = 0040
+   CURSES_DRIVER_MOUSE_ACTION_NONE = THE_DRIVER_MOUSE_ACTION_NONE,
+   CURSES_DRIVER_MOUSE_ACTION_PRESSED = THE_DRIVER_MOUSE_ACTION_PRESSED,
+   CURSES_DRIVER_MOUSE_ACTION_RELEASED = THE_DRIVER_MOUSE_ACTION_RELEASED,
+   CURSES_DRIVER_MOUSE_ACTION_CLICKED = THE_DRIVER_MOUSE_ACTION_CLICKED,
+   CURSES_DRIVER_MOUSE_ACTION_OTHER = THE_DRIVER_MOUSE_ACTION_OTHER
 };
 
 enum
 {
-   CURSES_DRIVER_MOUSE_BUTTON_RELEASED = 0,
-   CURSES_DRIVER_MOUSE_BUTTON_PRESSED = 1,
-   CURSES_DRIVER_MOUSE_BUTTON_CLICKED = 2,
-   CURSES_DRIVER_MOUSE_BUTTON_DOUBLE_CLICKED = 3,
-   CURSES_DRIVER_MOUSE_BUTTON_MOVED = 5,
-   CURSES_DRIVER_MOUSE_WHEEL_SCROLLED = 6
+   CURSES_DRIVER_MOUSE_MODIFIER_NONE = THE_DRIVER_MOUSE_MODIFIER_NONE,
+   CURSES_DRIVER_MOUSE_MODIFIER_SHIFT = THE_DRIVER_MOUSE_MODIFIER_SHIFT,
+   CURSES_DRIVER_MOUSE_MODIFIER_CONTROL = THE_DRIVER_MOUSE_MODIFIER_CONTROL,
+   CURSES_DRIVER_MOUSE_MODIFIER_ALT = THE_DRIVER_MOUSE_MODIFIER_ALT
 };
 
-typedef struct
+enum
 {
-   int button;
-   CursesDriverMouseAction action;
-   int modifier;
-   int row;
-   int col;
-   int inside;
-   int valid;
-} CursesDriverMouseEvent;
+   CURSES_DRIVER_MOUSE_BUTTON_RELEASED = THE_DRIVER_MOUSE_BUTTON_RELEASED,
+   CURSES_DRIVER_MOUSE_BUTTON_PRESSED = THE_DRIVER_MOUSE_BUTTON_PRESSED,
+   CURSES_DRIVER_MOUSE_BUTTON_CLICKED = THE_DRIVER_MOUSE_BUTTON_CLICKED,
+   CURSES_DRIVER_MOUSE_BUTTON_DOUBLE_CLICKED =
+      THE_DRIVER_MOUSE_BUTTON_DOUBLE_CLICKED,
+   CURSES_DRIVER_MOUSE_BUTTON_MOVED = THE_DRIVER_MOUSE_BUTTON_MOVED,
+   CURSES_DRIVER_MOUSE_WHEEL_SCROLLED =
+      THE_DRIVER_MOUSE_WHEEL_SCROLLED
+};
 
-typedef struct
-{
-   void *window;
-   int slot_valid;
-} CursesDriverWindowRoleSave;
+typedef TheDriverMouseEvent CursesDriverMouseEvent;
+typedef TheDriverWindowRoleSave CursesDriverWindowRoleSave;
+typedef TheDriverGlobalWindowRole CursesDriverGlobalWindowRole;
 
-typedef enum
+enum
 {
-   CURSES_DRIVER_GLOBAL_STATAREA = 0,
-   CURSES_DRIVER_GLOBAL_ERROR,
-   CURSES_DRIVER_GLOBAL_DIVIDER,
-   CURSES_DRIVER_GLOBAL_FILETABS
-} CursesDriverGlobalWindowRole;
+   CURSES_DRIVER_GLOBAL_STATAREA = THE_DRIVER_GLOBAL_STATAREA,
+   CURSES_DRIVER_GLOBAL_ERROR = THE_DRIVER_GLOBAL_ERROR,
+   CURSES_DRIVER_GLOBAL_DIVIDER = THE_DRIVER_GLOBAL_DIVIDER,
+   CURSES_DRIVER_GLOBAL_FILETABS = THE_DRIVER_GLOBAL_FILETABS
+};
+
+extern const TheDriverOps the_curses_driver_ops;
 
 int curses_driver_clamp_display_col(int display_col, int window_cols);
 int curses_driver_display_col_from_logical(const CHARTYPE *line, size_t len,

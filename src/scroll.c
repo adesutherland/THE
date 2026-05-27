@@ -44,7 +44,7 @@ short scroll_page(short direction,LINETYPE num_pages,bool scrollbar)
 /***********************************************************************/
 {
    short y=0,x=0,save_y=0,rc;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
    bool save_scroll_cursor_stay=scroll_cursor_stay;
 
    TRACE_FUNCTION("scroll.c:  scroll_page");
@@ -94,7 +94,7 @@ short scroll_page(short direction,LINETYPE num_pages,bool scrollbar)
     */
    if (curses_started)
    {
-      cursor = curses_driver_capture_current_window_cursor();
+      cursor = the_driver->capture_current_window_cursor();
       if (cursor.valid)
       {
          y = cursor.row;
@@ -104,11 +104,11 @@ short scroll_page(short direction,LINETYPE num_pages,bool scrollbar)
       if (CURRENT_VIEW->current_window != WINDOW_COMMAND)
       {
          y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line, CURRENT_VIEW->current_row);
-         curses_driver_move_current_window_cursor(y, x);
+         the_driver->move_current_window_cursor(y, x);
          if (scrollbar)
          {
-            curses_driver_refresh_current_window();
-            curses_driver_update();
+            the_driver->refresh_current_window();
+            the_driver->update();
          }
       }
    }
@@ -125,7 +125,7 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
 {
    short rc=RC_OK;
    unsigned short x=0,y=0,iscrollbar=scrollbar;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
    bool on_file_edge=FALSE,on_screen_edge=FALSE;
    short number_focus_rows=0;
    bool leave_cursor=FALSE;
@@ -180,9 +180,9 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
          if ( escreen == CURSOR_SCREEN
          &&  ( on_screen_edge || on_file_edge ) )
          {
-            if (!curses_driver_screen_role_exists(curr_screen, WINDOW_COMMAND))
+            if (!the_driver->screen_role_exists(curr_screen, WINDOW_COMMAND))
             {
-               cursor = curses_driver_capture_screen_window_cursor(curr_screen);
+               cursor = the_driver->capture_screen_window_cursor(curr_screen);
                if (cursor.valid)
                {
                   y = cursor.row;
@@ -196,7 +196,7 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
                {
                   curr_view->focus_line = screen[curr_screen].sl[y].line_number;
                   pre_process_line( curr_view, curr_view->focus_line, (LINE *)NULL );
-                  curses_driver_move_screen_window_cursor(curr_screen, y, x);
+                  the_driver->move_screen_window_cursor(curr_screen, y, x);
                }
                break;
             }
@@ -266,7 +266,7 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
             if ( curr_view->id_line )
                curses_driver_refresh_window(SCREEN_WINDOW_IDLINE(curr_screen));
             curses_driver_refresh_window(SCREEN_WINDOW(curr_screen));
-            curses_driver_update();
+            the_driver->update();
          }
          break;
    }

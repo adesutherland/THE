@@ -1001,7 +1001,7 @@ static int show_frame_filearea_cursor_target(const UiFrame *frame,
    if (logical_col != NULL)
       *logical_col = cursor.text.cell_column;
    if (display_col != NULL)
-      *display_col = curses_driver_display_col_from_logical(
+      *display_col = the_driver->display_col_from_logical(
          target_line, target_len, frame_row->logical_start_col,
          cursor.text.cell_column);
    if (line != NULL)
@@ -1097,7 +1097,7 @@ static int show_logical_filearea_cursor_target(CHARTYPE scrno,
    if (logical_col != NULL)
       *logical_col = cursor.text.cell_column;
    if (display_col != NULL)
-      *display_col = curses_driver_display_col_from_logical(
+      *display_col = the_driver->display_col_from_logical(
          target_line, target_len, (int)view->verify_col - 1,
          cursor.text.cell_column);
    if (line != NULL)
@@ -1182,7 +1182,7 @@ static int show_command_cursor_target(CHARTYPE scrno, VIEW_DETAILS *view,
    if (scrno >= MAX_SCREENS
    ||  view == NULL
    ||  view->current_window != WINDOW_COMMAND
-   ||  !curses_driver_screen_role_exists(scrno, WINDOW_COMMAND))
+   ||  !the_driver->screen_role_exists(scrno, WINDOW_COMMAND))
       return FALSE;
 
    cursor = view->logical_cursor.current;
@@ -1327,14 +1327,14 @@ static int show_restore_view_logical_cursor(CHARTYPE scrno,
                                               &logical_col, &line, &len))
 #endif
          {
-            curses_driver_move_filearea_cursor(scrno, view, line, len, row,
+            the_driver->move_filearea_cursor(scrno, view, line, len, row,
                                                logical_col);
             restored = TRUE;
          }
          break;
 
       case WINDOW_PREFIX:
-         if (curses_driver_screen_role_exists(scrno, WINDOW_PREFIX))
+         if (the_driver->screen_role_exists(scrno, WINDOW_PREFIX))
          {
 #ifdef USE_UTF8
             if (show_frame_prefix_cursor_target(cursor_frame, &row, &col))
@@ -1342,14 +1342,14 @@ static int show_restore_view_logical_cursor(CHARTYPE scrno,
             if (show_logical_prefix_cursor_target(scrno, view, &row, &col))
 #endif
             {
-               curses_driver_move_prefix_cursor(scrno, row, (short)col);
+               the_driver->move_prefix_cursor(scrno, row, (short)col);
                restored = TRUE;
             }
 #ifndef USE_UTF8
             else if (show_view_filearea_cursor_target(scrno, view, &row,
                                                       NULL, NULL, NULL))
             {
-               curses_driver_move_prefix_cursor(scrno, row, 0);
+               the_driver->move_prefix_cursor(scrno, row, 0);
                restored = TRUE;
             }
 #endif
@@ -2240,12 +2240,12 @@ void redraw_window(WINDOW *win)
 void repaint_screen(void)
 /***********************************************************************/
 {
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
    short y=0;
 
    TRACE_FUNCTION("show.c:    repaint_screen");
 
-   cursor = curses_driver_capture_current_window_cursor();
+   cursor = the_driver->capture_current_window_cursor();
    y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,
                               CURRENT_VIEW->current_row);
    if (cursor.valid && cursor.col > CURRENT_SCREEN.cols[WINDOW_FILEAREA])
@@ -2254,7 +2254,7 @@ void repaint_screen(void)
    build_screen(current_screen);
    display_screen(current_screen);
    /* show_heading();*/
-   curses_driver_move_current_window_cursor(y,
+   the_driver->move_current_window_cursor(y,
                                     cursor.valid ? cursor.col : 0);
 
    TRACE_RETURN();
@@ -2293,7 +2293,7 @@ void build_screen(CHARTYPE scrno)
 void display_screen(CHARTYPE scrno)
 /***********************************************************************/
 {
-   CursesDriverWindowCursor previous_cursor = { 0, 0, 0 };
+   TheDriverWindowCursor previous_cursor = { 0, 0, 0 };
    short crow;
 
    TRACE_FUNCTION("show.c:    display_screen");
@@ -2313,7 +2313,7 @@ void display_screen(CHARTYPE scrno)
    /*
     * Turn off the cursor.
     */
-   curses_driver_present_cursor(FALSE);
+   the_driver->present_cursor(FALSE);
    /*
     * Display the IDLINE window...
     */
@@ -2321,17 +2321,17 @@ void display_screen(CHARTYPE scrno)
    /*
     * Display the ARROW and CMDLINE if on...
     */
-   if (curses_driver_screen_role_exists(scrno, WINDOW_ARROW))
+   if (the_driver->screen_role_exists(scrno, WINDOW_ARROW))
    {
-      curses_driver_set_screen_role_attr(scrno, WINDOW_ARROW,set_colour(SCREEN_FILE(scrno)->attr+ATTR_ARROW));
-      curses_driver_redraw_screen_role(scrno, WINDOW_ARROW);
-      curses_driver_touch_and_refresh_screen_role(scrno, WINDOW_ARROW);
+      the_driver->set_screen_role_attr(scrno, WINDOW_ARROW,set_colour(SCREEN_FILE(scrno)->attr+ATTR_ARROW));
+      the_driver->redraw_screen_role(scrno, WINDOW_ARROW);
+      the_driver->touch_and_refresh_screen_role(scrno, WINDOW_ARROW);
    }
-   if (curses_driver_screen_role_exists(scrno, WINDOW_COMMAND))
+   if (the_driver->screen_role_exists(scrno, WINDOW_COMMAND))
    {
-      curses_driver_set_screen_role_attr(scrno, WINDOW_COMMAND,set_colour(SCREEN_FILE(scrno)->attr+ATTR_CMDLINE));
-      curses_driver_redraw_screen_role(scrno, WINDOW_COMMAND);
-      curses_driver_touch_and_refresh_screen_role(scrno, WINDOW_COMMAND);
+      the_driver->set_screen_role_attr(scrno, WINDOW_COMMAND,set_colour(SCREEN_FILE(scrno)->attr+ATTR_CMDLINE));
+      the_driver->redraw_screen_role(scrno, WINDOW_COMMAND);
+      the_driver->touch_and_refresh_screen_role(scrno, WINDOW_COMMAND);
    }
    /*
     * Save the position of previous window if on command line.
@@ -2371,17 +2371,17 @@ void display_screen(CHARTYPE scrno)
    /*
     * Refresh the windows.
     */
-   if (curses_driver_screen_role_exists(scrno, WINDOW_PREFIX))
-      curses_driver_refresh_screen_role(scrno, WINDOW_PREFIX);
-   if (curses_driver_screen_role_exists(scrno, WINDOW_GAP))
-      curses_driver_refresh_screen_role(scrno, WINDOW_GAP);
-   curses_driver_refresh_screen_role(scrno, WINDOW_FILEAREA);
+   if (the_driver->screen_role_exists(scrno, WINDOW_PREFIX))
+      the_driver->refresh_screen_role(scrno, WINDOW_PREFIX);
+   if (the_driver->screen_role_exists(scrno, WINDOW_GAP))
+      the_driver->refresh_screen_role(scrno, WINDOW_GAP);
+   the_driver->refresh_screen_role(scrno, WINDOW_FILEAREA);
    if (show_restore_view_logical_cursor(scrno, SCREEN_VIEW(scrno)))
       show_refresh_cursor_window(scrno, SCREEN_VIEW(scrno));
    /*
     * Lastly, turn the cursor back on again.
     */
-   curses_driver_present_cursor(TRUE);
+   the_driver->present_cursor(TRUE);
    /*
     * Restore the position of previous window if on command line.
     */
@@ -2408,7 +2408,7 @@ void display_screen(CHARTYPE scrno)
 void display_cmdline( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
 /***********************************************************************/
 {
-   CursesDriverWindowCursor command_cursor;
+   TheDriverWindowCursor command_cursor;
 
    TRACE_FUNCTION("show.c:    display_cmdline");
    if ( batch_only
@@ -2417,7 +2417,7 @@ void display_cmdline( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
       TRACE_RETURN();
       return;
    }
-   if (curses_driver_screen_role_exists(curr_screen, WINDOW_COMMAND))
+   if (the_driver->screen_role_exists(curr_screen, WINDOW_COMMAND))
    {
       /*
        * Clear the cmdline from the beginning to the end
@@ -2444,7 +2444,7 @@ void display_cmdline( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
 void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
 /***********************************************************************/
 {
-   CursesDriverWindowCursor prefix_cursor;
+   TheDriverWindowCursor prefix_cursor;
 #ifdef USE_UTF8
    UiFrame frame;
    const UiFrame *cursor_frame = NULL;
@@ -2456,7 +2456,7 @@ void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
    if ( batch_only
    ||  !curses_started
    ||  curr_view == NULL
-   ||  !curses_driver_screen_role_exists(curr_screen, WINDOW_PREFIX) )
+   ||  !the_driver->screen_role_exists(curr_screen, WINDOW_PREFIX) )
    {
       TRACE_RETURN();
       return;
@@ -4050,7 +4050,7 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
          if (replacement_plan.flush != UTF8_REPAIR_FLUSH_NONE)
          {
             curses_driver_refresh_window(SCREEN_WINDOW_FILEAREA(scrno));
-            curses_driver_update();
+            the_driver->update();
          }
       }
    }
@@ -4120,7 +4120,7 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
 
       if ( cursor_logical_hit || cursor_display_hit )
       {
-         colour = curses_driver_software_cursor_attr(scrno, colour,
+         colour = the_driver->software_cursor_attr(scrno, colour,
                                                      cursor_shape);
          cursor_drawn = TRUE;
       }
@@ -4262,7 +4262,7 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
 
    colour = show_utf8_filearea_cluster_colour(scrno, current, cluster, high);
    if (cursor)
-      colour = curses_driver_software_cursor_attr(scrno, colour, shape);
+      colour = the_driver->software_cursor_attr(scrno, colour, shape);
 
    display_col = show_utf8_display_col_from_logical(line, blength, (int)cvcol,
                                                     cluster.pos.cell_column);
@@ -4310,7 +4310,7 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
                                                             repaint_cluster, high);
          if (cursor
          &&  repaint_cluster.pos.byte_offset == cluster.pos.byte_offset)
-            repaint_colour = curses_driver_software_cursor_attr(
+            repaint_colour = the_driver->software_cursor_attr(
                scrno, repaint_colour, shape);
          show_write_utf8_cluster_at(SCREEN_WINDOW_FILEAREA(scrno), row,
                                     repaint_display_col, line, blength,
@@ -4550,7 +4550,7 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
    if (plan.flush != UTF8_REPAIR_FLUSH_NONE)
    {
       curses_driver_refresh_window(SCREEN_WINDOW_FILEAREA(scrno));
-      curses_driver_update();
+      the_driver->update();
    }
 
    show_utf8_repaint_filearea_suffix(scrno, row, current, high, start_pos);
@@ -5124,21 +5124,21 @@ void refresh_screen(CHARTYPE scrno)
     * Turn off the cursor.
     */
    show_heading(scrno);
-   if (!curses_driver_screen_window_is_role(scrno, WINDOW_FILEAREA))
-      curses_driver_refresh_screen_role(scrno, WINDOW_FILEAREA);
-   if (curses_driver_screen_role_exists(scrno, WINDOW_PREFIX)
-   &&  !curses_driver_screen_window_is_role(scrno, WINDOW_PREFIX))
-      curses_driver_refresh_screen_role(scrno, WINDOW_PREFIX);
-   if (curses_driver_screen_role_exists(scrno, WINDOW_GAP))
-      curses_driver_refresh_screen_role(scrno, WINDOW_GAP);
-   if (curses_driver_screen_role_exists(scrno, WINDOW_ARROW))
+   if (!the_driver->screen_window_is_role(scrno, WINDOW_FILEAREA))
+      the_driver->refresh_screen_role(scrno, WINDOW_FILEAREA);
+   if (the_driver->screen_role_exists(scrno, WINDOW_PREFIX)
+   &&  !the_driver->screen_window_is_role(scrno, WINDOW_PREFIX))
+      the_driver->refresh_screen_role(scrno, WINDOW_PREFIX);
+   if (the_driver->screen_role_exists(scrno, WINDOW_GAP))
+      the_driver->refresh_screen_role(scrno, WINDOW_GAP);
+   if (the_driver->screen_role_exists(scrno, WINDOW_ARROW))
    {
-      curses_driver_touch_and_refresh_screen_role(scrno, WINDOW_ARROW);
+      the_driver->touch_and_refresh_screen_role(scrno, WINDOW_ARROW);
    }
-   if (curses_driver_screen_role_exists(scrno, WINDOW_COMMAND)
-   &&  !curses_driver_screen_window_is_role(scrno, WINDOW_COMMAND))
-      curses_driver_refresh_screen_role(scrno, WINDOW_COMMAND);
-   curses_driver_refresh_screen_window(scrno);
+   if (the_driver->screen_role_exists(scrno, WINDOW_COMMAND)
+   &&  !the_driver->screen_window_is_role(scrno, WINDOW_COMMAND))
+      the_driver->refresh_screen_role(scrno, WINDOW_COMMAND);
+   the_driver->refresh_screen_window(scrno);
    /*
     * Turn on the cursor.
     */
@@ -5156,30 +5156,30 @@ void redraw_screen(CHARTYPE scrno)
        * Turn off the cursor. - no MH
        * MH    draw_cursor(FALSE);
        */
-      if (curses_driver_screen_role_exists(scrno, WINDOW_COMMAND))
+      if (the_driver->screen_role_exists(scrno, WINDOW_COMMAND))
       {
-         curses_driver_set_screen_role_attr(scrno, WINDOW_COMMAND,set_colour(SCREEN_FILE(scrno)->attr+ATTR_CMDLINE));
-         curses_driver_touch_and_refresh_screen_role(scrno, WINDOW_COMMAND);
+         the_driver->set_screen_role_attr(scrno, WINDOW_COMMAND,set_colour(SCREEN_FILE(scrno)->attr+ATTR_CMDLINE));
+         the_driver->touch_and_refresh_screen_role(scrno, WINDOW_COMMAND);
       }
-      if (curses_driver_screen_role_exists(scrno, WINDOW_ARROW))
+      if (the_driver->screen_role_exists(scrno, WINDOW_ARROW))
       {
-         curses_driver_set_screen_role_attr(scrno, WINDOW_ARROW,set_colour(SCREEN_FILE(scrno)->attr+ATTR_ARROW));
-         curses_driver_touch_and_refresh_screen_role(scrno, WINDOW_ARROW);
+         the_driver->set_screen_role_attr(scrno, WINDOW_ARROW,set_colour(SCREEN_FILE(scrno)->attr+ATTR_ARROW));
+         the_driver->touch_and_refresh_screen_role(scrno, WINDOW_ARROW);
       }
-      if (curses_driver_screen_role_exists(scrno, WINDOW_IDLINE))
+      if (the_driver->screen_role_exists(scrno, WINDOW_IDLINE))
       {
-         curses_driver_set_screen_role_attr(scrno, WINDOW_IDLINE,set_colour(SCREEN_FILE(scrno)->attr+ATTR_IDLINE));
-         curses_driver_touch_and_refresh_screen_role(scrno, WINDOW_IDLINE);
+         the_driver->set_screen_role_attr(scrno, WINDOW_IDLINE,set_colour(SCREEN_FILE(scrno)->attr+ATTR_IDLINE));
+         the_driver->touch_and_refresh_screen_role(scrno, WINDOW_IDLINE);
       }
-      if (curses_driver_screen_role_exists(scrno, WINDOW_PREFIX))
+      if (the_driver->screen_role_exists(scrno, WINDOW_PREFIX))
       {
-         curses_driver_touch_and_refresh_screen_role(scrno, WINDOW_PREFIX);
+         the_driver->touch_and_refresh_screen_role(scrno, WINDOW_PREFIX);
       }
-      if (curses_driver_screen_role_exists(scrno, WINDOW_GAP))
+      if (the_driver->screen_role_exists(scrno, WINDOW_GAP))
       {
-         curses_driver_touch_and_refresh_screen_role(scrno, WINDOW_GAP);
+         the_driver->touch_and_refresh_screen_role(scrno, WINDOW_GAP);
       }
-      curses_driver_touch_and_refresh_screen_role(scrno, WINDOW_FILEAREA);
+      the_driver->touch_and_refresh_screen_role(scrno, WINDOW_FILEAREA);
       /*
        * Turn on the cursor. - no MH
        * MH    draw_cursor(TRUE);
@@ -5614,7 +5614,7 @@ short prepare_view(CHARTYPE scrn)
                                             &logical_col, NULL,
                                             &line, &len))
       {
-         curses_driver_move_filearea_cursor(scrn, screen_view, line, len,
+         the_driver->move_filearea_cursor(scrn, screen_view, line, len,
                                             row, logical_col);
       }
 #else
@@ -5622,14 +5622,14 @@ short prepare_view(CHARTYPE scrn)
                                               &logical_col, NULL,
                                               &line, &len))
       {
-         curses_driver_move_filearea_cursor(scrn, screen_view, line, len,
+         the_driver->move_filearea_cursor(scrn, screen_view, line, len,
                                             row, logical_col);
       }
       else if (screen_view->current_window == WINDOW_FILEAREA
       &&       show_view_filearea_cursor_target(scrn, screen_view, &row,
                                                 &logical_col, &line, &len))
       {
-         curses_driver_move_filearea_cursor(scrn, screen_view, line, len,
+         the_driver->move_filearea_cursor(scrn, screen_view, line, len,
                                             row, logical_col);
       }
 #endif
@@ -5707,10 +5707,10 @@ short advance_view(VIEW_DETAILS *next_view,short direction)
     */
    if (curses_started)
    {
-      if (curses_driver_current_role_exists(WINDOW_COMMAND))
+      if (the_driver->current_role_exists(WINDOW_COMMAND))
       {
-         curses_driver_move_current_role_cursor(WINDOW_COMMAND, 0, 0);
-         curses_driver_clear_current_role_to_eol(WINDOW_COMMAND);
+         the_driver->move_current_role_cursor(WINDOW_COMMAND, 0, 0);
+         the_driver->clear_current_role_to_eol(WINDOW_COMMAND);
       }
    }
    /*
@@ -5851,7 +5851,7 @@ short THE_Resize(int rows, int cols)
    if ( rows && cols )
       resizeterm(rows,cols);
    endwin();
-   curses_driver_update();  /* make ncurses set LINES and COLS properly */
+   the_driver->update();  /* make ncurses set LINES and COLS properly */
    curses_driver_refresh_window( stdscr );
    /* curses_driver_refresh_window( curscr ); */
    ncurses_screen_resized = FALSE;
@@ -5945,9 +5945,9 @@ short force_curses_background(void)
    {
       pair_content(1,&fg,&bg);
       init_pair(1,COLOR_BLACK,COLOR_WHITE);
-      curses_driver_move_standard_cursor(0,0);
-      curses_driver_set_standard_attr(COLOR_PAIR(1));
-      curses_driver_add_standard_ch(' ');
+      the_driver->move_standard_cursor(0,0);
+      the_driver->set_standard_attr(COLOR_PAIR(1));
+      the_driver->add_standard_ch(' ');
       init_pair(1,fg,bg);
    }
    TRACE_RETURN();

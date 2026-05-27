@@ -37,7 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 #include "inputevent.h"
 #ifdef USE_UTF8
 # include "textedit.h"
@@ -146,8 +146,8 @@ static void text_set_prefix_logical_cell(short row, LENGTHTYPE cell)
                                       pre_rec, pre_rec_len, (int)cell,
                                       TEXT_SNAP_BACKWARD, 1);
    logical_cursor_state_focus(&CURRENT_VIEW->logical_cursor, logical);
-   if (curses_driver_current_role_exists(WINDOW_PREFIX))
-      curses_driver_move_current_role_cursor(WINDOW_PREFIX, row, (short)cell);
+   if (the_driver->current_role_exists(WINDOW_PREFIX))
+      the_driver->move_current_role_cursor(WINDOW_PREFIX, row, (short)cell);
    display_prefix_line(current_screen, CURRENT_VIEW);
    cursor_focus_refresh(current_screen, CURRENT_VIEW);
 }
@@ -813,7 +813,7 @@ short Text(CHARTYPE *params)
 #if defined(HAVE_BROKEN_COLORS)
    int newx=0;
 #endif
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 #if defined(USE_EXTCURSES)
    ATTR attr=0;
 #else
@@ -882,7 +882,7 @@ short Text(CHARTYPE *params)
       chtype_key = (chtype)(real_key & A_CHARTEXT);
 #endif
 
-      cursor = curses_driver_capture_current_window_cursor();
+      cursor = the_driver->capture_current_window_cursor();
       if (cursor.valid)
       {
          y = cursor.row;
@@ -899,14 +899,14 @@ short Text(CHARTYPE *params)
       }
 #endif
 
-      cursor_cell = curses_driver_read_current_window_cell();
+      cursor_cell = the_driver->read_current_window_cell();
 #if defined(USE_EXTCURSES)
-      attr = curses_driver_read_current_window_cell_attr_at(y, x);
-      curses_driver_set_current_window_attr(attr);
+      attr = the_driver->read_current_window_cell_attr_at(y, x);
+      the_driver->set_current_window_attr(attr);
       attr = 0;
 #elif defined(VMS)
 # ifdef _BSD44_CURSES
-      attr = curses_driver_read_current_window_cell_attr_at(y, x);
+      attr = the_driver->read_current_window_cell_attr_at(y, x);
 # else
       attr = 0;
 # endif
@@ -971,15 +971,15 @@ short Text(CHARTYPE *params)
             if ( INSERTMODEx )
             {
                rec = meminschr( rec, real_key, CURRENT_VIEW->verify_col-1+x, max_line_length, rec_len );
-               curses_driver_put_char_current_window(chtype_key|attr, INSCHAR);
+               the_driver->put_char_current_window(chtype_key|attr, INSCHAR);
             }
             else
             {
                rec[CURRENT_VIEW->verify_col-1+x] = real_key;
                if ( x == CURRENT_SCREEN.cols[WINDOW_FILEAREA]-1 )
-                  curses_driver_put_char_current_window(chtype_key|attr, INSCHAR);
+                  the_driver->put_char_current_window(chtype_key|attr, INSCHAR);
                else
-                  curses_driver_put_char_current_window(chtype_key|attr, ADDCHAR);
+                  the_driver->put_char_current_window(chtype_key|attr, ADDCHAR);
             }
             rec_len = calculate_rec_len( (INSERTMODEx)?ADJUST_INSERT:ADJUST_OVERWRITE, rec, rec_len, CURRENT_VIEW->verify_col+x, 1, CURRENT_FILE->trailing );
 #endif
@@ -1021,7 +1021,7 @@ short Text(CHARTYPE *params)
 #if defined(USE_EXTCURSES)
                if ( x == CURRENT_SCREEN.cols[WINDOW_FILEAREA]-1 )
                {
-                  curses_driver_move_current_window_cursor(y, x);
+                  the_driver->move_current_window_cursor(y, x);
      /*           wrefresh(CURRENT_WINDOW); */
                   THEcursor_right( TRUE, FALSE );
                }
@@ -1045,10 +1045,10 @@ short Text(CHARTYPE *params)
                    * scrolling the screen horizontally, and then position
                    * the cursor with the OLD y value, and the NEW x value;
                    */
-                  cursor = curses_driver_capture_current_window_cursor();
+                  cursor = the_driver->capture_current_window_cursor();
                   if (cursor.valid)
                      newx = cursor.col;
-                  curses_driver_move_current_window_cursor(y,newx);
+                  the_driver->move_current_window_cursor(y,newx);
 # endif
                }
 #endif
@@ -1326,7 +1326,7 @@ short Top(CHARTYPE *params)
 {
    short rc=RC_TOF_EOF_REACHED;
    unsigned short x=0,y=0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("comm5.c:   Top");
    /*
@@ -1347,8 +1347,8 @@ short Top(CHARTYPE *params)
    if (curses_started)
    {
       cursor = (CURRENT_VIEW->current_window == WINDOW_COMMAND)
-             ? curses_driver_capture_current_previous_window_cursor()
-             : curses_driver_capture_current_window_cursor();
+             ? the_driver->capture_current_previous_window_cursor()
+             : the_driver->capture_current_window_cursor();
       if (cursor.valid)
       {
          y = cursor.row;
@@ -1358,9 +1358,9 @@ short Top(CHARTYPE *params)
       y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,
                                  CURRENT_VIEW->current_row);
       if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
-         curses_driver_move_current_previous_window_cursor(y,x);
+         the_driver->move_current_previous_window_cursor(y,x);
       else
-         curses_driver_move_current_window_cursor(y,x);
+         the_driver->move_current_window_cursor(y,x);
    }
    TRACE_RETURN();
    return(rc);

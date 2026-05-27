@@ -40,7 +40,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 #include "inputevent.h"
 #include "mousehit.h"
 
@@ -67,20 +67,20 @@
  */
 #define MOUSE_MODIFIER_OFFSET   17 /* was 13 */
 #define MOUSE_NORMAL            0
-#define MOUSE_SHIFT             ((CURSES_DRIVER_MOUSE_MODIFIER_SHIFT >> 3)   << MOUSE_MODIFIER_OFFSET)
-#define MOUSE_CONTROL           ((CURSES_DRIVER_MOUSE_MODIFIER_CONTROL >> 3) << MOUSE_MODIFIER_OFFSET)
-#define MOUSE_ALT               ((CURSES_DRIVER_MOUSE_MODIFIER_ALT >> 3)     << MOUSE_MODIFIER_OFFSET)
+#define MOUSE_SHIFT             ((THE_DRIVER_MOUSE_MODIFIER_SHIFT >> 3)   << MOUSE_MODIFIER_OFFSET)
+#define MOUSE_CONTROL           ((THE_DRIVER_MOUSE_MODIFIER_CONTROL >> 3) << MOUSE_MODIFIER_OFFSET)
+#define MOUSE_ALT               ((THE_DRIVER_MOUSE_MODIFIER_ALT >> 3)     << MOUSE_MODIFIER_OFFSET)
 /*
  * Button actions
  */
 #define MOUSE_ACTION_OFFSET     14 /* was 10 */
-#define MOUSE_PRESS             (CURSES_DRIVER_MOUSE_BUTTON_PRESSED << MOUSE_ACTION_OFFSET)
-#define MOUSE_RELEASE           (CURSES_DRIVER_MOUSE_BUTTON_RELEASED << MOUSE_ACTION_OFFSET)
-#define MOUSE_DRAG              (CURSES_DRIVER_MOUSE_BUTTON_MOVED << MOUSE_ACTION_OFFSET)
-#define MOUSE_CLICK             (CURSES_DRIVER_MOUSE_BUTTON_CLICKED << MOUSE_ACTION_OFFSET)
-#define MOUSE_DOUBLE_CLICK      (CURSES_DRIVER_MOUSE_BUTTON_DOUBLE_CLICKED << MOUSE_ACTION_OFFSET)
+#define MOUSE_PRESS             (THE_DRIVER_MOUSE_BUTTON_PRESSED << MOUSE_ACTION_OFFSET)
+#define MOUSE_RELEASE           (THE_DRIVER_MOUSE_BUTTON_RELEASED << MOUSE_ACTION_OFFSET)
+#define MOUSE_DRAG              (THE_DRIVER_MOUSE_BUTTON_MOVED << MOUSE_ACTION_OFFSET)
+#define MOUSE_CLICK             (THE_DRIVER_MOUSE_BUTTON_CLICKED << MOUSE_ACTION_OFFSET)
+#define MOUSE_DOUBLE_CLICK      (THE_DRIVER_MOUSE_BUTTON_DOUBLE_CLICKED << MOUSE_ACTION_OFFSET)
 #if defined(PDCURSES_MOUSE_ENABLED)
-#define MOUSE_SCROLLED          (CURSES_DRIVER_MOUSE_WHEEL_SCROLLED << MOUSE_ACTION_OFFSET)
+#define MOUSE_SCROLLED          (THE_DRIVER_MOUSE_WHEEL_SCROLLED << MOUSE_ACTION_OFFSET)
 #endif
 /*
  * Button numbers
@@ -179,15 +179,15 @@ static int mouse_window_position(CHARTYPE scrn, int w, int *row, int *col)
       return FALSE;
 
    if (w >= 0 && w < VIEW_WINDOWS)
-      curses_driver_mouse_position_for_screen_role(scrn, (short)w, row, col);
+      the_driver->mouse_position_for_screen_role(scrn, (short)w, row, col);
    else if (w == WINDOW_STATAREA)
-      curses_driver_mouse_position_for_global(CURSES_DRIVER_GLOBAL_STATAREA,
+      the_driver->mouse_position_for_global(THE_DRIVER_GLOBAL_STATAREA,
                                               row, col);
    else if (w == WINDOW_FILETABS)
-      curses_driver_mouse_position_for_global(CURSES_DRIVER_GLOBAL_FILETABS,
+      the_driver->mouse_position_for_global(THE_DRIVER_GLOBAL_FILETABS,
                                               row, col);
    else if (w == WINDOW_DIVIDER)
-      curses_driver_mouse_position_for_global(CURSES_DRIVER_GLOBAL_DIVIDER,
+      the_driver->mouse_position_for_global(THE_DRIVER_GLOBAL_DIVIDER,
                                               row, col);
 
    return (*row != -1 && *col != -1);
@@ -211,7 +211,7 @@ static int mouse_locate_window(CHARTYPE *scrn, int *w, int *row, int *col)
    {
       for (j = 0; j < VIEW_WINDOWS; j++)
       {
-         if (curses_driver_screen_role_exists(i, (short)j)
+         if (the_driver->screen_role_exists(i, (short)j)
          &&  mouse_window_position(i, j, row, col))
          {
             if (scrn != NULL)
@@ -330,7 +330,7 @@ static int mouse_cell_for_hit(CHARTYPE scrn, TheMouseHitArea area, int row,
          if (viewport_col < 0)
             viewport_col = 0;
          line = mouse_filearea_line_for_hit(scrn, row, &len);
-         logical_col = curses_driver_logical_col_from_display(
+         logical_col = the_driver->logical_col_from_display(
             line, len, viewport_col, col, TEXT_SNAP_BACKWARD);
          return (logical_col < 0) ? 0 : logical_col;
       }
@@ -400,14 +400,14 @@ short THEMouse(CHARTYPE *params)
    TheInputEvent input;
 
    TRACE_FUNCTION( "mouse.c:  THEMouse" );
-   if (!curses_driver_read_mouse_button(&curr_button,&curr_button_action,
+   if (!the_driver->read_mouse_button(&curr_button,&curr_button_action,
                                         &curr_button_modifier))
    {
       mouse_trace_message("THEMouse-invalid", "rc=%d", RC_INVALID_OPERAND);
       TRACE_RETURN();
       return(RC_INVALID_OPERAND);
    }
-   curses_driver_saved_mouse_position(&saved_mouse_y, &saved_mouse_x);
+   the_driver->saved_mouse_position(&saved_mouse_y, &saved_mouse_x);
    if (!mouse_build_logical_input(&input, &scrn, &w))
    {
       last_mouse_input = the_input_event_none();
@@ -466,7 +466,7 @@ void reset_saved_mouse_pos(void)
 /***********************************************************************/
 {
    TRACE_FUNCTION("mouse.c:  reset_saved_mouse_pos");
-   curses_driver_reset_mouse_position();
+   the_driver->reset_mouse_position();
    last_mouse_input = the_input_event_none();
    TRACE_RETURN();
    return;
@@ -476,7 +476,7 @@ void get_saved_mouse_pos(int *y, int *x)
 /***********************************************************************/
 {
    TRACE_FUNCTION("mouse.c:  get_saved_mouse_pos");
-   curses_driver_saved_mouse_position(y, x);
+   the_driver->saved_mouse_position(y, x);
    TRACE_RETURN();
    return;
 }

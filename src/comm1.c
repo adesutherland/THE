@@ -37,7 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 
 /*#define DEBUG 1*/
 
@@ -220,7 +220,7 @@ short All(CHARTYPE *params)
    TARGET target;
    LINETYPE line_number=0L;
    unsigned short x=0,y=0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
    bool save_scope=FALSE;
    LINETYPE num_lines=0L;
 
@@ -320,14 +320,14 @@ short All(CHARTYPE *params)
       pre_process_line( CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL );
       if ( CURRENT_VIEW->current_window != WINDOW_COMMAND )
       {
-         cursor = curses_driver_capture_current_window_cursor();
+         cursor = the_driver->capture_current_window_cursor();
          if (cursor.valid)
          {
             y = cursor.row;
             x = cursor.col;
          }
          y = get_row_for_focus_line( current_screen, CURRENT_VIEW->focus_line, CURRENT_VIEW->current_row );
-         curses_driver_move_current_window_cursor(y, x);
+         the_driver->move_current_window_cursor(y, x);
       }
       /*
        * If the same file is in the other screen, refresh it
@@ -526,7 +526,7 @@ short Bottom(CHARTYPE *params)
 {
    short rc=RC_OK;
    unsigned short x=0,y=0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("comm1.c:   Bottom");
    /*
@@ -550,9 +550,9 @@ short Bottom(CHARTYPE *params)
    if (curses_started)
    {
       if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
-         cursor = curses_driver_capture_current_previous_window_cursor();
+         cursor = the_driver->capture_current_previous_window_cursor();
       else
-         cursor = curses_driver_capture_current_window_cursor();
+         cursor = the_driver->capture_current_window_cursor();
       if (cursor.valid)
       {
          y = cursor.row;
@@ -562,9 +562,9 @@ short Bottom(CHARTYPE *params)
       y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,
                                CURRENT_VIEW->current_row);
       if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
-         curses_driver_move_current_previous_window_cursor(y, x);
+         the_driver->move_current_previous_window_cursor(y, x);
       else
-         curses_driver_move_current_window_cursor(y, x);
+         the_driver->move_current_window_cursor(y, x);
    }
    TRACE_RETURN();
    return(rc);
@@ -674,12 +674,12 @@ short Cancel(CHARTYPE *params)
       display_screen( current_screen );
       if ( curses_started )
       {
-         if (curses_driver_current_role_exists(WINDOW_PREFIX))
-            curses_driver_touch_current_role(WINDOW_PREFIX);
-         if (curses_driver_current_role_exists(WINDOW_COMMAND))
-            curses_driver_touch_current_role(WINDOW_COMMAND);
-         curses_driver_touch_current_role(WINDOW_FILEAREA);
-         curses_driver_touch_current_window();
+         if (the_driver->current_role_exists(WINDOW_PREFIX))
+            the_driver->touch_current_role(WINDOW_PREFIX);
+         if (the_driver->current_role_exists(WINDOW_COMMAND))
+            the_driver->touch_current_role(WINDOW_COMMAND);
+         the_driver->touch_current_role(WINDOW_FILEAREA);
+         the_driver->touch_current_window();
       }
    }
    if ( number_of_files > 0 )
@@ -796,7 +796,7 @@ short Cdelete(CHARTYPE *params)
    TARGET target;
    LENGTHTYPE start_col=0,del_start=0;
    unsigned int y=0,x=0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("comm1.c:   Cdelete");
    /*
@@ -804,7 +804,7 @@ short Cdelete(CHARTYPE *params)
     */
    if (CURRENT_VIEW->current_window != WINDOW_COMMAND)
    {
-      cursor = curses_driver_capture_current_window_cursor();
+      cursor = the_driver->capture_current_window_cursor();
       if (cursor.valid)
       {
          y = cursor.row;
@@ -1133,7 +1133,7 @@ short THEClipboard(CHARTYPE *params)
       /*
        * We must be in the FILEAREA...
        */
-      if ( !curses_driver_current_window_is_role(WINDOW_FILEAREA)
+      if ( !the_driver->current_window_is_role(WINDOW_FILEAREA)
       &&   MARK_VIEW != CURRENT_VIEW )
       {
          display_error( 38, (CHARTYPE *)"", FALSE );
@@ -1147,7 +1147,7 @@ short THEClipboard(CHARTYPE *params)
       /*
        * We must be in the FILEAREA...
        */
-      if ( !curses_driver_current_window_is_role(WINDOW_FILEAREA)
+      if ( !the_driver->current_window_is_role(WINDOW_FILEAREA)
       &&   MARK_VIEW != CURRENT_VIEW )
       {
          display_error( 38, (CHARTYPE *)"", FALSE );
@@ -1227,7 +1227,7 @@ short Clocate(CHARTYPE *params)
    LINE *curr=NULL;
    LENGTHTYPE len=0,start_col=0;
    unsigned int y=0,x=0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("comm1.c:   Clocate");
    /*
@@ -1261,7 +1261,7 @@ short Clocate(CHARTYPE *params)
          {
             line = rec;
             len = rec_len;
-            cursor = curses_driver_capture_current_window_cursor();
+            cursor = the_driver->capture_current_window_cursor();
             if (cursor.valid)
             {
                y = cursor.row;
@@ -1357,12 +1357,12 @@ short Cmatch(CHARTYPE *params)
    LINE *curr=NULL;
    LINETYPE focus_line=0L;
    bool use_current=TRUE;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("comm1.c:   Cmatch");
    if ( curses_started )
    {
-      cursor = curses_driver_capture_current_window_cursor();
+      cursor = the_driver->capture_current_window_cursor();
       if (cursor.valid)
       {
          y = cursor.row;
@@ -1519,14 +1519,14 @@ short Cmatch(CHARTYPE *params)
             if ( curses_started )
             {
                display_screen(current_screen);
-               curses_driver_move_current_window_cursor(y, x);
+               the_driver->move_current_window_cursor(y, x);
             }
          }
          else
          {
             if ( curses_started )
             {
-               curses_driver_move_current_window_cursor(y,
+               the_driver->move_current_window_cursor(y,
                                                 match_col - (CURRENT_VIEW->verify_col - 1));
             }
          }
@@ -1541,7 +1541,7 @@ short Cmatch(CHARTYPE *params)
          if ( curses_started )
          {
             display_screen(current_screen);
-            curses_driver_move_current_window_cursor(y,
+            the_driver->move_current_window_cursor(y,
                                              match_col - (CURRENT_VIEW->verify_col - 1));
          }
          TRACE_RETURN();
@@ -1629,7 +1629,7 @@ short Cmatch(CHARTYPE *params)
    if ( curses_started )
    {
       display_screen(current_screen);
-      curses_driver_move_current_window_cursor(y, x);
+      the_driver->move_current_window_cursor(y, x);
    }
    TRACE_RETURN();
    return(RC_OK);
@@ -1764,10 +1764,10 @@ short ControlChar(CHARTYPE *params)
 {
    unsigned short y=0,x=0;
    int key=0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("comm1.c:   ControlChar");
-   cursor = curses_driver_capture_current_window_cursor();
+   cursor = the_driver->capture_current_window_cursor();
    if (cursor.valid)
    {
       y = cursor.row;
@@ -1787,11 +1787,11 @@ short ControlChar(CHARTYPE *params)
       }
    }
    display_prompt((CHARTYPE *)"Press the character you require.");
-   curses_driver_move_current_window_cursor(y, x);
-   curses_driver_refresh_current_window_now();
+   the_driver->move_current_window_cursor(y, x);
+   the_driver->refresh_current_window_now();
    for ( ; ; )
    {
-      key = curses_driver_read_current_window_key();
+      key = the_driver->read_current_window_key();
       break;
    }
    clear_msgline(-1);

@@ -60,6 +60,15 @@ clearly physical edge that is being migrated to that driver. Do not move
 physical cursor save/restore, refresh, touch/update, cell writes, software
 cursor painting, or cursor parking back into logical command code.
 
+Editor code reaches migrated high-level driver behavior through the current
+driver vtable, `the_driver->...`, defined by `TheDriverOps` in
+`src/thedriver.h`. The curses build initializes that pointer to
+`the_curses_driver_ops`, which is populated in `src/cursesdriver.c`.
+`curses_driver_*` function names are implementation-private there, except for
+temporary physical edges that still expose curses objects such as `WINDOW *`,
+pads, `chtype`/`cchar_t`, or modal-local windows. Do not add a neutral wrapper
+API parallel to the vtable.
+
 ### Input Drivers
 
 Input drivers own device-specific input collection and return normalized
@@ -102,8 +111,12 @@ Closed checkpoints are summarized here; details and next tasks are in
   fake-driver operation logs.
 - `src/screenframe.c` builds live file-area `UiFrame` snapshots and rebases
   saved logical cursors onto rebuilt rows.
+- `src/thedriver.h` and `src/thedriver.c` define the real driver vtable and
+  current-driver pointer. Editor code calls `the_driver->...` for migrated
+  high-level operations.
 - `src/cursesdriver.c` owns the migrated physical curses mechanics, raw mouse
-  packet decoding, and file-area logical-to-physical cursor materialization.
+  packet decoding, file-area logical-to-physical cursor materialization, and
+  the `the_curses_driver_ops` vtable.
 - `src/inputevent.c` defines shared normalized input events.
 - `src/mousehit.c` maps driver-edge mouse packets to shared logical-hit
   targets for normal live curses mouse dispatch.
@@ -137,14 +150,14 @@ Closed checkpoints are summarized here; details and next tasks are in
   checked by `test_the_llm_headless_no_curses`.
 - `tests/inventory_direct_curses.sh` is the repeatable debt sweep and ratchet.
   Current counts are actionable `physical-input: 0`, `physical-paint: 0`,
-  `mouse-token: 0`, and `window-state: 251`; `driver-wrapper: 779` is
+  `mouse-token: 0`, and `window-state: 251`; `driver-wrapper: 274` is
   counted as migrated/allowed. The summary now splits `window-state` into
   `window-handle: 45`, `active-window-macro: 52`, `cell-attr-type: 79`,
   `renderer-cell-type: 64`, and `header-prototype: 11`. The ratchet is
   available as both CTest `test_curses_boundary_inventory` and build target
   `curses_boundary_inventory`. The cleaned transient functions and current
   project-wide inventory have no raw `physical-input`, `physical-paint`, or
-  `mouse-token` findings outside `src/cursesdriver.*`.
+  `mouse-token` findings outside `src/cursesdriver.*` or `src/thedriver.*`.
 
 ## Status Model
 
@@ -173,12 +186,14 @@ The current active categories are:
   guardrails, the no-new-debt direct-curses inventory ratchet, and
   project-wide removal of raw `physical-input`/`physical-paint` findings
   outside the driver, corrected suffixed-paint inventory coverage, and driver
-  ownership of raw mouse packet decoding, plus the first active-window/
-  window-handle role-helper cleanup.
+  ownership of raw mouse packet decoding, the first active-window/window-handle
+  role-helper cleanup, and the real `TheDriverOps` vtable with high-level
+  editor call sites migrated to `the_driver->...`.
 - Active slice: none selected after the inventory ratchet, bulk wrapper pass,
   physical input/paint cleanup, raw mouse packet driver-ownership cleanup, and
-  corrected suffixed-paint cleanup, and the first active-window/window-handle
-  role-helper cleanup. Choose the next exact slice from `doc/utf-handover.md`.
+  corrected suffixed-paint cleanup, the first active-window/window-handle
+  role-helper cleanup, and the real driver-vtable migration. Choose the next
+  exact slice from `doc/utf-handover.md`.
 - Deferred: full agent dispatcher integration, full prefix command machinery in
   the agent, agent protocol integration for transient snapshots, full live
   frames for command/prompt/status/window rows, removal of the transitional
@@ -193,8 +208,11 @@ Guardrails are only useful when they close with behavior coverage. Tighten them
 module by module, not by aspiration.
 
 - Logical foundation modules must stay curses-free.
+- Editor code should call `the_driver->...` for operations present in
+  `TheDriverOps`. Direct `curses_driver_*` calls outside `src/cursesdriver.c`
+  should remain temporary low-level physical edges, not new high-level APIs.
 - `execute.c` direct curses calls are already guarded and should continue using
-  `cursesdriver.c` wrappers for physical behavior.
+  the driver boundary for physical behavior.
 - `readv_cmdline()`, `execute_dialog()`, and `execute_popup()` are guarded as a
   cleaned transient UI surface. Do not reintroduce raw curses input, refresh,
   paint, or mouse-position calls there; add logical snapshot state first and

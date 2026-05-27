@@ -145,7 +145,7 @@ static short selective_change(TARGET *target,CHARTYPE *old_str,LENGTHTYPE len_ol
    }
 
    target_cell = textpos_from_byte(rec, rec_len, (size_t)start_col).cell_column;
-   CURRENT_VIEW->verify_col = (LENGTHTYPE)curses_driver_viewport_col_for_logical(
+   CURRENT_VIEW->verify_col = (LENGTHTYPE)the_driver->viewport_col_for_logical(
       rec, rec_len, (int)CURRENT_VIEW->verify_col - 1, (int)target_cell,
       CURRENT_SCREEN.cols[WINDOW_FILEAREA], NULL, NULL) + 1;
 
@@ -177,7 +177,7 @@ static short selective_change(TARGET *target,CHARTYPE *old_str,LENGTHTYPE len_ol
          display_prompt((CHARTYPE *)"Press 'N' for next,'C' to undo 'Q' to quit");
       else
          display_prompt((CHARTYPE *)"Press 'N' for next,'C' to change 'Q' to quit");
-      curses_driver_move_filearea_cursor(current_screen, CURRENT_VIEW,
+      the_driver->move_filearea_cursor(current_screen, CURRENT_VIEW,
                                          rec, rec_len, y, (int)target_cell);
       curses_driver_refresh_window(CURRENT_WINDOW_FILEAREA);
 
@@ -855,7 +855,7 @@ short execute_os_command(CHARTYPE *cmd,bool quiet,bool pause)
    STARTUPCONSOLE();
    if (!quiet && curses_started)
    {
-      curses_driver_prepare_standard_screen_for_shell();
+      the_driver->prepare_standard_screen_for_shell();
       suspend_curses();
    }
    if (allocate_temp_space(strlen((DEFCHAR *)cmd),TEMP_TEMP_CMD) != RC_OK)
@@ -914,7 +914,7 @@ short execute_os_command(CHARTYPE *cmd,bool quiet,bool pause)
    if (!quiet && curses_started)
    {
       if (pause)
-         (void)curses_driver_read_standard_key();
+         (void)the_driver->read_standard_key();
       resume_curses();
 #if defined(HAVE_BROKEN_SYSVR4_CURSES)
       curses_driver_force_background_and_refresh(CURRENT_WINDOW);
@@ -930,7 +930,7 @@ short execute_os_command(CHARTYPE *cmd,bool quiet,bool pause)
       resume_curses();
 #endif
    if (curses_started)
-      curses_driver_present_cursor(TRUE);
+      the_driver->present_cursor(TRUE);
 
 #if defined(USE_XCURSES) || defined(USE_WINGUICURSES) || defined(USE_SDLCURSES)
    curses_started = save_curses_started;
@@ -959,7 +959,7 @@ short execute_makecurr( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LINETYPE 
    if (curr_view->current_window == WINDOW_PREFIX)
       execute_move_prefix_cursor(curr_screen, curr_view, y, cell);
    else
-      curses_driver_move_filearea_cursor(curr_screen, curr_view, rec, rec_len,
+      the_driver->move_filearea_cursor(curr_screen, curr_view, rec, rec_len,
                                          y, (int)cell);
    TRACE_RETURN();
    return(RC_OK);
@@ -1857,7 +1857,7 @@ command,source,start_line,end_line,dest_line);
       if (dst_view->current_window == WINDOW_PREFIX)
          execute_move_prefix_cursor(current_screen, dst_view, y, cell);
       else
-         curses_driver_move_filearea_cursor(current_screen, dst_view,
+         the_driver->move_filearea_cursor(current_screen, dst_view,
                                             rec, rec_len, y, (int)cell);
    }
    TRACE_RETURN();
@@ -2101,7 +2101,7 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
    LINE *curr=NULL;
    LINETYPE true_line=0L;
    LENGTHTYPE col=0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("execute.c: execute_split_join");
    /*
@@ -2156,7 +2156,7 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
     */
    curr = lll_find(CURRENT_FILE->first_line,CURRENT_FILE->last_line,true_line,CURRENT_FILE->number_lines);
 
-   cursor = curses_driver_capture_current_window_cursor();
+   cursor = the_driver->capture_current_window_cursor();
    if (cursor.valid)
    {
       y = (unsigned short)cursor.row;
@@ -2275,7 +2275,7 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
           */
          CURRENT_FILE->number_lines--;
          if (CURRENT_VIEW->current_window == WINDOW_FILEAREA)
-            curses_driver_move_current_window_cursor(y, x);
+            the_driver->move_current_window_cursor(y, x);
          break;
    }
    /*
@@ -2299,7 +2299,7 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
          {
             y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,
                                     CURRENT_VIEW->current_row);
-            curses_driver_move_current_window_cursor(y, x);
+            the_driver->move_current_window_cursor(y, x);
          }
       }
    }
@@ -3120,7 +3120,7 @@ static LENGTHTYPE execute_filearea_display_cell(VIEW_DETAILS *curr_view)
    cell = execute_filearea_cursor_cell(curr_view);
    if (curr_view == NULL)
       return cell;
-   display_col = curses_driver_display_col_from_logical(
+   display_col = the_driver->display_col_from_logical(
       rec, rec_len, (int)curr_view->verify_col - 1, (int)cell);
    if (display_col < 0)
       display_col = 0;
@@ -3141,12 +3141,12 @@ static void execute_move_prefix_cursor(CHARTYPE curr_screen,
 /***********************************************************************/
 {
    SHOW_LINE *show_row;
-   CursesDriverWindowSize size;
+   TheDriverWindowSize size;
    LogicalCursor logical;
    size_t len;
 
    if (curr_view == NULL
-   ||  !curses_driver_screen_role_exists(curr_screen, WINDOW_PREFIX)
+   ||  !the_driver->screen_role_exists(curr_screen, WINDOW_PREFIX)
    ||  row < 0
    ||  row >= screen[curr_screen].rows[WINDOW_FILEAREA])
       return;
@@ -3187,12 +3187,12 @@ static void execute_move_filearea_display_cursor(CHARTYPE curr_screen,
    }
    if (display_cell < 0)
       display_cell = 0;
-   logical_col = curses_driver_logical_col_from_display(
+   logical_col = the_driver->logical_col_from_display(
       line, len, (int)curr_view->verify_col - 1, (int)display_cell,
       TEXT_SNAP_BACKWARD);
    if (logical_col < 0)
       logical_col = 0;
-   curses_driver_move_filearea_cursor(curr_screen, curr_view, line, len,
+   the_driver->move_filearea_cursor(curr_screen, curr_view, line, len,
                                       row, logical_col);
 }
 /***********************************************************************/
@@ -3215,7 +3215,7 @@ short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTH
          int new_viewport_col;
          int window_cols = screen[curr_screen].cols[WINDOW_FILEAREA];
 
-         new_viewport_col = curses_driver_viewport_col_for_logical(
+         new_viewport_col = the_driver->viewport_col_for_logical(
             rec, rec_len, old_viewport_col, (int)col, window_cols,
             NULL, NULL);
          if (curr_view->verify_col != (LENGTHTYPE)new_viewport_col + 1)
@@ -3224,7 +3224,7 @@ short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTH
             build_screen(curr_screen);
             display_screen(curr_screen);
          }
-         curses_driver_move_filearea_cursor(curr_screen, curr_view,
+         the_driver->move_filearea_cursor(curr_screen, curr_view,
                                             rec, rec_len, y, (int)col);
       }
          break;
@@ -3656,7 +3656,7 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
          }
          break;
       case EDITV_LIST:
-         curses_driver_clear_standard_window();
+         the_driver->clear_standard_window();
          if ( blank_field( params ) )
          {
             curr = first;
@@ -3666,10 +3666,10 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
                   str = curr->line;
                else
                   str = (CHARTYPE *)"";
-               curses_driver_set_standard_attr(A_BOLD);
-               curses_driver_add_standard_string_at(lineno, 0,
+               the_driver->set_standard_attr(A_BOLD);
+               the_driver->add_standard_string_at(lineno, 0,
                                                     (DEFCHAR *)curr->name);
-               curses_driver_set_standard_attr(A_NORMAL);
+               the_driver->set_standard_attr(A_NORMAL);
                /*
                 * Calculate maximum length of string to display so we don't wrap.
                 */
@@ -3682,20 +3682,20 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
                /*
                 * Display the value, wrapping if necessary
                 */
-               curses_driver_move_standard_cursor(lineno, 1 + len_name);
+               the_driver->move_standard_cursor(lineno, 1 + len_name);
                for ( x = 0,i = 0; i < len_str; i++ )
                {
                   if ( x == rem )
                   {
                      x = 1;
                      lineno++;
-                     curses_driver_move_standard_cursor(lineno, 1 + len_name);
+                     the_driver->move_standard_cursor(lineno, 1 + len_name);
                   }
                   else
                   {
                      x++;
                   }
-                  curses_driver_add_standard_ch(*(str+i));
+                  the_driver->add_standard_ch(*(str+i));
                }
                lineno++;
                curr = curr->next;
@@ -3713,9 +3713,9 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
                   str = curr->line;
                else
                   str = (CHARTYPE *)"";
-               curses_driver_set_standard_attr(A_BOLD);
-               curses_driver_add_standard_string_at(lineno, 0, (DEFCHAR *)p);
-               curses_driver_set_standard_attr(A_NORMAL);
+               the_driver->set_standard_attr(A_BOLD);
+               the_driver->add_standard_string_at(lineno, 0, (DEFCHAR *)p);
+               the_driver->set_standard_attr(A_NORMAL);
                /*
                 * Calculate maximum length of string to display so we don't wrap.
                 */
@@ -3728,37 +3728,37 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
                /*
                 * Display the value, wrapping if necessary
                 */
-               curses_driver_move_standard_cursor(lineno, 1 + len_name);
+               the_driver->move_standard_cursor(lineno, 1 + len_name);
                for ( x = 0,i = 0; i < len_str; i++ )
                {
                   if ( x == rem )
                   {
                      x = 1;
                      lineno++;
-                     curses_driver_move_standard_cursor(lineno, 1 + len_name);
+                     the_driver->move_standard_cursor(lineno, 1 + len_name);
                   }
                   else
                   {
                      x++;
                   }
-                  curses_driver_add_standard_ch(*(str+i));
+                  the_driver->add_standard_ch(*(str+i));
                }
                lineno++;
                p = (CHARTYPE *)strtok( NULL, " " );
             }
          }
-         curses_driver_add_standard_string_at(terminal_lines - 2, 0,
+         the_driver->add_standard_string_at(terminal_lines - 2, 0,
                                               HIT_ANY_KEY);
-         curses_driver_refresh_standard_screen();
+         the_driver->refresh_standard_screen();
          while( 1 )
          {
-            key = curses_driver_read_standard_key();
+            key = the_driver->read_standard_key();
 #if defined(USE_XCURSES)
             if ( key == KEY_SF || key == KEY_SR )
                continue;
 #endif
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-            if (curses_driver_is_mouse_key(key))
+            if (the_driver->is_mouse_key(key))
                continue;
 #endif
 #ifdef CAN_RESIZE
@@ -4212,7 +4212,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
    DEFCHAR *prompt_line[MAXIMUM_DIALOG_LINES+2];
    const char *dialog_prompt_line[MAXIMUM_DIALOG_LINES+2];
    WINDOW *dialog_win=NULL;
-   CursesDriverWindowRoleSave save_command_window;
+   TheDriverWindowRoleSave save_command_window;
    CHARTYPE *save_cmd_rec=NULL;
    CHARTYPE *editfield_buf=NULL;
    LENGTHTYPE save_cmd_rec_len;
@@ -4390,8 +4390,8 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
              &save_command_window))
       {
          CURRENT_VIEW->current_window = save_current_window;
-         curses_driver_delete_current_role_window(WINDOW_COMMAND);
-         curses_driver_restore_current_role_window(WINDOW_COMMAND,
+         the_driver->delete_current_role_window(WINDOW_COMMAND);
+         the_driver->restore_current_role_window(WINDOW_COMMAND,
                                                    save_command_window);
          curses_driver_delete_window(dialog_win);
          (*the_free)( save_cmd_rec );
@@ -4400,7 +4400,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
          TRACE_RETURN();
          return(RC_OUT_OF_MEMORY);
       }
-      curses_driver_set_current_role_attr(
+      the_driver->set_current_role_attr(
          WINDOW_COMMAND, set_colour( CURRENT_FILE->attr+ATTR_DIA_EDITFIELD ) );
    }
    curses_driver_set_window_background(
@@ -4437,7 +4437,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
        * change the contents of the cmd_rec
        */
       in_editfield = TRUE;
-      curses_driver_present_cursor(TRUE);
+      the_driver->present_cursor(TRUE);
       save_max_line_length = max_line_length;
       max_line_length = dw_cols - 2;
       default_button = -1;
@@ -4446,7 +4446,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
    {
       curses_driver_move_window_cursor(dialog_win, dw_lines-3, cursor_pos);
       in_editfield = FALSE;
-      curses_driver_present_cursor(FALSE);
+      the_driver->present_cursor(FALSE);
    }
    transient_ui_dialog_state_init(&dialog_state, editfield, num_buttons,
                                   default_button,
@@ -4498,12 +4498,12 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
           * Go into the pseudo command line and process it until
           * an exit key is pressed. On exit make the first button active.
           */
-         curses_driver_present_cursor(TRUE);
+         the_driver->present_cursor(TRUE);
          rc = readv_cmdline( editfield_buf, dialog_win, editfield_col );
          memcpy( (DEFCHAR *)editfield_buf, (DEFCHAR *)cmd_rec, cmd_rec_len );
          editfield_buf[cmd_rec_len] = '\0';
          in_editfield = FALSE;
-         curses_driver_present_cursor(FALSE);
+         the_driver->present_cursor(FALSE);
          default_button = 0;
          editfield_col = -1;
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
@@ -4515,7 +4515,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
              * mouse was just clicked so we can check if the click happened
              * on a button
              */
-            key = curses_driver_mouse_key_code();
+            key = the_driver->mouse_key_code();
          }
          else
 #endif
@@ -4544,15 +4544,15 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
          continue;
 #endif
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-      if (curses_driver_is_mouse_key(key))
+      if (the_driver->is_mouse_key(key))
       {
-         CursesDriverMouseEvent mouse;
+         TheDriverMouseEvent mouse;
          TransientUiAction action;
 
          if (!curses_driver_read_mouse_event(dialog_win, &mouse))
             continue;
          if (mouse.button != 1
-         ||  mouse.action == CURSES_DRIVER_MOUSE_ACTION_PRESSED)
+         ||  mouse.action == THE_DRIVER_MOUSE_ACTION_PRESSED)
             continue;
          if (!mouse.inside)
          {
@@ -4564,8 +4564,8 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
          /*
           * Got a valid button. Check if its a click or press
           */
-         if (mouse.action == CURSES_DRIVER_MOUSE_ACTION_CLICKED
-         ||  mouse.action == CURSES_DRIVER_MOUSE_ACTION_RELEASED)
+         if (mouse.action == THE_DRIVER_MOUSE_ACTION_CLICKED
+         ||  mouse.action == THE_DRIVER_MOUSE_ACTION_RELEASED)
          {
             action = transient_ui_dialog_handle_hit(&dialog_state,
                                                     &dialog_snapshot,
@@ -4618,7 +4618,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
       }
    }
    curses_driver_delete_window(dialog_win);
-   curses_driver_present_cursor(TRUE);
+   the_driver->present_cursor(TRUE);
    /*
     * Set DIALOG.2 to the button pressed
     */
@@ -4648,17 +4648,17 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
    CURRENT_VIEW->current_window = save_current_window;
    if ( editfield )
    {
-      curses_driver_delete_current_role_window(WINDOW_COMMAND);
-      curses_driver_restore_current_role_window(WINDOW_COMMAND,
+      the_driver->delete_current_role_window(WINDOW_COMMAND);
+      the_driver->restore_current_role_window(WINDOW_COMMAND,
                                                 save_command_window);
       max_line_length = save_max_line_length;
       memset(cmd_rec,' ',max_line_length);
       cmd_rec_len = 0;
-      if (curses_driver_current_role_exists(WINDOW_COMMAND))
+      if (the_driver->current_role_exists(WINDOW_COMMAND))
       {
-         curses_driver_move_current_role_cursor(WINDOW_COMMAND,0,0);
-         curses_driver_clear_current_role_to_eol(WINDOW_COMMAND);
-         curses_driver_move_current_role_cursor(WINDOW_COMMAND,0,0);
+         the_driver->move_current_role_cursor(WINDOW_COMMAND,0,0);
+         the_driver->clear_current_role_to_eol(WINDOW_COMMAND);
+         the_driver->move_current_role_cursor(WINDOW_COMMAND,0,0);
          CURRENT_VIEW->cmdline_col = -1;
          if ( save_cmd_rec[0] == '&' )
             Cmsg( save_cmd_rec );
@@ -4727,7 +4727,7 @@ short prepare_popup( CHARTYPE *params )
    short rc=RC_OK,num_items=0,len;
    short height=0,width=0,pad_height=0,pad_width=0;
    int x=-1,y=-1,args_allocated;
-   CursesDriverScreenPoint screen_point;
+   TheDriverScreenPoint screen_point;
    CHARTYPE **args=NULL;
    bool invalid_item=FALSE,trailing_delimiter;
    int initial=0;
@@ -5354,7 +5354,7 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
 #endif
 
    curses_driver_set_window_background(pad,set_colour(CURRENT_FILE->attr+ATTR_POPUP));
-   curses_driver_present_cursor(FALSE);
+   the_driver->present_cursor(FALSE);
    {
 #if defined(HAVE_BOX)
       curses_driver_set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_POP_BORDER));
@@ -5434,7 +5434,7 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
       curses_driver_refresh_pad(pad, y_offset, x_offset, screeny+1, screenx+1,
                                 screeny+height-2, screenx+width-2);
 
-      key = curses_driver_read_raw_standard_key();
+      key = the_driver->read_raw_standard_key();
 #if defined(USE_XCURSES)
       /*
        * Ignore scrollbar "keys"
@@ -5443,9 +5443,9 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
          continue;
 #endif
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-      if (curses_driver_is_mouse_key(key))
+      if (the_driver->is_mouse_key(key))
       {
-         CursesDriverMouseEvent mouse;
+         TheDriverMouseEvent mouse;
          TransientUiAction action;
 
          if (!curses_driver_read_mouse_event(dialog_win, &mouse))
@@ -5454,7 +5454,7 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
            return(RC_OK);
          }
          if (mouse.button != 1
-         ||  mouse.action == CURSES_DRIVER_MOUSE_ACTION_PRESSED)
+         ||  mouse.action == THE_DRIVER_MOUSE_ACTION_PRESSED)
             continue;
          if (!mouse.inside)
          {
@@ -5466,8 +5466,8 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
          /*
           * Got a valid line. Check if its a click or press
           */
-         if (mouse.action == CURSES_DRIVER_MOUSE_ACTION_CLICKED
-         ||  mouse.action == CURSES_DRIVER_MOUSE_ACTION_RELEASED)
+         if (mouse.action == THE_DRIVER_MOUSE_ACTION_CLICKED
+         ||  mouse.action == THE_DRIVER_MOUSE_ACTION_RELEASED)
          {
             action = transient_ui_popup_handle_hit(&popup_state,
                                                    &popup_snapshot,
@@ -5529,7 +5529,7 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
 
    curses_driver_delete_window(pad);
    curses_driver_delete_window(dialog_win);
-   curses_driver_present_cursor(TRUE);
+   the_driver->present_cursor(TRUE);
    /*
     * Set the Rexx variables POPUP.0, POPUP.1 and POPUP.2 depending
     * on whether an item was selected and which item.

@@ -35,7 +35,7 @@
 
 #include "the.h"
 #include "proto.h"
-#include "cursesdriver.h"
+#include "thedriver.h"
 
 #include <errno.h>
 #include "directry.h"
@@ -1604,7 +1604,7 @@ short free_view_memory(bool free_file_lines,bool display_the_screen)
    VIEW_DETAILS *save_current_view=NULL;
    CHARTYPE save_current_screen=0;
    short rc=RC_OK;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
    int scenario=0;
    ROWTYPE save_cmd_line=0;
    CHARTYPE save_prefix=0;
@@ -1776,7 +1776,7 @@ short free_view_memory(bool free_file_lines,bool display_the_screen)
           */
          display_screens = 1;
          current_screen = 0;
-         curses_driver_delete_global_window(CURSES_DRIVER_GLOBAL_DIVIDER);
+         the_driver->delete_global_window(THE_DRIVER_GLOBAL_DIVIDER);
          break;
     case 4:
          /*
@@ -1819,15 +1819,15 @@ short free_view_memory(bool free_file_lines,bool display_the_screen)
          display_screen(current_screen);
       if (curses_started)
       {
-         curses_driver_move_current_role_cursor(WINDOW_FILEAREA,
+         the_driver->move_current_role_cursor(WINDOW_FILEAREA,
                                                 CURRENT_VIEW->y[WINDOW_FILEAREA],
                                                 CURRENT_VIEW->x[WINDOW_FILEAREA]);
-         if (curses_driver_current_role_exists(WINDOW_PREFIX))
-            curses_driver_move_current_role_cursor(WINDOW_PREFIX,
+         if (the_driver->current_role_exists(WINDOW_PREFIX))
+            the_driver->move_current_role_cursor(WINDOW_PREFIX,
                                                    CURRENT_VIEW->y[WINDOW_PREFIX],
                                                    CURRENT_VIEW->x[WINDOW_PREFIX]);
-         cursor = curses_driver_capture_current_window_cursor();
-         curses_driver_restore_current_window_cursor(cursor);
+         cursor = the_driver->capture_current_window_cursor();
+         the_driver->restore_current_window_cursor(cursor);
       }
    }
    TRACE_RETURN();

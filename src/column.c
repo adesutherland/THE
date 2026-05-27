@@ -37,7 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 #ifdef USE_UTF8
 # include "textedit.h"
 #endif
@@ -52,7 +52,7 @@ short column_command(CHARTYPE *cmd_text,int cmd_type)
    LENGTHTYPE len_params=0;
    LENGTHTYPE x=0;
    int y=0,screen_x=0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("column.c:  column_command");
    /*
@@ -120,7 +120,7 @@ short column_command(CHARTYPE *cmd_text,int cmd_type)
       }
       if (curses_started)
       {
-         cursor = curses_driver_capture_current_window_cursor();
+         cursor = the_driver->capture_current_window_cursor();
          if (cursor.valid)
          {
             y = cursor.row;
@@ -245,7 +245,7 @@ short column_command(CHARTYPE *cmd_text,int cmd_type)
             {
                CURRENT_VIEW->current_window = WINDOW_FILEAREA;
                if (curses_started)
-                  curses_driver_move_current_window_cursor(y, 0);
+                  the_driver->move_current_window_cursor(y, 0);
             }
             rc = execute_move_cursor( current_screen, CURRENT_VIEW, CURRENT_VIEW->current_column-1);
             break;

@@ -1388,7 +1388,7 @@ short set_up_windows(short scrn)
    short y=0,x=0;
    FILE_DETAILS fp;
    short my_prefix_width=0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("util.c:    set_up_windows");
    /*
@@ -2078,9 +2078,9 @@ WINDOW *adjust_window(WINDOW *win,short tr,short tc,short lines,short cols)
    WINDOW *neww=NULL;
    short begy=0,begx=0,maxy=0,maxx=0,y=0,x=0;
    short rc=RC_OK;
-   CursesDriverWindowOrigin origin;
-   CursesDriverWindowSize size;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowOrigin origin;
+   TheDriverWindowSize size;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("util.c:    adjust_window");
    /*
@@ -2141,8 +2141,8 @@ short my_wclrtoeol(WINDOW *win)
 {
    register short i=0;
    short x=0,y=0,maxx=0,maxy=0;
-   CursesDriverWindowCursor cursor;
-   CursesDriverWindowSize size;
+   TheDriverWindowCursor cursor;
+   TheDriverWindowSize size;
 
    TRACE_FUNCTION("util.c:    my_wclrtoeol");
 #if defined(USE_NCURSES_IGNORED)
@@ -2198,8 +2198,8 @@ short my_wdelch(WINDOW *win)
 /***********************************************************************/
 {
    short x=0,y=0,maxx=0,maxy=0;
-   CursesDriverWindowCursor cursor;
-   CursesDriverWindowSize size;
+   TheDriverWindowCursor cursor;
+   TheDriverWindowSize size;
 
    TRACE_FUNCTION("util.c:    my_wdelch");
 
@@ -2995,18 +2995,18 @@ int doupdate(void)
 /***********************************************************************/
 {
    unsigned short y=0,x=0;
-   CursesDriverWindowCursor cursor;
+   TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("util.c:    doupdate");
-   cursor = curses_driver_capture_current_window_cursor();
+   cursor = the_driver->capture_current_window_cursor();
    if (cursor.valid)
    {
       y = cursor.row;
       x = cursor.col;
    }
-   curses_driver_refresh_standard_screen();
-   curses_driver_move_current_window_cursor(y, x);
-   curses_driver_refresh_current_window_now();
+   the_driver->refresh_standard_screen();
+   the_driver->move_current_window_cursor(y, x);
+   the_driver->refresh_current_window_now();
    TRACE_RETURN();
    return(0);
 }
