@@ -4,14 +4,14 @@
 
 static int failures = 0;
 
-static int default_clamp(int display_col, int window_cols)
+static int default_read_input_event(TheInputEvent *event)
 {
-   (void)window_cols;
-   return display_col;
+   (void)event;
+   return 0;
 }
 
 const TheDriverOps the_curses_driver_ops = {
-   .clamp_display_col = default_clamp
+   .read_input_event = default_read_input_event
 };
 
 static void expect_int(const char *name, int got, int want)

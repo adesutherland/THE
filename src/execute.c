@@ -38,6 +38,7 @@
 #include <the.h>
 #include <proto.h>
 #include "thedriver.h"
+#include "driverlayout.h"
 #include "transientui.h"
 
 static LENGTHTYPE execute_filearea_cursor_cell(VIEW_DETAILS *curr_view);
@@ -145,7 +146,7 @@ static short selective_change(TARGET *target,CHARTYPE *old_str,LENGTHTYPE len_ol
    }
 
    target_cell = textpos_from_byte(rec, rec_len, (size_t)start_col).cell_column;
-   CURRENT_VIEW->verify_col = (LENGTHTYPE)the_driver->viewport_col_for_logical(
+   CURRENT_VIEW->verify_col = (LENGTHTYPE)driver_layout_viewport_col_for_logical(
       rec, rec_len, (int)CURRENT_VIEW->verify_col - 1, (int)target_cell,
       CURRENT_SCREEN.cols[WINDOW_FILEAREA], NULL, NULL) + 1;
 
@@ -3120,7 +3121,7 @@ static LENGTHTYPE execute_filearea_display_cell(VIEW_DETAILS *curr_view)
    cell = execute_filearea_cursor_cell(curr_view);
    if (curr_view == NULL)
       return cell;
-   display_col = the_driver->display_col_from_logical(
+   display_col = driver_layout_display_col_from_logical(
       rec, rec_len, (int)curr_view->verify_col - 1, (int)cell);
    if (display_col < 0)
       display_col = 0;
@@ -3186,7 +3187,7 @@ static void execute_move_filearea_display_cursor(CHARTYPE curr_screen,
    }
    if (display_cell < 0)
       display_cell = 0;
-   logical_col = the_driver->logical_col_from_display(
+   logical_col = driver_layout_logical_col_from_display(
       line, len, (int)curr_view->verify_col - 1, (int)display_cell,
       TEXT_SNAP_BACKWARD);
    if (logical_col < 0)
@@ -3214,7 +3215,7 @@ short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTH
          int new_viewport_col;
          int window_cols = screen[curr_screen].cols[WINDOW_FILEAREA];
 
-         new_viewport_col = the_driver->viewport_col_for_logical(
+         new_viewport_col = driver_layout_viewport_col_for_logical(
             rec, rec_len, old_viewport_col, (int)col, window_cols,
             NULL, NULL);
          if (curr_view->verify_col != (LENGTHTYPE)new_viewport_col + 1)

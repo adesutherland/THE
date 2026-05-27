@@ -1,114 +1,14 @@
 #include "the.h"
 #include "proto.h"
 #include "cursesdriver.h"
+#include "driverlayout.h"
 
 #include <stdio.h>
 #include <string.h>
 
 #ifdef USE_UTF8
 # include <wchar.h>
-# include "utflayout.h"
 #endif
-
-int curses_driver_clamp_display_col(int display_col, int window_cols)
-{
-   if (display_col < 0)
-      return 0;
-   if (window_cols > 0 && display_col >= window_cols)
-      return window_cols - 1;
-   return display_col;
-}
-
-int curses_driver_display_col_from_logical(const CHARTYPE *line, size_t len,
-                                           int viewport_col, int logical_col)
-{
-#ifdef USE_UTF8
-   return utf8_layout_display_col_from_logical(line, len, viewport_col,
-                                               logical_col);
-#else
-   INTENTIONALLY_UNUSED_VARIABLE(line);
-   INTENTIONALLY_UNUSED_VARIABLE(len);
-   if (logical_col <= viewport_col)
-      return 0;
-   return logical_col - viewport_col;
-#endif
-}
-
-int curses_driver_logical_col_from_display(const CHARTYPE *line, size_t len,
-                                           int viewport_col, int display_col,
-                                           TextSnap snap)
-{
-#ifdef USE_UTF8
-   return utf8_layout_logical_col_from_display(line, len, viewport_col,
-                                               display_col, snap);
-#else
-   INTENTIONALLY_UNUSED_VARIABLE(line);
-   INTENTIONALLY_UNUSED_VARIABLE(len);
-   INTENTIONALLY_UNUSED_VARIABLE(snap);
-   if (viewport_col < 0)
-      viewport_col = 0;
-   if (display_col < 0)
-      display_col = 0;
-   return viewport_col + display_col;
-#endif
-}
-
-int curses_driver_viewport_col_for_logical(const CHARTYPE *line, size_t len,
-                                           int current_viewport_col,
-                                           int logical_col, int window_cols,
-                                           int *display_col, int *visible)
-{
-#ifdef USE_UTF8
-   Utf8LayoutViewport target;
-
-   current_viewport_col = current_viewport_col < 0 ? 0 : current_viewport_col;
-   logical_col = logical_col < 0 ? 0 : logical_col;
-   target = utf8_layout_viewport_for_logical_col(line, len,
-                                                 current_viewport_col,
-                                                 logical_col, window_cols);
-   if (display_col != NULL)
-      *display_col = target.display_col;
-   if (visible != NULL)
-      *visible = target.visible;
-   return target.viewport_col;
-#else
-   int target_display_col;
-   int target_visible;
-   int preferred_display_col;
-
-   INTENTIONALLY_UNUSED_VARIABLE(line);
-   INTENTIONALLY_UNUSED_VARIABLE(len);
-   if (current_viewport_col < 0)
-      current_viewport_col = 0;
-   if (logical_col < 0)
-      logical_col = 0;
-   target_display_col = logical_col - current_viewport_col;
-   target_visible = target_display_col >= 0
-                 && window_cols > 0
-                 && target_display_col < window_cols;
-   if (target_visible || window_cols <= 0)
-   {
-      if (display_col != NULL)
-         *display_col = target_display_col;
-      if (visible != NULL)
-         *visible = target_visible;
-      return current_viewport_col;
-   }
-
-   preferred_display_col = window_cols / 2 - 1;
-   if (preferred_display_col < 0)
-      preferred_display_col = 0;
-   current_viewport_col = logical_col - preferred_display_col;
-   if (current_viewport_col < 0)
-      current_viewport_col = 0;
-   target_display_col = logical_col - current_viewport_col;
-   if (display_col != NULL)
-      *display_col = target_display_col;
-   if (visible != NULL)
-      *visible = window_cols > 0 && target_display_col < window_cols;
-   return current_viewport_col;
-#endif
-}
 
 static int curses_driver_valid_screen(CHARTYPE scrno)
 {
@@ -1314,6 +1214,19 @@ int curses_driver_read_raw_standard_key(void)
    return curses_driver_read_raw_window_key(stdscr);
 }
 
+int curses_driver_read_input_event(TheInputEvent *event)
+{
+   int key;
+
+   if (event == NULL)
+      return 0;
+   *event = the_input_event_none();
+   key = curses_driver_read_current_window_key();
+   if (key == ERR)
+      return 0;
+   return the_input_event_from_legacy_key(key, event);
+}
+
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
 static int curses_driver_last_mouse_col = -1;
 static int curses_driver_last_mouse_row = -1;
@@ -1823,35 +1736,12 @@ void curses_driver_move_prefix_cursor(CHARTYPE scrno, short row, short col)
    curses_driver_move_window_cursor(win, row, col);
 }
 
-CursesDriverCursorTarget curses_driver_filearea_target(
-   LogicalCursor cursor, const CHARTYPE *line, size_t len,
-   int viewport_col, int window_cols)
-{
-   CursesDriverCursorTarget target;
-
-   target.logical = cursor;
-   target.viewport_col = viewport_col;
-   target.window_cols = window_cols;
-   target.raw_display_col = 0;
-   target.display_col = 0;
-   target.visible = 0;
-   if (!cursor.valid)
-      return target;
-   target.raw_display_col = curses_driver_display_col_from_logical(
-      line, len, viewport_col, cursor.text.cell_column);
-   target.visible = cursor.text.cell_column >= viewport_col
-                 && (window_cols <= 0 || target.raw_display_col < window_cols);
-   target.display_col = curses_driver_clamp_display_col(target.raw_display_col,
-                                                        window_cols);
-   return target;
-}
-
 short curses_driver_move_filearea_cursor(CHARTYPE scrno, struct view_details *view,
                                          const CHARTYPE *line, size_t len,
                                          short row, int logical_col)
 {
    LogicalCursor cursor;
-   CursesDriverCursorTarget target;
+   TheDriverCursorTarget target;
    WINDOW *win = curses_driver_screen_role_window(scrno, WINDOW_FILEAREA);
 
    if (view == NULL || win == NULL)
@@ -1859,7 +1749,7 @@ short curses_driver_move_filearea_cursor(CHARTYPE scrno, struct view_details *vi
    cursor = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_FILEAREA,
                                      view->focus_line, row, line, len,
                                      logical_col, TEXT_SNAP_BACKWARD, 1);
-   target = curses_driver_filearea_target(cursor, line, len,
+   target = driver_layout_filearea_target(cursor, line, len,
                                           (int)view->verify_col - 1,
                                           screen[scrno].cols[WINDOW_FILEAREA]);
    logical_cursor_state_focus(&view->logical_cursor, cursor);
@@ -2349,10 +2239,6 @@ static void curses_driver_ops_draw_software_blank_cell(
 }
 
 const TheDriverOps the_curses_driver_ops = {
-   .clamp_display_col = curses_driver_clamp_display_col,
-   .display_col_from_logical = curses_driver_display_col_from_logical,
-   .logical_col_from_display = curses_driver_logical_col_from_display,
-   .viewport_col_for_logical = curses_driver_viewport_col_for_logical,
    .software_cursor_attr = curses_driver_ops_software_cursor_attr,
    .current_window_is_role = curses_driver_current_window_is_role,
    .current_window_exists = curses_driver_current_window_exists,
@@ -2467,6 +2353,7 @@ const TheDriverOps the_curses_driver_ops = {
    .write_wide_string_at = curses_driver_ops_write_wide_string_at,
    .fill_cells_at = curses_driver_ops_fill_cells_at,
    .write_ascii_cells_at = curses_driver_ops_write_ascii_cells_at,
+   .read_input_event = curses_driver_read_input_event,
    .read_current_window_key = curses_driver_read_current_window_key,
    .read_current_role_key = curses_driver_read_current_role_key,
    .read_global_window_key = curses_driver_read_global_window_key,
@@ -2509,7 +2396,6 @@ const TheDriverOps the_curses_driver_ops = {
    .refresh_cursor = curses_driver_refresh_cursor,
    .redraw_screen_cursor = curses_driver_redraw_screen_cursor,
    .move_prefix_cursor = curses_driver_move_prefix_cursor,
-   .filearea_target = curses_driver_filearea_target,
    .move_filearea_cursor = curses_driver_move_filearea_cursor,
    .filearea_cursor_transition = curses_driver_filearea_cursor_transition
 };

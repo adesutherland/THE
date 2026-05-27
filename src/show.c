@@ -82,6 +82,7 @@
 #include <string.h>
 #include <time.h>
 #include "thedriver.h"
+#include "driverlayout.h"
 #ifdef USE_UTF8
 # include <wchar.h>
 # include "screenframe.h"
@@ -1026,7 +1027,7 @@ static int show_frame_filearea_cursor_target(const UiFrame *frame,
    if (logical_col != NULL)
       *logical_col = cursor.text.cell_column;
    if (display_col != NULL)
-      *display_col = the_driver->display_col_from_logical(
+      *display_col = driver_layout_display_col_from_logical(
          target_line, target_len, frame_row->logical_start_col,
          cursor.text.cell_column);
    if (line != NULL)
@@ -1122,7 +1123,7 @@ static int show_logical_filearea_cursor_target(CHARTYPE scrno,
    if (logical_col != NULL)
       *logical_col = cursor.text.cell_column;
    if (display_col != NULL)
-      *display_col = the_driver->display_col_from_logical(
+      *display_col = driver_layout_display_col_from_logical(
          target_line, target_len, (int)view->verify_col - 1,
          cursor.text.cell_column);
    if (line != NULL)

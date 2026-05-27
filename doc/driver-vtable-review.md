@@ -47,21 +47,33 @@ drivers continue to prove specific integration points.
 
 ## Findings
 
-- `TheDriverOps` currently has 145 function pointers.
-- `src/cursesdriver.c` initializes all 145 entries in `the_curses_driver_ops`.
-- `src/headlessdriver.c` initializes all 145 entries in
+- `TheDriverOps` currently has 141 function pointers.
+- `src/cursesdriver.c` initializes all 141 entries in `the_curses_driver_ops`.
+- `src/headlessdriver.c` initializes all 141 entries in
   `the_headless_driver_ops` without including curses headers or linking
   curses.
-- The surface mixes at least four responsibilities: semantic display layout,
-  portable logical-driver operations, legacy role/window compatibility edges,
-  and very low-level curses mechanics.
+- The Step 2 display-layout extraction removed `clamp_display_col`,
+  `display_col_from_logical`, `logical_col_from_display`,
+  `viewport_col_for_logical`, and `filearea_target` from the vtable.
+  `src/driverlayout.c` now owns those shared helpers, and both curses and
+  headless cursor movement use the same helper.
+- The surface still mixes portable logical-driver operations, legacy
+  role/window compatibility edges, and very low-level curses mechanics.
+- A normalized `read_input_event` operation now exists. The old raw key/mouse
+  operations remain as compatibility wrappers for the legacy dispatcher,
+  readv/dialog/popup paths, `getch.c`, and existing mouse-definition dispatch.
 - The most urgent refactor candidates are raw key/mouse reads, wide-cell and
   cell-buffer construction, stdscr/curscr operations, keypad/notimeout/leaveok,
   and role-specific touch/refresh/cursor helpers that reveal too much of the
   curses window topology.
-- The safest next code slice is not signature churn. Pick one category below,
-  add a headless/fake implementation or shared helper for it, prove it with
-  focused no-curses tests, then tighten guardrails.
+- The safest next code slice is not signature churn. Work in a few large
+  coherent slices: shared display/input semantics first, portable UTF renderer
+  cells next, then modal/standard-screen contraction.
+- The current "wide cell" surface is intentionally transitional. In curses it
+  maps to `cchar_t`, but THE needs a more general UTF render-cluster model for
+  grapheme clusters such as flags, keycaps, combining sequences, and ZWJ
+  sequences where logical width, display width, cursor width, and paint/repair
+  width may differ.
 
 ## Category Meanings
 
@@ -86,10 +98,6 @@ and header sources. They do not count internal calls inside
 
 | Operation | Current callers/use | Current curses behavior | Category | Headless/test behavior | LLM behavior | Recommendation | Tests/guardrails needed |
 |---|---|---|---|---|---|---|---|
-| `clamp_display_col` | 0 direct calls; used internally by curses file-area target. | Clamps a display column into window bounds. | `semantic/shared` | Use shared deterministic helper. | Use only for diagnostics, not agent reasoning. | Move toward shared logical/display helper. | Unit tests for boundary columns. |
-| `display_col_from_logical` | 3 calls in `execute.c`, `show.c`. | Uses UTF layout when enabled, otherwise `logical - viewport`. | `semantic/shared` | Use shared layout helper with fixed profile. | Expose logical position; keep display column diagnostic. | Move toward shared logical helper. | UTF layout and virtual-screen tests. |
-| `logical_col_from_display` | 4 calls in `cursor.c`, `execute.c`, `mouse.c`. | Maps display cell to logical cell with UTF snap rules. | `semantic/shared` | Use same snap rules in fake surface. | Convert logical-hit diagnostics only. | Move toward shared logical helper. | `test_mousehit`, UTF snap tests. |
-| `viewport_col_for_logical` | 2 calls in `execute.c`. | Chooses viewport that makes a logical cell visible. | `semantic/shared` | Deterministic shared viewport calculation. | Snapshot can report logical viewport without terminal dependency. | Move toward shared logical helper. | Cursor/viewport unit tests. |
 | `software_cursor_attr` | 3 calls in `show.c`. | Computes terminal attributes for block/underline software cursor. | `physical-terminal` | Return symbolic/fake attr or log requested shape. | Describe cursor presentation semantically. | Split semantic cursor shape from physical attr. | Virtual cursor overlay tests. |
 | `current_window_is_role` | 2 calls in `comm1.c`. | Checks `CURRENT_VIEW->current_window`. | `transitional-edge` | Track fake current role. | Use logical focus zone. | Needs further caller review. | Agent focus tests before removal. |
 | `current_window_exists` | 3 calls in `error.c`. | Tests resolved active curses window. | `transitional-edge` | Return fake active-surface presence. | Usually true for semantic surface; log only. | Keep but optional/NOP-capable for now. | No-curses error/status smoke. |
@@ -192,6 +200,7 @@ and header sources. They do not count internal calls inside
 | `write_wide_string_at` | 2 calls in `show.c`. | Writes wide string with expected-width repair behavior. | `physical-terminal` | Write fake Unicode string/log. | Expose logical string; physical width diagnostic only. | Split logical text from terminal repair. | UTF repair/virtual renderer tests. |
 | `fill_cells_at` | 1 call in `show.c`. | Fills terminal cells with spaces/attr. | `physical-terminal` | Fill fake cells/log. | Render blank semantic span. | Keep backend primitive; later shared renderer. | Blank-cell repair tests. |
 | `write_ascii_cells_at` | 1 call in `show.c`. | Writes fixed-width ASCII cells. | `physical-terminal` | Write fake ASCII cells/log. | Expose logical text. | Keep backend primitive for now. | ASCII renderer tests. |
+| `read_input_event` | Focused tests and future semantic dispatch. | Reads through the current curses input edge and returns `TheInputEvent` text/key events; raw mouse packets remain private to curses legacy wrappers. | `core-portable` | Pops queued `TheInputEvent` values; fake key hooks queue normalized events and legacy key readers adapt from that queue. | Primary input surface for agent/headless clients. | Keep and migrate callers from raw key/mouse wrappers incrementally. | `test_headlessdriver`, `test_inputevent`, mouse-hit and no-curses guards. |
 | `read_current_window_key` | 7 calls in command/edit/query paths. | Calls `my_getch` on active window and maps `KEY_MOUSE`. | `transitional-edge` | Pop fake input queue. | Consume normalized input protocol. | Split to normalized input event API. | `test_inputevent`, agent key tests. |
 | `read_current_role_key` | 3 calls in commutil, execute. | Reads key from current role window. | `transitional-edge` | Pop role-scoped fake input. | Consume normalized input protocol. | Split to normalized input event API. | Readv/dialog input tests. |
 | `read_global_window_key` | 1 call in `error.c`. | Reads key from global window. | `transitional-edge` | Pop global fake input. | Use normalized prompt response. | Split to transient/normalized input. | Error prompt tests. |
@@ -228,7 +237,6 @@ and header sources. They do not count internal calls inside
 | `refresh_cursor` | 2 calls in `cursor.c`. | Shows status area, updates screen, presents cursor. | `transitional-edge` | Log status/update/cursor presentation. | Emit refreshed snapshot. | Split status update from physical presentation. | Cursor/status integration tests. |
 | `redraw_screen_cursor` | 1 call in `cursor.c`. | Rebuilds and displays screen, then refreshes cursor. | `transitional-edge` | Rebuild fake frame/log. | Emit updated semantic snapshot. | Split semantic rebuild from physical repaint. | Screen rebuild/cursor tests. |
 | `move_prefix_cursor` | 7 calls in commsos, cursor, show. | Moves prefix role cursor. | `core-portable` | Update fake prefix cursor and logical focus. | Update prefix focus/cursor in snapshot. | Keep high-level op; ensure logical state is primary. | Prefix focus tests. |
-| `filearea_target` | 0 direct calls; used internally by curses cursor move. | Builds cursor target with display mapping and visibility. | `semantic/shared` | Use shared target helper. | Use logical cursor; display target diagnostic only. | Move toward shared logical helper. | File-area cursor target tests. |
 | `move_filearea_cursor` | 13 calls in commsos, cursor, execute, show. | Builds logical cursor, stores focus, then `wmove`s display column. | `core-portable` | Update logical cursor and fake cursor/log. | Update semantic file-area focus/cursor. | Keep high-level op; split physical move from logical update. | Agent SOS/file cursor tests. |
 | `filearea_cursor_transition` | 1 call in `cursor.c`. | Handles software cursor transition or full redraw. | `transitional-edge` | Log transition or fake overlay update. | Emit logical cursor update and optional diagnostic. | Split semantic movement from curses software-cursor repaint. | Software cursor transition tests. |
 
@@ -238,18 +246,28 @@ and header sources. They do not count internal calls inside
    `TheDriverOps` implementation with fake windows, role/global geometry,
    cursors, simple input and mouse fakes, dirty/refresh state, and operation
    logs. This makes every NOP-capable recommendation testable without curses.
-2. Move display mapping helpers (`display_col_from_logical`,
-   `logical_col_from_display`, `viewport_col_for_logical`, `filearea_target`)
-   into shared logical/display code, then have curses and headless drivers call
-   the same helper.
-3. Replace raw key/mouse vtable usage with a normalized input event operation.
-   Keep raw PDC/ncurses packet decoding private to the curses driver.
-4. Introduce a portable renderer-cell model so `TheDriverWideCell`,
-   `set_wide_cell_codepoint`, `recolour_wide_cell`, and direct attr mutation
-   no longer leak `cchar_t`-shaped mechanics into the public driver contract.
-5. Move modal and standard-screen paths (`create_pad`, stdscr operations,
+2. Done in this working tree: move shared display/input semantics in one
+   slice. `src/driverlayout.c` owns `clamp_display_col`,
+   `display_col_from_logical`, `logical_col_from_display`,
+   `viewport_col_for_logical`, and `filearea_target`; curses and headless
+   file-area cursor movement call the same helper. `TheDriverOps` dropped
+   those five helper entries and gained `read_input_event`, leaving 141
+   entries. Raw PDC/ncurses packet decoding stays private to the curses
+   driver. Remaining compatibility wrappers are `read_current_window_key`,
+   `read_current_role_key`, `read_global_window_key`, `read_window_key`,
+   `read_raw_window_key`, `read_standard_key`, `read_raw_standard_key`,
+   `is_mouse_key`, `mouse_key_code`, `read_mouse_button`,
+   `read_current_role_mouse_event`, and `read_mouse_event`.
+3. Introduce a portable UTF renderer-cell/render-cluster model so
+   `TheDriverWideCell`, `set_wide_cell_codepoint`, `recolour_wide_cell`, and
+   direct attr mutation no longer leak `cchar_t`-shaped mechanics into the
+   public driver contract. The model must represent codepoint sequences and
+   width facts explicitly enough for flags, keycaps, combining marks, ZWJ
+   sequences, and terminal repair policy.
+4. Move modal and standard-screen paths (`create_pad`, stdscr operations,
    relative role windows, shell preparation) behind transient UI snapshots or
-   curses-private compatibility helpers.
+   curses-private compatibility helpers. This can wait until after the shared
+   input/display and portable renderer-cell slices unless it blocks them.
 
 ## Verification Notes
 
@@ -261,4 +279,4 @@ perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/cursesdriver.c | wc -
 perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/headlessdriver.c | wc -l
 ```
 
-All three counts are 145 for this review.
+All three counts are 141 after the shared display/input slice.

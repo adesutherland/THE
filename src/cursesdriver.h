@@ -7,7 +7,6 @@
 
 struct view_details;
 
-typedef TheDriverCursorTarget CursesDriverCursorTarget;
 typedef TheDriverWindowCursor CursesDriverWindowCursor;
 typedef TheDriverWindowOrigin CursesDriverWindowOrigin;
 typedef TheDriverWindowSize CursesDriverWindowSize;
@@ -57,16 +56,6 @@ enum
 
 extern const TheDriverOps the_curses_driver_ops;
 
-int curses_driver_clamp_display_col(int display_col, int window_cols);
-int curses_driver_display_col_from_logical(const CHARTYPE *line, size_t len,
-                                           int viewport_col, int logical_col);
-int curses_driver_logical_col_from_display(const CHARTYPE *line, size_t len,
-                                           int viewport_col, int display_col,
-                                           TextSnap snap);
-int curses_driver_viewport_col_for_logical(const CHARTYPE *line, size_t len,
-                                           int current_viewport_col,
-                                           int logical_col, int window_cols,
-                                           int *display_col, int *visible);
 chtype curses_driver_software_cursor_attr(CHARTYPE scrno, chtype base,
                                           CursorShape shape);
 void curses_driver_draw_software_chtype_cell(CHARTYPE scrno, WINDOW *win,
@@ -212,6 +201,7 @@ int curses_driver_read_global_window_key(CursesDriverGlobalWindowRole role);
 int curses_driver_read_standard_key(void);
 int curses_driver_read_raw_window_key(WINDOW *win);
 int curses_driver_read_raw_standard_key(void);
+int curses_driver_read_input_event(TheInputEvent *event);
 int curses_driver_is_mouse_key(int key);
 int curses_driver_mouse_key_code(void);
 void curses_driver_mouse_position(WINDOW *win, int *row, int *col);
@@ -253,9 +243,6 @@ void curses_driver_redraw_global_window(CursesDriverGlobalWindowRole role);
 short curses_driver_refresh_cursor(CHARTYPE scrno);
 short curses_driver_redraw_screen_cursor(CHARTYPE scrno, struct view_details *view);
 void curses_driver_move_prefix_cursor(CHARTYPE scrno, short row, short col);
-CursesDriverCursorTarget curses_driver_filearea_target(
-   LogicalCursor cursor, const CHARTYPE *line, size_t len,
-   int viewport_col, int window_cols);
 short curses_driver_move_filearea_cursor(CHARTYPE scrno, struct view_details *view,
                                          const CHARTYPE *line, size_t len,
                                          short row, int logical_col);

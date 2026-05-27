@@ -41,6 +41,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "thedriver.h"
+#include "driverlayout.h"
 #include "inputevent.h"
 #include "mousehit.h"
 
@@ -330,7 +331,7 @@ static int mouse_cell_for_hit(CHARTYPE scrn, TheMouseHitArea area, int row,
          if (viewport_col < 0)
             viewport_col = 0;
          line = mouse_filearea_line_for_hit(scrn, row, &len);
-         logical_col = the_driver->logical_col_from_display(
+         logical_col = driver_layout_logical_col_from_display(
             line, len, viewport_col, col, TEXT_SNAP_BACKWARD);
          return (logical_col < 0) ? 0 : logical_col;
       }

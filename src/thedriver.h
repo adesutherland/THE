@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <wchar.h>
 
+#include "inputevent.h"
 #include "logcursor.h"
 #include "thedefs.h"
 
@@ -123,16 +124,6 @@ typedef struct TheDriverOps TheDriverOps;
 
 struct TheDriverOps
 {
-   int (*clamp_display_col)(int display_col, int window_cols);
-   int (*display_col_from_logical)(const CHARTYPE *line, size_t len,
-                                   int viewport_col, int logical_col);
-   int (*logical_col_from_display)(const CHARTYPE *line, size_t len,
-                                   int viewport_col, int display_col,
-                                   TextSnap snap);
-   int (*viewport_col_for_logical)(const CHARTYPE *line, size_t len,
-                                   int current_viewport_col,
-                                   int logical_col, int window_cols,
-                                   int *display_col, int *visible);
    TheDriverAttr (*software_cursor_attr)(CHARTYPE scrno, TheDriverAttr base,
                                          CursorShape shape);
    int (*current_window_is_role)(short role);
@@ -266,6 +257,7 @@ struct TheDriverOps
    void (*write_ascii_cells_at)(TheDriverWindow *win, int row, int col,
                                 const char *text, int width,
                                 TheDriverAttr colour);
+   int (*read_input_event)(TheInputEvent *event);
    int (*read_current_window_key)(void);
    int (*read_current_role_key)(short role);
    int (*read_global_window_key)(TheDriverGlobalWindowRole role);
@@ -309,10 +301,6 @@ struct TheDriverOps
    short (*refresh_cursor)(CHARTYPE scrno);
    short (*redraw_screen_cursor)(CHARTYPE scrno, struct view_details *view);
    void (*move_prefix_cursor)(CHARTYPE scrno, short row, short col);
-   TheDriverCursorTarget (*filearea_target)(LogicalCursor cursor,
-                                            const CHARTYPE *line, size_t len,
-                                            int viewport_col,
-                                            int window_cols);
    short (*move_filearea_cursor)(CHARTYPE scrno, struct view_details *view,
                                  const CHARTYPE *line, size_t len,
                                  short row, int logical_col);

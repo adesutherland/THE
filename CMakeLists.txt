@@ -330,6 +330,7 @@ set(THE_SOURCES
     src/cursor.c
     src/default.c
     src/directry.c
+    src/driverlayout.c
     src/edit.c
     src/error.c
     src/execute.c
@@ -537,10 +538,14 @@ endif()
 add_test(NAME test_uidriver COMMAND test_uidriver)
 add_executable(test_headlessdriver
     tests/test_headlessdriver.c
+    src/driverlayout.c
     src/headlessdriver.c
+    src/inputevent.c
     src/thedriver.c
     src/logcursor.c
     src/textpos.c
+    src/utflayout.c
+    src/utfterm.c
 )
 target_include_directories(test_headlessdriver PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 target_compile_definitions(test_headlessdriver PRIVATE THE_DRIVER_ENABLE_HEADLESS=1)

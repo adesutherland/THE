@@ -25,6 +25,7 @@ TheDriverWindow *headless_driver_create_global_window(
    TheDriverGlobalWindowRole role, int rows, int cols, int row, int col);
 
 void headless_driver_queue_key(int key);
+int headless_driver_queue_input_event(TheInputEvent event);
 void headless_driver_set_mouse_position(int row, int col);
 void headless_driver_set_mouse_button(int button, int action, int modifier);
 void headless_driver_set_mouse_event(int button, TheDriverMouseAction action,

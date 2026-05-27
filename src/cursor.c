@@ -38,6 +38,7 @@
 #include <the.h>
 #include <proto.h>
 #include "thedriver.h"
+#include "driverlayout.h"
 #include "inputevent.h"
 
 static bool cursor_show_row_is_boundary(const SHOW_LINE *show_row)
@@ -175,7 +176,7 @@ static void cursor_focus_store_filearea_logical(CHARTYPE scrno, VIEW_DETAILS *vi
       len = (show_row->contents != NULL) ? show_row->length : rec_len;
    }
    viewport_col = (int)view->verify_col - 1;
-   logical_col = the_driver->logical_col_from_display(line, len,
+   logical_col = driver_layout_logical_col_from_display(line, len,
                                                         viewport_col,
                                                         display_col,
                                                         TEXT_SNAP_BACKWARD);
@@ -518,7 +519,7 @@ static int cursor_utf8_filearea_logical_cell_from_display(CHARTYPE curr_screen,
    INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
    if (curr_view == NULL)
       return display_col;
-   return the_driver->logical_col_from_display(rec, rec_len,
+   return driver_layout_logical_col_from_display(rec, rec_len,
                                                  (int)curr_view->verify_col - 1,
                                                  display_col, snap);
 }

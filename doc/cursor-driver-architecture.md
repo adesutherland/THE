@@ -50,10 +50,14 @@ The physical driver owns:
   translation, mouse packet storage, button/action/modifier decoding, and
   mouse packet position decoding.
 - physical cursor save/restore and hardware cursor parking.
-- logical-to-physical display column mapping for the curses path.
+- physical cursor materialization from shared logical/display targets.
 - software cursor painting.
 - UTF repair strategy execution.
 - cell writes/fills and physical refresh ordering.
+
+Shared logical/display mapping lives in `src/driverlayout.c`. It uses
+`utflayout.c` when UTF is enabled and keeps logical/display width concepts
+separate from the later renderer-cell/render-cluster model.
 
 For the current curses UI, these mechanics belong in `src/cursesdriver.c` or a
 clearly physical edge that is being migrated to that driver. Do not move
@@ -78,6 +82,12 @@ and `cchar_t` are implementation-private curses types and must not reappear in
 or pads call opaque vtable operations directly. Do not add a neutral wrapper
 API parallel to the vtable.
 
+`TheDriverWideCell` is a transitional compatibility type, not the final UTF
+renderer model. The long-term driver contract should describe portable render
+clusters with codepoint sequence, style, logical width, display width, cursor
+width, and repair/paint width facts. Curses can lower that model to `cchar_t`
+or fallback cell writes, while headless/LLM drivers keep the semantic cluster.
+
 ### Input Drivers
 
 Input drivers own device-specific input collection and return normalized
@@ -86,16 +96,19 @@ debug requests. Command dispatch should consume normalized input and logical
 cursor state rather than raw curses coordinates.
 
 The current curses key loop has a compatibility adapter: it reads through
-`cursesdriver.c`, normalizes the key through `TheInputEvent`, then hands the
-equivalent legacy key to existing dispatch. Raw curses `KEY_MOUSE` is translated
-there to the editor-owned `THE_KEY_MOUSE`. That is a transition step, not the
-final architecture. Live curses mouse packets now follow the same transition
-pattern: `cursesdriver.c` decodes terminal mouse packets and window-local
-physical coordinates, while `mouse.c` maps the driver-owned saved packet to
-`TheInputEvent` logical-hit targets and routes legacy mouse-definition dispatch
-through the saved target window id. Migrated consumers such as `CURSOR MOUSE`
-and `TABFILE` consume logical target kind, line number, row, cell, screen, and
-window id instead of raw terminal coordinates.
+`the_driver->read_input_event()` where focused paths have moved, normalizes the
+key through `TheInputEvent`, then hands the equivalent legacy key to existing
+dispatch where necessary. Raw curses `KEY_MOUSE` is translated in
+`cursesdriver.c` to the editor-owned `THE_KEY_MOUSE`. That is a transition
+step, not the final architecture. Live curses mouse packets now follow the same
+transition pattern: `cursesdriver.c` decodes terminal mouse packets and
+window-local physical coordinates, while `mouse.c` maps the driver-owned saved
+packet to `TheInputEvent` logical-hit targets and routes legacy
+mouse-definition dispatch through the saved target window id. Migrated
+consumers such as `CURSOR MOUSE` and `TABFILE` consume logical target kind,
+line number, row, cell, screen, and window id instead of raw terminal
+coordinates. The legacy raw key/mouse wrappers remain until the dispatcher,
+readv/dialog/popup, and `getch.c` paths are converted.
 
 ### LLM Driver
 
@@ -125,22 +138,29 @@ Closed checkpoints are summarized here; details and next tasks are in
   free of curses public types and exposes only neutral driver
   attrs/cells/wide-cells and opaque window handles. Editor code calls
   `the_driver->...` for migrated high-level operations and for temporary
-  opaque physical edges.
+  opaque physical edges. The live vtable now has 141 entries after shared
+  display helpers moved out of it.
 - `src/cursesdriver.c` owns the migrated physical curses mechanics, raw mouse
-  packet decoding, file-area logical-to-physical cursor materialization, and
-  the `the_curses_driver_ops` vtable.
+  packet decoding, file-area physical cursor materialization from shared
+  layout targets, and the `the_curses_driver_ops` vtable.
 - `src/headlessdriver.c` owns the first complete no-curses `TheDriverOps`
   implementation. It provides fake opaque windows/pads, screen-role and global
-  slots, cursor state, simple input/mouse hooks, cell storage, and
-  deterministic touch/refresh/update logs. It is a compatibility base for
-  tests and future headless work, not a full editor runtime switch.
+  slots, cursor state, queued normalized input events plus legacy input/mouse
+  hooks, cell storage, and deterministic touch/refresh/update logs. It is a
+  compatibility base for tests and future headless work, not a full editor
+  runtime switch.
 - `doc/driver-vtable-review.md` is the detailed map of the current vtable. It
-  reviews all 145 `TheDriverOps` entries and records which operations should
-  remain portable, which are NOP/log-capable physical terminal operations, and
-  which should move toward shared logical helpers or curses-private details.
-  Future curses, headless/LLM, and fake/test drivers should expose the same
-  surface while this migration is in progress.
+  now tracks the 141-entry `TheDriverOps` surface and records which operations
+  should remain portable, which are NOP/log-capable physical terminal
+  operations, and which should move toward curses-private details. Future
+  curses, headless/LLM, and fake/test drivers should expose the same surface
+  while this migration is in progress.
 - `src/inputevent.c` defines shared normalized input events.
+- `src/driverlayout.c` defines shared display/cursor mapping helpers:
+  `clamp_display_col`, `display_col_from_logical`,
+  `logical_col_from_display`, `viewport_col_for_logical`, and
+  `filearea_target`. Curses and headless drivers use this same helper rather
+  than duplicating layout behavior.
 - `src/mousehit.c` maps driver-edge mouse packets to shared logical-hit
   targets for normal live curses mouse dispatch.
 - `src/transientui.c` defines the curses-free logical transient UI model for
@@ -181,7 +201,7 @@ Closed checkpoints are summarized here; details and next tasks are in
   the backend-specific behavior becomes too different.
 - `tests/inventory_direct_curses.sh` is the repeatable debt sweep and ratchet.
   Current counts are actionable `physical-input: 0`, `physical-paint: 0`,
-  `mouse-token: 0`, and `window-state: 0`; `driver-wrapper: 781` is counted
+  `mouse-token: 0`, and `window-state: 0`; `driver-wrapper: 772` is counted
   as migrated/allowed. The summary now splits `window-state` into
   `window-handle: 0`, `active-window-macro: 0`, `cell-attr-type: 0`,
   `renderer-cell-type: 0`, and `header-prototype: 0`. The ratchet is
@@ -223,15 +243,17 @@ The current active categories are:
   call sites migrated to `the_driver->...`, and neutral public driver types
   with the `show.c` renderer/window-state macro surface closed, final closure
   of the legacy ExtCurses/old-curses/VMS window-state compatibility residue,
-  the complete 145-operation driver vtable review in
-  `doc/driver-vtable-review.md`, and the first complete no-curses
-  headless/test `TheDriverOps` base.
+  the driver vtable review in `doc/driver-vtable-review.md`, the first
+  complete no-curses headless/test `TheDriverOps` base, and the shared
+  display/input semantics slice that reduced the vtable to 141 entries and
+  added `read_input_event`.
 - Active slice: none selected after the inventory ratchet, bulk wrapper pass,
   physical input/paint cleanup, raw mouse packet driver-ownership cleanup,
   corrected suffixed-paint cleanup, the first active-window/window-handle
   role-helper cleanup, the real driver-vtable migration, the neutral public
-  driver/window-state cleanup, the driver-shape review, and the headless/test
-  driver base. Choose the next implementation slice from
+  driver/window-state cleanup, the driver-shape review, the headless/test
+  driver base, and shared display/input semantics. Choose the next
+  implementation slice from
   `doc/driver-vtable-review.md`.
 - Deferred: full agent dispatcher integration, full prefix command machinery in
   the agent, agent protocol integration for transient snapshots, full live

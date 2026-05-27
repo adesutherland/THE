@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "driverlayout.h"
 #include "headlessdriver.h"
+#include "utfterm.h"
 
 static int failures = 0;
 
@@ -60,7 +62,7 @@ static void test_vtable_complete(void)
    expect_long("ops.size.remainder",
                (long)(sizeof(TheDriverOps) % sizeof(void (*)(void))), 0);
    count = sizeof(TheDriverOps) / sizeof(void (*)(void));
-   expect_long("ops.count", (long)count, 145);
+   expect_long("ops.count", (long)count, 141);
    ops = (const void *const *)(const void *)&the_headless_driver_ops;
    for (i = 0; i < count; i++)
    {
@@ -70,6 +72,75 @@ static void test_vtable_complete(void)
          failures++;
       }
    }
+}
+
+static void test_shared_display_layout(void)
+{
+   const CHARTYPE ascii[] = "abcdef";
+   LogicalCursor cursor;
+   TheDriverCursorTarget target;
+   int display_col = -1;
+   int visible = -1;
+
+   expect_int("layout.clamp.low",
+              driver_layout_clamp_display_col(-2, 4), 0);
+   expect_int("layout.clamp.high",
+              driver_layout_clamp_display_col(8, 4), 3);
+   expect_int("layout.ascii.logical.to.display",
+              driver_layout_display_col_from_logical(ascii, 6, 2, 5), 3);
+   expect_int("layout.ascii.display.to.logical",
+              driver_layout_logical_col_from_display(ascii, 6, 2, 3,
+                                                     TEXT_SNAP_BACKWARD), 5);
+   expect_int("layout.ascii.viewport",
+              driver_layout_viewport_col_for_logical(ascii, 6, 0, 12, 6,
+                                                     &display_col,
+                                                     &visible), 10);
+   expect_int("layout.ascii.viewport.display", display_col, 2);
+   expect_int("layout.ascii.viewport.visible", visible, 1);
+
+   cursor = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_FILEAREA, 7, 1,
+                                     ascii, 6, 5, TEXT_SNAP_BACKWARD, 1);
+   target = driver_layout_filearea_target(cursor, ascii, 6, 2, 4);
+   expect_int("layout.target.raw", target.raw_display_col, 3);
+   expect_int("layout.target.display", target.display_col, 3);
+   expect_int("layout.target.visible", target.visible, 1);
+
+#ifdef USE_UTF8
+   {
+      static const CHARTYPE keycap[] = {
+         'A', '1', 0xEF, 0xB8, 0x8F, 0xE2, 0x83, 0xA3, 'B'
+      };
+
+      utf8_terminal_profile_reset();
+      utf8_terminal_profile_apply_line(
+         "SET UTF TERMINAL CLASS keycap LAYOUT 2 CURSOR 2");
+      expect_int("layout.utf.logical.to.display",
+                 driver_layout_display_col_from_logical(keycap,
+                                                        sizeof(keycap),
+                                                        0, 2), 3);
+      expect_int("layout.utf.display.to.logical.backward",
+                 driver_layout_logical_col_from_display(keycap,
+                                                        sizeof(keycap),
+                                                        0, 2,
+                                                        TEXT_SNAP_BACKWARD),
+                 1);
+      expect_int("layout.utf.display.to.logical.forward",
+                 driver_layout_logical_col_from_display(keycap,
+                                                        sizeof(keycap),
+                                                        0, 2,
+                                                        TEXT_SNAP_FORWARD),
+                 2);
+      cursor = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_FILEAREA, 8, 0,
+                                        keycap, sizeof(keycap), 2,
+                                        TEXT_SNAP_BACKWARD, 1);
+      target = driver_layout_filearea_target(cursor, keycap, sizeof(keycap),
+                                             0, 4);
+      expect_int("layout.utf.target.raw", target.raw_display_col, 3);
+      expect_int("layout.utf.target.display", target.display_col, 3);
+      expect_int("layout.utf.target.visible", target.visible, 1);
+      utf8_terminal_profile_reset();
+   }
+#endif
 }
 
 static void test_selection(void)
@@ -195,6 +266,7 @@ static void test_input_and_mouse_fakes(void)
 {
    const TheDriverOps *ops = &the_headless_driver_ops;
    TheDriverMouseEvent event;
+   TheInputEvent input;
    int row = -1;
    int col = -1;
    int button = 0;
@@ -205,6 +277,23 @@ static void test_input_and_mouse_fakes(void)
    headless_driver_set_current_screen(0);
    headless_driver_set_screen_current_role(0, 0);
    headless_driver_create_screen_role(0, 0, 3, 4, 5, 6);
+
+   headless_driver_queue_key('T');
+   expect_int("input.event.read", ops->read_input_event(&input), 1);
+   expect_int("input.event.kind", input.kind, THE_INPUT_TEXT);
+   expect_int("input.event.key", input.key_code, 'T');
+   expect_int("input.event.empty", ops->read_input_event(&input), 0);
+
+   expect_int("input.event.logical.make",
+              the_input_event_from_logical_target(THE_INPUT_TARGET_FILEAREA,
+                                                  10, 1, 2, 0, 0,
+                                                  &input), 1);
+   expect_int("input.event.logical.queue",
+              headless_driver_queue_input_event(input), 1);
+   input = the_input_event_none();
+   expect_int("input.event.logical.read", ops->read_input_event(&input), 1);
+   expect_int("input.event.logical.kind", input.kind, THE_INPUT_LOGICAL_HIT);
+   expect_int("input.event.logical.cell", input.target.cell, 2);
 
    headless_driver_queue_key('A');
    headless_driver_queue_key(ops->mouse_key_code());
@@ -245,6 +334,7 @@ int main(void)
 {
    test_vtable_complete();
    test_selection();
+   test_shared_display_layout();
    test_fake_window_and_cursor_state();
    test_operation_log();
    test_input_and_mouse_fakes();

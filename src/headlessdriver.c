@@ -1,4 +1,5 @@
 #include "headlessdriver.h"
+#include "driverlayout.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -12,7 +13,6 @@ enum
    HEADLESS_ROLE_FILEAREA = 0,
    HEADLESS_ROLE_PREFIX = 1,
    HEADLESS_GLOBAL_WINDOWS = 4,
-   HEADLESS_INPUT_CAPACITY = 64,
    HEADLESS_MOUSE_KEY = 0x1001
 };
 
@@ -61,9 +61,7 @@ typedef struct
    int mouse_button_valid;
    TheDriverMouseEvent mouse_event;
    int mouse_event_valid;
-   int keys[HEADLESS_INPUT_CAPACITY];
-   size_t key_head;
-   size_t key_count;
+   TheInputQueue input_queue;
    char log[HEADLESS_DRIVER_OP_LOG_CAPACITY][96];
    size_t log_count;
 } HeadlessDriverState;
@@ -415,14 +413,10 @@ static void headless_clear_to_eol(TheDriverWindow *win)
 
 static int headless_pop_key(void)
 {
-   int key;
+   int key = -1;
 
-   if (headless_state.key_count == 0)
+   if (!the_input_queue_pop_legacy_key(&headless_state.input_queue, &key))
       return -1;
-   key = headless_state.keys[headless_state.key_head];
-   headless_state.key_head =
-      (headless_state.key_head + 1) % HEADLESS_INPUT_CAPACITY;
-   headless_state.key_count--;
    return key;
 }
 
@@ -480,6 +474,7 @@ void headless_driver_reset(void)
       win = next;
    }
    memset(&headless_state, 0, sizeof(headless_state));
+   the_input_queue_init(&headless_state.input_queue);
    headless_state.cursor_visible = 1;
 }
 
@@ -548,14 +543,16 @@ TheDriverWindow *headless_driver_create_global_window(
 
 void headless_driver_queue_key(int key)
 {
-   size_t index;
+   TheInputEvent event;
 
-   if (headless_state.key_count >= HEADLESS_INPUT_CAPACITY)
+   if (!the_input_event_from_legacy_key(key, &event))
       return;
-   index = (headless_state.key_head + headless_state.key_count)
-         % HEADLESS_INPUT_CAPACITY;
-   headless_state.keys[index] = key;
-   headless_state.key_count++;
+   (void)the_input_queue_push(&headless_state.input_queue, event);
+}
+
+int headless_driver_queue_input_event(TheInputEvent event)
+{
+   return the_input_queue_push(&headless_state.input_queue, event);
 }
 
 void headless_driver_set_mouse_position(int row, int col)
@@ -585,83 +582,6 @@ void headless_driver_set_mouse_event(int button, TheDriverMouseAction action,
    headless_state.mouse_event.col = col;
    headless_state.mouse_event.valid = 1;
    headless_state.mouse_event_valid = 1;
-}
-
-static int headless_driver_clamp_display_col(int display_col,
-                                             int window_cols)
-{
-   if (display_col < 0)
-      return 0;
-   if (window_cols > 0 && display_col >= window_cols)
-      return window_cols - 1;
-   return display_col;
-}
-
-static int headless_driver_display_col_from_logical(const CHARTYPE *line,
-                                                    size_t len,
-                                                    int viewport_col,
-                                                    int logical_col)
-{
-   (void)line;
-   (void)len;
-   if (viewport_col < 0)
-      viewport_col = 0;
-   if (logical_col <= viewport_col)
-      return 0;
-   return logical_col - viewport_col;
-}
-
-static int headless_driver_logical_col_from_display(const CHARTYPE *line,
-                                                    size_t len,
-                                                    int viewport_col,
-                                                    int display_col,
-                                                    TextSnap snap)
-{
-   (void)line;
-   (void)len;
-   (void)snap;
-   if (viewport_col < 0)
-      viewport_col = 0;
-   if (display_col < 0)
-      display_col = 0;
-   return viewport_col + display_col;
-}
-
-static int headless_driver_viewport_col_for_logical(
-   const CHARTYPE *line, size_t len, int current_viewport_col,
-   int logical_col, int window_cols, int *display_col, int *visible)
-{
-   int target_display_col;
-   int target_visible;
-   int preferred_display_col;
-
-   (void)line;
-   (void)len;
-   if (current_viewport_col < 0)
-      current_viewport_col = 0;
-   if (logical_col < 0)
-      logical_col = 0;
-   target_display_col = logical_col - current_viewport_col;
-   target_visible = target_display_col >= 0
-                 && window_cols > 0
-                 && target_display_col < window_cols;
-   if (!target_visible && window_cols > 0)
-   {
-      preferred_display_col = window_cols / 2 - 1;
-      if (preferred_display_col < 0)
-         preferred_display_col = 0;
-      current_viewport_col = logical_col - preferred_display_col;
-      if (current_viewport_col < 0)
-         current_viewport_col = 0;
-      target_display_col = logical_col - current_viewport_col;
-      target_visible = target_display_col >= 0
-                    && target_display_col < window_cols;
-   }
-   if (display_col != NULL)
-      *display_col = target_display_col;
-   if (visible != NULL)
-      *visible = target_visible;
-   return current_viewport_col;
 }
 
 static TheDriverAttr headless_driver_software_cursor_attr(
@@ -1513,6 +1433,17 @@ static void headless_driver_write_ascii_cells_at(TheDriverWindow *win,
    }
 }
 
+static int headless_driver_read_input_event(TheInputEvent *event)
+{
+   if (event == NULL)
+      return 0;
+   *event = the_input_event_none();
+   if (!the_input_queue_pop(&headless_state.input_queue, event))
+      return 0;
+   headless_log("read-input-event:%s", the_input_kind_name(event->kind));
+   return event->kind != THE_INPUT_NONE;
+}
+
 static int headless_driver_read_current_window_key(void)
 {
    return headless_pop_key();
@@ -1751,27 +1682,6 @@ static void headless_driver_move_prefix_cursor(CHARTYPE scrno, short row,
                                            col);
 }
 
-static TheDriverCursorTarget headless_driver_filearea_target(
-   LogicalCursor cursor, const CHARTYPE *line, size_t len, int viewport_col,
-   int window_cols)
-{
-   TheDriverCursorTarget target;
-
-   memset(&target, 0, sizeof(target));
-   target.logical = cursor;
-   target.viewport_col = viewport_col;
-   target.raw_display_col = headless_driver_display_col_from_logical(
-      line, len, viewport_col, cursor.text.cell_column);
-   target.display_col = headless_driver_clamp_display_col(
-      target.raw_display_col, window_cols);
-   target.window_cols = window_cols;
-   target.visible = cursor.valid
-                 && cursor.text.cell_column >= viewport_col
-                 && window_cols > 0
-                 && target.raw_display_col < window_cols;
-   return target;
-}
-
 static short headless_driver_move_filearea_cursor(
    CHARTYPE scrno, struct view_details *view, const CHARTYPE *line,
    size_t len, short row, int logical_col)
@@ -1786,8 +1696,8 @@ static short headless_driver_move_filearea_cursor(
                                 textpos_from_cell_virtual(line, len,
                                                           logical_col,
                                                           TEXT_SNAP_BACKWARD));
-   target = headless_driver_filearea_target(cursor, line, len, 0,
-                                            win == NULL ? 0 : win->cols);
+   target = driver_layout_filearea_target(cursor, line, len, 0,
+                                          win == NULL ? 0 : win->cols);
    if (win != NULL)
       headless_move_cursor(win, row, (short)target.display_col);
    return 0;
@@ -1808,10 +1718,6 @@ static short headless_driver_filearea_cursor_transition(
 }
 
 const TheDriverOps the_headless_driver_ops = {
-   .clamp_display_col = headless_driver_clamp_display_col,
-   .display_col_from_logical = headless_driver_display_col_from_logical,
-   .logical_col_from_display = headless_driver_logical_col_from_display,
-   .viewport_col_for_logical = headless_driver_viewport_col_for_logical,
    .software_cursor_attr = headless_driver_software_cursor_attr,
    .current_window_is_role = headless_driver_current_window_is_role,
    .current_window_exists = headless_driver_current_window_exists,
@@ -1926,6 +1832,7 @@ const TheDriverOps the_headless_driver_ops = {
    .write_wide_string_at = headless_driver_write_wide_string_at,
    .fill_cells_at = headless_driver_fill_cells_at,
    .write_ascii_cells_at = headless_driver_write_ascii_cells_at,
+   .read_input_event = headless_driver_read_input_event,
    .read_current_window_key = headless_driver_read_current_window_key,
    .read_current_role_key = headless_driver_read_current_role_key,
    .read_global_window_key = headless_driver_read_global_window_key,
@@ -1968,7 +1875,6 @@ const TheDriverOps the_headless_driver_ops = {
    .refresh_cursor = headless_driver_refresh_cursor,
    .redraw_screen_cursor = headless_driver_redraw_screen_cursor,
    .move_prefix_cursor = headless_driver_move_prefix_cursor,
-   .filearea_target = headless_driver_filearea_target,
    .move_filearea_cursor = headless_driver_move_filearea_cursor,
    .filearea_cursor_transition = headless_driver_filearea_cursor_transition
 };

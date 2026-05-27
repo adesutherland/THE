@@ -18,9 +18,10 @@ horizontal cell, logical viewport start, and text mutation ranges.
 
 The physical driver owns terminal mechanics: curses windows, cursor
 save/restore, refresh/update/touch ordering, cell writes/fills, software cursor
-painting, UTF repair execution, logical-to-physical display-column mapping, and
-hardware cursor parking. These mechanics stay in `src/cursesdriver.c` or in a
-temporary physical edge explicitly being migrated there.
+painting, UTF repair execution, physical cursor materialization, and hardware
+cursor parking. Shared logical/display mapping lives in `src/driverlayout.c`;
+terminal-specific mechanics stay in `src/cursesdriver.c` or in a temporary
+physical edge explicitly being migrated there.
 
 High-level editor code calls the current driver vtable through
 `the_driver->...`. The real vtable lives in `src/thedriver.h`, and
@@ -168,30 +169,45 @@ them mechanically and verify the supported targets in one sweep.
   `CURRENT_WINDOW`, `SCREEN_WINDOW`, or `PENDING_WINDOW` residue outside the
   driver/vendor areas.
 - The driver-shape review is complete in `doc/driver-vtable-review.md`. It
-  reviews all 145 `TheDriverOps` function pointers, confirms the curses vtable
-  initializer covers the same 145 entries, and classifies the surface into
-  portable, physical-terminal, transitional, shared-semantic,
+  originally reviewed all 145 `TheDriverOps` function pointers; after the
+  shared display/input slice, the live vtable has 141 entries, with curses and
+  headless initializers covering the same 141 entries. The remaining surface is
+  classified into portable, physical-terminal, transitional,
   curses-private-candidate, and test-instrumentation work.
 - The first headless/test driver slice is implemented. `src/headlessdriver.c`
   publishes a complete no-curses `the_headless_driver_ops` initializer with
-  all 145 entries present. It supports fake opaque windows/pads, screen-role
+  all 141 entries present. It supports fake opaque windows/pads, screen-role
   and global-window slots, current/previous role state, cursor
-  capture/move/restore, simple cell writes, fake input and mouse hooks, and a
-  deterministic operation log for touch/refresh/update-style presentation
-  calls. `test_headlessdriver` and its no-curses guard prove the base links
-  without `src/cursesdriver.c` or a curses library.
+  capture/move/restore, simple cell writes, queued normalized input events,
+  legacy fake key/mouse hooks, and a deterministic operation log for
+  touch/refresh/update-style presentation calls. `test_headlessdriver` and its
+  no-curses guard prove the base links without `src/cursesdriver.c` or a
+  curses library.
+- The shared display/input semantics slice is implemented. `src/driverlayout.c`
+  owns `clamp_display_col`, `display_col_from_logical`,
+  `logical_col_from_display`, `viewport_col_for_logical`, and
+  `filearea_target`; `cursor.c`, `execute.c`, `mouse.c`, `show.c`, and both
+  curses/headless file-area cursor paths call that shared helper. Those five
+  helper entries were removed from `TheDriverOps`, and the vtable gained
+  `read_input_event`. Remaining raw input compatibility wrappers are
+  `read_current_window_key`, `read_current_role_key`,
+  `read_global_window_key`, `read_window_key`, `read_raw_window_key`,
+  `read_standard_key`, `read_raw_standard_key`, `is_mouse_key`,
+  `mouse_key_code`, `read_mouse_button`, `read_current_role_mouse_event`, and
+  `read_mouse_event`.
 
 ## Active Slice
 
 No active implementation slice is selected. Inventory cleanup, the
-driver-shape review, and the first headless/test `TheDriverOps` base are
-closed.
+driver-shape review, the first headless/test `TheDriverOps` base, and the
+shared display/input semantics slice are closed.
 
 Next implementation work should be chosen from
-`doc/driver-vtable-review.md`, preferably a small slice that moves shared
-display-layout helpers out of the vtable, normalizes raw input/mouse edges, or
-replaces exposed curses-shaped cell mechanics with a portable renderer-cell
-model.
+`doc/driver-vtable-review.md` as a few large coherent slices. The next large
+slice should replace the exposed curses-shaped wide-cell mechanics with a
+portable UTF renderer-cell/render-cluster model. That later model owns flags,
+keycaps, combining sequences, ZWJ sequences, and width/repair policy; this
+display/input slice deliberately did not start that work.
 
 ## Direct Curses Inventory
 
@@ -214,7 +230,7 @@ Current ratcheted counts:
 - actionable `physical-paint`: 0
 - actionable `mouse-token`: 0
 - actionable `window-state`: 0
-- allowed/migrated `driver-wrapper`: 781
+- allowed/migrated `driver-wrapper`: 772
 
 Current `window-state` summary:
 
