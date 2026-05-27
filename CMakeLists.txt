@@ -336,6 +336,7 @@ set(THE_SOURCES
     src/file.c
     src/thematch.c
     src/getch.c
+    src/headlessdriver.c
     src/inputevent.c
     src/linked.c
     src/logcursor.c
@@ -381,6 +382,10 @@ endif()
 # --- Executable ---
 set(EXECUTABLE_NAME "the")
 add_executable(${EXECUTABLE_NAME} ${THE_SOURCES})
+target_compile_definitions(${EXECUTABLE_NAME} PRIVATE
+    THE_DRIVER_ENABLE_CURSES=1
+    THE_DRIVER_ENABLE_HEADLESS=1
+)
 target_link_libraries(${EXECUTABLE_NAME} ${CURSES_LIBRARIES})
 if(USE_UTF8 AND USE_UTF8PROC)
     target_link_libraries(${EXECUTABLE_NAME} ${THE_UTF8PROC_TARGET})
@@ -530,6 +535,31 @@ if(USE_UTF8 AND USE_UTF8PROC)
     target_compile_definitions(test_uidriver PRIVATE USE_UTF8PROC=1)
 endif()
 add_test(NAME test_uidriver COMMAND test_uidriver)
+add_executable(test_headlessdriver
+    tests/test_headlessdriver.c
+    src/headlessdriver.c
+    src/thedriver.c
+    src/logcursor.c
+    src/textpos.c
+)
+target_include_directories(test_headlessdriver PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+target_compile_definitions(test_headlessdriver PRIVATE THE_DRIVER_ENABLE_HEADLESS=1)
+if(USE_UTF8 AND USE_UTF8PROC)
+    target_link_libraries(test_headlessdriver ${THE_UTF8PROC_TARGET})
+    target_compile_definitions(test_headlessdriver PRIVATE USE_UTF8PROC=1)
+endif()
+add_test(NAME test_headlessdriver COMMAND test_headlessdriver)
+add_test(NAME test_headlessdriver_no_curses
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_no_curses_symbols.sh
+            $<TARGET_FILE:test_headlessdriver>)
+add_executable(test_headlessdriver_curses_default
+    tests/test_headlessdriver_curses_default.c
+    src/thedriver.c
+)
+target_include_directories(test_headlessdriver_curses_default PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+target_compile_definitions(test_headlessdriver_curses_default PRIVATE THE_DRIVER_ENABLE_CURSES=1)
+add_dependencies(test_headlessdriver test_headlessdriver_curses_default)
+add_test(NAME test_headlessdriver_curses_default COMMAND test_headlessdriver_curses_default)
 add_executable(test_screenframe tests/test_screenframe.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_screenframe PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8 AND USE_UTF8PROC)

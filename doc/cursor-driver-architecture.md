@@ -62,8 +62,14 @@ cursor painting, or cursor parking back into logical command code.
 
 Editor code reaches migrated high-level driver behavior through the current
 driver vtable, `the_driver->...`, defined by `TheDriverOps` in
-`src/thedriver.h`. The curses build initializes that pointer to
-`the_curses_driver_ops`, which is populated in `src/cursesdriver.c`.
+`src/thedriver.h`. `src/thedriver.c` owns the current-driver pointer and the
+explicit selection helpers. The normal curses build selects
+`the_curses_driver_ops` by default; no-curses tests can select
+`the_headless_driver_ops` without linking `src/cursesdriver.c`. During this
+migration, all drivers are expected to expose the same `TheDriverOps` surface.
+Terminal-only operations may be NOPs, in-memory fake-surface updates, or
+deterministic log entries in non-terminal drivers.
+
 `curses_driver_*` function names are implementation-private there. The public
 driver types are neutral: `TheDriverAttr`, `TheDriverCell`,
 `TheDriverWideCell`, and opaque `TheDriverWindow` handles. `WINDOW`, `chtype`,
@@ -114,14 +120,26 @@ Closed checkpoints are summarized here; details and next tasks are in
   fake-driver operation logs.
 - `src/screenframe.c` builds live file-area `UiFrame` snapshots and rebases
   saved logical cursors onto rebuilt rows.
-- `src/thedriver.h` and `src/thedriver.c` define the real driver vtable and
-  current-driver pointer. The public header is free of curses public types and
-  exposes only neutral driver attrs/cells/wide-cells and opaque window handles.
-  Editor code calls `the_driver->...` for migrated high-level operations and
-  for temporary opaque physical edges.
+- `src/thedriver.h` and `src/thedriver.c` define the real driver vtable,
+  current-driver pointer, and explicit selection helpers. The public header is
+  free of curses public types and exposes only neutral driver
+  attrs/cells/wide-cells and opaque window handles. Editor code calls
+  `the_driver->...` for migrated high-level operations and for temporary
+  opaque physical edges.
 - `src/cursesdriver.c` owns the migrated physical curses mechanics, raw mouse
   packet decoding, file-area logical-to-physical cursor materialization, and
   the `the_curses_driver_ops` vtable.
+- `src/headlessdriver.c` owns the first complete no-curses `TheDriverOps`
+  implementation. It provides fake opaque windows/pads, screen-role and global
+  slots, cursor state, simple input/mouse hooks, cell storage, and
+  deterministic touch/refresh/update logs. It is a compatibility base for
+  tests and future headless work, not a full editor runtime switch.
+- `doc/driver-vtable-review.md` is the detailed map of the current vtable. It
+  reviews all 145 `TheDriverOps` entries and records which operations should
+  remain portable, which are NOP/log-capable physical terminal operations, and
+  which should move toward shared logical helpers or curses-private details.
+  Future curses, headless/LLM, and fake/test drivers should expose the same
+  surface while this migration is in progress.
 - `src/inputevent.c` defines shared normalized input events.
 - `src/mousehit.c` maps driver-edge mouse packets to shared logical-hit
   targets for normal live curses mouse dispatch.
@@ -153,6 +171,14 @@ Closed checkpoints are summarized here; details and next tasks are in
 - `the_llm_headless` is the current no-curses executable skeleton for the
   broader LLM/headless editor direction. It links the transient model and is
   checked by `test_the_llm_headless_no_curses`.
+- `the_agent`, `the_llm_headless`, and future proof targets such as
+  `agentthe` or `testingthe` should continue proving that selected non-curses
+  drivers can link without `src/cursesdriver.c`.
+- The main `the` executable still initializes the current driver to the curses
+  implementation. A future startup/system-profile mechanism should select,
+  load, or swap drivers explicitly. The Windows strategy remains open: keep
+  the curses driver PDCurses-compatible or split a Windows/PDCurses driver if
+  the backend-specific behavior becomes too different.
 - `tests/inventory_direct_curses.sh` is the repeatable debt sweep and ratchet.
   Current counts are actionable `physical-input: 0`, `physical-paint: 0`,
   `mouse-token: 0`, and `window-state: 0`; `driver-wrapper: 781` is counted
@@ -195,21 +221,25 @@ The current active categories are:
   ownership of raw mouse packet decoding, the first active-window/window-handle
   role-helper cleanup, the real `TheDriverOps` vtable with high-level editor
   call sites migrated to `the_driver->...`, and neutral public driver types
-  with the `show.c` renderer/window-state macro surface closed, plus final
-  closure of the legacy ExtCurses/old-curses/VMS window-state compatibility
-  residue.
+  with the `show.c` renderer/window-state macro surface closed, final closure
+  of the legacy ExtCurses/old-curses/VMS window-state compatibility residue,
+  the complete 145-operation driver vtable review in
+  `doc/driver-vtable-review.md`, and the first complete no-curses
+  headless/test `TheDriverOps` base.
 - Active slice: none selected after the inventory ratchet, bulk wrapper pass,
   physical input/paint cleanup, raw mouse packet driver-ownership cleanup,
   corrected suffixed-paint cleanup, the first active-window/window-handle
-  role-helper cleanup, the real driver-vtable migration, and the neutral
-  public driver/window-state cleanup. The next step is driver shape review,
-  as recorded in `doc/utf-handover.md`.
+  role-helper cleanup, the real driver-vtable migration, the neutral public
+  driver/window-state cleanup, the driver-shape review, and the headless/test
+  driver base. Choose the next implementation slice from
+  `doc/driver-vtable-review.md`.
 - Deferred: full agent dispatcher integration, full prefix command machinery in
   the agent, agent protocol integration for transient snapshots, full live
   frames for command/prompt/status/window rows, removal of the transitional
   cursor-focus bridge, retained-frame delta views, the isolated keycap
-  blank-cell physical materialization/profile follow-up, and additional
-  terminal baselines.
+  blank-cell physical materialization/profile follow-up, full startup/profile
+  driver selection beyond the minimal registry scaffold, Windows/PDCurses
+  driver strategy, and additional terminal baselines.
 
 ## Guardrails
 

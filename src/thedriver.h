@@ -326,4 +326,8 @@ struct TheDriverOps
 
 extern const TheDriverOps *the_driver;
 
+void the_driver_select(const TheDriverOps *ops);
+int the_driver_use_curses(void);
+int the_driver_use_headless(void);
+
 #endif

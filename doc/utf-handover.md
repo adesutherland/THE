@@ -23,12 +23,14 @@ hardware cursor parking. These mechanics stay in `src/cursesdriver.c` or in a
 temporary physical edge explicitly being migrated there.
 
 High-level editor code calls the current driver vtable through
-`the_driver->...`. The real vtable lives in `src/thedriver.h`, `src/thedriver.c`
-sets the current build's driver to the curses implementation, and
-`src/cursesdriver.c` publishes `the_curses_driver_ops`. `curses_driver_*` names
-are now curses implementation details; editor code, including temporary
-physical edges that still traffic in `WINDOW *`, `chtype`/`cchar_t`, pads, or
-modal local windows, calls the vtable directly.
+`the_driver->...`. The real vtable lives in `src/thedriver.h`, and
+`src/thedriver.c` provides explicit driver selection helpers. Builds that link
+curses can select `the_curses_driver_ops`; builds that link the fake driver can
+select `the_headless_driver_ops`. The normal `the` executable still defaults
+to curses. `curses_driver_*` names are now curses implementation details;
+editor code, including temporary physical edges that still traffic in
+`WINDOW *`, `chtype`/`cchar_t`, pads, or modal local windows, calls the vtable
+directly.
 
 New logical behavior must be proved through a no-curses surface first:
 `the_agent`, `llmdriver`, `llmruntime`, virtual/fake-driver tests, focused unit
@@ -165,19 +167,31 @@ them mechanically and verify the supported targets in one sweep.
   project-wide guardrail now catches raw `WINDOW`, `chtype`, `cchar_t`,
   `CURRENT_WINDOW`, `SCREEN_WINDOW`, or `PENDING_WINDOW` residue outside the
   driver/vendor areas.
+- The driver-shape review is complete in `doc/driver-vtable-review.md`. It
+  reviews all 145 `TheDriverOps` function pointers, confirms the curses vtable
+  initializer covers the same 145 entries, and classifies the surface into
+  portable, physical-terminal, transitional, shared-semantic,
+  curses-private-candidate, and test-instrumentation work.
+- The first headless/test driver slice is implemented. `src/headlessdriver.c`
+  publishes a complete no-curses `the_headless_driver_ops` initializer with
+  all 145 entries present. It supports fake opaque windows/pads, screen-role
+  and global-window slots, current/previous role state, cursor
+  capture/move/restore, simple cell writes, fake input and mouse hooks, and a
+  deterministic operation log for touch/refresh/update-style presentation
+  calls. `test_headlessdriver` and its no-curses guard prove the base links
+  without `src/cursesdriver.c` or a curses library.
 
 ## Active Slice
 
-No active inventory cleanup slice remains after closing the inventory ratchet,
-bulk physical wrapper pass, physical input/paint cleanup, raw mouse packet
-driver-ownership cleanup, corrected suffixed-paint cleanup, the first
-active-window/window-handle cleanup, the real driver-vtable migration, the
-neutral public driver/window-state cleanup, and the final legacy compatibility
-window-state closure.
+No active implementation slice is selected. Inventory cleanup, the
+driver-shape review, and the first headless/test `TheDriverOps` base are
+closed.
 
-Next step: driver shape review. Step back over `TheDriverOps`, opaque window
-handles, remaining allowed driver-edge calls, and the supported build surfaces
-before selecting any refactor.
+Next implementation work should be chosen from
+`doc/driver-vtable-review.md`, preferably a small slice that moves shared
+display-layout helpers out of the vtable, normalizes raw input/mouse edges, or
+replaces exposed curses-shaped cell mechanics with a portable renderer-cell
+model.
 
 ## Direct Curses Inventory
 

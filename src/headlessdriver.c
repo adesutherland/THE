@@ -1,0 +1,1974 @@
+#include "headlessdriver.h"
+
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+enum
+{
+   HEADLESS_MAX_SCREENS = 2,
+   HEADLESS_VIEW_WINDOWS = 6,
+   HEADLESS_ROLE_FILEAREA = 0,
+   HEADLESS_ROLE_PREFIX = 1,
+   HEADLESS_GLOBAL_WINDOWS = 4,
+   HEADLESS_INPUT_CAPACITY = 64,
+   HEADLESS_MOUSE_KEY = 0x1001
+};
+
+struct TheDriverWindow
+{
+   int id;
+   int rows;
+   int cols;
+   int origin_row;
+   int origin_col;
+   int cursor_row;
+   int cursor_col;
+   int is_pad;
+   int dirty;
+   int refreshed;
+   int immediate_refreshes;
+   int keypad_enabled;
+   int leaveok_enabled;
+   int timeout_ms;
+   TheDriverAttr attr;
+   TheDriverAttr background;
+   TheDriverCell *cells;
+   TheDriverAttr *attrs;
+   struct TheDriverWindow *next;
+};
+
+typedef struct
+{
+   TheDriverWindow *roles[HEADLESS_MAX_SCREENS][HEADLESS_VIEW_WINDOWS];
+   TheDriverWindow *globals[HEADLESS_GLOBAL_WINDOWS];
+   TheDriverWindow *standard;
+   TheDriverWindow *windows;
+   short current_role[HEADLESS_MAX_SCREENS];
+   short previous_role[HEADLESS_MAX_SCREENS];
+   CHARTYPE current_screen;
+   int next_window_id;
+   int standard_keypad_enabled;
+   int standard_notimeout_enabled;
+   int cursor_visible;
+   int mouse_row;
+   int mouse_col;
+   int mouse_valid;
+   int mouse_button;
+   int mouse_action;
+   int mouse_modifier;
+   int mouse_button_valid;
+   TheDriverMouseEvent mouse_event;
+   int mouse_event_valid;
+   int keys[HEADLESS_INPUT_CAPACITY];
+   size_t key_head;
+   size_t key_count;
+   char log[HEADLESS_DRIVER_OP_LOG_CAPACITY][96];
+   size_t log_count;
+} HeadlessDriverState;
+
+static HeadlessDriverState headless_state;
+
+static int headless_valid_screen(CHARTYPE scrno)
+{
+   return scrno < HEADLESS_MAX_SCREENS;
+}
+
+static int headless_valid_role(short role)
+{
+   return role >= 0 && role < HEADLESS_VIEW_WINDOWS;
+}
+
+static int headless_valid_global(TheDriverGlobalWindowRole role)
+{
+   return role >= THE_DRIVER_GLOBAL_STATAREA
+       && role <= THE_DRIVER_GLOBAL_FILETABS;
+}
+
+static int headless_nonnegative(int value)
+{
+   return value < 0 ? 0 : value;
+}
+
+static void headless_log(const char *fmt, ...)
+{
+   va_list args;
+
+   if (headless_state.log_count >= HEADLESS_DRIVER_OP_LOG_CAPACITY)
+      return;
+   va_start(args, fmt);
+   vsnprintf(headless_state.log[headless_state.log_count],
+             sizeof(headless_state.log[headless_state.log_count]), fmt, args);
+   va_end(args);
+   headless_state.log_count++;
+}
+
+static size_t headless_cell_index(const TheDriverWindow *win, int row,
+                                  int col)
+{
+   return (size_t)row * (size_t)win->cols + (size_t)col;
+}
+
+static int headless_window_contains(const TheDriverWindow *win, int row,
+                                    int col)
+{
+   return win != NULL
+       && row >= 0
+       && col >= 0
+       && row < win->rows
+       && col < win->cols;
+}
+
+static void headless_clamp_cursor(TheDriverWindow *win)
+{
+   if (win == NULL)
+      return;
+   if (win->rows <= 0)
+      win->cursor_row = 0;
+   else if (win->cursor_row < 0)
+      win->cursor_row = 0;
+   else if (win->cursor_row >= win->rows)
+      win->cursor_row = win->rows - 1;
+   if (win->cols <= 0)
+      win->cursor_col = 0;
+   else if (win->cursor_col < 0)
+      win->cursor_col = 0;
+   else if (win->cursor_col >= win->cols)
+      win->cursor_col = win->cols - 1;
+}
+
+static void headless_move_cursor(TheDriverWindow *win, short row, short col)
+{
+   if (win == NULL)
+      return;
+   win->cursor_row = row;
+   win->cursor_col = col;
+   headless_clamp_cursor(win);
+   headless_log("cursor:window:%d:%d:%d", win->id, win->cursor_row,
+                win->cursor_col);
+}
+
+static void headless_restore_cursor(TheDriverWindow *win,
+                                    TheDriverWindowCursor cursor)
+{
+   if (win == NULL || !cursor.valid)
+      return;
+   headless_move_cursor(win, cursor.row, cursor.col);
+}
+
+static TheDriverWindowCursor headless_capture_cursor(TheDriverWindow *win)
+{
+   TheDriverWindowCursor cursor;
+
+   cursor.row = 0;
+   cursor.col = 0;
+   cursor.valid = 0;
+   if (win == NULL)
+      return cursor;
+   cursor.row = (short)win->cursor_row;
+   cursor.col = (short)win->cursor_col;
+   cursor.valid = 1;
+   return cursor;
+}
+
+static TheDriverWindowOrigin headless_capture_origin(TheDriverWindow *win)
+{
+   TheDriverWindowOrigin origin;
+
+   origin.row = 0;
+   origin.col = 0;
+   origin.valid = 0;
+   if (win == NULL)
+      return origin;
+   origin.row = (short)win->origin_row;
+   origin.col = (short)win->origin_col;
+   origin.valid = 1;
+   return origin;
+}
+
+static TheDriverWindowSize headless_capture_size(TheDriverWindow *win)
+{
+   TheDriverWindowSize size;
+
+   size.rows = 0;
+   size.cols = 0;
+   size.valid = 0;
+   if (win == NULL)
+      return size;
+   size.rows = (short)win->rows;
+   size.cols = (short)win->cols;
+   size.valid = 1;
+   return size;
+}
+
+static TheDriverWindow *headless_create_window_internal(int rows, int cols,
+                                                       int row, int col,
+                                                       int is_pad)
+{
+   TheDriverWindow *win;
+   size_t total;
+
+   win = (TheDriverWindow *)calloc(1, sizeof(*win));
+   if (win == NULL)
+      return NULL;
+   win->id = ++headless_state.next_window_id;
+   win->rows = headless_nonnegative(rows);
+   win->cols = headless_nonnegative(cols);
+   win->origin_row = headless_nonnegative(row);
+   win->origin_col = headless_nonnegative(col);
+   win->is_pad = is_pad;
+   total = (size_t)win->rows * (size_t)win->cols;
+   if (total > 0)
+   {
+      win->cells = (TheDriverCell *)calloc(total, sizeof(*win->cells));
+      win->attrs = (TheDriverAttr *)calloc(total, sizeof(*win->attrs));
+      if (win->cells == NULL || win->attrs == NULL)
+      {
+         free(win->cells);
+         free(win->attrs);
+         free(win);
+         return NULL;
+      }
+   }
+   win->next = headless_state.windows;
+   headless_state.windows = win;
+   return win;
+}
+
+static void headless_forget_window(TheDriverWindow *win)
+{
+   int scrno;
+   int role;
+   int global;
+
+   if (win == NULL)
+      return;
+   for (scrno = 0; scrno < HEADLESS_MAX_SCREENS; scrno++)
+   {
+      for (role = 0; role < HEADLESS_VIEW_WINDOWS; role++)
+      {
+         if (headless_state.roles[scrno][role] == win)
+            headless_state.roles[scrno][role] = NULL;
+      }
+   }
+   for (global = 0; global < HEADLESS_GLOBAL_WINDOWS; global++)
+   {
+      if (headless_state.globals[global] == win)
+         headless_state.globals[global] = NULL;
+   }
+   if (headless_state.standard == win)
+      headless_state.standard = NULL;
+}
+
+static void headless_unlink_window(TheDriverWindow *win)
+{
+   TheDriverWindow **slot;
+
+   slot = &headless_state.windows;
+   while (*slot != NULL)
+   {
+      if (*slot == win)
+      {
+         *slot = win->next;
+         return;
+      }
+      slot = &(*slot)->next;
+   }
+}
+
+static void headless_free_window(TheDriverWindow *win)
+{
+   if (win == NULL)
+      return;
+   headless_forget_window(win);
+   headless_unlink_window(win);
+   free(win->cells);
+   free(win->attrs);
+   free(win);
+}
+
+static TheDriverWindow *headless_screen_role_window(CHARTYPE scrno,
+                                                    short role)
+{
+   if (!headless_valid_screen(scrno) || !headless_valid_role(role))
+      return NULL;
+   return headless_state.roles[scrno][role];
+}
+
+static TheDriverWindow *headless_current_role_window(short role)
+{
+   return headless_screen_role_window(headless_state.current_screen, role);
+}
+
+static TheDriverWindow *headless_screen_active_window(CHARTYPE scrno)
+{
+   if (!headless_valid_screen(scrno))
+      return NULL;
+   return headless_screen_role_window(scrno, headless_state.current_role[scrno]);
+}
+
+static TheDriverWindow *headless_screen_previous_window(CHARTYPE scrno)
+{
+   if (!headless_valid_screen(scrno))
+      return NULL;
+   return headless_screen_role_window(scrno,
+                                      headless_state.previous_role[scrno]);
+}
+
+static TheDriverWindow *headless_current_active_window(void)
+{
+   return headless_screen_active_window(headless_state.current_screen);
+}
+
+static TheDriverWindow *headless_current_previous_window(void)
+{
+   return headless_screen_previous_window(headless_state.current_screen);
+}
+
+static TheDriverWindow *headless_global_window(TheDriverGlobalWindowRole role)
+{
+   if (!headless_valid_global(role))
+      return NULL;
+   return headless_state.globals[role];
+}
+
+static TheDriverWindow *headless_standard_window(void)
+{
+   if (headless_state.standard == NULL)
+      headless_state.standard = headless_create_window_internal(24, 80, 0, 0,
+                                                                0);
+   return headless_state.standard;
+}
+
+static void headless_set_cell_at(TheDriverWindow *win, int row, int col,
+                                 TheDriverCell cell)
+{
+   size_t index;
+
+   if (!headless_window_contains(win, row, col) || win->cells == NULL)
+      return;
+   index = headless_cell_index(win, row, col);
+   win->cells[index] = cell;
+   win->attrs[index] = win->attr;
+   win->dirty = 1;
+}
+
+static TheDriverCell headless_cell_at(const TheDriverWindow *win, int row,
+                                      int col)
+{
+   if (!headless_window_contains(win, row, col) || win->cells == NULL)
+      return 0;
+   return win->cells[headless_cell_index(win, row, col)];
+}
+
+static void headless_add_cell_internal(TheDriverWindow *win,
+                                       TheDriverCell cell)
+{
+   if (win == NULL)
+      return;
+   headless_set_cell_at(win, win->cursor_row, win->cursor_col, cell);
+   if (win->cols > 0)
+   {
+      win->cursor_col++;
+      if (win->cursor_col >= win->cols)
+      {
+         win->cursor_col = 0;
+         if (win->rows > 0 && win->cursor_row < win->rows - 1)
+            win->cursor_row++;
+      }
+   }
+}
+
+static void headless_write_string_at(TheDriverWindow *win, int row, int col,
+                                     const char *text)
+{
+   int i;
+
+   if (win == NULL || text == NULL)
+      return;
+   for (i = 0; text[i] != '\0'; i++)
+      headless_set_cell_at(win, row, col + i, (unsigned char)text[i]);
+}
+
+static void headless_clear_window(TheDriverWindow *win)
+{
+   size_t total;
+
+   if (win == NULL || win->cells == NULL)
+      return;
+   total = (size_t)win->rows * (size_t)win->cols;
+   memset(win->cells, 0, total * sizeof(*win->cells));
+   memset(win->attrs, 0, total * sizeof(*win->attrs));
+   win->dirty = 1;
+}
+
+static void headless_clear_to_eol(TheDriverWindow *win)
+{
+   int col;
+
+   if (win == NULL)
+      return;
+   for (col = win->cursor_col; col < win->cols; col++)
+      headless_set_cell_at(win, win->cursor_row, col, ' ');
+}
+
+static int headless_pop_key(void)
+{
+   int key;
+
+   if (headless_state.key_count == 0)
+      return -1;
+   key = headless_state.keys[headless_state.key_head];
+   headless_state.key_head =
+      (headless_state.key_head + 1) % HEADLESS_INPUT_CAPACITY;
+   headless_state.key_count--;
+   return key;
+}
+
+static void headless_project_mouse(TheDriverWindow *win, int *row, int *col)
+{
+   if (row != NULL)
+      *row = -1;
+   if (col != NULL)
+      *col = -1;
+   if (win == NULL || !headless_state.mouse_valid)
+      return;
+   if (row != NULL)
+      *row = headless_state.mouse_row - win->origin_row;
+   if (col != NULL)
+      *col = headless_state.mouse_col - win->origin_col;
+}
+
+static TheDriverMouseEvent headless_mouse_event_for_window(
+   TheDriverWindow *win)
+{
+   TheDriverMouseEvent event;
+
+   memset(&event, 0, sizeof(event));
+   if (headless_state.mouse_event_valid)
+      event = headless_state.mouse_event;
+   else
+   {
+      event.button = headless_state.mouse_button;
+      event.action = (TheDriverMouseAction)headless_state.mouse_action;
+      event.modifier = headless_state.mouse_modifier;
+      event.valid = headless_state.mouse_button_valid
+                 || headless_state.mouse_valid;
+      headless_project_mouse(win, &event.row, &event.col);
+   }
+   event.inside = win != NULL
+               && event.row >= 0
+               && event.col >= 0
+               && event.row < win->rows
+               && event.col < win->cols;
+   return event;
+}
+
+void headless_driver_reset(void)
+{
+   TheDriverWindow *win;
+
+   win = headless_state.windows;
+   while (win != NULL)
+   {
+      TheDriverWindow *next = win->next;
+
+      free(win->cells);
+      free(win->attrs);
+      free(win);
+      win = next;
+   }
+   memset(&headless_state, 0, sizeof(headless_state));
+   headless_state.cursor_visible = 1;
+}
+
+void headless_driver_clear_log(void)
+{
+   headless_state.log_count = 0;
+}
+
+size_t headless_driver_log_count(void)
+{
+   return headless_state.log_count;
+}
+
+const char *headless_driver_log_entry(size_t index)
+{
+   if (index >= headless_state.log_count)
+      return NULL;
+   return headless_state.log[index];
+}
+
+void headless_driver_set_current_screen(CHARTYPE scrno)
+{
+   if (headless_valid_screen(scrno))
+      headless_state.current_screen = scrno;
+}
+
+void headless_driver_set_screen_current_role(CHARTYPE scrno, short role)
+{
+   if (headless_valid_screen(scrno) && headless_valid_role(role))
+      headless_state.current_role[scrno] = role;
+}
+
+void headless_driver_set_screen_previous_role(CHARTYPE scrno, short role)
+{
+   if (headless_valid_screen(scrno) && headless_valid_role(role))
+      headless_state.previous_role[scrno] = role;
+}
+
+TheDriverWindow *headless_driver_create_screen_role(CHARTYPE scrno,
+                                                    short role, int rows,
+                                                    int cols, int row,
+                                                    int col)
+{
+   TheDriverWindow *win;
+
+   if (!headless_valid_screen(scrno) || !headless_valid_role(role))
+      return NULL;
+   win = headless_create_window_internal(rows, cols, row, col, 0);
+   if (win != NULL)
+      headless_state.roles[scrno][role] = win;
+   return win;
+}
+
+TheDriverWindow *headless_driver_create_global_window(
+   TheDriverGlobalWindowRole role, int rows, int cols, int row, int col)
+{
+   TheDriverWindow *win;
+
+   if (!headless_valid_global(role))
+      return NULL;
+   win = headless_create_window_internal(rows, cols, row, col, 0);
+   if (win != NULL)
+      headless_state.globals[role] = win;
+   return win;
+}
+
+void headless_driver_queue_key(int key)
+{
+   size_t index;
+
+   if (headless_state.key_count >= HEADLESS_INPUT_CAPACITY)
+      return;
+   index = (headless_state.key_head + headless_state.key_count)
+         % HEADLESS_INPUT_CAPACITY;
+   headless_state.keys[index] = key;
+   headless_state.key_count++;
+}
+
+void headless_driver_set_mouse_position(int row, int col)
+{
+   headless_state.mouse_row = row;
+   headless_state.mouse_col = col;
+   headless_state.mouse_valid = 1;
+}
+
+void headless_driver_set_mouse_button(int button, int action, int modifier)
+{
+   headless_state.mouse_button = button;
+   headless_state.mouse_action = action;
+   headless_state.mouse_modifier = modifier;
+   headless_state.mouse_button_valid = 1;
+}
+
+void headless_driver_set_mouse_event(int button, TheDriverMouseAction action,
+                                     int modifier, int row, int col)
+{
+   memset(&headless_state.mouse_event, 0,
+          sizeof(headless_state.mouse_event));
+   headless_state.mouse_event.button = button;
+   headless_state.mouse_event.action = action;
+   headless_state.mouse_event.modifier = modifier;
+   headless_state.mouse_event.row = row;
+   headless_state.mouse_event.col = col;
+   headless_state.mouse_event.valid = 1;
+   headless_state.mouse_event_valid = 1;
+}
+
+static int headless_driver_clamp_display_col(int display_col,
+                                             int window_cols)
+{
+   if (display_col < 0)
+      return 0;
+   if (window_cols > 0 && display_col >= window_cols)
+      return window_cols - 1;
+   return display_col;
+}
+
+static int headless_driver_display_col_from_logical(const CHARTYPE *line,
+                                                    size_t len,
+                                                    int viewport_col,
+                                                    int logical_col)
+{
+   (void)line;
+   (void)len;
+   if (viewport_col < 0)
+      viewport_col = 0;
+   if (logical_col <= viewport_col)
+      return 0;
+   return logical_col - viewport_col;
+}
+
+static int headless_driver_logical_col_from_display(const CHARTYPE *line,
+                                                    size_t len,
+                                                    int viewport_col,
+                                                    int display_col,
+                                                    TextSnap snap)
+{
+   (void)line;
+   (void)len;
+   (void)snap;
+   if (viewport_col < 0)
+      viewport_col = 0;
+   if (display_col < 0)
+      display_col = 0;
+   return viewport_col + display_col;
+}
+
+static int headless_driver_viewport_col_for_logical(
+   const CHARTYPE *line, size_t len, int current_viewport_col,
+   int logical_col, int window_cols, int *display_col, int *visible)
+{
+   int target_display_col;
+   int target_visible;
+   int preferred_display_col;
+
+   (void)line;
+   (void)len;
+   if (current_viewport_col < 0)
+      current_viewport_col = 0;
+   if (logical_col < 0)
+      logical_col = 0;
+   target_display_col = logical_col - current_viewport_col;
+   target_visible = target_display_col >= 0
+                 && window_cols > 0
+                 && target_display_col < window_cols;
+   if (!target_visible && window_cols > 0)
+   {
+      preferred_display_col = window_cols / 2 - 1;
+      if (preferred_display_col < 0)
+         preferred_display_col = 0;
+      current_viewport_col = logical_col - preferred_display_col;
+      if (current_viewport_col < 0)
+         current_viewport_col = 0;
+      target_display_col = logical_col - current_viewport_col;
+      target_visible = target_display_col >= 0
+                    && target_display_col < window_cols;
+   }
+   if (display_col != NULL)
+      *display_col = target_display_col;
+   if (visible != NULL)
+      *visible = target_visible;
+   return current_viewport_col;
+}
+
+static TheDriverAttr headless_driver_software_cursor_attr(
+   CHARTYPE scrno, TheDriverAttr base, CursorShape shape)
+{
+   (void)scrno;
+   return base ^ ((TheDriverAttr)shape + 1U);
+}
+
+static int headless_driver_current_window_is_role(short role)
+{
+   return headless_valid_role(role)
+       && role == headless_state.current_role[headless_state.current_screen]
+       && headless_current_active_window() != NULL;
+}
+
+static int headless_driver_current_window_exists(void)
+{
+   return headless_current_active_window() != NULL;
+}
+
+static int headless_driver_screen_window_is_role(CHARTYPE scrno, short role)
+{
+   return headless_valid_screen(scrno)
+       && headless_valid_role(role)
+       && role == headless_state.current_role[scrno]
+       && headless_screen_active_window(scrno) != NULL;
+}
+
+static int headless_driver_current_role_exists(short role)
+{
+   return headless_current_role_window(role) != NULL;
+}
+
+static int headless_driver_screen_role_exists(CHARTYPE scrno, short role)
+{
+   return headless_screen_role_window(scrno, role) != NULL;
+}
+
+static int headless_driver_global_window_exists(
+   TheDriverGlobalWindowRole role)
+{
+   return headless_global_window(role) != NULL;
+}
+
+static void headless_driver_delete_global_window(
+   TheDriverGlobalWindowRole role)
+{
+   TheDriverWindow *win;
+
+   win = headless_global_window(role);
+   if (win == NULL)
+      return;
+   headless_log("delete:global:%d", (int)role);
+   headless_free_window(win);
+}
+
+static TheDriverWindow *headless_driver_create_window(int rows, int cols,
+                                                      int row, int col)
+{
+   return headless_create_window_internal(rows, cols, row, col, 0);
+}
+
+static TheDriverWindow *headless_driver_create_pad(int rows, int cols)
+{
+   return headless_create_window_internal(rows, cols, 0, 0, 1);
+}
+
+static void headless_driver_delete_window(TheDriverWindow *win)
+{
+   headless_free_window(win);
+}
+
+static void headless_driver_enable_keypad(TheDriverWindow *win, bool enabled)
+{
+   if (win != NULL)
+      win->keypad_enabled = enabled ? 1 : 0;
+}
+
+static void headless_driver_enable_standard_keypad(bool enabled)
+{
+   headless_state.standard_keypad_enabled = enabled ? 1 : 0;
+}
+
+static void headless_driver_set_standard_notimeout(bool enabled)
+{
+   headless_state.standard_notimeout_enabled = enabled ? 1 : 0;
+}
+
+static void headless_driver_set_window_leaveok(TheDriverWindow *win,
+                                               bool enabled)
+{
+   if (win != NULL)
+      win->leaveok_enabled = enabled ? 1 : 0;
+}
+
+static TheDriverWindowCursor headless_driver_capture_window_cursor(
+   TheDriverWindow *win)
+{
+   return headless_capture_cursor(win);
+}
+
+static TheDriverWindowCursor headless_driver_capture_current_window_cursor(
+   void)
+{
+   return headless_capture_cursor(headless_current_active_window());
+}
+
+static TheDriverWindowCursor
+headless_driver_capture_current_previous_window_cursor(void)
+{
+   return headless_capture_cursor(headless_current_previous_window());
+}
+
+static TheDriverWindowCursor headless_driver_capture_current_role_cursor(
+   short role)
+{
+   return headless_capture_cursor(headless_current_role_window(role));
+}
+
+static TheDriverWindowCursor headless_driver_capture_screen_window_cursor(
+   CHARTYPE scrno)
+{
+   return headless_capture_cursor(headless_screen_active_window(scrno));
+}
+
+static TheDriverWindowCursor headless_driver_capture_screen_role_cursor(
+   CHARTYPE scrno, short role)
+{
+   return headless_capture_cursor(headless_screen_role_window(scrno, role));
+}
+
+static TheDriverWindowCursor headless_driver_capture_global_window_cursor(
+   TheDriverGlobalWindowRole role)
+{
+   return headless_capture_cursor(headless_global_window(role));
+}
+
+static TheDriverWindowOrigin headless_driver_window_origin(
+   TheDriverWindow *win)
+{
+   return headless_capture_origin(win);
+}
+
+static TheDriverWindowSize headless_driver_window_size(TheDriverWindow *win)
+{
+   return headless_capture_size(win);
+}
+
+static TheDriverWindowOrigin headless_driver_current_window_origin(void)
+{
+   return headless_capture_origin(headless_current_active_window());
+}
+
+static TheDriverWindowSize headless_driver_current_window_size(void)
+{
+   return headless_capture_size(headless_current_active_window());
+}
+
+static TheDriverWindowSize headless_driver_current_role_size(short role)
+{
+   return headless_capture_size(headless_current_role_window(role));
+}
+
+static TheDriverWindowSize headless_driver_screen_role_size(CHARTYPE scrno,
+                                                            short role)
+{
+   return headless_capture_size(headless_screen_role_window(scrno, role));
+}
+
+static TheDriverScreenPoint
+headless_driver_current_window_cursor_screen_point(void)
+{
+   TheDriverScreenPoint point;
+   TheDriverWindow *win;
+
+   point.row = 0;
+   point.col = 0;
+   point.valid = 0;
+   win = headless_current_active_window();
+   if (win == NULL)
+      return point;
+   point.row = (short)(win->origin_row + win->cursor_row);
+   point.col = (short)(win->origin_col + win->cursor_col);
+   point.valid = 1;
+   return point;
+}
+
+static TheDriverWindowRoleSave headless_driver_save_current_role_window(
+   short role)
+{
+   TheDriverWindowRoleSave saved;
+
+   saved.window = NULL;
+   saved.slot_valid = 0;
+   if (!headless_valid_role(role)
+   ||  !headless_valid_screen(headless_state.current_screen))
+      return saved;
+   saved.window = headless_state.roles[headless_state.current_screen][role];
+   saved.slot_valid = 1;
+   return saved;
+}
+
+static int headless_driver_replace_current_role_with_relative_window(
+   short role, TheDriverWindow *parent, int rows, int cols, int row, int col,
+   TheDriverWindowRoleSave *saved)
+{
+   TheDriverWindow *win;
+
+   if (saved != NULL)
+      *saved = headless_driver_save_current_role_window(role);
+   if (!headless_valid_screen(headless_state.current_screen)
+   ||  !headless_valid_role(role)
+   ||  parent == NULL)
+      return 0;
+   win = headless_create_window_internal(rows, cols,
+                                         parent->origin_row + row,
+                                         parent->origin_col + col, 0);
+   if (win == NULL)
+      return 0;
+   headless_state.roles[headless_state.current_screen][role] = win;
+   return 1;
+}
+
+static void headless_driver_restore_current_role_window(
+   short role, TheDriverWindowRoleSave saved)
+{
+   if (!saved.slot_valid
+   ||  !headless_valid_screen(headless_state.current_screen)
+   ||  !headless_valid_role(role))
+      return;
+   headless_state.roles[headless_state.current_screen][role] = saved.window;
+}
+
+static void headless_driver_delete_current_role_window(short role)
+{
+   TheDriverWindow *win;
+
+   win = headless_current_role_window(role);
+   if (win != NULL)
+      headless_free_window(win);
+}
+
+static void headless_driver_clear_current_screen_roles(void)
+{
+   int role;
+
+   if (!headless_valid_screen(headless_state.current_screen))
+      return;
+   for (role = 0; role < HEADLESS_VIEW_WINDOWS; role++)
+      headless_state.roles[headless_state.current_screen][role] = NULL;
+}
+
+static void headless_driver_move_window_cursor(TheDriverWindow *win,
+                                               short row, short col)
+{
+   headless_move_cursor(win, row, col);
+}
+
+static void headless_driver_move_current_window_cursor(short row, short col)
+{
+   headless_move_cursor(headless_current_active_window(), row, col);
+}
+
+static void headless_driver_move_current_previous_window_cursor(short row,
+                                                                short col)
+{
+   headless_move_cursor(headless_current_previous_window(), row, col);
+}
+
+static void headless_driver_move_current_role_cursor(short role, short row,
+                                                     short col)
+{
+   headless_move_cursor(headless_current_role_window(role), row, col);
+}
+
+static void headless_driver_move_screen_window_cursor(CHARTYPE scrno,
+                                                      short row, short col)
+{
+   headless_move_cursor(headless_screen_active_window(scrno), row, col);
+}
+
+static void headless_driver_move_screen_role_cursor(CHARTYPE scrno,
+                                                    short role, short row,
+                                                    short col)
+{
+   headless_move_cursor(headless_screen_role_window(scrno, role), row, col);
+}
+
+static void headless_driver_move_global_window_cursor(
+   TheDriverGlobalWindowRole role, short row, short col)
+{
+   headless_move_cursor(headless_global_window(role), row, col);
+}
+
+static void headless_driver_restore_window_cursor(
+   TheDriverWindow *win, TheDriverWindowCursor cursor)
+{
+   headless_restore_cursor(win, cursor);
+}
+
+static void headless_driver_restore_current_window_cursor(
+   TheDriverWindowCursor cursor)
+{
+   headless_restore_cursor(headless_current_active_window(), cursor);
+}
+
+static void headless_driver_restore_current_role_cursor(
+   short role, TheDriverWindowCursor cursor)
+{
+   headless_restore_cursor(headless_current_role_window(role), cursor);
+}
+
+static void headless_driver_restore_screen_window_cursor(
+   CHARTYPE scrno, TheDriverWindowCursor cursor)
+{
+   headless_restore_cursor(headless_screen_active_window(scrno), cursor);
+}
+
+static void headless_driver_restore_screen_role_cursor(
+   CHARTYPE scrno, short role, TheDriverWindowCursor cursor)
+{
+   headless_restore_cursor(headless_screen_role_window(scrno, role), cursor);
+}
+
+static void headless_driver_restore_global_window_cursor(
+   TheDriverGlobalWindowRole role, TheDriverWindowCursor cursor)
+{
+   headless_restore_cursor(headless_global_window(role), cursor);
+}
+
+static TheDriverCell headless_driver_read_window_cell(TheDriverWindow *win)
+{
+   if (win == NULL)
+      return 0;
+   return headless_cell_at(win, win->cursor_row, win->cursor_col);
+}
+
+static TheDriverCell headless_driver_read_current_window_cell(void)
+{
+   return headless_driver_read_window_cell(headless_current_active_window());
+}
+
+static TheDriverAttr headless_driver_read_current_window_cell_attr_at(
+   short row, short col)
+{
+   TheDriverWindow *win;
+
+   win = headless_current_active_window();
+   if (!headless_window_contains(win, row, col) || win->attrs == NULL)
+      return 0;
+   return win->attrs[headless_cell_index(win, row, col)];
+}
+
+static void headless_driver_put_char_current_window(TheDriverCell ch,
+                                                    CHARTYPE add_ins)
+{
+   TheDriverWindow *win;
+
+   (void)add_ins;
+   win = headless_current_active_window();
+   headless_add_cell_internal(win, ch);
+}
+
+static void headless_driver_set_window_attr(TheDriverWindow *win,
+                                            TheDriverAttr colour)
+{
+   if (win != NULL)
+      win->attr = colour;
+}
+
+static void headless_driver_set_current_window_attr(TheDriverAttr colour)
+{
+   headless_driver_set_window_attr(headless_current_active_window(), colour);
+}
+
+static void headless_driver_set_current_role_attr(short role,
+                                                  TheDriverAttr colour)
+{
+   headless_driver_set_window_attr(headless_current_role_window(role), colour);
+}
+
+static void headless_driver_set_screen_role_attr(CHARTYPE scrno, short role,
+                                                 TheDriverAttr colour)
+{
+   headless_driver_set_window_attr(headless_screen_role_window(scrno, role),
+                                   colour);
+}
+
+static void headless_driver_set_global_window_attr(
+   TheDriverGlobalWindowRole role, TheDriverAttr colour)
+{
+   headless_driver_set_window_attr(headless_global_window(role), colour);
+}
+
+static void headless_driver_set_window_background(TheDriverWindow *win,
+                                                  TheDriverAttr colour)
+{
+   if (win != NULL)
+      win->background = colour;
+}
+
+static void headless_driver_clear_line_at(TheDriverWindow *win, short row,
+                                          TheDriverAttr colour)
+{
+   int col;
+
+   if (win == NULL)
+      return;
+   win->attr = colour;
+   for (col = 0; col < win->cols; col++)
+      headless_set_cell_at(win, row, col, ' ');
+}
+
+static void headless_driver_clear_current_role(short role)
+{
+   headless_clear_window(headless_current_role_window(role));
+}
+
+static void headless_driver_clear_current_role_to_eol(short role)
+{
+   headless_clear_to_eol(headless_current_role_window(role));
+}
+
+static void headless_driver_clear_screen_role_to_eol(CHARTYPE scrno,
+                                                     short role)
+{
+   headless_clear_to_eol(headless_screen_role_window(scrno, role));
+}
+
+static void headless_driver_touch_window(TheDriverWindow *win)
+{
+   if (win == NULL)
+      return;
+   win->dirty = 1;
+   headless_log("touch:window:%d", win->id);
+}
+
+static void headless_driver_touch_line(TheDriverWindow *win, int start,
+                                       int count)
+{
+   if (win == NULL)
+      return;
+   win->dirty = 1;
+   headless_log("touch-line:window:%d:%d:%d", win->id, start, count);
+}
+
+static void headless_driver_touch_current_window(void)
+{
+   TheDriverWindow *win = headless_current_active_window();
+
+   if (win != NULL)
+      headless_driver_touch_window(win);
+}
+
+static void headless_driver_touch_current_role(short role)
+{
+   TheDriverWindow *win = headless_current_role_window(role);
+
+   if (win != NULL)
+      headless_driver_touch_window(win);
+}
+
+static void headless_driver_touch_screen_role(CHARTYPE scrno, short role)
+{
+   TheDriverWindow *win = headless_screen_role_window(scrno, role);
+
+   if (win != NULL)
+      headless_driver_touch_window(win);
+}
+
+static void headless_driver_touch_global_window(
+   TheDriverGlobalWindowRole role)
+{
+   TheDriverWindow *win = headless_global_window(role);
+
+   if (win == NULL)
+      return;
+   win->dirty = 1;
+   headless_log("touch:global:%d", (int)role);
+}
+
+static void headless_driver_touch_and_refresh_current_role(short role)
+{
+   TheDriverWindow *win = headless_current_role_window(role);
+
+   if (win == NULL)
+      return;
+   win->dirty = 1;
+   win->refreshed = 1;
+   headless_log("touch-refresh:current-role:%d", role);
+}
+
+static void headless_driver_touch_and_refresh_screen_role(CHARTYPE scrno,
+                                                          short role)
+{
+   TheDriverWindow *win = headless_screen_role_window(scrno, role);
+
+   if (win == NULL)
+      return;
+   win->dirty = 1;
+   win->refreshed = 1;
+   headless_log("touch-refresh:screen-role:%d:%d", (int)scrno, role);
+}
+
+static void headless_driver_touch_and_refresh_global_window(
+   TheDriverGlobalWindowRole role)
+{
+   TheDriverWindow *win = headless_global_window(role);
+
+   if (win == NULL)
+      return;
+   win->dirty = 1;
+   win->refreshed = 1;
+   headless_log("touch-refresh:global:%d", (int)role);
+}
+
+static void headless_driver_refresh_window(TheDriverWindow *win)
+{
+   if (win == NULL)
+      return;
+   win->refreshed = 1;
+   headless_log("refresh:window:%d", win->id);
+}
+
+static void headless_driver_refresh_window_now(TheDriverWindow *win)
+{
+   if (win == NULL)
+      return;
+   win->refreshed = 1;
+   win->immediate_refreshes++;
+   headless_log("refresh-now:window:%d", win->id);
+}
+
+static void headless_driver_refresh_current_window(void)
+{
+   headless_driver_refresh_window(headless_current_active_window());
+}
+
+static void headless_driver_refresh_current_window_now(void)
+{
+   headless_driver_refresh_window_now(headless_current_active_window());
+}
+
+static void headless_driver_refresh_current_role(short role)
+{
+   TheDriverWindow *win = headless_current_role_window(role);
+
+   if (win == NULL)
+      return;
+   win->refreshed = 1;
+   headless_log("refresh:current-role:%d", role);
+}
+
+static void headless_driver_refresh_current_role_now(short role)
+{
+   TheDriverWindow *win = headless_current_role_window(role);
+
+   if (win == NULL)
+      return;
+   win->refreshed = 1;
+   win->immediate_refreshes++;
+   headless_log("refresh-now:current-role:%d", role);
+}
+
+static void headless_driver_refresh_screen_window(CHARTYPE scrno)
+{
+   TheDriverWindow *win = headless_screen_active_window(scrno);
+
+   if (win == NULL)
+      return;
+   win->refreshed = 1;
+   headless_log("refresh:screen-window:%d", (int)scrno);
+}
+
+static void headless_driver_refresh_screen_role(CHARTYPE scrno, short role)
+{
+   TheDriverWindow *win = headless_screen_role_window(scrno, role);
+
+   if (win == NULL)
+      return;
+   win->refreshed = 1;
+   headless_log("refresh:screen-role:%d:%d", (int)scrno, role);
+}
+
+static void headless_driver_refresh_global_window(
+   TheDriverGlobalWindowRole role)
+{
+   TheDriverWindow *win = headless_global_window(role);
+
+   if (win == NULL)
+      return;
+   win->refreshed = 1;
+   headless_log("refresh:global:%d", (int)role);
+}
+
+static void headless_driver_refresh_global_window_now(
+   TheDriverGlobalWindowRole role)
+{
+   TheDriverWindow *win = headless_global_window(role);
+
+   if (win == NULL)
+      return;
+   win->refreshed = 1;
+   win->immediate_refreshes++;
+   headless_log("refresh-now:global:%d", (int)role);
+}
+
+static void headless_driver_refresh_standard_screen(void)
+{
+   headless_log("refresh:standard");
+}
+
+static void headless_driver_refresh_pad(TheDriverWindow *pad, int pad_row,
+                                        int pad_col, int screen_top,
+                                        int screen_left, int screen_bottom,
+                                        int screen_right)
+{
+   if (pad == NULL)
+      return;
+   pad->refreshed = 1;
+   headless_log("refresh:pad:%d:%d:%d:%d:%d:%d:%d", pad->id, pad_row,
+                pad_col, screen_top, screen_left, screen_bottom,
+                screen_right);
+}
+
+static void headless_driver_update(void)
+{
+   headless_log("update");
+}
+
+static void headless_driver_present_cursor(bool visible)
+{
+   headless_state.cursor_visible = visible ? 1 : 0;
+   headless_log("present-cursor:%d", headless_state.cursor_visible);
+}
+
+static void headless_driver_set_current_window_timeout(int milliseconds)
+{
+   TheDriverWindow *win;
+
+   win = headless_current_active_window();
+   if (win != NULL)
+      win->timeout_ms = milliseconds;
+}
+
+static void headless_driver_draw_box(TheDriverWindow *win)
+{
+   int row;
+   int col;
+
+   if (win == NULL || win->rows <= 0 || win->cols <= 0)
+      return;
+   for (col = 0; col < win->cols; col++)
+   {
+      headless_set_cell_at(win, 0, col, '-');
+      headless_set_cell_at(win, win->rows - 1, col, '-');
+   }
+   for (row = 0; row < win->rows; row++)
+   {
+      headless_set_cell_at(win, row, 0, '|');
+      headless_set_cell_at(win, row, win->cols - 1, '|');
+   }
+   headless_set_cell_at(win, 0, 0, '+');
+   headless_set_cell_at(win, 0, win->cols - 1, '+');
+   headless_set_cell_at(win, win->rows - 1, 0, '+');
+   headless_set_cell_at(win, win->rows - 1, win->cols - 1, '+');
+}
+
+static void headless_driver_draw_vertical_line(TheDriverWindow *win,
+                                               TheDriverCell ch, int len)
+{
+   int i;
+
+   if (win == NULL)
+      return;
+   for (i = 0; i < len; i++)
+      headless_set_cell_at(win, win->cursor_row + i, win->cursor_col, ch);
+}
+
+static void headless_driver_add_string_at(TheDriverWindow *win, short row,
+                                          short col, const char *text)
+{
+   if (win == NULL)
+      return;
+   win->cursor_row = row;
+   win->cursor_col = col;
+   headless_clamp_cursor(win);
+   headless_write_string_at(win, row, col, text);
+}
+
+static void headless_driver_add_global_string_at(
+   TheDriverGlobalWindowRole role, short row, short col, const char *text)
+{
+   headless_driver_add_string_at(headless_global_window(role), row, col, text);
+}
+
+static void headless_driver_add_cell_at(TheDriverWindow *win, short row,
+                                        short col, TheDriverCell ch)
+{
+   if (win == NULL)
+      return;
+   win->cursor_row = row;
+   win->cursor_col = col;
+   headless_clamp_cursor(win);
+   headless_set_cell_at(win, row, col, ch);
+}
+
+static void headless_driver_draw_horizontal_line(TheDriverWindow *win,
+                                                 TheDriverCell ch, int len)
+{
+   int i;
+
+   if (win == NULL)
+      return;
+   for (i = 0; i < len; i++)
+      headless_set_cell_at(win, win->cursor_row, win->cursor_col + i, ch);
+}
+
+static void headless_driver_add_cell(TheDriverWindow *win, TheDriverCell ch)
+{
+   headless_add_cell_internal(win, ch);
+}
+
+static void headless_driver_insert_cell(TheDriverWindow *win,
+                                        TheDriverCell ch)
+{
+   int col;
+
+   if (win == NULL || win->cursor_row < 0 || win->cursor_row >= win->rows)
+      return;
+   for (col = win->cols - 1; col > win->cursor_col; col--)
+      headless_set_cell_at(win, win->cursor_row, col,
+                           headless_cell_at(win, win->cursor_row, col - 1));
+   headless_set_cell_at(win, win->cursor_row, win->cursor_col, ch);
+}
+
+static void headless_driver_delete_cell(TheDriverWindow *win)
+{
+   int col;
+
+   if (win == NULL || win->cursor_row < 0 || win->cursor_row >= win->rows)
+      return;
+   for (col = win->cursor_col; col < win->cols - 1; col++)
+      headless_set_cell_at(win, win->cursor_row, col,
+                           headless_cell_at(win, win->cursor_row, col + 1));
+   if (win->cols > 0)
+      headless_set_cell_at(win, win->cursor_row, win->cols - 1, ' ');
+}
+
+static void headless_driver_add_wide_cell(TheDriverWindow *win,
+                                          const TheDriverWideCell *ch)
+{
+   TheDriverCell cell = '?';
+
+   if (ch != NULL && ch->opaque[0] <= 0x7fU)
+      cell = (TheDriverCell)ch->opaque[0];
+   headless_add_cell_internal(win, cell);
+}
+
+static void headless_driver_write_cell_span(TheDriverWindow *win,
+                                            const TheDriverCell *text,
+                                            int len)
+{
+   int i;
+
+   if (win == NULL || text == NULL || len <= 0)
+      return;
+   for (i = 0; i < len; i++)
+      headless_add_cell_internal(win, text[i]);
+}
+
+static void headless_driver_write_wide_cell_span(TheDriverWindow *win,
+                                                 const TheDriverWideCell *text,
+                                                 int len)
+{
+   int i;
+
+   if (win == NULL || text == NULL || len <= 0)
+      return;
+   for (i = 0; i < len; i++)
+      headless_driver_add_wide_cell(win, &text[i]);
+}
+
+static void headless_driver_set_wide_cell_codepoint(TheDriverWideCell *dest,
+                                                    uint32_t ch,
+                                                    TheDriverAttr colour)
+{
+   if (dest == NULL)
+      return;
+   memset(dest, 0, sizeof(*dest));
+   dest->opaque[0] = ch;
+   dest->opaque[1] = colour;
+}
+
+static void headless_driver_recolour_wide_cell(TheDriverWideCell *cell,
+                                               TheDriverAttr colour)
+{
+   if (cell != NULL)
+      cell->opaque[1] = colour;
+}
+
+static void headless_driver_write_wide_string_at(
+   TheDriverWindow *win, int row, int col, const wchar_t *text,
+   TheDriverAttr colour, int expected_width)
+{
+   int i;
+
+   (void)colour;
+   (void)expected_width;
+   if (win == NULL || text == NULL)
+      return;
+   for (i = 0; text[i] != L'\0'; i++)
+   {
+      TheDriverCell cell = text[i] <= 0x7f ? (TheDriverCell)text[i] : '?';
+
+      headless_set_cell_at(win, row, col + i, cell);
+   }
+}
+
+static void headless_driver_fill_cells_at(TheDriverWindow *win, int row,
+                                          int col, int width,
+                                          TheDriverAttr colour)
+{
+   int i;
+
+   if (win == NULL)
+      return;
+   win->attr = colour;
+   for (i = 0; i < width; i++)
+      headless_set_cell_at(win, row, col + i, ' ');
+}
+
+static void headless_driver_write_ascii_cells_at(TheDriverWindow *win,
+                                                 int row, int col,
+                                                 const char *text, int width,
+                                                 TheDriverAttr colour)
+{
+   int i;
+
+   if (win == NULL || text == NULL)
+      return;
+   win->attr = colour;
+   for (i = 0; i < width; i++)
+   {
+      TheDriverCell cell = text[i] == '\0' ? ' ' : (unsigned char)text[i];
+
+      headless_set_cell_at(win, row, col + i, cell);
+   }
+}
+
+static int headless_driver_read_current_window_key(void)
+{
+   return headless_pop_key();
+}
+
+static int headless_driver_read_current_role_key(short role)
+{
+   (void)role;
+   return headless_pop_key();
+}
+
+static int headless_driver_read_global_window_key(
+   TheDriverGlobalWindowRole role)
+{
+   (void)role;
+   return headless_pop_key();
+}
+
+static int headless_driver_read_window_key(TheDriverWindow *win)
+{
+   (void)win;
+   return headless_pop_key();
+}
+
+static int headless_driver_read_raw_window_key(TheDriverWindow *win)
+{
+   (void)win;
+   return headless_pop_key();
+}
+
+static int headless_driver_read_standard_key(void)
+{
+   return headless_pop_key();
+}
+
+static int headless_driver_read_raw_standard_key(void)
+{
+   return headless_pop_key();
+}
+
+static int headless_driver_is_mouse_key(int key)
+{
+   return key == HEADLESS_MOUSE_KEY;
+}
+
+static int headless_driver_mouse_key_code(void)
+{
+   return HEADLESS_MOUSE_KEY;
+}
+
+static void headless_driver_mouse_position_for_screen_role(
+   CHARTYPE scrno, short role, int *row, int *col)
+{
+   headless_project_mouse(headless_screen_role_window(scrno, role), row, col);
+}
+
+static void headless_driver_mouse_position_for_global(
+   TheDriverGlobalWindowRole role, int *row, int *col)
+{
+   headless_project_mouse(headless_global_window(role), row, col);
+}
+
+static void headless_driver_saved_mouse_position(int *row, int *col)
+{
+   if (row != NULL)
+      *row = headless_state.mouse_valid ? headless_state.mouse_row : -1;
+   if (col != NULL)
+      *col = headless_state.mouse_valid ? headless_state.mouse_col : -1;
+}
+
+static void headless_driver_reset_mouse_position(void)
+{
+   headless_state.mouse_valid = 0;
+}
+
+static int headless_driver_read_mouse_button(int *button, int *action,
+                                             int *modifier)
+{
+   if (!headless_state.mouse_button_valid)
+      return 0;
+   if (button != NULL)
+      *button = headless_state.mouse_button;
+   if (action != NULL)
+      *action = headless_state.mouse_action;
+   if (modifier != NULL)
+      *modifier = headless_state.mouse_modifier;
+   return 1;
+}
+
+static int headless_driver_read_current_role_mouse_event(
+   short role, TheDriverMouseEvent *event)
+{
+   if (event == NULL)
+      return 0;
+   *event = headless_mouse_event_for_window(headless_current_role_window(role));
+   return event->valid;
+}
+
+static int headless_driver_read_mouse_event(TheDriverWindow *win,
+                                            TheDriverMouseEvent *event)
+{
+   if (event == NULL)
+      return 0;
+   *event = headless_mouse_event_for_window(win);
+   return event->valid;
+}
+
+static void headless_driver_prepare_standard_screen_for_shell(void)
+{
+   headless_log("prepare-shell");
+}
+
+static void headless_driver_force_background_and_refresh_window(
+   TheDriverWindow *win)
+{
+   if (win != NULL)
+   {
+      win->refreshed = 1;
+      headless_log("force-background-refresh:window:%d", win->id);
+   }
+}
+
+static void headless_driver_force_background_and_refresh_current_window(void)
+{
+   headless_driver_force_background_and_refresh_window(
+      headless_current_active_window());
+}
+
+static void headless_driver_force_background_and_refresh_standard_screen(void)
+{
+   headless_log("force-background-refresh:standard");
+}
+
+static void headless_driver_touch_current_screen_image(void)
+{
+   headless_log("touch:screen-image");
+}
+
+static void headless_driver_clear_standard_window(void)
+{
+   headless_clear_window(headless_standard_window());
+}
+
+static void headless_driver_erase_standard_window(void)
+{
+   headless_clear_window(headless_standard_window());
+}
+
+static void headless_driver_set_standard_attr(TheDriverAttr colour)
+{
+   headless_driver_set_window_attr(headless_standard_window(), colour);
+}
+
+static void headless_driver_add_standard_string_at(short row, short col,
+                                                   const char *text)
+{
+   headless_driver_add_string_at(headless_standard_window(), row, col, text);
+}
+
+static void headless_driver_move_standard_cursor(short row, short col)
+{
+   headless_move_cursor(headless_standard_window(), row, col);
+}
+
+static void headless_driver_add_standard_ch(TheDriverCell ch)
+{
+   headless_add_cell_internal(headless_standard_window(), ch);
+}
+
+static void headless_driver_redraw_window(TheDriverWindow *win)
+{
+   if (win != NULL)
+      headless_log("redraw:window:%d", win->id);
+}
+
+static void headless_driver_redraw_current_role(short role)
+{
+   if (headless_current_role_window(role) != NULL)
+      headless_log("redraw:current-role:%d", role);
+}
+
+static void headless_driver_redraw_screen_role(CHARTYPE scrno, short role)
+{
+   if (headless_screen_role_window(scrno, role) != NULL)
+      headless_log("redraw:screen-role:%d:%d", (int)scrno, role);
+}
+
+static void headless_driver_redraw_global_window(
+   TheDriverGlobalWindowRole role)
+{
+   if (headless_global_window(role) != NULL)
+      headless_log("redraw:global:%d", (int)role);
+}
+
+static void headless_driver_draw_software_cell(
+   CHARTYPE scrno, TheDriverWindow *win, short row, int col,
+   TheDriverCell base, CursorShape shape)
+{
+   (void)scrno;
+   (void)shape;
+   headless_set_cell_at(win, row, col, base);
+   if (win != NULL)
+      headless_log("software-cell:window:%d:%d:%d", win->id, row, col);
+}
+
+static void headless_driver_draw_software_blank_cell(
+   CHARTYPE scrno, TheDriverWindow *win, short row, int col,
+   TheDriverAttr base, CursorShape shape)
+{
+   (void)scrno;
+   (void)base;
+   (void)shape;
+   headless_set_cell_at(win, row, col, ' ');
+   if (win != NULL)
+      headless_log("software-blank:window:%d:%d:%d", win->id, row, col);
+}
+
+static short headless_driver_refresh_cursor(CHARTYPE scrno)
+{
+   headless_log("refresh-cursor:%d", (int)scrno);
+   return 0;
+}
+
+static short headless_driver_redraw_screen_cursor(CHARTYPE scrno,
+                                                  struct view_details *view)
+{
+   (void)view;
+   headless_log("redraw-screen-cursor:%d", (int)scrno);
+   return 0;
+}
+
+static void headless_driver_move_prefix_cursor(CHARTYPE scrno, short row,
+                                               short col)
+{
+   headless_driver_move_screen_role_cursor(scrno, HEADLESS_ROLE_PREFIX, row,
+                                           col);
+}
+
+static TheDriverCursorTarget headless_driver_filearea_target(
+   LogicalCursor cursor, const CHARTYPE *line, size_t len, int viewport_col,
+   int window_cols)
+{
+   TheDriverCursorTarget target;
+
+   memset(&target, 0, sizeof(target));
+   target.logical = cursor;
+   target.viewport_col = viewport_col;
+   target.raw_display_col = headless_driver_display_col_from_logical(
+      line, len, viewport_col, cursor.text.cell_column);
+   target.display_col = headless_driver_clamp_display_col(
+      target.raw_display_col, window_cols);
+   target.window_cols = window_cols;
+   target.visible = cursor.valid
+                 && cursor.text.cell_column >= viewport_col
+                 && window_cols > 0
+                 && target.raw_display_col < window_cols;
+   return target;
+}
+
+static short headless_driver_move_filearea_cursor(
+   CHARTYPE scrno, struct view_details *view, const CHARTYPE *line,
+   size_t len, short row, int logical_col)
+{
+   LogicalCursor cursor;
+   TheDriverCursorTarget target;
+   TheDriverWindow *win;
+
+   (void)view;
+   win = headless_screen_role_window(scrno, HEADLESS_ROLE_FILEAREA);
+   cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_FILEAREA, 0, row,
+                                textpos_from_cell_virtual(line, len,
+                                                          logical_col,
+                                                          TEXT_SNAP_BACKWARD));
+   target = headless_driver_filearea_target(cursor, line, len, 0,
+                                            win == NULL ? 0 : win->cols);
+   if (win != NULL)
+      headless_move_cursor(win, row, (short)target.display_col);
+   return 0;
+}
+
+static short headless_driver_filearea_cursor_transition(
+   CHARTYPE scrno, struct view_details *view, const CHARTYPE *line,
+   size_t len, short old_row, int old_logical_cell, int new_logical_cell,
+   LENGTHTYPE old_verify_col)
+{
+   (void)view;
+   (void)line;
+   (void)len;
+   headless_log("filearea-cursor-transition:%d:%d:%d:%d:%ld", (int)scrno,
+                old_row, old_logical_cell, new_logical_cell,
+                (long)old_verify_col);
+   return 0;
+}
+
+const TheDriverOps the_headless_driver_ops = {
+   .clamp_display_col = headless_driver_clamp_display_col,
+   .display_col_from_logical = headless_driver_display_col_from_logical,
+   .logical_col_from_display = headless_driver_logical_col_from_display,
+   .viewport_col_for_logical = headless_driver_viewport_col_for_logical,
+   .software_cursor_attr = headless_driver_software_cursor_attr,
+   .current_window_is_role = headless_driver_current_window_is_role,
+   .current_window_exists = headless_driver_current_window_exists,
+   .screen_window_is_role = headless_driver_screen_window_is_role,
+   .current_role_exists = headless_driver_current_role_exists,
+   .screen_role_exists = headless_driver_screen_role_exists,
+   .global_window_exists = headless_driver_global_window_exists,
+   .delete_global_window = headless_driver_delete_global_window,
+   .create_window = headless_driver_create_window,
+   .create_pad = headless_driver_create_pad,
+   .delete_window = headless_driver_delete_window,
+   .enable_keypad = headless_driver_enable_keypad,
+   .enable_standard_keypad = headless_driver_enable_standard_keypad,
+   .set_standard_notimeout = headless_driver_set_standard_notimeout,
+   .set_window_leaveok = headless_driver_set_window_leaveok,
+   .capture_window_cursor = headless_driver_capture_window_cursor,
+   .capture_current_window_cursor =
+      headless_driver_capture_current_window_cursor,
+   .capture_current_previous_window_cursor =
+      headless_driver_capture_current_previous_window_cursor,
+   .capture_current_role_cursor = headless_driver_capture_current_role_cursor,
+   .capture_screen_window_cursor = headless_driver_capture_screen_window_cursor,
+   .capture_screen_role_cursor = headless_driver_capture_screen_role_cursor,
+   .capture_global_window_cursor = headless_driver_capture_global_window_cursor,
+   .window_origin = headless_driver_window_origin,
+   .window_size = headless_driver_window_size,
+   .current_window_origin = headless_driver_current_window_origin,
+   .current_window_size = headless_driver_current_window_size,
+   .current_role_size = headless_driver_current_role_size,
+   .screen_role_size = headless_driver_screen_role_size,
+   .current_window_cursor_screen_point =
+      headless_driver_current_window_cursor_screen_point,
+   .save_current_role_window = headless_driver_save_current_role_window,
+   .replace_current_role_with_relative_window =
+      headless_driver_replace_current_role_with_relative_window,
+   .restore_current_role_window = headless_driver_restore_current_role_window,
+   .delete_current_role_window = headless_driver_delete_current_role_window,
+   .clear_current_screen_roles = headless_driver_clear_current_screen_roles,
+   .move_window_cursor = headless_driver_move_window_cursor,
+   .move_current_window_cursor = headless_driver_move_current_window_cursor,
+   .move_current_previous_window_cursor =
+      headless_driver_move_current_previous_window_cursor,
+   .move_current_role_cursor = headless_driver_move_current_role_cursor,
+   .move_screen_window_cursor = headless_driver_move_screen_window_cursor,
+   .move_screen_role_cursor = headless_driver_move_screen_role_cursor,
+   .move_global_window_cursor = headless_driver_move_global_window_cursor,
+   .restore_window_cursor = headless_driver_restore_window_cursor,
+   .restore_current_window_cursor =
+      headless_driver_restore_current_window_cursor,
+   .restore_current_role_cursor = headless_driver_restore_current_role_cursor,
+   .restore_screen_window_cursor =
+      headless_driver_restore_screen_window_cursor,
+   .restore_screen_role_cursor = headless_driver_restore_screen_role_cursor,
+   .restore_global_window_cursor =
+      headless_driver_restore_global_window_cursor,
+   .read_window_cell = headless_driver_read_window_cell,
+   .read_current_window_cell = headless_driver_read_current_window_cell,
+   .read_current_window_cell_attr_at =
+      headless_driver_read_current_window_cell_attr_at,
+   .put_char_current_window = headless_driver_put_char_current_window,
+   .set_window_attr = headless_driver_set_window_attr,
+   .set_current_window_attr = headless_driver_set_current_window_attr,
+   .set_current_role_attr = headless_driver_set_current_role_attr,
+   .set_screen_role_attr = headless_driver_set_screen_role_attr,
+   .set_global_window_attr = headless_driver_set_global_window_attr,
+   .set_window_background = headless_driver_set_window_background,
+   .clear_line_at = headless_driver_clear_line_at,
+   .clear_current_role = headless_driver_clear_current_role,
+   .clear_current_role_to_eol = headless_driver_clear_current_role_to_eol,
+   .clear_screen_role_to_eol = headless_driver_clear_screen_role_to_eol,
+   .touch_window = headless_driver_touch_window,
+   .touch_line = headless_driver_touch_line,
+   .touch_current_window = headless_driver_touch_current_window,
+   .touch_current_role = headless_driver_touch_current_role,
+   .touch_screen_role = headless_driver_touch_screen_role,
+   .touch_global_window = headless_driver_touch_global_window,
+   .touch_and_refresh_current_role =
+      headless_driver_touch_and_refresh_current_role,
+   .touch_and_refresh_screen_role =
+      headless_driver_touch_and_refresh_screen_role,
+   .touch_and_refresh_global_window =
+      headless_driver_touch_and_refresh_global_window,
+   .refresh_window = headless_driver_refresh_window,
+   .refresh_window_now = headless_driver_refresh_window_now,
+   .refresh_current_window = headless_driver_refresh_current_window,
+   .refresh_current_window_now = headless_driver_refresh_current_window_now,
+   .refresh_current_role = headless_driver_refresh_current_role,
+   .refresh_current_role_now = headless_driver_refresh_current_role_now,
+   .refresh_screen_window = headless_driver_refresh_screen_window,
+   .refresh_screen_role = headless_driver_refresh_screen_role,
+   .refresh_global_window = headless_driver_refresh_global_window,
+   .refresh_global_window_now = headless_driver_refresh_global_window_now,
+   .refresh_standard_screen = headless_driver_refresh_standard_screen,
+   .refresh_pad = headless_driver_refresh_pad,
+   .update = headless_driver_update,
+   .present_cursor = headless_driver_present_cursor,
+   .set_current_window_timeout = headless_driver_set_current_window_timeout,
+   .draw_box = headless_driver_draw_box,
+   .draw_vertical_line = headless_driver_draw_vertical_line,
+   .add_string_at = headless_driver_add_string_at,
+   .add_global_string_at = headless_driver_add_global_string_at,
+   .add_cell_at = headless_driver_add_cell_at,
+   .draw_horizontal_line = headless_driver_draw_horizontal_line,
+   .add_cell = headless_driver_add_cell,
+   .insert_cell = headless_driver_insert_cell,
+   .delete_cell = headless_driver_delete_cell,
+   .add_wide_cell = headless_driver_add_wide_cell,
+   .write_cell_span = headless_driver_write_cell_span,
+   .write_wide_cell_span = headless_driver_write_wide_cell_span,
+   .set_wide_cell_codepoint = headless_driver_set_wide_cell_codepoint,
+   .recolour_wide_cell = headless_driver_recolour_wide_cell,
+   .write_wide_string_at = headless_driver_write_wide_string_at,
+   .fill_cells_at = headless_driver_fill_cells_at,
+   .write_ascii_cells_at = headless_driver_write_ascii_cells_at,
+   .read_current_window_key = headless_driver_read_current_window_key,
+   .read_current_role_key = headless_driver_read_current_role_key,
+   .read_global_window_key = headless_driver_read_global_window_key,
+   .read_window_key = headless_driver_read_window_key,
+   .read_raw_window_key = headless_driver_read_raw_window_key,
+   .read_standard_key = headless_driver_read_standard_key,
+   .read_raw_standard_key = headless_driver_read_raw_standard_key,
+   .is_mouse_key = headless_driver_is_mouse_key,
+   .mouse_key_code = headless_driver_mouse_key_code,
+   .mouse_position_for_screen_role =
+      headless_driver_mouse_position_for_screen_role,
+   .mouse_position_for_global = headless_driver_mouse_position_for_global,
+   .saved_mouse_position = headless_driver_saved_mouse_position,
+   .reset_mouse_position = headless_driver_reset_mouse_position,
+   .read_mouse_button = headless_driver_read_mouse_button,
+   .read_current_role_mouse_event =
+      headless_driver_read_current_role_mouse_event,
+   .read_mouse_event = headless_driver_read_mouse_event,
+   .prepare_standard_screen_for_shell =
+      headless_driver_prepare_standard_screen_for_shell,
+   .force_background_and_refresh_window =
+      headless_driver_force_background_and_refresh_window,
+   .force_background_and_refresh_current_window =
+      headless_driver_force_background_and_refresh_current_window,
+   .force_background_and_refresh_standard_screen =
+      headless_driver_force_background_and_refresh_standard_screen,
+   .touch_current_screen_image = headless_driver_touch_current_screen_image,
+   .clear_standard_window = headless_driver_clear_standard_window,
+   .erase_standard_window = headless_driver_erase_standard_window,
+   .set_standard_attr = headless_driver_set_standard_attr,
+   .add_standard_string_at = headless_driver_add_standard_string_at,
+   .move_standard_cursor = headless_driver_move_standard_cursor,
+   .add_standard_ch = headless_driver_add_standard_ch,
+   .redraw_window = headless_driver_redraw_window,
+   .redraw_current_role = headless_driver_redraw_current_role,
+   .redraw_screen_role = headless_driver_redraw_screen_role,
+   .redraw_global_window = headless_driver_redraw_global_window,
+   .draw_software_cell = headless_driver_draw_software_cell,
+   .draw_software_blank_cell = headless_driver_draw_software_blank_cell,
+   .refresh_cursor = headless_driver_refresh_cursor,
+   .redraw_screen_cursor = headless_driver_redraw_screen_cursor,
+   .move_prefix_cursor = headless_driver_move_prefix_cursor,
+   .filearea_target = headless_driver_filearea_target,
+   .move_filearea_cursor = headless_driver_move_filearea_cursor,
+   .filearea_cursor_transition = headless_driver_filearea_cursor_transition
+};

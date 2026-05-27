@@ -29,6 +29,8 @@ logical_files=(
   src/utfterm.h
   src/llmdriver.c
   src/llmdriver.h
+  src/headlessdriver.c
+  src/headlessdriver.h
   src/transientui.c
   src/transientui.h
   src/uidriver.c
@@ -53,6 +55,17 @@ thedriver_public_violations="$(
 if [[ -n "$thedriver_public_violations" ]]; then
   printf '%s\n' "Unexpected curses public type in src/thedriver.h:"
   printf '%s\n' "$thedriver_public_violations"
+  exit 1
+fi
+
+headless_include_violations="$(
+  rg -n '#[[:space:]]*include[[:space:]]*[<"][^>"]*curses' \
+    src/headlessdriver.c src/headlessdriver.h 2>/dev/null || true
+)"
+
+if [[ -n "$headless_include_violations" ]]; then
+  printf '%s\n' "Unexpected curses include in the headless driver:"
+  printf '%s\n' "$headless_include_violations"
   exit 1
 fi
 
