@@ -503,7 +503,7 @@ static void open_msgline(ROWTYPE base, ROWTYPE off,ROWTYPE rows)
 #ifdef HAVE_KEYPAD
    the_driver->enable_keypad(error_window, true);
 #endif
-   leaveok( error_window, TRUE );
+   the_driver->set_window_leaveok(error_window, true);
    TRACE_RETURN();
    return;
 }

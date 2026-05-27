@@ -3822,7 +3822,7 @@ int find_key_name(CHARTYPE *keyname)
    return(key);
 }
 /***********************************************************************/
-int readv_cmdline(CHARTYPE *initial, WINDOW *dw, int start_col)
+int readv_cmdline(CHARTYPE *initial, TheDriverWindow *dw, int start_col)
 /***********************************************************************/
 {
    int key=0;

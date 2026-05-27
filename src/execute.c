@@ -4210,7 +4210,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
    short prompt_length=0,prompt_max_length=0,prompt_lines=0;
    DEFCHAR *prompt_line[MAXIMUM_DIALOG_LINES+2];
    const char *dialog_prompt_line[MAXIMUM_DIALOG_LINES+2];
-   WINDOW *dialog_win=NULL;
+   TheDriverWindow *dialog_win=NULL;
    TheDriverWindowRoleSave save_command_window;
    CHARTYPE *save_cmd_rec=NULL;
    CHARTYPE *editfield_buf=NULL;
@@ -5269,8 +5269,8 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
  */
    short rc=RC_OK;
    int key,i,j,screenx=x,screeny=y;
-   WINDOW *dialog_win=NULL;
-   WINDOW *pad;
+   TheDriverWindow *dialog_win=NULL;
+   TheDriverWindow *pad;
    short item_selected=-1,highlighted_line;
    char _THE_FAR buf[20]; /* enough for a number */
    int x_offset=0,y_offset=0;
@@ -5360,36 +5360,36 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
       the_driver->draw_box(dialog_win);
       if ( height != pad_height )
       {
-         the_driver->add_chtype_at(dialog_win,0,width-1,' ');
+         the_driver->add_cell_at(dialog_win,0,width-1,' ');
 # ifdef ACS_UARROW
-         the_driver->add_chtype_at(dialog_win,1,width-1,
+         the_driver->add_cell_at(dialog_win,1,width-1,
                                      A_ALTCHARSET|ACS_UARROW);
 # else
-         the_driver->add_chtype_at(dialog_win,1,width-1,'^');
+         the_driver->add_cell_at(dialog_win,1,width-1,'^');
 # endif
 # ifdef ACS_DARROW
-         the_driver->add_chtype_at(dialog_win,height-2,width-1,
+         the_driver->add_cell_at(dialog_win,height-2,width-1,
                                      A_ALTCHARSET|ACS_DARROW);
 # else
-         the_driver->add_chtype_at(dialog_win,height-2,width-1,'v');
+         the_driver->add_cell_at(dialog_win,height-2,width-1,'v');
 # endif
       }
       if ( width != pad_width )
       {
-         the_driver->add_chtype_at(dialog_win,height-1,0,' ');
+         the_driver->add_cell_at(dialog_win,height-1,0,' ');
 # ifdef ACS_LARROW
-         the_driver->add_chtype_at(dialog_win,height-1,1,
+         the_driver->add_cell_at(dialog_win,height-1,1,
                                      A_ALTCHARSET|ACS_LARROW);
 # else
-         the_driver->add_chtype_at(dialog_win,height-1,1,'<');
+         the_driver->add_cell_at(dialog_win,height-1,1,'<');
 # endif
 # ifdef ACS_RARROW
-         the_driver->add_chtype_at(dialog_win,height-1,width-2,
+         the_driver->add_cell_at(dialog_win,height-1,width-2,
                                      A_ALTCHARSET|ACS_RARROW);
 # else
-         the_driver->add_chtype_at(dialog_win,height-1,width-2,'>');
+         the_driver->add_cell_at(dialog_win,height-1,width-2,'>');
 # endif
-         the_driver->add_chtype_at(dialog_win,height-1,width-1,' ');
+         the_driver->add_cell_at(dialog_win,height-1,width-1,' ');
       }
       the_driver->refresh_window(dialog_win);
 #endif
@@ -5425,7 +5425,7 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
                                              1+strlen(snapshot_row->text));
             for (j=1+strlen(snapshot_row->text);j<pad_width-3;j++)
             {
-               the_driver->add_chtype(pad,' ');
+               the_driver->add_cell(pad,' ');
             }
          }
       }

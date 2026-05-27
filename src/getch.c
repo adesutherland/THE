@@ -81,9 +81,9 @@ static FILE *mouse_getch_trace_file(void)
 }
 
 #  ifdef MSWIN
-static void mouse_getch_trace(WINDOW far *winptr, int key)
+static void mouse_getch_trace(TheDriverWindow *winptr, int key)
 #  else
-static void mouse_getch_trace(WINDOW *winptr, int key)
+static void mouse_getch_trace(TheDriverWindow *winptr, int key)
 #  endif
 {
    FILE *trace=mouse_getch_trace_file();
@@ -97,9 +97,9 @@ static void mouse_getch_trace(WINDOW *winptr, int key)
 
 /***********************************************************************/
 #  ifdef MSWIN
-int my_getch (WINDOW far *winptr)
+int my_getch (TheDriverWindow *winptr)
 #  else
-int my_getch (WINDOW *winptr)
+int my_getch (TheDriverWindow *winptr)
 #  endif
 /***********************************************************************/
 {

@@ -604,7 +604,7 @@ static COLOUR_DEF _THE_FAR xedit_colours[ATTR_MAX] =  { {0,0,0,0},{0,0,0,0},{0,0
   CHARTYPE *attrib;
   short attrib_min_len;
   int actual_attrib;
-  chtype colour_modifier;
+  TheDriverAttr colour_modifier;
   bool attrib_modifier;
   bool attrib_allowed_on_mono;
   bool actual_colour;
@@ -668,10 +668,10 @@ short parse_colours(CHARTYPE *attrib,COLOUR_ATTR *pattr,CHARTYPE **rem,bool spar
 {
    register short i=0;
    short num_colours=0;
-   chtype mono=pattr->mono;
-   chtype specified_mod=0L;
-   chtype fg=FOREFROMPAIR(pattr->pair);
-   chtype bg=BACKFROMPAIR(pattr->pair);
+   TheDriverAttr mono=pattr->mono;
+   TheDriverAttr specified_mod=0L;
+   TheDriverAttr fg=FOREFROMPAIR(pattr->pair);
+   TheDriverAttr bg=BACKFROMPAIR(pattr->pair);
    CHARTYPE *string=NULL;
    CHARTYPE *p=NULL,*oldp=NULL;
    bool found=FALSE,any_found=FALSE;
@@ -844,8 +844,8 @@ short parse_modifiers(CHARTYPE *attrib,COLOUR_ATTR *pattr)
 /***********************************************************************/
 {
    register short i=0;
-   chtype mono=pattr->mono;
-   chtype specified_mod=0L;
+   TheDriverAttr mono=pattr->mono;
+   TheDriverAttr specified_mod=0L;
    CHARTYPE *string=NULL;
    CHARTYPE *p=NULL,*last_word=NULL;
    bool found=FALSE;
@@ -926,7 +926,7 @@ short parse_modifiers(CHARTYPE *attrib,COLOUR_ATTR *pattr)
 }
 
 /***********************************************************************/
-chtype merge_curline_colour(COLOUR_ATTR *attr, COLOUR_ATTR *ecolour)
+TheDriverAttr merge_curline_colour(COLOUR_ATTR *attr, COLOUR_ATTR *ecolour)
 /***********************************************************************/
 {
 /*
@@ -934,7 +934,7 @@ chtype merge_curline_colour(COLOUR_ATTR *attr, COLOUR_ATTR *ecolour)
  * attr colour. Also combines the modifiers from both colours to become
  * the new modifier for the combined colours.
  */
-   chtype bg,fg,mod,pair;
+   TheDriverAttr bg,fg,mod,pair;
 
    TRACE_FUNCTION("colour.c:  merge_curline_colour");
 #ifdef A_COLOR
@@ -1100,11 +1100,11 @@ CHARTYPE *get_colour_strings(COLOUR_ATTR *attr)
    register int i=0,j=0;
    CHARTYPE *attr_string=NULL;
    int fg=FOREFROMPAIR(attr->pair),bg=BACKFROMPAIR(attr->pair);
-   chtype mod=attr->mono;
+   TheDriverAttr mod=attr->mono;
    int start_with=0;
    bool colour_only=FALSE;
-   chtype match_value=0L;
-   chtype matched_modifiers=0L;
+   TheDriverAttr match_value=0L;
+   TheDriverAttr matched_modifiers=0L;
 
    TRACE_FUNCTION("colour.c:  get_colour_strings");
 
@@ -1136,12 +1136,12 @@ CHARTYPE *get_colour_strings(COLOUR_ATTR *attr)
       {
          case GET_FG:
             colour_only = TRUE;
-            match_value = (chtype)fg;
+            match_value = (TheDriverAttr)fg;
             break;
          case GET_BG:
             strcat((DEFCHAR *)attr_string,"on ");
             colour_only = TRUE;
-            match_value = (chtype)bg;
+            match_value = (TheDriverAttr)bg;
             break;
          default:
             colour_only = FALSE;
@@ -1156,7 +1156,7 @@ CHARTYPE *get_colour_strings(COLOUR_ATTR *attr)
              * Foreground or background
              */
             if (!valid_attribs[i].attrib_modifier
-            &&  match_value == (chtype)valid_attribs[i].actual_attrib
+            &&  match_value == (TheDriverAttr)valid_attribs[i].actual_attrib
             &&  valid_attribs[i].colour_modifier == 0 )
             {
                strcat((DEFCHAR *)attr_string,(DEFCHAR *)valid_attribs[i].attrib);

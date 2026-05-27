@@ -132,8 +132,8 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
    LINETYPE new_focus_line=0L,new_current_line=0L,edge_line=0L;
    LINETYPE longy=0L,longx=0L;
    ROWTYPE yoff1=0,yoff2=0;
-   chtype color_filearea = set_colour( curr_view->file_for_view->attr+ATTR_FILEAREA );
-   chtype color_cursorline = set_colour( curr_view->file_for_view->attr+ATTR_CURSORLINE );
+   TheDriverAttr color_filearea = set_colour( curr_view->file_for_view->attr+ATTR_FILEAREA );
+   TheDriverAttr color_cursorline = set_colour( curr_view->file_for_view->attr+ATTR_CURSORLINE );
 
    TRACE_FUNCTION("scroll.c:  scroll_line");
    /*

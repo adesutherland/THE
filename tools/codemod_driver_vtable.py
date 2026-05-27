@@ -77,11 +77,11 @@ def load_mapping() -> dict[str, str]:
             "curses_driver_draw_box": "draw_box",
             "curses_driver_draw_vertical_line": "draw_vertical_line",
             "curses_driver_add_string_at": "add_string_at",
-            "curses_driver_add_chtype_at": "add_chtype_at",
+            "curses_driver_add_chtype_at": "add_cell_at",
             "curses_driver_draw_horizontal_line": "draw_horizontal_line",
-            "curses_driver_add_chtype": "add_chtype",
+            "curses_driver_add_chtype": "add_cell",
             "curses_driver_add_cchar": "add_wide_cell",
-            "curses_driver_write_chtype_span": "write_chtype_span",
+            "curses_driver_write_chtype_span": "write_cell_span",
             "curses_driver_write_cchar_span": "write_wide_cell_span",
             "curses_driver_set_cchar_codepoint": "set_wide_cell_codepoint",
             "curses_driver_recolour_cchar": "recolour_wide_cell",
@@ -95,7 +95,7 @@ def load_mapping() -> dict[str, str]:
                 "force_background_and_refresh_window",
             "curses_driver_redraw_window": "redraw_window",
             "curses_driver_draw_software_chtype_cell":
-                "draw_software_chtype_cell",
+                "draw_software_cell",
             "curses_driver_draw_software_blank_cell":
                 "draw_software_blank_cell",
         }

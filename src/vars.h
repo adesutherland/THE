@@ -150,7 +150,7 @@ extern QUERY_ITEM _THE_FAR function_item[];
 extern SCREEN_DETAILS screen[MAX_SCREENS];
 extern short          screen_rows[MAX_SCREENS];
 extern short          screen_cols[MAX_SCREENS];
-extern WINDOW         *statarea,
+extern TheDriverWindow *statarea,
                       *error_window,
                       *divider,
                       *filetabs;
@@ -264,7 +264,7 @@ extern short          lastrc,
                       compatible_keys,
                       prefix_width,
                       prefix_gap;
-extern chtype         etmode_table[256];
+extern TheDriverCell etmode_table[256];
 extern bool           etmode_flag[256];
 extern short          terminal_lines,
                       terminal_cols;
@@ -279,9 +279,9 @@ extern char           *XCursesProgramName;
 #endif
 extern CHARTYPE       *linebuf;
 #if defined(USE_UTF8)
-extern cchar_t        *linebufch;
+extern TheDriverWideCell *linebufch;
 #else
-extern chtype         *linebufch;
+extern TheDriverCell *linebufch;
 #endif
 extern LENGTHTYPE linebuf_size;
 extern int            lastkeys[8],

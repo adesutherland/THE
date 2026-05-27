@@ -17,6 +17,17 @@ typedef enum { CURSOR_PRESENTATION_HARDWARE, CURSOR_PRESENTATION_SOFTWARE } Curs
 #endif
 
 struct view_details;
+typedef struct TheDriverWindow TheDriverWindow;
+
+typedef uint64_t TheDriverAttr;
+typedef uint64_t TheDriverCell;
+
+typedef union
+{
+   uint64_t opaque[8];
+   long double align_long_double;
+   void *align_pointer;
+} TheDriverWideCell;
 
 typedef struct
 {
@@ -96,7 +107,7 @@ typedef struct
 
 typedef struct
 {
-   void *window;
+   TheDriverWindow *window;
    int slot_valid;
 } TheDriverWindowRoleSave;
 
@@ -109,7 +120,6 @@ typedef enum
 } TheDriverGlobalWindowRole;
 
 typedef struct TheDriverOps TheDriverOps;
-typedef void TheDriverWindow;
 
 struct TheDriverOps
 {
@@ -123,8 +133,8 @@ struct TheDriverOps
                                    int current_viewport_col,
                                    int logical_col, int window_cols,
                                    int *display_col, int *visible);
-   chtype (*software_cursor_attr)(CHARTYPE scrno, chtype base,
-                                  CursorShape shape);
+   TheDriverAttr (*software_cursor_attr)(CHARTYPE scrno, TheDriverAttr base,
+                                         CursorShape shape);
    int (*current_window_is_role)(short role);
    int (*current_window_exists)(void);
    int (*screen_window_is_role)(CHARTYPE scrno, short role);
@@ -136,6 +146,9 @@ struct TheDriverOps
    TheDriverWindow *(*create_pad)(int rows, int cols);
    void (*delete_window)(TheDriverWindow *win);
    void (*enable_keypad)(TheDriverWindow *win, bool enabled);
+   void (*enable_standard_keypad)(bool enabled);
+   void (*set_standard_notimeout)(bool enabled);
+   void (*set_window_leaveok)(TheDriverWindow *win, bool enabled);
    TheDriverWindowCursor (*capture_window_cursor)(TheDriverWindow *win);
    TheDriverWindowCursor (*capture_current_window_cursor)(void);
    TheDriverWindowCursor (*capture_current_previous_window_cursor)(void);
@@ -180,18 +193,20 @@ struct TheDriverOps
                                       TheDriverWindowCursor cursor);
    void (*restore_global_window_cursor)(TheDriverGlobalWindowRole role,
                                         TheDriverWindowCursor cursor);
-   chtype (*read_window_cell)(TheDriverWindow *win);
-   chtype (*read_current_window_cell)(void);
-   chtype (*read_current_window_cell_attr_at)(short row, short col);
-   void (*put_char_current_window)(chtype ch, CHARTYPE add_ins);
-   void (*set_window_attr)(TheDriverWindow *win, chtype colour);
-   void (*set_current_window_attr)(chtype colour);
-   void (*set_current_role_attr)(short role, chtype colour);
-   void (*set_screen_role_attr)(CHARTYPE scrno, short role, chtype colour);
+   TheDriverCell (*read_window_cell)(TheDriverWindow *win);
+   TheDriverCell (*read_current_window_cell)(void);
+   TheDriverAttr (*read_current_window_cell_attr_at)(short row, short col);
+   void (*put_char_current_window)(TheDriverCell ch, CHARTYPE add_ins);
+   void (*set_window_attr)(TheDriverWindow *win, TheDriverAttr colour);
+   void (*set_current_window_attr)(TheDriverAttr colour);
+   void (*set_current_role_attr)(short role, TheDriverAttr colour);
+   void (*set_screen_role_attr)(CHARTYPE scrno, short role,
+                                TheDriverAttr colour);
    void (*set_global_window_attr)(TheDriverGlobalWindowRole role,
-                                  chtype colour);
-   void (*set_window_background)(TheDriverWindow *win, chtype colour);
-   void (*clear_line_at)(TheDriverWindow *win, short row, chtype colour);
+                                  TheDriverAttr colour);
+   void (*set_window_background)(TheDriverWindow *win, TheDriverAttr colour);
+   void (*clear_line_at)(TheDriverWindow *win, short row,
+                         TheDriverAttr colour);
    void (*clear_current_role)(short role);
    void (*clear_current_role_to_eol)(short role);
    void (*clear_screen_role_to_eol)(CHARTYPE scrno, short role);
@@ -222,29 +237,35 @@ struct TheDriverOps
    void (*present_cursor)(bool visible);
    void (*set_current_window_timeout)(int milliseconds);
    void (*draw_box)(TheDriverWindow *win);
-   void (*draw_vertical_line)(TheDriverWindow *win, chtype ch, int len);
+   void (*draw_vertical_line)(TheDriverWindow *win, TheDriverCell ch,
+                              int len);
    void (*add_string_at)(TheDriverWindow *win, short row, short col,
                          const char *text);
    void (*add_global_string_at)(TheDriverGlobalWindowRole role, short row,
                                 short col, const char *text);
-   void (*add_chtype_at)(TheDriverWindow *win, short row, short col,
-                         chtype ch);
-   void (*draw_horizontal_line)(TheDriverWindow *win, chtype ch, int len);
-   void (*add_chtype)(TheDriverWindow *win, chtype ch);
-   void (*add_wide_cell)(TheDriverWindow *win, const void *ch);
-   void (*write_chtype_span)(TheDriverWindow *win, const chtype *text,
-                             int len);
-   void (*write_wide_cell_span)(TheDriverWindow *win, const void *text,
+   void (*add_cell_at)(TheDriverWindow *win, short row, short col,
+                       TheDriverCell ch);
+   void (*draw_horizontal_line)(TheDriverWindow *win, TheDriverCell ch,
                                 int len);
-   void (*set_wide_cell_codepoint)(void *dest, uint32_t ch, chtype colour);
-   void (*recolour_wide_cell)(void *cell, chtype colour);
+   void (*add_cell)(TheDriverWindow *win, TheDriverCell ch);
+   void (*insert_cell)(TheDriverWindow *win, TheDriverCell ch);
+   void (*delete_cell)(TheDriverWindow *win);
+   void (*add_wide_cell)(TheDriverWindow *win, const TheDriverWideCell *ch);
+   void (*write_cell_span)(TheDriverWindow *win, const TheDriverCell *text,
+                           int len);
+   void (*write_wide_cell_span)(TheDriverWindow *win,
+                                const TheDriverWideCell *text, int len);
+   void (*set_wide_cell_codepoint)(TheDriverWideCell *dest, uint32_t ch,
+                                   TheDriverAttr colour);
+   void (*recolour_wide_cell)(TheDriverWideCell *cell, TheDriverAttr colour);
    void (*write_wide_string_at)(TheDriverWindow *win, int row, int col,
-                                const wchar_t *text, chtype colour,
+                                const wchar_t *text, TheDriverAttr colour,
                                 int expected_width);
    void (*fill_cells_at)(TheDriverWindow *win, int row, int col, int width,
-                         chtype colour);
+                         TheDriverAttr colour);
    void (*write_ascii_cells_at)(TheDriverWindow *win, int row, int col,
-                                const char *text, int width, chtype colour);
+                                const char *text, int width,
+                                TheDriverAttr colour);
    int (*read_current_window_key)(void);
    int (*read_current_role_key)(short role);
    int (*read_global_window_key)(TheDriverGlobalWindowRole role);
@@ -271,19 +292,19 @@ struct TheDriverOps
    void (*touch_current_screen_image)(void);
    void (*clear_standard_window)(void);
    void (*erase_standard_window)(void);
-   void (*set_standard_attr)(chtype colour);
+   void (*set_standard_attr)(TheDriverAttr colour);
    void (*add_standard_string_at)(short row, short col, const char *text);
    void (*move_standard_cursor)(short row, short col);
-   void (*add_standard_ch)(chtype ch);
+   void (*add_standard_ch)(TheDriverCell ch);
    void (*redraw_window)(TheDriverWindow *win);
    void (*redraw_current_role)(short role);
    void (*redraw_screen_role)(CHARTYPE scrno, short role);
    void (*redraw_global_window)(TheDriverGlobalWindowRole role);
-   void (*draw_software_chtype_cell)(CHARTYPE scrno, TheDriverWindow *win,
-                                     short row, int col, chtype base,
-                                     CursorShape shape);
+   void (*draw_software_cell)(CHARTYPE scrno, TheDriverWindow *win,
+                              short row, int col, TheDriverCell base,
+                              CursorShape shape);
    void (*draw_software_blank_cell)(CHARTYPE scrno, TheDriverWindow *win,
-                                    short row, int col, chtype base,
+                                    short row, int col, TheDriverAttr base,
                                     CursorShape shape);
    short (*refresh_cursor)(CHARTYPE scrno);
    short (*redraw_screen_cursor)(CHARTYPE scrno, struct view_details *view);

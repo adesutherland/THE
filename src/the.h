@@ -127,6 +127,7 @@ extern void ClosedownConsole( int );
 
 #include "textpos.h"
 #include "logcursor.h"
+#include "thedriver.h"
 
 
 /*
@@ -771,41 +772,15 @@ int THE_bg_from_pair(int pair);
 
 #define CURRENT_VIEW                (vd_current)
 #define CURRENT_FILE                (vd_current->file_for_view)
-#define CURRENT_WINDOW              (CURRENT_SCREEN.win[vd_current->current_window])
-#define CURRENT_PREV_WINDOW         (CURRENT_SCREEN.win[vd_current->previous_window])
-#define CURRENT_WINDOW_FILEAREA     (CURRENT_SCREEN.win[WINDOW_FILEAREA])
-#define CURRENT_WINDOW_PREFIX       (CURRENT_SCREEN.win[WINDOW_PREFIX])
-#define CURRENT_WINDOW_GAP          (CURRENT_SCREEN.win[WINDOW_GAP])
-#define CURRENT_WINDOW_COMMAND      (CURRENT_SCREEN.win[WINDOW_COMMAND])
-#define CURRENT_WINDOW_ARROW        (CURRENT_SCREEN.win[WINDOW_ARROW])
-#define CURRENT_WINDOW_IDLINE       (CURRENT_SCREEN.win[WINDOW_IDLINE])
 
 #define VIEW_VIEW(view)             (vd_current)
 #define VIEW_FILE(view)             (view->file_for_view)
-#define VIEW_WINDOW(scr,view)       (screen[(scr)].win[view->current_window])
-#define VIEW_PREV_WINDOW(scr,view)  (screen[(scr)].win[view->previous_window])
 
 #define OTHER_VIEW                  (OTHER_SCREEN.screen_view)
 #define OTHER_FILE                  (OTHER_VIEW->file_for_view)
-#define OTHER_WINDOW                (OTHER_SCREEN.win[OTHER_VIEW->current_window])
-#define OTHER_PREV_WINDOW           (OTHER_SCREEN.win[OTHER_VIEW->previous_window])
-#define OTHER_WINDOW_FILEAREA       (OTHER_SCREEN.win[WINDOW_FILEAREA])
-#define OTHER_WINDOW_PREFIX         (OTHER_SCREEN.win[WINDOW_PREFIX])
-#define OTHER_WINDOW_GAP            (OTHER_SCREEN.win[WINDOW_GAP])
-#define OTHER_WINDOW_COMMAND        (OTHER_SCREEN.win[WINDOW_COMMAND])
-#define OTHER_WINDOW_ARROW          (OTHER_SCREEN.win[WINDOW_ARROW])
-#define OTHER_WINDOW_IDLINE         (OTHER_SCREEN.win[WINDOW_IDLINE])
 
 #define SCREEN_VIEW(scr)            (screen[(scr)].screen_view)
 #define SCREEN_FILE(scr)            (screen[(scr)].screen_view->file_for_view)
-#define SCREEN_WINDOW(scr)          (screen[(scr)].win[screen[(scr)].screen_view->current_window])
-#define SCREEN_PREV_WINDOW(scr)     (screen[(scr)].win[screen[(scr)].screen_view->previous_window])
-#define SCREEN_WINDOW_FILEAREA(scr) (screen[(scr)].win[WINDOW_FILEAREA])
-#define SCREEN_WINDOW_PREFIX(scr)   (screen[(scr)].win[WINDOW_PREFIX])
-#define SCREEN_WINDOW_GAP(scr)      (screen[(scr)].win[WINDOW_GAP])
-#define SCREEN_WINDOW_COMMAND(scr)  (screen[(scr)].win[WINDOW_COMMAND])
-#define SCREEN_WINDOW_ARROW(scr)    (screen[(scr)].win[WINDOW_ARROW])
-#define SCREEN_WINDOW_IDLINE(scr)   (screen[(scr)].win[WINDOW_IDLINE])
 
 #define MARK_VIEW (vd_mark)
 #define MARK_FILE (vd_mark->file_for_view)
@@ -1142,8 +1117,8 @@ typedef struct line LINE;
 struct colour_attr
 {
    int pair;                                  /* pair number for colour */
-   chtype mod;                                       /* colour modifier */
-   chtype mono;                                      /* mono attributes */
+   TheDriverAttr mod;                                       /* colour modifier */
+   TheDriverAttr mono;                                      /* mono attributes */
 };
 typedef struct colour_attr COLOUR_ATTR;
 
@@ -1158,7 +1133,7 @@ struct reserved
    short disp_length;  /* length of reserved line after CTLCHAR applied */
    short base;                                              /* row base */
    short off;                                   /* row offset from base */
-   chtype *highlighting;           /* array of colours for highlighting */
+   TheDriverAttr *highlighting;           /* array of colours for highlighting */
    COLOUR_ATTR *attr;                              /* colour attributes */
    bool autoscroll;  /* does the reserved line scroll with autoscroll settings */
 };
@@ -1741,20 +1716,20 @@ struct show_line
     */
 
    LENGTHTYPE length;                   /* number of characters in line */
-   chtype normal_colour;                      /* normal colour for line */
-   chtype other_colour;                        /* other colour for line */
+   TheDriverAttr normal_colour;                      /* normal colour for line */
+   TheDriverAttr other_colour;                        /* other colour for line */
    LENGTHTYPE other_start_col; /* start column of other colour from col 0 */
    LENGTHTYPE other_end_col;   /* end column of other colour from col 0 */
-   chtype prefix_colour;                            /* colour of prefix */
-   chtype gap_colour;                           /* colour of prefix gap */
+   TheDriverAttr prefix_colour;                            /* colour of prefix */
+   TheDriverAttr gap_colour;                           /* colour of prefix gap */
    CHARTYPE prefix[MAX_PREFIX_WIDTH+1];      /* contents of prefix area */
-   chtype prefix_highlighting[MAX_PREFIX_WIDTH+1];    /* array of colours for syntax highlighting */
+   TheDriverAttr prefix_highlighting[MAX_PREFIX_WIDTH+1];    /* array of colours for syntax highlighting */
    CHARTYPE gap[MAX_PREFIX_WIDTH+1];          /* contents of prefix gap */
-   chtype gap_highlighting[MAX_PREFIX_WIDTH+1];    /* array of colours for syntax highlighting */
+   TheDriverAttr gap_highlighting[MAX_PREFIX_WIDTH+1];    /* array of colours for syntax highlighting */
    /*
     * The following 2 array MUST be the same size
     */
-   chtype highlighting[THE_MAX_SCREEN_WIDTH];    /* array of colours for syntax highlighting */
+   TheDriverAttr highlighting[THE_MAX_SCREEN_WIDTH];    /* array of colours for syntax highlighting */
    CHARTYPE filectlchar_disp[THE_MAX_SCREEN_WIDTH+1]; /* file line after CTLCHAR markup */
 //   CHARTYPE highlight_type[THE_MAX_SCREEN_WIDTH];    /* array of syntax types for later querying */
    unsigned char *highlight_type;
@@ -1776,7 +1751,7 @@ typedef struct
    COLTYPE cols[VIEW_WINDOWS];                        /* cols in window */
    ROWTYPE start_row[VIEW_WINDOWS];              /* start row of window */
    COLTYPE start_col[VIEW_WINDOWS];              /* start col of window */
-   WINDOW *win[VIEW_WINDOWS];  /* curses windows for the screen display */
+   TheDriverWindow *win[VIEW_WINDOWS];  /* curses windows for the screen display */
    VIEW_DETAILS *screen_view;    /* view being displayed in this screen */
    SHOW_LINE *sl;       /* pointer to SHOW_DETAILS structure for screen */
 } SCREEN_DETAILS;
@@ -1784,10 +1759,10 @@ typedef struct
 /* structure for colour definitions */
 typedef struct
 {
-   chtype fore;
-   chtype back;
-   chtype mod;
-   chtype mono;
+   TheDriverAttr fore;
+   TheDriverAttr back;
+   TheDriverAttr mod;
+   TheDriverAttr mono;
 } COLOUR_DEF;
 
 /* structure for regular expression syntaxes */

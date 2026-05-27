@@ -120,8 +120,23 @@ static int curses_driver_valid_view_role(short role)
    return role >= 0 && role < VIEW_WINDOWS;
 }
 
-static WINDOW **curses_driver_screen_role_window_slot(CHARTYPE scrno,
-                                                      short role)
+static WINDOW *curses_driver_window_from_driver(TheDriverWindow *win)
+{
+   return (WINDOW *)win;
+}
+
+static TheDriverWindow *curses_driver_window_to_driver(WINDOW *win)
+{
+   return (TheDriverWindow *)win;
+}
+
+#ifdef USE_UTF8
+typedef char TheDriverWideCell_must_fit_cchar_t[
+   (sizeof(TheDriverWideCell) >= sizeof(cchar_t)) ? 1 : -1];
+#endif
+
+static TheDriverWindow **curses_driver_screen_role_window_slot(CHARTYPE scrno,
+                                                              short role)
 {
    if (!curses_driver_valid_screen(scrno)
    ||  !curses_driver_valid_view_role(role))
@@ -131,9 +146,9 @@ static WINDOW **curses_driver_screen_role_window_slot(CHARTYPE scrno,
 
 static WINDOW *curses_driver_screen_role_window(CHARTYPE scrno, short role)
 {
-   WINDOW **slot = curses_driver_screen_role_window_slot(scrno, role);
+   TheDriverWindow **slot = curses_driver_screen_role_window_slot(scrno, role);
 
-   return (slot == NULL) ? NULL : *slot;
+   return (slot == NULL) ? NULL : curses_driver_window_from_driver(*slot);
 }
 
 static WINDOW *curses_driver_screen_active_window(CHARTYPE scrno)
@@ -145,7 +160,8 @@ static WINDOW *curses_driver_screen_active_window(CHARTYPE scrno)
    view = screen[scrno].screen_view;
    if (view == NULL || !curses_driver_valid_view_role(view->current_window))
       return NULL;
-   return screen[scrno].win[view->current_window];
+   return curses_driver_window_from_driver(
+      screen[scrno].win[view->current_window]);
 }
 
 static WINDOW *curses_driver_screen_previous_window(CHARTYPE scrno)
@@ -157,7 +173,8 @@ static WINDOW *curses_driver_screen_previous_window(CHARTYPE scrno)
    view = screen[scrno].screen_view;
    if (view == NULL || !curses_driver_valid_view_role(view->previous_window))
       return NULL;
-   return screen[scrno].win[view->previous_window];
+   return curses_driver_window_from_driver(
+      screen[scrno].win[view->previous_window]);
 }
 
 static WINDOW *curses_driver_current_active_window(void)
@@ -180,18 +197,19 @@ static WINDOW *curses_driver_global_window(CursesDriverGlobalWindowRole role)
    switch (role)
    {
       case CURSES_DRIVER_GLOBAL_STATAREA:
-         return statarea;
+         return curses_driver_window_from_driver(statarea);
       case CURSES_DRIVER_GLOBAL_ERROR:
-         return error_window;
+         return curses_driver_window_from_driver(error_window);
       case CURSES_DRIVER_GLOBAL_DIVIDER:
-         return divider;
+         return curses_driver_window_from_driver(divider);
       case CURSES_DRIVER_GLOBAL_FILETABS:
-         return filetabs;
+         return curses_driver_window_from_driver(filetabs);
    }
    return NULL;
 }
 
-static WINDOW **curses_driver_global_window_slot(CursesDriverGlobalWindowRole role)
+static TheDriverWindow **curses_driver_global_window_slot(
+   CursesDriverGlobalWindowRole role)
 {
    switch (role)
    {
@@ -588,11 +606,11 @@ int curses_driver_global_window_exists(CursesDriverGlobalWindowRole role)
 
 void curses_driver_delete_global_window(CursesDriverGlobalWindowRole role)
 {
-   WINDOW **slot = curses_driver_global_window_slot(role);
+   TheDriverWindow **slot = curses_driver_global_window_slot(role);
 
    if (slot == NULL || *slot == NULL)
       return;
-   curses_driver_delete_window(*slot);
+   curses_driver_delete_window(curses_driver_window_from_driver(*slot));
    *slot = NULL;
 }
 
@@ -662,7 +680,8 @@ CursesDriverScreenPoint curses_driver_current_window_cursor_screen_point(void)
 
 CursesDriverWindowRoleSave curses_driver_save_current_role_window(short role)
 {
-   WINDOW **slot = curses_driver_screen_role_window_slot(current_screen, role);
+   TheDriverWindow **slot =
+      curses_driver_screen_role_window_slot(current_screen, role);
    CursesDriverWindowRoleSave saved;
 
    saved.window = NULL;
@@ -678,7 +697,8 @@ int curses_driver_replace_current_role_with_relative_window(
    short role, WINDOW *parent, int rows, int cols, int row, int col,
    CursesDriverWindowRoleSave *saved)
 {
-   WINDOW **slot = curses_driver_screen_role_window_slot(current_screen, role);
+   TheDriverWindow **slot =
+      curses_driver_screen_role_window_slot(current_screen, role);
 
    if (saved != NULL)
    {
@@ -692,30 +712,32 @@ int curses_driver_replace_current_role_with_relative_window(
       saved->window = *slot;
       saved->slot_valid = 1;
    }
-   *slot = curses_driver_create_relative_window(parent, rows, cols, row, col);
+   *slot = curses_driver_window_to_driver(
+      curses_driver_create_relative_window(parent, rows, cols, row, col));
    return *slot != NULL;
 }
 
 void curses_driver_restore_current_role_window(
    short role, CursesDriverWindowRoleSave saved)
 {
-   WINDOW **slot;
+   TheDriverWindow **slot;
 
    if (!saved.slot_valid)
       return;
    slot = curses_driver_screen_role_window_slot(current_screen, role);
    if (slot == NULL)
       return;
-   *slot = (WINDOW *)saved.window;
+   *slot = saved.window;
 }
 
 void curses_driver_delete_current_role_window(short role)
 {
-   WINDOW **slot = curses_driver_screen_role_window_slot(current_screen, role);
+   TheDriverWindow **slot =
+      curses_driver_screen_role_window_slot(current_screen, role);
 
    if (slot == NULL || *slot == NULL)
       return;
-   curses_driver_delete_window(*slot);
+   curses_driver_delete_window(curses_driver_window_from_driver(*slot));
    *slot = NULL;
 }
 
@@ -901,7 +923,8 @@ chtype curses_driver_read_current_window_cell_attr_at(short row, short col)
 
 void curses_driver_put_char_current_window(chtype ch, CHARTYPE add_ins)
 {
-   put_char(curses_driver_current_active_window(), ch, add_ins);
+   put_char(curses_driver_window_to_driver(curses_driver_current_active_window()),
+            ch, add_ins);
 }
 
 void curses_driver_set_window_attr(WINDOW *win, chtype colour)
@@ -971,7 +994,7 @@ void curses_driver_clear_to_eol(WINDOW *win)
 {
    if (win == NULL)
       return;
-   my_wclrtoeol(win);
+   my_wclrtoeol(curses_driver_window_to_driver(win));
 }
 
 void curses_driver_clear_current_role_to_eol(short role)
@@ -1043,7 +1066,7 @@ void curses_driver_clear_line_at(WINDOW *win, short row, chtype colour)
       return;
    curses_driver_move_window_cursor(win, row, 0);
    curses_driver_set_window_attr(win, colour);
-   my_wclrtoeol(win);
+   my_wclrtoeol(curses_driver_window_to_driver(win));
 }
 
 void curses_driver_refresh_window(WINDOW *win)
@@ -1254,7 +1277,8 @@ int curses_driver_read_window_key(WINDOW *win)
 {
    if (win == NULL)
       return ERR;
-   return curses_driver_translate_input_key(my_getch(win));
+   return curses_driver_translate_input_key(
+      my_getch(curses_driver_window_to_driver(win)));
 }
 
 int curses_driver_read_current_window_key(void)
@@ -1274,7 +1298,8 @@ int curses_driver_read_global_window_key(CursesDriverGlobalWindowRole role)
 
 int curses_driver_read_standard_key(void)
 {
-   return curses_driver_translate_input_key(my_getch(stdscr));
+   return curses_driver_translate_input_key(
+      my_getch(curses_driver_window_to_driver(stdscr)));
 }
 
 int curses_driver_read_raw_window_key(WINDOW *win)
@@ -1749,7 +1774,7 @@ void curses_driver_redraw_window(WINDOW *win)
 #ifndef VMS
          ch &= A_CHARTEXT;
 #endif
-         put_char(win, ch, ADDCHAR);
+         put_char(curses_driver_window_to_driver(win), ch, ADDCHAR);
       }
    }
    curses_driver_restore_window_cursor(win, cursor);
@@ -1791,9 +1816,11 @@ short curses_driver_redraw_screen_cursor(CHARTYPE scrno, struct view_details *vi
 
 void curses_driver_move_prefix_cursor(CHARTYPE scrno, short row, short col)
 {
-   if (scrno >= MAX_SCREENS || SCREEN_WINDOW_PREFIX(scrno) == NULL)
+   WINDOW *win = curses_driver_screen_role_window(scrno, WINDOW_PREFIX);
+
+   if (scrno >= MAX_SCREENS || win == NULL)
       return;
-   curses_driver_move_window_cursor(SCREEN_WINDOW_PREFIX(scrno), row, col);
+   curses_driver_move_window_cursor(win, row, col);
 }
 
 CursesDriverCursorTarget curses_driver_filearea_target(
@@ -1825,8 +1852,9 @@ short curses_driver_move_filearea_cursor(CHARTYPE scrno, struct view_details *vi
 {
    LogicalCursor cursor;
    CursesDriverCursorTarget target;
+   WINDOW *win = curses_driver_screen_role_window(scrno, WINDOW_FILEAREA);
 
-   if (view == NULL || SCREEN_WINDOW_FILEAREA(scrno) == NULL)
+   if (view == NULL || win == NULL)
       return RC_OK;
    cursor = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_FILEAREA,
                                      view->focus_line, row, line, len,
@@ -1835,7 +1863,7 @@ short curses_driver_move_filearea_cursor(CHARTYPE scrno, struct view_details *vi
                                           (int)view->verify_col - 1,
                                           screen[scrno].cols[WINDOW_FILEAREA]);
    logical_cursor_state_focus(&view->logical_cursor, cursor);
-   wmove(SCREEN_WINDOW_FILEAREA(scrno), row, target.display_col);
+   wmove(win, row, target.display_col);
    return RC_OK;
 }
 
@@ -1850,11 +1878,14 @@ short curses_driver_filearea_cursor_transition(CHARTYPE scrno,
    short new_row = 0;
    short new_col = 0;
    int viewport_col;
+   WINDOW *win = curses_driver_screen_role_window(scrno, WINDOW_FILEAREA);
 
    if (!current_cursor_uses_software())
       return RC_OK;
+   if (win == NULL)
+      return RC_OK;
 
-   getyx(SCREEN_WINDOW_FILEAREA(scrno), new_row, new_col);
+   getyx(win, new_row, new_col);
    INTENTIONALLY_UNUSED_VARIABLE(new_col);
    if (view == NULL
    ||  view->verify_col != old_verify_col
@@ -1874,16 +1905,6 @@ short curses_driver_filearea_cursor_transition(CHARTYPE scrno,
    curses_driver_move_filearea_cursor(scrno, view, line, len,
                                       new_row, new_logical_cell);
    return curses_driver_refresh_cursor(scrno);
-}
-
-static WINDOW *curses_driver_window_from_driver(TheDriverWindow *win)
-{
-   return (WINDOW *)win;
-}
-
-static TheDriverWindow *curses_driver_window_to_driver(WINDOW *win)
-{
-   return (TheDriverWindow *)win;
 }
 
 static TheDriverWindow *curses_driver_ops_create_window(int rows, int cols,
@@ -1906,6 +1927,25 @@ static void curses_driver_ops_delete_window(TheDriverWindow *win)
 static void curses_driver_ops_enable_keypad(TheDriverWindow *win, bool enabled)
 {
    curses_driver_enable_keypad(curses_driver_window_from_driver(win), enabled);
+}
+
+static void curses_driver_ops_enable_standard_keypad(bool enabled)
+{
+   keypad(stdscr, enabled ? TRUE : FALSE);
+}
+
+static void curses_driver_ops_set_standard_notimeout(bool enabled)
+{
+   notimeout(stdscr, enabled ? TRUE : FALSE);
+}
+
+static void curses_driver_ops_set_window_leaveok(TheDriverWindow *win,
+                                                 bool enabled)
+{
+   WINDOW *curses_win = curses_driver_window_from_driver(win);
+
+   if (curses_win != NULL)
+      leaveok(curses_win, enabled ? TRUE : FALSE);
 }
 
 static TheDriverWindowCursor curses_driver_ops_capture_window_cursor(
@@ -1949,30 +1989,79 @@ static void curses_driver_ops_restore_window_cursor(
                                        cursor);
 }
 
-static chtype curses_driver_ops_read_window_cell(TheDriverWindow *win)
+static TheDriverAttr curses_driver_ops_software_cursor_attr(
+   CHARTYPE scrno, TheDriverAttr base, CursorShape shape)
 {
-   return curses_driver_read_window_cell(curses_driver_window_from_driver(win));
+   return (TheDriverAttr)curses_driver_software_cursor_attr(
+      scrno, (chtype)base, shape);
+}
+
+static TheDriverCell curses_driver_ops_read_window_cell(TheDriverWindow *win)
+{
+   return (TheDriverCell)curses_driver_read_window_cell(
+      curses_driver_window_from_driver(win));
+}
+
+static TheDriverCell curses_driver_ops_read_current_window_cell(void)
+{
+   return (TheDriverCell)curses_driver_read_current_window_cell();
+}
+
+static TheDriverAttr curses_driver_ops_read_current_window_cell_attr_at(
+   short row, short col)
+{
+   return (TheDriverAttr)curses_driver_read_current_window_cell_attr_at(row,
+                                                                        col);
+}
+
+static void curses_driver_ops_put_char_current_window(TheDriverCell ch,
+                                                      CHARTYPE add_ins)
+{
+   curses_driver_put_char_current_window((chtype)ch, add_ins);
 }
 
 static void curses_driver_ops_set_window_attr(TheDriverWindow *win,
-                                              chtype colour)
+                                              TheDriverAttr colour)
 {
    curses_driver_set_window_attr(curses_driver_window_from_driver(win),
-                                 colour);
+                                 (chtype)colour);
+}
+
+static void curses_driver_ops_set_current_window_attr(TheDriverAttr colour)
+{
+   curses_driver_set_current_window_attr((chtype)colour);
+}
+
+static void curses_driver_ops_set_current_role_attr(short role,
+                                                    TheDriverAttr colour)
+{
+   curses_driver_set_current_role_attr(role, (chtype)colour);
+}
+
+static void curses_driver_ops_set_screen_role_attr(CHARTYPE scrno, short role,
+                                                   TheDriverAttr colour)
+{
+   curses_driver_set_screen_role_attr(scrno, role, (chtype)colour);
+}
+
+static void curses_driver_ops_set_global_window_attr(
+   TheDriverGlobalWindowRole role, TheDriverAttr colour)
+{
+   curses_driver_set_global_window_attr(role, (chtype)colour);
 }
 
 static void curses_driver_ops_set_window_background(TheDriverWindow *win,
-                                                    chtype colour)
+                                                    TheDriverAttr colour)
 {
    curses_driver_set_window_background(curses_driver_window_from_driver(win),
-                                       colour);
+                                       (chtype)colour);
 }
 
 static void curses_driver_ops_clear_line_at(TheDriverWindow *win, short row,
-                                            chtype colour)
+                                            TheDriverAttr colour)
 {
    curses_driver_clear_line_at(curses_driver_window_from_driver(win), row,
-                               colour);
+                               (chtype)colour);
 }
 
 static void curses_driver_ops_touch_window(TheDriverWindow *win)
@@ -2013,10 +2102,10 @@ static void curses_driver_ops_draw_box(TheDriverWindow *win)
 }
 
 static void curses_driver_ops_draw_vertical_line(TheDriverWindow *win,
-                                                 chtype ch, int len)
+                                                 TheDriverCell ch, int len)
 {
-   curses_driver_draw_vertical_line(curses_driver_window_from_driver(win), ch,
-                                    len);
+   curses_driver_draw_vertical_line(curses_driver_window_from_driver(win),
+                                    (chtype)ch, len);
 }
 
 static void curses_driver_ops_add_string_at(TheDriverWindow *win, short row,
@@ -2026,27 +2115,45 @@ static void curses_driver_ops_add_string_at(TheDriverWindow *win, short row,
                                text);
 }
 
-static void curses_driver_ops_add_chtype_at(TheDriverWindow *win, short row,
-                                            short col, chtype ch)
+static void curses_driver_ops_add_cell_at(TheDriverWindow *win, short row,
+                                          short col, TheDriverCell ch)
 {
    curses_driver_add_chtype_at(curses_driver_window_from_driver(win), row, col,
-                               ch);
+                               (chtype)ch);
 }
 
 static void curses_driver_ops_draw_horizontal_line(TheDriverWindow *win,
-                                                   chtype ch, int len)
+                                                   TheDriverCell ch, int len)
 {
    curses_driver_draw_horizontal_line(curses_driver_window_from_driver(win),
-                                      ch, len);
+                                      (chtype)ch, len);
 }
 
-static void curses_driver_ops_add_chtype(TheDriverWindow *win, chtype ch)
+static void curses_driver_ops_add_cell(TheDriverWindow *win, TheDriverCell ch)
 {
-   curses_driver_add_chtype(curses_driver_window_from_driver(win), ch);
+   curses_driver_add_chtype(curses_driver_window_from_driver(win),
+                            (chtype)ch);
+}
+
+static void curses_driver_ops_insert_cell(TheDriverWindow *win,
+                                          TheDriverCell ch)
+{
+   WINDOW *curses_win = curses_driver_window_from_driver(win);
+
+   if (curses_win != NULL)
+      winsch(curses_win, (chtype)ch);
+}
+
+static void curses_driver_ops_delete_cell(TheDriverWindow *win)
+{
+   WINDOW *curses_win = curses_driver_window_from_driver(win);
+
+   if (curses_win != NULL)
+      wdelch(curses_win);
 }
 
 static void curses_driver_ops_add_wide_cell(TheDriverWindow *win,
-                                            const void *ch)
+                                            const TheDriverWideCell *ch)
 {
 #ifdef USE_UTF8
    curses_driver_add_cchar(curses_driver_window_from_driver(win),
@@ -2057,12 +2164,21 @@ static void curses_driver_ops_add_wide_cell(TheDriverWindow *win,
 #endif
 }
 
-static void curses_driver_ops_write_chtype_span(TheDriverWindow *win,
-                                                const chtype *text, int len)
+static void curses_driver_ops_write_cell_span(TheDriverWindow *win,
+                                              const TheDriverCell *text,
+                                              int len)
 {
 #ifdef HAVE_WADDCHNSTR
-   curses_driver_write_chtype_span(curses_driver_window_from_driver(win), text,
-                                   len);
+   WINDOW *curses_win = curses_driver_window_from_driver(win);
+   int i;
+
+   if (sizeof(TheDriverCell) == sizeof(chtype))
+   {
+      curses_driver_write_chtype_span(curses_win, (const chtype *)text, len);
+      return;
+   }
+   for (i = 0; i < len; i++)
+      curses_driver_add_chtype(curses_win, (chtype)text[i]);
 #else
    INTENTIONALLY_UNUSED_VARIABLE(win);
    INTENTIONALLY_UNUSED_VARIABLE(text);
@@ -2071,11 +2187,20 @@ static void curses_driver_ops_write_chtype_span(TheDriverWindow *win,
 }
 
 static void curses_driver_ops_write_wide_cell_span(TheDriverWindow *win,
-                                                   const void *text, int len)
+                                                   const TheDriverWideCell *text,
+                                                   int len)
 {
 #if defined(HAVE_WADDCHNSTR) && defined(USE_UTF8)
-   curses_driver_write_cchar_span(curses_driver_window_from_driver(win),
-                                  (const cchar_t *)text, len);
+   WINDOW *curses_win = curses_driver_window_from_driver(win);
+   int i;
+
+   if (sizeof(TheDriverWideCell) == sizeof(cchar_t))
+   {
+      curses_driver_write_cchar_span(curses_win, (const cchar_t *)text, len);
+      return;
+   }
+   for (i = 0; i < len; i++)
+      curses_driver_add_cchar(curses_win, (const cchar_t *)&text[i]);
 #else
    INTENTIONALLY_UNUSED_VARIABLE(win);
    INTENTIONALLY_UNUSED_VARIABLE(text);
@@ -2083,11 +2208,12 @@ static void curses_driver_ops_write_wide_cell_span(TheDriverWindow *win,
 #endif
 }
 
-static void curses_driver_ops_set_wide_cell_codepoint(void *dest, uint32_t ch,
-                                                      chtype colour)
+static void curses_driver_ops_set_wide_cell_codepoint(TheDriverWideCell *dest,
+                                                      uint32_t ch,
+                                                      TheDriverAttr colour)
 {
 #ifdef USE_UTF8
-   curses_driver_set_cchar_codepoint((cchar_t *)dest, ch, colour);
+   curses_driver_set_cchar_codepoint((cchar_t *)dest, ch, (chtype)colour);
 #else
    INTENTIONALLY_UNUSED_VARIABLE(dest);
    INTENTIONALLY_UNUSED_VARIABLE(ch);
@@ -2095,10 +2221,11 @@ static void curses_driver_ops_set_wide_cell_codepoint(void *dest, uint32_t ch,
 #endif
 }
 
-static void curses_driver_ops_recolour_wide_cell(void *cell, chtype colour)
+static void curses_driver_ops_recolour_wide_cell(TheDriverWideCell *cell,
+                                                 TheDriverAttr colour)
 {
 #ifdef USE_UTF8
-   curses_driver_recolour_cchar((cchar_t *)cell, colour);
+   curses_driver_recolour_cchar((cchar_t *)cell, (chtype)colour);
 #else
    INTENTIONALLY_UNUSED_VARIABLE(cell);
    INTENTIONALLY_UNUSED_VARIABLE(colour);
@@ -2106,12 +2233,13 @@ static void curses_driver_ops_recolour_wide_cell(void *cell, chtype colour)
 }
 
 static void curses_driver_ops_write_wide_string_at(
-   TheDriverWindow *win, int row, int col, const wchar_t *text, chtype colour,
-   int expected_width)
+   TheDriverWindow *win, int row, int col, const wchar_t *text,
+   TheDriverAttr colour, int expected_width)
 {
 #ifdef USE_UTF8
    curses_driver_write_wide_string_at(curses_driver_window_from_driver(win),
-                                      row, col, text, colour, expected_width);
+                                      row, col, text, (chtype)colour,
+                                      expected_width);
 #else
    INTENTIONALLY_UNUSED_VARIABLE(win);
    INTENTIONALLY_UNUSED_VARIABLE(row);
@@ -2123,11 +2251,12 @@ static void curses_driver_ops_write_wide_string_at(
 }
 
 static void curses_driver_ops_fill_cells_at(TheDriverWindow *win, int row,
-                                            int col, int width, chtype colour)
+                                            int col, int width,
+                                            TheDriverAttr colour)
 {
 #ifdef USE_UTF8
    curses_driver_fill_cells_at(curses_driver_window_from_driver(win), row, col,
-                               width, colour);
+                               width, (chtype)colour);
 #else
    INTENTIONALLY_UNUSED_VARIABLE(win);
    INTENTIONALLY_UNUSED_VARIABLE(row);
@@ -2139,11 +2268,11 @@ static void curses_driver_ops_fill_cells_at(TheDriverWindow *win, int row,
 
 static void curses_driver_ops_write_ascii_cells_at(
    TheDriverWindow *win, int row, int col, const char *text, int width,
-   chtype colour)
+   TheDriverAttr colour)
 {
 #ifdef USE_UTF8
    curses_driver_write_ascii_cells_at(curses_driver_window_from_driver(win),
-                                      row, col, text, width, colour);
+                                      row, col, text, width, (chtype)colour);
 #else
    INTENTIONALLY_UNUSED_VARIABLE(win);
    INTENTIONALLY_UNUSED_VARIABLE(row);
@@ -2189,20 +2318,34 @@ static void curses_driver_ops_redraw_window(TheDriverWindow *win)
    curses_driver_redraw_window(curses_driver_window_from_driver(win));
 }
 
-static void curses_driver_ops_draw_software_chtype_cell(
-   CHARTYPE scrno, TheDriverWindow *win, short row, int col, chtype base,
+static void curses_driver_ops_set_standard_attr(TheDriverAttr colour)
+{
+   curses_driver_set_standard_attr((chtype)colour);
+}
+
+static void curses_driver_ops_add_standard_ch(TheDriverCell ch)
+{
+   curses_driver_add_standard_ch((chtype)ch);
+}
+
+static void curses_driver_ops_draw_software_cell(
+   CHARTYPE scrno, TheDriverWindow *win, short row, int col,
+   TheDriverCell base,
    CursorShape shape)
 {
    curses_driver_draw_software_chtype_cell(
-      scrno, curses_driver_window_from_driver(win), row, col, base, shape);
+      scrno, curses_driver_window_from_driver(win), row, col, (chtype)base,
+      shape);
 }
 
 static void curses_driver_ops_draw_software_blank_cell(
-   CHARTYPE scrno, TheDriverWindow *win, short row, int col, chtype base,
+   CHARTYPE scrno, TheDriverWindow *win, short row, int col,
+   TheDriverAttr base,
    CursorShape shape)
 {
    curses_driver_draw_software_blank_cell(
-      scrno, curses_driver_window_from_driver(win), row, col, base, shape);
+      scrno, curses_driver_window_from_driver(win), row, col, (chtype)base,
+      shape);
 }
 
 const TheDriverOps the_curses_driver_ops = {
@@ -2210,7 +2353,7 @@ const TheDriverOps the_curses_driver_ops = {
    .display_col_from_logical = curses_driver_display_col_from_logical,
    .logical_col_from_display = curses_driver_logical_col_from_display,
    .viewport_col_for_logical = curses_driver_viewport_col_for_logical,
-   .software_cursor_attr = curses_driver_software_cursor_attr,
+   .software_cursor_attr = curses_driver_ops_software_cursor_attr,
    .current_window_is_role = curses_driver_current_window_is_role,
    .current_window_exists = curses_driver_current_window_exists,
    .screen_window_is_role = curses_driver_screen_window_is_role,
@@ -2222,6 +2365,9 @@ const TheDriverOps the_curses_driver_ops = {
    .create_pad = curses_driver_ops_create_pad,
    .delete_window = curses_driver_ops_delete_window,
    .enable_keypad = curses_driver_ops_enable_keypad,
+   .enable_standard_keypad = curses_driver_ops_enable_standard_keypad,
+   .set_standard_notimeout = curses_driver_ops_set_standard_notimeout,
+   .set_window_leaveok = curses_driver_ops_set_window_leaveok,
    .capture_window_cursor = curses_driver_ops_capture_window_cursor,
    .capture_current_window_cursor =
       curses_driver_capture_current_window_cursor,
@@ -2263,15 +2409,15 @@ const TheDriverOps the_curses_driver_ops = {
    .restore_global_window_cursor =
       curses_driver_restore_global_window_cursor,
    .read_window_cell = curses_driver_ops_read_window_cell,
-   .read_current_window_cell = curses_driver_read_current_window_cell,
+   .read_current_window_cell = curses_driver_ops_read_current_window_cell,
    .read_current_window_cell_attr_at =
-      curses_driver_read_current_window_cell_attr_at,
-   .put_char_current_window = curses_driver_put_char_current_window,
+      curses_driver_ops_read_current_window_cell_attr_at,
+   .put_char_current_window = curses_driver_ops_put_char_current_window,
    .set_window_attr = curses_driver_ops_set_window_attr,
-   .set_current_window_attr = curses_driver_set_current_window_attr,
-   .set_current_role_attr = curses_driver_set_current_role_attr,
-   .set_screen_role_attr = curses_driver_set_screen_role_attr,
-   .set_global_window_attr = curses_driver_set_global_window_attr,
+   .set_current_window_attr = curses_driver_ops_set_current_window_attr,
+   .set_current_role_attr = curses_driver_ops_set_current_role_attr,
+   .set_screen_role_attr = curses_driver_ops_set_screen_role_attr,
+   .set_global_window_attr = curses_driver_ops_set_global_window_attr,
    .set_window_background = curses_driver_ops_set_window_background,
    .clear_line_at = curses_driver_ops_clear_line_at,
    .clear_current_role = curses_driver_clear_current_role,
@@ -2308,11 +2454,13 @@ const TheDriverOps the_curses_driver_ops = {
    .draw_vertical_line = curses_driver_ops_draw_vertical_line,
    .add_string_at = curses_driver_ops_add_string_at,
    .add_global_string_at = curses_driver_add_global_string_at,
-   .add_chtype_at = curses_driver_ops_add_chtype_at,
+   .add_cell_at = curses_driver_ops_add_cell_at,
    .draw_horizontal_line = curses_driver_ops_draw_horizontal_line,
-   .add_chtype = curses_driver_ops_add_chtype,
+   .add_cell = curses_driver_ops_add_cell,
+   .insert_cell = curses_driver_ops_insert_cell,
+   .delete_cell = curses_driver_ops_delete_cell,
    .add_wide_cell = curses_driver_ops_add_wide_cell,
-   .write_chtype_span = curses_driver_ops_write_chtype_span,
+   .write_cell_span = curses_driver_ops_write_cell_span,
    .write_wide_cell_span = curses_driver_ops_write_wide_cell_span,
    .set_wide_cell_codepoint = curses_driver_ops_set_wide_cell_codepoint,
    .recolour_wide_cell = curses_driver_ops_recolour_wide_cell,
@@ -2348,15 +2496,15 @@ const TheDriverOps the_curses_driver_ops = {
    .touch_current_screen_image = curses_driver_ops_touch_current_screen_image,
    .clear_standard_window = curses_driver_clear_standard_window,
    .erase_standard_window = curses_driver_erase_standard_window,
-   .set_standard_attr = curses_driver_set_standard_attr,
+   .set_standard_attr = curses_driver_ops_set_standard_attr,
    .add_standard_string_at = curses_driver_add_standard_string_at,
    .move_standard_cursor = curses_driver_move_standard_cursor,
-   .add_standard_ch = curses_driver_add_standard_ch,
+   .add_standard_ch = curses_driver_ops_add_standard_ch,
    .redraw_window = curses_driver_ops_redraw_window,
    .redraw_current_role = curses_driver_redraw_current_role,
    .redraw_screen_role = curses_driver_redraw_screen_role,
    .redraw_global_window = curses_driver_redraw_global_window,
-   .draw_software_chtype_cell = curses_driver_ops_draw_software_chtype_cell,
+   .draw_software_cell = curses_driver_ops_draw_software_cell,
    .draw_software_blank_cell = curses_driver_ops_draw_software_blank_cell,
    .refresh_cursor = curses_driver_refresh_cursor,
    .redraw_screen_cursor = curses_driver_redraw_screen_cursor,

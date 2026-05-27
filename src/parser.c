@@ -383,7 +383,7 @@ static short parse_line_comments(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scur
    LENGTHTYPE i,len=scurr->length;
    LENGTHTYPE vcol = SCREEN_VIEW(scrno)->verify_col-1;
    long start_line_comment=-1;
-   chtype comment_colour;
+   TheDriverAttr comment_colour;
 
    TRACE_FUNCTION( "parser.c:  parse_line_comments" );
    if ( scurr->is_cursor_line
@@ -468,7 +468,7 @@ static int set_paired_comments( CHARTYPE scrno, FILE_DETAILS *fd, comment_loc *l
    int i;
    LENGTHTYPE start, end, j;
    SHOW_LINE *scurr;
-   chtype comment_colour;
+   TheDriverAttr comment_colour;
    LENGTHTYPE vcol = SCREEN_VIEW(scrno)->verify_col-1;
 
    for ( i = locations->start_row; i <= locations->end_row; i++ )
@@ -713,7 +713,7 @@ static short parse_strings(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
    int i;
    LENGTHTYPE first_quote,len=scurr->length;
    LENGTHTYPE vcol,off=0;
-   chtype string_colour,incomplete_string_colour;
+   TheDriverAttr string_colour,incomplete_string_colour;
    CHARTYPE single_quote='\'';
    CHARTYPE double_quote='\"';
    CHARTYPE backslash='\\';
@@ -885,7 +885,7 @@ static short parse_strings(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
 }
 
 /***********************************************************************/
-static short parse_delimiters(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr,CHARTYPE *start,CHARTYPE *end,chtype colour,CHARTYPE highlight_type)
+static short parse_delimiters(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr,CHARTYPE *start,CHARTYPE *end,TheDriverAttr colour,CHARTYPE highlight_type)
 /***********************************************************************/
 {
    int i,j,state;
@@ -981,7 +981,7 @@ static short parse_delimiters(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr,C
 static short parse_markup_tag(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
 /***********************************************************************/
 {
-   chtype colour;
+   TheDriverAttr colour;
    short rc;
 
    TRACE_FUNCTION("parser.c:  parse_markup_tag");
@@ -1001,7 +1001,7 @@ static short parse_markup_tag(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
 static short parse_markup_reference(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
 /***********************************************************************/
 {
-   chtype colour;
+   TheDriverAttr colour;
    short rc;
 
    TRACE_FUNCTION("parser.c:  parse_markup_reference");
@@ -1025,7 +1025,7 @@ static short parse_headers(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
    CHARTYPE *ptr;
    int state;
    bool found=FALSE;
-   chtype header_colour, original_header_colour;
+   TheDriverAttr header_colour, original_header_colour;
 
    TRACE_FUNCTION("parser.c:  parse_headers");
    if ( scurr->is_cursor_line
@@ -1210,7 +1210,7 @@ static short parse_labels(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
    long i,j,k;
    CHARTYPE *ptr;
    int state;
-   chtype label_colour;
+   TheDriverAttr label_colour;
 
    TRACE_FUNCTION("parser.c:  parse_labels");
    if ( scurr->is_cursor_line
@@ -1425,7 +1425,7 @@ static short parse_match(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
    int i;
    LENGTHTYPE len=scurr->length;
    LENGTHTYPE vcol,off=0;
-   chtype paren_colour;
+   TheDriverAttr paren_colour;
 
    TRACE_FUNCTION("parser.c:  parse_match");
    /*
@@ -1471,9 +1471,9 @@ static short parse_directory(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
    PARSE_EXTENSION *curr;
    LENGTHTYPE i,vcol,len=scurr->length, start;
    bool found=FALSE;
-   chtype directory_colour;
+   TheDriverAttr directory_colour;
 #if 0
-   chtype original_directory_colour;
+   TheDriverAttr original_directory_colour;
 #endif
    CHARTYPE alternate, type;
 
@@ -1636,7 +1636,7 @@ static short parse_postcompare(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
    PARSE_POSTCOMPARE *curr;
    LENGTHTYPE i,j,vcol,len=scurr->length;
    bool found_for_column,individual_found;
-   chtype postcompare_colour, original_postcompare_colour;
+   TheDriverAttr postcompare_colour, original_postcompare_colour;
    long re_len;
 
    TRACE_FUNCTION("parser.c:  parse_postcompare");
@@ -1727,7 +1727,7 @@ static short parse_columns(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
 /***********************************************************************/
 {
    LENGTHTYPE i,j,vcol,len=scurr->length;
-   chtype column_colour, original_column_colour;
+   TheDriverAttr column_colour, original_column_colour;
 
    TRACE_FUNCTION("parser.c:  parse_columns");
    if ( scurr->is_cursor_line
@@ -1849,8 +1849,8 @@ static short parse_keywords(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
    LENGTHTYPE len=scurr->length;
    LENGTHTYPE vcol;
    long re_len, save_re_len;
-   chtype keyword_colour, original_keyword_colour;
-   chtype number_colour;
+   TheDriverAttr keyword_colour, original_keyword_colour;
+   TheDriverAttr number_colour;
 
    TRACE_FUNCTION("parser.c:  parse_keywords");
    if ( scurr->is_cursor_line
@@ -2058,7 +2058,7 @@ static short parse_functions(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
    LENGTHTYPE len=scurr->length;
    LENGTHTYPE vcol,function_len;
    long re_len;
-   chtype function_colour, original_function_colour;
+   TheDriverAttr function_colour, original_function_colour;
    CHARTYPE *word=NULL;
    int k,word_start,word_end,state;
 
@@ -2145,7 +2145,7 @@ static short parse_functions(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr)
                       * that subsequent words on this line do not get set
                       * incorrectly.
                       */
-                     chtype keyword_colour, original_keyword_colour;
+                     TheDriverAttr keyword_colour, original_keyword_colour;
                      if ( scurr->is_cursor_line
                      &&   scurr->is_cursor_line_filearea_different )
                         original_keyword_colour = merge_curline_colour( fd->attr+ATTR_CURSORLINE, fd->ecolour+ECOLOUR_KEYWORDS );
@@ -2301,7 +2301,7 @@ static short parse_preprocessor(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr
    int i,j,k,len_plus_one,state,alt=0;
    LENGTHTYPE len=scurr->length,preprocessor_char_start_pos=0;
    LENGTHTYPE vcol,keyword_length,keyword_start_pos=0,re_len;
-   chtype keyword_colour,original_keyword_colour;
+   TheDriverAttr keyword_colour,original_keyword_colour;
    CHARTYPE *word=NULL;
 
    TRACE_FUNCTION("parser.c:  parse_preprocessor");
@@ -2405,7 +2405,7 @@ short parse_line(CHARTYPE scrno,FILE_DETAILS *fd,SHOW_LINE *scurr,short start_ro
 {
    int i;
    LENGTHTYPE len=scurr->length;
-   chtype normal_colour;
+   TheDriverAttr normal_colour;
 
    TRACE_FUNCTION("parser.c:  parse_line");
    /*
@@ -4643,7 +4643,7 @@ short parse_reserved_line(RESERVED *rsrvd)
 /***********************************************************************/
 {
    int i=0,j=0,k=0;
-   chtype current_colour, default_colour;
+   TheDriverAttr current_colour, default_colour;
    int state=STATE_START;
    CHARTYPE *line=rsrvd->line;
    CHARTYPE *disp=rsrvd->disp;

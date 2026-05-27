@@ -149,17 +149,27 @@ them mechanically and verify the supported targets in one sweep.
   `tools/codemod_driver_vtable.py` is the repeatable migration pass: it derives
   exact implementation-to-vtable mappings from `the_curses_driver_ops` and
   rewrites safe current/screen/global role macro call sites.
+- The public driver surface is now neutral. `src/thedriver.h` exposes
+  `TheDriverAttr`, `TheDriverCell`, `TheDriverWideCell`, and opaque
+  `TheDriverWindow` handles; `WINDOW`, `chtype`, and `cchar_t` stay out of
+  that header and are guarded by `tests/check_curses_boundary.sh`.
+- The renderer/window-state cleanup converted `SCREEN_DETAILS.win`, global
+  windows, `SHOW_LINE` highlight/colour storage, reserved-line highlighting,
+  parser/colour locals, line-buffer cells, and helper prototypes to neutral
+  driver types where practical. `show.c` no longer uses
+  `SCREEN_WINDOW_*`/`CURRENT_WINDOW*` macros, and the stale macro definitions
+  were deleted.
 
 ## Active Slice
 
 No active migration slice is selected after closing the inventory ratchet,
 bulk physical wrapper pass, physical input/paint cleanup, raw mouse packet
 driver-ownership cleanup, corrected suffixed-paint cleanup, the first
-active-window/window-handle cleanup, and the real driver-vtable migration. The
-next inventory-backed target is the remaining `show.c` renderer/display-line
-window-state surface or the deferred low-level `WINDOW *` lifecycle/prototype
-work. Keep the same proof pattern: no-curses model first, curses path uses that
-model, then guardrail the cleaned surface.
+active-window/window-handle cleanup, the real driver-vtable migration, and the
+neutral public driver/window-state cleanup. The next inventory-backed target is
+the small remaining legacy `src/the.h`/`src/util.c` compatibility colour-cell
+surface. Keep the same proof pattern: no-curses model first, curses path uses
+that model, then guardrail the cleaned surface.
 
 ## Direct Curses Inventory
 
@@ -181,25 +191,24 @@ Current ratcheted counts:
 - actionable `physical-input`: 0
 - actionable `physical-paint`: 0
 - actionable `mouse-token`: 0
-- actionable `window-state`: 249
-- allowed/migrated `driver-wrapper`: 777
+- actionable `window-state`: 13
+- allowed/migrated `driver-wrapper`: 781
 
 Current `window-state` summary:
 
-- `window-handle`: 45
-- `active-window-macro`: 50
-- `cell-attr-type`: 79
-- `renderer-cell-type`: 64
-- `header-prototype`: 11
+- `window-handle`: 2
+- `active-window-macro`: 0
+- `cell-attr-type`: 11
+- `renderer-cell-type`: 0
+- `header-prototype`: 0
 
-This slice reduced `active-window-macro` from 152 to 50 and `window-handle`
-from 72 to 45. The remaining active-window macro findings are the macro
-definitions in `src/the.h` plus `show.c` renderer/display-line paths that
-still pass screen role windows into renderer helpers. The remaining
-window-handle findings are deferred lifecycle/type surfaces: `show.c` renderer
-helper signatures and caches, `readv`/dialog/popup local windows, `getch` and
-`my_w*` compatibility wrappers, `util.c` window creation/adjustment, global
-window declarations, and `SCREEN_DETAILS.win`.
+This slice reduced total `window-state` from 249 to 13. It closed
+`header-prototype`, `renderer-cell-type`, and `active-window-macro`
+completely, reduced `window-handle` from 45 to 2, and reduced
+`cell-attr-type` from 79 to 11. The remaining exact blockers are legacy
+compatibility surfaces: `src/the.h` ExtCurses/old-curses `chtype` and
+`stdscr` compatibility defines, `src/util.c` ExtCurses colour-pair storage and
+`init_pair()` compatibility, and the VMS-only `put_char()` attribute split.
 
 For the cleaned transient functions, the sweep finds no raw `physical-input` or
 `physical-paint` calls in `readv_cmdline()`, `execute_dialog()`, or
@@ -240,11 +249,11 @@ in this pass.
 Boundary debt:
 
 - Remaining direct curses window-state/type findings in legacy command,
-  render, setup, and header surfaces. The broad command/cursor/edit/query/
-  scroll/error role-window surface is now behind driver helpers. Remaining
-  findings mostly reflect `show.c` renderer/display-line `WINDOW` plumbing,
-  `WINDOW` lifecycle/prototypes in modal/setup utilities, `chtype`/`cchar_t`,
-  active-window macro definitions, and the future renderer/window-state model.
+  setup, and header surfaces. The broad command/cursor/edit/query/scroll/error
+  role-window surface is now behind driver helpers, and the `show.c`
+  renderer/display-line `WINDOW`/`chtype`/`cchar_t` surface is closed. The
+  remaining findings are the legacy ExtCurses/old-curses compatibility colour
+  shims in `src/the.h` and `src/util.c`, plus a VMS-only `put_char()` branch.
 - `mouse-token` is currently zero. Future raw mouse packet symbols outside the
   driver should fail as actionable `physical-input`; editor-level mouse command
   encoding should continue to use driver-owned button/action/modifier constants

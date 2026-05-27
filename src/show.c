@@ -41,7 +41,7 @@
  *       This routine is only found in newer curses variants. To hold the
  *       source readable and to improve the speed under this conditions, we
  *       use the global line buffers linebuf (char or unsigned char) and
- *       linebufch (chtype). Each buffer has max(COLS,THE_MAX_SCREEN_WIDTH)+1 elements. We
+ *       linebufch (TheDriverAttr). Each buffer has max(COLS,THE_MAX_SCREEN_WIDTH)+1 elements. We
  *       use a module global loop variable which is reset by the
  *       INIT_LINE_OUTPUT macro. Each line part may be added by the
  *       ADD_LINE_OUTPUT or FILE_LINE_OUTPUT macros. These macros should be
@@ -58,9 +58,9 @@
  *        n+1. END_LINE_OUTPUT
  *       Be careful, no overflow checking of the buffers are performed.
  *       Pseudo prototypes of the macros:
- *       void INIT_LINE_OUTPUT(WINDOW *window,int line);
- *       void ADD_LINE_OUTPUT(CHARTYPE *string,int stringlength,chtype colour);
- *       void FILL_LINE_OUTPUT(CHARTYPE c,int filllength,chtype colour);
+ *       void INIT_LINE_OUTPUT(TheDriverWindow *window,int line);
+ *       void ADD_LINE_OUTPUT(CHARTYPE *string,int stringlength,TheDriverAttr colour);
+ *       void FILL_LINE_OUTPUT(CHARTYPE c,int filllength,TheDriverAttr colour);
  *       void END_LINE_OUTPUT(void);
  *
  *       In case of doubt about your modifications try:
@@ -123,12 +123,14 @@ static LINE *hexshow_curr=NULL; /* module global for historical reasons? */
 # define SHOW_HIGHLIGHTED_LINE(x,y,z) {}
 #endif
 
-/* Make a chtype value from a character and a colour. This may be wrong if
- * the format of the chtype is incompatible. Please check this first if
+/* Make a neutral driver cell from a character and a colour. This may be wrong if
+ * the format of the driver cell is incompatible. Please check this first if
  * you get strange results with your curses implementation.
  */
 #ifndef USE_UTF8
-# define make_chtype(ch,col) (etmode_flag[ch])?((chtype) etmode_table[ch]):(((chtype) etmode_table[ch]) | ((chtype) col))
+# define make_driver_cell(ch,col) \
+   (etmode_flag[ch] ? etmode_table[ch] \
+                    : (TheDriverCell)(etmode_table[ch] | (TheDriverCell)(col)))
 #endif
 
 /* Set up the paranoia test macros if wanted */
@@ -464,9 +466,9 @@ static int show_cluster_to_wide_string(const CHARTYPE *line, size_t len,
    return 1;
 }
 
-static void show_write_utf8_cluster_at(WINDOW *win, int row, int col,
+static void show_write_utf8_cluster_at(TheDriverWindow *win, int row, int col,
                                        const CHARTYPE *line, size_t len,
-                                       TextCluster cluster, chtype colour,
+                                       TextCluster cluster, TheDriverAttr colour,
                                        int expected_width)
 {
    wchar_t wch[THE_MAX_SCREEN_WIDTH + 1];
@@ -477,10 +479,10 @@ static void show_write_utf8_cluster_at(WINDOW *win, int row, int col,
                                          expected_width);
 }
 
-static void show_write_utf8_status_cluster_at(WINDOW *win, int row, int col,
+static void show_write_utf8_status_cluster_at(TheDriverWindow *win, int row, int col,
                                               const CHARTYPE *line, size_t len,
                                               TextCluster cluster,
-                                              chtype colour,
+                                              TheDriverAttr colour,
                                               int expected_width)
 {
    wchar_t wch[THE_MAX_SCREEN_WIDTH + 1];
@@ -493,14 +495,14 @@ static void show_write_utf8_status_cluster_at(WINDOW *win, int row, int col,
                                          expected_width);
 }
 
-static void show_fill_cells_at(WINDOW *win, int row, int col, int width, chtype colour)
+static void show_fill_cells_at(TheDriverWindow *win, int row, int col, int width, TheDriverAttr colour)
 {
    the_driver->fill_cells_at(win, row, col, width, colour);
 }
 
-static void show_write_ascii_cells_at(WINDOW *win, int row, int col,
+static void show_write_ascii_cells_at(TheDriverWindow *win, int row, int col,
                                       const char *text, int width,
-                                      chtype colour)
+                                      TheDriverAttr colour)
 {
    the_driver->write_ascii_cells_at(win, row, col, text, width, colour);
 }
@@ -513,7 +515,7 @@ static void show_write_ascii_cells_at(WINDOW *win, int row, int col,
  * in opposite of many wmove/wattrset/waddch calls.
  */
 static int _fast_col; /* Used elements of linebufch */
-static WINDOW *_fast_win; /* buffered for waddchnstr */
+static TheDriverWindow *_fast_win; /* buffered for waddchnstr */
 # define INIT_LINE_OUTPUT(win,line) {                  \
                         _fast_win = win;              \
                         _fast_col = 0;                \
@@ -522,7 +524,7 @@ static WINDOW *_fast_win; /* buffered for waddchnstr */
 DEBUGDUMPDETAIL(fprintf(stderr,"%s %d(%s): INIT_LINE_OUTPUT: line: %d\n", __FILE__,__LINE__,__func__,line );) \
                         }
 # ifdef USE_UTF8
-static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
+static void show_add_utf8_codepoint(uint32_t ch, TheDriverAttr colour)
 {
    if (ch < 256 && etmode_flag[ch])
    {
@@ -538,8 +540,8 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
 #  define ADD_LINE_OUTPUT(line,length,colour) {                \
                        LENGTHTYPE l = length;                  \
                        CHARTYPE *src;                          \
-                       chtype color,hi1; /* beware of slow arg! */ \
-                       cchar_t *dest;                          \
+                       TheDriverAttr color,hi1; /* beware of slow arg! */ \
+                       TheDriverWideCell *dest;                          \
                        char cc;                                \
                        u_int32_t ch;                           \
                        int pos=0;                              \
@@ -570,8 +572,8 @@ DEBUGDUMPDETAIL(fprintf(stderr,"\n");)                                          
 #  define ADD_SYNTAX_LINE_OUTPUT(line,length,highlight) {      \
                        LENGTHTYPE l = length;                  \
                        CHARTYPE *src;                          \
-                       chtype *highl,hi1;                      \
-                       cchar_t *dest;                          \
+                       TheDriverAttr *highl,hi1;                      \
+                       TheDriverWideCell *dest;                          \
                        char cc;                                \
                        u_int32_t ch;                           \
                        int pos=0;                              \
@@ -603,7 +605,7 @@ DEBUGDUMPDETAIL(fprintf(stderr,": x%x %x ", ch, *highl );) \
 DEBUGDUMPDETAIL(fprintf(stderr,"\n");)                                          \
                         }
 #  define FILL_LINE_OUTPUT(c,length,colour) {                    \
-                        cchar_t *dest;                           \
+                        TheDriverWideCell *dest;                           \
                         u_int32_t ch=c;                           \
                         LENGTHTYPE l = length;                   \
                         PARATEST_ADD_LINE(l,"FILL_LINE_OUTPUT"); \
@@ -628,33 +630,34 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d(%s): END_LINE_OUTPUT\n", __FILE__,__LINE__
 #  define ADD_LINE_OUTPUT(line,length,colour) {                  \
                        LENGTHTYPE l = length;                  \
                        CHARTYPE *src;                          \
-                       chtype color, /* beware of slow arg! */ \
-                              *dest;                           \
+                       TheDriverAttr color; /* beware of slow arg! */ \
+                       TheDriverCell *dest;                    \
                        PARATEST_ADD_LINE(l,"ADD_LINE_OUTPUT"); \
                        dest = linebufch + _fast_col;           \
                        _fast_col += l;                         \
                        src = line;                             \
                        color = colour;                         \
                        while (l--) {                           \
-                          *dest++ = make_chtype(*src,color);   \
+                          *dest++ = make_driver_cell(*src,color);   \
                           src++;                               \
                        } }
 #  define ADD_SYNTAX_LINE_OUTPUT(line,length,highlight) {        \
                        LENGTHTYPE l = length;                  \
                        CHARTYPE *src;                          \
-                       chtype *dest,*highl;            \
+                       TheDriverCell *dest;                    \
+                       TheDriverAttr *highl;                   \
                        PARATEST_ADD_LINE(l,"ADD_SYNTAX_LINE_OUTPUT"); \
                        dest = linebufch + _fast_col;           \
                        _fast_col += l;                         \
                        src = line;                             \
                        highl = highlight;                      \
                        while (l--) {                           \
-                          *dest++ = make_chtype(*src,*highl);  \
+                          *dest++ = make_driver_cell(*src,*highl);  \
                           src++;                               \
                           highl++;                             \
                        } }
 #  define FILL_LINE_OUTPUT(c,length,colour) {                      \
-                        chtype *dest,C = make_chtype(c,colour);  \
+                        TheDriverCell *dest,C = make_driver_cell(c,colour);  \
                         LENGTHTYPE l = length;                   \
                         PARATEST_ADD_LINE(l,"FILL_LINE_OUTPUT"); \
                         dest = linebufch + _fast_col;            \
@@ -662,25 +665,25 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d(%s): END_LINE_OUTPUT\n", __FILE__,__LINE__
                         while (l--)                              \
                            *dest++ = C;                          \
                         }
-#  define END_LINE_OUTPUT() { the_driver->write_chtype_span(_fast_win, \
+#  define END_LINE_OUTPUT() { the_driver->write_cell_span(_fast_win, \
                                      linebufch,                  \
                                      _fast_col);                 \
                           }
 # endif
 #else
 /* don't use waddchnstr */
-static WINDOW *_fast_win; /* buffered for waddch/wattrset */
-static chtype _fast_colour = (chtype) -1l; /* buffering prevents unnecessary
+static TheDriverWindow *_fast_win; /* buffered for waddch/wattrset */
+static TheDriverAttr _fast_colour = (TheDriverAttr) -1l; /* buffering prevents unnecessary
                                               wattrset */
 # define INIT_LINE_OUTPUT(win,line) {                  \
                         _fast_win = win;              \
-                        _fast_colour = (chtype) -1;   \
+                        _fast_colour = (TheDriverAttr) -1;   \
                         PARATEST_INIT_LINE(win,line); \
                         the_driver->move_window_cursor(_fast_win,line,0); }
 # ifdef USE_UTF8
-static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
+static void show_add_utf8_codepoint(uint32_t ch, TheDriverAttr colour)
 {
-   cchar_t out;
+   TheDriverWideCell out;
 
    if (ch < 256 && etmode_flag[ch])
    {
@@ -693,7 +696,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
 }
 
 #  define ADD_LINE_OUTPUT(line,length,colour) {                  \
-                       chtype col = colour;                    \
+                       TheDriverAttr col = colour;                    \
                        LENGTHTYPE l = length;                  \
                        CHARTYPE *src;                          \
                        u_int32_t ch;                           \
@@ -712,7 +715,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
 #  define ADD_SYNTAX_LINE_OUTPUT(line,length,highlight) {        \
                        LENGTHTYPE l = length;                  \
                        CHARTYPE *src;                          \
-                       chtype *highl;            \
+                       TheDriverAttr *highl;            \
                        u_int32_t ch;                           \
                        int pos=0;                              \
                        PARATEST_ADD_LINE(l,"ADD_SYNTAX_LINE_OUTPUT"); \
@@ -729,7 +732,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                           highl++;                             \
                        } }
 #  define FILL_LINE_OUTPUT(c,length,colour) {                      \
-                        chtype col = colour,C = c;               \
+                        TheDriverAttr col = colour,C = c;               \
                        LENGTHTYPE l = length;                  \
                         PARATEST_ADD_LINE(l,"FILL_LINE_OUTPUT"); \
                         if (col != _fast_colour)                 \
@@ -742,7 +745,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                         }
 # else
 #  define ADD_LINE_OUTPUT(line,length,colour) {                  \
-                       chtype col = colour;                    \
+                       TheDriverAttr col = colour;                    \
                        LENGTHTYPE l = length;                  \
                        CHARTYPE *src;                          \
                        PARATEST_ADD_LINE(l,"ADD_LINE_OUTPUT"); \
@@ -753,12 +756,12 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                        }                                     \
                        src = line;                             \
                        while (l--)                             \
-                          the_driver->add_chtype(_fast_win,*src++); \
+                          the_driver->add_cell(_fast_win,*src++); \
                        }
 #  define ADD_SYNTAX_LINE_OUTPUT(line,length,highlight) {        \
                        LENGTHTYPE l = length;                  \
                        CHARTYPE *src;                          \
-                       chtype *highl;            \
+                       TheDriverAttr *highl;            \
                        PARATEST_ADD_LINE(l,"ADD_SYNTAX_LINE_OUTPUT"); \
                        src = line;                             \
                        highl = highlight;                      \
@@ -768,12 +771,12 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                              _fast_colour = *highl;            \
                              the_driver->set_window_attr(_fast_win,*highl);       \
                           }                                    \
-                          the_driver->add_chtype(_fast_win,*src);   \
+                          the_driver->add_cell(_fast_win,*src);   \
                           src++;                               \
                           highl++;                             \
                        } }
 #  define FILL_LINE_OUTPUT(c,length,colour) {                      \
-                        chtype col = colour,C = c;               \
+                        TheDriverAttr col = colour,C = c;               \
                        LENGTHTYPE l = length;                  \
                         PARATEST_ADD_LINE(l,"FILL_LINE_OUTPUT"); \
                         if (col != _fast_colour)                 \
@@ -782,7 +785,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                            the_driver->set_window_attr(_fast_win,col);              \
                           }                                      \
                         while (l--)                              \
-                           the_driver->add_chtype(_fast_win,C);      \
+                           the_driver->add_cell(_fast_win,C);      \
                         }
 # endif
 # define END_LINE_OUTPUT()
@@ -860,7 +863,29 @@ static int is_column_being_shown(CHARTYPE scrno,COLTYPE col)
 }
 #endif
 /***********************************************************************/
-static void display_line_left( WINDOW *win, chtype colour, CHARTYPE *str, int lenstr, int line, int width )
+static TheDriverWindow *show_screen_role_window(CHARTYPE scrno, short role)
+{
+   if (scrno >= MAX_SCREENS || role < 0 || role >= VIEW_WINDOWS)
+      return NULL;
+   return screen[scrno].win[role];
+}
+
+static TheDriverWindow *show_screen_previous_window(CHARTYPE scrno)
+{
+   VIEW_DETAILS *view;
+
+   if (scrno >= MAX_SCREENS)
+      return NULL;
+   view = screen[scrno].screen_view;
+   if (view == NULL
+   ||  view->previous_window < 0
+   ||  view->previous_window >= VIEW_WINDOWS)
+      return NULL;
+   return screen[scrno].win[view->previous_window];
+}
+
+/***********************************************************************/
+static void display_line_left( TheDriverWindow *win, TheDriverAttr colour, CHARTYPE *str, int lenstr, int line, int width )
 /***********************************************************************/
 {
    int linelength;
@@ -877,8 +902,8 @@ static void display_line_left( WINDOW *win, chtype colour, CHARTYPE *str, int le
 }
 
 /***********************************************************************/
-static void display_syntax_line_left(WINDOW *win, chtype colour, CHARTYPE *str,
-                              chtype *high, int line, int width)
+static void display_syntax_line_left(TheDriverWindow *win, TheDriverAttr colour, CHARTYPE *str,
+                              TheDriverAttr *high, int line, int width)
 /***********************************************************************/
 {
    int linelength;
@@ -1468,7 +1493,7 @@ static int show_filearea_cursor_display_col(const UiFrame *frame, short row,
 
 static void show_draw_filearea_marker_cursor(const UiFrame *frame, CHARTYPE scrno,
                                              short row, LINETYPE line_number,
-                                             UiRowRole role, chtype normal)
+                                             UiRowRole role, TheDriverAttr normal)
 {
    int cursor_col = 0;
    CursorShape cursor_shape = CURSOR_BLOCK;
@@ -1478,7 +1503,7 @@ static void show_draw_filearea_marker_cursor(const UiFrame *frame, CHARTYPE scrn
                               &cursor_col, &cursor_shape))
       return;
 
-   the_driver->draw_software_chtype_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno),
+   the_driver->draw_software_cell(scrno, show_screen_role_window(scrno, WINDOW_FILEAREA),
                                            row, cursor_col, normal,
                                            cursor_shape);
 }
@@ -1488,14 +1513,14 @@ static void show_draw_software_command_cursor(CHARTYPE scrno, VIEW_DETAILS *view
    short row = 0;
    short col = 0;
    CursorShape shape = CURSOR_BLOCK;
-   chtype base;
+   TheDriverAttr base;
 
    if (view == NULL
    ||  !show_logical_command_cursor(scrno, view, &row, &col, &shape))
       return;
 
    base = set_colour(view->file_for_view->attr + (inDIALOG ? ATTR_DIA_EDITFIELD : ATTR_CMDLINE));
-   the_driver->draw_software_chtype_cell(scrno, SCREEN_WINDOW_COMMAND(scrno),
+   the_driver->draw_software_cell(scrno, show_screen_role_window(scrno, WINDOW_COMMAND),
                                            row, col, base, shape);
 }
 
@@ -1516,14 +1541,14 @@ static void show_draw_software_prefix_cursor(CHARTYPE scrno, short row,
    if (!show_frame_cursor_col(frame, UI_ROW_PREFIX, show_row->line_number,
                               row, 0, &col, &shape))
       return;
-   the_driver->draw_software_chtype_cell(
-      scrno, SCREEN_WINDOW_PREFIX(scrno), row, col,
+   the_driver->draw_software_cell(
+      scrno, show_screen_role_window(scrno, WINDOW_PREFIX), row, col,
       set_colour(SCREEN_FILE(scrno)->attr + ATTR_PREFIX), shape);
 }
 #endif
 
 /***********************************************************************/
-static void display_line_center(WINDOW *win, chtype colour, CHARTYPE *str,
+static void display_line_center(TheDriverWindow *win, TheDriverAttr colour, CHARTYPE *str,
                               int line, int width, int fillchar)
 /***********************************************************************/
 {
@@ -1778,7 +1803,7 @@ void show_heading(CHARTYPE scrno)
 /***********************************************************************/
 {
    FILE_DETAILS *screen_file = SCREEN_FILE(scrno);
-   WINDOW *screen_window_idline = SCREEN_WINDOW_IDLINE(scrno);
+   TheDriverWindow *screen_window_idline = show_screen_role_window(scrno, WINDOW_IDLINE);
 
    TRACE_FUNCTION("show.c:    show_heading");
 
@@ -2068,7 +2093,7 @@ void show_statarea(void)
    }
 #endif
 
-   chtype status_colour = set_colour( CURRENT_FILE->attr+stat_attr );
+   TheDriverAttr status_colour = set_colour( CURRENT_FILE->attr+stat_attr );
 
    INIT_LINE_OUTPUT( statarea, 0 );
    ADD_LINE_OUTPUT( linebuf, strlen( (DEFCHAR*)linebuf ), status_colour );
@@ -2138,7 +2163,7 @@ void display_filetabs( VIEW_DETAILS *start)
    FILE_DETAILS *first_view_file=NULL;
    bool process_view=FALSE;
    register int j=0;
-   chtype normal, high;
+   TheDriverAttr normal, high;
    int fname_len, fill_len = COLS-2, extras;
    bool first = TRUE, more = FALSE;
 
@@ -2226,7 +2251,7 @@ void display_filetabs( VIEW_DETAILS *start)
    return;
 }
 /***********************************************************************/
-void redraw_window(WINDOW *win)
+void redraw_window(TheDriverWindow *win)
 /***********************************************************************/
 {
    TRACE_FUNCTION( "show.c:    redraw_window" );
@@ -2337,7 +2362,7 @@ void display_screen(CHARTYPE scrno)
     */
    if (SCREEN_VIEW(scrno)->current_window == WINDOW_COMMAND)
       previous_cursor = the_driver->capture_window_cursor(
-         SCREEN_PREV_WINDOW(scrno));
+         show_screen_previous_window(scrno));
 #ifdef USE_UTF8
    cursor_focus_sync_current(scrno, SCREEN_VIEW(scrno));
    if (SCREEN_VIEW(scrno)->current_window == WINDOW_COMMAND)
@@ -2385,7 +2410,7 @@ void display_screen(CHARTYPE scrno)
     * Restore the position of previous window if on command line.
     */
    if (SCREEN_VIEW(scrno)->current_window == WINDOW_COMMAND)
-      the_driver->restore_window_cursor(SCREEN_PREV_WINDOW(scrno),
+      the_driver->restore_window_cursor(show_screen_previous_window(scrno),
                                           previous_cursor);
 #if defined(HAVE_SB_INIT)
    if (SBx
@@ -2424,9 +2449,9 @@ void display_cmdline( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
        */
       command_cursor = the_driver->capture_screen_role_cursor(curr_screen, WINDOW_COMMAND);
       if ( inDIALOG )
-         display_line_left( SCREEN_WINDOW_COMMAND(curr_screen), set_colour( curr_view->file_for_view->attr+ATTR_DIA_EDITFIELD), cmd_rec+cmd_verify_col-1, cmd_rec_len, 0, screen[curr_screen].cols[WINDOW_COMMAND] );
+         display_line_left( show_screen_role_window(curr_screen, WINDOW_COMMAND), set_colour( curr_view->file_for_view->attr+ATTR_DIA_EDITFIELD), cmd_rec+cmd_verify_col-1, cmd_rec_len, 0, screen[curr_screen].cols[WINDOW_COMMAND] );
       else
-         display_line_left( SCREEN_WINDOW_COMMAND(curr_screen), set_colour( curr_view->file_for_view->attr+ATTR_CMDLINE), cmd_rec+cmd_verify_col-1, cmd_rec_len, 0, screen[curr_screen].cols[WINDOW_COMMAND] );
+         display_line_left( show_screen_role_window(curr_screen, WINDOW_COMMAND), set_colour( curr_view->file_for_view->attr+ATTR_CMDLINE), cmd_rec+cmd_verify_col-1, cmd_rec_len, 0, screen[curr_screen].cols[WINDOW_COMMAND] );
 #ifdef USE_UTF8
       show_draw_software_command_cursor(curr_screen, curr_view);
 #endif
@@ -2474,7 +2499,7 @@ void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
       row = 0;
 #endif
    width = curr_view->prefix_width - curr_view->prefix_gap;
-   display_line_left( SCREEN_WINDOW_PREFIX(curr_screen),
+   display_line_left( show_screen_role_window(curr_screen, WINDOW_PREFIX),
                       set_colour(curr_view->file_for_view->attr + ATTR_PENDING),
                       pre_rec,
                       width,
@@ -2879,7 +2904,7 @@ static void build_lines(CHARTYPE scrno,short direction,LINE *curr,
    return;
 }
 /***********************************************************************/
-static chtype merge_filectlchar_colour(chtype base, COLOUR_ATTR *ctlattr)
+static TheDriverAttr merge_filectlchar_colour(TheDriverAttr base, COLOUR_ATTR *ctlattr)
 /***********************************************************************/
 {
 #ifdef A_COLOR
@@ -2898,7 +2923,7 @@ static bool apply_ctlchar_to_file_line(FILE_DETAILS *screen_file, SHOW_LINE *scu
 /***********************************************************************/
 {
    LENGTHTYPE source=0,target=0;
-   chtype current_colour;
+   TheDriverAttr current_colour;
    bool found;
    int j;
 
@@ -2965,7 +2990,7 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
    FILE_DETAILS *screen_file;
    int is_prefix_on;
    LINETYPE cline,off=0;
-   chtype attr_block,
+   TheDriverAttr attr_block,
           attr_cblock,
           attr_filearea,
           attr_gap,
@@ -3123,7 +3148,7 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                   /* fill prefix with reserved line contents */
                   h = min( len, widthnogap );
                   memcpy( scurr->prefix, scurr->contents, h );
-                  memcpy( scurr->prefix_highlighting, scurr->rsrvd->highlighting, h*sizeof(chtype) );
+                  memcpy( scurr->prefix_highlighting, scurr->rsrvd->highlighting, h*sizeof(TheDriverAttr) );
                   off = h; /* off now points to highlighting for gap */
                   scurr->prefix[h] = '\0';
                   scurr->contents += h;
@@ -3131,7 +3156,7 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                   /* fill gap with reserved line contents */
                   h = min( len, gap );
                   memcpy( scurr->gap, scurr->contents, h );
-                  memcpy( scurr->gap_highlighting, scurr->rsrvd->highlighting+off, h * sizeof(chtype) );
+                  memcpy( scurr->gap_highlighting, scurr->rsrvd->highlighting+off, h * sizeof(TheDriverAttr) );
                   off += h; /* off now points to highlighting for filearea */
                   scurr->gap[h] = '\0';
                   /* remainer of line goes in filearea */
@@ -3140,7 +3165,7 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                   else
                   {
                      scurr->contents += h;
-                     memcpy(scurr->highlighting,scurr->rsrvd->highlighting+off,len*sizeof(chtype));
+                     memcpy(scurr->highlighting,scurr->rsrvd->highlighting+off,len*sizeof(TheDriverAttr));
                      scurr->length = len;
                   }
                }
@@ -3152,7 +3177,7 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                   {
                      h = min(len,gap);
                      memcpy(scurr->gap,scurr->contents+scurr->length,h);
-                     memcpy(scurr->gap_highlighting,scurr->rsrvd->highlighting+scurr->length,h*sizeof(chtype));
+                     memcpy(scurr->gap_highlighting,scurr->rsrvd->highlighting+scurr->length,h*sizeof(TheDriverAttr));
                      scurr->gap[h] = '\0';
                   }
                   else
@@ -3160,13 +3185,13 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                   /* now copy the rest to prefix if any */
                   len = min(len,widthnogap);
                   memcpy(scurr->prefix,scurr->contents+scurr->length+h,len);
-                  memcpy(scurr->prefix_highlighting,scurr->rsrvd->highlighting+scurr->length+h,len*sizeof(chtype));
+                  memcpy(scurr->prefix_highlighting,scurr->rsrvd->highlighting+scurr->length+h,len*sizeof(TheDriverAttr));
                   scurr->prefix[len] = '\0';
-                  memcpy(scurr->highlighting,scurr->rsrvd->highlighting,scurr->length*sizeof(chtype));
+                  memcpy(scurr->highlighting,scurr->rsrvd->highlighting,scurr->length*sizeof(TheDriverAttr));
                }
             }
             else
-               memcpy(scurr->highlighting,scurr->rsrvd->highlighting,scurr->length*sizeof(chtype));
+               memcpy(scurr->highlighting,scurr->rsrvd->highlighting,scurr->length*sizeof(TheDriverAttr));
          }
          start_row += direction;
          scurr += direction;
@@ -3483,7 +3508,7 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                   scurr->is_highlighting = TRUE;
                   memset(scurr->highlight_type, ECOLOUR_NONE, scurr->length);
                   
-                  chtype normal_colour;
+                  TheDriverAttr normal_colour;
                   if (scurr->is_cursor_line && scurr->is_cursor_line_filearea_different)
                       normal_colour = set_colour(SCREEN_FILE(scrno)->attr+ATTR_CURSORLINE);
                   else if (scurr->is_current_line)
@@ -3507,7 +3532,7 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                       }
 
                       int ecolour_idx = ECOLOUR_NONE;
-                      chtype current_colour = normal_colour;
+                      TheDriverAttr current_colour = normal_colour;
                       
                       switch(type) {
                           case LEXER_COMMENT: 
@@ -3622,7 +3647,7 @@ static void show_lines(CHARTYPE scrno)
    int width = SCREEN_VIEW(scrno)->prefix_width-gap;
    LENGTHTYPE filearea_cols = screen[scrno].cols[WINDOW_FILEAREA];
    LENGTHTYPE max_cols = min(filearea_cols,SCREEN_VIEW(scrno)->verify_end-SCREEN_VIEW(scrno)->verify_start+1);
-   WINDOW *screen_window_filearea = SCREEN_WINDOW_FILEAREA(scrno);
+   TheDriverWindow *screen_window_filearea = show_screen_role_window(scrno, WINDOW_FILEAREA);
    char _THE_FAR buffer[60];
    CHARTYPE *ptr;
    SHOW_LINE *scurr = screen[scrno].sl;
@@ -3645,14 +3670,14 @@ static void show_lines(CHARTYPE scrno)
       {
          if (scurr->line_type == LINE_RESERVED)
          {
-            display_syntax_line_left(SCREEN_WINDOW_PREFIX(scrno),
+            display_syntax_line_left(show_screen_role_window(scrno, WINDOW_PREFIX),
                            scurr->prefix_colour,
                            scurr->prefix,
                            scurr->prefix_highlighting,
                            i,
                            width);
             if (SCREEN_VIEW(scrno)->prefix_gap)
-               display_syntax_line_left(SCREEN_WINDOW_GAP(scrno),
+               display_syntax_line_left(show_screen_role_window(scrno, WINDOW_GAP),
                               scurr->gap_colour,
                               scurr->gap,
                               scurr->gap_highlighting,
@@ -3662,7 +3687,7 @@ static void show_lines(CHARTYPE scrno)
          else
          {
             /* not a reserved line */
-            display_line_left(SCREEN_WINDOW_PREFIX(scrno),
+            display_line_left(show_screen_role_window(scrno, WINDOW_PREFIX),
                            scurr->prefix_colour,
                            scurr->prefix,
 #ifdef USE_UTF8
@@ -3681,7 +3706,7 @@ static void show_lines(CHARTYPE scrno)
 #ifdef ACS_VLINE
                memset( tmp_gap, ' ', SCREEN_VIEW(scrno)->prefix_gap );
                tmp_gap[SCREEN_VIEW(scrno)->prefix_gap] = '\0';
-               display_line_left(SCREEN_WINDOW_GAP(scrno),
+               display_line_left(show_screen_role_window(scrno, WINDOW_GAP),
                               (SCREEN_VIEW(scrno)->prefix_gap_line ? scurr->gap_colour|A_ALTCHARSET|ACS_VLINE : scurr->gap_colour),
                               (CHARTYPE *)tmp_gap,
                               SCREEN_VIEW(scrno)->prefix_gap,
@@ -3690,7 +3715,7 @@ static void show_lines(CHARTYPE scrno)
 #else
                memset( tmp_gap, (SCREEN_VIEW(scrno)->prefix_gap_line) ? '|' : ' ', SCREEN_VIEW(scrno)->prefix_gap );
                tmp_gap[SCREEN_VIEW(scrno)->prefix_gap] = '\0';
-               display_line_left(SCREEN_WINDOW_GAP(scrno),
+               display_line_left(show_screen_role_window(scrno, WINDOW_GAP),
                               scurr->gap_colour,
                               (CHARTYPE *)tmp_gap,
                               SCREEN_VIEW(scrno)->prefix_gap,
@@ -3881,9 +3906,9 @@ static void show_lines(CHARTYPE scrno)
       show_a_line(scrno,i,scurr);
 #endif
    }
-   if (SCREEN_WINDOW_PREFIX(scrno) != NULL)
+   if (show_screen_role_window(scrno, WINDOW_PREFIX) != NULL)
       the_driver->set_screen_role_attr(scrno, WINDOW_PREFIX, set_colour(SCREEN_FILE(scrno)->attr+ATTR_PENDING));
-   if (SCREEN_WINDOW_GAP(scrno) != NULL)
+   if (show_screen_role_window(scrno, WINDOW_GAP) != NULL)
       the_driver->set_screen_role_attr(scrno, WINDOW_GAP, set_colour(SCREEN_FILE(scrno)->attr+ATTR_GAP));
    the_driver->set_window_attr(screen_window_filearea,set_colour(SCREEN_FILE(scrno)->attr+ATTR_FILEAREA));
    TRACE_RETURN();
@@ -3945,7 +3970,7 @@ static int show_utf8_target_highlight_applies(CHARTYPE scrno, SHOW_LINE *scurr, 
 }
 
 static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
-                                   chtype *high, const UiFrame *frame)
+                                   TheDriverAttr *high, const UiFrame *frame)
 {
    SHOW_LINE *current = &(screen[scrno].sl[row]);
    CHARTYPE *line = current->contents;
@@ -3957,9 +3982,9 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
    TextCellSlice slice;
    TextPos pos;
    int screen_col;
-   chtype normal = current->normal_colour;
-   chtype other = current->other_colour;
-   chtype target_colour = set_colour(SCREEN_FILE(scrno)->attr + ATTR_THIGHLIGHT);
+   TheDriverAttr normal = current->normal_colour;
+   TheDriverAttr other = current->other_colour;
+   TheDriverAttr target_colour = set_colour(SCREEN_FILE(scrno)->attr + ATTR_THIGHLIGHT);
    int cursor_col = 0;
    int cursor_display_col = -1;
    int cursor_visible = FALSE;
@@ -4039,9 +4064,9 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
          clear_col = 0;
       if (clear_col < ccols)
       {
-         show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, clear_col,
+         show_fill_cells_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row, clear_col,
                             ccols - clear_col, normal);
-         the_driver->touch_line(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
+         the_driver->touch_line(show_screen_role_window(scrno, WINDOW_FILEAREA), row, 1);
          if (replacement_plan.flush != UTF8_REPAIR_FLUSH_NONE)
          {
             the_driver->refresh_screen_role(scrno, WINDOW_FILEAREA);
@@ -4049,14 +4074,14 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
          }
       }
    }
-   show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, 0, ccols, normal);
+   show_fill_cells_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row, 0, ccols, normal);
 
    pos = slice.start;
    screen_col = slice.leading_cells;
    while (pos.byte_offset < slice.end.byte_offset)
    {
       TextCluster cluster = textpos_cluster_at_boundary(line, blength, pos);
-      chtype colour = normal;
+      TheDriverAttr colour = normal;
       int item_width;
       int item_logical_screen_col;
       int item_screen_col;
@@ -4125,9 +4150,9 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
       clear_width = (item_paint_width > 0) ? item_paint_width : 1;
       if (item_screen_col + clear_width > ccols)
          clear_width = ccols - item_screen_col;
-      show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, item_screen_col,
+      show_fill_cells_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row, item_screen_col,
                          clear_width, colour);
-      show_write_utf8_cluster_at(SCREEN_WINDOW_FILEAREA(scrno), row, item_screen_col,
+      show_write_utf8_cluster_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row, item_screen_col,
                                  line, blength, cluster, colour,
                                  item_display_width);
       pos = cluster.end;
@@ -4145,20 +4170,20 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
                                  (int)cvcol + cursor_col);
       if (cursor_display_col >= 0 && cursor_display_col < ccols)
          the_driver->draw_software_blank_cell(scrno,
-                                                SCREEN_WINDOW_FILEAREA(scrno),
+                                                show_screen_role_window(scrno, WINDOW_FILEAREA),
                                                 row, cursor_display_col,
                                                 normal, cursor_shape);
    }
    if (replacement_plan.extent == UTF8_REPAIR_EXTENT_LINE)
-      the_driver->touch_line(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
+      the_driver->touch_line(show_screen_role_window(scrno, WINDOW_FILEAREA), row, 1);
    if (show_utf8_line_replacement_hint_matches(current))
       show_utf8_clear_line_replacement_hint();
 }
 
-static chtype show_utf8_filearea_cluster_colour(CHARTYPE scrno, SHOW_LINE *scurr,
-                                                TextCluster cluster, chtype *high)
+static TheDriverAttr show_utf8_filearea_cluster_colour(CHARTYPE scrno, SHOW_LINE *scurr,
+                                                TextCluster cluster, TheDriverAttr *high)
 {
-   chtype colour = scurr->normal_colour;
+   TheDriverAttr colour = scurr->normal_colour;
 
    if ( show_utf8_cells_overlap(cluster, scurr->other_start_col, scurr->other_end_col) )
    {
@@ -4189,15 +4214,15 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
    TextPos line_end;
    TextPos pos;
    TextCluster cluster;
-   chtype normal;
-   chtype colour;
-   chtype *high;
+   TheDriverAttr normal;
+   TheDriverAttr colour;
+   TheDriverAttr *high;
    int display_col;
    int display_width;
    int paint_width;
    int ccols;
 
-   if (SCREEN_WINDOW_FILEAREA(scrno) == NULL
+   if (show_screen_role_window(scrno, WINDOW_FILEAREA) == NULL
    ||  row < 0
    ||  row >= screen[scrno].rows[WINDOW_FILEAREA])
       return;
@@ -4213,11 +4238,11 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
    {
       if (cursor)
          the_driver->draw_software_blank_cell(scrno,
-                                                SCREEN_WINDOW_FILEAREA(scrno),
+                                                show_screen_role_window(scrno, WINDOW_FILEAREA),
                                                 row, logical_screen_col,
                                                 normal, shape);
       else
-         show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row,
+         show_fill_cells_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row,
                             logical_screen_col, 1, normal);
       return;
    }
@@ -4240,10 +4265,10 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
       {
          if (cursor)
             the_driver->draw_software_blank_cell(
-               scrno, SCREEN_WINDOW_FILEAREA(scrno), row, display_col, normal,
+               scrno, show_screen_role_window(scrno, WINDOW_FILEAREA), row, display_col, normal,
                shape);
          else
-            show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row,
+            show_fill_cells_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row,
                                display_col, 1, normal);
       }
       return;
@@ -4277,12 +4302,12 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
       TextPos repaint_pos = cluster.pos;
       int span_end = display_col + paint_width;
 
-      show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, display_col,
+      show_fill_cells_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row, display_col,
                          paint_width, normal);
       while (repaint_pos.byte_offset < blength)
       {
          TextCluster repaint_cluster;
-         chtype repaint_colour;
+         TheDriverAttr repaint_colour;
          int repaint_display_col;
          int repaint_display_width;
 
@@ -4307,7 +4332,7 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
          &&  repaint_cluster.pos.byte_offset == cluster.pos.byte_offset)
             repaint_colour = the_driver->software_cursor_attr(
                scrno, repaint_colour, shape);
-         show_write_utf8_cluster_at(SCREEN_WINDOW_FILEAREA(scrno), row,
+         show_write_utf8_cluster_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row,
                                     repaint_display_col, line, blength,
                                     repaint_cluster, repaint_colour,
                                     repaint_display_width);
@@ -4316,9 +4341,9 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
       return;
    }
 
-   show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, display_col,
+   show_fill_cells_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row, display_col,
                       display_width, colour);
-   show_write_utf8_cluster_at(SCREEN_WINDOW_FILEAREA(scrno), row, display_col,
+   show_write_utf8_cluster_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row, display_col,
                               line, blength, cluster, colour,
                               display_width);
 }
@@ -4365,7 +4390,7 @@ static int show_utf8_target_cluster(CHARTYPE *line, LENGTHTYPE blength,
 
 static void show_utf8_repaint_filearea_suffix(CHARTYPE scrno, short row,
                                               SHOW_LINE *current,
-                                              chtype *high,
+                                              TheDriverAttr *high,
                                               TextPos start_pos)
 {
    CHARTYPE *line = current->contents;
@@ -4377,7 +4402,7 @@ static void show_utf8_repaint_filearea_suffix(CHARTYPE scrno, short row,
    while (pos.byte_offset < blength)
    {
       TextCluster cluster = textpos_cluster_at_boundary(line, blength, pos);
-      chtype colour;
+      TheDriverAttr colour;
       int display_col;
       int display_width;
       int paint_width;
@@ -4408,9 +4433,9 @@ static void show_utf8_repaint_filearea_suffix(CHARTYPE scrno, short row,
 
       colour = show_utf8_filearea_cluster_colour(scrno, current, cluster, high);
 
-      show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, display_col,
+      show_fill_cells_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row, display_col,
                          clear_width, colour);
-      show_write_utf8_cluster_at(SCREEN_WINDOW_FILEAREA(scrno), row,
+      show_write_utf8_cluster_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row,
                                  display_col, line, blength, cluster,
                                  colour, display_width);
       pos = cluster.end;
@@ -4426,8 +4451,8 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
    CHARTYPE *line;
    LENGTHTYPE blength;
    LENGTHTYPE cvcol;
-   chtype normal;
-   chtype *high;
+   TheDriverAttr normal;
+   TheDriverAttr *high;
    TextCluster old_cluster;
    TextCluster new_cluster;
    const Utf8TerminalProfileEntry *old_entry;
@@ -4449,7 +4474,7 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
    UiFrame frame;
    const UiFrame *cursor_frame = NULL;
 
-   if (SCREEN_WINDOW_FILEAREA(scrno) == NULL
+   if (show_screen_role_window(scrno, WINDOW_FILEAREA) == NULL
    ||  row < 0
    ||  row >= screen[scrno].rows[WINDOW_FILEAREA])
       return FALSE;
@@ -4489,7 +4514,7 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
       if (show_build_cursor_frame(scrno, &frame))
          cursor_frame = &frame;
       show_a_line_utf8_cells(scrno, row, current, high, cursor_frame);
-      the_driver->touch_line(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
+      the_driver->touch_line(show_screen_role_window(scrno, WINDOW_FILEAREA), row, 1);
       return TRUE;
    }
 
@@ -4539,9 +4564,9 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
    if (clear_width < 1)
       clear_width = 1;
 
-   show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, start_display_col,
+   show_fill_cells_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row, start_display_col,
                       clear_width, normal);
-   the_driver->touch_line(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
+   the_driver->touch_line(show_screen_role_window(scrno, WINDOW_FILEAREA), row, 1);
    if (plan.flush != UTF8_REPAIR_FLUSH_NONE)
    {
       the_driver->refresh_screen_role(scrno, WINDOW_FILEAREA);
@@ -4594,7 +4619,7 @@ static void show_a_line(CHARTYPE scrno,short row, SHOW_LINE *scurr
    CHARTYPE *line;
    SHOW_LINE *current;
    int fillverify;
-   chtype normal,other,*high;
+   TheDriverAttr normal,other,*high;
 
    TRACE_FUNCTION("show.c:    show_a_line");
    /*
@@ -4622,7 +4647,7 @@ static void show_a_line(CHARTYPE scrno,short row, SHOW_LINE *scurr
     */
    if ( line == NULL )
    {
-      INIT_LINE_OUTPUT(SCREEN_WINDOW_FILEAREA(scrno),row);
+      INIT_LINE_OUTPUT(show_screen_role_window(scrno, WINDOW_FILEAREA),row);
       FILL_LINE_OUTPUT(' ',ccols,normal);
       END_LINE_OUTPUT();
 #ifdef USE_UTF8
@@ -4633,7 +4658,7 @@ static void show_a_line(CHARTYPE scrno,short row, SHOW_LINE *scurr
                                       current->line_number, 0,
                                       &cursor_col, &cursor_shape))
             the_driver->draw_software_blank_cell(
-               scrno, SCREEN_WINDOW_FILEAREA(scrno), row, cursor_col, normal,
+               scrno, show_screen_role_window(scrno, WINDOW_FILEAREA), row, cursor_col, normal,
                cursor_shape);
       }
 #endif
@@ -4691,7 +4716,7 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d: ii %d off %d\n",__FILE__,__LINE__,ii,u8_o
 #endif
    other = current->other_colour;
 
-   INIT_LINE_OUTPUT(SCREEN_WINDOW_FILEAREA(scrno),row);
+   INIT_LINE_OUTPUT(show_screen_role_window(scrno, WINDOW_FILEAREA),row);
    /*
     * If there is something past the VERIFY END column, fill it up with
     * blanks in normal colour first and adjust cols.
@@ -4950,7 +4975,7 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d: ccols %d cother_end_col %d bother_end_col
                   idx = SCREEN_VIEW(scrno)->thighlight_target.rt[i].start-cvcol+j;
                   if ( idx <= (vend-cvcol)
                   &&   idx >= 0 )
-                     linebufch[idx] = make_chtype( *line, other );
+                     linebufch[idx] = make_driver_cell( *line, other );
                }
             }
 #endif
@@ -4967,8 +4992,8 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d: ccols %d cother_end_col %d bother_end_col
                                    current->line_number,
                                    (int)SCREEN_VIEW(scrno)->verify_col - 1,
                                    &cursor_col, &cursor_shape))
-         the_driver->draw_software_chtype_cell(
-            scrno, SCREEN_WINDOW_FILEAREA(scrno), row, cursor_col, normal,
+         the_driver->draw_software_cell(
+            scrno, show_screen_role_window(scrno, WINDOW_FILEAREA), row, cursor_col, normal,
             cursor_shape);
    }
 #endif
@@ -5038,7 +5063,7 @@ static void show_hex_line(CHARTYPE scrno,short row)
    CHARTYPE *line=NULL,*lptr;
    int upper_nibble = screen[scrno].sl[row].other_start_col == 0;
    COLTYPE cols;
-   chtype normal;
+   TheDriverAttr normal;
    unsigned char c;
    SHOW_LINE *current;
    static char hexchars[] = "0123456789ABCDEF";
@@ -5069,7 +5094,7 @@ static void show_hex_line(CHARTYPE scrno,short row)
 
    if (length > cols)
       length = cols;
-   INIT_LINE_OUTPUT(SCREEN_WINDOW_FILEAREA(scrno),row);
+   INIT_LINE_OUTPUT(show_screen_role_window(scrno, WINDOW_FILEAREA),row);
    if (upper_nibble)
    {
       for (i=0,lptr=linebuf;i<length;i++,line++)
@@ -5098,13 +5123,13 @@ void touch_screen(CHARTYPE scrno)
 /***********************************************************************/
 {
    register int i=0;
-   WINDOW *win;
+   TheDriverWindow *win;
 
    TRACE_FUNCTION("commutil.c:touch_screen");
    for (i=0;i<VIEW_WINDOWS;i++)
    {
       win = screen[scrno].win[i];
-      if (win != (WINDOW *)NULL)
+      if (win != NULL)
          the_driver->touch_window(win);
    }
    TRACE_RETURN();
@@ -5870,9 +5895,9 @@ short THE_Resize(int rows, int cols)
          return(30);
       }
    #ifdef USE_UTF8
-      if ((linebufch = (cchar_t *)(*the_realloc)(linebufch, (linebuf_size * sizeof(cchar_t)))) == NULL)
+      if ((linebufch = (TheDriverWideCell *)(*the_realloc)(linebufch, (linebuf_size * sizeof(TheDriverWideCell)))) == NULL)
    #else
-      if ((linebufch = (chtype *)(*the_realloc)(linebufch, (linebuf_size * sizeof(chtype)))) == NULL)
+      if ((linebufch = (TheDriverCell *)(*the_realloc)(linebufch, (linebuf_size * sizeof(TheDriverCell)))) == NULL)
    #endif
       {
          cleanup();

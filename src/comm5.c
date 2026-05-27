@@ -806,7 +806,7 @@ short Text(CHARTYPE *params)
 {
    LENGTHTYPE i=0L;
    CHARTYPE real_key=0;
-   chtype chtype_key=0;
+   TheDriverAttr chtype_key=0;
    LENGTHTYPE x=0;
    unsigned short y=0;
    LENGTHTYPE len_params=0L;
@@ -817,9 +817,9 @@ short Text(CHARTYPE *params)
 #if defined(USE_EXTCURSES)
    ATTR attr=0;
 #else
-   chtype attr=0;
+   TheDriverAttr attr=0;
 #endif
-   chtype cursor_cell=0;
+   TheDriverAttr cursor_cell=0;
    bool need_to_build_screen=FALSE;
    bool save_in_macro=in_macro;
 #ifdef USE_UTF8
@@ -877,9 +877,9 @@ short Text(CHARTYPE *params)
 #endif
       real_key = case_translate( (CHARTYPE)*(params+i) );
 #ifdef VMS
-      chtype_key = (chtype)real_key;
+      chtype_key = (TheDriverAttr)real_key;
 #else
-      chtype_key = (chtype)(real_key & A_CHARTEXT);
+      chtype_key = (TheDriverAttr)(real_key & A_CHARTEXT);
 #endif
 
       cursor = the_driver->capture_current_window_cursor();

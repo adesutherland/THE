@@ -63,7 +63,7 @@ static short set_active_colour( short area )
 {
    int i;
    COLOUR_ATTR attr;
-   chtype ch=0L,nondisp_attr=0L;
+   TheDriverAttr ch=0L,nondisp_attr=0L;
 
    TRACE_FUNCTION("commset1.c:set_active_colour");
 
@@ -3624,7 +3624,7 @@ short Etmode(CHARTYPE *params)
    register short i=0,j=0;
    short rc=RC_OK;
    bool tmp_mode=FALSE;
-   chtype attr=0L;
+   TheDriverAttr attr=0L;
    COLOUR_ATTR curr_attr;
    bool flags[256];
    int num=0,num1=0;

@@ -1336,7 +1336,7 @@ short THERefresh(CHARTYPE *params)
    the_driver->touch_current_window();
    the_driver->refresh_current_window();
 
-   the_driver->touch_window(curscr);
+   the_driver->touch_current_screen_image();
    the_driver->update();
    interactive_in_macro = FALSE;
    in_macro = save_in_macro;

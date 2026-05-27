@@ -69,7 +69,7 @@ static void display_info(CHARTYPE *);
 static int setup_system_profile_file(void);
 static void init_signals(void);
 /*--------------------------- global data -----------------------------*/
-   WINDOW *statarea=NULL,*error_window=NULL,*divider=NULL,*filetabs=NULL;
+   TheDriverWindow *statarea=NULL,*error_window=NULL,*divider=NULL,*filetabs=NULL;
    VIEW_DETAILS *vd_current=(VIEW_DETAILS *)NULL;
    VIEW_DETAILS *vd_first=(VIEW_DETAILS *)NULL;
    VIEW_DETAILS *vd_last=(VIEW_DETAILS *)NULL;
@@ -215,7 +215,7 @@ static void init_signals(void);
    short prefix_width=DEFAULT_PREFIX_WIDTH;
    short prefix_gap=DEFAULT_PREFIX_GAP;
 
-   chtype _THE_FAR etmode_table[256];
+   TheDriverCell _THE_FAR etmode_table[256];
    bool   _THE_FAR etmode_flag[256];
 
 #if defined(WIN32) && !defined(__CYGWIN32__)
@@ -267,9 +267,9 @@ static void init_signals(void);
 
    CHARTYPE *linebuf; /* Buffer for one terminal line, at least 81 elems */
 #ifdef USE_UTF8
-   cchar_t *linebufch; /* Buffer for one terminal line in chtype-mode, >= 81 */
+   TheDriverWideCell *linebufch; /* Buffer for one terminal line in chtype-mode, >= 81 */
 #else
-   chtype *linebufch; /* Buffer for one terminal line in chtype-mode, >= 81 */
+   TheDriverCell *linebufch; /* Buffer for one terminal line in chtype-mode, >= 81 */
 #endif
    LENGTHTYPE linebuf_size = 0;
    int max_slk_labels=0;
@@ -1219,9 +1219,9 @@ fclose( fp);
    terminal_lines--;
 #endif
 #ifdef USE_UTF8
-   if ((linebufch = (cchar_t *)(*the_malloc)(linebuf_size * sizeof(cchar_t))) == NULL)
+   if ((linebufch = (TheDriverWideCell *)(*the_malloc)(linebuf_size * sizeof(TheDriverWideCell))) == NULL)
 #else
-   if ((linebufch = (chtype *)(*the_malloc)(linebuf_size * sizeof(chtype))) == NULL)
+   if ((linebufch = (TheDriverCell *)(*the_malloc)(linebuf_size * sizeof(TheDriverCell))) == NULL)
 #endif
    {
       cleanup();
@@ -1265,10 +1265,10 @@ fclose( fp);
    nonl();
    noecho();
 #ifdef HAVE_KEYPAD
-   the_driver->enable_keypad( stdscr, true );
+   the_driver->enable_standard_keypad(true);
 #endif
 #ifdef HAVE_NOTIMEOUT
-   notimeout( stdscr, TRUE );
+   the_driver->set_standard_notimeout(true);
 #endif
 #ifdef USE_PROG_MODE
    def_prog_mode();

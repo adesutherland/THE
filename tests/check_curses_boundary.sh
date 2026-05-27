@@ -46,6 +46,16 @@ if [[ -n "$violations" ]]; then
   exit 1
 fi
 
+thedriver_public_violations="$(
+  rg -n 'WINDOW|chtype|cchar_t' src/thedriver.h 2>/dev/null || true
+)"
+
+if [[ -n "$thedriver_public_violations" ]]; then
+  printf '%s\n' "Unexpected curses public type in src/thedriver.h:"
+  printf '%s\n' "$thedriver_public_violations"
+  exit 1
+fi
+
 execute_pattern='(^|[^A-Za-z0-9_])(attrset|clear|wclear|move|mvaddstr|addch|refresh|wrefresh|getyx|getbegyx|wmove|newwin|newpad|derwin|subwin|delwin|keypad|wbkgd|wattrset|wclrtobot|box|waddstr|waddch|touchwin|wnoutrefresh|prefresh|wgetch|my_getch|wmouse_position|whline|draw_cursor|force_curses_background)[[:space:]]*\('
 execute_violations="$(
   rg -n "$execute_pattern" src/execute.c 2>/dev/null || true

@@ -67,7 +67,7 @@ RESERVED *add_reserved_line(CHARTYPE *spec,CHARTYPE *line,short base,short off,C
       TRACE_RETURN();
       return(NULL);
    }
-   if ( ( curr->highlighting = (chtype *)(*the_malloc)( ( strlen( (DEFCHAR *)templine ) + 1 ) * sizeof(chtype) ) ) == NULL )
+   if ( ( curr->highlighting = (TheDriverAttr *)(*the_malloc)( ( strlen( (DEFCHAR *)templine ) + 1 ) * sizeof(TheDriverAttr) ) ) == NULL )
    {
       display_error( 30, (CHARTYPE *)"", FALSE );
       TRACE_RETURN();

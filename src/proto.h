@@ -81,7 +81,7 @@ CHARTYPE calculate_actual_row (short, short, ROWTYPE, bool);
 short get_valid_macro_file_name (CHARTYPE *,CHARTYPE *,CHARTYPE *,short *);
 bool define_command (CHARTYPE *);
 int find_key_name (CHARTYPE *);
-int readv_cmdline (CHARTYPE *, WINDOW *, int);
+int readv_cmdline (CHARTYPE *, TheDriverWindow *, int);
 short execute_mouse_commands (int);
 short validate_n_m (CHARTYPE *,short *,short *);
 void ResetOrDeleteCUABlock ( int );
@@ -127,7 +127,7 @@ RESERVED *add_reserved_line (CHARTYPE *,CHARTYPE *,short,short,COLOUR_ATTR *,boo
 RESERVED *find_reserved_line (CHARTYPE,bool,ROWTYPE,short,short);
 short delete_reserved_line (short,short);
 #ifdef CTLCHAR
-chtype *apply_ctlchar_to_reserved_line (RESERVED *);
+TheDriverAttr *apply_ctlchar_to_reserved_line (RESERVED *);
 #endif
                                                               /* box.c */
 void box_operations (short ,CHARTYPE ,bool ,CHARTYPE );
@@ -217,7 +217,7 @@ short execute_command_file (FILE *);
 CHARTYPE *read_file_into_memory (CHARTYPE *,int *);
                                                             /* getch.c */
 #if !defined(DOS) && !defined(OS2)
-int my_getch  (WINDOW *);
+int my_getch  (TheDriverWindow *);
 #endif
                                                           /* nonansi.c */
 short file_readable (CHARTYPE *);
@@ -275,7 +275,7 @@ void show_utf8_note_line_replacement (LINETYPE, const CHARTYPE *, LENGTHTYPE);
 void show_utf8_filearea_cursor_transition (CHARTYPE, short, int, int);
 #endif
 void show_marked_block (void);
-void redraw_window (WINDOW *);
+void redraw_window (TheDriverWindow *);
 void repaint_screen (void);
 void touch_screen (CHARTYPE);
 void refresh_screen (CHARTYPE);
@@ -335,8 +335,8 @@ CHARTYPE *strtrans (CHARTYPE *,CHARTYPE,CHARTYPE);
 LINE *add_LINE ( LINE *, LINE *, CHARTYPE *, LENGTHTYPE, SELECTTYPE, bool );
 LINE *append_LINE (LINE *, CHARTYPE *, LENGTHTYPE);
 LINE *delete_LINE (LINE **, LINE **, LINE *, short, bool);
-void put_string (WINDOW *, ROWTYPE, COLTYPE, CHARTYPE *, LENGTHTYPE);
-void put_char (WINDOW *, chtype, CHARTYPE);
+void put_string (TheDriverWindow *, ROWTYPE, COLTYPE, CHARTYPE *, LENGTHTYPE);
+void put_char (TheDriverWindow *, TheDriverCell, CHARTYPE);
 short set_up_windows (short);
 short draw_divider (void);
 short create_statusline_window (void);
@@ -350,7 +350,7 @@ CHARTYPE case_translate (CHARTYPE );
 void add_to_recovery_list (CHARTYPE *, LENGTHTYPE);
 void get_from_recovery_list (short);
 void free_recovery_list (void);
-short my_wmove (WINDOW *, short, short, short, short);
+short my_wmove (TheDriverWindow *, short, short, short, short);
 short my_isalphanum (CHARTYPE);
 short get_row_for_tof_eof (short, CHARTYPE);
 void set_compare_exact (bool);
@@ -361,11 +361,11 @@ VIEW_DETAILS *find_filetab (int);
 VIEW_DETAILS *find_next_file (VIEW_DETAILS *,short);
 
 #if THIS_APPEARS_TO_NOT_BE_USED
-WINDOW *adjust_window (WINDOW *,short ,short ,short ,short );
+TheDriverWindow *adjust_window (TheDriverWindow *,short ,short ,short ,short );
 #endif
 
-short my_wclrtoeol (WINDOW *);
-short my_wdelch (WINDOW *);
+short my_wclrtoeol (TheDriverWindow *);
+short my_wdelch (TheDriverWindow *);
 short get_word (CHARTYPE *, LENGTHTYPE, LENGTHTYPE, LENGTHTYPE *, LENGTHTYPE *);
 short get_fieldword (CHARTYPE *, LENGTHTYPE, LENGTHTYPE, LENGTHTYPE *, LENGTHTYPE *);
 
@@ -485,7 +485,7 @@ void resolve_current_and_focus_lines ( CHARTYPE, VIEW_DETAILS *, LINETYPE, LINET
                                                            /* colour.c */
 short parse_colours (CHARTYPE *,COLOUR_ATTR *,CHARTYPE **,bool,bool*);
 short parse_modifiers (CHARTYPE *,COLOUR_ATTR *);
-chtype merge_curline_colour (COLOUR_ATTR *, COLOUR_ATTR *);
+TheDriverAttr merge_curline_colour (COLOUR_ATTR *, COLOUR_ATTR *);
 void set_up_default_colours (FILE_DETAILS *,COLOUR_ATTR *,int);
 void set_up_default_ecolours (FILE_DETAILS *);
 CHARTYPE *get_colour_strings (COLOUR_ATTR *);

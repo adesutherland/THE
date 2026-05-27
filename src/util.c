@@ -1342,7 +1342,7 @@ LINE *delete_LINE( LINE **first, LINE **last, LINE *curr, short direction, bool 
 }
 
 /***********************************************************************/
-void put_string( WINDOW *win, ROWTYPE row, COLTYPE col, CHARTYPE *string, LENGTHTYPE len )
+void put_string( TheDriverWindow *win, ROWTYPE row, COLTYPE col, CHARTYPE *string, LENGTHTYPE len )
 /***********************************************************************/
 {
    LENGTHTYPE i=0;
@@ -1351,13 +1351,13 @@ void put_string( WINDOW *win, ROWTYPE row, COLTYPE col, CHARTYPE *string, LENGTH
    the_driver->move_window_cursor(win, row, col);
    for ( i = 0; i < len; i++ )
    {
-      the_driver->add_chtype(win, etmode_table[*(string+i)]);
+      the_driver->add_cell(win, etmode_table[*(string+i)]);
    }
    TRACE_RETURN();
    return;
 }
 /***********************************************************************/
-void put_char(WINDOW *win,chtype ch,CHARTYPE add_ins)
+void put_char(TheDriverWindow *win,TheDriverCell ch,CHARTYPE add_ins)
 /***********************************************************************/
 {
 #ifdef VMS
@@ -1374,9 +1374,9 @@ void put_char(WINDOW *win,chtype ch,CHARTYPE add_ins)
 #endif
 
    if (add_ins == ADDCHAR)
-      the_driver->add_chtype(win, ch);
+      the_driver->add_cell(win, ch);
    else
-      winsch( win, ch );
+      the_driver->insert_cell(win, ch);
    TRACE_RETURN();
    return;
 }
@@ -1427,7 +1427,7 @@ short set_up_windows(short scrn)
    for ( i = 0; i < VIEW_WINDOWS; i++ )
    {
       y = x = 0;
-      if ( screen[scrn].win[i] != (WINDOW *)NULL )
+      if ( screen[scrn].win[i] != NULL )
       {
          cursor = the_driver->capture_screen_role_cursor(scrn, i);
          if (cursor.valid)
@@ -1436,7 +1436,7 @@ short set_up_windows(short scrn)
             x = cursor.col;
          }
          the_driver->delete_window(screen[scrn].win[i]);
-         screen[scrn].win[i] = (WINDOW *)NULL;
+         screen[scrn].win[i] = NULL;
       }
       if ( screen[scrn].rows[i] != 0
       &&   screen[scrn].cols[i] != 0 )
@@ -1444,7 +1444,7 @@ short set_up_windows(short scrn)
          screen[scrn].win[i] = the_driver->create_window(
             screen[scrn].rows[i], screen[scrn].cols[i],
             screen[scrn].start_row[i], screen[scrn].start_col[i]);
-         if ( screen[scrn].win[i] == (WINDOW *)NULL )
+         if ( screen[scrn].win[i] == NULL )
          {
             display_error( 30, (CHARTYPE *)"creating window", FALSE );
             TRACE_RETURN();
@@ -1461,30 +1461,30 @@ short set_up_windows(short scrn)
    }
    the_driver->set_screen_role_attr(scrn, WINDOW_FILEAREA, set_colour( fp.attr+ATTR_FILEAREA ));
 
-   if ( screen[scrn].win[WINDOW_ARROW] != (WINDOW *)NULL )
+   if ( screen[scrn].win[WINDOW_ARROW] != NULL )
    {
       the_driver->set_screen_role_attr(scrn, WINDOW_ARROW, set_colour( fp.attr+ATTR_ARROW ));
       for ( i = 0; i < my_prefix_width-2; i++ )
-         the_driver->add_chtype_at(screen[scrn].win[WINDOW_ARROW], 0, i, '=');
+         the_driver->add_cell_at(screen[scrn].win[WINDOW_ARROW], 0, i, '=');
       the_driver->add_string_at(screen[scrn].win[WINDOW_ARROW], 0,
                                   my_prefix_width - 2, "> ");
       the_driver->refresh_screen_role(scrn, WINDOW_ARROW);
    }
 
-   if ( screen[scrn].win[WINDOW_IDLINE] != (WINDOW *)NULL )
+   if ( screen[scrn].win[WINDOW_IDLINE] != NULL )
    {
       the_driver->set_screen_role_attr(scrn, WINDOW_IDLINE, set_colour( fp.attr+ATTR_IDLINE ));
       the_driver->move_screen_role_cursor(scrn, WINDOW_IDLINE, 0, 0);
       my_wclrtoeol( screen[scrn].win[WINDOW_IDLINE] );
    }
 
-   if ( screen[scrn].win[WINDOW_PREFIX] != (WINDOW *)NULL )
+   if ( screen[scrn].win[WINDOW_PREFIX] != NULL )
       the_driver->set_screen_role_attr(scrn, WINDOW_PREFIX, set_colour( fp.attr+ATTR_PENDING ));
 
-   if ( screen[scrn].win[WINDOW_GAP] != (WINDOW *)NULL )
+   if ( screen[scrn].win[WINDOW_GAP] != NULL )
       the_driver->set_screen_role_attr(scrn, WINDOW_GAP, set_colour( fp.attr+ATTR_GAP ));
 
-   if ( screen[scrn].win[WINDOW_COMMAND] != (WINDOW *)NULL )
+   if ( screen[scrn].win[WINDOW_COMMAND] != NULL )
    {
       the_driver->set_screen_role_attr(scrn, WINDOW_COMMAND, set_colour( fp.attr+ATTR_CMDLINE ));
       cursor = the_driver->capture_screen_role_cursor(scrn, WINDOW_COMMAND);
@@ -1501,7 +1501,7 @@ short set_up_windows(short scrn)
    /*
     * Delete divider window.
     */
-   if ( divider != (WINDOW *)NULL )
+   if ( divider != NULL )
    {
       the_driver->delete_window(divider);
       divider = NULL;
@@ -1515,7 +1515,7 @@ short set_up_windows(short scrn)
       divider = the_driver->create_window(
          screen[1].screen_rows, 2, screen[1].screen_start_row,
          screen[1].screen_start_col - 2);
-      if ( divider == (WINDOW *)NULL )
+      if ( divider == NULL )
       {
          display_error( 30, (CHARTYPE *)"creating window", FALSE );
          TRACE_RETURN();
@@ -1572,8 +1572,8 @@ short draw_divider(void)
    for (i=0;i<screen[1].screen_rows;i++)
    {
       the_driver->move_global_window_cursor(THE_DRIVER_GLOBAL_DIVIDER, i, 0);
-      the_driver->add_chtype(divider, '|');
-      the_driver->add_chtype(divider, '|');
+      the_driver->add_cell(divider, '|');
+      the_driver->add_cell(divider, '|');
    }
 #endif
    TRACE_RETURN();
@@ -1596,10 +1596,10 @@ short create_statusline_window(void)
       set_up_default_colours( (FILE_DETAILS *)NULL, &attr, ATTR_STATAREA );
    else
       memcpy( &attr, CURRENT_FILE->attr+ATTR_STATAREA, sizeof(COLOUR_ATTR) );
-   if ( statarea != (WINDOW *)NULL )
+   if ( statarea != NULL )
    {
       the_driver->delete_window(statarea);
-      statarea = (WINDOW *)NULL;
+      statarea = NULL;
    }
    switch( STATUSLINEx )
    {
@@ -1635,10 +1635,10 @@ short create_filetabs_window(void)
       TRACE_RETURN();
       return(RC_OK);
    }
-   if ( filetabs != (WINDOW *)NULL )
+   if ( filetabs != NULL )
    {
       the_driver->delete_window(filetabs);
-      filetabs = (WINDOW *)NULL;
+      filetabs = NULL;
    }
    if ( FILETABSx )
    {
@@ -2072,10 +2072,10 @@ void free_recovery_list(void)
 
 #if THIS_APPEARS_TO_NOT_BE_USED
 /***********************************************************************/
-WINDOW *adjust_window(WINDOW *win,short tr,short tc,short lines,short cols)
+TheDriverWindow *adjust_window(TheDriverWindow *win,short tr,short tc,short lines,short cols)
 /***********************************************************************/
 {
-   WINDOW *neww=NULL;
+   TheDriverWindow *neww=NULL;
    short begy=0,begx=0,maxy=0,maxx=0,y=0,x=0;
    short rc=RC_OK;
    TheDriverWindowOrigin origin;
@@ -2123,7 +2123,7 @@ WINDOW *adjust_window(WINDOW *win,short tr,short tc,short lines,short cols)
    }
    the_driver->delete_window(win);
    neww = the_driver->create_window(lines, cols, tr, tc);
-   if (neww != (WINDOW *)NULL)
+   if (neww != NULL)
    {
       the_driver->move_window_cursor(neww, y, x);
 #ifdef HAVE_KEYPAD
@@ -2136,7 +2136,7 @@ WINDOW *adjust_window(WINDOW *win,short tr,short tc,short lines,short cols)
 #endif
 
 /***********************************************************************/
-short my_wclrtoeol(WINDOW *win)
+short my_wclrtoeol(TheDriverWindow *win)
 /***********************************************************************/
 {
    register short i=0;
@@ -2152,7 +2152,7 @@ short my_wclrtoeol(WINDOW *win)
     * clrtoeol() is called.
     * Try COMPAT X#PREFIX OFF#PREFIX ON
     */
-   if (win != (WINDOW *)NULL)
+   if (win != NULL)
    {
       cursor = the_driver->capture_window_cursor(win);
       size = the_driver->window_size(win);
@@ -2167,11 +2167,11 @@ short my_wclrtoeol(WINDOW *win)
          maxx = size.cols;
       }
       for ( i = x; i < maxx; i++ )
-         the_driver->add_chtype(win, '@');
+         the_driver->add_cell(win, '@');
       the_driver->move_window_cursor(win, y, x);
    }
 #endif
-   if (win != (WINDOW *)NULL)
+   if (win != NULL)
    {
       cursor = the_driver->capture_window_cursor(win);
       size = the_driver->window_size(win);
@@ -2186,7 +2186,7 @@ short my_wclrtoeol(WINDOW *win)
          maxx = size.cols;
       }
       for ( i = x; i < maxx; i++ )
-         the_driver->add_chtype(win, ' ');
+         the_driver->add_cell(win, ' ');
       the_driver->move_window_cursor(win, y, x);
    }
    INTENTIONALLY_UNUSED_VARIABLE(maxy);
@@ -2194,7 +2194,7 @@ short my_wclrtoeol(WINDOW *win)
    return(0);
 }
 /***********************************************************************/
-short my_wdelch(WINDOW *win)
+short my_wdelch(TheDriverWindow *win)
 /***********************************************************************/
 {
    short x=0,y=0,maxx=0,maxy=0;
@@ -2215,8 +2215,8 @@ short my_wdelch(WINDOW *win)
       maxy = size.rows;
       maxx = size.cols;
    }
-   wdelch(win);
-   the_driver->add_chtype_at(win, y, maxx - 1, ' ');
+   the_driver->delete_cell(win);
+   the_driver->add_cell_at(win, y, maxx - 1, ' ');
    the_driver->move_window_cursor(win, y, x);
    INTENTIONALLY_UNUSED_VARIABLE(maxy);
    TRACE_RETURN();
@@ -2581,7 +2581,7 @@ short my_isalphanum(CHARTYPE chr)
 }
 
 /***********************************************************************/
-short my_wmove(WINDOW *win,short scridx,short winidx,short y,short x)
+short my_wmove(TheDriverWindow *win,short scridx,short winidx,short y,short x)
 /***********************************************************************/
 {
    short rc=RC_OK;
@@ -2863,7 +2863,7 @@ VIEW_DETAILS *find_filetab(int x)
    register int j=0;
    int fname_len, fname_start = 0;
    bool first = TRUE;
-   chtype filetab_cell=0;
+   TheDriverCell filetab_cell=0;
 
    TRACE_FUNCTION("util.c:    find_filetab");
    /*
