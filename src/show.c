@@ -506,10 +506,6 @@ static void show_write_ascii_cells_at(WINDOW *win, int row, int col,
 }
 
 #define mysetchar(dest, ch, colour) curses_driver_set_cchar_codepoint((dest), (uint32_t)(ch), (colour))
-#else
-#define mysetchar(dest, ch, colour ) {                   \
-                  setcchar( dest, &ch, colour, 0, NULL ); \
-                  }
 #endif
 
 #ifdef HAVE_WADDCHNSTR
@@ -5958,9 +5954,9 @@ short force_curses_background(void)
    {
       pair_content(1,&fg,&bg);
       init_pair(1,COLOR_BLACK,COLOR_WHITE);
-      move(0,0);
-      attrset(COLOR_PAIR(1));
-      addch(' ');
+      curses_driver_move_standard_cursor(0,0);
+      curses_driver_set_standard_attr(COLOR_PAIR(1));
+      curses_driver_add_standard_ch(' ');
       init_pair(1,fg,bg);
    }
    TRACE_RETURN();

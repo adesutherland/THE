@@ -1459,11 +1459,11 @@ short set_up_windows(short scrn)
          curses_driver_move_window_cursor(screen[scrn].win[i], y, x);
       }
    }
-   wattrset( screen[scrn].win[WINDOW_FILEAREA], set_colour( fp.attr+ATTR_FILEAREA ) );
+   curses_driver_set_window_attr( screen[scrn].win[WINDOW_FILEAREA], set_colour( fp.attr+ATTR_FILEAREA ) );
 
    if ( screen[scrn].win[WINDOW_ARROW] != (WINDOW *)NULL )
    {
-      wattrset( screen[scrn].win[WINDOW_ARROW], set_colour( fp.attr+ATTR_ARROW ) );
+      curses_driver_set_window_attr( screen[scrn].win[WINDOW_ARROW], set_colour( fp.attr+ATTR_ARROW ) );
       for ( i = 0; i < my_prefix_width-2; i++ )
          curses_driver_add_chtype_at(screen[scrn].win[WINDOW_ARROW], 0, i, '=');
       curses_driver_add_string_at(screen[scrn].win[WINDOW_ARROW], 0,
@@ -1473,20 +1473,20 @@ short set_up_windows(short scrn)
 
    if ( screen[scrn].win[WINDOW_IDLINE] != (WINDOW *)NULL )
    {
-      wattrset( screen[scrn].win[WINDOW_IDLINE], set_colour( fp.attr+ATTR_IDLINE ) );
+      curses_driver_set_window_attr( screen[scrn].win[WINDOW_IDLINE], set_colour( fp.attr+ATTR_IDLINE ) );
       curses_driver_move_window_cursor(screen[scrn].win[WINDOW_IDLINE], 0, 0);
       my_wclrtoeol( screen[scrn].win[WINDOW_IDLINE] );
    }
 
    if ( screen[scrn].win[WINDOW_PREFIX] != (WINDOW *)NULL )
-      wattrset( screen[scrn].win[WINDOW_PREFIX], set_colour( fp.attr+ATTR_PENDING ) );
+      curses_driver_set_window_attr( screen[scrn].win[WINDOW_PREFIX], set_colour( fp.attr+ATTR_PENDING ) );
 
    if ( screen[scrn].win[WINDOW_GAP] != (WINDOW *)NULL )
-      wattrset( screen[scrn].win[WINDOW_GAP], set_colour( fp.attr+ATTR_GAP ) );
+      curses_driver_set_window_attr( screen[scrn].win[WINDOW_GAP], set_colour( fp.attr+ATTR_GAP ) );
 
    if ( screen[scrn].win[WINDOW_COMMAND] != (WINDOW *)NULL )
    {
-      wattrset( screen[scrn].win[WINDOW_COMMAND], set_colour( fp.attr+ATTR_CMDLINE ) );
+      curses_driver_set_window_attr( screen[scrn].win[WINDOW_COMMAND], set_colour( fp.attr+ATTR_CMDLINE ) );
       cursor = curses_driver_capture_window_cursor(screen[scrn].win[WINDOW_COMMAND]);
       if (cursor.valid)
       {
@@ -1527,12 +1527,12 @@ short set_up_windows(short scrn)
 
 #if 0
 # if defined(A_ALTCHARSET) && !defined(USE_NCURSES)
-      wattrset( divider, A_ALTCHARSET|set_colour( fp.attr+ATTR_DIVIDER ) );
+      curses_driver_set_window_attr( divider, A_ALTCHARSET|set_colour( fp.attr+ATTR_DIVIDER ) );
 # else
-      wattrset( divider, set_colour( fp.attr+ATTR_DIVIDER ) );
+      curses_driver_set_window_attr( divider, set_colour( fp.attr+ATTR_DIVIDER ) );
 # endif
 #else
-      wattrset( divider, set_colour( fp.attr+ATTR_DIVIDER ) );
+      curses_driver_set_window_attr( divider, set_colour( fp.attr+ATTR_DIVIDER ) );
 #endif
 
       draw_divider();
@@ -1565,9 +1565,9 @@ short draw_divider(void)
 
 #ifdef HAVE_WVLINE
    curses_driver_move_window_cursor(divider, 0, 0);
-   wvline(divider,0,screen[1].screen_rows);
+   curses_driver_draw_vertical_line(divider,0,screen[1].screen_rows);
    curses_driver_move_window_cursor(divider, 0, 1);
-   wvline(divider,0,screen[1].screen_rows);
+   curses_driver_draw_vertical_line(divider,0,screen[1].screen_rows);
 #else
    for (i=0;i<screen[1].screen_rows;i++)
    {
@@ -1608,7 +1608,7 @@ short create_statusline_window(void)
 #ifdef HAVE_KEYPAD
          curses_driver_enable_keypad(statarea, true);
 #endif
-         wattrset( statarea, set_colour( &attr ) );
+         curses_driver_set_window_attr( statarea, set_colour( &attr ) );
          clear_statarea();
          break;
       case 'T':
@@ -1616,7 +1616,7 @@ short create_statusline_window(void)
 #ifdef HAVE_KEYPAD
          curses_driver_enable_keypad(statarea, true);
 #endif
-         wattrset( statarea, set_colour( &attr ) );
+         curses_driver_set_window_attr( statarea, set_colour( &attr ) );
          clear_statarea();
          break;
       default:
@@ -2863,6 +2863,7 @@ VIEW_DETAILS *find_filetab(int x)
    register int j=0;
    int fname_len, fname_start = 0;
    bool first = TRUE;
+   chtype filetab_cell=0;
 
    TRACE_FUNCTION("util.c:    find_filetab");
    /*
@@ -2871,10 +2872,11 @@ VIEW_DETAILS *find_filetab(int x)
    if ( FILETABSx )
    {
       curses_driver_move_window_cursor(filetabs, 0, COLS - 1);
+      filetab_cell = curses_driver_read_window_cell(filetabs);
 #ifdef VMS
-      if ( ( winch( filetabs ) ) == '>'
+      if ( filetab_cell == '>'
 #else
-      if ( ( winch( filetabs ) & A_CHARTEXT ) == '>'
+      if ( ( filetab_cell & A_CHARTEXT ) == '>'
 #endif
       &&  x == COLS-1 )
       {
@@ -2883,10 +2885,11 @@ VIEW_DETAILS *find_filetab(int x)
          return NULL;
       }
       curses_driver_move_window_cursor(filetabs, 0, COLS - 2);
+      filetab_cell = curses_driver_read_window_cell(filetabs);
 #ifdef VMS
-      if ( ( winch( filetabs ) ) == '<'
+      if ( filetab_cell == '<'
 #else
-      if ( ( winch( filetabs ) & A_CHARTEXT ) == '<'
+      if ( ( filetab_cell & A_CHARTEXT ) == '<'
 #endif
       &&  x == COLS-2 )
       {

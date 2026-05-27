@@ -116,7 +116,7 @@ static short set_active_colour( short area )
    {
       case WINDOW_FILEAREA:
          if (area == ATTR_FILEAREA)
-            wattrset(CURRENT_WINDOW_FILEAREA,set_colour(CURRENT_FILE->attr+area));
+            curses_driver_set_window_attr(CURRENT_WINDOW_FILEAREA,set_colour(CURRENT_FILE->attr+area));
          build_screen(current_screen);
          display_screen(current_screen);
 #if ( defined(USE_XCURSES) || defined(USE_SDLCURSES) || defined(USE_WINGUICURSES) ) && PDC_BUILD >= 2501
@@ -131,7 +131,7 @@ static short set_active_colour( short area )
       case WINDOW_PREFIX:
          if (CURRENT_WINDOW_PREFIX != NULL)
          {
-            wattrset(CURRENT_WINDOW_PREFIX,set_colour(CURRENT_FILE->attr+area));
+            curses_driver_set_window_attr(CURRENT_WINDOW_PREFIX,set_colour(CURRENT_FILE->attr+area));
             build_screen(current_screen);
             display_screen(current_screen);
          }
@@ -139,7 +139,7 @@ static short set_active_colour( short area )
       case WINDOW_COMMAND:
          if (CURRENT_WINDOW_COMMAND != NULL)
          {
-            wattrset(CURRENT_WINDOW_COMMAND,set_colour(CURRENT_FILE->attr+area));
+            curses_driver_set_window_attr(CURRENT_WINDOW_COMMAND,set_colour(CURRENT_FILE->attr+area));
             redraw_window(CURRENT_WINDOW_COMMAND);
             curses_driver_touch_window(CURRENT_WINDOW_COMMAND);
             curses_driver_refresh_window(CURRENT_WINDOW_COMMAND);
@@ -148,7 +148,7 @@ static short set_active_colour( short area )
       case WINDOW_ARROW:
          if (CURRENT_WINDOW_ARROW != NULL)
          {
-            wattrset(CURRENT_WINDOW_ARROW,set_colour(CURRENT_FILE->attr+area));
+            curses_driver_set_window_attr(CURRENT_WINDOW_ARROW,set_colour(CURRENT_FILE->attr+area));
             redraw_window(CURRENT_WINDOW_ARROW);
             curses_driver_touch_window(CURRENT_WINDOW_ARROW);
             curses_driver_refresh_window(CURRENT_WINDOW_ARROW);
@@ -157,7 +157,7 @@ static short set_active_colour( short area )
       case WINDOW_IDLINE:
          if (CURRENT_WINDOW_IDLINE != NULL)
          {
-            wattrset(CURRENT_WINDOW_IDLINE,set_colour(CURRENT_FILE->attr+area));
+            curses_driver_set_window_attr(CURRENT_WINDOW_IDLINE,set_colour(CURRENT_FILE->attr+area));
             redraw_window(CURRENT_WINDOW_IDLINE);
             curses_driver_touch_window(CURRENT_WINDOW_IDLINE);
             curses_driver_refresh_window(CURRENT_WINDOW_IDLINE);
@@ -166,7 +166,7 @@ static short set_active_colour( short area )
       case WINDOW_STATAREA:
          if (statarea != NULL)
          {
-            wattrset(statarea,set_colour(CURRENT_FILE->attr+area));
+            curses_driver_set_window_attr(statarea,set_colour(CURRENT_FILE->attr+area));
             redraw_window(statarea);
             curses_driver_touch_window(statarea);
             curses_driver_refresh_window(statarea);
@@ -175,7 +175,7 @@ static short set_active_colour( short area )
       case WINDOW_FILETABS:
          if (filetabs != NULL)
          {
-            wattrset(filetabs,set_colour(CURRENT_FILE->attr+area));
+            curses_driver_set_window_attr(filetabs,set_colour(CURRENT_FILE->attr+area));
             redraw_window(filetabs);
             curses_driver_touch_window(filetabs);
             curses_driver_refresh_window(filetabs);
@@ -184,7 +184,7 @@ static short set_active_colour( short area )
       case WINDOW_DIVIDER:
          if (divider != (WINDOW *)NULL)
          {
-            wattrset(divider,set_colour(CURRENT_FILE->attr+area));
+            curses_driver_set_window_attr(divider,set_colour(CURRENT_FILE->attr+area));
             if (display_screens > 1
             &&  !horizontal)
             {
@@ -2260,7 +2260,7 @@ short Compat(CHARTYPE *params)
    if (curses_started
    &&  statarea != NULL)
    {
-      wattrset(statarea,set_colour(CURRENT_FILE->attr+ATTR_STATAREA));
+      curses_driver_set_window_attr(statarea,set_colour(CURRENT_FILE->attr+ATTR_STATAREA));
       clear_statarea();
    }
    /*
@@ -2283,7 +2283,7 @@ short Compat(CHARTYPE *params)
          }
          if (!horizontal)
          {
-            wattrset(divider,set_colour(OTHER_SCREEN.screen_view->file_for_view->attr+ATTR_DIVIDER));
+            curses_driver_set_window_attr(divider,set_colour(OTHER_SCREEN.screen_view->file_for_view->attr+ATTR_DIVIDER));
             curses_driver_touch_window(divider);
             curses_driver_refresh_window(divider);
          }

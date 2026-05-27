@@ -499,7 +499,7 @@ static void open_msgline(ROWTYPE base, ROWTYPE off,ROWTYPE rows)
    error_window = curses_driver_create_window(
       rows, CURRENT_SCREEN.screen_cols, CURRENT_SCREEN.screen_start_row + start_row,
       CURRENT_SCREEN.screen_start_col);
-   wattrset( error_window, set_colour(&attr) );
+   curses_driver_set_window_attr( error_window, set_colour(&attr) );
 #ifdef HAVE_KEYPAD
    curses_driver_enable_keypad(error_window, true);
 #endif

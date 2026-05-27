@@ -146,6 +146,7 @@ void curses_driver_update(void);
 void curses_driver_present_cursor(bool visible);
 void curses_driver_set_window_timeout(WINDOW *win, int milliseconds);
 void curses_driver_draw_box(WINDOW *win);
+void curses_driver_draw_vertical_line(WINDOW *win, chtype ch, int len);
 void curses_driver_add_string(WINDOW *win, const char *text);
 void curses_driver_add_string_at(WINDOW *win, short row, short col,
                                  const char *text);
@@ -165,6 +166,7 @@ int curses_driver_read_mouse_event(WINDOW *win, CursesDriverMouseEvent *event);
 void curses_driver_prepare_standard_screen_for_shell(void);
 void curses_driver_force_background_and_refresh(WINDOW *win);
 void curses_driver_clear_standard_window(void);
+void curses_driver_erase_standard_window(void);
 void curses_driver_set_standard_attr(chtype colour);
 void curses_driver_add_standard_string_at(short row, short col,
                                           const char *text);

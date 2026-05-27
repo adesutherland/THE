@@ -275,30 +275,30 @@ short Prevwindow(CHARTYPE *params)
    {
       if (CURRENT_WINDOW_COMMAND != (WINDOW *)NULL)
       {
-         wattrset(CURRENT_WINDOW_COMMAND,set_colour(CURRENT_FILE->attr+ATTR_CMDLINE));
+         curses_driver_set_window_attr(CURRENT_WINDOW_COMMAND,set_colour(CURRENT_FILE->attr+ATTR_CMDLINE));
          curses_driver_touch_window(CURRENT_WINDOW_COMMAND);
          curses_driver_refresh_window(CURRENT_WINDOW_COMMAND);
       }
       if (CURRENT_WINDOW_ARROW != (WINDOW *)NULL)
       {
-         wattrset(CURRENT_WINDOW_ARROW,set_colour(CURRENT_FILE->attr+ATTR_ARROW));
+         curses_driver_set_window_attr(CURRENT_WINDOW_ARROW,set_colour(CURRENT_FILE->attr+ATTR_ARROW));
          redraw_window(CURRENT_WINDOW_ARROW);
          curses_driver_refresh_window(CURRENT_WINDOW_ARROW);
       }
       if (statarea != (WINDOW *)NULL)
       {
-         wattrset(statarea,set_colour(CURRENT_FILE->attr+ATTR_STATAREA));
+         curses_driver_set_window_attr(statarea,set_colour(CURRENT_FILE->attr+ATTR_STATAREA));
          redraw_window(statarea);
       }
       if (CURRENT_WINDOW_IDLINE != (WINDOW *)NULL)
       {
-         wattrset(CURRENT_WINDOW_IDLINE,set_colour(CURRENT_FILE->attr+ATTR_IDLINE));
+         curses_driver_set_window_attr(CURRENT_WINDOW_IDLINE,set_colour(CURRENT_FILE->attr+ATTR_IDLINE));
          redraw_window(CURRENT_WINDOW_IDLINE);
       }
       if (display_screens > 1
       &&  !horizontal)
       {
-         wattrset(divider,set_colour(CURRENT_FILE->attr+ATTR_DIVIDER));
+         curses_driver_set_window_attr(divider,set_colour(CURRENT_FILE->attr+ATTR_DIVIDER));
          draw_divider();
          curses_driver_refresh_window(divider);
       }
@@ -1226,7 +1226,7 @@ short Redraw(CHARTYPE *params)
       TRACE_RETURN();
       return(RC_INVALID_OPERAND);
    }
-   erase();
+   curses_driver_erase_standard_window();
    curses_driver_refresh_standard_screen();
    restore_THE();
    THERefresh( (CHARTYPE *)"" );

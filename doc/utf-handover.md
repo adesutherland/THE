@@ -113,8 +113,11 @@ them mechanically and verify the supported targets in one sweep.
   in `comm1.c`, `comm2.c`, `comm3.c`, `comm4.c`, `commset1.c`,
   `commset2.c`, `commutil.c`, `error.c`, `file.c`, `getch.c`, `mouse.c`,
   `prefix.c`, `query.c`, `query2.c`, `rexx.c`, `the.c`, and `util.c`
-  behind `curses_driver_*` wrappers. `show.c` renderer/window-state/chtype
-  storage was deliberately left for a later slice.
+  behind `curses_driver_*` wrappers. The corrected paint scanner also exposed
+  suffixed raw paint/cell calls in `comm3.c`, `comm4.c`, `comm5.c`,
+  `commset1.c`, `error.c`, `query.c`, `query2.c`, `show.c`, and `util.c`;
+  those are now behind driver wrappers. Broad `show.c`
+  renderer/window-state/chtype storage remains for a later slice.
 - The direct-curses inventory scanner now handles `#if 0 ... #else ...
   #endif` correctly by scanning the active `#else` arm. The ratchet is both a
   CTest (`test_curses_boundary_inventory`) and a build target
@@ -126,10 +129,12 @@ them mechanically and verify the supported targets in one sweep.
 ## Active Slice
 
 No active migration slice is selected after closing the inventory ratchet,
-bulk physical wrapper pass, physical input/paint cleanup, and raw mouse packet
-driver-ownership cleanup. Pick the next slice from the debt buckets below and
-close it with the same proof pattern: no-curses model first, curses path uses
-that model, then guardrail the cleaned surface.
+bulk physical wrapper pass, physical input/paint cleanup, raw mouse packet
+driver-ownership cleanup, and corrected suffixed-paint cleanup. The next
+inventory-backed target is the remaining `window-state` debt, starting with
+active-window macros/window handles that can be separated before the broader
+renderer cell/type split. Close it with the same proof pattern: no-curses model
+first, curses path uses that model, then guardrail the cleaned surface.
 
 ## Direct Curses Inventory
 
@@ -138,8 +143,8 @@ outside `src/cursesdriver.*`, bundled PDCurses, and contrib code. It now has
 four useful modes:
 
 - default full inventory: every classified finding.
-- `--summary`: debt-oriented category totals plus top category/file/function
-  buckets.
+- `--summary`: debt-oriented category totals, `window-state` sub-buckets, plus
+  top category/file/function buckets.
 - `--baseline`: aggregate category/file/function buckets for the checked-in
   ratchet baseline.
 - `--fail-on-new`: CTest/build-target ratchet against
@@ -150,8 +155,16 @@ Current ratcheted counts:
 - actionable `physical-input`: 0
 - actionable `physical-paint`: 0
 - actionable `mouse-token`: 0
-- actionable `window-state`: 394
-- allowed/migrated `driver-wrapper`: 643
+- actionable `window-state`: 378
+- allowed/migrated `driver-wrapper`: 690
+
+Current `window-state` summary:
+
+- `window-handle`: 72
+- `active-window-macro`: 152
+- `cell-attr-type`: 79
+- `renderer-cell-type`: 64
+- `header-prototype`: 11
 
 For the cleaned transient functions, the sweep finds no raw `physical-input` or
 `physical-paint` calls in `readv_cmdline()`, `execute_dialog()`, or
@@ -172,11 +185,13 @@ must-fix-all-existing-debt gate. Reductions are allowed without updating every
 other bucket. `driver-wrapper` entries are counted for visibility but are
 treated as migrated/allowed and do not fail the ratchet.
 
-The wrapper passes reduced the current scanner's raw `physical-input` count
-from 16 to 12 to 0 and raw `physical-paint` count from 198 to 31 to 0. The
-mouse-boundary cleanup kept `physical-input` and `physical-paint` at 0 under
-the stricter raw mouse scanner, reduced `mouse-token` from 24 to 0,
-`window-state` from 397 to 394, and moved the old raw packet decoding source of
+The older wrapper passes reduced the scanner's raw `physical-input` count from
+16 to 12 to 0 and raw `physical-paint` count from 198 to 31 to 0, but the
+paint regex still missed suffixed calls such as `wattrset`, `wclear`,
+`mvaddstr`, `winch`, and `setcchar`. The corrected scanner exposed 52 active
+raw `physical-paint` findings; this pass reduced them to 0 and moved the new
+wrapper visibility into `driver-wrapper`. The mouse-boundary cleanup reduced
+`mouse-token` from 24 to 0 and moved the old raw packet decoding source of
 truth from `src/mouse.c` to `src/cursesdriver.c`. The scanner also stops
 treating comments, prototypes/function names, `#if 0` bodies, inactive `#if 0`
 arms before active `#else` branches, and raw-token `#undef` compatibility
@@ -190,7 +205,9 @@ Boundary debt:
 - Remaining direct curses window-state/type findings in legacy command,
   render, setup, and header surfaces. These mostly reflect `WINDOW`, `chtype`,
   `cchar_t`, active-window macros, and the future renderer/window-state model,
-  so they are intentionally deferred.
+  so they are intentionally deferred. The next feasible cleanup target is the
+  `active-window-macro`/`window-handle` portion before tackling
+  `renderer-cell-type` and broader renderer storage.
 - `mouse-token` is currently zero. Future raw mouse packet symbols outside the
   driver should fail as actionable `physical-input`; editor-level mouse command
   encoding should continue to use driver-owned button/action/modifier constants

@@ -166,7 +166,7 @@ function category(line, is_func_sig, is_define, is_undef) {
     return "physical-input"
   if (!is_define && !is_undef && line ~ /(^|[^A-Za-z0-9_])(KEY_MOUSE|MEVENT|getmouse|request_mouse_pos|MOUSE_X_POS|MOUSE_Y_POS|A_BUTTON_CHANGED|BUTTON_CHANGED|BUTTON_STATUS|BUTTON_ACTION_MASK|MOUSE_MOVED|BUTTON[123]_[A-Za-z0-9_]+|BUTTON_SHIFT|BUTTON_CONTROL|BUTTON_CTRL|BUTTON_ALT|BUTTON_PRESSED|BUTTON_RELEASED|BUTTON_CLICKED|BUTTON_DOUBLE_CLICKED|BUTTON_TRIPLE_CLICKED|BUTTON_MOVED|WHEEL_SCROLLED)([^A-Za-z0-9_]|$)/)
     return "physical-input"
-  if (!is_func_sig && !is_define && line ~ /(^|[^A-Za-z0-9_])(getyx|getbegyx|getmaxyx|wmove|mvwadd|wadd|wattr|touchline|touchwin|wnoutrefresh|doupdate|wrefresh|refresh|newwin|newpad|derwin|subwin|delwin|keypad|wbkgd|box|whline|prefresh|curs_set|draw_cursor)[[:space:]]*\(/)
+  if (!is_func_sig && !is_define && line ~ /(^|[^A-Za-z0-9_])(getyx|getbegyx|getmaxyx|wmove|move|attr[A-Za-z0-9_]*|wattr[A-Za-z0-9_]*|standout|standend|wstandout|wstandend|clear|wclear|clrtobot|wclrtobot|clrtoeol|wclrtoeol|erase|werase|addch|addstr|addnstr|wadd[A-Za-z0-9_]*|mvwadd[A-Za-z0-9_]*|mvadd[A-Za-z0-9_]*|winch|mvwinch|setcchar|touchline|touchwin|wnoutrefresh|doupdate|wrefresh|refresh|newwin|newpad|derwin|subwin|delwin|keypad|wbkgd|box|whline|wvline|prefresh|curs_set|draw_cursor)[[:space:]]*\(/)
     return "physical-paint"
   if (line ~ /(^|[^A-Za-z0-9_])(WINDOW|SCREEN_WINDOW|CURRENT_WINDOW|CURRENT_WINDOW_[A-Za-z0-9_]*|SCREEN_WINDOW_[A-Za-z0-9_]*|stdscr|chtype|cchar_t)([^A-Za-z0-9_]|$)/)
     return "window-state"
@@ -234,10 +234,23 @@ print_summary() {
   findings_file="$(mktemp)"
   cat > "$findings_file"
   awk -F '\t' '
+    function window_state_bucket(file, line) {
+      if (file ~ /(^|\/)proto\.h$/ || (file ~ /\.h$/ && line ~ /\)[[:space:]]*;/))
+        return "header-prototype"
+      if (line ~ /(^|[^A-Za-z0-9_])(CURRENT_WINDOW|CURRENT_WINDOW_[A-Za-z0-9_]*|SCREEN_WINDOW|SCREEN_WINDOW_[A-Za-z0-9_]*)([^A-Za-z0-9_]|$)/)
+        return "active-window-macro"
+      if (file == "src/show.c" && line ~ /(^|[^A-Za-z0-9_])(chtype|cchar_t|attr_t|A_CHARTEXT|A_ATTRIBUTES|A_COLOR|COLOR_PAIR)([^A-Za-z0-9_]|$)|linebufch|make_chtype|highlighting/)
+        return "renderer-cell-type"
+      if (line ~ /(^|[^A-Za-z0-9_])(chtype|cchar_t|attr_t|A_CHARTEXT|A_ATTRIBUTES|A_COLOR|COLOR_PAIR)([^A-Za-z0-9_]|$)|linebufch|highlighting/)
+        return "cell-attr-type"
+      return "window-handle"
+    }
     {
       bycat[$4]++
       key = $4 "\t" $1 "\t" $3
       bybucket[key]++
+      if ($4 == "window-state")
+        winstate[window_state_bucket($1, $5)]++
     }
     END {
       print "direct curses inventory summary (excluding src/cursesdriver.*, PDCurses, contrib):"
@@ -254,6 +267,16 @@ print_summary() {
         else
           label = label " (actionable)"
         printf "  %s: %d\n", label, bycat[cat] + 0
+      }
+      print "window-state breakdown:"
+      suborder[1] = "window-handle"
+      suborder[2] = "active-window-macro"
+      suborder[3] = "cell-attr-type"
+      suborder[4] = "renderer-cell-type"
+      suborder[5] = "header-prototype"
+      for (i = 1; i <= 5; i++) {
+        bucket = suborder[i]
+        printf "  %s: %d\n", bucket, winstate[bucket] + 0
       }
     }
   ' "$findings_file"

@@ -2008,9 +2008,9 @@ short extract_spacechar_function(short number_variables,short itemno,CHARTYPE *i
       return 1;
    }
 #ifdef VMS
-   cursor_char = (CHARTYPE)( winch( CURRENT_WINDOW ) );
+   cursor_char = (CHARTYPE)( curses_driver_read_window_cell( CURRENT_WINDOW ) );
 #else
-   cursor_char = (CHARTYPE)( winch( CURRENT_WINDOW ) & A_CHARTEXT );
+   cursor_char = (CHARTYPE)( curses_driver_read_window_cell( CURRENT_WINDOW ) & A_CHARTEXT );
 #endif
    return set_boolean_value((bool)(cursor_char == ' '),(short)1);
 }

@@ -2414,7 +2414,7 @@ short show_status(void)
    col[0] = 0;
    for (i=1;i<STATUS_COLS;i++)
       col[i] = col[i-1]+column_width+1;
-   wclear(stdscr);
+   curses_driver_clear_standard_window();
    for (i=0; i<NUMBER_QUERY_ITEM; i++)
    {
       /*
@@ -2447,9 +2447,9 @@ short show_status(void)
          for (j=0;j<number_variables+1;j++)
          {
             if (j == 0)
-               attrset(A_BOLD);
-            mvaddstr(lineno,colno,(DEFCHAR *)item_values[j].value);
-            attrset(A_NORMAL);
+               curses_driver_set_standard_attr(A_BOLD);
+            curses_driver_add_standard_string_at(lineno,colno,(DEFCHAR *)item_values[j].value);
+            curses_driver_set_standard_attr(A_NORMAL);
             colno += item_values[j].len+1;
          }
          colno--;
@@ -2481,7 +2481,7 @@ short show_status(void)
          }
       }
    }
-   mvaddstr(terminal_lines-2,0,HIT_ANY_KEY);
+   curses_driver_add_standard_string_at(terminal_lines-2,0,HIT_ANY_KEY);
    curses_driver_refresh_standard_screen();
 
    TRACE_RETURN();

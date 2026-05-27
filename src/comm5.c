@@ -819,6 +819,7 @@ short Text(CHARTYPE *params)
 #else
    chtype attr=0;
 #endif
+   chtype cursor_cell=0;
    bool need_to_build_screen=FALSE;
    bool save_in_macro=in_macro;
 #ifdef USE_UTF8
@@ -898,9 +899,10 @@ short Text(CHARTYPE *params)
       }
 #endif
 
+      cursor_cell = curses_driver_read_window_cell(CURRENT_WINDOW);
 #if defined(USE_EXTCURSES)
       attr = CURRENT_WINDOW->_a[y][x];
-      wattrset( CURRENT_WINDOW, attr );
+      curses_driver_set_window_attr( CURRENT_WINDOW, attr );
       attr = 0;
 #elif defined(VMS)
 # ifdef _BSD44_CURSES
@@ -909,7 +911,7 @@ short Text(CHARTYPE *params)
       attr = 0;
 # endif
 #else
-      attr = winch( CURRENT_WINDOW ) & A_ATTRIBUTES;
+      attr = cursor_cell & A_ATTRIBUTES;
 #endif
 
       switch( CURRENT_VIEW->current_window )
@@ -923,9 +925,9 @@ short Text(CHARTYPE *params)
                {
                   need_to_build_screen = ispf_special_lines_entry( CURRENT_SCREEN.sl[y].line_type,
 #ifdef VMS
-                                                                   winch(CURRENT_WINDOW),
+                                                                   cursor_cell,
 #else
-                                                                   winch(CURRENT_WINDOW) & A_CHARTEXT,
+                                                                   cursor_cell & A_CHARTEXT,
 #endif
                                                                    real_key );
                }

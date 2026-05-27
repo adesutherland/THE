@@ -649,6 +649,29 @@ void curses_driver_draw_box(WINDOW *win)
 #endif
 }
 
+void curses_driver_draw_vertical_line(WINDOW *win, chtype ch, int len)
+{
+#ifndef HAVE_WVLINE
+   CursesDriverWindowCursor cursor;
+   int i;
+#endif
+
+   if (win == NULL || len <= 0)
+      return;
+#ifdef HAVE_WVLINE
+   wvline(win, ch, len);
+#else
+   cursor = curses_driver_capture_window_cursor(win);
+   if (!cursor.valid)
+      return;
+   for (i = 0; i < len; i++)
+   {
+      curses_driver_move_window_cursor(win, (short)(cursor.row + i), cursor.col);
+      curses_driver_add_chtype(win, ch);
+   }
+#endif
+}
+
 void curses_driver_add_string(WINDOW *win, const char *text)
 {
    if (win == NULL || text == NULL)
@@ -1081,6 +1104,11 @@ void curses_driver_force_background_and_refresh(WINDOW *win)
 void curses_driver_clear_standard_window(void)
 {
    wclear(stdscr);
+}
+
+void curses_driver_erase_standard_window(void)
+{
+   erase();
 }
 
 void curses_driver_set_standard_attr(chtype colour)
