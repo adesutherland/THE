@@ -171,8 +171,6 @@ static TheInputEvent last_mouse_input;
 
 static int mouse_window_position(CHARTYPE scrn, int w, int *row, int *col)
 {
-   WINDOW *win = NULL;
-
    if (row != NULL)
       *row = -1;
    if (col != NULL)
@@ -181,15 +179,17 @@ static int mouse_window_position(CHARTYPE scrn, int w, int *row, int *col)
       return FALSE;
 
    if (w >= 0 && w < VIEW_WINDOWS)
-      win = screen[scrn].win[w];
+      curses_driver_mouse_position_for_screen_role(scrn, (short)w, row, col);
    else if (w == WINDOW_STATAREA)
-      win = statarea;
+      curses_driver_mouse_position_for_global(CURSES_DRIVER_GLOBAL_STATAREA,
+                                              row, col);
    else if (w == WINDOW_FILETABS)
-      win = filetabs;
+      curses_driver_mouse_position_for_global(CURSES_DRIVER_GLOBAL_FILETABS,
+                                              row, col);
    else if (w == WINDOW_DIVIDER)
-      win = divider;
+      curses_driver_mouse_position_for_global(CURSES_DRIVER_GLOBAL_DIVIDER,
+                                              row, col);
 
-   curses_driver_mouse_position(win, row, col);
    return (*row != -1 && *col != -1);
 }
 
@@ -211,7 +211,7 @@ static int mouse_locate_window(CHARTYPE *scrn, int *w, int *row, int *col)
    {
       for (j = 0; j < VIEW_WINDOWS; j++)
       {
-         if (screen[i].win[j] != (WINDOW *)NULL
+         if (curses_driver_screen_role_exists(i, (short)j)
          &&  mouse_window_position(i, j, row, col))
          {
             if (scrn != NULL)

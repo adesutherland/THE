@@ -137,9 +137,9 @@ Closed checkpoints are summarized here; details and next tasks are in
   checked by `test_the_llm_headless_no_curses`.
 - `tests/inventory_direct_curses.sh` is the repeatable debt sweep and ratchet.
   Current counts are actionable `physical-input: 0`, `physical-paint: 0`,
-  `mouse-token: 0`, and `window-state: 378`; `driver-wrapper: 690` is
+  `mouse-token: 0`, and `window-state: 251`; `driver-wrapper: 779` is
   counted as migrated/allowed. The summary now splits `window-state` into
-  `window-handle: 72`, `active-window-macro: 152`, `cell-attr-type: 79`,
+  `window-handle: 45`, `active-window-macro: 52`, `cell-attr-type: 79`,
   `renderer-cell-type: 64`, and `header-prototype: 11`. The ratchet is
   available as both CTest `test_curses_boundary_inventory` and build target
   `curses_boundary_inventory`. The cleaned transient functions and current
@@ -173,12 +173,12 @@ The current active categories are:
   guardrails, the no-new-debt direct-curses inventory ratchet, and
   project-wide removal of raw `physical-input`/`physical-paint` findings
   outside the driver, corrected suffixed-paint inventory coverage, and driver
-  ownership of raw mouse packet decoding.
+  ownership of raw mouse packet decoding, plus the first active-window/
+  window-handle role-helper cleanup.
 - Active slice: none selected after the inventory ratchet, bulk wrapper pass,
   physical input/paint cleanup, raw mouse packet driver-ownership cleanup, and
-  corrected suffixed-paint cleanup. The next inventory-backed target is the
-  `active-window-macro`/`window-handle` portion of `window-state`; choose the
-  exact slice from `doc/utf-handover.md`.
+  corrected suffixed-paint cleanup, and the first active-window/window-handle
+  role-helper cleanup. Choose the next exact slice from `doc/utf-handover.md`.
 - Deferred: full agent dispatcher integration, full prefix command machinery in
   the agent, agent protocol integration for transient snapshots, full live
   frames for command/prompt/status/window rows, removal of the transitional

@@ -94,7 +94,7 @@ short scroll_page(short direction,LINETYPE num_pages,bool scrollbar)
     */
    if (curses_started)
    {
-      cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+      cursor = curses_driver_capture_current_window_cursor();
       if (cursor.valid)
       {
          y = cursor.row;
@@ -104,10 +104,10 @@ short scroll_page(short direction,LINETYPE num_pages,bool scrollbar)
       if (CURRENT_VIEW->current_window != WINDOW_COMMAND)
       {
          y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line, CURRENT_VIEW->current_row);
-         curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
+         curses_driver_move_current_window_cursor(y, x);
          if (scrollbar)
          {
-            curses_driver_refresh_window(CURRENT_WINDOW);
+            curses_driver_refresh_current_window();
             curses_driver_update();
          }
       }
@@ -180,9 +180,9 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
          if ( escreen == CURSOR_SCREEN
          &&  ( on_screen_edge || on_file_edge ) )
          {
-            if ( SCREEN_WINDOW_COMMAND(curr_screen) == NULL )
+            if (!curses_driver_screen_role_exists(curr_screen, WINDOW_COMMAND))
             {
-               cursor = curses_driver_capture_window_cursor(SCREEN_WINDOW(curr_screen));
+               cursor = curses_driver_capture_screen_window_cursor(curr_screen);
                if (cursor.valid)
                {
                   y = cursor.row;
@@ -196,8 +196,7 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
                {
                   curr_view->focus_line = screen[curr_screen].sl[y].line_number;
                   pre_process_line( curr_view, curr_view->focus_line, (LINE *)NULL );
-                  curses_driver_move_window_cursor(SCREEN_WINDOW(curr_screen),
-                                                   y, x);
+                  curses_driver_move_screen_window_cursor(curr_screen, y, x);
                }
                break;
             }

@@ -1041,10 +1041,10 @@ short Enter(CHARTYPE *params)
             }
          }
          THEcursor_down( current_screen, CURRENT_VIEW, TRUE );
-         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+         cursor = curses_driver_capture_current_window_cursor();
          if (cursor.valid)
             y = cursor.row;
-         curses_driver_move_window_cursor(CURRENT_WINDOW, y, 0);
+         curses_driver_move_current_window_cursor(y, 0);
          break;
    }
    TRACE_RETURN();
@@ -1404,7 +1404,7 @@ short Fillbox(CHARTYPE *params)
    if (CURRENT_VIEW->current_window != WINDOW_COMMAND
    && len_params != 1)
    {
-      cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+      cursor = curses_driver_capture_current_window_cursor();
       if (cursor.valid)
       {
          y = cursor.row;
@@ -1416,7 +1416,7 @@ short Fillbox(CHARTYPE *params)
       curses_driver_update();
       while(1)
       {
-         key = curses_driver_read_window_key( CURRENT_WINDOW );
+         key = curses_driver_read_current_window_key();
          if ( !is_modifier_key( key ) )
             break;
       }

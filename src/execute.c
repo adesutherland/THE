@@ -2156,7 +2156,7 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
     */
    curr = lll_find(CURRENT_FILE->first_line,CURRENT_FILE->last_line,true_line,CURRENT_FILE->number_lines);
 
-   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   cursor = curses_driver_capture_current_window_cursor();
    if (cursor.valid)
    {
       y = (unsigned short)cursor.row;
@@ -2275,7 +2275,7 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
           */
          CURRENT_FILE->number_lines--;
          if (CURRENT_VIEW->current_window == WINDOW_FILEAREA)
-            curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
+            curses_driver_move_current_window_cursor(y, x);
          break;
    }
    /*
@@ -2299,7 +2299,7 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
          {
             y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,
                                     CURRENT_VIEW->current_row);
-            curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
+            curses_driver_move_current_window_cursor(y, x);
          }
       }
    }
@@ -3146,7 +3146,7 @@ static void execute_move_prefix_cursor(CHARTYPE curr_screen,
    size_t len;
 
    if (curr_view == NULL
-   ||  SCREEN_WINDOW_PREFIX(curr_screen) == NULL
+   ||  !curses_driver_screen_role_exists(curr_screen, WINDOW_PREFIX)
    ||  row < 0
    ||  row >= screen[curr_screen].rows[WINDOW_FILEAREA])
       return;
@@ -4212,7 +4212,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
    DEFCHAR *prompt_line[MAXIMUM_DIALOG_LINES+2];
    const char *dialog_prompt_line[MAXIMUM_DIALOG_LINES+2];
    WINDOW *dialog_win=NULL;
-   WINDOW *save_command_window=NULL;
+   CursesDriverWindowRoleSave save_command_window;
    CHARTYPE *save_cmd_rec=NULL;
    CHARTYPE *editfield_buf=NULL;
    LENGTHTYPE save_cmd_rec_len;
@@ -4385,14 +4385,14 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
       /*
        * Save the CMDLINE window and create a new one in our dialog window
        */
-      save_command_window = CURRENT_WINDOW_COMMAND;
-      CURRENT_WINDOW_COMMAND = curses_driver_create_relative_window(
-         dialog_win, 1, dw_cols-4, 3+prompt_lines, 2);
-      if ( CURRENT_WINDOW_COMMAND == (WINDOW *)NULL)
+      if (!curses_driver_replace_current_role_with_relative_window(
+             WINDOW_COMMAND, dialog_win, 1, dw_cols-4, 3+prompt_lines, 2,
+             &save_command_window))
       {
          CURRENT_VIEW->current_window = save_current_window;
-         curses_driver_delete_window(CURRENT_WINDOW_COMMAND);
-         CURRENT_WINDOW_COMMAND = save_command_window;
+         curses_driver_delete_current_role_window(WINDOW_COMMAND);
+         curses_driver_restore_current_role_window(WINDOW_COMMAND,
+                                                   save_command_window);
          curses_driver_delete_window(dialog_win);
          (*the_free)( save_cmd_rec );
          (*the_free)(editfield_buf);
@@ -4400,8 +4400,8 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
          TRACE_RETURN();
          return(RC_OUT_OF_MEMORY);
       }
-      curses_driver_set_window_attr(
-         CURRENT_WINDOW_COMMAND, set_colour( CURRENT_FILE->attr+ATTR_DIA_EDITFIELD ) );
+      curses_driver_set_current_role_attr(
+         WINDOW_COMMAND, set_colour( CURRENT_FILE->attr+ATTR_DIA_EDITFIELD ) );
    }
    curses_driver_set_window_background(
       dialog_win, set_colour( CURRENT_FILE->attr+( ( alert ) ? ATTR_ALERT : ATTR_DIALOG ) ) );
@@ -4648,16 +4648,17 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
    CURRENT_VIEW->current_window = save_current_window;
    if ( editfield )
    {
-      curses_driver_delete_window(CURRENT_WINDOW_COMMAND);
-      CURRENT_WINDOW_COMMAND = save_command_window;
+      curses_driver_delete_current_role_window(WINDOW_COMMAND);
+      curses_driver_restore_current_role_window(WINDOW_COMMAND,
+                                                save_command_window);
       max_line_length = save_max_line_length;
       memset(cmd_rec,' ',max_line_length);
       cmd_rec_len = 0;
-      if ( CURRENT_WINDOW_COMMAND )
+      if (curses_driver_current_role_exists(WINDOW_COMMAND))
       {
-         curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND,0,0);
-         curses_driver_clear_to_eol(CURRENT_WINDOW_COMMAND);
-         curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND,0,0);
+         curses_driver_move_current_role_cursor(WINDOW_COMMAND,0,0);
+         curses_driver_clear_current_role_to_eol(WINDOW_COMMAND);
+         curses_driver_move_current_role_cursor(WINDOW_COMMAND,0,0);
          CURRENT_VIEW->cmdline_col = -1;
          if ( save_cmd_rec[0] == '&' )
             Cmsg( save_cmd_rec );

@@ -125,15 +125,22 @@ them mechanically and verify the supported targets in one sweep.
 - Adjacent dead platform branches were pruned where they obscured this
   inventory: the unsupported VMS raw-key path in `getch.c` and the unsupported
   DOS/OS2/disabled Win32 cursor visibility overrides in `nonansi.c`.
+- The active-window/window-handle cleanup slice moved common role-window
+  mechanics into `src/cursesdriver.c`: current/screen role existence checks,
+  cursor capture/move/restore, role clear-to-EOL, role touch/refresh/attr,
+  current-window key/cell reads, global status/error/divider/filetabs helpers,
+  dialog command-window role swapping, and mouse window projection by role.
+  Legacy command, cursor, edit, query, scroll, error, and setup-adjacent paths
+  now ask the driver for those physical windows by logical role.
 
 ## Active Slice
 
 No active migration slice is selected after closing the inventory ratchet,
 bulk physical wrapper pass, physical input/paint cleanup, raw mouse packet
-driver-ownership cleanup, and corrected suffixed-paint cleanup. The next
-inventory-backed target is the remaining `window-state` debt, starting with
-active-window macros/window handles that can be separated before the broader
-renderer cell/type split. Close it with the same proof pattern: no-curses model
+driver-ownership cleanup, corrected suffixed-paint cleanup, and the first
+active-window/window-handle cleanup. The next inventory-backed target is the
+remaining `show.c` renderer/display-line window-state surface or the deferred
+window lifecycle/prototype work. Keep the same proof pattern: no-curses model
 first, curses path uses that model, then guardrail the cleaned surface.
 
 ## Direct Curses Inventory
@@ -155,16 +162,25 @@ Current ratcheted counts:
 - actionable `physical-input`: 0
 - actionable `physical-paint`: 0
 - actionable `mouse-token`: 0
-- actionable `window-state`: 378
-- allowed/migrated `driver-wrapper`: 690
+- actionable `window-state`: 251
+- allowed/migrated `driver-wrapper`: 779
 
 Current `window-state` summary:
 
-- `window-handle`: 72
-- `active-window-macro`: 152
+- `window-handle`: 45
+- `active-window-macro`: 52
 - `cell-attr-type`: 79
 - `renderer-cell-type`: 64
 - `header-prototype`: 11
+
+This slice reduced `active-window-macro` from 152 to 52 and `window-handle`
+from 72 to 45. The remaining active-window macro findings are the macro
+definitions in `src/the.h` plus `show.c` renderer/display-line paths that
+still pass screen role windows into renderer helpers. The remaining
+window-handle findings are deferred lifecycle/type surfaces: `show.c` renderer
+helper signatures and caches, `readv`/dialog/popup local windows, `getch` and
+`my_w*` compatibility wrappers, `util.c` window creation/adjustment, global
+window declarations, and `SCREEN_DETAILS.win`.
 
 For the cleaned transient functions, the sweep finds no raw `physical-input` or
 `physical-paint` calls in `readv_cmdline()`, `execute_dialog()`, or
@@ -203,11 +219,11 @@ in this pass.
 Boundary debt:
 
 - Remaining direct curses window-state/type findings in legacy command,
-  render, setup, and header surfaces. These mostly reflect `WINDOW`, `chtype`,
-  `cchar_t`, active-window macros, and the future renderer/window-state model,
-  so they are intentionally deferred. The next feasible cleanup target is the
-  `active-window-macro`/`window-handle` portion before tackling
-  `renderer-cell-type` and broader renderer storage.
+  render, setup, and header surfaces. The broad command/cursor/edit/query/
+  scroll/error role-window surface is now behind driver helpers. Remaining
+  findings mostly reflect `show.c` renderer/display-line `WINDOW` plumbing,
+  `WINDOW` lifecycle/prototypes in modal/setup utilities, `chtype`/`cchar_t`,
+  active-window macro definitions, and the future renderer/window-state model.
 - `mouse-token` is currently zero. Future raw mouse packet symbols outside the
   driver should fail as actionable `physical-input`; editor-level mouse command
   encoding should continue to use driver-owned button/action/modifier constants

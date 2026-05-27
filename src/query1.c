@@ -35,6 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 
 #include <query.h>
 
@@ -737,7 +738,7 @@ short extract_clock(short number_variables,short itemno,CHARTYPE *itemargs,CHART
 short extract_command_function(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   return set_boolean_value((bool)(CURRENT_WINDOW_COMMAND != NULL),(short)1);
+   return set_boolean_value((bool)curses_driver_current_role_exists(WINDOW_COMMAND),(short)1);
 }
 /***********************************************************************/
 short extract_cmdarrows(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)

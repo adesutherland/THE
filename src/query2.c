@@ -1445,7 +1445,7 @@ short extract_readv(short number_variables,short itemno,CHARTYPE *itemargs,CHART
          (void)THERefresh((CHARTYPE *)"");
       }
 #endif
-      key = curses_driver_read_window_key( CURRENT_WINDOW );
+      key = curses_driver_read_current_window_key();
 #ifdef CAN_RESIZE
       if (is_termresized())
          continue;
@@ -2008,9 +2008,9 @@ short extract_spacechar_function(short number_variables,short itemno,CHARTYPE *i
       return 1;
    }
 #ifdef VMS
-   cursor_char = (CHARTYPE)( curses_driver_read_window_cell( CURRENT_WINDOW ) );
+   cursor_char = (CHARTYPE)( curses_driver_read_current_window_cell() );
 #else
-   cursor_char = (CHARTYPE)( curses_driver_read_window_cell( CURRENT_WINDOW ) & A_CHARTEXT );
+   cursor_char = (CHARTYPE)( curses_driver_read_current_window_cell() & A_CHARTEXT );
 #endif
    return set_boolean_value((bool)(cursor_char == ' '),(short)1);
 }

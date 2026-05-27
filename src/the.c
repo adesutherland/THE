@@ -1062,8 +1062,7 @@ int main(int argc, char *argv[])
     /*
     * Set SCREEN values up...
     */
-   for (i=0;i<VIEW_WINDOWS;i++)
-       CURRENT_SCREEN.win[i] = (WINDOW *)NULL;
+   curses_driver_clear_current_screen_roles();
    /*
     * Set up global defaults.
     */
@@ -1423,16 +1422,8 @@ fclose( fp);
    if (target_buffer != NULL)
       (*the_free)(target_buffer);
 
-   if (divider != (WINDOW *)NULL)
-   {
-      curses_driver_delete_window(divider);
-      divider = (WINDOW *)NULL;
-   }
-   if (error_window != (WINDOW *)NULL)
-   {
-      curses_driver_delete_window(error_window);
-      error_window = (WINDOW *)NULL;
-   }
+   curses_driver_delete_global_window(CURSES_DRIVER_GLOBAL_DIVIDER);
+   curses_driver_delete_global_window(CURSES_DRIVER_GLOBAL_ERROR);
    if (last_message != NULL)
       (*the_free)(last_message);
    /*
@@ -1457,24 +1448,16 @@ fclose( fp);
     * ...otherwise, get the cursor to the bottom line.
     */
    {
-      if (statarea != (WINDOW *)NULL)
+      if (curses_driver_global_window_exists(CURSES_DRIVER_GLOBAL_STATAREA))
       {
-         curses_driver_add_string_at(statarea,0,4,"     ");
-         curses_driver_set_window_attr(statarea,A_NORMAL);
-         curses_driver_add_string_at(statarea,0,0,"THE - END");
-         curses_driver_refresh_window_now(statarea);
+         curses_driver_add_global_string_at(CURSES_DRIVER_GLOBAL_STATAREA,0,4,"     ");
+         curses_driver_set_global_window_attr(CURSES_DRIVER_GLOBAL_STATAREA,A_NORMAL);
+         curses_driver_add_global_string_at(CURSES_DRIVER_GLOBAL_STATAREA,0,0,"THE - END");
+         curses_driver_refresh_global_window_now(CURSES_DRIVER_GLOBAL_STATAREA);
       }
    }
-   if (statarea != (WINDOW *)NULL)
-   {
-      curses_driver_delete_window(statarea);
-      statarea = (WINDOW *)NULL;
-   }
-   if (filetabs != (WINDOW *)NULL)
-   {
-      curses_driver_delete_window(filetabs);
-      filetabs = (WINDOW *)NULL;
-   }
+   curses_driver_delete_global_window(CURSES_DRIVER_GLOBAL_STATAREA);
+   curses_driver_delete_global_window(CURSES_DRIVER_GLOBAL_FILETABS);
    last_option = first_option = lll_free(first_option);
    cleanup();
    CLOSEDOWNCONSOLE(0);
@@ -1786,10 +1769,10 @@ void cleanup(void)
    if (curses_started)
    {
       if (error_on_screen
-      &&  error_window != NULL)
+      &&  curses_driver_global_window_exists(CURSES_DRIVER_GLOBAL_ERROR))
       {
          display_error(0,(CHARTYPE *)HIT_ANY_KEY,FALSE);
-         curses_driver_refresh_window_now(error_window);
+         curses_driver_refresh_global_window_now(CURSES_DRIVER_GLOBAL_ERROR);
 #ifdef KEY_RESIZE
          /*
           * Real hack here. If we have an error caused by editing the first file

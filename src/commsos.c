@@ -1724,7 +1724,7 @@ short Sos_lastcol(CHARTYPE *params)
    LENGTHTYPE cell=0;
 
    TRACE_FUNCTION( "commsos.c: Sos_lastcol" );
-   size = curses_driver_window_size(CURRENT_WINDOW);
+   size = curses_driver_current_window_size();
    cell = (size.valid && size.cols > 0) ? size.cols - 1 : 0;
    switch (CURRENT_VIEW->current_window)
    {
@@ -2034,7 +2034,7 @@ short Sos_pastecmdline(CHARTYPE *params)
    }
 
    if ( curses_started
-   &&   CURRENT_WINDOW_COMMAND != (WINDOW *)NULL )
+   &&   curses_driver_current_role_exists(WINDOW_COMMAND) )
    {
       cursor_location = command_col + paste_len;
       execute_move_cursor( current_screen, CURRENT_VIEW, cursor_location );
@@ -2178,7 +2178,7 @@ short Sos_rightedge(CHARTYPE *params)
    }
    else
       row = sos_filearea_focus_row(current_screen, CURRENT_VIEW);
-   size = curses_driver_window_size(CURRENT_WINDOW);
+   size = curses_driver_current_window_size();
    cell = (size.valid && size.cols > 0) ? size.cols - 1 : 0;
    switch (CURRENT_VIEW->current_window)
    {

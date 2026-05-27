@@ -110,6 +110,103 @@ int curses_driver_viewport_col_for_logical(const CHARTYPE *line, size_t len,
 #endif
 }
 
+static int curses_driver_valid_screen(CHARTYPE scrno)
+{
+   return scrno < MAX_SCREENS;
+}
+
+static int curses_driver_valid_view_role(short role)
+{
+   return role >= 0 && role < VIEW_WINDOWS;
+}
+
+static WINDOW **curses_driver_screen_role_window_slot(CHARTYPE scrno,
+                                                      short role)
+{
+   if (!curses_driver_valid_screen(scrno)
+   ||  !curses_driver_valid_view_role(role))
+      return NULL;
+   return &screen[scrno].win[role];
+}
+
+static WINDOW *curses_driver_screen_role_window(CHARTYPE scrno, short role)
+{
+   WINDOW **slot = curses_driver_screen_role_window_slot(scrno, role);
+
+   return (slot == NULL) ? NULL : *slot;
+}
+
+static WINDOW *curses_driver_screen_active_window(CHARTYPE scrno)
+{
+   VIEW_DETAILS *view;
+
+   if (!curses_driver_valid_screen(scrno))
+      return NULL;
+   view = screen[scrno].screen_view;
+   if (view == NULL || !curses_driver_valid_view_role(view->current_window))
+      return NULL;
+   return screen[scrno].win[view->current_window];
+}
+
+static WINDOW *curses_driver_screen_previous_window(CHARTYPE scrno)
+{
+   VIEW_DETAILS *view;
+
+   if (!curses_driver_valid_screen(scrno))
+      return NULL;
+   view = screen[scrno].screen_view;
+   if (view == NULL || !curses_driver_valid_view_role(view->previous_window))
+      return NULL;
+   return screen[scrno].win[view->previous_window];
+}
+
+static WINDOW *curses_driver_current_active_window(void)
+{
+   return curses_driver_screen_active_window(current_screen);
+}
+
+static WINDOW *curses_driver_current_previous_window(void)
+{
+   return curses_driver_screen_previous_window(current_screen);
+}
+
+static WINDOW *curses_driver_current_role_window(short role)
+{
+   return curses_driver_screen_role_window(current_screen, role);
+}
+
+static WINDOW *curses_driver_global_window(CursesDriverGlobalWindowRole role)
+{
+   switch (role)
+   {
+      case CURSES_DRIVER_GLOBAL_STATAREA:
+         return statarea;
+      case CURSES_DRIVER_GLOBAL_ERROR:
+         return error_window;
+      case CURSES_DRIVER_GLOBAL_DIVIDER:
+         return divider;
+      case CURSES_DRIVER_GLOBAL_FILETABS:
+         return filetabs;
+   }
+   return NULL;
+}
+
+static WINDOW **curses_driver_global_window_slot(CursesDriverGlobalWindowRole role)
+{
+   switch (role)
+   {
+      case CURSES_DRIVER_GLOBAL_STATAREA:
+         return &statarea;
+      case CURSES_DRIVER_GLOBAL_ERROR:
+         return &error_window;
+      case CURSES_DRIVER_GLOBAL_DIVIDER:
+         return &divider;
+      case CURSES_DRIVER_GLOBAL_FILETABS:
+         return &filetabs;
+   }
+   return NULL;
+}
+
 CursorShape current_cursor_shape(void)
 {
    return INSERTMODEx ? cursorstyle_insert_shape : cursorstyle_over_shape;
@@ -450,6 +547,176 @@ CursesDriverScreenPoint curses_driver_window_cursor_screen_point(WINDOW *win)
    return point;
 }
 
+int curses_driver_current_window_is_role(short role)
+{
+   if (CURRENT_VIEW == NULL)
+      return 0;
+   return CURRENT_VIEW->current_window == role;
+}
+
+int curses_driver_current_window_exists(void)
+{
+   return curses_driver_current_active_window() != NULL;
+}
+
+int curses_driver_screen_window_is_role(CHARTYPE scrno, short role)
+{
+   VIEW_DETAILS *view;
+
+   if (!curses_driver_valid_screen(scrno))
+      return 0;
+   view = screen[scrno].screen_view;
+   if (view == NULL)
+      return 0;
+   return view->current_window == role;
+}
+
+int curses_driver_current_role_exists(short role)
+{
+   return curses_driver_current_role_window(role) != NULL;
+}
+
+int curses_driver_screen_role_exists(CHARTYPE scrno, short role)
+{
+   return curses_driver_screen_role_window(scrno, role) != NULL;
+}
+
+int curses_driver_global_window_exists(CursesDriverGlobalWindowRole role)
+{
+   return curses_driver_global_window(role) != NULL;
+}
+
+void curses_driver_delete_global_window(CursesDriverGlobalWindowRole role)
+{
+   WINDOW **slot = curses_driver_global_window_slot(role);
+
+   if (slot == NULL || *slot == NULL)
+      return;
+   curses_driver_delete_window(*slot);
+   *slot = NULL;
+}
+
+CursesDriverWindowCursor curses_driver_capture_current_window_cursor(void)
+{
+   return curses_driver_capture_window_cursor(curses_driver_current_active_window());
+}
+
+CursesDriverWindowCursor curses_driver_capture_current_previous_window_cursor(void)
+{
+   return curses_driver_capture_window_cursor(
+      curses_driver_current_previous_window());
+}
+
+CursesDriverWindowCursor curses_driver_capture_current_role_cursor(short role)
+{
+   return curses_driver_capture_window_cursor(
+      curses_driver_current_role_window(role));
+}
+
+CursesDriverWindowCursor curses_driver_capture_screen_window_cursor(CHARTYPE scrno)
+{
+   return curses_driver_capture_window_cursor(
+      curses_driver_screen_active_window(scrno));
+}
+
+CursesDriverWindowCursor curses_driver_capture_screen_role_cursor(CHARTYPE scrno,
+                                                                 short role)
+{
+   return curses_driver_capture_window_cursor(
+      curses_driver_screen_role_window(scrno, role));
+}
+
+CursesDriverWindowOrigin curses_driver_current_window_origin(void)
+{
+   return curses_driver_window_origin(curses_driver_current_active_window());
+}
+
+CursesDriverWindowSize curses_driver_current_window_size(void)
+{
+   return curses_driver_window_size(curses_driver_current_active_window());
+}
+
+CursesDriverWindowSize curses_driver_current_role_size(short role)
+{
+   return curses_driver_window_size(curses_driver_current_role_window(role));
+}
+
+CursesDriverWindowSize curses_driver_screen_role_size(CHARTYPE scrno,
+                                                      short role)
+{
+   return curses_driver_window_size(curses_driver_screen_role_window(scrno,
+                                                                     role));
+}
+
+CursesDriverWindowRoleSave curses_driver_save_current_role_window(short role)
+{
+   WINDOW **slot = curses_driver_screen_role_window_slot(current_screen, role);
+   CursesDriverWindowRoleSave saved;
+
+   saved.window = NULL;
+   saved.slot_valid = 0;
+   if (slot == NULL)
+      return saved;
+   saved.window = *slot;
+   saved.slot_valid = 1;
+   return saved;
+}
+
+int curses_driver_replace_current_role_with_relative_window(
+   short role, WINDOW *parent, int rows, int cols, int row, int col,
+   CursesDriverWindowRoleSave *saved)
+{
+   WINDOW **slot = curses_driver_screen_role_window_slot(current_screen, role);
+
+   if (saved != NULL)
+   {
+      saved->window = NULL;
+      saved->slot_valid = 0;
+   }
+   if (slot == NULL)
+      return 0;
+   if (saved != NULL)
+   {
+      saved->window = *slot;
+      saved->slot_valid = 1;
+   }
+   *slot = curses_driver_create_relative_window(parent, rows, cols, row, col);
+   return *slot != NULL;
+}
+
+void curses_driver_restore_current_role_window(
+   short role, CursesDriverWindowRoleSave saved)
+{
+   WINDOW **slot;
+
+   if (!saved.slot_valid)
+      return;
+   slot = curses_driver_screen_role_window_slot(current_screen, role);
+   if (slot == NULL)
+      return;
+   *slot = (WINDOW *)saved.window;
+}
+
+void curses_driver_delete_current_role_window(short role)
+{
+   WINDOW **slot = curses_driver_screen_role_window_slot(current_screen, role);
+
+   if (slot == NULL || *slot == NULL)
+      return;
+   curses_driver_delete_window(*slot);
+   *slot = NULL;
+}
+
+void curses_driver_clear_current_screen_roles(void)
+{
+   short i;
+
+   if (!curses_driver_valid_screen(current_screen))
+      return;
+   for (i = 0; i < VIEW_WINDOWS; i++)
+      screen[current_screen].win[i] = NULL;
+}
+
 WINDOW *curses_driver_create_window(int rows, int cols, int row, int col)
 {
    return newwin(rows, cols, row, col);
@@ -514,6 +781,52 @@ void curses_driver_restore_window_cursor(WINDOW *win,
    curses_driver_move_window_cursor(win, cursor.row, cursor.col);
 }
 
+void curses_driver_move_current_window_cursor(short row, short col)
+{
+   curses_driver_move_window_cursor(curses_driver_current_active_window(), row,
+                                    col);
+}
+
+void curses_driver_move_current_previous_window_cursor(short row, short col)
+{
+   curses_driver_move_window_cursor(curses_driver_current_previous_window(),
+                                    row, col);
+}
+
+void curses_driver_move_current_role_cursor(short role, short row, short col)
+{
+   curses_driver_move_window_cursor(curses_driver_current_role_window(role),
+                                    row, col);
+}
+
+void curses_driver_move_screen_window_cursor(CHARTYPE scrno, short row,
+                                             short col)
+{
+   curses_driver_move_window_cursor(curses_driver_screen_active_window(scrno),
+                                    row, col);
+}
+
+void curses_driver_move_screen_role_cursor(CHARTYPE scrno, short role,
+                                           short row, short col)
+{
+   curses_driver_move_window_cursor(curses_driver_screen_role_window(scrno,
+                                                                     role),
+                                    row, col);
+}
+
+void curses_driver_restore_current_window_cursor(CursesDriverWindowCursor cursor)
+{
+   curses_driver_restore_window_cursor(curses_driver_current_active_window(),
+                                       cursor);
+}
+
+void curses_driver_restore_current_role_cursor(short role,
+                                              CursesDriverWindowCursor cursor)
+{
+   curses_driver_restore_window_cursor(curses_driver_current_role_window(role),
+                                       cursor);
+}
+
 chtype curses_driver_read_window_cell(WINDOW *win)
 {
    if (win == NULL)
@@ -521,11 +834,64 @@ chtype curses_driver_read_window_cell(WINDOW *win)
    return (chtype)winch(win);
 }
 
+chtype curses_driver_read_current_window_cell(void)
+{
+   return curses_driver_read_window_cell(curses_driver_current_active_window());
+}
+
+chtype curses_driver_read_current_window_cell_attr_at(short row, short col)
+{
+   WINDOW *win = curses_driver_current_active_window();
+
+   if (win == NULL)
+      return 0;
+#if defined(USE_EXTCURSES)
+   return win->_a[row][col];
+#elif defined(VMS) && defined(_BSD44_CURSES)
+   INTENTIONALLY_UNUSED_VARIABLE(row);
+   INTENTIONALLY_UNUSED_VARIABLE(col);
+   return win->lines[win->cury]->line[win->curx].attr;
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(row);
+   INTENTIONALLY_UNUSED_VARIABLE(col);
+   return curses_driver_read_window_cell(win) & A_ATTRIBUTES;
+#endif
+}
+
+void curses_driver_put_char_current_window(chtype ch, CHARTYPE add_ins)
+{
+   put_char(curses_driver_current_active_window(), ch, add_ins);
+}
+
 void curses_driver_set_window_attr(WINDOW *win, chtype colour)
 {
    if (win == NULL)
       return;
    wattrset(win, colour);
+}
+
+void curses_driver_set_current_window_attr(chtype colour)
+{
+   curses_driver_set_window_attr(curses_driver_current_active_window(), colour);
+}
+
+void curses_driver_set_current_role_attr(short role, chtype colour)
+{
+   curses_driver_set_window_attr(curses_driver_current_role_window(role),
+                                 colour);
+}
+
+void curses_driver_set_screen_role_attr(CHARTYPE scrno, short role,
+                                        chtype colour)
+{
+   curses_driver_set_window_attr(curses_driver_screen_role_window(scrno, role),
+                                 colour);
+}
+
+void curses_driver_set_global_window_attr(CursesDriverGlobalWindowRole role,
+                                          chtype colour)
+{
+   curses_driver_set_window_attr(curses_driver_global_window(role), colour);
 }
 
 void curses_driver_set_window_background(WINDOW *win, chtype colour)
@@ -548,6 +914,11 @@ void curses_driver_clear_window(WINDOW *win)
    wclear(win);
 }
 
+void curses_driver_clear_current_role(short role)
+{
+   curses_driver_clear_window(curses_driver_current_role_window(role));
+}
+
 void curses_driver_clear_window_to_bottom(WINDOW *win)
 {
    if (win == NULL)
@@ -562,11 +933,60 @@ void curses_driver_clear_to_eol(WINDOW *win)
    my_wclrtoeol(win);
 }
 
+void curses_driver_clear_current_role_to_eol(short role)
+{
+   curses_driver_clear_to_eol(curses_driver_current_role_window(role));
+}
+
+void curses_driver_clear_screen_role_to_eol(CHARTYPE scrno, short role)
+{
+   curses_driver_clear_to_eol(curses_driver_screen_role_window(scrno, role));
+}
+
 void curses_driver_touch_window(WINDOW *win)
 {
    if (win == NULL)
       return;
    touchwin(win);
+}
+
+void curses_driver_touch_current_window(void)
+{
+   curses_driver_touch_window(curses_driver_current_active_window());
+}
+
+void curses_driver_touch_current_role(short role)
+{
+   curses_driver_touch_window(curses_driver_current_role_window(role));
+}
+
+void curses_driver_touch_screen_role(CHARTYPE scrno, short role)
+{
+   curses_driver_touch_window(curses_driver_screen_role_window(scrno, role));
+}
+
+void curses_driver_touch_global_window(CursesDriverGlobalWindowRole role)
+{
+   curses_driver_touch_window(curses_driver_global_window(role));
+}
+
+void curses_driver_touch_and_refresh_current_role(short role)
+{
+   curses_driver_touch_current_role(role);
+   curses_driver_refresh_current_role(role);
+}
+
+void curses_driver_touch_and_refresh_screen_role(CHARTYPE scrno, short role)
+{
+   curses_driver_touch_screen_role(scrno, role);
+   curses_driver_refresh_screen_role(scrno, role);
+}
+
+void curses_driver_touch_and_refresh_global_window(
+   CursesDriverGlobalWindowRole role)
+{
+   curses_driver_touch_global_window(role);
+   curses_driver_refresh_global_window(role);
 }
 
 void curses_driver_touch_line(WINDOW *win, int start, int count)
@@ -597,6 +1017,46 @@ void curses_driver_refresh_window_now(WINDOW *win)
    if (win == NULL)
       return;
    wrefresh(win);
+}
+
+void curses_driver_refresh_current_window(void)
+{
+   curses_driver_refresh_window(curses_driver_current_active_window());
+}
+
+void curses_driver_refresh_current_window_now(void)
+{
+   curses_driver_refresh_window_now(curses_driver_current_active_window());
+}
+
+void curses_driver_refresh_current_role(short role)
+{
+   curses_driver_refresh_window(curses_driver_current_role_window(role));
+}
+
+void curses_driver_refresh_current_role_now(short role)
+{
+   curses_driver_refresh_window_now(curses_driver_current_role_window(role));
+}
+
+void curses_driver_refresh_screen_window(CHARTYPE scrno)
+{
+   curses_driver_refresh_window(curses_driver_screen_active_window(scrno));
+}
+
+void curses_driver_refresh_screen_role(CHARTYPE scrno, short role)
+{
+   curses_driver_refresh_window(curses_driver_screen_role_window(scrno, role));
+}
+
+void curses_driver_refresh_global_window(CursesDriverGlobalWindowRole role)
+{
+   curses_driver_refresh_window(curses_driver_global_window(role));
+}
+
+void curses_driver_refresh_global_window_now(CursesDriverGlobalWindowRole role)
+{
+   curses_driver_refresh_window_now(curses_driver_global_window(role));
 }
 
 void curses_driver_refresh_standard_screen(void)
@@ -688,6 +1148,14 @@ void curses_driver_add_string_at(WINDOW *win, short row, short col,
    curses_driver_add_string(win, text);
 }
 
+void curses_driver_add_global_string_at(CursesDriverGlobalWindowRole role,
+                                        short row, short col,
+                                        const char *text)
+{
+   curses_driver_add_string_at(curses_driver_global_window(role), row, col,
+                               text);
+}
+
 void curses_driver_add_chtype_at(WINDOW *win, short row, short col, chtype ch)
 {
    if (win == NULL)
@@ -740,6 +1208,11 @@ int curses_driver_read_window_key(WINDOW *win)
    if (win == NULL)
       return ERR;
    return curses_driver_translate_input_key(my_getch(win));
+}
+
+int curses_driver_read_current_window_key(void)
+{
+   return curses_driver_read_window_key(curses_driver_current_active_window());
 }
 
 int curses_driver_read_standard_key(void)
@@ -817,6 +1290,19 @@ void curses_driver_mouse_position(WINDOW *win, int *row, int *col)
    INTENTIONALLY_UNUSED_VARIABLE(origin);
    INTENTIONALLY_UNUSED_VARIABLE(size);
 #endif
+}
+
+void curses_driver_mouse_position_for_screen_role(CHARTYPE scrno, short role,
+                                                  int *row, int *col)
+{
+   curses_driver_mouse_position(curses_driver_screen_role_window(scrno, role),
+                                row, col);
+}
+
+void curses_driver_mouse_position_for_global(CursesDriverGlobalWindowRole role,
+                                             int *row, int *col)
+{
+   curses_driver_mouse_position(curses_driver_global_window(role), row, col);
 }
 
 int curses_driver_read_mouse_event(WINDOW *win, CursesDriverMouseEvent *event)
@@ -1192,6 +1678,21 @@ void curses_driver_redraw_window(WINDOW *win)
       }
    }
    curses_driver_restore_window_cursor(win, cursor);
+}
+
+void curses_driver_redraw_current_role(short role)
+{
+   curses_driver_redraw_window(curses_driver_current_role_window(role));
+}
+
+void curses_driver_redraw_screen_role(CHARTYPE scrno, short role)
+{
+   curses_driver_redraw_window(curses_driver_screen_role_window(scrno, role));
+}
+
+void curses_driver_redraw_global_window(CursesDriverGlobalWindowRole role)
+{
+   curses_driver_redraw_window(curses_driver_global_window(role));
 }
 
 short curses_driver_refresh_cursor(CHARTYPE scrno)

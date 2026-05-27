@@ -311,9 +311,9 @@ int display_error(unsigned short err_num,CHARTYPE *mess,bool ignore_bell)
 
    if( curses_started
    &&  CURRENT_VIEW != NULL
-   &&  CURRENT_WINDOW != NULL )
+   &&  curses_driver_current_window_exists() )
    {
-      cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+      cursor = curses_driver_capture_current_window_cursor();
       if (cursor.valid)
       {
          y = cursor.row;
@@ -471,8 +471,8 @@ int display_error(unsigned short err_num,CHARTYPE *mess,bool ignore_bell)
 #endif
    if( curses_started
    &&  CURRENT_VIEW != NULL
-   &&  CURRENT_WINDOW != NULL )
-      curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
+   &&  curses_driver_current_window_exists() )
+      curses_driver_move_current_window_cursor(y, x);
    if ( first_screen_display )
       curses_driver_refresh_window_now(error_window);
    TRACE_RETURN();
@@ -521,28 +521,24 @@ void clear_msgline(int key)
    {
       errors_displayed = 0;
       error_on_screen = FALSE;
-      if (error_window != (WINDOW *)NULL)
-      {
-         curses_driver_delete_window(error_window);
-         error_window = (WINDOW *)NULL;
-      }
+      curses_driver_delete_global_window(CURSES_DRIVER_GLOBAL_ERROR);
       first_error = last_error = lll_free(first_error);
       if (display_screens > 1)
          redraw_screen((CHARTYPE)(other_screen));
       redraw_screen(current_screen);
-      if (CURRENT_VIEW != NULL && CURRENT_WINDOW != NULL)
+      if (CURRENT_VIEW != NULL && curses_driver_current_window_exists())
       {
          int y=0, x=0;
          CursesDriverWindowCursor cursor;
 
-         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+         cursor = curses_driver_capture_current_window_cursor();
          if (cursor.valid)
          {
             y = cursor.row;
             x = cursor.col;
          }
-         curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
-         curses_driver_refresh_window(CURRENT_WINDOW);
+         curses_driver_move_current_window_cursor(y, x);
+         curses_driver_refresh_current_window();
       }
       curses_driver_update();
    }

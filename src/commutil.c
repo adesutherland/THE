@@ -1639,16 +1639,16 @@ void cleanup_command_line(void)
       TRACE_RETURN();
       return;
    }
-   if (CURRENT_WINDOW_COMMAND != (WINDOW *)NULL)
+   if (curses_driver_current_role_exists(WINDOW_COMMAND))
    {
-      curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND,0,0);
-      my_wclrtoeol(CURRENT_WINDOW_COMMAND);
+      curses_driver_move_current_role_cursor(WINDOW_COMMAND,0,0);
+      curses_driver_clear_current_role_to_eol(WINDOW_COMMAND);
    }
    memset(cmd_rec,' ',max_line_length);
    cmd_rec_len = 0;
-   if (CURRENT_WINDOW_COMMAND != (WINDOW *)NULL)
+   if (curses_driver_current_role_exists(WINDOW_COMMAND))
    {
-      curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND,0,0);
+      curses_driver_move_current_role_cursor(WINDOW_COMMAND,0,0);
    }
    cmd_verify_col = 1;
    if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
@@ -1661,11 +1661,11 @@ void cleanup_command_line(void)
    }
    else
       CURRENT_VIEW->cmdline_col = (-1);
-   if (CURRENT_WINDOW_COMMAND != (WINDOW *)NULL
+   if (curses_driver_current_role_exists(WINDOW_COMMAND)
    &&  CURRENT_VIEW->current_window == WINDOW_COMMAND)
    {
       cursor_focus_refresh(current_screen, CURRENT_VIEW);
-      curses_driver_refresh_window(CURRENT_WINDOW_COMMAND);
+      curses_driver_refresh_current_role(WINDOW_COMMAND);
       curses_driver_update();
       curses_driver_present_cursor(TRUE);
    }
@@ -3329,7 +3329,7 @@ short restore_THE(void)
       TRACE_RETURN();
       return(RC_OK);
    }
-   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   cursor = curses_driver_capture_current_window_cursor();
    if (cursor.valid)
    {
       y = cursor.row;
@@ -3346,16 +3346,13 @@ short restore_THE(void)
       touch_screen((CHARTYPE)other_screen);
       refresh_screen((CHARTYPE)other_screen);
       if (!horizontal)
-      {
-         curses_driver_touch_window(divider);
-         curses_driver_refresh_window(divider);
-      }
+         curses_driver_touch_and_refresh_global_window(CURSES_DRIVER_GLOBAL_DIVIDER);
    }
    touch_screen(current_screen);
-   if (statarea != (WINDOW *)NULL)
-      curses_driver_touch_window(statarea);
-   if ( filetabs != (WINDOW *)NULL )
-      curses_driver_touch_window(filetabs);
+   if (curses_driver_global_window_exists(CURSES_DRIVER_GLOBAL_STATAREA))
+      curses_driver_touch_global_window(CURSES_DRIVER_GLOBAL_STATAREA);
+   if (curses_driver_global_window_exists(CURSES_DRIVER_GLOBAL_FILETABS))
+      curses_driver_touch_global_window(CURSES_DRIVER_GLOBAL_FILETABS);
 #if defined(HAVE_SLK_INIT)
    if ( max_slk_labels )
    {
@@ -3363,7 +3360,7 @@ short restore_THE(void)
       slk_noutrefresh();
    }
 #endif
-   curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
+   curses_driver_move_current_window_cursor(y, x);
    TRACE_RETURN();
    return(RC_OK);
 }
@@ -3835,7 +3832,7 @@ int readv_cmdline(CHARTYPE *initial, WINDOW *dw, int start_col)
    TransientUiSnapshot readv_snapshot;
 
    TRACE_FUNCTION("commutil.c:readv_cmdline");
-   if ( CURRENT_WINDOW_COMMAND == (WINDOW *)NULL )
+   if ( !curses_driver_current_role_exists(WINDOW_COMMAND) )
    {
       display_error( 86, (CHARTYPE *)"", FALSE );
       TRACE_RETURN();

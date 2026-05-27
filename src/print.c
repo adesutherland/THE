@@ -448,7 +448,7 @@ void print_line(bool close_spooler,LINETYPE true_line,LINETYPE num_lines,
     if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
        cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
     else
-       cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+       cursor = curses_driver_capture_current_window_cursor();
     if (cursor.valid)
       {
        y = cursor.row;
@@ -599,7 +599,7 @@ void print_line(bool close_spooler,LINETYPE true_line,LINETYPE num_lines,
     if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
        curses_driver_move_window_cursor(CURRENT_WINDOW_FILEAREA, y, x);
     else
-       curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
+       curses_driver_move_current_window_cursor(y, x);
    }
  TRACE_RETURN();
  return;

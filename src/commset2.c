@@ -1513,7 +1513,7 @@ short Reserved(CHARTYPE *params)
    {
       if ( curses_started )
       {
-         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+         cursor = curses_driver_capture_current_window_cursor();
          if (cursor.valid)
          {
             y = cursor.row;
@@ -1527,7 +1527,7 @@ short Reserved(CHARTYPE *params)
          CURRENT_VIEW->focus_line = new_focus_line;
          y = get_row_for_focus_line( current_screen, CURRENT_VIEW->focus_line, CURRENT_VIEW->current_row );
          if ( curses_started )
-            curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
+            curses_driver_move_current_window_cursor(y, x);
          pre_process_line( CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL );
       }
    }
@@ -1809,7 +1809,7 @@ short Scale(CHARTYPE *params)
    {
       if (curses_started)
       {
-         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+         cursor = curses_driver_capture_current_window_cursor();
          if (cursor.valid)
          {
             y = cursor.row;
@@ -1819,7 +1819,7 @@ short Scale(CHARTYPE *params)
       CURRENT_VIEW->focus_line = get_focus_line_in_view(current_screen,CURRENT_VIEW->focus_line,y);
       y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,CURRENT_VIEW->current_row);
       if (curses_started)
-         curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
+         curses_driver_move_current_window_cursor(y, x);
       pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
    }
    display_screen(current_screen);
@@ -2205,15 +2205,15 @@ short THEScreen(CHARTYPE *params)
     */
    if (curses_started)
    {
-      cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
+      cursor = curses_driver_capture_current_role_cursor(WINDOW_FILEAREA);
       if (cursor.valid)
       {
          CURRENT_VIEW->y[WINDOW_FILEAREA] = cursor.row;
          CURRENT_VIEW->x[WINDOW_FILEAREA] = cursor.col;
       }
-      if (CURRENT_WINDOW_PREFIX != NULL)
+      if (curses_driver_current_role_exists(WINDOW_PREFIX))
       {
-         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW_PREFIX);
+         cursor = curses_driver_capture_current_role_cursor(WINDOW_PREFIX);
          if (cursor.valid)
          {
             CURRENT_VIEW->y[WINDOW_PREFIX] = cursor.row;
@@ -2236,11 +2236,7 @@ short THEScreen(CHARTYPE *params)
             free_a_view();
             CURRENT_VIEW = save_current_view;
          }
-         if (divider != (WINDOW *)NULL)
-         {
-            curses_driver_delete_window(divider);
-            divider = NULL;
-         }
+         curses_driver_delete_global_window(CURSES_DRIVER_GLOBAL_DIVIDER);
          current_screen = 0;
          CURRENT_SCREEN.screen_view = CURRENT_VIEW = save_current_view;
          OTHER_SCREEN.screen_view = NULL;
@@ -2299,8 +2295,7 @@ short THEScreen(CHARTYPE *params)
    && curses_started)
    {
 /*    redraw_window(divider);*/
-      curses_driver_touch_window(divider);
-      curses_driver_refresh_window(divider);
+      curses_driver_touch_and_refresh_global_window(CURSES_DRIVER_GLOBAL_DIVIDER);
    }
 
    if (display_screens > 1)
@@ -3054,8 +3049,7 @@ short Statusline(CHARTYPE *params)
          if (!horizontal)
          {
 /*          redraw_window(divider); */
-            curses_driver_touch_window(divider);
-            curses_driver_refresh_window(divider);
+            curses_driver_touch_and_refresh_global_window(CURSES_DRIVER_GLOBAL_DIVIDER);
          }
       }
       build_screen( (CHARTYPE)(other_screen) );
@@ -3541,7 +3535,7 @@ short Tabline(CHARTYPE *params)
    {
       if (curses_started)
       {
-         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+         cursor = curses_driver_capture_current_window_cursor();
          if (cursor.valid)
          {
             y = cursor.row;
@@ -3551,7 +3545,7 @@ short Tabline(CHARTYPE *params)
       CURRENT_VIEW->focus_line = get_focus_line_in_view(current_screen,CURRENT_VIEW->focus_line,y);
       y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,CURRENT_VIEW->current_row);
       if (curses_started)
-         curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
+         curses_driver_move_current_window_cursor(y, x);
       pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
    }
    display_screen(current_screen);

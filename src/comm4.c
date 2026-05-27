@@ -273,34 +273,33 @@ short Prevwindow(CHARTYPE *params)
    CURRENT_VIEW = CURRENT_SCREEN.screen_view;
    if (curses_started)
    {
-      if (CURRENT_WINDOW_COMMAND != (WINDOW *)NULL)
+      if (curses_driver_current_role_exists(WINDOW_COMMAND))
       {
-         curses_driver_set_window_attr(CURRENT_WINDOW_COMMAND,set_colour(CURRENT_FILE->attr+ATTR_CMDLINE));
-         curses_driver_touch_window(CURRENT_WINDOW_COMMAND);
-         curses_driver_refresh_window(CURRENT_WINDOW_COMMAND);
+         curses_driver_set_current_role_attr(WINDOW_COMMAND,set_colour(CURRENT_FILE->attr+ATTR_CMDLINE));
+         curses_driver_touch_and_refresh_current_role(WINDOW_COMMAND);
       }
-      if (CURRENT_WINDOW_ARROW != (WINDOW *)NULL)
+      if (curses_driver_current_role_exists(WINDOW_ARROW))
       {
-         curses_driver_set_window_attr(CURRENT_WINDOW_ARROW,set_colour(CURRENT_FILE->attr+ATTR_ARROW));
-         redraw_window(CURRENT_WINDOW_ARROW);
-         curses_driver_refresh_window(CURRENT_WINDOW_ARROW);
+         curses_driver_set_current_role_attr(WINDOW_ARROW,set_colour(CURRENT_FILE->attr+ATTR_ARROW));
+         curses_driver_redraw_current_role(WINDOW_ARROW);
+         curses_driver_refresh_current_role(WINDOW_ARROW);
       }
-      if (statarea != (WINDOW *)NULL)
+      if (curses_driver_global_window_exists(CURSES_DRIVER_GLOBAL_STATAREA))
       {
-         curses_driver_set_window_attr(statarea,set_colour(CURRENT_FILE->attr+ATTR_STATAREA));
-         redraw_window(statarea);
+         curses_driver_set_global_window_attr(CURSES_DRIVER_GLOBAL_STATAREA,set_colour(CURRENT_FILE->attr+ATTR_STATAREA));
+         curses_driver_redraw_global_window(CURSES_DRIVER_GLOBAL_STATAREA);
       }
-      if (CURRENT_WINDOW_IDLINE != (WINDOW *)NULL)
+      if (curses_driver_current_role_exists(WINDOW_IDLINE))
       {
-         curses_driver_set_window_attr(CURRENT_WINDOW_IDLINE,set_colour(CURRENT_FILE->attr+ATTR_IDLINE));
-         redraw_window(CURRENT_WINDOW_IDLINE);
+         curses_driver_set_current_role_attr(WINDOW_IDLINE,set_colour(CURRENT_FILE->attr+ATTR_IDLINE));
+         curses_driver_redraw_current_role(WINDOW_IDLINE);
       }
       if (display_screens > 1
       &&  !horizontal)
       {
-         curses_driver_set_window_attr(divider,set_colour(CURRENT_FILE->attr+ATTR_DIVIDER));
+         curses_driver_set_global_window_attr(CURSES_DRIVER_GLOBAL_DIVIDER,set_colour(CURRENT_FILE->attr+ATTR_DIVIDER));
          draw_divider();
-         curses_driver_refresh_window(divider);
+         curses_driver_refresh_global_window(CURSES_DRIVER_GLOBAL_DIVIDER);
       }
    }
    pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
@@ -832,7 +831,7 @@ short Readv(CHARTYPE *params)
       return( RC_INVALID_OPERAND );
    }
 
-   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   cursor = curses_driver_capture_current_window_cursor();
    if (cursor.valid)
    {
       y = cursor.row;
@@ -840,21 +839,21 @@ short Readv(CHARTYPE *params)
    }
    (void)THERefresh( (CHARTYPE *)"" );
 #if defined(USE_EXTCURSES)
-   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   cursor = curses_driver_capture_current_window_cursor();
    if (cursor.valid)
    {
       y = cursor.row;
       x = cursor.col;
    }
-   curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
-   curses_driver_refresh_window_now(CURRENT_WINDOW);
+   curses_driver_move_current_window_cursor(y, x);
+   curses_driver_refresh_current_window_now();
 #endif
    if ( equal( (CHARTYPE *)"key", word[0], 3) )
    {
       /*
        * Move the cursor to the current location - Bug #3370863.
        */
-      curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
+      curses_driver_move_current_window_cursor(y, x);
       /*
        * Find the item in the list of valid extract options...
        */
@@ -894,7 +893,7 @@ short Readv(CHARTYPE *params)
          set_rexx_variable( (CHARTYPE *)"READV", cmd_rec, cmd_rec_len, 1 );
          set_rexx_variable( (CHARTYPE *)"READV", (CHARTYPE *)"1", 1, 0 );
          curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND, 0, 0);
-         my_wclrtoeol(CURRENT_WINDOW_COMMAND);
+         curses_driver_clear_current_role_to_eol(WINDOW_COMMAND);
          memset(cmd_rec,' ',max_line_length);
          cmd_rec_len = 0;
          curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND, 0, 0);
@@ -1278,7 +1277,7 @@ short THERefresh(CHARTYPE *params)
    }
    interactive_in_macro = TRUE; /* enable contents to be changed inside a macro */
    in_macro = FALSE;
-   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   cursor = curses_driver_capture_current_window_cursor();
    if (cursor.valid)
    {
       y = cursor.row;
@@ -1290,8 +1289,7 @@ short THERefresh(CHARTYPE *params)
       display_screen( (CHARTYPE)(other_screen) );
       if (!horizontal)
       {
-         curses_driver_touch_window(divider);
-         curses_driver_refresh_window(divider);
+         curses_driver_touch_and_refresh_global_window(CURSES_DRIVER_GLOBAL_DIVIDER);
       }
    }
    show_statarea();
@@ -1313,7 +1311,7 @@ short THERefresh(CHARTYPE *params)
    {
       if (curses_started)
       {
-         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+         cursor = curses_driver_capture_current_window_cursor();
          if (cursor.valid)
          {
             y = cursor.row;
@@ -1329,14 +1327,14 @@ short THERefresh(CHARTYPE *params)
       }
       y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,CURRENT_VIEW->current_row);
       if (curses_started)
-         curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
+         curses_driver_move_current_window_cursor(y, x);
    }
    display_screen(current_screen);
    if (error_on_screen)
      expose_msgline();
-   curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
-   curses_driver_touch_window(CURRENT_WINDOW);
-   curses_driver_refresh_window(CURRENT_WINDOW);
+   curses_driver_move_current_window_cursor(y, x);
+   curses_driver_touch_current_window();
+   curses_driver_refresh_current_window();
 
    curses_driver_touch_window(curscr);
    curses_driver_update();
@@ -2222,7 +2220,7 @@ short ShowKey(CHARTYPE *params)
        * Turn off the cursor.
        */
       curses_driver_present_cursor(FALSE);
-      curses_driver_refresh_window_now(CURRENT_WINDOW);
+      curses_driver_refresh_current_window_now();
       display_prompt((CHARTYPE *)"Press the key to be translated...spacebar to exit");
       key = 0;
       while(key != ' ')
@@ -2236,7 +2234,7 @@ short ShowKey(CHARTYPE *params)
                (void)THERefresh((CHARTYPE *)"");
             }
 #endif
-            key = curses_driver_read_window_key(CURRENT_WINDOW);
+            key = curses_driver_read_current_window_key();
 #if defined(USE_XCURSES)
             if (key == KEY_SF || key == KEY_SR)
                continue;
