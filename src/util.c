@@ -50,12 +50,6 @@
  static int CompareLen=0;
  static bool CompareExact;
 
-#ifdef USE_EXTCURSES
- chtype color_pair[COLOR_PAIRS];
- static chtype fore_color[8];
- static chtype back_color[8];
-#endif
-
 /*
  * ASCII to EBCDIC
  */
@@ -1360,18 +1354,7 @@ void put_string( TheDriverWindow *win, ROWTYPE row, COLTYPE col, CHARTYPE *strin
 void put_char(TheDriverWindow *win,TheDriverCell ch,CHARTYPE add_ins)
 /***********************************************************************/
 {
-#ifdef VMS
-   chtype chr=0;
-#endif
-
    TRACE_FUNCTION("util.c:    put_char");
-#ifdef VMS
-   chr = ch & A_CHARTEXT;
-   if (etmode_flag[chr])  /* etmode character has attributes, use them */
-      ch = etmode_table[chr];
-   else
-      ch = etmode_table[chr] | (ch & A_ATTRIBUTES);
-#endif
 
    if (add_ins == ADDCHAR)
       the_driver->add_cell(win, ch);
@@ -3009,49 +2992,5 @@ int doupdate(void)
    the_driver->refresh_current_window_now();
    TRACE_RETURN();
    return(0);
-}
-#endif
-
-#ifdef USE_EXTCURSES
-/***********************************************************************/
-int has_colors(void)
-/***********************************************************************/
-{
-   return(TRUE);
-}
-/***********************************************************************/
-int start_color(void)
-/***********************************************************************/
-{
-   register int i=0;
-
-   for (i=0;i<COLOR_PAIRS;i++)
-     color_pair[i] = NORMAL;
-   fore_color[COLOR_BLACK  ] = F_BLACK  ;
-   fore_color[COLOR_BLUE   ] = F_BLUE   ;
-   fore_color[COLOR_GREEN  ] = F_GREEN  ;
-   fore_color[COLOR_CYAN   ] = F_CYAN   ;
-   fore_color[COLOR_RED    ] = F_RED    ;
-   fore_color[COLOR_MAGENTA] = F_MAGENTA;
-   fore_color[COLOR_YELLOW ] = F_BROWN  ;
-   fore_color[COLOR_WHITE  ] = F_WHITE  ;
-   back_color[COLOR_BLACK  ] = B_BLACK  ;
-   back_color[COLOR_BLUE   ] = B_BLUE   ;
-   back_color[COLOR_GREEN  ] = B_GREEN  ;
-   back_color[COLOR_CYAN   ] = B_CYAN   ;
-   back_color[COLOR_RED    ] = B_RED    ;
-   back_color[COLOR_MAGENTA] = B_MAGENTA;
-   back_color[COLOR_YELLOW ] = B_BROWN  ;
-   back_color[COLOR_WHITE  ] = B_WHITE  ;
-   return(0);
-}
-/***********************************************************************/
-int init_pair(int pairnum,chtype fore,chtype back)
-/***********************************************************************/
-{
-  register int i=0;
-
-  color_pair[pairnum] = fore_color[fore] | back_color[back];
-  return(0);
 }
 #endif

@@ -85,42 +85,6 @@ extern void ClosedownConsole( int );
 # define CURSES_H_INCLUDED
 #endif
 
-#if defined(USE_EXTCURSES)
-#  include <cur00.h>
-#  define A_COLOR
-#  define COLOR_BLACK   0
-#  define COLOR_BLUE    1
-#  define COLOR_GREEN   2
-#  define COLOR_CYAN    3
-#  define COLOR_RED     4
-#  define COLOR_MAGENTA 5
-#  define COLOR_YELLOW  6
-#  define COLOR_WHITE   7
-   typedef char bool;
-#  ifdef chtype
-#    undef chtype
-#  endif
-#  define chtype NLSCHAR
-#  define COLORS       8
-#  define COLOR_PAIRS 64
-   extern chtype color_pair[COLOR_PAIRS];
-#  define COLOR_PAIR(n) color_pair[n]
-#  ifndef HAVE_WATTRSET
-#    define HAVE_WATTRSET
-#    define wattrset(win,attr) xstandout(win,attr)
-#    define attrset(attr) xstandout(stdscr,attr)
-#  endif
-#  ifndef HAVE_NOCBREAK
-#    define HAVE_NOCBREAK
-#    define nocbreak() nocrmode()
-#  endif
-#  ifndef HAVE_CBREAK
-#    define HAVE_CBREAK
-#    define cbreak() crmode()
-#  endif
-#  define CURSES_H_INCLUDED
-#endif
-
 #ifndef CURSES_H_INCLUDED
 #  include <curses.h>
 #endif
@@ -318,10 +282,6 @@ extern void ClosedownConsole( int );
 #endif
 
 #ifdef HAVE_CONFIG_H
-# ifndef HAVE_WATTRSET
-#  define wattrset(win,attr) ((attr == A_NORMAL) ? wstandend(win) : wstandout(win))
-#  define attrset(attr)      wattrset(stdscr,attr)
-# endif
 # ifndef HAVE_KEYPAD
 #  define keypad(win,bf)
 # endif
@@ -376,10 +336,6 @@ extern void ClosedownConsole( int );
 #  define CURRENT_DIR (CHARTYPE *)"."
 #endif
 
-#ifdef VMS
-# define chtype short
-#endif
-
 #ifdef VMS1
 #  define ISLASH ']'
 #  define ISTR_SLASH (CHARTYPE *)"]"
@@ -389,7 +345,6 @@ extern void ClosedownConsole( int );
 #  define ESTR_SLASH ISTR_SLASH
 #  define CURRENT_DIR (CHARTYPE *)"[]"
 #  ifdef BSD
-#    define chtype short
 #    define BSDcurses 1
 #  endif
 #  define touchline(WIN,START,NUM)       touchwin(WIN)

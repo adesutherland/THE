@@ -1022,7 +1022,6 @@ short Text(CHARTYPE *params)
                if ( x == CURRENT_SCREEN.cols[WINDOW_FILEAREA]-1 )
                {
                   the_driver->move_current_window_cursor(y, x);
-     /*           wrefresh(CURRENT_WINDOW); */
                   THEcursor_right( TRUE, FALSE );
                }
 #else

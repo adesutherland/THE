@@ -56,6 +56,22 @@ if [[ -n "$thedriver_public_violations" ]]; then
   exit 1
 fi
 
+window_state_pattern='\b(WINDOW|chtype|cchar_t)\b|CURRENT_WINDOW|SCREEN_WINDOW|PENDING_WINDOW'
+window_state_violations="$(
+  rg -n "$window_state_pattern" src \
+    --glob '!src/cursesdriver.*' \
+    --glob '!src/thedriver.*' \
+    --glob '!src/PDCurses/**' \
+    --glob '!src/PDCursesMod/**' \
+    --glob '!src/contrib/**' 2>/dev/null || true
+)"
+
+if [[ -n "$window_state_violations" ]]; then
+  printf '%s\n' "Unexpected raw curses window/cell type residue outside the approved driver/vendor files:"
+  printf '%s\n' "$window_state_violations"
+  exit 1
+fi
+
 execute_pattern='(^|[^A-Za-z0-9_])(attrset|clear|wclear|move|mvaddstr|addch|refresh|wrefresh|getyx|getbegyx|wmove|newwin|newpad|derwin|subwin|delwin|keypad|wbkgd|wattrset|wclrtobot|box|waddstr|waddch|touchwin|wnoutrefresh|prefresh|wgetch|my_getch|wmouse_position|whline|draw_cursor|force_curses_background)[[:space:]]*\('
 execute_violations="$(
   rg -n "$execute_pattern" src/execute.c 2>/dev/null || true
@@ -110,4 +126,4 @@ if [[ -n "$sos_violations" ]]; then
   exit 1
 fi
 
-printf '%s\n' "curses boundary check passed for logical modules, agent, execute.c wrappers, and SOS cursor surface"
+printf '%s\n' "curses boundary check passed for logical modules, agent, raw window/cell residue, execute.c wrappers, and SOS cursor surface"

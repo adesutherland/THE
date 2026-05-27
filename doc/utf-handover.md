@@ -124,8 +124,8 @@ them mechanically and verify the supported targets in one sweep.
   behind `curses_driver_*` wrappers. The corrected paint scanner also exposed
   suffixed raw paint/cell calls in `comm3.c`, `comm4.c`, `comm5.c`,
   `commset1.c`, `error.c`, `query.c`, `query2.c`, `show.c`, and `util.c`;
-  those are now behind driver wrappers. Broad `show.c`
-  renderer/window-state/chtype storage remains for a later slice.
+  those are now behind driver wrappers. The later renderer/window-state
+  cleanup closed the broad `show.c` display-line storage surface.
 - The direct-curses inventory scanner now handles `#if 0 ... #else ...
   #endif` correctly by scanning the active `#else` arm. The ratchet is both a
   CTest (`test_curses_boundary_inventory`) and a build target
@@ -159,17 +159,25 @@ them mechanically and verify the supported targets in one sweep.
   driver types where practical. `show.c` no longer uses
   `SCREEN_WINDOW_*`/`CURRENT_WINDOW*` macros, and the stale macro definitions
   were deleted.
+- The final window-state cleanup is closed. The unsupported ExtCurses colour
+  storage and old-curses/VMS `chtype` aliases in core headers/utilities were
+  removed, stale raw window/cell macro residue was deleted, and the
+  project-wide guardrail now catches raw `WINDOW`, `chtype`, `cchar_t`,
+  `CURRENT_WINDOW`, `SCREEN_WINDOW`, or `PENDING_WINDOW` residue outside the
+  driver/vendor areas.
 
 ## Active Slice
 
-No active migration slice is selected after closing the inventory ratchet,
+No active inventory cleanup slice remains after closing the inventory ratchet,
 bulk physical wrapper pass, physical input/paint cleanup, raw mouse packet
 driver-ownership cleanup, corrected suffixed-paint cleanup, the first
-active-window/window-handle cleanup, the real driver-vtable migration, and the
-neutral public driver/window-state cleanup. The next inventory-backed target is
-the small remaining legacy `src/the.h`/`src/util.c` compatibility colour-cell
-surface. Keep the same proof pattern: no-curses model first, curses path uses
-that model, then guardrail the cleaned surface.
+active-window/window-handle cleanup, the real driver-vtable migration, the
+neutral public driver/window-state cleanup, and the final legacy compatibility
+window-state closure.
+
+Next step: driver shape review. Step back over `TheDriverOps`, opaque window
+handles, remaining allowed driver-edge calls, and the supported build surfaces
+before selecting any refactor.
 
 ## Direct Curses Inventory
 
@@ -191,24 +199,24 @@ Current ratcheted counts:
 - actionable `physical-input`: 0
 - actionable `physical-paint`: 0
 - actionable `mouse-token`: 0
-- actionable `window-state`: 13
+- actionable `window-state`: 0
 - allowed/migrated `driver-wrapper`: 781
 
 Current `window-state` summary:
 
-- `window-handle`: 2
+- `window-handle`: 0
 - `active-window-macro`: 0
-- `cell-attr-type`: 11
+- `cell-attr-type`: 0
 - `renderer-cell-type`: 0
 - `header-prototype`: 0
 
-This slice reduced total `window-state` from 249 to 13. It closed
-`header-prototype`, `renderer-cell-type`, and `active-window-macro`
-completely, reduced `window-handle` from 45 to 2, and reduced
-`cell-attr-type` from 79 to 11. The remaining exact blockers are legacy
-compatibility surfaces: `src/the.h` ExtCurses/old-curses `chtype` and
+The final cleanup reduced total `window-state` from 249 to 0. It closed
+`header-prototype`, `renderer-cell-type`, `active-window-macro`,
+`window-handle`, and `cell-attr-type` completely. The last 13 findings were
+legacy compatibility surfaces: `src/the.h` ExtCurses/old-curses `chtype` and
 `stdscr` compatibility defines, `src/util.c` ExtCurses colour-pair storage and
-`init_pair()` compatibility, and the VMS-only `put_char()` attribute split.
+`init_pair()` compatibility, the VMS-only `put_char()` attribute split, plus
+stale raw window/cell comments and macros.
 
 For the cleaned transient functions, the sweep finds no raw `physical-input` or
 `physical-paint` calls in `readv_cmdline()`, `execute_dialog()`, or
@@ -248,12 +256,9 @@ in this pass.
 
 Boundary debt:
 
-- Remaining direct curses window-state/type findings in legacy command,
-  setup, and header surfaces. The broad command/cursor/edit/query/scroll/error
-  role-window surface is now behind driver helpers, and the `show.c`
-  renderer/display-line `WINDOW`/`chtype`/`cchar_t` surface is closed. The
-  remaining findings are the legacy ExtCurses/old-curses compatibility colour
-  shims in `src/the.h` and `src/util.c`, plus a VMS-only `put_char()` branch.
+- Actionable direct curses inventory is closed: `physical-input`,
+  `physical-paint`, `mouse-token`, and `window-state` are all zero outside the
+  driver/vendor areas.
 - `mouse-token` is currently zero. Future raw mouse packet symbols outside the
   driver should fail as actionable `physical-input`; editor-level mouse command
   encoding should continue to use driver-owned button/action/modifier constants

@@ -165,7 +165,3 @@ driver-wrapper	src/util.c	my_wmove	1
 driver-wrapper	src/util.c	put_char	2
 driver-wrapper	src/util.c	put_string	2
 driver-wrapper	src/util.c	set_up_windows	24
-window-state	src/the.h	file-scope	8
-window-state	src/util.c	file-scope	3
-window-state	src/util.c	init_pair	1
-window-state	src/util.c	put_char	1

@@ -155,14 +155,15 @@ Closed checkpoints are summarized here; details and next tasks are in
   checked by `test_the_llm_headless_no_curses`.
 - `tests/inventory_direct_curses.sh` is the repeatable debt sweep and ratchet.
   Current counts are actionable `physical-input: 0`, `physical-paint: 0`,
-  `mouse-token: 0`, and `window-state: 13`; `driver-wrapper: 781` is
-  counted as migrated/allowed. The summary now splits `window-state` into
-  `window-handle: 2`, `active-window-macro: 0`, `cell-attr-type: 11`,
+  `mouse-token: 0`, and `window-state: 0`; `driver-wrapper: 781` is counted
+  as migrated/allowed. The summary now splits `window-state` into
+  `window-handle: 0`, `active-window-macro: 0`, `cell-attr-type: 0`,
   `renderer-cell-type: 0`, and `header-prototype: 0`. The ratchet is
   available as both CTest `test_curses_boundary_inventory` and build target
   `curses_boundary_inventory`. The cleaned transient functions and current
-  project-wide inventory have no raw `physical-input`, `physical-paint`, or
-  `mouse-token` findings outside `src/cursesdriver.*` or `src/thedriver.*`.
+  project-wide inventory have no raw `physical-input`, `physical-paint`,
+  `mouse-token`, or `window-state` findings outside `src/cursesdriver.*` or
+  `src/thedriver.*`.
 
 ## Status Model
 
@@ -194,20 +195,21 @@ The current active categories are:
   ownership of raw mouse packet decoding, the first active-window/window-handle
   role-helper cleanup, the real `TheDriverOps` vtable with high-level editor
   call sites migrated to `the_driver->...`, and neutral public driver types
-  with the `show.c` renderer/window-state macro surface closed.
+  with the `show.c` renderer/window-state macro surface closed, plus final
+  closure of the legacy ExtCurses/old-curses/VMS window-state compatibility
+  residue.
 - Active slice: none selected after the inventory ratchet, bulk wrapper pass,
   physical input/paint cleanup, raw mouse packet driver-ownership cleanup,
   corrected suffixed-paint cleanup, the first active-window/window-handle
   role-helper cleanup, the real driver-vtable migration, and the neutral
-  public driver/window-state cleanup. Choose the next exact slice from
-  `doc/utf-handover.md`.
+  public driver/window-state cleanup. The next step is driver shape review,
+  as recorded in `doc/utf-handover.md`.
 - Deferred: full agent dispatcher integration, full prefix command machinery in
   the agent, agent protocol integration for transient snapshots, full live
   frames for command/prompt/status/window rows, removal of the transitional
-  cursor-focus bridge, retained-frame delta views, the remaining
-  ExtCurses/old-curses compatibility colour shims in `src/the.h`/`src/util.c`,
-  the isolated keycap blank-cell physical materialization/profile follow-up,
-  and additional terminal baselines.
+  cursor-focus bridge, retained-frame delta views, the isolated keycap
+  blank-cell physical materialization/profile follow-up, and additional
+  terminal baselines.
 
 ## Guardrails
 
@@ -218,6 +220,9 @@ module by module, not by aspiration.
 - `src/thedriver.h` must stay free of `WINDOW`, `chtype`, and `cchar_t`; the
   curses implementation performs all casts between neutral driver types and
   curses types.
+- Core source outside `src/cursesdriver.*`, `src/thedriver.*`, bundled
+  PDCurses, and contrib must stay free of raw `WINDOW`, `chtype`, `cchar_t`,
+  `CURRENT_WINDOW`, `SCREEN_WINDOW`, and `PENDING_WINDOW` residue.
 - Editor code should call `the_driver->...` for operations present in
   `TheDriverOps`. Direct `curses_driver_*` calls must stay inside
   `src/cursesdriver.*`; temporary low-level physical edges outside the driver

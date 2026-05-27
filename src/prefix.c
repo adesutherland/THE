@@ -93,7 +93,6 @@ static CHARTYPE pending_screen;
 #define PENDING_VIEW                (vd_pending)
 #define PENDING_FILE                (vd_pending->file_for_view)
 #define PENDING_SCREEN              screen[pending_screen]
-#define PENDING_WINDOW              (PENDING_SCREEN.win[vd_pending->current_window])
 
 #define THE_PPC_NO_TARGET        (-1)
 #define THE_PPC_NO_COMMAND       (-2)

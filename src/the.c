@@ -267,9 +267,9 @@ static void init_signals(void);
 
    CHARTYPE *linebuf; /* Buffer for one terminal line, at least 81 elems */
 #ifdef USE_UTF8
-   TheDriverWideCell *linebufch; /* Buffer for one terminal line in chtype-mode, >= 81 */
+   TheDriverWideCell *linebufch; /* Buffer for one terminal line in wide driver-cell mode, >= 81 */
 #else
-   TheDriverCell *linebufch; /* Buffer for one terminal line in chtype-mode, >= 81 */
+   TheDriverCell *linebufch; /* Buffer for one terminal line in driver-cell mode, >= 81 */
 #endif
    LENGTHTYPE linebuf_size = 0;
    int max_slk_labels=0;
