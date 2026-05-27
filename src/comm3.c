@@ -37,6 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 
 /*man-start*********************************************************************
 COMMAND
@@ -375,6 +376,7 @@ short Mark(CHARTYPE *params)
    LENGTHTYPE cont_len=0;
    int num[5]; /* must be at least as big as maximum number of args */
    CHARTYPE _THE_FAR buffer[100];
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION("comm3.c:   Mark");
    /*
@@ -565,7 +567,12 @@ short Mark(CHARTYPE *params)
        * If we are in the file area or prefix area and the focus line is not
        * a real line, error.
        */
-      getyx(CURRENT_WINDOW,y,x);
+      cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+      if (cursor.valid)
+      {
+         y = cursor.row;
+         x = cursor.col;
+      }
       if (CURRENT_VIEW->current_window == WINDOW_FILEAREA
       ||  CURRENT_VIEW->current_window == WINDOW_PREFIX)
       {
@@ -583,7 +590,7 @@ short Mark(CHARTYPE *params)
       CURRENT_VIEW->mark_end_col = real_col;
       build_screen( current_screen );
       display_screen(current_screen);
-      wmove(CURRENT_WINDOW,y,x);
+      curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
    }
    /*
     * With one parameter determine position of block...
@@ -604,7 +611,12 @@ short Mark(CHARTYPE *params)
        * If we are in the file area or prefix area and the focus line is not
        * a real line, error.
        */
-      getyx(CURRENT_WINDOW,y,x);
+      cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+      if (cursor.valid)
+      {
+         y = cursor.row;
+         x = cursor.col;
+      }
       if (CURRENT_VIEW->current_window == WINDOW_FILEAREA
       ||  CURRENT_VIEW->current_window == WINDOW_PREFIX)
       {
@@ -750,7 +762,7 @@ short Mark(CHARTYPE *params)
       }
       build_screen( current_screen );
       display_screen(current_screen);
-      wmove(CURRENT_WINDOW,y,x);
+      curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
    }
    else
    {
@@ -980,6 +992,7 @@ short THEMove(CHARTYPE *params)
    short rc=RC_OK;
    LINETYPE start_line=0L,end_line=0L,num_lines=0L,dest_line=0L,lines_affected=0L;
    VIEW_DETAILS *old_mark_view=NULL;
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION("comm3.c:   THEMove");
    /*
@@ -1041,7 +1054,12 @@ short THEMove(CHARTYPE *params)
     */
    if (MARK_VIEW == CURRENT_VIEW)
    {
-      getyx(CURRENT_WINDOW_FILEAREA,y,x);
+      cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
+      if (cursor.valid)
+      {
+         y = cursor.row;
+         x = cursor.col;
+      }
       switch(MARK_VIEW->mark_type)
       {
          case M_LINE:
@@ -1271,14 +1289,14 @@ short Nextwindow(CHARTYPE *params)
       if (CURRENT_WINDOW_COMMAND != (WINDOW *)NULL)
       {
          wattrset(CURRENT_WINDOW_COMMAND,set_colour(CURRENT_FILE->attr+ATTR_CMDLINE));
-         touchwin(CURRENT_WINDOW_COMMAND);
-         wnoutrefresh(CURRENT_WINDOW_COMMAND);
+         curses_driver_touch_window(CURRENT_WINDOW_COMMAND);
+         curses_driver_refresh_window(CURRENT_WINDOW_COMMAND);
       }
       if (CURRENT_WINDOW_ARROW != (WINDOW *)NULL)
       {
          wattrset(CURRENT_WINDOW_ARROW,set_colour(CURRENT_FILE->attr+ATTR_ARROW));
          redraw_window(CURRENT_WINDOW_ARROW);
-         wnoutrefresh(CURRENT_WINDOW_ARROW);
+         curses_driver_refresh_window(CURRENT_WINDOW_ARROW);
       }
       if (statarea != (WINDOW *)NULL)
       {
@@ -1295,7 +1313,7 @@ short Nextwindow(CHARTYPE *params)
       {
          wattrset(divider,set_colour(CURRENT_FILE->attr+ATTR_DIVIDER));
          draw_divider();
-         wnoutrefresh(divider);
+         curses_driver_refresh_window(divider);
       }
    }
 /*   pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);  GFUC2 deleted */
@@ -1809,6 +1827,7 @@ short Overlaybox(CHARTYPE *params)
    short rc=RC_OK;
    LINE *curr=NULL;
    LINETYPE save_current_line=CURRENT_VIEW->current_line;
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION("comm3.c:   Overlaybox");
    /*
@@ -1846,7 +1865,12 @@ short Overlaybox(CHARTYPE *params)
    {
       if (CURRENT_VIEW->current_window != WINDOW_COMMAND)
       {
-         getyx(CURRENT_WINDOW,y,x);
+         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+         if (cursor.valid)
+         {
+            y = cursor.row;
+            x = cursor.col;
+         }
          if (!IN_SCOPE(CURRENT_VIEW,CURRENT_SCREEN.sl[y].current)
          && !CURRENT_VIEW->scope_all)
          {
@@ -1910,7 +1934,7 @@ short Overlaybox(CHARTYPE *params)
    display_screen(current_screen);
    if (curses_started
    && CURRENT_VIEW->current_window != WINDOW_COMMAND)
-      wmove(CURRENT_WINDOW,y,x);
+      curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
 
    TRACE_RETURN();
    return(rc);

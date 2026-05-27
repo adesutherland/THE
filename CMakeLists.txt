@@ -303,6 +303,9 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/src
     ${CURSES_INCLUDE_DIRS}
 )
+if(USE_UTF8)
+    include_directories(${CMAKE_SOURCE_DIR}/src/contrib)
+endif()
 
 if(THE_USE_CREXX)
     include_directories(${CREXXSAA_INCLUDE_DIR})
@@ -488,6 +491,7 @@ add_test(NAME test_curses_boundary
             ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME test_curses_boundary_inventory
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/inventory_direct_curses.sh
+            --fail-on-new
             ${CMAKE_CURRENT_SOURCE_DIR})
 add_executable(test_textpos tests/test_textpos.c src/textpos.c)
 target_include_directories(test_textpos PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})

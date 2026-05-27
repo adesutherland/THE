@@ -98,25 +98,44 @@ them mechanically and verify the supported targets in one sweep.
   surface, and the cleaned readv/dialog/popup transient paths from regressing.
   `test_the_agent_no_curses` and `test_the_llm_headless_no_curses` prove the
   no-curses executables do not link curses or expose curses-driver symbols.
+- The direct-curses inventory is now a ratchet. The full listing remains
+  available, `--summary` separates actionable physical-input, physical-paint,
+  mouse-token, and window-state/type debt from allowed `curses_driver_*`
+  wrapper calls, and `test_curses_boundary_inventory` fails only when
+  actionable category/file/function buckets exceed
+  `tests/inventory_direct_curses.baseline.tsv`.
+- A bulk wrapper pass moved high-confidence raw physical paint/input mechanics
+  in `comm1.c`, `comm3.c`, `comm4.c`, `commset1.c`, `commset2.c`,
+  `commutil.c`, `error.c`, and `util.c` behind existing
+  `curses_driver_*` wrappers. `show.c` renderer/window-state/chtype storage
+  was deliberately left for a later slice.
 
 ## Active Slice
 
-No active migration slice is selected after closing the transient UI headless
-boundary. Pick the next slice from the debt buckets below and close it with the
-same proof pattern: no-curses model first, curses path uses that model, then
-guardrail the cleaned surface.
+No active migration slice is selected after closing the inventory ratchet and
+bulk physical wrapper pass. Pick the next slice from the debt buckets below and
+close it with the same proof pattern: no-curses model first, curses path uses
+that model, then guardrail the cleaned surface.
 
 ## Direct Curses Inventory
 
 `tests/inventory_direct_curses.sh` reports remaining direct curses dependencies
-outside `src/cursesdriver.*`, bundled PDCurses, and contrib code. Current sweep
-counts:
+outside `src/cursesdriver.*`, bundled PDCurses, and contrib code. It now has
+three useful modes:
 
-- `physical-input`: 33
-- `mouse-token`: 30
-- `physical-paint`: 171
-- `driver-wrapper`: 408
-- `window-state`: 429
+- default full inventory: every classified finding.
+- `--summary`: debt-oriented category totals plus top category/file/function
+  buckets.
+- `--fail-on-new`: CTest ratchet against
+  `tests/inventory_direct_curses.baseline.tsv`.
+
+Current ratcheted counts:
+
+- actionable `physical-input`: 12
+- actionable `physical-paint`: 31
+- actionable `mouse-token`: 24
+- actionable `window-state`: 398
+- allowed/migrated `driver-wrapper`: 588
 
 For the cleaned transient functions, the sweep finds no raw `physical-input` or
 `physical-paint` calls in `readv_cmdline()`, `execute_dialog()`, or
@@ -124,10 +143,15 @@ For the cleaned transient functions, the sweep finds no raw `physical-input` or
 `WINDOW` ownership in the curses path, `KEY_MOUSE` branch tokens, and
 `curses_driver_*` physical wrapper calls.
 
-Use the inventory as a planning tool, not a project-wide failure gate yet. The
-project still has legitimate legacy debt in command modules, colour/setup,
-window lifecycle, render refresh paths, and compatibility code. Tighten hard
-failures only after a behavior group is migrated and tested.
+The ratchet is a project-wide no-new-debt gate for actionable categories, not a
+must-fix-all-existing-debt gate. Reductions are allowed without updating every
+other bucket. `driver-wrapper` entries are counted for visibility but are
+treated as migrated/allowed and do not fail the ratchet.
+
+The bulk wrapper pass reduced the current scanner's raw `physical-input` count
+from 16 to 12 and raw `physical-paint` count from 198 to 31. The scanner also
+stops treating comments, prototypes/function names, and `#if 0` bodies as raw
+call sites. Windows PDCursesMod `wincon` was not build-verified in this pass.
 
 ## Deferred Buckets
 

@@ -133,10 +133,11 @@ Closed checkpoints are summarized here; details and next tasks are in
 - `the_llm_headless` is the current no-curses executable skeleton for the
   broader LLM/headless editor direction. It links the transient model and is
   checked by `test_the_llm_headless_no_curses`.
-- `tests/inventory_direct_curses.sh` is the repeatable debt sweep. Current
-  counts are `physical-input: 33`, `mouse-token: 30`, `physical-paint: 171`,
-  `driver-wrapper: 408`, and `window-state: 429`. The cleaned transient
-  functions have no raw `physical-input` or `physical-paint` findings.
+- `tests/inventory_direct_curses.sh` is the repeatable debt sweep and ratchet.
+  Current counts are actionable `physical-input: 12`, `physical-paint: 31`,
+  `mouse-token: 24`, and `window-state: 398`; `driver-wrapper: 588` is
+  counted as migrated/allowed. The cleaned transient functions have no raw
+  `physical-input` or `physical-paint` findings.
 
 ## Status Model
 
@@ -163,8 +164,9 @@ The current active categories are:
   input for normal `THEMouse` dispatch, transient readv/dialog/popup snapshot
   model and curses-path materialization, `the_llm_headless`, and focused
   guardrails.
-- Active slice: none selected after the transient UI closure. Choose the next
-  slice from the inventory-backed boundary debt in `doc/utf-handover.md`.
+- Active slice: none selected after the inventory ratchet and bulk wrapper
+  pass. Choose the next slice from the inventory-backed boundary debt in
+  `doc/utf-handover.md`.
 - Deferred: full agent dispatcher integration, full prefix command machinery in
   the agent, agent protocol integration for transient snapshots, full live
   frames for command/prompt/status/window rows, removal of the transitional

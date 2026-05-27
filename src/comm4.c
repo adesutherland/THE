@@ -37,6 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 
 /*man-start*********************************************************************
 COMMAND
@@ -275,14 +276,14 @@ short Prevwindow(CHARTYPE *params)
       if (CURRENT_WINDOW_COMMAND != (WINDOW *)NULL)
       {
          wattrset(CURRENT_WINDOW_COMMAND,set_colour(CURRENT_FILE->attr+ATTR_CMDLINE));
-         touchwin(CURRENT_WINDOW_COMMAND);
-         wnoutrefresh(CURRENT_WINDOW_COMMAND);
+         curses_driver_touch_window(CURRENT_WINDOW_COMMAND);
+         curses_driver_refresh_window(CURRENT_WINDOW_COMMAND);
       }
       if (CURRENT_WINDOW_ARROW != (WINDOW *)NULL)
       {
          wattrset(CURRENT_WINDOW_ARROW,set_colour(CURRENT_FILE->attr+ATTR_ARROW));
          redraw_window(CURRENT_WINDOW_ARROW);
-         wnoutrefresh(CURRENT_WINDOW_ARROW);
+         curses_driver_refresh_window(CURRENT_WINDOW_ARROW);
       }
       if (statarea != (WINDOW *)NULL)
       {
@@ -299,7 +300,7 @@ short Prevwindow(CHARTYPE *params)
       {
          wattrset(divider,set_colour(CURRENT_FILE->attr+ATTR_DIVIDER));
          draw_divider();
-         wnoutrefresh(divider);
+         curses_driver_refresh_window(divider);
       }
    }
    pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
@@ -811,6 +812,7 @@ short Readv(CHARTYPE *params)
    unsigned short y=0,x=0;
    CHARTYPE item_type=0;
    bool cursor_on_cmdline=FALSE;
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION( "comm4.c:   Readv" );
    if ( !in_macro
@@ -830,19 +832,29 @@ short Readv(CHARTYPE *params)
       return( RC_INVALID_OPERAND );
    }
 
-   getyx( CURRENT_WINDOW, y, x );
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   if (cursor.valid)
+   {
+      y = cursor.row;
+      x = cursor.col;
+   }
    (void)THERefresh( (CHARTYPE *)"" );
 #if defined(USE_EXTCURSES)
-   getyx( CURRENT_WINDOW, y, x );
-   wmove( CURRENT_WINDOW, y, x );
-   wrefresh( CURRENT_WINDOW );
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   if (cursor.valid)
+   {
+      y = cursor.row;
+      x = cursor.col;
+   }
+   curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
+   curses_driver_refresh_window_now(CURRENT_WINDOW);
 #endif
    if ( equal( (CHARTYPE *)"key", word[0], 3) )
    {
       /*
        * Move the cursor to the current location - Bug #3370863.
        */
-      wmove( CURRENT_WINDOW, y, x );
+      curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
       /*
        * Find the item in the list of valid extract options...
        */
@@ -881,11 +893,11 @@ short Readv(CHARTYPE *params)
          rc = readv_cmdline( word[1], NULL, -1 );
          set_rexx_variable( (CHARTYPE *)"READV", cmd_rec, cmd_rec_len, 1 );
          set_rexx_variable( (CHARTYPE *)"READV", (CHARTYPE *)"1", 1, 0 );
-         wmove(CURRENT_WINDOW_COMMAND,0,0);
+         curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND, 0, 0);
          my_wclrtoeol(CURRENT_WINDOW_COMMAND);
          memset(cmd_rec,' ',max_line_length);
          cmd_rec_len = 0;
-         wmove(CURRENT_WINDOW_COMMAND,0,0);
+         curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND, 0, 0);
          if ( !cursor_on_cmdline )
             THEcursor_home( current_screen, CURRENT_VIEW, TRUE );
       }
@@ -1215,10 +1227,10 @@ short Redraw(CHARTYPE *params)
       return(RC_INVALID_OPERAND);
    }
    erase();
-   refresh();
+   curses_driver_refresh_standard_screen();
    restore_THE();
    THERefresh( (CHARTYPE *)"" );
-   refresh();
+   curses_driver_refresh_standard_screen();
    TRACE_RETURN();
    return(RC_OK);
 }
@@ -1250,6 +1262,7 @@ short THERefresh(CHARTYPE *params)
    bool save_in_macro=in_macro;
    unsigned short y=0,x=0;
    LINETYPE new_focus_line=0L;
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION("comm4.c:   THERefresh");
    if (strcmp((DEFCHAR *)params,"") != 0)
@@ -1265,15 +1278,20 @@ short THERefresh(CHARTYPE *params)
    }
    interactive_in_macro = TRUE; /* enable contents to be changed inside a macro */
    in_macro = FALSE;
-   getyx(CURRENT_WINDOW,y,x);
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   if (cursor.valid)
+   {
+      y = cursor.row;
+      x = cursor.col;
+   }
    if (display_screens > 1)
    {
       prepare_view( (CHARTYPE)(other_screen) );
       display_screen( (CHARTYPE)(other_screen) );
       if (!horizontal)
       {
-         touchwin(divider);
-         wnoutrefresh(divider);
+         curses_driver_touch_window(divider);
+         curses_driver_refresh_window(divider);
       }
    }
    show_statarea();
@@ -1294,7 +1312,14 @@ short THERefresh(CHARTYPE *params)
    if (CURRENT_VIEW->current_window != WINDOW_COMMAND)
    {
       if (curses_started)
-         getyx(CURRENT_WINDOW,y,x);
+      {
+         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+         if (cursor.valid)
+         {
+            y = cursor.row;
+            x = cursor.col;
+         }
+      }
       if (!line_in_view(current_screen,CURRENT_VIEW->focus_line))
       {
          new_focus_line = get_focus_line_in_view(current_screen,CURRENT_VIEW->focus_line,y);
@@ -1304,17 +1329,17 @@ short THERefresh(CHARTYPE *params)
       }
       y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,CURRENT_VIEW->current_row);
       if (curses_started)
-         wmove(CURRENT_WINDOW,y,x);
+         curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
    }
    display_screen(current_screen);
    if (error_on_screen)
      expose_msgline();
-   wmove(CURRENT_WINDOW,y,x);
-   touchwin(CURRENT_WINDOW);
-   wnoutrefresh(CURRENT_WINDOW);
+   curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
+   curses_driver_touch_window(CURRENT_WINDOW);
+   curses_driver_refresh_window(CURRENT_WINDOW);
 
-   touchwin(curscr);
-   doupdate();
+   curses_driver_touch_window(curscr);
+   curses_driver_update();
    interactive_in_macro = FALSE;
    in_macro = save_in_macro;
    TRACE_RETURN();
@@ -2196,8 +2221,8 @@ short ShowKey(CHARTYPE *params)
       /*
        * Turn off the cursor.
        */
-      draw_cursor(FALSE);
-      wrefresh(CURRENT_WINDOW);
+      curses_driver_present_cursor(FALSE);
+      curses_driver_refresh_window_now(CURRENT_WINDOW);
       display_prompt((CHARTYPE *)"Press the key to be translated...spacebar to exit");
       key = 0;
       while(key != ' ')
@@ -2211,7 +2236,7 @@ short ShowKey(CHARTYPE *params)
                (void)THERefresh((CHARTYPE *)"");
             }
 #endif
-            key = my_getch( CURRENT_WINDOW );
+            key = curses_driver_read_window_key(CURRENT_WINDOW);
 #if defined(USE_XCURSES)
             if (key == KEY_SF || key == KEY_SR)
                continue;
@@ -2242,7 +2267,7 @@ short ShowKey(CHARTYPE *params)
       /*
        * Turn on the cursor.
        */
-      draw_cursor(TRUE);
+      curses_driver_present_cursor(TRUE);
       clear_msgline(-1);
    }
    else
@@ -2624,7 +2649,7 @@ short Status(CHARTYPE *params)
                (void)show_status();
             }
 #endif
-            key = my_getch( stdscr );
+            key = curses_driver_read_standard_key();
 #if defined(USE_XCURSES)
             if ( key == KEY_SF || key == KEY_SR )
                continue;

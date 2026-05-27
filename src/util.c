@@ -35,6 +35,7 @@
 
 #include "the.h"
 #include "proto.h"
+#include "cursesdriver.h"
 
 #ifdef my_stricmp
 # undef my_stricmp
@@ -1347,10 +1348,10 @@ void put_string( WINDOW *win, ROWTYPE row, COLTYPE col, CHARTYPE *string, LENGTH
    LENGTHTYPE i=0;
 
    TRACE_FUNCTION("util.c:    put_string");
-   wmove( win, row, col );
+   curses_driver_move_window_cursor(win, row, col);
    for ( i = 0; i < len; i++ )
    {
-      waddch( win, etmode_table[*(string+i)] );
+      curses_driver_add_chtype(win, etmode_table[*(string+i)]);
    }
    TRACE_RETURN();
    return;
@@ -1373,7 +1374,7 @@ void put_char(WINDOW *win,chtype ch,CHARTYPE add_ins)
 #endif
 
    if (add_ins == ADDCHAR)
-      waddch( win, ch );
+      curses_driver_add_chtype(win, ch);
    else
       winsch( win, ch );
    TRACE_RETURN();
@@ -1387,6 +1388,7 @@ short set_up_windows(short scrn)
    short y=0,x=0;
    FILE_DETAILS fp;
    short my_prefix_width=0;
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION("util.c:    set_up_windows");
    /*
@@ -1427,15 +1429,21 @@ short set_up_windows(short scrn)
       y = x = 0;
       if ( screen[scrn].win[i] != (WINDOW *)NULL )
       {
-         getyx( screen[scrn].win[i], y, x );
-         delwin( screen[scrn].win[i] );
+         cursor = curses_driver_capture_window_cursor(screen[scrn].win[i]);
+         if (cursor.valid)
+         {
+            y = cursor.row;
+            x = cursor.col;
+         }
+         curses_driver_delete_window(screen[scrn].win[i]);
          screen[scrn].win[i] = (WINDOW *)NULL;
       }
       if ( screen[scrn].rows[i] != 0
       &&   screen[scrn].cols[i] != 0 )
       {
-         screen[scrn].win[i] = newwin( screen[scrn].rows[i], screen[scrn].cols[i],
-                                       screen[scrn].start_row[i], screen[scrn].start_col[i] );
+         screen[scrn].win[i] = curses_driver_create_window(
+            screen[scrn].rows[i], screen[scrn].cols[i],
+            screen[scrn].start_row[i], screen[scrn].start_col[i]);
          if ( screen[scrn].win[i] == (WINDOW *)NULL )
          {
             display_error( 30, (CHARTYPE *)"creating window", FALSE );
@@ -1443,12 +1451,12 @@ short set_up_windows(short scrn)
             return(RC_OUT_OF_MEMORY);
          }
 #ifdef HAVE_KEYPAD
-         keypad( screen[scrn].win[i], TRUE );
+         curses_driver_enable_keypad(screen[scrn].win[i], true);
 #endif
 #if !defined(PDCURSES)
-         touchwin( screen[scrn].win[i] );
+         curses_driver_touch_window(screen[scrn].win[i]);
 #endif
-         wmove( screen[scrn].win[i], y, x );
+         curses_driver_move_window_cursor(screen[scrn].win[i], y, x);
       }
    }
    wattrset( screen[scrn].win[WINDOW_FILEAREA], set_colour( fp.attr+ATTR_FILEAREA ) );
@@ -1457,15 +1465,16 @@ short set_up_windows(short scrn)
    {
       wattrset( screen[scrn].win[WINDOW_ARROW], set_colour( fp.attr+ATTR_ARROW ) );
       for ( i = 0; i < my_prefix_width-2; i++ )
-          mvwaddch( screen[scrn].win[WINDOW_ARROW], 0, i, '=' );
-      mvwaddstr( screen[scrn].win[WINDOW_ARROW], 0, my_prefix_width-2, "> " );
-      wnoutrefresh( screen[scrn].win[WINDOW_ARROW] );
+         curses_driver_add_chtype_at(screen[scrn].win[WINDOW_ARROW], 0, i, '=');
+      curses_driver_add_string_at(screen[scrn].win[WINDOW_ARROW], 0,
+                                  my_prefix_width - 2, "> ");
+      curses_driver_refresh_window(screen[scrn].win[WINDOW_ARROW]);
    }
 
    if ( screen[scrn].win[WINDOW_IDLINE] != (WINDOW *)NULL )
    {
       wattrset( screen[scrn].win[WINDOW_IDLINE], set_colour( fp.attr+ATTR_IDLINE ) );
-      wmove( screen[scrn].win[WINDOW_IDLINE], 0, 0 );
+      curses_driver_move_window_cursor(screen[scrn].win[WINDOW_IDLINE], 0, 0);
       my_wclrtoeol( screen[scrn].win[WINDOW_IDLINE] );
    }
 
@@ -1478,18 +1487,23 @@ short set_up_windows(short scrn)
    if ( screen[scrn].win[WINDOW_COMMAND] != (WINDOW *)NULL )
    {
       wattrset( screen[scrn].win[WINDOW_COMMAND], set_colour( fp.attr+ATTR_CMDLINE ) );
-      getyx( screen[scrn].win[WINDOW_COMMAND], y, x );
-      wmove( screen[scrn].win[WINDOW_COMMAND], 0, 0 );
+      cursor = curses_driver_capture_window_cursor(screen[scrn].win[WINDOW_COMMAND]);
+      if (cursor.valid)
+      {
+         y = cursor.row;
+         x = cursor.col;
+      }
+      curses_driver_move_window_cursor(screen[scrn].win[WINDOW_COMMAND], 0, 0);
       my_wclrtoeol( screen[scrn].win[WINDOW_COMMAND] );
-      wnoutrefresh( screen[scrn].win[WINDOW_COMMAND] );
-      wmove( screen[scrn].win[WINDOW_COMMAND], y, x );
+      curses_driver_refresh_window(screen[scrn].win[WINDOW_COMMAND]);
+      curses_driver_move_window_cursor(screen[scrn].win[WINDOW_COMMAND], y, x);
    }
    /*
     * Delete divider window.
     */
    if ( divider != (WINDOW *)NULL )
    {
-      delwin( divider );
+      curses_driver_delete_window(divider);
       divider = NULL;
    }
    /*
@@ -1498,8 +1512,9 @@ short set_up_windows(short scrn)
    if ( display_screens > 1
    &&   !horizontal)
    {
-      divider = newwin( screen[1].screen_rows, 2, screen[1].screen_start_row,
-                        screen[1].screen_start_col-2 );
+      divider = curses_driver_create_window(
+         screen[1].screen_rows, 2, screen[1].screen_start_row,
+         screen[1].screen_start_col - 2);
       if ( divider == (WINDOW *)NULL )
       {
          display_error( 30, (CHARTYPE *)"creating window", FALSE );
@@ -1507,7 +1522,7 @@ short set_up_windows(short scrn)
          return(RC_OUT_OF_MEMORY);
       }
 #ifdef HAVE_KEYPAD
-      keypad( divider, TRUE );
+      curses_driver_enable_keypad(divider, true);
 #endif
 
 #if 0
@@ -1549,16 +1564,16 @@ short draw_divider(void)
    TRACE_FUNCTION("util.c:    draw_divider");
 
 #ifdef HAVE_WVLINE
-   wmove(divider,0,0);
+   curses_driver_move_window_cursor(divider, 0, 0);
    wvline(divider,0,screen[1].screen_rows);
-   wmove(divider,0,1);
+   curses_driver_move_window_cursor(divider, 0, 1);
    wvline(divider,0,screen[1].screen_rows);
 #else
    for (i=0;i<screen[1].screen_rows;i++)
    {
-      wmove(divider,i,0);
-      waddch(divider,'|');
-      waddch(divider,'|');
+      curses_driver_move_window_cursor(divider, i, 0);
+      curses_driver_add_chtype(divider, '|');
+      curses_driver_add_chtype(divider, '|');
    }
 #endif
    TRACE_RETURN();
@@ -1583,23 +1598,23 @@ short create_statusline_window(void)
       memcpy( &attr, CURRENT_FILE->attr+ATTR_STATAREA, sizeof(COLOUR_ATTR) );
    if ( statarea != (WINDOW *)NULL )
    {
-      delwin( statarea );
+      curses_driver_delete_window(statarea);
       statarea = (WINDOW *)NULL;
    }
    switch( STATUSLINEx )
    {
       case 'B':
-         statarea = newwin( 1, COLS, terminal_lines-1, 0 );
+         statarea = curses_driver_create_window(1, COLS, terminal_lines - 1, 0);
 #ifdef HAVE_KEYPAD
-         keypad( statarea, TRUE );
+         curses_driver_enable_keypad(statarea, true);
 #endif
          wattrset( statarea, set_colour( &attr ) );
          clear_statarea();
          break;
       case 'T':
-         statarea = newwin( 1, COLS, (FILETABSx) ? 1 : 0, 0 );
+         statarea = curses_driver_create_window(1, COLS, (FILETABSx) ? 1 : 0, 0);
 #ifdef HAVE_KEYPAD
-         keypad( statarea, TRUE );
+         curses_driver_enable_keypad(statarea, true);
 #endif
          wattrset( statarea, set_colour( &attr ) );
          clear_statarea();
@@ -1622,14 +1637,14 @@ short create_filetabs_window(void)
    }
    if ( filetabs != (WINDOW *)NULL )
    {
-      delwin( filetabs );
+      curses_driver_delete_window(filetabs);
       filetabs = (WINDOW *)NULL;
    }
    if ( FILETABSx )
    {
-      filetabs = newwin( 1, COLS, 0 , 0 );
+      filetabs = curses_driver_create_window(1, COLS, 0, 0);
 #ifdef HAVE_KEYPAD
-      keypad( filetabs, TRUE );
+      curses_driver_enable_keypad(filetabs, true);
 #endif
       display_filetabs( NULL );
       /*
@@ -2063,13 +2078,26 @@ WINDOW *adjust_window(WINDOW *win,short tr,short tc,short lines,short cols)
    WINDOW *neww=NULL;
    short begy=0,begx=0,maxy=0,maxx=0,y=0,x=0;
    short rc=RC_OK;
+   CursesDriverWindowOrigin origin;
+   CursesDriverWindowSize size;
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION("util.c:    adjust_window");
    /*
     * Get existing details about the current window.
     */
-   getbegyx(win,begy,begx);
-   getmaxyx(win,maxy,maxx);
+   origin = curses_driver_window_origin(win);
+   size = curses_driver_window_size(win);
+   if (origin.valid)
+   {
+      begy = origin.row;
+      begx = origin.col;
+   }
+   if (size.valid)
+   {
+      maxy = size.rows;
+      maxx = size.cols;
+   }
    if (maxy == lines && maxx == cols)  /* same size */
    {
       if (begy == tr && begx == tc)   /* same position */
@@ -2087,14 +2115,19 @@ WINDOW *adjust_window(WINDOW *win,short tr,short tc,short lines,short cols)
    /*
     * To get here the window needs to be resized.
     */
-   getyx(win,y,x);
-   delwin(win);
-   neww = newwin(lines,cols,tr,tc);
+   cursor = curses_driver_capture_window_cursor(win);
+   if (cursor.valid)
+   {
+      y = cursor.row;
+      x = cursor.col;
+   }
+   curses_driver_delete_window(win);
+   neww = curses_driver_create_window(lines, cols, tr, tc);
    if (neww != (WINDOW *)NULL)
    {
-      wmove(neww,y,x);
+      curses_driver_move_window_cursor(neww, y, x);
 #ifdef HAVE_KEYPAD
-      keypad( neww, TRUE );
+      curses_driver_enable_keypad(neww, true);
 #endif
    }
    TRACE_RETURN();
@@ -2108,6 +2141,8 @@ short my_wclrtoeol(WINDOW *win)
 {
    register short i=0;
    short x=0,y=0,maxx=0,maxy=0;
+   CursesDriverWindowCursor cursor;
+   CursesDriverWindowSize size;
 
    TRACE_FUNCTION("util.c:    my_wclrtoeol");
 #if defined(USE_NCURSES_IGNORED)
@@ -2119,20 +2154,40 @@ short my_wclrtoeol(WINDOW *win)
     */
    if (win != (WINDOW *)NULL)
    {
-      getyx(win,y,x);
-      getmaxyx(win,maxy,maxx);
+      cursor = curses_driver_capture_window_cursor(win);
+      size = curses_driver_window_size(win);
+      if (cursor.valid)
+      {
+         y = cursor.row;
+         x = cursor.col;
+      }
+      if (size.valid)
+      {
+         maxy = size.rows;
+         maxx = size.cols;
+      }
       for ( i = x; i < maxx; i++ )
-         waddch(win,'@');
-      wmove(win,y,x);
+         curses_driver_add_chtype(win, '@');
+      curses_driver_move_window_cursor(win, y, x);
    }
 #endif
    if (win != (WINDOW *)NULL)
    {
-      getyx(win,y,x);
-      getmaxyx(win,maxy,maxx);
+      cursor = curses_driver_capture_window_cursor(win);
+      size = curses_driver_window_size(win);
+      if (cursor.valid)
+      {
+         y = cursor.row;
+         x = cursor.col;
+      }
+      if (size.valid)
+      {
+         maxy = size.rows;
+         maxx = size.cols;
+      }
       for ( i = x; i < maxx; i++ )
-         waddch(win,' ');
-      wmove(win,y,x);
+         curses_driver_add_chtype(win, ' ');
+      curses_driver_move_window_cursor(win, y, x);
    }
    INTENTIONALLY_UNUSED_VARIABLE(maxy);
    TRACE_RETURN();
@@ -2143,14 +2198,26 @@ short my_wdelch(WINDOW *win)
 /***********************************************************************/
 {
    short x=0,y=0,maxx=0,maxy=0;
+   CursesDriverWindowCursor cursor;
+   CursesDriverWindowSize size;
 
    TRACE_FUNCTION("util.c:    my_wdelch");
 
-   getyx(win,y,x);
-   getmaxyx(win,maxy,maxx);
+   cursor = curses_driver_capture_window_cursor(win);
+   size = curses_driver_window_size(win);
+   if (cursor.valid)
+   {
+      y = cursor.row;
+      x = cursor.col;
+   }
+   if (size.valid)
+   {
+      maxy = size.rows;
+      maxx = size.cols;
+   }
    wdelch(win);
-   mvwaddch(win,y,maxx-1,' ');
-   wmove(win,y,x);
+   curses_driver_add_chtype_at(win, y, maxx - 1, ' ');
+   curses_driver_move_window_cursor(win, y, x);
    INTENTIONALLY_UNUSED_VARIABLE(maxy);
    TRACE_RETURN();
    return(0);
@@ -2530,7 +2597,7 @@ short my_wmove(WINDOW *win,short scridx,short winidx,short y,short x)
       screen[scridx].screen_view->y[winidx] = y;
    }
    if (curses_started)
-      wmove(win,y,x);
+      curses_driver_move_window_cursor(win, y, x);
    TRACE_RETURN();
    return(rc);
 }
@@ -2803,7 +2870,7 @@ VIEW_DETAILS *find_filetab(int x)
     */
    if ( FILETABSx )
    {
-      wmove( filetabs, 0, COLS-1 );
+      curses_driver_move_window_cursor(filetabs, 0, COLS - 1);
 #ifdef VMS
       if ( ( winch( filetabs ) ) == '>'
 #else
@@ -2815,7 +2882,7 @@ VIEW_DETAILS *find_filetab(int x)
          TRACE_RETURN();
          return NULL;
       }
-      wmove( filetabs, 0, COLS-2 );
+      curses_driver_move_window_cursor(filetabs, 0, COLS - 2);
 #ifdef VMS
       if ( ( winch( filetabs ) ) == '<'
 #else
@@ -2925,12 +2992,18 @@ int doupdate(void)
 /***********************************************************************/
 {
    unsigned short y=0,x=0;
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION("util.c:    doupdate");
-   getyx(CURRENT_WINDOW,y,x);
-   refresh();
-   wmove(CURRENT_WINDOW,y,x);
-   wrefresh(CURRENT_WINDOW);
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   if (cursor.valid)
+   {
+      y = cursor.row;
+      x = cursor.col;
+   }
+   curses_driver_refresh_standard_screen();
+   curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
+   curses_driver_refresh_window_now(CURRENT_WINDOW);
    TRACE_RETURN();
    return(0);
 }

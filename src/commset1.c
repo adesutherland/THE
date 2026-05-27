@@ -35,6 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 
 the_header_mapping thm[] =
 {
@@ -122,8 +123,8 @@ static short set_active_colour( short area )
          if ( area == ATTR_BOUNDMARK)
          {
             redraw_window(CURRENT_WINDOW_FILEAREA);
-            touchwin(CURRENT_WINDOW_FILEAREA);
-            wnoutrefresh(CURRENT_WINDOW_FILEAREA);
+            curses_driver_touch_window(CURRENT_WINDOW_FILEAREA);
+            curses_driver_refresh_window(CURRENT_WINDOW_FILEAREA);
          }
 #endif
          break;
@@ -140,8 +141,8 @@ static short set_active_colour( short area )
          {
             wattrset(CURRENT_WINDOW_COMMAND,set_colour(CURRENT_FILE->attr+area));
             redraw_window(CURRENT_WINDOW_COMMAND);
-            touchwin(CURRENT_WINDOW_COMMAND);
-            wnoutrefresh(CURRENT_WINDOW_COMMAND);
+            curses_driver_touch_window(CURRENT_WINDOW_COMMAND);
+            curses_driver_refresh_window(CURRENT_WINDOW_COMMAND);
          }
          break;
       case WINDOW_ARROW:
@@ -149,8 +150,8 @@ static short set_active_colour( short area )
          {
             wattrset(CURRENT_WINDOW_ARROW,set_colour(CURRENT_FILE->attr+area));
             redraw_window(CURRENT_WINDOW_ARROW);
-            touchwin(CURRENT_WINDOW_ARROW);
-            wnoutrefresh(CURRENT_WINDOW_ARROW);
+            curses_driver_touch_window(CURRENT_WINDOW_ARROW);
+            curses_driver_refresh_window(CURRENT_WINDOW_ARROW);
          }
          break;
       case WINDOW_IDLINE:
@@ -158,8 +159,8 @@ static short set_active_colour( short area )
          {
             wattrset(CURRENT_WINDOW_IDLINE,set_colour(CURRENT_FILE->attr+area));
             redraw_window(CURRENT_WINDOW_IDLINE);
-            touchwin(CURRENT_WINDOW_IDLINE);
-            wnoutrefresh(CURRENT_WINDOW_IDLINE);
+            curses_driver_touch_window(CURRENT_WINDOW_IDLINE);
+            curses_driver_refresh_window(CURRENT_WINDOW_IDLINE);
          }
          break;
       case WINDOW_STATAREA:
@@ -167,8 +168,8 @@ static short set_active_colour( short area )
          {
             wattrset(statarea,set_colour(CURRENT_FILE->attr+area));
             redraw_window(statarea);
-            touchwin(statarea);
-            wnoutrefresh(statarea);
+            curses_driver_touch_window(statarea);
+            curses_driver_refresh_window(statarea);
          }
          break;
       case WINDOW_FILETABS:
@@ -176,8 +177,8 @@ static short set_active_colour( short area )
          {
             wattrset(filetabs,set_colour(CURRENT_FILE->attr+area));
             redraw_window(filetabs);
-            touchwin(filetabs);
-            wnoutrefresh(filetabs);
+            curses_driver_touch_window(filetabs);
+            curses_driver_refresh_window(filetabs);
          }
          break;
       case WINDOW_DIVIDER:
@@ -188,8 +189,8 @@ static short set_active_colour( short area )
             &&  !horizontal)
             {
                draw_divider();
-               touchwin(divider);
-               wnoutrefresh(divider);
+               curses_driver_touch_window(divider);
+               curses_driver_refresh_window(divider);
             }
          }
          break;
@@ -2084,6 +2085,7 @@ short Compat(CHARTYPE *params)
    short new_keys=0;
    unsigned short save_autosave_alt=0;
    unsigned short save_save_alt=0;
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION("commset1.c:Compat");
    /*
@@ -2213,7 +2215,14 @@ short Compat(CHARTYPE *params)
    if (curses_started)
    {
       if (CURRENT_WINDOW_PREFIX != NULL)
-         getyx(CURRENT_WINDOW_PREFIX,prey,prex);
+      {
+         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW_PREFIX);
+         if (cursor.valid)
+         {
+            prey = cursor.row;
+            prex = cursor.col;
+         }
+      }
    }
    post_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL,TRUE);
    /*
@@ -2275,8 +2284,8 @@ short Compat(CHARTYPE *params)
          if (!horizontal)
          {
             wattrset(divider,set_colour(OTHER_SCREEN.screen_view->file_for_view->attr+ATTR_DIVIDER));
-            touchwin(divider);
-            wnoutrefresh(divider);
+            curses_driver_touch_window(divider);
+            curses_driver_refresh_window(divider);
          }
       }
       redraw_screen( (CHARTYPE)((current_screen == 0)?1:0) );
@@ -4250,7 +4259,7 @@ short THEFiletabs(CHARTYPE *params)
       }
       else if ( !FILETABSx && filetabs != (WINDOW *)NULL )
       {
-         delwin( filetabs );
+         curses_driver_delete_window(filetabs);
          filetabs = (WINDOW *)NULL;
       }
       /*
@@ -5553,7 +5562,7 @@ short Cursorstyle(CHARTYPE *params)
             return RC_INVALID_OPERAND;
          }
          if (curses_started)
-            draw_cursor(TRUE);
+            curses_driver_present_cursor(TRUE);
          TRACE_RETURN();
          return RC_OK;
       }
@@ -5612,7 +5621,7 @@ short Cursorstyle(CHARTYPE *params)
    }
    
    if (curses_started)
-      draw_cursor(TRUE);
+      curses_driver_present_cursor(TRUE);
    
    TRACE_RETURN();
    return RC_OK;

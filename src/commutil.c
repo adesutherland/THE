@@ -1262,7 +1262,7 @@ short command_line(CHARTYPE *cmd_line,bool command_only)
    if (blank_field(cmd_line))
    {
       if (curses_started)
-         wmove(CURRENT_WINDOW_COMMAND,0,0);
+         curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND, 0, 0);
       TRACE_RETURN();
       return(RC_OK);
    }
@@ -3318,6 +3318,7 @@ short restore_THE(void)
 /***********************************************************************/
 {
    unsigned short y=0,x=0;
+   CursesDriverWindowCursor cursor;
 
    TRACE_FUNCTION("commutil.c:restore_THE");
    /*
@@ -3328,7 +3329,12 @@ short restore_THE(void)
       TRACE_RETURN();
       return(RC_OK);
    }
-   getyx(CURRENT_WINDOW,y,x);
+   cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW);
+   if (cursor.valid)
+   {
+      y = cursor.row;
+      x = cursor.col;
+   }
 
 #if 0
    wclear(stdscr);
@@ -3341,15 +3347,15 @@ short restore_THE(void)
       refresh_screen((CHARTYPE)other_screen);
       if (!horizontal)
       {
-         touchwin(divider);
-         wnoutrefresh(divider);
+         curses_driver_touch_window(divider);
+         curses_driver_refresh_window(divider);
       }
    }
    touch_screen(current_screen);
    if (statarea != (WINDOW *)NULL)
-      touchwin(statarea);
+      curses_driver_touch_window(statarea);
    if ( filetabs != (WINDOW *)NULL )
-      touchwin( filetabs );
+      curses_driver_touch_window(filetabs);
 #if defined(HAVE_SLK_INIT)
    if ( max_slk_labels )
    {
@@ -3357,7 +3363,7 @@ short restore_THE(void)
       slk_noutrefresh();
    }
 #endif
-   wmove(CURRENT_WINDOW,y,x);
+   curses_driver_move_window_cursor(CURRENT_WINDOW, y, x);
    TRACE_RETURN();
    return(RC_OK);
 }
