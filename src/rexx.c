@@ -48,7 +48,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 
 LINE *rexxout_first_line=NULL;
 LINE *rexxout_last_line=NULL;
@@ -502,8 +502,8 @@ REH_RETURN_TYPE THE_SayTrace_Exit_Handler
                {
                   if ( !batch_only )
                   {
-                     curses_driver_move_window_cursor(statarea,0,COLS-1);
-                     curses_driver_refresh_window_now(statarea);
+                     the_driver->move_global_window_cursor(THE_DRIVER_GLOBAL_STATAREA, 0, COLS-1);
+                     the_driver->refresh_global_window_now(THE_DRIVER_GLOBAL_STATAREA);
                      suspend_curses();
                   }
                   fputc( '\n', outfp );               /* scroll the screen 1 line */
@@ -1068,7 +1068,7 @@ short execute_macro_file
             if (number_of_files > 0)
             {
 #if defined(HAVE_BROKEN_SYSVR4_CURSES)
-               curses_driver_force_background_and_refresh(CURRENT_WINDOW);
+               the_driver->force_background_and_refresh_current_window();
 #endif
                restore_THE();
             }
@@ -1212,7 +1212,7 @@ short execute_macro_instore
             if (number_of_files > 0)
             {
 #if defined(HAVE_BROKEN_SYSVR4_CURSES)
-               curses_driver_force_background_and_refresh(CURRENT_WINDOW);
+               the_driver->force_background_and_refresh_current_window();
 #endif
                restore_THE();
             }

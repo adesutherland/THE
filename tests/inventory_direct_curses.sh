@@ -164,6 +164,8 @@ function is_preprocessor_undef(line) {
 function category(line, is_func_sig, is_define, is_undef) {
   if (line ~ /(^|[^A-Za-z0-9_])curses_driver_[A-Za-z0-9_]*[[:space:]]*\(/)
     return "driver-wrapper"
+  if (line ~ /(^|[^A-Za-z0-9_])the_driver->[A-Za-z0-9_]*[[:space:]]*\(/)
+    return "driver-wrapper"
   if (!is_func_sig && !is_define && line ~ /(^|[^A-Za-z0-9_])(my_getch|wgetch|getch|get_mouse_info|wmouse_position)[[:space:]]*\(/)
     return "physical-input"
   if (!is_define && !is_undef && line ~ /(^|[^A-Za-z0-9_])(KEY_MOUSE|MEVENT|getmouse|request_mouse_pos|MOUSE_X_POS|MOUSE_Y_POS|A_BUTTON_CHANGED|BUTTON_CHANGED|BUTTON_STATUS|BUTTON_ACTION_MASK|MOUSE_MOVED|BUTTON[123]_[A-Za-z0-9_]+|BUTTON_SHIFT|BUTTON_CONTROL|BUTTON_CTRL|BUTTON_ALT|BUTTON_PRESSED|BUTTON_RELEASED|BUTTON_CLICKED|BUTTON_DOUBLE_CLICKED|BUTTON_TRIPLE_CLICKED|BUTTON_MOVED|WHEEL_SCROLLED)([^A-Za-z0-9_]|$)/)

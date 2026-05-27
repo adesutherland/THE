@@ -81,7 +81,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 #ifdef USE_UTF8
 # include <wchar.h>
 # include "screenframe.h"
@@ -473,7 +473,7 @@ static void show_write_utf8_cluster_at(WINDOW *win, int row, int col,
 
    if (show_cluster_to_wide_string(line, len, cluster, wch,
                                    sizeof(wch) / sizeof(wch[0]), FALSE))
-      curses_driver_write_wide_string_at(win, row, col, wch, colour,
+      the_driver->write_wide_string_at(win, row, col, wch, colour,
                                          expected_width);
 }
 
@@ -489,23 +489,23 @@ static void show_write_utf8_status_cluster_at(WINDOW *win, int row, int col,
                                    sizeof(wch) / sizeof(wch[0]),
                                    show_status_cluster_force_expanded(line, len,
                                                                       cluster)))
-      curses_driver_write_wide_string_at(win, row, col, wch, colour,
+      the_driver->write_wide_string_at(win, row, col, wch, colour,
                                          expected_width);
 }
 
 static void show_fill_cells_at(WINDOW *win, int row, int col, int width, chtype colour)
 {
-   curses_driver_fill_cells_at(win, row, col, width, colour);
+   the_driver->fill_cells_at(win, row, col, width, colour);
 }
 
 static void show_write_ascii_cells_at(WINDOW *win, int row, int col,
                                       const char *text, int width,
                                       chtype colour)
 {
-   curses_driver_write_ascii_cells_at(win, row, col, text, width, colour);
+   the_driver->write_ascii_cells_at(win, row, col, text, width, colour);
 }
 
-#define mysetchar(dest, ch, colour) curses_driver_set_cchar_codepoint((dest), (uint32_t)(ch), (colour))
+#define mysetchar(dest, ch, colour) the_driver->set_wide_cell_codepoint((dest), (uint32_t)(ch), (colour))
 #endif
 
 #ifdef HAVE_WADDCHNSTR
@@ -518,7 +518,7 @@ static WINDOW *_fast_win; /* buffered for waddchnstr */
                         _fast_win = win;              \
                         _fast_col = 0;                \
                         PARATEST_INIT_LINE(win,line); \
-                        curses_driver_move_window_cursor(_fast_win,line,0); \
+                        the_driver->move_window_cursor(_fast_win,line,0); \
 DEBUGDUMPDETAIL(fprintf(stderr,"%s %d(%s): INIT_LINE_OUTPUT: line: %d\n", __FILE__,__LINE__,__func__,line );) \
                         }
 # ifdef USE_UTF8
@@ -530,7 +530,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
       ch = (uint32_t)etmode_table[cc];
       colour = (etmode_table[cc] & A_COLOR);
    }
-   curses_driver_set_cchar_codepoint(linebufch + _fast_col, ch, colour);
+   the_driver->set_wide_cell_codepoint(linebufch + _fast_col, ch, colour);
    _fast_col++;
 }
 
@@ -619,7 +619,7 @@ DEBUGDUMPDETAIL(fprintf(stderr,"x%x ", c );) \
                        }                                       \
 DEBUGDUMPDETAIL(fprintf(stderr,"\n");)                                          \
                         }
-#  define END_LINE_OUTPUT() { curses_driver_write_cchar_span(_fast_win, \
+#  define END_LINE_OUTPUT() { the_driver->write_wide_cell_span(_fast_win, \
                                      linebufch,                  \
                                      _fast_col);                 \
 DEBUGDUMPDETAIL(fprintf(stderr,"%s %d(%s): END_LINE_OUTPUT\n", __FILE__,__LINE__,__func__);) \
@@ -662,7 +662,7 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d(%s): END_LINE_OUTPUT\n", __FILE__,__LINE__
                         while (l--)                              \
                            *dest++ = C;                          \
                         }
-#  define END_LINE_OUTPUT() { curses_driver_write_chtype_span(_fast_win, \
+#  define END_LINE_OUTPUT() { the_driver->write_chtype_span(_fast_win, \
                                      linebufch,                  \
                                      _fast_col);                 \
                           }
@@ -676,7 +676,7 @@ static chtype _fast_colour = (chtype) -1l; /* buffering prevents unnecessary
                         _fast_win = win;              \
                         _fast_colour = (chtype) -1;   \
                         PARATEST_INIT_LINE(win,line); \
-                        curses_driver_move_window_cursor(_fast_win,line,0); }
+                        the_driver->move_window_cursor(_fast_win,line,0); }
 # ifdef USE_UTF8
 static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
 {
@@ -688,8 +688,8 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
       ch = (uint32_t)etmode_table[cc];
       colour = (etmode_table[cc] & A_COLOR);
    }
-   curses_driver_set_cchar_codepoint(&out, ch, colour);
-   curses_driver_add_cchar(_fast_win, &out);
+   the_driver->set_wide_cell_codepoint(&out, ch, colour);
+   the_driver->add_wide_cell(_fast_win, &out);
 }
 
 #  define ADD_LINE_OUTPUT(line,length,colour) {                  \
@@ -702,7 +702,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                    /*    if (col != _fast_colour)   */             \
                    /*    {   */                                  \
                           _fast_colour = col;                  \
-                 /*         curses_driver_set_window_attr(_fast_win,col);   */          \
+                 /*         the_driver->set_window_attr(_fast_win,col);   */          \
                   /*     } */                                    \
                        src = line;                             \
                        while (l--) {                             \
@@ -722,7 +722,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                           if (*highl != _fast_colour)          \
                           {                                    \
                              _fast_colour = *highl;            \
-                             curses_driver_set_window_attr(_fast_win,*highl);       \
+                             the_driver->set_window_attr(_fast_win,*highl);       \
                           }                                    \
                           ch = u8_nextchar( (char *)src, &pos );       \
                           show_add_utf8_codepoint(ch,*highl);  \
@@ -735,7 +735,7 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                         if (col != _fast_colour)                 \
                           {                                      \
                            _fast_colour = col;                   \
-                           curses_driver_set_window_attr(_fast_win,col);              \
+                           the_driver->set_window_attr(_fast_win,col);              \
                           }                                      \
                         while (l--)                              \
                            show_add_utf8_codepoint((uint32_t)C,col); \
@@ -749,11 +749,11 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                        if (col != _fast_colour)                \
                        {                                     \
                           _fast_colour = col;                  \
-                          curses_driver_set_window_attr(_fast_win,col);             \
+                          the_driver->set_window_attr(_fast_win,col);             \
                        }                                     \
                        src = line;                             \
                        while (l--)                             \
-                          curses_driver_add_chtype(_fast_win,*src++); \
+                          the_driver->add_chtype(_fast_win,*src++); \
                        }
 #  define ADD_SYNTAX_LINE_OUTPUT(line,length,highlight) {        \
                        LENGTHTYPE l = length;                  \
@@ -766,9 +766,9 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                           if (*highl != _fast_colour)          \
                           {                                    \
                              _fast_colour = *highl;            \
-                             curses_driver_set_window_attr(_fast_win,*highl);       \
+                             the_driver->set_window_attr(_fast_win,*highl);       \
                           }                                    \
-                          curses_driver_add_chtype(_fast_win,*src);   \
+                          the_driver->add_chtype(_fast_win,*src);   \
                           src++;                               \
                           highl++;                             \
                        } }
@@ -779,10 +779,10 @@ static void show_add_utf8_codepoint(uint32_t ch, chtype colour)
                         if (col != _fast_colour)                 \
                           {                                      \
                            _fast_colour = col;                   \
-                           curses_driver_set_window_attr(_fast_win,col);              \
+                           the_driver->set_window_attr(_fast_win,col);              \
                           }                                      \
                         while (l--)                              \
-                           curses_driver_add_chtype(_fast_win,C);      \
+                           the_driver->add_chtype(_fast_win,C);      \
                         }
 # endif
 # define END_LINE_OUTPUT()
@@ -1359,8 +1359,7 @@ static int show_restore_view_logical_cursor(CHARTYPE scrno,
       case WINDOW_COMMAND:
          if (show_command_cursor_target(scrno, view, &row, &col))
          {
-            curses_driver_move_window_cursor(SCREEN_WINDOW_COMMAND(scrno),
-                                             row, (short)col);
+            the_driver->move_screen_role_cursor(scrno, WINDOW_COMMAND, row, (short)col);
             restored = TRUE;
          }
          break;
@@ -1380,13 +1379,13 @@ static void show_refresh_cursor_window(CHARTYPE scrno, VIEW_DETAILS *view)
    switch(view->current_window)
    {
       case WINDOW_FILEAREA:
-         curses_driver_refresh_window(SCREEN_WINDOW_FILEAREA(scrno));
+         the_driver->refresh_screen_role(scrno, WINDOW_FILEAREA);
          break;
       case WINDOW_PREFIX:
-         curses_driver_refresh_window(SCREEN_WINDOW_PREFIX(scrno));
+         the_driver->refresh_screen_role(scrno, WINDOW_PREFIX);
          break;
       case WINDOW_COMMAND:
-         curses_driver_refresh_window(SCREEN_WINDOW_COMMAND(scrno));
+         the_driver->refresh_screen_role(scrno, WINDOW_COMMAND);
          break;
       default:
          break;
@@ -1479,7 +1478,7 @@ static void show_draw_filearea_marker_cursor(const UiFrame *frame, CHARTYPE scrn
                               &cursor_col, &cursor_shape))
       return;
 
-   curses_driver_draw_software_chtype_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno),
+   the_driver->draw_software_chtype_cell(scrno, SCREEN_WINDOW_FILEAREA(scrno),
                                            row, cursor_col, normal,
                                            cursor_shape);
 }
@@ -1496,7 +1495,7 @@ static void show_draw_software_command_cursor(CHARTYPE scrno, VIEW_DETAILS *view
       return;
 
    base = set_colour(view->file_for_view->attr + (inDIALOG ? ATTR_DIA_EDITFIELD : ATTR_CMDLINE));
-   curses_driver_draw_software_chtype_cell(scrno, SCREEN_WINDOW_COMMAND(scrno),
+   the_driver->draw_software_chtype_cell(scrno, SCREEN_WINDOW_COMMAND(scrno),
                                            row, col, base, shape);
 }
 
@@ -1517,7 +1516,7 @@ static void show_draw_software_prefix_cursor(CHARTYPE scrno, short row,
    if (!show_frame_cursor_col(frame, UI_ROW_PREFIX, show_row->line_number,
                               row, 0, &col, &shape))
       return;
-   curses_driver_draw_software_chtype_cell(
+   the_driver->draw_software_chtype_cell(
       scrno, SCREEN_WINDOW_PREFIX(scrno), row, col,
       set_colour(SCREEN_FILE(scrno)->attr + ATTR_PREFIX), shape);
 }
@@ -1792,7 +1791,7 @@ void show_heading(CHARTYPE scrno)
                     set_colour( screen_file->attr + ATTR_IDLINE ) );
    END_LINE_OUTPUT();
 
-   curses_driver_refresh_window( screen_window_idline );
+   the_driver->refresh_window( screen_window_idline );
    TRACE_RETURN();
    return;
 }
@@ -2091,7 +2090,7 @@ void show_statarea(void)
                                         status_cluster_display_width);
    }
 #endif
-   curses_driver_refresh_window( statarea );
+   the_driver->refresh_global_window(THE_DRIVER_GLOBAL_STATAREA);
    TRACE_RETURN();
    return;
 }
@@ -2221,7 +2220,7 @@ void display_filetabs( VIEW_DETAILS *start)
          ADD_LINE_OUTPUT( (CHARTYPE *)"  ", 2, normal );
       }
       END_LINE_OUTPUT();
-      curses_driver_refresh_window( filetabs );
+      the_driver->refresh_global_window(THE_DRIVER_GLOBAL_FILETABS);
    }
    TRACE_RETURN();
    return;
@@ -2231,7 +2230,7 @@ void redraw_window(WINDOW *win)
 /***********************************************************************/
 {
    TRACE_FUNCTION( "show.c:    redraw_window" );
-   curses_driver_redraw_window(win);
+   the_driver->redraw_window(win);
    TRACE_RETURN();
    return;
 }
@@ -2337,7 +2336,7 @@ void display_screen(CHARTYPE scrno)
     * Save the position of previous window if on command line.
     */
    if (SCREEN_VIEW(scrno)->current_window == WINDOW_COMMAND)
-      previous_cursor = curses_driver_capture_window_cursor(
+      previous_cursor = the_driver->capture_window_cursor(
          SCREEN_PREV_WINDOW(scrno));
 #ifdef USE_UTF8
    cursor_focus_sync_current(scrno, SCREEN_VIEW(scrno));
@@ -2386,7 +2385,7 @@ void display_screen(CHARTYPE scrno)
     * Restore the position of previous window if on command line.
     */
    if (SCREEN_VIEW(scrno)->current_window == WINDOW_COMMAND)
-      curses_driver_restore_window_cursor(SCREEN_PREV_WINDOW(scrno),
+      the_driver->restore_window_cursor(SCREEN_PREV_WINDOW(scrno),
                                           previous_cursor);
 #if defined(HAVE_SB_INIT)
    if (SBx
@@ -2423,8 +2422,7 @@ void display_cmdline( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
        * Clear the cmdline from the beginning to the end
        * Display the contents of the cmdline from the cmd_verify_col
        */
-      command_cursor = curses_driver_capture_window_cursor(
-         SCREEN_WINDOW_COMMAND(curr_screen));
+      command_cursor = the_driver->capture_screen_role_cursor(curr_screen, WINDOW_COMMAND);
       if ( inDIALOG )
          display_line_left( SCREEN_WINDOW_COMMAND(curr_screen), set_colour( curr_view->file_for_view->attr+ATTR_DIA_EDITFIELD), cmd_rec+cmd_verify_col-1, cmd_rec_len, 0, screen[curr_screen].cols[WINDOW_COMMAND] );
       else
@@ -2432,9 +2430,8 @@ void display_cmdline( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
 #ifdef USE_UTF8
       show_draw_software_command_cursor(curr_screen, curr_view);
 #endif
-      curses_driver_refresh_window( SCREEN_WINDOW_COMMAND(curr_screen) );
-      curses_driver_restore_window_cursor(SCREEN_WINDOW_COMMAND(curr_screen),
-                                          command_cursor);
+      the_driver->refresh_screen_role(curr_screen, WINDOW_COMMAND);
+      the_driver->restore_screen_role_cursor(curr_screen, WINDOW_COMMAND, command_cursor);
    }
    /* TODO */
    TRACE_RETURN();
@@ -2462,8 +2459,7 @@ void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
       return;
    }
 
-   prefix_cursor = curses_driver_capture_window_cursor(
-      SCREEN_WINDOW_PREFIX(curr_screen));
+   prefix_cursor = the_driver->capture_screen_role_cursor(curr_screen, WINDOW_PREFIX);
 #ifdef USE_UTF8
    if (show_build_renderer_frame(curr_screen, &frame))
    {
@@ -2487,9 +2483,8 @@ void display_prefix_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view )
 #ifdef USE_UTF8
    show_draw_software_prefix_cursor(curr_screen, row, cursor_frame);
 #endif
-   curses_driver_refresh_window( SCREEN_WINDOW_PREFIX(curr_screen) );
-   curses_driver_restore_window_cursor(SCREEN_WINDOW_PREFIX(curr_screen),
-                                       prefix_cursor);
+   the_driver->refresh_screen_role(curr_screen, WINDOW_PREFIX);
+   the_driver->restore_screen_role_cursor(curr_screen, WINDOW_PREFIX, prefix_cursor);
    TRACE_RETURN();
    return;
 }
@@ -3837,7 +3832,7 @@ static void show_lines(CHARTYPE scrno)
        */
       if (scurr->line_type & LINE_HEXSHOW)
       {
-         curses_driver_clear_line_at(screen_window_filearea, i,
+         the_driver->clear_line_at(screen_window_filearea, i,
                                      scurr->normal_colour);
          show_hex_line(scrno,i);
          continue;
@@ -3887,10 +3882,10 @@ static void show_lines(CHARTYPE scrno)
 #endif
    }
    if (SCREEN_WINDOW_PREFIX(scrno) != NULL)
-      curses_driver_set_window_attr(SCREEN_WINDOW_PREFIX(scrno),set_colour(SCREEN_FILE(scrno)->attr+ATTR_PENDING));
+      the_driver->set_screen_role_attr(scrno, WINDOW_PREFIX, set_colour(SCREEN_FILE(scrno)->attr+ATTR_PENDING));
    if (SCREEN_WINDOW_GAP(scrno) != NULL)
-      curses_driver_set_window_attr(SCREEN_WINDOW_GAP(scrno),set_colour(SCREEN_FILE(scrno)->attr+ATTR_GAP));
-   curses_driver_set_window_attr(screen_window_filearea,set_colour(SCREEN_FILE(scrno)->attr+ATTR_FILEAREA));
+      the_driver->set_screen_role_attr(scrno, WINDOW_GAP, set_colour(SCREEN_FILE(scrno)->attr+ATTR_GAP));
+   the_driver->set_window_attr(screen_window_filearea,set_colour(SCREEN_FILE(scrno)->attr+ATTR_FILEAREA));
    TRACE_RETURN();
    return;
 }
@@ -4046,10 +4041,10 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
       {
          show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, clear_col,
                             ccols - clear_col, normal);
-         curses_driver_touch_line(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
+         the_driver->touch_line(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
          if (replacement_plan.flush != UTF8_REPAIR_FLUSH_NONE)
          {
-            curses_driver_refresh_window(SCREEN_WINDOW_FILEAREA(scrno));
+            the_driver->refresh_screen_role(scrno, WINDOW_FILEAREA);
             the_driver->update();
          }
       }
@@ -4149,13 +4144,13 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
                                  line, blength, (int)cvcol,
                                  (int)cvcol + cursor_col);
       if (cursor_display_col >= 0 && cursor_display_col < ccols)
-         curses_driver_draw_software_blank_cell(scrno,
+         the_driver->draw_software_blank_cell(scrno,
                                                 SCREEN_WINDOW_FILEAREA(scrno),
                                                 row, cursor_display_col,
                                                 normal, cursor_shape);
    }
    if (replacement_plan.extent == UTF8_REPAIR_EXTENT_LINE)
-      curses_driver_touch_line(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
+      the_driver->touch_line(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
    if (show_utf8_line_replacement_hint_matches(current))
       show_utf8_clear_line_replacement_hint();
 }
@@ -4217,7 +4212,7 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
    if (line == NULL)
    {
       if (cursor)
-         curses_driver_draw_software_blank_cell(scrno,
+         the_driver->draw_software_blank_cell(scrno,
                                                 SCREEN_WINDOW_FILEAREA(scrno),
                                                 row, logical_screen_col,
                                                 normal, shape);
@@ -4244,7 +4239,7 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
       if (display_col >= 0 && display_col < ccols)
       {
          if (cursor)
-            curses_driver_draw_software_blank_cell(
+            the_driver->draw_software_blank_cell(
                scrno, SCREEN_WINDOW_FILEAREA(scrno), row, display_col, normal,
                shape);
          else
@@ -4494,7 +4489,7 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
       if (show_build_cursor_frame(scrno, &frame))
          cursor_frame = &frame;
       show_a_line_utf8_cells(scrno, row, current, high, cursor_frame);
-      curses_driver_touch_line(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
+      the_driver->touch_line(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
       return TRUE;
    }
 
@@ -4546,10 +4541,10 @@ static int show_utf8_filearea_cursor_strategy_repaint(CHARTYPE scrno, short row,
 
    show_fill_cells_at(SCREEN_WINDOW_FILEAREA(scrno), row, start_display_col,
                       clear_width, normal);
-   curses_driver_touch_line(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
+   the_driver->touch_line(SCREEN_WINDOW_FILEAREA(scrno), row, 1);
    if (plan.flush != UTF8_REPAIR_FLUSH_NONE)
    {
-      curses_driver_refresh_window(SCREEN_WINDOW_FILEAREA(scrno));
+      the_driver->refresh_screen_role(scrno, WINDOW_FILEAREA);
       the_driver->update();
    }
 
@@ -4571,7 +4566,7 @@ void show_utf8_filearea_cursor_transition(CHARTYPE scrno, short row,
                                                   new_logical_screen_col,
                                                   shape))
    {
-      curses_driver_refresh_window(SCREEN_WINDOW_FILEAREA(scrno));
+      the_driver->refresh_screen_role(scrno, WINDOW_FILEAREA);
       return;
    }
 
@@ -4579,7 +4574,7 @@ void show_utf8_filearea_cursor_transition(CHARTYPE scrno, short row,
                                      FALSE, shape);
    show_utf8_repaint_filearea_target(scrno, row, new_logical_screen_col,
                                      TRUE, shape);
-   curses_driver_refresh_window(SCREEN_WINDOW_FILEAREA(scrno));
+   the_driver->refresh_screen_role(scrno, WINDOW_FILEAREA);
 }
 #endif
 /***********************************************************************/
@@ -4637,7 +4632,7 @@ static void show_a_line(CHARTYPE scrno,short row, SHOW_LINE *scurr
          if (show_filearea_cursor_col(frame, row,
                                       current->line_number, 0,
                                       &cursor_col, &cursor_shape))
-            curses_driver_draw_software_blank_cell(
+            the_driver->draw_software_blank_cell(
                scrno, SCREEN_WINDOW_FILEAREA(scrno), row, cursor_col, normal,
                cursor_shape);
       }
@@ -4942,7 +4937,7 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d: ccols %d cother_end_col %d bother_end_col
                   /*
                    * Get the current character at the column position and change its colour
                    */
-                  curses_driver_recolour_cchar(&linebufch[idx], other);
+                  the_driver->recolour_wide_cell(&linebufch[idx], other);
                }
             }
 #else
@@ -4972,7 +4967,7 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d: ccols %d cother_end_col %d bother_end_col
                                    current->line_number,
                                    (int)SCREEN_VIEW(scrno)->verify_col - 1,
                                    &cursor_col, &cursor_shape))
-         curses_driver_draw_software_chtype_cell(
+         the_driver->draw_software_chtype_cell(
             scrno, SCREEN_WINDOW_FILEAREA(scrno), row, cursor_col, normal,
             cursor_shape);
    }
@@ -5110,7 +5105,7 @@ void touch_screen(CHARTYPE scrno)
    {
       win = screen[scrno].win[i];
       if (win != (WINDOW *)NULL)
-         curses_driver_touch_window(win);
+         the_driver->touch_window(win);
    }
    TRACE_RETURN();
    return;
@@ -5816,18 +5811,18 @@ short advance_view(VIEW_DETAILS *next_view,short direction)
              stat_attr = ATTR_PMSGINFO;
          }
 #endif
-         curses_driver_set_window_attr(statarea,set_colour(CURRENT_FILE->attr+stat_attr));
+         the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_STATAREA, set_colour(CURRENT_FILE->attr+stat_attr));
          redraw_window(statarea);
-         curses_driver_touch_window(statarea);
+         the_driver->touch_global_window(THE_DRIVER_GLOBAL_STATAREA);
       }
 
       if (divider != NULL)
       {
          if (display_screens > 1
          && !horizontal)
-            curses_driver_set_window_attr(divider,set_colour(CURRENT_FILE->attr+ATTR_DIVIDER));
-         curses_driver_touch_window(divider);
-         curses_driver_refresh_window(divider);
+            the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_DIVIDER, set_colour(CURRENT_FILE->attr+ATTR_DIVIDER));
+         the_driver->touch_global_window(THE_DRIVER_GLOBAL_DIVIDER);
+         the_driver->refresh_global_window(THE_DRIVER_GLOBAL_DIVIDER);
       }
       show_restore_view_logical_cursor(current_screen, CURRENT_VIEW);
    }
@@ -5852,8 +5847,8 @@ short THE_Resize(int rows, int cols)
       resizeterm(rows,cols);
    endwin();
    the_driver->update();  /* make ncurses set LINES and COLS properly */
-   curses_driver_refresh_window( stdscr );
-   /* curses_driver_refresh_window( curscr ); */
+   the_driver->refresh_standard_screen();
+   /* the_driver->refresh_window( curscr ); */
    ncurses_screen_resized = FALSE;
 #elif defined(HAVE_RESIZE_TERM)
    resize_term(rows,cols);

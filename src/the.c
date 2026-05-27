@@ -36,7 +36,7 @@
 #define MAIN 1
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 #include "utfterm.h"
 #include <time.h>
 #ifdef WIN32
@@ -1265,7 +1265,7 @@ fclose( fp);
    nonl();
    noecho();
 #ifdef HAVE_KEYPAD
-   curses_driver_enable_keypad( stdscr, true );
+   the_driver->enable_keypad( stdscr, true );
 #endif
 #ifdef HAVE_NOTIMEOUT
    notimeout( stdscr, TRUE );
@@ -1290,13 +1290,13 @@ fclose( fp);
    set_screen_defaults();
 
 #if defined(HAVE_BROKEN_SYSVR4_CURSES)
-   curses_driver_force_background_and_refresh(stdscr);
+   the_driver->force_background_and_refresh_standard_screen();
 #endif
    /*
     * wnoutrefresh() is called here so that the first call to getch() on
     * stdscr does not clear the screen.
     */
-   curses_driver_refresh_window(stdscr);
+   the_driver->refresh_standard_screen();
 #if defined(HAVE_SLK_INIT)
    if (SLKx) slk_noutrefresh();
 #endif

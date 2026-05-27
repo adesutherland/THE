@@ -35,7 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 
 #if !defined(WIN32) || defined(__CYGWIN32__)
 static void print_shadow_line(FILE *,CHARTYPE *,LINETYPE);
@@ -446,7 +446,7 @@ void print_line(bool close_spooler,LINETYPE true_line,LINETYPE num_lines,
  if (curses_started)
    {
     if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
-       cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
+       cursor = the_driver->capture_current_role_cursor(WINDOW_FILEAREA);
     else
        cursor = the_driver->capture_current_window_cursor();
     if (cursor.valid)
@@ -597,7 +597,7 @@ void print_line(bool close_spooler,LINETYPE true_line,LINETYPE num_lines,
     y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,
                                CURRENT_VIEW->current_row);
     if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
-       curses_driver_move_window_cursor(CURRENT_WINDOW_FILEAREA, y, x);
+       the_driver->move_current_role_cursor(WINDOW_FILEAREA, y, x);
     else
        the_driver->move_current_window_cursor(y, x);
    }

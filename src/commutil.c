@@ -39,7 +39,7 @@
 #include "proto.h"
 #include "key.h"
 #include "command.h"
-#include "cursesdriver.h"
+#include "thedriver.h"
 #include "transientui.h"
 
 static CHARTYPE *build_defined_key_definition(int, CHARTYPE *,DEFINE *,int);
@@ -1262,7 +1262,7 @@ short command_line(CHARTYPE *cmd_line,bool command_only)
    if (blank_field(cmd_line))
    {
       if (curses_started)
-         curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND, 0, 0);
+         the_driver->move_current_role_cursor(WINDOW_COMMAND, 0, 0);
       TRACE_RETURN();
       return(RC_OK);
    }
@@ -2195,7 +2195,7 @@ LENGTHTYPE get_true_column(bool respect_compat)
       else if (curses_started)
       {
          TheDriverWindowCursor cursor =
-            curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
+            the_driver->capture_current_role_cursor(WINDOW_FILEAREA);
 
          true_column = CURRENT_VIEW->verify_col
                      + (cursor.valid ? cursor.col : 0);
@@ -3849,7 +3849,7 @@ int readv_cmdline(CHARTYPE *initial, WINDOW *dw, int start_col)
     * If we were called from execute_dialog, refresh the dialog window
     */
    if ( dw )
-      curses_driver_refresh_window( dw );
+      the_driver->refresh_window( dw );
    transient_ui_readv_state_init(&readv_state, (const char *)initial,
                                  start_col == -1
                                  ? (int)strlen((DEFCHAR *)initial)
@@ -3857,10 +3857,10 @@ int readv_cmdline(CHARTYPE *initial, WINDOW *dw, int start_col)
                                  0, (int)max_line_length);
    transient_ui_snapshot_build_readv(&readv_snapshot, 0, 0,
                                      (int)max_line_length, &readv_state);
-   curses_driver_refresh_window_now( CURRENT_WINDOW_COMMAND );
+   the_driver->refresh_current_role_now(WINDOW_COMMAND);
    while( 1 )
    {
-      key = curses_driver_read_window_key( CURRENT_WINDOW_COMMAND );
+      key = the_driver->read_current_role_key(WINDOW_COMMAND);
 #if defined(USE_XCURSES)
       if ( key == KEY_SF || key == KEY_SR )
          continue;
@@ -3871,7 +3871,7 @@ int readv_cmdline(CHARTYPE *initial, WINDOW *dw, int start_col)
          TheDriverMouseEvent mouse;
          TransientUiHitTarget hit;
 
-         if (!curses_driver_read_mouse_event(CURRENT_WINDOW_COMMAND, &mouse))
+         if (!the_driver->read_current_role_mouse_event(WINDOW_COMMAND, &mouse))
             continue;
          if (mouse.button != 1
          ||  mouse.action == THE_DRIVER_MOUSE_ACTION_PRESSED)
@@ -3905,8 +3905,7 @@ int readv_cmdline(CHARTYPE *initial, WINDOW *dw, int start_col)
              * Got a mouse event
              */
             readv_state.cursor_cell = mouse.col;
-            curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND, 0,
-                                             (short)mouse.col );
+            the_driver->move_current_role_cursor(WINDOW_COMMAND, 0, (short)mouse.col);
          }
          else
             continue;
@@ -3954,8 +3953,8 @@ int readv_cmdline(CHARTYPE *initial, WINDOW *dw, int start_col)
        * If we were called from execute_dialog, refresh the dialog window
        */
       if ( dw )
-         curses_driver_refresh_window( dw );
-      curses_driver_refresh_window_now( CURRENT_WINDOW_COMMAND );
+         the_driver->refresh_window( dw );
+      the_driver->refresh_current_role_now(WINDOW_COMMAND);
       if ( rc == RC_READV_TERM
       ||   rc == RC_READV_TERM_MOUSE )
          break;

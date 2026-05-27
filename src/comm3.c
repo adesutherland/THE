@@ -37,7 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 
 /*man-start*********************************************************************
 COMMAND
@@ -1054,7 +1054,7 @@ short THEMove(CHARTYPE *params)
     */
    if (MARK_VIEW == CURRENT_VIEW)
    {
-      cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
+      cursor = the_driver->capture_current_role_cursor(WINDOW_FILEAREA);
       if (cursor.valid)
       {
          y = cursor.row;

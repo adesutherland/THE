@@ -37,7 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 #include "inputevent.h"
 
 static bool cursor_show_row_is_boundary(const SHOW_LINE *show_row)
@@ -279,7 +279,7 @@ void cursor_focus_sync_current(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
          break;
    }
 
-   cursor = curses_driver_capture_window_cursor(SCREEN_WINDOW(curr_screen));
+   cursor = the_driver->capture_screen_window_cursor(curr_screen);
    if (cursor.valid)
    {
       row = cursor.row;
@@ -726,8 +726,7 @@ static void cursor_utf8_move_filearea_display_col(CHARTYPE curr_screen,
                                                   short row, int display_col)
 {
    INTENTIONALLY_UNUSED_VARIABLE(curr_view);
-   curses_driver_move_window_cursor(SCREEN_WINDOW_FILEAREA(curr_screen),
-                                    row, display_col);
+   the_driver->move_screen_role_cursor(curr_screen, WINDOW_FILEAREA, row, display_col);
 }
 
 static int cursor_focus_vertical_desired_cell(CHARTYPE curr_screen,
@@ -1028,10 +1027,9 @@ short THEcursor_home( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool save )
          curr_view->current_window = last_win;
       else
          curr_view->current_window = WINDOW_FILEAREA;
-      cursor = curses_driver_capture_window_cursor(SCREEN_WINDOW(curr_screen));
+      cursor = the_driver->capture_screen_window_cursor(curr_screen);
       y = get_row_for_focus_line( curr_screen, curr_view->focus_line, curr_view->current_row );
-      curses_driver_move_window_cursor(SCREEN_WINDOW(curr_screen), y,
-                                       cursor.valid ? cursor.col : 0);
+      the_driver->move_screen_window_cursor(curr_screen, y, cursor.valid ? cursor.col : 0);
    }
    else
    {
@@ -1378,7 +1376,7 @@ short THEcursor_up(short escreen)
                desired_cell = textpos_from_byte(rec, rec_len, rec_len).cell_column;
 #else
             TheDriverWindowCursor cursor =
-               curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
+               the_driver->capture_current_role_cursor(WINDOW_FILEAREA);
 
             if (cursor.valid)
                x = cursor.col;
@@ -1503,8 +1501,7 @@ short THEcursor_move( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool show_e
             curr_view->current_window = WINDOW_FILEAREA;
             break;
       }
-      curses_driver_move_window_cursor(SCREEN_WINDOW_FILEAREA(curr_screen),
-                                       row, col);
+      the_driver->move_screen_role_cursor(curr_screen, WINDOW_FILEAREA, row, col);
       curr_view->focus_line = screen[curr_screen].sl[row].line_number;
       pre_process_line( curr_view, curr_view->focus_line, (LINE *)NULL );
       cursor_utf8_snap_filearea_to_cluster_start(curr_screen, curr_view);
@@ -2740,7 +2737,7 @@ void resolve_current_and_focus_lines( CHARTYPE curr_screen, VIEW_DETAILS *view, 
             {
                if ( view->current_window == WINDOW_FILEAREA )
                {
-                  cursor = curses_driver_capture_window_cursor(SCREEN_WINDOW(curr_screen));
+                  cursor = the_driver->capture_screen_window_cursor(curr_screen);
                   if (cursor.valid)
                   {
                      y = cursor.row;

@@ -2,7 +2,9 @@
 #define THE_THEDRIVER_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stddef.h>
+#include <wchar.h>
 
 #include "logcursor.h"
 #include "thedefs.h"
@@ -107,6 +109,7 @@ typedef enum
 } TheDriverGlobalWindowRole;
 
 typedef struct TheDriverOps TheDriverOps;
+typedef void TheDriverWindow;
 
 struct TheDriverOps
 {
@@ -129,41 +132,71 @@ struct TheDriverOps
    int (*screen_role_exists)(CHARTYPE scrno, short role);
    int (*global_window_exists)(TheDriverGlobalWindowRole role);
    void (*delete_global_window)(TheDriverGlobalWindowRole role);
+   TheDriverWindow *(*create_window)(int rows, int cols, int row, int col);
+   TheDriverWindow *(*create_pad)(int rows, int cols);
+   void (*delete_window)(TheDriverWindow *win);
+   void (*enable_keypad)(TheDriverWindow *win, bool enabled);
+   TheDriverWindowCursor (*capture_window_cursor)(TheDriverWindow *win);
    TheDriverWindowCursor (*capture_current_window_cursor)(void);
    TheDriverWindowCursor (*capture_current_previous_window_cursor)(void);
    TheDriverWindowCursor (*capture_current_role_cursor)(short role);
    TheDriverWindowCursor (*capture_screen_window_cursor)(CHARTYPE scrno);
    TheDriverWindowCursor (*capture_screen_role_cursor)(CHARTYPE scrno,
                                                        short role);
+   TheDriverWindowCursor (*capture_global_window_cursor)(
+      TheDriverGlobalWindowRole role);
+   TheDriverWindowOrigin (*window_origin)(TheDriverWindow *win);
+   TheDriverWindowSize (*window_size)(TheDriverWindow *win);
    TheDriverWindowOrigin (*current_window_origin)(void);
    TheDriverWindowSize (*current_window_size)(void);
    TheDriverWindowSize (*current_role_size)(short role);
    TheDriverWindowSize (*screen_role_size)(CHARTYPE scrno, short role);
+   TheDriverScreenPoint (*current_window_cursor_screen_point)(void);
    TheDriverWindowRoleSave (*save_current_role_window)(short role);
+   int (*replace_current_role_with_relative_window)(
+      short role, TheDriverWindow *parent, int rows, int cols, int row,
+      int col, TheDriverWindowRoleSave *saved);
    void (*restore_current_role_window)(short role,
                                        TheDriverWindowRoleSave saved);
    void (*delete_current_role_window)(short role);
    void (*clear_current_screen_roles)(void);
+   void (*move_window_cursor)(TheDriverWindow *win, short row, short col);
    void (*move_current_window_cursor)(short row, short col);
    void (*move_current_previous_window_cursor)(short row, short col);
    void (*move_current_role_cursor)(short role, short row, short col);
    void (*move_screen_window_cursor)(CHARTYPE scrno, short row, short col);
    void (*move_screen_role_cursor)(CHARTYPE scrno, short role, short row,
                                    short col);
+   void (*move_global_window_cursor)(TheDriverGlobalWindowRole role,
+                                     short row, short col);
+   void (*restore_window_cursor)(TheDriverWindow *win,
+                                 TheDriverWindowCursor cursor);
    void (*restore_current_window_cursor)(TheDriverWindowCursor cursor);
    void (*restore_current_role_cursor)(short role,
                                        TheDriverWindowCursor cursor);
+   void (*restore_screen_window_cursor)(CHARTYPE scrno,
+                                        TheDriverWindowCursor cursor);
+   void (*restore_screen_role_cursor)(CHARTYPE scrno, short role,
+                                      TheDriverWindowCursor cursor);
+   void (*restore_global_window_cursor)(TheDriverGlobalWindowRole role,
+                                        TheDriverWindowCursor cursor);
+   chtype (*read_window_cell)(TheDriverWindow *win);
    chtype (*read_current_window_cell)(void);
    chtype (*read_current_window_cell_attr_at)(short row, short col);
    void (*put_char_current_window)(chtype ch, CHARTYPE add_ins);
+   void (*set_window_attr)(TheDriverWindow *win, chtype colour);
    void (*set_current_window_attr)(chtype colour);
    void (*set_current_role_attr)(short role, chtype colour);
    void (*set_screen_role_attr)(CHARTYPE scrno, short role, chtype colour);
    void (*set_global_window_attr)(TheDriverGlobalWindowRole role,
                                   chtype colour);
+   void (*set_window_background)(TheDriverWindow *win, chtype colour);
+   void (*clear_line_at)(TheDriverWindow *win, short row, chtype colour);
    void (*clear_current_role)(short role);
    void (*clear_current_role_to_eol)(short role);
    void (*clear_screen_role_to_eol)(CHARTYPE scrno, short role);
+   void (*touch_window)(TheDriverWindow *win);
+   void (*touch_line)(TheDriverWindow *win, int start, int count);
    void (*touch_current_window)(void);
    void (*touch_current_role)(short role);
    void (*touch_screen_role)(CHARTYPE scrno, short role);
@@ -171,6 +204,8 @@ struct TheDriverOps
    void (*touch_and_refresh_current_role)(short role);
    void (*touch_and_refresh_screen_role)(CHARTYPE scrno, short role);
    void (*touch_and_refresh_global_window)(TheDriverGlobalWindowRole role);
+   void (*refresh_window)(TheDriverWindow *win);
+   void (*refresh_window_now)(TheDriverWindow *win);
    void (*refresh_current_window)(void);
    void (*refresh_current_window_now)(void);
    void (*refresh_current_role)(short role);
@@ -180,11 +215,41 @@ struct TheDriverOps
    void (*refresh_global_window)(TheDriverGlobalWindowRole role);
    void (*refresh_global_window_now)(TheDriverGlobalWindowRole role);
    void (*refresh_standard_screen)(void);
+   void (*refresh_pad)(TheDriverWindow *pad, int pad_row, int pad_col,
+                       int screen_top, int screen_left, int screen_bottom,
+                       int screen_right);
    void (*update)(void);
    void (*present_cursor)(bool visible);
+   void (*set_current_window_timeout)(int milliseconds);
+   void (*draw_box)(TheDriverWindow *win);
+   void (*draw_vertical_line)(TheDriverWindow *win, chtype ch, int len);
+   void (*add_string_at)(TheDriverWindow *win, short row, short col,
+                         const char *text);
    void (*add_global_string_at)(TheDriverGlobalWindowRole role, short row,
                                 short col, const char *text);
+   void (*add_chtype_at)(TheDriverWindow *win, short row, short col,
+                         chtype ch);
+   void (*draw_horizontal_line)(TheDriverWindow *win, chtype ch, int len);
+   void (*add_chtype)(TheDriverWindow *win, chtype ch);
+   void (*add_wide_cell)(TheDriverWindow *win, const void *ch);
+   void (*write_chtype_span)(TheDriverWindow *win, const chtype *text,
+                             int len);
+   void (*write_wide_cell_span)(TheDriverWindow *win, const void *text,
+                                int len);
+   void (*set_wide_cell_codepoint)(void *dest, uint32_t ch, chtype colour);
+   void (*recolour_wide_cell)(void *cell, chtype colour);
+   void (*write_wide_string_at)(TheDriverWindow *win, int row, int col,
+                                const wchar_t *text, chtype colour,
+                                int expected_width);
+   void (*fill_cells_at)(TheDriverWindow *win, int row, int col, int width,
+                         chtype colour);
+   void (*write_ascii_cells_at)(TheDriverWindow *win, int row, int col,
+                                const char *text, int width, chtype colour);
    int (*read_current_window_key)(void);
+   int (*read_current_role_key)(short role);
+   int (*read_global_window_key)(TheDriverGlobalWindowRole role);
+   int (*read_window_key)(TheDriverWindow *win);
+   int (*read_raw_window_key)(TheDriverWindow *win);
    int (*read_standard_key)(void);
    int (*read_raw_standard_key)(void);
    int (*is_mouse_key)(int key);
@@ -196,16 +261,30 @@ struct TheDriverOps
    void (*saved_mouse_position)(int *row, int *col);
    void (*reset_mouse_position)(void);
    int (*read_mouse_button)(int *button, int *action, int *modifier);
+   int (*read_current_role_mouse_event)(short role,
+                                        TheDriverMouseEvent *event);
+   int (*read_mouse_event)(TheDriverWindow *win, TheDriverMouseEvent *event);
    void (*prepare_standard_screen_for_shell)(void);
+   void (*force_background_and_refresh_window)(TheDriverWindow *win);
+   void (*force_background_and_refresh_current_window)(void);
+   void (*force_background_and_refresh_standard_screen)(void);
+   void (*touch_current_screen_image)(void);
    void (*clear_standard_window)(void);
    void (*erase_standard_window)(void);
    void (*set_standard_attr)(chtype colour);
    void (*add_standard_string_at)(short row, short col, const char *text);
    void (*move_standard_cursor)(short row, short col);
    void (*add_standard_ch)(chtype ch);
+   void (*redraw_window)(TheDriverWindow *win);
    void (*redraw_current_role)(short role);
    void (*redraw_screen_role)(CHARTYPE scrno, short role);
    void (*redraw_global_window)(TheDriverGlobalWindowRole role);
+   void (*draw_software_chtype_cell)(CHARTYPE scrno, TheDriverWindow *win,
+                                     short row, int col, chtype base,
+                                     CursorShape shape);
+   void (*draw_software_blank_cell)(CHARTYPE scrno, TheDriverWindow *win,
+                                    short row, int col, chtype base,
+                                    CursorShape shape);
    short (*refresh_cursor)(CHARTYPE scrno);
    short (*redraw_screen_cursor)(CHARTYPE scrno, struct view_details *view);
    void (*move_prefix_cursor)(CHARTYPE scrno, short row, short col);

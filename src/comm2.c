@@ -37,7 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 
 /*#define DEBUG 1*/
 
@@ -1411,8 +1411,8 @@ short Fillbox(CHARTYPE *params)
          x = cursor.col;
       }
       display_prompt((CHARTYPE *)"Enter fill character...");
-      curses_driver_move_window_cursor(CURRENT_WINDOW_FILEAREA, y, x);
-      curses_driver_refresh_window(CURRENT_WINDOW_FILEAREA);
+      the_driver->move_current_role_cursor(WINDOW_FILEAREA, y, x);
+      the_driver->refresh_current_role(WINDOW_FILEAREA);
       the_driver->update();
       while(1)
       {

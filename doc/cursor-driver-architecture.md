@@ -64,10 +64,10 @@ Editor code reaches migrated high-level driver behavior through the current
 driver vtable, `the_driver->...`, defined by `TheDriverOps` in
 `src/thedriver.h`. The curses build initializes that pointer to
 `the_curses_driver_ops`, which is populated in `src/cursesdriver.c`.
-`curses_driver_*` function names are implementation-private there, except for
-temporary physical edges that still expose curses objects such as `WINDOW *`,
-pads, `chtype`/`cchar_t`, or modal-local windows. Do not add a neutral wrapper
-API parallel to the vtable.
+`curses_driver_*` function names are implementation-private there. Temporary
+physical edges that still traffic in curses objects such as `WINDOW *`, pads,
+`chtype`/`cchar_t`, or modal-local windows call opaque vtable operations
+directly. Do not add a neutral wrapper API parallel to the vtable.
 
 ### Input Drivers
 
@@ -113,7 +113,7 @@ Closed checkpoints are summarized here; details and next tasks are in
   saved logical cursors onto rebuilt rows.
 - `src/thedriver.h` and `src/thedriver.c` define the real driver vtable and
   current-driver pointer. Editor code calls `the_driver->...` for migrated
-  high-level operations.
+  high-level operations and for temporary opaque physical edges.
 - `src/cursesdriver.c` owns the migrated physical curses mechanics, raw mouse
   packet decoding, file-area logical-to-physical cursor materialization, and
   the `the_curses_driver_ops` vtable.
@@ -150,9 +150,9 @@ Closed checkpoints are summarized here; details and next tasks are in
   checked by `test_the_llm_headless_no_curses`.
 - `tests/inventory_direct_curses.sh` is the repeatable debt sweep and ratchet.
   Current counts are actionable `physical-input: 0`, `physical-paint: 0`,
-  `mouse-token: 0`, and `window-state: 251`; `driver-wrapper: 274` is
+  `mouse-token: 0`, and `window-state: 249`; `driver-wrapper: 777` is
   counted as migrated/allowed. The summary now splits `window-state` into
-  `window-handle: 45`, `active-window-macro: 52`, `cell-attr-type: 79`,
+  `window-handle: 45`, `active-window-macro: 50`, `cell-attr-type: 79`,
   `renderer-cell-type: 64`, and `header-prototype: 11`. The ratchet is
   available as both CTest `test_curses_boundary_inventory` and build target
   `curses_boundary_inventory`. The cleaned transient functions and current
@@ -209,8 +209,10 @@ module by module, not by aspiration.
 
 - Logical foundation modules must stay curses-free.
 - Editor code should call `the_driver->...` for operations present in
-  `TheDriverOps`. Direct `curses_driver_*` calls outside `src/cursesdriver.c`
-  should remain temporary low-level physical edges, not new high-level APIs.
+  `TheDriverOps`. Direct `curses_driver_*` calls must stay inside
+  `src/cursesdriver.*`; temporary low-level physical edges outside the driver
+  should use opaque vtable operations while the broader model is still being
+  split.
 - `execute.c` direct curses calls are already guarded and should continue using
   the driver boundary for physical behavior.
 - `readv_cmdline()`, `execute_dialog()`, and `execute_popup()` are guarded as a

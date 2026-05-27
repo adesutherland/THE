@@ -53,8 +53,6 @@
 
 #include "thedriver.h"
 
-int curses_driver_read_raw_window_key(WINDOW *win);
-
 /*
  * Do special character handling if using ncurses, xcurses
  */
@@ -111,7 +109,7 @@ int my_getch (WINDOW *winptr)
 
    while (1)
    {
-      c = curses_driver_read_raw_window_key( winptr );
+      c = the_driver->read_raw_window_key( winptr );
 # if defined(USE_NCURSES) && defined(EINTR) && defined(KEY_RESIZE)
       if ( c == ERR )
       {
@@ -120,7 +118,7 @@ int my_getch (WINDOW *winptr)
          else
          {
             if ( errno == 0 )
-               c = curses_driver_read_raw_window_key( winptr );
+               c = the_driver->read_raw_window_key( winptr );
          }
       }
 # endif
@@ -365,7 +363,7 @@ int my_getch (WINDOW *winptr)
 #if defined(HAVE_NODELAY) && defined(HAVE_UNGETCH)
                   /* this code allows the user to use the ESC key */
                   nodelay(winptr,TRUE);
-                  tmp_c = curses_driver_read_raw_window_key(winptr);
+                  tmp_c = the_driver->read_raw_window_key(winptr);
                   nodelay(winptr,FALSE);
                   if (tmp_c  == ERR)
                      return(c);

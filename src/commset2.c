@@ -35,7 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 #include "utfterm.h"
 
 /*#define DEBUG 1*/
@@ -2280,13 +2280,9 @@ short THEScreen(CHARTYPE *params)
          }
          if (screen[i].screen_view->prefix)
          {
-            curses_driver_move_window_cursor(screen[i].win[WINDOW_PREFIX],
-               screen[i].screen_view->y[WINDOW_PREFIX],
-               screen[i].screen_view->x[WINDOW_PREFIX]);
+            the_driver->move_screen_role_cursor(i, WINDOW_PREFIX, screen[i].screen_view->y[WINDOW_PREFIX], screen[i].screen_view->x[WINDOW_PREFIX]);
          }
-         curses_driver_move_window_cursor(screen[i].win[WINDOW_FILEAREA],
-            screen[i].screen_view->y[WINDOW_FILEAREA],
-            screen[i].screen_view->x[WINDOW_FILEAREA]);
+         the_driver->move_screen_role_cursor(i, WINDOW_FILEAREA, screen[i].screen_view->y[WINDOW_FILEAREA], screen[i].screen_view->x[WINDOW_FILEAREA]);
       }
    }
 

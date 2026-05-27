@@ -35,7 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 #include "inputevent.h"
 #ifdef USE_SDSLH
 #include "thread_utils.h"
@@ -105,7 +105,7 @@ int process_key(int key, bool mouse_details_present)
    TRACE_FUNCTION("edit.c:    process_key");
 #if defined(USE_EXTCURSES)
    cursor = the_driver->capture_current_window_cursor();
-   curses_driver_restore_window_cursor(CURRENT_WINDOW, cursor);
+   the_driver->restore_current_window_cursor(cursor);
    the_driver->refresh_current_window();
    the_driver->update();
 #endif
@@ -131,9 +131,9 @@ int process_key(int key, bool mouse_details_present)
               key = -2;
           } else {
               /* Wait for input with a 200ms timeout to allow background events to trigger a redraw */
-              curses_driver_set_window_timeout(CURRENT_WINDOW, 200);
+              the_driver->set_current_window_timeout(200);
               key = the_driver->read_current_window_key();
-              curses_driver_set_window_timeout(CURRENT_WINDOW, -1); /* Back to blocking */
+              the_driver->set_current_window_timeout(-1); /* Back to blocking */
               if (key == ERR) {
                   /* Timeout occurred, check event again */
                   if (cb_check_parse_complete_event(CURRENT_FILE->cb) == 1) {
@@ -256,7 +256,7 @@ int process_key(int key, bool mouse_details_present)
           */
          show_statarea();
          cursor = the_driver->capture_current_window_cursor();
-         curses_driver_restore_window_cursor(CURRENT_WINDOW, cursor);
+         the_driver->restore_current_window_cursor(cursor);
          the_driver->refresh_current_window();
          the_driver->update();
          TRACE_RETURN();
@@ -331,7 +331,7 @@ int process_key(int key, bool mouse_details_present)
        if (is_on_bracket || was_on_bracket) {
            build_screen(current_screen);
            display_screen(current_screen);
-           curses_driver_restore_window_cursor(CURRENT_WINDOW, bracket_cursor);
+           the_driver->restore_current_window_cursor(bracket_cursor);
            /* Force correct cursor position into virtual screen */
            the_driver->refresh_current_window();
        }
@@ -361,12 +361,12 @@ int process_key(int key, bool mouse_details_present)
 
 #ifdef HAVE_BROKEN_SYSVR4_CURSES
    cursor = the_driver->capture_current_window_cursor();
-   curses_driver_restore_window_cursor(CURRENT_WINDOW, cursor);
+   the_driver->restore_current_window_cursor(cursor);
    the_driver->refresh_current_window();
    the_driver->update();
 #else
    cursor = the_driver->capture_current_window_cursor();
-   curses_driver_restore_window_cursor(CURRENT_WINDOW, cursor);
+   the_driver->restore_current_window_cursor(cursor);
    the_driver->refresh_current_window();
    the_driver->update();
 #endif

@@ -37,7 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 
 /***********************************************************************/
 short scroll_page(short direction,LINETYPE num_pages,bool scrollbar)
@@ -154,7 +154,7 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
    switch( iscrollbar )
    {
       case FALSE:
-         cursor = curses_driver_capture_window_cursor(SCREEN_WINDOW(curr_screen));
+         cursor = the_driver->capture_screen_window_cursor(curr_screen);
          if (cursor.valid)
          {
             y = cursor.row;
@@ -221,7 +221,7 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
             build_screen( curr_screen );
             display_screen( curr_screen );
             y = get_row_for_focus_line( curr_screen, curr_view->focus_line, curr_view->current_row );
-            curses_driver_move_window_cursor(SCREEN_WINDOW(curr_screen), y, x);
+            the_driver->move_screen_window_cursor(curr_screen, y, x);
             break;
          }
          /*
@@ -235,15 +235,14 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
             pre_process_line( curr_view, curr_view->focus_line, (LINE *)NULL );
             build_screen( curr_screen );
             display_screen( curr_screen );
-            curses_driver_move_window_cursor(SCREEN_WINDOW(curr_screen),
-                                             yoff1, x);
+            the_driver->move_screen_window_cursor(curr_screen, yoff1, x);
             break;
          }
          /*
           * We are in the middle of the window, so just move the cursor up or
           * down 1 line.
           */
-         curses_driver_move_window_cursor(SCREEN_WINDOW(curr_screen), yoff2, x);
+         the_driver->move_screen_window_cursor(curr_screen, yoff2, x);
          rc = post_process_line( curr_view, curr_view->focus_line, (LINE *)NULL, TRUE );
          curr_view->focus_line = new_focus_line;
          pre_process_line( curr_view, curr_view->focus_line, (LINE *)NULL );
@@ -264,8 +263,8 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
             THEcursor_move( curr_screen, curr_view, TRUE, TRUE, (short)longy, (short)longx );
             show_heading( curr_screen );
             if ( curr_view->id_line )
-               curses_driver_refresh_window(SCREEN_WINDOW_IDLINE(curr_screen));
-            curses_driver_refresh_window(SCREEN_WINDOW(curr_screen));
+               the_driver->refresh_screen_role(curr_screen, WINDOW_IDLINE);
+            the_driver->refresh_screen_window(curr_screen);
             the_driver->update();
          }
          break;

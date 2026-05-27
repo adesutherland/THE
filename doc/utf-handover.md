@@ -26,8 +26,9 @@ High-level editor code calls the current driver vtable through
 `the_driver->...`. The real vtable lives in `src/thedriver.h`, `src/thedriver.c`
 sets the current build's driver to the curses implementation, and
 `src/cursesdriver.c` publishes `the_curses_driver_ops`. `curses_driver_*` names
-are now curses implementation details or temporary physical edges that still
-traffic in `WINDOW *`, `chtype`/`cchar_t`, pads, or modal local windows.
+are now curses implementation details; editor code, including temporary
+physical edges that still traffic in `WINDOW *`, `chtype`/`cchar_t`, pads, or
+modal local windows, calls the vtable directly.
 
 New logical behavior must be proved through a no-curses surface first:
 `the_agent`, `llmdriver`, `llmruntime`, virtual/fake-driver tests, focused unit
@@ -112,8 +113,8 @@ them mechanically and verify the supported targets in one sweep.
   no-curses executables do not link curses or expose curses-driver symbols.
 - The direct-curses inventory is now a ratchet. The full listing remains
   available, `--summary` separates actionable physical-input, physical-paint,
-  mouse-token, and window-state/type debt from allowed `curses_driver_*`
-  wrapper calls, and `test_curses_boundary_inventory` fails only when
+  mouse-token, and window-state/type debt from allowed driver-edge vtable
+  calls, and `test_curses_boundary_inventory` fails only when
   actionable category/file/function buckets exceed
   `tests/inventory_direct_curses.baseline.tsv`.
 - Bulk wrapper passes moved high-confidence raw physical paint/input mechanics
@@ -141,10 +142,13 @@ them mechanically and verify the supported targets in one sweep.
   now ask the driver for those physical windows by logical role.
 - The real driver vtable exists. `TheDriverOps` carries the migrated
   current/screen/global role, cursor, touch/refresh/clear/attr, current-window
-  key/cell, mouse projection, standard-screen, and logical cursor operations.
-  Editor call sites use `the_driver->...`; `src/cursesdriver.c` keeps the
-  `curses_driver_*` function names as implementation-private entry points for
-  `the_curses_driver_ops` and for the remaining low-level physical edges.
+  key/cell, mouse projection, standard-screen, opaque temporary window-handle,
+  renderer-cell, and logical cursor operations. Editor call sites use
+  `the_driver->...`; `src/cursesdriver.c` keeps the `curses_driver_*` function
+  names as implementation-private helpers behind `the_curses_driver_ops`.
+  `tools/codemod_driver_vtable.py` is the repeatable migration pass: it derives
+  exact implementation-to-vtable mappings from `the_curses_driver_ops` and
+  rewrites safe current/screen/global role macro call sites.
 
 ## Active Slice
 
@@ -177,18 +181,18 @@ Current ratcheted counts:
 - actionable `physical-input`: 0
 - actionable `physical-paint`: 0
 - actionable `mouse-token`: 0
-- actionable `window-state`: 251
-- allowed/migrated `driver-wrapper`: 274
+- actionable `window-state`: 249
+- allowed/migrated `driver-wrapper`: 777
 
 Current `window-state` summary:
 
 - `window-handle`: 45
-- `active-window-macro`: 52
+- `active-window-macro`: 50
 - `cell-attr-type`: 79
 - `renderer-cell-type`: 64
 - `header-prototype`: 11
 
-This slice reduced `active-window-macro` from 152 to 52 and `window-handle`
+This slice reduced `active-window-macro` from 152 to 50 and `window-handle`
 from 72 to 45. The remaining active-window macro findings are the macro
 definitions in `src/the.h` plus `show.c` renderer/display-line paths that
 still pass screen role windows into renderer helpers. The remaining
@@ -200,8 +204,8 @@ window declarations, and `SCREEN_DETAILS.win`.
 For the cleaned transient functions, the sweep finds no raw `physical-input` or
 `physical-paint` calls in `readv_cmdline()`, `execute_dialog()`, or
 `execute_popup()`. Remaining transient findings are explicitly classified:
-`WINDOW` ownership in the curses path and `curses_driver_*` physical edge
-calls. Direct `KEY_MOUSE` branch tokens now use the driver abstraction and no
+`WINDOW` ownership in the curses path and opaque vtable physical edge calls.
+Direct `KEY_MOUSE` branch tokens now use the driver abstraction and no
 longer appear as mouse-token debt.
 
 The raw mouse packet guardrail is now stricter: outside `src/cursesdriver.*`,
@@ -214,10 +218,9 @@ direct `KEY_MOUSE` are classified as actionable `physical-input`.
 The ratchet is a project-wide no-new-debt gate for actionable categories, not a
 must-fix-all-existing-debt gate. Reductions are allowed without updating every
 other bucket. `driver-wrapper` entries are counted for visibility but are
-treated as migrated/allowed and do not fail the ratchet. New high-level editor
-call sites should use `the_driver->...`; new `curses_driver_*` call sites
-outside `src/cursesdriver.c` should be limited to unavoidable low-level
-physical edges.
+treated as migrated/allowed and do not fail the ratchet. New editor call sites
+should use `the_driver->...`; new `curses_driver_*` call sites must stay inside
+`src/cursesdriver.*`.
 
 The older wrapper passes reduced the scanner's raw `physical-input` count from
 16 to 12 to 0 and raw `physical-paint` count from 198 to 31 to 0, but the
@@ -246,11 +249,11 @@ Boundary debt:
   driver should fail as actionable `physical-input`; editor-level mouse command
   encoding should continue to use driver-owned button/action/modifier constants
   or logical hit targets.
-- Remaining `driver-wrapper` entries outside the driver are low-level physical
-  edges for `WINDOW *`, pads, renderer cell storage, modal local windows, and
-  compatibility helpers. High-level role/global/current-window operations have
-  moved to `the_driver->...`; classify the remaining physical edges slice by
-  slice.
+- Remaining `driver-wrapper` entries outside the driver are direct vtable
+  calls, including temporary low-level physical edges for opaque window
+  handles, pads, renderer cell storage, modal local windows, and compatibility
+  helpers. `curses_driver_*` helpers are private to the curses implementation;
+  classify the remaining physical edges slice by slice.
 - Removal of `cursor_focus_sync_current()` after all file-area, prefix, and
   command entry paths set editor-owned logical cursor state before render.
 - Full live `UiFrame` snapshots for command, prompt, status, and window

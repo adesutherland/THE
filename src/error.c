@@ -35,7 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 
 /*-------------------------- global   data -----------------------------*/
 
@@ -474,7 +474,7 @@ int display_error(unsigned short err_num,CHARTYPE *mess,bool ignore_bell)
    &&  the_driver->current_window_exists() )
       the_driver->move_current_window_cursor(y, x);
    if ( first_screen_display )
-      curses_driver_refresh_window_now(error_window);
+      the_driver->refresh_global_window_now(THE_DRIVER_GLOBAL_ERROR);
    TRACE_RETURN();
    return rc;
 }
@@ -495,13 +495,13 @@ static void open_msgline(ROWTYPE base, ROWTYPE off,ROWTYPE rows)
    if ( base == POSITION_BOTTOM )
       start_row = start_row - rows + 1;
    if ( error_window != NULL )
-      curses_driver_delete_window(error_window);
-   error_window = curses_driver_create_window(
+      the_driver->delete_window(error_window);
+   error_window = the_driver->create_window(
       rows, CURRENT_SCREEN.screen_cols, CURRENT_SCREEN.screen_start_row + start_row,
       CURRENT_SCREEN.screen_start_col);
-   curses_driver_set_window_attr( error_window, set_colour(&attr) );
+   the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_ERROR, set_colour(&attr));
 #ifdef HAVE_KEYPAD
-   curses_driver_enable_keypad(error_window, true);
+   the_driver->enable_keypad(error_window, true);
 #endif
    leaveok( error_window, TRUE );
    TRACE_RETURN();
@@ -551,10 +551,10 @@ void display_prompt(CHARTYPE *prompt)
 {
    TRACE_FUNCTION("error.c:   display_prompt");
    open_msgline(CURRENT_VIEW->msgline_base,CURRENT_VIEW->msgline_off,1);
-   curses_driver_move_window_cursor(error_window, 0, 0);
+   the_driver->move_global_window_cursor(THE_DRIVER_GLOBAL_ERROR, 0, 0);
    my_wclrtoeol(error_window);
    put_string(error_window,0,0,prompt,strlen((DEFCHAR *)prompt));
-   curses_driver_refresh_window_now(error_window);
+   the_driver->refresh_global_window_now(THE_DRIVER_GLOBAL_ERROR);
    error_on_screen = TRUE;
    TRACE_RETURN();
    return;
@@ -624,16 +624,16 @@ int expose_msgline(void)
     */
    for ( i = errors_to_display - 1; i > -1; i-- )
    {
-      curses_driver_move_window_cursor(error_window, i, 0);
+      the_driver->move_global_window_cursor(THE_DRIVER_GLOBAL_ERROR, i, 0);
       my_wclrtoeol( error_window );
       if ( CURRENT_VIEW == NULL
       ||   CURRENT_FILE == NULL)
-         curses_driver_add_string_at(error_window, i, 0, (DEFCHAR *)curr_error->line);
+         the_driver->add_global_string_at(THE_DRIVER_GLOBAL_ERROR, i, 0, (DEFCHAR *)curr_error->line);
       else
          put_string( error_window, (ROWTYPE)i, 0, curr_error->line, curr_error->length );
       curr_error = curr_error->prev;
    }
-   curses_driver_refresh_window(error_window);
+   the_driver->refresh_global_window(THE_DRIVER_GLOBAL_ERROR);
    error_on_screen = TRUE;
    if ( errors_to_display
    &&   errors_to_display == msgline_rows
@@ -644,20 +644,19 @@ int expose_msgline(void)
          prompt = (CHARTYPE *)IN_MACRO_PROMPT;
       else
          prompt = (CHARTYPE *)NORMAL_PROMPT;
-      curses_driver_move_window_cursor(error_window, msgline_rows - 1, 0);
+      the_driver->move_global_window_cursor(THE_DRIVER_GLOBAL_ERROR, msgline_rows - 1, 0);
       my_wclrtoeol( error_window );
       if ( CURRENT_VIEW == NULL
       ||   CURRENT_FILE == NULL)
       {
-         curses_driver_add_string_at(error_window, msgline_rows - 1, 0,
-                                     (DEFCHAR *)prompt);
+         the_driver->add_global_string_at(THE_DRIVER_GLOBAL_ERROR, msgline_rows - 1, 0, (DEFCHAR *)prompt);
       }
       else
       {
          put_string( error_window, (ROWTYPE)(msgline_rows - 1), 0, (CHARTYPE *)prompt, strlen( (DEFCHAR *)prompt ) );
       }
-      curses_driver_refresh_window_now(error_window);
-      if (curses_driver_read_window_key(error_window) == ' ')
+      the_driver->refresh_global_window_now(THE_DRIVER_GLOBAL_ERROR);
+      if (the_driver->read_global_window_key(THE_DRIVER_GLOBAL_ERROR) == ' ')
          rc = RC_TERMINATE_MACRO;
    }
    TRACE_RETURN();

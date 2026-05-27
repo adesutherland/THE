@@ -105,11 +105,14 @@ CursesDriverWindowCursor curses_driver_capture_current_role_cursor(short role);
 CursesDriverWindowCursor curses_driver_capture_screen_window_cursor(CHARTYPE scrno);
 CursesDriverWindowCursor curses_driver_capture_screen_role_cursor(CHARTYPE scrno,
                                                                  short role);
+CursesDriverWindowCursor curses_driver_capture_global_window_cursor(
+   CursesDriverGlobalWindowRole role);
 CursesDriverWindowOrigin curses_driver_current_window_origin(void);
 CursesDriverWindowSize curses_driver_current_window_size(void);
 CursesDriverWindowSize curses_driver_current_role_size(short role);
 CursesDriverWindowSize curses_driver_screen_role_size(CHARTYPE scrno,
                                                       short role);
+CursesDriverScreenPoint curses_driver_current_window_cursor_screen_point(void);
 CursesDriverWindowRoleSave curses_driver_save_current_role_window(short role);
 int curses_driver_replace_current_role_with_relative_window(
    short role, WINDOW *parent, int rows, int cols, int row, int col,
@@ -134,9 +137,17 @@ void curses_driver_move_screen_window_cursor(CHARTYPE scrno, short row,
                                              short col);
 void curses_driver_move_screen_role_cursor(CHARTYPE scrno, short role,
                                            short row, short col);
+void curses_driver_move_global_window_cursor(CursesDriverGlobalWindowRole role,
+                                             short row, short col);
 void curses_driver_restore_current_window_cursor(CursesDriverWindowCursor cursor);
 void curses_driver_restore_current_role_cursor(short role,
                                               CursesDriverWindowCursor cursor);
+void curses_driver_restore_screen_window_cursor(CHARTYPE scrno,
+                                                CursesDriverWindowCursor cursor);
+void curses_driver_restore_screen_role_cursor(CHARTYPE scrno, short role,
+                                              CursesDriverWindowCursor cursor);
+void curses_driver_restore_global_window_cursor(
+   CursesDriverGlobalWindowRole role, CursesDriverWindowCursor cursor);
 chtype curses_driver_read_window_cell(WINDOW *win);
 chtype curses_driver_read_current_window_cell(void);
 chtype curses_driver_read_current_window_cell_attr_at(short row, short col);
@@ -183,6 +194,7 @@ void curses_driver_refresh_pad(WINDOW *pad, int pad_row, int pad_col,
 void curses_driver_update(void);
 void curses_driver_present_cursor(bool visible);
 void curses_driver_set_window_timeout(WINDOW *win, int milliseconds);
+void curses_driver_set_current_window_timeout(int milliseconds);
 void curses_driver_draw_box(WINDOW *win);
 void curses_driver_draw_vertical_line(WINDOW *win, chtype ch, int len);
 void curses_driver_add_string(WINDOW *win, const char *text);
@@ -195,6 +207,8 @@ void curses_driver_add_chtype_at(WINDOW *win, short row, short col, chtype ch);
 void curses_driver_draw_horizontal_line(WINDOW *win, chtype ch, int len);
 int curses_driver_read_window_key(WINDOW *win);
 int curses_driver_read_current_window_key(void);
+int curses_driver_read_current_role_key(short role);
+int curses_driver_read_global_window_key(CursesDriverGlobalWindowRole role);
 int curses_driver_read_standard_key(void);
 int curses_driver_read_raw_window_key(WINDOW *win);
 int curses_driver_read_raw_standard_key(void);
@@ -209,8 +223,12 @@ void curses_driver_saved_mouse_position(int *row, int *col);
 void curses_driver_reset_mouse_position(void);
 int curses_driver_read_mouse_button(int *button, int *action, int *modifier);
 int curses_driver_read_mouse_event(WINDOW *win, CursesDriverMouseEvent *event);
+int curses_driver_read_current_role_mouse_event(short role,
+                                                CursesDriverMouseEvent *event);
 void curses_driver_prepare_standard_screen_for_shell(void);
 void curses_driver_force_background_and_refresh(WINDOW *win);
+void curses_driver_force_background_and_refresh_current_window(void);
+void curses_driver_force_background_and_refresh_standard_screen(void);
 void curses_driver_clear_standard_window(void);
 void curses_driver_erase_standard_window(void);
 void curses_driver_set_standard_attr(chtype colour);

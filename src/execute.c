@@ -37,7 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 #include "transientui.h"
 
 static LENGTHTYPE execute_filearea_cursor_cell(VIEW_DETAILS *curr_view);
@@ -179,9 +179,9 @@ static short selective_change(TARGET *target,CHARTYPE *old_str,LENGTHTYPE len_ol
          display_prompt((CHARTYPE *)"Press 'N' for next,'C' to change 'Q' to quit");
       the_driver->move_filearea_cursor(current_screen, CURRENT_VIEW,
                                          rec, rec_len, y, (int)target_cell);
-      curses_driver_refresh_window(CURRENT_WINDOW_FILEAREA);
+      the_driver->refresh_current_role(WINDOW_FILEAREA);
 
-      key = curses_driver_read_window_key(CURRENT_WINDOW_FILEAREA);
+      key = the_driver->read_current_role_key(WINDOW_FILEAREA);
       clear_msgline(-1);
       switch(key)
       {
@@ -917,7 +917,7 @@ short execute_os_command(CHARTYPE *cmd,bool quiet,bool pause)
          (void)the_driver->read_standard_key();
       resume_curses();
 #if defined(HAVE_BROKEN_SYSVR4_CURSES)
-      curses_driver_force_background_and_refresh(CURRENT_WINDOW);
+      the_driver->force_background_and_refresh_current_window();
 #endif
       restore_THE();
    }
@@ -2121,7 +2121,7 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
       }
       else if (curses_started)
       {
-         cursor = curses_driver_capture_window_cursor(CURRENT_WINDOW_FILEAREA);
+         cursor = the_driver->capture_current_role_cursor(WINDOW_FILEAREA);
          if (cursor.valid)
          {
             y = (unsigned short)cursor.row;
@@ -3153,7 +3153,7 @@ static void execute_move_prefix_cursor(CHARTYPE curr_screen,
 
    if (cell < 0)
       cell = 0;
-   size = curses_driver_window_size(SCREEN_WINDOW_PREFIX(curr_screen));
+   size = the_driver->screen_role_size(curr_screen, WINDOW_PREFIX);
    if (size.valid && size.cols > 0 && cell >= size.cols)
       cell = size.cols - 1;
 
@@ -3164,8 +3164,7 @@ static void execute_move_prefix_cursor(CHARTYPE curr_screen,
                                       show_row->prefix, len, (int)cell,
                                       TEXT_SNAP_BACKWARD, 1);
    logical_cursor_state_focus(&curr_view->logical_cursor, logical);
-   curses_driver_move_window_cursor(SCREEN_WINDOW_PREFIX(curr_screen),
-                                    row, (short)cell);
+   the_driver->move_screen_role_cursor(curr_screen, WINDOW_PREFIX, row, (short)cell);
 }
 /***********************************************************************/
 static void execute_move_filearea_display_cursor(CHARTYPE curr_screen,
@@ -3241,7 +3240,7 @@ short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTH
             cmd_verify_col = new_verify_col;
             cmd_verify_changed = TRUE;
          }
-         curses_driver_move_window_cursor( SCREEN_WINDOW(curr_screen), 0, new_screen_col );
+         the_driver->move_screen_window_cursor(curr_screen, 0, new_screen_col);
          curr_view->cmdline_col = new_screen_col;
          logical = logical_cursor_from_cell( LOGICAL_CURSOR_ZONE_COMMAND,
                                              0, 0, cmd_rec, cmd_rec_len,
@@ -4340,7 +4339,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
    /*
     * Create the dialog window
     */
-   dialog_win = curses_driver_create_window(dw_lines, dw_cols, dw_y, dw_x);
+   dialog_win = the_driver->create_window(dw_lines, dw_cols, dw_y, dw_x);
    if (dialog_win == NULL)
    {
       CURRENT_VIEW->current_window = save_current_window;
@@ -4350,14 +4349,14 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
       TRACE_RETURN();
       return(RC_OUT_OF_MEMORY);
    }
-   curses_driver_enable_keypad(dialog_win, TRUE);
+   the_driver->enable_keypad(dialog_win, TRUE);
    if (editfield)
    {
       editfield_buf = (CHARTYPE *)(*the_malloc)(dw_cols + 1);
       if ( editfield_buf == NULL )
       {
          CURRENT_VIEW->current_window = save_current_window;
-         curses_driver_delete_window(dialog_win);
+         the_driver->delete_window(dialog_win);
          display_error(30,(CHARTYPE *)"",FALSE);
          TRACE_RETURN();
          return(RC_OUT_OF_MEMORY);
@@ -4374,7 +4373,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
       if ( save_cmd_rec == NULL )
       {
          CURRENT_VIEW->current_window = save_current_window;
-         curses_driver_delete_window(dialog_win);
+         the_driver->delete_window(dialog_win);
          (*the_free)(editfield_buf);
          display_error(30,(CHARTYPE *)"",FALSE);
          TRACE_RETURN();
@@ -4385,7 +4384,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
       /*
        * Save the CMDLINE window and create a new one in our dialog window
        */
-      if (!curses_driver_replace_current_role_with_relative_window(
+      if (!the_driver->replace_current_role_with_relative_window(
              WINDOW_COMMAND, dialog_win, 1, dw_cols-4, 3+prompt_lines, 2,
              &save_command_window))
       {
@@ -4393,7 +4392,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
          the_driver->delete_current_role_window(WINDOW_COMMAND);
          the_driver->restore_current_role_window(WINDOW_COMMAND,
                                                    save_command_window);
-         curses_driver_delete_window(dialog_win);
+         the_driver->delete_window(dialog_win);
          (*the_free)( save_cmd_rec );
          (*the_free)(editfield_buf);
          display_error(30,(CHARTYPE *)"",FALSE);
@@ -4403,20 +4402,20 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
       the_driver->set_current_role_attr(
          WINDOW_COMMAND, set_colour( CURRENT_FILE->attr+ATTR_DIA_EDITFIELD ) );
    }
-   curses_driver_set_window_background(
+   the_driver->set_window_background(
       dialog_win, set_colour( CURRENT_FILE->attr+( ( alert ) ? ATTR_ALERT : ATTR_DIALOG ) ) );
 #if defined(HAVE_BOX)
-   curses_driver_set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_DIA_BORDER));
-   curses_driver_draw_box(dialog_win);
+   the_driver->set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_DIA_BORDER));
+   the_driver->draw_box(dialog_win);
 #endif
-   curses_driver_set_window_attr(
+   the_driver->set_window_attr(
       dialog_win, set_colour( CURRENT_FILE->attr+( ( alert ) ? ATTR_ALERT : ATTR_DIALOG ) ) );
    /*
     * Add the prompt line(s) to the window
     */
    for ( i = 0; i < prompt_lines; i++)
    {
-      curses_driver_add_string_at(dialog_win, 2+i, 2,
+      the_driver->add_string_at(dialog_win, 2+i, 2,
                                   (DEFCHAR *)prompt_line[i]);
    }
    /*
@@ -4424,8 +4423,8 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
     */
    if (title)
    {
-      curses_driver_set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_DIA_BORDER));
-      curses_driver_add_string_at(dialog_win, 0, 1, (DEFCHAR *)title);
+      the_driver->set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_DIA_BORDER));
+      the_driver->add_string_at(dialog_win, 0, 1, (DEFCHAR *)title);
    }
    /*
     * Prepare the editfield if we have one
@@ -4444,7 +4443,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
    }
    else
    {
-      curses_driver_move_window_cursor(dialog_win, dw_lines-3, cursor_pos);
+      the_driver->move_window_cursor(dialog_win, dw_lines-3, cursor_pos);
       in_editfield = FALSE;
       the_driver->present_cursor(FALSE);
    }
@@ -4483,12 +4482,12 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
 
          if (snapshot_button->active)
          {
-            curses_driver_set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_DIA_ABUTTON));
+            the_driver->set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_DIA_ABUTTON));
             cursor_pos = snapshot_button->col;
          }
          else
-            curses_driver_set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_DIA_BUTTON));
-         curses_driver_add_string_at(dialog_win, snapshot_button->row,
+            the_driver->set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_DIA_BUTTON));
+         the_driver->add_string_at(dialog_win, snapshot_button->row,
                                      snapshot_button->col,
                                      snapshot_button->text);
       }
@@ -4529,12 +4528,12 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
           * Display the dialog window and pseudo command line
           * and get a key.
           */
-         curses_driver_refresh_window_now(dialog_win);
+         the_driver->refresh_window_now(dialog_win);
          if ( editfield )
          {
-            curses_driver_refresh_window_now(CURRENT_WINDOW_COMMAND);
+            the_driver->refresh_current_role_now(WINDOW_COMMAND);
          }
-         key = curses_driver_read_window_key(CURRENT_WINDOW_COMMAND);
+         key = the_driver->read_current_role_key(WINDOW_COMMAND);
       }
 #if defined(USE_XCURSES)
       /*
@@ -4549,7 +4548,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
          TheDriverMouseEvent mouse;
          TransientUiAction action;
 
-         if (!curses_driver_read_mouse_event(dialog_win, &mouse))
+         if (!the_driver->read_mouse_event(dialog_win, &mouse))
             continue;
          if (mouse.button != 1
          ||  mouse.action == THE_DRIVER_MOUSE_ACTION_PRESSED)
@@ -4584,12 +4583,12 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
              * Got a valid line. Redisplay it in highlighted mode.
              */
             item_selected = dialog_state.selected_button;
-            curses_driver_touch_window(dialog_win);
-            curses_driver_set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_DIA_ABUTTON));
-            curses_driver_add_string_at(dialog_win, dw_lines-3,
+            the_driver->touch_window(dialog_win);
+            the_driver->set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_DIA_ABUTTON));
+            the_driver->add_string_at(dialog_win, dw_lines-3,
                                         button_col[item_selected],
                                         button_text[item_selected]);
-            curses_driver_refresh_window_now(dialog_win);
+            the_driver->refresh_window_now(dialog_win);
             break;
          }
          continue;
@@ -4617,7 +4616,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
          }
       }
    }
-   curses_driver_delete_window(dialog_win);
+   the_driver->delete_window(dialog_win);
    the_driver->present_cursor(TRUE);
    /*
     * Set DIALOG.2 to the button pressed
@@ -5171,7 +5170,7 @@ short prepare_popup( CHARTYPE *params )
              * Get the current window text position and get the
              * global offset from the window start coordinates.
              */
-            screen_point = curses_driver_window_cursor_screen_point(CURRENT_WINDOW);
+            screen_point = the_driver->current_window_cursor_screen_point();
             y = screen_point.row;
             x = screen_point.col;
             break;
@@ -5180,7 +5179,7 @@ short prepare_popup( CHARTYPE *params )
              * Get the current window text position and get the
              * global offset from the window start coordinates.
              */
-            screen_point = curses_driver_window_cursor_screen_point(CURRENT_WINDOW);
+            screen_point = the_driver->current_window_cursor_screen_point();
             y = 1 + screen_point.row;
             x = screen_point.col;
             if ( height + y > terminal_lines )
@@ -5197,7 +5196,7 @@ short prepare_popup( CHARTYPE *params )
              * Get the current window text position and get the
              * global offset from the window start coordinates.
              */
-            screen_point = curses_driver_window_cursor_screen_point(CURRENT_WINDOW);
+            screen_point = the_driver->current_window_cursor_screen_point();
             y = screen_point.row - 1;
             x = screen_point.col;
             if ( height > y )
@@ -5329,70 +5328,70 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
    /*
     * Create the popup menu window
     */
-   dialog_win = curses_driver_create_window(height, width, y, x);
+   dialog_win = the_driver->create_window(height, width, y, x);
    if (dialog_win == NULL)
    {
       display_error( 30, (CHARTYPE *)"", FALSE );
       TRACE_RETURN();
       return(RC_OUT_OF_MEMORY);
    }
-   curses_driver_enable_keypad(dialog_win, TRUE);
+   the_driver->enable_keypad(dialog_win, TRUE);
 #ifdef HAVE_NEWPAD
-   pad = curses_driver_create_pad(pad_height, pad_width);
+   pad = the_driver->create_pad(pad_height, pad_width);
    if ( pad == NULL )
    {
-      curses_driver_delete_window(dialog_win);
+      the_driver->delete_window(dialog_win);
       display_error( 30, (CHARTYPE *)"", FALSE );
       TRACE_RETURN();
       return(RC_OUT_OF_MEMORY);
    }
 #else
-   curses_driver_delete_window(dialog_win);
+   the_driver->delete_window(dialog_win);
    display_error( 0, (CHARTYPE *)"No support for pads, can't display popup", FALSE );
    TRACE_RETURN();
    return(RC_OUT_OF_MEMORY);
 #endif
 
-   curses_driver_set_window_background(pad,set_colour(CURRENT_FILE->attr+ATTR_POPUP));
+   the_driver->set_window_background(pad,set_colour(CURRENT_FILE->attr+ATTR_POPUP));
    the_driver->present_cursor(FALSE);
    {
 #if defined(HAVE_BOX)
-      curses_driver_set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_POP_BORDER));
-      curses_driver_draw_box(dialog_win);
+      the_driver->set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_POP_BORDER));
+      the_driver->draw_box(dialog_win);
       if ( height != pad_height )
       {
-         curses_driver_add_chtype_at(dialog_win,0,width-1,' ');
+         the_driver->add_chtype_at(dialog_win,0,width-1,' ');
 # ifdef ACS_UARROW
-         curses_driver_add_chtype_at(dialog_win,1,width-1,
+         the_driver->add_chtype_at(dialog_win,1,width-1,
                                      A_ALTCHARSET|ACS_UARROW);
 # else
-         curses_driver_add_chtype_at(dialog_win,1,width-1,'^');
+         the_driver->add_chtype_at(dialog_win,1,width-1,'^');
 # endif
 # ifdef ACS_DARROW
-         curses_driver_add_chtype_at(dialog_win,height-2,width-1,
+         the_driver->add_chtype_at(dialog_win,height-2,width-1,
                                      A_ALTCHARSET|ACS_DARROW);
 # else
-         curses_driver_add_chtype_at(dialog_win,height-2,width-1,'v');
+         the_driver->add_chtype_at(dialog_win,height-2,width-1,'v');
 # endif
       }
       if ( width != pad_width )
       {
-         curses_driver_add_chtype_at(dialog_win,height-1,0,' ');
+         the_driver->add_chtype_at(dialog_win,height-1,0,' ');
 # ifdef ACS_LARROW
-         curses_driver_add_chtype_at(dialog_win,height-1,1,
+         the_driver->add_chtype_at(dialog_win,height-1,1,
                                      A_ALTCHARSET|ACS_LARROW);
 # else
-         curses_driver_add_chtype_at(dialog_win,height-1,1,'<');
+         the_driver->add_chtype_at(dialog_win,height-1,1,'<');
 # endif
 # ifdef ACS_RARROW
-         curses_driver_add_chtype_at(dialog_win,height-1,width-2,
+         the_driver->add_chtype_at(dialog_win,height-1,width-2,
                                      A_ALTCHARSET|ACS_RARROW);
 # else
-         curses_driver_add_chtype_at(dialog_win,height-1,width-2,'>');
+         the_driver->add_chtype_at(dialog_win,height-1,width-2,'>');
 # endif
-         curses_driver_add_chtype_at(dialog_win,height-1,width-1,' ');
+         the_driver->add_chtype_at(dialog_win,height-1,width-1,' ');
       }
-      curses_driver_refresh_window(dialog_win);
+      the_driver->refresh_window(dialog_win);
 #endif
    }
    while(1)
@@ -5410,28 +5409,28 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
 
          if (snapshot_row->role == TRANSIENT_UI_ROW_POPUP_SEPARATOR)
          {
-            curses_driver_set_window_attr(pad,set_colour(CURRENT_FILE->attr+ATTR_POP_DIVIDER));
-            curses_driver_move_window_cursor(pad,item_index,0);
-            curses_driver_draw_horizontal_line(pad,0,pad_width-2);
+            the_driver->set_window_attr(pad,set_colour(CURRENT_FILE->attr+ATTR_POP_DIVIDER));
+            the_driver->move_window_cursor(pad,item_index,0);
+            the_driver->draw_horizontal_line(pad,0,pad_width-2);
          }
          else
          {
             if (snapshot_row->active)
-               curses_driver_set_window_attr(pad,set_colour(CURRENT_FILE->attr+ATTR_POP_CURLINE));
+               the_driver->set_window_attr(pad,set_colour(CURRENT_FILE->attr+ATTR_POP_CURLINE));
             else
-               curses_driver_set_window_attr(pad,set_colour(CURRENT_FILE->attr+ATTR_POPUP));
-            curses_driver_add_string_at(pad,item_index,1,
+               the_driver->set_window_attr(pad,set_colour(CURRENT_FILE->attr+ATTR_POPUP));
+            the_driver->add_string_at(pad,item_index,1,
                                         (DEFCHAR *)snapshot_row->text);
-            curses_driver_move_window_cursor(pad,item_index,
+            the_driver->move_window_cursor(pad,item_index,
                                              1+strlen(snapshot_row->text));
             for (j=1+strlen(snapshot_row->text);j<pad_width-3;j++)
             {
-               curses_driver_add_chtype(pad,' ');
+               the_driver->add_chtype(pad,' ');
             }
          }
       }
-      curses_driver_touch_window(pad);
-      curses_driver_refresh_pad(pad, y_offset, x_offset, screeny+1, screenx+1,
+      the_driver->touch_window(pad);
+      the_driver->refresh_pad(pad, y_offset, x_offset, screeny+1, screenx+1,
                                 screeny+height-2, screenx+width-2);
 
       key = the_driver->read_raw_standard_key();
@@ -5448,7 +5447,7 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
          TheDriverMouseEvent mouse;
          TransientUiAction action;
 
-         if (!curses_driver_read_mouse_event(dialog_win, &mouse))
+         if (!the_driver->read_mouse_event(dialog_win, &mouse))
          {
            TRACE_RETURN();
            return(RC_OK);
@@ -5481,10 +5480,10 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
              */
             highlighted_line = (short)popup_state.highlighted_item;
             item_selected = (short)popup_state.selected_item;
-            curses_driver_set_window_attr(pad,set_colour(CURRENT_FILE->attr+ATTR_POPUP));
-            curses_driver_add_string_at(pad,item_selected,1,
+            the_driver->set_window_attr(pad,set_colour(CURRENT_FILE->attr+ATTR_POPUP));
+            the_driver->add_string_at(pad,item_selected,1,
                                         (DEFCHAR *)args[item_selected]);
-            curses_driver_touch_window(pad);
+            the_driver->touch_window(pad);
             break;
          }
          continue;
@@ -5527,8 +5526,8 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
       }
    }
 
-   curses_driver_delete_window(pad);
-   curses_driver_delete_window(dialog_win);
+   the_driver->delete_window(pad);
+   the_driver->delete_window(dialog_win);
    the_driver->present_cursor(TRUE);
    /*
     * Set the Rexx variables POPUP.0, POPUP.1 and POPUP.2 depending

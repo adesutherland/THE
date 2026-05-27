@@ -37,7 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 
 /*man-start*********************************************************************
 COMMAND
@@ -892,11 +892,11 @@ short Readv(CHARTYPE *params)
          rc = readv_cmdline( word[1], NULL, -1 );
          set_rexx_variable( (CHARTYPE *)"READV", cmd_rec, cmd_rec_len, 1 );
          set_rexx_variable( (CHARTYPE *)"READV", (CHARTYPE *)"1", 1, 0 );
-         curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND, 0, 0);
+         the_driver->move_current_role_cursor(WINDOW_COMMAND, 0, 0);
          the_driver->clear_current_role_to_eol(WINDOW_COMMAND);
          memset(cmd_rec,' ',max_line_length);
          cmd_rec_len = 0;
-         curses_driver_move_window_cursor(CURRENT_WINDOW_COMMAND, 0, 0);
+         the_driver->move_current_role_cursor(WINDOW_COMMAND, 0, 0);
          if ( !cursor_on_cmdline )
             THEcursor_home( current_screen, CURRENT_VIEW, TRUE );
       }
@@ -1336,7 +1336,7 @@ short THERefresh(CHARTYPE *params)
    the_driver->touch_current_window();
    the_driver->refresh_current_window();
 
-   curses_driver_touch_window(curscr);
+   the_driver->touch_window(curscr);
    the_driver->update();
    interactive_in_macro = FALSE;
    in_macro = save_in_macro;
