@@ -51,6 +51,8 @@
 # include <curses.h>
 #endif
 
+int curses_driver_read_raw_window_key(WINDOW *win);
+
 /*
  * Do special character handling if using ncurses, xcurses
  */
@@ -112,10 +114,7 @@ int my_getch (WINDOW *winptr)
 
    while (1)
    {
-#ifdef VMS1
-      c = keypress();
-#else
-      c = wgetch( winptr );
+      c = curses_driver_read_raw_window_key( winptr );
 # if defined(USE_NCURSES) && defined(EINTR) && defined(KEY_RESIZE)
       if ( c == ERR )
       {
@@ -124,11 +123,10 @@ int my_getch (WINDOW *winptr)
          else
          {
             if ( errno == 0 )
-               c = wgetch( winptr );
+               c = curses_driver_read_raw_window_key( winptr );
          }
       }
 # endif
-#endif
       mouse_getch_trace(winptr,c);
       switch (state)
       {
@@ -370,7 +368,7 @@ int my_getch (WINDOW *winptr)
 #if defined(HAVE_NODELAY) && defined(HAVE_UNGETCH)
                   /* this code allows the user to use the ESC key */
                   nodelay(winptr,TRUE);
-                  tmp_c = wgetch(winptr);
+                  tmp_c = curses_driver_read_raw_window_key(winptr);
                   nodelay(winptr,FALSE);
                   if (tmp_c  == ERR)
                      return(c);
@@ -389,39 +387,5 @@ int my_getch (WINDOW *winptr)
             }
       }
    }
-}
-#endif
-
-#ifdef VMS1
-#include iodef
-#include descrip
-/***********************************************************************/
-short keypress()
-/***********************************************************************/
-{
-   struct { long length; char *address; } logical_name;
-   struct { short status; short length; short remainder; } iosb;
-
-   static char kb[] = { "sys$input" };
-   static short chan;
-
-   static char key = 0;
-   short new_key;
-   static short first = 1;
-   short status;
-
-   key = 0;
-   logical_name.length = strlen (kb);
-   logical_name.address = kb;
-   status = sys$assign (&logical_name, &chan, 0, 0);
-   if (status != 1)
-      return(-1);
-   status = SYS$QIOW(0, chan, IO$_READVBLK | IO$M_NOFILTR | IO$M_NOECHO
-        | IO$M_TIMED, &iosb, 0, 0, &key, 1,600, 0,0, 0, 0);
-   if (!key)
-      return (0);
-   new_key = (short)(key);
-   status = sys$dassgn (chan);
-   return (new_key);
 }
 #endif

@@ -234,7 +234,6 @@ bool IsPathAndFilenameValid (CHARTYPE *);
 #endif
 LINE *getclipboard (LINE *, int);
 short setclipboard (FILE_DETAILS *,CHARTYPE *,bool,LINETYPE,LINETYPE,LINETYPE,LINETYPE *,bool,LENGTHTYPE,LENGTHTYPE,bool,bool,int);
-void draw_cursor (bool);
 CursorShape current_cursor_shape (void);
 CursorBlink current_cursor_blink (void);
 CursorPresentation current_cursor_presentation (void);

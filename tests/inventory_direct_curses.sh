@@ -180,6 +180,10 @@ FNR == 1 {
   if (skip_if_zero > 0) {
     if (directive ~ /^#[[:space:]]*if([[:space:]]|$)/)
       skip_if_zero++
+    else if (directive ~ /^#[[:space:]]*else([[:space:]]|$)/) {
+      if (skip_if_zero == 1)
+        skip_if_zero = 0
+    }
     else if (directive ~ /^#[[:space:]]*endif([[:space:]]|$)/)
       skip_if_zero--
     next

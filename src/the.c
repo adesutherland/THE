@@ -36,6 +36,7 @@
 #define MAIN 1
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 #include "utfterm.h"
 #include <time.h>
 #ifdef WIN32
@@ -1265,7 +1266,7 @@ fclose( fp);
    nonl();
    noecho();
 #ifdef HAVE_KEYPAD
-   keypad( stdscr, TRUE );
+   curses_driver_enable_keypad( stdscr, true );
 #endif
 #ifdef HAVE_NOTIMEOUT
    notimeout( stdscr, TRUE );
@@ -1290,14 +1291,13 @@ fclose( fp);
    set_screen_defaults();
 
 #if defined(HAVE_BROKEN_SYSVR4_CURSES)
-   force_curses_background();
-   refresh();
+   curses_driver_force_background_and_refresh(stdscr);
 #endif
    /*
     * wnoutrefresh() is called here so that the first call to getch() on
     * stdscr does not clear the screen.
     */
-   wnoutrefresh(stdscr);
+   curses_driver_refresh_window(stdscr);
 #if defined(HAVE_SLK_INIT)
    if (SLKx) slk_noutrefresh();
 #endif
@@ -1425,12 +1425,12 @@ fclose( fp);
 
    if (divider != (WINDOW *)NULL)
    {
-      delwin(divider);
+      curses_driver_delete_window(divider);
       divider = (WINDOW *)NULL;
    }
    if (error_window != (WINDOW *)NULL)
    {
-      delwin(error_window);
+      curses_driver_delete_window(error_window);
       error_window = (WINDOW *)NULL;
    }
    if (last_message != NULL)
@@ -1446,10 +1446,10 @@ fclose( fp);
 #if !defined(USE_XCURSES) && !defined(USE_WINGUICURSES) && !defined(USE_SDLCURSES)
    if (CLEARSCREENx)
    {
-      wclear(stdscr);
-      move(0,0);
-      attrset(A_NORMAL);
-      refresh();
+      curses_driver_clear_standard_window();
+      curses_driver_move_standard_cursor(0,0);
+      curses_driver_set_standard_attr(A_NORMAL);
+      curses_driver_refresh_standard_screen();
    }
    else
 #endif
@@ -1459,20 +1459,20 @@ fclose( fp);
    {
       if (statarea != (WINDOW *)NULL)
       {
-         mvwaddstr(statarea,0,4,"     ");
-         wattrset(statarea,A_NORMAL);
-         mvwaddstr(statarea,0,0,"THE - END");
-         wrefresh(statarea);
+         curses_driver_add_string_at(statarea,0,4,"     ");
+         curses_driver_set_window_attr(statarea,A_NORMAL);
+         curses_driver_add_string_at(statarea,0,0,"THE - END");
+         curses_driver_refresh_window_now(statarea);
       }
    }
    if (statarea != (WINDOW *)NULL)
    {
-      delwin(statarea);
+      curses_driver_delete_window(statarea);
       statarea = (WINDOW *)NULL;
    }
    if (filetabs != (WINDOW *)NULL)
    {
-      delwin(filetabs);
+      curses_driver_delete_window(filetabs);
       filetabs = (WINDOW *)NULL;
    }
    last_option = first_option = lll_free(first_option);
@@ -1789,20 +1789,19 @@ void cleanup(void)
       &&  error_window != NULL)
       {
          display_error(0,(CHARTYPE *)HIT_ANY_KEY,FALSE);
-         wrefresh(error_window);
+         curses_driver_refresh_window_now(error_window);
 #ifdef KEY_RESIZE
          /*
           * Real hack here. If we have an error caused by editing the first file
           * like line too long, then we need to ignore all KEY_RESIZE events; XCurses
           * sends a resize on startup every time!
           */
-         while ( getch() == KEY_RESIZE );
+         while ( curses_driver_read_raw_standard_key() == KEY_RESIZE );
 #else
-         getch();
+         curses_driver_read_raw_standard_key();
 #endif
       }
       INSERTMODEx=FALSE;
-/*      draw_cursor(TRUE);*/
 #ifdef HAVE_BSD_CURSES
       nl();
       echo();

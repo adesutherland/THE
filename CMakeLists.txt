@@ -493,6 +493,12 @@ add_test(NAME test_curses_boundary_inventory
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/inventory_direct_curses.sh
             --fail-on-new
             ${CMAKE_CURRENT_SOURCE_DIR})
+add_custom_target(curses_boundary_inventory
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/inventory_direct_curses.sh
+            --fail-on-new
+            ${CMAKE_CURRENT_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Running direct curses inventory ratchet")
 add_executable(test_textpos tests/test_textpos.c src/textpos.c)
 target_include_directories(test_textpos PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8 AND USE_UTF8PROC)

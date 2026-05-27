@@ -1778,7 +1778,7 @@ short free_view_memory(bool free_file_lines,bool display_the_screen)
          current_screen = 0;
          if (divider != (WINDOW *)NULL)
          {
-            delwin(divider);
+            curses_driver_delete_window(divider);
             divider = NULL;
          }
          break;

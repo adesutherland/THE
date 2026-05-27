@@ -1416,7 +1416,7 @@ short Fillbox(CHARTYPE *params)
       curses_driver_update();
       while(1)
       {
-         key = my_getch( CURRENT_WINDOW );
+         key = curses_driver_read_window_key( CURRENT_WINDOW );
          if ( !is_modifier_key( key ) )
             break;
       }

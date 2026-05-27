@@ -35,6 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 
 /*-------------------------- declarations -----------------------------*/
 static short parse_prefix_command (THE_PPC *);
@@ -535,11 +536,20 @@ short execute_prefix_commands(void)
       if ( PENDING_VIEW->current_window != WINDOW_COMMAND )
       {
          if ( curses_started )
-            getyx( PENDING_WINDOW, y, x );
+         {
+            CursesDriverWindowCursor cursor;
+
+            cursor = curses_driver_capture_window_cursor( PENDING_WINDOW );
+            if (cursor.valid)
+            {
+               y = cursor.row;
+               x = cursor.col;
+            }
+         }
          PENDING_VIEW->focus_line = get_focus_line_in_view( pending_screen, PENDING_VIEW->focus_line, y );
          y = get_row_for_focus_line( pending_screen, PENDING_VIEW->focus_line, PENDING_VIEW->current_row );
          if ( curses_started )
-            wmove( PENDING_WINDOW, y, x );
+            curses_driver_move_window_cursor( PENDING_WINDOW, y, x );
          pre_process_line( PENDING_VIEW, PENDING_VIEW->focus_line, (LINE *)NULL );
       }
    }
@@ -551,11 +561,20 @@ short execute_prefix_commands(void)
       if ( CURRENT_VIEW->current_window != WINDOW_COMMAND )
       {
          if ( curses_started )
-            getyx( CURRENT_WINDOW, y, x );
+         {
+            CursesDriverWindowCursor cursor;
+
+            cursor = curses_driver_capture_window_cursor( CURRENT_WINDOW );
+            if (cursor.valid)
+            {
+               y = cursor.row;
+               x = cursor.col;
+            }
+         }
          CURRENT_VIEW->focus_line = get_focus_line_in_view( current_screen, CURRENT_VIEW->focus_line, y );
          y = get_row_for_focus_line( current_screen, CURRENT_VIEW->focus_line, CURRENT_VIEW->current_row );
          if ( curses_started )
-            wmove( CURRENT_WINDOW, y, x );
+            curses_driver_move_window_cursor( CURRENT_WINDOW, y, x );
          pre_process_line( CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL );
       }
    }
@@ -1976,10 +1995,19 @@ static short post_prefix_add(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lin
    short rc=RC_OK;
    unsigned short y=0,x=0;
 
-   getyx( PENDING_WINDOW, y, x );
+   {
+      CursesDriverWindowCursor cursor;
+
+      cursor = curses_driver_capture_window_cursor( PENDING_WINDOW );
+      if (cursor.valid)
+      {
+         y = cursor.row;
+         x = cursor.col;
+      }
+   }
    if ( PENDING_VIEW->current_window == WINDOW_PREFIX )
       PENDING_VIEW->current_window = WINDOW_FILEAREA;
-   wmove( PENDING_WINDOW, y, 0 );
+   curses_driver_move_window_cursor( PENDING_WINDOW, y, 0 );
    if ( PENDING_VIEW->current_window == WINDOW_FILEAREA )
    {
       if ( !VIEW_BOF( PENDING_VIEW, (PENDING_VIEW->focus_line)+1L ) )

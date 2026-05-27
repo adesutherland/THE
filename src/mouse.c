@@ -644,12 +644,12 @@ short THEMouse(CHARTYPE *params)
    TheInputEvent input;
 
    TRACE_FUNCTION( "mouse.c:  THEMouse" );
-   rc = get_mouse_info(&curr_button,&curr_button_action,&curr_button_modifier);
-   if (rc != RC_OK)
+   if (!curses_driver_read_mouse_button(&curr_button,&curr_button_action,
+                                        &curr_button_modifier))
    {
-      mouse_trace_message("THEMouse-invalid", "rc=%d", rc);
+      mouse_trace_message("THEMouse-invalid", "rc=%d", RC_INVALID_OPERAND);
       TRACE_RETURN();
-      return(rc);
+      return(RC_INVALID_OPERAND);
    }
    if (!mouse_build_logical_input(&input, &scrn, &w))
    {

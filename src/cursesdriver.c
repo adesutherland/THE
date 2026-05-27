@@ -2,6 +2,7 @@
 #include "proto.h"
 #include "cursesdriver.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #ifdef USE_UTF8
@@ -107,6 +108,81 @@ int curses_driver_viewport_col_for_logical(const CHARTYPE *line, size_t len,
       *visible = window_cols > 0 && target_display_col < window_cols;
    return current_viewport_col;
 #endif
+}
+
+CursorShape current_cursor_shape(void)
+{
+   return INSERTMODEx ? cursorstyle_insert_shape : cursorstyle_over_shape;
+}
+
+CursorBlink current_cursor_blink(void)
+{
+   return INSERTMODEx ? cursorstyle_insert_blink : cursorstyle_over_blink;
+}
+
+CursorPresentation current_cursor_presentation(void)
+{
+#ifdef USE_UTF8
+   if (CURRENT_VIEW != NULL
+   &&  (CURRENT_VIEW->current_window == WINDOW_FILEAREA
+     || CURRENT_VIEW->current_window == WINDOW_PREFIX
+     || CURRENT_VIEW->current_window == WINDOW_COMMAND))
+      return CURSOR_PRESENTATION_SOFTWARE;
+#endif
+   return CURSOR_PRESENTATION_HARDWARE;
+}
+
+bool current_cursor_uses_software(void)
+{
+   return current_cursor_presentation() == CURSOR_PRESENTATION_SOFTWARE;
+}
+
+static void curses_driver_apply_cursor_visibility(bool visible)
+{
+   TRACE_FUNCTION("cursesdriver.c: curses_driver_apply_cursor_visibility");
+#ifdef HAVE_CURS_SET
+   if (visible)
+   {
+      CursorShape shape;
+      CursorBlink blink;
+
+      if (current_cursor_uses_software())
+      {
+         curs_set(0);
+         TRACE_RETURN();
+         return;
+      }
+
+      shape = current_cursor_shape();
+      blink = current_cursor_blink();
+
+#ifdef USE_NCURSES
+      int seq = 1;
+      if (shape == CURSOR_BLOCK && blink == CURSOR_BLINK) seq = 1;
+      else if (shape == CURSOR_BLOCK && blink == CURSOR_STEADY) seq = 2;
+      else if (shape == CURSOR_UNDERLINE && blink == CURSOR_BLINK) seq = 3;
+      else if (shape == CURSOR_UNDERLINE && blink == CURSOR_STEADY) seq = 4;
+      else if (shape == CURSOR_IBEAM && blink == CURSOR_BLINK) seq = 5;
+      else if (shape == CURSOR_IBEAM && blink == CURSOR_STEADY) seq = 6;
+
+      printf("\033[%d q", seq);
+      fflush(stdout);
+#endif
+
+      if (shape == CURSOR_BLOCK)
+      {
+         curs_set(1);
+         curs_set(2);
+      }
+      else
+         curs_set(1);
+   }
+   else
+      curs_set(0);
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(visible);
+#endif
+   TRACE_RETURN();
 }
 
 chtype curses_driver_software_cursor_attr(CHARTYPE scrno, chtype base,
@@ -554,7 +630,7 @@ void curses_driver_update(void)
 
 void curses_driver_present_cursor(bool visible)
 {
-   draw_cursor(visible);
+   curses_driver_apply_cursor_visibility(visible);
 }
 
 void curses_driver_set_window_timeout(WINDOW *win, int milliseconds)
@@ -623,9 +699,16 @@ int curses_driver_read_standard_key(void)
    return my_getch(stdscr);
 }
 
+int curses_driver_read_raw_window_key(WINDOW *win)
+{
+   if (win == NULL)
+      return ERR;
+   return wgetch(win);
+}
+
 int curses_driver_read_raw_standard_key(void)
 {
-   return wgetch(stdscr);
+   return curses_driver_read_raw_window_key(stdscr);
 }
 
 void curses_driver_mouse_position(WINDOW *win, int *row, int *col)
@@ -651,10 +734,9 @@ int curses_driver_read_mouse_event(WINDOW *win, CursesDriverMouseEvent *event)
       event->row = -1;
       event->col = -1;
    }
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
    if (event == NULL)
       return 0;
-   if (get_mouse_info(&button, &action, &modifier) != RC_OK)
+   if (!curses_driver_read_mouse_button(&button, &action, &modifier))
       return 0;
    event->button = button;
    event->modifier = modifier;
@@ -670,8 +752,25 @@ int curses_driver_read_mouse_event(WINDOW *win, CursesDriverMouseEvent *event)
    curses_driver_mouse_position(win, &event->row, &event->col);
    event->inside = event->row != -1 && event->col != -1;
    return 1;
+}
+
+int curses_driver_read_mouse_button(int *button, int *action, int *modifier)
+{
+#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+   int raw_button = 0;
+   int raw_action = 0;
+   int raw_modifier = 0;
+
+   if (get_mouse_info(&raw_button, &raw_action, &raw_modifier) != RC_OK)
+      return 0;
+   if (button != NULL)
+      *button = raw_button;
+   if (action != NULL)
+      *action = raw_action;
+   if (modifier != NULL)
+      *modifier = raw_modifier;
+   return 1;
 #else
-   INTENTIONALLY_UNUSED_VARIABLE(win);
    INTENTIONALLY_UNUSED_VARIABLE(button);
    INTENTIONALLY_UNUSED_VARIABLE(action);
    INTENTIONALLY_UNUSED_VARIABLE(modifier);
@@ -695,7 +794,7 @@ void curses_driver_force_background_and_refresh(WINDOW *win)
    cursor = curses_driver_capture_window_cursor(win);
    force_curses_background();
    curses_driver_restore_window_cursor(win, cursor);
-   refresh();
+   curses_driver_refresh_standard_screen();
 #else
    INTENTIONALLY_UNUSED_VARIABLE(win);
 #endif

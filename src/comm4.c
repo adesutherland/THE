@@ -2250,7 +2250,7 @@ short ShowKey(CHARTYPE *params)
             {
                int b,ba,bm,w;
                CHARTYPE scrn;
-               if (get_mouse_info(&b,&ba,&bm) != RC_OK)
+               if (!curses_driver_read_mouse_button(&b,&ba,&bm))
                   continue;
                which_window_is_mouse_in(&scrn,&w);
                mouse_key = TRUE;

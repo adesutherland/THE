@@ -1,6 +1,6 @@
 # UTF-8 Cursor/Driver Handover
 
-Last updated: 2026-05-26.
+Last updated: 2026-05-27.
 
 This is the practical status ledger for the UTF, cursor, driver, and LLM
 reorganization. Keep it short. Put detailed design history in `doc/utf-design.md`
@@ -104,38 +104,49 @@ them mechanically and verify the supported targets in one sweep.
   wrapper calls, and `test_curses_boundary_inventory` fails only when
   actionable category/file/function buckets exceed
   `tests/inventory_direct_curses.baseline.tsv`.
-- A bulk wrapper pass moved high-confidence raw physical paint/input mechanics
-  in `comm1.c`, `comm3.c`, `comm4.c`, `commset1.c`, `commset2.c`,
-  `commutil.c`, `error.c`, and `util.c` behind existing
-  `curses_driver_*` wrappers. `show.c` renderer/window-state/chtype storage
-  was deliberately left for a later slice.
+- Bulk wrapper passes moved high-confidence raw physical paint/input mechanics
+  in `comm1.c`, `comm2.c`, `comm3.c`, `comm4.c`, `commset1.c`,
+  `commset2.c`, `commutil.c`, `error.c`, `file.c`, `getch.c`, `mouse.c`,
+  `prefix.c`, `query.c`, `query2.c`, `rexx.c`, `the.c`, and `util.c`
+  behind `curses_driver_*` wrappers. `show.c` renderer/window-state/chtype
+  storage was deliberately left for a later slice.
+- The direct-curses inventory scanner now handles `#if 0 ... #else ...
+  #endif` correctly by scanning the active `#else` arm. The ratchet is both a
+  CTest (`test_curses_boundary_inventory`) and a build target
+  (`curses_boundary_inventory`).
+- Adjacent dead platform branches were pruned where they obscured this
+  inventory: the unsupported VMS raw-key path in `getch.c` and the unsupported
+  DOS/OS2/disabled Win32 cursor visibility overrides in `nonansi.c`.
 
 ## Active Slice
 
-No active migration slice is selected after closing the inventory ratchet and
-bulk physical wrapper pass. Pick the next slice from the debt buckets below and
-close it with the same proof pattern: no-curses model first, curses path uses
-that model, then guardrail the cleaned surface.
+No active migration slice is selected after closing the inventory ratchet,
+bulk physical wrapper pass, and physical input/paint cleanup. Pick the next
+slice from the debt buckets below and close it with the same proof pattern:
+no-curses model first, curses path uses that model, then guardrail the cleaned
+surface.
 
 ## Direct Curses Inventory
 
 `tests/inventory_direct_curses.sh` reports remaining direct curses dependencies
 outside `src/cursesdriver.*`, bundled PDCurses, and contrib code. It now has
-three useful modes:
+four useful modes:
 
 - default full inventory: every classified finding.
 - `--summary`: debt-oriented category totals plus top category/file/function
   buckets.
-- `--fail-on-new`: CTest ratchet against
+- `--baseline`: aggregate category/file/function buckets for the checked-in
+  ratchet baseline.
+- `--fail-on-new`: CTest/build-target ratchet against
   `tests/inventory_direct_curses.baseline.tsv`.
 
 Current ratcheted counts:
 
-- actionable `physical-input`: 12
-- actionable `physical-paint`: 31
+- actionable `physical-input`: 0
+- actionable `physical-paint`: 0
 - actionable `mouse-token`: 24
-- actionable `window-state`: 398
-- allowed/migrated `driver-wrapper`: 588
+- actionable `window-state`: 397
+- allowed/migrated `driver-wrapper`: 629
 
 For the cleaned transient functions, the sweep finds no raw `physical-input` or
 `physical-paint` calls in `readv_cmdline()`, `execute_dialog()`, or
@@ -148,18 +159,26 @@ must-fix-all-existing-debt gate. Reductions are allowed without updating every
 other bucket. `driver-wrapper` entries are counted for visibility but are
 treated as migrated/allowed and do not fail the ratchet.
 
-The bulk wrapper pass reduced the current scanner's raw `physical-input` count
-from 16 to 12 and raw `physical-paint` count from 198 to 31. The scanner also
-stops treating comments, prototypes/function names, and `#if 0` bodies as raw
-call sites. Windows PDCursesMod `wincon` was not build-verified in this pass.
+The wrapper passes reduced the current scanner's raw `physical-input` count
+from 16 to 12 to 0 and raw `physical-paint` count from 198 to 31 to 0. The
+latest cleanup slice specifically reduced `physical-input` from 12 to 0 and
+`physical-paint` from 31 to 0, with `mouse-token` unchanged at 24. The scanner
+also stops treating comments, prototypes/function names, `#if 0` bodies, and
+inactive `#if 0` arms before active `#else` branches as raw call sites.
+Windows PDCursesMod `wincon` was not build-verified in this pass.
 
 ## Deferred Buckets
 
 Boundary debt:
 
-- Remaining direct curses calls in legacy command/render/setup modules outside
-  `src/cursesdriver.c`, especially the `physical-input`, `physical-paint`, and
-  `window-state` categories above.
+- Remaining direct curses window-state/type findings in legacy command,
+  render, setup, and header surfaces. These mostly reflect `WINDOW`, `chtype`,
+  `cchar_t`, active-window macros, and the future renderer/window-state model,
+  so they are intentionally deferred.
+- Remaining `mouse-token` findings are intentionally deferred unless adjacent
+  to a physical input path being migrated. They are currently branch tokens,
+  mouse key definitions, query/extract compatibility checks, and mouse-driver
+  button-action constants, not raw physical reads.
 - `driver-wrapper` entries outside the driver are allowed for migrated physical
   mechanics today, but many still indicate command code owning physical window
   timing or cursor placement. Classify them slice by slice.

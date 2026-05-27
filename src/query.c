@@ -35,6 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 
 #include <query.h>
 
@@ -2274,7 +2275,7 @@ void set_key_values(int key, bool mouse_key)
    {
       int b,ba,bm,w;
       CHARTYPE scrn;
-      if ( get_mouse_info( &b, &ba, &bm ) == RC_OK )
+      if ( curses_driver_read_mouse_button( &b, &ba, &bm ) )
       {
          which_window_is_mouse_in( &scrn, &w );
          key = mouse_info_to_key( w, b, ba, bm );
@@ -2481,7 +2482,7 @@ short show_status(void)
       }
    }
    mvaddstr(terminal_lines-2,0,HIT_ANY_KEY);
-   refresh();
+   curses_driver_refresh_standard_screen();
 
    TRACE_RETURN();
    return(RC_OK);

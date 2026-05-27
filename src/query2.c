@@ -35,6 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 
 #include <query.h>
 
@@ -1444,7 +1445,7 @@ short extract_readv(short number_variables,short itemno,CHARTYPE *itemargs,CHART
          (void)THERefresh((CHARTYPE *)"");
       }
 #endif
-      key = my_getch( CURRENT_WINDOW );
+      key = curses_driver_read_window_key( CURRENT_WINDOW );
 #ifdef CAN_RESIZE
       if (is_termresized())
          continue;

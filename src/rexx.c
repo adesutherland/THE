@@ -48,6 +48,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 
 LINE *rexxout_first_line=NULL;
 LINE *rexxout_last_line=NULL;
@@ -501,8 +502,8 @@ REH_RETURN_TYPE THE_SayTrace_Exit_Handler
                {
                   if ( !batch_only )
                   {
-                     wmove(statarea,0,COLS-1);
-                     wrefresh(statarea);
+                     curses_driver_move_window_cursor(statarea,0,COLS-1);
+                     curses_driver_refresh_window_now(statarea);
                      suspend_curses();
                   }
                   fputc( '\n', outfp );               /* scroll the screen 1 line */
@@ -1062,16 +1063,12 @@ short execute_macro_file
              */
             printf("\n%s",HIT_ANY_KEY);
             fflush(stdout);
-            (void)my_getch(stdscr);
+            (void)curses_driver_read_standard_key();
             resume_curses();
             if (number_of_files > 0)
             {
 #if defined(HAVE_BROKEN_SYSVR4_CURSES)
-               short x=0,y=0;
-               getyx(CURRENT_WINDOW,y,x);
-               force_curses_background();
-               wmove(CURRENT_WINDOW,y,x);
-               refresh();
+               curses_driver_force_background_and_refresh(CURRENT_WINDOW);
 #endif
                restore_THE();
             }
@@ -1210,16 +1207,12 @@ short execute_macro_instore
              */
             printf("\n%s",HIT_ANY_KEY);
             fflush(stdout);
-            (void)my_getch(stdscr);
+            (void)curses_driver_read_standard_key();
             resume_curses();
             if (number_of_files > 0)
             {
 #if defined(HAVE_BROKEN_SYSVR4_CURSES)
-               short x=0,y=0;
-               getyx(CURRENT_WINDOW,y,x);
-               force_curses_background();
-               wmove(CURRENT_WINDOW,y,x);
-               refresh();
+               curses_driver_force_background_and_refresh(CURRENT_WINDOW);
 #endif
                restore_THE();
             }

@@ -1,6 +1,6 @@
 # Cursor Driver Architecture
 
-Last updated: 2026-05-26.
+Last updated: 2026-05-27.
 
 This document is the ownership contract for the cursor/driver split. The active
 status ledger lives in `doc/utf-handover.md`.
@@ -134,10 +134,13 @@ Closed checkpoints are summarized here; details and next tasks are in
   broader LLM/headless editor direction. It links the transient model and is
   checked by `test_the_llm_headless_no_curses`.
 - `tests/inventory_direct_curses.sh` is the repeatable debt sweep and ratchet.
-  Current counts are actionable `physical-input: 12`, `physical-paint: 31`,
-  `mouse-token: 24`, and `window-state: 398`; `driver-wrapper: 588` is
-  counted as migrated/allowed. The cleaned transient functions have no raw
-  `physical-input` or `physical-paint` findings.
+  Current counts are actionable `physical-input: 0`, `physical-paint: 0`,
+  `mouse-token: 24`, and `window-state: 397`; `driver-wrapper: 629` is
+  counted as migrated/allowed. The ratchet is available as both CTest
+  `test_curses_boundary_inventory` and build target
+  `curses_boundary_inventory`. The cleaned transient functions and current
+  project-wide inventory have no raw `physical-input` or `physical-paint`
+  findings outside `src/cursesdriver.*`.
 
 ## Status Model
 
@@ -162,18 +165,20 @@ The current active categories are:
   coverage, major render cursor fallback removals, execute wrapper migration,
   focused query/SOS active-driver fallback removals, normalized live mouse
   input for normal `THEMouse` dispatch, transient readv/dialog/popup snapshot
-  model and curses-path materialization, `the_llm_headless`, and focused
-  guardrails.
-- Active slice: none selected after the inventory ratchet and bulk wrapper
-  pass. Choose the next slice from the inventory-backed boundary debt in
-  `doc/utf-handover.md`.
+  model and curses-path materialization, `the_llm_headless`, focused
+  guardrails, the no-new-debt direct-curses inventory ratchet, and
+  project-wide removal of raw `physical-input`/`physical-paint` findings
+  outside the driver.
+- Active slice: none selected after the inventory ratchet, bulk wrapper pass,
+  and physical input/paint cleanup. Choose the next slice from the
+  inventory-backed boundary debt in `doc/utf-handover.md`.
 - Deferred: full agent dispatcher integration, full prefix command machinery in
   the agent, agent protocol integration for transient snapshots, full live
   frames for command/prompt/status/window rows, removal of the transitional
-  cursor-focus bridge, retained-frame delta views, remaining direct curses debt
-  in legacy command/render/setup modules, the isolated keycap blank-cell
-  physical materialization/profile follow-up, and additional terminal
-  baselines.
+  cursor-focus bridge, retained-frame delta views, remaining direct curses
+  window-state/type and mouse-token debt in legacy command/render/setup
+  modules, the isolated keycap blank-cell physical materialization/profile
+  follow-up, and additional terminal baselines.
 
 ## Guardrails
 
