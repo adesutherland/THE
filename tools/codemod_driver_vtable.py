@@ -88,9 +88,6 @@ def load_mapping() -> dict[str, str]:
             "curses_driver_write_wide_string_at": "write_wide_string_at",
             "curses_driver_fill_cells_at": "fill_cells_at",
             "curses_driver_write_ascii_cells_at": "write_ascii_cells_at",
-            "curses_driver_read_window_key": "read_window_key",
-            "curses_driver_read_raw_window_key": "read_raw_window_key",
-            "curses_driver_read_mouse_event": "read_mouse_event",
             "curses_driver_force_background_and_refresh":
                 "force_background_and_refresh_window",
             "curses_driver_redraw_window": "redraw_window",
@@ -331,14 +328,6 @@ def rewrite_role_macro_calls(text: str, ops: set[str]) -> tuple[str, int]:
             "current_window": "current_window_size",
             "current_role": "current_role_size",
             "screen_role": "screen_role_size",
-        },
-        "curses_driver_read_window_key": {
-            "current_window": "read_current_window_key",
-            "current_role": "read_current_role_key",
-            "global": "read_global_window_key",
-        },
-        "curses_driver_read_mouse_event": {
-            "current_role": "read_current_role_mouse_event",
         },
         "curses_driver_set_window_timeout": {
             "current_window": "set_current_window_timeout",

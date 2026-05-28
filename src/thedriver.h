@@ -252,25 +252,6 @@ struct TheDriverOps
                                 const char *text, int width,
                                 TheDriverAttr colour);
    int (*read_input_event)(TheInputEvent *event);
-   int (*read_current_window_key)(void);
-   int (*read_current_role_key)(short role);
-   int (*read_global_window_key)(TheDriverGlobalWindowRole role);
-   int (*read_window_key)(TheDriverWindow *win);
-   int (*read_raw_window_key)(TheDriverWindow *win);
-   int (*read_standard_key)(void);
-   int (*read_raw_standard_key)(void);
-   int (*is_mouse_key)(int key);
-   int (*mouse_key_code)(void);
-   void (*mouse_position_for_screen_role)(CHARTYPE scrno, short role,
-                                          int *row, int *col);
-   void (*mouse_position_for_global)(TheDriverGlobalWindowRole role,
-                                     int *row, int *col);
-   void (*saved_mouse_position)(int *row, int *col);
-   void (*reset_mouse_position)(void);
-   int (*read_mouse_button)(int *button, int *action, int *modifier);
-   int (*read_current_role_mouse_event)(short role,
-                                        TheDriverMouseEvent *event);
-   int (*read_mouse_event)(TheDriverWindow *win, TheDriverMouseEvent *event);
    void (*prepare_for_shell_escape)(void);
    void (*repair_terminal_background)(
       TheDriverTerminalRepairTarget target);
@@ -303,5 +284,6 @@ extern const TheDriverOps *the_driver;
 void the_driver_select(const TheDriverOps *ops);
 int the_driver_use_curses(void);
 int the_driver_use_headless(void);
+int the_driver_read_legacy_key(void);
 
 #endif

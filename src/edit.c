@@ -132,7 +132,7 @@ int process_key(int key, bool mouse_details_present)
           } else {
               /* Wait for input with a 200ms timeout to allow background events to trigger a redraw */
               the_driver->set_current_window_timeout(200);
-              key = the_driver->read_current_window_key();
+              key = the_driver_read_legacy_key();
               the_driver->set_current_window_timeout(-1); /* Back to blocking */
               if (key == ERR) {
                   /* Timeout occurred, check event again */
@@ -145,10 +145,10 @@ int process_key(int key, bool mouse_details_present)
               }
           }
       } else {
-          key = the_driver->read_current_window_key();
+          key = the_driver_read_legacy_key();
       }
 #else
-      key = the_driver->read_current_window_key();
+      key = the_driver_read_legacy_key();
 #endif
    }
    if (the_input_event_from_legacy_key(key, &input_event))
@@ -159,7 +159,7 @@ int process_key(int key, bool mouse_details_present)
          key = normalized_key;
    }
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-   if (!the_driver->is_mouse_key(key))
+   if (!the_input_legacy_key_is_mouse(key))
    {
       if (!mouse_details_present)
          reset_saved_mouse_pos();
@@ -224,7 +224,7 @@ int process_key(int key, bool mouse_details_present)
     * Save details about the last key pressed
     */
    lastkeys[current_key] = key;
-   if (the_driver->is_mouse_key(key))
+   if (the_input_legacy_key_is_mouse(key))
    {
       lastkeys_is_mouse[current_key] = 1;
    }
@@ -266,7 +266,7 @@ int process_key(int key, bool mouse_details_present)
        * If we are recording a macro, write the key definintion
        * here
        */
-      write_macro( get_key_definition( key, THE_KEY_DEFINE_RAW, TRUE, (bool)(the_driver->is_mouse_key(key) ? TRUE : FALSE ) ) );
+      write_macro( get_key_definition( key, THE_KEY_DEFINE_RAW, TRUE, (bool)(the_input_legacy_key_is_mouse(key) ? TRUE : FALSE ) ) );
    }
    save_for_repeat = 0;
    rc = function_key( key, OPTION_NORMAL, mouse_details_present );

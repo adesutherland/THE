@@ -497,6 +497,10 @@ void which_window_is_mouse_in (CHARTYPE *,int *);
 void reset_saved_mouse_pos (void);
 void get_saved_mouse_pos (int *, int *);
 int get_saved_mouse_target (struct TheInputLogicalTarget *);
+int read_pending_mouse_definition_key (int *);
+int read_transient_current_role_mouse_event (short, TheDriverMouseEvent *);
+int read_transient_window_mouse_event (struct TheDriverWindow *,
+                                       TheDriverMouseEvent *);
 void initialise_mouse_commands (void);
 int mouse_info_to_key (int,int,int,int);
 void mouse_trace_message (const char *, const char *, ...);

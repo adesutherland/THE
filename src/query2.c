@@ -1445,13 +1445,13 @@ short extract_readv(short number_variables,short itemno,CHARTYPE *itemargs,CHART
          (void)THERefresh((CHARTYPE *)"");
       }
 #endif
-      key = the_driver->read_current_window_key();
+      key = the_driver_read_legacy_key();
 #ifdef CAN_RESIZE
       if (is_termresized())
          continue;
 #endif
 #if defined (PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-      if (the_driver->is_mouse_key(key))
+      if (the_input_legacy_key_is_mouse(key))
       {
          mouse_key = TRUE;
       }

@@ -28,9 +28,5 @@ int headless_driver_render_cell_at(TheDriverWindow *win, int row, int col,
 
 void headless_driver_queue_key(int key);
 int headless_driver_queue_input_event(TheInputEvent event);
-void headless_driver_set_mouse_position(int row, int col);
-void headless_driver_set_mouse_button(int button, int action, int modifier);
-void headless_driver_set_mouse_event(int button, TheDriverMouseAction action,
-                                     int modifier, int row, int col);
 
 #endif

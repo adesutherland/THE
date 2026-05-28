@@ -12,8 +12,7 @@ enum
    HEADLESS_VIEW_WINDOWS = 6,
    HEADLESS_ROLE_FILEAREA = 0,
    HEADLESS_ROLE_PREFIX = 1,
-   HEADLESS_GLOBAL_WINDOWS = 4,
-   HEADLESS_MOUSE_KEY = 0x1001
+   HEADLESS_GLOBAL_WINDOWS = 4
 };
 
 struct TheDriverWindow
@@ -53,15 +52,6 @@ typedef struct
    int standard_keypad_enabled;
    int standard_notimeout_enabled;
    int cursor_visible;
-   int mouse_row;
-   int mouse_col;
-   int mouse_valid;
-   int mouse_button;
-   int mouse_action;
-   int mouse_modifier;
-   int mouse_button_valid;
-   TheDriverMouseEvent mouse_event;
-   int mouse_event_valid;
    int terminal_report_writes;
    TheInputQueue input_queue;
    char log[HEADLESS_DRIVER_OP_LOG_CAPACITY][96];
@@ -471,54 +461,6 @@ static void headless_clear_to_eol(TheDriverWindow *win)
       headless_set_cell_at(win, win->cursor_row, col, ' ');
 }
 
-static int headless_pop_key(void)
-{
-   int key = -1;
-
-   if (!the_input_queue_pop_legacy_key(&headless_state.input_queue, &key))
-      return -1;
-   return key;
-}
-
-static void headless_project_mouse(TheDriverWindow *win, int *row, int *col)
-{
-   if (row != NULL)
-      *row = -1;
-   if (col != NULL)
-      *col = -1;
-   if (win == NULL || !headless_state.mouse_valid)
-      return;
-   if (row != NULL)
-      *row = headless_state.mouse_row - win->origin_row;
-   if (col != NULL)
-      *col = headless_state.mouse_col - win->origin_col;
-}
-
-static TheDriverMouseEvent headless_mouse_event_for_window(
-   TheDriverWindow *win)
-{
-   TheDriverMouseEvent event;
-
-   memset(&event, 0, sizeof(event));
-   if (headless_state.mouse_event_valid)
-      event = headless_state.mouse_event;
-   else
-   {
-      event.button = headless_state.mouse_button;
-      event.action = (TheDriverMouseAction)headless_state.mouse_action;
-      event.modifier = headless_state.mouse_modifier;
-      event.valid = headless_state.mouse_button_valid
-                 || headless_state.mouse_valid;
-      headless_project_mouse(win, &event.row, &event.col);
-   }
-   event.inside = win != NULL
-               && event.row >= 0
-               && event.col >= 0
-               && event.row < win->rows
-               && event.col < win->cols;
-   return event;
-}
-
 void headless_driver_reset(void)
 {
    TheDriverWindow *win;
@@ -630,35 +572,6 @@ void headless_driver_queue_key(int key)
 int headless_driver_queue_input_event(TheInputEvent event)
 {
    return the_input_queue_push(&headless_state.input_queue, event);
-}
-
-void headless_driver_set_mouse_position(int row, int col)
-{
-   headless_state.mouse_row = row;
-   headless_state.mouse_col = col;
-   headless_state.mouse_valid = 1;
-}
-
-void headless_driver_set_mouse_button(int button, int action, int modifier)
-{
-   headless_state.mouse_button = button;
-   headless_state.mouse_action = action;
-   headless_state.mouse_modifier = modifier;
-   headless_state.mouse_button_valid = 1;
-}
-
-void headless_driver_set_mouse_event(int button, TheDriverMouseAction action,
-                                     int modifier, int row, int col)
-{
-   memset(&headless_state.mouse_event, 0,
-          sizeof(headless_state.mouse_event));
-   headless_state.mouse_event.button = button;
-   headless_state.mouse_event.action = action;
-   headless_state.mouse_event.modifier = modifier;
-   headless_state.mouse_event.row = row;
-   headless_state.mouse_event.col = col;
-   headless_state.mouse_event.valid = 1;
-   headless_state.mouse_event_valid = 1;
 }
 
 static TheDriverAttr headless_driver_software_cursor_attr(
@@ -1501,113 +1414,6 @@ static int headless_driver_read_input_event(TheInputEvent *event)
    return event->kind != THE_INPUT_NONE;
 }
 
-static int headless_driver_read_current_window_key(void)
-{
-   return headless_pop_key();
-}
-
-static int headless_driver_read_current_role_key(short role)
-{
-   (void)role;
-   return headless_pop_key();
-}
-
-static int headless_driver_read_global_window_key(
-   TheDriverGlobalWindowRole role)
-{
-   (void)role;
-   return headless_pop_key();
-}
-
-static int headless_driver_read_window_key(TheDriverWindow *win)
-{
-   (void)win;
-   return headless_pop_key();
-}
-
-static int headless_driver_read_raw_window_key(TheDriverWindow *win)
-{
-   (void)win;
-   return headless_pop_key();
-}
-
-static int headless_driver_read_standard_key(void)
-{
-   return headless_pop_key();
-}
-
-static int headless_driver_read_raw_standard_key(void)
-{
-   return headless_pop_key();
-}
-
-static int headless_driver_is_mouse_key(int key)
-{
-   return key == HEADLESS_MOUSE_KEY;
-}
-
-static int headless_driver_mouse_key_code(void)
-{
-   return HEADLESS_MOUSE_KEY;
-}
-
-static void headless_driver_mouse_position_for_screen_role(
-   CHARTYPE scrno, short role, int *row, int *col)
-{
-   headless_project_mouse(headless_screen_role_window(scrno, role), row, col);
-}
-
-static void headless_driver_mouse_position_for_global(
-   TheDriverGlobalWindowRole role, int *row, int *col)
-{
-   headless_project_mouse(headless_global_window(role), row, col);
-}
-
-static void headless_driver_saved_mouse_position(int *row, int *col)
-{
-   if (row != NULL)
-      *row = headless_state.mouse_valid ? headless_state.mouse_row : -1;
-   if (col != NULL)
-      *col = headless_state.mouse_valid ? headless_state.mouse_col : -1;
-}
-
-static void headless_driver_reset_mouse_position(void)
-{
-   headless_state.mouse_valid = 0;
-}
-
-static int headless_driver_read_mouse_button(int *button, int *action,
-                                             int *modifier)
-{
-   if (!headless_state.mouse_button_valid)
-      return 0;
-   if (button != NULL)
-      *button = headless_state.mouse_button;
-   if (action != NULL)
-      *action = headless_state.mouse_action;
-   if (modifier != NULL)
-      *modifier = headless_state.mouse_modifier;
-   return 1;
-}
-
-static int headless_driver_read_current_role_mouse_event(
-   short role, TheDriverMouseEvent *event)
-{
-   if (event == NULL)
-      return 0;
-   *event = headless_mouse_event_for_window(headless_current_role_window(role));
-   return event->valid;
-}
-
-static int headless_driver_read_mouse_event(TheDriverWindow *win,
-                                            TheDriverMouseEvent *event)
-{
-   if (event == NULL)
-      return 0;
-   *event = headless_mouse_event_for_window(win);
-   return event->valid;
-}
-
 static void headless_driver_prepare_for_shell_escape(void)
 {
    headless_log("prepare:shell");
@@ -1841,24 +1647,6 @@ const TheDriverOps the_headless_driver_ops = {
    .fill_cells_at = headless_driver_fill_cells_at,
    .write_ascii_cells_at = headless_driver_write_ascii_cells_at,
    .read_input_event = headless_driver_read_input_event,
-   .read_current_window_key = headless_driver_read_current_window_key,
-   .read_current_role_key = headless_driver_read_current_role_key,
-   .read_global_window_key = headless_driver_read_global_window_key,
-   .read_window_key = headless_driver_read_window_key,
-   .read_raw_window_key = headless_driver_read_raw_window_key,
-   .read_standard_key = headless_driver_read_standard_key,
-   .read_raw_standard_key = headless_driver_read_raw_standard_key,
-   .is_mouse_key = headless_driver_is_mouse_key,
-   .mouse_key_code = headless_driver_mouse_key_code,
-   .mouse_position_for_screen_role =
-      headless_driver_mouse_position_for_screen_role,
-   .mouse_position_for_global = headless_driver_mouse_position_for_global,
-   .saved_mouse_position = headless_driver_saved_mouse_position,
-   .reset_mouse_position = headless_driver_reset_mouse_position,
-   .read_mouse_button = headless_driver_read_mouse_button,
-   .read_current_role_mouse_event =
-      headless_driver_read_current_role_mouse_event,
-   .read_mouse_event = headless_driver_read_mouse_event,
    .prepare_for_shell_escape = headless_driver_prepare_for_shell_escape,
    .repair_terminal_background = headless_driver_repair_terminal_background,
    .redraw_window = headless_driver_redraw_window,

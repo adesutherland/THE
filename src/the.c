@@ -36,6 +36,7 @@
 #define MAIN 1
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 #include "thedriver.h"
 #include "utfterm.h"
 #include <time.h>
@@ -1777,9 +1778,9 @@ void cleanup(void)
           * like line too long, then we need to ignore all KEY_RESIZE events; XCurses
           * sends a resize on startup every time!
           */
-         while ( the_driver->read_raw_standard_key() == KEY_RESIZE );
+         while ( curses_driver_read_terminal_legacy_key() == KEY_RESIZE );
 #else
-         the_driver->read_raw_standard_key();
+         curses_driver_read_terminal_legacy_key();
 #endif
       }
       INSERTMODEx=FALSE;

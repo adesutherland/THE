@@ -37,3 +37,17 @@ int the_driver_use_headless(void)
    return 0;
 #endif
 }
+
+int the_driver_read_legacy_key(void)
+{
+   TheInputEvent event;
+   int key = -1;
+
+   if (the_driver == NULL || the_driver->read_input_event == NULL)
+      return -1;
+   if (!the_driver->read_input_event(&event))
+      return -1;
+   if (!the_input_event_to_legacy_key(&event, &key))
+      return -1;
+   return key;
+}

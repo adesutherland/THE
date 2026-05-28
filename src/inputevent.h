@@ -92,6 +92,7 @@ int the_input_event_from_logical_hit(LogicalCursorZone zone,
 int the_input_event_from_debug_command(const char *name,
                                        TheInputEvent *out);
 int the_input_event_to_legacy_key(const TheInputEvent *input, int *key_code);
+int the_input_legacy_key_is_mouse(int key_code);
 void the_input_queue_init(TheInputQueue *queue);
 int the_input_queue_push(TheInputQueue *queue, TheInputEvent input);
 int the_input_queue_pop(TheInputQueue *queue, TheInputEvent *input);

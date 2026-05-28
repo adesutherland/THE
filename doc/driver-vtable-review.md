@@ -47,9 +47,9 @@ drivers continue to prove specific integration points.
 
 ## Findings
 
-- `TheDriverOps` currently has 130 function pointers.
-- `src/cursesdriver.c` initializes all 130 entries in `the_curses_driver_ops`.
-- `src/headlessdriver.c` initializes all 130 entries in
+- `TheDriverOps` currently has 114 function pointers.
+- `src/cursesdriver.c` initializes all 114 entries in `the_curses_driver_ops`.
+- `src/headlessdriver.c` initializes all 114 entries in
   `the_headless_driver_ops` without including curses headers or linking
   curses.
 - The Step 2 display-layout extraction removed `clamp_display_col`,
@@ -60,17 +60,20 @@ drivers continue to prove specific integration points.
 - The surface still mixes portable logical-driver operations, legacy
   role/window compatibility edges, and very low-level curses mechanics.
 - A normalized `read_input_event` operation now exists. The old raw key/mouse
-  operations remain as compatibility wrappers for the legacy dispatcher,
-  readv/dialog/popup paths, `getch.c`, and existing mouse-definition dispatch.
+  vtable operations have been removed; legacy integer-key dispatcher paths use
+  the shared `the_driver_read_legacy_key()` adapter over `read_input_event`,
+  mouse-token tests use the editor-owned legacy mouse predicate, and raw
+  `getch.c`/PDC/ncurses packet handling is curses-private.
 - The modal/standard-screen contraction removed the public pad, stdscr/curscr,
   relative-role-window, shell-preparation, and broken-curses background helper
-  entries. Remaining urgent refactor candidates are raw key/mouse reads,
-  keypad/notimeout/leaveok, and role-specific touch/refresh/cursor helpers
-  that reveal too much of the curses window topology.
+  entries. The following raw input retirement removed public key/mouse packet
+  wrappers. Remaining urgent refactor candidates are keypad/notimeout/leaveok
+  and role-specific touch/refresh/cursor helpers that reveal too much of the
+  curses window topology.
 - The safest next code slice is not broad signature churn. Work in a few large
-  coherent slices that remove operations from the public surface. Raw input
-  migration is now the next large close-down slice after modal/standard-screen
-  contraction.
+  coherent slices that remove operations from the public surface. Role/window/
+  cursor presentation contraction is now the next large close-down slice after
+  raw input wrapper retirement.
 - The public "wide cell" surface is closed. `src/rendercell.c` now provides a
   portable render-cell/render-cluster model for grapheme clusters such as
   flags, keycaps, combining sequences, and ZWJ sequences where logical width,
@@ -90,6 +93,32 @@ drivers continue to prove specific integration points.
   driver contract.
 - `test-instrumentation`: useful mainly for fake drivers, assertions, or
   operation logs.
+
+## Removed Raw Input Surface
+
+The raw input compatibility wrapper retirement reduced the vtable from 130 to
+114 entries. These operations were removed from `TheDriverOps`:
+
+- key readers: `read_current_window_key`, `read_current_role_key`,
+  `read_global_window_key`, `read_window_key`, `read_raw_window_key`,
+  `read_standard_key`, and `read_raw_standard_key`.
+- mouse token helpers: `is_mouse_key` and `mouse_key_code`.
+- saved physical packet helpers: `mouse_position_for_screen_role`,
+  `mouse_position_for_global`, `saved_mouse_position`, and
+  `reset_mouse_position`.
+- raw packet decoders: `read_mouse_button`,
+  `read_current_role_mouse_event`, and `read_mouse_event`.
+
+No target raw input operation was kept in the public table. Legacy
+command/edit/query callers consume `the_driver_read_legacy_key()`, a common
+adapter over `read_input_event`. Terminal-report, shell-pause, popup, and
+shutdown polling use a narrow curses-private terminal key helper. `getch.c`
+reaches the raw curses read through a curses-private helper instead of the
+public driver table. Normal mouse definition dispatch still uses legacy integer
+key definitions, but packet decoding, `KEY_MOUSE` translation, and saved
+physical packet coordinates remain inside `src/cursesdriver.c`; editor mouse
+code saves the resulting logical target for migrated commands such as
+`CURSOR MOUSE` and `TABFILE`.
 
 ## Review Table
 
@@ -199,23 +228,7 @@ and header sources. They do not count internal calls inside
 | `write_render_cluster_at` | Targeted UTF repair/status cluster writes in `show.c`. | Lowers a render cluster to wide output and preserves expected display width for cursor advancement. | `physical-terminal` | Preserves codepoint sequence, UTF slice, widths, repair hint, and style in the fake surface/log. | Expose logical cluster text and width facts. | Keep as the portable cluster backend for keycaps, flags, combining sequences, and ZWJ sequences. | `test_headlessdriver`, `test_virtual_screen`, `test_utfrepair`. |
 | `fill_cells_at` | 1 call in `show.c`. | Fills terminal cells with spaces/attr. | `physical-terminal` | Fill fake cells/log. | Render blank semantic span. | Keep backend primitive; later shared renderer. | Blank-cell repair tests. |
 | `write_ascii_cells_at` | 1 call in `show.c`. | Writes fixed-width ASCII cells. | `physical-terminal` | Write fake ASCII cells/log. | Expose logical text. | Keep backend primitive for now. | ASCII renderer tests. |
-| `read_input_event` | Focused tests and future semantic dispatch. | Reads through the current curses input edge and returns `TheInputEvent` text/key events; raw mouse packets remain private to curses legacy wrappers. | `core-portable` | Pops queued `TheInputEvent` values; fake key hooks queue normalized events and legacy key readers adapt from that queue. | Primary input surface for agent/headless clients. | Keep and migrate callers from raw key/mouse wrappers incrementally. | `test_headlessdriver`, `test_inputevent`, mouse-hit and no-curses guards. |
-| `read_current_window_key` | 7 calls in command/edit/query paths. | Calls `my_getch` on active window and maps `KEY_MOUSE`. | `transitional-edge` | Pop fake input queue. | Consume normalized input protocol. | Split to normalized input event API. | `test_inputevent`, agent key tests. |
-| `read_current_role_key` | 3 calls in commutil, execute. | Reads key from current role window. | `transitional-edge` | Pop role-scoped fake input. | Consume normalized input protocol. | Split to normalized input event API. | Readv/dialog input tests. |
-| `read_global_window_key` | 1 call in `error.c`. | Reads key from global window. | `transitional-edge` | Pop global fake input. | Use normalized prompt response. | Split to transient/normalized input. | Error prompt tests. |
-| `read_window_key` | 0 direct calls. | Reads translated key from explicit window. | `physical-terminal` | Pop fake window input. | Not needed directly. | Keep optional or remove after audit. | Vtable completeness check. |
-| `read_raw_window_key` | 3 calls in `getch.c`. | Calls raw `wgetch` and maps mouse key. | `curses-private-candidate` | Pop raw fake key for legacy adapter. | Not part of LLM surface. | Move toward curses-private raw input. | `getch` adapter tests. |
-| `read_standard_key` | 5 calls in command, execute, rexx. | Calls `my_getch(stdscr)` and maps mouse key. | `transitional-edge` | Pop standard fake input. | Use normalized input. | Split to normalized input event API. | Query/shell input tests. |
-| `read_raw_standard_key` | 3 calls in execute, the. | Calls raw `wgetch(stdscr)`. | `curses-private-candidate` | Pop raw standard fake input. | Not needed. | Move toward curses-private resize/startup input. | Resize/startup guard tests. |
-| `is_mouse_key` | 11 calls in command, edit, execute, getch, query. | Checks `THE_KEY_MOUSE` and curses `KEY_MOUSE`. | `transitional-edge` | Check fake translated token. | Use input event kind `logical-hit`. | Retire after normalized input migration. | Mouse-token inventory guard. |
-| `mouse_key_code` | 1 call in `execute.c`. | Returns `THE_KEY_MOUSE`. | `transitional-edge` | Return compatibility token. | Not needed. | Retire with mouse-token compatibility paths. | Mouse-token guard. |
-| `mouse_position_for_screen_role` | 1 call in `mouse.c`. | Projects saved terminal mouse point into role-local coords. | `physical-terminal` | Project queued fake physical point. | Prefer supplied logical hit target. | Split physical packet from logical hit mapping. | `test_mousehit`. |
-| `mouse_position_for_global` | 3 calls in `mouse.c`. | Projects saved terminal mouse point into global-window coords. | `physical-terminal` | Project fake point. | Prefer logical chrome hit. | Split physical packet from logical hit mapping. | Mouse chrome hit tests. |
-| `saved_mouse_position` | 2 calls in `mouse.c`. | Returns last PDC/ncurses packet screen point. | `physical-terminal` | Return queued fake point. | Not needed for logical hits. | Move toward curses-private packet storage. | Mouse packet guard. |
-| `reset_mouse_position` | 1 call in `mouse.c`. | Clears saved packet point. | `physical-terminal` | Clear fake point. | Not needed. | Move toward curses-private packet storage. | Mouse packet guard. |
-| `read_mouse_button` | 3 calls in command, mouse, query. | Decodes PDC/ncurses button/action/modifier. | `curses-private-candidate` | Return queued fake physical button or false. | Use normalized logical-hit events. | Move raw packet decode behind curses-private input driver. | PDC/ncurses mouse tests plus `test_mousehit`. |
-| `read_current_role_mouse_event` | 1 call in `commutil.c`. | Reads button and role-local coords. | `transitional-edge` | Return queued fake event. | Use logical-hit target. | Split to transient logical-hit input. | Readv mouse tests. |
-| `read_mouse_event` | 2 calls in `execute.c`. | Reads button and explicit-window coords. | `transitional-edge` | Return queued fake event. | Use logical transient hit. | Split to transient logical-hit input. | Dialog/popup hit tests. |
+| `read_input_event` | Focused tests plus the shared legacy-key adapter used by command/edit/query/readv/dialog/popup/startup polling paths. | Reads through the current curses input edge and returns normalized text/key events; raw mouse packet reads, `KEY_MOUSE` translation, and saved packet coordinates stay inside `src/cursesdriver.c`. | `core-portable` | Pops queued `TheInputEvent` values; fake keys queue normalized events and `the_driver_read_legacy_key()` adapts them for old dispatcher code. | Primary input surface for agent/headless clients. | Keep as the portable input API; continue migrating old integer-key callers to consume full `TheInputEvent` where useful. | `test_headlessdriver`, `test_inputevent`, mouse-hit and no-curses guards. |
 | `prepare_for_shell_escape` | 1 call in `execute.c`. | Clears and refreshes the terminal before suspending curses for shell output. | `physical-terminal` | Deterministic `prepare:shell` log. | No-op/log shell transition. | Keep as high-level shell lifecycle op. | Shell-command smoke tests. |
 | `repair_terminal_background` | 4 calls in execute, rexx, startup. | Runs the broken SysV curses background repair privately for current window or terminal screen. | `physical-terminal` | Logs repair target. | No-op/log terminal repair. | Keep as terminal-repair op; physical color-pair mechanics stay in curses. | Headless log test plus shell/REXX smoke. |
 | `redraw_window` | 1 call in `show.c`. | Iterates cells and rewrites via `put_char`. | `curses-private-candidate` | Replay fake buffer/log. | Avoid physical redraw. | Move toward renderer-owned invalidation. | Renderer invalidation tests. |
@@ -234,7 +247,7 @@ and header sources. They do not count internal calls inside
 
 1. Done in this working tree: build a shared headless/test base
    `TheDriverOps` implementation with fake windows, role/global geometry,
-   cursors, simple input and mouse fakes, dirty/refresh state, and operation
+   cursors, simple input queues, dirty/refresh state, and operation
    logs. This makes every NOP-capable recommendation testable without curses.
 2. Done in this working tree: move shared display/input semantics in one
    slice. `src/driverlayout.c` owns `clamp_display_col`,
@@ -243,11 +256,13 @@ and header sources. They do not count internal calls inside
    file-area cursor movement call the same helper. `TheDriverOps` dropped
    those five helper entries and gained `read_input_event`, leaving 141
    entries. Raw PDC/ncurses packet decoding stays private to the curses
-   driver. Remaining compatibility wrappers are `read_current_window_key`,
+   driver. At that checkpoint, remaining compatibility wrappers were
+   `read_current_window_key`,
    `read_current_role_key`, `read_global_window_key`, `read_window_key`,
    `read_raw_window_key`, `read_standard_key`, `read_raw_standard_key`,
    `is_mouse_key`, `mouse_key_code`, `read_mouse_button`,
-   `read_current_role_mouse_event`, and `read_mouse_event`.
+   `read_current_role_mouse_event`, and `read_mouse_event`; those are now
+   removed by the raw input retirement slice below.
 3. Done in this working tree: introduce a portable UTF renderer-cell/render-
    cluster model. `TheDriverOps` dropped `add_wide_cell`,
    `write_wide_cell_span`, `set_wide_cell_codepoint`, `recolour_wide_cell`,
@@ -268,10 +283,15 @@ and header sources. They do not count internal calls inside
    entries. Popup rendering now uses the transient popup snapshot directly
    instead of a pad, query/list output uses terminal-report spans, and the
    SysV background workaround is private to `src/cursesdriver.c`.
-5. Next: retire raw input compatibility wrappers by migrating callers to
-   `read_input_event` or logical transient hit events. Keep raw terminal packet
-   decoding private to `src/cursesdriver.c`.
-6. Then contract role/window/cursor presentation helpers and remove
+5. Done in this working tree: raw input compatibility wrapper retirement.
+   `TheDriverOps` dropped the seven raw/legacy key readers, two mouse-token
+   helpers, four saved physical mouse-position helpers, and three raw mouse
+   event/button readers, leaving 114 entries. Legacy callers now share
+   `the_driver_read_legacy_key()` over `read_input_event`; terminal polling
+   uses a curses-private terminal helper; transient mouse paths use private
+   helper functions; and raw terminal packet mechanics stay in
+   `src/cursesdriver.c`.
+6. Next: contract role/window/cursor presentation helpers and remove
    `cursor_focus_sync_current()` once command/file/prefix paths set logical
    cursor and focus state before rendering.
 
@@ -291,4 +311,5 @@ perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/cursesdriver.c | wc -
 perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/headlessdriver.c | wc -l
 ```
 
-All three counts are 130 after the modal/standard-screen contraction slice.
+All three counts are 114 after the raw input compatibility wrapper retirement
+slice.

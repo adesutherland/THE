@@ -40,6 +40,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "cursesdriver.h"
 #include "thedriver.h"
 #include "driverlayout.h"
 #include "inputevent.h"
@@ -169,6 +170,8 @@ void mouse_trace_message(const char *area, const char *format, ...)
  * The logical target saved by each mouse key press.
  */
 static TheInputEvent last_mouse_input;
+static int last_mouse_screen_row = -1;
+static int last_mouse_screen_col = -1;
 
 static int mouse_window_position(CHARTYPE scrn, int w, int *row, int *col)
 {
@@ -180,15 +183,16 @@ static int mouse_window_position(CHARTYPE scrn, int w, int *row, int *col)
       return FALSE;
 
    if (w >= 0 && w < VIEW_WINDOWS)
-      the_driver->mouse_position_for_screen_role(scrn, (short)w, row, col);
+      curses_driver_current_mouse_screen_role_position(scrn, (short)w,
+                                                       row, col);
    else if (w == WINDOW_STATAREA)
-      the_driver->mouse_position_for_global(THE_DRIVER_GLOBAL_STATAREA,
+      curses_driver_current_mouse_global_position(THE_DRIVER_GLOBAL_STATAREA,
                                               row, col);
    else if (w == WINDOW_FILETABS)
-      the_driver->mouse_position_for_global(THE_DRIVER_GLOBAL_FILETABS,
+      curses_driver_current_mouse_global_position(THE_DRIVER_GLOBAL_FILETABS,
                                               row, col);
    else if (w == WINDOW_DIVIDER)
-      the_driver->mouse_position_for_global(THE_DRIVER_GLOBAL_DIVIDER,
+      curses_driver_current_mouse_global_position(THE_DRIVER_GLOBAL_DIVIDER,
                                               row, col);
 
    return (*row != -1 && *col != -1);
@@ -385,6 +389,72 @@ static int mouse_build_logical_input(TheInputEvent *input, CHARTYPE *scrn,
    return TRUE;
 }
 
+static int mouse_read_pending_input(int *button, int *button_action,
+                                    int *button_modifier,
+                                    TheInputEvent *input, CHARTYPE *scrn,
+                                    int *w, int *screen_row,
+                                    int *screen_col)
+{
+   int hit_window = WINDOW_ALL;
+   CHARTYPE hit_screen = current_screen;
+   TheInputEvent hit_input;
+
+   if (!curses_driver_read_pending_mouse_button(button, button_action,
+                                                button_modifier))
+      return FALSE;
+   curses_driver_current_mouse_screen_position(screen_row, screen_col);
+   if (!mouse_build_logical_input(&hit_input, &hit_screen, &hit_window))
+      hit_input = the_input_event_none();
+   if (input != NULL)
+      *input = hit_input;
+   if (scrn != NULL)
+      *scrn = hit_screen;
+   if (w != NULL)
+      *w = (hit_input.kind == THE_INPUT_LOGICAL_HIT)
+         ? hit_input.target.window_id
+         : hit_window;
+   return TRUE;
+}
+
+int read_pending_mouse_definition_key(int *key)
+{
+   int button = 0;
+   int button_action = 0;
+   int button_modifier = 0;
+   int w = WINDOW_ALL;
+   CHARTYPE scrn = current_screen;
+   TheInputEvent input;
+
+   TRACE_FUNCTION("mouse.c:  read_pending_mouse_definition_key");
+   if (key != NULL)
+      *key = 0;
+   if (!mouse_read_pending_input(&button, &button_action, &button_modifier,
+                                 &input, &scrn, &w,
+                                 &last_mouse_screen_row,
+                                 &last_mouse_screen_col))
+   {
+      TRACE_RETURN();
+      return FALSE;
+   }
+   last_mouse_input = input;
+   if (key != NULL)
+      *key = mouse_info_to_key(w, button, button_action, button_modifier);
+   TRACE_RETURN();
+   return TRUE;
+}
+
+int read_transient_current_role_mouse_event(short role,
+                                            TheDriverMouseEvent *event)
+{
+   return curses_driver_read_current_role_transient_mouse_event(role, event);
+}
+
+int read_transient_window_mouse_event(TheDriverWindow *win,
+                                      TheDriverMouseEvent *event)
+{
+   return curses_driver_read_transient_mouse_event(win, event);
+}
+
 /***********************************************************************/
 short THEMouse(CHARTYPE *params)
 /***********************************************************************/
@@ -401,15 +471,17 @@ short THEMouse(CHARTYPE *params)
    TheInputEvent input;
 
    TRACE_FUNCTION( "mouse.c:  THEMouse" );
-   if (!the_driver->read_mouse_button(&curr_button,&curr_button_action,
-                                        &curr_button_modifier))
+   if (!mouse_read_pending_input(&curr_button, &curr_button_action,
+                                 &curr_button_modifier, &input, &scrn, &w,
+                                 &saved_mouse_y, &saved_mouse_x))
    {
       mouse_trace_message("THEMouse-invalid", "rc=%d", RC_INVALID_OPERAND);
       TRACE_RETURN();
       return(RC_INVALID_OPERAND);
    }
-   the_driver->saved_mouse_position(&saved_mouse_y, &saved_mouse_x);
-   if (!mouse_build_logical_input(&input, &scrn, &w))
+   last_mouse_screen_row = saved_mouse_y;
+   last_mouse_screen_col = saved_mouse_x;
+   if (input.kind != THE_INPUT_LOGICAL_HIT)
    {
       last_mouse_input = the_input_event_none();
       key = MOUSE_INFO_TO_KEY(WINDOW_ALL, curr_button, curr_button_action,
@@ -467,8 +539,10 @@ void reset_saved_mouse_pos(void)
 /***********************************************************************/
 {
    TRACE_FUNCTION("mouse.c:  reset_saved_mouse_pos");
-   the_driver->reset_mouse_position();
+   curses_driver_clear_mouse_packet_position();
    last_mouse_input = the_input_event_none();
+   last_mouse_screen_row = -1;
+   last_mouse_screen_col = -1;
    TRACE_RETURN();
    return;
 }
@@ -477,7 +551,10 @@ void get_saved_mouse_pos(int *y, int *x)
 /***********************************************************************/
 {
    TRACE_FUNCTION("mouse.c:  get_saved_mouse_pos");
-   the_driver->saved_mouse_position(y, x);
+   if (y != NULL)
+      *y = last_mouse_screen_row;
+   if (x != NULL)
+      *x = last_mouse_screen_col;
    TRACE_RETURN();
    return;
 }

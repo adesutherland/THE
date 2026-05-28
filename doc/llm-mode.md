@@ -57,10 +57,11 @@ Transient UI snapshots are proved in `test_transientui` and available through
 interactive `the_agent` protocol as live modal editor events.
 
 The remaining LLM work is feature expansion after driver-surface close-down,
-not active direct-curses debt. The modal/standard-screen contraction is closed;
-the current architectural priority is to shrink raw input and role/window/
-cursor compatibility operations from `TheDriverOps`. `doc/utf-handover.md` is
-the source of truth for that close-down plan.
+not active direct-curses debt. The modal/standard-screen contraction and raw
+input compatibility wrapper retirement are closed; the current architectural
+priority is to shrink role/window/cursor compatibility operations from
+`TheDriverOps`. `doc/utf-handover.md` is the source of truth for that
+close-down plan.
 
 ## Design Intent
 

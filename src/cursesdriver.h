@@ -188,27 +188,21 @@ void curses_driver_add_global_string_at(CursesDriverGlobalWindowRole role,
                                         const char *text);
 void curses_driver_add_chtype_at(WINDOW *win, short row, short col, chtype ch);
 void curses_driver_draw_horizontal_line(WINDOW *win, chtype ch, int len);
-int curses_driver_read_window_key(WINDOW *win);
-int curses_driver_read_current_window_key(void);
-int curses_driver_read_current_role_key(short role);
-int curses_driver_read_global_window_key(CursesDriverGlobalWindowRole role);
-int curses_driver_read_standard_key(void);
-int curses_driver_read_raw_window_key(WINDOW *win);
-int curses_driver_read_raw_standard_key(void);
 int curses_driver_read_input_event(TheInputEvent *event);
-int curses_driver_is_mouse_key(int key);
-int curses_driver_mouse_key_code(void);
-void curses_driver_mouse_position(WINDOW *win, int *row, int *col);
-void curses_driver_mouse_position_for_screen_role(CHARTYPE scrno, short role,
-                                                  int *row, int *col);
-void curses_driver_mouse_position_for_global(CursesDriverGlobalWindowRole role,
-                                             int *row, int *col);
-void curses_driver_saved_mouse_position(int *row, int *col);
-void curses_driver_reset_mouse_position(void);
-int curses_driver_read_mouse_button(int *button, int *action, int *modifier);
-int curses_driver_read_mouse_event(WINDOW *win, CursesDriverMouseEvent *event);
-int curses_driver_read_current_role_mouse_event(short role,
-                                                CursesDriverMouseEvent *event);
+int curses_driver_read_terminal_legacy_key(void);
+void curses_driver_current_mouse_screen_role_position(CHARTYPE scrno,
+                                                      short role,
+                                                      int *row, int *col);
+void curses_driver_current_mouse_global_position(
+   CursesDriverGlobalWindowRole role, int *row, int *col);
+void curses_driver_current_mouse_screen_position(int *row, int *col);
+void curses_driver_clear_mouse_packet_position(void);
+int curses_driver_read_pending_mouse_button(int *button, int *action,
+                                            int *modifier);
+int curses_driver_read_transient_mouse_event(TheDriverWindow *win,
+                                             TheDriverMouseEvent *event);
+int curses_driver_read_current_role_transient_mouse_event(
+   short role, TheDriverMouseEvent *event);
 void curses_driver_prepare_for_shell_escape(void);
 void curses_driver_repair_terminal_background(
    TheDriverTerminalRepairTarget target);

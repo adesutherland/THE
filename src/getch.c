@@ -53,6 +53,8 @@
 
 #include "thedriver.h"
 
+int curses_driver_read_raw_driver_window_key(TheDriverWindow *win);
+
 /*
  * Do special character handling if using ncurses, xcurses
  */
@@ -91,7 +93,7 @@ static void mouse_getch_trace(TheDriverWindow *winptr, int key)
    if (trace == NULL)
       return;
    fprintf(trace,"getch win=%p key=%d is_mouse=%d\n",
-           (void *)winptr,key,the_driver->is_mouse_key(key));
+           (void *)winptr,key,the_input_legacy_key_is_mouse(key));
    fflush(trace);
 }
 
@@ -109,7 +111,7 @@ int my_getch (TheDriverWindow *winptr)
 
    while (1)
    {
-      c = the_driver->read_raw_window_key( winptr );
+      c = curses_driver_read_raw_driver_window_key(winptr);
 # if defined(USE_NCURSES) && defined(EINTR) && defined(KEY_RESIZE)
       if ( c == ERR )
       {
@@ -118,7 +120,7 @@ int my_getch (TheDriverWindow *winptr)
          else
          {
             if ( errno == 0 )
-               c = the_driver->read_raw_window_key( winptr );
+               c = curses_driver_read_raw_driver_window_key(winptr);
          }
       }
 # endif
@@ -363,7 +365,7 @@ int my_getch (TheDriverWindow *winptr)
 #if defined(HAVE_NODELAY) && defined(HAVE_UNGETCH)
                   /* this code allows the user to use the ESC key */
                   nodelay(winptr,TRUE);
-                  tmp_c = the_driver->read_raw_window_key(winptr);
+                  tmp_c = curses_driver_read_raw_driver_window_key(winptr);
                   nodelay(winptr,FALSE);
                   if (tmp_c  == ERR)
                      return(c);

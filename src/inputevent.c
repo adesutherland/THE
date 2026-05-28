@@ -393,6 +393,11 @@ int the_input_event_to_legacy_key(const TheInputEvent *input, int *key_code)
    return 1;
 }
 
+int the_input_legacy_key_is_mouse(int key_code)
+{
+   return key_code == THE_KEY_MOUSE;
+}
+
 void the_input_queue_init(TheInputQueue *queue)
 {
    if (queue != NULL)

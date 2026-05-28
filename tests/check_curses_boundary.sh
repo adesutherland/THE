@@ -58,6 +58,17 @@ if [[ -n "$thedriver_public_violations" ]]; then
   exit 1
 fi
 
+raw_input_vtable_pattern='read_current_window_key|read_current_role_key|read_global_window_key|read_window_key|read_raw_window_key|read_standard_key|read_raw_standard_key|is_mouse_key|mouse_key_code|mouse_position_for_screen_role|mouse_position_for_global|saved_mouse_position|reset_mouse_position|read_mouse_button|read_current_role_mouse_event|read_mouse_event'
+raw_input_vtable_violations="$(
+  rg -n "$raw_input_vtable_pattern" src/thedriver.h 2>/dev/null || true
+)"
+
+if [[ -n "$raw_input_vtable_violations" ]]; then
+  printf '%s\n' "Unexpected raw input compatibility operation in TheDriverOps:"
+  printf '%s\n' "$raw_input_vtable_violations"
+  exit 1
+fi
+
 headless_include_violations="$(
   rg -n '#[[:space:]]*include[[:space:]]*[<"][^>"]*curses' \
     src/headlessdriver.c src/headlessdriver.h 2>/dev/null || true
@@ -139,4 +150,4 @@ if [[ -n "$sos_violations" ]]; then
   exit 1
 fi
 
-printf '%s\n' "curses boundary check passed for logical modules, agent, raw window/cell residue, execute.c wrappers, and SOS cursor surface"
+printf '%s\n' "curses boundary check passed for logical modules, agent, raw input vtable, raw window/cell residue, execute.c wrappers, and SOS cursor surface"

@@ -3860,18 +3860,18 @@ int readv_cmdline(CHARTYPE *initial, TheDriverWindow *dw, int start_col)
    the_driver->refresh_current_role_now(WINDOW_COMMAND);
    while( 1 )
    {
-      key = the_driver->read_current_role_key(WINDOW_COMMAND);
+      key = the_driver_read_legacy_key();
 #if defined(USE_XCURSES)
       if ( key == KEY_SF || key == KEY_SR )
          continue;
 #endif
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-      if (the_driver->is_mouse_key(key))
+      if (the_input_legacy_key_is_mouse(key))
       {
          TheDriverMouseEvent mouse;
          TransientUiHitTarget hit;
 
-         if (!the_driver->read_current_role_mouse_event(WINDOW_COMMAND, &mouse))
+         if (!read_transient_current_role_mouse_event(WINDOW_COMMAND, &mouse))
             continue;
          if (mouse.button != 1
          ||  mouse.action == THE_DRIVER_MOUSE_ACTION_PRESSED)

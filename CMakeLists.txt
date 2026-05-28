@@ -561,6 +561,7 @@ add_test(NAME test_headlessdriver_no_curses
             $<TARGET_FILE:test_headlessdriver>)
 add_executable(test_headlessdriver_curses_default
     tests/test_headlessdriver_curses_default.c
+    src/inputevent.c
     src/thedriver.c
 )
 target_include_directories(test_headlessdriver_curses_default PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})

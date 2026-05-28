@@ -76,7 +76,7 @@ static void test_vtable_complete(void)
    expect_long("ops.size.remainder",
                (long)(sizeof(TheDriverOps) % sizeof(void (*)(void))), 0);
    count = sizeof(TheDriverOps) / sizeof(void (*)(void));
-   expect_long("ops.count", (long)count, 130);
+   expect_long("ops.count", (long)count, 114);
    ops = (const void *const *)(const void *)&the_headless_driver_ops;
    for (i = 0; i < count; i++)
    {
@@ -454,16 +454,10 @@ static void test_terminal_report_ops(void)
               "repair-background:terminal");
 }
 
-static void test_input_and_mouse_fakes(void)
+static void test_input_queue_and_adapter(void)
 {
    const TheDriverOps *ops = &the_headless_driver_ops;
-   TheDriverMouseEvent event;
    TheInputEvent input;
-   int row = -1;
-   int col = -1;
-   int button = 0;
-   int action = 0;
-   int modifier = 0;
 
    headless_driver_reset();
    headless_driver_set_current_screen(0);
@@ -488,38 +482,8 @@ static void test_input_and_mouse_fakes(void)
    expect_int("input.event.logical.cell", input.target.cell, 2);
 
    headless_driver_queue_key('A');
-   headless_driver_queue_key(ops->mouse_key_code());
-   expect_int("input.key", ops->read_current_window_key(), 'A');
-   expect_int("input.mouse.key", ops->is_mouse_key(ops->read_standard_key()),
-              1);
-   expect_int("input.empty", ops->read_standard_key(), -1);
-
-   headless_driver_set_mouse_position(6, 8);
-   ops->mouse_position_for_screen_role(0, 0, &row, &col);
-   expect_int("mouse.role.row", row, 1);
-   expect_int("mouse.role.col", col, 2);
-   ops->saved_mouse_position(&row, &col);
-   expect_int("mouse.saved.row", row, 6);
-   expect_int("mouse.saved.col", col, 8);
-   ops->reset_mouse_position();
-   ops->saved_mouse_position(&row, &col);
-   expect_int("mouse.reset.row", row, -1);
-   expect_int("mouse.reset.col", col, -1);
-
-   headless_driver_set_mouse_position(6, 8);
-   headless_driver_set_mouse_button(THE_DRIVER_MOUSE_BUTTON_PRESSED,
-                                    THE_DRIVER_MOUSE_ACTION_PRESSED,
-                                    THE_DRIVER_MOUSE_MODIFIER_SHIFT);
-   expect_int("mouse.button.read",
-              ops->read_mouse_button(&button, &action, &modifier), 1);
-   expect_int("mouse.button", button, THE_DRIVER_MOUSE_BUTTON_PRESSED);
-   expect_int("mouse.action", action, THE_DRIVER_MOUSE_ACTION_PRESSED);
-   expect_int("mouse.modifier", modifier, THE_DRIVER_MOUSE_MODIFIER_SHIFT);
-   expect_int("mouse.event.read",
-              ops->read_current_role_mouse_event(0, &event), 1);
-   expect_int("mouse.event.row", event.row, 1);
-   expect_int("mouse.event.col", event.col, 2);
-   expect_int("mouse.event.inside", event.inside, 1);
+   expect_int("input.legacy.adapter", the_driver_read_legacy_key(), 'A');
+   expect_int("input.legacy.empty", the_driver_read_legacy_key(), -1);
 }
 
 int main(void)
@@ -532,7 +496,7 @@ int main(void)
    test_headless_render_preserves_clusters();
    test_operation_log();
    test_terminal_report_ops();
-   test_input_and_mouse_fakes();
+   test_input_queue_and_adapter();
    headless_driver_reset();
 
    if (failures != 0)

@@ -656,7 +656,7 @@ int expose_msgline(void)
          put_string( error_window, (ROWTYPE)(msgline_rows - 1), 0, (CHARTYPE *)prompt, strlen( (DEFCHAR *)prompt ) );
       }
       the_driver->refresh_global_window_now(THE_DRIVER_GLOBAL_ERROR);
-      if (the_driver->read_global_window_key(THE_DRIVER_GLOBAL_ERROR) == ' ')
+      if (the_driver_read_legacy_key() == ' ')
          rc = RC_TERMINATE_MACRO;
    }
    TRACE_RETURN();

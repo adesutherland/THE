@@ -1075,23 +1075,7 @@ static int curses_driver_translate_input_key(int key)
    return key;
 }
 
-int curses_driver_mouse_key_code(void)
-{
-   return THE_KEY_MOUSE;
-}
-
-int curses_driver_is_mouse_key(int key)
-{
-   if (key == THE_KEY_MOUSE)
-      return 1;
-#ifdef KEY_MOUSE
-   if (key == KEY_MOUSE)
-      return 1;
-#endif
-   return 0;
-}
-
-int curses_driver_read_window_key(WINDOW *win)
+static int curses_driver_read_window_key(WINDOW *win)
 {
    if (win == NULL)
       return ERR;
@@ -1099,37 +1083,22 @@ int curses_driver_read_window_key(WINDOW *win)
       my_getch(curses_driver_window_to_driver(win)));
 }
 
-int curses_driver_read_current_window_key(void)
+static int curses_driver_read_current_window_key(void)
 {
    return curses_driver_read_window_key(curses_driver_current_active_window());
 }
 
-int curses_driver_read_current_role_key(short role)
-{
-   return curses_driver_read_window_key(curses_driver_current_role_window(role));
-}
-
-int curses_driver_read_global_window_key(CursesDriverGlobalWindowRole role)
-{
-   return curses_driver_read_window_key(curses_driver_global_window(role));
-}
-
-int curses_driver_read_standard_key(void)
-{
-   return curses_driver_translate_input_key(
-      my_getch(curses_driver_window_to_driver(stdscr)));
-}
-
-int curses_driver_read_raw_window_key(WINDOW *win)
+static int curses_driver_read_raw_window_key(WINDOW *win)
 {
    if (win == NULL)
       return ERR;
    return curses_driver_translate_input_key(wgetch(win));
 }
 
-int curses_driver_read_raw_standard_key(void)
+int curses_driver_read_raw_driver_window_key(TheDriverWindow *win)
 {
-   return curses_driver_read_raw_window_key(stdscr);
+   return curses_driver_read_raw_window_key(
+      curses_driver_window_from_driver(win));
 }
 
 int curses_driver_read_input_event(TheInputEvent *event)
@@ -1145,6 +1114,11 @@ int curses_driver_read_input_event(TheInputEvent *event)
    return the_input_event_from_legacy_key(key, event);
 }
 
+int curses_driver_read_terminal_legacy_key(void)
+{
+   return curses_driver_read_window_key(stdscr);
+}
+
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
 static int curses_driver_last_mouse_col = -1;
 static int curses_driver_last_mouse_row = -1;
@@ -1154,7 +1128,7 @@ static int curses_driver_last_mouse_row = -1;
 static MEVENT curses_driver_ncurses_mouse_event;
 #endif
 
-void curses_driver_reset_mouse_position(void)
+void curses_driver_clear_mouse_packet_position(void)
 {
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
    curses_driver_last_mouse_col = -1;
@@ -1162,7 +1136,7 @@ void curses_driver_reset_mouse_position(void)
 #endif
 }
 
-void curses_driver_saved_mouse_position(int *row, int *col)
+void curses_driver_current_mouse_screen_position(int *row, int *col)
 {
    if (row != NULL)
       *row = -1;
@@ -1176,7 +1150,7 @@ void curses_driver_saved_mouse_position(int *row, int *col)
 #endif
 }
 
-void curses_driver_mouse_position(WINDOW *win, int *row, int *col)
+static void curses_driver_mouse_position(WINDOW *win, int *row, int *col)
 {
    CursesDriverWindowOrigin origin;
    CursesDriverWindowSize size;
@@ -1205,20 +1179,22 @@ void curses_driver_mouse_position(WINDOW *win, int *row, int *col)
 #endif
 }
 
-void curses_driver_mouse_position_for_screen_role(CHARTYPE scrno, short role,
-                                                  int *row, int *col)
+void curses_driver_current_mouse_screen_role_position(CHARTYPE scrno,
+                                                      short role,
+                                                      int *row, int *col)
 {
    curses_driver_mouse_position(curses_driver_screen_role_window(scrno, role),
                                 row, col);
 }
 
-void curses_driver_mouse_position_for_global(CursesDriverGlobalWindowRole role,
-                                             int *row, int *col)
+void curses_driver_current_mouse_global_position(
+   CursesDriverGlobalWindowRole role, int *row, int *col)
 {
    curses_driver_mouse_position(curses_driver_global_window(role), row, col);
 }
 
-int curses_driver_read_mouse_event(WINDOW *win, CursesDriverMouseEvent *event)
+static int curses_driver_read_mouse_event(WINDOW *win,
+                                          CursesDriverMouseEvent *event)
 {
    int button = 0;
    int action = 0;
@@ -1232,7 +1208,7 @@ int curses_driver_read_mouse_event(WINDOW *win, CursesDriverMouseEvent *event)
    }
    if (event == NULL)
       return 0;
-   if (!curses_driver_read_mouse_button(&button, &action, &modifier))
+   if (!curses_driver_read_pending_mouse_button(&button, &action, &modifier))
       return 0;
    event->button = button;
    event->modifier = modifier;
@@ -1250,8 +1226,15 @@ int curses_driver_read_mouse_event(WINDOW *win, CursesDriverMouseEvent *event)
    return 1;
 }
 
-int curses_driver_read_current_role_mouse_event(short role,
-                                                CursesDriverMouseEvent *event)
+int curses_driver_read_transient_mouse_event(TheDriverWindow *win,
+                                             TheDriverMouseEvent *event)
+{
+   return curses_driver_read_mouse_event(curses_driver_window_from_driver(win),
+                                         event);
+}
+
+int curses_driver_read_current_role_transient_mouse_event(
+   short role, TheDriverMouseEvent *event)
 {
    return curses_driver_read_mouse_event(curses_driver_current_role_window(role),
                                          event);
@@ -1453,7 +1436,8 @@ static int curses_driver_read_ncurses_mouse_button(int *button, int *action,
 }
 #endif
 
-int curses_driver_read_mouse_button(int *button, int *action, int *modifier)
+int curses_driver_read_pending_mouse_button(int *button, int *action,
+                                            int *modifier)
 {
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
    int raw_button = 0;
@@ -2059,24 +2043,6 @@ static void curses_driver_ops_write_ascii_cells_at(
 #endif
 }
 
-static int curses_driver_ops_read_window_key(TheDriverWindow *win)
-{
-   return curses_driver_read_window_key(curses_driver_window_from_driver(win));
-}
-
-static int curses_driver_ops_read_raw_window_key(TheDriverWindow *win)
-{
-   return curses_driver_read_raw_window_key(
-      curses_driver_window_from_driver(win));
-}
-
-static int curses_driver_ops_read_mouse_event(TheDriverWindow *win,
-                                              TheDriverMouseEvent *event)
-{
-   return curses_driver_read_mouse_event(curses_driver_window_from_driver(win),
-                                         event);
-}
-
 static void curses_driver_ops_redraw_window(TheDriverWindow *win)
 {
    curses_driver_redraw_window(curses_driver_window_from_driver(win));
@@ -2215,24 +2181,6 @@ const TheDriverOps the_curses_driver_ops = {
    .fill_cells_at = curses_driver_ops_fill_cells_at,
    .write_ascii_cells_at = curses_driver_ops_write_ascii_cells_at,
    .read_input_event = curses_driver_read_input_event,
-   .read_current_window_key = curses_driver_read_current_window_key,
-   .read_current_role_key = curses_driver_read_current_role_key,
-   .read_global_window_key = curses_driver_read_global_window_key,
-   .read_window_key = curses_driver_ops_read_window_key,
-   .read_raw_window_key = curses_driver_ops_read_raw_window_key,
-   .read_standard_key = curses_driver_read_standard_key,
-   .read_raw_standard_key = curses_driver_read_raw_standard_key,
-   .is_mouse_key = curses_driver_is_mouse_key,
-   .mouse_key_code = curses_driver_mouse_key_code,
-   .mouse_position_for_screen_role =
-      curses_driver_mouse_position_for_screen_role,
-   .mouse_position_for_global = curses_driver_mouse_position_for_global,
-   .saved_mouse_position = curses_driver_saved_mouse_position,
-   .reset_mouse_position = curses_driver_reset_mouse_position,
-   .read_mouse_button = curses_driver_read_mouse_button,
-   .read_current_role_mouse_event =
-      curses_driver_read_current_role_mouse_event,
-   .read_mouse_event = curses_driver_ops_read_mouse_event,
    .prepare_for_shell_escape = curses_driver_prepare_for_shell_escape,
    .repair_terminal_background = curses_driver_repair_terminal_background,
    .redraw_window = curses_driver_ops_redraw_window,

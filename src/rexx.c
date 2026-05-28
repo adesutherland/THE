@@ -48,6 +48,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 #include "thedriver.h"
 
 LINE *rexxout_first_line=NULL;
@@ -1063,7 +1064,7 @@ short execute_macro_file
              */
             printf("\n%s",HIT_ANY_KEY);
             fflush(stdout);
-            (void)the_driver->read_standard_key();
+            (void)curses_driver_read_terminal_legacy_key();
             resume_curses();
             if (number_of_files > 0)
             {
@@ -1208,7 +1209,7 @@ short execute_macro_instore
              */
             printf("\n%s",HIT_ANY_KEY);
             fflush(stdout);
-            (void)the_driver->read_standard_key();
+            (void)curses_driver_read_terminal_legacy_key();
             resume_curses();
             if (number_of_files > 0)
             {

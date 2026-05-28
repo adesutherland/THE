@@ -37,6 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 #include "thedriver.h"
 #include "driverlayout.h"
 #include "transientui.h"
@@ -252,7 +253,7 @@ static short selective_change(TARGET *target,CHARTYPE *old_str,LENGTHTYPE len_ol
                                          rec, rec_len, y, (int)target_cell);
       the_driver->refresh_current_role(WINDOW_FILEAREA);
 
-      key = the_driver->read_current_role_key(WINDOW_FILEAREA);
+      key = the_driver_read_legacy_key();
       clear_msgline(-1);
       switch(key)
       {
@@ -985,7 +986,7 @@ short execute_os_command(CHARTYPE *cmd,bool quiet,bool pause)
    if (!quiet && curses_started)
    {
       if (pause)
-         (void)the_driver->read_standard_key();
+         (void)curses_driver_read_terminal_legacy_key();
       resume_curses();
 #if defined(HAVE_BROKEN_SYSVR4_CURSES)
       the_driver->repair_terminal_background(
@@ -3795,13 +3796,13 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
          the_driver->end_terminal_report();
          while( 1 )
          {
-            key = the_driver->read_standard_key();
+            key = curses_driver_read_terminal_legacy_key();
 #if defined(USE_XCURSES)
             if ( key == KEY_SF || key == KEY_SR )
                continue;
 #endif
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-            if (the_driver->is_mouse_key(key))
+            if (the_input_legacy_key_is_mouse(key))
                continue;
 #endif
 #ifdef CAN_RESIZE
@@ -4579,7 +4580,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
              * mouse was just clicked so we can check if the click happened
              * on a button
              */
-            key = the_driver->mouse_key_code();
+            key = THE_KEY_MOUSE;
          }
          else
 #endif
@@ -4598,7 +4599,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
          {
             the_driver->refresh_current_role_now(WINDOW_COMMAND);
          }
-         key = the_driver->read_current_role_key(WINDOW_COMMAND);
+         key = the_driver_read_legacy_key();
       }
 #if defined(USE_XCURSES)
       /*
@@ -4608,12 +4609,12 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
          continue;
 #endif
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-      if (the_driver->is_mouse_key(key))
+      if (the_input_legacy_key_is_mouse(key))
       {
          TheDriverMouseEvent mouse;
          TransientUiAction action;
 
-         if (!the_driver->read_mouse_event(dialog_win, &mouse))
+         if (!read_transient_window_mouse_event(dialog_win, &mouse))
             continue;
          if (mouse.button != 1
          ||  mouse.action == THE_DRIVER_MOUSE_ACTION_PRESSED)
@@ -5472,7 +5473,7 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
       the_driver->touch_window(dialog_win);
       the_driver->refresh_window_now(dialog_win);
 
-      key = the_driver->read_raw_standard_key();
+      key = curses_driver_read_terminal_legacy_key();
 #if defined(USE_XCURSES)
       /*
        * Ignore scrollbar "keys"
@@ -5481,12 +5482,12 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
          continue;
 #endif
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-      if (the_driver->is_mouse_key(key))
+      if (the_input_legacy_key_is_mouse(key))
       {
          TheDriverMouseEvent mouse;
          TransientUiAction action;
 
-         if (!the_driver->read_mouse_event(dialog_win, &mouse))
+         if (!read_transient_window_mouse_event(dialog_win, &mouse))
          {
            TRACE_RETURN();
            return(RC_OK);

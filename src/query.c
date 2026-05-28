@@ -2285,12 +2285,8 @@ void set_key_values(int key, bool mouse_key)
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
    if ( mouse_key )
    {
-      int b,ba,bm,w;
-      CHARTYPE scrn;
-      if ( the_driver->read_mouse_button( &b, &ba, &bm ) )
+      if ( read_pending_mouse_definition_key( &key ) )
       {
-         which_window_is_mouse_in( &scrn, &w );
-         key = mouse_info_to_key( w, b, ba, bm );
          item_values[1].value = mouse_key_number_to_name( key, query_rsrvd, &shift );
          item_values[1].len = strlen( (DEFCHAR *)item_values[1].value );
       }

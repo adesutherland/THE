@@ -37,6 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "cursesdriver.h"
 #include "thedriver.h"
 
 /*man-start*********************************************************************
@@ -2233,7 +2234,7 @@ short ShowKey(CHARTYPE *params)
                (void)THERefresh((CHARTYPE *)"");
             }
 #endif
-            key = the_driver->read_current_window_key();
+            key = the_driver_read_legacy_key();
 #if defined(USE_XCURSES)
             if (key == KEY_SF || key == KEY_SR)
                continue;
@@ -2243,15 +2244,11 @@ short ShowKey(CHARTYPE *params)
                continue;
 #endif
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-            if (the_driver->is_mouse_key(key))
+            if (the_input_legacy_key_is_mouse(key))
             {
-               int b,ba,bm,w;
-               CHARTYPE scrn;
-               if (!the_driver->read_mouse_button(&b,&ba,&bm))
+               if (!read_pending_mouse_definition_key(&key))
                   continue;
-               which_window_is_mouse_in(&scrn,&w);
                mouse_key = TRUE;
-               key = mouse_info_to_key(w,b,ba,bm);
             }
             else
                mouse_key = FALSE;
@@ -2646,13 +2643,13 @@ short Status(CHARTYPE *params)
                (void)show_status();
             }
 #endif
-            key = the_driver->read_standard_key();
+            key = curses_driver_read_terminal_legacy_key();
 #if defined(USE_XCURSES)
             if ( key == KEY_SF || key == KEY_SR )
                continue;
 #endif
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-            if (the_driver->is_mouse_key(key))
+            if (the_input_legacy_key_is_mouse(key))
                continue;
 #endif
 #ifdef CAN_RESIZE

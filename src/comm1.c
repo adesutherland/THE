@@ -1791,7 +1791,7 @@ short ControlChar(CHARTYPE *params)
    the_driver->refresh_current_window_now();
    for ( ; ; )
    {
-      key = the_driver->read_current_window_key();
+      key = the_driver_read_legacy_key();
       break;
    }
    clear_msgline(-1);

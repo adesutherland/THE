@@ -93,6 +93,9 @@ static void test_legacy_key_normalization(void)
    expect_int("legacy.mouse.to.key",
               the_input_event_to_legacy_key(&input, &key), 1);
    expect_int("legacy.mouse.key", key, THE_KEY_MOUSE);
+   expect_int("legacy.mouse.detect", the_input_legacy_key_is_mouse(key), 1);
+   expect_int("legacy.mouse.detect.regular",
+              the_input_legacy_key_is_mouse(KEY_LEFT), 0);
 }
 
 static void test_commands_targets_debug_and_queue(void)

@@ -1416,7 +1416,7 @@ short Fillbox(CHARTYPE *params)
       the_driver->update();
       while(1)
       {
-         key = the_driver->read_current_window_key();
+         key = the_driver_read_legacy_key();
          if ( !is_modifier_key( key ) )
             break;
       }
