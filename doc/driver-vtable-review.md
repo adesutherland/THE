@@ -1,6 +1,6 @@
 # Driver Vtable Review
 
-Last updated: 2026-05-27.
+Last updated: 2026-05-28.
 
 This is the strategic review of `TheDriverOps` after the direct-curses
 inventory cleanup closed. It is not a refactor plan for one mechanical sweep.
@@ -47,9 +47,9 @@ drivers continue to prove specific integration points.
 
 ## Findings
 
-- `TheDriverOps` currently has 138 function pointers.
-- `src/cursesdriver.c` initializes all 138 entries in `the_curses_driver_ops`.
-- `src/headlessdriver.c` initializes all 138 entries in
+- `TheDriverOps` currently has 130 function pointers.
+- `src/cursesdriver.c` initializes all 130 entries in `the_curses_driver_ops`.
+- `src/headlessdriver.c` initializes all 130 entries in
   `the_headless_driver_ops` without including curses headers or linking
   curses.
 - The Step 2 display-layout extraction removed `clamp_display_col`,
@@ -62,13 +62,15 @@ drivers continue to prove specific integration points.
 - A normalized `read_input_event` operation now exists. The old raw key/mouse
   operations remain as compatibility wrappers for the legacy dispatcher,
   readv/dialog/popup paths, `getch.c`, and existing mouse-definition dispatch.
-- The most urgent refactor candidates are raw key/mouse reads,
-  stdscr/curscr operations, keypad/notimeout/leaveok, and role-specific
-  touch/refresh/cursor helpers that reveal too much of the curses window
-  topology.
+- The modal/standard-screen contraction removed the public pad, stdscr/curscr,
+  relative-role-window, shell-preparation, and broken-curses background helper
+  entries. Remaining urgent refactor candidates are raw key/mouse reads,
+  keypad/notimeout/leaveok, and role-specific touch/refresh/cursor helpers
+  that reveal too much of the curses window topology.
 - The safest next code slice is not broad signature churn. Work in a few large
-  coherent slices: modal/standard-screen contraction and raw input migration
-  should remain separate.
+  coherent slices that remove operations from the public surface. Raw input
+  migration is now the next large close-down slice after modal/standard-screen
+  contraction.
 - The public "wide cell" surface is closed. `src/rendercell.c` now provides a
   portable render-cell/render-cluster model for grapheme clusters such as
   flags, keycaps, combining sequences, and ZWJ sequences where logical width,
@@ -106,7 +108,6 @@ and header sources. They do not count internal calls inside
 | `global_window_exists` | 15 calls in command/edit/the paths. | Tests status, error, divider, or filetabs globals. | `transitional-edge` | Track fake global surfaces. | Expose globals as semantic reserved rows. | Keep now; later replace with semantic chrome model. | Reserved-row snapshot tests. |
 | `delete_global_window` | 8 calls in command, error, file, shutdown. | Deletes global window slot and clears it. | `physical-terminal` | Delete fake surface and log. | Remove semantic chrome row or log. | Keep but mark optional/NOP-capable. | Fake surface lifecycle tests. |
 | `create_window` | 9 calls in `error.c`, `execute.c`, `util.c`. | Wraps `newwin` as opaque handle. | `physical-terminal` | Allocate fake window buffer. | Allocate logical/fake surface only when legacy path needs it. | Keep portable surface creation for now. | Headless fake-driver lifecycle tests. |
-| `create_pad` | 1 call in `execute.c`. | Wraps `newpad` when available. | `curses-private-candidate` | Allocate fake scroll buffer or return null if unsupported. | Prefer semantic popup/list snapshot. | Keep optional; move modal pad use toward transient UI. | Popup/readv tests without curses. |
 | `delete_window` | 14 calls in error, execute, util. | Calls `delwin` for non-null handles. | `physical-terminal` | Free fake surface and log. | Free compatibility surface. | Keep with fake implementation. | Fake lifecycle leak/assert tests. |
 | `enable_keypad` | 9 calls in error, execute, util. | Calls `keypad(win, TRUE/FALSE)`. | `curses-private-candidate` | Log or ignore. | Not needed; input is normalized. | Move toward curses-private implementation detail. | No-curses link guard plus input tests. |
 | `enable_standard_keypad` | 1 call in `the.c`. | Calls `keypad(stdscr, ...)`. | `curses-private-candidate` | NOP/log. | Not needed. | Move toward curses-private startup. | Startup boundary guard. |
@@ -126,9 +127,8 @@ and header sources. They do not count internal calls inside
 | `current_role_size` | 1 call in `cursor.c`. | Reads current screen role dimensions. | `core-portable` | Return fake role dimensions. | Return semantic zone dimensions. | Keep as portable geometry until frame model replaces it. | Cursor bounds tests. |
 | `screen_role_size` | 2 calls in `cursor.c`, `execute.c`. | Reads dimensions for screen role. | `core-portable` | Return fake role dimensions. | Return semantic zone dimensions. | Keep as portable geometry. | Dialog/popup geometry tests. |
 | `current_window_cursor_screen_point` | 3 calls in `execute.c`. | Adds window origin to active cursor. | `test-instrumentation` | Compute from fake origin/cursor. | Diagnostic only; prefer logical hit. | Move toward shared geometry helper. | Modal hit tests. |
-| `save_current_role_window` | 0 direct calls; helper paired with replace. | Saves current role slot. | `transitional-edge` | Save fake slot. | Avoid; transient UI should own modal state. | Keep only while replace API exists. | Modal role lifecycle tests. |
-| `replace_current_role_with_relative_window` | 1 call in `execute.c`. | Creates `derwin` or `subwin` and swaps role slot. | `curses-private-candidate` | Swap fake child surface. | Use transient semantic snapshot instead. | Move modal relative-window detail into curses driver. | Readv/dialog no-curses tests. |
-| `restore_current_role_window` | 2 calls in `execute.c`. | Restores saved role slot. | `transitional-edge` | Restore fake slot. | Avoid with semantic modal lifecycle. | Keep temporarily; retire with modal migration. | Modal lifecycle guard. |
+| `save_current_role_window` | 1 call in `execute.c`. | Saves current role slot for dialog editfield command-window substitution. | `transitional-edge` | Save fake slot. | Avoid; transient UI should eventually own modal command state. | Keep temporarily; paired with restore after relative-window removal. | Dialog no-curses/transient tests. |
+| `restore_current_role_window` | 3 calls in `execute.c`. | Restores saved role slot or installs the temporary dialog command window. | `transitional-edge` | Restore fake slot. | Avoid with semantic modal lifecycle. | Keep temporarily; retire when dialog editfield state is semantic. | Modal lifecycle guard. |
 | `delete_current_role_window` | 2 calls in `execute.c`. | Deletes current role window slot. | `physical-terminal` | Delete fake role surface. | End compatibility modal surface. | Keep optional; migrate modal callers. | Transient UI integration tests. |
 | `clear_current_screen_roles` | 1 call in `the.c`. | Nulls all role slots for current screen. | `transitional-edge` | Clear fake role map. | Reset semantic screen model. | Keep for screen lifecycle; later move to driver init/reset. | Startup/shutdown fake-driver tests. |
 | `move_window_cursor` | 11 calls in execute, show, util. | Calls `wmove` on explicit window. | `physical-terminal` | Update fake window cursor and log. | Log only unless compatibility fake surface is active. | Keep but mark optional/NOP-capable. | Fake operation log tests. |
@@ -177,8 +177,11 @@ and header sources. They do not count internal calls inside
 | `refresh_screen_role` | 19 calls in scroll, show, util. | Queues screen role refresh. | `transitional-edge` | Log role refresh. | No-op/log. | Keep optional until renderer owns presentation. | Virtual screen refresh tests. |
 | `refresh_global_window` | 6 calls in command, error, show. | Queues global window refresh. | `physical-terminal` | Log global refresh. | Log chrome update. | Keep optional. | Status/error refresh tests. |
 | `refresh_global_window_now` | 6 calls in error, rexx, the. | Calls `wrefresh` on global window. | `physical-terminal` | Immediate global refresh log. | Log only. | Keep optional; prefer batched updates. | Error-window prompt tests. |
-| `refresh_standard_screen` | 8 calls in command, execute, query, show, the, util. | Calls curses `refresh`. | `curses-private-candidate` | NOP/log. | Not needed. | Move toward curses-private startup/shell detail. | No-curses link guard. |
-| `refresh_pad` | 1 call in `execute.c`. | Calls `prefresh` when available. | `curses-private-candidate` | Present fake pad viewport/log. | Prefer semantic popup viewport. | Keep optional; migrate popup pad path. | Popup viewport tests. |
+| `sync_terminal_screen` | 6 calls in redraw, resize, startup, shutdown, and fallback `doupdate`. | Calls curses `refresh` without exposing `stdscr`. | `physical-terminal` | Deterministic `sync:terminal` log. | No-op/log terminal synchronization. | Keep as high-level terminal synchronization while startup/resize remain terminal-backed. | No-curses link guard plus headless log test. |
+| `clear_terminal_screen` | 2 calls in redraw and shutdown. | Clears the terminal screen, resets normal attr, and parks at home. | `physical-terminal` | Clears fake terminal surface/logs. | No-op/log terminal clear. | Keep as terminal lifecycle operation, not a general drawing primitive. | Headless log test and redraw/shutdown smoke. |
+| `begin_terminal_report` | 2 calls in `execute.c`, `query.c`. | Clears terminal report surface and resets attr. | `core-portable` | Clears fake report surface and starts write count. | Present semantic query/list report. | Keep as report lifecycle API for standard-screen list/status output. | `test_headlessdriver` report log. |
+| `write_terminal_report_text` | 3 helper call sites in execute/query. | Writes styled report text by row/column without exposing `stdscr`. | `core-portable` | Writes fake report text and counts spans. | Present semantic query/list report spans. | Keep as report API; avoid reintroducing cursor/cell primitives. | `test_headlessdriver` report log. |
+| `end_terminal_report` | 2 calls in `execute.c`, `query.c`. | Resets attr and refreshes the report. | `core-portable` | Logs deterministic span count. | Present report completion. | Keep paired with begin/write until query/list output gets a fuller model. | Query/status smoke. |
 | `update` | 16 calls in command, edit, error, scroll, show. | Calls `doupdate`. | `physical-terminal` | Presentation barrier log. | No-op/log. | Keep optional/NOP-capable. | Refresh-order operation log tests. |
 | `present_cursor` | 17 calls in command, edit, execute, show. | Applies cursor visibility, shape escape, and `curs_set`. | `physical-terminal` | Store visible flag/log. | Expose cursor visibility semantically. | Keep but split hardware presentation from logical cursor. | Cursor presentation tests. |
 | `set_current_window_timeout` | 2 calls in `edit.c`. | Calls `wtimeout` on active window. | `curses-private-candidate` | Store fake timeout/log. | Input loop should be event-driven. | Move toward curses-private input policy. | Input timeout behavior tests. |
@@ -213,17 +216,8 @@ and header sources. They do not count internal calls inside
 | `read_mouse_button` | 3 calls in command, mouse, query. | Decodes PDC/ncurses button/action/modifier. | `curses-private-candidate` | Return queued fake physical button or false. | Use normalized logical-hit events. | Move raw packet decode behind curses-private input driver. | PDC/ncurses mouse tests plus `test_mousehit`. |
 | `read_current_role_mouse_event` | 1 call in `commutil.c`. | Reads button and role-local coords. | `transitional-edge` | Return queued fake event. | Use logical-hit target. | Split to transient logical-hit input. | Readv mouse tests. |
 | `read_mouse_event` | 2 calls in `execute.c`. | Reads button and explicit-window coords. | `transitional-edge` | Return queued fake event. | Use logical transient hit. | Split to transient logical-hit input. | Dialog/popup hit tests. |
-| `prepare_standard_screen_for_shell` | 1 call in `execute.c`. | Resets attrs, clears stdscr, moves, refreshes. | `curses-private-candidate` | NOP/log shell transition. | Not needed. | Move toward curses-private shell escape path. | Shell-command smoke tests. |
-| `force_background_and_refresh_window` | 0 direct calls. | Broken SysV curses background workaround. | `curses-private-candidate` | NOP/log. | Not needed. | Keep only if platform support requires it; otherwise audit removal. | Platform-specific build guard. |
-| `force_background_and_refresh_current_window` | 3 calls in execute, rexx. | Applies broken-curses workaround to active window. | `curses-private-candidate` | NOP/log. | Not needed. | Move toward curses-private compatibility shim. | Shell/REXX smoke tests. |
-| `force_background_and_refresh_standard_screen` | 1 call in `the.c`. | Applies broken-curses workaround to stdscr. | `curses-private-candidate` | NOP/log. | Not needed. | Move toward curses-private startup shim. | Startup smoke tests. |
-| `touch_current_screen_image` | 1 call in `comm4.c`. | Touches curses `curscr`. | `curses-private-candidate` | NOP/log. | Not needed. | Move toward curses-private implementation detail. | Inventory guard for `curscr`. |
-| `clear_standard_window` | 3 calls in execute, query, the. | Calls `wclear(stdscr)`. | `curses-private-candidate` | Clear fake standard surface/log. | Not needed except compatibility log. | Move toward curses-private standard-screen handling. | Query/exit smoke tests. |
-| `erase_standard_window` | 1 call in `comm4.c`. | Calls curses `erase`. | `curses-private-candidate` | Clear fake standard surface/log. | Not needed. | Move toward curses-private implementation detail. | Standard-screen guard. |
-| `set_standard_attr` | 8 calls in execute, query, show, the. | Calls `attrset`. | `curses-private-candidate` | Set fake standard attr/log. | Not needed. | Move toward curses-private standard-screen handling. | Standard-screen guard. |
-| `add_standard_string_at` | 5 calls in execute, query. | Calls `mvaddstr`. | `curses-private-candidate` | Write fake stdscr text/log. | Prefer semantic prompt/status. | Move toward transient/query semantic rendering. | Query/readv tests. |
-| `move_standard_cursor` | 6 calls in execute, show, the. | Calls curses `move`. | `curses-private-candidate` | Move fake standard cursor/log. | Not needed. | Move toward curses-private standard-screen handling. | Startup/query tests. |
-| `add_standard_ch` | 3 calls in execute, show. | Calls curses `addch`. | `curses-private-candidate` | Write fake stdscr cell/log. | Not needed. | Move toward curses-private standard-screen handling. | Standard-screen guard. |
+| `prepare_for_shell_escape` | 1 call in `execute.c`. | Clears and refreshes the terminal before suspending curses for shell output. | `physical-terminal` | Deterministic `prepare:shell` log. | No-op/log shell transition. | Keep as high-level shell lifecycle op. | Shell-command smoke tests. |
+| `repair_terminal_background` | 4 calls in execute, rexx, startup. | Runs the broken SysV curses background repair privately for current window or terminal screen. | `physical-terminal` | Logs repair target. | No-op/log terminal repair. | Keep as terminal-repair op; physical color-pair mechanics stay in curses. | Headless log test plus shell/REXX smoke. |
 | `redraw_window` | 1 call in `show.c`. | Iterates cells and rewrites via `put_char`. | `curses-private-candidate` | Replay fake buffer/log. | Avoid physical redraw. | Move toward renderer-owned invalidation. | Renderer invalidation tests. |
 | `redraw_current_role` | 8 calls in command paths. | Redraws current role cell-by-cell. | `transitional-edge` | Replay fake role/log. | Prefer semantic row render. | Needs caller review; reduce with renderer model. | Command redraw tests. |
 | `redraw_screen_role` | 2 calls in `show.c`. | Redraws screen role cell-by-cell. | `transitional-edge` | Replay fake screen role/log. | Prefer semantic row render. | Move toward renderer-owned invalidation. | Virtual renderer invalidation tests. |
@@ -262,9 +256,30 @@ and header sources. They do not count internal calls inside
    represents codepoint sequences, UTF-8 slices, style, width facts, flags,
    fallback output, and terminal repair policy. Curses lowers the model
    privately; headless preserves it for tests.
-4. Move modal and standard-screen paths (`create_pad`, stdscr operations,
-   relative role windows, shell preparation) behind transient UI snapshots or
-   curses-private compatibility helpers.
+4. Done in this working tree: modal/standard-screen contraction. `TheDriverOps`
+   dropped `create_pad`, `refresh_pad`,
+   `replace_current_role_with_relative_window`,
+   `prepare_standard_screen_for_shell`, `refresh_standard_screen`,
+   `touch_current_screen_image`, `clear_standard_window`,
+   `erase_standard_window`, `set_standard_attr`,
+   `add_standard_string_at`, `move_standard_cursor`, `add_standard_ch`, and
+   the three broken-curses force-background refresh helpers. It added
+   terminal sync/clear/report plus shell/repair operations, leaving 130
+   entries. Popup rendering now uses the transient popup snapshot directly
+   instead of a pad, query/list output uses terminal-report spans, and the
+   SysV background workaround is private to `src/cursesdriver.c`.
+5. Next: retire raw input compatibility wrappers by migrating callers to
+   `read_input_event` or logical transient hit events. Keep raw terminal packet
+   decoding private to `src/cursesdriver.c`.
+6. Then contract role/window/cursor presentation helpers and remove
+   `cursor_focus_sync_current()` once command/file/prefix paths set logical
+   cursor and focus state before rendering.
+
+Later, after the public surface stabilizes, add startup/profile driver
+selection for curses, headless/test, and future UI backends. Defer full
+`the_agent` dispatcher coverage, full prefix execution, retained-frame LLM
+deltas, broader terminal-profile baselines, and the Windows/PDCurses split
+decision until these surface-reduction slices close.
 
 ## Verification Notes
 
@@ -276,4 +291,4 @@ perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/cursesdriver.c | wc -
 perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/headlessdriver.c | wc -l
 ```
 
-All three counts are 138 after the portable render-cell/render-cluster slice.
+All three counts are 130 after the modal/standard-screen contraction slice.

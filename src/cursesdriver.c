@@ -547,30 +547,6 @@ CursesDriverWindowRoleSave curses_driver_save_current_role_window(short role)
    return saved;
 }
 
-int curses_driver_replace_current_role_with_relative_window(
-   short role, WINDOW *parent, int rows, int cols, int row, int col,
-   CursesDriverWindowRoleSave *saved)
-{
-   TheDriverWindow **slot =
-      curses_driver_screen_role_window_slot(current_screen, role);
-
-   if (saved != NULL)
-   {
-      saved->window = NULL;
-      saved->slot_valid = 0;
-   }
-   if (slot == NULL)
-      return 0;
-   if (saved != NULL)
-   {
-      saved->window = *slot;
-      saved->slot_valid = 1;
-   }
-   *slot = curses_driver_window_to_driver(
-      curses_driver_create_relative_window(parent, rows, cols, row, col));
-   return *slot != NULL;
-}
-
 void curses_driver_restore_current_role_window(
    short role, CursesDriverWindowRoleSave saved)
 {
@@ -608,32 +584,6 @@ void curses_driver_clear_current_screen_roles(void)
 WINDOW *curses_driver_create_window(int rows, int cols, int row, int col)
 {
    return newwin(rows, cols, row, col);
-}
-
-WINDOW *curses_driver_create_pad(int rows, int cols)
-{
-#ifdef HAVE_NEWPAD
-   return newpad(rows, cols);
-#else
-   INTENTIONALLY_UNUSED_VARIABLE(rows);
-   INTENTIONALLY_UNUSED_VARIABLE(cols);
-   return NULL;
-#endif
-}
-
-WINDOW *curses_driver_create_relative_window(WINDOW *parent, int rows,
-                                             int cols, int row, int col)
-{
-#ifdef HAVE_DERWIN
-   return derwin(parent, rows, cols, row, col);
-#else
-   CursesDriverWindowOrigin origin;
-
-   origin = curses_driver_window_origin(parent);
-   if (!origin.valid)
-      return NULL;
-   return subwin(parent, rows, cols, origin.row + row, origin.col + col);
-#endif
 }
 
 void curses_driver_delete_window(WINDOW *win)
@@ -977,28 +927,42 @@ void curses_driver_refresh_global_window_now(CursesDriverGlobalWindowRole role)
    curses_driver_refresh_window_now(curses_driver_global_window(role));
 }
 
-void curses_driver_refresh_standard_screen(void)
+void curses_driver_sync_terminal_screen(void)
 {
    refresh();
 }
 
-void curses_driver_refresh_pad(WINDOW *pad, int pad_row, int pad_col,
-                               int screen_top, int screen_left,
-                               int screen_bottom, int screen_right)
+void curses_driver_clear_terminal_screen(void)
 {
-   if (pad == NULL)
+   attrset(A_NORMAL);
+   clear();
+   move(0, 0);
+}
+
+void curses_driver_begin_terminal_report(void)
+{
+   wclear(stdscr);
+   attrset(A_NORMAL);
+}
+
+void curses_driver_write_terminal_report_text(short row, short col,
+                                              TheDriverAttr attr,
+                                              const char *text, size_t len)
+{
+   size_t i;
+
+   if (text == NULL)
       return;
-#ifdef HAVE_PREFRESH
-   prefresh(pad, pad_row, pad_col, screen_top, screen_left,
-            screen_bottom, screen_right);
-#else
-   INTENTIONALLY_UNUSED_VARIABLE(pad_row);
-   INTENTIONALLY_UNUSED_VARIABLE(pad_col);
-   INTENTIONALLY_UNUSED_VARIABLE(screen_top);
-   INTENTIONALLY_UNUSED_VARIABLE(screen_left);
-   INTENTIONALLY_UNUSED_VARIABLE(screen_bottom);
-   INTENTIONALLY_UNUSED_VARIABLE(screen_right);
-#endif
+   attrset((chtype)attr);
+   move(row, col);
+   for (i = 0; i < len; i++)
+      addch((chtype)(unsigned char)text[i]);
+}
+
+void curses_driver_end_terminal_report(void)
+{
+   attrset(A_NORMAL);
+   refresh();
 }
 
 void curses_driver_update(void)
@@ -1521,7 +1485,7 @@ int curses_driver_read_mouse_button(int *button, int *action, int *modifier)
 #endif
 }
 
-void curses_driver_prepare_standard_screen_for_shell(void)
+void curses_driver_prepare_for_shell_escape(void)
 {
    attrset(A_NORMAL);
    clear();
@@ -1529,62 +1493,41 @@ void curses_driver_prepare_standard_screen_for_shell(void)
    wrefresh(stdscr);
 }
 
-void curses_driver_force_background_and_refresh(WINDOW *win)
+static void curses_driver_force_terminal_background(void)
 {
 #if defined(HAVE_BROKEN_SYSVR4_CURSES)
-   CursesDriverWindowCursor cursor;
+   short fg = 0;
+   short bg = 0;
 
-   cursor = curses_driver_capture_window_cursor(win);
-   force_curses_background();
-   curses_driver_restore_window_cursor(win, cursor);
-   curses_driver_refresh_standard_screen();
-#else
-   INTENTIONALLY_UNUSED_VARIABLE(win);
+   if (colour_support)
+   {
+      pair_content(1, &fg, &bg);
+      init_pair(1, COLOR_BLACK, COLOR_WHITE);
+      move(0, 0);
+      attrset(COLOR_PAIR(1));
+      addch(' ');
+      init_pair(1, fg, bg);
+   }
 #endif
 }
 
-void curses_driver_force_background_and_refresh_current_window(void)
+void curses_driver_repair_terminal_background(
+   TheDriverTerminalRepairTarget target)
 {
-   curses_driver_force_background_and_refresh(
-      curses_driver_current_active_window());
-}
+#if defined(HAVE_BROKEN_SYSVR4_CURSES)
+   CursesDriverWindowCursor cursor;
+   WINDOW *win;
 
-void curses_driver_force_background_and_refresh_standard_screen(void)
-{
-   curses_driver_force_background_and_refresh(stdscr);
-}
-
-void curses_driver_clear_standard_window(void)
-{
-   wclear(stdscr);
-}
-
-void curses_driver_erase_standard_window(void)
-{
-   erase();
-}
-
-void curses_driver_set_standard_attr(chtype colour)
-{
-   attrset(colour);
-}
-
-void curses_driver_add_standard_string_at(short row, short col,
-                                          const char *text)
-{
-   if (text == NULL)
-      return;
-   mvaddstr(row, col, text);
-}
-
-void curses_driver_move_standard_cursor(short row, short col)
-{
-   move(row, col);
-}
-
-void curses_driver_add_standard_ch(chtype ch)
-{
-   addch(ch);
+   win = target == THE_DRIVER_REPAIR_TERMINAL_SCREEN
+       ? stdscr
+       : curses_driver_current_active_window();
+   cursor = curses_driver_capture_window_cursor(win);
+   curses_driver_force_terminal_background();
+   curses_driver_restore_window_cursor(win, cursor);
+   curses_driver_sync_terminal_screen();
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(target);
+#endif
 }
 
 #ifdef HAVE_WADDCHNSTR
@@ -1758,11 +1701,6 @@ static TheDriverWindow *curses_driver_ops_create_window(int rows, int cols,
       curses_driver_create_window(rows, cols, row, col));
 }
 
-static TheDriverWindow *curses_driver_ops_create_pad(int rows, int cols)
-{
-   return curses_driver_window_to_driver(curses_driver_create_pad(rows, cols));
-}
-
 static void curses_driver_ops_delete_window(TheDriverWindow *win)
 {
    curses_driver_delete_window(curses_driver_window_from_driver(win));
@@ -1808,15 +1746,6 @@ static TheDriverWindowOrigin curses_driver_ops_window_origin(
 static TheDriverWindowSize curses_driver_ops_window_size(TheDriverWindow *win)
 {
    return curses_driver_window_size(curses_driver_window_from_driver(win));
-}
-
-static int curses_driver_ops_replace_current_role_with_relative_window(
-   short role, TheDriverWindow *parent, int rows, int cols, int row, int col,
-   TheDriverWindowRoleSave *saved)
-{
-   return curses_driver_replace_current_role_with_relative_window(
-      role, curses_driver_window_from_driver(parent), rows, cols, row, col,
-      saved);
 }
 
 static void curses_driver_ops_move_window_cursor(TheDriverWindow *win,
@@ -1928,16 +1857,6 @@ static void curses_driver_ops_refresh_window(TheDriverWindow *win)
 static void curses_driver_ops_refresh_window_now(TheDriverWindow *win)
 {
    curses_driver_refresh_window_now(curses_driver_window_from_driver(win));
-}
-
-static void curses_driver_ops_refresh_pad(TheDriverWindow *pad, int pad_row,
-                                          int pad_col, int screen_top,
-                                          int screen_left, int screen_bottom,
-                                          int screen_right)
-{
-   curses_driver_refresh_pad(curses_driver_window_from_driver(pad), pad_row,
-                             pad_col, screen_top, screen_left, screen_bottom,
-                             screen_right);
 }
 
 static void curses_driver_ops_draw_box(TheDriverWindow *win)
@@ -2158,31 +2077,9 @@ static int curses_driver_ops_read_mouse_event(TheDriverWindow *win,
                                          event);
 }
 
-static void curses_driver_ops_force_background_and_refresh_window(
-   TheDriverWindow *win)
-{
-   curses_driver_force_background_and_refresh(
-      curses_driver_window_from_driver(win));
-}
-
-static void curses_driver_ops_touch_current_screen_image(void)
-{
-   curses_driver_touch_window(curscr);
-}
-
 static void curses_driver_ops_redraw_window(TheDriverWindow *win)
 {
    curses_driver_redraw_window(curses_driver_window_from_driver(win));
-}
-
-static void curses_driver_ops_set_standard_attr(TheDriverAttr colour)
-{
-   curses_driver_set_standard_attr((chtype)colour);
-}
-
-static void curses_driver_ops_add_standard_ch(TheDriverCell ch)
-{
-   curses_driver_add_standard_ch((chtype)ch);
 }
 
 static void curses_driver_ops_draw_software_cell(
@@ -2215,7 +2112,6 @@ const TheDriverOps the_curses_driver_ops = {
    .global_window_exists = curses_driver_global_window_exists,
    .delete_global_window = curses_driver_delete_global_window,
    .create_window = curses_driver_ops_create_window,
-   .create_pad = curses_driver_ops_create_pad,
    .delete_window = curses_driver_ops_delete_window,
    .enable_keypad = curses_driver_ops_enable_keypad,
    .enable_standard_keypad = curses_driver_ops_enable_standard_keypad,
@@ -2239,8 +2135,6 @@ const TheDriverOps the_curses_driver_ops = {
    .current_window_cursor_screen_point =
       curses_driver_current_window_cursor_screen_point,
    .save_current_role_window = curses_driver_save_current_role_window,
-   .replace_current_role_with_relative_window =
-      curses_driver_ops_replace_current_role_with_relative_window,
    .restore_current_role_window = curses_driver_restore_current_role_window,
    .delete_current_role_window = curses_driver_delete_current_role_window,
    .clear_current_screen_roles = curses_driver_clear_current_screen_roles,
@@ -2298,8 +2192,11 @@ const TheDriverOps the_curses_driver_ops = {
    .refresh_screen_role = curses_driver_refresh_screen_role,
    .refresh_global_window = curses_driver_refresh_global_window,
    .refresh_global_window_now = curses_driver_refresh_global_window_now,
-   .refresh_standard_screen = curses_driver_refresh_standard_screen,
-   .refresh_pad = curses_driver_ops_refresh_pad,
+   .sync_terminal_screen = curses_driver_sync_terminal_screen,
+   .clear_terminal_screen = curses_driver_clear_terminal_screen,
+   .begin_terminal_report = curses_driver_begin_terminal_report,
+   .write_terminal_report_text = curses_driver_write_terminal_report_text,
+   .end_terminal_report = curses_driver_end_terminal_report,
    .update = curses_driver_update,
    .present_cursor = curses_driver_present_cursor,
    .set_current_window_timeout = curses_driver_set_current_window_timeout,
@@ -2336,21 +2233,8 @@ const TheDriverOps the_curses_driver_ops = {
    .read_current_role_mouse_event =
       curses_driver_read_current_role_mouse_event,
    .read_mouse_event = curses_driver_ops_read_mouse_event,
-   .prepare_standard_screen_for_shell =
-      curses_driver_prepare_standard_screen_for_shell,
-   .force_background_and_refresh_window =
-      curses_driver_ops_force_background_and_refresh_window,
-   .force_background_and_refresh_current_window =
-      curses_driver_force_background_and_refresh_current_window,
-   .force_background_and_refresh_standard_screen =
-      curses_driver_force_background_and_refresh_standard_screen,
-   .touch_current_screen_image = curses_driver_ops_touch_current_screen_image,
-   .clear_standard_window = curses_driver_clear_standard_window,
-   .erase_standard_window = curses_driver_erase_standard_window,
-   .set_standard_attr = curses_driver_ops_set_standard_attr,
-   .add_standard_string_at = curses_driver_add_standard_string_at,
-   .move_standard_cursor = curses_driver_move_standard_cursor,
-   .add_standard_ch = curses_driver_ops_add_standard_ch,
+   .prepare_for_shell_escape = curses_driver_prepare_for_shell_escape,
+   .repair_terminal_background = curses_driver_repair_terminal_background,
    .redraw_window = curses_driver_ops_redraw_window,
    .redraw_current_role = curses_driver_redraw_current_role,
    .redraw_screen_role = curses_driver_redraw_screen_role,

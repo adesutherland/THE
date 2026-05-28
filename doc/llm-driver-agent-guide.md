@@ -1,6 +1,6 @@
 # LLM Driver Agent Guide
 
-Last updated: 2026-05-26.
+Last updated: 2026-05-28.
 
 This guide describes the agent-facing LLM driver surface. It intentionally
 avoids migration planning detail; use `doc/utf-handover.md` for status and
@@ -156,15 +156,20 @@ Current agent subset:
 - Unsupported full-editor commands return stable diagnostics and point callers
   to `capabilities`.
 
-Not closed:
+Open feature gaps:
+
+These are intentionally tracked as feature gaps after the driver close-down
+work in `doc/utf-handover.md`, not as blockers for the current curses-boundary
+cleanup.
 
 - Full THE command dispatcher integration in `the_agent`.
 - Full prefix command machinery in `the_agent`. `SOS PREFIX` can focus the
   prefix field, but entering or executing prefix commands is still outside the
   no-curses agent subset.
 - Live transient readv/dialog/popup protocol integration in `the_agent`. The
-  logical model and curses-path materialization exist, but agents cannot yet
-  drive a real modal dialog/popup lifecycle through the interactive protocol.
+  logical model and curses-path materialization exist, and popup pad mechanics
+  are no longer public driver operations, but agents cannot yet drive a real
+  modal dialog/popup lifecycle through the interactive protocol.
 - Full logical window lifecycle snapshots outside the readv/dialog/popup
   transient model.
 - Delta views from retained prior frames.

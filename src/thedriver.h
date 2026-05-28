@@ -108,6 +108,12 @@ typedef struct
 
 typedef enum
 {
+   THE_DRIVER_REPAIR_ACTIVE_SURFACE = 0,
+   THE_DRIVER_REPAIR_TERMINAL_SCREEN
+} TheDriverTerminalRepairTarget;
+
+typedef enum
+{
    THE_DRIVER_GLOBAL_STATAREA = 0,
    THE_DRIVER_GLOBAL_ERROR,
    THE_DRIVER_GLOBAL_DIVIDER,
@@ -128,7 +134,6 @@ struct TheDriverOps
    int (*global_window_exists)(TheDriverGlobalWindowRole role);
    void (*delete_global_window)(TheDriverGlobalWindowRole role);
    TheDriverWindow *(*create_window)(int rows, int cols, int row, int col);
-   TheDriverWindow *(*create_pad)(int rows, int cols);
    void (*delete_window)(TheDriverWindow *win);
    void (*enable_keypad)(TheDriverWindow *win, bool enabled);
    void (*enable_standard_keypad)(bool enabled);
@@ -151,9 +156,6 @@ struct TheDriverOps
    TheDriverWindowSize (*screen_role_size)(CHARTYPE scrno, short role);
    TheDriverScreenPoint (*current_window_cursor_screen_point)(void);
    TheDriverWindowRoleSave (*save_current_role_window)(short role);
-   int (*replace_current_role_with_relative_window)(
-      short role, TheDriverWindow *parent, int rows, int cols, int row,
-      int col, TheDriverWindowRoleSave *saved);
    void (*restore_current_role_window)(short role,
                                        TheDriverWindowRoleSave saved);
    void (*delete_current_role_window)(short role);
@@ -214,10 +216,13 @@ struct TheDriverOps
    void (*refresh_screen_role)(CHARTYPE scrno, short role);
    void (*refresh_global_window)(TheDriverGlobalWindowRole role);
    void (*refresh_global_window_now)(TheDriverGlobalWindowRole role);
-   void (*refresh_standard_screen)(void);
-   void (*refresh_pad)(TheDriverWindow *pad, int pad_row, int pad_col,
-                       int screen_top, int screen_left, int screen_bottom,
-                       int screen_right);
+   void (*sync_terminal_screen)(void);
+   void (*clear_terminal_screen)(void);
+   void (*begin_terminal_report)(void);
+   void (*write_terminal_report_text)(short row, short col,
+                                      TheDriverAttr attr,
+                                      const char *text, size_t len);
+   void (*end_terminal_report)(void);
    void (*update)(void);
    void (*present_cursor)(bool visible);
    void (*set_current_window_timeout)(int milliseconds);
@@ -266,17 +271,9 @@ struct TheDriverOps
    int (*read_current_role_mouse_event)(short role,
                                         TheDriverMouseEvent *event);
    int (*read_mouse_event)(TheDriverWindow *win, TheDriverMouseEvent *event);
-   void (*prepare_standard_screen_for_shell)(void);
-   void (*force_background_and_refresh_window)(TheDriverWindow *win);
-   void (*force_background_and_refresh_current_window)(void);
-   void (*force_background_and_refresh_standard_screen)(void);
-   void (*touch_current_screen_image)(void);
-   void (*clear_standard_window)(void);
-   void (*erase_standard_window)(void);
-   void (*set_standard_attr)(TheDriverAttr colour);
-   void (*add_standard_string_at)(short row, short col, const char *text);
-   void (*move_standard_cursor)(short row, short col);
-   void (*add_standard_ch)(TheDriverCell ch);
+   void (*prepare_for_shell_escape)(void);
+   void (*repair_terminal_background)(
+      TheDriverTerminalRepairTarget target);
    void (*redraw_window)(TheDriverWindow *win);
    void (*redraw_current_role)(short role);
    void (*redraw_screen_role)(CHARTYPE scrno, short role);

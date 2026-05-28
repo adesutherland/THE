@@ -1290,13 +1290,13 @@ fclose( fp);
    set_screen_defaults();
 
 #if defined(HAVE_BROKEN_SYSVR4_CURSES)
-   the_driver->force_background_and_refresh_standard_screen();
+   the_driver->repair_terminal_background(THE_DRIVER_REPAIR_TERMINAL_SCREEN);
 #endif
    /*
     * wnoutrefresh() is called here so that the first call to getch() on
     * stdscr does not clear the screen.
     */
-   the_driver->refresh_standard_screen();
+   the_driver->sync_terminal_screen();
 #if defined(HAVE_SLK_INIT)
    if (SLKx) slk_noutrefresh();
 #endif
@@ -1437,10 +1437,8 @@ fclose( fp);
 #if !defined(USE_XCURSES) && !defined(USE_WINGUICURSES) && !defined(USE_SDLCURSES)
    if (CLEARSCREENx)
    {
-      the_driver->clear_standard_window();
-      the_driver->move_standard_cursor(0,0);
-      the_driver->set_standard_attr(A_NORMAL);
-      the_driver->refresh_standard_screen();
+      the_driver->clear_terminal_screen();
+      the_driver->sync_terminal_screen();
    }
    else
 #endif

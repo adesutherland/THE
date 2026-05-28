@@ -290,7 +290,6 @@ char *get_current_position (CHARTYPE,LINETYPE *,LENGTHTYPE *);
 void calculate_new_column ( CHARTYPE, VIEW_DETAILS *, COLTYPE, LENGTHTYPE, LENGTHTYPE, COLTYPE *, LENGTHTYPE * );
 short prepare_view (CHARTYPE);
 short advance_view (VIEW_DETAILS *,short);
-short force_curses_background (void);
 short THE_Resize (int,int);
                                                            /* scroll.c */
 short scroll_page (short,LINETYPE,bool);

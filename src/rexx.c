@@ -1068,7 +1068,8 @@ short execute_macro_file
             if (number_of_files > 0)
             {
 #if defined(HAVE_BROKEN_SYSVR4_CURSES)
-               the_driver->force_background_and_refresh_current_window();
+               the_driver->repair_terminal_background(
+                  THE_DRIVER_REPAIR_ACTIVE_SURFACE);
 #endif
                restore_THE();
             }
@@ -1212,7 +1213,8 @@ short execute_macro_instore
             if (number_of_files > 0)
             {
 #if defined(HAVE_BROKEN_SYSVR4_CURSES)
-               the_driver->force_background_and_refresh_current_window();
+               the_driver->repair_terminal_background(
+                  THE_DRIVER_REPAIR_ACTIVE_SURFACE);
 #endif
                restore_THE();
             }

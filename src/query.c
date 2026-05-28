@@ -225,6 +225,18 @@ extern ExtractFunction extract_wrap;
 extern ExtractFunction extract_xterminal;
 extern ExtractFunction extract_zone;
 
+static void query_terminal_report_write_cstr(short row, short col,
+                                             TheDriverAttr attr,
+                                             const CHARTYPE *text)
+{
+   const char *report_text = (const char *)text;
+
+   if (report_text == NULL)
+      report_text = "";
+   the_driver->write_terminal_report_text(row, col, attr, report_text,
+                                          strlen(report_text));
+}
+
 CHARTYPE query_num0[10]; /* DO NOT USE THIS FOR DATA !! */
 CHARTYPE query_num1[10];
 CHARTYPE query_num2[10];
@@ -2414,7 +2426,7 @@ short show_status(void)
    col[0] = 0;
    for (i=1;i<STATUS_COLS;i++)
       col[i] = col[i-1]+column_width+1;
-   the_driver->clear_standard_window();
+   the_driver->begin_terminal_report();
    for (i=0; i<NUMBER_QUERY_ITEM; i++)
    {
       /*
@@ -2446,10 +2458,9 @@ short show_status(void)
           */
          for (j=0;j<number_variables+1;j++)
          {
-            if (j == 0)
-               the_driver->set_standard_attr(A_BOLD);
-            the_driver->add_standard_string_at(lineno,colno,(DEFCHAR *)item_values[j].value);
-            the_driver->set_standard_attr(A_NORMAL);
+            query_terminal_report_write_cstr(
+               lineno, colno, j == 0 ? A_BOLD : A_NORMAL,
+               item_values[j].value);
             colno += item_values[j].len+1;
          }
          colno--;
@@ -2481,8 +2492,9 @@ short show_status(void)
          }
       }
    }
-   the_driver->add_standard_string_at(terminal_lines-2,0,HIT_ANY_KEY);
-   the_driver->refresh_standard_screen();
+   query_terminal_report_write_cstr(terminal_lines-2, 0, A_NORMAL,
+                                    (const CHARTYPE *)HIT_ANY_KEY);
+   the_driver->end_terminal_report();
 
    TRACE_RETURN();
    return(RC_OK);

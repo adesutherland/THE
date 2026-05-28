@@ -100,17 +100,11 @@ CursesDriverWindowSize curses_driver_screen_role_size(CHARTYPE scrno,
                                                       short role);
 CursesDriverScreenPoint curses_driver_current_window_cursor_screen_point(void);
 CursesDriverWindowRoleSave curses_driver_save_current_role_window(short role);
-int curses_driver_replace_current_role_with_relative_window(
-   short role, WINDOW *parent, int rows, int cols, int row, int col,
-   CursesDriverWindowRoleSave *saved);
 void curses_driver_restore_current_role_window(
    short role, CursesDriverWindowRoleSave saved);
 void curses_driver_delete_current_role_window(short role);
 void curses_driver_clear_current_screen_roles(void);
 WINDOW *curses_driver_create_window(int rows, int cols, int row, int col);
-WINDOW *curses_driver_create_pad(int rows, int cols);
-WINDOW *curses_driver_create_relative_window(WINDOW *parent, int rows,
-                                             int cols, int row, int col);
 void curses_driver_delete_window(WINDOW *win);
 void curses_driver_enable_keypad(WINDOW *win, bool enabled);
 void curses_driver_move_window_cursor(WINDOW *win, short row, short col);
@@ -173,10 +167,13 @@ void curses_driver_refresh_screen_window(CHARTYPE scrno);
 void curses_driver_refresh_screen_role(CHARTYPE scrno, short role);
 void curses_driver_refresh_global_window(CursesDriverGlobalWindowRole role);
 void curses_driver_refresh_global_window_now(CursesDriverGlobalWindowRole role);
-void curses_driver_refresh_standard_screen(void);
-void curses_driver_refresh_pad(WINDOW *pad, int pad_row, int pad_col,
-                               int screen_top, int screen_left,
-                               int screen_bottom, int screen_right);
+void curses_driver_sync_terminal_screen(void);
+void curses_driver_clear_terminal_screen(void);
+void curses_driver_begin_terminal_report(void);
+void curses_driver_write_terminal_report_text(short row, short col,
+                                              TheDriverAttr attr,
+                                              const char *text, size_t len);
+void curses_driver_end_terminal_report(void);
 void curses_driver_update(void);
 void curses_driver_present_cursor(bool visible);
 void curses_driver_set_window_timeout(WINDOW *win, int milliseconds);
@@ -212,17 +209,9 @@ int curses_driver_read_mouse_button(int *button, int *action, int *modifier);
 int curses_driver_read_mouse_event(WINDOW *win, CursesDriverMouseEvent *event);
 int curses_driver_read_current_role_mouse_event(short role,
                                                 CursesDriverMouseEvent *event);
-void curses_driver_prepare_standard_screen_for_shell(void);
-void curses_driver_force_background_and_refresh(WINDOW *win);
-void curses_driver_force_background_and_refresh_current_window(void);
-void curses_driver_force_background_and_refresh_standard_screen(void);
-void curses_driver_clear_standard_window(void);
-void curses_driver_erase_standard_window(void);
-void curses_driver_set_standard_attr(chtype colour);
-void curses_driver_add_standard_string_at(short row, short col,
-                                          const char *text);
-void curses_driver_move_standard_cursor(short row, short col);
-void curses_driver_add_standard_ch(chtype ch);
+void curses_driver_prepare_for_shell_escape(void);
+void curses_driver_repair_terminal_background(
+   TheDriverTerminalRepairTarget target);
 #ifdef HAVE_WADDCHNSTR
 void curses_driver_write_chtype_span(WINDOW *win, const chtype *text, int len);
 # ifdef USE_UTF8

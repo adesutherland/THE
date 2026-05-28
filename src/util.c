@@ -2987,7 +2987,7 @@ int doupdate(void)
       y = cursor.row;
       x = cursor.col;
    }
-   the_driver->refresh_standard_screen();
+   the_driver->sync_terminal_screen();
    the_driver->move_current_window_cursor(y, x);
    the_driver->refresh_current_window_now();
    TRACE_RETURN();

@@ -5800,7 +5800,7 @@ short THE_Resize(int rows, int cols)
       resizeterm(rows,cols);
    endwin();
    the_driver->update();  /* make ncurses set LINES and COLS properly */
-   the_driver->refresh_standard_screen();
+   the_driver->sync_terminal_screen();
    /* the_driver->refresh_window( curscr ); */
    ncurses_screen_resized = FALSE;
 #elif defined(HAVE_RESIZE_TERM)
@@ -5869,35 +5869,6 @@ short THE_Resize(int rows, int cols)
 #if defined(SIGWINCH) && defined(USE_NCURSES)
   /* restore_THE();  */
 #endif
-   TRACE_RETURN();
-   return (RC_OK);
-}
-#endif
-
-#if defined(HAVE_BROKEN_SYSVR4_CURSES)
-/***********************************************************************/
-short force_curses_background(void)
-/***********************************************************************/
-{
-   int rc=RC_OK;
-   short fg=0,bg=0;
-
-   TRACE_FUNCTION("show.c:    force_curses_background");
-   /*
-    * This function is called to ensure that the background colour of the
-    * first line on the screen is set to that which THE requests.  Some
-    * curses implementations, notably Solaris 2.5, fail to set the
-    * background to black.
-    */
-   if (colour_support)
-   {
-      pair_content(1,&fg,&bg);
-      init_pair(1,COLOR_BLACK,COLOR_WHITE);
-      the_driver->move_standard_cursor(0,0);
-      the_driver->set_standard_attr(COLOR_PAIR(1));
-      the_driver->add_standard_ch(' ');
-      init_pair(1,fg,bg);
-   }
    TRACE_RETURN();
    return (RC_OK);
 }

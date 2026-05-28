@@ -104,6 +104,76 @@ static TransientUiKey execute_transient_key_from_curses(int key)
    }
 }
 
+static void execute_terminal_report_write_cstr(short row, short col,
+                                               TheDriverAttr attr,
+                                               const CHARTYPE *text)
+{
+   const char *report_text = (const char *)text;
+
+   if (report_text == NULL)
+      report_text = "";
+   the_driver->write_terminal_report_text(row, col, attr, report_text,
+                                          strlen(report_text));
+}
+
+static void execute_terminal_report_write_wrapped(int *row, short col,
+                                                  short width,
+                                                  TheDriverAttr attr,
+                                                  const CHARTYPE *text)
+{
+   const char *report_text = (const char *)text;
+   size_t len;
+   size_t offset = 0;
+   short chunk_width;
+
+   if (row == NULL)
+      return;
+   if (report_text == NULL)
+      report_text = "";
+   len = strlen(report_text);
+   chunk_width = width <= 0 ? 1 : width;
+   while (offset < len)
+   {
+      size_t chunk = len - offset;
+
+      if (chunk > (size_t)chunk_width)
+         chunk = (size_t)chunk_width;
+      the_driver->write_terminal_report_text((short)*row, col, attr,
+                                             report_text + offset, chunk);
+      offset += chunk;
+      if (offset < len)
+         (*row)++;
+   }
+}
+
+static void execute_popup_render_snapshot_row(TheDriverWindow *win,
+                                              const TransientUiRow *row,
+                                              int width, int x_offset)
+{
+   int col;
+   int len;
+
+   if (win == NULL || row == NULL)
+      return;
+   for (col = 1; col < width - 1; col++)
+      the_driver->add_cell_at(win, row->row, col, ' ');
+   if (row->role == TRANSIENT_UI_ROW_POPUP_SEPARATOR)
+   {
+      the_driver->move_window_cursor(win, row->row, 1);
+      the_driver->draw_horizontal_line(win, 0, width > 2 ? width - 2 : 0);
+      return;
+   }
+   len = strlen(row->text);
+   for (col = 1; col < width - 1; col++)
+   {
+      int src = x_offset + col - 2;
+
+      if (src >= 0 && src < len)
+         the_driver->add_cell_at(win, row->row, col,
+                                 (unsigned char)row->text[src]);
+   }
+}
+
 /***********************************************************************/
 static short selective_change(TARGET *target,CHARTYPE *old_str,LENGTHTYPE len_old_str,CHARTYPE *new_str,
                        LENGTHTYPE len_new_str,LINETYPE true_line,LINETYPE last_true_line,LENGTHTYPE start_col)
@@ -856,7 +926,7 @@ short execute_os_command(CHARTYPE *cmd,bool quiet,bool pause)
    STARTUPCONSOLE();
    if (!quiet && curses_started)
    {
-      the_driver->prepare_standard_screen_for_shell();
+      the_driver->prepare_for_shell_escape();
       suspend_curses();
    }
    if (allocate_temp_space(strlen((DEFCHAR *)cmd),TEMP_TEMP_CMD) != RC_OK)
@@ -918,7 +988,8 @@ short execute_os_command(CHARTYPE *cmd,bool quiet,bool pause)
          (void)the_driver->read_standard_key();
       resume_curses();
 #if defined(HAVE_BROKEN_SYSVR4_CURSES)
-      the_driver->force_background_and_refresh_current_window();
+      the_driver->repair_terminal_background(
+         THE_DRIVER_REPAIR_ACTIVE_SURFACE);
 #endif
       restore_THE();
    }
@@ -3573,7 +3644,7 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
    CHARTYPE *p=NULL,*str=NULL;
    unsigned short num_params=0;
    LINE *curr=NULL,*first=NULL;
-   int key=0,lineno=0,i,len_str,len_name,rem,x;
+   int key=0,lineno=0,i,len_name,rem;
    short rc=RC_OK;
 
    TRACE_FUNCTION( "execute.c: execute_editv" );
@@ -3656,7 +3727,7 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
          }
          break;
       case EDITV_LIST:
-         the_driver->clear_standard_window();
+         the_driver->begin_terminal_report();
          if ( blank_field( params ) )
          {
             curr = first;
@@ -3666,10 +3737,8 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
                   str = curr->line;
                else
                   str = (CHARTYPE *)"";
-               the_driver->set_standard_attr(A_BOLD);
-               the_driver->add_standard_string_at(lineno, 0,
-                                                    (DEFCHAR *)curr->name);
-               the_driver->set_standard_attr(A_NORMAL);
+               execute_terminal_report_write_cstr(lineno, 0, A_BOLD,
+                                                  curr->name);
                /*
                 * Calculate maximum length of string to display so we don't wrap.
                 */
@@ -3677,26 +3746,14 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
                   len_name = strlen( (DEFCHAR *)curr->name );
                else
                   len_name = 0;
-               len_str =  strlen( (DEFCHAR *)str );
                rem = terminal_cols - len_name - 1;
                /*
                 * Display the value, wrapping if necessary
                 */
-               the_driver->move_standard_cursor(lineno, 1 + len_name);
-               for ( x = 0,i = 0; i < len_str; i++ )
-               {
-                  if ( x == rem )
-                  {
-                     x = 1;
-                     lineno++;
-                     the_driver->move_standard_cursor(lineno, 1 + len_name);
-                  }
-                  else
-                  {
-                     x++;
-                  }
-                  the_driver->add_standard_ch(*(str+i));
-               }
+               execute_terminal_report_write_wrapped(&lineno,
+                                                     (short)(1 + len_name),
+                                                     (short)rem, A_NORMAL,
+                                                     str);
                lineno++;
                curr = curr->next;
             }
@@ -3713,9 +3770,7 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
                   str = curr->line;
                else
                   str = (CHARTYPE *)"";
-               the_driver->set_standard_attr(A_BOLD);
-               the_driver->add_standard_string_at(lineno, 0, (DEFCHAR *)p);
-               the_driver->set_standard_attr(A_NORMAL);
+               execute_terminal_report_write_cstr(lineno, 0, A_BOLD, p);
                /*
                 * Calculate maximum length of string to display so we don't wrap.
                 */
@@ -3723,33 +3778,21 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
                   len_name = strlen( (DEFCHAR *)curr->name );
                else
                   len_name = 0;
-               len_str =  strlen( (DEFCHAR *)str );
                rem = terminal_cols - len_name - 1;
                /*
                 * Display the value, wrapping if necessary
                 */
-               the_driver->move_standard_cursor(lineno, 1 + len_name);
-               for ( x = 0,i = 0; i < len_str; i++ )
-               {
-                  if ( x == rem )
-                  {
-                     x = 1;
-                     lineno++;
-                     the_driver->move_standard_cursor(lineno, 1 + len_name);
-                  }
-                  else
-                  {
-                     x++;
-                  }
-                  the_driver->add_standard_ch(*(str+i));
-               }
+               execute_terminal_report_write_wrapped(&lineno,
+                                                     (short)(1 + len_name),
+                                                     (short)rem, A_NORMAL,
+                                                     str);
                lineno++;
                p = (CHARTYPE *)strtok( NULL, " " );
             }
          }
-         the_driver->add_standard_string_at(terminal_lines - 2, 0,
-                                              HIT_ANY_KEY);
-         the_driver->refresh_standard_screen();
+         execute_terminal_report_write_cstr(terminal_lines - 2, 0, A_NORMAL,
+                                            (const CHARTYPE *)HIT_ANY_KEY);
+         the_driver->end_terminal_report();
          while( 1 )
          {
             key = the_driver->read_standard_key();
@@ -4212,7 +4255,8 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
    DEFCHAR *prompt_line[MAXIMUM_DIALOG_LINES+2];
    const char *dialog_prompt_line[MAXIMUM_DIALOG_LINES+2];
    TheDriverWindow *dialog_win=NULL;
-   TheDriverWindowRoleSave save_command_window;
+   TheDriverWindow *command_win=NULL;
+   TheDriverWindowRoleSave save_command_window = { NULL, 0 };
    CHARTYPE *save_cmd_rec=NULL;
    CHARTYPE *editfield_buf=NULL;
    LENGTHTYPE save_cmd_rec_len;
@@ -4385,12 +4429,24 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
       /*
        * Save the CMDLINE window and create a new one in our dialog window
        */
-      if (!the_driver->replace_current_role_with_relative_window(
-             WINDOW_COMMAND, dialog_win, 1, dw_cols-4, 3+prompt_lines, 2,
-             &save_command_window))
+      save_command_window =
+         the_driver->save_current_role_window(WINDOW_COMMAND);
+      if (!save_command_window.slot_valid)
       {
          CURRENT_VIEW->current_window = save_current_window;
-         the_driver->delete_current_role_window(WINDOW_COMMAND);
+         the_driver->delete_window(dialog_win);
+         (*the_free)( save_cmd_rec );
+         (*the_free)(editfield_buf);
+         display_error(30,(CHARTYPE *)"",FALSE);
+         TRACE_RETURN();
+         return(RC_OUT_OF_MEMORY);
+      }
+      command_win = the_driver->create_window(1, dw_cols-4,
+                                              dw_y + 3 + prompt_lines,
+                                              dw_x + 2);
+      if (command_win == NULL)
+      {
+         CURRENT_VIEW->current_window = save_current_window;
          the_driver->restore_current_role_window(WINDOW_COMMAND,
                                                    save_command_window);
          the_driver->delete_window(dialog_win);
@@ -4399,6 +4455,14 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
          display_error(30,(CHARTYPE *)"",FALSE);
          TRACE_RETURN();
          return(RC_OUT_OF_MEMORY);
+      }
+      {
+         TheDriverWindowRoleSave dialog_command_window;
+
+         dialog_command_window.window = command_win;
+         dialog_command_window.slot_valid = 1;
+         the_driver->restore_current_role_window(WINDOW_COMMAND,
+                                                   dialog_command_window);
       }
       the_driver->set_current_role_attr(
          WINDOW_COMMAND, set_colour( CURRENT_FILE->attr+ATTR_DIA_EDITFIELD ) );
@@ -5271,7 +5335,6 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
    short rc=RC_OK;
    int key,i,j,screenx=x,screeny=y;
    TheDriverWindow *dialog_win=NULL;
-   TheDriverWindow *pad;
    short item_selected=-1,highlighted_line;
    char _THE_FAR buf[20]; /* enough for a number */
    int x_offset=0,y_offset=0;
@@ -5337,23 +5400,8 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
       return(RC_OUT_OF_MEMORY);
    }
    the_driver->enable_keypad(dialog_win, TRUE);
-#ifdef HAVE_NEWPAD
-   pad = the_driver->create_pad(pad_height, pad_width);
-   if ( pad == NULL )
-   {
-      the_driver->delete_window(dialog_win);
-      display_error( 30, (CHARTYPE *)"", FALSE );
-      TRACE_RETURN();
-      return(RC_OUT_OF_MEMORY);
-   }
-#else
-   the_driver->delete_window(dialog_win);
-   display_error( 0, (CHARTYPE *)"No support for pads, can't display popup", FALSE );
-   TRACE_RETURN();
-   return(RC_OUT_OF_MEMORY);
-#endif
-
-   the_driver->set_window_background(pad,set_colour(CURRENT_FILE->attr+ATTR_POPUP));
+   the_driver->set_window_background(
+      dialog_win, set_colour(CURRENT_FILE->attr+ATTR_POPUP));
    the_driver->present_cursor(FALSE);
    {
 #if defined(HAVE_BOX)
@@ -5406,33 +5454,23 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
       for (i=0;i<(int)popup_snapshot.row_count;i++)
       {
          const TransientUiRow *snapshot_row = &popup_snapshot.rows[i];
-         int item_index = snapshot_row->index;
 
          if (snapshot_row->role == TRANSIENT_UI_ROW_POPUP_SEPARATOR)
          {
-            the_driver->set_window_attr(pad,set_colour(CURRENT_FILE->attr+ATTR_POP_DIVIDER));
-            the_driver->move_window_cursor(pad,item_index,0);
-            the_driver->draw_horizontal_line(pad,0,pad_width-2);
+            the_driver->set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_POP_DIVIDER));
          }
          else
          {
             if (snapshot_row->active)
-               the_driver->set_window_attr(pad,set_colour(CURRENT_FILE->attr+ATTR_POP_CURLINE));
+               the_driver->set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_POP_CURLINE));
             else
-               the_driver->set_window_attr(pad,set_colour(CURRENT_FILE->attr+ATTR_POPUP));
-            the_driver->add_string_at(pad,item_index,1,
-                                        (DEFCHAR *)snapshot_row->text);
-            the_driver->move_window_cursor(pad,item_index,
-                                             1+strlen(snapshot_row->text));
-            for (j=1+strlen(snapshot_row->text);j<pad_width-3;j++)
-            {
-               the_driver->add_cell(pad,' ');
-            }
+               the_driver->set_window_attr(dialog_win,set_colour(CURRENT_FILE->attr+ATTR_POPUP));
          }
+         execute_popup_render_snapshot_row(dialog_win, snapshot_row, width,
+                                           popup_snapshot.viewport_col_offset);
       }
-      the_driver->touch_window(pad);
-      the_driver->refresh_pad(pad, y_offset, x_offset, screeny+1, screenx+1,
-                                screeny+height-2, screenx+width-2);
+      the_driver->touch_window(dialog_win);
+      the_driver->refresh_window_now(dialog_win);
 
       key = the_driver->read_raw_standard_key();
 #if defined(USE_XCURSES)
@@ -5481,10 +5519,6 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
              */
             highlighted_line = (short)popup_state.highlighted_item;
             item_selected = (short)popup_state.selected_item;
-            the_driver->set_window_attr(pad,set_colour(CURRENT_FILE->attr+ATTR_POPUP));
-            the_driver->add_string_at(pad,item_selected,1,
-                                        (DEFCHAR *)args[item_selected]);
-            the_driver->touch_window(pad);
             break;
          }
          continue;
@@ -5527,7 +5561,6 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
       }
    }
 
-   the_driver->delete_window(pad);
    the_driver->delete_window(dialog_win);
    the_driver->present_cursor(TRUE);
    /*

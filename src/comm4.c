@@ -1225,11 +1225,11 @@ short Redraw(CHARTYPE *params)
       TRACE_RETURN();
       return(RC_INVALID_OPERAND);
    }
-   the_driver->erase_standard_window();
-   the_driver->refresh_standard_screen();
+   the_driver->clear_terminal_screen();
+   the_driver->sync_terminal_screen();
    restore_THE();
    THERefresh( (CHARTYPE *)"" );
-   the_driver->refresh_standard_screen();
+   the_driver->sync_terminal_screen();
    TRACE_RETURN();
    return(RC_OK);
 }
@@ -1336,7 +1336,6 @@ short THERefresh(CHARTYPE *params)
    the_driver->touch_current_window();
    the_driver->refresh_current_window();
 
-   the_driver->touch_current_screen_image();
    the_driver->update();
    interactive_in_macro = FALSE;
    in_macro = save_in_macro;

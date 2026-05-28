@@ -76,7 +76,7 @@ static void test_vtable_complete(void)
    expect_long("ops.size.remainder",
                (long)(sizeof(TheDriverOps) % sizeof(void (*)(void))), 0);
    count = sizeof(TheDriverOps) / sizeof(void (*)(void));
-   expect_long("ops.count", (long)count, 138);
+   expect_long("ops.count", (long)count, 130);
    ops = (const void *const *)(const void *)&the_headless_driver_ops;
    for (i = 0; i < count; i++)
    {
@@ -423,6 +423,37 @@ static void test_operation_log(void)
    expect_str("log.5", headless_driver_log_entry(5), "refresh:global:0");
 }
 
+static void test_terminal_report_ops(void)
+{
+   const TheDriverOps *ops = &the_headless_driver_ops;
+
+   headless_driver_reset();
+   headless_driver_clear_log();
+   ops->begin_terminal_report();
+   ops->write_terminal_report_text(0, 0, 1, "name", 4);
+   ops->write_terminal_report_text(0, 5, 0, "value", 5);
+   ops->end_terminal_report();
+   ops->clear_terminal_screen();
+   ops->sync_terminal_screen();
+   ops->prepare_for_shell_escape();
+   ops->repair_terminal_background(THE_DRIVER_REPAIR_ACTIVE_SURFACE);
+   ops->repair_terminal_background(THE_DRIVER_REPAIR_TERMINAL_SCREEN);
+
+   expect_long("terminal.log.count", (long)headless_driver_log_count(), 6);
+   expect_str("terminal.log.0", headless_driver_log_entry(0),
+              "terminal-report:2");
+   expect_str("terminal.log.1", headless_driver_log_entry(1),
+              "clear:terminal");
+   expect_str("terminal.log.2", headless_driver_log_entry(2),
+              "sync:terminal");
+   expect_str("terminal.log.3", headless_driver_log_entry(3),
+              "prepare:shell");
+   expect_str("terminal.log.4", headless_driver_log_entry(4),
+              "repair-background:current");
+   expect_str("terminal.log.5", headless_driver_log_entry(5),
+              "repair-background:terminal");
+}
+
 static void test_input_and_mouse_fakes(void)
 {
    const TheDriverOps *ops = &the_headless_driver_ops;
@@ -500,6 +531,7 @@ int main(void)
    test_fake_window_and_cursor_state();
    test_headless_render_preserves_clusters();
    test_operation_log();
+   test_terminal_report_ops();
    test_input_and_mouse_fakes();
    headless_driver_reset();
 
