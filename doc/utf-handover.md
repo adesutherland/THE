@@ -153,9 +153,10 @@ them mechanically and verify the supported targets in one sweep.
   exact implementation-to-vtable mappings from `the_curses_driver_ops` and
   rewrites safe current/screen/global role macro call sites.
 - The public driver surface is now neutral. `src/thedriver.h` exposes
-  `TheDriverAttr`, `TheDriverCell`, `TheDriverWideCell`, and opaque
-  `TheDriverWindow` handles; `WINDOW`, `chtype`, and `cchar_t` stay out of
-  that header and are guarded by `tests/check_curses_boundary.sh`.
+  `TheDriverAttr`, `TheDriverCell`, portable `TheRenderCell` /
+  `TheRenderCluster`, and opaque `TheDriverWindow` handles; `WINDOW`,
+  `chtype`, and `cchar_t` stay out of that header and are guarded by
+  `tests/check_curses_boundary.sh`.
 - The renderer/window-state cleanup converted `SCREEN_DETAILS.win`, global
   windows, `SHOW_LINE` highlight/colour storage, reserved-line highlighting,
   parser/colour locals, line-buffer cells, and helper prototypes to neutral
@@ -170,13 +171,14 @@ them mechanically and verify the supported targets in one sweep.
   driver/vendor areas.
 - The driver-shape review is complete in `doc/driver-vtable-review.md`. It
   originally reviewed all 145 `TheDriverOps` function pointers; after the
-  shared display/input slice, the live vtable has 141 entries, with curses and
-  headless initializers covering the same 141 entries. The remaining surface is
-  classified into portable, physical-terminal, transitional,
-  curses-private-candidate, and test-instrumentation work.
+  shared display/input and portable render-cell slices, the live vtable has
+  138 entries, with curses and headless initializers covering the same 138
+  entries. The remaining surface is classified into portable,
+  physical-terminal, transitional, curses-private-candidate, and
+  test-instrumentation work.
 - The first headless/test driver slice is implemented. `src/headlessdriver.c`
   publishes a complete no-curses `the_headless_driver_ops` initializer with
-  all 141 entries present. It supports fake opaque windows/pads, screen-role
+  all 138 entries present. It supports fake opaque windows/pads, screen-role
   and global-window slots, current/previous role state, cursor
   capture/move/restore, simple cell writes, queued normalized input events,
   legacy fake key/mouse hooks, and a deterministic operation log for
@@ -195,19 +197,30 @@ them mechanically and verify the supported targets in one sweep.
   `read_standard_key`, `read_raw_standard_key`, `is_mouse_key`,
   `mouse_key_code`, `read_mouse_button`, `read_current_role_mouse_event`, and
   `read_mouse_event`.
+- The portable UTF render-cell/render-cluster slice is implemented.
+  `src/rendercell.c` owns neutral `TheRenderCell` and `TheRenderCluster`
+  construction, codepoint and UTF-8 slice preservation, style, logical/display/
+  cursor/paint width facts, fallback representation, and replacement repair
+  strategy hints. `TheDriverOps` dropped `add_wide_cell`,
+  `write_wide_cell_span`, `set_wide_cell_codepoint`, `recolour_wide_cell`, and
+  `write_wide_string_at`, and added `write_render_cells` plus
+  `write_render_cluster_at`. `show.c` now builds render cells/clusters first;
+  `src/cursesdriver.c` privately lowers them to `cchar_t`, `wadd_wch`,
+  `wadd_wchnstr`, or wide-string writes. `src/headlessdriver.c` preserves
+  render metadata in its fake surface and exposes a focused inspection hook for
+  tests.
 
 ## Active Slice
 
 No active implementation slice is selected. Inventory cleanup, the
 driver-shape review, the first headless/test `TheDriverOps` base, and the
-shared display/input semantics slice are closed.
+shared display/input semantics and portable UTF renderer-cell slices are
+closed.
 
 Next implementation work should be chosen from
 `doc/driver-vtable-review.md` as a few large coherent slices. The next large
-slice should replace the exposed curses-shaped wide-cell mechanics with a
-portable UTF renderer-cell/render-cluster model. That later model owns flags,
-keycaps, combining sequences, ZWJ sequences, and width/repair policy; this
-display/input slice deliberately did not start that work.
+slice should be modal/standard-screen contraction or another bounded physical
+edge, not renderer-cell or raw input cleanup.
 
 ## Direct Curses Inventory
 
@@ -230,7 +243,7 @@ Current ratcheted counts:
 - actionable `physical-paint`: 0
 - actionable `mouse-token`: 0
 - actionable `window-state`: 0
-- allowed/migrated `driver-wrapper`: 772
+- allowed/migrated `driver-wrapper`: 768
 
 Current `window-state` summary:
 

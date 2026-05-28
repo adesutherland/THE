@@ -4,6 +4,7 @@
 #include "driverlayout.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #ifdef USE_UTF8
@@ -29,11 +30,6 @@ static TheDriverWindow *curses_driver_window_to_driver(WINDOW *win)
 {
    return (TheDriverWindow *)win;
 }
-
-#ifdef USE_UTF8
-typedef char TheDriverWideCell_must_fit_cchar_t[
-   (sizeof(TheDriverWideCell) >= sizeof(cchar_t)) ? 1 : -1];
-#endif
 
 static TheDriverWindow **curses_driver_screen_role_window_slot(CHARTYPE scrno,
                                                               short role)
@@ -267,51 +263,9 @@ void curses_driver_draw_software_blank_cell(CHARTYPE scrno, WINDOW *win,
 }
 
 #ifdef USE_UTF8
-static void curses_driver_codepoint_to_wchars(uint32_t ch, wchar_t wch[3])
-{
-   if ((ch >= 0xD800u && ch <= 0xDFFFu) || ch > 0x10FFFFu)
-      ch = TEXT_INVALID_CODEPOINT;
-# if defined(WCHAR_MAX) && WCHAR_MAX <= 0xFFFFu
-   if (ch > 0xFFFFu)
-   {
-      ch -= 0x10000u;
-      wch[0] = (wchar_t)(0xD800u + (ch >> 10));
-      wch[1] = (wchar_t)(0xDC00u + (ch & 0x3FFu));
-      wch[2] = L'\0';
-      return;
-   }
-# endif
-   wch[0] = (wchar_t)ch;
-   wch[1] = L'\0';
-}
-
-void curses_driver_set_cchar_codepoint(cchar_t *dest, uint32_t ch,
-                                       chtype colour)
-{
-   wchar_t wch[3];
-
-   if (dest == NULL)
-      return;
-   curses_driver_codepoint_to_wchars(ch, wch);
-   setcchar(dest, wch, colour, PAIR_NUMBER(colour & A_COLOR), NULL);
-}
-
-void curses_driver_recolour_cchar(cchar_t *cell, chtype colour)
-{
-   wchar_t wch[6];
-   const wchar_t *pwch = (const wchar_t *)&wch;
-   attr_t attrs;
-   short pair;
-
-   if (cell == NULL)
-      return;
-   getcchar(cell, wch, &attrs, &pair, NULL);
-   setcchar(cell, pwch, 0, PAIR_NUMBER(colour & A_COLOR), NULL);
-}
-
-void curses_driver_write_wide_string_at(WINDOW *win, int row, int col,
-                                        const wchar_t *text, chtype colour,
-                                        int expected_width)
+void curses_driver_write_render_wchars_at(WINDOW *win, int row, int col,
+                                          const wchar_t *text, chtype colour,
+                                          int expected_width)
 {
    int next_col;
    int maxx;
@@ -2042,18 +1996,6 @@ static void curses_driver_ops_delete_cell(TheDriverWindow *win)
       wdelch(curses_win);
 }
 
-static void curses_driver_ops_add_wide_cell(TheDriverWindow *win,
-                                            const TheDriverWideCell *ch)
-{
-#ifdef USE_UTF8
-   curses_driver_add_cchar(curses_driver_window_from_driver(win),
-                           (const cchar_t *)ch);
-#else
-   INTENTIONALLY_UNUSED_VARIABLE(win);
-   INTENTIONALLY_UNUSED_VARIABLE(ch);
-#endif
-}
-
 static void curses_driver_ops_write_cell_span(TheDriverWindow *win,
                                               const TheDriverCell *text,
                                               int len)
@@ -2076,21 +2018,66 @@ static void curses_driver_ops_write_cell_span(TheDriverWindow *win,
 #endif
 }
 
-static void curses_driver_ops_write_wide_cell_span(TheDriverWindow *win,
-                                                   const TheDriverWideCell *text,
-                                                   int len)
+static int curses_driver_render_cluster_to_cchar(cchar_t *dest,
+                                                const TheRenderCluster *cluster)
 {
-#if defined(HAVE_WADDCHNSTR) && defined(USE_UTF8)
+#ifdef USE_UTF8
+   wchar_t wch[THE_RENDER_MAX_CODEPOINTS * 2 + 3];
+   chtype colour;
+
+   if (dest == NULL || cluster == NULL)
+      return 0;
+   if (!the_render_cluster_to_wchars(cluster, wch,
+                                     sizeof(wch) / sizeof(wch[0])))
+      return 0;
+   colour = (chtype)cluster->attr;
+   setcchar(dest, wch, colour, PAIR_NUMBER(colour & A_COLOR), NULL);
+   return 1;
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(dest);
+   INTENTIONALLY_UNUSED_VARIABLE(cluster);
+   return 0;
+#endif
+}
+
+static void curses_driver_ops_write_render_cells(TheDriverWindow *win,
+                                                 const TheRenderCell *text,
+                                                 int len)
+{
+#ifdef USE_UTF8
    WINDOW *curses_win = curses_driver_window_from_driver(win);
    int i;
 
-   if (sizeof(TheDriverWideCell) == sizeof(cchar_t))
-   {
-      curses_driver_write_cchar_span(curses_win, (const cchar_t *)text, len);
+   if (curses_win == NULL || text == NULL || len <= 0)
       return;
+# ifdef HAVE_WADDCHNSTR
+   {
+      cchar_t *buf = (cchar_t *)malloc((size_t)len * sizeof(*buf));
+
+      if (buf != NULL)
+      {
+         int ok = 1;
+
+         for (i = 0; i < len; i++)
+            ok = curses_driver_render_cluster_to_cchar(&buf[i], &text[i])
+              && ok;
+         if (ok)
+         {
+            curses_driver_write_cchar_span(curses_win, buf, len);
+            free(buf);
+            return;
+         }
+         free(buf);
+      }
    }
+# endif
    for (i = 0; i < len; i++)
-      curses_driver_add_cchar(curses_win, (const cchar_t *)&text[i]);
+   {
+      cchar_t cell;
+
+      if (curses_driver_render_cluster_to_cchar(&cell, &text[i]))
+         curses_driver_add_cchar(curses_win, &cell);
+   }
 #else
    INTENTIONALLY_UNUSED_VARIABLE(win);
    INTENTIONALLY_UNUSED_VARIABLE(text);
@@ -2098,45 +2085,25 @@ static void curses_driver_ops_write_wide_cell_span(TheDriverWindow *win,
 #endif
 }
 
-static void curses_driver_ops_set_wide_cell_codepoint(TheDriverWideCell *dest,
-                                                      uint32_t ch,
-                                                      TheDriverAttr colour)
+static void curses_driver_ops_write_render_cluster_at(
+   TheDriverWindow *win, int row, int col, const TheRenderCluster *cluster)
 {
 #ifdef USE_UTF8
-   curses_driver_set_cchar_codepoint((cchar_t *)dest, ch, (chtype)colour);
-#else
-   INTENTIONALLY_UNUSED_VARIABLE(dest);
-   INTENTIONALLY_UNUSED_VARIABLE(ch);
-   INTENTIONALLY_UNUSED_VARIABLE(colour);
-#endif
-}
+   wchar_t wch[THE_RENDER_MAX_CODEPOINTS * 2 + 3];
 
-static void curses_driver_ops_recolour_wide_cell(TheDriverWideCell *cell,
-                                                 TheDriverAttr colour)
-{
-#ifdef USE_UTF8
-   curses_driver_recolour_cchar((cchar_t *)cell, (chtype)colour);
-#else
-   INTENTIONALLY_UNUSED_VARIABLE(cell);
-   INTENTIONALLY_UNUSED_VARIABLE(colour);
-#endif
-}
-
-static void curses_driver_ops_write_wide_string_at(
-   TheDriverWindow *win, int row, int col, const wchar_t *text,
-   TheDriverAttr colour, int expected_width)
-{
-#ifdef USE_UTF8
-   curses_driver_write_wide_string_at(curses_driver_window_from_driver(win),
-                                      row, col, text, (chtype)colour,
-                                      expected_width);
+   if (cluster == NULL)
+      return;
+   if (!the_render_cluster_to_wchars(cluster, wch,
+                                     sizeof(wch) / sizeof(wch[0])))
+      return;
+   curses_driver_write_render_wchars_at(curses_driver_window_from_driver(win),
+                                        row, col, wch, (chtype)cluster->attr,
+                                        cluster->display_width);
 #else
    INTENTIONALLY_UNUSED_VARIABLE(win);
    INTENTIONALLY_UNUSED_VARIABLE(row);
    INTENTIONALLY_UNUSED_VARIABLE(col);
-   INTENTIONALLY_UNUSED_VARIABLE(text);
-   INTENTIONALLY_UNUSED_VARIABLE(colour);
-   INTENTIONALLY_UNUSED_VARIABLE(expected_width);
+   INTENTIONALLY_UNUSED_VARIABLE(cluster);
 #endif
 }
 
@@ -2345,12 +2312,9 @@ const TheDriverOps the_curses_driver_ops = {
    .add_cell = curses_driver_ops_add_cell,
    .insert_cell = curses_driver_ops_insert_cell,
    .delete_cell = curses_driver_ops_delete_cell,
-   .add_wide_cell = curses_driver_ops_add_wide_cell,
    .write_cell_span = curses_driver_ops_write_cell_span,
-   .write_wide_cell_span = curses_driver_ops_write_wide_cell_span,
-   .set_wide_cell_codepoint = curses_driver_ops_set_wide_cell_codepoint,
-   .recolour_wide_cell = curses_driver_ops_recolour_wide_cell,
-   .write_wide_string_at = curses_driver_ops_write_wide_string_at,
+   .write_render_cells = curses_driver_ops_write_render_cells,
+   .write_render_cluster_at = curses_driver_ops_write_render_cluster_at,
    .fill_cells_at = curses_driver_ops_fill_cells_at,
    .write_ascii_cells_at = curses_driver_ops_write_ascii_cells_at,
    .read_input_event = curses_driver_read_input_event,

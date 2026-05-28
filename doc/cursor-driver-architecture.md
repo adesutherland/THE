@@ -56,8 +56,8 @@ The physical driver owns:
 - cell writes/fills and physical refresh ordering.
 
 Shared logical/display mapping lives in `src/driverlayout.c`. It uses
-`utflayout.c` when UTF is enabled and keeps logical/display width concepts
-separate from the later renderer-cell/render-cluster model.
+`utflayout.c` when UTF is enabled and feeds the portable
+renderer-cell/render-cluster model where rendering needs explicit width facts.
 
 For the current curses UI, these mechanics belong in `src/cursesdriver.c` or a
 clearly physical edge that is being migrated to that driver. Do not move
@@ -75,18 +75,20 @@ Terminal-only operations may be NOPs, in-memory fake-surface updates, or
 deterministic log entries in non-terminal drivers.
 
 `curses_driver_*` function names are implementation-private there. The public
-driver types are neutral: `TheDriverAttr`, `TheDriverCell`,
-`TheDriverWideCell`, and opaque `TheDriverWindow` handles. `WINDOW`, `chtype`,
+driver types are neutral: `TheDriverAttr`, `TheDriverCell`, `TheRenderCell`,
+`TheRenderCluster`, and opaque `TheDriverWindow` handles. `WINDOW`, `chtype`,
 and `cchar_t` are implementation-private curses types and must not reappear in
 `src/thedriver.h`. Temporary physical edges that still need modal-local windows
 or pads call opaque vtable operations directly. Do not add a neutral wrapper
 API parallel to the vtable.
 
-`TheDriverWideCell` is a transitional compatibility type, not the final UTF
-renderer model. The long-term driver contract should describe portable render
-clusters with codepoint sequence, style, logical width, display width, cursor
-width, and repair/paint width facts. Curses can lower that model to `cchar_t`
-or fallback cell writes, while headless/LLM drivers keep the semantic cluster.
+`src/rendercell.c` owns the portable UTF renderer model. Render clusters carry
+codepoint sequences, source UTF-8 slices, style, logical width, display width,
+cursor width, paint width, repair strategy hints, flags for substituted or
+expanded output, and fallback representation for non-UTF surfaces. Curses
+lowers this model to `cchar_t`, `wadd_wch`, `wadd_wchnstr`, or wide-string
+writes inside `src/cursesdriver.c`; headless/LLM drivers keep the semantic
+cluster.
 
 ### Input Drivers
 
@@ -136,21 +138,22 @@ Closed checkpoints are summarized here; details and next tasks are in
 - `src/thedriver.h` and `src/thedriver.c` define the real driver vtable,
   current-driver pointer, and explicit selection helpers. The public header is
   free of curses public types and exposes only neutral driver
-  attrs/cells/wide-cells and opaque window handles. Editor code calls
-  `the_driver->...` for migrated high-level operations and for temporary
-  opaque physical edges. The live vtable now has 141 entries after shared
-  display helpers moved out of it.
+  attrs, cells, render cells, render clusters, and opaque window handles.
+  Editor code calls `the_driver->...` for migrated high-level operations and
+  for temporary opaque physical edges. The live vtable now has 138 entries
+  after shared display helpers moved out and the wide-cell surface collapsed to
+  render cells/clusters.
 - `src/cursesdriver.c` owns the migrated physical curses mechanics, raw mouse
   packet decoding, file-area physical cursor materialization from shared
   layout targets, and the `the_curses_driver_ops` vtable.
 - `src/headlessdriver.c` owns the first complete no-curses `TheDriverOps`
   implementation. It provides fake opaque windows/pads, screen-role and global
   slots, cursor state, queued normalized input events plus legacy input/mouse
-  hooks, cell storage, and deterministic touch/refresh/update logs. It is a
-  compatibility base for tests and future headless work, not a full editor
-  runtime switch.
+  hooks, cell storage, render-cell/cluster preservation, and deterministic
+  touch/refresh/update logs. It is a compatibility base for tests and future
+  headless work, not a full editor runtime switch.
 - `doc/driver-vtable-review.md` is the detailed map of the current vtable. It
-  now tracks the 141-entry `TheDriverOps` surface and records which operations
+  now tracks the 138-entry `TheDriverOps` surface and records which operations
   should remain portable, which are NOP/log-capable physical terminal
   operations, and which should move toward curses-private details. Future
   curses, headless/LLM, and fake/test drivers should expose the same surface
@@ -201,7 +204,7 @@ Closed checkpoints are summarized here; details and next tasks are in
   the backend-specific behavior becomes too different.
 - `tests/inventory_direct_curses.sh` is the repeatable debt sweep and ratchet.
   Current counts are actionable `physical-input: 0`, `physical-paint: 0`,
-  `mouse-token: 0`, and `window-state: 0`; `driver-wrapper: 772` is counted
+  `mouse-token: 0`, and `window-state: 0`; `driver-wrapper: 768` is counted
   as migrated/allowed. The summary now splits `window-state` into
   `window-handle: 0`, `active-window-macro: 0`, `cell-attr-type: 0`,
   `renderer-cell-type: 0`, and `header-prototype: 0`. The ratchet is
@@ -244,16 +247,17 @@ The current active categories are:
   with the `show.c` renderer/window-state macro surface closed, final closure
   of the legacy ExtCurses/old-curses/VMS window-state compatibility residue,
   the driver vtable review in `doc/driver-vtable-review.md`, the first
-  complete no-curses headless/test `TheDriverOps` base, and the shared
-  display/input semantics slice that reduced the vtable to 141 entries and
-  added `read_input_event`.
+  complete no-curses headless/test `TheDriverOps` base, the shared
+  display/input semantics slice, and the portable render-cell/render-cluster
+  slice that reduced the vtable to 138 entries and added
+  `write_render_cells` / `write_render_cluster_at`.
 - Active slice: none selected after the inventory ratchet, bulk wrapper pass,
   physical input/paint cleanup, raw mouse packet driver-ownership cleanup,
   corrected suffixed-paint cleanup, the first active-window/window-handle
   role-helper cleanup, the real driver-vtable migration, the neutral public
   driver/window-state cleanup, the driver-shape review, the headless/test
-  driver base, and shared display/input semantics. Choose the next
-  implementation slice from
+  driver base, shared display/input semantics, and portable render-cell/render-
+  cluster semantics. Choose the next implementation slice from
   `doc/driver-vtable-review.md`.
 - Deferred: full agent dispatcher integration, full prefix command machinery in
   the agent, agent protocol integration for transient snapshots, full live

@@ -23,6 +23,8 @@ TheDriverWindow *headless_driver_create_screen_role(CHARTYPE scrno,
                                                     int col);
 TheDriverWindow *headless_driver_create_global_window(
    TheDriverGlobalWindowRole role, int rows, int cols, int row, int col);
+int headless_driver_render_cell_at(TheDriverWindow *win, int row, int col,
+                                   TheRenderCell *out);
 
 void headless_driver_queue_key(int key);
 int headless_driver_queue_input_event(TheInputEvent event);

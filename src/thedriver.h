@@ -8,6 +8,7 @@
 
 #include "inputevent.h"
 #include "logcursor.h"
+#include "rendercell.h"
 #include "thedefs.h"
 
 #ifndef THE_CURSOR_PRESENTATION_TYPES_DEFINED
@@ -20,15 +21,8 @@ typedef enum { CURSOR_PRESENTATION_HARDWARE, CURSOR_PRESENTATION_SOFTWARE } Curs
 struct view_details;
 typedef struct TheDriverWindow TheDriverWindow;
 
-typedef uint64_t TheDriverAttr;
+typedef TheRenderAttr TheDriverAttr;
 typedef uint64_t TheDriverCell;
-
-typedef union
-{
-   uint64_t opaque[8];
-   long double align_long_double;
-   void *align_pointer;
-} TheDriverWideCell;
 
 typedef struct
 {
@@ -241,17 +235,12 @@ struct TheDriverOps
    void (*add_cell)(TheDriverWindow *win, TheDriverCell ch);
    void (*insert_cell)(TheDriverWindow *win, TheDriverCell ch);
    void (*delete_cell)(TheDriverWindow *win);
-   void (*add_wide_cell)(TheDriverWindow *win, const TheDriverWideCell *ch);
    void (*write_cell_span)(TheDriverWindow *win, const TheDriverCell *text,
                            int len);
-   void (*write_wide_cell_span)(TheDriverWindow *win,
-                                const TheDriverWideCell *text, int len);
-   void (*set_wide_cell_codepoint)(TheDriverWideCell *dest, uint32_t ch,
-                                   TheDriverAttr colour);
-   void (*recolour_wide_cell)(TheDriverWideCell *cell, TheDriverAttr colour);
-   void (*write_wide_string_at)(TheDriverWindow *win, int row, int col,
-                                const wchar_t *text, TheDriverAttr colour,
-                                int expected_width);
+   void (*write_render_cells)(TheDriverWindow *win,
+                              const TheRenderCell *text, int len);
+   void (*write_render_cluster_at)(TheDriverWindow *win, int row, int col,
+                                   const TheRenderCluster *cluster);
    void (*fill_cells_at)(TheDriverWindow *win, int row, int col, int width,
                          TheDriverAttr colour);
    void (*write_ascii_cells_at)(TheDriverWindow *win, int row, int col,

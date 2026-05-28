@@ -25,6 +25,15 @@ static void expect_long(const char *name, long got, long want)
    }
 }
 
+static void expect_size(const char *name, size_t got, size_t want)
+{
+   if (got != want)
+   {
+      fprintf(stderr, "%s: got %zu want %zu\n", name, got, want);
+      failures++;
+   }
+}
+
 static void expect_ptr(const char *name, const void *got, const void *want)
 {
    if (got != want)
@@ -53,6 +62,11 @@ static void expect_str(const char *name, const char *got, const char *want)
    }
 }
 
+static TextCluster test_cluster_at_begin(const CHARTYPE *line, size_t len)
+{
+   return textpos_cluster_at_boundary(line, len, textpos_begin());
+}
+
 static void test_vtable_complete(void)
 {
    size_t count;
@@ -62,7 +76,7 @@ static void test_vtable_complete(void)
    expect_long("ops.size.remainder",
                (long)(sizeof(TheDriverOps) % sizeof(void (*)(void))), 0);
    count = sizeof(TheDriverOps) / sizeof(void (*)(void));
-   expect_long("ops.count", (long)count, 141);
+   expect_long("ops.count", (long)count, 138);
    ops = (const void *const *)(const void *)&the_headless_driver_ops;
    for (i = 0; i < count; i++)
    {
@@ -138,6 +152,99 @@ static void test_shared_display_layout(void)
       expect_int("layout.utf.target.raw", target.raw_display_col, 3);
       expect_int("layout.utf.target.display", target.display_col, 3);
       expect_int("layout.utf.target.visible", target.visible, 1);
+      utf8_terminal_profile_reset();
+   }
+#endif
+}
+
+static void test_render_cell_model(void)
+{
+   TheRenderCell ascii;
+   wchar_t wch[16];
+
+   expect_int("render.ascii.make",
+              the_render_cell_from_codepoint(&ascii, 'A', 7), 1);
+   expect_size("render.ascii.cp.count", ascii.codepoint_count, 1);
+   expect_int("render.ascii.cp", (int)ascii.codepoints[0], 'A');
+   expect_int("render.ascii.attr", (int)ascii.attr, 7);
+   expect_int("render.ascii.logical", ascii.logical_width, 1);
+   expect_int("render.ascii.display", ascii.display_width, 1);
+   expect_int("render.ascii.cursor", ascii.cursor_width, 1);
+   expect_int("render.ascii.paint", ascii.paint_width, 1);
+   expect_int("render.ascii.wchars",
+              the_render_cluster_to_wchars(&ascii, wch,
+                                           sizeof(wch) / sizeof(wch[0])), 1);
+   expect_int("render.ascii.wchar", (int)wch[0], 'A');
+
+#ifdef USE_UTF8
+   {
+      static const CHARTYPE combining[] = { 'e', 0xCC, 0x81 };
+      static const CHARTYPE keycap[] = {
+         '1', 0xEF, 0xB8, 0x8F, 0xE2, 0x83, 0xA3
+      };
+      static const CHARTYPE flag[] = {
+         0xF0, 0x9F, 0x87, 0xBA, 0xF0, 0x9F, 0x87, 0xB8
+      };
+      static const CHARTYPE zwj[] = {
+         0xF0, 0x9F, 0x91, 0xA9, 0xE2, 0x80, 0x8D,
+         0xE2, 0x9D, 0xA4, 0xEF, 0xB8, 0x8F, 0xE2, 0x80,
+         0x8D, 0xF0, 0x9F, 0x91, 0xA8
+      };
+      TheRenderCluster render;
+
+      utf8_terminal_profile_reset();
+      expect_int("render.combining.make",
+                 the_render_cluster_from_text_cluster(
+                    &render, combining, sizeof(combining),
+                    test_cluster_at_begin(combining, sizeof(combining)),
+                    11, 0), 1);
+      expect_size("render.combining.cp.count", render.codepoint_count, 2);
+      expect_int("render.combining.cp0", (int)render.codepoints[0], 'e');
+      expect_int("render.combining.cp1", (int)render.codepoints[1], 0x0301);
+      expect_int("render.combining.logical", render.logical_width, 1);
+      expect_int("render.combining.display", render.display_width, 1);
+      expect_int("render.combining.cursor", render.cursor_width, 1);
+      expect_int("render.combining.paint", render.paint_width, 1);
+
+      utf8_terminal_profile_reset();
+      expect_int("render.keycap.make",
+                 the_render_cluster_from_text_cluster(
+                    &render, keycap, sizeof(keycap),
+                    test_cluster_at_begin(keycap, sizeof(keycap)),
+                    12, 0), 1);
+      expect_size("render.keycap.cp.count", render.codepoint_count, 3);
+      expect_int("render.keycap.display", render.display_width, 2);
+      expect_int("render.keycap.cursor", render.cursor_width, 2);
+      expect_int("render.keycap.paint", render.paint_width, 2);
+      expect_int("render.keycap.repair", render.repair_strategy,
+                 UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST);
+
+      utf8_terminal_profile_reset();
+      expect_int("render.flag.make",
+                 the_render_cluster_from_text_cluster(
+                    &render, flag, sizeof(flag),
+                    test_cluster_at_begin(flag, sizeof(flag)),
+                    13, 0), 1);
+      expect_size("render.flag.cp.count", render.codepoint_count, 2);
+      expect_int("render.flag.display", render.display_width, 3);
+      expect_int("render.flag.cursor", render.cursor_width, 3);
+      expect_int("render.flag.paint", render.paint_width, 3);
+      expect_int("render.flag.repair", render.repair_strategy,
+                 UTF8_TERM_STRATEGY_CLEAR_CHANGED_SUFFIX_FAST);
+
+      utf8_terminal_profile_reset();
+      utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_COMPONENTS);
+      expect_int("render.zwj.make",
+                 the_render_cluster_from_text_cluster(
+                    &render, zwj, sizeof(zwj),
+                    test_cluster_at_begin(zwj, sizeof(zwj)),
+                    14, 0), 1);
+      expect_size("render.zwj.cp.count", render.codepoint_count, 6);
+      expect_int("render.zwj.expanded",
+                 (render.flags & THE_RENDER_CLUSTER_EXPANDED) != 0, 1);
+      expect_int("render.zwj.display", render.display_width, 6);
+      expect_int("render.zwj.cursor", render.cursor_width, 6);
+      expect_int("render.zwj.paint", render.paint_width, 6);
       utf8_terminal_profile_reset();
    }
 #endif
@@ -229,6 +336,60 @@ static void test_fake_window_and_cursor_state(void)
    ops->delete_global_window(THE_DRIVER_GLOBAL_ERROR);
    expect_int("global.deleted",
               ops->global_window_exists(THE_DRIVER_GLOBAL_ERROR), 0);
+}
+
+static void test_headless_render_preserves_clusters(void)
+{
+   const TheDriverOps *ops = &the_headless_driver_ops;
+   TheDriverWindow *win;
+   TheRenderCell emoji;
+   TheRenderCell stored;
+
+   headless_driver_reset();
+   win = headless_driver_create_screen_role(0, 0, 2, 12, 0, 0);
+   expect_nonnull("render.headless.win", win);
+   ops->move_window_cursor(win, 0, 0);
+   the_render_cell_from_codepoint(&emoji, 0x1F600u, 21);
+   ops->write_render_cells(win, &emoji, 1);
+   ops->move_window_cursor(win, 0, 0);
+   expect_int("render.headless.read.cell",
+              (int)ops->read_window_cell(win), 0x1F600);
+   expect_int("render.headless.inspect",
+              headless_driver_render_cell_at(win, 0, 0, &stored), 1);
+   expect_size("render.headless.inspect.count", stored.codepoint_count, 1);
+   expect_int("render.headless.inspect.cp",
+              (int)stored.codepoints[0], 0x1F600);
+   expect_int("render.headless.inspect.attr", (int)stored.attr, 21);
+
+#ifdef USE_UTF8
+   {
+      static const CHARTYPE keycap[] = {
+         '1', 0xEF, 0xB8, 0x8F, 0xE2, 0x83, 0xA3
+      };
+      TheRenderCluster cluster;
+
+      utf8_terminal_profile_reset();
+      expect_int("render.headless.cluster.make",
+                 the_render_cluster_from_text_cluster(
+                    &cluster, keycap, sizeof(keycap),
+                    test_cluster_at_begin(keycap, sizeof(keycap)),
+                    22, 0), 1);
+      headless_driver_clear_log();
+      ops->write_render_cluster_at(win, 1, 2, &cluster);
+      expect_int("render.headless.cluster.inspect",
+                 headless_driver_render_cell_at(win, 1, 2, &stored), 1);
+      expect_size("render.headless.cluster.count", stored.codepoint_count, 3);
+      expect_int("render.headless.cluster.display", stored.display_width, 2);
+      expect_int("render.headless.cluster.cursor", stored.cursor_width, 2);
+      expect_int("render.headless.cluster.paint", stored.paint_width, 2);
+      expect_long("render.headless.cluster.log.count",
+                  (long)headless_driver_log_count(), 1);
+      expect_str("render.headless.cluster.log",
+                 headless_driver_log_entry(0),
+                 "render-cluster:window:1:1:2:3:1:2:2:2");
+      utf8_terminal_profile_reset();
+   }
+#endif
 }
 
 static void test_operation_log(void)
@@ -335,7 +496,9 @@ int main(void)
    test_vtable_complete();
    test_selection();
    test_shared_display_layout();
+   test_render_cell_model();
    test_fake_window_and_cursor_state();
+   test_headless_render_preserves_clusters();
    test_operation_log();
    test_input_and_mouse_fakes();
    headless_driver_reset();

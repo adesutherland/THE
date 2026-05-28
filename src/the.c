@@ -267,7 +267,7 @@ static void init_signals(void);
 
    CHARTYPE *linebuf; /* Buffer for one terminal line, at least 81 elems */
 #ifdef USE_UTF8
-   TheDriverWideCell *linebufch; /* Buffer for one terminal line in wide driver-cell mode, >= 81 */
+   TheRenderCell *linebufch; /* Buffer for one terminal line in render-cell mode, >= 81 */
 #else
    TheDriverCell *linebufch; /* Buffer for one terminal line in driver-cell mode, >= 81 */
 #endif
@@ -1219,7 +1219,7 @@ fclose( fp);
    terminal_lines--;
 #endif
 #ifdef USE_UTF8
-   if ((linebufch = (TheDriverWideCell *)(*the_malloc)(linebuf_size * sizeof(TheDriverWideCell))) == NULL)
+   if ((linebufch = (TheRenderCell *)(*the_malloc)(linebuf_size * sizeof(TheRenderCell))) == NULL)
 #else
    if ((linebufch = (TheDriverCell *)(*the_malloc)(linebuf_size * sizeof(TheDriverCell))) == NULL)
 #endif

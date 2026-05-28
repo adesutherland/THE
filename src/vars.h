@@ -279,7 +279,7 @@ extern char           *XCursesProgramName;
 #endif
 extern CHARTYPE       *linebuf;
 #if defined(USE_UTF8)
-extern TheDriverWideCell *linebufch;
+extern TheRenderCell *linebufch;
 #else
 extern TheDriverCell *linebufch;
 #endif

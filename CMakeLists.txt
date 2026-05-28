@@ -353,6 +353,7 @@ set(THE_SOURCES
     src/query.c
     src/query1.c
     src/query2.c
+    src/rendercell.c
     src/regex.c
     src/reserved.c
     src/rexx.c
@@ -541,6 +542,7 @@ add_executable(test_headlessdriver
     src/driverlayout.c
     src/headlessdriver.c
     src/inputevent.c
+    src/rendercell.c
     src/thedriver.c
     src/logcursor.c
     src/textpos.c

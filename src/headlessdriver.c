@@ -36,6 +36,7 @@ struct TheDriverWindow
    TheDriverAttr background;
    TheDriverCell *cells;
    TheDriverAttr *attrs;
+   TheRenderCell *render_cells;
    struct TheDriverWindow *next;
 };
 
@@ -221,10 +222,14 @@ static TheDriverWindow *headless_create_window_internal(int rows, int cols,
    {
       win->cells = (TheDriverCell *)calloc(total, sizeof(*win->cells));
       win->attrs = (TheDriverAttr *)calloc(total, sizeof(*win->attrs));
-      if (win->cells == NULL || win->attrs == NULL)
+      win->render_cells =
+         (TheRenderCell *)calloc(total, sizeof(*win->render_cells));
+      if (win->cells == NULL || win->attrs == NULL
+      ||  win->render_cells == NULL)
       {
          free(win->cells);
          free(win->attrs);
+         free(win->render_cells);
          free(win);
          return NULL;
       }
@@ -283,6 +288,7 @@ static void headless_free_window(TheDriverWindow *win)
    headless_unlink_window(win);
    free(win->cells);
    free(win->attrs);
+   free(win->render_cells);
    free(win);
 }
 
@@ -349,6 +355,31 @@ static void headless_set_cell_at(TheDriverWindow *win, int row, int col,
    index = headless_cell_index(win, row, col);
    win->cells[index] = cell;
    win->attrs[index] = win->attr;
+   if (win->render_cells != NULL)
+      the_render_cell_from_codepoint(&win->render_cells[index],
+                                     (uint32_t)cell,
+                                     (TheRenderAttr)win->attr);
+   win->dirty = 1;
+}
+
+static void headless_set_render_cell_at(TheDriverWindow *win, int row,
+                                        int col, const TheRenderCell *cell)
+{
+   size_t index;
+   TheDriverCell stored = '?';
+
+   if (!headless_window_contains(win, row, col) || cell == NULL
+   ||  win->cells == NULL)
+      return;
+   index = headless_cell_index(win, row, col);
+   if (cell->codepoint_count > 0)
+      stored = (TheDriverCell)cell->codepoints[0];
+   else if (cell->flags & THE_RENDER_CLUSTER_HAS_FALLBACK)
+      stored = (TheDriverCell)cell->fallback_codepoint;
+   win->cells[index] = stored;
+   win->attrs[index] = (TheDriverAttr)cell->attr;
+   if (win->render_cells != NULL)
+      win->render_cells[index] = *cell;
    win->dirty = 1;
 }
 
@@ -378,6 +409,32 @@ static void headless_add_cell_internal(TheDriverWindow *win,
    }
 }
 
+static void headless_add_render_cell_internal(TheDriverWindow *win,
+                                              const TheRenderCell *cell)
+{
+   int advance;
+
+   if (win == NULL || cell == NULL)
+      return;
+   headless_set_render_cell_at(win, win->cursor_row, win->cursor_col, cell);
+   advance = cell->display_width > 0 ? cell->display_width : 1;
+   if (win->cols > 0)
+   {
+      win->cursor_col += advance;
+      while (win->cursor_col >= win->cols)
+      {
+         win->cursor_col -= win->cols;
+         if (win->rows > 0 && win->cursor_row < win->rows - 1)
+            win->cursor_row++;
+         else
+         {
+            win->cursor_col = win->cols - 1;
+            break;
+         }
+      }
+   }
+}
+
 static void headless_write_string_at(TheDriverWindow *win, int row, int col,
                                      const char *text)
 {
@@ -398,6 +455,8 @@ static void headless_clear_window(TheDriverWindow *win)
    total = (size_t)win->rows * (size_t)win->cols;
    memset(win->cells, 0, total * sizeof(*win->cells));
    memset(win->attrs, 0, total * sizeof(*win->attrs));
+   if (win->render_cells != NULL)
+      memset(win->render_cells, 0, total * sizeof(*win->render_cells));
    win->dirty = 1;
 }
 
@@ -470,6 +529,7 @@ void headless_driver_reset(void)
 
       free(win->cells);
       free(win->attrs);
+      free(win->render_cells);
       free(win);
       win = next;
    }
@@ -537,8 +597,24 @@ TheDriverWindow *headless_driver_create_global_window(
       return NULL;
    win = headless_create_window_internal(rows, cols, row, col, 0);
    if (win != NULL)
-      headless_state.globals[role] = win;
+   headless_state.globals[role] = win;
    return win;
+}
+
+int headless_driver_render_cell_at(TheDriverWindow *win, int row, int col,
+                                   TheRenderCell *out)
+{
+   size_t index;
+
+   if (out != NULL)
+      memset(out, 0, sizeof(*out));
+   if (!headless_window_contains(win, row, col)
+   ||  win->render_cells == NULL)
+      return 0;
+   index = headless_cell_index(win, row, col);
+   if (out != NULL)
+      *out = win->render_cells[index];
+   return (win->render_cells[index].flags & THE_RENDER_CLUSTER_VALID) != 0;
 }
 
 void headless_driver_queue_key(int key)
@@ -1332,16 +1408,6 @@ static void headless_driver_delete_cell(TheDriverWindow *win)
       headless_set_cell_at(win, win->cursor_row, win->cols - 1, ' ');
 }
 
-static void headless_driver_add_wide_cell(TheDriverWindow *win,
-                                          const TheDriverWideCell *ch)
-{
-   TheDriverCell cell = '?';
-
-   if (ch != NULL && ch->opaque[0] <= 0x7fU)
-      cell = (TheDriverCell)ch->opaque[0];
-   headless_add_cell_internal(win, cell);
-}
-
 static void headless_driver_write_cell_span(TheDriverWindow *win,
                                             const TheDriverCell *text,
                                             int len)
@@ -1354,52 +1420,39 @@ static void headless_driver_write_cell_span(TheDriverWindow *win,
       headless_add_cell_internal(win, text[i]);
 }
 
-static void headless_driver_write_wide_cell_span(TheDriverWindow *win,
-                                                 const TheDriverWideCell *text,
-                                                 int len)
+static void headless_driver_write_render_cells(TheDriverWindow *win,
+                                               const TheRenderCell *text,
+                                               int len)
 {
    int i;
 
    if (win == NULL || text == NULL || len <= 0)
       return;
    for (i = 0; i < len; i++)
-      headless_driver_add_wide_cell(win, &text[i]);
+      headless_add_render_cell_internal(win, &text[i]);
 }
 
-static void headless_driver_set_wide_cell_codepoint(TheDriverWideCell *dest,
-                                                    uint32_t ch,
-                                                    TheDriverAttr colour)
+static void headless_driver_write_render_cluster_at(
+   TheDriverWindow *win, int row, int col, const TheRenderCluster *cluster)
 {
-   if (dest == NULL)
+   int next_col;
+
+   if (win == NULL || cluster == NULL)
       return;
-   memset(dest, 0, sizeof(*dest));
-   dest->opaque[0] = ch;
-   dest->opaque[1] = colour;
-}
-
-static void headless_driver_recolour_wide_cell(TheDriverWideCell *cell,
-                                               TheDriverAttr colour)
-{
-   if (cell != NULL)
-      cell->opaque[1] = colour;
-}
-
-static void headless_driver_write_wide_string_at(
-   TheDriverWindow *win, int row, int col, const wchar_t *text,
-   TheDriverAttr colour, int expected_width)
-{
-   int i;
-
-   (void)colour;
-   (void)expected_width;
-   if (win == NULL || text == NULL)
-      return;
-   for (i = 0; text[i] != L'\0'; i++)
+   headless_set_render_cell_at(win, row, col, cluster);
+   next_col = col + (cluster->display_width > 0 ? cluster->display_width : 1);
+   if (win->cols > 0 && next_col >= win->cols)
+      next_col = win->cols - 1;
+   if (row >= 0 && row < win->rows && next_col >= 0)
    {
-      TheDriverCell cell = text[i] <= 0x7f ? (TheDriverCell)text[i] : '?';
-
-      headless_set_cell_at(win, row, col + i, cell);
+      win->cursor_row = row;
+      win->cursor_col = next_col;
+      headless_clamp_cursor(win);
    }
+   headless_log("render-cluster:window:%d:%d:%d:%zu:%d:%d:%d:%d",
+                win->id, row, col, cluster->codepoint_count,
+                cluster->logical_width, cluster->display_width,
+                cluster->cursor_width, cluster->paint_width);
 }
 
 static void headless_driver_fill_cells_at(TheDriverWindow *win, int row,
@@ -1824,12 +1877,9 @@ const TheDriverOps the_headless_driver_ops = {
    .add_cell = headless_driver_add_cell,
    .insert_cell = headless_driver_insert_cell,
    .delete_cell = headless_driver_delete_cell,
-   .add_wide_cell = headless_driver_add_wide_cell,
    .write_cell_span = headless_driver_write_cell_span,
-   .write_wide_cell_span = headless_driver_write_wide_cell_span,
-   .set_wide_cell_codepoint = headless_driver_set_wide_cell_codepoint,
-   .recolour_wide_cell = headless_driver_recolour_wide_cell,
-   .write_wide_string_at = headless_driver_write_wide_string_at,
+   .write_render_cells = headless_driver_write_render_cells,
+   .write_render_cluster_at = headless_driver_write_render_cluster_at,
    .fill_cells_at = headless_driver_fill_cells_at,
    .write_ascii_cells_at = headless_driver_write_ascii_cells_at,
    .read_input_event = headless_driver_read_input_event,

@@ -41,7 +41,8 @@
  *       This routine is only found in newer curses variants. To hold the
  *       source readable and to improve the speed under this conditions, we
  *       use the global line buffers linebuf (char or unsigned char) and
- *       linebufch (TheDriverAttr). Each buffer has max(COLS,THE_MAX_SCREEN_WIDTH)+1 elements. We
+ *       linebufch (driver cells or UTF render cells). Each buffer has
+ *       max(COLS,THE_MAX_SCREEN_WIDTH)+1 elements. We
  *       use a module global loop variable which is reset by the
  *       INIT_LINE_OUTPUT macro. Each line part may be added by the
  *       ADD_LINE_OUTPUT or FILE_LINE_OUTPUT macros. These macros should be
@@ -84,7 +85,6 @@
 #include "thedriver.h"
 #include "driverlayout.h"
 #ifdef USE_UTF8
-# include <wchar.h>
 # include "screenframe.h"
 # include "utflayout.h"
 # include "utfrepair.h"
@@ -160,24 +160,6 @@ static int _fast_maxx = 0,_fast_pos;
 #endif
 
 #ifdef USE_UTF8
-static void show_codepoint_to_wchars(uint32_t ch, wchar_t wch[3])
-{
-   if ((ch >= 0xD800u && ch <= 0xDFFFu) || ch > 0x10FFFFu)
-      ch = TEXT_INVALID_CODEPOINT;
-# if defined(WCHAR_MAX) && WCHAR_MAX <= 0xFFFFu
-   if (ch > 0xFFFFu)
-   {
-      ch -= 0x10000u;
-      wch[0] = (wchar_t)(0xD800u + (ch >> 10));
-      wch[1] = (wchar_t)(0xDC00u + (ch & 0x3FFu));
-      wch[2] = L'\0';
-      return;
-   }
-# endif
-   wch[0] = (wchar_t)ch;
-   wch[1] = L'\0';
-}
-
 static TextPos show_utf8_advance_codepoint_pos(TextPos pos, TextCodepoint item)
 {
    if (item.byte_length == 0)
@@ -332,67 +314,6 @@ int show_utf8_logical_col_from_display(const CHARTYPE *line, size_t len,
                                                display_col, snap);
 }
 
-#ifndef CCHARW_MAX
-# define CCHARW_MAX 5
-#endif
-
-static int show_cluster_to_wchars(const CHARTYPE *line, size_t len,
-                                  TextCluster cluster, wchar_t wch[CCHARW_MAX])
-{
-   TextPos pos = cluster.pos;
-   const Utf8TerminalProfileEntry *entry;
-   int out = 0;
-   int spacing_codepoints = 0;
-
-   entry = show_utf8_cluster_profile(line, len, cluster);
-   if (entry != NULL && entry->output_method == UTF8_TERM_OUTPUT_SUBSTITUTE)
-   {
-      show_codepoint_to_wchars(entry->substitute_codepoint, wch);
-      return 1;
-   }
-
-   while (pos.byte_offset < cluster.end.byte_offset)
-   {
-      TextCodepoint item = textpos_codepoint_at_boundary(line, len, pos);
-      wchar_t one[3];
-      int i;
-
-      if (item.byte_length == 0)
-         break;
-      if (entry != NULL
-      &&  entry->output_method == UTF8_TERM_OUTPUT_EXPANDED
-      &&  item.codepoint == 0x200Du)
-      {
-         pos = show_utf8_advance_codepoint_pos(pos, item);
-         continue;
-      }
-
-      if (item.cell_width > 0)
-      {
-         spacing_codepoints++;
-         if (spacing_codepoints > 1)
-            return 0;
-      }
-
-      if (item.codepoint < 256 && etmode_flag[item.codepoint])
-         item.codepoint = (uint32_t)etmode_table[(CHARTYPE)item.codepoint];
-
-      show_codepoint_to_wchars(item.codepoint, one);
-      for (i = 0; one[i] != L'\0'; i++)
-      {
-         if (out >= CCHARW_MAX - 1)
-            return 0;
-         wch[out++] = one[i];
-      }
-      pos = show_utf8_advance_codepoint_pos(pos, item);
-   }
-
-   if (out == 0)
-      return 0;
-   wch[out] = L'\0';
-   return 1;
-}
-
 static int show_utf8_class_is_zwj(Utf8TerminalClass feature_class)
 {
    return feature_class == UTF8_TERM_CLASS_SHORT_ZWJ
@@ -415,56 +336,54 @@ static int show_status_cluster_force_expanded(const CHARTYPE *line, size_t len,
    return show_utf8_class_is_zwj(feature_class);
 }
 
-static int show_cluster_to_wide_string(const CHARTYPE *line, size_t len,
-                                       TextCluster cluster, wchar_t *wch,
-                                       size_t wch_size,
-                                       int force_expanded)
+static int show_render_cluster_from_text(TheRenderCluster *render,
+                                         const CHARTYPE *line, size_t len,
+                                         TextCluster cluster,
+                                         TheDriverAttr colour,
+                                         int force_expanded)
 {
    TextPos pos = cluster.pos;
    const Utf8TerminalProfileEntry *entry;
-   size_t out = 0;
 
-   if (wch_size == 0)
+   if (render == NULL || line == NULL || cluster.byte_length == 0)
       return 0;
+   the_render_cluster_init(render, (TheRenderAttr)colour);
+   the_render_cluster_set_utf8(render, line + cluster.pos.byte_offset,
+                               cluster.byte_length);
+
    entry = show_utf8_cluster_profile(line, len, cluster);
    if (entry != NULL && entry->output_method == UTF8_TERM_OUTPUT_SUBSTITUTE)
    {
-      if (wch_size < 2)
-         return 0;
-      show_codepoint_to_wchars(entry->substitute_codepoint, wch);
-      return 1;
+      render->flags |= THE_RENDER_CLUSTER_SUBSTITUTE;
+      the_render_cluster_set_fallback_codepoint(render,
+                                                entry->substitute_codepoint);
    }
+   if ((entry != NULL && entry->output_method == UTF8_TERM_OUTPUT_EXPANDED)
+   ||  force_expanded)
+      render->flags |= THE_RENDER_CLUSTER_EXPANDED;
+   if (entry != NULL)
+      the_render_cluster_set_repair_strategy(render,
+                                             entry->replacement_strategy);
+
    while (pos.byte_offset < cluster.end.byte_offset)
    {
       TextCodepoint item = textpos_codepoint_at_boundary(line, len, pos);
-      wchar_t one[3];
-      int i;
 
       if (item.byte_length == 0)
          break;
-      if ((force_expanded
-      ||   (entry != NULL
-      &&    entry->output_method == UTF8_TERM_OUTPUT_EXPANDED))
-      &&  item.codepoint == 0x200Du)
-      {
-         pos = show_utf8_advance_codepoint_pos(pos, item);
-         continue;
-      }
       if (item.codepoint < 256 && etmode_flag[item.codepoint])
          item.codepoint = (uint32_t)etmode_table[(CHARTYPE)item.codepoint];
-      show_codepoint_to_wchars(item.codepoint, one);
-      for (i = 0; one[i] != L'\0'; i++)
-      {
-         if (out >= wch_size - 1)
-            return 0;
-         wch[out++] = one[i];
-      }
+      the_render_cluster_add_codepoint(render, item.codepoint);
       pos = show_utf8_advance_codepoint_pos(pos, item);
    }
-   if (out == 0)
-      return 0;
-   wch[out] = L'\0';
-   return 1;
+
+   the_render_cluster_set_widths(render,
+      show_utf8_cluster_logical_width(cluster),
+      show_utf8_cluster_display_width(line, len, cluster),
+      show_utf8_cluster_cursor_width(line, len, cluster),
+      show_utf8_cluster_paint_width(line, len, cluster));
+   return render->codepoint_count > 0
+       ||  (render->flags & THE_RENDER_CLUSTER_SUBSTITUTE);
 }
 
 static void show_write_utf8_cluster_at(TheDriverWindow *win, int row, int col,
@@ -472,12 +391,15 @@ static void show_write_utf8_cluster_at(TheDriverWindow *win, int row, int col,
                                        TextCluster cluster, TheDriverAttr colour,
                                        int expected_width)
 {
-   wchar_t wch[THE_MAX_SCREEN_WIDTH + 1];
+   TheRenderCluster render;
 
-   if (show_cluster_to_wide_string(line, len, cluster, wch,
-                                   sizeof(wch) / sizeof(wch[0]), FALSE))
-      the_driver->write_wide_string_at(win, row, col, wch, colour,
-                                         expected_width);
+   if (show_render_cluster_from_text(&render, line, len, cluster, colour,
+                                     FALSE))
+   {
+      if (expected_width > 0)
+         render.display_width = expected_width;
+      the_driver->write_render_cluster_at(win, row, col, &render);
+   }
 }
 
 static void show_write_utf8_status_cluster_at(TheDriverWindow *win, int row, int col,
@@ -486,14 +408,16 @@ static void show_write_utf8_status_cluster_at(TheDriverWindow *win, int row, int
                                               TheDriverAttr colour,
                                               int expected_width)
 {
-   wchar_t wch[THE_MAX_SCREEN_WIDTH + 1];
+   TheRenderCluster render;
 
-   if (show_cluster_to_wide_string(line, len, cluster, wch,
-                                   sizeof(wch) / sizeof(wch[0]),
-                                   show_status_cluster_force_expanded(line, len,
-                                                                      cluster)))
-      the_driver->write_wide_string_at(win, row, col, wch, colour,
-                                         expected_width);
+   if (show_render_cluster_from_text(&render, line, len, cluster, colour,
+                                     show_status_cluster_force_expanded(
+                                        line, len, cluster)))
+   {
+      if (expected_width > 0)
+         render.display_width = expected_width;
+      the_driver->write_render_cluster_at(win, row, col, &render);
+   }
 }
 
 static void show_fill_cells_at(TheDriverWindow *win, int row, int col, int width, TheDriverAttr colour)
@@ -508,7 +432,8 @@ static void show_write_ascii_cells_at(TheDriverWindow *win, int row, int col,
    the_driver->write_ascii_cells_at(win, row, col, text, width, colour);
 }
 
-#define mysetchar(dest, ch, colour) the_driver->set_wide_cell_codepoint((dest), (uint32_t)(ch), (colour))
+#define mysetchar(dest, ch, colour) \
+   the_render_cell_from_codepoint((dest), (uint32_t)(ch), (TheRenderAttr)(colour))
 #endif
 
 #ifdef HAVE_WADDCHNSTR
@@ -533,7 +458,8 @@ static void show_add_utf8_codepoint(uint32_t ch, TheDriverAttr colour)
       ch = (uint32_t)etmode_table[cc];
       colour = (etmode_table[cc] & A_COLOR);
    }
-   the_driver->set_wide_cell_codepoint(linebufch + _fast_col, ch, colour);
+   the_render_cell_from_codepoint(linebufch + _fast_col, ch,
+                                  (TheRenderAttr)colour);
    _fast_col++;
 }
 
@@ -542,7 +468,7 @@ static void show_add_utf8_codepoint(uint32_t ch, TheDriverAttr colour)
                        LENGTHTYPE l = length;                  \
                        CHARTYPE *src;                          \
                        TheDriverAttr color,hi1; /* beware of slow arg! */ \
-                       TheDriverWideCell *dest;                          \
+                       TheRenderCell *dest;                    \
                        char cc;                                \
                        u_int32_t ch;                           \
                        int pos=0;                              \
@@ -574,7 +500,7 @@ DEBUGDUMPDETAIL(fprintf(stderr,"\n");)                                          
                        LENGTHTYPE l = length;                  \
                        CHARTYPE *src;                          \
                        TheDriverAttr *highl,hi1;                      \
-                       TheDriverWideCell *dest;                          \
+                       TheRenderCell *dest;                    \
                        char cc;                                \
                        u_int32_t ch;                           \
                        int pos=0;                              \
@@ -606,7 +532,7 @@ DEBUGDUMPDETAIL(fprintf(stderr,": x%x %x ", ch, *highl );) \
 DEBUGDUMPDETAIL(fprintf(stderr,"\n");)                                          \
                         }
 #  define FILL_LINE_OUTPUT(c,length,colour) {                    \
-                        TheDriverWideCell *dest;                           \
+                        TheRenderCell *dest;                    \
                         u_int32_t ch=c;                           \
                         LENGTHTYPE l = length;                   \
                         PARATEST_ADD_LINE(l,"FILL_LINE_OUTPUT"); \
@@ -622,7 +548,7 @@ DEBUGDUMPDETAIL(fprintf(stderr,"x%x ", c );) \
                        }                                       \
 DEBUGDUMPDETAIL(fprintf(stderr,"\n");)                                          \
                         }
-#  define END_LINE_OUTPUT() { the_driver->write_wide_cell_span(_fast_win, \
+#  define END_LINE_OUTPUT() { the_driver->write_render_cells(_fast_win, \
                                      linebufch,                  \
                                      _fast_col);                 \
 DEBUGDUMPDETAIL(fprintf(stderr,"%s %d(%s): END_LINE_OUTPUT\n", __FILE__,__LINE__,__func__);) \
@@ -684,7 +610,7 @@ static TheDriverAttr _fast_colour = (TheDriverAttr) -1l; /* buffering prevents u
 # ifdef USE_UTF8
 static void show_add_utf8_codepoint(uint32_t ch, TheDriverAttr colour)
 {
-   TheDriverWideCell out;
+   TheRenderCell out;
 
    if (ch < 256 && etmode_flag[ch])
    {
@@ -692,8 +618,8 @@ static void show_add_utf8_codepoint(uint32_t ch, TheDriverAttr colour)
       ch = (uint32_t)etmode_table[cc];
       colour = (etmode_table[cc] & A_COLOR);
    }
-   the_driver->set_wide_cell_codepoint(&out, ch, colour);
-   the_driver->add_wide_cell(_fast_win, &out);
+   the_render_cell_from_codepoint(&out, ch, (TheRenderAttr)colour);
+   the_driver->write_render_cells(_fast_win, &out, 1);
 }
 
 #  define ADD_LINE_OUTPUT(line,length,colour) {                  \
@@ -4963,7 +4889,8 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d: ccols %d cother_end_col %d bother_end_col
                   /*
                    * Get the current character at the column position and change its colour
                    */
-                  the_driver->recolour_wide_cell(&linebufch[idx], other);
+                  the_render_cluster_recolour(&linebufch[idx],
+                                              (TheRenderAttr)other);
                }
             }
 #else
@@ -5895,11 +5822,11 @@ short THE_Resize(int rows, int cols)
          TRACE_RETURN();
          return(30);
       }
-   #ifdef USE_UTF8
-      if ((linebufch = (TheDriverWideCell *)(*the_realloc)(linebufch, (linebuf_size * sizeof(TheDriverWideCell)))) == NULL)
-   #else
+#ifdef USE_UTF8
+      if ((linebufch = (TheRenderCell *)(*the_realloc)(linebufch, (linebuf_size * sizeof(TheRenderCell)))) == NULL)
+#else
       if ((linebufch = (TheDriverCell *)(*the_realloc)(linebufch, (linebuf_size * sizeof(TheDriverCell)))) == NULL)
-   #endif
+#endif
       {
          cleanup();
          TRACE_RETURN();

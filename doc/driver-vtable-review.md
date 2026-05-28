@@ -47,9 +47,9 @@ drivers continue to prove specific integration points.
 
 ## Findings
 
-- `TheDriverOps` currently has 141 function pointers.
-- `src/cursesdriver.c` initializes all 141 entries in `the_curses_driver_ops`.
-- `src/headlessdriver.c` initializes all 141 entries in
+- `TheDriverOps` currently has 138 function pointers.
+- `src/cursesdriver.c` initializes all 138 entries in `the_curses_driver_ops`.
+- `src/headlessdriver.c` initializes all 138 entries in
   `the_headless_driver_ops` without including curses headers or linking
   curses.
 - The Step 2 display-layout extraction removed `clamp_display_col`,
@@ -62,18 +62,17 @@ drivers continue to prove specific integration points.
 - A normalized `read_input_event` operation now exists. The old raw key/mouse
   operations remain as compatibility wrappers for the legacy dispatcher,
   readv/dialog/popup paths, `getch.c`, and existing mouse-definition dispatch.
-- The most urgent refactor candidates are raw key/mouse reads, wide-cell and
-  cell-buffer construction, stdscr/curscr operations, keypad/notimeout/leaveok,
-  and role-specific touch/refresh/cursor helpers that reveal too much of the
-  curses window topology.
-- The safest next code slice is not signature churn. Work in a few large
-  coherent slices: shared display/input semantics first, portable UTF renderer
-  cells next, then modal/standard-screen contraction.
-- The current "wide cell" surface is intentionally transitional. In curses it
-  maps to `cchar_t`, but THE needs a more general UTF render-cluster model for
-  grapheme clusters such as flags, keycaps, combining sequences, and ZWJ
-  sequences where logical width, display width, cursor width, and paint/repair
-  width may differ.
+- The most urgent refactor candidates are raw key/mouse reads,
+  stdscr/curscr operations, keypad/notimeout/leaveok, and role-specific
+  touch/refresh/cursor helpers that reveal too much of the curses window
+  topology.
+- The safest next code slice is not broad signature churn. Work in a few large
+  coherent slices: modal/standard-screen contraction and raw input migration
+  should remain separate.
+- The public "wide cell" surface is closed. `src/rendercell.c` now provides a
+  portable render-cell/render-cluster model for grapheme clusters such as
+  flags, keycaps, combining sequences, and ZWJ sequences where logical width,
+  display width, cursor width, and paint/repair width may differ.
 
 ## Category Meanings
 
@@ -192,12 +191,9 @@ and header sources. They do not count internal calls inside
 | `add_cell` | 10 calls in execute, show, util. | Calls `waddch`. | `physical-terminal` | Append fake cell/log. | Prefer semantic renderer. | Keep optional during renderer migration. | Virtual renderer tests. |
 | `insert_cell` | 1 call in `util.c`. | Calls `winsch`. | `curses-private-candidate` | Insert in fake row/log. | Avoid direct terminal insert. | Move toward shared text/render helper. | ETMODE/path tests using fake screen. |
 | `delete_cell` | 1 call in `util.c`. | Calls `wdelch`. | `curses-private-candidate` | Delete fake cell/log. | Avoid direct terminal delete. | Move toward shared text/render helper. | ETMODE/path tests using fake screen. |
-| `add_wide_cell` | 1 call in `show.c`. | Calls `wadd_wch` when UTF enabled. | `curses-private-candidate` | Write fake Unicode cell/log. | Use logical text and style spans. | Replace with shared renderer cell abstraction. | UTF virtual renderer tests. |
 | `write_cell_span` | 1 call in `show.c`. | Uses `waddchnstr` or per-cell fallback. | `physical-terminal` | Write fake cell span/log. | Prefer semantic row text/style span. | Keep as renderer backend primitive for now. | Renderer span tests. |
-| `write_wide_cell_span` | 1 call in `show.c`. | Uses `wadd_wchnstr` or per-cell fallback. | `physical-terminal` | Write fake wide span/log. | Prefer semantic row text/style span. | Replace wide-cell buffer with portable cell model. | UTF span tests. |
-| `set_wide_cell_codepoint` | 3 calls in `show.c`. | Builds a `cchar_t` in opaque storage. | `curses-private-candidate` | Build fake wide cell struct. | Avoid exposing physical cell buffers. | Move toward shared renderer cell type. | UTF keycap/combining tests. |
-| `recolour_wide_cell` | 1 call in `show.c`. | Mutates `cchar_t` color. | `curses-private-candidate` | Mutate fake cell style. | Use semantic style spans. | Move toward shared renderer style model. | Style span tests. |
-| `write_wide_string_at` | 2 calls in `show.c`. | Writes wide string with expected-width repair behavior. | `physical-terminal` | Write fake Unicode string/log. | Expose logical string; physical width diagnostic only. | Split logical text from terminal repair. | UTF repair/virtual renderer tests. |
+| `write_render_cells` | 1 buffered line path and fallback single-cell UTF path in `show.c`. | Lowers portable render cells to `cchar_t` and uses `wadd_wchnstr` or per-cell `wadd_wch`. | `physical-terminal` | Writes fake cells while preserving render metadata for inspection. | Prefer semantic row text/style spans. | Keep as the portable UTF cell backend while `show.c` still uses line buffers. | ASCII/non-ASCII render-cell tests and no-curses guard. |
+| `write_render_cluster_at` | Targeted UTF repair/status cluster writes in `show.c`. | Lowers a render cluster to wide output and preserves expected display width for cursor advancement. | `physical-terminal` | Preserves codepoint sequence, UTF slice, widths, repair hint, and style in the fake surface/log. | Expose logical cluster text and width facts. | Keep as the portable cluster backend for keycaps, flags, combining sequences, and ZWJ sequences. | `test_headlessdriver`, `test_virtual_screen`, `test_utfrepair`. |
 | `fill_cells_at` | 1 call in `show.c`. | Fills terminal cells with spaces/attr. | `physical-terminal` | Fill fake cells/log. | Render blank semantic span. | Keep backend primitive; later shared renderer. | Blank-cell repair tests. |
 | `write_ascii_cells_at` | 1 call in `show.c`. | Writes fixed-width ASCII cells. | `physical-terminal` | Write fake ASCII cells/log. | Expose logical text. | Keep backend primitive for now. | ASCII renderer tests. |
 | `read_input_event` | Focused tests and future semantic dispatch. | Reads through the current curses input edge and returns `TheInputEvent` text/key events; raw mouse packets remain private to curses legacy wrappers. | `core-portable` | Pops queued `TheInputEvent` values; fake key hooks queue normalized events and legacy key readers adapt from that queue. | Primary input surface for agent/headless clients. | Keep and migrate callers from raw key/mouse wrappers incrementally. | `test_headlessdriver`, `test_inputevent`, mouse-hit and no-curses guards. |
@@ -258,16 +254,17 @@ and header sources. They do not count internal calls inside
    `read_raw_window_key`, `read_standard_key`, `read_raw_standard_key`,
    `is_mouse_key`, `mouse_key_code`, `read_mouse_button`,
    `read_current_role_mouse_event`, and `read_mouse_event`.
-3. Introduce a portable UTF renderer-cell/render-cluster model so
-   `TheDriverWideCell`, `set_wide_cell_codepoint`, `recolour_wide_cell`, and
-   direct attr mutation no longer leak `cchar_t`-shaped mechanics into the
-   public driver contract. The model must represent codepoint sequences and
-   width facts explicitly enough for flags, keycaps, combining marks, ZWJ
-   sequences, and terminal repair policy.
+3. Done in this working tree: introduce a portable UTF renderer-cell/render-
+   cluster model. `TheDriverOps` dropped `add_wide_cell`,
+   `write_wide_cell_span`, `set_wide_cell_codepoint`, `recolour_wide_cell`,
+   and `write_wide_string_at`; it added `write_render_cells` and
+   `write_render_cluster_at`, leaving 138 entries. `src/rendercell.c`
+   represents codepoint sequences, UTF-8 slices, style, width facts, flags,
+   fallback output, and terminal repair policy. Curses lowers the model
+   privately; headless preserves it for tests.
 4. Move modal and standard-screen paths (`create_pad`, stdscr operations,
    relative role windows, shell preparation) behind transient UI snapshots or
-   curses-private compatibility helpers. This can wait until after the shared
-   input/display and portable renderer-cell slices unless it blocks them.
+   curses-private compatibility helpers.
 
 ## Verification Notes
 
@@ -279,4 +276,4 @@ perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/cursesdriver.c | wc -
 perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/headlessdriver.c | wc -l
 ```
 
-All three counts are 141 after the shared display/input slice.
+All three counts are 138 after the portable render-cell/render-cluster slice.
