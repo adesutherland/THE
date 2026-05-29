@@ -62,7 +62,6 @@ driver-wrapper	src/cursor.c	cursor_focus_present	1
 driver-wrapper	src/cursor.c	cursor_focus_redraw	1
 driver-wrapper	src/cursor.c	cursor_focus_redraw_if_software	1
 driver-wrapper	src/cursor.c	cursor_focus_restore_vertical	2
-driver-wrapper	src/cursor.c	cursor_focus_sync_current	1
 driver-wrapper	src/cursor.c	cursor_mouse_filearea	1
 driver-wrapper	src/cursor.c	cursor_mouse_prefix	1
 driver-wrapper	src/cursor.c	cursor_utf8_filearea_cell	1

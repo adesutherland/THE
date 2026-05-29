@@ -1412,7 +1412,7 @@ short set_up_windows(short scrn)
       y = x = 0;
       if ( screen[scrn].win[i] != NULL )
       {
-         cursor = the_driver->capture_screen_role_cursor(scrn, i);
+         cursor = the_driver->capture_window_cursor(driver_screen_role_window(scrn, i));
          if (cursor.valid)
          {
             y = cursor.row;
@@ -1434,12 +1434,11 @@ short set_up_windows(short scrn)
             return(RC_OUT_OF_MEMORY);
          }
 #ifdef HAVE_KEYPAD
-         the_driver->enable_keypad(screen[scrn].win[i], true);
 #endif
 #if !defined(PDCURSES)
-         the_driver->touch_screen_role(scrn, i);
+         the_driver->touch_window(driver_screen_role_window(scrn, i));
 #endif
-         the_driver->move_screen_role_cursor(scrn, i, y, x);
+         the_driver->move_window_cursor(driver_screen_role_window(scrn, i), y, x);
       }
    }
    the_driver->set_screen_role_attr(scrn, WINDOW_FILEAREA, set_colour( fp.attr+ATTR_FILEAREA ));
@@ -1451,13 +1450,13 @@ short set_up_windows(short scrn)
          the_driver->add_cell_at(screen[scrn].win[WINDOW_ARROW], 0, i, '=');
       the_driver->add_string_at(screen[scrn].win[WINDOW_ARROW], 0,
                                   my_prefix_width - 2, "> ");
-      the_driver->refresh_screen_role(scrn, WINDOW_ARROW);
+      the_driver->refresh_window(driver_screen_role_window(scrn, WINDOW_ARROW));
    }
 
    if ( screen[scrn].win[WINDOW_IDLINE] != NULL )
    {
       the_driver->set_screen_role_attr(scrn, WINDOW_IDLINE, set_colour( fp.attr+ATTR_IDLINE ));
-      the_driver->move_screen_role_cursor(scrn, WINDOW_IDLINE, 0, 0);
+      the_driver->move_window_cursor(driver_screen_role_window(scrn, WINDOW_IDLINE), 0, 0);
       my_wclrtoeol( screen[scrn].win[WINDOW_IDLINE] );
    }
 
@@ -1470,16 +1469,16 @@ short set_up_windows(short scrn)
    if ( screen[scrn].win[WINDOW_COMMAND] != NULL )
    {
       the_driver->set_screen_role_attr(scrn, WINDOW_COMMAND, set_colour( fp.attr+ATTR_CMDLINE ));
-      cursor = the_driver->capture_screen_role_cursor(scrn, WINDOW_COMMAND);
+      cursor = the_driver->capture_window_cursor(driver_screen_role_window(scrn, WINDOW_COMMAND));
       if (cursor.valid)
       {
          y = cursor.row;
          x = cursor.col;
       }
-      the_driver->move_screen_role_cursor(scrn, WINDOW_COMMAND, 0, 0);
+      the_driver->move_window_cursor(driver_screen_role_window(scrn, WINDOW_COMMAND), 0, 0);
       my_wclrtoeol( screen[scrn].win[WINDOW_COMMAND] );
-      the_driver->refresh_screen_role(scrn, WINDOW_COMMAND);
-      the_driver->move_screen_role_cursor(scrn, WINDOW_COMMAND, y, x);
+      the_driver->refresh_window(driver_screen_role_window(scrn, WINDOW_COMMAND));
+      the_driver->move_window_cursor(driver_screen_role_window(scrn, WINDOW_COMMAND), y, x);
    }
    /*
     * Delete divider window.
@@ -1505,7 +1504,6 @@ short set_up_windows(short scrn)
          return(RC_OUT_OF_MEMORY);
       }
 #ifdef HAVE_KEYPAD
-      the_driver->enable_keypad(divider, true);
 #endif
 
 #if 0
@@ -1547,14 +1545,14 @@ short draw_divider(void)
    TRACE_FUNCTION("util.c:    draw_divider");
 
 #ifdef HAVE_WVLINE
-   the_driver->move_global_window_cursor(THE_DRIVER_GLOBAL_DIVIDER, 0, 0);
+   the_driver->move_window_cursor(driver_global_window(THE_DRIVER_GLOBAL_DIVIDER), 0, 0);
    the_driver->draw_vertical_line(divider,0,screen[1].screen_rows);
-   the_driver->move_global_window_cursor(THE_DRIVER_GLOBAL_DIVIDER, 0, 1);
+   the_driver->move_window_cursor(driver_global_window(THE_DRIVER_GLOBAL_DIVIDER), 0, 1);
    the_driver->draw_vertical_line(divider,0,screen[1].screen_rows);
 #else
    for (i=0;i<screen[1].screen_rows;i++)
    {
-      the_driver->move_global_window_cursor(THE_DRIVER_GLOBAL_DIVIDER, i, 0);
+      the_driver->move_window_cursor(driver_global_window(THE_DRIVER_GLOBAL_DIVIDER), i, 0);
       the_driver->add_cell(divider, '|');
       the_driver->add_cell(divider, '|');
    }
@@ -1589,7 +1587,6 @@ short create_statusline_window(void)
       case 'B':
          statarea = the_driver->create_window(1, COLS, terminal_lines - 1, 0);
 #ifdef HAVE_KEYPAD
-         the_driver->enable_keypad(statarea, true);
 #endif
          the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_STATAREA, set_colour( &attr ));
          clear_statarea();
@@ -1597,7 +1594,6 @@ short create_statusline_window(void)
       case 'T':
          statarea = the_driver->create_window(1, COLS, (FILETABSx) ? 1 : 0, 0);
 #ifdef HAVE_KEYPAD
-         the_driver->enable_keypad(statarea, true);
 #endif
          the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_STATAREA, set_colour( &attr ));
          clear_statarea();
@@ -1627,7 +1623,6 @@ short create_filetabs_window(void)
    {
       filetabs = the_driver->create_window(1, COLS, 0, 0);
 #ifdef HAVE_KEYPAD
-      the_driver->enable_keypad(filetabs, true);
 #endif
       display_filetabs( NULL );
       /*
@@ -2110,7 +2105,6 @@ TheDriverWindow *adjust_window(TheDriverWindow *win,short tr,short tc,short line
    {
       the_driver->move_window_cursor(neww, y, x);
 #ifdef HAVE_KEYPAD
-      the_driver->enable_keypad(neww, true);
 #endif
    }
    TRACE_RETURN();
@@ -2845,8 +2839,7 @@ VIEW_DETAILS *find_filetab(int x)
    bool process_view=FALSE;
    register int j=0;
    int fname_len, fname_start = 0;
-   bool first = TRUE;
-   TheDriverCell filetab_cell=0;
+   bool first = TRUE, more = FALSE;
 
    TRACE_FUNCTION("util.c:    find_filetab");
    /*
@@ -2854,32 +2847,6 @@ VIEW_DETAILS *find_filetab(int x)
     */
    if ( FILETABSx )
    {
-      the_driver->move_global_window_cursor(THE_DRIVER_GLOBAL_FILETABS, 0, COLS - 1);
-      filetab_cell = the_driver->read_window_cell(filetabs);
-#ifdef VMS
-      if ( filetab_cell == '>'
-#else
-      if ( ( filetab_cell & A_CHARTEXT ) == '>'
-#endif
-      &&  x == COLS-1 )
-      {
-         Tabfile( (CHARTYPE *)"+" );
-         TRACE_RETURN();
-         return NULL;
-      }
-      the_driver->move_global_window_cursor(THE_DRIVER_GLOBAL_FILETABS, 0, COLS - 2);
-      filetab_cell = the_driver->read_window_cell(filetabs);
-#ifdef VMS
-      if ( filetab_cell == '<'
-#else
-      if ( ( filetab_cell & A_CHARTEXT ) == '<'
-#endif
-      &&  x == COLS-2 )
-      {
-         Tabfile( (CHARTYPE *)"-" );
-         TRACE_RETURN();
-         return NULL;
-      }
       if ( filetabs_start_view == NULL )
          curr = vd_current;
       else
@@ -2918,7 +2885,10 @@ VIEW_DETAILS *find_filetab(int x)
                   fname_start += DEFAULT_FILETABS_GAP_WIDTH;
                }
                if ( fname_start + fname_len > COLS-2 )
+               {
+                  more = TRUE;
                   break;
+               }
                if ( x >= fname_start
                &&   x <= fname_start + fname_len )
                {
@@ -2931,6 +2901,18 @@ VIEW_DETAILS *find_filetab(int x)
          curr = curr->next;
          if (curr == NULL)
             curr = vd_first;
+      }
+      if ( more && x == COLS-1 )
+      {
+         Tabfile( (CHARTYPE *)"+" );
+         TRACE_RETURN();
+         return NULL;
+      }
+      if ( more && x == COLS-2 )
+      {
+         Tabfile( (CHARTYPE *)"-" );
+         TRACE_RETURN();
+         return NULL;
       }
    }
    TRACE_RETURN();
@@ -2981,15 +2963,15 @@ int doupdate(void)
    TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION("util.c:    doupdate");
-   cursor = the_driver->capture_current_window_cursor();
+   cursor = the_driver->capture_window_cursor(driver_current_window());
    if (cursor.valid)
    {
       y = cursor.row;
       x = cursor.col;
    }
    the_driver->sync_terminal_screen();
-   the_driver->move_current_window_cursor(y, x);
-   the_driver->refresh_current_window_now();
+   the_driver->move_window_cursor(driver_current_window(), y, x);
+   the_driver->refresh_window_now(driver_current_window());
    TRACE_RETURN();
    return(0);
 }

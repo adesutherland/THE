@@ -1262,7 +1262,7 @@ short command_line(CHARTYPE *cmd_line,bool command_only)
    if (blank_field(cmd_line))
    {
       if (curses_started)
-         the_driver->move_current_role_cursor(WINDOW_COMMAND, 0, 0);
+         the_driver->move_window_cursor(driver_current_role_window(WINDOW_COMMAND), 0, 0);
       TRACE_RETURN();
       return(RC_OK);
    }
@@ -1639,16 +1639,16 @@ void cleanup_command_line(void)
       TRACE_RETURN();
       return;
    }
-   if (the_driver->current_role_exists(WINDOW_COMMAND))
+   if (driver_current_role_exists(WINDOW_COMMAND))
    {
-      the_driver->move_current_role_cursor(WINDOW_COMMAND,0,0);
+      the_driver->move_window_cursor(driver_current_role_window(WINDOW_COMMAND), 0, 0);
       the_driver->clear_current_role_to_eol(WINDOW_COMMAND);
    }
    memset(cmd_rec,' ',max_line_length);
    cmd_rec_len = 0;
-   if (the_driver->current_role_exists(WINDOW_COMMAND))
+   if (driver_current_role_exists(WINDOW_COMMAND))
    {
-      the_driver->move_current_role_cursor(WINDOW_COMMAND,0,0);
+      the_driver->move_window_cursor(driver_current_role_window(WINDOW_COMMAND), 0, 0);
    }
    cmd_verify_col = 1;
    if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
@@ -1661,11 +1661,11 @@ void cleanup_command_line(void)
    }
    else
       CURRENT_VIEW->cmdline_col = (-1);
-   if (the_driver->current_role_exists(WINDOW_COMMAND)
+   if (driver_current_role_exists(WINDOW_COMMAND)
    &&  CURRENT_VIEW->current_window == WINDOW_COMMAND)
    {
       cursor_focus_refresh(current_screen, CURRENT_VIEW);
-      the_driver->refresh_current_role(WINDOW_COMMAND);
+      the_driver->refresh_window(driver_current_role_window(WINDOW_COMMAND));
       the_driver->update();
       the_driver->present_cursor(TRUE);
    }
@@ -2195,7 +2195,7 @@ LENGTHTYPE get_true_column(bool respect_compat)
       else if (curses_started)
       {
          TheDriverWindowCursor cursor =
-            the_driver->capture_current_role_cursor(WINDOW_FILEAREA);
+            the_driver->capture_window_cursor(driver_current_role_window(WINDOW_FILEAREA));
 
          true_column = CURRENT_VIEW->verify_col
                      + (cursor.valid ? cursor.col : 0);
@@ -3329,7 +3329,7 @@ short restore_THE(void)
       TRACE_RETURN();
       return(RC_OK);
    }
-   cursor = the_driver->capture_current_window_cursor();
+   cursor = the_driver->capture_window_cursor(driver_current_window());
    if (cursor.valid)
    {
       y = cursor.row;
@@ -3346,13 +3346,13 @@ short restore_THE(void)
       touch_screen((CHARTYPE)other_screen);
       refresh_screen((CHARTYPE)other_screen);
       if (!horizontal)
-         the_driver->touch_and_refresh_global_window(THE_DRIVER_GLOBAL_DIVIDER);
+         driver_touch_and_refresh_window(driver_global_window(THE_DRIVER_GLOBAL_DIVIDER));
    }
    touch_screen(current_screen);
-   if (the_driver->global_window_exists(THE_DRIVER_GLOBAL_STATAREA))
-      the_driver->touch_global_window(THE_DRIVER_GLOBAL_STATAREA);
-   if (the_driver->global_window_exists(THE_DRIVER_GLOBAL_FILETABS))
-      the_driver->touch_global_window(THE_DRIVER_GLOBAL_FILETABS);
+   if (driver_global_window_exists(THE_DRIVER_GLOBAL_STATAREA))
+      the_driver->touch_window(driver_global_window(THE_DRIVER_GLOBAL_STATAREA));
+   if (driver_global_window_exists(THE_DRIVER_GLOBAL_FILETABS))
+      the_driver->touch_window(driver_global_window(THE_DRIVER_GLOBAL_FILETABS));
 #if defined(HAVE_SLK_INIT)
    if ( max_slk_labels )
    {
@@ -3360,7 +3360,7 @@ short restore_THE(void)
       slk_noutrefresh();
    }
 #endif
-   the_driver->move_current_window_cursor(y, x);
+   the_driver->move_window_cursor(driver_current_window(), y, x);
    TRACE_RETURN();
    return(RC_OK);
 }
@@ -3832,7 +3832,7 @@ int readv_cmdline(CHARTYPE *initial, TheDriverWindow *dw, int start_col)
    TransientUiSnapshot readv_snapshot;
 
    TRACE_FUNCTION("commutil.c:readv_cmdline");
-   if ( !the_driver->current_role_exists(WINDOW_COMMAND) )
+   if ( !driver_current_role_exists(WINDOW_COMMAND) )
    {
       display_error( 86, (CHARTYPE *)"", FALSE );
       TRACE_RETURN();
@@ -3857,7 +3857,7 @@ int readv_cmdline(CHARTYPE *initial, TheDriverWindow *dw, int start_col)
                                  0, (int)max_line_length);
    transient_ui_snapshot_build_readv(&readv_snapshot, 0, 0,
                                      (int)max_line_length, &readv_state);
-   the_driver->refresh_current_role_now(WINDOW_COMMAND);
+   the_driver->refresh_window_now(driver_current_role_window(WINDOW_COMMAND));
    while( 1 )
    {
       key = the_driver_read_legacy_key();
@@ -3905,7 +3905,9 @@ int readv_cmdline(CHARTYPE *initial, TheDriverWindow *dw, int start_col)
              * Got a mouse event
              */
             readv_state.cursor_cell = mouse.col;
-            the_driver->move_current_role_cursor(WINDOW_COMMAND, 0, (short)mouse.col);
+            the_driver->move_window_cursor(
+               driver_current_role_window(WINDOW_COMMAND), 0,
+               (short)mouse.col);
          }
          else
             continue;
@@ -3954,7 +3956,7 @@ int readv_cmdline(CHARTYPE *initial, TheDriverWindow *dw, int start_col)
        */
       if ( dw )
          the_driver->refresh_window( dw );
-      the_driver->refresh_current_role_now(WINDOW_COMMAND);
+      the_driver->refresh_window_now(driver_current_role_window(WINDOW_COMMAND));
       if ( rc == RC_READV_TERM
       ||   rc == RC_READV_TERM_MOUSE )
          break;

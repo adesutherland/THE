@@ -16,7 +16,6 @@ const char *headless_driver_log_entry(size_t index);
 
 void headless_driver_set_current_screen(CHARTYPE scrno);
 void headless_driver_set_screen_current_role(CHARTYPE scrno, short role);
-void headless_driver_set_screen_previous_role(CHARTYPE scrno, short role);
 TheDriverWindow *headless_driver_create_screen_role(CHARTYPE scrno,
                                                     short role, int rows,
                                                     int cols, int row,

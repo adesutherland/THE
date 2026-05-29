@@ -1,6 +1,6 @@
 # Driver Vtable Review
 
-Last updated: 2026-05-28.
+Last updated: 2026-05-29.
 
 This is the strategic review of `TheDriverOps` after the direct-curses
 inventory cleanup closed. It is not a refactor plan for one mechanical sweep.
@@ -47,9 +47,9 @@ drivers continue to prove specific integration points.
 
 ## Findings
 
-- `TheDriverOps` currently has 114 function pointers.
-- `src/cursesdriver.c` initializes all 114 entries in `the_curses_driver_ops`.
-- `src/headlessdriver.c` initializes all 114 entries in
+- `TheDriverOps` currently has 53 function pointers.
+- `src/cursesdriver.c` initializes all 53 entries in `the_curses_driver_ops`.
+- `src/headlessdriver.c` initializes all 53 entries in
   `the_headless_driver_ops` without including curses headers or linking
   curses.
 - The Step 2 display-layout extraction removed `clamp_display_col`,
@@ -67,13 +67,13 @@ drivers continue to prove specific integration points.
 - The modal/standard-screen contraction removed the public pad, stdscr/curscr,
   relative-role-window, shell-preparation, and broken-curses background helper
   entries. The following raw input retirement removed public key/mouse packet
-  wrappers. Remaining urgent refactor candidates are keypad/notimeout/leaveok
-  and role-specific touch/refresh/cursor helpers that reveal too much of the
-  curses window topology.
-- The safest next code slice is not broad signature churn. Work in a few large
-  coherent slices that remove operations from the public surface. Role/window/
-  cursor presentation contraction is now the next large close-down slice after
-  raw input wrapper retirement.
+  wrappers. The role/window/cursor presentation contraction then removed the
+  broad current/screen/global role cursor, refresh, touch, redraw, cell-scrape,
+  existence/topology, keypad/notimeout/leaveok, and role-window lifecycle
+  compatibility surface.
+- The safest next code slice is still not broad signature churn. Continue with
+  coherent public-surface removals, but do not reopen the retired
+  role/window/cursor presentation helper family.
 - The public "wide cell" surface is closed. `src/rendercell.c` now provides a
   portable render-cell/render-cluster model for grapheme clusters such as
   flags, keycaps, combining sequences, and ZWJ sequences where logical width,
@@ -120,11 +120,71 @@ physical packet coordinates remain inside `src/cursesdriver.c`; editor mouse
 code saves the resulting logical target for migrated commands such as
 `CURSOR MOUSE` and `TABFILE`.
 
-## Review Table
+## Removed Role/Window/Cursor Presentation Surface
 
-Caller counts below are direct `the_driver->operation(...)` calls found in C
-and header sources. They do not count internal calls inside
-`src/cursesdriver.c`.
+The role/window/cursor presentation contraction reduced the vtable from 114 to
+53 entries. These operations were removed from `TheDriverOps`:
+
+- topology/existence and lifecycle aliases: `current_window_is_role`,
+  `current_window_exists`, `screen_window_is_role`, `current_role_exists`,
+  `screen_role_exists`, `global_window_exists`, `delete_global_window`,
+  `save_current_role_window`, `restore_current_role_window`, and
+  `delete_current_role_window`.
+- keypad/notimeout/leaveok policy entries: `enable_keypad`,
+  `enable_standard_keypad`, `set_standard_notimeout`, and
+  `set_window_leaveok`.
+- current/screen/global cursor aliases:
+  `capture_current_window_cursor`, `capture_current_previous_window_cursor`,
+  `capture_current_role_cursor`, `capture_screen_window_cursor`,
+  `capture_screen_role_cursor`, `capture_global_window_cursor`,
+  `move_current_window_cursor`, `move_current_previous_window_cursor`,
+  `move_current_role_cursor`, `move_screen_window_cursor`,
+  `move_screen_role_cursor`, `move_global_window_cursor`,
+  `restore_current_window_cursor`, `restore_current_role_cursor`,
+  `restore_screen_window_cursor`, `restore_screen_role_cursor`, and
+  `restore_global_window_cursor`.
+- current/screen role geometry aliases: `current_window_origin`,
+  `current_window_size`, `current_role_size`, `screen_role_size`, and
+  `current_window_cursor_screen_point`.
+- cell scrape/mutation and current-window attribute aliases:
+  `read_window_cell`, `read_current_window_cell`,
+  `read_current_window_cell_attr_at`, `put_char_current_window`, and
+  `set_current_window_attr`.
+- touch, refresh, and redraw aliases: `touch_current_window`,
+  `touch_current_role`, `touch_screen_role`, `touch_global_window`,
+  `touch_and_refresh_current_role`, `touch_and_refresh_screen_role`,
+  `touch_and_refresh_global_window`, `refresh_current_window`,
+  `refresh_current_window_now`, `refresh_current_role`,
+  `refresh_current_role_now`, `refresh_screen_window`,
+  `refresh_screen_role`, `refresh_global_window`,
+  `refresh_global_window_now`, `redraw_current_role`,
+  `redraw_screen_role`, and `redraw_global_window`.
+- zero-caller role clear helpers audited with this family:
+  `clear_current_role` and `clear_screen_role_to_eol`.
+
+No target operation from this slice remains in the public table. Callers that
+still need physical mechanics resolve an opaque window through common editor
+state in `src/driverwindow.h` and then call explicit-window primitives such as
+`capture_window_cursor`, `move_window_cursor`, `restore_window_cursor`,
+`touch_window`, `refresh_window`, or `redraw_window`. Terminal cell scraping no
+longer drives editor behavior in `Text()`, `EXTRACT /SPACECHAR/`, or filetab
+navigation, and `cursor_focus_sync_current()` has been removed.
+
+The intentionally kept public operations are either explicit physical
+primitives (`create_window`, `delete_window`, `capture_window_cursor`,
+`window_origin`, `window_size`, explicit draw/write/clear/touch/refresh/update
+operations), high-level terminal lifecycle/report/repair/input operations
+(`read_input_event`, terminal report, shell, repair, sync, clear, update,
+present cursor), or high-level cursor semantics still shared by curses and
+headless (`move_prefix_cursor`, `move_filearea_cursor`, and
+`filearea_cursor_transition`).
+
+## Historical Review Table
+
+The table below is retained as the 114-entry checkpoint audit history. Rows for
+operations listed in the removed-surface sections above are historical and no
+longer describe live `TheDriverOps` entries. Live counts are verified in the
+notes at the end of this document.
 
 | Operation | Current callers/use | Current curses behavior | Category | Headless/test behavior | LLM behavior | Recommendation | Tests/guardrails needed |
 |---|---|---|---|---|---|---|---|
@@ -291,9 +351,16 @@ and header sources. They do not count internal calls inside
    uses a curses-private terminal helper; transient mouse paths use private
    helper functions; and raw terminal packet mechanics stay in
    `src/cursesdriver.c`.
-6. Next: contract role/window/cursor presentation helpers and remove
-   `cursor_focus_sync_current()` once command/file/prefix paths set logical
-   cursor and focus state before rendering.
+6. Done in this working tree: role/window/cursor presentation contraction.
+   `TheDriverOps` dropped current/screen/global role cursor aliases,
+   touch/refresh/redraw aliases, cell scrape/mutation helpers, topology/
+   existence aliases, current-window geometry aliases, keypad/notimeout/
+   leaveok policy entries, zero-caller role clear helpers, and role-window
+   lifecycle compatibility helpers, leaving 53 entries.
+   `cursor_focus_sync_current()` is removed. Remaining
+   physical cursor save/restore, refresh/update/touch ordering, software cursor
+   painting, cell writes, cursor parking, and terminal repair stay driver-owned
+   through explicit or high-level operations.
 
 Later, after the public surface stabilizes, add startup/profile driver
 selection for curses, headless/test, and future UI backends. Defer full
@@ -311,5 +378,5 @@ perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/cursesdriver.c | wc -
 perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/headlessdriver.c | wc -l
 ```
 
-All three counts are 114 after the raw input compatibility wrapper retirement
+All three counts are 53 after the role/window/cursor presentation contraction
 slice.

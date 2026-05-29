@@ -35,6 +35,8 @@ $Id: proto.h,v 1.66 2022/07/06 06:39:20 mark Exp $
 
 struct TheInputLogicalTarget;
 
+#include "driverwindow.h"
+
                                                          /* commutil.c */
 CHARTYPE *get_key_name (int,int *);
 CHARTYPE *get_key_definition (int,int,bool,bool);
@@ -455,7 +457,6 @@ short execute_sort (CHARTYPE *);
 short THEcursor_cmdline ( CHARTYPE, VIEW_DETAILS *, short );
 void cursor_focus_redraw (CHARTYPE, VIEW_DETAILS *);
 void cursor_focus_refresh (CHARTYPE, VIEW_DETAILS *);
-void cursor_focus_sync_current (CHARTYPE, VIEW_DETAILS *);
 void cursor_focus_present (CHARTYPE);
 short cursor_focus_enter_command (CHARTYPE, VIEW_DETAILS *, short, bool);
 short THEcursor_column (void);

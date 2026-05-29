@@ -216,7 +216,7 @@ static int mouse_locate_window(CHARTYPE *scrn, int *w, int *row, int *col)
    {
       for (j = 0; j < VIEW_WINDOWS; j++)
       {
-         if (the_driver->screen_role_exists(i, (short)j)
+         if (driver_screen_role_exists(i, (short)j)
          &&  mouse_window_position(i, j, row, col))
          {
             if (scrn != NULL)

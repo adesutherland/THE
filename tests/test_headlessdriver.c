@@ -76,7 +76,7 @@ static void test_vtable_complete(void)
    expect_long("ops.size.remainder",
                (long)(sizeof(TheDriverOps) % sizeof(void (*)(void))), 0);
    count = sizeof(TheDriverOps) / sizeof(void (*)(void));
-   expect_long("ops.count", (long)count, 114);
+   expect_long("ops.count", (long)count, 53);
    ops = (const void *const *)(const void *)&the_headless_driver_ops;
    for (i = 0; i < count; i++)
    {
@@ -273,46 +273,47 @@ static void test_fake_window_and_cursor_state(void)
    TheDriverWindowCursor cursor;
    TheDriverWindowCursor saved;
    TheDriverScreenPoint point;
+   TheRenderCell stored;
 
    headless_driver_reset();
    headless_driver_set_current_screen(0);
    headless_driver_set_screen_current_role(0, 0);
    win = headless_driver_create_screen_role(0, 0, 3, 4, 5, 6);
    expect_nonnull("role.win", win);
-   expect_int("role.current.exists", ops->current_window_exists(), 1);
-   expect_int("role.current.is.filearea", ops->current_window_is_role(0), 1);
-   expect_int("role.screen.exists", ops->screen_role_exists(0, 0), 1);
-   expect_int("role.screen.is.filearea", ops->screen_window_is_role(0, 0), 1);
 
-   size = ops->current_window_size();
+   size = ops->window_size(win);
    expect_int("role.size.valid", size.valid, 1);
    expect_int("role.size.rows", size.rows, 3);
    expect_int("role.size.cols", size.cols, 4);
-   origin = ops->current_window_origin();
+   origin = ops->window_origin(win);
    expect_int("role.origin.valid", origin.valid, 1);
    expect_int("role.origin.row", origin.row, 5);
    expect_int("role.origin.col", origin.col, 6);
 
-   ops->move_current_window_cursor(1, 2);
-   cursor = ops->capture_current_window_cursor();
+   ops->move_window_cursor(win, 1, 2);
+   cursor = ops->capture_window_cursor(win);
    expect_int("role.cursor.valid", cursor.valid, 1);
    expect_int("role.cursor.row", cursor.row, 1);
    expect_int("role.cursor.col", cursor.col, 2);
-   point = ops->current_window_cursor_screen_point();
+   point.row = (short)(origin.row + cursor.row);
+   point.col = (short)(origin.col + cursor.col);
+   point.valid = origin.valid && cursor.valid;
    expect_int("role.point.valid", point.valid, 1);
    expect_int("role.point.row", point.row, 6);
    expect_int("role.point.col", point.col, 8);
 
    saved = cursor;
-   ops->move_current_window_cursor(2, 3);
-   ops->restore_current_window_cursor(saved);
-   cursor = ops->capture_current_window_cursor();
+   ops->move_window_cursor(win, 2, 3);
+   ops->restore_window_cursor(win, saved);
+   cursor = ops->capture_window_cursor(win);
    expect_int("role.restore.row", cursor.row, 1);
    expect_int("role.restore.col", cursor.col, 2);
 
    ops->add_cell_at(win, 0, 1, 'X');
    ops->move_window_cursor(win, 0, 1);
-   expect_int("role.read.cell", (int)ops->read_window_cell(win), 'X');
+   expect_int("role.inspect.cell",
+              headless_driver_render_cell_at(win, 0, 1, &stored), 1);
+   expect_int("role.inspect.cp", (int)stored.codepoints[0], 'X');
 
    explicit_win = ops->create_window(2, 5, 4, 7);
    expect_nonnull("explicit.win", explicit_win);
@@ -327,15 +328,11 @@ static void test_fake_window_and_cursor_state(void)
    global = headless_driver_create_global_window(THE_DRIVER_GLOBAL_ERROR, 2,
                                                  10, 20, 30);
    expect_nonnull("global.win", global);
-   expect_int("global.exists",
-              ops->global_window_exists(THE_DRIVER_GLOBAL_ERROR), 1);
-   ops->move_global_window_cursor(THE_DRIVER_GLOBAL_ERROR, 1, 4);
-   cursor = ops->capture_global_window_cursor(THE_DRIVER_GLOBAL_ERROR);
+   ops->move_window_cursor(global, 1, 4);
+   cursor = ops->capture_window_cursor(global);
    expect_int("global.cursor.row", cursor.row, 1);
    expect_int("global.cursor.col", cursor.col, 4);
-   ops->delete_global_window(THE_DRIVER_GLOBAL_ERROR);
-   expect_int("global.deleted",
-              ops->global_window_exists(THE_DRIVER_GLOBAL_ERROR), 0);
+   ops->delete_window(global);
 }
 
 static void test_headless_render_preserves_clusters(void)
@@ -352,8 +349,6 @@ static void test_headless_render_preserves_clusters(void)
    the_render_cell_from_codepoint(&emoji, 0x1F600u, 21);
    ops->write_render_cells(win, &emoji, 1);
    ops->move_window_cursor(win, 0, 0);
-   expect_int("render.headless.read.cell",
-              (int)ops->read_window_cell(win), 0x1F600);
    expect_int("render.headless.inspect",
               headless_driver_render_cell_at(win, 0, 0, &stored), 1);
    expect_size("render.headless.inspect.count", stored.codepoint_count, 1);
@@ -396,31 +391,34 @@ static void test_operation_log(void)
 {
    const TheDriverOps *ops = &the_headless_driver_ops;
    TheDriverWindow *win;
+   TheDriverWindow *global;
 
    headless_driver_reset();
    headless_driver_set_current_screen(0);
    headless_driver_set_screen_current_role(0, 0);
    win = headless_driver_create_screen_role(0, 0, 3, 4, 1, 2);
    expect_nonnull("log.win", win);
-   headless_driver_create_global_window(THE_DRIVER_GLOBAL_STATAREA, 1, 10,
-                                        0, 0);
+   global = headless_driver_create_global_window(THE_DRIVER_GLOBAL_STATAREA,
+                                                 1, 10, 0, 0);
+   expect_nonnull("log.global", global);
    headless_driver_clear_log();
 
    ops->touch_window(win);
    ops->refresh_window(win);
    ops->update();
-   ops->touch_and_refresh_current_role(0);
-   ops->touch_global_window(THE_DRIVER_GLOBAL_STATAREA);
-   ops->refresh_global_window(THE_DRIVER_GLOBAL_STATAREA);
+   ops->touch_window(win);
+   ops->refresh_window(win);
+   ops->touch_window(global);
+   ops->refresh_window(global);
 
-   expect_long("log.count", (long)headless_driver_log_count(), 6);
+   expect_long("log.count", (long)headless_driver_log_count(), 7);
    expect_str("log.0", headless_driver_log_entry(0), "touch:window:1");
    expect_str("log.1", headless_driver_log_entry(1), "refresh:window:1");
    expect_str("log.2", headless_driver_log_entry(2), "update");
-   expect_str("log.3", headless_driver_log_entry(3),
-              "touch-refresh:current-role:0");
-   expect_str("log.4", headless_driver_log_entry(4), "touch:global:0");
-   expect_str("log.5", headless_driver_log_entry(5), "refresh:global:0");
+   expect_str("log.3", headless_driver_log_entry(3), "touch:window:1");
+   expect_str("log.4", headless_driver_log_entry(4), "refresh:window:1");
+   expect_str("log.5", headless_driver_log_entry(5), "touch:window:2");
+   expect_str("log.6", headless_driver_log_entry(6), "refresh:window:2");
 }
 
 static void test_terminal_report_ops(void)

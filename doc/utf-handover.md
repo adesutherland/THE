@@ -1,6 +1,6 @@
 # UTF-8 Cursor/Driver Handover
 
-Last updated: 2026-05-28.
+Last updated: 2026-05-29.
 
 This is the practical status ledger for the UTF, cursor, driver, and LLM
 reorganization. Keep it short. Put detailed design history in `doc/utf-design.md`
@@ -170,21 +170,21 @@ them mechanically and verify the supported targets in one sweep.
   driver/vendor areas.
 - The driver-shape review is complete in `doc/driver-vtable-review.md`. It
   originally reviewed all 145 `TheDriverOps` function pointers; after the
-  shared display/input, portable render-cell, modal/standard-screen, and raw
-  input wrapper retirement slices, the live vtable has 114 entries, with
-  curses and headless initializers covering the same 114 entries. The
-  remaining surface is classified into portable,
+  shared display/input, portable render-cell, modal/standard-screen, raw input
+  wrapper retirement, and role/window/cursor presentation slices, the live
+  vtable has 53 entries, with curses and headless initializers covering the
+  same 53 entries. The remaining surface is classified into portable,
   physical-terminal, transitional, curses-private-candidate, and
   test-instrumentation work.
 - The first headless/test driver slice is implemented. `src/headlessdriver.c`
   publishes a complete no-curses `the_headless_driver_ops` initializer with
-  all 114 entries present. It supports fake opaque windows, screen-role
-  and global-window slots, current/previous role state, cursor
-  capture/move/restore, simple cell writes, queued normalized input events,
-  the shared legacy-key adapter, and a deterministic operation log for
-  touch/refresh/update-style presentation calls plus terminal-report and
-  shell/repair transitions. `test_headlessdriver` and its no-curses guard
-  prove the base links without `src/cursesdriver.c` or a curses library.
+  all 53 entries present. It supports fake opaque windows, screen-role and
+  global-window slots, explicit-window cursor capture/move/restore, simple
+  cell writes, queued normalized input events, the shared legacy-key adapter,
+  and a deterministic operation log for touch/refresh/update-style
+  presentation calls plus terminal-report and shell/repair transitions.
+  `test_headlessdriver` and its no-curses guard prove the base links without
+  `src/cursesdriver.c` or a curses library.
 - The shared display/input semantics slice is implemented. `src/driverlayout.c`
   owns `clamp_display_col`, `display_col_from_logical`,
   `logical_col_from_display`, `viewport_col_for_logical`, and
@@ -234,20 +234,31 @@ them mechanically and verify the supported targets in one sweep.
   handling routes through private transient mouse helpers; and raw
   `KEY_MOUSE`/PDC/ncurses packet decoding and saved packet coordinates stay in
   `src/cursesdriver.c`.
+- The role/window/cursor presentation contraction slice is closed.
+  `TheDriverOps` dropped the current/screen/global role cursor capture, move,
+  and restore aliases; current/screen/global touch, refresh, touch-and-refresh,
+  and redraw aliases; cell scrape/mutation helpers; role/window topology and
+  existence aliases; current-window geometry aliases; global-window deletion;
+  role-window save/restore/delete compatibility helpers; keypad/notimeout/
+  leaveok policy entries; and two zero-caller role clear helpers. Callers now
+  resolve existing logical role/global windows through `src/driverwindow.h`,
+  then use explicit physical primitives only when terminal mechanics really are
+  needed. `cursor_focus_sync_current()` is removed. `EXTRACT /SPACECHAR/`,
+  `Text()`, and filetab navigation no longer scrape terminal cells; they derive
+  behavior from command/prefix/show state and fake-surface inspection hooks. The
+  public vtable count fell from 114 to 53.
 
 ## Active Slice
 
 No active implementation slice is selected. Inventory cleanup, the
-driver-shape review, the first headless/test `TheDriverOps` base, and the
-shared display/input semantics, portable UTF renderer-cell,
-modal/standard-screen contraction, and raw input compatibility wrapper
-retirement slices are closed.
+driver-shape review, the first headless/test `TheDriverOps` base, shared
+display/input semantics, portable UTF renderer-cell, modal/standard-screen
+contraction, raw input compatibility wrapper retirement, and role/window/cursor
+presentation contraction slices are closed.
 
-Next implementation work should close down remaining driver surface area rather
-than add more wrappers. The next large slice is role/window/cursor
-presentation contraction: migrate current/screen/global role cursor, touch,
-refresh, redraw, and cell-scrape compatibility helpers toward logical
-cursor/focus state and semantic rendering.
+Next implementation work should continue driver-surface close-down without
+reopening the current/screen/global role cursor, refresh, touch, redraw, or
+cell-scrape compatibility family.
 
 ## Direct Curses Inventory
 
@@ -270,7 +281,7 @@ Current ratcheted counts:
 - actionable `physical-paint`: 0
 - actionable `mouse-token`: 0
 - actionable `window-state`: 0
-- allowed/migrated `driver-wrapper`: 716
+- allowed/migrated `driver-wrapper`: 574
 
 Current `window-state` summary:
 
@@ -346,16 +357,20 @@ Closed close-down slices:
    transient mouse paths use private transient helpers, and saved physical
    packet state is no longer exposed through the public driver surface. Vtable
    count fell from 130 to 114.
+3. Role/window/cursor presentation contraction. Closed with no target operation
+   left in `TheDriverOps`: role/window existence aliases moved to common
+   editor state, role/global/current cursor aliases now resolve an existing
+   opaque window before using explicit physical cursor primitives, role/window
+   touch/refresh/redraw aliases were replaced by explicit-window primitives or
+   semantic state, terminal cell scraping was removed from `Text()`,
+   `EXTRACT /SPACECHAR/`, and filetab navigation, keypad/notimeout/leaveok
+   policy became curses-private, and zero-caller role clear helpers were
+   removed. `cursor_focus_sync_current()` is gone. Vtable count fell from 114 to
+   53.
 
 Close during the remaining driver rearchitecture:
 
-1. Role/window/cursor presentation contraction. Reduce current/screen/global
-   role cursor, touch, refresh, redraw, and cell-scrape compatibility helpers
-   after command/file/prefix paths set logical cursor/focus before rendering.
-   Close when `cursor_focus_sync_current()` is gone and physical cursor
-   save/restore, refresh/update, touch, software-cursor painting, cell writes,
-   and cursor parking remain driver-owned.
-2. Driver selection and no-curses THE targets. Keep `the` curses-first, but add
+1. Driver selection and no-curses THE targets. Keep `the` curses-first, but add
    an explicit startup/profile or build-target path for selecting headless/test
    drivers. Close when `the_agent`, `the_llm_headless`, and any test-specific
    target prove no curses dependency while sharing the same driver surface.

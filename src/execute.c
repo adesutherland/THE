@@ -251,7 +251,7 @@ static short selective_change(TARGET *target,CHARTYPE *old_str,LENGTHTYPE len_ol
          display_prompt((CHARTYPE *)"Press 'N' for next,'C' to change 'Q' to quit");
       the_driver->move_filearea_cursor(current_screen, CURRENT_VIEW,
                                          rec, rec_len, y, (int)target_cell);
-      the_driver->refresh_current_role(WINDOW_FILEAREA);
+      the_driver->refresh_window(driver_current_role_window(WINDOW_FILEAREA));
 
       key = the_driver_read_legacy_key();
       clear_msgline(-1);
@@ -2194,7 +2194,7 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
       }
       else if (curses_started)
       {
-         cursor = the_driver->capture_current_role_cursor(WINDOW_FILEAREA);
+         cursor = the_driver->capture_window_cursor(driver_current_role_window(WINDOW_FILEAREA));
          if (cursor.valid)
          {
             y = (unsigned short)cursor.row;
@@ -2229,7 +2229,7 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
     */
    curr = lll_find(CURRENT_FILE->first_line,CURRENT_FILE->last_line,true_line,CURRENT_FILE->number_lines);
 
-   cursor = the_driver->capture_current_window_cursor();
+   cursor = the_driver->capture_window_cursor(driver_current_window());
    if (cursor.valid)
    {
       y = (unsigned short)cursor.row;
@@ -2348,7 +2348,7 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
           */
          CURRENT_FILE->number_lines--;
          if (CURRENT_VIEW->current_window == WINDOW_FILEAREA)
-            the_driver->move_current_window_cursor(y, x);
+            the_driver->move_window_cursor(driver_current_window(), y, x);
          break;
    }
    /*
@@ -2372,7 +2372,7 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
          {
             y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,
                                     CURRENT_VIEW->current_row);
-            the_driver->move_current_window_cursor(y, x);
+            the_driver->move_window_cursor(driver_current_window(), y, x);
          }
       }
    }
@@ -3219,14 +3219,14 @@ static void execute_move_prefix_cursor(CHARTYPE curr_screen,
    size_t len;
 
    if (curr_view == NULL
-   ||  !the_driver->screen_role_exists(curr_screen, WINDOW_PREFIX)
+   ||  !driver_screen_role_exists(curr_screen, WINDOW_PREFIX)
    ||  row < 0
    ||  row >= screen[curr_screen].rows[WINDOW_FILEAREA])
       return;
 
    if (cell < 0)
       cell = 0;
-   size = the_driver->screen_role_size(curr_screen, WINDOW_PREFIX);
+   size = the_driver->window_size(driver_screen_role_window(curr_screen, WINDOW_PREFIX));
    if (size.valid && size.cols > 0 && cell >= size.cols)
       cell = size.cols - 1;
 
@@ -3237,7 +3237,9 @@ static void execute_move_prefix_cursor(CHARTYPE curr_screen,
                                       show_row->prefix, len, (int)cell,
                                       TEXT_SNAP_BACKWARD, 1);
    logical_cursor_state_focus(&curr_view->logical_cursor, logical);
-   the_driver->move_screen_role_cursor(curr_screen, WINDOW_PREFIX, row, (short)cell);
+   the_driver->move_window_cursor(
+      driver_screen_role_window(curr_screen, WINDOW_PREFIX), row,
+      (short)cell);
 }
 /***********************************************************************/
 static void execute_move_filearea_display_cursor(CHARTYPE curr_screen,
@@ -3313,7 +3315,7 @@ short execute_move_cursor( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, LENGTH
             cmd_verify_col = new_verify_col;
             cmd_verify_changed = TRUE;
          }
-         the_driver->move_screen_window_cursor(curr_screen, 0, new_screen_col);
+         the_driver->move_window_cursor(driver_screen_current_window(curr_screen), 0, new_screen_col);
          curr_view->cmdline_col = new_screen_col;
          logical = logical_cursor_from_cell( LOGICAL_CURSOR_ZONE_COMMAND,
                                              0, 0, cmd_rec, cmd_rec_len,
@@ -4395,7 +4397,6 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
       TRACE_RETURN();
       return(RC_OUT_OF_MEMORY);
    }
-   the_driver->enable_keypad(dialog_win, TRUE);
    if (editfield)
    {
       editfield_buf = (CHARTYPE *)(*the_malloc)(dw_cols + 1);
@@ -4431,7 +4432,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
        * Save the CMDLINE window and create a new one in our dialog window
        */
       save_command_window =
-         the_driver->save_current_role_window(WINDOW_COMMAND);
+         driver_save_current_role_window(WINDOW_COMMAND);
       if (!save_command_window.slot_valid)
       {
          CURRENT_VIEW->current_window = save_current_window;
@@ -4448,8 +4449,8 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
       if (command_win == NULL)
       {
          CURRENT_VIEW->current_window = save_current_window;
-         the_driver->restore_current_role_window(WINDOW_COMMAND,
-                                                   save_command_window);
+         driver_restore_current_role_window(WINDOW_COMMAND,
+                                            save_command_window);
          the_driver->delete_window(dialog_win);
          (*the_free)( save_cmd_rec );
          (*the_free)(editfield_buf);
@@ -4462,8 +4463,8 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
 
          dialog_command_window.window = command_win;
          dialog_command_window.slot_valid = 1;
-         the_driver->restore_current_role_window(WINDOW_COMMAND,
-                                                   dialog_command_window);
+         driver_restore_current_role_window(WINDOW_COMMAND,
+                                            dialog_command_window);
       }
       the_driver->set_current_role_attr(
          WINDOW_COMMAND, set_colour( CURRENT_FILE->attr+ATTR_DIA_EDITFIELD ) );
@@ -4597,7 +4598,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
          the_driver->refresh_window_now(dialog_win);
          if ( editfield )
          {
-            the_driver->refresh_current_role_now(WINDOW_COMMAND);
+            the_driver->refresh_window_now(driver_current_role_window(WINDOW_COMMAND));
          }
          key = the_driver_read_legacy_key();
       }
@@ -4713,17 +4714,17 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
    CURRENT_VIEW->current_window = save_current_window;
    if ( editfield )
    {
-      the_driver->delete_current_role_window(WINDOW_COMMAND);
-      the_driver->restore_current_role_window(WINDOW_COMMAND,
-                                                save_command_window);
+      driver_delete_current_role_window(WINDOW_COMMAND);
+      driver_restore_current_role_window(WINDOW_COMMAND,
+                                         save_command_window);
       max_line_length = save_max_line_length;
       memset(cmd_rec,' ',max_line_length);
       cmd_rec_len = 0;
-      if (the_driver->current_role_exists(WINDOW_COMMAND))
+      if (driver_current_role_exists(WINDOW_COMMAND))
       {
-         the_driver->move_current_role_cursor(WINDOW_COMMAND,0,0);
+         the_driver->move_window_cursor(driver_current_role_window(WINDOW_COMMAND), 0, 0);
          the_driver->clear_current_role_to_eol(WINDOW_COMMAND);
-         the_driver->move_current_role_cursor(WINDOW_COMMAND,0,0);
+         the_driver->move_window_cursor(driver_current_role_window(WINDOW_COMMAND), 0, 0);
          CURRENT_VIEW->cmdline_col = -1;
          if ( save_cmd_rec[0] == '&' )
             Cmsg( save_cmd_rec );
@@ -5236,7 +5237,7 @@ short prepare_popup( CHARTYPE *params )
              * Get the current window text position and get the
              * global offset from the window start coordinates.
              */
-            screen_point = the_driver->current_window_cursor_screen_point();
+            screen_point = driver_window_cursor_screen_point(driver_current_window());
             y = screen_point.row;
             x = screen_point.col;
             break;
@@ -5245,7 +5246,7 @@ short prepare_popup( CHARTYPE *params )
              * Get the current window text position and get the
              * global offset from the window start coordinates.
              */
-            screen_point = the_driver->current_window_cursor_screen_point();
+            screen_point = driver_window_cursor_screen_point(driver_current_window());
             y = 1 + screen_point.row;
             x = screen_point.col;
             if ( height + y > terminal_lines )
@@ -5262,7 +5263,7 @@ short prepare_popup( CHARTYPE *params )
              * Get the current window text position and get the
              * global offset from the window start coordinates.
              */
-            screen_point = the_driver->current_window_cursor_screen_point();
+            screen_point = driver_window_cursor_screen_point(driver_current_window());
             y = screen_point.row - 1;
             x = screen_point.col;
             if ( height > y )
@@ -5400,7 +5401,6 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
       TRACE_RETURN();
       return(RC_OUT_OF_MEMORY);
    }
-   the_driver->enable_keypad(dialog_win, TRUE);
    the_driver->set_window_background(
       dialog_win, set_colour(CURRENT_FILE->attr+ATTR_POPUP));
    the_driver->present_cursor(FALSE);

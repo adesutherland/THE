@@ -419,158 +419,6 @@ CursesDriverScreenPoint curses_driver_window_cursor_screen_point(WINDOW *win)
    return point;
 }
 
-int curses_driver_current_window_is_role(short role)
-{
-   if (CURRENT_VIEW == NULL)
-      return 0;
-   return CURRENT_VIEW->current_window == role;
-}
-
-int curses_driver_current_window_exists(void)
-{
-   return curses_driver_current_active_window() != NULL;
-}
-
-int curses_driver_screen_window_is_role(CHARTYPE scrno, short role)
-{
-   VIEW_DETAILS *view;
-
-   if (!curses_driver_valid_screen(scrno))
-      return 0;
-   view = screen[scrno].screen_view;
-   if (view == NULL)
-      return 0;
-   return view->current_window == role;
-}
-
-int curses_driver_current_role_exists(short role)
-{
-   return curses_driver_current_role_window(role) != NULL;
-}
-
-int curses_driver_screen_role_exists(CHARTYPE scrno, short role)
-{
-   return curses_driver_screen_role_window(scrno, role) != NULL;
-}
-
-int curses_driver_global_window_exists(CursesDriverGlobalWindowRole role)
-{
-   return curses_driver_global_window(role) != NULL;
-}
-
-void curses_driver_delete_global_window(CursesDriverGlobalWindowRole role)
-{
-   TheDriverWindow **slot = curses_driver_global_window_slot(role);
-
-   if (slot == NULL || *slot == NULL)
-      return;
-   curses_driver_delete_window(curses_driver_window_from_driver(*slot));
-   *slot = NULL;
-}
-
-CursesDriverWindowCursor curses_driver_capture_current_window_cursor(void)
-{
-   return curses_driver_capture_window_cursor(curses_driver_current_active_window());
-}
-
-CursesDriverWindowCursor curses_driver_capture_current_previous_window_cursor(void)
-{
-   return curses_driver_capture_window_cursor(
-      curses_driver_current_previous_window());
-}
-
-CursesDriverWindowCursor curses_driver_capture_current_role_cursor(short role)
-{
-   return curses_driver_capture_window_cursor(
-      curses_driver_current_role_window(role));
-}
-
-CursesDriverWindowCursor curses_driver_capture_screen_window_cursor(CHARTYPE scrno)
-{
-   return curses_driver_capture_window_cursor(
-      curses_driver_screen_active_window(scrno));
-}
-
-CursesDriverWindowCursor curses_driver_capture_screen_role_cursor(CHARTYPE scrno,
-                                                                 short role)
-{
-   return curses_driver_capture_window_cursor(
-      curses_driver_screen_role_window(scrno, role));
-}
-
-CursesDriverWindowCursor curses_driver_capture_global_window_cursor(
-   CursesDriverGlobalWindowRole role)
-{
-   return curses_driver_capture_window_cursor(curses_driver_global_window(role));
-}
-
-CursesDriverWindowOrigin curses_driver_current_window_origin(void)
-{
-   return curses_driver_window_origin(curses_driver_current_active_window());
-}
-
-CursesDriverWindowSize curses_driver_current_window_size(void)
-{
-   return curses_driver_window_size(curses_driver_current_active_window());
-}
-
-CursesDriverWindowSize curses_driver_current_role_size(short role)
-{
-   return curses_driver_window_size(curses_driver_current_role_window(role));
-}
-
-CursesDriverWindowSize curses_driver_screen_role_size(CHARTYPE scrno,
-                                                      short role)
-{
-   return curses_driver_window_size(curses_driver_screen_role_window(scrno,
-                                                                     role));
-}
-
-CursesDriverScreenPoint curses_driver_current_window_cursor_screen_point(void)
-{
-   return curses_driver_window_cursor_screen_point(
-      curses_driver_current_active_window());
-}
-
-CursesDriverWindowRoleSave curses_driver_save_current_role_window(short role)
-{
-   TheDriverWindow **slot =
-      curses_driver_screen_role_window_slot(current_screen, role);
-   CursesDriverWindowRoleSave saved;
-
-   saved.window = NULL;
-   saved.slot_valid = 0;
-   if (slot == NULL)
-      return saved;
-   saved.window = *slot;
-   saved.slot_valid = 1;
-   return saved;
-}
-
-void curses_driver_restore_current_role_window(
-   short role, CursesDriverWindowRoleSave saved)
-{
-   TheDriverWindow **slot;
-
-   if (!saved.slot_valid)
-      return;
-   slot = curses_driver_screen_role_window_slot(current_screen, role);
-   if (slot == NULL)
-      return;
-   *slot = saved.window;
-}
-
-void curses_driver_delete_current_role_window(short role)
-{
-   TheDriverWindow **slot =
-      curses_driver_screen_role_window_slot(current_screen, role);
-
-   if (slot == NULL || *slot == NULL)
-      return;
-   curses_driver_delete_window(curses_driver_window_from_driver(*slot));
-   *slot = NULL;
-}
-
 void curses_driver_clear_current_screen_roles(void)
 {
    short i;
@@ -583,7 +431,13 @@ void curses_driver_clear_current_screen_roles(void)
 
 WINDOW *curses_driver_create_window(int rows, int cols, int row, int col)
 {
-   return newwin(rows, cols, row, col);
+   WINDOW *win = newwin(rows, cols, row, col);
+
+#ifdef HAVE_KEYPAD
+   if (win != NULL)
+      keypad(win, TRUE);
+#endif
+   return win;
 }
 
 void curses_driver_delete_window(WINDOW *win)
@@ -593,15 +447,28 @@ void curses_driver_delete_window(WINDOW *win)
    delwin(win);
 }
 
-void curses_driver_enable_keypad(WINDOW *win, bool enabled)
+void curses_driver_configure_standard_input(bool keypad_enabled,
+                                            bool notimeout_enabled)
 {
-   if (win == NULL)
-      return;
 #ifdef HAVE_KEYPAD
-   keypad(win, enabled ? TRUE : FALSE);
+   keypad(stdscr, keypad_enabled ? TRUE : FALSE);
 #else
-   INTENTIONALLY_UNUSED_VARIABLE(enabled);
+   INTENTIONALLY_UNUSED_VARIABLE(keypad_enabled);
 #endif
+#ifdef HAVE_NOTIMEOUT
+   notimeout(stdscr, notimeout_enabled ? TRUE : FALSE);
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(notimeout_enabled);
+#endif
+}
+
+void curses_driver_set_driver_window_leaveok(TheDriverWindow *win,
+                                             bool enabled)
+{
+   WINDOW *curses_win = curses_driver_window_from_driver(win);
+
+   if (curses_win != NULL)
+      leaveok(curses_win, enabled ? TRUE : FALSE);
 }
 
 void curses_driver_move_window_cursor(WINDOW *win, short row, short col)
@@ -619,81 +486,6 @@ void curses_driver_restore_window_cursor(WINDOW *win,
    curses_driver_move_window_cursor(win, cursor.row, cursor.col);
 }
 
-void curses_driver_move_current_window_cursor(short row, short col)
-{
-   curses_driver_move_window_cursor(curses_driver_current_active_window(), row,
-                                    col);
-}
-
-void curses_driver_move_current_previous_window_cursor(short row, short col)
-{
-   curses_driver_move_window_cursor(curses_driver_current_previous_window(),
-                                    row, col);
-}
-
-void curses_driver_move_current_role_cursor(short role, short row, short col)
-{
-   curses_driver_move_window_cursor(curses_driver_current_role_window(role),
-                                    row, col);
-}
-
-void curses_driver_move_screen_window_cursor(CHARTYPE scrno, short row,
-                                             short col)
-{
-   curses_driver_move_window_cursor(curses_driver_screen_active_window(scrno),
-                                    row, col);
-}
-
-void curses_driver_move_screen_role_cursor(CHARTYPE scrno, short role,
-                                           short row, short col)
-{
-   curses_driver_move_window_cursor(curses_driver_screen_role_window(scrno,
-                                                                     role),
-                                    row, col);
-}
-
-void curses_driver_move_global_window_cursor(CursesDriverGlobalWindowRole role,
-                                             short row, short col)
-{
-   curses_driver_move_window_cursor(curses_driver_global_window(role), row,
-                                    col);
-}
-
-void curses_driver_restore_current_window_cursor(CursesDriverWindowCursor cursor)
-{
-   curses_driver_restore_window_cursor(curses_driver_current_active_window(),
-                                       cursor);
-}
-
-void curses_driver_restore_current_role_cursor(short role,
-                                              CursesDriverWindowCursor cursor)
-{
-   curses_driver_restore_window_cursor(curses_driver_current_role_window(role),
-                                       cursor);
-}
-
-void curses_driver_restore_screen_window_cursor(CHARTYPE scrno,
-                                                CursesDriverWindowCursor cursor)
-{
-   curses_driver_restore_window_cursor(curses_driver_screen_active_window(scrno),
-                                       cursor);
-}
-
-void curses_driver_restore_screen_role_cursor(CHARTYPE scrno, short role,
-                                              CursesDriverWindowCursor cursor)
-{
-   curses_driver_restore_window_cursor(curses_driver_screen_role_window(scrno,
-                                                                        role),
-                                       cursor);
-}
-
-void curses_driver_restore_global_window_cursor(
-   CursesDriverGlobalWindowRole role, CursesDriverWindowCursor cursor)
-{
-   curses_driver_restore_window_cursor(curses_driver_global_window(role),
-                                       cursor);
-}
-
 chtype curses_driver_read_window_cell(WINDOW *win)
 {
    if (win == NULL)
@@ -701,46 +493,11 @@ chtype curses_driver_read_window_cell(WINDOW *win)
    return (chtype)winch(win);
 }
 
-chtype curses_driver_read_current_window_cell(void)
-{
-   return curses_driver_read_window_cell(curses_driver_current_active_window());
-}
-
-chtype curses_driver_read_current_window_cell_attr_at(short row, short col)
-{
-   WINDOW *win = curses_driver_current_active_window();
-
-   if (win == NULL)
-      return 0;
-#if defined(USE_EXTCURSES)
-   return win->_a[row][col];
-#elif defined(VMS) && defined(_BSD44_CURSES)
-   INTENTIONALLY_UNUSED_VARIABLE(row);
-   INTENTIONALLY_UNUSED_VARIABLE(col);
-   return win->lines[win->cury]->line[win->curx].attr;
-#else
-   INTENTIONALLY_UNUSED_VARIABLE(row);
-   INTENTIONALLY_UNUSED_VARIABLE(col);
-   return curses_driver_read_window_cell(win) & A_ATTRIBUTES;
-#endif
-}
-
-void curses_driver_put_char_current_window(chtype ch, CHARTYPE add_ins)
-{
-   put_char(curses_driver_window_to_driver(curses_driver_current_active_window()),
-            ch, add_ins);
-}
-
 void curses_driver_set_window_attr(WINDOW *win, chtype colour)
 {
    if (win == NULL)
       return;
    wattrset(win, colour);
-}
-
-void curses_driver_set_current_window_attr(chtype colour)
-{
-   curses_driver_set_window_attr(curses_driver_current_active_window(), colour);
 }
 
 void curses_driver_set_current_role_attr(short role, chtype colour)
@@ -782,11 +539,6 @@ void curses_driver_clear_window(WINDOW *win)
    wclear(win);
 }
 
-void curses_driver_clear_current_role(short role)
-{
-   curses_driver_clear_window(curses_driver_current_role_window(role));
-}
-
 void curses_driver_clear_window_to_bottom(WINDOW *win)
 {
    if (win == NULL)
@@ -806,55 +558,11 @@ void curses_driver_clear_current_role_to_eol(short role)
    curses_driver_clear_to_eol(curses_driver_current_role_window(role));
 }
 
-void curses_driver_clear_screen_role_to_eol(CHARTYPE scrno, short role)
-{
-   curses_driver_clear_to_eol(curses_driver_screen_role_window(scrno, role));
-}
-
 void curses_driver_touch_window(WINDOW *win)
 {
    if (win == NULL)
       return;
    touchwin(win);
-}
-
-void curses_driver_touch_current_window(void)
-{
-   curses_driver_touch_window(curses_driver_current_active_window());
-}
-
-void curses_driver_touch_current_role(short role)
-{
-   curses_driver_touch_window(curses_driver_current_role_window(role));
-}
-
-void curses_driver_touch_screen_role(CHARTYPE scrno, short role)
-{
-   curses_driver_touch_window(curses_driver_screen_role_window(scrno, role));
-}
-
-void curses_driver_touch_global_window(CursesDriverGlobalWindowRole role)
-{
-   curses_driver_touch_window(curses_driver_global_window(role));
-}
-
-void curses_driver_touch_and_refresh_current_role(short role)
-{
-   curses_driver_touch_current_role(role);
-   curses_driver_refresh_current_role(role);
-}
-
-void curses_driver_touch_and_refresh_screen_role(CHARTYPE scrno, short role)
-{
-   curses_driver_touch_screen_role(scrno, role);
-   curses_driver_refresh_screen_role(scrno, role);
-}
-
-void curses_driver_touch_and_refresh_global_window(
-   CursesDriverGlobalWindowRole role)
-{
-   curses_driver_touch_global_window(role);
-   curses_driver_refresh_global_window(role);
 }
 
 void curses_driver_touch_line(WINDOW *win, int start, int count)
@@ -885,46 +593,6 @@ void curses_driver_refresh_window_now(WINDOW *win)
    if (win == NULL)
       return;
    wrefresh(win);
-}
-
-void curses_driver_refresh_current_window(void)
-{
-   curses_driver_refresh_window(curses_driver_current_active_window());
-}
-
-void curses_driver_refresh_current_window_now(void)
-{
-   curses_driver_refresh_window_now(curses_driver_current_active_window());
-}
-
-void curses_driver_refresh_current_role(short role)
-{
-   curses_driver_refresh_window(curses_driver_current_role_window(role));
-}
-
-void curses_driver_refresh_current_role_now(short role)
-{
-   curses_driver_refresh_window_now(curses_driver_current_role_window(role));
-}
-
-void curses_driver_refresh_screen_window(CHARTYPE scrno)
-{
-   curses_driver_refresh_window(curses_driver_screen_active_window(scrno));
-}
-
-void curses_driver_refresh_screen_role(CHARTYPE scrno, short role)
-{
-   curses_driver_refresh_window(curses_driver_screen_role_window(scrno, role));
-}
-
-void curses_driver_refresh_global_window(CursesDriverGlobalWindowRole role)
-{
-   curses_driver_refresh_window(curses_driver_global_window(role));
-}
-
-void curses_driver_refresh_global_window_now(CursesDriverGlobalWindowRole role)
-{
-   curses_driver_refresh_window_now(curses_driver_global_window(role));
 }
 
 void curses_driver_sync_terminal_screen(void)
@@ -1574,21 +1242,6 @@ void curses_driver_redraw_window(WINDOW *win)
    curses_driver_restore_window_cursor(win, cursor);
 }
 
-void curses_driver_redraw_current_role(short role)
-{
-   curses_driver_redraw_window(curses_driver_current_role_window(role));
-}
-
-void curses_driver_redraw_screen_role(CHARTYPE scrno, short role)
-{
-   curses_driver_redraw_window(curses_driver_screen_role_window(scrno, role));
-}
-
-void curses_driver_redraw_global_window(CursesDriverGlobalWindowRole role)
-{
-   curses_driver_redraw_window(curses_driver_global_window(role));
-}
-
 short curses_driver_refresh_cursor(CHARTYPE scrno)
 {
    INTENTIONALLY_UNUSED_VARIABLE(scrno);
@@ -1690,30 +1343,6 @@ static void curses_driver_ops_delete_window(TheDriverWindow *win)
    curses_driver_delete_window(curses_driver_window_from_driver(win));
 }
 
-static void curses_driver_ops_enable_keypad(TheDriverWindow *win, bool enabled)
-{
-   curses_driver_enable_keypad(curses_driver_window_from_driver(win), enabled);
-}
-
-static void curses_driver_ops_enable_standard_keypad(bool enabled)
-{
-   keypad(stdscr, enabled ? TRUE : FALSE);
-}
-
-static void curses_driver_ops_set_standard_notimeout(bool enabled)
-{
-   notimeout(stdscr, enabled ? TRUE : FALSE);
-}
-
-static void curses_driver_ops_set_window_leaveok(TheDriverWindow *win,
-                                                 bool enabled)
-{
-   WINDOW *curses_win = curses_driver_window_from_driver(win);
-
-   if (curses_win != NULL)
-      leaveok(curses_win, enabled ? TRUE : FALSE);
-}
-
 static TheDriverWindowCursor curses_driver_ops_capture_window_cursor(
    TheDriverWindow *win)
 {
@@ -1753,40 +1382,11 @@ static TheDriverAttr curses_driver_ops_software_cursor_attr(
       scrno, (chtype)base, shape);
 }
 
-static TheDriverCell curses_driver_ops_read_window_cell(TheDriverWindow *win)
-{
-   return (TheDriverCell)curses_driver_read_window_cell(
-      curses_driver_window_from_driver(win));
-}
-
-static TheDriverCell curses_driver_ops_read_current_window_cell(void)
-{
-   return (TheDriverCell)curses_driver_read_current_window_cell();
-}
-
-static TheDriverAttr curses_driver_ops_read_current_window_cell_attr_at(
-   short row, short col)
-{
-   return (TheDriverAttr)curses_driver_read_current_window_cell_attr_at(row,
-                                                                        col);
-}
-
-static void curses_driver_ops_put_char_current_window(TheDriverCell ch,
-                                                      CHARTYPE add_ins)
-{
-   curses_driver_put_char_current_window((chtype)ch, add_ins);
-}
-
 static void curses_driver_ops_set_window_attr(TheDriverWindow *win,
                                               TheDriverAttr colour)
 {
    curses_driver_set_window_attr(curses_driver_window_from_driver(win),
                                  (chtype)colour);
-}
-
-static void curses_driver_ops_set_current_window_attr(TheDriverAttr colour)
-{
-   curses_driver_set_current_window_attr((chtype)colour);
 }
 
 static void curses_driver_ops_set_current_role_attr(short role,
@@ -2070,94 +1670,25 @@ static void curses_driver_ops_draw_software_blank_cell(
 
 const TheDriverOps the_curses_driver_ops = {
    .software_cursor_attr = curses_driver_ops_software_cursor_attr,
-   .current_window_is_role = curses_driver_current_window_is_role,
-   .current_window_exists = curses_driver_current_window_exists,
-   .screen_window_is_role = curses_driver_screen_window_is_role,
-   .current_role_exists = curses_driver_current_role_exists,
-   .screen_role_exists = curses_driver_screen_role_exists,
-   .global_window_exists = curses_driver_global_window_exists,
-   .delete_global_window = curses_driver_delete_global_window,
    .create_window = curses_driver_ops_create_window,
    .delete_window = curses_driver_ops_delete_window,
-   .enable_keypad = curses_driver_ops_enable_keypad,
-   .enable_standard_keypad = curses_driver_ops_enable_standard_keypad,
-   .set_standard_notimeout = curses_driver_ops_set_standard_notimeout,
-   .set_window_leaveok = curses_driver_ops_set_window_leaveok,
    .capture_window_cursor = curses_driver_ops_capture_window_cursor,
-   .capture_current_window_cursor =
-      curses_driver_capture_current_window_cursor,
-   .capture_current_previous_window_cursor =
-      curses_driver_capture_current_previous_window_cursor,
-   .capture_current_role_cursor = curses_driver_capture_current_role_cursor,
-   .capture_screen_window_cursor = curses_driver_capture_screen_window_cursor,
-   .capture_screen_role_cursor = curses_driver_capture_screen_role_cursor,
-   .capture_global_window_cursor = curses_driver_capture_global_window_cursor,
    .window_origin = curses_driver_ops_window_origin,
    .window_size = curses_driver_ops_window_size,
-   .current_window_origin = curses_driver_current_window_origin,
-   .current_window_size = curses_driver_current_window_size,
-   .current_role_size = curses_driver_current_role_size,
-   .screen_role_size = curses_driver_screen_role_size,
-   .current_window_cursor_screen_point =
-      curses_driver_current_window_cursor_screen_point,
-   .save_current_role_window = curses_driver_save_current_role_window,
-   .restore_current_role_window = curses_driver_restore_current_role_window,
-   .delete_current_role_window = curses_driver_delete_current_role_window,
    .clear_current_screen_roles = curses_driver_clear_current_screen_roles,
    .move_window_cursor = curses_driver_ops_move_window_cursor,
-   .move_current_window_cursor = curses_driver_move_current_window_cursor,
-   .move_current_previous_window_cursor =
-      curses_driver_move_current_previous_window_cursor,
-   .move_current_role_cursor = curses_driver_move_current_role_cursor,
-   .move_screen_window_cursor = curses_driver_move_screen_window_cursor,
-   .move_screen_role_cursor = curses_driver_move_screen_role_cursor,
-   .move_global_window_cursor = curses_driver_move_global_window_cursor,
    .restore_window_cursor = curses_driver_ops_restore_window_cursor,
-   .restore_current_window_cursor =
-      curses_driver_restore_current_window_cursor,
-   .restore_current_role_cursor = curses_driver_restore_current_role_cursor,
-   .restore_screen_window_cursor =
-      curses_driver_restore_screen_window_cursor,
-   .restore_screen_role_cursor = curses_driver_restore_screen_role_cursor,
-   .restore_global_window_cursor =
-      curses_driver_restore_global_window_cursor,
-   .read_window_cell = curses_driver_ops_read_window_cell,
-   .read_current_window_cell = curses_driver_ops_read_current_window_cell,
-   .read_current_window_cell_attr_at =
-      curses_driver_ops_read_current_window_cell_attr_at,
-   .put_char_current_window = curses_driver_ops_put_char_current_window,
    .set_window_attr = curses_driver_ops_set_window_attr,
-   .set_current_window_attr = curses_driver_ops_set_current_window_attr,
    .set_current_role_attr = curses_driver_ops_set_current_role_attr,
    .set_screen_role_attr = curses_driver_ops_set_screen_role_attr,
    .set_global_window_attr = curses_driver_ops_set_global_window_attr,
    .set_window_background = curses_driver_ops_set_window_background,
    .clear_line_at = curses_driver_ops_clear_line_at,
-   .clear_current_role = curses_driver_clear_current_role,
    .clear_current_role_to_eol = curses_driver_clear_current_role_to_eol,
-   .clear_screen_role_to_eol = curses_driver_clear_screen_role_to_eol,
    .touch_window = curses_driver_ops_touch_window,
    .touch_line = curses_driver_ops_touch_line,
-   .touch_current_window = curses_driver_touch_current_window,
-   .touch_current_role = curses_driver_touch_current_role,
-   .touch_screen_role = curses_driver_touch_screen_role,
-   .touch_global_window = curses_driver_touch_global_window,
-   .touch_and_refresh_current_role =
-      curses_driver_touch_and_refresh_current_role,
-   .touch_and_refresh_screen_role =
-      curses_driver_touch_and_refresh_screen_role,
-   .touch_and_refresh_global_window =
-      curses_driver_touch_and_refresh_global_window,
    .refresh_window = curses_driver_ops_refresh_window,
    .refresh_window_now = curses_driver_ops_refresh_window_now,
-   .refresh_current_window = curses_driver_refresh_current_window,
-   .refresh_current_window_now = curses_driver_refresh_current_window_now,
-   .refresh_current_role = curses_driver_refresh_current_role,
-   .refresh_current_role_now = curses_driver_refresh_current_role_now,
-   .refresh_screen_window = curses_driver_refresh_screen_window,
-   .refresh_screen_role = curses_driver_refresh_screen_role,
-   .refresh_global_window = curses_driver_refresh_global_window,
-   .refresh_global_window_now = curses_driver_refresh_global_window_now,
    .sync_terminal_screen = curses_driver_sync_terminal_screen,
    .clear_terminal_screen = curses_driver_clear_terminal_screen,
    .begin_terminal_report = curses_driver_begin_terminal_report,
@@ -2184,9 +1715,6 @@ const TheDriverOps the_curses_driver_ops = {
    .prepare_for_shell_escape = curses_driver_prepare_for_shell_escape,
    .repair_terminal_background = curses_driver_repair_terminal_background,
    .redraw_window = curses_driver_ops_redraw_window,
-   .redraw_current_role = curses_driver_redraw_current_role,
-   .redraw_screen_role = curses_driver_redraw_screen_role,
-   .redraw_global_window = curses_driver_redraw_global_window,
    .draw_software_cell = curses_driver_ops_draw_software_cell,
    .draw_software_blank_cell = curses_driver_ops_draw_software_blank_cell,
    .refresh_cursor = curses_driver_refresh_cursor,

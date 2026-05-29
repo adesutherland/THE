@@ -1041,10 +1041,10 @@ short Enter(CHARTYPE *params)
             }
          }
          THEcursor_down( current_screen, CURRENT_VIEW, TRUE );
-         cursor = the_driver->capture_current_window_cursor();
+         cursor = the_driver->capture_window_cursor(driver_current_window());
          if (cursor.valid)
             y = cursor.row;
-         the_driver->move_current_window_cursor(y, 0);
+         the_driver->move_window_cursor(driver_current_window(), y, 0);
          break;
    }
    TRACE_RETURN();
@@ -1404,15 +1404,15 @@ short Fillbox(CHARTYPE *params)
    if (CURRENT_VIEW->current_window != WINDOW_COMMAND
    && len_params != 1)
    {
-      cursor = the_driver->capture_current_window_cursor();
+      cursor = the_driver->capture_window_cursor(driver_current_window());
       if (cursor.valid)
       {
          y = cursor.row;
          x = cursor.col;
       }
       display_prompt((CHARTYPE *)"Enter fill character...");
-      the_driver->move_current_role_cursor(WINDOW_FILEAREA, y, x);
-      the_driver->refresh_current_role(WINDOW_FILEAREA);
+      the_driver->move_window_cursor(driver_current_role_window(WINDOW_FILEAREA), y, x);
+      the_driver->refresh_window(driver_current_role_window(WINDOW_FILEAREA));
       the_driver->update();
       while(1)
       {

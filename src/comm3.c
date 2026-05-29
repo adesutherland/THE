@@ -567,7 +567,7 @@ short Mark(CHARTYPE *params)
        * If we are in the file area or prefix area and the focus line is not
        * a real line, error.
        */
-      cursor = the_driver->capture_current_window_cursor();
+      cursor = the_driver->capture_window_cursor(driver_current_window());
       if (cursor.valid)
       {
          y = cursor.row;
@@ -590,7 +590,7 @@ short Mark(CHARTYPE *params)
       CURRENT_VIEW->mark_end_col = real_col;
       build_screen( current_screen );
       display_screen(current_screen);
-      the_driver->move_current_window_cursor(y, x);
+      the_driver->move_window_cursor(driver_current_window(), y, x);
    }
    /*
     * With one parameter determine position of block...
@@ -611,7 +611,7 @@ short Mark(CHARTYPE *params)
        * If we are in the file area or prefix area and the focus line is not
        * a real line, error.
        */
-      cursor = the_driver->capture_current_window_cursor();
+      cursor = the_driver->capture_window_cursor(driver_current_window());
       if (cursor.valid)
       {
          y = cursor.row;
@@ -762,7 +762,7 @@ short Mark(CHARTYPE *params)
       }
       build_screen( current_screen );
       display_screen(current_screen);
-      the_driver->move_current_window_cursor(y, x);
+      the_driver->move_window_cursor(driver_current_window(), y, x);
    }
    else
    {
@@ -1054,7 +1054,7 @@ short THEMove(CHARTYPE *params)
     */
    if (MARK_VIEW == CURRENT_VIEW)
    {
-      cursor = the_driver->capture_current_role_cursor(WINDOW_FILEAREA);
+      cursor = the_driver->capture_window_cursor(driver_current_role_window(WINDOW_FILEAREA));
       if (cursor.valid)
       {
          y = cursor.row;
@@ -1286,33 +1286,33 @@ short Nextwindow(CHARTYPE *params)
    CURRENT_VIEW = CURRENT_SCREEN.screen_view;
    if (curses_started)
    {
-      if (the_driver->current_role_exists(WINDOW_COMMAND))
+      if (driver_current_role_exists(WINDOW_COMMAND))
       {
          the_driver->set_current_role_attr(WINDOW_COMMAND,set_colour(CURRENT_FILE->attr+ATTR_CMDLINE));
-         the_driver->touch_and_refresh_current_role(WINDOW_COMMAND);
+         driver_touch_and_refresh_window(driver_current_role_window(WINDOW_COMMAND));
       }
-      if (the_driver->current_role_exists(WINDOW_ARROW))
+      if (driver_current_role_exists(WINDOW_ARROW))
       {
          the_driver->set_current_role_attr(WINDOW_ARROW,set_colour(CURRENT_FILE->attr+ATTR_ARROW));
-         the_driver->redraw_current_role(WINDOW_ARROW);
-         the_driver->refresh_current_role(WINDOW_ARROW);
+         the_driver->redraw_window(driver_current_role_window(WINDOW_ARROW));
+         the_driver->refresh_window(driver_current_role_window(WINDOW_ARROW));
       }
-      if (the_driver->global_window_exists(THE_DRIVER_GLOBAL_STATAREA))
+      if (driver_global_window_exists(THE_DRIVER_GLOBAL_STATAREA))
       {
          the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_STATAREA,set_colour(CURRENT_FILE->attr+ATTR_STATAREA));
-         the_driver->redraw_global_window(THE_DRIVER_GLOBAL_STATAREA);
+         the_driver->redraw_window(driver_global_window(THE_DRIVER_GLOBAL_STATAREA));
       }
-      if (the_driver->current_role_exists(WINDOW_IDLINE))
+      if (driver_current_role_exists(WINDOW_IDLINE))
       {
          the_driver->set_current_role_attr(WINDOW_IDLINE,set_colour(CURRENT_FILE->attr+ATTR_IDLINE));
-         the_driver->redraw_current_role(WINDOW_IDLINE);
+         the_driver->redraw_window(driver_current_role_window(WINDOW_IDLINE));
       }
       if (display_screens > 1
       &&  !horizontal)
       {
          the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_DIVIDER,set_colour(CURRENT_FILE->attr+ATTR_DIVIDER));
          draw_divider();
-         the_driver->refresh_global_window(THE_DRIVER_GLOBAL_DIVIDER);
+         the_driver->refresh_window(driver_global_window(THE_DRIVER_GLOBAL_DIVIDER));
       }
    }
 /*   pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);  GFUC2 deleted */
@@ -1864,7 +1864,7 @@ short Overlaybox(CHARTYPE *params)
    {
       if (CURRENT_VIEW->current_window != WINDOW_COMMAND)
       {
-         cursor = the_driver->capture_current_window_cursor();
+         cursor = the_driver->capture_window_cursor(driver_current_window());
          if (cursor.valid)
          {
             y = cursor.row;
@@ -1933,7 +1933,7 @@ short Overlaybox(CHARTYPE *params)
    display_screen(current_screen);
    if (curses_started
    && CURRENT_VIEW->current_window != WINDOW_COMMAND)
-      the_driver->move_current_window_cursor(y, x);
+      the_driver->move_window_cursor(driver_current_window(), y, x);
 
    TRACE_RETURN();
    return(rc);

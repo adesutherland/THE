@@ -1513,7 +1513,7 @@ short Reserved(CHARTYPE *params)
    {
       if ( curses_started )
       {
-         cursor = the_driver->capture_current_window_cursor();
+         cursor = the_driver->capture_window_cursor(driver_current_window());
          if (cursor.valid)
          {
             y = cursor.row;
@@ -1527,7 +1527,7 @@ short Reserved(CHARTYPE *params)
          CURRENT_VIEW->focus_line = new_focus_line;
          y = get_row_for_focus_line( current_screen, CURRENT_VIEW->focus_line, CURRENT_VIEW->current_row );
          if ( curses_started )
-            the_driver->move_current_window_cursor(y, x);
+            the_driver->move_window_cursor(driver_current_window(), y, x);
          pre_process_line( CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL );
       }
    }
@@ -1809,7 +1809,7 @@ short Scale(CHARTYPE *params)
    {
       if (curses_started)
       {
-         cursor = the_driver->capture_current_window_cursor();
+         cursor = the_driver->capture_window_cursor(driver_current_window());
          if (cursor.valid)
          {
             y = cursor.row;
@@ -1819,7 +1819,7 @@ short Scale(CHARTYPE *params)
       CURRENT_VIEW->focus_line = get_focus_line_in_view(current_screen,CURRENT_VIEW->focus_line,y);
       y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,CURRENT_VIEW->current_row);
       if (curses_started)
-         the_driver->move_current_window_cursor(y, x);
+         the_driver->move_window_cursor(driver_current_window(), y, x);
       pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
    }
    display_screen(current_screen);
@@ -2205,15 +2205,15 @@ short THEScreen(CHARTYPE *params)
     */
    if (curses_started)
    {
-      cursor = the_driver->capture_current_role_cursor(WINDOW_FILEAREA);
+      cursor = the_driver->capture_window_cursor(driver_current_role_window(WINDOW_FILEAREA));
       if (cursor.valid)
       {
          CURRENT_VIEW->y[WINDOW_FILEAREA] = cursor.row;
          CURRENT_VIEW->x[WINDOW_FILEAREA] = cursor.col;
       }
-      if (the_driver->current_role_exists(WINDOW_PREFIX))
+      if (driver_current_role_exists(WINDOW_PREFIX))
       {
-         cursor = the_driver->capture_current_role_cursor(WINDOW_PREFIX);
+         cursor = the_driver->capture_window_cursor(driver_current_role_window(WINDOW_PREFIX));
          if (cursor.valid)
          {
             CURRENT_VIEW->y[WINDOW_PREFIX] = cursor.row;
@@ -2236,7 +2236,7 @@ short THEScreen(CHARTYPE *params)
             free_a_view();
             CURRENT_VIEW = save_current_view;
          }
-         the_driver->delete_global_window(THE_DRIVER_GLOBAL_DIVIDER);
+         driver_delete_global_window(THE_DRIVER_GLOBAL_DIVIDER);
          current_screen = 0;
          CURRENT_SCREEN.screen_view = CURRENT_VIEW = save_current_view;
          OTHER_SCREEN.screen_view = NULL;
@@ -2280,9 +2280,9 @@ short THEScreen(CHARTYPE *params)
          }
          if (screen[i].screen_view->prefix)
          {
-            the_driver->move_screen_role_cursor(i, WINDOW_PREFIX, screen[i].screen_view->y[WINDOW_PREFIX], screen[i].screen_view->x[WINDOW_PREFIX]);
+            the_driver->move_window_cursor(driver_screen_role_window(i, WINDOW_PREFIX), screen[i].screen_view->y[WINDOW_PREFIX], screen[i].screen_view->x[WINDOW_PREFIX]);
          }
-         the_driver->move_screen_role_cursor(i, WINDOW_FILEAREA, screen[i].screen_view->y[WINDOW_FILEAREA], screen[i].screen_view->x[WINDOW_FILEAREA]);
+         the_driver->move_window_cursor(driver_screen_role_window(i, WINDOW_FILEAREA), screen[i].screen_view->y[WINDOW_FILEAREA], screen[i].screen_view->x[WINDOW_FILEAREA]);
       }
    }
 
@@ -2291,7 +2291,7 @@ short THEScreen(CHARTYPE *params)
    && curses_started)
    {
 /*    redraw_window(divider);*/
-      the_driver->touch_and_refresh_global_window(THE_DRIVER_GLOBAL_DIVIDER);
+      driver_touch_and_refresh_window(driver_global_window(THE_DRIVER_GLOBAL_DIVIDER));
    }
 
    if (display_screens > 1)
@@ -3045,7 +3045,7 @@ short Statusline(CHARTYPE *params)
          if (!horizontal)
          {
 /*          redraw_window(divider); */
-            the_driver->touch_and_refresh_global_window(THE_DRIVER_GLOBAL_DIVIDER);
+            driver_touch_and_refresh_window(driver_global_window(THE_DRIVER_GLOBAL_DIVIDER));
          }
       }
       build_screen( (CHARTYPE)(other_screen) );
@@ -3531,7 +3531,7 @@ short Tabline(CHARTYPE *params)
    {
       if (curses_started)
       {
-         cursor = the_driver->capture_current_window_cursor();
+         cursor = the_driver->capture_window_cursor(driver_current_window());
          if (cursor.valid)
          {
             y = cursor.row;
@@ -3541,7 +3541,7 @@ short Tabline(CHARTYPE *params)
       CURRENT_VIEW->focus_line = get_focus_line_in_view(current_screen,CURRENT_VIEW->focus_line,y);
       y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,CURRENT_VIEW->current_row);
       if (curses_started)
-         the_driver->move_current_window_cursor(y, x);
+         the_driver->move_window_cursor(driver_current_window(), y, x);
       pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
    }
    display_screen(current_screen);

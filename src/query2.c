@@ -43,6 +43,46 @@ short extract_point_settings(short,CHARTYPE *);
 short extract_prefix_settings(short,CHARTYPE *,CHARTYPE);
 short extract_colour_settings(short,CHARTYPE *,CHARTYPE,CHARTYPE *,bool,bool);
 short extract_autocolour_settings(short,CHARTYPE *,CHARTYPE,CHARTYPE *,bool);
+
+static CHARTYPE query_logical_cursor_char(void)
+{
+   LogicalCursor cursor;
+   const CHARTYPE *line = NULL;
+   size_t len = 0;
+
+   if (CURRENT_VIEW == NULL)
+      return ' ';
+   cursor = CURRENT_VIEW->logical_cursor.current;
+   if (!cursor.valid)
+      return ' ';
+   switch(cursor.zone)
+   {
+      case LOGICAL_CURSOR_ZONE_COMMAND:
+         line = cmd_rec;
+         len = (size_t)cmd_rec_len;
+         break;
+      case LOGICAL_CURSOR_ZONE_PREFIX:
+         line = pre_rec;
+         len = (size_t)pre_rec_len;
+         break;
+      case LOGICAL_CURSOR_ZONE_FILEAREA:
+         if (cursor.line_number != CURRENT_VIEW->focus_line)
+            return ' ';
+         line = rec;
+         len = (size_t)rec_len;
+         break;
+      default:
+         return ' ';
+   }
+   if (line == NULL || cursor.text.byte_offset >= len)
+      return ' ';
+#ifdef VMS
+   return line[cursor.text.byte_offset];
+#else
+   return (CHARTYPE)(((unsigned char)line[cursor.text.byte_offset])
+                     & A_CHARTEXT);
+#endif
+}
 void get_etmode(CHARTYPE *,CHARTYPE *);
 short set_boolean_value(bool flag, short num);
 short set_on_off_value(bool flag, short num);
@@ -2007,11 +2047,7 @@ short extract_spacechar_function(short number_variables,short itemno,CHARTYPE *i
       item_values[1].len = 1;
       return 1;
    }
-#ifdef VMS
-   cursor_char = (CHARTYPE)( the_driver->read_current_window_cell() );
-#else
-   cursor_char = (CHARTYPE)( the_driver->read_current_window_cell() & A_CHARTEXT );
-#endif
+   cursor_char = query_logical_cursor_char();
    return set_boolean_value((bool)(cursor_char == ' '),(short)1);
 }
 /***********************************************************************/

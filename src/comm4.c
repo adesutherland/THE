@@ -274,33 +274,33 @@ short Prevwindow(CHARTYPE *params)
    CURRENT_VIEW = CURRENT_SCREEN.screen_view;
    if (curses_started)
    {
-      if (the_driver->current_role_exists(WINDOW_COMMAND))
+      if (driver_current_role_exists(WINDOW_COMMAND))
       {
          the_driver->set_current_role_attr(WINDOW_COMMAND,set_colour(CURRENT_FILE->attr+ATTR_CMDLINE));
-         the_driver->touch_and_refresh_current_role(WINDOW_COMMAND);
+         driver_touch_and_refresh_window(driver_current_role_window(WINDOW_COMMAND));
       }
-      if (the_driver->current_role_exists(WINDOW_ARROW))
+      if (driver_current_role_exists(WINDOW_ARROW))
       {
          the_driver->set_current_role_attr(WINDOW_ARROW,set_colour(CURRENT_FILE->attr+ATTR_ARROW));
-         the_driver->redraw_current_role(WINDOW_ARROW);
-         the_driver->refresh_current_role(WINDOW_ARROW);
+         the_driver->redraw_window(driver_current_role_window(WINDOW_ARROW));
+         the_driver->refresh_window(driver_current_role_window(WINDOW_ARROW));
       }
-      if (the_driver->global_window_exists(THE_DRIVER_GLOBAL_STATAREA))
+      if (driver_global_window_exists(THE_DRIVER_GLOBAL_STATAREA))
       {
          the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_STATAREA,set_colour(CURRENT_FILE->attr+ATTR_STATAREA));
-         the_driver->redraw_global_window(THE_DRIVER_GLOBAL_STATAREA);
+         the_driver->redraw_window(driver_global_window(THE_DRIVER_GLOBAL_STATAREA));
       }
-      if (the_driver->current_role_exists(WINDOW_IDLINE))
+      if (driver_current_role_exists(WINDOW_IDLINE))
       {
          the_driver->set_current_role_attr(WINDOW_IDLINE,set_colour(CURRENT_FILE->attr+ATTR_IDLINE));
-         the_driver->redraw_current_role(WINDOW_IDLINE);
+         the_driver->redraw_window(driver_current_role_window(WINDOW_IDLINE));
       }
       if (display_screens > 1
       &&  !horizontal)
       {
          the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_DIVIDER,set_colour(CURRENT_FILE->attr+ATTR_DIVIDER));
          draw_divider();
-         the_driver->refresh_global_window(THE_DRIVER_GLOBAL_DIVIDER);
+         the_driver->refresh_window(driver_global_window(THE_DRIVER_GLOBAL_DIVIDER));
       }
    }
    pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
@@ -832,7 +832,7 @@ short Readv(CHARTYPE *params)
       return( RC_INVALID_OPERAND );
    }
 
-   cursor = the_driver->capture_current_window_cursor();
+   cursor = the_driver->capture_window_cursor(driver_current_window());
    if (cursor.valid)
    {
       y = cursor.row;
@@ -840,21 +840,21 @@ short Readv(CHARTYPE *params)
    }
    (void)THERefresh( (CHARTYPE *)"" );
 #if defined(USE_EXTCURSES)
-   cursor = the_driver->capture_current_window_cursor();
+   cursor = the_driver->capture_window_cursor(driver_current_window());
    if (cursor.valid)
    {
       y = cursor.row;
       x = cursor.col;
    }
-   the_driver->move_current_window_cursor(y, x);
-   the_driver->refresh_current_window_now();
+   the_driver->move_window_cursor(driver_current_window(), y, x);
+   the_driver->refresh_window_now(driver_current_window());
 #endif
    if ( equal( (CHARTYPE *)"key", word[0], 3) )
    {
       /*
        * Move the cursor to the current location - Bug #3370863.
        */
-      the_driver->move_current_window_cursor(y, x);
+      the_driver->move_window_cursor(driver_current_window(), y, x);
       /*
        * Find the item in the list of valid extract options...
        */
@@ -893,11 +893,11 @@ short Readv(CHARTYPE *params)
          rc = readv_cmdline( word[1], NULL, -1 );
          set_rexx_variable( (CHARTYPE *)"READV", cmd_rec, cmd_rec_len, 1 );
          set_rexx_variable( (CHARTYPE *)"READV", (CHARTYPE *)"1", 1, 0 );
-         the_driver->move_current_role_cursor(WINDOW_COMMAND, 0, 0);
+         the_driver->move_window_cursor(driver_current_role_window(WINDOW_COMMAND), 0, 0);
          the_driver->clear_current_role_to_eol(WINDOW_COMMAND);
          memset(cmd_rec,' ',max_line_length);
          cmd_rec_len = 0;
-         the_driver->move_current_role_cursor(WINDOW_COMMAND, 0, 0);
+         the_driver->move_window_cursor(driver_current_role_window(WINDOW_COMMAND), 0, 0);
          if ( !cursor_on_cmdline )
             THEcursor_home( current_screen, CURRENT_VIEW, TRUE );
       }
@@ -1278,7 +1278,7 @@ short THERefresh(CHARTYPE *params)
    }
    interactive_in_macro = TRUE; /* enable contents to be changed inside a macro */
    in_macro = FALSE;
-   cursor = the_driver->capture_current_window_cursor();
+   cursor = the_driver->capture_window_cursor(driver_current_window());
    if (cursor.valid)
    {
       y = cursor.row;
@@ -1290,7 +1290,7 @@ short THERefresh(CHARTYPE *params)
       display_screen( (CHARTYPE)(other_screen) );
       if (!horizontal)
       {
-         the_driver->touch_and_refresh_global_window(THE_DRIVER_GLOBAL_DIVIDER);
+         driver_touch_and_refresh_window(driver_global_window(THE_DRIVER_GLOBAL_DIVIDER));
       }
    }
    show_statarea();
@@ -1312,7 +1312,7 @@ short THERefresh(CHARTYPE *params)
    {
       if (curses_started)
       {
-         cursor = the_driver->capture_current_window_cursor();
+         cursor = the_driver->capture_window_cursor(driver_current_window());
          if (cursor.valid)
          {
             y = cursor.row;
@@ -1328,14 +1328,14 @@ short THERefresh(CHARTYPE *params)
       }
       y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,CURRENT_VIEW->current_row);
       if (curses_started)
-         the_driver->move_current_window_cursor(y, x);
+         the_driver->move_window_cursor(driver_current_window(), y, x);
    }
    display_screen(current_screen);
    if (error_on_screen)
      expose_msgline();
-   the_driver->move_current_window_cursor(y, x);
-   the_driver->touch_current_window();
-   the_driver->refresh_current_window();
+   the_driver->move_window_cursor(driver_current_window(), y, x);
+   the_driver->touch_window(driver_current_window());
+   the_driver->refresh_window(driver_current_window());
 
    the_driver->update();
    interactive_in_macro = FALSE;
@@ -2220,7 +2220,7 @@ short ShowKey(CHARTYPE *params)
        * Turn off the cursor.
        */
       the_driver->present_cursor(FALSE);
-      the_driver->refresh_current_window_now();
+      the_driver->refresh_window_now(driver_current_window());
       display_prompt((CHARTYPE *)"Press the key to be translated...spacebar to exit");
       key = 0;
       while(key != ' ')

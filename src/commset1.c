@@ -122,13 +122,13 @@ static short set_active_colour( short area )
 #if ( defined(USE_XCURSES) || defined(USE_SDLCURSES) || defined(USE_WINGUICURSES) ) && PDC_BUILD >= 2501
          if ( area == ATTR_BOUNDMARK)
          {
-            the_driver->redraw_current_role(WINDOW_FILEAREA);
-            the_driver->touch_and_refresh_current_role(WINDOW_FILEAREA);
+            the_driver->redraw_window(driver_current_role_window(WINDOW_FILEAREA));
+            driver_touch_and_refresh_window(driver_current_role_window(WINDOW_FILEAREA));
          }
 #endif
          break;
       case WINDOW_PREFIX:
-         if (the_driver->current_role_exists(WINDOW_PREFIX))
+         if (driver_current_role_exists(WINDOW_PREFIX))
          {
             the_driver->set_current_role_attr(WINDOW_PREFIX,set_colour(CURRENT_FILE->attr+area));
             build_screen(current_screen);
@@ -136,54 +136,54 @@ static short set_active_colour( short area )
          }
          break;
       case WINDOW_COMMAND:
-         if (the_driver->current_role_exists(WINDOW_COMMAND))
+         if (driver_current_role_exists(WINDOW_COMMAND))
          {
             the_driver->set_current_role_attr(WINDOW_COMMAND,set_colour(CURRENT_FILE->attr+area));
-            the_driver->redraw_current_role(WINDOW_COMMAND);
-            the_driver->touch_and_refresh_current_role(WINDOW_COMMAND);
+            the_driver->redraw_window(driver_current_role_window(WINDOW_COMMAND));
+            driver_touch_and_refresh_window(driver_current_role_window(WINDOW_COMMAND));
          }
          break;
       case WINDOW_ARROW:
-         if (the_driver->current_role_exists(WINDOW_ARROW))
+         if (driver_current_role_exists(WINDOW_ARROW))
          {
             the_driver->set_current_role_attr(WINDOW_ARROW,set_colour(CURRENT_FILE->attr+area));
-            the_driver->redraw_current_role(WINDOW_ARROW);
-            the_driver->touch_and_refresh_current_role(WINDOW_ARROW);
+            the_driver->redraw_window(driver_current_role_window(WINDOW_ARROW));
+            driver_touch_and_refresh_window(driver_current_role_window(WINDOW_ARROW));
          }
          break;
       case WINDOW_IDLINE:
-         if (the_driver->current_role_exists(WINDOW_IDLINE))
+         if (driver_current_role_exists(WINDOW_IDLINE))
          {
             the_driver->set_current_role_attr(WINDOW_IDLINE,set_colour(CURRENT_FILE->attr+area));
-            the_driver->redraw_current_role(WINDOW_IDLINE);
-            the_driver->touch_and_refresh_current_role(WINDOW_IDLINE);
+            the_driver->redraw_window(driver_current_role_window(WINDOW_IDLINE));
+            driver_touch_and_refresh_window(driver_current_role_window(WINDOW_IDLINE));
          }
          break;
       case WINDOW_STATAREA:
-         if (the_driver->global_window_exists(THE_DRIVER_GLOBAL_STATAREA))
+         if (driver_global_window_exists(THE_DRIVER_GLOBAL_STATAREA))
          {
             the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_STATAREA,set_colour(CURRENT_FILE->attr+area));
-            the_driver->redraw_global_window(THE_DRIVER_GLOBAL_STATAREA);
-            the_driver->touch_and_refresh_global_window(THE_DRIVER_GLOBAL_STATAREA);
+            the_driver->redraw_window(driver_global_window(THE_DRIVER_GLOBAL_STATAREA));
+            driver_touch_and_refresh_window(driver_global_window(THE_DRIVER_GLOBAL_STATAREA));
          }
          break;
       case WINDOW_FILETABS:
-         if (the_driver->global_window_exists(THE_DRIVER_GLOBAL_FILETABS))
+         if (driver_global_window_exists(THE_DRIVER_GLOBAL_FILETABS))
          {
             the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_FILETABS,set_colour(CURRENT_FILE->attr+area));
-            the_driver->redraw_global_window(THE_DRIVER_GLOBAL_FILETABS);
-            the_driver->touch_and_refresh_global_window(THE_DRIVER_GLOBAL_FILETABS);
+            the_driver->redraw_window(driver_global_window(THE_DRIVER_GLOBAL_FILETABS));
+            driver_touch_and_refresh_window(driver_global_window(THE_DRIVER_GLOBAL_FILETABS));
          }
          break;
       case WINDOW_DIVIDER:
-         if (the_driver->global_window_exists(THE_DRIVER_GLOBAL_DIVIDER))
+         if (driver_global_window_exists(THE_DRIVER_GLOBAL_DIVIDER))
          {
             the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_DIVIDER,set_colour(CURRENT_FILE->attr+area));
             if (display_screens > 1
             &&  !horizontal)
             {
                draw_divider();
-               the_driver->touch_and_refresh_global_window(THE_DRIVER_GLOBAL_DIVIDER);
+               driver_touch_and_refresh_window(driver_global_window(THE_DRIVER_GLOBAL_DIVIDER));
             }
          }
          break;
@@ -2207,9 +2207,9 @@ short Compat(CHARTYPE *params)
     */
    if (curses_started)
    {
-      if (the_driver->current_role_exists(WINDOW_PREFIX))
+      if (driver_current_role_exists(WINDOW_PREFIX))
       {
-         cursor = the_driver->capture_current_role_cursor(WINDOW_PREFIX);
+         cursor = the_driver->capture_window_cursor(driver_current_role_window(WINDOW_PREFIX));
          if (cursor.valid)
          {
             prey = cursor.row;
@@ -2251,7 +2251,7 @@ short Compat(CHARTYPE *params)
     * For the common windows, set their attributes to match the new values
     */
    if (curses_started
-   &&  the_driver->global_window_exists(THE_DRIVER_GLOBAL_STATAREA))
+   &&  driver_global_window_exists(THE_DRIVER_GLOBAL_STATAREA))
    {
       the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_STATAREA,set_colour(CURRENT_FILE->attr+ATTR_STATAREA));
       clear_statarea();
@@ -2277,7 +2277,7 @@ short Compat(CHARTYPE *params)
          if (!horizontal)
          {
             the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_DIVIDER,set_colour(OTHER_SCREEN.screen_view->file_for_view->attr+ATTR_DIVIDER));
-            the_driver->touch_and_refresh_global_window(THE_DRIVER_GLOBAL_DIVIDER);
+            driver_touch_and_refresh_window(driver_global_window(THE_DRIVER_GLOBAL_DIVIDER));
          }
       }
       redraw_screen( (CHARTYPE)((current_screen == 0)?1:0) );
@@ -4245,13 +4245,13 @@ short THEFiletabs(CHARTYPE *params)
    rc = execute_set_on_off( params, &FILETABSx , TRUE );
    if ( save_filetabs != FILETABSx )
    {
-      if ( FILETABSx && !the_driver->global_window_exists(THE_DRIVER_GLOBAL_FILETABS) )
+      if ( FILETABSx && !driver_global_window_exists(THE_DRIVER_GLOBAL_FILETABS) )
       {
          create_filetabs_window();
       }
-      else if ( !FILETABSx && the_driver->global_window_exists(THE_DRIVER_GLOBAL_FILETABS) )
+      else if ( !FILETABSx && driver_global_window_exists(THE_DRIVER_GLOBAL_FILETABS) )
       {
-         the_driver->delete_global_window(THE_DRIVER_GLOBAL_FILETABS);
+         driver_delete_global_window(THE_DRIVER_GLOBAL_FILETABS);
       }
       /*
        * To get here something has changed, so rebuild the windows and

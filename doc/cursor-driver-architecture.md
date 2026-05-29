@@ -1,6 +1,6 @@
 # Cursor Driver Architecture
 
-Last updated: 2026-05-28.
+Last updated: 2026-05-29.
 
 This document is the ownership contract for the cursor/driver split. The active
 status ledger lives in `doc/utf-handover.md`.
@@ -142,22 +142,23 @@ Closed checkpoints are summarized here; details and next tasks are in
   free of curses public types and exposes only neutral driver
   attrs, cells, render cells, render clusters, and opaque window handles.
   Editor code calls `the_driver->...` for migrated high-level operations and
-  for temporary opaque physical edges. The live vtable now has 114 entries
+  for temporary opaque physical edges. The live vtable now has 53 entries
   after shared display helpers moved out, the wide-cell surface collapsed to
-  render cells/clusters, modal/standard-screen mechanics were contracted, and
-  raw input compatibility wrappers were retired.
+  render cells/clusters, modal/standard-screen mechanics were contracted, raw
+  input compatibility wrappers were retired, and role/window/cursor
+  presentation helpers were removed.
 - `src/cursesdriver.c` owns the migrated physical curses mechanics, raw mouse
   packet decoding, file-area physical cursor materialization from shared
   layout targets, and the `the_curses_driver_ops` vtable.
 - `src/headlessdriver.c` owns the first complete no-curses `TheDriverOps`
   implementation. It provides fake opaque windows, screen-role and global
   slots, cursor state, queued normalized input events plus the shared
-  legacy-key adapter, cell storage, render-cell/cluster preservation, and deterministic
-  touch/refresh/update plus terminal-report/shell/repair logs. It is a
+  legacy-key adapter, cell storage, render-cell/cluster preservation, and
+  deterministic touch/refresh/update plus terminal-report/shell/repair logs. It is a
   compatibility base for tests and future headless work, not a full editor
   runtime switch.
 - `doc/driver-vtable-review.md` is the detailed map of the current vtable. It
-  now tracks the 114-entry `TheDriverOps` surface and records which operations
+  now tracks the 53-entry `TheDriverOps` surface and records which operations
   should remain portable, which are NOP/log-capable physical terminal
   operations, and which should move toward curses-private details. Future
   curses, headless/LLM, and fake/test drivers should expose the same surface
@@ -186,11 +187,10 @@ Closed checkpoints are summarized here; details and next tasks are in
   Step 3 renderer path now uses live `UiFrame` row/cell/text targets for UTF
   file-area and prefix renderer decisions; command cursor placement requires
   editor-owned logical command state.
-- `cursor_focus_sync_current()` remains only as a documented transition bridge:
-  it seeds logical cursor state from the physical window cursor when older
-  entry paths reach render without logical state. Remove it after all
-  file-area, prefix, and command entry points set `VIEW_DETAILS.logical_cursor`
-  before render.
+- `cursor_focus_sync_current()` has been removed. Command, prefix, file-area,
+  query, status, and renderer paths now either update logical cursor/focus
+  state directly or resolve an existing opaque window before using explicit
+  physical cursor primitives.
 - The transient UI headless boundary is closed for readv, dialog, and popup.
   `test_transientui` proves the model without curses, the curses paths
   materialize snapshots before painting/handling modal input, and modal mouse
@@ -210,7 +210,7 @@ Closed checkpoints are summarized here; details and next tasks are in
   the backend-specific behavior becomes too different.
 - `tests/inventory_direct_curses.sh` is the repeatable debt sweep and ratchet.
   Current counts are actionable `physical-input: 0`, `physical-paint: 0`,
-  `mouse-token: 0`, and `window-state: 0`; `driver-wrapper: 716` is counted
+  `mouse-token: 0`, and `window-state: 0`; `driver-wrapper: 574` is counted
   as migrated/allowed. The summary now splits `window-state` into
   `window-handle: 0`, `active-window-macro: 0`, `cell-attr-type: 0`,
   `renderer-cell-type: 0`, and `header-prototype: 0`. The ratchet is
@@ -258,7 +258,9 @@ The current active categories are:
   slice that reduced the vtable to 138 entries and added
   `write_render_cells` / `write_render_cluster_at`, and the
   modal/standard-screen contraction that reduced the vtable to 130 entries,
-  and raw input compatibility wrapper retirement that reduced it to 114.
+  raw input compatibility wrapper retirement that reduced it to 114, and
+  role/window/cursor presentation contraction that reduced it to 53 and removed
+  `cursor_focus_sync_current()`.
 - Active slice: none selected after the inventory ratchet, bulk wrapper pass,
   physical input/paint cleanup, raw mouse packet driver-ownership cleanup,
   corrected suffixed-paint cleanup, the first active-window/window-handle
@@ -266,9 +268,9 @@ The current active categories are:
   driver/window-state cleanup, the driver-shape review, the headless/test
   driver base, shared display/input semantics, portable render-cell/render-
   cluster semantics, modal/standard-screen contraction, and raw input
-  compatibility wrapper retirement. The next close-down slice is
-  role/window/cursor presentation contraction; use `doc/utf-handover.md` as
-  the source of truth.
+  compatibility wrapper retirement, and role/window/cursor presentation
+  contraction. Use `doc/utf-handover.md` as the source of truth for selecting
+  the next slice.
 - Deferred: full agent dispatcher integration, full prefix command execution,
   live agent protocol integration for transient snapshots, retained-frame
   delta views, the isolated keycap blank-cell physical materialization/profile

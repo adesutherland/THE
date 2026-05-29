@@ -503,8 +503,8 @@ REH_RETURN_TYPE THE_SayTrace_Exit_Handler
                {
                   if ( !batch_only )
                   {
-                     the_driver->move_global_window_cursor(THE_DRIVER_GLOBAL_STATAREA, 0, COLS-1);
-                     the_driver->refresh_global_window_now(THE_DRIVER_GLOBAL_STATAREA);
+                     the_driver->move_window_cursor(driver_global_window(THE_DRIVER_GLOBAL_STATAREA), 0, COLS-1);
+                     the_driver->refresh_window_now(driver_global_window(THE_DRIVER_GLOBAL_STATAREA));
                      suspend_curses();
                   }
                   fputc( '\n', outfp );               /* scroll the screen 1 line */

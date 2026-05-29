@@ -94,7 +94,7 @@ short scroll_page(short direction,LINETYPE num_pages,bool scrollbar)
     */
    if (curses_started)
    {
-      cursor = the_driver->capture_current_window_cursor();
+      cursor = the_driver->capture_window_cursor(driver_current_window());
       if (cursor.valid)
       {
          y = cursor.row;
@@ -104,10 +104,10 @@ short scroll_page(short direction,LINETYPE num_pages,bool scrollbar)
       if (CURRENT_VIEW->current_window != WINDOW_COMMAND)
       {
          y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line, CURRENT_VIEW->current_row);
-         the_driver->move_current_window_cursor(y, x);
+         the_driver->move_window_cursor(driver_current_window(), y, x);
          if (scrollbar)
          {
-            the_driver->refresh_current_window();
+            the_driver->refresh_window(driver_current_window());
             the_driver->update();
          }
       }
@@ -154,7 +154,7 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
    switch( iscrollbar )
    {
       case FALSE:
-         cursor = the_driver->capture_screen_window_cursor(curr_screen);
+         cursor = the_driver->capture_window_cursor(driver_screen_current_window(curr_screen));
          if (cursor.valid)
          {
             y = cursor.row;
@@ -180,9 +180,9 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
          if ( escreen == CURSOR_SCREEN
          &&  ( on_screen_edge || on_file_edge ) )
          {
-            if (!the_driver->screen_role_exists(curr_screen, WINDOW_COMMAND))
+            if (!driver_screen_role_exists(curr_screen, WINDOW_COMMAND))
             {
-               cursor = the_driver->capture_screen_window_cursor(curr_screen);
+               cursor = the_driver->capture_window_cursor(driver_screen_current_window(curr_screen));
                if (cursor.valid)
                {
                   y = cursor.row;
@@ -196,7 +196,7 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
                {
                   curr_view->focus_line = screen[curr_screen].sl[y].line_number;
                   pre_process_line( curr_view, curr_view->focus_line, (LINE *)NULL );
-                  the_driver->move_screen_window_cursor(curr_screen, y, x);
+                  the_driver->move_window_cursor(driver_screen_current_window(curr_screen), y, x);
                }
                break;
             }
@@ -221,7 +221,7 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
             build_screen( curr_screen );
             display_screen( curr_screen );
             y = get_row_for_focus_line( curr_screen, curr_view->focus_line, curr_view->current_row );
-            the_driver->move_screen_window_cursor(curr_screen, y, x);
+            the_driver->move_window_cursor(driver_screen_current_window(curr_screen), y, x);
             break;
          }
          /*
@@ -235,14 +235,14 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
             pre_process_line( curr_view, curr_view->focus_line, (LINE *)NULL );
             build_screen( curr_screen );
             display_screen( curr_screen );
-            the_driver->move_screen_window_cursor(curr_screen, yoff1, x);
+            the_driver->move_window_cursor(driver_screen_current_window(curr_screen), yoff1, x);
             break;
          }
          /*
           * We are in the middle of the window, so just move the cursor up or
           * down 1 line.
           */
-         the_driver->move_screen_window_cursor(curr_screen, yoff2, x);
+         the_driver->move_window_cursor(driver_screen_current_window(curr_screen), yoff2, x);
          rc = post_process_line( curr_view, curr_view->focus_line, (LINE *)NULL, TRUE );
          curr_view->focus_line = new_focus_line;
          pre_process_line( curr_view, curr_view->focus_line, (LINE *)NULL );
@@ -263,8 +263,8 @@ short scroll_line( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short directio
             THEcursor_move( curr_screen, curr_view, TRUE, TRUE, (short)longy, (short)longx );
             show_heading( curr_screen );
             if ( curr_view->id_line )
-               the_driver->refresh_screen_role(curr_screen, WINDOW_IDLINE);
-            the_driver->refresh_screen_window(curr_screen);
+               the_driver->refresh_window(driver_screen_role_window(curr_screen, WINDOW_IDLINE));
+            the_driver->refresh_window(driver_screen_current_window(curr_screen));
             the_driver->update();
          }
          break;

@@ -43,6 +43,70 @@
 # include "textedit.h"
 #endif
 
+static TheDriverCell text_current_display_cell(unsigned short row,
+                                               LENGTHTYPE col)
+{
+   SHOW_LINE *show_row;
+   LENGTHTYPE logical_col;
+
+   if (CURRENT_VIEW == NULL)
+      return ' ';
+   switch(CURRENT_VIEW->current_window)
+   {
+      case WINDOW_FILEAREA:
+         if (CURRENT_SCREEN.sl == NULL
+         ||  row >= CURRENT_SCREEN.rows[WINDOW_FILEAREA])
+            return ' ';
+         show_row = &CURRENT_SCREEN.sl[row];
+         if (show_row->contents == NULL || col < 0 || col >= show_row->length)
+            return ' ';
+         return (TheDriverCell)show_row->contents[col];
+      case WINDOW_COMMAND:
+         logical_col = cmd_verify_col - 1 + col;
+         if (cmd_rec == NULL || logical_col < 0 || logical_col >= cmd_rec_len)
+            return ' ';
+         return (TheDriverCell)cmd_rec[logical_col];
+      case WINDOW_PREFIX:
+         if (pre_rec == NULL || col < 0 || col >= pre_rec_len)
+            return ' ';
+         return (TheDriverCell)pre_rec[col];
+      default:
+         return ' ';
+   }
+}
+
+static TheDriverAttr text_current_display_attr(unsigned short row,
+                                               LENGTHTYPE col)
+{
+   SHOW_LINE *show_row;
+
+   if (CURRENT_VIEW == NULL)
+      return 0;
+   switch(CURRENT_VIEW->current_window)
+   {
+      case WINDOW_FILEAREA:
+         if (CURRENT_SCREEN.sl == NULL
+         ||  row >= CURRENT_SCREEN.rows[WINDOW_FILEAREA])
+            return 0;
+         show_row = &CURRENT_SCREEN.sl[row];
+         if (col >= 0
+         &&  col < THE_MAX_SCREEN_WIDTH
+         &&  show_row->is_highlighting)
+            return show_row->highlighting[col];
+         return show_row->normal_colour;
+      case WINDOW_COMMAND:
+         if (CURRENT_FILE == NULL)
+            return 0;
+         return set_colour(CURRENT_FILE->attr+ATTR_CMDLINE);
+      case WINDOW_PREFIX:
+         if (CURRENT_FILE == NULL)
+            return 0;
+         return set_colour(CURRENT_FILE->attr+ATTR_PENDING);
+      default:
+         return 0;
+   }
+}
+
 static LENGTHTYPE text_command_logical_cell(short fallback_col)
 {
    LogicalCursor logical;
@@ -146,8 +210,9 @@ static void text_set_prefix_logical_cell(short row, LENGTHTYPE cell)
                                       pre_rec, pre_rec_len, (int)cell,
                                       TEXT_SNAP_BACKWARD, 1);
    logical_cursor_state_focus(&CURRENT_VIEW->logical_cursor, logical);
-   if (the_driver->current_role_exists(WINDOW_PREFIX))
-      the_driver->move_current_role_cursor(WINDOW_PREFIX, row, (short)cell);
+   if (driver_current_role_exists(WINDOW_PREFIX))
+      the_driver->move_window_cursor(driver_current_role_window(WINDOW_PREFIX),
+                                     row, (short)cell);
    display_prefix_line(current_screen, CURRENT_VIEW);
    cursor_focus_refresh(current_screen, CURRENT_VIEW);
 }
@@ -819,7 +884,7 @@ short Text(CHARTYPE *params)
 #else
    TheDriverAttr attr=0;
 #endif
-   TheDriverAttr cursor_cell=0;
+   TheDriverCell cursor_cell=0;
    bool need_to_build_screen=FALSE;
    bool save_in_macro=in_macro;
 #ifdef USE_UTF8
@@ -882,7 +947,7 @@ short Text(CHARTYPE *params)
       chtype_key = (TheDriverAttr)(real_key & A_CHARTEXT);
 #endif
 
-      cursor = the_driver->capture_current_window_cursor();
+      cursor = the_driver->capture_window_cursor(driver_current_window());
       if (cursor.valid)
       {
          y = cursor.row;
@@ -899,19 +964,11 @@ short Text(CHARTYPE *params)
       }
 #endif
 
-      cursor_cell = the_driver->read_current_window_cell();
-#if defined(USE_EXTCURSES)
-      attr = the_driver->read_current_window_cell_attr_at(y, x);
-      the_driver->set_current_window_attr(attr);
+      cursor_cell = text_current_display_cell(y, x);
+#if defined(VMS)
       attr = 0;
-#elif defined(VMS)
-# ifdef _BSD44_CURSES
-      attr = the_driver->read_current_window_cell_attr_at(y, x);
-# else
-      attr = 0;
-# endif
 #else
-      attr = cursor_cell & A_ATTRIBUTES;
+      attr = text_current_display_attr(y, x);
 #endif
 
       switch( CURRENT_VIEW->current_window )
@@ -971,15 +1028,15 @@ short Text(CHARTYPE *params)
             if ( INSERTMODEx )
             {
                rec = meminschr( rec, real_key, CURRENT_VIEW->verify_col-1+x, max_line_length, rec_len );
-               the_driver->put_char_current_window(chtype_key|attr, INSCHAR);
+               put_char(driver_current_window(), chtype_key|attr, INSCHAR);
             }
             else
             {
                rec[CURRENT_VIEW->verify_col-1+x] = real_key;
                if ( x == CURRENT_SCREEN.cols[WINDOW_FILEAREA]-1 )
-                  the_driver->put_char_current_window(chtype_key|attr, INSCHAR);
+                  put_char(driver_current_window(), chtype_key|attr, INSCHAR);
                else
-                  the_driver->put_char_current_window(chtype_key|attr, ADDCHAR);
+                  put_char(driver_current_window(), chtype_key|attr, ADDCHAR);
             }
             rec_len = calculate_rec_len( (INSERTMODEx)?ADJUST_INSERT:ADJUST_OVERWRITE, rec, rec_len, CURRENT_VIEW->verify_col+x, 1, CURRENT_FILE->trailing );
 #endif
@@ -1021,7 +1078,7 @@ short Text(CHARTYPE *params)
 #if defined(USE_EXTCURSES)
                if ( x == CURRENT_SCREEN.cols[WINDOW_FILEAREA]-1 )
                {
-                  the_driver->move_current_window_cursor(y, x);
+                  the_driver->move_window_cursor(driver_current_window(), y, x);
                   THEcursor_right( TRUE, FALSE );
                }
 #else
@@ -1044,10 +1101,10 @@ short Text(CHARTYPE *params)
                    * scrolling the screen horizontally, and then position
                    * the cursor with the OLD y value, and the NEW x value;
                    */
-                  cursor = the_driver->capture_current_window_cursor();
+                  cursor = the_driver->capture_window_cursor(driver_current_window());
                   if (cursor.valid)
                      newx = cursor.col;
-                  the_driver->move_current_window_cursor(y,newx);
+                  the_driver->move_window_cursor(driver_current_window(), y, newx);
 # endif
                }
 #endif
@@ -1346,8 +1403,8 @@ short Top(CHARTYPE *params)
    if (curses_started)
    {
       cursor = (CURRENT_VIEW->current_window == WINDOW_COMMAND)
-             ? the_driver->capture_current_previous_window_cursor()
-             : the_driver->capture_current_window_cursor();
+             ? the_driver->capture_window_cursor(driver_current_previous_window())
+             : the_driver->capture_window_cursor(driver_current_window());
       if (cursor.valid)
       {
          y = cursor.row;
@@ -1357,9 +1414,9 @@ short Top(CHARTYPE *params)
       y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,
                                  CURRENT_VIEW->current_row);
       if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
-         the_driver->move_current_previous_window_cursor(y,x);
+         the_driver->move_window_cursor(driver_current_previous_window(), y, x);
       else
-         the_driver->move_current_window_cursor(y,x);
+         the_driver->move_window_cursor(driver_current_window(), y, x);
    }
    TRACE_RETURN();
    return(rc);

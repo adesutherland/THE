@@ -1265,12 +1265,7 @@ fclose( fp);
 #endif
    nonl();
    noecho();
-#ifdef HAVE_KEYPAD
-   the_driver->enable_standard_keypad(true);
-#endif
-#ifdef HAVE_NOTIMEOUT
-   the_driver->set_standard_notimeout(true);
-#endif
+   curses_driver_configure_standard_input(true, true);
 #ifdef USE_PROG_MODE
    def_prog_mode();
 #endif
@@ -1423,8 +1418,8 @@ fclose( fp);
    if (target_buffer != NULL)
       (*the_free)(target_buffer);
 
-   the_driver->delete_global_window(THE_DRIVER_GLOBAL_DIVIDER);
-   the_driver->delete_global_window(THE_DRIVER_GLOBAL_ERROR);
+   driver_delete_global_window(THE_DRIVER_GLOBAL_DIVIDER);
+   driver_delete_global_window(THE_DRIVER_GLOBAL_ERROR);
    if (last_message != NULL)
       (*the_free)(last_message);
    /*
@@ -1447,16 +1442,16 @@ fclose( fp);
     * ...otherwise, get the cursor to the bottom line.
     */
    {
-      if (the_driver->global_window_exists(THE_DRIVER_GLOBAL_STATAREA))
+      if (driver_global_window_exists(THE_DRIVER_GLOBAL_STATAREA))
       {
          the_driver->add_global_string_at(THE_DRIVER_GLOBAL_STATAREA,0,4,"     ");
          the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_STATAREA,A_NORMAL);
          the_driver->add_global_string_at(THE_DRIVER_GLOBAL_STATAREA,0,0,"THE - END");
-         the_driver->refresh_global_window_now(THE_DRIVER_GLOBAL_STATAREA);
+         the_driver->refresh_window_now(driver_global_window(THE_DRIVER_GLOBAL_STATAREA));
       }
    }
-   the_driver->delete_global_window(THE_DRIVER_GLOBAL_STATAREA);
-   the_driver->delete_global_window(THE_DRIVER_GLOBAL_FILETABS);
+   driver_delete_global_window(THE_DRIVER_GLOBAL_STATAREA);
+   driver_delete_global_window(THE_DRIVER_GLOBAL_FILETABS);
    last_option = first_option = lll_free(first_option);
    cleanup();
    CLOSEDOWNCONSOLE(0);
@@ -1768,10 +1763,10 @@ void cleanup(void)
    if (curses_started)
    {
       if (error_on_screen
-      &&  the_driver->global_window_exists(THE_DRIVER_GLOBAL_ERROR))
+      &&  driver_global_window_exists(THE_DRIVER_GLOBAL_ERROR))
       {
          display_error(0,(CHARTYPE *)HIT_ANY_KEY,FALSE);
-         the_driver->refresh_global_window_now(THE_DRIVER_GLOBAL_ERROR);
+         the_driver->refresh_window_now(driver_global_window(THE_DRIVER_GLOBAL_ERROR));
 #ifdef KEY_RESIZE
          /*
           * Real hack here. If we have an error caused by editing the first file

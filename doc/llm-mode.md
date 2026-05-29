@@ -1,6 +1,6 @@
 # LLM Mode Agent Guide
 
-Last updated: 2026-05-28.
+Last updated: 2026-05-29.
 
 This document describes the intended LLM-facing mode for THE. It is written for
 agents and tool authors that need to inspect editor state and drive editor input
@@ -57,11 +57,10 @@ Transient UI snapshots are proved in `test_transientui` and available through
 interactive `the_agent` protocol as live modal editor events.
 
 The remaining LLM work is feature expansion after driver-surface close-down,
-not active direct-curses debt. The modal/standard-screen contraction and raw
-input compatibility wrapper retirement are closed; the current architectural
-priority is to shrink role/window/cursor compatibility operations from
-`TheDriverOps`. `doc/utf-handover.md` is the source of truth for that
-close-down plan.
+not active direct-curses debt. The modal/standard-screen contraction, raw input
+compatibility wrapper retirement, and role/window/cursor presentation
+contraction are closed. `doc/utf-handover.md` is the source of truth for the
+next close-down slice.
 
 ## Design Intent
 

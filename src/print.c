@@ -446,9 +446,9 @@ void print_line(bool close_spooler,LINETYPE true_line,LINETYPE num_lines,
  if (curses_started)
    {
     if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
-       cursor = the_driver->capture_current_role_cursor(WINDOW_FILEAREA);
+       cursor = the_driver->capture_window_cursor(driver_current_role_window(WINDOW_FILEAREA));
     else
-       cursor = the_driver->capture_current_window_cursor();
+       cursor = the_driver->capture_window_cursor(driver_current_window());
     if (cursor.valid)
       {
        y = cursor.row;
@@ -597,9 +597,9 @@ void print_line(bool close_spooler,LINETYPE true_line,LINETYPE num_lines,
     y = get_row_for_focus_line(current_screen,CURRENT_VIEW->focus_line,
                                CURRENT_VIEW->current_row);
     if (CURRENT_VIEW->current_window == WINDOW_COMMAND)
-       the_driver->move_current_role_cursor(WINDOW_FILEAREA, y, x);
+       the_driver->move_window_cursor(driver_current_role_window(WINDOW_FILEAREA), y, x);
     else
-       the_driver->move_current_window_cursor(y, x);
+       the_driver->move_window_cursor(driver_current_window(), y, x);
    }
  TRACE_RETURN();
  return;

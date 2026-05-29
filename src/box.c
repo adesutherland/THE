@@ -106,7 +106,7 @@ void box_operations(short action,CHARTYPE reset,bool boverlay,CHARTYPE fillchar)
          boxp.dst_start_line = 1L;
       else
          boxp.dst_start_line = CURRENT_VIEW->focus_line;
-      cursor = the_driver->capture_current_window_cursor();
+      cursor = the_driver->capture_window_cursor(driver_current_window());
       if (cursor.valid)
       {
          y = cursor.row;
@@ -219,7 +219,8 @@ void box_operations(short action,CHARTYPE reset,bool boverlay,CHARTYPE fillchar)
          MARK_VIEW->mark_end_col = boxp.dst_start_col+boxp.num_cols-offset;
       MARK_VIEW->mark_type = save_mark_type;
       MARK_VIEW->marked_line = MARK_VIEW->marked_col = TRUE;
-      the_driver->move_current_window_cursor(y, (short)(x - offset));
+      the_driver->move_window_cursor(driver_current_window(), y,
+                                     (short)(x - offset));
    }
    pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
    build_screen(current_screen);
@@ -258,7 +259,7 @@ void box_paste_from_clipboard( LINE *curr_src, LINETYPE numlines, LINETYPE numco
          boxp.dst_start_line = 1L;
       else
          boxp.dst_start_line = CURRENT_VIEW->focus_line;
-      cursor = the_driver->capture_current_window_cursor();
+      cursor = the_driver->capture_window_cursor(driver_current_window());
       if (cursor.valid)
       {
          y = cursor.row;

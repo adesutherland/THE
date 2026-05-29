@@ -538,7 +538,7 @@ short execute_prefix_commands(void)
          {
             TheDriverWindowCursor cursor;
 
-            cursor = the_driver->capture_screen_window_cursor(pending_screen);
+            cursor = the_driver->capture_window_cursor(driver_screen_current_window(pending_screen));
             if (cursor.valid)
             {
                y = cursor.row;
@@ -548,7 +548,7 @@ short execute_prefix_commands(void)
          PENDING_VIEW->focus_line = get_focus_line_in_view( pending_screen, PENDING_VIEW->focus_line, y );
          y = get_row_for_focus_line( pending_screen, PENDING_VIEW->focus_line, PENDING_VIEW->current_row );
          if ( curses_started )
-            the_driver->move_screen_window_cursor(pending_screen, y, x);
+            the_driver->move_window_cursor(driver_screen_current_window(pending_screen), y, x);
          pre_process_line( PENDING_VIEW, PENDING_VIEW->focus_line, (LINE *)NULL );
       }
    }
@@ -563,7 +563,7 @@ short execute_prefix_commands(void)
          {
             TheDriverWindowCursor cursor;
 
-            cursor = the_driver->capture_current_window_cursor();
+            cursor = the_driver->capture_window_cursor(driver_current_window());
             if (cursor.valid)
             {
                y = cursor.row;
@@ -573,7 +573,7 @@ short execute_prefix_commands(void)
          CURRENT_VIEW->focus_line = get_focus_line_in_view( current_screen, CURRENT_VIEW->focus_line, y );
          y = get_row_for_focus_line( current_screen, CURRENT_VIEW->focus_line, CURRENT_VIEW->current_row );
          if ( curses_started )
-            the_driver->move_current_window_cursor(y, x);
+            the_driver->move_window_cursor(driver_current_window(), y, x);
          pre_process_line( CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL );
       }
    }
@@ -1997,7 +1997,7 @@ static short post_prefix_add(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lin
    {
       TheDriverWindowCursor cursor;
 
-      cursor = the_driver->capture_screen_window_cursor(pending_screen);
+      cursor = the_driver->capture_window_cursor(driver_screen_current_window(pending_screen));
       if (cursor.valid)
       {
          y = cursor.row;
@@ -2006,7 +2006,7 @@ static short post_prefix_add(THE_PPC *curr_ppc,short cmd_idx,LINETYPE number_lin
    }
    if ( PENDING_VIEW->current_window == WINDOW_PREFIX )
       PENDING_VIEW->current_window = WINDOW_FILEAREA;
-   the_driver->move_screen_window_cursor(pending_screen, y, 0);
+   the_driver->move_window_cursor(driver_screen_current_window(pending_screen), y, 0);
    if ( PENDING_VIEW->current_window == WINDOW_FILEAREA )
    {
       if ( !VIEW_BOF( PENDING_VIEW, (PENDING_VIEW->focus_line)+1L ) )

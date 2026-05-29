@@ -28,8 +28,6 @@ struct TheDriverWindow
    int dirty;
    int refreshed;
    int immediate_refreshes;
-   int keypad_enabled;
-   int leaveok_enabled;
    int timeout_ms;
    TheDriverAttr attr;
    TheDriverAttr background;
@@ -46,11 +44,8 @@ typedef struct
    TheDriverWindow *standard;
    TheDriverWindow *windows;
    short current_role[HEADLESS_MAX_SCREENS];
-   short previous_role[HEADLESS_MAX_SCREENS];
    CHARTYPE current_screen;
    int next_window_id;
-   int standard_keypad_enabled;
-   int standard_notimeout_enabled;
    int cursor_visible;
    int terminal_report_writes;
    TheInputQueue input_queue;
@@ -303,22 +298,9 @@ static TheDriverWindow *headless_screen_active_window(CHARTYPE scrno)
    return headless_screen_role_window(scrno, headless_state.current_role[scrno]);
 }
 
-static TheDriverWindow *headless_screen_previous_window(CHARTYPE scrno)
-{
-   if (!headless_valid_screen(scrno))
-      return NULL;
-   return headless_screen_role_window(scrno,
-                                      headless_state.previous_role[scrno]);
-}
-
 static TheDriverWindow *headless_current_active_window(void)
 {
    return headless_screen_active_window(headless_state.current_screen);
-}
-
-static TheDriverWindow *headless_current_previous_window(void)
-{
-   return headless_screen_previous_window(headless_state.current_screen);
 }
 
 static TheDriverWindow *headless_global_window(TheDriverGlobalWindowRole role)
@@ -510,12 +492,6 @@ void headless_driver_set_screen_current_role(CHARTYPE scrno, short role)
       headless_state.current_role[scrno] = role;
 }
 
-void headless_driver_set_screen_previous_role(CHARTYPE scrno, short role)
-{
-   if (headless_valid_screen(scrno) && headless_valid_role(role))
-      headless_state.previous_role[scrno] = role;
-}
-
 TheDriverWindow *headless_driver_create_screen_role(CHARTYPE scrno,
                                                     short role, int rows,
                                                     int cols, int row,
@@ -581,54 +557,6 @@ static TheDriverAttr headless_driver_software_cursor_attr(
    return base ^ ((TheDriverAttr)shape + 1U);
 }
 
-static int headless_driver_current_window_is_role(short role)
-{
-   return headless_valid_role(role)
-       && role == headless_state.current_role[headless_state.current_screen]
-       && headless_current_active_window() != NULL;
-}
-
-static int headless_driver_current_window_exists(void)
-{
-   return headless_current_active_window() != NULL;
-}
-
-static int headless_driver_screen_window_is_role(CHARTYPE scrno, short role)
-{
-   return headless_valid_screen(scrno)
-       && headless_valid_role(role)
-       && role == headless_state.current_role[scrno]
-       && headless_screen_active_window(scrno) != NULL;
-}
-
-static int headless_driver_current_role_exists(short role)
-{
-   return headless_current_role_window(role) != NULL;
-}
-
-static int headless_driver_screen_role_exists(CHARTYPE scrno, short role)
-{
-   return headless_screen_role_window(scrno, role) != NULL;
-}
-
-static int headless_driver_global_window_exists(
-   TheDriverGlobalWindowRole role)
-{
-   return headless_global_window(role) != NULL;
-}
-
-static void headless_driver_delete_global_window(
-   TheDriverGlobalWindowRole role)
-{
-   TheDriverWindow *win;
-
-   win = headless_global_window(role);
-   if (win == NULL)
-      return;
-   headless_log("delete:global:%d", (int)role);
-   headless_free_window(win);
-}
-
 static TheDriverWindow *headless_driver_create_window(int rows, int cols,
                                                       int row, int col)
 {
@@ -640,69 +568,10 @@ static void headless_driver_delete_window(TheDriverWindow *win)
    headless_free_window(win);
 }
 
-static void headless_driver_enable_keypad(TheDriverWindow *win, bool enabled)
-{
-   if (win != NULL)
-      win->keypad_enabled = enabled ? 1 : 0;
-}
-
-static void headless_driver_enable_standard_keypad(bool enabled)
-{
-   headless_state.standard_keypad_enabled = enabled ? 1 : 0;
-}
-
-static void headless_driver_set_standard_notimeout(bool enabled)
-{
-   headless_state.standard_notimeout_enabled = enabled ? 1 : 0;
-}
-
-static void headless_driver_set_window_leaveok(TheDriverWindow *win,
-                                               bool enabled)
-{
-   if (win != NULL)
-      win->leaveok_enabled = enabled ? 1 : 0;
-}
-
 static TheDriverWindowCursor headless_driver_capture_window_cursor(
    TheDriverWindow *win)
 {
    return headless_capture_cursor(win);
-}
-
-static TheDriverWindowCursor headless_driver_capture_current_window_cursor(
-   void)
-{
-   return headless_capture_cursor(headless_current_active_window());
-}
-
-static TheDriverWindowCursor
-headless_driver_capture_current_previous_window_cursor(void)
-{
-   return headless_capture_cursor(headless_current_previous_window());
-}
-
-static TheDriverWindowCursor headless_driver_capture_current_role_cursor(
-   short role)
-{
-   return headless_capture_cursor(headless_current_role_window(role));
-}
-
-static TheDriverWindowCursor headless_driver_capture_screen_window_cursor(
-   CHARTYPE scrno)
-{
-   return headless_capture_cursor(headless_screen_active_window(scrno));
-}
-
-static TheDriverWindowCursor headless_driver_capture_screen_role_cursor(
-   CHARTYPE scrno, short role)
-{
-   return headless_capture_cursor(headless_screen_role_window(scrno, role));
-}
-
-static TheDriverWindowCursor headless_driver_capture_global_window_cursor(
-   TheDriverGlobalWindowRole role)
-{
-   return headless_capture_cursor(headless_global_window(role));
 }
 
 static TheDriverWindowOrigin headless_driver_window_origin(
@@ -714,79 +583,6 @@ static TheDriverWindowOrigin headless_driver_window_origin(
 static TheDriverWindowSize headless_driver_window_size(TheDriverWindow *win)
 {
    return headless_capture_size(win);
-}
-
-static TheDriverWindowOrigin headless_driver_current_window_origin(void)
-{
-   return headless_capture_origin(headless_current_active_window());
-}
-
-static TheDriverWindowSize headless_driver_current_window_size(void)
-{
-   return headless_capture_size(headless_current_active_window());
-}
-
-static TheDriverWindowSize headless_driver_current_role_size(short role)
-{
-   return headless_capture_size(headless_current_role_window(role));
-}
-
-static TheDriverWindowSize headless_driver_screen_role_size(CHARTYPE scrno,
-                                                            short role)
-{
-   return headless_capture_size(headless_screen_role_window(scrno, role));
-}
-
-static TheDriverScreenPoint
-headless_driver_current_window_cursor_screen_point(void)
-{
-   TheDriverScreenPoint point;
-   TheDriverWindow *win;
-
-   point.row = 0;
-   point.col = 0;
-   point.valid = 0;
-   win = headless_current_active_window();
-   if (win == NULL)
-      return point;
-   point.row = (short)(win->origin_row + win->cursor_row);
-   point.col = (short)(win->origin_col + win->cursor_col);
-   point.valid = 1;
-   return point;
-}
-
-static TheDriverWindowRoleSave headless_driver_save_current_role_window(
-   short role)
-{
-   TheDriverWindowRoleSave saved;
-
-   saved.window = NULL;
-   saved.slot_valid = 0;
-   if (!headless_valid_role(role)
-   ||  !headless_valid_screen(headless_state.current_screen))
-      return saved;
-   saved.window = headless_state.roles[headless_state.current_screen][role];
-   saved.slot_valid = 1;
-   return saved;
-}
-
-static void headless_driver_restore_current_role_window(
-   short role, TheDriverWindowRoleSave saved)
-{
-   if (!saved.slot_valid
-   ||  !headless_valid_screen(headless_state.current_screen)
-   ||  !headless_valid_role(role))
-      return;
-   headless_state.roles[headless_state.current_screen][role] = saved.window;
-}
-
-static void headless_driver_delete_current_role_window(short role)
-{
-   TheDriverWindow *win;
-
-   win = headless_current_role_window(role);
-   if (win != NULL)
-      headless_free_window(win);
 }
 
 static void headless_driver_clear_current_screen_roles(void)
@@ -805,109 +601,10 @@ static void headless_driver_move_window_cursor(TheDriverWindow *win,
    headless_move_cursor(win, row, col);
 }
 
-static void headless_driver_move_current_window_cursor(short row, short col)
-{
-   headless_move_cursor(headless_current_active_window(), row, col);
-}
-
-static void headless_driver_move_current_previous_window_cursor(short row,
-                                                                short col)
-{
-   headless_move_cursor(headless_current_previous_window(), row, col);
-}
-
-static void headless_driver_move_current_role_cursor(short role, short row,
-                                                     short col)
-{
-   headless_move_cursor(headless_current_role_window(role), row, col);
-}
-
-static void headless_driver_move_screen_window_cursor(CHARTYPE scrno,
-                                                      short row, short col)
-{
-   headless_move_cursor(headless_screen_active_window(scrno), row, col);
-}
-
-static void headless_driver_move_screen_role_cursor(CHARTYPE scrno,
-                                                    short role, short row,
-                                                    short col)
-{
-   headless_move_cursor(headless_screen_role_window(scrno, role), row, col);
-}
-
-static void headless_driver_move_global_window_cursor(
-   TheDriverGlobalWindowRole role, short row, short col)
-{
-   headless_move_cursor(headless_global_window(role), row, col);
-}
-
 static void headless_driver_restore_window_cursor(
    TheDriverWindow *win, TheDriverWindowCursor cursor)
 {
    headless_restore_cursor(win, cursor);
-}
-
-static void headless_driver_restore_current_window_cursor(
-   TheDriverWindowCursor cursor)
-{
-   headless_restore_cursor(headless_current_active_window(), cursor);
-}
-
-static void headless_driver_restore_current_role_cursor(
-   short role, TheDriverWindowCursor cursor)
-{
-   headless_restore_cursor(headless_current_role_window(role), cursor);
-}
-
-static void headless_driver_restore_screen_window_cursor(
-   CHARTYPE scrno, TheDriverWindowCursor cursor)
-{
-   headless_restore_cursor(headless_screen_active_window(scrno), cursor);
-}
-
-static void headless_driver_restore_screen_role_cursor(
-   CHARTYPE scrno, short role, TheDriverWindowCursor cursor)
-{
-   headless_restore_cursor(headless_screen_role_window(scrno, role), cursor);
-}
-
-static void headless_driver_restore_global_window_cursor(
-   TheDriverGlobalWindowRole role, TheDriverWindowCursor cursor)
-{
-   headless_restore_cursor(headless_global_window(role), cursor);
-}
-
-static TheDriverCell headless_driver_read_window_cell(TheDriverWindow *win)
-{
-   if (win == NULL)
-      return 0;
-   return headless_cell_at(win, win->cursor_row, win->cursor_col);
-}
-
-static TheDriverCell headless_driver_read_current_window_cell(void)
-{
-   return headless_driver_read_window_cell(headless_current_active_window());
-}
-
-static TheDriverAttr headless_driver_read_current_window_cell_attr_at(
-   short row, short col)
-{
-   TheDriverWindow *win;
-
-   win = headless_current_active_window();
-   if (!headless_window_contains(win, row, col) || win->attrs == NULL)
-      return 0;
-   return win->attrs[headless_cell_index(win, row, col)];
-}
-
-static void headless_driver_put_char_current_window(TheDriverCell ch,
-                                                    CHARTYPE add_ins)
-{
-   TheDriverWindow *win;
-
-   (void)add_ins;
-   win = headless_current_active_window();
-   headless_add_cell_internal(win, ch);
 }
 
 static void headless_driver_set_window_attr(TheDriverWindow *win,
@@ -915,11 +612,6 @@ static void headless_driver_set_window_attr(TheDriverWindow *win,
 {
    if (win != NULL)
       win->attr = colour;
-}
-
-static void headless_driver_set_current_window_attr(TheDriverAttr colour)
-{
-   headless_driver_set_window_attr(headless_current_active_window(), colour);
 }
 
 static void headless_driver_set_current_role_attr(short role,
@@ -960,20 +652,9 @@ static void headless_driver_clear_line_at(TheDriverWindow *win, short row,
       headless_set_cell_at(win, row, col, ' ');
 }
 
-static void headless_driver_clear_current_role(short role)
-{
-   headless_clear_window(headless_current_role_window(role));
-}
-
 static void headless_driver_clear_current_role_to_eol(short role)
 {
    headless_clear_to_eol(headless_current_role_window(role));
-}
-
-static void headless_driver_clear_screen_role_to_eol(CHARTYPE scrno,
-                                                     short role)
-{
-   headless_clear_to_eol(headless_screen_role_window(scrno, role));
 }
 
 static void headless_driver_touch_window(TheDriverWindow *win)
@@ -993,76 +674,6 @@ static void headless_driver_touch_line(TheDriverWindow *win, int start,
    headless_log("touch-line:window:%d:%d:%d", win->id, start, count);
 }
 
-static void headless_driver_touch_current_window(void)
-{
-   TheDriverWindow *win = headless_current_active_window();
-
-   if (win != NULL)
-      headless_driver_touch_window(win);
-}
-
-static void headless_driver_touch_current_role(short role)
-{
-   TheDriverWindow *win = headless_current_role_window(role);
-
-   if (win != NULL)
-      headless_driver_touch_window(win);
-}
-
-static void headless_driver_touch_screen_role(CHARTYPE scrno, short role)
-{
-   TheDriverWindow *win = headless_screen_role_window(scrno, role);
-
-   if (win != NULL)
-      headless_driver_touch_window(win);
-}
-
-static void headless_driver_touch_global_window(
-   TheDriverGlobalWindowRole role)
-{
-   TheDriverWindow *win = headless_global_window(role);
-
-   if (win == NULL)
-      return;
-   win->dirty = 1;
-   headless_log("touch:global:%d", (int)role);
-}
-
-static void headless_driver_touch_and_refresh_current_role(short role)
-{
-   TheDriverWindow *win = headless_current_role_window(role);
-
-   if (win == NULL)
-      return;
-   win->dirty = 1;
-   win->refreshed = 1;
-   headless_log("touch-refresh:current-role:%d", role);
-}
-
-static void headless_driver_touch_and_refresh_screen_role(CHARTYPE scrno,
-                                                          short role)
-{
-   TheDriverWindow *win = headless_screen_role_window(scrno, role);
-
-   if (win == NULL)
-      return;
-   win->dirty = 1;
-   win->refreshed = 1;
-   headless_log("touch-refresh:screen-role:%d:%d", (int)scrno, role);
-}
-
-static void headless_driver_touch_and_refresh_global_window(
-   TheDriverGlobalWindowRole role)
-{
-   TheDriverWindow *win = headless_global_window(role);
-
-   if (win == NULL)
-      return;
-   win->dirty = 1;
-   win->refreshed = 1;
-   headless_log("touch-refresh:global:%d", (int)role);
-}
-
 static void headless_driver_refresh_window(TheDriverWindow *win)
 {
    if (win == NULL)
@@ -1078,80 +689,6 @@ static void headless_driver_refresh_window_now(TheDriverWindow *win)
    win->refreshed = 1;
    win->immediate_refreshes++;
    headless_log("refresh-now:window:%d", win->id);
-}
-
-static void headless_driver_refresh_current_window(void)
-{
-   headless_driver_refresh_window(headless_current_active_window());
-}
-
-static void headless_driver_refresh_current_window_now(void)
-{
-   headless_driver_refresh_window_now(headless_current_active_window());
-}
-
-static void headless_driver_refresh_current_role(short role)
-{
-   TheDriverWindow *win = headless_current_role_window(role);
-
-   if (win == NULL)
-      return;
-   win->refreshed = 1;
-   headless_log("refresh:current-role:%d", role);
-}
-
-static void headless_driver_refresh_current_role_now(short role)
-{
-   TheDriverWindow *win = headless_current_role_window(role);
-
-   if (win == NULL)
-      return;
-   win->refreshed = 1;
-   win->immediate_refreshes++;
-   headless_log("refresh-now:current-role:%d", role);
-}
-
-static void headless_driver_refresh_screen_window(CHARTYPE scrno)
-{
-   TheDriverWindow *win = headless_screen_active_window(scrno);
-
-   if (win == NULL)
-      return;
-   win->refreshed = 1;
-   headless_log("refresh:screen-window:%d", (int)scrno);
-}
-
-static void headless_driver_refresh_screen_role(CHARTYPE scrno, short role)
-{
-   TheDriverWindow *win = headless_screen_role_window(scrno, role);
-
-   if (win == NULL)
-      return;
-   win->refreshed = 1;
-   headless_log("refresh:screen-role:%d:%d", (int)scrno, role);
-}
-
-static void headless_driver_refresh_global_window(
-   TheDriverGlobalWindowRole role)
-{
-   TheDriverWindow *win = headless_global_window(role);
-
-   if (win == NULL)
-      return;
-   win->refreshed = 1;
-   headless_log("refresh:global:%d", (int)role);
-}
-
-static void headless_driver_refresh_global_window_now(
-   TheDriverGlobalWindowRole role)
-{
-   TheDriverWindow *win = headless_global_window(role);
-
-   if (win == NULL)
-      return;
-   win->refreshed = 1;
-   win->immediate_refreshes++;
-   headless_log("refresh-now:global:%d", (int)role);
 }
 
 static void headless_driver_sync_terminal_screen(void)
@@ -1436,25 +973,6 @@ static void headless_driver_redraw_window(TheDriverWindow *win)
       headless_log("redraw:window:%d", win->id);
 }
 
-static void headless_driver_redraw_current_role(short role)
-{
-   if (headless_current_role_window(role) != NULL)
-      headless_log("redraw:current-role:%d", role);
-}
-
-static void headless_driver_redraw_screen_role(CHARTYPE scrno, short role)
-{
-   if (headless_screen_role_window(scrno, role) != NULL)
-      headless_log("redraw:screen-role:%d:%d", (int)scrno, role);
-}
-
-static void headless_driver_redraw_global_window(
-   TheDriverGlobalWindowRole role)
-{
-   if (headless_global_window(role) != NULL)
-      headless_log("redraw:global:%d", (int)role);
-}
-
 static void headless_driver_draw_software_cell(
    CHARTYPE scrno, TheDriverWindow *win, short row, int col,
    TheDriverCell base, CursorShape shape)
@@ -1495,8 +1013,8 @@ static short headless_driver_redraw_screen_cursor(CHARTYPE scrno,
 static void headless_driver_move_prefix_cursor(CHARTYPE scrno, short row,
                                                short col)
 {
-   headless_driver_move_screen_role_cursor(scrno, HEADLESS_ROLE_PREFIX, row,
-                                           col);
+   headless_move_cursor(headless_screen_role_window(scrno, HEADLESS_ROLE_PREFIX),
+                        row, col);
 }
 
 static short headless_driver_move_filearea_cursor(
@@ -1536,94 +1054,25 @@ static short headless_driver_filearea_cursor_transition(
 
 const TheDriverOps the_headless_driver_ops = {
    .software_cursor_attr = headless_driver_software_cursor_attr,
-   .current_window_is_role = headless_driver_current_window_is_role,
-   .current_window_exists = headless_driver_current_window_exists,
-   .screen_window_is_role = headless_driver_screen_window_is_role,
-   .current_role_exists = headless_driver_current_role_exists,
-   .screen_role_exists = headless_driver_screen_role_exists,
-   .global_window_exists = headless_driver_global_window_exists,
-   .delete_global_window = headless_driver_delete_global_window,
    .create_window = headless_driver_create_window,
    .delete_window = headless_driver_delete_window,
-   .enable_keypad = headless_driver_enable_keypad,
-   .enable_standard_keypad = headless_driver_enable_standard_keypad,
-   .set_standard_notimeout = headless_driver_set_standard_notimeout,
-   .set_window_leaveok = headless_driver_set_window_leaveok,
    .capture_window_cursor = headless_driver_capture_window_cursor,
-   .capture_current_window_cursor =
-      headless_driver_capture_current_window_cursor,
-   .capture_current_previous_window_cursor =
-      headless_driver_capture_current_previous_window_cursor,
-   .capture_current_role_cursor = headless_driver_capture_current_role_cursor,
-   .capture_screen_window_cursor = headless_driver_capture_screen_window_cursor,
-   .capture_screen_role_cursor = headless_driver_capture_screen_role_cursor,
-   .capture_global_window_cursor = headless_driver_capture_global_window_cursor,
    .window_origin = headless_driver_window_origin,
    .window_size = headless_driver_window_size,
-   .current_window_origin = headless_driver_current_window_origin,
-   .current_window_size = headless_driver_current_window_size,
-   .current_role_size = headless_driver_current_role_size,
-   .screen_role_size = headless_driver_screen_role_size,
-   .current_window_cursor_screen_point =
-      headless_driver_current_window_cursor_screen_point,
-   .save_current_role_window = headless_driver_save_current_role_window,
-   .restore_current_role_window = headless_driver_restore_current_role_window,
-   .delete_current_role_window = headless_driver_delete_current_role_window,
    .clear_current_screen_roles = headless_driver_clear_current_screen_roles,
    .move_window_cursor = headless_driver_move_window_cursor,
-   .move_current_window_cursor = headless_driver_move_current_window_cursor,
-   .move_current_previous_window_cursor =
-      headless_driver_move_current_previous_window_cursor,
-   .move_current_role_cursor = headless_driver_move_current_role_cursor,
-   .move_screen_window_cursor = headless_driver_move_screen_window_cursor,
-   .move_screen_role_cursor = headless_driver_move_screen_role_cursor,
-   .move_global_window_cursor = headless_driver_move_global_window_cursor,
    .restore_window_cursor = headless_driver_restore_window_cursor,
-   .restore_current_window_cursor =
-      headless_driver_restore_current_window_cursor,
-   .restore_current_role_cursor = headless_driver_restore_current_role_cursor,
-   .restore_screen_window_cursor =
-      headless_driver_restore_screen_window_cursor,
-   .restore_screen_role_cursor = headless_driver_restore_screen_role_cursor,
-   .restore_global_window_cursor =
-      headless_driver_restore_global_window_cursor,
-   .read_window_cell = headless_driver_read_window_cell,
-   .read_current_window_cell = headless_driver_read_current_window_cell,
-   .read_current_window_cell_attr_at =
-      headless_driver_read_current_window_cell_attr_at,
-   .put_char_current_window = headless_driver_put_char_current_window,
    .set_window_attr = headless_driver_set_window_attr,
-   .set_current_window_attr = headless_driver_set_current_window_attr,
    .set_current_role_attr = headless_driver_set_current_role_attr,
    .set_screen_role_attr = headless_driver_set_screen_role_attr,
    .set_global_window_attr = headless_driver_set_global_window_attr,
    .set_window_background = headless_driver_set_window_background,
    .clear_line_at = headless_driver_clear_line_at,
-   .clear_current_role = headless_driver_clear_current_role,
    .clear_current_role_to_eol = headless_driver_clear_current_role_to_eol,
-   .clear_screen_role_to_eol = headless_driver_clear_screen_role_to_eol,
    .touch_window = headless_driver_touch_window,
    .touch_line = headless_driver_touch_line,
-   .touch_current_window = headless_driver_touch_current_window,
-   .touch_current_role = headless_driver_touch_current_role,
-   .touch_screen_role = headless_driver_touch_screen_role,
-   .touch_global_window = headless_driver_touch_global_window,
-   .touch_and_refresh_current_role =
-      headless_driver_touch_and_refresh_current_role,
-   .touch_and_refresh_screen_role =
-      headless_driver_touch_and_refresh_screen_role,
-   .touch_and_refresh_global_window =
-      headless_driver_touch_and_refresh_global_window,
    .refresh_window = headless_driver_refresh_window,
    .refresh_window_now = headless_driver_refresh_window_now,
-   .refresh_current_window = headless_driver_refresh_current_window,
-   .refresh_current_window_now = headless_driver_refresh_current_window_now,
-   .refresh_current_role = headless_driver_refresh_current_role,
-   .refresh_current_role_now = headless_driver_refresh_current_role_now,
-   .refresh_screen_window = headless_driver_refresh_screen_window,
-   .refresh_screen_role = headless_driver_refresh_screen_role,
-   .refresh_global_window = headless_driver_refresh_global_window,
-   .refresh_global_window_now = headless_driver_refresh_global_window_now,
    .sync_terminal_screen = headless_driver_sync_terminal_screen,
    .clear_terminal_screen = headless_driver_clear_terminal_screen,
    .begin_terminal_report = headless_driver_begin_terminal_report,
@@ -1650,9 +1099,6 @@ const TheDriverOps the_headless_driver_ops = {
    .prepare_for_shell_escape = headless_driver_prepare_for_shell_escape,
    .repair_terminal_background = headless_driver_repair_terminal_background,
    .redraw_window = headless_driver_redraw_window,
-   .redraw_current_role = headless_driver_redraw_current_role,
-   .redraw_screen_role = headless_driver_redraw_screen_role,
-   .redraw_global_window = headless_driver_redraw_global_window,
    .draw_software_cell = headless_driver_draw_software_cell,
    .draw_software_blank_cell = headless_driver_draw_software_blank_cell,
    .refresh_cursor = headless_driver_refresh_cursor,

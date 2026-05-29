@@ -120,7 +120,7 @@ short column_command(CHARTYPE *cmd_text,int cmd_type)
       }
       if (curses_started)
       {
-         cursor = the_driver->capture_current_window_cursor();
+         cursor = the_driver->capture_window_cursor(driver_current_window());
          if (cursor.valid)
          {
             y = cursor.row;
@@ -245,7 +245,7 @@ short column_command(CHARTYPE *cmd_text,int cmd_type)
             {
                CURRENT_VIEW->current_window = WINDOW_FILEAREA;
                if (curses_started)
-                  the_driver->move_current_window_cursor(y, 0);
+                  the_driver->move_window_cursor(driver_current_window(), y, 0);
             }
             rc = execute_move_cursor( current_screen, CURRENT_VIEW, CURRENT_VIEW->current_column-1);
             break;

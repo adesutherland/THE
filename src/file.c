@@ -1776,7 +1776,7 @@ short free_view_memory(bool free_file_lines,bool display_the_screen)
           */
          display_screens = 1;
          current_screen = 0;
-         the_driver->delete_global_window(THE_DRIVER_GLOBAL_DIVIDER);
+         driver_delete_global_window(THE_DRIVER_GLOBAL_DIVIDER);
          break;
     case 4:
          /*
@@ -1819,15 +1819,17 @@ short free_view_memory(bool free_file_lines,bool display_the_screen)
          display_screen(current_screen);
       if (curses_started)
       {
-         the_driver->move_current_role_cursor(WINDOW_FILEAREA,
-                                                CURRENT_VIEW->y[WINDOW_FILEAREA],
-                                                CURRENT_VIEW->x[WINDOW_FILEAREA]);
-         if (the_driver->current_role_exists(WINDOW_PREFIX))
-            the_driver->move_current_role_cursor(WINDOW_PREFIX,
-                                                   CURRENT_VIEW->y[WINDOW_PREFIX],
-                                                   CURRENT_VIEW->x[WINDOW_PREFIX]);
-         cursor = the_driver->capture_current_window_cursor();
-         the_driver->restore_current_window_cursor(cursor);
+         the_driver->move_window_cursor(
+            driver_current_role_window(WINDOW_FILEAREA),
+            CURRENT_VIEW->y[WINDOW_FILEAREA],
+            CURRENT_VIEW->x[WINDOW_FILEAREA]);
+         if (driver_current_role_exists(WINDOW_PREFIX))
+            the_driver->move_window_cursor(
+               driver_current_role_window(WINDOW_PREFIX),
+               CURRENT_VIEW->y[WINDOW_PREFIX],
+               CURRENT_VIEW->x[WINDOW_PREFIX]);
+         cursor = the_driver->capture_window_cursor(driver_current_window());
+         the_driver->restore_window_cursor(driver_current_window(), cursor);
       }
    }
    TRACE_RETURN();
