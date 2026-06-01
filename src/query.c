@@ -2282,7 +2282,7 @@ void set_key_values(int key, bool mouse_key)
    int shift=0;
    int mod_shift, mod_ctrl, mod_alt;
 
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
    if ( mouse_key )
    {
       if ( read_pending_mouse_definition_key( &key ) )
@@ -2455,7 +2455,9 @@ short show_status(void)
          for (j=0;j<number_variables+1;j++)
          {
             query_terminal_report_write_cstr(
-               lineno, colno, j == 0 ? A_BOLD : A_NORMAL,
+               lineno, colno,
+               j == 0 ? the_render_attr_from_style(THE_STYLE_BOLD)
+                      : THE_RENDER_ATTR_NORMAL,
                item_values[j].value);
             colno += item_values[j].len+1;
          }
@@ -2488,7 +2490,8 @@ short show_status(void)
          }
       }
    }
-   query_terminal_report_write_cstr(terminal_lines-2, 0, A_NORMAL,
+   query_terminal_report_write_cstr(terminal_lines-2, 0,
+                                    THE_RENDER_ATTR_NORMAL,
                                     (const CHARTYPE *)HIT_ANY_KEY);
    the_driver->end_terminal_report();
 

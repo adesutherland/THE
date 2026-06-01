@@ -4683,7 +4683,7 @@ short parse_reserved_line(RESERVED *rsrvd)
                       * ...and it is the attribute character for OFF, set the colour to the
                       * default colour for reserved lines
                       */
-                     if (  ctlchar_attr[j].pair == -1 )
+                     if (  ctlchar_attr[j].fg == THE_COLOR_UNSPECIFIED )
                      {
                         current_colour = default_colour;
                      }

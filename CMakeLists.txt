@@ -581,6 +581,17 @@ add_test(NAME test_logcursor COMMAND test_logcursor)
 add_executable(test_inputevent tests/test_inputevent.c src/inputevent.c)
 target_include_directories(test_inputevent PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 add_test(NAME test_inputevent COMMAND test_inputevent)
+add_executable(test_keycodes tests/test_keycodes.c)
+target_include_directories(test_keycodes PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+add_test(NAME test_keycodes COMMAND test_keycodes)
+add_executable(test_curses_keymap tests/test_curses_keymap.c)
+target_include_directories(test_curses_keymap PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/drivers/curses
+    ${CURSES_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(test_curses_keymap ${CURSES_LIBRARIES})
+add_test(NAME test_curses_keymap COMMAND test_curses_keymap)
 add_executable(test_transientui tests/test_transientui.c src/transientui.c)
 target_include_directories(test_transientui PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 add_test(NAME test_transientui COMMAND test_transientui)

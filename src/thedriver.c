@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "thekeys.h"
+
 #if defined(_WIN32)
 # include <windows.h>
 # define THE_DRIVER_PATH_SEPARATOR ';'
@@ -373,14 +375,14 @@ int the_driver_is_headless(void)
 int the_driver_read_legacy_key(void)
 {
    TheInputEvent event;
-   int key = -1;
+   int key = THE_KEY_NONE;
 
    if (the_driver == NULL || the_driver->read_input_event == NULL)
-      return -1;
+      return THE_KEY_NONE;
    if (!the_driver->read_input_event(&event))
-      return -1;
+      return THE_KEY_NONE;
    if (!the_input_event_to_legacy_key(&event, &key))
-      return -1;
+      return THE_KEY_NONE;
    return key;
 }
 
@@ -449,6 +451,14 @@ void the_driver_refresh_terminal_size(void)
    if (current_lifecycle != NULL
    &&  current_lifecycle->refresh_terminal_size != NULL)
       current_lifecycle->refresh_terminal_size();
+}
+
+int the_driver_is_terminal_resized(void)
+{
+   if (current_lifecycle != NULL
+   &&  current_lifecycle->is_terminal_resized != NULL)
+      return current_lifecycle->is_terminal_resized();
+   return 0;
 }
 
 int the_driver_read_terminal_legacy_key(void)
@@ -712,16 +722,16 @@ TheDriverCell the_driver_alternate_cell(TheDriverAltCell cell)
    switch (cell)
    {
       case THE_DRIVER_ALT_UARROW:
-         return '^';
+         return the_driver_cell_make_alternate('^', THE_RENDER_ATTR_NORMAL);
       case THE_DRIVER_ALT_DARROW:
-         return 'v';
+         return the_driver_cell_make_alternate('v', THE_RENDER_ATTR_NORMAL);
       case THE_DRIVER_ALT_LARROW:
-         return '<';
+         return the_driver_cell_make_alternate('<', THE_RENDER_ATTR_NORMAL);
       case THE_DRIVER_ALT_RARROW:
-         return '>';
+         return the_driver_cell_make_alternate('>', THE_RENDER_ATTR_NORMAL);
       case THE_DRIVER_ALT_VLINE:
       default:
-         return '|';
+         return the_driver_cell_make_alternate('|', THE_RENDER_ATTR_NORMAL);
    }
 }
 

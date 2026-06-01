@@ -2228,7 +2228,7 @@ short ShowKey(CHARTYPE *params)
          while(1)
          {
 #ifdef CAN_RESIZE
-            if (is_termresized())
+            if (the_driver_is_terminal_resized())
             {
                (void)THE_Resize(0,0);
                (void)THERefresh((CHARTYPE *)"");
@@ -2240,7 +2240,7 @@ short ShowKey(CHARTYPE *params)
                continue;
 #endif
 #ifdef CAN_RESIZE
-            if (is_termresized())
+            if (the_driver_is_terminal_resized())
                continue;
 #endif
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
@@ -2637,7 +2637,7 @@ short Status(CHARTYPE *params)
          while( 1 )
          {
 #ifdef CAN_RESIZE
-            if ( is_termresized() )
+            if ( the_driver_is_terminal_resized() )
             {
                (void)THE_Resize( 0, 0 );
                (void)show_status();
@@ -2653,7 +2653,7 @@ short Status(CHARTYPE *params)
                continue;
 #endif
 #ifdef CAN_RESIZE
-            if ( is_termresized() )
+            if ( the_driver_is_terminal_resized() )
                continue;
 #endif
             break;

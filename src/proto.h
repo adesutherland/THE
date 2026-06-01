@@ -484,6 +484,7 @@ short advance_current_line (LINETYPE);
 short advance_current_or_focus_line (LINETYPE);
 void resolve_current_and_focus_lines ( CHARTYPE, VIEW_DETAILS *, LINETYPE, LINETYPE , short, bool , bool );
                                                            /* colour.c */
+TheDriverAttr set_colour (const COLOUR_ATTR *);
 short parse_colours (CHARTYPE *,COLOUR_ATTR *,CHARTYPE **,bool,bool*);
 short parse_modifiers (CHARTYPE *,COLOUR_ATTR *);
 TheDriverAttr merge_curline_colour (COLOUR_ATTR *, COLOUR_ATTR *);

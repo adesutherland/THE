@@ -80,7 +80,18 @@ if [[ -n "$headless_include_violations" ]]; then
   exit 1
 fi
 
-window_state_pattern='\b(WINDOW|chtype|cchar_t)\b|CURRENT_WINDOW|SCREEN_WINDOW|PENDING_WINDOW'
+the_h_curses_pattern='#[[:space:]]*include[[:space:]]*[<"][^>"]*(curses|ncurses)|\b(WINDOW|chtype|cchar_t)\b|\b(A_COLOR|COLOR_PAIR|PAIR_NUMBER|A_(BOLD|REVERSE|UNDERLINE|BLINK|DIM|ITALIC|ALTCHARSET|NORMAL|LEFTLINE|RIGHTLINE|TOPLINE|OVERLINE|STRIKEOUT))\b'
+the_h_curses_violations="$(
+  rg -n "$the_h_curses_pattern" src/the.h 2>/dev/null || true
+)"
+
+if [[ -n "$the_h_curses_violations" ]]; then
+  printf '%s\n' "Unexpected curses header/type/attribute residue in src/the.h:"
+  printf '%s\n' "$the_h_curses_violations"
+  exit 1
+fi
+
+window_state_pattern='#[[:space:]]*include[[:space:]]*[<"][^>"]*(curses|ncurses)|\b(WINDOW|chtype|cchar_t)\b|CURRENT_WINDOW|SCREEN_WINDOW|PENDING_WINDOW|\b(A_COLOR|COLOR_PAIR|PAIR_NUMBER|A_(BOLD|REVERSE|UNDERLINE|BLINK|DIM|ITALIC|ALTCHARSET|NORMAL|LEFTLINE|RIGHTLINE|TOPLINE|OVERLINE|STRIKEOUT))\b'
 window_state_violations="$(
   rg -n "$window_state_pattern" src \
     --glob '!src/drivers/curses/**' \

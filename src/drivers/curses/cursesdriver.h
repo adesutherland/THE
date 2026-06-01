@@ -1,7 +1,55 @@
 #ifndef THE_CURSESDRIVER_H
 #define THE_CURSESDRIVER_H
 
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
+
+#include "thedefs.h"
+
+#if defined(USE_UTF8) && !defined(_XOPEN_SOURCE_EXTENDED)
+# define _XOPEN_SOURCE_EXTENDED 1
+#endif
+
 #include <stddef.h>
+
+#if defined(USE_NCURSES)
+# include <ncurses.h>
+#elif defined(USE_EXTCURSES)
+# include <cur00.h>
+#elif defined(LOCAL_CURSES)
+# include "curses_local.h"
+#elif defined(USE_XCURSES)
+# include <curses.h>
+#else
+# include <curses.h>
+#endif
+
+#ifndef HAVE_KEYPAD
+# define keypad(win, enabled) OK
+#endif
+#ifndef HAVE_RAW
+# define raw() cbreak()
+#endif
+#ifndef HAVE_CBREAK
+# define cbreak() OK
+#endif
+#ifndef HAVE_WNOUTREFRESH
+# define wnoutrefresh(win) wrefresh(win)
+#endif
+#ifndef HAVE_TOUCHLINE
+# define touchline(win, start, count) touchwin(win)
+#endif
+#ifndef HAVE_RESET_SHELL_MODE
+# define reset_shell_mode() OK
+#endif
+#ifndef HAVE_RESET_PROG_MODE
+# define reset_prog_mode() OK
+#endif
+
+#if defined(HAVE_DEF_PROG_MODE) && defined(HAVE_RESET_PROG_MODE)
+# define CURSES_DRIVER_USE_PROG_MODE
+#endif
 
 #include "thedriver.h"
 
@@ -57,23 +105,27 @@ enum
 extern const TheDriverOps the_curses_driver_ops;
 extern const TheDriverModuleLifecycle the_curses_driver_lifecycle;
 
-chtype curses_driver_software_cursor_attr(CHARTYPE scrno, chtype base,
-                                          CursorShape shape);
+TheDriverAttr curses_driver_software_cursor_attr(CHARTYPE scrno,
+                                                 TheDriverAttr base,
+                                                 CursorShape shape);
 void curses_driver_draw_software_chtype_cell(CHARTYPE scrno, WINDOW *win,
-                                             short row, int col, chtype base,
+                                             short row, int col,
+                                             TheDriverCell base,
                                              CursorShape shape);
 void curses_driver_draw_software_blank_cell(CHARTYPE scrno, WINDOW *win,
-                                            short row, int col, chtype base,
+                                            short row, int col,
+                                            TheDriverAttr base,
                                             CursorShape shape);
 #ifdef USE_UTF8
 void curses_driver_write_render_wchars_at(WINDOW *win, int row, int col,
-                                          const wchar_t *text, chtype colour,
+                                          const wchar_t *text,
+                                          TheDriverAttr colour,
                                           int expected_width);
 void curses_driver_fill_cells_at(WINDOW *win, int row, int col, int width,
-                                 chtype colour);
+                                 TheDriverAttr colour);
 void curses_driver_write_ascii_cells_at(WINDOW *win, int row, int col,
                                         const char *text, int width,
-                                        chtype colour);
+                                        TheDriverAttr colour);
 #endif
 CursesDriverWindowCursor curses_driver_capture_window_cursor(WINDOW *win);
 CursesDriverWindowOrigin curses_driver_window_origin(WINDOW *win);
@@ -89,20 +141,20 @@ void curses_driver_set_driver_window_leaveok(TheDriverWindow *win,
 void curses_driver_move_window_cursor(WINDOW *win, short row, short col);
 void curses_driver_restore_window_cursor(WINDOW *win,
                                          CursesDriverWindowCursor cursor);
-void curses_driver_set_window_attr(WINDOW *win, chtype colour);
-void curses_driver_set_current_role_attr(short role, chtype colour);
+void curses_driver_set_window_attr(WINDOW *win, TheDriverAttr colour);
+void curses_driver_set_current_role_attr(short role, TheDriverAttr colour);
 void curses_driver_set_screen_role_attr(CHARTYPE scrno, short role,
-                                        chtype colour);
+                                        TheDriverAttr colour);
 void curses_driver_set_global_window_attr(CursesDriverGlobalWindowRole role,
-                                          chtype colour);
-void curses_driver_set_window_background(WINDOW *win, chtype colour);
+                                          TheDriverAttr colour);
+void curses_driver_set_window_background(WINDOW *win, TheDriverAttr colour);
 void curses_driver_clear_window(WINDOW *win);
 void curses_driver_clear_window_to_bottom(WINDOW *win);
 void curses_driver_clear_to_eol(WINDOW *win);
 void curses_driver_clear_current_role_to_eol(short role);
 void curses_driver_touch_window(WINDOW *win);
 void curses_driver_touch_line(WINDOW *win, int start, int count);
-void curses_driver_clear_line_at(WINDOW *win, short row, chtype colour);
+void curses_driver_clear_line_at(WINDOW *win, short row, TheDriverAttr colour);
 void curses_driver_refresh_window(WINDOW *win);
 void curses_driver_refresh_window_now(WINDOW *win);
 void curses_driver_sync_terminal_screen(void);
@@ -117,15 +169,16 @@ void curses_driver_present_cursor(bool visible);
 void curses_driver_set_window_timeout(WINDOW *win, int milliseconds);
 void curses_driver_set_current_window_timeout(int milliseconds);
 void curses_driver_draw_box(WINDOW *win);
-void curses_driver_draw_vertical_line(WINDOW *win, chtype ch, int len);
+void curses_driver_draw_vertical_line(WINDOW *win, TheDriverCell ch, int len);
 void curses_driver_add_string(WINDOW *win, const char *text);
 void curses_driver_add_string_at(WINDOW *win, short row, short col,
                                  const char *text);
 void curses_driver_add_global_string_at(CursesDriverGlobalWindowRole role,
                                         short row, short col,
                                         const char *text);
-void curses_driver_add_chtype_at(WINDOW *win, short row, short col, chtype ch);
-void curses_driver_draw_horizontal_line(WINDOW *win, chtype ch, int len);
+void curses_driver_add_chtype_at(WINDOW *win, short row, short col,
+                                 TheDriverCell ch);
+void curses_driver_draw_horizontal_line(WINDOW *win, TheDriverCell ch, int len);
 int curses_driver_read_input_event(TheInputEvent *event);
 int curses_driver_read_terminal_legacy_key(void);
 void curses_driver_current_mouse_screen_role_position(CHARTYPE scrno,
@@ -150,7 +203,7 @@ void curses_driver_write_chtype_span(WINDOW *win, const chtype *text, int len);
 void curses_driver_write_cchar_span(WINDOW *win, const cchar_t *text, int len);
 # endif
 #endif
-void curses_driver_add_chtype(WINDOW *win, chtype ch);
+void curses_driver_add_chtype(WINDOW *win, TheDriverCell ch);
 #ifdef USE_UTF8
 void curses_driver_add_cchar(WINDOW *win, const cchar_t *ch);
 #endif

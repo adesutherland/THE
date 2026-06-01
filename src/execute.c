@@ -3739,7 +3739,8 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
                   str = curr->line;
                else
                   str = (CHARTYPE *)"";
-               execute_terminal_report_write_cstr(lineno, 0, A_BOLD,
+               execute_terminal_report_write_cstr(
+                  lineno, 0, the_render_attr_from_style(THE_STYLE_BOLD),
                                                   curr->name);
                /*
                 * Calculate maximum length of string to display so we don't wrap.
@@ -3754,7 +3755,8 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
                 */
                execute_terminal_report_write_wrapped(&lineno,
                                                      (short)(1 + len_name),
-                                                     (short)rem, A_NORMAL,
+                                                     (short)rem,
+                                                     THE_RENDER_ATTR_NORMAL,
                                                      str);
                lineno++;
                curr = curr->next;
@@ -3772,7 +3774,8 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
                   str = curr->line;
                else
                   str = (CHARTYPE *)"";
-               execute_terminal_report_write_cstr(lineno, 0, A_BOLD, p);
+               execute_terminal_report_write_cstr(
+                  lineno, 0, the_render_attr_from_style(THE_STYLE_BOLD), p);
                /*
                 * Calculate maximum length of string to display so we don't wrap.
                 */
@@ -3786,13 +3789,15 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
                 */
                execute_terminal_report_write_wrapped(&lineno,
                                                      (short)(1 + len_name),
-                                                     (short)rem, A_NORMAL,
+                                                     (short)rem,
+                                                     THE_RENDER_ATTR_NORMAL,
                                                      str);
                lineno++;
                p = (CHARTYPE *)strtok( NULL, " " );
             }
          }
-         execute_terminal_report_write_cstr(terminal_lines - 2, 0, A_NORMAL,
+         execute_terminal_report_write_cstr(terminal_lines - 2, 0,
+                                            THE_RENDER_ATTR_NORMAL,
                                             (const CHARTYPE *)HIT_ANY_KEY);
          the_driver->end_terminal_report();
          while( 1 )
@@ -3802,12 +3807,12 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
             if ( key == KEY_SF || key == KEY_SR )
                continue;
 #endif
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
             if (the_input_legacy_key_is_mouse(key))
                continue;
 #endif
 #ifdef CAN_RESIZE
-            if ( is_termresized() )
+            if ( the_driver_is_terminal_resized() )
                continue;
 #endif
             break;
@@ -4571,7 +4576,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
          the_driver->present_cursor(FALSE);
          default_button = 0;
          editfield_col = -1;
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
          if ( rc == RC_READV_TERM_MOUSE )
          {
             /*
@@ -4608,7 +4613,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
       if (key == KEY_SF || key == KEY_SR)
          continue;
 #endif
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
       if (the_input_legacy_key_is_mouse(key))
       {
          TheDriverMouseEvent mouse;
@@ -5221,7 +5226,7 @@ short prepare_popup( CHARTYPE *params )
       switch(location)
       {
          case 'M':
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
             get_saved_mouse_pos(&y,&x);
 #else
             x = y = -1;
@@ -5468,7 +5473,7 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
       if (key == KEY_SF || key == KEY_SR)
          continue;
 #endif
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
       if (the_input_legacy_key_is_mouse(key))
       {
          TheDriverMouseEvent mouse;

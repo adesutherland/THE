@@ -40,29 +40,16 @@
 #include "thedriver.h"
 #include "extended_colors.h"
 
-#ifdef A_COLOR
-
-#define MAX_THE_PAIRS 32767
-static short pair_fg[MAX_THE_PAIRS];
-static short pair_bg[MAX_THE_PAIRS];
-static int next_the_pair = 1;
-
-int THE_alloc_pair(int fg, int bg) {
-    int i;
-    for (i = 1; i < next_the_pair; i++) {
-        if (pair_fg[i] == fg && pair_bg[i] == bg) return i;
-    }
-    if (next_the_pair < the_driver_color_pair_count() && next_the_pair < MAX_THE_PAIRS) {
-        pair_fg[next_the_pair] = fg;
-        pair_bg[next_the_pair] = bg;
-        the_driver_init_pair(next_the_pair, fg, bg);
-        return next_the_pair++;
-    }
-    return 1;
+TheDriverAttr set_colour(const COLOUR_ATTR *attr)
+{
+   if (attr == NULL)
+      return THE_RENDER_ATTR_NORMAL;
+   if (colour_support
+   &&  attr->fg != THE_COLOR_UNSPECIFIED
+   &&  attr->bg != THE_COLOR_UNSPECIFIED)
+      return the_render_attr_make(attr->fg, attr->bg, attr->style);
+   return the_render_attr_from_style(attr->mono_style);
 }
-
-int THE_fg_from_pair(int pair) { return pair > 0 && pair < next_the_pair ? pair_fg[pair] : 0; }
-int THE_bg_from_pair(int pair) { return pair > 0 && pair < next_the_pair ? pair_bg[pair] : 0; }
 
 static int THE_alloc_color(int r, int g, int b) {
     typedef struct {
@@ -82,7 +69,7 @@ static int THE_alloc_color(int r, int g, int b) {
             return colour_cache[i].colour;
     }
 
-    if (!the_driver_can_change_color()) return COLOR_WHITE;
+    if (!the_driver_can_change_color()) return THE_COLOR_WHITE;
     static int next_color = -1;
     if (next_color == -1) next_color = the_driver_color_count() - 1;
     if (next_color > 15) {
@@ -101,259 +88,252 @@ static int THE_alloc_color(int r, int g, int b) {
         }
         return c;
     }
-    return COLOR_WHITE;
+    return THE_COLOR_WHITE;
 }
 static COLOUR_DEF _THE_FAR the_colours[ATTR_MAX] =
 {
    /* foreground   background   modifier  mono                     */
-   {COLOR_WHITE   ,COLOR_BLUE  ,A_NORMAL ,A_NORMAL                 }, /* FILEAREA    */
-   {COLOR_WHITE   ,COLOR_BLUE  ,A_BOLD   ,A_BOLD                   }, /* CURLINE     */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL ,A_REVERSE                }, /* BLOCK       */
-   {COLOR_RED     ,COLOR_WHITE ,A_NORMAL ,A_BOLD|A_REVERSE         }, /* CBLOCK      */
-   {COLOR_BLACK   ,COLOR_CYAN  ,A_NORMAL ,A_BOLD                   }, /* CMDLINE     */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL ,A_REVERSE                }, /* IDLINE      */
-   {COLOR_RED     ,COLOR_WHITE ,A_NORMAL ,A_BLINK                  }, /* MSGLINE     */
-   {COLOR_BLACK   ,COLOR_CYAN  ,A_NORMAL ,A_BOLD                   }, /* ARROW       */
-   {COLOR_BLACK   ,COLOR_CYAN  ,A_NORMAL ,A_REVERSE                }, /* PREFIX      */
-   {COLOR_BLACK   ,COLOR_CYAN  ,A_NORMAL ,A_REVERSE                }, /* CPREFIX     */
-   {COLOR_RED     ,COLOR_WHITE ,A_NORMAL ,A_BOLD|A_REVERSE         }, /* PENDING     */
-   {COLOR_YELLOW  ,COLOR_BLUE  ,A_BOLD   ,A_BOLD                   }, /* SCALE       */
-   {COLOR_WHITE   ,COLOR_BLUE  ,A_BOLD   ,A_BOLD                   }, /* TOFEOF      */
-   {COLOR_WHITE   ,COLOR_BLUE  ,A_BOLD   ,A_BOLD                   }, /* CTOFEOF     */
-   {COLOR_YELLOW  ,COLOR_BLUE  ,A_BOLD   ,A_BOLD                   }, /* TABLINE     */
-   {COLOR_RED     ,COLOR_WHITE ,A_NORMAL ,A_BOLD                   }, /* SHADOW      */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL ,A_REVERSE                }, /* STATAREA    */
-   {COLOR_RED     ,COLOR_WHITE ,A_NORMAL ,A_BOLD                   }, /* DIVIDER     */
-   {COLOR_WHITE   ,COLOR_BLACK ,A_NORMAL ,A_BOLD                   }, /* RESERVED    */
-   {COLOR_MAGENTA ,COLOR_CYAN  ,A_BLINK  ,A_BLINK|A_REVERSE        }, /* NONDISP     */
-   {COLOR_WHITE   ,COLOR_CYAN  ,A_BOLD   ,A_REVERSE                }, /* HIGHLIGHT   */
-   {COLOR_YELLOW  ,COLOR_CYAN  ,A_BOLD   ,A_BOLD|A_REVERSE         }, /* CHIGHLIGHT  */
-   {COLOR_WHITE   ,COLOR_RED   ,A_BOLD   ,A_BOLD|A_REVERSE         }, /* THIGHLIGHT  */
-   {COLOR_BLACK   ,COLOR_CYAN  ,A_BOLD   ,A_BOLD|A_REVERSE         }, /* SLK         */
-   {COLOR_BLACK   ,COLOR_CYAN  ,A_NORMAL ,A_REVERSE                }, /* GAP         */
-   {COLOR_BLACK   ,COLOR_CYAN  ,A_NORMAL ,A_REVERSE                }, /* CGAP        */
-   {COLOR_WHITE   ,COLOR_RED   ,A_NORMAL ,A_REVERSE                }, /* ALERT       */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_NORMAL ,A_NORMAL                 }, /* DIALOG      */
-   {COLOR_WHITE   ,COLOR_BLACK ,A_BOLD   ,A_NORMAL                 }, /* BOUNDMARK   */
-   {COLOR_YELLOW  ,COLOR_BLUE  ,A_BOLD   ,A_NORMAL                 }, /* FILETABS    */
-   {COLOR_WHITE   ,COLOR_BLUE  ,A_NORMAL ,A_NORMAL                 }, /* FILETABSDIV */
-   {COLOR_WHITE   ,COLOR_BLUE  ,A_NORMAL ,A_NORMAL                 }, /* CURSORLINE  */
-   {COLOR_RED     ,COLOR_WHITE ,A_NORMAL ,A_BOLD                   }, /* DIA-BORDER    */
-   {COLOR_BLACK   ,COLOR_CYAN  ,A_NORMAL ,A_BOLD                   }, /* DIA-EDITFIELD */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL ,A_REVERSE                }, /* DIA-BUTTON    */
-   {COLOR_RED     ,COLOR_WHITE ,A_NORMAL ,A_BOLD|A_REVERSE         }, /* DIA-ABUTTON   */
-   {COLOR_RED     ,COLOR_WHITE ,A_NORMAL ,A_BOLD                   }, /* POP-BORDER    */
-   {COLOR_WHITE   ,COLOR_BLUE  ,A_NORMAL ,A_NORMAL                 }, /* POP-CURLINE   */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL ,A_REVERSE                }, /* POPUP         */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL ,A_REVERSE                }, /* POP-DIVIDER   */
-   {COLOR_WHITE   ,COLOR_RED   ,A_NORMAL ,A_REVERSE                }, /* CBERROR       */
-   {COLOR_BLACK   ,COLOR_YELLOW,A_NORMAL ,A_REVERSE                }, /* CBWARN        */
-   {COLOR_WHITE   ,COLOR_BLUE  ,A_NORMAL ,A_REVERSE                }, /* CBINFO        */
-   {COLOR_WHITE   ,COLOR_RED   ,A_BOLD   ,A_REVERSE                }, /* PMSGERROR     */
-   {COLOR_BLACK   ,COLOR_YELLOW,A_NORMAL ,A_REVERSE                }, /* PMSGWARN      */
-   {COLOR_WHITE   ,COLOR_BLUE  ,A_NORMAL ,A_REVERSE                }, /* PMSGINFO      */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLUE  ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* FILEAREA    */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* CURLINE     */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* BLOCK       */
+   {THE_COLOR_RED     ,THE_COLOR_WHITE ,THE_STYLE_NORMAL ,THE_STYLE_BOLD|THE_STYLE_REVERSE         }, /* CBLOCK      */
+   {THE_COLOR_BLACK   ,THE_COLOR_CYAN  ,THE_STYLE_NORMAL ,THE_STYLE_BOLD                   }, /* CMDLINE     */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* IDLINE      */
+   {THE_COLOR_RED     ,THE_COLOR_WHITE ,THE_STYLE_NORMAL ,THE_STYLE_BLINK                  }, /* MSGLINE     */
+   {THE_COLOR_BLACK   ,THE_COLOR_CYAN  ,THE_STYLE_NORMAL ,THE_STYLE_BOLD                   }, /* ARROW       */
+   {THE_COLOR_BLACK   ,THE_COLOR_CYAN  ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* PREFIX      */
+   {THE_COLOR_BLACK   ,THE_COLOR_CYAN  ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* CPREFIX     */
+   {THE_COLOR_RED     ,THE_COLOR_WHITE ,THE_STYLE_NORMAL ,THE_STYLE_BOLD|THE_STYLE_REVERSE         }, /* PENDING     */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* SCALE       */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* TOFEOF      */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* CTOFEOF     */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* TABLINE     */
+   {THE_COLOR_RED     ,THE_COLOR_WHITE ,THE_STYLE_NORMAL ,THE_STYLE_BOLD                   }, /* SHADOW      */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* STATAREA    */
+   {THE_COLOR_RED     ,THE_COLOR_WHITE ,THE_STYLE_NORMAL ,THE_STYLE_BOLD                   }, /* DIVIDER     */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_BOLD                   }, /* RESERVED    */
+   {THE_COLOR_MAGENTA ,THE_COLOR_CYAN  ,THE_STYLE_BLINK  ,THE_STYLE_BLINK|THE_STYLE_REVERSE        }, /* NONDISP     */
+   {THE_COLOR_WHITE   ,THE_COLOR_CYAN  ,THE_STYLE_BOLD   ,THE_STYLE_REVERSE                }, /* HIGHLIGHT   */
+   {THE_COLOR_YELLOW  ,THE_COLOR_CYAN  ,THE_STYLE_BOLD   ,THE_STYLE_BOLD|THE_STYLE_REVERSE         }, /* CHIGHLIGHT  */
+   {THE_COLOR_WHITE   ,THE_COLOR_RED   ,THE_STYLE_BOLD   ,THE_STYLE_BOLD|THE_STYLE_REVERSE         }, /* THIGHLIGHT  */
+   {THE_COLOR_BLACK   ,THE_COLOR_CYAN  ,THE_STYLE_BOLD   ,THE_STYLE_BOLD|THE_STYLE_REVERSE         }, /* SLK         */
+   {THE_COLOR_BLACK   ,THE_COLOR_CYAN  ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* GAP         */
+   {THE_COLOR_BLACK   ,THE_COLOR_CYAN  ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* CGAP        */
+   {THE_COLOR_WHITE   ,THE_COLOR_RED   ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* ALERT       */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* DIALOG      */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLACK ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* BOUNDMARK   */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* FILETABS    */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLUE  ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* FILETABSDIV */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLUE  ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* CURSORLINE  */
+   {THE_COLOR_RED     ,THE_COLOR_WHITE ,THE_STYLE_NORMAL ,THE_STYLE_BOLD                   }, /* DIA-BORDER    */
+   {THE_COLOR_BLACK   ,THE_COLOR_CYAN  ,THE_STYLE_NORMAL ,THE_STYLE_BOLD                   }, /* DIA-EDITFIELD */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* DIA-BUTTON    */
+   {THE_COLOR_RED     ,THE_COLOR_WHITE ,THE_STYLE_NORMAL ,THE_STYLE_BOLD|THE_STYLE_REVERSE         }, /* DIA-ABUTTON   */
+   {THE_COLOR_RED     ,THE_COLOR_WHITE ,THE_STYLE_NORMAL ,THE_STYLE_BOLD                   }, /* POP-BORDER    */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLUE  ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* POP-CURLINE   */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* POPUP         */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* POP-DIVIDER   */
+   {THE_COLOR_WHITE   ,THE_COLOR_RED   ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* CBERROR       */
+   {THE_COLOR_BLACK   ,THE_COLOR_YELLOW,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* CBWARN        */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLUE  ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* CBINFO        */
+   {THE_COLOR_WHITE   ,THE_COLOR_RED   ,THE_STYLE_BOLD   ,THE_STYLE_REVERSE                }, /* PMSGERROR     */
+   {THE_COLOR_BLACK   ,THE_COLOR_YELLOW,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* PMSGWARN      */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLUE  ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* PMSGINFO      */
 };
 
 static COLOUR_DEF _THE_FAR kedit_colours[ATTR_MAX] =
 {
    /* foreground   background   modifier  mono                     */
-   {COLOR_CYAN    ,COLOR_BLUE  ,A_BOLD   ,A_NORMAL                 }, /* FILEAREA    */
-   {COLOR_YELLOW  ,COLOR_BLUE  ,A_BOLD   ,A_BOLD                   }, /* CURLINE     */
-   {COLOR_CYAN    ,COLOR_WHITE ,A_BOLD   ,A_REVERSE                }, /* BLOCK       */
-   {COLOR_YELLOW  ,COLOR_WHITE ,A_BOLD   ,A_REVERSE|A_BOLD         }, /* CBLOCK      */
-   {COLOR_YELLOW  ,COLOR_BLUE  ,A_BOLD   ,A_NORMAL                 }, /* CMDLINE     */
-   {COLOR_YELLOW  ,COLOR_BLUE  ,A_BOLD   ,A_NORMAL                 }, /* IDLINE      */
-   {COLOR_YELLOW  ,COLOR_BLUE  ,A_BOLD   ,A_BOLD                   }, /* MSGLINE     */
-   {COLOR_YELLOW  ,COLOR_BLUE  ,A_BOLD   ,A_BOLD                   }, /* ARROW       */
-   {COLOR_YELLOW  ,COLOR_BLUE  ,A_NORMAL ,A_NORMAL                 }, /* PREFIX      */
-   {COLOR_YELLOW  ,COLOR_BLUE  ,A_NORMAL ,A_NORMAL                 }, /* CPREFIX     */
-   {COLOR_WHITE   ,COLOR_BLUE  ,A_BOLD   ,A_BOLD                   }, /* PENDING     */
-   {COLOR_YELLOW  ,COLOR_BLUE  ,A_BOLD   ,A_NORMAL                 }, /* SCALE       */
-   {COLOR_CYAN    ,COLOR_BLUE  ,A_BOLD   ,A_NORMAL                 }, /* TOFEOF      */
-   {COLOR_YELLOW  ,COLOR_BLUE  ,A_BOLD   ,A_BOLD                   }, /* CTOFEOF     */
-   {COLOR_YELLOW  ,COLOR_BLUE  ,A_BOLD   ,A_NORMAL                 }, /* TABLINE     */
-   {COLOR_YELLOW  ,COLOR_BLUE  ,A_NORMAL ,A_NORMAL                 }, /* SHADOW      */
-   {COLOR_YELLOW  ,COLOR_BLUE  ,A_BOLD   ,A_BOLD                   }, /* STATAREA    */
-   {COLOR_CYAN    ,COLOR_BLUE  ,A_BOLD   ,A_NORMAL                 }, /* DIVIDER     */
-   {COLOR_YELLOW  ,COLOR_BLUE  ,A_BOLD   ,A_NORMAL                 }, /* RESERVED    */
-   {COLOR_MAGENTA ,COLOR_CYAN  ,A_BLINK  ,A_BLINK|A_REVERSE        }, /* NONDISP     */
-   {COLOR_WHITE   ,COLOR_CYAN  ,A_BOLD   ,A_REVERSE                }, /* HIGHLIGHT   */
-   {COLOR_YELLOW  ,COLOR_CYAN  ,A_BOLD   ,A_BOLD|A_REVERSE         }, /* CHIGHLIGHT  */
-   {COLOR_WHITE   ,COLOR_RED   ,A_NORMAL ,A_REVERSE                }, /* THIGHLIGHT  */
-   {COLOR_BLACK   ,COLOR_CYAN  ,A_BOLD   ,A_BOLD|A_REVERSE         }, /* SLK         */
-   {COLOR_CYAN    ,COLOR_BLUE  ,A_BOLD   ,A_NORMAL                 }, /* GAP         */
-   {COLOR_CYAN    ,COLOR_BLUE  ,A_BOLD   ,A_NORMAL                 }, /* CGAP        */
-   {COLOR_WHITE   ,COLOR_RED   ,A_NORMAL ,A_REVERSE                }, /* ALERT       */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_NORMAL ,A_NORMAL                 }, /* DIALOG      */
-   {COLOR_WHITE   ,COLOR_BLACK ,A_BOLD   ,A_NORMAL                 }, /* BOUNDMARK   */
-   {COLOR_YELLOW  ,COLOR_BLACK ,A_BOLD   ,A_NORMAL                 }, /* FILETABS    */
-   {COLOR_WHITE   ,COLOR_BLACK ,A_NORMAL ,A_NORMAL                 }, /* FILETABSDIV */
-   {COLOR_CYAN    ,COLOR_BLUE  ,A_BOLD   ,A_NORMAL                 }, /* CURSORLINE   */
-   {COLOR_CYAN    ,COLOR_BLUE  ,A_BOLD   ,A_NORMAL                 }, /* DIA-BORDER    */
-   {COLOR_YELLOW  ,COLOR_BLUE  ,A_BOLD   ,A_NORMAL                 }, /* DIA-EDITFIELD */
-   {COLOR_CYAN    ,COLOR_WHITE ,A_BOLD   ,A_REVERSE                }, /* DIA-BUTTON    */
-   {COLOR_YELLOW  ,COLOR_WHITE ,A_BOLD   ,A_REVERSE|A_BOLD         }, /* DIA-ABUTTON   */
-   {COLOR_CYAN    ,COLOR_BLUE  ,A_BOLD   ,A_NORMAL                 }, /* POP-BORDER    */
-   {COLOR_CYAN    ,COLOR_BLUE  ,A_BOLD   ,A_NORMAL                 }, /* POP-CURLINE   */
-   {COLOR_CYAN    ,COLOR_WHITE ,A_BOLD   ,A_REVERSE                }, /* POPUP         */
-   {COLOR_YELLOW  ,COLOR_BLUE  ,A_BOLD   ,A_BOLD                   }, /* POP-DIVIDER   */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* FILEAREA    */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* CURLINE     */
+   {THE_COLOR_CYAN    ,THE_COLOR_WHITE ,THE_STYLE_BOLD   ,THE_STYLE_REVERSE                }, /* BLOCK       */
+   {THE_COLOR_YELLOW  ,THE_COLOR_WHITE ,THE_STYLE_BOLD   ,THE_STYLE_REVERSE|THE_STYLE_BOLD         }, /* CBLOCK      */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* CMDLINE     */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* IDLINE      */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* MSGLINE     */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* ARROW       */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLUE  ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* PREFIX      */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLUE  ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* CPREFIX     */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* PENDING     */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* SCALE       */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* TOFEOF      */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* CTOFEOF     */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* TABLINE     */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLUE  ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* SHADOW      */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* STATAREA    */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* DIVIDER     */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* RESERVED    */
+   {THE_COLOR_MAGENTA ,THE_COLOR_CYAN  ,THE_STYLE_BLINK  ,THE_STYLE_BLINK|THE_STYLE_REVERSE        }, /* NONDISP     */
+   {THE_COLOR_WHITE   ,THE_COLOR_CYAN  ,THE_STYLE_BOLD   ,THE_STYLE_REVERSE                }, /* HIGHLIGHT   */
+   {THE_COLOR_YELLOW  ,THE_COLOR_CYAN  ,THE_STYLE_BOLD   ,THE_STYLE_BOLD|THE_STYLE_REVERSE         }, /* CHIGHLIGHT  */
+   {THE_COLOR_WHITE   ,THE_COLOR_RED   ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* THIGHLIGHT  */
+   {THE_COLOR_BLACK   ,THE_COLOR_CYAN  ,THE_STYLE_BOLD   ,THE_STYLE_BOLD|THE_STYLE_REVERSE         }, /* SLK         */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* GAP         */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* CGAP        */
+   {THE_COLOR_WHITE   ,THE_COLOR_RED   ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* ALERT       */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* DIALOG      */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLACK ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* BOUNDMARK   */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLACK ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* FILETABS    */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* FILETABSDIV */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* CURSORLINE   */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* DIA-BORDER    */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* DIA-EDITFIELD */
+   {THE_COLOR_CYAN    ,THE_COLOR_WHITE ,THE_STYLE_BOLD   ,THE_STYLE_REVERSE                }, /* DIA-BUTTON    */
+   {THE_COLOR_YELLOW  ,THE_COLOR_WHITE ,THE_STYLE_BOLD   ,THE_STYLE_REVERSE|THE_STYLE_BOLD         }, /* DIA-ABUTTON   */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* POP-BORDER    */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* POP-CURLINE   */
+   {THE_COLOR_CYAN    ,THE_COLOR_WHITE ,THE_STYLE_BOLD   ,THE_STYLE_REVERSE                }, /* POPUP         */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLUE  ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* POP-DIVIDER   */
 };
 
 # if defined(USE_WINGUICURSES1)
 static COLOUR_DEF _THE_FAR keditw_colours[ATTR_MAX] =
 {
    /* foreground   background   modifier          mono                     */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* FILEAREA    */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_BOLD           ,A_BOLD                   }, /* CURLINE     */
-   {COLOR_WHITE   ,COLOR_BLACK ,A_BOLD           ,A_REVERSE                }, /* BLOCK       */
-   {COLOR_CYAN    ,COLOR_BLACK ,A_NORMAL         ,A_REVERSE|A_BOLD         }, /* CBLOCK      */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* CMDLINE     */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* IDLINE      */
-   {COLOR_BLACK   ,COLOR_CYAN  ,A_NORMAL         ,A_BOLD                   }, /* MSGLINE     */
-   {COLOR_CYAN    ,COLOR_WHITE ,A_NORMAL         ,A_BOLD                   }, /* ARROW       */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* PREFIX      */
-   {COLOR_CYAN    ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* CPREFIX     */
-   {COLOR_RED     ,COLOR_WHITE ,A_NORMAL         ,A_BOLD                   }, /* PENDING     */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* SCALE       */
-   {COLOR_GREEN   ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* TOFEOF      */
-   {COLOR_GREEN   ,COLOR_WHITE ,A_BOLD           ,A_BOLD                   }, /* CTOFEOF     */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* TABLINE     */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_BOLD           ,A_NORMAL                 }, /* SHADOW      */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL         ,A_BOLD                   }, /* STATAREA    */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* DIVIDER     */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* RESERVED    */
-   {COLOR_MAGENTA ,COLOR_WHITE ,A_NORMAL         ,A_REVERSE                }, /* NONDISP     */
-   {COLOR_BLACK   ,COLOR_YELLOW,A_BOLD           ,A_REVERSE                }, /* HIGHLIGHT   */
-   {COLOR_GREEN   ,COLOR_YELLOW,A_NORMAL         ,A_BOLD|A_REVERSE         }, /* CHIGHLIGHT  */
-   {COLOR_BLACK   ,COLOR_GREEN ,A_NORMAL         ,A_BOLD                   }, /* THIGHLIGHT  */
-   {COLOR_BLACK   ,COLOR_CYAN  ,A_NORMAL         ,A_BOLD|A_REVERSE         }, /* SLK         */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* GAP         */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* CGAP        */
-   {COLOR_WHITE   ,COLOR_RED   ,A_BOLD           ,A_REVERSE                }, /* ALERT       */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* DIALOG      */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* BOUNDMARK   */
-   {COLOR_MAGENTA ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* FILETABS    */
-   {COLOR_YELLOW  ,COLOR_WHITE ,A_BOLD           ,A_NORMAL                 }, /* FILETABSDIV */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* CURSORLINE   */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* DIA-BORDER    */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* DIA-EDITFIELD */
-   {COLOR_WHITE   ,COLOR_BLACK ,A_BOLD           ,A_REVERSE                }, /* DIA-BUTTON    */
-   {COLOR_CYAN    ,COLOR_BLACK ,A_NORMAL         ,A_REVERSE|A_BOLD         }, /* DIA-ABUTTON   */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* POP-BORDER    */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* POP-CURLINE   */
-   {COLOR_WHITE   ,COLOR_BLACK ,A_BOLD           ,A_REVERSE                }, /* POPUP         */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL         ,A_BOLD                   }, /* POP-DIVIDER   */
-   {COLOR_WHITE   ,COLOR_RED   ,A_NORMAL         ,A_REVERSE                }, /* CBERROR       */
-   {COLOR_BLACK   ,COLOR_YELLOW,A_NORMAL         ,A_REVERSE                }, /* CBWARN        */
-   {COLOR_WHITE   ,COLOR_BLUE  ,A_NORMAL         ,A_REVERSE                }, /* CBINFO        */
-   {COLOR_WHITE   ,COLOR_RED   ,A_BOLD           ,A_REVERSE                }, /* PMSGERROR     */
-   {COLOR_BLACK   ,COLOR_YELLOW,A_NORMAL         ,A_REVERSE                }, /* PMSGWARN      */
-   {COLOR_WHITE   ,COLOR_BLUE  ,A_NORMAL         ,A_REVERSE                }, /* PMSGINFO      */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* FILEAREA    */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_BOLD           ,THE_STYLE_BOLD                   }, /* CURLINE     */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLACK ,THE_STYLE_BOLD           ,THE_STYLE_REVERSE                }, /* BLOCK       */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLACK ,THE_STYLE_NORMAL         ,THE_STYLE_REVERSE|THE_STYLE_BOLD         }, /* CBLOCK      */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* CMDLINE     */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* IDLINE      */
+   {THE_COLOR_BLACK   ,THE_COLOR_CYAN  ,THE_STYLE_NORMAL         ,THE_STYLE_BOLD                   }, /* MSGLINE     */
+   {THE_COLOR_CYAN    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_BOLD                   }, /* ARROW       */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* PREFIX      */
+   {THE_COLOR_CYAN    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* CPREFIX     */
+   {THE_COLOR_RED     ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_BOLD                   }, /* PENDING     */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* SCALE       */
+   {THE_COLOR_GREEN   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* TOFEOF      */
+   {THE_COLOR_GREEN   ,THE_COLOR_WHITE ,THE_STYLE_BOLD           ,THE_STYLE_BOLD                   }, /* CTOFEOF     */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* TABLINE     */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_BOLD           ,THE_STYLE_NORMAL                 }, /* SHADOW      */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_BOLD                   }, /* STATAREA    */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* DIVIDER     */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* RESERVED    */
+   {THE_COLOR_MAGENTA ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_REVERSE                }, /* NONDISP     */
+   {THE_COLOR_BLACK   ,THE_COLOR_YELLOW,THE_STYLE_BOLD           ,THE_STYLE_REVERSE                }, /* HIGHLIGHT   */
+   {THE_COLOR_GREEN   ,THE_COLOR_YELLOW,THE_STYLE_NORMAL         ,THE_STYLE_BOLD|THE_STYLE_REVERSE         }, /* CHIGHLIGHT  */
+   {THE_COLOR_BLACK   ,THE_COLOR_GREEN ,THE_STYLE_NORMAL         ,THE_STYLE_BOLD                   }, /* THIGHLIGHT  */
+   {THE_COLOR_BLACK   ,THE_COLOR_CYAN  ,THE_STYLE_NORMAL         ,THE_STYLE_BOLD|THE_STYLE_REVERSE         }, /* SLK         */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* GAP         */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* CGAP        */
+   {THE_COLOR_WHITE   ,THE_COLOR_RED   ,THE_STYLE_BOLD           ,THE_STYLE_REVERSE                }, /* ALERT       */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* DIALOG      */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* BOUNDMARK   */
+   {THE_COLOR_MAGENTA ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* FILETABS    */
+   {THE_COLOR_YELLOW  ,THE_COLOR_WHITE ,THE_STYLE_BOLD           ,THE_STYLE_NORMAL                 }, /* FILETABSDIV */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* CURSORLINE   */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* DIA-BORDER    */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* DIA-EDITFIELD */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLACK ,THE_STYLE_BOLD           ,THE_STYLE_REVERSE                }, /* DIA-BUTTON    */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLACK ,THE_STYLE_NORMAL         ,THE_STYLE_REVERSE|THE_STYLE_BOLD         }, /* DIA-ABUTTON   */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* POP-BORDER    */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* POP-CURLINE   */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLACK ,THE_STYLE_BOLD           ,THE_STYLE_REVERSE                }, /* POPUP         */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_BOLD                   }, /* POP-DIVIDER   */
+   {THE_COLOR_WHITE   ,THE_COLOR_RED   ,THE_STYLE_NORMAL         ,THE_STYLE_REVERSE                }, /* CBERROR       */
+   {THE_COLOR_BLACK   ,THE_COLOR_YELLOW,THE_STYLE_NORMAL         ,THE_STYLE_REVERSE                }, /* CBWARN        */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLUE  ,THE_STYLE_NORMAL         ,THE_STYLE_REVERSE                }, /* CBINFO        */
+   {THE_COLOR_WHITE   ,THE_COLOR_RED   ,THE_STYLE_BOLD           ,THE_STYLE_REVERSE                }, /* PMSGERROR     */
+   {THE_COLOR_BLACK   ,THE_COLOR_YELLOW,THE_STYLE_NORMAL         ,THE_STYLE_REVERSE                }, /* PMSGWARN      */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLUE  ,THE_STYLE_NORMAL         ,THE_STYLE_REVERSE                }, /* PMSGINFO      */
 };
 # else
 static COLOUR_DEF _THE_FAR keditw_colours[ATTR_MAX] =
 {
    /* foreground   background   modifier          mono                     */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_NORMAL |A_BLINK,A_NORMAL                 }, /* FILEAREA    */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_BOLD   |A_BLINK,A_BOLD                   }, /* CURLINE     */
-   {COLOR_WHITE   ,COLOR_BLACK ,A_NORMAL |A_BOLD ,A_REVERSE                }, /* BLOCK       */
-   {COLOR_CYAN    ,COLOR_BLACK ,A_NORMAL         ,A_REVERSE|A_BOLD         }, /* CBLOCK      */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL |A_BLINK,A_NORMAL                 }, /* CMDLINE     */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* IDLINE      */
-   {COLOR_BLACK   ,COLOR_CYAN  ,          A_BLINK,A_BOLD                   }, /* MSGLINE     */
-   {COLOR_CYAN    ,COLOR_WHITE ,A_NORMAL |A_BLINK,A_BOLD                   }, /* ARROW       */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_NORMAL |A_BLINK,A_NORMAL                 }, /* PREFIX      */
-   {COLOR_CYAN    ,COLOR_WHITE ,A_NORMAL |A_BLINK,A_NORMAL                 }, /* CPREFIX     */
-   {COLOR_RED     ,COLOR_WHITE ,A_NORMAL |A_BLINK,A_BOLD                   }, /* PENDING     */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL |A_BLINK,A_NORMAL                 }, /* SCALE       */
-   {COLOR_GREEN   ,COLOR_WHITE ,A_NORMAL |A_BLINK,A_NORMAL                 }, /* TOFEOF      */
-   {COLOR_GREEN   ,COLOR_WHITE ,A_BOLD   |A_BLINK,A_BOLD                   }, /* CTOFEOF     */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL |A_BLINK,A_NORMAL                 }, /* TABLINE     */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_BOLD   |A_BLINK,A_NORMAL                 }, /* SHADOW      */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL         ,A_BOLD                   }, /* STATAREA    */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* DIVIDER     */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL |A_BLINK,A_NORMAL                 }, /* RESERVED    */
-   {COLOR_MAGENTA ,COLOR_WHITE ,A_NORMAL         ,A_BLINK|A_REVERSE        }, /* NONDISP     */
-   {COLOR_BLACK   ,COLOR_YELLOW,A_BOLD   |A_BLINK,A_REVERSE                }, /* HIGHLIGHT   */
-   {COLOR_GREEN   ,COLOR_YELLOW,A_NORMAL         ,A_BOLD|A_REVERSE         }, /* CHIGHLIGHT  */
-   {COLOR_BLACK   ,COLOR_GREEN ,A_NORMAL |A_BLINK,A_BOLD                   }, /* THIGHLIGHT  */
-   {COLOR_BLACK   ,COLOR_CYAN  ,A_NORMAL         ,A_BOLD|A_REVERSE         }, /* SLK         */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_NORMAL |A_BLINK,A_NORMAL                 }, /* GAP         */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_NORMAL |A_BLINK,A_NORMAL                 }, /* CGAP        */
-   {COLOR_WHITE   ,COLOR_RED   ,A_BOLD           ,A_REVERSE                }, /* ALERT       */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* DIALOG      */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_NORMAL |A_BLINK,A_NORMAL                 }, /* BOUNDMARK   */
-   {COLOR_MAGENTA ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* FILETABS    */
-   {COLOR_YELLOW  ,COLOR_WHITE ,A_BOLD           ,A_NORMAL                 }, /* FILETABSDIV */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_BOLD   |A_BLINK,A_NORMAL                 }, /* CURSORLINE   */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* DIA-BORDER    */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL |A_BLINK,A_NORMAL                 }, /* DIA-EDITFIELD */
-   {COLOR_WHITE   ,COLOR_BLACK ,A_NORMAL |A_BOLD ,A_REVERSE                }, /* DIA-BUTTON    */
-   {COLOR_CYAN    ,COLOR_BLACK ,A_NORMAL         ,A_REVERSE|A_BOLD         }, /* DIA-ABUTTON   */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL         ,A_NORMAL                 }, /* POP-BORDER    */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_NORMAL |A_BLINK,A_NORMAL                 }, /* POP-CURLINE   */
-   {COLOR_WHITE   ,COLOR_BLACK ,A_NORMAL |A_BOLD ,A_REVERSE                }, /* POPUP         */
-   {COLOR_BLUE    ,COLOR_WHITE ,A_NORMAL         ,A_BOLD                   }, /* POP-DIVIDER   */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL |THE_STYLE_BLINK,THE_STYLE_NORMAL                 }, /* FILEAREA    */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_BOLD   |THE_STYLE_BLINK,THE_STYLE_BOLD                   }, /* CURLINE     */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLACK ,THE_STYLE_NORMAL |THE_STYLE_BOLD ,THE_STYLE_REVERSE                }, /* BLOCK       */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLACK ,THE_STYLE_NORMAL         ,THE_STYLE_REVERSE|THE_STYLE_BOLD         }, /* CBLOCK      */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL |THE_STYLE_BLINK,THE_STYLE_NORMAL                 }, /* CMDLINE     */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* IDLINE      */
+   {THE_COLOR_BLACK   ,THE_COLOR_CYAN  ,          THE_STYLE_BLINK,THE_STYLE_BOLD                   }, /* MSGLINE     */
+   {THE_COLOR_CYAN    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL |THE_STYLE_BLINK,THE_STYLE_BOLD                   }, /* ARROW       */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL |THE_STYLE_BLINK,THE_STYLE_NORMAL                 }, /* PREFIX      */
+   {THE_COLOR_CYAN    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL |THE_STYLE_BLINK,THE_STYLE_NORMAL                 }, /* CPREFIX     */
+   {THE_COLOR_RED     ,THE_COLOR_WHITE ,THE_STYLE_NORMAL |THE_STYLE_BLINK,THE_STYLE_BOLD                   }, /* PENDING     */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL |THE_STYLE_BLINK,THE_STYLE_NORMAL                 }, /* SCALE       */
+   {THE_COLOR_GREEN   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL |THE_STYLE_BLINK,THE_STYLE_NORMAL                 }, /* TOFEOF      */
+   {THE_COLOR_GREEN   ,THE_COLOR_WHITE ,THE_STYLE_BOLD   |THE_STYLE_BLINK,THE_STYLE_BOLD                   }, /* CTOFEOF     */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL |THE_STYLE_BLINK,THE_STYLE_NORMAL                 }, /* TABLINE     */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_BOLD   |THE_STYLE_BLINK,THE_STYLE_NORMAL                 }, /* SHADOW      */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_BOLD                   }, /* STATAREA    */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* DIVIDER     */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL |THE_STYLE_BLINK,THE_STYLE_NORMAL                 }, /* RESERVED    */
+   {THE_COLOR_MAGENTA ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_BLINK|THE_STYLE_REVERSE        }, /* NONDISP     */
+   {THE_COLOR_BLACK   ,THE_COLOR_YELLOW,THE_STYLE_BOLD   |THE_STYLE_BLINK,THE_STYLE_REVERSE                }, /* HIGHLIGHT   */
+   {THE_COLOR_GREEN   ,THE_COLOR_YELLOW,THE_STYLE_NORMAL         ,THE_STYLE_BOLD|THE_STYLE_REVERSE         }, /* CHIGHLIGHT  */
+   {THE_COLOR_BLACK   ,THE_COLOR_GREEN ,THE_STYLE_NORMAL |THE_STYLE_BLINK,THE_STYLE_BOLD                   }, /* THIGHLIGHT  */
+   {THE_COLOR_BLACK   ,THE_COLOR_CYAN  ,THE_STYLE_NORMAL         ,THE_STYLE_BOLD|THE_STYLE_REVERSE         }, /* SLK         */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL |THE_STYLE_BLINK,THE_STYLE_NORMAL                 }, /* GAP         */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL |THE_STYLE_BLINK,THE_STYLE_NORMAL                 }, /* CGAP        */
+   {THE_COLOR_WHITE   ,THE_COLOR_RED   ,THE_STYLE_BOLD           ,THE_STYLE_REVERSE                }, /* ALERT       */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* DIALOG      */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL |THE_STYLE_BLINK,THE_STYLE_NORMAL                 }, /* BOUNDMARK   */
+   {THE_COLOR_MAGENTA ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* FILETABS    */
+   {THE_COLOR_YELLOW  ,THE_COLOR_WHITE ,THE_STYLE_BOLD           ,THE_STYLE_NORMAL                 }, /* FILETABSDIV */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_BOLD   |THE_STYLE_BLINK,THE_STYLE_NORMAL                 }, /* CURSORLINE   */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* DIA-BORDER    */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL |THE_STYLE_BLINK,THE_STYLE_NORMAL                 }, /* DIA-EDITFIELD */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLACK ,THE_STYLE_NORMAL |THE_STYLE_BOLD ,THE_STYLE_REVERSE                }, /* DIA-BUTTON    */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLACK ,THE_STYLE_NORMAL         ,THE_STYLE_REVERSE|THE_STYLE_BOLD         }, /* DIA-ABUTTON   */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_NORMAL                 }, /* POP-BORDER    */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL |THE_STYLE_BLINK,THE_STYLE_NORMAL                 }, /* POP-CURLINE   */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLACK ,THE_STYLE_NORMAL |THE_STYLE_BOLD ,THE_STYLE_REVERSE                }, /* POPUP         */
+   {THE_COLOR_BLUE    ,THE_COLOR_WHITE ,THE_STYLE_NORMAL         ,THE_STYLE_BOLD                   }, /* POP-DIVIDER   */
 };
 # endif
 
 static COLOUR_DEF _THE_FAR xedit_colours[ATTR_MAX] =
 {
    /* foreground   background   modifier  mono                     */
-   {COLOR_GREEN   ,COLOR_BLACK ,A_NORMAL ,A_NORMAL                 }, /* FILEAREA    */
-   {COLOR_CYAN    ,COLOR_BLACK ,A_NORMAL ,A_BOLD                   }, /* CURLINE     */
-   {COLOR_BLACK   ,COLOR_GREEN ,A_NORMAL ,A_REVERSE                }, /* BLOCK       */
-   {COLOR_CYAN    ,COLOR_GREEN ,A_BOLD   ,A_BOLD|A_REVERSE         }, /* CBLOCK      */
-   {COLOR_YELLOW  ,COLOR_BLACK ,A_NORMAL ,A_NORMAL                 }, /* CMDLINE     */
-   {COLOR_CYAN    ,COLOR_BLACK ,A_NORMAL ,A_BOLD                   }, /* IDLINE      */
-   {COLOR_RED     ,COLOR_BLACK ,A_BOLD   ,A_BOLD                   }, /* MSGLINE     */
-   {COLOR_CYAN    ,COLOR_BLACK ,A_NORMAL ,A_BOLD                   }, /* ARROW       */
-   {COLOR_GREEN   ,COLOR_BLACK ,A_NORMAL ,A_NORMAL                 }, /* PREFIX      */
-   {COLOR_GREEN   ,COLOR_BLACK ,A_NORMAL ,A_NORMAL                 }, /* CPREFIX     */
-   {COLOR_GREEN   ,COLOR_BLACK ,A_BOLD   ,A_BOLD                   }, /* PENDING     */
-   {COLOR_CYAN    ,COLOR_BLACK ,A_NORMAL ,A_BOLD                   }, /* SCALE       */
-   {COLOR_GREEN   ,COLOR_BLACK ,A_NORMAL ,A_NORMAL                 }, /* TOFEOF      */
-   {COLOR_GREEN   ,COLOR_BLACK ,A_BOLD   ,A_BOLD                   }, /* CTOFEOF     */
-   {COLOR_GREEN   ,COLOR_BLACK ,A_BOLD   ,A_BOLD                   }, /* TABLINE     */
-   {COLOR_GREEN   ,COLOR_BLACK ,A_NORMAL ,A_NORMAL                 }, /* SHADOW      */
-   {COLOR_CYAN    ,COLOR_BLACK ,A_NORMAL ,A_BOLD                   }, /* STATAREA    */
-   {COLOR_GREEN   ,COLOR_BLACK ,A_BOLD   ,A_BOLD                   }, /* DIVIDER     */
-   {COLOR_GREEN   ,COLOR_BLACK ,A_BOLD   ,A_BOLD                   }, /* RESERVED    */
-   {COLOR_MAGENTA ,COLOR_CYAN  ,A_BLINK  ,A_BLINK|A_REVERSE        }, /* NONDISP     */
-   {COLOR_WHITE   ,COLOR_CYAN  ,A_BOLD   ,A_REVERSE                }, /* HIGHLIGHT   */
-   {COLOR_YELLOW  ,COLOR_CYAN  ,A_BOLD   ,A_BOLD|A_REVERSE         }, /* CHIGHLIGHT  */
-   {COLOR_WHITE   ,COLOR_RED   ,A_NORMAL ,A_REVERSE                }, /* THIGHLIGHT  */
-   {COLOR_BLACK   ,COLOR_GREEN ,A_BOLD   ,A_BOLD|A_REVERSE         }, /* SLK         */
-   {COLOR_GREEN   ,COLOR_BLACK ,A_NORMAL ,A_NORMAL                 }, /* GAP         */
-   {COLOR_GREEN   ,COLOR_BLACK ,A_NORMAL ,A_NORMAL                 }, /* CGAP        */
-   {COLOR_WHITE   ,COLOR_RED   ,A_NORMAL ,A_REVERSE                }, /* ALERT       */
-   {COLOR_BLACK   ,COLOR_WHITE ,A_NORMAL ,A_NORMAL                 }, /* DIALOG      */
-   {COLOR_WHITE   ,COLOR_BLACK ,A_BOLD   ,A_NORMAL                 }, /* BOUNDMARK   */
-   {COLOR_GREEN   ,COLOR_WHITE ,A_BOLD   ,A_NORMAL                 }, /* FILETABS    */
-   {COLOR_GREEN   ,COLOR_WHITE ,A_NORMAL ,A_NORMAL                 }, /* FILETABSDIV */
-   {COLOR_GREEN   ,COLOR_BLACK ,A_NORMAL ,A_NORMAL                 }, /* CURSORLINE   */
-   {COLOR_GREEN   ,COLOR_BLACK ,A_BOLD   ,A_BOLD                   }, /* DIA-BORDER    */
-   {COLOR_YELLOW  ,COLOR_BLACK ,A_NORMAL ,A_NORMAL                 }, /* DIA-EDITFIELD */
-   {COLOR_BLACK   ,COLOR_GREEN ,A_NORMAL ,A_REVERSE                }, /* DIA-BUTTON    */
-   {COLOR_CYAN    ,COLOR_GREEN ,A_BOLD   ,A_BOLD|A_REVERSE         }, /* DIA-ABUTTON   */
-   {COLOR_GREEN   ,COLOR_BLACK ,A_BOLD   ,A_BOLD                   }, /* POP-BORDER    */
-   {COLOR_GREEN   ,COLOR_BLACK ,A_NORMAL ,A_NORMAL                 }, /* POP-CURLINE   */
-   {COLOR_BLACK   ,COLOR_GREEN ,A_NORMAL ,A_REVERSE                }, /* POPUP         */
-   {COLOR_CYAN    ,COLOR_BLACK ,A_NORMAL ,A_BOLD                   }, /* POP-DIVIDER   */
-   {COLOR_WHITE   ,COLOR_RED   ,A_NORMAL ,A_REVERSE                }, /* CBERROR       */
-   {COLOR_BLACK   ,COLOR_YELLOW,A_NORMAL ,A_REVERSE                }, /* CBWARN        */
-   {COLOR_WHITE   ,COLOR_BLUE  ,A_NORMAL ,A_REVERSE                }, /* CBINFO        */
-   {COLOR_WHITE   ,COLOR_RED   ,A_BOLD   ,A_REVERSE                }, /* PMSGERROR     */
-   {COLOR_BLACK   ,COLOR_YELLOW,A_NORMAL ,A_REVERSE                }, /* PMSGWARN      */
-   {COLOR_WHITE   ,COLOR_BLUE  ,A_NORMAL ,A_REVERSE                }, /* PMSGINFO      */
+   {THE_COLOR_GREEN   ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* FILEAREA    */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_BOLD                   }, /* CURLINE     */
+   {THE_COLOR_BLACK   ,THE_COLOR_GREEN ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* BLOCK       */
+   {THE_COLOR_CYAN    ,THE_COLOR_GREEN ,THE_STYLE_BOLD   ,THE_STYLE_BOLD|THE_STYLE_REVERSE         }, /* CBLOCK      */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* CMDLINE     */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_BOLD                   }, /* IDLINE      */
+   {THE_COLOR_RED     ,THE_COLOR_BLACK ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* MSGLINE     */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_BOLD                   }, /* ARROW       */
+   {THE_COLOR_GREEN   ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* PREFIX      */
+   {THE_COLOR_GREEN   ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* CPREFIX     */
+   {THE_COLOR_GREEN   ,THE_COLOR_BLACK ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* PENDING     */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_BOLD                   }, /* SCALE       */
+   {THE_COLOR_GREEN   ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* TOFEOF      */
+   {THE_COLOR_GREEN   ,THE_COLOR_BLACK ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* CTOFEOF     */
+   {THE_COLOR_GREEN   ,THE_COLOR_BLACK ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* TABLINE     */
+   {THE_COLOR_GREEN   ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* SHADOW      */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_BOLD                   }, /* STATAREA    */
+   {THE_COLOR_GREEN   ,THE_COLOR_BLACK ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* DIVIDER     */
+   {THE_COLOR_GREEN   ,THE_COLOR_BLACK ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* RESERVED    */
+   {THE_COLOR_MAGENTA ,THE_COLOR_CYAN  ,THE_STYLE_BLINK  ,THE_STYLE_BLINK|THE_STYLE_REVERSE        }, /* NONDISP     */
+   {THE_COLOR_WHITE   ,THE_COLOR_CYAN  ,THE_STYLE_BOLD   ,THE_STYLE_REVERSE                }, /* HIGHLIGHT   */
+   {THE_COLOR_YELLOW  ,THE_COLOR_CYAN  ,THE_STYLE_BOLD   ,THE_STYLE_BOLD|THE_STYLE_REVERSE         }, /* CHIGHLIGHT  */
+   {THE_COLOR_WHITE   ,THE_COLOR_RED   ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* THIGHLIGHT  */
+   {THE_COLOR_BLACK   ,THE_COLOR_GREEN ,THE_STYLE_BOLD   ,THE_STYLE_BOLD|THE_STYLE_REVERSE         }, /* SLK         */
+   {THE_COLOR_GREEN   ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* GAP         */
+   {THE_COLOR_GREEN   ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* CGAP        */
+   {THE_COLOR_WHITE   ,THE_COLOR_RED   ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* ALERT       */
+   {THE_COLOR_BLACK   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* DIALOG      */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLACK ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* BOUNDMARK   */
+   {THE_COLOR_GREEN   ,THE_COLOR_WHITE ,THE_STYLE_BOLD   ,THE_STYLE_NORMAL                 }, /* FILETABS    */
+   {THE_COLOR_GREEN   ,THE_COLOR_WHITE ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* FILETABSDIV */
+   {THE_COLOR_GREEN   ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* CURSORLINE   */
+   {THE_COLOR_GREEN   ,THE_COLOR_BLACK ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* DIA-BORDER    */
+   {THE_COLOR_YELLOW  ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* DIA-EDITFIELD */
+   {THE_COLOR_BLACK   ,THE_COLOR_GREEN ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* DIA-BUTTON    */
+   {THE_COLOR_CYAN    ,THE_COLOR_GREEN ,THE_STYLE_BOLD   ,THE_STYLE_BOLD|THE_STYLE_REVERSE         }, /* DIA-ABUTTON   */
+   {THE_COLOR_GREEN   ,THE_COLOR_BLACK ,THE_STYLE_BOLD   ,THE_STYLE_BOLD                   }, /* POP-BORDER    */
+   {THE_COLOR_GREEN   ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_NORMAL                 }, /* POP-CURLINE   */
+   {THE_COLOR_BLACK   ,THE_COLOR_GREEN ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* POPUP         */
+   {THE_COLOR_CYAN    ,THE_COLOR_BLACK ,THE_STYLE_NORMAL ,THE_STYLE_BOLD                   }, /* POP-DIVIDER   */
+   {THE_COLOR_WHITE   ,THE_COLOR_RED   ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* CBERROR       */
+   {THE_COLOR_BLACK   ,THE_COLOR_YELLOW,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* CBWARN        */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLUE  ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* CBINFO        */
+   {THE_COLOR_WHITE   ,THE_COLOR_RED   ,THE_STYLE_BOLD   ,THE_STYLE_REVERSE                }, /* PMSGERROR     */
+   {THE_COLOR_BLACK   ,THE_COLOR_YELLOW,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* PMSGWARN      */
+   {THE_COLOR_WHITE   ,THE_COLOR_BLUE  ,THE_STYLE_NORMAL ,THE_STYLE_REVERSE                }, /* PMSGINFO      */
 };
-#else
-static COLOUR_DEF _THE_FAR the_colours[ATTR_MAX] =    { {0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0} };
-static COLOUR_DEF _THE_FAR kedit_colours[ATTR_MAX] =  { {0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0} };
-static COLOUR_DEF _THE_FAR keditw_colours[ATTR_MAX] = { {0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0} };
-static COLOUR_DEF _THE_FAR xedit_colours[ATTR_MAX] =  { {0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0} };
-#endif
-
 /* A - comments */
 /* B - strings */
 /* C - numbers */
@@ -393,211 +373,211 @@ static COLOUR_DEF _THE_FAR xedit_colours[ATTR_MAX] =  { {0,0,0,0},{0,0,0,0},{0,0
  static COLOUR_DEF _THE_FAR the_ecolours[ECOLOUR_MAX] =
  {
   /* foreground   background   modifier  mono */
-  {COLOR_GREEN,   COLOR_BLUE , A_NORMAL, A_NORMAL}, /* A */
-  {COLOR_YELLOW,  COLOR_BLUE , A_NORMAL, A_NORMAL}, /* B */
-  {COLOR_RED,     COLOR_BLUE , A_NORMAL, A_NORMAL}, /* C */
-  {COLOR_CYAN,    COLOR_BLUE , A_NORMAL, A_NORMAL}, /* D */
-  {COLOR_RED,     COLOR_BLUE , A_NORMAL, A_NORMAL}, /* E */
-  {COLOR_RED,     COLOR_BLUE , A_NORMAL, A_NORMAL}, /* F */
-  {COLOR_RED,     COLOR_BLUE , A_BOLD  , A_NORMAL}, /* G */
-  {COLOR_BLACK,   COLOR_BLUE , A_NORMAL, A_NORMAL}, /* H */
-  {COLOR_GREEN,   COLOR_BLUE , A_NORMAL, A_NORMAL}, /* I */
-  {COLOR_BLUE,    COLOR_BLUE , A_BOLD  , A_NORMAL}, /* J */
-  {COLOR_RED,     COLOR_BLUE , A_NORMAL, A_NORMAL}, /* K */
-  {COLOR_GREEN,   COLOR_BLUE , A_NORMAL, A_NORMAL}, /* L */
-  {COLOR_RED,     COLOR_BLUE , A_BOLD  , A_NORMAL}, /* M */
-  {COLOR_CYAN,    COLOR_BLUE , A_NORMAL, A_NORMAL}, /* N */
-  {COLOR_MAGENTA, COLOR_BLUE , A_NORMAL, A_NORMAL}, /* O */
-  {COLOR_WHITE,   COLOR_BLUE , A_BOLD,   A_NORMAL}, /* P */
-  {COLOR_BLUE,    COLOR_BLUE , A_NORMAL, A_NORMAL}, /* Q */
-  {COLOR_MAGENTA, COLOR_BLUE , A_BOLD  , A_NORMAL}, /* R */
-  {COLOR_MAGENTA, COLOR_BLUE , A_BOLD  , A_NORMAL}, /* S */
-  {COLOR_CYAN,    COLOR_BLUE , A_BOLD  , A_NORMAL}, /* T */
-  {COLOR_RED,     COLOR_BLUE , A_BOLD  , A_NORMAL}, /* U */
-  {COLOR_MAGENTA, COLOR_BLUE , A_NORMAL, A_NORMAL}, /* V */
-  {COLOR_YELLOW,  COLOR_BLUE , A_BOLD,   A_NORMAL}, /* W */
-  {COLOR_YELLOW,  COLOR_BLUE , A_NORMAL, A_NORMAL}, /* X */
-  {COLOR_BLACK,   COLOR_BLUE , A_NORMAL, A_NORMAL}, /* Y */
-  {COLOR_BLACK,   COLOR_BLUE , A_NORMAL, A_NORMAL}, /* Z */
-  {COLOR_RED,     COLOR_BLUE , A_BOLD  , A_NORMAL}, /* 1 */
-  {COLOR_YELLOW,  COLOR_BLUE , A_NORMAL, A_NORMAL}, /* 2 */
-  {COLOR_RED,     COLOR_BLUE , A_NORMAL, A_NORMAL}, /* 3 */
-  {COLOR_MAGENTA, COLOR_BLUE , A_NORMAL, A_NORMAL}, /* 4 */
-  {COLOR_GREEN,   COLOR_BLUE , A_NORMAL, A_NORMAL}, /* 5 */
-  {COLOR_CYAN,    COLOR_BLUE , A_NORMAL, A_NORMAL}, /* 6 */
-  {COLOR_RED,     COLOR_BLUE , A_BOLD  , A_NORMAL}, /* 7 */
-  {COLOR_BLACK,   COLOR_BLUE , A_NORMAL, A_NORMAL}, /* 8 */
-  {COLOR_BLUE,    COLOR_BLUE , A_BOLD ,  A_NORMAL}, /* 9 */
+  {THE_COLOR_GREEN,   THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* A */
+  {THE_COLOR_YELLOW,  THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* B */
+  {THE_COLOR_RED,     THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* C */
+  {THE_COLOR_CYAN,    THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* D */
+  {THE_COLOR_RED,     THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* E */
+  {THE_COLOR_RED,     THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* F */
+  {THE_COLOR_RED,     THE_COLOR_BLUE , THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* G */
+  {THE_COLOR_BLACK,   THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* H */
+  {THE_COLOR_GREEN,   THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* I */
+  {THE_COLOR_BLUE,    THE_COLOR_BLUE , THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* J */
+  {THE_COLOR_RED,     THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* K */
+  {THE_COLOR_GREEN,   THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* L */
+  {THE_COLOR_RED,     THE_COLOR_BLUE , THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* M */
+  {THE_COLOR_CYAN,    THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* N */
+  {THE_COLOR_MAGENTA, THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* O */
+  {THE_COLOR_WHITE,   THE_COLOR_BLUE , THE_STYLE_BOLD,   THE_STYLE_NORMAL}, /* P */
+  {THE_COLOR_BLUE,    THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* Q */
+  {THE_COLOR_MAGENTA, THE_COLOR_BLUE , THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* R */
+  {THE_COLOR_MAGENTA, THE_COLOR_BLUE , THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* S */
+  {THE_COLOR_CYAN,    THE_COLOR_BLUE , THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* T */
+  {THE_COLOR_RED,     THE_COLOR_BLUE , THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* U */
+  {THE_COLOR_MAGENTA, THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* V */
+  {THE_COLOR_YELLOW,  THE_COLOR_BLUE , THE_STYLE_BOLD,   THE_STYLE_NORMAL}, /* W */
+  {THE_COLOR_YELLOW,  THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* X */
+  {THE_COLOR_BLACK,   THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* Y */
+  {THE_COLOR_BLACK,   THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* Z */
+  {THE_COLOR_RED,     THE_COLOR_BLUE , THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* 1 */
+  {THE_COLOR_YELLOW,  THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 2 */
+  {THE_COLOR_RED,     THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 3 */
+  {THE_COLOR_MAGENTA, THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 4 */
+  {THE_COLOR_GREEN,   THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 5 */
+  {THE_COLOR_CYAN,    THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 6 */
+  {THE_COLOR_RED,     THE_COLOR_BLUE , THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* 7 */
+  {THE_COLOR_BLACK,   THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 8 */
+  {THE_COLOR_BLUE,    THE_COLOR_BLUE , THE_STYLE_BOLD ,  THE_STYLE_NORMAL}, /* 9 */
  };
 
  static COLOUR_DEF _THE_FAR xedit_ecolours[ECOLOUR_MAX] =
  {
   /* foreground   background   modifier  mono */
-  {COLOR_GREEN,   COLOR_BLACK, A_NORMAL, A_NORMAL}, /* A */
-  {COLOR_CYAN,    COLOR_BLACK, A_NORMAL, A_NORMAL}, /* B */
-  {COLOR_RED,     COLOR_BLACK, A_NORMAL, A_NORMAL}, /* C */
-  {COLOR_YELLOW,  COLOR_BLACK, A_NORMAL, A_NORMAL}, /* D */
-  {COLOR_RED,     COLOR_BLACK, A_NORMAL, A_NORMAL}, /* E */
-  {COLOR_RED,     COLOR_BLACK, A_NORMAL, A_NORMAL}, /* F */
-  {COLOR_RED,     COLOR_BLACK, A_NORMAL, A_NORMAL}, /* G */
-  {COLOR_BLACK,   COLOR_BLACK, A_NORMAL, A_NORMAL}, /* H */
-  {COLOR_GREEN,   COLOR_BLACK, A_NORMAL, A_NORMAL}, /* I */
-  {COLOR_BLUE,    COLOR_BLACK, A_BOLD  , A_NORMAL}, /* J */
-  {COLOR_RED,     COLOR_BLACK, A_NORMAL, A_NORMAL}, /* K */
-  {COLOR_GREEN,   COLOR_BLACK, A_NORMAL, A_NORMAL}, /* L */
-  {COLOR_RED,     COLOR_BLACK, A_BOLD  , A_NORMAL}, /* M */
-  {COLOR_CYAN,    COLOR_BLACK, A_NORMAL, A_NORMAL}, /* N */
-  {COLOR_MAGENTA, COLOR_BLACK, A_NORMAL, A_NORMAL}, /* O */
-  {COLOR_WHITE,   COLOR_BLACK, A_BOLD,   A_NORMAL}, /* P */
-  {COLOR_BLUE,    COLOR_BLACK, A_NORMAL, A_NORMAL}, /* Q */
-  {COLOR_MAGENTA, COLOR_BLACK, A_BOLD  , A_NORMAL}, /* R */
-  {COLOR_MAGENTA, COLOR_BLACK, A_BOLD  , A_NORMAL}, /* S */
-  {COLOR_BLUE,    COLOR_BLACK, A_BOLD  , A_NORMAL}, /* T */
-  {COLOR_RED,     COLOR_BLACK, A_BOLD  , A_NORMAL}, /* U */
-  {COLOR_MAGENTA, COLOR_BLACK, A_NORMAL, A_NORMAL}, /* V */
-  {COLOR_YELLOW,  COLOR_BLACK, A_BOLD  , A_NORMAL}, /* W */
-  {COLOR_YELLOW,  COLOR_BLACK, A_NORMAL, A_NORMAL}, /* X */
-  {COLOR_BLACK,   COLOR_BLACK, A_NORMAL, A_NORMAL}, /* Y */
-  {COLOR_BLACK,   COLOR_BLACK, A_NORMAL, A_NORMAL}, /* Z */
-  {COLOR_RED,     COLOR_BLACK, A_BOLD  , A_NORMAL}, /* 1 */
-  {COLOR_BLUE,    COLOR_BLACK, A_NORMAL, A_NORMAL}, /* 2 */
-  {COLOR_RED,     COLOR_BLACK, A_NORMAL, A_NORMAL}, /* 3 */
-  {COLOR_MAGENTA, COLOR_BLACK, A_NORMAL, A_NORMAL}, /* 4 */
-  {COLOR_GREEN,   COLOR_BLACK, A_NORMAL, A_NORMAL}, /* 5 */
-  {COLOR_CYAN,    COLOR_BLACK, A_NORMAL, A_NORMAL}, /* 6 */
-  {COLOR_RED,     COLOR_BLACK, A_BOLD  , A_NORMAL}, /* 7 */
-  {COLOR_BLACK,   COLOR_BLACK, A_NORMAL, A_NORMAL}, /* 8 */
-  {COLOR_BLUE,    COLOR_BLACK, A_BOLD ,  A_NORMAL}, /* 9 */
+  {THE_COLOR_GREEN,   THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* A */
+  {THE_COLOR_CYAN,    THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* B */
+  {THE_COLOR_RED,     THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* C */
+  {THE_COLOR_YELLOW,  THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* D */
+  {THE_COLOR_RED,     THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* E */
+  {THE_COLOR_RED,     THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* F */
+  {THE_COLOR_RED,     THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* G */
+  {THE_COLOR_BLACK,   THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* H */
+  {THE_COLOR_GREEN,   THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* I */
+  {THE_COLOR_BLUE,    THE_COLOR_BLACK, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* J */
+  {THE_COLOR_RED,     THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* K */
+  {THE_COLOR_GREEN,   THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* L */
+  {THE_COLOR_RED,     THE_COLOR_BLACK, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* M */
+  {THE_COLOR_CYAN,    THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* N */
+  {THE_COLOR_MAGENTA, THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* O */
+  {THE_COLOR_WHITE,   THE_COLOR_BLACK, THE_STYLE_BOLD,   THE_STYLE_NORMAL}, /* P */
+  {THE_COLOR_BLUE,    THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* Q */
+  {THE_COLOR_MAGENTA, THE_COLOR_BLACK, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* R */
+  {THE_COLOR_MAGENTA, THE_COLOR_BLACK, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* S */
+  {THE_COLOR_BLUE,    THE_COLOR_BLACK, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* T */
+  {THE_COLOR_RED,     THE_COLOR_BLACK, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* U */
+  {THE_COLOR_MAGENTA, THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* V */
+  {THE_COLOR_YELLOW,  THE_COLOR_BLACK, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* W */
+  {THE_COLOR_YELLOW,  THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* X */
+  {THE_COLOR_BLACK,   THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* Y */
+  {THE_COLOR_BLACK,   THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* Z */
+  {THE_COLOR_RED,     THE_COLOR_BLACK, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* 1 */
+  {THE_COLOR_BLUE,    THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 2 */
+  {THE_COLOR_RED,     THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 3 */
+  {THE_COLOR_MAGENTA, THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 4 */
+  {THE_COLOR_GREEN,   THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 5 */
+  {THE_COLOR_CYAN,    THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 6 */
+  {THE_COLOR_RED,     THE_COLOR_BLACK, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* 7 */
+  {THE_COLOR_BLACK,   THE_COLOR_BLACK, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 8 */
+  {THE_COLOR_BLUE,    THE_COLOR_BLACK, THE_STYLE_BOLD ,  THE_STYLE_NORMAL}, /* 9 */
  };
 
  static COLOUR_DEF _THE_FAR kedit_ecolours[ECOLOUR_MAX] =
  {
   /* foreground   background   modifier  mono */
-  {COLOR_GREEN,   COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* A */
-  {COLOR_CYAN,    COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* B */
-  {COLOR_RED,     COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* C */
-  {COLOR_BLUE,    COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* D */
-  {COLOR_RED,     COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* E */
-  {COLOR_RED,     COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* F */
-  {COLOR_RED,     COLOR_BLUE,  A_BOLD  , A_NORMAL}, /* G */
-  {COLOR_BLACK,   COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* H */
-  {COLOR_GREEN,   COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* I */
-  {COLOR_BLUE,    COLOR_BLUE,  A_BOLD  , A_NORMAL}, /* J */
-  {COLOR_RED,     COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* K */
-  {COLOR_GREEN,   COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* L */
-  {COLOR_RED,     COLOR_BLUE,  A_BOLD  , A_NORMAL}, /* M */
-  {COLOR_CYAN,    COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* N */
-  {COLOR_MAGENTA, COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* O */
-  {COLOR_WHITE,   COLOR_BLUE,  A_BOLD,   A_NORMAL}, /* P */
-  {COLOR_BLUE,    COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* Q */
-  {COLOR_MAGENTA, COLOR_BLUE,  A_BOLD  , A_NORMAL}, /* R */
-  {COLOR_MAGENTA, COLOR_BLUE,  A_BOLD  , A_NORMAL}, /* S */
-  {COLOR_BLUE,    COLOR_BLUE,  A_BOLD  , A_NORMAL}, /* T */
-  {COLOR_RED,     COLOR_BLUE,  A_BOLD  , A_NORMAL}, /* U */
-  {COLOR_MAGENTA, COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* V */
-  {COLOR_YELLOW,  COLOR_BLUE,  A_BOLD,   A_NORMAL}, /* W */
-  {COLOR_YELLOW,  COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* X */
-  {COLOR_BLACK,   COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* Y */
-  {COLOR_BLACK,   COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* Z */
-  {COLOR_RED,     COLOR_BLUE,  A_BOLD  , A_NORMAL}, /* 1 */
-  {COLOR_YELLOW,  COLOR_BLUE , A_NORMAL, A_NORMAL}, /* 2 */
-  {COLOR_RED,     COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* 3 */
-  {COLOR_MAGENTA, COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* 4 */
-  {COLOR_GREEN,   COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* 5 */
-  {COLOR_CYAN,    COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* 6 */
-  {COLOR_RED,     COLOR_BLUE,  A_BOLD  , A_NORMAL}, /* 7 */
-  {COLOR_BLACK,   COLOR_BLUE,  A_NORMAL, A_NORMAL}, /* 8 */
-  {COLOR_BLUE,    COLOR_BLUE,  A_BOLD ,  A_NORMAL}, /* 9 */
+  {THE_COLOR_GREEN,   THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* A */
+  {THE_COLOR_CYAN,    THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* B */
+  {THE_COLOR_RED,     THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* C */
+  {THE_COLOR_BLUE,    THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* D */
+  {THE_COLOR_RED,     THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* E */
+  {THE_COLOR_RED,     THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* F */
+  {THE_COLOR_RED,     THE_COLOR_BLUE,  THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* G */
+  {THE_COLOR_BLACK,   THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* H */
+  {THE_COLOR_GREEN,   THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* I */
+  {THE_COLOR_BLUE,    THE_COLOR_BLUE,  THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* J */
+  {THE_COLOR_RED,     THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* K */
+  {THE_COLOR_GREEN,   THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* L */
+  {THE_COLOR_RED,     THE_COLOR_BLUE,  THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* M */
+  {THE_COLOR_CYAN,    THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* N */
+  {THE_COLOR_MAGENTA, THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* O */
+  {THE_COLOR_WHITE,   THE_COLOR_BLUE,  THE_STYLE_BOLD,   THE_STYLE_NORMAL}, /* P */
+  {THE_COLOR_BLUE,    THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* Q */
+  {THE_COLOR_MAGENTA, THE_COLOR_BLUE,  THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* R */
+  {THE_COLOR_MAGENTA, THE_COLOR_BLUE,  THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* S */
+  {THE_COLOR_BLUE,    THE_COLOR_BLUE,  THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* T */
+  {THE_COLOR_RED,     THE_COLOR_BLUE,  THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* U */
+  {THE_COLOR_MAGENTA, THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* V */
+  {THE_COLOR_YELLOW,  THE_COLOR_BLUE,  THE_STYLE_BOLD,   THE_STYLE_NORMAL}, /* W */
+  {THE_COLOR_YELLOW,  THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* X */
+  {THE_COLOR_BLACK,   THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* Y */
+  {THE_COLOR_BLACK,   THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* Z */
+  {THE_COLOR_RED,     THE_COLOR_BLUE,  THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* 1 */
+  {THE_COLOR_YELLOW,  THE_COLOR_BLUE , THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 2 */
+  {THE_COLOR_RED,     THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 3 */
+  {THE_COLOR_MAGENTA, THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 4 */
+  {THE_COLOR_GREEN,   THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 5 */
+  {THE_COLOR_CYAN,    THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 6 */
+  {THE_COLOR_RED,     THE_COLOR_BLUE,  THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* 7 */
+  {THE_COLOR_BLACK,   THE_COLOR_BLUE,  THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 8 */
+  {THE_COLOR_BLUE,    THE_COLOR_BLUE,  THE_STYLE_BOLD ,  THE_STYLE_NORMAL}, /* 9 */
  };
 
 #if defined(USE_WINGUICURSES1)
  static COLOUR_DEF _THE_FAR keditw_ecolours[ECOLOUR_MAX] =
  {
   /* foreground   background   modifier  mono */
-  {COLOR_GREEN,   COLOR_WHITE, A_NORMAL|A_ITALIC, A_NORMAL}, /* A */
-  {COLOR_CYAN,    COLOR_WHITE, A_NORMAL, A_NORMAL}, /* B */
-  {COLOR_RED,     COLOR_WHITE, A_NORMAL, A_NORMAL}, /* C */
-  {COLOR_BLUE,    COLOR_WHITE, A_NORMAL, A_NORMAL}, /* D */
-  {COLOR_RED,     COLOR_WHITE, A_NORMAL, A_NORMAL}, /* E */
-  {COLOR_RED,     COLOR_WHITE, A_NORMAL, A_NORMAL}, /* F */
-  {COLOR_RED,     COLOR_WHITE, A_BOLD  , A_NORMAL}, /* G */
-  {COLOR_BLACK,   COLOR_WHITE, A_NORMAL, A_NORMAL}, /* H */
-  {COLOR_GREEN,   COLOR_WHITE, A_NORMAL, A_NORMAL}, /* I */
-  {COLOR_BLUE,    COLOR_WHITE, A_BOLD  , A_NORMAL}, /* J */
-  {COLOR_RED,     COLOR_WHITE, A_NORMAL, A_NORMAL}, /* K */
-  {COLOR_GREEN,   COLOR_WHITE, A_NORMAL, A_NORMAL}, /* L */
-  {COLOR_RED,     COLOR_WHITE, A_BOLD  , A_NORMAL}, /* M */
-  {COLOR_CYAN,    COLOR_WHITE, A_NORMAL, A_NORMAL}, /* N */
-  {COLOR_MAGENTA, COLOR_WHITE, A_NORMAL, A_NORMAL}, /* O */
-  {COLOR_WHITE,   COLOR_WHITE, A_NORMAL, A_NORMAL}, /* P */
-  {COLOR_BLUE,    COLOR_WHITE, A_NORMAL, A_NORMAL}, /* Q */
-  {COLOR_MAGENTA, COLOR_WHITE, A_BOLD  , A_NORMAL}, /* R */
-  {COLOR_MAGENTA, COLOR_WHITE, A_BOLD  , A_NORMAL}, /* S */
-  {COLOR_BLUE,    COLOR_WHITE, A_BOLD  , A_NORMAL}, /* T */
-  {COLOR_RED,     COLOR_WHITE, A_BOLD  , A_NORMAL}, /* U */
-  {COLOR_MAGENTA, COLOR_WHITE, A_BOLD  , A_NORMAL}, /* V */
-  {COLOR_YELLOW,  COLOR_WHITE, A_NORMAL, A_NORMAL}, /* W */
-  {COLOR_GREEN,   COLOR_WHITE, A_BOLD  , A_NORMAL}, /* X */
-  {COLOR_RED,     COLOR_WHITE, A_NORMAL, A_NORMAL}, /* Y */
-  {COLOR_BLACK,   COLOR_WHITE, A_NORMAL, A_NORMAL}, /* Z */
-  {COLOR_RED,     COLOR_WHITE, A_BOLD  , A_NORMAL}, /* 1 */
-  {COLOR_BLUE,    COLOR_WHITE, A_NORMAL, A_NORMAL}, /* 2 */
-  {COLOR_RED,     COLOR_WHITE, A_NORMAL, A_NORMAL}, /* 3 */
-  {COLOR_MAGENTA, COLOR_WHITE, A_NORMAL, A_NORMAL}, /* 4 */
-  {COLOR_GREEN,   COLOR_WHITE, A_NORMAL, A_NORMAL}, /* 5 */
-  {COLOR_CYAN,    COLOR_WHITE, A_NORMAL, A_NORMAL}, /* 6 */
-  {COLOR_YELLOW,  COLOR_WHITE, A_NORMAL, A_NORMAL}, /* 7 */
-  {COLOR_WHITE,   COLOR_WHITE, A_NORMAL, A_NORMAL}, /* 8 */
-  {COLOR_BLUE,    COLOR_WHITE, A_BOLD  , A_NORMAL}, /* 9 */
+  {THE_COLOR_GREEN,   THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_ITALIC, THE_STYLE_NORMAL}, /* A */
+  {THE_COLOR_CYAN,    THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* B */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* C */
+  {THE_COLOR_BLUE,    THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* D */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* E */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* F */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* G */
+  {THE_COLOR_BLACK,   THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* H */
+  {THE_COLOR_GREEN,   THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* I */
+  {THE_COLOR_BLUE,    THE_COLOR_WHITE, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* J */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* K */
+  {THE_COLOR_GREEN,   THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* L */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* M */
+  {THE_COLOR_CYAN,    THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* N */
+  {THE_COLOR_MAGENTA, THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* O */
+  {THE_COLOR_WHITE,   THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* P */
+  {THE_COLOR_BLUE,    THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* Q */
+  {THE_COLOR_MAGENTA, THE_COLOR_WHITE, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* R */
+  {THE_COLOR_MAGENTA, THE_COLOR_WHITE, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* S */
+  {THE_COLOR_BLUE,    THE_COLOR_WHITE, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* T */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* U */
+  {THE_COLOR_MAGENTA, THE_COLOR_WHITE, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* V */
+  {THE_COLOR_YELLOW,  THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* W */
+  {THE_COLOR_GREEN,   THE_COLOR_WHITE, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* X */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* Y */
+  {THE_COLOR_BLACK,   THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* Z */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* 1 */
+  {THE_COLOR_BLUE,    THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 2 */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 3 */
+  {THE_COLOR_MAGENTA, THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 4 */
+  {THE_COLOR_GREEN,   THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 5 */
+  {THE_COLOR_CYAN,    THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 6 */
+  {THE_COLOR_YELLOW,  THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 7 */
+  {THE_COLOR_WHITE,   THE_COLOR_WHITE, THE_STYLE_NORMAL, THE_STYLE_NORMAL}, /* 8 */
+  {THE_COLOR_BLUE,    THE_COLOR_WHITE, THE_STYLE_BOLD  , THE_STYLE_NORMAL}, /* 9 */
  };
 #else
  static COLOUR_DEF _THE_FAR keditw_ecolours[ECOLOUR_MAX] =
  {
   /* foreground   background   modifier  mono */
-  {COLOR_GREEN,   COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* A */
-  {COLOR_CYAN,    COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* B */
-  {COLOR_RED,     COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* C */
-  {COLOR_BLUE,    COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* D */
-  {COLOR_RED,     COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* E */
-  {COLOR_RED,     COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* F */
-  {COLOR_RED,     COLOR_WHITE, A_BOLD  |A_BLINK, A_NORMAL}, /* G */
-  {COLOR_BLACK,   COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* H */
-  {COLOR_GREEN,   COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* I */
-  {COLOR_BLUE,    COLOR_WHITE, A_BOLD  |A_BLINK, A_NORMAL}, /* J */
-  {COLOR_RED,     COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* K */
-  {COLOR_GREEN,   COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* L */
-  {COLOR_RED,     COLOR_WHITE, A_BOLD  |A_BLINK, A_NORMAL}, /* M */
-  {COLOR_CYAN,    COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* N */
-  {COLOR_MAGENTA, COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* O */
-  {COLOR_WHITE,   COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* P */
-  {COLOR_BLUE,    COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* Q */
-  {COLOR_MAGENTA, COLOR_WHITE, A_BOLD  |A_BLINK, A_NORMAL}, /* R */
-  {COLOR_MAGENTA, COLOR_WHITE, A_BOLD  |A_BLINK, A_NORMAL}, /* S */
-  {COLOR_BLUE,    COLOR_WHITE, A_BOLD  |A_BLINK, A_NORMAL}, /* T */
-  {COLOR_RED,     COLOR_WHITE, A_BOLD  |A_BLINK, A_NORMAL}, /* U */
-  {COLOR_MAGENTA, COLOR_WHITE, A_BOLD  |A_BLINK, A_NORMAL}, /* V */
-  {COLOR_YELLOW,  COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* W */
-  {COLOR_GREEN,   COLOR_WHITE, A_BOLD  |A_BLINK, A_NORMAL}, /* X */
-  {COLOR_RED,     COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* Y */
-  {COLOR_BLACK,   COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* Z */
-  {COLOR_RED,     COLOR_WHITE, A_BOLD  |A_BLINK, A_NORMAL}, /* 1 */
-  {COLOR_BLUE,    COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* 2 */
-  {COLOR_RED,     COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* 3 */
-  {COLOR_MAGENTA, COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* 4 */
-  {COLOR_GREEN,   COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* 5 */
-  {COLOR_CYAN,    COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* 6 */
-  {COLOR_YELLOW,  COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* 7 */
-  {COLOR_WHITE,   COLOR_WHITE, A_NORMAL|A_BLINK, A_NORMAL}, /* 8 */
-  {COLOR_BLUE,    COLOR_WHITE, A_BOLD  |A_BLINK, A_NORMAL}, /* 9 */
+  {THE_COLOR_GREEN,   THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* A */
+  {THE_COLOR_CYAN,    THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* B */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* C */
+  {THE_COLOR_BLUE,    THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* D */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* E */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* F */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_BOLD  |THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* G */
+  {THE_COLOR_BLACK,   THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* H */
+  {THE_COLOR_GREEN,   THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* I */
+  {THE_COLOR_BLUE,    THE_COLOR_WHITE, THE_STYLE_BOLD  |THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* J */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* K */
+  {THE_COLOR_GREEN,   THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* L */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_BOLD  |THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* M */
+  {THE_COLOR_CYAN,    THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* N */
+  {THE_COLOR_MAGENTA, THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* O */
+  {THE_COLOR_WHITE,   THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* P */
+  {THE_COLOR_BLUE,    THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* Q */
+  {THE_COLOR_MAGENTA, THE_COLOR_WHITE, THE_STYLE_BOLD  |THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* R */
+  {THE_COLOR_MAGENTA, THE_COLOR_WHITE, THE_STYLE_BOLD  |THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* S */
+  {THE_COLOR_BLUE,    THE_COLOR_WHITE, THE_STYLE_BOLD  |THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* T */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_BOLD  |THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* U */
+  {THE_COLOR_MAGENTA, THE_COLOR_WHITE, THE_STYLE_BOLD  |THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* V */
+  {THE_COLOR_YELLOW,  THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* W */
+  {THE_COLOR_GREEN,   THE_COLOR_WHITE, THE_STYLE_BOLD  |THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* X */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* Y */
+  {THE_COLOR_BLACK,   THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* Z */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_BOLD  |THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* 1 */
+  {THE_COLOR_BLUE,    THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* 2 */
+  {THE_COLOR_RED,     THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* 3 */
+  {THE_COLOR_MAGENTA, THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* 4 */
+  {THE_COLOR_GREEN,   THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* 5 */
+  {THE_COLOR_CYAN,    THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* 6 */
+  {THE_COLOR_YELLOW,  THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* 7 */
+  {THE_COLOR_WHITE,   THE_COLOR_WHITE, THE_STYLE_NORMAL|THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* 8 */
+  {THE_COLOR_BLUE,    THE_COLOR_WHITE, THE_STYLE_BOLD  |THE_STYLE_BLINK, THE_STYLE_NORMAL}, /* 9 */
  };
 #endif
 
  struct attributes
  {
-  CHARTYPE *attrib;
-  short attrib_min_len;
-  int actual_attrib;
-  TheDriverAttr colour_modifier;
+ CHARTYPE *attrib;
+ short attrib_min_len;
+ int actual_attrib;
+  TheRenderStyle colour_modifier;
   bool attrib_modifier;
   bool attrib_allowed_on_mono;
   bool actual_colour;
@@ -605,52 +585,40 @@ static COLOUR_DEF _THE_FAR xedit_colours[ATTR_MAX] =  { {0,0,0,0},{0,0,0,0},{0,0
  typedef struct attributes ATTRIBS;
  static ATTRIBS _THE_FAR valid_attribs[] =
  {
-    {(CHARTYPE *)"black",3,COLOR_BLACK,0,FALSE,TRUE,TRUE},
+    {(CHARTYPE *)"black",3,THE_COLOR_BLACK,0,FALSE,TRUE,TRUE},
 #if 1
-    {(CHARTYPE *)"grey",3,COLOR_WHITE,0,FALSE,FALSE,TRUE},
-    {(CHARTYPE *)"gray",3,COLOR_WHITE,0,FALSE,FALSE,TRUE},
-    {(CHARTYPE *)"white",1,COLOR_WHITE,A_BOLD,FALSE,TRUE,TRUE},
+    {(CHARTYPE *)"grey",3,THE_COLOR_WHITE,0,FALSE,FALSE,TRUE},
+    {(CHARTYPE *)"gray",3,THE_COLOR_WHITE,0,FALSE,FALSE,TRUE},
+    {(CHARTYPE *)"white",1,THE_COLOR_WHITE,THE_STYLE_BOLD,FALSE,TRUE,TRUE},
 #else
-    {(CHARTYPE *)"white",1,COLOR_WHITE,0,FALSE,TRUE,TRUE},
-    {(CHARTYPE *)"grey",3,COLOR_BLACK,A_BOLD,FALSE,FALSE,TRUE},
-    {(CHARTYPE *)"gray",3,COLOR_BLACK,A_BOLD,FALSE,FALSE,TRUE},
+    {(CHARTYPE *)"white",1,THE_COLOR_WHITE,0,FALSE,TRUE,TRUE},
+    {(CHARTYPE *)"grey",3,THE_COLOR_BLACK,THE_STYLE_BOLD,FALSE,FALSE,TRUE},
+    {(CHARTYPE *)"gray",3,THE_COLOR_BLACK,THE_STYLE_BOLD,FALSE,FALSE,TRUE},
 #endif
-    {(CHARTYPE *)"blue",3,COLOR_BLUE,0,FALSE,FALSE,TRUE},
-    {(CHARTYPE *)"green",1,COLOR_GREEN,0,FALSE,FALSE,TRUE},
-    {(CHARTYPE *)"cyan",1,COLOR_CYAN,0,FALSE,FALSE,TRUE},
-    {(CHARTYPE *)"red",3,COLOR_RED,0,FALSE,FALSE,TRUE},
-    {(CHARTYPE *)"magenta",1,COLOR_MAGENTA,0,FALSE,FALSE,TRUE},
-    {(CHARTYPE *)"pink",1,COLOR_MAGENTA,A_BOLD,FALSE,FALSE,TRUE},
-    {(CHARTYPE *)"brown",1,COLOR_YELLOW,0,FALSE,FALSE,TRUE},
-    {(CHARTYPE *)"yellow",1,COLOR_YELLOW,A_BOLD,FALSE,FALSE,TRUE},
-    {(CHARTYPE *)"turquoise",1,COLOR_CYAN,0,FALSE,FALSE,TRUE},
-    {(CHARTYPE *)"normal",3,A_NORMAL,0,TRUE,TRUE,TRUE},
-    {(CHARTYPE *)"backbold",8,A_BLINK,0,TRUE,TRUE,FALSE},
-    {(CHARTYPE *)"blink",3,A_BLINK,0,TRUE,TRUE,FALSE},
-    {(CHARTYPE *)"bold",2,A_BOLD,0,TRUE,TRUE,FALSE},
-    {(CHARTYPE *)"bright",3,A_BOLD,0,TRUE,TRUE,FALSE},
-    {(CHARTYPE *)"high",1,A_BOLD,0,TRUE,TRUE,FALSE},
-    {(CHARTYPE *)"reverse",3,A_REVERSE,0,TRUE,TRUE,FALSE},
-    {(CHARTYPE *)"underline",1,A_UNDERLINE,0,TRUE,TRUE,FALSE},
-    {(CHARTYPE *)"dark",4,A_NORMAL,0,TRUE,TRUE,FALSE},
-#ifdef A_ITALIC
-    {(CHARTYPE *)"italic",1,A_ITALIC,0,TRUE,TRUE,FALSE},
-#endif
-#ifdef A_RIGHTLINE
-    {(CHARTYPE *)"rightline",5,A_RIGHTLINE,0,TRUE,TRUE,FALSE},
-#endif
-#ifdef A_LEFTLINE
-    {(CHARTYPE *)"leftline",4,A_LEFTLINE,0,TRUE,TRUE,FALSE},
-#endif
-#ifdef A_TOPLINE
-    {(CHARTYPE *)"topline",3,A_TOPLINE,0,TRUE,TRUE,FALSE},
-#endif
-#ifdef A_OVERLINE
-    {(CHARTYPE *)"overline",4,A_OVERLINE,0,TRUE,TRUE,FALSE},
-#endif
-#ifdef A_STRIKEOUT
-    {(CHARTYPE *)"strikeout",5,A_STRIKEOUT,0,TRUE,TRUE,FALSE},
-#endif
+    {(CHARTYPE *)"blue",3,THE_COLOR_BLUE,0,FALSE,FALSE,TRUE},
+    {(CHARTYPE *)"green",1,THE_COLOR_GREEN,0,FALSE,FALSE,TRUE},
+    {(CHARTYPE *)"cyan",1,THE_COLOR_CYAN,0,FALSE,FALSE,TRUE},
+    {(CHARTYPE *)"red",3,THE_COLOR_RED,0,FALSE,FALSE,TRUE},
+    {(CHARTYPE *)"magenta",1,THE_COLOR_MAGENTA,0,FALSE,FALSE,TRUE},
+    {(CHARTYPE *)"pink",1,THE_COLOR_MAGENTA,THE_STYLE_BOLD,FALSE,FALSE,TRUE},
+    {(CHARTYPE *)"brown",1,THE_COLOR_YELLOW,0,FALSE,FALSE,TRUE},
+    {(CHARTYPE *)"yellow",1,THE_COLOR_YELLOW,THE_STYLE_BOLD,FALSE,FALSE,TRUE},
+    {(CHARTYPE *)"turquoise",1,THE_COLOR_CYAN,0,FALSE,FALSE,TRUE},
+    {(CHARTYPE *)"normal",3,THE_STYLE_NORMAL,0,TRUE,TRUE,TRUE},
+    {(CHARTYPE *)"backbold",8,THE_STYLE_BLINK,0,TRUE,TRUE,FALSE},
+    {(CHARTYPE *)"blink",3,THE_STYLE_BLINK,0,TRUE,TRUE,FALSE},
+    {(CHARTYPE *)"bold",2,THE_STYLE_BOLD,0,TRUE,TRUE,FALSE},
+    {(CHARTYPE *)"bright",3,THE_STYLE_BOLD,0,TRUE,TRUE,FALSE},
+    {(CHARTYPE *)"high",1,THE_STYLE_BOLD,0,TRUE,TRUE,FALSE},
+    {(CHARTYPE *)"reverse",3,THE_STYLE_REVERSE,0,TRUE,TRUE,FALSE},
+    {(CHARTYPE *)"underline",1,THE_STYLE_UNDERLINE,0,TRUE,TRUE,FALSE},
+    {(CHARTYPE *)"dark",4,THE_STYLE_NORMAL,0,TRUE,TRUE,FALSE},
+    {(CHARTYPE *)"italic",1,THE_STYLE_ITALIC,0,TRUE,TRUE,FALSE},
+    {(CHARTYPE *)"rightline",5,THE_STYLE_RIGHTLINE,0,TRUE,TRUE,FALSE},
+    {(CHARTYPE *)"leftline",4,THE_STYLE_LEFTLINE,0,TRUE,TRUE,FALSE},
+    {(CHARTYPE *)"topline",3,THE_STYLE_TOPLINE,0,TRUE,TRUE,FALSE},
+    {(CHARTYPE *)"overline",4,THE_STYLE_OVERLINE,0,TRUE,TRUE,FALSE},
+    {(CHARTYPE *)"strikeout",5,THE_STYLE_STRIKEOUT,0,TRUE,TRUE,FALSE},
     {(CHARTYPE *)",",1,8,0,FALSE,TRUE,FALSE},
     {(CHARTYPE *)NULL,0,0,0,FALSE,FALSE,FALSE},
  };
@@ -661,10 +629,10 @@ short parse_colours(CHARTYPE *attrib,COLOUR_ATTR *pattr,CHARTYPE **rem,bool spar
 {
    register short i=0;
    short num_colours=0;
-   TheDriverAttr mono=pattr->mono;
-   TheDriverAttr specified_mod=0L;
-   TheDriverAttr fg=FOREFROMPAIR(pattr->pair);
-   TheDriverAttr bg=BACKFROMPAIR(pattr->pair);
+   TheRenderStyle mono=pattr->mono_style;
+   TheRenderStyle specified_style=THE_STYLE_NORMAL;
+   int fg=pattr->fg;
+   int bg=pattr->bg;
    CHARTYPE *string=NULL;
    CHARTYPE *p=NULL,*oldp=NULL;
    bool found=FALSE,any_found=FALSE;
@@ -703,9 +671,13 @@ short parse_colours(CHARTYPE *attrib,COLOUR_ATTR *pattr,CHARTYPE **rem,bool spar
             if (valid_attribs[i].attrib_modifier)
             {
                if (colour_support)
-                  specified_mod = (valid_attribs[i].actual_attrib==A_NORMAL)?A_NORMAL:specified_mod | valid_attribs[i].actual_attrib;
+                  specified_style = (valid_attribs[i].actual_attrib==THE_STYLE_NORMAL)
+                                  ? THE_STYLE_NORMAL
+                                  : specified_style | valid_attribs[i].actual_attrib;
                else
-                  mono = (valid_attribs[i].actual_attrib==A_NORMAL)?A_NORMAL:mono | valid_attribs[i].actual_attrib;
+                  mono = (valid_attribs[i].actual_attrib==THE_STYLE_NORMAL)
+                       ? THE_STYLE_NORMAL
+                       : mono | valid_attribs[i].actual_attrib;
                offset = p-oldp+strlen((DEFCHAR *)p)+1;
                break;
             }
@@ -715,7 +687,7 @@ short parse_colours(CHARTYPE *attrib,COLOUR_ATTR *pattr,CHARTYPE **rem,bool spar
                {
                   case 0:
                      if (!colour_support
-                     &&  valid_attribs[i].actual_attrib != COLOR_WHITE)
+                     &&  valid_attribs[i].actual_attrib != THE_COLOR_WHITE)
                      {
                         display_error(61,(CHARTYPE *)p,FALSE);
                         (*the_free)(string);
@@ -725,14 +697,14 @@ short parse_colours(CHARTYPE *attrib,COLOUR_ATTR *pattr,CHARTYPE **rem,bool spar
                      if (valid_attribs[i].actual_attrib != 8)
                      {
                         fg = valid_attribs[i].actual_attrib;
-                        specified_mod |= valid_attribs[i].colour_modifier;
+                        specified_style |= valid_attribs[i].colour_modifier;
                      }
                      num_colours++;
                      offset = p-oldp+strlen((DEFCHAR *)p)+1;
                      break;
                   case 1:
                      if (!colour_support
-                     &&  valid_attribs[i].actual_attrib != COLOR_BLACK)
+                     &&  valid_attribs[i].actual_attrib != THE_COLOR_BLACK)
                      {
                         display_error(61,(CHARTYPE *)p,FALSE);
                         (*the_free)(string);
@@ -821,11 +793,17 @@ short parse_colours(CHARTYPE *attrib,COLOUR_ATTR *pattr,CHARTYPE **rem,bool spar
    }
 
    if (num_colours == 0)
-      pattr->pair = ATTR2PAIR(COLOR_WHITE,COLOR_BLACK);
+   {
+      pattr->fg = THE_COLOR_WHITE;
+      pattr->bg = THE_COLOR_BLACK;
+   }
    else
-      pattr->pair = ATTR2PAIR(fg,bg);
-   pattr->mod = specified_mod;
-   pattr->mono = mono;
+   {
+      pattr->fg = fg;
+      pattr->bg = bg;
+   }
+   pattr->style = specified_style;
+   pattr->mono_style = mono;
    *any_colours = any_found;
    (*the_free)(string);
    TRACE_RETURN();
@@ -837,8 +815,8 @@ short parse_modifiers(CHARTYPE *attrib,COLOUR_ATTR *pattr)
 /***********************************************************************/
 {
    register short i=0;
-   TheDriverAttr mono=pattr->mono;
-   TheDriverAttr specified_mod=0L;
+   TheRenderStyle mono=pattr->mono_style;
+   TheRenderStyle specified_style=THE_STYLE_NORMAL;
    CHARTYPE *string=NULL;
    CHARTYPE *p=NULL,*last_word=NULL;
    bool found=FALSE;
@@ -873,9 +851,13 @@ short parse_modifiers(CHARTYPE *attrib,COLOUR_ATTR *pattr)
                return(RC_INVALID_OPERAND);
             }
             if (colour_support)
-               specified_mod = (valid_attribs[i].actual_attrib==A_NORMAL)?A_NORMAL:specified_mod | valid_attribs[i].actual_attrib;
+               specified_style = (valid_attribs[i].actual_attrib==THE_STYLE_NORMAL)
+                               ? THE_STYLE_NORMAL
+                               : specified_style | valid_attribs[i].actual_attrib;
             else
-               mono = (valid_attribs[i].actual_attrib==A_NORMAL)?A_NORMAL:mono | valid_attribs[i].actual_attrib;
+               mono = (valid_attribs[i].actual_attrib==THE_STYLE_NORMAL)
+                    ? THE_STYLE_NORMAL
+                    : mono | valid_attribs[i].actual_attrib;
             break;
          }
       }
@@ -912,8 +894,8 @@ short parse_modifiers(CHARTYPE *attrib,COLOUR_ATTR *pattr)
       return(RC_INVALID_OPERAND);
    }
 
-   pattr->mod = specified_mod;
-   pattr->mono = mono;
+   pattr->style = specified_style;
+   pattr->mono_style = mono;
    TRACE_RETURN();
    return(RC_OK);
 }
@@ -927,22 +909,36 @@ TheDriverAttr merge_curline_colour(COLOUR_ATTR *attr, COLOUR_ATTR *ecolour)
  * attr colour. Also combines the modifiers from both colours to become
  * the new modifier for the combined colours.
  */
-   TheDriverAttr bg,fg,mod,pair;
+   TheDriverAttr result;
+   TheRenderStyle style;
 
    TRACE_FUNCTION("colour.c:  merge_curline_colour");
-#ifdef A_COLOR
-   bg = BACKFROMPAIR(attr->pair);
-   fg = FOREFROMPAIR(ecolour->pair);
-   mod = attr->mod | ecolour->mod;
-   pair = ATTR2PAIR(fg,bg);
-   fg = (COLOR_PAIR(pair) | mod);
-#else
-   fg = attr->mod | ecolour->mod;
-#endif
+   if (attr == NULL || ecolour == NULL)
+      result = THE_RENDER_ATTR_NORMAL;
+   else if (colour_support)
+   {
+      style = attr->style | ecolour->style;
+      result = the_render_attr_make(ecolour->fg, attr->bg, style);
+   }
+   else
+   {
+      style = attr->mono_style | ecolour->mono_style;
+      result = the_render_attr_from_style(style);
+   }
    TRACE_RETURN();
-   return fg;
+   return result;
 }
 
+static void set_colour_attr_from_def(COLOUR_ATTR *attr,
+                                     const COLOUR_DEF *def)
+{
+   if (attr == NULL || def == NULL)
+      return;
+   attr->fg = def->fore;
+   attr->bg = def->back;
+   attr->style = def->style;
+   attr->mono_style = def->mono_style;
+}
 /***********************************************************************/
 void set_up_default_colours(FILE_DETAILS *fd,COLOUR_ATTR *attr,int colour_num)
 /***********************************************************************/
@@ -962,16 +958,12 @@ void set_up_default_colours(FILE_DETAILS *fd,COLOUR_ATTR *attr,int colour_num)
          {
             for (i=0;i<ATTR_MAX;i++)
             {
-               fd->attr[i].pair = ATTR2PAIR(the_colours[i].fore,the_colours[i].back);
-               fd->attr[i].mod = the_colours[i].mod;
-               fd->attr[i].mono = the_colours[i].mono;
+               set_colour_attr_from_def(&fd->attr[i], &the_colours[i]);
             }
          }
          else
          {
-            attr->pair = ATTR2PAIR(the_colours[colour_num].fore,the_colours[colour_num].back);
-            attr->mod = the_colours[colour_num].mod;
-            attr->mono = the_colours[colour_num].mono;
+            set_colour_attr_from_def(attr, &the_colours[colour_num]);
          }
          break;
       case COMPAT_XEDIT:
@@ -979,16 +971,12 @@ void set_up_default_colours(FILE_DETAILS *fd,COLOUR_ATTR *attr,int colour_num)
          {
             for (i=0;i<ATTR_MAX;i++)
             {
-               fd->attr[i].pair = ATTR2PAIR(xedit_colours[i].fore,xedit_colours[i].back);
-               fd->attr[i].mod = xedit_colours[i].mod;
-               fd->attr[i].mono = xedit_colours[i].mono;
+               set_colour_attr_from_def(&fd->attr[i], &xedit_colours[i]);
             }
          }
          else
          {
-            attr->pair = ATTR2PAIR(xedit_colours[colour_num].fore,xedit_colours[colour_num].back);
-            attr->mod = xedit_colours[colour_num].mod;
-            attr->mono = xedit_colours[colour_num].mono;
+            set_colour_attr_from_def(attr, &xedit_colours[colour_num]);
          }
          break;
       case COMPAT_KEDIT:
@@ -996,16 +984,12 @@ void set_up_default_colours(FILE_DETAILS *fd,COLOUR_ATTR *attr,int colour_num)
          {
             for (i=0;i<ATTR_MAX;i++)
             {
-               fd->attr[i].pair = ATTR2PAIR(kedit_colours[i].fore,kedit_colours[i].back);
-               fd->attr[i].mod = kedit_colours[i].mod;
-               fd->attr[i].mono = kedit_colours[i].mono;
+               set_colour_attr_from_def(&fd->attr[i], &kedit_colours[i]);
             }
          }
          else
          {
-            attr->pair = ATTR2PAIR(kedit_colours[colour_num].fore,kedit_colours[colour_num].back);
-            attr->mod = kedit_colours[colour_num].mod;
-            attr->mono = kedit_colours[colour_num].mono;
+            set_colour_attr_from_def(attr, &kedit_colours[colour_num]);
          }
          break;
       case COMPAT_KEDITW:
@@ -1013,16 +997,12 @@ void set_up_default_colours(FILE_DETAILS *fd,COLOUR_ATTR *attr,int colour_num)
          {
             for (i=0;i<ATTR_MAX;i++)
             {
-               fd->attr[i].pair = ATTR2PAIR(keditw_colours[i].fore,keditw_colours[i].back);
-               fd->attr[i].mod = keditw_colours[i].mod;
-               fd->attr[i].mono = keditw_colours[i].mono;
+               set_colour_attr_from_def(&fd->attr[i], &keditw_colours[i]);
             }
          }
          else
          {
-            attr->pair = ATTR2PAIR(keditw_colours[colour_num].fore,keditw_colours[colour_num].back);
-            attr->mod = keditw_colours[colour_num].mod;
-            attr->mono = keditw_colours[colour_num].mono;
+            set_colour_attr_from_def(attr, &keditw_colours[colour_num]);
          }
          break;
    }
@@ -1046,33 +1026,25 @@ void set_up_default_ecolours(FILE_DETAILS *fd)
       case COMPAT_THE:
          for (i=0;i<ECOLOUR_MAX;i++)
          {
-            fd->ecolour[i].pair = ATTR2PAIR(the_ecolours[i].fore,the_ecolours[i].back);
-            fd->ecolour[i].mod = the_ecolours[i].mod;
-            fd->ecolour[i].mono = the_ecolours[i].mono;
+            set_colour_attr_from_def(&fd->ecolour[i], &the_ecolours[i]);
          }
          break;
       case COMPAT_XEDIT:
          for (i=0;i<ECOLOUR_MAX;i++)
          {
-            fd->ecolour[i].pair = ATTR2PAIR(xedit_ecolours[i].fore,xedit_ecolours[i].back);
-            fd->ecolour[i].mod = xedit_ecolours[i].mod;
-            fd->ecolour[i].mono = xedit_ecolours[i].mono;
+            set_colour_attr_from_def(&fd->ecolour[i], &xedit_ecolours[i]);
          }
          break;
       case COMPAT_KEDIT:
          for (i=0;i<ECOLOUR_MAX;i++)
          {
-            fd->ecolour[i].pair = ATTR2PAIR(kedit_ecolours[i].fore,kedit_ecolours[i].back);
-            fd->ecolour[i].mod = kedit_ecolours[i].mod;
-            fd->ecolour[i].mono = kedit_ecolours[i].mono;
+            set_colour_attr_from_def(&fd->ecolour[i], &kedit_ecolours[i]);
          }
          break;
       case COMPAT_KEDITW:
          for (i=0;i<ECOLOUR_MAX;i++)
          {
-            fd->ecolour[i].pair = ATTR2PAIR(keditw_ecolours[i].fore,keditw_ecolours[i].back);
-            fd->ecolour[i].mod = keditw_ecolours[i].mod;
-            fd->ecolour[i].mono = keditw_ecolours[i].mono;
+            set_colour_attr_from_def(&fd->ecolour[i], &keditw_ecolours[i]);
          }
          break;
    }
@@ -1092,23 +1064,21 @@ CHARTYPE *get_colour_strings(COLOUR_ATTR *attr)
 #define GET_BG  2
    register int i=0,j=0;
    CHARTYPE *attr_string=NULL;
-   int fg=FOREFROMPAIR(attr->pair),bg=BACKFROMPAIR(attr->pair);
-   TheDriverAttr mod=attr->mono;
+   int fg=attr->fg,bg=attr->bg;
+   TheRenderStyle mod=attr->mono_style;
    int start_with=0;
    bool colour_only=FALSE;
-   TheDriverAttr match_value=0L;
-   TheDriverAttr matched_modifiers=0L;
+   int match_value=0;
+   TheRenderStyle matched_modifiers=THE_STYLE_NORMAL;
 
    TRACE_FUNCTION("colour.c:  get_colour_strings");
 
    start_with = GET_MOD;
-#ifdef A_COLOR
    if (colour_support)
    {
       start_with = GET_MOD;
-      mod = attr->mod;
+      mod = attr->style;
    }
-#endif
    attr_string = (CHARTYPE *)(*the_malloc)(sizeof(CHARTYPE)*70);
    if (attr_string == (CHARTYPE *)NULL)
    {
@@ -1129,16 +1099,16 @@ CHARTYPE *get_colour_strings(COLOUR_ATTR *attr)
       {
          case GET_FG:
             colour_only = TRUE;
-            match_value = (TheDriverAttr)fg;
+            match_value = fg;
             break;
          case GET_BG:
             strcat((DEFCHAR *)attr_string,"on ");
             colour_only = TRUE;
-            match_value = (TheDriverAttr)bg;
+            match_value = bg;
             break;
          default:
             colour_only = FALSE;
-            match_value = mod;
+            match_value = (int)mod;
             break;
       }
       for ( i = 0; valid_attribs[i].attrib != NULL; i++ )
@@ -1149,7 +1119,7 @@ CHARTYPE *get_colour_strings(COLOUR_ATTR *attr)
              * Foreground or background
              */
             if (!valid_attribs[i].attrib_modifier
-            &&  match_value == (TheDriverAttr)valid_attribs[i].actual_attrib
+            &&  match_value == valid_attribs[i].actual_attrib
             &&  valid_attribs[i].colour_modifier == 0 )
             {
                strcat((DEFCHAR *)attr_string,(DEFCHAR *)valid_attribs[i].attrib);

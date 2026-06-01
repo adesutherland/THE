@@ -56,6 +56,7 @@ driver-wrapper	src/cursor.c	cursor_focus_present	1
 driver-wrapper	src/cursor.c	cursor_focus_redraw	1
 driver-wrapper	src/cursor.c	cursor_focus_redraw_if_software	1
 driver-wrapper	src/cursor.c	cursor_focus_restore_vertical	2
+driver-wrapper	src/cursor.c	cursor_focus_sync_current	1
 driver-wrapper	src/cursor.c	cursor_mouse_filearea	1
 driver-wrapper	src/cursor.c	cursor_mouse_prefix	1
 driver-wrapper	src/cursor.c	cursor_utf8_filearea_cell	1
@@ -105,6 +106,7 @@ driver-wrapper	src/rexx.c	file-scope	4
 driver-wrapper	src/scroll.c	scroll_line	9
 driver-wrapper	src/scroll.c	scroll_page	4
 driver-wrapper	src/show.c	advance_view	7
+driver-wrapper	src/show.c	display_alternate_line_left	2
 driver-wrapper	src/show.c	display_cmdline	3
 driver-wrapper	src/show.c	display_filetabs	1
 driver-wrapper	src/show.c	display_prefix_line	3

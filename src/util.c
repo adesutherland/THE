@@ -1509,15 +1509,7 @@ short set_up_windows(short scrn)
 #ifdef HAVE_KEYPAD
 #endif
 
-#if 0
-# if defined(A_ALTCHARSET) && !defined(USE_NCURSES)
-      the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_DIVIDER, A_ALTCHARSET|set_colour( fp.attr+ATTR_DIVIDER ));
-# else
       the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_DIVIDER, set_colour( fp.attr+ATTR_DIVIDER ));
-# endif
-#else
-      the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_DIVIDER, set_colour( fp.attr+ATTR_DIVIDER ));
-#endif
 
       draw_divider();
    }

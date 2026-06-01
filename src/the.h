@@ -41,81 +41,10 @@ $Id: the.h,v 1.97 2022/12/27 02:43:49 mark Exp $
 void sdslh_update_current_line(unsigned short y);
 void ui_log(const char *fmt, ...);
 #endif
-/*
- * Handle Win32 console when using PDCurses GUI
- */
-#if defined(USE_WINGUICURSES) || (defined(USE_SDLCURSES) && defined(_WIN32))
-# include <windows.h>
-# undef MOUSE_MOVED
-extern int gotOutput;
-extern void StartupConsole( void );
-extern void ClosedownConsole( int );
-# define STARTUPCONSOLE() StartupConsole()
-# define CLOSEDOWNCONSOLE(x) ClosedownConsole(x)
-# define DISPLAY_ERROR(a,b,c,d) STARTUPCONSOLE();display_error(a,b,c);CLOSEDOWNCONSOLE(d)
-#else
-# define STARTUPCONSOLE()
-# define CLOSEDOWNCONSOLE(x)
-# define DISPLAY_ERROR(a,b,c,d) display_error(a,b,c)
-#endif
-
-#if defined(LOCAL_CURSES)
-#  include "curses_local.h"
-#  define CURSES_H_INCLUDED
-#else
-# if defined(USE_XCURSES)
-#  include <curses.h>
-#  define CURSES_H_INCLUDED
-# endif
-#endif
-
-#if defined(USE_NCURSES)
-# if defined(USE_UTF8)
-#  ifndef _XOPEN_SOURCE_EXTENDED
-#   define _XOPEN_SOURCE_EXTENDED 1
-#  endif
-# endif
-# if defined(USE_UTF8) && defined(HAVE_NCURSESW_NCURSES_H) && !defined(__APPLE__)
-#  include <ncursesw/ncurses.h>
-# elif defined(HAVE_NCURSES_H) || !defined(HAVE_CONFIG_H)
-#  include <ncurses.h>
-# else
-#  include <curses.h>
-# endif
-# define CURSES_H_INCLUDED
-#endif
-
-#ifndef CURSES_H_INCLUDED
-#  include <curses.h>
-#endif
-
 #include "textpos.h"
 #include "logcursor.h"
 #include "thedriver.h"
-
-
-/*
- * The following required because IBM AIX 4.3 defines curses colors
- * incorrectly :-(
- */
-#if defined(HAVE_BROKEN_COLORS)
-# undef COLOR_BLACK
-# undef COLOR_BLUE
-# undef COLOR_GREEN
-# undef COLOR_CYAN
-# undef COLOR_RED
-# undef COLOR_MAGENTA
-# undef COLOR_YELLOW
-# undef COLOR_WHITE
-# define COLOR_BLACK    0
-# define COLOR_BLUE     1
-# define COLOR_GREEN    2
-# define COLOR_CYAN     3
-# define COLOR_RED      4
-# define COLOR_MAGENTA  5
-# define COLOR_YELLOW   6
-# define COLOR_WHITE    7
-#endif
+#include "thekeys.h"
 
 #if defined(__OS2__)
 #  if defined(MSDOS) && defined(EMX)
@@ -162,14 +91,8 @@ extern void ClosedownConsole( int );
 #    define DosSetDefaultDisk DosSelectDisk
 #    define DosQueryCurrentDisk DosQCurDisk
 #  endif
-#  if defined(__PDCURSES__)
-#    if PDC_BUILD >= 3000
-#      define HAVE_CURSES_VERSION 1
-#    endif
-#  endif
 /* the following #define is to eliminate need for the getch.c/getch.h */
 /* modules in the OS/2 compilation */
-#  define my_getch(win)  wgetch(win)
 #  include "thever.h"
 #endif
 
@@ -208,14 +131,8 @@ extern void ClosedownConsole( int );
 #    define HAVE_BROKEN_TMPNAM 1
 #  endif
 #  define CURRENT_DIR (CHARTYPE *)"."
-#  if defined(__PDCURSES__)
-#    if PDC_BUILD >= 3000
-#      define HAVE_CURSES_VERSION 1
-#    endif
-#  endif
 /* the following #define is to eliminate need for the getch.c/getch.h */
 /* modules in the DOS compilation */
-#  define my_getch(win)  wgetch(win)
 #  include "thever.h"
 #endif
 
@@ -245,21 +162,6 @@ extern void ClosedownConsole( int );
 #  endif
 #  define CURRENT_DIR (CHARTYPE *)"."
 #  define CAN_RESIZE 1
-/* the following #define is to eliminate need for the getch.c/getch.h */
-/* modules in the WIN32 compilation */
-#  define my_getch(win)  wgetch(win)
-#  if defined(__PDCURSES__)
-#    define PDCURSES_MOUSE_ENABLED 1
-#    if PDC_BUILD >= 3000
-#      define HAVE_CURSES_VERSION 1
-#    endif
-#  endif
-#endif
-
-#if defined(__CYGWIN32__) && defined(USE_PDCURSES)
-/* the following #define is to eliminate need for the getch.c/getch.h */
-/* modules in the DOS compilation */
-#  define my_getch(win)  wgetch(win)
 #endif
 
 #if defined(AMIGA) && defined(GCC)
@@ -279,36 +181,6 @@ extern void ClosedownConsole( int );
 #  define ISTR_SLASH (CHARTYPE *)"/"
 #  define CURRENT_DIR (CHARTYPE *)"."
 /* #  define CAN_RESIZE 1 */
-#endif
-
-#ifdef HAVE_CONFIG_H
-# ifndef HAVE_KEYPAD
-#  define keypad(win,bf)
-# endif
-# ifndef HAVE_NOTIMEOUT
-#  define notimeout(win,bf)
-# endif
-# ifndef HAVE_RAW
-#  define raw()
-# endif
-# ifndef HAVE_NOCBREAK
-#  define nocbreak()
-# endif
-# ifndef HAVE_CBREAK
-#  define cbreak()
-# endif
-# ifndef HAVE_WNOUTREFRESH
-#  define wnoutrefresh(win) wrefresh(win)
-# endif
-# ifndef HAVE_TOUCHLINE
-#  define touchline(win,start,num) touchwin(win)
-# endif
-# ifndef HAVE_RESET_SHELL_MODE
-#  define reset_shell_mode()
-# endif
-# ifndef HAVE_RESET_PROG_MODE
-#  define reset_prog_mode()
-# endif
 #endif
 
 #ifdef M_XENIX
@@ -347,7 +219,6 @@ extern void ClosedownConsole( int );
 #  ifdef BSD
 #    define BSDcurses 1
 #  endif
-#  define touchline(WIN,START,NUM)       touchwin(WIN)
 /* #define isdigit(c)   (_ctype[(c) + 1] & 2)
 #  define islower(c)   (_ctype[(c) + 1] & 8)
 #  define isupper(c)   (_ctype[(c) + 1] & 4)*/
@@ -447,51 +318,6 @@ extern void ClosedownConsole( int );
 
 #include "regex.h"
 
-#if defined(USE_XCURSES)
-#  if defined(SIGWINCH) && defined(HAVE_RESIZE_TERM)
-#    define CAN_RESIZE 1
-#  endif
-#  define PDCURSES_MOUSE_ENABLED 1
-/* the following #define is to eliminate need for the getch.c/getch.h */
-/* modules under XCurses */
-#  define my_getch(win)  wgetch(win)
-#endif
-
-#if defined(USE_SDLCURSES)
-#  define CAN_RESIZE 1
-#  define PDCURSES_MOUSE_ENABLED 1
-/* the following #define is to eliminate need for the getch.c/getch.h */
-/* modules under SDL */
-#  define my_getch(win)  wgetch(win)
-#endif
-
-#if defined(USE_VTCURSES)
-#    define CAN_RESIZE 1
-/* the following #define is to eliminate need for the getch.c/getch.h */
-/* modules under VT */
-#  define my_getch(win)  wgetch(win)
-#endif
-
-#if defined(USE_NCURSES) && defined(SIGWINCH) && defined(HAVE_RESIZETERM)
-#  define CAN_RESIZE 1
-#endif
-
-#if defined(HAVE_SLK_INIT)
-# if defined(__PDCURSES__)
-#  define MAX_SLK    12
-#  define MAX_SLK_FORMAT 5
-# elif defined(USE_NCURSES)
-#  define MAX_SLK    12
-#  define MAX_SLK_FORMAT 4
-# else
-#  define MAX_SLK     8
-#  define MAX_SLK_FORMAT 2
-# endif
-#else
-# define MAX_SLK      0
-# define MAX_SLK_FORMAT 2
-#endif
-
 #ifndef F_OK
 #  define         F_OK          00
 #endif
@@ -513,109 +339,8 @@ extern void ClosedownConsole( int );
 # include "This release requires that you run configure again"
 #endif
 
-/*
- * This define ensures that any mismatching of version of
- * THE and PDCurses are picked up
- *
- */
-#if defined(PDCURSES)
-# if PDC_BUILD < 2601
-# include "You need a version of PDCurses with PDC_BUILD >= 2601 defined in curses.h"
-# endif
-#endif
-
-#if defined(PDCURSES) && PDC_BUILD >= 2601 && defined(WIN32)
-# define THE_SINGLE_INSTANCE_ENABLED 1
-#endif
-
 #if defined(HAVE_SELECT) && defined(HAVE_MKFIFO)
 # define THE_SINGLE_INSTANCE_ENABLED 1
-#endif
-
-#if defined(A_COLOR)
-# define set_colour(attr) ((colour_support) ? (((attr)->pair) ? COLOR_PAIR((attr)->pair) | (attr)->mod : (attr)->mod) \
-                                           : ((attr)->mono))
-#else
-# define set_colour(attr)     ((attr)->mono)
-# define COLOR_BLACK    0
-# define COLOR_BLUE     0
-# define COLOR_GREEN    0
-# define COLOR_CYAN     0
-# define COLOR_RED      0
-# define COLOR_MAGENTA  0
-# define COLOR_YELLOW   0
-# define COLOR_WHITE    0
-#endif
-
-#ifndef A_NORMAL
-/* Various video attributes */
-# define A_STANDOUT      BSD_STANDOUT /* for compatibility with BSD curses */
-# define A_REVERSE       BSD_STANDOUT /* for compatibility with BSD curses */
-# define A_UNDERLINE     0
-# define A_BLINK         0
-# define A_DIM           0
-# define A_BOLD          BSD_STANDOUT
-
-/* The next two are subject to change so don't depend on them */
-# define A_INVIS         0
-# define A_PROTECT       0
-
-# define A_NORMAL        0
-# define A_CHARTEXT      0x007F
-# define A_ATTRIBUTES    ~A_CHARTEXT
-# define A_ALTCHARSET    0
-#endif
-
-#if THE_FOLLOWING_REMOVED_IN_22
-#ifndef A_NORMAL
-/* Various video attributes */
-# ifdef HAVE_BSD_CURSES
-#  define A_STANDOUT      BSD_STANDOUT /* for compatibility with BSD curses */
-#  define A_REVERSE       BSD_STANDOUT /* for compatibility with BSD curses */
-#  define A_UNDERLINE     0
-#  define A_BLINK         0
-#  define A_DIM           0
-#  define A_BOLD          BSD_STANDOUT
-
-/* The next two are subject to change so don't depend on them */
-#  define A_INVIS         0
-#  define A_PROTECT       0
-
-#  define A_NORMAL        0
-#  define A_CHARTEXT      0x007F
-#  define A_ATTRIBUTES    ~A_CHARTEXT
-#  define A_ALTCHARSET    0
-
-# else
-
-#  define A_STANDOUT      000000200000L
-#  define A_UNDERLINE     000000400000L
-#  define A_REVERSE       000001000000L
-#  define A_BLINK         000002000000L
-#  define A_DIM           000004000000L
-#  define A_BOLD          000010000000L
-#  define A_ALTCHARSET    000100000000L
-
-/* The next two are subject to change so don't depend on them */
-#  define A_INVIS         000020000000L
-#  define A_PROTECT       000040000000L
-
-#  define A_NORMAL        000000000000L
-#  define A_ATTRIBUTES    037777600000L   /* 0xFFFF0000 */
-#  define A_CHARTEXT      000000177777L   /* 0x0000FFFF */
-
-# endif
-#endif
-#endif
-
-#define ATTR2PAIR(fg,bg) THE_alloc_pair(fg,bg)
-#define FOREFROMPAIR(p)  THE_fg_from_pair(p)
-#define BACKFROMPAIR(p)  THE_bg_from_pair(p)
-
-#ifdef A_COLOR
-int THE_alloc_pair(int fg, int bg);
-int THE_fg_from_pair(int pair);
-int THE_bg_from_pair(int pair);
 #endif
 
 #ifndef max
@@ -624,48 +349,6 @@ int THE_bg_from_pair(int pair);
 
 #ifndef min
 # define min(a,b)        (((a) < (b)) ? (a) : (b))
-#endif
-
-#ifndef getmaxy
-# ifdef VMS
-#  ifdef _BSD44_CURSES
-#   define getmaxy(win)    ((win)->maxy)
-#  else
-#   define getmaxy(win)    ((win)->_max_y)
-#  endif
-# else
-#  if defined(HAVE_UNDERSCORE_MAXY)
-#   define getmaxy(win)    ((win)->_maxy)
-#  endif
-#  if defined(HAVE_MAXY)
-#   define getmaxy(win)    ((win)->maxy)
-#  endif
-# endif
-#endif
-
-#ifndef getmaxx
-# ifdef VMS
-#  ifdef _BSD44_CURSES
-#   define getmaxx(win)    ((win)->maxx)
-#  else
-#   define getmaxx(win)    ((win)->_max_x)
-#  endif
-# else
-#  if defined(HAVE_UNDERSCORE_MAXY)
-#   define getmaxx(win)    ((win)->_maxx)
-#  endif
-#  if defined(HAVE_MAXY)
-#   define getmaxx(win)    ((win)->maxx)
-#  endif
-# endif
-#endif
-
-#ifndef getmaxyx
-# define getmaxyx(win,y,x)  ((y) = getmaxy(win), (x) = getmaxx(win))
-#endif
-
-#if defined(SIGWINCH) && defined(USE_NCURSES)
-# define is_termresized()  (ncurses_screen_resized)
 #endif
 
 #define QUIT          (-127)
@@ -848,12 +531,6 @@ int THE_bg_from_pair(int pair);
 #define ATTR_PMSGWARN   44
 #define ATTR_PMSGINFO   45
 #define ATTR_MAX        46
-#ifdef USE_SDSLH
-#define KEY_PARSE_COMPLETE 0x1000
-#endif
-#ifndef THE_KEY_MOUSE
-# define THE_KEY_MOUSE 0x1001
-#endif
 /*--------------------- -- ecolour defines -----------------------------*/
 #define ECOLOUR_COMMENTS               0
 #define ECOLOUR_STRINGS                1
@@ -1071,9 +748,10 @@ typedef struct line LINE;
 
 struct colour_attr
 {
-   int pair;                                  /* pair number for colour */
-   TheDriverAttr mod;                                       /* colour modifier */
-   TheDriverAttr mono;                                      /* mono attributes */
+   int fg;                                 /* logical foreground colour */
+   int bg;                                 /* logical background colour */
+   TheRenderStyle style;                          /* logical colour styles */
+   TheRenderStyle mono_style;                         /* logical mono styles */
 };
 typedef struct colour_attr COLOUR_ATTR;
 
@@ -1714,10 +1392,10 @@ typedef struct
 /* structure for colour definitions */
 typedef struct
 {
-   TheDriverAttr fore;
-   TheDriverAttr back;
-   TheDriverAttr mod;
-   TheDriverAttr mono;
+   int fore;
+   int back;
+   TheRenderStyle style;
+   TheRenderStyle mono_style;
 } COLOUR_DEF;
 
 /* structure for regular expression syntaxes */
@@ -1961,20 +1639,6 @@ struct regexp_syntax
 #define THE_FILE_UNKNOWN       0
 #define THE_FILE_EXISTS        1
 #define THE_FILE_NAME_TOO_LONG 2
-#ifndef getbegyx
-# if defined(HAVE_BEGY)
-#  define getbegyx(win,y,x)       (y = (win)->begy, x = (win)->begx)
-# endif
-# if defined(HAVE_UNDERSCORE_BEGY)
-#  define getbegyx(win,y,x)       (y = (win)->_begy, x = (win)->_begx)
-# endif
-#endif
-
-#if defined(USE_WINGUICURSES) || (defined(USE_SDLCURSES) && defined(WIN32))
-# define HIT_ANY_KEY "** Command completed **"
-#else
-# define HIT_ANY_KEY "Hit any key to continue..."
-#endif
 
 /*---------------------- useful macros --------------------------------*/
 #define     TOF(line)           ((line == 0L) ? TRUE : FALSE)
@@ -1992,8 +1656,6 @@ struct regexp_syntax
 /*---------------------- system specific redefines --------------------*/
 #ifdef VAX
 #define     wattrset     wsetattr
-#define     A_REVERSE    _REVERSE
-#define     A_BOLD       _BOLD
 #endif
 
 #define ISREADONLY(x)  (the_readonly || (READONLYx==READONLY_FORCE) || (READONLYx==READONLY_ON && x->disposition == FILE_READONLY) || !(x->readonly==READONLY_OFF))
@@ -2141,15 +1803,6 @@ void trace_constant (char *);
 
 #define MAX_WIDTH_NUM  2000000000L
 
-/*
- * Don't call the *prog_mode functions when using PDCurses
- */
-#ifdef HAVE_RESET_PROG_MODE
-# ifndef PDCURSES
-#  define USE_PROG_MODE 1
-# endif
-#else
-#endif
 #include "directry.h"
 
 #define INTENTIONALLY_UNUSED_VARIABLE(param) (void)(param)

@@ -164,7 +164,7 @@ void mouse_trace_message(const char *area, const char *format, ...)
    fflush(trace);
 }
 
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
 /*
  * The logical target saved by each mouse key press.
  */

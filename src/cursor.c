@@ -1658,7 +1658,7 @@ short THEcursor_goto(LINETYPE row, LENGTHTYPE col)
 /***********************************************************************/
 static short cursor_mouse_select_screen(const TheInputLogicalTarget *target)
 {
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
    int guard = 0;
 
    if (target == NULL)
@@ -1816,14 +1816,14 @@ static short cursor_mouse_logical_target(const TheInputLogicalTarget *target)
 short THEcursor_mouse(void)
 /***********************************************************************/
 {
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
    TheInputLogicalTarget target;
 #endif
    short rc=RC_OK;
 
    TRACE_FUNCTION("cursor.c:  THEcursor_mouse");
 
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
    /*
     * If in READV CMDLINE, return without doing anything
     */

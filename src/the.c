@@ -1166,6 +1166,9 @@ int main(int argc, char *argv[])
     * Initialise command array to empty strings.
     */
    init_command();
+#if defined(THE_MOUSE_ENABLED)
+   initialise_mouse_commands();
+#endif
    /*
     * Set up default screens using the default values of terminal_lines
     * and terminal_cols. These will be altered after initscr().
@@ -1410,7 +1413,8 @@ int main(int argc, char *argv[])
       if (driver_global_window_exists(THE_DRIVER_GLOBAL_STATAREA))
       {
          the_driver->add_global_string_at(THE_DRIVER_GLOBAL_STATAREA,0,4,"     ");
-         the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_STATAREA,A_NORMAL);
+         the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_STATAREA,
+                                            THE_RENDER_ATTR_NORMAL);
          the_driver->add_global_string_at(THE_DRIVER_GLOBAL_STATAREA,0,0,"THE - END");
          the_driver->refresh_window_now(driver_global_window(THE_DRIVER_GLOBAL_STATAREA));
       }

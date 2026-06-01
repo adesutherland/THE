@@ -124,14 +124,29 @@ static LINE *hexshow_curr=NULL; /* module global for historical reasons? */
 # define SHOW_HIGHLIGHTED_LINE(x,y,z) {}
 #endif
 
-/* Make a neutral driver cell from a character and a colour. This may be wrong if
- * the format of the driver cell is incompatible. Please check this first if
- * you get strange results with your curses implementation.
- */
+static TheDriverCell show_make_driver_cell(CHARTYPE ch, TheDriverAttr colour)
+{
+   unsigned char cc = (unsigned char)ch;
+
+   if (etmode_flag[cc])
+      return etmode_table[cc];
+   return the_driver_cell_make(the_driver_cell_codepoint(etmode_table[cc]),
+                               (TheRenderAttr)colour);
+}
+
+static uint32_t show_etmode_codepoint(CHARTYPE ch)
+{
+   return the_driver_cell_codepoint(etmode_table[(unsigned char)ch]);
+}
+
+static TheDriverAttr show_etmode_attr(CHARTYPE ch)
+{
+   return the_driver_cell_attr(etmode_table[(unsigned char)ch]);
+}
+
 #ifndef USE_UTF8
 # define make_driver_cell(ch,col) \
-   (etmode_flag[ch] ? etmode_table[ch] \
-                    : (TheDriverCell)(etmode_table[ch] | (TheDriverCell)(col)))
+   show_make_driver_cell((CHARTYPE)(ch), (TheDriverAttr)(col))
 #endif
 
 /* Set up the paranoia test macros if wanted */
@@ -372,7 +387,7 @@ static int show_render_cluster_from_text(TheRenderCluster *render,
       if (item.byte_length == 0)
          break;
       if (item.codepoint < 256 && etmode_flag[item.codepoint])
-         item.codepoint = (uint32_t)etmode_table[(CHARTYPE)item.codepoint];
+         item.codepoint = show_etmode_codepoint((CHARTYPE)item.codepoint);
       the_render_cluster_add_codepoint(render, item.codepoint);
       pos = show_utf8_advance_codepoint_pos(pos, item);
    }
@@ -455,8 +470,8 @@ static void show_add_utf8_codepoint(uint32_t ch, TheDriverAttr colour)
    if (ch < 256 && etmode_flag[ch])
    {
       CHARTYPE cc = (CHARTYPE)ch;
-      ch = (uint32_t)etmode_table[cc];
-      colour = (etmode_table[cc] & A_COLOR);
+      ch = show_etmode_codepoint(cc);
+      colour = show_etmode_attr(cc);
    }
    the_render_cell_from_codepoint(linebufch + _fast_col, ch,
                                   (TheRenderAttr)colour);
@@ -483,8 +498,8 @@ DEBUGDUMPDETAIL(fprintf(stderr,"  %s %d(%s): ADD_LINE_OUTPUT: length %d: ", __FI
                           if (ch < 256 && etmode_flag[ch])     \
                           {                                    \
                              cc = (char)ch;                    \
-                             ch = etmode_table[cc];            \
-                             hi1 = (etmode_table[cc] & A_COLOR); \
+                             ch = show_etmode_codepoint((CHARTYPE)cc); \
+                             hi1 = show_etmode_attr((CHARTYPE)cc); \
                              mysetchar( dest, ch, hi1 );       \
                           }                                    \
                           else                                 \
@@ -516,8 +531,8 @@ DEBUGDUMPDETAIL(fprintf(stderr,"x%x@%d ", ch, pos );) \
                           if (ch < 256 && etmode_flag[ch])     \
                           {                                    \
                              cc = (char)ch;                    \
-                             ch = etmode_table[cc];            \
-                             hi1 = (etmode_table[cc] & A_COLOR); \
+                             ch = show_etmode_codepoint((CHARTYPE)cc); \
+                             hi1 = show_etmode_attr((CHARTYPE)cc); \
 DEBUGDUMPDETAIL(fprintf(stderr,": 0X%x 0X%x ", ch, hi1 );)            \
                              mysetchar( dest, ch, hi1 );       \
                           }                                    \
@@ -542,7 +557,7 @@ DEBUGDUMPDETAIL(fprintf(stderr,"  %s %d(%s): FILL_LINE_OUTPUT: length %d: ", __F
                         while (l--) {                            \
 DEBUGDUMPDETAIL(fprintf(stderr,"x%x ", c );) \
                           if (ch < 256 && etmode_flag[ch])     \
-                             ch = etmode_table[ch];            \
+                             ch = show_etmode_codepoint((CHARTYPE)ch); \
                           mysetchar( dest, ch, colour );          \
                           dest++;                                \
                        }                                       \
@@ -615,8 +630,8 @@ static void show_add_utf8_codepoint(uint32_t ch, TheDriverAttr colour)
    if (ch < 256 && etmode_flag[ch])
    {
       CHARTYPE cc = (CHARTYPE)ch;
-      ch = (uint32_t)etmode_table[cc];
-      colour = (etmode_table[cc] & A_COLOR);
+      ch = show_etmode_codepoint(cc);
+      colour = show_etmode_attr(cc);
    }
    the_render_cell_from_codepoint(&out, ch, (TheRenderAttr)colour);
    the_driver->write_render_cells(_fast_win, &out, 1);
@@ -826,6 +841,25 @@ static void display_line_left( TheDriverWindow *win, TheDriverAttr colour, CHART
    if ( ( linelength = width - linelength ) != 0 )
       FILL_LINE_OUTPUT( ' ', linelength, colour );
    END_LINE_OUTPUT();
+}
+
+/***********************************************************************/
+static void display_alternate_line_left(TheDriverWindow *win,
+                                        TheDriverAttr colour,
+                                        TheDriverAltCell alternate,
+                                        int line, int width)
+/***********************************************************************/
+{
+   TheDriverCell cell;
+
+   if (win == NULL || width <= 0)
+      return;
+   cell = the_driver_cell_with_attr(the_driver_alternate_cell(alternate),
+                                    (TheRenderAttr)colour);
+   PARATEST_INIT_LINE(win,line);
+   the_driver->move_window_cursor(win,line,0);
+   while (width-- > 0)
+      the_driver->add_cell(win, cell);
 }
 
 /***********************************************************************/
@@ -1238,7 +1272,7 @@ static short show_status_character_at(const CHARTYPE *line, size_t len,
 #ifdef VMS
    return (short)line[cell];
 #else
-   return (short)(((unsigned char)line[cell]) & A_CHARTEXT);
+   return (short)((unsigned char)line[cell]);
 #endif
 }
 
@@ -1995,11 +2029,7 @@ void show_statarea(void)
    /*
     * Display colour setting.
     */
-#ifdef A_COLOR
    linebuf[max(0,(terminal_cols-7))] = (colour_support) ? 'C' : 'c';
-#else
-   linebuf[max(0,(terminal_cols-7))] = 'M';
-#endif
    /*
     * Display REXX support character.
     */
@@ -2073,7 +2103,7 @@ void clear_statarea(void)
 #endif
              INIT_LINE_OUTPUT( statarea, 0 );
              FILL_LINE_OUTPUT(' ', terminal_cols,
-                              (CURRENT_VIEW == NULL || CURRENT_FILE == NULL) ? A_NORMAL :
+                              (CURRENT_VIEW == NULL || CURRENT_FILE == NULL) ? THE_RENDER_ATTR_NORMAL :
                                      set_colour( CURRENT_FILE->attr+stat_attr ) );
              END_LINE_OUTPUT();
          }
@@ -2837,16 +2867,18 @@ static void build_lines(CHARTYPE scrno,short direction,LINE *curr,
 static TheDriverAttr merge_filectlchar_colour(TheDriverAttr base, COLOUR_ATTR *ctlattr)
 /***********************************************************************/
 {
-#ifdef A_COLOR
-   int base_pair = PAIR_NUMBER(base & A_COLOR);
-   int bg = BACKFROMPAIR(base_pair);
-   int fg = FOREFROMPAIR(ctlattr->pair);
-   int pair = ATTR2PAIR(fg,bg);
+   TheRenderStyle style;
 
-   return((base & ~A_COLOR) | COLOR_PAIR(pair) | ctlattr->mod);
-#else
-   return(base | ctlattr->mono);
-#endif
+   if (ctlattr == NULL)
+      return base;
+   if (colour_support && the_render_attr_has_color(base))
+   {
+      style = the_render_attr_style(base) | ctlattr->style;
+      return the_render_attr_make(ctlattr->fg, the_render_attr_bg(base),
+                                  style);
+   }
+   style = the_render_attr_style(base) | ctlattr->mono_style;
+   return the_render_attr_from_style(style);
 }
 /***********************************************************************/
 static bool apply_ctlchar_to_file_line(FILE_DETAILS *screen_file, SHOW_LINE *scurr)
@@ -2875,7 +2907,7 @@ static bool apply_ctlchar_to_file_line(FILE_DETAILS *screen_file, SHOW_LINE *scu
          {
             if ( ctlchar_char[j] == scurr->contents[source+1] )
             {
-               if ( ctlchar_attr[j].pair == -1 )
+               if ( ctlchar_attr[j].fg == THE_COLOR_UNSPECIFIED )
                   current_colour = scurr->normal_colour;
                else
                   current_colour = merge_filectlchar_colour(scurr->normal_colour,&ctlchar_attr[j]);
@@ -3535,7 +3567,9 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
 
                        if ((cb_line_idx == match_line1 && (LENGTHTYPE)i == match_col1) ||
                            (cb_line_idx == match_line2 && (LENGTHTYPE)i == match_col2)) {
-                           current_colour |= A_REVERSE;
+                           current_colour =
+                              the_render_attr_merge_style(current_colour,
+                                                          THE_STYLE_REVERSE);
                        }
 #endif                      
                       scurr->highlight_type[i] = ecolour_idx;
@@ -3633,14 +3667,23 @@ static void show_lines(CHARTYPE scrno)
                /* as this is NOT a reserved line, nothing is displayed in the gap */
                /* except for a LINE if required */
                /* no need to use UTF-8 length here */
-               memset( tmp_gap, ' ', SCREEN_VIEW(scrno)->prefix_gap );
-               tmp_gap[SCREEN_VIEW(scrno)->prefix_gap] = '\0';
-               display_line_left(show_screen_role_window(scrno, WINDOW_GAP),
-                              (SCREEN_VIEW(scrno)->prefix_gap_line ? scurr->gap_colour|the_driver_alternate_cell(THE_DRIVER_ALT_VLINE) : scurr->gap_colour),
-                              (CHARTYPE *)tmp_gap,
-                              SCREEN_VIEW(scrno)->prefix_gap,
-                              i,
-                              gap);
+               if (SCREEN_VIEW(scrno)->prefix_gap_line)
+               {
+                  display_alternate_line_left(
+                     show_screen_role_window(scrno, WINDOW_GAP),
+                     scurr->gap_colour, THE_DRIVER_ALT_VLINE, i, gap);
+               }
+               else
+               {
+                  memset( tmp_gap, ' ', SCREEN_VIEW(scrno)->prefix_gap );
+                  tmp_gap[SCREEN_VIEW(scrno)->prefix_gap] = '\0';
+                  display_line_left(show_screen_role_window(scrno, WINDOW_GAP),
+                                 scurr->gap_colour,
+                                 (CHARTYPE *)tmp_gap,
+                                 SCREEN_VIEW(scrno)->prefix_gap,
+                                 i,
+                                 gap);
+               }
             }
          }
 #ifdef USE_UTF8
@@ -4812,13 +4855,17 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d: ccols %d cother_end_col %d bother_end_col
             if ( is_column_being_shown(scrno, SCREEN_VIEW(scrno)->zone_start-1 ) )
             {
                bbm = SCREEN_VIEW(scrno)->zone_start-1-cvcol;
-               linebufch[bbm] |= A_LEFTLINE;
+               linebufch[bbm] =
+                  the_driver_cell_merge_style(linebufch[bbm],
+                                              THE_STYLE_LEFTLINE);
             }
             /* display right zone column */
             if ( is_column_being_shown(scrno, SCREEN_VIEW(scrno)->zone_end-1 ) )
             {
                bbm = SCREEN_VIEW(scrno)->zone_end-1-cvcol;
-               linebufch[bbm] |= A_RIGHTLINE;
+               linebufch[bbm] =
+                  the_driver_cell_merge_style(linebufch[bbm],
+                                              THE_STYLE_RIGHTLINE);
             }
             break;
          case BOUNDMARK_TABS:
@@ -4828,7 +4875,9 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d: ccols %d cother_end_col %d bother_end_col
                if ( is_tab_col( true_col + 1 ) )
                {
                   bbm = true_col;
-                  linebufch[bbm] |= A_LEFTLINE;
+                  linebufch[bbm] =
+                     the_driver_cell_merge_style(linebufch[bbm],
+                                                 THE_STYLE_LEFTLINE);
                }
             }
             break;
@@ -4836,12 +4885,16 @@ DEBUGDUMPDETAIL(fprintf(stderr,"%s %d: ccols %d cother_end_col %d bother_end_col
             if ( is_column_being_shown(scrno, SCREEN_VIEW(scrno)->margin_left-1 ) )
             {
                bbm = SCREEN_VIEW(scrno)->margin_left-1-cvcol;
-               linebufch[bbm] |= A_LEFTLINE;
+               linebufch[bbm] =
+                  the_driver_cell_merge_style(linebufch[bbm],
+                                              THE_STYLE_LEFTLINE);
             }
             if ( is_column_being_shown(scrno, SCREEN_VIEW(scrno)->margin_right-1 ) )
             {
                bbm = SCREEN_VIEW(scrno)->margin_right-1-cvcol;
-               linebufch[bbm] |= A_RIGHTLINE;
+               linebufch[bbm] =
+                  the_driver_cell_merge_style(linebufch[bbm],
+                                              THE_STYLE_RIGHTLINE);
             }
             break;
          default:

@@ -163,10 +163,16 @@ function is_preprocessor_undef(line) {
   return line ~ /^#[[:space:]]*undef[[:space:]]/
 }
 function category(line, is_func_sig, is_define, is_undef) {
+  if (FILENAME == "src/thekeys.h")
+    return ""
+  if (line ~ /#[[:space:]]*include[[:space:]]*[<"][^>"]*(curses|ncurses)/)
+    return "curses-include"
   if (line ~ /(^|[^A-Za-z0-9_])curses_driver_[A-Za-z0-9_]*[[:space:]]*\(/)
     return "driver-wrapper"
   if (line ~ /(^|[^A-Za-z0-9_])the_driver->[A-Za-z0-9_]*[[:space:]]*\(/)
     return "driver-wrapper"
+  if (!is_define && !is_undef && line ~ /(^|[^A-Za-z0-9_])(A_COLOR|COLOR_PAIR|PAIR_NUMBER|A_BOLD|A_REVERSE|A_UNDERLINE|A_BLINK|A_DIM|A_ITALIC|A_ALTCHARSET|A_NORMAL|A_LEFTLINE|A_RIGHTLINE|A_TOPLINE|A_OVERLINE|A_STRIKEOUT)([^A-Za-z0-9_]|$)/)
+    return "physical-attr"
   if (!is_func_sig && !is_define && line ~ /(^|[^A-Za-z0-9_])(my_getch|wgetch|getch|get_mouse_info|wmouse_position)[[:space:]]*\(/)
     return "physical-input"
   if (!is_define && !is_undef && line ~ /(^|[^A-Za-z0-9_])(KEY_MOUSE|MEVENT|getmouse|request_mouse_pos|MOUSE_X_POS|MOUSE_Y_POS|A_BUTTON_CHANGED|BUTTON_CHANGED|BUTTON_STATUS|BUTTON_ACTION_MASK|MOUSE_MOVED|BUTTON[123]_[A-Za-z0-9_]+|BUTTON_SHIFT|BUTTON_CONTROL|BUTTON_CTRL|BUTTON_ALT|BUTTON_PRESSED|BUTTON_RELEASED|BUTTON_CLICKED|BUTTON_DOUBLE_CLICKED|BUTTON_TRIPLE_CLICKED|BUTTON_MOVED|WHEEL_SCROLLED)([^A-Za-z0-9_]|$)/)
@@ -261,10 +267,11 @@ print_summary() {
       print "direct curses inventory summary (excluding src/drivers/curses, src/thedriver.*, PDCurses, contrib):"
       order[1] = "physical-input"
       order[2] = "physical-paint"
-      order[3] = "mouse-token"
-      order[4] = "window-state"
-      order[5] = "driver-wrapper"
-      for (i = 1; i <= 5; i++) {
+      order[3] = "physical-attr"
+      order[4] = "curses-include"
+      order[5] = "window-state"
+      order[6] = "driver-wrapper"
+      for (i = 1; i <= 6; i++) {
         cat = order[i]
         label = cat
         if (cat == "driver-wrapper")

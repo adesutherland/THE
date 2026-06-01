@@ -80,8 +80,7 @@ static CHARTYPE query_logical_cursor_char(void)
 #ifdef VMS
    return line[cursor.text.byte_offset];
 #else
-   return (CHARTYPE)(((unsigned char)line[cursor.text.byte_offset])
-                     & A_CHARTEXT);
+   return (CHARTYPE)((unsigned char)line[cursor.text.byte_offset]);
 #endif
 }
 void get_etmode(CHARTYPE *,CHARTYPE *);
@@ -247,7 +246,6 @@ short extract_modifiable_function(short number_variables,short itemno,CHARTYPE *
 short extract_monitor(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-#ifdef A_COLOR
    if (colour_support)
    {
       item_values[1].value = (CHARTYPE *)"COLOR";
@@ -260,12 +258,6 @@ short extract_monitor(short number_variables,short itemno,CHARTYPE *itemargs,CHA
    }
    item_values[2].value = (CHARTYPE *)"COLOR";
    item_values[2].len = 5;
-#else
-   item_values[1].value = (CHARTYPE *)"MONO";
-   item_values[1].len = 4;
-   item_values[2].value = (CHARTYPE *)"MONO";
-   item_values[2].len = 4;
-#endif
    return number_variables;
 }
 /***********************************************************************/
@@ -1260,7 +1252,7 @@ short extract_readv(short number_variables,short itemno,CHARTYPE *itemargs,CHART
    while(1)
    {
 #ifdef CAN_RESIZE
-      if (is_termresized())
+      if (the_driver_is_terminal_resized())
       {
          (void)THE_Resize(0,0);
          (void)THERefresh((CHARTYPE *)"");
@@ -1268,10 +1260,10 @@ short extract_readv(short number_variables,short itemno,CHARTYPE *itemargs,CHART
 #endif
       key = the_driver_read_legacy_key();
 #ifdef CAN_RESIZE
-      if (is_termresized())
+      if (the_driver_is_terminal_resized())
          continue;
 #endif
-#if defined (PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
       if (the_input_legacy_key_is_mouse(key))
       {
          mouse_key = TRUE;

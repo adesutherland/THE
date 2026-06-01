@@ -1,6 +1,6 @@
 # Driver Vtable Review
 
-Last updated: 2026-05-29.
+Last updated: 2026-06-01.
 
 This is the strategic review of `TheDriverOps` after the direct-curses
 inventory cleanup closed. It is not a refactor plan for one mechanical sweep.
@@ -16,14 +16,16 @@ should not need to know which backend is active for ordinary command flow.
 The intended layers are:
 
 - Core editor model: owns buffers, views, logical focus, row roles, logical
-  cursor state, command state, normalized input, and semantic transient UI
-  state.
+  cursor state, command state, normalized input, logical color/style/key
+  state, and semantic transient UI state.
 - Driver vtable: the current compatibility boundary between legacy editor code
   and physical UI behavior. It should shrink toward semantic operations plus a
   small portable surface API.
 - Curses driver: owns ncurses/PDCurses windows, pads, stdscr/curscr behavior,
   terminal key/mouse packets, physical cursor presentation, touch/refresh
-  ordering, and terminal-specific UTF repair/materialization.
+  ordering, `TheRenderAttr`/`TheDriverCell` lowering to curses
+  `chtype`/`cchar_t`/`COLOR_PAIR`, and terminal-specific UTF
+  repair/materialization.
 - LLM/headless driver: exposes semantic snapshots and consumes normalized
   input. Physical paint/cursor/window calls should update a deterministic
   fake surface or operation log only when needed for compatibility.
@@ -57,6 +59,11 @@ drivers continue to prove specific integration points.
 - `src/drivers/llm/headlessdriver.c` initializes all 53 entries in
   `the_headless_driver_ops` without including curses headers or linking
   curses.
+- `src/the.h` is intended to be curses-free. THE-owned logical colors/styles
+  and keys live in `src/thecolour.h` and `src/thekeys.h`; curses lowers them
+  privately. Basic color values and many key values intentionally remain
+  numerically curses-compatible, but core code no longer depends on curses
+  headers, color-pair encoding, or raw `A_*` attributes.
 - The Step 2 display-layout extraction removed `clamp_display_col`,
   `display_col_from_logical`, `logical_col_from_display`,
   `viewport_col_for_logical`, and `filearea_target` from the vtable.

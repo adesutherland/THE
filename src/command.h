@@ -303,7 +303,7 @@ COMMAND command[] =
  {(CHARTYPE *)"modify",      3,  (-1),            Modify,           FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm3.c */
  {(CHARTYPE *)"mouse",       5,  (-1),            Mouse,            TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"mouseclick",  7,  (-1),            Mouseclick,       TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
  {(CHARTYPE *)"",            0,  THE_KEY_MOUSE,   THEMouse,         FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm3.c */
 #endif
 #if defined(DOS) || defined(OS2) || defined(WIN32)

@@ -6,9 +6,8 @@
 #include <wchar.h>
 
 #include "textpos.h"
+#include "thecolour.h"
 #include "utfterm.h"
-
-typedef uint64_t TheRenderAttr;
 
 enum
 {

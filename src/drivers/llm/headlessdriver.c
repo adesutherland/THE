@@ -322,16 +322,25 @@ static void headless_set_cell_at(TheDriverWindow *win, int row, int col,
                                  TheDriverCell cell)
 {
    size_t index;
+   TheDriverAttr attr;
+   TheDriverCell stored;
+   uint32_t codepoint;
 
    if (!headless_window_contains(win, row, col) || win->cells == NULL)
       return;
    index = headless_cell_index(win, row, col);
-   win->cells[index] = cell;
-   win->attrs[index] = win->attr;
+   attr = the_driver_cell_attr(cell);
+   if (attr == THE_RENDER_ATTR_NORMAL && !the_driver_cell_is_alternate(cell))
+      attr = win->attr;
+   codepoint = the_driver_cell_codepoint(cell);
+   stored = the_driver_cell_is_alternate(cell)
+          ? the_driver_cell_make_alternate(codepoint, attr)
+          : the_driver_cell_make(codepoint, attr);
+   win->cells[index] = stored;
+   win->attrs[index] = attr;
    if (win->render_cells != NULL)
       the_render_cell_from_codepoint(&win->render_cells[index],
-                                     (uint32_t)cell,
-                                     (TheRenderAttr)win->attr);
+                                     codepoint, attr);
    win->dirty = 1;
 }
 
@@ -346,9 +355,11 @@ static void headless_set_render_cell_at(TheDriverWindow *win, int row,
       return;
    index = headless_cell_index(win, row, col);
    if (cell->codepoint_count > 0)
-      stored = (TheDriverCell)cell->codepoints[0];
+      stored = the_driver_cell_make(cell->codepoints[0], cell->attr);
    else if (cell->flags & THE_RENDER_CLUSTER_HAS_FALLBACK)
-      stored = (TheDriverCell)cell->fallback_codepoint;
+      stored = the_driver_cell_make(cell->fallback_codepoint, cell->attr);
+   else
+      stored = the_driver_cell_make('?', cell->attr);
    win->cells[index] = stored;
    win->attrs[index] = (TheDriverAttr)cell->attr;
    if (win->render_cells != NULL)
@@ -554,7 +565,9 @@ static TheDriverAttr headless_driver_software_cursor_attr(
    CHARTYPE scrno, TheDriverAttr base, CursorShape shape)
 {
    (void)scrno;
-   return base ^ ((TheDriverAttr)shape + 1U);
+   if (shape == CURSOR_UNDERLINE)
+      return the_render_attr_merge_style(base, THE_STYLE_UNDERLINE);
+   return the_render_attr_merge_style(base, THE_STYLE_REVERSE);
 }
 
 static TheDriverWindow *headless_driver_create_window(int rows, int cols,
@@ -977,9 +990,11 @@ static void headless_driver_draw_software_cell(
    CHARTYPE scrno, TheDriverWindow *win, short row, int col,
    TheDriverCell base, CursorShape shape)
 {
-   (void)scrno;
-   (void)shape;
-   headless_set_cell_at(win, row, col, base);
+   TheDriverAttr attr =
+      headless_driver_software_cursor_attr(scrno, the_driver_cell_attr(base),
+                                           shape);
+
+   headless_set_cell_at(win, row, col, the_driver_cell_with_attr(base, attr));
    if (win != NULL)
       headless_log("software-cell:window:%d:%d:%d", win->id, row, col);
 }
@@ -988,10 +1003,10 @@ static void headless_driver_draw_software_blank_cell(
    CHARTYPE scrno, TheDriverWindow *win, short row, int col,
    TheDriverAttr base, CursorShape shape)
 {
-   (void)scrno;
-   (void)base;
-   (void)shape;
-   headless_set_cell_at(win, row, col, ' ');
+   headless_set_cell_at(
+      win, row, col,
+      the_driver_cell_make(' ',
+         headless_driver_software_cursor_attr(scrno, base, shape)));
    if (win != NULL)
       headless_log("software-blank:window:%d:%d:%d", win->id, row, col);
 }

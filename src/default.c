@@ -269,7 +269,7 @@ void set_global_defaults(void)
    TABI_Nx = 8;
    UNTAAx = FALSE;
    READONLYx = READONLY_OFF;
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
    MOUSEx = TRUE;
 #else
    MOUSEx = FALSE;
@@ -291,6 +291,8 @@ void set_global_defaults(void)
    for (i=0;i<MAX_CTLCHARS;i++)
    {
       memset((CHARTYPE *)&ctlchar_attr[i],0,sizeof(COLOUR_ATTR));
+      ctlchar_attr[i].fg = THE_COLOR_UNSPECIFIED;
+      ctlchar_attr[i].bg = THE_COLOR_UNSPECIFIED;
       ctlchar_char[i] = 0;
       ctlchar_protect[i] = FALSE;
    }

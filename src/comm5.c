@@ -466,7 +466,7 @@ short Tabfile(CHARTYPE *params)
 /***********************************************************************/
 {
    short rc=RC_OK;
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
    TheInputLogicalTarget target;
 #endif
    int w;
@@ -485,7 +485,7 @@ short Tabfile(CHARTYPE *params)
        * If called from mouse click, find file under mouse (or arrows)
        * If called from command line, edit first file displayed
        */
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
       if (get_saved_mouse_target(&target)
       &&  target.kind == THE_INPUT_TARGET_TABLINE
       &&  target.window_id == WINDOW_FILETABS)
@@ -510,7 +510,7 @@ short Tabfile(CHARTYPE *params)
          TRACE_RETURN();
          return(RC_OK);
       }
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
       /*
        * Get logical file-tab cell captured at the driver edge.
        */
@@ -871,7 +871,7 @@ short Text(CHARTYPE *params)
 {
    LENGTHTYPE i=0L;
    CHARTYPE real_key=0;
-   TheDriverAttr chtype_key=0;
+   TheDriverCell text_cell=0;
    LENGTHTYPE x=0;
    unsigned short y=0;
    LENGTHTYPE len_params=0L;
@@ -941,12 +941,6 @@ short Text(CHARTYPE *params)
       utf8_filearea_next_cell = 0;
 #endif
       real_key = case_translate( (CHARTYPE)*(params+i) );
-#ifdef VMS
-      chtype_key = (TheDriverAttr)real_key;
-#else
-      chtype_key = (TheDriverAttr)(real_key & A_CHARTEXT);
-#endif
-
       cursor = the_driver->capture_window_cursor(driver_current_window());
       if (cursor.valid)
       {
@@ -984,7 +978,7 @@ short Text(CHARTYPE *params)
 #ifdef VMS
                                                                    cursor_cell,
 #else
-                                                                   cursor_cell & A_CHARTEXT,
+                                                                   (CHARTYPE)the_driver_cell_codepoint(cursor_cell),
 #endif
                                                                    real_key );
                }
@@ -1028,15 +1022,17 @@ short Text(CHARTYPE *params)
             if ( INSERTMODEx )
             {
                rec = meminschr( rec, real_key, CURRENT_VIEW->verify_col-1+x, max_line_length, rec_len );
-               put_char(driver_current_window(), chtype_key|attr, INSCHAR);
+               text_cell = the_driver_cell_make((uint32_t)real_key, attr);
+               put_char(driver_current_window(), text_cell, INSCHAR);
             }
             else
             {
                rec[CURRENT_VIEW->verify_col-1+x] = real_key;
+               text_cell = the_driver_cell_make((uint32_t)real_key, attr);
                if ( x == CURRENT_SCREEN.cols[WINDOW_FILEAREA]-1 )
-                  put_char(driver_current_window(), chtype_key|attr, INSCHAR);
+                  put_char(driver_current_window(), text_cell, INSCHAR);
                else
-                  put_char(driver_current_window(), chtype_key|attr, ADDCHAR);
+                  put_char(driver_current_window(), text_cell, ADDCHAR);
             }
             rec_len = calculate_rec_len( (INSERTMODEx)?ADJUST_INSERT:ADJUST_OVERWRITE, rec, rec_len, CURRENT_VIEW->verify_col+x, 1, CURRENT_FILE->trailing );
 #endif

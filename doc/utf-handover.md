@@ -46,12 +46,24 @@ virtual/fake-driver tests, focused unit tests, or CREXX/pty full-editor tests.
 - Curses and headless implementations both initialize all 53 entries.
 - Public driver types are neutral: `TheDriverAttr`, `TheDriverCell`,
   `TheRenderCell`, `TheRenderCluster`, and opaque `TheDriverWindow`.
-- `src/thedriver.h` is free of `WINDOW`, `chtype`, and `cchar_t`.
+- `src/the.h` and `src/thedriver.h` are free of curses headers, `WINDOW`,
+  `chtype`, `cchar_t`, curses color-pair encoding, and raw curses `A_*`
+  attributes.
+- Core colours/styles/keys are THE logical state. `src/thecolour.h` owns
+  `THE_COLOR_*`, `THE_STYLE_*`, `TheRenderAttr`, and `TheDriverCell`
+  encoding helpers; `src/thekeys.h` owns logical key codes including
+  Back-Tab/Shift-Tab, shifted arrows, function-key modifier ranges, mouse,
+  and parser-complete. Basic color values and many key values intentionally
+  stay numerically curses-compatible where that preserves existing maps.
+- Curses lowers logical attrs, cells, alternate cells, colors, and physical
+  key packets privately in `src/drivers/curses/cursesdriver.c`. Core editor
+  state no longer stores `COLOR_PAIR(pair) | A_BOLD` or depends on curses
+  pair numbering.
 - `cursor_focus_sync_current()` is removed.
 - Actionable direct-curses inventory is closed:
-  `physical-input: 0`, `physical-paint: 0`, `mouse-token: 0`,
-  `window-state: 0`.
-- Allowed/migrated `driver-wrapper` visibility is 539. This is vtable usage,
+  `physical-input: 0`, `physical-paint: 0`, `physical-attr: 0`,
+  `curses-include: 0`, and `window-state: 0`.
+- Allowed/migrated `driver-wrapper` visibility is 542. This is vtable usage,
   not raw curses debt.
 - Drivers are runtime-loaded modules. `the` loads `the_driver_curses` by
   default or for `--driver curses`, loads `the_driver_llm` for `--driver llm`,
@@ -68,9 +80,8 @@ virtual/fake-driver tests, focused unit tests, or CREXX/pty full-editor tests.
   `doupdate()` shim was renamed to `the_driver_fallback_update()`, and curses
   module cursor callbacks are private `curses_driver_*` lifecycle callbacks.
 - CMake no longer exposes `src/drivers/curses` as a global include directory.
-  `${CURSES_INCLUDE_DIRS}` remains global for now because legacy `the.h` still
-  includes curses headers for shared key/type compatibility; target-scoping
-  that include is a small cleanup after the header split is narrower.
+  Curses headers are included by the curses driver, not by the editor umbrella
+  header.
 - `the --driver llm` now selects the headless/LLM driver during real THE
   startup, skips curses initialization, opens files through the real file/view
   runtime, and runs `command ...` through THE's real command dispatcher. The
@@ -123,10 +134,11 @@ The live vtable now contains:
 ## Closed Workstreams
 
 1. Direct-curses inventory and neutral public types:
-   Raw `physical-input`, `physical-paint`, `mouse-token`, and `window-state`
-   findings are zero outside approved driver/vendor areas. `SCREEN_WINDOW_*`,
-   `CURRENT_WINDOW*`, public `WINDOW`, `chtype`, and `cchar_t` residue are
-   guarded.
+   Raw `physical-input`, `physical-paint`, `physical-attr`,
+   `curses-include`, and `window-state` findings are zero outside approved
+   driver/vendor areas. `SCREEN_WINDOW_*`, `CURRENT_WINDOW*`, public
+   `WINDOW`, `chtype`, `cchar_t`, curses color-pair macros, and raw curses
+   `A_*` attributes are guarded.
 2. Headless/test driver base:
    `src/drivers/llm/headlessdriver.c` provides a complete no-curses fake/test
    implementation of the current `TheDriverOps` surface with deterministic
@@ -147,6 +159,7 @@ The live vtable now contains:
    Public raw key/mouse reader, mouse-token, saved-packet, and packet-decoder
    vtable operations were removed. Raw `KEY_MOUSE`, PDC/ncurses packet
    decoding, and saved packet coordinates stay in `src/drivers/curses/cursesdriver.c`.
+   The editor-visible mouse key is `THE_KEY_MOUSE`.
 7. Role/window/cursor presentation contraction:
    Current/screen/global role cursor aliases, touch/refresh/redraw aliases,
    cell scrape/mutation helpers, topology/existence aliases, role-window

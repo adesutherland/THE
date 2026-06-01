@@ -63,7 +63,8 @@ static short set_active_colour( short area )
 {
    int i;
    COLOUR_ATTR attr;
-   TheDriverAttr ch=0L,nondisp_attr=0L;
+   TheDriverCell ch=0;
+   TheDriverAttr nondisp_attr=0L;
 
    TRACE_FUNCTION("commset1.c:set_active_colour");
 
@@ -78,12 +79,8 @@ static short set_active_colour( short area )
       {
          if (etmode_flag[i])
          {
-#ifdef VMS
             ch = etmode_table[i];
-#else
-            ch = etmode_table[i] & A_CHARTEXT;
-#endif
-            etmode_table[i] = ch | nondisp_attr;
+            etmode_table[i] = the_driver_cell_with_attr(ch, nondisp_attr);
          }
       }
    }
@@ -102,7 +99,7 @@ static short set_active_colour( short area )
     */
    if ( area == ATTR_BOUNDMARK)
    {
-      PDC_set_line_color(FOREFROMPAIR(attr.pair));
+      PDC_set_line_color(attr.fg);
       build_screen(current_screen);
       display_screen(current_screen);
       TRACE_RETURN();
@@ -1747,16 +1744,16 @@ short Colour(CHARTYPE *params)
                   if ( modifier_set == COL_MODIFIER_SET_ON )
                   {
                      if ( colour_support )
-                        attr.mod |= tmp_attr.mod;
+                        attr.style |= tmp_attr.style;
                      else
-                        attr.mono |= tmp_attr.mono;
+                        attr.mono_style |= tmp_attr.mono_style;
                   }
                   else
                   {
                      if ( colour_support )
-                        attr.mod &= ~tmp_attr.mod;
+                        attr.style &= ~tmp_attr.style;
                      else
-                        attr.mono &= ~tmp_attr.mono;
+                        attr.mono_style &= ~tmp_attr.mono_style;
                   }
                   CURRENT_FILE->attr[i] = attr;
                   if ( i == ATTR_BOUNDMARK
@@ -1774,16 +1771,16 @@ short Colour(CHARTYPE *params)
                if ( modifier_set == COL_MODIFIER_SET_ON )
                {
                   if ( colour_support )
-                     attr.mod |= tmp_attr.mod;
+                     attr.style |= tmp_attr.style;
                   else
-                     attr.mono |= tmp_attr.mono;
+                     attr.mono_style |= tmp_attr.mono_style;
                }
                else
                {
                   if ( colour_support )
-                     attr.mod &= ~tmp_attr.mod;
+                     attr.style &= ~tmp_attr.style;
                   else
-                     attr.mono &= ~tmp_attr.mono;
+                     attr.mono_style &= ~tmp_attr.mono_style;
                }
                CURRENT_FILE->attr[area] =attr;
                set_active_colour( area );
@@ -2427,7 +2424,7 @@ short Ctlchar(CHARTYPE *params)
                if (ctlchar_char[i] == 0)
                {
                   ctlchar_char[i] = word[0][0];
-                  ctlchar_attr[i].pair = -1;
+                  ctlchar_attr[i].fg = THE_COLOR_UNSPECIFIED;
                   found = TRUE;
                   break;
                }
@@ -3270,16 +3267,16 @@ short Ecolour(CHARTYPE *params)
             if ( modifier_set == COL_MODIFIER_SET_ON )
             {
                if ( colour_support )
-                  attr.mod |= tmp_attr.mod;
+                  attr.style |= tmp_attr.style;
                else
-                  attr.mono |= tmp_attr.mono;
+                  attr.mono_style |= tmp_attr.mono_style;
             }
             else
             {
                if ( colour_support )
-                  attr.mod &= ~tmp_attr.mod;
+                  attr.style &= ~tmp_attr.style;
                else
-                  attr.mono &= ~tmp_attr.mono;
+                  attr.mono_style &= ~tmp_attr.mono_style;
             }
             CURRENT_FILE->ecolour[i] = attr;
          }
@@ -3290,16 +3287,16 @@ short Ecolour(CHARTYPE *params)
          if ( modifier_set == COL_MODIFIER_SET_ON )
          {
             if ( colour_support )
-               attr.mod |= tmp_attr.mod;
+               attr.style |= tmp_attr.style;
             else
-               attr.mono |= tmp_attr.mono;
+               attr.mono_style |= tmp_attr.mono_style;
          }
          else
          {
             if ( colour_support )
-               attr.mod &= ~tmp_attr.mod;
+               attr.style &= ~tmp_attr.style;
             else
-               attr.mono &= ~tmp_attr.mono;
+               attr.mono_style &= ~tmp_attr.mono_style;
          }
          CURRENT_FILE->ecolour[area] = attr;
       }
@@ -3655,7 +3652,8 @@ short Etmode(CHARTYPE *params)
       {
          for (i=0;i<256;i++)
          {
-            etmode_table[i] = i;
+            etmode_table[i] = the_driver_cell_make((uint32_t)i,
+                                                   THE_RENDER_ATTR_NORMAL);
             etmode_flag[i] = FALSE;
          }
       }
@@ -3665,17 +3663,20 @@ short Etmode(CHARTYPE *params)
          {
             if (isprint(i) )
             {
-               etmode_table[i] = i;
+               etmode_table[i] = the_driver_cell_make((uint32_t)i,
+                                                      THE_RENDER_ATTR_NORMAL);
                etmode_flag[i] = FALSE;
             }
             else if (iscntrl(i) )
             {
-               etmode_table[i] = ('@' + i) | attr;
+               etmode_table[i] = the_driver_cell_make((uint32_t)('@' + i),
+                                                      attr);
                etmode_flag[i] = (attr)?TRUE:FALSE;
             }
             else
             {
-               etmode_table[i] = NONDISPx | attr;
+               etmode_table[i] = the_driver_cell_make((uint32_t)NONDISPx,
+                                                      attr);
                etmode_flag[i] = (attr)?TRUE:FALSE;
             }
          }
@@ -3756,19 +3757,22 @@ short Etmode(CHARTYPE *params)
    {
       if (flags[i])
       {
-         etmode_table[i] = i;
+         etmode_table[i] = the_driver_cell_make((uint32_t)i,
+                                                THE_RENDER_ATTR_NORMAL);
          etmode_flag[i] = FALSE;
       }
       else
       {
          if (iscntrl(i) )
          {
-            etmode_table[i] = ('@' + i) | attr;
+            etmode_table[i] = the_driver_cell_make((uint32_t)('@' + i),
+                                                   attr);
             etmode_flag[i] = TRUE;
          }
          else
          {
-            etmode_table[i] = NONDISPx | attr;
+            etmode_table[i] = the_driver_cell_make((uint32_t)NONDISPx,
+                                                   attr);
             etmode_flag[i] = TRUE;
          }
       }

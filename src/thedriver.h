@@ -22,7 +22,6 @@ struct view_details;
 typedef struct TheDriverWindow TheDriverWindow;
 
 typedef TheRenderAttr TheDriverAttr;
-typedef uint64_t TheDriverCell;
 
 typedef struct
 {
@@ -246,6 +245,7 @@ void the_driver_suspend_terminal(void);
 void the_driver_resume_terminal(void);
 void the_driver_resize_terminal(int rows, int cols);
 void the_driver_refresh_terminal_size(void);
+int the_driver_is_terminal_resized(void);
 int the_driver_read_terminal_legacy_key(void);
 int the_driver_read_raw_window_key(TheDriverWindow *win);
 void the_driver_set_window_leaveok(TheDriverWindow *win, bool enabled);
@@ -301,6 +301,7 @@ struct TheDriverModuleLifecycle
    void (*resume_terminal)(void);
    void (*resize_terminal)(int rows, int cols);
    void (*refresh_terminal_size)(void);
+   int (*is_terminal_resized)(void);
    int (*read_terminal_legacy_key)(void);
    int (*read_raw_window_key)(TheDriverWindow *win);
    void (*set_window_leaveok)(TheDriverWindow *win, bool enabled);

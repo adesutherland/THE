@@ -112,7 +112,7 @@ int process_key(int key, bool mouse_details_present)
    string_key[1] = '\0';
 
 #ifdef CAN_RESIZE
-   if (is_termresized())
+   if (the_driver_is_terminal_resized())
    {
       (void)THE_Resize(0,0);
       (void)THERefresh((CHARTYPE *)"");
@@ -122,25 +122,25 @@ int process_key(int key, bool mouse_details_present)
    if ( single_instance_server )
       key = process_fifo_input( key );
 #endif
-   if (key == (-1))
+   if (key == THE_KEY_NONE)
    {
 #ifdef USE_SDSLH
       if (CURRENT_FILE && CURRENT_FILE->sdslh_comm && CURRENT_FILE->cb) {
-          if (cb_check_parse_complete_event(CURRENT_FILE->cb) == 1) {
-              cb_reset_parse_complete_event(CURRENT_FILE->cb);
-              key = -2;
+         if (cb_check_parse_complete_event(CURRENT_FILE->cb) == 1) {
+             cb_reset_parse_complete_event(CURRENT_FILE->cb);
+              key = THE_KEY_PARSE_COMPLETE;
           } else {
               /* Wait for input with a 200ms timeout to allow background events to trigger a redraw */
               the_driver->set_current_window_timeout(200);
               key = the_driver_read_legacy_key();
               the_driver->set_current_window_timeout(-1); /* Back to blocking */
-              if (key == ERR) {
+              if (key == THE_KEY_NONE) {
                   /* Timeout occurred, check event again */
                   if (cb_check_parse_complete_event(CURRENT_FILE->cb) == 1) {
                       cb_reset_parse_complete_event(CURRENT_FILE->cb);
-                      key = -2;
+                      key = THE_KEY_PARSE_COMPLETE;
                   } else {
-                      key = -1; /* No input, no event - return to main loop */
+                      key = THE_KEY_NONE; /* No input, no event - return to main loop */
                   }
               }
           }
@@ -158,7 +158,7 @@ int process_key(int key, bool mouse_details_present)
       if (the_input_event_to_legacy_key(&input_event, &normalized_key))
          key = normalized_key;
    }
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
    if (!the_input_legacy_key_is_mouse(key))
    {
       if (!mouse_details_present)
@@ -167,7 +167,7 @@ int process_key(int key, bool mouse_details_present)
 #endif
 
 #ifdef CAN_RESIZE
-   if (is_termresized())
+   if (the_driver_is_terminal_resized())
    {
       TRACE_RETURN();
       return(RC_OK);
@@ -184,7 +184,7 @@ int process_key(int key, bool mouse_details_present)
    }
 #endif
 #ifdef USE_SDSLH
-   if ( key == -2 )
+   if ( key == THE_KEY_PARSE_COMPLETE )
    {
       build_screen(current_screen);
       display_screen(current_screen);
@@ -202,7 +202,7 @@ int process_key(int key, bool mouse_details_present)
       return(RC_OK);
    }
 #endif
-   if ( key == -1 )
+   if ( key == THE_KEY_NONE )
    {
       TRACE_RETURN();
       return(RC_OK);

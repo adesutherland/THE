@@ -1115,7 +1115,7 @@ short display_all_keys(void)
       key = curr_define->def_funkey;
       curr_define = curr_define->next;
    }
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
    /*
     * ...last, display any mouse key definitions.
     */
@@ -1204,7 +1204,7 @@ int set_rexx_variables_for_all_keys(int key_type, int *number_keys_return)
          curr_define = curr_define->next;
       }
    }
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
    /*
     * ...last, display any mouse key definitions.
     */
@@ -1306,7 +1306,7 @@ short command_line(CHARTYPE *cmd_line,bool command_only)
       return(RC_OUT_OF_MEMORY);
    }
 #if 0
-fprintf(stderr,"%s %d: Command: [%s] idline: %d\n",__FILE__,__LINE__,command_entered,(vd_current) ? vd_current->file_for_view->attr[5].pair : -1);
+fprintf(stderr,"%s %d: Command: [%s] idline: %d\n",__FILE__,__LINE__,command_entered,(vd_current) ? vd_current->file_for_view->attr[5].fg : -1);
 #endif
    /*
     * Allocate some space to cl_cmd and cl_param for the a command when
@@ -3839,7 +3839,7 @@ int readv_cmdline(CHARTYPE *initial, TheDriverWindow *dw, int start_col)
       if ( key == KEY_SF || key == KEY_SR )
          continue;
 #endif
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+#if defined(THE_MOUSE_ENABLED)
       if (the_input_legacy_key_is_mouse(key))
       {
          TheDriverMouseEvent mouse;

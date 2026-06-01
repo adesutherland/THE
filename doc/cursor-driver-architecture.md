@@ -40,6 +40,14 @@ The logical layer may use `textpos`, `logcursor`, `utflayout`, `uidriver`,
 `screenframe`, and terminal profile metadata when it needs to ask whether a
 logical cursor is physically visible. It must not call curses.
 
+The logical layer also owns editor color, style, and key identity. Core code
+uses `THE_COLOR_*`, `THE_STYLE_*`, `TheRenderAttr`, `TheDriverCell`, and
+`THE_KEY_*` from `src/thecolour.h` and `src/thekeys.h`; it must not encode
+state as `COLOR_PAIR(pair) | A_BOLD` or depend on curses headers for key
+constants. The base color numbers and many key values intentionally remain
+curses-compatible where that preserves existing maps, but they are THE-owned
+contracts.
+
 ### Physical Driver Layer
 
 The physical driver owns:
@@ -49,6 +57,8 @@ The physical driver owns:
   `wnoutrefresh`, `doupdate`, `wgetch`, input timeouts, raw mouse key
   translation, mouse packet storage, button/action/modifier decoding, and
   mouse packet position decoding.
+- lowering `TheRenderAttr` and `TheDriverCell` into curses `chtype`,
+  `cchar_t`, `attr_t`, `COLOR_PAIR`, and physical alternate-character cells.
 - physical cursor save/restore and hardware cursor parking.
 - physical cursor materialization from shared logical/display targets.
 - software cursor painting.
@@ -80,11 +90,11 @@ deterministic log entries in non-terminal drivers.
 driver types are neutral: `TheDriverAttr`, `TheDriverCell`, `TheRenderCell`,
 `TheRenderCluster`, and opaque `TheDriverWindow` handles. `WINDOW`, `chtype`,
 and `cchar_t` are implementation-private curses types and must not reappear in
-`src/thedriver.h`. Temporary physical edges that still need windows call
-opaque vtable operations directly; pad, `stdscr`/`curscr`, modal relative
-window, and broken-curses background mechanics have been contracted behind
-transient snapshots or higher-level terminal lifecycle operations. Do not add
-a neutral wrapper API parallel to the vtable.
+`src/the.h` or `src/thedriver.h`. Temporary physical edges that still need
+windows call opaque vtable operations directly; pad, `stdscr`/`curscr`, modal
+relative window, and broken-curses background mechanics have been contracted
+behind transient snapshots or higher-level terminal lifecycle operations. Do
+not add a neutral wrapper API parallel to the vtable.
 
 `src/rendercell.c` owns the portable UTF renderer model. Render clusters carry
 codepoint sequences, source UTF-8 slices, style, logical width, display width,
@@ -187,6 +197,8 @@ Closed checkpoints are summarized here; details and next tasks are in
   curses, headless/LLM, and fake/test drivers should expose the same surface
   while this migration is in progress.
 - `src/inputevent.c` defines shared normalized input events.
+- `src/the.h` is intended to be curses-free. Core color/style/key state is
+  THE-owned, and curses lowering is private to `src/drivers/curses/**`.
 - `src/driverlayout.c` defines shared display/cursor mapping helpers:
   `clamp_display_col`, `display_col_from_logical`,
   `logical_col_from_display`, `viewport_col_for_logical`, and
@@ -243,15 +255,16 @@ Closed checkpoints are summarized here; details and next tasks are in
   backend-specific behavior becomes too different.
 - `tests/inventory_direct_curses.sh` is the repeatable debt sweep and ratchet.
   Current counts are actionable `physical-input: 0`, `physical-paint: 0`,
-  `mouse-token: 0`, and `window-state: 0`; `driver-wrapper: 539` is counted
-  as migrated/allowed. The summary now splits `window-state` into
+  `physical-attr: 0`, `curses-include: 0`, and `window-state: 0`;
+  `driver-wrapper: 542` is counted as migrated/allowed. The summary now splits
+  `window-state` into
   `window-handle: 0`, `active-window-macro: 0`, `cell-attr-type: 0`,
   `renderer-cell-type: 0`, and `header-prototype: 0`. The ratchet is
   available as both CTest `test_curses_boundary_inventory` and build target
   `curses_boundary_inventory`. The cleaned transient functions and current
   project-wide inventory have no raw `physical-input`, `physical-paint`,
-  `mouse-token`, or `window-state` findings outside `src/drivers/curses/**`
-  or `src/thedriver.*`.
+  `physical-attr`, `curses-include`, or `window-state` findings outside
+  `src/drivers/curses/**` or `src/thedriver.*`.
 
 ## Status Model
 
@@ -323,16 +336,18 @@ Guardrails are only useful when they close with behavior coverage. Tighten them
 module by module, not by aspiration.
 
 - Logical foundation modules must stay curses-free.
-- `src/thedriver.h` must stay free of `WINDOW`, `chtype`, and `cchar_t`; the
-  curses implementation performs all casts between neutral driver types and
-  curses types.
+- `src/the.h` and `src/thedriver.h` must stay free of curses includes,
+  `WINDOW`, `chtype`, `cchar_t`, `COLOR_PAIR`, `PAIR_NUMBER`, `A_COLOR`, and
+  raw curses `A_*` attributes; the curses implementation performs all lowering
+  between neutral driver types and curses types.
 - The main `the` executable must stay free of direct curses dynamic
   dependencies and raw curses API symbol exports. Compatibility names listed
   above are allowed only while legacy call sites still share editor runtime
   state with the curses module.
 - Core source outside `src/drivers/curses/**`, `src/thedriver.*`, bundled
   PDCurses, and contrib must stay free of raw `WINDOW`, `chtype`, `cchar_t`,
-  `CURRENT_WINDOW`, `SCREEN_WINDOW`, and `PENDING_WINDOW` residue.
+  `CURRENT_WINDOW`, `SCREEN_WINDOW`, `PENDING_WINDOW`, curses includes,
+  curses color-pair macros, and raw curses `A_*` attribute residue.
 - Editor code should call `the_driver->...` for operations present in
   `TheDriverOps`. Direct `curses_driver_*` calls must stay inside
   `src/drivers/curses/**`; temporary low-level physical edges outside the driver
