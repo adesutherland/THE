@@ -31,6 +31,19 @@ printf '%s\n' \
   'command colouring on auto' \
   'look filearea compact max=120' \
   'debug dump-driver-ops' \
+  'transient readv seed' \
+  'transient text X' \
+  'transient key enter' \
+  'transient result' \
+  'transient dialog modal' \
+  'transient key tab' \
+  'transient key enter' \
+  'transient result' \
+  'transient popup' \
+  'transient key down' \
+  'transient hit 2 8' \
+  'transient result' \
+  'transient close' \
   'quit' |
   TERM= THE_HOME_DIR="$release_dir" "$the_bin" --driver llm -n "$sample" \
     >"$out" 2>"$err"
@@ -42,7 +55,8 @@ rg '"command_dispatcher":"full-the"' "$out" >/dev/null
 rg '"full_the_dispatcher":true' "$out" >/dev/null
 rg '"real_buffers":true' "$out" >/dev/null
 rg '"syntax_style_spans":true' "$out" >/dev/null
-rg '"parser_diagnostics":"available-through-real-commands"|"parser_diagnostics":"unavailable-in-this-build"' "$out" >/dev/null
+rg '"parser_diagnostics":"first-class-snapshot-array"|"parser_diagnostics":"unavailable-in-this-build"' "$out" >/dev/null
+rg '"transient_ui":"shared-transientui-protocol-adapter"' "$out" >/dev/null
 rg '"crexx_macros":(true|false)' "$out" >/dev/null
 if grep -aq 'CREXX unavailable' "$the_bin"; then
   rg '"crexx_macros":false' "$out" >/dev/null
@@ -59,6 +73,13 @@ rg '"buffers":\[' "$out" >/dev/null
 rg '"p":"000001"' "$out" >/dev/null
 rg '"s":\[' "$out" >/dev/null
 rg '"debug":"dump-driver-ops"' "$out" >/dev/null
+rg '"kind":"readv"' "$out" >/dev/null
+rg '"text":"seedX"' "$out" >/dev/null
+rg '"kind":"dialog"' "$out" >/dev/null
+rg '"action":"accept"' "$out" >/dev/null
+rg '"kind":"popup"' "$out" >/dev/null
+rg '"selected_item":1' "$out" >/dev/null
+rg '"status":"transient cleared"' "$out" >/dev/null
 
 if rg -q 'Error opening terminal|setupterm|initscr' "$out" "$err"; then
   echo "llm driver appeared to initialize curses" >&2

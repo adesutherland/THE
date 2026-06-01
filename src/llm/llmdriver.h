@@ -16,6 +16,10 @@
 #define LLM_DRIVER_MAX_BUFFERS 16
 #define LLM_DRIVER_MAX_PROJECT_FILES 32
 #define LLM_DRIVER_MAX_PROJECT_NAME 128
+#define LLM_DRIVER_MAX_DIAGNOSTICS 64
+#define LLM_DRIVER_MAX_DIAGNOSTIC_CODE 64
+#define LLM_DRIVER_MAX_DIAGNOSTIC_MESSAGE 512
+#define LLM_DRIVER_MAX_DIAGNOSTIC_SEVERITY 24
 #define LLM_DRIVER_INPUT_QUEUE_MAX THE_INPUT_QUEUE_MAX
 
 typedef struct
@@ -61,6 +65,15 @@ typedef struct
 
 typedef struct
 {
+   LINETYPE line;
+   LENGTHTYPE column;
+   char severity[LLM_DRIVER_MAX_DIAGNOSTIC_SEVERITY];
+   char code[LLM_DRIVER_MAX_DIAGNOSTIC_CODE];
+   char message[LLM_DRIVER_MAX_DIAGNOSTIC_MESSAGE];
+} LlmDriverParserDiagnostic;
+
+typedef struct
+{
    int rows;
    int cols;
    LogicalCursor cursor;
@@ -80,6 +93,8 @@ typedef struct
    size_t buffer_count;
    LlmDriverBufferInfo buffers[LLM_DRIVER_MAX_BUFFERS];
    LlmDriverProjectView project;
+   size_t diagnostic_count;
+   LlmDriverParserDiagnostic diagnostics[LLM_DRIVER_MAX_DIAGNOSTICS];
 } LlmDriverScreenView;
 
 #define LLM_DRIVER_INPUT_NONE THE_INPUT_NONE
@@ -192,6 +207,11 @@ void llm_driver_screen_view_set_project_root(LlmDriverScreenView *view,
                                              const char *root);
 int llm_driver_screen_view_add_project_file(LlmDriverScreenView *view,
                                             const char *path);
+int llm_driver_screen_view_add_diagnostic(LlmDriverScreenView *view,
+                                          LINETYPE line, LENGTHTYPE column,
+                                          const char *severity,
+                                          const char *code,
+                                          const char *message);
 size_t llm_driver_format_screen_view(const LlmDriverScreenView *view,
                                      char *out, size_t out_len);
 void llm_driver_format_options_init(LlmDriverFormatOptions *options);

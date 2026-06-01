@@ -30,16 +30,18 @@ refresh/update/touch ordering, cell writes/fills, software cursor painting,
 UTF repair execution, physical cursor materialization, hardware cursor parking,
 raw terminal input packets, and terminal-specific policy. Shared display
 mapping lives in `src/driverlayout.c`; terminal mechanics stay in
-`src/cursesdriver.c` or in explicit physical vtable operations.
+`src/drivers/curses/cursesdriver.c` or in explicit physical vtable operations.
 
 New logical behavior should be proved through a no-curses surface first:
-`the_agent`, `the_llm_headless`, `llmdriver`, `llmruntime`,
+`the_llm_harness`, `the_llm_headless`, `llmdriver`, `llmruntime`,
 virtual/fake-driver tests, focused unit tests, or CREXX/pty full-editor tests.
 
 ## Current Checkpoint
 
-- Latest completed slice: first full-runtime LLM target proof,
-  `the --driver llm`.
+- Latest completed slice: full-runtime LLM blocker closure: runtime-loaded
+  driver modules, first-class parser diagnostics, full-runtime transient
+  protocol, broader skip-safe smoke coverage, harness rename, and driver/LLM
+  directory reorganization.
 - Live public driver surface: 53 `TheDriverOps` entries.
 - Curses and headless implementations both initialize all 53 entries.
 - Public driver types are neutral: `TheDriverAttr`, `TheDriverCell`,
@@ -49,12 +51,30 @@ virtual/fake-driver tests, focused unit tests, or CREXX/pty full-editor tests.
 - Actionable direct-curses inventory is closed:
   `physical-input: 0`, `physical-paint: 0`, `mouse-token: 0`,
   `window-state: 0`.
-- Allowed/migrated `driver-wrapper` visibility is 576. This is vtable usage,
+- Allowed/migrated `driver-wrapper` visibility is 539. This is vtable usage,
   not raw curses debt.
+- Drivers are runtime-loaded modules. `the` loads `the_driver_curses` by
+  default or for `--driver curses`, loads `the_driver_llm` for `--driver llm`,
+  and no longer links curses directly. The portable loader uses `dlopen` /
+  `dlsym` on POSIX and `LoadLibrary` / `GetProcAddress` on Windows, with
+  `THE_DRIVER_PATH`, executable/release directories, and the installed driver
+  directory in the search path.
+- The main executable is guarded for both link cleanliness and accidental raw
+  curses API symbol exports. The curses-shaped compatibility names still
+  allowed in `the` are `my_wmove`, `curses_started`,
+  `ncurses_screen_resized`, `suspend_curses`, `resume_curses`,
+  `the_driver_is_curses`, and `the_driver_use_curses`; these are legacy shared
+  runtime-state names, not direct curses API links. The fallback core
+  `doupdate()` shim was renamed to `the_driver_fallback_update()`, and curses
+  module cursor callbacks are private `curses_driver_*` lifecycle callbacks.
+- CMake no longer exposes `src/drivers/curses` as a global include directory.
+  `${CURSES_INCLUDE_DIRS}` remains global for now because legacy `the.h` still
+  includes curses headers for shared key/type compatibility; target-scoping
+  that include is a small cleanup after the header split is narrower.
 - `the --driver llm` now selects the headless/LLM driver during real THE
   startup, skips curses initialization, opens files through the real file/view
   runtime, and runs `command ...` through THE's real command dispatcher. The
-  protocol loop preserves the `the_agent` command shape: `look`, `delta`,
+  protocol loop preserves the `the_llm_harness` command shape: `look`, `delta`,
   `capabilities`, `focus`, `hit`, `key`, `text`, `type`, `command`, `debug`,
   `transient`, and `quit`.
 - Full-runtime LLM snapshots are built from real `screenframe`/`SHOW_LINE`
@@ -67,18 +87,18 @@ virtual/fake-driver tests, focused unit tests, or CREXX/pty full-editor tests.
   profile/macro dispatcher path as the full editor when CREXX is enabled.
 - SDSLH/parser-backed syntax remains a strategic full-runtime LLM capability.
   Syntax/style spans are surfaced in snapshots after the real runtime enables
-  colouring. Parser diagnostics are available through real commands such as
-  `SDSLHWAIT` and `EXTRACT /PMSGS/`; a first-class snapshot diagnostics array
-  is still a concrete follow-up.
-- The current `the` binary still links the curses driver for the default
-  `--driver curses` path. The `--driver llm` path does not initialize curses or
-  execute curses-driver behavior at runtime; a separate full-runtime no-curses
-  link target remains a future build split if strict link isolation is needed.
-- `the_agent` now covers the serious no-curses protocol harness subset:
+  colouring. Parser diagnostics now appear as a first-class `diagnostics`
+  snapshot array when parser messages exist, and `EXTRACT /PMSGS/` preserves
+  the existing PMSGS behavior through the shared collector.
+- Full-runtime `transient readv`, `transient dialog`, and `transient popup`
+  use the shared `transientui` model and support snapshot, key/text input,
+  logical hit input, result reporting, close, and cancel through the LLM
+  protocol.
+- `the_llm_harness` now covers the serious no-curses protocol harness subset:
   open/new/save/write, logical snapshots with buffer path/dirty/line metadata,
   search/find, replace/replace-all, line operations, logical hits, key/text
   input, file/prefix/command focus, semantic prefix commands, selection/range
-  operations, bounded agent-side undo/redo, buffer open/switch/list/close,
+  operations, bounded harness-side undo/redo, buffer open/switch/list/close,
   flat project listing, retained-frame deltas, live transient readv/dialog/popup
   demo protocol, and the existing SOS navigation/edit subset. It is retained
   as a protocol harness, no-curses contract test surface, and fallback oracle
@@ -108,7 +128,7 @@ The live vtable now contains:
    `CURRENT_WINDOW*`, public `WINDOW`, `chtype`, and `cchar_t` residue are
    guarded.
 2. Headless/test driver base:
-   `src/headlessdriver.c` provides a complete no-curses fake/test
+   `src/drivers/llm/headlessdriver.c` provides a complete no-curses fake/test
    implementation of the current `TheDriverOps` surface with deterministic
    state/logging and no curses link.
 3. Shared display/input semantics:
@@ -126,7 +146,7 @@ The live vtable now contains:
 6. Raw input wrapper retirement:
    Public raw key/mouse reader, mouse-token, saved-packet, and packet-decoder
    vtable operations were removed. Raw `KEY_MOUSE`, PDC/ncurses packet
-   decoding, and saved packet coordinates stay in `src/cursesdriver.c`.
+   decoding, and saved packet coordinates stay in `src/drivers/curses/cursesdriver.c`.
 7. Role/window/cursor presentation contraction:
    Current/screen/global role cursor aliases, touch/refresh/redraw aliases,
    cell scrape/mutation helpers, topology/existence aliases, role-window
@@ -135,7 +155,7 @@ The live vtable now contains:
    existing logical windows through `src/driverwindow.h` before using explicit
    physical primitives.
 8. LLM/headless agent editor capability fill:
-   The no-curses agent subset is now a credible editor target for agents. It
+   The no-curses harness subset is now a credible editor target for agents. It
    has stable semantic snapshots/deltas, buffer metadata, file
    open/save/write, search/find, replace, line operations, prefix commands,
    selection/range operations, undo/redo visibility, buffer switching, flat
@@ -157,12 +177,12 @@ Historical vtable counts:
 
 Recommended next slice:
 
-1. Full-runtime LLM capability fill.
-   Keep `the_agent` stable as the protocol harness while extending
-   `the --driver llm` where real runtime gaps remain: first-class parser
-   diagnostics in snapshots, modal/readv/dialog protocol adaptation, stricter
-   no-curses link target if needed, and broader real command/profile/CREXX
-   smoke coverage.
+1. Post-module full-runtime polish.
+   Keep `the_llm_harness` stable as the protocol harness while extending
+   `the --driver llm` only where a real runtime behavior is still missing.
+   Good next candidates are deeper command-triggered modal re-entry, more
+   parser/language fixtures, and Windows verification for the portable driver
+   loader.
 
 Then:
 
@@ -202,7 +222,7 @@ A migration task is closed only when all applicable items are true:
 - logical behavior is observable through a no-curses surface, virtual/fake
   driver, focused CTest, or CREXX/pty full-editor test.
 - the real curses path uses the same logical input/frame/cursor data.
-- unsupported behavior is explicit in `the_agent capabilities` or this file.
+- unsupported behavior is explicit in `the_llm_harness capabilities` or this file.
 - physical mechanics remain inside `cursesdriver.c` or an explicit physical
   vtable operation.
 - guardrails are tightened for the cleaned module or behavior class.
@@ -212,8 +232,8 @@ A migration task is closed only when all applicable items are true:
 
 ```sh
 perl -ne 'print "$1\n" if /\(\*([A-Za-z0-9_]+)\)/' src/thedriver.h | wc -l
-perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/cursesdriver.c | wc -l
-perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/headlessdriver.c | wc -l
+perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/drivers/curses/cursesdriver.c | wc -l
+perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/drivers/llm/headlessdriver.c | wc -l
 bash tests/inventory_direct_curses.sh --summary /Users/adrian/CLionProjects/THE
 git diff --check
 ```
@@ -223,10 +243,11 @@ Focused tests that commonly matter:
 - `test_headlessdriver`, `test_inputevent`, `test_mousehit`
 - `test_uidriver`, `test_screenframe`, `test_virtual_screen`
 - `test_llmdriver`, `test_llmruntime`, `test_agentdriver`
-- `test_transientui`, `test_the_agent_no_curses`,
+- `test_transientui`, `test_the_llm_harness_no_curses`,
   `test_the_llm_headless_no_curses`,
   `test_the_llm_headless_no_curses_mini_session`,
-  `test_the_llm_full_runtime`
+  `test_the_llm_full_runtime`, `test_the_llm_parser_diagnostics`,
+  `test_the_llm_profile_crexx`, `test_driver_modules`
 - `test_curses_boundary`, `test_curses_boundary_inventory`
 - CREXX/pty tests such as `test_normal_area_queries`,
   `test_sos_navigation_queries`, `test_sos_logical_edit_queries`, and

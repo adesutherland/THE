@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
-  echo "usage: $0 /path/to/the_agent" >&2
+  echo "usage: $0 /path/to/the_llm_harness" >&2
   exit 2
 fi
 
@@ -20,7 +20,7 @@ elif command -v ldd >/dev/null 2>&1; then
 fi
 
 if printf '%s\n' "$deps" | rg -i 'curses|ncurses|pdcurses' >/dev/null; then
-  echo "the_agent links a curses dependency:" >&2
+  echo "the_llm_harness links a curses dependency:" >&2
   printf '%s\n' "$deps" >&2
   exit 1
 fi
@@ -30,7 +30,7 @@ if command -v nm >/dev/null 2>&1; then
   if printf '%s\n' "$symbols" \
      | rg 'curses_driver|initscr|endwin|wmove|wgetch|doupdate|stdscr' \
           >/dev/null; then
-    echo "the_agent exposes curses or curses-driver symbols" >&2
+    echo "the_llm_harness exposes curses or curses-driver symbols" >&2
     exit 1
   fi
 fi

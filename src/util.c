@@ -1427,18 +1427,9 @@ short set_up_windows(short scrn)
       if ( screen[scrn].rows[i] != 0
       &&   screen[scrn].cols[i] != 0 )
       {
-         if ( the_driver_is_headless() )
-         {
-            screen[scrn].win[i] = headless_driver_create_screen_role(
-               scrn, i, screen[scrn].rows[i], screen[scrn].cols[i],
-               screen[scrn].start_row[i], screen[scrn].start_col[i]);
-         }
-         else
-         {
-            screen[scrn].win[i] = the_driver->create_window(
-               screen[scrn].rows[i], screen[scrn].cols[i],
-               screen[scrn].start_row[i], screen[scrn].start_col[i]);
-         }
+         screen[scrn].win[i] = the_driver_create_screen_role(
+            scrn, i, screen[scrn].rows[i], screen[scrn].cols[i],
+            screen[scrn].start_row[i], screen[scrn].start_col[i]);
          if ( screen[scrn].win[i] == NULL )
          {
             display_error( 30, (CHARTYPE *)"creating window", FALSE );
@@ -1506,18 +1497,9 @@ short set_up_windows(short scrn)
    if ( display_screens > 1
    &&   !horizontal)
    {
-      if ( the_driver_is_headless() )
-      {
-         divider = headless_driver_create_global_window(
-            THE_DRIVER_GLOBAL_DIVIDER, screen[1].screen_rows, 2,
-            screen[1].screen_start_row, screen[1].screen_start_col - 2);
-      }
-      else
-      {
-         divider = the_driver->create_window(
-            screen[1].screen_rows, 2, screen[1].screen_start_row,
-            screen[1].screen_start_col - 2);
-      }
+      divider = the_driver_create_global_window(
+         THE_DRIVER_GLOBAL_DIVIDER, screen[1].screen_rows, 2,
+         screen[1].screen_start_row, screen[1].screen_start_col - 2);
       if ( divider == NULL )
       {
          display_error( 30, (CHARTYPE *)"creating window", FALSE );
@@ -1543,10 +1525,8 @@ short set_up_windows(short scrn)
    &&   max_slk_labels )
    {
 #if defined(HAVE_SLK_INIT)
-# if defined(HAVE_SLK_ATTRSET)
-      slk_attrset( set_colour( fp.attr+ATTR_SLK ) );
-# endif
-      slk_noutrefresh();
+      the_driver_slk_attrset( set_colour( fp.attr+ATTR_SLK ) );
+      the_driver_slk_noutrefresh();
 #endif
    }
    /*
@@ -1608,26 +1588,18 @@ short create_statusline_window(void)
    switch( STATUSLINEx )
    {
       case 'B':
-         if ( the_driver_is_headless() )
-            statarea = headless_driver_create_global_window(
-               THE_DRIVER_GLOBAL_STATAREA, 1, terminal_cols,
-               terminal_lines - 1, 0);
-         else
-            statarea = the_driver->create_window(1, COLS,
-                                                 terminal_lines - 1, 0);
+         statarea = the_driver_create_global_window(
+            THE_DRIVER_GLOBAL_STATAREA, 1, terminal_cols,
+            terminal_lines - 1, 0);
 #ifdef HAVE_KEYPAD
 #endif
          the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_STATAREA, set_colour( &attr ));
          clear_statarea();
          break;
       case 'T':
-         if ( the_driver_is_headless() )
-            statarea = headless_driver_create_global_window(
-               THE_DRIVER_GLOBAL_STATAREA, 1, terminal_cols,
-               (FILETABSx) ? 1 : 0, 0);
-         else
-            statarea = the_driver->create_window(1, COLS,
-                                                 (FILETABSx) ? 1 : 0, 0);
+         statarea = the_driver_create_global_window(
+            THE_DRIVER_GLOBAL_STATAREA, 1, terminal_cols,
+            (FILETABSx) ? 1 : 0, 0);
 #ifdef HAVE_KEYPAD
 #endif
          the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_STATAREA, set_colour( &attr ));
@@ -1657,11 +1629,8 @@ short create_filetabs_window(void)
    }
    if ( FILETABSx )
    {
-      if ( the_driver_is_headless() )
-         filetabs = headless_driver_create_global_window(
-            THE_DRIVER_GLOBAL_FILETABS, 1, terminal_cols, 0, 0);
-      else
-         filetabs = the_driver->create_window(1, COLS, 0, 0);
+      filetabs = the_driver_create_global_window(
+         THE_DRIVER_GLOBAL_FILETABS, 1, terminal_cols, 0, 0);
 #ifdef HAVE_KEYPAD
 #endif
       display_filetabs( NULL );
@@ -2924,7 +2893,7 @@ VIEW_DETAILS *find_filetab(int x)
                {
                   fname_start += DEFAULT_FILETABS_GAP_WIDTH;
                }
-               if ( fname_start + fname_len > COLS-2 )
+               if ( fname_start + fname_len > terminal_cols-2 )
                {
                   more = TRUE;
                   break;
@@ -2942,13 +2911,13 @@ VIEW_DETAILS *find_filetab(int x)
          if (curr == NULL)
             curr = vd_first;
       }
-      if ( more && x == COLS-1 )
+      if ( more && x == terminal_cols-1 )
       {
          Tabfile( (CHARTYPE *)"+" );
          TRACE_RETURN();
          return NULL;
       }
-      if ( more && x == COLS-2 )
+      if ( more && x == terminal_cols-2 )
       {
          Tabfile( (CHARTYPE *)"-" );
          TRACE_RETURN();
@@ -2996,13 +2965,13 @@ VIEW_DETAILS *find_next_file( VIEW_DETAILS *curr, short direction )
 
 #ifndef HAVE_DOUPDATE
 /***********************************************************************/
-int doupdate(void)
+int the_driver_fallback_update(void)
 /***********************************************************************/
 {
    unsigned short y=0,x=0;
    TheDriverWindowCursor cursor;
 
-   TRACE_FUNCTION("util.c:    doupdate");
+   TRACE_FUNCTION("util.c:    the_driver_fallback_update");
    cursor = the_driver->capture_window_cursor(driver_current_window());
    if (cursor.valid)
    {

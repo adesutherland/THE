@@ -1073,7 +1073,7 @@ short Pscreen(CHARTYPE *params)
    CHARTYPE *word[PSC_PARAMS+1];
    CHARTYPE strip[PSC_PARAMS];
    unsigned short num_params=0;
-   int current_cols=COLS,current_lines=LINES;
+   int current_cols=terminal_cols,current_lines=terminal_lines;
    short rc=RC_OK;
 
    TRACE_FUNCTION("commset2.c:Pscreen");
@@ -2611,7 +2611,7 @@ short Slk(CHARTYPE *params)
       &&   equal( (CHARTYPE *)"off", word[0], 3 ) )
       {
          SLKx = FALSE;
-         slk_clear();
+         the_driver_slk_clear();
          TRACE_RETURN();
          return(RC_OK);
       }
@@ -2619,7 +2619,7 @@ short Slk(CHARTYPE *params)
       &&   equal( (CHARTYPE *)"on", word[0], 2 ) )
       {
          SLKx = TRUE;
-         slk_restore();
+         the_driver_slk_restore();
          TRACE_RETURN();
          return(RC_OK);
       }
@@ -2637,9 +2637,9 @@ short Slk(CHARTYPE *params)
          return(RC_INVALID_OPERAND);
       }
       SLKx = TRUE;
-      slk_restore();
-      slk_set(key,(DEFCHAR*)word[1],1);
-      slk_noutrefresh();
+      the_driver_slk_restore();
+      the_driver_slk_set(key,(DEFCHAR*)word[1],1);
+      the_driver_slk_noutrefresh();
    }
    else
    {
@@ -2861,7 +2861,7 @@ short Statopt(CHARTYPE *params)
          }
          len = 0;
          col = atoi( (DEFCHAR *)word[2] );
-         if ( curses_started && COLS > 0 && col > COLS )
+         if ( curses_started && terminal_cols > 0 && col > terminal_cols )
          {
             display_error( 6, word[2], FALSE );
             TRACE_RETURN();

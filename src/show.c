@@ -1803,7 +1803,7 @@ void show_statarea(void)
     * Display THE version.
     */
    sprintf((DEFCHAR*)linebuf,"THE %-9s",the_version);
-   memset((DEFCHAR *)linebuf+10,' ',max(0,COLS-9));
+   memset((DEFCHAR *)linebuf+10,' ',max(0,terminal_cols-9));
    /*
     * Display number of files or copyright on startup.
     */
@@ -1829,13 +1829,13 @@ void show_statarea(void)
       }
       else
       {
-         memset(buffer,' ',min(COLS,sizeof(buffer)));
+         memset(buffer,' ',min(terminal_cols,sizeof(buffer)));
          format_options((CHARTYPE *)buffer);
       }
    }
    length = strlen(buffer);
-   if (STATAREA_OFFSET+length < max(0,COLS-27))
-      memset((DEFCHAR *)linebuf+STATAREA_OFFSET+length,' ',max(0,(COLS-27)-STATAREA_OFFSET+length));
+   if (STATAREA_OFFSET+length < max(0,terminal_cols-27))
+      memset((DEFCHAR *)linebuf+STATAREA_OFFSET+length,' ',max(0,(terminal_cols-27)-STATAREA_OFFSET+length));
    memcpy((DEFCHAR*)linebuf+STATAREA_OFFSET,buffer,length);
    /*
     * Display CLOCK.
@@ -1844,13 +1844,13 @@ void show_statarea(void)
    {
       timer = time(NULL);
       tblock = localtime(&timer);
-      sprintf((DEFCHAR*)linebuf+max(0,(COLS-((HEXDISPLAYx) ? 36 : 27))),"%2d:%02d%s ",
+      sprintf((DEFCHAR*)linebuf+max(0,(terminal_cols-((HEXDISPLAYx) ? 36 : 27))),"%2d:%02d%s ",
            (tblock->tm_hour > 12) ? (tblock->tm_hour-12) : (tblock->tm_hour),
             tblock->tm_min,
            (tblock->tm_hour >= 12) ? ("pm") : ("am"));
    }
    else
-      strcpy((DEFCHAR*)linebuf+max(0,(COLS-((HEXDISPLAYx) ? 36 : 27))),"        ");
+      strcpy((DEFCHAR*)linebuf+max(0,(terminal_cols-((HEXDISPLAYx) ? 36 : 27))),"        ");
    /*
     * Display HEXDISPLAY.
     */
@@ -1873,7 +1873,7 @@ void show_statarea(void)
       }
 #ifdef USE_UTF8
    status_field[0] = '\0';
-   charpos = max(0,(COLS-27));
+   charpos = max(0,(terminal_cols-27));
    {
       char codebuf[128];
       TextPos pos;
@@ -1882,7 +1882,7 @@ void show_statarea(void)
       int glyph_cells = 1;
       int code_col = 0;
 
-      status_field_width = min(20, max(0, (COLS-7) - charpos));
+      status_field_width = min(20, max(0, (terminal_cols-7) - charpos));
       codebuf[0] = '\0';
       pos = status_cluster.pos;
          while (status_cluster_line != NULL
@@ -1985,29 +1985,29 @@ void show_statarea(void)
    }
 #else
       {
-         sprintf((DEFCHAR*)linebuf+max(0,(COLS-19)),"'%c'=%02X/%03d  ",
+         sprintf((DEFCHAR*)linebuf+max(0,(terminal_cols-19)),"'%c'=%02X/%03d  ",
                        (unsigned char) ((key == 0) ? ' ' : key),key,key);
       }
 #endif
    }
    else
-      strcpy((DEFCHAR*)linebuf+max(0,(COLS-19)),"            ");
+      strcpy((DEFCHAR*)linebuf+max(0,(terminal_cols-19)),"            ");
    /*
     * Display colour setting.
     */
 #ifdef A_COLOR
-   linebuf[max(0,(COLS-7))] = (colour_support) ? 'C' : 'c';
+   linebuf[max(0,(terminal_cols-7))] = (colour_support) ? 'C' : 'c';
 #else
-   linebuf[max(0,(COLS-7))] = 'M';
+   linebuf[max(0,(terminal_cols-7))] = 'M';
 #endif
    /*
     * Display REXX support character.
     */
-   linebuf[max(0,(COLS-6))] = (rexx_support) ? REXX_INT_CHAR : ' ';
+   linebuf[max(0,(terminal_cols-6))] = (rexx_support) ? REXX_INT_CHAR : ' ';
    /*
     * Display INSERTMODE toggle.
     */
-   strcpy( (DEFCHAR*)linebuf + max( 0, (COLS-5) ), (INSERTMODEx) ? " INS " : "     " );
+   strcpy( (DEFCHAR*)linebuf + max( 0, (terminal_cols-5) ), (INSERTMODEx) ? " INS " : "     " );
    /*
     * Refresh the STATUS LINE.
     */
@@ -2072,7 +2072,7 @@ void clear_statarea(void)
              }
 #endif
              INIT_LINE_OUTPUT( statarea, 0 );
-             FILL_LINE_OUTPUT(' ', COLS,
+             FILL_LINE_OUTPUT(' ', terminal_cols,
                               (CURRENT_VIEW == NULL || CURRENT_FILE == NULL) ? A_NORMAL :
                                      set_colour( CURRENT_FILE->attr+stat_attr ) );
              END_LINE_OUTPUT();
@@ -2093,7 +2093,7 @@ void display_filetabs( VIEW_DETAILS *start)
    bool process_view=FALSE;
    register int j=0;
    TheDriverAttr normal, high;
-   int fname_len, fill_len = COLS-2, extras;
+   int fname_len, fill_len = terminal_cols-2, extras;
    bool first = TRUE, more = FALSE;
 
    TRACE_FUNCTION("show.c:    display_filetabs");
@@ -3633,25 +3633,14 @@ static void show_lines(CHARTYPE scrno)
                /* as this is NOT a reserved line, nothing is displayed in the gap */
                /* except for a LINE if required */
                /* no need to use UTF-8 length here */
-#ifdef ACS_VLINE
                memset( tmp_gap, ' ', SCREEN_VIEW(scrno)->prefix_gap );
                tmp_gap[SCREEN_VIEW(scrno)->prefix_gap] = '\0';
                display_line_left(show_screen_role_window(scrno, WINDOW_GAP),
-                              (SCREEN_VIEW(scrno)->prefix_gap_line ? scurr->gap_colour|A_ALTCHARSET|ACS_VLINE : scurr->gap_colour),
+                              (SCREEN_VIEW(scrno)->prefix_gap_line ? scurr->gap_colour|the_driver_alternate_cell(THE_DRIVER_ALT_VLINE) : scurr->gap_colour),
                               (CHARTYPE *)tmp_gap,
                               SCREEN_VIEW(scrno)->prefix_gap,
                               i,
                               gap);
-#else
-               memset( tmp_gap, (SCREEN_VIEW(scrno)->prefix_gap_line) ? '|' : ' ', SCREEN_VIEW(scrno)->prefix_gap );
-               tmp_gap[SCREEN_VIEW(scrno)->prefix_gap] = '\0';
-               display_line_left(show_screen_role_window(scrno, WINDOW_GAP),
-                              scurr->gap_colour,
-                              (CHARTYPE *)tmp_gap,
-                              SCREEN_VIEW(scrno)->prefix_gap,
-                              i,
-                              gap);
-#endif
             }
          }
 #ifdef USE_UTF8
@@ -5798,23 +5787,8 @@ short THE_Resize(int rows, int cols)
    /*
     * This function is called as the result of a screen resize.
     */
-#if defined(SIGWINCH) && defined(USE_NCURSES) && defined(HAVE_RESIZETERM)
-   if ( rows && cols )
-      resizeterm(rows,cols);
-   endwin();
-   the_driver->update();  /* make ncurses set LINES and COLS properly */
-   the_driver->sync_terminal_screen();
-   /* the_driver->refresh_window( curscr ); */
-   ncurses_screen_resized = FALSE;
-#elif defined(HAVE_RESIZE_TERM)
-   resize_term(rows,cols);
-#endif
-   terminal_lines = LINES;
-   terminal_cols = COLS;
-#ifdef HAVE_BSD_CURSES
-   terminal_lines--;
-#endif
-   length = COLS + 1;
+   the_driver_resize_terminal(rows,cols);
+   length = terminal_cols + 1;
    if ( length > linebuf_size )
    {
       /* only resize linebuf and linebufch if the new terminal width is > the current size */

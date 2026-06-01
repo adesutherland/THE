@@ -37,7 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 #include "thedriver.h"
 
 /*man-start*********************************************************************
@@ -1301,8 +1301,8 @@ short THERefresh(CHARTYPE *params)
 #if defined(HAVE_SLK_INIT)
    if ( max_slk_labels )
    {
-      slk_touch();
-      slk_noutrefresh();
+      the_driver_slk_touch();
+      the_driver_slk_noutrefresh();
    }
 #endif
 
@@ -2643,7 +2643,7 @@ short Status(CHARTYPE *params)
                (void)show_status();
             }
 #endif
-            key = curses_driver_read_terminal_legacy_key();
+            key = the_driver_read_terminal_legacy_key();
 #if defined(USE_XCURSES)
             if ( key == KEY_SF || key == KEY_SR )
                continue;

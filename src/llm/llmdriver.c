@@ -214,6 +214,41 @@ static int append_style_runs(char *out, size_t out_len, size_t *used,
    return appendf(out, out_len, used, "]");
 }
 
+static int append_diagnostics(char *out, size_t out_len, size_t *used,
+                              const LlmDriverScreenView *view, int compact)
+{
+   size_t i;
+
+   if (view == NULL || view->diagnostic_count == 0)
+      return 1;
+   if (!appendf(out, out_len, used,
+                compact ? ",\"diagnostics\":[" : "  \"diagnostics\": ["))
+      return 0;
+   for (i = 0; i < view->diagnostic_count; i++)
+   {
+      const LlmDriverParserDiagnostic *diagnostic = &view->diagnostics[i];
+
+      if (!appendf(out, out_len, used,
+                   "%s{\"line\":%ld,\"column\":%ld,\"severity\":",
+                   i == 0 ? "" : ",", (long)diagnostic->line,
+                   (long)diagnostic->column))
+         return 0;
+      if (!append_json_string(out, out_len, used, diagnostic->severity))
+         return 0;
+      if (!appendf(out, out_len, used, ",\"code\":"))
+         return 0;
+      if (!append_json_string(out, out_len, used, diagnostic->code))
+         return 0;
+      if (!appendf(out, out_len, used, ",\"message\":"))
+         return 0;
+      if (!append_json_string(out, out_len, used, diagnostic->message))
+         return 0;
+      if (!appendf(out, out_len, used, "}"))
+         return 0;
+   }
+   return appendf(out, out_len, used, compact ? "]" : "],\n");
+}
+
 static const char *llm_driver_view_mode_name(LlmDriverViewMode mode)
 {
    switch (mode)
@@ -477,6 +512,25 @@ int llm_driver_screen_view_add_project_file(LlmDriverScreenView *view,
    return 1;
 }
 
+int llm_driver_screen_view_add_diagnostic(LlmDriverScreenView *view,
+                                          LINETYPE line, LENGTHTYPE column,
+                                          const char *severity,
+                                          const char *code,
+                                          const char *message)
+{
+   LlmDriverParserDiagnostic *diagnostic;
+
+   if (view == NULL || view->diagnostic_count >= LLM_DRIVER_MAX_DIAGNOSTICS)
+      return 0;
+   diagnostic = &view->diagnostics[view->diagnostic_count++];
+   diagnostic->line = line;
+   diagnostic->column = column;
+   copy_text(diagnostic->severity, sizeof(diagnostic->severity), severity);
+   copy_text(diagnostic->code, sizeof(diagnostic->code), code);
+   copy_text(diagnostic->message, sizeof(diagnostic->message), message);
+   return 1;
+}
+
 size_t llm_driver_format_screen_view(const LlmDriverScreenView *view,
                                      char *out, size_t out_len)
 {
@@ -514,6 +568,15 @@ size_t llm_driver_format_screen_view(const LlmDriverScreenView *view,
            view->selection.active, (long)view->selection.start_line,
            view->selection.start_cell, (long)view->selection.end_line,
            view->selection.end_cell, view->selection.clipboard);
+   for (i = 0; i < view->diagnostic_count; i++)
+   {
+      const LlmDriverParserDiagnostic *diagnostic = &view->diagnostics[i];
+
+      appendf(out, out_len, &used,
+              "diagnostic line=%ld column=%ld severity=%s code=%s message=%s\n",
+              (long)diagnostic->line, (long)diagnostic->column,
+              diagnostic->severity, diagnostic->code, diagnostic->message);
+   }
    for (i = 0; i < view->line_count; i++)
    {
       const LlmDriverScreenLine *line = &view->lines[i];
@@ -641,6 +704,7 @@ size_t llm_driver_format_semantic_view_with_options(
          }
          appendf(out, out_len, &used, "]}");
       }
+      append_diagnostics(out, out_len, &used, view, 1);
       appendf(out, out_len, &used, ",\"screen_rows\":[");
       for (i = 0; i < view->line_count; i++)
       {
@@ -752,6 +816,7 @@ size_t llm_driver_format_semantic_view_with_options(
       }
       appendf(out, out_len, &used, "]},\n");
    }
+   append_diagnostics(out, out_len, &used, view, 0);
    appendf(out, out_len, &used, "  \"rows\": [\n");
    for (i = 0; i < view->line_count; i++)
    {

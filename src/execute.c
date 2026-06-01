@@ -37,7 +37,6 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
 #include "thedriver.h"
 #include "driverlayout.h"
 #include "transientui.h"
@@ -986,7 +985,7 @@ short execute_os_command(CHARTYPE *cmd,bool quiet,bool pause)
    if (!quiet && curses_started)
    {
       if (pause)
-         (void)curses_driver_read_terminal_legacy_key();
+         (void)the_driver_read_terminal_legacy_key();
       resume_curses();
 #if defined(HAVE_BROKEN_SYSVR4_CURSES)
       the_driver->repair_terminal_background(
@@ -3798,7 +3797,7 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
          the_driver->end_terminal_report();
          while( 1 )
          {
-            key = curses_driver_read_terminal_legacy_key();
+            key = the_driver_read_terminal_legacy_key();
 #if defined(USE_XCURSES)
             if ( key == KEY_SF || key == KEY_SR )
                continue;
@@ -5411,34 +5410,22 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
       if ( height != pad_height )
       {
          the_driver->add_cell_at(dialog_win,0,width-1,' ');
-# ifdef ACS_UARROW
          the_driver->add_cell_at(dialog_win,1,width-1,
-                                     A_ALTCHARSET|ACS_UARROW);
-# else
-         the_driver->add_cell_at(dialog_win,1,width-1,'^');
-# endif
-# ifdef ACS_DARROW
+                                  the_driver_alternate_cell(
+                                     THE_DRIVER_ALT_UARROW));
          the_driver->add_cell_at(dialog_win,height-2,width-1,
-                                     A_ALTCHARSET|ACS_DARROW);
-# else
-         the_driver->add_cell_at(dialog_win,height-2,width-1,'v');
-# endif
+                                  the_driver_alternate_cell(
+                                     THE_DRIVER_ALT_DARROW));
       }
       if ( width != pad_width )
       {
          the_driver->add_cell_at(dialog_win,height-1,0,' ');
-# ifdef ACS_LARROW
          the_driver->add_cell_at(dialog_win,height-1,1,
-                                     A_ALTCHARSET|ACS_LARROW);
-# else
-         the_driver->add_cell_at(dialog_win,height-1,1,'<');
-# endif
-# ifdef ACS_RARROW
+                                  the_driver_alternate_cell(
+                                     THE_DRIVER_ALT_LARROW));
          the_driver->add_cell_at(dialog_win,height-1,width-2,
-                                     A_ALTCHARSET|ACS_RARROW);
-# else
-         the_driver->add_cell_at(dialog_win,height-1,width-2,'>');
-# endif
+                                  the_driver_alternate_cell(
+                                     THE_DRIVER_ALT_RARROW));
          the_driver->add_cell_at(dialog_win,height-1,width-1,' ');
       }
       the_driver->refresh_window(dialog_win);
@@ -5473,7 +5460,7 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
       the_driver->touch_window(dialog_win);
       the_driver->refresh_window_now(dialog_win);
 
-      key = curses_driver_read_terminal_legacy_key();
+      key = the_driver_read_terminal_legacy_key();
 #if defined(USE_XCURSES)
       /*
        * Ignore scrollbar "keys"

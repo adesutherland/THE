@@ -3272,21 +3272,7 @@ short suspend_curses(void)
 {
    TRACE_FUNCTION("commutil.c:suspend_curses");
 
-#ifdef UNIX
-# if defined(USE_EXTCURSES)
-   csavetty(FALSE);
-   reset_shell_mode();
-# else
-   endwin();
-# endif
-#endif
-
-#if WAS_HAVE_BSD_CURSES
-   noraw();
-   nl();
-   echo();
-   nocbreak();
-#endif
+   the_driver_suspend_terminal();
 
    TRACE_RETURN();
    return(RC_OK);
@@ -3296,19 +3282,7 @@ short resume_curses(void)
 /***********************************************************************/
 {
    TRACE_FUNCTION("commutil.c:resume_curses");
-#ifdef UNIX
-# if defined(USE_EXTCURSES)
-   cresetty(FALSE);
-# else
-   reset_prog_mode();
-#  ifdef HAVE_BSD_CURSES
-   raw();
-   nonl();
-   noecho();
-   cbreak();
-#  endif
-# endif
-#endif
+   the_driver_resume_terminal();
 
    TRACE_RETURN();
    return(RC_OK);
@@ -3356,8 +3330,8 @@ short restore_THE(void)
 #if defined(HAVE_SLK_INIT)
    if ( max_slk_labels )
    {
-      slk_touch();
-      slk_noutrefresh();
+      the_driver_slk_touch();
+      the_driver_slk_noutrefresh();
    }
 #endif
    the_driver->move_window_cursor(driver_current_window(), y, x);

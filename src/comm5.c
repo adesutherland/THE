@@ -427,7 +427,7 @@ short Sdslhwait(CHARTYPE *params)
          TRACE_RETURN();
          return(RC_INVALID_OPERAND);
       }
-      napms(SDSLHWAIT_POLL_MS);
+      the_driver_nap_ms(SDSLHWAIT_POLL_MS);
       elapsed_ms += SDSLHWAIT_POLL_MS;
    }
 #endif

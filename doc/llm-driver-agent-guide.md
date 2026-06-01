@@ -31,7 +31,7 @@ on demand.
   normalized input or editor commands through the shared input/command layer.
 - Use `the --driver llm` when the task needs real THE buffers, profiles,
   command dispatch, syntax/parser state, prefix commands, file ring state, or
-  CREXX. Use `the_agent` when the task needs a no-curses protocol harness or a
+  CREXX. Use `the_llm_harness` when the task needs a no-curses protocol harness or a
   stable formatting/input oracle.
 
 ## Token-Saving View Modes
@@ -81,7 +81,7 @@ Example shape:
 Use `prefix` mode when the task involves line commands. Snapshots expose
 semantic prefix command text as `pc` in compact output. In `the --driver llm`,
 prefix state and execution are the real runtime's prefix model. In
-`the_agent`, the supported harness subset is `d`, `del`, `delete`, `dup`,
+`the_llm_harness`, the supported harness subset is `d`, `del`, `delete`, `dup`,
 `copy`, `r TEXT`, `i TEXT`, and `a TEXT`, entered with `prefix LINE COMMAND`
 and run with `prefix-execute`.
 
@@ -146,20 +146,20 @@ Closed foundation:
 - `src/transientui.c`: no-curses readv/dialog/popup snapshot model with
   geometry, row roles, focus, title/prompt/edit text, buttons/items, selected
   state, popup viewport offsets, and logical hit targets.
-- `src/llmdriver.c`: semantic screen view formatting, compact view modes,
+- `src/llm/llmdriver.c`: semantic screen view formatting, compact view modes,
   compatibility wrappers, and debug snapshot formatting.
 - `test_virtual_screen`: no-curses virtual frame harness for file, prefix,
   command, status, tabline, divider, window, UTF fixture, compact-view, cursor,
   targeted-redraw row, logical-hit, and fake-driver operation coverage.
-- `src/agentdriver.c` and `tools/the_agent.c`: no-curses proof target with
+- `src/agentdriver.c` and `tools/the_llm_harness.c`: no-curses proof target with
   file loading, LLM snapshots/deltas, normalized stdin commands, file-area,
   prefix, and command-line focus/editing, logical hits, file open/save/write,
   search/replace, line operations, prefix command subset execution, selection
-  operations, bounded agent-side undo/redo, buffer list/switch/open/close, flat
+  operations, bounded harness-side undo/redo, buffer list/switch/open/close, flat
   project listing, live transient modal demo protocol, buffer metadata, and
   explicit capability reporting.
-- `src/llmsession.c` and `the --driver llm`: full-runtime proof target that
-  selects the headless/LLM driver during real THE startup, skips curses
+- `src/llm/llmsession.c` and `the --driver llm`: full-runtime proof target that
+  runtime-loads the headless/LLM driver during real THE startup, skips curses
   initialization, opens real files/views, exposes real-runtime snapshots, and
   routes `command ...` through the full THE dispatcher.
 - `tools/the_llm_headless.c`: no-curses executable skeleton for the broader
@@ -181,12 +181,10 @@ Full-runtime LLM target:
   syntax/style spans where runtime highlighting is active.
 - `command ...` uses THE's real command dispatcher. CREXX/profile/macro
   integration is preserved when THE is built with CREXX.
-- SDSLH/parser diagnostics are in target scope. The current route is real
-  commands such as `SDSLHWAIT` and `EXTRACT /PMSGS/`; a first-class
-  diagnostics array in snapshots remains a concrete follow-up.
-- The current `the` binary still links curses for the default
-  `--driver curses` path, but `--driver llm` does not initialize curses or run
-  curses-driver behavior at runtime.
+- SDSLH/parser diagnostics are first-class full-runtime snapshot state when
+  parser messages exist. `EXTRACT /PMSGS/` still returns the same PMSGS data.
+- The current `the` binary no longer links curses directly. `--driver curses`
+  loads the curses module, and `--driver llm` loads the headless/LLM module.
 
 Current lightweight harness subset:
 
@@ -214,13 +212,13 @@ Current lightweight harness subset:
 Outside the lightweight harness:
 
 - Full THE command dispatcher integration belongs to `the --driver llm`;
-  `the_agent` deliberately remains a bounded no-curses harness.
+  `the_llm_harness` deliberately remains a bounded no-curses harness.
 - CREXX macros require CREXX and full macro/profile integration and are exposed
   through the full-runtime LLM target when available.
 - Parser/SDSLH diagnostics require the full runtime and are exposed through
-  real commands today, with snapshot diagnostics pending.
+  first-class snapshot diagnostics plus the existing real command/query paths.
 - Terminal mouse packets remain physical input owned by the curses driver; the
-  agent path uses logical `hit` commands.
+  harness path uses logical `hit` commands.
 - Build/test execution is a host automation concern. Run shell, CMake, and
   CTest outside THE, then use THE for buffer editing.
 - Recursive project indexing is better handled by shell/agent tools. THE
@@ -231,13 +229,13 @@ Outside the lightweight harness:
 Build:
 
 ```sh
-cmake --build cmake-build-debug --target the_agent -j2
+cmake --build cmake-build-debug --target the_llm_harness -j2
 ```
 
 Run against a file:
 
 ```sh
-./cmake-build-debug/the_agent --rows 24 --cols 80 path/to/file.txt
+./cmake-build-debug/the_llm_harness --rows 24 --cols 80 path/to/file.txt
 ```
 
 Supported stdin commands:
@@ -266,7 +264,7 @@ printf '%s\n' \
   'key right' \
   'look focus compact prefix=0' \
   'quit' \
-  | ./cmake-build-debug/the_agent tests/fixtures/utf-render.txt
+  | ./cmake-build-debug/the_llm_harness tests/fixtures/utf-render.txt
 ```
 
 Command-line editing example:
@@ -281,7 +279,7 @@ printf '%s\n' \
   'key enter' \
   'look focus compact prefix=0' \
   'quit' \
-  | ./cmake-build-debug/the_agent tests/fixtures/utf-render.txt
+  | ./cmake-build-debug/the_llm_harness tests/fixtures/utf-render.txt
 ```
 
 Search, replace, line edit, and save example:
@@ -295,7 +293,7 @@ printf '%s\n' \
   'command save' \
   'look filearea compact max=120 prefix=0' \
   'quit' \
-  | ./cmake-build-debug/the_agent --rows 24 --cols 100 path/to/file.txt
+  | ./cmake-build-debug/the_llm_harness --rows 24 --cols 100 path/to/file.txt
 ```
 
 Prefix, selection, undo, and delta example:
@@ -313,7 +311,7 @@ printf '%s\n' \
   'command redo' \
   'look full compact max=120' \
   'quit' \
-  | ./cmake-build-debug/the_agent --rows 24 --cols 100 path/to/file.txt
+  | ./cmake-build-debug/the_llm_harness --rows 24 --cols 100 path/to/file.txt
 ```
 
 Buffer, project, and modal example:
@@ -329,20 +327,20 @@ printf '%s\n' \
   'transient key enter' \
   'transient result' \
   'quit' \
-  | ./cmake-build-debug/the_agent --rows 24 --cols 100 path/to/file.txt
+  | ./cmake-build-debug/the_llm_harness --rows 24 --cols 100 path/to/file.txt
 ```
 
 Guardrail test:
 
 ```sh
-ctest --test-dir cmake-build-debug -R 'test_the_agent_no_curses' --output-on-failure
+ctest --test-dir cmake-build-debug -R 'test_the_llm_harness_no_curses' --output-on-failure
 ```
 
 Focused agent tests:
 
 ```sh
 ctest --test-dir cmake-build-debug \
-  -R 'test_agentdriver|test_the_agent_script|test_the_agent_capabilities|test_the_agent_no_curses|test_llmdriver|test_transientui' \
+  -R 'test_agentdriver|test_the_llm_harness_script|test_the_llm_harness_capabilities|test_the_llm_harness_no_curses|test_llmdriver|test_transientui' \
   --output-on-failure
 ```
 

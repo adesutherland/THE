@@ -157,8 +157,8 @@ static void print_unsupported_detail(const char *input)
 
    fputs(",\"unsupported\":{\"kind\":\"command\",\"input\":", stdout);
    print_json_string(logical_input);
-   fputs(",\"surface\":\"the_agent\"", stdout);
-   fputs(",\"reason\":\"the_agent uses a no-curses command subset, not the full THE command dispatcher\"", stdout);
+   fputs(",\"surface\":\"the_llm_harness\"", stdout);
+   fputs(",\"reason\":\"the_llm_harness uses a no-curses command subset, not the full THE command dispatcher\"", stdout);
    fputs(",\"capabilities_hint\":\"capabilities\"}", stdout);
 }
 
@@ -184,14 +184,14 @@ static void print_simple_ack(const char *status)
 
 static void print_capabilities(void)
 {
-   fputs("{\"surface\":\"the_agent\"", stdout);
+   fputs("{\"surface\":\"the_llm_harness\"", stdout);
    fputs(",\"driver\":\"llm\"", stdout);
    fputs(",\"curses\":false", stdout);
-   fputs(",\"command_dispatcher\":\"agent-subset\"", stdout);
+   fputs(",\"command_dispatcher\":\"harness-subset\"", stdout);
    fputs(",\"full_the_dispatcher\":false", stdout);
    fputs(",\"sos_commands\":\"navigation-and-edit-subset\"", stdout);
    fputs(",\"crexx_macros\":false", stdout);
-   fputs(",\"prefix_commands\":\"agent-editing-subset\"", stdout);
+   fputs(",\"prefix_commands\":\"harness-editing-subset\"", stdout);
    fputs(",\"selection\":true", stdout);
    fputs(",\"undo_redo\":true", stdout);
    fputs(",\"buffers\":true", stdout);
@@ -208,19 +208,19 @@ static void print_capabilities(void)
    fputs(",\"supported_sos_commands\":[\"topedge\",\"bottomedge\",\"leftedge\",\"rightedge\",\"firstcol\",\"lastcol\",\"endchar\",\"firstchar\",\"delchar\",\"cuadelchar\",\"delback\",\"cuadelback\",\"delend\",\"delword\",\"prefix\",\"tabfieldf\",\"tabfieldb\",\"qcmnd\",\"execute\"]", stdout);
    fputs(",\"debug_commands\":[\"describe-focus\",\"describe-row\",\"list-visible-rows\",\"dump-cursor-mapping\",\"dump-driver-ops\",\"explain-last-render\"]", stdout);
    fputs(",\"outside_llm_headless_target\":[", stdout);
-   fputs("{\"name\":\"full THE command dispatcher\",\"reason\":\"requires the full editor command/profile runtime and is intentionally separate from the no-curses agent command subset\"}", stdout);
-   fputs(",{\"name\":\"CREXX macros\",\"reason\":\"require CREXX and the full THE macro/profile integration surface, not the driver-boundary agent target\"}", stdout);
-   fputs(",{\"name\":\"terminal mouse packets\",\"reason\":\"the agent path consumes logical hit targets from snapshots instead of terminal escape sequences\"}", stdout);
-   fputs(",{\"name\":\"build and test execution\",\"reason\":\"agents should run shell, CMake, or CTest directly outside THE; embedding process execution would couple the editor driver to the host automation layer\"}", stdout);
+   fputs("{\"name\":\"full THE command dispatcher\",\"reason\":\"requires the full editor command/profile runtime and is intentionally separate from the no-curses harness command subset\"}", stdout);
+   fputs(",{\"name\":\"CREXX macros\",\"reason\":\"require CREXX and the full THE macro/profile integration surface, not the driver-boundary harness target\"}", stdout);
+   fputs(",{\"name\":\"terminal mouse packets\",\"reason\":\"the harness path consumes logical hit targets from snapshots instead of terminal escape sequences\"}", stdout);
+   fputs(",{\"name\":\"build and test execution\",\"reason\":\"run shell, CMake, or CTest directly outside THE; embedding process execution would couple the editor driver to the host automation layer\"}", stdout);
    fputs("]", stdout);
-   fputs(",\"use_agent_for\":[\"no-curses editing sessions\",\"logical snapshots and deltas\",\"normalized key/text input\",\"logical hit input\",\"prefix subset editing\",\"selection operations\",\"buffer/project listing\",\"transient modal demos\"]", stdout);
+   fputs(",\"use_harness_for\":[\"no-curses protocol contract tests\",\"logical snapshots and deltas\",\"normalized key/text input\",\"logical hit input\",\"prefix subset editing\",\"selection operations\",\"buffer/project listing\",\"transient modal contract tests\"]", stdout);
    fputs("}\n", stdout);
    fflush(stdout);
 }
 
 static void usage(FILE *out)
 {
-   fputs("usage: the_agent [--rows N] [--cols N] [file]\n", out);
+   fputs("usage: the_llm_harness [--rows N] [--cols N] [file]\n", out);
    fputs("stdin commands: look, capabilities, focus command|filearea,\n",
          out);
    fputs("                hit TARGET LINE ROW CELL [SCREEN WINDOW],\n", out);
@@ -419,7 +419,7 @@ static void build_transient_snapshot(const AgentTransientSession *session,
 {
    static const char *dialog_prompt[] =
    {
-      "Agent modal demo",
+      "Protocol harness modal",
       "Use key, text, or hit commands"
    };
    TransientUiButtonSpec buttons[] =
@@ -515,7 +515,7 @@ static int handle_transient_command(AgentTransientSession *session,
       session->kind = TRANSIENT_UI_KIND_READV;
       transient_ui_readv_state_init(&session->readv,
                                     text != NULL && *text != '\0'
-                                       ? text : "agent input",
+                                       ? text : "harness input",
                                     -1, 0, 50);
       session->last_action = TRANSIENT_UI_ACTION_NONE;
       print_simple_ack("transient readv");
@@ -528,7 +528,7 @@ static int handle_transient_command(AgentTransientSession *session,
       session->kind = TRANSIENT_UI_KIND_DIALOG;
       transient_ui_dialog_state_init(&session->dialog, 1, 2, 0,
                                      text != NULL && *text != '\0'
-                                        ? text : "agent edit");
+                                        ? text : "harness edit");
       session->last_action = TRANSIENT_UI_ACTION_NONE;
       print_simple_ack("transient dialog");
       return 1;
@@ -663,7 +663,7 @@ int main(int argc, char **argv)
    agent_driver_init(&driver, rows, cols);
    if (path != NULL && !agent_driver_load_file(&driver, path))
    {
-      fputs("the_agent: failed to load file\n", stderr);
+      fputs("the_llm_harness: failed to load file\n", stderr);
       agent_driver_free(&driver);
       return 1;
    }

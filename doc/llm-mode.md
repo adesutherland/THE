@@ -14,12 +14,12 @@ For active migration status and next closable tasks, read
 
 Implemented:
 
-- `src/llmdriver.c` and `src/llmdriver.h` format semantic snapshots,
+- `src/llm/llmdriver.c` and `src/llm/llmdriver.h` format semantic snapshots,
   token-saving view modes, normalized input wrappers, and debug diagnostics.
 - `src/inputevent.c` owns the shared text/key/command/logical-hit/debug event
   model.
 - The normal live curses mouse path converts terminal packets into the same
-  `TheInputEvent` logical-hit targets used by the LLM/agent surfaces for
+  `TheInputEvent` logical-hit targets used by the LLM/harness surfaces for
   file-area, prefix, command, status, tabline/filetabs, divider, and window
   hits.
 - `src/uidriver.c` and `src/screenframe.c` provide the logical frame surface
@@ -27,7 +27,7 @@ Implemented:
 - `src/transientui.c` provides no-curses readv/dialog/popup snapshots with
   geometry, row roles, focus, selected/active button or item, edit text, popup
   viewport offsets, and logical hit targets.
-- `the_agent` is the first live no-curses proof target. It is interactive over
+- `the_llm_harness` is the first live no-curses proof target. It is interactive over
   stdin/stdout, links no curses library or curses driver, and uses the same
   `LlmDriverScreenView` and `TheInputEvent` contracts. It is now classified as
   the protocol harness and fallback oracle, not the strategic final editor.
@@ -35,6 +35,9 @@ Implemented:
   with the headless/LLM driver selected, skips curses initialization, opens
   files through real file/view state, and routes `command ...` through THE's
   full command dispatcher.
+- Drivers are runtime-loaded modules. `the` no longer links curses directly;
+  `the_driver_curses` owns curses startup/shutdown and terminal mechanics,
+  while `the_driver_llm` owns the headless full-runtime protocol driver.
 - `the_llm_headless` is a no-curses executable skeleton for the broader
   headless direction. It links the transient UI model and is checked for curses
   dependencies and curses-driver symbols. `--mini-session` performs a
@@ -46,18 +49,18 @@ Implemented:
 Surfaces:
 
 `the --driver llm` is the strategic runtime surface. It uses the same protocol
-commands as `the_agent`: `look`, `delta`, `capabilities`, `focus`, `hit`,
+commands as `the_llm_harness`: `look`, `delta`, `capabilities`, `focus`, `hit`,
 `key`, `text`, `type`, `command`, `debug`, `transient`, and `quit`. Its
 snapshots come from the real editor frame and include real buffer metadata,
 file ring entries, prefixes, dirty state, selection/block state, syntax/style
 spans when highlighting is active, command/status text, and logical focus. Its
 `command ...` input uses the full THE command/profile/macro dispatcher.
 
-`the_agent` is an agent subset and no-curses contract surface. It supports
+`the_llm_harness` is a harness subset and no-curses contract surface. It supports
 file-area, prefix, and command-line focus, logical hits, normalized key/text
 input, file open/save/write, search/find navigation, replace, line operations,
 prefix command subset execution, selection/range operations, bounded
-agent-side undo/redo, buffer open/switch/list/close, flat project listing,
+harness-side undo/redo, buffer open/switch/list/close, flat project listing,
 retained-frame deltas, a focused command set, and this SOS navigation/edit
 subset:
 
@@ -68,28 +71,26 @@ TABFIELDB QCMND EXECUTE
 ```
 
 Other THE/SOS commands return an explicit unsupported-command response in
-`the_agent`. Use `the --driver llm` when the task needs real THE command
+`the_llm_harness`. Use `the --driver llm` when the task needs real THE command
 semantics, profiles, syntax/parser state, or CREXX.
 
 CREXX macros and parser-backed syntax are part of the full-runtime LLM target.
 CREXX is reported as build-dependent in `capabilities`. Parser diagnostics are
-available through real commands such as `SDSLHWAIT` and `EXTRACT /PMSGS/`;
-adding a first-class diagnostics field to `look` output is the remaining
-snapshot blocker. Build/test execution is outside THE; agents should run
+available through real commands such as `SDSLHWAIT` and `EXTRACT /PMSGS/`, and
+`look` snapshots now include a first-class `diagnostics` array when parser
+messages exist. Build/test execution is outside THE; harness callers should run
 shell, CMake, and CTest directly and use THE for buffer editing.
 
 Transient UI snapshots are proved in `test_transientui`, available through
-`the_llm_headless --transient-demo`, and exposed in `the_agent` through
+`the_llm_headless --transient-demo`, exposed in `the_llm_harness`, and wired into
+`the --driver llm` through
 `transient readv`, `transient dialog`, `transient popup`, `transient look`,
 `transient key`, `transient text`, `transient hit`, and `transient result`.
 
-The next roadmap item is filling the full-runtime LLM surface: diagnostics in
-snapshots, real modal/readv/dialog protocol adaptation, broader
-profile/CREXX/parser smoke coverage, and a strict no-curses full-runtime link
-target if needed. The modal/standard-screen contraction, raw input
-compatibility wrapper retirement, and role/window/cursor presentation
-contraction are closed. `doc/utf-handover.md` is the source of truth for that
-work.
+The modal/standard-screen contraction, parser diagnostics snapshot path,
+full-runtime transient protocol adapter, raw input compatibility wrapper
+retirement, and role/window/cursor presentation contraction are closed.
+`doc/utf-handover.md` is the source of truth for remaining work.
 
 ## Design Intent
 
@@ -132,7 +133,7 @@ logical cursor position, or input event that an agent sees.
 - `status`: status text when available.
 - `buffer_path`, `buffer_dirty`, and `buffer_line_count`: current buffer
   metadata.
-- `undo_available` and `redo_available`: bounded agent-side history state.
+- `undo_available` and `redo_available`: bounded harness-side history state.
 - `selection`: active range endpoints plus clipboard text.
 - `buffers`: open agent buffers with path/dirty/line-count/current metadata.
 - `project`: flat project listing metadata from `project-list [DIR]`.
@@ -187,7 +188,7 @@ logical-hit events before legacy mouse-definition dispatch. Command,
 logical-hit, and debug inputs are preserved as structured events and should be
 routed by migrated dispatch groups.
 
-Both `the_agent` and `the --driver llm` accept these protocol commands:
+Both `the_llm_harness` and `the --driver llm` accept these protocol commands:
 
 - `look [full|filearea|reserved|prefix|focus] [compact] [max=N]`
 - `delta [full|filearea|reserved|prefix|focus] [compact] [max=N]`
@@ -213,7 +214,7 @@ Current supported editor commands include `open`, `open!`, `new`, `new!`,
 `selection-delete`, `selection-replace`, `undo`, `redo`, `buffer-open`,
 `buffer-switch`, `buffer-list`, `buffer-close`, and `project-list`.
 Snapshots include buffer, history, selection, project, and semantic prefix
-metadata in `the_agent`; `the --driver llm` delegates `command ...` to the full
+metadata in `the_llm_harness`; `the --driver llm` delegates `command ...` to the full
 THE dispatcher rather than this subset.
 
 ## Agent Usage Rules
@@ -251,9 +252,9 @@ Focused no-curses/LLM tests:
 ```sh
 cmake --build cmake-build-debug --target \
   test_llmdriver test_virtual_screen test_agentdriver test_transientui \
-  the the_agent the_llm_headless -j2
+  the the_llm_harness the_llm_headless -j2
 ctest --test-dir cmake-build-debug \
-  -R 'test_llmdriver|test_virtual_screen|test_agentdriver|test_transientui|test_the_agent|test_the_llm_headless_no_curses|test_the_llm_full_runtime' \
+  -R 'test_llmdriver|test_virtual_screen|test_agentdriver|test_transientui|test_the_llm_harness|test_the_llm_headless_no_curses|test_the_llm_full_runtime|test_the_llm_parser_diagnostics|test_the_llm_profile_crexx|test_driver_modules' \
   --output-on-failure
 ```
 
@@ -265,7 +266,7 @@ replace, line operations, prefix command execution, UTF-aware selections,
 undo/redo availability, buffer switching, project listing, retained-frame
 deltas, capability output, unsupported-command diagnostics, the closed SOS
 subset, the `the_llm_headless --mini-session` editing proof, no-curses
-transient UI state transitions, and live `the_agent` transient protocol flow
+transient UI state transitions, and live `the_llm_harness` transient protocol flow
 for readv, dialog, and popup.
 
 CREXX/pty tests remain the full-editor integration surface. A skipped CREXX

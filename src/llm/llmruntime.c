@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "screenframe.h"
+#include "parserdiagnostics.h"
 #include "the.h"
 #include "vars.h"
 
@@ -116,6 +117,27 @@ static void llm_runtime_selection_metadata(LlmDriverScreenView *view)
                                         "");
 }
 
+static void llm_runtime_parser_diagnostics(LlmDriverScreenView *view)
+{
+   TheParserDiagnostic *diagnostics = NULL;
+   int count = 0;
+   int i;
+
+   if (view == NULL)
+      return;
+   if (the_parser_diagnostics_collect(&diagnostics, &count) != RC_OK)
+      return;
+   for (i = 0; i < count; i++)
+   {
+      llm_driver_screen_view_add_diagnostic(view, diagnostics[i].line,
+                                            diagnostics[i].column,
+                                            diagnostics[i].severity,
+                                            diagnostics[i].code,
+                                            diagnostics[i].message);
+   }
+   the_parser_diagnostics_free(diagnostics);
+}
+
 int llm_runtime_screen_view(CHARTYPE scrno, LlmDriverScreenView *view)
 {
    UiFrame frame;
@@ -135,6 +157,7 @@ int llm_runtime_screen_view(CHARTYPE scrno, LlmDriverScreenView *view)
    llm_driver_screen_view_set_status(view, status);
    llm_runtime_buffer_metadata(view);
    llm_runtime_selection_metadata(view);
+   llm_runtime_parser_diagnostics(view);
    return 1;
 }
 

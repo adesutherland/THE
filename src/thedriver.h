@@ -120,7 +120,25 @@ typedef enum
    THE_DRIVER_GLOBAL_FILETABS
 } TheDriverGlobalWindowRole;
 
+typedef enum
+{
+   THE_DRIVER_ALT_VLINE = 0,
+   THE_DRIVER_ALT_UARROW,
+   THE_DRIVER_ALT_DARROW,
+   THE_DRIVER_ALT_LARROW,
+   THE_DRIVER_ALT_RARROW
+} TheDriverAltCell;
+
 typedef struct TheDriverOps TheDriverOps;
+typedef struct TheDriverModuleLifecycle TheDriverModuleLifecycle;
+
+typedef struct
+{
+   int slk_format;
+   int initscr_argc;
+   char **initscr_argv;
+   char *x11_switches;
+} TheDriverStartupOptions;
 
 struct TheDriverOps
 {
@@ -212,10 +230,121 @@ struct TheDriverOps
 extern const TheDriverOps *the_driver;
 
 void the_driver_select(const TheDriverOps *ops);
+int the_driver_load(const char *name, const char *argv0,
+                    char *error, size_t error_len);
 int the_driver_use_curses(void);
 int the_driver_use_headless(void);
 int the_driver_is_curses(void);
 int the_driver_is_headless(void);
 int the_driver_read_legacy_key(void);
+int the_driver_start(const TheDriverStartupOptions *options,
+                     char *error, size_t error_len);
+void the_driver_shutdown(int prompt_on_error);
+void the_driver_signal_shutdown(void);
+void the_driver_close_module(void);
+void the_driver_suspend_terminal(void);
+void the_driver_resume_terminal(void);
+void the_driver_resize_terminal(int rows, int cols);
+void the_driver_refresh_terminal_size(void);
+int the_driver_read_terminal_legacy_key(void);
+int the_driver_read_raw_window_key(TheDriverWindow *win);
+void the_driver_set_window_leaveok(TheDriverWindow *win, bool enabled);
+void the_driver_slk_touch(void);
+void the_driver_slk_noutrefresh(void);
+void the_driver_slk_clear(void);
+void the_driver_slk_restore(void);
+void the_driver_slk_set(int key, const char *label, int format);
+void the_driver_slk_attrset(TheDriverAttr attr);
+void the_driver_set_current_screen(CHARTYPE scrno);
+void the_driver_set_screen_current_role(CHARTYPE scrno, short role);
+TheDriverWindow *the_driver_create_screen_role(CHARTYPE scrno, short role,
+                                               int rows, int cols,
+                                               int row, int col);
+TheDriverWindow *the_driver_create_global_window(TheDriverGlobalWindowRole role,
+                                                 int rows, int cols,
+                                                 int row, int col);
+size_t the_driver_log_count(void);
+const char *the_driver_log_entry(size_t index);
+void the_driver_current_mouse_screen_role_position(CHARTYPE scrno,
+                                                   short role,
+                                                   int *row, int *col);
+void the_driver_current_mouse_global_position(TheDriverGlobalWindowRole role,
+                                              int *row, int *col);
+void the_driver_current_mouse_screen_position(int *row, int *col);
+void the_driver_clear_mouse_packet_position(void);
+int the_driver_read_pending_mouse_button(int *button, int *action,
+                                         int *modifier);
+int the_driver_read_transient_mouse_event(TheDriverWindow *win,
+                                          TheDriverMouseEvent *event);
+int the_driver_read_current_role_transient_mouse_event(
+   short role, TheDriverMouseEvent *event);
+int the_driver_color_pair_count(void);
+int the_driver_color_count(void);
+int the_driver_can_change_color(void);
+void the_driver_init_pair(int pair, int fg, int bg);
+void the_driver_init_color(int color, int red, int green, int blue);
+const char *the_driver_ui_version(void);
+int the_driver_mouse_interval(int interval);
+void the_driver_mouse_mask(int enabled);
+void the_driver_nap_ms(int milliseconds);
+TheDriverCell the_driver_alternate_cell(TheDriverAltCell cell);
+
+struct TheDriverModuleLifecycle
+{
+   const char *name;
+   int (*activate)(void);
+   int (*start)(const TheDriverStartupOptions *options,
+                char *error, size_t error_len);
+   void (*shutdown)(int prompt_on_error);
+   void (*signal_shutdown)(void);
+   void (*suspend_terminal)(void);
+   void (*resume_terminal)(void);
+   void (*resize_terminal)(int rows, int cols);
+   void (*refresh_terminal_size)(void);
+   int (*read_terminal_legacy_key)(void);
+   int (*read_raw_window_key)(TheDriverWindow *win);
+   void (*set_window_leaveok)(TheDriverWindow *win, bool enabled);
+   void (*slk_touch)(void);
+   void (*slk_noutrefresh)(void);
+   void (*slk_clear)(void);
+   void (*slk_restore)(void);
+   void (*slk_set)(int key, const char *label, int format);
+   void (*slk_attrset)(TheDriverAttr attr);
+   void (*set_current_screen)(CHARTYPE scrno);
+   void (*set_screen_current_role)(CHARTYPE scrno, short role);
+   TheDriverWindow *(*create_screen_role)(CHARTYPE scrno, short role,
+                                          int rows, int cols,
+                                          int row, int col);
+   TheDriverWindow *(*create_global_window)(TheDriverGlobalWindowRole role,
+                                            int rows, int cols,
+                                            int row, int col);
+   size_t (*log_count)(void);
+   const char *(*log_entry)(size_t index);
+   void (*current_mouse_screen_role_position)(CHARTYPE scrno, short role,
+                                              int *row, int *col);
+   void (*current_mouse_global_position)(TheDriverGlobalWindowRole role,
+                                         int *row, int *col);
+   void (*current_mouse_screen_position)(int *row, int *col);
+   void (*clear_mouse_packet_position)(void);
+   int (*read_pending_mouse_button)(int *button, int *action, int *modifier);
+   int (*read_transient_mouse_event)(TheDriverWindow *win,
+                                     TheDriverMouseEvent *event);
+   int (*read_current_role_transient_mouse_event)(
+      short role, TheDriverMouseEvent *event);
+   int (*color_pair_count)(void);
+   int (*color_count)(void);
+   int (*can_change_color)(void);
+   void (*init_pair)(int pair, int fg, int bg);
+   void (*init_color)(int color, int red, int green, int blue);
+   const char *(*ui_version)(void);
+   int (*mouse_interval)(int interval);
+   void (*mouse_mask)(int enabled);
+   void (*nap_ms)(int milliseconds);
+   TheDriverCell (*alternate_cell)(TheDriverAltCell cell);
+   CursorShape (*current_cursor_shape)(void);
+   CursorBlink (*current_cursor_blink)(void);
+   CursorPresentation (*current_cursor_presentation)(void);
+   bool (*current_cursor_uses_software)(void);
+};
 
 #endif

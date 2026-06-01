@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
-  echo "usage: $0 /path/to/the_agent" >&2
+  echo "usage: $0 /path/to/the_llm_harness" >&2
   exit 2
 fi
 
@@ -12,7 +12,7 @@ if [[ ! -x "$exe" ]]; then
   exit 1
 fi
 
-work_dir=${TMPDIR:-/tmp}/the-agent-capabilities-$$
+work_dir=${TMPDIR:-/tmp}/the-llm-harness-capabilities-$$
 mkdir -p "$work_dir"
 trap 'rm -rf "$work_dir"' EXIT
 
@@ -31,12 +31,12 @@ debug capabilities
 quit
 CMDS
 
-rg '"surface":"the_agent"' "$out" >/dev/null
-rg '"command_dispatcher":"agent-subset"' "$out" >/dev/null
+rg '"surface":"the_llm_harness"' "$out" >/dev/null
+rg '"command_dispatcher":"harness-subset"' "$out" >/dev/null
 rg '"full_the_dispatcher":false' "$out" >/dev/null
 rg '"sos_commands":"navigation-and-edit-subset"' "$out" >/dev/null
 rg '"mouse":"logical-hit-subset"' "$out" >/dev/null
-rg '"prefix_commands":"agent-editing-subset"' "$out" >/dev/null
+rg '"prefix_commands":"harness-editing-subset"' "$out" >/dev/null
 rg '"selection":true' "$out" >/dev/null
 rg '"undo_redo":true' "$out" >/dev/null
 rg '"buffers":true' "$out" >/dev/null

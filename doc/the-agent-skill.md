@@ -1,4 +1,4 @@
-# Draft Skill: THE Agent Editor
+# Draft Skill: THE LLM Harness
 
 Use this draft when an agent should edit through THE's no-curses LLM/headless
 surfaces instead of scraping a terminal.
@@ -18,7 +18,7 @@ Use `the --driver llm` when the task needs real THE runtime semantics: full
 command dispatch, profiles, parser/SDSLH state, syntax/style spans, prefix
 commands, file ring state, editor variables, or CREXX macros when available.
 
-Use `the_agent` when the task needs the lightweight protocol harness,
+Use `the_llm_harness` when the task needs the lightweight protocol harness,
 no-curses contract test surface, or fallback oracle for snapshot/input
 formatting. Build/test execution and repository-scale search remain host
 automation responsibilities.
@@ -28,7 +28,7 @@ automation responsibilities.
 Build:
 
 ```sh
-cmake --build cmake-build-debug --target the_agent the_llm_headless -j2
+cmake --build cmake-build-debug --target the_llm_harness the_llm_headless -j2
 ```
 
 Start the full-runtime LLM target:
@@ -40,7 +40,7 @@ Start the full-runtime LLM target:
 Start the lightweight harness:
 
 ```sh
-./cmake-build-debug/the_agent --rows 24 --cols 100 path/to/file.txt
+./cmake-build-debug/the_llm_harness --rows 24 --cols 100 path/to/file.txt
 ```
 
 Run the headless mini-session proof:
@@ -96,7 +96,7 @@ command duplicateline
 ```
 
 In `the --driver llm`, `command ...` is the real THE command dispatcher. In
-`the_agent`, `command ...` is the documented harness subset.
+`the_llm_harness`, `command ...` is the documented harness subset.
 
 Use prefix commands for line-oriented edits:
 
@@ -169,9 +169,9 @@ transient result
 transient close
 ```
 
-Full-runtime transient modal loops are not yet adapted to the protocol. Use the
-`the_agent` transient model as the contract oracle until the full-runtime modal
-adapter lands.
+The same transient protocol shape is available in `the --driver llm` and
+`the_llm_harness`; use `the_llm_harness` as the contract oracle when you need a
+minimal no-curses formatting/input surface.
 
 If `open` or `new` reports `unsaved changes`, save first or use `open!`/`new!`
 only when discarding edits is intentional.
@@ -196,7 +196,7 @@ delta compact max=160
 Verify externally when needed:
 
 ```sh
-ctest --test-dir cmake-build-debug -R 'test_the_llm_full_runtime|test_the_agent|test_agentdriver' --output-on-failure
+ctest --test-dir cmake-build-debug -R 'test_the_llm_full_runtime|test_the_llm_harness|test_agentdriver' --output-on-failure
 ```
 
 Run builds and tests outside THE. The editor target does not execute host
@@ -207,8 +207,8 @@ processes by design.
 - Full THE dispatcher: use `the --driver llm`.
 - CREXX macros: use `the --driver llm` when the build reports
   `"crexx_macros":true`.
-- Parser/SDSLH diagnostics: in target scope for `the --driver llm`; available
-  through real commands now, with first-class snapshot diagnostics pending.
+- Parser/SDSLH diagnostics: use `the --driver llm`; snapshots include a
+  first-class `diagnostics` array when parser messages exist.
 - Terminal mouse packets: physical input handled by the curses driver; agents
   should use logical `hit` commands.
 - Build/test hooks: host automation should run shell, CMake, and CTest
@@ -233,5 +233,5 @@ printf '%s\n' \
   'command save' \
   'delta compact max=120' \
   'quit' \
-  | ./cmake-build-debug/the_agent --rows 24 --cols 100 path/to/file.txt
+  | ./cmake-build-debug/the_llm_harness --rows 24 --cols 100 path/to/file.txt
 ```

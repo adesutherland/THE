@@ -35,6 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "thedriver.h"
 
 static LENGTHTYPE tmp_len;
 static CHARTYPE tmp_str[2*MAX_FILE_NAME+100];
@@ -463,7 +464,7 @@ static void the_handler( int dummy )
     * Sleep for 100 milliseconds to ensure the remainder of the
     * data is in the fifo. Yuck!
     */
-   napms( 100 );
+   the_driver_nap_ms( 100 );
    if ( read( fifo_fd, tmp_str, tmp_len*sizeof(CHARTYPE) ) < 0 )
    {
       TRACE_RETURN();
@@ -840,7 +841,7 @@ int process_fifo_input( int key )
           * Sleep for 100 milliseconds to ensure the remainder of the
           * data is in the fifo. Yuck!
           */
-         napms( 100 );
+         the_driver_nap_ms( 100 );
          if ( read( fifo_fd, tmp_str, tmp_len*sizeof(CHARTYPE) ) < 0 )
          {
             TRACE_RETURN();

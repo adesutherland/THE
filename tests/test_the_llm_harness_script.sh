@@ -2,12 +2,12 @@
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
-  echo "usage: $0 /path/to/the_agent" >&2
+  echo "usage: $0 /path/to/the_llm_harness" >&2
   exit 2
 fi
 
 exe=$1
-work_dir=${TMPDIR:-/tmp}/the-agent-script-$$
+work_dir=${TMPDIR:-/tmp}/the-llm-harness-script-$$
 mkdir -p "$work_dir"
 trap 'rm -rf "$work_dir"' EXIT
 
@@ -85,7 +85,7 @@ command find beta
 command replace-all beta theta
 command insertline zero
 command deleteline
-command appendline agent appended
+command appendline harness appended
 command save
 look full compact max=40
 quit
@@ -149,7 +149,7 @@ rg '"cell":6' "$out" >/dev/null
 rg '"cell":0' "$out" >/dev/null
 rg '"cell":4' "$out" >/dev/null
 rg 'A1' "$out" >/dev/null
-rg 'agent appended' "$out" >/dev/null
+rg 'harness appended' "$out" >/dev/null
 rg '"status":"file saved"' "$out" >/dev/null
 rg 'one theta' "$out" >/dev/null
 rg '"buffer":\{"path":"' "$out" >/dev/null
@@ -179,5 +179,5 @@ rg '"action":"accept"' "$out" >/dev/null
 rg '"kind":"popup"' "$out" >/dev/null
 rg '"ok":1' "$out" >/dev/null
 rg 'one theta' "$other" >/dev/null
-rg 'agent appended' "$other" >/dev/null
+rg 'harness appended' "$other" >/dev/null
 rg 'buffer two edit' "$other" >/dev/null

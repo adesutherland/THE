@@ -27,15 +27,15 @@ logical_files=(
   src/utfrepair.h
   src/utfterm.c
   src/utfterm.h
-  src/llmdriver.c
-  src/llmdriver.h
-  src/headlessdriver.c
-  src/headlessdriver.h
+  src/llm/llmdriver.c
+  src/llm/llmdriver.h
+  src/drivers/llm/headlessdriver.c
+  src/drivers/llm/headlessdriver.h
   src/transientui.c
   src/transientui.h
   src/uidriver.c
   src/uidriver.h
-  tools/the_agent.c
+  tools/the_llm_harness.c
 )
 
 violations="$(
@@ -58,7 +58,7 @@ if [[ -n "$thedriver_public_violations" ]]; then
   exit 1
 fi
 
-raw_input_vtable_pattern='read_current_window_key|read_current_role_key|read_global_window_key|read_window_key|read_raw_window_key|read_standard_key|read_raw_standard_key|is_mouse_key|mouse_key_code|mouse_position_for_screen_role|mouse_position_for_global|saved_mouse_position|reset_mouse_position|read_mouse_button|read_current_role_mouse_event|read_mouse_event'
+raw_input_vtable_pattern='read_current_window_key|read_current_role_key|read_global_window_key|read_window_key|read_standard_key|read_raw_standard_key|is_mouse_key|mouse_key_code|mouse_position_for_screen_role|mouse_position_for_global|saved_mouse_position|reset_mouse_position|read_mouse_button|read_current_role_mouse_event|read_mouse_event'
 raw_input_vtable_violations="$(
   rg -n "$raw_input_vtable_pattern" src/thedriver.h 2>/dev/null || true
 )"
@@ -71,7 +71,7 @@ fi
 
 headless_include_violations="$(
   rg -n '#[[:space:]]*include[[:space:]]*[<"][^>"]*curses' \
-    src/headlessdriver.c src/headlessdriver.h 2>/dev/null || true
+    src/drivers/llm/headlessdriver.c src/drivers/llm/headlessdriver.h 2>/dev/null || true
 )"
 
 if [[ -n "$headless_include_violations" ]]; then
@@ -83,7 +83,7 @@ fi
 window_state_pattern='\b(WINDOW|chtype|cchar_t)\b|CURRENT_WINDOW|SCREEN_WINDOW|PENDING_WINDOW'
 window_state_violations="$(
   rg -n "$window_state_pattern" src \
-    --glob '!src/cursesdriver.*' \
+    --glob '!src/drivers/curses/**' \
     --glob '!src/thedriver.*' \
     --glob '!src/PDCurses/**' \
     --glob '!src/PDCursesMod/**' \

@@ -55,6 +55,7 @@ enum
 };
 
 extern const TheDriverOps the_curses_driver_ops;
+extern const TheDriverModuleLifecycle the_curses_driver_lifecycle;
 
 chtype curses_driver_software_cursor_attr(CHARTYPE scrno, chtype base,
                                           CursorShape shape);

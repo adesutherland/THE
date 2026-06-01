@@ -2418,7 +2418,7 @@ short show_status(void)
     * For each item that is displayable, display it...
     */
    column = 0;
-   column_width = COLS / STATUS_COLS;
+   column_width = terminal_cols / STATUS_COLS;
    col[0] = 0;
    for (i=1;i<STATUS_COLS;i++)
       col[i] = col[i-1]+column_width+1;
@@ -2442,7 +2442,7 @@ short show_status(void)
           * If the length of the variables is > the screen width, go to next
           * line.
           */
-         if (item_width+col[column] > COLS)
+         if (item_width+col[column] > terminal_cols)
          {
             column = colno = 0;
             lineno++;

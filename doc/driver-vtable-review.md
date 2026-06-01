@@ -29,18 +29,19 @@ The intended layers are:
   fake surface or operation log only when needed for compatibility.
 - Testing/fake driver: shares most headless behavior, records operations, and
   supports targeted integration tests without linking curses.
-- Selectable startup/profile mechanism: the main `the` executable should
-  eventually choose, load, or swap a driver through startup options and system
-  profile configuration rather than hard-wiring curses in `src/thedriver.c`.
+- Selectable startup/profile mechanism: the main `the` executable now loads
+  driver modules at runtime through startup options instead of hard-wiring
+  curses into the executable.
 - Windows/PDCurses decision: keep the curses driver PDCurses-compatible for
   now. Later work can either preserve that compatibility in the same driver or
   split a Windows/PDCurses driver if terminal behavior diverges enough.
 
-`the_agent` and `the_llm_headless` already prove useful no-curses link
-boundaries. `the_agent` is now a serious single-buffer no-curses editor subset
-with file open/save/write, buffer metadata, search/replace, line operations,
-logical hits, and stable snapshots; `the_llm_headless --mini-session` proves a
-real edit/save path without `src/cursesdriver.c`. `src/headlessdriver.c` adds
+`the_llm_harness` and `the_llm_headless` already prove useful no-curses link
+boundaries. `the_llm_harness` is now a serious no-curses protocol harness and
+contract oracle with file open/save/write, buffer metadata, search/replace,
+line operations, logical hits, and stable snapshots; `the_llm_headless
+--mini-session` proves a real edit/save path without
+`src/drivers/curses/cursesdriver.c`. `src/drivers/llm/headlessdriver.c` adds
 the first complete no-curses
 `TheDriverOps` implementation. It is a fake/test driver rather than the full
 editor runtime: terminal-only operations may be NOPs or deterministic log
@@ -52,8 +53,8 @@ drivers continue to prove specific integration points.
 ## Findings
 
 - `TheDriverOps` currently has 53 function pointers.
-- `src/cursesdriver.c` initializes all 53 entries in `the_curses_driver_ops`.
-- `src/headlessdriver.c` initializes all 53 entries in
+- `src/drivers/curses/cursesdriver.c` initializes all 53 entries in `the_curses_driver_ops`.
+- `src/drivers/llm/headlessdriver.c` initializes all 53 entries in
   `the_headless_driver_ops` without including curses headers or linking
   curses.
 - The Step 2 display-layout extraction removed `clamp_display_col`,
@@ -120,7 +121,7 @@ shutdown polling use a narrow curses-private terminal key helper. `getch.c`
 reaches the raw curses read through a curses-private helper instead of the
 public driver table. Normal mouse definition dispatch still uses legacy integer
 key definitions, but packet decoding, `KEY_MOUSE` translation, and saved
-physical packet coordinates remain inside `src/cursesdriver.c`; editor mouse
+physical packet coordinates remain inside `src/drivers/curses/cursesdriver.c`; editor mouse
 code saves the resulting logical target for migrated commands such as
 `CURSOR MOUSE` and `TABFILE`.
 
@@ -292,7 +293,7 @@ notes at the end of this document.
 | `write_render_cluster_at` | Targeted UTF repair/status cluster writes in `show.c`. | Lowers a render cluster to wide output and preserves expected display width for cursor advancement. | `physical-terminal` | Preserves codepoint sequence, UTF slice, widths, repair hint, and style in the fake surface/log. | Expose logical cluster text and width facts. | Keep as the portable cluster backend for keycaps, flags, combining sequences, and ZWJ sequences. | `test_headlessdriver`, `test_virtual_screen`, `test_utfrepair`. |
 | `fill_cells_at` | 1 call in `show.c`. | Fills terminal cells with spaces/attr. | `physical-terminal` | Fill fake cells/log. | Render blank semantic span. | Keep backend primitive; later shared renderer. | Blank-cell repair tests. |
 | `write_ascii_cells_at` | 1 call in `show.c`. | Writes fixed-width ASCII cells. | `physical-terminal` | Write fake ASCII cells/log. | Expose logical text. | Keep backend primitive for now. | ASCII renderer tests. |
-| `read_input_event` | Focused tests plus the shared legacy-key adapter used by command/edit/query/readv/dialog/popup/startup polling paths. | Reads through the current curses input edge and returns normalized text/key events; raw mouse packet reads, `KEY_MOUSE` translation, and saved packet coordinates stay inside `src/cursesdriver.c`. | `core-portable` | Pops queued `TheInputEvent` values; fake keys queue normalized events and `the_driver_read_legacy_key()` adapts them for old dispatcher code. | Primary input surface for agent/headless clients. | Keep as the portable input API; continue migrating old integer-key callers to consume full `TheInputEvent` where useful. | `test_headlessdriver`, `test_inputevent`, mouse-hit and no-curses guards. |
+| `read_input_event` | Focused tests plus the shared legacy-key adapter used by command/edit/query/readv/dialog/popup/startup polling paths. | Reads through the current curses input edge and returns normalized text/key events; raw mouse packet reads, `KEY_MOUSE` translation, and saved packet coordinates stay inside `src/drivers/curses/cursesdriver.c`. | `core-portable` | Pops queued `TheInputEvent` values; fake keys queue normalized events and `the_driver_read_legacy_key()` adapts them for old dispatcher code. | Primary input surface for agent/headless clients. | Keep as the portable input API; continue migrating old integer-key callers to consume full `TheInputEvent` where useful. | `test_headlessdriver`, `test_inputevent`, mouse-hit and no-curses guards. |
 | `prepare_for_shell_escape` | 1 call in `execute.c`. | Clears and refreshes the terminal before suspending curses for shell output. | `physical-terminal` | Deterministic `prepare:shell` log. | No-op/log shell transition. | Keep as high-level shell lifecycle op. | Shell-command smoke tests. |
 | `repair_terminal_background` | 4 calls in execute, rexx, startup. | Runs the broken SysV curses background repair privately for current window or terminal screen. | `physical-terminal` | Logs repair target. | No-op/log terminal repair. | Keep as terminal-repair op; physical color-pair mechanics stay in curses. | Headless log test plus shell/REXX smoke. |
 | `redraw_window` | 1 call in `show.c`. | Iterates cells and rewrites via `put_char`. | `curses-private-candidate` | Replay fake buffer/log. | Avoid physical redraw. | Move toward renderer-owned invalidation. | Renderer invalidation tests. |
@@ -346,7 +347,7 @@ notes at the end of this document.
    terminal sync/clear/report plus shell/repair operations, leaving 130
    entries. Popup rendering now uses the transient popup snapshot directly
    instead of a pad, query/list output uses terminal-report spans, and the
-   SysV background workaround is private to `src/cursesdriver.c`.
+   SysV background workaround is private to `src/drivers/curses/cursesdriver.c`.
 5. Done in this working tree: raw input compatibility wrapper retirement.
    `TheDriverOps` dropped the seven raw/legacy key readers, two mouse-token
    helpers, four saved physical mouse-position helpers, and three raw mouse
@@ -354,7 +355,7 @@ notes at the end of this document.
    `the_driver_read_legacy_key()` over `read_input_event`; terminal polling
    uses a curses-private terminal helper; transient mouse paths use private
    helper functions; and raw terminal packet mechanics stay in
-   `src/cursesdriver.c`.
+   `src/drivers/curses/cursesdriver.c`.
 6. Done in this working tree: role/window/cursor presentation contraction.
    `TheDriverOps` dropped current/screen/global role cursor aliases,
    touch/refresh/redraw aliases, cell scrape/mutation helpers, topology/
@@ -380,8 +381,8 @@ The complete-operation check for this document is:
 
 ```sh
 perl -ne 'print "$1\n" if /\(\*([A-Za-z0-9_]+)\)/' src/thedriver.h | wc -l
-perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/cursesdriver.c | wc -l
-perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/headlessdriver.c | wc -l
+perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/drivers/curses/cursesdriver.c | wc -l
+perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/drivers/llm/headlessdriver.c | wc -l
 ```
 
 All three counts are 53 after the role/window/cursor presentation contraction

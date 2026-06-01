@@ -35,6 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "parserdiagnostics.h"
 #include "thedriver.h"
 
 #include <query.h>
@@ -277,10 +278,7 @@ short extract_mouse(short number_variables,short itemno,CHARTYPE *itemargs,CHART
 short extract_mouseclick(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   int mouseclick = -1;
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-   mouseclick = mouseinterval( -1 );
-#endif
+   int mouseclick = the_driver_mouse_interval( -1 );
    sprintf((DEFCHAR *)query_num3,"%d",mouseclick);
    item_values[1].value = query_num3;
    item_values[1].len = strlen((DEFCHAR *)query_num3);
@@ -616,229 +614,11 @@ short extract_pmsg(short number_variables,short itemno,CHARTYPE *itemargs,CHARTY
 
 /***********************************************************************/
 
-#ifdef USE_SDSLH
-typedef struct SdslhParserMessage
+static CHARTYPE *pmsgs_make_record(const TheParserDiagnostic *message,bool query_record,int index)
 {
-   const CB_Node *node;
-   LINETYPE line;
-   LENGTHTYPE column;
-   CB_Severity severity;
-   CHARTYPE *code;
-   CHARTYPE *message;
-} SdslhParserMessage;
-
-typedef struct PmsgsCollectContext
-{
-   CodeBuffer *cb;
-   SdslhParserMessage **messages;
-   int *count;
-   int *capacity;
-   short rc;
-} PmsgsCollectContext;
-
-static const char *pmsgs_severity_name(CB_Severity severity)
-{
-   switch(severity)
-   {
-      case CB_INFORMATION:
-         return "INFORMATION";
-      case CB_WARNING:
-         return "WARNING";
-      case CB_ERROR:
-         return "ERROR";
-      case CB_NONE:
-      default:
-         return "NONE";
-   }
-}
-
-static CHARTYPE *pmsgs_duplicate_field(const char *value,const char *fallback)
-{
-   const char *source=(value != NULL && value[0] != '\0') ? value : fallback;
-   size_t len=strlen(source);
-   CHARTYPE *copy=(CHARTYPE *)(*the_malloc)((len + 1) * sizeof(CHARTYPE));
-
-   if (copy == NULL)
-      return NULL;
-
-   memcpy(copy,source,len + 1);
-   return copy;
-}
-
-static void pmsgs_free(SdslhParserMessage *messages,int count)
-{
-   int i;
-
-   if (messages == NULL)
-      return;
-
-   for (i = 0; i < count; i++)
-   {
-      if (messages[i].code != NULL)
-         (*the_free)(messages[i].code);
-      if (messages[i].message != NULL)
-         (*the_free)(messages[i].message);
-   }
-   (*the_free)(messages);
-}
-
-static short pmsgs_append(SdslhParserMessage **messages,int *count,int *capacity,
-                          const CB_Node *node,LINETYPE line,LENGTHTYPE column)
-{
-   SdslhParserMessage *resized=NULL;
-   SdslhParserMessage *entry=NULL;
-   int next_capacity;
-
-   if (*count == *capacity)
-   {
-      next_capacity = (*capacity == 0) ? 8 : (*capacity * 2);
-      if (*messages == NULL)
-         resized = (SdslhParserMessage *)(*the_malloc)(next_capacity * sizeof(SdslhParserMessage));
-      else
-         resized = (SdslhParserMessage *)(*the_realloc)(*messages,next_capacity * sizeof(SdslhParserMessage));
-
-      if (resized == NULL)
-         return RC_SYSTEM_ERROR;
-
-      *messages = resized;
-      *capacity = next_capacity;
-   }
-
-   entry = &(*messages)[*count];
-   entry->node = node;
-   entry->line = line;
-   entry->column = column;
-   entry->severity = node->severity;
-   entry->code = pmsgs_duplicate_field(node->message_code,"-");
-   entry->message = pmsgs_duplicate_field(node->message,"");
-
-   if (entry->code == NULL || entry->message == NULL)
-   {
-      if (entry->code != NULL)
-         (*the_free)(entry->code);
-      if (entry->message != NULL)
-         (*the_free)(entry->message);
-      entry->code = NULL;
-      entry->message = NULL;
-      return RC_SYSTEM_ERROR;
-   }
-
-   (*count)++;
-   return RC_OK;
-}
-
-static void pmsgs_node_location(CodeBuffer *cb,const CB_Node *node,LINETYPE *line,LENGTHTYPE *column)
-{
-   size_t found_line=0;
-   size_t found_col=0;
-   size_t current_pos=0;
-   size_t line_idx;
-   size_t length;
-   size_t offset;
-
-   *line = 0;
-   *column = 0;
-
-   if (cb == NULL || node == NULL || cb->line_count == 0)
-      return;
-
-   length = (node->length > 0) ? node->length : 1;
-   if (get_code_buffer_part(cb,node->pos,length,&found_line,&found_col,NULL) != NULL)
-   {
-      *line = (LINETYPE)found_line;
-      *column = (LENGTHTYPE)found_col + 1;
-      return;
-   }
-
-   for (line_idx = 0; line_idx < cb->line_count; line_idx++)
-   {
-      size_t line_length=cb->lines[line_idx].length;
-      size_t span=line_length + 1;
-
-      if (node->pos >= current_pos && node->pos <= current_pos + span)
-      {
-         offset = node->pos - current_pos;
-         if (offset > line_length)
-            offset = line_length;
-         *line = (LINETYPE)line_idx + 1;
-         *column = (LENGTHTYPE)offset + 1;
-         return;
-      }
-      current_pos += span;
-   }
-
-   *line = (LINETYPE)cb->line_count;
-   *column = (LENGTHTYPE)cb->lines[cb->line_count - 1].length + 1;
-}
-
-static void pmsgs_collect_node(CB_Node *node,size_t depth,void *user_data)
-{
-   PmsgsCollectContext *context=(PmsgsCollectContext *)user_data;
-   LINETYPE line=0;
-   LENGTHTYPE column=0;
-
-   INTENTIONALLY_UNUSED_VARIABLE(depth);
-
-   if (context == NULL || context->rc != RC_OK || node == NULL)
-      return;
-
-   if (node->message == NULL
-   ||  node->message[0] == '\0'
-   ||  node->severity == CB_NONE)
-      return;
-
-   pmsgs_node_location(context->cb,node,&line,&column);
-   context->rc = pmsgs_append(context->messages,context->count,context->capacity,
-                              node,line,column);
-}
-
-static short pmsgs_collect(SdslhParserMessage **messages,int *count)
-{
-   short rc=RC_OK;
-   int capacity=0;
-   CodeBuffer *cb=NULL;
-   PmsgsCollectContext context;
-
-   *messages = NULL;
-   *count = 0;
-
-   if (CURRENT_FILE == NULL || CURRENT_FILE->cb == NULL)
-      return RC_OK;
-
-   if (enter_codeblock_critical_section() != 0)
-      return RC_SYSTEM_ERROR;
-
-   cb = CURRENT_FILE->cb;
-   if (cb->parse_tree != NULL)
-   {
-      context.cb = cb;
-      context.messages = messages;
-      context.count = count;
-      context.capacity = &capacity;
-      context.rc = RC_OK;
-      cb_walk_tree_top_down(cb->parse_tree,pmsgs_collect_node,&context);
-      rc = context.rc;
-   }
-
-   if (exit_codeblock_critical_section() != 0 && rc == RC_OK)
-      rc = RC_SYSTEM_ERROR;
-
-   if (rc != RC_OK)
-   {
-      pmsgs_free(*messages,*count);
-      *messages = NULL;
-      *count = 0;
-   }
-
-   return rc;
-}
-
-static CHARTYPE *pmsgs_make_record(const SdslhParserMessage *message,bool query_record,int index)
-{
-   const char *severity=pmsgs_severity_name(message->severity);
    const char *code=(const char *)message->code;
    const char *text=(const char *)message->message;
-   size_t size=strlen(severity) + strlen(code) + strlen(text) + 128;
+   size_t size=strlen(message->severity) + strlen(code) + strlen(text) + 128;
    CHARTYPE *record=(CHARTYPE *)(*the_malloc)(size * sizeof(CHARTYPE));
 
    if (record == NULL)
@@ -848,17 +628,18 @@ static CHARTYPE *pmsgs_make_record(const SdslhParserMessage *message,bool query_
    {
       snprintf((DEFCHAR *)record,size,
                "pmsgs.%d line=%ld column=%ld severity=%s code=%s message=%s",
-               index,(long)message->line,(long)message->column,severity,code,text);
+               index,(long)message->line,(long)message->column,
+               message->severity,code,text);
    }
    else
    {
       snprintf((DEFCHAR *)record,size,"%ld %ld %s %s %s",
-               (long)message->line,(long)message->column,severity,code,text);
+               (long)message->line,(long)message->column,
+               message->severity,code,text);
    }
 
    return record;
 }
-#endif
 
 /***********************************************************************/
 short extract_pmsgs(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
@@ -867,7 +648,7 @@ short extract_pmsgs(short number_variables,short itemno,CHARTYPE *itemargs,CHART
    short rc=RC_OK;
    CHARTYPE num[20];
 #ifdef USE_SDSLH
-   SdslhParserMessage *messages=NULL;
+   TheParserDiagnostic *messages=NULL;
    int count=0;
    int i;
    CHARTYPE *record=NULL;
@@ -905,7 +686,7 @@ short extract_pmsgs(short number_variables,short itemno,CHARTYPE *itemargs,CHART
 
    return 0;
 #else
-   rc = pmsgs_collect(&messages,&count);
+   rc = the_parser_diagnostics_collect(&messages,&count);
    if (rc != RC_OK)
    {
       display_error(54,(CHARTYPE *)"",FALSE);
@@ -925,7 +706,7 @@ short extract_pmsgs(short number_variables,short itemno,CHARTYPE *itemargs,CHART
             record = pmsgs_make_record(&messages[i],TRUE,i + 1);
             if (record == NULL)
             {
-               pmsgs_free(messages,count);
+               the_parser_diagnostics_free(messages);
                display_error(54,(CHARTYPE *)"",FALSE);
                return EXTRACT_ARG_ERROR;
             }
@@ -934,7 +715,7 @@ short extract_pmsgs(short number_variables,short itemno,CHARTYPE *itemargs,CHART
          }
       }
 
-      pmsgs_free(messages,count);
+      the_parser_diagnostics_free(messages);
       return EXTRACT_VARIABLES_SET;
    }
 
@@ -955,7 +736,7 @@ short extract_pmsgs(short number_variables,short itemno,CHARTYPE *itemargs,CHART
          (*the_free)(record);
       }
 
-      pmsgs_free(messages,count);
+      the_parser_diagnostics_free(messages);
       if (rc == RC_SYSTEM_ERROR)
       {
          display_error(54,(CHARTYPE *)"",FALSE);
@@ -964,7 +745,7 @@ short extract_pmsgs(short number_variables,short itemno,CHARTYPE *itemargs,CHART
       return EXTRACT_VARIABLES_SET;
    }
 
-   pmsgs_free(messages,count);
+   the_parser_diagnostics_free(messages);
    return count;
 #endif
 }
@@ -1413,9 +1194,9 @@ short extract_profile(short number_variables,short itemno,CHARTYPE *itemargs,CHA
 short extract_pscreen(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   item_values[1].len = sprintf( (DEFCHAR *)query_num1,"%d",LINES );
+   item_values[1].len = sprintf( (DEFCHAR *)query_num1,"%d",terminal_lines );
    item_values[1].value = query_num1;
-   item_values[2].len = sprintf( (DEFCHAR *)query_num2,"%d",COLS );
+   item_values[2].len = sprintf( (DEFCHAR *)query_num2,"%d",terminal_cols );
    item_values[2].value = query_num2;
    return number_variables;
 }
@@ -2561,7 +2342,7 @@ short extract_tabs(short number_variables,short itemno,CHARTYPE *itemargs,CHARTY
       }
       if (query_type == QUERY_QUERY
       ||  query_type == QUERY_STATUS)
-         query_rsrvd[COLS-7] = '\0';
+         query_rsrvd[terminal_cols-7] = '\0';
    }
    item_values[1].value = query_rsrvd;
    item_values[1].len = strlen((DEFCHAR *)query_rsrvd);
@@ -2635,9 +2416,9 @@ short extract_terminal(short number_variables,short itemno,CHARTYPE *itemargs,CH
 {
    item_values[1].value = term_name;
    item_values[1].len = strlen((DEFCHAR *)term_name);
-   item_values[2].len = sprintf((DEFCHAR *)query_num1, "%d", LINES );
+   item_values[2].len = sprintf((DEFCHAR *)query_num1, "%d", terminal_lines );
    item_values[2].value = query_num1;
-   item_values[3].len = sprintf((DEFCHAR *)query_num2, "%d", COLS );
+   item_values[3].len = sprintf((DEFCHAR *)query_num2, "%d", terminal_cols );
    item_values[3].value = query_num2;
    return number_variables;
 }
@@ -2730,32 +2511,7 @@ short extract_typeahead(short number_variables,short itemno,CHARTYPE *itemargs,C
 short extract_ui(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-#if defined(USE_XCURSES) || defined(PDCURSES)
-# if defined(HAVE_CURSES_VERSION)
-   static const char *port_text[] = { "X11", "WinCon", "WinGUI",
-         "DOS", "OS/2", "SDL1", "SDL2", "VT", "DOSVGA", "Plan9", "LinuxFramebuffer" };
-   PDC_VERSION vinfo;
-   PDC_get_version( &vinfo);
-#   ifdef __PDCURSESMOD__
-   if ( vinfo.port < sizeof(port_text) )
-      sprintf((DEFCHAR *)query_rsrvd,"%s Build: %d Port: %s", curses_version(), PDC_BUILD, port_text[vinfo.port]);
-   else
-#   endif
-      sprintf((DEFCHAR *)query_rsrvd,"%s Build: %d Port: %s", curses_version(), PDC_BUILD, "Unknown");
-# else
-   sprintf((DEFCHAR *)query_rsrvd,"PDCurses Build: %d", PDC_BUILD);
-# endif
-#elif defined(USE_NCURSES)
-# if NCURSES_VERSION_MAJOR > 4
-   sprintf((DEFCHAR *)query_rsrvd,"%s", curses_version());
-# else
-   strcpy((DEFCHAR *)query_rsrvd,NCURSES_VERSION);
-# endif
-#elif defined(USE_EXTCURSES)
-   sprintf((DEFCHAR *)query_rsrvd,"Extended Curses");
-#else
-   sprintf((DEFCHAR *)query_rsrvd,"Standard Curses");
-#endif
+   sprintf((DEFCHAR *)query_rsrvd,"%s", the_driver_ui_version());
    item_values[1].value = query_rsrvd;
    item_values[1].len = strlen((DEFCHAR *)query_rsrvd);
    return number_variables;

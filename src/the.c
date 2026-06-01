@@ -36,8 +36,6 @@
 #define MAIN 1
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
-#include "headlessdriver.h"
 #include "llmsession.h"
 #include "thedriver.h"
 #include "utfterm.h"
@@ -421,6 +419,8 @@ int main(int argc, char *argv[])
    char **my_argv;
    char *the_arguments;
    TheStartupDriver startup_driver = THE_STARTUP_DRIVER_CURSES;
+   TheDriverStartupOptions driver_startup_options;
+   char driver_error[4096];
 
 #ifdef __EMX__
    _wildcard(&argc,&argv);
@@ -980,7 +980,7 @@ int main(int argc, char *argv[])
    /*
     * Allocate linebuf here in case EXTRACT /IDLINE/ is called in profile.
     */
-   if ((length = COLS ) <= THE_MAX_SCREEN_WIDTH)
+   if ((length = terminal_cols ) <= THE_MAX_SCREEN_WIDTH)
       length = THE_MAX_SCREEN_WIDTH+1;
 
    linebuf_size = length;
@@ -1130,24 +1130,16 @@ int main(int argc, char *argv[])
    if (initialise_rexx() != RC_OK)
       rexx_support = FALSE;
 #endif
-   if (startup_driver == THE_STARTUP_DRIVER_LLM)
+   driver_error[0] = '\0';
+   if (!the_driver_load(startup_driver == THE_STARTUP_DRIVER_LLM
+                           ? "llm" : "curses",
+                        my_argv[0], driver_error, sizeof(driver_error)))
    {
-      if (!the_driver_use_headless())
-      {
-         cleanup();
-         DISPLAY_ERROR(0,(CHARTYPE *)"LLM driver not available",FALSE,1);
-         return(32);
-      }
-      headless_driver_reset();
-   }
-   else
-   {
-      if (!the_driver_use_curses())
-      {
-         cleanup();
-         DISPLAY_ERROR(0,(CHARTYPE *)"curses driver not available",FALSE,1);
-         return(32);
-      }
+      cleanup();
+      DISPLAY_ERROR(0,(CHARTYPE *)(driver_error[0] != '\0'
+                      ? driver_error : "driver module not available"),
+                    FALSE,1);
+      return(32);
    }
    /*
     * Create the builtin parsers...
@@ -1228,132 +1220,23 @@ int main(int argc, char *argv[])
       cleanup();
       return(0);
    } /* if (batch_only) */
-   if (startup_driver == THE_STARTUP_DRIVER_LLM)
-   {
-#ifdef USE_UTF8
-      if ((linebufch = (TheRenderCell *)(*the_malloc)(linebuf_size * sizeof(TheRenderCell))) == NULL)
-#else
-      if ((linebufch = (TheDriverCell *)(*the_malloc)(linebuf_size * sizeof(TheDriverCell))) == NULL)
-#endif
-      {
-         cleanup();
-         return(30);
-      }
-      set_screen_defaults();
-      if (set_up_windows(current_screen) != RC_OK)
-      {
-         cleanup();
-         DISPLAY_ERROR(0,(CHARTYPE *)"creating llm driver windows",FALSE,1);
-         return(23);
-      }
-      if (create_statusline_window() != RC_OK)
-      {
-         cleanup();
-         DISPLAY_ERROR(0,(CHARTYPE *)"creating llm status line window",FALSE,1);
-         return(23);
-      }
-      if (create_filetabs_window() != RC_OK)
-      {
-         cleanup();
-         DISPLAY_ERROR(0,(CHARTYPE *)"creating llm filetabs window",FALSE,1);
-         return(23);
-      }
-   }
-   else
-   {
-   /*
-    * If the platform supports the mouse, set up the default commands.
-    */
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
-   initialise_mouse_commands();
-#endif
-/*traceon();*/
-/*
- * Initialise Soft Label Keys
- */
-#if defined(HAVE_SLK_INIT)
-# if MAX_SLK == 0
-   if (SLKx) slk_init(1);
-# else
-   if (SLKx) slk_init(slk_format);
-# endif
-#endif
-#if defined(HAVE_SB_INIT)
-   if (SBx) sb_init();
-#endif
-   /*
-    * Start up curses. This is done ONLY for interactive sessions!
-    */
+   memset(&driver_startup_options,0,sizeof(driver_startup_options));
+   driver_startup_options.slk_format = slk_format;
 #if defined(USE_XCURSES) && PDC_BUILD >= 2401
-   if ( X11_switches )
+   driver_startup_options.initscr_argc = initscr_argc;
+   driver_startup_options.initscr_argv = initscr_argv;
+   driver_startup_options.x11_switches = X11_switches;
+#endif
+   driver_error[0] = '\0';
+   if (!the_driver_start(&driver_startup_options,driver_error,
+                         sizeof(driver_error)))
    {
-      Xinitscr( initscr_argc,initscr_argv );
-      (*the_free)( X11_switches );
+      cleanup();
+      DISPLAY_ERROR(0,(CHARTYPE *)(driver_error[0] != '\0'
+                      ? driver_error : "starting driver"),
+                    FALSE,1);
+      return(23);
    }
-   else
-   {
-      if ( ( initscr_argv = StringToArgv( &initscr_argc, "" ) ) == NULL )
-      {
-         cleanup();
-         DISPLAY_ERROR( 30, (CHARTYPE *)"", FALSE, 1 );
-         return(1);
-      }
-      Xinitscr( initscr_argc,initscr_argv );
-   }
-   if ( initscr_argc )
-      (*the_free)( initscr_argv );
-#else
-# if defined(USE_WINGUICURSES)
-   PDC_set_resize_limits( 10, 1000, 10, 10000);
-# endif
-   initscr();
-#endif
-   curses_started = TRUE;
-
-#if defined(USE_WINGUICURSES) || defined(USE_SDLCURSES) || defined(USE_XCURSES)
-   /*
-    * Tell PDCurses which key should be returned when the window close button is clicked
-    */
-# if defined(HAVE_PDC_SET_FUNCTION_KEY)
-   PDC_set_function_key( FUNCTION_KEY_SHUT_DOWN, KEY_EXIT );
-   PDC_set_function_key( FUNCTION_KEY_PASTE, 0 );
-   PDC_set_function_key( FUNCTION_KEY_COPY, 0 );
-   /*
-    * ... and assign EXIT key to CANCEL
-    */
-   Define((CHARTYPE *)"EXIT cancel");
-# endif
-#endif
-#if defined(USE_WINGUICURSES)
-   /*
-    * Setup drag and drop support
-    */
-   {
-#if defined(TRYING_DRAG_DROP)
-      CLIPFORMAT cf;
-      HWND hWindow = (HWND)PDC_get_top_window();
-{
-FILE *fp;
-fp = fopen( "log.log", "a");
-fprintf(fp,"%d: hWindow %x\n",__LINE__,hWindow);
-fclose( fp);
-}
-      MyDragDropInit( NULL );
-      cf = CF_HDROP; /* we only handle file handles being dropped on us */
-      MyRegisterDragDrop( hWindow, &cf, 1, WM_NULL, THEDropProc, NULL );
-#endif
-   }
-#endif
-   /*
-    * Save the value of LINES and COLS and use these for all screen
-    * sizing calculations. This is because BSD scrolls if a character is
-    * displayed in the bottom right corner of the screen :-(
-    */
-   terminal_lines=LINES;
-   terminal_cols=COLS;
-#ifdef HAVE_BSD_CURSES
-   terminal_lines--;
-#endif
 #ifdef USE_UTF8
    if ((linebufch = (TheRenderCell *)(*the_malloc)(linebuf_size * sizeof(TheRenderCell))) == NULL)
 #else
@@ -1363,74 +1246,14 @@ fclose( fp);
       cleanup();
       return(30);
    }
-   /*
-    * Determine if colour support available.
-    */
-   if (colour_support) /* if default setting not overridden on command line */
-   {
-      colour_support = FALSE;
-#ifdef A_COLOR
-      if (has_colors())
-      {
-         start_color();
-         colour_support = TRUE;
-# if defined(PDCURSES) && PDC_BUILD >= 3001
-         PDC_set_blink( FALSE );
-# endif
-         init_colour_pairs();
-      }
-#endif
-#if defined(USE_XCURSES) || defined(USE_WINGUICURSES) || defined(USE_SDLCURSES) || defined(USE_VTCURSES)
-   PDC_set_line_color( 1 );
-#endif
-   }
-   /*
-    * Set various terminal characteristics...
-    */
-   cbreak();
-   raw();
-#if defined(USE_EXTCURSES)
-   extended( FALSE );
-#endif
-#if defined(PDCURSES)
-   raw_output( TRUE );
-#endif
-#if defined(KEY_SHIFT_L) && defined(PDCURSES)
-   PDC_return_key_modifiers( TRUE );
-#endif
-   nonl();
-   noecho();
-   curses_driver_configure_standard_input(true, true);
-#ifdef USE_PROG_MODE
-   def_prog_mode();
-#endif
-   (void)THETypeahead((CHARTYPE *)"OFF");
-   /*
-    * Set up mouse support if enabled in curses library.
-    */
-#if defined(PDCURSES_MOUSE_ENABLED)
-   mouse_set(ALL_MOUSE_EVENTS & ~REPORT_MOUSE_POSITION);
-#endif
-#if defined( NCURSES_MOUSE_VERSION )
-   mousemask( ALL_MOUSE_EVENTS, (mmask_t*)NULL );
-#endif
-   /*
-    * Set up variables and values dependent on LINES and COLS now with
-    * values set by initscr().
-    */
    set_screen_defaults();
-
-#if defined(HAVE_BROKEN_SYSVR4_CURSES)
-   the_driver->repair_terminal_background(THE_DRIVER_REPAIR_TERMINAL_SCREEN);
-#endif
-   /*
-    * wnoutrefresh() is called here so that the first call to getch() on
-    * stdscr does not clear the screen.
-    */
-   the_driver->sync_terminal_screen();
-#if defined(HAVE_SLK_INIT)
-   if (SLKx) slk_noutrefresh();
-#endif
+   if (startup_driver == THE_STARTUP_DRIVER_LLM
+   &&  set_up_windows(current_screen) != RC_OK)
+   {
+      cleanup();
+      DISPLAY_ERROR(0,(CHARTYPE *)"creating llm driver windows",FALSE,1);
+      return(23);
+   }
    /*
     * Create the statusline window...
     */
@@ -1445,7 +1268,6 @@ fclose( fp);
       cleanup();
       DISPLAY_ERROR(0,(CHARTYPE *)"creating filetabs window",FALSE,1);
       return(23);
-   }
    }
    /*
     * Set up ETMODE tables...
@@ -1904,38 +1726,7 @@ void cleanup(void)
    editor_free();
 #endif
 
-   if (curses_started)
-   {
-      if (error_on_screen
-      &&  driver_global_window_exists(THE_DRIVER_GLOBAL_ERROR))
-      {
-         display_error(0,(CHARTYPE *)HIT_ANY_KEY,FALSE);
-         the_driver->refresh_window_now(driver_global_window(THE_DRIVER_GLOBAL_ERROR));
-#ifdef KEY_RESIZE
-         /*
-          * Real hack here. If we have an error caused by editing the first file
-          * like line too long, then we need to ignore all KEY_RESIZE events; XCurses
-          * sends a resize on startup every time!
-          */
-         while ( curses_driver_read_terminal_legacy_key() == KEY_RESIZE );
-#else
-         curses_driver_read_terminal_legacy_key();
-#endif
-      }
-      INSERTMODEx=FALSE;
-#ifdef HAVE_BSD_CURSES
-      nl();
-      echo();
-#endif
-      endwin();
-/*
- * Causes double-free crash
-#ifdef USE_XCURSES
-      XCursesExit();
-#endif
-*/
-      curses_started = FALSE;
-   }
+   the_driver_shutdown(TRUE);
 #if !defined(USE_XCURSES) && !defined(USE_WINGUICURSES) && !defined(USE_SDLCURSES)
    if (!CLEARSCREENx
    && been_interactive)
@@ -2008,14 +1799,7 @@ static RETSIGTYPE handle_signal(int err)
    * For each file in the ring, execute an AUTOSAVE on it and then
    * die.
    */
-   if (curses_started)
-   {
-      endwin();
-#ifdef USE_XCURSES
-      XCursesExit();
-#endif
-      curses_started = FALSE;
-   }
+   the_driver_signal_shutdown();
    fprintf(stderr,"\nTHE terminated with signal: %d\n\n",err);
    signal(err,SIG_IGN); /* ignore any more of these signals while autosaving */
    curr = vd_current;

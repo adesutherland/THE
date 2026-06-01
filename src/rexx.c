@@ -48,7 +48,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 #include "thedriver.h"
 
 LINE *rexxout_first_line=NULL;
@@ -503,7 +503,7 @@ REH_RETURN_TYPE THE_SayTrace_Exit_Handler
                {
                   if ( !batch_only )
                   {
-                     the_driver->move_window_cursor(driver_global_window(THE_DRIVER_GLOBAL_STATAREA), 0, COLS-1);
+                     the_driver->move_window_cursor(driver_global_window(THE_DRIVER_GLOBAL_STATAREA), 0, terminal_cols-1);
                      the_driver->refresh_window_now(driver_global_window(THE_DRIVER_GLOBAL_STATAREA));
                      suspend_curses();
                   }
@@ -1064,7 +1064,7 @@ short execute_macro_file
              */
             printf("\n%s",HIT_ANY_KEY);
             fflush(stdout);
-            (void)curses_driver_read_terminal_legacy_key();
+            (void)the_driver_read_terminal_legacy_key();
             resume_curses();
             if (number_of_files > 0)
             {
@@ -1209,7 +1209,7 @@ short execute_macro_instore
              */
             printf("\n%s",HIT_ANY_KEY);
             fflush(stdout);
-            (void)curses_driver_read_terminal_legacy_key();
+            (void)the_driver_read_terminal_legacy_key();
             resume_curses();
             if (number_of_files > 0)
             {

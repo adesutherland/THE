@@ -121,17 +121,17 @@ static TheDriverWindow **curses_driver_global_window_slot(
    return NULL;
 }
 
-CursorShape current_cursor_shape(void)
+static CursorShape curses_driver_current_cursor_shape(void)
 {
    return INSERTMODEx ? cursorstyle_insert_shape : cursorstyle_over_shape;
 }
 
-CursorBlink current_cursor_blink(void)
+static CursorBlink curses_driver_current_cursor_blink(void)
 {
    return INSERTMODEx ? cursorstyle_insert_blink : cursorstyle_over_blink;
 }
 
-CursorPresentation current_cursor_presentation(void)
+static CursorPresentation curses_driver_current_cursor_presentation(void)
 {
 #ifdef USE_UTF8
    if (CURRENT_VIEW != NULL
@@ -143,9 +143,10 @@ CursorPresentation current_cursor_presentation(void)
    return CURSOR_PRESENTATION_HARDWARE;
 }
 
-bool current_cursor_uses_software(void)
+static bool curses_driver_current_cursor_uses_software(void)
 {
-   return current_cursor_presentation() == CURSOR_PRESENTATION_SOFTWARE;
+   return curses_driver_current_cursor_presentation()
+       == CURSOR_PRESENTATION_SOFTWARE;
 }
 
 static void curses_driver_apply_cursor_visibility(bool visible)
@@ -157,15 +158,15 @@ static void curses_driver_apply_cursor_visibility(bool visible)
       CursorShape shape;
       CursorBlink blink;
 
-      if (current_cursor_uses_software())
+      if (curses_driver_current_cursor_uses_software())
       {
          curs_set(0);
          TRACE_RETURN();
          return;
       }
 
-      shape = current_cursor_shape();
-      blink = current_cursor_blink();
+      shape = curses_driver_current_cursor_shape();
+      blink = curses_driver_current_cursor_blink();
 
 #ifdef USE_NCURSES
       int seq = 1;
@@ -1304,7 +1305,7 @@ short curses_driver_filearea_cursor_transition(CHARTYPE scrno,
    int viewport_col;
    WINDOW *win = curses_driver_screen_role_window(scrno, WINDOW_FILEAREA);
 
-   if (!current_cursor_uses_software())
+   if (!curses_driver_current_cursor_uses_software())
       return RC_OK;
    if (win == NULL)
       return RC_OK;
@@ -1723,3 +1724,482 @@ const TheDriverOps the_curses_driver_ops = {
    .move_filearea_cursor = curses_driver_move_filearea_cursor,
    .filearea_cursor_transition = curses_driver_filearea_cursor_transition
 };
+
+static void curses_driver_set_error(char *error, size_t error_len,
+                                    const char *message)
+{
+   size_t len;
+
+   if (error == NULL || error_len == 0)
+      return;
+   if (message == NULL)
+      message = "";
+   len = strlen(message);
+   if (len >= error_len)
+      len = error_len - 1;
+   if (len > 0)
+      memcpy(error, message, len);
+   error[len] = '\0';
+}
+
+static void curses_driver_refresh_terminal_size(void)
+{
+   terminal_lines = LINES;
+   terminal_cols = COLS;
+#ifdef HAVE_BSD_CURSES
+   terminal_lines--;
+#endif
+}
+
+static int curses_driver_start(const TheDriverStartupOptions *options,
+                               char *error, size_t error_len)
+{
+#if defined(USE_XCURSES) && PDC_BUILD >= 2401
+   int initscr_argc = options == NULL ? 0 : options->initscr_argc;
+   char **initscr_argv = options == NULL ? NULL : options->initscr_argv;
+   char *x11_switches = options == NULL ? NULL : options->x11_switches;
+#endif
+   int slk_format = options == NULL ? 0 : options->slk_format;
+
+   (void)error;
+   (void)error_len;
+
+#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+   initialise_mouse_commands();
+#endif
+
+#if defined(HAVE_SLK_INIT)
+# if MAX_SLK == 0
+   if (SLKx)
+      slk_init(1);
+# else
+   if (SLKx)
+      slk_init(slk_format);
+# endif
+#endif
+#if defined(HAVE_SB_INIT)
+   if (SBx)
+      sb_init();
+#endif
+
+#if defined(USE_XCURSES) && PDC_BUILD >= 2401
+   if (x11_switches != NULL)
+   {
+      Xinitscr(initscr_argc, initscr_argv);
+      (*the_free)(x11_switches);
+   }
+   else
+   {
+      if ((initscr_argv = StringToArgv(&initscr_argc, "")) == NULL)
+      {
+         curses_driver_set_error(error, error_len, "allocating X11 args");
+         return 0;
+      }
+      Xinitscr(initscr_argc, initscr_argv);
+   }
+   if (initscr_argc)
+      (*the_free)(initscr_argv);
+#else
+# if defined(USE_WINGUICURSES)
+   PDC_set_resize_limits(10, 1000, 10, 10000);
+# endif
+   initscr();
+#endif
+   curses_started = TRUE;
+
+#if defined(USE_WINGUICURSES) || defined(USE_SDLCURSES) || defined(USE_XCURSES)
+# if defined(HAVE_PDC_SET_FUNCTION_KEY)
+   PDC_set_function_key(FUNCTION_KEY_SHUT_DOWN, KEY_EXIT);
+   PDC_set_function_key(FUNCTION_KEY_PASTE, 0);
+   PDC_set_function_key(FUNCTION_KEY_COPY, 0);
+   Define((CHARTYPE *)"EXIT cancel");
+# endif
+#endif
+#if defined(USE_WINGUICURSES)
+   {
+#if defined(TRYING_DRAG_DROP)
+      CLIPFORMAT cf;
+      HWND hWindow = (HWND)PDC_get_top_window();
+      MyDragDropInit(NULL);
+      cf = CF_HDROP;
+      MyRegisterDragDrop(hWindow, &cf, 1, WM_NULL, THEDropProc, NULL);
+#endif
+   }
+#endif
+
+   curses_driver_refresh_terminal_size();
+
+   if (colour_support)
+   {
+      colour_support = FALSE;
+#ifdef A_COLOR
+      if (has_colors())
+      {
+         start_color();
+         colour_support = TRUE;
+# if defined(PDCURSES) && PDC_BUILD >= 3001
+         PDC_set_blink(FALSE);
+# endif
+         init_colour_pairs();
+      }
+#endif
+#if defined(USE_XCURSES) || defined(USE_WINGUICURSES) || defined(USE_SDLCURSES) || defined(USE_VTCURSES)
+      PDC_set_line_color(1);
+#endif
+   }
+
+   cbreak();
+   raw();
+#if defined(USE_EXTCURSES)
+   extended(FALSE);
+#endif
+#if defined(PDCURSES)
+   raw_output(TRUE);
+#endif
+#if defined(KEY_SHIFT_L) && defined(PDCURSES)
+   PDC_return_key_modifiers(TRUE);
+#endif
+   nonl();
+   noecho();
+   curses_driver_configure_standard_input(true, true);
+#ifdef USE_PROG_MODE
+   def_prog_mode();
+#endif
+   (void)THETypeahead((CHARTYPE *)"OFF");
+
+#if defined(PDCURSES_MOUSE_ENABLED)
+   mouse_set(ALL_MOUSE_EVENTS & ~REPORT_MOUSE_POSITION);
+#endif
+#if defined(NCURSES_MOUSE_VERSION)
+   mousemask(ALL_MOUSE_EVENTS, (mmask_t *)NULL);
+#endif
+
+#if defined(HAVE_BROKEN_SYSVR4_CURSES)
+   curses_driver_repair_terminal_background(THE_DRIVER_REPAIR_TERMINAL_SCREEN);
+#endif
+   curses_driver_sync_terminal_screen();
+#if defined(HAVE_SLK_INIT)
+   if (SLKx)
+      slk_noutrefresh();
+#endif
+   return 1;
+}
+
+static void curses_driver_shutdown(int prompt_on_error)
+{
+   if (!curses_started)
+      return;
+   if (prompt_on_error
+   &&  error_on_screen
+   &&  driver_global_window_exists(THE_DRIVER_GLOBAL_ERROR))
+   {
+      display_error(0, (CHARTYPE *)HIT_ANY_KEY, FALSE);
+      curses_driver_refresh_window_now(curses_driver_window_from_driver(
+         driver_global_window(THE_DRIVER_GLOBAL_ERROR)));
+#ifdef KEY_RESIZE
+      while (curses_driver_read_terminal_legacy_key() == KEY_RESIZE)
+         ;
+#else
+      (void)curses_driver_read_terminal_legacy_key();
+#endif
+   }
+   INSERTMODEx = FALSE;
+#ifdef HAVE_BSD_CURSES
+   nl();
+   echo();
+#endif
+   endwin();
+   curses_started = FALSE;
+}
+
+static void curses_driver_signal_shutdown(void)
+{
+   if (!curses_started)
+      return;
+   endwin();
+#ifdef USE_XCURSES
+   XCursesExit();
+#endif
+   curses_started = FALSE;
+}
+
+static void curses_driver_suspend_terminal(void)
+{
+#ifdef UNIX
+# if defined(USE_EXTCURSES)
+   csavetty(FALSE);
+   reset_shell_mode();
+# else
+   endwin();
+# endif
+#endif
+
+#if WAS_HAVE_BSD_CURSES
+   noraw();
+   nl();
+   echo();
+   nocbreak();
+#endif
+}
+
+static void curses_driver_resume_terminal(void)
+{
+#ifdef UNIX
+# if defined(USE_EXTCURSES)
+   cresetty(FALSE);
+# else
+   reset_prog_mode();
+#  ifdef HAVE_BSD_CURSES
+   raw();
+   nonl();
+   noecho();
+   cbreak();
+#  endif
+# endif
+#endif
+}
+
+static void curses_driver_resize_terminal(int rows, int cols)
+{
+#if defined(SIGWINCH) && defined(USE_NCURSES) && defined(HAVE_RESIZETERM)
+   if (rows && cols)
+      resizeterm(rows, cols);
+   endwin();
+   curses_driver_update();
+   curses_driver_sync_terminal_screen();
+   ncurses_screen_resized = FALSE;
+#elif defined(HAVE_RESIZE_TERM)
+   resize_term(rows, cols);
+#else
+   (void)rows;
+   (void)cols;
+#endif
+   curses_driver_refresh_terminal_size();
+}
+
+static void curses_driver_lifecycle_slk_touch(void)
+{
+#if defined(HAVE_SLK_INIT)
+   slk_touch();
+#endif
+}
+
+static void curses_driver_lifecycle_slk_noutrefresh(void)
+{
+#if defined(HAVE_SLK_INIT)
+   slk_noutrefresh();
+#endif
+}
+
+static void curses_driver_lifecycle_slk_clear(void)
+{
+#if defined(HAVE_SLK_INIT)
+   slk_clear();
+#endif
+}
+
+static void curses_driver_lifecycle_slk_restore(void)
+{
+#if defined(HAVE_SLK_INIT)
+   slk_restore();
+#endif
+}
+
+static void curses_driver_lifecycle_slk_set(int key, const char *label,
+                                            int format)
+{
+#if defined(HAVE_SLK_INIT)
+   slk_set(key, label, format);
+#else
+   (void)key;
+   (void)label;
+   (void)format;
+#endif
+}
+
+static void curses_driver_lifecycle_slk_attrset(TheDriverAttr attr)
+{
+#if defined(HAVE_SLK_INIT)
+   slk_attrset((chtype)attr);
+#else
+   (void)attr;
+#endif
+}
+
+static int curses_driver_color_pair_count(void)
+{
+#ifdef A_COLOR
+   return COLOR_PAIRS;
+#else
+   return 1;
+#endif
+}
+
+static int curses_driver_color_count(void)
+{
+#ifdef A_COLOR
+   return COLORS;
+#else
+   return 16;
+#endif
+}
+
+static int curses_driver_can_change_color_lifecycle(void)
+{
+#ifdef A_COLOR
+   return can_change_color();
+#else
+   return 0;
+#endif
+}
+
+static void curses_driver_init_pair_lifecycle(int pair, int fg, int bg)
+{
+#ifdef A_COLOR
+   init_pair((short)pair, (short)fg, (short)bg);
+#else
+   (void)pair;
+   (void)fg;
+   (void)bg;
+#endif
+}
+
+static void curses_driver_init_color_lifecycle(int color, int red, int green,
+                                               int blue)
+{
+#ifdef A_COLOR
+   init_color((short)color, (short)red, (short)green, (short)blue);
+#else
+   (void)color;
+   (void)red;
+   (void)green;
+   (void)blue;
+#endif
+}
+
+static const char *curses_driver_ui_version(void)
+{
+#if defined(HAVE_CURSES_VERSION) || defined(USE_NCURSES)
+   return curses_version();
+#elif defined(USE_EXTCURSES)
+   return "Extended Curses";
+#else
+   return "Standard Curses";
+#endif
+}
+
+static int curses_driver_mouse_interval_lifecycle(int interval)
+{
+#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
+   return mouseinterval(interval);
+#else
+   (void)interval;
+   return -1;
+#endif
+}
+
+static void curses_driver_mouse_mask_lifecycle(int enabled)
+{
+#if defined(PDCURSES_MOUSE_ENABLED)
+   mouse_set(enabled ? (ALL_MOUSE_EVENTS & ~REPORT_MOUSE_POSITION) : 0L);
+#endif
+#if defined(NCURSES_MOUSE_VERSION)
+   mousemask(enabled ? ALL_MOUSE_EVENTS : 0, (mmask_t *)NULL);
+#endif
+}
+
+static void curses_driver_nap_ms_lifecycle(int milliseconds)
+{
+   napms(milliseconds);
+}
+
+static TheDriverCell curses_driver_alternate_cell(TheDriverAltCell cell)
+{
+   switch (cell)
+   {
+      case THE_DRIVER_ALT_UARROW:
+#ifdef ACS_UARROW
+         return A_ALTCHARSET | ACS_UARROW;
+#else
+         return '^';
+#endif
+      case THE_DRIVER_ALT_DARROW:
+#ifdef ACS_DARROW
+         return A_ALTCHARSET | ACS_DARROW;
+#else
+         return 'v';
+#endif
+      case THE_DRIVER_ALT_LARROW:
+#ifdef ACS_LARROW
+         return A_ALTCHARSET | ACS_LARROW;
+#else
+         return '<';
+#endif
+      case THE_DRIVER_ALT_RARROW:
+#ifdef ACS_RARROW
+         return A_ALTCHARSET | ACS_RARROW;
+#else
+         return '>';
+#endif
+      case THE_DRIVER_ALT_VLINE:
+      default:
+#ifdef ACS_VLINE
+         return A_ALTCHARSET | ACS_VLINE;
+#else
+         return '|';
+#endif
+   }
+}
+
+const TheDriverModuleLifecycle the_curses_driver_lifecycle = {
+   .name = "curses",
+   .start = curses_driver_start,
+   .shutdown = curses_driver_shutdown,
+   .signal_shutdown = curses_driver_signal_shutdown,
+   .suspend_terminal = curses_driver_suspend_terminal,
+   .resume_terminal = curses_driver_resume_terminal,
+   .resize_terminal = curses_driver_resize_terminal,
+   .refresh_terminal_size = curses_driver_refresh_terminal_size,
+   .read_terminal_legacy_key = curses_driver_read_terminal_legacy_key,
+   .read_raw_window_key = curses_driver_read_raw_driver_window_key,
+   .set_window_leaveok = curses_driver_set_driver_window_leaveok,
+   .slk_touch = curses_driver_lifecycle_slk_touch,
+   .slk_noutrefresh = curses_driver_lifecycle_slk_noutrefresh,
+   .slk_clear = curses_driver_lifecycle_slk_clear,
+   .slk_restore = curses_driver_lifecycle_slk_restore,
+   .slk_set = curses_driver_lifecycle_slk_set,
+   .slk_attrset = curses_driver_lifecycle_slk_attrset,
+   .current_mouse_screen_role_position =
+      curses_driver_current_mouse_screen_role_position,
+   .current_mouse_global_position = curses_driver_current_mouse_global_position,
+   .current_mouse_screen_position = curses_driver_current_mouse_screen_position,
+   .clear_mouse_packet_position = curses_driver_clear_mouse_packet_position,
+   .read_pending_mouse_button = curses_driver_read_pending_mouse_button,
+   .read_transient_mouse_event = curses_driver_read_transient_mouse_event,
+   .read_current_role_transient_mouse_event =
+      curses_driver_read_current_role_transient_mouse_event,
+   .color_pair_count = curses_driver_color_pair_count,
+   .color_count = curses_driver_color_count,
+   .can_change_color = curses_driver_can_change_color_lifecycle,
+   .init_pair = curses_driver_init_pair_lifecycle,
+   .init_color = curses_driver_init_color_lifecycle,
+   .ui_version = curses_driver_ui_version,
+   .mouse_interval = curses_driver_mouse_interval_lifecycle,
+   .mouse_mask = curses_driver_mouse_mask_lifecycle,
+   .nap_ms = curses_driver_nap_ms_lifecycle,
+   .alternate_cell = curses_driver_alternate_cell,
+   .current_cursor_shape = curses_driver_current_cursor_shape,
+   .current_cursor_blink = curses_driver_current_cursor_blink,
+   .current_cursor_presentation = curses_driver_current_cursor_presentation,
+   .current_cursor_uses_software = curses_driver_current_cursor_uses_software
+};
+
+const TheDriverOps *the_driver_module_ops(void)
+{
+   return &the_curses_driver_ops;
+}
+
+const TheDriverModuleLifecycle *the_driver_module_lifecycle(void)
+{
+   return &the_curses_driver_lifecycle;
+}

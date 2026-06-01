@@ -301,6 +301,8 @@ endif()
 # --- Include Directories ---
 include_directories(
     ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/llm
+    ${CMAKE_SOURCE_DIR}/src/drivers/llm
     ${CURSES_INCLUDE_DIRS}
 )
 if(USE_UTF8)
@@ -326,7 +328,6 @@ set(THE_SOURCES
     src/commsos.c
     src/commutil.c
     src/crexx.c
-    src/cursesdriver.c
     src/cursor.c
     src/default.c
     src/directry.c
@@ -336,19 +337,18 @@ set(THE_SOURCES
     src/execute.c
     src/file.c
     src/thematch.c
-    src/getch.c
-    src/headlessdriver.c
     src/inputevent.c
     src/linked.c
     src/logcursor.c
-    src/llmdriver.c
-    src/llmruntime.c
-    src/llmsession.c
+    src/llm/llmdriver.c
+    src/llm/llmruntime.c
+    src/llm/llmsession.c
     src/mouse.c
     src/mousehit.c
     src/memory.c
     src/nonansi.c
     src/parser.c
+    src/parserdiagnostics.c
     src/prefix.c
     src/print.c
     src/query.c
@@ -386,10 +386,11 @@ endif()
 set(EXECUTABLE_NAME "the")
 add_executable(${EXECUTABLE_NAME} ${THE_SOURCES})
 target_compile_definitions(${EXECUTABLE_NAME} PRIVATE
-    THE_DRIVER_ENABLE_CURSES=1
-    THE_DRIVER_ENABLE_HEADLESS=1
+    THE_DRIVER_MODULE_SUFFIX="${CMAKE_SHARED_MODULE_SUFFIX}"
+    THE_DRIVER_INSTALL_DIR="${CMAKE_INSTALL_PREFIX}/lib/the/drivers"
 )
-target_link_libraries(${EXECUTABLE_NAME} ${CURSES_LIBRARIES})
+set_target_properties(${EXECUTABLE_NAME} PROPERTIES ENABLE_EXPORTS ON)
+target_link_libraries(${EXECUTABLE_NAME} ${CMAKE_DL_LIBS})
 if(USE_UTF8 AND USE_UTF8PROC)
     target_link_libraries(${EXECUTABLE_NAME} ${THE_UTF8PROC_TARGET})
 endif()
@@ -412,6 +413,56 @@ endif()
 
 # Setup Release Directory in Build Folder
 set(RELEASE_DIR "${CMAKE_CURRENT_BINARY_DIR}/release")
+set(RELEASE_DRIVER_DIR "${RELEASE_DIR}/drivers")
+
+add_library(the_driver_curses MODULE
+    src/drivers/curses/cursesdriver.c
+    src/drivers/curses/getch.c
+)
+set_target_properties(the_driver_curses PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "the_driver_curses"
+)
+target_link_libraries(the_driver_curses ${CURSES_LIBRARIES})
+target_include_directories(the_driver_curses PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/drivers/curses
+    ${CURSES_INCLUDE_DIRS}
+)
+if(USE_SDSLH)
+    target_link_libraries(the_driver_curses DSLSH::editor)
+endif()
+
+add_library(the_driver_llm MODULE
+    src/drivers/llm/headlessdriver.c
+)
+set_target_properties(the_driver_llm PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "the_driver_llm"
+)
+if(USE_SDSLH)
+    target_link_libraries(the_driver_llm DSLSH::editor)
+endif()
+
+if(APPLE)
+    target_link_options(the_driver_curses PRIVATE "-undefined" "dynamic_lookup")
+    target_link_options(the_driver_llm PRIVATE "-undefined" "dynamic_lookup")
+elseif(WIN32)
+    target_link_libraries(the_driver_curses ${EXECUTABLE_NAME})
+    target_link_libraries(the_driver_llm ${EXECUTABLE_NAME})
+endif()
+
+if(NOT WIN32)
+    add_dependencies(${EXECUTABLE_NAME} the_driver_curses the_driver_llm)
+endif()
+
+foreach(THE_DRIVER_MODULE the_driver_curses the_driver_llm)
+    add_custom_command(TARGET ${THE_DRIVER_MODULE} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${RELEASE_DRIVER_DIR}
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${THE_DRIVER_MODULE}>
+                ${RELEASE_DRIVER_DIR}/$<TARGET_FILE_NAME:${THE_DRIVER_MODULE}>
+        COMMENT "Copying ${THE_DRIVER_MODULE} to ${RELEASE_DRIVER_DIR}"
+    )
+endforeach()
 
 add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory ${RELEASE_DIR}
@@ -451,26 +502,27 @@ if(USE_UTF8 AND USE_WIDE_CHAR)
     target_link_libraries(utf_terminal_probe ${CURSES_LIBRARIES})
 endif()
 
-add_executable(the_agent
-    tools/the_agent.c
+add_executable(the_llm_harness
+    tools/the_llm_harness.c
     src/agentdriver.c
-    src/llmdriver.c
+    src/llm/llmdriver.c
     src/inputevent.c
     src/uidriver.c
     src/logcursor.c
     src/textpos.c
     src/transientui.c
 )
-target_include_directories(the_agent PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(the_llm_harness PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8 AND USE_UTF8PROC)
-    target_link_libraries(the_agent ${THE_UTF8PROC_TARGET})
-    target_compile_definitions(the_agent PRIVATE USE_UTF8PROC=1)
+    target_link_libraries(the_llm_harness ${THE_UTF8PROC_TARGET})
+    target_compile_definitions(the_llm_harness PRIVATE USE_UTF8PROC=1)
 endif()
+add_custom_target(the_agent DEPENDS the_llm_harness)
 
 add_executable(the_llm_headless
     tools/the_llm_headless.c
     src/agentdriver.c
-    src/llmdriver.c
+    src/llm/llmdriver.c
     src/inputevent.c
     src/uidriver.c
     src/logcursor.c
@@ -485,6 +537,9 @@ endif()
 
 # Install Targets
 install(TARGETS ${EXECUTABLE_NAME} DESTINATION bin)
+install(TARGETS the_driver_curses the_driver_llm
+    LIBRARY DESTINATION lib/the/drivers
+    RUNTIME DESTINATION lib/the/drivers)
 if(WIN32)
     install(FILES $<TARGET_FILE:${CURSES_LIBRARIES}> DESTINATION bin)
 endif()
@@ -542,7 +597,7 @@ add_test(NAME test_uidriver COMMAND test_uidriver)
 add_executable(test_headlessdriver
     tests/test_headlessdriver.c
     src/driverlayout.c
-    src/headlessdriver.c
+    src/drivers/llm/headlessdriver.c
     src/inputevent.c
     src/rendercell.c
     src/thedriver.c
@@ -580,36 +635,36 @@ if(USE_SDSLH)
     target_link_libraries(test_screenframe DSLSH::editor)
 endif()
 add_test(NAME test_screenframe COMMAND test_screenframe)
-add_executable(test_llmdriver tests/test_llmdriver.c src/llmdriver.c src/inputevent.c src/uidriver.c src/logcursor.c src/textpos.c)
+add_executable(test_llmdriver tests/test_llmdriver.c src/llm/llmdriver.c src/inputevent.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmdriver PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8 AND USE_UTF8PROC)
     target_link_libraries(test_llmdriver ${THE_UTF8PROC_TARGET})
     target_compile_definitions(test_llmdriver PRIVATE USE_UTF8PROC=1)
 endif()
 add_test(NAME test_llmdriver COMMAND test_llmdriver)
-add_executable(test_virtual_screen tests/test_virtual_screen.c src/llmdriver.c src/inputevent.c src/uidriver.c src/logcursor.c src/textpos.c)
+add_executable(test_virtual_screen tests/test_virtual_screen.c src/llm/llmdriver.c src/inputevent.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_virtual_screen PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8 AND USE_UTF8PROC)
     target_link_libraries(test_virtual_screen ${THE_UTF8PROC_TARGET})
     target_compile_definitions(test_virtual_screen PRIVATE USE_UTF8PROC=1)
 endif()
 add_test(NAME test_virtual_screen COMMAND test_virtual_screen)
-add_executable(test_agentdriver tests/test_agentdriver.c src/agentdriver.c src/llmdriver.c src/inputevent.c src/uidriver.c src/logcursor.c src/textpos.c)
+add_executable(test_agentdriver tests/test_agentdriver.c src/agentdriver.c src/llm/llmdriver.c src/inputevent.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_agentdriver PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8 AND USE_UTF8PROC)
     target_link_libraries(test_agentdriver ${THE_UTF8PROC_TARGET})
     target_compile_definitions(test_agentdriver PRIVATE USE_UTF8PROC=1)
 endif()
 add_test(NAME test_agentdriver COMMAND test_agentdriver)
-add_test(NAME test_the_agent_script
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_agent_script.sh
-            $<TARGET_FILE:the_agent>)
-add_test(NAME test_the_agent_capabilities
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_agent_capabilities.sh
-            $<TARGET_FILE:the_agent>)
-add_test(NAME test_the_agent_no_curses
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_agent_no_curses.sh
-            $<TARGET_FILE:the_agent>)
+add_test(NAME test_the_llm_harness_script
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_harness_script.sh
+            $<TARGET_FILE:the_llm_harness>)
+add_test(NAME test_the_llm_harness_capabilities
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_harness_capabilities.sh
+            $<TARGET_FILE:the_llm_harness>)
+add_test(NAME test_the_llm_harness_no_curses
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_llm_harness_no_curses.sh
+            $<TARGET_FILE:the_llm_harness>)
 add_test(NAME test_the_llm_headless_no_curses
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_no_curses_symbols.sh
             $<TARGET_FILE:the_llm_headless>)
@@ -619,7 +674,24 @@ add_test(NAME test_the_llm_headless_no_curses_mini_session
 add_test(NAME test_the_llm_full_runtime
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_full_runtime.sh
             $<TARGET_FILE:the>)
-add_executable(test_llmruntime tests/test_llmruntime.c src/llmruntime.c src/llmdriver.c src/inputevent.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
+add_test(NAME test_the_llm_parser_diagnostics
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_parser_diagnostics.sh
+            $<TARGET_FILE:the>)
+set_tests_properties(test_the_llm_parser_diagnostics PROPERTIES
+    SKIP_RETURN_CODE 77)
+add_test(NAME test_the_llm_profile_crexx
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_profile_crexx.sh
+            $<TARGET_FILE:the>)
+set_tests_properties(test_the_llm_profile_crexx PROPERTIES
+    SKIP_RETURN_CODE 77)
+add_test(NAME test_driver_modules
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_driver_modules.sh
+            $<TARGET_FILE:the>
+            $<TARGET_FILE:the_driver_curses>
+            $<TARGET_FILE:the_driver_llm>)
+set_tests_properties(test_driver_modules PROPERTIES
+    SKIP_RETURN_CODE 77)
+add_executable(test_llmruntime tests/test_llmruntime.c src/llm/llmruntime.c src/llm/llmdriver.c src/parserdiagnostics.c src/inputevent.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmruntime PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8 AND USE_UTF8PROC)
     target_link_libraries(test_llmruntime ${THE_UTF8PROC_TARGET})

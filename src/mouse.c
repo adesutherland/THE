@@ -40,7 +40,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "cursesdriver.h"
 #include "thedriver.h"
 #include "driverlayout.h"
 #include "inputevent.h"
@@ -183,17 +182,17 @@ static int mouse_window_position(CHARTYPE scrn, int w, int *row, int *col)
       return FALSE;
 
    if (w >= 0 && w < VIEW_WINDOWS)
-      curses_driver_current_mouse_screen_role_position(scrn, (short)w,
-                                                       row, col);
+      the_driver_current_mouse_screen_role_position(scrn, (short)w,
+                                                    row, col);
    else if (w == WINDOW_STATAREA)
-      curses_driver_current_mouse_global_position(THE_DRIVER_GLOBAL_STATAREA,
-                                              row, col);
+      the_driver_current_mouse_global_position(THE_DRIVER_GLOBAL_STATAREA,
+                                               row, col);
    else if (w == WINDOW_FILETABS)
-      curses_driver_current_mouse_global_position(THE_DRIVER_GLOBAL_FILETABS,
-                                              row, col);
+      the_driver_current_mouse_global_position(THE_DRIVER_GLOBAL_FILETABS,
+                                               row, col);
    else if (w == WINDOW_DIVIDER)
-      curses_driver_current_mouse_global_position(THE_DRIVER_GLOBAL_DIVIDER,
-                                              row, col);
+      the_driver_current_mouse_global_position(THE_DRIVER_GLOBAL_DIVIDER,
+                                               row, col);
 
    return (*row != -1 && *col != -1);
 }
@@ -399,10 +398,10 @@ static int mouse_read_pending_input(int *button, int *button_action,
    CHARTYPE hit_screen = current_screen;
    TheInputEvent hit_input;
 
-   if (!curses_driver_read_pending_mouse_button(button, button_action,
-                                                button_modifier))
+   if (!the_driver_read_pending_mouse_button(button, button_action,
+                                             button_modifier))
       return FALSE;
-   curses_driver_current_mouse_screen_position(screen_row, screen_col);
+   the_driver_current_mouse_screen_position(screen_row, screen_col);
    if (!mouse_build_logical_input(&hit_input, &hit_screen, &hit_window))
       hit_input = the_input_event_none();
    if (input != NULL)
@@ -446,13 +445,13 @@ int read_pending_mouse_definition_key(int *key)
 int read_transient_current_role_mouse_event(short role,
                                             TheDriverMouseEvent *event)
 {
-   return curses_driver_read_current_role_transient_mouse_event(role, event);
+   return the_driver_read_current_role_transient_mouse_event(role, event);
 }
 
 int read_transient_window_mouse_event(TheDriverWindow *win,
                                       TheDriverMouseEvent *event)
 {
-   return curses_driver_read_transient_mouse_event(win, event);
+   return the_driver_read_transient_mouse_event(win, event);
 }
 
 /***********************************************************************/
@@ -539,7 +538,7 @@ void reset_saved_mouse_pos(void)
 /***********************************************************************/
 {
    TRACE_FUNCTION("mouse.c:  reset_saved_mouse_pos");
-   curses_driver_clear_mouse_packet_position();
+   the_driver_clear_mouse_packet_position();
    last_mouse_input = the_input_event_none();
    last_mouse_screen_row = -1;
    last_mouse_screen_col = -1;

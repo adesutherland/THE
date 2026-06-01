@@ -1107,3 +1107,30 @@ const TheDriverOps the_headless_driver_ops = {
    .move_filearea_cursor = headless_driver_move_filearea_cursor,
    .filearea_cursor_transition = headless_driver_filearea_cursor_transition
 };
+
+static int headless_driver_activate(void)
+{
+   headless_driver_reset();
+   return 1;
+}
+
+const TheDriverModuleLifecycle the_headless_driver_lifecycle = {
+   .name = "llm",
+   .activate = headless_driver_activate,
+   .set_current_screen = headless_driver_set_current_screen,
+   .set_screen_current_role = headless_driver_set_screen_current_role,
+   .create_screen_role = headless_driver_create_screen_role,
+   .create_global_window = headless_driver_create_global_window,
+   .log_count = headless_driver_log_count,
+   .log_entry = headless_driver_log_entry
+};
+
+const TheDriverOps *the_driver_module_ops(void)
+{
+   return &the_headless_driver_ops;
+}
+
+const TheDriverModuleLifecycle *the_driver_module_lifecycle(void)
+{
+   return &the_headless_driver_lifecycle;
+}

@@ -37,6 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "thedriver.h"
 #include "extended_colors.h"
 
 #ifdef A_COLOR
@@ -51,14 +52,10 @@ int THE_alloc_pair(int fg, int bg) {
     for (i = 1; i < next_the_pair; i++) {
         if (pair_fg[i] == fg && pair_bg[i] == bg) return i;
     }
-    if (next_the_pair < COLOR_PAIRS && next_the_pair < MAX_THE_PAIRS) {
+    if (next_the_pair < the_driver_color_pair_count() && next_the_pair < MAX_THE_PAIRS) {
         pair_fg[next_the_pair] = fg;
         pair_bg[next_the_pair] = bg;
-#if defined(PDC_BUILD) && PDC_BUILD >= 3400
-        init_extended_pair(next_the_pair, fg, bg);
-#else
-        init_pair((short)next_the_pair, (short)fg, (short)bg);
-#endif
+        the_driver_init_pair(next_the_pair, fg, bg);
         return next_the_pair++;
     }
     return 1;
@@ -85,20 +82,16 @@ static int THE_alloc_color(int r, int g, int b) {
             return colour_cache[i].colour;
     }
 
-    if (!can_change_color()) return COLOR_WHITE;
+    if (!the_driver_can_change_color()) return COLOR_WHITE;
     static int next_color = -1;
-    if (next_color == -1) next_color = COLORS - 1;
+    if (next_color == -1) next_color = the_driver_color_count() - 1;
     if (next_color > 15) {
         int c = next_color--;
         // Curses init_color expects 0-1000
         int cr = (r * 1000) / 255;
         int cg = (g * 1000) / 255;
         int cb = (b * 1000) / 255;
-#if defined(PDC_BUILD) && PDC_BUILD >= 3400
-        init_extended_color(c, cr, cg, cb);
-#else
-        init_color((short)c, (short)cr, (short)cg, (short)cb);
-#endif
+        the_driver_init_color(c, cr, cg, cb);
         if (colour_cache_count < (int)(sizeof(colour_cache)/sizeof(colour_cache[0]))) {
             colour_cache[colour_cache_count].r = r;
             colour_cache[colour_cache_count].g = g;

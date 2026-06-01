@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Rewrite curses driver implementation calls to TheDriverOps calls.
 
-The mapping is derived from src/cursesdriver.c:
+The mapping is derived from src/drivers/curses/cursesdriver.c:
 
    .foo = curses_driver_bar
 
@@ -22,11 +22,11 @@ import sys
 
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
-OPS_FILE = REPO_ROOT / "src" / "cursesdriver.c"
+OPS_FILE = REPO_ROOT / "src" / "drivers" / "curses" / "cursesdriver.c"
 SRC_DIR = REPO_ROOT / "src"
 EXCLUDED = {
-    SRC_DIR / "cursesdriver.c",
-    SRC_DIR / "cursesdriver.h",
+    OPS_FILE,
+    REPO_ROOT / "src" / "drivers" / "curses" / "cursesdriver.h",
     SRC_DIR / "thedriver.c",
 }
 

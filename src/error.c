@@ -35,7 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "cursesdriver.h"
+#include "thedriver.h"
 #include "thedriver.h"
 
 /*-------------------------- global   data -----------------------------*/
@@ -501,7 +501,7 @@ static void open_msgline(ROWTYPE base, ROWTYPE off,ROWTYPE rows)
       rows, CURRENT_SCREEN.screen_cols, CURRENT_SCREEN.screen_start_row + start_row,
       CURRENT_SCREEN.screen_start_col);
    the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_ERROR, set_colour(&attr));
-   curses_driver_set_driver_window_leaveok(error_window, true);
+   the_driver_set_window_leaveok(error_window, true);
    TRACE_RETURN();
    return;
 }

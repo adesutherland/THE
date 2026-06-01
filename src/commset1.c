@@ -191,13 +191,9 @@ static short set_active_colour( short area )
 #if defined(HAVE_SLK_INIT)
          if ( max_slk_labels )
          {
-#if defined(HAVE_SLK_ATTRSET)
-            slk_attrset(set_colour(CURRENT_FILE->attr+area));
-#else
-            display_error(61,(CHARTYPE *)"slk_attrset not in curses library",FALSE);
-#endif
-            slk_touch();
-            slk_noutrefresh();
+            the_driver_slk_attrset(set_colour(CURRENT_FILE->attr+area));
+            the_driver_slk_touch();
+            the_driver_slk_noutrefresh();
          }
 #endif
          break;
@@ -1835,7 +1831,7 @@ short Colour(CHARTYPE *params)
    else
    {
       /* can the terminal support changing colour? */
-      if ( !can_change_color() )
+      if ( !the_driver_can_change_color() )
       {
          display_error( 61, (CHARTYPE *)"Changing colors unsupported.", FALSE );
          TRACE_RETURN();
@@ -1874,7 +1870,7 @@ short Colour(CHARTYPE *params)
             return(RC_INVALID_OPERAND);
          }
       }
-      init_color( clr, cont[0], cont[1], cont[2] );
+      the_driver_init_color( clr, cont[0], cont[1], cont[2] );
    }
    TRACE_RETURN();
    return(RC_OK);
@@ -6492,12 +6488,7 @@ short Mouse(CHARTYPE *params)
 
    TRACE_FUNCTION("commset1.c:Mouse");
    rc = execute_set_on_off(params,&MOUSEx, TRUE );
-#if defined(PDCURSES_MOUSE_ENABLED)
-   mouse_set((MOUSEx)?(ALL_MOUSE_EVENTS & ~REPORT_MOUSE_POSITION):0L);
-#endif
-#if defined(NCURSES_MOUSE_VERSION)
-   mousemask((MOUSEx)?ALL_MOUSE_EVENTS:0, (mmask_t*)NULL);
-#endif
+   the_driver_mouse_mask(MOUSEx);
    TRACE_RETURN();
    return(rc);
 }
@@ -6531,9 +6522,7 @@ short Mouseclick(CHARTYPE *params)
 /***********************************************************************/
 {
    short rc=RC_OK;
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
    int interval;
-#endif
 #define MC_PARAMS  1
    CHARTYPE *word[MC_PARAMS+1];
    CHARTYPE strip[MC_PARAMS];
@@ -6566,10 +6555,8 @@ short Mouseclick(CHARTYPE *params)
       TRACE_RETURN();
       return(RC_INVALID_OPERAND);
    }
-#if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
    interval = atoi((DEFCHAR *)word[0]);
-   mouseinterval(interval);
-#endif
+   the_driver_mouse_interval(interval);
    TRACE_RETURN();
    return(rc);
 }

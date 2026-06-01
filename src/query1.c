@@ -2452,7 +2452,7 @@ short extract_lscreen(short number_variables,short itemno,CHARTYPE *itemargs,CHA
    sprintf((DEFCHAR *)query_num5,"%d",terminal_lines);
    item_values[5].value = query_num5;
    item_values[5].len = strlen((DEFCHAR *)query_num5);
-   sprintf((DEFCHAR *)query_num6,"%d",COLS);
+   sprintf((DEFCHAR *)query_num6,"%d",terminal_cols);
    item_values[6].value = query_num6;
    item_values[6].len = strlen((DEFCHAR *)query_num6);
    return number_variables;

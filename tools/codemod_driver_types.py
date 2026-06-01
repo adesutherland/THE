@@ -96,7 +96,7 @@ REPLACEMENTS: dict[str, list[tuple[str, str]]] = {
     "src/commutil.c": [
         (r"\breadv_cmdline\(CHARTYPE \*initial, WINDOW \*dw, int start_col\)", "readv_cmdline(CHARTYPE *initial, TheDriverWindow *dw, int start_col)"),
     ],
-    "src/getch.c": [
+    "src/drivers/curses/getch.c": [
         (r"\bmouse_getch_trace\(WINDOW far \*winptr, int key\)", "mouse_getch_trace(TheDriverWindow *winptr, int key)"),
         (r"\bmouse_getch_trace\(WINDOW \*winptr, int key\)", "mouse_getch_trace(TheDriverWindow *winptr, int key)"),
         (r"\bmy_getch \(WINDOW far \*winptr\)", "my_getch (TheDriverWindow *winptr)"),

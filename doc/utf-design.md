@@ -70,8 +70,8 @@ leak curses coordinates into editor text operations.
 Implementation is incremental. The logical position foundation and passive
 logical cursor/focus model are in place. The current driver boundary work has
 started by extracting UTF layout mapping into `src/utflayout.c`, adding a thin
-`src/cursesdriver.c` adapter for file-area logical/display cursor conversion,
-cursor repaint transitions, and curses refreshes, and adding `src/llmdriver.c`
+`src/drivers/curses/cursesdriver.c` adapter for file-area logical/display cursor conversion,
+cursor repaint transitions, and curses refreshes, and adding `src/llm/llmdriver.c`
 as the first non-curses driver surface. Existing command-line, prefix, and
 input paths still need broader migration behind those adapters. Each step must
 preserve the rule that terminal profiles affect physical display and repair
