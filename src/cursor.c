@@ -236,6 +236,81 @@ void cursor_focus_refresh(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
    cursor_focus_redraw_if_software(curr_screen, curr_view);
 }
 
+void cursor_focus_sync_current(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
+{
+   TheDriverWindowCursor cursor;
+   LogicalCursor logical;
+   int row = 0;
+   int col = 0;
+
+   /*
+    * Transitional bridge: when old command paths enter render without an
+    * editor-owned LogicalCursor, seed one from the physical window cursor.
+    * Close this only after filearea, prefix, and command entry points always
+    * update VIEW_DETAILS.logical_cursor before display_screen()/prepare_view().
+    */
+   if (curr_view == NULL
+   ||  !cursor_focus_software_window(curr_view->current_window))
+      return;
+
+   logical = curr_view->logical_cursor.current;
+   switch(curr_view->current_window)
+   {
+      case WINDOW_FILEAREA:
+         if (logical.valid
+         &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+         &&  logical.line_number == curr_view->focus_line)
+            return;
+         break;
+
+      case WINDOW_PREFIX:
+         if (logical.valid
+         &&  logical.zone == LOGICAL_CURSOR_ZONE_PREFIX
+         &&  logical.line_number == curr_view->focus_line)
+            return;
+         break;
+
+      case WINDOW_COMMAND:
+         if (logical.valid
+         &&  logical.zone == LOGICAL_CURSOR_ZONE_COMMAND)
+            return;
+         break;
+
+      default:
+         break;
+   }
+
+   cursor = the_driver->capture_window_cursor(
+      driver_screen_current_window(curr_screen));
+   if (cursor.valid)
+   {
+      row = cursor.row;
+      col = cursor.col;
+   }
+   else
+   {
+      switch(curr_view->current_window)
+      {
+         case WINDOW_FILEAREA:
+         case WINDOW_PREFIX:
+            row = get_row_for_focus_line(curr_screen, curr_view->focus_line,
+                                         curr_view->current_row);
+            if (row < 0)
+               row = 0;
+            break;
+
+         case WINDOW_COMMAND:
+            row = 0;
+            col = (curr_view->cmdline_col >= 0) ? curr_view->cmdline_col : 0;
+            break;
+
+         default:
+            break;
+      }
+   }
+   cursor_focus_store_logical_at(curr_screen, curr_view, row, col);
+}
+
 void cursor_focus_present(CHARTYPE curr_screen)
 {
    if (current_cursor_uses_software())
@@ -613,6 +688,12 @@ void cursor_focus_refresh(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
    INTENTIONALLY_UNUSED_VARIABLE(curr_view);
 }
 
+void cursor_focus_sync_current(CHARTYPE curr_screen, VIEW_DETAILS *curr_view)
+{
+   INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
+   INTENTIONALLY_UNUSED_VARIABLE(curr_view);
+}
+
 void cursor_focus_present(CHARTYPE curr_screen)
 {
    INTENTIONALLY_UNUSED_VARIABLE(curr_screen);
@@ -951,6 +1032,8 @@ short THEcursor_home( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool save )
       cursor = the_driver->capture_window_cursor(driver_screen_current_window(curr_screen));
       y = get_row_for_focus_line( curr_screen, curr_view->focus_line, curr_view->current_row );
       the_driver->move_window_cursor(driver_screen_current_window(curr_screen), y, cursor.valid ? cursor.col : 0);
+      cursor_focus_store_logical_at(curr_screen, curr_view, y,
+                                    cursor.valid ? cursor.col : 0);
    }
    else
    {

@@ -2294,6 +2294,7 @@ void display_screen(CHARTYPE scrno)
       previous_cursor = the_driver->capture_window_cursor(
          show_screen_previous_window(scrno));
 #ifdef USE_UTF8
+   cursor_focus_sync_current(scrno, SCREEN_VIEW(scrno));
    if (SCREEN_VIEW(scrno)->current_window == WINDOW_COMMAND)
       display_cmdline(scrno, SCREEN_VIEW(scrno));
 #endif
