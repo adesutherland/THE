@@ -2,9 +2,17 @@
 
 Last updated: 2026-05-29.
 
-This is the practical status ledger for the UTF, cursor, driver, and LLM
-reorganization. Keep it short. Put detailed design history in `doc/utf-design.md`
-and protocol details in `doc/llm-driver-agent-guide.md`.
+This is the compact handover for the UTF, cursor, driver, and LLM
+reorganization. Durable detail lives in:
+
+- `doc/cursor-driver-architecture.md`: ownership contract and guardrails.
+- `doc/driver-vtable-review.md`: operation-by-operation vtable review and
+  removed-surface history.
+- `doc/llm-headless-capabilities.md`: current no-curses agent/editor
+  capability inventory.
+- `doc/llm-driver-agent-guide.md`: no-curses agent protocol.
+- `doc/llm-mode.md`: LLM-facing design and usage rules.
+- `doc/utf-design.md`: historical UTF findings and terminal details.
 
 ## Architecture Rule
 
@@ -14,379 +22,153 @@ physical input -> normalized input event -> editor command
 ```
 
 The editor owns logical focus, row roles, line numbers, `TextPos`, desired
-horizontal cell, logical viewport start, and text mutation ranges.
+horizontal cell, logical viewport start, semantic transient UI state, and text
+mutation ranges.
 
-The physical driver owns terminal mechanics: curses windows, cursor
-save/restore, refresh/update/touch ordering, cell writes/fills, software cursor
-painting, UTF repair execution, physical cursor materialization, and hardware
-cursor parking. Shared logical/display mapping lives in `src/driverlayout.c`;
-terminal-specific mechanics stay in `src/cursesdriver.c` or in a temporary
-physical edge explicitly being migrated there.
+The physical driver owns curses windows, physical cursor save/restore,
+refresh/update/touch ordering, cell writes/fills, software cursor painting,
+UTF repair execution, physical cursor materialization, hardware cursor parking,
+raw terminal input packets, and terminal-specific policy. Shared display
+mapping lives in `src/driverlayout.c`; terminal mechanics stay in
+`src/cursesdriver.c` or in explicit physical vtable operations.
 
-High-level editor code calls the current driver vtable through
-`the_driver->...`. The real vtable lives in `src/thedriver.h`, and
-`src/thedriver.c` provides explicit driver selection helpers. Builds that link
-curses can select `the_curses_driver_ops`; builds that link the fake driver can
-select `the_headless_driver_ops`. The normal `the` executable still defaults
-to curses. `curses_driver_*` names are now curses implementation details;
-editor code, including temporary physical edges that still need opaque
-windows, calls the vtable directly.
+New logical behavior should be proved through a no-curses surface first:
+`the_agent`, `the_llm_headless`, `llmdriver`, `llmruntime`,
+virtual/fake-driver tests, focused unit tests, or CREXX/pty full-editor tests.
 
-New logical behavior must be proved through a no-curses surface first:
-`the_agent`, `llmdriver`, `llmruntime`, virtual/fake-driver tests, focused unit
-tests, or CREXX/pty full-editor tests.
+## Current Checkpoint
 
-## Platform Policy
+- Latest completed slice: LLM/headless agent editor capability fill.
+- Live public driver surface: 53 `TheDriverOps` entries.
+- Curses and headless implementations both initialize all 53 entries.
+- Public driver types are neutral: `TheDriverAttr`, `TheDriverCell`,
+  `TheRenderCell`, `TheRenderCluster`, and opaque `TheDriverWindow`.
+- `src/thedriver.h` is free of `WINDOW`, `chtype`, and `cchar_t`.
+- `cursor_focus_sync_current()` is removed.
+- Actionable direct-curses inventory is closed:
+  `physical-input: 0`, `physical-paint: 0`, `mouse-token: 0`,
+  `window-state: 0`.
+- Allowed/migrated `driver-wrapper` visibility is 574. This is vtable usage,
+  not raw curses debt.
+- `the_agent` now covers the serious no-curses agent editor subset:
+  open/new/save/write, logical snapshots with buffer path/dirty/line metadata,
+  search/find, replace/replace-all, line operations, logical hits, key/text
+  input, file/prefix/command focus, semantic prefix commands, selection/range
+  operations, bounded agent-side undo/redo, buffer open/switch/list/close,
+  flat project listing, retained-frame deltas, live transient readv/dialog/popup
+  demo protocol, and the existing SOS navigation/edit subset.
+- `the_llm_headless --mini-session` performs a realistic no-curses edit/save
+  run against a file and is covered by CTest.
 
-Current supported build surfaces are intentionally narrow:
+The live vtable now contains:
 
-- Linux/macOS: the CMake `the` target with system ncurses/curses, plus existing
-  no-curses tools and tests.
-- Windows: the CMake `the` target with the bundled PDCursesMod `wincon`
-  backend only.
-- No-curses/headless: `the_agent`, `the_llm_headless`, and their existing
-  focused tests.
+- explicit physical window primitives such as create/delete, explicit cursor
+  capture/move/restore, origin/size reads, drawing, writing, touch, refresh,
+  redraw, update, and cursor presentation.
+- high-level terminal lifecycle/report/repair/input operations:
+  `read_input_event`, terminal report, shell preparation, terminal repair,
+  terminal clear/sync, and update.
+- portable renderer operations: cell spans, render cells, render clusters,
+  fixed-width ASCII and fill operations.
+- high-level cursor semantics that still bridge logical editor state to the
+  physical driver: `move_prefix_cursor`, `move_filearea_cursor`, and
+  `filearea_cursor_transition`.
 
-Dropped legacy support includes DOS, OS/2, Amiga, VMS, BeOS/Haiku packaging,
-QNX, X11/SDL/VT PDCurses variants, WinGUI PDCurses, Plan 9/framebuffer/OpenGL
-PDCurses backends, old Watcom/DJGPP/Borland/TurboC-style makefiles, bundled
-PDCurses demos/tests/CI, and obsolete package/pkg-config recipes not used by
-current CMake.
+## Closed Workstreams
 
-This housekeeping pass deliberately removed unbuilt files and vendor ballast
-only. Many active source files still contain `#if defined(DOS)`,
-`#if defined(OS2)`, `#if defined(VMS)`, `#if defined(AMIGA)`, `USE_XCURSES`,
-`USE_SDLCURSES`, `USE_VTCURSES`, or similar compatibility branches. Leave
-those in place until a later scripted source simplification pass can remove
-them mechanically and verify the supported targets in one sweep.
+1. Direct-curses inventory and neutral public types:
+   Raw `physical-input`, `physical-paint`, `mouse-token`, and `window-state`
+   findings are zero outside approved driver/vendor areas. `SCREEN_WINDOW_*`,
+   `CURRENT_WINDOW*`, public `WINDOW`, `chtype`, and `cchar_t` residue are
+   guarded.
+2. Headless/test driver base:
+   `src/headlessdriver.c` provides a complete no-curses fake/test
+   implementation of the current `TheDriverOps` surface with deterministic
+   state/logging and no curses link.
+3. Shared display/input semantics:
+   `src/driverlayout.c` owns display/logical mapping helpers, and
+   `read_input_event` is the portable input API. Legacy integer-key callers use
+   `the_driver_read_legacy_key()` where needed.
+4. Portable UTF render cells/clusters:
+   `src/rendercell.c` owns neutral UTF render metadata. Curses lowers it
+   privately; headless preserves it for tests.
+5. Modal/standard-screen contraction:
+   Pad, `stdscr`/`curscr`, relative role-window, shell-preparation, standard
+   clear/paint/cursor, and broken-curses background helper operations were
+   removed from the public vtable. Popup rendering uses transient snapshots;
+   query/list output uses terminal report operations.
+6. Raw input wrapper retirement:
+   Public raw key/mouse reader, mouse-token, saved-packet, and packet-decoder
+   vtable operations were removed. Raw `KEY_MOUSE`, PDC/ncurses packet
+   decoding, and saved packet coordinates stay in `src/cursesdriver.c`.
+7. Role/window/cursor presentation contraction:
+   Current/screen/global role cursor aliases, touch/refresh/redraw aliases,
+   cell scrape/mutation helpers, topology/existence aliases, role-window
+   lifecycle helpers, keypad/notimeout/leaveok entries, and zero-caller role
+   clear helpers were removed from the public table. Callers now resolve
+   existing logical windows through `src/driverwindow.h` before using explicit
+   physical primitives.
+8. LLM/headless agent editor capability fill:
+   The no-curses agent subset is now a credible editor target for agents. It
+   has stable semantic snapshots/deltas, buffer metadata, file
+   open/save/write, search/find, replace, line operations, prefix commands,
+   selection/range operations, undo/redo visibility, buffer switching, flat
+   project listing, live transient modal demo flow, status/error reporting,
+   logical hits, and a headless mini-session proof. Items that require the full
+   editor runtime or host automation are classified in
+   `doc/llm-headless-capabilities.md`.
 
-## Done
+Historical vtable counts:
 
-- UTF and cursor primitives are separated and tested:
-  `src/textpos.c`, `src/logcursor.c`, `src/textedit.c`, `src/utflayout.c`,
-  `src/utfrepair.c`, and `src/utfterm.c`.
-- `src/cursesdriver.c` owns the migrated physical primitives used by the
-  cursor/paint work: cursor capture/move/restore, window origin/size reads,
-  input timeouts, refresh/update/touch helpers, cell writes/fills, software
-  cursor painting, UTF repair execution, and cursor parking.
-- `src/cursesdriver.c` also owns raw curses mouse packet mechanics: raw
-  `KEY_MOUSE` translation to `THE_KEY_MOUSE`, PDC/ncurses packet storage,
-  button/action/modifier decoding, saved physical mouse coordinates, and
-  window-local mouse coordinate projection.
-- `src/uidriver.c`, `src/screenframe.c`, `src/llmdriver.c`, and
-  `src/llmruntime.c` provide semantic frames, role-aware snapshots, cursor
-  overlays, fake-driver operation logs, compact views, and debug formatting.
-- `src/agentdriver.c` plus `tools/the_agent.c` provide the no-curses proof
-  target. It supports file-area, command, and prefix focus; normalized
-  key/text/command/logical-hit/debug input; exact capability reporting; and the
-  closed SOS/navigation/edit subset.
-- Normal live curses mouse input is closed for the main `THEMouse` dispatch
-  path. Terminal packets are converted at the driver edge into
-  `TheInputEvent` logical-hit targets for file area, prefix, command line,
-  status, file tabs, divider, and window selection.
-- The transient UI headless boundary is closed for readv, dialog, and popup.
-  `src/transientui.c` provides a curses-free logical snapshot model for
-  geometry, row roles, prompt/title/edit/button/item state, popup viewport
-  offsets, focus, and hit targets. `test_transientui` proves readv editing,
-  dialog focus/button/hit transitions, and popup navigation/selection without
-  curses.
-- The curses readv/dialog/popup paths now materialize transient snapshots and
-  route modal mouse clicks through logical hit targets where practical. Raw
-  mouse packet decoding lives in `src/cursesdriver.c` behind
-  private transient mouse and pending-packet helpers.
-- `the_llm_headless` is a real no-curses LLM/headless build target. It links
-  the agent, LLM formatter, input model, and transient UI model without
-  `src/cursesdriver.c`; `test_the_llm_headless_no_curses` checks dependencies
-  and symbols.
-- Command-dispatch coverage Step 2 is closed. `the_agent` covers `SOS DELWORD`,
-  `SOS PREFIX`, `SOS TABFIELDF`, `SOS TABFIELDB`, and prefix/filearea edge
-  behavior for `TOPEDGE`, `BOTTOMEDGE`, and `LEFTEDGE`. Full prefix commands
-  and the full THE dispatcher remain explicitly unsupported in capabilities.
-- Renderer and terminal-paint Step 3 is closed. UTF `show.c` targeted
-  file-area/prefix restore, `prepare_view()` cursor placement, and one-line
-  prefix repaint choose row/cell/text targets from the live `UiFrame`.
-  `test_virtual_screen` covers the frame-backed renderer targets and the
-  keycap/space/after-EOL demonstrator; `test_utfrepair` compares that case
-  with the probe's working `first` and `whole` repair paths.
-- Focused guardrails are active. `test_curses_boundary` keeps logical modules,
-  the no-curses agent, `execute.c` direct curses usage, the cleaned SOS cursor
-  surface, and the cleaned readv/dialog/popup transient paths from regressing.
-  `test_the_agent_no_curses` and `test_the_llm_headless_no_curses` prove the
-  no-curses executables do not link curses or expose curses-driver symbols.
-- The direct-curses inventory is now a ratchet. The full listing remains
-  available, `--summary` separates actionable physical-input, physical-paint,
-  mouse-token, and window-state/type debt from allowed driver-edge vtable
-  calls, and `test_curses_boundary_inventory` fails only when
-  actionable category/file/function buckets exceed
-  `tests/inventory_direct_curses.baseline.tsv`.
-- Bulk wrapper passes moved high-confidence raw physical paint/input mechanics
-  in `comm1.c`, `comm2.c`, `comm3.c`, `comm4.c`, `commset1.c`,
-  `commset2.c`, `commutil.c`, `error.c`, `file.c`, `getch.c`, `mouse.c`,
-  `prefix.c`, `query.c`, `query2.c`, `rexx.c`, `the.c`, and `util.c`
-  behind `curses_driver_*` wrappers. The corrected paint scanner also exposed
-  suffixed raw paint/cell calls in `comm3.c`, `comm4.c`, `comm5.c`,
-  `commset1.c`, `error.c`, `query.c`, `query2.c`, `show.c`, and `util.c`;
-  those are now behind driver wrappers. The later renderer/window-state
-  cleanup closed the broad `show.c` display-line storage surface.
-- The direct-curses inventory scanner now handles `#if 0 ... #else ...
-  #endif` correctly by scanning the active `#else` arm. The ratchet is both a
-  CTest (`test_curses_boundary_inventory`) and a build target
-  (`curses_boundary_inventory`).
-- Adjacent dead platform branches were pruned where they obscured this
-  inventory: the unsupported VMS raw-key path in `getch.c` and the unsupported
-  DOS/OS2/disabled Win32 cursor visibility overrides in `nonansi.c`.
-- The active-window/window-handle cleanup slice moved common role-window
-  mechanics into `src/cursesdriver.c`: current/screen role existence checks,
-  cursor capture/move/restore, role clear-to-EOL, role touch/refresh/attr,
-  current-window key/cell reads, global status/error/divider/filetabs helpers,
-  dialog command-window role swapping, and mouse window projection by role.
-  Legacy command, cursor, edit, query, scroll, error, and setup-adjacent paths
-  now ask the driver for those physical windows by logical role.
-- The real driver vtable exists. `TheDriverOps` carries the migrated
-  current/screen/global role, cursor, touch/refresh/clear/attr, current-window
-  key/cell, mouse projection, standard-screen, opaque temporary window-handle,
-  renderer-cell, and logical cursor operations. Editor call sites use
-  `the_driver->...`; `src/cursesdriver.c` keeps the `curses_driver_*` function
-  names as implementation-private helpers behind `the_curses_driver_ops`.
-  `tools/codemod_driver_vtable.py` is the repeatable migration pass: it derives
-  exact implementation-to-vtable mappings from `the_curses_driver_ops` and
-  rewrites safe current/screen/global role macro call sites.
-- The public driver surface is now neutral. `src/thedriver.h` exposes
-  `TheDriverAttr`, `TheDriverCell`, portable `TheRenderCell` /
-  `TheRenderCluster`, and opaque `TheDriverWindow` handles; `WINDOW`,
-  `chtype`, and `cchar_t` stay out of that header and are guarded by
-  `tests/check_curses_boundary.sh`.
-- The renderer/window-state cleanup converted `SCREEN_DETAILS.win`, global
-  windows, `SHOW_LINE` highlight/colour storage, reserved-line highlighting,
-  parser/colour locals, line-buffer cells, and helper prototypes to neutral
-  driver types where practical. `show.c` no longer uses
-  `SCREEN_WINDOW_*`/`CURRENT_WINDOW*` macros, and the stale macro definitions
-  were deleted.
-- The final window-state cleanup is closed. The unsupported ExtCurses colour
-  storage and old-curses/VMS `chtype` aliases in core headers/utilities were
-  removed, stale raw window/cell macro residue was deleted, and the
-  project-wide guardrail now catches raw `WINDOW`, `chtype`, `cchar_t`,
-  `CURRENT_WINDOW`, `SCREEN_WINDOW`, or `PENDING_WINDOW` residue outside the
-  driver/vendor areas.
-- The driver-shape review is complete in `doc/driver-vtable-review.md`. It
-  originally reviewed all 145 `TheDriverOps` function pointers; after the
-  shared display/input, portable render-cell, modal/standard-screen, raw input
-  wrapper retirement, and role/window/cursor presentation slices, the live
-  vtable has 53 entries, with curses and headless initializers covering the
-  same 53 entries. The remaining surface is classified into portable,
-  physical-terminal, transitional, curses-private-candidate, and
-  test-instrumentation work.
-- The first headless/test driver slice is implemented. `src/headlessdriver.c`
-  publishes a complete no-curses `the_headless_driver_ops` initializer with
-  all 53 entries present. It supports fake opaque windows, screen-role and
-  global-window slots, explicit-window cursor capture/move/restore, simple
-  cell writes, queued normalized input events, the shared legacy-key adapter,
-  and a deterministic operation log for touch/refresh/update-style
-  presentation calls plus terminal-report and shell/repair transitions.
-  `test_headlessdriver` and its no-curses guard prove the base links without
-  `src/cursesdriver.c` or a curses library.
-- The shared display/input semantics slice is implemented. `src/driverlayout.c`
-  owns `clamp_display_col`, `display_col_from_logical`,
-  `logical_col_from_display`, `viewport_col_for_logical`, and
-  `filearea_target`; `cursor.c`, `execute.c`, `mouse.c`, `show.c`, and both
-  curses/headless file-area cursor paths call that shared helper. Those five
-  helper entries were removed from `TheDriverOps`, and the vtable gained
-  `read_input_event`.
-- The portable UTF render-cell/render-cluster slice is implemented.
-  `src/rendercell.c` owns neutral `TheRenderCell` and `TheRenderCluster`
-  construction, codepoint and UTF-8 slice preservation, style, logical/display/
-  cursor/paint width facts, fallback representation, and replacement repair
-  strategy hints. `TheDriverOps` dropped `add_wide_cell`,
-  `write_wide_cell_span`, `set_wide_cell_codepoint`, `recolour_wide_cell`, and
-  `write_wide_string_at`, and added `write_render_cells` plus
-  `write_render_cluster_at`. `show.c` now builds render cells/clusters first;
-  `src/cursesdriver.c` privately lowers them to `cchar_t`, `wadd_wch`,
-  `wadd_wchnstr`, or wide-string writes. `src/headlessdriver.c` preserves
-  render metadata in its fake surface and exposes a focused inspection hook for
-  tests.
-- The modal/standard-screen contraction slice is closed. `TheDriverOps`
-  dropped `create_pad`, `refresh_pad`,
-  `replace_current_role_with_relative_window`,
-  `prepare_standard_screen_for_shell`, `refresh_standard_screen`,
-  `touch_current_screen_image`, the low-level standard-screen clear/erase/
-  attr/string/cursor/cell helpers, and the broken-curses background refresh
-  variants. Popup rendering now uses the existing transient popup snapshot and
-  paints the visible viewport into the popup window without pads. Dialog
-  editfields use the existing role save/restore surface with an absolute
-  temporary command window. `EDITV LIST` and `QUERY STATUS` use the portable
-  terminal-report surface; shell escape, startup/resize/redraw synchronization,
-  and broken-curses background repair are represented by the higher-level
-  `prepare_for_shell_escape`, `sync_terminal_screen`,
-  `clear_terminal_screen`, and `repair_terminal_background` operations.
-- The raw input compatibility wrapper retirement is closed. `TheDriverOps`
-  dropped `read_current_window_key`, `read_current_role_key`,
-  `read_global_window_key`, `read_window_key`, `read_raw_window_key`,
-  `read_standard_key`, `read_raw_standard_key`, `is_mouse_key`,
-  `mouse_key_code`, `mouse_position_for_screen_role`,
-  `mouse_position_for_global`, `saved_mouse_position`,
-  `reset_mouse_position`, `read_mouse_button`,
-  `read_current_role_mouse_event`, and `read_mouse_event`, reducing the public
-  vtable from 130 to 114 entries. Legacy command/edit/query callers now use
-  the shared no-curses `the_driver_read_legacy_key()` adapter over
-  `read_input_event`; terminal-report, shell-pause, popup, and shutdown
-  polling use a narrow curses-private terminal key helper; mouse-token checks
-  use the editor-owned legacy mouse key predicate; readv/dialog/popup mouse
-  handling routes through private transient mouse helpers; and raw
-  `KEY_MOUSE`/PDC/ncurses packet decoding and saved packet coordinates stay in
-  `src/cursesdriver.c`.
-- The role/window/cursor presentation contraction slice is closed.
-  `TheDriverOps` dropped the current/screen/global role cursor capture, move,
-  and restore aliases; current/screen/global touch, refresh, touch-and-refresh,
-  and redraw aliases; cell scrape/mutation helpers; role/window topology and
-  existence aliases; current-window geometry aliases; global-window deletion;
-  role-window save/restore/delete compatibility helpers; keypad/notimeout/
-  leaveok policy entries; and two zero-caller role clear helpers. Callers now
-  resolve existing logical role/global windows through `src/driverwindow.h`,
-  then use explicit physical primitives only when terminal mechanics really are
-  needed. `cursor_focus_sync_current()` is removed. `EXTRACT /SPACECHAR/`,
-  `Text()`, and filetab navigation no longer scrape terminal cells; they derive
-  behavior from command/prefix/show state and fake-surface inspection hooks. The
-  public vtable count fell from 114 to 53.
+- initial reviewed surface: 145 entries.
+- after shared display/input: 141.
+- after portable render cells/clusters: 138.
+- after modal/standard-screen contraction: 130.
+- after raw input wrapper retirement: 114.
+- after role/window/cursor presentation contraction: 53.
 
-## Active Slice
+## Roadmap
 
-No active implementation slice is selected. Inventory cleanup, the
-driver-shape review, the first headless/test `TheDriverOps` base, shared
-display/input semantics, portable UTF renderer-cell, modal/standard-screen
-contraction, raw input compatibility wrapper retirement, and role/window/cursor
-presentation contraction slices are closed.
+Recommended next slice:
 
-Next implementation work should continue driver-surface close-down without
-reopening the current/screen/global role cursor, refresh, touch, redraw, or
-cell-scrape compatibility family.
+1. Driver selection and no-curses editor targets.
+   Keep the normal `the` executable curses-first, but add an explicit
+   startup/profile and/or build-target path for selecting a driver. The
+   stand-alone no-curses editor target is now credible for agent editing; the
+   remaining selection work is making that driver choice available through a
+   real editor startup/profile path rather than only proof executables.
 
-## Direct Curses Inventory
+Then:
 
-`tests/inventory_direct_curses.sh` reports remaining direct curses dependencies
-outside `src/cursesdriver.*`, `src/thedriver.*`, bundled PDCurses, and contrib
-code. It now has
-four useful modes:
+2. Remaining vtable stabilization.
+   Review the 53 live operations after a selectable no-curses target exists.
+   Do not reopen the removed current/screen/global role cursor, refresh, touch,
+   redraw, raw input, or modal/stdscreen wrapper families. Focus only on
+   operations that still prove awkward for the new target.
+3. Full-runtime integration decisions.
+   Keep full THE dispatcher and CREXX macro behavior in the full editor
+   runtime unless a selectable-driver design proves they can be shared without
+   pulling curses or terminal assumptions into the LLM/headless target. Keep
+   build/test execution in host automation.
+4. Terminal and platform decisions.
+   Finish keycap/terminal materialization proof loops, add Linux/Windows
+   Terminal/iTerm2 baselines, and decide whether Windows stays in the curses
+   driver through PDCurses or gets a separate driver.
+5. Housekeeping.
+   Remove legacy source branches and reduce build-warning noise only after the
+   architecture is stable, unless a warning blocks the active slice.
 
-- default full inventory: every classified finding.
-- `--summary`: debt-oriented category totals, `window-state` sub-buckets, plus
-  top category/file/function buckets.
-- `--baseline`: aggregate category/file/function buckets for the checked-in
-  ratchet baseline.
-- `--fail-on-new`: CTest/build-target ratchet against
-  `tests/inventory_direct_curses.baseline.tsv`.
+## Do Not Reopen
 
-Current ratcheted counts:
+These families are closed unless a failing test proves a concrete regression:
 
-- actionable `physical-input`: 0
-- actionable `physical-paint`: 0
-- actionable `mouse-token`: 0
-- actionable `window-state`: 0
-- allowed/migrated `driver-wrapper`: 574
-
-Current `window-state` summary:
-
-- `window-handle`: 0
-- `active-window-macro`: 0
-- `cell-attr-type`: 0
-- `renderer-cell-type`: 0
-- `header-prototype`: 0
-
-The final cleanup reduced total `window-state` from 249 to 0. It closed
-`header-prototype`, `renderer-cell-type`, `active-window-macro`,
-`window-handle`, and `cell-attr-type` completely. The last 13 findings were
-legacy compatibility surfaces: `src/the.h` ExtCurses/old-curses `chtype` and
-`stdscr` compatibility defines, `src/util.c` ExtCurses colour-pair storage and
-`init_pair()` compatibility, the VMS-only `put_char()` attribute split, plus
-stale raw window/cell comments and macros.
-
-For the cleaned transient functions, the sweep finds no raw `physical-input` or
-`physical-paint` calls in `readv_cmdline()`, `execute_dialog()`, or
-`execute_popup()`. Popup pad creation/prefresh and dialog relative-window
-replacement are gone from the public vtable; remaining transient findings are
-opaque vtable physical edge calls. Direct `KEY_MOUSE` branch tokens now use
-the driver abstraction and no longer appear as mouse-token debt.
-
-The raw mouse packet guardrail is now stricter: outside `src/cursesdriver.*`,
-`src/thedriver.*`, bundled PDCurses, and contrib code, raw `MEVENT`, `getmouse`,
-`request_mouse_pos`, `MOUSE_X_POS`, `MOUSE_Y_POS`, `BUTTON_CHANGED`,
-`BUTTON_STATUS`, `BUTTON_ACTION_MASK`, `MOUSE_MOVED`, `BUTTON1_*`,
-`BUTTON2_*`, `BUTTON3_*`, modifier button masks, wheel scroll tokens, and
-direct `KEY_MOUSE` are classified as actionable `physical-input`.
-
-The ratchet is a project-wide no-new-debt gate for actionable categories, not a
-must-fix-all-existing-debt gate. Reductions are allowed without updating every
-other bucket. `driver-wrapper` entries are counted for visibility but are
-treated as migrated/allowed and do not fail the ratchet. New editor call sites
-should use `the_driver->...`; new `curses_driver_*` call sites must stay inside
-`src/cursesdriver.*`.
-
-The older wrapper passes reduced the scanner's raw `physical-input` count from
-16 to 12 to 0 and raw `physical-paint` count from 198 to 31 to 0, but the
-paint regex still missed suffixed calls such as `wattrset`, `wclear`,
-`mvaddstr`, `winch`, and `setcchar`. The corrected scanner exposed 52 active
-raw `physical-paint` findings; this pass reduced them to 0 and moved the new
-wrapper visibility into `driver-wrapper`. The mouse-boundary cleanup reduced
-`mouse-token` from 24 to 0 and moved the old raw packet decoding source of
-truth from `src/mouse.c` to `src/cursesdriver.c`. The scanner also stops
-treating comments, prototypes/function names, `#if 0` bodies, inactive `#if 0`
-arms before active `#else` branches, and raw-token `#undef` compatibility
-guards as raw call sites. Windows PDCursesMod `wincon` was not build-verified
-in this pass.
-
-## Outstanding Close-Down Plan
-
-Actionable direct curses inventory is closed: `physical-input`,
-`physical-paint`, `mouse-token`, and `window-state` are all zero outside the
-driver/vendor areas. The remaining `driver-wrapper` count is visibility for
-vtable use, not raw curses debt. Close it by removing low-level operations from
-the public driver surface in a few large slices.
-
-Closed close-down slices:
-
-1. Modal and standard-screen contraction. Closed with no target operation left
-   in `TheDriverOps`: popup pads were replaced by transient-snapshot viewport
-   painting, dialog relative windows by role save/restore plus a temporary
-   command window, standard-screen list/status output by terminal-report
-   operations, and shell/startup/resize terminal mechanics by
-   shell/sync/repair operations. Vtable count fell from 138 to 130.
-2. Raw input compatibility wrapper retirement. Closed with no target operation
-   left in `TheDriverOps`: legacy key readers now use
-   `the_driver_read_legacy_key()` over `read_input_event`, terminal polling
-   uses a curses-private terminal helper, raw `getch.c` adapter reads are
-   curses-private, mouse token checks use the neutral legacy predicate,
-   transient mouse paths use private transient helpers, and saved physical
-   packet state is no longer exposed through the public driver surface. Vtable
-   count fell from 130 to 114.
-3. Role/window/cursor presentation contraction. Closed with no target operation
-   left in `TheDriverOps`: role/window existence aliases moved to common
-   editor state, role/global/current cursor aliases now resolve an existing
-   opaque window before using explicit physical cursor primitives, role/window
-   touch/refresh/redraw aliases were replaced by explicit-window primitives or
-   semantic state, terminal cell scraping was removed from `Text()`,
-   `EXTRACT /SPACECHAR/`, and filetab navigation, keypad/notimeout/leaveok
-   policy became curses-private, and zero-caller role clear helpers were
-   removed. `cursor_focus_sync_current()` is gone. Vtable count fell from 114 to
-   53.
-
-Close during the remaining driver rearchitecture:
-
-1. Driver selection and no-curses THE targets. Keep `the` curses-first, but add
-   an explicit startup/profile or build-target path for selecting headless/test
-   drivers. Close when `the_agent`, `the_llm_headless`, and any test-specific
-   target prove no curses dependency while sharing the same driver surface.
-
-Explicitly defer until the driver surface stabilizes:
-
-- Full `the_agent` integration with THE's complete command dispatcher.
-- Full prefix command execution in the no-curses agent.
-- Live agent protocol integration for modal transient snapshots.
-- Retained-frame delta LLM views.
-- The keycap blank-cell terminal/profile proof loop and broader Linux,
-  Windows Terminal, iTerm2, and terminal baseline matrix.
-- Windows/PDCurses strategy: keep current compatibility now; decide later
-  whether to keep one curses driver or split a Windows/PDCurses driver.
-- Legacy source-branch cleanup and build-warning noise, except for warnings
-  that block or obscure the current slice's tests.
+- pad/stdscreen/curscr public vtable operations.
+- public raw key/mouse wrappers and saved packet helpers.
+- current/screen/global role cursor, refresh, touch, redraw, existence, and
+  cell-scrape aliases.
+- terminal-cell scraping as editor logic for `Text()`,
+  `EXTRACT /SPACECHAR/`, or filetab navigation.
+- `cursor_focus_sync_current()`.
 
 ## Closing Rules
 
@@ -396,39 +178,30 @@ A migration task is closed only when all applicable items are true:
   driver, focused CTest, or CREXX/pty full-editor test.
 - the real curses path uses the same logical input/frame/cursor data.
 - unsupported behavior is explicit in `the_agent capabilities` or this file.
-- physical mechanics remain inside `cursesdriver.c` or a documented physical
-  edge scheduled for migration.
+- physical mechanics remain inside `cursesdriver.c` or an explicit physical
+  vtable operation.
 - guardrails are tightened for the cleaned module or behavior class.
 - `git diff --check` and focused tests pass.
 
-## Useful Tests
+## Useful Verification
 
-- `test_textpos`, `test_logcursor`, `test_textedit`
-- `test_utfterm`, `test_utflayout`, `test_utfrepair`, `test_utf_fixture`
-- `test_inputevent`, `test_mousehit`, `test_uidriver`, `test_screenframe`
-- `test_llmdriver`, `test_llmruntime`, `test_virtual_screen`
-- `test_agentdriver`, `test_the_agent_script`,
-  `test_the_agent_capabilities`, `test_the_agent_no_curses`
-- `test_transientui`, `test_the_llm_headless_no_curses`
+```sh
+perl -ne 'print "$1\n" if /\(\*([A-Za-z0-9_]+)\)/' src/thedriver.h | wc -l
+perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/cursesdriver.c | wc -l
+perl -ne 'print "$1\n" if /^\s*\.([A-Za-z0-9_]+)\s*=/' src/headlessdriver.c | wc -l
+bash tests/inventory_direct_curses.sh --summary /Users/adrian/CLionProjects/THE
+git diff --check
+```
+
+Focused tests that commonly matter:
+
+- `test_headlessdriver`, `test_inputevent`, `test_mousehit`
+- `test_uidriver`, `test_screenframe`, `test_virtual_screen`
+- `test_llmdriver`, `test_llmruntime`, `test_agentdriver`
+- `test_transientui`, `test_the_agent_no_curses`,
+  `test_the_llm_headless_no_curses`,
+  `test_the_llm_headless_no_curses_mini_session`
 - `test_curses_boundary`, `test_curses_boundary_inventory`
 - CREXX/pty tests such as `test_normal_area_queries`,
   `test_sos_navigation_queries`, `test_sos_logical_edit_queries`, and
   `test_selective_change_prompt` when CREXX is enabled.
-
-## Important Artifacts
-
-- `doc/cursor-driver-architecture.md`: ownership contract and guardrails.
-- `doc/llm-driver-agent-guide.md`: agent-facing protocol and no-curses proof
-  target usage.
-- `doc/llm-mode.md`: conceptual guide for agents and tool authors.
-- `doc/utf-design.md`: historical UTF design notes and detailed findings.
-- `tools/utf_terminal_probe.c`: interactive terminal calibration/probe tool.
-- `tools/the_llm_headless.c`: no-curses headless/LLM executable skeleton with
-  transient UI model linkage.
-- `tests/inventory_direct_curses.sh`: direct-curses debt inventory by
-  file/function/category.
-- `src/utfterm_defaults.h`: shared THE/probe coded default terminal table.
-- `src/cursesdriver.c`, `src/inputevent.c`, `src/mousehit.c`,
-  `src/transientui.c`, `src/uidriver.c`, `src/screenframe.c`,
-  `src/llmdriver.c`, `src/llmruntime.c`, `src/agentdriver.c`: current
-  driver-boundary modules.

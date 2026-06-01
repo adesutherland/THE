@@ -100,19 +100,18 @@ debug requests. Command dispatch should consume normalized input and logical
 cursor state rather than raw curses coordinates.
 
 The current curses key loop has a compatibility adapter: it reads through
-`the_driver->read_input_event()` where focused paths have moved, normalizes the
-key through `TheInputEvent`, then hands the equivalent legacy key to existing
-dispatch where necessary. Raw curses `KEY_MOUSE` is translated in
-`cursesdriver.c` to the editor-owned `THE_KEY_MOUSE`. That is a transition
-step, not the final architecture. Live curses mouse packets now follow the same
-transition pattern: `cursesdriver.c` decodes terminal mouse packets and
-window-local physical coordinates, while `mouse.c` maps the driver-owned saved
-packet to `TheInputEvent` logical-hit targets and routes legacy
-mouse-definition dispatch through the saved target window id. Migrated
-consumers such as `CURSOR MOUSE` and `TABFILE` consume logical target kind,
-line number, row, cell, screen, and window id instead of raw terminal
-coordinates. The legacy raw key/mouse wrappers remain until the dispatcher,
-readv/dialog/popup, and `getch.c` paths are converted.
+`the_driver->read_input_event()`, normalizes the key through `TheInputEvent`,
+then hands the equivalent legacy key to existing dispatch where necessary.
+Raw curses `KEY_MOUSE` is translated in `cursesdriver.c` to the editor-owned
+`THE_KEY_MOUSE`. Live curses mouse packets follow the same boundary:
+`cursesdriver.c` decodes terminal packets and window-local physical
+coordinates, while `mouse.c` maps the driver-owned saved packet to
+`TheInputEvent` logical-hit targets and routes legacy mouse-definition dispatch
+through the saved target window id. Migrated consumers such as `CURSOR MOUSE`
+and `TABFILE` consume logical target kind, line number, row, cell, screen, and
+window id instead of raw terminal coordinates. The public raw key/mouse wrapper
+vtable operations are removed; remaining raw terminal mechanics are
+curses-private.
 
 ### LLM Driver
 
@@ -179,7 +178,8 @@ Closed checkpoints are summarized here; details and next tasks are in
   diagnostics.
 - `src/agentdriver.c` plus `tools/the_agent.c` provide the no-curses proof
   target with capability reporting, explicit unsupported-command diagnostics,
-  logical hits, command/file/prefix focus, and the closed Step 2 SOS
+  logical hits, command/file/prefix focus, file open/save/write, search/find,
+  replace, line operations, buffer metadata, and the closed SOS
   navigation/edit subset.
 - `show.c`, `execute.c`, `query1.c`, `query2.c`, and `commsos.c` have removed
   several active-window cursor snapshot fallbacks from the focused cursor,
@@ -198,8 +198,9 @@ Closed checkpoints are summarized here; details and next tasks are in
   longer exposes pad allocation or pad refresh through `TheDriverOps`; the
   visible viewport is painted from the transient popup snapshot.
 - `the_llm_headless` is the current no-curses executable skeleton for the
-  broader LLM/headless editor direction. It links the transient model and is
-  checked by `test_the_llm_headless_no_curses`.
+  broader LLM/headless editor direction. It links the transient model, offers a
+  `--mini-session` edit/save proof, and is checked by
+  `test_the_llm_headless_no_curses` plus the mini-session CTest.
 - `the_agent`, `the_llm_headless`, and future proof targets such as
   `agentthe` or `testingthe` should continue proving that selected non-curses
   drivers can link without `src/cursesdriver.c`.
@@ -232,8 +233,8 @@ Use this status model for every future slice:
   dispatcher, renderer fallback, mouse, command, or physical-local mechanics.
 - `Active slice`: the boundary task currently selected for closure in
   `doc/utf-handover.md`; it may be `none` immediately after a slice closes.
-- `Deferred`: a larger model or capability gap that should wait until the
-  active boundary slice can expose it cleanly.
+- `Queued outside active slice`: a larger model or platform decision that
+  should wait until the active boundary slice can expose it cleanly.
 
 The current active categories are:
 
@@ -269,14 +270,14 @@ The current active categories are:
   driver base, shared display/input semantics, portable render-cell/render-
   cluster semantics, modal/standard-screen contraction, and raw input
   compatibility wrapper retirement, and role/window/cursor presentation
-  contraction. Use `doc/utf-handover.md` as the source of truth for selecting
-  the next slice.
-- Deferred: full agent dispatcher integration, full prefix command execution,
-  live agent protocol integration for transient snapshots, retained-frame
-  delta views, the isolated keycap blank-cell physical materialization/profile
-  follow-up, Windows/PDCurses strategy, additional terminal baselines, and
-  legacy source-branch/build-warning cleanup that is not blocking the active
-  slice.
+  contraction and LLM/headless agent editor capability fill. Use
+  `doc/utf-handover.md` as the source of truth for selecting the next slice.
+- Outside the LLM/headless target: full THE dispatcher integration and CREXX
+  macros require the full editor command/profile/runtime surface; build/test
+  execution belongs to host automation. Next platform/runtime decisions are
+  selectable driver startup, the isolated keycap blank-cell physical
+  materialization/profile follow-up, Windows/PDCurses strategy, additional
+  terminal baselines, and legacy source-branch/build-warning cleanup.
 
 ## Guardrails
 
@@ -311,9 +312,10 @@ module by module, not by aspiration.
 ## Test Surface Limits
 
 - `the_agent` proves no-curses driver behavior and logical snapshots. It does
-  not yet execute arbitrary THE/SOS commands through the real dispatcher.
+  not execute arbitrary THE/SOS commands through the real dispatcher; that
+  belongs to the full editor runtime.
 - `the_llm_headless` proves the headless link boundary and can emit a transient
-  snapshot demo, but it is not yet the full editor runtime.
+  snapshot demo, but it is not the full editor runtime.
 - CREXX/pty tests exercise the full editor command processor. They require
   CREXX support, a working CREXX compiler/import runtime, and a pty-capable
   host.

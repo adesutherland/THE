@@ -1,6 +1,6 @@
 # LLM Driver Agent Guide
 
-Last updated: 2026-05-28.
+Last updated: 2026-05-29.
 
 This guide describes the agent-facing LLM driver surface. It intentionally
 avoids migration planning detail; use `doc/utf-handover.md` for status and
@@ -74,8 +74,10 @@ Example shape:
 
 ### Prefix Commands
 
-Use `prefix` mode when the task involves line commands. The file text can stay
-hidden until the command has been entered or verified.
+Use `prefix` mode when the task involves line commands. Snapshots expose
+semantic prefix command text as `pc` in compact output. The supported agent
+subset is `d`, `del`, `delete`, `dup`, `copy`, `r TEXT`, `i TEXT`, and
+`a TEXT`, entered with `prefix LINE COMMAND` and run with `prefix-execute`.
 
 ### Reserved Lines
 
@@ -107,10 +109,17 @@ An agent skill can wrap the LLM driver with high-level actions:
 - `look_focus(context=N)`: cursor row plus nearby file rows.
 - `look_reserved()`: reserved/status/prompt rows.
 - `look_prefix()`: prefix-command area only.
+- `look_delta()`: changed semantic rows since the previous delta view.
 - `send_key(name)`: normalized key input.
 - `type_text(text)`: normalized text input.
 - `run_command(command)`: THE command-line submission.
 - `hit(target,line,row,cell)`: logical mouse-like hit target.
+- `select(line1,cell1,line2,cell2)`: set a logical selection range.
+- `undo()` / `redo()`: use the bounded agent mutation history.
+- `list_buffers()` / `switch_buffer(target)`: inspect and switch agent
+  buffers.
+- `list_project(dir)`: ask THE for a flat visible project listing.
+- `modal(kind)`: start and inspect a transient readv/dialog/popup demo flow.
 - `debug_cursor()`: focus plus cursor mapping.
 - `debug_render()`: driver ops plus last render explanation.
 
@@ -137,16 +146,34 @@ Closed foundation:
   command, status, tabline, divider, window, UTF fixture, compact-view, cursor,
   targeted-redraw row, logical-hit, and fake-driver operation coverage.
 - `src/agentdriver.c` and `tools/the_agent.c`: no-curses proof target with
-  file loading, LLM snapshots, normalized stdin commands, file-area focus,
-  command-line focus/editing, logical hits, and explicit capability reporting.
+  file loading, LLM snapshots/deltas, normalized stdin commands, file-area,
+  prefix, and command-line focus/editing, logical hits, file open/save/write,
+  search/replace, line operations, prefix command subset execution, selection
+  operations, bounded agent-side undo/redo, buffer list/switch/open/close, flat
+  project listing, live transient modal demo protocol, buffer metadata, and
+  explicit capability reporting.
 - `tools/the_llm_headless.c`: no-curses executable skeleton for the broader
   headless direction. It links the transient UI model and exposes
-  `--transient-demo` for inspecting transient snapshot formatting.
+  `--transient-demo` for inspecting transient snapshot formatting and
+  `--mini-session` for a realistic no-curses edit/save proof.
+- `doc/llm-headless-capabilities.md`: concise capability inventory and
+  outside-target classification for the current no-curses agent/editor
+  surface.
 
 Current agent subset:
 
-- Supported input commands: `look`, `capabilities`, `focus`, `hit`, `key`,
-  `text`, `type`, `command`, `debug`, and `quit`.
+- Supported input commands: `look`, `delta`, `capabilities`, `focus`, `hit`,
+  `key`, `text`, `type`, `command`, `debug`, `transient`, and `quit`.
+- Supported editor commands include file/session commands (`open`, `open!`,
+  `new`, `new!`, `save`, `write`), navigation commands (`goto`, `top`,
+  `bottom`, `pageup`, `pagedown`, `tab`, `backtab`), search commands (`find`,
+  `search`, `find-next`, `find-prev`), edit commands (`insert`, `type`,
+  `replace`, `replace-all`), line commands (`setline`, `insertline`,
+  `appendline`, `deleteline`, `duplicateline`), prefix commands (`prefix`,
+  `prefix-clear`, `prefix-execute`), selection commands (`select`,
+  `selection-copy`, `selection-delete`, `selection-replace`), history commands
+  (`undo`, `redo`), buffer commands (`buffer-open`, `buffer-switch`,
+  `buffer-list`, `buffer-close`), and `project-list`.
 - Supported logical-hit targets: file-area, prefix, command, prompt, status,
   tabline/filetabs, divider, and window selection.
 - Supported SOS commands: `TOPEDGE`, `BOTTOMEDGE`, `LEFTEDGE`, `RIGHTEDGE`,
@@ -156,23 +183,18 @@ Current agent subset:
 - Unsupported full-editor commands return stable diagnostics and point callers
   to `capabilities`.
 
-Open feature gaps:
+Outside the LLM/headless target:
 
-These are intentionally tracked as feature gaps after the driver close-down
-work in `doc/utf-handover.md`, not as blockers for the current curses-boundary
-cleanup.
-
-- Full THE command dispatcher integration in `the_agent`.
-- Full prefix command machinery in `the_agent`. `SOS PREFIX` can focus the
-  prefix field, but entering or executing prefix commands is still outside the
-  no-curses agent subset.
-- Live transient readv/dialog/popup protocol integration in `the_agent`. The
-  logical model and curses-path materialization exist, and popup pad mechanics
-  are no longer public driver operations, but agents cannot yet drive a real
-  modal dialog/popup lifecycle through the interactive protocol.
-- Full logical window lifecycle snapshots outside the readv/dialog/popup
-  transient model.
-- Delta views from retained prior frames.
+- Full THE command dispatcher integration requires the full editor
+  command/profile runtime. `the_agent` deliberately remains a bounded
+  no-curses agent editing surface.
+- CREXX macros require CREXX and full macro/profile integration.
+- Terminal mouse packets remain physical input owned by the curses driver; the
+  agent path uses logical `hit` commands.
+- Build/test execution is a host automation concern. Run shell, CMake, and
+  CTest outside THE, then use THE for buffer editing.
+- Recursive project indexing is better handled by shell/agent tools. THE
+  exposes a flat `project-list` snapshot for quick editor context.
 
 ## No-Curses Agent Executable
 
@@ -191,13 +213,18 @@ Run against a file:
 Supported stdin commands:
 
 - `look [full|filearea|reserved|prefix|focus] [compact] [max=N]`
+- `delta [full|filearea|reserved|prefix|focus] [compact] [max=N]`
+- `look delta ...`
 - `look ... [prefix=0|1] [command=0|1] [status=0|1] [cursor=0|1]`
 - `capabilities`
-- `focus command` or `focus filearea`
+- `focus command`, `focus filearea`, or `focus prefix`
 - `hit TARGET LINE ROW CELL [SCREEN WINDOW]`
-- `key left|right|up|down|home|end|pageup|pagedown|backspace|delete`
+- `key left|right|up|down|home|end|pageup|pagedown|tab|backtab|backspace|delete`
 - `text TEXT`
 - `command COMMAND`
+- `transient readv [TEXT]`, `transient dialog [TEXT]`, `transient popup`
+- `transient look`, `transient key NAME`, `transient text TEXT`,
+  `transient hit ROW COL`, `transient result`, `transient close`
 - `debug NAME`
 - `quit` or `exit`
 
@@ -227,6 +254,54 @@ printf '%s\n' \
   | ./cmake-build-debug/the_agent tests/fixtures/utf-render.txt
 ```
 
+Search, replace, line edit, and save example:
+
+```sh
+printf '%s\n' \
+  'command find TODO' \
+  'look focus compact prefix=0' \
+  'command replace /TODO/DONE/' \
+  'command appendline verified by agent' \
+  'command save' \
+  'look filearea compact max=120 prefix=0' \
+  'quit' \
+  | ./cmake-build-debug/the_agent --rows 24 --cols 100 path/to/file.txt
+```
+
+Prefix, selection, undo, and delta example:
+
+```sh
+printf '%s\n' \
+  'look full compact max=120' \
+  'command prefix 2 r rewritten by prefix' \
+  'command prefix-execute' \
+  'delta compact max=120' \
+  'command select 1 0 1 5' \
+  'command selection-copy' \
+  'command selection-replace ALPHA' \
+  'command undo' \
+  'command redo' \
+  'look full compact max=120' \
+  'quit' \
+  | ./cmake-build-debug/the_agent --rows 24 --cols 100 path/to/file.txt
+```
+
+Buffer, project, and modal example:
+
+```sh
+printf '%s\n' \
+  'command buffer-open other.txt' \
+  'command buffer-list' \
+  'command project-list .' \
+  'transient dialog confirm' \
+  'transient look' \
+  'transient key tab' \
+  'transient key enter' \
+  'transient result' \
+  'quit' \
+  | ./cmake-build-debug/the_agent --rows 24 --cols 100 path/to/file.txt
+```
+
 Guardrail test:
 
 ```sh
@@ -237,7 +312,7 @@ Focused agent tests:
 
 ```sh
 ctest --test-dir cmake-build-debug \
-  -R 'test_agentdriver|test_the_agent_script|test_the_agent_capabilities|test_the_agent_no_curses' \
+  -R 'test_agentdriver|test_the_agent_script|test_the_agent_capabilities|test_the_agent_no_curses|test_llmdriver|test_transientui' \
   --output-on-failure
 ```
 
@@ -253,6 +328,12 @@ Inspect a transient snapshot:
 
 ```sh
 ./cmake-build-debug/the_llm_headless --transient-demo
+```
+
+Run the no-curses mini editing session:
+
+```sh
+./cmake-build-debug/the_llm_headless --mini-session path/to/file.txt
 ```
 
 Guardrail tests:

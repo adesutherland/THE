@@ -12,6 +12,10 @@
 #define LLM_DRIVER_MAX_COLS 1000
 #define LLM_DRIVER_MAX_PREFIX 20
 #define LLM_DRIVER_MAX_COMMAND 256
+#define LLM_DRIVER_MAX_PATH 1024
+#define LLM_DRIVER_MAX_BUFFERS 16
+#define LLM_DRIVER_MAX_PROJECT_FILES 32
+#define LLM_DRIVER_MAX_PROJECT_NAME 128
 #define LLM_DRIVER_INPUT_QUEUE_MAX THE_INPUT_QUEUE_MAX
 
 typedef struct
@@ -24,10 +28,36 @@ typedef struct
    int current;
    int cursor;
    char prefix[LLM_DRIVER_MAX_PREFIX + 1];
+   char prefix_command[LLM_DRIVER_MAX_PREFIX + 1];
    char text[LLM_DRIVER_MAX_COLS + 1];
    UiStyleRun styles[UI_DRIVER_MAX_STYLE_RUNS];
    size_t style_count;
 } LlmDriverScreenLine;
+
+typedef struct
+{
+   int active;
+   LINETYPE start_line;
+   int start_cell;
+   LINETYPE end_line;
+   int end_cell;
+   char clipboard[LLM_DRIVER_MAX_COMMAND + 1];
+} LlmDriverSelectionView;
+
+typedef struct
+{
+   char path[LLM_DRIVER_MAX_PATH + 1];
+   int dirty;
+   size_t line_count;
+   int current;
+} LlmDriverBufferInfo;
+
+typedef struct
+{
+   char root[LLM_DRIVER_MAX_PATH + 1];
+   size_t file_count;
+   char files[LLM_DRIVER_MAX_PROJECT_FILES][LLM_DRIVER_MAX_PROJECT_NAME + 1];
+} LlmDriverProjectView;
 
 typedef struct
 {
@@ -40,6 +70,16 @@ typedef struct
    LlmDriverScreenLine lines[LLM_DRIVER_MAX_ROWS];
    char command_line[LLM_DRIVER_MAX_COMMAND + 1];
    char status[LLM_DRIVER_MAX_COMMAND + 1];
+   char buffer_path[LLM_DRIVER_MAX_PATH + 1];
+   size_t buffer_line_count;
+   int buffer_dirty;
+   int buffer_valid;
+   int undo_available;
+   int redo_available;
+   LlmDriverSelectionView selection;
+   size_t buffer_count;
+   LlmDriverBufferInfo buffers[LLM_DRIVER_MAX_BUFFERS];
+   LlmDriverProjectView project;
 } LlmDriverScreenView;
 
 #define LLM_DRIVER_INPUT_NONE THE_INPUT_NONE
@@ -125,12 +165,33 @@ int llm_driver_screen_view_set_row(LlmDriverScreenView *view, size_t index,
                                    int logical_row, int logical_start_col,
                                    const char *prefix, const char *text,
                                    int editable, int current);
+int llm_driver_screen_view_set_prefix_command(LlmDriverScreenView *view,
+                                              size_t index,
+                                              const char *command);
 int llm_driver_screen_view_from_frame(const UiFrame *frame,
                                       LlmDriverScreenView *view);
 void llm_driver_screen_view_set_command(LlmDriverScreenView *view,
                                         const char *command_line);
 void llm_driver_screen_view_set_status(LlmDriverScreenView *view,
                                        const char *status);
+void llm_driver_screen_view_set_buffer(LlmDriverScreenView *view,
+                                       const char *path, int dirty,
+                                       size_t line_count);
+void llm_driver_screen_view_set_history(LlmDriverScreenView *view,
+                                        int undo_available,
+                                        int redo_available);
+void llm_driver_screen_view_set_selection(LlmDriverScreenView *view,
+                                          int active, LINETYPE start_line,
+                                          int start_cell, LINETYPE end_line,
+                                          int end_cell,
+                                          const char *clipboard);
+int llm_driver_screen_view_add_buffer_info(LlmDriverScreenView *view,
+                                           const char *path, int dirty,
+                                           size_t line_count, int current);
+void llm_driver_screen_view_set_project_root(LlmDriverScreenView *view,
+                                             const char *root);
+int llm_driver_screen_view_add_project_file(LlmDriverScreenView *view,
+                                            const char *path);
 size_t llm_driver_format_screen_view(const LlmDriverScreenView *view,
                                      char *out, size_t out_len);
 void llm_driver_format_options_init(LlmDriverFormatOptions *options);
@@ -139,6 +200,10 @@ size_t llm_driver_format_semantic_view(const LlmDriverScreenView *view,
 size_t llm_driver_format_semantic_view_with_options(
    const LlmDriverScreenView *view, const LlmDriverFormatOptions *options,
    char *out, size_t out_len);
+size_t llm_driver_format_delta_view(const LlmDriverScreenView *previous,
+                                    const LlmDriverScreenView *current,
+                                    const LlmDriverFormatOptions *options,
+                                    char *out, size_t out_len);
 
 const char *llm_driver_input_kind_name(LlmDriverInputKind kind);
 const char *llm_driver_debug_command_name(LlmDriverDebugCommand command);

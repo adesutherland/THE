@@ -32,14 +32,21 @@ Implemented:
   `LlmDriverScreenView` and `TheInputEvent` contracts.
 - `the_llm_headless` is a no-curses executable skeleton for the broader
   headless direction. It links the transient UI model and is checked for curses
-  dependencies and curses-driver symbols.
+  dependencies and curses-driver symbols. `--mini-session` performs a
+  no-curses edit/save session against a file and reports the resulting
+  semantic state.
+- `doc/llm-headless-capabilities.md` is the concise capability inventory for
+  the current agent/headless editor surface.
 
-Current limitation:
+Agent surface:
 
 `the_agent` is an agent subset, not a runtime switch inside the full curses
-editor and not THE's full command dispatcher. It supports file-area and
-command-line focus, logical hits, normalized key/text input, a small command
-set, and this SOS navigation/edit subset:
+editor and not THE's full command dispatcher. It supports file-area, prefix,
+and command-line focus, logical hits, normalized key/text input, file
+open/save/write, search/find navigation, replace, line operations, prefix
+command subset execution, selection/range operations, bounded agent-side
+undo/redo, buffer open/switch/list/close, flat project listing, retained-frame
+deltas, a focused command set, and this SOS navigation/edit subset:
 
 ```text
 TOPEDGE BOTTOMEDGE LEFTEDGE RIGHTEDGE FIRSTCOL LASTCOL ENDCHAR FIRSTCHAR
@@ -48,19 +55,24 @@ TABFIELDB QCMND EXECUTE
 ```
 
 Other THE/SOS commands return an explicit unsupported-command response. Use the
-`capabilities` protocol command to inspect the exact supported surface. Use
-CREXX/pty integration tests or manual full-editor smoke tests for behavior that
-is not yet routed through the agent subset.
+`capabilities` protocol command to inspect the exact supported surface.
 
-Transient UI snapshots are proved in `test_transientui` and available through
-`the_llm_headless --transient-demo`. They are not yet integrated into the
-interactive `the_agent` protocol as live modal editor events.
+Full THE dispatcher behavior and CREXX macros are outside the LLM/headless
+target because they require the full editor command/profile/runtime stack.
+Build/test execution is also outside the target; agents should run shell,
+CMake, and CTest directly and use THE for buffer editing.
 
-The remaining LLM work is feature expansion after driver-surface close-down,
-not active direct-curses debt. The modal/standard-screen contraction, raw input
+Transient UI snapshots are proved in `test_transientui`, available through
+`the_llm_headless --transient-demo`, and exposed in `the_agent` through
+`transient readv`, `transient dialog`, `transient popup`, `transient look`,
+`transient key`, `transient text`, `transient hit`, and `transient result`.
+
+The next roadmap item is selectable-driver startup: making a no-curses driver
+choice available through a real editor startup/profile path instead of only
+the proof executables. The modal/standard-screen contraction, raw input
 compatibility wrapper retirement, and role/window/cursor presentation
-contraction are closed. `doc/utf-handover.md` is the source of truth for the
-next close-down slice.
+contraction are closed. `doc/utf-handover.md` is the source of truth for that
+work.
 
 ## Design Intent
 
@@ -97,9 +109,16 @@ logical cursor position, or input event that an agent sees.
 - `cursor_screen_row` and `cursor_screen_col`: diagnostic screen coordinates.
   These are not a substitute for the logical cursor.
 - `lines`: visible rows with row role, line number, logical row, prefix text,
-  line text, syntax/style spans, current-line marker, and cursor marker.
+  semantic prefix command text, line text, syntax/style spans, current-line
+  marker, and cursor marker.
 - `command_line`: command area text when available.
 - `status`: status text when available.
+- `buffer_path`, `buffer_dirty`, and `buffer_line_count`: current buffer
+  metadata.
+- `undo_available` and `redo_available`: bounded agent-side history state.
+- `selection`: active range endpoints plus clipboard text.
+- `buffers`: open agent buffers with path/dirty/line-count/current metadata.
+- `project`: flat project listing metadata from `project-list [DIR]`.
 
 Style spans describe parser/editor categories, not terminal colors. They are
 derived from THE's existing `ECOLOUR_*`/parser state and are exposed as logical
@@ -141,7 +160,7 @@ The current input kinds are:
 - `command`: a command-line command such as `next`, `save`, or `set ...`.
 - `logical-hit`: a mouse-like logical target for file area, prefix, command,
   prompt, status, tabline, divider, window selection, or transient UI hit
-  targets once that protocol surface is wired.
+  targets.
 - `debug`: a diagnostic request such as cursor mapping or driver ops.
 - `none`: no input.
 
@@ -154,6 +173,8 @@ routed by migrated dispatch groups.
 `the_agent` accepts these protocol commands:
 
 - `look [full|filearea|reserved|prefix|focus] [compact] [max=N]`
+- `delta [full|filearea|reserved|prefix|focus] [compact] [max=N]`
+- `look delta ...`
 - `look ... [prefix=0|1] [command=0|1] [status=0|1] [cursor=0|1]`
 - `capabilities`
 - `focus command` or `focus filearea`
@@ -161,8 +182,21 @@ routed by migrated dispatch groups.
 - `key NAME`
 - `text TEXT`
 - `command COMMAND`
+- `transient readv [TEXT]`, `transient dialog [TEXT]`, or `transient popup`
+- `transient look`, `transient key NAME`, `transient text TEXT`,
+  `transient hit ROW COL`, `transient result`, `transient close`
 - `debug NAME`
 - `quit` or `exit`
+
+Current supported editor commands include `open`, `open!`, `new`, `new!`,
+`save`, `write`, `goto`, `top`, `bottom`, `pageup`, `pagedown`, `find`,
+`find-next`, `find-prev`, `replace`, `replace-all`, `insert`, `type`,
+`setline`, `insertline`, `appendline`, `deleteline`, `duplicateline`,
+`prefix`, `prefix-clear`, `prefix-execute`, `select`, `selection-copy`,
+`selection-delete`, `selection-replace`, `undo`, `redo`, `buffer-open`,
+`buffer-switch`, `buffer-list`, `buffer-close`, and `project-list`.
+Snapshots include buffer, history, selection, project, and semantic prefix
+metadata.
 
 ## Agent Usage Rules
 
@@ -205,13 +239,17 @@ ctest --test-dir cmake-build-debug \
   --output-on-failure
 ```
 
-Coverage includes semantic formatting, compact views, input conversion and
-queues, debug snapshots, virtual frames/fake-driver logs, logical hits, agent
-file loading, file-area, prefix, and command-line focus, command cursor
-movement, Enter submission, capability output, unsupported-command
-diagnostics, the closed Step 2 SOS subset, and no-curses transient UI state
-transitions for readv, dialog, and popup.
+Coverage includes semantic formatting, compact views, buffer metadata, input
+conversion and queues, debug snapshots, virtual frames/fake-driver logs,
+logical hits, agent file loading/open/save/write, file-area, prefix, and
+command-line focus, command cursor movement, Enter submission, search/find,
+replace, line operations, prefix command execution, UTF-aware selections,
+undo/redo availability, buffer switching, project listing, retained-frame
+deltas, capability output, unsupported-command diagnostics, the closed SOS
+subset, the `the_llm_headless --mini-session` editing proof, no-curses
+transient UI state transitions, and live `the_agent` transient protocol flow
+for readv, dialog, and popup.
 
-CREXX/pty tests remain the stronger full-editor integration surface while
-`the_agent` is incomplete. A skipped CREXX test means that surface was
-unavailable; it does not weaken the no-curses agent boundary proof.
+CREXX/pty tests remain the full-editor integration surface. A skipped CREXX
+test means that surface was unavailable; it does not weaken the no-curses
+agent boundary proof.

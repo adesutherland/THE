@@ -36,6 +36,7 @@ static void test_screen_view_format(void)
    llm_driver_screen_view_init(&view, 3, 80, cursor);
    llm_driver_screen_view_set_command(&view, "====> next");
    llm_driver_screen_view_set_status(&view, "LINE 12 COL 6");
+   llm_driver_screen_view_set_buffer(&view, "sample.txt", 1, 2);
    llm_driver_screen_view_set_line(&view, 0, 11, 0, "000011", "alpha", 0);
    llm_driver_screen_view_set_line(&view, 1, 12, 1, "000012", "bravo", 1);
    llm_driver_format_screen_view(&view, out, sizeof(out));
@@ -44,6 +45,8 @@ static void test_screen_view_format(void)
    expect_contains("format.cursor", out, "cursor zone=filearea line=12 row=1 cell=5");
    expect_contains("format.command", out, "command: ====> next");
    expect_contains("format.status", out, "status: LINE 12 COL 6");
+   expect_contains("format.buffer", out,
+                   "buffer path=\"sample.txt\" dirty=1 lines=2");
    expect_contains("format.current", out, ">0001 line=12 prefix=\"000012\" text=\"bravo\"");
 }
 
@@ -155,6 +158,60 @@ static void test_reserved_view_options(void)
    expect_int("reserved.hides.file", strstr(out, "bravo") == NULL, 1);
 }
 
+static void test_agent_metadata_and_delta(void)
+{
+   LlmDriverScreenView previous;
+   LlmDriverScreenView current;
+   LlmDriverFormatOptions options;
+   LogicalCursor cursor;
+   char out[8192];
+
+   cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_FILEAREA, 2, 1,
+                                textpos_from_cell_virtual(NULL, 0, 1,
+                                                          TEXT_SNAP_BACKWARD));
+   llm_driver_screen_view_init(&previous, 6, 80, cursor);
+   llm_driver_screen_view_set_row(&previous, 0, UI_ROW_FILE, 1, 0, 0,
+                                  "     1", "alpha", 1, 0);
+   llm_driver_screen_view_set_row(&previous, 1, UI_ROW_FILE, 2, 1, 0,
+                                  "     2", "bravo", 1, 1);
+   llm_driver_screen_view_set_buffer(&previous, "a.txt", 0, 2);
+
+   current = previous;
+   llm_driver_screen_view_set_row(&current, 1, UI_ROW_FILE, 2, 1, 0,
+                                  "r edit", "edited", 1, 1);
+   llm_driver_screen_view_set_prefix_command(&current, 1, "r edit");
+   llm_driver_screen_view_set_history(&current, 1, 0);
+   llm_driver_screen_view_set_selection(&current, 1, 2, 1, 2, 4, "ed");
+   llm_driver_screen_view_add_buffer_info(&current, "a.txt", 1, 2, 1);
+   llm_driver_screen_view_add_buffer_info(&current, "b.txt", 0, 3, 0);
+   llm_driver_screen_view_set_project_root(&current, "/tmp/project");
+   llm_driver_screen_view_add_project_file(&current, "a.txt");
+   llm_driver_screen_view_add_project_file(&current, "b.txt");
+
+   llm_driver_format_options_init(&options);
+   options.compact = 1;
+   options.mode = LLM_DRIVER_VIEW_FULL;
+   llm_driver_format_semantic_view_with_options(&current, &options,
+                                                out, sizeof(out));
+
+   expect_contains("metadata.history", out,
+                   "\"history\":{\"undo\":1,\"redo\":0}");
+   expect_contains("metadata.selection", out,
+                   "\"selection\":{\"active\":1");
+   expect_contains("metadata.clipboard", out, "\"clipboard\":\"ed\"");
+   expect_contains("metadata.buffers", out, "\"buffers\":[{\"index\":0");
+   expect_contains("metadata.project", out,
+                   "\"project\":{\"root\":\"/tmp/project\"");
+   expect_contains("metadata.prefix.command", out, "\"pc\":\"r edit\"");
+
+   llm_driver_format_delta_view(&previous, &current, &options,
+                                out, sizeof(out));
+   expect_contains("delta.mode", out, "\"mode\":\"delta\"");
+   expect_contains("delta.baseline", out, "\"baseline\":1");
+   expect_contains("delta.changed.row", out, "\"t\":\"edited\"");
+   expect_contains("delta.prefix.command", out, "\"pc\":\"r edit\"");
+}
+
 static void test_input_mapping(void)
 {
    LlmDriverInput input;
@@ -235,6 +292,7 @@ int main(void)
    test_semantic_view_from_frame();
    test_compact_filearea_view_options();
    test_reserved_view_options();
+   test_agent_metadata_and_delta();
    test_input_mapping();
    test_debug_snapshot_format();
 

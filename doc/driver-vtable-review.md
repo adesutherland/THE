@@ -37,7 +37,11 @@ The intended layers are:
   split a Windows/PDCurses driver if terminal behavior diverges enough.
 
 `the_agent` and `the_llm_headless` already prove useful no-curses link
-boundaries. `src/headlessdriver.c` now adds the first complete no-curses
+boundaries. `the_agent` is now a serious single-buffer no-curses editor subset
+with file open/save/write, buffer metadata, search/replace, line operations,
+logical hits, and stable snapshots; `the_llm_headless --mini-session` proves a
+real edit/save path without `src/cursesdriver.c`. `src/headlessdriver.c` adds
+the first complete no-curses
 `TheDriverOps` implementation. It is a fake/test driver rather than the full
 editor runtime: terminal-only operations may be NOPs or deterministic log
 entries, while fake windows, role/global slots, cursors, simple input/mouse
@@ -363,10 +367,12 @@ notes at the end of this document.
    through explicit or high-level operations.
 
 Later, after the public surface stabilizes, add startup/profile driver
-selection for curses, headless/test, and future UI backends. Defer full
-`the_agent` dispatcher coverage, full prefix execution, retained-frame LLM
-deltas, broader terminal-profile baselines, and the Windows/PDCurses split
-decision until these surface-reduction slices close.
+selection for curses, headless/test, and future UI backends. The no-curses
+agent target now has prefix execution and retained-frame deltas. Full THE
+dispatcher and CREXX macro coverage remain full-editor runtime concerns rather
+than LLM/headless driver-surface requirements. Broader terminal-profile
+baselines and the Windows/PDCurses split are platform decisions after driver
+selection work.
 
 ## Verification Notes
 

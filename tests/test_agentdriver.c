@@ -39,7 +39,7 @@ int main(void)
    AgentDriver driver;
    LlmDriverFormatOptions options;
    TheInputEvent input;
-   char out[8192];
+   char out[32768];
 
    agent_driver_init(&driver, 6, 80);
    expect_true(agent_driver_set_text(&driver,
@@ -384,6 +384,164 @@ int main(void)
                "apply window logical hit");
    expect_true(strcmp(agent_driver_status(&driver), "window selected") == 0,
                "window logical hit status");
+
+   agent_driver_free(&driver);
+   agent_driver_init(&driver, 7, 80);
+   expect_true(agent_driver_set_text(&driver,
+                                     "alpha beta\n"
+                                     "second beta\n"
+                                     "emoji \xf0\x9f\x98\x80 flag\n"),
+               "set search replace text");
+   options.mode = LLM_DRIVER_VIEW_FULL;
+   options.compact = 1;
+   options.max_text_cols = 80;
+
+   expect_true(the_input_event_from_command("find beta", &input),
+               "make find beta");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply find beta");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"line\":1", "find first beta line");
+   expect_contains(out, "\"cell\":6", "find first beta cell");
+   expect_contains(out, "\"buffer\":{\"path\":\"\",\"dirty\":0,\"lines\":3}",
+                   "buffer metadata clean");
+
+   expect_true(the_input_event_from_command("find-next", &input),
+               "make find-next beta");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply find-next beta");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"line\":2", "find-next wraps to next beta line");
+
+   expect_true(the_input_event_from_command("find-prev", &input),
+               "make find-prev beta");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply find-prev beta");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"line\":1", "find-prev returns to previous beta line");
+
+   expect_true(the_input_event_from_command("replace /beta/delta/", &input),
+               "make replace beta");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply replace beta");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "alpha delta", "replace edits current match");
+   expect_contains(out, "\"dirty\":1", "replace marks dirty");
+
+   expect_true(the_input_event_from_command("replace-all beta theta", &input),
+               "make replace-all beta");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply replace-all beta");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "second theta", "replace-all edits remaining match");
+   expect_true(strcmp(agent_driver_status(&driver), "replaced 1") == 0,
+               "replace-all count status");
+
+   expect_true(the_input_event_from_command("find \xf0\x9f\x98\x80", &input),
+               "make emoji find");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply emoji find");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"line\":3", "emoji find line");
+   expect_contains(out, "\"cell\":6", "emoji find logical cell");
+
+   expect_true(the_input_event_from_command("setline final line", &input),
+               "make setline");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply setline");
+   expect_true(the_input_event_from_command("insertline inserted before", &input),
+               "make insertline");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply insertline");
+   expect_true(the_input_event_from_command("appendline appended after", &input),
+               "make appendline");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply appendline");
+   expect_true(the_input_event_from_command("duplicateline", &input),
+               "make duplicateline");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply duplicateline");
+   expect_true(the_input_event_from_command("deleteline", &input),
+               "make deleteline");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply deleteline");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "inserted before", "insertline visible");
+   expect_contains(out, "appended after", "appendline visible");
+   expect_contains(out, "\"lines\":5", "line operation count");
+
+   agent_driver_free(&driver);
+   agent_driver_init(&driver, 7, 80);
+   expect_true(agent_driver_set_text(&driver,
+                                     "alpha\n"
+                                     "bravo\n"
+                                     "charlie\n"),
+               "set prefix command text");
+   expect_true(the_input_event_from_command("prefix 2 r changed", &input),
+               "make prefix replace");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply prefix replace");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"pc\":\"r changed\"", "prefix command snapshot");
+   expect_true(the_input_event_from_command("prefix-execute", &input),
+               "make prefix execute");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply prefix execute");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"t\":\"changed\"", "prefix command edits line");
+   expect_contains(out, "\"history\":{\"undo\":1,\"redo\":0}",
+                   "prefix execution exposes undo");
+
+   expect_true(the_input_event_from_command("undo", &input), "make undo");
+   expect_true(agent_driver_apply_input(&driver, &input), "apply undo");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"t\":\"bravo\"", "undo restores prefix edit");
+   expect_contains(out, "\"history\":{\"undo\":0,\"redo\":1}",
+                   "undo exposes redo");
+   expect_true(the_input_event_from_command("redo", &input), "make redo");
+   expect_true(agent_driver_apply_input(&driver, &input), "apply redo");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"t\":\"changed\"", "redo reapplies prefix edit");
+
+   expect_true(agent_driver_set_text(&driver,
+                                     "A1\xef\xb8\x8f\xe2\x83\xa3""B\n"
+                                     "wide \xe6\xbc\xa2\xe5\xad\x97 line\n"),
+               "set selection utf text");
+   expect_true(the_input_event_from_command("select 2 5 2 7", &input),
+               "make wide selection");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply wide selection");
+   expect_true(the_input_event_from_command("selection-copy", &input),
+               "make selection copy");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply selection copy");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"selection\":{\"active\":1", "selection active");
+   expect_contains(out, "\"clipboard\":\"\xe6\xbc\xa2\"",
+                   "wide selection clipboard");
+   expect_true(the_input_event_from_command("selection-replace X", &input),
+               "make selection replace");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply selection replace");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "wide X\xe5\xad\x97 line", "wide selection replace");
+   expect_true(the_input_event_from_command("undo", &input),
+               "make selection undo");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply selection undo");
+   agent_driver_format(&driver, &options, out, sizeof(out));
+   expect_contains(out, "wide \xe6\xbc\xa2\xe5\xad\x97 line",
+                   "selection undo restores wide text");
+
+   agent_driver_format_delta(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"mode\":\"delta\"", "delta initial mode");
+   expect_true(the_input_event_from_command("appendline delta row", &input),
+               "make delta append");
+   expect_true(agent_driver_apply_input(&driver, &input),
+               "apply delta append");
+   agent_driver_format_delta(&driver, &options, out, sizeof(out));
+   expect_contains(out, "\"baseline\":1", "delta has baseline");
+   expect_contains(out, "delta row", "delta reports changed row");
 
    expect_true(the_input_event_from_command("sos makecurr", &input),
                "make unsupported command");
