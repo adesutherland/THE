@@ -343,6 +343,7 @@ set(THE_SOURCES
     src/logcursor.c
     src/llmdriver.c
     src/llmruntime.c
+    src/llmsession.c
     src/mouse.c
     src/mousehit.c
     src/memory.c
@@ -615,6 +616,9 @@ add_test(NAME test_the_llm_headless_no_curses
 add_test(NAME test_the_llm_headless_no_curses_mini_session
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_headless_mini_session.sh
             $<TARGET_FILE:the_llm_headless>)
+add_test(NAME test_the_llm_full_runtime
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_full_runtime.sh
+            $<TARGET_FILE:the>)
 add_executable(test_llmruntime tests/test_llmruntime.c src/llmruntime.c src/llmdriver.c src/inputevent.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmruntime PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8 AND USE_UTF8PROC)

@@ -38,6 +38,24 @@ int the_driver_use_headless(void)
 #endif
 }
 
+int the_driver_is_curses(void)
+{
+#ifdef THE_DRIVER_ENABLE_CURSES
+   return the_driver == &the_curses_driver_ops;
+#else
+   return 0;
+#endif
+}
+
+int the_driver_is_headless(void)
+{
+#ifdef THE_DRIVER_ENABLE_HEADLESS
+   return the_driver == &the_headless_driver_ops;
+#else
+   return 0;
+#endif
+}
+
 int the_driver_read_legacy_key(void)
 {
    TheInputEvent event;

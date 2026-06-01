@@ -1,6 +1,6 @@
 # UTF-8 Cursor/Driver Handover
 
-Last updated: 2026-05-29.
+Last updated: 2026-06-01.
 
 This is the compact handover for the UTF, cursor, driver, and LLM
 reorganization. Durable detail lives in:
@@ -38,7 +38,8 @@ virtual/fake-driver tests, focused unit tests, or CREXX/pty full-editor tests.
 
 ## Current Checkpoint
 
-- Latest completed slice: LLM/headless agent editor capability fill.
+- Latest completed slice: first full-runtime LLM target proof,
+  `the --driver llm`.
 - Live public driver surface: 53 `TheDriverOps` entries.
 - Curses and headless implementations both initialize all 53 entries.
 - Public driver types are neutral: `TheDriverAttr`, `TheDriverCell`,
@@ -48,15 +49,40 @@ virtual/fake-driver tests, focused unit tests, or CREXX/pty full-editor tests.
 - Actionable direct-curses inventory is closed:
   `physical-input: 0`, `physical-paint: 0`, `mouse-token: 0`,
   `window-state: 0`.
-- Allowed/migrated `driver-wrapper` visibility is 574. This is vtable usage,
+- Allowed/migrated `driver-wrapper` visibility is 576. This is vtable usage,
   not raw curses debt.
-- `the_agent` now covers the serious no-curses agent editor subset:
+- `the --driver llm` now selects the headless/LLM driver during real THE
+  startup, skips curses initialization, opens files through the real file/view
+  runtime, and runs `command ...` through THE's real command dispatcher. The
+  protocol loop preserves the `the_agent` command shape: `look`, `delta`,
+  `capabilities`, `focus`, `hit`, `key`, `text`, `type`, `command`, `debug`,
+  `transient`, and `quit`.
+- Full-runtime LLM snapshots are built from real `screenframe`/`SHOW_LINE`
+  state and include row roles, file line numbers, text, prefixes, command and
+  status fields, logical focus, current buffer metadata, dirty state, file ring
+  metadata, block/selection state, and syntax/style spans where THE has real
+  highlighting state available.
+- CREXX remains a strategic full-runtime LLM capability. `capabilities` reports
+  `crexx_macros` according to the build, and `command ...` uses the same
+  profile/macro dispatcher path as the full editor when CREXX is enabled.
+- SDSLH/parser-backed syntax remains a strategic full-runtime LLM capability.
+  Syntax/style spans are surfaced in snapshots after the real runtime enables
+  colouring. Parser diagnostics are available through real commands such as
+  `SDSLHWAIT` and `EXTRACT /PMSGS/`; a first-class snapshot diagnostics array
+  is still a concrete follow-up.
+- The current `the` binary still links the curses driver for the default
+  `--driver curses` path. The `--driver llm` path does not initialize curses or
+  execute curses-driver behavior at runtime; a separate full-runtime no-curses
+  link target remains a future build split if strict link isolation is needed.
+- `the_agent` now covers the serious no-curses protocol harness subset:
   open/new/save/write, logical snapshots with buffer path/dirty/line metadata,
   search/find, replace/replace-all, line operations, logical hits, key/text
   input, file/prefix/command focus, semantic prefix commands, selection/range
   operations, bounded agent-side undo/redo, buffer open/switch/list/close,
   flat project listing, retained-frame deltas, live transient readv/dialog/popup
-  demo protocol, and the existing SOS navigation/edit subset.
+  demo protocol, and the existing SOS navigation/edit subset. It is retained
+  as a protocol harness, no-curses contract test surface, and fallback oracle
+  for LLM formatting/input behavior, not as the strategic final agent editor.
 - `the_llm_headless --mini-session` performs a realistic no-curses edit/save
   run against a file and is covered by CTest.
 
@@ -131,12 +157,12 @@ Historical vtable counts:
 
 Recommended next slice:
 
-1. Driver selection and no-curses editor targets.
-   Keep the normal `the` executable curses-first, but add an explicit
-   startup/profile and/or build-target path for selecting a driver. The
-   stand-alone no-curses editor target is now credible for agent editing; the
-   remaining selection work is making that driver choice available through a
-   real editor startup/profile path rather than only proof executables.
+1. Full-runtime LLM capability fill.
+   Keep `the_agent` stable as the protocol harness while extending
+   `the --driver llm` where real runtime gaps remain: first-class parser
+   diagnostics in snapshots, modal/readv/dialog protocol adaptation, stricter
+   no-curses link target if needed, and broader real command/profile/CREXX
+   smoke coverage.
 
 Then:
 
@@ -146,9 +172,8 @@ Then:
    redraw, raw input, or modal/stdscreen wrapper families. Focus only on
    operations that still prove awkward for the new target.
 3. Full-runtime integration decisions.
-   Keep full THE dispatcher and CREXX macro behavior in the full editor
-   runtime unless a selectable-driver design proves they can be shared without
-   pulling curses or terminal assumptions into the LLM/headless target. Keep
+   Keep full THE dispatcher, profile, parser/SDSLH, and CREXX macro behavior
+   in the full editor runtime and expose them through the LLM driver. Keep
    build/test execution in host automation.
 4. Terminal and platform decisions.
    Finish keycap/terminal materialization proof loops, add Linux/Windows
@@ -200,7 +225,8 @@ Focused tests that commonly matter:
 - `test_llmdriver`, `test_llmruntime`, `test_agentdriver`
 - `test_transientui`, `test_the_agent_no_curses`,
   `test_the_llm_headless_no_curses`,
-  `test_the_llm_headless_no_curses_mini_session`
+  `test_the_llm_headless_no_curses_mini_session`,
+  `test_the_llm_full_runtime`
 - `test_curses_boundary`, `test_curses_boundary_inventory`
 - CREXX/pty tests such as `test_normal_area_queries`,
   `test_sos_navigation_queries`, `test_sos_logical_edit_queries`, and

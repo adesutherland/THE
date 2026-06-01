@@ -214,6 +214,8 @@ extern const TheDriverOps *the_driver;
 void the_driver_select(const TheDriverOps *ops);
 int the_driver_use_curses(void);
 int the_driver_use_headless(void);
+int the_driver_is_curses(void);
+int the_driver_is_headless(void);
 int the_driver_read_legacy_key(void);
 
 #endif

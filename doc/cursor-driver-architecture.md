@@ -1,6 +1,6 @@
 # Cursor Driver Architecture
 
-Last updated: 2026-05-29.
+Last updated: 2026-06-01.
 
 This document is the ownership contract for the cursor/driver split. The active
 status ledger lives in `doc/utf-handover.md`.
@@ -68,9 +68,11 @@ Editor code reaches migrated high-level driver behavior through the current
 driver vtable, `the_driver->...`, defined by `TheDriverOps` in
 `src/thedriver.h`. `src/thedriver.c` owns the current-driver pointer and the
 explicit selection helpers. The normal curses build selects
-`the_curses_driver_ops` by default; no-curses tests can select
-`the_headless_driver_ops` without linking `src/cursesdriver.c`. During this
-migration, all drivers are expected to expose the same `TheDriverOps` surface.
+`the_curses_driver_ops` by default; `the --driver llm` selects
+`the_headless_driver_ops` for a real full-runtime no-curses protocol session.
+No-curses harnesses and tests can still select `the_headless_driver_ops`
+without linking `src/cursesdriver.c`. During this migration, all drivers are
+expected to expose the same `TheDriverOps` surface.
 Terminal-only operations may be NOPs, in-memory fake-surface updates, or
 deterministic log entries in non-terminal drivers.
 
@@ -121,6 +123,21 @@ command/status text, marks, current focus, and logical cursor position. It
 should accept the same normalized text/key/command/logical-hit/debug events as
 other drivers.
 
+There are now two concrete no-curses LLM-facing surfaces:
+
+- `the --driver llm`: the strategic full-runtime target. It boots real THE,
+  skips curses initialization, uses real buffers/views/profiles/command
+  dispatch/parser state, preserves CREXX integration when built, and exposes
+  the existing LLM protocol over stdin/stdout.
+- `the_agent`: the lightweight protocol harness and contract oracle. It keeps
+  a bounded in-memory editor model for no-curses formatting/input tests and
+  should not grow into a parallel full editor runtime.
+
+The current `the` executable still links the curses driver for the default
+`--driver curses` path. Runtime selection ensures the LLM path does not
+initialize curses; a separate full-runtime no-curses link target remains a
+future build split if strict link isolation is required.
+
 Physical metadata such as display column, terminal class, repair strategy, and
 driver operation logs is useful for debugging, but agents must reason from
 logical coordinates: `zone`, `line_number`, row, and logical cell.
@@ -153,9 +170,8 @@ Closed checkpoints are summarized here; details and next tasks are in
   implementation. It provides fake opaque windows, screen-role and global
   slots, cursor state, queued normalized input events plus the shared
   legacy-key adapter, cell storage, render-cell/cluster preservation, and
-  deterministic touch/refresh/update plus terminal-report/shell/repair logs. It is a
-  compatibility base for tests and future headless work, not a full editor
-  runtime switch.
+  deterministic touch/refresh/update plus terminal-report/shell/repair logs.
+  It is used both by the lightweight harnesses and by `the --driver llm`.
 - `doc/driver-vtable-review.md` is the detailed map of the current vtable. It
   now tracks the 53-entry `TheDriverOps` surface and records which operations
   should remain portable, which are NOP/log-capable physical terminal
@@ -181,6 +197,12 @@ Closed checkpoints are summarized here; details and next tasks are in
   logical hits, command/file/prefix focus, file open/save/write, search/find,
   replace, line operations, buffer metadata, and the closed SOS
   navigation/edit subset.
+- `src/llmsession.c` plus `the --driver llm` provide the first full-runtime
+  LLM proof. Startup selects the headless driver before screen role setup,
+  avoids curses initialization, creates registered headless role/global
+  windows, opens real files through `EditFile`, formats snapshots through
+  `llmruntime`/`screenframe`, and dispatches `command ...` through
+  `command_line`.
 - `show.c`, `execute.c`, `query1.c`, `query2.c`, and `commsos.c` have removed
   several active-window cursor snapshot fallbacks from the focused cursor,
   query, SOS, render-exit, status, prefix, and view-switch paths. The closed
@@ -203,15 +225,16 @@ Closed checkpoints are summarized here; details and next tasks are in
   `test_the_llm_headless_no_curses` plus the mini-session CTest.
 - `the_agent`, `the_llm_headless`, and future proof targets such as
   `agentthe` or `testingthe` should continue proving that selected non-curses
-  drivers can link without `src/cursesdriver.c`.
-- The main `the` executable still initializes the current driver to the curses
-  implementation. A future startup/system-profile mechanism should select,
-  load, or swap drivers explicitly. The Windows strategy remains open: keep
-  the curses driver PDCurses-compatible or split a Windows/PDCurses driver if
-  the backend-specific behavior becomes too different.
+  harnesses can link without `src/cursesdriver.c`. `the --driver llm` is a
+  runtime no-curses path inside the main executable; strict full-runtime
+  no-curses link isolation remains a build-target follow-up.
+- The main `the` executable defaults to curses and accepts
+  `--driver curses|llm`. The Windows strategy remains open: keep the curses
+  driver PDCurses-compatible or split a Windows/PDCurses driver if the
+  backend-specific behavior becomes too different.
 - `tests/inventory_direct_curses.sh` is the repeatable debt sweep and ratchet.
   Current counts are actionable `physical-input: 0`, `physical-paint: 0`,
-  `mouse-token: 0`, and `window-state: 0`; `driver-wrapper: 574` is counted
+  `mouse-token: 0`, and `window-state: 0`; `driver-wrapper: 576` is counted
   as migrated/allowed. The summary now splits `window-state` into
   `window-handle: 0`, `active-window-macro: 0`, `cell-attr-type: 0`,
   `renderer-cell-type: 0`, and `header-prototype: 0`. The ratchet is
@@ -261,7 +284,8 @@ The current active categories are:
   modal/standard-screen contraction that reduced the vtable to 130 entries,
   raw input compatibility wrapper retirement that reduced it to 114, and
   role/window/cursor presentation contraction that reduced it to 53 and removed
-  `cursor_focus_sync_current()`.
+  `cursor_focus_sync_current()`, and the first full-runtime `the --driver llm`
+  proof.
 - Active slice: none selected after the inventory ratchet, bulk wrapper pass,
   physical input/paint cleanup, raw mouse packet driver-ownership cleanup,
   corrected suffixed-paint cleanup, the first active-window/window-handle
@@ -272,12 +296,14 @@ The current active categories are:
   compatibility wrapper retirement, and role/window/cursor presentation
   contraction and LLM/headless agent editor capability fill. Use
   `doc/utf-handover.md` as the source of truth for selecting the next slice.
-- Outside the LLM/headless target: full THE dispatcher integration and CREXX
-  macros require the full editor command/profile/runtime surface; build/test
-  execution belongs to host automation. Next platform/runtime decisions are
-  selectable driver startup, the isolated keycap blank-cell physical
-  materialization/profile follow-up, Windows/PDCurses strategy, additional
-  terminal baselines, and legacy source-branch/build-warning cleanup.
+- Outside the lightweight harness but inside the strategic full-runtime LLM
+  target: full THE dispatcher integration, profiles, CREXX, and parser/SDSLH
+  state. Build/test execution belongs to host automation. Next
+  platform/runtime decisions are full-runtime snapshot diagnostics, modal
+  protocol adaptation, strict no-curses link target if needed, the isolated
+  keycap blank-cell physical materialization/profile follow-up,
+  Windows/PDCurses strategy, additional terminal baselines, and legacy
+  source-branch/build-warning cleanup.
 
 ## Guardrails
 

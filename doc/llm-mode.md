@@ -1,6 +1,6 @@
 # LLM Mode Agent Guide
 
-Last updated: 2026-05-29.
+Last updated: 2026-06-01.
 
 This document describes the intended LLM-facing mode for THE. It is written for
 agents and tool authors that need to inspect editor state and drive editor input
@@ -29,7 +29,12 @@ Implemented:
   viewport offsets, and logical hit targets.
 - `the_agent` is the first live no-curses proof target. It is interactive over
   stdin/stdout, links no curses library or curses driver, and uses the same
-  `LlmDriverScreenView` and `TheInputEvent` contracts.
+  `LlmDriverScreenView` and `TheInputEvent` contracts. It is now classified as
+  the protocol harness and fallback oracle, not the strategic final editor.
+- `the --driver llm` is the first full-runtime LLM target. It boots real THE
+  with the headless/LLM driver selected, skips curses initialization, opens
+  files through real file/view state, and routes `command ...` through THE's
+  full command dispatcher.
 - `the_llm_headless` is a no-curses executable skeleton for the broader
   headless direction. It links the transient UI model and is checked for curses
   dependencies and curses-driver symbols. `--mini-session` performs a
@@ -38,15 +43,23 @@ Implemented:
 - `doc/llm-headless-capabilities.md` is the concise capability inventory for
   the current agent/headless editor surface.
 
-Agent surface:
+Surfaces:
 
-`the_agent` is an agent subset, not a runtime switch inside the full curses
-editor and not THE's full command dispatcher. It supports file-area, prefix,
-and command-line focus, logical hits, normalized key/text input, file
-open/save/write, search/find navigation, replace, line operations, prefix
-command subset execution, selection/range operations, bounded agent-side
-undo/redo, buffer open/switch/list/close, flat project listing, retained-frame
-deltas, a focused command set, and this SOS navigation/edit subset:
+`the --driver llm` is the strategic runtime surface. It uses the same protocol
+commands as `the_agent`: `look`, `delta`, `capabilities`, `focus`, `hit`,
+`key`, `text`, `type`, `command`, `debug`, `transient`, and `quit`. Its
+snapshots come from the real editor frame and include real buffer metadata,
+file ring entries, prefixes, dirty state, selection/block state, syntax/style
+spans when highlighting is active, command/status text, and logical focus. Its
+`command ...` input uses the full THE command/profile/macro dispatcher.
+
+`the_agent` is an agent subset and no-curses contract surface. It supports
+file-area, prefix, and command-line focus, logical hits, normalized key/text
+input, file open/save/write, search/find navigation, replace, line operations,
+prefix command subset execution, selection/range operations, bounded
+agent-side undo/redo, buffer open/switch/list/close, flat project listing,
+retained-frame deltas, a focused command set, and this SOS navigation/edit
+subset:
 
 ```text
 TOPEDGE BOTTOMEDGE LEFTEDGE RIGHTEDGE FIRSTCOL LASTCOL ENDCHAR FIRSTCHAR
@@ -54,22 +67,26 @@ DELCHAR CUADELCHAR DELBACK CUADELBACK DELEND DELWORD PREFIX TABFIELDF
 TABFIELDB QCMND EXECUTE
 ```
 
-Other THE/SOS commands return an explicit unsupported-command response. Use the
-`capabilities` protocol command to inspect the exact supported surface.
+Other THE/SOS commands return an explicit unsupported-command response in
+`the_agent`. Use `the --driver llm` when the task needs real THE command
+semantics, profiles, syntax/parser state, or CREXX.
 
-Full THE dispatcher behavior and CREXX macros are outside the LLM/headless
-target because they require the full editor command/profile/runtime stack.
-Build/test execution is also outside the target; agents should run shell,
-CMake, and CTest directly and use THE for buffer editing.
+CREXX macros and parser-backed syntax are part of the full-runtime LLM target.
+CREXX is reported as build-dependent in `capabilities`. Parser diagnostics are
+available through real commands such as `SDSLHWAIT` and `EXTRACT /PMSGS/`;
+adding a first-class diagnostics field to `look` output is the remaining
+snapshot blocker. Build/test execution is outside THE; agents should run
+shell, CMake, and CTest directly and use THE for buffer editing.
 
 Transient UI snapshots are proved in `test_transientui`, available through
 `the_llm_headless --transient-demo`, and exposed in `the_agent` through
 `transient readv`, `transient dialog`, `transient popup`, `transient look`,
 `transient key`, `transient text`, `transient hit`, and `transient result`.
 
-The next roadmap item is selectable-driver startup: making a no-curses driver
-choice available through a real editor startup/profile path instead of only
-the proof executables. The modal/standard-screen contraction, raw input
+The next roadmap item is filling the full-runtime LLM surface: diagnostics in
+snapshots, real modal/readv/dialog protocol adaptation, broader
+profile/CREXX/parser smoke coverage, and a strict no-curses full-runtime link
+target if needed. The modal/standard-screen contraction, raw input
 compatibility wrapper retirement, and role/window/cursor presentation
 contraction are closed. `doc/utf-handover.md` is the source of truth for that
 work.
@@ -170,7 +187,7 @@ logical-hit events before legacy mouse-definition dispatch. Command,
 logical-hit, and debug inputs are preserved as structured events and should be
 routed by migrated dispatch groups.
 
-`the_agent` accepts these protocol commands:
+Both `the_agent` and `the --driver llm` accept these protocol commands:
 
 - `look [full|filearea|reserved|prefix|focus] [compact] [max=N]`
 - `delta [full|filearea|reserved|prefix|focus] [compact] [max=N]`
@@ -196,7 +213,8 @@ Current supported editor commands include `open`, `open!`, `new`, `new!`,
 `selection-delete`, `selection-replace`, `undo`, `redo`, `buffer-open`,
 `buffer-switch`, `buffer-list`, `buffer-close`, and `project-list`.
 Snapshots include buffer, history, selection, project, and semantic prefix
-metadata.
+metadata in `the_agent`; `the --driver llm` delegates `command ...` to the full
+THE dispatcher rather than this subset.
 
 ## Agent Usage Rules
 
@@ -233,9 +251,9 @@ Focused no-curses/LLM tests:
 ```sh
 cmake --build cmake-build-debug --target \
   test_llmdriver test_virtual_screen test_agentdriver test_transientui \
-  the_agent the_llm_headless -j2
+  the the_agent the_llm_headless -j2
 ctest --test-dir cmake-build-debug \
-  -R 'test_llmdriver|test_virtual_screen|test_agentdriver|test_transientui|test_the_agent|test_the_llm_headless_no_curses' \
+  -R 'test_llmdriver|test_virtual_screen|test_agentdriver|test_transientui|test_the_agent|test_the_llm_headless_no_curses|test_the_llm_full_runtime' \
   --output-on-failure
 ```
 

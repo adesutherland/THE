@@ -32,6 +32,7 @@ static void llm_runtime_status(CHARTYPE scrno, const LlmDriverScreenView *view,
                                char *out, size_t out_len)
 {
    VIEW_DETAILS *screen_view;
+   const char *message = "";
 
    if (out == NULL || out_len == 0)
       return;
@@ -42,12 +43,77 @@ static void llm_runtime_status(CHARTYPE scrno, const LlmDriverScreenView *view,
    screen_view = screen[scrno].screen_view;
    if (screen_view == NULL)
       return;
-   snprintf(out, out_len, "focus=%s line=%ld row=%d cell=%d verify=%ld",
+   if (last_message != NULL)
+      message = (const char *)last_message;
+   snprintf(out, out_len,
+            "focus=%s line=%ld row=%d cell=%d verify=%ld message=%s",
             logical_cursor_zone_name(view->cursor.zone),
             (long)view->cursor.line_number,
             view->cursor.zone_row,
             view->cursor.text.cell_column,
-            (long)screen_view->verify_col);
+            (long)screen_view->verify_col,
+            message);
+}
+
+static void llm_runtime_file_path(const FILE_DETAILS *file,
+                                  char *out, size_t out_len)
+{
+   if (out == NULL || out_len == 0)
+      return;
+   out[0] = '\0';
+   if (file == NULL)
+      return;
+   if (file->fpath != NULL && file->fname != NULL)
+      snprintf(out, out_len, "%s%s", (const char *)file->fpath,
+               (const char *)file->fname);
+   else if (file->actualfname != NULL)
+      snprintf(out, out_len, "%s", (const char *)file->actualfname);
+   else if (file->fname != NULL)
+      snprintf(out, out_len, "%s", (const char *)file->fname);
+}
+
+static void llm_runtime_buffer_metadata(LlmDriverScreenView *view)
+{
+   VIEW_DETAILS *vd;
+   char path[LLM_DRIVER_MAX_PATH + 1];
+
+   if (view == NULL)
+      return;
+   if (vd_current != NULL && CURRENT_FILE != NULL)
+   {
+      llm_runtime_file_path(CURRENT_FILE, path, sizeof(path));
+      llm_driver_screen_view_set_buffer(view, path,
+                                        CURRENT_FILE->save_alt != 0,
+                                        (size_t)CURRENT_FILE->number_lines);
+   }
+   for (vd = vd_first; vd != NULL; vd = vd->next)
+   {
+      FILE_DETAILS *file = vd->file_for_view;
+
+      if (file == NULL)
+         continue;
+      llm_runtime_file_path(file, path, sizeof(path));
+      llm_driver_screen_view_add_buffer_info(view, path,
+                                             file->save_alt != 0,
+                                             (size_t)file->number_lines,
+                                             vd == CURRENT_VIEW);
+   }
+}
+
+static void llm_runtime_selection_metadata(LlmDriverScreenView *view)
+{
+   int active;
+
+   if (view == NULL || CURRENT_VIEW == NULL)
+      return;
+   active = CURRENT_VIEW->mark_type != M_NONE
+         && (CURRENT_VIEW->marked_line || CURRENT_VIEW->marked_col);
+   llm_driver_screen_view_set_selection(view, active,
+                                        CURRENT_VIEW->mark_start_line,
+                                        (int)CURRENT_VIEW->mark_start_col,
+                                        CURRENT_VIEW->mark_end_line,
+                                        (int)CURRENT_VIEW->mark_end_col,
+                                        "");
 }
 
 int llm_runtime_screen_view(CHARTYPE scrno, LlmDriverScreenView *view)
@@ -67,6 +133,8 @@ int llm_runtime_screen_view(CHARTYPE scrno, LlmDriverScreenView *view)
    llm_driver_screen_view_set_command(view, command);
    llm_runtime_status(scrno, view, status, sizeof(status));
    llm_driver_screen_view_set_status(view, status);
+   llm_runtime_buffer_metadata(view);
+   llm_runtime_selection_metadata(view);
    return 1;
 }
 

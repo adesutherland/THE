@@ -35,6 +35,7 @@
 
 #include "the.h"
 #include "proto.h"
+#include "headlessdriver.h"
 #include "thedriver.h"
 
 #ifdef my_stricmp
@@ -1375,9 +1376,11 @@ short set_up_windows(short scrn)
 
    TRACE_FUNCTION("util.c:    set_up_windows");
    /*
-    * If curses has not started exit gracefully...
+    * Headless full-runtime sessions need real role windows registered with
+    * the no-curses driver; other non-curses callers can still exit quietly.
     */
-   if ( !curses_started )
+   if ( !curses_started
+   &&   !the_driver_is_headless() )
    {
       TRACE_RETURN();
       return(RC_OK);
@@ -1424,9 +1427,18 @@ short set_up_windows(short scrn)
       if ( screen[scrn].rows[i] != 0
       &&   screen[scrn].cols[i] != 0 )
       {
-         screen[scrn].win[i] = the_driver->create_window(
-            screen[scrn].rows[i], screen[scrn].cols[i],
-            screen[scrn].start_row[i], screen[scrn].start_col[i]);
+         if ( the_driver_is_headless() )
+         {
+            screen[scrn].win[i] = headless_driver_create_screen_role(
+               scrn, i, screen[scrn].rows[i], screen[scrn].cols[i],
+               screen[scrn].start_row[i], screen[scrn].start_col[i]);
+         }
+         else
+         {
+            screen[scrn].win[i] = the_driver->create_window(
+               screen[scrn].rows[i], screen[scrn].cols[i],
+               screen[scrn].start_row[i], screen[scrn].start_col[i]);
+         }
          if ( screen[scrn].win[i] == NULL )
          {
             display_error( 30, (CHARTYPE *)"creating window", FALSE );
@@ -1494,9 +1506,18 @@ short set_up_windows(short scrn)
    if ( display_screens > 1
    &&   !horizontal)
    {
-      divider = the_driver->create_window(
-         screen[1].screen_rows, 2, screen[1].screen_start_row,
-         screen[1].screen_start_col - 2);
+      if ( the_driver_is_headless() )
+      {
+         divider = headless_driver_create_global_window(
+            THE_DRIVER_GLOBAL_DIVIDER, screen[1].screen_rows, 2,
+            screen[1].screen_start_row, screen[1].screen_start_col - 2);
+      }
+      else
+      {
+         divider = the_driver->create_window(
+            screen[1].screen_rows, 2, screen[1].screen_start_row,
+            screen[1].screen_start_col - 2);
+      }
       if ( divider == NULL )
       {
          display_error( 30, (CHARTYPE *)"creating window", FALSE );
@@ -1518,7 +1539,8 @@ short set_up_windows(short scrn)
 
       draw_divider();
    }
-   if ( max_slk_labels )
+   if ( curses_started
+   &&   max_slk_labels )
    {
 #if defined(HAVE_SLK_INIT)
 # if defined(HAVE_SLK_ATTRSET)
@@ -1567,7 +1589,8 @@ short create_statusline_window(void)
    COLOUR_ATTR attr;
 
    TRACE_FUNCTION( "util.c:    create_statusline_window" );
-   if ( !curses_started )
+   if ( !curses_started
+   &&   !the_driver_is_headless() )
    {
       TRACE_RETURN();
       return(RC_OK);
@@ -1585,14 +1608,26 @@ short create_statusline_window(void)
    switch( STATUSLINEx )
    {
       case 'B':
-         statarea = the_driver->create_window(1, COLS, terminal_lines - 1, 0);
+         if ( the_driver_is_headless() )
+            statarea = headless_driver_create_global_window(
+               THE_DRIVER_GLOBAL_STATAREA, 1, terminal_cols,
+               terminal_lines - 1, 0);
+         else
+            statarea = the_driver->create_window(1, COLS,
+                                                 terminal_lines - 1, 0);
 #ifdef HAVE_KEYPAD
 #endif
          the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_STATAREA, set_colour( &attr ));
          clear_statarea();
          break;
       case 'T':
-         statarea = the_driver->create_window(1, COLS, (FILETABSx) ? 1 : 0, 0);
+         if ( the_driver_is_headless() )
+            statarea = headless_driver_create_global_window(
+               THE_DRIVER_GLOBAL_STATAREA, 1, terminal_cols,
+               (FILETABSx) ? 1 : 0, 0);
+         else
+            statarea = the_driver->create_window(1, COLS,
+                                                 (FILETABSx) ? 1 : 0, 0);
 #ifdef HAVE_KEYPAD
 #endif
          the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_STATAREA, set_colour( &attr ));
@@ -1609,7 +1644,8 @@ short create_filetabs_window(void)
 /***********************************************************************/
 {
    TRACE_FUNCTION( "util.c:    create_filetabs_window" );
-   if ( !curses_started )
+   if ( !curses_started
+   &&   !the_driver_is_headless() )
    {
       TRACE_RETURN();
       return(RC_OK);
@@ -1621,7 +1657,11 @@ short create_filetabs_window(void)
    }
    if ( FILETABSx )
    {
-      filetabs = the_driver->create_window(1, COLS, 0, 0);
+      if ( the_driver_is_headless() )
+         filetabs = headless_driver_create_global_window(
+            THE_DRIVER_GLOBAL_FILETABS, 1, terminal_cols, 0, 0);
+      else
+         filetabs = the_driver->create_window(1, COLS, 0, 0);
 #ifdef HAVE_KEYPAD
 #endif
       display_filetabs( NULL );

@@ -1,7 +1,7 @@
 # Draft Skill: THE Agent Editor
 
-Use this draft when an agent should edit through THE's no-curses
-LLM/headless surface instead of scraping a terminal.
+Use this draft when an agent should edit through THE's no-curses LLM/headless
+surfaces instead of scraping a terminal.
 
 ## When To Use
 
@@ -10,14 +10,18 @@ Use THE as an agent editor when you need to:
 - inspect a buffer through stable row-role snapshots or retained deltas.
 - make precise file, line, search, replace, prefix, selection, or
   cursor-driven edits.
-- verify logical cursor behavior, UTF text movement, transient modal state, or
-  no-curses driver boundaries.
+- verify logical cursor behavior, UTF text movement, syntax/style spans,
+  transient modal state, or no-curses driver boundaries.
 - avoid curses, terminal escape sequences, and physical cursor scraping.
 
-Use the normal full editor, CREXX/pty tests, or shell tooling for behavior
-classified by `the_agent capabilities` as outside the LLM/headless target:
-full THE command dispatcher semantics, CREXX macros, terminal mouse packets,
-build/test execution, and repository-scale project indexing.
+Use `the --driver llm` when the task needs real THE runtime semantics: full
+command dispatch, profiles, parser/SDSLH state, syntax/style spans, prefix
+commands, file ring state, editor variables, or CREXX macros when available.
+
+Use `the_agent` when the task needs the lightweight protocol harness,
+no-curses contract test surface, or fallback oracle for snapshot/input
+formatting. Build/test execution and repository-scale search remain host
+automation responsibilities.
 
 ## Start
 
@@ -27,7 +31,13 @@ Build:
 cmake --build cmake-build-debug --target the_agent the_llm_headless -j2
 ```
 
-Start an interactive agent session:
+Start the full-runtime LLM target:
+
+```sh
+./cmake-build-debug/the --driver llm -n path/to/file.txt
+```
+
+Start the lightweight harness:
 
 ```sh
 ./cmake-build-debug/the_agent --rows 24 --cols 100 path/to/file.txt
@@ -84,6 +94,9 @@ command appendline text after current line
 command deleteline
 command duplicateline
 ```
+
+In `the --driver llm`, `command ...` is the real THE command dispatcher. In
+`the_agent`, `command ...` is the documented harness subset.
 
 Use prefix commands for line-oriented edits:
 
@@ -156,6 +169,10 @@ transient result
 transient close
 ```
 
+Full-runtime transient modal loops are not yet adapted to the protocol. Use the
+`the_agent` transient model as the contract oracle until the full-runtime modal
+adapter lands.
+
 If `open` or `new` reports `unsaved changes`, save first or use `open!`/`new!`
 only when discarding edits is intentional.
 
@@ -179,16 +196,19 @@ delta compact max=160
 Verify externally when needed:
 
 ```sh
-ctest --test-dir cmake-build-debug -R 'test_the_agent|test_agentdriver' --output-on-failure
+ctest --test-dir cmake-build-debug -R 'test_the_llm_full_runtime|test_the_agent|test_agentdriver' --output-on-failure
 ```
 
 Run builds and tests outside THE. The editor target does not execute host
 processes by design.
 
-## Outside Target
+## Surface Boundaries
 
-- Full THE dispatcher: requires the full editor command/profile runtime.
-- CREXX macros: require CREXX and full macro/profile integration.
+- Full THE dispatcher: use `the --driver llm`.
+- CREXX macros: use `the --driver llm` when the build reports
+  `"crexx_macros":true`.
+- Parser/SDSLH diagnostics: in target scope for `the --driver llm`; available
+  through real commands now, with first-class snapshot diagnostics pending.
 - Terminal mouse packets: physical input handled by the curses driver; agents
   should use logical `hit` commands.
 - Build/test hooks: host automation should run shell, CMake, and CTest

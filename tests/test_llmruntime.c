@@ -5,6 +5,11 @@
 #include "the.h"
 
 SCREEN_DETAILS screen[MAX_SCREENS];
+VIEW_DETAILS *vd_current = NULL;
+VIEW_DETAILS *vd_first = NULL;
+VIEW_DETAILS *vd_last = NULL;
+CHARTYPE *last_message = NULL;
+int last_message_length = 0;
 CHARTYPE *cmd_rec = NULL;
 LENGTHTYPE cmd_rec_len = 0;
 LENGTHTYPE cmd_verify_col = 1;
@@ -45,14 +50,28 @@ static void expect_absent(const char *name, const char *haystack,
 static void setup_screen(void)
 {
    static VIEW_DETAILS view;
+   static FILE_DETAILS file;
    static SHOW_LINE rows[3];
    static CHARTYPE command[] = "command text";
+   static CHARTYPE fpath[] = "/tmp/";
+   static CHARTYPE fname[] = "sample.the";
+   static CHARTYPE message[] = "runtime message";
    LogicalCursor cursor;
 
    memset(screen, 0, sizeof(screen));
    memset(&view, 0, sizeof(view));
+   memset(&file, 0, sizeof(file));
    memset(rows, 0, sizeof(rows));
 
+   file.fpath = fpath;
+   file.fname = fname;
+   file.number_lines = 7;
+   file.save_alt = 1;
+   view.file_for_view = &file;
+   vd_current = &view;
+   vd_first = &view;
+   vd_last = &view;
+   last_message = message;
    view.tofeof = TRUE;
    view.verify_col = 1;
    screen[0].screen_view = &view;
@@ -93,6 +112,12 @@ static void test_runtime_view(void)
    expect_int("runtime.cursor.row", view.cursor.zone_row, 1);
    expect_contains("runtime.command", view.command_line, "command text");
    expect_contains("runtime.status", view.status, "focus=filearea");
+   expect_contains("runtime.status.message", view.status, "runtime message");
+   expect_int("runtime.buffer.valid", view.buffer_valid, 1);
+   expect_contains("runtime.buffer.path", view.buffer_path,
+                   "/tmp/sample.the");
+   expect_int("runtime.buffer.dirty", view.buffer_dirty, 1);
+   expect_int("runtime.buffers", (int)view.buffer_count, 1);
 }
 
 static void test_compact_filearea_runtime_format(void)

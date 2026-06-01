@@ -37,6 +37,8 @@
 #include <the.h>
 #include <proto.h>
 #include "cursesdriver.h"
+#include "headlessdriver.h"
+#include "llmsession.h"
 #include "thedriver.h"
 #include "utfterm.h"
 #include <time.h>
@@ -69,6 +71,13 @@ static RETSIGTYPE handle_signal(int);
 static void display_info(CHARTYPE *);
 static int setup_system_profile_file(void);
 static void init_signals(void);
+typedef enum
+{
+   THE_STARTUP_DRIVER_CURSES = 0,
+   THE_STARTUP_DRIVER_LLM
+} TheStartupDriver;
+static int filter_driver_args(int argc, char **argv, char ***filtered_argv,
+                              TheStartupDriver *startup_driver);
 /*--------------------------- global data -----------------------------*/
    TheDriverWindow *statarea=NULL,*error_window=NULL,*divider=NULL,*filetabs=NULL;
    VIEW_DETAILS *vd_current=(VIEW_DETAILS *)NULL;
@@ -311,6 +320,73 @@ void atexit_handler(void)
 #endif
 
 /***********************************************************************/
+static int driver_name_to_startup(const char *name,
+                                  TheStartupDriver *startup_driver)
+/***********************************************************************/
+{
+   if (name == NULL || startup_driver == NULL)
+      return 0;
+   if (strcmp(name, "curses") == 0)
+   {
+      *startup_driver = THE_STARTUP_DRIVER_CURSES;
+      return 1;
+   }
+   if (strcmp(name, "llm") == 0 || strcmp(name, "headless") == 0)
+   {
+      *startup_driver = THE_STARTUP_DRIVER_LLM;
+      return 1;
+   }
+   return 0;
+}
+
+/***********************************************************************/
+static int filter_driver_args(int argc, char **argv, char ***filtered_argv,
+                              TheStartupDriver *startup_driver)
+/***********************************************************************/
+{
+   char **filtered;
+   int in;
+   int out = 0;
+
+   if (argv == NULL || filtered_argv == NULL || startup_driver == NULL)
+      return -1;
+   filtered = (char **)malloc(sizeof(char *) * (size_t)argc);
+   if (filtered == NULL)
+      return -1;
+   filtered[out++] = argv[0];
+   for (in = 1; in < argc; in++)
+   {
+      char *arg = argv[in];
+
+      if (strcmp(arg, "--driver") == 0)
+      {
+         if (in + 1 >= argc
+         ||  !driver_name_to_startup(argv[in + 1], startup_driver))
+         {
+            fprintf(stderr, "the: expected --driver curses|llm\n");
+            free(filtered);
+            return -1;
+         }
+         in++;
+         continue;
+      }
+      if (strncmp(arg, "--driver=", 9) == 0)
+      {
+         if (!driver_name_to_startup(arg + 9, startup_driver))
+         {
+            fprintf(stderr, "the: expected --driver curses|llm\n");
+            free(filtered);
+            return -1;
+         }
+         continue;
+      }
+      filtered[out++] = arg;
+   }
+   *filtered_argv = filtered;
+   return out;
+}
+
+/***********************************************************************/
 #ifdef MSWIN
 int Themain(argc,argv)
 int argc;
@@ -344,6 +420,7 @@ int main(int argc, char *argv[])
    int my_argc;
    char **my_argv;
    char *the_arguments;
+   TheStartupDriver startup_driver = THE_STARTUP_DRIVER_CURSES;
 
 #ifdef __EMX__
    _wildcard(&argc,&argv);
@@ -639,6 +716,12 @@ int main(int argc, char *argv[])
    my_argc = argc;
    my_argv = argv;
 #endif
+   my_argc = filter_driver_args(my_argc, my_argv, &my_argv, &startup_driver);
+   if (my_argc < 0)
+   {
+      cleanup();
+      return(4);
+   }
    /*
     * Process the command line arguments.
     */
@@ -1047,6 +1130,25 @@ int main(int argc, char *argv[])
    if (initialise_rexx() != RC_OK)
       rexx_support = FALSE;
 #endif
+   if (startup_driver == THE_STARTUP_DRIVER_LLM)
+   {
+      if (!the_driver_use_headless())
+      {
+         cleanup();
+         DISPLAY_ERROR(0,(CHARTYPE *)"LLM driver not available",FALSE,1);
+         return(32);
+      }
+      headless_driver_reset();
+   }
+   else
+   {
+      if (!the_driver_use_curses())
+      {
+         cleanup();
+         DISPLAY_ERROR(0,(CHARTYPE *)"curses driver not available",FALSE,1);
+         return(32);
+      }
+   }
    /*
     * Create the builtin parsers...
     */
@@ -1126,6 +1228,39 @@ int main(int argc, char *argv[])
       cleanup();
       return(0);
    } /* if (batch_only) */
+   if (startup_driver == THE_STARTUP_DRIVER_LLM)
+   {
+#ifdef USE_UTF8
+      if ((linebufch = (TheRenderCell *)(*the_malloc)(linebuf_size * sizeof(TheRenderCell))) == NULL)
+#else
+      if ((linebufch = (TheDriverCell *)(*the_malloc)(linebuf_size * sizeof(TheDriverCell))) == NULL)
+#endif
+      {
+         cleanup();
+         return(30);
+      }
+      set_screen_defaults();
+      if (set_up_windows(current_screen) != RC_OK)
+      {
+         cleanup();
+         DISPLAY_ERROR(0,(CHARTYPE *)"creating llm driver windows",FALSE,1);
+         return(23);
+      }
+      if (create_statusline_window() != RC_OK)
+      {
+         cleanup();
+         DISPLAY_ERROR(0,(CHARTYPE *)"creating llm status line window",FALSE,1);
+         return(23);
+      }
+      if (create_filetabs_window() != RC_OK)
+      {
+         cleanup();
+         DISPLAY_ERROR(0,(CHARTYPE *)"creating llm filetabs window",FALSE,1);
+         return(23);
+      }
+   }
+   else
+   {
    /*
     * If the platform supports the mouse, set up the default commands.
     */
@@ -1311,6 +1446,7 @@ fclose( fp);
       DISPLAY_ERROR(0,(CHARTYPE *)"creating filetabs window",FALSE,1);
       return(23);
    }
+   }
    /*
     * Set up ETMODE tables...
     */
@@ -1355,17 +1491,24 @@ fclose( fp);
     * We are no longer executing the profile file.
     */
    in_profile = FALSE;
-   been_interactive = TRUE;
-#if !defined(HAVE_PDC_SET_FUNCTION_KEY)
-   atexit( atexit_handler );
-#endif
-   /*
-    * This is where it all happens!!!
-    */
-   if (error_on_screen) {
-       expose_msgline();
+   if (startup_driver == THE_STARTUP_DRIVER_LLM)
+   {
+      (void)llm_session_run_protocol();
    }
-   editor();
+   else
+   {
+      been_interactive = TRUE;
+#if !defined(HAVE_PDC_SET_FUNCTION_KEY)
+      atexit( atexit_handler );
+#endif
+      /*
+       * This is where it all happens!!!
+       */
+      if (error_on_screen) {
+          expose_msgline();
+      }
+      editor();
+   }
    /*
     * Finalise rexx support...
     */
@@ -1643,14 +1786,15 @@ static void display_info(CHARTYPE *argv0)
    fprintf(stdout,"THE is distributed under the terms of the GNU General Public License \n");
    fprintf(stdout,"and comes with NO WARRANTY. See the file COPYING for details.\n");
 #if defined(USE_XCURSES)
-   fprintf(stdout,"\nUsage:\n\n%s [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [-X \"switches\"] [-1[fifoname]] [[dir] [file [...]]]\n",argv0);
+   fprintf(stdout,"\nUsage:\n\n%s [--driver curses|llm] [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [-X \"switches\"] [-1[fifoname]] [[dir] [file [...]]]\n",argv0);
 #elif defined(USE_SDLCURSES) && defined(UNIX)
-   fprintf(stdout,"\nUsage:\n\n%s [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [-1[fifoname]] [[dir] [file [...]]]\n",argv0);
+   fprintf(stdout,"\nUsage:\n\n%s [--driver curses|llm] [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [-1[fifoname]] [[dir] [file [...]]]\n",argv0);
 #else
-   fprintf(stdout,"\nUsage:\n\n%s [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [[dir] [file [...]]]\n",argv0);
+   fprintf(stdout,"\nUsage:\n\n%s [--driver curses|llm] [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [[dir] [file [...]]]\n",argv0);
 #endif
    fprintf(stdout,"\nwhere:\n\n");
    fprintf(stdout,"-h,--help              show this message\n");
+   fprintf(stdout,"--driver curses|llm    select curses UI or LLM/no-curses protocol UI\n");
    fprintf(stdout,"-n                     do not execute the user profile file\n");
    fprintf(stdout,"-m                     force display into mono\n");
    fprintf(stdout,"-r                     run THE in read-only mode\n");

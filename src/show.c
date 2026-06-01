@@ -2256,7 +2256,8 @@ void display_screen(CHARTYPE scrno)
     */
    if ( !interactive_in_macro )
    {
-      if ( batch_only || in_macro || !curses_started )
+      if ( batch_only || in_macro
+      ||   (!curses_started && !the_driver_is_headless()) )
       {
          TRACE_RETURN();
          return;
