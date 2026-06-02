@@ -23,15 +23,9 @@
        methods) more than 1 line into the file area results in the first
        line being correctly added, but subsequent lines are executed as
        commands on the command line.
-     o in AIX version, DEFINEing ENTER has no effect.
-     o Resizing window in X11 version does not reposition cursor on
-       focus line correctly or handle column not now in view.
-       This also can happen after SCREEN 2. This happens under some
-       circumstances, not all.
      o reduce the overhead of refreshing the 2nd view of the same file
        while in split screen mode.  Only refresh when something has
        changed!
-     o Resizing X11 window while in SHOWKEY, causes screen to go black.
      o MARK STREAM is incomplete.  PUT and GET of a marked stream block
        still to do.
      o Bug with CHANGE command with target of BLOCK and marked block is
@@ -55,11 +49,6 @@
        you have one of the 'pseudo' files (results of DIR, SHOWKEY ALL
        or REXX Output), displayed in one screen, and in the other
        execute the same command, THE will crash.
-     o Detection of ncurses (particularly under Linux) needs
-       improvement.  If the /usr/include/curses.h file is actually
-       the ncurses' header file, add a symbolic link from
-       /usr/include/curses.h to /usr/include/ncurses.h before
-       running configure.
      o INPUT command when assigned to a key and hit in FILEAREA
        causes incorrect cursor positioning.
      o Implied extract functions for POINT and RESERVED should be
@@ -94,4 +83,3 @@
        statically link libcurl.a --with-remote
        or dynamically ? issue with SSL either way!
      - add SET FILLER and include this in PRESERVE
-       use git to maintain from PDCursesMod and CVS to maintain within THE

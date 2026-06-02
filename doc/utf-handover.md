@@ -8,7 +8,7 @@ reorganization. Durable detail lives in:
 - `doc/cursor-driver-architecture.md`: ownership contract and guardrails.
 - `doc/driver-vtable-review.md`: operation-by-operation vtable review and
   removed-surface history.
-- `doc/llm-headless-capabilities.md`: current no-curses agent/editor
+- `doc/llm-driver-capabilities.md`: current no-curses agent/editor
   capability inventory.
 - `doc/llm-driver-agent-guide.md`: no-curses agent protocol.
 - `doc/llm-mode.md`: LLM-facing design and usage rules.

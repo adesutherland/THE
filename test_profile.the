@@ -1,7 +1,0 @@
-options levelb
-address the
-'set sdslh tp ~/.local/bin/tp -d'
-'set autocolor *.toy tp'
-'set coloring on auto'
-'input // test comment'
-'qquit'

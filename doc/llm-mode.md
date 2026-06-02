@@ -14,7 +14,7 @@ For active migration status and next closable tasks, read
 Implemented:
 
 - `the --driver llm` is the strategic no-curses agent/editor surface. It boots
-  real THE with the LLM/headless driver selected, skips curses initialization,
+  real THE with the LLM driver module selected, skips curses initialization,
   opens files through real file/view state, and routes `command ...` through
   THE's full command dispatcher.
 - `the_driver_llm` is the runtime-loaded driver module behind `--driver llm`.

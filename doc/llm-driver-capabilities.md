@@ -5,15 +5,16 @@ Last updated: 2026-06-02.
 This inventory describes the supported no-curses agent/editor surface:
 `the --driver llm`.
 
-`the_driver_llm.so` is the runtime-loaded headless driver module used by that
-surface. It is not a separate agent editor. The retired lightweight harness and
-headless mini-session targets no longer define user-facing capabilities.
+`the_driver_llm.so` is the runtime-loaded headless physical driver module used
+by that surface. It is not a separate agent editor. The retired lightweight
+harness and headless mini-session targets no longer define user-facing
+capabilities.
 
 ## Capability Status
 
 | Area | Status | Covered behavior | Tests |
 |---|---|---|---|
-| Full-runtime startup | Implemented | `the --driver llm` selects the LLM/headless driver, skips curses initialization, opens files through the real THE runtime, and serves the LLM protocol over stdin/stdout. Normal `the` and `the --driver curses` remain curses-first. | `test_the_llm_full_runtime`, `test_driver_modules` |
+| Full-runtime startup | Implemented | `the --driver llm` selects the LLM driver module, skips curses initialization, opens files through the real THE runtime, and serves the LLM protocol over stdin/stdout. Normal `the` and `the --driver curses` remain curses-first. | `test_the_llm_full_runtime`, `test_driver_modules` |
 | Protocol verbs | Implemented | The real-runtime protocol accepts `look`, `delta`, `capabilities`, `focus`, `hit`, `key`, `text`, `type`, `command`, `debug`, `transient`, and `quit`. | `test_the_llm_full_runtime`, `test_inputevent` |
 | Capability discovery | Implemented | `the --driver llm capabilities` is the authoritative machine-readable capability report. It reports the full dispatcher, real buffers, syntax/style support, parser diagnostics availability, CREXX availability, transient support, and external build/test ownership. | `test_the_llm_full_runtime`, `test_the_llm_profile_crexx` |
 | Full THE command dispatcher | Implemented | `command ...` calls THE's real `command_line(..., COMMAND_ONLY_FALSE)`, so existing editor commands, profiles, and macro dispatch paths stay in the full runtime. | `test_the_llm_full_runtime`, CREXX/pty tests when enabled |

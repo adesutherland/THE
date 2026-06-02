@@ -16,7 +16,6 @@ cmake-build-*/
 cmake-build/
 out/
 bin/
-.idea/
 
 # C/C++ Build Artifacts
 *.o
@@ -30,12 +29,7 @@ bin/
 *.app
 
 # IDEs
-.idea/workspace.xml
-.idea/tasks.xml
-.idea/shelf/
-.idea/vcs.xml
-.idea/dictionaries/
-.idea/dataSources/
+.idea/
 .vs/
 .vscode/
 
@@ -56,3 +50,5 @@ migrate_c99.py
 fix_knr.py
 /editor_stderr.log
 /parser.log
+/test.toy
+/test_profile.the

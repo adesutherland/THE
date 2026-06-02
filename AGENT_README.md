@@ -4,11 +4,12 @@
 **THE** is a full-screen, character-mode text editor based on the VM/CMS editor XEDIT and KEDIT, originally written by Mark Hessling. This repository represents a significantly modernized fork.
 
 ### Recent Modernizations:
-- **Build System**: The legacy GNU Autotools (`configure`) and various scattered `Makefile` scripts for DOS/OS2/Windows have been completely replaced with a unified, cross-platform **CMake** build system (`CMakeLists.txt`).
+- **Build System**: The legacy GNU Autotools (`configure`) and scattered platform makefiles have been replaced with a unified **CMake** build system (`CMakeLists.txt`).
 - **IDE Support**: The project is now natively supported by modern C/C++ IDEs like CLion out-of-the-box.
-- **Codebase Standardization**: The entire C codebase has been strictly refactored from pre-ANSI (K&R) C to the **C99 standard**. All legacy `#ifdef HAVE_PROTO` blocks and `Args()` macros were stripped to ensure strict compliance and eliminate hundreds of compiler warnings on modern Clang/GCC compilers.
-- **Architecture & Extensibility**: The project maintains a clean separation between file data models, ncurses rendering views, and command execution logic. For a detailed breakdown of the codebase structure, see the [Architecture Overview](doc/architecture.md).
-- **LLM Driver Direction**: The emerging LLM mode exposes a logical screen/cursor view and normalized input events without screen scraping curses output. For the agent-facing contract and current limitations, see the [LLM Mode Agent Guide](doc/llm-mode.md).
+- **Codebase Standardization**: The C codebase has been refactored from pre-ANSI (K&R) C to the **C99 standard**. Legacy `#ifdef HAVE_PROTO` blocks and `Args()` macros were stripped.
+- **Supported Platforms**: Maintained source targets are macOS, Linux/POSIX, and native Windows. Historical DOS, OS/2, VMS, Amiga, BeOS, QNX, DJGPP/GO32, and ancient compiler branches have been retired.
+- **Architecture & Extensibility**: The project separates the editor core from runtime-loaded UI drivers. The default curses UI and the no-curses LLM UI both implement the neutral driver surface. For a detailed breakdown, see the [Architecture Overview](doc/architecture.md) and [Cursor Driver Architecture](doc/cursor-driver-architecture.md).
+- **LLM Driver**: `the --driver llm` exposes real THE runtime state through semantic snapshots and normalized input events without screen scraping curses output. For the agent-facing contract, see the [LLM Mode Agent Guide](doc/llm-mode.md), [LLM Driver Agent Guide](doc/llm-driver-agent-guide.md), and [LLM Driver Capability Inventory](doc/llm-driver-capabilities.md).
 
 ## 2. CREXX Integration
 This fork is explicitly tailored for the modern [CREXX](https://github.com/crexx-org) scripting engine.
@@ -20,5 +21,5 @@ This fork is explicitly tailored for the modern [CREXX](https://github.com/crexx
 4. **Documentation**: The current bridge contract is documented in [CREXX Integration](doc/crexx.md).
 
 ### Remaining Goals:
-1. **Platform Testing**: macOS and local development workflows are the main proven path. Windows and Linux should continue to be validated in CI and release smoke tests.
+1. **Platform Testing**: macOS and local development workflows are the main proven path. Windows and Linux should continue to be validated in CI and release smoke tests, with special attention to runtime driver module loading.
 2. **Packaging**: The CMake `install()` targets stage the executable and resources into a release directory. Future updates may involve integrating `CPack` to generate distributable `.dmg`, `.deb`, or `.zip` files.

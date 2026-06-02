@@ -1,40 +1,120 @@
-# THE (The Hessling Editor) - Architecture Overview
+# THE Architecture Overview
 
-This document provides a high-level architectural overview of **THE**, primarily focusing on the C99 modernized fork (4.0.CREXX).
+Last updated: 2026-06-02.
 
-## Core Philosophy
-THE is a classic, procedural C terminal application built around an infinite event loop. It maintains a clean separation between file data (the model), window representation (the view), and command execution (the controller), heavily leveraging `ncurses` for cross-platform character-mode rendering.
+THE is a procedural C editor descended from XEDIT/KEDIT. This fork keeps the
+classic command, file-ring, view, and Rexx macro model, but the UI architecture
+now separates editor state from physical terminal mechanics.
 
-## High-Level Components
+For the detailed cursor/driver contract, read
+`doc/cursor-driver-architecture.md`. For the active migration ledger, read
+`doc/utf-handover.md`.
 
-### 1. Initialization and Entry Point (`src/the.c`)
-- **`main()`**: The application begins here. It handles system-level setup, memory allocation (THE uses custom block allocators for performance), locale configuration, and environment variable parsing.
-- **Bootstrapping**: It processes command-line arguments to determine the initial files to open and sets up the Rexx macro environment. Finally, it initializes the `ncurses` screen and delegates control to the main loop.
+## Supported Platforms
 
-### 2. The Main Event Loop (`src/edit.c`)
-- **`editor()`**: This function runs the infinite loop driving the application.
-- **`process_key()`**: The central dispatcher. It awaits user input via `my_getch()`, handles raw terminal events (like window resizing `SIGWINCH`), and manages macro recording states.
-- Input is translated from raw keystrokes or command-line strings into actionable commands via `function_key()`.
+The maintained platform targets are:
 
-### 3. Command Subsystem (`src/commutil.c`, `src/execute.c`, `src/command.h`)
-- **Command Routing**: Raw input strings are looked up against a massive internal command table (`struct commands command[]` defined in `src/command.h`).
-- **Execution**: The lookup resolves to specific C function pointers implemented across various `comm*.c` and `execute.c` files. This architecture allows THE to rapidly execute over 200 distinct XEDIT/KEDIT commands.
+- macOS.
+- Linux/POSIX.
+- native Windows.
 
-### 4. Data Management (`src/the.h`, `src/file.c`)
-THE manages state through three primary structures:
-- **`LINE`**: The fundamental unit of text. Files are stored as doubly-linked lists of `LINE` structures.
-- **`FILE_DETAILS`**: Tracks metadata for a loaded file (e.g., file path, modification status, line count). Multiple files are loaded into a "ring" allowing fast background switching.
-- **`VIEW_DETAILS`**: Represents the visual state of a file on screen (e.g., current cursor line, window dimensions, display options). A single `FILE_DETAILS` can have multiple `VIEW_DETAILS` if split-screen is used.
+Historical DOS, OS/2, VMS, Amiga, BeOS, QNX, DJGPP/GO32, and ancient compiler
+source branches have been retired. Some command names and help text still use
+historical names such as `DOS` because they are editor command compatibility
+surface, not supported platform declarations.
 
-### 5. Rendering Engine (`src/show.c`)
-- **Decoupled Updates**: Rendering is strictly decoupled from command logic. As commands modify the linked lists or view parameters, they do not immediately draw to the screen.
-- **`build_screen()`**: When the event loop is ready, this function traverses the `VIEW_DETAILS` and `FILE_DETAILS` structures to populate the logical ncurses display buffers.
-- **`display_screen()`**: Flushes the logical buffers to the physical terminal using optimized ncurses calls (`wnoutrefresh`, `doupdate`).
+## Runtime Shape
 
-### 6. Scripting and Extension (`src/rexx.c`, `src/crexx.c`)
-- **Rexx Integration**: THE is deeply integrated with the Rexx scripting language. Macros written in Rexx can be executed to automate editor tasks.
-- **Two-Way Bridge**: The C codebase calls out to the Rexx interpreter to run scripts, and Rexx scripts call back into THE's command subsystem (`execute_macro()`) to mutate editor state.
-- **CREXX Bridge**: When built with CREXX support, THE uses `crexxsaa` to compile/cache CREXX source profiles and macros, run existing `.rxbin` macros, and register `ADDRESS THE` as a native callback environment. CREXX scripts then issue normal THE commands through the existing command subsystem. See [CREXX Integration](crexx.md).
+The main executable is `the`. It owns command-line parsing, editor startup,
+file/profile setup, command dispatch, macro integration, and driver module
+selection. It does not link curses directly.
 
----
-*This document was generated as part of the C99/CMake modernization effort to assist future contributors in navigating the codebase.*
+Drivers are runtime-loaded modules:
+
+- `the_driver_curses`: the default terminal UI. It owns curses startup/shutdown,
+  windows, physical cursor mechanics, refresh ordering, raw terminal input,
+  mouse packet decoding, terminal palette allocation, and software cursor
+  painting.
+- `the_driver_llm`: the no-curses LLM UI. It boots the real editor runtime and
+  exposes semantic snapshots and normalized input over stdin/stdout through
+  `the --driver llm`.
+
+Both drivers implement the neutral `TheDriverOps` surface from
+`src/thedriver.h`. Public driver types are curses-free.
+
+## Core Editor Model
+
+The editor core manages:
+
+- `LINE`: file text in doubly-linked lists.
+- `FILE_DETAILS`: loaded file metadata and file-ring state.
+- `VIEW_DETAILS`: per-view display, cursor, selection, prefix, and screen state.
+- command tables in `src/command.h` and command implementations in
+  `src/comm*.c`, `src/execute.c`, and related modules.
+- Rexx/CREXX profile and macro execution through `src/rexx.c` and
+  `src/crexx.c`.
+
+Core editor code owns logical state: file lines, logical cursor positions,
+row roles, prefix and command-line text, block/selection state, syntax/style
+categories, logical colors, and logical key identity. It must not infer editor
+state from physical curses cursor or window state.
+
+## Logical UI And Rendering
+
+Several modules provide the driver-neutral view of the editor:
+
+- `src/textpos.c`, `src/logcursor.c`, `src/utflayout.c`, `src/utfrepair.c`,
+  and `src/utfterm.c` model logical UTF positions and terminal repair policy.
+- `src/uidriver.c` and `src/screenframe.c` build logical row-role snapshots.
+- `src/rendercell.c` models UTF render cells and clusters independently of
+  curses `chtype` / `cchar_t`.
+- `src/transientui.c` models readv/dialog/popup state without terminal APIs.
+- `src/inputevent.c` models normalized text, key, command, logical-hit, and
+  debug input events.
+
+The curses driver lowers this logical model to a terminal. The LLM driver
+formats the same logical model as structured text for agents.
+
+## LLM Driver
+
+`the --driver llm` is the strategic no-curses agent/editor surface. It uses the
+real THE runtime: real buffers, views, command dispatch, profiles, syntax
+state, parser diagnostics, file-ring state, block state, and CREXX integration
+when available.
+
+Supported protocol verbs include `look`, `delta`, `capabilities`, `focus`,
+`hit`, `key`, `text`, `type`, `command`, `debug`, `transient`, and `quit`.
+
+Capability details live in `doc/llm-driver-capabilities.md`; agent usage
+guidance lives in `doc/llm-mode.md` and `doc/llm-driver-agent-guide.md`.
+
+## Scripting And Extension
+
+THE remains deeply integrated with Rexx-style scripting. CREXX support is
+build-dependent and uses `crexxsaa` to compile/cache source profiles and
+macros, run `.rxbin` macros, and register `ADDRESS THE` as a native callback
+environment. CREXX scripts issue normal THE commands through the existing
+command subsystem.
+
+See `doc/crexx.md` for the current bridge contract.
+
+## Testing And Guardrails
+
+Key guardrails:
+
+- `the` and `the_driver_llm.so` must not link curses.
+- `src/the.h` and `src/thedriver.h` must remain curses-free.
+- raw curses input, paint, window, cursor, and cell mechanics must stay in
+  `src/drivers/curses/**` or explicit physical driver operations.
+- real editor behavior for agents should be tested through `the --driver llm`,
+  not through a fake editor harness.
+
+Useful verification:
+
+```sh
+git diff --check
+bash tests/inventory_direct_curses.sh --summary /Users/adrian/CLionProjects/THE
+ctest --test-dir cmake-build-debug \
+  -R 'test_driver_modules|test_the_llm_full_runtime|test_curses_boundary|test_curses_boundary_inventory' \
+  --output-on-failure
+```
