@@ -350,6 +350,13 @@ diagnostics, but semantic snapshots should stay logical:
 LLM protocol clients should not need terminal repair strategies to reason about
 text position.
 
+Semantic LLM snapshots expose UTF cluster metadata only as row annotations.
+Each annotation is keyed by logical cell and logical width, then names the
+cluster class, output method, marker, and compressed/substituted booleans. It
+does not expose terminal display width, cursor width, paint width, or repair
+strategy as position authority. Compact snapshots use the same data in a short
+`u` array; full snapshots use a `utf` array.
+
 ## Base Profile
 
 The portable base profile should prefer native output for well-behaved clusters:
@@ -425,12 +432,16 @@ model.
 7. Update LLM metadata carefully.
    If useful, expose cluster class and compressed/substituted flags in semantic
    snapshots. Do not expose terminal display width as the position authority.
+   Implemented metadata is row-local and logical-cell based: `cell`, logical
+   `width`, `class`, `output`, `mark`, `compressed`, and `substituted`.
 
 8. Add tests.
    Cover classifier behavior, profile parsing, render transforms, logical
    invariance, headless render metadata, LLM semantic stability, and the curses
    boundary inventory. Keep real Apple Terminal visual verification in the
-   terminal probe/manual-test lane.
+   terminal probe/manual-test lane. The LLM coverage checks both full and
+   compact semantic metadata and asserts that physical display widths are not
+   exported into the semantic position contract.
 
 ## Test Plan
 

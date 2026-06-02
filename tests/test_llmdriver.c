@@ -3,6 +3,9 @@
 
 #include "getch.h"
 #include "llmdriver.h"
+#ifdef USE_UTF8
+# include "utfterm.h"
+#endif
 
 static int failures = 0;
 
@@ -212,6 +215,68 @@ static void test_agent_metadata_and_delta(void)
    expect_contains("delta.prefix.command", out, "\"pc\":\"r edit\"");
 }
 
+static void test_utf_physical_metadata(void)
+{
+#ifdef USE_UTF8
+   static const CHARTYPE keycap[] = {
+      'A', '1', 0xEF, 0xB8, 0x8F, 0xE2, 0x83, 0xA3, 'B', 0
+   };
+   LlmDriverScreenView view;
+   LlmDriverFormatOptions options;
+   LogicalCursor cursor;
+   char out[4096];
+
+   cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_FILEAREA, 7, 1,
+                                textpos_from_cell_virtual(NULL, 0, 12,
+                                                          TEXT_SNAP_BACKWARD));
+   utf8_terminal_profile_reset();
+   expect_int("utf.meta.base.output.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS keycap OUTPUT base"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_int("utf.meta.base.mark.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS keycap MARK compressed"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   llm_driver_screen_view_init(&view, 3, 80, cursor);
+   llm_driver_screen_view_set_row(&view, 0, UI_ROW_FILE, 7, 1, 10,
+                                  "000007", (const char *)keycap, 1, 1);
+   expect_int("utf.meta.base.count",
+              (int)view.lines[0].utf_cluster_count, 1);
+   expect_int("utf.meta.base.cell",
+              view.lines[0].utf_clusters[0].cell, 11);
+   llm_driver_format_semantic_view(&view, out, sizeof(out));
+   expect_contains("utf.meta.full.class", out, "\"class\": \"keycap\"");
+   expect_contains("utf.meta.full.output", out, "\"output\": \"base\"");
+   expect_contains("utf.meta.full.mark", out, "\"mark\": \"compressed\"");
+   expect_contains("utf.meta.full.compressed", out, "\"compressed\": 1");
+   expect_contains("utf.meta.full.substituted0", out, "\"substituted\": 0");
+   expect_int("utf.meta.no.display.width",
+              strstr(out, "display_width") == NULL, 1);
+
+   llm_driver_format_options_init(&options);
+   options.compact = 1;
+   options.max_text_cols = 2;
+   llm_driver_format_semantic_view_with_options(&view, &options,
+                                                out, sizeof(out));
+   expect_contains("utf.meta.compact",
+                   out, "\"u\":[[11,1,\"keycap\",\"base\",\"compressed\",1,0]]");
+
+   utf8_terminal_profile_reset();
+   expect_int("utf.meta.substitute.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS keycap OUTPUT substitute U+25A1"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   llm_driver_screen_view_set_row(&view, 0, UI_ROW_FILE, 7, 1, 10,
+                                  "000007", (const char *)keycap, 1, 1);
+   llm_driver_format_semantic_view(&view, out, sizeof(out));
+   expect_contains("utf.meta.sub.output", out, "\"output\": \"substitute\"");
+   expect_contains("utf.meta.sub.mark", out, "\"mark\": \"substituted\"");
+   expect_contains("utf.meta.sub.flag", out, "\"substituted\": 1");
+   utf8_terminal_profile_reset();
+#endif
+}
+
 static void test_input_mapping(void)
 {
    LlmDriverInput input;
@@ -293,6 +358,7 @@ int main(void)
    test_compact_filearea_view_options();
    test_reserved_view_options();
    test_agent_metadata_and_delta();
+   test_utf_physical_metadata();
    test_input_mapping();
    test_debug_snapshot_format();
 

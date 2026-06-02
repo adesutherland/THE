@@ -2,6 +2,9 @@
 #include <string.h>
 
 #include "llmdriver.h"
+#ifdef USE_UTF8
+# include "utfterm.h"
+#endif
 
 enum
 {
@@ -179,6 +182,18 @@ static void test_virtual_frame_semantic_rows(void)
    LogicalCursor cursor;
    char out[8192];
 
+#ifdef USE_UTF8
+   utf8_terminal_profile_reset();
+   expect_int("virtual.utf.output.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS keycap OUTPUT base"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_int("virtual.utf.mark.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS keycap MARK compressed"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+#endif
+
    cursor = virtual_cursor(LOGICAL_CURSOR_ZONE_FILEAREA, 2, VROW_KEYCAP, 2);
    expect_int("virtual.build.file", build_virtual_frame(&frame, cursor), 1);
    expect_int("virtual.view.file", view_from_frame(&frame, &view), 1);
@@ -206,7 +221,17 @@ static void test_virtual_frame_semantic_rows(void)
    expect_contains("semantic.keycap", out, "keycap");
    expect_contains("semantic.zwj", out, "zwj");
    expect_contains("semantic.cursor", out, "\"cursor\": 1");
+   expect_contains("semantic.focus.cell", out, "\"cell\": 2");
+   expect_contains("semantic.utf.array", out, "\"utf\": [");
+   expect_contains("semantic.utf.output", out, "\"output\": \"base\"");
+   expect_contains("semantic.utf.mark", out, "\"mark\": \"compressed\"");
+   expect_contains("semantic.utf.compressed", out, "\"compressed\": 1");
+   expect_int("semantic.no.physical.width",
+              strstr(out, "display_width") == NULL, 1);
    expect_contains("semantic.style.constant", out, "\"style\": \"constant\"");
+#ifdef USE_UTF8
+   utf8_terminal_profile_reset();
+#endif
 }
 
 static void test_prefix_and_command_cursor_overlays(void)

@@ -21,6 +21,19 @@
 #define LLM_DRIVER_MAX_DIAGNOSTIC_MESSAGE 512
 #define LLM_DRIVER_MAX_DIAGNOSTIC_SEVERITY 24
 #define LLM_DRIVER_INPUT_QUEUE_MAX THE_INPUT_QUEUE_MAX
+#define LLM_DRIVER_MAX_UTF_CLUSTERS 64
+#define LLM_DRIVER_MAX_UTF_NAME 32
+
+typedef struct
+{
+   int cell;
+   int logical_width;
+   char feature_class[LLM_DRIVER_MAX_UTF_NAME];
+   char output[LLM_DRIVER_MAX_UTF_NAME];
+   char mark[LLM_DRIVER_MAX_UTF_NAME];
+   int compressed;
+   int substituted;
+} LlmDriverUtfClusterInfo;
 
 typedef struct
 {
@@ -36,6 +49,8 @@ typedef struct
    char text[LLM_DRIVER_MAX_COLS + 1];
    UiStyleRun styles[UI_DRIVER_MAX_STYLE_RUNS];
    size_t style_count;
+   LlmDriverUtfClusterInfo utf_clusters[LLM_DRIVER_MAX_UTF_CLUSTERS];
+   size_t utf_cluster_count;
 } LlmDriverScreenLine;
 
 typedef struct
