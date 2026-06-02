@@ -1,6 +1,6 @@
 # LLM Driver Agent Guide
 
-Last updated: 2026-06-01.
+Last updated: 2026-06-02.
 
 This guide describes the agent-facing LLM driver surface. It intentionally
 avoids migration planning detail; use `doc/utf-handover.md` for status and
@@ -185,6 +185,17 @@ Full-runtime LLM target:
   parser messages exist. `EXTRACT /PMSGS/` still returns the same PMSGS data.
 - The current `the` binary no longer links curses directly. `--driver curses`
   loads the curses module, and `--driver llm` loads the headless/LLM module.
+
+Near-term full-runtime hardening:
+
+- command-triggered readv/dialog/popup flows should become resumable LLM
+  protocol continuations, not terminal-only blocking loops.
+- coverage should exercise realistic syntax/style snapshots, parser
+  diagnostics, profile loading, CREXX where available, prefix commands,
+  block/selection state, file-ring state, and modal workflows through
+  `the --driver llm`.
+- use `the_llm_harness` for protocol formatting/input oracle tests, but add
+  full editor behavior to `the --driver llm` rather than to the harness.
 
 Current lightweight harness subset:
 

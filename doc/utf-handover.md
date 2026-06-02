@@ -1,6 +1,6 @@
 # UTF-8 Cursor/Driver Handover
 
-Last updated: 2026-06-01.
+Last updated: 2026-06-02.
 
 This is the compact handover for the UTF, cursor, driver, and LLM
 reorganization. Durable detail lives in:
@@ -83,9 +83,11 @@ virtual/fake-driver tests, focused unit tests, or CREXX/pty full-editor tests.
   runtime-state names, not direct curses API links. The fallback core
   `doupdate()` shim was renamed to `the_driver_fallback_update()`, and curses
   module cursor callbacks are private `curses_driver_*` lifecycle callbacks.
-- CMake no longer exposes `src/drivers/curses` as a global include directory.
-  Curses headers are included by the curses driver, not by the editor umbrella
-  header.
+- CMake no longer exposes `src/drivers/curses` as a global include directory,
+  and the main binary does not link curses. One include-scope hardening task
+  remains: `${CURSES_INCLUDE_DIRS}` is still present in a top-level
+  `include_directories(...)` block and should be moved onto curses-only
+  targets.
 - `the --driver llm` now selects the headless/LLM driver during real THE
   startup, skips curses initialization, opens files through the real file/view
   runtime, and runs `command ...` through THE's real command dispatcher. The
@@ -194,31 +196,37 @@ Historical vtable counts:
 
 Recommended next slice:
 
-1. Post-module full-runtime polish.
-   Keep `the_llm_harness` stable as the protocol harness while extending
-   `the --driver llm` only where a real runtime behavior is still missing.
-   Good next candidates are deeper command-triggered modal re-entry, more
-   parser/language fixtures, and Windows verification for the portable driver
-   loader.
+1. Driver boundary and LLM runtime hardening.
+   Close this as one aggressive implementation slice:
+   target-scope CMake curses include directories; mechanically convert core
+   editor use of legacy `KEY_*` names to `THE_KEY_*`; deepen full-runtime
+   modal/readv/dialog/popup flows so command-triggered blocking interactions
+   become resumable LLM protocol continuations; and expand `the --driver llm`
+   fixtures for syntax/style spans, parser diagnostics, profiles, CREXX where
+   available, prefix/block/file-ring state, and realistic modal workflows.
+   Keep `the_llm_harness` stable as the protocol harness and formatting/input
+   oracle while the real runtime work happens in `the --driver llm`.
 
 Then:
 
-2. Remaining vtable stabilization.
-   Review the 53 live operations after a selectable no-curses target exists.
-   Do not reopen the removed current/screen/global role cursor, refresh, touch,
-   redraw, raw input, or modal/stdscreen wrapper families. Focus only on
-   operations that still prove awkward for the new target.
-3. Full-runtime integration decisions.
-   Keep full THE dispatcher, profile, parser/SDSLH, and CREXX macro behavior
-   in the full editor runtime and expose them through the LLM driver. Keep
-   build/test execution in host automation.
-4. Terminal and platform decisions.
-   Finish keycap/terminal materialization proof loops, add Linux/Windows
-   Terminal/iTerm2 baselines, and decide whether Windows stays in the curses
-   driver through PDCurses or gets a separate driver.
+2. Terminal and platform decisions.
+   Verify the portable module loader on Windows, decide whether Windows stays
+   in the curses driver through PDCurses or gets a separate driver, and finish
+   Linux/Windows Terminal/iTerm2/keycap materialization baselines.
+3. Logical key identity decision.
+   After the mechanical `THE_KEY_*` rename, decide only if a real non-curses UI
+   needs unique logical key identities beyond the preserved historical
+   curses/PDCurses numeric values.
+4. Remaining vtable stabilization.
+   Review the 53 live operations after the full-runtime LLM target has driven
+   real usage. Do not reopen the removed current/screen/global role cursor,
+   refresh, touch, redraw, raw input, or modal/stdscreen wrapper families.
+   Focus only on operations that still prove awkward for non-curses drivers.
 5. Housekeeping.
-   Remove legacy source branches and reduce build-warning noise only after the
-   architecture is stable, unless a warning blocks the active slice.
+   Rename misleading legacy shared-runtime symbols such as
+   `curses_started`/`suspend_curses`, remove stale codemod residue, remove
+   legacy source branches, and reduce build-warning noise after the boundary
+   slice is stable unless a warning blocks that slice.
 
 ## Do Not Reopen
 
@@ -242,6 +250,14 @@ A migration task is closed only when all applicable items are true:
 - unsupported behavior is explicit in `the_llm_harness capabilities` or this file.
 - physical mechanics remain inside `cursesdriver.c` or an explicit physical
   vtable operation.
+- no curses include path is globally visible except through curses-only
+  targets when the task claims include-boundary closure.
+- core/editor callers use `THE_KEY_*` names after the key-name cleanup, with
+  raw curses/PDCurses key symbols limited to the curses driver, curses key-map
+  tests, and compatibility definitions in `src/thekeys.h`.
+- full-runtime LLM protocol behavior is proved through `the --driver llm`
+  whenever the behavior depends on THE's real dispatcher, profiles, parser,
+  syntax state, CREXX, file ring, block state, or modal command flow.
 - guardrails are tightened for the cleaned module or behavior class.
 - `git diff --check` and focused tests pass.
 

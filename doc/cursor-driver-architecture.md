@@ -1,6 +1,6 @@
 # Cursor Driver Architecture
 
-Last updated: 2026-06-01.
+Last updated: 2026-06-02.
 
 This document is the ownership contract for the cursor/driver split. The active
 status ledger lives in `doc/utf-handover.md`.
@@ -312,26 +312,18 @@ The current active categories are:
   `cursor_focus_sync_current()`, the first full-runtime `the --driver llm`
   proof, runtime-loaded driver modules, parser diagnostics snapshots, and
   full-runtime transient protocol support.
-- Active slice: none selected after the inventory ratchet, bulk wrapper pass,
-  physical input/paint cleanup, raw mouse packet driver-ownership cleanup,
-  corrected suffixed-paint cleanup, the first active-window/window-handle
-  role-helper cleanup, the real driver-vtable migration, the neutral public
-  driver/window-state cleanup, the driver-shape review, the headless/test
-  driver base, shared display/input semantics, portable render-cell/render-
-  cluster semantics, modal/standard-screen contraction, raw input
-  compatibility wrapper retirement, role/window/cursor presentation
-  contraction, LLM/headless agent editor capability fill, dynamic driver
-  modules, parser diagnostics snapshots, and full-runtime transient protocol
-  support. Use
-  `doc/utf-handover.md` as the source of truth for selecting the next slice.
-- Outside the lightweight harness but inside the strategic full-runtime LLM
-  target: full THE dispatcher integration, profiles, CREXX, parser/SDSLH
-  state, parser diagnostics, and transient protocol state are now routed
-  through `the --driver llm`. Build/test execution belongs to host automation.
-  Next platform/runtime decisions are deeper command-triggered modal re-entry,
-  the isolated keycap blank-cell physical materialization/profile follow-up,
-  Windows/PDCurses strategy, additional terminal baselines, and legacy
-  source-branch/build-warning cleanup.
+- Active slice: driver boundary and LLM runtime hardening. It should close the
+  remaining top-level CMake curses include exposure, mechanically convert core
+  `KEY_*` caller names to `THE_KEY_*`, turn deeper command-triggered modal
+  interactions into resumable `the --driver llm` protocol flows, and broaden
+  real-runtime LLM fixtures for syntax/style, parser diagnostics, profiles,
+  CREXX when available, prefix/block/file-ring state, and realistic modal
+  workflows. Use `doc/utf-handover.md` as the detailed source of truth.
+- Queued outside the active slice: Windows loader verification and
+  Windows/PDCurses driver strategy, terminal/keycap materialization baselines,
+  any future unique-logical-key-ID decision after the mechanical rename,
+  remaining vtable stabilization after real non-curses driver use, and
+  legacy naming/source-branch/build-warning housekeeping.
 
 ## Guardrails
 
