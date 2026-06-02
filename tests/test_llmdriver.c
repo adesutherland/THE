@@ -220,17 +220,17 @@ static void test_input_mapping(void)
 
    expect_int("input.left.parse", llm_driver_input_from_key_name("left", &input), 1);
    expect_int("input.left.kind", input.kind, LLM_DRIVER_INPUT_KEY);
-   expect_int("input.left.key", input.key_code, KEY_LEFT);
+   expect_int("input.left.key", input.key_code, THE_KEY_LEFT);
 
    expect_int("input.f5.parse", llm_driver_input_from_key_name("f5", &input), 1);
-   expect_int("input.f5.key", input.key_code, KEY_F(5));
+   expect_int("input.f5.key", input.key_code, THE_KEY_F(5));
 
    expect_int("input.text.parse", llm_driver_input_from_text('x', &input), 1);
    expect_int("input.text.key", input.key_code, 'x');
    expect_int("input.legacy.parse",
-              llm_driver_input_from_legacy_key(KEY_LEFT, &input), 1);
+              llm_driver_input_from_legacy_key(THE_KEY_LEFT, &input), 1);
    expect_int("input.legacy.kind", input.kind, LLM_DRIVER_INPUT_KEY);
-   expect_int("input.legacy.key", input.key_code, KEY_LEFT);
+   expect_int("input.legacy.key", input.key_code, THE_KEY_LEFT);
 
    expect_int("input.command.parse", llm_driver_input_from_command("next", &input), 1);
    expect_int("input.command.legacy", llm_driver_input_to_legacy_key(&input, &key), 0);
@@ -252,7 +252,7 @@ static void test_input_mapping(void)
    llm_driver_input_from_text('a', &input);
    expect_int("queue.push.text", llm_driver_input_queue_push(&queue, input), 1);
    expect_int("queue.pop.right", llm_driver_input_queue_pop_legacy_key(&queue, &key), 1);
-   expect_int("queue.pop.right.key", key, KEY_RIGHT);
+   expect_int("queue.pop.right.key", key, THE_KEY_RIGHT);
    expect_int("queue.pop.text", llm_driver_input_queue_pop_legacy_key(&queue, &key), 1);
    expect_int("queue.pop.text.key", key, 'a');
 }

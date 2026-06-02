@@ -9,8 +9,8 @@
 
 #include "getch.h"
 
-#ifdef KEY_TAB
-# define AGENT_KEY_TAB KEY_TAB
+#ifdef THE_KEY_TAB
+# define AGENT_KEY_TAB THE_KEY_TAB
 #else
 # define AGENT_KEY_TAB 0x9
 #endif
@@ -3549,8 +3549,8 @@ static int agent_input_should_track_history(const TheInputEvent *input)
       return 1;
    if (input->kind == THE_INPUT_KEY)
    {
-      return input->key_code == KEY_BACKSPACE
-          || input->key_code == KEY_DC;
+      return input->key_code == THE_KEY_BACKSPACE
+          || input->key_code == THE_KEY_DC;
    }
    if (input->kind != THE_INPUT_COMMAND)
       return 0;
@@ -3589,19 +3589,19 @@ int agent_driver_apply_input(AgentDriver *driver, const TheInputEvent *input)
       case THE_INPUT_KEY:
          switch (input->key_code)
          {
-            case KEY_LEFT:
+            case THE_KEY_LEFT:
                agent_move_horizontal(driver, -1);
                ok = 1;
                break;
-            case KEY_RIGHT:
+            case THE_KEY_RIGHT:
                agent_move_horizontal(driver, 1);
                ok = 1;
                break;
-            case KEY_UP:
+            case THE_KEY_UP:
                agent_move_vertical(driver, -1);
                ok = 1;
                break;
-            case KEY_DOWN:
+            case THE_KEY_DOWN:
                agent_move_vertical(driver, 1);
                ok = 1;
                break;
@@ -3609,11 +3609,11 @@ int agent_driver_apply_input(AgentDriver *driver, const TheInputEvent *input)
                agent_move_tab_field_forward(driver);
                ok = 1;
                break;
-            case KEY_BTAB:
+            case THE_KEY_BTAB:
                agent_move_tab_field_backward(driver);
                ok = 1;
                break;
-            case KEY_HOME:
+            case THE_KEY_HOME:
                if (driver->focus_zone == LOGICAL_CURSOR_ZONE_COMMAND)
                   driver->command_cursor_cell = 0;
                else if (driver->focus_zone == LOGICAL_CURSOR_ZONE_PREFIX)
@@ -3629,7 +3629,7 @@ int agent_driver_apply_input(AgentDriver *driver, const TheInputEvent *input)
                agent_set_status(driver, "cursor moved");
                ok = 1;
                break;
-            case KEY_END:
+            case THE_KEY_END:
                if (driver->focus_zone == LOGICAL_CURSOR_ZONE_COMMAND)
                   driver->command_cursor_cell = agent_command_end_cell(driver);
                else if (driver->focus_zone == LOGICAL_CURSOR_ZONE_PREFIX)
@@ -3645,7 +3645,7 @@ int agent_driver_apply_input(AgentDriver *driver, const TheInputEvent *input)
                agent_set_status(driver, "cursor moved");
                ok = 1;
                break;
-            case KEY_BACKSPACE:
+            case THE_KEY_BACKSPACE:
                if (driver->focus_zone == LOGICAL_CURSOR_ZONE_COMMAND)
                   ok = agent_backspace_command(driver);
                if (driver->focus_zone == LOGICAL_CURSOR_ZONE_PREFIX)
@@ -3653,7 +3653,7 @@ int agent_driver_apply_input(AgentDriver *driver, const TheInputEvent *input)
                if (driver->focus_zone == LOGICAL_CURSOR_ZONE_FILEAREA)
                   ok = agent_backspace(driver);
                break;
-            case KEY_DC:
+            case THE_KEY_DC:
                if (driver->focus_zone == LOGICAL_CURSOR_ZONE_COMMAND)
                   ok = agent_delete_command_at_cursor(driver);
                if (driver->focus_zone == LOGICAL_CURSOR_ZONE_PREFIX)
@@ -3661,8 +3661,8 @@ int agent_driver_apply_input(AgentDriver *driver, const TheInputEvent *input)
                if (driver->focus_zone == LOGICAL_CURSOR_ZONE_FILEAREA)
                   ok = agent_delete_at_cursor(driver);
                break;
-            case KEY_ENTER:
-            case KEY_RETURN:
+            case THE_KEY_ENTER:
+            case THE_KEY_RETURN:
             {
                char command[LLM_DRIVER_MAX_COMMAND + 1];
                if (driver->focus_zone != LOGICAL_CURSOR_ZONE_COMMAND)
@@ -3678,16 +3678,16 @@ int agent_driver_apply_input(AgentDriver *driver, const TheInputEvent *input)
                ok = agent_apply_command(driver, command);
                break;
             }
-            case KEY_ESC:
+            case THE_KEY_ESC:
                driver->focus_zone = LOGICAL_CURSOR_ZONE_FILEAREA;
                agent_set_status(driver, "filearea focused");
                ok = 1;
                break;
-            case KEY_PPAGE:
+            case THE_KEY_PPAGE:
                agent_move_vertical(driver, -(driver->rows > 1 ? driver->rows - 1 : 1));
                ok = 1;
                break;
-            case KEY_NPAGE:
+            case THE_KEY_NPAGE:
                agent_move_vertical(driver, driver->rows > 1 ? driver->rows - 1 : 1);
                ok = 1;
                break;

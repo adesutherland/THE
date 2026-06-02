@@ -114,6 +114,39 @@
 #define THE_KEY_ESC         0x1b
 #define THE_KEY_CSI         0233
 
+#define THE_KEY_CTRL_2      0x00
+#define THE_KEY_CTRL_A      0x01
+#define THE_KEY_CTRL_B      0x02
+#define THE_KEY_CTRL_C      0x03
+#define THE_KEY_CTRL_D      0x04
+#define THE_KEY_CTRL_E      0x05
+#define THE_KEY_CTRL_F      0x06
+#define THE_KEY_CTRL_G      0x07
+#define THE_KEY_CTRL_H      0x08
+#define THE_KEY_CTRL_I      0x09
+#define THE_KEY_CTRL_J      0x0a
+#define THE_KEY_CTRL_K      0x0b
+#define THE_KEY_CTRL_L      0x0c
+#define THE_KEY_CTRL_M      0x0d
+#define THE_KEY_CTRL_N      0x0e
+#define THE_KEY_CTRL_O      0x0f
+#define THE_KEY_CTRL_P      0x10
+#define THE_KEY_CTRL_Q      0x11
+#define THE_KEY_CTRL_R      0x12
+#define THE_KEY_CTRL_S      0x13
+#define THE_KEY_CTRL_T      0x14
+#define THE_KEY_CTRL_U      0x15
+#define THE_KEY_CTRL_V      0x16
+#define THE_KEY_CTRL_W      0x17
+#define THE_KEY_CTRL_X      0x18
+#define THE_KEY_CTRL_Y      0x19
+#define THE_KEY_CTRL_Z      0x1a
+#define THE_KEY_CTRL_LBRACKET 0x1b
+#define THE_KEY_CTRL_BSLASH   0x1c
+#define THE_KEY_CTRL_RBRACKET 0x1d
+#define THE_KEY_CTRL_6        0x1e
+#define THE_KEY_CTRL_MINUS    0x1f
+
 #define THE_KEY_CTL_LEFT    0x302
 #define THE_KEY_CTL_RIGHT   0x303
 #define THE_KEY_CTL_UP      0x304
@@ -770,38 +803,38 @@
 #endif
 
 #ifndef KEY_C_a
-# define KEY_C_a 0x01
-# define KEY_C_b 0x02
-# define KEY_C_c 0x03
-# define KEY_C_d 0x04
-# define KEY_C_e 0x05
-# define KEY_C_f 0x06
-# define KEY_C_g 0x07
-# define KEY_C_h 0x08
-# define KEY_C_i 0x09
-# define KEY_C_j 0x0a
-# define KEY_C_k 0x0b
-# define KEY_C_l 0x0c
-# define KEY_C_m 0x0d
-# define KEY_C_n 0x0e
-# define KEY_C_o 0x0f
-# define KEY_C_p 0x10
-# define KEY_C_q 0x11
-# define KEY_C_r 0x12
-# define KEY_C_s 0x13
-# define KEY_C_t 0x14
-# define KEY_C_u 0x15
-# define KEY_C_v 0x16
-# define KEY_C_w 0x17
-# define KEY_C_x 0x18
-# define KEY_C_y 0x19
-# define KEY_C_z 0x1a
-# define KEY_C_2 0x00
-# define KEY_C_6 0x1e
-# define KEY_C_MINUS 0x1f
-# define KEY_C_LBRACKET 0x1b
-# define KEY_C_RBRACKET 0x1d
-# define KEY_C_BSLASH 0x1c
+# define KEY_C_a THE_KEY_CTRL_A
+# define KEY_C_b THE_KEY_CTRL_B
+# define KEY_C_c THE_KEY_CTRL_C
+# define KEY_C_d THE_KEY_CTRL_D
+# define KEY_C_e THE_KEY_CTRL_E
+# define KEY_C_f THE_KEY_CTRL_F
+# define KEY_C_g THE_KEY_CTRL_G
+# define KEY_C_h THE_KEY_CTRL_H
+# define KEY_C_i THE_KEY_CTRL_I
+# define KEY_C_j THE_KEY_CTRL_J
+# define KEY_C_k THE_KEY_CTRL_K
+# define KEY_C_l THE_KEY_CTRL_L
+# define KEY_C_m THE_KEY_CTRL_M
+# define KEY_C_n THE_KEY_CTRL_N
+# define KEY_C_o THE_KEY_CTRL_O
+# define KEY_C_p THE_KEY_CTRL_P
+# define KEY_C_q THE_KEY_CTRL_Q
+# define KEY_C_r THE_KEY_CTRL_R
+# define KEY_C_s THE_KEY_CTRL_S
+# define KEY_C_t THE_KEY_CTRL_T
+# define KEY_C_u THE_KEY_CTRL_U
+# define KEY_C_v THE_KEY_CTRL_V
+# define KEY_C_w THE_KEY_CTRL_W
+# define KEY_C_x THE_KEY_CTRL_X
+# define KEY_C_y THE_KEY_CTRL_Y
+# define KEY_C_z THE_KEY_CTRL_Z
+# define KEY_C_2 THE_KEY_CTRL_2
+# define KEY_C_6 THE_KEY_CTRL_6
+# define KEY_C_MINUS THE_KEY_CTRL_MINUS
+# define KEY_C_LBRACKET THE_KEY_CTRL_LBRACKET
+# define KEY_C_RBRACKET THE_KEY_CTRL_RBRACKET
+# define KEY_C_BSLASH THE_KEY_CTRL_BSLASH
 #endif
 
 #ifndef CTL_LEFT

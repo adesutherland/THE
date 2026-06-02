@@ -303,7 +303,6 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/src/llm
     ${CMAKE_SOURCE_DIR}/src/drivers/llm
-    ${CURSES_INCLUDE_DIRS}
 )
 if(USE_UTF8)
     include_directories(${CMAKE_SOURCE_DIR}/src/contrib)

@@ -37,7 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
-#include "thedriver.h"
+#include "llmsession.h"
 #include "thedriver.h"
 
 /*man-start*********************************************************************
@@ -815,13 +815,6 @@ short Readv(CHARTYPE *params)
    TheDriverWindowCursor cursor;
 
    TRACE_FUNCTION( "comm4.c:   Readv" );
-   if ( !in_macro
-   ||   !rexx_support )
-   {
-      display_error( 53, (CHARTYPE *)"", FALSE );
-      TRACE_RETURN();
-      return( RC_INVALID_ENVIRON );
-   }
    strip[0]=STRIP_BOTH;
    strip[1]=STRIP_NONE;
    num_params = param_split( params, word, REA_PARAMS, WORD_DELIMS, TEMP_PARAM, strip, FALSE );
@@ -830,6 +823,26 @@ short Readv(CHARTYPE *params)
       display_error( 1, params, FALSE );
       TRACE_RETURN();
       return( RC_INVALID_OPERAND );
+   }
+
+   if ( ( !in_macro
+   ||     !rexx_support )
+   &&   !( the_driver_is_headless()
+        && equal((CHARTYPE *)"cmdline", word[0], 1) ) )
+   {
+      display_error( 53, (CHARTYPE *)"", FALSE );
+      TRACE_RETURN();
+      return( RC_INVALID_ENVIRON );
+   }
+
+   if ( the_driver_is_headless()
+   &&   equal((CHARTYPE *)"cmdline", word[0], 1) )
+   {
+      rc = llm_session_begin_readv_continuation(
+         (const char *)word[1], -1, (int)max_line_length)
+         ? RC_OK : RC_INVALID_OPERAND;
+      TRACE_RETURN();
+      return rc;
    }
 
    cursor = the_driver->capture_window_cursor(driver_current_window());
@@ -2236,7 +2249,7 @@ short ShowKey(CHARTYPE *params)
 #endif
             key = the_driver_read_legacy_key();
 #if defined(USE_XCURSES)
-            if (key == KEY_SF || key == KEY_SR)
+            if (key == THE_KEY_SF || key == THE_KEY_SR)
                continue;
 #endif
 #ifdef CAN_RESIZE
@@ -2645,7 +2658,7 @@ short Status(CHARTYPE *params)
 #endif
             key = the_driver_read_terminal_legacy_key();
 #if defined(USE_XCURSES)
-            if ( key == KEY_SF || key == KEY_SR )
+            if ( key == THE_KEY_SF || key == THE_KEY_SR )
                continue;
 #endif
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)

@@ -1,6 +1,6 @@
 # LLM/Headless Capability Inventory
 
-Last updated: 2026-06-01.
+Last updated: 2026-06-02.
 
 This inventory distinguishes two LLM/headless surfaces:
 
@@ -34,7 +34,7 @@ This inventory distinguishes two LLM/headless surfaces:
 | Status/error reporting | Implemented | Every command returns JSON ack status; unsupported commands return structured diagnostics; snapshots include status plus buffer path/dirty/line count. | `test_the_llm_harness_capabilities`, `test_llmdriver` |
 | Screen/snapshot output | Implemented | Stable compact/full semantic snapshots with row roles, prefixes, semantic prefix commands, file text, command/status rows, cursor, styles, history, selection, buffers, project files, and buffer metadata. | `test_llmdriver`, `test_llmruntime`, `test_virtual_screen`, `test_agentdriver` |
 | Delta views | Implemented | `delta ...` and `look delta ...` return retained previous-frame deltas with changed focus/status/buffer flags and changed semantic rows. | `test_agentdriver`, `test_the_llm_harness_script`, `test_llmdriver` |
-| Transient/modal UI | Implemented harness and full-runtime protocol | `transient readv`, `transient dialog`, and `transient popup` expose live no-curses look/input/hit/result flows using the shared `transientui` model in both `the_llm_harness` and `the --driver llm`. `the_llm_headless --transient-demo` remains a standalone formatting proof. | `test_transientui`, `test_the_llm_harness_script`, `test_the_llm_full_runtime`, `test_the_llm_headless_no_curses` |
+| Transient/modal UI | Implemented harness and full-runtime protocol | `transient readv`, `transient dialog`, and `transient popup` expose live no-curses look/input/hit/result flows using the shared `transientui` model in both `the_llm_harness` and `the --driver llm`. Command-triggered `READV CMDLINE`, `DIALOG`, and `POPUP` in `the --driver llm` start resumable transient continuations instead of terminal-only blocking loops. `the_llm_headless --transient-demo` remains a standalone formatting proof. | `test_transientui`, `test_the_llm_harness_script`, `test_the_llm_full_runtime`, `test_the_llm_headless_no_curses` |
 | Unicode/UTF oddities | Implemented within current renderer model | Render cells/clusters preserve wide cells, combining marks, keycaps, flags, emoji, ZWJ sequences, logical/display/cursor/paint widths, and repair strategy hints where the current renderer model supports them. Agent editing uses UTF-aware `TextPos` movement. | `test_headlessdriver`, `test_virtual_screen`, `test_agentdriver` |
 | Mouse/logical hit reporting | Implemented logical subset | Logical hits target filearea, prefix, command, prompt, status, tabline/filetabs, divider, and window selection without terminal packets. Terminal mouse escape packets are handled by the curses driver and converted before reaching shared input. | `test_agentdriver`, `test_the_llm_harness_script`, `test_mousehit` |
 
@@ -61,8 +61,8 @@ The no-curses target now has the core editor controls expected by an agent UI:
 - status and structured unsupported-command diagnostics.
 - buffer list and flat project listing metadata.
 - undo/redo availability for harness mutations.
-- logical modal protocol for readv/dialog/popup flows in the harness and
-  full-runtime LLM target.
+- logical modal protocol for readv/dialog/popup flows in the harness, demo
+  protocol, and command-triggered full-runtime LLM continuations.
 - UTF-aware logical cursor movement decoupled from terminal rendering.
 - no-curses link proof for both the interactive harness target and headless
   mini-session target.

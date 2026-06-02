@@ -181,21 +181,24 @@ Full-runtime LLM target:
   syntax/style spans where runtime highlighting is active.
 - `command ...` uses THE's real command dispatcher. CREXX/profile/macro
   integration is preserved when THE is built with CREXX.
+- Command-triggered `READV CMDLINE`, `DIALOG`, and `POPUP` paths start
+  resumable transient protocol continuations under `--driver llm`, so agents
+  can inspect, type/key/hit, and accept/cancel them without curses.
 - SDSLH/parser diagnostics are first-class full-runtime snapshot state when
   parser messages exist. `EXTRACT /PMSGS/` still returns the same PMSGS data.
 - The current `the` binary no longer links curses directly. `--driver curses`
   loads the curses module, and `--driver llm` loads the headless/LLM module.
 
-Near-term full-runtime hardening:
+Closed full-runtime hardening:
 
-- command-triggered readv/dialog/popup flows should become resumable LLM
-  protocol continuations, not terminal-only blocking loops.
-- coverage should exercise realistic syntax/style snapshots, parser
-  diagnostics, profile loading, CREXX where available, prefix commands,
-  block/selection state, file-ring state, and modal workflows through
+- CMake curses include paths are target scoped to curses-owned targets.
+- Core/editor key call sites use THE-owned `THE_KEY_*` names; raw physical
+  curses/PDCurses key symbols stay in the curses driver/key map, curses tests,
+  or `src/thekeys.h` compatibility definitions.
+- `test_the_llm_full_runtime` exercises syntax/style snapshots, parser and
+  CREXX/profile companion tests, real prefix commands, stream selection state,
+  file-ring metadata, and command-triggered readv/dialog/popup workflows through
   `the --driver llm`.
-- use `the_llm_harness` for protocol formatting/input oracle tests, but add
-  full editor behavior to `the --driver llm` rather than to the harness.
 
 Current lightweight harness subset:
 

@@ -174,8 +174,8 @@ int process_key(int key, bool mouse_details_present)
    }
 #endif
 
-#ifdef KEY_RESIZE
-   if ( key == KEY_RESIZE )
+#ifdef THE_KEY_RESIZE
+   if ( key == THE_KEY_RESIZE )
    {
       (void)THE_Resize(0,0);
       (void)THERefresh((CHARTYPE *)"");

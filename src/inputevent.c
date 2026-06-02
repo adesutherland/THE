@@ -6,8 +6,8 @@
 
 #include "getch.h"
 
-#ifdef KEY_TAB
-# define THE_INPUT_KEY_TAB KEY_TAB
+#ifdef THE_KEY_TAB
+# define THE_INPUT_KEY_TAB THE_KEY_TAB
 #else
 # define THE_INPUT_KEY_TAB 0x9
 #endif
@@ -26,27 +26,27 @@ typedef struct
 
 static const TheInputKeyName input_key_names[] =
 {
-   { "left", KEY_LEFT },
-   { "right", KEY_RIGHT },
-   { "up", KEY_UP },
-   { "down", KEY_DOWN },
-   { "home", KEY_HOME },
-   { "end", KEY_END },
-   { "pageup", KEY_PPAGE },
-   { "pgup", KEY_PPAGE },
-   { "pagedown", KEY_NPAGE },
-   { "pgdn", KEY_NPAGE },
-   { "enter", KEY_ENTER },
-   { "return", KEY_RETURN },
-   { "esc", KEY_ESC },
-   { "escape", KEY_ESC },
+   { "left", THE_KEY_LEFT },
+   { "right", THE_KEY_RIGHT },
+   { "up", THE_KEY_UP },
+   { "down", THE_KEY_DOWN },
+   { "home", THE_KEY_HOME },
+   { "end", THE_KEY_END },
+   { "pageup", THE_KEY_PPAGE },
+   { "pgup", THE_KEY_PPAGE },
+   { "pagedown", THE_KEY_NPAGE },
+   { "pgdn", THE_KEY_NPAGE },
+   { "enter", THE_KEY_ENTER },
+   { "return", THE_KEY_RETURN },
+   { "esc", THE_KEY_ESC },
+   { "escape", THE_KEY_ESC },
    { "tab", THE_INPUT_KEY_TAB },
-   { "backtab", KEY_BTAB },
-   { "btab", KEY_BTAB },
-   { "backspace", KEY_BACKSPACE },
-   { "delete", KEY_DC },
-   { "del", KEY_DC },
-   { "insert", KEY_IC },
+   { "backtab", THE_KEY_BTAB },
+   { "btab", THE_KEY_BTAB },
+   { "backspace", THE_KEY_BACKSPACE },
+   { "delete", THE_KEY_DC },
+   { "del", THE_KEY_DC },
+   { "insert", THE_KEY_IC },
    { NULL, 0 }
 };
 
@@ -286,7 +286,7 @@ int the_input_event_from_key_name(const char *name, TheInputEvent *out)
       if (end != NULL && *end == '\0' && number >= 1 && number <= 64)
       {
          out->kind = THE_INPUT_KEY;
-         out->key_code = KEY_F((int)number);
+         out->key_code = THE_KEY_F((int)number);
          return 1;
       }
    }

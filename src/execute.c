@@ -39,6 +39,7 @@
 #include <proto.h>
 #include "thedriver.h"
 #include "driverlayout.h"
+#include "llmsession.h"
 #include "transientui.h"
 
 static LENGTHTYPE execute_filearea_cursor_cell(VIEW_DETAILS *curr_view);
@@ -67,36 +68,36 @@ static TransientUiKey execute_transient_key_from_curses(int key)
          return TRANSIENT_UI_KEY_ENTER;
       case 'q':
          return TRANSIENT_UI_KEY_QUIT;
-#if defined(KEY_UP)
-      case KEY_UP:
+#if defined(THE_KEY_UP)
+      case THE_KEY_UP:
          return TRANSIENT_UI_KEY_UP;
 #endif
-#if defined(KEY_DOWN)
-      case KEY_DOWN:
+#if defined(THE_KEY_DOWN)
+      case THE_KEY_DOWN:
          return TRANSIENT_UI_KEY_DOWN;
 #endif
-#if defined(KEY_LEFT)
-      case KEY_LEFT:
+#if defined(THE_KEY_LEFT)
+      case THE_KEY_LEFT:
          return TRANSIENT_UI_KEY_LEFT;
 #endif
-#if defined(KEY_RIGHT)
-      case KEY_RIGHT:
+#if defined(THE_KEY_RIGHT)
+      case THE_KEY_RIGHT:
          return TRANSIENT_UI_KEY_RIGHT;
 #endif
-#if defined(KEY_PPAGE)
-      case KEY_PPAGE:
+#if defined(THE_KEY_PPAGE)
+      case THE_KEY_PPAGE:
          return TRANSIENT_UI_KEY_PAGEUP;
 #endif
-#if defined(KEY_NPAGE)
-      case KEY_NPAGE:
+#if defined(THE_KEY_NPAGE)
+      case THE_KEY_NPAGE:
          return TRANSIENT_UI_KEY_PAGEDOWN;
 #endif
-#if defined(KEY_HOME)
-      case KEY_HOME:
+#if defined(THE_KEY_HOME)
+      case THE_KEY_HOME:
          return TRANSIENT_UI_KEY_HOME;
 #endif
-#if defined(KEY_END)
-      case KEY_END:
+#if defined(THE_KEY_END)
+      case THE_KEY_END:
          return TRANSIENT_UI_KEY_END;
 #endif
       default:
@@ -3804,7 +3805,7 @@ short execute_editv(short editv_type,bool editv_file,CHARTYPE *params)
          {
             key = the_driver_read_terminal_legacy_key();
 #if defined(USE_XCURSES)
-            if ( key == KEY_SF || key == KEY_SR )
+            if ( key == THE_KEY_SF || key == THE_KEY_SR )
                continue;
 #endif
 #if defined(THE_MOUSE_ENABLED)
@@ -3858,7 +3859,8 @@ short prepare_dialog( CHARTYPE *params, bool alert, CHARTYPE *stemname )
   /*
    * Can only run from a Rexx macro...
    */
-   if ( !in_macro || !rexx_support )
+   if ( ( !in_macro || !rexx_support )
+   &&   !the_driver_is_headless() )
    {
       display_error(53,(CHARTYPE *)"",FALSE);
       TRACE_RETURN();
@@ -4388,6 +4390,17 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
       dialog_button[i].col = button_col[i];
       dialog_button[i].width = button_len[i];
    }
+   if (the_driver_is_headless())
+   {
+      rc = llm_session_begin_dialog_continuation(
+         (const char *)stemname, (const char *)title, dialog_prompt_line,
+         (size_t)prompt_lines, (const char *)initial, editfield,
+         dialog_button, (size_t)num_buttons, editfield ? -1 : default_button,
+         dw_y, dw_x, dw_lines, dw_cols)
+         ? RC_OK : RC_INVALID_OPERAND;
+      TRACE_RETURN();
+      return rc;
+   }
    /*
     * Create the dialog window
     */
@@ -4610,7 +4623,7 @@ short execute_dialog(CHARTYPE *prompt, CHARTYPE *title, CHARTYPE *initial, bool 
       /*
        * Ignore scrollbar "keys"
        */
-      if (key == KEY_SF || key == KEY_SR)
+      if (key == THE_KEY_SF || key == THE_KEY_SR)
          continue;
 #endif
 #if defined(THE_MOUSE_ENABLED)
@@ -4810,8 +4823,9 @@ short prepare_popup( CHARTYPE *params )
   /*
    * Must run from a Rexx macro...
    */
-   if ( !in_macro
-   ||   !rexx_support )
+   if ( ( !in_macro
+   ||     !rexx_support )
+   &&   !the_driver_is_headless() )
    {
       display_error( 53, (CHARTYPE *)"", FALSE );
       TRACE_RETURN();
@@ -5394,6 +5408,15 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
    highlighted_line = (short)popup_state.highlighted_item;
    y_offset = popup_state.y_offset;
    x_offset = popup_state.x_offset;
+   if (the_driver_is_headless())
+   {
+      rc = llm_session_begin_popup_continuation(
+         y, x, height, width, pad_height, pad_width, initial, num_args,
+         popup_items)
+         ? RC_OK : RC_INVALID_OPERAND;
+      TRACE_RETURN();
+      return rc;
+   }
 
    /*
     * Create the popup menu window
@@ -5470,7 +5493,7 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
       /*
        * Ignore scrollbar "keys"
        */
-      if (key == KEY_SF || key == KEY_SR)
+      if (key == THE_KEY_SF || key == THE_KEY_SR)
          continue;
 #endif
 #if defined(THE_MOUSE_ENABLED)

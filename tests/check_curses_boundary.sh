@@ -80,6 +80,26 @@ if [[ -n "$headless_include_violations" ]]; then
   exit 1
 fi
 
+legacy_key_pattern='\b(KEY_[A-Za-z0-9_]+|ALT_[A-Za-z0-9_]+|CTL_[A-Za-z0-9_]+|SHF_[A-Za-z0-9_]+|PAD(SLASH|ENTER|STOP|STAR|MINUS|PLUS|0)|CSI)\b'
+legacy_key_allow_pattern='\b(KEY_TYPE_(ALL|KEY|MOUSE)|KEY_(REDEF|DEFAULT|MOUSE_REDEF)|ALT_PARAMS|CTL_PARAMS)\b'
+legacy_key_violations="$(
+  rg -n "$legacy_key_pattern" src tests tools \
+    --glob '*.[ch]' \
+    --glob '!src/thekeys.h' \
+    --glob '!src/drivers/curses/**' \
+    --glob '!src/PDCursesMod/**' \
+    --glob '!src/contrib/**' \
+    --glob '!tests/test_curses_keymap.c' \
+    --glob '!tools/utf_terminal_probe.c' 2>/dev/null \
+    | rg -v "$legacy_key_allow_pattern" || true
+)"
+
+if [[ -n "$legacy_key_violations" ]]; then
+  printf '%s\n' "Unexpected legacy physical key names outside THE key compatibility, curses driver/keymap, or terminal tools:"
+  printf '%s\n' "$legacy_key_violations"
+  exit 1
+fi
+
 the_h_curses_pattern='#[[:space:]]*include[[:space:]]*[<"][^>"]*(curses|ncurses)|\b(WINDOW|chtype|cchar_t)\b|\b(A_COLOR|COLOR_PAIR|PAIR_NUMBER|A_(BOLD|REVERSE|UNDERLINE|BLINK|DIM|ITALIC|ALTCHARSET|NORMAL|LEFTLINE|RIGHTLINE|TOPLINE|OVERLINE|STRIKEOUT))\b'
 the_h_curses_violations="$(
   rg -n "$the_h_curses_pattern" src/the.h 2>/dev/null || true

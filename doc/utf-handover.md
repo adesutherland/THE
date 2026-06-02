@@ -38,10 +38,10 @@ virtual/fake-driver tests, focused unit tests, or CREXX/pty full-editor tests.
 
 ## Current Checkpoint
 
-- Latest completed slice: full-runtime LLM blocker closure: runtime-loaded
-  driver modules, first-class parser diagnostics, full-runtime transient
-  protocol, broader skip-safe smoke coverage, harness rename, and driver/LLM
-  directory reorganization.
+- Latest completed slice: driver-boundary and full-runtime LLM hardening:
+  target-scoped curses include directories, core/editor `THE_KEY_*` conversion,
+  command-triggered LLM modal continuations for READV/DIALOG/POPUP, expanded
+  full-runtime LLM coverage, and updated no-curses/link guardrails.
 - Live public driver surface: 53 `TheDriverOps` entries.
 - Curses and headless implementations both initialize all 53 entries.
 - Public driver types are neutral: `TheDriverAttr`, `TheDriverCell`,
@@ -83,11 +83,10 @@ virtual/fake-driver tests, focused unit tests, or CREXX/pty full-editor tests.
   runtime-state names, not direct curses API links. The fallback core
   `doupdate()` shim was renamed to `the_driver_fallback_update()`, and curses
   module cursor callbacks are private `curses_driver_*` lifecycle callbacks.
-- CMake no longer exposes `src/drivers/curses` as a global include directory,
-  and the main binary does not link curses. One include-scope hardening task
-  remains: `${CURSES_INCLUDE_DIRS}` is still present in a top-level
-  `include_directories(...)` block and should be moved onto curses-only
-  targets.
+- CMake no longer exposes `src/drivers/curses` or `${CURSES_INCLUDE_DIRS}` as
+  global include directories. Curses include paths are target-scoped to the
+  curses driver module, curses key-map tests, and curses terminal tools. The
+  main binary and LLM driver module do not link curses.
 - `the --driver llm` now selects the headless/LLM driver during real THE
   startup, skips curses initialization, opens files through the real file/view
   runtime, and runs `command ...` through THE's real command dispatcher. The
@@ -110,7 +109,13 @@ virtual/fake-driver tests, focused unit tests, or CREXX/pty full-editor tests.
 - Full-runtime `transient readv`, `transient dialog`, and `transient popup`
   use the shared `transientui` model and support snapshot, key/text input,
   logical hit input, result reporting, close, and cancel through the LLM
-  protocol.
+  protocol. Command-triggered `READV CMDLINE`, `DIALOG`, and `POPUP` paths in
+  `the --driver llm` now start the same resumable transient protocol
+  continuations instead of terminal-only blocking loops.
+- `test_the_llm_full_runtime` now exercises real syntax/style spans, prefix
+  commands, stream block/selection state, file-ring metadata, and
+  command-triggered readv/dialog/popup modal workflows. Parser diagnostics and
+  CREXX/profile coverage remain split into their skip-safe full-runtime tests.
 - `the_llm_harness` now covers the serious no-curses protocol harness subset:
   open/new/save/write, logical snapshots with buffer path/dirty/line metadata,
   search/find, replace/replace-all, line operations, logical hits, key/text
@@ -196,33 +201,20 @@ Historical vtable counts:
 
 Recommended next slice:
 
-1. Driver boundary and LLM runtime hardening.
-   Close this as one aggressive implementation slice:
-   target-scope CMake curses include directories; mechanically convert core
-   editor use of legacy `KEY_*` names to `THE_KEY_*`; deepen full-runtime
-   modal/readv/dialog/popup flows so command-triggered blocking interactions
-   become resumable LLM protocol continuations; and expand `the --driver llm`
-   fixtures for syntax/style spans, parser diagnostics, profiles, CREXX where
-   available, prefix/block/file-ring state, and realistic modal workflows.
-   Keep `the_llm_harness` stable as the protocol harness and formatting/input
-   oracle while the real runtime work happens in `the --driver llm`.
-
-Then:
-
-2. Terminal and platform decisions.
+1. Terminal and platform decisions.
    Verify the portable module loader on Windows, decide whether Windows stays
    in the curses driver through PDCurses or gets a separate driver, and finish
    Linux/Windows Terminal/iTerm2/keycap materialization baselines.
-3. Logical key identity decision.
+2. Logical key identity decision.
    After the mechanical `THE_KEY_*` rename, decide only if a real non-curses UI
    needs unique logical key identities beyond the preserved historical
    curses/PDCurses numeric values.
-4. Remaining vtable stabilization.
+3. Remaining vtable stabilization.
    Review the 53 live operations after the full-runtime LLM target has driven
    real usage. Do not reopen the removed current/screen/global role cursor,
    refresh, touch, redraw, raw input, or modal/stdscreen wrapper families.
    Focus only on operations that still prove awkward for non-curses drivers.
-5. Housekeeping.
+4. Housekeeping.
    Rename misleading legacy shared-runtime symbols such as
    `curses_started`/`suspend_curses`, remove stale codemod residue, remove
    legacy source branches, and reduce build-warning noise after the boundary

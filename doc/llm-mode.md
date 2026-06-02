@@ -1,6 +1,6 @@
 # LLM Mode Agent Guide
 
-Last updated: 2026-06-01.
+Last updated: 2026-06-02.
 
 This document describes the intended LLM-facing mode for THE. It is written for
 agents and tool authors that need to inspect editor state and drive editor input
@@ -86,6 +86,9 @@ Transient UI snapshots are proved in `test_transientui`, available through
 `the --driver llm` through
 `transient readv`, `transient dialog`, `transient popup`, `transient look`,
 `transient key`, `transient text`, `transient hit`, and `transient result`.
+In the full-runtime LLM driver, command-triggered `READV CMDLINE`, `DIALOG`,
+and `POPUP` paths now start resumable transient protocol continuations instead
+of entering terminal-only blocking loops.
 
 The modal/standard-screen contraction, parser diagnostics snapshot path,
 full-runtime transient protocol adapter, raw input compatibility wrapper
@@ -266,8 +269,10 @@ replace, line operations, prefix command execution, UTF-aware selections,
 undo/redo availability, buffer switching, project listing, retained-frame
 deltas, capability output, unsupported-command diagnostics, the closed SOS
 subset, the `the_llm_headless --mini-session` editing proof, no-curses
-transient UI state transitions, and live `the_llm_harness` transient protocol flow
-for readv, dialog, and popup.
+transient UI state transitions, live `the_llm_harness` transient protocol flow
+for readv, dialog, and popup, and full-runtime LLM coverage for syntax/style
+spans, parser diagnostics, profile/CREXX paths, prefix/block/file-ring state,
+and command-triggered modal continuations.
 
 CREXX/pty tests remain the full-editor integration surface. A skipped CREXX
 test means that surface was unavailable; it does not weaken the no-curses

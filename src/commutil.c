@@ -39,6 +39,7 @@
 #include "proto.h"
 #include "key.h"
 #include "command.h"
+#include "llmsession.h"
 #include "thedriver.h"
 #include "transientui.h"
 
@@ -672,13 +673,13 @@ short function_key(int key,int option,bool mouse_details_present)
             break;
          case OPTION_READV:
             /*
-             * If the key hit is KEY_ENTER, KEY_RETURN or KEY_NUMENTER, or TAB terminate
+             * If the key hit is THE_KEY_ENTER, THE_KEY_RETURN or THE_KEY_NUMENTER, or TAB terminate
              * the READV CMDLINE command.
              */
-            if (key == KEY_RETURN
-            ||  key == KEY_ENTER
-            ||  key == KEY_C_m
-            ||  key == KEY_NUMENTER
+            if (key == THE_KEY_RETURN
+            ||  key == THE_KEY_ENTER
+            ||  key == THE_KEY_CTRL_M
+            ||  key == THE_KEY_NUMENTER
             ||  key == 9)
             {
                rc = RC_READV_TERM;
@@ -811,13 +812,13 @@ short function_key(int key,int option,bool mouse_details_present)
                break;
             case OPTION_READV:
                   /*
-                   * If the key hit is KEY_ENTER, KEY_RETURN or KEY_NUMENTER, terminate
+                   * If the key hit is THE_KEY_ENTER, THE_KEY_RETURN or THE_KEY_NUMENTER, terminate
                    * the READV CMDLINE command.
                    */
-                  if (key == KEY_RETURN
-                  ||  key == KEY_ENTER
-                  ||  key == KEY_C_m
-                  ||  key == KEY_NUMENTER
+                  if (key == THE_KEY_RETURN
+                  ||  key == THE_KEY_ENTER
+                  ||  key == THE_KEY_CTRL_M
+                  ||  key == THE_KEY_NUMENTER
                   ||  key == 9)
                   {
                      rc = RC_READV_TERM;
@@ -3812,6 +3813,14 @@ int readv_cmdline(CHARTYPE *initial, TheDriverWindow *dw, int start_col)
       TRACE_RETURN();
       return( RC_INVALID_OPERAND );
    }
+   if (the_driver_is_headless())
+   {
+      rc = llm_session_begin_readv_continuation(
+         (const char *)initial, start_col, (int)max_line_length)
+         ? RC_OK : RC_INVALID_OPERAND;
+      TRACE_RETURN();
+      return rc;
+   }
    buf[1] = '\0';
    Cmsg(initial);
    if ( start_col == -1 )
@@ -3836,7 +3845,7 @@ int readv_cmdline(CHARTYPE *initial, TheDriverWindow *dw, int start_col)
    {
       key = the_driver_read_legacy_key();
 #if defined(USE_XCURSES)
-      if ( key == KEY_SF || key == KEY_SR )
+      if ( key == THE_KEY_SF || key == THE_KEY_SR )
          continue;
 #endif
 #if defined(THE_MOUSE_ENABLED)

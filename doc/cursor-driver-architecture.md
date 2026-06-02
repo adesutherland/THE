@@ -310,16 +310,11 @@ The current active categories are:
   raw input compatibility wrapper retirement that reduced it to 114, and
   role/window/cursor presentation contraction that reduced it to 53 and removed
   `cursor_focus_sync_current()`, the first full-runtime `the --driver llm`
-  proof, runtime-loaded driver modules, parser diagnostics snapshots, and
-  full-runtime transient protocol support.
-- Active slice: driver boundary and LLM runtime hardening. It should close the
-  remaining top-level CMake curses include exposure, mechanically convert core
-  `KEY_*` caller names to `THE_KEY_*`, turn deeper command-triggered modal
-  interactions into resumable `the --driver llm` protocol flows, and broaden
-  real-runtime LLM fixtures for syntax/style, parser diagnostics, profiles,
-  CREXX when available, prefix/block/file-ring state, and realistic modal
-  workflows. Use `doc/utf-handover.md` as the detailed source of truth.
-- Queued outside the active slice: Windows loader verification and
+  proof, runtime-loaded driver modules, parser diagnostics snapshots,
+  full-runtime transient protocol support, target-scoped curses include paths,
+  core/editor `THE_KEY_*` caller names, command-triggered LLM modal
+  continuations, and broader real-runtime LLM fixtures.
+- Queued next: Windows loader verification and
   Windows/PDCurses driver strategy, terminal/keycap materialization baselines,
   any future unique-logical-key-ID decision after the mechanical rename,
   remaining vtable stabilization after real non-curses driver use, and

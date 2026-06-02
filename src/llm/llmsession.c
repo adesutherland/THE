@@ -14,13 +14,42 @@
 #include "transientui.h"
 #include "vars.h"
 
+#define LLM_TRANSIENT_MAX_PROMPTS 128
+#define LLM_TRANSIENT_MAX_ITEMS 128
+
+typedef enum
+{
+   LLM_TRANSIENT_ORIGIN_NONE = 0,
+   LLM_TRANSIENT_ORIGIN_PROTOCOL,
+   LLM_TRANSIENT_ORIGIN_COMMAND_READV,
+   LLM_TRANSIENT_ORIGIN_COMMAND_DIALOG,
+   LLM_TRANSIENT_ORIGIN_COMMAND_POPUP
+} LlmTransientOrigin;
+
 typedef struct
 {
    TransientUiKind kind;
+   LlmTransientOrigin origin;
    TransientUiReadvState readv;
    TransientUiDialogState dialog;
    TransientUiPopupState popup;
    TransientUiAction last_action;
+   int committed;
+   int top;
+   int left;
+   int rows;
+   int cols;
+   char stemname[64];
+   char title[TRANSIENT_UI_MAX_TEXT + 1];
+   char prompt_storage[LLM_TRANSIENT_MAX_PROMPTS][TRANSIENT_UI_MAX_TEXT + 1];
+   const char *prompt_lines[LLM_TRANSIENT_MAX_PROMPTS];
+   size_t prompt_count;
+   char button_storage[TRANSIENT_UI_MAX_BUTTONS][TRANSIENT_UI_MAX_TEXT + 1];
+   TransientUiButtonSpec buttons[TRANSIENT_UI_MAX_BUTTONS];
+   size_t button_count;
+   char popup_storage[LLM_TRANSIENT_MAX_ITEMS][TRANSIENT_UI_MAX_TEXT + 1];
+   const char *popup_items[LLM_TRANSIENT_MAX_ITEMS];
+   int popup_item_count;
 } LlmTransientSession;
 
 static LlmDriverScreenView previous_view;
@@ -34,6 +63,11 @@ static const char *llm_popup_items[] =
    "-----",
    "Close"
 };
+
+static void reset_transient_session(void)
+{
+   memset(&transient_session, 0, sizeof(transient_session));
+}
 
 static void copy_text(char *dest, size_t dest_len, const char *src)
 {
@@ -49,6 +83,103 @@ static void copy_text(char *dest, size_t dest_len, const char *src)
    if (len > 0)
       memcpy(dest, src, len);
    dest[len] = '\0';
+}
+
+static void copy_stem_name(char *dest, size_t dest_len, const char *src)
+{
+   size_t i;
+
+   copy_text(dest, dest_len, src != NULL && *src != '\0' ? src : "DIALOG");
+   for (i = 0; dest != NULL && dest[i] != '\0'; i++)
+      dest[i] = (char)toupper((unsigned char)dest[i]);
+}
+
+static char *trim_in_place(char *text)
+{
+   char *start;
+   char *end;
+
+   if (text == NULL)
+      return NULL;
+   start = text;
+   while (*start != '\0' && isspace((unsigned char)*start))
+      start++;
+   end = start + strlen(start);
+   while (end > start && isspace((unsigned char)end[-1]))
+      end--;
+   *end = '\0';
+   if (start != text)
+      memmove(text, start, strlen(start) + 1);
+   return text;
+}
+
+static const char *transient_origin_name(LlmTransientOrigin origin)
+{
+   switch (origin)
+   {
+      case LLM_TRANSIENT_ORIGIN_PROTOCOL:
+         return "protocol";
+      case LLM_TRANSIENT_ORIGIN_COMMAND_READV:
+         return "command-readv";
+      case LLM_TRANSIENT_ORIGIN_COMMAND_DIALOG:
+         return "command-dialog";
+      case LLM_TRANSIENT_ORIGIN_COMMAND_POPUP:
+         return "command-popup";
+      case LLM_TRANSIENT_ORIGIN_NONE:
+      default:
+         return "none";
+   }
+}
+
+static void configure_default_dialog(LlmTransientSession *session)
+{
+   if (session == NULL)
+      return;
+   copy_text(session->title, sizeof(session->title), "THE DIALOG");
+   copy_text(session->prompt_storage[0],
+             sizeof(session->prompt_storage[0]),
+             "Full-runtime modal adapter");
+   copy_text(session->prompt_storage[1],
+             sizeof(session->prompt_storage[1]),
+             "Use key, text, or hit commands");
+   session->prompt_lines[0] = session->prompt_storage[0];
+   session->prompt_lines[1] = session->prompt_storage[1];
+   session->prompt_count = 2;
+   copy_text(session->button_storage[0],
+             sizeof(session->button_storage[0]), " OK ");
+   copy_text(session->button_storage[1],
+             sizeof(session->button_storage[1]), " CANCEL ");
+   session->buttons[0].text = session->button_storage[0];
+   session->buttons[0].row = 7;
+   session->buttons[0].col = 4;
+   session->buttons[0].width = 4;
+   session->buttons[1].text = session->button_storage[1];
+   session->buttons[1].row = 7;
+   session->buttons[1].col = 14;
+   session->buttons[1].width = 8;
+   session->button_count = 2;
+   session->top = 2;
+   session->left = 4;
+   session->rows = 10;
+   session->cols = 40;
+}
+
+static void configure_default_popup(LlmTransientSession *session)
+{
+   size_t i;
+
+   if (session == NULL)
+      return;
+   for (i = 0; i < sizeof(llm_popup_items) / sizeof(llm_popup_items[0]); i++)
+   {
+      copy_text(session->popup_storage[i], sizeof(session->popup_storage[i]),
+                llm_popup_items[i]);
+      session->popup_items[i] = session->popup_storage[i];
+   }
+   session->popup_item_count =
+      (int)(sizeof(llm_popup_items) / sizeof(llm_popup_items[0]));
+   session->top = 2;
+   session->left = 6;
 }
 
 static char *trim(char *text)
@@ -260,6 +391,104 @@ static void print_capabilities(void)
    fputs(",\"debug_commands\":[\"describe-focus\",\"describe-row\",\"list-visible-rows\",\"dump-cursor-mapping\",\"dump-driver-ops\",\"explain-last-render\"]", stdout);
    fputs("}\n", stdout);
    fflush(stdout);
+}
+
+int llm_session_begin_readv_continuation(const char *initial, int start_col,
+                                         int cols)
+{
+   int cursor_cell;
+
+   reset_transient_session();
+   transient_session.kind = TRANSIENT_UI_KIND_READV;
+   transient_session.origin = LLM_TRANSIENT_ORIGIN_COMMAND_READV;
+   transient_session.top = 0;
+   transient_session.left = 0;
+   transient_session.rows = 1;
+   transient_session.cols = cols > 0 ? cols : 80;
+   cursor_cell = start_col >= 0 ? start_col
+                                : (int)strlen(initial != NULL ? initial : "");
+   transient_ui_readv_state_init(&transient_session.readv,
+                                 initial != NULL ? initial : "",
+                                 cursor_cell, 0, transient_session.cols);
+   return 1;
+}
+
+int llm_session_begin_dialog_continuation(
+   const char *stemname, const char *title,
+   const char * const *prompt_lines, size_t prompt_count,
+   const char *initial, int has_editfield,
+   const TransientUiButtonSpec *buttons, size_t button_count,
+   int active_button, int top, int left, int rows, int cols)
+{
+   size_t i;
+
+   reset_transient_session();
+   transient_session.kind = TRANSIENT_UI_KIND_DIALOG;
+   transient_session.origin = LLM_TRANSIENT_ORIGIN_COMMAND_DIALOG;
+   transient_session.top = top;
+   transient_session.left = left;
+   transient_session.rows = rows;
+   transient_session.cols = cols;
+   copy_stem_name(transient_session.stemname,
+                  sizeof(transient_session.stemname), stemname);
+   copy_text(transient_session.title, sizeof(transient_session.title), title);
+   if (prompt_count > LLM_TRANSIENT_MAX_PROMPTS)
+      prompt_count = LLM_TRANSIENT_MAX_PROMPTS;
+   for (i = 0; i < prompt_count; i++)
+   {
+      copy_text(transient_session.prompt_storage[i],
+                sizeof(transient_session.prompt_storage[i]),
+                prompt_lines != NULL ? prompt_lines[i] : "");
+      transient_session.prompt_lines[i] = transient_session.prompt_storage[i];
+   }
+   transient_session.prompt_count = prompt_count;
+   if (button_count > TRANSIENT_UI_MAX_BUTTONS)
+      button_count = TRANSIENT_UI_MAX_BUTTONS;
+   for (i = 0; i < button_count; i++)
+   {
+      copy_text(transient_session.button_storage[i],
+                sizeof(transient_session.button_storage[i]),
+                buttons != NULL ? buttons[i].text : "");
+      transient_session.buttons[i] = buttons != NULL ? buttons[i]
+                                                     : (TransientUiButtonSpec){ 0 };
+      transient_session.buttons[i].text = transient_session.button_storage[i];
+   }
+   transient_session.button_count = button_count;
+   transient_ui_dialog_state_init(&transient_session.dialog, has_editfield,
+                                  (int)button_count, active_button,
+                                  initial != NULL ? initial : "");
+   return 1;
+}
+
+int llm_session_begin_popup_continuation(
+   int top, int left, int height, int width, int pad_height, int pad_width,
+   int initial, int item_count, const char * const *items)
+{
+   int i;
+
+   reset_transient_session();
+   transient_session.kind = TRANSIENT_UI_KIND_POPUP;
+   transient_session.origin = LLM_TRANSIENT_ORIGIN_COMMAND_POPUP;
+   transient_session.top = top;
+   transient_session.left = left;
+   transient_session.rows = height;
+   transient_session.cols = width;
+   if (item_count > LLM_TRANSIENT_MAX_ITEMS)
+      item_count = LLM_TRANSIENT_MAX_ITEMS;
+   if (item_count < 0)
+      item_count = 0;
+   for (i = 0; i < item_count; i++)
+   {
+      copy_text(transient_session.popup_storage[i],
+                sizeof(transient_session.popup_storage[i]),
+                items != NULL ? items[i] : "");
+      transient_session.popup_items[i] = transient_session.popup_storage[i];
+   }
+   transient_session.popup_item_count = item_count;
+   transient_ui_popup_state_init(&transient_session.popup, height, width,
+                                 pad_height, pad_width, initial, item_count,
+                                 transient_session.popup_items);
+   return 1;
 }
 
 static void print_view(char *args, int delta)
@@ -500,29 +729,26 @@ static int transient_key_from_name(const char *name, TransientUiKey *out)
 static void build_transient_snapshot(const LlmTransientSession *session,
                                      TransientUiSnapshot *snapshot)
 {
-   static const char *dialog_prompt[] =
-   {
-      "Full-runtime modal adapter",
-      "Use key, text, or hit commands"
-   };
-   TransientUiButtonSpec buttons[] =
-   {
-      { " OK ", 7, 4, 4 },
-      { " CANCEL ", 7, 14, 8 }
-   };
-
    if (session == NULL || snapshot == NULL)
       return;
    if (session->kind == TRANSIENT_UI_KIND_READV)
-      transient_ui_snapshot_build_readv(snapshot, 2, 2, 50, &session->readv);
+      transient_ui_snapshot_build_readv(snapshot, session->top,
+                                        session->left,
+                                        session->cols > 0
+                                        ? session->cols : 50,
+                                        &session->readv);
    else if (session->kind == TRANSIENT_UI_KIND_DIALOG)
       transient_ui_snapshot_build_dialog(
-         snapshot, 2, 4, 10, 40, "THE DIALOG", dialog_prompt, 2,
-         session->dialog.edit.text, session->dialog.edit.cursor_cell, 1,
-         buttons, 2, &session->dialog);
+         snapshot, session->top, session->left, session->rows,
+         session->cols, session->title, session->prompt_lines,
+         session->prompt_count,
+         session->dialog.edit.text, session->dialog.edit.cursor_cell,
+         session->dialog.has_editfield,
+         session->buttons, session->button_count, &session->dialog);
    else if (session->kind == TRANSIENT_UI_KIND_POPUP)
-      transient_ui_snapshot_build_popup(snapshot, 2, 6, &session->popup,
-                                        llm_popup_items);
+      transient_ui_snapshot_build_popup(snapshot, session->top,
+                                        session->left, &session->popup,
+                                        session->popup_items);
    else
       transient_ui_snapshot_init(snapshot, TRANSIENT_UI_KIND_NONE, 0, 0, 0, 0);
 }
@@ -543,17 +769,107 @@ static const char *transient_action_name(TransientUiAction action)
    }
 }
 
-static void print_transient_result(const LlmTransientSession *session)
+static void set_rexx_stem_value(const char *stem, const char *value,
+                                int index)
 {
+   if (stem == NULL || *stem == '\0')
+      return;
+   if (!in_macro || !rexx_support)
+      return;
+   if (value == NULL)
+      value = "";
+   (void)set_rexx_variable((CHARTYPE *)stem, (CHARTYPE *)value,
+                           (LENGTHTYPE)strlen(value), index);
+}
+
+static void set_rexx_stem_number(const char *stem, int value, int index)
+{
+   char number[32];
+
+   snprintf(number, sizeof(number), "%d", value);
+   set_rexx_stem_value(stem, number, index);
+}
+
+static void commit_transient_result(LlmTransientSession *session)
+{
+   char text[TRANSIENT_UI_MAX_TEXT + 1];
+   int selected;
+   int highlighted;
+
+   if (session == NULL || session->committed)
+      return;
+   if (session->last_action != TRANSIENT_UI_ACTION_ACCEPT
+   &&  session->last_action != TRANSIENT_UI_ACTION_CANCEL)
+      return;
+   session->committed = 1;
+   if (session->origin == LLM_TRANSIENT_ORIGIN_COMMAND_READV)
+   {
+      size_t len = strlen(session->readv.text);
+
+      if (cmd_rec != NULL && max_line_length > 0)
+      {
+         if (len > (size_t)max_line_length)
+            len = (size_t)max_line_length;
+         memcpy(cmd_rec, session->readv.text, len);
+         cmd_rec_len = (LENGTHTYPE)len;
+      }
+      set_rexx_stem_value("READV", session->readv.text, 1);
+      set_rexx_stem_value("READV", "1", 0);
+      return;
+   }
+   if (session->origin == LLM_TRANSIENT_ORIGIN_COMMAND_DIALOG)
+   {
+      selected = session->dialog.selected_button;
+      if (selected >= 0 && selected < (int)session->button_count)
+      {
+         copy_text(text, sizeof(text), session->button_storage[selected]);
+         trim_in_place(text);
+      }
+      else
+         text[0] = '\0';
+      set_rexx_stem_value(session->stemname, "2", 0);
+      set_rexx_stem_value(session->stemname,
+                          session->dialog.has_editfield
+                          ? session->dialog.edit.text : "", 1);
+      set_rexx_stem_value(session->stemname, text, 2);
+      return;
+   }
+   if (session->origin == LLM_TRANSIENT_ORIGIN_COMMAND_POPUP)
+   {
+      selected = session->popup.selected_item;
+      highlighted = session->popup.highlighted_item;
+      if (selected >= 0 && selected < session->popup_item_count)
+      {
+         set_rexx_stem_value("POPUP", session->popup_storage[selected], 1);
+         set_rexx_stem_number("POPUP", selected + 1, 2);
+      }
+      else
+      {
+         set_rexx_stem_value("POPUP", "", 1);
+         set_rexx_stem_value("POPUP", "0", 2);
+      }
+      set_rexx_stem_number("POPUP", highlighted >= 0 ? highlighted + 1 : 0, 3);
+      set_rexx_stem_number("POPUP", session->popup.escape_key_index, 4);
+      set_rexx_stem_value("POPUP", "4", 0);
+   }
+}
+
+static void print_transient_result(LlmTransientSession *session)
+{
+   commit_transient_result(session);
    fputs("{\"ok\":1,\"kind\":\"", stdout);
    fputs(transient_ui_kind_name(session != NULL ? session->kind
                                                 : TRANSIENT_UI_KIND_NONE),
+         stdout);
+   fputs("\",\"source\":\"", stdout);
+   fputs(transient_origin_name(session != NULL ? session->origin
+                                               : LLM_TRANSIENT_ORIGIN_NONE),
          stdout);
    fputs("\",\"action\":\"", stdout);
    fputs(transient_action_name(session != NULL ? session->last_action
                                                : TRANSIENT_UI_ACTION_NONE),
          stdout);
-   fputs("\"", stdout);
+   printf("\",\"committed\":%d", session != NULL ? session->committed : 0);
    if (session != NULL && session->kind == TRANSIENT_UI_KIND_READV)
    {
       fputs(",\"text\":", stdout);
@@ -590,7 +906,13 @@ static void print_transient(char *args)
    {
       char *text = trim(args + 5);
 
+      reset_transient_session();
       transient_session.kind = TRANSIENT_UI_KIND_READV;
+      transient_session.origin = LLM_TRANSIENT_ORIGIN_PROTOCOL;
+      transient_session.top = 2;
+      transient_session.left = 2;
+      transient_session.rows = 1;
+      transient_session.cols = 50;
       transient_ui_readv_state_init(&transient_session.readv,
                                     text != NULL && *text != '\0'
                                        ? text : "runtime input",
@@ -603,7 +925,10 @@ static void print_transient(char *args)
    {
       char *text = trim(args + 6);
 
+      reset_transient_session();
       transient_session.kind = TRANSIENT_UI_KIND_DIALOG;
+      transient_session.origin = LLM_TRANSIENT_ORIGIN_PROTOCOL;
+      configure_default_dialog(&transient_session);
       transient_ui_dialog_state_init(&transient_session.dialog, 1, 2, 0,
                                      text != NULL && *text != '\0'
                                         ? text : "runtime edit");
@@ -613,9 +938,13 @@ static void print_transient(char *args)
    }
    if (ascii_equal_ci(args, "popup"))
    {
+      reset_transient_session();
       transient_session.kind = TRANSIENT_UI_KIND_POPUP;
+      transient_session.origin = LLM_TRANSIENT_ORIGIN_PROTOCOL;
+      configure_default_popup(&transient_session);
       transient_ui_popup_state_init(&transient_session.popup, 5, 24, 4, 32,
-                                    0, 4, llm_popup_items);
+                                    0, transient_session.popup_item_count,
+                                    transient_session.popup_items);
       transient_session.last_action = TRANSIENT_UI_ACTION_NONE;
       print_ack(1, RC_OK, "transient popup");
       return;
@@ -637,7 +966,7 @@ static void print_transient(char *args)
             &transient_session.dialog, key);
       else if (transient_session.kind == TRANSIENT_UI_KIND_POPUP)
          transient_session.last_action = transient_ui_popup_handle_key(
-            &transient_session.popup, llm_popup_items, key);
+            &transient_session.popup, transient_session.popup_items, key);
       else
          transient_session.last_action = TRANSIENT_UI_ACTION_NONE;
       print_transient_result(&transient_session);
@@ -702,12 +1031,12 @@ static void print_transient(char *args)
    {
       transient_session.last_action = TRANSIENT_UI_ACTION_CANCEL;
       print_transient_result(&transient_session);
-      memset(&transient_session, 0, sizeof(transient_session));
+      reset_transient_session();
       return;
    }
    if (ascii_equal_ci(args, "close") || ascii_equal_ci(args, "clear"))
    {
-      memset(&transient_session, 0, sizeof(transient_session));
+      reset_transient_session();
       print_ack(1, RC_OK, "transient cleared");
       return;
    }
@@ -719,7 +1048,7 @@ int llm_session_run_protocol(void)
    char line[4096];
 
    previous_view_valid = 0;
-   memset(&transient_session, 0, sizeof(transient_session));
+   reset_transient_session();
    (void)focus_command("filearea");
    llm_session_refresh();
    while (fgets(line, sizeof(line), stdin) != NULL)

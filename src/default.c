@@ -1313,10 +1313,10 @@ short set_THE_key_defaults(int prey,int prex)
 #if defined(UNIX) && !defined(USE_EXTCURSES) && !defined(USE_XCURSES) && !defined(USE_SDLCURSES)
   Define((CHARTYPE *)"C-M");
   Define((CHARTYPE *)"F16");
-# if defined(KEY_TAB)
-  Define((CHARTYPE *)"KEY_TAB");
+# if defined(THE_KEY_TAB)
+  Define((CHARTYPE *)"THE_KEY_TAB");
 # endif
-# if defined(KEY_BTAB)
+# if defined(THE_KEY_BTAB)
   Define((CHARTYPE *)"S-TAB");
 # endif
   Define((CHARTYPE *)"C-I");
@@ -1353,11 +1353,11 @@ short set_XEDIT_key_defaults(int prey,int prex)
    Define((CHARTYPE *)"CURU cursor screen up");
 #if defined(UNIX) && !defined(USE_EXTCURSES) && !defined(USE_XCURSES) && !defined(USE_SDLCURSES)
    Define((CHARTYPE *)"C-M sos doprefix execute");
-# if defined(KEY_BTAB)
+# if defined(THE_KEY_BTAB)
    Define((CHARTYPE *)"S-TAB sos tabfieldb");
 # endif
-# if defined(KEY_TAB)
-   Define((CHARTYPE *)"KEY_TAB sos tabfieldf");
+# if defined(THE_KEY_TAB)
+   Define((CHARTYPE *)"THE_KEY_TAB sos tabfieldf");
 # endif
    Define((CHARTYPE *)"C-I sos tabfieldf");
 #else
@@ -1393,11 +1393,11 @@ short set_ISPF_key_defaults(int prey,int prex)
    Define((CHARTYPE *)"CURU cursor screen up");
 #if defined(UNIX) && !defined(USE_EXTCURSES) && !defined(USE_XCURSES) && !defined(USE_SDLCURSES)
    Define((CHARTYPE *)"C-M sos doprefix execute");
-# if defined(KEY_BTAB)
+# if defined(THE_KEY_BTAB)
    Define((CHARTYPE *)"S-TAB sos tabfieldb");
 # endif
-# if defined(KEY_TAB)
-   Define((CHARTYPE *)"KEY_TAB sos tabfieldf");
+# if defined(THE_KEY_TAB)
+   Define((CHARTYPE *)"THE_KEY_TAB sos tabfieldf");
 # endif
    Define((CHARTYPE *)"C-I sos tabfieldf");
 #else
@@ -1435,10 +1435,10 @@ short set_KEDIT_key_defaults(int prey,int prex)
    Define((CHARTYPE *)"CURU");
 #if defined(UNIX) && !defined(USE_EXTCURSES) && !defined(USE_XCURSES) && !defined(USE_SDLCURSES)
    Define((CHARTYPE *)"C-M");
-# if defined(KEY_TAB)
-   Define((CHARTYPE *)"KEY_TAB");
+# if defined(THE_KEY_TAB)
+   Define((CHARTYPE *)"THE_KEY_TAB");
 # endif
-# if defined(KEY_BTAB)
+# if defined(THE_KEY_BTAB)
    Define((CHARTYPE *)"S-TAB");
 # endif
    Define((CHARTYPE *)"C-I");

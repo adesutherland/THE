@@ -33,10 +33,10 @@ static void test_named_keys_and_text(void)
    expect_int("key.left.parse",
               the_input_event_from_key_name("left", &input), 1);
    expect_int("key.left.kind", input.kind, THE_INPUT_KEY);
-   expect_int("key.left.code", input.key_code, KEY_LEFT);
+   expect_int("key.left.code", input.key_code, THE_KEY_LEFT);
    expect_int("key.f12.parse",
               the_input_event_from_key_name("F12", &input), 1);
-   expect_int("key.f12.code", input.key_code, KEY_F(12));
+   expect_int("key.f12.code", input.key_code, THE_KEY_F(12));
 
    expect_int("text.x.parse",
               the_input_event_from_text('x', &input), 1);
@@ -60,32 +60,32 @@ static void test_legacy_key_normalization(void)
    expect_int("legacy.ascii.key", key, 'a');
 
    expect_int("legacy.left.parse",
-              the_input_event_from_legacy_key(KEY_LEFT, &input), 1);
+              the_input_event_from_legacy_key(THE_KEY_LEFT, &input), 1);
    expect_int("legacy.left.kind", input.kind, THE_INPUT_KEY);
    expect_int("legacy.left.to.key",
               the_input_event_to_legacy_key(&input, &key), 1);
-   expect_int("legacy.left.key", key, KEY_LEFT);
+   expect_int("legacy.left.key", key, THE_KEY_LEFT);
 
    expect_int("legacy.return.parse",
-              the_input_event_from_legacy_key(KEY_RETURN, &input), 1);
+              the_input_event_from_legacy_key(THE_KEY_RETURN, &input), 1);
    expect_int("legacy.return.kind", input.kind, THE_INPUT_KEY);
    expect_int("legacy.return.to.key",
               the_input_event_to_legacy_key(&input, &key), 1);
-   expect_int("legacy.return.key", key, KEY_RETURN);
+   expect_int("legacy.return.key", key, THE_KEY_RETURN);
 
    expect_int("legacy.f44.parse",
-              the_input_event_from_legacy_key(KEY_F(44), &input), 1);
+              the_input_event_from_legacy_key(THE_KEY_F(44), &input), 1);
    expect_int("legacy.f44.kind", input.kind, THE_INPUT_KEY);
    expect_int("legacy.f44.to.key",
               the_input_event_to_legacy_key(&input, &key), 1);
-   expect_int("legacy.f44.key", key, KEY_F(44));
-#ifdef KEY_RESIZE
+   expect_int("legacy.f44.key", key, THE_KEY_F(44));
+#ifdef THE_KEY_RESIZE
    expect_int("legacy.resize.parse",
-              the_input_event_from_legacy_key(KEY_RESIZE, &input), 1);
+              the_input_event_from_legacy_key(THE_KEY_RESIZE, &input), 1);
    expect_int("legacy.resize.kind", input.kind, THE_INPUT_KEY);
    expect_int("legacy.resize.to.key",
               the_input_event_to_legacy_key(&input, &key), 1);
-   expect_int("legacy.resize.key", key, KEY_RESIZE);
+   expect_int("legacy.resize.key", key, THE_KEY_RESIZE);
 #endif
    expect_int("legacy.mouse.parse",
               the_input_event_from_legacy_key(THE_KEY_MOUSE, &input), 1);
@@ -95,7 +95,7 @@ static void test_legacy_key_normalization(void)
    expect_int("legacy.mouse.key", key, THE_KEY_MOUSE);
    expect_int("legacy.mouse.detect", the_input_legacy_key_is_mouse(key), 1);
    expect_int("legacy.mouse.detect.regular",
-              the_input_legacy_key_is_mouse(KEY_LEFT), 0);
+              the_input_legacy_key_is_mouse(THE_KEY_LEFT), 0);
 }
 
 static void test_commands_targets_debug_and_queue(void)
@@ -161,13 +161,13 @@ static void test_commands_targets_debug_and_queue(void)
               "dump-cursor-mapping");
 
    the_input_queue_init(&queue);
-   the_input_event_from_legacy_key(KEY_RIGHT, &input);
+   the_input_event_from_legacy_key(THE_KEY_RIGHT, &input);
    expect_int("queue.push.key", the_input_queue_push(&queue, input), 1);
    the_input_event_from_command("next", &input);
    expect_int("queue.push.command", the_input_queue_push(&queue, input), 1);
    expect_int("queue.pop.key",
               the_input_queue_pop_legacy_key(&queue, &key), 1);
-   expect_int("queue.pop.key.value", key, KEY_RIGHT);
+   expect_int("queue.pop.key.value", key, THE_KEY_RIGHT);
    expect_int("queue.pop.command",
               the_input_queue_pop(&queue, &popped), 1);
    expect_int("queue.pop.command.kind", popped.kind, THE_INPUT_COMMAND);
