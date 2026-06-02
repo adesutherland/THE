@@ -11,6 +11,11 @@ typedef struct
    int visible;
 } Utf8LayoutViewport;
 
+/*
+ * UTF layout helpers translate logical editor cell columns into physical
+ * terminal display columns using the active UTF terminal profile. They must not
+ * mutate or redefine TextPos.cell_column.
+ */
 const Utf8TerminalProfileEntry *utf8_layout_cluster_profile(
    const CHARTYPE *line, size_t len, TextCluster cluster);
 int utf8_layout_cluster_logical_width(TextCluster cluster);

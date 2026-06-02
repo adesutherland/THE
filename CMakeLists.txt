@@ -369,6 +369,7 @@ set(THE_SOURCES
     src/textpos.c
     src/transientui.c
     src/uidriver.c
+    src/utfcluster.c
     src/utflayout.c
     src/utfrepair.c
     src/utfterm.c
@@ -583,6 +584,7 @@ add_executable(test_headlessdriver
     src/thedriver.c
     src/logcursor.c
     src/textpos.c
+    src/utfcluster.c
     src/utflayout.c
     src/utfterm.c
 )
@@ -671,7 +673,15 @@ if(USE_UTF8)
     endif()
     add_test(NAME test_utf_fixture COMMAND test_utf_fixture ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/utf-render.txt)
 
-    add_executable(test_textedit tests/test_textedit.c src/textedit.c src/textpos.c src/utfterm.c)
+    add_executable(test_utfcluster tests/test_utfcluster.c src/utfcluster.c src/textpos.c)
+    target_include_directories(test_utfcluster PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+    if(USE_UTF8PROC)
+        target_link_libraries(test_utfcluster ${THE_UTF8PROC_TARGET})
+        target_compile_definitions(test_utfcluster PRIVATE USE_UTF8PROC=1)
+    endif()
+    add_test(NAME test_utfcluster COMMAND test_utfcluster)
+
+    add_executable(test_textedit tests/test_textedit.c src/textedit.c src/textpos.c src/utfterm.c src/utfcluster.c)
     target_include_directories(test_textedit PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
     if(USE_UTF8PROC)
         target_link_libraries(test_textedit ${THE_UTF8PROC_TARGET})
@@ -679,7 +689,7 @@ if(USE_UTF8)
     endif()
     add_test(NAME test_textedit COMMAND test_textedit)
 
-    add_executable(test_utfterm tests/test_utfterm.c src/utfterm.c src/textpos.c)
+    add_executable(test_utfterm tests/test_utfterm.c src/utfterm.c src/utfcluster.c src/textpos.c)
     target_include_directories(test_utfterm PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
     if(USE_UTF8PROC)
         target_link_libraries(test_utfterm ${THE_UTF8PROC_TARGET})
@@ -689,7 +699,7 @@ if(USE_UTF8)
         COMMAND test_utfterm
             ${CMAKE_CURRENT_SOURCE_DIR}/system-osx.the)
 
-    add_executable(test_utflayout tests/test_utflayout.c src/utflayout.c src/utfterm.c src/textpos.c)
+    add_executable(test_utflayout tests/test_utflayout.c src/utflayout.c src/utfterm.c src/utfcluster.c src/textpos.c)
     target_include_directories(test_utflayout PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
     if(USE_UTF8PROC)
         target_link_libraries(test_utflayout ${THE_UTF8PROC_TARGET})
@@ -697,7 +707,7 @@ if(USE_UTF8)
     endif()
     add_test(NAME test_utflayout COMMAND test_utflayout)
 
-    add_executable(test_utfrepair tests/test_utfrepair.c src/utfrepair.c src/utfterm.c src/textpos.c)
+    add_executable(test_utfrepair tests/test_utfrepair.c src/utfrepair.c src/utfterm.c src/utfcluster.c src/textpos.c)
     target_include_directories(test_utfrepair PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
     if(USE_UTF8PROC)
         target_link_libraries(test_utfrepair ${THE_UTF8PROC_TARGET})

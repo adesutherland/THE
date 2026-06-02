@@ -134,5 +134,8 @@ THE_UTF_TERMINAL_PROFILE file are applied at startup.
 ## See Also
 CHANGE, CINSERT, COVERLAY, CREPLACE, REPLACE
 
+Design notes for the planned cluster classification and physical mapping
+extension live in `doc/utf-cluster-mapping.md`.
+
 ## Status
 Incomplete.

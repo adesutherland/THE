@@ -20,6 +20,11 @@ typedef struct
    size_t byte_offset;
    size_t codepoint_index;
    size_t cluster_index;
+   /*
+    * Logical editor cell column. This is derived from the text model and is
+    * not a physical terminal display column; terminal profile widths are
+    * applied later by utflayout/physical drivers.
+    */
    int cell_column;
 } TextPos;
 
@@ -56,6 +61,10 @@ typedef struct
    TextPos end;
    size_t byte_length;
    size_t codepoint_count;
+   /*
+    * Logical cluster width in editor cells, derived from codepoint widths.
+    * Physical render width can differ for terminal-specific profiles.
+    */
    int cell_width;
    int valid;
 } TextCluster;

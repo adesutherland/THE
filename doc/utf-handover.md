@@ -13,6 +13,8 @@ reorganization. Durable detail lives in:
 - `doc/llm-driver-agent-guide.md`: no-curses agent protocol.
 - `doc/llm-mode.md`: LLM-facing design and usage rules.
 - `doc/utf-design.md`: historical UTF findings and terminal details.
+- `doc/utf-cluster-mapping.md`: planned cluster classification and physical
+  mapping profile design.
 
 ## Architecture Rule
 
@@ -200,20 +202,26 @@ Historical vtable counts:
 
 Recommended next slice:
 
-1. Terminal and platform decisions.
+1. UTF cluster mapping.
+   Implement `doc/utf-cluster-mapping.md`: keep logical cluster/cell semantics
+   independent from terminal profile widths, move classification into a shared
+   classifier, add `OUTPUT base`/component-aware physical mappings, and make
+   Apple Terminal keycaps a compressed physical display policy rather than a
+   logical text change.
+2. Terminal and platform decisions.
    Verify the portable module loader on Windows, decide whether Windows stays
    in the curses driver through PDCurses or gets a separate driver, and finish
    Linux/Windows Terminal/iTerm2/keycap materialization baselines.
-2. Logical key identity decision.
+3. Logical key identity decision.
    After the mechanical `THE_KEY_*` rename, decide only if a real non-curses UI
    needs unique logical key identities beyond the preserved historical
    curses/PDCurses numeric values.
-3. Remaining vtable stabilization.
+4. Remaining vtable stabilization.
    Review the 53 live operations after the full-runtime LLM target has driven
    real usage. Do not reopen the removed current/screen/global role cursor,
    refresh, touch, redraw, raw input, or modal/stdscreen wrapper families.
    Focus only on operations that still prove awkward for non-curses drivers.
-4. Housekeeping.
+5. Housekeeping.
    Rename misleading legacy shared-runtime symbols such as
    `curses_started`/`suspend_curses`, remove stale codemod residue, remove
    legacy source branches, and reduce build-warning noise after the boundary

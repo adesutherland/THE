@@ -37,9 +37,13 @@ typedef struct
    CHARTYPE fallback_utf8[THE_RENDER_MAX_FALLBACK_BYTES];
    size_t fallback_length;
    TheRenderAttr attr;
+   /* Logical editor width from TextCluster/TextPos semantics. */
    int logical_width;
+   /* Physical terminal cells reserved for the rendered output. */
    int display_width;
+   /* Physical terminal cells covered by cursor presentation. */
    int cursor_width;
+   /* Physical terminal cells that may need clearing/repainting. */
    int paint_width;
    Utf8TerminalStrategy repair_strategy;
    unsigned int flags;
