@@ -171,7 +171,6 @@ typedef struct CalibrationDefault
    const char *replacement_strategy;
 } CalibrationDefault;
 
-#define ZWJ_UTF8 "\xE2\x80\x8D"
 #define PROBE_CALIBRATION_DEFAULT(feature_class, feature_class_name, display_mode, display_mode_name, output_method, output_method_name, substitute_codepoint, layout_width, cursor_width, cursor_strategy, cursor_strategy_name, replacement_strategy, replacement_strategy_name) \
    { feature_class_name, display_mode_name, output_method_name, substitute_codepoint, layout_width, cursor_width, cursor_strategy_name, replacement_strategy_name },
 
@@ -3744,12 +3743,17 @@ static const char *known_output_method(const char *method)
       return "expanded";
    if (strcmp(method, "substitute") == 0 || strcmp(method, "placeholder") == 0)
       return "substitute";
+   if (strcmp(method, "base") == 0)
+      return "base";
+   if (strcmp(method, "components") == 0)
+      return "components";
    return "native";
 }
 
 static const char *display_for_legacy_output_method(const char *method)
 {
-   if (strcmp(method, "expanded") == 0)
+   if (strcmp(method, "expanded") == 0
+   ||  strcmp(method, "components") == 0)
       return "components";
    return "grouped";
 }
@@ -3758,6 +3762,9 @@ static int output_method_allowed_for_display(const char *display,
                                             const char *method)
 {
    if (strcmp(method, "substitute") == 0)
+      return 1;
+   if (strcmp(method, "base") == 0
+   ||  strcmp(method, "components") == 0)
       return 1;
    if (strcmp(display, "normal") == 0)
       return strcmp(method, "native") == 0;
@@ -4203,30 +4210,32 @@ static int calibration_select_output_method(ProbeConfig *cfg,
 {
    static const char *basic_methods[] =
    {
-      "native", "substitute"
+      "native", "base", "substitute"
    };
    static const char *basic_descriptions[] =
    {
       "emit the stored logical UTF-8 cluster",
+      "emit a class-specific safe base form when one is known",
       "emit the configured replacement code point for this class/display"
    };
    static const int basic_scores[] =
    {
-      10, 40
+      10, 20, 40
    };
    static const char *component_methods[] =
    {
-      "native", "expanded", "substitute"
+      "native", "components", "expanded", "substitute"
    };
    static const char *component_descriptions[] =
    {
       "emit the stored logical UTF-8 cluster",
-      "emit component code points with U+200D suppressed for file display",
+      "emit visible component code points for file display",
+      "legacy alias for visible component output",
       "emit the configured replacement code point for this class/display"
    };
    static const int component_scores[] =
    {
-      10, 20, 40
+      10, 20, 25, 40
    };
    const char **methods = basic_methods;
    const char **descriptions = basic_descriptions;
@@ -4362,13 +4371,111 @@ static int estimated_expanded_width(const char *utf8)
    return width > 0 ? width : 1;
 }
 
+static int probe_codepoint_is_keycap_base(uint32_t codepoint)
+{
+   return (codepoint >= '0' && codepoint <= '9')
+       || codepoint == '#'
+       || codepoint == '*';
+}
+
+static int probe_codepoint_is_regional(uint32_t codepoint)
+{
+   return codepoint >= 0x1F1E6u && codepoint <= 0x1F1FFu;
+}
+
+static int probe_codepoint_is_modifier(uint32_t codepoint)
+{
+   return codepoint >= 0x1F3FBu && codepoint <= 0x1F3FFu;
+}
+
+static const char *calibration_base_utf8(const CalibrationEntry *entry,
+                                         char *buffer, size_t buffer_size)
+{
+   const unsigned char *cursor =
+      (const unsigned char *)entry->sample->utf8;
+   uint32_t codepoint;
+   uint32_t regional[2];
+   int regional_count = 0;
+
+   if (buffer_size == 0)
+      return entry->sample->utf8;
+   buffer[0] = '\0';
+   while (utf8_next_codepoint(&cursor, &codepoint))
+   {
+      if (strcmp(entry->feature_class, "keycap") == 0
+      &&  probe_codepoint_is_keycap_base(codepoint))
+         return append_utf8_codepoint(buffer, 0, buffer_size, codepoint) > 0
+              ? buffer
+              : entry->sample->utf8;
+
+      if (strcmp(entry->feature_class, "regional-flag") == 0
+      &&  probe_codepoint_is_regional(codepoint)
+      &&  regional_count < 2)
+      {
+         regional[regional_count++] = codepoint;
+         continue;
+      }
+
+      if ((strcmp(entry->feature_class, "emoji-variation") == 0
+      ||   strcmp(entry->feature_class, "text-variation") == 0
+      ||   strcmp(entry->feature_class, "modifier") == 0)
+      &&  codepoint != 0xFE0Eu
+      &&  codepoint != 0xFE0Fu
+      &&  !probe_codepoint_is_modifier(codepoint))
+         return append_utf8_codepoint(buffer, 0, buffer_size, codepoint) > 0
+              ? buffer
+              : entry->sample->utf8;
+   }
+
+   if (regional_count == 2)
+   {
+      size_t used = 0;
+
+      used = append_utf8_codepoint(buffer, used, buffer_size,
+                                   'A' + regional[0] - 0x1F1E6u);
+      if (used > 0)
+         used = append_utf8_codepoint(buffer, used, buffer_size,
+                                      'A' + regional[1] - 0x1F1E6u);
+      if (used > 0)
+         return buffer;
+   }
+
+   return append_utf8_codepoint(buffer, 0, buffer_size,
+                                entry->substitute_codepoint) > 0
+        ? buffer
+        : entry->sample->utf8;
+}
+
+static const char *calibration_components_utf8(const CalibrationEntry *entry,
+                                               char *buffer,
+                                               size_t buffer_size)
+{
+   const unsigned char *cursor =
+      (const unsigned char *)entry->sample->utf8;
+   uint32_t codepoint;
+   size_t used = 0;
+
+   if (buffer_size == 0)
+      return entry->sample->utf8;
+   buffer[0] = '\0';
+   while (utf8_next_codepoint(&cursor, &codepoint))
+   {
+      if (codepoint == 0x200Du
+      ||  codepoint == 0xFE0Eu
+      ||  codepoint == 0xFE0Fu)
+         continue;
+      used = append_utf8_codepoint(buffer, used, buffer_size, codepoint);
+      if (used == 0)
+         return entry->sample->utf8;
+   }
+   return used > 0 ? buffer : entry->sample->utf8;
+}
+
 static const char *calibration_effective_utf8(const CalibrationEntry *entry,
                                               char *buffer,
                                               size_t buffer_size)
 {
    const char *src = entry->sample->utf8;
-   size_t zwj_len = strlen(ZWJ_UTF8);
-   size_t used = 0;
 
    if (strcmp(entry->output_method, "native") == 0)
       return src;
@@ -4382,22 +4489,12 @@ static const char *calibration_effective_utf8(const CalibrationEntry *entry,
                                    entry->substitute_codepoint);
       return used > 0 ? buffer : src;
    }
-   if (strcmp(entry->output_method, "expanded") != 0)
-      return src;
-
-   if (buffer_size == 0)
-      return src;
-   while (*src != '\0' && used + 1 < buffer_size)
-   {
-      if (strncmp(src, ZWJ_UTF8, zwj_len) == 0)
-      {
-         src += zwj_len;
-         continue;
-      }
-      buffer[used++] = *src++;
-   }
-   buffer[used] = '\0';
-   return used > 0 ? buffer : entry->sample->utf8;
+   if (strcmp(entry->output_method, "base") == 0)
+      return calibration_base_utf8(entry, buffer, buffer_size);
+   if (strcmp(entry->output_method, "expanded") == 0
+   ||  strcmp(entry->output_method, "components") == 0)
+      return calibration_components_utf8(entry, buffer, buffer_size);
+   return src;
 }
 
 static void make_effective_calibration_entry(const CalibrationEntry *entry,
@@ -4414,7 +4511,9 @@ static void make_effective_calibration_entry(const CalibrationEntry *entry,
    sample->utf8 = (char *)display_utf8;
    if (strcmp(entry->output_method, "substitute") == 0)
       sample->expected_policy_width = 1;
-   else if (strcmp(entry->output_method, "expanded") == 0)
+   else if (strcmp(entry->output_method, "expanded") == 0
+   ||       strcmp(entry->output_method, "components") == 0
+   ||       strcmp(entry->output_method, "base") == 0)
       sample->expected_policy_width = estimated_expanded_width(display_utf8);
    effective->sample = sample;
 }

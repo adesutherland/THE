@@ -218,6 +218,50 @@ static void test_render_cell_model(void)
       expect_int("render.keycap.paint", render.paint_width, 2);
       expect_int("render.keycap.repair", render.repair_strategy,
                  UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST);
+      expect_int("render.keycap.output", render.output_method,
+                 UTF8_TERM_OUTPUT_NATIVE);
+      expect_int("render.keycap.mark", render.mark, UTF8_TERM_MARK_NONE);
+
+      expect_int("render.keycap.base.output.apply",
+                 utf8_terminal_profile_apply_line(
+                    "SET UTF TERMINAL CLASS keycap OUTPUT base"),
+                 UTF8_TERMINAL_PROFILE_APPLIED);
+      expect_int("render.keycap.base.mark.apply",
+                 utf8_terminal_profile_apply_line(
+                    "SET UTF TERMINAL CLASS keycap MARK compressed"),
+                 UTF8_TERMINAL_PROFILE_APPLIED);
+      expect_int("render.keycap.base.layout.apply",
+                 utf8_terminal_profile_apply_line(
+                    "SET UTF TERMINAL CLASS keycap LAYOUT 1 CURSOR 1"),
+                 UTF8_TERMINAL_PROFILE_APPLIED);
+      expect_int("render.keycap.base.cursor.apply",
+                 utf8_terminal_profile_apply_line(
+                    "SET UTF TERMINAL CLASS keycap CURSORSTRATEGY cells"),
+                 UTF8_TERMINAL_PROFILE_APPLIED);
+      expect_int("render.keycap.base.replace.apply",
+                 utf8_terminal_profile_apply_line(
+                    "SET UTF TERMINAL CLASS keycap REPLACESTRATEGY cells"),
+                 UTF8_TERMINAL_PROFILE_APPLIED);
+      expect_int("render.keycap.base.make",
+                 the_render_cluster_from_text_cluster(
+                    &render, keycap, sizeof(keycap),
+                    test_cluster_at_begin(keycap, sizeof(keycap)),
+                    12, 0), 1);
+      expect_size("render.keycap.base.cp.count", render.codepoint_count, 3);
+      expect_int("render.keycap.base.output", render.output_method,
+                 UTF8_TERM_OUTPUT_BASE);
+      expect_int("render.keycap.base.mark", render.mark,
+                 UTF8_TERM_MARK_COMPRESSED);
+      expect_int("render.keycap.base.flag",
+                 (render.flags & THE_RENDER_CLUSTER_BASE) != 0, 1);
+      expect_int("render.keycap.base.display", render.display_width, 1);
+      expect_int("render.keycap.base.cursor", render.cursor_width, 1);
+      expect_int("render.keycap.base.paint", render.paint_width, 1);
+      expect_int("render.keycap.base.wchars",
+                 the_render_cluster_to_wchars(&render, wch,
+                                              sizeof(wch) / sizeof(wch[0])), 1);
+      expect_int("render.keycap.base.wchar0", (int)wch[0], '1');
+      expect_int("render.keycap.base.wchar1", (int)wch[1], 0);
 
       utf8_terminal_profile_reset();
       expect_int("render.flag.make",
@@ -245,6 +289,36 @@ static void test_render_cell_model(void)
       expect_int("render.zwj.display", render.display_width, 6);
       expect_int("render.zwj.cursor", render.cursor_width, 6);
       expect_int("render.zwj.paint", render.paint_width, 6);
+
+      utf8_terminal_profile_reset();
+      expect_int("render.zwj.components.apply",
+                 utf8_terminal_profile_apply_line(
+                    "SET UTF TERMINAL CLASS heart-zwj DISPLAY components OUTPUT components"),
+                 UTF8_TERMINAL_PROFILE_APPLIED);
+      utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_COMPONENTS);
+      expect_int("render.zwj.components.make",
+                 the_render_cluster_from_text_cluster(
+                    &render, zwj, sizeof(zwj),
+                    test_cluster_at_begin(zwj, sizeof(zwj)),
+                    14, 0), 1);
+      expect_int("render.zwj.components.output", render.output_method,
+                 UTF8_TERM_OUTPUT_COMPONENTS);
+      expect_int("render.zwj.components.flag",
+                 (render.flags & THE_RENDER_CLUSTER_COMPONENTS) != 0, 1);
+      expect_int("render.zwj.components.wchars",
+                 the_render_cluster_to_wchars(&render, wch,
+                                              sizeof(wch) / sizeof(wch[0])), 1);
+      {
+         size_t i;
+
+         for (i = 0; wch[i] != L'\0'; i++)
+         {
+            expect_int("render.zwj.components.no.zwj",
+                       (int)wch[i] == 0x200D, 0);
+            expect_int("render.zwj.components.no.vs16",
+                       (int)wch[i] == 0xFE0F, 0);
+         }
+      }
       utf8_terminal_profile_reset();
    }
 #endif

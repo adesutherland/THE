@@ -46,7 +46,8 @@ The physical driver/profile layer owns:
 - terminal class selection for a cluster.
 - output transform such as native, substitute, base, or components.
 - terminal display width, cursor width, paint width, and repair strategy.
-- terminal-specific overrides such as Apple Terminal keycap compression.
+- terminal-profile overrides such as Apple Terminal choosing compressed keycap
+  output.
 - visual marker attributes for compressed or substituted clusters.
 
 Shared code may compute cluster facts, but terminal profile decisions are not
@@ -379,6 +380,13 @@ SET UTF TERMINAL CLASS keycap REPLACESTRATEGY cells
 This gives up the colourful keycap glyph in Apple Terminal, but keeps the
 logical text intact and preserves readable identity.
 
+The Apple Terminal change is not an Apple-only code path. `OUTPUT base`,
+`OUTPUT components`, and `MARK` are general terminal-profile capabilities. The
+Apple identity and `system-osx.the` use them as a policy choice for the known
+Apple keycap repaint/cursor defect; another terminal profile can opt into the
+same mapping, or keep native keycaps, without changing the logical editor
+model.
+
 ## Implementation Plan
 
 1. Add cluster facts.
@@ -410,7 +418,9 @@ logical text intact and preserves readable identity.
 
 6. Add Apple Terminal keycap override.
    Change only terminal identity/profile defaults after unit tests prove
-   `OUTPUT base` renders keycaps as ASCII bases with physical width one.
+   `OUTPUT base` renders keycaps as ASCII bases with physical width one. This
+   step must remain a terminal-profile policy that uses the general mapping
+   capability, not a special Apple-only renderer branch.
 
 7. Update LLM metadata carefully.
    If useful, expose cluster class and compressed/substituted flags in semantic

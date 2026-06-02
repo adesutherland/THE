@@ -43,6 +43,9 @@ void the_render_cluster_init(TheRenderCluster *cluster, TheRenderAttr attr)
    cluster->fallback_codepoint = '?';
    cluster->fallback_utf8[0] = '?';
    cluster->fallback_length = 1;
+   cluster->feature_class = UTF8_TERM_CLASS_UNKNOWN;
+   cluster->output_method = UTF8_TERM_OUTPUT_NATIVE;
+   cluster->mark = UTF8_TERM_MARK_NONE;
    cluster->logical_width = 1;
    cluster->display_width = 1;
    cluster->cursor_width = 1;
@@ -164,6 +167,8 @@ int the_render_cluster_from_text_cluster(TheRenderCluster *dest,
                                          int force_expanded)
 {
    const Utf8TerminalProfileEntry *entry;
+   Utf8ClusterFacts facts;
+   int have_facts;
    TextPos pos;
 
    if (dest == NULL || line == NULL || cluster.byte_length == 0)
@@ -173,16 +178,27 @@ int the_render_cluster_from_text_cluster(TheRenderCluster *dest,
    the_render_cluster_set_utf8(dest, line + cluster.pos.byte_offset,
                                cluster.byte_length);
 
+   have_facts = utf8_cluster_collect_facts(line, len, cluster, &facts);
+   if (have_facts)
+      dest->feature_class = facts.feature_class;
+
    entry = utf8_layout_cluster_profile(line, len, cluster);
    if (entry != NULL)
    {
+      dest->feature_class = entry->feature_class;
+      dest->output_method = entry->output_method;
+      dest->mark = entry->mark;
       dest->repair_strategy = entry->replacement_strategy;
+      the_render_cluster_set_fallback_codepoint(dest,
+                                                entry->substitute_codepoint);
       if (entry->output_method == UTF8_TERM_OUTPUT_SUBSTITUTE)
       {
          dest->flags |= THE_RENDER_CLUSTER_SUBSTITUTE;
-         the_render_cluster_set_fallback_codepoint(dest,
-                                                   entry->substitute_codepoint);
       }
+      else if (entry->output_method == UTF8_TERM_OUTPUT_BASE)
+         dest->flags |= THE_RENDER_CLUSTER_BASE;
+      else if (entry->output_method == UTF8_TERM_OUTPUT_COMPONENTS)
+         dest->flags |= THE_RENDER_CLUSTER_COMPONENTS;
       else if (force_expanded
       ||       entry->output_method == UTF8_TERM_OUTPUT_EXPANDED)
       {
@@ -221,6 +237,100 @@ void the_render_cluster_recolour(TheRenderCluster *cluster,
       cluster->attr = attr;
 }
 
+static int render_append_codepoint(wchar_t *out, size_t out_size,
+                                   size_t *used, uint32_t codepoint)
+{
+   wchar_t one[3];
+   int j;
+
+   if (out == NULL || used == NULL || out_size == 0)
+      return 0;
+   render_codepoint_to_wchars(codepoint, one);
+   for (j = 0; one[j] != L'\0'; j++)
+   {
+      if (*used >= out_size - 1)
+         return 0;
+      out[(*used)++] = one[j];
+   }
+   return 1;
+}
+
+static int render_cluster_base_to_wchars(const TheRenderCluster *cluster,
+                                         wchar_t *out, size_t out_size,
+                                         size_t *used)
+{
+   size_t i;
+
+   switch (cluster->feature_class)
+   {
+      case UTF8_TERM_CLASS_KEYCAP:
+         for (i = 0; i < cluster->codepoint_count; i++)
+         {
+            uint32_t codepoint = cluster->codepoints[i];
+
+            if ((codepoint >= '0' && codepoint <= '9')
+            ||  codepoint == '#'
+            ||  codepoint == '*')
+               return render_append_codepoint(out, out_size, used, codepoint);
+         }
+         return 0;
+
+      case UTF8_TERM_CLASS_REGIONAL_FLAG:
+         if (cluster->codepoint_count < 2)
+            return 0;
+         for (i = 0; i < 2; i++)
+         {
+            uint32_t codepoint = cluster->codepoints[i];
+
+            if (!utf8_cluster_codepoint_is_regional(codepoint))
+               return 0;
+            if (!render_append_codepoint(out, out_size, used,
+                                         'A' + codepoint - 0x1F1E6u))
+               return 0;
+         }
+         return 1;
+
+      case UTF8_TERM_CLASS_EMOJI_VARIATION:
+      case UTF8_TERM_CLASS_TEXT_VARIATION:
+      case UTF8_TERM_CLASS_MODIFIER:
+         for (i = 0; i < cluster->codepoint_count; i++)
+         {
+            uint32_t codepoint = cluster->codepoints[i];
+
+            if (codepoint == 0xFE0Eu || codepoint == 0xFE0Fu
+            ||  utf8_cluster_codepoint_is_modifier(codepoint))
+               continue;
+            return render_append_codepoint(out, out_size, used, codepoint);
+         }
+         return 0;
+
+      default:
+         return 0;
+   }
+}
+
+static int render_cluster_components_to_wchars(const TheRenderCluster *cluster,
+                                               wchar_t *out, size_t out_size,
+                                               size_t *used)
+{
+   size_t i;
+   int emitted = 0;
+
+   for (i = 0; i < cluster->codepoint_count; i++)
+   {
+      uint32_t codepoint = cluster->codepoints[i];
+
+      if (codepoint == 0x200Du
+      ||  codepoint == 0xFE0Eu
+      ||  codepoint == 0xFE0Fu)
+         continue;
+      if (!render_append_codepoint(out, out_size, used, codepoint))
+         return 0;
+      emitted = 1;
+   }
+   return emitted;
+}
+
 int the_render_cluster_to_wchars(const TheRenderCluster *cluster,
                                  wchar_t *out, size_t out_size)
 {
@@ -232,50 +342,44 @@ int the_render_cluster_to_wchars(const TheRenderCluster *cluster,
 
    if (cluster->flags & THE_RENDER_CLUSTER_SUBSTITUTE)
    {
-      wchar_t one[3];
-      int j;
+      if (!render_append_codepoint(out, out_size, &used,
+                                   cluster->fallback_codepoint))
+         return 0;
+      out[used] = L'\0';
+      return used > 0;
+   }
 
-      render_codepoint_to_wchars(cluster->fallback_codepoint, one);
-      for (j = 0; one[j] != L'\0'; j++)
-      {
-         if (used >= out_size - 1)
-            return 0;
-         out[used++] = one[j];
-      }
+   if (cluster->flags & THE_RENDER_CLUSTER_BASE)
+   {
+      if (!render_cluster_base_to_wchars(cluster, out, out_size, &used))
+         (void)render_append_codepoint(out, out_size, &used,
+                                       cluster->fallback_codepoint);
+      out[used] = L'\0';
+      return used > 0;
+   }
+
+   if ((cluster->flags & THE_RENDER_CLUSTER_COMPONENTS)
+   ||  (cluster->flags & THE_RENDER_CLUSTER_EXPANDED))
+   {
+      if (!render_cluster_components_to_wchars(cluster, out, out_size, &used))
+         (void)render_append_codepoint(out, out_size, &used,
+                                       cluster->fallback_codepoint);
       out[used] = L'\0';
       return used > 0;
    }
 
    for (i = 0; i < cluster->codepoint_count; i++)
    {
-      wchar_t one[3];
-      int j;
-
-      if ((cluster->flags & THE_RENDER_CLUSTER_EXPANDED)
-      &&  cluster->codepoints[i] == 0x200Du)
-         continue;
-
-      render_codepoint_to_wchars(cluster->codepoints[i], one);
-      for (j = 0; one[j] != L'\0'; j++)
-      {
-         if (used >= out_size - 1)
-            return 0;
-         out[used++] = one[j];
-      }
+      if (!render_append_codepoint(out, out_size, &used,
+                                   cluster->codepoints[i]))
+         return 0;
    }
 
    if (used == 0)
    {
-      wchar_t one[3];
-      int j;
-
-      render_codepoint_to_wchars(cluster->fallback_codepoint, one);
-      for (j = 0; one[j] != L'\0'; j++)
-      {
-         if (used >= out_size - 1)
-            return 0;
-         out[used++] = one[j];
-      }
+      if (!render_append_codepoint(out, out_size, &used,
+                                   cluster->fallback_codepoint))
+         return 0;
    }
 
    out[used] = L'\0';

@@ -4400,7 +4400,11 @@ DESCRIPTION
      by UTF-8 rendering.  These settings describe terminal layout, cursor,
      output, and repaint behaviour only; editor text movement and commands
      continue to use the logical UTF-8 text model.  DISPLAY selects the
-     preferred grouped or component profile where one is configured.
+     preferred grouped or component profile where one is configured.  CLASS
+     settings include LAYOUT/CURSOR, OUTPUT, MARK, CURSORSTRATEGY, and
+     REPLACESTRATEGY.  OUTPUT base/components and MARK are general physical
+     profile capabilities; terminal-specific profiles such as Apple Terminal
+     keycap mitigation may choose to use them.
 
 STATUS
      Incomplete.

@@ -6,6 +6,7 @@
 [SET] UTF DISPLAY GROUPED|COMPONENTS|TOGGLE
 [SET] UTF TERMINAL CLASS class [DISPLAY display] LAYOUT layout-width CURSOR cursor-width
 [SET] UTF TERMINAL CLASS class [DISPLAY display] OUTPUT method [U+codepoint]
+[SET] UTF TERMINAL CLASS class [DISPLAY display] MARK mark
 [SET] UTF TERMINAL CLASS class [DISPLAY display] CURSORSTRATEGY strategy
 [SET] UTF TERMINAL CLASS class [DISPLAY display] REPLACESTRATEGY strategy
 ```
@@ -72,7 +73,10 @@ number of terminal cells the software cursor or cursor background must cover for
 OUTPUT specifies how the class is written to the terminal. Supported methods are:
 
 - native - write the stored UTF-8 sequence
-- expanded - write component characters for a decomposed display
+- expanded - legacy component output
+- components - write visible component characters, dropping joiners and
+  presentation selectors that are display mechanics
+- base - write a class-specific stable base form
 - substitute - write a substitute display character
 
 When method is substitute, an optional Unicode codepoint may follow the method.
@@ -85,8 +89,34 @@ SET UTF TERMINAL CLASS keycap OUTPUT substitute U+25A1
 SET UTF TERMINAL CLASS regional-flag OUTPUT substitute U+25A1
 ```
 
-Expanded output is meaningful for component-style profiles. For normal and
-grouped profiles, unsupported expanded requests are treated as native output.
+Base output is a general physical-display transform, not an Apple-specific
+command. Current base mappings include keycaps to their ASCII digit, `#`, or
+`*`; regional flags to their ASCII region letters; and variation/modifier
+clusters to their unmodified base codepoint where safe. Apple Terminal uses
+this general capability for keycaps because its native keycap glyph rendering
+can damage visible cursor/repaint state.
+
+Components output is the class-aware form of decomposed display. Expanded
+output remains accepted for compatibility with older profiles and maps to the
+component display path where appropriate. For normal and grouped profiles,
+unsupported expanded requests are treated as native output.
+
+MARK records a visual hint for transformed clusters. Supported marks are:
+
+- `none`: no special marker.
+- `compressed`: the physical display is intentionally shorter or simpler than
+  the stored cluster.
+- `substituted`: the physical display is a substitute character.
+- `unsafe`: the class is known to be unreliable on the current terminal.
+
+MARK is physical render metadata only. It does not change the stored text,
+logical cursor position, or command semantics. For example:
+
+```text
+SET UTF TERMINAL CLASS keycap OUTPUT base
+SET UTF TERMINAL CLASS keycap MARK compressed
+SET UTF TERMINAL CLASS keycap LAYOUT 1 CURSOR 1
+```
 
 CURSORSTRATEGY specifies the repaint strategy used when the cursor moves across the class.
 REPLACESTRATEGY specifies the repaint strategy used after text replacement or overlay.
@@ -118,7 +148,7 @@ user profile; the system profile still runs.
 A UTF terminal profile file contains the same SET UTF commands documented
 here. REXX-style profile fragments are accepted, so `/* ... */` comments,
 `address the`, and quoted instructions such as
-`'SET UTF TERMINAL CLASS keycap LAYOUT 2 CURSOR 2'` may be used. Blank lines
+`'SET UTF TERMINAL CLASS keycap OUTPUT base'` may be used. Blank lines
 and lines beginning with `*` or `#` are ignored.
 
 ## Compatibility

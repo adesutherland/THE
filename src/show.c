@@ -357,48 +357,20 @@ static int show_render_cluster_from_text(TheRenderCluster *render,
                                          TheDriverAttr colour,
                                          int force_expanded)
 {
-   TextPos pos = cluster.pos;
-   const Utf8TerminalProfileEntry *entry;
+   size_t i;
 
-   if (render == NULL || line == NULL || cluster.byte_length == 0)
+   if (!the_render_cluster_from_text_cluster(render, line, len, cluster,
+                                             (TheRenderAttr)colour,
+                                             force_expanded))
       return 0;
-   the_render_cluster_init(render, (TheRenderAttr)colour);
-   the_render_cluster_set_utf8(render, line + cluster.pos.byte_offset,
-                               cluster.byte_length);
 
-   entry = show_utf8_cluster_profile(line, len, cluster);
-   if (entry != NULL && entry->output_method == UTF8_TERM_OUTPUT_SUBSTITUTE)
+   for (i = 0; i < render->codepoint_count; i++)
    {
-      render->flags |= THE_RENDER_CLUSTER_SUBSTITUTE;
-      the_render_cluster_set_fallback_codepoint(render,
-                                                entry->substitute_codepoint);
+      if (render->codepoints[i] < 256 && etmode_flag[render->codepoints[i]])
+         render->codepoints[i] =
+            show_etmode_codepoint((CHARTYPE)render->codepoints[i]);
    }
-   if ((entry != NULL && entry->output_method == UTF8_TERM_OUTPUT_EXPANDED)
-   ||  force_expanded)
-      render->flags |= THE_RENDER_CLUSTER_EXPANDED;
-   if (entry != NULL)
-      the_render_cluster_set_repair_strategy(render,
-                                             entry->replacement_strategy);
-
-   while (pos.byte_offset < cluster.end.byte_offset)
-   {
-      TextCodepoint item = textpos_codepoint_at_boundary(line, len, pos);
-
-      if (item.byte_length == 0)
-         break;
-      if (item.codepoint < 256 && etmode_flag[item.codepoint])
-         item.codepoint = show_etmode_codepoint((CHARTYPE)item.codepoint);
-      the_render_cluster_add_codepoint(render, item.codepoint);
-      pos = show_utf8_advance_codepoint_pos(pos, item);
-   }
-
-   the_render_cluster_set_widths(render,
-      show_utf8_cluster_logical_width(cluster),
-      show_utf8_cluster_display_width(line, len, cluster),
-      show_utf8_cluster_cursor_width(line, len, cluster),
-      show_utf8_cluster_paint_width(line, len, cluster));
-   return render->codepoint_count > 0
-       ||  (render->flags & THE_RENDER_CLUSTER_SUBSTITUTE);
+   return 1;
 }
 
 static void show_write_utf8_cluster_at(TheDriverWindow *win, int row, int col,

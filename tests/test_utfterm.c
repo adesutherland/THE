@@ -79,6 +79,18 @@ static void expect_substitute_codepoint(const char *name,
    expect_int(name, (int)entry->substitute_codepoint, (int)codepoint);
 }
 
+static void expect_mark(const char *name,
+                        Utf8TerminalClass feature_class,
+                        Utf8TerminalDisplayMode display,
+                        Utf8TerminalMark mark)
+{
+   const Utf8TerminalProfileEntry *entry = expect_entry(name, feature_class, display);
+
+   if (entry == NULL)
+      return;
+   expect_int(name, entry->mark, mark);
+}
+
 static TextCluster cluster_after_leading_ascii(const CHARTYPE *line, size_t len)
 {
    TextPos pos = textpos_next_cluster(line, len, textpos_begin());
@@ -204,6 +216,47 @@ static void test_line_parser(void)
                   UTF8_TERM_DISPLAY_COMPONENTS, UTF8_TERM_OUTPUT_SUBSTITUTE,
                   1, 1, UTF8_TERM_STRATEGY_CHANGED_CELLS,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS);
+   expect_mark("line.short.components.substitute.mark",
+               UTF8_TERM_CLASS_SHORT_ZWJ,
+               UTF8_TERM_DISPLAY_COMPONENTS,
+               UTF8_TERM_MARK_SUBSTITUTED);
+
+   expect_int("line.keycap.output.base",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS keycap OUTPUT base"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_profile("line.keycap.base.profile", UTF8_TERM_CLASS_KEYCAP,
+                  UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_BASE, 9, 8,
+                  UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST,
+                  UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST);
+   expect_int("line.keycap.output.base.codepoint.invalid",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS keycap OUTPUT base U+002A"),
+              UTF8_TERMINAL_PROFILE_INVALID);
+   expect_int("line.keycap.mark.compressed",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS keycap MARK compressed"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_mark("line.keycap.mark.compressed.profile", UTF8_TERM_CLASS_KEYCAP,
+               UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_MARK_COMPRESSED);
+   expect_int("line.keycap.mark.invalid",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS keycap MARK bright"),
+              UTF8_TERMINAL_PROFILE_INVALID);
+   expect_int("line.short.components.output.components",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS short-zwj DISPLAY components OUTPUT components"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_profile("line.short.components.components",
+                  UTF8_TERM_CLASS_SHORT_ZWJ,
+                  UTF8_TERM_DISPLAY_COMPONENTS,
+                  UTF8_TERM_OUTPUT_COMPONENTS, 1, 1,
+                  UTF8_TERM_STRATEGY_CHANGED_CELLS,
+                  UTF8_TERM_STRATEGY_CHANGED_CELLS);
+   expect_mark("line.short.components.components.mark",
+               UTF8_TERM_CLASS_SHORT_ZWJ,
+               UTF8_TERM_DISPLAY_COMPONENTS,
+               UTF8_TERM_MARK_NONE);
 
    utf8_terminal_profile_reset();
    expect_int("line.keycap.substitute",
@@ -214,6 +267,8 @@ static void test_line_parser(void)
                   UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_SUBSTITUTE, 1, 1,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS);
+   expect_mark("line.keycap.substitute.mark", UTF8_TERM_CLASS_KEYCAP,
+               UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_MARK_SUBSTITUTED);
    expect_substitute_codepoint("line.keycap.substitute.codepoint",
                                UTF8_TERM_CLASS_KEYCAP,
                                UTF8_TERM_DISPLAY_NORMAL, 0x002Au);
@@ -262,6 +317,14 @@ static void test_strategy_names(void)
               utf8_terminal_strategy_from_name(
                  "clear_from_first_cluster_pause"),
               UTF8_TERM_STRATEGY_UNKNOWN);
+   expect_int("output.base", utf8_terminal_output_from_name("base"),
+              UTF8_TERM_OUTPUT_BASE);
+   expect_int("output.components", utf8_terminal_output_from_name("components"),
+              UTF8_TERM_OUTPUT_COMPONENTS);
+   expect_int("mark.compressed", utf8_terminal_mark_from_name("compressed"),
+              UTF8_TERM_MARK_COMPRESSED);
+   expect_int("mark.unsafe", utf8_terminal_mark_from_name("unsafe"),
+              UTF8_TERM_MARK_UNSAFE);
 
    expect_string("strategy.name.cells",
                  utf8_terminal_strategy_name(UTF8_TERM_STRATEGY_CHANGED_CELLS),
@@ -281,6 +344,14 @@ static void test_strategy_names(void)
    expect_string("strategy.name.whole",
                  utf8_terminal_strategy_name(UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST),
                  "whole");
+   expect_string("output.name.base",
+                 utf8_terminal_output_name(UTF8_TERM_OUTPUT_BASE), "base");
+   expect_string("output.name.components",
+                 utf8_terminal_output_name(UTF8_TERM_OUTPUT_COMPONENTS),
+                 "components");
+   expect_string("mark.name.compressed",
+                 utf8_terminal_mark_name(UTF8_TERM_MARK_COMPRESSED),
+                 "compressed");
 }
 
 static void test_profile_file(const char *profile_path)
@@ -291,15 +362,17 @@ static void test_profile_file(const char *profile_path)
    expect_int("system.file",
               utf8_terminal_profile_apply_file(profile_path, &loaded),
               UTF8_TERMINAL_PROFILE_APPLIED);
-   expect_int("system.loaded", loaded, 45);
+   expect_int("system.loaded", loaded, 47);
    expect_profile("system.modifier", UTF8_TERM_CLASS_MODIFIER,
                   UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 4, 4,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
                   UTF8_TERM_STRATEGY_LINE);
    expect_profile("system.keycap", UTF8_TERM_CLASS_KEYCAP,
-                  UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 2, 2,
-                  UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST,
-                  UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST);
+                  UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_BASE, 1, 1,
+                  UTF8_TERM_STRATEGY_CHANGED_CELLS,
+                  UTF8_TERM_STRATEGY_CHANGED_CELLS);
+   expect_mark("system.keycap.mark", UTF8_TERM_CLASS_KEYCAP,
+               UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_MARK_COMPRESSED);
    expect_profile("system.short.group", UTF8_TERM_CLASS_SHORT_ZWJ,
                   UTF8_TERM_DISPLAY_GROUPED, UTF8_TERM_OUTPUT_SUBSTITUTE, 1, 1,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
@@ -325,11 +398,13 @@ static void test_terminal_identity(void)
    expect_int("identity.apple",
               utf8_terminal_profile_apply_terminal_identity(
                  "xterm-256color", "Apple_Terminal"),
-              45);
+              47);
    expect_profile("identity.apple.keycap", UTF8_TERM_CLASS_KEYCAP,
-                  UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 2, 2,
-                  UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST,
-                  UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST);
+                  UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_BASE, 1, 1,
+                  UTF8_TERM_STRATEGY_CHANGED_CELLS,
+                  UTF8_TERM_STRATEGY_CHANGED_CELLS);
+   expect_mark("identity.apple.keycap.mark", UTF8_TERM_CLASS_KEYCAP,
+               UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_MARK_COMPRESSED);
 }
 
 static void test_cluster_classification(void)
@@ -428,7 +503,7 @@ static void test_cluster_profile_lookup(void)
    }
 
    expect_int("lookup.apple.apply",
-              utf8_terminal_profile_apply_apple_terminal(), 45);
+              utf8_terminal_profile_apply_apple_terminal(), 47);
    entry = utf8_terminal_profile_lookup_cluster(short_zwj, sizeof(short_zwj),
                                                 cluster,
                                                 UTF8_TERM_DISPLAY_GROUPED);

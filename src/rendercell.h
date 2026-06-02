@@ -24,7 +24,9 @@ typedef enum
    THE_RENDER_CLUSTER_EXPANDED = 1u << 3,
    THE_RENDER_CLUSTER_CODEPOINTS_TRUNCATED = 1u << 4,
    THE_RENDER_CLUSTER_UTF8_TRUNCATED = 1u << 5,
-   THE_RENDER_CLUSTER_HAS_FALLBACK = 1u << 6
+   THE_RENDER_CLUSTER_HAS_FALLBACK = 1u << 6,
+   THE_RENDER_CLUSTER_BASE = 1u << 7,
+   THE_RENDER_CLUSTER_COMPONENTS = 1u << 8
 } TheRenderClusterFlag;
 
 typedef struct
@@ -37,6 +39,9 @@ typedef struct
    CHARTYPE fallback_utf8[THE_RENDER_MAX_FALLBACK_BYTES];
    size_t fallback_length;
    TheRenderAttr attr;
+   Utf8TerminalClass feature_class;
+   Utf8TerminalOutput output_method;
+   Utf8TerminalMark mark;
    /* Logical editor width from TextCluster/TextPos semantics. */
    int logical_width;
    /* Physical terminal cells reserved for the rendered output. */

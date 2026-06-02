@@ -34,9 +34,14 @@ address the
 'SET UTF TERMINAL CLASS modifier CURSORSTRATEGY cells'
 'SET UTF TERMINAL CLASS modifier REPLACESTRATEGY line'
 
-'SET UTF TERMINAL CLASS keycap LAYOUT 2 CURSOR 2'
-'SET UTF TERMINAL CLASS keycap CURSORSTRATEGY first'
-'SET UTF TERMINAL CLASS keycap REPLACESTRATEGY first'
+/* OUTPUT base is a general physical-display transform. */
+/* Apple Terminal uses it here because native keycap glyphs have unreliable cursor/repaint behaviour. */
+/* The stored file text remains the original keycap sequence. */
+'SET UTF TERMINAL CLASS keycap OUTPUT base'
+'SET UTF TERMINAL CLASS keycap MARK compressed'
+'SET UTF TERMINAL CLASS keycap LAYOUT 1 CURSOR 1'
+'SET UTF TERMINAL CLASS keycap CURSORSTRATEGY cells'
+'SET UTF TERMINAL CLASS keycap REPLACESTRATEGY cells'
 
 /* Grouped substitutes are per class/display and keep the file text logical. */
 'SET UTF TERMINAL CLASS short-zwj DISPLAY grouped OUTPUT substitute U+25A1'

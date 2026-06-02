@@ -32,8 +32,20 @@ typedef enum
    UTF8_TERM_OUTPUT_NATIVE = 0,
    UTF8_TERM_OUTPUT_EXPANDED,
    UTF8_TERM_OUTPUT_SUBSTITUTE,
+   UTF8_TERM_OUTPUT_BASE,
+   UTF8_TERM_OUTPUT_COMPONENTS,
    UTF8_TERM_OUTPUT_COUNT
 } Utf8TerminalOutput;
+
+typedef enum
+{
+   UTF8_TERM_MARK_UNKNOWN = -1,
+   UTF8_TERM_MARK_NONE = 0,
+   UTF8_TERM_MARK_COMPRESSED,
+   UTF8_TERM_MARK_SUBSTITUTED,
+   UTF8_TERM_MARK_UNSAFE,
+   UTF8_TERM_MARK_COUNT
+} Utf8TerminalMark;
 
 typedef enum
 {
@@ -53,6 +65,7 @@ typedef struct
    Utf8TerminalDisplayMode display_mode;
    Utf8TerminalOutput output_method;
    uint32_t substitute_codepoint;
+   Utf8TerminalMark mark;
    int layout_width;
    int cursor_width;
    Utf8TerminalStrategy cursor_strategy;
@@ -87,11 +100,13 @@ const Utf8TerminalProfileEntry *utf8_terminal_profile_entry_at(size_t index);
 Utf8TerminalClass utf8_terminal_class_from_name(const char *name);
 Utf8TerminalDisplayMode utf8_terminal_display_from_name(const char *name);
 Utf8TerminalOutput utf8_terminal_output_from_name(const char *name);
+Utf8TerminalMark utf8_terminal_mark_from_name(const char *name);
 Utf8TerminalStrategy utf8_terminal_strategy_from_name(const char *name);
 
 const char *utf8_terminal_class_name(Utf8TerminalClass feature_class);
 const char *utf8_terminal_display_name(Utf8TerminalDisplayMode display);
 const char *utf8_terminal_output_name(Utf8TerminalOutput output);
+const char *utf8_terminal_mark_name(Utf8TerminalMark mark);
 const char *utf8_terminal_strategy_name(Utf8TerminalStrategy strategy);
 
 #endif
