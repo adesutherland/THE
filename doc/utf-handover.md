@@ -55,8 +55,12 @@ virtual/fake-driver tests, focused unit tests, or CREXX/pty full-editor tests.
   Back-Tab/Shift-Tab, shifted arrows, function-key modifier ranges, mouse,
   and parser-complete. Basic color values and many key values intentionally
   stay numerically curses-compatible where that preserves existing maps.
+- RGB colours from `#RRGGBB` and SVG/X11 colour names are stored as logical
+  THE colour IDs backed by a core RGB registry. They are not curses palette
+  slots in editor state.
 - Curses lowers logical attrs, cells, alternate cells, colors, and physical
-  key packets privately in `src/drivers/curses/cursesdriver.c`. Core editor
+  key packets privately in `src/drivers/curses/cursesdriver.c`. Its private
+  lowering allocates terminal palette colours and pairs as needed. Core editor
   state no longer stores `COLOR_PAIR(pair) | A_BOLD` or depends on curses
   pair numbering.
 - `cursor_focus_sync_current()` is removed.

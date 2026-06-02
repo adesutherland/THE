@@ -38,6 +38,9 @@ enum
 
 #define THE_RENDER_ATTR_STYLE_BITS 16u
 #define THE_RENDER_ATTR_COLOR_BITS 12u
+#define THE_RENDER_COLOR_LOGICAL_COUNT \
+   (1u << THE_RENDER_ATTR_COLOR_BITS)
+#define THE_RENDER_COLOR_RGB_FIRST 8
 #define THE_RENDER_ATTR_FG_SHIFT THE_RENDER_ATTR_STYLE_BITS
 #define THE_RENDER_ATTR_BG_SHIFT \
    (THE_RENDER_ATTR_FG_SHIFT + THE_RENDER_ATTR_COLOR_BITS)
@@ -57,6 +60,12 @@ enum
 #define THE_DRIVER_CELL_ALT_FLAG \
    ((TheDriverCell)1u << THE_DRIVER_CELL_CODEPOINT_BITS)
 #define THE_DRIVER_CELL_ATTR_SHIFT (THE_DRIVER_CELL_CODEPOINT_BITS + 1u)
+
+int the_render_color_from_rgb(int red, int green, int blue);
+int the_render_color_from_rgb24(uint32_t rgb);
+int the_render_color_is_rgb(int colour);
+int the_render_color_rgb(int colour, int *red, int *green, int *blue);
+uint32_t the_render_color_rgb24(int colour);
 
 static inline TheRenderAttr the_render_attr_make(int fg, int bg,
                                                  TheRenderStyle style)

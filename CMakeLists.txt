@@ -317,6 +317,7 @@ endif()
 set(THE_SOURCES
     src/box.c
     src/colour.c
+    src/thecolour.c
     src/column.c
     src/comm1.c
     src/comm2.c
@@ -584,6 +585,9 @@ add_test(NAME test_inputevent COMMAND test_inputevent)
 add_executable(test_keycodes tests/test_keycodes.c)
 target_include_directories(test_keycodes PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 add_test(NAME test_keycodes COMMAND test_keycodes)
+add_executable(test_render_attrs tests/test_render_attrs.c src/thecolour.c)
+target_include_directories(test_render_attrs PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+add_test(NAME test_render_attrs COMMAND test_render_attrs)
 add_executable(test_curses_keymap tests/test_curses_keymap.c)
 target_include_directories(test_curses_keymap PRIVATE
     ${CMAKE_SOURCE_DIR}/src
@@ -684,6 +688,9 @@ add_test(NAME test_the_llm_headless_no_curses_mini_session
             $<TARGET_FILE:the_llm_headless>)
 add_test(NAME test_the_llm_full_runtime
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_full_runtime.sh
+            $<TARGET_FILE:the>)
+add_test(NAME test_rgb_colour_logical
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_rgb_colour_logical.sh
             $<TARGET_FILE:the>)
 add_test(NAME test_the_llm_parser_diagnostics
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_parser_diagnostics.sh

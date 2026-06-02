@@ -46,7 +46,9 @@ uses `THE_COLOR_*`, `THE_STYLE_*`, `TheRenderAttr`, `TheDriverCell`, and
 state as `COLOR_PAIR(pair) | A_BOLD` or depend on curses headers for key
 constants. The base color numbers and many key values intentionally remain
 curses-compatible where that preserves existing maps, but they are THE-owned
-contracts.
+contracts. RGB colours from `#RRGGBB` and SVG/X11 colour names are logical
+THE colour IDs backed by the core colour registry, not preallocated physical
+driver palette slots.
 
 ### Physical Driver Layer
 
@@ -59,6 +61,7 @@ The physical driver owns:
   mouse packet position decoding.
 - lowering `TheRenderAttr` and `TheDriverCell` into curses `chtype`,
   `cchar_t`, `attr_t`, `COLOR_PAIR`, and physical alternate-character cells.
+- mapping logical RGB colours to terminal palette entries and colour pairs.
 - physical cursor save/restore and hardware cursor parking.
 - physical cursor materialization from shared logical/display targets.
 - software cursor painting.

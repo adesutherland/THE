@@ -63,7 +63,9 @@ drivers continue to prove specific integration points.
   and keys live in `src/thecolour.h` and `src/thekeys.h`; curses lowers them
   privately. Basic color values and many key values intentionally remain
   numerically curses-compatible, but core code no longer depends on curses
-  headers, color-pair encoding, or raw `A_*` attributes.
+  headers, color-pair encoding, or raw `A_*` attributes. RGB colours are
+  represented as logical THE colour IDs in core state; terminal palette and
+  pair allocation are physical-driver lowering details.
 - The Step 2 display-layout extraction removed `clamp_display_col`,
   `display_col_from_logical`, `logical_col_from_display`,
   `viewport_col_for_logical`, and `filearea_target` from the vtable.

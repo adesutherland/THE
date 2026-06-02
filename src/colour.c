@@ -51,45 +51,6 @@ TheDriverAttr set_colour(const COLOUR_ATTR *attr)
    return the_render_attr_from_style(attr->mono_style);
 }
 
-static int THE_alloc_color(int r, int g, int b) {
-    typedef struct {
-        int r;
-        int g;
-        int b;
-        int colour;
-    } RGB_COLOUR_CACHE;
-    static RGB_COLOUR_CACHE colour_cache[256];
-    static int colour_cache_count = 0;
-    int i;
-
-    for (i = 0; i < colour_cache_count; i++) {
-        if (colour_cache[i].r == r
-        &&  colour_cache[i].g == g
-        &&  colour_cache[i].b == b)
-            return colour_cache[i].colour;
-    }
-
-    if (!the_driver_can_change_color()) return THE_COLOR_WHITE;
-    static int next_color = -1;
-    if (next_color == -1) next_color = the_driver_color_count() - 1;
-    if (next_color > 15) {
-        int c = next_color--;
-        // Curses init_color expects 0-1000
-        int cr = (r * 1000) / 255;
-        int cg = (g * 1000) / 255;
-        int cb = (b * 1000) / 255;
-        the_driver_init_color(c, cr, cg, cb);
-        if (colour_cache_count < (int)(sizeof(colour_cache)/sizeof(colour_cache[0]))) {
-            colour_cache[colour_cache_count].r = r;
-            colour_cache[colour_cache_count].g = g;
-            colour_cache[colour_cache_count].b = b;
-            colour_cache[colour_cache_count].colour = c;
-            colour_cache_count++;
-        }
-        return c;
-    }
-    return THE_COLOR_WHITE;
-}
 static COLOUR_DEF _THE_FAR the_colours[ATTR_MAX] =
 {
    /* foreground   background   modifier  mono                     */
@@ -623,6 +584,49 @@ static COLOUR_DEF _THE_FAR xedit_colours[ATTR_MAX] =
     {(CHARTYPE *)NULL,0,0,0,FALSE,FALSE,FALSE},
  };
 
+static void append_attr_string(CHARTYPE *dest, size_t dest_size,
+                               const char *text)
+{
+   size_t used;
+
+   if (dest == NULL || text == NULL || dest_size == 0)
+      return;
+   used = strlen((DEFCHAR *)dest);
+   if (used >= dest_size - 1)
+      return;
+   snprintf((DEFCHAR *)dest + used, dest_size - used, "%s", text);
+}
+
+static bool append_colour_token(CHARTYPE *dest, size_t dest_size, int colour)
+{
+   int i;
+
+   for (i = 0; valid_attribs[i].attrib != NULL; i++)
+   {
+      if (!valid_attribs[i].attrib_modifier
+      &&  valid_attribs[i].actual_colour
+      &&  colour == valid_attribs[i].actual_attrib
+      &&  valid_attribs[i].colour_modifier == 0)
+      {
+         append_attr_string(dest, dest_size,
+                            (const char *)valid_attribs[i].attrib);
+         append_attr_string(dest, dest_size, " ");
+         return TRUE;
+      }
+   }
+   if (the_render_color_is_rgb(colour))
+   {
+      char rgb[9];
+
+      snprintf(rgb, sizeof(rgb), "#%06x",
+               (unsigned int)the_render_color_rgb24(colour));
+      append_attr_string(dest, dest_size, rgb);
+      append_attr_string(dest, dest_size, " ");
+      return TRUE;
+   }
+   return FALSE;
+}
+
 /***********************************************************************/
 short parse_colours(CHARTYPE *attrib,COLOUR_ATTR *pattr,CHARTYPE **rem,bool spare,bool *any_colours)
 /***********************************************************************/
@@ -1079,7 +1083,7 @@ CHARTYPE *get_colour_strings(COLOUR_ATTR *attr)
       start_with = GET_MOD;
       mod = attr->style;
    }
-   attr_string = (CHARTYPE *)(*the_malloc)(sizeof(CHARTYPE)*70);
+   attr_string = (CHARTYPE *)(*the_malloc)(sizeof(CHARTYPE)*160);
    if (attr_string == (CHARTYPE *)NULL)
    {
       display_error(30,(CHARTYPE *)"",FALSE);
@@ -1111,6 +1115,8 @@ CHARTYPE *get_colour_strings(COLOUR_ATTR *attr)
             match_value = (int)mod;
             break;
       }
+      if (colour_only && append_colour_token(attr_string, 160, match_value))
+         continue;
       for ( i = 0; valid_attribs[i].attrib != NULL; i++ )
       {
          if (colour_only)
@@ -1173,7 +1179,7 @@ int is_valid_colour( CHARTYPE *colour )
    if (colour[0] == '#' && strlen((char *)colour) == 7) {
        int r, g, b;
        if (sscanf((char *)colour + 1, "%02x%02x%02x", &r, &g, &b) == 3) {
-           int c = THE_alloc_color(r, g, b);
+           int c = the_render_color_from_rgb(r, g, b);
            TRACE_RETURN();
            return c;
        }
@@ -1182,7 +1188,9 @@ int is_valid_colour( CHARTYPE *colour )
    /* Check for extended SVG/X11 colors */
    for (i = 0; extended_colors[i].name != NULL; i++) {
        if (strcasecmp(extended_colors[i].name, (char *)colour) == 0) {
-           int c = THE_alloc_color(extended_colors[i].r, extended_colors[i].g, extended_colors[i].b);
+           int c = the_render_color_from_rgb(extended_colors[i].r,
+                                             extended_colors[i].g,
+                                             extended_colors[i].b);
            TRACE_RETURN();
            return c;
        }

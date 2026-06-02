@@ -30,9 +30,19 @@ typedef struct
    short pair;
 } CursesDriverPairCacheEntry;
 
+typedef struct
+{
+   int used;
+   int logical;
+   short physical;
+} CursesDriverColourCacheEntry;
+
 static CursesDriverPairCacheEntry *curses_driver_pair_cache = NULL;
 static int curses_driver_pair_cache_count = 0;
 static short curses_driver_next_pair = 1;
+static CursesDriverColourCacheEntry *curses_driver_colour_cache = NULL;
+static int curses_driver_colour_cache_count = 0;
+static short curses_driver_next_colour = -1;
 
 static int curses_driver_physical_pair_limit(void)
 {
@@ -60,13 +70,89 @@ static void curses_driver_reset_pair_cache(void)
       curses_driver_pair_cache_count = limit;
 }
 
+static int curses_driver_physical_colour_limit(void)
+{
+#ifdef A_COLOR
+   return COLORS;
+#else
+   return 16;
+#endif
+}
+
+static void curses_driver_reset_colour_cache(void)
+{
+   int limit = curses_driver_physical_colour_limit();
+
+   free(curses_driver_colour_cache);
+   curses_driver_colour_cache = NULL;
+   curses_driver_colour_cache_count = 0;
+   curses_driver_next_colour = (short)(limit - 1);
+   if (limit <= THE_RENDER_COLOR_RGB_FIRST)
+      return;
+   curses_driver_colour_cache =
+      (CursesDriverColourCacheEntry *)calloc(
+         (size_t)limit, sizeof(*curses_driver_colour_cache));
+   if (curses_driver_colour_cache != NULL)
+      curses_driver_colour_cache_count = limit;
+}
+
+static short curses_driver_physical_colour_for_logical(int colour)
+{
+#ifdef A_COLOR
+   int i;
+   int red;
+   int green;
+   int blue;
+   short physical;
+
+   if (colour < 0)
+      return -1;
+   if (!the_render_color_is_rgb(colour))
+      return (short)colour;
+   if (!colour_support || !can_change_color())
+      return THE_COLOR_WHITE;
+   if (curses_driver_colour_cache == NULL)
+      curses_driver_reset_colour_cache();
+   if (curses_driver_colour_cache == NULL)
+      return THE_COLOR_WHITE;
+
+   for (i = 0; i < curses_driver_colour_cache_count; i++)
+   {
+      if (curses_driver_colour_cache[i].used
+      &&  curses_driver_colour_cache[i].logical == colour)
+         return curses_driver_colour_cache[i].physical;
+   }
+   if (curses_driver_next_colour <= 15
+   ||  !the_render_color_rgb(colour, &red, &green, &blue))
+      return THE_COLOR_WHITE;
+
+   physical = curses_driver_next_colour--;
+   init_color(physical, (short)((red * 1000) / 255),
+              (short)((green * 1000) / 255),
+              (short)((blue * 1000) / 255));
+   curses_driver_colour_cache[physical].used = 1;
+   curses_driver_colour_cache[physical].logical = colour;
+   curses_driver_colour_cache[physical].physical = physical;
+   return physical;
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(colour);
+   return THE_COLOR_WHITE;
+#endif
+}
+
 static short curses_driver_pair_for_colours(int fg, int bg)
 {
 #ifdef A_COLOR
    int i;
+   short physical_fg;
+   short physical_bg;
    short pair;
 
    if (!colour_support || fg < 0 || bg < 0)
+      return 0;
+   physical_fg = curses_driver_physical_colour_for_logical(fg);
+   physical_bg = curses_driver_physical_colour_for_logical(bg);
+   if (physical_fg < 0 || physical_bg < 0)
       return 0;
    if (curses_driver_pair_cache == NULL)
       curses_driver_reset_pair_cache();
@@ -76,18 +162,18 @@ static short curses_driver_pair_for_colours(int fg, int bg)
    for (i = 1; i < curses_driver_next_pair; i++)
    {
       if (curses_driver_pair_cache[i].used
-      &&  curses_driver_pair_cache[i].fg == fg
-      &&  curses_driver_pair_cache[i].bg == bg)
+      &&  curses_driver_pair_cache[i].fg == physical_fg
+      &&  curses_driver_pair_cache[i].bg == physical_bg)
          return curses_driver_pair_cache[i].pair;
    }
    if (curses_driver_next_pair >= curses_driver_pair_cache_count)
       return 0;
 
    pair = curses_driver_next_pair++;
-   init_pair(pair, (short)fg, (short)bg);
+   init_pair(pair, physical_fg, physical_bg);
    curses_driver_pair_cache[pair].used = 1;
-   curses_driver_pair_cache[pair].fg = fg;
-   curses_driver_pair_cache[pair].bg = bg;
+   curses_driver_pair_cache[pair].fg = physical_fg;
+   curses_driver_pair_cache[pair].bg = physical_bg;
    curses_driver_pair_cache[pair].pair = pair;
    return pair;
 #else
@@ -2067,6 +2153,7 @@ static int curses_driver_start(const TheDriverStartupOptions *options,
          PDC_set_blink(FALSE);
 # endif
          curses_driver_reset_pair_cache();
+         curses_driver_reset_colour_cache();
          init_colour_pairs();
       }
 #endif
@@ -2140,6 +2227,10 @@ static void curses_driver_shutdown(int prompt_on_error)
    curses_driver_pair_cache = NULL;
    curses_driver_pair_cache_count = 0;
    curses_driver_next_pair = 1;
+   free(curses_driver_colour_cache);
+   curses_driver_colour_cache = NULL;
+   curses_driver_colour_cache_count = 0;
+   curses_driver_next_colour = -1;
    curses_started = FALSE;
 }
 
@@ -2152,6 +2243,10 @@ static void curses_driver_signal_shutdown(void)
    curses_driver_pair_cache = NULL;
    curses_driver_pair_cache_count = 0;
    curses_driver_next_pair = 1;
+   free(curses_driver_colour_cache);
+   curses_driver_colour_cache = NULL;
+   curses_driver_colour_cache_count = 0;
+   curses_driver_next_colour = -1;
 #ifdef USE_XCURSES
    XCursesExit();
 #endif
