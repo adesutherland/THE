@@ -19,8 +19,8 @@ If numlines is not specified, or numlines is specified as '*' , all files from t
 are read.
 The second form implements interaction with the system clipboard. The optional parameter indicates
 how the contents of the clipboard is to be inserted into the file. If not supplied the contents of the
-clipboard is treated as a LINE block. This option only available for X11, OS/2 and Win32 ports of
-THE. (Incomplete)
+clipboard is treated as a LINE block. This option is only available for X11 and native Windows ports
+of THE. (Incomplete)
 
 ## Compatibility
 XEDIT: Compatible.

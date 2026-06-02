@@ -68,7 +68,7 @@ full-editor tests.
 - Actionable direct-curses inventory is closed:
   `physical-input: 0`, `physical-paint: 0`, `physical-attr: 0`,
   `curses-include: 0`, and `window-state: 0`.
-- Allowed/migrated `driver-wrapper` visibility is 542. This is vtable usage,
+- Allowed/migrated `driver-wrapper` visibility is 541. This is vtable usage,
   not raw curses debt.
 - Drivers are runtime-loaded modules. `the` loads `the_driver_curses` by
   default or for `--driver curses`, loads `the_driver_llm` for `--driver llm`,
@@ -76,6 +76,10 @@ full-editor tests.
   `dlsym` on POSIX and `LoadLibrary` / `GetProcAddress` on Windows, with
   `THE_DRIVER_PATH`, executable/release directories, and the installed driver
   directory in the search path.
+- Supported source/build platforms are macOS, Linux/POSIX, and native
+  Windows. Historical DOS, OS/2, VMS, Amiga, BeOS, QNX, DJGPP/GO32, and
+  ancient compiler source branches are retired; command names such as `DOS`
+  remain only as compatibility aliases.
 - The main executable is guarded for both link cleanliness and accidental raw
   curses API symbol exports. The curses-shaped compatibility names still
   allowed in `the` are `my_wmove`, `curses_started`,

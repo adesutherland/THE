@@ -16,8 +16,8 @@ A file name is further broken down into a fname and fext. The fname of a file co
 characters from the start of the filename up to but not including the last period (if there is one). The
 fext of a file consists of all characters from the end of the filename up to but not including the last
 period. If there is no period in the filename then the fext is empty.
-The fmode of a file is equivalent to the drive letter of the file's path. This is only valid under DOS,
-OS/2 and Windows ports.
+The fmode of a file is equivalent to the drive letter of the file's path. This is only valid under
+native Windows.
 Some examples.
                      Full File Name     File            File     Fname Fext      Fmode
                                         Path            Name

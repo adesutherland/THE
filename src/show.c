@@ -737,8 +737,6 @@ static void show_add_utf8_codepoint(uint32_t ch, TheDriverAttr colour)
 # define REXX_INT_CHAR         'R'
 #elif defined(USE_OREXX) || defined(USE_OOREXX)
 # define REXX_INT_CHAR         'O'
-#elif defined(USE_OS2REXX)
-# define REXX_INT_CHAR         'O'
 #elif defined(USE_WINREXX)
 # define REXX_INT_CHAR         'W'
 #elif defined(USE_QUERCUS)
@@ -1269,11 +1267,7 @@ static short show_status_character_at(const CHARTYPE *line, size_t len,
 {
    if (line == NULL || cell < 0 || (size_t)cell >= len)
       return (short)' ';
-#ifdef VMS
-   return (short)line[cell];
-#else
    return (short)((unsigned char)line[cell]);
-#endif
 }
 
 static int show_restore_view_logical_cursor(CHARTYPE scrno,
@@ -1597,7 +1591,7 @@ void prepare_idline(CHARTYPE scrno)
       }
    }
 #endif
-#if defined(__PDCURSES__) & !defined(MSWIN)
+#if defined(__PDCURSES__)
    if ( curses_started )
    {
       sprintf( (DEFCHAR *)title, "THE %s - %s", the_version, (DEFCHAR *)display_path );
@@ -1825,11 +1819,6 @@ void show_statarea(void)
     */
    if (STATUSLINEx == 'G')
    {
-#ifdef MSWIN
-      Show_GUI_footing();
-      TRACE_RETURN();
-      return;
-#endif
       TRACE_RETURN();
       return;
    }
@@ -5828,7 +5817,7 @@ short advance_view(VIEW_DETAILS *next_view,short direction)
    return(RC_OK);
 }
 
-#if defined(CAN_RESIZE) || defined(OS2) || defined(WIN32)
+#if defined(CAN_RESIZE) || defined(WIN32)
 /***********************************************************************/
 short THE_Resize(int rows, int cols)
 /***********************************************************************/

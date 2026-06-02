@@ -76,9 +76,6 @@ short execute_set_sos_command (bool,CHARTYPE *);
 short valid_command_type (bool,CHARTYPE *);
 short allocate_temp_space (LENGTHTYPE,CHARTYPE);
 void free_temp_space (CHARTYPE);
-#ifdef MSWIN
-void init_temp_space (void);
-#endif
 CHARTYPE calculate_actual_row (short, short, ROWTYPE, bool);
 short get_valid_macro_file_name (CHARTYPE *,CHARTYPE *,CHARTYPE *,short *);
 bool define_command (CHARTYPE *);
@@ -218,9 +215,7 @@ VIEW_DETAILS *find_pseudo_file (CHARTYPE);
 short execute_command_file (FILE *);
 CHARTYPE *read_file_into_memory (CHARTYPE *,int *);
                                                             /* getch.c */
-#if !defined(DOS) && !defined(OS2)
 int my_getch  (TheDriverWindow *);
-#endif
                                                           /* nonansi.c */
 short file_readable (CHARTYPE *);
 short file_writable (CHARTYPE *);
@@ -229,10 +224,6 @@ short remove_file (CHARTYPE *);
 short splitpath (CHARTYPE *);
 #ifndef HAVE_RENAME
 short rename (CHARTYPE *,CHARTYPE *);
-#endif
-#ifdef OS2
-bool LongFileNames (CHARTYPE *);
-bool IsPathAndFilenameValid (CHARTYPE *);
 #endif
 LINE *getclipboard (LINE *, int);
 short setclipboard (FILE_DETAILS *,CHARTYPE *,bool,LINETYPE,LINETYPE,LINETYPE,LINETYPE *,bool,LENGTHTYPE,LENGTHTYPE,bool,bool,int);

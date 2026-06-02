@@ -225,7 +225,7 @@ KEYS key_table[] =
   {(CHARTYPE *)"ENTER",THE_KEY_RETURN ,0},
   {(CHARTYPE *)"ENTER",THE_KEY_ENTER,0},
 
-#if defined(DOS) || defined(OS2) || defined(WIN32) || defined(USE_XCURSES) || defined(USE_SDLCURSES) || defined(USE_VTCURSES)
+#if defined(WIN32) || defined(USE_XCURSES) || defined(USE_SDLCURSES) || defined(USE_VTCURSES)
 /* normal characters */
   {(CHARTYPE *)"CURU",THE_KEY_UP,0},
   {(CHARTYPE *)"CURD",THE_KEY_DOWN,0},

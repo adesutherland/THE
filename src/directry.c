@@ -33,10 +33,6 @@
  */
 
 
-#if defined(__OS2__) && !defined(__EMX__)
-#   define INCL_DOS
-#endif
-
 #include "the.h"
 #include "proto.h"
 
@@ -78,7 +74,7 @@ CHARTYPE *make_full(CHARTYPE *path, CHARTYPE *file)
    return(filebuf);
 }
 /*********************************************************************/
-#if defined(UNIX) || defined(VMS) || defined(EMX) || (defined(AMIGA) && defined(GCC))
+#if !defined(WIN32)
 short getfiles(CHARTYPE *path,CHARTYPE *files,struct dirfile **dpfirst,
                                     struct dirfile **dplast)
 /*********************************************************************/
@@ -118,11 +114,7 @@ short getfiles(CHARTYPE *path,CHARTYPE *files,struct dirfile **dpfirst,
          if ((dp->fname = (CHARTYPE *)(*the_malloc)(dp->fname_length*sizeof(CHARTYPE))) == NULL)
             return(RC_OUT_OF_MEMORY);
          strcpy((DEFCHAR *)dp->fname,direntp->d_name);
-#if defined(EMX)
-         dp->fattr = sp.st_attr;
-#else
          dp->fattr = sp.st_mode;
-#endif
 #if defined(_HPUX_SOURCE)
          dp->facl  = sp.st_acl;
 #else
@@ -182,66 +174,21 @@ short getfiles(CHARTYPE *path,CHARTYPE *files,struct dirfile **dpfirst,
 /*********************************************************************/
 {
    struct dirfile *dp=NULL;
-#ifdef OS2
-#  if defined(__32BIT__) || defined(__386__)
-   ULONG matches=1L;
-   ULONG rsvrd=FIL_STANDARD;
-   FILEFINDBUF3 ffblk;
-#  else
-   USHORT matches=1;
-   ULONG rsvrd=0;
-   FILEFINDBUF ffblk;
-#  endif
-   HDIR hdir=HDIR_SYSTEM;
-#else
    FSTR_TYPE ffblk;
-#endif
    ATTR_TYPE attrs=curr_dirtype;
    DONE_TYPE done=0;
-#if defined(WIN32) && defined(_MSC_VER)
    intptr_t handle=0;
-   struct tm *local;
-#endif
+   struct tm *local=NULL;
    CHARTYPE *full_path=NULL;
    short entries = 10;
 
  if ((full_path = make_full(path,"*.*")) == NULL)
     return(RC_FILE_NOT_FOUND);
 
-#if defined(DOS) && defined(TC)
-   done = findfirst(full_path,&ffblk,attrs);
-#endif
-#if defined (DOS) && defined(MSC)
-   done = _dos_findfirst(full_path,attrs,&ffblk);
-#endif
-#if defined(DOS) && defined(GO32)
-   done = findfirst(full_path,&ffblk,attrs);
-#endif
-#if defined (WIN32) && defined(__WATCOMC__)
-   done = _dos_findfirst(full_path,attrs,&ffblk);
-#endif
-#if defined (DOS) && defined(__WATCOMC__)
-   done = _dos_findfirst(full_path,attrs,&ffblk);
-#endif
-#if defined (WIN32) && defined(_MSC_VER)
    ffblk.attrib = attrs;
-   handle = _findfirst(full_path,&ffblk);
+   handle = _findfirst((DEFCHAR *)full_path,&ffblk);
    if (handle == (-1))
       done = (-1);
-   else
-      local = localtime(&ffblk.time_write);
-#endif
-#ifdef OS2
-#  if defined(__32BIT__) || defined(__386__)
-   done = DosFindFirst((PSZ) full_path, (PHDIR)&hdir, (ULONG)attrs,
-                     (PVOID)&ffblk, (ULONG)sizeof(ffblk), (PULONG)&matches,
-                     (ULONG)rsvrd);
-#  else
-   done = DosFindFirst((PSZ) full_path, (PHDIR)&hdir, (USHORT)attrs,
-                     (PFILEFINDBUF)&ffblk, (USHORT)sizeof(ffblk), (PUSHORT)&matches,
-                     (ULONG)rsvrd);
-#  endif
-#endif
    if (done != 0)
       return(RC_FILE_NOT_FOUND);
 
@@ -253,12 +200,13 @@ short getfiles(CHARTYPE *path,CHARTYPE *files,struct dirfile **dpfirst,
 
    while(!done)
    {
-      if (thematch(files,ffblk.NAME_NAME,FNM_IGNORECASE) == 0)
+      local = localtime(&ffblk.time_write);
+      if (thematch((DEFCHAR *)files,(DEFCHAR *)ffblk.NAME_NAME,FNM_IGNORECASE) == 0)
       {
-         dp->fname_length = strlen(ffblk.NAME_NAME)+1;
+         dp->fname_length = strlen((DEFCHAR *)ffblk.NAME_NAME)+1;
          if ((dp->fname = (CHARTYPE *)(*the_malloc)(dp->fname_length*sizeof(CHARTYPE))) == NULL)
             return(RC_OUT_OF_MEMORY);
-         strcpy(dp->fname,ffblk.NAME_NAME);
+         strcpy((DEFCHAR *)dp->fname,(DEFCHAR *)ffblk.NAME_NAME);
          dp->fattr = ffblk.ATTR_NAME;
          dp->f_hh = HH_MASK(ffblk.TIME_NAME);
          dp->f_mi = MI_MASK(ffblk.TIME_NAME);
@@ -281,57 +229,10 @@ short getfiles(CHARTYPE *path,CHARTYPE *files,struct dirfile **dpfirst,
             entries *= 2;
          }
       }
-#if defined(DOS) && defined(TC)
-      done = findnext(&ffblk);
-#endif
-#if defined(DOS) && defined(MSC)
-      done = _dos_findnext(&ffblk);
-#endif
-#if defined(DOS) && defined(GO32)
-      done = findnext(&ffblk);
-#endif
-#if defined(WIN32) && defined(__WATCOMC__)
-      done = _dos_findnext(&ffblk);
-#endif
-#if defined(DOS) && defined(__WATCOMC__)
-      done = _dos_findnext(&ffblk);
-#endif
-#if defined (WIN32) && defined(_MSC_VER)
       done = _findnext(handle,&ffblk);
-      local = localtime(&ffblk.time_write);
-#endif
-#ifdef OS2
-#  if defined(__32BIT__) || defined(__386__)
-      done = DosFindNext((HDIR)hdir, (PVOID)&ffblk, (ULONG)sizeof(ffblk),
-            (PULONG)&matches);
-#  else
-      done = DosFindNext((HDIR)hdir, (PFILEFINDBUF)&ffblk, (USHORT)sizeof(ffblk),
-            (PUSHORT)&matches);
-#  endif
-#endif
    }
    *dplast = dp;
-#if defined(DOS) && defined(TC)
-   findclose(&ffblk);
-#endif
-#if defined(DOS) && defined(MSC)
-    _dos_findclose(&ffblk);
-#endif
-#if defined(DOS) && defined(GO32)
-    findclose(&ffblk);
-#endif
-#if defined(WIN32) && defined(__WATCOMC__)
-    _dos_findclose(&ffblk);
-#endif
-#if defined(DOS) && defined(__WATCOMC__)
-    _dos_findclose(&ffblk);
-#endif
-#if defined (WIN32) && defined(_MSC_VER)
-    _findclose(handle);
-#endif
-#ifdef OS2
-   DosFindClose((HDIR)hdir);
-#endif
+   _findclose(handle);
    return(RC_OK);
 }
 #endif
@@ -384,7 +285,7 @@ int date_comp( const void *in_first, const void *in_next )
    if (rc == 0)
       rc = time_compare( first, next );
    if (rc == 0)
-#if defined(OS2) || defined(WIN32) || defined(DOS)
+#if defined(WIN32)
       rc = my_stricmp((DEFCHAR *)first->fname,(DEFCHAR *)next->fname);
 #else
       rc = strcmp((DEFCHAR *)first->fname,(DEFCHAR *)next->fname);
@@ -405,7 +306,7 @@ int time_comp( const void *in_first, const void *in_next )
 
    rc = time_compare(first,next);
    if (rc == 0)
-#if defined(OS2) || defined(WIN32) || defined(DOS)
+#if defined(WIN32)
       rc = my_stricmp((DEFCHAR *)first->fname,(DEFCHAR *)next->fname);
 #else
       rc = strcmp((DEFCHAR *)first->fname,(DEFCHAR *)next->fname);
@@ -433,7 +334,7 @@ int dir_comp( const void *in_first, const void *in_next )
    if (!first_dir && next_dir)
       rc = 1;
    if (rc == 0)
-#if defined(OS2) || defined(WIN32) || defined(DOS)
+#if defined(WIN32)
       rc = my_stricmp((DEFCHAR *)first->fname,(DEFCHAR *)next->fname);
 #else
       rc = strcmp((DEFCHAR *)first->fname,(DEFCHAR *)next->fname);
@@ -460,7 +361,7 @@ int size_comp( const void *in_first, const void *in_next )
          rc = -1;
    }
    if (rc == 0)
-#if defined(OS2) || defined(WIN32) || defined(DOS)
+#if defined(WIN32)
       rc = my_stricmp((DEFCHAR *)first->fname,(DEFCHAR *)next->fname);
 #else
       rc = strcmp((DEFCHAR *)first->fname,(DEFCHAR *)next->fname);
@@ -479,7 +380,7 @@ int name_comp( const void *in_first, const void *in_next )
    int rc=0;
    struct dirfile *first=(struct dirfile *)in_first,*next=(struct dirfile *)in_next;
 
-#if defined(OS2) || defined(WIN32) || defined(DOS)
+#if defined(WIN32)
    rc = my_stricmp((DEFCHAR *)first->fname,(DEFCHAR *)next->fname);
 #else
    rc = strcmp((DEFCHAR *)first->fname,(DEFCHAR *)next->fname);
@@ -510,7 +411,7 @@ CHARTYPE *file_time(struct dirfile *time,CHARTYPE *str_time)
 CHARTYPE *file_attrs(ATTR_TYPE attrs,CHARTYPE *str_attr,int facl)
 /*********************************************************************/
 {
-#if defined(UNIX) || defined(AMIGA) || defined(VMS)
+#if !defined(WIN32)
 #if 0
    ATTR_TYPE ftype=(attrs & S_IFMT);
 #else

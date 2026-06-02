@@ -1694,7 +1694,7 @@ DESCRIPTION
      The optional parameter indicates how the contents of the
      clipboard is to be inserted into the file. If not supplied the
      contents of the clipboard is treated as a LINE block.
-     This option only available for X11, OS/2 and Win32 ports of THE.
+     This option is only available for X11 and native Windows ports of THE.
      (Incomplete)
 
 COMPATIBILITY

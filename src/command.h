@@ -97,7 +97,7 @@ typedef struct commands COMMAND;
 /*                                                                  Batch/ Set / SOS / RO   /edit/strip     /readv/input/reprof/CUA             /THIGHLIGHT  */
 COMMAND command[] =
 {
-#if defined(DOS) || defined(OS2) || defined(USE_XCURSES) || defined(WIN32)
+#if defined(USE_XCURSES) || defined(WIN32)
  {(CHARTYPE *)"cursor",      0,  THE_KEY_RIGHT,        Cursor,           FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,TRUE, FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)"right"},  /* comm1.c */
  {(CHARTYPE *)"cursor",      0,  THE_KEY_LEFT,        Cursor,           FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,TRUE, FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)"left"},  /* comm1.c */
  {(CHARTYPE *)"cursor",      0,  THE_KEY_DOWN,        Cursor,           FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)"down"},  /* comm1.c */
@@ -124,7 +124,7 @@ COMMAND command[] =
  {(CHARTYPE *)"autocolor",   9,  (-1),            Autocolour,       TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"autosave",    2,  (-1),            Autosave,         TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"autoscroll",  6,  (-1),            Autoscroll,       TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
-#if defined(DOS) || defined(OS2) || defined(USE_XCURSES) || defined(WIN32)
+#if defined(USE_XCURSES) || defined(WIN32)
  {(CHARTYPE *)"backward",    2,  THE_KEY_PPAGE,        Backward,         TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""}, /* comm1.c */
 #else
  {(CHARTYPE *)"backward",    2,  THE_KEY_PPAGE,       Backward,         TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""}, /* comm1.c */
@@ -148,7 +148,7 @@ COMMAND command[] =
  {(CHARTYPE *)"clearscreen", 6,  (-1),            Clearscreen,      TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"clocate",     2,  (-1),            Clocate,          TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm1.c */
  {(CHARTYPE *)"clock",       5,  (-1),            Clock,            TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
-#if defined(DOS) || defined(OS2) || defined(USE_XCURSES) || defined(WIN32)
+#if defined(USE_XCURSES) || defined(WIN32)
  {(CHARTYPE *)"cmatch",      6,  THE_KEY_F(7),          Cmatch,           TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm1.c */
 #else
  {(CHARTYPE *)"cmatch",      6,  THE_KEY_F(7),        Cmatch,           TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm1.c */
@@ -164,7 +164,7 @@ COMMAND command[] =
  {(CHARTYPE *)"compat",      6,  (-1),            Compat,           TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"compress",    4,  (-1),            Compress,         TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_NONE,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm1.c */
  {(CHARTYPE *)"copy",        4,  (-1),            Copy,             FALSE,FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm1.c */
-#if defined(DOS) || defined(OS2) || defined(USE_XCURSES) || defined(WIN32)
+#if defined(USE_XCURSES) || defined(WIN32)
  {(CHARTYPE *)"controlchar", 8,  THE_KEY_F(11),         ControlChar,      FALSE,FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm1.c */
 #if  defined(USE_XCURSES)
  {(CHARTYPE *)"copy",        0,  THE_KEY_CTRL_C,         Copy,             FALSE,FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)"block reset"},  /* comm1.c */
@@ -192,7 +192,7 @@ COMMAND command[] =
  {(CHARTYPE *)"cursorstyle",11,  (-1),            Cursorstyle,      TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"define",      3,  (-1),            Define,           TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm2.c */
  {(CHARTYPE *)"delete",      3,  (-1),            DeleteLine,       TRUE, FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""}, /* comm2.c */
-#if defined(DOS) || defined(OS2) || defined(WIN32)
+#if defined(WIN32)
  {(CHARTYPE *)"delete",      0,  THE_KEY_ALT_G,           DeleteLine,       FALSE,FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)"block"}, /* comm2.c */
 #else
  {(CHARTYPE *)"delete",      0,  THE_KEY_CTRL_G,         DeleteLine,       FALSE,FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)"block"}, /* comm2.c */
@@ -205,7 +205,7 @@ COMMAND command[] =
  {(CHARTYPE *)"display",     4,  (-1),            Display,          TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"down",        1,  (-1),            THENext,          TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""}, /* comm3.c */
  {(CHARTYPE *)"duplicate",   3,  (-1),            Duplicate,        TRUE, FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm2.c */
-#if defined(DOS) || defined(OS2) || defined(WIN32)
+#if defined(WIN32)
  {(CHARTYPE *)"duplicate",   0,  THE_KEY_ALT_D,           Duplicate,        TRUE, FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)"1 BLOCK"},  /* comm2.c */
 #else
  {(CHARTYPE *)"duplicate",   0,  THE_KEY_CTRL_D,         Duplicate,        TRUE, FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)"1 BLOCK"},  /* comm2.c */
@@ -230,7 +230,7 @@ COMMAND command[] =
  {(CHARTYPE *)"extract",     3,  (-1),            Extract,          TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm2.c */
  {(CHARTYPE *)"fdisplay",    8,  (-1),            Fdisplay,         TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"ffile",       2,  (-1),            Ffile,            TRUE, FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm2.c */
-#if defined(DOS) || defined(OS2) || defined(WIN32)
+#if defined(WIN32)
  {(CHARTYPE *)"file",        4,  THE_KEY_F(3),          File,             TRUE, FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm2.c */
  {(CHARTYPE *)"fillbox",     4,  THE_KEY_ALT_F,           Fillbox,          FALSE,FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm2.c */
 #else
@@ -253,7 +253,7 @@ COMMAND command[] =
  {(CHARTYPE *)"fname",       2,  (-1),            Fname,            TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"fpath",       2,  (-1),            Fpath,            TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"ftype",       2,  (-1),            Fext,             TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
-#if defined(DOS) || defined(OS2) || defined(USE_XCURSES) || defined(WIN32)
+#if defined(USE_XCURSES) || defined(WIN32)
  {(CHARTYPE *)"forward",     2,  THE_KEY_NPAGE,        Forward,          TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""}, /* comm2.c */
  {(CHARTYPE *)"forward",     2,  THE_KEY_CTL_PGDN,        Forward,          TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)"*"}, /* comm2.c */
 #else
@@ -263,7 +263,7 @@ COMMAND command[] =
  {(CHARTYPE *)"fullfname",   6,  (-1),            Fullfname,        TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"get",         3,  (-1),            Get,              TRUE, FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm2.c */
  {(CHARTYPE *)"header",      4,  (-1),            THEHeader,        TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
-#if defined(DOS) || defined(OS2) || defined(USE_XCURSES) || defined(WIN32)
+#if defined(USE_XCURSES) || defined(WIN32)
  {(CHARTYPE *)"help",        4,  THE_KEY_F(1),          Help,             FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm2.c */
 #else
  {(CHARTYPE *)"help",        4,  THE_KEY_F(1),        Help,             FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm2.c */
@@ -282,7 +282,7 @@ COMMAND command[] =
  {(CHARTYPE *)"input",       1,  (-1),            Input,            TRUE, FALSE,FALSE,FALSE,FALSE,STRIP_NONE,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm2.c */
  {(CHARTYPE *)"inputmode",   6,  (-1),            Inputmode,        TRUE, TRUE, FALSE,FALSE,FALSE,STRIP_BOTH,TRUE, FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"interface",   3,  (-1),            THEInterface,     TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
-#if defined(DOS) || defined(OS2) || defined(USE_XCURSES) || defined(WIN32)
+#if defined(USE_XCURSES) || defined(WIN32)
  {(CHARTYPE *)"insertmode",  7,  THE_KEY_IC,         Insertmode,       TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,TRUE, FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)"toggle"},  /* commset1.c */
  {(CHARTYPE *)"locate",      1,  THE_KEY_F(13),        Locate,           TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm3.c */
 #else
@@ -306,7 +306,7 @@ COMMAND command[] =
 #if defined(THE_MOUSE_ENABLED)
  {(CHARTYPE *)"",            0,  THE_KEY_MOUSE,   THEMouse,         FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm3.c */
 #endif
-#if defined(DOS) || defined(OS2) || defined(WIN32)
+#if defined(WIN32)
  {(CHARTYPE *)"mark",        0,  THE_KEY_ALT_L,           Mark,             FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)"line"},  /* comm3.c */
  {(CHARTYPE *)"mark",        0,  THE_KEY_ALT_B,           Mark,             FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)"box"},  /* comm3.c */
  {(CHARTYPE *)"move",        4,  THE_KEY_ALT_M,           THEMove,          FALSE,FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)"block reset"},  /* comm3.c */
@@ -349,7 +349,7 @@ COMMAND command[] =
  {(CHARTYPE *)"pending",     4,  (-1),            Pending,          TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset2.c */
  {(CHARTYPE *)"point",       1,  (-1),            Point,            TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset2.c */
  {(CHARTYPE *)"popup",       5,  (-1),            Popup,            FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */
-#if defined(DOS) || defined(OS2) || defined(USE_XCURSES) || defined(WIN32)
+#if defined(USE_XCURSES) || defined(WIN32)
  {(CHARTYPE *)"point",       0,  THE_KEY_F(35),       Point,            TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)".a"},/* commset2.c */
  {(CHARTYPE *)"locate",      0,  THE_KEY_F(36),       Locate,           TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)".a"},/* commset2.c */
 #else
@@ -365,7 +365,7 @@ COMMAND command[] =
  {(CHARTYPE *)"pscreen",     4,  (-1),            Pscreen,          TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset2.c */
  {(CHARTYPE *)"put",         3,  (-1),            Put,              TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */
  {(CHARTYPE *)"putd",        4,  (-1),            Putd,             TRUE, FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm4.c */
-#if defined(DOS) || defined(OS2) || defined(USE_XCURSES) || defined(WIN32)
+#if defined(USE_XCURSES) || defined(WIN32)
  {(CHARTYPE *)"qquit",       2,  THE_KEY_F(15),        Qquit,            TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */
 #else
  {(CHARTYPE *)"qquit",       2,  THE_KEY_F(13),       Qquit,            TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */
@@ -373,7 +373,7 @@ COMMAND command[] =
  {(CHARTYPE *)"quit",        4,  (-1),            Quit,             TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */
  {(CHARTYPE *)"query",       1,  (-1),            Query,            FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */
  {(CHARTYPE *)"record",      6,  (-1),            THERecord,        FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,TRUE, FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */
-#if defined(DOS) || defined(OS2) || defined(USE_XCURSES) || defined(WIN32)
+#if defined(USE_XCURSES) || defined(WIN32)
  {(CHARTYPE *)"recover",     3,  THE_KEY_F(8),          Recover,          FALSE,FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm4.c */
 #else
  {(CHARTYPE *)"recover",     3,  THE_KEY_F(8),        Recover,          FALSE,FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm4.c */
@@ -389,7 +389,7 @@ COMMAND command[] =
  {(CHARTYPE *)"reprofile",   6,  (-1),            Reprofile,        TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset2.c */
  {(CHARTYPE *)"reserved",    5,  (-1),            Reserved,         TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset2.c */
  {(CHARTYPE *)"reset",       3,  (-1),            Reset,            FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */
-#if defined(DOS) || defined(OS2) || defined(WIN32)
+#if defined(WIN32)
  {(CHARTYPE *)"reset",       0,  THE_KEY_ALT_U,           Reset,            FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)"block"},  /* comm4.c */
 #else
  {(CHARTYPE *)"reset",       0,  THE_KEY_CTRL_U,         Reset,            FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)"block"},  /* comm4.c */
@@ -401,7 +401,7 @@ COMMAND command[] =
  {(CHARTYPE *)"rexx",        4,  (-1),            THERexx,          TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */
  {(CHARTYPE *)"right",       2,  (-1),            Right,            TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */
  {(CHARTYPE *)"=",           1,  (-1),            Reexecute,        TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm5.c */
-#if defined(DOS) || defined(OS2) || defined(USE_XCURSES) || defined(WIN32)
+#if defined(USE_XCURSES) || defined(WIN32)
  {(CHARTYPE *)"?",           1,  THE_KEY_F(6),          Retrieve,         FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm5.c */
 #else
  {(CHARTYPE *)"?",           1,  THE_KEY_F(6),        Retrieve,         FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm5.c */
@@ -452,7 +452,7 @@ COMMAND command[] =
  {(CHARTYPE *)"cursorshift",11,  (-1),            Sos_cursorshift,  FALSE,FALSE,TRUE, FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_FOCUS  ,(CHARTYPE *)""},  /* commsos.c */
  {(CHARTYPE *)"cuadelback",  8,  (-1),            Sos_cuadelback,   FALSE,FALSE,TRUE, TRUE, FALSE,STRIP_BOTH,TRUE, FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_RESET_FOCUS  ,(CHARTYPE *)""},  /* commsos.c */
  {(CHARTYPE *)"cuadelchar",  7,  (-1),            Sos_cuadelchar,   FALSE,FALSE,TRUE, TRUE, FALSE,STRIP_BOTH,TRUE, FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_RESET_FOCUS  ,(CHARTYPE *)""},  /* commsos.c */
-#if defined(DOS) || defined(OS2) || defined(USE_XCURSES) || defined(WIN32)
+#if defined(USE_XCURSES) || defined(WIN32)
  {(CHARTYPE *)"addline",     3,  THE_KEY_F(4),          Sos_addline,      FALSE,FALSE,TRUE, FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* commsos.c */
  {(CHARTYPE *)"delback",     5,  THE_KEY_BKSP,        Sos_delback,      FALSE,FALSE,TRUE, TRUE, FALSE,STRIP_BOTH,TRUE, FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_RESET_FOCUS  ,(CHARTYPE *)""},  /* commsos.c */
  {(CHARTYPE *)"delchar",     4,  THE_KEY_DC,         Sos_delchar,      FALSE,FALSE,TRUE, TRUE, FALSE,STRIP_BOTH,TRUE, FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_RESET_FOCUS  ,(CHARTYPE *)""},  /* commsos.c */
@@ -536,7 +536,7 @@ COMMAND command[] =
  {(CHARTYPE *)"timecheck",   9,  (-1),            Timecheck,        TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset2.c */
  {(CHARTYPE *)"toascii",     7,  (-1),            Toascii,          FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm5.c */
  {(CHARTYPE *)"tofeof",      6,  (-1),            Tofeof,           TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset2.c */
-#if defined(DOS) || defined(OS2) || defined(USE_XCURSES) || defined(WIN32)
+#if defined(USE_XCURSES) || defined(WIN32)
  {(CHARTYPE *)"top",         3,  THE_KEY_CTL_PGUP,        Top,              TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm5.c */
 #else
  {(CHARTYPE *)"top",         3,  (-1),            Top,              TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm5.c */

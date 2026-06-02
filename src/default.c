@@ -278,11 +278,10 @@ void set_global_defaults(void)
       EOLx = EOLOUT_NONE;
    else
    {
-#if defined(UNIX) || defined(AMIGA)
-      EOLx = EOLOUT_LF;
-#endif
-#if defined(DOS) || defined(OS2) || defined(WIN32)
+#if defined(WIN32)
       EOLx = EOLOUT_CRLF;
+#else
+      EOLx = EOLOUT_LF;
 #endif
    }
    /*

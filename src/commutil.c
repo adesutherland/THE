@@ -3660,12 +3660,12 @@ short get_valid_macro_file_name(CHARTYPE *inmacroname,CHARTYPE *filename,CHARTYP
     */
    strcpy( (DEFCHAR*)macroname, (DEFCHAR*)inmacroname );
    strrmdup(strtrans(macroname,OSLASH,ISLASH),ISLASH,TRUE);
-#if defined( UNIX ) || defined( VMS )
+#if defined(UNIX)
    strcpy((DEFCHAR *)delims,(DEFCHAR *)ISTR_SLASH);
    if (strpbrk((DEFCHAR *)macroname,(DEFCHAR *)delims) == NULL
    && *(macroname) != '~')
 #endif
-#if defined(DOS) || defined(OS2) || defined(WIN32) || defined(AMIGA)
+#if defined(WIN32)
    strcpy((DEFCHAR *)delims,ISTR_SLASH);
    strcat((DEFCHAR *)delims,":");
    if (strpbrk((DEFCHAR *)macroname,(DEFCHAR *)delims) == NULL)
@@ -4436,7 +4436,7 @@ int is_file_in_ring( CHARTYPE *fpath, CHARTYPE *fname )
 
    while( curr )
    {
-#if defined(OS2) || defined(WIN32) || defined(DOS)
+#if defined(WIN32)
       if ( my_stricmp( (DEFCHAR *)curr->file_for_view->fpath, (DEFCHAR *)fpath ) == 0
       &&   my_stricmp( (DEFCHAR *)curr->file_for_view->fname, (DEFCHAR *)fname ) == 0 )
 #else

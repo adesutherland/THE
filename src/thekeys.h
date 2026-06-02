@@ -352,7 +352,7 @@
 #define THE_KEY_A_DB2          0x42a
 #define THE_KEY_A_DB3          0x42b
 
-#if defined(DOS) || defined(OS2) || defined(WIN32) \
+#if defined(WIN32) \
  || defined(USE_XCURSES) || defined(USE_SDLCURSES) \
  || defined(USE_VTCURSES)
 # define THE_KEY_NUMENTER THE_KEY_PADENTER

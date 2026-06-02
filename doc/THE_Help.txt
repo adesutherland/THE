@@ -20,8 +20,8 @@
     -l line_num   specify line number to make current
     -c column_num specify column number to make current
     -p profile    The name of the profile file to use.  If not specified,
-                  the file ".\PROFILE.THE" (under OS/2, DOS and Win95/NT)
-                  or "$HOME/.therc" (under UNIX), will be used, unless
+                  the file ".\PROFILE.THE" (under native Windows)
+                  or "$HOME/.therc" (under Unix/POSIX), will be used, unless
                   overridden by the environment variable "THE_PROFILE_FILE".
     -a prof_arg   Used to pass a string to the profile file as argument.
                   Only works with Rexx macros.
@@ -437,17 +437,17 @@
        Default: See <QUERY> ECOLOR
  [SET] EOLout CRLF|LF|CR|NONE
        set end of line terminating character(s)
-       Default: LF - UNIX
-       Default: CRLF - DOS/OS2/WIN32
+       Default: LF - Unix/POSIX
+       Default: CRLF - Windows
        Default: NONE - if THE started with -u option
  [SET] EQUIVChar char
        set the equivalence character
        Default: =
  [SET] ETMODE ON|OFF [character list]
        indicate if extended display mode is possible
-       Default: ON - DOS/OS2/WIN32
+       Default: ON - Windows
        Default: ON 32-255 - X11
-       Default: OFF - UNIX/AMIGA/QNX
+       Default: OFF - Unix/POSIX
  [SET] FExt ext
  [SET] FType ext
        change the extension of the existing file
@@ -565,7 +565,7 @@
        Default: ON Left 6 0
  [SET] PRINTER spooler|[OPTION options]
        define printer spooler name
-       Default: LPT1 - DOS/OS2, lpr - Unix, default - Win32
+       Default: lpr - Unix/POSIX, default - Windows
  [SET] PSCReen height [width] [RESET|PRESET]
        set physical size of screen
        Default: System Dependent
@@ -903,10 +903,9 @@
  -----------------------
 
  +-------------------+-----------------+----------+------------+--------------|
- |                   |     DOS         |          |            |              |
- |                   |     OS/2        |          |            |              |
- |     Command       |     Win32       |   X11    |   vt220    |    xterm     |
- |                   |     Win31       |          |            |              |
+ |                   |    Native       |          |            |              |
+ |     Command       |    Windows      |   X11    |   vt220    |    xterm     |
+ |                   |                 |          |            |              |
  +-------------------+-----------------+----------+------------+--------------|
  | ?                 | F6              | F6       | F6         | F6           |
  | backward 1        | PGUP            | PGUP     | PrevScreen | PGUP         |

@@ -46,97 +46,7 @@ void ui_log(const char *fmt, ...);
 #include "thedriver.h"
 #include "thekeys.h"
 
-#if defined(__OS2__)
-#  if defined(MSDOS) && defined(EMX)
-#     undef __OS2__
-#     if !defined(DOS)
-#        define DOS
-#     endif
-#     if defined(OS2)
-#        undef OS2
-#     endif
-#  else
-#     undef MSDOS          /* in case you are using MSC 6.0 for OS/2 */
-#     define INCL_VIO
-#     include <os2.h>
-#  endif
-#  include <stdlib.h>
-#  include <memory.h>
-#  include <string.h>
-#  include <process.h>
-#  include <errno.h>
-#  include <ctype.h>
-#  include <fcntl.h>
-#  include <io.h>
-#  include <sys\types.h>
-#  include <sys\stat.h>
-#  define ESLASH '\\'
-#  define ESTR_SLASH (CHARTYPE *)"\\"
-#  if defined(EMX)
-#    define OSLASH '\\'
-#    define OSTR_SLASH (CHARTYPE *)"\\"
-#    define ISLASH '/'
-#    define ISTR_SLASH (CHARTYPE *)"/"
-#    define HAVE_BROKEN_TMPNAM 1
-#  else
-#    define OSLASH '/'
-#    define OSTR_SLASH (CHARTYPE *)"/"
-#    define ISLASH '\\'
-#    define ISTR_SLASH (CHARTYPE *)"\\"
-#  endif
-#  define CURRENT_DIR (CHARTYPE *)"."
-#  if defined(MSC)
-/* the following 2 defines are to make MSC recognise the new names */
-/* of the following OS/2 calls */
-#    define DosSetDefaultDisk DosSelectDisk
-#    define DosQueryCurrentDisk DosQCurDisk
-#  endif
-/* the following #define is to eliminate need for the getch.c/getch.h */
-/* modules in the OS/2 compilation */
-#  include "thever.h"
-#endif
-
-#if defined(__MSDOS__) || defined(MSDOS)
-#  include <stdlib.h>
-#  include <memory.h>
-#  include <string.h>
-#  include <fcntl.h>
-#  include <io.h>
-#  if defined(GO32)
-#    include <dir.h>
-#  else
-#    include <process.h>
-#    if !defined(EMX)
-#      include <direct.h>
-#    endif
-#  endif
-#  include <errno.h>
-#  include <ctype.h>
-#  include <sys\types.h>
-#  include <sys\stat.h>
-#  define ESLASH '\\'
-#  define ESTR_SLASH (CHARTYPE *)"\\"
-#  if defined(GO32) || defined(EMX)
-#    define OSLASH '\\'
-#    define OSTR_SLASH (CHARTYPE *)"\\"
-#    define ISLASH '/'
-#    define ISTR_SLASH (CHARTYPE *)"/"
-#  else
-#    define OSLASH '/'
-#    define OSTR_SLASH (CHARTYPE *)"/"
-#    define ISLASH '\\'
-#    define ISTR_SLASH (CHARTYPE *)"\\"
-#  endif
-#  if defined(__TURBOC__) || defined(MSC)
-#    define HAVE_BROKEN_TMPNAM 1
-#  endif
-#  define CURRENT_DIR (CHARTYPE *)"."
-/* the following #define is to eliminate need for the getch.c/getch.h */
-/* modules in the DOS compilation */
-#  include "thever.h"
-#endif
-
-#if (defined(__NT__) || defined(WIN32) ) && !defined(__CYGWIN32__)
+#if defined(WIN32) && !defined(__CYGWIN32__)
 #  include <stdlib.h>
 #  include <memory.h>
 #  include <string.h>
@@ -155,50 +65,8 @@ void ui_log(const char *fmt, ...);
 #  define OSTR_SLASH (CHARTYPE *)"/"
 #  define ISLASH '\\'
 #  define ISTR_SLASH (CHARTYPE *)"\\"
-#  if defined(__WATCOMC__)
-#    define HAVE_BROKEN_TMPNAM 1
-#    define HAVE_TIME_H 1
-#    include <dos.h>     /* may exist under other flavours, too */
-#  endif
 #  define CURRENT_DIR (CHARTYPE *)"."
-#  define CAN_RESIZE 1
-#endif
-
-#if defined(AMIGA) && defined(GCC)
-#  include <stdlib.h>
-#  include <memory.h>
-#  include <string.h>
-#  include <errno.h>
-#  include <ctype.h>
-#  include <fcntl.h>
-#  include <sys/types.h>
-#  include <sys/stat.h>
-#  define ESLASH '/'
-#  define ESTR_SLASH (CHARTYPE *)"/"
-#  define OSLASH '/'
-#  define OSTR_SLASH (CHARTYPE *)"/"
-#  define ISLASH '/'
-#  define ISTR_SLASH (CHARTYPE *)"/"
-#  define CURRENT_DIR (CHARTYPE *)"."
-/* #  define CAN_RESIZE 1 */
-#endif
-
-#ifdef M_XENIX
-#  define UNIX 1
-#endif
-
-#ifdef MINIX
-#  define short int
-#  define UNIX 1
-#endif
-
-/*
- * Define platform-dependent path separator macros for UNIX/VMS only if they
- * haven't already been defined by an earlier platform block (e.g. WIN32).
- * This prevents macro redefinition warnings when both UNIX and WIN32-style
- * macros are visible via generated config headers.
- */
-#if (defined(UNIX) || defined(VMS)) && !defined(ESLASH)
+#else
 #  define ESLASH '/'
 #  define ESTR_SLASH (CHARTYPE *)"/"
 #  define OSLASH '\\'
@@ -206,23 +74,6 @@ void ui_log(const char *fmt, ...);
 #  define ISLASH ESLASH
 #  define ISTR_SLASH ESTR_SLASH
 #  define CURRENT_DIR (CHARTYPE *)"."
-#endif
-
-#ifdef VMS1
-#  define ISLASH ']'
-#  define ISTR_SLASH (CHARTYPE *)"]"
-#  define OSLASH ISLASH
-#  define OSTR_SLASH ISTR_SLASH
-#  define ESLASH ISLASH
-#  define ESTR_SLASH ISTR_SLASH
-#  define CURRENT_DIR (CHARTYPE *)"[]"
-#  ifdef BSD
-#    define BSDcurses 1
-#  endif
-/* #define isdigit(c)   (_ctype[(c) + 1] & 2)
-#  define islower(c)   (_ctype[(c) + 1] & 8)
-#  define isupper(c)   (_ctype[(c) + 1] & 4)*/
-#  define NO_KEYPAD 1
 #endif
 
 #ifdef HAVE_ERRNO_H
@@ -1751,33 +1602,17 @@ typedef enum { CURSOR_PRESENTATION_HARDWARE, CURSOR_PRESENTATION_SOFTWARE } Curs
 #endif
 
 #if defined(MAIN)
-# ifdef MSWIN
-#  define _THE_FAR __far
-void far * (*the_malloc)(unsigned long);             /* ptr to some malloc(size) */
-void far * (*the_calloc)();                          /* ptr to some ecalloc(num,size)*/
-void  (*the_free)();                            /* ptr to some free(ptr) */
-void far * (*the_realloc)(void far *,unsigned long); /* ptr to some realloc(ptr,size) */
-# else
-#  define _THE_FAR
+# define _THE_FAR
 void* (*the_malloc)(size_t);  /* ptr to some malloc(size) */
 void* (*the_calloc)(size_t,size_t);  /* ptr to some calloc(num,size)*/
 void  (*the_free)(void *);    /* ptr to some free(ptr) */
 void* (*the_realloc)(void *, size_t); /* ptr to some realloc(ptr,size) */
-# endif
 #else
-# ifdef MSWIN
-#  define _THE_FAR __far
-extern void far * (*the_malloc)(unsigned long);
-extern void far * (*the_calloc)(unsigned long);
+# define _THE_FAR
+extern void* (*the_malloc)(size_t);
+extern void* (*the_calloc)(size_t,size_t);
 extern void  (*the_free)(void *);
-extern void far * (*the_realloc)(void far *,unsigned long);
-# else
-#  define _THE_FAR
-extern void* (*the_malloc)(unsigned long);
-extern void* (*the_calloc)(unsigned long);
-extern void  (*the_free)(void *);
-extern void* (*the_realloc)(void *, unsigned long);
-# endif
+extern void* (*the_realloc)(void *, size_t);
 #endif
 
 #if defined(THE_TRACE)

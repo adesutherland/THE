@@ -22,8 +22,8 @@
  *              uunet!uiucuxc!kailand!pwolfe
  *              pwolfe@kailand.kai.com
  *
- * Additions of Xenix,Sun,DOS,VMS,AIX and OS2 key handling
- * made by Mark Hessling (M.Hessling@qut.edu.au)
+ * Later key handling additions made by Mark Hessling
+ * (M.Hessling@qut.edu.au)
  *
  */
 
@@ -82,11 +82,7 @@ static FILE *mouse_getch_trace_file(void)
    return trace;
 }
 
-#  ifdef MSWIN
 static void mouse_getch_trace(TheDriverWindow *winptr, int key)
-#  else
-static void mouse_getch_trace(TheDriverWindow *winptr, int key)
-#  endif
 {
    FILE *trace=mouse_getch_trace_file();
 
@@ -98,11 +94,7 @@ static void mouse_getch_trace(TheDriverWindow *winptr, int key)
 }
 
 /***********************************************************************/
-#  ifdef MSWIN
 int my_getch (TheDriverWindow *winptr)
-#  else
-int my_getch (TheDriverWindow *winptr)
-#  endif
 /***********************************************************************/
 {
    int c=0,tmp_c=(-1);

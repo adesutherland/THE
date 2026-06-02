@@ -77,11 +77,7 @@ static CHARTYPE query_logical_cursor_char(void)
    }
    if (line == NULL || cursor.text.byte_offset >= len)
       return ' ';
-#ifdef VMS
-   return line[cursor.text.byte_offset];
-#else
    return (CHARTYPE)((unsigned char)line[cursor.text.byte_offset]);
-#endif
 }
 void get_etmode(CHARTYPE *,CHARTYPE *);
 short set_boolean_value(bool flag, short num);
@@ -2572,50 +2568,14 @@ short extract_version(short number_variables,short itemno,CHARTYPE *itemargs,CHA
    item_values[2].value = (CHARTYPE *)the_version;
    item_values[2].len = strlen((DEFCHAR *)the_version);
    item_values[3].value = (CHARTYPE *)"???";
-#if defined(DOS)
-# if defined(EMX)
-   if (_osmode == DOS_MODE)
-      item_values[3].value = (CHARTYPE *)"DOS";
-   else
-      item_values[3].value = (CHARTYPE *)"OS2";
-#else
-   item_values[3].value = (CHARTYPE *)"DOS";
-# endif
-#endif
-#if defined(OS2)
-# if defined(EMX)
-   if (_osmode == DOS_MODE)
-      item_values[3].value = (CHARTYPE *)"DOS";
-   else
-      item_values[3].value = (CHARTYPE *)"OS2";
-#else
-   item_values[3].value = (CHARTYPE *)"OS2";
-# endif
-#endif
-#if defined(UNIX)
-# if defined(__QNX__)
-   item_values[3].value = (CHARTYPE *)"QNX";
-# else
-   item_values[3].value = (CHARTYPE *)"UNIX";
-# endif
-#endif
 #if defined(USE_XCURSES)
    item_values[3].value = (CHARTYPE *)"X11";
-#endif
-#if defined(MSWIN)
-   item_values[3].value = (CHARTYPE *)"MS-WINDOWS";
-#endif
-#if defined(_WIN32)
-   item_values[3].value = (CHARTYPE *)"WIN32";
-#endif
-#if defined(_WIN64)
+#elif defined(_WIN64)
    item_values[3].value = (CHARTYPE *)"WIN64";
-#endif
-#if defined(AMIGA)
-   item_values[3].value = (CHARTYPE *)"AMIGA";
-#endif
-#if defined(__BEOS__)
-   item_values[3].value = (CHARTYPE *)"BEOS";
+#elif defined(_WIN32)
+   item_values[3].value = (CHARTYPE *)"WIN32";
+#elif defined(UNIX)
+   item_values[3].value = (CHARTYPE *)"UNIX";
 #endif
    item_values[3].len = strlen((DEFCHAR *)item_values[3].value);
    item_values[4].value = (CHARTYPE *)the_release;

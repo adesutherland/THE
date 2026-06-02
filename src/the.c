@@ -49,12 +49,6 @@
 
 #include "mygetopt.h"
 
-#if defined(DOS) || defined(OS2)
-#  if !defined(EMX) && !defined(GO32)
-#    include <direct.h>
-#  endif
-#endif
-
 #if defined(USE_WINGUICURSES) || (defined(USE_SDLCURSES) && defined(WIN32))
 # include <windows.h>
 # if defined(TRYING_DRAG_DROP)
@@ -165,11 +159,7 @@ static int filter_driver_args(int argc, char **argv, char ***filtered_argv,
    CHARTYPE *keyfilename = (CHARTYPE *)"KEY$$$.$$$";
    CHARTYPE _THE_FAR rexx_pathname[MAX_FILE_NAME+1];
    CHARTYPE _THE_FAR rexx_filename[10];
-# ifdef VMS
-   CHARTYPE *dirfilename = (CHARTYPE *)"DIR.THE";
-# else
    CHARTYPE *dirfilename = (CHARTYPE *)"DIR.DIR";
-# endif
 #endif
 
 #if !defined(XTERM_PROGRAM)
@@ -384,22 +374,9 @@ static int filter_driver_args(int argc, char **argv, char ***filtered_argv,
    return out;
 }
 
-/***********************************************************************/
-#ifdef MSWIN
-int Themain(argc,argv)
-int argc;
-char *argv[];
-#else
 int main(int argc, char *argv[])
-#endif
 /***********************************************************************/
 {
-#ifdef MSWIN
-   extern void efree();
-   extern char far *emalloc(unsigned long);
-   extern char far *erealloc(void far *,unsigned long);
-   extern char far *ecalloc();
-#endif
    register short i=0;
    short c=0;
    int length;
@@ -422,9 +399,6 @@ int main(int argc, char *argv[])
    TheDriverStartupOptions driver_startup_options;
    char driver_error[4096];
 
-#ifdef __EMX__
-   _wildcard(&argc,&argv);
-#endif
    TRACE_INITIALISE();
    TRACE_FUNCTION("the.c:     main");
    
@@ -459,13 +433,6 @@ int main(int argc, char *argv[])
    * Set up our memory management calls. This is where you can specify a
    * debugging memory manager.
    */
-#ifdef MSWIN
-   the_malloc  = emalloc;
-   the_calloc  = ecalloc;
-   the_free    = efree;
-   the_realloc = erealloc;
-   Win31Startup();
-#else
    if (getenv("NO_FLISTS"))
    {
       the_malloc  = malloc;
@@ -481,7 +448,6 @@ int main(int argc, char *argv[])
       the_realloc = resize_a_block;
       init_memory_table();
    }
-#endif
    /*
     * Set up flag to indicate that we are not interactive...yet.
     */
@@ -546,20 +512,6 @@ int main(int argc, char *argv[])
    term_name = (CHARTYPE *)"X11";
 #elif defined(WIN32) && !defined(__CYGWIN32__)
    term_name = (CHARTYPE *)"WIN32";
-#elif defined(__EMX__)
-   if (_osmode == DOS_MODE)
-      term_name = (CHARTYPE *)"DOS";
-   else
-      term_name = (CHARTYPE *)"OS2";
-#elif defined(DOS)
-   term_name = (CHARTYPE *)"DOS";
-#elif defined(OS2)
-   term_name = (CHARTYPE *)"OS2";
-#elif defined(AMIGA)
-   if ((envptr = getenv("TERM")) != NULL)
-      term_name = (CHARTYPE *)envptr;
-   else
-      term_name = (CHARTYPE *)"default";
 #endif
 
 
@@ -1002,10 +954,6 @@ int main(int argc, char *argv[])
    {
       if ( initialise_fifo( first_file_name, startup_line, startup_column, the_readonly ) )
       {
-# ifdef MSWIN
-         Win31Cleanup();
-         return(0);
-# endif
          cleanup();
          return(0);
       }
@@ -1090,11 +1038,8 @@ int main(int argc, char *argv[])
 #ifdef UNIX
    strcpy((DEFCHAR *)dir_pathname,(DEFCHAR *)user_home_dir);
 #endif
-#if defined(DOS) || defined(OS2) || (defined(WIN32) && !defined(__CYGWIN32__)) || defined(AMIGA)
+#if defined(WIN32) && !defined(__CYGWIN32__)
    strcpy((DEFCHAR *)dir_pathname,(DEFCHAR *)ISTR_SLASH);
-#endif
-#ifdef VMS
-   strcpy((DEFCHAR *)dir_pathname,"");
 #endif
 
    strcat( (DEFCHAR *)dir_pathname, (DEFCHAR *)dirfilename );
@@ -1125,11 +1070,9 @@ int main(int argc, char *argv[])
    /*
     * Initialise rexx support. If no Rexx available, set flag...
     */
-#ifndef MSWIN
    rexx_support = TRUE;
    if (initialise_rexx() != RC_OK)
       rexx_support = FALSE;
-#endif
    driver_error[0] = '\0';
    if (!the_driver_load(startup_driver == THE_STARTUP_DRIVER_LLM
                            ? "llm" : "curses",
@@ -1201,13 +1144,6 @@ int main(int argc, char *argv[])
            {
               /* If we generated a message, don't just throw it away, keep it for the display loop. */
            }
-#ifdef MSWIN
-           (void)get_user_profile();
-           if (error_on_screen)
-           {
-              error_on_screen = FALSE;
-           }
-#endif
         }
         current_file_name = current_file_name->next;
       }
@@ -1275,11 +1211,11 @@ int main(int argc, char *argv[])
    /*
     * Set up ETMODE tables...
     */
-#if defined(DOS) || defined(OS2) || defined(WIN32)
+#if defined(WIN32)
    (void)Etmode((CHARTYPE *)"ON");
 #elif defined(USE_XCURSES) || defined(USE_SDLCURSES) || defined(USE_VTCURSES)
    (void)Etmode((CHARTYPE *)"ON 32-255");
-#elif defined(UNIX) || defined(AMIGA)
+#else
    (void)Etmode((CHARTYPE *)"OFF");
 #endif
    /*
@@ -1337,9 +1273,7 @@ int main(int argc, char *argv[])
    /*
     * Finalise rexx support...
     */
-#ifndef MSWIN
    finalise_rexx();
-#endif
    /*
     * Free up the dynamically allocated memory.
     */
@@ -1768,9 +1702,7 @@ void cleanup(void)
    /*
     * Free up the working memory
     */
-#if !defined(MSWIN)
    the_free_flists();
-#endif
    TRACE_RETURN();
    return;
 }

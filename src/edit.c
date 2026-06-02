@@ -74,10 +74,6 @@ void editor(void)
          the_driver->update();
       }
    }
-#ifdef MSWIN
-   the_driver->present_cursor(TRUE);
-#endif
-
    for ( ; ; )
    {
       if ( process_key( -1, FALSE ) != RC_OK )

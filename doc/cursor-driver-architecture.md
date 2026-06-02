@@ -249,7 +249,7 @@ Closed checkpoints are summarized here; details and next tasks are in
 - `tests/inventory_direct_curses.sh` is the repeatable debt sweep and ratchet.
   Current counts are actionable `physical-input: 0`, `physical-paint: 0`,
   `physical-attr: 0`, `curses-include: 0`, and `window-state: 0`;
-  `driver-wrapper: 542` is counted as migrated/allowed. The summary now splits
+  `driver-wrapper: 541` is counted as migrated/allowed. The summary now splits
   `window-state` into
   `window-handle: 0`, `active-window-macro: 0`, `cell-attr-type: 0`,
   `renderer-cell-type: 0`, and `header-prototype: 0`. The ratchet is
@@ -306,6 +306,10 @@ The current active categories are:
   core/editor `THE_KEY_*` caller names, command-triggered LLM modal
   continuations, broader real-runtime LLM fixtures, and retirement of the fake
   LLM harness/headless mini-runtime.
+- Supported source/build platforms are macOS, Linux/POSIX, and native Windows.
+  Legacy DOS, OS/2, VMS, Amiga, BeOS, QNX, DJGPP/GO32, and ancient compiler
+  branches are retired; old command names remain only where they are command
+  compatibility aliases.
 - Queued next: Windows loader verification and
   Windows/PDCurses driver strategy, terminal/keycap materialization baselines,
   any future unique-logical-key-ID decision after the mechanical rename,

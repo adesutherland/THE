@@ -140,9 +140,6 @@ short Left(CHARTYPE *params)
    {
       CURRENT_VIEW->verify_col = max( 1, CURRENT_VIEW->verify_col-shift_val );
    }
-#ifdef MSWIN
-   Win31HScroll( CURRENT_VIEW->verify_col );
-#endif
    build_screen( current_screen );
    display_screen( current_screen );
    TRACE_RETURN();

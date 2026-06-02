@@ -8,8 +8,8 @@ SUSPend
 
 ## Description
 The SUSPEND command suspends the current editing session and returns control to the operating
-system. Under DOS and OS/2 this is the equivalent of OSNOWAIT . Under UNIX, the process gets
-placed in the background until it is brought to the foreground.
+system. On Unix/POSIX systems, the process gets placed in the background until it is brought to the
+foreground.
 
 ## Compatibility
 XEDIT: N/A

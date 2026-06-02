@@ -3357,10 +3357,10 @@ SYNTAX
 
 DESCRIPTION
      The EOLOUT command allows the user to specify the combination of
-     characters that terminate a line. Lines of text in Unix files are
-     usually terminated with a 'LF', DOS file usually end with a 'CR' and
-     'LF' combination. Files on the Apple Macintosh are usually terminated
-     with a 'CR'.
+     characters that terminate a line. Lines of text in Unix/POSIX files are
+     usually terminated with a 'LF'. Windows-style text files usually end
+     with a 'CR' and 'LF' combination. Classic Mac-style files are usually
+     terminated with a 'CR'.
 
      The 'NONE' option can be used to specify that no end of line
      character is written.
@@ -3370,8 +3370,8 @@ COMPATIBILITY
      KEDIT: N/A
 
 DEFAULT
-     LF - UNIX
-     CRLF - DOS/OS2/WIN32
+     LF - Unix/POSIX
+     CRLF - Windows
      NONE - if THE started with -u option
 
 STATUS
@@ -3597,9 +3597,9 @@ COMPATIBILITY
      KEDIT: N/A
 
 DEFAULT
-     ON - DOS/OS2/WIN32
+     ON - Windows
      ON 32-255 - X11
-     OFF - UNIX/AMIGA/QNX
+     OFF - Unix/POSIX
 
 SEE ALSO
      <SET NONDISP>, <SET COLOUR>
@@ -4003,7 +4003,7 @@ DESCRIPTION
      empty.
 
      The fmode of a file is equivalent to the drive letter of the file's
-     path. This is only valid under DOS, OS/2 and Windows ports.
+     path. This is only valid under native Windows.
 
      Some examples.
 
@@ -4338,7 +4338,7 @@ DESCRIPTION
      The SET FMode command allows the user to change the drive letter
      of the file currently being edited.
 
-     This command is only valid under the DOS, OS/2 and Windows ports.
+     This command is only valid under native Windows.
 
      See <SET FILENAME> for a full explanation of THE's definitions
      of fpath, filename, fname, fext and fmode.
@@ -4626,8 +4626,8 @@ DESCRIPTION
      the file currently being edited.
 
      The 'path' parameter can be specified with or without the
-     trailing directory separator.  Under DOS, OS/2 and Windows ports,
-     the drive letter is considered part of the file's path.
+     trailing directory separator.  Under native Windows, the drive letter
+     is considered part of the file's path.
 
      See <SET FILENAME> for a full explanation of THE's definitions
      of fpath, filename, fname, fext and fmode.
@@ -6138,7 +6138,7 @@ SYNTAX
 DESCRIPTION
      The SET MACROPATH command sets up the search path from which macro
      command files are executed. Each directory is separated by a
-     colon (Unix) or semi-colon (DOS & OS/2). Only 20 directories are
+     colon (Unix/POSIX) or semi-colon (Windows). Only 20 directories are
      allowed to be specified.
 
      When 'PATH' is specified, the search path is set to the system

@@ -1544,9 +1544,7 @@ void curses_driver_redraw_window(WINDOW *win)
       {
          curses_driver_move_window_cursor(win, j, i);
          ch = curses_driver_read_window_cell(win);
-#ifndef VMS
          ch &= A_CHARTEXT;
-#endif
          put_char(curses_driver_window_to_driver(win),
                   the_driver_cell_make((uint32_t)ch, THE_RENDER_ATTR_NORMAL),
                   ADDCHAR);

@@ -903,7 +903,7 @@ static short execute_filearea_or_prefix_logical_row(CHARTYPE curr_screen,
 short execute_os_command(CHARTYPE *cmd,bool quiet,bool pause)
 /***********************************************************************/
 {
-#if defined(DOS) || defined(OS2) || defined(WIN32)
+#if defined(WIN32)
 # define SHELL "COMSPEC"
 #else
 # define SHELL "SHELL"
@@ -914,11 +914,6 @@ short execute_os_command(CHARTYPE *cmd,bool quiet,bool pause)
 #endif
 
    TRACE_FUNCTION("execute.c: execute_os_command");
-
-#ifdef MSWIN
-   quiet = 1;
-   pause = 0;
-#endif
 
 #if defined(USE_XCURSES) || defined(USE_WINGUICURSES) || defined(USE_SDLCURSES)
    curses_started=FALSE;
@@ -964,7 +959,7 @@ short execute_os_command(CHARTYPE *cmd,bool quiet,bool pause)
 #ifdef UNIX
       strcat((DEFCHAR *)temp_cmd," > /dev/null");
 #endif
-#if defined(DOS) || defined(OS2) || defined(WIN32)
+#if defined(WIN32)
       strcat((DEFCHAR *)temp_cmd," > nul:");
 #endif
    }

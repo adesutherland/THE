@@ -1658,7 +1658,7 @@ TERMinal
      (QES)
 
      terminal.0      - 4
-     terminal.1      - DOS|OS2|X11|WIN32|SDL|VT|$TERM value under Unix
+     terminal.1      - X11|WIN32|SDL|VT|$TERM value under Unix/POSIX
      terminal.2      - terminal size - rows (THE extension)
      terminal.3      - terminal size - columns (THE extension)
      terminal.4      - terminal variant (THE extension)
@@ -1763,9 +1763,9 @@ VERSION
      version.0       - 5
      version.1       - THE
      version.2       - version string e.g. 1.5
-     version.3       - platform version (DOS,OS2,UNIX,X11,WIN32,...)
+     version.3       - platform version (UNIX,X11,WIN32,WIN64,...)
      version.4       - version status information e.g. release date, beta
-     version.5       - platform kernel (DOS,OS2,Linux,WIN32,...)
+     version.5       - platform kernel (Linux,Darwin,WIN32,...)
 
 Width
      Returns maximum line width setting. Set by -w command line switch

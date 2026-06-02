@@ -160,7 +160,6 @@ check_function_exists(vsnprintf HAVE_VSNPRINTF)
 
 # Hardcode some stuff for now that normally autoconf tests
 set(STDC_HEADERS 1)
-set(UNIX 1)
 set(RETSIGTYPE "void")
 set(HAVE_WATTRSET 1)
 set(HAVE_TOUCHLINE 1)

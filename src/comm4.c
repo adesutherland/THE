@@ -332,12 +332,12 @@ DESCRIPTION
 
      PRINT [<'target'>] ['n']
         Sends text from the file contents up to the <'target'> to the printer
-        followed by a CR/LF (DOS) or LF(UNIX) after each line.
+        followed by a CR/LF (Windows-style) or LF(UNIX) after each line.
         When ['n'] is specified, this sends a formfeed after ['n'] successive
         lines of text.
      PRINT 'LINE' ['text']
         Sends the remainder of the 'text' on the command line to the printer
-        followed by a LF(UNIX), CR(MAC) or CR/LF (DOS).
+        followed by a LF(UNIX), CR(classic Mac) or CR/LF (Windows-style).
      PRINT 'STRING' ['text']
         Sends the remainder of the 'text' on the command line to the printer
         without any trailing line terminator.
@@ -491,7 +491,7 @@ DESCRIPTION
 
      If 'CLIP:' is used in place of 'filename', the portion of the file
      specified by <'target'> is written to the clipboard.
-     This option only available for X11, OS/2 and Win32 ports of THE.
+     This option is only available for X11 and native Windows ports of THE.
 
 COMPATIBILITY
      XEDIT: Compatible.
@@ -533,7 +533,7 @@ DESCRIPTION
 
      If 'CLIP:' is used in place of 'filename', the portion of the file
      specified by <'target'> is written to the clipboard.
-     This option only available for X11, OS/2 and Win32 ports of THE.
+     This option is only available for X11 and native Windows ports of THE.
 
 COMPATIBILITY
      XEDIT: Compatible.
@@ -1865,9 +1865,6 @@ short Right(CHARTYPE *params)
    {
       CURRENT_VIEW->verify_col = max(1,CURRENT_VIEW->verify_col+shift_val);
    }
-#ifdef MSWIN
-   Win31HScroll( CURRENT_VIEW->verify_col );
-#endif
    build_screen( current_screen );
    display_screen( current_screen );
    TRACE_RETURN();
@@ -2695,9 +2692,8 @@ SYNTAX
 
 DESCRIPTION
      The SUSPEND command suspends the current editing session and
-     returns control to the operating system. Under DOS and OS/2 this
-     is the equivalent of <OSNOWAIT>. Under UNIX, the process gets placed
-     in the background until it is brought to the foreground.
+     returns control to the operating system. Under UNIX, the process gets
+     placed in the background until it is brought to the foreground.
 
 COMPATIBILITY
      XEDIT: N/A

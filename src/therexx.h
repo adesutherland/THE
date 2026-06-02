@@ -33,15 +33,6 @@
 $Id: therexx.h,v 1.10 2022/10/23 22:00:12 mark Exp $
 */
 
-#if defined(OS2)
-# if defined(USE_REGINA)
-#  include <rexxsaa.h>
-# endif
-# if defined(USE_OS2REXX) && !defined(__EMX__)
-#  include <rexxsaa.h>
-# endif
-#endif
-
 #if defined(UNIX)
 # if defined(USE_REGINA)
 #  include <rexxsaa.h>
@@ -61,29 +52,6 @@ $Id: therexx.h,v 1.10 2022/10/23 22:00:12 mark Exp $
 # if defined(USE_UNIREXX)
 #  include <rexxsaa.h>
 #   define ORXXPrototype
-# endif
-#endif
-
-#if defined(DOS)
-# if defined(USE_REGINA)
-#  include <rexxsaa.h>
-# endif
-#endif
-
-#if defined(MSWIN)
-# if !defined(NOREXX)
-typedef signed short int SHORT;
-typedef char CHAR;
-typedef CHAR *PCH;
-#  include <windows.h>
-#  include <wrexx.h>
-#  define RXTHE_PSZ        LPCSTR
-#  define ULONG            DWORD
-#  define PUSHORT          LPWORD
-#  define RXTHE_PFN        FARPROC
-#  define RXTHE_PUCHAR     LPBYTE
-#  define RXTHE_PRXSUBCOM  FARPROC
-#  define RXTHE_PRXEXIT    FARPROC
 # endif
 #endif
 
@@ -109,12 +77,6 @@ typedef CHAR *PCH;
 #  include <windows.h>
 #  include <rexxsaa.h>
 #   define ORXXPrototype
-# endif
-#endif
-
-#if defined(AMIGA)
-# if defined(USE_REGINA)
-#  include <rexxsaa.h>
 # endif
 #endif
 
@@ -170,84 +132,6 @@ typedef CHAR *PCH;
 # define RS_ARG7_TYPE         PLONG
 # define RS_ARG8_TYPE         PRXSTRING
 
-#elif defined(USE_OS2REXX)
-# if defined(__EMX__)
-#  define RXSTRING_STRPTR_TYPE PCH
-#  define RFH_RETURN_TYPE      ULONG
-#  define RFH_ARG0_TYPE        PCSZ
-#  define RFH_ARG1_TYPE        ULONG
-#  define RFH_ARG2_TYPE        PRXSTRING
-#  define RFH_ARG3_TYPE        PCSZ
-#  define RFH_ARG4_TYPE        PRXSTRING
-#  define RRFE_ARG0_TYPE       PSZ
-#  define RRFE_ARG1_TYPE       RexxFunctionHandler *
-#  define RDF_ARG0_TYPE        PSZ
-#  define REH_RETURN_TYPE      LONG
-#  define REH_ARG0_TYPE        LONG
-#  define REH_ARG1_TYPE        LONG
-#  define REH_ARG2_TYPE        PEXIT
-#  define RREE_ARG0_TYPE       PSZ
-#  define RREE_ARG1_TYPE       PFN
-#  define RREE_ARG2_TYPE       PUCHAR
-#  define RSH_RETURN_TYPE      ULONG
-#  define RSH_ARG0_TYPE        PRXSTRING
-#  define RSH_ARG1_TYPE        PUSHORT
-#  define RSH_ARG2_TYPE        PRXSTRING
-#  define RRSE_ARG0_TYPE       PSZ
-#  define RRSE_ARG1_TYPE       PFN
-#  define RRSE_ARG2_TYPE       PUCHAR
-#  define RDE_ARG0_TYPE        PSZ
-#  define RDE_ARG1_TYPE        PSZ
-#  define RDS_ARG0_TYPE        PSZ
-#  define RDS_ARG1_TYPE        PSZ
-#  define RS_ARG0_TYPE         LONG
-#  define RS_ARG1_TYPE         PRXSTRING
-#  define RS_ARG2_TYPE         PSZ
-#  define RS_ARG3_TYPE         PRXSTRING
-#  define RS_ARG4_TYPE         PSZ
-#  define RS_ARG5_TYPE         LONG
-#  define RS_ARG6_TYPE         PRXSYSEXIT
-#  define RS_ARG7_TYPE         PSHORT
-#  define RS_ARG8_TYPE         PRXSTRING
-# else
-#  define RXSTRING_STRPTR_TYPE PCH
-#  define RFH_RETURN_TYPE      ULONG
-#  define RFH_ARG0_TYPE        PUCHAR
-#  define RFH_ARG1_TYPE        ULONG
-#  define RFH_ARG2_TYPE        PRXSTRING
-#  define RFH_ARG3_TYPE        PSZ
-#  define RFH_ARG4_TYPE        PRXSTRING
-#  define RRFE_ARG0_TYPE       PSZ
-#  define RRFE_ARG1_TYPE       PFN
-#  define RDF_ARG0_TYPE        PSZ
-#  define REH_RETURN_TYPE      LONG
-#  define REH_ARG0_TYPE        LONG
-#  define REH_ARG1_TYPE        LONG
-#  define REH_ARG2_TYPE        PEXIT
-#  define RREE_ARG0_TYPE       PSZ
-#  define RREE_ARG1_TYPE       PFN
-#  define RREE_ARG2_TYPE       PUCHAR
-#  define RSH_RETURN_TYPE      ULONG
-#  define RSH_ARG0_TYPE        PRXSTRING
-#  define RSH_ARG1_TYPE        PUSHORT
-#  define RSH_ARG2_TYPE        PRXSTRING
-#  define RRSE_ARG0_TYPE       PSZ
-#  define RRSE_ARG1_TYPE       PFN
-#  define RRSE_ARG2_TYPE       PUCHAR
-#  define RDE_ARG0_TYPE        PSZ
-#  define RDE_ARG1_TYPE        PSZ
-#  define RDS_ARG0_TYPE        PSZ
-#  define RDS_ARG1_TYPE        PSZ
-#  define RS_ARG0_TYPE         LONG
-#  define RS_ARG1_TYPE         PRXSTRING
-#  define RS_ARG2_TYPE         PSZ
-#  define RS_ARG3_TYPE         PRXSTRING
-#  define RS_ARG4_TYPE         PSZ
-#  define RS_ARG5_TYPE         LONG
-#  define RS_ARG6_TYPE         PRXSYSEXIT
-#  define RS_ARG7_TYPE         PSHORT
-#  define RS_ARG8_TYPE         PRXSTRING
-# endif
 
 #elif defined(USE_REGINA)
 # if defined(CONST)
@@ -494,45 +378,6 @@ typedef long LONG;
 # define RS_ARG8_TYPE         PRXSTRING
 
 #elif defined(USE_REXXTRANS)
-# if defined(__EMX__)
-#  define RXSTRING_STRPTR_TYPE PCH
-#  define RFH_RETURN_TYPE      ULONG
-#  define RFH_ARG0_TYPE        PCSZ
-#  define RFH_ARG1_TYPE        ULONG
-#  define RFH_ARG2_TYPE        PRXSTRING
-#  define RFH_ARG3_TYPE        PCSZ
-#  define RFH_ARG4_TYPE        PRXSTRING
-#  define RRFE_ARG0_TYPE       PSZ
-#  define RRFE_ARG1_TYPE       RexxFunctionHandler *
-#  define RDF_ARG0_TYPE        PSZ
-#  define REH_RETURN_TYPE      LONG
-#  define REH_ARG0_TYPE        LONG
-#  define REH_ARG1_TYPE        LONG
-#  define REH_ARG2_TYPE        PEXIT
-#  define RREE_ARG0_TYPE       PSZ
-#  define RREE_ARG1_TYPE       PFN
-#  define RREE_ARG2_TYPE       PUCHAR
-#  define RSH_RETURN_TYPE      ULONG
-#  define RSH_ARG0_TYPE        PRXSTRING
-#  define RSH_ARG1_TYPE        PUSHORT
-#  define RSH_ARG2_TYPE        PRXSTRING
-#  define RRSE_ARG0_TYPE       PSZ
-#  define RRSE_ARG1_TYPE       PFN
-#  define RRSE_ARG2_TYPE       PUCHAR
-#  define RDE_ARG0_TYPE        PSZ
-#  define RDE_ARG1_TYPE        PSZ
-#  define RDS_ARG0_TYPE        PSZ
-#  define RDS_ARG1_TYPE        PSZ
-#  define RS_ARG0_TYPE         LONG
-#  define RS_ARG1_TYPE         PRXSTRING
-#  define RS_ARG2_TYPE         PSZ
-#  define RS_ARG3_TYPE         PRXSTRING
-#  define RS_ARG4_TYPE         PSZ
-#  define RS_ARG5_TYPE         LONG
-#  define RS_ARG6_TYPE         PRXSYSEXIT
-#  define RS_ARG7_TYPE         PSHORT
-#  define RS_ARG8_TYPE         PRXSTRING
-# else
 #  define RXSTRING_STRPTR_TYPE char *
 #  define RFH_RETURN_TYPE      APIRET APIENTRY
 #  define RFH_ARG0_TYPE        PUCHAR
@@ -570,7 +415,6 @@ typedef long LONG;
 #  define RS_ARG6_TYPE         PRXSYSEXIT
 #  define RS_ARG7_TYPE         PSHORT
 #  define RS_ARG8_TYPE         PRXSTRING
-# endif
 
 #elif defined(USE_UNIREXX)
 # define RXSTRING_STRPTR_TYPE PCH

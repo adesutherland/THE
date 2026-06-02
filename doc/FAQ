@@ -11,8 +11,8 @@ A. That depends on the compatibility mode you are running in and the
    mode, the arrow keys and the TAB key should move you around the screen
    as though you are running on a block mode terminal. In other compatibiltiy
    modes, the key defined as "cursor home" or "cursor home save" will toggle
-   between the filearea and the command line. On DOS, Win32, OS/2 and X11
-   the key defined is the HOME key.
+   between the filearea and the command line. On native Windows and X11
+   builds the key defined is the HOME key.
 
 Q. How do I run THE using Un*x's "magic number" feature ?
 A. An example is easier, assume the file is named; aaa:
@@ -42,4 +42,3 @@ A. Simple answer is IBM has broken their curses library!
    2) AIX curses is broken! Use ncurses or XCurses if possible or get IBM
       to fix their code ;-)
       (Update for THE 3.1) A workaround has been written to fix this.
-

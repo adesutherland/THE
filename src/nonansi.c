@@ -37,26 +37,12 @@
 #include <the.h>
 #include <proto.h>
 
-#if (defined(UNIX) && !defined(_WIN32)) || defined(__EMX__)
+#if defined(UNIX) && !defined(_WIN32)
 # include <pwd.h>
 #endif
 #include <errno.h>
 
 /*#define DEBUG 1*/
-#ifdef __EMX__            /* prevent DOS- and OS2-includes    */
-#elif defined(DOS)
-#  include <dos.h>
-#  if !defined(GO32)
-#    include <direct.h>
-#  endif
-#elif defined(OS2)
-#  include <direct.h>
-#  include <io.h>
-#  ifndef S_IFMT
-#    define S_IFMT 0xF000
-#  endif
-#endif
-
 #if defined(WIN32) && defined(_MSC_VER)
 # include <direct.h>
 #endif
@@ -141,11 +127,7 @@ short remove_file(CHARTYPE *filename)
       TRACE_RETURN();
       return(RC_OK);
    }
-#ifdef VMS
-   if (delete(filename) == (-1))
-#else
    if (unlink((DEFCHAR *)filename) == (-1))
-#endif
    {
       TRACE_RETURN();
       return(RC_ACCESS_DENIED);
@@ -176,7 +158,7 @@ void convert_equals_in_filename(CHARTYPE *outfilename,CHARTYPE *infilename)
    CHARTYPE *in_ftype,*in_fpath,*in_fname;
    CHARTYPE *current_ftype,*current_fpath,*current_fname;
    LINETYPE last_pos;
-#if defined(DOS) || defined(OS2) || (defined(WIN32) && !defined(__CYGWIN32__)) || defined(__EMX__)
+#if defined(WIN32) && !defined(__CYGWIN32__)
    CHARTYPE *in_fmode;
    CHARTYPE *current_fmode;
 #endif
@@ -199,7 +181,7 @@ void convert_equals_in_filename(CHARTYPE *outfilename,CHARTYPE *infilename)
    * fpath/fname/ftype.
    */
    strcpy( (DEFCHAR *)in_filename, (DEFCHAR *)strrmdup( strtrans( infilename, OSLASH, ISLASH), EQUIVCHARx, TRUE ) );
-#if defined(DOS) || defined(OS2) || (defined(WIN32) && !defined(__CYGWIN32__)) || defined(__EMX__)
+#if defined(WIN32) && !defined(__CYGWIN32__)
    last_pos = strzreveq( in_filename, (CHARTYPE)':' );
    if ( last_pos  == (-1) )
    {
@@ -239,7 +221,7 @@ void convert_equals_in_filename(CHARTYPE *outfilename,CHARTYPE *infilename)
     */
    strcpy( (DEFCHAR *)current_filename, (DEFCHAR *)CURRENT_FILE->fpath );
    strcat( (DEFCHAR *)current_filename, (DEFCHAR *)CURRENT_FILE->fname );
-#if defined(DOS) || defined(OS2) || (defined(WIN32) && !defined(__CYGWIN32__)) || defined(__EMX__)
+#if defined(WIN32) && !defined(__CYGWIN32__)
    last_pos = strzreveq( current_filename, (CHARTYPE)':' );
    if ( last_pos  == (-1) )
    {
@@ -277,12 +259,15 @@ void convert_equals_in_filename(CHARTYPE *outfilename,CHARTYPE *infilename)
    /*
     * Now its time to put the new file name together
     */
-#if defined(DOS) || defined(OS2) || (defined(WIN32) && !defined(__CYGWIN32__)) || defined(__EMX__)
+#if defined(WIN32) && !defined(__CYGWIN32__)
    if ( in_fmode && !equal( in_fmode, EQUIVCHARstr, 1 ) )
       strcpy( (DEFCHAR *)outfilename, (DEFCHAR *)in_fmode );
-   else
+   else if ( current_fmode )
       strcpy( (DEFCHAR *)outfilename, (DEFCHAR *)current_fmode );
-   strcat( (DEFCHAR *)outfilename, ":" );
+   else
+      strcpy( (DEFCHAR *)outfilename, "" );
+   if ( *outfilename != '\0' )
+      strcat( (DEFCHAR *)outfilename, ":" );
 #else
    strcpy( (DEFCHAR *)outfilename, "" );
 #endif
@@ -312,7 +297,7 @@ void convert_equals_in_filename(CHARTYPE *outfilename,CHARTYPE *infilename)
    return;
 }
 
-#if defined(DOS) || defined(OS2) || (defined(WIN32) && !defined(__CYGWIN32__)) || defined(__EMX__)
+#if defined(WIN32) && !defined(__CYGWIN32__)
 /***********************************************************************/
 short splitpath(CHARTYPE *filename)
 /***********************************************************************/
@@ -321,27 +306,8 @@ short splitpath(CHARTYPE *filename)
    CHARTYPE _THE_FAR work_filename[MAX_FILE_NAME+1] ;
    CHARTYPE _THE_FAR conv_filename[MAX_FILE_NAME+1] ;
    CHARTYPE _THE_FAR current_dir[MAX_FILE_NAME+1] ;
-#ifdef __EMX__
-   int new_dos_disk=0,current_dos_disk=0,temp_disk=0;
-#elif defined(DOS)
-# if defined(__WATCOMC__)
    unsigned int new_dos_disk=0,current_dos_disk=0;        /* 1 - A,2 - B... */
    unsigned int temp_disk=0;
-# else
-   short new_dos_disk=0,current_dos_disk=0;        /* 1 - A,2 - B... */
-   short temp_disk=0;
-# endif
-#elif defined (OS2)
-   ULONG logical_os2_drives=0L;
-# if defined( __32BIT__) || defined(__386__)
-   ULONG new_dos_disk=0L,current_dos_disk=0L,temp_disk=0L;
-# else
-   USHORT new_dos_disk=0,current_dos_disk=0,temp_disk=0;
-# endif
-#elif defined(WIN32) && !defined(__CYGWIN32__)
-   unsigned int new_dos_disk=0,current_dos_disk=0;        /* 1 - A,2 - B... */
-   unsigned int temp_disk=0;
-#endif
 
    TRACE_FUNCTION("nonansi.c: splitpath");
 
@@ -353,11 +319,7 @@ short splitpath(CHARTYPE *filename)
    /*
     * Save the current directory.
     */
-#if defined(EMX)
-   if ( _getcwd2( curr_path, MAX_FILE_NAME ) == NULL )
-#else
    if ( getcwd( (DEFCHAR *)curr_path, MAX_FILE_NAME ) == NULL )
-#endif
    {
       TRACE_RETURN();
       return(RC_BAD_FILEID);
@@ -372,69 +334,26 @@ short splitpath(CHARTYPE *filename)
     */
    if (strcmp(filename,"") == 0)
    {
-#if defined(__EMX__)
-      _getcwd2(sp_path,MAX_FILE_NAME);
-#else
       getcwd(sp_path,MAX_FILE_NAME);
-#endif
       strcpy(sp_fname,"");
    }
    /*
-    * For DOS and OS/2, get current drive.
+    * Get the current drive.
     */
-#ifdef __EMX__
-   current_dos_disk = (_getdrive() - 'A') + 1;
-#elif defined(DOS)
-# if defined(TC) || defined(GO32)
-   current_dos_disk = (short)(getdisk() + 1);
-# endif
-# if defined(MSC)
-   _dos_getdrive(&current_dos_disk);
-# endif
-#elif defined (OS2)
-   DosQueryCurrentDisk(&current_dos_disk,&logical_os2_drives);
-#else  /* WIN32 */
-# if defined(__WATCOMC__)
-   _dos_getdrive(&current_dos_disk);
-# else /* assume MSC */
    current_dos_disk = _getdrive();
-# endif
-#endif
    new_dos_disk = current_dos_disk;
    /*
-    * For DOS and OS/2, if a drive specified determine the drive number.
+    * If a drive was specified, determine the drive number.
     */
    if (*(conv_filename+1) == ':')/* we assume this means a drive secification */
       new_dos_disk = (toupper(*(conv_filename)) - 'A') + 1;
    /*
-    * For DOS and OS/2, change to the specified disk (if supplied and
-    * different). Validate the drive number.
+    * Change to the specified disk if supplied and validate the drive number.
     */
    if (new_dos_disk != current_dos_disk)
    {
-#if defined(__EMX__)
-      _chdrive((char)((new_dos_disk-1)+'A'));
-      temp_disk = (_getdrive() - 'A') + 1;
-#elif defined(DOS)
-# if defined(TC) || defined(GO32)
-      setdisk((short)(new_dos_disk-1));
-      temp_disk = getdisk()+1;
-# else   /* assume MSC */
-      _dos_setdrive(new_dos_disk,&temp_disk);
-      _dos_getdrive(&temp_disk);
-# endif
-#elif defined(OS2)
-      DosSetDefaultDisk(new_dos_disk);
-      DosQueryCurrentDisk(&temp_disk,&logical_os2_drives);
-#else   /* assume WIN32 */
-# if defined(__WATCOMC__)
-      _dos_setdrive(new_dos_disk,&temp_disk);
-      _dos_getdrive(&temp_disk);
-# else  /* assume MSC */
       _chdrive(new_dos_disk);
       temp_disk = _getdrive();
-# endif
-#endif
       if (temp_disk != new_dos_disk)  /* invalid drive */
       {
          TRACE_RETURN();
@@ -445,11 +364,7 @@ short splitpath(CHARTYPE *filename)
     * Save the current working directory on the specified drive, or the
     * current drive if not specified.
     */
-#if defined(__EMX__)
-   _getcwd2(current_dir,MAX_FILE_NAME);
-#else
    getcwd(current_dir,MAX_FILE_NAME);
-#endif
    /*
     * If the work_filename contains a drive specifier, special handling is
     * needed.
@@ -482,11 +397,7 @@ short splitpath(CHARTYPE *filename)
     */
    if (chdir(work_filename) == 0)  /* valid directory */
    {
-#if defined(__EMX__)
-      _getcwd2(sp_path,MAX_FILE_NAME);
-#else
       getcwd(sp_path,MAX_FILE_NAME);
-#endif
       strcpy(sp_fname,"");
    }
    else          /* here if the file is not a directory */
@@ -495,11 +406,7 @@ short splitpath(CHARTYPE *filename)
       switch(len)
       {
          case (-1):
-#if defined(__EMX__)
-            _getcwd2(sp_path,MAX_FILE_NAME);
-#else
             getcwd(sp_path,MAX_FILE_NAME);
-#endif
             strcpy(sp_fname,work_filename);
             break;
          case 0:
@@ -527,23 +434,7 @@ short splitpath(CHARTYPE *filename)
       if (new_dos_disk != current_dos_disk)
       {
          chdir(current_dir);
-#if defined(__EMX__)
-         _chdrive((char)((current_dos_disk-1)+'A'));
-#elif defined(DOS)
-# if defined(TC) || defined(GO32)
-         setdisk((short)(current_dos_disk-1));
-# else   /* assume MSC */
-         _dos_setdrive(current_dos_disk,&temp_disk);
-# endif
-#elif defined(OS2)
-         DosSetDefaultDisk(new_dos_disk);
-#else    /* assume WIN32 */
-# if defined(__WATCOMC__)
-         _dos_setdrive(current_dos_disk,&temp_disk);
-# else   /* assume MSC */
          _chdrive(current_dos_disk);
-# endif
-#endif
       }
       chdir(curr_path);
       TRACE_RETURN();
@@ -553,14 +444,9 @@ short splitpath(CHARTYPE *filename)
     * We are now in a valid directory, get the fully qualified directory
     * name.
     */
-#if defined(__EMX__)
-   _getcwd2(sp_path,MAX_FILE_NAME);
-#else
    getcwd(sp_path,MAX_FILE_NAME);
-#endif
    /*
-    * For DOS or OS/2, change back to the current directory of the now
-    * current disk and then change back to the original disk.
+    * If a drive switch occurred, restore the original drive.
     */
    if (new_dos_disk != current_dos_disk)
    {
@@ -569,23 +455,7 @@ short splitpath(CHARTYPE *filename)
          TRACE_RETURN();
          return(RC_FILE_NOT_FOUND);
       }
-#if defined(__EMX__)
-      _chdrive((char)((current_dos_disk-1)+'A'));
-#elif defined(DOS)
-# if defined(TC) || defined(GO32)
-      setdisk((short)(current_dos_disk-1));
-# else /* assume MSC */
-      _dos_setdrive(current_dos_disk,&temp_disk);
-# endif
-#elif defined(OS2)
-      DosSetDefaultDisk(current_dos_disk);
-#else  /* assume WIN32 */
-# if defined(__WATCOMC__)
-      _dos_setdrive(current_dos_disk,&temp_disk);
-# else /* assume MSC */
       _chdrive(current_dos_disk);
-# endif
-#endif
    }
    chdir(curr_path);
    /*
@@ -603,217 +473,6 @@ short splitpath(CHARTYPE *filename)
    TRACE_RETURN();
    return(RC_OK);
 }
-#elif defined(__QNX__) && !defined(__QNXNTO__)
-/***********************************************************************/
-short splitpath(CHARTYPE *filename)
-/***********************************************************************/
-{
-   short len=0;
-   CHARTYPE _THE_FAR work_filename[MAX_FILE_NAME+1] ;
-   CHARTYPE _THE_FAR conv_filename[MAX_FILE_NAME+1] ;
-
-   TRACE_FUNCTION("nonansi.c: splitpath");
-
-   if ( strlen( (DEFCHAR *)filename ) > MAX_FILE_NAME )
-   {
-      TRACE_RETURN();
-      return(RC_BAD_FILEID);
-   }
-   /*
-    * Copy the argument to a working area
-    */
-   if ( getcwd( (DEFCHAR *)curr_path, MAX_FILE_NAME ) == NULL )
-   {
-      TRACE_RETURN();
-      return(RC_BAD_FILEID);
-   }
-   strcpy((DEFCHAR *)sp_path,"");
-   strcpy((DEFCHAR *)sp_fname,"");
-   convert_equals_in_filename(conv_filename,filename);
-   strcpy( work_filename, conv_filename );
-   /*
-    * If the supplied filename is empty, set the path = cwd and filename
-    * equal to blank.
-    */
-   if (strcmp((DEFCHAR *)filename,"") == 0)
-   {
-      getcwd((DEFCHAR *)sp_path,MAX_FILE_NAME);
-      strcpy((DEFCHAR *)sp_fname,"");
-   }
-   /*
-    * Check if the first character is tilde; translate HOME env variable
-    * if there is one. Obviously only applicable to UNIX.
-    */
-   if (*(conv_filename) == '~')
-   {
-      if (*(conv_filename+1) == ISLASH
-      ||  *(conv_filename+1) == '\0')
-      {
-         strcpy((DEFCHAR *)work_filename,(DEFCHAR *)getenv("HOME"));
-         strcat((DEFCHAR *)work_filename,(DEFCHAR *)(conv_filename+1));
-      }
-      else
-      {
-         struct passwd *pwd;
-
-         strcpy((DEFCHAR *)sp_path,(DEFCHAR *)conv_filename+1);
-         if ((len = strzeq(sp_path,ISLASH)) != (-1))
-            sp_path[len] = '\0';
-         if ((pwd = getpwnam((DEFCHAR *)sp_path)) == NULL)
-         {
-            TRACE_RETURN();
-            return(RC_BAD_FILEID);
-         }
-         strcpy((DEFCHAR *)work_filename,pwd->pw_dir);
-         if (len != (-1))
-            strcat((DEFCHAR *)work_filename,(DEFCHAR *)(conv_filename+1+len));
-      }
-   }
-   /*
-    * First determine if the supplied filename is a directory.
-    */
-   if (chdir(work_filename) == 0)
-   {
-      chdir(curr_path);
-      strcpy((DEFCHAR *)sp_path,(DEFCHAR *)work_filename);
-      strcpy((DEFCHAR *)sp_fname,"");
-   }
-   else      /* here if the file doesn't exist or is not a directory */
-   {
-      len = strzreveq(work_filename,ISLASH);
-      switch(len)
-      {
-         case (-1):
-            getcwd((DEFCHAR *)sp_path,MAX_FILE_NAME);
-            strcpy((DEFCHAR *)sp_fname,(DEFCHAR *)work_filename);
-            break;
-         case 0:
-            strcpy((DEFCHAR *)sp_path,(DEFCHAR *)work_filename);
-            sp_path[1] = '\0';
-            strcpy((DEFCHAR *)sp_fname,(DEFCHAR *)work_filename+1+len);
-            break;
-        default:
-            strcpy((DEFCHAR *)sp_path,(DEFCHAR *)work_filename);
-            sp_path[len] = '\0';
-            strcpy((DEFCHAR *)sp_fname,(DEFCHAR *)work_filename+1+len);
-            break;
-      }
-   }
-   /*
-    * Change directory to the supplied path, if possible and store the
-    * expanded path.
-    * If an error, restore the current path.
-    */
-   if (qnx_fullpath((DEFCHAR *)work_filename,(DEFCHAR *)sp_path) == NULL)
-   {
-      chdir((DEFCHAR *)curr_path);
-      TRACE_RETURN();
-      return(RC_FILE_NOT_FOUND);
-   }
-   strcpy(sp_path,work_filename);
-   chdir((DEFCHAR *)curr_path);
-   /*
-    * Append the OS directory character to the path if it doesn't already
-    * end in the character.
-    */
-   len = strlen((DEFCHAR *)sp_path);
-   if (len > 0)
-   {
-      if (sp_path[len-1] != ISLASH)
-         strcat((DEFCHAR *)sp_path,(DEFCHAR *)ISTR_SLASH);
-   }
-   TRACE_RETURN();
-   return(RC_OK);
-}
-#elif defined(AMIGA) && defined(GCC)
-/***********************************************************************/
-short splitpath(CHARTYPE *filename)
-/***********************************************************************/
-{
-   short len=0;
-   CHARTYPE _THE_FAR work_filename[MAX_FILE_NAME+1] ;
-
-   TRACE_FUNCTION("nonansi.c: splitpath");
-
-   if ( strlen( (DEFCHAR *)filename ) > MAX_FILE_NAME )
-   {
-      TRACE_RETURN();
-      return(RC_BAD_FILEID);
-   }
-   /*
-    * Save the current directory.
-    */
-   if ( getcwd( (DEFCHAR *)curr_path, MAX_FILE_NAME ) == NULL )
-   {
-      TRACE_RETURN();
-      return(RC_BAD_FILEID);
-   }
-   strcpy((DEFCHAR *)sp_path,"");
-   strcpy((DEFCHAR *)sp_fname,"");
-   convert_equals_in_filename(work_filename,filename);
-   /*
-    * If the supplied filename is empty, set the path = cwd and filename
-    * equal to blank.
-    */
-   if (strcmp((DEFCHAR *)filename,"") == 0)
-   {
-      getcwd((DEFCHAR *)sp_path,MAX_FILE_NAME);
-      strcpy((DEFCHAR *)sp_fname,"");
-   }
-   /*
-    * First determine if the supplied filename is a directory.
-    */
-   if ( ( stat((DEFCHAR *)work_filename, &stat_buf ) == 0 )
-   &&   ( is_a_dir_stat( stat_buf.st_mode ) ) )
-   {
-      strcpy((DEFCHAR *)sp_path,(DEFCHAR *)work_filename);
-      strcpy((DEFCHAR *)sp_fname,"");
-   }
-   else          /* here if the file doesn't exist or is not a directory */
-   {
-      len = strzreveq(work_filename,ISLASH);
-      switch(len)
-      {
-         case (-1):
-            getcwd((DEFCHAR *)sp_path,MAX_FILE_NAME);
-            strcpy((DEFCHAR *)sp_fname,(DEFCHAR *)work_filename);
-            break;
-         case 0:
-            strcpy((DEFCHAR *)sp_path,(DEFCHAR *)work_filename);
-            sp_path[1] = '\0';
-            strcpy((DEFCHAR *)sp_fname,(DEFCHAR *)work_filename+1+len);
-            break;
-         default:
-            strcpy((DEFCHAR *)sp_path,(DEFCHAR *)work_filename);
-            sp_path[len] = '\0';
-            strcpy((DEFCHAR *)sp_fname,(DEFCHAR *)work_filename+1+len);
-            break;
-      }
-   }
-   /*
-    * Change directory to the supplied path, if possible and store the
-    * expanded path.
-    * If an error, restore the current path.
-    */
-   if (chdir((DEFCHAR *)sp_path) != 0)
-   {
-      chdir((DEFCHAR *)curr_path);
-      TRACE_RETURN();
-      return(RC_FILE_NOT_FOUND);
-   }
-   getcwd((DEFCHAR *)sp_path,MAX_FILE_NAME);
-   chdir((DEFCHAR *)curr_path);
-   /*
-    * Append the OS directory character to the path if it doesn't already
-    * end in the character.
-    */
-   len = strlen((DEFCHAR *)sp_path);
-   if ( len > 0
-   &&   sp_path[len-1] != ISLASH )
-      strcat((DEFCHAR *)sp_path,(DEFCHAR *)ISTR_SLASH);
-   TRACE_RETURN();
-   return(RC_OK);
-}
 #else
 /***********************************************************************/
 short splitpath(CHARTYPE *filename)
@@ -833,11 +492,7 @@ short splitpath(CHARTYPE *filename)
    /*
     * Save the current directory.
     */
-#if defined(EMX)
-   if ( _getcwd2( curr_path, MAX_FILE_NAME ) == NULL )
-#else
    if ( getcwd( (DEFCHAR *)curr_path, MAX_FILE_NAME ) == NULL )
-#endif
    {
       TRACE_RETURN();
       return(RC_BAD_FILEID);
@@ -868,7 +523,6 @@ short splitpath(CHARTYPE *filename)
     * Check if the first character is tilde; translate HOME env variable
     * if there is one. Obviously only applicable to UNIX.
     */
-#ifndef VMS
    if (*(conv_filename) == '~')
    {
       if (*(conv_filename+1) == ISLASH
@@ -900,7 +554,6 @@ short splitpath(CHARTYPE *filename)
             strcat((DEFCHAR *)work_filename,(DEFCHAR *)(conv_filename+1+len));
       }
    }
-#endif
    /*
     * First determine if the supplied filename is a directory.
     */
@@ -991,132 +644,6 @@ short rename(CHARTYPE *path1,CHARTYPE *path2)
 }
 #endif
 
-#if defined(OS2) || (defined(__EMX__) && !defined(MSDOS))
-/***********************************************************************/
-/* Function  : Determine if file system allows the supplied filename.  */
-/* Parameters: PathFn - directory path and filename without ext.     */
-/* Note      : replaces function LongFileNames                  */
-/* Return    : 1 if file system allows this filename                 */
-/***********************************************************************/
-bool IsPathAndFilenameValid(CHARTYPE *PathFn)
-{
-   CHARTYPE _THE_FAR FullFn[CCHMAXPATH];
-   CHARTYPE *buf;
-   ULONG rc;
-
-   TRACE_FUNCTION("nonansi.c: IsPathAndFilenameValid");
-#ifdef __EMX__
-   if (_osmode == DOS_MODE)
-   {
-      TRACE_RETURN();
-      return(0);
-   }
-#endif
-   if ((buf = malloc(strlen(PathFn) + 5)) == NULL)
-   {
-      TRACE_RETURN();
-      return(0); /* Fake an error      */
-   }
-   strcpy(buf,PathFn);
-   strcat(buf,".xxx");                    /* any extension                     */
-#if defined(__32BIT__) || defined(__386__)
-   rc = DosQueryPathInfo(buf,FIL_QUERYFULLNAME,FullFn,sizeof(FullFn));
-#else
-   rc = DosQPathInfo(buf,FIL_QUERYFULLNAME,FullFn,sizeof(FullFn),0ul);
-#endif
-   free(buf);
-   if (rc == 0)
-   {
-      TRACE_RETURN();
-      return(1);
-   }
-   TRACE_RETURN();
-   return(0);
-}
-#endif
-
-#ifdef USE_OLD_LONGFILENAMES /* FGC: previous ifdef OS2     */
-#  if defined(__32BIT__) || defined(__386__)
-#  define FSQBUFFERSIZE 64
-/***********************************************************************/
-bool LongFileNames(CHARTYPE *path)
-/***********************************************************************/
-/* Function  : Determine if file system allows long file names. (HPFS) */
-/*             This is the 32-bit version.                             */
-/* Parameters: path     - directory path                               */
-/* Return    : 1 if file system is HPFS                                */
-/***********************************************************************/
-{
-   ULONG nDrive=0L;
-   ULONG lMap=0L;
-   char _THE_FAR buffer[FSQBUFFERSIZE];
-   FSQBUFFER2 *bData = (FSQBUFFER2 *) buffer;
-   char bName[3];
-   ULONG bDataLen=0L;
-
-   TRACE_FUNCTION("nonansi.c: LongFileNames");
-   if ((strlen (path) > 0) && path [1] == ':')
-      bName[0] = path[0];
-   else
-   {
-      DosQueryCurrentDisk(&nDrive, &lMap);
-      bName[0] = (char) (nDrive + 'A' - 1);
-   }
-   bName[1] = ':';
-   bName[2] = 0;
-   bDataLen = FSQBUFFERSIZE;
-   DosQueryFSAttach(bName, 0, FSAIL_QUERYNAME, bData, &bDataLen);
-   TRACE_RETURN();
-   return(strcmp(bData->szFSDName + bData->cbName, "HPFS") == 0);
-}
-#  else
-
-/***********************************************************************/
-bool LongFileNames(CHARTYPE *path)
-/***********************************************************************/
-/* Function  : Determine if file system allows long filenames. (HPFS)  */
-/*             This is the 16-bit version.                             */
-/* Parameters: path     - directory path                               */
-/* Return    : 1 if file system is HPFS                                */
-/***********************************************************************/
-{
-typedef struct _FSNAME {
-        USHORT cbName;
-        UCHAR  szName[1];
-} FSNAME;
-typedef struct _FSQINFO {
-        USHORT iType;
-        FSNAME Name;
-        UCHAR  rgFSAData[59];
-} FSQINFO;
-typedef FSQINFO FAR *PFSQINFO;
-
-   USHORT nDrive=0,cbData=0;
-   ULONG lMap=0L;
-   FSQINFO bData;
-   BYTE bName[3];
-   FSNAME *pFSName=NULL;
-
-   TRACE_FUNCTION("nonansi.c: LongFileNames");
-   if ((strlen(path) > 0) && path[1] == ':')
-      bName[0] = path[0];
-   else
-   {
-      DosQueryCurrentDisk(&nDrive, &lMap);
-      bName[0] = (char)(nDrive + '@');
-   }
-   bName[1] = ':';
-   bName[2] = 0;
-   cbData = sizeof(bData);
-   DosQFSAttach((PSZ)bName,0,1,(PBYTE)&bData,&cbData,0L);
-   pFSName = &bData.Name;
-   (CHARTYPE *)pFSName += pFSName->cbName + sizeof(pFSName->cbName)+1;
-   TRACE_RETURN();
-   return(strcmp((CHARTYPE *)&(pFSName->szName[0]),"HPFS") == 0);
-}
-#  endif
-#endif
-
 /***********************************************************************/
 LINE *getclipboard(LINE *now, int from_get)
 /*
@@ -1134,7 +661,7 @@ LINE *getclipboard(LINE *now, int from_get)
    LENGTHTYPE maxlen=0;
    LENGTHTYPE length=0;
    short rc=RC_OK;
-# if defined(UNIX) || defined(MAC)
+# if defined(UNIX)
    int offset = 0;
 # else
    int offset = 1;

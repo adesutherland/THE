@@ -44,16 +44,8 @@
 #  include <windows.h>
 #endif
 
-#if defined(DOS) || defined(OS2)
-#include <io.h>
-#endif
-
 #if defined(HAVE_SYS_ACL_H) && !defined(HAVE_BROKEN_SYS_ACL_H)
 #include <sys/acl.h>
-#endif
-/****************** needs to be fixed *************/
-#ifdef GO32
-#define stricmp strcasecmp
 #endif
 
 static short write_line(CHARTYPE *,LENGTHTYPE,FILE *,short);
@@ -100,18 +92,6 @@ static short process_file_attributes(int restore_attributes, FILE_DETAILS *cf, C
             display_error(84,(CHARTYPE *)"ACLs",FALSE);
       }
 #endif
-#if defined(OS2) || (defined(__EMX__) && !defined(MSDOS))
-      /*
-       * For OS/2, write the current EAs...
-       */
-      if (cf->disposition != FILE_NEW)
-      {
-         if (WriteEAs(filename))
-         {
-            display_error(84,(CHARTYPE *)"EAs",FALSE);
-         }
-      }
-#endif
       TRACE_RETURN();
       return RC_OK;
    }
@@ -144,20 +124,6 @@ static short process_file_attributes(int restore_attributes, FILE_DETAILS *cf, C
        */
       if (cf->disposition != FILE_NEW)
          acl_ptr = (DEFCHAR *)acl_get((DEFCHAR *)filename);
-#endif
-#if defined(OS2) || (defined(__EMX__) && !defined(MSDOS))
-      /*
-       * For OS/2, save the current EAs...
-       */
-      if (cf->disposition != FILE_NEW)
-      {
-         if (ReadEAs(filename))
-         {
-            display_error(8,filename,FALSE);
-            TRACE_RETURN();
-            return(RC_ACCESS_DENIED);
-         }
-      }
 #endif
       TRACE_RETURN();
       return RC_OK;
@@ -722,9 +688,6 @@ LINE *read_file( FILE *fp, LINE *curr, CHARTYPE *filename, LINETYPE fromline, LI
 
    TRACE_FUNCTION("file.c:    read_file");
    temp = curr;
-#ifdef MSWIN
-   WinLock();
-#endif
 
    /*
     * Reset the length of trec_len, as it may have been changed elsewhere.
@@ -740,9 +703,6 @@ LINE *read_file( FILE *fp, LINE *curr, CHARTYPE *filename, LINETYPE fromline, LI
          display_error(29,trec,FALSE);
          if (!called_from_get_command)
             CURRENT_FILE->first_line = CURRENT_FILE->last_line = lll_free(CURRENT_FILE->first_line);
-#ifdef MSWIN
-         WinUnLock();
-#endif
          TRACE_RETURN();
          return(NULL);
       }
@@ -819,9 +779,6 @@ LINE *read_file( FILE *fp, LINE *curr, CHARTYPE *filename, LINETYPE fromline, LI
                   display_error(29,trec,FALSE);
                   if (!called_from_get_command)
                      CURRENT_FILE->first_line = CURRENT_FILE->last_line = lll_free(CURRENT_FILE->first_line);
-#ifdef MSWIN
-                  WinUnLock();
-#endif
                   TRACE_RETURN();
                   return(NULL);
                }
@@ -831,9 +788,6 @@ LINE *read_file( FILE *fp, LINE *curr, CHARTYPE *filename, LINETYPE fromline, LI
                {
                   if (!called_from_get_command)
                      CURRENT_FILE->first_line = CURRENT_FILE->last_line = lll_free(CURRENT_FILE->first_line);
-#ifdef MSWIN
-                  WinUnLock();
-#endif
                   TRACE_RETURN();
                   return(NULL);
                }
@@ -863,9 +817,6 @@ LINE *read_file( FILE *fp, LINE *curr, CHARTYPE *filename, LINETYPE fromline, LI
                      display_error(29,trec,FALSE);
                      if (!called_from_get_command)
                         CURRENT_FILE->first_line = CURRENT_FILE->last_line = lll_free(CURRENT_FILE->first_line);
-#ifdef MSWIN
-                     WinUnLock();
-#endif
                      TRACE_RETURN();
                      return(NULL);
                   }
@@ -874,9 +825,6 @@ LINE *read_file( FILE *fp, LINE *curr, CHARTYPE *filename, LINETYPE fromline, LI
                {
                   if (!called_from_get_command)
                      CURRENT_FILE->first_line = CURRENT_FILE->last_line = lll_free(CURRENT_FILE->first_line);
-#ifdef MSWIN
-                  WinUnLock();
-#endif
                   TRACE_RETURN();
                   return(NULL);
                }
@@ -898,11 +846,6 @@ LINE *read_file( FILE *fp, LINE *curr, CHARTYPE *filename, LINETYPE fromline, LI
 
    CURRENT_FILE->max_line_length = maxlen;
    CURRENT_FILE->number_lines += actual_lines_read;
-#ifdef MSWIN
-   WinUnLock();
-   if (!in_profile)
-      show_statarea();
-#endif
    TRACE_RETURN();
    return(temp);
 }
@@ -917,9 +860,6 @@ LINE *read_fixed_file(FILE *fp,LINE *curr,CHARTYPE *filename,LINETYPE fromline,L
 
    TRACE_FUNCTION("file.c:    read_fixed_file");
    temp = curr;
-#ifdef MSWIN
-   WinLock();
-#endif
 
    while(1)
    {
@@ -945,9 +885,6 @@ LINE *read_fixed_file(FILE *fp,LINE *curr,CHARTYPE *filename,LINETYPE fromline,L
             if ((temp = add_LINE(CURRENT_FILE->first_line,temp,trec,chars_read,0,FALSE)) == NULL)
             {
                CURRENT_FILE->first_line = CURRENT_FILE->last_line = lll_free(CURRENT_FILE->first_line);
-#ifdef MSWIN
-               WinUnLock();
-#endif
                TRACE_RETURN();
                return(NULL);
             }
@@ -960,11 +897,6 @@ LINE *read_fixed_file(FILE *fp,LINE *curr,CHARTYPE *filename,LINETYPE fromline,L
    CURRENT_FILE->max_line_length = display_length;
    CURRENT_FILE->number_lines += actual_lines_read;
    CURRENT_FILE->eolfirst = EOLOUT_NONE;
-#ifdef MSWIN
-   WinUnLock();
-   if (!in_profile)
-      show_statarea();
-#endif
    TRACE_RETURN();
    return(temp);
 }
@@ -996,15 +928,6 @@ short save_file(FILE_DETAILS *cf,CHARTYPE *new_fname,bool force,LINETYPE in_line
 
    TRACE_FUNCTION("file.c:    save_file");
 
-#ifdef MSWIN_NOT_REQUIRED
-   if (!Registered()
-   &&  cf->number_lines > 100L)
-   {
-      display_error(77,(CHARTYPE *)"",FALSE);
-      TRACE_RETURN();
-      return(RC_INVALID_ENVIRON);
-   }
-#endif
    /*
     * Do not attempt to autosave a pseudo file...
     */
@@ -1550,29 +1473,9 @@ CHARTYPE *new_filename(CHARTYPE *ofp,CHARTYPE *ofn,
                             CHARTYPE *nfn,CHARTYPE *ext)
 /***********************************************************************/
 {
-#if defined(DOS) || defined(OS2)
-   short rc=RC_OK;
-#endif
-
    TRACE_FUNCTION("file.c:    new_filename");
    strcpy((DEFCHAR *)nfn,(DEFCHAR *)ofp);
    strcat((DEFCHAR *)nfn,(DEFCHAR *)ofn);
-
-#ifdef DOS
-   rc = strzeq(nfn,'.');
-   if (rc != (-1))
-      *(nfn+rc) = '\0';
-#endif
-
-#if defined(OS2) || (defined(__EMX__) && !defined(MSDOS))
-   /*if (!LongFileNames(nfn))*/ /* old style */
-   if (!IsPathAndFilenameValid(nfn))
-   {
-      rc = strzreveq(nfn,'.');
-      if (rc != (-1))
-         *(nfn+rc) = '\0';
-   }
-#endif
 
    strcat((DEFCHAR *)nfn,(DEFCHAR *)ext);
    TRACE_RETURN();
@@ -2144,7 +2047,7 @@ VIEW_DETAILS *find_file(CHARTYPE *fp,CHARTYPE *fn)
    CURRENT_VIEW = vd_first;
    while(CURRENT_VIEW != (VIEW_DETAILS *)NULL)
    {
-#ifdef UNIX
+#if !defined(WIN32)
       if (strcmp((DEFCHAR *)CURRENT_FILE->fname,(DEFCHAR *)fn) == 0
       &&  strcmp((DEFCHAR *)CURRENT_FILE->fpath,(DEFCHAR *)fp) == 0)
 #else

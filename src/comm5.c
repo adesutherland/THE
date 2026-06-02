@@ -959,11 +959,7 @@ short Text(CHARTYPE *params)
 #endif
 
       cursor_cell = text_current_display_cell(y, x);
-#if defined(VMS)
-      attr = 0;
-#else
       attr = text_current_display_attr(y, x);
-#endif
 
       switch( CURRENT_VIEW->current_window )
       {
@@ -975,11 +971,7 @@ short Text(CHARTYPE *params)
                  || CURRENT_SCREEN.sl[y].line_type == LINE_TABLINE ) )
                {
                   need_to_build_screen = ispf_special_lines_entry( CURRENT_SCREEN.sl[y].line_type,
-#ifdef VMS
-                                                                   cursor_cell,
-#else
                                                                    (CHARTYPE)the_driver_cell_codepoint(cursor_cell),
-#endif
                                                                    real_key );
                }
                break;

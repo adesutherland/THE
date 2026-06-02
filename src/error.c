@@ -392,27 +392,6 @@ int display_error(unsigned short err_num,CHARTYPE *mess,bool ignore_bell)
       TRACE_RETURN();
       return rc;
    }
-#ifdef MSWIN
-   {
-   char hdr[512];
-   if (in_profile)
-   {
-      if (!error_on_screen
-      &&  !be_quiet)
-      {
-         if (number_of_files == 0)
-            sprintf(hdr,"*** Messages from profile file  ***\n");
-         else
-            sprintf(hdr,"*** Messages from profile file for ***\n%s%s\n",
-                           CURRENT_FILE->fpath,CURRENT_FILE->fname);
-      }
-      error_on_screen = TRUE;
-      Operator("%s%s",hdr,last_message);
-      TRACE_RETURN();
-      return rc;
-   }
-   }
-#else
    if (!curses_started)
    {
       if (!error_on_screen
@@ -427,7 +406,6 @@ int display_error(unsigned short err_num,CHARTYPE *mess,bool ignore_bell)
       fprintf(stderr,"%s\n",last_message);
       /* Do not return here! Let the message get added to the error list so it shows up in the editor. */
    }
-#endif
    /*
     * If SET ERROROUTPUT is ON, write the error message to stderr
     */

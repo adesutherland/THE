@@ -892,14 +892,14 @@ DESCRIPTION
      font that THE doesn't know about, and the printing process may
      not work after that.
 
-     The defaults for page layout for Win32 are:
+     The defaults for page layout for Windows are:
      CPI 16
      LPI 8
      ORIENTation Portrait
      FONT LinePrinter BM
 
-     'options' are only valid for Win32 platform.
-     Printer output for the Win32 platform ALWAYS goes to the default
+     'options' are only valid for native Windows.
+     Printer output for native Windows ALWAYS goes to the default
      printer. Therefore, the 'spooler' option is invalid on this
      platform.
 
@@ -908,7 +908,7 @@ COMPATIBILITY
      KEDIT: Compatible. THE adds more functionality.
 
 DEFAULT
-     LPT1 - DOS/OS2, lpr - Unix, default - Win32
+     lpr - Unix/POSIX, default - Windows
 
 SEE ALSO
      <PRINT>
@@ -1111,7 +1111,7 @@ short Pscreen(CHARTYPE *params)
          return( RC_INVALID_OPERAND );
       }
    }
-#if defined(CAN_RESIZE) || defined(OS2) || defined(WIN32)
+#if defined(CAN_RESIZE) || defined(WIN32)
    rc = THE_Resize( current_lines, current_cols );
    (void)THERefresh( (CHARTYPE *)"" );
    the_driver->present_cursor(TRUE);
@@ -2988,16 +2988,10 @@ short Statusline(CHARTYPE *params)
    else if ( equal( (CHARTYPE *)"off", params, 2 ) )
    {
       stat_place='O';
-#ifdef MSWIN
-      SetStatusBar( 0 );
-#endif
    }
    else if ( equal( (CHARTYPE *)"gui", params, 3 ) )
    {
       stat_place='G';
-#ifdef MSWIN
-      SetStatusBar( 1 );
-#endif
    }
    else
    {
@@ -4626,10 +4620,6 @@ short Verify(CHARTYPE *params)
    CURRENT_VIEW->verify_col = (LENGTHTYPE)col1;
    CURRENT_VIEW->verify_end = (LENGTHTYPE)col2;
    CURRENT_VIEW->verify_end_max = end_max;
-
-#ifdef MSWIN
-   Win31HScroll( CURRENT_VIEW->verify_col );
-#endif
 
    build_screen( current_screen );
    display_screen( current_screen );

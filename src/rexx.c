@@ -32,14 +32,6 @@
  * Mark Hessling, mark@rexx.org  http://www.rexx.org/
  */
 
-
-#if defined(__EMX__) && defined(USE_REGINA)
-# define INCL_VIO
-# define INCL_KBD
-# define INCL_DOSPROCESS     /* Process/Thread Info */
-# include <os2.h>
-#endif
-
 # define INCL_RXFUNC         /* External function handler values */
 # define INCL_RXSUBCOM       /* Subcommand handler values */
 # define INCL_RXSHV          /* Shared variable support */
@@ -125,8 +117,6 @@ void *THEAllocateMemory
    ptr = (RXSTRING_STRPTR_TYPE)RexxAllocateMemory( size );
 #elif defined(WIN32) && (defined(USE_OREXX) || defined(USE_OOREXX) || defined(USE_WINREXX) || defined(USE_QUERCUS))
    ptr = (RXSTRING_STRPTR_TYPE)GlobalAlloc( GMEM_FIXED, size );
-#elif defined(USE_OS2REXX)
-   DosAllocMem( (void *)ptr, size, PAG_READ|PAG_WRITE|PAG_COMMIT );
 #else
    ptr = (RXSTRING_STRPTR_TYPE)malloc( size );
 #endif
@@ -147,8 +137,6 @@ void THEFreeMemory
    RexxFreeMemory( ptr );
 #elif defined(WIN32) && (defined(USE_OREXX) || defined(USE_OOREXX) || defined(USE_WINREXX) || defined(USE_QUERCUS))
    GlobalFree( ptr );
-#elif defined(USE_OS2REXX)
-   DosFreeMem( ptr );
 #else
    free( ptr );
 #endif
@@ -787,14 +775,6 @@ short initialise_rexx
 
    TRACE_FUNCTION("rexx.c:    initialise_rexx");
 
-#if defined(MSWIN)
-   if (RexxThread(GetCurrentTask(),THREAD_ATTACH) != THREAD_ATTACH_AOK)
-   {
-      TRACE_RETURN();
-      return(RC_INVALID_ENVIRON);
-   }
-#endif
-
 #if defined(USE_REXX6000)
    rc = RexxRegisterSubcom((RRSE_ARG0_TYPE)"THE",
                            (RRSE_ARG1_TYPE)THE_Commands,
@@ -919,10 +899,6 @@ short finalise_rexx
    }
 #endif
 
-#if defined(MSWIN)
-   (void)RexxThread(GetCurrentTask(),THREAD_DETACH);
-#endif
-
    TRACE_RETURN();
    return((short)rc);
 }
@@ -996,12 +972,11 @@ short execute_macro_file
    exit_list[1].sysexit_code = RXENDLST;
 #endif
    /*
-    * Under OS/2 use of interactive trace in a macro only works if an OS
-    * command has been run before executing the macro, so we run a REM
+    * Some Rexx hosts need an OS command before interactive macro tracing.
     */
    if (interactive)
    {
-#if defined(OS2) || defined(WIN32)
+#if defined(WIN32)
       execute_os_command((CHARTYPE*)"REM",TRUE,FALSE);
 #endif
 #ifdef UNIX
@@ -1091,7 +1066,7 @@ short execute_macro_instore
       (CHARTYPE *commands,short *macrorc,CHARTYPE **pcode,int *pcode_len,int *tokenised, int macro_ident)
 /***********************************************************************/
 {
-#if defined(__EMX__) || defined(USE_REGINA)
+#if defined(USE_REGINA)
    SHORT rexxrc=0;
 #elif defined(USE_REXX6000)
    LONG rexxrc=0L;
@@ -1368,7 +1343,7 @@ short set_rexx_variable
    shv.shvnamelen=strlen(variable_name);
    shv.shvvaluelen=value_length;
 
-#if defined(USE_OS2REXX) || defined(USE_REXX6000)
+#if defined(USE_REXX6000)
    rc=(short)RexxVariablePool(&shv);              /* Set the REXX variable */
 #else
    rc = RexxVariablePool(&shv);                 /* Set the REXX variable */
@@ -1420,7 +1395,7 @@ static RXSTRING *get_compound_rexx_variable
     */
    shv.shvnamelen=strlen(variable_name);
    shv.shvvaluelen=0;
-#if defined(USE_OS2REXX) || defined(USE_REXX6000)
+#if defined(USE_REXX6000)
    rc=(short)RexxVariablePool(&shv);              /* Set the REXX variable */
 #else
    rc = RexxVariablePool(&shv);                 /* Set the REXX variable */
@@ -1443,8 +1418,6 @@ static RXSTRING *get_compound_rexx_variable
          RexxFreeMemory( shv.shvvalue.strptr );
 #elif defined(WIN32) && (defined(USE_OOREXX) || defined(USE_OREXX) || defined(USE_WINREXX) || defined(USE_QUERCUS))
          GlobalFree( shv.shvvalue.strptr );
-#elif defined(USE_OS2REXX)
-         DosFreeMem( shv.shvvalue.strptr );
 #else
          free( shv.shvvalue.strptr );
 #endif
@@ -1739,13 +1712,6 @@ static int run_os_command
          TRACE_RETURN();
          return(RC_OUT_OF_MEMORY+1000);
       }
-#if defined(GO32) || defined(__EMX__)
-      /*
-       * For djgpp and emx convert all \ to / for internal file handling
-       * functions.
-       */
-      strrmdup(strtrans(infile,'\\','/'),'/',TRUE);
-#endif
       if ((infp = fopen(infile,"w")) == NULL)
       {
          TRACE_RETURN();

@@ -35,9 +35,9 @@ XEDIT: Similar function but deals with Double-Byte characters
 KEDIT: N/A
 
 ## Default
-- ON - DOS/OS2/WIN32
+- ON - Windows
 - ON 32-255 - X11
-- OFF - UNIX/AMIGA/QNX
+- OFF - Unix/POSIX
 
 ## See Also
 SET NONDISP, SET COLOUR

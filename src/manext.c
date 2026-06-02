@@ -141,10 +141,6 @@ int main(int argc,char *argv[])
  int state=STATE_IGNORE;
  int file_start=1;
 
-#ifdef __EMX__
- _wildcard(&argc,&argv);
-#endif
-
  if (strcmp(argv[1],"-h") == 0)
  {
     display_info();

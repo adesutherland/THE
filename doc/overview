@@ -50,8 +50,8 @@ The default screen displayed when THE starts consists of several areas:
 
 When THE starts, the cursor is positioned on the <command line>. To move
 between the <command line> and the <filearea>, the <CURSOR> HOME command is
-used. By default this command is bound to the HOME key (under DOS and OS/2),
-the DO key (on vt220s) and HOME (on xterms).
+used. By default this command is bound to the HOME key (under native Windows
+and xterms) and the DO key (on vt220s).
 
 To execute commands from the <command line> simply type the command and
 press the ENTER (or RETURN) key.

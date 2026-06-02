@@ -30,7 +30,7 @@ static void test_basic_editing_keys(void)
 
    expect_int("key.return", THE_KEY_RETURN, THE_KEY_RETURN);
    expect_int("key.enter", THE_KEY_ENTER, 0x157);
-#if defined(DOS) || defined(OS2) || defined(WIN32) \
+#if defined(WIN32) \
  || defined(USE_XCURSES) || defined(USE_SDLCURSES) \
  || defined(USE_VTCURSES)
    expect_int("key.numenter", THE_KEY_NUMENTER, THE_KEY_PADENTER);

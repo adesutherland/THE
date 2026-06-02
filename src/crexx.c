@@ -265,7 +265,7 @@ static short execute_crexx_macro_path(
 
    if (interactive)
    {
-# if defined(OS2) || defined(WIN32)
+# if defined(WIN32)
       execute_os_command((CHARTYPE *)"REM",TRUE,FALSE);
 # endif
 # ifdef UNIX
