@@ -8,13 +8,16 @@ next closable tasks.
 
 ## Purpose
 
-The LLM driver is a first-class THE UI driver. It should let an agent edit,
+The LLM driver is a first-class THE UI driver. It lets an agent edit,
 navigate, inspect, and debug THE without scraping a terminal screen or
 depending on curses cursor behavior.
 
-The driver must minimize tokens by default. A useful agent loop should request
-only the semantic slice needed for the next action, then expand specific areas
-on demand.
+Use `the --driver llm` as the agent/editor target. It boots the real THE
+runtime, selects the runtime-loaded `the_driver_llm` module, opens real
+buffers/views, and exposes the LLM protocol over stdin/stdout.
+
+`the_driver_llm.so` is the headless physical driver module behind that mode,
+not a separate user-facing editor.
 
 ## Core Principles
 
@@ -27,23 +30,73 @@ on demand.
   width, cursor width, repair strategy, and terminal profile class.
 - Prefer deterministic compact JSON-like output over terminal text.
 - Let the agent choose view mode and token budget.
-- Never let the LLM driver mutate buffers directly. It should submit
-  normalized input or editor commands through the shared input/command layer.
-- Use `the --driver llm` when the task needs real THE buffers, profiles,
-  command dispatch, syntax/parser state, prefix commands, file ring state, or
-  CREXX. Use `the_llm_harness` when the task needs a no-curses protocol harness or a
-  stable formatting/input oracle.
+- Submit normalized input or real THE commands. Do not add a second command
+  language or a second editor model.
+- Discover support through `the --driver llm capabilities`.
 
-## Token-Saving View Modes
+## Start
 
-The LLM driver supports these formatting modes:
+Build the real editor and LLM driver module:
 
-- `full`: all visible semantic rows, command line, status, focus, prefixes, and
-  text. Use sparingly.
+```sh
+cmake --build cmake-build-debug --target the the_driver_llm -j2
+```
+
+Run against a file:
+
+```sh
+./cmake-build-debug/the --driver llm -n path/to/file.txt
+```
+
+Typical noninteractive probe:
+
+```sh
+printf '%s\n' \
+  'capabilities' \
+  'look filearea compact max=120 prefix=0 command=0 status=0' \
+  'command c/old/new/' \
+  'delta filearea compact max=120' \
+  'quit' \
+  | TERM= THE_HOME_DIR="$PWD/cmake-build-debug/release" \
+    ./cmake-build-debug/the --driver llm -n path/to/file.txt
+```
+
+## Protocol
+
+Supported stdin commands:
+
+- `look [full|filearea|reserved|prefix|focus] [compact] [max=N]`
+- `delta [full|filearea|reserved|prefix|focus] [compact] [max=N]`
+- `look delta ...`
+- `look ... [prefix=0|1] [command=0|1] [status=0|1] [cursor=0|1]`
+- `capabilities`
+- `focus command`, `focus filearea`, or `focus prefix`
+- `hit TARGET LINE ROW CELL [SCREEN WINDOW]`
+- `key NAME`
+- `text TEXT`
+- `type TEXT`
+- `command COMMAND`
+- `transient readv [TEXT]`, `transient dialog [TEXT]`, or `transient popup`
+- `transient look`, `transient key NAME`, `transient text TEXT`,
+  `transient hit ROW COL`, `transient result`, `transient close`,
+  `transient cancel`
+- `debug NAME`
+- `quit` or `exit`
+
+`command ...` uses THE's real command dispatcher. Profiles, prefix commands,
+parser/SDSLH state, file-ring behavior, editor variables, and CREXX macros
+therefore stay in the full editor runtime.
+
+## View Modes
+
+Use the smallest view that can answer the immediate question:
+
+- `full`: all visible semantic rows, command line, status, focus, prefixes,
+  and text. Use sparingly.
 - `filearea`: editable file rows only. This is the default for scrolling
   through a file.
-- `reserved`: non-file informational rows such as TOF/EOF, scale, bounds, tab
-  lines, status, prompt, and reserved rows.
+- `reserved`: non-file informational rows such as TOF/EOF, scale, bounds,
+  tab lines, status, prompt, and reserved rows.
 - `prefix`: prefix command text only.
 - `focus`: only the row containing the logical cursor.
 
@@ -55,361 +108,106 @@ Formatting options:
   `include_cursor` omit stable chrome while scrolling.
 - `compact` uses short field names for high-frequency loops.
 
+## Snapshot Fields
+
+`LlmDriverScreenView` snapshots include:
+
+- logical cursor/focus fields: zone, line number, row, cell, desired cell.
+- visible rows with row role, file line number, prefix text, semantic prefix
+  command text, file text, syntax/style spans, current-line marker, and cursor
+  marker.
+- command-line text and status text when requested.
+- current buffer path, dirty flag, and line count.
+- file-ring buffer metadata.
+- real block/selection state.
+- parser diagnostics when available.
+
+Style spans describe parser/editor categories, not terminal colors. Agents
+should use the cursor fields and visible rows to decide the next editor action.
+Do not parse terminal escape output or rely on physical cursor parking.
+
 ## Recommended Workflows
 
-### Reading And Scrolling
+Read and scroll with compact file views:
 
-Use `filearea`, compact output, hidden prefixes, hidden command/status, and a
-line-length cap. Expand to `focus` or a small row range only when the next
-action depends on nearby context.
-
-Example shape:
-
-```json
-{
-  "mode": "filearea",
-  "rows": 24,
-  "cols": 80,
-  "screen_rows": [
-    {"r": 3, "role": "file", "line": 42, "cur": 0, "t": "..."}
-  ]
-}
+```text
+look filearea compact max=120 prefix=0 command=0 status=0
+key pagedown
+delta filearea compact max=120 prefix=0 command=0 status=0
 ```
 
-### Prefix Commands
+Move focus or click logical targets from a snapshot:
 
-Use `prefix` mode when the task involves line commands. Snapshots expose
-semantic prefix command text as `pc` in compact output. In `the --driver llm`,
-prefix state and execution are the real runtime's prefix model. In
-`the_llm_harness`, the supported harness subset is `d`, `del`, `delete`, `dup`,
-`copy`, `r TEXT`, `i TEXT`, and `a TEXT`, entered with `prefix LINE COMMAND`
-and run with `prefix-execute`.
-
-### Reserved Lines
-
-Use `reserved` mode on demand to inspect scale, bounds, tabs, status, EOF/TOF,
-prompts, and reserved application output. Do not include these rows in normal
-file scrolling unless the task specifically needs them.
-
-### Debugging THE
-
-Use LLM debug commands rather than full screen dumps:
-
-- `describe-focus`: current logical zone, line, row, cell, and desired cell.
-- `describe-row`: role, line number, editable flag, and text for one row.
-- `list-visible-rows`: compact table of row roles and file line numbers.
-- `dump-cursor-mapping`: logical cell, viewport column, raw physical display
-  column, clamped display column, and visibility.
-- `dump-driver-ops`: fake/curses driver operation log.
-- `explain-last-render`: concise renderer decision summary, including UTF class
-  and repair strategy when applicable.
-
-A keycap cursor bug should reduce to visible rows, logical focus, cursor
-mapping, driver operations for the last movement, and last-render explanation.
-
-## Skill Wrapper Shape
-
-An agent skill can wrap the LLM driver with high-level actions:
-
-- `look_file(rows=N, cols=M)`: compact file-only view.
-- `look_focus(context=N)`: cursor row plus nearby file rows.
-- `look_reserved()`: reserved/status/prompt rows.
-- `look_prefix()`: prefix-command area only.
-- `look_delta()`: changed semantic rows since the previous delta view.
-- `send_key(name)`: normalized key input.
-- `type_text(text)`: normalized text input.
-- `run_command(command)`: THE command-line submission.
-- `hit(target,line,row,cell)`: logical mouse-like hit target.
-- `select(line1,cell1,line2,cell2)`: set a logical selection range.
-- `undo()` / `redo()`: use the bounded agent mutation history.
-- `list_buffers()` / `switch_buffer(target)`: inspect and switch agent
-  buffers.
-- `list_project(dir)`: ask THE for a flat visible project listing.
-- `modal(kind)`: start and inspect a transient readv/dialog/popup demo flow.
-- `debug_cursor()`: focus plus cursor mapping.
-- `debug_render()`: driver ops plus last render explanation.
-
-The wrapper should default to the smallest view that can answer the immediate
-question and expand only when editor state is ambiguous.
-
-## Implementation Status
-
-Closed foundation:
-
-- `src/uidriver.c`: frame rows, row roles, cursor overlay validation, cursor
-  rebasing, and fake-driver operation logs.
-- `src/screenframe.c`: live file-area snapshots for the current editor view.
-- `src/inputevent.c`: shared normalized text/key/command/logical-hit/debug
-  events, legacy key conversion, and input queues.
-- `src/mousehit.c`: shared no-curses mapping from driver-edge mouse packet
-  facts to logical-hit targets used by the normal live curses mouse path.
-- `src/transientui.c`: no-curses readv/dialog/popup snapshot model with
-  geometry, row roles, focus, title/prompt/edit text, buttons/items, selected
-  state, popup viewport offsets, and logical hit targets.
-- `src/llm/llmdriver.c`: semantic screen view formatting, compact view modes,
-  compatibility wrappers, and debug snapshot formatting.
-- `test_virtual_screen`: no-curses virtual frame harness for file, prefix,
-  command, status, tabline, divider, window, UTF fixture, compact-view, cursor,
-  targeted-redraw row, logical-hit, and fake-driver operation coverage.
-- `src/agentdriver.c` and `tools/the_llm_harness.c`: no-curses proof target with
-  file loading, LLM snapshots/deltas, normalized stdin commands, file-area,
-  prefix, and command-line focus/editing, logical hits, file open/save/write,
-  search/replace, line operations, prefix command subset execution, selection
-  operations, bounded harness-side undo/redo, buffer list/switch/open/close, flat
-  project listing, live transient modal demo protocol, buffer metadata, and
-  explicit capability reporting.
-- `src/llm/llmsession.c` and `the --driver llm`: full-runtime proof target that
-  runtime-loads the headless/LLM driver during real THE startup, skips curses
-  initialization, opens real files/views, exposes real-runtime snapshots, and
-  routes `command ...` through the full THE dispatcher.
-- `tools/the_llm_headless.c`: no-curses executable skeleton for the broader
-  headless direction. It links the transient UI model and exposes
-  `--transient-demo` for inspecting transient snapshot formatting and
-  `--mini-session` for a realistic no-curses edit/save proof.
-- `doc/llm-headless-capabilities.md`: concise capability inventory and
-  classification for the lightweight harness, full-runtime LLM target, and
-  host-owned automation.
-
-Full-runtime LLM target:
-
-- Start with `./cmake-build-debug/the --driver llm -n path/to/file`.
-- Supported protocol commands: `look`, `delta`, `capabilities`, `focus`,
-  `hit`, `key`, `text`, `type`, `command`, `debug`, `transient`, and `quit`.
-- Snapshot data comes from real `screenframe`/`SHOW_LINE` state: row roles,
-  line numbers, file text, prefixes, command/status text, logical focus,
-  buffer metadata, dirty state, file ring, selection/block state, and
-  syntax/style spans where runtime highlighting is active.
-- `command ...` uses THE's real command dispatcher. CREXX/profile/macro
-  integration is preserved when THE is built with CREXX.
-- Command-triggered `READV CMDLINE`, `DIALOG`, and `POPUP` paths start
-  resumable transient protocol continuations under `--driver llm`, so agents
-  can inspect, type/key/hit, and accept/cancel them without curses.
-- SDSLH/parser diagnostics are first-class full-runtime snapshot state when
-  parser messages exist. `EXTRACT /PMSGS/` still returns the same PMSGS data.
-- The current `the` binary no longer links curses directly. `--driver curses`
-  loads the curses module, and `--driver llm` loads the headless/LLM module.
-
-Closed full-runtime hardening:
-
-- CMake curses include paths are target scoped to curses-owned targets.
-- Core/editor key call sites use THE-owned `THE_KEY_*` names; raw physical
-  curses/PDCurses key symbols stay in the curses driver/key map, curses tests,
-  or `src/thekeys.h` compatibility definitions.
-- `test_the_llm_full_runtime` exercises syntax/style snapshots, parser and
-  CREXX/profile companion tests, real prefix commands, stream selection state,
-  file-ring metadata, and command-triggered readv/dialog/popup workflows through
-  `the --driver llm`.
-
-Current lightweight harness subset:
-
-- Supported input commands: `look`, `delta`, `capabilities`, `focus`, `hit`,
-  `key`, `text`, `type`, `command`, `debug`, `transient`, and `quit`.
-- Supported editor commands include file/session commands (`open`, `open!`,
-  `new`, `new!`, `save`, `write`), navigation commands (`goto`, `top`,
-  `bottom`, `pageup`, `pagedown`, `tab`, `backtab`), search commands (`find`,
-  `search`, `find-next`, `find-prev`), edit commands (`insert`, `type`,
-  `replace`, `replace-all`), line commands (`setline`, `insertline`,
-  `appendline`, `deleteline`, `duplicateline`), prefix commands (`prefix`,
-  `prefix-clear`, `prefix-execute`), selection commands (`select`,
-  `selection-copy`, `selection-delete`, `selection-replace`), history commands
-  (`undo`, `redo`), buffer commands (`buffer-open`, `buffer-switch`,
-  `buffer-list`, `buffer-close`), and `project-list`.
-- Supported logical-hit targets: file-area, prefix, command, prompt, status,
-  tabline/filetabs, divider, and window selection.
-- Supported SOS commands: `TOPEDGE`, `BOTTOMEDGE`, `LEFTEDGE`, `RIGHTEDGE`,
-  `FIRSTCOL`, `LASTCOL`, `ENDCHAR`, `FIRSTCHAR`, `DELCHAR`, `CUADELCHAR`,
-  `DELBACK`, `CUADELBACK`, `DELEND`, `DELWORD`, `PREFIX`, `TABFIELDF`,
-  `TABFIELDB`, `QCMND`, and `EXECUTE`.
-- Unsupported full-editor commands return stable diagnostics and point callers
-  to `capabilities`.
-
-Outside the lightweight harness:
-
-- Full THE command dispatcher integration belongs to `the --driver llm`;
-  `the_llm_harness` deliberately remains a bounded no-curses harness.
-- CREXX macros require CREXX and full macro/profile integration and are exposed
-  through the full-runtime LLM target when available.
-- Parser/SDSLH diagnostics require the full runtime and are exposed through
-  first-class snapshot diagnostics plus the existing real command/query paths.
-- Terminal mouse packets remain physical input owned by the curses driver; the
-  harness path uses logical `hit` commands.
-- Build/test execution is a host automation concern. Run shell, CMake, and
-  CTest outside THE, then use THE for buffer editing.
-- Recursive project indexing is better handled by shell/agent tools. THE
-  exposes a flat `project-list` snapshot for quick editor context.
-
-## No-Curses Agent Executable
-
-Build:
-
-```sh
-cmake --build cmake-build-debug --target the_llm_harness -j2
+```text
+focus command
+text locate /target/
+key enter
+hit filearea 42 3 12
 ```
 
-Run against a file:
+Run real THE commands:
 
-```sh
-./cmake-build-debug/the_llm_harness --rows 24 --cols 80 path/to/file.txt
+```text
+command find target
+command c/target/replacement/
+command set pending on d
+command save
 ```
 
-Supported stdin commands:
+Inspect prefix state:
 
-- `look [full|filearea|reserved|prefix|focus] [compact] [max=N]`
-- `delta [full|filearea|reserved|prefix|focus] [compact] [max=N]`
-- `look delta ...`
-- `look ... [prefix=0|1] [command=0|1] [status=0|1] [cursor=0|1]`
-- `capabilities`
-- `focus command`, `focus filearea`, or `focus prefix`
-- `hit TARGET LINE ROW CELL [SCREEN WINDOW]`
-- `key left|right|up|down|home|end|pageup|pagedown|tab|backtab|backspace|delete`
-- `text TEXT`
-- `command COMMAND`
-- `transient readv [TEXT]`, `transient dialog [TEXT]`, `transient popup`
-- `transient look`, `transient key NAME`, `transient text TEXT`,
-  `transient hit ROW COL`, `transient result`, `transient close`
-- `debug NAME`
-- `quit` or `exit`
-
-Example agent loop:
-
-```sh
-printf '%s\n' \
-  'look filearea compact max=80' \
-  'key right' \
-  'look focus compact prefix=0' \
-  'quit' \
-  | ./cmake-build-debug/the_llm_harness tests/fixtures/utf-render.txt
+```text
+look prefix compact max=120
+command set pending on d
+look prefix compact max=120
 ```
 
-Command-line editing example:
+Drive readv/dialog/popup modal flows:
 
-```sh
-printf '%s\n' \
-  'focus command' \
-  'text goto 2' \
-  'key left' \
-  'look focus compact prefix=0' \
-  'key right' \
-  'key enter' \
-  'look focus compact prefix=0' \
-  'quit' \
-  | ./cmake-build-debug/the_llm_harness tests/fixtures/utf-render.txt
+```text
+command readv cmdline seed
+transient look
+transient text X
+transient key enter
+transient result
 ```
 
-Search, replace, line edit, and save example:
+Debug logical state rather than dumping terminal text:
+
+- `debug describe-focus`
+- `debug describe-row`
+- `debug list-visible-rows`
+- `debug dump-cursor-mapping`
+- `debug dump-driver-ops`
+- `debug explain-last-render`
+
+## Boundaries
+
+- Build/test execution is host automation. Run shell, CMake, and CTest
+  outside THE.
+- Recursive project search and repository indexing belong to shell/agent tools
+  such as `rg`.
+- Terminal mouse escape packets are physical input owned by the curses driver.
+  Agents should use logical `hit` commands.
+- Unsupported or build-dependent behavior must be reported through
+  `the --driver llm capabilities` or a focused diagnostic.
+
+## Coverage
+
+Focused no-curses/LLM tests:
 
 ```sh
-printf '%s\n' \
-  'command find TODO' \
-  'look focus compact prefix=0' \
-  'command replace /TODO/DONE/' \
-  'command appendline verified by agent' \
-  'command save' \
-  'look filearea compact max=120 prefix=0' \
-  'quit' \
-  | ./cmake-build-debug/the_llm_harness --rows 24 --cols 100 path/to/file.txt
-```
-
-Prefix, selection, undo, and delta example:
-
-```sh
-printf '%s\n' \
-  'look full compact max=120' \
-  'command prefix 2 r rewritten by prefix' \
-  'command prefix-execute' \
-  'delta compact max=120' \
-  'command select 1 0 1 5' \
-  'command selection-copy' \
-  'command selection-replace ALPHA' \
-  'command undo' \
-  'command redo' \
-  'look full compact max=120' \
-  'quit' \
-  | ./cmake-build-debug/the_llm_harness --rows 24 --cols 100 path/to/file.txt
-```
-
-Buffer, project, and modal example:
-
-```sh
-printf '%s\n' \
-  'command buffer-open other.txt' \
-  'command buffer-list' \
-  'command project-list .' \
-  'transient dialog confirm' \
-  'transient look' \
-  'transient key tab' \
-  'transient key enter' \
-  'transient result' \
-  'quit' \
-  | ./cmake-build-debug/the_llm_harness --rows 24 --cols 100 path/to/file.txt
-```
-
-Guardrail test:
-
-```sh
-ctest --test-dir cmake-build-debug -R 'test_the_llm_harness_no_curses' --output-on-failure
-```
-
-Focused agent tests:
-
-```sh
+cmake --build cmake-build-debug --target \
+  the the_driver_llm test_inputevent test_llmdriver test_llmruntime \
+  test_transientui test_virtual_screen test_headlessdriver -j2
 ctest --test-dir cmake-build-debug \
-  -R 'test_agentdriver|test_the_llm_harness_script|test_the_llm_harness_capabilities|test_the_llm_harness_no_curses|test_llmdriver|test_transientui' \
+  -R 'test_inputevent|test_llmdriver|test_llmruntime|test_transientui|test_the_llm_full_runtime|test_the_llm_parser_diagnostics|test_the_llm_profile_crexx|test_driver_modules|test_curses_boundary|test_curses_boundary_inventory' \
   --output-on-failure
 ```
 
-## Full-Runtime LLM Executable
-
-Build:
-
-```sh
-cmake --build cmake-build-debug --target the -j2
-```
-
-Run against a file:
-
-```sh
-printf '%s\n' \
-  'capabilities' \
-  'look filearea compact max=120' \
-  'command c/old/new/' \
-  'command colouring on auto' \
-  'look filearea compact max=120' \
-  'quit' \
-  | TERM= THE_HOME_DIR="$PWD/cmake-build-debug/release" \
-    ./cmake-build-debug/the --driver llm -n path/to/file.c
-```
-
-Guardrail test:
-
-```sh
-ctest --test-dir cmake-build-debug -R 'test_the_llm_full_runtime' --output-on-failure
-```
-
-## Headless Boundary
-
-Build:
-
-```sh
-cmake --build cmake-build-debug --target the_llm_headless test_transientui -j2
-```
-
-Inspect a transient snapshot:
-
-```sh
-./cmake-build-debug/the_llm_headless --transient-demo
-```
-
-Run the no-curses mini editing session:
-
-```sh
-./cmake-build-debug/the_llm_headless --mini-session path/to/file.txt
-```
-
-Guardrail tests:
-
-```sh
-ctest --test-dir cmake-build-debug \
-  -R 'test_transientui|test_the_llm_headless_no_curses|test_curses_boundary' \
-  --output-on-failure
-```
+Coverage includes semantic formatting, compact views, buffer metadata, input
+conversion and queues, debug snapshots, virtual frames/fake-driver logs,
+logical hits, real-runtime command dispatch, prefix/block/file-ring state,
+syntax/style spans, parser diagnostics, profile/CREXX paths, transient UI
+state transitions, command-triggered modal continuations, and no-curses link
+checks for `the` and `the_driver_llm.so`.

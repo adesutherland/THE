@@ -33,15 +33,16 @@ mapping lives in `src/driverlayout.c`; terminal mechanics stay in
 `src/drivers/curses/cursesdriver.c` or in explicit physical vtable operations.
 
 New logical behavior should be proved through a no-curses surface first:
-`the_llm_harness`, `the_llm_headless`, `llmdriver`, `llmruntime`,
-virtual/fake-driver tests, focused unit tests, or CREXX/pty full-editor tests.
+`the --driver llm`, `llmdriver`, `llmruntime`, `transientui`,
+`inputevent`, virtual/fake-driver tests, focused unit tests, or CREXX/pty
+full-editor tests.
 
 ## Current Checkpoint
 
-- Latest completed slice: driver-boundary and full-runtime LLM hardening:
-  target-scoped curses include directories, core/editor `THE_KEY_*` conversion,
-  command-triggered LLM modal continuations for READV/DIALOG/POPUP, expanded
-  full-runtime LLM coverage, and updated no-curses/link guardrails.
+- Latest completed slice: fake LLM editor harness retirement. The strategic
+  no-curses agent/editor target is now `the --driver llm`; formatter/input-only
+  checks live in focused unit tests, and no separate editable no-curses
+  mini-runtime remains.
 - Live public driver surface: 53 `TheDriverOps` entries.
 - Curses and headless implementations both initialize all 53 entries.
 - Public driver types are neutral: `TheDriverAttr`, `TheDriverCell`,
@@ -87,10 +88,10 @@ virtual/fake-driver tests, focused unit tests, or CREXX/pty full-editor tests.
   global include directories. Curses include paths are target-scoped to the
   curses driver module, curses key-map tests, and curses terminal tools. The
   main binary and LLM driver module do not link curses.
-- `the --driver llm` now selects the headless/LLM driver during real THE
+- `the --driver llm` selects the headless/LLM driver during real THE
   startup, skips curses initialization, opens files through the real file/view
   runtime, and runs `command ...` through THE's real command dispatcher. The
-  protocol loop preserves the `the_llm_harness` command shape: `look`, `delta`,
+  protocol loop exposes the supported command shape: `look`, `delta`,
   `capabilities`, `focus`, `hit`, `key`, `text`, `type`, `command`, `debug`,
   `transient`, and `quit`.
 - Full-runtime LLM snapshots are built from real `screenframe`/`SHOW_LINE`
@@ -112,21 +113,16 @@ virtual/fake-driver tests, focused unit tests, or CREXX/pty full-editor tests.
   protocol. Command-triggered `READV CMDLINE`, `DIALOG`, and `POPUP` paths in
   `the --driver llm` now start the same resumable transient protocol
   continuations instead of terminal-only blocking loops.
-- `test_the_llm_full_runtime` now exercises real syntax/style spans, prefix
-  commands, stream block/selection state, file-ring metadata, and
-  command-triggered readv/dialog/popup modal workflows. Parser diagnostics and
-  CREXX/profile coverage remain split into their skip-safe full-runtime tests.
-- `the_llm_harness` now covers the serious no-curses protocol harness subset:
-  open/new/save/write, logical snapshots with buffer path/dirty/line metadata,
-  search/find, replace/replace-all, line operations, logical hits, key/text
-  input, file/prefix/command focus, semantic prefix commands, selection/range
-  operations, bounded harness-side undo/redo, buffer open/switch/list/close,
-  flat project listing, retained-frame deltas, live transient readv/dialog/popup
-  demo protocol, and the existing SOS navigation/edit subset. It is retained
-  as a protocol harness, no-curses contract test surface, and fallback oracle
-  for LLM formatting/input behavior, not as the strategic final agent editor.
-- `the_llm_headless --mini-session` performs a realistic no-curses edit/save
-  run against a file and is covered by CTest.
+- `test_the_llm_full_runtime` exercises all supported top-level LLM protocol
+  verbs plus real syntax/style spans, prefix commands, stream block/selection
+  state, file-ring metadata, and command-triggered readv/dialog/popup modal
+  workflows. Parser diagnostics and CREXX/profile coverage remain split into
+  their skip-safe full-runtime tests.
+- The lightweight fake editor stack has been retired:
+  `tools/the_llm_harness.c`, `tools/the_llm_headless.c`,
+  `src/agentdriver.c`, `src/agentdriver.h`, the `the_llm_harness` target,
+  the legacy `the_agent` alias, the `the_llm_headless` target, and their
+  harness/headless tests are removed.
 
 The live vtable now contains:
 
@@ -178,15 +174,14 @@ The live vtable now contains:
    clear helpers were removed from the public table. Callers now resolve
    existing logical windows through `src/driverwindow.h` before using explicit
    physical primitives.
-8. LLM/headless agent editor capability fill:
-   The no-curses harness subset is now a credible editor target for agents. It
-   has stable semantic snapshots/deltas, buffer metadata, file
-   open/save/write, search/find, replace, line operations, prefix commands,
-   selection/range operations, undo/redo visibility, buffer switching, flat
-   project listing, live transient modal demo flow, status/error reporting,
-   logical hits, and a headless mini-session proof. Items that require the full
-   editor runtime or host automation are classified in
-   `doc/llm-headless-capabilities.md`.
+8. Full-runtime LLM agent editor target:
+   `the --driver llm` is the single strategic no-curses editor target. It has
+   stable semantic snapshots/deltas, real buffer and file-ring metadata, real
+   command dispatch, prefix/block state, syntax/style spans, parser diagnostics
+   where available, CREXX/profile integration when built, logical key/text/hit
+   input, live transient modal protocol, status/error reporting, and no-curses
+   link isolation. Formatter/input-only behavior is covered by `test_llmdriver`,
+   `test_llmruntime`, `test_transientui`, and `test_inputevent`.
 
 Historical vtable counts:
 
@@ -239,7 +234,7 @@ A migration task is closed only when all applicable items are true:
 - logical behavior is observable through a no-curses surface, virtual/fake
   driver, focused CTest, or CREXX/pty full-editor test.
 - the real curses path uses the same logical input/frame/cursor data.
-- unsupported behavior is explicit in `the_llm_harness capabilities` or this file.
+- unsupported behavior is explicit in `the --driver llm capabilities` or this file.
 - physical mechanics remain inside `cursesdriver.c` or an explicit physical
   vtable operation.
 - no curses include path is globally visible except through curses-only
@@ -267,11 +262,9 @@ Focused tests that commonly matter:
 
 - `test_headlessdriver`, `test_inputevent`, `test_mousehit`
 - `test_uidriver`, `test_screenframe`, `test_virtual_screen`
-- `test_llmdriver`, `test_llmruntime`, `test_agentdriver`
-- `test_transientui`, `test_the_llm_harness_no_curses`,
-  `test_the_llm_headless_no_curses`,
-  `test_the_llm_headless_no_curses_mini_session`,
-  `test_the_llm_full_runtime`, `test_the_llm_parser_diagnostics`,
+- `test_llmdriver`, `test_llmruntime`, `test_inputevent`
+- `test_transientui`, `test_the_llm_full_runtime`,
+  `test_the_llm_parser_diagnostics`,
   `test_the_llm_profile_crexx`, `test_driver_modules`
 - `test_curses_boundary`, `test_curses_boundary_inventory`
 - CREXX/pty tests such as `test_normal_area_queries`,

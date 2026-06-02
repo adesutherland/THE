@@ -28,6 +28,15 @@ rg -- '--driver curses\|llm' "$work_dir/curses-help.txt" >/dev/null
 printf '%s\n' \
   'capabilities' \
   'look full compact max=120' \
+  'delta filearea compact max=120' \
+  'focus command' \
+  'text proto' \
+  'type check' \
+  'key left' \
+  'hit command 0 4 2' \
+  'focus filearea' \
+  'hit filearea 1 1 0' \
+  'key right' \
   'command c/beta/OMEGA/' \
   'look filearea compact max=120' \
   'command colouring on auto' \
@@ -81,6 +90,7 @@ rg '"real_buffers":true' "$out" >/dev/null
 rg '"syntax_style_spans":true' "$out" >/dev/null
 rg '"parser_diagnostics":"first-class-snapshot-array"|"parser_diagnostics":"unavailable-in-this-build"' "$out" >/dev/null
 rg '"transient_ui":"shared-transientui-protocol-adapter"' "$out" >/dev/null
+rg '"inputs":\["look","delta","capabilities","focus","hit","key","text","type","command","debug","transient","quit"\]' "$out" >/dev/null
 rg '"crexx_macros":(true|false)' "$out" >/dev/null
 if grep -aq 'CREXX unavailable' "$the_bin"; then
   rg '"crexx_macros":false' "$out" >/dev/null
@@ -89,6 +99,11 @@ else
 fi
 
 rg '"role":"file"' "$out" >/dev/null
+rg '"mode":"delta"' "$out" >/dev/null
+rg '"status":"focus changed"' "$out" >/dev/null
+rg '"status":"text applied"' "$out" >/dev/null
+rg '"status":"key applied"' "$out" >/dev/null
+rg '"status":"hit applied"' "$out" >/dev/null
 rg '"line":1' "$out" >/dev/null
 rg 'alpha beta gamma' "$out" >/dev/null
 rg 'alpha OMEGA gamma' "$out" >/dev/null
@@ -114,6 +129,7 @@ rg '"kind":"dialog","source":"command-dialog","action":"accept","committed":1,"e
 rg '"kind":"popup","source":"command-popup","action":"accept","committed":1,"selected_item":3' "$out" >/dev/null
 rg '"title":" LLM "' "$out" >/dev/null
 rg '"text":"Two"' "$out" >/dev/null
+rg '"status":"bye"' "$out" >/dev/null
 
 if rg -q 'Error opening terminal|setupterm|initscr' "$out" "$err"; then
   echo "llm driver appeared to initialize curses" >&2

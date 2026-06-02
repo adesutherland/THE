@@ -83,7 +83,7 @@ driver vtable, `the_driver->...`, defined by `TheDriverOps` in
 module loader, and explicit selection helpers. The main `the` executable
 loads `the_driver_curses` by default or for `--driver curses`, and loads
 `the_driver_llm` for `--driver llm`; it no longer links curses directly.
-No-curses harnesses and tests can still select `the_headless_driver_ops`
+No-curses tests and the LLM runtime can select `the_headless_driver_ops`
 without linking `src/drivers/curses/cursesdriver.c`. During this migration,
 all drivers are expected to expose the same `TheDriverOps` surface.
 Terminal-only operations may be NOPs, in-memory fake-surface updates, or
@@ -136,15 +136,12 @@ command/status text, marks, current focus, and logical cursor position. It
 should accept the same normalized text/key/command/logical-hit/debug events as
 other drivers.
 
-There are now two concrete no-curses LLM-facing surfaces:
-
-- `the --driver llm`: the strategic full-runtime target. It boots real THE,
-  skips curses initialization, uses real buffers/views/profiles/command
-  dispatch/parser state, preserves CREXX integration when built, and exposes
-  the existing LLM protocol over stdin/stdout.
-- `the_llm_harness`: the lightweight protocol harness and contract oracle. It keeps
-  a bounded in-memory editor model for no-curses formatting/input tests and
-  should not grow into a parallel full editor runtime.
+The concrete no-curses LLM-facing editor surface is `the --driver llm`. It
+boots real THE, skips curses initialization, uses real
+buffers/views/profiles/command dispatch/parser state, preserves CREXX
+integration when built, and exposes the LLM protocol over stdin/stdout.
+Formatter and input behavior that does not need the editor runtime belongs in
+focused unit tests, not in a second editor harness.
 
 The main `the` executable does not link curses directly. Runtime-loaded driver
 modules export `the_driver_module_ops()` and optional lifecycle hooks; the
@@ -192,7 +189,7 @@ Closed checkpoints are summarized here; details and next tasks are in
   slots, cursor state, queued normalized input events plus the shared
   legacy-key adapter, cell storage, render-cell/cluster preservation, and
   deterministic touch/refresh/update plus terminal-report/shell/repair logs.
-  It is used both by the lightweight harnesses and by `the --driver llm`.
+  It is used by `the --driver llm` and focused driver tests.
 - `doc/driver-vtable-review.md` is the detailed map of the current vtable. It
   now tracks the 53-entry `TheDriverOps` surface and records which operations
   should remain portable, which are NOP/log-capable physical terminal
@@ -215,11 +212,6 @@ Closed checkpoints are summarized here; details and next tasks are in
   targets.
 - `src/llm/llmdriver.c` formats semantic snapshots, compact view modes, and debug
   diagnostics.
-- `src/agentdriver.c` plus `tools/the_llm_harness.c` provide the no-curses proof
-  target with capability reporting, explicit unsupported-command diagnostics,
-  logical hits, command/file/prefix focus, file open/save/write, search/find,
-  replace, line operations, buffer metadata, and the closed SOS
-  navigation/edit subset.
 - `src/llm/llmsession.c` plus `the --driver llm` provide the full-runtime
   LLM protocol route. Startup loads the headless driver before screen role
   setup, avoids curses initialization, creates registered headless role/global
@@ -243,15 +235,13 @@ Closed checkpoints are summarized here; details and next tasks are in
   handling consumes logical hit targets where practical. Popup rendering no
   longer exposes pad allocation or pad refresh through `TheDriverOps`; the
   visible viewport is painted from the transient popup snapshot.
-- `the_llm_headless` is the current no-curses executable skeleton for the
-  broader LLM/headless editor direction. It links the transient model, offers a
-  `--mini-session` edit/save proof, and is checked by
-  `test_the_llm_headless_no_curses` plus the mini-session CTest.
-- `the_llm_harness`, `the_llm_headless`, and future proof targets such as
-  `agentthe` or `testingthe` should continue proving that selected non-curses
-  harnesses can link without `src/drivers/curses/cursesdriver.c`. `the` now
-  proves strict main-binary link isolation by loading the curses and LLM
-  drivers as modules.
+- The lightweight fake editor harness and headless mini-session executable are
+  retired. No separate editable no-curses mini-runtime remains; real editor
+  behavior is proved through `the --driver llm`, and formatter/input-only
+  behavior is proved through focused unit tests.
+- `the` proves strict main-binary link isolation by loading the curses and LLM
+  drivers as modules. `test_driver_modules` guards both the main executable and
+  `the_driver_llm.so` against curses dependencies.
 - The main `the` executable defaults to curses and accepts
   `--driver curses|llm`. The Windows strategy remains open: keep the curses
   driver PDCurses-compatible or split a Windows/PDCurses driver if the
@@ -287,12 +277,13 @@ Use this status model for every future slice:
 The current active categories are:
 
 - Done: logical UTF primitives, terminal profile/repair foundation, UI frame
-  and fake-driver foundation, LLM snapshot formatting, no-curses agent proof,
+  and fake-driver foundation, LLM snapshot formatting, full-runtime no-curses
+  agent proof,
   file-area logical cursor/editing foundation, command-dispatch Step 2
   coverage, major render cursor fallback removals, execute wrapper migration,
   focused query/SOS active-driver fallback removals, normalized live mouse
   input for normal `THEMouse` dispatch, transient readv/dialog/popup snapshot
-  model and curses-path materialization, `the_llm_headless`, focused
+  model and curses-path materialization, focused
   guardrails, the no-new-debt direct-curses inventory ratchet, and
   project-wide removal of raw `physical-input`/`physical-paint` findings
   outside the driver, corrected suffixed-paint inventory coverage, and driver
@@ -313,7 +304,8 @@ The current active categories are:
   proof, runtime-loaded driver modules, parser diagnostics snapshots,
   full-runtime transient protocol support, target-scoped curses include paths,
   core/editor `THE_KEY_*` caller names, command-triggered LLM modal
-  continuations, and broader real-runtime LLM fixtures.
+  continuations, broader real-runtime LLM fixtures, and retirement of the fake
+  LLM harness/headless mini-runtime.
 - Queued next: Windows loader verification and
   Windows/PDCurses driver strategy, terminal/keycap materialization baselines,
   any future unique-logical-key-ID decision after the mechanical rename,
@@ -351,18 +343,17 @@ module by module, not by aspiration.
   physical mechanics through `src/drivers/curses/cursesdriver.c`.
 - When a command, query, SOS, mouse, or renderer group is fully migrated, extend
   `tests/check_curses_boundary.sh` for that newly closed surface.
-- `the_llm_harness` must not link curses, `show.c`, or `cursesdriver.c`.
-- `the_llm_headless` must not link curses or `cursesdriver.c`.
-- Capability output must remain exact when the no-curses agent supports only a
-  subset of full editor behavior.
+- `the` and `the_driver_llm.so` must not link curses directly.
+- Capability output from `the --driver llm` must remain exact for supported,
+  unsupported, and build-dependent behavior.
 
 ## Test Surface Limits
 
-- `the_llm_harness` proves no-curses driver behavior and logical snapshots. It does
-  not execute arbitrary THE/SOS commands through the real dispatcher; that
-  belongs to the full editor runtime.
-- `the_llm_headless` proves the headless link boundary and can emit a transient
-  snapshot demo, but it is not the full editor runtime.
+- `the --driver llm` proves full editor behavior through the real runtime.
+- `test_llmdriver`, `test_llmruntime`, `test_transientui`, `test_inputevent`,
+  and virtual/fake-driver tests prove formatter, runtime-adapter, transient
+  model, protocol/input parsing, and driver instrumentation behavior that does
+  not require a live editor session.
 - CREXX/pty tests exercise the full editor command processor. They require
   CREXX support, a working CREXX compiler/import runtime, and a pty-capable
   host.

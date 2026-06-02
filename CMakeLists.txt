@@ -502,39 +502,6 @@ if(USE_UTF8 AND USE_WIDE_CHAR)
     target_link_libraries(utf_terminal_probe ${CURSES_LIBRARIES})
 endif()
 
-add_executable(the_llm_harness
-    tools/the_llm_harness.c
-    src/agentdriver.c
-    src/llm/llmdriver.c
-    src/inputevent.c
-    src/uidriver.c
-    src/logcursor.c
-    src/textpos.c
-    src/transientui.c
-)
-target_include_directories(the_llm_harness PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
-if(USE_UTF8 AND USE_UTF8PROC)
-    target_link_libraries(the_llm_harness ${THE_UTF8PROC_TARGET})
-    target_compile_definitions(the_llm_harness PRIVATE USE_UTF8PROC=1)
-endif()
-add_custom_target(the_agent DEPENDS the_llm_harness)
-
-add_executable(the_llm_headless
-    tools/the_llm_headless.c
-    src/agentdriver.c
-    src/llm/llmdriver.c
-    src/inputevent.c
-    src/uidriver.c
-    src/logcursor.c
-    src/textpos.c
-    src/transientui.c
-)
-target_include_directories(the_llm_headless PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
-if(USE_UTF8 AND USE_UTF8PROC)
-    target_link_libraries(the_llm_headless ${THE_UTF8PROC_TARGET})
-    target_compile_definitions(the_llm_headless PRIVATE USE_UTF8PROC=1)
-endif()
-
 # Install Targets
 install(TARGETS ${EXECUTABLE_NAME} DESTINATION bin)
 install(TARGETS the_driver_curses the_driver_llm
@@ -663,28 +630,6 @@ if(USE_UTF8 AND USE_UTF8PROC)
     target_compile_definitions(test_virtual_screen PRIVATE USE_UTF8PROC=1)
 endif()
 add_test(NAME test_virtual_screen COMMAND test_virtual_screen)
-add_executable(test_agentdriver tests/test_agentdriver.c src/agentdriver.c src/llm/llmdriver.c src/inputevent.c src/uidriver.c src/logcursor.c src/textpos.c)
-target_include_directories(test_agentdriver PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
-if(USE_UTF8 AND USE_UTF8PROC)
-    target_link_libraries(test_agentdriver ${THE_UTF8PROC_TARGET})
-    target_compile_definitions(test_agentdriver PRIVATE USE_UTF8PROC=1)
-endif()
-add_test(NAME test_agentdriver COMMAND test_agentdriver)
-add_test(NAME test_the_llm_harness_script
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_harness_script.sh
-            $<TARGET_FILE:the_llm_harness>)
-add_test(NAME test_the_llm_harness_capabilities
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_harness_capabilities.sh
-            $<TARGET_FILE:the_llm_harness>)
-add_test(NAME test_the_llm_harness_no_curses
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_llm_harness_no_curses.sh
-            $<TARGET_FILE:the_llm_harness>)
-add_test(NAME test_the_llm_headless_no_curses
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_no_curses_symbols.sh
-            $<TARGET_FILE:the_llm_headless>)
-add_test(NAME test_the_llm_headless_no_curses_mini_session
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_headless_mini_session.sh
-            $<TARGET_FILE:the_llm_headless>)
 add_test(NAME test_the_llm_full_runtime
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_full_runtime.sh
             $<TARGET_FILE:the>)

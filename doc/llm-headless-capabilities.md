@@ -1,75 +1,63 @@
-# LLM/Headless Capability Inventory
+# LLM Driver Capability Inventory
 
 Last updated: 2026-06-02.
 
-This inventory distinguishes two LLM/headless surfaces:
+This inventory describes the supported no-curses agent/editor surface:
+`the --driver llm`.
 
-- `the_llm_harness`: the lightweight no-curses protocol harness and contract test
-  oracle. Its executable source of truth is `the_llm_harness capabilities`.
-- `the --driver llm`: the strategic full-runtime target. It boots real THE
-  with the LLM/headless driver, uses real buffers/views/commands/profiles, and
-  preserves the `the_llm_harness` protocol shape over stdin/stdout.
+`the_driver_llm.so` is the runtime-loaded headless driver module used by that
+surface. It is not a separate agent editor. The retired lightweight harness and
+headless mini-session targets no longer define user-facing capabilities.
 
 ## Capability Status
 
 | Area | Status | Covered behavior | Tests |
 |---|---|---|---|
-| Full-runtime startup | First proof implemented | `the --driver llm` selects the headless/LLM driver, skips curses initialization, opens files through the real THE runtime, and serves the existing LLM protocol. Normal `the` and `the --driver curses` remain curses-first. | `test_the_llm_full_runtime` |
-| Full THE command dispatcher | Implemented in full-runtime target | `command ...` in `the --driver llm` calls THE's real `command_line(..., COMMAND_ONLY_FALSE)`, so existing editor commands, profiles, and macro dispatch paths stay in the full runtime. | `test_the_llm_full_runtime` |
-| CREXX/profile integration | Full-runtime capability, build-dependent | `the --driver llm capabilities` reports `crexx_macros` true or false according to the build. When CREXX is enabled, commands and profiles use the same full-editor CREXX integration path. | `test_the_llm_full_runtime`, CREXX tests when enabled |
+| Full-runtime startup | Implemented | `the --driver llm` selects the LLM/headless driver, skips curses initialization, opens files through the real THE runtime, and serves the LLM protocol over stdin/stdout. Normal `the` and `the --driver curses` remain curses-first. | `test_the_llm_full_runtime`, `test_driver_modules` |
+| Protocol verbs | Implemented | The real-runtime protocol accepts `look`, `delta`, `capabilities`, `focus`, `hit`, `key`, `text`, `type`, `command`, `debug`, `transient`, and `quit`. | `test_the_llm_full_runtime`, `test_inputevent` |
+| Capability discovery | Implemented | `the --driver llm capabilities` is the authoritative machine-readable capability report. It reports the full dispatcher, real buffers, syntax/style support, parser diagnostics availability, CREXX availability, transient support, and external build/test ownership. | `test_the_llm_full_runtime`, `test_the_llm_profile_crexx` |
+| Full THE command dispatcher | Implemented | `command ...` calls THE's real `command_line(..., COMMAND_ONLY_FALSE)`, so existing editor commands, profiles, and macro dispatch paths stay in the full runtime. | `test_the_llm_full_runtime`, CREXX/pty tests when enabled |
+| File open/save/write | Implemented through real runtime | Files are opened by real startup and editor commands such as `EDIT`, changed through the real command dispatcher or normalized input, and saved/written by real THE commands. | `test_the_llm_full_runtime`, CREXX/pty tests |
+| Buffer/file-ring state | Implemented | Snapshots include real current-buffer metadata, dirty state, file-ring entries, line counts, and current-buffer markers. | `test_the_llm_full_runtime`, `test_llmruntime` |
+| Cursor movement/reporting | Implemented | Snapshots report logical zone, file line, row, cell, desired cell, and focused row. Protocol `focus`, `hit`, `key`, `text`, and `type` enter through the real runtime. | `test_the_llm_full_runtime`, `test_inputevent`, `test_llmdriver` |
+| Prefix command model | Implemented through real runtime | Prefix state and execution are THE's real prefix model. Snapshots expose prefix text and semantic prefix command fields where the runtime has them. | `test_the_llm_full_runtime`, `test_llmdriver` |
+| Selection/block state | Implemented through real runtime | Snapshots expose real block/selection state from the current editor view. | `test_the_llm_full_runtime`, `test_llmdriver` |
+| Screen/snapshot output | Implemented | Stable compact/full semantic snapshots include row roles, prefixes, file text, command/status rows, cursor state, styles, diagnostics, buffer metadata, and file-ring data. | `test_llmdriver`, `test_llmruntime`, `test_the_llm_full_runtime` |
+| Delta views | Implemented | `delta ...` and `look delta ...` return retained previous-frame deltas with changed focus/status/buffer flags and changed semantic rows. | `test_llmdriver`, `test_the_llm_full_runtime` |
 | Syntax/style spans | Implemented where runtime highlighting is active | Full-runtime snapshots are built from real `screenframe`/`SHOW_LINE` state and surface THE syntax/style spans after the real runtime enables colouring/parser state. | `test_the_llm_full_runtime`, `test_llmruntime` |
-| Parser diagnostics | Implemented in full-runtime snapshots | SDSLH diagnostics remain in the full-runtime target. `look` output includes a first-class diagnostics array when parser messages exist, and `EXTRACT /PMSGS/` still uses the same collected PMSGS data. | `test_the_llm_parser_diagnostics`, `test_sdslh_integration` |
-| Startup/session lifecycle | Implemented | `the_llm_harness` starts with configurable rows/cols and optional file; `the_llm_headless --mini-session` drives a temp editing session; `new`/`new!` reset buffers; `capabilities` reports the supported harness surface. | `test_the_llm_harness_script`, `test_the_llm_harness_capabilities`, `test_the_llm_headless_no_curses_mini_session`, `test_agentdriver` |
-| File open/save/write | Implemented | Load existing or new files, `open`/`load`/`edit`, forced `open!`, `save [PATH]`, `write [PATH]`, stable save status, snapshot buffer path/dirty/line count. | `test_the_llm_harness_script`, `test_the_llm_headless_no_curses_mini_session`, `test_agentdriver` |
-| Buffer/file navigation | Implemented for harness target | File navigation supports top/bottom/goto/page/SOS visible-edge movement. Harness buffers support `buffer-open`, `buffer-switch`, `buffer-list`, and `buffer-close[!]`; snapshots include a buffer list with current/dirty/line-count metadata. | `test_the_llm_harness_script`, `test_agentdriver` |
-| Project/file awareness | Implemented for harness target | `project-list [DIR]` exposes a deterministic flat directory listing in snapshots. Recursive tree semantics and editor project indexing are outside the target; harness callers should use shell tools for deep project queries. | `test_the_llm_harness_script` |
-| Cursor movement/reporting | Implemented | Logical filearea, prefix, and command cursor zones; left/right/up/down/home/end/page/tab movement; snapshots report zone, line, row, cell, desired cell, and focused row. | `test_agentdriver`, `test_llmdriver`, `test_virtual_screen`, `test_screenframe` |
-| Text insertion/deletion/replacement | Implemented | Text/codepoint input, `insert`/`type`, delete/backspace, SOS `DELCHAR`/`DELBACK`/`DELEND`/`DELWORD`, `replace`, `replace-all`, virtual-space padding, UTF-aware cursor movement. Prefix focus also supports text insertion, delete, backspace, and delete-to-end for the prefix field. | `test_agentdriver`, `test_the_llm_harness_script` |
-| Line operations | Implemented | `setline`, `insertline`, `appendline`, `deleteline`, `duplicateline`. | `test_agentdriver`, `test_the_llm_harness_script` |
-| Search/find navigation | Implemented | `find`, `search`, `find-next`, `find-prev` across visible and non-visible buffer lines, including UTF text as byte-exact search terms with logical-cell cursor placement. | `test_agentdriver`, `test_the_llm_harness_script` |
-| Harness command model | Implemented subset | `the_llm_harness` routes normalized command input through a deliberate no-curses command subset for editing work. Unsupported commands return structured diagnostics and point callers to `capabilities`. This subset is a harness/oracle, not the strategic final command surface. | `test_the_llm_harness_capabilities`, `test_the_llm_harness_script` |
-| Prefix command model | Implemented subset | Snapshots expose semantic `pc` / `prefix_command` state. Harness callers can enter/clear/execute `d`, `del`, `delete`, `dup`, `copy`, `r TEXT`, `i TEXT`, and `a TEXT` through `prefix`, `prefix-clear`, and `prefix-execute`. | `test_agentdriver`, `test_the_llm_harness_script`, `test_llmdriver` |
-| Selection/range model | Implemented subset | Snapshots expose active selection endpoints and clipboard text. Commands support `select L1 C1 L2 C2`, `selection-copy`, `selection-delete`, `selection-replace TEXT`, and clear operations, including wide-cell UTF replacement. | `test_agentdriver`, `test_the_llm_harness_script`, `test_llmdriver` |
-| Undo/redo | Implemented harness-side | Bounded harness-side history covers content mutations made through the harness target; snapshots expose undo/redo availability. Undo/redo preserves dirty state and file content for harness mutations. | `test_agentdriver`, `test_the_llm_harness_script`, `test_llmdriver` |
-| Status/error reporting | Implemented | Every command returns JSON ack status; unsupported commands return structured diagnostics; snapshots include status plus buffer path/dirty/line count. | `test_the_llm_harness_capabilities`, `test_llmdriver` |
-| Screen/snapshot output | Implemented | Stable compact/full semantic snapshots with row roles, prefixes, semantic prefix commands, file text, command/status rows, cursor, styles, history, selection, buffers, project files, and buffer metadata. | `test_llmdriver`, `test_llmruntime`, `test_virtual_screen`, `test_agentdriver` |
-| Delta views | Implemented | `delta ...` and `look delta ...` return retained previous-frame deltas with changed focus/status/buffer flags and changed semantic rows. | `test_agentdriver`, `test_the_llm_harness_script`, `test_llmdriver` |
-| Transient/modal UI | Implemented harness and full-runtime protocol | `transient readv`, `transient dialog`, and `transient popup` expose live no-curses look/input/hit/result flows using the shared `transientui` model in both `the_llm_harness` and `the --driver llm`. Command-triggered `READV CMDLINE`, `DIALOG`, and `POPUP` in `the --driver llm` start resumable transient continuations instead of terminal-only blocking loops. `the_llm_headless --transient-demo` remains a standalone formatting proof. | `test_transientui`, `test_the_llm_harness_script`, `test_the_llm_full_runtime`, `test_the_llm_headless_no_curses` |
-| Unicode/UTF oddities | Implemented within current renderer model | Render cells/clusters preserve wide cells, combining marks, keycaps, flags, emoji, ZWJ sequences, logical/display/cursor/paint widths, and repair strategy hints where the current renderer model supports them. Agent editing uses UTF-aware `TextPos` movement. | `test_headlessdriver`, `test_virtual_screen`, `test_agentdriver` |
-| Mouse/logical hit reporting | Implemented logical subset | Logical hits target filearea, prefix, command, prompt, status, tabline/filetabs, divider, and window selection without terminal packets. Terminal mouse escape packets are handled by the curses driver and converted before reaching shared input. | `test_agentdriver`, `test_the_llm_harness_script`, `test_mousehit` |
+| Parser diagnostics | Implemented in full-runtime snapshots | SDSLH diagnostics remain in the full runtime. `look` output includes a first-class diagnostics array when parser messages exist, and `EXTRACT /PMSGS/` still uses the same collected PMSGS data. | `test_the_llm_parser_diagnostics`, `test_sdslh_integration` |
+| CREXX/profile integration | Build-dependent full-runtime capability | `the --driver llm capabilities` reports `crexx_macros` according to the build. When CREXX is enabled, commands and profiles use the same full-editor CREXX integration path. | `test_the_llm_profile_crexx`, CREXX tests when enabled |
+| Transient/modal UI | Implemented | `transient readv`, `transient dialog`, and `transient popup` expose no-curses look/input/hit/result flows through the shared `transientui` model. Command-triggered `READV CMDLINE`, `DIALOG`, and `POPUP` start resumable protocol continuations instead of terminal-only blocking loops. | `test_transientui`, `test_the_llm_full_runtime` |
+| Unicode/UTF rendering metadata | Implemented within current renderer model | Render cells/clusters preserve wide cells, combining marks, keycaps, flags, emoji, ZWJ sequences, logical/display/cursor/paint widths, and repair strategy hints where the current renderer model supports them. | `test_headlessdriver`, `test_virtual_screen`, `test_llmdriver` |
+| Mouse/logical hit reporting | Implemented logical subset | Protocol `hit` targets filearea, prefix, command, prompt, status, tabline/filetabs, divider, window selection, and transient UI targets without terminal packets. Terminal mouse escape packets remain curses-driver input and are converted before shared dispatch. | `test_the_llm_full_runtime`, `test_mousehit`, `test_inputevent` |
+| Link boundary | Implemented | The main `the` executable and `the_driver_llm.so` do not link curses. The curses module owns curses startup/shutdown and terminal mechanics. | `test_driver_modules`, `test_curses_boundary`, `test_curses_boundary_inventory` |
 
-## Outside The Lightweight Harness
-
-These items are outside `the_llm_harness`, but not outside the strategic full-runtime
-LLM target unless noted:
+## Outside The LLM Driver
 
 | Item | Architectural reason | Current route |
 |---|---|---|
-| Full THE command dispatcher | Pulling it into `the_llm_harness` would turn the harness into a second editor implementation. | Use `the --driver llm` for the strategic no-curses full-runtime path. |
-| CREXX macros | CREXX requires macro/profile integration, optional external libraries, and full editor runtime state. | Use `the --driver llm` or the normal full editor; capability is build-dependent. |
-| Parser/SDSLH diagnostics | The lightweight harness has no real parser runtime. | Use `the --driver llm`; snapshots include first-class diagnostics when parser messages exist. |
-| Terminal mouse packets | The harness path consumes logical hit targets from snapshots. Raw terminal escape packets are physical input and belong in `src/drivers/curses/cursesdriver.c`. | Use `hit TARGET LINE ROW CELL` in `the_llm_harness`; curses converts terminal mouse packets for the live editor. |
-| Build/test execution hooks | Running builds/tests is a host automation concern. Embedding process execution in the editor driver would couple buffer editing to shell orchestration and CI policy. | Host agents should run shell, CMake, and CTest directly outside THE, then use THE snapshots/status for editing. |
-| Recursive project indexing | Deep project search, ignore-file handling, and repository indexing duplicate existing shell/agent tools. The editor target exposes a flat `project-list` for quick context only. | Use `rg`, shell file tools, or future external project services. |
+| Build/test execution hooks | Running builds/tests is host automation, not editor behavior. Embedding process execution in the driver would couple buffer editing to shell orchestration and CI policy. | Host agents should run shell, CMake, and CTest directly outside THE. |
+| Recursive project indexing | Deep project search, ignore-file handling, and repository indexing duplicate existing shell/agent tools. | Use `rg`, shell file tools, or future external project services. |
+| Raw terminal mouse packets | Terminal escape packets are physical input owned by the curses driver. | Use logical `hit` protocol commands in `the --driver llm`; curses converts terminal packets for the live editor. |
+| Unsupported editor behavior | Unsupported or build-dependent behavior must be machine-readable. | Report it through `the --driver llm capabilities` or focused diagnostics. |
 
-## Modern Coding-Agent UI Comparison
+## Agent UI Baseline
 
-The no-curses target now has the core editor controls expected by an agent UI:
+The strategic no-curses target now has the core controls expected by an agent
+editor:
 
 - stable machine-readable snapshots and retained-frame deltas.
-- precise text, line, selection, prefix, and file commands.
-- status and structured unsupported-command diagnostics.
-- buffer list and flat project listing metadata.
-- undo/redo availability for harness mutations.
-- logical modal protocol for readv/dialog/popup flows in the harness, demo
-  protocol, and command-triggered full-runtime LLM continuations.
+- real THE command dispatch, profiles, prefix commands, file-ring state, and
+  CREXX integration when built.
+- logical key/text/hit input independent of terminal packets.
+- real syntax/style spans and parser diagnostics where available.
+- logical modal protocol for readv/dialog/popup flows.
 - UTF-aware logical cursor movement decoupled from terminal rendering.
-- no-curses link proof for both the interactive harness target and headless
-  mini-session target.
+- no-curses link proof for both the main executable and the LLM driver module.
 
-Capabilities intentionally supplied by the host agent rather than THE:
+Capabilities supplied by the host agent rather than THE:
 
 - shell/build/test execution and progress channels.
 - repository-scale search and file indexing.
 - workflow or skill enforcement beyond the documented protocol and
-  `the_llm_harness capabilities`.
+  `the --driver llm capabilities`.

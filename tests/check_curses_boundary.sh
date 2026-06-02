@@ -19,8 +19,6 @@ logical_files=(
   src/inputevent.h
   src/mousehit.c
   src/mousehit.h
-  src/agentdriver.c
-  src/agentdriver.h
   src/utflayout.c
   src/utflayout.h
   src/utfrepair.c
@@ -35,7 +33,6 @@ logical_files=(
   src/transientui.h
   src/uidriver.c
   src/uidriver.h
-  tools/the_llm_harness.c
 )
 
 violations="$(
@@ -181,4 +178,4 @@ if [[ -n "$sos_violations" ]]; then
   exit 1
 fi
 
-printf '%s\n' "curses boundary check passed for logical modules, agent, raw input vtable, raw window/cell residue, execute.c wrappers, and SOS cursor surface"
+printf '%s\n' "curses boundary check passed for logical modules, raw input vtable, raw window/cell residue, execute.c wrappers, and SOS cursor surface"

@@ -38,19 +38,16 @@ The intended layers are:
   now. Later work can either preserve that compatibility in the same driver or
   split a Windows/PDCurses driver if terminal behavior diverges enough.
 
-`the_llm_harness` and `the_llm_headless` already prove useful no-curses link
-boundaries. `the_llm_harness` is now a serious no-curses protocol harness and
-contract oracle with file open/save/write, buffer metadata, search/replace,
-line operations, logical hits, and stable snapshots; `the_llm_headless
---mini-session` proves a real edit/save path without
-`src/drivers/curses/cursesdriver.c`. `src/drivers/llm/headlessdriver.c` adds
-the first complete no-curses
-`TheDriverOps` implementation. It is a fake/test driver rather than the full
-editor runtime: terminal-only operations may be NOPs or deterministic log
-entries, while fake windows, role/global slots, cursors, simple input/mouse
-state, and touch/refresh/update ordering are represented in memory. Later LLM
-behavior can layer on this base or share its patterns, while focused CTest
-drivers continue to prove specific integration points.
+`the --driver llm` is the no-curses full-runtime editor target. It proves the
+agent protocol through real buffers, views, command dispatch, profiles, parser
+state, file-ring metadata, and transient modal continuations. The main
+executable and `the_driver_llm.so` are guarded against curses dependencies.
+`src/drivers/llm/headlessdriver.c` provides the complete no-curses
+`TheDriverOps` implementation behind that mode and focused tests. It is a
+headless physical driver rather than a second editor runtime: terminal-only
+operations may be NOPs or deterministic log entries, while fake windows,
+role/global slots, cursors, input state, and touch/refresh/update ordering are
+represented in memory.
 
 ## Findings
 
