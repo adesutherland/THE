@@ -207,8 +207,10 @@ static int show_utf8_ascii_profile_fast_path_ok(void)
                                         UTF8_TERM_DISPLAY_NORMAL);
    return entry != NULL
        && entry->output_method == UTF8_TERM_OUTPUT_NATIVE
-       && entry->layout_width == 1
+       && entry->width == 1
+       && entry->advance_width == 1
        && entry->cursor_width == 1
+       && entry->repaint_width == 1
        && entry->cursor_strategy == UTF8_TERM_STRATEGY_CHANGED_CELLS
        && entry->replacement_strategy == UTF8_TERM_STRATEGY_CHANGED_CELLS;
 }
@@ -296,10 +298,10 @@ static int show_utf8_cluster_logical_width(TextCluster cluster)
    return utf8_layout_cluster_logical_width(cluster);
 }
 
-static int show_utf8_cluster_display_width(const CHARTYPE *line, size_t len,
+static int show_utf8_cluster_advance_width(const CHARTYPE *line, size_t len,
                                            TextCluster cluster)
 {
-   return utf8_layout_cluster_display_width(line, len, cluster);
+   return utf8_layout_cluster_advance_width(line, len, cluster);
 }
 
 static int show_utf8_cluster_cursor_width(const CHARTYPE *line, size_t len,
@@ -308,10 +310,10 @@ static int show_utf8_cluster_cursor_width(const CHARTYPE *line, size_t len,
    return utf8_layout_cluster_cursor_width(line, len, cluster);
 }
 
-static int show_utf8_cluster_paint_width(const CHARTYPE *line, size_t len,
+static int show_utf8_cluster_repaint_width(const CHARTYPE *line, size_t len,
                                          TextCluster cluster)
 {
-   return utf8_layout_cluster_paint_width(line, len, cluster);
+   return utf8_layout_cluster_repaint_width(line, len, cluster);
 }
 
 int show_utf8_display_col_from_logical(const CHARTYPE *line, size_t len,
@@ -384,7 +386,7 @@ static void show_write_utf8_cluster_at(TheDriverWindow *win, int row, int col,
                                      FALSE))
    {
       if (expected_width > 0)
-         render.display_width = expected_width;
+         render.advance_width = expected_width;
       the_driver->write_render_cluster_at(win, row, col, &render);
    }
 }
@@ -402,7 +404,7 @@ static void show_write_utf8_status_cluster_at(TheDriverWindow *win, int row, int
                                         line, len, cluster)))
    {
       if (expected_width > 0)
-         render.display_width = expected_width;
+         render.advance_width = expected_width;
       the_driver->write_render_cluster_at(win, row, col, &render);
    }
 }
@@ -1758,7 +1760,7 @@ void show_statarea(void)
    int draw_status_cluster = FALSE;
    int status_field_width = 0;
    int status_cluster_offset = 0;
-   int status_cluster_display_width = 1;
+   int status_cluster_advance_width = 1;
    char status_field[21];
    const CHARTYPE *status_cluster_line = NULL;
    size_t status_cluster_len = 0;
@@ -1931,11 +1933,11 @@ void show_statarea(void)
          }
          else
          {
-            glyph_cells = show_utf8_cluster_display_width(status_cluster_line,
+            glyph_cells = show_utf8_cluster_advance_width(status_cluster_line,
                                                           status_cluster_len,
                                                           status_cluster);
             glyph_cells = min(glyph_cells, 8);
-            status_cluster_display_width = glyph_cells;
+            status_cluster_advance_width = glyph_cells;
             status_cluster_offset = 1;
             status_field[0] = '[';
             if (1 + glyph_cells < 20)
@@ -1949,11 +1951,11 @@ void show_statarea(void)
       }
       else
       {
-         glyph_cells = show_utf8_cluster_display_width(status_cluster_line,
+         glyph_cells = show_utf8_cluster_advance_width(status_cluster_line,
                                                        status_cluster_len,
                                                        status_cluster);
          glyph_cells = min(glyph_cells, 8);
-         status_cluster_display_width = glyph_cells;
+         status_cluster_advance_width = glyph_cells;
          status_cluster_offset = 1;
          status_field[0] = '[';
          if (1 + glyph_cells < 20)
@@ -2032,7 +2034,7 @@ void show_statarea(void)
                                         status_cluster_line,
                                         status_cluster_len, status_cluster,
                                         status_colour,
-                                        status_cluster_display_width);
+                                        status_cluster_advance_width);
    }
 #endif
    the_driver->refresh_window(driver_global_window(THE_DRIVER_GLOBAL_STATAREA));
@@ -4008,9 +4010,9 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
       int item_width;
       int item_logical_screen_col;
       int item_screen_col;
-      int item_display_width;
+      int item_advance_width;
       int item_cursor_width;
-      int item_paint_width;
+      int item_repaint_width;
       int clear_width;
       int cursor_logical_hit = FALSE;
       int cursor_display_hit = FALSE;
@@ -4021,17 +4023,17 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
       item_width = (cluster.cell_width > 0) ? cluster.cell_width : 0;
       item_logical_screen_col = cluster.pos.cell_column - (int)cvcol;
       item_screen_col = screen_col;
-      item_display_width = show_utf8_cluster_display_width(line, blength, cluster);
+      item_advance_width = show_utf8_cluster_advance_width(line, blength, cluster);
       item_cursor_width = show_utf8_cluster_cursor_width(line, blength, cluster);
-      item_paint_width = show_utf8_cluster_paint_width(line, blength, cluster);
+      item_repaint_width = show_utf8_cluster_repaint_width(line, blength, cluster);
       if (item_cursor_width <= 0)
-         item_cursor_width = (item_display_width > 0) ? item_display_width
+         item_cursor_width = (item_advance_width > 0) ? item_advance_width
                            : ((item_width > 0) ? item_width : 1);
       if (item_logical_screen_col < 0 || item_logical_screen_col >= visible_cols
       ||  item_screen_col >= ccols)
       {
          pos = cluster.end;
-         screen_col += (item_display_width > 0) ? item_display_width : 1;
+         screen_col += (item_advance_width > 0) ? item_advance_width : 1;
          continue;
       }
 
@@ -4068,18 +4070,18 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
          cursor_drawn = TRUE;
       }
 
-      if (item_paint_width > 0)
-         PARATEST_ADD_LINE(item_paint_width, "ADD_UTF8_CLUSTER_OUTPUT");
-      clear_width = (item_paint_width > 0) ? item_paint_width : 1;
+      if (item_repaint_width > 0)
+         PARATEST_ADD_LINE(item_repaint_width, "ADD_UTF8_CLUSTER_OUTPUT");
+      clear_width = (item_repaint_width > 0) ? item_repaint_width : 1;
       if (item_screen_col + clear_width > ccols)
          clear_width = ccols - item_screen_col;
       show_fill_cells_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row, item_screen_col,
                          clear_width, colour);
       show_write_utf8_cluster_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row, item_screen_col,
                                  line, blength, cluster, colour,
-                                 item_display_width);
+                                 item_advance_width);
       pos = cluster.end;
-      screen_col += (item_display_width > 0) ? item_display_width : 1;
+      screen_col += (item_advance_width > 0) ? item_advance_width : 1;
    }
 
    if ( cursor_visible
@@ -4141,8 +4143,8 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
    TheDriverAttr colour;
    TheDriverAttr *high;
    int display_col;
-   int display_width;
-   int paint_width;
+   int advance_width;
+   int repaint_width;
    int ccols;
 
    if (show_screen_role_window(scrno, WINDOW_FILEAREA) == NULL
@@ -4209,30 +4211,30 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
 
    display_col = show_utf8_display_col_from_logical(line, blength, (int)cvcol,
                                                     cluster.pos.cell_column);
-   display_width = show_utf8_cluster_display_width(line, blength, cluster);
-   if (display_width <= 0)
-      display_width = (cluster.cell_width > 0) ? cluster.cell_width : 1;
-   paint_width = show_utf8_cluster_paint_width(line, blength, cluster);
-   if (paint_width <= 0)
-      paint_width = display_width;
+   advance_width = show_utf8_cluster_advance_width(line, blength, cluster);
+   if (advance_width <= 0)
+      advance_width = (cluster.cell_width > 0) ? cluster.cell_width : 1;
+   repaint_width = show_utf8_cluster_repaint_width(line, blength, cluster);
+   if (repaint_width <= 0)
+      repaint_width = advance_width;
    if (display_col < 0 || display_col >= ccols)
       return;
-   if (display_col + paint_width > ccols)
-      paint_width = ccols - display_col;
+   if (display_col + repaint_width > ccols)
+      repaint_width = ccols - display_col;
 
-   if (paint_width > display_width)
+   if (repaint_width > advance_width)
    {
       TextPos repaint_pos = cluster.pos;
-      int span_end = display_col + paint_width;
+      int span_end = display_col + repaint_width;
 
       show_fill_cells_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row, display_col,
-                         paint_width, normal);
+                         repaint_width, normal);
       while (repaint_pos.byte_offset < blength)
       {
          TextCluster repaint_cluster;
          TheDriverAttr repaint_colour;
          int repaint_display_col;
-         int repaint_display_width;
+         int repaint_advance_width;
 
          repaint_cluster = textpos_cluster_at_boundary(line, blength, repaint_pos);
          if (repaint_cluster.byte_length == 0)
@@ -4242,13 +4244,13 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
                                                                   repaint_cluster.pos.cell_column);
          if (repaint_display_col >= span_end || repaint_display_col >= ccols)
             break;
-         repaint_display_width = show_utf8_cluster_display_width(line, blength,
+         repaint_advance_width = show_utf8_cluster_advance_width(line, blength,
                                                                  repaint_cluster);
-         if (repaint_display_width <= 0)
-            repaint_display_width = (repaint_cluster.cell_width > 0)
+         if (repaint_advance_width <= 0)
+            repaint_advance_width = (repaint_cluster.cell_width > 0)
                                   ? repaint_cluster.cell_width : 1;
-         if (repaint_display_col + repaint_display_width > ccols)
-            repaint_display_width = ccols - repaint_display_col;
+         if (repaint_display_col + repaint_advance_width > ccols)
+            repaint_advance_width = ccols - repaint_display_col;
          repaint_colour = show_utf8_filearea_cluster_colour(scrno, current,
                                                             repaint_cluster, high);
          if (cursor
@@ -4258,17 +4260,17 @@ static void show_utf8_repaint_filearea_target(CHARTYPE scrno, short row,
          show_write_utf8_cluster_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row,
                                     repaint_display_col, line, blength,
                                     repaint_cluster, repaint_colour,
-                                    repaint_display_width);
+                                    repaint_advance_width);
          repaint_pos = repaint_cluster.end;
       }
       return;
    }
 
    show_fill_cells_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row, display_col,
-                      display_width, colour);
+                      advance_width, colour);
    show_write_utf8_cluster_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row, display_col,
                               line, blength, cluster, colour,
-                              display_width);
+                              advance_width);
 }
 
 static int show_utf8_target_cluster(CHARTYPE *line, LENGTHTYPE blength,
@@ -4327,8 +4329,8 @@ static void show_utf8_repaint_filearea_suffix(CHARTYPE scrno, short row,
       TextCluster cluster = textpos_cluster_at_boundary(line, blength, pos);
       TheDriverAttr colour;
       int display_col;
-      int display_width;
-      int paint_width;
+      int advance_width;
+      int repaint_width;
       int clear_width;
 
       if (cluster.byte_length == 0)
@@ -4344,13 +4346,13 @@ static void show_utf8_repaint_filearea_suffix(CHARTYPE scrno, short row,
          continue;
       }
 
-      display_width = show_utf8_cluster_display_width(line, blength, cluster);
-      if (display_width <= 0)
-         display_width = (cluster.cell_width > 0) ? cluster.cell_width : 1;
-      paint_width = show_utf8_cluster_paint_width(line, blength, cluster);
-      if (paint_width <= 0)
-         paint_width = display_width;
-      clear_width = paint_width;
+      advance_width = show_utf8_cluster_advance_width(line, blength, cluster);
+      if (advance_width <= 0)
+         advance_width = (cluster.cell_width > 0) ? cluster.cell_width : 1;
+      repaint_width = show_utf8_cluster_repaint_width(line, blength, cluster);
+      if (repaint_width <= 0)
+         repaint_width = advance_width;
+      clear_width = repaint_width;
       if (display_col + clear_width > ccols)
          clear_width = ccols - display_col;
 
@@ -4360,7 +4362,7 @@ static void show_utf8_repaint_filearea_suffix(CHARTYPE scrno, short row,
                          clear_width, colour);
       show_write_utf8_cluster_at(show_screen_role_window(scrno, WINDOW_FILEAREA), row,
                                  display_col, line, blength, cluster,
-                                 colour, display_width);
+                                 colour, advance_width);
       pos = cluster.end;
    }
 }

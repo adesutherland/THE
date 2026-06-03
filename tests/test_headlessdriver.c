@@ -127,7 +127,7 @@ static void test_shared_display_layout(void)
 
       utf8_terminal_profile_reset();
       utf8_terminal_profile_apply_line(
-         "SET UTF TERMINAL CLASS keycap LAYOUT 2 CURSOR 2");
+         "SET UTF TERMINAL CLASS keycap WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2");
       expect_int("layout.utf.logical.to.display",
                  driver_layout_display_col_from_logical(keycap,
                                                         sizeof(keycap),
@@ -168,9 +168,10 @@ static void test_render_cell_model(void)
    expect_int("render.ascii.cp", (int)ascii.codepoints[0], 'A');
    expect_int("render.ascii.attr", (int)ascii.attr, 7);
    expect_int("render.ascii.logical", ascii.logical_width, 1);
-   expect_int("render.ascii.display", ascii.display_width, 1);
+   expect_int("render.ascii.width", ascii.width, 1);
+   expect_int("render.ascii.display", ascii.advance_width, 1);
    expect_int("render.ascii.cursor", ascii.cursor_width, 1);
-   expect_int("render.ascii.paint", ascii.paint_width, 1);
+   expect_int("render.ascii.repaint", ascii.repaint_width, 1);
    expect_int("render.ascii.wchars",
               the_render_cluster_to_wchars(&ascii, wch,
                                            sizeof(wch) / sizeof(wch[0])), 1);
@@ -202,9 +203,9 @@ static void test_render_cell_model(void)
       expect_int("render.combining.cp0", (int)render.codepoints[0], 'e');
       expect_int("render.combining.cp1", (int)render.codepoints[1], 0x0301);
       expect_int("render.combining.logical", render.logical_width, 1);
-      expect_int("render.combining.display", render.display_width, 1);
+      expect_int("render.combining.display", render.advance_width, 1);
       expect_int("render.combining.cursor", render.cursor_width, 1);
-      expect_int("render.combining.paint", render.paint_width, 1);
+      expect_int("render.combining.repaint", render.repaint_width, 1);
 
       utf8_terminal_profile_reset();
       expect_int("render.keycap.make",
@@ -213,9 +214,9 @@ static void test_render_cell_model(void)
                     test_cluster_at_begin(keycap, sizeof(keycap)),
                     12, 0), 1);
       expect_size("render.keycap.cp.count", render.codepoint_count, 3);
-      expect_int("render.keycap.display", render.display_width, 2);
+      expect_int("render.keycap.display", render.advance_width, 2);
       expect_int("render.keycap.cursor", render.cursor_width, 2);
-      expect_int("render.keycap.paint", render.paint_width, 2);
+      expect_int("render.keycap.repaint", render.repaint_width, 2);
       expect_int("render.keycap.repair", render.repair_strategy,
                  UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST);
       expect_int("render.keycap.output", render.output_method,
@@ -230,9 +231,9 @@ static void test_render_cell_model(void)
                  utf8_terminal_profile_apply_line(
                     "SET UTF TERMINAL CLASS keycap MARK compressed"),
                  UTF8_TERMINAL_PROFILE_APPLIED);
-      expect_int("render.keycap.base.layout.apply",
+      expect_int("render.keycap.base.advance.apply",
                  utf8_terminal_profile_apply_line(
-                    "SET UTF TERMINAL CLASS keycap LAYOUT 1 CURSOR 1 PAINT 3"),
+                    "SET UTF TERMINAL CLASS keycap WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 3"),
                  UTF8_TERMINAL_PROFILE_APPLIED);
       expect_int("render.keycap.base.cursor.apply",
                  utf8_terminal_profile_apply_line(
@@ -254,9 +255,10 @@ static void test_render_cell_model(void)
                  UTF8_TERM_MARK_COMPRESSED);
       expect_int("render.keycap.base.flag",
                  (render.flags & THE_RENDER_CLUSTER_BASE) != 0, 1);
-      expect_int("render.keycap.base.display", render.display_width, 1);
+      expect_int("render.keycap.base.width", render.width, 1);
+      expect_int("render.keycap.base.display", render.advance_width, 1);
       expect_int("render.keycap.base.cursor", render.cursor_width, 1);
-      expect_int("render.keycap.base.paint", render.paint_width, 3);
+      expect_int("render.keycap.base.repaint", render.repaint_width, 3);
       expect_int("render.keycap.base.wchars",
                  the_render_cluster_to_wchars(&render, wch,
                                               sizeof(wch) / sizeof(wch[0])), 1);
@@ -270,9 +272,10 @@ static void test_render_cell_model(void)
                     test_cluster_at_begin(flag, sizeof(flag)),
                     13, 0), 1);
       expect_size("render.flag.cp.count", render.codepoint_count, 2);
-      expect_int("render.flag.display", render.display_width, 3);
+      expect_int("render.flag.width", render.width, 2);
+      expect_int("render.flag.display", render.advance_width, 3);
       expect_int("render.flag.cursor", render.cursor_width, 3);
-      expect_int("render.flag.paint", render.paint_width, 3);
+      expect_int("render.flag.repaint", render.repaint_width, 3);
       expect_int("render.flag.repair", render.repair_strategy,
                  UTF8_TERM_STRATEGY_CLEAR_CHANGED_SUFFIX_FAST);
 
@@ -286,9 +289,9 @@ static void test_render_cell_model(void)
       expect_size("render.zwj.cp.count", render.codepoint_count, 6);
       expect_int("render.zwj.expanded",
                  (render.flags & THE_RENDER_CLUSTER_EXPANDED) != 0, 1);
-      expect_int("render.zwj.display", render.display_width, 6);
+      expect_int("render.zwj.display", render.advance_width, 6);
       expect_int("render.zwj.cursor", render.cursor_width, 6);
-      expect_int("render.zwj.paint", render.paint_width, 6);
+      expect_int("render.zwj.repaint", render.repaint_width, 6);
 
       utf8_terminal_profile_reset();
       expect_int("render.zwj.components.apply",
@@ -448,14 +451,15 @@ static void test_headless_render_preserves_clusters(void)
       expect_int("render.headless.cluster.inspect",
                  headless_driver_render_cell_at(win, 1, 2, &stored), 1);
       expect_size("render.headless.cluster.count", stored.codepoint_count, 3);
-      expect_int("render.headless.cluster.display", stored.display_width, 2);
+      expect_int("render.headless.cluster.width", stored.width, 2);
+      expect_int("render.headless.cluster.display", stored.advance_width, 2);
       expect_int("render.headless.cluster.cursor", stored.cursor_width, 2);
-      expect_int("render.headless.cluster.paint", stored.paint_width, 2);
+      expect_int("render.headless.cluster.repaint", stored.repaint_width, 2);
       expect_long("render.headless.cluster.log.count",
                   (long)headless_driver_log_count(), 1);
       expect_str("render.headless.cluster.log",
                  headless_driver_log_entry(0),
-                 "render-cluster:window:1:1:2:3:1:2:2:2");
+                 "render-cluster:window:1:1:2:3:1:2:2:2:2");
       utf8_terminal_profile_reset();
    }
 #endif

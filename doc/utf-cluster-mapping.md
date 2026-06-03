@@ -24,7 +24,7 @@ UTF-8 bytes
   -> logical editor positions
   -> physical cluster class
   -> terminal profile mapping
-  -> render output, display width, cursor width, paint width, repair strategy
+  -> render output, width, advance, cursor width, repaint width, repair strategy
 ```
 
 The policy must never change the file bytes, logical cluster boundaries, or
@@ -45,7 +45,7 @@ The physical driver/profile layer owns:
 
 - terminal class selection for a cluster.
 - output transform such as native, substitute, base, or components.
-- terminal display width, cursor width, paint width, and repair strategy.
+- terminal width, advance width, cursor width, repaint width, and repair strategy.
 - terminal-profile overrides such as Apple Terminal choosing compressed keycap
   output.
 - visual marker attributes for compressed or substituted clusters.
@@ -200,27 +200,32 @@ class
 display mode
 output transform
 substitute/base data
-layout width (visible screen advance)
+width (human/user-visible cluster width)
+advance width (terminal grid placement)
 cursor width
-paint width
+repaint width
 repair strategy
 visual mark
 ```
 
 The logical layer may ask for the class and mapping metadata, but must not use
-profile layout width as logical column width. The physical layout layer does use
-profile layout width as terminal screen-column advance.
+profile advance width as logical text movement. The physical layout layer uses
+profile advance width as terminal screen-column advance, while LLM/UI metadata
+can report profile width as the human/user-visible width.
 
 ## Mapping Syntax
 
 Stage one should extend the existing `SET UTF TERMINAL CLASS` syntax rather
 than introduce a second profile language.
 
-Current syntax remains valid:
+Current syntax:
 
 ```text
-SET UTF TERMINAL CLASS class [DISPLAY display] LAYOUT n CURSOR n [PAINT n]
-SET UTF TERMINAL CLASS class [DISPLAY display] PAINT n
+SET UTF TERMINAL CLASS class [DISPLAY display] WIDTH n ADVANCE n CURSOR n REPAINT n
+SET UTF TERMINAL CLASS class [DISPLAY display] WIDTH n
+SET UTF TERMINAL CLASS class [DISPLAY display] ADVANCE n
+SET UTF TERMINAL CLASS class [DISPLAY display] CURSOR n
+SET UTF TERMINAL CLASS class [DISPLAY display] REPAINT n
 SET UTF TERMINAL CLASS class [DISPLAY display] OUTPUT native
 SET UTF TERMINAL CLASS class [DISPLAY display] OUTPUT expanded
 SET UTF TERMINAL CLASS class [DISPLAY display] OUTPUT substitute U+25A1
@@ -281,7 +286,8 @@ implemented until class-level mapping has proved insufficient.
 `native` preserves the original codepoint sequence.
 
 `substitute` emits exactly the configured substitute codepoint. The output
-width defaults to one unless an explicit layout width overrides it.
+width, advance, cursor, and repaint defaults to one unless explicit profile
+widths override them.
 
 `base` is class-specific:
 
@@ -310,55 +316,56 @@ should not be used as the default compressed mode.
 Each rendered cluster has four width concepts:
 
 - logical width: editor logical cell width from the logical text model.
-- display width: physical terminal cells reserved for output. In terminal
-  profiles this is still named `LAYOUT` for compatibility.
+- width: human/user-visible width reported by the active UTF profile.
+- advance width: physical terminal grid cells used to place following output.
 - cursor width: physical terminal cells covered by hardware/software cursor
   handling.
-- paint width: physical cells that must be blanked/repainted to avoid stale
+- repaint width: physical cells that must be blanked/repainted to avoid stale
   fragments.
 
-`LAYOUT` is the visible screen advance used for terminal column math. It should
-match what a user sees as the cluster's occupied terminal cells after the chosen
-output transform. For example, a regional flag should normally advance two
-terminal columns when the terminal displays it as a two-cell flag.
+`WIDTH` is the user-visible value. It should match what a user sees as the
+cluster's occupied cells after the chosen output transform. For example, a
+regional flag should normally report width two.
 
-`PAINT` is a cleanup footprint. It may be larger than `LAYOUT` when a terminal
-needs extra cells blanked to remove stale fragments, but it must not change the
-next screen column. Older profile lines that only say `LAYOUT n CURSOR n` infer
-`PAINT` as `max(LAYOUT,CURSOR)`. `CURSOR` and `PAINT` are independent
-measurements because cursor presentation and stale-glyph cleanup can differ.
+`ADVANCE` is the terminal placement value. It may differ from `WIDTH` when a
+terminal reports or occupies more grid cells than the user-visible cluster
+width. Apple Terminal native emoji modifier clusters are the motivating case:
+the user-visible width may be two while the terminal advance needed for stable
+native rendering is four.
 
-For native output, display width is terminal-profile-specific and should be
-measured or calibrated per terminal when the terminal differs from the expected
-Unicode width.
+`REPAINT` is a cleanup footprint. It may be larger or smaller than `ADVANCE`
+or `CURSOR` because cursor presentation and stale-glyph cleanup can differ.
+It must not define where the next screen column starts; `ADVANCE` does that.
 
-For compressed output, display width should normally equal the safe replacement
-width. Apple Terminal keycaps rendered as `base` should be one display cell and
+For native output, advance/cursor/repaint are terminal-profile-specific and
+should be measured or calibrated per terminal when the terminal differs from
+the expected Unicode width.
+
+For compressed output, width and advance should normally equal the safe
+replacement width. Apple Terminal keycaps rendered as `base` should be one
+display cell and
 one cursor cell.
 
-For component output, display width should describe the visible component
+For component output, width should describe the visible component
 string, not the original grouped cluster. It may differ from logical width.
 
-Profile parsing should reject zero or negative display/cursor widths except for
-explicit future `auto` support. `auto` should not be added until render output
-has a reliable width calculator for transformed strings.
+Profile parsing should reject zero or negative widths except for explicit
+future `auto` support. `auto` should not be added until render output has a
+reliable width calculator for transformed strings.
 
 ## Current Probe Slice
 
-The near-term implementation keeps `LAYOUT` rather than renaming the profile
-field, but gives the model a third physical width:
+The near-term implementation uses a four-width profile:
 
-1. The calibration probe must present and persist visible/cursor/paint candidates:
-   `LAYOUT` for visible screen advance, `CURSOR` for cursor coverage, and
-   `PAINT` for cleanup footprint. The view screen labels these as
-   `visible/cursor/paint`, can choose a candidate row, or can type explicit
-   widths with `w` in that order.
-2. Render drivers must carry all three physical widths. The screen-column and
-   viewport code use `LAYOUT`; cursor rendering uses `CURSOR`; erase/repaint
-   repair uses `PAINT`.
-3. Generated system profiles should write the full
-   `LAYOUT n CURSOR n PAINT n` form. Existing two-width profile lines remain
-   valid and infer `PAINT=max(LAYOUT,CURSOR)`.
+1. The calibration probe must present and persist `width/advance/cursor/repaint`
+   candidates and accept explicit values with `w` in that order.
+2. Render drivers carry logical width plus profile width, advance, cursor, and
+   repaint. The screen-column and viewport code use `ADVANCE`; cursor rendering
+   uses `CURSOR`; erase/repaint repair uses `REPAINT`; LLM/UI metadata reports
+   `WIDTH`.
+3. Generated system profiles write the full
+   `WIDTH n ADVANCE n CURSOR n REPAINT n` form. The previous `LAYOUT`/`PAINT`
+   syntax is not accepted.
 4. Substitute output must still be calibratable: the probe offers common
    substitute codepoints, accepts a typed `U+hex` value, and then runs the same
    width/strategy calibration path as other output methods.
@@ -372,9 +379,10 @@ native/decomposed display to be selected deliberately through `SET UTF DISPLAY`.
 The curses driver consumes all terminal contract fields:
 
 - transformed output.
-- display width.
+- width.
+- advance width.
 - cursor width.
-- paint width.
+- repaint width.
 - visual marker.
 - repaint strategy.
 
@@ -393,9 +401,10 @@ text position.
 Semantic LLM snapshots expose UTF cluster metadata only as row annotations.
 Each annotation is keyed by logical cell and logical width, then names the
 cluster class, output method, marker, and compressed/substituted booleans. It
-does not expose terminal display width, cursor width, paint width, or repair
-strategy as position authority. Compact snapshots use the same data in a short
-`u` array; full snapshots use a `utf` array.
+may expose calibrated width, advance, cursor, and repaint metadata, but those
+values are annotations, not the authority for stored text position. Compact
+snapshots use the same data in a short `u` array; full snapshots use a `utf`
+array.
 
 ## Base Profile
 
@@ -419,7 +428,7 @@ implemented:
 ```text
 SET UTF TERMINAL CLASS keycap OUTPUT base
 SET UTF TERMINAL CLASS keycap MARK compressed
-SET UTF TERMINAL CLASS keycap LAYOUT 1 CURSOR 1 PAINT 1
+SET UTF TERMINAL CLASS keycap WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1
 SET UTF TERMINAL CLASS keycap CURSORSTRATEGY cells
 SET UTF TERMINAL CLASS keycap REPLACESTRATEGY cells
 ```
@@ -471,17 +480,17 @@ model.
 
 7. Update LLM metadata carefully.
    If useful, expose cluster class and compressed/substituted flags in semantic
-   snapshots. Do not expose terminal display width as the position authority.
-   Implemented metadata is row-local and logical-cell based: `cell`, logical
-   `width`, `class`, `output`, `mark`, `compressed`, and `substituted`.
+   snapshots. Do not expose terminal advance as the position authority.
+   Implemented metadata is row-local and logical-cell based, with calibrated
+   width/advance/cursor/repaint included only as annotations.
 
 8. Add tests.
    Cover classifier behavior, profile parsing, render transforms, logical
    invariance, headless render metadata, LLM semantic stability, and the curses
    boundary inventory. Keep real Apple Terminal visual verification in the
    terminal probe/manual-test lane. The LLM coverage checks both full and
-   compact semantic metadata and asserts that physical display widths are not
-   exported into the semantic position contract.
+   compact semantic metadata and asserts that physical advance widths are not
+   used as the semantic position contract.
 
 ## Test Plan
 

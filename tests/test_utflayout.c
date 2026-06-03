@@ -23,18 +23,20 @@ static void test_keycap_physical_layout(void)
    TextCluster cluster;
 
    utf8_terminal_profile_reset();
-   utf8_terminal_profile_apply_line("SET UTF TERMINAL CLASS keycap LAYOUT 2 CURSOR 2");
+   utf8_terminal_profile_apply_line("SET UTF TERMINAL CLASS keycap WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2");
 
    cluster = textpos_cluster_at_boundary(keycap, sizeof(keycap),
                                          textpos_from_cell(keycap, sizeof(keycap),
                                                            1, TEXT_SNAP_BACKWARD));
    expect_int("keycap.logical.width", utf8_layout_cluster_logical_width(cluster), 1);
+   expect_int("keycap.profile.width",
+              utf8_layout_cluster_width(keycap, sizeof(keycap), cluster), 2);
    expect_int("keycap.display.width",
-              utf8_layout_cluster_display_width(keycap, sizeof(keycap), cluster), 2);
+              utf8_layout_cluster_advance_width(keycap, sizeof(keycap), cluster), 2);
    expect_int("keycap.cursor.width",
               utf8_layout_cluster_cursor_width(keycap, sizeof(keycap), cluster), 2);
-   expect_int("keycap.paint.width",
-              utf8_layout_cluster_paint_width(keycap, sizeof(keycap), cluster), 2);
+   expect_int("keycap.repaint.width",
+              utf8_layout_cluster_repaint_width(keycap, sizeof(keycap), cluster), 2);
    expect_int("keycap.logical.to.display.A",
               utf8_layout_display_col_from_logical(keycap, sizeof(keycap), 0, 1), 1);
    expect_int("keycap.logical.to.display.B",
@@ -47,22 +49,22 @@ static void test_keycap_physical_layout(void)
                                                    TEXT_SNAP_FORWARD), 2);
 
    utf8_terminal_profile_apply_line(
-      "SET UTF TERMINAL CLASS keycap LAYOUT 2 CURSOR 2 PAINT 4");
-   expect_int("keycap.paint.override.display",
-              utf8_layout_cluster_display_width(keycap, sizeof(keycap), cluster), 2);
-   expect_int("keycap.paint.override.cursor",
+      "SET UTF TERMINAL CLASS keycap WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 4");
+   expect_int("keycap.repaint.override.display",
+              utf8_layout_cluster_advance_width(keycap, sizeof(keycap), cluster), 2);
+   expect_int("keycap.repaint.override.cursor",
               utf8_layout_cluster_cursor_width(keycap, sizeof(keycap), cluster), 2);
-   expect_int("keycap.paint.override.paint",
-              utf8_layout_cluster_paint_width(keycap, sizeof(keycap), cluster), 4);
-   expect_int("keycap.paint.override.logical.to.display.B",
+   expect_int("keycap.repaint.override.repaint",
+              utf8_layout_cluster_repaint_width(keycap, sizeof(keycap), cluster), 4);
+   expect_int("keycap.repaint.override.logical.to.display.B",
               utf8_layout_display_col_from_logical(keycap, sizeof(keycap), 0, 2), 3);
 
    utf8_terminal_profile_apply_line(
-      "SET UTF TERMINAL CLASS keycap LAYOUT 2 CURSOR 4 PAINT 2");
+      "SET UTF TERMINAL CLASS keycap WIDTH 2 ADVANCE 2 CURSOR 4 REPAINT 2");
    expect_int("keycap.cursor.override.cursor",
               utf8_layout_cluster_cursor_width(keycap, sizeof(keycap), cluster), 4);
-   expect_int("keycap.cursor.override.paint",
-              utf8_layout_cluster_paint_width(keycap, sizeof(keycap), cluster), 2);
+   expect_int("keycap.cursor.override.repaint",
+              utf8_layout_cluster_repaint_width(keycap, sizeof(keycap), cluster), 2);
    expect_int("keycap.cursor.override.logical.to.display.B",
               utf8_layout_display_col_from_logical(keycap, sizeof(keycap), 0, 2), 3);
 }
@@ -80,7 +82,7 @@ static void test_keycap_viewport_uses_physical_width(void)
    int logical_visible_cols = 15;
 
    utf8_terminal_profile_reset();
-   utf8_terminal_profile_apply_line("SET UTF TERMINAL CLASS keycap LAYOUT 2 CURSOR 2");
+   utf8_terminal_profile_apply_line("SET UTF TERMINAL CLASS keycap WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2");
 
    end = textpos_from_byte(keycaps, sizeof(keycaps), sizeof(keycaps));
    expect_int("keycaps.line.logical.width", end.cell_column, 9);
@@ -116,7 +118,7 @@ static void test_keycap_trailing_cells_stay_logical(void)
    TextPos end;
 
    utf8_terminal_profile_reset();
-   utf8_terminal_profile_apply_line("SET UTF TERMINAL CLASS keycap LAYOUT 2 CURSOR 2");
+   utf8_terminal_profile_apply_line("SET UTF TERMINAL CLASS keycap WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2");
 
    end = textpos_from_byte(keycap_tail, sizeof(keycap_tail), sizeof(keycap_tail));
    expect_int("keycap.tail.logical.width", end.cell_column, 8);
@@ -147,7 +149,7 @@ static void test_terminal_profile_does_not_change_logical_positions(void)
    TextPos end;
 
    utf8_terminal_profile_reset();
-   utf8_terminal_profile_apply_line("SET UTF TERMINAL CLASS keycap LAYOUT 2 CURSOR 2");
+   utf8_terminal_profile_apply_line("SET UTF TERMINAL CLASS keycap WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2");
    end = textpos_from_byte(keycap, sizeof(keycap), sizeof(keycap));
    expect_int("profile.width2.logical.end", end.cell_column, 3);
    expect_int("profile.width2.physical.end",
@@ -155,7 +157,7 @@ static void test_terminal_profile_does_not_change_logical_positions(void)
                                                    0, end.cell_column),
               4);
 
-   utf8_terminal_profile_apply_line("SET UTF TERMINAL CLASS keycap LAYOUT 1 CURSOR 1");
+   utf8_terminal_profile_apply_line("SET UTF TERMINAL CLASS keycap WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1");
    end = textpos_from_byte(keycap, sizeof(keycap), sizeof(keycap));
    expect_int("profile.width1.logical.end", end.cell_column, 3);
    expect_int("profile.width1.physical.end",
@@ -191,7 +193,7 @@ static void test_zwj_display_mapping_snaps_to_cluster_start(void)
    expect_int("short-zwj.logical.start", cluster.pos.cell_column, 1);
    expect_int("short-zwj.logical.end", cluster.end.cell_column, 5);
    expect_int("short-zwj.grouped.display.width",
-              utf8_layout_cluster_display_width(short_zwj, sizeof(short_zwj),
+              utf8_layout_cluster_advance_width(short_zwj, sizeof(short_zwj),
                                                 cluster),
               2);
    expect_int("short-zwj.grouped.display.inside",
@@ -202,7 +204,7 @@ static void test_zwj_display_mapping_snaps_to_cluster_start(void)
 
    utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_COMPONENTS);
    expect_int("short-zwj.components.display.width",
-              utf8_layout_cluster_display_width(short_zwj, sizeof(short_zwj),
+              utf8_layout_cluster_advance_width(short_zwj, sizeof(short_zwj),
                                                 cluster),
               4);
    raw_cell = utf8_layout_logical_col_from_display(short_zwj,

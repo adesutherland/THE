@@ -4,8 +4,11 @@
 ## Syntax
 ```text
 [SET] UTF DISPLAY GROUPED|COMPONENTS|TOGGLE
-[SET] UTF TERMINAL CLASS class [DISPLAY display] LAYOUT layout-width CURSOR cursor-width [PAINT paint-width]
-[SET] UTF TERMINAL CLASS class [DISPLAY display] PAINT paint-width
+[SET] UTF TERMINAL CLASS class [DISPLAY display] WIDTH width ADVANCE advance CURSOR cursor REPAINT repaint
+[SET] UTF TERMINAL CLASS class [DISPLAY display] WIDTH width
+[SET] UTF TERMINAL CLASS class [DISPLAY display] ADVANCE advance
+[SET] UTF TERMINAL CLASS class [DISPLAY display] CURSOR cursor
+[SET] UTF TERMINAL CLASS class [DISPLAY display] REPAINT repaint
 [SET] UTF TERMINAL CLASS class [DISPLAY display] OUTPUT method [U+codepoint]
 [SET] UTF TERMINAL CLASS class [DISPLAY display] MARK mark
 [SET] UTF TERMINAL CLASS class [DISPLAY display] CURSORSTRATEGY strategy
@@ -68,15 +71,15 @@ The current default table provides grouped/components entries for ZWJ classes.
 Legacy profile lines using ZWJDISPLAY are accepted for compatibility, but new
 profiles should use DISPLAY with OUTPUT.
 
-LAYOUT specifies the visible terminal screen advance for the class. This is the
-width used for terminal column and viewport mapping. CURSOR specifies the
-number of terminal cells the software cursor or cursor background must cover
-for that class. PAINT specifies the cleanup footprint to blank or repaint when
-stale glyph fragments may remain. PAINT may be larger than LAYOUT, but it does
-not move the next screen column. CURSOR and PAINT are recorded independently
-because cursor presentation and stale-glyph cleanup can differ. Existing profile
-lines without PAINT remain valid and infer PAINT as the larger of LAYOUT and
-CURSOR.
+WIDTH specifies the human/user-visible width reported for the cluster. ADVANCE
+specifies the terminal grid advance used to place the next rendered cluster.
+CURSOR specifies the number of terminal cells the software cursor or cursor
+background must cover. REPAINT specifies the cleanup footprint to blank or
+repaint when stale glyph fragments may remain. These four values are recorded
+independently because user-visible width, terminal advance, cursor presentation,
+and repaint cleanup can differ on real terminals. For example, Apple Terminal
+may need `WIDTH 2 ADVANCE 4 CURSOR 4 REPAINT 4` for a native emoji modifier
+cluster.
 
 OUTPUT specifies how the class is written to the terminal. Supported methods are:
 
@@ -123,7 +126,7 @@ logical cursor position, or command semantics. For example:
 ```text
 SET UTF TERMINAL CLASS keycap OUTPUT base
 SET UTF TERMINAL CLASS keycap MARK compressed
-SET UTF TERMINAL CLASS keycap LAYOUT 1 CURSOR 1 PAINT 1
+SET UTF TERMINAL CLASS keycap WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1
 ```
 
 CURSORSTRATEGY specifies the repaint strategy used when the cursor moves across the class.
@@ -160,8 +163,9 @@ here. REXX-style profile fragments are accepted, so `/* ... */` comments,
 and lines beginning with `*` or `#` are ignored.
 
 The UTF terminal probe writes calibrated width settings in the full
-`LAYOUT n CURSOR n PAINT n` form. Older hand-written or generated profiles that
-only contain `LAYOUT n CURSOR n` continue to load.
+`WIDTH n ADVANCE n CURSOR n REPAINT n` form. The older `LAYOUT` and `PAINT`
+syntax is intentionally not accepted, to avoid mixing the previous three-width
+model with the current four-width model.
 
 ## Compatibility
 XEDIT: N/A

@@ -1918,7 +1918,7 @@ static void curses_driver_ops_write_render_cluster_at(
       return;
    curses_driver_write_render_wchars_at(curses_driver_window_from_driver(win),
                                         row, col, wch, cluster->attr,
-                                        cluster->display_width);
+                                        cluster->advance_width);
 #else
    INTENTIONALLY_UNUSED_VARIABLE(win);
    INTENTIONALLY_UNUSED_VARIABLE(row);

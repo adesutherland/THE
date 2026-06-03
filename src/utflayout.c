@@ -17,15 +17,26 @@ int utf8_layout_cluster_logical_width(TextCluster cluster)
    return (cluster.cell_width > 0) ? cluster.cell_width : 1;
 }
 
-int utf8_layout_cluster_display_width(const CHARTYPE *line, size_t len,
+int utf8_layout_cluster_width(const CHARTYPE *line, size_t len,
+                              TextCluster cluster)
+{
+   const Utf8TerminalProfileEntry *entry;
+
+   entry = utf8_layout_cluster_profile(line, len, cluster);
+   if (entry != NULL && entry->width > 0)
+      return entry->width;
+   return utf8_layout_cluster_logical_width(cluster);
+}
+
+int utf8_layout_cluster_advance_width(const CHARTYPE *line, size_t len,
                                       TextCluster cluster)
 {
    const Utf8TerminalProfileEntry *entry;
 
    entry = utf8_layout_cluster_profile(line, len, cluster);
-   if (entry != NULL && entry->layout_width > 0)
-      return entry->layout_width;
-   return utf8_layout_cluster_logical_width(cluster);
+   if (entry != NULL && entry->advance_width > 0)
+      return entry->advance_width;
+   return utf8_layout_cluster_width(line, len, cluster);
 }
 
 int utf8_layout_cluster_cursor_width(const CHARTYPE *line, size_t len,
@@ -36,21 +47,21 @@ int utf8_layout_cluster_cursor_width(const CHARTYPE *line, size_t len,
    entry = utf8_layout_cluster_profile(line, len, cluster);
    if (entry != NULL && entry->cursor_width > 0)
       return entry->cursor_width;
-   return utf8_layout_cluster_display_width(line, len, cluster);
+   return utf8_layout_cluster_advance_width(line, len, cluster);
 }
 
-int utf8_layout_cluster_paint_width(const CHARTYPE *line, size_t len,
+int utf8_layout_cluster_repaint_width(const CHARTYPE *line, size_t len,
                                     TextCluster cluster)
 {
    const Utf8TerminalProfileEntry *entry;
-   int paint_width = utf8_layout_cluster_display_width(line, len, cluster);
+   int repaint_width = utf8_layout_cluster_advance_width(line, len, cluster);
 
    entry = utf8_layout_cluster_profile(line, len, cluster);
-   if (entry != NULL && entry->paint_width > 0)
-      paint_width = entry->paint_width;
-   if (paint_width <= 0)
-      paint_width = utf8_layout_cluster_logical_width(cluster);
-   return paint_width;
+   if (entry != NULL && entry->repaint_width > 0)
+      repaint_width = entry->repaint_width;
+   if (repaint_width <= 0)
+      repaint_width = utf8_layout_cluster_logical_width(cluster);
+   return repaint_width;
 }
 
 int utf8_layout_display_col_from_logical(const CHARTYPE *line, size_t len,
@@ -93,7 +104,7 @@ int utf8_layout_display_col_from_logical(const CHARTYPE *line, size_t len,
       }
       else if (logical_end <= logical_col)
       {
-         display_col += utf8_layout_cluster_display_width(line, len, cluster);
+         display_col += utf8_layout_cluster_advance_width(line, len, cluster);
          last_logical_col = logical_end;
       }
       else
@@ -133,7 +144,7 @@ int utf8_layout_logical_col_from_display(const CHARTYPE *line, size_t len,
       int logical_start;
       int logical_end;
       int logical_width;
-      int display_width;
+      int advance_width;
 
       if (cluster.byte_length == 0)
          break;
@@ -141,9 +152,9 @@ int utf8_layout_logical_col_from_display(const CHARTYPE *line, size_t len,
       logical_start = cluster.pos.cell_column;
       logical_end = cluster.end.cell_column;
       logical_width = (cluster.cell_width > 0) ? cluster.cell_width : 1;
-      display_width = utf8_layout_cluster_display_width(line, len, cluster);
-      if (display_width <= 0)
-         display_width = logical_width;
+      advance_width = utf8_layout_cluster_advance_width(line, len, cluster);
+      if (advance_width <= 0)
+         advance_width = logical_width;
 
       if (logical_end <= viewport_col)
       {
@@ -166,18 +177,18 @@ int utf8_layout_logical_col_from_display(const CHARTYPE *line, size_t len,
          continue;
       }
 
-      if (display_col < screen_col + display_width)
+      if (display_col < screen_col + advance_width)
       {
          int offset = display_col - screen_col;
 
          if (snap == TEXT_SNAP_FORWARD)
             return logical_end;
-         if (snap == TEXT_SNAP_NEAREST && offset * 2 >= display_width)
+         if (snap == TEXT_SNAP_NEAREST && offset * 2 >= advance_width)
             return logical_end;
          return logical_start;
       }
 
-      screen_col += display_width;
+      screen_col += advance_width;
       last_logical_col = logical_end;
       pos = cluster.end;
    }

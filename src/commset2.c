@@ -4397,13 +4397,14 @@ SYNTAX
 
 DESCRIPTION
      The SET UTF command configures the physical terminal profile used
-     by UTF-8 rendering.  These settings describe terminal layout, cursor,
+     by UTF-8 rendering.  These settings describe terminal width, advance, cursor,
      output, and repaint behaviour only; editor text movement and commands
      continue to use the logical UTF-8 text model.  DISPLAY selects the
      preferred grouped or component profile where one is configured.  CLASS
-     settings include LAYOUT/CURSOR/PAINT, OUTPUT, MARK, CURSORSTRATEGY,
-     and REPLACESTRATEGY.  LAYOUT is visible screen advance; PAINT is the
-     cleanup footprint.  OUTPUT base/components and MARK are general physical
+     settings include WIDTH/ADVANCE/CURSOR/REPAINT, OUTPUT, MARK,
+     CURSORSTRATEGY, and REPLACESTRATEGY.  WIDTH is user-visible cluster width;
+     ADVANCE is terminal placement; REPAINT is the cleanup footprint.
+     OUTPUT base/components and MARK are general physical
      profile capabilities; terminal-specific profiles such as Apple Terminal
      keycap mitigation may choose to use them.
 

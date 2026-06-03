@@ -401,7 +401,7 @@ static void headless_add_render_cell_internal(TheDriverWindow *win,
    if (win == NULL || cell == NULL)
       return;
    headless_set_render_cell_at(win, win->cursor_row, win->cursor_col, cell);
-   advance = cell->display_width > 0 ? cell->display_width : 1;
+   advance = cell->advance_width > 0 ? cell->advance_width : 1;
    if (win->cols > 0)
    {
       win->cursor_col += advance;
@@ -907,7 +907,7 @@ static void headless_driver_write_render_cluster_at(
    if (win == NULL || cluster == NULL)
       return;
    headless_set_render_cell_at(win, row, col, cluster);
-   next_col = col + (cluster->display_width > 0 ? cluster->display_width : 1);
+   next_col = col + (cluster->advance_width > 0 ? cluster->advance_width : 1);
    if (win->cols > 0 && next_col >= win->cols)
       next_col = win->cols - 1;
    if (row >= 0 && row < win->rows && next_col >= 0)
@@ -916,10 +916,11 @@ static void headless_driver_write_render_cluster_at(
       win->cursor_col = next_col;
       headless_clamp_cursor(win);
    }
-   headless_log("render-cluster:window:%d:%d:%d:%zu:%d:%d:%d:%d",
+   headless_log("render-cluster:window:%d:%d:%d:%zu:%d:%d:%d:%d:%d",
                 win->id, row, col, cluster->codepoint_count,
-                cluster->logical_width, cluster->display_width,
-                cluster->cursor_width, cluster->paint_width);
+                cluster->logical_width, cluster->width,
+                cluster->advance_width, cluster->cursor_width,
+                cluster->repaint_width);
 }
 
 static void headless_driver_fill_cells_at(TheDriverWindow *win, int row,

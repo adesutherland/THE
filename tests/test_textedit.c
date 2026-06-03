@@ -118,7 +118,7 @@ static void test_physical_profile_does_not_change_logical_replace(void)
 
    utf8_terminal_profile_reset();
    utf8_terminal_profile_apply_line(
-      "SET UTF TERMINAL CLASS keycap LAYOUT 9 CURSOR 9");
+      "SET UTF TERMINAL CLASS keycap WIDTH 2 ADVANCE 9 CURSOR 9 REPAINT 9");
    copy_bytes(line, keycap, sizeof(keycap));
    len = textedit_replace_utf8(line, sizeof(keycap), sizeof(line) - 1,
                                1, (const CHARTYPE *)"X", 1);
@@ -141,7 +141,7 @@ static void test_physical_profile_does_not_change_logical_insert(void)
 
    utf8_terminal_profile_reset();
    utf8_terminal_profile_apply_line(
-      "SET UTF TERMINAL CLASS keycap LAYOUT 9 CURSOR 9");
+      "SET UTF TERMINAL CLASS keycap WIDTH 2 ADVANCE 9 CURSOR 9 REPAINT 9");
    copy_bytes(line, keycap, sizeof(keycap));
    len = textedit_insert_utf8(line, sizeof(keycap), sizeof(line) - 1,
                               1, (const CHARTYPE *)"X", 1);

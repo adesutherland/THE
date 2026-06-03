@@ -67,13 +67,15 @@ typedef struct
    uint32_t substitute_codepoint;
    Utf8TerminalMark mark;
    /*
-    * LAYOUT is the visible screen advance used for terminal column math.
-    * PAINT is the cleanup footprint used when blanking/repainting stale
-    * terminal cells. Old profiles without PAINT infer it from LAYOUT/CURSOR.
+    * width is the user-visible cluster width reported to logical/UI consumers.
+    * advance_width is the terminal grid advance used to place following output.
+    * repaint_width is the cleanup footprint used when blanking/repainting
+    * stale terminal cells.
     */
-   int layout_width;
+   int width;
+   int advance_width;
    int cursor_width;
-   int paint_width;
+   int repaint_width;
    Utf8TerminalStrategy cursor_strategy;
    Utf8TerminalStrategy replacement_strategy;
 } Utf8TerminalProfileEntry;

@@ -252,7 +252,7 @@ static void test_utf_physical_metadata(void)
    expect_contains("utf.meta.full.compressed", out, "\"compressed\": 1");
    expect_contains("utf.meta.full.substituted0", out, "\"substituted\": 0");
    expect_int("utf.meta.no.display.width",
-              strstr(out, "display_width") == NULL, 1);
+              strstr(out, "advance_width") == NULL, 1);
 
    llm_driver_format_options_init(&options);
    options.compact = 1;
@@ -260,7 +260,7 @@ static void test_utf_physical_metadata(void)
    llm_driver_format_semantic_view_with_options(&view, &options,
                                                 out, sizeof(out));
    expect_contains("utf.meta.compact",
-                   out, "\"u\":[[11,1,\"keycap\",\"base\",\"compressed\",1,0]]");
+                   out, "\"u\":[[11,1,2,2,2,2,\"keycap\",\"base\",\"compressed\",1,0]]");
 
    utf8_terminal_profile_reset();
    expect_int("utf.meta.substitute.apply",

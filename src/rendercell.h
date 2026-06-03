@@ -44,12 +44,14 @@ typedef struct
    Utf8TerminalMark mark;
    /* Logical editor width from TextCluster/TextPos semantics. */
    int logical_width;
-   /* Physical terminal cells reserved for the rendered output. */
-   int display_width;
+   /* User-visible cluster width reported by the active UTF profile. */
+   int width;
+   /* Physical terminal cells advanced after writing the rendered output. */
+   int advance_width;
    /* Physical terminal cells covered by cursor presentation. */
    int cursor_width;
    /* Physical terminal cells that may need clearing/repainting. */
-   int paint_width;
+   int repaint_width;
    Utf8TerminalStrategy repair_strategy;
    unsigned int flags;
 } TheRenderCluster;
@@ -60,8 +62,9 @@ void the_render_cluster_init(TheRenderCluster *cluster, TheRenderAttr attr);
 void the_render_cluster_set_attr(TheRenderCluster *cluster,
                                  TheRenderAttr attr);
 void the_render_cluster_set_widths(TheRenderCluster *cluster,
-                                   int logical_width, int display_width,
-                                   int cursor_width, int paint_width);
+                                   int logical_width, int width,
+                                   int advance_width, int cursor_width,
+                                   int repaint_width);
 void the_render_cluster_set_repair_strategy(TheRenderCluster *cluster,
                                             Utf8TerminalStrategy strategy);
 int the_render_cluster_add_codepoint(TheRenderCluster *cluster,

@@ -5,6 +5,7 @@
 #include <string.h>
 
 #ifdef USE_UTF8
+# include "utflayout.h"
 # include "utfterm.h"
 #endif
 
@@ -267,9 +268,10 @@ static int append_utf_metadata(char *out, size_t out_len, size_t *used,
          continue;
       if (compact)
       {
-         if (!appendf(out, out_len, used, "%s[%d,%d,",
+         if (!appendf(out, out_len, used, "%s[%d,%d,%d,%d,%d,%d,",
                       emitted > 0 ? "," : "", info->cell,
-                      info->logical_width))
+                      info->logical_width, info->width, info->advance_width,
+                      info->cursor_width, info->repaint_width))
             return 0;
          if (!append_json_string(out, out_len, used, info->feature_class))
             return 0;
@@ -288,9 +290,10 @@ static int append_utf_metadata(char *out, size_t out_len, size_t *used,
       else
       {
          if (!appendf(out, out_len, used,
-                      "%s{\"cell\": %d, \"width\": %d, \"class\": ",
+                      "%s{\"cell\": %d, \"logical_width\": %d, \"width\": %d, \"advance\": %d, \"cursor\": %d, \"repaint\": %d, \"class\": ",
                       emitted > 0 ? ", " : "", info->cell,
-                      info->logical_width))
+                      info->logical_width, info->width, info->advance_width,
+                      info->cursor_width, info->repaint_width))
             return 0;
          if (!append_json_string(out, out_len, used, info->feature_class))
             return 0;
@@ -460,6 +463,10 @@ static void llm_driver_collect_utf_metadata(LlmDriverScreenLine *line)
          info = &line->utf_clusters[line->utf_cluster_count++];
          info->cell = line->logical_start_col + cluster.pos.cell_column;
          info->logical_width = cluster.cell_width > 0 ? cluster.cell_width : 1;
+         info->width = utf8_layout_cluster_width(text, len, cluster);
+         info->advance_width = utf8_layout_cluster_advance_width(text, len, cluster);
+         info->cursor_width = utf8_layout_cluster_cursor_width(text, len, cluster);
+         info->repaint_width = utf8_layout_cluster_repaint_width(text, len, cluster);
          copy_text(info->feature_class, sizeof(info->feature_class),
                    utf8_terminal_class_name(feature_class));
          copy_text(info->output, sizeof(info->output),

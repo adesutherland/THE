@@ -101,7 +101,7 @@ not add a neutral wrapper API parallel to the vtable.
 
 `src/rendercell.c` owns the portable UTF renderer model. Render clusters carry
 codepoint sequences, source UTF-8 slices, style, logical width, display width,
-cursor width, paint width, repair strategy hints, flags for substituted or
+cursor width, repaint width, repair strategy hints, flags for substituted or
 expanded output, and fallback representation for non-UTF surfaces. Curses
 lowers this model to `cchar_t`, `wadd_wch`, `wadd_wchnstr`, or wide-string
 writes inside `src/drivers/curses/cursesdriver.c`; headless/LLM drivers keep the semantic

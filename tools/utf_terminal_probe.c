@@ -42,11 +42,6 @@
 #define UTF_TERMINAL_PROBE_VERSION "v1"
 #define PROBE_PROFILE_PATH_MAX 4096
 
-static int max_int(int left, int right)
-{
-   return left > right ? left : right;
-}
-
 #define U8_COMBINING_E_ACUTE "e\xCC\x81"
 #define U8_COMBINING_STACK "a\xCC\x81\xCC\xA7"
 #define U8_CJK_HAN "\xE6\xBC\xA2"
@@ -122,12 +117,12 @@ typedef struct
    int testcursor;
    const char *testcursor_selector;
    const char *testcursor_mode;
-   int testcursor_layout_width;
+   int testcursor_advance_width;
    int testcursor_cursor_width;
    int testchain;
    const char *testchain_selector;
    const char *testchain_mode;
-   int testchain_layout_width;
+   int testchain_advance_width;
    int testchain_cursor_width;
    int calibrate;
    const char *calibrate_selector;
@@ -144,9 +139,10 @@ typedef struct
    const char *output_method;
    const struct CalibrationDefault *defaults;
    uint32_t substitute_codepoint;
-   int layout_width;
+   int width;
+   int advance_width;
    int cursor_width;
-   int paint_width;
+   int repaint_width;
    const char *cursor_strategy;
    const char *replacement_strategy;
 } CalibrationEntry;
@@ -154,9 +150,10 @@ typedef struct
 typedef struct
 {
    const char *name;
-   int layout_width;
+   int width;
+   int advance_width;
    int cursor_width;
-   int paint_width;
+   int repaint_width;
 } ViewCandidate;
 
 typedef struct
@@ -178,15 +175,16 @@ typedef struct CalibrationDefault
    const char *display_mode;
    const char *output_method;
    uint32_t substitute_codepoint;
-   int layout_width;
+   int width;
+   int advance_width;
    int cursor_width;
-   int paint_width;
+   int repaint_width;
    const char *cursor_strategy;
    const char *replacement_strategy;
 } CalibrationDefault;
 
-#define PROBE_CALIBRATION_DEFAULT(feature_class, feature_class_name, display_mode, display_mode_name, output_method, output_method_name, substitute_codepoint, layout_width, cursor_width, paint_width, cursor_strategy, cursor_strategy_name, replacement_strategy, replacement_strategy_name) \
-   { feature_class_name, display_mode_name, output_method_name, substitute_codepoint, layout_width, cursor_width, paint_width, cursor_strategy_name, replacement_strategy_name },
+#define PROBE_CALIBRATION_DEFAULT(feature_class, feature_class_name, display_mode, display_mode_name, output_method, output_method_name, substitute_codepoint, width, advance_width, cursor_width, repaint_width, cursor_strategy, cursor_strategy_name, replacement_strategy, replacement_strategy_name) \
+   { feature_class_name, display_mode_name, output_method_name, substitute_codepoint, width, advance_width, cursor_width, repaint_width, cursor_strategy_name, replacement_strategy_name },
 
 static const CalibrationDefault calibration_defaults[] =
 {
@@ -458,30 +456,30 @@ static int read_prompt_line(int row, const char *prompt,
 }
 
 static int parse_view_widths(const char *field,
-                             int *layout_width,
+                             int *width,
+                             int *advance_width,
                              int *cursor_width,
-                             int *paint_width)
+                             int *repaint_width)
 {
-   int layout;
+   int user_width;
+   int advance;
    int cursor;
-   int paint;
+   int repaint;
 
-   if (field == NULL || layout_width == NULL
-   ||  cursor_width == NULL || paint_width == NULL)
+   if (field == NULL || width == NULL || advance_width == NULL
+   ||  cursor_width == NULL || repaint_width == NULL)
       return 0;
-   if (sscanf(field, " %d / %d / %d", &layout, &cursor, &paint) != 3
-   &&  sscanf(field, " %d %d %d", &layout, &cursor, &paint) != 3)
-   {
-      if (sscanf(field, " %d / %d", &layout, &cursor) != 2
-      &&  sscanf(field, " %d %d", &layout, &cursor) != 2)
-         return 0;
-      paint = max_int(layout, cursor);
-   }
-   if (layout < 1 || cursor < 1 || paint < 1)
+   if (sscanf(field, " %d / %d / %d / %d",
+              &user_width, &advance, &cursor, &repaint) != 4
+   &&  sscanf(field, " %d %d %d %d",
+              &user_width, &advance, &cursor, &repaint) != 4)
       return 0;
-   *layout_width = layout;
+   if (user_width < 1 || advance < 1 || cursor < 1 || repaint < 1)
+      return 0;
+   *width = user_width;
+   *advance_width = advance;
    *cursor_width = cursor;
-   *paint_width = paint;
+   *repaint_width = repaint;
    return 1;
 }
 
@@ -1125,7 +1123,7 @@ static void run_matrix_probe(ProbeConfig *cfg)
 }
 
 static void write_motion_cluster(ProbeMethod method, int row, int col,
-                                 const char *utf8, int display_width,
+                                 const char *utf8, int advance_width,
                                  attr_t attr)
 {
    int i;
@@ -1133,22 +1131,22 @@ static void write_motion_cluster(ProbeMethod method, int row, int col,
    if (method != METHOD_RAW_UTF8)
    {
       move(row, col);
-      for (i = 0; i < display_width; i++)
+      for (i = 0; i < advance_width; i++)
          addch(' ' | attr);
       move(row, col);
    }
    else
    {
       terminal_move(row, col);
-      for (i = 0; i < display_width; i++)
+      for (i = 0; i < advance_width; i++)
          terminal_write(" ");
       terminal_move(row, col);
    }
    write_utf8_with_method(method, utf8, attr);
    if (method == METHOD_RAW_UTF8)
-      terminal_move(row, col + display_width);
+      terminal_move(row, col + advance_width);
    else
-      move(row, col + display_width);
+      move(row, col + advance_width);
 }
 
 static void draw_motion_base(ProbeMethod method, int row, int col)
@@ -1309,11 +1307,11 @@ static void raw_absolute_motion_step(ProbeConfig *cfg, const char *scenario,
 }
 
 static void write_raw_cluster_at(int row, int col, const char *utf8,
-                                 int display_width, attr_t attr)
+                                 int advance_width, attr_t attr)
 {
    terminal_move(row, col);
    terminal_write_attr(utf8, attr);
-   terminal_move(row, col + display_width);
+   terminal_move(row, col + advance_width);
 }
 
 static void raw_span_repaint_step(ProbeConfig *cfg, const char *scenario,
@@ -1371,7 +1369,7 @@ static void raw_span_repaint_step(ProbeConfig *cfg, const char *scenario,
 
 static void raw_diagnostic_status(ProbeConfig *cfg, const char *scenario,
                            const char *repaint, const char *style,
-                           int paint_width, int cursor_width, int old_index,
+                           int repaint_width, int cursor_width, int old_index,
                            int new_index, const char *target)
 {
    char line[256];
@@ -1379,8 +1377,8 @@ static void raw_diagnostic_status(ProbeConfig *cfg, const char *scenario,
    if (cfg->no_visual)
       return;
    snprintf(line, sizeof(line),
-            "scenario=%s repaint=%s style=%s paint_width=%d cursor_width=%d old=%d new=%d target=%s",
-            scenario, repaint, style, paint_width, cursor_width, old_index,
+            "scenario=%s repaint=%s style=%s repaint_width=%d cursor_width=%d old=%d new=%d target=%s",
+            scenario, repaint, style, repaint_width, cursor_width, old_index,
             new_index, target);
    terminal_move(2, 0);
    terminal_write("\033[2K");
@@ -1405,7 +1403,7 @@ static void raw_fill_cells_attr(int row, int col, int width, attr_t attr)
       terminal_write_attr(" ", attr);
 }
 
-static void raw_keycap_layout_offsets(int keycap_width, int offsets[5], int widths[5])
+static void raw_keycap_advance_offsets(int keycap_width, int offsets[5], int widths[5])
 {
    offsets[0] = 0;
    offsets[1] = 1;
@@ -1419,7 +1417,7 @@ static void raw_keycap_layout_offsets(int keycap_width, int offsets[5], int widt
    widths[4] = 1;
 }
 
-static void raw_write_keycap_layout(int row, int col, int keycap_width,
+static void raw_write_keycap_advance(int row, int col, int keycap_width,
                                     int highlight_index, int reverse_style)
 {
    static const char *clusters[] = { "A", U8_KEYCAP_1, "B", " ", "A" };
@@ -1427,14 +1425,14 @@ static void raw_write_keycap_layout(int row, int col, int keycap_width,
    int widths[5];
    int i;
 
-   raw_keycap_layout_offsets(keycap_width, offsets, widths);
+   raw_keycap_advance_offsets(keycap_width, offsets, widths);
    for (i = 0; i < 5; i++)
       write_raw_cluster_at(row, col + offsets[i], clusters[i], widths[i],
                            reverse_style && i == highlight_index ? A_REVERSE : A_NORMAL);
 }
 
 static void raw_terminal_diagnostic_step(ProbeConfig *cfg, const char *scenario,
-                                  int row, int col, int paint_width,
+                                  int row, int col, int repaint_width,
                                   int cursor_width, int span_repaint,
                                   int reverse_style, int old_index,
                                   int new_index)
@@ -1443,8 +1441,8 @@ static void raw_terminal_diagnostic_step(ProbeConfig *cfg, const char *scenario,
    static const char *names[] = { "A", "keycap", "B", "space", "next-A" };
    const char *repaint = span_repaint ? "span" : "cell";
    const char *style = reverse_style ? "reverse" : "marker";
-   int paint_offsets[5];
-   int paint_widths[5];
+   int repaint_offsets[5];
+   int repaint_widths[5];
    int cursor_offsets[5];
    int cursor_widths[5];
    int row_cells;
@@ -1454,34 +1452,34 @@ static void raw_terminal_diagnostic_step(ProbeConfig *cfg, const char *scenario,
    int expected_dsr_row;
    int expected_dsr_col;
 
-   raw_keycap_layout_offsets(paint_width, paint_offsets, paint_widths);
-   raw_keycap_layout_offsets(cursor_width, cursor_offsets, cursor_widths);
-   row_cells = paint_offsets[4] + paint_widths[4];
+   raw_keycap_advance_offsets(repaint_width, repaint_offsets, repaint_widths);
+   raw_keycap_advance_offsets(cursor_width, cursor_offsets, cursor_widths);
+   row_cells = repaint_offsets[4] + repaint_widths[4];
    cx = col + cursor_offsets[new_index];
    expected_dsr_row = row + 1;
    expected_dsr_col = cx + 1;
 
-   raw_diagnostic_status(cfg, scenario, repaint, style, paint_width, cursor_width,
+   raw_diagnostic_status(cfg, scenario, repaint, style, repaint_width, cursor_width,
                   old_index, new_index, names[new_index]);
    if (span_repaint)
    {
       raw_clear_cells(row, col - 1, row_cells + 2);
-      raw_write_keycap_layout(row, col, paint_width, new_index, reverse_style);
+      raw_write_keycap_advance(row, col, repaint_width, new_index, reverse_style);
    }
    else
    {
       if (old_index >= 0)
       {
-         raw_clear_cells(row, col + paint_offsets[old_index],
-                         paint_widths[old_index]);
-         write_raw_cluster_at(row, col + paint_offsets[old_index],
-                              clusters[old_index], paint_widths[old_index],
+         raw_clear_cells(row, col + repaint_offsets[old_index],
+                         repaint_widths[old_index]);
+         write_raw_cluster_at(row, col + repaint_offsets[old_index],
+                              clusters[old_index], repaint_widths[old_index],
                               A_NORMAL);
       }
-      raw_clear_cells(row, col + paint_offsets[new_index],
-                      paint_widths[new_index]);
-      write_raw_cluster_at(row, col + paint_offsets[new_index],
-                           clusters[new_index], paint_widths[new_index],
+      raw_clear_cells(row, col + repaint_offsets[new_index],
+                      repaint_widths[new_index]);
+      write_raw_cluster_at(row, col + repaint_offsets[new_index],
+                           clusters[new_index], repaint_widths[new_index],
                            reverse_style ? A_REVERSE : A_NORMAL);
    }
 
@@ -1494,8 +1492,8 @@ static void raw_terminal_diagnostic_step(ProbeConfig *cfg, const char *scenario,
    }
 
    reportf(cfg,
-           "raw_diagnostic,%s,repaint=%s,style=%s,paint_width=%d,cursor_width=%d,old=%d,new=%d,target=%s,expected_dsr=%d:%d,dsr=%d:%d\n",
-           scenario, repaint, style, paint_width, cursor_width, old_index,
+           "raw_diagnostic,%s,repaint=%s,style=%s,repaint_width=%d,cursor_width=%d,old=%d,new=%d,target=%s,expected_dsr=%d:%d,dsr=%d:%d\n",
+           scenario, repaint, style, repaint_width, cursor_width, old_index,
            new_index, names[new_index], expected_dsr_row, expected_dsr_col,
            tr, tc);
    raw_pause_or_sleep(cfg);
@@ -1506,21 +1504,21 @@ static void run_raw_terminal_diagnostic_probe(ProbeConfig *cfg)
    struct
    {
       const char *scenario;
-      int paint_width;
+      int repaint_width;
       int cursor_width;
       int span_repaint;
       int reverse_style;
    } cases[] =
    {
-      { "raw_width2_cell_reverse", 2, 2, 0, 1 },
-      { "raw_width2_span_reverse", 2, 2, 1, 1 },
-      { "raw_width3_span_reverse", 3, 3, 1, 1 },
-      { "raw_width4_span_reverse", 4, 4, 1, 1 },
-      { "raw_width2_span_marker", 2, 2, 1, 0 },
-      { "raw_width3_span_marker", 3, 3, 1, 0 },
-      { "raw_width4_span_marker", 4, 4, 1, 0 },
-      { "raw_paint3_cursor2_marker", 3, 2, 1, 0 },
-      { "raw_paint4_cursor2_marker", 4, 2, 1, 0 }
+      { "raw_repaint2_cursor2_cell_reverse", 2, 2, 0, 1 },
+      { "raw_repaint2_cursor2_span_reverse", 2, 2, 1, 1 },
+      { "raw_repaint3_cursor3_span_reverse", 3, 3, 1, 1 },
+      { "raw_repaint4_cursor4_span_reverse", 4, 4, 1, 1 },
+      { "raw_repaint2_cursor2_span_marker", 2, 2, 1, 0 },
+      { "raw_repaint3_cursor3_span_marker", 3, 3, 1, 0 },
+      { "raw_repaint4_cursor4_span_marker", 4, 4, 1, 0 },
+      { "raw_repaint3_cursor2_marker", 3, 2, 1, 0 },
+      { "raw_repaint4_cursor2_marker", 4, 2, 1, 0 }
    };
    size_t i;
 
@@ -1534,7 +1532,7 @@ static void run_raw_terminal_diagnostic_probe(ProbeConfig *cfg)
       terminal_write(UTF_TERMINAL_PROBE_VERSION);
       terminal_write(": no curses initialization, hardware cursor hidden");
       terminal_move(1, 0);
-      terminal_write("Compare paint width, cursor width, and reverse-vs-marker styling");
+      terminal_write("Compare repaint width, cursor width, and reverse-vs-marker styling");
       terminal_move(1, cfg->data_col);
       terminal_write("012345678901");
    }
@@ -1548,28 +1546,28 @@ static void run_raw_terminal_diagnostic_probe(ProbeConfig *cfg)
          terminal_move(row, 0);
          terminal_write(cases[i].scenario);
       }
-      raw_write_keycap_layout(row, cfg->data_col, cases[i].paint_width, -1, 0);
+      raw_write_keycap_advance(row, cfg->data_col, cases[i].repaint_width, -1, 0);
       raw_terminal_diagnostic_step(cfg, cases[i].scenario, row, cfg->data_col,
-                            cases[i].paint_width, cases[i].cursor_width,
+                            cases[i].repaint_width, cases[i].cursor_width,
                             cases[i].span_repaint, cases[i].reverse_style,
                             -1, 0);
       raw_terminal_diagnostic_step(cfg, cases[i].scenario, row, cfg->data_col,
-                            cases[i].paint_width, cases[i].cursor_width,
+                            cases[i].repaint_width, cases[i].cursor_width,
                             cases[i].span_repaint, cases[i].reverse_style,
                             0, 1);
       raw_terminal_diagnostic_step(cfg, cases[i].scenario, row, cfg->data_col,
-                            cases[i].paint_width, cases[i].cursor_width,
+                            cases[i].repaint_width, cases[i].cursor_width,
                             cases[i].span_repaint, cases[i].reverse_style,
                             1, 2);
       raw_terminal_diagnostic_step(cfg, cases[i].scenario, row, cfg->data_col,
-                            cases[i].paint_width, cases[i].cursor_width,
+                            cases[i].repaint_width, cases[i].cursor_width,
                             cases[i].span_repaint, cases[i].reverse_style,
                             2, 3);
       raw_terminal_diagnostic_step(cfg, cases[i].scenario, row, cfg->data_col,
-                            cases[i].paint_width, cases[i].cursor_width,
+                            cases[i].repaint_width, cases[i].cursor_width,
                             cases[i].span_repaint, cases[i].reverse_style,
                             3, 4);
-      raw_write_keycap_layout(row, cfg->data_col, cases[i].paint_width, -1, 0);
+      raw_write_keycap_advance(row, cfg->data_col, cases[i].repaint_width, -1, 0);
    }
 
    reportf(cfg, "\n");
@@ -1705,7 +1703,7 @@ static int curses_write_cluster_at(ProbeMethod method, int row, int col,
 
 static void curses_draw_cluster_layout(ProbeMethod method, int row, int col,
                                        const char *middle_cluster,
-                                       int layout_width, int highlight_index,
+                                       int advance_width, int highlight_index,
                                        attr_t highlight_attr)
 {
    const char *clusters[] = { "A", middle_cluster, "B", " ", "A" };
@@ -1713,7 +1711,7 @@ static void curses_draw_cluster_layout(ProbeMethod method, int row, int col,
    int widths[5];
    int i;
 
-   raw_keycap_layout_offsets(layout_width, offsets, widths);
+   raw_keycap_advance_offsets(advance_width, offsets, widths);
    for (i = 0; i < 5; i++)
       curses_write_cluster_at(method, row, col + offsets[i], clusters[i],
                               widths[i],
@@ -1726,14 +1724,14 @@ static void curses_draw_target_marker(int row, int col, int target_offset)
    mvaddch(row + 1, col + target_offset, '^');
 }
 
-static int keycap_layout_clear_width(int layout_width, int repair_width)
+static int keycap_advance_clear_width(int advance_width, int repair_width)
 {
    int offsets[5];
    int widths[5];
    int layout_cells;
    int repair_cells;
 
-   raw_keycap_layout_offsets(layout_width, offsets, widths);
+   raw_keycap_advance_offsets(advance_width, offsets, widths);
    layout_cells = offsets[4] + widths[4];
    repair_cells = offsets[1] + repair_width;
    return (layout_cells > repair_cells ? layout_cells : repair_cells) + 2;
@@ -1752,7 +1750,7 @@ static void curses_diagnostic_clear_surface(int row, int col, int width)
 
 static void raw_repair_cluster_layout(int row, int col,
                                       const char *middle_cluster,
-                                      int layout_width, int repair_width,
+                                      int advance_width, int repair_width,
                                       int highlight_index,
                                       attr_t highlight_attr)
 {
@@ -1762,9 +1760,9 @@ static void raw_repair_cluster_layout(int row, int col,
    int clear_width;
    int i;
 
-   raw_keycap_layout_offsets(layout_width, offsets, widths);
+   raw_keycap_advance_offsets(advance_width, offsets, widths);
    widths[1] = repair_width;
-   clear_width = keycap_layout_clear_width(layout_width, repair_width);
+   clear_width = keycap_advance_clear_width(advance_width, repair_width);
    raw_clear_cells(row, col - 1, clear_width);
    for (i = 0; i < 5; i++)
       write_raw_cluster_at(row, col + offsets[i], clusters[i], widths[i],
@@ -1772,7 +1770,7 @@ static void raw_repair_cluster_layout(int row, int col,
 }
 
 static void curses_diagnostic_status(ProbeConfig *cfg, const char *scenario,
-                              ProbeMethod method, int layout_width,
+                              ProbeMethod method, int advance_width,
                               int repair_width, int cursor_width,
                               int span_repaint, CursesCursorMode cursor_mode,
                               int post_refresh_raw, int old_index,
@@ -1792,7 +1790,7 @@ static void curses_diagnostic_status(ProbeConfig *cfg, const char *scenario,
    }
    snprintf(line, sizeof(line),
             "%s old=%d new=%d target=%s layout=%d repair=%d cursor=%d %s postraw=%d",
-            scenario, old_index, new_index, target, layout_width, repair_width,
+            scenario, old_index, new_index, target, advance_width, repair_width,
             cursor_width, curses_cursor_mode_name(cursor_mode),
             post_refresh_raw);
    limit = COLS > 4 ? COLS - 4 : 0;
@@ -1808,7 +1806,7 @@ static void curses_terminal_diagnostic_step(ProbeConfig *cfg, const char *scenar
                                      const char *middle_cluster,
                                      const char *middle_name,
                                      ProbeMethod method, int row, int col,
-                                     int layout_width, int repair_width,
+                                     int advance_width, int repair_width,
                                      int cursor_width, int span_repaint,
                                      CursesCursorMode cursor_mode,
                                      int post_refresh_raw, int old_index,
@@ -1817,7 +1815,7 @@ static void curses_terminal_diagnostic_step(ProbeConfig *cfg, const char *scenar
    const char *clusters[] = { "A", middle_cluster, "B", " ", "A" };
    const char *names[] = { "A", middle_name, "B", "space", "next-A" };
    int layout_offsets[5];
-   int layout_widths[5];
+   int advance_widths[5];
    int cursor_offsets[5];
    int cursor_widths[5];
    int target_col;
@@ -1831,41 +1829,41 @@ static void curses_terminal_diagnostic_step(ProbeConfig *cfg, const char *scenar
    int keycap_backdrop_width = curses_cursor_keycap_backdrop_width(cursor_mode);
    int mask_width = curses_cursor_mask_width(cursor_mode);
 
-   raw_keycap_layout_offsets(layout_width, layout_offsets, layout_widths);
-   raw_keycap_layout_offsets(cursor_width, cursor_offsets, cursor_widths);
+   raw_keycap_advance_offsets(advance_width, layout_offsets, advance_widths);
+   raw_keycap_advance_offsets(cursor_width, cursor_offsets, cursor_widths);
    (void)cursor_widths;
    target_col = col + cursor_offsets[new_index];
-   clear_width = keycap_layout_clear_width(layout_width, repair_width);
+   clear_width = keycap_advance_clear_width(advance_width, repair_width);
    if (new_index == 1 && (keycap_backdrop_width > 0 || mask_width > 0))
       cluster_cursor_attr = A_NORMAL;
 
-   curses_diagnostic_status(cfg, scenario, method, layout_width, repair_width,
+   curses_diagnostic_status(cfg, scenario, method, advance_width, repair_width,
                      cursor_width, span_repaint, cursor_mode, post_refresh_raw,
                      old_index, new_index, names[new_index]);
    if (span_repaint)
    {
       curses_diagnostic_clear_surface(row, col, clear_width);
       curses_draw_cluster_layout(method, row, col, middle_cluster,
-                                 layout_width, new_index,
+                                 advance_width, new_index,
                                  cluster_cursor_attr);
    }
    else
    {
       if (old_index >= 0)
       {
-         int old_width = old_index == 1 ? repair_width : layout_widths[old_index];
+         int old_width = old_index == 1 ? repair_width : advance_widths[old_index];
 
          curses_clear_cells(row, col + layout_offsets[old_index], old_width,
                             A_NORMAL);
          curses_write_cluster_at(method, row, col + layout_offsets[old_index],
-                                 clusters[old_index], layout_widths[old_index],
+                                 clusters[old_index], advance_widths[old_index],
                                  A_NORMAL);
       }
       curses_clear_cells(row, col + layout_offsets[new_index],
-                         new_index == 1 ? repair_width : layout_widths[new_index],
+                         new_index == 1 ? repair_width : advance_widths[new_index],
                          A_NORMAL);
       curses_write_cluster_at(method, row, col + layout_offsets[new_index],
-                              clusters[new_index], layout_widths[new_index],
+                              clusters[new_index], advance_widths[new_index],
                               cluster_cursor_attr);
    }
 
@@ -1876,7 +1874,7 @@ static void curses_terminal_diagnostic_step(ProbeConfig *cfg, const char *scenar
       curses_clear_cells(row, target_col, keycap_backdrop_width,
                          curses_cursor_cluster_attr(cursor_mode));
       curses_write_cluster_at(method, row, col + layout_offsets[1],
-                              clusters[1], layout_widths[1], A_NORMAL);
+                              clusters[1], advance_widths[1], A_NORMAL);
    }
    if (new_index == 1 && mask_width > 0)
       curses_clear_cells(row, target_col, mask_width,
@@ -1899,7 +1897,7 @@ static void curses_terminal_diagnostic_step(ProbeConfig *cfg, const char *scenar
 
    if (post_refresh_raw)
    {
-      raw_repair_cluster_layout(row, col, middle_cluster, layout_width,
+      raw_repair_cluster_layout(row, col, middle_cluster, advance_width,
                                 repair_width, new_index, cluster_cursor_attr);
       if (overlay_cell_block)
          raw_fill_cells_attr(row, target_col, cursor_width, A_REVERSE);
@@ -1908,7 +1906,7 @@ static void curses_terminal_diagnostic_step(ProbeConfig *cfg, const char *scenar
          raw_fill_cells_attr(row, target_col, keycap_backdrop_width,
                              curses_cursor_cluster_attr(cursor_mode));
          write_raw_cluster_at(row, col + layout_offsets[1], clusters[1],
-                              layout_widths[1], A_NORMAL);
+                              advance_widths[1], A_NORMAL);
       }
       if (new_index == 1 && mask_width > 0)
          raw_fill_cells_attr(row, target_col, mask_width,
@@ -1925,8 +1923,8 @@ static void curses_terminal_diagnostic_step(ProbeConfig *cfg, const char *scenar
       tc = -1;
    }
    reportf(cfg,
-           "curses_diagnostic,%s,method=%s,layout_width=%d,repair_width=%d,cursor_width=%d,repaint=%s,style=%s,post_refresh_raw=%d,old=%d,new=%d,target=%s,curses_expected=%d:%d,dsr=%d:%d\n",
-           scenario, method_name(method), layout_width, repair_width,
+           "curses_diagnostic,%s,method=%s,advance_width=%d,repair_width=%d,cursor_width=%d,repaint=%s,style=%s,post_refresh_raw=%d,old=%d,new=%d,target=%s,curses_expected=%d:%d,dsr=%d:%d\n",
+           scenario, method_name(method), advance_width, repair_width,
            cursor_width, span_repaint ? "span" : "cell",
            curses_cursor_mode_name(cursor_mode), post_refresh_raw,
            old_index, new_index, names[new_index], cy, cx, tr, tc);
@@ -2037,7 +2035,7 @@ static void run_utfvis_probe(ProbeConfig *cfg, const char *selector)
    {
       const ProbeSample *sample = &cfg->samples[i];
       int base_width;
-      int layout_widths[3];
+      int advance_widths[3];
       int cursor_widths[3];
       int variant;
 
@@ -2046,16 +2044,16 @@ static void run_utfvis_probe(ProbeConfig *cfg, const char *selector)
 
       base_width = sample->expected_policy_width > 0
                  ? sample->expected_policy_width : 1;
-      layout_widths[0] = base_width;
+      advance_widths[0] = base_width;
       cursor_widths[0] = base_width;
-      layout_widths[1] = base_width + 1;
+      advance_widths[1] = base_width + 1;
       cursor_widths[1] = base_width;
-      layout_widths[2] = base_width + 1;
+      advance_widths[2] = base_width + 1;
       cursor_widths[2] = base_width + 1;
 
       for (variant = 0; variant < 3; variant++)
       {
-         int layout_width = layout_widths[variant];
+         int advance_width = advance_widths[variant];
          int cursor_width = cursor_widths[variant];
 
          if (!cfg->no_visual && row >= LINES - 2)
@@ -2073,7 +2071,7 @@ static void run_utfvis_probe(ProbeConfig *cfg, const char *selector)
                label_width = 12;
             mvprintw(row, 0, "%-*.*s", label_width, label_width, "");
             mvprintw(row, 0, "%.*s L%d C%d", label_width - 6, sample->name,
-                     layout_width, cursor_width);
+                     advance_width, cursor_width);
          }
 
          for (t = 0; t < sizeof(target_indexes) / sizeof(target_indexes[0]); t++)
@@ -2085,7 +2083,7 @@ static void run_utfvis_probe(ProbeConfig *cfg, const char *selector)
             int widths[5];
             int j;
 
-            raw_keycap_layout_offsets(layout_width, offsets, widths);
+            raw_keycap_advance_offsets(advance_width, offsets, widths);
             if (!cfg->no_visual)
             {
                int target_cursor_width = target == 1 ? cursor_width : widths[target];
@@ -2100,8 +2098,8 @@ static void run_utfvis_probe(ProbeConfig *cfg, const char *selector)
                                        clusters[target], widths[target], cursor_attr);
             }
             reportf(cfg,
-                    "utfvis,%s,target=%s,layout_width=%d,cursor_width=%d,style=background\n",
-                    sample->name, targets[t], layout_width, cursor_width);
+                    "utfvis,%s,target=%s,advance_width=%d,cursor_width=%d,style=background\n",
+                    sample->name, targets[t], advance_width, cursor_width);
          }
          row++;
          rows++;
@@ -2120,21 +2118,21 @@ static void run_curses_terminal_diagnostic_probe(ProbeConfig *cfg)
    run_utfvis_probe(cfg, "focus");
 }
 
-static void testcursor_offsets(int layout_width, int offsets[7], int widths[7])
+static void testcursor_offsets(int advance_width, int offsets[7], int widths[7])
 {
    offsets[0] = 0;
    offsets[1] = 1;
-   offsets[2] = 1 + layout_width;
-   offsets[3] = 2 + layout_width;
-   offsets[4] = 3 + layout_width;
-   offsets[5] = 4 + layout_width;
-   offsets[6] = 4 + (2 * layout_width);
+   offsets[2] = 1 + advance_width;
+   offsets[3] = 2 + advance_width;
+   offsets[4] = 3 + advance_width;
+   offsets[5] = 4 + advance_width;
+   offsets[6] = 4 + (2 * advance_width);
    widths[0] = 1;
-   widths[1] = layout_width;
+   widths[1] = advance_width;
    widths[2] = 1;
    widths[3] = 1;
    widths[4] = 1;
-   widths[5] = layout_width;
+   widths[5] = advance_width;
    widths[6] = 1;
 }
 
@@ -2222,19 +2220,19 @@ static int testcursor_is_cluster_target(int target)
    return target == 1 || target == 5;
 }
 
-static int testcursor_cursor_footprint(int target, int layout_width,
+static int testcursor_cursor_footprint(int target, int advance_width,
                                        int cursor_width)
 {
-   return testcursor_is_cluster_target(target) ? cursor_width : layout_width;
+   return testcursor_is_cluster_target(target) ? cursor_width : advance_width;
 }
 
-static int testcursor_total_width(int layout_width)
+static int testcursor_total_width(int advance_width)
 {
-   return 5 + (2 * layout_width);
+   return 5 + (2 * advance_width);
 }
 
 static void draw_testcursor_base(const ProbeSample *sample, int row, int col,
-                                 int layout_width)
+                                 int advance_width)
 {
    const char *clusters[] = { "A", sample->utf8, "B", " ", "A", sample->utf8, "B" };
    int offsets[7];
@@ -2242,8 +2240,8 @@ static void draw_testcursor_base(const ProbeSample *sample, int row, int col,
    int total_width;
    int i;
 
-   testcursor_offsets(layout_width, offsets, widths);
-   total_width = testcursor_total_width(layout_width);
+   testcursor_offsets(advance_width, offsets, widths);
+   total_width = testcursor_total_width(advance_width);
    curses_clear_cells(row, col - 1, total_width + 2, A_NORMAL);
    for (i = 0; i < 7; i++)
       curses_write_cluster_at(METHOD_WADDWSTR, row, col + offsets[i],
@@ -2251,7 +2249,7 @@ static void draw_testcursor_base(const ProbeSample *sample, int row, int col,
 }
 
 static void draw_testcursor_target(const ProbeSample *sample, int row, int col,
-                                   int layout_width, int cursor_width,
+                                   int advance_width, int cursor_width,
                                    int target, attr_t attr)
 {
    const char *clusters[] = { "A", sample->utf8, "B", " ", "A", sample->utf8, "B" };
@@ -2261,7 +2259,7 @@ static void draw_testcursor_target(const ProbeSample *sample, int row, int col,
    int span_end;
    int i;
 
-   testcursor_offsets(layout_width, offsets, widths);
+   testcursor_offsets(advance_width, offsets, widths);
    target_cursor_width = testcursor_is_cluster_target(target)
                        ? cursor_width : widths[target];
    span_end = offsets[target] + target_cursor_width;
@@ -2275,30 +2273,30 @@ static void draw_testcursor_target(const ProbeSample *sample, int row, int col,
 }
 
 static void draw_testcursor_frame(const ProbeSample *sample, int row, int col,
-                                  int layout_width, int cursor_width,
+                                  int advance_width, int cursor_width,
                                   int target, attr_t cursor_attr,
                                   int force_line)
 {
-   draw_testcursor_base(sample, row, col, layout_width);
-   draw_testcursor_target(sample, row, col, layout_width, cursor_width,
+   draw_testcursor_base(sample, row, col, advance_width);
+   draw_testcursor_target(sample, row, col, advance_width, cursor_width,
                           target, cursor_attr);
    if (force_line)
       touchline(stdscr, row, 1);
 }
 
 static void draw_testcursor_step(const ProbeSample *sample, int row, int col,
-                                 int layout_width, int cursor_width,
+                                 int advance_width, int cursor_width,
                                  int old_target, int new_target,
                                  attr_t cursor_attr)
 {
    if (old_target >= 0)
-      draw_testcursor_target(sample, row, col, layout_width, cursor_width,
+      draw_testcursor_target(sample, row, col, advance_width, cursor_width,
                              old_target, A_NORMAL);
-   draw_testcursor_target(sample, row, col, layout_width, cursor_width,
+   draw_testcursor_target(sample, row, col, advance_width, cursor_width,
                           new_target, cursor_attr);
 }
 
-static void testcursor_target_range_cells(int layout_width, int cursor_width,
+static void testcursor_target_range_cells(int advance_width, int cursor_width,
                                           int first_target, int last_target,
                                           int *start_cell, int *width_cells)
 {
@@ -2314,7 +2312,7 @@ static void testcursor_target_range_cells(int layout_width, int cursor_width,
       first = 0;
    if (last > 6)
       last = 6;
-   testcursor_offsets(layout_width, offsets, widths);
+   testcursor_offsets(advance_width, offsets, widths);
    start = offsets[first];
    end = start + widths[first];
    for (i = first; i <= last; i++)
@@ -2333,7 +2331,7 @@ static void testcursor_target_range_cells(int layout_width, int cursor_width,
 }
 
 static void draw_testcursor_span_normal(const ProbeSample *sample, int row,
-                                        int col, int layout_width,
+                                        int col, int advance_width,
                                         int first_target, int last_target)
 {
    const char *clusters[] = { "A", sample->utf8, "B", " ", "A", sample->utf8, "B" };
@@ -2347,28 +2345,28 @@ static void draw_testcursor_span_normal(const ProbeSample *sample, int row,
       first = 0;
    if (last > 6)
       last = 6;
-   testcursor_offsets(layout_width, offsets, widths);
+   testcursor_offsets(advance_width, offsets, widths);
    for (i = first; i <= last; i++)
       curses_write_cluster_at(METHOD_WADDWSTR, row, col + offsets[i],
                               clusters[i], widths[i], A_NORMAL);
 }
 
 static void draw_testcursor_flash_frame(const ProbeSample *sample, int row,
-                                        int col, int layout_width,
+                                        int col, int advance_width,
                                         int cursor_width, int target,
                                         attr_t cursor_attr)
 {
-   int total_width = testcursor_total_width(layout_width);
+   int total_width = testcursor_total_width(advance_width);
 
    curses_clear_cells(row, col - 1, total_width + 2, A_NORMAL);
    touchline(stdscr, row, 1);
    refresh();
-   draw_testcursor_frame(sample, row, col, layout_width, cursor_width,
+   draw_testcursor_frame(sample, row, col, advance_width, cursor_width,
                          target, cursor_attr, 1);
 }
 
 static void draw_testcursor_flash_span(const ProbeSample *sample, int row,
-                                       int col, int layout_width,
+                                       int col, int advance_width,
                                        int cursor_width, int old_target,
                                        int new_target, attr_t cursor_attr,
                                        int trailing_targets)
@@ -2384,19 +2382,19 @@ static void draw_testcursor_flash_span(const ProbeSample *sample, int row,
    last_target += trailing_targets;
    if (last_target > 6)
       last_target = 6;
-   testcursor_target_range_cells(layout_width, cursor_width, first_target,
+   testcursor_target_range_cells(advance_width, cursor_width, first_target,
                                  last_target, &start_cell, &width_cells);
    curses_clear_cells(row, col + start_cell, width_cells, A_NORMAL);
    touchline(stdscr, row, 1);
    refresh();
-   draw_testcursor_span_normal(sample, row, col, layout_width,
+   draw_testcursor_span_normal(sample, row, col, advance_width,
                                first_target, last_target);
-   draw_testcursor_target(sample, row, col, layout_width, cursor_width,
+   draw_testcursor_target(sample, row, col, advance_width, cursor_width,
                           new_target, cursor_attr);
 }
 
 static void draw_testcursor_flash_suffix(const ProbeSample *sample, int row,
-                                         int col, int layout_width,
+                                         int col, int advance_width,
                                          int cursor_width, int old_target,
                                          int first_target, int new_target,
                                          attr_t cursor_attr)
@@ -2405,15 +2403,15 @@ static void draw_testcursor_flash_suffix(const ProbeSample *sample, int row,
    int width_cells;
 
    if (old_target >= 0 && old_target < first_target)
-      draw_testcursor_target(sample, row, col, layout_width, cursor_width,
+      draw_testcursor_target(sample, row, col, advance_width, cursor_width,
                              old_target, A_NORMAL);
-   testcursor_target_range_cells(layout_width, cursor_width, first_target, 6,
+   testcursor_target_range_cells(advance_width, cursor_width, first_target, 6,
                                  &start_cell, &width_cells);
    curses_clear_cells(row, col + start_cell, width_cells, A_NORMAL);
    touchline(stdscr, row, 1);
    refresh();
-   draw_testcursor_span_normal(sample, row, col, layout_width, first_target, 6);
-   draw_testcursor_target(sample, row, col, layout_width, cursor_width,
+   draw_testcursor_span_normal(sample, row, col, advance_width, first_target, 6);
+   draw_testcursor_target(sample, row, col, advance_width, cursor_width,
                           new_target, cursor_attr);
 }
 
@@ -2430,9 +2428,9 @@ static void run_testcursor_probe(ProbeConfig *cfg)
    int old_target = -1;
    int flashfrom_target = -1;
 
-   reportf(cfg, "section=testcursor selector=%s layout_width=%d cursor_width=%d mode=%s\n",
+   reportf(cfg, "section=testcursor selector=%s advance_width=%d cursor_width=%d mode=%s\n",
            cfg->testcursor_selector ? cfg->testcursor_selector : "",
-           cfg->testcursor_layout_width, cfg->testcursor_cursor_width,
+           cfg->testcursor_advance_width, cfg->testcursor_cursor_width,
            testcursor_mode_name(cfg));
    if (sample == NULL)
    {
@@ -2448,8 +2446,8 @@ static void run_testcursor_probe(ProbeConfig *cfg)
       size_t i;
 
       for (i = 0; i < sizeof(path) / sizeof(path[0]); i++)
-         reportf(cfg, "testcursor,%s,target=%s,layout_width=%d,cursor_width=%d,mode=%s\n",
-                 sample->name, names[path[i]], cfg->testcursor_layout_width,
+         reportf(cfg, "testcursor,%s,target=%s,advance_width=%d,cursor_width=%d,mode=%s\n",
+                 sample->name, names[path[i]], cfg->testcursor_advance_width,
                  cfg->testcursor_cursor_width, testcursor_mode_name(cfg));
       reportf(cfg, "\n");
       curs_set(1);
@@ -2458,13 +2456,13 @@ static void run_testcursor_probe(ProbeConfig *cfg)
 
    erase();
    mvprintw(0, 0, "testcursor %s L%d C%d mode=%s %s: press any key to stop",
-            cfg->testcursor_selector, cfg->testcursor_layout_width,
+            cfg->testcursor_selector, cfg->testcursor_advance_width,
             cfg->testcursor_cursor_width, testcursor_mode_name(cfg),
             UTF_TERMINAL_PROBE_VERSION);
    mvprintw(1, 0, "Pattern is A-cluster-B-space-A-cluster-B.");
    (void)testcursor_mode_flashfrom(testcursor_mode_name(cfg), &flashfrom_target);
    if (testcursor_mode_needs_base(cfg))
-      draw_testcursor_base(sample, row, col, cfg->testcursor_layout_width);
+      draw_testcursor_base(sample, row, col, cfg->testcursor_advance_width);
    nodelay(stdscr, TRUE);
    for (;;)
    {
@@ -2474,48 +2472,48 @@ static void run_testcursor_probe(ProbeConfig *cfg)
                sample->name, sample->klass, names[target], step);
       if (testcursor_mode_is(cfg, "cell"))
       {
-         draw_testcursor_step(sample, row, col, cfg->testcursor_layout_width,
+         draw_testcursor_step(sample, row, col, cfg->testcursor_advance_width,
                               cfg->testcursor_cursor_width, old_target, target,
                               cursor_attr);
       }
       else if (testcursor_mode_is(cfg, "flashline"))
       {
          draw_testcursor_flash_frame(sample, row, col,
-                                     cfg->testcursor_layout_width,
+                                     cfg->testcursor_advance_width,
                                      cfg->testcursor_cursor_width, target,
                                      cursor_attr);
       }
       else if (testcursor_mode_is(cfg, "flashcell"))
       {
          draw_testcursor_flash_span(sample, row, col,
-                                    cfg->testcursor_layout_width,
+                                    cfg->testcursor_advance_width,
                                     cfg->testcursor_cursor_width, old_target,
                                     target, cursor_attr, 0);
       }
       else if (testcursor_mode_is(cfg, "flashpair"))
       {
          draw_testcursor_flash_span(sample, row, col,
-                                    cfg->testcursor_layout_width,
+                                    cfg->testcursor_advance_width,
                                     cfg->testcursor_cursor_width, old_target,
                                     target, cursor_attr, 1);
       }
       else if (flashfrom_target >= 0)
       {
          draw_testcursor_flash_suffix(sample, row, col,
-                                      cfg->testcursor_layout_width,
+                                      cfg->testcursor_advance_width,
                                       cfg->testcursor_cursor_width,
                                       old_target, flashfrom_target, target,
                                       cursor_attr);
       }
       else
       {
-         draw_testcursor_frame(sample, row, col, cfg->testcursor_layout_width,
+         draw_testcursor_frame(sample, row, col, cfg->testcursor_advance_width,
                                cfg->testcursor_cursor_width, target, cursor_attr,
                                testcursor_mode_is(cfg, "line"));
       }
       refresh();
-      reportf(cfg, "testcursor,%s,target=%s,layout_width=%d,cursor_width=%d,mode=%s\n",
-              sample->name, names[target], cfg->testcursor_layout_width,
+      reportf(cfg, "testcursor,%s,target=%s,advance_width=%d,cursor_width=%d,mode=%s\n",
+              sample->name, names[target], cfg->testcursor_advance_width,
               cfg->testcursor_cursor_width, testcursor_mode_name(cfg));
       if (getch() != ERR)
          break;
@@ -2589,7 +2587,7 @@ static const char *testchain_target_name(int target)
    return names[target];
 }
 
-static void testchain_offsets(int layout_width, int offsets[TESTCHAIN_TARGETS],
+static void testchain_offsets(int advance_width, int offsets[TESTCHAIN_TARGETS],
                               int widths[TESTCHAIN_TARGETS])
 {
    int target;
@@ -2598,29 +2596,29 @@ static void testchain_offsets(int layout_width, int offsets[TESTCHAIN_TARGETS],
    for (target = 0; target < TESTCHAIN_TARGETS; target++)
    {
       offsets[target] = offset;
-      widths[target] = testchain_is_cluster_target(target) ? layout_width : 1;
+      widths[target] = testchain_is_cluster_target(target) ? advance_width : 1;
       offset += widths[target];
    }
 }
 
-static int testchain_total_width(int layout_width)
+static int testchain_total_width(int advance_width)
 {
    int offsets[TESTCHAIN_TARGETS];
    int widths[TESTCHAIN_TARGETS];
 
-   testchain_offsets(layout_width, offsets, widths);
+   testchain_offsets(advance_width, offsets, widths);
    return offsets[TESTCHAIN_TARGETS - 1] + widths[TESTCHAIN_TARGETS - 1];
 }
 
 static void draw_testchain_base(const ProbeSample *sample, int row, int col,
-                                int layout_width)
+                                int advance_width)
 {
    int offsets[TESTCHAIN_TARGETS];
    int widths[TESTCHAIN_TARGETS];
    int target;
 
-   testchain_offsets(layout_width, offsets, widths);
-   curses_clear_cells(row, col - 1, testchain_total_width(layout_width) + 2,
+   testchain_offsets(advance_width, offsets, widths);
+   curses_clear_cells(row, col - 1, testchain_total_width(advance_width) + 2,
                       A_NORMAL);
    for (target = 0; target < TESTCHAIN_TARGETS; target++)
       curses_write_cluster_at(METHOD_WADDWSTR, row, col + offsets[target],
@@ -2629,7 +2627,7 @@ static void draw_testchain_base(const ProbeSample *sample, int row, int col,
 }
 
 static void draw_testchain_target(const ProbeSample *sample, int row, int col,
-                                  int layout_width, int cursor_width,
+                                  int advance_width, int cursor_width,
                                   int target, attr_t attr)
 {
    int offsets[TESTCHAIN_TARGETS];
@@ -2638,7 +2636,7 @@ static void draw_testchain_target(const ProbeSample *sample, int row, int col,
    int span_end;
    int i;
 
-   testchain_offsets(layout_width, offsets, widths);
+   testchain_offsets(advance_width, offsets, widths);
    cursor_footprint = testchain_is_cluster_target(target)
                     ? cursor_width : widths[target];
    span_end = offsets[target] + cursor_footprint;
@@ -2653,30 +2651,30 @@ static void draw_testchain_target(const ProbeSample *sample, int row, int col,
 }
 
 static void draw_testchain_frame(const ProbeSample *sample, int row, int col,
-                                 int layout_width, int cursor_width,
+                                 int advance_width, int cursor_width,
                                  int target, attr_t cursor_attr,
                                  int force_line)
 {
-   draw_testchain_base(sample, row, col, layout_width);
-   draw_testchain_target(sample, row, col, layout_width, cursor_width, target,
+   draw_testchain_base(sample, row, col, advance_width);
+   draw_testchain_target(sample, row, col, advance_width, cursor_width, target,
                          cursor_attr);
    if (force_line)
       touchline(stdscr, row, 1);
 }
 
 static void draw_testchain_step(const ProbeSample *sample, int row, int col,
-                                int layout_width, int cursor_width,
+                                int advance_width, int cursor_width,
                                 int old_target, int new_target,
                                 attr_t cursor_attr)
 {
    if (old_target >= 0)
-      draw_testchain_target(sample, row, col, layout_width, cursor_width,
+      draw_testchain_target(sample, row, col, advance_width, cursor_width,
                             old_target, A_NORMAL);
-   draw_testchain_target(sample, row, col, layout_width, cursor_width,
+   draw_testchain_target(sample, row, col, advance_width, cursor_width,
                          new_target, cursor_attr);
 }
 
-static void testchain_target_range_cells(int layout_width, int cursor_width,
+static void testchain_target_range_cells(int advance_width, int cursor_width,
                                          int first_target, int last_target,
                                          int *start_cell, int *width_cells)
 {
@@ -2692,7 +2690,7 @@ static void testchain_target_range_cells(int layout_width, int cursor_width,
       first = 0;
    if (last >= TESTCHAIN_TARGETS)
       last = TESTCHAIN_TARGETS - 1;
-   testchain_offsets(layout_width, offsets, widths);
+   testchain_offsets(advance_width, offsets, widths);
    start = offsets[first];
    end = start + widths[first];
    for (target = first; target <= last; target++)
@@ -2709,7 +2707,7 @@ static void testchain_target_range_cells(int layout_width, int cursor_width,
 }
 
 static void draw_testchain_span_normal(const ProbeSample *sample, int row,
-                                       int col, int layout_width,
+                                       int col, int advance_width,
                                        int first_target, int last_target)
 {
    int offsets[TESTCHAIN_TARGETS];
@@ -2722,7 +2720,7 @@ static void draw_testchain_span_normal(const ProbeSample *sample, int row,
       first = 0;
    if (last >= TESTCHAIN_TARGETS)
       last = TESTCHAIN_TARGETS - 1;
-   testchain_offsets(layout_width, offsets, widths);
+   testchain_offsets(advance_width, offsets, widths);
    for (target = first; target <= last; target++)
       curses_write_cluster_at(METHOD_WADDWSTR, row, col + offsets[target],
                               testchain_item_text(sample, target),
@@ -2758,7 +2756,7 @@ static int testchain_suffix_start(int old_target, int new_target,
 }
 
 static void draw_testchain_prev(const ProbeSample *sample, int row,
-                                int col, int layout_width,
+                                int col, int advance_width,
                                 int cursor_width, int old_target,
                                 int new_target, int prior_clusters,
                                 attr_t cursor_attr)
@@ -2769,22 +2767,22 @@ static void draw_testchain_prev(const ProbeSample *sample, int row,
    int width_cells;
 
    if (old_target >= 0 && old_target < start_target)
-      draw_testchain_target(sample, row, col, layout_width, cursor_width,
+      draw_testchain_target(sample, row, col, advance_width, cursor_width,
                             old_target, A_NORMAL);
-   testchain_target_range_cells(layout_width, cursor_width, start_target,
+   testchain_target_range_cells(advance_width, cursor_width, start_target,
                                 TESTCHAIN_TARGETS - 1, &start_cell,
                                 &width_cells);
    curses_clear_cells(row, col + start_cell, width_cells, A_NORMAL);
    touchline(stdscr, row, 1);
    refresh();
-   draw_testchain_span_normal(sample, row, col, layout_width, start_target,
+   draw_testchain_span_normal(sample, row, col, advance_width, start_target,
                               TESTCHAIN_TARGETS - 1);
-   draw_testchain_target(sample, row, col, layout_width, cursor_width,
+   draw_testchain_target(sample, row, col, advance_width, cursor_width,
                          new_target, cursor_attr);
 }
 
 static void draw_testchain_clearfrom(const ProbeSample *sample, int row,
-                                     int col, int layout_width,
+                                     int col, int advance_width,
                                      int cursor_width, int old_target,
                                      int new_target, int start_target,
                                      attr_t cursor_attr)
@@ -2797,22 +2795,22 @@ static void draw_testchain_clearfrom(const ProbeSample *sample, int row,
    if (start_target >= TESTCHAIN_TARGETS)
       start_target = TESTCHAIN_TARGETS - 1;
    if (old_target >= 0 && old_target < start_target)
-      draw_testchain_target(sample, row, col, layout_width, cursor_width,
+      draw_testchain_target(sample, row, col, advance_width, cursor_width,
                             old_target, A_NORMAL);
-   testchain_target_range_cells(layout_width, cursor_width, start_target,
+   testchain_target_range_cells(advance_width, cursor_width, start_target,
                                 TESTCHAIN_TARGETS - 1, &start_cell,
                                 &width_cells);
    curses_clear_cells(row, col + start_cell, width_cells, A_NORMAL);
    touchline(stdscr, row, 1);
    refresh();
-   draw_testchain_span_normal(sample, row, col, layout_width, start_target,
+   draw_testchain_span_normal(sample, row, col, advance_width, start_target,
                               TESTCHAIN_TARGETS - 1);
-   draw_testchain_target(sample, row, col, layout_width, cursor_width,
+   draw_testchain_target(sample, row, col, advance_width, cursor_width,
                          new_target, cursor_attr);
 }
 
 static void draw_testchain_resetfrom(const ProbeSample *sample, int row,
-                                     int col, int layout_width,
+                                     int col, int advance_width,
                                      int cursor_width, int old_target,
                                      int new_target, int start_target,
                                      attr_t cursor_attr, int clear_first,
@@ -2827,9 +2825,9 @@ static void draw_testchain_resetfrom(const ProbeSample *sample, int row,
    if (start_target >= TESTCHAIN_TARGETS)
       start_target = TESTCHAIN_TARGETS - 1;
    if (old_target >= 0 && old_target < start_target)
-      draw_testchain_target(sample, row, col, layout_width, cursor_width,
+      draw_testchain_target(sample, row, col, advance_width, cursor_width,
                             old_target, A_NORMAL);
-   testchain_target_range_cells(layout_width, cursor_width, start_target,
+   testchain_target_range_cells(advance_width, cursor_width, start_target,
                                 TESTCHAIN_TARGETS - 1, &start_cell,
                                 &width_cells);
    if (clear_first)
@@ -2839,9 +2837,9 @@ static void draw_testchain_resetfrom(const ProbeSample *sample, int row,
    }
    if (separate_refresh)
       refresh();
-   draw_testchain_span_normal(sample, row, col, layout_width, start_target,
+   draw_testchain_span_normal(sample, row, col, advance_width, start_target,
                               TESTCHAIN_TARGETS - 1);
-   draw_testchain_target(sample, row, col, layout_width, cursor_width,
+   draw_testchain_target(sample, row, col, advance_width, cursor_width,
                          new_target, cursor_attr);
    if (touch_after_repaint)
       touchline(stdscr, row, 1);
@@ -2875,9 +2873,9 @@ static void run_testchain_probe(ProbeConfig *cfg)
    int firststrategy = testchain_mode_is(cfg, "first");
    int whole = testchain_mode_is(cfg, "whole");
 
-   reportf(cfg, "section=testchain selector=%s layout_width=%d cursor_width=%d mode=%s pattern=XX-A-cluster-B-space-A-cluster-B-space-A-cluster-cluster-cluster-B-space-A-cluster-B-space-A-cluster-B-XX\n",
+   reportf(cfg, "section=testchain selector=%s advance_width=%d cursor_width=%d mode=%s pattern=XX-A-cluster-B-space-A-cluster-B-space-A-cluster-cluster-cluster-B-space-A-cluster-B-space-A-cluster-B-XX\n",
            cfg->testchain_selector ? cfg->testchain_selector : "",
-           cfg->testchain_layout_width, cfg->testchain_cursor_width,
+           cfg->testchain_advance_width, cfg->testchain_cursor_width,
            testchain_mode_name(cfg));
    if (sample == NULL)
    {
@@ -2906,10 +2904,10 @@ static void run_testchain_probe(ProbeConfig *cfg)
                                                   prior_clusters)
                           : -1;
 
-         reportf(cfg, "testchain,%s,target=%s,start=%s,layout_width=%d,cursor_width=%d,mode=%s\n",
+         reportf(cfg, "testchain,%s,target=%s,start=%s,advance_width=%d,cursor_width=%d,mode=%s\n",
                  sample->name, testchain_target_name(target),
                  start_target >= 0 ? testchain_target_name(start_target) : "-",
-                 cfg->testchain_layout_width, cfg->testchain_cursor_width,
+                 cfg->testchain_advance_width, cfg->testchain_cursor_width,
                  testchain_mode_name(cfg));
          report_old_target = target;
       }
@@ -2920,13 +2918,13 @@ static void run_testchain_probe(ProbeConfig *cfg)
 
    erase();
    mvprintw(0, 0, "testchain %s L%d C%d mode=%s %s: press any key to stop",
-            cfg->testchain_selector, cfg->testchain_layout_width,
+            cfg->testchain_selector, cfg->testchain_advance_width,
             cfg->testchain_cursor_width, testchain_mode_name(cfg),
             UTF_TERMINAL_PROBE_VERSION);
    mvprintw(1, 0, "Pattern is XX-A-C-B-SP-A-C-B-SP-A-C-C-C-B-SP-A-C-B-SP-A-C-B-XX; prev clears from one prior cluster.");
    if (testchain_mode_is(cfg, "cells") || suffix || prev
    ||  firststrategy || whole)
-      draw_testchain_base(sample, row, col, cfg->testchain_layout_width);
+      draw_testchain_base(sample, row, col, cfg->testchain_advance_width);
    nodelay(stdscr, TRUE);
    for (;;)
    {
@@ -2945,14 +2943,14 @@ static void run_testchain_probe(ProbeConfig *cfg)
                step);
       if (testchain_mode_is(cfg, "cells"))
       {
-         draw_testchain_step(sample, row, col, cfg->testchain_layout_width,
+         draw_testchain_step(sample, row, col, cfg->testchain_advance_width,
                              cfg->testchain_cursor_width, old_target, target,
                              cursor_attr);
       }
       else if (suffix)
       {
          draw_testchain_resetfrom(sample, row, col,
-                                  cfg->testchain_layout_width,
+                                  cfg->testchain_advance_width,
                                   cfg->testchain_cursor_width, old_target,
                                   target, start_target, cursor_attr,
                                   1, 1, 0);
@@ -2960,14 +2958,14 @@ static void run_testchain_probe(ProbeConfig *cfg)
       else if (prev)
       {
          draw_testchain_prev(sample, row, col,
-                             cfg->testchain_layout_width,
+                             cfg->testchain_advance_width,
                              cfg->testchain_cursor_width, old_target,
                              target, prior_clusters, cursor_attr);
       }
       else if (firststrategy)
       {
          draw_testchain_resetfrom(sample, row, col,
-                                  cfg->testchain_layout_width,
+                                  cfg->testchain_advance_width,
                                   cfg->testchain_cursor_width, old_target,
                                   target, start_target, cursor_attr,
                                   1, 1, 0);
@@ -2975,21 +2973,21 @@ static void run_testchain_probe(ProbeConfig *cfg)
       else if (whole)
       {
          draw_testchain_clearfrom(sample, row, col,
-                                  cfg->testchain_layout_width,
+                                  cfg->testchain_advance_width,
                                   cfg->testchain_cursor_width, old_target,
                                   target, start_target, cursor_attr);
       }
       else
       {
-         draw_testchain_frame(sample, row, col, cfg->testchain_layout_width,
+         draw_testchain_frame(sample, row, col, cfg->testchain_advance_width,
                               cfg->testchain_cursor_width, target, cursor_attr,
                               testchain_mode_is(cfg, "line"));
       }
       refresh();
-      reportf(cfg, "testchain,%s,target=%s,start=%s,layout_width=%d,cursor_width=%d,mode=%s\n",
+      reportf(cfg, "testchain,%s,target=%s,start=%s,advance_width=%d,cursor_width=%d,mode=%s\n",
               sample->name, testchain_target_name(target),
               start_target >= 0 ? testchain_target_name(start_target) : "-",
-              cfg->testchain_layout_width, cfg->testchain_cursor_width,
+              cfg->testchain_advance_width, cfg->testchain_cursor_width,
               testchain_mode_name(cfg));
       if (getch() != ERR)
          break;
@@ -3128,9 +3126,10 @@ static size_t collect_calibration_entries(ProbeConfig *cfg,
       entries[count].output_method = defaults->output_method;
       entries[count].defaults = defaults;
       entries[count].substitute_codepoint = defaults->substitute_codepoint;
-      entries[count].layout_width = defaults->layout_width;
+      entries[count].width = defaults->width;
+      entries[count].advance_width = defaults->advance_width;
       entries[count].cursor_width = defaults->cursor_width;
-      entries[count].paint_width = defaults->paint_width;
+      entries[count].repaint_width = defaults->repaint_width;
       entries[count].cursor_strategy = defaults->cursor_strategy;
       entries[count].replacement_strategy = defaults->replacement_strategy;
       count++;
@@ -3139,23 +3138,26 @@ static size_t collect_calibration_entries(ProbeConfig *cfg,
 }
 
 static void add_view_candidate(ViewCandidate *candidates, int *count,
-                               const char *name, int layout_width,
-                               int cursor_width, int paint_width)
+                               const char *name, int width,
+                               int advance_width, int cursor_width,
+                               int repaint_width)
 {
    int i;
 
-   if (layout_width < 1 || cursor_width < 1 || paint_width < 1
-   ||  *count >= MAX_VIEW_CANDIDATES)
+   if (width < 1 || advance_width < 1 || cursor_width < 1
+   ||  repaint_width < 1 || *count >= MAX_VIEW_CANDIDATES)
       return;
    for (i = 0; i < *count; i++)
-      if (candidates[i].layout_width == layout_width
+      if (candidates[i].width == width
+      &&  candidates[i].advance_width == advance_width
       &&  candidates[i].cursor_width == cursor_width
-      &&  candidates[i].paint_width == paint_width)
+      &&  candidates[i].repaint_width == repaint_width)
          return;
    candidates[*count].name = name;
-   candidates[*count].layout_width = layout_width;
+   candidates[*count].width = width;
+   candidates[*count].advance_width = advance_width;
    candidates[*count].cursor_width = cursor_width;
-   candidates[*count].paint_width = paint_width;
+   candidates[*count].repaint_width = repaint_width;
    (*count)++;
 }
 
@@ -3211,26 +3213,26 @@ static int build_view_candidates(const CalibrationEntry *entry,
    static const struct
    {
       const char *name;
-      int layout_width;
+      int width;
+      int advance_width;
       int cursor_width;
-      int paint_width;
+      int repaint_width;
    } hybrids[] =
    {
-      { "two-paint-three", 2, 2, 3 },
-      { "two-paint-four", 2, 2, 4 },
-      { "three-cursor-two", 3, 2, 3 },
-      { "three-cursor-two-paint-four", 3, 2, 4 },
-      { "four-cursor-two", 4, 2, 4 },
-      { "four-cursor-three", 4, 3, 4 },
-      { "five-cursor-two", 5, 2, 5 },
-      { "five-cursor-three", 5, 3, 5 },
-      { "six-cursor-two", 6, 2, 6 },
-      { "six-cursor-three", 6, 3, 6 },
-      { "six-cursor-four", 6, 4, 6 },
-      { "eight-cursor-two", 8, 2, 8 },
-      { "eight-cursor-four", 8, 4, 8 },
-      { "ten-cursor-two", 10, 2, 10 },
-      { "twelve-cursor-two", 12, 2, 12 }
+      { "width2-advance4", 2, 4, 4, 4 },
+      { "width2-advance4-repaint2", 2, 4, 4, 2 },
+      { "width2-repaint-three", 2, 2, 2, 3 },
+      { "width2-repaint-four", 2, 2, 2, 4 },
+      { "advance3-cursor2", 2, 3, 2, 3 },
+      { "advance3-cursor2-repaint4", 2, 3, 2, 4 },
+      { "advance4-cursor2", 2, 4, 2, 4 },
+      { "advance4-cursor3", 2, 4, 3, 4 },
+      { "advance6-cursor2", 2, 6, 2, 6 },
+      { "advance6-cursor4", 2, 6, 4, 6 },
+      { "advance8-cursor2", 2, 8, 2, 8 },
+      { "advance8-cursor4", 2, 8, 4, 8 },
+      { "advance10-cursor2", 2, 10, 2, 10 },
+      { "advance12-cursor2", 2, 12, 2, 12 }
    };
    int count = 0;
    int base = entry->sample->expected_policy_width > 0
@@ -3238,29 +3240,32 @@ static int build_view_candidates(const CalibrationEntry *entry,
    int width;
    size_t i;
 
-   add_view_candidate(candidates, &count, "current", entry->layout_width,
-                      entry->cursor_width, entry->paint_width);
+   add_view_candidate(candidates, &count, "current", entry->width,
+                      entry->advance_width, entry->cursor_width,
+                      entry->repaint_width);
    if (entry->defaults != NULL)
       add_view_candidate(candidates, &count, "default",
-                         entry->defaults->layout_width,
+                         entry->defaults->width,
+                         entry->defaults->advance_width,
                          entry->defaults->cursor_width,
-                         entry->defaults->paint_width);
-   add_view_candidate(candidates, &count, "policy", base, base, base);
+                         entry->defaults->repaint_width);
+   add_view_candidate(candidates, &count, "policy", base, base, base, base);
    for (width = 1; width <= 12; width++)
       add_view_candidate(candidates, &count, width_names[width],
-                         width, width, width);
+                         width, width, width, width);
    for (i = 0; i < sizeof(hybrids) / sizeof(hybrids[0]); i++)
       add_view_candidate(candidates, &count, hybrids[i].name,
-                         hybrids[i].layout_width,
+                         hybrids[i].width,
+                         hybrids[i].advance_width,
                          hybrids[i].cursor_width,
-                         hybrids[i].paint_width);
+                         hybrids[i].repaint_width);
    return count;
 }
 
 static void draw_sample5_at(const ProbeSample *sample, int row, int col,
-                            int layout_width, int cursor_width,
-                            int paint_width, int target, attr_t cursor_attr,
-                            int target_uses_paint)
+                            int advance_width, int cursor_width,
+                            int repaint_width, int target, attr_t cursor_attr,
+                            int target_uses_repaint)
 {
    const char *clusters[] = { "A", sample->utf8, "B", " ", "A" };
    int offsets[5];
@@ -3268,7 +3273,7 @@ static void draw_sample5_at(const ProbeSample *sample, int row, int col,
    int clear_width;
    int i;
 
-   raw_keycap_layout_offsets(layout_width, offsets, widths);
+   raw_keycap_advance_offsets(advance_width, offsets, widths);
    clear_width = offsets[4] + widths[4] + 2;
    curses_clear_cells(row, col - 1, clear_width, A_NORMAL);
    for (i = 0; i < 5; i++)
@@ -3280,7 +3285,7 @@ static void draw_sample5_at(const ProbeSample *sample, int row, int col,
       int span_end;
 
       if (target == 1)
-         target_width = target_uses_paint ? paint_width : cursor_width;
+         target_width = target_uses_repaint ? repaint_width : cursor_width;
       span_end = offsets[target] + target_width;
 
       curses_clear_cells(row, col + offsets[target], target_width,
@@ -3306,9 +3311,10 @@ static int calibration_select_view(ProbeConfig *cfg, CalibrationEntry *entry)
       return -1;
    if (cfg->no_visual)
    {
-      entry->layout_width = candidates[0].layout_width;
+      entry->width = candidates[0].width;
+      entry->advance_width = candidates[0].advance_width;
       entry->cursor_width = candidates[0].cursor_width;
-      entry->paint_width = candidates[0].paint_width;
+      entry->repaint_width = candidates[0].repaint_width;
       return 0;
    }
 
@@ -3333,9 +3339,10 @@ static int calibration_select_view(ProbeConfig *cfg, CalibrationEntry *entry)
                UTF_TERMINAL_PROBE_VERSION);
       if (visible_rows < 1)
          visible_rows = 1;
-      mvprintw(1, 0, "Current visible=%d cursor=%d paint=%d.",
-               entry->layout_width, entry->cursor_width, entry->paint_width);
-      mvprintw(2, 0, "Keys: j/k move, 1-9 choose row, w type visible cursor paint, Enter accept, q quit. Showing %d-%d of %d.",
+      mvprintw(1, 0, "Current width=%d advance=%d cursor=%d repaint=%d.",
+               entry->width, entry->advance_width, entry->cursor_width,
+               entry->repaint_width);
+      mvprintw(2, 0, "Keys: j/k move, 1-9 choose row, w type width advance cursor repaint, Enter accept, q quit. Showing %d-%d of %d.",
                top + 1, top + visible_rows, candidate_count);
       {
          char cps[256];
@@ -3345,7 +3352,7 @@ static int calibration_select_view(ProbeConfig *cfg, CalibrationEntry *entry)
       }
       mvprintw(4, cfg->data_col, "plain");
       mvprintw(4, cfg->data_col + 24, "cluster cursor");
-      mvprintw(5, cfg->data_col, "paint footprint");
+      mvprintw(5, cfg->data_col, "repaint footprint");
       mvprintw(5, cfg->data_col + 24, "B cursor");
       for (i = 0; i < visible_rows; i++)
       {
@@ -3354,32 +3361,33 @@ static int calibration_select_view(ProbeConfig *cfg, CalibrationEntry *entry)
          attr_t label_attr = candidate_index == selected ? A_REVERSE : A_NORMAL;
 
          attrset(label_attr);
-         mvprintw(row, 0, "%d %2d %-18s v%d c%d p%d",
+         mvprintw(row, 0, "%d %2d %-24s w%d a%d c%d r%d",
                   i + 1, candidate_index + 1,
                   candidates[candidate_index].name,
-                  candidates[candidate_index].layout_width,
+                  candidates[candidate_index].width,
+                  candidates[candidate_index].advance_width,
                   candidates[candidate_index].cursor_width,
-                  candidates[candidate_index].paint_width);
+                  candidates[candidate_index].repaint_width);
          attrset(A_NORMAL);
          draw_sample5_at(entry->sample, row, cfg->data_col,
-                         candidates[candidate_index].layout_width,
+                         candidates[candidate_index].advance_width,
                          candidates[candidate_index].cursor_width,
-                         candidates[candidate_index].paint_width,
+                         candidates[candidate_index].repaint_width,
                          -1, cursor_attr, 0);
          draw_sample5_at(entry->sample, row, cfg->data_col + 24,
-                         candidates[candidate_index].layout_width,
+                         candidates[candidate_index].advance_width,
                          candidates[candidate_index].cursor_width,
-                         candidates[candidate_index].paint_width,
+                         candidates[candidate_index].repaint_width,
                          1, cursor_attr, 0);
          draw_sample5_at(entry->sample, row + 1, cfg->data_col,
-                         candidates[candidate_index].layout_width,
+                         candidates[candidate_index].advance_width,
                          candidates[candidate_index].cursor_width,
-                         candidates[candidate_index].paint_width,
+                         candidates[candidate_index].repaint_width,
                          1, cursor_attr, 1);
          draw_sample5_at(entry->sample, row + 1, cfg->data_col + 24,
-                         candidates[candidate_index].layout_width,
+                         candidates[candidate_index].advance_width,
                          candidates[candidate_index].cursor_width,
-                         candidates[candidate_index].paint_width,
+                         candidates[candidate_index].repaint_width,
                          2, cursor_attr, 0);
       }
       refresh();
@@ -3411,35 +3419,38 @@ static int calibration_select_view(ProbeConfig *cfg, CalibrationEntry *entry)
       else if (ch == 'w' || ch == 'W')
       {
          char input[64];
-         int layout_width;
+         int width;
+         int advance_width;
          int cursor_width;
-         int paint_width;
+         int repaint_width;
 
-         if (read_prompt_line(LINES - 1, "Enter visible cursor paint (or visible cursor): ",
+         if (read_prompt_line(LINES - 1, "Enter width advance cursor repaint: ",
                               input, sizeof(input))
-         &&  parse_view_widths(input, &layout_width, &cursor_width,
-                               &paint_width))
+         &&  parse_view_widths(input, &width, &advance_width,
+                               &cursor_width, &repaint_width))
          {
-            entry->layout_width = layout_width;
+            entry->width = width;
+            entry->advance_width = advance_width;
             entry->cursor_width = cursor_width;
-            entry->paint_width = paint_width;
+            entry->repaint_width = repaint_width;
             return 0;
          }
-         mvprintw(LINES - 1, 0, "Invalid widths; use positive visible cursor paint values, such as 2 4 4.");
+         mvprintw(LINES - 1, 0, "Invalid widths; use positive width advance cursor repaint values, such as 2 4 4 4.");
          clrtoeol();
          refresh();
          napms(700);
       }
    }
 
-   entry->layout_width = candidates[selected].layout_width;
+   entry->width = candidates[selected].width;
+   entry->advance_width = candidates[selected].advance_width;
    entry->cursor_width = candidates[selected].cursor_width;
-   entry->paint_width = candidates[selected].paint_width;
+   entry->repaint_width = candidates[selected].repaint_width;
    return 0;
 }
 
 static void draw_chain_strategy_frame(const ProbeSample *sample, int row,
-                                      int col, int layout_width,
+                                      int col, int advance_width,
                                       int cursor_width, const char *strategy,
                                       int old_target, int target,
                                       attr_t cursor_attr)
@@ -3458,34 +3469,34 @@ static void draw_chain_strategy_frame(const ProbeSample *sample, int row,
 
    if (strcmp(strategy, "cells") == 0)
    {
-      draw_testchain_step(sample, row, col, layout_width, cursor_width,
+      draw_testchain_step(sample, row, col, advance_width, cursor_width,
                           old_target, target, cursor_attr);
    }
    else if (suffix)
    {
-      draw_testchain_resetfrom(sample, row, col, layout_width, cursor_width,
+      draw_testchain_resetfrom(sample, row, col, advance_width, cursor_width,
                                old_target, target, start_target, cursor_attr,
                                1, 1, 0);
    }
    else if (prev)
    {
-      draw_testchain_prev(sample, row, col, layout_width, cursor_width,
+      draw_testchain_prev(sample, row, col, advance_width, cursor_width,
                           old_target, target, prior_clusters, cursor_attr);
    }
    else if (firststrategy)
    {
-      draw_testchain_resetfrom(sample, row, col, layout_width, cursor_width,
+      draw_testchain_resetfrom(sample, row, col, advance_width, cursor_width,
                                old_target, target, start_target, cursor_attr,
                                1, 1, 0);
    }
    else if (whole)
    {
-      draw_testchain_clearfrom(sample, row, col, layout_width, cursor_width,
+      draw_testchain_clearfrom(sample, row, col, advance_width, cursor_width,
                                old_target, target, start_target, cursor_attr);
    }
    else
    {
-      draw_testchain_frame(sample, row, col, layout_width, cursor_width,
+      draw_testchain_frame(sample, row, col, advance_width, cursor_width,
                            target, cursor_attr, strcmp(strategy, "line") == 0);
    }
 }
@@ -3521,7 +3532,7 @@ static const char *replacement_item_text(const ProbeSample *sample, int target,
    return ascii_targets[target] ? ascii_targets[target] : "?";
 }
 
-static void replacement_offsets(int layout_width, int state,
+static void replacement_offsets(int advance_width, int state,
                                 int offsets[REPLACE_TARGETS],
                                 int widths[REPLACE_TARGETS])
 {
@@ -3532,23 +3543,23 @@ static void replacement_offsets(int layout_width, int state,
    {
       offsets[target] = offset;
       if (target == 1)
-         widths[target] = replacement_cluster1_replaced(state) ? 1 : layout_width;
+         widths[target] = replacement_cluster1_replaced(state) ? 1 : advance_width;
       else if (target == 5)
-         widths[target] = layout_width;
+         widths[target] = advance_width;
       else
          widths[target] = 1;
       offset += widths[target];
    }
 }
 
-static int replacement_total_width(int layout_width, int state)
+static int replacement_total_width(int advance_width, int state)
 {
-   return (replacement_cluster1_replaced(state) ? 1 : layout_width)
-        + layout_width + 5;
+   return (replacement_cluster1_replaced(state) ? 1 : advance_width)
+        + advance_width + 5;
 }
 
 static void draw_replacement_span(const ProbeSample *sample, int row, int col,
-                                  int layout_width, int state,
+                                  int advance_width, int state,
                                   int first_target, int last_target)
 {
    int offsets[REPLACE_TARGETS];
@@ -3559,14 +3570,14 @@ static void draw_replacement_span(const ProbeSample *sample, int row, int col,
       first_target = 0;
    if (last_target >= REPLACE_TARGETS)
       last_target = REPLACE_TARGETS - 1;
-   replacement_offsets(layout_width, state, offsets, widths);
+   replacement_offsets(advance_width, state, offsets, widths);
    for (target = first_target; target <= last_target; target++)
       curses_write_cluster_at(METHOD_WADDWSTR, row, col + offsets[target],
                               replacement_item_text(sample, target, state),
                               widths[target], A_NORMAL);
 }
 
-static void replacement_range_cells(int layout_width, int state,
+static void replacement_range_cells(int advance_width, int state,
                                     int first_target, int last_target,
                                     int *start_cell, int *width_cells)
 {
@@ -3582,7 +3593,7 @@ static void replacement_range_cells(int layout_width, int state,
       first = 0;
    if (last >= REPLACE_TARGETS)
       last = REPLACE_TARGETS - 1;
-   replacement_offsets(layout_width, state, offsets, widths);
+   replacement_offsets(advance_width, state, offsets, widths);
    start = offsets[first];
    end = start + widths[first];
    for (target = first; target <= last; target++)
@@ -3603,7 +3614,7 @@ static int replacement_changed_target(int old_state, int new_state)
    return 0;
 }
 
-static void replacement_union_range(int layout_width, int old_state,
+static void replacement_union_range(int advance_width, int old_state,
                                     int new_state, int first_target,
                                     int last_target, int *start_cell,
                                     int *width_cells)
@@ -3615,9 +3626,9 @@ static void replacement_union_range(int layout_width, int old_state,
    int start;
    int end;
 
-   replacement_range_cells(layout_width, old_state, first_target, last_target,
+   replacement_range_cells(advance_width, old_state, first_target, last_target,
                            &old_start, &old_width);
-   replacement_range_cells(layout_width, new_state, first_target, last_target,
+   replacement_range_cells(advance_width, new_state, first_target, last_target,
                            &new_start, &new_width);
    start = old_start < new_start ? old_start : new_start;
    end = old_start + old_width > new_start + new_width
@@ -3627,17 +3638,17 @@ static void replacement_union_range(int layout_width, int old_state,
 }
 
 static void draw_replacement_base(const ProbeSample *sample, int row, int col,
-                                  int layout_width, int state)
+                                  int advance_width, int state)
 {
-   int total = replacement_total_width(layout_width, state);
+   int total = replacement_total_width(advance_width, state);
 
-   curses_clear_cells(row, col - 1, total + layout_width + 4, A_NORMAL);
-   draw_replacement_span(sample, row, col, layout_width, state, 0,
+   curses_clear_cells(row, col - 1, total + advance_width + 4, A_NORMAL);
+   draw_replacement_span(sample, row, col, advance_width, state, 0,
                          REPLACE_TARGETS - 1);
 }
 
 static void draw_replacement_strategy_frame(const ProbeSample *sample, int row,
-                                            int col, int layout_width,
+                                            int col, int advance_width,
                                             const char *strategy,
                                             int old_state, int new_state)
 {
@@ -3648,10 +3659,10 @@ static void draw_replacement_strategy_frame(const ProbeSample *sample, int row,
 
    if (strcmp(strategy, "cells") == 0)
    {
-      replacement_union_range(layout_width, old_state, new_state, changed_target,
+      replacement_union_range(advance_width, old_state, new_state, changed_target,
                               changed_target, &start_cell, &width_cells);
       curses_clear_cells(row, col + start_cell, width_cells, A_NORMAL);
-      draw_replacement_span(sample, row, col, layout_width, new_state,
+      draw_replacement_span(sample, row, col, advance_width, new_state,
                             changed_target, changed_target);
       return;
    }
@@ -3666,18 +3677,18 @@ static void draw_replacement_strategy_frame(const ProbeSample *sample, int row,
       start_target = 0;
    else
    {
-      draw_replacement_base(sample, row, col, layout_width, new_state);
+      draw_replacement_base(sample, row, col, advance_width, new_state);
       touchline(stdscr, row, 1);
       return;
    }
 
-   replacement_union_range(layout_width, old_state, new_state, start_target,
+   replacement_union_range(advance_width, old_state, new_state, start_target,
                            REPLACE_TARGETS - 1, &start_cell, &width_cells);
-   curses_clear_cells(row, col + start_cell, width_cells + layout_width + 2,
+   curses_clear_cells(row, col + start_cell, width_cells + advance_width + 2,
                       A_NORMAL);
    touchline(stdscr, row, 1);
    refresh();
-   draw_replacement_span(sample, row, col, layout_width, new_state,
+   draw_replacement_span(sample, row, col, advance_width, new_state,
                          start_target, REPLACE_TARGETS - 1);
 }
 
@@ -3738,11 +3749,12 @@ static int calibration_select_strategy(ProbeConfig *cfg,
    {
       int ch;
 
-      mvprintw(0, 0, "calibrate %s %s/%s %s/%s visible=%d cursor=%d paint=%d %s",
+      mvprintw(0, 0, "calibrate %s %s/%s %s/%s width=%d advance=%d cursor=%d repaint=%d %s",
                replacement ? "replace" : "cursor",
                entry->feature_class, entry->sample->name,
                entry->display_mode, entry->output_method,
-               entry->layout_width, entry->cursor_width, entry->paint_width,
+               entry->width, entry->advance_width, entry->cursor_width,
+               entry->repaint_width,
                UTF_TERMINAL_PROBE_VERSION);
       mvprintw(1, 0, "Current: %s. Keys: n/p choose strategy, h help, g or Enter accept, q back",
                strategies[selected].name);
@@ -3777,10 +3789,10 @@ static int calibration_select_strategy(ProbeConfig *cfg,
       {
          if (replacement)
             draw_replacement_base(entry->sample, row, col,
-                                  entry->layout_width, 0);
+                                  entry->advance_width, 0);
          else
             draw_testchain_base(entry->sample, row, col,
-                                entry->layout_width);
+                                entry->advance_width);
          reset_sample = 0;
       }
 
@@ -3795,7 +3807,7 @@ static int calibration_select_strategy(ProbeConfig *cfg,
          mvprintw(11, 0, "replacement target=%s step=%d             ",
                   state_names[new_state], step);
          draw_replacement_strategy_frame(entry->sample, row, col,
-                                         entry->layout_width,
+                                         entry->advance_width,
                                          strategies[selected].name,
                                          old_state, new_state);
          old_state = new_state;
@@ -3807,7 +3819,7 @@ static int calibration_select_strategy(ProbeConfig *cfg,
          mvprintw(11, 0, "cursor target=%s step=%d start policy is strategy-specific      ",
                   testchain_target_name(target), step);
          draw_chain_strategy_frame(entry->sample, row, col,
-                                   entry->layout_width, entry->cursor_width,
+                                   entry->advance_width, entry->cursor_width,
                                    strategies[selected].name, old_target,
                                    target, cursor_attr);
          old_target = target;
@@ -3963,9 +3975,10 @@ static void apply_output_method_defaults(CalibrationEntry *entry)
 {
    if (strcmp(entry->output_method, "substitute") == 0)
    {
-      entry->layout_width = 1;
+      entry->width = 1;
+      entry->advance_width = 1;
       entry->cursor_width = 1;
-      entry->paint_width = 1;
+      entry->repaint_width = 1;
       entry->cursor_strategy = "cells";
       entry->replacement_strategy = "cells";
       if (entry->substitute_codepoint == 0)
@@ -3997,9 +4010,10 @@ static const CalibrationDefault *find_calibration_default_for_output(
 static void copy_calibration_physical_settings(CalibrationEntry *entry,
                                                const CalibrationEntry *source)
 {
-   entry->layout_width = source->layout_width;
+   entry->width = source->width;
+   entry->advance_width = source->advance_width;
    entry->cursor_width = source->cursor_width;
-   entry->paint_width = source->paint_width;
+   entry->repaint_width = source->repaint_width;
    entry->cursor_strategy = source->cursor_strategy;
    entry->replacement_strategy = source->replacement_strategy;
    entry->substitute_codepoint = source->substitute_codepoint;
@@ -4008,9 +4022,10 @@ static void copy_calibration_physical_settings(CalibrationEntry *entry,
 static void copy_calibration_default_physical_settings(
    CalibrationEntry *entry, const CalibrationDefault *defaults)
 {
-   entry->layout_width = defaults->layout_width;
+   entry->width = defaults->width;
+   entry->advance_width = defaults->advance_width;
    entry->cursor_width = defaults->cursor_width;
-   entry->paint_width = defaults->paint_width;
+   entry->repaint_width = defaults->repaint_width;
    entry->cursor_strategy = defaults->cursor_strategy;
    entry->replacement_strategy = defaults->replacement_strategy;
    entry->substitute_codepoint = defaults->substitute_codepoint;
@@ -4075,9 +4090,10 @@ static int read_calibration_profile(ProbeConfig *cfg,
       char display[96];
       char word[96];
       char codepoint_word[96];
-      int layout_width;
+      int width;
+      int advance_width;
       int cursor_width;
-      int paint_width;
+      int repaint_width;
       int output_fields;
       CalibrationEntry *entry;
 
@@ -4106,39 +4122,48 @@ static int read_calibration_profile(ProbeConfig *cfg,
             loaded++;
          }
       }
-      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s DISPLAY %95s LAYOUT %d CURSOR %d PAINT %d",
-                      klass, display, &layout_width, &cursor_width,
-                      &paint_width) == 5)
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s DISPLAY %95s WIDTH %d ADVANCE %d CURSOR %d REPAINT %d",
+                      klass, display, &width, &advance_width,
+                      &cursor_width, &repaint_width) == 6)
       {
          entry = find_calibration_entry_for(entries, count, klass, display);
-         if (entry != NULL && layout_width > 0 && cursor_width > 0
-         &&  paint_width > 0)
+         if (entry != NULL && width > 0 && advance_width > 0
+         &&  cursor_width > 0 && repaint_width > 0)
          {
-            entry->layout_width = layout_width;
+            entry->width = width;
+            entry->advance_width = advance_width;
             entry->cursor_width = cursor_width;
-            entry->paint_width = paint_width;
+            entry->repaint_width = repaint_width;
             loaded++;
          }
       }
-      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s DISPLAY %95s LAYOUT %d CURSOR %d",
-                      klass, display, &layout_width, &cursor_width) == 4)
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s DISPLAY %95s WIDTH %d",
+                      klass, display, &width) == 3)
       {
          entry = find_calibration_entry_for(entries, count, klass, display);
-         if (entry != NULL && layout_width > 0 && cursor_width > 0)
+         if (entry != NULL && width > 0)
          {
-            entry->layout_width = layout_width;
-            entry->cursor_width = cursor_width;
-            entry->paint_width = max_int(layout_width, cursor_width);
+            entry->width = width;
             loaded++;
          }
       }
-      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s DISPLAY %95s PAINT %d",
-                      klass, display, &paint_width) == 3)
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s DISPLAY %95s ADVANCE %d",
+                      klass, display, &advance_width) == 3)
       {
          entry = find_calibration_entry_for(entries, count, klass, display);
-         if (entry != NULL && paint_width > 0)
+         if (entry != NULL && advance_width > 0)
          {
-            entry->paint_width = paint_width;
+            entry->advance_width = advance_width;
+            loaded++;
+         }
+      }
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s DISPLAY %95s CURSOR %d",
+                      klass, display, &cursor_width) == 3)
+      {
+         entry = find_calibration_entry_for(entries, count, klass, display);
+         if (entry != NULL && cursor_width > 0)
+         {
+            entry->cursor_width = cursor_width;
             loaded++;
          }
       }
@@ -4162,38 +4187,68 @@ static int read_calibration_profile(ProbeConfig *cfg,
             loaded++;
          }
       }
-      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s LAYOUT %d CURSOR %d PAINT %d",
-                 klass, &layout_width, &cursor_width, &paint_width) == 4)
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s DISPLAY %95s REPAINT %d",
+                      klass, display, &repaint_width) == 3)
       {
-         entry = find_calibration_entry(entries, count, klass);
-         if (entry != NULL && layout_width > 0 && cursor_width > 0
-         &&  paint_width > 0)
+         entry = find_calibration_entry_for(entries, count, klass, display);
+         if (entry != NULL && repaint_width > 0)
          {
-            entry->layout_width = layout_width;
-            entry->cursor_width = cursor_width;
-            entry->paint_width = paint_width;
+            entry->repaint_width = repaint_width;
             loaded++;
          }
       }
-      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s LAYOUT %d CURSOR %d",
-                 klass, &layout_width, &cursor_width) == 3)
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s WIDTH %d ADVANCE %d CURSOR %d REPAINT %d",
+                 klass, &width, &advance_width, &cursor_width,
+                 &repaint_width) == 5)
       {
          entry = find_calibration_entry(entries, count, klass);
-         if (entry != NULL && layout_width > 0 && cursor_width > 0)
+         if (entry != NULL && width > 0 && advance_width > 0
+         &&  cursor_width > 0 && repaint_width > 0)
          {
-            entry->layout_width = layout_width;
+            entry->width = width;
+            entry->advance_width = advance_width;
             entry->cursor_width = cursor_width;
-            entry->paint_width = max_int(layout_width, cursor_width);
+            entry->repaint_width = repaint_width;
             loaded++;
          }
       }
-      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s PAINT %d",
-                      klass, &paint_width) == 2)
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s WIDTH %d",
+                      klass, &width) == 2)
       {
          entry = find_calibration_entry(entries, count, klass);
-         if (entry != NULL && paint_width > 0)
+         if (entry != NULL && width > 0)
          {
-            entry->paint_width = paint_width;
+            entry->width = width;
+            loaded++;
+         }
+      }
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s ADVANCE %d",
+                      klass, &advance_width) == 2)
+      {
+         entry = find_calibration_entry(entries, count, klass);
+         if (entry != NULL && advance_width > 0)
+         {
+            entry->advance_width = advance_width;
+            loaded++;
+         }
+      }
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s CURSOR %d",
+                      klass, &cursor_width) == 2)
+      {
+         entry = find_calibration_entry(entries, count, klass);
+         if (entry != NULL && cursor_width > 0)
+         {
+            entry->cursor_width = cursor_width;
+            loaded++;
+         }
+      }
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s REPAINT %d",
+                      klass, &repaint_width) == 2)
+      {
+         entry = find_calibration_entry(entries, count, klass);
+         if (entry != NULL && repaint_width > 0)
+         {
+            entry->repaint_width = repaint_width;
             loaded++;
          }
       }
@@ -4352,9 +4407,9 @@ static int write_calibration_profile(ProbeConfig *cfg,
                entry->feature_class, entry->output_method);
          }
          write_rexx_profile_command(
-            fp, "SET UTF TERMINAL CLASS %s LAYOUT %d CURSOR %d PAINT %d",
-            entry->feature_class, entry->layout_width, entry->cursor_width,
-            entry->paint_width);
+            fp, "SET UTF TERMINAL CLASS %s WIDTH %d ADVANCE %d CURSOR %d REPAINT %d",
+            entry->feature_class, entry->width, entry->advance_width,
+            entry->cursor_width, entry->repaint_width);
          write_rexx_profile_command(
             fp, "SET UTF TERMINAL CLASS %s CURSORSTRATEGY %s",
             entry->feature_class,
@@ -4382,9 +4437,10 @@ static int write_calibration_profile(ProbeConfig *cfg,
                entry->output_method);
          }
          write_rexx_profile_command(
-            fp, "SET UTF TERMINAL CLASS %s DISPLAY %s LAYOUT %d CURSOR %d PAINT %d",
+            fp, "SET UTF TERMINAL CLASS %s DISPLAY %s WIDTH %d ADVANCE %d CURSOR %d REPAINT %d",
             entry->feature_class, entry->display_mode,
-            entry->layout_width, entry->cursor_width, entry->paint_width);
+            entry->width, entry->advance_width, entry->cursor_width,
+            entry->repaint_width);
          write_rexx_profile_command(
             fp, "SET UTF TERMINAL CLASS %s DISPLAY %s CURSORSTRATEGY %s",
             entry->feature_class, entry->display_mode,
@@ -4506,11 +4562,12 @@ static int calibration_select_output_method(ProbeConfig *cfg,
          utf8_codepoints(effective_entry.sample->utf8, emit_cps,
                          sizeof(emit_cps));
          attrset(label_attr);
-         mvprintw(row, 0, "%c %-12s score=%-2d v%d c%d p%d cursor=%s replace=%s",
+         mvprintw(row, 0, "%c %-12s score=%-2d w%d a%d c%d r%d cursor=%s replace=%s",
                   i == selected ? '>' : ' ', methods[i],
                   scores[i],
-                  preview_entry.layout_width, preview_entry.cursor_width,
-                  preview_entry.paint_width,
+                  preview_entry.width,
+                  preview_entry.advance_width, preview_entry.cursor_width,
+                  preview_entry.repaint_width,
                   profile_strategy_name(preview_entry.cursor_strategy),
                   profile_strategy_name(preview_entry.replacement_strategy));
          attrset(A_NORMAL);
@@ -4518,13 +4575,13 @@ static int calibration_select_output_method(ProbeConfig *cfg,
          mvprintw(row + 2, 2, "terminal emits: %s", emit_cps);
          mvprintw(row + 3, 2, "editor plain:");
          draw_sample5_at(effective_entry.sample, row + 3, cfg->data_col,
-                         preview_entry.layout_width, preview_entry.cursor_width,
-                         preview_entry.paint_width, -1,
+                         preview_entry.advance_width, preview_entry.cursor_width,
+                         preview_entry.repaint_width, -1,
                          utfvis_cursor_attr(), 0);
          mvprintw(row + 4, 2, "editor cursor:");
          draw_sample5_at(effective_entry.sample, row + 4, cfg->data_col,
-                         preview_entry.layout_width, preview_entry.cursor_width,
-                         preview_entry.paint_width, 1,
+                         preview_entry.advance_width, preview_entry.cursor_width,
+                         preview_entry.repaint_width, 1,
                          utfvis_cursor_attr(), 0);
       }
       mvprintw(LINES - 2, 0, "The file bytes and logical cluster stay unchanged; only physical output changes.");
@@ -4847,9 +4904,10 @@ static void make_effective_calibration_entry(const CalibrationEntry *entry,
 static void copy_calibration_settings(CalibrationEntry *entry,
                                       const CalibrationEntry *source)
 {
-   entry->layout_width = source->layout_width;
+   entry->width = source->width;
+   entry->advance_width = source->advance_width;
    entry->cursor_width = source->cursor_width;
-   entry->paint_width = source->paint_width;
+   entry->repaint_width = source->repaint_width;
    entry->cursor_strategy = source->cursor_strategy;
    entry->replacement_strategy = source->replacement_strategy;
    entry->output_method = source->output_method;
@@ -4859,9 +4917,10 @@ static void copy_calibration_settings(CalibrationEntry *entry,
 static int calibration_entry_changed(const CalibrationEntry *left,
                                      const CalibrationEntry *right)
 {
-   return left->layout_width != right->layout_width
+   return left->width != right->width
+       || left->advance_width != right->advance_width
        || left->cursor_width != right->cursor_width
-       || left->paint_width != right->paint_width
+       || left->repaint_width != right->repaint_width
        || strcmp(left->cursor_strategy, right->cursor_strategy) != 0
        || strcmp(left->replacement_strategy, right->replacement_strategy) != 0
        || strcmp(left->output_method, right->output_method) != 0
@@ -4874,9 +4933,10 @@ static int calibration_entry_is_default(const CalibrationEntry *entry)
 
    if (defaults == NULL)
       return 0;
-   return entry->layout_width == defaults->layout_width
+   return entry->width == defaults->width
+       && entry->advance_width == defaults->advance_width
        && entry->cursor_width == defaults->cursor_width
-       && entry->paint_width == defaults->paint_width
+       && entry->repaint_width == defaults->repaint_width
        && strcmp(entry->cursor_strategy, defaults->cursor_strategy) == 0
        && strcmp(entry->replacement_strategy,
                  defaults->replacement_strategy) == 0
@@ -4945,7 +5005,7 @@ static void draw_calibration_menu(ProbeConfig *cfg,
    mvprintw(1, 0, "Profile: %s %s", cfg->profile_path,
             dirty ? "(modified)" : "(clean)");
    mvprintw(2, 0, "Enter configure, j/k move, s save, q quit without saving");
-   mvprintw(4, 0, "   class              display     output     sample             src      vis/cur/paint cursor                 replace");
+   mvprintw(4, 0, "   class              display     output     sample             src      width/adv/cur/repaint cursor                 replace");
    for (row = 0; row < visible_rows; row++)
    {
       i = top + row;
@@ -4953,13 +5013,13 @@ static void draw_calibration_menu(ProbeConfig *cfg,
          break;
       if (i == selected)
          attrset(A_REVERSE);
-      mvprintw(5 + row, 0, "%c %-18s %-10s %-10s %-18s %-8s %2d/%-2d/%-2d %-22s %-22s",
+      mvprintw(5 + row, 0, "%c %-18s %-10s %-10s %-18s %-8s %2d/%-2d/%-2d/%-2d %-22s %-22s",
                i == selected ? '>' : ' ',
                entries[i].feature_class, entries[i].display_mode,
                entries[i].output_method, entries[i].sample->name,
                calibration_entry_is_default(&entries[i]) ? "default" : "override",
-               entries[i].layout_width, entries[i].cursor_width,
-               entries[i].paint_width,
+               entries[i].width, entries[i].advance_width,
+               entries[i].cursor_width, entries[i].repaint_width,
                profile_strategy_name(entries[i].cursor_strategy),
                profile_strategy_name(entries[i].replacement_strategy));
       if (i == selected)
@@ -5023,13 +5083,14 @@ static int calibration_main_menu(ProbeConfig *cfg,
                                          &entries[selected]))
             dirty = 1;
          reportf(cfg,
-                 "calibrate,class=%s,display=%s,output=%s,sample=%s,layout_width=%d,cursor_width=%d,paint_width=%d,cursor_strategy=%s,replacement_strategy=%s\n",
+                 "calibrate,class=%s,display=%s,output=%s,sample=%s,width=%d,advance_width=%d,cursor_width=%d,repaint_width=%d,cursor_strategy=%s,replacement_strategy=%s\n",
                  entries[selected].feature_class,
                  entries[selected].display_mode,
                  entries[selected].output_method,
                  entries[selected].sample->name,
-                 entries[selected].layout_width, entries[selected].cursor_width,
-                 entries[selected].paint_width,
+                 entries[selected].width,
+                 entries[selected].advance_width, entries[selected].cursor_width,
+                 entries[selected].repaint_width,
                  entries[selected].cursor_strategy,
                  entries[selected].replacement_strategy);
       }
@@ -5061,11 +5122,11 @@ static void run_calibration_probe(ProbeConfig *cfg)
    {
       for (i = 0; i < count; i++)
          reportf(cfg,
-                 "calibrate,class=%s,display=%s,output=%s,sample=%s,layout_width=%d,cursor_width=%d,paint_width=%d,cursor_strategy=%s,replacement_strategy=%s\n",
+                 "calibrate,class=%s,display=%s,output=%s,sample=%s,width=%d,advance_width=%d,cursor_width=%d,repaint_width=%d,cursor_strategy=%s,replacement_strategy=%s\n",
                  entries[i].feature_class, entries[i].display_mode,
                  entries[i].output_method, entries[i].sample->name,
-                 entries[i].layout_width, entries[i].cursor_width,
-                 entries[i].paint_width,
+                 entries[i].width, entries[i].advance_width, entries[i].cursor_width,
+                 entries[i].repaint_width,
                  entries[i].cursor_strategy, entries[i].replacement_strategy);
       if (cfg->write_profile)
       {
@@ -5184,8 +5245,8 @@ static void usage(const char *argv0)
    printf("          add --no-visual --write-profile to validate and rewrite a profile without UI\n");
    printf("       %s list\n", argv0);
    printf("       %s view [selector] [--pause]\n", argv0);
-   printf("       %s cursor selector layout_width cursor_width [mode] [--timeout-ms n]\n", argv0);
-   printf("       %s chain selector layout_width cursor_width [mode] [--timeout-ms n]\n", argv0);
+   printf("       %s cursor selector advance_width cursor_width [mode] [--timeout-ms n]\n", argv0);
+   printf("       %s chain selector advance_width cursor_width [mode] [--timeout-ms n]\n", argv0);
    printf("\n");
    printf("common selectors: all, focus, keycap, flag, flags, zwj, or any listed class/sample\n");
    printf("calibrate defaults to selector=all and writes only overrides from coded defaults.\n");
@@ -5196,9 +5257,9 @@ static void usage(const char *argv0)
    printf("       %s --raw-diagnostic [--report path] [--pause] [--timeout-ms n]\n", argv0);
    printf("       %s --curses-diagnostic [--report path] [--pause] [--timeout-ms n]\n", argv0);
    printf("       %s --utfvis selector [--pause]\n", argv0);
-   printf("       %s --testcursor selector layout_width cursor_width [mode] [--timeout-ms n]\n", argv0);
+   printf("       %s --testcursor selector advance_width cursor_width [mode] [--timeout-ms n]\n", argv0);
    printf("          mode is frame, cell, line, flashline, flashcell, flashpair, or flashfrom0..6; default is frame\n");
-   printf("       %s --testchain selector layout_width cursor_width [mode] [--timeout-ms n]\n", argv0);
+   printf("       %s --testchain selector advance_width cursor_width [mode] [--timeout-ms n]\n", argv0);
    printf("          mode is cells, line, suffix, prev, first, or whole; default is prev\n");
    printf("       %s --list\n", argv0);
    printf("       %s --version\n", argv0);
@@ -5342,7 +5403,7 @@ int main(int argc, char **argv)
       {
          cfg.testcursor = 1;
          cfg.testcursor_selector = argv[++i];
-         cfg.testcursor_layout_width = atoi(argv[++i]);
+         cfg.testcursor_advance_width = atoi(argv[++i]);
          cfg.testcursor_cursor_width = atoi(argv[++i]);
          while (i + 1 < argc && argv[i + 1][0] != '-')
          {
@@ -5374,7 +5435,7 @@ int main(int argc, char **argv)
       {
          cfg.testchain = 1;
          cfg.testchain_selector = argv[++i];
-         cfg.testchain_layout_width = atoi(argv[++i]);
+         cfg.testchain_advance_width = atoi(argv[++i]);
          cfg.testchain_cursor_width = atoi(argv[++i]);
          while (i + 1 < argc && argv[i + 1][0] != '-')
          {
@@ -5441,9 +5502,9 @@ int main(int argc, char **argv)
                  cfg.testcursor_selector);
          return 2;
       }
-      if (cfg.testcursor_layout_width < 1 || cfg.testcursor_cursor_width < 1)
+      if (cfg.testcursor_advance_width < 1 || cfg.testcursor_cursor_width < 1)
       {
-         fprintf(stderr, "layout_width and cursor_width must be positive\n");
+         fprintf(stderr, "advance_width and cursor_width must be positive\n");
          return 2;
       }
       if (!testcursor_mode_valid(cfg.testcursor_mode))
@@ -5460,9 +5521,9 @@ int main(int argc, char **argv)
                  cfg.testchain_selector);
          return 2;
       }
-      if (cfg.testchain_layout_width < 1 || cfg.testchain_cursor_width < 1)
+      if (cfg.testchain_advance_width < 1 || cfg.testchain_cursor_width < 1)
       {
-         fprintf(stderr, "layout_width and cursor_width must be positive\n");
+         fprintf(stderr, "advance_width and cursor_width must be positive\n");
          return 2;
       }
       if (!testchain_mode_valid(cfg.testchain_mode))

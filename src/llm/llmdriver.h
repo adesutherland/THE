@@ -28,6 +28,10 @@ typedef struct
 {
    int cell;
    int logical_width;
+   int width;
+   int advance_width;
+   int cursor_width;
+   int repaint_width;
    char feature_class[LLM_DRIVER_MAX_UTF_NAME];
    char output[LLM_DRIVER_MAX_UTF_NAME];
    char mark[LLM_DRIVER_MAX_UTF_NAME];

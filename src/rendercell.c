@@ -47,9 +47,10 @@ void the_render_cluster_init(TheRenderCluster *cluster, TheRenderAttr attr)
    cluster->output_method = UTF8_TERM_OUTPUT_NATIVE;
    cluster->mark = UTF8_TERM_MARK_NONE;
    cluster->logical_width = 1;
-   cluster->display_width = 1;
+   cluster->width = 1;
+   cluster->advance_width = 1;
    cluster->cursor_width = 1;
-   cluster->paint_width = 1;
+   cluster->repaint_width = 1;
    cluster->repair_strategy = UTF8_TERM_STRATEGY_CHANGED_CELLS;
    cluster->flags = THE_RENDER_CLUSTER_HAS_FALLBACK;
 }
@@ -62,15 +63,17 @@ void the_render_cluster_set_attr(TheRenderCluster *cluster,
 }
 
 void the_render_cluster_set_widths(TheRenderCluster *cluster,
-                                   int logical_width, int display_width,
-                                   int cursor_width, int paint_width)
+                                   int logical_width, int width,
+                                   int advance_width, int cursor_width,
+                                   int repaint_width)
 {
    if (cluster == NULL)
       return;
    cluster->logical_width = render_width_or_one(logical_width);
-   cluster->display_width = render_width_or_one(display_width);
+   cluster->width = render_width_or_one(width);
+   cluster->advance_width = render_width_or_one(advance_width);
    cluster->cursor_width = render_width_or_one(cursor_width);
-   cluster->paint_width = render_width_or_one(paint_width);
+   cluster->repaint_width = render_width_or_one(repaint_width);
 }
 
 void the_render_cluster_set_repair_strategy(TheRenderCluster *cluster,
@@ -156,6 +159,7 @@ int the_render_cell_from_codepoint(TheRenderCell *cell, uint32_t codepoint,
    the_render_cluster_set_widths(cell, render_width_or_one(width),
                                  render_width_or_one(width),
                                  render_width_or_one(width),
+                                 render_width_or_one(width),
                                  render_width_or_one(width));
    return 1;
 }
@@ -223,9 +227,10 @@ int the_render_cluster_from_text_cluster(TheRenderCluster *dest,
 
    the_render_cluster_set_widths(dest,
       utf8_layout_cluster_logical_width(cluster),
-      utf8_layout_cluster_display_width(line, len, cluster),
+      utf8_layout_cluster_width(line, len, cluster),
+      utf8_layout_cluster_advance_width(line, len, cluster),
       utf8_layout_cluster_cursor_width(line, len, cluster),
-      utf8_layout_cluster_paint_width(line, len, cluster));
+      utf8_layout_cluster_repaint_width(line, len, cluster));
    return dest->codepoint_count > 0
        ||  (dest->flags & THE_RENDER_CLUSTER_SUBSTITUTE);
 }

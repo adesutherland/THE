@@ -19,11 +19,13 @@ typedef struct
 const Utf8TerminalProfileEntry *utf8_layout_cluster_profile(
    const CHARTYPE *line, size_t len, TextCluster cluster);
 int utf8_layout_cluster_logical_width(TextCluster cluster);
-int utf8_layout_cluster_display_width(const CHARTYPE *line, size_t len,
+int utf8_layout_cluster_width(const CHARTYPE *line, size_t len,
+                              TextCluster cluster);
+int utf8_layout_cluster_advance_width(const CHARTYPE *line, size_t len,
                                       TextCluster cluster);
 int utf8_layout_cluster_cursor_width(const CHARTYPE *line, size_t len,
                                      TextCluster cluster);
-int utf8_layout_cluster_paint_width(const CHARTYPE *line, size_t len,
+int utf8_layout_cluster_repaint_width(const CHARTYPE *line, size_t len,
                                     TextCluster cluster);
 int utf8_layout_display_col_from_logical(const CHARTYPE *line, size_t len,
                                          int viewport_col, int logical_col);

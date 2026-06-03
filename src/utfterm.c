@@ -101,8 +101,8 @@ static const StrategyName strategy_names[] =
    { NULL, UTF8_TERM_STRATEGY_UNKNOWN }
 };
 
-#define UTF8_TERM_DEFAULT_ENTRY(feature_class, feature_class_name, display_mode, display_mode_name, output_method, output_method_name, substitute_codepoint, layout_width, cursor_width, paint_width, cursor_strategy, cursor_strategy_name, replacement_strategy, replacement_strategy_name) \
-   { feature_class, display_mode, output_method, substitute_codepoint, UTF8_TERM_MARK_NONE, layout_width, cursor_width, paint_width, cursor_strategy, replacement_strategy },
+#define UTF8_TERM_DEFAULT_ENTRY(feature_class, feature_class_name, display_mode, display_mode_name, output_method, output_method_name, substitute_codepoint, width, advance_width, cursor_width, repaint_width, cursor_strategy, cursor_strategy_name, replacement_strategy, replacement_strategy_name) \
+   { feature_class, display_mode, output_method, substitute_codepoint, UTF8_TERM_MARK_NONE, width, advance_width, cursor_width, repaint_width, cursor_strategy, replacement_strategy },
 
 static const Utf8TerminalProfileEntry default_entries[] =
 {
@@ -117,58 +117,53 @@ static Utf8TerminalProfileEntry profile_entries[
 static int profile_initialised = 0;
 static Utf8TerminalDisplayMode display_mode = UTF8_TERM_DISPLAY_GROUPED;
 
-static int max_int(int left, int right)
-{
-   return left > right ? left : right;
-}
-
 static const char *apple_terminal_overrides[] =
 {
-   "SET UTF TERMINAL CLASS combining LAYOUT 1 CURSOR 1",
+   "SET UTF TERMINAL CLASS combining WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1",
    "SET UTF TERMINAL CLASS combining CURSORSTRATEGY cells",
    "SET UTF TERMINAL CLASS combining REPLACESTRATEGY cells",
-   "SET UTF TERMINAL CLASS combining-stack LAYOUT 1 CURSOR 1",
+   "SET UTF TERMINAL CLASS combining-stack WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1",
    "SET UTF TERMINAL CLASS combining-stack CURSORSTRATEGY cells",
    "SET UTF TERMINAL CLASS combining-stack REPLACESTRATEGY cells",
-   "SET UTF TERMINAL CLASS wide LAYOUT 2 CURSOR 2",
+   "SET UTF TERMINAL CLASS wide WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2",
    "SET UTF TERMINAL CLASS wide CURSORSTRATEGY cells",
    "SET UTF TERMINAL CLASS wide REPLACESTRATEGY line",
-   "SET UTF TERMINAL CLASS emoji LAYOUT 2 CURSOR 2",
+   "SET UTF TERMINAL CLASS emoji WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2",
    "SET UTF TERMINAL CLASS emoji CURSORSTRATEGY cells",
    "SET UTF TERMINAL CLASS emoji REPLACESTRATEGY line",
-   "SET UTF TERMINAL CLASS text-variation LAYOUT 1 CURSOR 1",
+   "SET UTF TERMINAL CLASS text-variation WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1",
    "SET UTF TERMINAL CLASS text-variation CURSORSTRATEGY cells",
    "SET UTF TERMINAL CLASS text-variation REPLACESTRATEGY cells",
-   "SET UTF TERMINAL CLASS emoji-variation LAYOUT 2 CURSOR 2",
+   "SET UTF TERMINAL CLASS emoji-variation WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2",
    "SET UTF TERMINAL CLASS emoji-variation CURSORSTRATEGY cells",
    "SET UTF TERMINAL CLASS emoji-variation REPLACESTRATEGY line",
-   "SET UTF TERMINAL CLASS modifier LAYOUT 4 CURSOR 4",
+   "SET UTF TERMINAL CLASS modifier WIDTH 2 ADVANCE 4 CURSOR 4 REPAINT 4",
    "SET UTF TERMINAL CLASS modifier CURSORSTRATEGY cells",
    "SET UTF TERMINAL CLASS modifier REPLACESTRATEGY line",
    "SET UTF TERMINAL CLASS keycap OUTPUT base",
    "SET UTF TERMINAL CLASS keycap MARK compressed",
-   "SET UTF TERMINAL CLASS keycap LAYOUT 1 CURSOR 1",
+   "SET UTF TERMINAL CLASS keycap WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1",
    "SET UTF TERMINAL CLASS keycap CURSORSTRATEGY cells",
    "SET UTF TERMINAL CLASS keycap REPLACESTRATEGY cells",
    "SET UTF TERMINAL CLASS short-zwj DISPLAY grouped OUTPUT substitute U+0040",
    "SET UTF TERMINAL CLASS short-zwj DISPLAY components OUTPUT native",
-   "SET UTF TERMINAL CLASS short-zwj DISPLAY components LAYOUT 4 CURSOR 4",
+   "SET UTF TERMINAL CLASS short-zwj DISPLAY components WIDTH 4 ADVANCE 4 CURSOR 4 REPAINT 4",
    "SET UTF TERMINAL CLASS short-zwj DISPLAY components CURSORSTRATEGY cells",
    "SET UTF TERMINAL CLASS short-zwj DISPLAY components REPLACESTRATEGY line",
    "SET UTF TERMINAL CLASS heart-zwj DISPLAY grouped OUTPUT substitute U+0040",
    "SET UTF TERMINAL CLASS heart-zwj DISPLAY components OUTPUT expanded",
-   "SET UTF TERMINAL CLASS heart-zwj DISPLAY components LAYOUT 6 CURSOR 6",
+   "SET UTF TERMINAL CLASS heart-zwj DISPLAY components WIDTH 6 ADVANCE 6 CURSOR 6 REPAINT 6",
    "SET UTF TERMINAL CLASS heart-zwj DISPLAY components CURSORSTRATEGY cells",
    "SET UTF TERMINAL CLASS heart-zwj DISPLAY components REPLACESTRATEGY line",
    "SET UTF TERMINAL CLASS family-zwj DISPLAY grouped OUTPUT substitute U+0040",
    "SET UTF TERMINAL CLASS family-zwj DISPLAY components OUTPUT expanded",
-   "SET UTF TERMINAL CLASS family-zwj DISPLAY components LAYOUT 8 CURSOR 8",
+   "SET UTF TERMINAL CLASS family-zwj DISPLAY components WIDTH 8 ADVANCE 8 CURSOR 8 REPAINT 8",
    "SET UTF TERMINAL CLASS family-zwj DISPLAY components CURSORSTRATEGY cells",
    "SET UTF TERMINAL CLASS family-zwj DISPLAY components REPLACESTRATEGY line",
-   "SET UTF TERMINAL CLASS tag-flag LAYOUT 2 CURSOR 2",
+   "SET UTF TERMINAL CLASS tag-flag WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2",
    "SET UTF TERMINAL CLASS tag-flag CURSORSTRATEGY cells",
    "SET UTF TERMINAL CLASS tag-flag REPLACESTRATEGY line",
-   "SET UTF TERMINAL CLASS private-use LAYOUT 1 CURSOR 1",
+   "SET UTF TERMINAL CLASS private-use WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1",
    "SET UTF TERMINAL CLASS private-use CURSORSTRATEGY cells",
    "SET UTF TERMINAL CLASS private-use REPLACESTRATEGY cells"
 };
@@ -581,9 +576,10 @@ static Utf8TerminalOutput coerce_output_for_display(Utf8TerminalDisplayMode disp
 
 static void apply_substitute_defaults(Utf8TerminalProfileEntry *entry)
 {
-   entry->layout_width = 1;
+   entry->width = 1;
+   entry->advance_width = 1;
    entry->cursor_width = 1;
-   entry->paint_width = 1;
+   entry->repaint_width = 1;
    entry->cursor_strategy = UTF8_TERM_STRATEGY_CHANGED_CELLS;
    entry->replacement_strategy = UTF8_TERM_STRATEGY_CHANGED_CELLS;
    entry->mark = UTF8_TERM_MARK_SUBSTITUTED;
@@ -716,39 +712,67 @@ int utf8_terminal_profile_apply_line(const char *line)
       return apply_output(entry, output, substitute_codepoint,
                           has_substitute_codepoint);
    }
-   if (ascii_equal_ci(tokens[index], "layout"))
+   if (ascii_equal_ci(tokens[index], "width"))
    {
-      int layout_width;
+      int width;
+      int advance_width;
       int cursor_width;
-      int paint_width;
+      int repaint_width;
 
-      if ((index + 4 != count && index + 6 != count)
-      ||  !ascii_equal_ci(tokens[index + 2], "cursor"))
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      if (!parse_positive_int(tokens[index + 1], &layout_width)
-      ||  !parse_positive_int(tokens[index + 3], &cursor_width))
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      paint_width = max_int(layout_width, cursor_width);
-      if (index + 6 == count)
+      if (index + 2 == count)
       {
-         if (!ascii_equal_ci(tokens[index + 4], "paint")
-         ||  !parse_positive_int(tokens[index + 5], &paint_width))
+         if (!parse_positive_int(tokens[index + 1], &width))
             return UTF8_TERMINAL_PROFILE_INVALID;
+         entry->width = width;
+         return UTF8_TERMINAL_PROFILE_APPLIED;
       }
-      entry->layout_width = layout_width;
+      if (index + 8 != count
+      ||  !ascii_equal_ci(tokens[index + 2], "advance")
+      ||  !ascii_equal_ci(tokens[index + 4], "cursor")
+      ||  !ascii_equal_ci(tokens[index + 6], "repaint"))
+         return UTF8_TERMINAL_PROFILE_INVALID;
+      if (!parse_positive_int(tokens[index + 1], &width)
+      ||  !parse_positive_int(tokens[index + 3], &advance_width)
+      ||  !parse_positive_int(tokens[index + 5], &cursor_width)
+      ||  !parse_positive_int(tokens[index + 7], &repaint_width))
+         return UTF8_TERMINAL_PROFILE_INVALID;
+      entry->width = width;
+      entry->advance_width = advance_width;
       entry->cursor_width = cursor_width;
-      entry->paint_width = paint_width;
+      entry->repaint_width = repaint_width;
       return UTF8_TERMINAL_PROFILE_APPLIED;
    }
-   if (ascii_equal_ci(tokens[index], "paint"))
+   if (ascii_equal_ci(tokens[index], "advance"))
    {
-      int paint_width;
+      int advance_width;
 
       if (index + 2 != count)
          return UTF8_TERMINAL_PROFILE_INVALID;
-      if (!parse_positive_int(tokens[index + 1], &paint_width))
+      if (!parse_positive_int(tokens[index + 1], &advance_width))
          return UTF8_TERMINAL_PROFILE_INVALID;
-      entry->paint_width = paint_width;
+      entry->advance_width = advance_width;
+      return UTF8_TERMINAL_PROFILE_APPLIED;
+   }
+   if (ascii_equal_ci(tokens[index], "cursor"))
+   {
+      int cursor_width;
+
+      if (index + 2 != count)
+         return UTF8_TERMINAL_PROFILE_INVALID;
+      if (!parse_positive_int(tokens[index + 1], &cursor_width))
+         return UTF8_TERMINAL_PROFILE_INVALID;
+      entry->cursor_width = cursor_width;
+      return UTF8_TERMINAL_PROFILE_APPLIED;
+   }
+   if (ascii_equal_ci(tokens[index], "repaint"))
+   {
+      int repaint_width;
+
+      if (index + 2 != count)
+         return UTF8_TERMINAL_PROFILE_INVALID;
+      if (!parse_positive_int(tokens[index + 1], &repaint_width))
+         return UTF8_TERMINAL_PROFILE_INVALID;
+      entry->repaint_width = repaint_width;
       return UTF8_TERMINAL_PROFILE_APPLIED;
    }
    if (ascii_equal_ci(tokens[index], "mark"))

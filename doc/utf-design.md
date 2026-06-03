@@ -92,15 +92,19 @@ feature_class
 display_mode
 output_method
 substitute_codepoint
-layout_width
-cursor_background_width
+width
+advance_width
+cursor_width
+repaint_width
 cursor_strategy
 replacement_strategy
 ```
 
-`layout_width` and `cursor_background_width` are the physical widths used by
-the renderer and software cursor. They are not byte counts, code point counts,
-or necessarily utf8proc's logical cell width. `output_method` is `native`,
+`width` is the human/user-visible width reported by THE metadata.
+`advance_width` and `cursor_width` are the physical terminal widths used by
+the renderer and software cursor. `repaint_width` is the cleanup footprint used
+when blanking or repainting stale terminal cells. These are not byte counts,
+code point counts, or necessarily utf8proc's logical cell width. `output_method` is `native`,
 `expanded`, or `substitute`; substitute output is available to any class and
 display mode and is still only a display choice. `cursor_strategy` records how far
 left THE must reset terminal composition state before repainting during cursor
@@ -133,7 +137,7 @@ Current Apple Terminal findings from `utf_terminal_probe`:
 
 - Regional flags are the control success case. `--testcursor flag 3 3 line`
   walks cleanly in Apple Terminal.
-- Keycaps are physically `layout_width=2` and `cursor_background_width=2`.
+- Keycaps are physically `width=2`, `advance_width=2`, and `cursor_width=2`.
   Wider static layouts can make isolated rows look tempting, but they shift the
   following `B`, space, and next `A`.
 - Keycaps corrupt when THE/curses locally repaints after the keycap. The
@@ -492,28 +496,33 @@ matches THE's cluster/cell model. Clusters too large for `cchar_t` currently
 fall back to codepoint output; this is why long ZWJ emoji remain an important
 manual-test case.
 
-When a cluster's display width differs from the sum of its component code point
-widths, the file-area renderer may reserve a wider physical paint footprint
-while preserving the logical position. Current compatibility cases are macOS
-regional-flag overhang and one-cell emoji-presentation/keycap clusters that
-terminals commonly render as two physical cells.
+When a cluster's terminal advance differs from the sum of its component code
+point widths, the file-area renderer may reserve a wider physical repaint
+footprint while preserving the logical position. Current compatibility cases
+are macOS regional-flag overhang and one-cell emoji-presentation/keycap
+clusters that terminals commonly render as two physical cells.
 
-Terminal policy must keep cursor advance and paint footprint separate:
+Terminal policy must keep user-visible width, terminal advance, cursor coverage,
+and repaint footprint separate:
 
 - **Logical width** comes from the editor text model. It determines grapheme
   movement, status lookup, text editing, and API-facing positions.
-- **Cursor/display advance width** is the terminal column distance between
+- **Width** is the human/user-visible cluster width reported by profiles and
+  semantic metadata.
+- **Advance width** is the terminal column distance between
   logical cursor stops after terminal-specific shaping. It is used to map
   logical columns to physical screen columns and back.
-- **Paint footprint width** is the number of physical cells that must be
+- **Cursor width** is the physical width that cursor/background presentation
+  should cover.
+- **Repaint width** is the number of physical cells that must be
   cleared/redrawn to avoid stale or overpainted glyph pixels. It may be wider
-  than cursor/display advance.
+  than terminal advance.
 - **Cursor styling policy** is separate again: some terminal/glyph combinations
   cannot be safely reverse-video styled and may need marker/underline-style
   cursor presentation instead of recolouring the glyph itself.
 
 The Apple Terminal keycap probe result is the current motivating example. The
-early raw-only POC made `raw_paint3_cursor2_marker` look promising, but later
+early raw-only POC made `raw_repaint3_cursor2_marker` look promising, but later
 curses/THE-style probes superseded that result. Keycaps are a two-cell physical
 layout with a two-cell software cursor on Apple Terminal. The bug is not that
 the following `B` should move to a third cell; it is that local repaint after a
@@ -606,7 +615,7 @@ rebuilding. The proposed calibration utility is an interactive probe built from
 - For each class it first runs an automatic cursor-advance probe using raw
   terminal output and `CSI 6 n`, and where useful compares that with curses
   accounting.
-- It then shows a small set of visual choices for paint footprint and cursor
+- It then shows a small set of visual choices for repaint footprint and cursor
   styling. The user steps through options and selects the first row that looks
   correct.
 - The saved result records terminal policy, not Unicode semantics. Logical
@@ -621,9 +630,10 @@ identity. Each entry should contain at least:
 feature_class
 display_mode
 output_method
-layout_width
-cursor_background_width
-paint_footprint_width
+width
+advance_width
+cursor_width
+repaint_width
 repaint_strategy
 replacement_strategy
 cursor_style_strategy
@@ -638,8 +648,8 @@ being evaluated for either mode. A substitute-only `grouped` entry may not need
 ZWJ-specific probe measurements because THE will render the configured
 substitute as an ordinary character/string.
 
-`layout_width` can often be approximated automatically with cursor-position
-queries. `cursor_background_width`, `paint_footprint_width`,
+`advance_width` can often be approximated automatically with cursor-position
+queries. `width`, `cursor_width`, `repaint_width`,
 `repaint_strategy`, `replacement_strategy`, and the ZWJ display/output mapping
 usually require visual confirmation because common terminal protocols do not
 report which neighbouring cells a color glyph painted over or which composition
@@ -651,9 +661,10 @@ The current Apple Terminal keycap finding would save roughly:
 
 ```text
 feature_class=keycap
-layout_width=2
-cursor_background_width=2
-paint_footprint_width=2
+width=2
+advance_width=2
+cursor_width=2
+repaint_width=2
 repaint_strategy=first
 replacement_strategy=unproven
 cursor_style_strategy=background_cells
@@ -816,8 +827,8 @@ Terminal probe tool:
   utf_terminal_probe calibrate [selector]
   utf_terminal_probe list
   utf_terminal_probe view [selector]
-  utf_terminal_probe cursor selector layout_width cursor_width [mode]
-  utf_terminal_probe chain selector layout_width cursor_width [mode]
+  utf_terminal_probe cursor selector advance_width cursor_width [mode]
+  utf_terminal_probe chain selector advance_width cursor_width [mode]
   ```
 
   Calibration mode reads the existing profile when present, then opens a main
@@ -829,8 +840,8 @@ Terminal probe tool:
   rather than one flat ZWJ-policy choice:
 
   ```text
-  family-zwj grouped       native literal     L? C? cursor=? replace=?   or substitute
-  family-zwj components  native fallback    L? C? cursor=? replace=?   or expanded
+  family-zwj grouped       native literal   W? A? C? R? cursor=? replace=?   or substitute
+  family-zwj components  native fallback    W? A? C? R? cursor=? replace=?   or expanded
   ```
 
   The user is choosing what THE should display: a grouped icon/replacement, or
@@ -841,12 +852,12 @@ Terminal probe tool:
   Substitute mode is mostly outside the terminal probe unless the substitute
   itself is a special-width character; the ZWJ-specific measurements are needed
   for native and expanded output. Native and expanded rows each have their own
-  physical `layout_width`, `cursor_background_width`, cursor strategy, and
-  replacement strategy. They may end up the same on one terminal, but the probe
+  `width`, physical `advance_width`, `cursor_width`, `repaint_width`,
+  cursor strategy, and replacement strategy. They may end up the same on one terminal, but the probe
   must treat them as independent until view, cursor walking, and replacement
   all pass. The output-method screen should show both the original file/logical
   code points and, per candidate row, the code points that will be emitted to
-  the terminal plus that row's current/default L/C and repaint settings, a plain
+  the terminal plus that row's current/default W/A/C/R settings, a plain
   editor preview, and a cursor editor preview. This keeps visually-identical
   native fallback and expanded output distinguishable when the only difference
   is that expanded suppresses U+200D.
@@ -861,23 +872,23 @@ Terminal probe tool:
   After selecting a ZWJ display mode row and output method, the following display/view,
   cursor-walk, and replacement screens use that exact physical sample. The view
   screen shows the current/default/policy choices plus integer `1..12`
-  layout/cursor candidates and common layout/cursor hybrids. Cursor and
+  width/advance/cursor/repaint candidates and common hybrids. Cursor and
   replacement strategy screens show a preference score; lower scores are
   faster/preferred when multiple strategies look correct. Changing strategy
   resets the sample to a clean baseline before replaying the animation.
   Built-in defaults are applied before reading the profile, and saved profiles
   contain only classes that differ from those coded defaults. The generated
   profile is a proposed THE instruction fragment, using commands such as
-  `SET UTF TERMINAL CLASS keycap LAYOUT 2 CURSOR 2` and
+  `SET UTF TERMINAL CLASS keycap WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2` and
   `SET UTF TERMINAL CLASS keycap REPLACESTRATEGY first`.
   The eventual ZWJ shape may need display-qualified commands, for example:
 
   ```text
   SET UTF DISPLAY components
   SET UTF TERMINAL CLASS family-zwj DISPLAY grouped OUTPUT native
-  SET UTF TERMINAL CLASS family-zwj DISPLAY grouped LAYOUT 2 CURSOR 2
+  SET UTF TERMINAL CLASS family-zwj DISPLAY grouped WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2
   SET UTF TERMINAL CLASS family-zwj DISPLAY components OUTPUT expanded
-  SET UTF TERMINAL CLASS family-zwj DISPLAY components LAYOUT 8 CURSOR 8
+  SET UTF TERMINAL CLASS family-zwj DISPLAY components WIDTH 8 ADVANCE 8 CURSOR 8 REPAINT 8
   ```
 
   `SET UTF DISPLAY grouped|components|toggle` selects the global display mode
@@ -899,7 +910,7 @@ Terminal probe tool:
   target span plus one following target. `flashfrom0` through `flashfrom6`
   blank and refresh a suffix of the sample before repainting, where the index
   maps to `A1`, `cluster1`, `B1`, `space`, `A2`, `cluster2`, and `B2`.
-  `--testchain selector layout_width cursor_width [cells|line|suffix|prev|first|whole]`
+  `--testchain selector advance_width cursor_width [cells|line|suffix|prev|first|whole]`
   repeats a selected grapheme cluster seven times in
   `XX-A-cluster-B-A-cluster-B-A-cluster-cluster-cluster-B-A-cluster-B-A-cluster-B-XX`.
   `suffix` starts at the changed cluster, `prev` starts one cluster earlier,
@@ -1225,7 +1236,7 @@ Calibration Utility" sections above for the active strategy.
   glyph state.
 - 2026-05-09: Reintroduced the POC's missing logical-to-physical file-area
   display mapping. `TextPos.cell_column` remains the utf8proc/editor model, but
-  file rendering reserves wider physical paint footprints for macOS regional
+  file rendering reserves wider physical repaint footprints for macOS regional
   flags and one-cell emoji-presentation/keycap clusters. Software cursor hit
   testing remains logical and cursor painting uses the mapped physical column.
 - 2026-05-09: Added brackets around the status-line focused cluster so manual
@@ -1308,17 +1319,16 @@ Calibration Utility" sections above for the active strategy.
   trigger.
 - 2026-05-10: Added probe version `2026-05-10-poc5` after the wider raw rows
   improved keycap painting but shifted the following cursor positions. This
-  splits keycap paint reservation from cursor advance, hides the terminal
-  hardware cursor during the raw POC, and adds `raw_paint3_cursor2_marker` and
-  `raw_paint4_cursor2_marker` rows to test the hybrid policy directly.
+  splits keycap repaint reservation from cursor advance, hides the terminal
+  hardware cursor during the raw POC, and adds `raw_repaint3_cursor2_marker` and
+  `raw_repaint4_cursor2_marker` rows to test the hybrid policy directly.
 - 2026-05-10: Applied the first THE-side validation of the split policy.
-  `show_utf8_cluster_display_width()` remains the cursor/display-advance width,
-  while file-area painting now uses a separate keycap paint footprint controlled
-  by `THE_UTF_KEYCAP_PAINT_WIDTH`/`THE_UTF_KEYCAP_PAINT_WIDTH_DEFAULT`.
-- 2026-05-10: Disabled the speculative keycap paint-footprint default after THE
+  `show_utf8_cluster_advance_width()` remains the cursor/display-advance width,
+  while file-area painting now uses a separate keycap repaint footprint.
+- 2026-05-10: Disabled the speculative keycap repaint-footprint default after THE
   still failed the main fixture: the raw ANSI result did not prove that curses'
   virtual-screen model could replay the same layout. The split-policy code
-  remains available behind `THE_UTF_KEYCAP_PAINT_WIDTH`, but the default is
+  remains represented by the terminal-profile repaint fields, but the default is
   neutral until the curses POC identifies a working model.
 - 2026-05-11: Trimmed `--curses-poc` to the promising keycap rows and added
   THE-like block and underline software-cursor variants. Long scenario labels
@@ -1326,11 +1336,11 @@ Calibration Utility" sections above for the active strategy.
   pollute the glyph test. Probe version `2026-05-11-poc9` also clips the
   status line and adds keycap-backdrop rows that keep logical cursor advance at
   two cells while testing two- and three-cell visual cursor coverage for the
-  keycap paint footprint.
+  keycap repaint footprint.
 - 2026-05-11: Rebuilt `--curses-poc` after the animated/raw-repair POC started
   corrupting its own screen. Probe version `2026-05-12-poc23` splits the
   tooling into `--utfvis selector` for static family comparison and
-  `--testcursor selector layout_width cursor_width [mode]` for animated cursor
+  `--testcursor selector advance_width cursor_width [mode]` for animated cursor
   motion. Keycaps and regional flags now use the same focused sample renderer,
   each target position is drawn in an independent cell, and the only cursor
   style is THE's normal background-cell cursor. The failed output-method

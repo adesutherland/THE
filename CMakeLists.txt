@@ -518,6 +518,12 @@ install(DIRECTORY syntax/ DESTINATION share/the/syntax)
 
 # --- Automated Testing ---
 enable_testing()
+set(THE_CTEST_RUNTIME_ENV
+    "THE_BUILD_DIR=${CMAKE_CURRENT_BINARY_DIR}"
+    "THE_BIN=$<TARGET_FILE:${EXECUTABLE_NAME}>"
+    "THE_HOME_DIR=${RELEASE_DIR}"
+    "THE_DRIVER_PATH=${CMAKE_CURRENT_BINARY_DIR}"
+)
 add_test(NAME test_curses_boundary
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_curses_boundary.sh
             ${CMAKE_CURRENT_SOURCE_DIR})
@@ -620,7 +626,7 @@ add_test(NAME test_screenframe COMMAND test_screenframe)
 add_executable(test_llmdriver tests/test_llmdriver.c src/llm/llmdriver.c src/inputevent.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmdriver PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8)
-    target_sources(test_llmdriver PRIVATE src/utfterm.c src/utfcluster.c)
+    target_sources(test_llmdriver PRIVATE src/utfterm.c src/utflayout.c src/utfcluster.c)
 endif()
 if(USE_UTF8 AND USE_UTF8PROC)
     target_link_libraries(test_llmdriver ${THE_UTF8PROC_TARGET})
@@ -630,7 +636,7 @@ add_test(NAME test_llmdriver COMMAND test_llmdriver)
 add_executable(test_virtual_screen tests/test_virtual_screen.c src/llm/llmdriver.c src/inputevent.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_virtual_screen PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8)
-    target_sources(test_virtual_screen PRIVATE src/utfterm.c src/utfcluster.c)
+    target_sources(test_virtual_screen PRIVATE src/utfterm.c src/utflayout.c src/utfcluster.c)
 endif()
 if(USE_UTF8 AND USE_UTF8PROC)
     target_link_libraries(test_virtual_screen ${THE_UTF8PROC_TARGET})
@@ -640,30 +646,39 @@ add_test(NAME test_virtual_screen COMMAND test_virtual_screen)
 add_test(NAME test_the_llm_full_runtime
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_full_runtime.sh
             $<TARGET_FILE:the>)
+set_tests_properties(test_the_llm_full_runtime PROPERTIES
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 add_test(NAME test_rgb_colour_logical
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_rgb_colour_logical.sh
             $<TARGET_FILE:the>)
+set_tests_properties(test_rgb_colour_logical PROPERTIES
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 add_test(NAME test_the_llm_parser_diagnostics
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_parser_diagnostics.sh
             $<TARGET_FILE:the>)
 set_tests_properties(test_the_llm_parser_diagnostics PROPERTIES
-    SKIP_RETURN_CODE 77)
+    SKIP_RETURN_CODE 77
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 add_test(NAME test_the_llm_profile_crexx
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_profile_crexx.sh
             $<TARGET_FILE:the>)
 set_tests_properties(test_the_llm_profile_crexx PROPERTIES
-    SKIP_RETURN_CODE 77)
+    SKIP_RETURN_CODE 77
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 add_test(NAME test_driver_modules
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_driver_modules.sh
             $<TARGET_FILE:the>
             $<TARGET_FILE:the_driver_curses>
             $<TARGET_FILE:the_driver_llm>)
 set_tests_properties(test_driver_modules PROPERTIES
-    SKIP_RETURN_CODE 77)
+    SKIP_RETURN_CODE 77
+    TIMEOUT 20
+    RESOURCE_LOCK the_pty_editor
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 add_executable(test_llmruntime tests/test_llmruntime.c src/llm/llmruntime.c src/llm/llmdriver.c src/parserdiagnostics.c src/inputevent.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmruntime PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8)
-    target_sources(test_llmruntime PRIVATE src/utfterm.c src/utfcluster.c)
+    target_sources(test_llmruntime PRIVATE src/utfterm.c src/utflayout.c src/utfcluster.c)
 endif()
 if(USE_UTF8 AND USE_UTF8PROC)
     target_link_libraries(test_llmruntime ${THE_UTF8PROC_TARGET})
@@ -732,34 +747,34 @@ if(USE_UTF8)
             COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_utf_probe_profile.sh)
         set_tests_properties(test_utf_terminal_probe_profile PROPERTIES
             SKIP_RETURN_CODE 77
-            ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+            ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
         )
     endif()
     add_test(NAME test_system_profile COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_system_profile.sh)
     set_tests_properties(test_system_profile PROPERTIES
         SKIP_RETURN_CODE 77
-        ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
 endif()
 add_test(NAME test_sdslh_integration COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdslh_integration.sh)
 set_tests_properties(test_sdslh_integration PROPERTIES
     SKIP_RETURN_CODE 77
-    ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
 add_test(NAME test_sdslh_multifile_lifecycle COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdslh_multifile_lifecycle.sh)
 set_tests_properties(test_sdslh_multifile_lifecycle PROPERTIES
     SKIP_RETURN_CODE 77
-    ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
 add_test(NAME test_file_ecolor_inheritance COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_file_ecolor_inheritance.sh)
 set_tests_properties(test_file_ecolor_inheritance PROPERTIES
     SKIP_RETURN_CODE 77
-    ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
 add_test(NAME test_message_history COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_message_history.sh)
 set_tests_properties(test_message_history PROPERTIES
     SKIP_RETURN_CODE 77
-    ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
 if(THE_USE_CREXX)
     add_test(NAME test_field_queries COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_field_queries.sh)
@@ -767,7 +782,7 @@ if(THE_USE_CREXX)
         SKIP_RETURN_CODE 77
         TIMEOUT 10
         RESOURCE_LOCK the_pty_editor
-        ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
     if(USE_UTF8)
         add_test(NAME test_field_queries_utf COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_field_queries.sh --utf)
@@ -776,7 +791,7 @@ if(THE_USE_CREXX)
             TIMEOUT 10
             RESOURCE_LOCK the_pty_editor
             DEPENDS test_field_queries
-            ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+            ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
         )
     endif()
     add_test(NAME test_normal_area_queries COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_normal_area_queries.sh)
@@ -784,7 +799,7 @@ if(THE_USE_CREXX)
         SKIP_RETURN_CODE 77
         TIMEOUT 10
         RESOURCE_LOCK the_pty_editor
-        ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
     add_test(NAME test_sos_navigation_queries COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sos_navigation_queries.sh)
     set_tests_properties(test_sos_navigation_queries PROPERTIES
@@ -792,7 +807,7 @@ if(THE_USE_CREXX)
         TIMEOUT 10
         RESOURCE_LOCK the_pty_editor
         DEPENDS test_normal_area_queries
-        ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
     add_test(NAME test_sos_logical_edit_queries COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sos_logical_edit_queries.sh)
     set_tests_properties(test_sos_logical_edit_queries PROPERTIES
@@ -800,7 +815,7 @@ if(THE_USE_CREXX)
         TIMEOUT 10
         RESOURCE_LOCK the_pty_editor
         DEPENDS test_sos_navigation_queries
-        ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
     add_test(NAME test_selective_change_prompt COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_selective_change_prompt.sh)
     set_tests_properties(test_selective_change_prompt PROPERTIES
@@ -808,11 +823,11 @@ if(THE_USE_CREXX)
         TIMEOUT 15
         RESOURCE_LOCK the_pty_editor
         DEPENDS test_sos_logical_edit_queries
-        ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
     add_test(NAME test_crexx_profile COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_crexx_profile.sh)
     set_tests_properties(test_crexx_profile PROPERTIES
         SKIP_RETURN_CODE 77
-        ENVIRONMENT "THE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
 endif()
