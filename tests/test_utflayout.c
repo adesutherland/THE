@@ -33,6 +33,8 @@ static void test_keycap_physical_layout(void)
               utf8_layout_cluster_display_width(keycap, sizeof(keycap), cluster), 2);
    expect_int("keycap.cursor.width",
               utf8_layout_cluster_cursor_width(keycap, sizeof(keycap), cluster), 2);
+   expect_int("keycap.paint.width",
+              utf8_layout_cluster_paint_width(keycap, sizeof(keycap), cluster), 2);
    expect_int("keycap.logical.to.display.A",
               utf8_layout_display_col_from_logical(keycap, sizeof(keycap), 0, 1), 1);
    expect_int("keycap.logical.to.display.B",
@@ -43,6 +45,26 @@ static void test_keycap_physical_layout(void)
    expect_int("keycap.display.to.logical.forward",
               utf8_layout_logical_col_from_display(keycap, sizeof(keycap), 0, 2,
                                                    TEXT_SNAP_FORWARD), 2);
+
+   utf8_terminal_profile_apply_line(
+      "SET UTF TERMINAL CLASS keycap LAYOUT 2 CURSOR 2 PAINT 4");
+   expect_int("keycap.paint.override.display",
+              utf8_layout_cluster_display_width(keycap, sizeof(keycap), cluster), 2);
+   expect_int("keycap.paint.override.cursor",
+              utf8_layout_cluster_cursor_width(keycap, sizeof(keycap), cluster), 2);
+   expect_int("keycap.paint.override.paint",
+              utf8_layout_cluster_paint_width(keycap, sizeof(keycap), cluster), 4);
+   expect_int("keycap.paint.override.logical.to.display.B",
+              utf8_layout_display_col_from_logical(keycap, sizeof(keycap), 0, 2), 3);
+
+   utf8_terminal_profile_apply_line(
+      "SET UTF TERMINAL CLASS keycap LAYOUT 2 CURSOR 4 PAINT 2");
+   expect_int("keycap.cursor.override.cursor",
+              utf8_layout_cluster_cursor_width(keycap, sizeof(keycap), cluster), 4);
+   expect_int("keycap.cursor.override.paint",
+              utf8_layout_cluster_paint_width(keycap, sizeof(keycap), cluster), 2);
+   expect_int("keycap.cursor.override.logical.to.display.B",
+              utf8_layout_display_col_from_logical(keycap, sizeof(keycap), 0, 2), 3);
 }
 
 static void test_keycap_viewport_uses_physical_width(void)

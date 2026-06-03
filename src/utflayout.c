@@ -42,13 +42,14 @@ int utf8_layout_cluster_cursor_width(const CHARTYPE *line, size_t len,
 int utf8_layout_cluster_paint_width(const CHARTYPE *line, size_t len,
                                     TextCluster cluster)
 {
+   const Utf8TerminalProfileEntry *entry;
    int paint_width = utf8_layout_cluster_display_width(line, len, cluster);
-   int cursor_width = utf8_layout_cluster_cursor_width(line, len, cluster);
 
+   entry = utf8_layout_cluster_profile(line, len, cluster);
+   if (entry != NULL && entry->paint_width > 0)
+      paint_width = entry->paint_width;
    if (paint_width <= 0)
       paint_width = utf8_layout_cluster_logical_width(cluster);
-   if (cursor_width > paint_width)
-      paint_width = cursor_width;
    return paint_width;
 }
 

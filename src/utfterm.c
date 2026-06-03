@@ -8,7 +8,7 @@
 #include "utfcluster.h"
 
 #define UTF8_TERM_TOKEN_MAX 96
-#define UTF8_TERM_MAX_TOKENS 12
+#define UTF8_TERM_MAX_TOKENS 16
 
 typedef struct
 {
@@ -101,8 +101,8 @@ static const StrategyName strategy_names[] =
    { NULL, UTF8_TERM_STRATEGY_UNKNOWN }
 };
 
-#define UTF8_TERM_DEFAULT_ENTRY(feature_class, feature_class_name, display_mode, display_mode_name, output_method, output_method_name, substitute_codepoint, layout_width, cursor_width, cursor_strategy, cursor_strategy_name, replacement_strategy, replacement_strategy_name) \
-   { feature_class, display_mode, output_method, substitute_codepoint, UTF8_TERM_MARK_NONE, layout_width, cursor_width, cursor_strategy, replacement_strategy },
+#define UTF8_TERM_DEFAULT_ENTRY(feature_class, feature_class_name, display_mode, display_mode_name, output_method, output_method_name, substitute_codepoint, layout_width, cursor_width, paint_width, cursor_strategy, cursor_strategy_name, replacement_strategy, replacement_strategy_name) \
+   { feature_class, display_mode, output_method, substitute_codepoint, UTF8_TERM_MARK_NONE, layout_width, cursor_width, paint_width, cursor_strategy, replacement_strategy },
 
 static const Utf8TerminalProfileEntry default_entries[] =
 {
@@ -116,6 +116,11 @@ static Utf8TerminalProfileEntry profile_entries[
 ];
 static int profile_initialised = 0;
 static Utf8TerminalDisplayMode display_mode = UTF8_TERM_DISPLAY_GROUPED;
+
+static int max_int(int left, int right)
+{
+   return left > right ? left : right;
+}
 
 static const char *apple_terminal_overrides[] =
 {
@@ -578,6 +583,7 @@ static void apply_substitute_defaults(Utf8TerminalProfileEntry *entry)
 {
    entry->layout_width = 1;
    entry->cursor_width = 1;
+   entry->paint_width = 1;
    entry->cursor_strategy = UTF8_TERM_STRATEGY_CHANGED_CELLS;
    entry->replacement_strategy = UTF8_TERM_STRATEGY_CHANGED_CELLS;
    entry->mark = UTF8_TERM_MARK_SUBSTITUTED;
@@ -714,14 +720,35 @@ int utf8_terminal_profile_apply_line(const char *line)
    {
       int layout_width;
       int cursor_width;
+      int paint_width;
 
-      if (index + 4 != count || !ascii_equal_ci(tokens[index + 2], "cursor"))
+      if ((index + 4 != count && index + 6 != count)
+      ||  !ascii_equal_ci(tokens[index + 2], "cursor"))
          return UTF8_TERMINAL_PROFILE_INVALID;
       if (!parse_positive_int(tokens[index + 1], &layout_width)
       ||  !parse_positive_int(tokens[index + 3], &cursor_width))
          return UTF8_TERMINAL_PROFILE_INVALID;
+      paint_width = max_int(layout_width, cursor_width);
+      if (index + 6 == count)
+      {
+         if (!ascii_equal_ci(tokens[index + 4], "paint")
+         ||  !parse_positive_int(tokens[index + 5], &paint_width))
+            return UTF8_TERMINAL_PROFILE_INVALID;
+      }
       entry->layout_width = layout_width;
       entry->cursor_width = cursor_width;
+      entry->paint_width = paint_width;
+      return UTF8_TERMINAL_PROFILE_APPLIED;
+   }
+   if (ascii_equal_ci(tokens[index], "paint"))
+   {
+      int paint_width;
+
+      if (index + 2 != count)
+         return UTF8_TERMINAL_PROFILE_INVALID;
+      if (!parse_positive_int(tokens[index + 1], &paint_width))
+         return UTF8_TERMINAL_PROFILE_INVALID;
+      entry->paint_width = paint_width;
       return UTF8_TERMINAL_PROFILE_APPLIED;
    }
    if (ascii_equal_ci(tokens[index], "mark"))

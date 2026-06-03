@@ -4,7 +4,8 @@
 ## Syntax
 ```text
 [SET] UTF DISPLAY GROUPED|COMPONENTS|TOGGLE
-[SET] UTF TERMINAL CLASS class [DISPLAY display] LAYOUT layout-width CURSOR cursor-width
+[SET] UTF TERMINAL CLASS class [DISPLAY display] LAYOUT layout-width CURSOR cursor-width [PAINT paint-width]
+[SET] UTF TERMINAL CLASS class [DISPLAY display] PAINT paint-width
 [SET] UTF TERMINAL CLASS class [DISPLAY display] OUTPUT method [U+codepoint]
 [SET] UTF TERMINAL CLASS class [DISPLAY display] MARK mark
 [SET] UTF TERMINAL CLASS class [DISPLAY display] CURSORSTRATEGY strategy
@@ -67,8 +68,15 @@ The current default table provides grouped/components entries for ZWJ classes.
 Legacy profile lines using ZWJDISPLAY are accepted for compatibility, but new
 profiles should use DISPLAY with OUTPUT.
 
-LAYOUT specifies the number of terminal cells occupied by the class. CURSOR specifies the
-number of terminal cells the software cursor or cursor background must cover for that class.
+LAYOUT specifies the visible terminal screen advance for the class. This is the
+width used for terminal column and viewport mapping. CURSOR specifies the
+number of terminal cells the software cursor or cursor background must cover
+for that class. PAINT specifies the cleanup footprint to blank or repaint when
+stale glyph fragments may remain. PAINT may be larger than LAYOUT, but it does
+not move the next screen column. CURSOR and PAINT are recorded independently
+because cursor presentation and stale-glyph cleanup can differ. Existing profile
+lines without PAINT remain valid and infer PAINT as the larger of LAYOUT and
+CURSOR.
 
 OUTPUT specifies how the class is written to the terminal. Supported methods are:
 
@@ -115,7 +123,7 @@ logical cursor position, or command semantics. For example:
 ```text
 SET UTF TERMINAL CLASS keycap OUTPUT base
 SET UTF TERMINAL CLASS keycap MARK compressed
-SET UTF TERMINAL CLASS keycap LAYOUT 1 CURSOR 1
+SET UTF TERMINAL CLASS keycap LAYOUT 1 CURSOR 1 PAINT 1
 ```
 
 CURSORSTRATEGY specifies the repaint strategy used when the cursor moves across the class.
@@ -150,6 +158,10 @@ here. REXX-style profile fragments are accepted, so `/* ... */` comments,
 `address the`, and quoted instructions such as
 `'SET UTF TERMINAL CLASS keycap OUTPUT base'` may be used. Blank lines
 and lines beginning with `*` or `#` are ignored.
+
+The UTF terminal probe writes calibrated width settings in the full
+`LAYOUT n CURSOR n PAINT n` form. Older hand-written or generated profiles that
+only contain `LAYOUT n CURSOR n` continue to load.
 
 ## Compatibility
 XEDIT: N/A

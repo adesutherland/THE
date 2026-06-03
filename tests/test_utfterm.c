@@ -67,6 +67,34 @@ static void expect_profile(const char *name,
    expect_int(name, entry->replacement_strategy, replacement_strategy);
 }
 
+static void expect_paint(const char *name,
+                         Utf8TerminalClass feature_class,
+                         Utf8TerminalDisplayMode display,
+                         int paint_width)
+{
+   const Utf8TerminalProfileEntry *entry = expect_entry(name, feature_class, display);
+
+   if (entry == NULL)
+      return;
+   expect_int(name, entry->paint_width, paint_width);
+}
+
+static void expect_widths(const char *name,
+                          Utf8TerminalClass feature_class,
+                          Utf8TerminalDisplayMode display,
+                          int layout_width,
+                          int cursor_width,
+                          int paint_width)
+{
+   const Utf8TerminalProfileEntry *entry = expect_entry(name, feature_class, display);
+
+   if (entry == NULL)
+      return;
+   expect_int(name, entry->layout_width, layout_width);
+   expect_int(name, entry->cursor_width, cursor_width);
+   expect_int(name, entry->paint_width, paint_width);
+}
+
 static void expect_substitute_codepoint(const char *name,
                                         Utf8TerminalClass feature_class,
                                         Utf8TerminalDisplayMode display,
@@ -162,6 +190,8 @@ static void test_line_parser(void)
               utf8_terminal_profile_apply_line(
                  "SET UTF TERMINAL CLASS keycap LAYOUT 9 CURSOR 8"),
               UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_paint("line.keycap.layout.legacy.paint",
+                UTF8_TERM_CLASS_KEYCAP, UTF8_TERM_DISPLAY_NORMAL, 9);
    expect_int("line.rexx.comment",
               utf8_terminal_profile_apply_line("/* generated setting */"),
               UTF8_TERMINAL_PROFILE_IGNORED);
@@ -179,6 +209,8 @@ static void test_line_parser(void)
                   UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 7, 6,
                   UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST,
                   UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST);
+   expect_paint("line.keycap.quoted.paint", UTF8_TERM_CLASS_KEYCAP,
+                UTF8_TERM_DISPLAY_NORMAL, 7);
    expect_int("line.layout.restore",
               utf8_terminal_profile_apply_line(
                  "SET UTF TERMINAL CLASS keycap LAYOUT 9 CURSOR 8"),
@@ -187,6 +219,39 @@ static void test_line_parser(void)
                   UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 9, 8,
                   UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST,
                   UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST);
+   expect_paint("line.keycap.layout.paint", UTF8_TERM_CLASS_KEYCAP,
+                UTF8_TERM_DISPLAY_NORMAL, 9);
+   expect_int("line.layout.explicit.paint",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS keycap LAYOUT 9 CURSOR 8 PAINT 10"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_paint("line.keycap.explicit.paint", UTF8_TERM_CLASS_KEYCAP,
+                UTF8_TERM_DISPLAY_NORMAL, 10);
+   expect_int("line.paint",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS keycap PAINT 11"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_paint("line.keycap.standalone.paint", UTF8_TERM_CLASS_KEYCAP,
+                UTF8_TERM_DISPLAY_NORMAL, 11);
+   expect_int("line.paint.below.cursor",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS keycap PAINT 7"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_paint("line.keycap.paint.below.cursor",
+                UTF8_TERM_CLASS_KEYCAP, UTF8_TERM_DISPLAY_NORMAL, 7);
+   expect_int("line.display.layout.explicit.paint",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS short-zwj DISPLAY components LAYOUT 4 CURSOR 3 PAINT 5"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_profile("line.short.components.layout.paint",
+                  UTF8_TERM_CLASS_SHORT_ZWJ,
+                  UTF8_TERM_DISPLAY_COMPONENTS,
+                  UTF8_TERM_OUTPUT_EXPANDED, 4, 3,
+                  UTF8_TERM_STRATEGY_LINE,
+                  UTF8_TERM_STRATEGY_LINE);
+   expect_paint("line.short.components.paint",
+                UTF8_TERM_CLASS_SHORT_ZWJ,
+                UTF8_TERM_DISPLAY_COMPONENTS, 5);
 
    expect_int("line.replacement",
               utf8_terminal_profile_apply_line(
@@ -294,6 +359,21 @@ static void test_line_parser(void)
               utf8_terminal_profile_apply_line(
                  "SET UTF TERMINAL CLASS made-up LAYOUT 1 CURSOR 1"),
               UTF8_TERMINAL_PROFILE_INVALID);
+   expect_int("line.paint.invalid",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS keycap PAINT 0"),
+              UTF8_TERMINAL_PROFILE_INVALID);
+   expect_int("line.layout.paint.invalid",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS keycap LAYOUT 1 CURSOR 1 PAINT 0"),
+              UTF8_TERMINAL_PROFILE_INVALID);
+   expect_int("line.layout.paint.below.cursor",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS keycap LAYOUT 4 CURSOR 4 PAINT 2"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_widths("line.keycap.layout.paint.below.cursor",
+                 UTF8_TERM_CLASS_KEYCAP, UTF8_TERM_DISPLAY_NORMAL,
+                 4, 4, 2);
 }
 
 static void test_strategy_names(void)
@@ -373,6 +453,8 @@ static void test_profile_file(const char *profile_path)
                   UTF8_TERM_STRATEGY_CHANGED_CELLS);
    expect_mark("system.keycap.mark", UTF8_TERM_CLASS_KEYCAP,
                UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_MARK_COMPRESSED);
+   expect_paint("system.keycap.paint", UTF8_TERM_CLASS_KEYCAP,
+                UTF8_TERM_DISPLAY_NORMAL, 1);
    expect_profile("system.short.group", UTF8_TERM_CLASS_SHORT_ZWJ,
                   UTF8_TERM_DISPLAY_GROUPED, UTF8_TERM_OUTPUT_SUBSTITUTE, 1, 1,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
@@ -390,6 +472,8 @@ static void test_profile_file(const char *profile_path)
                   UTF8_TERM_DISPLAY_COMPONENTS, UTF8_TERM_OUTPUT_NATIVE, 4, 4,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
                   UTF8_TERM_STRATEGY_LINE);
+   expect_paint("system.short.components.paint", UTF8_TERM_CLASS_SHORT_ZWJ,
+                UTF8_TERM_DISPLAY_COMPONENTS, 4);
 }
 
 static void test_terminal_identity(void)
@@ -558,6 +642,7 @@ static void test_cluster_profile_lookup(void)
                  UTF8_TERM_DISPLAY_NORMAL);
       expect_int("lookup.keycap.layout", entry->layout_width, 9);
       expect_int("lookup.keycap.cursor", entry->cursor_width, 8);
+      expect_int("lookup.keycap.paint", entry->paint_width, 9);
       expect_int("lookup.keycap.cursor.strategy", entry->cursor_strategy,
                  UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST);
       expect_int("lookup.keycap.replacement.strategy",

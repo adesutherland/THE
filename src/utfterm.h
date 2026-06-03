@@ -66,8 +66,14 @@ typedef struct
    Utf8TerminalOutput output_method;
    uint32_t substitute_codepoint;
    Utf8TerminalMark mark;
+   /*
+    * LAYOUT is the visible screen advance used for terminal column math.
+    * PAINT is the cleanup footprint used when blanking/repainting stale
+    * terminal cells. Old profiles without PAINT infer it from LAYOUT/CURSOR.
+    */
    int layout_width;
    int cursor_width;
+   int paint_width;
    Utf8TerminalStrategy cursor_strategy;
    Utf8TerminalStrategy replacement_strategy;
 } Utf8TerminalProfileEntry;

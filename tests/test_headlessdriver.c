@@ -232,7 +232,7 @@ static void test_render_cell_model(void)
                  UTF8_TERMINAL_PROFILE_APPLIED);
       expect_int("render.keycap.base.layout.apply",
                  utf8_terminal_profile_apply_line(
-                    "SET UTF TERMINAL CLASS keycap LAYOUT 1 CURSOR 1"),
+                    "SET UTF TERMINAL CLASS keycap LAYOUT 1 CURSOR 1 PAINT 3"),
                  UTF8_TERMINAL_PROFILE_APPLIED);
       expect_int("render.keycap.base.cursor.apply",
                  utf8_terminal_profile_apply_line(
@@ -256,7 +256,7 @@ static void test_render_cell_model(void)
                  (render.flags & THE_RENDER_CLUSTER_BASE) != 0, 1);
       expect_int("render.keycap.base.display", render.display_width, 1);
       expect_int("render.keycap.base.cursor", render.cursor_width, 1);
-      expect_int("render.keycap.base.paint", render.paint_width, 1);
+      expect_int("render.keycap.base.paint", render.paint_width, 3);
       expect_int("render.keycap.base.wchars",
                  the_render_cluster_to_wchars(&render, wch,
                                               sizeof(wch) / sizeof(wch[0])), 1);

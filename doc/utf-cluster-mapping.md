@@ -1,6 +1,6 @@
 # UTF Cluster Mapping Design
 
-Last updated: 2026-06-02.
+Last updated: 2026-06-03.
 
 This document specifies the planned UTF cluster mapping layer. The goal is to
 keep editor text and logical cursor semantics independent from terminal-specific
@@ -200,7 +200,7 @@ class
 display mode
 output transform
 substitute/base data
-layout width
+layout width (visible screen advance)
 cursor width
 paint width
 repair strategy
@@ -208,7 +208,8 @@ visual mark
 ```
 
 The logical layer may ask for the class and mapping metadata, but must not use
-profile layout width as logical column width.
+profile layout width as logical column width. The physical layout layer does use
+profile layout width as terminal screen-column advance.
 
 ## Mapping Syntax
 
@@ -218,7 +219,8 @@ than introduce a second profile language.
 Current syntax remains valid:
 
 ```text
-SET UTF TERMINAL CLASS class [DISPLAY display] LAYOUT n CURSOR n
+SET UTF TERMINAL CLASS class [DISPLAY display] LAYOUT n CURSOR n [PAINT n]
+SET UTF TERMINAL CLASS class [DISPLAY display] PAINT n
 SET UTF TERMINAL CLASS class [DISPLAY display] OUTPUT native
 SET UTF TERMINAL CLASS class [DISPLAY display] OUTPUT expanded
 SET UTF TERMINAL CLASS class [DISPLAY display] OUTPUT substitute U+25A1
@@ -308,13 +310,27 @@ should not be used as the default compressed mode.
 Each rendered cluster has four width concepts:
 
 - logical width: editor logical cell width from the logical text model.
-- display width: physical terminal cells reserved for output.
+- display width: physical terminal cells reserved for output. In terminal
+  profiles this is still named `LAYOUT` for compatibility.
 - cursor width: physical terminal cells covered by hardware/software cursor
   handling.
 - paint width: physical cells that must be blanked/repainted to avoid stale
   fragments.
 
-For native output, display width is terminal-profile-specific.
+`LAYOUT` is the visible screen advance used for terminal column math. It should
+match what a user sees as the cluster's occupied terminal cells after the chosen
+output transform. For example, a regional flag should normally advance two
+terminal columns when the terminal displays it as a two-cell flag.
+
+`PAINT` is a cleanup footprint. It may be larger than `LAYOUT` when a terminal
+needs extra cells blanked to remove stale fragments, but it must not change the
+next screen column. Older profile lines that only say `LAYOUT n CURSOR n` infer
+`PAINT` as `max(LAYOUT,CURSOR)`. `CURSOR` and `PAINT` are independent
+measurements because cursor presentation and stale-glyph cleanup can differ.
+
+For native output, display width is terminal-profile-specific and should be
+measured or calibrated per terminal when the terminal differs from the expected
+Unicode width.
 
 For compressed output, display width should normally equal the safe replacement
 width. Apple Terminal keycaps rendered as `base` should be one display cell and
@@ -326,6 +342,30 @@ string, not the original grouped cluster. It may differ from logical width.
 Profile parsing should reject zero or negative display/cursor widths except for
 explicit future `auto` support. `auto` should not be added until render output
 has a reliable width calculator for transformed strings.
+
+## Current Probe Slice
+
+The near-term implementation keeps `LAYOUT` rather than renaming the profile
+field, but gives the model a third physical width:
+
+1. The calibration probe must present and persist visible/cursor/paint candidates:
+   `LAYOUT` for visible screen advance, `CURSOR` for cursor coverage, and
+   `PAINT` for cleanup footprint. The view screen labels these as
+   `visible/cursor/paint`, can choose a candidate row, or can type explicit
+   widths with `w` in that order.
+2. Render drivers must carry all three physical widths. The screen-column and
+   viewport code use `LAYOUT`; cursor rendering uses `CURSOR`; erase/repaint
+   repair uses `PAINT`.
+3. Generated system profiles should write the full
+   `LAYOUT n CURSOR n PAINT n` form. Existing two-width profile lines remain
+   valid and infer `PAINT=max(LAYOUT,CURSOR)`.
+4. Substitute output must still be calibratable: the probe offers common
+   substitute codepoints, accepts a typed `U+hex` value, and then runs the same
+   width/strategy calibration path as other output methods.
+
+This gives Apple Terminal a way to side-step fragile native glyphs with
+`OUTPUT base`, `OUTPUT substitute`, or component output while still allowing
+native/decomposed display to be selected deliberately through `SET UTF DISPLAY`.
 
 ## Driver Semantics
 
@@ -379,7 +419,7 @@ implemented:
 ```text
 SET UTF TERMINAL CLASS keycap OUTPUT base
 SET UTF TERMINAL CLASS keycap MARK compressed
-SET UTF TERMINAL CLASS keycap LAYOUT 1 CURSOR 1
+SET UTF TERMINAL CLASS keycap LAYOUT 1 CURSOR 1 PAINT 1
 SET UTF TERMINAL CLASS keycap CURSORSTRATEGY cells
 SET UTF TERMINAL CLASS keycap REPLACESTRATEGY cells
 ```

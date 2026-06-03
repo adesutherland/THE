@@ -42,6 +42,11 @@
 #define UTF_TERMINAL_PROBE_VERSION "v1"
 #define PROBE_PROFILE_PATH_MAX 4096
 
+static int max_int(int left, int right)
+{
+   return left > right ? left : right;
+}
+
 #define U8_COMBINING_E_ACUTE "e\xCC\x81"
 #define U8_COMBINING_STACK "a\xCC\x81\xCC\xA7"
 #define U8_CJK_HAN "\xE6\xBC\xA2"
@@ -141,6 +146,7 @@ typedef struct
    uint32_t substitute_codepoint;
    int layout_width;
    int cursor_width;
+   int paint_width;
    const char *cursor_strategy;
    const char *replacement_strategy;
 } CalibrationEntry;
@@ -150,7 +156,14 @@ typedef struct
    const char *name;
    int layout_width;
    int cursor_width;
+   int paint_width;
 } ViewCandidate;
+
+typedef struct
+{
+   const char *name;
+   uint32_t codepoint;
+} SubstituteCandidate;
 
 typedef struct
 {
@@ -167,12 +180,13 @@ typedef struct CalibrationDefault
    uint32_t substitute_codepoint;
    int layout_width;
    int cursor_width;
+   int paint_width;
    const char *cursor_strategy;
    const char *replacement_strategy;
 } CalibrationDefault;
 
-#define PROBE_CALIBRATION_DEFAULT(feature_class, feature_class_name, display_mode, display_mode_name, output_method, output_method_name, substitute_codepoint, layout_width, cursor_width, cursor_strategy, cursor_strategy_name, replacement_strategy, replacement_strategy_name) \
-   { feature_class_name, display_mode_name, output_method_name, substitute_codepoint, layout_width, cursor_width, cursor_strategy_name, replacement_strategy_name },
+#define PROBE_CALIBRATION_DEFAULT(feature_class, feature_class_name, display_mode, display_mode_name, output_method, output_method_name, substitute_codepoint, layout_width, cursor_width, paint_width, cursor_strategy, cursor_strategy_name, replacement_strategy, replacement_strategy_name) \
+   { feature_class_name, display_mode_name, output_method_name, substitute_codepoint, layout_width, cursor_width, paint_width, cursor_strategy_name, replacement_strategy_name },
 
 static const CalibrationDefault calibration_defaults[] =
 {
@@ -422,6 +436,52 @@ static int parse_profile_codepoint(const char *field, uint32_t *codepoint)
    if (parsed >= 0xD800ul && parsed <= 0xDFFFul)
       return 0;
    *codepoint = (uint32_t)parsed;
+   return 1;
+}
+
+static int read_prompt_line(int row, const char *prompt,
+                            char *buffer, size_t buffer_size)
+{
+   int rc;
+
+   if (buffer_size == 0)
+      return 0;
+   buffer[0] = '\0';
+   move(row, 0);
+   clrtoeol();
+   mvprintw(row, 0, "%s", prompt);
+   refresh();
+   echo();
+   rc = getnstr(buffer, (int)buffer_size - 1);
+   noecho();
+   return rc != ERR && buffer[0] != '\0';
+}
+
+static int parse_view_widths(const char *field,
+                             int *layout_width,
+                             int *cursor_width,
+                             int *paint_width)
+{
+   int layout;
+   int cursor;
+   int paint;
+
+   if (field == NULL || layout_width == NULL
+   ||  cursor_width == NULL || paint_width == NULL)
+      return 0;
+   if (sscanf(field, " %d / %d / %d", &layout, &cursor, &paint) != 3
+   &&  sscanf(field, " %d %d %d", &layout, &cursor, &paint) != 3)
+   {
+      if (sscanf(field, " %d / %d", &layout, &cursor) != 2
+      &&  sscanf(field, " %d %d", &layout, &cursor) != 2)
+         return 0;
+      paint = max_int(layout, cursor);
+   }
+   if (layout < 1 || cursor < 1 || paint < 1)
+      return 0;
+   *layout_width = layout;
+   *cursor_width = cursor;
+   *paint_width = paint;
    return 1;
 }
 
@@ -2198,14 +2258,20 @@ static void draw_testcursor_target(const ProbeSample *sample, int row, int col,
    int offsets[7];
    int widths[7];
    int target_cursor_width;
+   int span_end;
+   int i;
 
    testcursor_offsets(layout_width, offsets, widths);
    target_cursor_width = testcursor_is_cluster_target(target)
                        ? cursor_width : widths[target];
+   span_end = offsets[target] + target_cursor_width;
    curses_clear_cells(row, col + offsets[target], target_cursor_width,
                       attr);
    curses_write_cluster_at(METHOD_WADDWSTR, row, col + offsets[target],
                            clusters[target], widths[target], attr);
+   for (i = target + 1; i < 7 && offsets[i] < span_end; i++)
+      curses_write_cluster_at(METHOD_WADDWSTR, row, col + offsets[i],
+                              clusters[i], widths[i], A_NORMAL);
 }
 
 static void draw_testcursor_frame(const ProbeSample *sample, int row, int col,
@@ -2569,14 +2635,21 @@ static void draw_testchain_target(const ProbeSample *sample, int row, int col,
    int offsets[TESTCHAIN_TARGETS];
    int widths[TESTCHAIN_TARGETS];
    int cursor_footprint;
+   int span_end;
+   int i;
 
    testchain_offsets(layout_width, offsets, widths);
    cursor_footprint = testchain_is_cluster_target(target)
                     ? cursor_width : widths[target];
+   span_end = offsets[target] + cursor_footprint;
    curses_clear_cells(row, col + offsets[target], cursor_footprint, attr);
    curses_write_cluster_at(METHOD_WADDWSTR, row, col + offsets[target],
                            testchain_item_text(sample, target),
                            widths[target], attr);
+   for (i = target + 1; i < TESTCHAIN_TARGETS && offsets[i] < span_end; i++)
+      curses_write_cluster_at(METHOD_WADDWSTR, row, col + offsets[i],
+                              testchain_item_text(sample, i),
+                              widths[i], A_NORMAL);
 }
 
 static void draw_testchain_frame(const ProbeSample *sample, int row, int col,
@@ -3057,6 +3130,7 @@ static size_t collect_calibration_entries(ProbeConfig *cfg,
       entries[count].substitute_codepoint = defaults->substitute_codepoint;
       entries[count].layout_width = defaults->layout_width;
       entries[count].cursor_width = defaults->cursor_width;
+      entries[count].paint_width = defaults->paint_width;
       entries[count].cursor_strategy = defaults->cursor_strategy;
       entries[count].replacement_strategy = defaults->replacement_strategy;
       count++;
@@ -3066,21 +3140,64 @@ static size_t collect_calibration_entries(ProbeConfig *cfg,
 
 static void add_view_candidate(ViewCandidate *candidates, int *count,
                                const char *name, int layout_width,
-                               int cursor_width)
+                               int cursor_width, int paint_width)
 {
    int i;
 
-   if (layout_width < 1 || cursor_width < 1
+   if (layout_width < 1 || cursor_width < 1 || paint_width < 1
    ||  *count >= MAX_VIEW_CANDIDATES)
       return;
    for (i = 0; i < *count; i++)
       if (candidates[i].layout_width == layout_width
-      &&  candidates[i].cursor_width == cursor_width)
+      &&  candidates[i].cursor_width == cursor_width
+      &&  candidates[i].paint_width == paint_width)
          return;
    candidates[*count].name = name;
    candidates[*count].layout_width = layout_width;
    candidates[*count].cursor_width = cursor_width;
+   candidates[*count].paint_width = paint_width;
    (*count)++;
+}
+
+static void add_substitute_candidate(SubstituteCandidate *candidates,
+                                     int *count,
+                                     const char *name,
+                                     uint32_t codepoint)
+{
+   int i;
+
+   if (codepoint == 0 || codepoint > 0x10FFFFu
+   ||  (codepoint >= 0xD800u && codepoint <= 0xDFFFu)
+   ||  *count >= 16)
+      return;
+   for (i = 0; i < *count; i++)
+      if (candidates[i].codepoint == codepoint)
+         return;
+   candidates[*count].name = name;
+   candidates[*count].codepoint = codepoint;
+   (*count)++;
+}
+
+static int build_substitute_candidates(const CalibrationEntry *entry,
+                                       SubstituteCandidate *candidates)
+{
+   int count = 0;
+
+   add_substitute_candidate(candidates, &count, "current",
+                            entry->substitute_codepoint);
+   if (entry->defaults != NULL)
+      add_substitute_candidate(candidates, &count, "default",
+                               entry->defaults->substitute_codepoint);
+   add_substitute_candidate(candidates, &count, "white-square", 0x25A1u);
+   add_substitute_candidate(candidates, &count, "at-sign", '@');
+   add_substitute_candidate(candidates, &count, "middle-dot", 0x00B7u);
+   add_substitute_candidate(candidates, &count, "dotted-circle", 0x25CCu);
+   add_substitute_candidate(candidates, &count, "question", '?');
+   add_substitute_candidate(candidates, &count, "asterisk", '*');
+   add_substitute_candidate(candidates, &count, "hash", '#');
+   add_substitute_candidate(candidates, &count, "heart", 0x2665u);
+   add_substitute_candidate(candidates, &count, "house", 0x2302u);
+   return count;
 }
 
 static int build_view_candidates(const CalibrationEntry *entry,
@@ -3096,20 +3213,24 @@ static int build_view_candidates(const CalibrationEntry *entry,
       const char *name;
       int layout_width;
       int cursor_width;
+      int paint_width;
    } hybrids[] =
    {
-      { "three-cursor-two", 3, 2 },
-      { "four-cursor-two", 4, 2 },
-      { "four-cursor-three", 4, 3 },
-      { "five-cursor-two", 5, 2 },
-      { "five-cursor-three", 5, 3 },
-      { "six-cursor-two", 6, 2 },
-      { "six-cursor-three", 6, 3 },
-      { "six-cursor-four", 6, 4 },
-      { "eight-cursor-two", 8, 2 },
-      { "eight-cursor-four", 8, 4 },
-      { "ten-cursor-two", 10, 2 },
-      { "twelve-cursor-two", 12, 2 }
+      { "two-paint-three", 2, 2, 3 },
+      { "two-paint-four", 2, 2, 4 },
+      { "three-cursor-two", 3, 2, 3 },
+      { "three-cursor-two-paint-four", 3, 2, 4 },
+      { "four-cursor-two", 4, 2, 4 },
+      { "four-cursor-three", 4, 3, 4 },
+      { "five-cursor-two", 5, 2, 5 },
+      { "five-cursor-three", 5, 3, 5 },
+      { "six-cursor-two", 6, 2, 6 },
+      { "six-cursor-three", 6, 3, 6 },
+      { "six-cursor-four", 6, 4, 6 },
+      { "eight-cursor-two", 8, 2, 8 },
+      { "eight-cursor-four", 8, 4, 8 },
+      { "ten-cursor-two", 10, 2, 10 },
+      { "twelve-cursor-two", 12, 2, 12 }
    };
    int count = 0;
    int base = entry->sample->expected_policy_width > 0
@@ -3118,25 +3239,28 @@ static int build_view_candidates(const CalibrationEntry *entry,
    size_t i;
 
    add_view_candidate(candidates, &count, "current", entry->layout_width,
-                      entry->cursor_width);
+                      entry->cursor_width, entry->paint_width);
    if (entry->defaults != NULL)
       add_view_candidate(candidates, &count, "default",
                          entry->defaults->layout_width,
-                         entry->defaults->cursor_width);
-   add_view_candidate(candidates, &count, "policy", base, base);
+                         entry->defaults->cursor_width,
+                         entry->defaults->paint_width);
+   add_view_candidate(candidates, &count, "policy", base, base, base);
    for (width = 1; width <= 12; width++)
       add_view_candidate(candidates, &count, width_names[width],
-                         width, width);
+                         width, width, width);
    for (i = 0; i < sizeof(hybrids) / sizeof(hybrids[0]); i++)
       add_view_candidate(candidates, &count, hybrids[i].name,
                          hybrids[i].layout_width,
-                         hybrids[i].cursor_width);
+                         hybrids[i].cursor_width,
+                         hybrids[i].paint_width);
    return count;
 }
 
 static void draw_sample5_at(const ProbeSample *sample, int row, int col,
-                            int layout_width, int cursor_width, int target,
-                            attr_t cursor_attr)
+                            int layout_width, int cursor_width,
+                            int paint_width, int target, attr_t cursor_attr,
+                            int target_uses_paint)
 {
    const char *clusters[] = { "A", sample->utf8, "B", " ", "A" };
    int offsets[5];
@@ -3152,12 +3276,20 @@ static void draw_sample5_at(const ProbeSample *sample, int row, int col,
                               clusters[i], widths[i], A_NORMAL);
    if (target >= 0 && target < 5)
    {
-      int target_width = target == 1 ? cursor_width : widths[target];
+      int target_width = widths[target];
+      int span_end;
+
+      if (target == 1)
+         target_width = target_uses_paint ? paint_width : cursor_width;
+      span_end = offsets[target] + target_width;
 
       curses_clear_cells(row, col + offsets[target], target_width,
                          cursor_attr);
       curses_write_cluster_at(METHOD_WADDWSTR, row, col + offsets[target],
                               clusters[target], widths[target], cursor_attr);
+      for (i = target + 1; i < 5 && offsets[i] < span_end; i++)
+         curses_write_cluster_at(METHOD_WADDWSTR, row, col + offsets[i],
+                                 clusters[i], widths[i], A_NORMAL);
    }
 }
 
@@ -3176,6 +3308,7 @@ static int calibration_select_view(ProbeConfig *cfg, CalibrationEntry *entry)
    {
       entry->layout_width = candidates[0].layout_width;
       entry->cursor_width = candidates[0].cursor_width;
+      entry->paint_width = candidates[0].paint_width;
       return 0;
    }
 
@@ -3184,7 +3317,7 @@ static int calibration_select_view(ProbeConfig *cfg, CalibrationEntry *entry)
    {
       int i;
       int ch;
-      int visible_rows = LINES > 9 ? LINES - 8 : 1;
+      int visible_rows = LINES > 10 ? (LINES - 8) / 2 : 1;
 
       if (visible_rows > candidate_count)
          visible_rows = candidate_count;
@@ -3198,9 +3331,11 @@ static int calibration_select_view(ProbeConfig *cfg, CalibrationEntry *entry)
                entry->feature_class, entry->sample->name,
                entry->display_mode, entry->output_method,
                UTF_TERMINAL_PROBE_VERSION);
-      mvprintw(1, 0, "Current L%d C%d. Choose the row whose plain, cluster-cursor, and B-cursor cells look aligned.",
-               entry->layout_width, entry->cursor_width);
-      mvprintw(2, 0, "Keys: j/k move, 1-9 choose visible row, Enter accept, q quit. Showing %d-%d of %d.",
+      if (visible_rows < 1)
+         visible_rows = 1;
+      mvprintw(1, 0, "Current visible=%d cursor=%d paint=%d.",
+               entry->layout_width, entry->cursor_width, entry->paint_width);
+      mvprintw(2, 0, "Keys: j/k move, 1-9 choose row, w type visible cursor paint, Enter accept, q quit. Showing %d-%d of %d.",
                top + 1, top + visible_rows, candidate_count);
       {
          char cps[256];
@@ -3209,33 +3344,43 @@ static int calibration_select_view(ProbeConfig *cfg, CalibrationEntry *entry)
          mvprintw(3, 0, "emits: %s", cps);
       }
       mvprintw(4, cfg->data_col, "plain");
-      mvprintw(4, cfg->data_col + 16, "cluster cursor");
-      mvprintw(4, cfg->data_col + 34, "B cursor");
+      mvprintw(4, cfg->data_col + 24, "cluster cursor");
+      mvprintw(5, cfg->data_col, "paint footprint");
+      mvprintw(5, cfg->data_col + 24, "B cursor");
       for (i = 0; i < visible_rows; i++)
       {
-         int row = 6 + i;
+         int row = 6 + i * 2;
          int candidate_index = top + i;
          attr_t label_attr = candidate_index == selected ? A_REVERSE : A_NORMAL;
 
          attrset(label_attr);
-         mvprintw(row, 0, "%d %2d %-18s L%d C%d",
+         mvprintw(row, 0, "%d %2d %-18s v%d c%d p%d",
                   i + 1, candidate_index + 1,
                   candidates[candidate_index].name,
                   candidates[candidate_index].layout_width,
-                  candidates[candidate_index].cursor_width);
+                  candidates[candidate_index].cursor_width,
+                  candidates[candidate_index].paint_width);
          attrset(A_NORMAL);
          draw_sample5_at(entry->sample, row, cfg->data_col,
                          candidates[candidate_index].layout_width,
                          candidates[candidate_index].cursor_width,
-                         -1, cursor_attr);
-         draw_sample5_at(entry->sample, row, cfg->data_col + 16,
+                         candidates[candidate_index].paint_width,
+                         -1, cursor_attr, 0);
+         draw_sample5_at(entry->sample, row, cfg->data_col + 24,
                          candidates[candidate_index].layout_width,
                          candidates[candidate_index].cursor_width,
-                         1, cursor_attr);
-         draw_sample5_at(entry->sample, row, cfg->data_col + 34,
+                         candidates[candidate_index].paint_width,
+                         1, cursor_attr, 0);
+         draw_sample5_at(entry->sample, row + 1, cfg->data_col,
                          candidates[candidate_index].layout_width,
                          candidates[candidate_index].cursor_width,
-                         2, cursor_attr);
+                         candidates[candidate_index].paint_width,
+                         1, cursor_attr, 1);
+         draw_sample5_at(entry->sample, row + 1, cfg->data_col + 24,
+                         candidates[candidate_index].layout_width,
+                         candidates[candidate_index].cursor_width,
+                         candidates[candidate_index].paint_width,
+                         2, cursor_attr, 0);
       }
       refresh();
       ch = getch();
@@ -3263,10 +3408,33 @@ static int calibration_select_view(ProbeConfig *cfg, CalibrationEntry *entry)
          if (selected > 0)
             selected--;
       }
+      else if (ch == 'w' || ch == 'W')
+      {
+         char input[64];
+         int layout_width;
+         int cursor_width;
+         int paint_width;
+
+         if (read_prompt_line(LINES - 1, "Enter visible cursor paint (or visible cursor): ",
+                              input, sizeof(input))
+         &&  parse_view_widths(input, &layout_width, &cursor_width,
+                               &paint_width))
+         {
+            entry->layout_width = layout_width;
+            entry->cursor_width = cursor_width;
+            entry->paint_width = paint_width;
+            return 0;
+         }
+         mvprintw(LINES - 1, 0, "Invalid widths; use positive visible cursor paint values, such as 2 4 4.");
+         clrtoeol();
+         refresh();
+         napms(700);
+      }
    }
 
    entry->layout_width = candidates[selected].layout_width;
    entry->cursor_width = candidates[selected].cursor_width;
+   entry->paint_width = candidates[selected].paint_width;
    return 0;
 }
 
@@ -3570,11 +3738,11 @@ static int calibration_select_strategy(ProbeConfig *cfg,
    {
       int ch;
 
-      mvprintw(0, 0, "calibrate %s %s/%s %s/%s L%d C%d %s",
+      mvprintw(0, 0, "calibrate %s %s/%s %s/%s visible=%d cursor=%d paint=%d %s",
                replacement ? "replace" : "cursor",
                entry->feature_class, entry->sample->name,
                entry->display_mode, entry->output_method,
-               entry->layout_width, entry->cursor_width,
+               entry->layout_width, entry->cursor_width, entry->paint_width,
                UTF_TERMINAL_PROBE_VERSION);
       mvprintw(1, 0, "Current: %s. Keys: n/p choose strategy, h help, g or Enter accept, q back",
                strategies[selected].name);
@@ -3797,6 +3965,7 @@ static void apply_output_method_defaults(CalibrationEntry *entry)
    {
       entry->layout_width = 1;
       entry->cursor_width = 1;
+      entry->paint_width = 1;
       entry->cursor_strategy = "cells";
       entry->replacement_strategy = "cells";
       if (entry->substitute_codepoint == 0)
@@ -3830,6 +3999,7 @@ static void copy_calibration_physical_settings(CalibrationEntry *entry,
 {
    entry->layout_width = source->layout_width;
    entry->cursor_width = source->cursor_width;
+   entry->paint_width = source->paint_width;
    entry->cursor_strategy = source->cursor_strategy;
    entry->replacement_strategy = source->replacement_strategy;
    entry->substitute_codepoint = source->substitute_codepoint;
@@ -3840,6 +4010,7 @@ static void copy_calibration_default_physical_settings(
 {
    entry->layout_width = defaults->layout_width;
    entry->cursor_width = defaults->cursor_width;
+   entry->paint_width = defaults->paint_width;
    entry->cursor_strategy = defaults->cursor_strategy;
    entry->replacement_strategy = defaults->replacement_strategy;
    entry->substitute_codepoint = defaults->substitute_codepoint;
@@ -3857,11 +4028,7 @@ static void apply_output_method_physical_settings(CalibrationEntry *entry,
    coerced_output = coerce_output_method_for_display(entry->display_mode,
                                                     output_method);
    if (strcmp(entry->output_method, coerced_output) == 0)
-   {
-      if (strcmp(coerced_output, "substitute") == 0)
-         apply_output_method_defaults(entry);
       return;
-   }
 
    entry->output_method = coerced_output;
    apply_output_method_defaults(entry);
@@ -3910,6 +4077,7 @@ static int read_calibration_profile(ProbeConfig *cfg,
       char codepoint_word[96];
       int layout_width;
       int cursor_width;
+      int paint_width;
       int output_fields;
       CalibrationEntry *entry;
 
@@ -3938,6 +4106,20 @@ static int read_calibration_profile(ProbeConfig *cfg,
             loaded++;
          }
       }
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s DISPLAY %95s LAYOUT %d CURSOR %d PAINT %d",
+                      klass, display, &layout_width, &cursor_width,
+                      &paint_width) == 5)
+      {
+         entry = find_calibration_entry_for(entries, count, klass, display);
+         if (entry != NULL && layout_width > 0 && cursor_width > 0
+         &&  paint_width > 0)
+         {
+            entry->layout_width = layout_width;
+            entry->cursor_width = cursor_width;
+            entry->paint_width = paint_width;
+            loaded++;
+         }
+      }
       else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s DISPLAY %95s LAYOUT %d CURSOR %d",
                       klass, display, &layout_width, &cursor_width) == 4)
       {
@@ -3946,6 +4128,17 @@ static int read_calibration_profile(ProbeConfig *cfg,
          {
             entry->layout_width = layout_width;
             entry->cursor_width = cursor_width;
+            entry->paint_width = max_int(layout_width, cursor_width);
+            loaded++;
+         }
+      }
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s DISPLAY %95s PAINT %d",
+                      klass, display, &paint_width) == 3)
+      {
+         entry = find_calibration_entry_for(entries, count, klass, display);
+         if (entry != NULL && paint_width > 0)
+         {
+            entry->paint_width = paint_width;
             loaded++;
          }
       }
@@ -3969,6 +4162,19 @@ static int read_calibration_profile(ProbeConfig *cfg,
             loaded++;
          }
       }
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s LAYOUT %d CURSOR %d PAINT %d",
+                 klass, &layout_width, &cursor_width, &paint_width) == 4)
+      {
+         entry = find_calibration_entry(entries, count, klass);
+         if (entry != NULL && layout_width > 0 && cursor_width > 0
+         &&  paint_width > 0)
+         {
+            entry->layout_width = layout_width;
+            entry->cursor_width = cursor_width;
+            entry->paint_width = paint_width;
+            loaded++;
+         }
+      }
       else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s LAYOUT %d CURSOR %d",
                  klass, &layout_width, &cursor_width) == 3)
       {
@@ -3977,6 +4183,17 @@ static int read_calibration_profile(ProbeConfig *cfg,
          {
             entry->layout_width = layout_width;
             entry->cursor_width = cursor_width;
+            entry->paint_width = max_int(layout_width, cursor_width);
+            loaded++;
+         }
+      }
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s PAINT %d",
+                      klass, &paint_width) == 2)
+      {
+         entry = find_calibration_entry(entries, count, klass);
+         if (entry != NULL && paint_width > 0)
+         {
+            entry->paint_width = paint_width;
             loaded++;
          }
       }
@@ -4134,15 +4351,10 @@ static int write_calibration_profile(ProbeConfig *cfg,
                fp, "SET UTF TERMINAL CLASS %s OUTPUT %s",
                entry->feature_class, entry->output_method);
          }
-         if (substitute_output)
-         {
-            fprintf(fp, "\n");
-            written++;
-            continue;
-         }
          write_rexx_profile_command(
-            fp, "SET UTF TERMINAL CLASS %s LAYOUT %d CURSOR %d",
-            entry->feature_class, entry->layout_width, entry->cursor_width);
+            fp, "SET UTF TERMINAL CLASS %s LAYOUT %d CURSOR %d PAINT %d",
+            entry->feature_class, entry->layout_width, entry->cursor_width,
+            entry->paint_width);
          write_rexx_profile_command(
             fp, "SET UTF TERMINAL CLASS %s CURSORSTRATEGY %s",
             entry->feature_class,
@@ -4169,21 +4381,18 @@ static int write_calibration_profile(ProbeConfig *cfg,
                entry->feature_class, entry->display_mode,
                entry->output_method);
          }
-         if (!substitute_output)
-         {
-            write_rexx_profile_command(
-               fp, "SET UTF TERMINAL CLASS %s DISPLAY %s LAYOUT %d CURSOR %d",
-               entry->feature_class, entry->display_mode,
-               entry->layout_width, entry->cursor_width);
-            write_rexx_profile_command(
-               fp, "SET UTF TERMINAL CLASS %s DISPLAY %s CURSORSTRATEGY %s",
-               entry->feature_class, entry->display_mode,
-               profile_strategy_name(entry->cursor_strategy));
-            write_rexx_profile_command(
-               fp, "SET UTF TERMINAL CLASS %s DISPLAY %s REPLACESTRATEGY %s",
-               entry->feature_class, entry->display_mode,
-               profile_strategy_name(entry->replacement_strategy));
-         }
+         write_rexx_profile_command(
+            fp, "SET UTF TERMINAL CLASS %s DISPLAY %s LAYOUT %d CURSOR %d PAINT %d",
+            entry->feature_class, entry->display_mode,
+            entry->layout_width, entry->cursor_width, entry->paint_width);
+         write_rexx_profile_command(
+            fp, "SET UTF TERMINAL CLASS %s DISPLAY %s CURSORSTRATEGY %s",
+            entry->feature_class, entry->display_mode,
+            profile_strategy_name(entry->cursor_strategy));
+         write_rexx_profile_command(
+            fp, "SET UTF TERMINAL CLASS %s DISPLAY %s REPLACESTRATEGY %s",
+            entry->feature_class, entry->display_mode,
+            profile_strategy_name(entry->replacement_strategy));
          fprintf(fp, "\n");
       }
       written++;
@@ -4297,10 +4506,11 @@ static int calibration_select_output_method(ProbeConfig *cfg,
          utf8_codepoints(effective_entry.sample->utf8, emit_cps,
                          sizeof(emit_cps));
          attrset(label_attr);
-         mvprintw(row, 0, "%c %-12s score=%-2d L%d C%d cursor=%s replace=%s",
+         mvprintw(row, 0, "%c %-12s score=%-2d v%d c%d p%d cursor=%s replace=%s",
                   i == selected ? '>' : ' ', methods[i],
                   scores[i],
                   preview_entry.layout_width, preview_entry.cursor_width,
+                  preview_entry.paint_width,
                   profile_strategy_name(preview_entry.cursor_strategy),
                   profile_strategy_name(preview_entry.replacement_strategy));
          attrset(A_NORMAL);
@@ -4309,13 +4519,13 @@ static int calibration_select_output_method(ProbeConfig *cfg,
          mvprintw(row + 3, 2, "editor plain:");
          draw_sample5_at(effective_entry.sample, row + 3, cfg->data_col,
                          preview_entry.layout_width, preview_entry.cursor_width,
-                         -1,
-                         utfvis_cursor_attr());
+                         preview_entry.paint_width, -1,
+                         utfvis_cursor_attr(), 0);
          mvprintw(row + 4, 2, "editor cursor:");
          draw_sample5_at(effective_entry.sample, row + 4, cfg->data_col,
                          preview_entry.layout_width, preview_entry.cursor_width,
-                         1,
-                         utfvis_cursor_attr());
+                         preview_entry.paint_width, 1,
+                         utfvis_cursor_attr(), 0);
       }
       mvprintw(LINES - 2, 0, "The file bytes and logical cluster stay unchanged; only physical output changes.");
       refresh();
@@ -4333,6 +4543,122 @@ static int calibration_select_output_method(ProbeConfig *cfg,
    }
    apply_output_method_physical_settings(entry, entries, count,
                                          methods[selected]);
+   return 0;
+}
+
+static int calibration_select_substitute_codepoint(ProbeConfig *cfg,
+                                                   CalibrationEntry *entry)
+{
+   SubstituteCandidate candidates[16];
+   int candidate_count;
+   int selected = 0;
+   int top = 0;
+
+   if (cfg->no_visual)
+      return 0;
+
+   for (;;)
+   {
+      int visible_rows = LINES > 8 ? LINES - 7 : 1;
+      int i;
+      int ch;
+      char logical_cps[256];
+
+      candidate_count = build_substitute_candidates(entry, candidates);
+      if (candidate_count <= 0)
+         return -1;
+      if (selected >= candidate_count)
+         selected = 0;
+      if (visible_rows > candidate_count)
+         visible_rows = candidate_count;
+      if (visible_rows < 1)
+         visible_rows = 1;
+      if (selected < top)
+         top = selected;
+      if (selected >= top + visible_rows)
+         top = selected - visible_rows + 1;
+
+      erase();
+      mvprintw(0, 0, "calibrate substitute %s/%s display=%s %s",
+               entry->feature_class, entry->sample->name,
+               entry->display_mode, UTF_TERMINAL_PROBE_VERSION);
+      mvprintw(1, 0, "Current substitute U+%04X. This changes terminal output only.",
+               (unsigned int)entry->substitute_codepoint);
+      mvprintw(2, 0, "Keys: j/k move, 1-9 choose row, u type U+hex, Enter accept, q back.");
+      utf8_codepoints(entry->sample->utf8, logical_cps, sizeof(logical_cps));
+      mvprintw(3, 0, "file/logical cluster: %s", logical_cps);
+      mvprintw(5, cfg->data_col, "preview");
+
+      for (i = 0; i < visible_rows; i++)
+      {
+         int row = 6 + i;
+         int candidate_index = top + i;
+         attr_t label_attr = candidate_index == selected ? A_REVERSE : A_NORMAL;
+         char preview_utf8[8];
+         char preview_cps[32];
+
+         preview_utf8[0] = '\0';
+         append_utf8_codepoint(preview_utf8, 0, sizeof(preview_utf8),
+                               candidates[candidate_index].codepoint);
+         utf8_codepoints(preview_utf8, preview_cps, sizeof(preview_cps));
+         attrset(label_attr);
+         mvprintw(row, 0, "%d %2d %-14s %-12s",
+                  i + 1, candidate_index + 1,
+                  candidates[candidate_index].name,
+                  preview_cps);
+         attrset(A_NORMAL);
+         curses_write_cluster_at(METHOD_WADDWSTR, row, cfg->data_col,
+                                 preview_utf8, 1, A_NORMAL);
+      }
+
+      refresh();
+      ch = getch();
+      if (ch == 'q' || ch == 'Q')
+         return -1;
+      if (ch == '\n' || ch == '\r' || ch == KEY_ENTER)
+         break;
+      if (ch >= '1' && ch <= '9')
+      {
+         int index = top + ch - '1';
+
+         if (index < candidate_count)
+         {
+            selected = index;
+            break;
+         }
+      }
+      else if (ch == 'j' || ch == KEY_DOWN)
+      {
+         if (selected + 1 < candidate_count)
+            selected++;
+      }
+      else if (ch == 'k' || ch == KEY_UP)
+      {
+         if (selected > 0)
+            selected--;
+      }
+      else if (ch == 'u' || ch == 'U')
+      {
+         char input[32];
+         uint32_t codepoint;
+
+         if (read_prompt_line(LINES - 1, "Enter substitute codepoint U+hex: ",
+                              input, sizeof(input))
+         &&  parse_profile_codepoint(input, &codepoint))
+         {
+            entry->substitute_codepoint = codepoint;
+            selected = 0;
+            top = 0;
+            continue;
+         }
+         mvprintw(LINES - 1, 0, "Invalid codepoint; use a scalar value such as U+25A1.");
+         clrtoeol();
+         refresh();
+         napms(700);
+      }
+   }
+
+   entry->substitute_codepoint = candidates[selected].codepoint;
    return 0;
 }
 
@@ -4523,6 +4849,7 @@ static void copy_calibration_settings(CalibrationEntry *entry,
 {
    entry->layout_width = source->layout_width;
    entry->cursor_width = source->cursor_width;
+   entry->paint_width = source->paint_width;
    entry->cursor_strategy = source->cursor_strategy;
    entry->replacement_strategy = source->replacement_strategy;
    entry->output_method = source->output_method;
@@ -4534,6 +4861,7 @@ static int calibration_entry_changed(const CalibrationEntry *left,
 {
    return left->layout_width != right->layout_width
        || left->cursor_width != right->cursor_width
+       || left->paint_width != right->paint_width
        || strcmp(left->cursor_strategy, right->cursor_strategy) != 0
        || strcmp(left->replacement_strategy, right->replacement_strategy) != 0
        || strcmp(left->output_method, right->output_method) != 0
@@ -4548,6 +4876,7 @@ static int calibration_entry_is_default(const CalibrationEntry *entry)
       return 0;
    return entry->layout_width == defaults->layout_width
        && entry->cursor_width == defaults->cursor_width
+       && entry->paint_width == defaults->paint_width
        && strcmp(entry->cursor_strategy, defaults->cursor_strategy) == 0
        && strcmp(entry->replacement_strategy,
                  defaults->replacement_strategy) == 0
@@ -4570,8 +4899,8 @@ static int configure_calibration_entry(ProbeConfig *cfg,
       return calibration_entry_changed(&before, entry);
    if (strcmp(entry->output_method, "substitute") == 0)
    {
-      apply_output_method_defaults(entry);
-      return calibration_entry_changed(&before, entry);
+      if (calibration_select_substitute_codepoint(cfg, entry) != 0)
+         return calibration_entry_changed(&before, entry);
    }
 
    make_effective_calibration_entry(entry, &effective, &effective_sample,
@@ -4616,7 +4945,7 @@ static void draw_calibration_menu(ProbeConfig *cfg,
    mvprintw(1, 0, "Profile: %s %s", cfg->profile_path,
             dirty ? "(modified)" : "(clean)");
    mvprintw(2, 0, "Enter configure, j/k move, s save, q quit without saving");
-   mvprintw(4, 0, "   class              display     output     sample             src      L/C   cursor                 replace");
+   mvprintw(4, 0, "   class              display     output     sample             src      vis/cur/paint cursor                 replace");
    for (row = 0; row < visible_rows; row++)
    {
       i = top + row;
@@ -4624,12 +4953,13 @@ static void draw_calibration_menu(ProbeConfig *cfg,
          break;
       if (i == selected)
          attrset(A_REVERSE);
-      mvprintw(5 + row, 0, "%c %-18s %-10s %-10s %-18s %-8s %2d/%-2d %-22s %-22s",
+      mvprintw(5 + row, 0, "%c %-18s %-10s %-10s %-18s %-8s %2d/%-2d/%-2d %-22s %-22s",
                i == selected ? '>' : ' ',
                entries[i].feature_class, entries[i].display_mode,
                entries[i].output_method, entries[i].sample->name,
                calibration_entry_is_default(&entries[i]) ? "default" : "override",
                entries[i].layout_width, entries[i].cursor_width,
+               entries[i].paint_width,
                profile_strategy_name(entries[i].cursor_strategy),
                profile_strategy_name(entries[i].replacement_strategy));
       if (i == selected)
@@ -4693,12 +5023,13 @@ static int calibration_main_menu(ProbeConfig *cfg,
                                          &entries[selected]))
             dirty = 1;
          reportf(cfg,
-                 "calibrate,class=%s,display=%s,output=%s,sample=%s,layout_width=%d,cursor_width=%d,cursor_strategy=%s,replacement_strategy=%s\n",
+                 "calibrate,class=%s,display=%s,output=%s,sample=%s,layout_width=%d,cursor_width=%d,paint_width=%d,cursor_strategy=%s,replacement_strategy=%s\n",
                  entries[selected].feature_class,
                  entries[selected].display_mode,
                  entries[selected].output_method,
                  entries[selected].sample->name,
                  entries[selected].layout_width, entries[selected].cursor_width,
+                 entries[selected].paint_width,
                  entries[selected].cursor_strategy,
                  entries[selected].replacement_strategy);
       }
@@ -4730,10 +5061,11 @@ static void run_calibration_probe(ProbeConfig *cfg)
    {
       for (i = 0; i < count; i++)
          reportf(cfg,
-                 "calibrate,class=%s,display=%s,output=%s,sample=%s,layout_width=%d,cursor_width=%d,cursor_strategy=%s,replacement_strategy=%s\n",
+                 "calibrate,class=%s,display=%s,output=%s,sample=%s,layout_width=%d,cursor_width=%d,paint_width=%d,cursor_strategy=%s,replacement_strategy=%s\n",
                  entries[i].feature_class, entries[i].display_mode,
                  entries[i].output_method, entries[i].sample->name,
                  entries[i].layout_width, entries[i].cursor_width,
+                 entries[i].paint_width,
                  entries[i].cursor_strategy, entries[i].replacement_strategy);
       if (cfg->write_profile)
       {
