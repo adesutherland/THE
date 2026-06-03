@@ -1594,6 +1594,9 @@ short curses_driver_move_filearea_cursor(CHARTYPE scrno, struct view_details *vi
    cursor = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_FILEAREA,
                                      view->focus_line, row, line, len,
                                      logical_col, TEXT_SNAP_BACKWARD, 1);
+   logical_cursor_set_desired_cell(
+      &cursor, driver_layout_width_col_from_logical(line, len,
+                                                    cursor.text.cell_column));
    target = driver_layout_filearea_target(cursor, line, len,
                                           (int)view->verify_col - 1,
                                           screen[scrno].cols[WINDOW_FILEAREA]);

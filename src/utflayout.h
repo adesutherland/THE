@@ -32,6 +32,10 @@ int utf8_layout_display_col_from_logical(const CHARTYPE *line, size_t len,
 int utf8_layout_logical_col_from_display(const CHARTYPE *line, size_t len,
                                          int viewport_col, int display_col,
                                          TextSnap snap);
+int utf8_layout_width_col_from_logical(const CHARTYPE *line, size_t len,
+                                       int logical_col);
+int utf8_layout_logical_col_from_width(const CHARTYPE *line, size_t len,
+                                       int width_col, TextSnap snap);
 Utf8LayoutViewport utf8_layout_viewport_for_logical_col(
    const CHARTYPE *line, size_t len, int current_viewport_col,
    int logical_col, int visible_cols);

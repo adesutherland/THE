@@ -198,6 +198,91 @@ int utf8_layout_logical_col_from_display(const CHARTYPE *line, size_t len,
    return last_logical_col;
 }
 
+int utf8_layout_width_col_from_logical(const CHARTYPE *line, size_t len,
+                                       int logical_col)
+{
+   TextPos pos;
+   int width_col = 0;
+   int last_logical_col = 0;
+
+   if (logical_col <= 0)
+      return 0;
+
+   pos = textpos_begin();
+   while (pos.byte_offset < len)
+   {
+      TextCluster cluster = textpos_cluster_at_boundary(line, len, pos);
+      int logical_start;
+      int logical_end;
+
+      if (cluster.byte_length == 0)
+         break;
+
+      logical_start = cluster.pos.cell_column;
+      logical_end = cluster.end.cell_column;
+      if (logical_start >= logical_col)
+         break;
+      if (logical_col < logical_end)
+         break;
+
+      width_col += utf8_layout_cluster_width(line, len, cluster);
+      last_logical_col = logical_end;
+      pos = cluster.end;
+   }
+
+   if (logical_col > last_logical_col)
+      width_col += logical_col - last_logical_col;
+   return width_col;
+}
+
+int utf8_layout_logical_col_from_width(const CHARTYPE *line, size_t len,
+                                       int width_col, TextSnap snap)
+{
+   TextPos pos;
+   int current_width_col = 0;
+   int last_logical_col = 0;
+
+   if (width_col <= 0)
+      return 0;
+
+   pos = textpos_begin();
+   while (pos.byte_offset < len)
+   {
+      TextCluster cluster = textpos_cluster_at_boundary(line, len, pos);
+      int logical_start;
+      int logical_end;
+      int cluster_width;
+
+      if (cluster.byte_length == 0)
+         break;
+
+      logical_start = cluster.pos.cell_column;
+      logical_end = cluster.end.cell_column;
+      cluster_width = utf8_layout_cluster_width(line, len, cluster);
+      if (cluster_width <= 0)
+         cluster_width = utf8_layout_cluster_logical_width(cluster);
+
+      if (width_col < current_width_col + cluster_width)
+      {
+         int offset = width_col - current_width_col;
+
+         if (snap == TEXT_SNAP_FORWARD)
+            return logical_end;
+         if (snap == TEXT_SNAP_NEAREST && offset * 2 >= cluster_width)
+            return logical_end;
+         return logical_start;
+      }
+
+      current_width_col += cluster_width;
+      last_logical_col = logical_end;
+      pos = cluster.end;
+   }
+
+   if (width_col > current_width_col)
+      last_logical_col += width_col - current_width_col;
+   return last_logical_col;
+}
+
 Utf8LayoutViewport utf8_layout_viewport_for_logical_col(
    const CHARTYPE *line, size_t len, int current_viewport_col,
    int logical_col, int visible_cols)

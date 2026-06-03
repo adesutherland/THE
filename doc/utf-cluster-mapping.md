@@ -327,6 +327,40 @@ Each rendered cluster has four width concepts:
 cluster's occupied cells after the chosen output transform. For example, a
 regional flag should normally report width two.
 
+User-facing column numbers use `WIDTH`, not `ADVANCE`. The shared layout layer
+now exposes both directions of the mapping: logical editor columns to width
+columns for display/query reporting, and width columns back to logical cluster
+boundaries for command and selection callers. The latter should be applied in
+the next mark/box slice so a requested column inside a multi-column cluster
+selects the start or end of the owning cluster according to the operation's snap
+policy.
+
+Current WIDTH-based column work:
+
+- Status/current-position reporting maps the focused logical cell through
+  profile `WIDTH`.
+- File-area vertical cursor intent stores the user-visible `WIDTH` column, then
+  maps that width back to the destination line's owning logical cluster.
+- The UTF file-area renderer uses one physical display-column cursor hit test;
+  it must not also paint a second cursor by logical-width overlap.
+
+Remaining column work:
+
+- Rectangle/box/mark slicing still needs a dedicated WIDTH-to-logical audit so
+  user-requested visual columns snap to the owning cluster boundary on each
+  affected line.
+- Legacy column arguments and commands that pass through `current_column`,
+  `verify_col`, `verify_end`, or `execute_move_cursor()` must be reviewed one
+  at a time. These fields are still editor/logical cells unless the caller has
+  explicitly converted through the shared WIDTH helpers.
+- Horizontal viewport state remains logical; the renderer maps that viewport to
+  physical `ADVANCE` columns. A future cache should expose byte, cluster,
+  logical cell, WIDTH, and ADVANCE views from the same per-line layout data so
+  scrolling, status, mouse, selection, and rendering cannot drift.
+- LLM snapshots may annotate clusters with `WIDTH`, `ADVANCE`, `CURSOR`, and
+  `REPAINT`, but semantic cursor and edit positions remain logical. LLM clients
+  should not treat physical advance or repaint width as column authority.
+
 `ADVANCE` is the terminal placement value. It may differ from `WIDTH` when a
 terminal reports or occupies more grid cells than the user-visible cluster
 width. Apple Terminal native emoji modifier clusters are the motivating case:

@@ -184,6 +184,9 @@ static void cursor_focus_store_filearea_logical(CHARTYPE scrno, VIEW_DETAILS *vi
                                      show_row->line_number, row,
                                      line, len, logical_col,
                                      TEXT_SNAP_BACKWARD, 1);
+   logical_cursor_set_desired_cell(
+      &cursor, driver_layout_width_col_from_logical(line, len,
+                                                    cursor.text.cell_column));
    logical_cursor_state_focus(&view->logical_cursor, cursor);
 }
 
@@ -366,6 +369,23 @@ static int cursor_utf8_filearea_cell(void)
       current_screen, CURRENT_VIEW, x, TEXT_SNAP_BACKWARD);
 }
 
+static int cursor_utf8_filearea_width_col_from_cell(const CHARTYPE *line,
+                                                    size_t len, int cell)
+{
+   if (cell < 0)
+      cell = 0;
+   return driver_layout_width_col_from_logical(line, len, cell);
+}
+
+static int cursor_utf8_filearea_cell_from_width_col(const CHARTYPE *line,
+                                                    size_t len, int width_col)
+{
+   if (width_col < 0)
+      width_col = 0;
+   return driver_layout_logical_col_from_width(line, len, width_col,
+                                               TEXT_SNAP_BACKWARD);
+}
+
 static short cursor_focus_row_for_focus(CHARTYPE curr_screen,
                                         VIEW_DETAILS *curr_view)
 {
@@ -396,7 +416,8 @@ static int cursor_focus_filearea_desired_cell(CHARTYPE curr_screen,
    &&  logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
    &&  logical.line_number == curr_view->focus_line)
       return logical.desired_cell;
-   return cursor_utf8_filearea_cell();
+   return cursor_utf8_filearea_width_col_from_cell(
+      rec, rec_len, cursor_utf8_filearea_cell());
 }
 
 static int cursor_focus_prefix_desired_cell(CHARTYPE curr_screen,
@@ -454,8 +475,11 @@ static void cursor_focus_restore_vertical(CHARTYPE curr_screen,
       case WINDOW_FILEAREA:
          if (desired_cell < 0)
             desired_cell = 0;
-         pos = textpos_from_cell_virtual(rec, rec_len, desired_cell,
-                                         TEXT_SNAP_BACKWARD);
+         pos = textpos_from_cell_virtual(
+                  rec, rec_len,
+                  cursor_utf8_filearea_cell_from_width_col(rec, rec_len,
+                                                           desired_cell),
+                  TEXT_SNAP_BACKWARD);
          the_driver->move_filearea_cursor(curr_screen, curr_view,
                                             rec, rec_len, row,
                                             pos.cell_column);
@@ -860,9 +884,14 @@ short THEcursor_down( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, short escre
          {
 #ifdef USE_UTF8
             x = (short)desired_cell;
-            if ( x > min(textpos_from_byte(rec, rec_len, rec_len).cell_column,
+            if ( x > min(cursor_utf8_filearea_width_col_from_cell(
+                            rec, rec_len,
+                            textpos_from_byte(rec, rec_len,
+                                              rec_len).cell_column),
                          (int)curr_view->verify_end) )
-               desired_cell = textpos_from_byte(rec, rec_len, rec_len).cell_column;
+               desired_cell = cursor_utf8_filearea_width_col_from_cell(
+                  rec, rec_len,
+                  textpos_from_byte(rec, rec_len, rec_len).cell_column);
 #else
             TheDriverWindowCursor cursor =
                the_driver->capture_window_cursor(
@@ -1377,9 +1406,14 @@ short THEcursor_up(short escreen)
          {
 #ifdef USE_UTF8
             x = (short)desired_cell;
-            if ( x > min(textpos_from_byte(rec, rec_len, rec_len).cell_column,
+            if ( x > min(cursor_utf8_filearea_width_col_from_cell(
+                            rec, rec_len,
+                            textpos_from_byte(rec, rec_len,
+                                              rec_len).cell_column),
                          (int)CURRENT_VIEW->verify_end) )
-               desired_cell = textpos_from_byte(rec, rec_len, rec_len).cell_column;
+               desired_cell = cursor_utf8_filearea_width_col_from_cell(
+                  rec, rec_len,
+                  textpos_from_byte(rec, rec_len, rec_len).cell_column);
 #else
             TheDriverWindowCursor cursor =
                the_driver->capture_window_cursor(driver_current_role_window(WINDOW_FILEAREA));

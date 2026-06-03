@@ -11,6 +11,10 @@ int driver_layout_display_col_from_logical(const CHARTYPE *line, size_t len,
 int driver_layout_logical_col_from_display(const CHARTYPE *line, size_t len,
                                            int viewport_col, int display_col,
                                            TextSnap snap);
+int driver_layout_width_col_from_logical(const CHARTYPE *line, size_t len,
+                                         int logical_col);
+int driver_layout_logical_col_from_width(const CHARTYPE *line, size_t len,
+                                         int width_col, TextSnap snap);
 int driver_layout_viewport_col_for_logical(const CHARTYPE *line, size_t len,
                                            int current_viewport_col,
                                            int logical_col, int window_cols,

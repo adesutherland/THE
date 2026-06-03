@@ -257,7 +257,8 @@ static int show_utf8_line_replacement_hint_matches(SHOW_LINE *scurr)
        && scurr->line_number == utf8_line_replacement_hint.line_number;
 }
 
-static int show_utf8_copy_status_text(char field[21], int offset, const char *text)
+static int show_utf8_copy_status_text(char field[21], int offset,
+                                      const char *text)
 {
    int available;
    int len;
@@ -293,11 +294,6 @@ static const Utf8TerminalProfileEntry *show_utf8_cluster_profile(
    return utf8_layout_cluster_profile(line, len, cluster);
 }
 
-static int show_utf8_cluster_logical_width(TextCluster cluster)
-{
-   return utf8_layout_cluster_logical_width(cluster);
-}
-
 static int show_utf8_cluster_advance_width(const CHARTYPE *line, size_t len,
                                            TextCluster cluster)
 {
@@ -316,6 +312,62 @@ static int show_utf8_cluster_repaint_width(const CHARTYPE *line, size_t len,
    return utf8_layout_cluster_repaint_width(line, len, cluster);
 }
 
+static int show_utf8_status_component_codepoint(uint32_t codepoint)
+{
+   if (codepoint < 32 || codepoint == 0x7Fu)
+      return FALSE;
+   if (codepoint == 0x200Du
+   ||  codepoint == 0xFE0Eu
+   ||  codepoint == 0xFE0Fu
+   ||  utf8_cluster_codepoint_is_tag(codepoint))
+      return FALSE;
+   return TRUE;
+}
+
+static int show_utf8_status_component_width(uint32_t codepoint)
+{
+   int width;
+
+   if (!show_utf8_status_component_codepoint(codepoint))
+      return 0;
+   width = text_codepoint_cell_width(codepoint);
+   return (width > 0) ? width : 1;
+}
+
+static int show_utf8_status_component_is_zero_width(uint32_t codepoint)
+{
+   return show_utf8_status_component_codepoint(codepoint)
+       && text_codepoint_cell_width(codepoint) <= 0;
+}
+
+static int show_utf8_status_expanded_width(const CHARTYPE *line, size_t len,
+                                           TextCluster cluster)
+{
+   TextPos pos = cluster.pos;
+   int width = 0;
+   int components = 0;
+
+   while (line != NULL && pos.byte_offset < cluster.end.byte_offset)
+   {
+      TextCodepoint item = textpos_codepoint_at_boundary(line, len, pos);
+      int component_width;
+
+      if (item.byte_length == 0)
+         break;
+      component_width = show_utf8_status_component_width(item.codepoint);
+      if (component_width > 0)
+      {
+         if (components > 0
+         &&  !show_utf8_status_component_is_zero_width(item.codepoint))
+            width++;
+         width += component_width;
+         components++;
+      }
+      pos = show_utf8_advance_codepoint_pos(pos, item);
+   }
+   return (width > 0) ? width : 1;
+}
+
 int show_utf8_display_col_from_logical(const CHARTYPE *line, size_t len,
                                        int viewport_col, int logical_col)
 {
@@ -329,28 +381,6 @@ int show_utf8_logical_col_from_display(const CHARTYPE *line, size_t len,
 {
    return utf8_layout_logical_col_from_display(line, len, viewport_col,
                                                display_col, snap);
-}
-
-static int show_utf8_class_is_zwj(Utf8TerminalClass feature_class)
-{
-   return feature_class == UTF8_TERM_CLASS_SHORT_ZWJ
-       || feature_class == UTF8_TERM_CLASS_HEART_ZWJ
-       || feature_class == UTF8_TERM_CLASS_FAMILY_ZWJ;
-}
-
-static int show_status_cluster_force_expanded(const CHARTYPE *line, size_t len,
-                                              TextCluster cluster)
-{
-   const Utf8TerminalProfileEntry *entry;
-   Utf8TerminalClass feature_class;
-
-   if (utf8_terminal_display_mode() != UTF8_TERM_DISPLAY_COMPONENTS)
-      return FALSE;
-   entry = show_utf8_cluster_profile(line, len, cluster);
-   if (entry == NULL || entry->output_method != UTF8_TERM_OUTPUT_NATIVE)
-      return FALSE;
-   feature_class = utf8_terminal_classify_cluster(line, len, cluster);
-   return show_utf8_class_is_zwj(feature_class);
 }
 
 static int show_render_cluster_from_text(TheRenderCluster *render,
@@ -391,21 +421,81 @@ static void show_write_utf8_cluster_at(TheDriverWindow *win, int row, int col,
    }
 }
 
-static void show_write_utf8_status_cluster_at(TheDriverWindow *win, int row, int col,
-                                              const CHARTYPE *line, size_t len,
-                                              TextCluster cluster,
-                                              TheDriverAttr colour,
-                                              int expected_width)
+static int show_write_utf8_status_zero_width_component_at(TheDriverWindow *win,
+                                                          int row, int col,
+                                                          uint32_t codepoint,
+                                                          TheDriverAttr colour)
 {
-   TheRenderCluster render;
+   TheRenderCluster cell;
 
-   if (show_render_cluster_from_text(&render, line, len, cluster, colour,
-                                     show_status_cluster_force_expanded(
-                                        line, len, cluster)))
+   if (!show_utf8_status_component_is_zero_width(codepoint))
+      return FALSE;
+   the_render_cluster_init(&cell, (TheRenderAttr)colour);
+   the_render_cluster_add_codepoint(&cell, ' ');
+   the_render_cluster_add_codepoint(&cell, codepoint);
+   the_render_cluster_set_fallback_codepoint(&cell, '?');
+   the_render_cluster_set_widths(&cell, 1, 1, 1, 1, 1);
+   the_driver->write_render_cluster_at(win, row, col, &cell);
+   return TRUE;
+}
+
+static void show_write_utf8_status_expanded_cluster_at(TheDriverWindow *win,
+                                                       int row, int col,
+                                                       int max_width,
+                                                       const CHARTYPE *line,
+                                                       size_t len,
+                                                       TextCluster cluster,
+                                                       TheDriverAttr colour)
+{
+   TextPos pos = cluster.pos;
+   int used = 0;
+   int components = 0;
+
+   while (line != NULL
+   &&     pos.byte_offset < cluster.end.byte_offset
+   &&     used < max_width)
    {
-      if (expected_width > 0)
-         render.advance_width = expected_width;
-      the_driver->write_render_cluster_at(win, row, col, &render);
+      TextCodepoint item = textpos_codepoint_at_boundary(line, len, pos);
+      int width;
+
+      if (item.byte_length == 0)
+         break;
+      width = show_utf8_status_component_width(item.codepoint);
+      if (width > 0)
+      {
+         if (show_utf8_status_component_is_zero_width(item.codepoint))
+         {
+            if (used + 1 > max_width)
+               break;
+            (void)show_write_utf8_status_zero_width_component_at(
+               win, row, col + used, item.codepoint, colour);
+            used++;
+         }
+         else
+         {
+            TheRenderCell cell;
+
+            if (components > 0)
+            {
+               if (used + 1 >= max_width)
+                  break;
+               used++;
+            }
+            if (used + width > max_width)
+               break;
+            if (the_render_cell_from_codepoint(&cell, item.codepoint,
+                                               (TheRenderAttr)colour))
+            {
+               cell.advance_width = width;
+               cell.cursor_width = width;
+               cell.repaint_width = width;
+               the_driver->write_render_cluster_at(win, row, col + used, &cell);
+            }
+            used += width;
+         }
+         components++;
+      }
+      pos = show_utf8_advance_codepoint_pos(pos, item);
    }
 }
 
@@ -1760,7 +1850,7 @@ void show_statarea(void)
    int draw_status_cluster = FALSE;
    int status_field_width = 0;
    int status_cluster_offset = 0;
-   int status_cluster_advance_width = 1;
+   int status_cluster_expanded_width = 1;
    char status_field[21];
    const CHARTYPE *status_cluster_line = NULL;
    size_t status_cluster_len = 0;
@@ -1869,19 +1959,19 @@ void show_statarea(void)
 #endif
       }
 #ifdef USE_UTF8
-   status_field[0] = '\0';
-   charpos = max(0,(terminal_cols-27));
-   {
-      char codebuf[128];
-      TextPos pos;
-      size_t code_len = 0;
-      int field_truncated = FALSE;
-      int glyph_cells = 1;
-      int code_col = 0;
+      status_field[0] = '\0';
+      charpos = max(0,(terminal_cols-27));
+      {
+         char codebuf[128];
+         TextPos pos;
+         size_t code_len = 0;
+         int field_truncated = FALSE;
+         int glyph_cells = 1;
+         int code_col = 0;
 
-      status_field_width = min(20, max(0, (terminal_cols-7) - charpos));
-      codebuf[0] = '\0';
-      pos = status_cluster.pos;
+         status_field_width = min(20, max(0, (terminal_cols-7) - charpos));
+         codebuf[0] = '\0';
+         pos = status_cluster.pos;
          while (status_cluster_line != NULL
          &&     pos.byte_offset < status_cluster.end.byte_offset)
          {
@@ -1889,55 +1979,44 @@ void show_statarea(void)
                                                                status_cluster_len,
                                                                pos);
             char one[24];
+            size_t one_len;
 
             if (item.byte_length == 0)
                break;
-            snprintf(one, sizeof(one), "%sU+%X", (code_len == 0) ? "" : "+", item.codepoint);
-            if (code_len + strlen(one) < sizeof(codebuf))
+            snprintf(one, sizeof(one), "%sU+%X", (code_len == 0) ? "" : " ",
+                     item.codepoint);
+            one_len = strlen(one);
+            if (code_len + one_len < sizeof(codebuf))
             {
                strcpy(codebuf + code_len, one);
-               code_len += strlen(one);
+               code_len += one_len;
             }
             else
-            {
                field_truncated = TRUE;
-            }
             pos = show_utf8_advance_codepoint_pos(pos, item);
          }
 
          if (codebuf[0] == '\0')
             strcpy(codebuf, "U+0");
 
-      memset(status_field, ' ', sizeof(status_field));
-      status_field[20] = '\0';
-      if (status_cluster_line == NULL || status_cluster.byte_length == 0)
-      {
-         status_field[0] = '[';
-         status_field[1] = ' ';
-         status_field[2] = ']';
-         status_field[3] = ' ';
-         field_truncated = show_utf8_copy_status_text(status_field, 4, codebuf);
-      }
-      else if (status_cluster.codepoint_count == 1)
-      {
-         TextCodepoint item = textpos_codepoint_at_boundary(status_cluster_line,
-                                                            status_cluster_len,
-                                                            status_cluster.pos);
-         if (item.codepoint >= 32 && item.codepoint < 127)
+         memset(status_field, ' ', sizeof(status_field));
+         status_field[20] = '\0';
+         if (status_cluster_line == NULL || status_cluster.byte_length == 0)
          {
             status_field[0] = '[';
-            status_field[1] = (char)item.codepoint;
+            status_field[1] = ' ';
             status_field[2] = ']';
             status_field[3] = ' ';
-            field_truncated = show_utf8_copy_status_text(status_field, 4, codebuf);
+            field_truncated = show_utf8_copy_status_text(status_field, 4,
+                                                         codebuf);
          }
          else
          {
-            glyph_cells = show_utf8_cluster_advance_width(status_cluster_line,
+            glyph_cells = show_utf8_status_expanded_width(status_cluster_line,
                                                           status_cluster_len,
                                                           status_cluster);
             glyph_cells = min(glyph_cells, 8);
-            status_cluster_advance_width = glyph_cells;
+            status_cluster_expanded_width = glyph_cells;
             status_cluster_offset = 1;
             status_field[0] = '[';
             if (1 + glyph_cells < 20)
@@ -1945,41 +2024,24 @@ void show_statarea(void)
             if (2 + glyph_cells < 20)
                status_field[2 + glyph_cells] = ' ';
             code_col = min(19, glyph_cells + 3);
-            field_truncated = show_utf8_copy_status_text(status_field, code_col, codebuf);
+            field_truncated = show_utf8_copy_status_text(status_field,
+                                                         code_col, codebuf);
             draw_status_cluster = TRUE;
          }
+         if (field_truncated)
+         {
+            status_field[17] = '.';
+            status_field[18] = '.';
+            status_field[19] = '.';
+            status_field[20] = '\0';
+         }
+         if (status_field_width > 0)
+         {
+            memset((DEFCHAR *)linebuf + charpos, ' ', (size_t)status_field_width);
+            memcpy((DEFCHAR *)linebuf + charpos, status_field,
+                   min(status_field_width, (int)strlen(status_field)));
+         }
       }
-      else
-      {
-         glyph_cells = show_utf8_cluster_advance_width(status_cluster_line,
-                                                       status_cluster_len,
-                                                       status_cluster);
-         glyph_cells = min(glyph_cells, 8);
-         status_cluster_advance_width = glyph_cells;
-         status_cluster_offset = 1;
-         status_field[0] = '[';
-         if (1 + glyph_cells < 20)
-            status_field[1 + glyph_cells] = ']';
-         if (2 + glyph_cells < 20)
-            status_field[2 + glyph_cells] = ' ';
-         code_col = min(19, glyph_cells + 3);
-         field_truncated = show_utf8_copy_status_text(status_field, code_col, codebuf);
-         draw_status_cluster = TRUE;
-      }
-      if (field_truncated)
-      {
-         status_field[17] = '.';
-         status_field[18] = '.';
-         status_field[19] = '.';
-         status_field[20] = '\0';
-      }
-      if (status_field_width > 0)
-      {
-         memset((DEFCHAR *)linebuf + charpos, ' ', (size_t)status_field_width);
-         memcpy((DEFCHAR *)linebuf + charpos, status_field,
-                min(status_field_width, (int)strlen(status_field)));
-      }
-   }
 #else
       {
          sprintf((DEFCHAR*)linebuf+max(0,(terminal_cols-19)),"'%c'=%02X/%03d  ",
@@ -2029,12 +2091,10 @@ void show_statarea(void)
    }
    if ( draw_status_cluster )
    {
-      show_write_utf8_status_cluster_at(statarea, 0,
-                                        charpos + status_cluster_offset,
-                                        status_cluster_line,
-                                        status_cluster_len, status_cluster,
-                                        status_colour,
-                                        status_cluster_advance_width);
+      show_write_utf8_status_expanded_cluster_at(
+         statarea, 0, charpos + status_cluster_offset,
+         status_cluster_expanded_width, status_cluster_line,
+         status_cluster_len, status_cluster, status_colour);
    }
 #endif
    the_driver->refresh_window(driver_global_window(THE_DRIVER_GLOBAL_STATAREA));
@@ -4014,7 +4074,6 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
       int item_cursor_width;
       int item_repaint_width;
       int clear_width;
-      int cursor_logical_hit = FALSE;
       int cursor_display_hit = FALSE;
 
       if (cluster.byte_length == 0)
@@ -4053,17 +4112,12 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
          colour = target_colour;
 
       if ( cursor_visible
-      &&   item_width > 0
-      &&   cursor_col >= item_logical_screen_col
-      &&   cursor_col < item_logical_screen_col + item_width )
-         cursor_logical_hit = TRUE;
-      if ( cursor_visible
       &&   cursor_display_col >= 0
       &&   cursor_display_col >= item_screen_col
       &&   cursor_display_col < item_screen_col + item_cursor_width )
          cursor_display_hit = TRUE;
 
-      if ( cursor_logical_hit || cursor_display_hit )
+      if ( cursor_display_hit )
       {
          colour = the_driver->software_cursor_attr(scrno, colour,
                                                      cursor_shape);
@@ -4085,9 +4139,7 @@ static void show_a_line_utf8_cells(CHARTYPE scrno, short row, SHOW_LINE *scurr,
    }
 
    if ( cursor_visible
-   &&  !cursor_drawn
-   &&   cursor_col >= 0
-   &&   cursor_col < ccols )
+   &&  !cursor_drawn )
    {
       if (cursor_display_col < 0)
          cursor_display_col = show_utf8_display_col_from_logical(
@@ -5421,9 +5473,16 @@ char *get_current_position(CHARTYPE scrno,LINETYPE *line,LENGTHTYPE *col)
             &&  logical.zone_row >= 0
             &&  logical.zone_row < screen[scrno].rows[WINDOW_FILEAREA])
             {
+               const CHARTYPE *target_line;
+               size_t target_len = 0;
+
                scurr = screen[scrno].sl + logical.zone_row;
+               target_line = show_filearea_text_for_row(scrno,
+                                                        logical.zone_row,
+                                                        &target_len);
                *line = view->focus_line;
-               *col = (LENGTHTYPE)logical.text.cell_column + 1;
+               *col = (LENGTHTYPE)driver_layout_width_col_from_logical(
+                  target_line, target_len, logical.text.cell_column) + 1;
                if (compatible_look == COMPAT_ISPF)
                {
                   if (scurr->line_type & LINE_TABLINE)
@@ -5484,9 +5543,16 @@ char *get_current_position(CHARTYPE scrno,LINETYPE *line,LENGTHTYPE *col)
          break;
       case WINDOW_FILEAREA:
          *line = view->focus_line;
+#ifdef USE_UTF8
+         *col = (view->current_column > 0)
+              ? (LENGTHTYPE)driver_layout_width_col_from_logical(
+                   rec, rec_len, (int)view->current_column - 1) + 1
+              : view->verify_col;
+#else
          *col = (view->current_column > 0)
               ? view->current_column
               : view->verify_col;
+#endif
          if ( compatible_look == COMPAT_ISPF )
          {
             if ( scurr != NULL && (scurr->line_type & LINE_TABLINE) )

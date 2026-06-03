@@ -506,9 +506,12 @@ Terminal policy must keep user-visible width, terminal advance, cursor coverage,
 and repaint footprint separate:
 
 - **Logical width** comes from the editor text model. It determines grapheme
-  movement, status lookup, text editing, and API-facing positions.
+  movement, status lookup, text editing, codepoint offsets, and cluster
+  boundaries.
 - **Width** is the human/user-visible cluster width reported by profiles and
-  semantic metadata.
+  semantic metadata. User-facing column numbers use this coordinate, then snap
+  back to the owning cluster boundary when a requested column lands inside a
+  wider cluster.
 - **Advance width** is the terminal column distance between
   logical cursor stops after terminal-specific shaping. It is used to map
   logical columns to physical screen columns and back.
@@ -520,6 +523,24 @@ and repaint footprint separate:
 - **Cursor styling policy** is separate again: some terminal/glyph combinations
   cannot be safely reverse-video styled and may need marker/underline-style
   cursor presentation instead of recolouring the glyph itself.
+
+Current implementation status for user-facing columns:
+
+- Status/current-position display and file-area vertical cursor movement now use
+  profile `width` as the user-visible column coordinate.
+- File-area rendering still places glyphs with `advance_width`, paints the
+  software cursor with `cursor_width`, and repairs stale cells with
+  `repaint_width`.
+- `current_column`, `verify_col`, `verify_end`, and many historical command
+  entry points remain logical editor cells unless a caller explicitly converts
+  them through the UTF layout helpers. Do not assume those names mean
+  user-visible width.
+- Rectangle/box/mark commands still need a WIDTH-based audit. The intended rule
+  is to accept a user-visible column, convert it to the owning logical cluster
+  boundary on each line, and then edit/select whole clusters.
+- A shared per-line layout cache remains planned so status, cursor, mouse,
+  selection, rendering, and LLM metadata all consume the same byte, cluster,
+  logical-cell, width, and advance mapping.
 
 The Apple Terminal keycap probe result is the current motivating example. The
 early raw-only POC made `raw_repaint3_cursor2_marker` look promising, but later
@@ -700,15 +721,17 @@ Curses output should use wide-character APIs (`setcchar`, `wadd_wch`,
 code points to narrow `waddch` paths.
 
 The status-line HEXDISPLAY path owns a fixed-width UTF-8 field before the
-right-hand status indicators. It displays the focused cluster in brackets plus
-its code points, for example `[a] U+61`, `[é] U+65+301`, or
-`[🇺🇸] U+1F1FA+1F1F8`. Code point numbers use no leading zeroes. If the
-field does not fit, the textual code list is truncated with `...`.
+right-hand status indicators. It displays the focused cluster in expanded form
+inside brackets, plus the stored code points. Expanded form writes component
+code points separately, with spacing between components and without joiners or
+variation-selector mechanics, so ZWJ sequences and flags do not collapse back
+into a single glyph. Code point numbers use no leading zeroes, for example
+`[a] U+61`, `[e ́] U+65 U+301`, or `[🇺 🇸] U+1F1FA U+1F1F8`. If the field does
+not fit, the textual code list is truncated with `...`.
 
-The status path must not draw isolated combining marks or control characters
-directly. Combining marks may be drawn only as part of their full focused
-cluster; controls are reported through code points only so they cannot move or
-corrupt the status line.
+The status path must not draw controls directly. Combining marks and other
+zero-width components may still be terminal-dependent in the expanded visual,
+so the adjacent codepoint list is the definitive stored-cluster view.
 
 ## Platform Direction
 
@@ -991,25 +1014,25 @@ The next UTF-8 work should prioritize proof tools over more renderer changes:
   into both THE and the probe:
 
   ```text
-  ascii normal/native:          L1 C1 cursor=cells replace=cells
-  combining normal/native:      L1 C1 cursor=line replace=line
-  combining-stack normal/native:L1 C1 cursor=line replace=line
-  wide normal/native:           L2 C2 cursor=cells replace=cells
-  ambiguous normal/native:      L1 C1 cursor=cells replace=cells
-  emoji normal/native:          L2 C2 cursor=line replace=line
-  text-variation normal/native: L1 C1 cursor=line replace=line
-  emoji-variation normal/native:L2 C2 cursor=line replace=line
-  modifier normal/native:       L2 C2 cursor=line replace=line
-  keycap normal/native:         L2 C2 cursor=first replace=whole
-  regional-flag normal/native:  L3 C3 cursor=cells replace=suffix
-  short-zwj grouped/native:       L2 C2 cursor=line replace=line
-  short-zwj components/expanded:L4 C4 cursor=line replace=line
-  heart-zwj grouped/native:       L6 C6 cursor=line replace=line
-  heart-zwj components/expanded:L6 C6 cursor=line replace=line
-  family-zwj grouped/native:      L6 C6 cursor=line replace=line
-  family-zwj components/expanded:L8 C8 cursor=line replace=line
-  tag-flag normal/native:       L2 C2 cursor=line replace=line
-  private-use normal/native:    L1 C1 cursor=line replace=line
+  ascii normal/native:            WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1 cursor=cells replace=cells
+  combining normal/native:        WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1 cursor=line replace=line
+  combining-stack normal/native:  WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1 cursor=line replace=line
+  wide normal/native:             WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2 cursor=cells replace=cells
+  ambiguous normal/native:        WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1 cursor=cells replace=cells
+  emoji normal/native:            WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2 cursor=line replace=line
+  text-variation normal/native:   WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1 cursor=line replace=line
+  emoji-variation normal/native:  WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2 cursor=line replace=line
+  modifier normal/native:         WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2 cursor=line replace=line
+  keycap normal/native:           WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2 cursor=first replace=whole
+  regional-flag normal/native:    WIDTH 2 ADVANCE 3 CURSOR 3 REPAINT 3 cursor=cells replace=suffix
+  short-zwj grouped/native:       WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2 cursor=line replace=line
+  short-zwj components/expanded:  WIDTH 4 ADVANCE 4 CURSOR 4 REPAINT 4 cursor=line replace=line
+  heart-zwj grouped/native:       WIDTH 6 ADVANCE 6 CURSOR 6 REPAINT 6 cursor=line replace=line
+  heart-zwj components/expanded:  WIDTH 6 ADVANCE 6 CURSOR 6 REPAINT 6 cursor=line replace=line
+  family-zwj grouped/native:      WIDTH 6 ADVANCE 6 CURSOR 6 REPAINT 6 cursor=line replace=line
+  family-zwj components/expanded: WIDTH 8 ADVANCE 8 CURSOR 8 REPAINT 8 cursor=line replace=line
+  tag-flag normal/native:         WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2 cursor=line replace=line
+  private-use normal/native:      WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1 cursor=line replace=line
   ```
 - Let the user step through strategy choices and save the selected profile as
   the platform system profile. The probe and THE share the same compiled
@@ -1030,21 +1053,28 @@ the one generated profile that THE consumes before the user profile. Key rows
 are:
 
 ```text
-regional-flag normal/native: default L3 C3 cursor=cells replace=suffix
-keycap normal/native:        L2 C2 cursor=first replace=first
-modifier normal/native:      L4 C4 cursor=cells replace=line
-short-zwj grouped:             substitute
-short-zwj components/native: L4 C4 cursor=cells replace=line
-heart-zwj grouped:             substitute
-heart-zwj components/expanded:L6 C6 cursor=cells replace=line
-family-zwj grouped:            substitute
-family-zwj components/expanded:L8 C8 cursor=cells replace=line
+regional-flag normal/native:   default WIDTH 2 ADVANCE 3 CURSOR 3 REPAINT 3 cursor=cells replace=suffix
+keycap normal/native:          OUTPUT base, WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1 cursor=cells replace=cells
+modifier normal/native:        WIDTH 2 ADVANCE 4 CURSOR 4 REPAINT 4 cursor=cells replace=line
+short-zwj grouped:             substitute U+0040
+short-zwj components/native:   WIDTH 4 ADVANCE 4 CURSOR 4 REPAINT 4 cursor=cells replace=line
+heart-zwj grouped:             substitute U+0040
+heart-zwj components/expanded: WIDTH 6 ADVANCE 6 CURSOR 6 REPAINT 6 cursor=cells replace=line
+family-zwj grouped:            substitute U+0040
+family-zwj components/expanded: WIDTH 8 ADVANCE 8 CURSOR 8 REPAINT 8 cursor=cells replace=line
 ```
 
 The ZWJ rows remain display/output specific. Apple Terminal can display some ZWJ
 families as separate visible components, while other terminals may shape the
 same stored bytes into one glyph. The calibration tool records the physical
 result without changing THE's logical model.
+
+- 2026-06-03: Smoke-tested the first WIDTH-column integration. Status/current
+  position reporting and file-area vertical cursor intent now use profile
+  `width`, while file-area rendering still uses `advance_width`,
+  `cursor_width`, and `repaint_width` for the physical terminal contract. The
+  previous targeted old-row cursor repair was removed; the shadow-cursor fix is
+  to avoid painting both logical-overlap and physical-display cursor hits.
 
 ## Appendix: Historical Implementation Log
 

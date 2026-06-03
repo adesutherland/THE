@@ -35,6 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "driverlayout.h"
 #include "thedriver.h"
 
 #include <query.h>
@@ -224,6 +225,18 @@ static LENGTHTYPE query1_filearea_cursor_cell(void)
    return (CURRENT_VIEW->current_column > 0)
         ? CURRENT_VIEW->current_column - 1
         : 0;
+}
+
+static LENGTHTYPE query1_filearea_cursor_width_col(void)
+{
+   LENGTHTYPE cell = query1_filearea_cursor_cell();
+
+#ifdef USE_UTF8
+   return (LENGTHTYPE)driver_layout_width_col_from_logical(rec, rec_len,
+                                                           (int)cell);
+#else
+   return cell;
+#endif
 }
 
 static LENGTHTYPE query1_command_cursor_cell(void)
@@ -888,7 +901,7 @@ short extract_column(short number_variables,short itemno,CHARTYPE *itemargs,CHAR
       sprintf((DEFCHAR *)query_num1,"%ld",CURRENT_VIEW->current_column);
    else
       sprintf((DEFCHAR *)query_num1,"%ld",
-              query1_filearea_cursor_cell() + 1);
+              query1_filearea_cursor_width_col() + 1);
    item_values[1].value = query_num1;
    item_values[1].len = strlen((DEFCHAR *)query_num1);
    return number_variables;
@@ -1109,6 +1122,15 @@ short extract_cursor(short number_variables,short itemno,CHARTYPE *itemargs,CHAR
 
    get_cursor_position(&current_screen_line,&current_screen_column,
                        &current_file_line,&current_file_column);
+#ifdef USE_UTF8
+   if (!batch_only
+   &&  CURRENT_VIEW->current_window == WINDOW_FILEAREA
+   &&  current_file_column > 0)
+   {
+      current_file_column = (LENGTHTYPE)driver_layout_width_col_from_logical(
+                               rec, rec_len, (int)current_file_column - 1) + 1;
+   }
+#endif
    sprintf((DEFCHAR *)query_num1,"%ld",current_screen_line);
    item_values[1].value = query_num1;
    item_values[1].len = strlen((DEFCHAR *)query_num1);

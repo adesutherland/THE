@@ -7,7 +7,7 @@ Manual test notes:
 - Moving left/right should never enter the middle of a combining sequence, flag, skin-tone emoji, keycap, or ZWJ emoji.
 - Moving up/down or clicking inside a wide/complex cluster should snap to the start of that cluster.
 - The software cursor should cover the whole cluster in overwrite mode and the configured insert cursor in insert mode.
-- The status field should show the visible cluster plus U+ code points, truncated with ... when too long.
+- The status field should show the expanded cluster plus decomposed U+ code points, truncated with ... when too long.
 - Use VERIFY or horizontal scrolling on the clipping lines so the first visible screen cell lands before, on, and inside wide clusters.
 - Do not intentionally include invalid UTF-8 here; byte-invalid cases belong in automated textpos tests.
 

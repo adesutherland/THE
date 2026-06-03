@@ -166,6 +166,40 @@ static void test_terminal_profile_does_not_change_logical_positions(void)
               3);
 }
 
+static void test_profile_width_is_user_column_model(void)
+{
+   static const CHARTYPE keycap[] = { 'A', '1',
+                                      0xEF, 0xB8, 0x8F,
+                                      0xE2, 0x83, 0xA3, 'B' };
+   TextPos end;
+
+   utf8_terminal_profile_reset();
+   utf8_terminal_profile_apply_line(
+      "SET UTF TERMINAL CLASS keycap WIDTH 2 ADVANCE 4 CURSOR 4 REPAINT 4");
+   end = textpos_from_byte(keycap, sizeof(keycap), sizeof(keycap));
+
+   expect_int("profile.width.columns.end",
+              utf8_layout_width_col_from_logical(keycap, sizeof(keycap),
+                                                 end.cell_column),
+              4);
+   expect_int("profile.width.columns.physical.end",
+              utf8_layout_display_col_from_logical(keycap, sizeof(keycap),
+                                                   0, end.cell_column),
+              6);
+   expect_int("profile.width.inside.backward",
+              utf8_layout_logical_col_from_width(keycap, sizeof(keycap), 2,
+                                                 TEXT_SNAP_BACKWARD),
+              1);
+   expect_int("profile.width.inside.forward",
+              utf8_layout_logical_col_from_width(keycap, sizeof(keycap), 2,
+                                                 TEXT_SNAP_FORWARD),
+              2);
+   expect_int("profile.width.after.cluster",
+              utf8_layout_logical_col_from_width(keycap, sizeof(keycap), 3,
+                                                 TEXT_SNAP_BACKWARD),
+              2);
+}
+
 static void test_zwj_display_mapping_snaps_to_cluster_start(void)
 {
    static const CHARTYPE short_zwj[] = {
@@ -241,6 +275,7 @@ int main(void)
    test_keycap_viewport_uses_physical_width();
    test_keycap_trailing_cells_stay_logical();
    test_terminal_profile_does_not_change_logical_positions();
+   test_profile_width_is_user_column_model();
    test_zwj_display_mapping_snaps_to_cluster_start();
 
    if (failures != 0)

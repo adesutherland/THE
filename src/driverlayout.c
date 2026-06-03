@@ -47,6 +47,35 @@ int driver_layout_logical_col_from_display(const CHARTYPE *line, size_t len,
 #endif
 }
 
+int driver_layout_width_col_from_logical(const CHARTYPE *line, size_t len,
+                                         int logical_col)
+{
+#ifdef USE_UTF8
+   return utf8_layout_width_col_from_logical(line, len, logical_col);
+#else
+   (void)line;
+   (void)len;
+   if (logical_col < 0)
+      logical_col = 0;
+   return logical_col;
+#endif
+}
+
+int driver_layout_logical_col_from_width(const CHARTYPE *line, size_t len,
+                                         int width_col, TextSnap snap)
+{
+#ifdef USE_UTF8
+   return utf8_layout_logical_col_from_width(line, len, width_col, snap);
+#else
+   (void)line;
+   (void)len;
+   (void)snap;
+   if (width_col < 0)
+      width_col = 0;
+   return width_col;
+#endif
+}
+
 int driver_layout_viewport_col_for_logical(const CHARTYPE *line, size_t len,
                                            int current_viewport_col,
                                            int logical_col, int window_cols,
