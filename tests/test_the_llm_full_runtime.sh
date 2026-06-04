@@ -18,11 +18,23 @@ utf_box="$work_dir/utf-box.txt"
 utf_fill="$work_dir/utf-fill.txt"
 utf_copy="$work_dir/utf-copy.txt"
 utf_move="$work_dir/utf-move.txt"
+utf_shift="$work_dir/utf-shift.txt"
+utf_prefix_shift="$work_dir/utf-prefix-shift.txt"
+utf_prefix_bounds_left="$work_dir/utf-prefix-bounds-left.txt"
+utf_prefix_bounds_right="$work_dir/utf-prefix-bounds-right.txt"
+utf_prefix_case="$work_dir/utf-prefix-case.txt"
+utf_cua_overlay="$work_dir/utf-cua-overlay.txt"
 out="$work_dir/out.jsonl"
 utf_out="$work_dir/utf-box.jsonl"
 utf_fill_out="$work_dir/utf-fill.jsonl"
 utf_copy_out="$work_dir/utf-copy.jsonl"
 utf_move_out="$work_dir/utf-move.jsonl"
+utf_shift_out="$work_dir/utf-shift.jsonl"
+utf_prefix_shift_out="$work_dir/utf-prefix-shift.jsonl"
+utf_prefix_bounds_left_out="$work_dir/utf-prefix-bounds-left.jsonl"
+utf_prefix_bounds_right_out="$work_dir/utf-prefix-bounds-right.jsonl"
+utf_prefix_case_out="$work_dir/utf-prefix-case.jsonl"
+utf_cua_overlay_out="$work_dir/utf-cua-overlay.jsonl"
 err="$work_dir/err.log"
 
 printf 'alpha beta gamma\nint main(void) { return 0; }\n' > "$sample"
@@ -31,6 +43,12 @@ printf 'A\344\270\255B\n' > "$utf_box"
 printf 'A\344\270\255B\n' > "$utf_fill"
 printf 'A\344\270\255B\n----\n' > "$utf_copy"
 printf 'A\344\270\255B\n----\n' > "$utf_move"
+printf 'A\344\270\255B\n' > "$utf_shift"
+printf 'A\344\270\255B\nC\344\270\255D\n' > "$utf_prefix_shift"
+printf 'A\344\270\255B\nC\344\270\255D\n' > "$utf_prefix_bounds_left"
+printf 'A\344\270\255B\nC\344\270\255D\n' > "$utf_prefix_bounds_right"
+printf 'a\344\270\255b\nc\344\270\255d\n' > "$utf_prefix_case"
+printf 'A\344\270\255B\nC\344\270\255D\nX\344\270\255Y\n' > "$utf_cua_overlay"
 
 "$the_bin" -h > "$work_dir/default-help.txt"
 "$the_bin" --driver curses -h > "$work_dir/curses-help.txt"
@@ -210,26 +228,157 @@ if LC_ALL=C rg -q "$(printf '\357\277\275')" "$utf_move_out"; then
   exit 1
 fi
 
+printf '%s\n' \
+  'command shift left 2 1' \
+  'look filearea compact max=80 prefix=0 command=0 status=0 utf=all' \
+  'quit' |
+  TERM= THE_HOME_DIR="$release_dir" "$the_bin" --driver llm -n "$utf_shift" \
+    >"$utf_shift_out" 2>>"$err"
+
+rg '"line":1,"cur":1,"t":"B"' "$utf_shift_out" >/dev/null
+if LC_ALL=C rg -q "$(printf '\357\277\275')" "$utf_shift_out"; then
+  echo "UTF shift split a cluster" >&2
+  cat "$utf_shift_out" >&2
+  exit 1
+fi
+
+printf '%s\n' \
+  'hit filearea 1 1 0' \
+  'command set pending block 2<<' \
+  'hit filearea 2 1 0' \
+  'command set pending block 2<<' \
+  'command sos doprefix' \
+  'look filearea compact max=80 prefix=0 command=0 status=0 utf=all' \
+  'quit' |
+  TERM= THE_HOME_DIR="$release_dir" "$the_bin" --driver llm -n "$utf_prefix_shift" \
+    >"$utf_prefix_shift_out" 2>>"$err"
+
+rg '"line":1,"cur":0,"t":"B"' "$utf_prefix_shift_out" >/dev/null
+rg '"line":2,"cur":1,"t":"D"' "$utf_prefix_shift_out" >/dev/null
+if LC_ALL=C rg -q "$(printf '\357\277\275')" "$utf_prefix_shift_out"; then
+  echo "UTF prefix block shift split a cluster" >&2
+  cat "$utf_prefix_shift_out" >&2
+  exit 1
+fi
+
+printf '%s\n' \
+  'command set zone 2 4' \
+  'hit filearea 1 1 0' \
+  'command set pending block ((' \
+  'hit filearea 2 1 0' \
+  'command set pending block ((' \
+  'command sos doprefix' \
+  'look filearea compact max=80 prefix=0 command=0 status=0 utf=all' \
+  'quit' |
+  TERM= THE_HOME_DIR="$release_dir" "$the_bin" --driver llm -n "$utf_prefix_bounds_left" \
+    >"$utf_prefix_bounds_left_out" 2>>"$err"
+
+rg '"line":1,"cur":0,"t":"AB  "' "$utf_prefix_bounds_left_out" >/dev/null
+rg '"line":2,"cur":1,"t":"CD  "' "$utf_prefix_bounds_left_out" >/dev/null
+if LC_ALL=C rg -q "$(printf '\357\277\275')" "$utf_prefix_bounds_left_out"; then
+  echo "UTF prefix bounded left shift split a cluster" >&2
+  cat "$utf_prefix_bounds_left_out" >&2
+  exit 1
+fi
+
+printf '%s\n' \
+  'command set zone 1 3' \
+  'hit filearea 1 1 0' \
+  'command set pending block ))' \
+  'hit filearea 2 1 0' \
+  'command set pending block ))' \
+  'command sos doprefix' \
+  'look filearea compact max=80 prefix=0 command=0 status=0 utf=all' \
+  'quit' |
+  TERM= THE_HOME_DIR="$release_dir" "$the_bin" --driver llm -n "$utf_prefix_bounds_right" \
+    >"$utf_prefix_bounds_right_out" 2>>"$err"
+
+rg '"line":1,"cur":0,"t":"  AB"' "$utf_prefix_bounds_right_out" >/dev/null
+rg '"line":2,"cur":1,"t":"  CD"' "$utf_prefix_bounds_right_out" >/dev/null
+if LC_ALL=C rg -q "$(printf '\357\277\275')" "$utf_prefix_bounds_right_out"; then
+  echo "UTF prefix bounded right shift split a cluster" >&2
+  cat "$utf_prefix_bounds_right_out" >&2
+  exit 1
+fi
+
+printf '%s\n' \
+  'command set zone 2 4' \
+  'hit filearea 1 1 0' \
+  'command set pending block ucc' \
+  'hit filearea 2 1 0' \
+  'command set pending block ucc' \
+  'command sos doprefix' \
+  'look filearea compact max=80 prefix=0 command=0 status=0 utf=all' \
+  'quit' |
+  TERM= THE_HOME_DIR="$release_dir" "$the_bin" --driver llm -n "$utf_prefix_case" \
+    >"$utf_prefix_case_out" 2>>"$err"
+
+rg '"line":1,"cur":0,"t":"a中B"' "$utf_prefix_case_out" >/dev/null
+rg '"line":2,"cur":1,"t":"c中D"' "$utf_prefix_case_out" >/dev/null
+if LC_ALL=C rg -q "$(printf '\357\277\275')" "$utf_prefix_case_out"; then
+  echo "UTF prefix case conversion split a cluster" >&2
+  cat "$utf_prefix_case_out" >&2
+  exit 1
+fi
+
+printf '%s\n' \
+  'hit filearea 1 1 1' \
+  'command mark cua' \
+  'hit filearea 2 1 3' \
+  'command mark cua' \
+  'hit filearea 3 1 1' \
+  'command overlaybox' \
+  'look filearea compact max=80 prefix=0 command=0 status=0 utf=all' \
+  'quit' |
+  TERM= THE_HOME_DIR="$release_dir" "$the_bin" --driver llm -n "$utf_cua_overlay" \
+    >"$utf_cua_overlay_out" 2>>"$err"
+
+rg '"line":3,"cur":1,"t":"中BY"' "$utf_cua_overlay_out" >/dev/null
+rg '"line":4,"cur":0,"t":"C中D"' "$utf_cua_overlay_out" >/dev/null
+if LC_ALL=C rg -q "$(printf '\357\277\275')" "$utf_cua_overlay_out"; then
+  echo "UTF CUA stream overlay split a cluster" >&2
+  cat "$utf_cua_overlay_out" >&2
+  exit 1
+fi
+
 if rg -q 'Error opening terminal|setupterm|initscr' \
-     "$out" "$utf_out" "$utf_fill_out" "$utf_copy_out" "$utf_move_out" "$err"; then
+     "$out" "$utf_out" "$utf_fill_out" "$utf_copy_out" "$utf_move_out" \
+     "$utf_shift_out" "$utf_prefix_shift_out" "$utf_prefix_bounds_left_out" \
+     "$utf_prefix_bounds_right_out" "$utf_prefix_case_out" \
+     "$utf_cua_overlay_out" "$err"; then
   echo "llm driver appeared to initialize curses" >&2
   cat "$out" >&2
   cat "$utf_out" >&2
   cat "$utf_fill_out" >&2
   cat "$utf_copy_out" >&2
   cat "$utf_move_out" >&2
+  cat "$utf_shift_out" >&2
+  cat "$utf_prefix_shift_out" >&2
+  cat "$utf_prefix_bounds_left_out" >&2
+  cat "$utf_prefix_bounds_right_out" >&2
+  cat "$utf_prefix_case_out" >&2
+  cat "$utf_cua_overlay_out" >&2
   cat "$err" >&2
   exit 1
 fi
 
 if rg -q 'Unable to update CREXX variable' \
-     "$out" "$utf_out" "$utf_fill_out" "$utf_copy_out" "$utf_move_out" "$err"; then
+     "$out" "$utf_out" "$utf_fill_out" "$utf_copy_out" "$utf_move_out" \
+     "$utf_shift_out" "$utf_prefix_shift_out" "$utf_prefix_bounds_left_out" \
+     "$utf_prefix_bounds_right_out" "$utf_prefix_case_out" \
+     "$utf_cua_overlay_out" "$err"; then
   echo "llm command modal continuation tried to write Rexx variables without an active macro" >&2
   cat "$out" >&2
   cat "$utf_out" >&2
   cat "$utf_fill_out" >&2
   cat "$utf_copy_out" >&2
   cat "$utf_move_out" >&2
+  cat "$utf_shift_out" >&2
+  cat "$utf_prefix_shift_out" >&2
+  cat "$utf_prefix_bounds_left_out" >&2
+  cat "$utf_prefix_bounds_right_out" >&2
+  cat "$utf_prefix_case_out" >&2
+  cat "$utf_cua_overlay_out" >&2
   cat "$err" >&2
   exit 1
 fi

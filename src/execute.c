@@ -41,6 +41,9 @@
 #include "driverlayout.h"
 #include "llmsession.h"
 #include "transientui.h"
+#ifdef USE_UTF8
+# include "utflayout.h"
+#endif
 
 static LENGTHTYPE execute_filearea_cursor_cell(VIEW_DETAILS *curr_view);
 static LENGTHTYPE execute_prefix_cursor_cell(VIEW_DETAILS *curr_view);
@@ -56,6 +59,151 @@ static void execute_move_filearea_display_cursor(CHARTYPE curr_screen,
                                                  LENGTHTYPE len,
                                                  short row,
                                                  LENGTHTYPE display_cell);
+
+#ifdef USE_UTF8
+static int execute_utf8_width_arg(LENGTHTYPE value)
+{
+   if (value < 0)
+      return 0;
+   if (value > MAX_INT)
+      return MAX_INT;
+   return (int)value;
+}
+
+static LENGTHTYPE execute_utf8_width_span(LENGTHTYPE start_col,
+                                          LENGTHTYPE end_col)
+{
+   if (end_col < start_col)
+      return 0;
+   if (end_col >= MAX_INT)
+      return MAX_INT;
+   return end_col - start_col + 1;
+}
+
+static LENGTHTYPE execute_utf8_text_width(const CHARTYPE *line,
+                                          LENGTHTYPE len)
+{
+   TextPos end;
+
+   if (line == NULL || len <= 0)
+      return 0;
+   end = textpos_from_byte(line, (size_t)len, (size_t)len);
+   return (LENGTHTYPE)utf8_layout_width_col_from_logical(
+      line, (size_t)len, end.cell_column);
+}
+
+static LENGTHTYPE execute_utf8_byte_from_width_col(const CHARTYPE *line,
+                                                   LENGTHTYPE len,
+                                                   LENGTHTYPE width_col)
+{
+   int logical_col;
+   TextPos pos;
+
+   if (line == NULL || len <= 0 || width_col <= 0)
+      return 0;
+   logical_col = utf8_layout_logical_col_from_width(
+                    line, (size_t)len, execute_utf8_width_arg(width_col),
+                    TEXT_SNAP_BACKWARD);
+   pos = textpos_from_cell_virtual(line, (size_t)len, logical_col,
+                                   TEXT_SNAP_BACKWARD);
+   if (pos.byte_offset > (size_t)len)
+      return len;
+   return (LENGTHTYPE)pos.byte_offset;
+}
+
+static LENGTHTYPE execute_utf8_safe_prefix_bytes(const CHARTYPE *line,
+                                                 LENGTHTYPE len,
+                                                 LENGTHTYPE max_bytes)
+{
+   TextPos pos;
+   LENGTHTYPE last_byte = 0;
+
+   if (line == NULL || len <= 0 || max_bytes <= 0)
+      return 0;
+   if (max_bytes >= len)
+      return len;
+
+   pos = textpos_begin();
+   while (pos.byte_offset < (size_t)len)
+   {
+      TextCluster cluster = textpos_cluster_at_boundary(line, (size_t)len,
+                                                        pos);
+
+      if (cluster.byte_length == 0)
+         break;
+      if ((LENGTHTYPE)cluster.end.byte_offset > max_bytes)
+         break;
+      last_byte = (LENGTHTYPE)cluster.end.byte_offset;
+      pos = cluster.end;
+   }
+   return last_byte;
+}
+
+static LENGTHTYPE execute_utf8_delete_width_span(CHARTYPE *line,
+                                                 LENGTHTYPE *len,
+                                                 LENGTHTYPE start_col,
+                                                 LENGTHTYPE width_cols)
+{
+   TextCellSlice slice;
+   LENGTHTYPE start_byte;
+   LENGTHTYPE end_byte;
+   LENGTHTYPE delete_len;
+
+   if (line == NULL || len == NULL || *len <= 0 || width_cols <= 0)
+      return 0;
+
+   slice = utf8_layout_slice_width(line, (size_t)*len,
+                                   execute_utf8_width_arg(start_col),
+                                   execute_utf8_width_arg(width_cols));
+   start_byte = (LENGTHTYPE)slice.start.byte_offset;
+   end_byte = (LENGTHTYPE)slice.end.byte_offset;
+   if (start_byte < 0)
+      start_byte = 0;
+   if (end_byte < start_byte)
+      end_byte = start_byte;
+   if (start_byte > *len)
+      start_byte = *len;
+   if (end_byte > *len)
+      end_byte = *len;
+   delete_len = end_byte - start_byte;
+   if (delete_len <= 0)
+      return 0;
+
+   memdeln(line, start_byte, *len, delete_len);
+   *len -= delete_len;
+   return (LENGTHTYPE)slice.content_cells;
+}
+
+static void execute_utf8_insert_spaces_at_width(CHARTYPE *line,
+                                                LENGTHTYPE *len,
+                                                LENGTHTYPE width_col,
+                                                LENGTHTYPE count)
+{
+   LENGTHTYPE i;
+
+   if (line == NULL || len == NULL || count <= 0)
+      return;
+
+   for (i = 0; i < count; i++)
+   {
+      LENGTHTYPE byte_col = execute_utf8_byte_from_width_col(
+                               line, *len, width_col);
+
+      if (byte_col > *len)
+         byte_col = *len;
+      meminschr(line, ' ', byte_col, max_line_length, *len);
+      (*len)++;
+   }
+   if (*len > max_line_length)
+      *len = execute_utf8_safe_prefix_bytes(line, *len, max_line_length);
+}
+
+static bool execute_utf8_change_case_width_range(CHARTYPE *line,
+                                                 LENGTHTYPE len,
+                                                 LENGTHTYPE start_col,
+                                                 LENGTHTYPE end_col,
+                                                 CHARTYPE which_case);
+#endif
 
 static TransientUiKey execute_transient_key_from_curses(int key)
 {
@@ -1098,6 +1246,13 @@ short execute_shift_command( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool
             }
             if ( shift_left )
             {
+#ifdef USE_UTF8
+               actual_cols = execute_utf8_delete_width_span(
+                                trec, &trec_len, left_col, num_cols);
+               if ( zone_shift )
+                  execute_utf8_insert_spaces_at_width(
+                     trec, &trec_len, right_col, actual_cols);
+#else
                actual_cols = min( num_cols, max( 0, trec_len-left_col ) );
                memdeln( trec, left_col, trec_len, actual_cols );
                trec_len -= actual_cols;
@@ -1110,18 +1265,33 @@ short execute_shift_command( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool
                   for ( j = 0; j < actual_cols; j++ )
                      meminschr( trec, ' ', right_col, max_line_length, trec_len++ );
                }
+#endif
             }
             else
             {
                if ( zone_shift )
                {
+#ifdef USE_UTF8
+                  LENGTHTYPE delete_start = right_col - num_cols + 1;
+
+                  if (delete_start < 0)
+                     delete_start = 0;
+                  actual_cols = execute_utf8_delete_width_span(
+                                   trec, &trec_len, delete_start, num_cols);
+#else
                   /*
                    * Remove the right most positions of the zone.
                    */
                   actual_cols = min( num_cols, max( 0, 1+trec_len-right_col ) );
                   memdeln( trec, 1+right_col-actual_cols, trec_len, actual_cols );
                   trec_len -= actual_cols;
+#endif
                }
+#ifdef USE_UTF8
+               execute_utf8_insert_spaces_at_width(
+                  trec, &trec_len, left_col,
+                  zone_shift ? max(num_cols, actual_cols) : num_cols);
+#else
                for ( j = 0; j < num_cols; j++ )
                   meminschr( trec, ' ', left_col, max_line_length, trec_len++ );
                if ( trec_len > max_line_length )
@@ -1129,6 +1299,7 @@ short execute_shift_command( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool
                   trec_len = max_line_length;
                   display_error( 0, (CHARTYPE*)"Truncated", FALSE );
                }
+#endif
                actual_cols = num_cols;
             }
             /*
@@ -1284,14 +1455,22 @@ static bool change_case(CHARTYPE *str,LENGTHTYPE start,LENGTHTYPE end,CHARTYPE w
       switch(which_case)
       {
          case CASE_UPPER:
+#ifdef USE_UTF8
+            if (*(str+i) < 0x80 && islower(*(str+i)))
+#else
             if (islower(*(str+i)))
+#endif
             {
                *(str+i) = toupper(*(str+i));
                altered = TRUE;
             }
             break;
          case CASE_LOWER:
+#ifdef USE_UTF8
+            if (*(str+i) < 0x80 && isupper(*(str+i)))
+#else
             if (isupper(*(str+i)))
+#endif
             {
                *(str+i) = tolower(*(str+i));
                altered = TRUE;
@@ -1302,6 +1481,39 @@ static bool change_case(CHARTYPE *str,LENGTHTYPE start,LENGTHTYPE end,CHARTYPE w
    TRACE_RETURN();
    return(altered);
 }
+
+#ifdef USE_UTF8
+static bool execute_utf8_change_case_width_range(CHARTYPE *line,
+                                                 LENGTHTYPE len,
+                                                 LENGTHTYPE start_col,
+                                                 LENGTHTYPE end_col,
+                                                 CHARTYPE which_case)
+{
+   TextCellSlice slice;
+   LENGTHTYPE width_cols;
+   LENGTHTYPE start_byte;
+   LENGTHTYPE end_byte;
+
+   if (line == NULL || len <= 0)
+      return FALSE;
+   width_cols = execute_utf8_width_span(start_col, end_col);
+   if (width_cols <= 0)
+      return FALSE;
+
+   slice = utf8_layout_slice_width(line, (size_t)len,
+                                   execute_utf8_width_arg(start_col),
+                                   execute_utf8_width_arg(width_cols));
+   start_byte = (LENGTHTYPE)slice.start.byte_offset;
+   end_byte = (LENGTHTYPE)slice.end.byte_offset;
+   if (start_byte < 0)
+      start_byte = 0;
+   if (end_byte > len)
+      end_byte = len;
+   if (end_byte <= start_byte)
+      return FALSE;
+   return change_case(line, start_byte, end_byte - 1, which_case);
+}
+#endif
 
 /***********************************************************************/
 short do_actual_change_case( LINETYPE true_line, LINETYPE num_lines, CHARTYPE which_case, bool lines_based_on_scope, short direction, LENGTHTYPE start_col, LENGTHTYPE end_col )
@@ -1346,15 +1558,31 @@ short do_actual_change_case( LINETYPE true_line, LINETYPE num_lines, CHARTYPE wh
             if (MARK_VIEW
             &&  (MARK_VIEW->mark_type == M_STREAM || MARK_VIEW->mark_type == M_CUA))
             {
-               int mystart=0,myend=curr->length-1;
+#ifdef USE_UTF8
+               LENGTHTYPE mystart=0,myend=execute_utf8_text_width(
+                                          curr->line, curr->length) - 1;
+#else
+               LENGTHTYPE mystart=0,myend=curr->length-1;
+#endif
                if (true_line + i == MARK_VIEW->mark_start_line)
                   mystart = start_col;
                if (true_line + i == MARK_VIEW->mark_end_line)
                   myend = end_col;
+#ifdef USE_UTF8
+               rc = execute_utf8_change_case_width_range(
+                       curr->line, curr->length, mystart, myend, which_case);
+#else
                rc = change_case(curr->line,mystart,min(curr->length-1,myend),which_case);
+#endif
             }
             else
+#ifdef USE_UTF8
+               rc = execute_utf8_change_case_width_range(
+                       curr->line, curr->length, start_col, end_col,
+                       which_case);
+#else
                rc = change_case(curr->line,start_col,min(curr->length-1,end_col),which_case);
+#endif
             if (rc)
             {
                adjust_alt = TRUE;

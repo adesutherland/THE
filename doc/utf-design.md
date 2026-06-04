@@ -80,8 +80,8 @@ only, never logical text identity or edit positions.
 Column-oriented edit commands are part of the logical model. `CINSERT`,
 `CREPLACE`, and `COVERLAY` convert any file-area display coordinate back to a
 logical cell column, snap to the start of the containing grapheme cluster, and
-edit whole clusters. They must not use terminal-profile layout widths to decide
-what bytes to insert, delete, or replace.
+edit whole clusters. They must not use terminal-profile `ADVANCE`, `CURSOR`, or
+`REPAINT` widths to decide what bytes to insert, delete, or replace.
 
 The terminal profile is keyed by feature class, display mode, and terminal
 identity. Each entry describes how one logical cluster class is physically
@@ -474,7 +474,7 @@ Unicode segmentation failure.
 The clean implementation keeps flags literal and logical-width-correct. Visual
 overhang compensation is applied as a separate display-cell policy, not by
 changing `TextPos.cell_column`. The file-area renderer now derives physical
-layout width, cursor width, and ZWJ output method from the active terminal
+`ADVANCE` width, `CURSOR` width, and ZWJ output method from the active terminal
 profile. The older ad hoc `THE_UTF_*_WIDTH` and flag-overhang diagnostic
 switches have been retired from the renderer path; equivalent terminal
 differences should be represented with `SET UTF TERMINAL CLASS ...` profile
@@ -482,7 +482,7 @@ entries.
 
 Display slicing is cluster-aware. If a viewport starts or ends inside a
 multi-cell cluster, the partial cluster is omitted and replaced with padding
-cells. Padding is capped to the visible width so a clipped large cluster cannot
+cells. Padding is capped to the user-visible `WIDTH` so a clipped large cluster cannot
 spill into following output.
 
 The file-area renderer writes each grapheme cluster atomically on the slow
@@ -828,7 +828,7 @@ Terminal probe tool:
   ```
 
   To animate the THE-style background cursor across `A-cluster-B-space-A-cluster-B`,
-  pass the sample selector, layout width, cursor-background width, and optionally
+  pass the sample selector, `ADVANCE` width, cursor-background width, and optionally
   a repaint mode:
 
   ```sh

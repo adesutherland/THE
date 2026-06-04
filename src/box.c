@@ -1046,6 +1046,32 @@ static short box_copy_stream_from_temp(BOXP *prm,bool boverlay)
          }
          if (i+1 == prm->num_lines)
             full_line = FALSE;
+#ifdef USE_UTF8
+         if (full_line)
+         {
+            rec_len = box_utf8_safe_prefix_bytes(
+                         prm->curr_src->line, prm->curr_src->length,
+                         max_line_length);
+            memset(rec, ' ', max_line_length);
+            if (rec_len > 0)
+               memcpy(rec, prm->curr_src->line, (size_t)rec_len);
+         }
+         else
+         {
+            LENGTHTYPE src_width = box_utf8_text_width(
+                                      prm->curr_src->line,
+                                      prm->curr_src->length);
+            TextCellSlice slice = utf8_layout_slice_width(
+                                     rec, rec_len,
+                                     box_utf8_width_arg(mystart),
+                                     box_utf8_width_arg(src_width));
+
+            box_utf8_rec_replace_bytes(
+               (LENGTHTYPE)slice.start.byte_offset,
+               (LENGTHTYPE)slice.end.byte_offset,
+               prm->curr_src->line, prm->curr_src->length);
+         }
+#else
          memcpy(rec+mystart,prm->curr_src->line,prm->curr_src->length);
          if (full_line)
          {
@@ -1055,6 +1081,7 @@ static short box_copy_stream_from_temp(BOXP *prm,bool boverlay)
          {
             rec_len = max(rec_len,prm->curr_src->length+mystart);
          }
+#endif
 
          post_process_line( prm->dst_view, dst_lineno, (LINE *)NULL, FALSE );
          prm->curr_src = prm->curr_src->next;   /* this should NEVER go past the end */

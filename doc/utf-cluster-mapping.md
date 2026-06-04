@@ -386,7 +386,7 @@ Initial validation:
 | Horizontal scrolling and viewport logic | viewport state remains logical; renderer maps to physical ADVANCE | `driver_layout_viewport_col_for_logical()` | In place for cursor visibility and file-area display mapping. A shared per-line cache remains planned, not required for correctness in this pass. |
 | File-area rendering | ADVANCE for placement, CURSOR for cursor coverage, REPAINT for cleanup | `show_utf8_*`, `TheRenderCluster`, driver render operations | In place. ASCII fast path is guarded by the active native one-cell profile. |
 | LLM/headless snapshots and cursor metadata | semantic cursor stays logical; row UTF annotations expose logical, WIDTH, ADVANCE, CURSOR, REPAINT metadata | `llm_driver_collect_utf_metadata()`, `append_utf_metadata()` | In place for this pass. Full annotations now include row, screen cell, byte offset, cluster index, row-local text, codepoints, `logical_width`, `width`, `advance_width`, `cursor_width`, and `repaint_width`; `utf=all` exposes ordinary ASCII/native clusters for deterministic validation. |
-| Selection, mark, box, rectangle operations | user-requested WIDTH columns converted per line to whole logical clusters | `utf8_layout_slice_width()` plus box/show UTF adapters | Improved. Mark highlighting and box delete/fill/copy/move convert WIDTH spans to whole logical clusters before byte mutation or logical-cell rendering. LLM full-runtime coverage exercises CJK box delete, fill, copy, and move; manual stream probes cover multi-line stream delete/copy. Prefix-driven block variants and less common overlay paths remain residual risk. |
+| Selection, mark, box, rectangle operations | user-requested WIDTH columns converted per line to whole logical clusters | `utf8_layout_slice_width()` plus box/show/execute UTF adapters | Improved. Mark highlighting, box delete/fill/copy/move, stream/CUA overlay, and shift/case prefix block variants convert WIDTH spans to whole logical clusters before byte mutation or logical-cell rendering. LLM full-runtime coverage exercises CJK box delete, fill, copy, move, direct shift, prefix block shift, bounded prefix shifts, and multi-line CUA overlay. Prefix `oo` remains a registered no-op stub, so it is documented as not a live mutation path. |
 | `CINSERT`, `CREPLACE`, `COVERLAY`, `CAPPEND` | logical editing at cursor-resolved cluster boundaries | `show_utf8_logical_col_from_display()`, `textedit_*_utf8()` | In place for UTF non-HEX file-area paths. HEX and command-line compatibility paths remain byte/fixed-cell by design. |
 | Delete/backspace and SOS logical edits | logical clusters for file area; fixed cells for command/prefix | SOS/text edit paths plus `TextPos` helpers | Existing focused tests pass. Keep covered by LLM/headless and CREXX/pty tests while auditing adjacent paths. |
 | Prefix and command-line paths | fixed prompt/prefix cells; UTF profile WIDTH is irrelevant unless the text itself is decoded for mutation | logical cursor state, command/prefix text helpers | Documented as out of profile WIDTH scope. They should not consume ADVANCE/CURSOR/REPAINT. |
@@ -406,6 +406,13 @@ Pass updates:
   WIDTH spans snapped to whole logical clusters before rendering or mutation.
 - Added LLM full-runtime regressions proving CJK box delete/fill/copy/move do
   not split UTF bytes or report replacement characters.
+- Refactored direct shift, prefix block shift, bounded prefix shift, and
+  stream/CUA overlay paths to translate user-visible WIDTH spans to whole
+  logical clusters before byte mutation. Added LLM full-runtime regressions for
+  direct shift, prefix `2<<`, prefix `((`/`))`, prefix `ucc`, and multi-line CUA
+  `OVERLAYBOX` over a CJK destination cluster. Prefix block `oo` is still a
+  non-mutating stub in `prefix_block_overlay()`, so there is no live prefix
+  overlay path to convert.
 
 `ADVANCE` is the terminal placement value. It may differ from `WIDTH` when a
 terminal reports or occupies more grid cells than the user-visible cluster
