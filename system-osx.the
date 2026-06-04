@@ -43,6 +43,12 @@ address the
 'SET UTF TERMINAL CLASS keycap CURSORSTRATEGY cells'
 'SET UTF TERMINAL CLASS keycap REPLACESTRATEGY cells'
 
+/* Apple Terminal displays decomposed Regional Indicator flags as two boxed */
+/* two-cell letters. Paired regional-flag clusters keep their normal profile. */
+'SET UTF TERMINAL CLASS regional-indicator WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2'
+'SET UTF TERMINAL CLASS regional-indicator CURSORSTRATEGY cells'
+'SET UTF TERMINAL CLASS regional-indicator REPLACESTRATEGY cells'
+
 /* Grouped substitutes are per class/display and keep the file text logical. */
 'SET UTF TERMINAL CLASS short-zwj DISPLAY grouped OUTPUT substitute U+25A1'
 

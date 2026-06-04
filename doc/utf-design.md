@@ -203,8 +203,8 @@ A manual `the --driver llm` probe confirmed:
 
 1. Apple display regression in the curses driver.
    Revalidate `tests/fixtures/utf-render.txt` in Apple Terminal, especially
-   keycap, regional-flag, modifier, and ZWJ rows. Keep fixes profile-driven or
-   driver-local.
+   keycap, regional-indicator, regional-flag, modifier, and ZWJ rows. Keep
+   fixes profile-driven or driver-local.
 
 2. Windows and Linux validation.
    Prove runtime module loading, wide curses/PDCurses behavior, UTF profiles,

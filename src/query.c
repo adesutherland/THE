@@ -914,12 +914,14 @@ HEADer
      header.11       - section ON|OFF
 
 HEXDISPlay
-     Indicates if the current character is displayed on the <status line>.
+     Indicates if the current character is displayed on the <status line>
+     and which display mode is used.
      Set by <SET HEXDISPLAY>.
      (QEMS)
 
-     hexdisplay.0    - 1
+     hexdisplay.0    - 2
      hexdisplay.1    - ON|OFF
+     hexdisplay.2    - BOTH|CHARS|CODES
 
 HEXShow
      Returns details of HEXSHOW placement. Set by <SET HEXSHOW>.
@@ -2108,7 +2110,7 @@ QUERY_ITEM _THE_FAR query_item[] =
    {(CHARTYPE *)"getenv",          6, 6,ITEM_GETENV,        1, 1,          LVL_GLOB,                         QUERY_EXTRACT             ,extract_getenv                 },
    {(CHARTYPE *)"header",          4, 3,ITEM_HEADER,       11,11,          LVL_GLOB,QUERY_QUERY|             QUERY_EXTRACT             ,extract_header                 },
    {(CHARTYPE *)"hex",             3, 3,ITEM_HEX,           1, 1,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_hex                    },
-   {(CHARTYPE *)"hexdisplay",     10, 7,ITEM_HEXDISPLAY,    1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_hexdisplay             },
+   {(CHARTYPE *)"hexdisplay",     10, 7,ITEM_HEXDISPLAY,    2, 2,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_hexdisplay             },
    {(CHARTYPE *)"hexshow",         7, 4,ITEM_HEXSHOW,       2, 2,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_hexshow                },
    {(CHARTYPE *)"highlight",       9, 4,ITEM_HIGHLIGHT,     1, 3,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_highlight              },
    {(CHARTYPE *)"idline",          6, 2,ITEM_IDLINE,        1, 1,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_idline                 },

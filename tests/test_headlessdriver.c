@@ -186,6 +186,15 @@ static void test_render_cell_model(void)
       static const CHARTYPE flag[] = {
          0xF0, 0x9F, 0x87, 0xBA, 0xF0, 0x9F, 0x87, 0xB8
       };
+      static const CHARTYPE text_heart[] = {
+         0xE2, 0x99, 0xA5
+      };
+      static const CHARTYPE explicit_text_heart[] = {
+         0xE2, 0x99, 0xA5, 0xEF, 0xB8, 0x8E
+      };
+      static const CHARTYPE emoji_heart[] = {
+         0xE2, 0x99, 0xA5, 0xEF, 0xB8, 0x8F
+      };
       static const CHARTYPE zwj[] = {
          0xF0, 0x9F, 0x91, 0xA9, 0xE2, 0x80, 0x8D,
          0xE2, 0x9D, 0xA4, 0xEF, 0xB8, 0x8F, 0xE2, 0x80,
@@ -278,6 +287,42 @@ static void test_render_cell_model(void)
       expect_int("render.flag.repaint", render.repaint_width, 3);
       expect_int("render.flag.repair", render.repair_strategy,
                  UTF8_TERM_STRATEGY_CLEAR_CHANGED_SUFFIX_FAST);
+
+      utf8_terminal_profile_reset();
+      expect_int("render.text.heart.make",
+                 the_render_cluster_from_text_cluster(
+                    &render, text_heart, sizeof(text_heart),
+                    test_cluster_at_begin(text_heart, sizeof(text_heart)),
+                    14, 0), 1);
+      expect_int("render.text.heart.class", render.feature_class,
+                 UTF8_TERM_CLASS_AMBIGUOUS);
+      expect_int("render.text.heart.display", render.advance_width, 1);
+      expect_int("render.text.heart.cursor", render.cursor_width, 1);
+      expect_int("render.text.heart.repaint", render.repaint_width, 1);
+
+      expect_int("render.explicit.text.heart.make",
+                 the_render_cluster_from_text_cluster(
+                    &render, explicit_text_heart,
+                    sizeof(explicit_text_heart),
+                    test_cluster_at_begin(explicit_text_heart,
+                                          sizeof(explicit_text_heart)),
+                    15, 0), 1);
+      expect_int("render.explicit.text.heart.class", render.feature_class,
+                 UTF8_TERM_CLASS_TEXT_VARIATION);
+      expect_int("render.explicit.text.heart.display", render.advance_width, 1);
+      expect_int("render.explicit.text.heart.cursor", render.cursor_width, 1);
+      expect_int("render.explicit.text.heart.repaint", render.repaint_width, 1);
+
+      expect_int("render.emoji.heart.make",
+                 the_render_cluster_from_text_cluster(
+                    &render, emoji_heart, sizeof(emoji_heart),
+                    test_cluster_at_begin(emoji_heart, sizeof(emoji_heart)),
+                    16, 0), 1);
+      expect_int("render.emoji.heart.class", render.feature_class,
+                 UTF8_TERM_CLASS_EMOJI_VARIATION);
+      expect_int("render.emoji.heart.display", render.advance_width, 2);
+      expect_int("render.emoji.heart.cursor", render.cursor_width, 2);
+      expect_int("render.emoji.heart.repaint", render.repaint_width, 2);
 
       utf8_terminal_profile_reset();
       utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_COMPONENTS);

@@ -314,32 +314,51 @@ static int show_utf8_cluster_repaint_width(const CHARTYPE *line, size_t len,
    return utf8_layout_cluster_repaint_width(line, len, cluster);
 }
 
-static int show_utf8_status_component_codepoint(uint32_t codepoint)
+static uint32_t show_utf8_status_component_display_codepoint(uint32_t codepoint)
 {
    if (codepoint < 32 || codepoint == 0x7Fu)
-      return FALSE;
-   if (codepoint == 0x200Du
-   ||  codepoint == 0xFE0Eu
-   ||  codepoint == 0xFE0Fu
-   ||  utf8_cluster_codepoint_is_tag(codepoint))
-      return FALSE;
-   return TRUE;
+      return 0;
+   if (codepoint == 0x200Du || utf8_cluster_codepoint_is_tag(codepoint))
+      return 0;
+   /* Status-only markers for invisible presentation selectors. */
+   switch (codepoint)
+   {
+      case 0xFE0Eu:
+         return 'T';
+      case 0xFE0Fu:
+         return 'E';
+      default:
+         return codepoint;
+   }
 }
 
 static int show_utf8_status_component_width(uint32_t codepoint)
 {
+   const Utf8TerminalProfileEntry *entry;
+   uint32_t display_codepoint;
    int width;
 
-   if (!show_utf8_status_component_codepoint(codepoint))
+   display_codepoint = show_utf8_status_component_display_codepoint(codepoint);
+   if (display_codepoint == 0)
       return 0;
-   width = text_codepoint_cell_width(codepoint);
+   if (utf8_cluster_codepoint_is_regional(codepoint))
+   {
+      entry = utf8_terminal_profile_lookup(
+         UTF8_TERM_CLASS_REGIONAL_INDICATOR, UTF8_TERM_DISPLAY_NORMAL);
+      if (entry != NULL && entry->width > 0)
+         return entry->width;
+   }
+   width = text_codepoint_cell_width(display_codepoint);
    return (width > 0) ? width : 1;
 }
 
 static int show_utf8_status_component_is_zero_width(uint32_t codepoint)
 {
-   return show_utf8_status_component_codepoint(codepoint)
-       && text_codepoint_cell_width(codepoint) <= 0;
+   uint32_t display_codepoint =
+      show_utf8_status_component_display_codepoint(codepoint);
+
+   return display_codepoint != 0
+       && text_codepoint_cell_width(display_codepoint) <= 0;
 }
 
 static int show_utf8_status_expanded_width(const CHARTYPE *line, size_t len,
@@ -368,6 +387,26 @@ static int show_utf8_status_expanded_width(const CHARTYPE *line, size_t len,
       pos = show_utf8_advance_codepoint_pos(pos, item);
    }
    return (width > 0) ? width : 1;
+}
+
+static int show_utf8_status_wants_chars(void)
+{
+   return HEXDISPLAY_MODEx != HEXDISPLAY_MODE_CODES;
+}
+
+static int show_utf8_status_wants_codes(void)
+{
+   return HEXDISPLAY_MODEx != HEXDISPLAY_MODE_CHARS;
+}
+
+static int show_utf8_status_expanded_layout_limit(int include_codes)
+{
+   if (include_codes)
+   {
+      /* The fixed field is 20 cells: '[', '] ', and at least '...' for U+ data. */
+      return 20 - 1 - 2 - 3;
+   }
+   return 20 - 1 - 2;
 }
 
 int show_utf8_display_col_from_logical(const CHARTYPE *line, size_t len,
@@ -441,6 +480,16 @@ static int show_write_utf8_status_zero_width_component_at(TheDriverWindow *win,
    return TRUE;
 }
 
+static void show_write_utf8_status_blank_cell_at(TheDriverWindow *win,
+                                                 int row, int col,
+                                                 TheDriverAttr colour)
+{
+   TheRenderCell cell;
+
+   if (the_render_cell_from_codepoint(&cell, ' ', (TheRenderAttr)colour))
+      the_driver->write_render_cluster_at(win, row, col, &cell);
+}
+
 static void show_write_utf8_status_expanded_cluster_at(TheDriverWindow *win,
                                                        int row, int col,
                                                        int max_width,
@@ -458,10 +507,13 @@ static void show_write_utf8_status_expanded_cluster_at(TheDriverWindow *win,
    &&     used < max_width)
    {
       TextCodepoint item = textpos_codepoint_at_boundary(line, len, pos);
+      uint32_t display_codepoint;
       int width;
 
       if (item.byte_length == 0)
          break;
+      display_codepoint =
+         show_utf8_status_component_display_codepoint(item.codepoint);
       width = show_utf8_status_component_width(item.codepoint);
       if (width > 0)
       {
@@ -481,13 +533,16 @@ static void show_write_utf8_status_expanded_cluster_at(TheDriverWindow *win,
             {
                if (used + 1 >= max_width)
                   break;
+               show_write_utf8_status_blank_cell_at(win, row, col + used,
+                                                    colour);
                used++;
             }
             if (used + width > max_width)
                break;
-            if (the_render_cell_from_codepoint(&cell, item.codepoint,
+            if (the_render_cell_from_codepoint(&cell, display_codepoint,
                                                (TheRenderAttr)colour))
             {
+               cell.width = width;
                cell.advance_width = width;
                cell.cursor_width = width;
                cell.repaint_width = width;
@@ -498,6 +553,11 @@ static void show_write_utf8_status_expanded_cluster_at(TheDriverWindow *win,
          components++;
       }
       pos = show_utf8_advance_codepoint_pos(pos, item);
+   }
+   while (used < max_width)
+   {
+      show_write_utf8_status_blank_cell_at(win, row, col + used, colour);
+      used++;
    }
 }
 
@@ -1969,66 +2029,94 @@ void show_statarea(void)
          size_t code_len = 0;
          int field_truncated = FALSE;
          int glyph_cells = 1;
+         int layout_cells = 1;
          int code_col = 0;
+         int want_chars = show_utf8_status_wants_chars();
+         int want_codes = show_utf8_status_wants_codes();
 
          status_field_width = min(20, max(0, (terminal_cols-7) - charpos));
          codebuf[0] = '\0';
-         pos = status_cluster.pos;
-         while (status_cluster_line != NULL
-         &&     pos.byte_offset < status_cluster.end.byte_offset)
+         if (want_codes)
          {
-            TextCodepoint item = textpos_codepoint_at_boundary(status_cluster_line,
-                                                               status_cluster_len,
-                                                               pos);
-            char one[24];
-            size_t one_len;
-
-            if (item.byte_length == 0)
-               break;
-            snprintf(one, sizeof(one), "%sU+%X", (code_len == 0) ? "" : " ",
-                     item.codepoint);
-            one_len = strlen(one);
-            if (code_len + one_len < sizeof(codebuf))
+            pos = status_cluster.pos;
+            while (status_cluster_line != NULL
+            &&     pos.byte_offset < status_cluster.end.byte_offset)
             {
-               strcpy(codebuf + code_len, one);
-               code_len += one_len;
-            }
-            else
-               field_truncated = TRUE;
-            pos = show_utf8_advance_codepoint_pos(pos, item);
-         }
+               TextCodepoint item = textpos_codepoint_at_boundary(status_cluster_line,
+                                                                  status_cluster_len,
+                                                                  pos);
+               char one[24];
+               size_t one_len;
 
-         if (codebuf[0] == '\0')
-            strcpy(codebuf, "U+0");
+               if (item.byte_length == 0)
+                  break;
+               snprintf(one, sizeof(one), "%s%X",
+                        (code_len == 0) ? "U+" : "+", item.codepoint);
+               one_len = strlen(one);
+               if (code_len + one_len < sizeof(codebuf))
+               {
+                  strcpy(codebuf + code_len, one);
+                  code_len += one_len;
+               }
+               else
+                  field_truncated = TRUE;
+               pos = show_utf8_advance_codepoint_pos(pos, item);
+            }
+
+            if (codebuf[0] == '\0')
+               strcpy(codebuf, "U+0");
+         }
 
          memset(status_field, ' ', sizeof(status_field));
          status_field[20] = '\0';
          if (status_cluster_line == NULL || status_cluster.byte_length == 0)
          {
-            status_field[0] = '[';
-            status_field[1] = ' ';
-            status_field[2] = ']';
-            status_field[3] = ' ';
-            field_truncated = show_utf8_copy_status_text(status_field, 4,
-                                                         codebuf);
+            if (want_chars)
+            {
+               status_field[0] = '[';
+               status_field[1] = ' ';
+               status_field[2] = ']';
+               status_field[3] = ' ';
+               if (want_codes)
+                  field_truncated =
+                     show_utf8_copy_status_text(status_field, 4, codebuf)
+                     || field_truncated;
+            }
+            else
+               field_truncated =
+                  show_utf8_copy_status_text(status_field, 0, codebuf)
+                  || field_truncated;
          }
          else
          {
-            glyph_cells = show_utf8_status_expanded_width(status_cluster_line,
-                                                          status_cluster_len,
-                                                          status_cluster);
-            glyph_cells = min(glyph_cells, 8);
-            status_cluster_expanded_width = glyph_cells;
-            status_cluster_offset = 1;
-            status_field[0] = '[';
-            if (1 + glyph_cells < 20)
-               status_field[1 + glyph_cells] = ']';
-            if (2 + glyph_cells < 20)
-               status_field[2 + glyph_cells] = ' ';
-            code_col = min(19, glyph_cells + 3);
-            field_truncated = show_utf8_copy_status_text(status_field,
-                                                         code_col, codebuf);
-            draw_status_cluster = TRUE;
+            if (want_chars)
+            {
+               int layout_limit;
+
+               glyph_cells = show_utf8_status_expanded_width(status_cluster_line,
+                                                             status_cluster_len,
+                                                             status_cluster);
+               layout_limit = show_utf8_status_expanded_layout_limit(want_codes);
+               layout_cells = min(glyph_cells, layout_limit);
+               status_cluster_expanded_width = layout_cells;
+               status_cluster_offset = 1;
+               status_field[0] = '[';
+               if (1 + layout_cells < 20)
+                  status_field[1 + layout_cells] = ']';
+               if (2 + layout_cells < 20)
+                  status_field[2 + layout_cells] = ' ';
+               code_col = min(19, layout_cells + 3);
+               if (want_codes)
+                  field_truncated =
+                     show_utf8_copy_status_text(status_field, code_col,
+                                                codebuf)
+                     || field_truncated;
+               draw_status_cluster = TRUE;
+            }
+            else
+               field_truncated =
+                  show_utf8_copy_status_text(status_field, 0, codebuf)
+                  || field_truncated;
          }
          if (field_truncated)
          {
@@ -2046,8 +2134,24 @@ void show_statarea(void)
       }
 #else
       {
-         sprintf((DEFCHAR*)linebuf+max(0,(terminal_cols-19)),"'%c'=%02X/%03d  ",
-                       (unsigned char) ((key == 0) ? ' ' : key),key,key);
+         char status_field[21];
+         char status_text[21];
+         int charpos = max(0,(terminal_cols-19));
+
+         memset(status_field, ' ', sizeof(status_field));
+         status_field[20] = '\0';
+         if (HEXDISPLAY_MODEx == HEXDISPLAY_MODE_CHARS)
+            snprintf(status_text, sizeof(status_text), "'%c'",
+                     (unsigned char)((key == 0) ? ' ' : key));
+         else if (HEXDISPLAY_MODEx == HEXDISPLAY_MODE_CODES)
+            snprintf(status_text, sizeof(status_text), "%02X/%03d", key, key);
+         else
+            snprintf(status_text, sizeof(status_text), "'%c'=%02X/%03d",
+                     (unsigned char)((key == 0) ? ' ' : key), key, key);
+         memcpy(status_field, status_text,
+                min(12, (int)strlen(status_text)));
+         memcpy((DEFCHAR *)linebuf + charpos, status_field,
+                12);
       }
 #endif
    }

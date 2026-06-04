@@ -81,6 +81,9 @@ static void test_existing_terminal_classes(void)
    static const CHARTYPE flag[] = { 'A',
                                     0xF0, 0x9F, 0x87, 0xAC,
                                     0xF0, 0x9F, 0x87, 0xA7, 'B' };
+   static const CHARTYPE regional_indicator[] = { 'A',
+                                                  0xF0, 0x9F, 0x87, 0xAC,
+                                                  'B' };
    static const CHARTYPE short_zwj[] = { 'A',
                                          0xF0, 0x9F, 0x91, 0xA9,
                                          0xE2, 0x80, 0x8D,
@@ -103,6 +106,18 @@ static void test_existing_terminal_classes(void)
    static const CHARTYPE modifier[] = { 'A',
                                         0xF0, 0x9F, 0x91, 0x8D,
                                         0xF0, 0x9F, 0x8F, 0xBB, 'B' };
+   static const CHARTYPE text_heart[] = { 'A',
+                                          0xE2, 0x99, 0xA5, 'B' };
+   static const CHARTYPE text_checkbox[] = { 'A',
+                                             0xE2, 0x98, 0x91, 'B' };
+   static const CHARTYPE explicit_text_heart[] = { 'A',
+                                                   0xE2, 0x99, 0xA5,
+                                                   0xEF, 0xB8, 0x8E, 'B' };
+   static const CHARTYPE emoji_heart[] = { 'A',
+                                           0xE2, 0x99, 0xA5,
+                                           0xEF, 0xB8, 0x8F, 'B' };
+   static const CHARTYPE default_emoji_check[] = { 'A',
+                                                   0xE2, 0x9C, 0x85, 'B' };
 #endif
    static const CHARTYPE combining[] = { 'A', 'e', 0xCC, 0x81, 'B' };
    static const CHARTYPE private_use[] = { 'A', 0xEE, 0x80, 0x80, 'B' };
@@ -110,6 +125,9 @@ static void test_existing_terminal_classes(void)
 #ifdef USE_UTF8PROC
    expect_class("class.regional.flag", flag, sizeof(flag),
                 UTF8_TERM_CLASS_REGIONAL_FLAG);
+   expect_class("class.regional.indicator", regional_indicator,
+                sizeof(regional_indicator),
+                UTF8_TERM_CLASS_REGIONAL_INDICATOR);
    expect_class("class.short.zwj", short_zwj, sizeof(short_zwj),
                 UTF8_TERM_CLASS_SHORT_ZWJ);
    expect_class("class.heart.zwj", heart_zwj, sizeof(heart_zwj),
@@ -118,6 +136,16 @@ static void test_existing_terminal_classes(void)
                 UTF8_TERM_CLASS_FAMILY_ZWJ);
    expect_class("class.modifier", modifier, sizeof(modifier),
                 UTF8_TERM_CLASS_MODIFIER);
+   expect_class("class.text.heart", text_heart, sizeof(text_heart),
+                UTF8_TERM_CLASS_AMBIGUOUS);
+   expect_class("class.text.checkbox", text_checkbox, sizeof(text_checkbox),
+                UTF8_TERM_CLASS_AMBIGUOUS);
+   expect_class("class.explicit.text.heart", explicit_text_heart,
+                sizeof(explicit_text_heart), UTF8_TERM_CLASS_TEXT_VARIATION);
+   expect_class("class.emoji.heart", emoji_heart, sizeof(emoji_heart),
+                UTF8_TERM_CLASS_EMOJI_VARIATION);
+   expect_class("class.default.emoji.check", default_emoji_check,
+                sizeof(default_emoji_check), UTF8_TERM_CLASS_EMOJI);
 #endif
    expect_class("class.combining", combining, sizeof(combining),
                 UTF8_TERM_CLASS_COMBINING);

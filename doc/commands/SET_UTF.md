@@ -41,8 +41,9 @@ configured. It does not affect the logical text model.
 For example, a ZWJ sequence such as a family emoji may have a GROUPED profile
 that writes one composed sequence and a COMPONENTS profile that writes a
 decomposed display. SET UTF DISPLAY selects which profile THE tries first.
-Classes with only a normal profile, such as keycap, regional-flag, wide, and
-combining in the current defaults, fall back to their normal class profile.
+Classes with only a normal profile, such as keycap, regional-indicator,
+regional-flag, wide, and combining in the current defaults, fall back to their
+normal class profile.
 
 The CLASS operand identifies the UTF-8 feature class to configure. Supported classes are:
 
@@ -56,6 +57,7 @@ The CLASS operand identifies the UTF-8 feature class to configure. Supported cla
 - emoji-variation
 - modifier
 - keycap
+- regional-indicator
 - regional-flag
 - short-zwj
 - heart-zwj
@@ -79,7 +81,10 @@ repaint when stale glyph fragments may remain. These four values are recorded
 independently because user-visible width, terminal advance, cursor presentation,
 and repaint cleanup can differ on real terminals. For example, Apple Terminal
 may need `WIDTH 2 ADVANCE 4 CURSOR 4 REPAINT 4` for a native emoji modifier
-cluster.
+cluster. The regional-indicator class represents a single Regional Indicator
+codepoint; regional-flag represents the normal two-codepoint flag sequence, so
+terminal profiles can describe decomposed flag components separately from
+grouped pairs.
 
 OUTPUT specifies how the class is written to the terminal. Supported methods are:
 
@@ -97,6 +102,7 @@ for any class, not only ZWJ grouped profiles. For example:
 ```text
 SET UTF TERMINAL CLASS short-zwj DISPLAY grouped OUTPUT substitute U+0040
 SET UTF TERMINAL CLASS keycap OUTPUT substitute U+25A1
+SET UTF TERMINAL CLASS regional-indicator OUTPUT substitute U+25A1
 SET UTF TERMINAL CLASS regional-flag OUTPUT substitute U+25A1
 ```
 
@@ -127,6 +133,7 @@ logical cursor position, or command semantics. For example:
 SET UTF TERMINAL CLASS keycap OUTPUT base
 SET UTF TERMINAL CLASS keycap MARK compressed
 SET UTF TERMINAL CLASS keycap WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1
+SET UTF TERMINAL CLASS regional-indicator WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2
 ```
 
 CURSORSTRATEGY specifies the repaint strategy used when the cursor moves across the class.

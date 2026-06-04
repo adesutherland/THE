@@ -137,6 +137,9 @@ Utf8TerminalClass utf8_cluster_classify_facts(
    if ((facts->flags & UTF8_CLUSTER_FACT_ALL_REGIONAL)
    &&  facts->regional_codepoints == 2)
       return UTF8_TERM_CLASS_REGIONAL_FLAG;
+   if ((facts->flags & UTF8_CLUSTER_FACT_ALL_REGIONAL)
+   &&  facts->regional_codepoints == 1)
+      return UTF8_TERM_CLASS_REGIONAL_INDICATOR;
    if (facts->flags & UTF8_CLUSTER_FACT_CONTAINS_TAG)
       return UTF8_TERM_CLASS_TAG_FLAG;
    if (facts->zwj_count > 0)
@@ -167,14 +170,16 @@ Utf8TerminalClass utf8_cluster_classify_facts(
    }
    if (utf8_cluster_codepoint_is_private_use(facts->first_codepoint))
       return UTF8_TERM_CLASS_PRIVATE_USE;
+   if (facts->cluster.cell_width >= 2)
+   {
+      if (utf8_cluster_codepoint_is_emojiish(facts->first_codepoint))
+         return UTF8_TERM_CLASS_EMOJI;
+      return UTF8_TERM_CLASS_WIDE;
+   }
    if (facts->first_codepoint < 0x80u)
       return UTF8_TERM_CLASS_ASCII;
    if (facts->cluster.cell_width == 0)
       return UTF8_TERM_CLASS_COMBINING;
-   if (utf8_cluster_codepoint_is_emojiish(facts->first_codepoint))
-      return UTF8_TERM_CLASS_EMOJI;
-   if (facts->cluster.cell_width >= 2)
-      return UTF8_TERM_CLASS_WIDE;
    return UTF8_TERM_CLASS_AMBIGUOUS;
 }
 

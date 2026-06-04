@@ -131,7 +131,7 @@ static TextCluster cluster_after_leading_ascii(const CHARTYPE *line, size_t len)
 static void test_coded_defaults(void)
 {
    utf8_terminal_profile_reset();
-   expect_size("entry.count", utf8_terminal_profile_entry_count(), 19);
+   expect_size("entry.count", utf8_terminal_profile_entry_count(), 20);
    expect_int("default.display.mode", utf8_terminal_display_mode(),
               UTF8_TERM_DISPLAY_GROUPED);
    expect_profile("default.ascii", UTF8_TERM_CLASS_ASCII, UTF8_TERM_DISPLAY_NORMAL,
@@ -142,6 +142,14 @@ static void test_coded_defaults(void)
                   UTF8_TERM_OUTPUT_NATIVE, 2, 2,
                   UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST,
                   UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST);
+   expect_profile("default.regional.indicator",
+                  UTF8_TERM_CLASS_REGIONAL_INDICATOR,
+                  UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 2, 2,
+                  UTF8_TERM_STRATEGY_CHANGED_CELLS,
+                  UTF8_TERM_STRATEGY_CHANGED_CELLS);
+   expect_widths("default.regional.indicator.widths",
+                 UTF8_TERM_CLASS_REGIONAL_INDICATOR,
+                 UTF8_TERM_DISPLAY_NORMAL, 2, 2, 2, 2);
    expect_profile("default.flag", UTF8_TERM_CLASS_REGIONAL_FLAG, UTF8_TERM_DISPLAY_NORMAL,
                   UTF8_TERM_OUTPUT_NATIVE, 3, 3,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
@@ -258,6 +266,13 @@ static void test_line_parser(void)
    expect_widths("line.short.components.widths",
                  UTF8_TERM_CLASS_SHORT_ZWJ,
                  UTF8_TERM_DISPLAY_COMPONENTS, 4, 4, 3, 5);
+   expect_int("line.regional.indicator.width",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS regional-indicator WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_widths("line.regional.indicator.widths",
+                 UTF8_TERM_CLASS_REGIONAL_INDICATOR,
+                 UTF8_TERM_DISPLAY_NORMAL, 1, 1, 1, 1);
 
    expect_int("line.replacement",
               utf8_terminal_profile_apply_line(
@@ -455,7 +470,7 @@ static void test_profile_file(const char *profile_path)
    expect_int("system.file",
               utf8_terminal_profile_apply_file(profile_path, &loaded),
               UTF8_TERMINAL_PROFILE_APPLIED);
-   expect_int("system.loaded", loaded, 47);
+   expect_int("system.loaded", loaded, 50);
    expect_profile("system.modifier", UTF8_TERM_CLASS_MODIFIER,
                   UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_NATIVE, 4, 4,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
@@ -470,6 +485,12 @@ static void test_profile_file(const char *profile_path)
                UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_MARK_COMPRESSED);
    expect_repaint("system.keycap.repaint", UTF8_TERM_CLASS_KEYCAP,
                 UTF8_TERM_DISPLAY_NORMAL, 1);
+   expect_widths("system.regional.indicator.widths",
+                 UTF8_TERM_CLASS_REGIONAL_INDICATOR,
+                 UTF8_TERM_DISPLAY_NORMAL, 2, 2, 2, 2);
+   expect_widths("system.regional.flag.widths",
+                 UTF8_TERM_CLASS_REGIONAL_FLAG,
+                 UTF8_TERM_DISPLAY_NORMAL, 2, 3, 3, 3);
    expect_profile("system.short.group", UTF8_TERM_CLASS_SHORT_ZWJ,
                   UTF8_TERM_DISPLAY_GROUPED, UTF8_TERM_OUTPUT_SUBSTITUTE, 1, 1,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
@@ -497,7 +518,7 @@ static void test_terminal_identity(void)
    expect_int("identity.apple",
               utf8_terminal_profile_apply_terminal_identity(
                  "xterm-256color", "Apple_Terminal"),
-              47);
+              50);
    expect_profile("identity.apple.keycap", UTF8_TERM_CLASS_KEYCAP,
                   UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_BASE, 1, 1,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
@@ -515,6 +536,9 @@ static void test_cluster_classification(void)
    static const CHARTYPE flag[] = { 'A',
                                     0xF0, 0x9F, 0x87, 0xAC,
                                     0xF0, 0x9F, 0x87, 0xA7, 'B' };
+   static const CHARTYPE regional_indicator[] = { 'A',
+                                                  0xF0, 0x9F, 0x87, 0xAC,
+                                                  'B' };
    static const CHARTYPE short_zwj[] = { 'A',
                                          0xF0, 0x9F, 0x91, 0xA9,
                                          0xE2, 0x80, 0x8D,
@@ -537,6 +561,18 @@ static void test_cluster_classification(void)
    static const CHARTYPE modifier[] = { 'A',
                                         0xF0, 0x9F, 0x91, 0x8D,
                                         0xF0, 0x9F, 0x8F, 0xBB, 'B' };
+   static const CHARTYPE text_heart[] = { 'A',
+                                          0xE2, 0x99, 0xA5, 'B' };
+   static const CHARTYPE text_checkbox[] = { 'A',
+                                             0xE2, 0x98, 0x91, 'B' };
+   static const CHARTYPE explicit_text_heart[] = { 'A',
+                                                   0xE2, 0x99, 0xA5,
+                                                   0xEF, 0xB8, 0x8E, 'B' };
+   static const CHARTYPE emoji_heart[] = { 'A',
+                                           0xE2, 0x99, 0xA5,
+                                           0xEF, 0xB8, 0x8F, 'B' };
+   static const CHARTYPE default_emoji_check[] = { 'A',
+                                                   0xE2, 0x9C, 0x85, 'B' };
 
    expect_int("class.keycap",
               utf8_terminal_classify_cluster(
@@ -548,6 +584,12 @@ static void test_cluster_classification(void)
                  flag, sizeof(flag),
                  cluster_after_leading_ascii(flag, sizeof(flag))),
               UTF8_TERM_CLASS_REGIONAL_FLAG);
+   expect_int("class.regional.indicator",
+              utf8_terminal_classify_cluster(
+                 regional_indicator, sizeof(regional_indicator),
+                 cluster_after_leading_ascii(regional_indicator,
+                                             sizeof(regional_indicator))),
+              UTF8_TERM_CLASS_REGIONAL_INDICATOR);
    expect_int("class.short.zwj",
               utf8_terminal_classify_cluster(
                  short_zwj, sizeof(short_zwj),
@@ -568,6 +610,35 @@ static void test_cluster_classification(void)
                  modifier, sizeof(modifier),
                  cluster_after_leading_ascii(modifier, sizeof(modifier))),
               UTF8_TERM_CLASS_MODIFIER);
+   expect_int("class.text.heart",
+              utf8_terminal_classify_cluster(
+                 text_heart, sizeof(text_heart),
+                 cluster_after_leading_ascii(text_heart, sizeof(text_heart))),
+              UTF8_TERM_CLASS_AMBIGUOUS);
+   expect_int("class.text.checkbox",
+              utf8_terminal_classify_cluster(
+                 text_checkbox, sizeof(text_checkbox),
+                 cluster_after_leading_ascii(text_checkbox,
+                                             sizeof(text_checkbox))),
+              UTF8_TERM_CLASS_AMBIGUOUS);
+   expect_int("class.explicit.text.heart",
+              utf8_terminal_classify_cluster(
+                 explicit_text_heart, sizeof(explicit_text_heart),
+                 cluster_after_leading_ascii(explicit_text_heart,
+                                             sizeof(explicit_text_heart))),
+              UTF8_TERM_CLASS_TEXT_VARIATION);
+   expect_int("class.emoji.heart",
+              utf8_terminal_classify_cluster(
+                 emoji_heart, sizeof(emoji_heart),
+                 cluster_after_leading_ascii(emoji_heart,
+                                             sizeof(emoji_heart))),
+              UTF8_TERM_CLASS_EMOJI_VARIATION);
+   expect_int("class.default.emoji.check",
+              utf8_terminal_classify_cluster(
+                 default_emoji_check, sizeof(default_emoji_check),
+                 cluster_after_leading_ascii(default_emoji_check,
+                                             sizeof(default_emoji_check))),
+              UTF8_TERM_CLASS_EMOJI);
 #endif
 }
 
@@ -581,6 +652,12 @@ static void test_cluster_profile_lookup(void)
                                          0xF0, 0x9F, 0x91, 0xA9,
                                          0xE2, 0x80, 0x8D,
                                          0xF0, 0x9F, 0x92, 0xBB, 'B' };
+   static const CHARTYPE regional_indicator[] = { 'A',
+                                                  0xF0, 0x9F, 0x87, 0xAC,
+                                                  'B' };
+   static const CHARTYPE flag[] = { 'A',
+                                    0xF0, 0x9F, 0x87, 0xAC,
+                                    0xF0, 0x9F, 0x87, 0xA7, 'B' };
    TextCluster cluster;
    const Utf8TerminalProfileEntry *entry;
 
@@ -602,7 +679,43 @@ static void test_cluster_profile_lookup(void)
    }
 
    expect_int("lookup.apple.apply",
-              utf8_terminal_profile_apply_apple_terminal(), 47);
+              utf8_terminal_profile_apply_apple_terminal(), 50);
+   cluster = cluster_after_leading_ascii(regional_indicator,
+                                         sizeof(regional_indicator));
+   entry = utf8_terminal_profile_lookup_cluster(regional_indicator,
+                                                sizeof(regional_indicator),
+                                                cluster,
+                                                UTF8_TERM_DISPLAY_NORMAL);
+   if (entry == NULL)
+   {
+      fprintf(stderr, "lookup.apple.regional.indicator: missing profile entry\n");
+      failures++;
+   }
+   else
+   {
+      expect_int("lookup.apple.regional.indicator.class",
+                 entry->feature_class,
+                 UTF8_TERM_CLASS_REGIONAL_INDICATOR);
+      expect_int("lookup.apple.regional.indicator.advance",
+                 entry->advance_width, 2);
+   }
+   cluster = cluster_after_leading_ascii(flag, sizeof(flag));
+   entry = utf8_terminal_profile_lookup_cluster(flag, sizeof(flag), cluster,
+                                                UTF8_TERM_DISPLAY_NORMAL);
+   if (entry == NULL)
+   {
+      fprintf(stderr, "lookup.apple.regional.flag: missing profile entry\n");
+      failures++;
+   }
+   else
+   {
+      expect_int("lookup.apple.regional.flag.class",
+                 entry->feature_class,
+                 UTF8_TERM_CLASS_REGIONAL_FLAG);
+      expect_int("lookup.apple.regional.flag.advance",
+                 entry->advance_width, 3);
+   }
+   cluster = cluster_after_leading_ascii(short_zwj, sizeof(short_zwj));
    entry = utf8_terminal_profile_lookup_cluster(short_zwj, sizeof(short_zwj),
                                                 cluster,
                                                 UTF8_TERM_DISPLAY_GROUPED);

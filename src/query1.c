@@ -1978,7 +1978,23 @@ short extract_hex(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYP
 short extract_hexdisplay(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   return set_on_off_value(HEXDISPLAYx,1);
+   (void)set_on_off_value(HEXDISPLAYx,1);
+   switch(HEXDISPLAY_MODEx)
+   {
+      case HEXDISPLAY_MODE_CHARS:
+         item_values[2].value = (CHARTYPE *)"CHARS";
+         item_values[2].len = 5;
+         break;
+      case HEXDISPLAY_MODE_CODES:
+         item_values[2].value = (CHARTYPE *)"CODES";
+         item_values[2].len = 5;
+         break;
+      default:
+         item_values[2].value = (CHARTYPE *)"BOTH";
+         item_values[2].len = 4;
+         break;
+   }
+   return 2;
 }
 /***********************************************************************/
 short extract_hexshow(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)

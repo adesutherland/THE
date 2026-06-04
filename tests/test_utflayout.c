@@ -335,6 +335,44 @@ static void test_zwj_display_mapping_snaps_to_cluster_start(void)
               1);
 }
 
+static void test_symbol_presentation_widths(void)
+{
+   static const CHARTYPE line[] = {
+      'A',
+      0xE2, 0x99, 0xA5,
+      'B', ' ', 'A',
+      0xE2, 0x99, 0xA5, 0xEF, 0xB8, 0x8F,
+      'B'
+   };
+   TextCluster text_heart;
+   TextCluster emoji_heart;
+
+   utf8_terminal_profile_reset();
+   text_heart = textpos_cluster_at_boundary(
+      line, sizeof(line),
+      textpos_from_cell(line, sizeof(line), 1, TEXT_SNAP_BACKWARD));
+   emoji_heart = textpos_cluster_at_boundary(
+      line, sizeof(line),
+      textpos_from_cell(line, sizeof(line), 5, TEXT_SNAP_BACKWARD));
+
+   expect_int("symbol.text.logical.width", text_heart.cell_width, 1);
+   expect_int("symbol.text.display.width",
+              utf8_layout_cluster_advance_width(line, sizeof(line),
+                                                text_heart),
+              1);
+   expect_int("symbol.text.next.display",
+              utf8_layout_display_col_from_logical(line, sizeof(line), 0, 2),
+              2);
+   expect_int("symbol.emoji.logical.width", emoji_heart.cell_width, 1);
+   expect_int("symbol.emoji.display.width",
+              utf8_layout_cluster_advance_width(line, sizeof(line),
+                                                emoji_heart),
+              2);
+   expect_int("symbol.emoji.next.display",
+              utf8_layout_display_col_from_logical(line, sizeof(line), 0, 6),
+              7);
+}
+
 int main(void)
 {
    test_keycap_physical_layout();
@@ -344,6 +382,7 @@ int main(void)
    test_profile_width_is_user_column_model();
    test_width_slice_returns_whole_clusters();
    test_zwj_display_mapping_snaps_to_cluster_start();
+   test_symbol_presentation_widths();
 
    if (failures != 0)
    {

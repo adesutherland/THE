@@ -224,6 +224,10 @@ void ui_log(const char *fmt, ...);
 
 #define STATAREA_OFFSET  10
 
+#define HEXDISPLAY_MODE_BOTH  0
+#define HEXDISPLAY_MODE_CHARS 1
+#define HEXDISPLAY_MODE_CODES 2
+
 /* the first 6 windows MUST be numbered 0-5 */
 #define WINDOW_FILEAREA  0
 #define WINDOW_PREFIX    1

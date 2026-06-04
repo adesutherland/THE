@@ -4945,21 +4945,24 @@ short Hex(CHARTYPE *params)
 }
 /*man-start*********************************************************************
 COMMAND
-     set hexdisplay - turn on or off display of character under cursor
+     set hexdisplay - configure display of character under cursor
 
 SYNTAX
-     [SET] HEXDISPlay ON|OFF
+     [SET] HEXDISPlay ON|OFF|CHARS|CODES|BOTH
 
 DESCRIPTION
-     The SET HEXDISPLAY command turns on or off the display of the
-     character under the cursor on the <status line>.
+     The SET HEXDISPLAY command controls the display of the character
+     under the cursor on the <status line>.
+     ON is equivalent to BOTH. CHARS displays only the character or
+     expanded UTF-8 cluster under the cursor. CODES displays only the
+     character code values. BOTH displays both.
 
 COMPATIBILITY
      XEDIT: N/A
      KEDIT: Compatible.
 
 DEFAULT
-     ON
+     ON (BOTH)
 
 STATUS
      Complete
@@ -4970,7 +4973,31 @@ short Hexdisplay(CHARTYPE *params)
    short rc=RC_OK;
 
    TRACE_FUNCTION("commset1.c:Hexdisplay");
-   rc = execute_set_on_off(params,&HEXDISPLAYx, TRUE );
+   if (equal((CHARTYPE *)"off", params, 3))
+   {
+      HEXDISPLAYx = FALSE;
+   }
+   else if (equal((CHARTYPE *)"on", params, 2)
+   ||       equal((CHARTYPE *)"both", params, 1))
+   {
+      HEXDISPLAYx = TRUE;
+      HEXDISPLAY_MODEx = HEXDISPLAY_MODE_BOTH;
+   }
+   else if (equal((CHARTYPE *)"chars", params, 4))
+   {
+      HEXDISPLAYx = TRUE;
+      HEXDISPLAY_MODEx = HEXDISPLAY_MODE_CHARS;
+   }
+   else if (equal((CHARTYPE *)"codes", params, 4))
+   {
+      HEXDISPLAYx = TRUE;
+      HEXDISPLAY_MODEx = HEXDISPLAY_MODE_CODES;
+   }
+   else
+   {
+      display_error(1,(CHARTYPE *)params,FALSE);
+      rc = RC_INVALID_OPERAND;
+   }
    if (rc == RC_OK
    &&  curses_started)
       clear_statarea();

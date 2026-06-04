@@ -474,9 +474,9 @@
  [SET] HEX ON|OFF
        set how hexadecimal strings are treated in string operands
        Default: OFF
- [SET] HEXDISPlay ON|OFF
-       turn on or off display of character under cursor
-       Default: ON
+ [SET] HEXDISPlay ON|OFF|CHARS|CODES|BOTH
+       configure display of character under cursor
+       Default: ON (BOTH)
  [SET] HEXShow ON|OFF [M[+n|-n]|[+|-]n]
        turn on or off hex display of current line
        Default: OFF 7

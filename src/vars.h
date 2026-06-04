@@ -83,6 +83,7 @@ extern bool           BEEPx,
                       CTLCHARx,
                       save_for_repeat,
                       inDIALOG;
+extern int            HEXDISPLAY_MODEx;
 extern CHARTYPE       CMDARROWSTABCMDx,
                       EOLx,
                       INTERFACEx,

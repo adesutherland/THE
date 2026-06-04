@@ -120,6 +120,12 @@ static void validate_required_clusters(const unsigned char *data, size_t data_le
    static const CHARTYPE keycap[] = { 'A', '1',
                                       0xEF, 0xB8, 0x8F,
                                       0xE2, 0x83, 0xA3, 'B' };
+   static const CHARTYPE text_heart[] = { 'A',
+                                          0xE2, 0x99, 0xA5,
+                                          0xEF, 0xB8, 0x8E, 'B' };
+   static const CHARTYPE emoji_heart[] = { 'A',
+                                           0xE2, 0x99, 0xA5,
+                                           0xEF, 0xB8, 0x8F, 'B' };
    static const CHARTYPE zwj_2face[] = { 'A', 0xF0, 0x9F, 0x91, 0xA9,
                                          0xE2, 0x80, 0x8D,
                                          0xE2, 0x9D, 0xA4,
@@ -137,12 +143,20 @@ static void validate_required_clusters(const unsigned char *data, size_t data_le
    expect_contains("fixture.combining", data, data_len, combining, sizeof(combining));
    expect_contains("fixture.flag", data, data_len, flag, sizeof(flag));
    expect_contains("fixture.keycap", data, data_len, keycap, sizeof(keycap));
+   expect_contains("fixture.text_heart", data, data_len, text_heart,
+                   sizeof(text_heart));
+   expect_contains("fixture.emoji_heart", data, data_len, emoji_heart,
+                   sizeof(emoji_heart));
    expect_contains("fixture.zwj_2face", data, data_len, zwj_2face, sizeof(zwj_2face));
    expect_contains("fixture.zwj_4face", data, data_len, zwj_4face, sizeof(zwj_4face));
 
    expect_size("cluster.combining.count", textpos_count_clusters(combining, sizeof(combining)), 3);
    expect_size("cluster.flag.count", textpos_count_clusters(flag, sizeof(flag)), 3);
    expect_size("cluster.keycap.count", textpos_count_clusters(keycap, sizeof(keycap)), 3);
+   expect_size("cluster.text_heart.count",
+               textpos_count_clusters(text_heart, sizeof(text_heart)), 3);
+   expect_size("cluster.emoji_heart.count",
+               textpos_count_clusters(emoji_heart, sizeof(emoji_heart)), 3);
    expect_size("cluster.zwj_2face.count", textpos_count_clusters(zwj_2face, sizeof(zwj_2face)), 3);
    expect_size("cluster.zwj_4face.count", textpos_count_clusters(zwj_4face, sizeof(zwj_4face)), 3);
 }

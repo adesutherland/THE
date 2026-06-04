@@ -52,6 +52,7 @@ static const ClassName class_names[] =
    { "emoji-variation", UTF8_TERM_CLASS_EMOJI_VARIATION },
    { "modifier", UTF8_TERM_CLASS_MODIFIER },
    { "keycap", UTF8_TERM_CLASS_KEYCAP },
+   { "regional-indicator", UTF8_TERM_CLASS_REGIONAL_INDICATOR },
    { "regional-flag", UTF8_TERM_CLASS_REGIONAL_FLAG },
    { "short-zwj", UTF8_TERM_CLASS_SHORT_ZWJ },
    { "heart-zwj", UTF8_TERM_CLASS_HEART_ZWJ },
@@ -145,6 +146,12 @@ static const char *apple_terminal_overrides[] =
    "SET UTF TERMINAL CLASS keycap WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1",
    "SET UTF TERMINAL CLASS keycap CURSORSTRATEGY cells",
    "SET UTF TERMINAL CLASS keycap REPLACESTRATEGY cells",
+   /* Apple Terminal shows decomposed Regional Indicator flags as boxed
+      two-cell letters. Keep paired regional-flag clusters on the normal
+      native profile; widening those adds a visible file-area gap. */
+   "SET UTF TERMINAL CLASS regional-indicator WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2",
+   "SET UTF TERMINAL CLASS regional-indicator CURSORSTRATEGY cells",
+   "SET UTF TERMINAL CLASS regional-indicator REPLACESTRATEGY cells",
    "SET UTF TERMINAL CLASS short-zwj DISPLAY grouped OUTPUT substitute U+0040",
    "SET UTF TERMINAL CLASS short-zwj DISPLAY components OUTPUT native",
    "SET UTF TERMINAL CLASS short-zwj DISPLAY components WIDTH 4 ADVANCE 4 CURSOR 4 REPAINT 4",

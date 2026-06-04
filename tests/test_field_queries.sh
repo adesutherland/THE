@@ -76,12 +76,37 @@ fieldword = .string[]
 address the "extract /fieldword/" expose fieldword[]
 say "ASCII_FIELDWORD=" || fieldword[1] || ":" || fieldword[2] || ":" || fieldword[3]
 
+hexdisplay = .string[]
+address the "extract /hexdisplay/" expose hexdisplay[]
+say "HEXDISPLAY_DEFAULT=" || hexdisplay[0] || ":" || hexdisplay[1] || ":" || hexdisplay[2]
+
+address the "set hexdisplay chars"
+address the "extract /hexdisplay/" expose hexdisplay[]
+say "HEXDISPLAY_CHARS=" || hexdisplay[0] || ":" || hexdisplay[1] || ":" || hexdisplay[2]
+
+address the "set hexdisplay codes"
+address the "extract /hexdisplay/" expose hexdisplay[]
+say "HEXDISPLAY_CODES=" || hexdisplay[0] || ":" || hexdisplay[1] || ":" || hexdisplay[2]
+
+address the "set hexdisplay off"
+address the "extract /hexdisplay/" expose hexdisplay[]
+say "HEXDISPLAY_OFF=" || hexdisplay[0] || ":" || hexdisplay[1] || ":" || hexdisplay[2]
+
+address the "set hexdisplay on"
+address the "extract /hexdisplay/" expose hexdisplay[]
+say "HEXDISPLAY_ON=" || hexdisplay[0] || ":" || hexdisplay[1] || ":" || hexdisplay[2]
+
 'qquit'
 PROFILE_EOF
 
   run_with_pty "${THE_BIN}" -p "${PROFILE}" "${SAMPLE}"
   grep -q "ASCII_FIELD=e:8:TEXT" "${WORK_DIR}/combined.txt"
   grep -q "ASCII_FIELDWORD=beta:beta:7" "${WORK_DIR}/combined.txt"
+  grep -q "HEXDISPLAY_DEFAULT=2:ON:BOTH" "${WORK_DIR}/combined.txt"
+  grep -q "HEXDISPLAY_CHARS=2:ON:CHARS" "${WORK_DIR}/combined.txt"
+  grep -q "HEXDISPLAY_CODES=2:ON:CODES" "${WORK_DIR}/combined.txt"
+  grep -q "HEXDISPLAY_OFF=2:OFF:CODES" "${WORK_DIR}/combined.txt"
+  grep -q "HEXDISPLAY_ON=2:ON:BOTH" "${WORK_DIR}/combined.txt"
 fi
 
 echo "Field query test passed (${MODE})."

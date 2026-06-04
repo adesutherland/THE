@@ -54,6 +54,7 @@ CursorBlink cursorstyle_over_blink = CURSOR_STEADY;
  CHARTYPE CMDARROWSTABCMDx;
  CHARTYPE EOLx;
  bool HEXDISPLAYx;
+ int  HEXDISPLAY_MODEx;
  bool INSERTMODEx;
  bool LINEND_STATUSx; /* not really global, but used in command_line() */
  CHARTYPE LINEND_VALUEx; /* not really global, but used in command_line() */
@@ -324,6 +325,7 @@ void set_global_look_defaults(void)
          CLEARSCREENx = FALSE;
          CLOCKx = TRUE;
          HEXDISPLAYx = TRUE;
+         HEXDISPLAY_MODEx = HEXDISPLAY_MODE_BOTH;
          PREFIXx = PREFIX_ON|PREFIX_LEFT;
          prefix_gap = 0;
          NONDISPx = '#';
@@ -333,6 +335,7 @@ void set_global_look_defaults(void)
          CLEARSCREENx = TRUE;
          CLOCKx = TRUE;
          HEXDISPLAYx = FALSE;
+         HEXDISPLAY_MODEx = HEXDISPLAY_MODE_BOTH;
          NONDISPx = '#';
          PREFIXx = PREFIX_OFF;
          prefix_gap = 1;
@@ -341,6 +344,7 @@ void set_global_look_defaults(void)
          CLEARSCREENx = TRUE;
          CLOCKx = FALSE;
          HEXDISPLAYx = FALSE;
+         HEXDISPLAY_MODEx = HEXDISPLAY_MODE_BOTH;
          NONDISPx = '"';
          PREFIXx = PREFIX_ON|PREFIX_LEFT;
          prefix_gap = 1;
@@ -349,6 +353,7 @@ void set_global_look_defaults(void)
          CLEARSCREENx = TRUE;
          CLOCKx = FALSE;
          HEXDISPLAYx = FALSE;
+         HEXDISPLAY_MODEx = HEXDISPLAY_MODE_BOTH;
          NONDISPx = '"';
          PREFIXx = PREFIX_ON|PREFIX_LEFT;
          prefix_gap = 1;

@@ -173,7 +173,7 @@
 - [SET FULLFNAME](SET_FULLFNAME.md) - specify if complete filename to be displayed
 - [SET HEADER](SET_HEADER.md) - turn on or off syntax highlighting headers
 - [SET HEX](SET_HEX.md) - set how hexadecimal strings are treated in string operands
-- [SET HEXDISPLAY](SET_HEXDISPLAY.md) - turn on or off display of character under cursor
+- [SET HEXDISPLAY](SET_HEXDISPLAY.md) - configure display of character under cursor
 - [SET HEXSHOW](SET_HEXSHOW.md) - turn on or off hex display of current line
 - [SET HIGHLIGHT](SET_HIGHLIGHT.md) - specify which lines (if any) are to be highlighted
 - [SET IDLINE](SET_IDLINE.md) - specify if IDLINE is displayed
