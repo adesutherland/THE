@@ -25,6 +25,11 @@ int utf8_cluster_codepoint_is_regional(uint32_t codepoint)
    return codepoint >= 0x1F1E6u && codepoint <= 0x1F1FFu;
 }
 
+int utf8_cluster_codepoint_is_keycap_mark(uint32_t codepoint)
+{
+   return codepoint == 0x20E3u;
+}
+
 int utf8_cluster_codepoint_is_tag(uint32_t codepoint)
 {
    return codepoint >= 0xE0020u && codepoint <= 0xE007Fu;
@@ -103,7 +108,7 @@ int utf8_cluster_collect_facts(const CHARTYPE *line, size_t len,
          facts->zwj_count++;
          facts->flags |= UTF8_CLUSTER_FACT_CONTAINS_ZWJ;
       }
-      else if (item.codepoint == 0x20E3u)
+      else if (utf8_cluster_codepoint_is_keycap_mark(item.codepoint))
          facts->flags |= UTF8_CLUSTER_FACT_CONTAINS_KEYCAP;
       else if (item.codepoint == 0xFE0Eu)
          facts->flags |= UTF8_CLUSTER_FACT_CONTAINS_TEXT_VARIATION;

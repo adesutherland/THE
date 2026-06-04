@@ -314,13 +314,47 @@ static int show_utf8_cluster_repaint_width(const CHARTYPE *line, size_t len,
    return utf8_layout_cluster_repaint_width(line, len, cluster);
 }
 
+static int show_utf8_status_cluster_is_keycap(const CHARTYPE *line, size_t len,
+                                              TextCluster cluster)
+{
+   Utf8ClusterFacts facts;
+
+   return utf8_cluster_collect_facts(line, len, cluster, &facts)
+       && facts.feature_class == UTF8_TERM_CLASS_KEYCAP;
+}
+
+static int show_utf8_status_keycap_base(const CHARTYPE *line, size_t len,
+                                        TextCluster cluster,
+                                        uint32_t *base_codepoint)
+{
+   Utf8ClusterFacts facts;
+
+   return utf8_cluster_collect_facts(line, len, cluster, &facts)
+       && facts.feature_class == UTF8_TERM_CLASS_KEYCAP
+       && utf8_cluster_keycap_base(&facts, base_codepoint);
+}
+
+static uint32_t show_utf8_status_keycap_outline_codepoint(void)
+{
+   return 0x25A1u; /* WHITE SQUARE: safe stand-in for an empty keycap outline. */
+}
+
+static int show_utf8_status_keycap_preview_width(void)
+{
+   return 3;
+}
+
 static uint32_t show_utf8_status_component_display_codepoint(uint32_t codepoint)
 {
    if (codepoint < 32 || codepoint == 0x7Fu)
       return 0;
    if (codepoint == 0x200Du || utf8_cluster_codepoint_is_tag(codepoint))
       return 0;
-   /* Status-only markers for invisible presentation selectors. */
+   /*
+    * Status-only markers for invisible pieces that change presentation.
+    * U+20E3 is the keycap combining mark; writing it literally in the
+    * decomposed status preview can compose with the previous status cell.
+    */
    switch (codepoint)
    {
       case 0xFE0Eu:
@@ -328,6 +362,8 @@ static uint32_t show_utf8_status_component_display_codepoint(uint32_t codepoint)
       case 0xFE0Fu:
          return 'E';
       default:
+         if (utf8_cluster_codepoint_is_keycap_mark(codepoint))
+            return 'K';
          return codepoint;
    }
 }
@@ -367,6 +403,9 @@ static int show_utf8_status_expanded_width(const CHARTYPE *line, size_t len,
    TextPos pos = cluster.pos;
    int width = 0;
    int components = 0;
+
+   if (line != NULL && show_utf8_status_cluster_is_keycap(line, len, cluster))
+      return show_utf8_status_keycap_preview_width();
 
    while (line != NULL && pos.byte_offset < cluster.end.byte_offset)
    {
@@ -490,6 +529,52 @@ static void show_write_utf8_status_blank_cell_at(TheDriverWindow *win,
       the_driver->write_render_cluster_at(win, row, col, &cell);
 }
 
+static int show_write_utf8_status_keycap_preview_at(TheDriverWindow *win,
+                                                    int row, int col,
+                                                    int max_width,
+                                                    const CHARTYPE *line,
+                                                    size_t len,
+                                                    TextCluster cluster,
+                                                    TheDriverAttr colour,
+                                                    int *written_width)
+{
+   TheRenderCell base_cell;
+   TheRenderCell outline_cell;
+   uint32_t base_codepoint = 0;
+   int total_width;
+
+   if (written_width != NULL)
+      *written_width = 0;
+   if (line == NULL
+   ||  !show_utf8_status_keycap_base(line, len, cluster, &base_codepoint))
+      return FALSE;
+   total_width = show_utf8_status_keycap_preview_width();
+   if (total_width > max_width)
+      return FALSE;
+   if (!the_render_cell_from_codepoint(&base_cell, base_codepoint,
+                                       (TheRenderAttr)colour))
+      return FALSE;
+   if (!the_render_cell_from_codepoint(
+          &outline_cell, show_utf8_status_keycap_outline_codepoint(),
+          (TheRenderAttr)colour))
+      return FALSE;
+
+   the_render_cluster_set_widths(&base_cell, 1, 1, 1, 1, 1);
+   the_driver->write_render_cluster_at(win, row, col, &base_cell);
+   /*
+    * Do not emit U+20E3 here. The probe-derived keycap mitigation proves that
+    * Apple Terminal is unreliable when the real keycap combining mark is
+    * written directly, and OUTPUT base would duplicate the base character in
+    * this decomposed preview. Use a safe outline marker for the keycap part.
+    */
+   show_write_utf8_status_blank_cell_at(win, row, col + 1, colour);
+   the_render_cluster_set_widths(&outline_cell, 1, 1, 1, 1, 1);
+   the_driver->write_render_cluster_at(win, row, col + 2, &outline_cell);
+   if (written_width != NULL)
+      *written_width = total_width;
+   return TRUE;
+}
+
 static void show_write_utf8_status_expanded_cluster_at(TheDriverWindow *win,
                                                        int row, int col,
                                                        int max_width,
@@ -501,6 +586,17 @@ static void show_write_utf8_status_expanded_cluster_at(TheDriverWindow *win,
    TextPos pos = cluster.pos;
    int used = 0;
    int components = 0;
+
+   if (show_write_utf8_status_keycap_preview_at(
+          win, row, col, max_width, line, len, cluster, colour, &used))
+   {
+      while (used < max_width)
+      {
+         show_write_utf8_status_blank_cell_at(win, row, col + used, colour);
+         used++;
+      }
+      return;
+   }
 
    while (line != NULL
    &&     pos.byte_offset < cluster.end.byte_offset
@@ -2103,9 +2199,16 @@ void show_statarea(void)
                status_field[0] = '[';
                if (1 + layout_cells < 20)
                   status_field[1 + layout_cells] = ']';
-               if (2 + layout_cells < 20)
+               code_col = layout_cells + 3;
+               if (want_codes
+               &&  code_col < 20
+               &&  (int)strlen(codebuf) > 20 - code_col
+               &&  layout_cells + 2 < 20
+               &&  (int)strlen(codebuf) <= 20 - (layout_cells + 2))
+                  code_col = layout_cells + 2;
+               if (2 + layout_cells < 20 && code_col > layout_cells + 2)
                   status_field[2 + layout_cells] = ' ';
-               code_col = min(19, layout_cells + 3);
+               code_col = min(19, code_col);
                if (want_codes)
                   field_truncated =
                      show_utf8_copy_status_text(status_field, code_col,

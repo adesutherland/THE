@@ -117,6 +117,9 @@ Components output is the class-aware form of decomposed display. Expanded
 output remains accepted for compatibility with older profiles and maps to the
 component display path where appropriate. For normal and grouped profiles,
 unsupported expanded requests are treated as native output.
+In the curses driver, replacement-style output (`substitute`, `base`, and
+explicit `components`) is shown with reverse video so the transformed cell is
+visible without changing its physical width.
 
 MARK records a visual hint for transformed clusters. Supported marks are:
 

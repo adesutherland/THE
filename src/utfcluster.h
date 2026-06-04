@@ -76,6 +76,7 @@ int utf8_cluster_keycap_base(const Utf8ClusterFacts *facts,
                              uint32_t *base_codepoint);
 
 int utf8_cluster_codepoint_is_regional(uint32_t codepoint);
+int utf8_cluster_codepoint_is_keycap_mark(uint32_t codepoint);
 int utf8_cluster_codepoint_is_tag(uint32_t codepoint);
 int utf8_cluster_codepoint_is_modifier(uint32_t codepoint);
 int utf8_cluster_codepoint_is_private_use(uint32_t codepoint);

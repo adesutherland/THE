@@ -256,6 +256,45 @@ static chtype curses_driver_lower_attr(TheRenderAttr attr)
    return out;
 }
 
+static int curses_driver_cluster_uses_replacement_output(
+   const TheRenderCluster *cluster)
+{
+   if (cluster == NULL)
+      return 0;
+   if (cluster->flags & (THE_RENDER_CLUSTER_SUBSTITUTE
+                      |  THE_RENDER_CLUSTER_BASE
+                      |  THE_RENDER_CLUSTER_COMPONENTS))
+      return 1;
+   switch (cluster->output_method)
+   {
+      case UTF8_TERM_OUTPUT_SUBSTITUTE:
+      case UTF8_TERM_OUTPUT_BASE:
+      case UTF8_TERM_OUTPUT_COMPONENTS:
+         return 1;
+      default:
+         return 0;
+   }
+}
+
+static TheRenderAttr curses_driver_cluster_attr(
+   const TheRenderCluster *cluster)
+{
+   TheRenderAttr attr;
+
+   if (cluster == NULL)
+      return THE_RENDER_ATTR_NORMAL;
+   attr = cluster->attr;
+   /*
+    * Replacement output is deliberate terminal-safe rendering rather than
+    * literal text.  Reverse the cell so file-area fallbacks, including the
+    * macOS keycap base-character workaround, are visible without changing
+    * their physical width.
+    */
+   if (curses_driver_cluster_uses_replacement_output(cluster))
+      attr = the_render_attr_merge_style(attr, THE_STYLE_REVERSE);
+   return attr;
+}
+
 static chtype curses_driver_physical_alternate_cell(uint32_t fallback)
 {
    switch (fallback)
@@ -1852,8 +1891,12 @@ static int curses_driver_render_cluster_to_cchar(cchar_t *dest,
    if (!the_render_cluster_to_wchars(cluster, wch,
                                      sizeof(wch) / sizeof(wch[0])))
       return 0;
-   pair = curses_driver_pair_for_attr(cluster->attr);
-   attrs = curses_driver_style_to_attr(the_render_attr_style(cluster->attr));
+   {
+      TheRenderAttr attr = curses_driver_cluster_attr(cluster);
+
+      pair = curses_driver_pair_for_attr(attr);
+      attrs = curses_driver_style_to_attr(the_render_attr_style(attr));
+   }
    setcchar(dest, wch, (attr_t)attrs, pair, NULL);
    return 1;
 #else
@@ -1920,7 +1963,8 @@ static void curses_driver_ops_write_render_cluster_at(
                                      sizeof(wch) / sizeof(wch[0])))
       return;
    curses_driver_write_render_wchars_at(curses_driver_window_from_driver(win),
-                                        row, col, wch, cluster->attr,
+                                        row, col, wch,
+                                        curses_driver_cluster_attr(cluster),
                                         cluster->advance_width);
 #else
    INTENTIONALLY_UNUSED_VARIABLE(win);

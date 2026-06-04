@@ -75,6 +75,18 @@ static void test_keycap_facts(void)
    expect_u32("keycap.base", base, '1');
 }
 
+static void test_codepoint_helpers(void)
+{
+   expect_int("helper.keycap.mark.yes",
+              utf8_cluster_codepoint_is_keycap_mark(0x20E3u), 1);
+   expect_int("helper.keycap.mark.no",
+              utf8_cluster_codepoint_is_keycap_mark(0x0301u), 0);
+   expect_int("helper.regional.yes",
+              utf8_cluster_codepoint_is_regional(0x1F1E6u), 1);
+   expect_int("helper.regional.no",
+              utf8_cluster_codepoint_is_regional('A'), 0);
+}
+
 static void test_existing_terminal_classes(void)
 {
 #ifdef USE_UTF8PROC
@@ -156,6 +168,7 @@ static void test_existing_terminal_classes(void)
 int main(void)
 {
    test_keycap_facts();
+   test_codepoint_helpers();
    test_existing_terminal_classes();
 
    if (failures != 0)
