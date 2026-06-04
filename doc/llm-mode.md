@@ -6,8 +6,7 @@ This document describes THE's LLM-facing mode for agents and tool authors that
 need to inspect editor state and drive editor input without depending on curses
 escape sequences, physical terminal columns, or screen scraping.
 
-For active migration status and next closable tasks, read
-`doc/utf-handover.md`.
+For UTF design, status, and outstanding items, read `doc/utf-design.md`.
 
 ## Status
 

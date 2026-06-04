@@ -180,8 +180,8 @@ THE_UTF_TERMINAL_PROFILE file are applied at startup.
 ## See Also
 CHANGE, CINSERT, COVERLAY, CREPLACE, REPLACE
 
-Design notes for the planned cluster classification and physical mapping
-extension live in `doc/utf-cluster-mapping.md`.
+Design and status notes for the UTF model live in `../utf-design.md`.
 
 ## Status
-Incomplete.
+Implemented. Terminal calibration and platform profile validation remain active
+work items.

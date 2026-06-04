@@ -7,8 +7,8 @@ classic command, file-ring, view, and Rexx macro model, but the UI architecture
 now separates editor state from physical terminal mechanics.
 
 For the detailed cursor/driver contract, read
-`doc/cursor-driver-architecture.md`. For the active migration ledger, read
-`doc/utf-handover.md`.
+`doc/cursor-driver-architecture.md`. For UTF design, status, and outstanding
+items, read `doc/utf-design.md`.
 
 ## Supported Platforms
 

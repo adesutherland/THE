@@ -3,8 +3,8 @@
 Last updated: 2026-06-02.
 
 This guide describes the agent-facing LLM driver surface. It intentionally
-avoids migration planning detail; use `doc/utf-handover.md` for status and
-next closable tasks.
+avoids migration planning detail; use `doc/utf-design.md` for UTF status and
+outstanding items.
 
 ## Purpose
 

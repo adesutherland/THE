@@ -2,8 +2,8 @@
 
 Last updated: 2026-06-02.
 
-This document is the ownership contract for the cursor/driver split. The active
-status ledger lives in `doc/utf-handover.md`.
+This document is the ownership contract for the cursor/driver split. UTF
+design, status, and outstanding items live in `doc/utf-design.md`.
 
 ## Goal
 
@@ -162,8 +162,8 @@ logical coordinates: `zone`, `line_number`, row, and logical cell.
 
 ## Current Checkpoint
 
-Closed checkpoints are summarized here; details and next tasks are in
-`doc/utf-handover.md`.
+Closed checkpoints are summarized here; UTF status and next tasks are in
+`doc/utf-design.md`.
 
 - `src/textpos.c`, `src/logcursor.c`, `src/utflayout.c`, `src/utfrepair.c`,
   and `src/utfterm.c` provide the logical UTF and physical profile foundation.
@@ -270,7 +270,7 @@ Use this status model for every future slice:
 - `In progress`: behavior has a logical foundation but still has legacy
   dispatcher, renderer fallback, mouse, command, or physical-local mechanics.
 - `Active slice`: the boundary task currently selected for closure in
-  `doc/utf-handover.md`; it may be `none` immediately after a slice closes.
+  `doc/utf-design.md`; it may be `none` immediately after a slice closes.
 - `Queued outside active slice`: a larger model or platform decision that
   should wait until the active boundary slice can expose it cleanly.
 
