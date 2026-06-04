@@ -242,17 +242,26 @@ static void test_utf_physical_metadata(void)
    llm_driver_screen_view_set_row(&view, 0, UI_ROW_FILE, 7, 1, 10,
                                   "000007", (const char *)keycap, 1, 1);
    expect_int("utf.meta.base.count",
-              (int)view.lines[0].utf_cluster_count, 1);
+              (int)view.lines[0].utf_cluster_count, 3);
    expect_int("utf.meta.base.cell",
-              view.lines[0].utf_clusters[0].cell, 11);
+              view.lines[0].utf_clusters[1].cell, 11);
    llm_driver_format_semantic_view(&view, out, sizeof(out));
    expect_contains("utf.meta.full.class", out, "\"class\": \"keycap\"");
+   expect_contains("utf.meta.full.row", out, "\"row\": 1");
+   expect_contains("utf.meta.full.screen_cell", out, "\"screen_cell\": 1");
+   expect_contains("utf.meta.full.text", out, "\"text\": \"1️⃣\"");
+   expect_contains("utf.meta.full.codepoints", out,
+                   "\"codepoints\": \"U+31 U+FE0F U+20E3\"");
+   expect_contains("utf.meta.full.advance.width", out,
+                   "\"advance_width\": 2");
+   expect_contains("utf.meta.full.cursor.width", out,
+                   "\"cursor_width\": 2");
+   expect_contains("utf.meta.full.repaint.width", out,
+                   "\"repaint_width\": 2");
    expect_contains("utf.meta.full.output", out, "\"output\": \"base\"");
    expect_contains("utf.meta.full.mark", out, "\"mark\": \"compressed\"");
    expect_contains("utf.meta.full.compressed", out, "\"compressed\": 1");
    expect_contains("utf.meta.full.substituted0", out, "\"substituted\": 0");
-   expect_int("utf.meta.no.display.width",
-              strstr(out, "advance_width") == NULL, 1);
 
    llm_driver_format_options_init(&options);
    options.compact = 1;
@@ -273,6 +282,96 @@ static void test_utf_physical_metadata(void)
    expect_contains("utf.meta.sub.output", out, "\"output\": \"substitute\"");
    expect_contains("utf.meta.sub.mark", out, "\"mark\": \"substituted\"");
    expect_contains("utf.meta.sub.flag", out, "\"substituted\": 1");
+   utf8_terminal_profile_reset();
+#endif
+}
+
+static void test_utf_all_metadata_representative_clusters(void)
+{
+#ifdef USE_UTF8
+   static const CHARTYPE sample[] = {
+      'A', ' ',
+      'e', 0xCC, 0x81, ' ',
+      0xE4, 0xB8, 0xAD, ' ',
+      '1', 0xEF, 0xB8, 0x8F, 0xE2, 0x83, 0xA3, ' ',
+      0xF0, 0x9F, 0x87, 0xBA, 0xF0, 0x9F, 0x87, 0xB8, ' ',
+      0xF0, 0x9F, 0x91, 0x8D, 0xF0, 0x9F, 0x8F, 0xBD, ' ',
+      0xF0, 0x9F, 0x91, 0xA9, 0xE2, 0x80, 0x8D,
+      0xF0, 0x9F, 0x92, 0xBB, 0
+   };
+   static const CHARTYPE heart_zwj[] = {
+      0xF0, 0x9F, 0x91, 0xA9, 0xE2, 0x80, 0x8D,
+      0xE2, 0x9D, 0xA4, 0xEF, 0xB8, 0x8F,
+      0xE2, 0x80, 0x8D, 0xF0, 0x9F, 0x91, 0xA8, 0
+   };
+   LlmDriverScreenView view;
+   LlmDriverFormatOptions options;
+   LogicalCursor cursor;
+   char out[16384];
+
+   cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_FILEAREA, 8, 1,
+                                textpos_from_cell_virtual(NULL, 0, 0,
+                                                          TEXT_SNAP_BACKWARD));
+   utf8_terminal_profile_reset();
+   expect_int("utf.all.modifier.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS modifier WIDTH 2 ADVANCE 4 CURSOR 4 REPAINT 4"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_int("utf.all.short.sub.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS short-zwj DISPLAY grouped OUTPUT substitute U+25A1"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   llm_driver_screen_view_init(&view, 3, 80, cursor);
+   llm_driver_screen_view_set_row(&view, 0, UI_ROW_FILE, 8, 1, 0,
+                                  "000008", (const char *)sample, 1, 1);
+
+   llm_driver_format_options_init(&options);
+   options.include_all_utf = 1;
+   options.include_prefix = 0;
+   options.include_command = 0;
+   options.include_status = 0;
+   llm_driver_format_semantic_view_with_options(&view, &options,
+                                                out, sizeof(out));
+
+   expect_contains("utf.all.ascii.class", out, "\"class\": \"ascii\"");
+   expect_contains("utf.all.ascii.codepoints", out,
+                   "\"codepoints\": \"U+41\"");
+   expect_contains("utf.all.combining.class", out,
+                   "\"class\": \"combining\"");
+   expect_contains("utf.all.combining.codepoints", out,
+                   "\"codepoints\": \"U+65 U+301\"");
+   expect_contains("utf.all.wide.class", out, "\"class\": \"wide\"");
+   expect_contains("utf.all.wide.width", out, "\"logical_width\": 2");
+   expect_contains("utf.all.keycap.class", out, "\"class\": \"keycap\"");
+   expect_contains("utf.all.flag.class", out,
+                   "\"class\": \"regional-flag\"");
+   expect_contains("utf.all.modifier.class", out, "\"class\": \"modifier\"");
+   expect_contains("utf.all.modifier.advance", out,
+                   "\"advance_width\": 4");
+   expect_contains("utf.all.modifier.cursor", out,
+                   "\"cursor_width\": 4");
+   expect_contains("utf.all.modifier.repaint", out,
+                   "\"repaint_width\": 4");
+   expect_contains("utf.all.short.zwj.substitute", out,
+                   "\"class\": \"short-zwj\", \"output\": \"substitute\"");
+
+   utf8_terminal_profile_reset();
+   expect_int("utf.all.heart.components.profile",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS heart-zwj DISPLAY components OUTPUT components"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_int("utf.all.components.display",
+              utf8_terminal_profile_apply_line("SET UTF DISPLAY components"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   llm_driver_screen_view_set_row(&view, 0, UI_ROW_FILE, 9, 1, 0,
+                                  "000009", (const char *)heart_zwj, 1, 1);
+   llm_driver_format_semantic_view_with_options(&view, &options,
+                                                out, sizeof(out));
+   expect_contains("utf.all.heart.components", out,
+                   "\"class\": \"heart-zwj\", \"output\": \"components\"");
+   expect_contains("utf.all.heart.codepoints", out,
+                   "U+1F469 U+200D U+2764 U+FE0F U+200D U+1F468");
+
    utf8_terminal_profile_reset();
 #endif
 }
@@ -359,6 +458,7 @@ int main(void)
    test_reserved_view_options();
    test_agent_metadata_and_delta();
    test_utf_physical_metadata();
+   test_utf_all_metadata_representative_clusters();
    test_input_mapping();
    test_debug_snapshot_format();
 

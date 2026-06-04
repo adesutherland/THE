@@ -361,6 +361,52 @@ Remaining column work:
   `REPAINT`, but semantic cursor and edit positions remain logical. LLM clients
   should not treat physical advance or repaint width as column authority.
 
+## Width/Column Inventory
+
+Inventory pass started: 2026-06-04 from baseline `af46683`.
+
+Initial validation:
+
+- clean tree at `af46683 Capture UTF width column baseline`.
+- `cmake --build cmake-build-debug`: passed, no work to do.
+- `ctest --output-on-failure`: 43/43 passed.
+- `bash tests/inventory_direct_curses.sh --fail-on-new /Users/adrian/CLionProjects/THE`:
+  passed.
+- UTF-focused CTest slice
+  `utf|textpos|logcursor|headlessdriver|llmdriver|sos`: 16/16 passed.
+
+| Area | Intended unit | Central helper/surface | Current status |
+|---|---|---|---|
+| Text model and `TextPos` helpers | logical editor byte/codepoint/cluster/logical cell | `textpos_*`, `TextCluster.cell_width` | In place. `TextPos.cell_column` is documented as logical and terminal profile widths do not feed back into it. |
+| UTF layout helpers | explicit conversion between logical, WIDTH, and ADVANCE spaces | `utf8_layout_*`, `driver_layout_*` | In place for cluster width queries, logical-to-ADVANCE display mapping, ADVANCE-to-logical hit mapping, logical-to-WIDTH reporting, and WIDTH-to-logical snapping. |
+| Query/status/current-position reporting | user-visible `WIDTH` columns for file-area positions | `driver_layout_width_col_from_logical()` | Mostly in place. Status/current-position paths map focused file-area logical cells through WIDTH. Prefix and command-line paths remain simple logical cells because UTF profile WIDTH is not relevant there. |
+| Cursor movement: left/right/home/end | logical cluster boundaries and logical cells | `textpos_prev_cluster()`, `textpos_next_cluster()`, `execute_move_cursor()` | In place for file-area UTF movement. Physical cursor repaint uses the driver/render path after movement. |
+| Cursor movement: up/down vertical intent | user-visible WIDTH intent, snapped back to logical clusters per destination line | `driver_layout_width_col_from_logical()`, `driver_layout_logical_col_from_width()` | In place for file-area UTF vertical motion. Prefix vertical motion remains fixed-width prefix-cell motion. |
+| Mouse and logical hit input | physical hit columns to logical cells for file area; direct logical cells for LLM hits | `driver_layout_logical_col_from_display()`, LLM `hit` protocol | In place. Curses mouse packets become logical input events; LLM hits are already logical. |
+| Horizontal scrolling and viewport logic | viewport state remains logical; renderer maps to physical ADVANCE | `driver_layout_viewport_col_for_logical()` | In place for cursor visibility and file-area display mapping. A shared per-line cache remains planned, not required for correctness in this pass. |
+| File-area rendering | ADVANCE for placement, CURSOR for cursor coverage, REPAINT for cleanup | `show_utf8_*`, `TheRenderCluster`, driver render operations | In place. ASCII fast path is guarded by the active native one-cell profile. |
+| LLM/headless snapshots and cursor metadata | semantic cursor stays logical; row UTF annotations expose logical, WIDTH, ADVANCE, CURSOR, REPAINT metadata | `llm_driver_collect_utf_metadata()`, `append_utf_metadata()` | In place for this pass. Full annotations now include row, screen cell, byte offset, cluster index, row-local text, codepoints, `logical_width`, `width`, `advance_width`, `cursor_width`, and `repaint_width`; `utf=all` exposes ordinary ASCII/native clusters for deterministic validation. |
+| Selection, mark, box, rectangle operations | user-requested WIDTH columns converted per line to whole logical clusters | `utf8_layout_slice_width()` plus box/show UTF adapters | Improved. Mark highlighting and box delete/fill/copy/move convert WIDTH spans to whole logical clusters before byte mutation or logical-cell rendering. LLM full-runtime coverage exercises CJK box delete, fill, copy, and move; manual stream probes cover multi-line stream delete/copy. Prefix-driven block variants and less common overlay paths remain residual risk. |
+| `CINSERT`, `CREPLACE`, `COVERLAY`, `CAPPEND` | logical editing at cursor-resolved cluster boundaries | `show_utf8_logical_col_from_display()`, `textedit_*_utf8()` | In place for UTF non-HEX file-area paths. HEX and command-line compatibility paths remain byte/fixed-cell by design. |
+| Delete/backspace and SOS logical edits | logical clusters for file area; fixed cells for command/prefix | SOS/text edit paths plus `TextPos` helpers | Existing focused tests pass. Keep covered by LLM/headless and CREXX/pty tests while auditing adjacent paths. |
+| Prefix and command-line paths | fixed prompt/prefix cells; UTF profile WIDTH is irrelevant unless the text itself is decoded for mutation | logical cursor state, command/prefix text helpers | Documented as out of profile WIDTH scope. They should not consume ADVANCE/CURSOR/REPAINT. |
+| Curses driver/rendering paths | physical terminal contract only | `TheRenderCluster`, curses driver lowering | In place and covered by direct-curses inventory ratchet. |
+| Docs/tests/fixtures terminology | logical, WIDTH, ADVANCE, CURSOR, REPAINT terms only; legacy names clearly marked | docs, `tests/fixtures/utf-render*.txt` | Improved in touched docs/tests. Historical parser-negative tests still mention old `LAYOUT`/`PAINT` terms intentionally as rejected legacy syntax. |
+
+Pass updates:
+
+- Added `utf8_layout_slice_width()` as the central WIDTH-range-to-whole-cluster
+  helper. It keeps `TextPos` logical while returning byte-safe logical start/end
+  positions for operations that begin from user-visible WIDTH columns.
+- Expanded LLM UTF metadata and added representative annotation coverage for
+  ASCII, combining, CJK/wide, keycap, regional flag, Apple-style modifier
+  widths (`WIDTH 2 ADVANCE 4 CURSOR 4 REPAINT 4`), grouped ZWJ substitute, and
+  component/decomposed ZWJ display.
+- Refactored UTF mark highlighting and box delete/fill/copy/move paths to use
+  WIDTH spans snapped to whole logical clusters before rendering or mutation.
+- Added LLM full-runtime regressions proving CJK box delete/fill/copy/move do
+  not split UTF bytes or report replacement characters.
+
 `ADVANCE` is the terminal placement value. It may differ from `WIDTH` when a
 terminal reports or occupies more grid cells than the user-visible cluster
 width. Apple Terminal native emoji modifier clusters are the motivating case:

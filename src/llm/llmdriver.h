@@ -26,7 +26,12 @@
 
 typedef struct
 {
+   int row;
    int cell;
+   int screen_cell;
+   size_t byte_offset;
+   size_t byte_length;
+   size_t cluster_index;
    int logical_width;
    int width;
    int advance_width;
@@ -37,6 +42,7 @@ typedef struct
    char mark[LLM_DRIVER_MAX_UTF_NAME];
    int compressed;
    int substituted;
+   int default_visible;
 } LlmDriverUtfClusterInfo;
 
 typedef struct
@@ -183,6 +189,7 @@ typedef struct
    int include_command;
    int include_status;
    int include_cursor;
+   int include_all_utf;
    int compact;
 } LlmDriverFormatOptions;
 

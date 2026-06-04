@@ -36,6 +36,13 @@ int utf8_layout_width_col_from_logical(const CHARTYPE *line, size_t len,
                                        int logical_col);
 int utf8_layout_logical_col_from_width(const CHARTYPE *line, size_t len,
                                        int width_col, TextSnap snap);
+/*
+ * Return whole logical clusters overlapped by a user-visible WIDTH range.
+ * start/end are logical TextPos boundaries; leading/trailing are WIDTH cells
+ * outside the requested range but inside the returned whole-cluster span.
+ */
+TextCellSlice utf8_layout_slice_width(const CHARTYPE *line, size_t len,
+                                      int start_width_col, int width_cols);
 Utf8LayoutViewport utf8_layout_viewport_for_logical_col(
    const CHARTYPE *line, size_t len, int current_viewport_col,
    int logical_col, int visible_cols);

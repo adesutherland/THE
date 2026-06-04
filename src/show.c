@@ -97,6 +97,8 @@ static void build_lines_for_display(CHARTYPE,short,short,short);
 static void show_lines(CHARTYPE);
 #ifdef USE_UTF8
 static void show_a_line(CHARTYPE,short,SHOW_LINE *, const UiFrame *);
+static void show_utf8_mark_width_range_to_logical(SHOW_LINE *,
+                                                  LENGTHTYPE, LENGTHTYPE);
 #else
 static void show_a_line(CHARTYPE,short,SHOW_LINE *);
 #endif
@@ -3366,8 +3368,14 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                case M_BOX:
                case M_COLUMN:
                case M_WORD:
+#ifdef USE_UTF8
+                  show_utf8_mark_width_range_to_logical(
+                     scurr, MARK_VIEW->mark_start_col - 1,
+                     MARK_VIEW->mark_end_col - 1);
+#else
                   scurr->other_start_col = MARK_VIEW->mark_start_col - 1;
                   scurr->other_end_col = MARK_VIEW->mark_end_col - 1;
+#endif
                   if (scurr->highlight)
                      scurr->normal_colour = (!current) ? attr_highlight : attr_chighlight;
                   else
@@ -3395,10 +3403,19 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                   scurr->other_colour = (!current) ? attr_block : attr_cblock;
                   scurr->other_end_col = MAX_INT;
                   scurr->other_start_col = 0;
+#ifdef USE_UTF8
+                  show_utf8_mark_width_range_to_logical(
+                     scurr,
+                     cline == MARK_VIEW->mark_start_line
+                        ? MARK_VIEW->mark_start_col - 1 : 0,
+                     cline == MARK_VIEW->mark_end_line
+                        ? MARK_VIEW->mark_end_col - 1 : MAX_INT);
+#else
                   if (cline == MARK_VIEW->mark_start_line)
                      scurr->other_start_col = MARK_VIEW->mark_start_col - 1;
                   if (cline == MARK_VIEW->mark_end_line)
                      scurr->other_end_col = MARK_VIEW->mark_end_col - 1;
+#endif
                   if (cline > MARK_VIEW->mark_start_line
                   &&  cline < MARK_VIEW->mark_end_line)
                   {
@@ -3425,10 +3442,17 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                   scurr->other_end_col = MAX_INT;
                   scurr->other_start_col = 0;
 
+#ifdef USE_UTF8
+                  show_utf8_mark_width_range_to_logical(
+                     scurr,
+                     cline == mark_start_line ? mark_start_col - 1 : 0,
+                     cline == mark_end_line ? mark_end_col - 1 : MAX_INT);
+#else
                   if (cline == mark_start_line)
                      scurr->other_start_col = mark_start_col - 1;
                   if (cline == mark_end_line)
                      scurr->other_end_col = mark_end_col - 1;
+#endif
                   if (cline > mark_start_line
                   &&  cline < mark_end_line)
                   {
@@ -3912,6 +3936,53 @@ static int show_utf8_cells_overlap(TextCluster cluster, LENGTHTYPE start_col, LE
    item_start = cluster.pos.cell_column;
    item_end = item_start + ((cluster.cell_width > 0) ? cluster.cell_width : 1) - 1;
    return (item_start <= end_col && item_end >= start_col);
+}
+
+static int show_utf8_width_arg(LENGTHTYPE value)
+{
+   if (value < 0)
+      return 0;
+   if (value > MAX_INT)
+      return MAX_INT;
+   return (int)value;
+}
+
+static void show_utf8_mark_width_range_to_logical(SHOW_LINE *scurr,
+                                                  LENGTHTYPE start_width_col,
+                                                  LENGTHTYPE end_width_col)
+{
+   TextCellSlice slice;
+   LENGTHTYPE width_cols;
+
+   if (scurr == NULL
+   ||  scurr->contents == NULL
+   ||  end_width_col < start_width_col
+   ||  end_width_col < 0)
+   {
+      if (scurr != NULL)
+         scurr->other_start_col = scurr->other_end_col = (LENGTHTYPE)-1;
+      return;
+   }
+
+   if (start_width_col < 0)
+      start_width_col = 0;
+   if (end_width_col >= MAX_INT)
+      width_cols = MAX_INT;
+   else
+      width_cols = end_width_col - start_width_col + 1;
+
+   slice = utf8_layout_slice_width(scurr->contents, scurr->length,
+                                   show_utf8_width_arg(start_width_col),
+                                   show_utf8_width_arg(width_cols));
+   if (slice.content_cells <= 0
+   ||  slice.end.cell_column <= slice.start.cell_column)
+   {
+      scurr->other_start_col = scurr->other_end_col = (LENGTHTYPE)-1;
+      return;
+   }
+
+   scurr->other_start_col = (LENGTHTYPE)slice.start.cell_column;
+   scurr->other_end_col = (LENGTHTYPE)slice.end.cell_column - 1;
 }
 
 static int show_utf8_byte_range_overlap(TextCluster cluster, LENGTHTYPE start, LENGTHTYPE length)

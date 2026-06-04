@@ -226,8 +226,10 @@ static void test_virtual_frame_semantic_rows(void)
    expect_contains("semantic.utf.output", out, "\"output\": \"base\"");
    expect_contains("semantic.utf.mark", out, "\"mark\": \"compressed\"");
    expect_contains("semantic.utf.compressed", out, "\"compressed\": 1");
-   expect_int("semantic.no.physical.width",
-              strstr(out, "advance_width") == NULL, 1);
+   expect_contains("semantic.utf.advance.width", out,
+                   "\"advance_width\": 2");
+   expect_contains("semantic.utf.codepoints", out,
+                   "\"codepoints\": \"U+31 U+FE0F U+20E3\"");
    expect_contains("semantic.style.constant", out, "\"style\": \"constant\"");
 #ifdef USE_UTF8
    utf8_terminal_profile_reset();

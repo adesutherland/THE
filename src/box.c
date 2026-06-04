@@ -37,6 +37,9 @@
 #include <the.h>
 #include <proto.h>
 #include "thedriver.h"
+#ifdef USE_UTF8
+# include "utflayout.h"
+#endif
 
 /* structure for passing box parameters */
 struct _boxp
@@ -66,6 +69,280 @@ static short box_copy_stream_from_temp(BOXP *,bool);
 static short box_delete(BOXP *);
 static short box_move(BOXP *,bool,bool);
 static short box_fill(BOXP *,CHARTYPE);
+
+#ifdef USE_UTF8
+static int box_utf8_width_arg(LENGTHTYPE value)
+{
+   if (value < 0)
+      return 0;
+   if (value > MAX_INT)
+      return MAX_INT;
+   return (int)value;
+}
+
+static LENGTHTYPE box_utf8_span_width(LENGTHTYPE start_col,
+                                      LENGTHTYPE end_col)
+{
+   if (end_col < start_col)
+      return 0;
+   if (end_col >= MAX_INT)
+      return MAX_INT;
+   return end_col - start_col + 1;
+}
+
+static TextCellSlice box_utf8_slice_width(const LINE *line,
+                                          LENGTHTYPE start_col,
+                                          LENGTHTYPE width_cols)
+{
+   if (line == NULL || line->line == NULL)
+      return utf8_layout_slice_width((const CHARTYPE *)"", 0, 0, 0);
+   return utf8_layout_slice_width(line->line, line->length,
+                                  box_utf8_width_arg(start_col),
+                                  box_utf8_width_arg(width_cols));
+}
+
+static void box_utf8_delete_bytes(LINE *line, LENGTHTYPE start_byte,
+                                  LENGTHTYPE end_byte)
+{
+   LENGTHTYPE delete_len;
+
+   if (line == NULL || line->line == NULL)
+      return;
+   if (start_byte < 0)
+      start_byte = 0;
+   if (end_byte < start_byte)
+      end_byte = start_byte;
+   if (start_byte > line->length)
+      start_byte = line->length;
+   if (end_byte > line->length)
+      end_byte = line->length;
+   delete_len = end_byte - start_byte;
+   if (delete_len <= 0)
+      return;
+
+   add_to_recovery_list(line->line,line->length);
+   memmove(line->line + start_byte, line->line + end_byte,
+           (size_t)(line->length - end_byte));
+   line->length -= delete_len;
+   *(line->line + line->length) = '\0';
+}
+
+static void box_utf8_delete_width_span(LINE *line, LENGTHTYPE start_col,
+                                       LENGTHTYPE width_cols)
+{
+   TextCellSlice slice;
+
+   if (width_cols <= 0)
+      return;
+   slice = box_utf8_slice_width(line, start_col, width_cols);
+   box_utf8_delete_bytes(line, (LENGTHTYPE)slice.start.byte_offset,
+                         (LENGTHTYPE)slice.end.byte_offset);
+}
+
+static void box_utf8_rec_replace_with_fill(LENGTHTYPE start_byte,
+                                           LENGTHTYPE end_byte,
+                                           CHARTYPE fillchar,
+                                           LENGTHTYPE fill_count)
+{
+   LENGTHTYPE delete_len;
+   LENGTHTYPE tail_len;
+   LENGTHTYPE new_len;
+
+   if (fill_count < 0)
+      fill_count = 0;
+   if (start_byte < 0)
+      start_byte = 0;
+   if (end_byte < start_byte)
+      end_byte = start_byte;
+   if (start_byte > rec_len)
+      start_byte = rec_len;
+   if (end_byte > rec_len)
+      end_byte = rec_len;
+
+   delete_len = end_byte - start_byte;
+   tail_len = rec_len - end_byte;
+   if (fill_count > max_line_length - (rec_len - delete_len))
+      fill_count = max_line_length - (rec_len - delete_len);
+   if (fill_count < 0)
+      fill_count = 0;
+   new_len = rec_len - delete_len + fill_count;
+   if (start_byte + fill_count + tail_len > max_line_length)
+      tail_len = max_line_length - start_byte - fill_count;
+   if (tail_len < 0)
+      tail_len = 0;
+
+   memmove(rec + start_byte + fill_count, rec + end_byte, (size_t)tail_len);
+   if (fill_count > 0)
+      memset(rec + start_byte, fillchar, (size_t)fill_count);
+   rec_len = new_len;
+   if (rec_len > max_line_length)
+      rec_len = max_line_length;
+   *(rec + rec_len) = '\0';
+}
+
+static LENGTHTYPE box_utf8_text_width(const CHARTYPE *line, LENGTHTYPE len)
+{
+   TextPos end;
+
+   if (line == NULL || len <= 0)
+      return 0;
+   end = textpos_from_byte(line, len, len);
+   return (LENGTHTYPE)utf8_layout_width_col_from_logical(
+      line, len, end.cell_column);
+}
+
+static LENGTHTYPE box_utf8_safe_prefix_bytes(const CHARTYPE *line,
+                                             LENGTHTYPE len,
+                                             LENGTHTYPE max_bytes)
+{
+   TextPos pos;
+   LENGTHTYPE last_byte = 0;
+
+   if (line == NULL || len <= 0 || max_bytes <= 0)
+      return 0;
+   if (max_bytes >= len)
+      return len;
+
+   pos = textpos_begin();
+   while (pos.byte_offset < (size_t)len)
+   {
+      TextCluster cluster = textpos_cluster_at_boundary(line, len, pos);
+
+      if (cluster.byte_length == 0)
+         break;
+      if ((LENGTHTYPE)cluster.end.byte_offset > max_bytes)
+         break;
+      last_byte = (LENGTHTYPE)cluster.end.byte_offset;
+      pos = cluster.end;
+   }
+   return last_byte;
+}
+
+static LENGTHTYPE box_utf8_copy_width_span_to_rec(const LINE *line,
+                                                  LENGTHTYPE start_col,
+                                                  LENGTHTYPE width_cols,
+                                                  bool pad_trailing)
+{
+   TextCellSlice slice;
+   LENGTHTYPE start_byte;
+   LENGTHTYPE end_byte;
+   LENGTHTYPE copy_len;
+   LENGTHTYPE pad_len = 0;
+
+   rec_len = 0;
+   memset(rec, ' ', max_line_length);
+   if (width_cols <= 0 || line == NULL || line->line == NULL)
+      return rec_len;
+
+   slice = box_utf8_slice_width(line, start_col, width_cols);
+   start_byte = (LENGTHTYPE)slice.start.byte_offset;
+   end_byte = (LENGTHTYPE)slice.end.byte_offset;
+   if (start_byte < 0)
+      start_byte = 0;
+   if (end_byte < start_byte)
+      end_byte = start_byte;
+   if (start_byte > line->length)
+      start_byte = line->length;
+   if (end_byte > line->length)
+      end_byte = line->length;
+   copy_len = end_byte - start_byte;
+   if (copy_len > max_line_length)
+      copy_len = box_utf8_safe_prefix_bytes(line->line + start_byte,
+                                            copy_len, max_line_length);
+   if (copy_len > 0)
+   {
+      memcpy(rec, line->line + start_byte, (size_t)copy_len);
+      rec_len = copy_len;
+   }
+   if (pad_trailing && slice.trailing_cells > 0)
+   {
+      pad_len = slice.trailing_cells;
+      if (pad_len > max_line_length - rec_len)
+         pad_len = max_line_length - rec_len;
+      if (pad_len > 0)
+      {
+         memset(rec + rec_len, ' ', (size_t)pad_len);
+         rec_len += pad_len;
+      }
+   }
+   return rec_len;
+}
+
+static LENGTHTYPE box_utf8_rec_byte_from_width_col(LENGTHTYPE width_col)
+{
+   int logical_col;
+   TextPos pos;
+
+   logical_col = utf8_layout_logical_col_from_width(
+      rec, rec_len, box_utf8_width_arg(width_col), TEXT_SNAP_BACKWARD);
+   pos = textpos_from_cell_virtual(rec, rec_len, logical_col,
+                                   TEXT_SNAP_BACKWARD);
+   return (LENGTHTYPE)pos.byte_offset;
+}
+
+static void box_utf8_rec_replace_bytes(LENGTHTYPE start_byte,
+                                       LENGTHTYPE end_byte,
+                                       const CHARTYPE *src,
+                                       LENGTHTYPE src_len)
+{
+   LENGTHTYPE delete_len;
+   LENGTHTYPE tail_len;
+   LENGTHTYPE insert_limit;
+
+   if (src == NULL || src_len < 0)
+      src_len = 0;
+   if (start_byte < 0)
+      start_byte = 0;
+   if (end_byte < start_byte)
+      end_byte = start_byte;
+   if (start_byte > rec_len)
+      start_byte = rec_len;
+   if (end_byte > rec_len)
+      end_byte = rec_len;
+
+   delete_len = end_byte - start_byte;
+   insert_limit = max_line_length - (rec_len - delete_len);
+   if (insert_limit < 0)
+      insert_limit = 0;
+   if (src_len > insert_limit)
+      src_len = box_utf8_safe_prefix_bytes(src, src_len, insert_limit);
+
+   tail_len = rec_len - end_byte;
+   if (start_byte + src_len + tail_len > max_line_length)
+      tail_len = max_line_length - start_byte - src_len;
+   if (tail_len < 0)
+      tail_len = 0;
+
+   memmove(rec + start_byte + src_len, rec + end_byte, (size_t)tail_len);
+   if (src_len > 0)
+      memcpy(rec + start_byte, src, (size_t)src_len);
+   rec_len = start_byte + src_len + tail_len;
+   *(rec + rec_len) = '\0';
+}
+
+static void box_utf8_fill_width_span_in_rec(LENGTHTYPE start_col,
+                                            LENGTHTYPE width_cols,
+                                            CHARTYPE fillchar)
+{
+   TextCellSlice slice;
+   LENGTHTYPE fill_count;
+
+   if (width_cols <= 0)
+      return;
+   slice = utf8_layout_slice_width(rec, rec_len, box_utf8_width_arg(start_col),
+                                   box_utf8_width_arg(width_cols));
+   fill_count = (LENGTHTYPE)slice.content_cells
+              + (LENGTHTYPE)slice.trailing_cells;
+   if (fill_count <= 0)
+      return;
+   box_utf8_rec_replace_with_fill((LENGTHTYPE)slice.start.byte_offset,
+                                  (LENGTHTYPE)slice.end.byte_offset,
+                                  fillchar, fill_count);
+   rec_len = calculate_rec_len(ADJUST_OVERWRITE, rec, rec_len,
+                               (LINETYPE)slice.start.byte_offset + 1,
+                               fill_count, CURRENT_FILE->trailing);
+}
+#endif
 
 /*#define DEBUG 1*/
 /***********************************************************************/
@@ -352,14 +629,29 @@ static short box_delete(BOXP *prm)
                    * first line of stream block
                    * delete from start column to end of line
                    */
+#ifdef USE_UTF8
+                  {
+                     TextCellSlice slice = box_utf8_slice_width(
+                                              curr, prm->src_start_col,
+                                              MAX_INT);
+                     box_utf8_delete_bytes(
+                        curr, (LENGTHTYPE)slice.start.byte_offset,
+                        curr->length);
+                  }
+#else
                   if (prm->src_start_col < curr->length)
                   {
                       add_to_recovery_list(curr->line,curr->length);
                       curr->length = prm->src_start_col;
                   }
+#endif
                }
                else if (i+1 == prm->num_lines) /* last line of stream block */
                {
+#ifdef USE_UTF8
+                  box_utf8_delete_width_span(
+                     curr, 0, box_utf8_span_width(0, prm->src_end_col));
+#else
                   if (curr->length > 0)
                   {
                       add_to_recovery_list(curr->line,curr->length);
@@ -367,6 +659,7 @@ static short box_delete(BOXP *prm)
                       for (j=0;j<curr->length;j++)
                          *(curr->line+(LENGTHTYPE)(LINETYPE)j) = *(curr->line+prm->src_end_col+j+1);
                   }
+#endif
                }
                else
                {
@@ -377,6 +670,12 @@ static short box_delete(BOXP *prm)
             }
             else
             {
+#ifdef USE_UTF8
+               box_utf8_delete_width_span(
+                  curr, prm->src_start_col,
+                  box_utf8_span_width(prm->src_start_col,
+                                      prm->src_end_col));
+#else
                if ((LINETYPE)curr->length >= (LINETYPE)MARK_VIEW->mark_start_col)
                {
                   num_to_move = (LENGTHTYPE)max((LINETYPE)curr->length - (LINETYPE)MARK_VIEW->mark_end_col,0L);
@@ -393,6 +692,7 @@ static short box_delete(BOXP *prm)
                      *(curr->line+(LENGTHTYPE)((LINETYPE)j+(LINETYPE)MARK_VIEW->mark_start_col-1L)) = *(curr->line+prm->src_start_col+j+prm->num_cols);
                   *(curr->line+curr->length) = '\0';/* null terminate */
                }
+#endif
             }
       }
       if (advance_line_ptr)
@@ -494,6 +794,52 @@ static short box_copy_to_temp(BOXP *prm)
     if ( processable_line( prm->src_view, prm->src_start_line+i, tmp ) == LINE_LINE )
     {
        memset( rec, ' ', max_line_length );
+#ifdef USE_UTF8
+       if ( prm->mark_type == M_STREAM
+       ||   prm->mark_type == M_CUA )
+       {
+          if ( i == 0 && i + 1 == prm->num_lines )
+          {
+             box_utf8_copy_width_span_to_rec(
+                tmp, prm->src_start_col,
+                box_utf8_span_width(prm->src_start_col, prm->src_end_col),
+                TRUE);
+          }
+          else if ( i == 0 )
+          {
+             box_utf8_copy_width_span_to_rec(tmp, prm->src_start_col,
+                                             MAX_INT, FALSE);
+          }
+          else if ( i + 1 == prm->num_lines )
+          {
+             box_utf8_copy_width_span_to_rec(
+                tmp, 0, box_utf8_span_width(0, prm->src_end_col), TRUE);
+          }
+          else
+          {
+             rec_len = box_utf8_safe_prefix_bytes(tmp->line, tmp->length,
+                                                  max_line_length);
+             memcpy(rec, tmp->line, (size_t)rec_len);
+          }
+          if ( ( save_src = add_LINE( first_save, save_src, rec, rec_len, 0, TRUE ) ) == (LINE *)NULL )
+          {
+             TRACE_RETURN();
+             return(RC_OUT_OF_MEMORY);
+          }
+       }
+       else
+       {
+          box_utf8_copy_width_span_to_rec(
+             tmp, prm->src_start_col,
+             box_utf8_span_width(prm->src_start_col, prm->src_end_col),
+             TRUE);
+          if ( ( save_src = add_LINE (first_save, save_src, rec, rec_len, 0, TRUE ) ) == (LINE *)NULL )
+          {
+             TRACE_RETURN();
+             return(RC_OUT_OF_MEMORY);
+          }
+       }
+#else
 #if 1
        if ( prm->mark_type == M_STREAM
        ||   prm->mark_type == M_CUA )
@@ -540,6 +886,7 @@ static short box_copy_to_temp(BOXP *prm)
           return(RC_OUT_OF_MEMORY);
        }
 #endif
+#endif
        if (first_save == (LINE *)NULL)
           first_save = save_src;
     }
@@ -583,6 +930,39 @@ static short box_copy_from_temp(BOXP *prm,bool boverlay)
       }
 
       pre_process_line( prm->dst_view, dst_lineno, prm->curr_dst );/* copy dest line into rec */
+#ifdef USE_UTF8
+      {
+         LENGTHTYPE start_byte;
+         LENGTHTYPE end_byte;
+         LENGTHTYPE src_width;
+
+         src_width = box_utf8_text_width(prm->curr_src->line,
+                                         prm->curr_src->length);
+         if (boverlay)
+         {
+            TextCellSlice slice = utf8_layout_slice_width(
+                                     rec, rec_len,
+                                     box_utf8_width_arg(prm->dst_start_col),
+                                     box_utf8_width_arg(src_width));
+            start_byte = (LENGTHTYPE)slice.start.byte_offset;
+            end_byte = (LENGTHTYPE)slice.end.byte_offset;
+         }
+         else
+         {
+            start_byte = box_utf8_rec_byte_from_width_col(
+                            prm->dst_start_col);
+            end_byte = start_byte;
+         }
+         box_utf8_rec_replace_bytes(start_byte, end_byte,
+                                    prm->curr_src->line,
+                                    prm->curr_src->length);
+         rec_len = calculate_rec_len(ADJUST_OVERWRITE, rec, rec_len,
+                                     start_byte + 1,
+                                     prm->curr_src->length,
+                                     CURRENT_FILE->trailing);
+         prm->cursor_x = prm->dst_start_col + src_width + 1;
+      }
+#else
       for ( j = 0; j < prm->num_cols; j++ )
       {
          if ( prm->src_start_col+j+1 > prm->curr_src->length )
@@ -598,13 +978,14 @@ static short box_copy_from_temp(BOXP *prm,bool boverlay)
        * recalculate rec_len
        */
       rec_len = calculate_rec_len( ADJUST_OVERWRITE, rec, rec_len, 1+prm->dst_start_col, prm->num_cols, CURRENT_FILE->trailing );
+      prm->cursor_x = prm->dst_start_col + prm->num_cols + 1;
+#endif
       post_process_line( prm->dst_view, dst_lineno, (LINE *)NULL, FALSE );
       prm->curr_src = prm->curr_src->next;   /* this should NEVER go past the end */
       prm->curr_dst = prm->curr_dst->next;   /* this should NEVER go past the end */
       /*
        * Save the position where the cursor should go after the end of the inserted text
        */
-      prm->cursor_x = prm->dst_start_col + prm->num_cols + 1;
       prm->cursor_y = dst_lineno; /* before increment */
       dst_lineno++;
    }
@@ -814,15 +1195,25 @@ static short box_fill(BOXP *prm,CHARTYPE fillchar)
                mystart = prm->src_start_col;
             if ( i + 1 == prm->num_lines)
                mynum = prm->src_end_col - mystart + 1;
+#ifdef USE_UTF8
+            box_utf8_fill_width_span_in_rec(mystart, mynum, fillchar);
+#else
             memset( rec + mystart, fillchar, mynum );
+#endif
          }
          else
          {
             mystart = prm->src_start_col;
             mynum = prm->num_cols;
+#ifdef USE_UTF8
+            box_utf8_fill_width_span_in_rec(mystart, mynum, fillchar);
+#else
             memset( rec + mystart, fillchar, mynum );
+#endif
          }
+#ifndef USE_UTF8
          rec_len = calculate_rec_len( ADJUST_OVERWRITE, rec, rec_len, 1+mystart, mynum, CURRENT_FILE->trailing );
+#endif
          post_process_line( CURRENT_VIEW, prm->src_start_line + i, (LINE *)NULL, FALSE );
       }
       prm->curr_src = prm->curr_src->next;   /* this should NEVER go past the end */

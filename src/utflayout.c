@@ -1,5 +1,7 @@
 #include "utflayout.h"
 
+#include <limits.h>
+
 static int max_int(int left, int right)
 {
    return (left > right) ? left : right;
@@ -281,6 +283,87 @@ int utf8_layout_logical_col_from_width(const CHARTYPE *line, size_t len,
    if (width_col > current_width_col)
       last_logical_col += width_col - current_width_col;
    return last_logical_col;
+}
+
+TextCellSlice utf8_layout_slice_width(const CHARTYPE *line, size_t len,
+                                      int start_width_col, int width_cols)
+{
+   TextCellSlice slice;
+   TextPos pos;
+   int end_width_col;
+   int current_width_col = 0;
+   int found = 0;
+
+   slice.start = textpos_begin();
+   slice.end = textpos_begin();
+   slice.leading_cells = 0;
+   slice.content_cells = 0;
+   slice.trailing_cells = width_cols < 0 ? 0 : width_cols;
+
+   if (width_cols <= 0)
+      return slice;
+   if (start_width_col < 0)
+      start_width_col = 0;
+   if (width_cols > INT_MAX - start_width_col)
+      end_width_col = INT_MAX;
+   else
+      end_width_col = start_width_col + width_cols;
+
+   pos = textpos_begin();
+   while (pos.byte_offset < len)
+   {
+      TextCluster cluster = textpos_cluster_at_boundary(line, len, pos);
+      int cluster_width;
+      int next_width_col;
+
+      if (cluster.byte_length == 0)
+         break;
+
+      cluster_width = utf8_layout_cluster_width(line, len, cluster);
+      if (cluster_width <= 0)
+         cluster_width = utf8_layout_cluster_logical_width(cluster);
+      if (cluster_width > INT_MAX - current_width_col)
+         next_width_col = INT_MAX;
+      else
+         next_width_col = current_width_col + cluster_width;
+
+      if (next_width_col <= start_width_col)
+      {
+         current_width_col = next_width_col;
+         pos = cluster.end;
+         continue;
+      }
+      if (current_width_col >= end_width_col)
+         break;
+
+      if (!found)
+      {
+         slice.start = cluster.pos;
+         if (start_width_col > current_width_col)
+            slice.leading_cells = start_width_col - current_width_col;
+         found = 1;
+      }
+      slice.end = cluster.end;
+      slice.content_cells += cluster_width;
+      current_width_col = next_width_col;
+      pos = cluster.end;
+   }
+
+   if (!found)
+   {
+      int logical_col = utf8_layout_logical_col_from_width(
+                           line, len, start_width_col, TEXT_SNAP_BACKWARD);
+
+      slice.start = textpos_from_cell_virtual(line, len, logical_col,
+                                              TEXT_SNAP_BACKWARD);
+      slice.end = slice.start;
+      slice.trailing_cells = width_cols;
+      return slice;
+   }
+
+   slice.trailing_cells =
+      current_width_col < end_width_col ? end_width_col - current_width_col : 0;
+   return slice;
 }
 
 Utf8LayoutViewport utf8_layout_viewport_for_logical_col(

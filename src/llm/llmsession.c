@@ -318,6 +318,9 @@ static void parse_view_options(char *args, LlmDriverFormatOptions *options)
          options->include_status = strtol(token + 7, NULL, 10) != 0;
       else if (ascii_starts_ci(token, "cursor="))
          options->include_cursor = strtol(token + 7, NULL, 10) != 0;
+      else if (ascii_starts_ci(token, "utf="))
+         options->include_all_utf = ascii_equal_ci(token + 4, "all")
+                                 || strtol(token + 4, NULL, 10) != 0;
       token = strtok(NULL, " \t");
    }
 }

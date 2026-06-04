@@ -200,6 +200,72 @@ static void test_profile_width_is_user_column_model(void)
               2);
 }
 
+static void test_width_slice_returns_whole_clusters(void)
+{
+   static const CHARTYPE wide[] = {
+      'A', 0xE4, 0xB8, 0xAD, 'B'
+   };
+   static const CHARTYPE keycap[] = {
+      'A', '1', 0xEF, 0xB8, 0x8F, 0xE2, 0x83, 0xA3, 'B'
+   };
+   TextCellSlice slice;
+
+   utf8_terminal_profile_reset();
+   slice = utf8_layout_slice_width(wide, sizeof(wide), 2, 1);
+   expect_int("width.slice.wide.inside.start.cell", slice.start.cell_column, 1);
+   expect_int("width.slice.wide.inside.end.cell", slice.end.cell_column, 3);
+   expect_int("width.slice.wide.inside.start.byte",
+              (int)slice.start.byte_offset, 1);
+   expect_int("width.slice.wide.inside.end.byte",
+              (int)slice.end.byte_offset, 4);
+   expect_int("width.slice.wide.inside.leading", slice.leading_cells, 1);
+   expect_int("width.slice.wide.inside.content", slice.content_cells, 2);
+   expect_int("width.slice.wide.inside.trailing", slice.trailing_cells, 0);
+
+   slice = utf8_layout_slice_width(wide, sizeof(wide), 1, 2);
+   expect_int("width.slice.wide.exact.start.cell", slice.start.cell_column, 1);
+   expect_int("width.slice.wide.exact.end.cell", slice.end.cell_column, 3);
+   expect_int("width.slice.wide.exact.end.byte",
+              (int)slice.end.byte_offset, 4);
+
+   slice = utf8_layout_slice_width(wide, sizeof(wide), 3, 1);
+   expect_int("width.slice.wide.boundary.start.cell", slice.start.cell_column,
+              3);
+   expect_int("width.slice.wide.boundary.end.cell", slice.end.cell_column, 4);
+   expect_int("width.slice.wide.boundary.start.byte",
+              (int)slice.start.byte_offset, 4);
+
+   slice = utf8_layout_slice_width(wide, sizeof(wide), 8, 2);
+   expect_int("width.slice.beyond.start.byte", (int)slice.start.byte_offset,
+              (int)sizeof(wide));
+   expect_int("width.slice.beyond.end.byte", (int)slice.end.byte_offset,
+              (int)sizeof(wide));
+   expect_int("width.slice.beyond.content", slice.content_cells, 0);
+   expect_int("width.slice.beyond.trailing", slice.trailing_cells, 2);
+
+   utf8_terminal_profile_apply_line(
+      "SET UTF TERMINAL CLASS keycap WIDTH 2 ADVANCE 4 CURSOR 4 REPAINT 4");
+   slice = utf8_layout_slice_width(keycap, sizeof(keycap), 2, 1);
+   expect_int("width.slice.keycap.inside.start.cell", slice.start.cell_column,
+              1);
+   expect_int("width.slice.keycap.inside.end.cell", slice.end.cell_column, 2);
+   expect_int("width.slice.keycap.inside.start.byte",
+              (int)slice.start.byte_offset, 1);
+   expect_int("width.slice.keycap.inside.end.byte",
+              (int)slice.end.byte_offset, 8);
+   expect_int("width.slice.keycap.inside.leading", slice.leading_cells, 1);
+   expect_int("width.slice.keycap.inside.content", slice.content_cells, 2);
+
+   slice = utf8_layout_slice_width(keycap, sizeof(keycap), 1, 2);
+   expect_int("width.slice.keycap.exact.end.byte",
+              (int)slice.end.byte_offset, 8);
+   slice = utf8_layout_slice_width(keycap, sizeof(keycap), 3, 1);
+   expect_int("width.slice.keycap.boundary.start.cell",
+              slice.start.cell_column, 2);
+   expect_int("width.slice.keycap.boundary.start.byte",
+              (int)slice.start.byte_offset, 8);
+}
+
 static void test_zwj_display_mapping_snaps_to_cluster_start(void)
 {
    static const CHARTYPE short_zwj[] = {
@@ -276,6 +342,7 @@ int main(void)
    test_keycap_trailing_cells_stay_logical();
    test_terminal_profile_does_not_change_logical_positions();
    test_profile_width_is_user_column_model();
+   test_width_slice_returns_whole_clusters();
    test_zwj_display_mapping_snaps_to_cluster_start();
 
    if (failures != 0)
