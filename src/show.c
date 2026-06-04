@@ -323,6 +323,15 @@ static int show_utf8_status_cluster_is_keycap(const CHARTYPE *line, size_t len,
        && facts.feature_class == UTF8_TERM_CLASS_KEYCAP;
 }
 
+static int show_utf8_status_cluster_has_zwj(const CHARTYPE *line, size_t len,
+                                            TextCluster cluster)
+{
+   Utf8ClusterFacts facts;
+
+   return utf8_cluster_collect_facts(line, len, cluster, &facts)
+       && (facts.flags & UTF8_CLUSTER_FACT_CONTAINS_ZWJ) != 0;
+}
+
 static int show_utf8_status_keycap_base(const CHARTYPE *line, size_t len,
                                         TextCluster cluster,
                                         uint32_t *base_codepoint)
@@ -344,7 +353,8 @@ static int show_utf8_status_keycap_preview_width(void)
    return 3;
 }
 
-static uint32_t show_utf8_status_component_display_codepoint(uint32_t codepoint)
+static uint32_t show_utf8_status_component_display_codepoint(
+   uint32_t codepoint, int show_markers)
 {
    if (codepoint < 32 || codepoint == 0x7Fu)
       return 0;
@@ -352,15 +362,17 @@ static uint32_t show_utf8_status_component_display_codepoint(uint32_t codepoint)
       return 0;
    /*
     * Status-only markers for invisible pieces that change presentation.
+    * ZWJ previews suppress FE0E/FE0F because the selector is internal
+    * presentation glue there; the code list still shows the exact scalar.
     * U+20E3 is the keycap combining mark; writing it literally in the
     * decomposed status preview can compose with the previous status cell.
     */
    switch (codepoint)
    {
       case 0xFE0Eu:
-         return 'T';
+         return show_markers ? 'T' : 0;
       case 0xFE0Fu:
-         return 'E';
+         return show_markers ? 'E' : 0;
       default:
          if (utf8_cluster_codepoint_is_keycap_mark(codepoint))
             return 'K';
@@ -368,13 +380,15 @@ static uint32_t show_utf8_status_component_display_codepoint(uint32_t codepoint)
    }
 }
 
-static int show_utf8_status_component_width(uint32_t codepoint)
+static int show_utf8_status_component_width(uint32_t codepoint,
+                                            int show_markers)
 {
    const Utf8TerminalProfileEntry *entry;
    uint32_t display_codepoint;
    int width;
 
-   display_codepoint = show_utf8_status_component_display_codepoint(codepoint);
+   display_codepoint = show_utf8_status_component_display_codepoint(
+      codepoint, show_markers);
    if (display_codepoint == 0)
       return 0;
    if (utf8_cluster_codepoint_is_regional(codepoint))
@@ -388,10 +402,12 @@ static int show_utf8_status_component_width(uint32_t codepoint)
    return (width > 0) ? width : 1;
 }
 
-static int show_utf8_status_component_is_zero_width(uint32_t codepoint)
+static int show_utf8_status_component_is_zero_width(
+   uint32_t codepoint, int show_markers)
 {
    uint32_t display_codepoint =
-      show_utf8_status_component_display_codepoint(codepoint);
+      show_utf8_status_component_display_codepoint(
+         codepoint, show_markers);
 
    return display_codepoint != 0
        && text_codepoint_cell_width(display_codepoint) <= 0;
@@ -403,9 +419,12 @@ static int show_utf8_status_expanded_width(const CHARTYPE *line, size_t len,
    TextPos pos = cluster.pos;
    int width = 0;
    int components = 0;
+   int show_markers;
 
    if (line != NULL && show_utf8_status_cluster_is_keycap(line, len, cluster))
       return show_utf8_status_keycap_preview_width();
+   show_markers =
+      !show_utf8_status_cluster_has_zwj(line, len, cluster);
 
    while (line != NULL && pos.byte_offset < cluster.end.byte_offset)
    {
@@ -414,11 +433,13 @@ static int show_utf8_status_expanded_width(const CHARTYPE *line, size_t len,
 
       if (item.byte_length == 0)
          break;
-      component_width = show_utf8_status_component_width(item.codepoint);
+      component_width = show_utf8_status_component_width(
+         item.codepoint, show_markers);
       if (component_width > 0)
       {
          if (components > 0
-         &&  !show_utf8_status_component_is_zero_width(item.codepoint))
+         &&  !show_utf8_status_component_is_zero_width(
+                item.codepoint, show_markers))
             width++;
          width += component_width;
          components++;
@@ -504,11 +525,13 @@ static void show_write_utf8_cluster_at(TheDriverWindow *win, int row, int col,
 static int show_write_utf8_status_zero_width_component_at(TheDriverWindow *win,
                                                           int row, int col,
                                                           uint32_t codepoint,
+                                                          int show_markers,
                                                           TheDriverAttr colour)
 {
    TheRenderCluster cell;
 
-   if (!show_utf8_status_component_is_zero_width(codepoint))
+   if (!show_utf8_status_component_is_zero_width(
+          codepoint, show_markers))
       return FALSE;
    the_render_cluster_init(&cell, (TheRenderAttr)colour);
    the_render_cluster_add_codepoint(&cell, ' ');
@@ -586,6 +609,8 @@ static void show_write_utf8_status_expanded_cluster_at(TheDriverWindow *win,
    TextPos pos = cluster.pos;
    int used = 0;
    int components = 0;
+   int show_markers =
+      !show_utf8_status_cluster_has_zwj(line, len, cluster);
 
    if (show_write_utf8_status_keycap_preview_at(
           win, row, col, max_width, line, len, cluster, colour, &used))
@@ -609,16 +634,19 @@ static void show_write_utf8_status_expanded_cluster_at(TheDriverWindow *win,
       if (item.byte_length == 0)
          break;
       display_codepoint =
-         show_utf8_status_component_display_codepoint(item.codepoint);
-      width = show_utf8_status_component_width(item.codepoint);
+         show_utf8_status_component_display_codepoint(
+            item.codepoint, show_markers);
+      width = show_utf8_status_component_width(item.codepoint, show_markers);
       if (width > 0)
       {
-         if (show_utf8_status_component_is_zero_width(item.codepoint))
+         if (show_utf8_status_component_is_zero_width(
+                item.codepoint, show_markers))
          {
             if (used + 1 > max_width)
                break;
             (void)show_write_utf8_status_zero_width_component_at(
-               win, row, col + used, item.codepoint, colour);
+               win, row, col + used, item.codepoint,
+               show_markers, colour);
             used++;
          }
          else
