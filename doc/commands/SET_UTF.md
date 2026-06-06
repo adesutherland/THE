@@ -3,13 +3,14 @@
 
 ## Syntax
 ```text
-[SET] UTF DISPLAY GROUPED|COMPONENTS|TOGGLE
+[SET] UTF DISPLAY NORMAL|DECOMPOSED|SINGLE|TOGGLE
 [SET] UTF TERMINAL CLASS class [DISPLAY display] WIDTH width ADVANCE advance CURSOR cursor REPAINT repaint
 [SET] UTF TERMINAL CLASS class [DISPLAY display] WIDTH width
 [SET] UTF TERMINAL CLASS class [DISPLAY display] ADVANCE advance
 [SET] UTF TERMINAL CLASS class [DISPLAY display] CURSOR cursor
 [SET] UTF TERMINAL CLASS class [DISPLAY display] REPAINT repaint
 [SET] UTF TERMINAL CLASS class [DISPLAY display] OUTPUT method [U+codepoint]
+[SET] UTF TERMINAL CLASS class [DISPLAY display] METRICS method
 [SET] UTF TERMINAL CLASS class [DISPLAY display] MARK mark
 [SET] UTF TERMINAL CLASS class [DISPLAY display] CURSORSTRATEGY strategy
 [SET] UTF TERMINAL CLASS class [DISPLAY display] REPLACESTRATEGY strategy
@@ -29,21 +30,19 @@ UTF clusters. THE tries the selected display profile for each class and falls
 back to that class's normal profile when no display-specific profile is
 configured. It does not affect the logical text model.
 
-- GROUPED prefers the grouped physical profile when one is configured. For a
-  ZWJ sequence this usually means one composed glyph, or a configured
-  substitute when the terminal cannot reliably render the grouped sequence.
-  This is the default.
-- COMPONENTS prefers the components physical profile when one is configured.
-  For a ZWJ sequence this usually means the visible component characters, with
-  joiners expanded or removed according to the configured OUTPUT method.
-- TOGGLE switches between GROUPED and COMPONENTS.
+- NORMAL uses each class's normal profile. This is the default and generally
+  writes the stored UTF-8 cluster as natively as the terminal profile allows.
+- DECOMPOSED uses the decomposed profile. For classes such as ZWJ sequences
+  this usually means the same visible component preview used by the UTF status
+  field: joiners and tag characters are suppressed, standalone variation
+  selectors are shown as markers, and keycaps use a safe outline preview.
+- SINGLE uses the single-cell profile. The profile `WIDTH` is always one cell;
+  `ADVANCE`, `CURSOR`, and `REPAINT` remain independent terminal facts.
+- TOGGLE cycles through NORMAL, DECOMPOSED, SINGLE, and back to NORMAL.
 
-For example, a ZWJ sequence such as a family emoji may have a GROUPED profile
-that writes one composed sequence and a COMPONENTS profile that writes a
-decomposed display. SET UTF DISPLAY selects which profile THE tries first.
-Classes with only a normal profile, such as keycap, regional-indicator,
-regional-flag, wide, and combining in the current defaults, fall back to their
-normal class profile.
+For example, a ZWJ sequence such as a family emoji may have a NORMAL profile
+that writes one composed sequence and a DECOMPOSED profile that writes its
+visible parts. SET UTF DISPLAY selects which profile THE tries first.
 
 The CLASS operand identifies the UTF-8 feature class to configure. Supported classes are:
 
@@ -67,11 +66,9 @@ The CLASS operand identifies the UTF-8 feature class to configure. Supported cla
 
 The optional DISPLAY operand in the TERMINAL CLASS form selects which physical
 profile entry is being configured for that class. The normal display is used
-when DISPLAY is omitted. Display-specific entries use `grouped`, for a grouped
-presentation, or `components`, for a sequence displayed as its visible parts.
-The current default table provides grouped/components entries for ZWJ classes.
-Legacy profile lines using ZWJDISPLAY are accepted for compatibility, but new
-profiles should use DISPLAY with OUTPUT.
+when DISPLAY is omitted. Supported display entries are `normal`, `decomposed`,
+and `single`. The current default table provides all three entries for every
+UTF terminal class.
 
 WIDTH specifies the human/user-visible width reported for the cluster. ADVANCE
 specifies the terminal grid advance used to place the next rendered cluster.
@@ -84,23 +81,49 @@ may need `WIDTH 2 ADVANCE 4 CURSOR 4 REPAINT 4` for a native emoji modifier
 cluster. The regional-indicator class represents a single Regional Indicator
 codepoint; regional-flag represents the normal two-codepoint flag sequence, so
 terminal profiles can describe decomposed flag components separately from
-grouped pairs.
+normal pairs.
+
+METRICS specifies how effective physical metrics are calculated. Supported
+methods are:
+
+- auto - use the default for the output method
+- profile - use the WIDTH/ADVANCE/CURSOR/REPAINT values directly
+- components - measure the decomposed component preview that THE emits
+- expanded - measure adjacent visible components without decomposed-preview
+  separator cells
+
+`auto` preserves the normal contract: native output uses profile metrics, while
+components/expanded output uses dynamic component metrics. A platform profile
+can override this without changing what is drawn. For example, Apple Terminal
+can keep NORMAL ZWJ output native but use `METRICS expanded` so arbitrary-length
+ZWJ sequences are measured as their visible component cells. Another platform
+can leave the rule unset, or set `METRICS profile` and explicit widths, if its
+terminal shapes the native cluster as a stable two-cell glyph.
+
+Profile authors should treat display, output, and metrics as separate decisions:
+first select the display entry (`normal`, `decomposed`, or `single`), then select
+what THE writes (`OUTPUT`), then select how that output occupies the terminal
+grid (`METRICS` plus any explicit WIDTH/ADVANCE/CURSOR/REPAINT values). Platform
+quirks should be scoped to the platform system profile, not copied into common
+defaults. This lets a locked-down platform keep a calibrated native two-cell ZWJ
+rule while macOS uses `METRICS expanded` for the same class as terminal behavior
+is learned.
 
 OUTPUT specifies how the class is written to the terminal. Supported methods are:
 
 - native - write the stored UTF-8 sequence
-- expanded - legacy component output
-- components - write visible component characters, dropping joiners and
-  presentation selectors that are display mechanics
+- expanded - write visible component characters through the expanded path
+- components - write the class-aware component preview used by decomposed
+  display
 - base - write a class-specific stable base form
 - substitute - write a substitute display character
 
 When method is substitute, an optional Unicode codepoint may follow the method.
 The codepoint is scoped to that class and display. Substitute output can be used
-for any class, not only ZWJ grouped profiles. For example:
+for any class, not only ZWJ profiles. For example:
 
 ```text
-SET UTF TERMINAL CLASS short-zwj DISPLAY grouped OUTPUT substitute U+0040
+SET UTF TERMINAL CLASS short-zwj DISPLAY normal OUTPUT substitute U+0040
 SET UTF TERMINAL CLASS keycap OUTPUT substitute U+25A1
 SET UTF TERMINAL CLASS regional-indicator OUTPUT substitute U+25A1
 SET UTF TERMINAL CLASS regional-flag OUTPUT substitute U+25A1
@@ -113,10 +136,14 @@ clusters to their unmodified base codepoint where safe. Apple Terminal uses
 this general capability for keycaps because its native keycap glyph rendering
 can damage visible cursor/repaint state.
 
-Components output is the class-aware form of decomposed display. Expanded
-output remains accepted for compatibility with older profiles and maps to the
-component display path where appropriate. For normal and grouped profiles,
-unsupported expanded requests are treated as native output.
+Components output is the class-aware form of decomposed display. Expanded output
+uses the same visible-component transform through the expanded path. The
+component preview suppresses U+200D joiners and tag characters, suppresses
+FE0E/FE0F inside ZWJ clusters, shows standalone FE0E/FE0F as `T`/`E`, and
+renders keycaps as base character, blank, and a safe outline marker. Normal
+profiles may also use components as an explicit fallback when a terminal cannot
+reliably shape native clusters. For single profiles, expanded/component
+requests are treated as substitute output.
 In the curses driver, replacement-style output (`substitute`, `base`, and
 explicit `components`) is shown with reverse video so the transformed cell is
 visible without changing its physical width.
@@ -153,14 +180,14 @@ Supported strategies are:
 - `first`: clear from the first matching cluster in the visible run, flush, then repaint.
 - `whole`: clear the whole visible line/run, flush, then repaint.
 
-At startup, THE loads the built-in UTF terminal defaults, applies any
-recognised terminal identity override such as TERM_PROGRAM=Apple_Terminal, and
-then applies the file named by the THE_UTF_TERMINAL_PROFILE environment
-variable if it is set. During normal profile processing, THE also runs the
-platform system profile before the user profile. On macOS this file is
-`system-osx.the` in THE_HOME_DIR. It is the profile generated by
-`utf_terminal_probe --profile-dir ...` and is the preferred place for physical
-terminal calibration settings.
+At startup, THE loads the built-in UTF terminal defaults and then applies the
+file named by the THE_UTF_TERMINAL_PROFILE environment variable if it is set.
+During normal profile processing, THE also runs the platform system profile
+before the user profile. On macOS this file is `system-osx.the` in
+THE_HOME_DIR. It is the profile generated by `utf_terminal_probe --profile-dir
+...` and is the preferred place for physical terminal calibration settings.
+Platform quirks, including Apple Terminal behaviour, should be visible as
+profile settings rather than hidden in compiled fallback tables.
 
 The user profile runs after the system profile, so user settings can override
 platform calibration deliberately. The `-n` command-line switch skips only the
@@ -182,10 +209,38 @@ XEDIT: N/A
 KEDIT: N/A
 
 ## Default
-SET UTF DISPLAY GROUPED.
+SET UTF DISPLAY NORMAL.
 
-Built-in UTF terminal defaults. Additional terminal identity overrides and the optional
-THE_UTF_TERMINAL_PROFILE file are applied at startup.
+The built-in table is deliberately generic: it describes a sane fixed-width
+curses environment before platform calibration is applied. Normal display
+defaults are:
+
+| class | output | metrics | W/A/C/R | cursor | replace |
+| --- | --- | --- | --- | --- | --- |
+| ascii | native | auto | 1/1/1/1 | cells | cells |
+| combining | native | auto | 1/1/1/1 | line | line |
+| combining-stack | native | auto | 1/1/1/1 | line | line |
+| wide | native | auto | 2/2/2/2 | cells | cells |
+| ambiguous | native | auto | 1/1/1/1 | cells | cells |
+| emoji | native | auto | 2/2/2/2 | line | line |
+| text-variation | native | auto | 1/1/1/1 | line | line |
+| emoji-variation | native | auto | 2/2/2/2 | line | line |
+| modifier | native | auto | 2/2/2/2 | line | line |
+| keycap | native | auto | 2/2/2/2 | first | whole |
+| regional-indicator | native | auto | 2/2/2/2 | cells | cells |
+| regional-flag | native | auto | 2/2/2/2 | cells | cells |
+| short-zwj | native | auto | 2/2/2/2 | line | line |
+| heart-zwj | native | auto | 2/2/2/2 | line | line |
+| family-zwj | native | auto | 2/2/2/2 | line | line |
+| tag-flag | native | auto | 2/2/2/2 | line | line |
+| private-use | native | auto | 1/1/1/1 | line | line |
+
+The DECOMPOSED defaults use native output for simple classes and component
+preview output for variation, modifier, keycap, regional-flag, ZWJ, and tag-flag
+classes. The SINGLE defaults keep `WIDTH` at one cell and use native, base, or
+substitute output according to the class. Platform system profiles, such as
+`system-osx.the`, override this generic table with measured terminal behaviour.
+The optional THE_UTF_TERMINAL_PROFILE file is applied at startup when present.
 
 ## See Also
 CHANGE, CINSERT, COVERLAY, CREPLACE, REPLACE

@@ -4,10 +4,24 @@
 #include <stdint.h>
 
 #define UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT UINT32_C(0x25A1)
+#define UTF8_TERM_HEART_SUBSTITUTE_CODEPOINT UINT32_C(0x2665)
+#define UTF8_TERM_FAMILY_SUBSTITUTE_CODEPOINT UINT32_C(0x2302)
 
 #define UTF8_TERMINAL_DEFAULT_PROFILE_ENTRIES(ENTRY) \
    ENTRY(UTF8_TERM_CLASS_ASCII, "ascii", \
          UTF8_TERM_DISPLAY_NORMAL, "normal", \
+         UTF8_TERM_OUTPUT_NATIVE, "native", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
+   ENTRY(UTF8_TERM_CLASS_ASCII, "ascii", \
+         UTF8_TERM_DISPLAY_DECOMPOSED, "decomposed", \
+         UTF8_TERM_OUTPUT_NATIVE, "native", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
+   ENTRY(UTF8_TERM_CLASS_ASCII, "ascii", \
+         UTF8_TERM_DISPLAY_SINGLE, "single", \
          UTF8_TERM_OUTPUT_NATIVE, "native", \
          UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
          UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
@@ -18,8 +32,32 @@
          UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
          UTF8_TERM_STRATEGY_LINE, "line", \
          UTF8_TERM_STRATEGY_LINE, "line") \
+   ENTRY(UTF8_TERM_CLASS_COMBINING, "combining", \
+         UTF8_TERM_DISPLAY_DECOMPOSED, "decomposed", \
+         UTF8_TERM_OUTPUT_NATIVE, "native", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_LINE, "line", \
+         UTF8_TERM_STRATEGY_LINE, "line") \
+   ENTRY(UTF8_TERM_CLASS_COMBINING, "combining", \
+         UTF8_TERM_DISPLAY_SINGLE, "single", \
+         UTF8_TERM_OUTPUT_NATIVE, "native", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_LINE, "line", \
+         UTF8_TERM_STRATEGY_LINE, "line") \
    ENTRY(UTF8_TERM_CLASS_COMBINING_STACK, "combining-stack", \
          UTF8_TERM_DISPLAY_NORMAL, "normal", \
+         UTF8_TERM_OUTPUT_NATIVE, "native", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_LINE, "line", \
+         UTF8_TERM_STRATEGY_LINE, "line") \
+   ENTRY(UTF8_TERM_CLASS_COMBINING_STACK, "combining-stack", \
+         UTF8_TERM_DISPLAY_DECOMPOSED, "decomposed", \
+         UTF8_TERM_OUTPUT_NATIVE, "native", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_LINE, "line", \
+         UTF8_TERM_STRATEGY_LINE, "line") \
+   ENTRY(UTF8_TERM_CLASS_COMBINING_STACK, "combining-stack", \
+         UTF8_TERM_DISPLAY_SINGLE, "single", \
          UTF8_TERM_OUTPUT_NATIVE, "native", \
          UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
          UTF8_TERM_STRATEGY_LINE, "line", \
@@ -30,8 +68,32 @@
          UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 2, 2, 2, 2, \
          UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
          UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
+   ENTRY(UTF8_TERM_CLASS_WIDE, "wide", \
+         UTF8_TERM_DISPLAY_DECOMPOSED, "decomposed", \
+         UTF8_TERM_OUTPUT_NATIVE, "native", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 2, 2, 2, 2, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
+   ENTRY(UTF8_TERM_CLASS_WIDE, "wide", \
+         UTF8_TERM_DISPLAY_SINGLE, "single", \
+         UTF8_TERM_OUTPUT_SUBSTITUTE, "substitute", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
    ENTRY(UTF8_TERM_CLASS_AMBIGUOUS, "ambiguous", \
          UTF8_TERM_DISPLAY_NORMAL, "normal", \
+         UTF8_TERM_OUTPUT_NATIVE, "native", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
+   ENTRY(UTF8_TERM_CLASS_AMBIGUOUS, "ambiguous", \
+         UTF8_TERM_DISPLAY_DECOMPOSED, "decomposed", \
+         UTF8_TERM_OUTPUT_NATIVE, "native", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
+   ENTRY(UTF8_TERM_CLASS_AMBIGUOUS, "ambiguous", \
+         UTF8_TERM_DISPLAY_SINGLE, "single", \
          UTF8_TERM_OUTPUT_NATIVE, "native", \
          UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
          UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
@@ -42,86 +104,212 @@
          UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 2, 2, 2, 2, \
          UTF8_TERM_STRATEGY_LINE, "line", \
          UTF8_TERM_STRATEGY_LINE, "line") \
+   ENTRY(UTF8_TERM_CLASS_EMOJI, "emoji", \
+         UTF8_TERM_DISPLAY_DECOMPOSED, "decomposed", \
+         UTF8_TERM_OUTPUT_NATIVE, "native", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 2, 2, 2, 2, \
+         UTF8_TERM_STRATEGY_LINE, "line", \
+         UTF8_TERM_STRATEGY_LINE, "line") \
+   ENTRY(UTF8_TERM_CLASS_EMOJI, "emoji", \
+         UTF8_TERM_DISPLAY_SINGLE, "single", \
+         UTF8_TERM_OUTPUT_SUBSTITUTE, "substitute", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
    ENTRY(UTF8_TERM_CLASS_TEXT_VARIATION, "text-variation", \
          UTF8_TERM_DISPLAY_NORMAL, "normal", \
          UTF8_TERM_OUTPUT_NATIVE, "native", \
          UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
          UTF8_TERM_STRATEGY_LINE, "line", \
          UTF8_TERM_STRATEGY_LINE, "line") \
+   ENTRY(UTF8_TERM_CLASS_TEXT_VARIATION, "text-variation", \
+         UTF8_TERM_DISPLAY_DECOMPOSED, "decomposed", \
+         UTF8_TERM_OUTPUT_COMPONENTS, "components", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 3, 3, 3, 3, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
+   ENTRY(UTF8_TERM_CLASS_TEXT_VARIATION, "text-variation", \
+         UTF8_TERM_DISPLAY_SINGLE, "single", \
+         UTF8_TERM_OUTPUT_NATIVE, "native", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
    ENTRY(UTF8_TERM_CLASS_EMOJI_VARIATION, "emoji-variation", \
          UTF8_TERM_DISPLAY_NORMAL, "normal", \
          UTF8_TERM_OUTPUT_NATIVE, "native", \
          UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 2, 2, 2, 2, \
          UTF8_TERM_STRATEGY_LINE, "line", \
          UTF8_TERM_STRATEGY_LINE, "line") \
+   ENTRY(UTF8_TERM_CLASS_EMOJI_VARIATION, "emoji-variation", \
+         UTF8_TERM_DISPLAY_DECOMPOSED, "decomposed", \
+         UTF8_TERM_OUTPUT_COMPONENTS, "components", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 3, 3, 3, 3, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
+   ENTRY(UTF8_TERM_CLASS_EMOJI_VARIATION, "emoji-variation", \
+         UTF8_TERM_DISPLAY_SINGLE, "single", \
+         UTF8_TERM_OUTPUT_BASE, "base", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
    ENTRY(UTF8_TERM_CLASS_MODIFIER, "modifier", \
          UTF8_TERM_DISPLAY_NORMAL, "normal", \
          UTF8_TERM_OUTPUT_NATIVE, "native", \
          UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 2, 2, 2, 2, \
          UTF8_TERM_STRATEGY_LINE, "line", \
          UTF8_TERM_STRATEGY_LINE, "line") \
+   ENTRY(UTF8_TERM_CLASS_MODIFIER, "modifier", \
+         UTF8_TERM_DISPLAY_DECOMPOSED, "decomposed", \
+         UTF8_TERM_OUTPUT_COMPONENTS, "components", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 5, 5, 5, 5, \
+         UTF8_TERM_STRATEGY_LINE, "line", \
+         UTF8_TERM_STRATEGY_LINE, "line") \
+   ENTRY(UTF8_TERM_CLASS_MODIFIER, "modifier", \
+         UTF8_TERM_DISPLAY_SINGLE, "single", \
+         UTF8_TERM_OUTPUT_SUBSTITUTE, "substitute", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
    ENTRY(UTF8_TERM_CLASS_KEYCAP, "keycap", \
          UTF8_TERM_DISPLAY_NORMAL, "normal", \
          UTF8_TERM_OUTPUT_NATIVE, "native", \
          UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 2, 2, 2, 2, \
          UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST, "first", \
          UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST, "whole") \
+   ENTRY(UTF8_TERM_CLASS_KEYCAP, "keycap", \
+         UTF8_TERM_DISPLAY_DECOMPOSED, "decomposed", \
+         UTF8_TERM_OUTPUT_COMPONENTS, "components", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 3, 3, 3, 3, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
+   ENTRY(UTF8_TERM_CLASS_KEYCAP, "keycap", \
+         UTF8_TERM_DISPLAY_SINGLE, "single", \
+         UTF8_TERM_OUTPUT_BASE, "base", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
    ENTRY(UTF8_TERM_CLASS_REGIONAL_INDICATOR, "regional-indicator", \
          UTF8_TERM_DISPLAY_NORMAL, "normal", \
          UTF8_TERM_OUTPUT_NATIVE, "native", \
          UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 2, 2, 2, 2, \
          UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
          UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
+   ENTRY(UTF8_TERM_CLASS_REGIONAL_INDICATOR, "regional-indicator", \
+         UTF8_TERM_DISPLAY_DECOMPOSED, "decomposed", \
+         UTF8_TERM_OUTPUT_NATIVE, "native", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 2, 2, 2, 2, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
+   ENTRY(UTF8_TERM_CLASS_REGIONAL_INDICATOR, "regional-indicator", \
+         UTF8_TERM_DISPLAY_SINGLE, "single", \
+         UTF8_TERM_OUTPUT_SUBSTITUTE, "substitute", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
    ENTRY(UTF8_TERM_CLASS_REGIONAL_FLAG, "regional-flag", \
          UTF8_TERM_DISPLAY_NORMAL, "normal", \
          UTF8_TERM_OUTPUT_NATIVE, "native", \
-         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 2, 3, 3, 3, \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 2, 2, 2, 2, \
          UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
-         UTF8_TERM_STRATEGY_CLEAR_CHANGED_SUFFIX_FAST, "suffix") \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
+   ENTRY(UTF8_TERM_CLASS_REGIONAL_FLAG, "regional-flag", \
+         UTF8_TERM_DISPLAY_DECOMPOSED, "decomposed", \
+         UTF8_TERM_OUTPUT_COMPONENTS, "components", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 5, 5, 5, 5, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
+   ENTRY(UTF8_TERM_CLASS_REGIONAL_FLAG, "regional-flag", \
+         UTF8_TERM_DISPLAY_SINGLE, "single", \
+         UTF8_TERM_OUTPUT_SUBSTITUTE, "substitute", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
    ENTRY(UTF8_TERM_CLASS_SHORT_ZWJ, "short-zwj", \
-         UTF8_TERM_DISPLAY_GROUPED, "grouped", \
+         UTF8_TERM_DISPLAY_NORMAL, "normal", \
          UTF8_TERM_OUTPUT_NATIVE, "native", \
          UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 2, 2, 2, 2, \
          UTF8_TERM_STRATEGY_LINE, "line", \
          UTF8_TERM_STRATEGY_LINE, "line") \
    ENTRY(UTF8_TERM_CLASS_SHORT_ZWJ, "short-zwj", \
-         UTF8_TERM_DISPLAY_COMPONENTS, "components", \
-         UTF8_TERM_OUTPUT_EXPANDED, "expanded", \
-         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 4, 4, 4, 4, \
+         UTF8_TERM_DISPLAY_DECOMPOSED, "decomposed", \
+         UTF8_TERM_OUTPUT_COMPONENTS, "components", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 5, 5, 5, 5, \
+         UTF8_TERM_STRATEGY_LINE, "line", \
+         UTF8_TERM_STRATEGY_LINE, "line") \
+   ENTRY(UTF8_TERM_CLASS_SHORT_ZWJ, "short-zwj", \
+         UTF8_TERM_DISPLAY_SINGLE, "single", \
+         UTF8_TERM_OUTPUT_SUBSTITUTE, "substitute", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
+   ENTRY(UTF8_TERM_CLASS_HEART_ZWJ, "heart-zwj", \
+         UTF8_TERM_DISPLAY_NORMAL, "normal", \
+         UTF8_TERM_OUTPUT_NATIVE, "native", \
+         UTF8_TERM_HEART_SUBSTITUTE_CODEPOINT, 2, 2, 2, 2, \
          UTF8_TERM_STRATEGY_LINE, "line", \
          UTF8_TERM_STRATEGY_LINE, "line") \
    ENTRY(UTF8_TERM_CLASS_HEART_ZWJ, "heart-zwj", \
-         UTF8_TERM_DISPLAY_GROUPED, "grouped", \
-         UTF8_TERM_OUTPUT_NATIVE, "native", \
-         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 6, 6, 6, 6, \
+         UTF8_TERM_DISPLAY_DECOMPOSED, "decomposed", \
+         UTF8_TERM_OUTPUT_COMPONENTS, "components", \
+         UTF8_TERM_HEART_SUBSTITUTE_CODEPOINT, 7, 7, 7, 7, \
          UTF8_TERM_STRATEGY_LINE, "line", \
          UTF8_TERM_STRATEGY_LINE, "line") \
    ENTRY(UTF8_TERM_CLASS_HEART_ZWJ, "heart-zwj", \
-         UTF8_TERM_DISPLAY_COMPONENTS, "components", \
-         UTF8_TERM_OUTPUT_EXPANDED, "expanded", \
-         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 6, 6, 6, 6, \
-         UTF8_TERM_STRATEGY_LINE, "line", \
-         UTF8_TERM_STRATEGY_LINE, "line") \
+         UTF8_TERM_DISPLAY_SINGLE, "single", \
+         UTF8_TERM_OUTPUT_SUBSTITUTE, "substitute", \
+         UTF8_TERM_HEART_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
    ENTRY(UTF8_TERM_CLASS_FAMILY_ZWJ, "family-zwj", \
-         UTF8_TERM_DISPLAY_GROUPED, "grouped", \
+         UTF8_TERM_DISPLAY_NORMAL, "normal", \
          UTF8_TERM_OUTPUT_NATIVE, "native", \
-         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 6, 6, 6, 6, \
+         UTF8_TERM_FAMILY_SUBSTITUTE_CODEPOINT, 2, 2, 2, 2, \
          UTF8_TERM_STRATEGY_LINE, "line", \
          UTF8_TERM_STRATEGY_LINE, "line") \
    ENTRY(UTF8_TERM_CLASS_FAMILY_ZWJ, "family-zwj", \
-         UTF8_TERM_DISPLAY_COMPONENTS, "components", \
-         UTF8_TERM_OUTPUT_EXPANDED, "expanded", \
-         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 8, 8, 8, 8, \
+         UTF8_TERM_DISPLAY_DECOMPOSED, "decomposed", \
+         UTF8_TERM_OUTPUT_COMPONENTS, "components", \
+         UTF8_TERM_FAMILY_SUBSTITUTE_CODEPOINT, 11, 11, 11, 11, \
          UTF8_TERM_STRATEGY_LINE, "line", \
          UTF8_TERM_STRATEGY_LINE, "line") \
+   ENTRY(UTF8_TERM_CLASS_FAMILY_ZWJ, "family-zwj", \
+         UTF8_TERM_DISPLAY_SINGLE, "single", \
+         UTF8_TERM_OUTPUT_SUBSTITUTE, "substitute", \
+         UTF8_TERM_FAMILY_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
    ENTRY(UTF8_TERM_CLASS_TAG_FLAG, "tag-flag", \
          UTF8_TERM_DISPLAY_NORMAL, "normal", \
          UTF8_TERM_OUTPUT_NATIVE, "native", \
          UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 2, 2, 2, 2, \
          UTF8_TERM_STRATEGY_LINE, "line", \
          UTF8_TERM_STRATEGY_LINE, "line") \
+   ENTRY(UTF8_TERM_CLASS_TAG_FLAG, "tag-flag", \
+         UTF8_TERM_DISPLAY_DECOMPOSED, "decomposed", \
+         UTF8_TERM_OUTPUT_COMPONENTS, "components", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 2, 2, 2, 2, \
+         UTF8_TERM_STRATEGY_LINE, "line", \
+         UTF8_TERM_STRATEGY_LINE, "line") \
+   ENTRY(UTF8_TERM_CLASS_TAG_FLAG, "tag-flag", \
+         UTF8_TERM_DISPLAY_SINGLE, "single", \
+         UTF8_TERM_OUTPUT_SUBSTITUTE, "substitute", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells", \
+         UTF8_TERM_STRATEGY_CHANGED_CELLS, "cells") \
    ENTRY(UTF8_TERM_CLASS_PRIVATE_USE, "private-use", \
          UTF8_TERM_DISPLAY_NORMAL, "normal", \
+         UTF8_TERM_OUTPUT_NATIVE, "native", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_LINE, "line", \
+         UTF8_TERM_STRATEGY_LINE, "line") \
+   ENTRY(UTF8_TERM_CLASS_PRIVATE_USE, "private-use", \
+         UTF8_TERM_DISPLAY_DECOMPOSED, "decomposed", \
+         UTF8_TERM_OUTPUT_NATIVE, "native", \
+         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
+         UTF8_TERM_STRATEGY_LINE, "line", \
+         UTF8_TERM_STRATEGY_LINE, "line") \
+   ENTRY(UTF8_TERM_CLASS_PRIVATE_USE, "private-use", \
+         UTF8_TERM_DISPLAY_SINGLE, "single", \
          UTF8_TERM_OUTPUT_NATIVE, "native", \
          UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT, 1, 1, 1, 1, \
          UTF8_TERM_STRATEGY_LINE, "line", \

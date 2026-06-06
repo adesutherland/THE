@@ -31,6 +31,12 @@ typedef struct
 typedef struct
 {
    const char *name;
+   Utf8TerminalMetrics value;
+} MetricsName;
+
+typedef struct
+{
+   const char *name;
    Utf8TerminalMark value;
 } MarkName;
 
@@ -65,21 +71,28 @@ static const ClassName class_names[] =
 static const DisplayName display_names[] =
 {
    { "normal", UTF8_TERM_DISPLAY_NORMAL },
-   { "grouped", UTF8_TERM_DISPLAY_GROUPED },
-   { "components", UTF8_TERM_DISPLAY_COMPONENTS },
+   { "decomposed", UTF8_TERM_DISPLAY_DECOMPOSED },
+   { "single", UTF8_TERM_DISPLAY_SINGLE },
    { NULL, UTF8_TERM_DISPLAY_UNKNOWN }
 };
 
 static const OutputName output_names[] =
 {
    { "native", UTF8_TERM_OUTPUT_NATIVE },
-   { "literal", UTF8_TERM_OUTPUT_NATIVE },
    { "expanded", UTF8_TERM_OUTPUT_EXPANDED },
    { "substitute", UTF8_TERM_OUTPUT_SUBSTITUTE },
-   { "placeholder", UTF8_TERM_OUTPUT_SUBSTITUTE },
    { "base", UTF8_TERM_OUTPUT_BASE },
    { "components", UTF8_TERM_OUTPUT_COMPONENTS },
    { NULL, UTF8_TERM_OUTPUT_UNKNOWN }
+};
+
+static const MetricsName metrics_names[] =
+{
+   { "auto", UTF8_TERM_METRICS_AUTO },
+   { "profile", UTF8_TERM_METRICS_PROFILE },
+   { "components", UTF8_TERM_METRICS_COMPONENTS },
+   { "expanded", UTF8_TERM_METRICS_EXPANDED },
+   { NULL, UTF8_TERM_METRICS_UNKNOWN }
 };
 
 static const MarkName mark_names[] =
@@ -103,7 +116,7 @@ static const StrategyName strategy_names[] =
 };
 
 #define UTF8_TERM_DEFAULT_ENTRY(feature_class, feature_class_name, display_mode, display_mode_name, output_method, output_method_name, substitute_codepoint, width, advance_width, cursor_width, repaint_width, cursor_strategy, cursor_strategy_name, replacement_strategy, replacement_strategy_name) \
-   { feature_class, display_mode, output_method, substitute_codepoint, UTF8_TERM_MARK_NONE, width, advance_width, cursor_width, repaint_width, cursor_strategy, replacement_strategy },
+   { feature_class, display_mode, output_method, UTF8_TERM_METRICS_AUTO, substitute_codepoint, (output_method == UTF8_TERM_OUTPUT_SUBSTITUTE) ? UTF8_TERM_MARK_SUBSTITUTED : UTF8_TERM_MARK_NONE, width, advance_width, cursor_width, repaint_width, cursor_strategy, replacement_strategy },
 
 static const Utf8TerminalProfileEntry default_entries[] =
 {
@@ -116,64 +129,7 @@ static Utf8TerminalProfileEntry profile_entries[
    sizeof(default_entries) / sizeof(default_entries[0])
 ];
 static int profile_initialised = 0;
-static Utf8TerminalDisplayMode display_mode = UTF8_TERM_DISPLAY_GROUPED;
-
-static const char *apple_terminal_overrides[] =
-{
-   "SET UTF TERMINAL CLASS combining WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1",
-   "SET UTF TERMINAL CLASS combining CURSORSTRATEGY cells",
-   "SET UTF TERMINAL CLASS combining REPLACESTRATEGY cells",
-   "SET UTF TERMINAL CLASS combining-stack WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1",
-   "SET UTF TERMINAL CLASS combining-stack CURSORSTRATEGY cells",
-   "SET UTF TERMINAL CLASS combining-stack REPLACESTRATEGY cells",
-   "SET UTF TERMINAL CLASS wide WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2",
-   "SET UTF TERMINAL CLASS wide CURSORSTRATEGY cells",
-   "SET UTF TERMINAL CLASS wide REPLACESTRATEGY line",
-   "SET UTF TERMINAL CLASS emoji WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2",
-   "SET UTF TERMINAL CLASS emoji CURSORSTRATEGY cells",
-   "SET UTF TERMINAL CLASS emoji REPLACESTRATEGY line",
-   "SET UTF TERMINAL CLASS text-variation WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1",
-   "SET UTF TERMINAL CLASS text-variation CURSORSTRATEGY cells",
-   "SET UTF TERMINAL CLASS text-variation REPLACESTRATEGY cells",
-   "SET UTF TERMINAL CLASS emoji-variation WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2",
-   "SET UTF TERMINAL CLASS emoji-variation CURSORSTRATEGY cells",
-   "SET UTF TERMINAL CLASS emoji-variation REPLACESTRATEGY line",
-   "SET UTF TERMINAL CLASS modifier WIDTH 2 ADVANCE 4 CURSOR 4 REPAINT 4",
-   "SET UTF TERMINAL CLASS modifier CURSORSTRATEGY cells",
-   "SET UTF TERMINAL CLASS modifier REPLACESTRATEGY line",
-   "SET UTF TERMINAL CLASS keycap OUTPUT base",
-   "SET UTF TERMINAL CLASS keycap MARK compressed",
-   "SET UTF TERMINAL CLASS keycap WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1",
-   "SET UTF TERMINAL CLASS keycap CURSORSTRATEGY cells",
-   "SET UTF TERMINAL CLASS keycap REPLACESTRATEGY cells",
-   /* Apple Terminal shows decomposed Regional Indicator flags as boxed
-      two-cell letters. Keep paired regional-flag clusters on the normal
-      native profile; widening those adds a visible file-area gap. */
-   "SET UTF TERMINAL CLASS regional-indicator WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2",
-   "SET UTF TERMINAL CLASS regional-indicator CURSORSTRATEGY cells",
-   "SET UTF TERMINAL CLASS regional-indicator REPLACESTRATEGY cells",
-   "SET UTF TERMINAL CLASS short-zwj DISPLAY grouped OUTPUT substitute U+0040",
-   "SET UTF TERMINAL CLASS short-zwj DISPLAY components OUTPUT native",
-   "SET UTF TERMINAL CLASS short-zwj DISPLAY components WIDTH 4 ADVANCE 4 CURSOR 4 REPAINT 4",
-   "SET UTF TERMINAL CLASS short-zwj DISPLAY components CURSORSTRATEGY cells",
-   "SET UTF TERMINAL CLASS short-zwj DISPLAY components REPLACESTRATEGY line",
-   "SET UTF TERMINAL CLASS heart-zwj DISPLAY grouped OUTPUT substitute U+0040",
-   "SET UTF TERMINAL CLASS heart-zwj DISPLAY components OUTPUT expanded",
-   "SET UTF TERMINAL CLASS heart-zwj DISPLAY components WIDTH 6 ADVANCE 6 CURSOR 6 REPAINT 6",
-   "SET UTF TERMINAL CLASS heart-zwj DISPLAY components CURSORSTRATEGY cells",
-   "SET UTF TERMINAL CLASS heart-zwj DISPLAY components REPLACESTRATEGY line",
-   "SET UTF TERMINAL CLASS family-zwj DISPLAY grouped OUTPUT substitute U+0040",
-   "SET UTF TERMINAL CLASS family-zwj DISPLAY components OUTPUT expanded",
-   "SET UTF TERMINAL CLASS family-zwj DISPLAY components WIDTH 8 ADVANCE 8 CURSOR 8 REPAINT 8",
-   "SET UTF TERMINAL CLASS family-zwj DISPLAY components CURSORSTRATEGY cells",
-   "SET UTF TERMINAL CLASS family-zwj DISPLAY components REPLACESTRATEGY line",
-   "SET UTF TERMINAL CLASS tag-flag WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2",
-   "SET UTF TERMINAL CLASS tag-flag CURSORSTRATEGY cells",
-   "SET UTF TERMINAL CLASS tag-flag REPLACESTRATEGY line",
-   "SET UTF TERMINAL CLASS private-use WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1",
-   "SET UTF TERMINAL CLASS private-use CURSORSTRATEGY cells",
-   "SET UTF TERMINAL CLASS private-use REPLACESTRATEGY cells"
-};
+static Utf8TerminalDisplayMode display_mode = UTF8_TERM_DISPLAY_NORMAL;
 
 static int ascii_equal_ci(const char *left, const char *right)
 {
@@ -201,7 +157,7 @@ static void ensure_profile_initialised(void)
 void utf8_terminal_profile_reset(void)
 {
    memcpy(profile_entries, default_entries, sizeof(default_entries));
-   display_mode = UTF8_TERM_DISPLAY_GROUPED;
+   display_mode = UTF8_TERM_DISPLAY_NORMAL;
    profile_initialised = 1;
 }
 
@@ -214,8 +170,9 @@ Utf8TerminalDisplayMode utf8_terminal_display_mode(void)
 int utf8_terminal_set_display_mode(Utf8TerminalDisplayMode display)
 {
    ensure_profile_initialised();
-   if (display != UTF8_TERM_DISPLAY_GROUPED
-   &&  display != UTF8_TERM_DISPLAY_COMPONENTS)
+   if (display != UTF8_TERM_DISPLAY_NORMAL
+   &&  display != UTF8_TERM_DISPLAY_DECOMPOSED
+   &&  display != UTF8_TERM_DISPLAY_SINGLE)
       return UTF8_TERMINAL_PROFILE_INVALID;
    display_mode = display;
    return UTF8_TERMINAL_PROFILE_APPLIED;
@@ -224,10 +181,12 @@ int utf8_terminal_set_display_mode(Utf8TerminalDisplayMode display)
 Utf8TerminalDisplayMode utf8_terminal_toggle_display_mode(void)
 {
    ensure_profile_initialised();
-   if (display_mode == UTF8_TERM_DISPLAY_COMPONENTS)
-      display_mode = UTF8_TERM_DISPLAY_GROUPED;
+   if (display_mode == UTF8_TERM_DISPLAY_NORMAL)
+      display_mode = UTF8_TERM_DISPLAY_DECOMPOSED;
+   else if (display_mode == UTF8_TERM_DISPLAY_DECOMPOSED)
+      display_mode = UTF8_TERM_DISPLAY_SINGLE;
    else
-      display_mode = UTF8_TERM_DISPLAY_COMPONENTS;
+      display_mode = UTF8_TERM_DISPLAY_NORMAL;
    return display_mode;
 }
 
@@ -321,11 +280,8 @@ const Utf8TerminalProfileEntry *utf8_terminal_profile_lookup_cluster(
    feature_class = utf8_terminal_classify_cluster(line, len, cluster);
    if (feature_class == UTF8_TERM_CLASS_UNKNOWN)
       return NULL;
-   if (display == UTF8_TERM_DISPLAY_UNKNOWN
-        ||  display == UTF8_TERM_DISPLAY_NORMAL)
-   {
-      display = UTF8_TERM_DISPLAY_GROUPED;
-   }
+   if (display == UTF8_TERM_DISPLAY_UNKNOWN)
+      display = UTF8_TERM_DISPLAY_NORMAL;
 
    entry = utf8_terminal_profile_lookup(feature_class, display);
    if (entry != NULL)
@@ -462,6 +418,18 @@ Utf8TerminalOutput utf8_terminal_output_from_name(const char *name)
    return UTF8_TERM_OUTPUT_UNKNOWN;
 }
 
+Utf8TerminalMetrics utf8_terminal_metrics_from_name(const char *name)
+{
+   size_t i;
+
+   for (i = 0; metrics_names[i].name != NULL; i++)
+   {
+      if (ascii_equal_ci(metrics_names[i].name, name))
+         return metrics_names[i].value;
+   }
+   return UTF8_TERM_METRICS_UNKNOWN;
+}
+
 Utf8TerminalMark utf8_terminal_mark_from_name(const char *name)
 {
    size_t i;
@@ -522,6 +490,18 @@ const char *utf8_terminal_output_name(Utf8TerminalOutput output)
    return "unknown";
 }
 
+const char *utf8_terminal_metrics_name(Utf8TerminalMetrics metrics)
+{
+   size_t i;
+
+   for (i = 0; metrics_names[i].name != NULL; i++)
+   {
+      if (metrics_names[i].value == metrics)
+         return metrics_names[i].name;
+   }
+   return "unknown";
+}
+
 const char *utf8_terminal_mark_name(Utf8TerminalMark mark)
 {
    size_t i;
@@ -560,29 +540,52 @@ static Utf8TerminalOutput coerce_output_for_display(Utf8TerminalDisplayMode disp
 {
    if (output == UTF8_TERM_OUTPUT_SUBSTITUTE)
       return UTF8_TERM_OUTPUT_SUBSTITUTE;
-   if (output == UTF8_TERM_OUTPUT_BASE
-   ||  output == UTF8_TERM_OUTPUT_COMPONENTS)
+   if (output == UTF8_TERM_OUTPUT_BASE)
       return output;
    if (display == UTF8_TERM_DISPLAY_NORMAL)
-      return UTF8_TERM_OUTPUT_NATIVE;
-   if (display == UTF8_TERM_DISPLAY_GROUPED)
    {
-      if (output == UTF8_TERM_OUTPUT_NATIVE)
+      if (output == UTF8_TERM_OUTPUT_NATIVE
+      ||  output == UTF8_TERM_OUTPUT_EXPANDED
+      ||  output == UTF8_TERM_OUTPUT_COMPONENTS)
          return output;
       return UTF8_TERM_OUTPUT_NATIVE;
    }
-   if (display == UTF8_TERM_DISPLAY_COMPONENTS)
+   if (display == UTF8_TERM_DISPLAY_DECOMPOSED)
    {
       if (output == UTF8_TERM_OUTPUT_NATIVE
-      ||  output == UTF8_TERM_OUTPUT_EXPANDED)
+      ||  output == UTF8_TERM_OUTPUT_EXPANDED
+      ||  output == UTF8_TERM_OUTPUT_COMPONENTS)
          return output;
       return UTF8_TERM_OUTPUT_EXPANDED;
+   }
+   if (display == UTF8_TERM_DISPLAY_SINGLE)
+   {
+      if (output == UTF8_TERM_OUTPUT_NATIVE
+      ||  output == UTF8_TERM_OUTPUT_BASE)
+         return output;
+      return UTF8_TERM_OUTPUT_SUBSTITUTE;
    }
    return UTF8_TERM_OUTPUT_NATIVE;
 }
 
+static int display_accepts_width(Utf8TerminalDisplayMode display, int width)
+{
+   return display != UTF8_TERM_DISPLAY_SINGLE || width == 1;
+}
+
+static int display_accepts_metrics(Utf8TerminalDisplayMode display,
+                                   Utf8TerminalMetrics metrics)
+{
+   if (metrics == UTF8_TERM_METRICS_UNKNOWN)
+      return 0;
+   return display != UTF8_TERM_DISPLAY_SINGLE
+       || metrics == UTF8_TERM_METRICS_AUTO
+       || metrics == UTF8_TERM_METRICS_PROFILE;
+}
+
 static void apply_substitute_defaults(Utf8TerminalProfileEntry *entry)
 {
+   entry->metric_method = UTF8_TERM_METRICS_AUTO;
    entry->width = 1;
    entry->advance_width = 1;
    entry->cursor_width = 1;
@@ -615,14 +618,6 @@ static int apply_output(Utf8TerminalProfileEntry *entry, Utf8TerminalOutput outp
    else if (entry->mark == UTF8_TERM_MARK_SUBSTITUTED)
       entry->mark = UTF8_TERM_MARK_NONE;
    return UTF8_TERMINAL_PROFILE_APPLIED;
-}
-
-static Utf8TerminalDisplayMode legacy_display_for_output(Utf8TerminalOutput output)
-{
-   if (output == UTF8_TERM_OUTPUT_EXPANDED
-   ||  output == UTF8_TERM_OUTPUT_COMPONENTS)
-      return UTF8_TERM_DISPLAY_COMPONENTS;
-   return UTF8_TERM_DISPLAY_GROUPED;
 }
 
 int utf8_terminal_profile_apply_line(const char *line)
@@ -674,19 +669,6 @@ int utf8_terminal_profile_apply_line(const char *line)
       return UTF8_TERMINAL_PROFILE_INVALID;
    index++;
 
-   if (index < count && ascii_equal_ci(tokens[index], "zwjdisplay"))
-   {
-      Utf8TerminalOutput output;
-
-      if (index + 2 != count)
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      output = utf8_terminal_output_from_name(tokens[index + 1]);
-      if (output == UTF8_TERM_OUTPUT_UNKNOWN)
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      entry = profile_entry_for(feature_class, legacy_display_for_output(output));
-      return apply_output(entry, output, 0, 0);
-   }
-
    if (index < count && ascii_equal_ci(tokens[index], "display"))
    {
       if (index + 1 >= count)
@@ -719,6 +701,18 @@ int utf8_terminal_profile_apply_line(const char *line)
       return apply_output(entry, output, substitute_codepoint,
                           has_substitute_codepoint);
    }
+   if (ascii_equal_ci(tokens[index], "metrics"))
+   {
+      Utf8TerminalMetrics metrics;
+
+      if (index + 2 != count)
+         return UTF8_TERMINAL_PROFILE_INVALID;
+      metrics = utf8_terminal_metrics_from_name(tokens[index + 1]);
+      if (!display_accepts_metrics(display, metrics))
+         return UTF8_TERMINAL_PROFILE_INVALID;
+      entry->metric_method = metrics;
+      return UTF8_TERMINAL_PROFILE_APPLIED;
+   }
    if (ascii_equal_ci(tokens[index], "width"))
    {
       int width;
@@ -729,6 +723,8 @@ int utf8_terminal_profile_apply_line(const char *line)
       if (index + 2 == count)
       {
          if (!parse_positive_int(tokens[index + 1], &width))
+            return UTF8_TERMINAL_PROFILE_INVALID;
+         if (!display_accepts_width(display, width))
             return UTF8_TERMINAL_PROFILE_INVALID;
          entry->width = width;
          return UTF8_TERMINAL_PROFILE_APPLIED;
@@ -742,6 +738,8 @@ int utf8_terminal_profile_apply_line(const char *line)
       ||  !parse_positive_int(tokens[index + 3], &advance_width)
       ||  !parse_positive_int(tokens[index + 5], &cursor_width)
       ||  !parse_positive_int(tokens[index + 7], &repaint_width))
+         return UTF8_TERMINAL_PROFILE_INVALID;
+      if (!display_accepts_width(display, width))
          return UTF8_TERMINAL_PROFILE_INVALID;
       entry->width = width;
       entry->advance_width = advance_width;
@@ -856,19 +854,12 @@ int utf8_terminal_profile_apply_file(const char *path, int *settings_loaded)
 
 int utf8_terminal_profile_apply_apple_terminal(void)
 {
-   size_t i;
-   int loaded = 0;
-
-   for (i = 0; i < sizeof(apple_terminal_overrides) / sizeof(apple_terminal_overrides[0]); i++)
-   {
-      int rc = utf8_terminal_profile_apply_line(apple_terminal_overrides[i]);
-
-      if (rc == UTF8_TERMINAL_PROFILE_INVALID)
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      if (rc == UTF8_TERMINAL_PROFILE_APPLIED)
-         loaded++;
-   }
-   return loaded;
+   /*
+    * Keep compiled defaults generic. Apple Terminal policy lives in
+    * system-osx.the so probe results and hand-tuned platform overrides are
+    * visible in one profile and can be replaced without rebuilding THE.
+    */
+   return 0;
 }
 
 int utf8_terminal_profile_apply_terminal_identity(const char *term,

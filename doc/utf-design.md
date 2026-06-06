@@ -82,7 +82,7 @@ logical positions and driver operations, not curses cursor state.
 The active profile entry contains:
 
 ```text
-class, display mode, output method, mark,
+class, display mode, output method, metric method, mark,
 WIDTH, ADVANCE, CURSOR, REPAINT,
 CURSORSTRATEGY, REPLACESTRATEGY
 ```
@@ -95,16 +95,48 @@ Meanings:
 - `CURSOR`: physical cells covered by cursor/background presentation.
 - `REPAINT`: physical cleanup footprint for stale glyph fragments.
 - `OUTPUT`: `native`, `expanded`, `components`, `base`, or `substitute`.
+- `METRICS`: `auto`, `profile`, `components`, or `expanded`.
 - `MARK`: `none`, `compressed`, `substituted`, or `unsafe`.
 - `CURSORSTRATEGY` and `REPLACESTRATEGY`: separate because cursor movement can
   be safe when text replacement still needs stronger repaint.
 
-`SET UTF DISPLAY GROUPED|COMPONENTS|TOGGLE` chooses the preferred display mode.
-Display mode is a view preference; it does not change logical text identity.
+`SET UTF DISPLAY NORMAL|DECOMPOSED|SINGLE|TOGGLE` chooses the preferred display
+mode. Display mode is a view preference; it does not change logical text
+identity. `SINGLE` forces the profile `WIDTH` to one cell, while `ADVANCE`,
+`CURSOR`, and `REPAINT` remain independent physical terminal behavior. `TOGGLE`
+cycles `NORMAL -> DECOMPOSED -> SINGLE -> NORMAL`.
 
-THE loads built-in defaults, terminal identity overrides, the platform system
-profile, and then the user profile. On macOS the generated platform profile is
-`system-osx.the`.
+Metrics are deliberately independent from output. `OUTPUT` controls what is
+drawn; `METRICS` controls how THE maps that logical cluster onto the terminal
+grid. `METRICS auto` preserves existing behavior. `METRICS profile` uses the
+explicit WIDTH/ADVANCE/CURSOR/REPAINT values. `METRICS components` measures the
+decomposed preview, including its separator cells. `METRICS expanded` measures
+adjacent visible components without preview separators.
+
+This separation keeps platform profiles lockable. A terminal that shapes native
+ZWJ clusters correctly can keep NORMAL as native/profile metrics. Apple
+Terminal can keep NORMAL output native while using expanded metrics for ZWJ
+classes. DECOMPOSED still uses component output and component metrics, and
+SINGLE still forces one-cell substitute output.
+
+Dynamic metric modes are calculated from the actual cluster rather than from a
+fixed sample width. Longer ZWJ sequences therefore do not inherit one hard-coded
+family width. The component widths come from the same platform profile used for
+individual emoji, variation, modifier, and regional-indicator classes.
+
+When adding probe results, keep the instruction order conceptual rather than
+terminal-specific: choose the display mode, choose the output transform, then
+choose the metric model. A platform profile should override only the part it has
+measured. For example, macOS can set NORMAL ZWJ classes to `METRICS expanded`
+while another terminal leaves NORMAL ZWJ classes at native/profile metrics, or
+uses explicit two-cell profile widths. This keeps new Apple workarounds from
+changing platforms whose behavior has already been calibrated.
+
+THE loads generic built-in defaults, any optional terminal identity hook, the
+platform system profile, and then the user profile. Terminal identity hooks must
+not hide platform policy that can be expressed in the profile language. On macOS
+the generated platform profile is `system-osx.the`, so Apple-specific settings
+remain visible and replaceable without rebuilding THE.
 
 ## Current Status
 
@@ -120,7 +152,7 @@ Implemented:
   modes, output transforms, marks, cursor strategies, and replacement
   strategies.
 - Apple Terminal overrides are represented as profile policy, not renderer
-  special cases.
+  special cases or compiled fallback tables.
 - Rendering carries logical width plus profile width, advance, cursor, repaint,
   output method, class, and mark through `TheRenderCluster`.
 - The LLM driver exposes row-level UTF annotations with logical width, `WIDTH`,
@@ -151,11 +183,14 @@ Keep these lessons because they still affect design:
 - Native keycap glyphs were unreliable enough that the macOS profile now uses
   `OUTPUT base`, `MARK compressed`, and one-cell physical widths for keycaps.
   The stored text remains the original keycap sequence.
-- Regional flags are separate from keycaps. They remain literal UTF clusters,
-  but terminal profiles may need a wider physical footprint than their logical
-  model.
-- ZWJ sequences must remain one logical grapheme cluster whether the terminal
-  shapes them as one glyph, falls back to components, or THE uses a substitute.
+- Regional flags are separate from keycaps. On macOS, NORMAL keeps paired flags
+  native but may use a profile-driven extra advance/repaint cell after the
+  two-cell glyph to avoid overlap with following text.
+- ZWJ sequences must remain one logical grapheme cluster whether NORMAL renders
+  the native composed sequence, DECOMPOSED renders the status-style component
+  preview, or SINGLE uses a substitute. Normal-mode metrics may still be
+  platform-specific; Apple currently uses expanded metrics while keeping native
+  output.
 - A successful cursor-walk probe does not prove replacement behavior. Cursor
   and replacement strategies must be calibrated independently.
 
@@ -177,12 +212,12 @@ The probe should save terminal policy, not Unicode semantics.
 
 ## Validation Snapshot
 
-Validated locally on 2026-06-04:
+Validated locally on 2026-06-05:
 
 ```sh
-cmake --build cmake-build-debug --target the utf_terminal_probe
+cmake --build cmake-build-debug --target test_headlessdriver test_utfterm test_utflayout test_llmdriver utf_terminal_probe
 ctest --test-dir cmake-build-debug \
-  -R 'test_utfcluster|test_utfterm|test_utflayout|test_llmdriver|test_llmruntime|test_the_llm_full_runtime|test_driver_modules|test_sos_logical_edit_queries' \
+  -R 'test_utfcluster|test_utf_fixture|test_utfrepair|test_utfterm|test_utflayout|test_headlessdriver|test_llmdriver|test_llmruntime|test_utf_terminal_probe_no_visual|test_utf_terminal_probe_profile|test_system_profile' \
   --output-on-failure
 ```
 

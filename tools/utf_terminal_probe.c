@@ -58,8 +58,10 @@
 #define U8_FLAG_CA "\xF0\x9F\x87\xA8\xF0\x9F\x87\xA6"
 #define U8_WOMAN_LAPTOP "\xF0\x9F\x91\xA9\xE2\x80\x8D\xF0\x9F\x92\xBB"
 #define U8_PERSON_ROCKET "\xF0\x9F\xA7\x91\xE2\x80\x8D\xF0\x9F\x9A\x80"
+#define U8_PERSON_ROCKET_LAPTOP "\xF0\x9F\xA7\x91\xE2\x80\x8D\xF0\x9F\x9A\x80\xE2\x80\x8D\xF0\x9F\x92\xBB"
 #define U8_WOMAN_HEART_MAN "\xF0\x9F\x91\xA9\xE2\x80\x8D\xE2\x9D\xA4\xEF\xB8\x8F\xE2\x80\x8D\xF0\x9F\x91\xA8"
 #define U8_FAMILY "\xF0\x9F\x91\xA8\xE2\x80\x8D\xF0\x9F\x91\xA9\xE2\x80\x8D\xF0\x9F\x91\xA7\xE2\x80\x8D\xF0\x9F\x91\xA6"
+#define U8_FAMILY_PLUS_BABY "\xF0\x9F\x91\xA8\xE2\x80\x8D\xF0\x9F\x91\xA9\xE2\x80\x8D\xF0\x9F\x91\xA7\xE2\x80\x8D\xF0\x9F\x91\xA6\xE2\x80\x8D\xF0\x9F\x91\xB6"
 #define U8_TAG_FLAG_ENGLAND "\xF0\x9F\x8F\xB4\xF3\xA0\x81\xA7\xF3\xA0\x81\xA2\xF3\xA0\x81\xA5\xF3\xA0\x81\xAE\xF3\xA0\x81\xA7\xF3\xA0\x81\xBF"
 #define U8_PRIVATE_USE_E0B0 "\xEE\x82\xB0"
 
@@ -137,6 +139,7 @@ typedef struct
    const char *feature_class;
    const char *display_mode;
    const char *output_method;
+   const char *metric_method;
    const struct CalibrationDefault *defaults;
    uint32_t substitute_codepoint;
    int width;
@@ -174,6 +177,7 @@ typedef struct CalibrationDefault
    const char *feature_class;
    const char *display_mode;
    const char *output_method;
+   const char *metric_method;
    uint32_t substitute_codepoint;
    int width;
    int advance_width;
@@ -184,7 +188,7 @@ typedef struct CalibrationDefault
 } CalibrationDefault;
 
 #define PROBE_CALIBRATION_DEFAULT(feature_class, feature_class_name, display_mode, display_mode_name, output_method, output_method_name, substitute_codepoint, width, advance_width, cursor_width, repaint_width, cursor_strategy, cursor_strategy_name, replacement_strategy, replacement_strategy_name) \
-   { feature_class_name, display_mode_name, output_method_name, substitute_codepoint, width, advance_width, cursor_width, repaint_width, cursor_strategy_name, replacement_strategy_name },
+   { feature_class_name, display_mode_name, output_method_name, "auto", substitute_codepoint, width, advance_width, cursor_width, repaint_width, cursor_strategy_name, replacement_strategy_name },
 
 static const CalibrationDefault calibration_defaults[] =
 {
@@ -216,6 +220,8 @@ static const ProbeSample samples[] =
    { (char *)"person-rocket", (char *)"short-zwj", (char *)U8_PERSON_ROCKET, 2 },
    { (char *)"woman-heart-man", (char *)"heart-zwj", (char *)U8_WOMAN_HEART_MAN, 6 },
    { (char *)"family", (char *)"family-zwj", (char *)U8_FAMILY, 6 },
+   { (char *)"person-rocket-laptop", (char *)"family-zwj", (char *)U8_PERSON_ROCKET_LAPTOP, 6 },
+   { (char *)"family-plus-baby", (char *)"family-zwj", (char *)U8_FAMILY_PLUS_BABY, 6 },
    { (char *)"tag-flag-england", (char *)"tag-flag", (char *)U8_TAG_FLAG_ENGLAND, 2 },
    { (char *)"private-use-e0b0", (char *)"private-use", (char *)U8_PRIVATE_USE_E0B0, 1 }
 };
@@ -3015,11 +3021,6 @@ static int calibration_entry_seen(const CalibrationEntry *entries, size_t count,
    return 0;
 }
 
-static int calibration_entry_is_normal_display(const CalibrationEntry *entry)
-{
-   return strcmp(entry->display_mode, "normal") == 0;
-}
-
 static CalibrationEntry *find_calibration_entry_for(CalibrationEntry *entries,
                                                     size_t count,
                                                     const char *feature_class,
@@ -3053,18 +3054,13 @@ static CalibrationEntry *find_calibration_entry(CalibrationEntry *entries,
                                                 const char *feature_class)
 {
    size_t i;
-   CalibrationEntry *grouped = NULL;
 
    for (i = 0; i < count; i++)
       if (strcmp(entries[i].feature_class, feature_class) == 0)
       {
          if (strcmp(entries[i].display_mode, "normal") == 0)
             return &entries[i];
-         if (strcmp(entries[i].display_mode, "grouped") == 0)
-            grouped = &entries[i];
       }
-   if (grouped != NULL)
-      return grouped;
    for (i = 0; i < count; i++)
       if (strcmp(entries[i].feature_class, feature_class) == 0)
          return &entries[i];
@@ -3124,6 +3120,7 @@ static size_t collect_calibration_entries(ProbeConfig *cfg,
       entries[count].feature_class = defaults->feature_class;
       entries[count].display_mode = defaults->display_mode;
       entries[count].output_method = defaults->output_method;
+      entries[count].metric_method = defaults->metric_method;
       entries[count].defaults = defaults;
       entries[count].substitute_codepoint = defaults->substitute_codepoint;
       entries[count].width = defaults->width;
@@ -3237,25 +3234,30 @@ static int build_view_candidates(const CalibrationEntry *entry,
    int count = 0;
    int base = entry->sample->expected_policy_width > 0
             ? entry->sample->expected_policy_width : 1;
+   int single = strcmp(entry->display_mode, "single") == 0;
    int width;
    size_t i;
 
-   add_view_candidate(candidates, &count, "current", entry->width,
+   if (single)
+      base = 1;
+
+   add_view_candidate(candidates, &count, "current",
+                      single ? 1 : entry->width,
                       entry->advance_width, entry->cursor_width,
                       entry->repaint_width);
    if (entry->defaults != NULL)
       add_view_candidate(candidates, &count, "default",
-                         entry->defaults->width,
+                         single ? 1 : entry->defaults->width,
                          entry->defaults->advance_width,
                          entry->defaults->cursor_width,
                          entry->defaults->repaint_width);
    add_view_candidate(candidates, &count, "policy", base, base, base, base);
    for (width = 1; width <= 12; width++)
       add_view_candidate(candidates, &count, width_names[width],
-                         width, width, width, width);
+                         single ? 1 : width, width, width, width);
    for (i = 0; i < sizeof(hybrids) / sizeof(hybrids[0]); i++)
       add_view_candidate(candidates, &count, hybrids[i].name,
-                         hybrids[i].width,
+                         single ? 1 : hybrids[i].width,
                          hybrids[i].advance_width,
                          hybrids[i].cursor_width,
                          hybrids[i].repaint_width);
@@ -3917,11 +3919,11 @@ static const char *profile_to_replacement_strategy(const char *strategy)
 
 static const char *known_output_method(const char *method)
 {
-   if (strcmp(method, "native") == 0 || strcmp(method, "literal") == 0)
+   if (strcmp(method, "native") == 0)
       return "native";
    if (strcmp(method, "expanded") == 0)
       return "expanded";
-   if (strcmp(method, "substitute") == 0 || strcmp(method, "placeholder") == 0)
+   if (strcmp(method, "substitute") == 0)
       return "substitute";
    if (strcmp(method, "base") == 0)
       return "base";
@@ -3930,12 +3932,19 @@ static const char *known_output_method(const char *method)
    return "native";
 }
 
-static const char *display_for_legacy_output_method(const char *method)
+static const char *known_metric_method(const char *method)
 {
-   if (strcmp(method, "expanded") == 0
-   ||  strcmp(method, "components") == 0)
+   if (method == NULL)
+      return NULL;
+   if (strcmp(method, "auto") == 0)
+      return "auto";
+   if (strcmp(method, "profile") == 0)
+      return "profile";
+   if (strcmp(method, "components") == 0)
       return "components";
-   return "grouped";
+   if (strcmp(method, "expanded") == 0)
+      return "expanded";
+   return NULL;
 }
 
 static int output_method_allowed_for_display(const char *display,
@@ -3943,16 +3952,19 @@ static int output_method_allowed_for_display(const char *display,
 {
    if (strcmp(method, "substitute") == 0)
       return 1;
-   if (strcmp(method, "base") == 0
-   ||  strcmp(method, "components") == 0)
+   if (strcmp(method, "base") == 0)
       return 1;
    if (strcmp(display, "normal") == 0)
-      return strcmp(method, "native") == 0;
-   if (strcmp(display, "grouped") == 0)
-      return strcmp(method, "native") == 0;
-   if (strcmp(display, "components") == 0)
       return strcmp(method, "native") == 0
-          || strcmp(method, "expanded") == 0;
+          || strcmp(method, "expanded") == 0
+          || strcmp(method, "components") == 0;
+   if (strcmp(display, "decomposed") == 0)
+      return strcmp(method, "native") == 0
+          || strcmp(method, "expanded") == 0
+          || strcmp(method, "components") == 0;
+   if (strcmp(display, "single") == 0)
+      return strcmp(method, "native") == 0
+          || strcmp(method, "base") == 0;
    return 0;
 }
 
@@ -3964,10 +3976,13 @@ static const char *coerce_output_method_for_display(const char *display,
       return method;
    if (strcmp(method, "substitute") == 0)
       return "substitute";
-   if (strcmp(display, "components") == 0)
+   if (strcmp(display, "normal") == 0
+   &&  strcmp(method, "expanded") == 0)
+      return "components";
+   if (strcmp(display, "decomposed") == 0)
       return "expanded";
-   if (strcmp(display, "grouped") == 0)
-      return "native";
+   if (strcmp(display, "single") == 0)
+      return "substitute";
    return "native";
 }
 
@@ -3975,6 +3990,7 @@ static void apply_output_method_defaults(CalibrationEntry *entry)
 {
    if (strcmp(entry->output_method, "substitute") == 0)
    {
+      entry->metric_method = "auto";
       entry->width = 1;
       entry->advance_width = 1;
       entry->cursor_width = 1;
@@ -4010,6 +4026,7 @@ static const CalibrationDefault *find_calibration_default_for_output(
 static void copy_calibration_physical_settings(CalibrationEntry *entry,
                                                const CalibrationEntry *source)
 {
+   entry->metric_method = source->metric_method;
    entry->width = source->width;
    entry->advance_width = source->advance_width;
    entry->cursor_width = source->cursor_width;
@@ -4022,6 +4039,7 @@ static void copy_calibration_physical_settings(CalibrationEntry *entry,
 static void copy_calibration_default_physical_settings(
    CalibrationEntry *entry, const CalibrationDefault *defaults)
 {
+   entry->metric_method = defaults->metric_method;
    entry->width = defaults->width;
    entry->advance_width = defaults->advance_width;
    entry->cursor_width = defaults->cursor_width;
@@ -4122,6 +4140,21 @@ static int read_calibration_profile(ProbeConfig *cfg,
             loaded++;
          }
       }
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s DISPLAY %95s METRICS %95s",
+                      klass, display, word) == 3)
+      {
+         const char *metric_method = known_metric_method(word);
+
+         entry = find_calibration_entry_for(entries, count, klass, display);
+         if (entry != NULL && metric_method != NULL
+         &&  (strcmp(display, "single") != 0
+          ||  strcmp(metric_method, "auto") == 0
+          ||  strcmp(metric_method, "profile") == 0))
+         {
+            entry->metric_method = metric_method;
+            loaded++;
+         }
+      }
       else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s DISPLAY %95s WIDTH %d ADVANCE %d CURSOR %d REPAINT %d",
                       klass, display, &width, &advance_width,
                       &cursor_width, &repaint_width) == 6)
@@ -4130,18 +4163,22 @@ static int read_calibration_profile(ProbeConfig *cfg,
          if (entry != NULL && width > 0 && advance_width > 0
          &&  cursor_width > 0 && repaint_width > 0)
          {
-            entry->width = width;
-            entry->advance_width = advance_width;
-            entry->cursor_width = cursor_width;
-            entry->repaint_width = repaint_width;
-            loaded++;
+            if (strcmp(display, "single") != 0 || width == 1)
+            {
+               entry->width = width;
+               entry->advance_width = advance_width;
+               entry->cursor_width = cursor_width;
+               entry->repaint_width = repaint_width;
+               loaded++;
+            }
          }
       }
       else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s DISPLAY %95s WIDTH %d",
                       klass, display, &width) == 3)
       {
          entry = find_calibration_entry_for(entries, count, klass, display);
-         if (entry != NULL && width > 0)
+         if (entry != NULL && width > 0
+         &&  (strcmp(display, "single") != 0 || width == 1))
          {
             entry->width = width;
             loaded++;
@@ -4212,6 +4249,18 @@ static int read_calibration_profile(ProbeConfig *cfg,
             loaded++;
          }
       }
+      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s METRICS %95s",
+                      klass, word) == 2)
+      {
+         const char *metric_method = known_metric_method(word);
+
+         entry = find_calibration_entry(entries, count, klass);
+         if (entry != NULL && metric_method != NULL)
+         {
+            entry->metric_method = metric_method;
+            loaded++;
+         }
+      }
       else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s WIDTH %d",
                       klass, &width) == 2)
       {
@@ -4272,24 +4321,6 @@ static int read_calibration_profile(ProbeConfig *cfg,
             loaded++;
          }
       }
-      else if (sscanf(profile_line, "SET UTF TERMINAL CLASS %95s ZWJDISPLAY %95s",
-                      klass, word) == 2)
-      {
-         const char *method = known_output_method(word);
-         const char *legacy_display = display_for_legacy_output_method(method);
-
-         entry = find_calibration_entry_for(entries, count, klass,
-                                            legacy_display);
-         if (entry == NULL)
-            entry = find_calibration_entry(entries, count, klass);
-         if (entry != NULL)
-         {
-            entry->output_method = coerce_output_method_for_display(
-                                      entry->display_mode, method);
-            apply_output_method_defaults(entry);
-            loaded++;
-         }
-      }
    }
    fclose(fp);
    reportf(cfg, "calibrate_profile_read,path=%s,settings=%d\n",
@@ -4341,12 +4372,58 @@ static void write_rexx_profile_command(FILE *fp, const char *fmt, ...)
    fprintf(fp, "'%s'\n", command);
 }
 
+static void write_calibration_profile_entry(FILE *fp,
+                                            const CalibrationEntry *entry)
+{
+   int substitute_output = strcmp(entry->output_method, "substitute") == 0;
+
+   if (substitute_output)
+   {
+      write_rexx_profile_command(
+         fp, "SET UTF TERMINAL CLASS %s DISPLAY %s OUTPUT %s U+%04X",
+         entry->feature_class, entry->display_mode,
+         entry->output_method, (unsigned int)entry->substitute_codepoint);
+   }
+   else
+   {
+      write_rexx_profile_command(
+         fp, "SET UTF TERMINAL CLASS %s DISPLAY %s OUTPUT %s",
+         entry->feature_class, entry->display_mode,
+         entry->output_method);
+   }
+   if (strcmp(entry->metric_method, "auto") != 0)
+   {
+      write_rexx_profile_command(
+         fp, "SET UTF TERMINAL CLASS %s DISPLAY %s METRICS %s",
+         entry->feature_class, entry->display_mode,
+         entry->metric_method);
+   }
+   write_rexx_profile_command(
+      fp, "SET UTF TERMINAL CLASS %s DISPLAY %s WIDTH %d ADVANCE %d CURSOR %d REPAINT %d",
+      entry->feature_class, entry->display_mode,
+      entry->width, entry->advance_width, entry->cursor_width,
+      entry->repaint_width);
+   write_rexx_profile_command(
+      fp, "SET UTF TERMINAL CLASS %s DISPLAY %s CURSORSTRATEGY %s",
+      entry->feature_class, entry->display_mode,
+      profile_strategy_name(entry->cursor_strategy));
+   write_rexx_profile_command(
+      fp, "SET UTF TERMINAL CLASS %s DISPLAY %s REPLACESTRATEGY %s",
+      entry->feature_class, entry->display_mode,
+      profile_strategy_name(entry->replacement_strategy));
+}
+
 static int write_calibration_profile(ProbeConfig *cfg,
                                      const CalibrationEntry *entries,
                                      size_t count)
 {
    FILE *fp;
    size_t i;
+   size_t mode_index;
+   static const char *display_order[] =
+   {
+      "normal", "decomposed", "single"
+   };
    const char *term = getenv("TERM") ? getenv("TERM") : "";
    const char *program = getenv("TERM_PROGRAM") ? getenv("TERM_PROGRAM") : "";
    const char *colorterm = getenv("COLORTERM") ? getenv("COLORTERM") : "";
@@ -4384,74 +4461,27 @@ static int write_calibration_profile(ProbeConfig *cfg,
       write_rexx_profile_commentf(fp, "COLORTERM=%s", colorterm);
    fprintf(fp, "options levelb\n");
    fprintf(fp, "address the\n\n");
-   for (i = 0; i < count; i++)
+   for (mode_index = 0;
+        mode_index < sizeof(display_order) / sizeof(display_order[0]);
+        mode_index++)
    {
-      const CalibrationEntry *entry = &entries[i];
-      int substitute_output = strcmp(entry->output_method, "substitute") == 0;
+      size_t mode_written = 0;
 
-      if (calibration_entry_is_default(entry))
-         continue;
-      if (calibration_entry_is_normal_display(entry))
+      for (i = 0; i < count; i++)
       {
-         if (substitute_output)
-         {
-            write_rexx_profile_command(
-               fp, "SET UTF TERMINAL CLASS %s OUTPUT %s U+%04X",
-               entry->feature_class, entry->output_method,
-               (unsigned int)entry->substitute_codepoint);
-         }
-         else if (strcmp(entry->output_method, "native") != 0)
-         {
-            write_rexx_profile_command(
-               fp, "SET UTF TERMINAL CLASS %s OUTPUT %s",
-               entry->feature_class, entry->output_method);
-         }
-         write_rexx_profile_command(
-            fp, "SET UTF TERMINAL CLASS %s WIDTH %d ADVANCE %d CURSOR %d REPAINT %d",
-            entry->feature_class, entry->width, entry->advance_width,
-            entry->cursor_width, entry->repaint_width);
-         write_rexx_profile_command(
-            fp, "SET UTF TERMINAL CLASS %s CURSORSTRATEGY %s",
-            entry->feature_class,
-            profile_strategy_name(entry->cursor_strategy));
-         write_rexx_profile_command(
-            fp, "SET UTF TERMINAL CLASS %s REPLACESTRATEGY %s",
-            entry->feature_class,
-            profile_strategy_name(entry->replacement_strategy));
+         const CalibrationEntry *entry = &entries[i];
+
+         if (calibration_entry_is_default(entry)
+         ||  strcmp(entry->display_mode, display_order[mode_index]) != 0)
+            continue;
+         if (mode_written == 0)
+            write_rexx_profile_commentf(fp, "display=%s",
+                                        display_order[mode_index]);
+         write_calibration_profile_entry(fp, entry);
          fprintf(fp, "\n");
+         mode_written++;
+         written++;
       }
-      else
-      {
-         if (substitute_output)
-         {
-            write_rexx_profile_command(
-               fp, "SET UTF TERMINAL CLASS %s DISPLAY %s OUTPUT %s U+%04X",
-               entry->feature_class, entry->display_mode,
-               entry->output_method, (unsigned int)entry->substitute_codepoint);
-         }
-         else
-         {
-            write_rexx_profile_command(
-               fp, "SET UTF TERMINAL CLASS %s DISPLAY %s OUTPUT %s",
-               entry->feature_class, entry->display_mode,
-               entry->output_method);
-         }
-         write_rexx_profile_command(
-            fp, "SET UTF TERMINAL CLASS %s DISPLAY %s WIDTH %d ADVANCE %d CURSOR %d REPAINT %d",
-            entry->feature_class, entry->display_mode,
-            entry->width, entry->advance_width, entry->cursor_width,
-            entry->repaint_width);
-         write_rexx_profile_command(
-            fp, "SET UTF TERMINAL CLASS %s DISPLAY %s CURSORSTRATEGY %s",
-            entry->feature_class, entry->display_mode,
-            profile_strategy_name(entry->cursor_strategy));
-         write_rexx_profile_command(
-            fp, "SET UTF TERMINAL CLASS %s DISPLAY %s REPLACESTRATEGY %s",
-            entry->feature_class, entry->display_mode,
-            profile_strategy_name(entry->replacement_strategy));
-         fprintf(fp, "\n");
-      }
-      written++;
    }
    if (written == 0)
       write_rexx_profile_comment(fp,
@@ -4475,17 +4505,18 @@ static int calibration_select_output_method(ProbeConfig *cfg,
 {
    static const char *basic_methods[] =
    {
-      "native", "base", "substitute"
+      "native", "base", "components", "substitute"
    };
    static const char *basic_descriptions[] =
    {
       "emit the stored logical UTF-8 cluster",
       "emit a class-specific safe base form when one is known",
+      "emit visible components when native normal shaping is unreliable",
       "emit the configured replacement code point for this class/display"
    };
    static const int basic_scores[] =
    {
-      10, 20, 40
+      10, 20, 30, 40
    };
    static const char *component_methods[] =
    {
@@ -4495,12 +4526,26 @@ static int calibration_select_output_method(ProbeConfig *cfg,
    {
       "emit the stored logical UTF-8 cluster",
       "emit visible component code points for file display",
-      "legacy alias for visible component output",
+      "emit visible component code points through expanded output",
       "emit the configured replacement code point for this class/display"
    };
    static const int component_scores[] =
    {
       10, 20, 25, 40
+   };
+   static const char *single_methods[] =
+   {
+      "native", "base", "substitute"
+   };
+   static const char *single_descriptions[] =
+   {
+      "emit the stored logical UTF-8 cluster when it is one-cell safe",
+      "emit a class-specific one-cell base form when one is known",
+      "emit the configured replacement code point for this class/display"
+   };
+   static const int single_scores[] =
+   {
+      10, 20, 40
    };
    const char **methods = basic_methods;
    const char **descriptions = basic_descriptions;
@@ -4509,12 +4554,19 @@ static int calibration_select_output_method(ProbeConfig *cfg,
    int selected = 0;
    int i;
 
-   if (strcmp(entry->display_mode, "components") == 0)
+   if (strcmp(entry->display_mode, "decomposed") == 0)
    {
       methods = component_methods;
       descriptions = component_descriptions;
       scores = component_scores;
       method_count = (int)(sizeof(component_methods) / sizeof(component_methods[0]));
+   }
+   else if (strcmp(entry->display_mode, "single") == 0)
+   {
+      methods = single_methods;
+      descriptions = single_descriptions;
+      scores = single_scores;
+      method_count = (int)(sizeof(single_methods) / sizeof(single_methods[0]));
    }
    entry->output_method = coerce_output_method_for_display(entry->display_mode,
                                                           entry->output_method);
@@ -4721,6 +4773,8 @@ static int calibration_select_substitute_codepoint(ProbeConfig *cfg,
 
 static int estimated_codepoint_width(uint32_t codepoint)
 {
+   if (codepoint == 0x2764u || codepoint == 0x2714u)
+      return 1;
    if (codepoint == 0x200Du
    ||  (codepoint >= 0xFE00u && codepoint <= 0xFE0Fu)
    ||  (codepoint >= 0xE0100u && codepoint <= 0xE01EFu)
@@ -4761,9 +4815,19 @@ static int probe_codepoint_is_keycap_base(uint32_t codepoint)
        || codepoint == '*';
 }
 
+static int probe_codepoint_is_keycap_mark(uint32_t codepoint)
+{
+   return codepoint == 0x20E3u;
+}
+
 static int probe_codepoint_is_regional(uint32_t codepoint)
 {
    return codepoint >= 0x1F1E6u && codepoint <= 0x1F1FFu;
+}
+
+static int probe_codepoint_is_tag(uint32_t codepoint)
+{
+   return codepoint >= 0xE0020u && codepoint <= 0xE007Fu;
 }
 
 static int probe_codepoint_is_modifier(uint32_t codepoint)
@@ -4837,19 +4901,61 @@ static const char *calibration_components_utf8(const CalibrationEntry *entry,
       (const unsigned char *)entry->sample->utf8;
    uint32_t codepoint;
    size_t used = 0;
+   int emitted = 0;
+   int show_markers = strstr(entry->sample->utf8, "\xE2\x80\x8D") == NULL;
 
    if (buffer_size == 0)
       return entry->sample->utf8;
    buffer[0] = '\0';
+   if (strcmp(entry->feature_class, "keycap") == 0)
+   {
+      while (utf8_next_codepoint(&cursor, &codepoint))
+      {
+         if (!probe_codepoint_is_keycap_base(codepoint))
+            continue;
+         used = append_utf8_codepoint(buffer, used, buffer_size, codepoint);
+         if (used > 0)
+            used = append_utf8_codepoint(buffer, used, buffer_size, ' ');
+         if (used > 0)
+            used = append_utf8_codepoint(buffer, used, buffer_size,
+                                         UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT);
+         return used > 0 ? buffer : entry->sample->utf8;
+      }
+      return entry->sample->utf8;
+   }
    while (utf8_next_codepoint(&cursor, &codepoint))
    {
-      if (codepoint == 0x200Du
-      ||  codepoint == 0xFE0Eu
-      ||  codepoint == 0xFE0Fu)
+      uint32_t display_codepoint = codepoint;
+
+      if (codepoint < 32 || codepoint == 0x7Fu
+      ||  codepoint == 0x200Du
+      ||  probe_codepoint_is_tag(codepoint))
          continue;
-      used = append_utf8_codepoint(buffer, used, buffer_size, codepoint);
+      if (codepoint == 0xFE0Eu)
+         display_codepoint = show_markers ? 'T' : 0;
+      else if (codepoint == 0xFE0Fu)
+         display_codepoint = show_markers ? 'E' : 0;
+      else if (probe_codepoint_is_keycap_mark(codepoint))
+         display_codepoint = 'K';
+      if (display_codepoint == 0)
+         continue;
+      if (estimated_codepoint_width(display_codepoint) <= 0)
+      {
+         used = append_utf8_codepoint(buffer, used, buffer_size, ' ');
+         if (used == 0)
+            return entry->sample->utf8;
+      }
+      else if (emitted)
+      {
+         used = append_utf8_codepoint(buffer, used, buffer_size, ' ');
+         if (used == 0)
+            return entry->sample->utf8;
+      }
+      used = append_utf8_codepoint(buffer, used, buffer_size,
+                                   display_codepoint);
       if (used == 0)
          return entry->sample->utf8;
+      emitted = 1;
    }
    return used > 0 ? buffer : entry->sample->utf8;
 }
@@ -4892,7 +4998,9 @@ static void make_effective_calibration_entry(const CalibrationEntry *entry,
    *sample = *entry->sample;
    display_utf8 = calibration_effective_utf8(entry, buffer, buffer_size);
    sample->utf8 = (char *)display_utf8;
-   if (strcmp(entry->output_method, "substitute") == 0)
+   if (strcmp(entry->display_mode, "single") == 0)
+      sample->expected_policy_width = 1;
+   else if (strcmp(entry->output_method, "substitute") == 0)
       sample->expected_policy_width = 1;
    else if (strcmp(entry->output_method, "expanded") == 0
    ||       strcmp(entry->output_method, "components") == 0
@@ -4911,6 +5019,7 @@ static void copy_calibration_settings(CalibrationEntry *entry,
    entry->cursor_strategy = source->cursor_strategy;
    entry->replacement_strategy = source->replacement_strategy;
    entry->output_method = source->output_method;
+   entry->metric_method = source->metric_method;
    entry->substitute_codepoint = source->substitute_codepoint;
 }
 
@@ -4921,6 +5030,7 @@ static int calibration_entry_changed(const CalibrationEntry *left,
        || left->advance_width != right->advance_width
        || left->cursor_width != right->cursor_width
        || left->repaint_width != right->repaint_width
+       || strcmp(left->metric_method, right->metric_method) != 0
        || strcmp(left->cursor_strategy, right->cursor_strategy) != 0
        || strcmp(left->replacement_strategy, right->replacement_strategy) != 0
        || strcmp(left->output_method, right->output_method) != 0
@@ -4937,6 +5047,7 @@ static int calibration_entry_is_default(const CalibrationEntry *entry)
        && entry->advance_width == defaults->advance_width
        && entry->cursor_width == defaults->cursor_width
        && entry->repaint_width == defaults->repaint_width
+       && strcmp(entry->metric_method, defaults->metric_method) == 0
        && strcmp(entry->cursor_strategy, defaults->cursor_strategy) == 0
        && strcmp(entry->replacement_strategy,
                  defaults->replacement_strategy) == 0
@@ -5099,7 +5210,7 @@ static int calibration_main_menu(ProbeConfig *cfg,
 
 static void run_calibration_probe(ProbeConfig *cfg)
 {
-   CalibrationEntry entries[32];
+   CalibrationEntry entries[96];
    size_t count;
    size_t i;
 

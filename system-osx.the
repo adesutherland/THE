@@ -6,75 +6,119 @@
 options levelb
 address the
 
-'SET UTF TERMINAL CLASS combining WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1'
-'SET UTF TERMINAL CLASS combining CURSORSTRATEGY cells'
-'SET UTF TERMINAL CLASS combining REPLACESTRATEGY cells'
+/* Apple overrides are complete normal-display profile entries so platform */
+/* policy is visible here rather than split across compiled fallback tables. */
 
-'SET UTF TERMINAL CLASS combining-stack WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1'
-'SET UTF TERMINAL CLASS combining-stack CURSORSTRATEGY cells'
-'SET UTF TERMINAL CLASS combining-stack REPLACESTRATEGY cells'
+'SET UTF TERMINAL CLASS combining DISPLAY normal OUTPUT native'
+'SET UTF TERMINAL CLASS combining DISPLAY normal METRICS profile'
+'SET UTF TERMINAL CLASS combining DISPLAY normal MARK none'
+'SET UTF TERMINAL CLASS combining DISPLAY normal WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1'
+'SET UTF TERMINAL CLASS combining DISPLAY normal CURSORSTRATEGY cells'
+'SET UTF TERMINAL CLASS combining DISPLAY normal REPLACESTRATEGY cells'
 
-'SET UTF TERMINAL CLASS wide WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2'
-'SET UTF TERMINAL CLASS wide CURSORSTRATEGY cells'
-'SET UTF TERMINAL CLASS wide REPLACESTRATEGY line'
+'SET UTF TERMINAL CLASS combining-stack DISPLAY normal OUTPUT native'
+'SET UTF TERMINAL CLASS combining-stack DISPLAY normal METRICS profile'
+'SET UTF TERMINAL CLASS combining-stack DISPLAY normal MARK none'
+'SET UTF TERMINAL CLASS combining-stack DISPLAY normal WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1'
+'SET UTF TERMINAL CLASS combining-stack DISPLAY normal CURSORSTRATEGY cells'
+'SET UTF TERMINAL CLASS combining-stack DISPLAY normal REPLACESTRATEGY cells'
 
-'SET UTF TERMINAL CLASS emoji WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2'
-'SET UTF TERMINAL CLASS emoji CURSORSTRATEGY cells'
-'SET UTF TERMINAL CLASS emoji REPLACESTRATEGY line'
+'SET UTF TERMINAL CLASS wide DISPLAY normal OUTPUT native'
+'SET UTF TERMINAL CLASS wide DISPLAY normal METRICS profile'
+'SET UTF TERMINAL CLASS wide DISPLAY normal MARK none'
+'SET UTF TERMINAL CLASS wide DISPLAY normal WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2'
+'SET UTF TERMINAL CLASS wide DISPLAY normal CURSORSTRATEGY cells'
+'SET UTF TERMINAL CLASS wide DISPLAY normal REPLACESTRATEGY line'
 
-'SET UTF TERMINAL CLASS text-variation WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1'
-'SET UTF TERMINAL CLASS text-variation CURSORSTRATEGY cells'
-'SET UTF TERMINAL CLASS text-variation REPLACESTRATEGY cells'
+'SET UTF TERMINAL CLASS emoji DISPLAY normal OUTPUT native'
+'SET UTF TERMINAL CLASS emoji DISPLAY normal METRICS profile'
+'SET UTF TERMINAL CLASS emoji DISPLAY normal MARK none'
+'SET UTF TERMINAL CLASS emoji DISPLAY normal WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2'
+'SET UTF TERMINAL CLASS emoji DISPLAY normal CURSORSTRATEGY cells'
+'SET UTF TERMINAL CLASS emoji DISPLAY normal REPLACESTRATEGY line'
 
-'SET UTF TERMINAL CLASS emoji-variation WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2'
-'SET UTF TERMINAL CLASS emoji-variation CURSORSTRATEGY cells'
-'SET UTF TERMINAL CLASS emoji-variation REPLACESTRATEGY line'
+'SET UTF TERMINAL CLASS text-variation DISPLAY normal OUTPUT native'
+'SET UTF TERMINAL CLASS text-variation DISPLAY normal METRICS profile'
+'SET UTF TERMINAL CLASS text-variation DISPLAY normal MARK none'
+'SET UTF TERMINAL CLASS text-variation DISPLAY normal WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1'
+'SET UTF TERMINAL CLASS text-variation DISPLAY normal CURSORSTRATEGY cells'
+'SET UTF TERMINAL CLASS text-variation DISPLAY normal REPLACESTRATEGY cells'
 
-'SET UTF TERMINAL CLASS modifier WIDTH 2 ADVANCE 4 CURSOR 4 REPAINT 4'
-'SET UTF TERMINAL CLASS modifier CURSORSTRATEGY cells'
-'SET UTF TERMINAL CLASS modifier REPLACESTRATEGY line'
+'SET UTF TERMINAL CLASS emoji-variation DISPLAY normal OUTPUT native'
+'SET UTF TERMINAL CLASS emoji-variation DISPLAY normal METRICS profile'
+'SET UTF TERMINAL CLASS emoji-variation DISPLAY normal MARK none'
+'SET UTF TERMINAL CLASS emoji-variation DISPLAY normal WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2'
+'SET UTF TERMINAL CLASS emoji-variation DISPLAY normal CURSORSTRATEGY cells'
+'SET UTF TERMINAL CLASS emoji-variation DISPLAY normal REPLACESTRATEGY line'
+
+'SET UTF TERMINAL CLASS modifier DISPLAY normal OUTPUT native'
+'SET UTF TERMINAL CLASS modifier DISPLAY normal METRICS profile'
+'SET UTF TERMINAL CLASS modifier DISPLAY normal MARK none'
+'SET UTF TERMINAL CLASS modifier DISPLAY normal WIDTH 2 ADVANCE 4 CURSOR 4 REPAINT 4'
+'SET UTF TERMINAL CLASS modifier DISPLAY normal CURSORSTRATEGY cells'
+'SET UTF TERMINAL CLASS modifier DISPLAY normal REPLACESTRATEGY line'
 
 /* OUTPUT base is a general physical-display transform. */
 /* Apple Terminal uses it here because native keycap glyphs have unreliable cursor/repaint behaviour. */
 /* The stored file text remains the original keycap sequence. */
-'SET UTF TERMINAL CLASS keycap OUTPUT base'
-'SET UTF TERMINAL CLASS keycap MARK compressed'
-'SET UTF TERMINAL CLASS keycap WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1'
-'SET UTF TERMINAL CLASS keycap CURSORSTRATEGY cells'
-'SET UTF TERMINAL CLASS keycap REPLACESTRATEGY cells'
+'SET UTF TERMINAL CLASS keycap DISPLAY normal OUTPUT base'
+'SET UTF TERMINAL CLASS keycap DISPLAY normal METRICS profile'
+'SET UTF TERMINAL CLASS keycap DISPLAY normal MARK compressed'
+'SET UTF TERMINAL CLASS keycap DISPLAY normal WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1'
+'SET UTF TERMINAL CLASS keycap DISPLAY normal CURSORSTRATEGY cells'
+'SET UTF TERMINAL CLASS keycap DISPLAY normal REPLACESTRATEGY cells'
 
-/* Apple Terminal displays decomposed Regional Indicator flags as two boxed */
-/* two-cell letters. Paired regional-flag clusters keep their normal profile. */
-'SET UTF TERMINAL CLASS regional-indicator WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2'
-'SET UTF TERMINAL CLASS regional-indicator CURSORSTRATEGY cells'
-'SET UTF TERMINAL CLASS regional-indicator REPLACESTRATEGY cells'
+'SET UTF TERMINAL CLASS regional-indicator DISPLAY normal OUTPUT native'
+'SET UTF TERMINAL CLASS regional-indicator DISPLAY normal METRICS profile'
+'SET UTF TERMINAL CLASS regional-indicator DISPLAY normal MARK none'
+'SET UTF TERMINAL CLASS regional-indicator DISPLAY normal WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2'
+'SET UTF TERMINAL CLASS regional-indicator DISPLAY normal CURSORSTRATEGY cells'
+'SET UTF TERMINAL CLASS regional-indicator DISPLAY normal REPLACESTRATEGY cells'
 
-/* Grouped substitutes are per class/display and keep the file text logical. */
-'SET UTF TERMINAL CLASS short-zwj DISPLAY grouped OUTPUT substitute U+25A1'
+/* Apple Terminal keeps paired flags visibly native, but the cursor/repaint */
+/* probe needs one extra physical cell after the two-cell glyph to avoid */
+/* overlap with the following character. Keep this as a NORMAL profile rule. */
+'SET UTF TERMINAL CLASS regional-flag DISPLAY normal OUTPUT native'
+'SET UTF TERMINAL CLASS regional-flag DISPLAY normal METRICS profile'
+'SET UTF TERMINAL CLASS regional-flag DISPLAY normal MARK none'
+'SET UTF TERMINAL CLASS regional-flag DISPLAY normal WIDTH 2 ADVANCE 3 CURSOR 3 REPAINT 3'
+'SET UTF TERMINAL CLASS regional-flag DISPLAY normal CURSORSTRATEGY cells'
+'SET UTF TERMINAL CLASS regional-flag DISPLAY normal REPLACESTRATEGY cells'
 
-'SET UTF TERMINAL CLASS short-zwj DISPLAY components OUTPUT native'
-'SET UTF TERMINAL CLASS short-zwj DISPLAY components WIDTH 4 ADVANCE 4 CURSOR 4 REPAINT 4'
-'SET UTF TERMINAL CLASS short-zwj DISPLAY components CURSORSTRATEGY cells'
-'SET UTF TERMINAL CLASS short-zwj DISPLAY components REPLACESTRATEGY line'
+/* Apple Terminal shapes these ZWJ clusters acceptably in NORMAL, but its */
+/* physical grid behaves like adjacent visible components. Keep output */
+/* native and make only the metric model a macOS profile choice. */
+'SET UTF TERMINAL CLASS short-zwj DISPLAY normal OUTPUT native'
+'SET UTF TERMINAL CLASS short-zwj DISPLAY normal METRICS expanded'
+'SET UTF TERMINAL CLASS short-zwj DISPLAY normal MARK none'
+'SET UTF TERMINAL CLASS short-zwj DISPLAY normal WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2'
+'SET UTF TERMINAL CLASS short-zwj DISPLAY normal CURSORSTRATEGY line'
+'SET UTF TERMINAL CLASS short-zwj DISPLAY normal REPLACESTRATEGY line'
 
-'SET UTF TERMINAL CLASS heart-zwj DISPLAY grouped OUTPUT substitute U+2665'
+'SET UTF TERMINAL CLASS heart-zwj DISPLAY normal OUTPUT native'
+'SET UTF TERMINAL CLASS heart-zwj DISPLAY normal METRICS expanded'
+'SET UTF TERMINAL CLASS heart-zwj DISPLAY normal MARK none'
+'SET UTF TERMINAL CLASS heart-zwj DISPLAY normal WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2'
+'SET UTF TERMINAL CLASS heart-zwj DISPLAY normal CURSORSTRATEGY line'
+'SET UTF TERMINAL CLASS heart-zwj DISPLAY normal REPLACESTRATEGY line'
 
-'SET UTF TERMINAL CLASS heart-zwj DISPLAY components OUTPUT expanded'
-'SET UTF TERMINAL CLASS heart-zwj DISPLAY components WIDTH 6 ADVANCE 6 CURSOR 6 REPAINT 6'
-'SET UTF TERMINAL CLASS heart-zwj DISPLAY components CURSORSTRATEGY cells'
-'SET UTF TERMINAL CLASS heart-zwj DISPLAY components REPLACESTRATEGY line'
+'SET UTF TERMINAL CLASS family-zwj DISPLAY normal OUTPUT native'
+'SET UTF TERMINAL CLASS family-zwj DISPLAY normal METRICS expanded'
+'SET UTF TERMINAL CLASS family-zwj DISPLAY normal MARK none'
+'SET UTF TERMINAL CLASS family-zwj DISPLAY normal WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2'
+'SET UTF TERMINAL CLASS family-zwj DISPLAY normal CURSORSTRATEGY line'
+'SET UTF TERMINAL CLASS family-zwj DISPLAY normal REPLACESTRATEGY line'
 
-'SET UTF TERMINAL CLASS family-zwj DISPLAY grouped OUTPUT substitute U+2302'
+'SET UTF TERMINAL CLASS tag-flag DISPLAY normal OUTPUT native'
+'SET UTF TERMINAL CLASS tag-flag DISPLAY normal METRICS profile'
+'SET UTF TERMINAL CLASS tag-flag DISPLAY normal MARK none'
+'SET UTF TERMINAL CLASS tag-flag DISPLAY normal WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2'
+'SET UTF TERMINAL CLASS tag-flag DISPLAY normal CURSORSTRATEGY cells'
+'SET UTF TERMINAL CLASS tag-flag DISPLAY normal REPLACESTRATEGY line'
 
-'SET UTF TERMINAL CLASS family-zwj DISPLAY components OUTPUT expanded'
-'SET UTF TERMINAL CLASS family-zwj DISPLAY components WIDTH 8 ADVANCE 8 CURSOR 8 REPAINT 8'
-'SET UTF TERMINAL CLASS family-zwj DISPLAY components CURSORSTRATEGY cells'
-'SET UTF TERMINAL CLASS family-zwj DISPLAY components REPLACESTRATEGY line'
-
-'SET UTF TERMINAL CLASS tag-flag WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2'
-'SET UTF TERMINAL CLASS tag-flag CURSORSTRATEGY cells'
-'SET UTF TERMINAL CLASS tag-flag REPLACESTRATEGY line'
-
-'SET UTF TERMINAL CLASS private-use WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1'
-'SET UTF TERMINAL CLASS private-use CURSORSTRATEGY cells'
-'SET UTF TERMINAL CLASS private-use REPLACESTRATEGY cells'
+'SET UTF TERMINAL CLASS private-use DISPLAY normal OUTPUT native'
+'SET UTF TERMINAL CLASS private-use DISPLAY normal METRICS profile'
+'SET UTF TERMINAL CLASS private-use DISPLAY normal MARK none'
+'SET UTF TERMINAL CLASS private-use DISPLAY normal WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1'
+'SET UTF TERMINAL CLASS private-use DISPLAY normal CURSORSTRATEGY cells'
+'SET UTF TERMINAL CLASS private-use DISPLAY normal REPLACESTRATEGY cells'

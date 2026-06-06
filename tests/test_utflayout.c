@@ -292,21 +292,21 @@ static void test_zwj_display_mapping_snaps_to_cluster_start(void)
                         TEXT_SNAP_BACKWARD));
    expect_int("short-zwj.logical.start", cluster.pos.cell_column, 1);
    expect_int("short-zwj.logical.end", cluster.end.cell_column, 5);
-   expect_int("short-zwj.grouped.display.width",
+   expect_int("short-zwj.normal.display.width",
               utf8_layout_cluster_advance_width(short_zwj, sizeof(short_zwj),
                                                 cluster),
               2);
-   expect_int("short-zwj.grouped.display.inside",
+   expect_int("short-zwj.normal.display.inside",
               utf8_layout_logical_col_from_display(short_zwj,
                                                    sizeof(short_zwj), 0, 2,
                                                    TEXT_SNAP_BACKWARD),
               1);
 
-   utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_COMPONENTS);
+   utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_DECOMPOSED);
    expect_int("short-zwj.components.display.width",
               utf8_layout_cluster_advance_width(short_zwj, sizeof(short_zwj),
                                                 cluster),
-              4);
+              5);
    raw_cell = utf8_layout_logical_col_from_display(short_zwj,
                                                   sizeof(short_zwj), 0, 3,
                                                   TEXT_SNAP_BACKWARD);
@@ -322,17 +322,217 @@ static void test_zwj_display_mapping_snaps_to_cluster_start(void)
                         TEXT_SNAP_BACKWARD));
    expect_int("heart-zwj.logical.start", cluster.pos.cell_column, 1);
    expect_int("heart-zwj.logical.end", cluster.end.cell_column, 6);
-   expect_int("heart-zwj.grouped.display.inside",
+   expect_int("heart-zwj.normal.display.inside",
               utf8_layout_logical_col_from_display(heart_zwj,
-                                                   sizeof(heart_zwj), 0, 4,
+                                                   sizeof(heart_zwj), 0, 2,
                                                    TEXT_SNAP_BACKWARD),
               1);
-   utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_COMPONENTS);
+   utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_DECOMPOSED);
    expect_int("heart-zwj.components.display.inside",
               utf8_layout_logical_col_from_display(heart_zwj,
                                                    sizeof(heart_zwj), 0, 4,
                                                    TEXT_SNAP_BACKWARD),
               1);
+}
+
+static void test_dynamic_zwj_component_widths(void)
+{
+   static const CHARTYPE triple_zwj[] = {
+      'A',
+      0xF0, 0x9F, 0xA7, 0x91, 0xE2, 0x80, 0x8D,
+      0xF0, 0x9F, 0x9A, 0x80, 0xE2, 0x80, 0x8D,
+      0xF0, 0x9F, 0x92, 0xBB,
+      'B'
+   };
+   static const CHARTYPE flag[] = {
+      'A',
+      0xF0, 0x9F, 0x87, 0xAC,
+      0xF0, 0x9F, 0x87, 0xA7,
+      'B'
+   };
+   static const CHARTYPE heart_zwj[] = {
+      'A',
+      0xF0, 0x9F, 0x91, 0xA9, 0xE2, 0x80, 0x8D,
+      0xE2, 0x9D, 0xA4, 0xEF, 0xB8, 0x8F,
+      0xE2, 0x80, 0x8D,
+      0xF0, 0x9F, 0x91, 0xA8,
+      'B'
+   };
+   static const CHARTYPE family_five[] = {
+      'A',
+      0xF0, 0x9F, 0x91, 0xA8, 0xE2, 0x80, 0x8D,
+      0xF0, 0x9F, 0x91, 0xA9, 0xE2, 0x80, 0x8D,
+      0xF0, 0x9F, 0x91, 0xA7, 0xE2, 0x80, 0x8D,
+      0xF0, 0x9F, 0x91, 0xA6, 0xE2, 0x80, 0x8D,
+      0xF0, 0x9F, 0x91, 0xB6,
+      'B'
+   };
+   TextCluster cluster;
+
+   utf8_terminal_profile_reset();
+   cluster = textpos_cluster_at_boundary(
+      triple_zwj, sizeof(triple_zwj),
+      textpos_from_cell(triple_zwj, sizeof(triple_zwj), 1,
+                        TEXT_SNAP_BACKWARD));
+   expect_int("zwj.triple.normal.advance",
+              utf8_layout_cluster_advance_width(triple_zwj,
+                                                sizeof(triple_zwj),
+                                                cluster),
+              2);
+   utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_DECOMPOSED);
+   expect_int("zwj.triple.decomposed.width",
+              utf8_layout_cluster_width(triple_zwj, sizeof(triple_zwj),
+                                        cluster),
+              8);
+   expect_int("zwj.triple.decomposed.advance",
+              utf8_layout_cluster_advance_width(triple_zwj,
+                                                sizeof(triple_zwj),
+                                                cluster),
+              8);
+   utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_SINGLE);
+   expect_int("zwj.triple.single.width",
+              utf8_layout_cluster_width(triple_zwj, sizeof(triple_zwj),
+                                        cluster),
+              1);
+   expect_int("zwj.triple.single.advance",
+              utf8_layout_cluster_advance_width(triple_zwj,
+                                                sizeof(triple_zwj),
+                                                cluster),
+              1);
+
+   utf8_terminal_profile_reset();
+   cluster = textpos_cluster_at_boundary(
+      family_five, sizeof(family_five),
+      textpos_from_cell(family_five, sizeof(family_five), 1,
+                        TEXT_SNAP_BACKWARD));
+   utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_DECOMPOSED);
+   expect_int("zwj.family5.decomposed.width",
+              utf8_layout_cluster_width(family_five, sizeof(family_five),
+                                        cluster),
+              14);
+   expect_int("zwj.family5.decomposed.advance",
+              utf8_layout_cluster_advance_width(family_five,
+                                                sizeof(family_five),
+                                                cluster),
+              14);
+
+   utf8_terminal_profile_reset();
+   expect_int("zwj.family5.normal.components.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS family-zwj DISPLAY normal OUTPUT components"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_int("zwj.family5.normal.components.width",
+              utf8_layout_cluster_width(family_five, sizeof(family_five),
+                                        cluster),
+              14);
+   expect_int("zwj.family5.normal.components.advance",
+              utf8_layout_cluster_advance_width(family_five,
+                                                sizeof(family_five),
+                                                cluster),
+              14);
+
+   utf8_terminal_profile_reset();
+   expect_int("zwj.family5.normal.expanded.metrics.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS family-zwj DISPLAY normal METRICS expanded"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_int("zwj.family5.normal.expanded.metrics.width",
+              utf8_layout_cluster_width(family_five, sizeof(family_five),
+                                        cluster),
+              10);
+   expect_int("zwj.family5.normal.expanded.metrics.advance",
+              utf8_layout_cluster_advance_width(family_five,
+                                                sizeof(family_five),
+                                                cluster),
+              10);
+
+   utf8_terminal_profile_reset();
+   expect_int("apple.profile.flag.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS regional-flag DISPLAY normal WIDTH 2 ADVANCE 3 CURSOR 3 REPAINT 3"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_int("apple.profile.short.metrics.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS short-zwj DISPLAY normal METRICS expanded"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_int("apple.profile.heart.metrics.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS heart-zwj DISPLAY normal METRICS expanded"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_int("apple.profile.family.metrics.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS family-zwj DISPLAY normal METRICS expanded"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   cluster = textpos_cluster_at_boundary(
+      flag, sizeof(flag),
+      textpos_from_cell(flag, sizeof(flag), 1, TEXT_SNAP_BACKWARD));
+   expect_int("apple.flag.normal.native.width",
+              utf8_layout_cluster_width(flag, sizeof(flag), cluster), 2);
+   expect_int("apple.flag.normal.native.advance",
+              utf8_layout_cluster_advance_width(flag, sizeof(flag), cluster),
+              3);
+   cluster = textpos_cluster_at_boundary(
+      triple_zwj, sizeof(triple_zwj),
+      textpos_from_cell(triple_zwj, sizeof(triple_zwj), 1,
+                        TEXT_SNAP_BACKWARD));
+   expect_int("apple.zwj.triple.normal.expanded.metrics.width",
+              utf8_layout_cluster_width(triple_zwj, sizeof(triple_zwj),
+                                        cluster),
+              6);
+   expect_int("apple.zwj.triple.normal.expanded.metrics.advance",
+              utf8_layout_cluster_advance_width(triple_zwj,
+                                                sizeof(triple_zwj),
+                                                cluster),
+              6);
+   cluster = textpos_cluster_at_boundary(
+      heart_zwj, sizeof(heart_zwj),
+      textpos_from_cell(heart_zwj, sizeof(heart_zwj), 1,
+                        TEXT_SNAP_BACKWARD));
+   expect_int("apple.heart.normal.expanded.metrics.width",
+              utf8_layout_cluster_width(heart_zwj, sizeof(heart_zwj),
+                                        cluster),
+              5);
+   expect_int("apple.heart.normal.expanded.metrics.advance",
+              utf8_layout_cluster_advance_width(heart_zwj,
+                                                sizeof(heart_zwj),
+                                                cluster),
+              5);
+   cluster = textpos_cluster_at_boundary(
+      family_five, sizeof(family_five),
+      textpos_from_cell(family_five, sizeof(family_five), 1,
+                        TEXT_SNAP_BACKWARD));
+   expect_int("apple.family5.normal.expanded.metrics.width",
+              utf8_layout_cluster_width(family_five, sizeof(family_five),
+                                        cluster),
+              10);
+   expect_int("apple.family5.normal.expanded.metrics.advance",
+              utf8_layout_cluster_advance_width(family_five,
+                                                sizeof(family_five),
+                                                cluster),
+              10);
+
+   utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_DECOMPOSED);
+   utf8_terminal_profile_apply_line(
+      "SET UTF TERMINAL CLASS family-zwj DISPLAY decomposed WIDTH 11 ADVANCE 12 CURSOR 13 REPAINT 14");
+   expect_int("zwj.family5.delta.width",
+              utf8_layout_cluster_width(family_five, sizeof(family_five),
+                                        cluster),
+              14);
+   expect_int("zwj.family5.delta.advance",
+              utf8_layout_cluster_advance_width(family_five,
+                                                sizeof(family_five),
+                                                cluster),
+              15);
+   expect_int("zwj.family5.delta.cursor",
+              utf8_layout_cluster_cursor_width(family_five,
+                                               sizeof(family_five),
+                                               cluster),
+              16);
+   expect_int("zwj.family5.delta.repaint",
+              utf8_layout_cluster_repaint_width(family_five,
+                                                sizeof(family_five),
+                                                cluster),
+              17);
 }
 
 static void test_symbol_presentation_widths(void)
@@ -382,6 +582,7 @@ int main(void)
    test_profile_width_is_user_column_model();
    test_width_slice_returns_whole_clusters();
    test_zwj_display_mapping_snaps_to_cluster_start();
+   test_dynamic_zwj_component_widths();
    test_symbol_presentation_widths();
 
    if (failures != 0)

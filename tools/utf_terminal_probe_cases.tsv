@@ -20,5 +20,7 @@ woman-laptop	short-zwj	2	U+1F469 U+200D U+1F4BB
 person-rocket	short-zwj	2	U+1F9D1 U+200D U+1F680
 woman-heart-man	heart-zwj	6	U+1F469 U+200D U+2764 U+FE0F U+200D U+1F468
 family	family-zwj	6	U+1F468 U+200D U+1F469 U+200D U+1F467 U+200D U+1F466
+person-rocket-laptop	family-zwj	6	U+1F9D1 U+200D U+1F680 U+200D U+1F4BB
+family-plus-baby	family-zwj	6	U+1F468 U+200D U+1F469 U+200D U+1F467 U+200D U+1F466 U+200D U+1F476
 tag-flag-england	tag-flag	2	U+1F3F4 U+E0067 U+E0062 U+E0065 U+E006E U+E0067 U+E007F
 private-use-e0b0	private-use	1	U+E0B0

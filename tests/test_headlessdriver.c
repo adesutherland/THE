@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <wchar.h>
 
 #include "driverlayout.h"
 #include "headlessdriver.h"
@@ -275,6 +276,24 @@ static void test_render_cell_model(void)
       expect_int("render.keycap.base.wchar1", (int)wch[1], 0);
 
       utf8_terminal_profile_reset();
+      utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_DECOMPOSED);
+      expect_int("render.keycap.decomposed.make",
+                 the_render_cluster_from_text_cluster(
+                    &render, keycap, sizeof(keycap),
+                    test_cluster_at_begin(keycap, sizeof(keycap)),
+                    12, 0), 1);
+      expect_int("render.keycap.decomposed.output", render.output_method,
+                 UTF8_TERM_OUTPUT_COMPONENTS);
+      expect_int("render.keycap.decomposed.display", render.advance_width, 3);
+      expect_int("render.keycap.decomposed.wchars",
+                 the_render_cluster_to_wchars(&render, wch,
+                                              sizeof(wch) / sizeof(wch[0])), 1);
+      expect_int("render.keycap.decomposed.wchar0", (int)wch[0], '1');
+      expect_int("render.keycap.decomposed.wchar1", (int)wch[1], ' ');
+      expect_int("render.keycap.decomposed.wchar2", (int)wch[2], 0x25A1);
+      expect_int("render.keycap.decomposed.wchar3", (int)wch[3], 0);
+
+      utf8_terminal_profile_reset();
       expect_int("render.flag.make",
                  the_render_cluster_from_text_cluster(
                     &render, flag, sizeof(flag),
@@ -282,11 +301,11 @@ static void test_render_cell_model(void)
                     13, 0), 1);
       expect_size("render.flag.cp.count", render.codepoint_count, 2);
       expect_int("render.flag.width", render.width, 2);
-      expect_int("render.flag.display", render.advance_width, 3);
-      expect_int("render.flag.cursor", render.cursor_width, 3);
-      expect_int("render.flag.repaint", render.repaint_width, 3);
+      expect_int("render.flag.display", render.advance_width, 2);
+      expect_int("render.flag.cursor", render.cursor_width, 2);
+      expect_int("render.flag.repaint", render.repaint_width, 2);
       expect_int("render.flag.repair", render.repair_strategy,
-                 UTF8_TERM_STRATEGY_CLEAR_CHANGED_SUFFIX_FAST);
+                 UTF8_TERM_STRATEGY_CHANGED_CELLS);
 
       utf8_terminal_profile_reset();
       expect_int("render.text.heart.make",
@@ -325,25 +344,76 @@ static void test_render_cell_model(void)
       expect_int("render.emoji.heart.repaint", render.repaint_width, 2);
 
       utf8_terminal_profile_reset();
-      utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_COMPONENTS);
+      utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_DECOMPOSED);
+      expect_int("render.explicit.text.heart.decomposed.make",
+                 the_render_cluster_from_text_cluster(
+                    &render, explicit_text_heart,
+                    sizeof(explicit_text_heart),
+                    test_cluster_at_begin(explicit_text_heart,
+                                          sizeof(explicit_text_heart)),
+                    15, 0), 1);
+      expect_int("render.explicit.text.heart.decomposed.display",
+                 render.advance_width, 3);
+      expect_int("render.explicit.text.heart.decomposed.wchars",
+                 the_render_cluster_to_wchars(&render, wch,
+                                              sizeof(wch) / sizeof(wch[0])), 1);
+      expect_int("render.explicit.text.heart.decomposed.wchar0",
+                 (int)wch[0], 0x2665);
+      expect_int("render.explicit.text.heart.decomposed.wchar1",
+                 (int)wch[1], ' ');
+      expect_int("render.explicit.text.heart.decomposed.wchar2",
+                 (int)wch[2], 'T');
+      expect_int("render.explicit.text.heart.decomposed.wchar3",
+                 (int)wch[3], 0);
+
+      expect_int("render.emoji.heart.decomposed.make",
+                 the_render_cluster_from_text_cluster(
+                    &render, emoji_heart, sizeof(emoji_heart),
+                    test_cluster_at_begin(emoji_heart, sizeof(emoji_heart)),
+                    16, 0), 1);
+      expect_int("render.emoji.heart.decomposed.display",
+                 render.advance_width, 3);
+      expect_int("render.emoji.heart.decomposed.wchars",
+                 the_render_cluster_to_wchars(&render, wch,
+                                              sizeof(wch) / sizeof(wch[0])), 1);
+      expect_int("render.emoji.heart.decomposed.wchar0",
+                 (int)wch[0], 0x2665);
+      expect_int("render.emoji.heart.decomposed.wchar1",
+                 (int)wch[1], ' ');
+      expect_int("render.emoji.heart.decomposed.wchar2",
+                 (int)wch[2], 'E');
+      expect_int("render.emoji.heart.decomposed.wchar3",
+                 (int)wch[3], 0);
+
       expect_int("render.zwj.make",
                  the_render_cluster_from_text_cluster(
                     &render, zwj, sizeof(zwj),
                     test_cluster_at_begin(zwj, sizeof(zwj)),
                     14, 0), 1);
       expect_size("render.zwj.cp.count", render.codepoint_count, 6);
-      expect_int("render.zwj.expanded",
-                 (render.flags & THE_RENDER_CLUSTER_EXPANDED) != 0, 1);
-      expect_int("render.zwj.display", render.advance_width, 6);
-      expect_int("render.zwj.cursor", render.cursor_width, 6);
-      expect_int("render.zwj.repaint", render.repaint_width, 6);
+      expect_int("render.zwj.components",
+                 (render.flags & THE_RENDER_CLUSTER_COMPONENTS) != 0, 1);
+      expect_int("render.zwj.display", render.advance_width, 7);
+      expect_int("render.zwj.cursor", render.cursor_width, 7);
+      expect_int("render.zwj.repaint", render.repaint_width, 7);
+      expect_int("render.zwj.wchars",
+                 the_render_cluster_to_wchars(&render, wch,
+                                              sizeof(wch) / sizeof(wch[0])), 1);
+#if defined(WCHAR_MAX) && WCHAR_MAX > 0xFFFFu
+      expect_int("render.zwj.wchar0", (int)wch[0], 0x1F469);
+      expect_int("render.zwj.wchar1", (int)wch[1], ' ');
+      expect_int("render.zwj.wchar2", (int)wch[2], 0x2764);
+      expect_int("render.zwj.wchar3", (int)wch[3], ' ');
+      expect_int("render.zwj.wchar4", (int)wch[4], 0x1F468);
+      expect_int("render.zwj.wchar5", (int)wch[5], 0);
+#endif
 
       utf8_terminal_profile_reset();
       expect_int("render.zwj.components.apply",
                  utf8_terminal_profile_apply_line(
-                    "SET UTF TERMINAL CLASS heart-zwj DISPLAY components OUTPUT components"),
+                    "SET UTF TERMINAL CLASS heart-zwj DISPLAY decomposed OUTPUT components"),
                  UTF8_TERMINAL_PROFILE_APPLIED);
-      utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_COMPONENTS);
+      utf8_terminal_set_display_mode(UTF8_TERM_DISPLAY_DECOMPOSED);
       expect_int("render.zwj.components.make",
                  the_render_cluster_from_text_cluster(
                     &render, zwj, sizeof(zwj),
@@ -356,6 +426,14 @@ static void test_render_cell_model(void)
       expect_int("render.zwj.components.wchars",
                  the_render_cluster_to_wchars(&render, wch,
                                               sizeof(wch) / sizeof(wch[0])), 1);
+#if defined(WCHAR_MAX) && WCHAR_MAX > 0xFFFFu
+      expect_int("render.zwj.components.wchar0", (int)wch[0], 0x1F469);
+      expect_int("render.zwj.components.wchar1", (int)wch[1], ' ');
+      expect_int("render.zwj.components.wchar2", (int)wch[2], 0x2764);
+      expect_int("render.zwj.components.wchar3", (int)wch[3], ' ');
+      expect_int("render.zwj.components.wchar4", (int)wch[4], 0x1F468);
+      expect_int("render.zwj.components.wchar5", (int)wch[5], 0);
+#endif
       {
          size_t i;
 

@@ -4392,7 +4392,7 @@ COMMAND
      set utf - configures physical UTF terminal behaviour
 
 SYNTAX
-     [SET] UTF DISPLAY GROUPED|COMPONENTS|TOGGLE
+     [SET] UTF DISPLAY NORMAL|DECOMPOSED|SINGLE|TOGGLE
      [SET] UTF TERMINAL CLASS class [DISPLAY display] setting
 
 DESCRIPTION
@@ -4400,7 +4400,7 @@ DESCRIPTION
      by UTF-8 rendering.  These settings describe terminal width, advance, cursor,
      output, and repaint behaviour only; editor text movement and commands
      continue to use the logical UTF-8 text model.  DISPLAY selects the
-     preferred grouped or component profile where one is configured.  CLASS
+     preferred normal, decomposed, or single-cell profile.  CLASS
      settings include WIDTH/ADVANCE/CURSOR/REPAINT, OUTPUT, MARK,
      CURSORSTRATEGY, and REPLACESTRATEGY.  WIDTH is user-visible cluster width;
      ADVANCE is terminal placement; REPAINT is the cleanup footprint.

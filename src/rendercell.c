@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "utfcluster.h"
 #include "utflayout.h"
 
 static int render_width_or_one(int width)
@@ -171,6 +172,7 @@ int the_render_cluster_from_text_cluster(TheRenderCluster *dest,
                                          int force_expanded)
 {
    const Utf8TerminalProfileEntry *entry;
+   Utf8LayoutClusterMetrics metrics;
    Utf8ClusterFacts facts;
    int have_facts;
    TextPos pos;
@@ -225,12 +227,21 @@ int the_render_cluster_from_text_cluster(TheRenderCluster *dest,
       pos.cell_column += item.cell_width;
    }
 
-   the_render_cluster_set_widths(dest,
-      utf8_layout_cluster_logical_width(cluster),
-      utf8_layout_cluster_width(line, len, cluster),
-      utf8_layout_cluster_advance_width(line, len, cluster),
-      utf8_layout_cluster_cursor_width(line, len, cluster),
-      utf8_layout_cluster_repaint_width(line, len, cluster));
+   if (utf8_layout_cluster_metrics(line, len, cluster, &metrics))
+   {
+      the_render_cluster_set_widths(dest,
+         utf8_layout_cluster_logical_width(cluster),
+         metrics.width, metrics.advance_width,
+         metrics.cursor_width, metrics.repaint_width);
+   }
+   else
+   {
+      int logical_width = utf8_layout_cluster_logical_width(cluster);
+
+      the_render_cluster_set_widths(dest, logical_width, logical_width,
+                                    logical_width, logical_width,
+                                    logical_width);
+   }
    return dest->codepoint_count > 0
        ||  (dest->flags & THE_RENDER_CLUSTER_SUBSTITUTE);
 }
@@ -314,22 +325,130 @@ static int render_cluster_base_to_wchars(const TheRenderCluster *cluster,
    }
 }
 
+static int render_cluster_is_keycap(const TheRenderCluster *cluster)
+{
+   return cluster != NULL
+       && cluster->feature_class == UTF8_TERM_CLASS_KEYCAP;
+}
+
+static int render_cluster_has_zwj(const TheRenderCluster *cluster)
+{
+   size_t i;
+
+   if (cluster == NULL)
+      return 0;
+   for (i = 0; i < cluster->codepoint_count; i++)
+   {
+      if (cluster->codepoints[i] == 0x200Du)
+         return 1;
+   }
+   return 0;
+}
+
+static int render_cluster_keycap_base(const TheRenderCluster *cluster,
+                                      uint32_t *base_codepoint)
+{
+   size_t i;
+
+   if (base_codepoint != NULL)
+      *base_codepoint = 0;
+   if (!render_cluster_is_keycap(cluster))
+      return 0;
+   for (i = 0; i < cluster->codepoint_count; i++)
+   {
+      uint32_t codepoint = cluster->codepoints[i];
+
+      if ((codepoint >= '0' && codepoint <= '9')
+      ||  codepoint == '#'
+      ||  codepoint == '*')
+      {
+         if (base_codepoint != NULL)
+            *base_codepoint = codepoint;
+         return 1;
+      }
+   }
+   return 0;
+}
+
+static uint32_t render_component_display_codepoint(uint32_t codepoint,
+                                                  int show_markers)
+{
+   if (codepoint < 32 || codepoint == 0x7Fu)
+      return 0;
+   if (codepoint == 0x200Du || utf8_cluster_codepoint_is_tag(codepoint))
+      return 0;
+   /*
+    * Keep decomposed file-area output aligned with the UTF status preview:
+    * invisible presentation selectors are shown as compact markers only when
+    * they are not internal ZWJ glue, and the keycap mark is never emitted
+    * literally because it composes with the previous terminal cell on macOS.
+    */
+   switch (codepoint)
+   {
+      case 0xFE0Eu:
+         return show_markers ? 'T' : 0;
+      case 0xFE0Fu:
+         return show_markers ? 'E' : 0;
+      default:
+         if (utf8_cluster_codepoint_is_keycap_mark(codepoint))
+            return 'K';
+         return codepoint;
+   }
+}
+
+static int render_component_is_zero_width(uint32_t display_codepoint)
+{
+   return display_codepoint != 0
+       && text_codepoint_cell_width(display_codepoint) <= 0;
+}
+
+static int render_cluster_keycap_preview_to_wchars(
+   const TheRenderCluster *cluster, wchar_t *out, size_t out_size,
+   size_t *used)
+{
+   uint32_t base_codepoint;
+
+   if (!render_cluster_keycap_base(cluster, &base_codepoint))
+      return 0;
+   if (!render_append_codepoint(out, out_size, used, base_codepoint))
+      return 0;
+   if (!render_append_codepoint(out, out_size, used, ' '))
+      return 0;
+   return render_append_codepoint(out, out_size, used,
+                                  UTF8_TERM_DEFAULT_SUBSTITUTE_CODEPOINT);
+}
+
 static int render_cluster_components_to_wchars(const TheRenderCluster *cluster,
                                                wchar_t *out, size_t out_size,
                                                size_t *used)
 {
    size_t i;
    int emitted = 0;
+   int show_markers = !render_cluster_has_zwj(cluster);
+
+   if (render_cluster_is_keycap(cluster))
+      return render_cluster_keycap_preview_to_wchars(cluster, out, out_size,
+                                                     used);
 
    for (i = 0; i < cluster->codepoint_count; i++)
    {
       uint32_t codepoint = cluster->codepoints[i];
+      uint32_t display_codepoint =
+         render_component_display_codepoint(codepoint, show_markers);
 
-      if (codepoint == 0x200Du
-      ||  codepoint == 0xFE0Eu
-      ||  codepoint == 0xFE0Fu)
+      if (display_codepoint == 0)
          continue;
-      if (!render_append_codepoint(out, out_size, used, codepoint))
+      if (render_component_is_zero_width(display_codepoint))
+      {
+         if (!render_append_codepoint(out, out_size, used, ' '))
+            return 0;
+      }
+      else if (emitted)
+      {
+         if (!render_append_codepoint(out, out_size, used, ' '))
+            return 0;
+      }
+      if (!render_append_codepoint(out, out_size, used, display_codepoint))
          return 0;
       emitted = 1;
    }

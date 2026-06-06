@@ -11,6 +11,14 @@ typedef struct
    int visible;
 } Utf8LayoutViewport;
 
+typedef struct
+{
+   int width;
+   int advance_width;
+   int cursor_width;
+   int repaint_width;
+} Utf8LayoutClusterMetrics;
+
 /*
  * UTF layout helpers translate logical editor cell columns into physical
  * terminal display columns using the active UTF terminal profile. They must not
@@ -19,6 +27,9 @@ typedef struct
 const Utf8TerminalProfileEntry *utf8_layout_cluster_profile(
    const CHARTYPE *line, size_t len, TextCluster cluster);
 int utf8_layout_cluster_logical_width(TextCluster cluster);
+int utf8_layout_cluster_metrics(const CHARTYPE *line, size_t len,
+                                TextCluster cluster,
+                                Utf8LayoutClusterMetrics *metrics);
 int utf8_layout_cluster_width(const CHARTYPE *line, size_t len,
                               TextCluster cluster);
 int utf8_layout_cluster_advance_width(const CHARTYPE *line, size_t len,

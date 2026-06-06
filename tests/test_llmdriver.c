@@ -319,7 +319,7 @@ static void test_utf_all_metadata_representative_clusters(void)
               UTF8_TERMINAL_PROFILE_APPLIED);
    expect_int("utf.all.short.sub.apply",
               utf8_terminal_profile_apply_line(
-                 "SET UTF TERMINAL CLASS short-zwj DISPLAY grouped OUTPUT substitute U+25A1"),
+                 "SET UTF TERMINAL CLASS short-zwj DISPLAY normal OUTPUT substitute U+25A1"),
               UTF8_TERMINAL_PROFILE_APPLIED);
    llm_driver_screen_view_init(&view, 3, 80, cursor);
    llm_driver_screen_view_set_row(&view, 0, UI_ROW_FILE, 8, 1, 0,
@@ -358,10 +358,10 @@ static void test_utf_all_metadata_representative_clusters(void)
    utf8_terminal_profile_reset();
    expect_int("utf.all.heart.components.profile",
               utf8_terminal_profile_apply_line(
-                 "SET UTF TERMINAL CLASS heart-zwj DISPLAY components OUTPUT components"),
+                 "SET UTF TERMINAL CLASS heart-zwj DISPLAY decomposed OUTPUT components"),
               UTF8_TERMINAL_PROFILE_APPLIED);
    expect_int("utf.all.components.display",
-              utf8_terminal_profile_apply_line("SET UTF DISPLAY components"),
+              utf8_terminal_profile_apply_line("SET UTF DISPLAY decomposed"),
               UTF8_TERMINAL_PROFILE_APPLIED);
    llm_driver_screen_view_set_row(&view, 0, UI_ROW_FILE, 9, 1, 0,
                                   "000009", (const char *)heart_zwj, 1, 1);

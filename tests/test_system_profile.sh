@@ -34,7 +34,7 @@ printf 'system profile smoke\n' > "${SAMPLE}"
 cat > "${THE_HOME}/${SYSTEM_PROFILE_NAME}" <<'PROFILE_EOF'
 options levelb
 address the
-'set utf display components'
+'set utf display decomposed'
 utf = .string[]
 address the "extract /utf/" expose utf[]
 if utf[1] = "ON" then 'emsg QUERY_UTF_ON'
