@@ -3,8 +3,10 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <wchar.h>
 
 #ifdef USE_UTF8
+# include "rendercell.h"
 # include "utflayout.h"
 # include "utfterm.h"
 #endif
@@ -350,8 +352,28 @@ static int append_utf_metadata(char *out, size_t out_len, size_t *used,
             return 0;
          if (!append_json_string(out, out_len, used, info->mark))
             return 0;
-         if (!appendf(out, out_len, used, ",%d,%d]",
+         if (!appendf(out, out_len, used, ",%d,%d,",
                       info->compressed, info->substituted))
+            return 0;
+         if (!append_json_string(out, out_len, used, info->display_mode))
+            return 0;
+         if (!appendf(out, out_len, used, ","))
+            return 0;
+         if (!append_json_string(out, out_len, used, info->selector))
+            return 0;
+         if (!appendf(out, out_len, used, ","))
+            return 0;
+         if (!append_json_string(out, out_len, used, info->resolved_output))
+            return 0;
+         if (!appendf(out, out_len, used, ","))
+            return 0;
+         if (!append_json_string(out, out_len, used, info->metrics))
+            return 0;
+         if (!appendf(out, out_len, used, ","))
+            return 0;
+         if (!append_json_string(out, out_len, used, info->emitted_text))
+            return 0;
+         if (!appendf(out, out_len, used, "]"))
             return 0;
       }
       else
@@ -389,10 +411,18 @@ static int append_utf_metadata(char *out, size_t out_len, size_t *used,
             return 0;
 #endif
          if (!appendf(out, out_len, used,
-                      ", \"logical_width\": %d, \"width\": %d, \"advance_width\": %d, \"cursor_width\": %d, \"repaint_width\": %d, \"class\": ",
+                      ", \"logical_width\": %d, \"width\": %d, \"advance_width\": %d, \"cursor_width\": %d, \"repaint_width\": %d, \"display_mode\": ",
                       info->logical_width, info->width,
                       info->advance_width, info->cursor_width,
                       info->repaint_width))
+            return 0;
+         if (!append_json_string(out, out_len, used, info->display_mode))
+            return 0;
+         if (!appendf(out, out_len, used, ", \"selector\": "))
+            return 0;
+         if (!append_json_string(out, out_len, used, info->selector))
+            return 0;
+         if (!appendf(out, out_len, used, ", \"class\": "))
             return 0;
          if (!append_json_string(out, out_len, used, info->feature_class))
             return 0;
@@ -400,13 +430,25 @@ static int append_utf_metadata(char *out, size_t out_len, size_t *used,
             return 0;
          if (!append_json_string(out, out_len, used, info->output))
             return 0;
+         if (!appendf(out, out_len, used, ", \"resolved_output\": "))
+            return 0;
+         if (!append_json_string(out, out_len, used, info->resolved_output))
+            return 0;
+         if (!appendf(out, out_len, used, ", \"metrics\": "))
+            return 0;
+         if (!append_json_string(out, out_len, used, info->metrics))
+            return 0;
          if (!appendf(out, out_len, used, ", \"mark\": "))
             return 0;
          if (!append_json_string(out, out_len, used, info->mark))
             return 0;
          if (!appendf(out, out_len, used,
-                      ", \"compressed\": %d, \"substituted\": %d}",
+                      ", \"compressed\": %d, \"substituted\": %d, \"emitted_text\": ",
                       info->compressed, info->substituted))
+            return 0;
+         if (!append_json_string(out, out_len, used, info->emitted_text))
+            return 0;
+         if (!appendf(out, out_len, used, "}"))
             return 0;
       }
       emitted++;
@@ -520,6 +562,68 @@ static int llm_driver_row_matches_options(const LlmDriverScreenLine *line,
 }
 
 #ifdef USE_UTF8
+static size_t llm_driver_utf8_from_wchars(const wchar_t *wch,
+                                          char *out, size_t out_size)
+{
+   size_t used = 0;
+   size_t i;
+
+   if (out == NULL || out_size == 0)
+      return 0;
+   out[0] = '\0';
+   if (wch == NULL)
+      return 0;
+   for (i = 0; wch[i] != L'\0'; i++)
+   {
+      uint32_t codepoint = (uint32_t)wch[i];
+      CHARTYPE encoded[4];
+      size_t encoded_len;
+
+# if defined(WCHAR_MAX) && WCHAR_MAX <= 0xFFFFu
+      if (codepoint >= 0xD800u && codepoint <= 0xDBFFu
+      &&  wch[i + 1] >= (wchar_t)0xDC00u
+      &&  wch[i + 1] <= (wchar_t)0xDFFFu)
+      {
+         uint32_t low = (uint32_t)wch[++i];
+
+         codepoint = 0x10000u
+                   + ((codepoint - 0xD800u) << 10)
+                   + (low - 0xDC00u);
+      }
+# endif
+      if (codepoint < 0x20u || codepoint == 0x7Fu)
+         return 0;
+      encoded_len = text_utf8_encode(codepoint, encoded);
+      if (encoded_len == 0 || used + encoded_len >= out_size)
+         return 0;
+      memcpy(out + used, encoded, encoded_len);
+      used += encoded_len;
+   }
+   out[used] = '\0';
+   return used;
+}
+
+static void llm_driver_collect_emitted_text(
+   const CHARTYPE *text, size_t len, TextCluster cluster,
+   const Utf8TerminalProfileEntry *entry, char *out, size_t out_size)
+{
+   TheRenderCluster render;
+   wchar_t wch[THE_RENDER_MAX_CODEPOINTS * 2 + 3];
+
+   if (out == NULL || out_size == 0)
+      return;
+   out[0] = '\0';
+   if (entry == NULL || entry->output_method == UTF8_TERM_OUTPUT_NATIVE)
+      return;
+   if (!the_render_cluster_from_text_cluster(&render, text, len, cluster,
+                                             THE_RENDER_ATTR_NORMAL, 0))
+      return;
+   if (!the_render_cluster_to_wchars(&render, wch,
+                                     sizeof(wch) / sizeof(wch[0])))
+      return;
+   (void)llm_driver_utf8_from_wchars(wch, out, out_size);
+}
+
 static int append_utf_cluster_codepoints(char *out, size_t out_len,
                                          size_t *used,
                                          const CHARTYPE *text, size_t len,
@@ -575,19 +679,25 @@ static void llm_driver_collect_utf_metadata(LlmDriverScreenLine *line)
       TextCluster cluster = textpos_cluster_at_boundary(text, len, pos);
       Utf8TerminalClass feature_class;
       const Utf8TerminalProfileEntry *entry;
+      Utf8TerminalDisplayMode display_mode = utf8_terminal_display_mode();
       LlmDriverUtfClusterInfo *info;
       Utf8TerminalOutput output = UTF8_TERM_OUTPUT_NATIVE;
+      Utf8TerminalOutput resolved_output = UTF8_TERM_OUTPUT_NATIVE;
+      Utf8TerminalMetrics metrics = UTF8_TERM_METRICS_PROFILE;
       Utf8TerminalMark mark = UTF8_TERM_MARK_NONE;
 
       if (!cluster.valid || cluster.byte_length == 0)
          break;
       feature_class = utf8_terminal_classify_cluster(text, len, cluster);
       entry = utf8_terminal_profile_lookup_cluster(
-                 text, len, cluster, utf8_terminal_display_mode());
+                 text, len, cluster, display_mode);
       if (entry != NULL)
       {
          feature_class = entry->feature_class;
+         display_mode = entry->display_mode;
          output = entry->output_method;
+         resolved_output = utf8_terminal_resolved_output_for_entry(entry);
+         metrics = utf8_terminal_effective_metrics_for_entry(entry);
          mark = entry->mark;
       }
       info = &line->utf_clusters[line->utf_cluster_count++];
@@ -602,20 +712,35 @@ static void llm_driver_collect_utf_metadata(LlmDriverScreenLine *line)
       info->advance_width = utf8_layout_cluster_advance_width(text, len, cluster);
       info->cursor_width = utf8_layout_cluster_cursor_width(text, len, cluster);
       info->repaint_width = utf8_layout_cluster_repaint_width(text, len, cluster);
+      copy_text(info->display_mode, sizeof(info->display_mode),
+                utf8_terminal_display_name(display_mode));
       copy_text(info->feature_class, sizeof(info->feature_class),
+                utf8_terminal_class_name(feature_class));
+      copy_text(info->selector, sizeof(info->selector),
                 utf8_terminal_class_name(feature_class));
       copy_text(info->output, sizeof(info->output),
                 utf8_terminal_output_name(output));
+      copy_text(info->resolved_output, sizeof(info->resolved_output),
+                utf8_terminal_output_name(resolved_output));
+      copy_text(info->metrics, sizeof(info->metrics),
+                utf8_terminal_metrics_name(metrics));
       copy_text(info->mark, sizeof(info->mark),
                 utf8_terminal_mark_name(mark));
-      info->compressed = mark == UTF8_TERM_MARK_COMPRESSED;
-      info->substituted = output == UTF8_TERM_OUTPUT_SUBSTITUTE
+      llm_driver_collect_emitted_text(text, len, cluster, entry,
+                                      info->emitted_text,
+                                      sizeof(info->emitted_text));
+      info->compressed = mark == UTF8_TERM_MARK_COMPRESSED
+                      || (output == UTF8_TERM_OUTPUT_SANITIZE
+                       && resolved_output != UTF8_TERM_OUTPUT_NATIVE
+                       && resolved_output != UTF8_TERM_OUTPUT_SUBSTITUTE);
+      info->substituted = resolved_output == UTF8_TERM_OUTPUT_SUBSTITUTE
                        || mark == UTF8_TERM_MARK_SUBSTITUTED;
       info->default_visible =
          (feature_class != UTF8_TERM_CLASS_ASCII
       &&  feature_class != UTF8_TERM_CLASS_UNKNOWN)
       || (entry != NULL
-      &&  (entry->output_method != UTF8_TERM_OUTPUT_NATIVE
+      &&  (entry->display_mode != UTF8_TERM_DISPLAY_NORMAL
+       ||  entry->output_method != UTF8_TERM_OUTPUT_NATIVE
        ||  entry->mark != UTF8_TERM_MARK_NONE));
       pos = cluster.end;
    }

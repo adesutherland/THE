@@ -179,6 +179,95 @@ static void utf8_layout_component_class_metrics(
    utf8_layout_metrics_set_all(metrics, fallback_width);
 }
 
+static int utf8_layout_base_display_codepoint(
+   const Utf8ClusterFacts *facts, uint32_t *display_codepoint)
+{
+   size_t i;
+
+   if (display_codepoint != NULL)
+      *display_codepoint = 0;
+   if (facts == NULL || display_codepoint == NULL)
+      return 0;
+
+   switch (facts->feature_class)
+   {
+      case UTF8_TERM_CLASS_KEYCAP:
+         return utf8_cluster_keycap_base(facts, display_codepoint);
+
+      case UTF8_TERM_CLASS_REGIONAL_INDICATOR:
+         if (facts->codepoint_count < 1
+         ||  !utf8_cluster_codepoint_is_regional(facts->codepoints[0]))
+            return 0;
+         *display_codepoint = 'A' + facts->codepoints[0] - 0x1F1E6u;
+         return 1;
+
+      case UTF8_TERM_CLASS_TEXT_VARIATION:
+      case UTF8_TERM_CLASS_EMOJI_VARIATION:
+      case UTF8_TERM_CLASS_MODIFIER:
+         for (i = 0; i < facts->codepoint_count; i++)
+         {
+            uint32_t codepoint = facts->codepoints[i];
+
+            if (codepoint == 0xFE0Eu || codepoint == 0xFE0Fu
+            ||  utf8_cluster_codepoint_is_modifier(codepoint))
+               continue;
+            *display_codepoint = codepoint;
+            return 1;
+         }
+         return 0;
+
+      default:
+         return 0;
+   }
+}
+
+static int utf8_layout_base_metrics(
+   const CHARTYPE *line, size_t len, TextCluster cluster,
+   const Utf8TerminalProfileEntry *entry,
+   Utf8LayoutClusterMetrics *metrics)
+{
+   Utf8ClusterFacts facts;
+   uint32_t display_codepoint;
+
+   if (metrics == NULL
+   ||  line == NULL
+   ||  !utf8_cluster_collect_facts(line, len, cluster, &facts))
+      return 0;
+
+   if (facts.feature_class == UTF8_TERM_CLASS_REGIONAL_FLAG)
+   {
+      if (facts.codepoint_count < 2
+      ||  !utf8_cluster_codepoint_is_regional(facts.codepoints[0])
+      ||  !utf8_cluster_codepoint_is_regional(facts.codepoints[1]))
+         return 0;
+      utf8_layout_metrics_set_all(metrics, 2);
+      utf8_layout_metrics_apply_entry_deltas(metrics, entry);
+      return 1;
+   }
+
+   if (!utf8_layout_base_display_codepoint(&facts, &display_codepoint))
+      return 0;
+   utf8_layout_component_metrics(display_codepoint, display_codepoint,
+                                 metrics);
+   utf8_layout_metrics_apply_entry_deltas(metrics, entry);
+   return 1;
+}
+
+static int utf8_layout_substitute_metrics(
+   const Utf8TerminalProfileEntry *entry, Utf8LayoutClusterMetrics *metrics)
+{
+   int width;
+
+   if (entry == NULL || metrics == NULL)
+      return 0;
+   width = text_codepoint_cell_width(entry->substitute_codepoint);
+   if (width <= 0)
+      width = 1;
+   utf8_layout_metrics_set_all(metrics, width);
+   utf8_layout_metrics_apply_entry_deltas(metrics, entry);
+   return 1;
+}
+
 static int utf8_layout_components_metrics(
    const CHARTYPE *line, size_t len, TextCluster cluster,
    const Utf8TerminalProfileEntry *entry,
@@ -339,6 +428,45 @@ static int utf8_layout_expanded_metrics(
    return 1;
 }
 
+static int utf8_layout_output_metrics(
+   const CHARTYPE *line, size_t len, TextCluster cluster,
+   const Utf8TerminalProfileEntry *entry,
+   Utf8LayoutClusterMetrics *metrics)
+{
+   Utf8TerminalOutput output;
+
+   if (entry == NULL || metrics == NULL)
+      return 0;
+   output = utf8_terminal_resolved_output_for_entry(entry);
+   switch (output)
+   {
+      case UTF8_TERM_OUTPUT_NATIVE:
+         utf8_layout_metrics_from_entry(metrics, entry,
+                                        utf8_layout_cluster_logical_width(cluster));
+         return 1;
+
+      case UTF8_TERM_OUTPUT_BASE:
+         return utf8_layout_base_metrics(line, len, cluster, entry, metrics);
+
+      case UTF8_TERM_OUTPUT_SUBSTITUTE:
+         return utf8_layout_substitute_metrics(entry, metrics);
+
+      case UTF8_TERM_OUTPUT_COMPONENTS:
+         return utf8_layout_components_metrics(line, len, cluster, entry,
+                                               metrics);
+
+      case UTF8_TERM_OUTPUT_EXPANDED:
+         return utf8_layout_expanded_metrics(line, len, cluster, entry,
+                                             metrics);
+
+      case UTF8_TERM_OUTPUT_SANITIZE:
+      case UTF8_TERM_OUTPUT_UNKNOWN:
+      case UTF8_TERM_OUTPUT_COUNT:
+      default:
+         return 0;
+   }
+}
+
 const Utf8TerminalProfileEntry *utf8_layout_cluster_profile(
    const CHARTYPE *line, size_t len, TextCluster cluster)
 {
@@ -367,13 +495,7 @@ int utf8_layout_cluster_metrics(const CHARTYPE *line, size_t len,
       return 0;
    metric_method = entry->metric_method;
    if (metric_method == UTF8_TERM_METRICS_AUTO)
-   {
-      if (entry->output_method == UTF8_TERM_OUTPUT_COMPONENTS
-      ||  entry->output_method == UTF8_TERM_OUTPUT_EXPANDED)
-         metric_method = UTF8_TERM_METRICS_COMPONENTS;
-      else
-         metric_method = UTF8_TERM_METRICS_PROFILE;
-   }
+      metric_method = utf8_terminal_effective_metrics_for_entry(entry);
    if (metric_method == UTF8_TERM_METRICS_COMPONENTS)
    {
       if (utf8_layout_components_metrics(line, len, cluster, entry, metrics))
@@ -382,6 +504,11 @@ int utf8_layout_cluster_metrics(const CHARTYPE *line, size_t len,
    else if (metric_method == UTF8_TERM_METRICS_EXPANDED)
    {
       if (utf8_layout_expanded_metrics(line, len, cluster, entry, metrics))
+         return 1;
+   }
+   else if (metric_method == UTF8_TERM_METRICS_OUTPUT)
+   {
+      if (utf8_layout_output_metrics(line, len, cluster, entry, metrics))
          return 1;
    }
    if (entry->display_mode == UTF8_TERM_DISPLAY_SINGLE)

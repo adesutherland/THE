@@ -1,6 +1,6 @@
 # LLM Driver Capability Inventory
 
-Last updated: 2026-06-02.
+Last updated: 2026-06-06.
 
 This inventory describes the supported no-curses agent/editor surface:
 `the --driver llm`.
@@ -29,7 +29,7 @@ capabilities.
 | Parser diagnostics | Implemented in full-runtime snapshots | SDSLH diagnostics remain in the full runtime. `look` output includes a first-class diagnostics array when parser messages exist, and `EXTRACT /PMSGS/` still uses the same collected PMSGS data. | `test_the_llm_parser_diagnostics`, `test_sdslh_integration` |
 | CREXX/profile integration | Build-dependent full-runtime capability | `the --driver llm capabilities` reports `crexx_macros` according to the build. When CREXX is enabled, commands and profiles use the same full-editor CREXX integration path. | `test_the_llm_profile_crexx`, CREXX tests when enabled |
 | Transient/modal UI | Implemented | `transient readv`, `transient dialog`, and `transient popup` expose no-curses look/input/hit/result flows through the shared `transientui` model. Command-triggered `READV CMDLINE`, `DIALOG`, and `POPUP` start resumable protocol continuations instead of terminal-only blocking loops. | `test_transientui`, `test_the_llm_full_runtime` |
-| Unicode/UTF rendering metadata | Implemented within current renderer model | Render cells/clusters preserve wide cells, combining marks, keycaps, flags, emoji, ZWJ sequences, logical, user-visible width, advance, cursor, repaint widths, and repair strategy hints where the current renderer model supports them. LLM semantic snapshots expose row-level UTF annotations by logical cell: class, output, mark, width metadata, and compressed/substituted flags, without making user-visible width a cursor authority. | `test_headlessdriver`, `test_virtual_screen`, `test_llmdriver` |
+| Unicode/UTF rendering metadata | Implemented | Render cells/clusters preserve wide cells, combining marks, keycaps, flags, emoji, ZWJ sequences, logical, user-visible width, advance, cursor, repaint widths, repair strategy hints, display mode, configured/resolved output, metrics source, and safe emitted display text where the renderer model supports them. LLM semantic snapshots expose row-level UTF annotations by logical cell, `capabilities` reports the active UTF display mode, and `debug utf-display` reports canonical mode-scoped display rules for round-trip tests. | `test_headlessdriver`, `test_virtual_screen`, `test_llmdriver`, `test_the_llm_full_runtime` |
 | Mouse/logical hit reporting | Implemented logical subset | Protocol `hit` targets filearea, prefix, command, prompt, status, tabline/filetabs, divider, window selection, and transient UI targets without terminal packets. Terminal mouse escape packets remain curses-driver input and are converted before shared dispatch. | `test_the_llm_full_runtime`, `test_mousehit`, `test_inputevent` |
 | Link boundary | Implemented | The main `the` executable and `the_driver_llm.so` do not link curses. The curses module owns curses startup/shutdown and terminal mechanics. | `test_driver_modules`, `test_curses_boundary`, `test_curses_boundary_inventory` |
 

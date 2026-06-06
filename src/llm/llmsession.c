@@ -13,6 +13,9 @@
 #include "thedriver.h"
 #include "transientui.h"
 #include "vars.h"
+#ifdef USE_UTF8
+# include "utfterm.h"
+#endif
 
 #define LLM_TRANSIENT_MAX_PROMPTS 128
 #define LLM_TRANSIENT_MAX_ITEMS 128
@@ -372,6 +375,14 @@ static void print_capabilities(void)
    fputs(",\"buffers\":true", stdout);
    fputs(",\"file_ring\":true", stdout);
    fputs(",\"syntax_style_spans\":true", stdout);
+#ifdef USE_UTF8
+   fputs(",\"utf\":true", stdout);
+   fputs(",\"utf_display_mode\":", stdout);
+   print_json_string(utf8_terminal_display_name(utf8_terminal_display_mode()));
+#else
+   fputs(",\"utf\":false", stdout);
+   fputs(",\"utf_display_mode\":\"off\"", stdout);
+#endif
 #ifdef USE_SDSLH
    fputs(",\"parser_diagnostics\":\"first-class-snapshot-array\"", stdout);
    fputs(",\"sdslh\":true", stdout);
@@ -391,7 +402,7 @@ static void print_capabilities(void)
    fputs(",\"inputs\":[\"look\",\"delta\",\"capabilities\",\"focus\",\"hit\",\"key\",\"text\",\"type\",\"command\",\"debug\",\"transient\",\"quit\"]", stdout);
    fputs(",\"view_modes\":[\"full\",\"filearea\",\"reserved\",\"prefix\",\"focus\"]", stdout);
    fputs(",\"transient_commands\":[\"transient readv [TEXT]\",\"transient dialog [TEXT]\",\"transient popup\",\"transient look\",\"transient key NAME\",\"transient text TEXT\",\"transient hit ROW COL\",\"transient result\",\"transient close\",\"transient cancel\"]", stdout);
-   fputs(",\"debug_commands\":[\"describe-focus\",\"describe-row\",\"list-visible-rows\",\"dump-cursor-mapping\",\"dump-driver-ops\",\"explain-last-render\"]", stdout);
+   fputs(",\"debug_commands\":[\"describe-focus\",\"describe-row\",\"list-visible-rows\",\"dump-cursor-mapping\",\"dump-driver-ops\",\"explain-last-render\",\"utf-display\"]", stdout);
    fputs("}\n", stdout);
    fflush(stdout);
 }
@@ -668,6 +679,40 @@ static void print_debug(char *args)
 
    if (args == NULL)
       args = "";
+#ifdef USE_UTF8
+   if (ascii_equal_ci(args, "utf-display"))
+   {
+      size_t rule_count = utf8_terminal_profile_entry_count();
+      char rule[512];
+
+      fputs("{\"debug\":\"utf-display\",\"supported\":true", stdout);
+      fputs(",\"active_mode\":", stdout);
+      print_json_string(utf8_terminal_display_name(
+                           utf8_terminal_display_mode()));
+      printf(",\"rule_count\":%zu,\"rules\":[", rule_count);
+      for (i = 0; i < rule_count; i++)
+      {
+         if (i > 0)
+            fputc(',', stdout);
+         if (!utf8_terminal_profile_canonical_rule_at(i, rule,
+                                                      sizeof(rule)))
+            rule[0] = '\0';
+         print_json_string(rule);
+      }
+      fputs("]}\n", stdout);
+      fflush(stdout);
+      return;
+   }
+#else
+   if (ascii_equal_ci(args, "utf-display"))
+   {
+      fputs("{\"debug\":\"utf-display\",\"supported\":false,"
+            "\"active_mode\":\"off\",\"rule_count\":0,\"rules\":[]}\n",
+            stdout);
+      fflush(stdout);
+      return;
+   }
+#endif
    if (ascii_equal_ci(args, "dump-driver-ops"))
    {
       fputs("{\"debug\":\"dump-driver-ops\",\"ops\":[", stdout);

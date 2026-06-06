@@ -496,12 +496,6 @@ if(WIN32)
     )
 endif()
 
-if(USE_UTF8 AND USE_WIDE_CHAR)
-    add_executable(utf_terminal_probe tools/utf_terminal_probe.c)
-    target_include_directories(utf_terminal_probe PRIVATE ${CURSES_INCLUDE_DIRS})
-    target_link_libraries(utf_terminal_probe ${CURSES_LIBRARIES})
-endif()
-
 # Install Targets
 install(TARGETS ${EXECUTABLE_NAME} DESTINATION bin)
 install(TARGETS the_driver_curses the_driver_llm
@@ -626,7 +620,7 @@ add_test(NAME test_screenframe COMMAND test_screenframe)
 add_executable(test_llmdriver tests/test_llmdriver.c src/llm/llmdriver.c src/inputevent.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmdriver PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8)
-    target_sources(test_llmdriver PRIVATE src/utfterm.c src/utflayout.c src/utfcluster.c)
+    target_sources(test_llmdriver PRIVATE src/rendercell.c src/utfterm.c src/utflayout.c src/utfcluster.c)
 endif()
 if(USE_UTF8 AND USE_UTF8PROC)
     target_link_libraries(test_llmdriver ${THE_UTF8PROC_TARGET})
@@ -636,7 +630,7 @@ add_test(NAME test_llmdriver COMMAND test_llmdriver)
 add_executable(test_virtual_screen tests/test_virtual_screen.c src/llm/llmdriver.c src/inputevent.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_virtual_screen PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8)
-    target_sources(test_virtual_screen PRIVATE src/utfterm.c src/utflayout.c src/utfcluster.c)
+    target_sources(test_virtual_screen PRIVATE src/rendercell.c src/utfterm.c src/utflayout.c src/utfcluster.c)
 endif()
 if(USE_UTF8 AND USE_UTF8PROC)
     target_link_libraries(test_virtual_screen ${THE_UTF8PROC_TARGET})
@@ -678,7 +672,7 @@ set_tests_properties(test_driver_modules PROPERTIES
 add_executable(test_llmruntime tests/test_llmruntime.c src/llm/llmruntime.c src/llm/llmdriver.c src/parserdiagnostics.c src/inputevent.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmruntime PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8)
-    target_sources(test_llmruntime PRIVATE src/utfterm.c src/utflayout.c src/utfcluster.c)
+    target_sources(test_llmruntime PRIVATE src/rendercell.c src/utfterm.c src/utflayout.c src/utfcluster.c)
 endif()
 if(USE_UTF8 AND USE_UTF8PROC)
     target_link_libraries(test_llmruntime ${THE_UTF8PROC_TARGET})
@@ -739,17 +733,6 @@ if(USE_UTF8)
     endif()
     add_test(NAME test_utfrepair COMMAND test_utfrepair)
 
-    if(USE_WIDE_CHAR)
-        add_test(NAME test_utf_terminal_probe_no_visual
-            COMMAND utf_terminal_probe calibrate keycap --no-visual
-                --profile-dir ${CMAKE_CURRENT_BINARY_DIR})
-        add_test(NAME test_utf_terminal_probe_profile
-            COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_utf_probe_profile.sh)
-        set_tests_properties(test_utf_terminal_probe_profile PROPERTIES
-            SKIP_RETURN_CODE 77
-            ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
-        )
-    endif()
     add_test(NAME test_system_profile COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_system_profile.sh)
     set_tests_properties(test_system_profile PROPERTIES
         SKIP_RETURN_CODE 77

@@ -40,7 +40,10 @@ typedef struct
    size_t fallback_length;
    TheRenderAttr attr;
    Utf8TerminalClass feature_class;
+   Utf8TerminalDisplayMode display_mode;
    Utf8TerminalOutput output_method;
+   Utf8TerminalOutput resolved_output_method;
+   Utf8TerminalMetrics metric_method;
    Utf8TerminalMark mark;
    /* Logical editor width from TextCluster/TextPos semantics. */
    int logical_width;

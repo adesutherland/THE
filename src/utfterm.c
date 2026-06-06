@@ -8,7 +8,7 @@
 #include "utfcluster.h"
 
 #define UTF8_TERM_TOKEN_MAX 96
-#define UTF8_TERM_MAX_TOKENS 16
+#define UTF8_TERM_MAX_TOKENS 32
 
 typedef struct
 {
@@ -83,6 +83,7 @@ static const OutputName output_names[] =
    { "substitute", UTF8_TERM_OUTPUT_SUBSTITUTE },
    { "base", UTF8_TERM_OUTPUT_BASE },
    { "components", UTF8_TERM_OUTPUT_COMPONENTS },
+   { "sanitize", UTF8_TERM_OUTPUT_SANITIZE },
    { NULL, UTF8_TERM_OUTPUT_UNKNOWN }
 };
 
@@ -92,6 +93,9 @@ static const MetricsName metrics_names[] =
    { "profile", UTF8_TERM_METRICS_PROFILE },
    { "components", UTF8_TERM_METRICS_COMPONENTS },
    { "expanded", UTF8_TERM_METRICS_EXPANDED },
+   { "output", UTF8_TERM_METRICS_OUTPUT },
+   { "fixed", UTF8_TERM_METRICS_PROFILE },
+   { "native", UTF8_TERM_METRICS_PROFILE },
    { NULL, UTF8_TERM_METRICS_UNKNOWN }
 };
 
@@ -241,6 +245,52 @@ const Utf8TerminalProfileEntry *utf8_terminal_profile_entry_at(size_t index)
    return &profile_entries[index];
 }
 
+Utf8TerminalOutput utf8_terminal_resolved_output_for_entry(
+   const Utf8TerminalProfileEntry *entry)
+{
+   if (entry == NULL)
+      return UTF8_TERM_OUTPUT_NATIVE;
+   if (entry->output_method != UTF8_TERM_OUTPUT_SANITIZE)
+      return entry->output_method;
+
+   switch (entry->feature_class)
+   {
+      case UTF8_TERM_CLASS_KEYCAP:
+      case UTF8_TERM_CLASS_REGIONAL_INDICATOR:
+      case UTF8_TERM_CLASS_REGIONAL_FLAG:
+      case UTF8_TERM_CLASS_TEXT_VARIATION:
+      case UTF8_TERM_CLASS_EMOJI_VARIATION:
+      case UTF8_TERM_CLASS_MODIFIER:
+         return UTF8_TERM_OUTPUT_BASE;
+
+      case UTF8_TERM_CLASS_SHORT_ZWJ:
+      case UTF8_TERM_CLASS_HEART_ZWJ:
+      case UTF8_TERM_CLASS_FAMILY_ZWJ:
+         return UTF8_TERM_OUTPUT_COMPONENTS;
+
+      case UTF8_TERM_CLASS_TAG_FLAG:
+         return UTF8_TERM_OUTPUT_SUBSTITUTE;
+
+      default:
+         return UTF8_TERM_OUTPUT_NATIVE;
+   }
+}
+
+Utf8TerminalMetrics utf8_terminal_effective_metrics_for_entry(
+   const Utf8TerminalProfileEntry *entry)
+{
+   if (entry == NULL)
+      return UTF8_TERM_METRICS_PROFILE;
+   if (entry->metric_method != UTF8_TERM_METRICS_AUTO)
+      return entry->metric_method;
+   if (entry->output_method == UTF8_TERM_OUTPUT_SANITIZE)
+      return UTF8_TERM_METRICS_OUTPUT;
+   if (entry->output_method == UTF8_TERM_OUTPUT_COMPONENTS
+   ||  entry->output_method == UTF8_TERM_OUTPUT_EXPANDED)
+      return UTF8_TERM_METRICS_COMPONENTS;
+   return UTF8_TERM_METRICS_PROFILE;
+}
+
 static Utf8TerminalProfileEntry *profile_entry_for(Utf8TerminalClass feature_class,
                                                    Utf8TerminalDisplayMode display)
 {
@@ -286,9 +336,6 @@ const Utf8TerminalProfileEntry *utf8_terminal_profile_lookup_cluster(
    entry = utf8_terminal_profile_lookup(feature_class, display);
    if (entry != NULL)
       return entry;
-   if (display != UTF8_TERM_DISPLAY_NORMAL)
-      return utf8_terminal_profile_lookup(feature_class,
-                                          UTF8_TERM_DISPLAY_NORMAL);
    return NULL;
 }
 
@@ -542,6 +589,9 @@ static Utf8TerminalOutput coerce_output_for_display(Utf8TerminalDisplayMode disp
       return UTF8_TERM_OUTPUT_SUBSTITUTE;
    if (output == UTF8_TERM_OUTPUT_BASE)
       return output;
+   if (output == UTF8_TERM_OUTPUT_SANITIZE
+   &&  display != UTF8_TERM_DISPLAY_SINGLE)
+      return output;
    if (display == UTF8_TERM_DISPLAY_NORMAL)
    {
       if (output == UTF8_TERM_OUTPUT_NATIVE
@@ -580,7 +630,8 @@ static int display_accepts_metrics(Utf8TerminalDisplayMode display,
       return 0;
    return display != UTF8_TERM_DISPLAY_SINGLE
        || metrics == UTF8_TERM_METRICS_AUTO
-       || metrics == UTF8_TERM_METRICS_PROFILE;
+       || metrics == UTF8_TERM_METRICS_PROFILE
+       || metrics == UTF8_TERM_METRICS_OUTPUT;
 }
 
 static void apply_substitute_defaults(Utf8TerminalProfileEntry *entry)
@@ -615,9 +666,313 @@ static int apply_output(Utf8TerminalProfileEntry *entry, Utf8TerminalOutput outp
       if (has_substitute_codepoint)
          entry->substitute_codepoint = substitute_codepoint;
    }
+   else if (entry->output_method == UTF8_TERM_OUTPUT_SANITIZE)
+   {
+      if (entry->display_mode == UTF8_TERM_DISPLAY_NORMAL)
+         entry->metric_method = UTF8_TERM_METRICS_OUTPUT;
+      if (entry->mark == UTF8_TERM_MARK_SUBSTITUTED)
+         entry->mark = UTF8_TERM_MARK_NONE;
+   }
    else if (entry->mark == UTF8_TERM_MARK_SUBSTITUTED)
       entry->mark = UTF8_TERM_MARK_NONE;
    return UTF8_TERMINAL_PROFILE_APPLIED;
+}
+
+static int token_is_setting_keyword(const char *token)
+{
+   return ascii_equal_ci(token, "output")
+       || ascii_equal_ci(token, "metrics")
+       || ascii_equal_ci(token, "width")
+       || ascii_equal_ci(token, "advance")
+       || ascii_equal_ci(token, "cursor")
+       || ascii_equal_ci(token, "repaint")
+       || ascii_equal_ci(token, "mark")
+       || ascii_equal_ci(token, "cursorstrategy")
+       || ascii_equal_ci(token, "replacestrategy");
+}
+
+static int parse_output_setting(
+   Utf8TerminalProfileEntry *entry,
+   char tokens[UTF8_TERM_MAX_TOKENS][UTF8_TERM_TOKEN_MAX],
+   int count, int *index)
+{
+   Utf8TerminalOutput output;
+   uint32_t substitute_codepoint = 0;
+   int has_substitute_codepoint = 0;
+   int method_index;
+
+   if (entry == NULL || tokens == NULL || index == NULL)
+      return UTF8_TERMINAL_PROFILE_INVALID;
+   method_index = *index + 1;
+   if (method_index >= count)
+      return UTF8_TERMINAL_PROFILE_INVALID;
+
+   if (ascii_equal_ci(tokens[method_index], "replacement"))
+   {
+      output = UTF8_TERM_OUTPUT_SUBSTITUTE;
+      *index = method_index + 1;
+      if (*index < count && !token_is_setting_keyword(tokens[*index]))
+      {
+         if (ascii_equal_ci(tokens[*index], "default"))
+            (*index)++;
+         else if (ascii_equal_ci(tokens[*index], "base"))
+         {
+            output = UTF8_TERM_OUTPUT_BASE;
+            (*index)++;
+         }
+         else if (parse_codepoint(tokens[*index], &substitute_codepoint))
+         {
+            has_substitute_codepoint = 1;
+            (*index)++;
+         }
+         else
+            return UTF8_TERMINAL_PROFILE_INVALID;
+      }
+   }
+   else if (ascii_equal_ci(tokens[method_index], "characters"))
+   {
+      output = UTF8_TERM_OUTPUT_COMPONENTS;
+      *index = method_index + 1;
+   }
+   else
+   {
+      output = utf8_terminal_output_from_name(tokens[method_index]);
+      if (output == UTF8_TERM_OUTPUT_UNKNOWN)
+         return UTF8_TERMINAL_PROFILE_INVALID;
+      *index = method_index + 1;
+      if (output == UTF8_TERM_OUTPUT_SUBSTITUTE)
+      {
+         if (*index < count && !token_is_setting_keyword(tokens[*index]))
+         {
+            if (!parse_codepoint(tokens[*index], &substitute_codepoint))
+               return UTF8_TERMINAL_PROFILE_INVALID;
+            has_substitute_codepoint = 1;
+            (*index)++;
+         }
+      }
+      else if (output == UTF8_TERM_OUTPUT_SANITIZE)
+      {
+         while (*index < count && !token_is_setting_keyword(tokens[*index]))
+            (*index)++;
+      }
+      else if (*index < count && !token_is_setting_keyword(tokens[*index]))
+         return UTF8_TERMINAL_PROFILE_INVALID;
+   }
+
+   return apply_output(entry, output, substitute_codepoint,
+                       has_substitute_codepoint);
+}
+
+static int apply_profile_settings_to_entry(
+   Utf8TerminalProfileEntry *entry,
+   char tokens[UTF8_TERM_MAX_TOKENS][UTF8_TERM_TOKEN_MAX],
+   int count, int index)
+{
+   int settings = 0;
+
+   if (entry == NULL || tokens == NULL || index >= count)
+      return UTF8_TERMINAL_PROFILE_INVALID;
+
+   while (index < count)
+   {
+      if (ascii_equal_ci(tokens[index], "output"))
+      {
+         int rc = parse_output_setting(entry, tokens, count, &index);
+
+         if (rc != UTF8_TERMINAL_PROFILE_APPLIED)
+            return rc;
+         settings++;
+         continue;
+      }
+      if (ascii_equal_ci(tokens[index], "metrics"))
+      {
+         Utf8TerminalMetrics metrics;
+
+         if (index + 1 >= count)
+            return UTF8_TERMINAL_PROFILE_INVALID;
+         metrics = utf8_terminal_metrics_from_name(tokens[index + 1]);
+         if (!display_accepts_metrics(entry->display_mode, metrics))
+            return UTF8_TERMINAL_PROFILE_INVALID;
+         entry->metric_method = metrics;
+         index += 2;
+         settings++;
+         continue;
+      }
+      if (ascii_equal_ci(tokens[index], "width"))
+      {
+         int width;
+
+         if (index + 1 >= count
+         ||  !parse_positive_int(tokens[index + 1], &width)
+         ||  !display_accepts_width(entry->display_mode, width))
+            return UTF8_TERMINAL_PROFILE_INVALID;
+         if (index + 2 < count && ascii_equal_ci(tokens[index + 2], "advance"))
+         {
+            int advance_width;
+            int cursor_width;
+            int repaint_width;
+
+            if (index + 7 >= count
+            ||  !ascii_equal_ci(tokens[index + 4], "cursor")
+            ||  !ascii_equal_ci(tokens[index + 6], "repaint")
+            ||  !parse_positive_int(tokens[index + 3], &advance_width)
+            ||  !parse_positive_int(tokens[index + 5], &cursor_width)
+            ||  !parse_positive_int(tokens[index + 7], &repaint_width))
+               return UTF8_TERMINAL_PROFILE_INVALID;
+            entry->width = width;
+            entry->advance_width = advance_width;
+            entry->cursor_width = cursor_width;
+            entry->repaint_width = repaint_width;
+            index += 8;
+         }
+         else
+         {
+            entry->width = width;
+            index += 2;
+         }
+         settings++;
+         continue;
+      }
+      if (ascii_equal_ci(tokens[index], "advance"))
+      {
+         int advance_width;
+
+         if (index + 1 >= count
+         ||  !parse_positive_int(tokens[index + 1], &advance_width))
+            return UTF8_TERMINAL_PROFILE_INVALID;
+         entry->advance_width = advance_width;
+         index += 2;
+         settings++;
+         continue;
+      }
+      if (ascii_equal_ci(tokens[index], "cursor"))
+      {
+         int cursor_width;
+
+         if (index + 1 >= count
+         ||  !parse_positive_int(tokens[index + 1], &cursor_width))
+            return UTF8_TERMINAL_PROFILE_INVALID;
+         entry->cursor_width = cursor_width;
+         index += 2;
+         settings++;
+         continue;
+      }
+      if (ascii_equal_ci(tokens[index], "repaint"))
+      {
+         int repaint_width;
+
+         if (index + 1 >= count
+         ||  !parse_positive_int(tokens[index + 1], &repaint_width))
+            return UTF8_TERMINAL_PROFILE_INVALID;
+         entry->repaint_width = repaint_width;
+         index += 2;
+         settings++;
+         continue;
+      }
+      if (ascii_equal_ci(tokens[index], "mark"))
+      {
+         Utf8TerminalMark mark;
+
+         if (index + 1 >= count)
+            return UTF8_TERMINAL_PROFILE_INVALID;
+         mark = utf8_terminal_mark_from_name(tokens[index + 1]);
+         if (mark == UTF8_TERM_MARK_UNKNOWN)
+            return UTF8_TERMINAL_PROFILE_INVALID;
+         entry->mark = mark;
+         index += 2;
+         settings++;
+         continue;
+      }
+      if (ascii_equal_ci(tokens[index], "cursorstrategy"))
+      {
+         Utf8TerminalStrategy strategy;
+
+         if (index + 1 >= count)
+            return UTF8_TERMINAL_PROFILE_INVALID;
+         strategy = utf8_terminal_strategy_from_name(tokens[index + 1]);
+         if (strategy == UTF8_TERM_STRATEGY_UNKNOWN)
+            return UTF8_TERMINAL_PROFILE_INVALID;
+         entry->cursor_strategy = strategy;
+         index += 2;
+         settings++;
+         continue;
+      }
+      if (ascii_equal_ci(tokens[index], "replacestrategy"))
+      {
+         Utf8TerminalStrategy strategy;
+
+         if (index + 1 >= count)
+            return UTF8_TERMINAL_PROFILE_INVALID;
+         strategy = utf8_terminal_strategy_from_name(tokens[index + 1]);
+         if (strategy == UTF8_TERM_STRATEGY_UNKNOWN)
+            return UTF8_TERMINAL_PROFILE_INVALID;
+         entry->replacement_strategy = strategy;
+         index += 2;
+         settings++;
+         continue;
+      }
+      return UTF8_TERMINAL_PROFILE_INVALID;
+   }
+
+   return settings > 0 ? UTF8_TERMINAL_PROFILE_APPLIED
+                       : UTF8_TERMINAL_PROFILE_INVALID;
+}
+
+static int apply_profile_settings_to_selector(
+   Utf8TerminalDisplayMode display, Utf8TerminalClass feature_class,
+   int selector_any,
+   char tokens[UTF8_TERM_MAX_TOKENS][UTF8_TERM_TOKEN_MAX],
+   int count, int index)
+{
+   Utf8TerminalProfileEntry backup[
+      sizeof(default_entries) / sizeof(default_entries[0])
+   ];
+   int rc = UTF8_TERMINAL_PROFILE_APPLIED;
+   int class_index;
+
+   memcpy(backup, profile_entries, sizeof(profile_entries));
+   for (class_index = 0; class_index < UTF8_TERM_CLASS_COUNT; class_index++)
+   {
+      Utf8TerminalProfileEntry *entry;
+      Utf8TerminalClass current_class = (Utf8TerminalClass)class_index;
+
+      if (!selector_any && current_class != feature_class)
+         continue;
+      entry = profile_entry_for(current_class, display);
+      if (entry == NULL)
+      {
+         rc = UTF8_TERMINAL_PROFILE_INVALID;
+         break;
+      }
+      rc = apply_profile_settings_to_entry(entry, tokens, count, index);
+      if (rc != UTF8_TERMINAL_PROFILE_APPLIED)
+         break;
+   }
+   if (rc != UTF8_TERMINAL_PROFILE_APPLIED)
+      memcpy(profile_entries, backup, sizeof(profile_entries));
+   return rc;
+}
+
+static int parse_class_selector(const char *token,
+                                Utf8TerminalClass *feature_class,
+                                int *selector_any)
+{
+   if (feature_class != NULL)
+      *feature_class = UTF8_TERM_CLASS_UNKNOWN;
+   if (selector_any != NULL)
+      *selector_any = 0;
+   if (token == NULL)
+      return 0;
+   if (ascii_equal_ci(token, "any"))
+   {
+      if (selector_any != NULL)
+         *selector_any = 1;
+      return 1;
+   }
+   if (feature_class != NULL)
+      *feature_class = utf8_terminal_class_from_name(token);
+   return feature_class != NULL
+       && *feature_class != UTF8_TERM_CLASS_UNKNOWN;
 }
 
 int utf8_terminal_profile_apply_line(const char *line)
@@ -645,15 +1000,35 @@ int utf8_terminal_profile_apply_line(const char *line)
    {
       Utf8TerminalDisplayMode requested_display;
 
-      if (index + 2 != count)
+      if (index + 1 >= count)
          return UTF8_TERMINAL_PROFILE_INVALID;
       if (ascii_equal_ci(tokens[index + 1], "toggle"))
       {
+         if (index + 2 != count)
+            return UTF8_TERMINAL_PROFILE_INVALID;
          (void)utf8_terminal_toggle_display_mode();
          return UTF8_TERMINAL_PROFILE_APPLIED;
       }
       requested_display = utf8_terminal_display_from_name(tokens[index + 1]);
-      return utf8_terminal_set_display_mode(requested_display);
+      if (requested_display == UTF8_TERM_DISPLAY_UNKNOWN)
+         return UTF8_TERMINAL_PROFILE_INVALID;
+      if (index + 2 == count)
+         return utf8_terminal_set_display_mode(requested_display);
+      if (index + 4 > count || !ascii_equal_ci(tokens[index + 2], "class"))
+         return UTF8_TERMINAL_PROFILE_INVALID;
+      {
+         Utf8TerminalClass display_class;
+         int selector_any;
+
+         if (!parse_class_selector(tokens[index + 3], &display_class,
+                                   &selector_any))
+            return UTF8_TERMINAL_PROFILE_INVALID;
+         return apply_profile_settings_to_selector(requested_display,
+                                                   display_class,
+                                                   selector_any,
+                                                   tokens, count,
+                                                   index + 4);
+      }
    }
    if (index >= count || !ascii_equal_ci(tokens[index], "terminal"))
       return UTF8_TERMINAL_PROFILE_INVALID;
@@ -664,9 +1039,13 @@ int utf8_terminal_profile_apply_line(const char *line)
    if (index >= count)
       return UTF8_TERMINAL_PROFILE_INVALID;
 
-   feature_class = utf8_terminal_class_from_name(tokens[index]);
-   if (feature_class == UTF8_TERM_CLASS_UNKNOWN)
-      return UTF8_TERMINAL_PROFILE_INVALID;
+   {
+      int selector_any;
+
+      if (!parse_class_selector(tokens[index], &feature_class, &selector_any)
+      ||  selector_any)
+         return UTF8_TERMINAL_PROFILE_INVALID;
+   }
    index++;
 
    if (index < count && ascii_equal_ci(tokens[index], "display"))
@@ -682,141 +1061,148 @@ int utf8_terminal_profile_apply_line(const char *line)
    entry = profile_entry_for(feature_class, display);
    if (entry == NULL || index >= count)
       return UTF8_TERMINAL_PROFILE_INVALID;
+   return apply_profile_settings_to_entry(entry, tokens, count, index);
+}
 
-   if (ascii_equal_ci(tokens[index], "output"))
+static const char *canonical_display_name(Utf8TerminalDisplayMode display)
+{
+   switch (display)
    {
-      Utf8TerminalOutput output;
-      uint32_t substitute_codepoint = 0;
-      int has_substitute_codepoint = 0;
-
-      if (index + 2 != count && index + 3 != count)
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      output = utf8_terminal_output_from_name(tokens[index + 1]);
-      if (index + 3 == count)
-      {
-         if (!parse_codepoint(tokens[index + 2], &substitute_codepoint))
-            return UTF8_TERMINAL_PROFILE_INVALID;
-         has_substitute_codepoint = 1;
-      }
-      return apply_output(entry, output, substitute_codepoint,
-                          has_substitute_codepoint);
+      case UTF8_TERM_DISPLAY_NORMAL:
+         return "NORMAL";
+      case UTF8_TERM_DISPLAY_DECOMPOSED:
+         return "DECOMPOSED";
+      case UTF8_TERM_DISPLAY_SINGLE:
+         return "SINGLE";
+      default:
+         return "UNKNOWN";
    }
-   if (ascii_equal_ci(tokens[index], "metrics"))
+}
+
+static const char *canonical_output_name(Utf8TerminalOutput output)
+{
+   switch (output)
    {
-      Utf8TerminalMetrics metrics;
-
-      if (index + 2 != count)
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      metrics = utf8_terminal_metrics_from_name(tokens[index + 1]);
-      if (!display_accepts_metrics(display, metrics))
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      entry->metric_method = metrics;
-      return UTF8_TERMINAL_PROFILE_APPLIED;
+      case UTF8_TERM_OUTPUT_NATIVE:
+         return "NATIVE";
+      case UTF8_TERM_OUTPUT_EXPANDED:
+         return "EXPANDED";
+      case UTF8_TERM_OUTPUT_SUBSTITUTE:
+         return "SUBSTITUTE";
+      case UTF8_TERM_OUTPUT_BASE:
+         return "BASE";
+      case UTF8_TERM_OUTPUT_COMPONENTS:
+         return "COMPONENTS";
+      case UTF8_TERM_OUTPUT_SANITIZE:
+         return "SANITIZE";
+      default:
+         return "UNKNOWN";
    }
-   if (ascii_equal_ci(tokens[index], "width"))
+}
+
+static const char *canonical_metrics_name(Utf8TerminalMetrics metrics)
+{
+   switch (metrics)
    {
-      int width;
-      int advance_width;
-      int cursor_width;
-      int repaint_width;
-
-      if (index + 2 == count)
-      {
-         if (!parse_positive_int(tokens[index + 1], &width))
-            return UTF8_TERMINAL_PROFILE_INVALID;
-         if (!display_accepts_width(display, width))
-            return UTF8_TERMINAL_PROFILE_INVALID;
-         entry->width = width;
-         return UTF8_TERMINAL_PROFILE_APPLIED;
-      }
-      if (index + 8 != count
-      ||  !ascii_equal_ci(tokens[index + 2], "advance")
-      ||  !ascii_equal_ci(tokens[index + 4], "cursor")
-      ||  !ascii_equal_ci(tokens[index + 6], "repaint"))
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      if (!parse_positive_int(tokens[index + 1], &width)
-      ||  !parse_positive_int(tokens[index + 3], &advance_width)
-      ||  !parse_positive_int(tokens[index + 5], &cursor_width)
-      ||  !parse_positive_int(tokens[index + 7], &repaint_width))
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      if (!display_accepts_width(display, width))
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      entry->width = width;
-      entry->advance_width = advance_width;
-      entry->cursor_width = cursor_width;
-      entry->repaint_width = repaint_width;
-      return UTF8_TERMINAL_PROFILE_APPLIED;
+      case UTF8_TERM_METRICS_AUTO:
+         return "AUTO";
+      case UTF8_TERM_METRICS_PROFILE:
+         return "PROFILE";
+      case UTF8_TERM_METRICS_COMPONENTS:
+         return "COMPONENTS";
+      case UTF8_TERM_METRICS_EXPANDED:
+         return "EXPANDED";
+      case UTF8_TERM_METRICS_OUTPUT:
+         return "OUTPUT";
+      default:
+         return "UNKNOWN";
    }
-   if (ascii_equal_ci(tokens[index], "advance"))
+}
+
+static const char *canonical_mark_name(Utf8TerminalMark mark)
+{
+   switch (mark)
    {
-      int advance_width;
-
-      if (index + 2 != count)
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      if (!parse_positive_int(tokens[index + 1], &advance_width))
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      entry->advance_width = advance_width;
-      return UTF8_TERMINAL_PROFILE_APPLIED;
+      case UTF8_TERM_MARK_NONE:
+         return "NONE";
+      case UTF8_TERM_MARK_COMPRESSED:
+         return "COMPRESSED";
+      case UTF8_TERM_MARK_SUBSTITUTED:
+         return "SUBSTITUTED";
+      case UTF8_TERM_MARK_UNSAFE:
+         return "UNSAFE";
+      default:
+         return "UNKNOWN";
    }
-   if (ascii_equal_ci(tokens[index], "cursor"))
+}
+
+static const char *canonical_strategy_name(Utf8TerminalStrategy strategy)
+{
+   switch (strategy)
    {
-      int cursor_width;
-
-      if (index + 2 != count)
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      if (!parse_positive_int(tokens[index + 1], &cursor_width))
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      entry->cursor_width = cursor_width;
-      return UTF8_TERMINAL_PROFILE_APPLIED;
+      case UTF8_TERM_STRATEGY_CHANGED_CELLS:
+         return "CELLS";
+      case UTF8_TERM_STRATEGY_LINE:
+         return "LINE";
+      case UTF8_TERM_STRATEGY_CLEAR_CHANGED_SUFFIX_FAST:
+         return "SUFFIX";
+      case UTF8_TERM_STRATEGY_CLEAR_FROM_ONE_PRIOR_CLUSTER:
+         return "PREV";
+      case UTF8_TERM_STRATEGY_CLEAR_FROM_FIRST_CLUSTER_FAST:
+         return "FIRST";
+      case UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST:
+         return "WHOLE";
+      default:
+         return "UNKNOWN";
    }
-   if (ascii_equal_ci(tokens[index], "repaint"))
-   {
-      int repaint_width;
+}
 
-      if (index + 2 != count)
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      if (!parse_positive_int(tokens[index + 1], &repaint_width))
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      entry->repaint_width = repaint_width;
-      return UTF8_TERMINAL_PROFILE_APPLIED;
-   }
-   if (ascii_equal_ci(tokens[index], "mark"))
-   {
-      Utf8TerminalMark mark;
+int utf8_terminal_profile_entry_canonical(const Utf8TerminalProfileEntry *entry,
+                                          char *out, size_t out_size)
+{
+   int written;
+   int used;
 
-      if (index + 2 != count)
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      mark = utf8_terminal_mark_from_name(tokens[index + 1]);
-      if (mark == UTF8_TERM_MARK_UNKNOWN)
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      entry->mark = mark;
-      return UTF8_TERMINAL_PROFILE_APPLIED;
-   }
-   if (ascii_equal_ci(tokens[index], "cursorstrategy"))
-   {
-      Utf8TerminalStrategy strategy;
+   if (entry == NULL || out == NULL || out_size == 0)
+      return 0;
+   if (entry->output_method == UTF8_TERM_OUTPUT_SUBSTITUTE)
+      written = snprintf(out, out_size,
+         "SET UTF DISPLAY %s CLASS %s OUTPUT %s U+%04X",
+         canonical_display_name(entry->display_mode),
+         utf8_terminal_class_name(entry->feature_class),
+         canonical_output_name(entry->output_method),
+         entry->substitute_codepoint);
+   else
+      written = snprintf(out, out_size,
+         "SET UTF DISPLAY %s CLASS %s OUTPUT %s",
+         canonical_display_name(entry->display_mode),
+         utf8_terminal_class_name(entry->feature_class),
+         canonical_output_name(entry->output_method));
+   if (written < 0 || (size_t)written >= out_size)
+      return 0;
+   used = written;
 
-      if (index + 2 != count)
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      strategy = utf8_terminal_strategy_from_name(tokens[index + 1]);
-      if (strategy == UTF8_TERM_STRATEGY_UNKNOWN)
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      entry->cursor_strategy = strategy;
-      return UTF8_TERMINAL_PROFILE_APPLIED;
-   }
-   if (ascii_equal_ci(tokens[index], "replacestrategy"))
-   {
-      Utf8TerminalStrategy strategy;
+   written = snprintf(out + used, out_size - (size_t)used,
+      " METRICS %s MARK %s WIDTH %d ADVANCE %d CURSOR %d REPAINT %d"
+      " CURSORSTRATEGY %s REPLACESTRATEGY %s",
+      canonical_metrics_name(entry->metric_method),
+      canonical_mark_name(entry->mark),
+      entry->width, entry->advance_width, entry->cursor_width,
+      entry->repaint_width,
+      canonical_strategy_name(entry->cursor_strategy),
+      canonical_strategy_name(entry->replacement_strategy));
+   if (written < 0 || (size_t)written >= out_size - (size_t)used)
+      return 0;
+   return 1;
+}
 
-      if (index + 2 != count)
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      strategy = utf8_terminal_strategy_from_name(tokens[index + 1]);
-      if (strategy == UTF8_TERM_STRATEGY_UNKNOWN)
-         return UTF8_TERMINAL_PROFILE_INVALID;
-      entry->replacement_strategy = strategy;
-      return UTF8_TERMINAL_PROFILE_APPLIED;
-   }
-   return UTF8_TERMINAL_PROFILE_INVALID;
+int utf8_terminal_profile_canonical_rule_at(size_t index,
+                                            char *out, size_t out_size)
+{
+   const Utf8TerminalProfileEntry *entry =
+      utf8_terminal_profile_entry_at(index);
+
+   return utf8_terminal_profile_entry_canonical(entry, out, out_size);
 }
 
 int utf8_terminal_profile_apply_file(const char *path, int *settings_loaded)

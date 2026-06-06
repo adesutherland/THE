@@ -285,12 +285,13 @@ static TheRenderAttr curses_driver_cluster_attr(
       return THE_RENDER_ATTR_NORMAL;
    attr = cluster->attr;
    /*
-    * Replacement output is deliberate terminal-safe rendering rather than
-    * literal text.  Reverse the cell so file-area fallbacks, including the
-    * macOS keycap base-character workaround, are visible without changing
-    * their physical width.
+    * Replacement output in DECOMPOSED and SINGLE is an explanatory display
+    * fact. NORMAL may also use replacement or sanitize for terminal safety,
+    * but it should remain visually natural unless a separate mark requests
+    * annotation elsewhere.
     */
-   if (curses_driver_cluster_uses_replacement_output(cluster))
+   if (cluster->display_mode != UTF8_TERM_DISPLAY_NORMAL
+   &&  curses_driver_cluster_uses_replacement_output(cluster))
       attr = the_render_attr_merge_style(attr, THE_STYLE_REVERSE);
    return attr;
 }

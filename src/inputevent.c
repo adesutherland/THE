@@ -64,6 +64,8 @@ static const TheInputDebugName input_debug_names[] =
    { "driver-ops", THE_INPUT_DEBUG_DUMP_DRIVER_OPS },
    { "explain-last-render", THE_INPUT_DEBUG_EXPLAIN_LAST_RENDER },
    { "last-render", THE_INPUT_DEBUG_EXPLAIN_LAST_RENDER },
+   { "utf-display", THE_INPUT_DEBUG_UTF_DISPLAY },
+   { "utf", THE_INPUT_DEBUG_UTF_DISPLAY },
    { NULL, THE_INPUT_DEBUG_NONE }
 };
 
@@ -133,6 +135,8 @@ const char *the_input_debug_command_name(TheInputDebugCommand command)
          return "dump-driver-ops";
       case THE_INPUT_DEBUG_EXPLAIN_LAST_RENDER:
          return "explain-last-render";
+      case THE_INPUT_DEBUG_UTF_DISPLAY:
+         return "utf-display";
       case THE_INPUT_DEBUG_NONE:
       default:
          return "none";

@@ -4,6 +4,7 @@
 ## Syntax
 ```text
 [SET] UTF DISPLAY NORMAL|DECOMPOSED|SINGLE|TOGGLE
+[SET] UTF DISPLAY NORMAL|DECOMPOSED|SINGLE CLASS selector OUTPUT method [parameters...]
 [SET] UTF TERMINAL CLASS class [DISPLAY display] WIDTH width ADVANCE advance CURSOR cursor REPAINT repaint
 [SET] UTF TERMINAL CLASS class [DISPLAY display] WIDTH width
 [SET] UTF TERMINAL CLASS class [DISPLAY display] ADVANCE advance
@@ -26,12 +27,12 @@ cluster positions; SET UTF only adjusts the physical terminal driver profile use
 those clusters.
 
 The UTF DISPLAY form selects the global display mode THE prefers when rendering
-UTF clusters. THE tries the selected display profile for each class and falls
-back to that class's normal profile when no display-specific profile is
-configured. It does not affect the logical text model.
+UTF clusters. It does not affect the logical text model.
 
 - NORMAL uses each class's normal profile. This is the default and generally
-  writes the stored UTF-8 cluster as natively as the terminal profile allows.
+  provides a stable readable editing display. It writes stored UTF-8 clusters
+  natively where the terminal profile trusts native output, and may sanitize
+  unsafe classes where native terminal rendering is unreliable.
 - DECOMPOSED uses the decomposed profile. For classes such as ZWJ sequences
   this usually means the same visible component preview used by the UTF status
   field: joiners and tag characters are suppressed, standalone variation
@@ -41,8 +42,20 @@ configured. It does not affect the logical text model.
 - TOGGLE cycles through NORMAL, DECOMPOSED, SINGLE, and back to NORMAL.
 
 For example, a ZWJ sequence such as a family emoji may have a NORMAL profile
-that writes one composed sequence and a DECOMPOSED profile that writes its
-visible parts. SET UTF DISPLAY selects which profile THE tries first.
+that sanitizes the cluster for a stable terminal grid and a DECOMPOSED profile
+that writes its visible parts. SET UTF DISPLAY selects the active mode.
+
+The target rule grammar is mode-scoped:
+
+```text
+SET UTF DISPLAY NORMAL CLASS keycap OUTPUT SANITIZE KEYCAP WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1
+SET UTF DISPLAY DECOMPOSED CLASS keycap OUTPUT CHARACTERS METRICS OUTPUT
+SET UTF DISPLAY SINGLE CLASS ANY OUTPUT REPLACEMENT DEFAULT WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1
+```
+
+Each mode is an independent namespace. A missing DECOMPOSED or SINGLE rule must
+be supplied by an explicit rule for that mode, such as `CLASS ANY`; it should
+not inherit NORMAL platform policy implicitly.
 
 The CLASS operand identifies the UTF-8 feature class to configure. Supported classes are:
 
@@ -77,11 +90,22 @@ background must cover. REPAINT specifies the cleanup footprint to blank or
 repaint when stale glyph fragments may remain. These four values are recorded
 independently because user-visible width, terminal advance, cursor presentation,
 and repaint cleanup can differ on real terminals. For example, Apple Terminal
-may need `WIDTH 2 ADVANCE 4 CURSOR 4 REPAINT 4` for a native emoji modifier
-cluster. The regional-indicator class represents a single Regional Indicator
-codepoint; regional-flag represents the normal two-codepoint flag sequence, so
-terminal profiles can describe decomposed flag components separately from
-normal pairs.
+or another terminal may need an explicit width override for a native cluster
+that is left unsanitized. The regional-indicator class represents a single
+Regional Indicator codepoint; regional-flag represents the normal two-codepoint
+flag sequence, so terminal profiles can describe decomposed flag components
+separately from normal pairs.
+
+The mode-scoped display grammar should also accept explicit width-setting rules
+when a platform really needs them:
+
+```text
+SET UTF DISPLAY NORMAL CLASS regional-flag WIDTH 2 ADVANCE 3 CURSOR 3 REPAINT 3
+```
+
+These rules are expected to be rare after NORMAL sanitize is available. Prefer
+`OUTPUT SANITIZE ... METRICS OUTPUT` for unsafe Apple classes, and use explicit
+widths only for real physical exceptions.
 
 METRICS specifies how effective physical metrics are calculated. Supported
 methods are:
@@ -93,12 +117,13 @@ methods are:
   separator cells
 
 `auto` preserves the normal contract: native output uses profile metrics, while
-components/expanded output uses dynamic component metrics. A platform profile
-can override this without changing what is drawn. For example, Apple Terminal
-can keep NORMAL ZWJ output native but use `METRICS expanded` so arbitrary-length
-ZWJ sequences are measured as their visible component cells. Another platform
-can leave the rule unset, or set `METRICS profile` and explicit widths, if its
-terminal shapes the native cluster as a stable two-cell glyph.
+components/expanded/sanitize output uses dynamic output metrics where possible.
+A platform profile can override this without changing what is drawn. For
+example, Apple Terminal should normally use `OUTPUT SANITIZE` for unsafe native
+classes rather than preserving native ZWJ/keycap/flag output with bespoke
+redraw metrics. Another platform can leave the rule native, or set
+`METRICS profile` and explicit widths, if its terminal shapes the native
+cluster as a stable two-cell glyph.
 
 Profile authors should treat display, output, and metrics as separate decisions:
 first select the display entry (`normal`, `decomposed`, or `single`), then select
@@ -106,12 +131,13 @@ what THE writes (`OUTPUT`), then select how that output occupies the terminal
 grid (`METRICS` plus any explicit WIDTH/ADVANCE/CURSOR/REPAINT values). Platform
 quirks should be scoped to the platform system profile, not copied into common
 defaults. This lets a locked-down platform keep a calibrated native two-cell ZWJ
-rule while macOS uses `METRICS expanded` for the same class as terminal behavior
-is learned.
+rule while macOS uses `OUTPUT SANITIZE` for the same unsafe class.
 
 OUTPUT specifies how the class is written to the terminal. Supported methods are:
 
 - native - write the stored UTF-8 sequence
+- sanitize - write a class-aware safe representation without changing stored
+  bytes or logical cluster identity
 - expanded - write visible component characters through the expanded path
 - components - write the class-aware component preview used by decomposed
   display
@@ -136,6 +162,12 @@ clusters to their unmodified base codepoint where safe. Apple Terminal uses
 this general capability for keycaps because its native keycap glyph rendering
 can damage visible cursor/repaint state.
 
+Sanitize output is the preferred NORMAL-mode policy for unsafe terminal
+classes. It should be narrower than a global Unicode-stripping rule. A platform
+profile should sanitize only classes that are proven unsafe for that platform,
+such as Apple Terminal keycaps, regional flags, tag flags, or selected ZWJ
+classes. Safe classes should remain native.
+
 Components output is the class-aware form of decomposed display. Expanded output
 uses the same visible-component transform through the expanded path. The
 component preview suppresses U+200D joiners and tag characters, suppresses
@@ -144,9 +176,10 @@ renders keycaps as base character, blank, and a safe outline marker. Normal
 profiles may also use components as an explicit fallback when a terminal cannot
 reliably shape native clusters. For single profiles, expanded/component
 requests are treated as substitute output.
-In the curses driver, replacement-style output (`substitute`, `base`, and
-explicit `components`) is shown with reverse video so the transformed cell is
-visible without changing its physical width.
+In DECOMPOSED and SINGLE modes, replacement-style output may be shown with
+reverse video so transformed cells are visible as UTF display facts. NORMAL
+sanitize/replacement output should not be reversed automatically; NORMAL is the
+stable editing view.
 
 MARK records a visual hint for transformed clusters. Supported marks are:
 
@@ -184,8 +217,8 @@ At startup, THE loads the built-in UTF terminal defaults and then applies the
 file named by the THE_UTF_TERMINAL_PROFILE environment variable if it is set.
 During normal profile processing, THE also runs the platform system profile
 before the user profile. On macOS this file is `system-osx.the` in
-THE_HOME_DIR. It is the profile generated by `utf_terminal_probe --profile-dir
-...` and is the preferred place for physical terminal calibration settings.
+THE_HOME_DIR. It is the preferred place for physical terminal calibration
+settings.
 Platform quirks, including Apple Terminal behaviour, should be visible as
 profile settings rather than hidden in compiled fallback tables.
 
@@ -199,10 +232,33 @@ here. REXX-style profile fragments are accepted, so `/* ... */` comments,
 `'SET UTF TERMINAL CLASS keycap OUTPUT base'` may be used. Blank lines
 and lines beginning with `*` or `#` are ignored.
 
-The UTF terminal probe writes calibrated width settings in the full
-`WIDTH n ADVANCE n CURSOR n REPAINT n` form. The older `LAYOUT` and `PAINT`
-syntax is intentionally not accepted, to avoid mixing the previous three-width
-model with the current four-width model.
+The probe-generated profile path is being retired. The system profile should be
+readable and editable directly, and automated tests should verify effective
+settings through query/LLM diagnostics rather than through a terminal probe. The
+older `LAYOUT` and `PAINT` syntax is intentionally not accepted, to avoid
+mixing the previous three-width model with the current four-width model.
+
+## Query And Round-Trip Testing
+
+`EXTRACT /UTF/` reports whether UTF support is built in, the active display
+mode, and the canonical replayable display rules so profiles can be tested
+without a terminal:
+
+```text
+utf.1 = ON|OFF
+utf.2 = DISPLAY NORMAL|DECOMPOSED|SINGLE
+utf.3 = <number of effective display rules>
+utf.4... = canonical SET UTF DISPLAY rule strings
+```
+
+The canonical rule strings must be accepted by SET UTF unchanged. A test should
+be able to set UTF display rules, extract them, replay the returned rules into a
+fresh profile, and observe the same effective UTF display table.
+
+The LLM driver exposes the same settings through `debug utf-display` and
+includes the active UTF display mode in `capabilities`, so automated tests can
+drive `command set utf display ...` through the real command dispatcher and
+then validate the effective settings without curses.
 
 ## Compatibility
 XEDIT: N/A

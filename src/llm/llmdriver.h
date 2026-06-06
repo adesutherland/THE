@@ -23,6 +23,7 @@
 #define LLM_DRIVER_INPUT_QUEUE_MAX THE_INPUT_QUEUE_MAX
 #define LLM_DRIVER_MAX_UTF_CLUSTERS 64
 #define LLM_DRIVER_MAX_UTF_NAME 32
+#define LLM_DRIVER_MAX_UTF_EMITTED 128
 
 typedef struct
 {
@@ -37,9 +38,14 @@ typedef struct
    int advance_width;
    int cursor_width;
    int repaint_width;
+   char display_mode[LLM_DRIVER_MAX_UTF_NAME];
    char feature_class[LLM_DRIVER_MAX_UTF_NAME];
+   char selector[LLM_DRIVER_MAX_UTF_NAME];
    char output[LLM_DRIVER_MAX_UTF_NAME];
+   char resolved_output[LLM_DRIVER_MAX_UTF_NAME];
+   char metrics[LLM_DRIVER_MAX_UTF_NAME];
    char mark[LLM_DRIVER_MAX_UTF_NAME];
+   char emitted_text[LLM_DRIVER_MAX_UTF_EMITTED];
    int compressed;
    int substituted;
    int default_visible;
@@ -136,6 +142,7 @@ typedef struct
 #define LLM_DRIVER_DEBUG_DUMP_CURSOR_MAPPING THE_INPUT_DEBUG_DUMP_CURSOR_MAPPING
 #define LLM_DRIVER_DEBUG_DUMP_DRIVER_OPS THE_INPUT_DEBUG_DUMP_DRIVER_OPS
 #define LLM_DRIVER_DEBUG_EXPLAIN_LAST_RENDER THE_INPUT_DEBUG_EXPLAIN_LAST_RENDER
+#define LLM_DRIVER_DEBUG_UTF_DISPLAY THE_INPUT_DEBUG_UTF_DISPLAY
 
 #define LLM_DRIVER_TARGET_NONE THE_INPUT_TARGET_NONE
 #define LLM_DRIVER_TARGET_FILEAREA THE_INPUT_TARGET_FILEAREA

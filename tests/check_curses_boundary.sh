@@ -86,8 +86,7 @@ legacy_key_violations="$(
     --glob '!src/drivers/curses/**' \
     --glob '!src/PDCursesMod/**' \
     --glob '!src/contrib/**' \
-    --glob '!tests/test_curses_keymap.c' \
-    --glob '!tools/utf_terminal_probe.c' 2>/dev/null \
+    --glob '!tests/test_curses_keymap.c' 2>/dev/null \
     | rg -v "$legacy_key_allow_pattern" || true
 )"
 

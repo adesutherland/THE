@@ -259,6 +259,16 @@ static void test_utf_physical_metadata(void)
    expect_contains("utf.meta.full.repaint.width", out,
                    "\"repaint_width\": 2");
    expect_contains("utf.meta.full.output", out, "\"output\": \"base\"");
+   expect_contains("utf.meta.full.display", out,
+                   "\"display_mode\": \"normal\"");
+   expect_contains("utf.meta.full.selector", out,
+                   "\"selector\": \"keycap\"");
+   expect_contains("utf.meta.full.resolved", out,
+                   "\"resolved_output\": \"base\"");
+   expect_contains("utf.meta.full.metrics", out,
+                   "\"metrics\": \"profile\"");
+   expect_contains("utf.meta.full.emitted", out,
+                   "\"emitted_text\": \"1\"");
    expect_contains("utf.meta.full.mark", out, "\"mark\": \"compressed\"");
    expect_contains("utf.meta.full.compressed", out, "\"compressed\": 1");
    expect_contains("utf.meta.full.substituted0", out, "\"substituted\": 0");
@@ -269,7 +279,28 @@ static void test_utf_physical_metadata(void)
    llm_driver_format_semantic_view_with_options(&view, &options,
                                                 out, sizeof(out));
    expect_contains("utf.meta.compact",
-                   out, "\"u\":[[11,1,2,2,2,2,\"keycap\",\"base\",\"compressed\",1,0]]");
+                   out, "\"u\":[[11,1,2,2,2,2,\"keycap\",\"base\",\"compressed\",1,0,\"normal\",\"keycap\",\"base\",\"profile\",\"1\"]]");
+
+   utf8_terminal_profile_reset();
+   expect_int("utf.meta.sanitize.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF DISPLAY NORMAL CLASS keycap OUTPUT SANITIZE KEYCAP"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   llm_driver_screen_view_set_row(&view, 0, UI_ROW_FILE, 7, 1, 10,
+                                  "000007", (const char *)keycap, 1, 1);
+   llm_driver_format_semantic_view(&view, out, sizeof(out));
+   expect_contains("utf.meta.sanitize.output", out,
+                   "\"output\": \"sanitize\"");
+   expect_contains("utf.meta.sanitize.resolved", out,
+                   "\"resolved_output\": \"base\"");
+   expect_contains("utf.meta.sanitize.metrics", out,
+                   "\"metrics\": \"output\"");
+   expect_contains("utf.meta.sanitize.emitted", out,
+                   "\"emitted_text\": \"1\"");
+   llm_driver_format_semantic_view_with_options(&view, &options,
+                                                out, sizeof(out));
+   expect_contains("utf.meta.sanitize.compact",
+                   out, "\"u\":[[11,1,1,1,1,1,\"keycap\",\"sanitize\",\"none\",1,0,\"normal\",\"keycap\",\"base\",\"output\",\"1\"]]");
 
    utf8_terminal_profile_reset();
    expect_int("utf.meta.substitute.apply",
@@ -280,6 +311,9 @@ static void test_utf_physical_metadata(void)
                                   "000007", (const char *)keycap, 1, 1);
    llm_driver_format_semantic_view(&view, out, sizeof(out));
    expect_contains("utf.meta.sub.output", out, "\"output\": \"substitute\"");
+   expect_contains("utf.meta.sub.resolved", out,
+                   "\"resolved_output\": \"substitute\"");
+   expect_contains("utf.meta.sub.metrics", out, "\"metrics\": \"profile\"");
    expect_contains("utf.meta.sub.mark", out, "\"mark\": \"substituted\"");
    expect_contains("utf.meta.sub.flag", out, "\"substituted\": 1");
    utf8_terminal_profile_reset();

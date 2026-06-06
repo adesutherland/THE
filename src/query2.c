@@ -37,6 +37,9 @@
 #include <proto.h>
 #include "parserdiagnostics.h"
 #include "thedriver.h"
+#ifdef USE_UTF8
+# include "utfterm.h"
+#endif
 
 #include <query.h>
 
@@ -2517,12 +2520,89 @@ short extract_untaa(short number_variables,short itemno,CHARTYPE *itemargs,CHART
    return set_on_off_value(UNTAAx,1);
 }
 
+#ifdef USE_UTF8
+static const char *utf_display_query_name(Utf8TerminalDisplayMode display)
+{
+   switch (display)
+   {
+      case UTF8_TERM_DISPLAY_NORMAL:
+         return "NORMAL";
+      case UTF8_TERM_DISPLAY_DECOMPOSED:
+         return "DECOMPOSED";
+      case UTF8_TERM_DISPLAY_SINGLE:
+         return "SINGLE";
+      default:
+         return "UNKNOWN";
+   }
+}
+#endif
+
 /***********************************************************************/
 short extract_utf(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
 #ifdef USE_UTF8
-   return set_on_off_value(1,1);
+   size_t rule_count = utf8_terminal_profile_entry_count();
+   Utf8TerminalDisplayMode display = utf8_terminal_display_mode();
+
+   INTENTIONALLY_UNUSED_VARIABLE(number_variables);
+   INTENTIONALLY_UNUSED_VARIABLE(itemargs);
+   INTENTIONALLY_UNUSED_VARIABLE(argc);
+   INTENTIONALLY_UNUSED_VARIABLE(arg);
+   INTENTIONALLY_UNUSED_VARIABLE(arglen);
+
+   if (query_type == QUERY_EXTRACT)
+   {
+      char value[64];
+      char rule[512];
+      size_t i;
+      short rc;
+
+      sprintf(value, "%zu", rule_count + 3);
+      rc = set_rexx_variable(query_item[itemno].name, (CHARTYPE *)value,
+                             strlen(value), 0);
+      if (rc == RC_OK)
+         rc = set_rexx_variable(query_item[itemno].name, (CHARTYPE *)"ON",
+                                2, 1);
+      if (rc == RC_OK)
+      {
+         snprintf(value, sizeof(value), "DISPLAY %s",
+                  utf_display_query_name(display));
+         rc = set_rexx_variable(query_item[itemno].name, (CHARTYPE *)value,
+                                strlen(value), 2);
+      }
+      if (rc == RC_OK)
+      {
+         sprintf(value, "%zu", rule_count);
+         rc = set_rexx_variable(query_item[itemno].name, (CHARTYPE *)value,
+                                strlen(value), 3);
+      }
+      for (i = 0; rc == RC_OK && i < rule_count; i++)
+      {
+         if (!utf8_terminal_profile_canonical_rule_at(i, rule,
+                                                      sizeof(rule)))
+            rule[0] = '\0';
+         rc = set_rexx_variable(query_item[itemno].name, (CHARTYPE *)rule,
+                                strlen(rule), (int)i + 4);
+      }
+      if (rc == RC_SYSTEM_ERROR)
+      {
+         display_error(54,(CHARTYPE *)"",FALSE);
+         return EXTRACT_ARG_ERROR;
+      }
+      return EXTRACT_VARIABLES_SET;
+   }
+
+   item_values[1].value = (CHARTYPE *)"ON";
+   item_values[1].len = 2;
+   snprintf((DEFCHAR *)query_rsrvd, sizeof(query_rsrvd), "DISPLAY %s",
+            utf_display_query_name(display));
+   item_values[2].value = query_rsrvd;
+   item_values[2].len = strlen((DEFCHAR *)query_rsrvd);
+   sprintf((DEFCHAR *)query_num1, "%zu", rule_count);
+   item_values[3].value = query_num1;
+   item_values[3].len = strlen((DEFCHAR *)query_num1);
+   return 3;
 #else
    return set_on_off_value(0,1);
 #endif

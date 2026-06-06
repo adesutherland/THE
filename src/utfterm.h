@@ -34,6 +34,7 @@ typedef enum
    UTF8_TERM_OUTPUT_SUBSTITUTE,
    UTF8_TERM_OUTPUT_BASE,
    UTF8_TERM_OUTPUT_COMPONENTS,
+   UTF8_TERM_OUTPUT_SANITIZE,
    UTF8_TERM_OUTPUT_COUNT
 } Utf8TerminalOutput;
 
@@ -44,6 +45,7 @@ typedef enum
    UTF8_TERM_METRICS_PROFILE,
    UTF8_TERM_METRICS_COMPONENTS,
    UTF8_TERM_METRICS_EXPANDED,
+   UTF8_TERM_METRICS_OUTPUT,
    UTF8_TERM_METRICS_COUNT
 } Utf8TerminalMetrics;
 
@@ -115,6 +117,14 @@ const Utf8TerminalProfileEntry *utf8_terminal_profile_lookup_cluster(
    Utf8TerminalDisplayMode preferred_display);
 size_t utf8_terminal_profile_entry_count(void);
 const Utf8TerminalProfileEntry *utf8_terminal_profile_entry_at(size_t index);
+Utf8TerminalOutput utf8_terminal_resolved_output_for_entry(
+   const Utf8TerminalProfileEntry *entry);
+Utf8TerminalMetrics utf8_terminal_effective_metrics_for_entry(
+   const Utf8TerminalProfileEntry *entry);
+int utf8_terminal_profile_entry_canonical(const Utf8TerminalProfileEntry *entry,
+                                          char *out, size_t out_size);
+int utf8_terminal_profile_canonical_rule_at(size_t index,
+                                            char *out, size_t out_size);
 
 Utf8TerminalClass utf8_terminal_class_from_name(const char *name);
 Utf8TerminalDisplayMode utf8_terminal_display_from_name(const char *name);

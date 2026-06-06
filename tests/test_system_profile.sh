@@ -34,10 +34,14 @@ printf 'system profile smoke\n' > "${SAMPLE}"
 cat > "${THE_HOME}/${SYSTEM_PROFILE_NAME}" <<'PROFILE_EOF'
 options levelb
 address the
+'set utf display normal class keycap output sanitize keycap metrics output width 1 advance 1 cursor 1 repaint 1'
 'set utf display decomposed'
 utf = .string[]
 address the "extract /utf/" expose utf[]
 if utf[1] = "ON" then 'emsg QUERY_UTF_ON'
+if utf[2] = "DISPLAY DECOMPOSED" then 'emsg QUERY_UTF_MODE'
+if utf[3] > 0 then 'emsg QUERY_UTF_RULES'
+if utf[31] = "SET UTF DISPLAY NORMAL CLASS keycap OUTPUT SANITIZE METRICS OUTPUT MARK NONE WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1 CURSORSTRATEGY FIRST REPLACESTRATEGY WHOLE" then 'emsg QUERY_UTF_RULE'
 'emsg SYSTEM_PROFILE_RAN'
 PROFILE_EOF
 
@@ -54,6 +58,9 @@ env THE_HOME_DIR="${THE_HOME}" \
 
 grep -q "SYSTEM_PROFILE_RAN" "${WORK_DIR}/with-user.err"
 grep -q "QUERY_UTF_ON" "${WORK_DIR}/with-user.err"
+grep -q "QUERY_UTF_MODE" "${WORK_DIR}/with-user.err"
+grep -q "QUERY_UTF_RULES" "${WORK_DIR}/with-user.err"
+grep -q "QUERY_UTF_RULE" "${WORK_DIR}/with-user.err"
 grep -q "USER_PROFILE_RAN" "${WORK_DIR}/with-user.err"
 
 system_line="$(grep -n "SYSTEM_PROFILE_RAN" "${WORK_DIR}/with-user.err" | head -n 1 | cut -d: -f1)"
@@ -69,6 +76,9 @@ env THE_HOME_DIR="${THE_HOME}" \
 
 grep -q "SYSTEM_PROFILE_RAN" "${WORK_DIR}/no-user.err"
 grep -q "QUERY_UTF_ON" "${WORK_DIR}/no-user.err"
+grep -q "QUERY_UTF_MODE" "${WORK_DIR}/no-user.err"
+grep -q "QUERY_UTF_RULES" "${WORK_DIR}/no-user.err"
+grep -q "QUERY_UTF_RULE" "${WORK_DIR}/no-user.err"
 if grep -q "USER_PROFILE_RAN" "${WORK_DIR}/no-user.err"; then
   echo "-n should skip the user profile but keep the system profile" >&2
   exit 1

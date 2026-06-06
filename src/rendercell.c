@@ -45,7 +45,10 @@ void the_render_cluster_init(TheRenderCluster *cluster, TheRenderAttr attr)
    cluster->fallback_utf8[0] = '?';
    cluster->fallback_length = 1;
    cluster->feature_class = UTF8_TERM_CLASS_UNKNOWN;
+   cluster->display_mode = UTF8_TERM_DISPLAY_NORMAL;
    cluster->output_method = UTF8_TERM_OUTPUT_NATIVE;
+   cluster->resolved_output_method = UTF8_TERM_OUTPUT_NATIVE;
+   cluster->metric_method = UTF8_TERM_METRICS_PROFILE;
    cluster->mark = UTF8_TERM_MARK_NONE;
    cluster->logical_width = 1;
    cluster->width = 1;
@@ -192,21 +195,25 @@ int the_render_cluster_from_text_cluster(TheRenderCluster *dest,
    if (entry != NULL)
    {
       dest->feature_class = entry->feature_class;
+      dest->display_mode = entry->display_mode;
       dest->output_method = entry->output_method;
+      dest->resolved_output_method =
+         utf8_terminal_resolved_output_for_entry(entry);
+      dest->metric_method = utf8_terminal_effective_metrics_for_entry(entry);
       dest->mark = entry->mark;
       dest->repair_strategy = entry->replacement_strategy;
       the_render_cluster_set_fallback_codepoint(dest,
                                                 entry->substitute_codepoint);
-      if (entry->output_method == UTF8_TERM_OUTPUT_SUBSTITUTE)
+      if (dest->resolved_output_method == UTF8_TERM_OUTPUT_SUBSTITUTE)
       {
          dest->flags |= THE_RENDER_CLUSTER_SUBSTITUTE;
       }
-      else if (entry->output_method == UTF8_TERM_OUTPUT_BASE)
+      else if (dest->resolved_output_method == UTF8_TERM_OUTPUT_BASE)
          dest->flags |= THE_RENDER_CLUSTER_BASE;
-      else if (entry->output_method == UTF8_TERM_OUTPUT_COMPONENTS)
+      else if (dest->resolved_output_method == UTF8_TERM_OUTPUT_COMPONENTS)
          dest->flags |= THE_RENDER_CLUSTER_COMPONENTS;
       else if (force_expanded
-      ||       entry->output_method == UTF8_TERM_OUTPUT_EXPANDED)
+      ||       dest->resolved_output_method == UTF8_TERM_OUTPUT_EXPANDED)
       {
          dest->flags |= THE_RENDER_CLUSTER_EXPANDED;
       }
@@ -305,6 +312,15 @@ static int render_cluster_base_to_wchars(const TheRenderCluster *cluster,
                return 0;
          }
          return 1;
+
+      case UTF8_TERM_CLASS_REGIONAL_INDICATOR:
+         if (cluster->codepoint_count < 1)
+            return 0;
+         if (!utf8_cluster_codepoint_is_regional(cluster->codepoints[0]))
+            return 0;
+         return render_append_codepoint(out, out_size, used,
+                                        'A' + cluster->codepoints[0]
+                                      - 0x1F1E6u);
 
       case UTF8_TERM_CLASS_EMOJI_VARIATION:
       case UTF8_TERM_CLASS_TEXT_VARIATION:

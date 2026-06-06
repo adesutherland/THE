@@ -24,6 +24,7 @@ utf_prefix_bounds_left="$work_dir/utf-prefix-bounds-left.txt"
 utf_prefix_bounds_right="$work_dir/utf-prefix-bounds-right.txt"
 utf_prefix_case="$work_dir/utf-prefix-case.txt"
 utf_cua_overlay="$work_dir/utf-cua-overlay.txt"
+utf_keycap="$work_dir/utf-keycap.txt"
 out="$work_dir/out.jsonl"
 utf_out="$work_dir/utf-box.jsonl"
 utf_fill_out="$work_dir/utf-fill.jsonl"
@@ -35,6 +36,7 @@ utf_prefix_bounds_left_out="$work_dir/utf-prefix-bounds-left.jsonl"
 utf_prefix_bounds_right_out="$work_dir/utf-prefix-bounds-right.jsonl"
 utf_prefix_case_out="$work_dir/utf-prefix-case.jsonl"
 utf_cua_overlay_out="$work_dir/utf-cua-overlay.jsonl"
+utf_keycap_out="$work_dir/utf-keycap.jsonl"
 err="$work_dir/err.log"
 
 printf 'alpha beta gamma\nint main(void) { return 0; }\n' > "$sample"
@@ -49,6 +51,7 @@ printf 'A\344\270\255B\nC\344\270\255D\n' > "$utf_prefix_bounds_left"
 printf 'A\344\270\255B\nC\344\270\255D\n' > "$utf_prefix_bounds_right"
 printf 'a\344\270\255b\nc\344\270\255d\n' > "$utf_prefix_case"
 printf 'A\344\270\255B\nC\344\270\255D\nX\344\270\255Y\n' > "$utf_cua_overlay"
+printf 'A1\357\270\217\342\203\243B\n' > "$utf_keycap"
 
 "$the_bin" -h > "$work_dir/default-help.txt"
 "$the_bin" --driver curses -h > "$work_dir/curses-help.txt"
@@ -57,6 +60,10 @@ rg -- '--driver curses\|llm' "$work_dir/curses-help.txt" >/dev/null
 
 printf '%s\n' \
   'capabilities' \
+  'debug utf-display' \
+  'command set utf display decomposed' \
+  'debug utf-display' \
+  'command set utf display normal' \
   'look full compact max=120' \
   'delta filearea compact max=120' \
   'focus command' \
@@ -120,7 +127,12 @@ rg '"real_buffers":true' "$out" >/dev/null
 rg '"syntax_style_spans":true' "$out" >/dev/null
 rg '"parser_diagnostics":"first-class-snapshot-array"|"parser_diagnostics":"unavailable-in-this-build"' "$out" >/dev/null
 rg '"transient_ui":"shared-transientui-protocol-adapter"' "$out" >/dev/null
+rg '"utf":true' "$out" >/dev/null
+rg '"utf_display_mode":"normal"' "$out" >/dev/null
 rg '"inputs":\["look","delta","capabilities","focus","hit","key","text","type","command","debug","transient","quit"\]' "$out" >/dev/null
+rg '"debug_commands":\[[^]]*"utf-display"' "$out" >/dev/null
+rg '"debug":"utf-display","supported":true,"active_mode":"normal"' "$out" >/dev/null
+rg '"debug":"utf-display","supported":true,"active_mode":"decomposed"' "$out" >/dev/null
 rg '"crexx_macros":(true|false)' "$out" >/dev/null
 if grep -aq 'CREXX unavailable' "$the_bin"; then
   rg '"crexx_macros":false' "$out" >/dev/null
@@ -162,6 +174,28 @@ rg '"text":"Two"' "$out" >/dev/null
 rg '"status":"bye"' "$out" >/dev/null
 
 printf '%s\n' \
+  'command set utf display normal class keycap output sanitize keycap metrics output mark compressed width 1 advance 1 cursor 1 repaint 1 cursorstrategy cells replacestrategy cells' \
+  'debug utf-display' \
+  'look filearea compact max=80 prefix=0 command=0 status=0 utf=all' \
+  'command set utf display decomposed' \
+  'debug utf-display' \
+  'look filearea compact max=80 prefix=0 command=0 status=0 utf=all' \
+  'command set utf display single' \
+  'debug utf-display' \
+  'look filearea compact max=80 prefix=0 command=0 status=0 utf=all' \
+  'quit' |
+  TERM= THE_HOME_DIR="$release_dir" "$the_bin" --driver llm -n "$utf_keycap" \
+    >"$utf_keycap_out" 2>>"$err"
+
+rg '"debug":"utf-display","supported":true,"active_mode":"normal"' "$utf_keycap_out" >/dev/null
+rg '"debug":"utf-display","supported":true,"active_mode":"decomposed"' "$utf_keycap_out" >/dev/null
+rg '"debug":"utf-display","supported":true,"active_mode":"single"' "$utf_keycap_out" >/dev/null
+rg 'SET UTF DISPLAY NORMAL CLASS keycap OUTPUT SANITIZE METRICS OUTPUT MARK COMPRESSED WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1 CURSORSTRATEGY CELLS REPLACESTRATEGY CELLS' "$utf_keycap_out" >/dev/null
+rg '\[1,1,1,1,1,1,"keycap","sanitize","compressed",1,0,"normal","keycap","base","output","1"\]' "$utf_keycap_out" >/dev/null
+rg '\[1,1,3,3,3,3,"keycap","components","none",0,0,"decomposed","keycap","components","components","[^"]+"\]' "$utf_keycap_out" >/dev/null
+rg '\[1,1,1,1,1,1,"keycap","base","none",0,0,"single","keycap","base","profile","1"\]' "$utf_keycap_out" >/dev/null
+
+printf '%s\n' \
   'command mark box 1 3 1 3' \
   'look full compact max=80 prefix=0 command=0 status=0 utf=all' \
   'command delete block' \
@@ -171,7 +205,7 @@ printf '%s\n' \
     >"$utf_out" 2>>"$err"
 
 rg '"selection":\{"active":1,"start_line":1,"start_cell":3,"end_line":1,"end_cell":3' "$utf_out" >/dev/null
-rg '\[1,2,2,2,2,2,"wide","native","none",0,0\]' "$utf_out" >/dev/null
+rg '\[1,2,2,2,2,2,"wide","native","none",0,0,"normal","wide","native","profile",""\]' "$utf_out" >/dev/null
 rg '"t":"AB"' "$utf_out" >/dev/null
 if LC_ALL=C rg -q "$(printf '\357\277\275')" "$utf_out"; then
   echo "UTF box delete split a cluster" >&2
@@ -204,7 +238,7 @@ printf '%s\n' \
     >"$utf_copy_out" 2>>"$err"
 
 rg '"line":2,"cur":1,"t":"-中---"' "$utf_copy_out" >/dev/null
-rg '\[1,2,2,2,2,2,"wide","native","none",0,0\]' "$utf_copy_out" >/dev/null
+rg '\[1,2,2,2,2,2,"wide","native","none",0,0,"normal","wide","native","profile",""\]' "$utf_copy_out" >/dev/null
 if LC_ALL=C rg -q "$(printf '\357\277\275')" "$utf_copy_out"; then
   echo "UTF box copy split a cluster" >&2
   cat "$utf_copy_out" >&2
@@ -345,7 +379,7 @@ if rg -q 'Error opening terminal|setupterm|initscr' \
      "$out" "$utf_out" "$utf_fill_out" "$utf_copy_out" "$utf_move_out" \
      "$utf_shift_out" "$utf_prefix_shift_out" "$utf_prefix_bounds_left_out" \
      "$utf_prefix_bounds_right_out" "$utf_prefix_case_out" \
-     "$utf_cua_overlay_out" "$err"; then
+     "$utf_cua_overlay_out" "$utf_keycap_out" "$err"; then
   echo "llm driver appeared to initialize curses" >&2
   cat "$out" >&2
   cat "$utf_out" >&2
@@ -358,6 +392,7 @@ if rg -q 'Error opening terminal|setupterm|initscr' \
   cat "$utf_prefix_bounds_right_out" >&2
   cat "$utf_prefix_case_out" >&2
   cat "$utf_cua_overlay_out" >&2
+  cat "$utf_keycap_out" >&2
   cat "$err" >&2
   exit 1
 fi
@@ -366,7 +401,7 @@ if rg -q 'Unable to update CREXX variable' \
      "$out" "$utf_out" "$utf_fill_out" "$utf_copy_out" "$utf_move_out" \
      "$utf_shift_out" "$utf_prefix_shift_out" "$utf_prefix_bounds_left_out" \
      "$utf_prefix_bounds_right_out" "$utf_prefix_case_out" \
-     "$utf_cua_overlay_out" "$err"; then
+     "$utf_cua_overlay_out" "$utf_keycap_out" "$err"; then
   echo "llm command modal continuation tried to write Rexx variables without an active macro" >&2
   cat "$out" >&2
   cat "$utf_out" >&2
@@ -379,6 +414,7 @@ if rg -q 'Unable to update CREXX variable' \
   cat "$utf_prefix_bounds_right_out" >&2
   cat "$utf_prefix_case_out" >&2
   cat "$utf_cua_overlay_out" >&2
+  cat "$utf_keycap_out" >&2
   cat "$err" >&2
   exit 1
 fi
