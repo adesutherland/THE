@@ -613,10 +613,10 @@ static int show_write_utf8_status_keycap_preview_at(TheDriverWindow *win,
    the_render_cluster_set_widths(&base_cell, 1, 1, 1, 1, 1);
    the_driver->write_render_cluster_at(win, row, col, &base_cell);
    /*
-    * Do not emit U+20E3 here. The probe-derived keycap mitigation proves that
-    * Apple Terminal is unreliable when the real keycap combining mark is
-    * written directly, and OUTPUT base would duplicate the base character in
-    * this decomposed preview. Use a safe outline marker for the keycap part.
+    * Do not emit U+20E3 here. The keycap profile policy keeps Apple Terminal
+    * away from the real keycap combining mark, and OUTPUT base would duplicate
+    * the base character in this decomposed preview. Use a safe outline marker
+    * for the keycap part.
     */
    show_write_utf8_status_blank_cell_at(win, row, col + 1, colour);
    the_render_cluster_set_widths(&outline_cell, 1, 1, 1, 1, 1);

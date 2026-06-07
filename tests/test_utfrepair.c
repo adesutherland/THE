@@ -40,6 +40,14 @@ static const Utf8TerminalProfileEntry *entry_for_cluster(const CHARTYPE *line,
                                                utf8_terminal_display_mode());
 }
 
+static void use_keycap_cursor_first(const char *name)
+{
+   expect_int(name,
+              utf8_terminal_profile_apply_line(
+                 "SET UTF TERMINAL CLASS keycap CURSORSTRATEGY first"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+}
+
 static void test_cursor_keycap_first_feature(void)
 {
 #ifdef USE_UTF8PROC
@@ -52,6 +60,7 @@ static void test_cursor_keycap_first_feature(void)
    Utf8RepairPlan plan;
 
    utf8_terminal_profile_reset();
+   use_keycap_cursor_first("cursor.keycap.first.apply");
    old_cluster = cluster_at_cell(line, sizeof(line), 0);
    new_cluster = cluster_at_cell(line, sizeof(line), 1);
    plan = utf8_repair_plan_for_cursor(
@@ -84,6 +93,7 @@ static void test_cursor_line_context_can_select_worse_strategy(void)
    Utf8RepairPlan plan;
 
    utf8_terminal_profile_reset();
+   use_keycap_cursor_first("cursor.context.first.apply");
    old_cluster = cluster_at_cell(line, sizeof(line), 2);
    new_cluster = cluster_at_cell(line, sizeof(line), 3);
    plan = utf8_repair_plan_for_cursor(
@@ -133,6 +143,7 @@ static void test_cursor_line_context_applies_inside_trailing_spaces(void)
    Utf8RepairPlan plan;
 
    utf8_terminal_profile_reset();
+   use_keycap_cursor_first("cursor.context.trailing.first.apply");
    old_cluster = cluster_at_cell(line, sizeof(line), 6);
    new_cluster = cluster_at_cell(line, sizeof(line), 7);
    plan = utf8_repair_plan_for_cursor(
@@ -225,6 +236,7 @@ static void test_cursor_line_context_applies_after_line_end(void)
       };
 
       utf8_terminal_profile_reset();
+      use_keycap_cursor_first("cursor.context.eol.keycap.first.apply");
       plan = utf8_repair_plan_for_cursor(
          keycap_line, sizeof(keycap_line), 0,
          3, old_cluster, 0, NULL,
@@ -277,6 +289,7 @@ static void test_keycap_space_after_eol_demonstrator(void)
    expect_int("cursor.demo.end.cell", end.cell_column, 7);
 
    utf8_terminal_profile_reset();
+   use_keycap_cursor_first("cursor.demo.first.apply");
    old_cluster = cluster_at_cell(line, sizeof(line), 5);
    new_cluster = cluster_at_cell(line, sizeof(line), 6);
    plan = utf8_repair_plan_for_cursor(

@@ -1313,8 +1313,8 @@ int utf8_terminal_profile_apply_apple_terminal(void)
 {
    /*
     * Keep compiled defaults generic. Apple Terminal policy lives in
-    * system-osx.the so probe results and hand-tuned platform overrides are
-    * visible in one profile and can be replaced without rebuilding THE.
+    * system-osx.the so hand-tuned platform overrides are visible in one
+    * profile and can be replaced without rebuilding THE.
     */
    return 0;
 }

@@ -248,11 +248,11 @@ here. REXX-style profile fragments are accepted, so `/* ... */` comments,
 `'SET UTF TERMINAL CLASS keycap OUTPUT base'` may be used. Blank lines
 and lines beginning with `*` or `#` are ignored.
 
-The probe-generated profile path is being retired. The system profile should be
-readable and editable directly, and automated tests should verify effective
-settings through query/LLM diagnostics rather than through a terminal probe. The
-older `LAYOUT` and `PAINT` syntax is intentionally not accepted, to avoid
-mixing the previous three-width model with the current four-width model.
+The historical terminal-profile generation path has been retired. The system
+profile should be readable and editable directly, and automated tests verify
+effective settings through query/LLM diagnostics rather than through a terminal
+probe. The older `LAYOUT` and `PAINT` syntax is intentionally not accepted, to
+avoid mixing the previous three-width model with the current four-width model.
 
 ## Query And Round-Trip Testing
 
@@ -290,22 +290,22 @@ defaults are:
 | class | output | metrics | W/A/C/R | cursor | replace |
 | --- | --- | --- | --- | --- | --- |
 | ascii | native | auto | 1/1/1/1 | cells | cells |
-| combining | native | auto | 1/1/1/1 | line | line |
-| combining-stack | native | auto | 1/1/1/1 | line | line |
+| combining | native | auto | 1/1/1/1 | cells | cells |
+| combining-stack | native | auto | 1/1/1/1 | cells | cells |
 | wide | native | auto | 2/2/2/2 | cells | cells |
 | ambiguous | native | auto | 1/1/1/1 | cells | cells |
-| emoji | native | auto | 2/2/2/2 | line | line |
-| text-variation | native | auto | 1/1/1/1 | line | line |
-| emoji-variation | native | auto | 2/2/2/2 | line | line |
-| modifier | native | auto | 2/2/2/2 | line | line |
-| keycap | native | auto | 2/2/2/2 | first | whole |
+| emoji | native | auto | 2/2/2/2 | cells | cells |
+| text-variation | native | auto | 1/1/1/1 | cells | cells |
+| emoji-variation | native | auto | 2/2/2/2 | cells | cells |
+| modifier | native | auto | 2/2/2/2 | cells | cells |
+| keycap | native | auto | 2/2/2/2 | cells | cells |
 | regional-indicator | native | auto | 2/2/2/2 | cells | cells |
 | regional-flag | native | auto | 2/2/2/2 | cells | cells |
-| short-zwj | native | auto | 2/2/2/2 | line | line |
-| heart-zwj | native | auto | 2/2/2/2 | line | line |
-| family-zwj | native | auto | 2/2/2/2 | line | line |
-| tag-flag | native | auto | 2/2/2/2 | line | line |
-| private-use | native | auto | 1/1/1/1 | line | line |
+| short-zwj | native | auto | 2/2/2/2 | cells | cells |
+| heart-zwj | native | auto | 2/2/2/2 | cells | cells |
+| family-zwj | native | auto | 2/2/2/2 | cells | cells |
+| tag-flag | native | auto | 2/2/2/2 | cells | cells |
+| private-use | native | auto | 1/1/1/1 | cells | cells |
 
 The DECOMPOSED defaults use native output for simple classes and component
 preview output for variation, modifier, keycap, regional-flag, ZWJ, and tag-flag

@@ -1,6 +1,6 @@
 # UTF-8 Design and Status
 
-Last updated: 2026-06-06.
+Last updated: 2026-06-07.
 
 This is the single UTF-8 design and status note for THE. It replaces the older
 UTF design, handover, and cluster-mapping notes. Keep historical experiments
@@ -78,7 +78,8 @@ logical positions and driver operations, not curses cursor state.
 
 ## Terminal Profile Model
 
-`SET UTF TERMINAL CLASS` configures physical rendering for each cluster class.
+`SET UTF DISPLAY <mode> CLASS` configures physical rendering for each cluster
+class in each display mode.
 The active profile entry contains:
 
 ```text
@@ -134,14 +135,14 @@ fixed sample width. Longer ZWJ sequences therefore do not inherit one hard-coded
 family width. The component widths come from the same platform profile used for
 individual emoji, variation, modifier, and regional-indicator classes.
 
-When adding probe results, keep the instruction order conceptual rather than
+When adding platform rules, keep the instruction order conceptual rather than
 terminal-specific: choose the display mode, choose the output transform, then
 choose the metric model. A platform profile should override only the part it has
-measured. For example, macOS can set NORMAL keycap, regional-flag, ZWJ, or tag
-classes to `OUTPUT sanitize` with metrics based on the sanitized output, while
-another terminal leaves those classes at native/profile metrics or uses explicit
-two-cell profile widths. This keeps new Apple workarounds from changing
-platforms whose behavior has already been calibrated.
+measured. For example, macOS keeps regional flags and modifier sequences native
+with calibrated profile metrics, sanitizes keycaps, substitutes unsafe ZWJ
+classes, and uses `DISPLAYSTRATEGY isolate` for decomposed flags. This keeps
+new Apple workarounds from changing platforms whose behavior has already been
+calibrated.
 
 THE loads generic built-in defaults, any optional terminal identity hook, the
 platform system profile, and then the user profile. Terminal identity hooks must
@@ -149,12 +150,9 @@ not hide platform policy that can be expressed in the profile language. On macOS
 the generated platform profile is `system-osx.the`, so Apple-specific settings
 remain visible and replaceable without rebuilding THE.
 
-## Next Profile Grammar
+## Profile Grammar
 
-The current profile grammar is useful but confusing because display mode,
-cluster selection, output transform, metrics, and repair strategy can appear as
-separate commands that look equally important. The next revision should make the
-concern order explicit and mode-scoped.
+The current profile grammar makes the concern order explicit and mode-scoped.
 
 Keep the global mode command:
 
@@ -162,8 +160,7 @@ Keep the global mode command:
 SET UTF DISPLAY NORMAL|DECOMPOSED|SINGLE|TOGGLE
 ```
 
-Use a separate rule command whose first operand is the display mode being
-configured:
+Use a rule command whose first operand is the display mode being configured:
 
 ```text
 SET UTF DISPLAY NORMAL     CLASS selector OUTPUT method [parameters...]
@@ -171,13 +168,13 @@ SET UTF DISPLAY DECOMPOSED CLASS selector OUTPUT method [parameters...]
 SET UTF DISPLAY SINGLE     CLASS selector OUTPUT method [parameters...]
 ```
 
-This gives every rule the same shape:
+Every rule has the same shape:
 
 ```text
 mode -> selector -> output plan -> physical parameters
 ```
 
-The implementation should mirror that shape:
+The implementation mirrors that shape:
 
 ```c
 typedef struct UtfDisplayRule {
@@ -288,8 +285,10 @@ MARK none|compressed|substituted|unsafe
 Example profile policy:
 
 ```text
-SET UTF DISPLAY NORMAL CLASS regional-flag OUTPUT SANITIZE REGION WIDTH 2 ADVANCE 2 CURSOR 2 REPAINT 2
-SET UTF DISPLAY NORMAL CLASS zwj OUTPUT SANITIZE COMPONENTS METRICS OUTPUT
+SET UTF DISPLAY NORMAL CLASS keycap OUTPUT SANITIZE KEYCAP METRICS OUTPUT WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1
+SET UTF DISPLAY NORMAL CLASS regional-flag OUTPUT NATIVE METRICS PROFILE WIDTH 2 ADVANCE 3 CURSOR 3 REPAINT 3
+SET UTF DISPLAY NORMAL CLASS short-zwj OUTPUT SUBSTITUTE U+25A1 METRICS OUTPUT
+SET UTF DISPLAY DECOMPOSED CLASS regional-flag OUTPUT CHARACTERS METRICS OUTPUT DISPLAYSTRATEGY ISOLATE
 SET UTF DISPLAY DECOMPOSED CLASS zwj OUTPUT CHARACTERS METRICS OUTPUT
 SET UTF DISPLAY SINGLE CLASS ANY OUTPUT REPLACEMENT DEFAULT WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1
 ```
@@ -306,7 +305,7 @@ editing view. It may use native output where native output is reliable, and it
 may use `OUTPUT SANITIZE` where the terminal's glyph rendering and grid
 accounting disagree.
 
-This should simplify the curses driver. The driver should receive a resolved
+This simplifies the curses driver. The driver receives a resolved
 rule and execute it:
 
 ```text
@@ -316,14 +315,16 @@ selector matched -> output transform -> metrics -> cursor/repaint strategy
 The driver should not contain scattered Apple-specific tests for keycaps,
 regional flags, tag flags, or ZWJ sequences. Apple policy belongs in
 `system-osx.the` through mode-scoped rules. If a cluster class is safe, leave it
-native. If it is unsafe, sanitize that class and stop there. DECOMPOSED and the
-UTF status display provide the explanatory component view; SINGLE provides the
-one-cell safety view.
+native. If it is unsafe, use the smallest profile-visible transform that gives
+stable editing behavior. DECOMPOSED and the UTF status display provide the
+explanatory component view; SINGLE provides the one-cell safety view.
 
 `SANITIZE` does not mean "strip all Unicode features." It is a narrow
-class-aware terminal policy. For example, the macOS profile may sanitize
-keycaps, regional flags, tag flags, and selected ZWJ classes while leaving
-ordinary wide/CJK characters, combining letters, and simple emoji native.
+class-aware terminal policy. In the macOS profile, keycaps sanitize to their
+base key, ZWJ classes substitute to stable one-cell symbols, regional flags
+remain native with a calibrated three-cell advance, modifiers remain native
+with calibrated profile metrics, and ordinary wide/CJK characters, combining
+letters, and simple emoji stay native through the generic defaults.
 
 ## Width Model
 
@@ -535,12 +536,16 @@ Keep these lessons because they still affect design:
 - Native keycap glyphs were unreliable enough that the macOS profile now uses
   `OUTPUT SANITIZE`, `MARK compressed`, and one-cell physical widths for
   keycaps. The stored text remains the original keycap sequence.
-- Regional flags are separate from keycaps, but Apple Terminal shows a similar
-  native overhang/closer problem in no-curses probes. NORMAL can use
-  `OUTPUT SANITIZE` for these classes rather than preserving native glyphs with
-  sacrificial physical cells.
+- Regional flags are separate from keycaps. The working macOS baseline keeps
+  them native in NORMAL mode with a two-cell `WIDTH` and three-cell
+  `ADVANCE`/`CURSOR`/`REPAINT`. In DECOMPOSED mode, `DISPLAYSTRATEGY isolate`
+  reproduces the status-line component spacing and then applies the UTF
+  remapping hint over the whole rendered component span.
+- Emoji modifier sequences are native on the current macOS baseline, but use
+  calibrated profile metrics because Apple Terminal's terminal-cell accounting
+  does not match the simple two-cell default.
 - ZWJ sequences must remain one logical grapheme cluster whether NORMAL renders
-  a sanitized view, DECOMPOSED renders the status-style component preview, or
+  a substitute view, DECOMPOSED renders the status-style component preview, or
   SINGLE uses a substitute. Native ZWJ output is an optional platform policy,
   not the definition of NORMAL mode.
 - A successful cursor-walk probe does not prove replacement behavior. Cursor
@@ -568,8 +573,8 @@ Keep these lessons from the probes:
   composed-glyph success.
 
 Do not spend more implementation time chasing Apple Terminal native redraw
-behavior. Convert proven unsafe Apple classes to profile-visible
-`OUTPUT SANITIZE` rules, and use `EXTRACT /UTF/`, `debug utf-display`, and
+behavior through hidden C branches. Convert proven unsafe Apple classes to
+profile-visible rules, and use `EXTRACT /UTF/`, `debug utf-display`, and
 LLM-driver snapshots for automated testing.
 
 ## Validation Snapshot
@@ -584,7 +589,7 @@ ctest --test-dir cmake-build-debug \
   --output-on-failure
 ```
 
-A manual `the --driver llm` probe confirmed:
+A manual `the --driver llm` run confirmed:
 
 - capabilities report `driver=llm`, `curses=false`, full THE dispatcher,
   CREXX available in this build, syntax/style spans, parser diagnostics, and
@@ -607,12 +612,7 @@ A manual `the --driver llm` probe confirmed:
    and `the --driver llm` on Linux and native Windows. Add system profiles only
    after profile/LLM evidence exists for those terminals.
 
-3. Probe decommissioning.
-   Probe executables, CMake targets, and generated-profile probe tests are
-   retired. Keep new profile-policy tests on `EXTRACT /UTF/`, `debug
-   utf-display`, and LLM render metadata.
-
-4. UTF text entry.
+3. UTF text entry.
    Introduce a first-class UTF text input path. `llm_session` currently sends
    bytes through `process_key()`, and the historical `TEXT` command loops over
    bytes before reaching `textedit_*_utf8()`. The fix should pass whole UTF-8
@@ -620,73 +620,24 @@ A manual `the --driver llm` probe confirmed:
    LLM normalized input, with tests for CJK, combining marks, emoji, and
    invalid/truncated input.
 
-5. Dependency policy.
+4. Dependency policy.
    Keep `utf8proc` as the supported UTF dependency. Decide whether to remove
    the non-utf8proc maintained path or leave it as explicitly unsupported
    fallback code.
 
-6. Layout/performance cache.
+5. Layout/performance cache.
    A shared per-line UTF layout cache is still desirable so rendering, status,
    mouse/hit mapping, selections, and LLM metadata consume the same computed
    byte, cluster, logical, `WIDTH`, and `ADVANCE` map without repeated scans.
 
-7. Remaining legacy column audit.
+6. Remaining legacy column audit.
    Main box/mark/shift/case paths are covered, but any older command path that
    still treats `current_column`, `verify_col`, or `verify_end` as a user-facing
    UTF column should be reviewed opportunistically.
 
-8. Exact profile matching.
+7. Exact profile matching.
    Class-level profiles are enough for current problems. Add exact sequence or
    wildcard `MATCH` rules only if class-level policy proves too coarse.
-
-## Next Session Prompt
-
-Use this prompt to start the implementation slice:
-
-```text
-We are working in THE on the UTF display architecture. Read doc/utf-design.md
-and doc/commands/SET_UTF.md first.
-
-Implement the new mode-scoped UTF display profile model:
-
-1. Keep SET UTF DISPLAY NORMAL|DECOMPOSED|SINGLE|TOGGLE as the global active
-   display mode. TOGGLE must cycle NORMAL -> DECOMPOSED -> SINGLE -> NORMAL.
-2. Add the rule grammar:
-   SET UTF DISPLAY NORMAL|DECOMPOSED|SINGLE CLASS selector OUTPUT method [parameters...]
-   The rule lookup namespace is per mode: exact/predicate selectors first,
-   class selector next, explicit CLASS ANY/default last. Do not fall back from
-   DECOMPOSED or SINGLE to NORMAL.
-3. Add OUTPUT SANITIZE as a first-class output method. It is mainly for NORMAL
-   mode and should be class-aware, not a global Unicode strip pass. Sanitize
-   only proven unsafe classes. On macOS, start with keycap, regional-flag,
-   tag-flag, and ZWJ classes that are unsafe in Apple Terminal. Leave safe
-   classes native.
-4. Keep WIDTH, ADVANCE, CURSOR, and REPAINT as independent fields, but make
-   sanitized NORMAL rules default to METRICS OUTPUT so common Apple cases become
-   1/1/1/1 or 2/2/2/2 rather than bespoke redraw hacks.
-5. Make the curses driver execute resolved profile rules. Remove scattered
-   Apple-specific C rules where the profile can express the behavior. Apple
-   policy belongs in system-osx.the.
-6. Extend EXTRACT /UTF/ so tests can query active UTF support, active display
-   mode, and canonical SET UTF DISPLAY ... CLASS ... rules that can be replayed
-   into a fresh profile.
-7. Add an LLM protocol diagnostic, preferably debug utf-display, and include
-   active UTF display mode in capabilities. The diagnostic should expose the
-   effective mode-scoped rules in machine-readable form for automated tests.
-8. Update LLM UTF annotations so snapshots report the resolved rule facts:
-   active mode, class/selector, output method, mark, WIDTH, ADVANCE, CURSOR,
-   REPAINT, and emitted display text where safe.
-9. Update tests to drive SET UTF DISPLAY through the real command dispatcher and
-   validate round-tripping through EXTRACT /UTF/ and debug utf-display. Prefer
-   test_utfterm, test_utflayout, test_llmdriver, test_llmruntime, and
-   test_the_llm_full_runtime over terminal probes.
-10. Decommission probe executables and related generated-profile tests after
-    the query/LLM path covers the same profile policy. Do not spend more time
-    fixing Apple Terminal native redraw behavior; use NORMAL sanitize for unsafe
-    classes, DECOMPOSED/status for explanation, and SINGLE for one-cell safety.
-
-Run git diff --check and the focused UTF/LLM test slice before reporting.
-```
 
 ## Guardrails
 

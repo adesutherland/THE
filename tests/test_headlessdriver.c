@@ -228,7 +228,7 @@ static void test_render_cell_model(void)
       expect_int("render.keycap.cursor", render.cursor_width, 2);
       expect_int("render.keycap.repaint", render.repaint_width, 2);
       expect_int("render.keycap.repair", render.repair_strategy,
-                 UTF8_TERM_STRATEGY_CLEAR_WHOLE_FAST);
+                 UTF8_TERM_STRATEGY_CHANGED_CELLS);
       expect_int("render.keycap.output", render.output_method,
                  UTF8_TERM_OUTPUT_NATIVE);
       expect_int("render.keycap.mark", render.mark, UTF8_TERM_MARK_NONE);
