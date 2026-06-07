@@ -285,13 +285,11 @@ static TheRenderAttr curses_driver_cluster_attr(
       return THE_RENDER_ATTR_NORMAL;
    attr = cluster->attr;
    /*
-    * Replacement output in DECOMPOSED and SINGLE is an explanatory display
-    * fact. NORMAL may also use replacement or sanitize for terminal safety,
-    * but it should remain visually natural unless a separate mark requests
-    * annotation elsewhere.
+    * Replacement output is a UTF display fact, including NORMAL sanitize
+    * output. Flag it so the user can tell the visible cells are not native
+    * stored text.
     */
-   if (cluster->display_mode != UTF8_TERM_DISPLAY_NORMAL
-   &&  curses_driver_cluster_uses_replacement_output(cluster))
+   if (curses_driver_cluster_uses_replacement_output(cluster))
       attr = the_render_attr_merge_style(attr, THE_STYLE_REVERSE);
    return attr;
 }
@@ -655,6 +653,36 @@ void curses_driver_fill_cells_at(WINDOW *win, int row, int col, int width,
    for (i = 0; i < width; i++)
       waddch(win, ' ');
    wattrset(win, curses_driver_lower_attr(THE_RENDER_ATTR_NORMAL));
+}
+
+static void curses_driver_overlay_cell_attrs_at(WINDOW *win, int row, int col,
+                                                int width,
+                                                TheDriverAttr colour)
+{
+   int maxy;
+   int maxx;
+   attr_t attrs;
+   short pair;
+
+   if (win == NULL || width <= 0)
+      return;
+   maxy = getmaxy(win);
+   maxx = getmaxx(win);
+   if (row < 0 || row >= maxy || col >= maxx)
+      return;
+   if (col < 0)
+   {
+      width += col;
+      col = 0;
+   }
+   if (width <= 0)
+      return;
+   if (col + width > maxx)
+      width = maxx - col;
+
+   attrs = (attr_t)curses_driver_style_to_attr(the_render_attr_style(colour));
+   pair = curses_driver_pair_for_attr(colour);
+   mvwchgat(win, row, col, width, attrs, pair, NULL);
 }
 
 void curses_driver_write_ascii_cells_at(WINDOW *win, int row, int col,
@@ -2008,6 +2036,21 @@ static void curses_driver_ops_write_ascii_cells_at(
 #endif
 }
 
+static void curses_driver_ops_overlay_cell_attrs_at(
+   TheDriverWindow *win, int row, int col, int width, TheDriverAttr colour)
+{
+#ifdef USE_UTF8
+   curses_driver_overlay_cell_attrs_at(curses_driver_window_from_driver(win),
+                                       row, col, width, colour);
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(win);
+   INTENTIONALLY_UNUSED_VARIABLE(row);
+   INTENTIONALLY_UNUSED_VARIABLE(col);
+   INTENTIONALLY_UNUSED_VARIABLE(width);
+   INTENTIONALLY_UNUSED_VARIABLE(colour);
+#endif
+}
+
 static void curses_driver_ops_redraw_window(TheDriverWindow *win)
 {
    curses_driver_redraw_window(curses_driver_window_from_driver(win));
@@ -2074,6 +2117,7 @@ const TheDriverOps the_curses_driver_ops = {
    .write_render_cluster_at = curses_driver_ops_write_render_cluster_at,
    .fill_cells_at = curses_driver_ops_fill_cells_at,
    .write_ascii_cells_at = curses_driver_ops_write_ascii_cells_at,
+   .overlay_cell_attrs_at = curses_driver_ops_overlay_cell_attrs_at,
    .read_input_event = curses_driver_read_input_event,
    .prepare_for_shell_escape = curses_driver_prepare_for_shell_escape,
    .repair_terminal_background = curses_driver_repair_terminal_background,

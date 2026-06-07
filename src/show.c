@@ -506,6 +506,23 @@ static int show_render_cluster_from_text(TheRenderCluster *render,
    return 1;
 }
 
+static void show_write_utf8_component_preview_cluster_at(TheDriverWindow *win,
+                                                       int row, int col,
+                                                       int max_width,
+                                                       const CHARTYPE *line,
+                                                       size_t len,
+                                                       TextCluster cluster,
+                                                       TheDriverAttr colour);
+
+static int show_render_cluster_wants_isolated_components(
+   const TheRenderCluster *render)
+{
+   return render != NULL
+       && render->display_strategy == UTF8_TERM_DISPLAY_STRATEGY_ISOLATE
+       && render->resolved_output_method == UTF8_TERM_OUTPUT_COMPONENTS
+       && render->codepoint_count > 0;
+}
+
 static void show_write_utf8_cluster_at(TheDriverWindow *win, int row, int col,
                                        const CHARTYPE *line, size_t len,
                                        TextCluster cluster, TheDriverAttr colour,
@@ -518,7 +535,18 @@ static void show_write_utf8_cluster_at(TheDriverWindow *win, int row, int col,
    {
       if (expected_width > 0)
          render.advance_width = expected_width;
-      the_driver->write_render_cluster_at(win, row, col, &render);
+      if (show_render_cluster_wants_isolated_components(&render))
+      {
+         show_write_utf8_component_preview_cluster_at(
+            win, row, col, render.advance_width,
+            line, len, cluster, colour);
+         the_driver->overlay_cell_attrs_at(
+            win, row, col, render.advance_width,
+            the_render_attr_merge_style((TheRenderAttr)colour,
+                                        THE_STYLE_REVERSE));
+      }
+      else
+         the_driver->write_render_cluster_at(win, row, col, &render);
    }
 }
 
@@ -598,7 +626,7 @@ static int show_write_utf8_status_keycap_preview_at(TheDriverWindow *win,
    return TRUE;
 }
 
-static void show_write_utf8_status_expanded_cluster_at(TheDriverWindow *win,
+static void show_write_utf8_component_preview_cluster_at(TheDriverWindow *win,
                                                        int row, int col,
                                                        int max_width,
                                                        const CHARTYPE *line,
@@ -2328,7 +2356,7 @@ void show_statarea(void)
    }
    if ( draw_status_cluster )
    {
-      show_write_utf8_status_expanded_cluster_at(
+      show_write_utf8_component_preview_cluster_at(
          statarea, 0, charpos + status_cluster_offset,
          status_cluster_expanded_width, status_cluster_line,
          status_cluster_len, status_cluster, status_colour);

@@ -13,6 +13,7 @@
 [SET] UTF TERMINAL CLASS class [DISPLAY display] OUTPUT method [U+codepoint]
 [SET] UTF TERMINAL CLASS class [DISPLAY display] METRICS method
 [SET] UTF TERMINAL CLASS class [DISPLAY display] MARK mark
+[SET] UTF TERMINAL CLASS class [DISPLAY display] DISPLAYSTRATEGY strategy
 [SET] UTF TERMINAL CLASS class [DISPLAY display] CURSORSTRATEGY strategy
 [SET] UTF TERMINAL CLASS class [DISPLAY display] REPLACESTRATEGY strategy
 ```
@@ -50,6 +51,7 @@ The target rule grammar is mode-scoped:
 ```text
 SET UTF DISPLAY NORMAL CLASS keycap OUTPUT SANITIZE KEYCAP WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1
 SET UTF DISPLAY DECOMPOSED CLASS keycap OUTPUT CHARACTERS METRICS OUTPUT
+SET UTF DISPLAY DECOMPOSED CLASS regional-flag OUTPUT COMPONENTS DISPLAYSTRATEGY ISOLATE
 SET UTF DISPLAY SINGLE CLASS ANY OUTPUT REPLACEMENT DEFAULT WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1
 ```
 
@@ -118,6 +120,20 @@ methods are:
 
 `auto` preserves the normal contract: native output uses profile metrics, while
 components/expanded/sanitize output uses dynamic output metrics where possible.
+
+DISPLAYSTRATEGY controls how transformed output is lowered after OUTPUT has
+selected the visible representation. Supported strategies are:
+
+- inline - emit the transformed output in the normal component sequence
+- isolate - emit visible components as separate cells, insert separator cells
+  between adjacent visible components, then apply the UTF remapping hint across
+  the whole rendered span
+
+`isolate` is intended for classes whose native visible components can recombine
+when adjacent. Regional flags are the first calibrated use: decomposed
+regional indicators are written normally with one separator cell between them,
+and reverse video is applied afterward as a span overlay so the glyph sequence
+stays stable.
 A platform profile can override this without changing what is drawn. For
 example, Apple Terminal should normally use `OUTPUT SANITIZE` for unsafe native
 classes rather than preserving native ZWJ/keycap/flag output with bespoke

@@ -954,6 +954,33 @@ static void headless_driver_write_ascii_cells_at(TheDriverWindow *win,
    }
 }
 
+static void headless_driver_overlay_cell_attrs_at(TheDriverWindow *win,
+                                                  int row, int col, int width,
+                                                  TheDriverAttr colour)
+{
+   int i;
+
+   if (win == NULL || width <= 0)
+      return;
+   for (i = 0; i < width; i++)
+   {
+      int cell_col = col + i;
+      size_t index;
+
+      if (!headless_window_contains(win, row, cell_col))
+         continue;
+      index = headless_cell_index(win, row, cell_col);
+      win->attrs[index] = colour;
+      win->cells[index] = the_driver_cell_with_attr(win->cells[index],
+                                                    colour);
+      if (win->render_cells != NULL)
+         win->render_cells[index].attr = colour;
+   }
+   win->dirty = 1;
+   headless_log("overlay-attrs:window:%d:%d:%d:%d", win->id, row, col,
+                width);
+}
+
 static int headless_driver_read_input_event(TheInputEvent *event)
 {
    if (event == NULL)
@@ -1111,6 +1138,7 @@ const TheDriverOps the_headless_driver_ops = {
    .write_render_cluster_at = headless_driver_write_render_cluster_at,
    .fill_cells_at = headless_driver_fill_cells_at,
    .write_ascii_cells_at = headless_driver_write_ascii_cells_at,
+   .overlay_cell_attrs_at = headless_driver_overlay_cell_attrs_at,
    .read_input_event = headless_driver_read_input_event,
    .prepare_for_shell_escape = headless_driver_prepare_for_shell_escape,
    .repair_terminal_background = headless_driver_repair_terminal_background,

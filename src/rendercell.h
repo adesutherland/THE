@@ -45,6 +45,7 @@ typedef struct
    Utf8TerminalOutput resolved_output_method;
    Utf8TerminalMetrics metric_method;
    Utf8TerminalMark mark;
+   Utf8TerminalDisplayStrategy display_strategy;
    /* Logical editor width from TextCluster/TextPos semantics. */
    int logical_width;
    /* User-visible cluster width reported by the active UTF profile. */

@@ -201,6 +201,8 @@ struct TheDriverOps
    void (*write_ascii_cells_at)(TheDriverWindow *win, int row, int col,
                                 const char *text, int width,
                                 TheDriverAttr colour);
+   void (*overlay_cell_attrs_at)(TheDriverWindow *win, int row, int col,
+                                 int width, TheDriverAttr colour);
    int (*read_input_event)(TheInputEvent *event);
    void (*prepare_for_shell_escape)(void);
    void (*repair_terminal_background)(

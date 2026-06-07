@@ -84,7 +84,7 @@ The active profile entry contains:
 ```text
 class, display mode, output method, metric method, mark,
 WIDTH, ADVANCE, CURSOR, REPAINT,
-CURSORSTRATEGY, REPLACESTRATEGY
+DISPLAYSTRATEGY, CURSORSTRATEGY, REPLACESTRATEGY
 ```
 
 Meanings:
@@ -98,8 +98,16 @@ Meanings:
   `substitute`.
 - `METRICS`: `auto`, `profile`, `components`, or `expanded`.
 - `MARK`: `none`, `compressed`, `substituted`, or `unsafe`.
+- `DISPLAYSTRATEGY`: `inline` or `isolate`.
 - `CURSORSTRATEGY` and `REPLACESTRATEGY`: separate because cursor movement can
   be safe when text replacement still needs stronger repaint.
+
+`DISPLAYSTRATEGY isolate` is a component-boundary strategy. It is used when
+the desired display is still `OUTPUT components`, but adjacent native
+components can recombine if written next to one another. The renderer writes
+the component cells normally, inserts separator cells between adjacent visible
+components, then applies the UTF remapping hint as a post-render span overlay.
+The first calibrated use is decomposed regional flags on macOS.
 
 `SET UTF DISPLAY NORMAL|DECOMPOSED|SINGLE|TOGGLE` chooses the preferred display
 mode. Display mode is a view preference; it does not change logical text
@@ -177,6 +185,7 @@ typedef struct UtfDisplayRule {
    UtfClusterSelector selector;
    UtfOutputPlan output;
    UtfMetricPlan metrics;
+   UtfDisplayStrategy display_strategy;
    UtfRepairPlan repair;
    UtfDisplayMark mark;
 } UtfDisplayRule;

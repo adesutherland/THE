@@ -61,6 +61,14 @@ typedef enum
 
 typedef enum
 {
+   UTF8_TERM_DISPLAY_STRATEGY_UNKNOWN = -1,
+   UTF8_TERM_DISPLAY_STRATEGY_INLINE = 0,
+   UTF8_TERM_DISPLAY_STRATEGY_ISOLATE,
+   UTF8_TERM_DISPLAY_STRATEGY_COUNT
+} Utf8TerminalDisplayStrategy;
+
+typedef enum
+{
    UTF8_TERM_STRATEGY_UNKNOWN = -1,
    UTF8_TERM_STRATEGY_CHANGED_CELLS = 0,
    UTF8_TERM_STRATEGY_LINE,
@@ -79,6 +87,7 @@ typedef struct
    Utf8TerminalMetrics metric_method;
    uint32_t substitute_codepoint;
    Utf8TerminalMark mark;
+   Utf8TerminalDisplayStrategy display_strategy;
    /*
     * width is the user-visible cluster width reported to logical/UI consumers.
     * advance_width is the terminal grid advance used to place following output.
@@ -131,6 +140,8 @@ Utf8TerminalDisplayMode utf8_terminal_display_from_name(const char *name);
 Utf8TerminalOutput utf8_terminal_output_from_name(const char *name);
 Utf8TerminalMetrics utf8_terminal_metrics_from_name(const char *name);
 Utf8TerminalMark utf8_terminal_mark_from_name(const char *name);
+Utf8TerminalDisplayStrategy utf8_terminal_display_strategy_from_name(
+   const char *name);
 Utf8TerminalStrategy utf8_terminal_strategy_from_name(const char *name);
 
 const char *utf8_terminal_class_name(Utf8TerminalClass feature_class);
@@ -138,6 +149,8 @@ const char *utf8_terminal_display_name(Utf8TerminalDisplayMode display);
 const char *utf8_terminal_output_name(Utf8TerminalOutput output);
 const char *utf8_terminal_metrics_name(Utf8TerminalMetrics metrics);
 const char *utf8_terminal_mark_name(Utf8TerminalMark mark);
+const char *utf8_terminal_display_strategy_name(
+   Utf8TerminalDisplayStrategy strategy);
 const char *utf8_terminal_strategy_name(Utf8TerminalStrategy strategy);
 
 #endif

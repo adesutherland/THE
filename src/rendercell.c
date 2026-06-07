@@ -50,6 +50,7 @@ void the_render_cluster_init(TheRenderCluster *cluster, TheRenderAttr attr)
    cluster->resolved_output_method = UTF8_TERM_OUTPUT_NATIVE;
    cluster->metric_method = UTF8_TERM_METRICS_PROFILE;
    cluster->mark = UTF8_TERM_MARK_NONE;
+   cluster->display_strategy = UTF8_TERM_DISPLAY_STRATEGY_INLINE;
    cluster->logical_width = 1;
    cluster->width = 1;
    cluster->advance_width = 1;
@@ -201,6 +202,7 @@ int the_render_cluster_from_text_cluster(TheRenderCluster *dest,
          utf8_terminal_resolved_output_for_entry(entry);
       dest->metric_method = utf8_terminal_effective_metrics_for_entry(entry);
       dest->mark = entry->mark;
+      dest->display_strategy = entry->display_strategy;
       dest->repair_strategy = entry->replacement_strategy;
       the_render_cluster_set_fallback_codepoint(dest,
                                                 entry->substitute_codepoint);

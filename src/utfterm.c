@@ -43,6 +43,12 @@ typedef struct
 typedef struct
 {
    const char *name;
+   Utf8TerminalDisplayStrategy value;
+} DisplayStrategyName;
+
+typedef struct
+{
+   const char *name;
    Utf8TerminalStrategy value;
 } StrategyName;
 
@@ -108,6 +114,14 @@ static const MarkName mark_names[] =
    { NULL, UTF8_TERM_MARK_UNKNOWN }
 };
 
+static const DisplayStrategyName display_strategy_names[] =
+{
+   { "inline", UTF8_TERM_DISPLAY_STRATEGY_INLINE },
+   { "default", UTF8_TERM_DISPLAY_STRATEGY_INLINE },
+   { "isolate", UTF8_TERM_DISPLAY_STRATEGY_ISOLATE },
+   { NULL, UTF8_TERM_DISPLAY_STRATEGY_UNKNOWN }
+};
+
 static const StrategyName strategy_names[] =
 {
    { "cells", UTF8_TERM_STRATEGY_CHANGED_CELLS },
@@ -120,7 +134,7 @@ static const StrategyName strategy_names[] =
 };
 
 #define UTF8_TERM_DEFAULT_ENTRY(feature_class, feature_class_name, display_mode, display_mode_name, output_method, output_method_name, substitute_codepoint, width, advance_width, cursor_width, repaint_width, cursor_strategy, cursor_strategy_name, replacement_strategy, replacement_strategy_name) \
-   { feature_class, display_mode, output_method, UTF8_TERM_METRICS_AUTO, substitute_codepoint, (output_method == UTF8_TERM_OUTPUT_SUBSTITUTE) ? UTF8_TERM_MARK_SUBSTITUTED : UTF8_TERM_MARK_NONE, width, advance_width, cursor_width, repaint_width, cursor_strategy, replacement_strategy },
+   { feature_class, display_mode, output_method, UTF8_TERM_METRICS_AUTO, substitute_codepoint, (output_method == UTF8_TERM_OUTPUT_SUBSTITUTE) ? UTF8_TERM_MARK_SUBSTITUTED : UTF8_TERM_MARK_NONE, UTF8_TERM_DISPLAY_STRATEGY_INLINE, width, advance_width, cursor_width, repaint_width, cursor_strategy, replacement_strategy },
 
 static const Utf8TerminalProfileEntry default_entries[] =
 {
@@ -489,6 +503,19 @@ Utf8TerminalMark utf8_terminal_mark_from_name(const char *name)
    return UTF8_TERM_MARK_UNKNOWN;
 }
 
+Utf8TerminalDisplayStrategy utf8_terminal_display_strategy_from_name(
+   const char *name)
+{
+   size_t i;
+
+   for (i = 0; display_strategy_names[i].name != NULL; i++)
+   {
+      if (ascii_equal_ci(display_strategy_names[i].name, name))
+         return display_strategy_names[i].value;
+   }
+   return UTF8_TERM_DISPLAY_STRATEGY_UNKNOWN;
+}
+
 Utf8TerminalStrategy utf8_terminal_strategy_from_name(const char *name)
 {
    size_t i;
@@ -557,6 +584,19 @@ const char *utf8_terminal_mark_name(Utf8TerminalMark mark)
    {
       if (mark_names[i].value == mark)
          return mark_names[i].name;
+   }
+   return "unknown";
+}
+
+const char *utf8_terminal_display_strategy_name(
+   Utf8TerminalDisplayStrategy strategy)
+{
+   size_t i;
+
+   for (i = 0; display_strategy_names[i].name != NULL; i++)
+   {
+      if (display_strategy_names[i].value == strategy)
+         return display_strategy_names[i].name;
    }
    return "unknown";
 }
@@ -687,6 +727,7 @@ static int token_is_setting_keyword(const char *token)
        || ascii_equal_ci(token, "cursor")
        || ascii_equal_ci(token, "repaint")
        || ascii_equal_ci(token, "mark")
+       || ascii_equal_ci(token, "displaystrategy")
        || ascii_equal_ci(token, "cursorstrategy")
        || ascii_equal_ci(token, "replacestrategy");
 }
@@ -879,6 +920,21 @@ static int apply_profile_settings_to_entry(
          if (mark == UTF8_TERM_MARK_UNKNOWN)
             return UTF8_TERMINAL_PROFILE_INVALID;
          entry->mark = mark;
+         index += 2;
+         settings++;
+         continue;
+      }
+      if (ascii_equal_ci(tokens[index], "displaystrategy"))
+      {
+         Utf8TerminalDisplayStrategy strategy;
+
+         if (index + 1 >= count)
+            return UTF8_TERMINAL_PROFILE_INVALID;
+         strategy = utf8_terminal_display_strategy_from_name(
+                       tokens[index + 1]);
+         if (strategy == UTF8_TERM_DISPLAY_STRATEGY_UNKNOWN)
+            return UTF8_TERMINAL_PROFILE_INVALID;
+         entry->display_strategy = strategy;
          index += 2;
          settings++;
          continue;
@@ -1136,6 +1192,20 @@ static const char *canonical_mark_name(Utf8TerminalMark mark)
    }
 }
 
+static const char *canonical_display_strategy_name(
+   Utf8TerminalDisplayStrategy strategy)
+{
+   switch (strategy)
+   {
+      case UTF8_TERM_DISPLAY_STRATEGY_INLINE:
+         return "INLINE";
+      case UTF8_TERM_DISPLAY_STRATEGY_ISOLATE:
+         return "ISOLATE";
+      default:
+         return "UNKNOWN";
+   }
+}
+
 static const char *canonical_strategy_name(Utf8TerminalStrategy strategy)
 {
    switch (strategy)
@@ -1184,11 +1254,12 @@ int utf8_terminal_profile_entry_canonical(const Utf8TerminalProfileEntry *entry,
 
    written = snprintf(out + used, out_size - (size_t)used,
       " METRICS %s MARK %s WIDTH %d ADVANCE %d CURSOR %d REPAINT %d"
-      " CURSORSTRATEGY %s REPLACESTRATEGY %s",
+      " DISPLAYSTRATEGY %s CURSORSTRATEGY %s REPLACESTRATEGY %s",
       canonical_metrics_name(entry->metric_method),
       canonical_mark_name(entry->mark),
       entry->width, entry->advance_width, entry->cursor_width,
       entry->repaint_width,
+      canonical_display_strategy_name(entry->display_strategy),
       canonical_strategy_name(entry->cursor_strategy),
       canonical_strategy_name(entry->replacement_strategy));
    if (written < 0 || (size_t)written >= out_size - (size_t)used)

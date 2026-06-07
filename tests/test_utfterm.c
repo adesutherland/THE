@@ -133,6 +133,19 @@ static void expect_metrics(const char *name,
    expect_int(name, entry->metric_method, metrics);
 }
 
+static void expect_display_strategy(const char *name,
+                                    Utf8TerminalClass feature_class,
+                                    Utf8TerminalDisplayMode display,
+                                    Utf8TerminalDisplayStrategy strategy)
+{
+   const Utf8TerminalProfileEntry *entry = expect_entry(name, feature_class,
+                                                       display);
+
+   if (entry == NULL)
+      return;
+   expect_int(name, entry->display_strategy, strategy);
+}
+
 static void expect_resolved_output(const char *name,
                                    Utf8TerminalClass feature_class,
                                    Utf8TerminalDisplayMode display,
@@ -338,6 +351,19 @@ static void test_line_parser(void)
    expect_metrics("line.display.class.keycap.characters.metrics",
                   UTF8_TERM_CLASS_KEYCAP, UTF8_TERM_DISPLAY_DECOMPOSED,
                   UTF8_TERM_METRICS_OUTPUT);
+
+   expect_int("line.display.class.flag.isolate",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF DISPLAY DECOMPOSED CLASS regional-flag OUTPUT COMPONENTS DISPLAYSTRATEGY ISOLATE"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_display_strategy("line.display.class.flag.isolate.strategy",
+                           UTF8_TERM_CLASS_REGIONAL_FLAG,
+                           UTF8_TERM_DISPLAY_DECOMPOSED,
+                           UTF8_TERM_DISPLAY_STRATEGY_ISOLATE);
+   expect_canonical_contains("line.display.class.flag.isolate.canonical",
+                             UTF8_TERM_CLASS_REGIONAL_FLAG,
+                             UTF8_TERM_DISPLAY_DECOMPOSED,
+                             "DISPLAYSTRATEGY ISOLATE");
 
    expect_int("line.display.class.any.single",
               utf8_terminal_profile_apply_line(
@@ -666,6 +692,17 @@ static void test_strategy_names(void)
    expect_string("mark.name.compressed",
                  utf8_terminal_mark_name(UTF8_TERM_MARK_COMPRESSED),
                  "compressed");
+   expect_int("display.strategy.isolate",
+              utf8_terminal_display_strategy_from_name("isolate"),
+              UTF8_TERM_DISPLAY_STRATEGY_ISOLATE);
+   expect_string("display.strategy.name.inline",
+                 utf8_terminal_display_strategy_name(
+                    UTF8_TERM_DISPLAY_STRATEGY_INLINE),
+                 "inline");
+   expect_string("display.strategy.name.isolate",
+                 utf8_terminal_display_strategy_name(
+                    UTF8_TERM_DISPLAY_STRATEGY_ISOLATE),
+                 "isolate");
 }
 
 static void test_profile_file(const char *profile_path)
@@ -676,7 +713,7 @@ static void test_profile_file(const char *profile_path)
    expect_int("system.file",
               utf8_terminal_profile_apply_file(profile_path, &loaded),
               UTF8_TERMINAL_PROFILE_APPLIED);
-   expect_int("system.loaded", loaded, 7);
+   expect_int("system.loaded", loaded, 8);
    expect_profile("system.modifier", UTF8_TERM_CLASS_MODIFIER,
                   UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_SANITIZE, 2, 2,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
@@ -730,6 +767,20 @@ static void test_profile_file(const char *profile_path)
    expect_widths("system.regional.flag.widths",
                  UTF8_TERM_CLASS_REGIONAL_FLAG,
                  UTF8_TERM_DISPLAY_NORMAL, 2, 2, 2, 2);
+   expect_profile("system.regional.flag.decomposed",
+                  UTF8_TERM_CLASS_REGIONAL_FLAG,
+                  UTF8_TERM_DISPLAY_DECOMPOSED,
+                  UTF8_TERM_OUTPUT_COMPONENTS, 5, 5,
+                  UTF8_TERM_STRATEGY_CHANGED_CELLS,
+                  UTF8_TERM_STRATEGY_CHANGED_CELLS);
+   expect_metrics("system.regional.flag.decomposed.metrics",
+                  UTF8_TERM_CLASS_REGIONAL_FLAG,
+                  UTF8_TERM_DISPLAY_DECOMPOSED,
+                  UTF8_TERM_METRICS_COMPONENTS);
+   expect_display_strategy("system.regional.flag.decomposed.strategy",
+                           UTF8_TERM_CLASS_REGIONAL_FLAG,
+                           UTF8_TERM_DISPLAY_DECOMPOSED,
+                           UTF8_TERM_DISPLAY_STRATEGY_ISOLATE);
    expect_profile("system.short.normal", UTF8_TERM_CLASS_SHORT_ZWJ,
                   UTF8_TERM_DISPLAY_NORMAL, UTF8_TERM_OUTPUT_SANITIZE, 2, 2,
                   UTF8_TERM_STRATEGY_CHANGED_CELLS,
