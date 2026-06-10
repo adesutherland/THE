@@ -20,5 +20,8 @@ LENGTHTYPE textedit_replace_utf8(CHARTYPE *line, LENGTHTYPE line_len,
 LENGTHTYPE textedit_overlay_utf8(CHARTYPE *line, LENGTHTYPE line_len,
                                  LENGTHTYPE max_len, LENGTHTYPE logical_col,
                                  const CHARTYPE *text, LENGTHTYPE text_len);
+LENGTHTYPE textedit_safe_prefix_utf8(const CHARTYPE *text,
+                                     LENGTHTYPE text_len,
+                                     LENGTHTYPE max_bytes);
 
 #endif

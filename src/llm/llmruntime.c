@@ -1,6 +1,7 @@
 #include "llmruntime.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "screenframe.h"
@@ -140,16 +141,26 @@ static void llm_runtime_parser_diagnostics(LlmDriverScreenView *view)
 
 int llm_runtime_screen_view(CHARTYPE scrno, LlmDriverScreenView *view)
 {
-   UiFrame frame;
+   UiFrame *frame;
    char command[LLM_DRIVER_MAX_COMMAND + 1];
    char status[LLM_DRIVER_MAX_COMMAND + 1];
 
    if (view == NULL)
       return 0;
-   if (!screenframe_build(scrno, &frame))
+   frame = (UiFrame *)malloc(sizeof(*frame));
+   if (frame == NULL)
       return 0;
-   if (!llm_driver_screen_view_from_frame(&frame, view))
+   if (!screenframe_build(scrno, frame))
+   {
+      free(frame);
       return 0;
+   }
+   if (!llm_driver_screen_view_from_frame(frame, view))
+   {
+      free(frame);
+      return 0;
+   }
+   free(frame);
 
    llm_runtime_visible_command(command, sizeof(command));
    llm_driver_screen_view_set_command(view, command);

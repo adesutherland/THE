@@ -1,6 +1,6 @@
 # UTF-8 Design and Status
 
-Last updated: 2026-06-07.
+Last updated: 2026-06-10.
 
 This is the single UTF-8 design and status note for THE. It replaces the older
 UTF design, handover, and cluster-mapping notes. Keep historical experiments
@@ -27,6 +27,12 @@ driver-neutral frame -> physical terminal or semantic LLM view
 
 Terminal profiles can change how a cluster is displayed. They must not change
 the bytes, grapheme boundaries, logical cursor position, or editing unit.
+
+UTF text entry is separate from display policy. Literal `TEXT`, `INPUT`, LLM
+`text`, and LLM `insert after` accept UTF-8 text. `UTFTEXT`, `UTFINPUT`,
+LLM `text-utf`, and LLM `insert-utf` provide deterministic
+code-point entry using `U+nnnn` notation. These routes store the resulting
+UTF-8 bytes without normalization.
 
 ## utf8proc Decision
 
@@ -68,6 +74,8 @@ Important modules:
   columns, user-visible `WIDTH` columns, and physical `ADVANCE` columns.
 - `src/rendercell.c`: driver-neutral render clusters, transformed output, and
   width metadata.
+- `src/utfinput.c`: deterministic `U+...` code-point parsing for UTF text
+  entry commands and LLM replay.
 - `src/drivers/curses/cursesdriver.c`: terminal lowering, refresh ordering,
   software cursor painting, and UTF repair execution.
 - `src/llm/llmdriver.c` and `src/llm/llmsession.c`: semantic snapshots and
@@ -597,8 +605,8 @@ A manual `the --driver llm` run confirmed:
 - UTF row annotations report CJK as `wide/native` with width metadata.
 - macOS profile policy reports keycaps as `keycap/sanitize/resolved=base`
   with one-cell physical metadata.
-- The normalized `text`/`type` protocol path still feeds bytes to
-  `process_key()`, so UTF text entry remains an outstanding item.
+- The normalized `text`/`type` protocol path now feeds UTF-8 text through the
+  logical `Text()` path rather than byte keys.
 
 ## Outstanding Items
 
@@ -613,12 +621,10 @@ A manual `the --driver llm` run confirmed:
    after profile/LLM evidence exists for those terminals.
 
 3. UTF text entry.
-   Introduce a first-class UTF text input path. `llm_session` currently sends
-   bytes through `process_key()`, and the historical `TEXT` command loops over
-   bytes before reaching `textedit_*_utf8()`. The fix should pass whole UTF-8
-   code point or cluster text into file-area editing, command-line editing, and
-   LLM normalized input, with tests for CJK, combining marks, emoji, and
-   invalid/truncated input.
+   Closed: literal text paths now pass UTF-8 into logical editing helpers,
+   deterministic code-point commands cover replayable tests, LLM exposes
+   `text-utf` and `insert-utf`, and the curses input edge recognizes terminal
+   UTF-8 byte sequences as normalized text events.
 
 4. Dependency policy.
    Keep `utf8proc` as the supported UTF dependency. Decide whether to remove

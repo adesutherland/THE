@@ -37,11 +37,77 @@
 #include <proto.h>
 #include "thedriver.h"
 #include "inputevent.h"
+#ifdef USE_UTF8
+# include "textpos.h"
+#endif
 #ifdef USE_SDSLH
 #include "thread_utils.h"
 #endif
 
 bool prefix_changed=FALSE;
+
+static int editor_read_input_event(TheInputEvent *event)
+{
+   int have_event;
+
+   if (event == NULL)
+      return 0;
+   *event = the_input_event_none();
+   if (the_driver == NULL || the_driver->read_input_event == NULL)
+      return 0;
+#ifdef USE_SDSLH
+   if (CURRENT_FILE && CURRENT_FILE->sdslh_comm && CURRENT_FILE->cb)
+   {
+      if (cb_check_parse_complete_event(CURRENT_FILE->cb) == 1)
+      {
+         cb_reset_parse_complete_event(CURRENT_FILE->cb);
+         event->kind = THE_INPUT_KEY;
+         event->key_code = THE_KEY_PARSE_COMPLETE;
+         return 1;
+      }
+      the_driver->set_current_window_timeout(200);
+      have_event = the_driver->read_input_event(event);
+      the_driver->set_current_window_timeout(-1);
+      if (have_event)
+         return 1;
+      if (cb_check_parse_complete_event(CURRENT_FILE->cb) == 1)
+      {
+         cb_reset_parse_complete_event(CURRENT_FILE->cb);
+         event->kind = THE_INPUT_KEY;
+         event->key_code = THE_KEY_PARSE_COMPLETE;
+         return 1;
+      }
+      return 0;
+   }
+#endif
+   have_event = the_driver->read_input_event(event);
+   return have_event;
+}
+
+static int editor_text_event_to_bytes(const TheInputEvent *event,
+                                      CHARTYPE *text,
+                                      LENGTHTYPE *text_len)
+{
+   if (text_len != NULL)
+      *text_len = 0;
+   if (event == NULL || text == NULL || text_len == NULL
+   ||  event->kind != THE_INPUT_TEXT)
+      return 0;
+#ifdef USE_UTF8
+   *text_len = (LENGTHTYPE)text_utf8_encode(event->codepoint, text);
+   if (*text_len <= 0)
+      return 0;
+   text[*text_len] = '\0';
+   return 1;
+#else
+   if (event->codepoint > 0xFFu)
+      return 0;
+   text[0] = (CHARTYPE)event->codepoint;
+   text[1] = '\0';
+   *text_len = 1;
+   return 1;
+#endif
+}
 
 /***********************************************************************/
 void editor(void)
@@ -95,8 +161,10 @@ int process_key(int key, bool mouse_details_present)
 {
    TheDriverWindowCursor cursor;
    TheInputEvent input_event;
+   int have_input_event=0;
    short rc=RC_OK;
-   CHARTYPE string_key[2];
+   CHARTYPE string_key[8];
+   LENGTHTYPE text_event_len=0;
 
    TRACE_FUNCTION("edit.c:    process_key");
 #if defined(USE_EXTCURSES)
@@ -105,7 +173,7 @@ int process_key(int key, bool mouse_details_present)
    the_driver->refresh_window(driver_current_window());
    the_driver->update();
 #endif
-   string_key[1] = '\0';
+   string_key[0] = '\0';
 
 #ifdef CAN_RESIZE
    if (the_driver_is_terminal_resized())
@@ -120,34 +188,22 @@ int process_key(int key, bool mouse_details_present)
 #endif
    if (key == THE_KEY_NONE)
    {
-#ifdef USE_SDSLH
-      if (CURRENT_FILE && CURRENT_FILE->sdslh_comm && CURRENT_FILE->cb) {
-         if (cb_check_parse_complete_event(CURRENT_FILE->cb) == 1) {
-             cb_reset_parse_complete_event(CURRENT_FILE->cb);
-              key = THE_KEY_PARSE_COMPLETE;
-          } else {
-              /* Wait for input with a 200ms timeout to allow background events to trigger a redraw */
-              the_driver->set_current_window_timeout(200);
-              key = the_driver_read_legacy_key();
-              the_driver->set_current_window_timeout(-1); /* Back to blocking */
-              if (key == THE_KEY_NONE) {
-                  /* Timeout occurred, check event again */
-                  if (cb_check_parse_complete_event(CURRENT_FILE->cb) == 1) {
-                      cb_reset_parse_complete_event(CURRENT_FILE->cb);
-                      key = THE_KEY_PARSE_COMPLETE;
-                  } else {
-                      key = THE_KEY_NONE; /* No input, no event - return to main loop */
-                  }
-              }
-          }
-      } else {
-          key = the_driver_read_legacy_key();
+      have_input_event = editor_read_input_event(&input_event);
+      if (have_input_event)
+      {
+         if (input_event.kind == THE_INPUT_TEXT
+         &&  input_event.key_code < 0)
+         {
+            if (!editor_text_event_to_bytes(&input_event, string_key,
+                                            &text_event_len))
+               key = THE_KEY_NONE;
+         }
+         else if (!the_input_event_to_legacy_key(&input_event, &key))
+            key = THE_KEY_NONE;
       }
-#else
-      key = the_driver_read_legacy_key();
-#endif
    }
-   if (the_input_event_from_legacy_key(key, &input_event))
+   if (!have_input_event
+   &&  the_input_event_from_legacy_key(key, &input_event))
    {
       int normalized_key = key;
 
@@ -198,7 +254,7 @@ int process_key(int key, bool mouse_details_present)
       return(RC_OK);
    }
 #endif
-   if ( key == THE_KEY_NONE )
+   if ( key == THE_KEY_NONE && text_event_len == 0 )
    {
       TRACE_RETURN();
       return(RC_OK);
@@ -219,8 +275,8 @@ int process_key(int key, bool mouse_details_present)
    /*
     * Save details about the last key pressed
     */
-   lastkeys[current_key] = key;
-   if (the_input_legacy_key_is_mouse(key))
+   lastkeys[current_key] = (text_event_len > 0) ? THE_KEY_NONE : key;
+   if (text_event_len == 0 && the_input_legacy_key_is_mouse(key))
    {
       lastkeys_is_mouse[current_key] = 1;
    }
@@ -230,7 +286,7 @@ int process_key(int key, bool mouse_details_present)
     * If we are recording a macro, check if the key hit is the end-of-record
     * key.
     */
-   if ( record_fp )
+   if ( record_fp && text_event_len == 0 )
    {
       if ( key == record_key )
       {
@@ -264,8 +320,19 @@ int process_key(int key, bool mouse_details_present)
        */
       write_macro( get_key_definition( key, THE_KEY_DEFINE_RAW, TRUE, (bool)(the_input_legacy_key_is_mouse(key) ? TRUE : FALSE ) ) );
    }
+   else if (record_fp && text_event_len > 0)
+   {
+      CHARTYPE macro_command[64];
+
+      sprintf((DEFCHAR *)macro_command, "UTFTEXT U+%X",
+              (unsigned int)input_event.codepoint);
+      write_macro(macro_command);
+   }
    save_for_repeat = 0;
-   rc = function_key( key, OPTION_NORMAL, mouse_details_present );
+   if (text_event_len > 0)
+      rc = RAW_KEY;
+   else
+      rc = function_key( key, OPTION_NORMAL, mouse_details_present );
    save_for_repeat = 1;
    if ( number_of_files == 0 )
    {
@@ -273,7 +340,16 @@ int process_key(int key, bool mouse_details_present)
       return(RC_INVALID_ENVIRON);
    }
 
-   if (rc >= RAW_KEY)
+   if (text_event_len > 0)
+   {
+      if ( INTERFACEx == INTERFACE_CUA
+      &&  CURRENT_VIEW->mark_type == M_CUA )
+      {
+         ResetOrDeleteCUABlock( CUA_DELETE_BLOCK );
+      }
+      (void)Text(string_key);
+   }
+   else if (rc >= RAW_KEY)
    {
       if (rc > RAW_KEY)
          key = rc - (RAW_KEY*2);

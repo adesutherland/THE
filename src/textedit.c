@@ -9,9 +9,9 @@ static void terminate_line(CHARTYPE *line, LENGTHTYPE line_len,
       line[line_len] = '\0';
 }
 
-static LENGTHTYPE cluster_safe_prefix_len(const CHARTYPE *text,
-                                          LENGTHTYPE text_len,
-                                          LENGTHTYPE max_bytes)
+LENGTHTYPE textedit_safe_prefix_utf8(const CHARTYPE *text,
+                                     LENGTHTYPE text_len,
+                                     LENGTHTYPE max_bytes)
 {
    TextPos pos;
    LENGTHTYPE safe_len = 0;
@@ -136,7 +136,7 @@ static LENGTHTYPE replace_clusters_at(CHARTYPE *line, LENGTHTYPE line_len,
       delete_len = 0;
 
    available = max_len - (line_len - delete_len);
-   insert_len = cluster_safe_prefix_len(text, text_len, available);
+   insert_len = textedit_safe_prefix_utf8(text, text_len, available);
    tail_len = line_len - end_byte;
    if (tail_len < 0)
       tail_len = 0;

@@ -39,6 +39,7 @@
 #include <proto.h>
 #include "thedriver.h"
 #include "inputevent.h"
+#include "utfinput.h"
 #ifdef USE_UTF8
 # include "textedit.h"
 #endif
@@ -892,6 +893,9 @@ short Text(CHARTYPE *params)
    LENGTHTYPE utf8_filearea_next_cell=0;
    unsigned short utf8_filearea_row=0;
    int utf8_filearea_cell=(-1);
+   unsigned short utf8_filearea_pending_row=0;
+   int utf8_filearea_pending_cell=(-1);
+   TextPos utf8_input_pos;
 #endif
 
    TRACE_FUNCTION("comm5.c:   Text");
@@ -934,13 +938,63 @@ short Text(CHARTYPE *params)
    }
    else
       len_params = strlen( (DEFCHAR *)params );
-   for ( i = 0; i < len_params; i++ )
+#ifdef USE_UTF8
+   utf8_input_pos = textpos_begin();
+#endif
+   for ( i = 0; i < len_params; )
    {
+#ifdef USE_UTF8
+      TextCodepoint utf8_input_item;
+      const CHARTYPE *real_text = NULL;
+      LENGTHTYPE real_text_len = 0;
+      CHARTYPE real_text_buffer[4];
+      int real_text_cells = 1;
+#endif
 #ifdef USE_UTF8
       utf8_filearea_text_edited = FALSE;
       utf8_filearea_next_cell = 0;
 #endif
+#ifdef USE_UTF8
+      utf8_input_item = textpos_codepoint_at_boundary(
+                           params, (size_t)len_params, utf8_input_pos);
+      if (utf8_input_item.byte_length == 0)
+         break;
+      real_text = params + utf8_input_item.pos.byte_offset;
+      real_text_len = (LENGTHTYPE)utf8_input_item.byte_length;
+      real_text_cells = utf8_input_item.cell_width;
+      if (real_text_cells < 0)
+         real_text_cells = 0;
+      if (!utf8_input_item.valid && utf8_input_item.byte_length == 1)
+      {
+         real_key = case_translate(
+                       (CHARTYPE)*(params + utf8_input_item.pos.byte_offset));
+         real_text_buffer[0] = real_key;
+         real_text = real_text_buffer;
+         real_text_len = 1;
+         real_text_cells = 1;
+      }
+      else if (utf8_input_item.codepoint <= 0x7Fu
+           &&  utf8_input_item.byte_length == 1)
+      {
+         real_key = case_translate((CHARTYPE)utf8_input_item.codepoint);
+         real_text_buffer[0] = real_key;
+         real_text = real_text_buffer;
+         real_text_len = 1;
+         real_text_cells = 1;
+      }
+      else if (utf8_input_item.codepoint <= 0xFFu
+           &&  utf8_input_item.byte_length == 1)
+         real_key = (CHARTYPE)utf8_input_item.codepoint;
+      else
+         real_key = 0;
+      i = (LENGTHTYPE)(utf8_input_item.pos.byte_offset
+                     + utf8_input_item.byte_length);
+      utf8_input_pos = textpos_from_byte(params, (size_t)len_params,
+                                         (size_t)i);
+#else
       real_key = case_translate( (CHARTYPE)*(params+i) );
+      i++;
+#endif
       cursor = the_driver->capture_window_cursor(driver_current_window());
       if (cursor.valid)
       {
@@ -951,8 +1005,15 @@ short Text(CHARTYPE *params)
       utf8_filearea_cell = (-1);
       utf8_filearea_row = y;
       if ( CURRENT_VIEW->current_window == WINDOW_FILEAREA
-      &&   text_utf8_filearea_logical_cursor(&utf8_filearea_row,
-                                             &utf8_filearea_cell) )
+      &&   utf8_filearea_pending_cell >= 0 )
+      {
+         utf8_filearea_row = utf8_filearea_pending_row;
+         utf8_filearea_cell = utf8_filearea_pending_cell;
+         y = utf8_filearea_row;
+      }
+      else if ( CURRENT_VIEW->current_window == WINDOW_FILEAREA
+           &&   text_utf8_filearea_logical_cursor(&utf8_filearea_row,
+                                                  &utf8_filearea_cell) )
       {
          y = utf8_filearea_row;
       }
@@ -986,7 +1047,7 @@ short Text(CHARTYPE *params)
                                             x,
                                             TEXT_SNAP_BACKWARD);
 
-               if (logical_cell + 1 > CURRENT_VIEW->verify_end)
+               if (logical_cell + real_text_cells > CURRENT_VIEW->verify_end)
                   break;
                if (logical_cell >= max_line_length)
                   break;
@@ -994,19 +1055,23 @@ short Text(CHARTYPE *params)
                if ( INSERTMODEx )
                {
                   rec_len = textedit_insert_utf8(rec, rec_len, max_line_length,
-                                                 logical_cell, &real_key, 1);
+                                                 logical_cell, real_text,
+                                                 real_text_len);
                }
                else
                {
                   rec_len = textedit_replace_utf8(rec, rec_len, max_line_length,
-                                                  logical_cell, &real_key, 1);
+                                                  logical_cell, real_text,
+                                                  real_text_len);
                }
                if (CURRENT_FILE->trailing == TRAILING_OFF)
                   rec_len = calculate_rec_len(ADJUST_OVERWRITE, rec, rec_len,
                                               1, 1, CURRENT_FILE->trailing);
                need_to_build_screen = TRUE;
                utf8_filearea_text_edited = TRUE;
-               utf8_filearea_next_cell = logical_cell + 1;
+               utf8_filearea_next_cell = logical_cell + real_text_cells;
+               utf8_filearea_pending_cell = (int)utf8_filearea_next_cell;
+               utf8_filearea_pending_row = utf8_filearea_row;
             }
 #else
             if ( (LENGTHTYPE)(x+CURRENT_VIEW->verify_start) > (LENGTHTYPE)(CURRENT_VIEW->verify_end) )
@@ -1048,13 +1113,15 @@ short Text(CHARTYPE *params)
             if ( CURRENT_VIEW->wordwrap
             &&   rec_len > CURRENT_VIEW->margin_right )
 #ifdef USE_UTF8
-               execute_wrap_word(((utf8_filearea_cell >= 0)
-                                  ? (LENGTHTYPE)utf8_filearea_cell
-                                  : show_utf8_logical_col_from_display(
-                                       rec, rec_len,
-                                       CURRENT_VIEW->verify_col - 1,
-                                       x,
-                                       TEXT_SNAP_BACKWARD)) + 1);
+               execute_wrap_word(utf8_filearea_text_edited
+                                  ? utf8_filearea_next_cell
+                                  : (((utf8_filearea_cell >= 0)
+                                      ? (LENGTHTYPE)utf8_filearea_cell
+                                      : show_utf8_logical_col_from_display(
+                                           rec, rec_len,
+                                           CURRENT_VIEW->verify_col - 1,
+                                           x,
+                                           TEXT_SNAP_BACKWARD)) + 1));
 #else
                execute_wrap_word( x + CURRENT_VIEW->verify_col );
 #endif
@@ -1106,10 +1173,20 @@ short Text(CHARTYPE *params)
                need_to_build_screen = TRUE;
             break;
          case WINDOW_COMMAND:
+#ifdef USE_UTF8
+            if (real_text_len == 1)
+               (void)text_command_char(real_key, x);
+#else
             (void)text_command_char(real_key, x);
+#endif
             break;
          case WINDOW_PREFIX:
+#ifdef USE_UTF8
+            if (real_text_len == 1)
+               (void)text_prefix_char(real_key, y, x);
+#else
             (void)text_prefix_char(real_key, y, x);
+#endif
             break;
       }
    }
@@ -1165,6 +1242,129 @@ short Text(CHARTYPE *params)
    in_macro = save_in_macro;
    TRACE_RETURN();
    return(RC_OK);
+}
+
+static short utftext_display_parse_error(const UtfInputParseError *error)
+{
+   const CHARTYPE *operand = (CHARTYPE *)"";
+
+   if (error != NULL && error->token[0] != '\0')
+      operand = (const CHARTYPE *)error->token;
+   else if (error != NULL)
+      operand = (const CHARTYPE *)utfinput_parse_status_name(error->status);
+   if (error != NULL
+   &&  error->status == UTFINPUT_PARSE_MISSING_CODE)
+      display_error(3,(CHARTYPE *)"",FALSE);
+   else
+      display_error(1,(CHARTYPE *)operand,FALSE);
+   return(RC_INVALID_OPERAND);
+}
+
+static short utftext_apply_decoded(CHARTYPE *decoded)
+{
+   bool save_hex;
+   short rc;
+
+   if (CURRENT_VIEW == NULL)
+      return(RC_INVALID_ENVIRON);
+   if (CURRENT_VIEW->current_window != WINDOW_FILEAREA)
+   {
+      save_hex = CURRENT_VIEW->hex;
+      CURRENT_VIEW->hex = FALSE;
+      rc = Text(decoded);
+      CURRENT_VIEW->hex = save_hex;
+      return(rc);
+   }
+   else
+   {
+      LogicalCursor saved_cursor;
+      LogicalCursor restored_cursor;
+      int start_cell = 0;
+      int after_cell = (-1);
+
+      if (CURRENT_FILE == NULL)
+         return(RC_INVALID_ENVIRON);
+      saved_cursor = CURRENT_VIEW->logical_cursor.current;
+      restored_cursor = logical_cursor_invalid();
+      if (saved_cursor.valid
+      &&  saved_cursor.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+      &&  saved_cursor.line_number == CURRENT_VIEW->focus_line)
+         start_cell = saved_cursor.text.cell_column;
+      else if (CURRENT_VIEW->current_column > 0)
+         start_cell = (int)CURRENT_VIEW->current_column - 1;
+
+      pre_process_line(CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL);
+      (void)execute_move_cursor(current_screen, CURRENT_VIEW, start_cell);
+      save_hex = CURRENT_VIEW->hex;
+      CURRENT_VIEW->hex = FALSE;
+      rc = Text(decoded);
+      CURRENT_VIEW->hex = save_hex;
+      if (rc == RC_OK)
+      {
+#ifdef USE_UTF8
+         size_t decoded_len = strlen((DEFCHAR *)decoded);
+         TextPos delta = textpos_from_byte(decoded, decoded_len, decoded_len);
+
+         after_cell = start_cell + delta.cell_column;
+#else
+         after_cell = start_cell + (int)strlen((DEFCHAR *)decoded);
+#endif
+      }
+      (void)post_process_line(CURRENT_VIEW, CURRENT_VIEW->focus_line,
+                              (LINE *)NULL, TRUE);
+      pre_process_line(CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL);
+      build_screen(current_screen);
+      display_screen(current_screen);
+#ifdef USE_UTF8
+      cursor_focus_present(current_screen);
+#endif
+      if (after_cell >= 0)
+      {
+         int zone_row = get_row_for_focus_line(current_screen,
+                                               CURRENT_VIEW->focus_line,
+                                               CURRENT_VIEW->current_row);
+
+         restored_cursor = logical_cursor_from_cell(
+            LOGICAL_CURSOR_ZONE_FILEAREA, CURRENT_VIEW->focus_line,
+            zone_row, rec, rec_len, after_cell, TEXT_SNAP_BACKWARD, 1);
+         logical_cursor_state_focus(&CURRENT_VIEW->logical_cursor,
+                                    restored_cursor);
+         (void)execute_move_cursor(current_screen, CURRENT_VIEW, after_cell);
+      }
+   }
+   return(rc);
+}
+
+short UTFText(CHARTYPE *params)
+/***********************************************************************/
+{
+   UtfInputParseError error;
+   CHARTYPE *decoded = NULL;
+   LENGTHTYPE decoded_len = 0;
+   size_t capacity;
+   short rc;
+
+   TRACE_FUNCTION("comm5.c:   UTFText");
+   capacity = strlen((DEFCHAR *)params) + 1;
+   decoded = (CHARTYPE *)(*the_malloc)((capacity + 1) * sizeof(CHARTYPE));
+   if (decoded == NULL)
+   {
+      display_error(30,(CHARTYPE *)"",FALSE);
+      TRACE_RETURN();
+      return(RC_OUT_OF_MEMORY);
+   }
+   if (!utfinput_parse_command(params, decoded, (LENGTHTYPE)capacity,
+                               &decoded_len, &error))
+   {
+      (*the_free)(decoded);
+      TRACE_RETURN();
+      return utftext_display_parse_error(&error);
+   }
+   decoded[decoded_len] = '\0';
+   rc = utftext_apply_decoded(decoded);
+   (*the_free)(decoded);
+   TRACE_RETURN();
+   return(rc);
 }
 /*man-start*********************************************************************
 COMMAND

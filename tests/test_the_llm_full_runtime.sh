@@ -27,6 +27,7 @@ utf_cua_overlay="$work_dir/utf-cua-overlay.txt"
 utf_keycap="$work_dir/utf-keycap.txt"
 utf_flag="$work_dir/utf-flag.txt"
 utf_replay="$work_dir/utf-replay.txt"
+utf_entry="$work_dir/utf-entry.txt"
 llm_usability="$work_dir/llm-usability.txt"
 out="$work_dir/out.jsonl"
 utf_out="$work_dir/utf-box.jsonl"
@@ -43,6 +44,7 @@ utf_keycap_out="$work_dir/utf-keycap.jsonl"
 utf_flag_out="$work_dir/utf-flag.jsonl"
 utf_replay_seed_out="$work_dir/utf-replay-seed.jsonl"
 utf_replay_out="$work_dir/utf-replay.jsonl"
+utf_entry_out="$work_dir/utf-entry.jsonl"
 llm_usability_out="$work_dir/llm-usability.jsonl"
 utf_replay_rules="$work_dir/utf-replay.rules"
 utf_replay_seed_debug="$work_dir/utf-replay-seed.debug"
@@ -64,6 +66,7 @@ printf 'A\344\270\255B\nC\344\270\255D\nX\344\270\255Y\n' > "$utf_cua_overlay"
 printf 'A1\357\270\217\342\203\243B\n' > "$utf_keycap"
 printf 'A\360\237\207\272\360\237\207\270B\n' > "$utf_flag"
 printf 'A1\357\270\217\342\203\243B\nA\360\237\207\272\360\237\207\270B\n' > "$utf_replay"
+printf '\n' > "$utf_entry"
 printf 'TODO alpha\nbravo lower\ncharlie lower\n' > "$llm_usability"
 
 "$the_bin" -h > "$work_dir/default-help.txt"
@@ -142,7 +145,7 @@ rg '"parser_diagnostics":"first-class-snapshot-array"|"parser_diagnostics":"unav
 rg '"transient_ui":"shared-transientui-protocol-adapter"' "$out" >/dev/null
 rg '"utf":true' "$out" >/dev/null
 rg '"utf_display_mode":"normal"' "$out" >/dev/null
-rg '"inputs":\["look","delta","capabilities","focus","hit","key","text","type","insert","command","debug","transient","quit"\]' "$out" >/dev/null
+rg '"inputs":\["look","delta","capabilities","focus","hit","key","text","type","text-utf","insert","insert-utf","command","debug","transient","quit"\]' "$out" >/dev/null
 rg '"debug_commands":\[[^]]*"utf-display"' "$out" >/dev/null
 rg '"debug":"utf-display","supported":true,"active_mode":"normal"' "$out" >/dev/null
 rg '"debug":"utf-display","supported":true,"active_mode":"decomposed"' "$out" >/dev/null
@@ -217,6 +220,31 @@ rg '"line":3,"cur":0,"p":"000003","t":"BRAVO LOWER"' "$llm_usability_out" >/dev/
 rg '"line":4,"cur":1,"p":"000004","t":"CHARLIE LOWER"' "$llm_usability_out" >/dev/null
 printf 'DONE alpha\ninserted by llm protocol\nBRAVO LOWER\nCHARLIE LOWER\n' > "$work_dir/llm-usability.expected"
 cmp "$work_dir/llm-usability.expected" "$llm_usability"
+
+printf '%s\n' \
+  'command set insertmode on' \
+  'focus filearea' \
+  'hit filearea 1 1 0' \
+  'command utftext U+0041 U+4E2D U+0042' \
+  'text X中Y' \
+  'text-utf U+1F1FA+1F1F8' \
+  'insert-utf after 1 U+0043 U+4E2D U+0044' \
+  'look filearea compact max=120 prefix=0 command=0 status=0 utf=all' \
+  'focus command' \
+  'command utftext U+0045 U+0046' \
+  'look full compact max=120 prefix=0 command=1 status=0 cursor=1' \
+  'command save' \
+  'quit' |
+  TERM= THE_HOME_DIR="$release_dir" "$the_bin" --driver llm -n "$utf_entry" \
+    >"$utf_entry_out" 2>>"$err"
+
+rg '"status":"text applied"' "$utf_entry_out" >/dev/null
+rg '"status":"insert applied"' "$utf_entry_out" >/dev/null
+rg '"line":1,"cur":0,"t":"A中BX中Y🇺🇸"' "$utf_entry_out" >/dev/null
+rg '"line":2,"cur":1,"t":"C中D"' "$utf_entry_out" >/dev/null
+rg '"command":"EF"' "$utf_entry_out" >/dev/null
+printf 'A\344\270\255BX\344\270\255Y\360\237\207\272\360\237\207\270\nC\344\270\255D\n' > "$work_dir/utf-entry.expected"
+cmp "$work_dir/utf-entry.expected" "$utf_entry"
 
 printf '%s\n' \
   'command set utf display normal class keycap output sanitize keycap metrics output mark compressed width 1 advance 1 cursor 1 repaint 1 cursorstrategy cells replacestrategy cells' \

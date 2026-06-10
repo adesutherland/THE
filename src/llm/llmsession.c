@@ -12,6 +12,7 @@
 #include "proto.h"
 #include "thedriver.h"
 #include "transientui.h"
+#include "utfinput.h"
 #include "vars.h"
 #ifdef USE_UTF8
 # include "utfterm.h"
@@ -471,7 +472,7 @@ static void print_capabilities(void)
    print_json_string((const char *)crexx_version);
    fputs(",\"transient_ui\":\"shared-transientui-protocol-adapter\"", stdout);
    fputs(",\"build_test_hooks\":\"external-shell-or-ctest\"", stdout);
-   fputs(",\"inputs\":[\"look\",\"delta\",\"capabilities\",\"focus\",\"hit\",\"key\",\"text\",\"type\",\"insert\",\"command\",\"debug\",\"transient\",\"quit\"]", stdout);
+   fputs(",\"inputs\":[\"look\",\"delta\",\"capabilities\",\"focus\",\"hit\",\"key\",\"text\",\"type\",\"text-utf\",\"insert\",\"insert-utf\",\"command\",\"debug\",\"transient\",\"quit\"]", stdout);
    fputs(",\"view_modes\":[\"full\",\"filearea\",\"reserved\",\"prefix\",\"focus\"]", stdout);
    fputs(",\"transient_commands\":[\"transient readv [TEXT]\",\"transient dialog [TEXT]\",\"transient popup\",\"transient look\",\"transient key NAME\",\"transient text TEXT\",\"transient hit ROW COL\",\"transient result\",\"transient close\",\"transient cancel\"]", stdout);
    fputs(",\"debug_commands\":[\"describe-focus\",\"describe-row\",\"list-visible-rows\",\"dump-cursor-mapping\",\"dump-driver-ops\",\"explain-last-render\",\"utf-display\"]", stdout);
@@ -602,6 +603,8 @@ static void print_view(char *args, int delta)
    fflush(stdout);
 }
 
+static short apply_real_command(char *command);
+
 static int apply_key_name(const char *name)
 {
    TheInputEvent input;
@@ -617,14 +620,107 @@ static int apply_key_name(const char *name)
 
 static int apply_text_bytes(const char *text)
 {
-   const unsigned char *ptr;
+   int filearea_text = 0;
+   LogicalCursor saved_cursor;
+   LogicalCursor after_cursor;
 
    if (text == NULL)
       text = "";
-   for (ptr = (const unsigned char *)text; *ptr != '\0'; ptr++)
-      process_key((int)*ptr, FALSE);
+   saved_cursor = (CURRENT_VIEW != NULL)
+                ? CURRENT_VIEW->logical_cursor.current
+                : logical_cursor_invalid();
+   after_cursor = saved_cursor;
+   if (CURRENT_VIEW != NULL
+   &&  CURRENT_FILE != NULL
+   &&  CURRENT_VIEW->current_window == WINDOW_FILEAREA
+   &&  CURRENT_VIEW->focus_line > 0
+   &&  CURRENT_VIEW->focus_line <= CURRENT_FILE->number_lines)
+   {
+      filearea_text = 1;
+      pre_process_line(CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL);
+      if (saved_cursor.valid
+      &&  saved_cursor.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+      &&  saved_cursor.line_number == CURRENT_VIEW->focus_line)
+      {
+         logical_cursor_state_focus(&CURRENT_VIEW->logical_cursor,
+                                    saved_cursor);
+         (void)execute_move_cursor(current_screen, CURRENT_VIEW,
+                                   saved_cursor.text.cell_column);
+      }
+   }
+   (void)Text((CHARTYPE *)text);
+   if (CURRENT_VIEW != NULL)
+      after_cursor = CURRENT_VIEW->logical_cursor.current;
+   if (filearea_text
+   &&  saved_cursor.valid
+   &&  saved_cursor.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+   &&  saved_cursor.line_number == CURRENT_VIEW->focus_line)
+   {
+      size_t text_len = strlen(text);
+#ifdef USE_UTF8
+      TextPos delta = textpos_from_byte((const CHARTYPE *)text, text_len,
+                                        text_len);
+#else
+      TextPos delta = textpos_begin();
+      delta.cell_column = (int)text_len;
+#endif
+      after_cursor = saved_cursor;
+      after_cursor.text.cell_column += delta.cell_column;
+      after_cursor.desired_cell = after_cursor.text.cell_column;
+   }
+   if (filearea_text)
+   {
+      (void)post_process_line(CURRENT_VIEW, CURRENT_VIEW->focus_line,
+                              (LINE *)NULL, TRUE);
+      pre_process_line(CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL);
+      if (after_cursor.valid
+      &&  after_cursor.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+      &&  after_cursor.line_number == CURRENT_VIEW->focus_line)
+      {
+         LogicalCursor restored = logical_cursor_from_cell(
+            LOGICAL_CURSOR_ZONE_FILEAREA, CURRENT_VIEW->focus_line,
+            after_cursor.zone_row, rec, rec_len,
+            after_cursor.text.cell_column, TEXT_SNAP_BACKWARD, 1);
+
+         logical_cursor_state_focus(&CURRENT_VIEW->logical_cursor, restored);
+         (void)execute_move_cursor(current_screen, CURRENT_VIEW,
+                                   after_cursor.text.cell_column);
+      }
+   }
    llm_session_refresh();
    return 1;
+}
+
+static int apply_text_codes(const char *codes, short *out_rc)
+{
+   CHARTYPE *decoded = NULL;
+   LENGTHTYPE decoded_len = 0;
+   UtfInputParseError error;
+   size_t capacity;
+   int ok;
+
+   if (out_rc != NULL)
+      *out_rc = RC_INVALID_OPERAND;
+   if (codes == NULL)
+      codes = "";
+   capacity = strlen(codes) + 1;
+   decoded = (CHARTYPE *)malloc(capacity + 1);
+   if (decoded == NULL)
+      return 0;
+
+   if (!utfinput_parse_command((const CHARTYPE *)codes, decoded,
+                               (LENGTHTYPE)capacity, &decoded_len,
+                               &error))
+   {
+      free(decoded);
+      return 0;
+   }
+   decoded[decoded_len] = '\0';
+   ok = apply_text_bytes((const char *)decoded);
+   if (out_rc != NULL)
+      *out_rc = ok ? RC_OK : RC_INVALID_OPERAND;
+   free(decoded);
+   return ok;
 }
 
 static int focus_command(const char *name)
@@ -744,7 +840,8 @@ static short apply_real_command(char *command)
    return rc;
 }
 
-static int apply_insert_after(char *args, short *out_rc)
+static int apply_insert_after_command(char *args, const char *input_command,
+                                      short *out_rc)
 {
    char command[4096];
    char *line_text;
@@ -784,11 +881,23 @@ static int apply_insert_after(char *args, short *out_rc)
          *out_rc = rc;
       return 0;
    }
-   snprintf(command, sizeof(command), "input %s", text);
+   if (snprintf(command, sizeof(command), "%s %s", input_command, text)
+      >= (int)sizeof(command))
+      return 0;
    rc = apply_real_command(command);
    if (out_rc != NULL)
       *out_rc = rc;
    return rc >= 0;
+}
+
+static int apply_insert_after(char *args, short *out_rc)
+{
+   return apply_insert_after_command(args, "input", out_rc);
+}
+
+static int apply_insert_utf_after(char *args, short *out_rc)
+{
+   return apply_insert_after_command(args, "utfinput", out_rc);
 }
 
 static void print_debug(char *args)
@@ -1299,9 +1408,25 @@ int llm_session_run_protocol(void)
          print_ack(apply_text_bytes(command + 5), RC_OK, "text applied");
          continue;
       }
+      if (ascii_starts_ci(command, "text-utf "))
+      {
+         short rc = RC_INVALID_OPERAND;
+         int ok = apply_text_codes(trim(command + 9), &rc);
+
+         print_ack(ok, rc, ok ? "text applied" : "bad text");
+         continue;
+      }
       if (ascii_starts_ci(command, "type "))
       {
          print_ack(apply_text_bytes(command + 5), RC_OK, "text applied");
+         continue;
+      }
+      if (ascii_starts_ci(command, "insert-utf "))
+      {
+         short rc = RC_INVALID_OPERAND;
+         int ok = apply_insert_utf_after(trim(command + 11), &rc);
+
+         print_ack(ok, rc, ok ? "insert applied" : "bad insert");
          continue;
       }
       if (ascii_starts_ci(command, "insert "))

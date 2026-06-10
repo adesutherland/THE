@@ -38,6 +38,10 @@
 #include <the.h>
 #include <proto.h>
 #include "thedriver.h"
+#include "utfinput.h"
+#ifdef USE_UTF8
+# include "textedit.h"
+#endif
 
 /*#define DEBUG 1*/
 
@@ -2077,11 +2081,13 @@ short Input(CHARTYPE *params)
 {
    LENGTHTYPE len_params=0;
    short rc=RC_OK;
+   bool converted_hex=FALSE;
 
    TRACE_FUNCTION("comm2.c:   Input");
    post_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL,TRUE);
    if (CURRENT_VIEW->hex)
    {
+      converted_hex = TRUE;
       len_params = convert_hex_strings( params );
       switch( len_params )
       {
@@ -2104,7 +2110,15 @@ short Input(CHARTYPE *params)
    if (len_params > max_line_length)
    {
       display_error(0,(CHARTYPE *)"Truncated",FALSE);
+#ifdef USE_UTF8
+      if (!converted_hex)
+         len_params = textedit_safe_prefix_utf8(params, len_params,
+                                                max_line_length);
+      else
+         len_params = max_line_length;
+#else
       len_params = max_line_length;
+#endif
    }
    /*
     * If we in XEDIT compatability, and no text is supplied, insert a blank line at
@@ -2120,6 +2134,58 @@ short Input(CHARTYPE *params)
    {
       insert_new_line( current_screen, CURRENT_VIEW, params, len_params, 1L, get_true_line(TRUE),TRUE,TRUE,TRUE,CURRENT_VIEW->display_low,TRUE,FALSE);
    }
+   TRACE_RETURN();
+   return(rc);
+}
+
+static short utfinput_display_parse_error(const UtfInputParseError *error)
+{
+   const CHARTYPE *operand = (CHARTYPE *)"";
+
+   if (error != NULL && error->token[0] != '\0')
+      operand = (const CHARTYPE *)error->token;
+   else if (error != NULL)
+      operand = (const CHARTYPE *)utfinput_parse_status_name(error->status);
+   if (error != NULL
+   &&  error->status == UTFINPUT_PARSE_MISSING_CODE)
+      display_error(3,(CHARTYPE *)"",FALSE);
+   else
+      display_error(1,(CHARTYPE *)operand,FALSE);
+   return(RC_INVALID_OPERAND);
+}
+
+short UTFInput(CHARTYPE *params)
+/***********************************************************************/
+{
+   UtfInputParseError error;
+   CHARTYPE *decoded = NULL;
+   LENGTHTYPE decoded_len = 0;
+   size_t capacity;
+   short rc;
+   bool save_hex;
+
+   TRACE_FUNCTION("comm2.c:   UTFInput");
+   capacity = strlen((DEFCHAR *)params) + 1;
+   decoded = (CHARTYPE *)(*the_malloc)((capacity + 1) * sizeof(CHARTYPE));
+   if (decoded == NULL)
+   {
+      display_error(30,(CHARTYPE *)"",FALSE);
+      TRACE_RETURN();
+      return(RC_OUT_OF_MEMORY);
+   }
+   if (!utfinput_parse_command(params, decoded, (LENGTHTYPE)capacity,
+                               &decoded_len, &error))
+   {
+      (*the_free)(decoded);
+      TRACE_RETURN();
+      return utfinput_display_parse_error(&error);
+   }
+   decoded[decoded_len] = '\0';
+   save_hex = CURRENT_VIEW->hex;
+   CURRENT_VIEW->hex = FALSE;
+   rc = Input(decoded);
+   CURRENT_VIEW->hex = save_hex;
+   (*the_free)(decoded);
    TRACE_RETURN();
    return(rc);
 }

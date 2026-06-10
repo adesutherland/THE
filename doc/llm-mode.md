@@ -87,7 +87,9 @@ Supported protocol commands:
 - `key NAME`
 - `text TEXT`
 - `type TEXT`
+- `text-utf U+codepoint[+codepoint...] [U+codepoint[+codepoint...]...]`
 - `insert after LINE TEXT`
+- `insert-utf after LINE U+codepoint[+codepoint...] [U+codepoint[+codepoint...]...]`
 - `command COMMAND`
 - `transient readv [TEXT]`, `transient dialog [TEXT]`, or `transient popup`
 - `transient look`, `transient key NAME`, `transient text TEXT`,
@@ -100,6 +102,9 @@ Supported protocol commands:
 build-dependent behavior. It reports the full dispatcher, real buffers,
 profile/CREXX availability, syntax/style spans, parser diagnostics, transient
 support, and host-owned build/test hooks.
+
+`text` and `type` accept literal UTF-8 text. `text-utf` and `insert-utf` are
+deterministic code-point entry routes for tests and replayable agent actions.
 
 ACK responses include `message_changed`; `last_message` appears only when THE
 has produced a fresh human-facing message since the previous ACK. ACKs also

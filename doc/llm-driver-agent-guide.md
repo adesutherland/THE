@@ -75,7 +75,9 @@ Supported stdin commands:
 - `key NAME`
 - `text TEXT`
 - `type TEXT`
+- `text-utf U+codepoint[+codepoint...] [U+codepoint[+codepoint...]...]`
 - `insert after LINE TEXT`
+- `insert-utf after LINE U+codepoint[+codepoint...] [U+codepoint[+codepoint...]...]`
 - `command COMMAND`
 - `transient readv [TEXT]`, `transient dialog [TEXT]`, or `transient popup`
 - `transient look`, `transient key NAME`, `transient text TEXT`,

@@ -367,6 +367,7 @@ set(THE_SOURCES
     src/thedriver.c
     src/textedit.c
     src/textpos.c
+    src/utfinput.c
     src/transientui.c
     src/uidriver.c
     src/utfcluster.c
@@ -706,6 +707,14 @@ if(USE_UTF8)
         target_compile_definitions(test_textedit PRIVATE USE_UTF8PROC=1)
     endif()
     add_test(NAME test_textedit COMMAND test_textedit)
+
+    add_executable(test_utfinput tests/test_utfinput.c src/utfinput.c src/textpos.c)
+    target_include_directories(test_utfinput PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+    if(USE_UTF8PROC)
+        target_link_libraries(test_utfinput ${THE_UTF8PROC_TARGET})
+        target_compile_definitions(test_utfinput PRIVATE USE_UTF8PROC=1)
+    endif()
+    add_test(NAME test_utfinput COMMAND test_utfinput)
 
     add_executable(test_utfterm tests/test_utfterm.c src/utfterm.c src/utfcluster.c src/textpos.c)
     target_include_directories(test_utfterm PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})

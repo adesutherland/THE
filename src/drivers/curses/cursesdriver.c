@@ -4,6 +4,7 @@
 #include "driverlayout.h"
 #include "curseskeymap.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1135,6 +1136,85 @@ static int curses_driver_read_current_window_key(void)
    return curses_driver_read_window_key(curses_driver_current_active_window());
 }
 
+static int curses_driver_read_raw_window_key(WINDOW *win);
+
+static int curses_driver_utf8_lead_len(int key)
+{
+   unsigned char ch;
+
+   if (key < 0 || key > 255)
+      return 0;
+   ch = (unsigned char)key;
+   if (ch >= 0xC2u && ch <= 0xDFu)
+      return 2;
+   if (ch >= 0xE0u && ch <= 0xEFu)
+      return 3;
+   if (ch >= 0xF0u && ch <= 0xF4u)
+      return 4;
+   return 0;
+}
+
+static int curses_driver_utf8_continuation(int key)
+{
+   return key >= 0x80 && key <= 0xBF;
+}
+
+static int curses_driver_decode_utf8_bytes(const unsigned char *bytes,
+                                           int len, uint32_t *codepoint)
+{
+   uint32_t cp;
+   int i;
+
+   if (bytes == NULL || codepoint == NULL || len < 2 || len > 4)
+      return 0;
+   if (len == 2)
+      cp = (uint32_t)(bytes[0] & 0x1Fu);
+   else if (len == 3)
+      cp = (uint32_t)(bytes[0] & 0x0Fu);
+   else
+      cp = (uint32_t)(bytes[0] & 0x07u);
+   for (i = 1; i < len; i++)
+   {
+      if ((bytes[i] & 0xC0u) != 0x80u)
+         return 0;
+      cp = (cp << 6) | (uint32_t)(bytes[i] & 0x3Fu);
+   }
+   if ((len == 2 && cp < 0x80u)
+   ||  (len == 3 && cp < 0x800u)
+   ||  (len == 4 && cp < 0x10000u)
+   ||  (cp >= 0xD800u && cp <= 0xDFFFu)
+   ||  cp > 0x10FFFFu)
+      return 0;
+   *codepoint = cp;
+   return 1;
+}
+
+static int curses_driver_read_utf8_text_event(int first_key,
+                                              TheInputEvent *event)
+{
+   unsigned char bytes[4];
+   uint32_t codepoint;
+   int len;
+   int i;
+
+   len = curses_driver_utf8_lead_len(first_key);
+   if (len == 0)
+      return 0;
+   bytes[0] = (unsigned char)first_key;
+   for (i = 1; i < len; i++)
+   {
+      int next_key = curses_driver_read_raw_window_key(
+                        curses_driver_current_active_window());
+
+      if (!curses_driver_utf8_continuation(next_key))
+         return 0;
+      bytes[i] = (unsigned char)next_key;
+   }
+   if (!curses_driver_decode_utf8_bytes(bytes, len, &codepoint))
+      return 0;
+   return the_input_event_from_text(codepoint, event);
+}
+
 static int curses_driver_read_raw_window_key(WINDOW *win)
 {
    if (win == NULL)
@@ -1158,6 +1238,8 @@ int curses_driver_read_input_event(TheInputEvent *event)
    key = curses_driver_read_current_window_key();
    if (key == ERR)
       return 0;
+   if (curses_driver_read_utf8_text_event(key, event))
+      return 1;
    return the_input_event_from_legacy_key(key, event);
 }
 
