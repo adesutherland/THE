@@ -196,6 +196,36 @@ static void expect_canonical_contains(const char *name,
    }
 }
 
+static void expect_entry_equal(const char *name,
+                               const Utf8TerminalProfileEntry *got,
+                               const Utf8TerminalProfileEntry *want)
+{
+   if (got == NULL || want == NULL)
+   {
+      fprintf(stderr, "%s: missing profile entry\n", name);
+      failures++;
+      return;
+   }
+   expect_int(name, got->feature_class, want->feature_class);
+   expect_int(name, got->display_mode, want->display_mode);
+   expect_int(name, got->output_method, want->output_method);
+   expect_int(name, got->metric_method, want->metric_method);
+   expect_int(name, (int)got->substitute_codepoint,
+              (int)want->substitute_codepoint);
+   expect_int(name, got->mark, want->mark);
+   expect_int(name, got->display_strategy, want->display_strategy);
+   expect_int(name, got->width, want->width);
+   expect_int(name, got->advance_width, want->advance_width);
+   expect_int(name, got->cursor_width, want->cursor_width);
+   expect_int(name, got->repaint_width, want->repaint_width);
+   expect_int(name, got->cursor_strategy, want->cursor_strategy);
+   expect_int(name, got->replacement_strategy, want->replacement_strategy);
+   expect_int(name, utf8_terminal_resolved_output_for_entry(got),
+              utf8_terminal_resolved_output_for_entry(want));
+   expect_int(name, utf8_terminal_effective_metrics_for_entry(got),
+              utf8_terminal_effective_metrics_for_entry(want));
+}
+
 static TextCluster cluster_after_leading_ascii(const CHARTYPE *line, size_t len)
 {
    TextPos pos = textpos_next_cluster(line, len, textpos_begin());
@@ -869,6 +899,100 @@ static void test_profile_file(const char *profile_path)
                              "SET UTF DISPLAY NORMAL CLASS keycap OUTPUT SANITIZE METRICS OUTPUT");
 }
 
+static void test_canonical_profile_replay(void)
+{
+   enum
+   {
+      PROFILE_RULE_CAPACITY = UTF8_TERM_CLASS_COUNT * UTF8_TERM_DISPLAY_COUNT,
+      PROFILE_RULE_SIZE = 512
+   };
+   Utf8TerminalProfileEntry expected[PROFILE_RULE_CAPACITY];
+   char rules[PROFILE_RULE_CAPACITY][PROFILE_RULE_SIZE];
+   size_t rule_count;
+   size_t i;
+   Utf8TerminalDisplayMode display;
+
+   utf8_terminal_profile_reset();
+   expect_int("replay.keycap.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF DISPLAY NORMAL CLASS keycap OUTPUT SANITIZE KEYCAP METRICS OUTPUT MARK COMPRESSED WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1 DISPLAYSTRATEGY INLINE CURSORSTRATEGY CELLS REPLACESTRATEGY CELLS"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_int("replay.modifier.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF DISPLAY NORMAL CLASS modifier OUTPUT NATIVE METRICS PROFILE MARK NONE WIDTH 2 ADVANCE 4 CURSOR 4 REPAINT 4 CURSORSTRATEGY CELLS REPLACESTRATEGY LINE"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_int("replay.flag.normal.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF DISPLAY NORMAL CLASS regional-flag OUTPUT NATIVE METRICS PROFILE MARK NONE WIDTH 2 ADVANCE 3 CURSOR 3 REPAINT 3 CURSORSTRATEGY CELLS REPLACESTRATEGY CELLS"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_int("replay.flag.decomposed.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF DISPLAY DECOMPOSED CLASS regional-flag OUTPUT COMPONENTS METRICS COMPONENTS DISPLAYSTRATEGY ISOLATE CURSORSTRATEGY CELLS REPLACESTRATEGY CELLS"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_int("replay.short.substitute.apply",
+              utf8_terminal_profile_apply_line(
+                 "SET UTF DISPLAY NORMAL CLASS short-zwj OUTPUT SUBSTITUTE U+25A1 METRICS OUTPUT MARK SUBSTITUTED WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1 CURSORSTRATEGY CELLS REPLACESTRATEGY CELLS"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+   expect_int("replay.display.apply",
+              utf8_terminal_profile_apply_line("SET UTF DISPLAY SINGLE"),
+              UTF8_TERMINAL_PROFILE_APPLIED);
+
+   display = utf8_terminal_display_mode();
+   rule_count = utf8_terminal_profile_entry_count();
+   expect_size("replay.rule.count", rule_count,
+               (size_t)PROFILE_RULE_CAPACITY);
+   for (i = 0; i < rule_count && i < PROFILE_RULE_CAPACITY; i++)
+   {
+      const Utf8TerminalProfileEntry *entry =
+         utf8_terminal_profile_entry_at(i);
+
+      if (entry == NULL)
+      {
+         fprintf(stderr, "replay.capture.%zu: missing entry\n", i);
+         failures++;
+         continue;
+      }
+      expected[i] = *entry;
+      if (!utf8_terminal_profile_canonical_rule_at(i, rules[i],
+                                                   sizeof(rules[i])))
+      {
+         fprintf(stderr, "replay.capture.%zu: canonical formatting failed\n",
+                 i);
+         failures++;
+         rules[i][0] = '\0';
+      }
+   }
+
+   utf8_terminal_profile_reset();
+   expect_int("replay.display.restore",
+              utf8_terminal_set_display_mode(display), 1);
+   for (i = 0; i < rule_count && i < PROFILE_RULE_CAPACITY; i++)
+      expect_int("replay.rule.apply",
+                 utf8_terminal_profile_apply_line(rules[i]),
+                 UTF8_TERMINAL_PROFILE_APPLIED);
+
+   expect_int("replay.display.mode", utf8_terminal_display_mode(), display);
+   expect_size("replay.rule.count.after",
+               utf8_terminal_profile_entry_count(), rule_count);
+   for (i = 0; i < rule_count && i < PROFILE_RULE_CAPACITY; i++)
+   {
+      char replayed[PROFILE_RULE_SIZE];
+      const Utf8TerminalProfileEntry *entry =
+         utf8_terminal_profile_entry_at(i);
+
+      expect_entry_equal("replay.entry", entry, &expected[i]);
+      if (!utf8_terminal_profile_canonical_rule_at(i, replayed,
+                                                   sizeof(replayed)))
+      {
+         fprintf(stderr, "replay.after.%zu: canonical formatting failed\n",
+                 i);
+         failures++;
+         continue;
+      }
+      expect_string("replay.canonical", replayed, rules[i]);
+   }
+}
+
 static void test_terminal_identity(void)
 {
    utf8_terminal_profile_reset();
@@ -1224,6 +1348,7 @@ int main(int argc, char **argv)
    test_line_parser();
    test_strategy_names();
    test_profile_file(argv[1]);
+   test_canonical_profile_replay();
    test_terminal_identity();
    test_cluster_classification();
    test_cluster_profile_lookup();

@@ -58,6 +58,7 @@ typedef struct
 static LlmDriverScreenView previous_view;
 static int previous_view_valid = 0;
 static LlmTransientSession transient_session;
+static unsigned long last_ack_message_serial = 0;
 
 static const char *llm_popup_items[] =
 {
@@ -285,6 +286,71 @@ static void print_json_string(const char *text)
    putchar('"');
 }
 
+static void print_ack_pending_prefix(void)
+{
+   THE_PPC *curr;
+   int count = 0;
+   int emitted = 0;
+
+   if (CURRENT_FILE != NULL)
+   {
+      for (curr = CURRENT_FILE->first_ppc; curr != NULL; curr = curr->next)
+         count++;
+   }
+   printf(",\"pending_prefix\":{\"count\":%d,\"commands\":[", count);
+   if (CURRENT_FILE != NULL)
+   {
+      for (curr = CURRENT_FILE->first_ppc;
+           curr != NULL && emitted < 16;
+           curr = curr->next)
+      {
+         if (emitted > 0)
+            fputc(',', stdout);
+         printf("{\"line\":%ld,\"command\":",
+                (long)curr->ppc_line_number);
+         print_json_string((const char *)curr->ppc_command);
+         fputs(",\"original\":", stdout);
+         print_json_string((const char *)curr->ppc_orig_command);
+         printf(",\"cmd_idx\":%d,\"block\":%d,\"processed\":%d,"
+                "\"current\":%d,\"set_by_pending\":%d}",
+                (int)curr->ppc_cmd_idx,
+                curr->ppc_block_command ? 1 : 0,
+                curr->ppc_processed ? 1 : 0,
+                curr->ppc_current_command ? 1 : 0,
+                curr->ppc_set_by_pending ? 1 : 0);
+         emitted++;
+      }
+   }
+   fputs("]}", stdout);
+}
+
+static void print_ack_runtime_snapshot(void)
+{
+   LlmDriverScreenView view;
+
+   if (!llm_runtime_screen_view(current_screen, &view))
+      return;
+   fputs(",\"focus\":{\"zone\":", stdout);
+   print_json_string(logical_cursor_zone_name(view.cursor.zone));
+   printf(",\"line\":%ld,\"row\":%d,\"cell\":%d}",
+          (long)view.cursor.line_number,
+          view.cursor.zone_row,
+          view.cursor.text.cell_column);
+   if (view.buffer_valid)
+   {
+      fputs(",\"buffer\":{\"path\":", stdout);
+      print_json_string(view.buffer_path);
+      printf(",\"dirty\":%d,\"lines\":%zu}",
+             view.buffer_dirty, view.buffer_line_count);
+   }
+   printf(",\"selection\":{\"active\":%d,\"start_line\":%ld,"
+          "\"start_cell\":%d,\"end_line\":%ld,\"end_cell\":%d}",
+          view.selection.active, (long)view.selection.start_line,
+          view.selection.start_cell, (long)view.selection.end_line,
+          view.selection.end_cell);
+   print_ack_pending_prefix();
+}
+
 static void parse_view_options(char *args, LlmDriverFormatOptions *options)
 {
    char *token;
@@ -345,14 +411,20 @@ static void llm_session_refresh(void)
 
 static void print_ack(int ok, short rc, const char *status)
 {
+   int message_changed = last_message != NULL
+                      && last_message_serial != last_ack_message_serial;
+
    printf("{\"ok\":%d,\"rc\":%d,\"lastrc\":%d,\"status\":",
           ok ? 1 : 0, (int)rc, (int)lastrc);
    print_json_string(status);
-   if (last_message != NULL)
+   printf(",\"message_changed\":%d", message_changed ? 1 : 0);
+   if (message_changed)
    {
       fputs(",\"last_message\":", stdout);
       print_json_string((const char *)last_message);
    }
+   last_ack_message_serial = last_message_serial;
+   print_ack_runtime_snapshot();
    fputs("}\n", stdout);
    fflush(stdout);
 }
@@ -399,7 +471,7 @@ static void print_capabilities(void)
    print_json_string((const char *)crexx_version);
    fputs(",\"transient_ui\":\"shared-transientui-protocol-adapter\"", stdout);
    fputs(",\"build_test_hooks\":\"external-shell-or-ctest\"", stdout);
-   fputs(",\"inputs\":[\"look\",\"delta\",\"capabilities\",\"focus\",\"hit\",\"key\",\"text\",\"type\",\"command\",\"debug\",\"transient\",\"quit\"]", stdout);
+   fputs(",\"inputs\":[\"look\",\"delta\",\"capabilities\",\"focus\",\"hit\",\"key\",\"text\",\"type\",\"insert\",\"command\",\"debug\",\"transient\",\"quit\"]", stdout);
    fputs(",\"view_modes\":[\"full\",\"filearea\",\"reserved\",\"prefix\",\"focus\"]", stdout);
    fputs(",\"transient_commands\":[\"transient readv [TEXT]\",\"transient dialog [TEXT]\",\"transient popup\",\"transient look\",\"transient key NAME\",\"transient text TEXT\",\"transient hit ROW COL\",\"transient result\",\"transient close\",\"transient cancel\"]", stdout);
    fputs(",\"debug_commands\":[\"describe-focus\",\"describe-row\",\"list-visible-rows\",\"dump-cursor-mapping\",\"dump-driver-ops\",\"explain-last-render\",\"utf-display\"]", stdout);
@@ -670,6 +742,53 @@ static short apply_real_command(char *command)
    rc = command_line((CHARTYPE *)command, COMMAND_ONLY_FALSE);
    llm_session_refresh();
    return rc;
+}
+
+static int apply_insert_after(char *args, short *out_rc)
+{
+   char command[4096];
+   char *line_text;
+   char *text;
+   long line_number;
+   short rc;
+
+   if (out_rc != NULL)
+      *out_rc = RC_INVALID_OPERAND;
+   if (CURRENT_VIEW == NULL || CURRENT_FILE == NULL || args == NULL)
+      return 0;
+   args = trim(args);
+   if (!ascii_starts_ci(args, "after "))
+      return 0;
+   line_text = trim(args + 6);
+   text = line_text;
+   while (*text != '\0' && !isspace((unsigned char)*text))
+      text++;
+   if (*text != '\0')
+   {
+      *text = '\0';
+      text = trim(text + 1);
+   }
+   if (!parse_long_token(line_text, &line_number)
+   ||  line_number < 0
+   ||  line_number > CURRENT_FILE->number_lines)
+      return 0;
+   if (text == NULL)
+      text = "";
+   if (!focus_command("filearea"))
+      return 0;
+   rc = THEcursor_goto((LINETYPE)line_number, 1);
+   if (rc != RC_OK)
+   {
+      llm_session_refresh();
+      if (out_rc != NULL)
+         *out_rc = rc;
+      return 0;
+   }
+   snprintf(command, sizeof(command), "input %s", text);
+   rc = apply_real_command(command);
+   if (out_rc != NULL)
+      *out_rc = rc;
+   return rc >= 0;
 }
 
 static void print_debug(char *args)
@@ -1096,6 +1215,7 @@ int llm_session_run_protocol(void)
    char line[4096];
 
    previous_view_valid = 0;
+   last_ack_message_serial = last_message_serial;
    reset_transient_session();
    (void)focus_command("filearea");
    llm_session_refresh();
@@ -1182,6 +1302,14 @@ int llm_session_run_protocol(void)
       if (ascii_starts_ci(command, "type "))
       {
          print_ack(apply_text_bytes(command + 5), RC_OK, "text applied");
+         continue;
+      }
+      if (ascii_starts_ci(command, "insert "))
+      {
+         short rc = RC_INVALID_OPERAND;
+         int ok = apply_insert_after(trim(command + 7), &rc);
+
+         print_ack(ok, rc, ok ? "insert applied" : "bad insert");
          continue;
       }
       if (ascii_starts_ci(command, "command "))

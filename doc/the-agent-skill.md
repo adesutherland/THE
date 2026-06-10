@@ -86,6 +86,12 @@ command save
 command write path/to/other.txt
 ```
 
+Use explicit protocol insertion when the target line matters:
+
+```text
+insert after 12 inserted by the llm protocol
+```
+
 Use normalized keys for cursor movement:
 
 ```text

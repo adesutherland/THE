@@ -75,6 +75,7 @@ Supported stdin commands:
 - `key NAME`
 - `text TEXT`
 - `type TEXT`
+- `insert after LINE TEXT`
 - `command COMMAND`
 - `transient readv [TEXT]`, `transient dialog [TEXT]`, or `transient popup`
 - `transient look`, `transient key NAME`, `transient text TEXT`,
@@ -86,6 +87,12 @@ Supported stdin commands:
 `command ...` uses THE's real command dispatcher. Profiles, prefix commands,
 parser/SDSLH state, file-ring behavior, editor variables, and CREXX macros
 therefore stay in the full editor runtime.
+
+Commands that return ACK JSON include `message_changed`; `last_message` is
+only present when THE has produced a fresh human-facing message since the last
+ACK. ACKs also carry compact focus, buffer, selection, and pending-prefix
+summaries so an agent can confirm where edits landed and whether prefix
+commands remain queued.
 
 ## View Modes
 
@@ -152,6 +159,12 @@ command find target
 command c/target/replacement/
 command set pending on d
 command save
+```
+
+Insert at an explicit file line when location matters:
+
+```text
+insert after 12 inserted by the llm protocol
 ```
 
 Inspect prefix state:

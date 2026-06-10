@@ -83,7 +83,8 @@ state, parser diagnostics, file-ring state, block state, and CREXX integration
 when available.
 
 Supported protocol verbs include `look`, `delta`, `capabilities`, `focus`,
-`hit`, `key`, `text`, `type`, `command`, `debug`, `transient`, and `quit`.
+`hit`, `key`, `text`, `type`, `insert`, `command`, `debug`, `transient`, and
+`quit`.
 
 Capability details live in `doc/llm-driver-capabilities.md`; agent usage
 guidance lives in `doc/llm-mode.md` and `doc/llm-driver-agent-guide.md`.

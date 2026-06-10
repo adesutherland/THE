@@ -125,6 +125,7 @@ extern bool           prefix_changed;
 /* error.c */
 extern CHARTYPE       *last_message;
 extern int            last_message_length;
+extern unsigned long  last_message_serial;
 
 /* mygetopt.c */
 extern char           *optarg;

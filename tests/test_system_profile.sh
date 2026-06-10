@@ -41,7 +41,26 @@ address the "extract /utf/" expose utf[]
 if utf[1] = "ON" then 'emsg QUERY_UTF_ON'
 if utf[2] = "DISPLAY DECOMPOSED" then 'emsg QUERY_UTF_MODE'
 if utf[3] > 0 then 'emsg QUERY_UTF_RULES'
-if utf[31] = "SET UTF DISPLAY NORMAL CLASS keycap OUTPUT SANITIZE METRICS OUTPUT MARK NONE WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1 DISPLAYSTRATEGY INLINE CURSORSTRATEGY FIRST REPLACESTRATEGY WHOLE" then 'emsg QUERY_UTF_RULE'
+last = utf[3] + 3
+utf_saved = .string[]
+found_keycap = 0
+do i = 1 to last
+  utf_saved[i] = utf[i]
+end
+do i = 4 to last
+  if utf[i] = "SET UTF DISPLAY NORMAL CLASS keycap OUTPUT SANITIZE METRICS OUTPUT MARK NONE WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1 DISPLAYSTRATEGY INLINE CURSORSTRATEGY CELLS REPLACESTRATEGY CELLS" then found_keycap = 1
+  rule = utf[i]
+  address the rule
+end
+if found_keycap = 1 then 'emsg QUERY_UTF_RULE'
+address the "extract /utf/" expose utf[]
+same = 1
+if utf[2] \= utf_saved[2] then same = 0
+if utf[3] \= utf_saved[3] then same = 0
+do i = 4 to last
+  if utf[i] \= utf_saved[i] then same = 0
+end
+if same = 1 then 'emsg QUERY_UTF_REPLAY'
 'emsg SYSTEM_PROFILE_RAN'
 PROFILE_EOF
 
@@ -61,6 +80,7 @@ grep -q "QUERY_UTF_ON" "${WORK_DIR}/with-user.err"
 grep -q "QUERY_UTF_MODE" "${WORK_DIR}/with-user.err"
 grep -q "QUERY_UTF_RULES" "${WORK_DIR}/with-user.err"
 grep -q "QUERY_UTF_RULE" "${WORK_DIR}/with-user.err"
+grep -q "QUERY_UTF_REPLAY" "${WORK_DIR}/with-user.err"
 grep -q "USER_PROFILE_RAN" "${WORK_DIR}/with-user.err"
 
 system_line="$(grep -n "SYSTEM_PROFILE_RAN" "${WORK_DIR}/with-user.err" | head -n 1 | cut -d: -f1)"
@@ -79,6 +99,7 @@ grep -q "QUERY_UTF_ON" "${WORK_DIR}/no-user.err"
 grep -q "QUERY_UTF_MODE" "${WORK_DIR}/no-user.err"
 grep -q "QUERY_UTF_RULES" "${WORK_DIR}/no-user.err"
 grep -q "QUERY_UTF_RULE" "${WORK_DIR}/no-user.err"
+grep -q "QUERY_UTF_REPLAY" "${WORK_DIR}/no-user.err"
 if grep -q "USER_PROFILE_RAN" "${WORK_DIR}/no-user.err"; then
   echo "-n should skip the user profile but keep the system profile" >&2
   exit 1

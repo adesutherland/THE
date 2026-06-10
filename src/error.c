@@ -42,6 +42,7 @@
 
 CHARTYPE *last_message=NULL;          /* contents of last error message */
 int last_message_length=0;
+unsigned long last_message_serial=0;
 static int errors_displayed=0;            /* number of errors displayed */
 static LINE *first_error=NULL;                   /* first error message */
 static LINE *last_error=NULL;                     /* last error message */
@@ -373,6 +374,7 @@ int display_error(unsigned short err_num,CHARTYPE *mess,bool ignore_bell)
             sprintf((DEFCHAR *)last_message,"%s: %s %s",last_cmd_name,error_message[err_num],mess);
       }
    }
+   last_message_serial++;
    /*
     * If msgmode is off, don't display any errors.
     */

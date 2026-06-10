@@ -26,6 +26,8 @@ utf_prefix_case="$work_dir/utf-prefix-case.txt"
 utf_cua_overlay="$work_dir/utf-cua-overlay.txt"
 utf_keycap="$work_dir/utf-keycap.txt"
 utf_flag="$work_dir/utf-flag.txt"
+utf_replay="$work_dir/utf-replay.txt"
+llm_usability="$work_dir/llm-usability.txt"
 out="$work_dir/out.jsonl"
 utf_out="$work_dir/utf-box.jsonl"
 utf_fill_out="$work_dir/utf-fill.jsonl"
@@ -39,6 +41,12 @@ utf_prefix_case_out="$work_dir/utf-prefix-case.jsonl"
 utf_cua_overlay_out="$work_dir/utf-cua-overlay.jsonl"
 utf_keycap_out="$work_dir/utf-keycap.jsonl"
 utf_flag_out="$work_dir/utf-flag.jsonl"
+utf_replay_seed_out="$work_dir/utf-replay-seed.jsonl"
+utf_replay_out="$work_dir/utf-replay.jsonl"
+llm_usability_out="$work_dir/llm-usability.jsonl"
+utf_replay_rules="$work_dir/utf-replay.rules"
+utf_replay_seed_debug="$work_dir/utf-replay-seed.debug"
+utf_replay_debug="$work_dir/utf-replay.debug"
 err="$work_dir/err.log"
 
 printf 'alpha beta gamma\nint main(void) { return 0; }\n' > "$sample"
@@ -55,6 +63,8 @@ printf 'a\344\270\255b\nc\344\270\255d\n' > "$utf_prefix_case"
 printf 'A\344\270\255B\nC\344\270\255D\nX\344\270\255Y\n' > "$utf_cua_overlay"
 printf 'A1\357\270\217\342\203\243B\n' > "$utf_keycap"
 printf 'A\360\237\207\272\360\237\207\270B\n' > "$utf_flag"
+printf 'A1\357\270\217\342\203\243B\nA\360\237\207\272\360\237\207\270B\n' > "$utf_replay"
+printf 'TODO alpha\nbravo lower\ncharlie lower\n' > "$llm_usability"
 
 "$the_bin" -h > "$work_dir/default-help.txt"
 "$the_bin" --driver curses -h > "$work_dir/curses-help.txt"
@@ -132,7 +142,7 @@ rg '"parser_diagnostics":"first-class-snapshot-array"|"parser_diagnostics":"unav
 rg '"transient_ui":"shared-transientui-protocol-adapter"' "$out" >/dev/null
 rg '"utf":true' "$out" >/dev/null
 rg '"utf_display_mode":"normal"' "$out" >/dev/null
-rg '"inputs":\["look","delta","capabilities","focus","hit","key","text","type","command","debug","transient","quit"\]' "$out" >/dev/null
+rg '"inputs":\["look","delta","capabilities","focus","hit","key","text","type","insert","command","debug","transient","quit"\]' "$out" >/dev/null
 rg '"debug_commands":\[[^]]*"utf-display"' "$out" >/dev/null
 rg '"debug":"utf-display","supported":true,"active_mode":"normal"' "$out" >/dev/null
 rg '"debug":"utf-display","supported":true,"active_mode":"decomposed"' "$out" >/dev/null
@@ -177,6 +187,38 @@ rg '"text":"Two"' "$out" >/dev/null
 rg '"status":"bye"' "$out" >/dev/null
 
 printf '%s\n' \
+  'command c/TODO/DONE/' \
+  'focus filearea' \
+  'insert after 1 inserted by llm protocol' \
+  'command set zone 1 20' \
+  'hit filearea 3 1 0' \
+  'command set pending block ucc' \
+  'hit filearea 4 1 0' \
+  'command set pending block ucc' \
+  'command sos doprefix' \
+  'look filearea compact max=120 prefix=1 command=0 status=0' \
+  'command save' \
+  'quit' |
+  TERM= THE_HOME_DIR="$release_dir" "$the_bin" --driver llm -n "$llm_usability" \
+    >"$llm_usability_out" 2>>"$err"
+
+rg '"status":"command dispatched","message_changed":1,"last_message":"1 occurrence\(s\) changed' "$llm_usability_out" >/dev/null
+rg '"status":"focus changed","message_changed":0' "$llm_usability_out" >/dev/null
+if awk '/"status":"focus changed"/ && /"last_message"/ {found=1} END {exit found ? 0 : 1}' "$llm_usability_out"; then
+  echo "llm ack repeated a stale last_message" >&2
+  cat "$llm_usability_out" >&2
+  exit 1
+fi
+rg '"status":"insert applied","message_changed":0.*"buffer":\{"path":"[^"]*llm-usability\.txt","dirty":1,"lines":4\}' "$llm_usability_out" >/dev/null
+rg '"pending_prefix":\{"count":1,"commands":\[\{"line":3,"command":"ucc","original":"ucc","cmd_idx":[0-9-]+,"block":1' "$llm_usability_out" >/dev/null
+rg '"pending_prefix":\{"count":2,"commands":\[\{"line":3,"command":"ucc","original":"ucc","cmd_idx":[0-9-]+,"block":1[^]]*\{"line":4,"command":"ucc","original":"ucc","cmd_idx":[0-9-]+,"block":1' "$llm_usability_out" >/dev/null
+rg '"line":2,"cur":0,"p":"000002","t":"inserted by llm protocol"' "$llm_usability_out" >/dev/null
+rg '"line":3,"cur":0,"p":"000003","t":"BRAVO LOWER"' "$llm_usability_out" >/dev/null
+rg '"line":4,"cur":1,"p":"000004","t":"CHARLIE LOWER"' "$llm_usability_out" >/dev/null
+printf 'DONE alpha\ninserted by llm protocol\nBRAVO LOWER\nCHARLIE LOWER\n' > "$work_dir/llm-usability.expected"
+cmp "$work_dir/llm-usability.expected" "$llm_usability"
+
+printf '%s\n' \
   'command set utf display normal class keycap output sanitize keycap metrics output mark compressed width 1 advance 1 cursor 1 repaint 1 cursorstrategy cells replacestrategy cells' \
   'debug utf-display' \
   'look filearea compact max=80 prefix=0 command=0 status=0 utf=all' \
@@ -212,6 +254,33 @@ rg 'render-cluster:window:[0-9]+:[0-9]+:1:1:1:2:2:2:2' "$utf_flag_out" >/dev/nul
 rg 'render-cluster:window:[0-9]+:[0-9]+:3:1:1:1:1:1:1' "$utf_flag_out" >/dev/null
 rg 'render-cluster:window:[0-9]+:[0-9]+:4:1:1:2:2:2:2' "$utf_flag_out" >/dev/null
 rg 'overlay-attrs:window:[0-9]+:[0-9]+:1:5' "$utf_flag_out" >/dev/null
+
+printf '%s\n' \
+  'command set utf display normal class keycap output sanitize keycap metrics output mark compressed width 1 advance 1 cursor 1 repaint 1 cursorstrategy cells replacestrategy cells' \
+  'command set utf display normal class modifier output native metrics profile mark none width 2 advance 4 cursor 4 repaint 4 cursorstrategy cells replacestrategy line' \
+  'command set utf display normal class regional-flag output native metrics profile mark none width 2 advance 3 cursor 3 repaint 3 cursorstrategy cells replacestrategy cells' \
+  'command set utf display decomposed class regional-flag output components metrics components displaystrategy isolate cursorstrategy cells replacestrategy cells' \
+  'command set utf display normal class short-zwj output substitute U+25A1 metrics output mark substituted width 1 advance 1 cursor 1 repaint 1 cursorstrategy cells replacestrategy cells' \
+  'command set utf display single' \
+  'debug utf-display' \
+  'quit' |
+  TERM= THE_HOME_DIR="$release_dir" "$the_bin" --driver llm -n "$utf_replay" \
+    >"$utf_replay_seed_out" 2>>"$err"
+
+rg '"debug":"utf-display","supported":true,"active_mode":"single"' "$utf_replay_seed_out" | tail -n 1 > "$utf_replay_seed_debug"
+active_mode="$(sed -E 's/.*"active_mode":"([^"]+)".*/\1/' "$utf_replay_seed_debug")"
+{
+  printf 'command set utf display %s\n' "$active_mode"
+  rg -o '"SET UTF DISPLAY [^"]+"' "$utf_replay_seed_debug" |
+    sed 's/^"/command /;s/"$//'
+  printf 'debug utf-display\n'
+  printf 'quit\n'
+} > "$utf_replay_rules"
+
+TERM= THE_HOME_DIR="$release_dir" "$the_bin" --driver llm -n "$utf_replay" \
+  <"$utf_replay_rules" >"$utf_replay_out" 2>>"$err"
+rg '"debug":"utf-display","supported":true,"active_mode":"single"' "$utf_replay_out" | tail -n 1 > "$utf_replay_debug"
+cmp "$utf_replay_seed_debug" "$utf_replay_debug"
 
 printf '%s\n' \
   'command mark box 1 3 1 3' \
