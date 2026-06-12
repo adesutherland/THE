@@ -1,0 +1,250 @@
+options levelb
+import rxfnsb
+
+arg args = .string[]
+
+mode = "html"
+renderer = "render-html.crexx"
+the_bin = "the"
+the_home = "."
+crexx_bin = "crexx"
+parser = "rxc"
+parser_command = "rxc"
+timeout = "5000"
+input_path = ""
+output_path = ""
+parser_arg_values = .string[]
+
+ai = 1
+do while ai <= args.0
+  token = args[ai]
+  select
+    when token = "--scan" then mode = "scan"
+    when token = "--validate" then mode = "validate"
+    when token = "--renderer" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--renderer needs a value"
+      renderer = args[ai]
+    end
+    when token = "--the" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--the needs a value"
+      the_bin = args[ai]
+    end
+    when token = "--home" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--home needs a value"
+      the_home = args[ai]
+    end
+    when token = "--crexx" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--crexx needs a value"
+      crexx_bin = args[ai]
+    end
+    when token = "--parser" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--parser needs a value"
+      parser = args[ai]
+    end
+    when token = "--parser-command" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--parser-command needs a value"
+      parser_command = args[ai]
+    end
+    when token = "--parser-arg" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--parser-arg needs a value"
+      call arrayappend parser_arg_values, args[ai]
+    end
+    when token = "--timeout" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--timeout needs a value"
+      timeout = args[ai]
+    end
+    when token = "--output" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--output needs a value"
+      output_path = args[ai]
+    end
+    otherwise do
+      if left(token, 1) = "-" then call usage_error "unexpected argument: " || token
+      if input_path = "" then input_path = token
+      else if output_path = "" then output_path = token
+      else call usage_error "unexpected argument: " || token
+    end
+  end
+  ai = ai + 1
+end
+
+if input_path = "" then call usage_error "markdown-file is required"
+if positive_integer(timeout) = 0 then call usage_error "--timeout must be a positive integer"
+if parser_arg_values.0 = 0 then call arrayappend parser_arg_values, "--syntaxhighlight"
+if mode = "html" & output_path = "" then output_path = default_output_path(input_path)
+
+if readable_file(renderer) = 0 then do
+  call diagnostic_message "batch-md-rexx: renderer not readable: " || renderer
+  exit 2
+end
+if readable_file(input_path) = 0 then do
+  call diagnostic_message "batch-md-rexx: markdown file not readable: " || input_path
+  exit 2
+end
+if command_available(crexx_bin) = 0 then do
+  call diagnostic_message "batch-md-rexx: CREXX command not found or not executable: " || crexx_bin
+  exit 2
+end
+if mode = "html" | mode = "validate" then do
+  if command_available(the_bin) = 0 then do
+    call diagnostic_message "batch-md-rexx: THE command not found or not executable: " || the_bin
+    exit 2
+  end
+  if readable_directory(the_home) = 0 then do
+    call diagnostic_message "batch-md-rexx: THE home directory not readable: " || the_home
+    exit 2
+  end
+  if command_available(parser_command) = 0 then do
+    call diagnostic_message "batch-md-rexx: parser command not found or not executable: " || parser_command
+    exit 2
+  end
+end
+
+select
+  when mode = "scan" then call diagnostic_message "batch-md-rexx: scanning " || input_path
+  when mode = "validate" then call diagnostic_message "batch-md-rexx: validating " || input_path
+  otherwise call diagnostic_message "batch-md-rexx: rendering " || input_path || " -> " || output_path
+end
+
+renderer_command = shell_quote(crexx_bin) || " -nokeep " || shell_quote(renderer) || " -args"
+if mode = "scan" then renderer_command = renderer_command || " --scan"
+if mode = "validate" then renderer_command = renderer_command || " --validate"
+if mode = "html" | mode = "validate" then do
+  renderer_command = renderer_command || " --the " || shell_quote(the_bin)
+  renderer_command = renderer_command || " --home " || shell_quote(the_home)
+  renderer_command = renderer_command || " --crexx " || shell_quote(crexx_bin)
+  renderer_command = renderer_command || " --parser " || shell_quote(parser)
+  renderer_command = renderer_command || " --parser-command " || shell_quote(parser_command)
+  do pai = 1 to parser_arg_values.0
+    renderer_command = renderer_command || " --parser-arg " || shell_quote(parser_arg_values[pai])
+  end
+  renderer_command = renderer_command || " --timeout " || shell_quote(timeout)
+end
+renderer_command = renderer_command || " " || shell_quote(input_path)
+
+command_lines = .string[]
+command_lines[1] = renderer_command
+render_out = .string[]
+render_err = .string[]
+address command "sh" input command_lines output render_out error render_err
+render_rc = rc
+
+call write_stem "stderr", render_err
+if render_rc <> 0 then do
+  call diagnostic_message "batch-md-rexx: renderer failed with rc " || render_rc
+  exit render_rc
+end
+
+if mode = "html" then do
+  if write_lines_to_file(output_path, render_out) <> 0 then do
+    call diagnostic_message "batch-md-rexx: could not write output file: " || output_path
+    exit 2
+  end
+  call diagnostic_message "batch-md-rexx: wrote " || output_path
+end
+else if mode = "scan" then do
+  if output_path <> "" then do
+    if write_lines_to_file(output_path, render_out) <> 0 then do
+      call diagnostic_message "batch-md-rexx: could not write output file: " || output_path
+      exit 2
+    end
+    call diagnostic_message "batch-md-rexx: wrote " || output_path
+  end
+  else call write_stem "stdout", render_out
+end
+else do
+  call diagnostic_message "batch-md-rexx: validation passed"
+end
+
+exit 0
+
+usage_error: procedure
+  arg message = .string
+  call diagnostic_message "batch-md-rexx: " || message
+  call diagnostic_message "usage: batch-md-rexx [--scan|--validate] [--renderer RENDERER] [--the THE] [--home THE_HOME] [--crexx CREXX] [--parser NAME] [--parser-command COMMAND] [--parser-arg ARG] [--timeout MS] markdown-file [output.html]"
+  exit 2
+return
+
+diagnostic_message: procedure
+  arg message = .string
+  call lineout "stderr", message
+return
+
+readable_file: procedure = .int
+  arg path = .string
+  if path = "" then return 0
+  command_lines = .string[]
+  command_lines[1] = "test -r " || shell_quote(path) || " -a -f " || shell_quote(path)
+  address command "sh" input command_lines
+  if rc = 0 then return 1
+return 0
+
+readable_directory: procedure = .int
+  arg path = .string
+  if path = "" then return 0
+  command_lines = .string[]
+  command_lines[1] = "test -r " || shell_quote(path) || " -a -d " || shell_quote(path)
+  address command "sh" input command_lines
+  if rc = 0 then return 1
+return 0
+
+command_available: procedure = .int
+  arg command_name = .string
+  if command_name = "" then return 0
+  command_lines = .string[]
+  command_lines[1] = "command -v " || shell_quote(command_name) || " >/dev/null 2>&1"
+  address command "sh" input command_lines
+  if rc = 0 then return 1
+return 0
+
+write_lines_to_file: procedure = .int
+  arg path = .string, lines = .string[]
+  err = .string[]
+  write_cmd = "sh -c " || shell_quote("cat > " || path)
+  address command write_cmd input lines error err
+  if rc <> 0 then do
+    call write_stem "stderr", err
+    return 1
+  end
+return 0
+
+write_stem: procedure
+  arg target = .string, values = .string[]
+  do wi = 1 to values.0
+    call lineout target, values[wi]
+  end
+return
+
+default_output_path: procedure = .string
+  arg path = .string
+  slash = lastpos("/", path)
+  backslash = lastpos("\", path)
+  if backslash > slash then slash = backslash
+  dot = lastpos(".", path)
+  if dot > slash then return substr(path, 1, dot - 1) || ".html"
+return path || ".html"
+
+positive_integer: procedure = .int
+  arg value = .string
+  if value = "" then return 0
+  if verify(value, "0123456789") <> 0 then return 0
+  if value <= 0 then return 0
+return 1
+
+shell_quote: procedure = .string
+  arg value = .string
+  quoted = "'"
+  do qi = 1 to length(value)
+    ch = substr(value, qi, 1)
+    if ch = "'" then quoted = quoted || "'""'""'"
+    else quoted = quoted || ch
+  end
+return quoted || "'"

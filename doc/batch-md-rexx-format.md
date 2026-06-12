@@ -160,6 +160,32 @@ stdout against a fixture file resolved relative to the Markdown source. On
 mismatch the renderer reports the example id, line number, expected text, and
 actual text, then exits non-zero without updating fixtures.
 
+Story 8 renders output according to the `output` attribute:
+
+- `output=text` and unknown output names render as escaped preformatted text.
+- `output=rexx`, `output=crexx`, and `output=the` highlight stdout through the
+  configured REXX parser.
+- `output=<parser>` highlights stdout when `<parser>` exactly matches the
+  command-line `--parser` value.
+- `output=markdown` renders a safe subset: headings, unordered lists,
+  blockquotes, fenced code, simple pipe tables, paragraphs, and inline backtick
+  code. Raw HTML in Markdown output is always escaped.
+
+Story 9 adds the packaged runner:
+
+```sh
+tools/batch-md-rexx/the-batch-md-rexx examples.md examples.html
+```
+
+Installed builds provide the same command as `the-batch-md-rexx`. The wrapper
+locates the CREXX helper scripts, prints progress to stderr, writes HTML to the
+requested output file, and exits non-zero when highlighting, execution, or
+validation fails. It also supports validation without generating HTML:
+
+```sh
+the-batch-md-rexx --validate examples.md
+```
+
 ## Sample Blocks
 
 Source-only example:

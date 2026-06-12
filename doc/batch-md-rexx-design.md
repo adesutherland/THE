@@ -112,6 +112,15 @@ Observed during Story 2 through Story 7 and worth tracking with CREXX changes:
   execution results through one tagged capture stem (`stdout=...`,
   `stderr=...`, `message=...`, `rc=...`, `timeout=...`) and splitting it in the
   caller.
+- A Story 9 experiment to make the batch runner a THE profile found that hosted
+  `.the` CREXX profiles do not currently accept the standalone CREXX
+  `ADDRESS COMMAND "sh" input command_lines output out error err` shape; the
+  compiler reported `#UNEXPECTED_ARRAY` on the stem arguments. The same profile
+  also reported `exit n` and `lineout(...)` as missing functions in that hosted
+  context. This is not blocking the batch utility because the supported runner
+  is a standalone CREXX script launched by the installed `the-batch-md-rexx`
+  command, but it is worth tracking before reviving the
+  `the -b -q -p batch_md_rexx.the -a ...` candidate.
 
 ## Recommended Shape
 
@@ -436,6 +445,20 @@ Acceptance criteria:
   path.
 - Output rendering never executes embedded HTML unless explicitly trusted.
 
+Implementation status:
+
+- `output=text` and unrecognized output names render as escaped preformatted
+  text.
+- `output=markdown` renders a safe documented subset: headings, unordered
+  lists, blockquotes, fenced code, simple pipe tables, paragraphs, and inline
+  backtick code. Embedded HTML is escaped, not executed.
+- `output=<parser>` feeds stdout through THE highlighting only when the output
+  name is one of the known REXX/THE aliases or exactly matches the parser
+  configured by the command line. This avoids treating a Markdown attribute as
+  an arbitrary parser command.
+- `tools/batch-md-rexx/tests/test_output_render.sh` validates Markdown output,
+  parser-highlighted output, and safe escaping of HTML-shaped output.
+
 ### Story 9: Package the Batch Profile/Runner
 
 As a user, I can run one command to produce the formatted document.
@@ -452,6 +475,22 @@ Acceptance criteria:
 - Missing CREXX or SDSLH support is reported clearly.
 - The install target includes the batch profile and helper macros when enabled.
 - CI has at least one end-to-end generated HTML fixture.
+
+Implementation status:
+
+- `tools/batch-md-rexx/the-batch-md-rexx` is the packaged command entry point.
+  It locates the installed/source tool directory and launches the CREXX runner.
+- `tools/batch-md-rexx/batch-md-rexx.crexx` owns runner validation, progress
+  messages, renderer invocation, HTML output-file writing, `--scan`, and
+  `--validate`.
+- CMake copies the runner and helper CREXX scripts into the build release
+  directory and installs `the-batch-md-rexx` to `bin` plus the helper scripts to
+  `share/the/batch-md-rexx`.
+- `tools/batch-md-rexx/tests/test_runner.sh` validates the packaged command in
+  render and validation modes.
+- The THE profile candidate remains a later item until hosted CREXX profiles
+  support the same pipe/stem process I/O shape and until THE batch mode can
+  propagate profile failures reliably.
 
 ### Story 10: Add TeX/PDF Renderer
 
