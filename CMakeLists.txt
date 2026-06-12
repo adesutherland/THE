@@ -785,6 +785,14 @@ add_test(NAME test_batch_md_rexx_render_html COMMAND bash ${CMAKE_CURRENT_SOURCE
 set_tests_properties(test_batch_md_rexx_render_html PROPERTIES
     SKIP_RETURN_CODE 77
 )
+add_test(NAME test_batch_md_rexx_execute COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_execute.sh)
+set_tests_properties(test_batch_md_rexx_execute PROPERTIES
+    SKIP_RETURN_CODE 77
+)
+add_test(NAME test_batch_md_rexx_validate COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_validate.sh)
+set_tests_properties(test_batch_md_rexx_validate PROPERTIES
+    SKIP_RETURN_CODE 77
+)
 add_test(NAME test_batch_md_rexx_highlight COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_highlight.sh)
 set_tests_properties(test_batch_md_rexx_highlight PROPERTIES
     SKIP_RETURN_CODE 77

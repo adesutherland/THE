@@ -89,9 +89,9 @@ run_crexx_capture scan-valid "${RENDERER_UNDER_TEST}" -args --scan "${WORK_DIR}/
 assert_rc scan-valid 0
 assert_empty_stderr scan-valid
 rg '^markdown start=1 end=8$' "${WORK_DIR}/scan-valid.out" >/dev/null
-rg '^example id=tilde\.one language=rexx opening=9 body-start=10 body-end=10 closing=11 run=false kind=standalone output=text fail-on-diagnostics=true$' "${WORK_DIR}/scan-valid.out" >/dev/null
+rg '^example id=tilde\.one language=rexx opening=9 body-start=10 body-end=10 closing=11 run=false kind=standalone output=text allow-rc=0 fail-on-diagnostics=true$' "${WORK_DIR}/scan-valid.out" >/dev/null
 rg '^markdown start=12 end=12$' "${WORK_DIR}/scan-valid.out" >/dev/null
-rg '^example id=quoted\.one language=crexx opening=13 body-start=14 body-end=14 closing=15 run=false kind=standalone output=text fail-on-diagnostics=false timeout=25$' "${WORK_DIR}/scan-valid.out" >/dev/null
+rg '^example id=quoted\.one language=crexx opening=13 body-start=14 body-end=14 closing=15 run=false kind=standalone output=text allow-rc=0 fail-on-diagnostics=false timeout=25$' "${WORK_DIR}/scan-valid.out" >/dev/null
 rg '^markdown start=16 end=19$' "${WORK_DIR}/scan-valid.out" >/dev/null
 
 cat > "${WORK_DIR}/unterminated.md" <<'EOF_UNTERMINATED'

@@ -72,7 +72,7 @@ Validated or fixed behavior in the installed CREXX build:
   reports to stderr, while `linein(missing)` reports to stderr and exits
   non-zero through the runtime failure path.
 
-Observed during Story 2 through Story 5 and worth tracking with CREXX changes:
+Observed during Story 2 through Story 7 and worth tracking with CREXX changes:
 
 - Writing an immediate protocol file with `lineout(path, value)` was not
   reliable when `path` came from `ADDRESS COMMAND ... output` and the content
@@ -102,6 +102,16 @@ Observed during Story 2 through Story 5 and worth tracking with CREXX changes:
   passing it to helper procedures. This keeps the current implementation
   independent of CREXX stem/reference materialization details across procedure
   boundaries.
+- Bug to report: when a procedure exposes multiple array arguments, only the
+  first exposed array updated reliably in a reduced Story 6 runner test. A
+  reduced shape was:
+  `outer(out[], err[], msg[], meta[])` calls `direct(out[], err[], msg[], meta[])`;
+  `direct` appends to all arrays and sets `meta[1] = "7"`, but the caller only
+  observed the first array update, while later arrays and `meta[1]` stayed at
+  their original values. The batch renderer works around this by returning
+  execution results through one tagged capture stem (`stdout=...`,
+  `stderr=...`, `message=...`, `rc=...`, `timeout=...`) and splitting it in the
+  caller.
 
 ## Recommended Shape
 
@@ -152,6 +162,8 @@ Proposed attributes:
   default `text`.
 - `expect`: optional path or inline expectation id for output comparison.
 - `timeout`: runtime timeout in milliseconds.
+- `allow-rc`: expected non-zero process return code, or `*` to accept any
+  return code; default `0`.
 - `fail-on-diagnostics`: default `true`.
 
 The first parser should be line-oriented and conservative. It does not need to
@@ -370,6 +382,23 @@ Acceptance criteria:
   is requested.
 - Timeouts and non-zero return codes fail the batch unless explicitly allowed.
 
+Implementation status:
+
+- `run=true kind=standalone` writes the block to a temporary file and executes
+  it with CREXX through `ADDRESS COMMAND`, capturing stdout, stderr, return
+  code, and timeout state.
+- `run=true kind=the-macro` and `run=true kind=address-the` run through a
+  generated THE batch profile and capture THE message history with
+  `EXTRACT /MESSAGES/`.
+- Captured stdout/stderr render as escaped output blocks. When `output` names a
+  supported example language such as `rexx`, stdout is highlighted through the
+  same `STYLESPANS` path as source examples.
+- `allow-rc=N` explicitly accepts a non-zero return code; otherwise non-zero
+  return codes and timeouts fail the batch run.
+- `tools/batch-md-rexx/tests/test_execute.sh` validates standalone execution,
+  highlighted stdout, THE macro/address-the execution, message capture, and
+  `allow-rc`.
+
 ### Story 7: Validate Expected Output
 
 As a maintainer, I can use the batch renderer as a regression test for examples.
@@ -380,6 +409,19 @@ Acceptance criteria:
 - Mismatches show the example id and a small diff.
 - The process exits non-zero on validation failure.
 - Generated artifacts are not updated silently during validation mode.
+
+Implementation status:
+
+- `expect=inline:<text>` validates one-line stdout directly from the fence
+  metadata.
+- `expect=<path>` validates stdout against a fixture path resolved relative to
+  the Markdown source file.
+- `--validate` runs highlighting, execution, and expected-output checks without
+  emitting generated HTML.
+- Mismatches report the example id, line number, expected line, actual line,
+  and non-zero process status.
+- `tools/batch-md-rexx/tests/test_validate.sh` validates inline expectations,
+  fixture-file expectations, mismatch diagnostics, and fixture non-mutation.
 
 ### Story 8: Highlight or Render Output
 

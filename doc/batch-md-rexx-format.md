@@ -31,6 +31,8 @@ quoted when they contain whitespace. Supported attributes:
   names are allowed if they use identifier characters.
 - `expect`: optional expected-output fixture name or path.
 - `timeout`: optional positive integer timeout in milliseconds.
+- `allow-rc`: optional accepted return code, or `*` to accept any return code;
+  default `0`.
 - `fail-on-diagnostics`: `true` or `false`; default `true`.
 
 Unknown attributes are errors. Duplicate attributes are errors.
@@ -132,6 +134,31 @@ The renderer writes HTML to stdout. It preserves non-REXX fences as escaped
 Markdown text, highlights REXX/CREXX/THE example source through THE
 `STYLESPANS`, and maps known styles to stable `syn-*` CSS classes. Parser
 diagnostics fail the run when `fail-on-diagnostics=true`.
+
+Story 6 executes examples when `run=true`. Standalone examples use CREXX via
+`--crexx`; `kind=the-macro` and `kind=address-the` run through a generated THE
+batch profile. Captured stdout and stderr are rendered below the highlighted
+source, and THE message history is included for THE-backed examples. Non-zero
+return codes fail the batch unless `allow-rc=N` or `allow-rc=*` is set.
+
+Story 7 adds validation mode:
+
+```sh
+crexx -nokeep tools/batch-md-rexx/render-html.crexx -args \
+  --validate \
+  --the cmake-build-debug/release/the \
+  --home cmake-build-debug/release \
+  --crexx "$(command -v crexx)" \
+  --parser rxc \
+  --parser-command "$(command -v rxc)" \
+  --parser-arg --syntaxhighlight \
+  examples.md
+```
+
+`expect=inline:<text>` validates one stdout line. `expect=<path>` validates
+stdout against a fixture file resolved relative to the Markdown source. On
+mismatch the renderer reports the example id, line number, expected text, and
+actual text, then exits non-zero without updating fixtures.
 
 ## Sample Blocks
 
