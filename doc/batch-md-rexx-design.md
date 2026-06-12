@@ -72,7 +72,7 @@ Validated or fixed behavior in the installed CREXX build:
   reports to stderr, while `linein(missing)` reports to stderr and exits
   non-zero through the runtime failure path.
 
-Observed during Story 2 and Story 3 and worth tracking with CREXX changes:
+Observed during Story 2 through Story 5 and worth tracking with CREXX changes:
 
 - Writing an immediate protocol file with `lineout(path, value)` was not
   reliable when `path` came from `ADDRESS COMMAND ... output` and the content
@@ -89,6 +89,19 @@ Observed during Story 2 and Story 3 and worth tracking with CREXX changes:
   profile, such as `'emsg ' || stylespans[i]`, was rejected with
   `#UNEXPECTED_ARRAY`. Assigning the stem entry to a scalar temporary first is
   accepted; the Story 3 test profile uses that form.
+- Complex shell commands with nested quoting were more reliable when invoked as
+  `ADDRESS COMMAND "sh" input command_lines` than as `sh -c <quoted-command>`
+  inside one command string. The HTML renderer uses the stdin-fed shell form
+  for THE subprocesses.
+- In typed procedures, direct `>`/`<` comparisons between numeric text from
+  `word()` and values derived from `length()` behaved lexically in reduced
+  renderer tests, for example treating a later one-digit column as greater than
+  a two-digit line length. The renderer avoids this by using arithmetic
+  differences such as `gap_len = start - cell`.
+- The renderer copies the exposed `stylespans[]` result into a local stem before
+  passing it to helper procedures. This keeps the current implementation
+  independent of CREXX stem/reference materialization details across procedure
+  boundaries.
 
 ## Recommended Shape
 
@@ -302,6 +315,18 @@ Acceptance criteria:
 - Unterminated fences and malformed attributes produce useful errors.
 - Unit-style fixtures cover common Markdown edge cases.
 
+Implementation status:
+
+- `tools/batch-md-rexx/render-html.crexx --scan` emits a line-oriented scanner
+  manifest with `markdown` segment records and `example` block records.
+- The scanner validates the Story 1 attribute contract, duplicate ids,
+  unterminated fences, quoted attributes, tilde fences, indented fences, and
+  malformed attributes.
+- Non-REXX fences remain part of surrounding Markdown records rather than
+  becoming examples.
+- `tools/batch-md-rexx/tests/test_scan.sh` covers common scanner edge cases in
+  CTest.
+
 ### Story 5: Render Highlighted Source to HTML
 
 As a reader, I see source examples with THE/SDSLH syntax highlighting in the
@@ -314,6 +339,22 @@ Acceptance criteria:
 - Unknown styles degrade to plain text.
 - The renderer includes a minimal CSS theme based on existing `ECOLOR` style
   names, not terminal colour escape sequences.
+
+Implementation status:
+
+- `tools/batch-md-rexx/render-html.crexx` renders HTML to stdout in default
+  mode.
+- For each REXX/CREXX/THE example block, the renderer writes the source to a
+  temporary file, runs THE in batch mode with a generated profile, waits with
+  `SDSLHWAIT`, extracts `PMSGS` and `STYLESPANS`, and renders semantic
+  `<span class="syn-...">` source markup.
+- Source text and Markdown passthrough text are HTML-escaped. Unknown style
+  names are emitted as escaped plain text.
+- The CSS uses semantic ECOLOR/SDSLH names such as `comment`, `string`,
+  `keyword`, `identifier`, and `preprocessor`; it does not emit terminal escape
+  sequences.
+- `tools/batch-md-rexx/tests/test_render_html.sh` validates escaping,
+  highlighted source, preserved non-REXX fences, and parser-diagnostic failure.
 
 ### Story 6: Execute Examples
 

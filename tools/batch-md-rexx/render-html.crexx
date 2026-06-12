@@ -1,0 +1,708 @@
+options levelb
+import rxfnsb
+
+arg args = .string[]
+
+mode = "html"
+path = ""
+the_bin = ""
+the_home = ""
+parser = "rxc"
+parser_command = ""
+parser_args = ""
+timeout = "5000"
+
+ai = 1
+do while ai <= args.0
+  token = args[ai]
+  select
+    when token = "--scan" then mode = "scan"
+    when token = "--the" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--the needs a value"
+      the_bin = args[ai]
+    end
+    when token = "--home" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--home needs a value"
+      the_home = args[ai]
+    end
+    when token = "--parser" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--parser needs a value"
+      parser = args[ai]
+    end
+    when token = "--parser-command" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--parser-command needs a value"
+      parser_command = args[ai]
+    end
+    when token = "--parser-arg" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--parser-arg needs a value"
+      if parser_args = "" then parser_args = args[ai]
+      else parser_args = parser_args || " " || args[ai]
+    end
+    when token = "--timeout" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--timeout needs a value"
+      timeout = args[ai]
+    end
+    otherwise do
+      if path = "" then path = token
+      else call usage_error "unexpected argument: " || token
+    end
+  end
+  ai = ai + 1
+end
+
+if path = "" then call usage_error "markdown-file is required"
+if parser_command = "" then parser_command = parser
+if parser_args = "" then parser_args = "--syntaxhighlight"
+if positive_integer(timeout) = 0 then call usage_error "--timeout must be a positive integer"
+if mode = "html" then do
+  if the_bin = "" then call usage_error "--the is required for HTML rendering"
+  if the_home = "" then call usage_error "--home is required for HTML rendering"
+end
+
+source = .string[]
+do forever
+  available = lines(path)
+  if available < 0 then do
+    call diagnostic_message "render-html.crexx: cannot read markdown file: " || path
+    exit 2
+  end
+  if available = 0 then leave
+  call arrayappend source, linein(path)
+end
+
+manifest = .string[]
+failures = scan_markdown(path, source, manifest)
+if failures > 0 then exit 1
+
+if mode = "scan" then do
+  do mi = 1 to manifest.0
+    say manifest[mi]
+  end
+  exit 0
+end
+
+render_rc = render_html_document(path, source, manifest, the_bin, the_home, parser, parser_command, parser_args, timeout)
+exit render_rc
+
+usage_error: procedure
+  arg message = .string
+  call diagnostic_message "render-html.crexx: " || message
+  call diagnostic_message "usage: render-html.crexx [--scan] [--the THE --home THE_HOME] [--parser NAME] [--parser-command COMMAND] [--parser-arg ARG] [--timeout MS] markdown-file"
+  exit 2
+return
+
+diagnostic: procedure
+  arg file = .string, line_no = .int, message = .string
+  call diagnostic_message file || ":" || line_no || ": error: " || message
+return
+
+diagnostic_message: procedure
+  arg message = .string
+  call lineout "stderr", message
+return
+
+scan_markdown: procedure = .int
+  arg path = .string, source = .string[], expose manifest = .string[]
+
+  failures = 0
+  seen_ids = .string[]
+  seen_lines = .string[]
+  markdown_start = 1
+  line_count = source.0
+  i = 1
+
+  do while i <= line_count
+    fence = opening_fence(source[i])
+    if fence = "" then do
+      i = i + 1
+      iterate
+    end
+
+    info = fence_info(source[i], fence)
+    language = lower(word(info, 1))
+    j = i + 1
+    do while j <= line_count
+      if closing_fence(source[j], fence) = 1 then leave
+      j = j + 1
+    end
+    if j > line_count then do
+      call diagnostic path, i, "unterminated fenced code block"
+      failures = failures + 1
+      leave
+    end
+
+    if is_example_language(language) = 1 then do
+      tokens = .string[]
+      token_count = tokenize_info(info, tokens)
+      if token_count < 0 then do
+        call diagnostic path, i, "invalid fence attributes: unterminated quote"
+        failures = failures + 1
+      end
+      else do
+        id = ""
+        run = "false"
+        kind = "standalone"
+        output = "text"
+        expect = ""
+        timeout = ""
+        fail_diag = "true"
+        seen_keys = .string[]
+        block_failures = 0
+
+        do ti = 2 to token_count
+          token = tokens[ti]
+          eq = pos("=", token)
+          if eq = 0 then do
+            call diagnostic path, i, "expected key=value attribute, got '" || token || "'"
+            block_failures = block_failures + 1
+            iterate
+          end
+          key = substr(token, 1, eq - 1)
+          value = substr(token, eq + 1)
+          if is_allowed_attribute(key) = 0 then do
+            call diagnostic path, i, "unknown attribute '" || key || "'"
+            block_failures = block_failures + 1
+            iterate
+          end
+          if value = "" then do
+            call diagnostic path, i, "attribute '" || key || "' must not be empty"
+            block_failures = block_failures + 1
+            iterate
+          end
+          if string_array_index(seen_keys, key) > 0 then do
+            call diagnostic path, i, "duplicate attribute '" || key || "'"
+            block_failures = block_failures + 1
+            iterate
+          end
+          call arrayappend seen_keys, key
+
+          select
+            when key = "id" then id = value
+            when key = "run" then run = value
+            when key = "kind" then kind = value
+            when key = "output" then output = value
+            when key = "expect" then expect = value
+            when key = "timeout" then timeout = value
+            when key = "fail-on-diagnostics" then fail_diag = value
+            otherwise nop
+          end
+        end
+
+        if id = "" then do
+          call diagnostic path, i, "REXX example fence is missing required id attribute"
+          block_failures = block_failures + 1
+        end
+        else if valid_identifier(id) = 0 then do
+          call diagnostic path, i, "invalid example id '" || id || "'; expected [A-Za-z][A-Za-z0-9_.-]*"
+          block_failures = block_failures + 1
+        end
+        else do
+          existing = string_array_index(seen_ids, id)
+          if existing > 0 then do
+            call diagnostic path, i, "duplicate example id '" || id || "' first defined on line " || seen_lines[existing]
+            block_failures = block_failures + 1
+          end
+          else do
+            call arrayappend seen_ids, id
+            call arrayappend seen_lines, i
+          end
+        end
+
+        if run <> "true" & run <> "false" then do
+          call diagnostic path, i, "run must be true or false, got '" || run || "'"
+          block_failures = block_failures + 1
+        end
+        if fail_diag <> "true" & fail_diag <> "false" then do
+          call diagnostic path, i, "fail-on-diagnostics must be true or false, got '" || fail_diag || "'"
+          block_failures = block_failures + 1
+        end
+        if kind <> "standalone" & kind <> "the-macro" & kind <> "address-the" then do
+          call diagnostic path, i, "kind must be standalone, the-macro, or address-the, got '" || kind || "'"
+          block_failures = block_failures + 1
+        end
+        if valid_identifier(output) = 0 then do
+          call diagnostic path, i, "invalid output name '" || output || "'"
+          block_failures = block_failures + 1
+        end
+        if timeout <> "" then do
+          if positive_integer(timeout) = 0 then do
+            call diagnostic path, i, "timeout must be a positive integer, got '" || timeout || "'"
+            block_failures = block_failures + 1
+          end
+        end
+
+        failures = failures + block_failures
+        if block_failures = 0 then do
+          if markdown_start <= i - 1 then do
+            call arrayappend manifest, "markdown start=" || markdown_start || " end=" || (i - 1)
+          end
+          record = "example id=" || id || " language=" || language
+          record = record || " opening=" || i || " body-start=" || (i + 1)
+          record = record || " body-end=" || (j - 1) || " closing=" || j
+          record = record || " run=" || run || " kind=" || kind || " output=" || output
+          record = record || " fail-on-diagnostics=" || fail_diag
+          if timeout <> "" then record = record || " timeout=" || timeout
+          if expect <> "" then record = record || " expect=" || expect
+          call arrayappend manifest, record
+          markdown_start = j + 1
+        end
+      end
+    end
+
+    i = j + 1
+  end
+
+  if failures = 0 then do
+    if markdown_start <= line_count then do
+      call arrayappend manifest, "markdown start=" || markdown_start || " end=" || line_count
+    end
+  end
+
+return failures
+
+render_html_document: procedure = .int
+  arg path = .string, source = .string[], manifest = .string[], the_bin = .string, the_home = .string, parser = .string, parser_command = .string, parser_args = .string, timeout = .string
+
+  say "<!doctype html>"
+  say '<html lang="en">'
+  say "<head>"
+  say '  <meta charset="utf-8">'
+  say '  <title>' || html_escape(path) || "</title>"
+  call emit_css
+  say "</head>"
+  say "<body>"
+  say '<main class="the-batch-document">'
+
+  do mi = 1 to manifest.0
+    record = manifest[mi]
+    if left(record, 8) = "markdown" then do
+      start_line = manifest_value(record, "start")
+      end_line = manifest_value(record, "end")
+      call emit_markdown_segment source, start_line, end_line
+    end
+    else if left(record, 7) = "example" then do
+      rc = emit_example(source, record, the_bin, the_home, parser, parser_command, parser_args, timeout)
+      if rc <> 0 then return rc
+    end
+  end
+
+  say "</main>"
+  say "</body>"
+  say "</html>"
+return 0
+
+emit_css: procedure
+  say "<style>"
+  say ":root { color-scheme: light; --the-bg: #f8fafc; --the-border: #cbd5e1; --the-text: #1f2937; }"
+  say "body { margin: 0; font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, sans-serif; color: var(--the-text); background: white; }"
+  say ".the-batch-document { max-width: 980px; margin: 0 auto; padding: 32px 24px; }"
+  say ".markdown pre { white-space: pre-wrap; margin: 0 0 20px; font: inherit; }"
+  say ".the-example { margin: 22px 0; }"
+  say ".the-example figcaption { margin-bottom: 6px; color: #475569; font: 600 13px/1.4 system-ui, sans-serif; }"
+  say ".the-example-source { margin: 0; padding: 14px 16px; overflow-x: auto; border: 1px solid var(--the-border); border-radius: 6px; background: var(--the-bg); }"
+  say ".the-example-source code { font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }"
+  say ".syn-comment { color: #6a9955; font-style: italic; }"
+  say ".syn-string { color: #a31515; }"
+  say ".syn-number { color: #098658; }"
+  say ".syn-keyword { color: #0000ff; font-weight: 600; }"
+  say ".syn-preprocessor { color: #795e26; }"
+  say ".syn-type { color: #267f99; }"
+  say ".syn-function { color: #795e26; }"
+  say ".syn-constant { color: #0070c1; }"
+  say ".syn-identifier { color: #001080; }"
+  say ".syn-operator, .syn-punctuation, .syn-paren { color: #374151; }"
+  say "</style>"
+return
+
+emit_markdown_segment: procedure
+  arg source = .string[], start_line = .int, end_line = .int
+  if start_line > end_line then return
+  say '<div class="markdown"><pre>'
+  do line_no = start_line to end_line
+    say html_escape(source[line_no])
+  end
+  say "</pre></div>"
+return
+
+emit_example: procedure = .int
+  arg source = .string[], record = .string, the_bin = .string, the_home = .string, parser = .string, parser_command = .string, parser_args = .string, timeout = .string
+
+  id = manifest_value(record, "id")
+  language = manifest_value(record, "language")
+  body_start = manifest_value(record, "body-start")
+  body_end = manifest_value(record, "body-end")
+  fail_diag = manifest_value(record, "fail-on-diagnostics")
+  source_lines = .string[]
+  spans = .string[]
+  render_spans = .string[]
+
+  do line_no = body_start to body_end
+    call arrayappend source_lines, source[line_no]
+  end
+
+  rc = highlight_source(id, language, source_lines, the_bin, the_home, parser, parser_command, parser_args, timeout, fail_diag, spans)
+  if rc <> 0 then return rc
+  do si = 1 to spans.0
+    span_record = spans[si]
+    call arrayappend render_spans, span_record
+  end
+
+  say '<figure class="the-example the-example-' || html_escape_attr(language) || '" id="' || html_escape_attr(id) || '">'
+  say "<figcaption>" || html_escape(id) || "</figcaption>"
+  say '<pre class="the-example-source"><code>'
+  do line_no = 1 to source_lines.0
+    say highlighted_line(source_lines[line_no], line_no, render_spans)
+  end
+  say "</code></pre>"
+  say "</figure>"
+return 0
+
+highlight_source: procedure = .int
+  arg id = .string, language = .string, source_lines = .string[], the_bin = .string, the_home = .string, parser = .string, parser_command = .string, parser_args = .string, timeout = .string, fail_diag = .string, expose spans = .string[]
+
+  mkout = .string[]
+  mkerr = .string[]
+  address command "mktemp -d /tmp/the-batch-md-rexx-html.XXXXXX" output mkout error mkerr
+  if rc <> 0 | mkout.0 = 0 | mkout[1] = "" then do
+    call diagnostic_message "render-html.crexx: mktemp failed while highlighting example " || id
+    call write_stem "stderr", mkerr
+    return 2
+  end
+
+  temp_dir = mkout[1]
+  extension = extension_for_language(language)
+  source_path = temp_dir || "/source." || extension
+  profile_path = temp_dir || "/profile.the"
+
+  if write_lines_to_file(source_path, source_lines) <> 0 then do
+    call remove_tree temp_dir
+    call diagnostic_message "render-html.crexx: could not write source for example " || id
+    return 2
+  end
+
+  profile = .string[]
+  call arrayappend profile, "options levelb"
+  call arrayappend profile, "import rxfnsb"
+  call arrayappend profile, "address the"
+  call arrayappend profile, "'set sdslh " || parser || " " || parser_command || " " || parser_args || "'"
+  call arrayappend profile, "'set autocolor *." || extension || " " || parser || "'"
+  call arrayappend profile, "'set coloring on auto'"
+  call arrayappend profile, "'sdslhwait " || timeout || "'"
+  call arrayappend profile, "pmsgs = .string[]"
+  call arrayappend profile, 'address the "extract /pmsgs/" expose pmsgs[]'
+  call arrayappend profile, "pmsg_count = pmsgs[0]"
+  call arrayappend profile, "'emsg THE_BATCH_PMSG_COUNT=' || pmsg_count"
+  call arrayappend profile, "do i = 1 to pmsg_count"
+  call arrayappend profile, "  pmsg_record = pmsgs[i]"
+  call arrayappend profile, "  'emsg THE_BATCH_PMSG=' || pmsg_record"
+  call arrayappend profile, "end"
+  call arrayappend profile, "stylespans = .string[]"
+  call arrayappend profile, 'address the "extract /stylespans/" expose stylespans[]'
+  call arrayappend profile, "span_count = stylespans[0]"
+  call arrayappend profile, "'emsg THE_BATCH_STYLESPAN_COUNT=' || span_count"
+  call arrayappend profile, "do i = 1 to span_count"
+  call arrayappend profile, "  span_record = stylespans[i]"
+  call arrayappend profile, "  'emsg THE_BATCH_STYLESPAN=' || span_record"
+  call arrayappend profile, "end"
+  call arrayappend profile, "'qquit'"
+
+  if write_lines_to_file(profile_path, profile) <> 0 then do
+    call remove_tree temp_dir
+    call diagnostic_message "render-html.crexx: could not write THE profile for example " || id
+    return 2
+  end
+
+  out = .string[]
+  err = .string[]
+  inner_cmd = "TERM= THE_HOME_DIR=" || shell_quote(the_home) || " " || shell_quote(the_bin)
+  inner_cmd = inner_cmd || " -b -q -p " || shell_quote(profile_path) || " " || shell_quote(source_path)
+  shell_lines = .string[]
+  shell_lines[1] = inner_cmd
+  address command "sh" input shell_lines output out error err
+  the_rc = rc
+  call remove_tree temp_dir
+
+  if the_rc <> 0 then do
+    call diagnostic_message "render-html.crexx: THE failed while highlighting example " || id || " with rc " || the_rc
+    call write_stem "stderr", err
+    return 2
+  end
+
+  pmsg_count = 0
+  pmsgs = .string[]
+  do ei = 1 to err.0
+    line = err[ei]
+    if left(line, 21) = "THE_BATCH_PMSG_COUNT=" then do
+      pmsg_count = substr(line, 22)
+    end
+    else if left(line, 15) = "THE_BATCH_PMSG=" then do
+      call arrayappend pmsgs, substr(line, 16)
+    end
+    else if left(line, 26) = "THE_BATCH_STYLESPAN_COUNT=" then do
+      nop
+    end
+    else if left(line, 20) = "THE_BATCH_STYLESPAN=" then do
+      call arrayappend spans, substr(line, 21)
+    end
+  end
+  do oi = 1 to out.0
+    line = out[oi]
+    if left(line, 21) = "THE_BATCH_PMSG_COUNT=" then do
+      pmsg_count = substr(line, 22)
+    end
+    else if left(line, 15) = "THE_BATCH_PMSG=" then do
+      call arrayappend pmsgs, substr(line, 16)
+    end
+    else if left(line, 26) = "THE_BATCH_STYLESPAN_COUNT=" then do
+      nop
+    end
+    else if left(line, 20) = "THE_BATCH_STYLESPAN=" then do
+      call arrayappend spans, substr(line, 21)
+    end
+  end
+
+  if pmsg_count > 0 & fail_diag = "true" then do
+    call diagnostic_message "render-html.crexx: parser diagnostics present in example " || id
+    call write_stem "stderr", pmsgs
+    return 1
+  end
+
+return 0
+
+highlighted_line: procedure = .string
+  arg text = .string, line_no = .int, spans = .string[]
+
+  html = ""
+  cell = 0
+  text_length = length(text)
+
+  do si = 1 to spans.0
+    span = spans[si]
+    span_line = word(span, 1)
+    if span_line <> line_no then iterate
+
+    start = word(span, 2)
+    span_len = word(span, 3)
+    style = word(span, 4)
+    gap_len = start - cell
+    if gap_len > 0 then do
+      html = html || html_escape(substr(text, cell + 1, gap_len))
+    end
+
+    if span_len > 0 then do
+      span_text = substr(text, start + 1, span_len)
+      css_class = css_class_for_style(style)
+      if css_class = "" then html = html || html_escape(span_text)
+      else html = html || '<span class="' || css_class || '">' || html_escape(span_text) || "</span>"
+      cell = start + span_len
+    end
+  end
+
+  rest_len = text_length - cell
+  if rest_len > 0 then do
+    html = html || html_escape(substr(text, cell + 1, rest_len))
+  end
+
+return html
+
+css_class_for_style: procedure = .string
+  arg style = .string
+  if style = "comment" then return "syn-comment"
+  if style = "string" then return "syn-string"
+  if style = "number" then return "syn-number"
+  if style = "keyword" then return "syn-keyword"
+  if style = "preprocessor" then return "syn-preprocessor"
+  if style = "type" then return "syn-type"
+  if style = "function" then return "syn-function"
+  if style = "constant" then return "syn-constant"
+  if style = "identifier" then return "syn-identifier"
+  if style = "operator" then return "syn-operator"
+  if style = "punctuation" then return "syn-punctuation"
+  if style = "paren" then return "syn-paren"
+return ""
+
+manifest_value: procedure = .string
+  arg record = .string, key = .string
+  needle = key || "="
+  start = pos(needle, record)
+  if start = 0 then return ""
+  start = start + length(needle)
+  finish = pos(" ", record, start)
+  if finish = 0 then return substr(record, start)
+return substr(record, start, finish - start)
+
+html_escape_attr: procedure = .string
+  arg text = .string
+return html_escape(text)
+
+html_escape: procedure = .string
+  arg text = .string
+  out = ""
+  do hi = 1 to length(text)
+    ch = substr(text, hi, 1)
+    select
+      when ch = "&" then out = out || "&amp;"
+      when ch = "<" then out = out || "&lt;"
+      when ch = ">" then out = out || "&gt;"
+      when ch = '"' then out = out || "&quot;"
+      otherwise out = out || ch
+    end
+  end
+return out
+
+write_lines_to_file: procedure = .int
+  arg path = .string, lines = .string[]
+  err = .string[]
+  write_cmd = "sh -c " || shell_quote("cat > " || path)
+  address command write_cmd input lines error err
+  if rc <> 0 then do
+    call write_stem "stderr", err
+    return 1
+  end
+return 0
+
+write_stem: procedure
+  arg target = .string, values = .string[]
+  do wi = 1 to values.0
+    call lineout target, values[wi]
+  end
+return
+
+remove_tree: procedure
+  arg path = .string
+  if path = "" then return
+  remove_cmd = "rm -rf " || shell_quote(path)
+  address command remove_cmd
+return
+
+extension_for_language: procedure = .string
+  arg language = .string
+  if language = "crexx" then return "crexx"
+  if language = "the" then return "the"
+return "rexx"
+
+shell_quote: procedure = .string
+  arg value = .string
+  quoted = "'"
+  do qi = 1 to length(value)
+    ch = substr(value, qi, 1)
+    if ch = "'" then quoted = quoted || "'""'""'"
+    else quoted = quoted || ch
+  end
+return quoted || "'"
+
+opening_fence: procedure = .string
+  arg line = .string
+  idx = first_nonblankish(line)
+  if idx = 0 | idx > 4 then return ""
+  ch = substr(line, idx, 1)
+  if ch <> "`" & ch <> "~" then return ""
+  count = 0
+  do while idx + count <= length(line)
+    if substr(line, idx + count, 1) <> ch then leave
+    count = count + 1
+  end
+  if count < 3 then return ""
+return substr(line, idx, count)
+
+closing_fence: procedure = .int
+  arg line = .string, opener = .string
+  idx = first_nonblankish(line)
+  if idx = 0 | idx > 4 then return 0
+  ch = substr(opener, 1, 1)
+  if substr(line, idx, 1) <> ch then return 0
+  count = 0
+  do while idx + count <= length(line)
+    if substr(line, idx + count, 1) <> ch then leave
+    count = count + 1
+  end
+  if count < length(opener) then return 0
+  rest = substr(line, idx + count)
+  if strip(rest) = "" then return 1
+return 0
+
+fence_info: procedure = .string
+  arg line = .string, fence = .string
+  idx = first_nonblankish(line)
+  if idx = 0 then return ""
+return substr(line, idx + length(fence))
+
+first_nonblankish: procedure = .int
+  arg line = .string
+  do idx = 1 to length(line)
+    ch = substr(line, idx, 1)
+    if ch <> " " & ch <> '09'x then return idx
+  end
+return 0
+
+is_example_language: procedure = .int
+  arg language = .string
+  if language = "rexx" | language = "crexx" | language = "the" then return 1
+return 0
+
+is_allowed_attribute: procedure = .int
+  arg key = .string
+  if key = "id" then return 1
+  if key = "run" then return 1
+  if key = "kind" then return 1
+  if key = "output" then return 1
+  if key = "expect" then return 1
+  if key = "timeout" then return 1
+  if key = "fail-on-diagnostics" then return 1
+return 0
+
+valid_identifier: procedure = .int
+  arg value = .string
+  if value = "" then return 0
+  first = substr(value, 1, 1)
+  if pos(first, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz") = 0 then return 0
+  allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.-"
+  do idx = 2 to length(value)
+    if pos(substr(value, idx, 1), allowed) = 0 then return 0
+  end
+return 1
+
+positive_integer: procedure = .int
+  arg value = .string
+  if value = "" then return 0
+  if verify(value, "0123456789") <> 0 then return 0
+  if value <= 0 then return 0
+return 1
+
+string_array_index: procedure = .int
+  arg values = .string[], wanted = .string
+  do idx = 1 to values.0
+    if values[idx] = wanted then return idx
+  end
+return 0
+
+tokenize_info: procedure = .int
+  arg text = .string, expose tokens = .string[]
+  current = ""
+  quote = ""
+  do idx = 1 to length(text)
+    ch = substr(text, idx, 1)
+    if quote <> "" then do
+      if ch = quote then quote = ""
+      else current = current || ch
+    end
+    else do
+      if ch = '"' | ch = "'" then quote = ch
+      else if ch = " " | ch = '09'x then do
+        if current <> "" then do
+          call arrayappend tokens, current
+          current = ""
+        end
+      end
+      else current = current || ch
+    end
+  end
+  if quote <> "" then return -1
+  if current <> "" then call arrayappend tokens, current
+return tokens.0

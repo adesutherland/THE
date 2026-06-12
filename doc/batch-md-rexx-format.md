@@ -104,6 +104,35 @@ cells, and lowercase logical style names such as `keyword`, `string`, and
 `comment`. `extract /stylespans start end/` limits extraction to an inclusive
 file-line range.
 
+## Scanner and HTML Renderer
+
+Story 4 adds scanner mode:
+
+```sh
+crexx -nokeep tools/batch-md-rexx/render-html.crexx -args --scan examples.md
+```
+
+Scanner output is a line-oriented manifest. Markdown records use
+`markdown start=N end=N`; example records include the id, language, fence
+lines, body range, and validated attributes.
+
+Story 5 adds HTML rendering:
+
+```sh
+crexx -nokeep tools/batch-md-rexx/render-html.crexx -args \
+  --the cmake-build-debug/release/the \
+  --home cmake-build-debug/release \
+  --parser rxc \
+  --parser-command "$(command -v rxc)" \
+  --parser-arg --syntaxhighlight \
+  examples.md > examples.html
+```
+
+The renderer writes HTML to stdout. It preserves non-REXX fences as escaped
+Markdown text, highlights REXX/CREXX/THE example source through THE
+`STYLESPANS`, and maps known styles to stable `syn-*` CSS classes. Parser
+diagnostics fail the run when `fail-on-diagnostics=true`.
+
 ## Sample Blocks
 
 Source-only example:
