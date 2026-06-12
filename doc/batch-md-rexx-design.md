@@ -72,7 +72,7 @@ Validated or fixed behavior in the installed CREXX build:
   reports to stderr, while `linein(missing)` reports to stderr and exits
   non-zero through the runtime failure path.
 
-Observed during Story 2 and worth tracking with CREXX changes:
+Observed during Story 2 and Story 3 and worth tracking with CREXX changes:
 
 - Writing an immediate protocol file with `lineout(path, value)` was not
   reliable when `path` came from `ADDRESS COMMAND ... output` and the content
@@ -85,6 +85,10 @@ Observed during Story 2 and worth tracking with CREXX changes:
   `ADDRESS COMMAND` unless the command is explicitly routed through a shell
   such as `sh -c`. The current prototype treats that as expected behavior and
   quotes shell-owned command fragments explicitly.
+- Direct stem indexing inside a concatenated THE command expression in a
+  profile, such as `'emsg ' || stylespans[i]`, was rejected with
+  `#UNEXPECTED_ARRAY`. Assigning the stem entry to a scalar temporary first is
+  accepted; the Story 3 test profile uses that form.
 
 ## Recommended Shape
 
@@ -195,17 +199,20 @@ stylespans.1 = line start-cell cell-count style
 stylespans.2 = line start-cell cell-count style
 ```
 
-Open questions before implementation:
+Implemented Story 3 contract:
 
-- Should the item be named `STYLESPANS`, `SYNTAXSPANS`, or `HIGHLIGHTSPANS`?
-- Should ranges be supported immediately, for example
-  `EXTRACT /STYLESPANS 10 40/`?
-- Should cells be zero-based to match `UiStyleRun`, or one-based to feel more
-  natural in REXX?
-
-Recommendation: implement range support and use one-based lines with zero-based
-cells, because that matches existing line numbering while preserving the current
-style-run cell convention.
+- The item name is `STYLESPANS`.
+- `EXTRACT /STYLESPANS/` returns all available style spans for the current
+  file.
+- `EXTRACT /STYLESPANS start/` returns spans for one file line.
+- `EXTRACT /STYLESPANS start end/` returns spans for the inclusive file-line
+  range.
+- Stem records use one-based file lines and zero-based cells:
+  `line start-cell cell-count style`.
+- Style names are lowercase logical categories matching the LLM driver, such
+  as `preprocessor`, `identifier`, `keyword`, `string`, and `comment`.
+- The first implementation is full-buffer for SDSLH-backed highlighting. When
+  SDSLH/full-buffer highlighting is unavailable, `stylespans.0` is `0`.
 
 ### Optional Later Primitive: THE-Owned Process Execution
 
@@ -269,6 +276,19 @@ Acceptance criteria:
 - It returns zero records when highlighting is unavailable rather than crashing.
 - Tests cover plain ASCII, UTF-8 text, and at least two syntax categories.
 - Documentation explains line/cell indexing and style names.
+
+Implementation status:
+
+- `EXTRACT /STYLESPANS/` and `EXTRACT /STYLESPANS start [end]/` are implemented
+  for SDSLH-backed current files.
+- The extractor reads the SDSLH `CodeBuffer` directly and sets the REXX stem
+  itself, so it is not limited by the small fixed `item_values` array used by
+  simple query items.
+- The result is independent of visible rows and returns zero records when
+  highlighting is off, unavailable, or not SDSLH-backed.
+- `tests/test_stylespans_extract.sh` validates batch extraction with `rxc`,
+  including ASCII categories, a UTF-8 string line, range extraction, and the
+  zero-record unavailable case.
 
 ### Story 4: Build the REXX Markdown Scanner
 

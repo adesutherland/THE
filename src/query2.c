@@ -1952,6 +1952,264 @@ short extract_stay(short number_variables,short itemno,CHARTYPE *itemargs,CHARTY
    return set_on_off_value(CURRENT_VIEW->stay,1);
 }
 /***********************************************************************/
+static const char *stylespans_style_name_from_token(int token_type)
+{
+#ifdef USE_SDSLH
+   switch (token_type)
+   {
+      case LEXER_COMMENT:
+         return "comment";
+      case LEXER_STRING_LITERAL:
+         return "string";
+      case LEXER_NUMBER_LITERAL:
+         return "number";
+      case LEXER_KEYWORD:
+         return "keyword";
+      case LEXER_PREPROCESSOR:
+         return "preprocessor";
+      case LEXER_TYPE_IDENTIFIER:
+         return "type";
+      case LEXER_FUNCTION_IDENTIFIER:
+      case PARSE_TREE_FUNCTION:
+         return "function";
+      case LEXER_CONSTANT_IDENTIFIER:
+         return "constant";
+      case LEXER_IDENTIFIER:
+         return "identifier";
+      case LEXER_OPERATOR:
+      case LEXER_OPERATOR_ASSIGN:
+      case LEXER_OPERATOR_ARITHMETIC:
+      case LEXER_OPERATOR_LOGICAL:
+         return "operator";
+      case LEXER_SEPARATOR:
+      case LEXER_STATEMENT_SEPARATOR:
+         return "punctuation";
+      case LEXER_LH_BLOCK:
+      case LEXER_RH_BLOCK:
+      case LEXER_LH_CODEBLOCK:
+      case LEXER_RH_CODEBLOCK:
+      case LEXER_LH_EXPR:
+      case LEXER_RH_EXPR:
+         return "paren";
+      default:
+         return NULL;
+   }
+#else
+   INTENTIONALLY_UNUSED_VARIABLE(token_type);
+   return NULL;
+#endif
+}
+
+#ifdef USE_SDSLH
+static int stylespans_count_records(CodeBuffer *cb, LINETYPE start_line, LINETYPE end_line)
+{
+   LINETYPE line_no;
+   int count = 0;
+
+   if (cb == NULL || cb->lines == NULL)
+      return 0;
+
+   for (line_no = start_line; line_no <= end_line; line_no++)
+   {
+      CodeBufferLine *line = &cb->lines[line_no - 1];
+      const char *current_style = NULL;
+      size_t col;
+
+      if (line->characters == NULL || line->length == 0)
+         continue;
+
+      for (col = 0; col < line->length; col++)
+      {
+         const char *style = stylespans_style_name_from_token(line->characters[col].token_type);
+
+         if (style == NULL)
+         {
+            current_style = NULL;
+            continue;
+         }
+         if (current_style == NULL || strcmp(current_style, style) != 0)
+         {
+            count++;
+            current_style = style;
+         }
+      }
+   }
+
+   return count;
+}
+
+static short stylespans_emit_records(short itemno, CodeBuffer *cb,
+                                     LINETYPE start_line, LINETYPE end_line,
+                                     int count)
+{
+   LINETYPE line_no;
+   int record_no = 0;
+   char count_text[32];
+   short rc;
+
+   sprintf(count_text, "%d", count);
+   rc = set_rexx_variable(query_item[itemno].name, (CHARTYPE *)count_text,
+                          strlen(count_text), 0);
+   if (rc != RC_OK)
+      return rc;
+
+   for (line_no = start_line; line_no <= end_line; line_no++)
+   {
+      CodeBufferLine *line = &cb->lines[line_no - 1];
+      const char *current_style = NULL;
+      size_t span_start = 0;
+      size_t col;
+
+      if (line->characters == NULL || line->length == 0)
+         continue;
+
+      for (col = 0; col <= line->length; col++)
+      {
+         const char *style = NULL;
+
+         if (col < line->length)
+            style = stylespans_style_name_from_token(line->characters[col].token_type);
+
+         if (current_style == NULL)
+         {
+            if (style != NULL)
+            {
+               current_style = style;
+               span_start = col;
+            }
+            continue;
+         }
+
+         if (style == current_style
+         ||  (style != NULL && strcmp(style, current_style) == 0))
+            continue;
+
+         {
+            char record[128];
+
+            snprintf(record, sizeof(record), "%ld %zu %zu %s",
+                     (long)line_no, span_start, col - span_start,
+                     current_style);
+            rc = set_rexx_variable(query_item[itemno].name,
+                                   (CHARTYPE *)record,
+                                   strlen(record), ++record_no);
+            if (rc != RC_OK)
+               return rc;
+         }
+
+         if (style != NULL)
+         {
+            current_style = style;
+            span_start = col;
+         }
+         else
+         {
+            current_style = NULL;
+         }
+      }
+   }
+
+   return RC_OK;
+}
+#endif
+
+short extract_stylespans(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
+/***********************************************************************/
+{
+#define STYLESPANS_PARAMS 2
+   CHARTYPE *word[STYLESPANS_PARAMS+1];
+   CHARTYPE strip[STYLESPANS_PARAMS];
+   unsigned short num_params=0;
+   LINETYPE start_line=1;
+   LINETYPE end_line=0;
+   short rc=RC_OK;
+
+   INTENTIONALLY_UNUSED_VARIABLE(number_variables);
+   INTENTIONALLY_UNUSED_VARIABLE(argc);
+   INTENTIONALLY_UNUSED_VARIABLE(arg);
+   INTENTIONALLY_UNUSED_VARIABLE(arglen);
+
+   if (query_type != QUERY_EXTRACT)
+      return 0;
+
+   strip[0]=STRIP_BOTH;
+   strip[1]=STRIP_BOTH;
+   num_params = param_split(itemargs, word, STYLESPANS_PARAMS, WORD_DELIMS,
+                            TEMP_PARAM, strip, FALSE);
+   if (num_params > STYLESPANS_PARAMS)
+   {
+      display_error(2,(CHARTYPE *)"",FALSE);
+      return EXTRACT_ARG_ERROR;
+   }
+   if (num_params >= 1)
+   {
+      if (!valid_positive_integer(word[0]))
+      {
+         display_error(1,word[0],FALSE);
+         return EXTRACT_ARG_ERROR;
+      }
+      start_line = atol((DEFCHAR *)word[0]);
+      end_line = start_line;
+   }
+   if (num_params == 2)
+   {
+      if (!valid_positive_integer(word[1]))
+      {
+         display_error(1,word[1],FALSE);
+         return EXTRACT_ARG_ERROR;
+      }
+      end_line = atol((DEFCHAR *)word[1]);
+      if (end_line < start_line)
+      {
+         display_error(1,word[1],FALSE);
+         return EXTRACT_ARG_ERROR;
+      }
+   }
+
+#ifndef USE_SDSLH
+   rc = set_rexx_variable(query_item[itemno].name, (CHARTYPE *)"0", 1, 0);
+#else
+   if (CURRENT_FILE == NULL
+   ||  !CURRENT_FILE->colouring
+   ||  CURRENT_FILE->parser == NULL
+   ||  !CURRENT_FILE->parser->is_sdslh_parser
+   ||  CURRENT_FILE->cb == NULL
+   ||  CURRENT_FILE->cb->lines == NULL
+   ||  CURRENT_FILE->cb->line_count == 0)
+   {
+      rc = set_rexx_variable(query_item[itemno].name, (CHARTYPE *)"0", 1, 0);
+   }
+   else
+   {
+      int count;
+
+      if (end_line == 0 || end_line > (LINETYPE)CURRENT_FILE->cb->line_count)
+         end_line = (LINETYPE)CURRENT_FILE->cb->line_count;
+      if (start_line > (LINETYPE)CURRENT_FILE->cb->line_count)
+      {
+         rc = set_rexx_variable(query_item[itemno].name, (CHARTYPE *)"0", 1, 0);
+      }
+      else
+      {
+         enter_codeblock_critical_section();
+         count = stylespans_count_records(CURRENT_FILE->cb, start_line, end_line);
+         rc = stylespans_emit_records(itemno, CURRENT_FILE->cb,
+                                      start_line, end_line, count);
+         exit_codeblock_critical_section();
+      }
+   }
+#endif
+
+   if (rc == RC_SYSTEM_ERROR)
+   {
+      display_error(54,(CHARTYPE *)"",FALSE);
+      return EXTRACT_ARG_ERROR;
+   }
+
+   return EXTRACT_VARIABLES_SET;
+}
+
+/***********************************************************************/
 short extract_synelem( short number_variables, short itemno, CHARTYPE *itemargs, CHARTYPE query_type, LINETYPE argc, CHARTYPE *arg, LINETYPE arglen )
 /***********************************************************************/
 {

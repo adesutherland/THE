@@ -758,6 +758,11 @@ set_tests_properties(test_sdslh_multifile_lifecycle PROPERTIES
     SKIP_RETURN_CODE 77
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
+add_test(NAME test_stylespans_extract COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_stylespans_extract.sh)
+set_tests_properties(test_stylespans_extract PROPERTIES
+    SKIP_RETURN_CODE 77
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
+)
 add_test(NAME test_file_ecolor_inheritance COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_file_ecolor_inheritance.sh)
 set_tests_properties(test_file_ecolor_inheritance PROPERTIES
     SKIP_RETURN_CODE 77

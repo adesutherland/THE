@@ -91,6 +91,19 @@ Diagnostics are written to stderr. Exit status `0` means spans were produced,
 protocol path. Use `--fail-on-diagnostics false` to inspect spans for a source
 file that still has parser diagnostics.
 
+The product path for Story 3 is the editor extract item:
+
+```rexx
+stylespans = .string[]
+address the "extract /stylespans/" expose stylespans[]
+```
+
+`stylespans.0` is the record count. Each subsequent record is
+`line start-cell cell-count style`, with one-based file lines, zero-based
+cells, and lowercase logical style names such as `keyword`, `string`, and
+`comment`. `extract /stylespans start end/` limits extraction to an inclusive
+file-line range.
+
 ## Sample Blocks
 
 Source-only example:
