@@ -50,6 +50,42 @@ commands. That does not require THE itself to grow a process runner: the batch
 CREXX script can run standalone examples through CREXX's own OS/pipe support,
 then feed captured source and output back through THE buffers for highlighting.
 
+## CREXX Validation Notes
+
+These notes capture CREXX behavior that the batch Markdown work depends on or
+has stress-tested. They are not current THE blockers, but they should remain
+visible while CREXX is changing.
+
+Validated or fixed behavior in the installed CREXX build:
+
+- Driver failures propagate to the host process: `exit n`, integer `main`
+  returns, compile failures, and runtime failures surface as non-zero process
+  status.
+- Compile diagnostics are written to stderr, and compile errors return
+  non-zero, so wrappers can distinguish diagnostics from successful program
+  output.
+- Compiler warnings are labelled as warnings, not as `rxc` errors.
+- `ADDRESS COMMAND` updates `rc` with the shell command status.
+- `lines()` and `linein()` no longer synthesize an extra empty record at EOF
+  for files ending in a newline.
+- Missing-file handling is distinguishable: `lines(missing)` returns `-1` and
+  reports to stderr, while `linein(missing)` reports to stderr and exits
+  non-zero through the runtime failure path.
+
+Observed during Story 2 and worth tracking with CREXX changes:
+
+- Writing an immediate protocol file with `lineout(path, value)` was not
+  reliable when `path` came from `ADDRESS COMMAND ... output` and the content
+  was consumed immediately by THE. In reduced tests, `lineout` returned `0`,
+  but the file could still be zero bytes when the write used variable or stem
+  values on the captured path. The prototype avoids this by piping the protocol
+  through `ADDRESS COMMAND "sh -c 'cat > path'" input protocol`, which also
+  exercises the OS pipe route needed for later example execution.
+- Shell metacharacters such as redirection are not interpreted by
+  `ADDRESS COMMAND` unless the command is explicitly routed through a shell
+  such as `sh -c`. The current prototype treats that as expected behavior and
+  quotes shell-owned command fragments explicitly.
+
 ## Recommended Shape
 
 Use a two-layer design:
@@ -206,6 +242,20 @@ Acceptance criteria:
 - A test proves style categories are stable for a small REXX fixture.
 - The prototype may use `the --driver llm` JSON, but the product path is a REXX
   query/command API.
+
+Implementation status:
+
+- `tools/batch-md-rexx/highlight.crexx` drives `the --driver llm` against a
+  source file, registers an SDSLH parser, enables automatic colouring, runs
+  `SDSLHWAIT`, and emits a line-oriented span manifest.
+- Parser diagnostics are read from the LLM snapshot. The prototype exits `1`
+  when diagnostics are present and `fail-on-diagnostics=true`.
+- The test fixture in `tools/batch-md-rexx/tests/test_highlight.sh` validates
+  stable REXX categories for preprocessor text, identifiers, keywords, strings,
+  and comments.
+- The prototype writes the LLM protocol through CREXX `ADDRESS COMMAND` pipe
+  input rather than CREXX `lineout`, so it validates the same OS pipe path that
+  later batch scripts will need for example execution.
 
 ### Story 3: Add Full-Buffer Style Span Query
 

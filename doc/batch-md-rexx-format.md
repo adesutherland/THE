@@ -63,6 +63,34 @@ The output should compare byte-for-byte with the input, including real trailing
 blank lines. A normal final newline is not treated as an additional empty
 record.
 
+## Highlight Prototype
+
+Story 2 adds a prototype highlighter for a single REXX source file:
+
+```sh
+crexx -nokeep tools/batch-md-rexx/highlight.crexx -args \
+  --the cmake-build-debug/the \
+  --home cmake-build-debug/release \
+  --parser rxc \
+  --parser-command "$(command -v rxc)" \
+  --parser-arg --syntaxhighlight \
+  tools/batch-md-rexx/tests/fixtures/highlight-valid.rexx
+```
+
+The prototype emits a manifest rather than final HTML:
+
+```text
+highlight source=... parser=rxc sdslhwait=5000 diagnostics=0
+span line=1 start=0 len=7 style=preprocessor
+span line=2 start=0 len=3 style=keyword
+```
+
+Diagnostics are written to stderr. Exit status `0` means spans were produced,
+`1` means the parser reported diagnostics or no style spans were available, and
+`2` means the highlighter could not invoke CREXX, THE, or the LLM-driver
+protocol path. Use `--fail-on-diagnostics false` to inspect spans for a source
+file that still has parser diagnostics.
+
 ## Sample Blocks
 
 Source-only example:

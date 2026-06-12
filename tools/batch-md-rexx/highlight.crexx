@@ -1,0 +1,308 @@
+options levelb
+import rxfnsb
+
+arg args = .string[]
+
+the_bin = ""
+the_home = ""
+source_path = ""
+parser = "rxc"
+parser_command = ""
+parser_args = ""
+extension = ""
+timeout = "5000"
+fail_diag = "true"
+
+ai = 1
+do while ai <= args.0
+  token = args[ai]
+  select
+    when token = "--the" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--the needs a value"
+      the_bin = args[ai]
+    end
+    when token = "--home" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--home needs a value"
+      the_home = args[ai]
+    end
+    when token = "--parser" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--parser needs a value"
+      parser = args[ai]
+    end
+    when token = "--parser-command" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--parser-command needs a value"
+      parser_command = args[ai]
+    end
+    when token = "--parser-arg" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--parser-arg needs a value"
+      if parser_args = "" then do
+        parser_args = args[ai]
+      end
+      else do
+        parser_args = parser_args || " " || args[ai]
+      end
+    end
+    when token = "--extension" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--extension needs a value"
+      extension = args[ai]
+    end
+    when token = "--timeout" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--timeout needs a value"
+      timeout = args[ai]
+    end
+    when token = "--fail-on-diagnostics" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--fail-on-diagnostics needs a value"
+      fail_diag = args[ai]
+    end
+    otherwise do
+      if source_path = "" then do
+        source_path = token
+      end
+      else do
+        call usage_error "unexpected argument: " || token
+      end
+    end
+  end
+  ai = ai + 1
+end
+
+if the_bin = "" then call usage_error "--the is required"
+if the_home = "" then call usage_error "--home is required"
+if source_path = "" then call usage_error "source file is required"
+
+if parser_command = "" then do
+  parser_command = parser
+end
+if parser_args = "" then do
+  parser_args = "--syntaxhighlight"
+end
+if extension = "" then do
+  extension = file_extension(source_path)
+end
+if extension = "" then call usage_error "cannot infer source extension"
+
+if positive_integer(timeout) = 0 then call usage_error "--timeout must be a positive integer"
+if fail_diag <> "true" & fail_diag <> "false" then call usage_error "--fail-on-diagnostics must be true or false"
+
+protocol = .string[]
+protocol[1] = "command set sdslh " || parser || " " || parser_command || " " || parser_args
+protocol[2] = "command set autocolor *." || extension || " " || parser
+protocol[3] = "command colouring on auto"
+protocol[4] = "command sdslhwait " || timeout
+protocol[5] = "look full compact max=1000 prefix=0 command=0 status=0"
+protocol[6] = "quit"
+
+mkout = .string[]
+mkerr = .string[]
+mkcmd = "mktemp /tmp/the-batch-md-rexx-protocol.XXXXXX"
+address command mkcmd output mkout error mkerr
+if rc <> 0 | mkout.0 = 0 | mkout[1] = "" then do
+  call diagnostic_message "highlight.crexx: mktemp failed"
+  call write_stem "stderr", mkerr
+  exit 2
+end
+
+protocol_path = mkout[1]
+/* Pipe the protocol so THE sees flushed content before this CREXX process exits. */
+write_cmd = "sh -c " || shell_quote("cat > " || protocol_path)
+write_err = .string[]
+address command write_cmd input protocol error write_err
+if rc <> 0 then do
+  call remove_file protocol_path
+  call diagnostic_message "highlight.crexx: protocol write failed with rc " || rc
+  call write_stem "stderr", write_err
+  exit 2
+end
+
+out = .string[]
+err = .string[]
+inner_cmd = "TERM= THE_HOME_DIR=" || shell_quote(the_home) || " " || shell_quote(the_bin) || " --driver llm -n " || shell_quote(source_path) || " < " || shell_quote(protocol_path)
+shell_lines = .string[]
+shell_lines[1] = inner_cmd
+address command "sh" input shell_lines output out error err
+call remove_file protocol_path
+
+if rc <> 0 then do
+  call diagnostic_message "highlight.crexx: THE LLM driver exited with rc " || rc
+  call write_stem "stderr", err
+  exit 2
+end
+
+snap_text = ""
+do oi = 1 to out.0
+  if pos('"screen_rows":[', out[oi]) > 0 then do
+    snap_text = out[oi]
+  end
+end
+
+if snap_text = "" then do
+  call diagnostic_message "highlight.crexx: no LLM snapshot found"
+  call write_stem "stderr", out
+  call write_stem "stderr", err
+  exit 2
+end
+
+diag_text = diagnostics_fragment(snap_text)
+if diag_text <> "" & fail_diag = "true" then do
+  call diagnostic_message "highlight.crexx: parser diagnostics present"
+  call diagnostic_message diag_text
+  exit 1
+end
+
+diag_flag = "0"
+if diag_text <> "" then do
+  diag_flag = "1"
+end
+
+say "highlight source=" || source_path || " parser=" || parser || " sdslhwait=" || timeout || " diagnostics=" || diag_flag
+span_count = emit_spans(snap_text)
+if span_count = 0 then do
+  call diagnostic_message "highlight.crexx: no style spans found"
+  exit 1
+end
+
+exit 0
+
+usage_error: procedure
+  arg message = .string
+  call diagnostic_message "highlight.crexx: " || message
+  call diagnostic_message "usage: highlight.crexx --the THE --home THE_HOME [--parser NAME] [--parser-command COMMAND] [--parser-arg ARG] [--extension EXT] [--timeout MS] [--fail-on-diagnostics true|false] source-file"
+  exit 2
+return
+
+diagnostic_message: procedure
+  arg message = .string
+  call lineout "stderr", message
+return
+
+write_stem: procedure
+  arg target = .string, values = .string[]
+  do wi = 1 to values.0
+    call lineout target, values[wi]
+  end
+return
+
+remove_file: procedure
+  arg path = .string
+  if path = "" then return
+  rmcmd = "rm -f " || shell_quote(path)
+  address command rmcmd
+return
+
+file_extension: procedure = .string
+  arg path = .string
+  slash = lastpos("/", path)
+  backslash = lastpos("\", path)
+  if backslash > slash then do
+    slash = backslash
+  end
+  dot = lastpos(".", path)
+  if dot = 0 | dot <= slash then return ""
+return lower(substr(path, dot + 1))
+
+positive_integer: procedure = .int
+  arg value = .string
+  if value = "" then return 0
+  if verify(value, "0123456789") <> 0 then return 0
+  if value <= 0 then return 0
+return 1
+
+shell_quote: procedure = .string
+  arg value = .string
+  quoted = "'"
+  do qi = 1 to length(value)
+    ch = substr(value, qi, 1)
+    if ch = "'" then do
+      quoted = quoted || "'""'""'"
+    end
+    else do
+      quoted = quoted || ch
+    end
+  end
+return quoted || "'"
+
+diagnostics_fragment: procedure = .string
+  arg snap_text = .string
+  begin_pos = pos('"diagnostics":[', snap_text)
+  if begin_pos = 0 then return ""
+  end_pos = pos('],"screen_rows"', snap_text, begin_pos)
+  if end_pos = 0 then return substr(snap_text, begin_pos)
+return substr(snap_text, begin_pos, end_pos - begin_pos + 1)
+
+emit_spans: procedure = .int
+  arg snap_text = .string
+  count = 0
+  cursor = 1
+  do forever
+    role_pos = pos('"role":"file"', snap_text, cursor)
+    if role_pos = 0 then leave
+
+    next_row = pos('},{"r":', snap_text, role_pos)
+    line_no = json_number_after(snap_text, '"line":', role_pos)
+    spans_pos = pos('"s":[', snap_text, role_pos)
+
+    if spans_pos > 0 & (next_row = 0 | spans_pos < next_row) then do
+      spans_end = pos("]]", snap_text, spans_pos)
+      if spans_end > 0 then do
+        spans_text = substr(snap_text, spans_pos + 5, spans_end - (spans_pos + 5) + 1)
+        count = count + emit_line_spans(line_no, spans_text)
+      end
+    end
+
+    if next_row = 0 then leave
+    cursor = next_row + 1
+  end
+return count
+
+json_number_after: procedure = .string
+  arg text = .string, key = .string, from_pos = .int
+  key_pos = pos(key, text, from_pos)
+  if key_pos = 0 then return "0"
+  start = key_pos + length(key)
+  finish = pos(",", text, start)
+  if finish = 0 then do
+    finish = pos("}", text, start)
+  end
+  if finish = 0 then return substr(text, start)
+return substr(text, start, finish - start)
+
+emit_line_spans: procedure = .int
+  arg line_no = .string, spans_text = .string
+  local_count = 0
+  scan = 1
+  do forever
+    open_pos = pos("[", spans_text, scan)
+    if open_pos = 0 then leave
+    close_pos = pos("]", spans_text, open_pos)
+    if close_pos = 0 then leave
+    piece = substr(spans_text, open_pos + 1, close_pos - open_pos - 1)
+    first_comma = pos(",", piece)
+    second_comma = pos(",", piece, first_comma + 1)
+    if first_comma > 0 & second_comma > first_comma then do
+      start_cell = substr(piece, 1, first_comma - 1)
+      cell_count = substr(piece, first_comma + 1, second_comma - first_comma - 1)
+      style = json_string_value(substr(piece, second_comma + 1))
+      if style <> "" then do
+        say "span line=" || line_no || " start=" || start_cell || " len=" || cell_count || " style=" || style
+        local_count = local_count + 1
+      end
+    end
+    scan = close_pos + 1
+  end
+return local_count
+
+json_string_value: procedure = .string
+  arg text = .string
+  text = strip(text)
+  if length(text) < 2 then return ""
+  if substr(text, 1, 1) <> '"' then return ""
+  if substr(text, length(text), 1) <> '"' then return ""
+return substr(text, 2, length(text) - 2)
