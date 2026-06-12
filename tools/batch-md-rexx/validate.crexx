@@ -1,0 +1,309 @@
+options levelb
+import rxfnsb
+
+arg args = .string[]
+
+round_trip = 0
+path = ""
+
+do ai = 1 to args.0
+  if args[ai] = "--round-trip" then round_trip = 1
+  else if path = "" then path = args[ai]
+  else do
+    call diagnostic_message "validate.crexx: unexpected argument: "args[ai]
+    exit 2
+  end
+end
+
+if path = "" then do
+  call diagnostic_message "usage: validate.crexx [--round-trip] markdown-file"
+  exit 2
+end
+
+source = .string[]
+failures = 0
+
+do forever
+  available = lines(path)
+  if available < 0 then do
+    call diagnostic_message "validate.crexx: cannot read markdown file: "path
+    exit 2
+  end
+  if available = 0 then leave
+  call arrayappend source, linein(path)
+end
+line_count = source.0
+
+manifest = .string[]
+seen_ids = .string[]
+seen_lines = .string[]
+
+i = 1
+do while i <= line_count
+  fence = opening_fence(source[i])
+  if fence = "" then do
+    i = i + 1
+    iterate
+  end
+
+  info = fence_info(source[i], fence)
+  language = lower(word(info, 1))
+  j = i + 1
+  do while j <= line_count
+    if closing_fence(source[j], fence) = 1 then leave
+    j = j + 1
+  end
+  if j > line_count then do
+    call diagnostic path, i, "unterminated fenced code block"
+    failures = failures + 1
+    leave
+  end
+
+  if is_example_language(language) = 1 then do
+    tokens = .string[]
+    token_count = tokenize_info(info, tokens)
+    if token_count < 0 then do
+      call diagnostic path, i, "invalid fence attributes: unterminated quote"
+      failures = failures + 1
+    end
+    else do
+      id = ""
+      run = "false"
+      kind = "standalone"
+      output = "text"
+      expect = ""
+      timeout = ""
+      fail_diag = "true"
+      seen_keys = .string[]
+      block_failures = 0
+
+      do ti = 2 to token_count
+        token = tokens[ti]
+        eq = pos("=", token)
+        if eq = 0 then do
+          call diagnostic path, i, "expected key=value attribute, got '"token"'"
+          block_failures = block_failures + 1
+          iterate
+        end
+        key = substr(token, 1, eq - 1)
+        value = substr(token, eq + 1)
+        if is_allowed_attribute(key) = 0 then do
+          call diagnostic path, i, "unknown attribute '"key"'"
+          block_failures = block_failures + 1
+          iterate
+        end
+        if value = "" then do
+          call diagnostic path, i, "attribute '"key"' must not be empty"
+          block_failures = block_failures + 1
+          iterate
+        end
+        if string_array_index(seen_keys, key) > 0 then do
+          call diagnostic path, i, "duplicate attribute '"key"'"
+          block_failures = block_failures + 1
+          iterate
+        end
+        call arrayappend seen_keys, key
+
+        select
+          when key = "id" then id = value
+          when key = "run" then run = value
+          when key = "kind" then kind = value
+          when key = "output" then output = value
+          when key = "expect" then expect = value
+          when key = "timeout" then timeout = value
+          when key = "fail-on-diagnostics" then fail_diag = value
+          otherwise nop
+        end
+      end
+
+      if id = "" then do
+        call diagnostic path, i, "REXX example fence is missing required id attribute"
+        block_failures = block_failures + 1
+      end
+      else if valid_identifier(id) = 0 then do
+        call diagnostic path, i, "invalid example id '"id"'; expected [A-Za-z][A-Za-z0-9_.-]*"
+        block_failures = block_failures + 1
+      end
+      else do
+        existing = string_array_index(seen_ids, id)
+        if existing > 0 then do
+          call diagnostic path, i, "duplicate example id '"id"' first defined on line "seen_lines[existing]
+          block_failures = block_failures + 1
+        end
+        else do
+          call arrayappend seen_ids, id
+          call arrayappend seen_lines, i
+        end
+      end
+
+      if run <> "true" & run <> "false" then do
+        call diagnostic path, i, "run must be true or false, got '"run"'"
+        block_failures = block_failures + 1
+      end
+      if fail_diag <> "true" & fail_diag <> "false" then do
+        call diagnostic path, i, "fail-on-diagnostics must be true or false, got '"fail_diag"'"
+        block_failures = block_failures + 1
+      end
+      if kind <> "standalone" & kind <> "the-macro" & kind <> "address-the" then do
+        call diagnostic path, i, "kind must be standalone, the-macro, or address-the, got '"kind"'"
+        block_failures = block_failures + 1
+      end
+      if valid_identifier(output) = 0 then do
+        call diagnostic path, i, "invalid output name '"output"'"
+        block_failures = block_failures + 1
+      end
+      if timeout <> "" then do
+        if positive_integer(timeout) = 0 then do
+          call diagnostic path, i, "timeout must be a positive integer, got '"timeout"'"
+          block_failures = block_failures + 1
+        end
+      end
+
+      failures = failures + block_failures
+      if block_failures = 0 then do
+        line = "example id="id" language="language" opening="i" closing="j
+        line = line" run="run" kind="kind" output="output" fail-on-diagnostics="fail_diag
+        if timeout <> "" then line = line" timeout="timeout
+        if expect <> "" then line = line" expect="expect
+        call arrayappend manifest, line
+      end
+    end
+  end
+
+  i = j + 1
+end
+
+if failures > 0 then exit 1
+
+if round_trip = 1 then do
+  do si = 1 to line_count
+    say source[si]
+  end
+end
+else do
+  do mi = 1 to manifest.0
+    say manifest[mi]
+  end
+end
+
+exit 0
+
+diagnostic: procedure
+  arg file = .string, line_no = .int, message = .string
+  call diagnostic_message file":"line_no": error: "message
+return
+
+diagnostic_message: procedure
+  arg message = .string
+  call lineout "stderr", message
+return
+
+opening_fence: procedure = .string
+  arg line = .string
+  idx = first_nonblankish(line)
+  if idx = 0 | idx > 4 then return ""
+  ch = substr(line, idx, 1)
+  if ch <> "`" & ch <> "~" then return ""
+  count = 0
+  do while idx + count <= length(line)
+    if substr(line, idx + count, 1) <> ch then leave
+    count = count + 1
+  end
+  if count < 3 then return ""
+return substr(line, idx, count)
+
+closing_fence: procedure = .int
+  arg line = .string, opener = .string
+  idx = first_nonblankish(line)
+  if idx = 0 | idx > 4 then return 0
+  ch = substr(opener, 1, 1)
+  if substr(line, idx, 1) <> ch then return 0
+  count = 0
+  do while idx + count <= length(line)
+    if substr(line, idx + count, 1) <> ch then leave
+    count = count + 1
+  end
+  if count < length(opener) then return 0
+  rest = substr(line, idx + count)
+  if strip(rest) = "" then return 1
+return 0
+
+fence_info: procedure = .string
+  arg line = .string, fence = .string
+  idx = first_nonblankish(line)
+  if idx = 0 then return ""
+return substr(line, idx + length(fence))
+
+first_nonblankish: procedure = .int
+  arg line = .string
+  do idx = 1 to length(line)
+    ch = substr(line, idx, 1)
+    if ch <> " " & ch <> '09'x then return idx
+  end
+return 0
+
+is_example_language: procedure = .int
+  arg language = .string
+  if language = "rexx" | language = "crexx" | language = "the" then return 1
+return 0
+
+is_allowed_attribute: procedure = .int
+  arg key = .string
+  if key = "id" then return 1
+  if key = "run" then return 1
+  if key = "kind" then return 1
+  if key = "output" then return 1
+  if key = "expect" then return 1
+  if key = "timeout" then return 1
+  if key = "fail-on-diagnostics" then return 1
+return 0
+
+valid_identifier: procedure = .int
+  arg value = .string
+  if value = "" then return 0
+  first = substr(value, 1, 1)
+  if pos(first, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz") = 0 then return 0
+  allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.-"
+  do idx = 2 to length(value)
+    if pos(substr(value, idx, 1), allowed) = 0 then return 0
+  end
+return 1
+
+positive_integer: procedure = .int
+  arg value = .string
+  if value = "" then return 0
+  if verify(value, "0123456789") <> 0 then return 0
+  if value <= 0 then return 0
+return 1
+
+string_array_index: procedure = .int
+  arg values = .string[], wanted = .string
+  do idx = 1 to values.0
+    if values[idx] = wanted then return idx
+  end
+return 0
+
+tokenize_info: procedure = .int
+  arg text = .string, expose tokens = .string[]
+  current = ""
+  quote = ""
+  do idx = 1 to length(text)
+    ch = substr(text, idx, 1)
+    if quote <> "" then do
+      if ch = quote then quote = ""
+      else current = current || ch
+    end
+    else do
+      if ch = '"' | ch = "'" then quote = ch
+      else if ch = " " | ch = '09'x then do
+        if current <> "" then do
+          call arrayappend tokens, current
+          current = ""
+        end
+      end
+      else current = current || ch
+    end
+  end
+  if quote <> "" then return -1
+  if current <> "" then call arrayappend tokens, current
+return tokens.0

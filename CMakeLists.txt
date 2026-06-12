@@ -768,6 +768,10 @@ set_tests_properties(test_message_history PROPERTIES
     SKIP_RETURN_CODE 77
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
+add_test(NAME test_batch_md_rexx_format COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_format.sh)
+set_tests_properties(test_batch_md_rexx_format PROPERTIES
+    SKIP_RETURN_CODE 77
+)
 if(THE_USE_CREXX)
     add_test(NAME test_field_queries COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_field_queries.sh)
     set_tests_properties(test_field_queries PROPERTIES
