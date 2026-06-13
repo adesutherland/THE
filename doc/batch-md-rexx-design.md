@@ -61,6 +61,8 @@ Validated or fixed behavior in current CREXX builds:
 - Driver failures propagate to the host process: `exit n`, integer `main`
   returns, compile failures, and runtime failures surface as non-zero process
   status.
+- Hosted THE profile status propagates through CREXX/SAA for both top-level
+  `exit n` and integer `main` returns.
 - Compile diagnostics are written to stderr, and compile errors return
   non-zero, so wrappers can distinguish diagnostics from successful program
   output.
@@ -87,9 +89,9 @@ Validated or fixed behavior in current CREXX builds:
 - CREXX `6ec9a9342` fixes indexed stems in implicit addressed command
   expressions. Hosted profiles now accept bare `ADDRESS THE` commands such as
   `'emsg THE_BATCH_RUN_MESSAGE=' || messages[i]`.
-- THE batch mode propagates hosted CREXX profile `program_rc` values when the
-  SAA layer supplies them, such as integer `main` returns, and returns nonzero
-  status for files left open in batch.
+- THE batch mode propagates hosted CREXX profile `program_rc` values from
+  top-level `exit n` and integer `main` returns, and returns nonzero status for
+  files left open in batch.
 
 Remaining hosted THE/CREXX integration observations:
 
@@ -97,10 +99,6 @@ Remaining hosted THE/CREXX integration observations:
   `ADDRESS COMMAND` unless the command is explicitly routed through a shell.
   For complex command text, use the documented stdin-fed form:
   `ADDRESS COMMAND "sh" input command_lines`.
-- `exit n` and `lineout(...)` are accepted in hosted profiles, but current
-  CREXX/SAA does not surface top-level `exit n` as `program_rc` to THE. Hosted
-  profiles using `main: procedure = .int; return n` do propagate through THE
-  batch status. This is not a standalone CREXX runner blocker.
 
 ## Recommended Shape
 
@@ -469,9 +467,8 @@ Implementation status:
 - `tools/batch-md-rexx/tests/test_runner.sh` validates the packaged command in
   render and validation modes.
 - The THE profile candidate remains a later item. Hosted profiles now support
-  the process I/O stem shape and indexed stems in implicit addressed command
-  expressions; the remaining hosted-profile status concern is CREXX/SAA
-  surfacing top-level `exit n` as `program_rc`.
+  the process I/O stem shape, indexed stems in implicit addressed command
+  expressions, and top-level `exit n` status propagation through CREXX/SAA.
 
 ### Story 10: Add TeX/PDF Renderer
 

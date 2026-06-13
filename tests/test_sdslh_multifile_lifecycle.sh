@@ -129,7 +129,7 @@ if coloring[1] = "ON" then do
    if coloring[3] = "rxc" then 'emsg SDSLH_MULTI_REXX_AGAIN'
 end
 
-'qquit'
+'ccancel'
 PROFILE_EOF
 
 (

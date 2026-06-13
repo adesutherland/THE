@@ -106,20 +106,19 @@ if grep -q "Error 0077" "${WORK_DIR}/ok-close.err"; then
   exit 1
 fi
 
-cat > "${WORK_DIR}/main7-close.the" <<'PROFILE_EOF'
+cat > "${WORK_DIR}/exit7-close.the" <<'PROFILE_EOF'
 options levelb
 import rxfnsb
 
-main: procedure = .int
-  address the 'qquit'
-  call lineout "stderr", "BATCH_PROFILE_MAIN7_CLOSE"
-  return 7
+address the 'qquit'
+call lineout "stderr", "BATCH_PROFILE_EXIT7_CLOSE"
+exit 7
 PROFILE_EOF
 
-run_profile main7-close 7
-grep -q "BATCH_PROFILE_MAIN7_CLOSE" "${WORK_DIR}/main7-close.err"
-if grep -q "Error 0077" "${WORK_DIR}/main7-close.err"; then
-  echo "main7-close: did not expect files-open batch error" >&2
+run_profile exit7-close 7
+grep -q "BATCH_PROFILE_EXIT7_CLOSE" "${WORK_DIR}/exit7-close.err"
+if grep -q "Error 0077" "${WORK_DIR}/exit7-close.err"; then
+  echo "exit7-close: did not expect files-open batch error" >&2
   exit 1
 fi
 
@@ -135,17 +134,16 @@ run_profile open-file 77
 grep -q "BATCH_PROFILE_OPEN_FILE" "${WORK_DIR}/open-file.err"
 grep -q "Error 0077: Files still open in batch: 1" "${WORK_DIR}/open-file.err"
 
-cat > "${WORK_DIR}/main7-open.the" <<'PROFILE_EOF'
+cat > "${WORK_DIR}/exit7-open.the" <<'PROFILE_EOF'
 options levelb
 import rxfnsb
 
-main: procedure = .int
-  call lineout "stderr", "BATCH_PROFILE_MAIN7_OPEN"
-  return 7
+call lineout "stderr", "BATCH_PROFILE_EXIT7_OPEN"
+exit 7
 PROFILE_EOF
 
-run_profile main7-open 7
-grep -q "BATCH_PROFILE_MAIN7_OPEN" "${WORK_DIR}/main7-open.err"
-grep -q "Error 0077: Files still open in batch: 1" "${WORK_DIR}/main7-open.err"
+run_profile exit7-open 7
+grep -q "BATCH_PROFILE_EXIT7_OPEN" "${WORK_DIR}/exit7-open.err"
+grep -q "Error 0077: Files still open in batch: 1" "${WORK_DIR}/exit7-open.err"
 
 echo "Batch profile status test passed."

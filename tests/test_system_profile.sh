@@ -90,9 +90,19 @@ if [[ "${system_line}" -ge "${user_line}" ]]; then
   exit 1
 fi
 
+set +e
 env THE_HOME_DIR="${THE_HOME}" \
   "${THE_BIN}" -b -q -n -p "${USER_PROFILE}" "${SAMPLE}" \
   > "${WORK_DIR}/no-user.out" 2> "${WORK_DIR}/no-user.err"
+no_user_rc=$?
+set -e
+
+if [[ "${no_user_rc}" != "77" ]]; then
+  echo "no-user: expected files-open batch rc 77, got ${no_user_rc}" >&2
+  echo "--- stderr ---" >&2
+  sed -n '1,120p' "${WORK_DIR}/no-user.err" >&2
+  exit 1
+fi
 
 grep -q "SYSTEM_PROFILE_RAN" "${WORK_DIR}/no-user.err"
 grep -q "QUERY_UTF_ON" "${WORK_DIR}/no-user.err"
@@ -100,6 +110,7 @@ grep -q "QUERY_UTF_MODE" "${WORK_DIR}/no-user.err"
 grep -q "QUERY_UTF_RULES" "${WORK_DIR}/no-user.err"
 grep -q "QUERY_UTF_RULE" "${WORK_DIR}/no-user.err"
 grep -q "QUERY_UTF_REPLAY" "${WORK_DIR}/no-user.err"
+grep -q "Error 0077: Files still open in batch: 1" "${WORK_DIR}/no-user.err"
 if grep -q "USER_PROFILE_RAN" "${WORK_DIR}/no-user.err"; then
   echo "-n should skip the user profile but keep the system profile" >&2
   exit 1
