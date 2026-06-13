@@ -580,8 +580,7 @@ build_the_run_profile: procedure
   call arrayappend profile, "message_count = messages[0]"
   call arrayappend profile, "'emsg THE_BATCH_RUN_MESSAGE_COUNT=' || message_count"
   call arrayappend profile, "do i = 1 to message_count"
-  call arrayappend profile, "  message_record = messages[i]"
-  call arrayappend profile, "  'emsg THE_BATCH_RUN_MESSAGE=' || message_record"
+  call arrayappend profile, "  'emsg THE_BATCH_RUN_MESSAGE=' || messages[i]"
   call arrayappend profile, "end"
   call arrayappend profile, "'qquit'"
 return
@@ -976,16 +975,14 @@ highlight_source: procedure = .int
   call arrayappend profile, "pmsg_count = pmsgs[0]"
   call arrayappend profile, "'emsg THE_BATCH_PMSG_COUNT=' || pmsg_count"
   call arrayappend profile, "do i = 1 to pmsg_count"
-  call arrayappend profile, "  pmsg_record = pmsgs[i]"
-  call arrayappend profile, "  'emsg THE_BATCH_PMSG=' || pmsg_record"
+  call arrayappend profile, "  'emsg THE_BATCH_PMSG=' || pmsgs[i]"
   call arrayappend profile, "end"
   call arrayappend profile, "stylespans = .string[]"
   call arrayappend profile, 'address the "extract /stylespans/" expose stylespans[]'
   call arrayappend profile, "span_count = stylespans[0]"
   call arrayappend profile, "'emsg THE_BATCH_STYLESPAN_COUNT=' || span_count"
   call arrayappend profile, "do i = 1 to span_count"
-  call arrayappend profile, "  span_record = stylespans[i]"
-  call arrayappend profile, "  'emsg THE_BATCH_STYLESPAN=' || span_record"
+  call arrayappend profile, "  'emsg THE_BATCH_STYLESPAN=' || stylespans[i]"
   call arrayappend profile, "end"
   call arrayappend profile, "'qquit'"
 

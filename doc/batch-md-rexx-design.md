@@ -56,8 +56,7 @@ These notes capture CREXX behavior that the batch Markdown work depends on or
 has stress-tested. They are not current THE blockers, but they should remain
 visible while CREXX is changing.
 
-Validated or fixed behavior in the installed CREXX build
-(`1ad89445a` or newer):
+Validated or fixed behavior in current CREXX builds:
 
 - Driver failures propagate to the host process: `exit n`, integer `main`
   returns, compile failures, and runtime failures surface as non-zero process
@@ -85,6 +84,9 @@ Validated or fixed behavior in the installed CREXX build
 - A hosted THE profile rerun confirms that
   `ADDRESS COMMAND "sh" input command_lines output out error err` compiles and
   runs in the hosted profile path.
+- CREXX `6ec9a9342` fixes indexed stems in implicit addressed command
+  expressions. Hosted profiles now accept bare `ADDRESS THE` commands such as
+  `'emsg THE_BATCH_RUN_MESSAGE=' || messages[i]`.
 - THE batch mode propagates hosted CREXX profile `program_rc` values when the
   SAA layer supplies them, such as integer `main` returns, and returns nonzero
   status for files left open in batch.
@@ -95,13 +97,6 @@ Remaining hosted THE/CREXX integration observations:
   `ADDRESS COMMAND` unless the command is explicitly routed through a shell.
   For complex command text, use the documented stdin-fed form:
   `ADDRESS COMMAND "sh" input command_lines`.
-- Direct stem indexing inside a concatenated `ADDRESS THE` command expression
-  in a hosted profile still fails in the THE profile compile path. A reduced
-  profile containing `'emsg THE_BATCH_RUN_MESSAGE=' || messages[i]` still
-  reports `#UNEXPECTED_ARRAY` under
-  `the -b -q -p stem_concat_profile.the scratch.txt`, while assigning
-  `messages[i]` to a scalar first works. The renderer keeps that scalar
-  temporary in generated hosted profiles.
 - `exit n` and `lineout(...)` are accepted in hosted profiles, but current
   CREXX/SAA does not surface top-level `exit n` as `program_rc` to THE. Hosted
   profiles using `main: procedure = .int; return n` do propagate through THE
@@ -474,9 +469,9 @@ Implementation status:
 - `tools/batch-md-rexx/tests/test_runner.sh` validates the packaged command in
   render and validation modes.
 - The THE profile candidate remains a later item. Hosted profiles now support
-  the process I/O stem shape, but the profile compile path still rejects direct
-  stem indexing inside concatenated `ADDRESS THE` command expressions, and THE
-  batch mode still needs reliable profile failure/status propagation.
+  the process I/O stem shape and indexed stems in implicit addressed command
+  expressions; the remaining hosted-profile status concern is CREXX/SAA
+  surfacing top-level `exit n` as `program_rc`.
 
 ### Story 10: Add TeX/PDF Renderer
 

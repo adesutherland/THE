@@ -53,16 +53,14 @@ address the "extract /stylespans/" expose stylespans[]
 span_count = stylespans[0]
 'emsg STYLESPANS_COUNT=' || span_count
 do i = 1 to span_count
-  span_record = stylespans[i]
-  'emsg STYLESPAN=' || span_record
+  'emsg STYLESPAN=' || stylespans[i]
 end
 
 address the "extract /stylespans 3 3/" expose stylespans[]
 span_count = stylespans[0]
 'emsg STYLESPANS_RANGE_COUNT=' || span_count
 do i = 1 to span_count
-  span_record = stylespans[i]
-  'emsg STYLESPAN_RANGE=' || span_record
+  'emsg STYLESPAN_RANGE=' || stylespans[i]
 end
 
 'set coloring off'
