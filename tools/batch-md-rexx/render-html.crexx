@@ -389,7 +389,7 @@ emit_example: procedure = .int
   run_stdout = .string[]
   run_stderr = .string[]
   run_messages = .string[]
-  run_capture = .string[]
+  run_meta = .string[]
   run_rc = "0"
   timed_out = "0"
 
@@ -408,16 +408,10 @@ emit_example: procedure = .int
   end
 
   if run_attr = "true" then do
-    rc = execute_example(id, language, kind, source_lines, the_bin, the_home, crexx_bin, block_timeout, run_capture)
+    rc = execute_example(id, language, kind, source_lines, the_bin, the_home, crexx_bin, block_timeout, run_stdout, run_stderr, run_messages, run_meta)
     if rc <> 0 then return rc
-    do ci = 1 to run_capture.0
-      capture_record = run_capture[ci]
-      if left(capture_record, 3) = "rc=" then run_rc = substr(capture_record, 4)
-      else if left(capture_record, 8) = "timeout=" then timed_out = substr(capture_record, 9)
-      else if left(capture_record, 7) = "stdout=" then call arrayappend run_stdout, substr(capture_record, 8)
-      else if left(capture_record, 7) = "stderr=" then call arrayappend run_stderr, substr(capture_record, 8)
-      else if left(capture_record, 8) = "message=" then call arrayappend run_messages, substr(capture_record, 9)
-    end
+    if run_meta.0 >= 1 then run_rc = run_meta[1]
+    if run_meta.0 >= 2 then timed_out = run_meta[2]
     if timed_out = "1" & rc_allowed(allow_rc, run_rc) = 0 then do
       call diagnostic_message "render-html.crexx: example " || id || " timed out with rc " || run_rc
       return 1
@@ -454,18 +448,18 @@ emit_example: procedure = .int
 return 0
 
 execute_example: procedure = .int
-  arg id = .string, language = .string, kind = .string, source_lines = .string[], the_bin = .string, the_home = .string, crexx_bin = .string, timeout = .string, expose run_capture = .string[]
+  arg id = .string, language = .string, kind = .string, source_lines = .string[], the_bin = .string, the_home = .string, crexx_bin = .string, timeout = .string, expose run_stdout = .string[], expose run_stderr = .string[], expose run_messages = .string[], expose run_meta = .string[]
 
   if kind = "standalone" then do
-    child_status = execute_standalone(id, language, source_lines, crexx_bin, timeout, run_capture)
+    child_status = execute_standalone(id, language, source_lines, crexx_bin, timeout, run_stdout, run_stderr, run_meta)
     return child_status
   end
   if kind = "the-macro" then do
-    child_status = execute_the_profile(id, kind, source_lines, the_bin, the_home, timeout, run_capture)
+    child_status = execute_the_profile(id, kind, source_lines, the_bin, the_home, timeout, run_stdout, run_stderr, run_messages, run_meta)
     return child_status
   end
   if kind = "address-the" then do
-    child_status = execute_the_profile(id, kind, source_lines, the_bin, the_home, timeout, run_capture)
+    child_status = execute_the_profile(id, kind, source_lines, the_bin, the_home, timeout, run_stdout, run_stderr, run_messages, run_meta)
     return child_status
   end
 
@@ -473,7 +467,7 @@ execute_example: procedure = .int
 return 2
 
 execute_standalone: procedure = .int
-  arg id = .string, language = .string, source_lines = .string[], crexx_bin = .string, timeout = .string, expose run_capture = .string[]
+  arg id = .string, language = .string, source_lines = .string[], crexx_bin = .string, timeout = .string, expose run_stdout = .string[], expose run_stderr = .string[], expose run_meta = .string[]
 
   mkout = .string[]
   mkerr = .string[]
@@ -497,20 +491,20 @@ execute_standalone: procedure = .int
   child_out = .string[]
   child_err = .string[]
   address command "sh" input command_lines output child_out error child_err
-  call arrayappend run_capture, "rc=" || rc
-  if timeout_rc(rc) = 1 then call arrayappend run_capture, "timeout=1"
-  else call arrayappend run_capture, "timeout=0"
+  call arrayappend run_meta, "" || rc
+  if timeout_rc(rc) = 1 then call arrayappend run_meta, "1"
+  else call arrayappend run_meta, "0"
   do oi = 1 to child_out.0
-    call arrayappend run_capture, "stdout=" || child_out[oi]
+    call arrayappend run_stdout, child_out[oi]
   end
   do ei = 1 to child_err.0
-    call arrayappend run_capture, "stderr=" || child_err[ei]
+    call arrayappend run_stderr, child_err[ei]
   end
   call remove_tree temp_dir
 return 0
 
 execute_the_profile: procedure = .int
-  arg id = .string, kind = .string, source_lines = .string[], the_bin = .string, the_home = .string, timeout = .string, expose run_capture = .string[]
+  arg id = .string, kind = .string, source_lines = .string[], the_bin = .string, the_home = .string, timeout = .string, expose run_stdout = .string[], expose run_stderr = .string[], expose run_messages = .string[], expose run_meta = .string[]
 
   mkout = .string[]
   mkerr = .string[]
@@ -547,13 +541,13 @@ execute_the_profile: procedure = .int
   inner_cmd = inner_cmd || " -b -q -p " || shell_quote(profile_path) || " " || shell_quote(scratch_path)
   command_lines[1] = timeout_prefix(timeout) || " " || inner_cmd
   address command "sh" input command_lines output child_out error child_err
-  call arrayappend run_capture, "rc=" || rc
-  if timeout_rc(rc) = 1 then call arrayappend run_capture, "timeout=1"
-  else call arrayappend run_capture, "timeout=0"
+  call arrayappend run_meta, "" || rc
+  if timeout_rc(rc) = 1 then call arrayappend run_meta, "1"
+  else call arrayappend run_meta, "0"
   call remove_tree temp_dir
 
-  call append_the_run_stream child_out, "stdout", run_capture
-  call append_the_run_stream child_err, "stderr", run_capture
+  call append_the_run_stream child_out, "stdout", run_stdout, run_stderr, run_messages
+  call append_the_run_stream child_err, "stderr", run_stdout, run_stderr, run_messages
 return 0
 
 build_the_run_profile: procedure
@@ -593,17 +587,20 @@ build_the_run_profile: procedure
 return
 
 append_the_run_stream: procedure
-  arg values = .string[], stream_name = .string, expose run_capture = .string[]
+  arg values = .string[], stream_name = .string, expose run_stdout = .string[], expose run_stderr = .string[], expose run_messages = .string[]
   do vi = 1 to values.0
     line = values[vi]
     if left(line, 28) = "THE_BATCH_RUN_MESSAGE_COUNT=" then do
       nop
     end
     else if left(line, 22) = "THE_BATCH_RUN_MESSAGE=" then do
-      call arrayappend run_capture, "message=" || substr(line, 23)
+      call arrayappend run_messages, substr(line, 23)
+    end
+    else if stream_name = "stdout" then do
+      call arrayappend run_stdout, line
     end
     else do
-      call arrayappend run_capture, stream_name || "=" || line
+      call arrayappend run_stderr, line
     end
   end
 return
@@ -1138,13 +1135,23 @@ return out
 
 write_lines_to_file: procedure = .int
   arg path = .string, lines = .string[]
-  err = .string[]
-  write_cmd = "sh -c " || shell_quote("cat > " || path)
-  address command write_cmd input lines error err
-  if rc <> 0 then do
-    call write_stem "stderr", err
-    return 1
+  if lines.0 = 0 then return create_empty_file(path)
+  do wi = 1 to lines.0
+    write_rc = lineout(path, lines[wi])
+    if write_rc <> 0 then return 1
   end
+  call lineout(path)
+return 0
+
+create_empty_file: procedure = .int
+  arg path = .string
+  fid = 0
+  mode = "w"
+  assembler fopen fid,path,mode
+  if fid = 0 then return 1
+  close_rc = 0
+  assembler fclose close_rc,fid
+  if close_rc <> 0 then return 1
 return 0
 
 write_stem: procedure

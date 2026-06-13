@@ -56,7 +56,8 @@ These notes capture CREXX behavior that the batch Markdown work depends on or
 has stress-tested. They are not current THE blockers, but they should remain
 visible while CREXX is changing.
 
-Validated or fixed behavior in the installed CREXX build:
+Validated or fixed behavior in the installed CREXX build
+(`1ad89445a` or newer):
 
 - Driver failures propagate to the host process: `exit n`, integer `main`
   returns, compile failures, and runtime failures surface as non-zero process
@@ -71,56 +72,38 @@ Validated or fixed behavior in the installed CREXX build:
 - Missing-file handling is distinguishable: `lines(missing)` returns `-1` and
   reports to stderr, while `linein(missing)` reports to stderr and exits
   non-zero through the runtime failure path.
+- `lineout(path, value)` output is visible to immediate consumers. The batch
+  tools now write generated source, profiles, protocol files, and final output
+  directly with `lineout`.
+- Standalone CREXX accepts stem indexing inside concatenated expressions, such
+  as `'emsg ' || stylespans[i]`.
+- Ordinary comparisons now follow Rexx loose comparison rules for
+  numeric-looking strings; strict comparisons remain exact.
+- Multiple exposed array arguments now write back reliably. The renderer now
+  passes execution results through separate exposed stdout, stderr, message,
+  and metadata stems instead of one tagged capture stem.
+- A hosted THE profile rerun confirms that
+  `ADDRESS COMMAND "sh" input command_lines output out error err` compiles and
+  runs in the hosted profile path.
 
-Observed during Story 2 through Story 7 and worth tracking with CREXX changes:
+Remaining hosted THE/CREXX integration observations:
 
-- Writing an immediate protocol file with `lineout(path, value)` was not
-  reliable when `path` came from `ADDRESS COMMAND ... output` and the content
-  was consumed immediately by THE. In reduced tests, `lineout` returned `0`,
-  but the file could still be zero bytes when the write used variable or stem
-  values on the captured path. The prototype avoids this by piping the protocol
-  through `ADDRESS COMMAND "sh -c 'cat > path'" input protocol`, which also
-  exercises the OS pipe route needed for later example execution.
 - Shell metacharacters such as redirection are not interpreted by
-  `ADDRESS COMMAND` unless the command is explicitly routed through a shell
-  such as `sh -c`. The current prototype treats that as expected behavior and
-  quotes shell-owned command fragments explicitly.
-- Direct stem indexing inside a concatenated THE command expression in a
-  profile, such as `'emsg ' || stylespans[i]`, was rejected with
-  `#UNEXPECTED_ARRAY`. Assigning the stem entry to a scalar temporary first is
-  accepted; the Story 3 test profile uses that form.
-- Complex shell commands with nested quoting were more reliable when invoked as
-  `ADDRESS COMMAND "sh" input command_lines` than as `sh -c <quoted-command>`
-  inside one command string. The HTML renderer uses the stdin-fed shell form
-  for THE subprocesses.
-- In typed procedures, direct `>`/`<` comparisons between numeric text from
-  `word()` and values derived from `length()` behaved lexically in reduced
-  renderer tests, for example treating a later one-digit column as greater than
-  a two-digit line length. The renderer avoids this by using arithmetic
-  differences such as `gap_len = start - cell`.
-- The renderer copies the exposed `stylespans[]` result into a local stem before
-  passing it to helper procedures. This keeps the current implementation
-  independent of CREXX stem/reference materialization details across procedure
-  boundaries.
-- Bug to report: when a procedure exposes multiple array arguments, only the
-  first exposed array updated reliably in a reduced Story 6 runner test. A
-  reduced shape was:
-  `outer(out[], err[], msg[], meta[])` calls `direct(out[], err[], msg[], meta[])`;
-  `direct` appends to all arrays and sets `meta[1] = "7"`, but the caller only
-  observed the first array update, while later arrays and `meta[1]` stayed at
-  their original values. The batch renderer works around this by returning
-  execution results through one tagged capture stem (`stdout=...`,
-  `stderr=...`, `message=...`, `rc=...`, `timeout=...`) and splitting it in the
-  caller.
-- A Story 9 experiment to make the batch runner a THE profile found that hosted
-  `.the` CREXX profiles do not currently accept the standalone CREXX
-  `ADDRESS COMMAND "sh" input command_lines output out error err` shape; the
-  compiler reported `#UNEXPECTED_ARRAY` on the stem arguments. The same profile
-  also reported `exit n` and `lineout(...)` as missing functions in that hosted
-  context. This is not blocking the batch utility because the supported runner
-  is a standalone CREXX script launched by the installed `the-batch-md-rexx`
-  command, but it is worth tracking before reviving the
-  `the -b -q -p batch_md_rexx.the -a ...` candidate.
+  `ADDRESS COMMAND` unless the command is explicitly routed through a shell.
+  For complex command text, use the documented stdin-fed form:
+  `ADDRESS COMMAND "sh" input command_lines`.
+- Direct stem indexing inside a concatenated `ADDRESS THE` command expression
+  in a hosted profile still fails in the THE profile compile path. A reduced
+  profile containing `'emsg THE_BATCH_RUN_MESSAGE=' || messages[i]` still
+  reports `#UNEXPECTED_ARRAY` under
+  `the -b -q -p stem_concat_profile.the scratch.txt`, while assigning
+  `messages[i]` to a scalar first works. The renderer keeps that scalar
+  temporary in generated hosted profiles.
+- `exit n` and `lineout(...)` are accepted in hosted profiles, but THE batch
+  mode still returned process status `0` for a profile that executed `exit 7`
+  and also reported `Error 0077: Files still open in batch: 1`. This is a
+  THE-hosted profile/batch propagation issue, not a standalone CREXX runner
+  blocker.
 
 ## Recommended Shape
 
@@ -294,9 +277,9 @@ Implementation status:
 - The test fixture in `tools/batch-md-rexx/tests/test_highlight.sh` validates
   stable REXX categories for preprocessor text, identifiers, keywords, strings,
   and comments.
-- The prototype writes the LLM protocol through CREXX `ADDRESS COMMAND` pipe
-  input rather than CREXX `lineout`, so it validates the same OS pipe path that
-  later batch scripts will need for example execution.
+- The prototype writes the LLM protocol with CREXX `lineout(path, value)` and
+  closes the file before invoking THE, validating the fixed file visibility
+  behavior.
 
 ### Story 3: Add Full-Buffer Style Span Query
 
@@ -488,9 +471,10 @@ Implementation status:
   `share/the/batch-md-rexx`.
 - `tools/batch-md-rexx/tests/test_runner.sh` validates the packaged command in
   render and validation modes.
-- The THE profile candidate remains a later item until hosted CREXX profiles
-  support the same pipe/stem process I/O shape and until THE batch mode can
-  propagate profile failures reliably.
+- The THE profile candidate remains a later item. Hosted profiles now support
+  the process I/O stem shape, but the profile compile path still rejects direct
+  stem indexing inside concatenated `ADDRESS THE` command expressions, and THE
+  batch mode still needs reliable profile failure/status propagation.
 
 ### Story 10: Add TeX/PDF Renderer
 

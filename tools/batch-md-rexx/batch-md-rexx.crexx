@@ -207,13 +207,23 @@ return 0
 
 write_lines_to_file: procedure = .int
   arg path = .string, lines = .string[]
-  err = .string[]
-  write_cmd = "sh -c " || shell_quote("cat > " || path)
-  address command write_cmd input lines error err
-  if rc <> 0 then do
-    call write_stem "stderr", err
-    return 1
+  if lines.0 = 0 then return create_empty_file(path)
+  do wi = 1 to lines.0
+    write_rc = lineout(path, lines[wi])
+    if write_rc <> 0 then return 1
   end
+  call lineout(path)
+return 0
+
+create_empty_file: procedure = .int
+  arg path = .string
+  fid = 0
+  mode = "w"
+  assembler fopen fid,path,mode
+  if fid = 0 then return 1
+  close_rc = 0
+  assembler fclose close_rc,fid
+  if close_rc <> 0 then return 1
 return 0
 
 write_stem: procedure
