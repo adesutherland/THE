@@ -85,6 +85,9 @@ Validated or fixed behavior in the installed CREXX build
 - A hosted THE profile rerun confirms that
   `ADDRESS COMMAND "sh" input command_lines output out error err` compiles and
   runs in the hosted profile path.
+- THE batch mode propagates hosted CREXX profile `program_rc` values when the
+  SAA layer supplies them, such as integer `main` returns, and returns nonzero
+  status for files left open in batch.
 
 Remaining hosted THE/CREXX integration observations:
 
@@ -99,11 +102,10 @@ Remaining hosted THE/CREXX integration observations:
   `the -b -q -p stem_concat_profile.the scratch.txt`, while assigning
   `messages[i]` to a scalar first works. The renderer keeps that scalar
   temporary in generated hosted profiles.
-- `exit n` and `lineout(...)` are accepted in hosted profiles, but THE batch
-  mode still returned process status `0` for a profile that executed `exit 7`
-  and also reported `Error 0077: Files still open in batch: 1`. This is a
-  THE-hosted profile/batch propagation issue, not a standalone CREXX runner
-  blocker.
+- `exit n` and `lineout(...)` are accepted in hosted profiles, but current
+  CREXX/SAA does not surface top-level `exit n` as `program_rc` to THE. Hosted
+  profiles using `main: procedure = .int; return n` do propagate through THE
+  batch status. This is not a standalone CREXX runner blocker.
 
 ## Recommended Shape
 

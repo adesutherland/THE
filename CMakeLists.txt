@@ -873,4 +873,9 @@ if(THE_USE_CREXX)
         SKIP_RETURN_CODE 77
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
+    add_test(NAME test_batch_profile_status COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_batch_profile_status.sh)
+    set_tests_properties(test_batch_profile_status PROPERTIES
+        SKIP_RETURN_CODE 77
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
+    )
 endif()

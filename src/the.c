@@ -385,6 +385,7 @@ int main(int argc, char *argv[])
    bool run_single_instance=FALSE;
 #endif
    short rc=RC_OK;
+   short batch_profile_rc=RC_OK;
    char *envptr=NULL;
    int slk_format=0;
 #if defined(USE_XCURSES) && PDC_BUILD >= 2401
@@ -1125,6 +1126,7 @@ int main(int argc, char *argv[])
        * files.
        */
       current_file_name = first_file_name;
+      batch_profile_rc = RC_OK;
       while(current_file_name != NULL)
       {
         if ((rc = get_file((CHARTYPE *)current_file_name->line)) != RC_OK)
@@ -1140,11 +1142,16 @@ int main(int argc, char *argv[])
         if (system_prf != (CHARTYPE *)NULL || execute_profile)
         {
            rc = get_startup_profiles();
+           if (rc != RC_OK
+           &&  batch_profile_rc == RC_OK)
+              batch_profile_rc = rc;
            if (error_on_screen)
            {
               /* If we generated a message, don't just throw it away, keep it for the display loop. */
            }
         }
+        if (batch_profile_rc != RC_OK)
+           break;
         current_file_name = current_file_name->next;
       }
       first_file_name = lll_free(first_file_name);
@@ -1155,9 +1162,11 @@ int main(int argc, char *argv[])
       {
          sprintf((DEFCHAR *)rec,"%ld",number_of_files);
          DISPLAY_ERROR(77,rec,FALSE,1);
+         if (batch_profile_rc == RC_OK)
+            batch_profile_rc = 77;
       }
       cleanup();
-      return(0);
+      return(batch_profile_rc);
    } /* if (batch_only) */
    memset(&driver_startup_options,0,sizeof(driver_startup_options));
    driver_startup_options.slk_format = slk_format;

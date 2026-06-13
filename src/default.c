@@ -661,6 +661,9 @@ short get_profile(CHARTYPE *prf_file,CHARTYPE *prf_arg)
          display_error(54,(CHARTYPE *)"",FALSE);
          rc = RC_SYSTEM_ERROR;
       }
+      else if (batch_only
+      &&       macrorc != 0)
+         rc = macrorc;
    }
    else
    {
@@ -685,7 +688,7 @@ short get_profile(CHARTYPE *prf_file,CHARTYPE *prf_arg)
    }
    in_macro = save_in_macro;
    TRACE_RETURN();
-   return(RC_OK);
+   return(batch_only ? rc : RC_OK);
 }
 /***********************************************************************/
 short get_startup_profiles(void)
@@ -695,7 +698,15 @@ short get_startup_profiles(void)
 
    TRACE_FUNCTION("default.c: get_startup_profiles");
    if (system_prf != (CHARTYPE *)NULL)
+   {
       rc = get_profile(system_prf,(CHARTYPE *)NULL);
+      if (batch_only
+      &&  rc != RC_OK)
+      {
+         TRACE_RETURN();
+         return(rc);
+      }
+   }
    if (execute_profile
    &&  local_prf != (CHARTYPE *)NULL)
       rc = get_profile(local_prf,prf_arg);
