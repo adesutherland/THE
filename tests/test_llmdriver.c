@@ -163,8 +163,8 @@ static void test_reserved_view_options(void)
 
 static void test_agent_metadata_and_delta(void)
 {
-   LlmDriverScreenView previous;
-   LlmDriverScreenView current;
+   static LlmDriverScreenView previous;
+   static LlmDriverScreenView current;
    LlmDriverFormatOptions options;
    LogicalCursor cursor;
    char out[8192];

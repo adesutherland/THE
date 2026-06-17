@@ -61,6 +61,7 @@ static DWORD THEDropProc( CLIPFORMAT cf, HGLOBAL hData, HWND hWnd, DWORD dwKeySt
 static RETSIGTYPE handle_signal(int);
 # endif
 static void display_info(CHARTYPE *);
+static int setup_named_system_profile_file(const char *);
 static int setup_system_profile_file(void);
 static void init_signals(void);
 typedef enum
@@ -1533,11 +1534,36 @@ static int setup_system_profile_file(void)
 /***********************************************************************/
 {
 #if defined(USE_UTF8)
+   char *term_program = getenv("TERM_PROGRAM");
+   int rc;
+
+   if (term_program != NULL
+   &&  my_stricmp((DEFCHAR *)term_program,
+                  (DEFCHAR *)"Apple_Terminal") == 0)
+   {
+      rc = setup_named_system_profile_file("system-apple-terminal.the");
+      if (rc == RC_OK)
+         return(RC_OK);
+      if (rc == RC_OUT_OF_MEMORY)
+         return(rc);
+   }
+
+   rc = setup_named_system_profile_file(THE_SYSTEM_PROFILE_NAME);
+   if (rc == RC_OUT_OF_MEMORY)
+      return(rc);
+#endif
+   return(RC_OK);
+}
+/***********************************************************************/
+static int setup_named_system_profile_file(const char *profile_name)
+/***********************************************************************/
+{
+#if defined(USE_UTF8)
    if ((system_prf = (CHARTYPE *)(*the_malloc)((MAX_FILE_NAME+1)*sizeof(CHARTYPE))) == NULL)
       return(RC_OUT_OF_MEMORY);
 
    strcpy((DEFCHAR *)system_prf,(DEFCHAR *)the_home_dir);
-   strcat((DEFCHAR *)system_prf,(DEFCHAR *)THE_SYSTEM_PROFILE_NAME);
+   strcat((DEFCHAR *)system_prf,(DEFCHAR *)profile_name);
    strrmdup(strtrans(system_prf,OSLASH,ISLASH),ISLASH,TRUE);
    if (file_readable(system_prf))
       return(RC_OK);
@@ -1545,7 +1571,7 @@ static int setup_system_profile_file(void)
    (*the_free)(system_prf);
    system_prf = (CHARTYPE *)NULL;
 #endif
-   return(RC_OK);
+   return(RC_FILE_NOT_FOUND);
 }
 /***********************************************************************/
 static void display_info(CHARTYPE *argv0)

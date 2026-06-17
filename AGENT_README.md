@@ -23,3 +23,10 @@ This fork is explicitly tailored for the modern [CREXX](https://github.com/crexx
 ### Remaining Goals:
 1. **Platform Testing**: macOS and local development workflows are the main proven path. Windows and Linux should continue to be validated in CI and release smoke tests, with special attention to runtime driver module loading.
 2. **Packaging**: The CMake `install()` targets stage the executable and resources into a release directory. Future updates may involve integrating `CPack` to generate distributable `.dmg`, `.deb`, or `.zip` files.
+
+## 4. Linux VM Notes
+
+- Use high parallelism for commissioning: `cmake --build <dir> --parallel $(nproc)` followed by `ctest --test-dir <dir> --parallel $(nproc) --output-on-failure`.
+- Release builds should prefer the sibling CREXX release output; Debug should prefer the sibling CREXX debug output. If CMake cache entries were created before this behavior, reconfigure with `-UCREXXSAA_LIBRARY -UCREXX_RXC_EXECUTABLE -UCREXX_RXAS_EXECUTABLE -UCREXX_LIBRARY_RXBIN`.
+- UTF terminal policy is profile-visible. Linux currently installs `system-linux.the` with the same conservative sequence-shaped Unicode rules as `system-apple-terminal.the`, because SSH sessions from Apple Terminal expose only `TERM=xterm-256color` and no reliable terminal identity. Do not add hidden terminal-specific branches to the renderer.
+- Use `the --driver llm` for agent/editor smoke tests and UTF diagnostics. Do not scrape curses output for agent workflows.

@@ -231,12 +231,15 @@ Supported strategies are:
 
 At startup, THE loads the built-in UTF terminal defaults and then applies the
 file named by the THE_UTF_TERMINAL_PROFILE environment variable if it is set.
-During normal profile processing, THE also runs the platform system profile
-before the user profile. On macOS this file is `system-osx.the` in
-THE_HOME_DIR. It is the preferred place for physical terminal calibration
-settings.
-Platform quirks, including Apple Terminal behaviour, should be visible as
-profile settings rather than hidden in compiled fallback tables.
+During normal profile processing, THE also runs a system profile before the
+user profile. The default profile is `system-<platform>.the` in THE_HOME_DIR,
+for example `system-linux.the` or `system-osx.the`. If TERM_PROGRAM is visible
+as `Apple_Terminal`, THE prefers `system-apple-terminal.the` when that file is
+present. This is best-effort only: SSH sessions often expose only a generic
+TERM such as `xterm-256color`, so THE cannot always infer the terminal
+emulator. Platform and terminal quirks, including Apple Terminal behaviour,
+should be visible as profile settings rather than hidden in compiled fallback
+tables.
 
 The user profile runs after the system profile, so user settings can override
 platform calibration deliberately. The `-n` command-line switch skips only the
@@ -311,8 +314,10 @@ The DECOMPOSED defaults use native output for simple classes and component
 preview output for variation, modifier, keycap, regional-flag, ZWJ, and tag-flag
 classes. The SINGLE defaults keep `WIDTH` at one cell and use native, base, or
 substitute output according to the class. Platform system profiles, such as
-`system-osx.the`, override this generic table with measured terminal behaviour.
-The optional THE_UTF_TERMINAL_PROFILE file is applied at startup when present.
+`system-osx.the`, `system-linux.the`, and `system-apple-terminal.the`, override
+this generic table with measured or deliberately conservative terminal
+behaviour. The optional THE_UTF_TERMINAL_PROFILE file is applied at startup
+when present.
 
 ## See Also
 CHANGE, CINSERT, COVERLAY, CREPLACE, REPLACE

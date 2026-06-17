@@ -146,17 +146,22 @@ individual emoji, variation, modifier, and regional-indicator classes.
 When adding platform rules, keep the instruction order conceptual rather than
 terminal-specific: choose the display mode, choose the output transform, then
 choose the metric model. A platform profile should override only the part it has
-measured. For example, macOS keeps regional flags and modifier sequences native
-with calibrated profile metrics, sanitizes keycaps, substitutes unsafe ZWJ
-classes, and uses `DISPLAYSTRATEGY isolate` for decomposed flags. This keeps
-new Apple workarounds from changing platforms whose behavior has already been
-calibrated.
+measured. For example, the current conservative Apple/Linux profile keeps
+regional flags and modifier sequences native with calibrated profile metrics,
+sanitizes keycaps, substitutes unsafe ZWJ classes, and uses `DISPLAYSTRATEGY
+isolate` for decomposed flags. This keeps new terminal workarounds from
+changing logical editing behavior and leaves room to relax Linux-native
+terminal profiles after measurement.
 
 THE loads generic built-in defaults, any optional terminal identity hook, the
-platform system profile, and then the user profile. Terminal identity hooks must
-not hide platform policy that can be expressed in the profile language. On macOS
-the generated platform profile is `system-osx.the`, so Apple-specific settings
-remain visible and replaceable without rebuilding THE.
+platform or terminal system profile, and then the user profile. Terminal
+identity hooks must not hide platform policy that can be expressed in the
+profile language. On macOS the platform profile is `system-osx.the`; when
+TERM_PROGRAM is visible as `Apple_Terminal`, THE prefers
+`system-apple-terminal.the`; on Linux the current `system-linux.the` is a
+conservative profile aligned with the Apple Terminal safety rules because SSH
+sessions often hide the real terminal emulator. These settings remain visible
+and replaceable without rebuilding THE.
 
 ## Profile Grammar
 
@@ -321,11 +326,13 @@ selector matched -> output transform -> metrics -> cursor/repaint strategy
 ```
 
 The driver should not contain scattered Apple-specific tests for keycaps,
-regional flags, tag flags, or ZWJ sequences. Apple policy belongs in
-`system-osx.the` through mode-scoped rules. If a cluster class is safe, leave it
-native. If it is unsafe, use the smallest profile-visible transform that gives
-stable editing behavior. DECOMPOSED and the UTF status display provide the
-explanatory component view; SINGLE provides the one-cell safety view.
+regional flags, tag flags, or ZWJ sequences. Terminal policy belongs in system
+profiles such as `system-osx.the`, `system-linux.the`, and
+`system-apple-terminal.the` through mode-scoped rules. If a cluster class is
+safe, leave it native. If it is unsafe, use the smallest profile-visible
+transform that gives stable editing behavior. DECOMPOSED and the UTF status
+display provide the explanatory component view; SINGLE provides the one-cell
+safety view.
 
 `SANITIZE` does not mean "strip all Unicode features." It is a narrow
 class-aware terminal policy. In the macOS profile, keycaps sanitize to their
@@ -508,8 +515,8 @@ Implemented:
   rules with `WIDTH`, `ADVANCE`, `CURSOR`, `REPAINT`, output transforms,
   class-aware `OUTPUT SANITIZE`, marks, cursor strategies, and replacement
   strategies.
-- Apple Terminal overrides are represented as profile policy, not renderer
-  special cases or compiled fallback tables.
+- Apple Terminal and current conservative Linux overrides are represented as
+  profile policy, not renderer special cases or compiled fallback tables.
 - Rendering carries logical width plus profile width, advance, cursor, repaint,
   configured output method, resolved output method, display mode, class, and
   mark through `TheRenderCluster`.

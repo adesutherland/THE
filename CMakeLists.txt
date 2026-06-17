@@ -46,7 +46,7 @@ else()
 endif()
 set(THE_SYSTEM_PROFILE_NAME "system-${THE_PLATFORM_NAME}.the")
 set(THE_SYSTEM_PROFILE_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/share/the")
-set(THE_SYSTEM_PROFILE_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/${THE_SYSTEM_PROFILE_NAME}")
+file(GLOB THE_SYSTEM_PROFILE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/system-*.the")
 
 # Determine the supported curses variant.
 set(THE_VARIANT "con")
@@ -244,11 +244,23 @@ endif()
 
 set(THE_USE_CREXX FALSE)
 if(USE_CREXX)
+    set(THE_CREXX_LOCAL_DEBUG_BIN "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-debug/bin")
+    set(THE_CREXX_LOCAL_RELEASE_BIN "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-release/bin")
+    if(CMAKE_BUILD_TYPE MATCHES "^(Release|RelWithDebInfo|MinSizeRel)$")
+        set(THE_CREXX_LOCAL_BIN_DIRS
+            "${THE_CREXX_LOCAL_RELEASE_BIN}"
+            "${THE_CREXX_LOCAL_DEBUG_BIN}"
+        )
+    else()
+        set(THE_CREXX_LOCAL_BIN_DIRS
+            "${THE_CREXX_LOCAL_DEBUG_BIN}"
+            "${THE_CREXX_LOCAL_RELEASE_BIN}"
+        )
+    endif()
     find_library(CREXXSAA_LIBRARY
         NAMES crexxsaa
         HINTS
-            "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-debug/bin"
-            "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-release/bin"
+            ${THE_CREXX_LOCAL_BIN_DIRS}
             "$ENV{HOME}/.local/bin"
     )
     find_path(CREXXSAA_INCLUDE_DIR
@@ -261,22 +273,19 @@ if(USE_CREXX)
     find_program(CREXX_RXC_EXECUTABLE
         NAMES rxc
         HINTS
-            "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-debug/bin"
-            "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-release/bin"
+            ${THE_CREXX_LOCAL_BIN_DIRS}
             "$ENV{HOME}/.local/bin"
     )
     find_program(CREXX_RXAS_EXECUTABLE
         NAMES rxas
         HINTS
-            "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-debug/bin"
-            "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-release/bin"
+            ${THE_CREXX_LOCAL_BIN_DIRS}
             "$ENV{HOME}/.local/bin"
     )
     find_file(CREXX_LIBRARY_RXBIN
         NAMES library.rxbin
         HINTS
-            "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-debug/bin"
-            "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-release/bin"
+            ${THE_CREXX_LOCAL_BIN_DIRS}
             "$ENV{HOME}/.local/bin"
     )
     if(CREXXSAA_LIBRARY AND CREXXSAA_INCLUDE_DIR AND CREXX_RXC_EXECUTABLE AND CREXX_RXAS_EXECUTABLE AND CREXX_LIBRARY_RXBIN)
@@ -483,16 +492,22 @@ add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
     COMMENT "Copying executable and resources to ${RELEASE_DIR}"
 )
 
-if(USE_UTF8 AND EXISTS "${THE_SYSTEM_PROFILE_SOURCE}")
-    add_custom_command(
-        OUTPUT ${RELEASE_DIR}/${THE_SYSTEM_PROFILE_NAME}
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${RELEASE_DIR}
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${THE_SYSTEM_PROFILE_SOURCE} ${RELEASE_DIR}/${THE_SYSTEM_PROFILE_NAME}
-        DEPENDS ${THE_SYSTEM_PROFILE_SOURCE}
-        COMMENT "Copying UTF system profile ${THE_SYSTEM_PROFILE_NAME} to ${RELEASE_DIR}"
-    )
-    add_custom_target(copy_utf_system_profile ALL
-        DEPENDS ${RELEASE_DIR}/${THE_SYSTEM_PROFILE_NAME}
+if(USE_UTF8 AND THE_SYSTEM_PROFILE_SOURCES)
+    set(THE_COPIED_SYSTEM_PROFILE_OUTPUTS)
+    foreach(THE_SYSTEM_PROFILE_SOURCE IN LISTS THE_SYSTEM_PROFILE_SOURCES)
+        get_filename_component(THE_SYSTEM_PROFILE_BASENAME "${THE_SYSTEM_PROFILE_SOURCE}" NAME)
+        set(THE_SYSTEM_PROFILE_OUTPUT "${RELEASE_DIR}/${THE_SYSTEM_PROFILE_BASENAME}")
+        add_custom_command(
+            OUTPUT ${THE_SYSTEM_PROFILE_OUTPUT}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${RELEASE_DIR}
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${THE_SYSTEM_PROFILE_SOURCE} ${THE_SYSTEM_PROFILE_OUTPUT}
+            DEPENDS ${THE_SYSTEM_PROFILE_SOURCE}
+            COMMENT "Copying UTF system profile ${THE_SYSTEM_PROFILE_BASENAME} to ${RELEASE_DIR}"
+        )
+        list(APPEND THE_COPIED_SYSTEM_PROFILE_OUTPUTS ${THE_SYSTEM_PROFILE_OUTPUT})
+    endforeach()
+    add_custom_target(copy_utf_system_profiles ALL
+        DEPENDS ${THE_COPIED_SYSTEM_PROFILE_OUTPUTS}
     )
 endif()
 
@@ -520,8 +535,8 @@ install(FILES
     tools/batch-md-rexx/validate.crexx
     DESTINATION share/the/batch-md-rexx
 )
-if(USE_UTF8)
-    install(FILES "${RELEASE_DIR}/${THE_SYSTEM_PROFILE_NAME}" DESTINATION share/the OPTIONAL)
+if(USE_UTF8 AND THE_SYSTEM_PROFILE_SOURCES)
+    install(FILES ${THE_SYSTEM_PROFILE_SOURCES} DESTINATION share/the)
 endif()
 install(DIRECTORY syntax/ DESTINATION share/the/syntax)
 

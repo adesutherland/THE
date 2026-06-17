@@ -71,6 +71,12 @@ address the
 'file'
 PROFILE_EOF
 
+cat > "${THE_HOME}/system-apple-terminal.the" <<'PROFILE_EOF'
+options levelb
+address the
+'emsg APPLE_TERMINAL_PROFILE_RAN'
+PROFILE_EOF
+
 env THE_HOME_DIR="${THE_HOME}" \
   "${THE_BIN}" -b -q -p "${USER_PROFILE}" "${SAMPLE}" \
   > "${WORK_DIR}/with-user.out" 2> "${WORK_DIR}/with-user.err"
@@ -87,6 +93,17 @@ system_line="$(grep -n "SYSTEM_PROFILE_RAN" "${WORK_DIR}/with-user.err" | head -
 user_line="$(grep -n "USER_PROFILE_RAN" "${WORK_DIR}/with-user.err" | head -n 1 | cut -d: -f1)"
 if [[ "${system_line}" -ge "${user_line}" ]]; then
   echo "System profile did not run before user profile" >&2
+  exit 1
+fi
+
+env TERM_PROGRAM=Apple_Terminal THE_HOME_DIR="${THE_HOME}" \
+  "${THE_BIN}" -b -q -p "${USER_PROFILE}" "${SAMPLE}" \
+  > "${WORK_DIR}/apple-terminal.out" 2> "${WORK_DIR}/apple-terminal.err"
+
+grep -q "APPLE_TERMINAL_PROFILE_RAN" "${WORK_DIR}/apple-terminal.err"
+grep -q "USER_PROFILE_RAN" "${WORK_DIR}/apple-terminal.err"
+if grep -q "SYSTEM_PROFILE_RAN" "${WORK_DIR}/apple-terminal.err"; then
+  echo "Apple Terminal profile should replace the platform profile when detected" >&2
   exit 1
 fi
 

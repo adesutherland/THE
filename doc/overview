@@ -164,10 +164,14 @@ using a <profile> file. This file contains various commands that set the
 current environment, including key bindings. This <profile> file can also be
 used to process commands in batch mode.
 
-THE first looks for a platform system profile in THE_HOME_DIR. For example,
-UTF-8 builds on macOS look for system-osx.the. This system profile is executed
-before the user profile and is intended for platform or terminal calibration
-settings. The -n command line switch does not suppress the system profile.
+THE first looks for a system profile in THE_HOME_DIR. The default is the
+platform profile, for example system-linux.the or system-osx.the. If the
+terminal exposes TERM_PROGRAM=Apple_Terminal, THE prefers
+system-apple-terminal.the when it is present. This terminal detection is
+best-effort; SSH sessions may expose only a generic TERM. The system profile is
+executed before the user profile and is intended for platform or terminal
+calibration settings. The -n command line switch does not suppress the system
+profile.
 
 THE will then try to execute a default user profile unless specifically told
 not to with the -n command line switch. THE will look for an explicitly
