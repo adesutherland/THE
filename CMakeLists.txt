@@ -859,12 +859,22 @@ if(THE_USE_CREXX)
         RESOURCE_LOCK the_pty_editor
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
+    add_test(NAME test_curses_text_entry
+        COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_curses_text_entry.sh
+                $<TARGET_FILE:the>)
+    set_tests_properties(test_curses_text_entry PROPERTIES
+        SKIP_RETURN_CODE 77
+        TIMEOUT 10
+        RESOURCE_LOCK the_pty_editor
+        DEPENDS test_normal_area_queries
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
+    )
     add_test(NAME test_sos_navigation_queries COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sos_navigation_queries.sh)
     set_tests_properties(test_sos_navigation_queries PROPERTIES
         SKIP_RETURN_CODE 77
         TIMEOUT 10
         RESOURCE_LOCK the_pty_editor
-        DEPENDS test_normal_area_queries
+        DEPENDS test_curses_text_entry
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
     add_test(NAME test_sos_logical_edit_queries COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sos_logical_edit_queries.sh)

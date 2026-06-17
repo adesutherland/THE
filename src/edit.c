@@ -174,6 +174,7 @@ int process_key(int key, bool mouse_details_present)
    the_driver->update();
 #endif
    string_key[0] = '\0';
+   string_key[1] = '\0';
 
 #ifdef CAN_RESIZE
    if (the_driver_is_terminal_resized())
@@ -356,6 +357,7 @@ int process_key(int key, bool mouse_details_present)
       if (key < 256 && key >= 0)
       {
          string_key[0] = (CHARTYPE)key;
+         string_key[1] = '\0';
          /*
           * If operating in CUA mode, and a CUA block exists, check
           * if the block should be reset or deleted before executing
