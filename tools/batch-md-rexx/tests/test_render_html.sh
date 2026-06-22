@@ -7,6 +7,7 @@ ROOT_DIR="$(cd "${TOOL_DIR}/../.." && pwd)"
 BUILD_DIR="${THE_BUILD_DIR:-${ROOT_DIR}/cmake-build-debug}"
 WORK_DIR="${BUILD_DIR}/batch-md-rexx-html-test"
 RENDERER="${TOOL_DIR}/render-html.crexx"
+TEMPLATE_DIR="${TOOL_DIR}/templates/html/default"
 THE_BIN="${THE_BIN:-${BUILD_DIR}/release/the}"
 THE_HOME="${THE_HOME_DIR:-${BUILD_DIR}/release}"
 CREXX="${CREXX:-${THE_CREXX:-}}"
@@ -106,6 +107,7 @@ run_crexx_capture html \
   --parser rxc \
   --parser-command "${RXC}" \
   --parser-arg --syntaxhighlight \
+  --template-dir "${TEMPLATE_DIR}" \
   "${WORK_DIR}/html.md"
 
 assert_rc html 0
@@ -126,6 +128,32 @@ if rg '<tag & value>' "${WORK_DIR}/html.out" >/dev/null; then
   fail "html: source string was not escaped"
 fi
 
+CUSTOM_TEMPLATE_DIR="${WORK_DIR}/custom-template"
+cp -R "${TEMPLATE_DIR}" "${CUSTOM_TEMPLATE_DIR}"
+cat > "${CUSTOM_TEMPLATE_DIR}/example-open.tpl" <<'EOF_CUSTOM_EXAMPLE'
+<figure class="custom-example the-example-{{language_attr}}" id="{{id_attr}}" data-template="custom">
+<figcaption>{{id}}</figcaption>
+EOF_CUSTOM_EXAMPLE
+cat > "${CUSTOM_TEMPLATE_DIR}/style-token.tpl" <<'EOF_CUSTOM_TOKEN'
+<b data-style="{{style_class}}">{{text}}</b>
+EOF_CUSTOM_TOKEN
+
+run_crexx_capture custom-template \
+  "${RENDERER_UNDER_TEST}" \
+  -args \
+  --the "${THE_BIN}" \
+  --home "${THE_HOME}" \
+  --parser rxc \
+  --parser-command "${RXC}" \
+  --parser-arg --syntaxhighlight \
+  --template-dir "${CUSTOM_TEMPLATE_DIR}" \
+  "${WORK_DIR}/html.md"
+
+assert_rc custom-template 0
+assert_empty_stderr custom-template
+rg '<figure class="custom-example the-example-rexx" id="escape-source" data-template="custom">' "${WORK_DIR}/custom-template.out" >/dev/null
+rg '<b data-style="syn-keyword">say</b>' "${WORK_DIR}/custom-template.out" >/dev/null
+
 cat > "${WORK_DIR}/diagnostic.md" <<'EOF_DIAG'
 ```rexx id=bad-source
 options levelb
@@ -141,6 +169,7 @@ run_crexx_capture diagnostic \
   --parser rxc \
   --parser-command "${RXC}" \
   --parser-arg --syntaxhighlight \
+  --template-dir "${TEMPLATE_DIR}" \
   "${WORK_DIR}/diagnostic.md"
 
 assert_rc diagnostic 1

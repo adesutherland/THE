@@ -10,6 +10,7 @@ the_home = "."
 crexx_bin = "crexx"
 parser = "rxc"
 parser_command = "rxc"
+template_dir = ""
 timeout = "5000"
 input_path = ""
 output_path = ""
@@ -56,6 +57,11 @@ do while ai <= args.0
       if ai > args.0 then call usage_error "--parser-arg needs a value"
       call arrayappend parser_arg_values, args[ai]
     end
+    when token = "--template-dir" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--template-dir needs a value"
+      template_dir = args[ai]
+    end
     when token = "--timeout" then do
       ai = ai + 1
       if ai > args.0 then call usage_error "--timeout needs a value"
@@ -80,6 +86,7 @@ if input_path = "" then call usage_error "markdown-file is required"
 if positive_integer(timeout) = 0 then call usage_error "--timeout must be a positive integer"
 if parser_arg_values.0 = 0 then call arrayappend parser_arg_values, "--syntaxhighlight"
 if mode = "html" & output_path = "" then output_path = default_output_path(input_path)
+if mode = "html" & template_dir = "" then template_dir = document_directory(renderer) || "/templates/html/default"
 
 if readable_file(renderer) = 0 then do
   call diagnostic_message "batch-md-rexx: renderer not readable: " || renderer
@@ -126,6 +133,7 @@ if mode = "html" | mode = "validate" then do
   do pai = 1 to parser_arg_values.0
     renderer_command = renderer_command || " --parser-arg " || shell_quote(parser_arg_values[pai])
   end
+  if mode = "html" then renderer_command = renderer_command || " --template-dir " || shell_quote(template_dir)
   renderer_command = renderer_command || " --timeout " || shell_quote(timeout)
 end
 renderer_command = renderer_command || " " || shell_quote(input_path)
@@ -169,7 +177,7 @@ exit 0
 usage_error: procedure
   arg message = .string
   call diagnostic_message "batch-md-rexx: " || message
-  call diagnostic_message "usage: batch-md-rexx [--scan|--validate] [--renderer RENDERER] [--the THE] [--home THE_HOME] [--crexx CREXX] [--parser NAME] [--parser-command COMMAND] [--parser-arg ARG] [--timeout MS] markdown-file [output.html]"
+  call diagnostic_message "usage: batch-md-rexx [--scan|--validate] [--renderer RENDERER] [--the THE] [--home THE_HOME] [--crexx CREXX] [--parser NAME] [--parser-command COMMAND] [--parser-arg ARG] [--template-dir DIR] [--timeout MS] markdown-file [output.html]"
   exit 2
 return
 
@@ -241,6 +249,14 @@ default_output_path: procedure = .string
   dot = lastpos(".", path)
   if dot > slash then return substr(path, 1, dot - 1) || ".html"
 return path || ".html"
+
+document_directory: procedure = .string
+  arg path = .string
+  slash = lastpos("/", path)
+  backslash = lastpos("\", path)
+  if backslash > slash then slash = backslash
+  if slash = 0 then return "."
+return substr(path, 1, slash - 1)
 
 positive_integer: procedure = .int
   arg value = .string

@@ -7,6 +7,7 @@ ROOT_DIR="$(cd "${TOOL_DIR}/../.." && pwd)"
 BUILD_DIR="${THE_BUILD_DIR:-${ROOT_DIR}/cmake-build-debug}"
 WORK_DIR="${BUILD_DIR}/batch-md-rexx-execute-test"
 RENDERER="${TOOL_DIR}/render-html.crexx"
+TEMPLATE_DIR="${TOOL_DIR}/templates/html/default"
 THE_BIN="${THE_BIN:-${BUILD_DIR}/release/the}"
 THE_HOME="${THE_HOME_DIR:-${BUILD_DIR}/release}"
 CREXX="${CREXX:-${THE_CREXX:-}}"
@@ -92,6 +93,7 @@ renderer_args=(
   --parser rxc
   --parser-command "${RXC}"
   --parser-arg --syntaxhighlight
+  --template-dir "${TEMPLATE_DIR}"
 )
 
 cat > "${WORK_DIR}/execute.md" <<'EOF_EXECUTE'

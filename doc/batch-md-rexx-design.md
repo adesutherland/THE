@@ -349,11 +349,12 @@ Implementation status:
   `<span class="syn-...">` source markup.
 - Source text and Markdown passthrough text are HTML-escaped. Unknown style
   names are emitted as escaped plain text.
-- The CSS uses semantic ECOLOR/SDSLH names such as `comment`, `string`,
-  `keyword`, `identifier`, and `preprocessor`; it does not emit terminal escape
-  sequences.
+- The default HTML templates and CSS use semantic ECOLOR/SDSLH names such as
+  `comment`, `string`, `keyword`, `identifier`, and `preprocessor`; they do not
+  emit terminal escape sequences.
 - `tools/batch-md-rexx/tests/test_render_html.sh` validates escaping,
-  highlighted source, preserved non-REXX fences, and parser-diagnostic failure.
+  highlighted source, preserved non-REXX fences, parser-diagnostic failure, and
+  custom HTML template overrides.
 
 ### Story 6: Execute Examples
 
@@ -469,6 +470,34 @@ Implementation status:
 - The THE profile candidate remains a later item. Hosted profiles now support
   the process I/O stem shape, indexed stems in implicit addressed command
   expressions, and top-level `exit n` status propagation through CREXX/SAA.
+
+### Story 9.5: Template-Backed HTML Rendering
+
+As a documentation maintainer, I can adjust the generated artifact wrapper and
+style-token markup without editing the CREXX renderer.
+
+Acceptance criteria:
+
+- Default HTML remains compatible with the Story 5-8 output.
+- Document, Markdown segment, example, source, run, output, style-token, and CSS
+  wrappers live in template files.
+- The packaged runner locates the installed default template directory.
+- A `--template-dir` option can point at a custom HTML template set.
+- Escaping remains owned by CREXX; templates receive already escaped HTML
+  values.
+
+Implementation status:
+
+- Default templates live under
+  `tools/batch-md-rexx/templates/html/default`.
+- `tools/batch-md-rexx/render-html.crexx` accepts `--template-dir` and validates
+  all required template fragments before rendering HTML.
+- `tools/batch-md-rexx/batch-md-rexx.crexx` derives the default template
+  directory from the renderer path and passes it through for HTML output.
+- CMake copies and installs the template directory with the batch-md-rexx
+  scripts.
+- `tools/batch-md-rexx/tests/test_render_html.sh` verifies that custom
+  `example-open.tpl` and `style-token.tpl` fragments affect generated output.
 
 ### Story 10: Add TeX/PDF Renderer
 

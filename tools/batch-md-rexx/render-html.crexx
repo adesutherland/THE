@@ -11,6 +11,7 @@ crexx_bin = ""
 parser = "rxc"
 parser_command = ""
 parser_args = ""
+template_dir = ""
 timeout = "5000"
 
 ai = 1
@@ -50,6 +51,11 @@ do while ai <= args.0
       if parser_args = "" then parser_args = args[ai]
       else parser_args = parser_args || " " || args[ai]
     end
+    when token = "--template-dir" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--template-dir needs a value"
+      template_dir = args[ai]
+    end
     when token = "--timeout" then do
       ai = ai + 1
       if ai > args.0 then call usage_error "--timeout needs a value"
@@ -71,6 +77,10 @@ if positive_integer(timeout) = 0 then call usage_error "--timeout must be a posi
 if mode = "html" | mode = "validate" then do
   if the_bin = "" then call usage_error "--the is required for HTML rendering"
   if the_home = "" then call usage_error "--home is required for HTML rendering"
+end
+if mode = "html" then do
+  if template_dir = "" then template_dir = default_template_dir()
+  if validate_html_template_dir(template_dir) <> 0 then exit 2
 end
 
 source = .string[]
@@ -95,13 +105,13 @@ if mode = "scan" then do
   exit 0
 end
 
-render_rc = render_html_document(path, source, manifest, the_bin, the_home, crexx_bin, parser, parser_command, parser_args, timeout, mode)
+render_rc = render_html_document(path, source, manifest, the_bin, the_home, crexx_bin, parser, parser_command, parser_args, template_dir, timeout, mode)
 exit render_rc
 
 usage_error: procedure
   arg message = .string
   call diagnostic_message "render-html.crexx: " || message
-  call diagnostic_message "usage: render-html.crexx [--scan|--validate] [--the THE --home THE_HOME] [--crexx CREXX] [--parser NAME] [--parser-command COMMAND] [--parser-arg ARG] [--timeout MS] markdown-file"
+  call diagnostic_message "usage: render-html.crexx [--scan|--validate] [--the THE --home THE_HOME] [--crexx CREXX] [--parser NAME] [--parser-command COMMAND] [--parser-arg ARG] [--template-dir DIR] [--timeout MS] markdown-file"
   exit 2
 return
 
@@ -283,21 +293,21 @@ scan_markdown: procedure = .int
 return failures
 
 render_html_document: procedure = .int
-  arg path = .string, source = .string[], manifest = .string[], the_bin = .string, the_home = .string, crexx_bin = .string, parser = .string, parser_command = .string, parser_args = .string, timeout = .string, mode = .string
+  arg path = .string, source = .string[], manifest = .string[], the_bin = .string, the_home = .string, crexx_bin = .string, parser = .string, parser_command = .string, parser_args = .string, template_dir = .string, timeout = .string, mode = .string
 
   emit_html = 1
   if mode = "validate" then emit_html = 0
 
   if emit_html = 1 then do
-    say "<!doctype html>"
-    say '<html lang="en">'
-    say "<head>"
-    say '  <meta charset="utf-8">'
-    say '  <title>' || html_escape(path) || "</title>"
-    call emit_css
-    say "</head>"
-    say "<body>"
-    say '<main class="the-batch-document">'
+    keys = .string[]
+    values = .string[]
+    call arrayappend keys, "title"
+    call arrayappend values, html_escape(path)
+    call emit_template template_dir, "document-open.tpl", keys, values
+    call emit_css template_dir
+    empty_keys = .string[]
+    empty_values = .string[]
+    call emit_template template_dir, "document-body-open.tpl", empty_keys, empty_values
   end
 
   do mi = 1 to manifest.0
@@ -306,71 +316,45 @@ render_html_document: procedure = .int
       if emit_html = 1 then do
         start_line = manifest_value(record, "start")
         end_line = manifest_value(record, "end")
-        call emit_markdown_segment source, start_line, end_line
+        call emit_markdown_segment source, start_line, end_line, template_dir
       end
     end
     else if left(record, 7) = "example" then do
-      rc = emit_example(source, record, path, the_bin, the_home, crexx_bin, parser, parser_command, parser_args, timeout, emit_html)
+      rc = emit_example(source, record, path, the_bin, the_home, crexx_bin, parser, parser_command, parser_args, template_dir, timeout, emit_html)
       if rc <> 0 then return rc
     end
   end
 
   if emit_html = 1 then do
-    say "</main>"
-    say "</body>"
-    say "</html>"
+    empty_keys = .string[]
+    empty_values = .string[]
+    call emit_template template_dir, "document-close.tpl", empty_keys, empty_values
   end
 return 0
 
 emit_css: procedure
-  say "<style>"
-  say ":root { color-scheme: light; --the-bg: #f8fafc; --the-border: #cbd5e1; --the-text: #1f2937; }"
-  say "body { margin: 0; font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, sans-serif; color: var(--the-text); background: white; }"
-  say ".the-batch-document { max-width: 980px; margin: 0 auto; padding: 32px 24px; }"
-  say ".markdown pre { white-space: pre-wrap; margin: 0 0 20px; font: inherit; }"
-  say ".the-example { margin: 22px 0; }"
-  say ".the-example figcaption { margin-bottom: 6px; color: #475569; font: 600 13px/1.4 system-ui, sans-serif; }"
-  say ".the-example-source { margin: 0; padding: 14px 16px; overflow-x: auto; border: 1px solid var(--the-border); border-radius: 6px; background: var(--the-bg); }"
-  say ".the-example-source code { font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }"
-  say ".the-example-run { border: 1px solid var(--the-border); border-top: 0; border-radius: 0 0 6px 6px; background: #fff; }"
-  say ".the-run-status { margin: 0; padding: 8px 16px; color: #475569; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; border-top: 1px solid var(--the-border); }"
-  say ".the-output { margin: 0; padding: 12px 16px; overflow-x: auto; border-top: 1px solid var(--the-border); background: #ffffff; }"
-  say ".the-output code { font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }"
-  say ".the-output-stderr { background: #fff7ed; }"
-  say ".the-output-messages { background: #f8fafc; }"
-  say ".the-output-markdown { white-space: normal; }"
-  say ".the-output-markdown h3, .the-output-markdown h4, .the-output-markdown p, .the-output-markdown ul, .the-output-markdown ol, .the-output-markdown blockquote, .the-output-markdown table, .the-output-markdown pre { margin: 0 0 10px; }"
-  say ".the-output-markdown h3 { font: 700 16px/1.35 system-ui, sans-serif; }"
-  say ".the-output-markdown h4 { font: 700 14px/1.35 system-ui, sans-serif; }"
-  say ".the-output-markdown table { border-collapse: collapse; width: max-content; max-width: 100%; }"
-  say ".the-output-markdown th, .the-output-markdown td { border: 1px solid var(--the-border); padding: 4px 8px; text-align: left; }"
-  say ".the-output-markdown th { background: var(--the-bg); }"
-  say ".the-output-markdown blockquote { border-left: 3px solid var(--the-border); padding-left: 10px; color: #475569; }"
-  say ".syn-comment { color: #6a9955; font-style: italic; }"
-  say ".syn-string { color: #a31515; }"
-  say ".syn-number { color: #098658; }"
-  say ".syn-keyword { color: #0000ff; font-weight: 600; }"
-  say ".syn-preprocessor { color: #795e26; }"
-  say ".syn-type { color: #267f99; }"
-  say ".syn-function { color: #795e26; }"
-  say ".syn-constant { color: #0070c1; }"
-  say ".syn-identifier { color: #001080; }"
-  say ".syn-operator, .syn-punctuation, .syn-paren { color: #374151; }"
-  say "</style>"
+  arg template_dir = .string
+  css = .string[]
+  call read_lines template_dir || "/style.css", css
+  do ci = 1 to css.0
+    say css[ci]
+  end
 return
 
 emit_markdown_segment: procedure
-  arg source = .string[], start_line = .int, end_line = .int
+  arg source = .string[], start_line = .int, end_line = .int, template_dir = .string
   if start_line > end_line then return
-  say '<div class="markdown"><pre>'
+  empty_keys = .string[]
+  empty_values = .string[]
+  call emit_template template_dir, "markdown-open.tpl", empty_keys, empty_values
   do line_no = start_line to end_line
     say html_escape(source[line_no])
   end
-  say "</pre></div>"
+  call emit_template template_dir, "markdown-close.tpl", empty_keys, empty_values
 return
 
 emit_example: procedure = .int
-  arg source = .string[], record = .string, document_path = .string, the_bin = .string, the_home = .string, crexx_bin = .string, parser = .string, parser_command = .string, parser_args = .string, timeout = .string, emit_html = .int
+  arg source = .string[], record = .string, document_path = .string, the_bin = .string, the_home = .string, crexx_bin = .string, parser = .string, parser_command = .string, parser_args = .string, template_dir = .string, timeout = .string, emit_html = .int
 
   id = manifest_value(record, "id")
   language = manifest_value(record, "language")
@@ -433,17 +417,28 @@ emit_example: procedure = .int
   end
 
   if emit_html = 1 then do
-    say '<figure class="the-example the-example-' || html_escape_attr(language) || '" id="' || html_escape_attr(id) || '">'
-    say "<figcaption>" || html_escape(id) || "</figcaption>"
-    say '<pre class="the-example-source"><code>'
+    keys = .string[]
+    values = .string[]
+    call arrayappend keys, "language_attr"
+    call arrayappend values, html_escape_attr(language)
+    call arrayappend keys, "id_attr"
+    call arrayappend values, html_escape_attr(id)
+    call arrayappend keys, "id"
+    call arrayappend values, html_escape(id)
+    call emit_template template_dir, "example-open.tpl", keys, values
+    empty_keys = .string[]
+    empty_values = .string[]
+    style_template = .string[]
+    call read_lines template_dir || "/style-token.tpl", style_template
+    call emit_template template_dir, "source-open.tpl", empty_keys, empty_values
     do line_no = 1 to source_lines.0
-      say highlighted_line(source_lines[line_no], line_no, render_spans)
+      say highlighted_line(source_lines[line_no], line_no, render_spans, style_template)
     end
-    say "</code></pre>"
+    call emit_template template_dir, "source-close.tpl", empty_keys, empty_values
     if run_attr = "true" then do
-      call emit_run_output id, output, run_stdout, run_stderr, run_messages, run_rc, the_bin, the_home, parser, parser_command, parser_args, block_timeout
+      call emit_run_output id, output, run_stdout, run_stderr, run_messages, run_rc, the_bin, the_home, parser, parser_command, parser_args, template_dir, block_timeout
     end
-    say "</figure>"
+    call emit_template template_dir, "example-close.tpl", empty_keys, empty_values
   end
 return 0
 
@@ -605,27 +600,37 @@ append_the_run_stream: procedure
 return
 
 emit_run_output: procedure
-  arg id = .string, output = .string, run_stdout = .string[], run_stderr = .string[], run_messages = .string[], run_rc = .string, the_bin = .string, the_home = .string, parser = .string, parser_command = .string, parser_args = .string, timeout = .string
-  say '<div class="the-example-run">'
-  say '<p class="the-run-status">rc=' || html_escape(run_rc) || '</p>'
-  call emit_output_block id, "stdout", output, run_stdout, the_bin, the_home, parser, parser_command, parser_args, timeout
-  call emit_output_block id, "stderr", "text", run_stderr, the_bin, the_home, parser, parser_command, parser_args, timeout
-  call emit_output_block id, "messages", "text", run_messages, the_bin, the_home, parser, parser_command, parser_args, timeout
-  say "</div>"
+  arg id = .string, output = .string, run_stdout = .string[], run_stderr = .string[], run_messages = .string[], run_rc = .string, the_bin = .string, the_home = .string, parser = .string, parser_command = .string, parser_args = .string, template_dir = .string, timeout = .string
+  empty_keys = .string[]
+  empty_values = .string[]
+  call emit_template template_dir, "run-open.tpl", empty_keys, empty_values
+  keys = .string[]
+  values = .string[]
+  call arrayappend keys, "rc"
+  call arrayappend values, html_escape(run_rc)
+  call emit_template template_dir, "run-status.tpl", keys, values
+  call emit_output_block id, "stdout", output, run_stdout, the_bin, the_home, parser, parser_command, parser_args, template_dir, timeout
+  call emit_output_block id, "stderr", "text", run_stderr, the_bin, the_home, parser, parser_command, parser_args, template_dir, timeout
+  call emit_output_block id, "messages", "text", run_messages, the_bin, the_home, parser, parser_command, parser_args, template_dir, timeout
+  call emit_template template_dir, "run-close.tpl", empty_keys, empty_values
 return
 
 emit_output_block: procedure
-  arg id = .string, stream_name = .string, output = .string, lines = .string[], the_bin = .string, the_home = .string, parser = .string, parser_command = .string, parser_args = .string, timeout = .string
+  arg id = .string, stream_name = .string, output = .string, lines = .string[], the_bin = .string, the_home = .string, parser = .string, parser_command = .string, parser_args = .string, template_dir = .string, timeout = .string
   if lines.0 = 0 then return
 
+  keys = .string[]
+  values = .string[]
+  call arrayappend keys, "stream_attr"
+  call arrayappend values, html_escape_attr(stream_name)
   if output = "markdown" then do
-    say '<div class="the-output the-output-' || html_escape_attr(stream_name) || ' the-output-markdown">'
+    call emit_template template_dir, "output-markdown-open.tpl", keys, values
     call emit_markdown_output lines
-    say "</div>"
+    call emit_template template_dir, "output-markdown-close.tpl", keys, values
     return
   end
 
-  say '<pre class="the-output the-output-' || html_escape_attr(stream_name) || '"><code>'
+  call emit_template template_dir, "output-pre-open.tpl", keys, values
   if output_highlightable(output, parser) = 1 then do
     spans = .string[]
     render_spans = .string[]
@@ -635,8 +640,10 @@ emit_output_block: procedure
         span_record = spans[si]
         call arrayappend render_spans, span_record
       end
+      style_template = .string[]
+      call read_lines template_dir || "/style-token.tpl", style_template
       do line_no = 1 to lines.0
-        say highlighted_line(lines[line_no], line_no, render_spans)
+        say highlighted_line(lines[line_no], line_no, render_spans, style_template)
       end
     end
     else do
@@ -646,7 +653,7 @@ emit_output_block: procedure
   else do
     call emit_plain_lines lines
   end
-  say "</code></pre>"
+  call emit_template template_dir, "output-pre-close.tpl", keys, values
 return
 
 emit_markdown_output: procedure
@@ -1050,7 +1057,7 @@ highlight_source: procedure = .int
 return 0
 
 highlighted_line: procedure = .string
-  arg text = .string, line_no = .int, spans = .string[]
+  arg text = .string, line_no = .int, spans = .string[], style_template = .string[]
 
   html = ""
   cell = 0
@@ -1073,7 +1080,7 @@ highlighted_line: procedure = .string
       span_text = substr(text, start + 1, span_len)
       css_class = css_class_for_style(style)
       if css_class = "" then html = html || html_escape(span_text)
-      else html = html || '<span class="' || css_class || '">' || html_escape(span_text) || "</span>"
+      else html = html || render_style_token(style_template, style, css_class, html_escape(span_text))
       cell = start + span_len
     end
   end
@@ -1084,6 +1091,18 @@ highlighted_line: procedure = .string
   end
 
 return html
+
+render_style_token: procedure = .string
+  arg style_template = .string[], style = .string, style_class = .string, text = .string
+  keys = .string[]
+  values = .string[]
+  call arrayappend keys, "style"
+  call arrayappend values, html_escape_attr(style)
+  call arrayappend keys, "style_class"
+  call arrayappend values, html_escape_attr(style_class)
+  call arrayappend keys, "text"
+  call arrayappend values, text
+return render_loaded_template_to_string(style_template, keys, values)
 
 css_class_for_style: procedure = .string
   arg style = .string
@@ -1100,6 +1119,125 @@ css_class_for_style: procedure = .string
   if style = "punctuation" then return "syn-punctuation"
   if style = "paren" then return "syn-paren"
 return ""
+
+default_template_dir: procedure = .string
+  candidates = .string[]
+  call arrayappend candidates, "templates/html/default"
+  call arrayappend candidates, "tools/batch-md-rexx/templates/html/default"
+  call arrayappend candidates, "batch-md-rexx/templates/html/default"
+  do ci = 1 to candidates.0
+    if readable_file(candidates[ci] || "/document-open.tpl") = 1 then return candidates[ci]
+  end
+return "templates/html/default"
+
+validate_html_template_dir: procedure = .int
+  arg template_dir = .string
+  required = .string[]
+  call arrayappend required, "document-open.tpl"
+  call arrayappend required, "document-body-open.tpl"
+  call arrayappend required, "document-close.tpl"
+  call arrayappend required, "markdown-open.tpl"
+  call arrayappend required, "markdown-close.tpl"
+  call arrayappend required, "example-open.tpl"
+  call arrayappend required, "example-close.tpl"
+  call arrayappend required, "source-open.tpl"
+  call arrayappend required, "source-close.tpl"
+  call arrayappend required, "run-open.tpl"
+  call arrayappend required, "run-status.tpl"
+  call arrayappend required, "run-close.tpl"
+  call arrayappend required, "output-pre-open.tpl"
+  call arrayappend required, "output-pre-close.tpl"
+  call arrayappend required, "output-markdown-open.tpl"
+  call arrayappend required, "output-markdown-close.tpl"
+  call arrayappend required, "style-token.tpl"
+  call arrayappend required, "style.css"
+
+  failures = 0
+  do ri = 1 to required.0
+    path = template_dir || "/" || required[ri]
+    if readable_file(path) = 0 then do
+      call diagnostic_message "render-html.crexx: required template not readable: " || path
+      failures = failures + 1
+    end
+  end
+return failures
+
+emit_template: procedure
+  arg template_dir = .string, name = .string, keys = .string[], values = .string[]
+  rendered = .string[]
+  rc = render_template(template_dir, name, keys, values, rendered)
+  if rc <> 0 then exit 2
+  do ti = 1 to rendered.0
+    say rendered[ti]
+  end
+return
+
+render_loaded_template_to_string: procedure = .string
+  arg template_lines = .string[], keys = .string[], values = .string[]
+  out = ""
+  do ti = 1 to template_lines.0
+    if ti > 1 then out = out || '0a'x
+    out = out || apply_template_line(template_lines[ti], keys, values)
+  end
+return out
+
+render_template: procedure = .int
+  arg template_dir = .string, name = .string, keys = .string[], values = .string[], expose rendered = .string[]
+  lines = .string[]
+  rc = read_lines(template_dir || "/" || name, lines)
+  if rc <> 0 then return rc
+  do li = 1 to lines.0
+    call arrayappend rendered, apply_template_line(lines[li], keys, values)
+  end
+return 0
+
+apply_template_line: procedure = .string
+  arg line = .string, keys = .string[], values = .string[]
+  rendered = line
+  do ki = 1 to keys.0
+    rendered = replace_all(rendered, "{{" || keys[ki] || "}}", values[ki])
+  end
+return rendered
+
+replace_all: procedure = .string
+  arg text = .string, needle = .string, replacement = .string
+  if needle = "" then return text
+  out = ""
+  rest = text
+  do forever
+    hit = pos(needle, rest)
+    if hit = 0 then leave
+    if hit > 1 then out = out || substr(rest, 1, hit - 1)
+    out = out || replacement
+    rest = substr(rest, hit + length(needle))
+  end
+return out || rest
+
+read_lines: procedure = .int
+  arg path = .string, expose values = .string[]
+  command_lines = .string[]
+  command_lines[1] = "cat " || shell_quote(path)
+  out = .string[]
+  err = .string[]
+  address command "sh" input command_lines output out error err
+  if rc <> 0 then do
+    call diagnostic_message "render-html.crexx: could not read template file: " || path
+    call write_stem "stderr", err
+    return 2
+  end
+  do oi = 1 to out.0
+    call arrayappend values, out[oi]
+  end
+return 0
+
+readable_file: procedure = .int
+  arg path = .string
+  if path = "" then return 0
+  command_lines = .string[]
+  command_lines[1] = "test -r " || shell_quote(path) || " -a -f " || shell_quote(path)
+  address command "sh" input command_lines
+  if rc = 0 then return 1
+return 0
 
 manifest_value: procedure = .string
   arg record = .string, key = .string

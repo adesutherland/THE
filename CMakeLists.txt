@@ -312,6 +312,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/src/llm
     ${CMAKE_SOURCE_DIR}/src/drivers/llm
 )
+install(DIRECTORY tools/batch-md-rexx/templates DESTINATION share/the/batch-md-rexx)
 if(USE_UTF8)
     include_directories(${CMAKE_SOURCE_DIR}/src/contrib)
 endif()
@@ -488,6 +489,7 @@ add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/render-html.crexx ${RELEASE_DIR}/batch-md-rexx/render-html.crexx
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/highlight.crexx ${RELEASE_DIR}/batch-md-rexx/highlight.crexx
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/validate.crexx ${RELEASE_DIR}/batch-md-rexx/validate.crexx
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/templates ${RELEASE_DIR}/batch-md-rexx/templates
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/syntax ${RELEASE_DIR}/syntax
     COMMENT "Copying executable and resources to ${RELEASE_DIR}"
 )

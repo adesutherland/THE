@@ -118,6 +118,21 @@ Scanner output is a line-oriented manifest. Markdown records use
 `markdown start=N end=N`; example records include the id, language, fence
 lines, body range, and validated attributes.
 
+## HTML Templates
+
+The HTML renderer uses default template fragments from
+`tools/batch-md-rexx/templates/html/default`. The packaged runner passes that
+directory automatically. Custom HTML wrappers can be supplied with:
+
+```sh
+the-batch-md-rexx --template-dir path/to/templates/html/default input.md output.html
+```
+
+Templates use simple `{{name}}` placeholders. Values inserted by the renderer
+are already HTML-escaped; template files should not try to escape them again.
+The default template set includes document, Markdown segment, example, source,
+run, output, style-token, and `style.css` fragments.
+
 Story 5 adds HTML rendering:
 
 ```sh
