@@ -13,18 +13,20 @@ CREXX="${CREXX:-${THE_CREXX:-}}"
 RXC="${THE_CREXX_RXC:-}"
 
 if [[ -z "${CREXX}" ]]; then
-  if command -v crexx >/dev/null 2>&1; then
-    CREXX="$(command -v crexx)"
-  elif [[ -x "${ROOT_DIR}/../CREXX/cmake-build-debug/bin/crexx" ]]; then
+  if [[ -x "${ROOT_DIR}/../CREXX/cmake-build-debug/bin/crexx" ]]; then
     CREXX="${ROOT_DIR}/../CREXX/cmake-build-debug/bin/crexx"
+  elif command -v crexx >/dev/null 2>&1; then
+    CREXX="$(command -v crexx)"
   fi
 fi
 
 if [[ -z "${RXC}" ]]; then
-  if command -v rxc >/dev/null 2>&1; then
-    RXC="$(command -v rxc)"
-  elif [[ -x "${ROOT_DIR}/../CREXX/cmake-build-debug/bin/rxc" ]]; then
+  if [[ -x "${ROOT_DIR}/../CREXX/cmake-build-debug/bin/rxc" ]]; then
     RXC="${ROOT_DIR}/../CREXX/cmake-build-debug/bin/rxc"
+  elif [[ -n "${CREXX}" && -x "$(dirname "${CREXX}")/rxc" ]]; then
+    RXC="$(dirname "${CREXX}")/rxc"
+  elif command -v rxc >/dev/null 2>&1; then
+    RXC="$(command -v rxc)"
   fi
 fi
 
@@ -74,7 +76,12 @@ assert_rc() {
   local actual
 
   actual="$(cat "${WORK_DIR}/${name}.rc")"
-  [[ "${actual}" == "${expected}" ]] || fail "${name}: expected rc ${expected}, got ${actual}"
+  if [[ "${actual}" != "${expected}" ]]; then
+    echo "${name}: expected rc ${expected}, got ${actual}" >&2
+    echo "--- stderr ---" >&2
+    sed -n '1,160p' "${WORK_DIR}/${name}.err" >&2
+    exit 1
+  fi
 }
 
 assert_empty_stdout() {
