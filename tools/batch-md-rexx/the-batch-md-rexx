@@ -33,7 +33,34 @@ else
   fi
 fi
 
-exec "${CREXX_CMD}" -nokeep "${tool_dir}/batch-md-rexx.crexx" -args \
+RXAS_CMD=""
+if [ "${THE_CREXX_RXAS:-}" ]; then
+  RXAS_CMD=${THE_CREXX_RXAS}
+else
+  rxc_dir=$(CDPATH= cd -- "$(dirname -- "${RXC_CMD}")" 2>/dev/null && pwd || :)
+  if [ -n "${rxc_dir}" ] && [ -x "${rxc_dir}/rxas" ]; then
+    RXAS_CMD="${rxc_dir}/rxas"
+  elif command -v rxas >/dev/null 2>&1; then
+    RXAS_CMD=$(command -v rxas)
+  fi
+fi
+
+if [ -n "${RXAS_CMD}" ]; then
+  exec env -u CREXX -u THE_BIN -u THE_HOME_DIR -u THE_CREXX_RXC -u THE_CREXX_RXAS \
+    "${CREXX_CMD}" -nokeep "${tool_dir}/batch-md-rexx.crexx" -args \
+    --renderer "${tool_dir}/render-html.crexx" \
+    --the "${THE_CMD}" \
+    --home "${THE_HOME_CMD}" \
+    --crexx "${CREXX_CMD}" \
+    --parser rxc \
+    --parser-command "${RXC_CMD}" \
+    --rxas-parser-command "${RXAS_CMD}" \
+    --parser-arg --syntaxhighlight \
+    "$@"
+fi
+
+exec env -u CREXX -u THE_BIN -u THE_HOME_DIR -u THE_CREXX_RXC -u THE_CREXX_RXAS \
+  "${CREXX_CMD}" -nokeep "${tool_dir}/batch-md-rexx.crexx" -args \
   --renderer "${tool_dir}/render-html.crexx" \
   --the "${THE_CMD}" \
   --home "${THE_HOME_CMD}" \

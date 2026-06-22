@@ -12,6 +12,7 @@ THE_BIN="${THE_BIN:-${BUILD_DIR}/release/the}"
 THE_HOME="${THE_HOME_DIR:-${BUILD_DIR}/release}"
 CREXX="${CREXX:-${THE_CREXX:-}}"
 RXC="${THE_CREXX_RXC:-}"
+RXAS="${THE_CREXX_RXAS:-}"
 
 if [[ -z "${CREXX}" ]]; then
   if command -v crexx >/dev/null 2>&1; then
@@ -26,6 +27,16 @@ if [[ -z "${RXC}" ]]; then
     RXC="$(command -v rxc)"
   elif [[ -x "${ROOT_DIR}/../CREXX/cmake-build-debug/bin/rxc" ]]; then
     RXC="${ROOT_DIR}/../CREXX/cmake-build-debug/bin/rxc"
+  fi
+fi
+
+if [[ -z "${RXAS}" ]]; then
+  if [[ -n "${RXC}" && -x "$(dirname "${RXC}")/rxas" ]]; then
+    RXAS="$(dirname "${RXC}")/rxas"
+  elif command -v rxas >/dev/null 2>&1; then
+    RXAS="$(command -v rxas)"
+  elif [[ -x "${ROOT_DIR}/../CREXX/cmake-build-debug/bin/rxas" ]]; then
+    RXAS="${ROOT_DIR}/../CREXX/cmake-build-debug/bin/rxas"
   fi
 fi
 
@@ -96,6 +107,10 @@ renderer_args=(
   --template-dir "${TEMPLATE_DIR}"
 )
 
+if [[ -n "${RXAS}" && -x "${RXAS}" ]]; then
+  renderer_args+=(--rxas-parser-command "${RXAS}")
+fi
+
 cat > "${WORK_DIR}/output.md" <<'EOF_OUTPUT'
 # Output
 
@@ -125,6 +140,21 @@ say "<b>not bold</b>"
 ```
 EOF_OUTPUT
 
+if [[ -n "${RXAS}" && -x "${RXAS}" ]]; then
+  cat >> "${WORK_DIR}/output.md" <<'EOF_RXAS_OUTPUT'
+
+```rexx id=rxas-output run=true kind=standalone output=rxas
+options levelb
+say ".globals=0"
+say ""
+say "main() .locals=0"
+say "   setnumdgts 18"
+say '   say "from rxas"'
+say "   ret"
+```
+EOF_RXAS_OUTPUT
+fi
+
 run_crexx_capture output "${RENDERER_UNDER_TEST}" "${renderer_args[@]}" "${WORK_DIR}/output.md"
 assert_rc output 0
 assert_empty_stderr output
@@ -140,6 +170,12 @@ rg 'inline <code>code</code>' "${WORK_DIR}/output.out" >/dev/null
 rg '<figure class="the-example the-example-rexx" id="parser-output">' "${WORK_DIR}/output.out" >/dev/null
 rg '<span class="syn-keyword">say</span> <span class="syn-string">&quot;from parser&quot;</span>' "${WORK_DIR}/output.out" >/dev/null
 rg '&lt;b&gt;not bold&lt;/b&gt;' "${WORK_DIR}/output.out" >/dev/null
+
+if [[ -n "${RXAS}" && -x "${RXAS}" ]]; then
+  rg '<figure class="the-example the-example-rexx" id="rxas-output">' "${WORK_DIR}/output.out" >/dev/null
+  rg '<span class="syn-preprocessor">\.globals</span><span class="syn-operator">=</span><span class="syn-number">0</span>' "${WORK_DIR}/output.out" >/dev/null
+  rg '<span class="syn-keyword">say</span> <span class="syn-string">&quot;from rxas&quot;</span>' "${WORK_DIR}/output.out" >/dev/null
+fi
 
 if rg '<script>alert\(1\)</script>' "${WORK_DIR}/output.out" >/dev/null; then
   fail "output: markdown output emitted raw script HTML"

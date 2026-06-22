@@ -133,6 +133,90 @@ are already HTML-escaped; template files should not try to escape them again.
 The default template set includes document, Markdown segment, example, source,
 run, output, style-token, and `style.css` fragments.
 
+## TeX and PDF Output
+
+Story 10 adds TeX output from the same validated examples:
+
+```sh
+the-batch-md-rexx --format tex examples.md examples.tex
+```
+
+The TeX renderer uses default template fragments from
+`tools/batch-md-rexx/templates/tex/default`. Custom TeX wrappers can be supplied
+with:
+
+```sh
+the-batch-md-rexx --format tex --template-dir path/to/templates/tex/default examples.md examples.tex
+```
+
+Template values are already TeX-escaped by the renderer. The default TeX
+template set maps syntax categories to macros such as `\TheSynKeyword{...}` and
+`\TheSynString{...}` in `style.tex`, so TeX styling can be adjusted without
+editing the CREXX renderer.
+
+The default TeX Markdown renderer recognizes the same safe subset used for
+structured output: headings, paragraphs, unordered lists, blockquotes, fenced
+code, simple pipe tables, and inline backtick code. Markdown `#`, `##`, and
+`###` headings are emitted through `\TheMarkdownHOne{...}`,
+`\TheMarkdownHTwo{...}`, and `\TheMarkdownHThree{...}`. The default TeX document
+template does not call `\maketitle`; a Markdown `#` heading is therefore the
+visible document title by default. Custom templates can reintroduce a TeX
+`\maketitle` flow if desired.
+
+PDF generation is an optional second step:
+
+```sh
+the-batch-md-rexx --pdf examples.md examples.pdf
+the-batch-md-rexx --pdf --pdf-engine tectonic examples.md examples.pdf
+the-batch-md-rexx --pdf --pdf-engine latexmk examples.md examples.pdf
+```
+
+`--pdf-engine auto` is the default. It tries `tectonic` first, then `latexmk`.
+Only one engine is invoked. If the selected engine is present but fails, the
+runner reports that compiler failure instead of falling through to another
+engine.
+
+Recommended installations:
+
+- macOS with Homebrew: `brew install tectonic`
+- Linux: prefer the distribution `tectonic` package when available; otherwise
+  use `latexmk` with a TeX Live installation.
+- Existing MacTeX/TeX Live users can select `--pdf-engine latexmk`.
+
+## RXAS Output Highlighting
+
+`output=rxas` renders stdout through the CREXX RXAS SDSLH parser. The packaged
+runner looks for `THE_CREXX_RXAS`, then for `rxas` beside the selected `rxc`, and
+then for `rxas` on `PATH`. Direct renderer invocations can provide the parser
+explicitly:
+
+```sh
+crexx -nokeep tools/batch-md-rexx/render-html.crexx -args \
+  --the cmake-build-debug/release/the \
+  --home cmake-build-debug/release \
+  --crexx "$(command -v crexx)" \
+  --parser rxc \
+  --parser-command "$(command -v rxc)" \
+  --rxas-parser-command "$(command -v rxas)" \
+  --parser-arg --syntaxhighlight \
+  --template-dir tools/batch-md-rexx/templates/html/default \
+  examples.md > examples.html
+```
+
+The checked-in RXAS toolchain demo requires `rxc`, `rxas`, and `rxdas` on
+`PATH`. It compiles a tiny REXX program to RXAS, assembles it to RXBIN,
+disassembles it back to RXAS text with `rxdas`, and highlights that output:
+
+```sh
+tools/batch-md-rexx/the-batch-md-rexx \
+  tools/batch-md-rexx/examples/rxas-toolchain.md \
+  /tmp/the-rxas-toolchain-demo.html
+
+tools/batch-md-rexx/the-batch-md-rexx --pdf --pdf-engine tectonic \
+  tools/batch-md-rexx/examples/rxas-toolchain.md \
+  /tmp/the-rxas-toolchain-demo.pdf
+```
+
 Story 5 adds HTML rendering:
 
 ```sh
@@ -180,6 +264,8 @@ Story 8 renders output according to the `output` attribute:
 - `output=text` and unknown output names render as escaped preformatted text.
 - `output=rexx`, `output=crexx`, and `output=the` highlight stdout through the
   configured REXX parser.
+- `output=rxas` highlights stdout through the CREXX RXAS parser when `rxas` is
+  available.
 - `output=<parser>` highlights stdout when `<parser>` exactly matches the
   command-line `--parser` value.
 - `output=markdown` renders a safe subset: headings, unordered lists,

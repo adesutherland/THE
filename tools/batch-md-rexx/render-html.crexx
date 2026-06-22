@@ -4,6 +4,7 @@ import rxfnsb
 arg args = .string[]
 
 mode = "html"
+format = "html"
 path = ""
 the_bin = ""
 the_home = ""
@@ -11,6 +12,7 @@ crexx_bin = ""
 parser = "rxc"
 parser_command = ""
 parser_args = ""
+rxas_parser_command = ""
 template_dir = ""
 timeout = "5000"
 
@@ -20,6 +22,12 @@ do while ai <= args.0
   select
     when token = "--scan" then mode = "scan"
     when token = "--validate" then mode = "validate"
+    when token = "--format" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--format needs a value"
+      format = args[ai]
+      if format <> "html" & format <> "tex" then call usage_error "--format must be html or tex"
+    end
     when token = "--the" then do
       ai = ai + 1
       if ai > args.0 then call usage_error "--the needs a value"
@@ -44,6 +52,11 @@ do while ai <= args.0
       ai = ai + 1
       if ai > args.0 then call usage_error "--parser-command needs a value"
       parser_command = args[ai]
+    end
+    when token = "--rxas-parser-command" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--rxas-parser-command needs a value"
+      rxas_parser_command = args[ai]
     end
     when token = "--parser-arg" then do
       ai = ai + 1
@@ -75,12 +88,12 @@ if parser_command = "" then parser_command = parser
 if parser_args = "" then parser_args = "--syntaxhighlight"
 if positive_integer(timeout) = 0 then call usage_error "--timeout must be a positive integer"
 if mode = "html" | mode = "validate" then do
-  if the_bin = "" then call usage_error "--the is required for HTML rendering"
-  if the_home = "" then call usage_error "--home is required for HTML rendering"
+  if the_bin = "" then call usage_error "--the is required for rendering"
+  if the_home = "" then call usage_error "--home is required for rendering"
 end
 if mode = "html" then do
-  if template_dir = "" then template_dir = default_template_dir()
-  if validate_html_template_dir(template_dir) <> 0 then exit 2
+  if template_dir = "" then template_dir = default_template_dir(format)
+  if validate_template_dir(format, template_dir) <> 0 then exit 2
 end
 
 source = .string[]
@@ -105,13 +118,13 @@ if mode = "scan" then do
   exit 0
 end
 
-render_rc = render_html_document(path, source, manifest, the_bin, the_home, crexx_bin, parser, parser_command, parser_args, template_dir, timeout, mode)
+render_rc = render_document(path, source, manifest, the_bin, the_home, crexx_bin, parser, parser_command, parser_args, rxas_parser_command, template_dir, timeout, mode, format)
 exit render_rc
 
 usage_error: procedure
   arg message = .string
   call diagnostic_message "render-html.crexx: " || message
-  call diagnostic_message "usage: render-html.crexx [--scan|--validate] [--the THE --home THE_HOME] [--crexx CREXX] [--parser NAME] [--parser-command COMMAND] [--parser-arg ARG] [--template-dir DIR] [--timeout MS] markdown-file"
+  call diagnostic_message "usage: render-html.crexx [--scan|--validate] [--format html|tex] [--the THE --home THE_HOME] [--crexx CREXX] [--parser NAME] [--parser-command COMMAND] [--rxas-parser-command COMMAND] [--parser-arg ARG] [--template-dir DIR] [--timeout MS] markdown-file"
   exit 2
 return
 
@@ -292,8 +305,8 @@ scan_markdown: procedure = .int
 
 return failures
 
-render_html_document: procedure = .int
-  arg path = .string, source = .string[], manifest = .string[], the_bin = .string, the_home = .string, crexx_bin = .string, parser = .string, parser_command = .string, parser_args = .string, template_dir = .string, timeout = .string, mode = .string
+render_document: procedure = .int
+  arg path = .string, source = .string[], manifest = .string[], the_bin = .string, the_home = .string, crexx_bin = .string, parser = .string, parser_command = .string, parser_args = .string, rxas_parser_command = .string, template_dir = .string, timeout = .string, mode = .string, format = .string
 
   emit_html = 1
   if mode = "validate" then emit_html = 0
@@ -302,9 +315,9 @@ render_html_document: procedure = .int
     keys = .string[]
     values = .string[]
     call arrayappend keys, "title"
-    call arrayappend values, html_escape(path)
+    call arrayappend values, render_escape(format, path)
     call emit_template template_dir, "document-open.tpl", keys, values
-    call emit_css template_dir
+    call emit_style format, template_dir
     empty_keys = .string[]
     empty_values = .string[]
     call emit_template template_dir, "document-body-open.tpl", empty_keys, empty_values
@@ -316,11 +329,11 @@ render_html_document: procedure = .int
       if emit_html = 1 then do
         start_line = manifest_value(record, "start")
         end_line = manifest_value(record, "end")
-        call emit_markdown_segment source, start_line, end_line, template_dir
+        call emit_markdown_segment source, start_line, end_line, template_dir, format
       end
     end
     else if left(record, 7) = "example" then do
-      rc = emit_example(source, record, path, the_bin, the_home, crexx_bin, parser, parser_command, parser_args, template_dir, timeout, emit_html)
+      rc = emit_example(source, record, path, the_bin, the_home, crexx_bin, parser, parser_command, parser_args, rxas_parser_command, template_dir, timeout, emit_html, format)
       if rc <> 0 then return rc
     end
   end
@@ -332,29 +345,49 @@ render_html_document: procedure = .int
   end
 return 0
 
-emit_css: procedure
-  arg template_dir = .string
+emit_style: procedure
+  arg format = .string, template_dir = .string
+  style_name = "style.css"
+  if format = "tex" then do
+    style_name = "style.tex"
+  end
+  else do
+    style_name = "style.css"
+  end
   css = .string[]
-  call read_lines template_dir || "/style.css", css
+  call read_lines template_dir || "/" || style_name, css
   do ci = 1 to css.0
     say css[ci]
   end
 return
 
 emit_markdown_segment: procedure
-  arg source = .string[], start_line = .int, end_line = .int, template_dir = .string
+  arg source = .string[], start_line = .int, end_line = .int, template_dir = .string, format = .string
   if start_line > end_line then return
+  if format = "tex" then do
+    lines = .string[]
+    do line_no = start_line to end_line
+      call arrayappend lines, source[line_no]
+    end
+    empty_keys = .string[]
+    empty_values = .string[]
+    call emit_template template_dir, "markdown-open.tpl", empty_keys, empty_values
+    call emit_markdown_lines_tex lines
+    call emit_template template_dir, "markdown-close.tpl", empty_keys, empty_values
+    return
+  end
+
   empty_keys = .string[]
   empty_values = .string[]
   call emit_template template_dir, "markdown-open.tpl", empty_keys, empty_values
   do line_no = start_line to end_line
-    say html_escape(source[line_no])
+    say render_escape(format, source[line_no])
   end
   call emit_template template_dir, "markdown-close.tpl", empty_keys, empty_values
 return
 
 emit_example: procedure = .int
-  arg source = .string[], record = .string, document_path = .string, the_bin = .string, the_home = .string, crexx_bin = .string, parser = .string, parser_command = .string, parser_args = .string, template_dir = .string, timeout = .string, emit_html = .int
+  arg source = .string[], record = .string, document_path = .string, the_bin = .string, the_home = .string, crexx_bin = .string, parser = .string, parser_command = .string, parser_args = .string, rxas_parser_command = .string, template_dir = .string, timeout = .string, emit_html = .int, format = .string
 
   id = manifest_value(record, "id")
   language = manifest_value(record, "language")
@@ -420,11 +453,13 @@ emit_example: procedure = .int
     keys = .string[]
     values = .string[]
     call arrayappend keys, "language_attr"
-    call arrayappend values, html_escape_attr(language)
+    call arrayappend values, render_escape_attr(format, language)
     call arrayappend keys, "id_attr"
-    call arrayappend values, html_escape_attr(id)
+    call arrayappend values, render_escape_attr(format, id)
     call arrayappend keys, "id"
-    call arrayappend values, html_escape(id)
+    call arrayappend values, render_escape(format, id)
+    call arrayappend keys, "language"
+    call arrayappend values, render_escape(format, language)
     call emit_template template_dir, "example-open.tpl", keys, values
     empty_keys = .string[]
     empty_values = .string[]
@@ -432,11 +467,12 @@ emit_example: procedure = .int
     call read_lines template_dir || "/style-token.tpl", style_template
     call emit_template template_dir, "source-open.tpl", empty_keys, empty_values
     do line_no = 1 to source_lines.0
-      say highlighted_line(source_lines[line_no], line_no, render_spans, style_template)
+      if format = "tex" then say highlighted_line_tex(source_lines[line_no], line_no, render_spans, style_template)
+      else say highlighted_line(source_lines[line_no], line_no, render_spans, style_template)
     end
     call emit_template template_dir, "source-close.tpl", empty_keys, empty_values
     if run_attr = "true" then do
-      call emit_run_output id, output, run_stdout, run_stderr, run_messages, run_rc, the_bin, the_home, parser, parser_command, parser_args, template_dir, block_timeout
+      call emit_run_output id, output, run_stdout, run_stderr, run_messages, run_rc, the_bin, the_home, parser, parser_command, parser_args, rxas_parser_command, template_dir, block_timeout, format
     end
     call emit_template template_dir, "example-close.tpl", empty_keys, empty_values
   end
@@ -600,32 +636,35 @@ append_the_run_stream: procedure
 return
 
 emit_run_output: procedure
-  arg id = .string, output = .string, run_stdout = .string[], run_stderr = .string[], run_messages = .string[], run_rc = .string, the_bin = .string, the_home = .string, parser = .string, parser_command = .string, parser_args = .string, template_dir = .string, timeout = .string
+  arg id = .string, output = .string, run_stdout = .string[], run_stderr = .string[], run_messages = .string[], run_rc = .string, the_bin = .string, the_home = .string, parser = .string, parser_command = .string, parser_args = .string, rxas_parser_command = .string, template_dir = .string, timeout = .string, format = .string
   empty_keys = .string[]
   empty_values = .string[]
   call emit_template template_dir, "run-open.tpl", empty_keys, empty_values
   keys = .string[]
   values = .string[]
   call arrayappend keys, "rc"
-  call arrayappend values, html_escape(run_rc)
+  call arrayappend values, render_escape(format, run_rc)
   call emit_template template_dir, "run-status.tpl", keys, values
-  call emit_output_block id, "stdout", output, run_stdout, the_bin, the_home, parser, parser_command, parser_args, template_dir, timeout
-  call emit_output_block id, "stderr", "text", run_stderr, the_bin, the_home, parser, parser_command, parser_args, template_dir, timeout
-  call emit_output_block id, "messages", "text", run_messages, the_bin, the_home, parser, parser_command, parser_args, template_dir, timeout
+  call emit_output_block id, "stdout", output, run_stdout, the_bin, the_home, parser, parser_command, parser_args, rxas_parser_command, template_dir, timeout, format
+  call emit_output_block id, "stderr", "text", run_stderr, the_bin, the_home, parser, parser_command, parser_args, rxas_parser_command, template_dir, timeout, format
+  call emit_output_block id, "messages", "text", run_messages, the_bin, the_home, parser, parser_command, parser_args, rxas_parser_command, template_dir, timeout, format
   call emit_template template_dir, "run-close.tpl", empty_keys, empty_values
 return
 
 emit_output_block: procedure
-  arg id = .string, stream_name = .string, output = .string, lines = .string[], the_bin = .string, the_home = .string, parser = .string, parser_command = .string, parser_args = .string, template_dir = .string, timeout = .string
+  arg id = .string, stream_name = .string, output = .string, lines = .string[], the_bin = .string, the_home = .string, parser = .string, parser_command = .string, parser_args = .string, rxas_parser_command = .string, template_dir = .string, timeout = .string, format = .string
   if lines.0 = 0 then return
 
   keys = .string[]
   values = .string[]
   call arrayappend keys, "stream_attr"
-  call arrayappend values, html_escape_attr(stream_name)
+  call arrayappend values, render_escape_attr(format, stream_name)
+  call arrayappend keys, "stream"
+  call arrayappend values, render_escape(format, stream_name)
   if output = "markdown" then do
     call emit_template template_dir, "output-markdown-open.tpl", keys, values
-    call emit_markdown_output lines
+    if format = "tex" then call emit_markdown_output_tex lines
+    else call emit_markdown_output lines
     call emit_template template_dir, "output-markdown-close.tpl", keys, values
     return
   end
@@ -634,7 +673,9 @@ emit_output_block: procedure
   if output_highlightable(output, parser) = 1 then do
     spans = .string[]
     render_spans = .string[]
-    rc = highlight_source(id || "-" || stream_name, output, lines, the_bin, the_home, parser_for_output(output, parser), parser_command, parser_args, timeout, "false", spans)
+    output_parser = parser_for_output(output, parser)
+    output_parser_command = parser_command_for_output(output, parser_command, rxas_parser_command)
+    rc = highlight_source(id || "-" || stream_name, output, lines, the_bin, the_home, output_parser, output_parser_command, parser_args, timeout, "false", spans)
     if rc = 0 then do
       do si = 1 to spans.0
         span_record = spans[si]
@@ -643,18 +684,155 @@ emit_output_block: procedure
       style_template = .string[]
       call read_lines template_dir || "/style-token.tpl", style_template
       do line_no = 1 to lines.0
-        say highlighted_line(lines[line_no], line_no, render_spans, style_template)
+        if format = "tex" then say highlighted_line_tex(lines[line_no], line_no, render_spans, style_template)
+        else say highlighted_line(lines[line_no], line_no, render_spans, style_template)
       end
     end
     else do
-      call emit_plain_lines lines
+      call emit_plain_lines lines, format
     end
   end
   else do
-    call emit_plain_lines lines
+    call emit_plain_lines lines, format
   end
   call emit_template template_dir, "output-pre-close.tpl", keys, values
 return
+
+emit_markdown_output_tex: procedure
+  arg lines = .string[]
+  call emit_markdown_lines_tex lines
+return
+
+emit_markdown_lines_tex: procedure
+  arg lines = .string[]
+
+  i = 1
+  do while i <= lines.0
+    line = lines[i]
+    stripped = strip(line)
+
+    if stripped = "" then do
+      i = i + 1
+      iterate
+    end
+
+    if starts_with(stripped, "```") = 1 | starts_with(stripped, "~~~") = 1 then do
+      fence = left(stripped, 3)
+      say "\begin{TheCodeBlock}"
+      i = i + 1
+      do while i <= lines.0
+        if starts_with(strip(lines[i]), fence) = 1 then leave
+        say tex_escape(lines[i])
+        i = i + 1
+      end
+      say "\end{TheCodeBlock}"
+      if i <= lines.0 then i = i + 1
+      iterate
+    end
+
+    if starts_with(stripped, "### ") = 1 then do
+      say "\TheMarkdownHThree{" || markdown_inline_tex(substr(stripped, 5)) || "}"
+      i = i + 1
+      iterate
+    end
+    if starts_with(stripped, "## ") = 1 then do
+      say "\TheMarkdownHTwo{" || markdown_inline_tex(substr(stripped, 4)) || "}"
+      i = i + 1
+      iterate
+    end
+    if starts_with(stripped, "# ") = 1 then do
+      say "\TheMarkdownHOne{" || markdown_inline_tex(substr(stripped, 3)) || "}"
+      i = i + 1
+      iterate
+    end
+
+    if i < lines.0 then do
+      if markdown_table_row(stripped) = 1 & markdown_table_delimiter(lines[i + 1]) = 1 then do
+        cells = .string[]
+        call split_table_cells stripped, cells
+        say "\begin{center}"
+        say "\begin{tabular}{" || tex_table_colspec(cells.0) || "}"
+        say "\hline"
+        call emit_tex_table_row stripped
+        say "\hline"
+        i = i + 2
+        do while i <= lines.0
+          row = strip(lines[i])
+          if markdown_table_row(row) = 0 then leave
+          call emit_tex_table_row row
+          say "\hline"
+          i = i + 1
+        end
+        say "\end{tabular}"
+        say "\end{center}"
+        iterate
+      end
+    end
+
+    if starts_with(stripped, "- ") = 1 | starts_with(stripped, "* ") = 1 then do
+      say "\begin{itemize}"
+      do while i <= lines.0
+        item = strip(lines[i])
+        if starts_with(item, "- ") = 0 & starts_with(item, "* ") = 0 then leave
+        say "\item " || markdown_inline_tex(substr(item, 3))
+        i = i + 1
+      end
+      say "\end{itemize}"
+      iterate
+    end
+
+    if starts_with(stripped, "> ") = 1 then do
+      say "\begin{TheMarkdownQuote}"
+      do while i <= lines.0
+        quote_line = strip(lines[i])
+        if starts_with(quote_line, "> ") = 0 then leave
+        say "\TheMarkdownParagraph{" || markdown_inline_tex(substr(quote_line, 3)) || "}"
+        i = i + 1
+      end
+      say "\end{TheMarkdownQuote}"
+      iterate
+    end
+
+    paragraph = stripped
+    i = i + 1
+    do while i <= lines.0
+      next_line = strip(lines[i])
+      if next_line = "" then leave
+      if starts_with(next_line, "```") = 1 | starts_with(next_line, "~~~") = 1 then leave
+      if starts_with(next_line, "### ") = 1 then leave
+      if starts_with(next_line, "## ") = 1 then leave
+      if starts_with(next_line, "# ") = 1 then leave
+      if starts_with(next_line, "- ") = 1 | starts_with(next_line, "* ") = 1 then leave
+      if starts_with(next_line, "> ") = 1 then leave
+      if i < lines.0 then do
+        if markdown_table_row(next_line) = 1 & markdown_table_delimiter(lines[i + 1]) = 1 then leave
+      end
+      paragraph = paragraph || " " || next_line
+      i = i + 1
+    end
+    say "\TheMarkdownParagraph{" || markdown_inline_tex(paragraph) || "}"
+  end
+return
+
+emit_tex_table_row: procedure
+  arg line = .string
+  cells = .string[]
+  call split_table_cells line, cells
+  row = ""
+  do ci = 1 to cells.0
+    if ci > 1 then row = row || " & "
+    row = row || markdown_inline_tex(strip(cells[ci]))
+  end
+  say row || " \\"
+return
+
+tex_table_colspec: procedure = .string
+  arg count = .int
+  spec = "|"
+  do ci = 1 to count
+    spec = spec || "l|"
+  end
+return spec
 
 emit_markdown_output: procedure
   arg lines = .string[]
@@ -823,23 +1001,69 @@ markdown_inline: procedure = .string
   if in_code = 1 then out = out || "</code>"
 return out
 
+markdown_inline_tex: procedure = .string
+  arg text = .string
+  out = ""
+  in_code = 0
+  chunk = ""
+
+  do idx = 1 to length(text)
+    ch = substr(text, idx, 1)
+    if ch = "`" then do
+      if in_code = 1 then do
+        out = out || "\texttt{" || tex_escape(chunk) || "}"
+        chunk = ""
+        in_code = 0
+      end
+      else do
+        if chunk <> "" then out = out || tex_escape(chunk)
+        chunk = ""
+        in_code = 1
+      end
+    end
+    else chunk = chunk || ch
+  end
+
+  if in_code = 1 then out = out || "\texttt{" || tex_escape(chunk) || "}"
+  else if chunk <> "" then out = out || tex_escape(chunk)
+return out
+
 emit_plain_lines: procedure
-  arg lines = .string[]
+  arg lines = .string[], format = .string
   do line_no = 1 to lines.0
-    say html_escape(lines[line_no])
+    say render_escape(format, lines[line_no])
   end
 return
 
 output_highlightable: procedure = .int
   arg output = .string, parser = .string
+  if output = "rxas" then return 1
   if is_example_language(output) = 1 then return 1
   if output = parser then return 1
 return 0
 
 parser_for_output: procedure = .string
   arg output = .string, parser = .string
+  if output = "rxas" then return "rxas"
   if is_example_language(output) = 1 then return parser
 return output
+
+parser_command_for_output: procedure = .string
+  arg output = .string, parser_command = .string, rxas_parser_command = .string
+  if output = "rxas" then return rxas_command(parser_command, rxas_parser_command)
+return parser_command
+
+rxas_command: procedure = .string
+  arg parser_command = .string, rxas_parser_command = .string
+  if rxas_parser_command <> "" then return rxas_parser_command
+
+  parser_dir = document_directory(parser_command)
+  if parser_dir <> "" then do
+    sibling = parser_dir || "/rxas"
+    if command_available(sibling) = 1 then return sibling
+  end
+  if command_available("rxas") = 1 then return "rxas"
+return parser_command
 
 rc_allowed: procedure = .int
   arg allowed = .string, actual = .string
@@ -999,12 +1223,12 @@ highlight_source: procedure = .int
     return 2
   end
 
-  out = .string[]
-  err = .string[]
   inner_cmd = "TERM= THE_HOME_DIR=" || shell_quote(the_home) || " " || shell_quote(the_bin)
   inner_cmd = inner_cmd || " -b -q -p " || shell_quote(profile_path) || " " || shell_quote(source_path)
   shell_lines = .string[]
   shell_lines[1] = inner_cmd
+  out = .string[]
+  err = .string[]
   address command "sh" input shell_lines output out error err
   the_rc = rc
   call remove_tree temp_dir
@@ -1092,6 +1316,42 @@ highlighted_line: procedure = .string
 
 return html
 
+highlighted_line_tex: procedure = .string
+  arg text = .string, line_no = .int, spans = .string[], style_template = .string[]
+
+  tex = ""
+  cell = 0
+  text_length = length(text)
+
+  do si = 1 to spans.0
+    span = spans[si]
+    span_line = word(span, 1)
+    if span_line <> line_no then iterate
+
+    start = word(span, 2)
+    span_len = word(span, 3)
+    style = word(span, 4)
+    gap_len = start - cell
+    if gap_len > 0 then do
+      tex = tex || tex_escape(substr(text, cell + 1, gap_len))
+    end
+
+    if span_len > 0 then do
+      span_text = substr(text, start + 1, span_len)
+      style_macro = tex_macro_for_style(style)
+      if style_macro = "" then tex = tex || tex_escape(span_text)
+      else tex = tex || render_style_token(style_template, style, style_macro, tex_escape(span_text))
+      cell = start + span_len
+    end
+  end
+
+  rest_len = text_length - cell
+  if rest_len > 0 then do
+    tex = tex || tex_escape(substr(text, cell + 1, rest_len))
+  end
+
+return tex
+
 render_style_token: procedure = .string
   arg style_template = .string[], style = .string, style_class = .string, text = .string
   keys = .string[]
@@ -1100,6 +1360,8 @@ render_style_token: procedure = .string
   call arrayappend values, html_escape_attr(style)
   call arrayappend keys, "style_class"
   call arrayappend values, html_escape_attr(style_class)
+  call arrayappend keys, "style_macro"
+  call arrayappend values, style_class
   call arrayappend keys, "text"
   call arrayappend values, text
 return render_loaded_template_to_string(style_template, keys, values)
@@ -1120,18 +1382,36 @@ css_class_for_style: procedure = .string
   if style = "paren" then return "syn-paren"
 return ""
 
+tex_macro_for_style: procedure = .string
+  arg style = .string
+  if style = "comment" then return "Comment"
+  if style = "string" then return "String"
+  if style = "number" then return "Number"
+  if style = "keyword" then return "Keyword"
+  if style = "preprocessor" then return "Preprocessor"
+  if style = "type" then return "Type"
+  if style = "function" then return "Function"
+  if style = "constant" then return "Constant"
+  if style = "identifier" then return "Identifier"
+  if style = "operator" then return "Operator"
+  if style = "punctuation" then return "Punctuation"
+  if style = "paren" then return "Paren"
+return ""
+
 default_template_dir: procedure = .string
+  arg format = .string
+  if format = "" then format = "html"
   candidates = .string[]
-  call arrayappend candidates, "templates/html/default"
-  call arrayappend candidates, "tools/batch-md-rexx/templates/html/default"
-  call arrayappend candidates, "batch-md-rexx/templates/html/default"
+  call arrayappend candidates, "templates/" || format || "/default"
+  call arrayappend candidates, "tools/batch-md-rexx/templates/" || format || "/default"
+  call arrayappend candidates, "batch-md-rexx/templates/" || format || "/default"
   do ci = 1 to candidates.0
     if readable_file(candidates[ci] || "/document-open.tpl") = 1 then return candidates[ci]
   end
-return "templates/html/default"
+return "templates/" || format || "/default"
 
-validate_html_template_dir: procedure = .int
-  arg template_dir = .string
+validate_template_dir: procedure = .int
+  arg format = .string, template_dir = .string
   required = .string[]
   call arrayappend required, "document-open.tpl"
   call arrayappend required, "document-body-open.tpl"
@@ -1150,7 +1430,8 @@ validate_html_template_dir: procedure = .int
   call arrayappend required, "output-markdown-open.tpl"
   call arrayappend required, "output-markdown-close.tpl"
   call arrayappend required, "style-token.tpl"
-  call arrayappend required, "style.css"
+  if format = "tex" then call arrayappend required, "style.tex"
+  else call arrayappend required, "style.css"
 
   failures = 0
   do ri = 1 to required.0
@@ -1221,7 +1502,7 @@ read_lines: procedure = .int
   err = .string[]
   address command "sh" input command_lines output out error err
   if rc <> 0 then do
-    call diagnostic_message "render-html.crexx: could not read template file: " || path
+    call diagnostic_message "render-html.crexx: could not read file: " || path
     call write_stem "stderr", err
     return 2
   end
@@ -1235,6 +1516,15 @@ readable_file: procedure = .int
   if path = "" then return 0
   command_lines = .string[]
   command_lines[1] = "test -r " || shell_quote(path) || " -a -f " || shell_quote(path)
+  address command "sh" input command_lines
+  if rc = 0 then return 1
+return 0
+
+command_available: procedure = .int
+  arg command_name = .string
+  if command_name = "" then return 0
+  command_lines = .string[]
+  command_lines[1] = "command -v " || shell_quote(command_name) || " >/dev/null 2>&1"
   address command "sh" input command_lines
   if rc = 0 then return 1
 return 0
@@ -1253,6 +1543,16 @@ html_escape_attr: procedure = .string
   arg text = .string
 return html_escape(text)
 
+render_escape_attr: procedure = .string
+  arg format = .string, text = .string
+  if format = "tex" then return tex_escape(text)
+return html_escape_attr(text)
+
+render_escape: procedure = .string
+  arg format = .string, text = .string
+  if format = "tex" then return tex_escape(text)
+return html_escape(text)
+
 html_escape: procedure = .string
   arg text = .string
   out = ""
@@ -1268,9 +1568,31 @@ html_escape: procedure = .string
   end
 return out
 
+tex_escape: procedure = .string
+  arg text = .string
+  out = ""
+  do hi = 1 to length(text)
+    ch = substr(text, hi, 1)
+    select
+      when ch = "\" then out = out || "\textbackslash{}"
+      when ch = "{" then out = out || "\{"
+      when ch = "}" then out = out || "\}"
+      when ch = "$" then out = out || "\$"
+      when ch = "&" then out = out || "\&"
+      when ch = "#" then out = out || "\#"
+      when ch = "_" then out = out || "\_"
+      when ch = "%" then out = out || "\%"
+      when ch = "~" then out = out || "\textasciitilde{}"
+      when ch = "^" then out = out || "\textasciicircum{}"
+      otherwise out = out || ch
+    end
+  end
+return out
+
 write_lines_to_file: procedure = .int
   arg path = .string, lines = .string[]
-  if lines.0 = 0 then return create_empty_file(path)
+  if create_empty_file(path) <> 0 then return 1
+  if lines.0 = 0 then return 0
   do wi = 1 to lines.0
     write_rc = lineout(path, lines[wi])
     if write_rc <> 0 then return 1

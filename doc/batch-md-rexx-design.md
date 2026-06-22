@@ -16,6 +16,7 @@ The workflow should:
 - fail the batch run when an example has parser diagnostics, compile errors, or
   unexpected runtime output.
 - produce a formatted document, with HTML as the first concrete target.
+- optionally produce TeX and PDF from the same validated examples.
 
 The implementation should keep document orchestration in REXX scripts where
 possible. C should expose stable editor primitives for parser completion,
@@ -186,6 +187,13 @@ Recommended output rendering for the MVP:
 - `output=markdown`: render a small Markdown subset or pass through a later
   dedicated Markdown renderer. Do not block the first MVP on full Markdown
   rendering.
+
+Story 10 adds a second concrete renderer using TeX templates. PDF generation is
+an optional post-processing step: the batch runner first writes the TeX artifact
+in memory, then invokes one configured PDF engine. The default engine policy is
+`auto`: try `tectonic` first, then `latexmk`. Do not invoke both after a
+compiler failure; TeX errors should be reported from the selected engine rather
+than hidden by a fallback attempt.
 
 ## Minimum C Surface
 
@@ -509,6 +517,34 @@ Acceptance criteria:
 - The renderer consumes the same intermediate model as HTML.
 - Source and output styles map to TeX macros or listings.
 - The TeX renderer is optional and does not complicate the HTML MVP.
+
+Implementation status:
+
+- `tools/batch-md-rexx/render-html.crexx` accepts `--format html|tex` and uses
+  the same scanning, highlighting, execution, and validation path for both
+  formats.
+- Default TeX templates live under
+  `tools/batch-md-rexx/templates/tex/default`. Syntax categories map to
+  `\TheSyn...` macros defined by `style.tex`, keeping TeX styling outside the
+  renderer.
+- Markdown segments in TeX are rendered as a safe structural subset rather than
+  raw escaped lines. Headings map to `\TheMarkdownHOne`,
+  `\TheMarkdownHTwo`, and `\TheMarkdownHThree`, so a source `#` heading becomes
+  the visible PDF title in the default template set.
+- `output=rxas` uses the CREXX RXAS SDSLH parser when available. The packaged
+  runner passes `THE_CREXX_RXAS`, a sibling `rxas` beside `rxc`, or a `PATH`
+  `rxas` through to the renderer.
+- `tools/batch-md-rexx/examples/rxas-toolchain.md` is a manual smoke demo that
+  compiles REXX to RXAS, assembles RXAS to RXBIN, disassembles back to RXAS with
+  `rxdas`, and highlights the disassembled output.
+- `tools/batch-md-rexx/batch-md-rexx.crexx` supports `--format tex` for a
+  standalone `.tex` artifact.
+- The packaged runner supports `--pdf` and `--pdf-engine auto|tectonic|latexmk`.
+  `auto` chooses `tectonic` when available, otherwise `latexmk`. A missing
+  engine reports a clear diagnostic and suggests generating `--format tex`.
+- `tools/batch-md-rexx/tests/test_tex.sh` validates TeX rendering, escaping, the
+  packaged runner's TeX mode, and PDF engine selection with a fake `tectonic`
+  binary.
 
 ## Suggested Milestones
 

@@ -313,6 +313,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/src/drivers/llm
 )
 install(DIRECTORY tools/batch-md-rexx/templates DESTINATION share/the/batch-md-rexx)
+install(DIRECTORY tools/batch-md-rexx/examples DESTINATION share/the/batch-md-rexx)
 if(USE_UTF8)
     include_directories(${CMAKE_SOURCE_DIR}/src/contrib)
 endif()
@@ -490,6 +491,7 @@ add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/highlight.crexx ${RELEASE_DIR}/batch-md-rexx/highlight.crexx
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/validate.crexx ${RELEASE_DIR}/batch-md-rexx/validate.crexx
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/templates ${RELEASE_DIR}/batch-md-rexx/templates
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/examples ${RELEASE_DIR}/batch-md-rexx/examples
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/syntax ${RELEASE_DIR}/syntax
     COMMENT "Copying executable and resources to ${RELEASE_DIR}"
 )
@@ -830,6 +832,10 @@ set_tests_properties(test_batch_md_rexx_output_render PROPERTIES
 )
 add_test(NAME test_batch_md_rexx_runner COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_runner.sh)
 set_tests_properties(test_batch_md_rexx_runner PROPERTIES
+    SKIP_RETURN_CODE 77
+)
+add_test(NAME test_batch_md_rexx_tex COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_tex.sh)
+set_tests_properties(test_batch_md_rexx_tex PROPERTIES
     SKIP_RETURN_CODE 77
 )
 add_test(NAME test_batch_md_rexx_highlight COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_highlight.sh)

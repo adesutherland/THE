@@ -13,20 +13,20 @@ CREXX="${CREXX:-${THE_CREXX:-}}"
 RXC="${THE_CREXX_RXC:-}"
 
 if [[ -z "${CREXX}" ]]; then
-  if [[ -x "${ROOT_DIR}/../CREXX/cmake-build-debug/bin/crexx" ]]; then
-    CREXX="${ROOT_DIR}/../CREXX/cmake-build-debug/bin/crexx"
-  elif command -v crexx >/dev/null 2>&1; then
+  if command -v crexx >/dev/null 2>&1; then
     CREXX="$(command -v crexx)"
+  elif [[ -x "${ROOT_DIR}/../CREXX/cmake-build-debug/bin/crexx" ]]; then
+    CREXX="${ROOT_DIR}/../CREXX/cmake-build-debug/bin/crexx"
   fi
 fi
 
 if [[ -z "${RXC}" ]]; then
-  if [[ -x "${ROOT_DIR}/../CREXX/cmake-build-debug/bin/rxc" ]]; then
-    RXC="${ROOT_DIR}/../CREXX/cmake-build-debug/bin/rxc"
-  elif [[ -n "${CREXX}" && -x "$(dirname "${CREXX}")/rxc" ]]; then
+  if [[ -n "${CREXX}" && -x "$(dirname "${CREXX}")/rxc" ]]; then
     RXC="$(dirname "${CREXX}")/rxc"
   elif command -v rxc >/dev/null 2>&1; then
     RXC="$(command -v rxc)"
+  elif [[ -x "${ROOT_DIR}/../CREXX/cmake-build-debug/bin/rxc" ]]; then
+    RXC="${ROOT_DIR}/../CREXX/cmake-build-debug/bin/rxc"
   fi
 fi
 

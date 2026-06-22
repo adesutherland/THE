@@ -1,0 +1,9 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage{hyperref}
+\geometry{margin=1in}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+\title{{{title}}}

@@ -4,12 +4,16 @@ import rxfnsb
 arg args = .string[]
 
 mode = "html"
+format = "html"
+pdf = 0
+pdf_engine = "auto"
 renderer = "render-html.crexx"
 the_bin = "the"
 the_home = "."
 crexx_bin = "crexx"
 parser = "rxc"
 parser_command = "rxc"
+rxas_parser_command = ""
 template_dir = ""
 timeout = "5000"
 input_path = ""
@@ -22,6 +26,22 @@ do while ai <= args.0
   select
     when token = "--scan" then mode = "scan"
     when token = "--validate" then mode = "validate"
+    when token = "--format" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--format needs a value"
+      format = args[ai]
+      if format <> "html" & format <> "tex" then call usage_error "--format must be html or tex"
+    end
+    when token = "--pdf" then do
+      pdf = 1
+      format = "tex"
+    end
+    when token = "--pdf-engine" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--pdf-engine needs a value"
+      pdf_engine = args[ai]
+      if pdf_engine <> "auto" & pdf_engine <> "tectonic" & pdf_engine <> "latexmk" then call usage_error "--pdf-engine must be auto, tectonic, or latexmk"
+    end
     when token = "--renderer" then do
       ai = ai + 1
       if ai > args.0 then call usage_error "--renderer needs a value"
@@ -51,6 +71,11 @@ do while ai <= args.0
       ai = ai + 1
       if ai > args.0 then call usage_error "--parser-command needs a value"
       parser_command = args[ai]
+    end
+    when token = "--rxas-parser-command" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--rxas-parser-command needs a value"
+      rxas_parser_command = args[ai]
     end
     when token = "--parser-arg" then do
       ai = ai + 1
@@ -85,8 +110,11 @@ end
 if input_path = "" then call usage_error "markdown-file is required"
 if positive_integer(timeout) = 0 then call usage_error "--timeout must be a positive integer"
 if parser_arg_values.0 = 0 then call arrayappend parser_arg_values, "--syntaxhighlight"
-if mode = "html" & output_path = "" then output_path = default_output_path(input_path)
-if mode = "html" & template_dir = "" then template_dir = document_directory(renderer) || "/templates/html/default"
+if mode = "html" & output_path = "" then do
+  if pdf = 1 then output_path = default_output_path(input_path, "pdf")
+  else output_path = default_output_path(input_path, format)
+end
+if mode = "html" & template_dir = "" then template_dir = document_directory(renderer) || "/templates/" || format || "/default"
 
 if readable_file(renderer) = 0 then do
   call diagnostic_message "batch-md-rexx: renderer not readable: " || renderer
@@ -113,23 +141,34 @@ if mode = "html" | mode = "validate" then do
     call diagnostic_message "batch-md-rexx: parser command not found or not executable: " || parser_command
     exit 2
   end
+  if rxas_parser_command <> "" then do
+    if command_available(rxas_parser_command) = 0 then do
+      call diagnostic_message "batch-md-rexx: RXAS parser command not found or not executable: " || rxas_parser_command
+      exit 2
+    end
+  end
 end
 
 select
   when mode = "scan" then call diagnostic_message "batch-md-rexx: scanning " || input_path
   when mode = "validate" then call diagnostic_message "batch-md-rexx: validating " || input_path
-  otherwise call diagnostic_message "batch-md-rexx: rendering " || input_path || " -> " || output_path
+  otherwise do
+    if pdf = 1 then call diagnostic_message "batch-md-rexx: rendering PDF " || input_path || " -> " || output_path
+    else call diagnostic_message "batch-md-rexx: rendering " || format || " " || input_path || " -> " || output_path
+  end
 end
 
 renderer_command = shell_quote(crexx_bin) || " -nokeep " || shell_quote(renderer) || " -args"
 if mode = "scan" then renderer_command = renderer_command || " --scan"
 if mode = "validate" then renderer_command = renderer_command || " --validate"
 if mode = "html" | mode = "validate" then do
+  renderer_command = renderer_command || " --format " || shell_quote(format)
   renderer_command = renderer_command || " --the " || shell_quote(the_bin)
   renderer_command = renderer_command || " --home " || shell_quote(the_home)
   renderer_command = renderer_command || " --crexx " || shell_quote(crexx_bin)
   renderer_command = renderer_command || " --parser " || shell_quote(parser)
   renderer_command = renderer_command || " --parser-command " || shell_quote(parser_command)
+  if rxas_parser_command <> "" then renderer_command = renderer_command || " --rxas-parser-command " || shell_quote(rxas_parser_command)
   do pai = 1 to parser_arg_values.0
     renderer_command = renderer_command || " --parser-arg " || shell_quote(parser_arg_values[pai])
   end
@@ -152,11 +191,27 @@ if render_rc <> 0 then do
 end
 
 if mode = "html" then do
-  if write_lines_to_file(output_path, render_out) <> 0 then do
-    call diagnostic_message "batch-md-rexx: could not write output file: " || output_path
-    exit 2
+  if pdf = 1 then do
+    temp_dir = make_temp_dir()
+    if temp_dir = "" then exit 2
+    tex_path = temp_dir || "/document.tex"
+    if write_lines_to_file(tex_path, render_out) <> 0 then do
+      call remove_tree temp_dir
+      call diagnostic_message "batch-md-rexx: could not write temporary TeX file"
+      exit 2
+    end
+    pdf_rc = compile_pdf(tex_path, temp_dir, output_path, pdf_engine)
+    call remove_tree temp_dir
+    if pdf_rc <> 0 then exit pdf_rc
+    call diagnostic_message "batch-md-rexx: wrote " || output_path
   end
-  call diagnostic_message "batch-md-rexx: wrote " || output_path
+  else do
+    if write_lines_to_file(output_path, render_out) <> 0 then do
+      call diagnostic_message "batch-md-rexx: could not write output file: " || output_path
+      exit 2
+    end
+    call diagnostic_message "batch-md-rexx: wrote " || output_path
+  end
 end
 else if mode = "scan" then do
   if output_path <> "" then do
@@ -177,7 +232,7 @@ exit 0
 usage_error: procedure
   arg message = .string
   call diagnostic_message "batch-md-rexx: " || message
-  call diagnostic_message "usage: batch-md-rexx [--scan|--validate] [--renderer RENDERER] [--the THE] [--home THE_HOME] [--crexx CREXX] [--parser NAME] [--parser-command COMMAND] [--parser-arg ARG] [--template-dir DIR] [--timeout MS] markdown-file [output.html]"
+  call diagnostic_message "usage: batch-md-rexx [--scan|--validate] [--format html|tex] [--pdf] [--pdf-engine auto|tectonic|latexmk] [--renderer RENDERER] [--the THE] [--home THE_HOME] [--crexx CREXX] [--parser NAME] [--parser-command COMMAND] [--rxas-parser-command COMMAND] [--parser-arg ARG] [--template-dir DIR] [--timeout MS] markdown-file [output]"
   exit 2
 return
 
@@ -215,7 +270,8 @@ return 0
 
 write_lines_to_file: procedure = .int
   arg path = .string, lines = .string[]
-  if lines.0 = 0 then return create_empty_file(path)
+  if create_empty_file(path) <> 0 then return 1
+  if lines.0 = 0 then return 0
   do wi = 1 to lines.0
     write_rc = lineout(path, lines[wi])
     if write_rc <> 0 then return 1
@@ -241,14 +297,103 @@ write_stem: procedure
   end
 return
 
-default_output_path: procedure = .string
+make_temp_dir: procedure = .string
+  mkout = .string[]
+  mkerr = .string[]
+  address command "mktemp -d /tmp/the-batch-md-rexx-pdf.XXXXXX" output mkout error mkerr
+  if rc <> 0 | mkout.0 = 0 | mkout[1] = "" then do
+    call diagnostic_message "batch-md-rexx: mktemp failed while preparing PDF output"
+    call write_stem "stderr", mkerr
+    return ""
+  end
+return mkout[1]
+
+compile_pdf: procedure = .int
+  arg tex_path = .string, temp_dir = .string, output_path = .string, requested_engine = .string
+  engine = resolve_pdf_engine(requested_engine)
+  if engine = "" then return 2
+
+  pdf_path = temp_dir || "/document.pdf"
+  engine_name = command_basename(engine)
+  compile_command = ""
+  if engine_name = "latexmk" then do
+    compile_command = shell_quote(engine) || " -pdf -interaction=nonstopmode -halt-on-error -outdir=" || shell_quote(temp_dir) || " " || shell_quote(tex_path)
+  end
+  else do
+    compile_command = shell_quote(engine) || " --outdir " || shell_quote(temp_dir) || " " || shell_quote(tex_path)
+  end
+
+  call diagnostic_message "batch-md-rexx: compiling PDF with " || engine_name
+  compile_lines = .string[]
+  compile_lines[1] = compile_command
+  compile_out = .string[]
+  compile_err = .string[]
+  address command "sh" input compile_lines output compile_out error compile_err
+  compile_rc = rc
+  if compile_rc <> 0 then do
+    call write_stem "stdout", compile_out
+    call write_stem "stderr", compile_err
+    call diagnostic_message "batch-md-rexx: PDF compiler failed with rc " || compile_rc
+    return compile_rc
+  end
+
+  if readable_file(pdf_path) = 0 then do
+    call write_stem "stdout", compile_out
+    call write_stem "stderr", compile_err
+    call diagnostic_message "batch-md-rexx: PDF compiler did not produce " || pdf_path
+    return 2
+  end
+
+  copy_lines = .string[]
+  copy_lines[1] = "cp " || shell_quote(pdf_path) || " " || shell_quote(output_path)
+  copy_out = .string[]
+  copy_err = .string[]
+  address command "sh" input copy_lines output copy_out error copy_err
+  if rc <> 0 then do
+    call write_stem "stderr", copy_err
+    call diagnostic_message "batch-md-rexx: could not write PDF output: " || output_path
+    return 2
+  end
+return 0
+
+resolve_pdf_engine: procedure = .string
+  arg requested_engine = .string
+  if requested_engine = "" then requested_engine = "auto"
+  if requested_engine = "auto" then do
+    if command_available("tectonic") = 1 then return "tectonic"
+    if command_available("latexmk") = 1 then return "latexmk"
+    call diagnostic_message "batch-md-rexx: no PDF engine found; install tectonic or latexmk, or generate --format tex"
+    return ""
+  end
+  if command_available(requested_engine) = 1 then return requested_engine
+  call diagnostic_message "batch-md-rexx: PDF engine not found or not executable: " || requested_engine
+return ""
+
+command_basename: procedure = .string
   arg path = .string
   slash = lastpos("/", path)
   backslash = lastpos("\", path)
   if backslash > slash then slash = backslash
+  if slash = 0 then return path
+return substr(path, slash + 1)
+
+remove_tree: procedure
+  arg path = .string
+  if path = "" then return
+  command_lines = .string[]
+  command_lines[1] = "rm -rf " || shell_quote(path)
+  address command "sh" input command_lines
+return
+
+default_output_path: procedure = .string
+  arg path = .string, extension = .string
+  if extension = "" then extension = "html"
+  slash = lastpos("/", path)
+  backslash = lastpos("\", path)
+  if backslash > slash then slash = backslash
   dot = lastpos(".", path)
-  if dot > slash then return substr(path, 1, dot - 1) || ".html"
-return path || ".html"
+  if dot > slash then return substr(path, 1, dot - 1) || "." || extension
+return path || "." || extension
 
 document_directory: procedure = .string
   arg path = .string
