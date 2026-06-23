@@ -15,6 +15,9 @@ parser_args = ""
 rxas_parser_command = ""
 template_dir = ""
 timeout = "5000"
+source_language = ""
+include_style = "false"
+include_wrapper = "true"
 
 ai = 1
 do while ai <= args.0
@@ -22,11 +25,12 @@ do while ai <= args.0
   select
     when token = "--scan" then mode = "scan"
     when token = "--validate" then mode = "validate"
+    when token = "--highlight-source" then mode = "highlight-source"
     when token = "--format" then do
       ai = ai + 1
       if ai > args.0 then call usage_error "--format needs a value"
       format = args[ai]
-      if format <> "html" & format <> "tex" then call usage_error "--format must be html or tex"
+      if format <> "html" & format <> "tex" & format <> "tex-fragment" then call usage_error "--format must be html, tex, or tex-fragment"
     end
     when token = "--the" then do
       ai = ai + 1
@@ -74,6 +78,21 @@ do while ai <= args.0
       if ai > args.0 then call usage_error "--timeout needs a value"
       timeout = args[ai]
     end
+    when token = "--language" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--language needs a value"
+      source_language = lower(args[ai])
+    end
+    when token = "--include-style" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--include-style needs a value"
+      include_style = lower(args[ai])
+    end
+    when token = "--include-wrapper" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--include-wrapper needs a value"
+      include_wrapper = lower(args[ai])
+    end
     otherwise do
       if path = "" then path = token
       else call usage_error "unexpected argument: " || token
@@ -82,18 +101,34 @@ do while ai <= args.0
   ai = ai + 1
 end
 
-if path = "" then call usage_error "markdown-file is required"
+if path = "" then call usage_error "input-file is required"
 if crexx_bin = "" then crexx_bin = "crexx"
 if parser_command = "" then parser_command = parser
 if parser_args = "" then parser_args = "--syntaxhighlight"
 if positive_integer(timeout) = 0 then call usage_error "--timeout must be a positive integer"
-if mode = "html" | mode = "validate" then do
+if include_style <> "true" & include_style <> "false" then call usage_error "--include-style must be true or false"
+if include_wrapper <> "true" & include_wrapper <> "false" then call usage_error "--include-wrapper must be true or false"
+if mode = "highlight-source" then do
+  if format = "html" then format = "tex-fragment"
+  if format <> "tex-fragment" then call usage_error "--highlight-source only supports --format tex-fragment"
+  if source_language = "" then source_language = language_for_path(path)
+  if source_language = "" then call usage_error "--language is required when the source extension is unknown"
+  if is_fragment_language(source_language) = 0 then call usage_error "unsupported source language: " || source_language
+end
+else do
+  if format = "tex-fragment" then call usage_error "--format tex-fragment requires --highlight-source"
+end
+if mode = "html" | mode = "validate" | mode = "highlight-source" then do
   if the_bin = "" then call usage_error "--the is required for rendering"
   if the_home = "" then call usage_error "--home is required for rendering"
 end
 if mode = "html" then do
   if template_dir = "" then template_dir = default_template_dir(format)
   if validate_template_dir(format, template_dir) <> 0 then exit 2
+end
+if mode = "highlight-source" then do
+  if template_dir = "" then template_dir = default_template_dir("tex")
+  if validate_fragment_template_dir(template_dir) <> 0 then exit 2
 end
 
 source = .string[]
@@ -105,6 +140,11 @@ do forever
   end
   if available = 0 then leave
   call arrayappend source, linein(path)
+end
+
+if mode = "highlight-source" then do
+  render_rc = render_source_fragment(path, source_language, source, the_bin, the_home, parser, parser_command, parser_args, rxas_parser_command, template_dir, timeout, include_style, include_wrapper)
+  exit render_rc
 end
 
 manifest = .string[]
@@ -125,6 +165,7 @@ usage_error: procedure
   arg message = .string
   call diagnostic_message "render-html.crexx: " || message
   call diagnostic_message "usage: render-html.crexx [--scan|--validate] [--format html|tex] [--the THE --home THE_HOME] [--crexx CREXX] [--parser NAME] [--parser-command COMMAND] [--rxas-parser-command COMMAND] [--parser-arg ARG] [--template-dir DIR] [--timeout MS] markdown-file"
+  call diagnostic_message "       render-html.crexx --highlight-source [--format tex-fragment] [--language rexx|crexx|the|rxas] [--include-style true|false] [--include-wrapper true|false] --the THE --home THE_HOME [--parser-command RXC] [--rxas-parser-command RXAS] source-file"
   exit 2
 return
 
@@ -343,6 +384,37 @@ render_document: procedure = .int
     empty_values = .string[]
     call emit_template template_dir, "document-close.tpl", empty_keys, empty_values
   end
+return 0
+
+render_source_fragment: procedure = .int
+  arg path = .string, language = .string, source_lines = .string[], the_bin = .string, the_home = .string, parser = .string, parser_command = .string, parser_args = .string, rxas_parser_command = .string, template_dir = .string, timeout = .string, include_style = .string, include_wrapper = .string
+
+  highlight_parser = parser
+  highlight_command = parser_command
+  if language = "rxas" then do
+    highlight_parser = "rxas"
+    highlight_command = rxas_fragment_command(parser_command, rxas_parser_command)
+    if highlight_command = "" then do
+      call diagnostic_message "render-html.crexx: RXAS parser command not found; pass --rxas-parser-command or set THE_CREXX_RXAS"
+      return 2
+    end
+  end
+
+  spans = .string[]
+  rc = highlight_source(path, language, source_lines, the_bin, the_home, highlight_parser, highlight_command, parser_args, timeout, "true", spans)
+  if rc <> 0 then return rc
+
+  if include_style = "true" then call emit_style "tex", template_dir
+
+  style_template = .string[]
+  call read_lines template_dir || "/style-token.tpl", style_template
+  empty_keys = .string[]
+  empty_values = .string[]
+  if include_wrapper = "true" then call emit_template template_dir, "source-open.tpl", empty_keys, empty_values
+  do line_no = 1 to source_lines.0
+    say highlighted_line_tex(source_lines[line_no], line_no, spans, style_template)
+  end
+  if include_wrapper = "true" then call emit_template template_dir, "source-close.tpl", empty_keys, empty_values
 return 0
 
 emit_style: procedure
@@ -1065,6 +1137,18 @@ rxas_command: procedure = .string
   if command_available("rxas") = 1 then return "rxas"
 return parser_command
 
+rxas_fragment_command: procedure = .string
+  arg parser_command = .string, rxas_parser_command = .string
+  if rxas_parser_command <> "" then return rxas_parser_command
+
+  parser_dir = document_directory(parser_command)
+  if parser_dir <> "" then do
+    sibling = parser_dir || "/rxas"
+    if command_available(sibling) = 1 then return sibling
+  end
+  if command_available("rxas") = 1 then return "rxas"
+return ""
+
 rc_allowed: procedure = .int
   arg allowed = .string, actual = .string
   if allowed = "*" then return 1
@@ -1443,6 +1527,24 @@ validate_template_dir: procedure = .int
   end
 return failures
 
+validate_fragment_template_dir: procedure = .int
+  arg template_dir = .string
+  required = .string[]
+  call arrayappend required, "source-open.tpl"
+  call arrayappend required, "source-close.tpl"
+  call arrayappend required, "style-token.tpl"
+  call arrayappend required, "style.tex"
+
+  failures = 0
+  do ri = 1 to required.0
+    path = template_dir || "/" || required[ri]
+    if readable_file(path) = 0 then do
+      call diagnostic_message "render-html.crexx: required fragment template not readable: " || path
+      failures = failures + 1
+    end
+  end
+return failures
+
 emit_template: procedure
   arg template_dir = .string, name = .string, keys = .string[], values = .string[]
   rendered = .string[]
@@ -1702,6 +1804,29 @@ is_example_language: procedure = .int
   arg language = .string
   if language = "rexx" | language = "crexx" | language = "the" then return 1
 return 0
+
+is_fragment_language: procedure = .int
+  arg language = .string
+  if language = "rexx" | language = "crexx" | language = "the" | language = "rxas" then return 1
+return 0
+
+language_for_path: procedure = .string
+  arg path = .string
+  extension = file_extension(path)
+  if extension = "rexx" then return "rexx"
+  if extension = "crexx" then return "crexx"
+  if extension = "the" then return "the"
+  if extension = "rxas" then return "rxas"
+return ""
+
+file_extension: procedure = .string
+  arg path = .string
+  slash = lastpos("/", path)
+  backslash = lastpos("\", path)
+  if backslash > slash then slash = backslash
+  dot = lastpos(".", path)
+  if dot = 0 | dot <= slash then return ""
+return lower(substr(path, dot + 1))
 
 is_allowed_attribute: procedure = .int
   arg key = .string

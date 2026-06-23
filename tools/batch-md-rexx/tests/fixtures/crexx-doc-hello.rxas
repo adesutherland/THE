@@ -1,0 +1,17 @@
+/*
+ * SOURCE                 : hello.crexx
+ */
+
+.globals=0
+
+main() .locals=0
+   .meta "hello.main"="b" ".void" main() ""
+   setnumdgts 18
+   setnumfuz 0
+   setnumfrm 1
+   setnumcas 1
+   setnumstd 1
+   .srcstep 1 1 17 "hello.crexx" 3 1 25 "say 'hello cRexx world!'"
+   say "hello cRexx world!"
+   .srcstep 2 2 1 "hello.crexx" 3 25 25 "say 'hello cRexx world!'"
+   ret

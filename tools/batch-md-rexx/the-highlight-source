@@ -1,0 +1,74 @@
+#!/usr/bin/env sh
+set -eu
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+tool_dir=""
+default_the_home="${script_dir}"
+
+if [ -f "${script_dir}/render-html.crexx" ] && [ -d "${script_dir}/templates/tex/default" ]; then
+  tool_dir="${script_dir}"
+elif [ -f "${script_dir}/../share/the/batch-md-rexx/render-html.crexx" ]; then
+  tool_dir="${script_dir}/../share/the/batch-md-rexx"
+  default_the_home="${script_dir}/../share/the"
+elif [ -f "${script_dir}/batch-md-rexx/render-html.crexx" ]; then
+  tool_dir="${script_dir}/batch-md-rexx"
+fi
+
+if [ -z "${tool_dir}" ]; then
+  echo "the-highlight-source: could not locate render-html.crexx" >&2
+  exit 2
+fi
+
+CREXX_CMD=${CREXX:-crexx}
+THE_CMD=${THE_BIN:-the}
+THE_HOME_CMD=${THE_HOME_DIR:-${default_the_home}}
+
+if [ "${THE_CREXX_RXC:-}" ]; then
+  RXC_CMD=${THE_CREXX_RXC}
+else
+  crexx_dir=$(CDPATH= cd -- "$(dirname -- "${CREXX_CMD}")" 2>/dev/null && pwd || :)
+  if [ -n "${crexx_dir}" ] && [ -x "${crexx_dir}/rxc" ]; then
+    RXC_CMD="${crexx_dir}/rxc"
+  else
+    RXC_CMD=rxc
+  fi
+fi
+
+RXAS_CMD=""
+if [ "${THE_CREXX_RXAS:-}" ]; then
+  RXAS_CMD=${THE_CREXX_RXAS}
+else
+  rxc_dir=$(CDPATH= cd -- "$(dirname -- "${RXC_CMD}")" 2>/dev/null && pwd || :)
+  if [ -n "${rxc_dir}" ] && [ -x "${rxc_dir}/rxas" ]; then
+    RXAS_CMD="${rxc_dir}/rxas"
+  elif command -v rxas >/dev/null 2>&1; then
+    RXAS_CMD=$(command -v rxas)
+  fi
+fi
+
+if [ -n "${RXAS_CMD}" ]; then
+  exec env -u CREXX -u THE_BIN -u THE_HOME_DIR -u THE_CREXX_RXC -u THE_CREXX_RXAS \
+    "${CREXX_CMD}" -nokeep "${tool_dir}/render-html.crexx" -args \
+    --highlight-source \
+    --format tex-fragment \
+    --the "${THE_CMD}" \
+    --home "${THE_HOME_CMD}" \
+    --parser rxc \
+    --parser-command "${RXC_CMD}" \
+    --rxas-parser-command "${RXAS_CMD}" \
+    --parser-arg --syntaxhighlight \
+    --template-dir "${tool_dir}/templates/tex/default" \
+    "$@"
+fi
+
+exec env -u CREXX -u THE_BIN -u THE_HOME_DIR -u THE_CREXX_RXC -u THE_CREXX_RXAS \
+  "${CREXX_CMD}" -nokeep "${tool_dir}/render-html.crexx" -args \
+  --highlight-source \
+  --format tex-fragment \
+  --the "${THE_CMD}" \
+  --home "${THE_HOME_CMD}" \
+  --parser rxc \
+  --parser-command "${RXC_CMD}" \
+  --parser-arg --syntaxhighlight \
+  --template-dir "${tool_dir}/templates/tex/default" \
+  "$@"

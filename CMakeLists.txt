@@ -485,6 +485,7 @@ add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/crexxcompile.the ${RELEASE_DIR}/crexxcompile.the
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/crexxrun.the ${RELEASE_DIR}/crexxrun.the
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/the-batch-md-rexx ${RELEASE_DIR}/the-batch-md-rexx
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/the-highlight-source ${RELEASE_DIR}/the-highlight-source
     COMMAND ${CMAKE_COMMAND} -E make_directory ${RELEASE_DIR}/batch-md-rexx
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/batch-md-rexx.crexx ${RELEASE_DIR}/batch-md-rexx/batch-md-rexx.crexx
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/render-html.crexx ${RELEASE_DIR}/batch-md-rexx/render-html.crexx
@@ -531,6 +532,7 @@ if(WIN32)
     install(FILES $<TARGET_FILE:${CURSES_LIBRARIES}> DESTINATION bin)
 endif()
 install(PROGRAMS tools/batch-md-rexx/the-batch-md-rexx DESTINATION bin)
+install(PROGRAMS tools/batch-md-rexx/the-highlight-source DESTINATION bin)
 install(FILES doc/THE_Help.txt profile.the profile_crexx.the crexxcompile.the crexxrun.the DESTINATION share/the)
 install(FILES
     tools/batch-md-rexx/batch-md-rexx.crexx
@@ -840,6 +842,10 @@ set_tests_properties(test_batch_md_rexx_tex PROPERTIES
 )
 add_test(NAME test_batch_md_rexx_highlight COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_highlight.sh)
 set_tests_properties(test_batch_md_rexx_highlight PROPERTIES
+    SKIP_RETURN_CODE 77
+)
+add_test(NAME test_batch_md_rexx_highlight_source COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_highlight_source.sh)
+set_tests_properties(test_batch_md_rexx_highlight_source PROPERTIES
     SKIP_RETURN_CODE 77
 )
 if(THE_USE_CREXX)
