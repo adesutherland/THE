@@ -22,6 +22,10 @@
 #ifdef USE_CREXX
 # include <crexxsaa.h>
 
+# if !defined(CREXXSAA_ABI_VERSION) || CREXXSAA_ABI_VERSION < 3
+#  error "THE requires CREXXSAA_ABI_VERSION 3 or newer"
+# endif
+
 # ifndef THE_CREXX_RXC
 #  define THE_CREXX_RXC "rxc"
 # endif

@@ -244,6 +244,7 @@ endif()
 
 set(THE_USE_CREXX FALSE)
 if(USE_CREXX)
+    set(THE_CREXXSAA_MIN_ABI_VERSION 3)
     set(THE_CREXX_LOCAL_DEBUG_BIN "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-debug/bin")
     set(THE_CREXX_LOCAL_RELEASE_BIN "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-release/bin")
     if(CMAKE_BUILD_TYPE MATCHES "^(Release|RelWithDebInfo|MinSizeRel)$")
@@ -288,11 +289,24 @@ if(USE_CREXX)
             ${THE_CREXX_LOCAL_BIN_DIRS}
             "$ENV{HOME}/.local/bin"
     )
-    if(CREXXSAA_LIBRARY AND CREXXSAA_INCLUDE_DIR AND CREXX_RXC_EXECUTABLE AND CREXX_RXAS_EXECUTABLE AND CREXX_LIBRARY_RXBIN)
+    set(CREXXSAA_ABI_OK FALSE)
+    if(CREXXSAA_INCLUDE_DIR)
+        file(STRINGS "${CREXXSAA_INCLUDE_DIR}/crexxsaa.h" CREXXSAA_ABI_LINE
+            REGEX "^[ \t]*#define[ \t]+CREXXSAA_ABI_VERSION[ \t]+[0-9]+")
+        if(CREXXSAA_ABI_LINE)
+            string(REGEX REPLACE ".*CREXXSAA_ABI_VERSION[ \t]+([0-9]+).*" "\\1"
+                CREXXSAA_ABI_VERSION "${CREXXSAA_ABI_LINE}")
+            if(NOT CREXXSAA_ABI_VERSION LESS THE_CREXXSAA_MIN_ABI_VERSION)
+                set(CREXXSAA_ABI_OK TRUE)
+            endif()
+        endif()
+    endif()
+    if(CREXXSAA_LIBRARY AND CREXXSAA_INCLUDE_DIR AND CREXXSAA_ABI_OK AND CREXX_RXC_EXECUTABLE AND CREXX_RXAS_EXECUTABLE AND CREXX_LIBRARY_RXBIN)
         get_filename_component(CREXX_IMPORT_DIR "${CREXX_LIBRARY_RXBIN}" DIRECTORY)
         get_filename_component(CREXXSAA_LIBRARY_DIR "${CREXXSAA_LIBRARY}" DIRECTORY)
         set(THE_USE_CREXX TRUE)
         message(STATUS "Found CREXXSAA library: ${CREXXSAA_LIBRARY}")
+        message(STATUS "Found CREXXSAA ABI: ${CREXXSAA_ABI_VERSION}")
         message(STATUS "Found CREXX import directory: ${CREXX_IMPORT_DIR}")
         add_compile_definitions(
             USE_CREXX=1
@@ -302,7 +316,7 @@ if(USE_CREXX)
             THE_CREXX_LIBRARY_RXBIN="${CREXX_LIBRARY_RXBIN}"
         )
     else()
-        message(STATUS "CREXXSAA support disabled; missing crexxsaa, rxc, rxas, or library.rxbin")
+        message(STATUS "CREXXSAA support disabled; missing crexxsaa ABI ${THE_CREXXSAA_MIN_ABI_VERSION}+, rxc, rxas, or library.rxbin")
     endif()
 endif()
 

@@ -13,7 +13,7 @@ CREXX support is controlled by the CMake `USE_CREXX` option, which defaults to
 At configure time THE looks for:
 
 - `libcrexxsaa`
-- `crexxsaa.h`
+- `crexxsaa.h` with `CREXXSAA_ABI_VERSION` 3 or newer
 - `rxc`
 - `rxas`
 - `library.rxbin`
@@ -31,6 +31,10 @@ When CREXX support is available:
 - CREXX source profiles and macros are compiled and cached by `crexxsaa`
 - existing `.rxbin` macros can run directly
 - CREXX commands addressed to `THE` are passed to THE's normal command parser
+
+Direct `.rxbin` macros must be rebuilt with the current CREXX toolchain after
+CREXX bytecode format changes. The descriptor-based lookup change uses format
+006 and is exposed through `CREXXSAA_ABI_VERSION` 3.
 
 Hosted profiles and macros should declare their own language level and command
 environment:
