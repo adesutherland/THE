@@ -55,6 +55,12 @@ static UiSyntaxStyle screenframe_syntax_style_from_ecolour(unsigned char ecolour
          return UI_SYNTAX_TYPE;
       case ECOLOUR_CONSTANTS:
          return UI_SYNTAX_CONSTANT;
+      case ECOLOUR_MACROS:
+         return UI_SYNTAX_MACRO;
+      case ECOLOUR_MACRO_VARIABLES:
+         return UI_SYNTAX_MACRO_VARIABLE;
+      case ECOLOUR_MACRO_CONSTANTS:
+         return UI_SYNTAX_MACRO_CONSTANT;
       case ECOLOUR_PUNCTUATION:
          return UI_SYNTAX_PUNCTUATION;
       case ECOLOUR_INC_STRING:

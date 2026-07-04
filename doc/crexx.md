@@ -131,17 +131,20 @@ See [VALIDTARGET](commands/VALIDTARGET.md) for command details.
 ## Profiles
 
 The default `profile.the` is valid CREXX source and configures the editor for
-CREXX syntax highlighting through SDSLH.
+CREXX syntax highlighting through SDSLH. It registers the CREXX SDSLH parsers
+for `.rexx`, `.rex`, `.crexx`, `.crx`, `.the`, `.rxas`, and `.rxpp`.
+RXPP files use `rxpp-sh`, which keeps editor highlighting responsive while
+RXPP/rxc diagnostics are projected back onto the authored `.rxpp` buffer.
 
-`profile_crexx.the` is an optional CREXX-focused profile for daily CREXX work.
-It keeps the default editing/theme setup and adds convenience bindings:
+`profile_crexx.the` is a compatibility/convenience profile. It keeps the
+default editing/theme setup and adds CREXX workflow key bindings:
 
 - `F8`: compile the current file with `crexx -noexec`
 - `F9`: save and run the current file with `crexx`
 - `F10`: list the `crexxsaa` source cache
 - `F11`: print the `crexxsaa` cache location
 
-Use it explicitly:
+Use the convenience profile explicitly when those bindings are wanted:
 
 ```sh
 the -p ~/.local/share/the/profile_crexx.the myprog.rexx

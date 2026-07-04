@@ -1974,6 +1974,12 @@ static const char *stylespans_style_name_from_token(int token_type)
          return "function";
       case LEXER_CONSTANT_IDENTIFIER:
          return "constant";
+      case LEXER_MACRO_IDENTIFIER:
+         return "macro-name";
+      case LEXER_MACRO_VARIABLE:
+         return "macro-variable";
+      case LEXER_MACRO_CONSTANT:
+         return "macro-constant";
       case LEXER_IDENTIFIER:
          return "identifier";
       case LEXER_OPERATOR:
@@ -2405,6 +2411,18 @@ short extract_synelem( short number_variables, short itemno, CHARTYPE *itemargs,
       case ECOLOUR_CONSTANTS:
          item_values[1].value = (CHARTYPE *)"CONSTANT";
          item_values[1].len = 8;
+         break;
+      case ECOLOUR_MACROS:
+         item_values[1].value = (CHARTYPE *)"MACRO";
+         item_values[1].len = 5;
+         break;
+      case ECOLOUR_MACRO_VARIABLES:
+         item_values[1].value = (CHARTYPE *)"MACROVARIABLE";
+         item_values[1].len = 13;
+         break;
+      case ECOLOUR_MACRO_CONSTANTS:
+         item_values[1].value = (CHARTYPE *)"MACROCONSTANT";
+         item_values[1].len = 13;
          break;
       case ECOLOUR_PUNCTUATION:
          item_values[1].value = (CHARTYPE *)"PUNCTUATION";

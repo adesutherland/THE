@@ -30,6 +30,9 @@ The table below describes the definitive list of acceptable descriptive syntax e
 | **`preprocessor`** or **`macro`** | `F` | _N/A_ | Preprocessor directives |
 | **`header`** | `G` | _N/A_ | Section headers |
 | **`paren`** or **`operator`** or **`match`** | `I` | `LEXER_OPERATOR*` | Punctuation, math, and assignments |
+| **`macro_name`** or **`macro_identifier`** | `O` | `LEXER_MACRO_IDENTIFIER` | Macro names and calls |
+| **`macro_variable`** or **`macro_var`** | `P` | `LEXER_MACRO_VARIABLE` | Macro/template variables |
+| **`macro_constant`** | `Q` | `LEXER_MACRO_CONSTANT` | Macro-time constants |
 | **`function`** | `V` | `PARSE_TREE_FUNCTION` | Function and method names |
 | **`incomplete_string`** | `S` | _N/A_ | Unclosed string literals |
 | **`html_tag`** | `T` | _N/A_ | XML/HTML Tag names |

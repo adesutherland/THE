@@ -27,7 +27,13 @@ address the
 'SET SDSLH rxc ~/.local/bin/rxc --syntaxhighlight'
 'SET AUTOCOLOR *.rexx rxc'
 'SET AUTOCOLOR *.rex rxc'
+'SET AUTOCOLOR *.crexx rxc'
+'SET AUTOCOLOR *.crx rxc'
 'SET AUTOCOLOR *.the rxc'
+
+/* Load RXPP Preprocessor Parser Wrapper */
+'SET SDSLH rxpp ~/.local/bin/rxpp-sh --syntaxhighlight'
+'SET AUTOCOLOR *.rxpp rxpp'
 
 /* Load cREXX Assembler in Parser Mode */
 'SET SDSLH rxas ~/.local/bin/rxas --syntaxhighlight'
@@ -98,6 +104,9 @@ address the
 'set ecolor type #4EC9B0 on #1E1E1E'
 'set ecolor function #DCDCAA on #1E1E1E'
 'set ecolor constant #4FC1FF on #1E1E1E'
+'set ecolor macro_name #DCDCAA on #1E1E1E'
+'set ecolor macro_variable #4FC1FF on #1E1E1E'
+'set ecolor macro_constant #B5CEA8 on #1E1E1E'
 'set ecolor identifier #9CDCFE on #1E1E1E'
 'set ecolor number #B5CEA8 on #1E1E1E'
 'set ecolor operator #D4D4D4 on #1E1E1E'

@@ -401,9 +401,9 @@ void ui_log(const char *fmt, ...);
 #define ECOLOUR_TYPES                 11
 #define ECOLOUR_CONSTANTS             12
 #define ECOLOUR_PUNCTUATION           13
-#define ECOLOUR_UNUSED_14             14
-#define ECOLOUR_UNUSED_15             15
-#define ECOLOUR_UNUSED_16             16
+#define ECOLOUR_MACROS                14
+#define ECOLOUR_MACRO_VARIABLES       15
+#define ECOLOUR_MACRO_CONSTANTS       16
 #define ECOLOUR_UNUSED_17             17
 #define ECOLOUR_INC_STRING            18
 #define ECOLOUR_HTML_TAG              19

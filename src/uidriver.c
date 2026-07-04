@@ -103,6 +103,12 @@ const char *ui_syntax_style_name(UiSyntaxStyle style)
          return "type";
       case UI_SYNTAX_CONSTANT:
          return "constant";
+      case UI_SYNTAX_MACRO:
+         return "macro-name";
+      case UI_SYNTAX_MACRO_VARIABLE:
+         return "macro-variable";
+      case UI_SYNTAX_MACRO_CONSTANT:
+         return "macro-constant";
       case UI_SYNTAX_PUNCTUATION:
          return "punctuation";
       case UI_SYNTAX_FUNCTION:

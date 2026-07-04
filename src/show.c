@@ -3832,6 +3832,15 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
                           case LEXER_CONSTANT_IDENTIFIER:
                               ecolour_idx = ECOLOUR_CONSTANTS;
                               break;
+                          case LEXER_MACRO_IDENTIFIER:
+                              ecolour_idx = ECOLOUR_MACROS;
+                              break;
+                          case LEXER_MACRO_VARIABLE:
+                              ecolour_idx = ECOLOUR_MACRO_VARIABLES;
+                              break;
+                          case LEXER_MACRO_CONSTANT:
+                              ecolour_idx = ECOLOUR_MACRO_CONSTANTS;
+                              break;
                           case LEXER_IDENTIFIER:
                               ecolour_idx = ECOLOUR_LABEL;
                               break;

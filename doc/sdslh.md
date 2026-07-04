@@ -14,6 +14,9 @@ This document describes how the DSL Syntax Highlighter (SDSLH) tokens map to THE
 | `TYPE_IDENTIFIER`            | `ECOLOUR_TYPES`           | `type`                    | `char`, `size_t`, `MyStruct`            |
 | `FUNCTION_IDENTIFIER`        | `ECOLOUR_FUNCTIONS`       | `function`                | `printf`, `main`                        |
 | `CONSTANT_IDENTIFIER`        | `ECOLOUR_CONSTANTS`       | `constant`                | `MAX_SIZE`, `NULL`                      |
+| `MACRO_IDENTIFIER`           | `ECOLOUR_MACROS`          | `macro_name`              | `SQUARE(...)`                           |
+| `MACRO_VARIABLE`             | `ECOLOUR_MACRO_VARIABLES` | `macro_variable`          | `{name}`                                |
+| `MACRO_CONSTANT`             | `ECOLOUR_MACRO_CONSTANTS` | `macro_constant`          | RXPP macro-time constants               |
 | `IDENTIFIER`                 | `ECOLOUR_LABEL`           | `identifier` / `label`    | Local variables, fields                 |
 | `OPERATOR_*`                 | `ECOLOUR_OPERATOR`        | `operator`                | `+`, `-`, `=`, `==`                     |
 | `SEPARATOR`, `STATEMENT_SEP` | `ECOLOUR_PUNCTUATION`     | `punctuation`             | `,`, `;`                                |
@@ -33,6 +36,9 @@ By default, `profile.the` maps these areas to a modern dark theme inspired by VS
 'set ecolor type #4EC9B0 on #1E1E1E'
 'set ecolor function #DCDCAA on #1E1E1E'
 'set ecolor constant #4FC1FF on #1E1E1E'
+'set ecolor macro_name #DCDCAA on #1E1E1E'
+'set ecolor macro_variable #4FC1FF on #1E1E1E'
+'set ecolor macro_constant #B5CEA8 on #1E1E1E'
 'set ecolor identifier #9CDCFE on #1E1E1E'
 'set ecolor number #B5CEA8 on #1E1E1E'
 'set ecolor operator #D4D4D4 on #1E1E1E'
@@ -44,8 +50,8 @@ By default, `profile.the` maps these areas to a modern dark theme inspired by VS
 ```
 
 `ECOLOR` settings are inherited by files opened later in the file ring, so a
-profile's syntax theme applies consistently across mixed `.rexx`, `.rxas`, and
-other SDSLH-backed files.
+profile's syntax theme applies consistently across mixed `.rexx`, `.rxpp`,
+`.rxas`, and other SDSLH-backed files.
 
 ## Note on Bracket Matching (`ECOLOUR_MATCH`)
 Unlike other tokens which are determined directly by the external parser, `ECOLOUR_MATCH` is applied dynamically by THE's rendering engine when the user's cursor is positioned directly over a structural parenthesis, brace, or bracket. It replaces the classic `A_REVERSE` logic to allow full 24-bit RGB customization of the match indicator.
