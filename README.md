@@ -39,6 +39,27 @@ make install
 
 By default, the `install` target will stage the `the` executable and the necessary configuration files (like `THE_Help.txt`, `syntax/` highlights, `profile.the`, and the optional CREXX helper profile/macros) into a standard release directory structure.
 
+On Windows, the default install prefix is `%USERPROFILE%\.local`, matching the
+local CREXX and DSLSH installs. After installing, configure the current
+PowerShell session with:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+.\tools\the-env.ps1
+```
+
+To persist the same setup for new terminals and IDE launches:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\the-env.ps1 -PersistUser
+```
+
+The script adds `%USERPROFILE%\.local\bin` to `Path` and sets THE/CREXX runtime
+variables including `THE_HOME_DIR`, `THE_DRIVER_PATH`, `CREXX_HOME`, and the
+`THE_CREXX_*` tool paths. The install target also copies the script to
+`%USERPROFILE%\.local\bin\the-env.ps1`. Restart CLion after persisting the
+environment if it was already running.
+
 The default UI is curses:
 
 ```bash

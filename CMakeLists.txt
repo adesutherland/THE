@@ -554,6 +554,9 @@ if(WIN32)
 endif()
 install(PROGRAMS tools/batch-md-rexx/the-batch-md-rexx DESTINATION bin)
 install(PROGRAMS tools/batch-md-rexx/the-highlight-source DESTINATION bin)
+if(WIN32)
+    install(PROGRAMS tools/the-env.ps1 DESTINATION bin)
+endif()
 install(FILES doc/THE_Help.txt profile.the profile_crexx.the crexxcompile.the crexxrun.the DESTINATION share/the)
 install(FILES
     tools/batch-md-rexx/batch-md-rexx.crexx
