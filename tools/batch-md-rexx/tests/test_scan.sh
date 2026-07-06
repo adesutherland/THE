@@ -63,6 +63,13 @@ assert_empty_stderr() {
   [[ ! -s "${WORK_DIR}/${name}.err" ]] || fail "${name}: expected stderr to be empty"
 }
 
+assert_rg() {
+  local pattern="$1"
+  local file="$2"
+
+  sed 's/\r$//' "${file}" | rg "${pattern}" >/dev/null
+}
+
 cat > "${WORK_DIR}/scan-valid.md" <<'EOF_VALID'
 # Scanner
 
@@ -88,11 +95,11 @@ EOF_VALID
 run_crexx_capture scan-valid "${RENDERER_UNDER_TEST}" -args --scan "${WORK_DIR}/scan-valid.md"
 assert_rc scan-valid 0
 assert_empty_stderr scan-valid
-rg '^markdown start=1 end=8$' "${WORK_DIR}/scan-valid.out" >/dev/null
-rg '^example id=tilde\.one language=rexx opening=9 body-start=10 body-end=10 closing=11 run=false kind=standalone output=text allow-rc=0 fail-on-diagnostics=true$' "${WORK_DIR}/scan-valid.out" >/dev/null
-rg '^markdown start=12 end=12$' "${WORK_DIR}/scan-valid.out" >/dev/null
-rg '^example id=quoted\.one language=crexx opening=13 body-start=14 body-end=14 closing=15 run=false kind=standalone output=text allow-rc=0 fail-on-diagnostics=false timeout=25$' "${WORK_DIR}/scan-valid.out" >/dev/null
-rg '^markdown start=16 end=19$' "${WORK_DIR}/scan-valid.out" >/dev/null
+assert_rg '^markdown start=1 end=8$' "${WORK_DIR}/scan-valid.out"
+assert_rg '^example id=tilde\.one language=rexx opening=9 body-start=10 body-end=10 closing=11 run=false kind=standalone output=text allow-rc=0 fail-on-diagnostics=true$' "${WORK_DIR}/scan-valid.out"
+assert_rg '^markdown start=12 end=12$' "${WORK_DIR}/scan-valid.out"
+assert_rg '^example id=quoted\.one language=crexx opening=13 body-start=14 body-end=14 closing=15 run=false kind=standalone output=text allow-rc=0 fail-on-diagnostics=false timeout=25$' "${WORK_DIR}/scan-valid.out"
+assert_rg '^markdown start=16 end=19$' "${WORK_DIR}/scan-valid.out"
 
 cat > "${WORK_DIR}/unterminated.md" <<'EOF_UNTERMINATED'
 # Unterminated
@@ -104,7 +111,7 @@ EOF_UNTERMINATED
 run_crexx_capture unterminated "${RENDERER_UNDER_TEST}" -args --scan "${WORK_DIR}/unterminated.md"
 assert_rc unterminated 1
 assert_empty_stdout unterminated
-rg 'unterminated\.md:3: error: unterminated fenced code block' "${WORK_DIR}/unterminated.err" >/dev/null
+assert_rg 'unterminated\.md:3: error: unterminated fenced code block' "${WORK_DIR}/unterminated.err"
 
 cat > "${WORK_DIR}/malformed.md" <<'EOF_MALFORMED'
 # Malformed
@@ -117,12 +124,12 @@ EOF_MALFORMED
 run_crexx_capture malformed "${RENDERER_UNDER_TEST}" -args --scan "${WORK_DIR}/malformed.md"
 assert_rc malformed 1
 assert_empty_stdout malformed
-rg "duplicate attribute 'id'" "${WORK_DIR}/malformed.err" >/dev/null
-rg "unknown attribute 'unknown'" "${WORK_DIR}/malformed.err" >/dev/null
-rg "expected key=value attribute, got 'loose-token'" "${WORK_DIR}/malformed.err" >/dev/null
-rg "run must be true or false, got 'yes'" "${WORK_DIR}/malformed.err" >/dev/null
-rg "invalid output name 'bad/name'" "${WORK_DIR}/malformed.err" >/dev/null
-rg "timeout must be a positive integer, got '0'" "${WORK_DIR}/malformed.err" >/dev/null
+assert_rg "duplicate attribute 'id'" "${WORK_DIR}/malformed.err"
+assert_rg "unknown attribute 'unknown'" "${WORK_DIR}/malformed.err"
+assert_rg "expected key=value attribute, got 'loose-token'" "${WORK_DIR}/malformed.err"
+assert_rg "run must be true or false, got 'yes'" "${WORK_DIR}/malformed.err"
+assert_rg "invalid output name 'bad/name'" "${WORK_DIR}/malformed.err"
+assert_rg "timeout must be a positive integer, got '0'" "${WORK_DIR}/malformed.err"
 
 cat > "${WORK_DIR}/duplicate-id.md" <<'EOF_DUPLICATE'
 ```rexx id=dup
@@ -137,7 +144,7 @@ EOF_DUPLICATE
 run_crexx_capture duplicate-id "${RENDERER_UNDER_TEST}" -args --scan "${WORK_DIR}/duplicate-id.md"
 assert_rc duplicate-id 1
 assert_empty_stdout duplicate-id
-rg "duplicate example id 'dup' first defined on line 1" "${WORK_DIR}/duplicate-id.err" >/dev/null
+assert_rg "duplicate example id 'dup' first defined on line 1" "${WORK_DIR}/duplicate-id.err"
 
 cat > "${WORK_DIR}/quoted-error.md" <<'EOF_QUOTED'
 ```rexx id="still-open
@@ -148,6 +155,6 @@ EOF_QUOTED
 run_crexx_capture quoted-error "${RENDERER_UNDER_TEST}" -args --scan "${WORK_DIR}/quoted-error.md"
 assert_rc quoted-error 1
 assert_empty_stdout quoted-error
-rg 'invalid fence attributes: unterminated quote' "${WORK_DIR}/quoted-error.err" >/dev/null
+assert_rg 'invalid fence attributes: unterminated quote' "${WORK_DIR}/quoted-error.err"
 
 echo "Batch Markdown REXX scanner test passed."

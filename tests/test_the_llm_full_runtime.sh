@@ -51,6 +51,16 @@ utf_replay_seed_debug="$work_dir/utf-replay-seed.debug"
 utf_replay_debug="$work_dir/utf-replay.debug"
 err="$work_dir/err.log"
 
+cmp_text_lines() {
+  local expected="$1"
+  local actual="$2"
+  local label="$3"
+
+  sed 's/\r$//' "$expected" > "$work_dir/${label}.expected.normalized"
+  sed 's/\r$//' "$actual" > "$work_dir/${label}.actual.normalized"
+  cmp "$work_dir/${label}.expected.normalized" "$work_dir/${label}.actual.normalized"
+}
+
 printf 'alpha beta gamma\nint main(void) { return 0; }\n' > "$sample"
 printf 'second buffer\n' > "$second"
 printf 'A\344\270\255B\n' > "$utf_box"
@@ -219,7 +229,7 @@ rg '"line":2,"cur":0,"p":"000002","t":"inserted by llm protocol"' "$llm_usabilit
 rg '"line":3,"cur":0,"p":"000003","t":"BRAVO LOWER"' "$llm_usability_out" >/dev/null
 rg '"line":4,"cur":1,"p":"000004","t":"CHARLIE LOWER"' "$llm_usability_out" >/dev/null
 printf 'DONE alpha\ninserted by llm protocol\nBRAVO LOWER\nCHARLIE LOWER\n' > "$work_dir/llm-usability.expected"
-cmp "$work_dir/llm-usability.expected" "$llm_usability"
+cmp_text_lines "$work_dir/llm-usability.expected" "$llm_usability" llm-usability
 
 printf '%s\n' \
   'command set insertmode on' \
@@ -244,7 +254,7 @@ rg '"line":1,"cur":0,"t":"A中BX中Y🇺🇸"' "$utf_entry_out" >/dev/null
 rg '"line":2,"cur":1,"t":"C中D"' "$utf_entry_out" >/dev/null
 rg '"command":"EF"' "$utf_entry_out" >/dev/null
 printf 'A\344\270\255BX\344\270\255Y\360\237\207\272\360\237\207\270\nC\344\270\255D\n' > "$work_dir/utf-entry.expected"
-cmp "$work_dir/utf-entry.expected" "$utf_entry"
+cmp_text_lines "$work_dir/utf-entry.expected" "$utf_entry" utf-entry
 
 printf '%s\n' \
   'command set utf display normal class keycap output sanitize keycap metrics output mark compressed width 1 advance 1 cursor 1 repaint 1 cursorstrategy cells replacestrategy cells' \

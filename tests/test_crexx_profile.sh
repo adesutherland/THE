@@ -60,6 +60,16 @@ run_the() {
       > "${WORK_DIR}/${name}.out" 2> "${WORK_DIR}/${name}.err"
 }
 
+cmp_text_lines() {
+  local expected="$1"
+  local actual="$2"
+  local label="$3"
+
+  sed 's/\r$//' "${expected}" > "${WORK_DIR}/${label}.expected.normalized"
+  sed 's/\r$//' "${actual}" > "${WORK_DIR}/${label}.actual.normalized"
+  cmp "${WORK_DIR}/${label}.expected.normalized" "${WORK_DIR}/${label}.actual.normalized"
+}
+
 run_the first
 grep -q "CREXX_PROFILE_HOSTED" "${WORK_DIR}/first.err"
 grep -q "CREXX_EXPOSE_FILENAME" "${WORK_DIR}/first.err"
@@ -75,7 +85,7 @@ grep -q "CREXX_EDITV_SANDBOX_ROUNDTRIP" "${WORK_DIR}/first.err"
 grep -q "CREXX_INPUTSTEM_ROUNDTRIP" "${WORK_DIR}/first.err"
 grep -q "CREXXSAA cache miss:" "${WORK_DIR}/first.err"
 printf 'alpha\n  beta # raw\ngamma\n' > "${WORK_DIR}/expected.txt"
-cmp "${WORK_DIR}/expected.txt" "${SAMPLE}"
+cmp_text_lines "${WORK_DIR}/expected.txt" "${SAMPLE}" first
 
 if ! find "${CACHE_DIR}" -name '*.rxbin' | grep -q .; then
   echo "Expected CREXXSAA cache to contain a compiled rxbin" >&2
@@ -94,7 +104,7 @@ grep -q "CREXX_VALIDTARGET_NOTFOUND" "${WORK_DIR}/second.err"
 grep -q "CREXX_EDITV_SANDBOX_ROUNDTRIP" "${WORK_DIR}/second.err"
 grep -q "CREXX_INPUTSTEM_ROUNDTRIP" "${WORK_DIR}/second.err"
 grep -q "CREXXSAA cache hit:" "${WORK_DIR}/second.err"
-cmp "${WORK_DIR}/expected.txt" "${SAMPLE}"
+cmp_text_lines "${WORK_DIR}/expected.txt" "${SAMPLE}" second
 
 cat > "${PROFILE}" <<'PROFILE_EOF'
 options levelb

@@ -219,9 +219,7 @@ extern CHARTYPE       *the_version,
                       *term_name;
 extern CHARTYPE       *tempfilename;
 extern short          colour_offset_bits;
-#if defined(UNIX)
 extern CHARTYPE       user_home_dir[MAX_FILE_NAME+1];
-#endif
 #if !defined(MULTIPLE_PSEUDO_FILES)
 extern CHARTYPE       *rexxoutname,
                       *keyfilename,

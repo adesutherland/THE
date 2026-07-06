@@ -160,7 +160,12 @@ printf 'fake pdf for %s\n' "${input}" > "${outdir}/$(basename "${input}" .tex).p
 EOF_TECTONIC
 chmod +x "${WORK_DIR}/fakebin/tectonic"
 
-run_capture pdf env "PATH=${WORK_DIR}/fakebin:${PATH}" "${env_args[@]}" "${RUNNER}" --pdf --pdf-engine auto "${WORK_DIR}/tex.md" "${WORK_DIR}/runner.pdf"
+fakebin_path="${WORK_DIR}/fakebin"
+if command -v cygpath >/dev/null 2>&1; then
+  fakebin_path="$(cygpath -u "${fakebin_path}")"
+fi
+
+run_capture pdf env "PATH=${fakebin_path}:${PATH}" "${env_args[@]}" "${RUNNER}" --pdf --pdf-engine auto "${WORK_DIR}/tex.md" "${WORK_DIR}/runner.pdf"
 assert_rc pdf 0
 [[ ! -s "${WORK_DIR}/pdf.out" ]] || fail "pdf: expected stdout to be empty"
 rg 'batch-md-rexx: compiling PDF with tectonic' "${WORK_DIR}/pdf.err" >/dev/null

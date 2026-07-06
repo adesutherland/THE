@@ -45,6 +45,7 @@ typedef const TheDriverModuleLifecycle *(*TheDriverModuleLifecycleFn)(void);
 const TheDriverOps *the_driver = NULL;
 
 static const TheDriverModuleLifecycle *current_lifecycle = NULL;
+static int current_lifecycle_started = 0;
 static char current_driver_name[32];
 
 #if defined(_WIN32)
@@ -287,6 +288,7 @@ static int select_static_driver(const char *name)
    {
       the_driver_select(&the_curses_driver_ops);
       current_lifecycle = &the_curses_driver_lifecycle;
+      current_lifecycle_started = 0;
       snprintf(current_driver_name, sizeof(current_driver_name), "%s", name);
       return 1;
    }
@@ -296,6 +298,7 @@ static int select_static_driver(const char *name)
    {
       the_driver_select(&the_headless_driver_ops);
       current_lifecycle = &the_headless_driver_lifecycle;
+      current_lifecycle_started = 0;
       snprintf(current_driver_name, sizeof(current_driver_name), "%s", name);
       return 1;
    }
@@ -307,6 +310,7 @@ void the_driver_select(const TheDriverOps *ops)
 {
    the_driver = ops;
    current_lifecycle = NULL;
+   current_lifecycle_started = 0;
    current_driver_name[0] = '\0';
 }
 
@@ -353,12 +357,12 @@ int the_driver_load(const char *name, const char *argv0,
 
 int the_driver_use_curses(void)
 {
-   return the_driver_load("curses", NULL, NULL, 0);
+   return select_static_driver("curses");
 }
 
 int the_driver_use_headless(void)
 {
-   return the_driver_load("llm", NULL, NULL, 0);
+   return select_static_driver("llm");
 }
 
 int the_driver_is_curses(void)
@@ -389,6 +393,7 @@ int the_driver_read_legacy_key(void)
 int the_driver_start(const TheDriverStartupOptions *options,
                      char *error, size_t error_len)
 {
+   current_lifecycle_started = 0;
    if (current_lifecycle != NULL && current_lifecycle->activate != NULL
    &&  !current_lifecycle->activate())
    {
@@ -396,7 +401,13 @@ int the_driver_start(const TheDriverStartupOptions *options,
       return 0;
    }
    if (current_lifecycle != NULL && current_lifecycle->start != NULL)
-      return current_lifecycle->start(options, error, error_len);
+   {
+      int started = current_lifecycle->start(options, error, error_len);
+      current_lifecycle_started = started ? 1 : 0;
+      return started;
+   }
+   if (current_lifecycle != NULL)
+      current_lifecycle_started = 1;
    return 1;
 }
 
@@ -404,6 +415,7 @@ void the_driver_shutdown(int prompt_on_error)
 {
    if (current_lifecycle != NULL && current_lifecycle->shutdown != NULL)
       current_lifecycle->shutdown(prompt_on_error);
+   current_lifecycle_started = 0;
 }
 
 void the_driver_signal_shutdown(void)
@@ -416,6 +428,7 @@ void the_driver_close_module(void)
 {
    the_driver = NULL;
    current_lifecycle = NULL;
+   current_lifecycle_started = 0;
    current_driver_name[0] = '\0';
    if (current_module != NULL)
    {
@@ -702,7 +715,9 @@ void the_driver_nap_ms(int milliseconds)
 {
    if (milliseconds <= 0)
       return;
-   if (current_lifecycle != NULL && current_lifecycle->nap_ms != NULL)
+   if (current_lifecycle_started
+   &&  current_lifecycle != NULL
+   &&  current_lifecycle->nap_ms != NULL)
    {
       current_lifecycle->nap_ms(milliseconds);
       return;

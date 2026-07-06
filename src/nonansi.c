@@ -298,11 +298,124 @@ void convert_equals_in_filename(CHARTYPE *outfilename,CHARTYPE *infilename)
 }
 
 #if defined(WIN32) && !defined(__CYGWIN32__)
+static bool windows_path_separator(char ch)
+{
+   return ch == '/' || ch == '\\';
+}
+
+static void copy_windows_path(CHARTYPE *out, size_t out_len, const char *in)
+{
+   size_t i;
+
+   if (out == NULL || out_len == 0)
+      return;
+   if (in == NULL)
+      in = "";
+   for (i = 0; i + 1 < out_len && in[i] != '\0'; i++)
+      out[i] = windows_path_separator(in[i]) ? (CHARTYPE)'\\' : (CHARTYPE)in[i];
+   out[i] = '\0';
+}
+
+static void join_windows_path_tail(CHARTYPE *out, size_t out_len,
+                                   const char *base, const char *tail)
+{
+   size_t used;
+
+   copy_windows_path(out, out_len, base);
+   if (out == NULL || out_len == 0 || tail == NULL)
+      return;
+   while (windows_path_separator(*tail))
+      tail++;
+   if (*tail == '\0')
+      return;
+   used = strlen((DEFCHAR *)out);
+   if (used > 0 && !windows_path_separator((char)out[used - 1])
+   &&  used + 1 < out_len)
+      out[used++] = (CHARTYPE)'\\';
+   while (used + 1 < out_len && *tail != '\0')
+   {
+      out[used++] = windows_path_separator(*tail)
+                  ? (CHARTYPE)'\\' : (CHARTYPE)*tail;
+      tail++;
+   }
+   out[used] = '\0';
+}
+
+static bool copy_windows_env_path(CHARTYPE *out, size_t out_len,
+                                  const char *env_name, const char *tail)
+{
+   const char *base = getenv(env_name);
+
+   if (base == NULL || *base == '\0')
+      return false;
+   join_windows_path_tail(out, out_len, base, tail);
+   return true;
+}
+
+static void normalize_windows_shell_path(CHARTYPE *out, size_t out_len,
+                                         const CHARTYPE *filename)
+{
+   const char *src = (const char *)filename;
+   char drive[4];
+
+   if (out == NULL || out_len == 0)
+      return;
+   if (src == NULL)
+   {
+      out[0] = '\0';
+      return;
+   }
+   if (src[0] == '~' && windows_path_separator(src[1]))
+   {
+      if (copy_windows_env_path(out, out_len, "USERPROFILE", src + 2)
+      ||  copy_windows_env_path(out, out_len, "HOME", src + 2))
+         return;
+   }
+   if (windows_path_separator(src[0])
+   &&  tolower((unsigned char)src[1]) == 'm'
+   &&  tolower((unsigned char)src[2]) == 'n'
+   &&  tolower((unsigned char)src[3]) == 't'
+   &&  windows_path_separator(src[4])
+   &&  isalpha((unsigned char)src[5])
+   &&  windows_path_separator(src[6]))
+   {
+      drive[0] = (char)toupper((unsigned char)src[5]);
+      drive[1] = ':';
+      drive[2] = '\\';
+      drive[3] = '\0';
+      join_windows_path_tail(out, out_len, drive, src + 7);
+      return;
+   }
+   if (windows_path_separator(src[0])
+   &&  tolower((unsigned char)src[1]) == 't'
+   &&  tolower((unsigned char)src[2]) == 'm'
+   &&  tolower((unsigned char)src[3]) == 'p'
+   &&  (src[4] == '\0' || windows_path_separator(src[4])))
+   {
+      if (copy_windows_env_path(out, out_len, "TMP", src + 4)
+      ||  copy_windows_env_path(out, out_len, "TEMP", src + 4))
+         return;
+   }
+   if (windows_path_separator(src[0])
+   &&  isalpha((unsigned char)src[1])
+   &&  windows_path_separator(src[2]))
+   {
+      drive[0] = (char)toupper((unsigned char)src[1]);
+      drive[1] = ':';
+      drive[2] = '\\';
+      drive[3] = '\0';
+      join_windows_path_tail(out, out_len, drive, src + 3);
+      return;
+   }
+   copy_windows_path(out, out_len, src);
+}
+
 /***********************************************************************/
 short splitpath(CHARTYPE *filename)
 /***********************************************************************/
 {
    LENGTHTYPE len=0;
+   CHARTYPE _THE_FAR normalized_filename[MAX_FILE_NAME+1] ;
    CHARTYPE _THE_FAR work_filename[MAX_FILE_NAME+1] ;
    CHARTYPE _THE_FAR conv_filename[MAX_FILE_NAME+1] ;
    CHARTYPE _THE_FAR current_dir[MAX_FILE_NAME+1] ;
@@ -311,6 +424,9 @@ short splitpath(CHARTYPE *filename)
 
    TRACE_FUNCTION("nonansi.c: splitpath");
 
+   normalize_windows_shell_path(normalized_filename,
+                                sizeof(normalized_filename), filename);
+   filename = normalized_filename;
    if ( strlen( (DEFCHAR *)filename ) > MAX_FILE_NAME )
    {
       TRACE_RETURN();

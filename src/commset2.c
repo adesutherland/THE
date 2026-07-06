@@ -43,6 +43,62 @@
 /*--------------------------- global data -----------------------------*/
 bool rexx_output=FALSE;
 
+static void copy_sdslh_parser_path(CHARTYPE *dest, const CHARTYPE *src)
+{
+   if (dest == NULL)
+      return;
+   dest[0] = '\0';
+   if (src == NULL)
+      return;
+#if defined(WIN32) && !defined(__CYGWIN32__)
+   if (src[0] == '~' && src[1] == '/')
+   {
+      snprintf((DEFCHAR *)dest, MAX_FILE_NAME + 1, "%s%s",
+               (DEFCHAR *)user_home_dir, (DEFCHAR *)(src + 2));
+   }
+   else if (src[0] == '/'
+   &&       isalpha((unsigned char)src[1])
+   &&       (src[2] == '/' || src[2] == '\0'))
+   {
+      snprintf((DEFCHAR *)dest, MAX_FILE_NAME + 1, "%c:%s",
+               toupper((unsigned char)src[1]), (DEFCHAR *)(src + 2));
+   }
+   else if (strncmp((DEFCHAR *)src, "/mnt/", 5) == 0
+   &&       isalpha((unsigned char)src[5])
+   &&       (src[6] == '/' || src[6] == '\0'))
+   {
+      snprintf((DEFCHAR *)dest, MAX_FILE_NAME + 1, "%c:%s",
+               toupper((unsigned char)src[5]), (DEFCHAR *)(src + 6));
+   }
+   else
+   {
+      snprintf((DEFCHAR *)dest, MAX_FILE_NAME + 1, "%s", (DEFCHAR *)src);
+   }
+   strrmdup(strtrans(dest, OSLASH, ISLASH), ISLASH, TRUE);
+   if (strlen((DEFCHAR *)dest) + 4 <= MAX_FILE_NAME
+   &&  file_readable(dest) == FALSE)
+   {
+      CHARTYPE exe_path[MAX_FILE_NAME + 1];
+
+      snprintf((DEFCHAR *)exe_path, sizeof(exe_path), "%s.exe",
+               (DEFCHAR *)dest);
+      if (file_readable(exe_path))
+         strcpy((DEFCHAR *)dest, (DEFCHAR *)exe_path);
+   }
+#else
+# if defined(UNIX)
+   if (src[0] == '~' && src[1] == '/') {
+      strcpy((DEFCHAR *)dest, (DEFCHAR *)user_home_dir);
+      strcat((DEFCHAR *)dest, (DEFCHAR *)(src + 2));
+   } else {
+      strcpy((DEFCHAR *)dest, (DEFCHAR *)src);
+   }
+# else
+   strcpy((DEFCHAR *)dest, (DEFCHAR *)src);
+# endif
+#endif
+}
+
 static void refresh_utf8_terminal_display(void)
 {
    int scrno;
@@ -2379,16 +2435,7 @@ short Sdslh(CHARTYPE *params)
    last_parser = curr;
 
    strcpy((DEFCHAR *)curr->parser_name,(DEFCHAR *)word[0]);
-#if defined(UNIX)
-   if (word[1][0] == '~' && word[1][1] == '/') {
-      strcpy((DEFCHAR *)curr->sdslh_path, (DEFCHAR *)user_home_dir);
-      strcat((DEFCHAR *)curr->sdslh_path, (DEFCHAR *)(word[1] + 2));
-   } else {
-      strcpy((DEFCHAR *)curr->sdslh_path, (DEFCHAR *)word[1]);
-   }
-#else
-   strcpy((DEFCHAR *)curr->sdslh_path,(DEFCHAR *)word[1]);
-#endif
+   copy_sdslh_parser_path(curr->sdslh_path, word[1]);
    curr->is_sdslh_parser = TRUE;
 
    if (old_parser)

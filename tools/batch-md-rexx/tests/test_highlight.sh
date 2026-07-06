@@ -88,6 +88,13 @@ assert_empty_stderr() {
   [[ ! -s "${WORK_DIR}/${name}.err" ]] || fail "${name}: expected stderr to be empty"
 }
 
+assert_rg() {
+  local pattern="$1"
+  local file="$2"
+
+  sed 's/\r$//' "${file}" | rg "${pattern}" >/dev/null
+}
+
 run_crexx_capture valid \
   "${HIGHLIGHTER_UNDER_TEST}" \
   -args \
@@ -100,14 +107,14 @@ run_crexx_capture valid \
 
 assert_rc valid 0
 assert_empty_stderr valid
-rg "highlight source=${VALID_SAMPLE} parser=rxc sdslhwait=5000 diagnostics=0" "${WORK_DIR}/valid.out" >/dev/null
-rg 'span line=1 start=0 len=7 style=preprocessor' "${WORK_DIR}/valid.out" >/dev/null
-rg 'span line=1 start=8 len=6 style=identifier' "${WORK_DIR}/valid.out" >/dev/null
-rg 'span line=2 start=0 len=3 style=keyword' "${WORK_DIR}/valid.out" >/dev/null
-rg 'span line=2 start=4 len=7 style=string' "${WORK_DIR}/valid.out" >/dev/null
-rg 'span line=3 start=0 len=13 style=comment' "${WORK_DIR}/valid.out" >/dev/null
-rg 'span line=4 start=0 len=7 style=keyword' "${WORK_DIR}/valid.out" >/dev/null
-rg 'span line=4 start=16 len=9 style=string' "${WORK_DIR}/valid.out" >/dev/null
+assert_rg 'highlight source=.*highlight-valid\.rexx parser=rxc sdslhwait=5000 diagnostics=0' "${WORK_DIR}/valid.out"
+assert_rg 'span line=1 start=0 len=7 style=preprocessor' "${WORK_DIR}/valid.out"
+assert_rg 'span line=1 start=8 len=6 style=identifier' "${WORK_DIR}/valid.out"
+assert_rg 'span line=2 start=0 len=3 style=keyword' "${WORK_DIR}/valid.out"
+assert_rg 'span line=2 start=4 len=7 style=string' "${WORK_DIR}/valid.out"
+assert_rg 'span line=3 start=0 len=13 style=comment' "${WORK_DIR}/valid.out"
+assert_rg 'span line=4 start=0 len=7 style=keyword' "${WORK_DIR}/valid.out"
+assert_rg 'span line=4 start=16 len=9 style=string' "${WORK_DIR}/valid.out"
 
 run_crexx_capture invalid \
   "${HIGHLIGHTER_UNDER_TEST}" \
@@ -121,8 +128,8 @@ run_crexx_capture invalid \
 
 assert_rc invalid 1
 assert_empty_stdout invalid
-rg 'highlight\.crexx: parser diagnostics present' "${WORK_DIR}/invalid.err" >/dev/null
-rg 'SYNTAX_ERROR' "${WORK_DIR}/invalid.err" >/dev/null
+assert_rg 'highlight\.crexx: parser diagnostics present' "${WORK_DIR}/invalid.err"
+assert_rg 'SYNTAX_ERROR' "${WORK_DIR}/invalid.err"
 
 run_crexx_capture invalid-allowed \
   "${HIGHLIGHTER_UNDER_TEST}" \
@@ -137,9 +144,9 @@ run_crexx_capture invalid-allowed \
 
 assert_rc invalid-allowed 0
 assert_empty_stderr invalid-allowed
-rg "highlight source=${INVALID_SAMPLE} parser=rxc sdslhwait=5000 diagnostics=1" "${WORK_DIR}/invalid-allowed.out" >/dev/null
-rg 'span line=1 start=0 len=7 style=preprocessor' "${WORK_DIR}/invalid-allowed.out" >/dev/null
+assert_rg 'highlight source=.*highlight-invalid\.rexx parser=rxc sdslhwait=5000 diagnostics=1' "${WORK_DIR}/invalid-allowed.out"
+assert_rg 'span line=1 start=0 len=7 style=preprocessor' "${WORK_DIR}/invalid-allowed.out"
 
-rg 'command sdslhwait ' "${HIGHLIGHTER}" >/dev/null
+assert_rg 'command sdslhwait ' "${HIGHLIGHTER}"
 
 echo "Batch Markdown REXX highlight prototype test passed."

@@ -85,6 +85,10 @@ endif()
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+if(WIN32 AND CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--stack,16777216")
+endif()
+
 # Only add warning-silencing flags for compilers that support and use them.
 # The flag below is a Clang-specific warning control; GCC (cc1) does not recognize it.
 if(CMAKE_C_COMPILER_ID MATCHES "Clang")
@@ -416,6 +420,9 @@ target_compile_definitions(${EXECUTABLE_NAME} PRIVATE
     THE_DRIVER_INSTALL_DIR="${CMAKE_INSTALL_PREFIX}/lib/the/drivers"
 )
 set_target_properties(${EXECUTABLE_NAME} PROPERTIES ENABLE_EXPORTS ON)
+if(WIN32 AND CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    target_link_options(${EXECUTABLE_NAME} PRIVATE "-Wl,--export-all-symbols")
+endif()
 target_link_libraries(${EXECUTABLE_NAME} ${CMAKE_DL_LIBS})
 if(USE_UTF8 AND USE_UTF8PROC)
     target_link_libraries(${EXECUTABLE_NAME} ${THE_UTF8PROC_TARGET})
@@ -562,21 +569,93 @@ install(DIRECTORY syntax/ DESTINATION share/the/syntax)
 
 # --- Automated Testing ---
 enable_testing()
+set(THE_BASH_HINTS)
+if(WIN32)
+    list(APPEND THE_BASH_HINTS
+        "$ENV{ProgramFiles}/Git/bin"
+        "$ENV{ProgramFiles}/Git/usr/bin"
+        "$ENV{ProgramW6432}/Git/bin"
+        "$ENV{ProgramW6432}/Git/usr/bin"
+        "C:/Program Files/Git/bin"
+        "C:/Program Files/Git/usr/bin"
+        "C:/Program Files (x86)/Git/bin"
+        "C:/Program Files (x86)/Git/usr/bin"
+        "C:/msys64/usr/bin"
+    )
+endif()
+find_program(THE_BASH_EXECUTABLE
+    NAMES bash bash.exe
+    HINTS ${THE_BASH_HINTS}
+)
+if(THE_BASH_EXECUTABLE)
+    set(THE_BASH_COMMAND "${THE_BASH_EXECUTABLE}")
+else()
+    set(THE_BASH_COMMAND bash)
+endif()
+message(STATUS "Using Bash for tests: ${THE_BASH_COMMAND}")
 set(THE_CTEST_RUNTIME_ENV
     "THE_BUILD_DIR=${CMAKE_CURRENT_BINARY_DIR}"
     "THE_BIN=$<TARGET_FILE:${EXECUTABLE_NAME}>"
     "THE_HOME_DIR=${RELEASE_DIR}"
     "THE_DRIVER_PATH=${CMAKE_CURRENT_BINARY_DIR}"
 )
+if(THE_USE_CREXX)
+    list(APPEND THE_CTEST_RUNTIME_ENV
+        "THE_CREXX_RXC=${CREXX_RXC_EXECUTABLE}"
+        "THE_CREXX_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "THE_CREXX_IMPORT_DIR=${CREXX_IMPORT_DIR}"
+        "THE_CREXX_LIBRARY_RXBIN=${CREXX_LIBRARY_RXBIN}"
+        "CREXX=${CREXX_IMPORT_DIR}/crexx.exe"
+    )
+endif()
+find_program(THE_RG_EXECUTABLE NAMES rg rg.exe)
+set(THE_CTEST_PATH_DIRS
+    "${CMAKE_CURRENT_BINARY_DIR}"
+    "${RELEASE_DIR}"
+    "${CMAKE_CURRENT_BINARY_DIR}/src/PDCursesMod/wincon"
+)
+if(THE_USE_CREXX)
+    list(APPEND THE_CTEST_PATH_DIRS
+        "${CREXX_IMPORT_DIR}"
+        "${CREXXSAA_LIBRARY_DIR}"
+    )
+endif()
+if(THE_BASH_EXECUTABLE)
+    get_filename_component(THE_BASH_DIR "${THE_BASH_EXECUTABLE}" DIRECTORY)
+    get_filename_component(THE_BASH_ROOT "${THE_BASH_DIR}" DIRECTORY)
+    list(APPEND THE_CTEST_PATH_DIRS
+        "${THE_BASH_DIR}"
+        "${THE_BASH_ROOT}/usr/bin"
+    )
+endif()
+if(THE_RG_EXECUTABLE)
+    get_filename_component(THE_RG_DIR "${THE_RG_EXECUTABLE}" DIRECTORY)
+    list(APPEND THE_CTEST_PATH_DIRS "${THE_RG_DIR}")
+endif()
+if(WIN32)
+    set(THE_CTEST_RUNTIME_PATH "$ENV{PATH}")
+    foreach(THE_CTEST_PATH_DIR IN LISTS THE_CTEST_PATH_DIRS)
+        if(THE_CTEST_PATH_DIR)
+            file(TO_NATIVE_PATH "${THE_CTEST_PATH_DIR}" THE_CTEST_PATH_DIR_NATIVE)
+            set(THE_CTEST_RUNTIME_PATH "${THE_CTEST_PATH_DIR_NATIVE};${THE_CTEST_RUNTIME_PATH}")
+        endif()
+    endforeach()
+    string(REPLACE ";" "\\;" THE_CTEST_RUNTIME_PATH "${THE_CTEST_RUNTIME_PATH}")
+    list(APPEND THE_CTEST_RUNTIME_ENV "PATH=${THE_CTEST_RUNTIME_PATH}")
+endif()
 add_test(NAME test_curses_boundary
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_curses_boundary.sh
+    COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_curses_boundary.sh
             ${CMAKE_CURRENT_SOURCE_DIR})
+set_tests_properties(test_curses_boundary PROPERTIES
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 add_test(NAME test_curses_boundary_inventory
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/inventory_direct_curses.sh
+    COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/inventory_direct_curses.sh
             --fail-on-new
             ${CMAKE_CURRENT_SOURCE_DIR})
+set_tests_properties(test_curses_boundary_inventory PROPERTIES
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 add_custom_target(curses_boundary_inventory
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/inventory_direct_curses.sh
+    COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/inventory_direct_curses.sh
             --fail-on-new
             ${CMAKE_CURRENT_SOURCE_DIR}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -646,8 +725,10 @@ if(USE_UTF8 AND USE_UTF8PROC)
 endif()
 add_test(NAME test_headlessdriver COMMAND test_headlessdriver)
 add_test(NAME test_headlessdriver_no_curses
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_no_curses_symbols.sh
+    COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_no_curses_symbols.sh
             $<TARGET_FILE:test_headlessdriver>)
+set_tests_properties(test_headlessdriver_no_curses PROPERTIES
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 add_executable(test_headlessdriver_curses_default
     tests/test_headlessdriver_curses_default.c
     src/inputevent.c
@@ -688,29 +769,29 @@ if(USE_UTF8 AND USE_UTF8PROC)
 endif()
 add_test(NAME test_virtual_screen COMMAND test_virtual_screen)
 add_test(NAME test_the_llm_full_runtime
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_full_runtime.sh
+    COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_full_runtime.sh
             $<TARGET_FILE:the>)
 set_tests_properties(test_the_llm_full_runtime PROPERTIES
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 add_test(NAME test_rgb_colour_logical
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_rgb_colour_logical.sh
+    COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_rgb_colour_logical.sh
             $<TARGET_FILE:the>)
 set_tests_properties(test_rgb_colour_logical PROPERTIES
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 add_test(NAME test_the_llm_parser_diagnostics
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_parser_diagnostics.sh
+    COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_parser_diagnostics.sh
             $<TARGET_FILE:the>)
 set_tests_properties(test_the_llm_parser_diagnostics PROPERTIES
     SKIP_RETURN_CODE 77
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 add_test(NAME test_the_llm_profile_crexx
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_profile_crexx.sh
+    COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_profile_crexx.sh
             $<TARGET_FILE:the>)
 set_tests_properties(test_the_llm_profile_crexx PROPERTIES
     SKIP_RETURN_CODE 77
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 add_test(NAME test_driver_modules
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_driver_modules.sh
+    COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_driver_modules.sh
             $<TARGET_FILE:the>
             $<TARGET_FILE:the_driver_curses>
             $<TARGET_FILE:the_driver_llm>)
@@ -791,79 +872,89 @@ if(USE_UTF8)
     endif()
     add_test(NAME test_utfrepair COMMAND test_utfrepair)
 
-    add_test(NAME test_system_profile COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_system_profile.sh)
+    add_test(NAME test_system_profile COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_system_profile.sh)
     set_tests_properties(test_system_profile PROPERTIES
         SKIP_RETURN_CODE 77
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
 endif()
-add_test(NAME test_sdslh_integration COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdslh_integration.sh)
+add_test(NAME test_sdslh_integration COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdslh_integration.sh)
 set_tests_properties(test_sdslh_integration PROPERTIES
     SKIP_RETURN_CODE 77
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
-add_test(NAME test_sdslh_multifile_lifecycle COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdslh_multifile_lifecycle.sh)
+add_test(NAME test_sdslh_multifile_lifecycle COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdslh_multifile_lifecycle.sh)
 set_tests_properties(test_sdslh_multifile_lifecycle PROPERTIES
     SKIP_RETURN_CODE 77
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
-add_test(NAME test_stylespans_extract COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_stylespans_extract.sh)
+add_test(NAME test_stylespans_extract COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_stylespans_extract.sh)
 set_tests_properties(test_stylespans_extract PROPERTIES
     SKIP_RETURN_CODE 77
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
-add_test(NAME test_file_ecolor_inheritance COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_file_ecolor_inheritance.sh)
+add_test(NAME test_file_ecolor_inheritance COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_file_ecolor_inheritance.sh)
 set_tests_properties(test_file_ecolor_inheritance PROPERTIES
     SKIP_RETURN_CODE 77
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
-add_test(NAME test_message_history COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_message_history.sh)
+add_test(NAME test_message_history COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_message_history.sh)
 set_tests_properties(test_message_history PROPERTIES
     SKIP_RETURN_CODE 77
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
-add_test(NAME test_batch_md_rexx_format COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_format.sh)
+add_test(NAME test_batch_md_rexx_format COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_format.sh)
 set_tests_properties(test_batch_md_rexx_format PROPERTIES
     SKIP_RETURN_CODE 77
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
-add_test(NAME test_batch_md_rexx_scan COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_scan.sh)
+add_test(NAME test_batch_md_rexx_scan COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_scan.sh)
 set_tests_properties(test_batch_md_rexx_scan PROPERTIES
     SKIP_RETURN_CODE 77
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
-add_test(NAME test_batch_md_rexx_render_html COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_render_html.sh)
+add_test(NAME test_batch_md_rexx_render_html COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_render_html.sh)
 set_tests_properties(test_batch_md_rexx_render_html PROPERTIES
     SKIP_RETURN_CODE 77
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
-add_test(NAME test_batch_md_rexx_execute COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_execute.sh)
+add_test(NAME test_batch_md_rexx_execute COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_execute.sh)
 set_tests_properties(test_batch_md_rexx_execute PROPERTIES
     SKIP_RETURN_CODE 77
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
-add_test(NAME test_batch_md_rexx_validate COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_validate.sh)
+add_test(NAME test_batch_md_rexx_validate COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_validate.sh)
 set_tests_properties(test_batch_md_rexx_validate PROPERTIES
     SKIP_RETURN_CODE 77
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
-add_test(NAME test_batch_md_rexx_output_render COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_output_render.sh)
+add_test(NAME test_batch_md_rexx_output_render COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_output_render.sh)
 set_tests_properties(test_batch_md_rexx_output_render PROPERTIES
     SKIP_RETURN_CODE 77
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
-add_test(NAME test_batch_md_rexx_runner COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_runner.sh)
+add_test(NAME test_batch_md_rexx_runner COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_runner.sh)
 set_tests_properties(test_batch_md_rexx_runner PROPERTIES
     SKIP_RETURN_CODE 77
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
-add_test(NAME test_batch_md_rexx_tex COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_tex.sh)
+add_test(NAME test_batch_md_rexx_tex COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_tex.sh)
 set_tests_properties(test_batch_md_rexx_tex PROPERTIES
     SKIP_RETURN_CODE 77
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
-add_test(NAME test_batch_md_rexx_highlight COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_highlight.sh)
+add_test(NAME test_batch_md_rexx_highlight COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_highlight.sh)
 set_tests_properties(test_batch_md_rexx_highlight PROPERTIES
     SKIP_RETURN_CODE 77
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
-add_test(NAME test_batch_md_rexx_highlight_source COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_highlight_source.sh)
+add_test(NAME test_batch_md_rexx_highlight_source COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/tests/test_highlight_source.sh)
 set_tests_properties(test_batch_md_rexx_highlight_source PROPERTIES
     SKIP_RETURN_CODE 77
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
 )
 if(THE_USE_CREXX)
-    add_test(NAME test_field_queries COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_field_queries.sh)
+    add_test(NAME test_field_queries COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_field_queries.sh)
     set_tests_properties(test_field_queries PROPERTIES
         SKIP_RETURN_CODE 77
         TIMEOUT 10
@@ -871,7 +962,7 @@ if(THE_USE_CREXX)
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
     if(USE_UTF8)
-        add_test(NAME test_field_queries_utf COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_field_queries.sh --utf)
+        add_test(NAME test_field_queries_utf COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_field_queries.sh --utf)
         set_tests_properties(test_field_queries_utf PROPERTIES
             SKIP_RETURN_CODE 77
             TIMEOUT 10
@@ -880,7 +971,7 @@ if(THE_USE_CREXX)
             ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
         )
     endif()
-    add_test(NAME test_normal_area_queries COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_normal_area_queries.sh)
+    add_test(NAME test_normal_area_queries COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_normal_area_queries.sh)
     set_tests_properties(test_normal_area_queries PROPERTIES
         SKIP_RETURN_CODE 77
         TIMEOUT 10
@@ -888,7 +979,7 @@ if(THE_USE_CREXX)
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
     add_test(NAME test_curses_text_entry
-        COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_curses_text_entry.sh
+        COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_curses_text_entry.sh
                 $<TARGET_FILE:the>)
     set_tests_properties(test_curses_text_entry PROPERTIES
         SKIP_RETURN_CODE 77
@@ -897,7 +988,7 @@ if(THE_USE_CREXX)
         DEPENDS test_normal_area_queries
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
-    add_test(NAME test_sos_navigation_queries COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sos_navigation_queries.sh)
+    add_test(NAME test_sos_navigation_queries COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sos_navigation_queries.sh)
     set_tests_properties(test_sos_navigation_queries PROPERTIES
         SKIP_RETURN_CODE 77
         TIMEOUT 10
@@ -905,7 +996,7 @@ if(THE_USE_CREXX)
         DEPENDS test_curses_text_entry
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
-    add_test(NAME test_sos_logical_edit_queries COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sos_logical_edit_queries.sh)
+    add_test(NAME test_sos_logical_edit_queries COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sos_logical_edit_queries.sh)
     set_tests_properties(test_sos_logical_edit_queries PROPERTIES
         SKIP_RETURN_CODE 77
         TIMEOUT 10
@@ -913,7 +1004,7 @@ if(THE_USE_CREXX)
         DEPENDS test_sos_navigation_queries
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
-    add_test(NAME test_selective_change_prompt COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_selective_change_prompt.sh)
+    add_test(NAME test_selective_change_prompt COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_selective_change_prompt.sh)
     set_tests_properties(test_selective_change_prompt PROPERTIES
         SKIP_RETURN_CODE 77
         TIMEOUT 15
@@ -921,12 +1012,12 @@ if(THE_USE_CREXX)
         DEPENDS test_sos_logical_edit_queries
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
-    add_test(NAME test_crexx_profile COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_crexx_profile.sh)
+    add_test(NAME test_crexx_profile COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_crexx_profile.sh)
     set_tests_properties(test_crexx_profile PROPERTIES
         SKIP_RETURN_CODE 77
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
-    add_test(NAME test_batch_profile_status COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_batch_profile_status.sh)
+    add_test(NAME test_batch_profile_status COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_batch_profile_status.sh)
     set_tests_properties(test_batch_profile_status PROPERTIES
         SKIP_RETURN_CODE 77
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"

@@ -176,13 +176,22 @@ size_t llm_runtime_format_screen(CHARTYPE scrno,
                                  const LlmDriverFormatOptions *options,
                                  char *out, size_t out_len)
 {
-   LlmDriverScreenView view;
+   LlmDriverScreenView *view;
+   size_t formatted;
 
    if (out == NULL || out_len == 0)
       return 0;
    out[0] = '\0';
-   if (!llm_runtime_screen_view(scrno, &view))
+   view = (LlmDriverScreenView *)malloc(sizeof(*view));
+   if (view == NULL)
       return 0;
-   return llm_driver_format_semantic_view_with_options(&view, options,
-                                                       out, out_len);
+   if (!llm_runtime_screen_view(scrno, view))
+   {
+      free(view);
+      return 0;
+   }
+   formatted = llm_driver_format_semantic_view_with_options(view, options,
+                                                            out, out_len);
+   free(view);
+   return formatted;
 }

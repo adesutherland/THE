@@ -14,8 +14,8 @@ int last_message_length = 0;
 CHARTYPE *cmd_rec = NULL;
 LENGTHTYPE cmd_rec_len = 0;
 LENGTHTYPE cmd_verify_col = 1;
-void *(*the_malloc)(unsigned long) = malloc;
-void *(*the_realloc)(void *, unsigned long) = realloc;
+void *(*the_malloc)(size_t) = malloc;
+void *(*the_realloc)(void *, size_t) = realloc;
 void (*the_free)(void *) = free;
 
 static int failures = 0;

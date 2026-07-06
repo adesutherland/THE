@@ -138,8 +138,8 @@ static int filter_driver_args(int argc, char **argv, char ***filtered_argv,
    CHARTYPE *term_name;  /* $TERM value */
    CHARTYPE *tempfilename = (CHARTYPE *)NULL;
    CHARTYPE *stdinprofile = (CHARTYPE *)NULL;
-#if defined(UNIX)
    CHARTYPE user_home_dir[MAX_FILE_NAME+1];
+#if defined(UNIX)
 # define THE_PROFILE_FILE ".therc"
 #else
 # define THE_PROFILE_FILE "PROFILE.THE"
@@ -478,9 +478,35 @@ int main(int argc, char *argv[])
     * Get all environment variables here. Some may be overridden by
     * command-line switches. (future possibility)
     */
+   user_home_dir[0] = '\0';
 #if defined(UNIX)
    if ( (envptr = getenv( "HOME" ) ) == NULL )
       envptr = getenv( "USERPROFILE" );
+#elif defined(WIN32) && !defined(__CYGWIN32__)
+   if ( (envptr = getenv( "USERPROFILE" ) ) == NULL )
+      envptr = getenv( "HOME" );
+   if ( envptr == NULL )
+   {
+      char *home_drive = getenv( "HOMEDRIVE" );
+      char *home_path = getenv( "HOMEPATH" );
+
+      if ( home_drive != NULL
+      &&   home_path != NULL )
+      {
+         length = strlen( (DEFCHAR *)home_drive ) + strlen( (DEFCHAR *)home_path );
+         if ( length > MAX_FILE_NAME )
+         {
+            cleanup();
+            display_error(7,(CHARTYPE *)home_path,FALSE);
+            return(7);
+         }
+         strcpy((DEFCHAR *)user_home_dir,home_drive);
+         strcat((DEFCHAR *)user_home_dir,home_path);
+      }
+   }
+#else
+   envptr = NULL;
+#endif
    if ( envptr != NULL )
    {
       if ( ((envptr==NULL) ? 0 : strlen( (DEFCHAR *)envptr )) > MAX_FILE_NAME )
@@ -491,10 +517,13 @@ int main(int argc, char *argv[])
       }
       strcpy((DEFCHAR *)user_home_dir,envptr);
    }
-   else
+   else if ( user_home_dir[0] == '\0' )
       strcpy((DEFCHAR *)user_home_dir,"./");
-   if (*(user_home_dir+strlen((DEFCHAR *)user_home_dir)-1) != ISLASH)
+   strrmdup(strtrans(user_home_dir,OSLASH,ISLASH),ISLASH,TRUE);
+   if (strlen((DEFCHAR *)user_home_dir) > 0
+   &&  *(user_home_dir+strlen((DEFCHAR *)user_home_dir)-1) != ISLASH)
       strcat((DEFCHAR *)user_home_dir,(DEFCHAR *)ISTR_SLASH);
+#if defined(UNIX)
    /*
     * Save pointer to TERM variable
     */

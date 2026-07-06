@@ -37,7 +37,7 @@ artifact_symbols() {
     nm -g --defined-only "$artifact" 2>/dev/null
   else
     nm -g "$artifact" 2>/dev/null
-  fi | awk 'NF { print $NF }' | sed 's/^_//'
+  fi | awk 'NF { print $NF }' | sed -e 's/^_//' -e 's/^\.refptr\.//'
 }
 
 main_deps=$(artifact_deps "$the_bin")
@@ -94,10 +94,18 @@ sample="$work_dir/sample.txt"
 printf 'alpha beta gamma\n' > "$sample"
 
 mkdir -p "$work_dir/missing" "$work_dir/llm-only/drivers" "$work_dir/curses-only/drivers"
-cp "$the_bin" "$work_dir/missing/the"
-cp "$the_bin" "$work_dir/llm-only/the"
+the_leaf=$(basename "$the_bin")
+case "$the_leaf" in
+  *.exe|*.EXE) ;;
+  *) the_leaf=the ;;
+esac
+missing_the="$work_dir/missing/$the_leaf"
+llm_the="$work_dir/llm-only/$the_leaf"
+curses_the="$work_dir/curses-only/$the_leaf"
+cp "$the_bin" "$missing_the"
+cp "$the_bin" "$llm_the"
 cp "$llm_module" "$work_dir/llm-only/drivers/"
-cp "$the_bin" "$work_dir/curses-only/the"
+cp "$the_bin" "$curses_the"
 cp "$curses_module" "$work_dir/curses-only/drivers/"
 
 missing_out="$work_dir/missing.out"
@@ -105,7 +113,7 @@ missing_err="$work_dir/missing.err"
 set +e
 printf '%s\n' capabilities quit |
   THE_DRIVER_PATH="$work_dir/missing/drivers" \
-  "$work_dir/missing/the" --driver missing -n "$sample" \
+  "$missing_the" --driver missing -n "$sample" \
     >"$missing_out" 2>"$missing_err"
 missing_rc=$?
 set -e
@@ -120,7 +128,7 @@ llm_out="$work_dir/llm.out"
 printf '%s\n' capabilities 'look filearea compact max=40' quit |
   TERM= THE_HOME_DIR="$(dirname "$the_bin")/release" \
   THE_DRIVER_PATH="$work_dir/llm-only/drivers" \
-  "$work_dir/llm-only/the" --driver llm -n "$sample" \
+  "$llm_the" --driver llm -n "$sample" \
     >"$llm_out"
 rg '"driver":"llm"' "$llm_out" >/dev/null
 rg '"curses":false' "$llm_out" >/dev/null
@@ -162,7 +170,7 @@ run_with_pty() {
   cat "$stdout" "$stderr" "$transcript" > "$work_dir/curses-combined.txt"
 }
 
-run_with_pty "$work_dir/curses-only/the" --driver curses -p "$profile" "$sample"
+run_with_pty "$curses_the" --driver curses -p "$profile" "$sample"
 
 if rg -i 'driver module not found|load failed|error opening terminal' \
    "$work_dir/curses-combined.txt" >/dev/null; then

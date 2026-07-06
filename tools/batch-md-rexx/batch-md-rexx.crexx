@@ -268,22 +268,36 @@ command_available: procedure = .int
   if rc = 0 then return 1
 return 0
 
+native_file_path: procedure = .string
+  arg path = .string
+  if path = "" then return path
+  if left(path, 1) <> "/" then return path
+  out = .string[]
+  err = .string[]
+  address command "cygpath -w " || shell_quote(path) output out error err
+  if rc = 0 & out.0 > 0 then do
+    if out[1] <> "" then return out[1]
+  end
+return path
+
 write_lines_to_file: procedure = .int
   arg path = .string, lines = .string[]
-  if create_empty_file(path) <> 0 then return 1
+  file_path = native_file_path(path)
+  if create_empty_file(file_path) <> 0 then return 1
   if lines.0 = 0 then return 0
   do wi = 1 to lines.0
-    write_rc = lineout(path, lines[wi])
+    write_rc = lineout(file_path, lines[wi])
     if write_rc <> 0 then return 1
   end
-  call lineout(path)
+  call lineout(file_path)
 return 0
 
 create_empty_file: procedure = .int
   arg path = .string
+  file_path = native_file_path(path)
   fid = 0
   mode = "w"
-  assembler fopen fid,path,mode
+  assembler fopen fid,file_path,mode
   if fid = 0 then return 1
   close_rc = 0
   assembler fclose close_rc,fid
