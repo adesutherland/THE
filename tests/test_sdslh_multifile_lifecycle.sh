@@ -85,51 +85,51 @@ cat > "${PROFILE}" <<PROFILE_EOF
 options levelb
 address the
 
-'set sdslh rxc ${TP_BIN} -d'
-'set autocolor *.rexx rxc'
-'set sdslh mdp ${MDP_BIN} --syntaxhighlight'
-'set autocolor *.md mdp'
+'set sdslh rxc ${TP_BIN} -d';
+'set autocolor *.rexx rxc';
+'set sdslh mdp ${MDP_BIN} --syntaxhighlight';
+'set autocolor *.md mdp';
 
 coloring = .string[]
 
-'set coloring on auto'
+'set coloring on auto';
 address the "extract /coloring/" expose coloring[]
 if coloring[1] = "ON" then do
    if coloring[3] = "rxc" then 'emsg SDSLH_MULTI_REXX_RCX'
 end
 
-'edit ${MD_SAMPLE}'
-'set coloring on auto'
+'edit ${MD_SAMPLE}';
+'set coloring on auto';
 address the "extract /coloring/" expose coloring[]
 if coloring[1] = "ON" then do
    if coloring[3] = "mdp" then 'emsg SDSLH_MULTI_MD_MDP'
 end
 
-'edit ${OUT_SAMPLE}'
-'set coloring on auto'
+'edit ${OUT_SAMPLE}';
+'set coloring on auto';
 address the "extract /coloring/" expose coloring[]
 if coloring[1] = "ON" then do
    if coloring[3] = "NULL" then 'emsg SDSLH_MULTI_OUT_NULL'
 end
-'set coloring off'
+'set coloring off';
 address the "extract /coloring/" expose coloring[]
-if coloring[1] = "OFF" then 'emsg SDSLH_MULTI_OUT_OFF'
+if coloring[1] = "OFF" then 'emsg SDSLH_MULTI_OUT_OFF';
 
-'edit ${MD_SAMPLE}'
-'set coloring on auto'
+'edit ${MD_SAMPLE}';
+'set coloring on auto';
 address the "extract /coloring/" expose coloring[]
 if coloring[1] = "ON" then do
    if coloring[3] = "mdp" then 'emsg SDSLH_MULTI_MD_AFTER_OUT'
 end
 
-'edit ${REXX_SAMPLE}'
-'set coloring on auto'
+'edit ${REXX_SAMPLE}';
+'set coloring on auto';
 address the "extract /coloring/" expose coloring[]
 if coloring[1] = "ON" then do
    if coloring[3] = "rxc" then 'emsg SDSLH_MULTI_REXX_AGAIN'
 end
 
-'ccancel'
+'ccancel';
 PROFILE_EOF
 
 (

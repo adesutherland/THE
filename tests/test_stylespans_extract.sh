@@ -43,15 +43,20 @@ options levelb
 import rxfnsb
 address the
 
-'set sdslh rxc ${RXC} --syntaxhighlight'
-'set autocolor *.rexx rxc'
-'set coloring on auto'
-'sdslhwait 5000'
+'set sdslh rxc ${RXC} --syntaxhighlight';
+'set autocolor *.rexx rxc';
+'set coloring on auto';
+'sdslhwait 5000';
 
 stylespans = .string[]
 address the "extract /stylespans/" expose stylespans[]
 span_count = stylespans[0]
 'emsg STYLESPANS_COUNT=' || span_count
+stylespanstext = .string
+address the "extract /stylespanstext/" expose stylespanstext
+stylespans_text_length = length(stylespanstext)
+'emsg STYLESPANSTEXT_LENGTH=' || stylespans_text_length
+if pos("1 0 7 preprocessor", stylespanstext) > 0 then 'emsg STYLESPANSTEXT_HAS_FIRST=1'
 do i = 1 to span_count
   'emsg STYLESPAN=' || stylespans[i]
 end
@@ -63,12 +68,15 @@ do i = 1 to span_count
   'emsg STYLESPAN_RANGE=' || stylespans[i]
 end
 
-'set coloring off'
+address the "extract /stylespanstext 3 3/" expose stylespanstext
+if stylespanstext = "3 0 13 comment" || '0a'x then 'emsg STYLESPANSTEXT_RANGE_OK=1'
+
+'set coloring off';
 address the "extract /stylespans/" expose stylespans[]
 span_count = stylespans[0]
 'emsg STYLESPANS_OFF_COUNT=' || span_count
 
-'qquit'
+'qquit';
 PROFILE_EOF
 
 env THE_HOME_DIR="${THE_HOME}" \
@@ -76,6 +84,8 @@ env THE_HOME_DIR="${THE_HOME}" \
   > "${WORK_DIR}/the.out" 2> "${WORK_DIR}/the.err"
 
 rg 'STYLESPANS_COUNT=[1-9][0-9]*' "${WORK_DIR}/the.err" >/dev/null
+rg 'STYLESPANSTEXT_LENGTH=[1-9][0-9]*' "${WORK_DIR}/the.err" >/dev/null
+rg 'STYLESPANSTEXT_HAS_FIRST=1' "${WORK_DIR}/the.err" >/dev/null
 rg 'STYLESPAN=1 0 7 preprocessor' "${WORK_DIR}/the.err" >/dev/null
 rg 'STYLESPAN=1 8 6 identifier' "${WORK_DIR}/the.err" >/dev/null
 rg 'STYLESPAN=2 0 3 keyword' "${WORK_DIR}/the.err" >/dev/null
@@ -85,6 +95,7 @@ rg 'STYLESPAN=4 0 7 keyword' "${WORK_DIR}/the.err" >/dev/null
 rg 'STYLESPAN=4 16 9 string' "${WORK_DIR}/the.err" >/dev/null
 rg 'STYLESPANS_RANGE_COUNT=1' "${WORK_DIR}/the.err" >/dev/null
 rg 'STYLESPAN_RANGE=3 0 13 comment' "${WORK_DIR}/the.err" >/dev/null
+rg 'STYLESPANSTEXT_RANGE_OK=1' "${WORK_DIR}/the.err" >/dev/null
 rg 'STYLESPANS_OFF_COUNT=0' "${WORK_DIR}/the.err" >/dev/null
 
 echo "STYLESPANS extract test passed."

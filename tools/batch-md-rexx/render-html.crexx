@@ -30,7 +30,7 @@ do while ai <= args.0
       ai = ai + 1
       if ai > args.0 then call usage_error "--format needs a value"
       format = args[ai]
-      if format <> "html" & format <> "tex" & format <> "tex-fragment" then call usage_error "--format must be html, tex, or tex-fragment"
+      if format <> "html" & format <> "tex" & format <> "html-fragment" & format <> "tex-fragment" then call usage_error "--format must be html, tex, html-fragment, or tex-fragment"
     end
     when token = "--the" then do
       ai = ai + 1
@@ -110,13 +110,13 @@ if include_style <> "true" & include_style <> "false" then call usage_error "--i
 if include_wrapper <> "true" & include_wrapper <> "false" then call usage_error "--include-wrapper must be true or false"
 if mode = "highlight-source" then do
   if format = "html" then format = "tex-fragment"
-  if format <> "tex-fragment" then call usage_error "--highlight-source only supports --format tex-fragment"
+  if format <> "html-fragment" & format <> "tex-fragment" then call usage_error "--highlight-source only supports --format html-fragment or tex-fragment"
   if source_language = "" then source_language = language_for_path(path)
   if source_language = "" then call usage_error "--language is required when the source extension is unknown"
   if is_fragment_language(source_language) = 0 then call usage_error "unsupported source language: " || source_language
 end
 else do
-  if format = "tex-fragment" then call usage_error "--format tex-fragment requires --highlight-source"
+  if format = "html-fragment" | format = "tex-fragment" then call usage_error "fragment formats require --highlight-source"
 end
 if mode = "html" | mode = "validate" | mode = "highlight-source" then do
   if the_bin = "" then call usage_error "--the is required for rendering"
@@ -127,8 +127,10 @@ if mode = "html" then do
   if validate_template_dir(format, template_dir) <> 0 then exit 2
 end
 if mode = "highlight-source" then do
-  if template_dir = "" then template_dir = default_template_dir("tex")
-  if validate_fragment_template_dir(template_dir) <> 0 then exit 2
+  fragment_template_format = "tex"
+  if format = "html-fragment" then fragment_template_format = "html"
+  if template_dir = "" then template_dir = default_template_dir(fragment_template_format)
+  if validate_fragment_template_dir(fragment_template_format, template_dir) <> 0 then exit 2
 end
 
 source = .string[]
@@ -143,7 +145,7 @@ do forever
 end
 
 if mode = "highlight-source" then do
-  render_rc = render_source_fragment(path, source_language, source, the_bin, the_home, parser, parser_command, parser_args, rxas_parser_command, template_dir, timeout, include_style, include_wrapper)
+  render_rc = render_source_fragment(path, source_language, source, the_bin, the_home, parser, parser_command, parser_args, rxas_parser_command, template_dir, timeout, include_style, include_wrapper, format)
   exit render_rc
 end
 
@@ -165,7 +167,7 @@ usage_error: procedure
   arg message = .string
   call diagnostic_message "render-html.crexx: " || message
   call diagnostic_message "usage: render-html.crexx [--scan|--validate] [--format html|tex] [--the THE --home THE_HOME] [--crexx CREXX] [--parser NAME] [--parser-command COMMAND] [--rxas-parser-command COMMAND] [--parser-arg ARG] [--template-dir DIR] [--timeout MS] markdown-file"
-  call diagnostic_message "       render-html.crexx --highlight-source [--format tex-fragment] [--language rexx|crexx|the|rxas] [--include-style true|false] [--include-wrapper true|false] --the THE --home THE_HOME [--parser-command RXC] [--rxas-parser-command RXAS] source-file"
+  call diagnostic_message "       render-html.crexx --highlight-source [--format html-fragment|tex-fragment] [--language rexx|crexx|the|rxas] [--include-style true|false] [--include-wrapper true|false] --the THE --home THE_HOME [--parser-command RXC] [--rxas-parser-command RXAS] source-file"
   exit 2
 return
 
@@ -387,7 +389,7 @@ render_document: procedure = .int
 return 0
 
 render_source_fragment: procedure = .int
-  arg path = .string, language = .string, source_lines = .string[], the_bin = .string, the_home = .string, parser = .string, parser_command = .string, parser_args = .string, rxas_parser_command = .string, template_dir = .string, timeout = .string, include_style = .string, include_wrapper = .string
+  arg path = .string, language = .string, source_lines = .string[], the_bin = .string, the_home = .string, parser = .string, parser_command = .string, parser_args = .string, rxas_parser_command = .string, template_dir = .string, timeout = .string, include_style = .string, include_wrapper = .string, format = .string
 
   highlight_parser = parser
   highlight_command = parser_command
@@ -404,15 +406,24 @@ render_source_fragment: procedure = .int
   rc = highlight_source(path, language, source_lines, the_bin, the_home, highlight_parser, highlight_command, parser_args, timeout, "true", spans)
   if rc <> 0 then return rc
 
-  if include_style = "true" then call emit_style "tex", template_dir
+  fragment_format = "tex"
+  if format = "html-fragment" then fragment_format = "html"
+
+  if include_style = "true" then do
+    if fragment_format = "html" then say "<style>"
+    call emit_fragment_style fragment_format, template_dir
+    if fragment_format = "html" then say "</style>"
+  end
 
   style_template = .string[]
   call read_lines template_dir || "/style-token.tpl", style_template
   empty_keys = .string[]
   empty_values = .string[]
   if include_wrapper = "true" then call emit_template template_dir, "source-open.tpl", empty_keys, empty_values
+  span_index = 1
   do line_no = 1 to source_lines.0
-    say highlighted_line_tex(source_lines[line_no], line_no, spans, style_template)
+    if fragment_format = "html" then say highlighted_line(source_lines[line_no], line_no, spans, style_template, span_index)
+    else say highlighted_line_tex(source_lines[line_no], line_no, spans, style_template, span_index)
   end
   if include_wrapper = "true" then call emit_template template_dir, "source-close.tpl", empty_keys, empty_values
 return 0
@@ -430,6 +441,17 @@ emit_style: procedure
   call read_lines template_dir || "/" || style_name, css
   do ci = 1 to css.0
     say css[ci]
+  end
+return
+
+emit_fragment_style: procedure
+  arg format = .string, template_dir = .string
+  style_name = "style.tex"
+  if format = "html" then style_name = "fragment-style.css"
+  style = .string[]
+  call read_lines template_dir || "/" || style_name, style
+  do si = 1 to style.0
+    say style[si]
   end
 return
 
@@ -474,7 +496,6 @@ emit_example: procedure = .int
   block_timeout = manifest_value(record, "timeout")
   source_lines = .string[]
   spans = .string[]
-  render_spans = .string[]
   run_stdout = .string[]
   run_stderr = .string[]
   run_messages = .string[]
@@ -491,10 +512,6 @@ emit_example: procedure = .int
 
   rc = highlight_source(id, language, source_lines, the_bin, the_home, parser, parser_command, parser_args, timeout, fail_diag, spans)
   if rc <> 0 then return rc
-  do si = 1 to spans.0
-    span_record = spans[si]
-    call arrayappend render_spans, span_record
-  end
 
   if run_attr = "true" then do
     rc = execute_example(id, language, kind, source_lines, the_bin, the_home, crexx_bin, block_timeout, run_stdout, run_stderr, run_messages, run_meta)
@@ -538,9 +555,10 @@ emit_example: procedure = .int
     style_template = .string[]
     call read_lines template_dir || "/style-token.tpl", style_template
     call emit_template template_dir, "source-open.tpl", empty_keys, empty_values
+    span_index = 1
     do line_no = 1 to source_lines.0
-      if format = "tex" then say highlighted_line_tex(source_lines[line_no], line_no, render_spans, style_template)
-      else say highlighted_line(source_lines[line_no], line_no, render_spans, style_template)
+      if format = "tex" then say highlighted_line_tex(source_lines[line_no], line_no, spans, style_template, span_index)
+      else say highlighted_line(source_lines[line_no], line_no, spans, style_template, span_index)
     end
     call emit_template template_dir, "source-close.tpl", empty_keys, empty_values
     if run_attr = "true" then do
@@ -663,7 +681,7 @@ build_the_run_profile: procedure
     do line_no = 1 to source_lines.0
       if strip(source_lines[line_no]) <> "" then do
         source_command = source_lines[line_no]
-        quoted_command = rexx_single_quote(source_command)
+        quoted_command = rexx_single_quote(source_command) || ";"
         call arrayappend profile, quoted_command
       end
     end
@@ -685,7 +703,7 @@ build_the_run_profile: procedure
   call arrayappend profile, "do i = 1 to message_count"
   call arrayappend profile, "  'emsg THE_BATCH_RUN_MESSAGE=' || messages[i]"
   call arrayappend profile, "end"
-  call arrayappend profile, "'qquit'"
+  call arrayappend profile, "'qquit';"
 return
 
 append_the_run_stream: procedure
@@ -744,20 +762,16 @@ emit_output_block: procedure
   call emit_template template_dir, "output-pre-open.tpl", keys, values
   if output_highlightable(output, parser) = 1 then do
     spans = .string[]
-    render_spans = .string[]
     output_parser = parser_for_output(output, parser)
     output_parser_command = parser_command_for_output(output, parser_command, rxas_parser_command)
     rc = highlight_source(id || "-" || stream_name, output, lines, the_bin, the_home, output_parser, output_parser_command, parser_args, timeout, "false", spans)
     if rc = 0 then do
-      do si = 1 to spans.0
-        span_record = spans[si]
-        call arrayappend render_spans, span_record
-      end
       style_template = .string[]
       call read_lines template_dir || "/style-token.tpl", style_template
+      span_index = 1
       do line_no = 1 to lines.0
-        if format = "tex" then say highlighted_line_tex(lines[line_no], line_no, render_spans, style_template)
-        else say highlighted_line(lines[line_no], line_no, render_spans, style_template)
+        if format = "tex" then say highlighted_line_tex(lines[line_no], line_no, spans, style_template, span_index)
+        else say highlighted_line(lines[line_no], line_no, spans, style_template, span_index)
       end
     end
     else do
@@ -1281,7 +1295,15 @@ highlight_source: procedure = .int
   temp_dir = mkout[1]
   extension = extension_for_language(language)
   source_path = temp_dir || "/source." || extension
-  profile_path = temp_dir || "/profile.the"
+  pmsgs_path = temp_dir || "/pmsgs.txt"
+  spans_path = temp_dir || "/stylespans.txt"
+  profile_path = highlight_profile_path()
+
+  if profile_path = "" then do
+    call remove_tree temp_dir
+    call diagnostic_message "render-html.crexx: could not locate highlight-source-profile.the"
+    return 2
+  end
 
   if write_lines_to_file(source_path, source_lines) <> 0 then do
     call remove_tree temp_dir
@@ -1289,37 +1311,15 @@ highlight_source: procedure = .int
     return 2
   end
 
-  profile = .string[]
-  call arrayappend profile, "options levelb"
-  call arrayappend profile, "import rxfnsb"
-  call arrayappend profile, "address the"
-  call arrayappend profile, "'set sdslh " || parser || " " || parser_command || " " || parser_args || "'"
-  call arrayappend profile, "'set autocolor *." || extension || " " || parser || "'"
-  call arrayappend profile, "'set coloring on auto'"
-  call arrayappend profile, "'sdslhwait " || timeout || "'"
-  call arrayappend profile, "pmsgs = .string[]"
-  call arrayappend profile, 'address the "extract /pmsgs/" expose pmsgs[]'
-  call arrayappend profile, "pmsg_count = pmsgs[0]"
-  call arrayappend profile, "'emsg THE_BATCH_PMSG_COUNT=' || pmsg_count"
-  call arrayappend profile, "do i = 1 to pmsg_count"
-  call arrayappend profile, "  'emsg THE_BATCH_PMSG=' || pmsgs[i]"
-  call arrayappend profile, "end"
-  call arrayappend profile, "stylespans = .string[]"
-  call arrayappend profile, 'address the "extract /stylespans/" expose stylespans[]'
-  call arrayappend profile, "span_count = stylespans[0]"
-  call arrayappend profile, "'emsg THE_BATCH_STYLESPAN_COUNT=' || span_count"
-  call arrayappend profile, "do i = 1 to span_count"
-  call arrayappend profile, "  'emsg THE_BATCH_STYLESPAN=' || stylespans[i]"
-  call arrayappend profile, "end"
-  call arrayappend profile, "'qquit'"
-
-  if write_lines_to_file(profile_path, profile) <> 0 then do
-    call remove_tree temp_dir
-    call diagnostic_message "render-html.crexx: could not write THE profile for example " || id
-    return 2
-  end
-
-  inner_cmd = "TERM= THE_HOME_DIR=" || shell_quote(the_home) || " " || shell_quote(the_bin)
+  inner_cmd = "TERM= THE_HOME_DIR=" || shell_quote(the_home)
+  inner_cmd = inner_cmd || " THE_BATCH_PARSER=" || shell_quote(parser)
+  inner_cmd = inner_cmd || " THE_BATCH_PARSER_COMMAND=" || shell_quote(parser_command)
+  inner_cmd = inner_cmd || " THE_BATCH_PARSER_ARGS=" || shell_quote(parser_args)
+  inner_cmd = inner_cmd || " THE_BATCH_EXTENSION=" || shell_quote(extension)
+  inner_cmd = inner_cmd || " THE_BATCH_TIMEOUT=" || shell_quote(timeout)
+  inner_cmd = inner_cmd || " THE_BATCH_PMSGS_PATH=" || shell_quote(native_file_path(pmsgs_path))
+  inner_cmd = inner_cmd || " THE_BATCH_SPANS_PATH=" || shell_quote(native_file_path(spans_path))
+  inner_cmd = inner_cmd || " " || shell_quote(the_bin)
   inner_cmd = inner_cmd || " -b -q -p " || shell_quote(profile_path) || " " || shell_quote(source_path)
   shell_lines = .string[]
   shell_lines[1] = inner_cmd
@@ -1327,48 +1327,55 @@ highlight_source: procedure = .int
   err = .string[]
   address command "sh" input shell_lines output out error err
   the_rc = rc
-  call remove_tree temp_dir
+
+  wait_rc = ""
+  export_rc = ""
+  wait_prefix = "THE_BATCH_SDSLHWAIT_RC="
+  export_prefix = "THE_BATCH_EXPORT_RC="
+  do ei = 1 to err.0
+    line = err[ei]
+    if left(line, length(wait_prefix)) = wait_prefix then wait_rc = substr(line, length(wait_prefix) + 1)
+    if left(line, length(export_prefix)) = export_prefix then export_rc = substr(line, length(export_prefix) + 1)
+  end
+  do oi = 1 to out.0
+    line = out[oi]
+    if left(line, length(wait_prefix)) = wait_prefix then wait_rc = substr(line, length(wait_prefix) + 1)
+    if left(line, length(export_prefix)) = export_prefix then export_rc = substr(line, length(export_prefix) + 1)
+  end
+
+  if wait_rc <> "" then do
+    call remove_tree temp_dir
+    call diagnostic_message "render-html.crexx: SDSLHWAIT failed while highlighting example " || id || " with rc " || wait_rc
+    call write_stem "stderr", err
+    return 2
+  end
+
+  if export_rc <> "" then do
+    call remove_tree temp_dir
+    call diagnostic_message "render-html.crexx: THE could not export " || export_rc || " while highlighting example " || id
+    call write_stem "stderr", err
+    return 2
+  end
 
   if the_rc <> 0 then do
+    call remove_tree temp_dir
     call diagnostic_message "render-html.crexx: THE failed while highlighting example " || id || " with rc " || the_rc
     call write_stem "stderr", err
     return 2
   end
 
-  pmsg_count = 0
   pmsgs = .string[]
-  do ei = 1 to err.0
-    line = err[ei]
-    if left(line, 21) = "THE_BATCH_PMSG_COUNT=" then do
-      pmsg_count = substr(line, 22)
-    end
-    else if left(line, 15) = "THE_BATCH_PMSG=" then do
-      call arrayappend pmsgs, substr(line, 16)
-    end
-    else if left(line, 26) = "THE_BATCH_STYLESPAN_COUNT=" then do
-      nop
-    end
-    else if left(line, 20) = "THE_BATCH_STYLESPAN=" then do
-      call arrayappend spans, substr(line, 21)
-    end
+  if read_lines(pmsgs_path, pmsgs) <> 0 then do
+    call remove_tree temp_dir
+    return 2
   end
-  do oi = 1 to out.0
-    line = out[oi]
-    if left(line, 21) = "THE_BATCH_PMSG_COUNT=" then do
-      pmsg_count = substr(line, 22)
-    end
-    else if left(line, 15) = "THE_BATCH_PMSG=" then do
-      call arrayappend pmsgs, substr(line, 16)
-    end
-    else if left(line, 26) = "THE_BATCH_STYLESPAN_COUNT=" then do
-      nop
-    end
-    else if left(line, 20) = "THE_BATCH_STYLESPAN=" then do
-      call arrayappend spans, substr(line, 21)
-    end
+  if read_lines(spans_path, spans) <> 0 then do
+    call remove_tree temp_dir
+    return 2
   end
+  call remove_tree temp_dir
 
-  if pmsg_count > 0 & fail_diag = "true" then do
+  if pmsgs.0 > 0 & fail_diag = "true" then do
     call diagnostic_message "render-html.crexx: parser diagnostics present in example " || id
     call write_stem "stderr", pmsgs
     return 1
@@ -1376,17 +1383,32 @@ highlight_source: procedure = .int
 
 return 0
 
+highlight_profile_path: procedure = .string
+  configured = getenv("THE_BATCH_HIGHLIGHT_PROFILE")
+  if readable_file(configured) = 1 then return configured
+
+  candidates = .string[]
+  call arrayappend candidates, "tools/batch-md-rexx/highlight-source-profile.the"
+  call arrayappend candidates, "batch-md-rexx/highlight-source-profile.the"
+  call arrayappend candidates, "highlight-source-profile.the"
+  do candidate_index = 1 to candidates.0
+    if readable_file(candidates[candidate_index]) = 1 then return candidates[candidate_index]
+  end
+return ""
+
 highlighted_line: procedure = .string
-  arg text = .string, line_no = .int, spans = .string[], style_template = .string[]
+  arg text = .string, line_no = .int, spans = .string[], style_template = .string[], expose span_index = .int
 
   html = ""
   cell = 0
   text_length = length(text)
 
-  do si = 1 to spans.0
-    span = spans[si]
+  do while span_index <= spans.0
+    span = spans[span_index]
     span_line = word(span, 1)
-    if span_line <> line_no then iterate
+    if span_line > line_no then leave
+    span_index = span_index + 1
+    if span_line < line_no then iterate
 
     start = word(span, 2)
     span_len = word(span, 3)
@@ -1413,16 +1435,18 @@ highlighted_line: procedure = .string
 return html
 
 highlighted_line_tex: procedure = .string
-  arg text = .string, line_no = .int, spans = .string[], style_template = .string[]
+  arg text = .string, line_no = .int, spans = .string[], style_template = .string[], expose span_index = .int
 
   tex = ""
   cell = 0
   text_length = length(text)
 
-  do si = 1 to spans.0
-    span = spans[si]
+  do while span_index <= spans.0
+    span = spans[span_index]
     span_line = word(span, 1)
-    if span_line <> line_no then iterate
+    if span_line > line_no then leave
+    span_index = span_index + 1
+    if span_line < line_no then iterate
 
     start = word(span, 2)
     span_len = word(span, 3)
@@ -1540,12 +1564,13 @@ validate_template_dir: procedure = .int
 return failures
 
 validate_fragment_template_dir: procedure = .int
-  arg template_dir = .string
+  arg format = .string, template_dir = .string
   required = .string[]
   call arrayappend required, "source-open.tpl"
   call arrayappend required, "source-close.tpl"
   call arrayappend required, "style-token.tpl"
-  call arrayappend required, "style.tex"
+  if format = "html" then call arrayappend required, "fragment-style.css"
+  else call arrayappend required, "style.tex"
 
   failures = 0
   do ri = 1 to required.0

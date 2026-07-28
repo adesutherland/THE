@@ -1,0 +1,56 @@
+options levelb
+import rxfnsb
+
+parser = getenv("THE_BATCH_PARSER")
+parser_command = getenv("THE_BATCH_PARSER_COMMAND")
+parser_args = getenv("THE_BATCH_PARSER_ARGS")
+extension = getenv("THE_BATCH_EXTENSION")
+timeout = getenv("THE_BATCH_TIMEOUT")
+pmsgs_path = getenv("THE_BATCH_PMSGS_PATH")
+spans_path = getenv("THE_BATCH_SPANS_PATH")
+
+address the "set sdslh " || parser || " " || parser_command || " " || parser_args
+address the "set autocolor *." || extension || " " || parser
+address the "set coloring on auto"
+address the "sdslhwait " || timeout
+wait_rc = rc
+if wait_rc <> 0 then do
+  address the "emsg THE_BATCH_SDSLHWAIT_RC=" || wait_rc
+  address the "qquit"
+  exit 0
+end
+
+pmsgs = .string[]
+address the "extract /pmsgs/" expose pmsgs[]
+stylespanstext = .string
+address the "extract /stylespanstext/" expose stylespanstext
+
+if write_lines_to_file(pmsgs_path, pmsgs) <> 0 then do
+  address the "emsg THE_BATCH_EXPORT_RC=PMSGS"
+  address the "qquit"
+  exit 0
+end
+if write_text_to_file(spans_path, stylespanstext) <> 0 then do
+  address the "emsg THE_BATCH_EXPORT_RC=STYLESPANS"
+  address the "qquit"
+  exit 0
+end
+
+address the "qquit"
+exit 0
+
+write_text_to_file: procedure = .int
+  arg path = .string, text = .string
+  write_rc = charout(path, text)
+  close_rc = charout(path)
+  if write_rc <> 0 | close_rc <> 0 then return 1
+return 0
+
+write_lines_to_file: procedure = .int
+  arg path = .string, lines = .string[]
+  payload = arrayjoin(lines, '0a'x)
+  if lines.0 > 0 then payload = payload || '0a'x
+  write_rc = charout(path, payload)
+  close_rc = charout(path)
+  if write_rc <> 0 | close_rc <> 0 then return 1
+return 0

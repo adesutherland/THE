@@ -158,7 +158,9 @@ select
   end
 end
 
-renderer_command = shell_quote(crexx_bin) || " -nokeep " || shell_quote(renderer) || " -args"
+renderer_mode = "-nokeep"
+if lower(right(renderer, 6)) = ".rxbin" then renderer_mode = "-nocompile"
+renderer_command = shell_quote(crexx_bin) || " " || renderer_mode || " " || shell_quote(renderer) || " -args"
 if mode = "scan" then renderer_command = renderer_command || " --scan"
 if mode = "validate" then renderer_command = renderer_command || " --validate"
 if mode = "html" | mode = "validate" then do

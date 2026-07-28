@@ -7,7 +7,7 @@ This note is for the next integration step: using THE/SDSLH syntax highlighting 
 THE now provides two related tools:
 
 - `the-batch-md-rexx`: full Markdown example renderer. It can scan fenced REXX examples, highlight source, run examples, validate output, and render HTML/TeX/PDF.
-- `the-highlight-source`: focused source highlighter for documentation pipelines. It reads one source file and emits a LaTeX fragment using THE/SDSLH style spans.
+- `the-highlight-source`: focused source highlighter for documentation pipelines. It reads one source file and emits an HTML or TeX fragment using the same THE/SDSLH style spans.
 
 For the CREXX manual request, prefer `the-highlight-source`. It is deliberately smaller than the full batch renderer and does not replace the existing CREXX book pipeline.
 
@@ -16,11 +16,16 @@ Example:
 ```sh
 the-highlight-source docs/books/crexx_programming_guide/examples/hello.rxas \
   > build/the-highlight/hello.rxas.thehl.tex
+
+the-highlight-source --format html-fragment \
+  docs/books/crexx_programming_guide/examples/hello.crexx \
+  > build/the-highlight/hello.crexx.thehl.html
 ```
 
 Useful options:
 
 ```sh
+--format html-fragment|tex-fragment
 --language rexx|crexx|the|rxas
 --include-style true|false
 --include-wrapper true|false
@@ -29,10 +34,19 @@ Useful options:
 Defaults:
 
 - Language is inferred from `.rexx`, `.crexx`, `.the`, or `.rxas`.
+- TeX fragment output remains the default; HTML is selected explicitly.
 - Style definitions are not emitted by default.
-- The output is wrapped in `\begin{TheCodeBlock}` / `\end{TheCodeBlock}` by default.
+- TeX output is wrapped in `\begin{TheCodeBlock}` / `\end{TheCodeBlock}`;
+  HTML output is wrapped in `<pre class="the-example-source"><code>`.
 
-For a full standalone TeX smoke test, use `--include-style true`. For generated manual fragments, keep the default `--include-style false` and include the style definitions once from the manual preamble.
+For a standalone smoke test, use `--include-style true`. For a generated
+website or manual, keep the default `--include-style false` and include tuned
+style definitions once. The canonical end-user description of capabilities,
+dependencies, command syntax, templates, category mapping, HTML/TeX use, and
+the reverse-proxy contract is `doc/syntax-highlighting.md` in the THE source
+tree. It is packaged as `doc/syntax-highlighting.md` in a staged release and as
+`share/doc/the/syntax-highlighting.md` in an installation. The example README
+is intentionally only a quick start.
 
 ## Environment expected by the wrapper
 

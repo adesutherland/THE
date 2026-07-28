@@ -7,115 +7,115 @@
 options levelb
 address the
 
-'SET CMDARROWS TAB'
-'define s-tab cursor home save'
-'define backspace sos delback'
-'define ins insertmode toggle'
-'define f5 insertmode toggle'
+'SET CMDARROWS TAB';
+'define s-tab cursor home save';
+'define backspace sos delback';
+'define ins insertmode toggle';
+'define f5 insertmode toggle';
 
 /* CREXX workflow bindings */
-'define f8 macro crexxcompile'
-'define f9 macro crexxrun'
-'define f10 os crexxsaa --list'
-'define f11 os crexxsaa --location'
+'define f8 macro crexxcompile';
+'define f9 macro crexxrun';
+'define f10 os crexxsaa --list';
+'define f11 os crexxsaa --location';
 
 /* Load Parser */
-'SET SDSLH tp ~/.local/bin/tp -s'
-'SET AUTOCOLOR *.toy tp'
+'SET SDSLH tp ~/.local/bin/tp -s';
+'SET AUTOCOLOR *.toy tp';
 
 /* Load cREXX Compiler in Parser Mode */
-'SET SDSLH rxc ~/.local/bin/rxc --syntaxhighlight'
-'SET AUTOCOLOR *.rexx rxc'
-'SET AUTOCOLOR *.rex rxc'
-'SET AUTOCOLOR *.crexx rxc'
-'SET AUTOCOLOR *.crx rxc'
-'SET AUTOCOLOR *.the rxc'
+'SET SDSLH rxc ~/.local/bin/rxc --syntaxhighlight';
+'SET AUTOCOLOR *.rexx rxc';
+'SET AUTOCOLOR *.rex rxc';
+'SET AUTOCOLOR *.crexx rxc';
+'SET AUTOCOLOR *.crx rxc';
+'SET AUTOCOLOR *.the rxc';
 
 /* Load RXPP Preprocessor Parser Wrapper */
-'SET SDSLH rxpp ~/.local/bin/rxpp-sh --syntaxhighlight'
-'SET AUTOCOLOR *.rxpp rxpp'
+'SET SDSLH rxpp ~/.local/bin/rxpp-sh --syntaxhighlight';
+'SET AUTOCOLOR *.rxpp rxpp';
 
 /* Load cREXX Assembler in Parser Mode */
-'SET SDSLH rxas ~/.local/bin/rxas --syntaxhighlight'
-'SET AUTOCOLOR *.rxas rxas'
+'SET SDSLH rxas ~/.local/bin/rxas --syntaxhighlight';
+'SET AUTOCOLOR *.rxas rxas';
 
 /* Load Markdown Parser */
-'SET SDSLH mdp ~/.local/bin/mdp --syntaxhighlight'
-'SET AUTOCOLOR *.md mdp'
-'SET AUTOCOLOR *.markdown mdp'
+'SET SDSLH mdp ~/.local/bin/mdp --syntaxhighlight';
+'SET AUTOCOLOR *.md mdp';
+'SET AUTOCOLOR *.markdown mdp';
 
 /* Load C Parser */
-'SET SDSLH dslsh-c ~/.local/bin/dslsh-c --syntaxhighlight'
-'SET AUTOCOLOR *.c dslsh-c'
-'SET AUTOCOLOR *.h dslsh-c'
+'SET SDSLH dslsh-c ~/.local/bin/dslsh-c --syntaxhighlight';
+'SET AUTOCOLOR *.c dslsh-c';
+'SET AUTOCOLOR *.h dslsh-c';
 
 /* Load Python Parser */
-'SET SDSLH pyp ~/.local/bin/pyp --syntaxhighlight'
-'SET AUTOCOLOR *.py pyp'
+'SET SDSLH pyp ~/.local/bin/pyp --syntaxhighlight';
+'SET AUTOCOLOR *.py pyp';
 
 /* Load JavaScript Parser */
-'SET SDSLH jsp ~/.local/bin/jsp --syntaxhighlight'
-'SET AUTOCOLOR *.js jsp'
-'SET AUTOCOLOR *.mjs jsp'
-'SET AUTOCOLOR *.cjs jsp'
+'SET SDSLH jsp ~/.local/bin/jsp --syntaxhighlight';
+'SET AUTOCOLOR *.js jsp';
+'SET AUTOCOLOR *.mjs jsp';
+'SET AUTOCOLOR *.cjs jsp';
 
-'SET COLORING ON AUTO'
+'SET COLORING ON AUTO';
 
 /* Configure a modern dark view */
-'set color gap #6A9955 on #1E1E1E'
-'set color cgap #6A9955 on #1E1E1E'
-'set color arrow #569CD6 on #1E1E1E'
-'set color filearea #D4D4D4 on #1E1E1E'
-'set color curline #E6F7FF on #264F78'
-'set color cursorline #D4D4D4 on #2D2D30'
-'set color prefix #858585 on #252526'
-'set color cprefix #D4D4D4 on #007ACC'
-'set color tofeof #569CD6 on #1E1E1E'
-'set color ctofeof #569CD6 on #1E1E1E'
-'set color cmdline #D4D4D4 on #2D2D30'
-'set color msgline tomato on #1E1E1E'
-'set color idline white on #007ACC'
-'set color scale cadetblue on #1E1E1E'
-'set color pending #CE9178 on #1E1E1E'
-'set color shadow #858585 on #1E1E1E'
-'set color statarea white on #007ACC'
-'set prefix gap 1'
+'set color gap #6A9955 on #1E1E1E';
+'set color cgap #6A9955 on #1E1E1E';
+'set color arrow #569CD6 on #1E1E1E';
+'set color filearea #D4D4D4 on #1E1E1E';
+'set color curline #E6F7FF on #264F78';
+'set color cursorline #D4D4D4 on #2D2D30';
+'set color prefix #858585 on #252526';
+'set color cprefix #D4D4D4 on #007ACC';
+'set color tofeof #569CD6 on #1E1E1E';
+'set color ctofeof #569CD6 on #1E1E1E';
+'set color cmdline #D4D4D4 on #2D2D30';
+'set color msgline tomato on #1E1E1E';
+'set color idline white on #007ACC';
+'set color scale cadetblue on #1E1E1E';
+'set color pending #CE9178 on #1E1E1E';
+'set color shadow #858585 on #1E1E1E';
+'set color statarea white on #007ACC';
+'set prefix gap 1';
 
 /* Display parser status on the status line */
-'set statopt off *'
-'set statopt on pmsg.1 15 45'
+'set statopt off *';
+'set statopt on pmsg.1 15 45';
 
 /* Diagnostic token colors in the file area */
-'set color cberror white on firebrick'
-'set color cbwarn black on gold'
-'set color cbinfo white on #007ACC'
+'set color cberror white on firebrick';
+'set color cbwarn black on gold';
+'set color cbinfo white on #007ACC';
 
 /* Dynamic status line colors */
-'set color pmsgerror white on firebrick'
-'set color pmsgwarn black on gold'
-'set color pmsginfo white on #007ACC'
+'set color pmsgerror white on firebrick';
+'set color pmsgwarn black on gold';
+'set color pmsginfo white on #007ACC';
 
 /* Syntax highlighting colors */
-'set ecolor comment #6A9955 on #1E1E1E'
-'set ecolor string #CE9178 on #1E1E1E'
-'set ecolor incomplete_string #CE9178 on #1E1E1E'
-'set ecolor keyword #569CD6 on #1E1E1E'
-'set ecolor preprocessor #C586C0 on #1E1E1E'
-'set ecolor type #4EC9B0 on #1E1E1E'
-'set ecolor function #DCDCAA on #1E1E1E'
-'set ecolor constant #4FC1FF on #1E1E1E'
-'set ecolor macro_name #DCDCAA on #1E1E1E'
-'set ecolor macro_variable #4FC1FF on #1E1E1E'
-'set ecolor macro_constant #B5CEA8 on #1E1E1E'
-'set ecolor identifier #9CDCFE on #1E1E1E'
-'set ecolor number #B5CEA8 on #1E1E1E'
-'set ecolor operator #D4D4D4 on #1E1E1E'
-'set ecolor punctuation #D4D4D4 on #1E1E1E'
-'set ecolor paren #D4D4D4 on #1E1E1E'
-'set ecolor match black on #4D4D4D'
+'set ecolor comment #6A9955 on #1E1E1E';
+'set ecolor string #CE9178 on #1E1E1E';
+'set ecolor incomplete_string #CE9178 on #1E1E1E';
+'set ecolor keyword #569CD6 on #1E1E1E';
+'set ecolor preprocessor #C586C0 on #1E1E1E';
+'set ecolor type #4EC9B0 on #1E1E1E';
+'set ecolor function #DCDCAA on #1E1E1E';
+'set ecolor constant #4FC1FF on #1E1E1E';
+'set ecolor macro_name #DCDCAA on #1E1E1E';
+'set ecolor macro_variable #4FC1FF on #1E1E1E';
+'set ecolor macro_constant #B5CEA8 on #1E1E1E';
+'set ecolor identifier #9CDCFE on #1E1E1E';
+'set ecolor number #B5CEA8 on #1E1E1E';
+'set ecolor operator #D4D4D4 on #1E1E1E';
+'set ecolor punctuation #D4D4D4 on #1E1E1E';
+'set ecolor paren #D4D4D4 on #1E1E1E';
+'set ecolor match black on #4D4D4D';
 
 /* Cursor styles */
-'set cursorstyle insert ibeam blink'
-'set cursorstyle overwrite block steady'
+'set cursorstyle insert ibeam blink';
+'set cursorstyle overwrite block steady';
 
-'msg THE CREXX profile loaded'
+'msg THE CREXX profile loaded';

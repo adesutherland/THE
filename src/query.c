@@ -1553,7 +1553,7 @@ STAY
      stay.0          - 1
      stay.1          - ON|OFF
 
-STYLESPANS
+STYLESPANS [start-line [end-line]]
      Returns full-buffer syntax style spans for the current file.
      This is available for SDSLH-backed highlighting after <SDSLHWAIT>.
      If full-buffer highlighting is unavailable, zero records are returned.
@@ -1564,6 +1564,15 @@ STYLESPANS
      stylespans.0    - number of style span records
      stylespans.1    - first record: line start-cell cell-count style
      stylespans.n    - nth record
+
+STYLESPANSTEXT [start-line [end-line]]
+     Returns the same ordered records as <STYLESPANS>, but as one
+     newline-delimited scalar. This avoids one variable-pool update per span
+     when a batch consumer needs to transfer a large result efficiently.
+     An unavailable or empty result is returned as an empty string.
+     (E)
+
+     stylespanstext  - newline-delimited style span records
 
 SYNELEM [Cursor|row col|File line column]
      Returns the syntax highlighting element at the indicated position
@@ -2188,6 +2197,7 @@ QUERY_ITEM _THE_FAR query_item[] =
    {(CHARTYPE *)"statusline",     10, 7,ITEM_STATUSLINE,    1, 1,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_statusline             },
    {(CHARTYPE *)"stay",            4, 4,ITEM_STAY,          1, 2,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_stay                   },
    {(CHARTYPE *)"stylespans",     10,10,ITEM_STYLESPANS,    0, 0,          LVL_FILE,                         QUERY_EXTRACT             ,extract_stylespans             },
+   {(CHARTYPE *)"stylespanstext", 14,14,ITEM_STYLESPANSTEXT,1, 0,          LVL_FILE,                         QUERY_EXTRACT             ,extract_stylespans             },
    {(CHARTYPE *)"synelem",         7, 4,ITEM_SYNELEM,       1, 0,          LVL_VIEW,QUERY_QUERY             |QUERY_EXTRACT             ,extract_synelem                },
    {(CHARTYPE *)"synonym",         7, 3,ITEM_SYNONYM,       1, 0,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_synonym                },
    {(CHARTYPE *)"tabkey",          6, 4,ITEM_TABKEY,        2, 2,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_tabkey                 },

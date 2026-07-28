@@ -47,17 +47,17 @@ printf 'int x = 1\n' > "${SAMPLE}"
 cat > "${PROFILE}" <<PROFILE_EOF
 options levelb
 address the
-'set sdslh tp ${TP_BIN} -d'
-'set autocolor *.toy tp'
-'set coloring on auto'
-'sdslhwait 5000'
+'set sdslh tp ${TP_BIN} -d';
+'set autocolor *.toy tp';
+'set coloring on auto';
+'sdslhwait 5000';
 pmsgs = .string[]
 address the "extract /pmsgs/" expose pmsgs[]
 if pmsgs[0] = "1" then 'emsg SDSLH_PMSGS_COUNT_OK'
-if pmsgs[1] = "2 1 ERROR - Expected semicolon after statement" then 'emsg SDSLH_PMSGS_ENTRY_OK'
-'input // delayed delta comment'
-'sdslhwait 5000'
-'qquit'
+if pmsgs[1] = "2 1 ERROR - Expected semicolon after statement" then 'emsg SDSLH_PMSGS_ENTRY_OK';
+'input // delayed delta comment';
+'sdslhwait 5000';
+'qquit';
 PROFILE_EOF
 
 (

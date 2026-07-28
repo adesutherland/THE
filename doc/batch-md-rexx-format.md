@@ -106,6 +106,34 @@ cells, and lowercase logical style names such as `keyword`, `string`, and
 `comment`. `extract /stylespans start end/` limits extraction to an inclusive
 file-line range.
 
+Batch profiles that need the complete result should use the equivalent bulk
+scalar extract:
+
+```rexx
+stylespanstext = .string
+address the "extract /stylespanstext/" expose stylespanstext
+```
+
+It returns the ordered records separated by newlines with one variable-pool
+transfer. The array form remains useful for interactive profiles and
+compatibility; the packaged source highlighter uses the scalar form for large
+files.
+
+The focused `the-highlight-source` wrapper turns those same spans into an
+embeddable HTML or TeX fragment:
+
+```sh
+the-highlight-source --format html-fragment example.crexx > example.html
+the-highlight-source --format tex-fragment example.crexx > example.tex
+```
+
+TeX is the backward-compatible default. `--include-style true` emits the
+corresponding scoped HTML CSS or TeX macro definitions before the fragment;
+normal site and book builds should include their tuned definitions once and
+leave this option false. Capabilities, dependencies, command syntax, templates,
+HTML and TeX integration, and the reverse-proxy contract are documented in the
+[Syntax Highlighting User Guide](syntax-highlighting.md).
+
 ## Scanner and HTML Renderer
 
 Story 4 adds scanner mode:
@@ -131,7 +159,9 @@ the-batch-md-rexx --template-dir path/to/templates/html/default input.md output.
 Templates use simple `{{name}}` placeholders. Values inserted by the renderer
 are already HTML-escaped; template files should not try to escape them again.
 The default template set includes document, Markdown segment, example, source,
-run, output, style-token, and `style.css` fragments.
+run, output, style-token, and `style.css` fragments. Single-source HTML
+fragments use the deliberately scoped `fragment-style.css` so their optional
+inline style block does not introduce global `body` or document rules.
 
 ## TeX and PDF Output
 

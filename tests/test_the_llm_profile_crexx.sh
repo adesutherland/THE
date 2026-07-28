@@ -42,8 +42,8 @@ cat > "$profile" <<'PROFILE_EOF'
 options levelb
 import rxfnsb
 address the
-'input LLM_PROFILE_INSERTED'
-'emsg LLM_PROFILE_OK'
+'input LLM_PROFILE_INSERTED';
+'emsg LLM_PROFILE_OK';
 PROFILE_EOF
 
 printf 'alpha\n' > "$sample"

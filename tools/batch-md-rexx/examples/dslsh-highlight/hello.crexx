@@ -1,0 +1,8 @@
+options levelb
+
+/* The parser, rather than CSS, classifies these source tokens. */
+say greeting("Réne")
+
+greeting: procedure = .string
+  arg name = .string
+  return "Hello, " || name || "!"

@@ -33,8 +33,8 @@ options levelb
 import rxfnsb
 address the
 
-'cursor cmdline 1'
-'text abc'
+'cursor cmdline 1';
+'text abc';
 field = .string[]
 address the "extract /field/" expose field[]
 say "CMD_FIELD=" || field[1] || ":" || field[2] || ":" || field[3] || ":" || field[4]
@@ -42,16 +42,16 @@ position = .string[]
 address the "extract /position/" expose position[]
 say "CMD_POSITION=" || position[2] || ":" || position[3]
 
-'cursor cmdline 2'
-'text Z'
+'cursor cmdline 2';
+'text Z';
 field = .string[]
 address the "extract /field/" expose field[]
 say "CMD_FIELD2=" || field[1] || ":" || field[2] || ":" || field[3] || ":" || field[4]
 
-'set prefix on'
-'cursor file 1 1'
-'sos prefix'
-'text ab'
+'set prefix on';
+'cursor file 1 1';
+'sos prefix';
+'text ab';
 field = .string[]
 address the "extract /field/" expose field[]
 say "PREFIX_FIELD=" || field[1] || ":" || field[2] || ":" || field[3] || ":" || field[4]
@@ -59,31 +59,31 @@ position = .string[]
 address the "extract /position/" expose position[]
 say "PREFIX_POSITION=" || position[2] || ":" || position[3]
 
-'cursor file 1 1'
-'clocate /beta/'
+'cursor file 1 1';
+'clocate /beta/';
 field = .string[]
 address the "extract /field/" expose field[]
 say "COLUMN_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
 
-'cursor file 3 6'
-'sos lineadd'
+'cursor file 3 6';
+'sos lineadd';
 field = .string[]
 address the "extract /field/" expose field[]
 say "LINEADD_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
 
-'cursor file 1 4'
-'input inserted'
+'cursor file 1 4';
+'input inserted';
 field = .string[]
 address the "extract /field/" expose field[]
 say "INPUT_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
 
-'cursor file 1 4'
-'duplicate 1 1'
+'cursor file 1 4';
+'duplicate 1 1';
 field = .string[]
 address the "extract /field/" expose field[]
 say "DUP_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
 
-'qquit'
+'qquit';
 PROFILE_EOF
 
 run_with_pty() {

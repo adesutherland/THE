@@ -148,7 +148,7 @@ cat > "$profile" <<'PROFILE_EOF'
 options levelb
 import rxfnsb
 address the
-'qquit'
+'qquit';
 PROFILE_EOF
 
 run_with_pty() {

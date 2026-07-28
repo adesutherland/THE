@@ -36,101 +36,101 @@ options levelb
 import rxfnsb
 address the
 
-'set tabs 1 5 9'
-'cursor cmdline 1'
-'text abcde'
-'cursor cmdline 3'
-'sos delchar'
+'set tabs 1 5 9';
+'cursor cmdline 1';
+'text abcde';
+'cursor cmdline 3';
+'sos delchar';
 field = .string[]
 address the "extract /field/" expose field[]
 say "CMD_DELCHAR=" || field[1] || ":" || field[2] || ":" || field[3] || ":" || field[4]
 
-'sos delback'
+'sos delback';
 field = .string[]
 address the "extract /field/" expose field[]
 say "CMD_DELBACK=" || field[1] || ":" || field[2] || ":" || field[3] || ":" || field[4]
 
-'sos delend'
+'sos delend';
 field = .string[]
 address the "extract /field/" expose field[]
 say "CMD_DELEND=" || field[1] || ":" || field[2] || ":" || field[3] || ":" || field[4]
 
-'sos qcmnd'
-'text tabtest'
-'cursor cmdline 2'
-'sos tabf'
+'sos qcmnd';
+'text tabtest';
+'cursor cmdline 2';
+'sos tabf';
 field = .string[]
 address the "extract /field/" expose field[]
 say "CMD_TABF=" || field[3] || ":" || field[4]
 
-'sos tabb'
+'sos tabb';
 field = .string[]
 address the "extract /field/" expose field[]
 say "CMD_TABB=" || field[3] || ":" || field[4]
 
-'cursor file 1 1'
-'sos tabwordf'
+'cursor file 1 1';
+'sos tabwordf';
 field = .string[]
 address the "extract /field/" expose field[]
 say "FILE_TABWORDF=" || field[2] || ":" || field[3] || ":" || field[4]
 
-'sos tabwordf'
+'sos tabwordf';
 field = .string[]
 address the "extract /field/" expose field[]
 say "FILE_TABWORDF2=" || field[2] || ":" || field[3] || ":" || field[4]
 
-'sos tabwordb'
+'sos tabwordb';
 field = .string[]
 address the "extract /field/" expose field[]
 say "FILE_TABWORDB=" || field[2] || ":" || field[3] || ":" || field[4]
 
-'sos delword'
+'sos delword';
 field = .string[]
 address the "extract /field/" expose field[]
 say "FILE_DELWORD=" || field[1] || ":" || field[2] || ":" || field[3] || ":" || field[4]
 
-'cursor file 2 4'
-'sos cursoradj'
+'cursor file 2 4';
+'sos cursoradj';
 field = .string[]
 address the "extract /field/" expose field[]
 say "FILE_CURSORADJ=" || field[2] || ":" || field[3] || ":" || field[4]
 
-'cursor file 2 2'
-'sos cursorshift'
+'cursor file 2 2';
+'sos cursorshift';
 field = .string[]
 address the "extract /field/" expose field[]
 say "FILE_CURSORSHIFT=" || field[2] || ":" || field[3] || ":" || field[4]
 
-'cursor file 2 2'
-'sos firstcol'
-'sos tabf'
+'cursor file 2 2';
+'sos firstcol';
+'sos tabf';
 field = .string[]
 address the "extract /field/" expose field[]
 say "FILE_SETTAB_TABF=" || field[3] || ":" || field[4]
 
-'cursor file 2 2'
-'sos instab'
+'cursor file 2 2';
+'sos instab';
 field = .string[]
 address the "extract /field/" expose field[]
 say "FILE_INSTAB=" || field[3] || ":" || field[4]
 
-'set prefix on'
-'cursor file 2 1'
-'sos prefix'
-'text abc'
-'sos firstcol'
-'sos delchar'
+'set prefix on';
+'cursor file 2 1';
+'sos prefix';
+'text abc';
+'sos firstcol';
+'sos delchar';
 field = .string[]
 address the "extract /field/" expose field[]
 say "PREFIX_DELCHAR=" || field[1] || ":" || field[2] || ":" || field[3] || ":" || field[4]
 
-'sos endchar'
-'sos delback'
+'sos endchar';
+'sos delback';
 field = .string[]
 address the "extract /field/" expose field[]
 say "PREFIX_DELBACK=" || field[1] || ":" || field[2] || ":" || field[3] || ":" || field[4]
 
-'qquit'
+'qquit';
 PROFILE_EOF
 
 run_with_pty() {

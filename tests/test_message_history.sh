@@ -28,8 +28,8 @@ cat > "${PROFILE}" <<'PROFILE_EOF'
 options levelb
 address the
 
-'msg MESSAGE_HISTORY_ONE'
-'emsg MESSAGE_HISTORY_TWO'
+'msg MESSAGE_HISTORY_ONE';
+'emsg MESSAGE_HISTORY_TWO';
 
 messages = .string[]
 address the "extract /messages/" expose messages[]
@@ -43,9 +43,9 @@ if all_count = "2" then 'emsg MESSAGE_HISTORY_COUNT_OK'
 if all_first = "MESSAGE_HISTORY_ONE" then 'emsg MESSAGE_HISTORY_FIRST_OK'
 if all_second = "MESSAGE_HISTORY_TWO" then 'emsg MESSAGE_HISTORY_SECOND_OK'
 if messages[0] = "1" then 'emsg MESSAGE_HISTORY_RECENT_COUNT_OK'
-if messages[1] = "MESSAGE_HISTORY_TWO" then 'emsg MESSAGE_HISTORY_RECENT_OK'
+if messages[1] = "MESSAGE_HISTORY_TWO" then 'emsg MESSAGE_HISTORY_RECENT_OK';
 
-'qquit'
+'qquit';
 PROFILE_EOF
 
 env THE_HOME_DIR="${THE_HOME}" \

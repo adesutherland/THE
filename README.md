@@ -22,6 +22,8 @@ driver modules, and data structures is available in the
 [Architecture Overview](doc/architecture.md). The driver ownership contract is
 tracked in [Cursor Driver Architecture](doc/cursor-driver-architecture.md), and
 the CREXX bridge is documented separately in [CREXX Integration](doc/crexx.md).
+Documentation authors integrating parser-backed HTML or TeX source listings
+should start with the [Syntax Highlighting User Guide](doc/syntax-highlighting.md).
 
 ---
 

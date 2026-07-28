@@ -34,9 +34,9 @@ cat > "${PROFILE}" <<'PROFILE_EOF'
 options levelb
 import rxfnsb
 address the
-'set linend on #'
-'define C-G file'
-'cursor file 1 1'
+'set linend on #';
+'define C-G file';
+'cursor file 1 1';
 PROFILE_EOF
 
 run_with_pty() {

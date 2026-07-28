@@ -9,6 +9,7 @@ WORK_DIR="${BUILD_DIR}/batch-md-rexx-highlight-source-test"
 RENDERER="${TOOL_DIR}/render-html.crexx"
 WRAPPER="${TOOL_DIR}/the-highlight-source"
 TEMPLATE_DIR="${TOOL_DIR}/templates/tex/default"
+HTML_TEMPLATE_DIR="${TOOL_DIR}/templates/html/default"
 REXX_SAMPLE="${SCRIPT_DIR}/fixtures/crexx-doc-hello.crexx"
 RXAS_SAMPLE="${SCRIPT_DIR}/fixtures/crexx-doc-hello.rxas"
 THE_BIN="${THE_BIN:-${BUILD_DIR}/release/the}"
@@ -160,6 +161,26 @@ assert_rc body-only 0
 ! rg '\\begin\{TheCodeBlock\}' "${WORK_DIR}/body-only.out" >/dev/null || fail "body-only: wrapper should be opt-in"
 rg 'hello cRexx world' "${WORK_DIR}/body-only.out" >/dev/null
 
+run_capture html-style "${CREXX}" -nokeep "${RENDERER}" -args \
+  --highlight-source \
+  --format html-fragment \
+  --language crexx \
+  --include-style true \
+  --the "${THE_BIN}" \
+  --home "${THE_HOME}" \
+  --parser rxc \
+  --parser-command "${RXC}" \
+  --parser-arg --syntaxhighlight \
+  --template-dir "${HTML_TEMPLATE_DIR}" \
+  "${REXX_SAMPLE}"
+assert_rc html-style 0
+rg '^<style>$' "${WORK_DIR}/html-style.out" >/dev/null
+rg '^</style>$' "${WORK_DIR}/html-style.out" >/dev/null
+rg '\.the-example-source \.syn-keyword' "${WORK_DIR}/html-style.out" >/dev/null
+rg '<pre class="the-example-source"><code>' "${WORK_DIR}/html-style.out" >/dev/null
+rg '<span class="syn-preprocessor">options</span>' "${WORK_DIR}/html-style.out" >/dev/null
+rg '</code></pre>' "${WORK_DIR}/html-style.out" >/dev/null
+
 env_args=(
   "CREXX=${CREXX}"
   "THE_BIN=${THE_BIN}"
@@ -173,5 +194,43 @@ assert_rc wrapper-inferred 0
 rg '\\begin\{TheCodeBlock\}' "${WORK_DIR}/wrapper-inferred.out" >/dev/null
 rg 'setnumdgts' "${WORK_DIR}/wrapper-inferred.out" >/dev/null
 rg '\\TheSyn' "${WORK_DIR}/wrapper-inferred.out" >/dev/null
+
+run_capture wrapper-html env "${env_args[@]}" "${WRAPPER}" \
+  --format html-fragment \
+  --include-style false \
+  "${REXX_SAMPLE}"
+assert_rc wrapper-html 0
+! rg '^<style>$' "${WORK_DIR}/wrapper-html.out" >/dev/null || fail "wrapper-html: style definitions should be opt-in"
+rg '<pre class="the-example-source"><code>' "${WORK_DIR}/wrapper-html.out" >/dev/null
+rg '<span class="syn-preprocessor">options</span>' "${WORK_DIR}/wrapper-html.out" >/dev/null
+rg '</code></pre>' "${WORK_DIR}/wrapper-html.out" >/dev/null
+
+run_capture timeout-fails-closed env \
+  "THE_BATCH_HIGHLIGHT_PROFILE=${TOOL_DIR}/highlight-source-profile.the" \
+  "${CREXX}" -nokeep "${RENDERER}" -args \
+  --highlight-source \
+  --format html-fragment \
+  --language crexx \
+  --timeout 1 \
+  --the "${THE_BIN}" \
+  --home "${THE_HOME}" \
+  --parser rxc \
+  --parser-command "${RXC}" \
+  --parser-arg --syntaxhighlight \
+  --template-dir "${HTML_TEMPLATE_DIR}" \
+  "${RENDERER}"
+assert_rc timeout-fails-closed 2
+[[ ! -s "${WORK_DIR}/timeout-fails-closed.out" ]] || fail "timeout-fails-closed: partial highlighted output must not be emitted"
+rg 'SDSLHWAIT failed while highlighting' "${WORK_DIR}/timeout-fails-closed.err" >/dev/null
+
+PRECOMPILED_WRAPPER="${THE_HOME}/the-highlight-source"
+[[ -x "${PRECOMPILED_WRAPPER}" ]] || fail "precompiled-wrapper: release launcher is missing"
+[[ -f "${THE_HOME}/batch-md-rexx/render-html.rxbin" ]] || fail "precompiled-wrapper: render-html.rxbin is missing"
+[[ -f "${THE_HOME}/batch-md-rexx/highlight-source-profile.the" ]] || fail "precompiled-wrapper: stable profile is missing"
+run_capture precompiled-wrapper env "${env_args[@]}" "${PRECOMPILED_WRAPPER}" \
+  --format html-fragment \
+  "${REXX_SAMPLE}"
+assert_rc precompiled-wrapper 0
+rg '<span class="syn-preprocessor">options</span>' "${WORK_DIR}/precompiled-wrapper.out" >/dev/null
 
 echo "Batch Markdown source fragment highlight test passed."

@@ -57,7 +57,7 @@ address the "top"
 address the "delete *"
 address the "inputstem input_lines." expose input_lines[]
 address the "save"
-if rc = 0 then 'emsg CREXX_INPUTSTEM_ROUNDTRIP'
+if rc = 0 then 'emsg CREXX_INPUTSTEM_ROUNDTRIP';
 
-'emsg CREXX_PROFILE_HOSTED'
-'file'
+'emsg CREXX_PROFILE_HOSTED';
+'file';

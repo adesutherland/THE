@@ -1,0 +1,24 @@
+.the-example-source {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #1f2937;
+  background: #f8fafc;
+}
+.the-example-source code {
+  font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.the-example-source .syn-comment { color: #6a9955; font-style: italic; }
+.the-example-source .syn-string { color: #a31515; }
+.the-example-source .syn-number { color: #098658; }
+.the-example-source .syn-keyword { color: #0000ff; font-weight: 600; }
+.the-example-source .syn-preprocessor { color: #795e26; }
+.the-example-source .syn-type { color: #267f99; }
+.the-example-source .syn-function { color: #795e26; }
+.the-example-source .syn-constant { color: #0070c1; }
+.the-example-source .syn-identifier { color: #001080; }
+.the-example-source .syn-operator,
+.the-example-source .syn-punctuation,
+.the-example-source .syn-paren { color: #374151; }

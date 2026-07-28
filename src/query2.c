@@ -2117,6 +2117,120 @@ static short stylespans_emit_records(short itemno, CodeBuffer *cb,
 
    return RC_OK;
 }
+
+static short stylespans_emit_text(short itemno, CodeBuffer *cb,
+                                  LINETYPE start_line, LINETYPE end_line,
+                                  int count)
+{
+   LINETYPE line_no;
+   size_t used = 0;
+   size_t capacity;
+   CHARTYPE *text;
+   short rc;
+
+   if (count > 0 && (size_t)count > (SIZE_MAX - 1) / 32)
+      return RC_SYSTEM_ERROR;
+   capacity = count > 0 ? (size_t)count * 32 + 1 : 1;
+   text = (CHARTYPE *)(*the_malloc)(capacity * sizeof(CHARTYPE));
+   if (text == NULL)
+      return RC_SYSTEM_ERROR;
+   text[0] = '\0';
+
+   for (line_no = start_line; line_no <= end_line; line_no++)
+   {
+      CodeBufferLine *line = &cb->lines[line_no - 1];
+      const char *current_style = NULL;
+      size_t span_start = 0;
+      size_t col;
+
+      if (line->characters == NULL || line->length == 0)
+         continue;
+
+      for (col = 0; col <= line->length; col++)
+      {
+         const char *style = NULL;
+
+         if (col < line->length)
+            style = stylespans_style_name_from_token(line->characters[col].token_type);
+
+         if (current_style == NULL)
+         {
+            if (style != NULL)
+            {
+               current_style = style;
+               span_start = col;
+            }
+            continue;
+         }
+
+         if (style == current_style
+         ||  (style != NULL && strcmp(style, current_style) == 0))
+            continue;
+
+         {
+            char record[128];
+            int record_len;
+            size_t required;
+
+            record_len = snprintf(record, sizeof(record), "%ld %zu %zu %s\n",
+                                  (long)line_no, span_start, col - span_start,
+                                  current_style);
+            if (record_len < 0 || (size_t)record_len >= sizeof(record))
+            {
+               (*the_free)(text);
+               return RC_SYSTEM_ERROR;
+            }
+            required = used + (size_t)record_len + 1;
+            if (required < used)
+            {
+               (*the_free)(text);
+               return RC_SYSTEM_ERROR;
+            }
+            if (required > capacity)
+            {
+               size_t new_capacity = capacity;
+               CHARTYPE *new_text;
+
+               while (new_capacity < required)
+               {
+                  size_t grown = new_capacity * 2;
+                  if (grown <= new_capacity)
+                  {
+                     new_capacity = required;
+                     break;
+                  }
+                  new_capacity = grown;
+               }
+               new_text = (CHARTYPE *)(*the_realloc)(text, new_capacity * sizeof(CHARTYPE));
+               if (new_text == NULL)
+               {
+                  (*the_free)(text);
+                  return RC_SYSTEM_ERROR;
+               }
+               text = new_text;
+               capacity = new_capacity;
+            }
+            memcpy(text + used, record, (size_t)record_len);
+            used += (size_t)record_len;
+            text[used] = '\0';
+         }
+
+         if (style != NULL)
+         {
+            current_style = style;
+            span_start = col;
+         }
+         else
+         {
+            current_style = NULL;
+         }
+      }
+   }
+
+   rc = set_rexx_variable(query_item[itemno].name, text, used, -1);
+   (*the_free)(text);
+   return rc;
+}
 #endif
 
 short extract_stylespans(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
@@ -2129,6 +2243,7 @@ short extract_stylespans(short number_variables,short itemno,CHARTYPE *itemargs,
    LINETYPE start_line=1;
    LINETYPE end_line=0;
    short rc=RC_OK;
+   bool text_mode=(query_item[itemno].item_number == ITEM_STYLESPANSTEXT);
 
    INTENTIONALLY_UNUSED_VARIABLE(number_variables);
    INTENTIONALLY_UNUSED_VARIABLE(argc);
@@ -2173,7 +2288,10 @@ short extract_stylespans(short number_variables,short itemno,CHARTYPE *itemargs,
    }
 
 #ifndef USE_SDSLH
-   rc = set_rexx_variable(query_item[itemno].name, (CHARTYPE *)"0", 1, 0);
+   if (text_mode)
+      rc = set_rexx_variable(query_item[itemno].name, (CHARTYPE *)"", 0, -1);
+   else
+      rc = set_rexx_variable(query_item[itemno].name, (CHARTYPE *)"0", 1, 0);
 #else
    if (CURRENT_FILE == NULL
    ||  !CURRENT_FILE->colouring
@@ -2183,7 +2301,10 @@ short extract_stylespans(short number_variables,short itemno,CHARTYPE *itemargs,
    ||  CURRENT_FILE->cb->lines == NULL
    ||  CURRENT_FILE->cb->line_count == 0)
    {
-      rc = set_rexx_variable(query_item[itemno].name, (CHARTYPE *)"0", 1, 0);
+      if (text_mode)
+         rc = set_rexx_variable(query_item[itemno].name, (CHARTYPE *)"", 0, -1);
+      else
+         rc = set_rexx_variable(query_item[itemno].name, (CHARTYPE *)"0", 1, 0);
    }
    else
    {
@@ -2193,14 +2314,21 @@ short extract_stylespans(short number_variables,short itemno,CHARTYPE *itemargs,
          end_line = (LINETYPE)CURRENT_FILE->cb->line_count;
       if (start_line > (LINETYPE)CURRENT_FILE->cb->line_count)
       {
-         rc = set_rexx_variable(query_item[itemno].name, (CHARTYPE *)"0", 1, 0);
+         if (text_mode)
+            rc = set_rexx_variable(query_item[itemno].name, (CHARTYPE *)"", 0, -1);
+         else
+            rc = set_rexx_variable(query_item[itemno].name, (CHARTYPE *)"0", 1, 0);
       }
       else
       {
          enter_codeblock_critical_section();
          count = stylespans_count_records(CURRENT_FILE->cb, start_line, end_line);
-         rc = stylespans_emit_records(itemno, CURRENT_FILE->cb,
+         if (text_mode)
+            rc = stylespans_emit_text(itemno, CURRENT_FILE->cb,
                                       start_line, end_line, count);
+         else
+            rc = stylespans_emit_records(itemno, CURRENT_FILE->cb,
+                                         start_line, end_line, count);
          exit_codeblock_critical_section();
       }
    }

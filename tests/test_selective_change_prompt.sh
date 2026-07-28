@@ -31,28 +31,27 @@ printf 'alpha beta gamma\n' > "${SAMPLE}"
 
 cat > "${PROFILE}" <<'PROFILE_EOF'
 options levelb
-import rxfnsb
 address the
 
-'cursor file 1 1'
-say "SCHANGE_READY_SKIP"
-'schange /beta/BETA/ 1'
+'cursor file 1 1';
+'emsg SCHANGE_READY_SKIP';
+'schange /beta/BETA/ 1';
 field = .string[]
 address the "extract /field/" expose field[]
 say "SCHANGE_SKIP_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
 
-'cursor file 1 1'
-say "SCHANGE_READY_CHANGE"
-'schange /beta/BETA/ 1'
+'cursor file 1 1';
+'emsg SCHANGE_READY_CHANGE';
+'schange /beta/BETA/ 1';
 field = .string[]
 address the "extract /field/" expose field[]
 say "SCHANGE_CHANGE_FIELD=" || field[1] || ":" || field[2] || ":" || field[3] || ":" || field[4]
 
-'qquit'
+'qquit';
 PROFILE_EOF
 
 export THE_BIN PROFILE SAMPLE
-TERM="${TERM:-xterm}" expect >"${TRANSCRIPT}" 2>&1 <<'EXPECT_EOF'
+TERM=xterm expect >"${TRANSCRIPT}" 2>&1 <<'EXPECT_EOF'
 set timeout 10
 spawn $env(THE_BIN) -p $env(PROFILE) $env(SAMPLE)
 

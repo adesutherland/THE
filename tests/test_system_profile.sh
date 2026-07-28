@@ -34,8 +34,8 @@ printf 'system profile smoke\n' > "${SAMPLE}"
 cat > "${THE_HOME}/${SYSTEM_PROFILE_NAME}" <<'PROFILE_EOF'
 options levelb
 address the
-'set utf display normal class keycap output sanitize keycap metrics output width 1 advance 1 cursor 1 repaint 1'
-'set utf display decomposed'
+'set utf display normal class keycap output sanitize keycap metrics output width 1 advance 1 cursor 1 repaint 1';
+'set utf display decomposed';
 utf = .string[]
 address the "extract /utf/" expose utf[]
 if utf[1] = "ON" then 'emsg QUERY_UTF_ON'
@@ -60,21 +60,21 @@ if utf[3] \= utf_saved[3] then same = 0
 do i = 4 to last
   if utf[i] \= utf_saved[i] then same = 0
 end
-if same = 1 then 'emsg QUERY_UTF_REPLAY'
-'emsg SYSTEM_PROFILE_RAN'
+if same = 1 then 'emsg QUERY_UTF_REPLAY';
+'emsg SYSTEM_PROFILE_RAN';
 PROFILE_EOF
 
 cat > "${USER_PROFILE}" <<'PROFILE_EOF'
 options levelb
 address the
-'emsg USER_PROFILE_RAN'
-'file'
+'emsg USER_PROFILE_RAN';
+'file';
 PROFILE_EOF
 
 cat > "${THE_HOME}/system-apple-terminal.the" <<'PROFILE_EOF'
 options levelb
 address the
-'emsg APPLE_TERMINAL_PROFILE_RAN'
+'emsg APPLE_TERMINAL_PROFILE_RAN';
 PROFILE_EOF
 
 env THE_HOME_DIR="${THE_HOME}" \

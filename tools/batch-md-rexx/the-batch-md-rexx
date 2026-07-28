@@ -22,6 +22,17 @@ fi
 CREXX_CMD=${CREXX:-crexx}
 THE_CMD=${THE_BIN:-the}
 THE_HOME_CMD=${THE_HOME_DIR:-${default_the_home}}
+BATCH_DRIVER_PATH=${tool_dir}/batch-md-rexx.crexx
+BATCH_DRIVER_MODE=-nokeep
+if [ -f "${tool_dir}/batch-md-rexx.rxbin" ]; then
+  BATCH_DRIVER_PATH=${tool_dir}/batch-md-rexx.rxbin
+  BATCH_DRIVER_MODE=-nocompile
+fi
+RENDERER_PATH=${tool_dir}/render-html.crexx
+if [ -f "${tool_dir}/render-html.rxbin" ]; then
+  RENDERER_PATH=${tool_dir}/render-html.rxbin
+fi
+HIGHLIGHT_PROFILE=${tool_dir}/highlight-source-profile.the
 if [ "${THE_CREXX_RXC:-}" ]; then
   RXC_CMD=${THE_CREXX_RXC}
 else
@@ -46,9 +57,10 @@ else
 fi
 
 if [ -n "${RXAS_CMD}" ]; then
-  exec env -u CREXX -u THE_BIN -u THE_HOME_DIR -u THE_CREXX_RXC -u THE_CREXX_RXAS \
-    "${CREXX_CMD}" -nokeep "${tool_dir}/batch-md-rexx.crexx" -args \
-    --renderer "${tool_dir}/render-html.crexx" \
+  exec env -u CREXX -u THE_BIN -u THE_HOME_DIR -u THE_CREXX_RXC -u THE_CREXX_RXAS -u THE_BATCH_HIGHLIGHT_PROFILE \
+    THE_BATCH_HIGHLIGHT_PROFILE="${HIGHLIGHT_PROFILE}" \
+    "${CREXX_CMD}" "${BATCH_DRIVER_MODE}" "${BATCH_DRIVER_PATH}" -args \
+    --renderer "${RENDERER_PATH}" \
     --the "${THE_CMD}" \
     --home "${THE_HOME_CMD}" \
     --crexx "${CREXX_CMD}" \
@@ -59,9 +71,10 @@ if [ -n "${RXAS_CMD}" ]; then
     "$@"
 fi
 
-exec env -u CREXX -u THE_BIN -u THE_HOME_DIR -u THE_CREXX_RXC -u THE_CREXX_RXAS \
-  "${CREXX_CMD}" -nokeep "${tool_dir}/batch-md-rexx.crexx" -args \
-  --renderer "${tool_dir}/render-html.crexx" \
+exec env -u CREXX -u THE_BIN -u THE_HOME_DIR -u THE_CREXX_RXC -u THE_CREXX_RXAS -u THE_BATCH_HIGHLIGHT_PROFILE \
+  THE_BATCH_HIGHLIGHT_PROFILE="${HIGHLIGHT_PROFILE}" \
+  "${CREXX_CMD}" "${BATCH_DRIVER_MODE}" "${BATCH_DRIVER_PATH}" -args \
+  --renderer "${RENDERER_PATH}" \
   --the "${THE_CMD}" \
   --home "${THE_HOME_CMD}" \
   --crexx "${CREXX_CMD}" \

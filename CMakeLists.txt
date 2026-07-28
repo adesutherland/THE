@@ -287,6 +287,12 @@ if(USE_CREXX)
             ${THE_CREXX_LOCAL_BIN_DIRS}
             "$ENV{HOME}/.local/bin"
     )
+    find_program(CREXX_DRIVER_EXECUTABLE
+        NAMES crexx
+        HINTS
+            ${THE_CREXX_LOCAL_BIN_DIRS}
+            "$ENV{HOME}/.local/bin"
+    )
     find_file(CREXX_LIBRARY_RXBIN
         NAMES library.rxbin
         HINTS
@@ -501,22 +507,169 @@ add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory ${RELEASE_DIR}
     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${EXECUTABLE_NAME}> ${RELEASE_DIR}/${EXECUTABLE_NAME}
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/doc/THE_Help.txt ${RELEASE_DIR}/THE_Help.txt
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/profile.the ${RELEASE_DIR}/profile.the
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/profile_crexx.the ${RELEASE_DIR}/profile_crexx.the
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/crexxcompile.the ${RELEASE_DIR}/crexxcompile.the
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/crexxrun.the ${RELEASE_DIR}/crexxrun.the
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/the-batch-md-rexx ${RELEASE_DIR}/the-batch-md-rexx
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/the-highlight-source ${RELEASE_DIR}/the-highlight-source
     COMMAND ${CMAKE_COMMAND} -E make_directory ${RELEASE_DIR}/batch-md-rexx
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/batch-md-rexx.crexx ${RELEASE_DIR}/batch-md-rexx/batch-md-rexx.crexx
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/render-html.crexx ${RELEASE_DIR}/batch-md-rexx/render-html.crexx
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/highlight.crexx ${RELEASE_DIR}/batch-md-rexx/highlight.crexx
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/validate.crexx ${RELEASE_DIR}/batch-md-rexx/validate.crexx
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/templates ${RELEASE_DIR}/batch-md-rexx/templates
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/examples ${RELEASE_DIR}/batch-md-rexx/examples
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/syntax ${RELEASE_DIR}/syntax
     COMMENT "Copying executable and resources to ${RELEASE_DIR}"
 )
+
+set(THE_RUNTIME_PROFILE_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/profile.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/profile_crexx.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/crexxcompile.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/crexxrun.the
+)
+set(THE_COPIED_RUNTIME_PROFILE_OUTPUTS)
+foreach(THE_RUNTIME_PROFILE_SOURCE IN LISTS THE_RUNTIME_PROFILE_SOURCES)
+    get_filename_component(THE_RUNTIME_PROFILE_BASENAME "${THE_RUNTIME_PROFILE_SOURCE}" NAME)
+    set(THE_RUNTIME_PROFILE_OUTPUT "${RELEASE_DIR}/${THE_RUNTIME_PROFILE_BASENAME}")
+    add_custom_command(
+        OUTPUT ${THE_RUNTIME_PROFILE_OUTPUT}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${RELEASE_DIR}
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${THE_RUNTIME_PROFILE_SOURCE} ${THE_RUNTIME_PROFILE_OUTPUT}
+        DEPENDS ${THE_RUNTIME_PROFILE_SOURCE}
+        COMMENT "Copying runtime profile ${THE_RUNTIME_PROFILE_BASENAME} to ${RELEASE_DIR}"
+    )
+    list(APPEND THE_COPIED_RUNTIME_PROFILE_OUTPUTS ${THE_RUNTIME_PROFILE_OUTPUT})
+endforeach()
+add_custom_target(copy_runtime_profiles ALL
+    DEPENDS ${THE_COPIED_RUNTIME_PROFILE_OUTPUTS}
+)
+add_dependencies(${EXECUTABLE_NAME} copy_runtime_profiles)
+
+set(THE_BATCH_RUNTIME_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/batch-md-rexx.crexx
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/render-html.crexx
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/highlight.crexx
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/highlight-source-profile.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/validate.crexx
+)
+set(THE_COPIED_BATCH_RUNTIME_OUTPUTS)
+foreach(THE_BATCH_RUNTIME_SOURCE IN LISTS THE_BATCH_RUNTIME_SOURCES)
+    get_filename_component(THE_BATCH_RUNTIME_BASENAME "${THE_BATCH_RUNTIME_SOURCE}" NAME)
+    set(THE_BATCH_RUNTIME_OUTPUT "${RELEASE_DIR}/batch-md-rexx/${THE_BATCH_RUNTIME_BASENAME}")
+    add_custom_command(
+        OUTPUT ${THE_BATCH_RUNTIME_OUTPUT}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${RELEASE_DIR}/batch-md-rexx
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${THE_BATCH_RUNTIME_SOURCE} ${THE_BATCH_RUNTIME_OUTPUT}
+        DEPENDS ${THE_BATCH_RUNTIME_SOURCE}
+        COMMENT "Copying batch runtime source ${THE_BATCH_RUNTIME_BASENAME} to ${RELEASE_DIR}/batch-md-rexx"
+    )
+    list(APPEND THE_COPIED_BATCH_RUNTIME_OUTPUTS ${THE_BATCH_RUNTIME_OUTPUT})
+endforeach()
+add_custom_target(copy_batch_runtime_sources ALL
+    DEPENDS ${THE_COPIED_BATCH_RUNTIME_OUTPUTS}
+)
+add_dependencies(${EXECUTABLE_NAME} copy_batch_runtime_sources)
+
+set(THE_PRECOMPILED_BATCH_RUNTIME_OUTPUTS)
+if(CREXX_DRIVER_EXECUTABLE)
+    set(THE_BATCH_PRECOMPILE_DIR "${CMAKE_CURRENT_BINARY_DIR}/batch-md-rexx-precompiled")
+    foreach(THE_BATCH_PRECOMPILE_NAME IN ITEMS batch-md-rexx render-html)
+        set(THE_BATCH_PRECOMPILE_SOURCE
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/${THE_BATCH_PRECOMPILE_NAME}.crexx"
+        )
+        set(THE_BATCH_PRECOMPILE_COPY
+            "${THE_BATCH_PRECOMPILE_DIR}/${THE_BATCH_PRECOMPILE_NAME}.crexx"
+        )
+        set(THE_BATCH_PRECOMPILE_RXBIN
+            "${THE_BATCH_PRECOMPILE_DIR}/${THE_BATCH_PRECOMPILE_NAME}.rxbin"
+        )
+        set(THE_BATCH_RELEASE_RXBIN
+            "${RELEASE_DIR}/batch-md-rexx/${THE_BATCH_PRECOMPILE_NAME}.rxbin"
+        )
+        add_custom_command(
+            OUTPUT ${THE_BATCH_RELEASE_RXBIN}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${THE_BATCH_PRECOMPILE_DIR}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${RELEASE_DIR}/batch-md-rexx
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${THE_BATCH_PRECOMPILE_SOURCE} ${THE_BATCH_PRECOMPILE_COPY}
+            COMMAND ${CREXX_DRIVER_EXECUTABLE}
+                    ${THE_BATCH_PRECOMPILE_COPY} -keep -noexec -nocolour
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${THE_BATCH_PRECOMPILE_RXBIN} ${THE_BATCH_RELEASE_RXBIN}
+            DEPENDS
+                ${THE_BATCH_PRECOMPILE_SOURCE}
+                ${CREXX_DRIVER_EXECUTABLE}
+            BYPRODUCTS
+                ${THE_BATCH_PRECOMPILE_COPY}
+                ${THE_BATCH_PRECOMPILE_DIR}/${THE_BATCH_PRECOMPILE_NAME}.rxas
+                ${THE_BATCH_PRECOMPILE_RXBIN}
+            COMMENT "Precompiling ${THE_BATCH_PRECOMPILE_NAME}.crexx for batch runtime"
+            VERBATIM
+        )
+        list(APPEND THE_PRECOMPILED_BATCH_RUNTIME_OUTPUTS ${THE_BATCH_RELEASE_RXBIN})
+    endforeach()
+    add_custom_target(precompile_batch_runtime ALL
+        DEPENDS ${THE_PRECOMPILED_BATCH_RUNTIME_OUTPUTS}
+    )
+    add_dependencies(${EXECUTABLE_NAME} precompile_batch_runtime)
+endif()
+
+set(THE_BATCH_LAUNCHER_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/the-batch-md-rexx
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/the-highlight-source
+)
+set(THE_COPIED_BATCH_LAUNCHER_OUTPUTS)
+foreach(THE_BATCH_LAUNCHER_SOURCE IN LISTS THE_BATCH_LAUNCHER_SOURCES)
+    get_filename_component(THE_BATCH_LAUNCHER_BASENAME "${THE_BATCH_LAUNCHER_SOURCE}" NAME)
+    set(THE_BATCH_LAUNCHER_OUTPUT "${RELEASE_DIR}/${THE_BATCH_LAUNCHER_BASENAME}")
+    add_custom_command(
+        OUTPUT ${THE_BATCH_LAUNCHER_OUTPUT}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${RELEASE_DIR}
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${THE_BATCH_LAUNCHER_SOURCE} ${THE_BATCH_LAUNCHER_OUTPUT}
+        DEPENDS ${THE_BATCH_LAUNCHER_SOURCE}
+        COMMENT "Copying batch launcher ${THE_BATCH_LAUNCHER_BASENAME} to ${RELEASE_DIR}"
+    )
+    list(APPEND THE_COPIED_BATCH_LAUNCHER_OUTPUTS ${THE_BATCH_LAUNCHER_OUTPUT})
+endforeach()
+add_custom_target(copy_batch_launchers ALL
+    DEPENDS ${THE_COPIED_BATCH_LAUNCHER_OUTPUTS}
+)
+add_dependencies(${EXECUTABLE_NAME} copy_batch_launchers)
+
+file(GLOB_RECURSE THE_BATCH_TEMPLATE_SOURCES CONFIGURE_DEPENDS
+    LIST_DIRECTORIES false
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/templates/*"
+)
+set(THE_BATCH_TEMPLATE_STAMP "${RELEASE_DIR}/batch-md-rexx/templates/.copy-stamp")
+add_custom_command(
+    OUTPUT ${THE_BATCH_TEMPLATE_STAMP}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${RELEASE_DIR}/batch-md-rexx/templates
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/templates
+            ${RELEASE_DIR}/batch-md-rexx/templates
+    COMMAND ${CMAKE_COMMAND} -E touch ${THE_BATCH_TEMPLATE_STAMP}
+    DEPENDS ${THE_BATCH_TEMPLATE_SOURCES}
+    COMMENT "Copying batch renderer templates to ${RELEASE_DIR}/batch-md-rexx/templates"
+)
+add_custom_target(copy_batch_templates ALL
+    DEPENDS ${THE_BATCH_TEMPLATE_STAMP}
+)
+add_dependencies(${EXECUTABLE_NAME} copy_batch_templates)
+
+set(THE_SYNTAX_HIGHLIGHTING_DOC_SOURCE
+    ${CMAKE_CURRENT_SOURCE_DIR}/doc/syntax-highlighting.md
+)
+set(THE_SYNTAX_HIGHLIGHTING_DOC_OUTPUT
+    ${RELEASE_DIR}/doc/syntax-highlighting.md
+)
+add_custom_command(
+    OUTPUT ${THE_SYNTAX_HIGHLIGHTING_DOC_OUTPUT}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${RELEASE_DIR}/doc
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${THE_SYNTAX_HIGHLIGHTING_DOC_SOURCE}
+            ${THE_SYNTAX_HIGHLIGHTING_DOC_OUTPUT}
+    DEPENDS ${THE_SYNTAX_HIGHLIGHTING_DOC_SOURCE}
+    COMMENT "Copying syntax-highlighting user guide to ${RELEASE_DIR}/doc"
+)
+add_custom_target(copy_end_user_docs ALL
+    DEPENDS ${THE_SYNTAX_HIGHLIGHTING_DOC_OUTPUT}
+)
+add_dependencies(${EXECUTABLE_NAME} copy_end_user_docs)
 
 if(USE_UTF8 AND THE_SYSTEM_PROFILE_SOURCES)
     set(THE_COPIED_SYSTEM_PROFILE_OUTPUTS)
@@ -558,13 +711,20 @@ if(WIN32)
     install(PROGRAMS tools/the-env.ps1 DESTINATION bin)
 endif()
 install(FILES doc/THE_Help.txt profile.the profile_crexx.the crexxcompile.the crexxrun.the DESTINATION share/the)
+install(FILES doc/syntax-highlighting.md DESTINATION share/doc/the)
 install(FILES
     tools/batch-md-rexx/batch-md-rexx.crexx
     tools/batch-md-rexx/render-html.crexx
     tools/batch-md-rexx/highlight.crexx
+    tools/batch-md-rexx/highlight-source-profile.the
     tools/batch-md-rexx/validate.crexx
     DESTINATION share/the/batch-md-rexx
 )
+if(THE_PRECOMPILED_BATCH_RUNTIME_OUTPUTS)
+    install(FILES ${THE_PRECOMPILED_BATCH_RUNTIME_OUTPUTS}
+        DESTINATION share/the/batch-md-rexx
+    )
+endif()
 if(USE_UTF8 AND THE_SYSTEM_PROFILE_SOURCES)
     install(FILES ${THE_SYSTEM_PROFILE_SOURCES} DESTINATION share/the)
 endif()
@@ -608,7 +768,8 @@ if(THE_USE_CREXX)
         "THE_CREXX_RXAS=${CREXX_RXAS_EXECUTABLE}"
         "THE_CREXX_IMPORT_DIR=${CREXX_IMPORT_DIR}"
         "THE_CREXX_LIBRARY_RXBIN=${CREXX_LIBRARY_RXBIN}"
-        "CREXX=${CREXX_IMPORT_DIR}/crexx.exe"
+        "THE_BATCH_HIGHLIGHT_PROFILE=${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/highlight-source-profile.the"
+        "CREXX=${CREXX_IMPORT_DIR}/crexx${CMAKE_EXECUTABLE_SUFFIX}"
     )
 endif()
 find_program(THE_RG_EXECUTABLE NAMES rg rg.exe)
@@ -955,6 +1116,22 @@ add_test(NAME test_batch_md_rexx_highlight_source COMMAND ${THE_BASH_COMMAND} ${
 set_tests_properties(test_batch_md_rexx_highlight_source PROPERTIES
     SKIP_RETURN_CODE 77
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
+)
+# These tests launch the same cREXX renderer sources and DSLSH parser tools.
+# Concurrent full-suite runs can otherwise produce an undiagnosed driver rc 255
+# even though the affected test passes immediately when run alone.
+set_tests_properties(
+    test_batch_md_rexx_format
+    test_batch_md_rexx_scan
+    test_batch_md_rexx_render_html
+    test_batch_md_rexx_execute
+    test_batch_md_rexx_validate
+    test_batch_md_rexx_output_render
+    test_batch_md_rexx_runner
+    test_batch_md_rexx_tex
+    test_batch_md_rexx_highlight
+    test_batch_md_rexx_highlight_source
+    PROPERTIES RESOURCE_LOCK the_batch_md_rexx_toolchain
 )
 if(THE_USE_CREXX)
     add_test(NAME test_field_queries COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_field_queries.sh)

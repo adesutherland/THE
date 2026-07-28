@@ -35,114 +35,114 @@ options levelb
 import rxfnsb
 address the
 
-'cursor cmdline 5'
-'sos topedge'
+'cursor cmdline 5';
+'sos topedge';
 field = .string[]
 address the "extract /field/" expose field[]
 say "CMD_TOP_FIELD=" || field[3] || ":" || field[4]
 
-'cursor cmdline 5'
-'set prefix on right 6 0'
-'sos topedge'
+'cursor cmdline 5';
+'set prefix on right 6 0';
+'sos topedge';
 field = .string[]
 address the "extract /field/" expose field[]
 say "CMD_TOP_RIGHT_FIELD=" || field[3] || ":" || field[4]
 
-'set prefix on left 6 0'
-'cursor cmdline 5'
-'sos bottomedge'
+'set prefix on left 6 0';
+'cursor cmdline 5';
+'sos bottomedge';
 field = .string[]
 address the "extract /field/" expose field[]
 say "BOTTOM_FIELD=" || field[3] || ":" || field[4]
 
-'sos topedge'
+'sos topedge';
 field = .string[]
 address the "extract /field/" expose field[]
 say "TOP_FIELD=" || field[3] || ":" || field[4]
 
-'set prefix on'
-'cursor file 2 3'
-'sos prefix'
-'text zz'
+'set prefix on';
+'cursor file 2 3';
+'sos prefix';
+'text zz';
 field = .string[]
 address the "extract /field/" expose field[]
 say "PREFIX_TEXT_FIELD=" || field[1] || ":" || field[3] || ":" || field[4]
 
-'sos bottomedge'
+'sos bottomedge';
 field = .string[]
 address the "extract /field/" expose field[]
 say "PREFIX_BOTTOM_FIELD=" || field[3] || ":" || field[4]
 
-'sos topedge'
+'sos topedge';
 field = .string[]
 address the "extract /field/" expose field[]
 say "PREFIX_TOP_FIELD=" || field[3] || ":" || field[4]
 
-'sos leftedge'
+'sos leftedge';
 field = .string[]
 address the "extract /field/" expose field[]
 say "LEFTEDGE_FIELD=" || field[3] || ":" || field[4]
 
-'cursor file 6 4'
-'sos makecurr'
+'cursor file 6 4';
+'sos makecurr';
 field = .string[]
 address the "extract /field/" expose field[]
 say "MAKECURR_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
 
-'set prefix on'
-'cursor file 2 1'
-'sos tabfieldb'
+'set prefix on';
+'cursor file 2 1';
+'sos tabfieldb';
 field = .string[]
 address the "extract /field/" expose field[]
 say "TABFIELDB_TO_PREFIX=" || field[3] || ":" || field[4]
 
-'sos tabfieldf'
+'sos tabfieldf';
 field = .string[]
 address the "extract /field/" expose field[]
 say "TABFIELDF_TO_FILE=" || field[3] || ":" || field[4]
 
-'cursor cmdline 1'
-'sos tabfieldf'
+'cursor cmdline 1';
+'sos tabfieldf';
 field = .string[]
 address the "extract /field/" expose field[]
 say "TABFIELDF_FROM_COMMAND=" || field[3] || ":" || field[4]
 
-'sos tabfieldb'
+'sos tabfieldb';
 field = .string[]
 address the "extract /field/" expose field[]
 say "TABFIELDB_TO_COMMAND=" || field[3] || ":" || field[4]
 
-'cursor cmdline 1'
-'sos tabfieldb'
+'cursor cmdline 1';
+'sos tabfieldb';
 field = .string[]
 address the "extract /field/" expose field[]
 say "TABFIELDB_FROM_COMMAND=" || field[3] || ":" || field[4]
 
-'cursor file 5 5'
-'cursor escreen down'
+'cursor file 5 5';
+'cursor escreen down';
 field = .string[]
 address the "extract /field/" expose field[]
 say "FILE_CURSOR_DOWN_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
-'cursor escreen up'
+'cursor escreen up';
 field = .string[]
 address the "extract /field/" expose field[]
 say "FILE_CURSOR_UP_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
 
-'set prefix on'
-'cursor file 5 1'
-'sos prefix'
-'cursor right'
-'cursor right'
-'cursor escreen down'
+'set prefix on';
+'cursor file 5 1';
+'sos prefix';
+'cursor right';
+'cursor right';
+'cursor escreen down';
 field = .string[]
 address the "extract /field/" expose field[]
 say "PREFIX_CURSOR_DOWN_FIELD=" || field[3] || ":" || field[4]
-'cursor escreen up'
+'cursor escreen up';
 field = .string[]
 address the "extract /field/" expose field[]
 say "PREFIX_CURSOR_UP_FIELD=" || field[3] || ":" || field[4]
 
-'qquit'
+'qquit';
 PROFILE_EOF
 
 run_with_pty() {

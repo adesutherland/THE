@@ -109,8 +109,8 @@ cmp_text_lines "${WORK_DIR}/expected.txt" "${SAMPLE}" second
 cat > "${PROFILE}" <<'PROFILE_EOF'
 options levelb
 address the
-'emsg CREXX_PROFILE_CHANGED'
-'file'
+'emsg CREXX_PROFILE_CHANGED';
+'file';
 PROFILE_EOF
 
 run_the changed

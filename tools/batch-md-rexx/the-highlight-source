@@ -22,6 +22,30 @@ fi
 CREXX_CMD=${CREXX:-crexx}
 THE_CMD=${THE_BIN:-the}
 THE_HOME_CMD=${THE_HOME_DIR:-${default_the_home}}
+RENDERER_PATH=${tool_dir}/render-html.crexx
+RENDERER_MODE=-nokeep
+if [ -f "${tool_dir}/render-html.rxbin" ]; then
+  RENDERER_PATH=${tool_dir}/render-html.rxbin
+  RENDERER_MODE=-nocompile
+fi
+HIGHLIGHT_PROFILE=${tool_dir}/highlight-source-profile.the
+
+fragment_format=tex-fragment
+format_value_next=false
+for option in "$@"; do
+  if [ "${format_value_next}" = true ]; then
+    fragment_format=${option}
+    format_value_next=false
+  elif [ "${option}" = "--format" ]; then
+    format_value_next=true
+  fi
+done
+
+template_format=tex
+if [ "${fragment_format}" = "html-fragment" ]; then
+  template_format=html
+fi
+TEMPLATE_DIR=${tool_dir}/templates/${template_format}/default
 
 if [ "${THE_CREXX_RXC:-}" ]; then
   RXC_CMD=${THE_CREXX_RXC}
@@ -47,28 +71,28 @@ else
 fi
 
 if [ -n "${RXAS_CMD}" ]; then
-  exec env -u CREXX -u THE_BIN -u THE_HOME_DIR -u THE_CREXX_RXC -u THE_CREXX_RXAS \
-    "${CREXX_CMD}" -nokeep "${tool_dir}/render-html.crexx" -args \
+  exec env -u CREXX -u THE_BIN -u THE_HOME_DIR -u THE_CREXX_RXC -u THE_CREXX_RXAS -u THE_BATCH_HIGHLIGHT_PROFILE \
+    THE_BATCH_HIGHLIGHT_PROFILE="${HIGHLIGHT_PROFILE}" \
+    "${CREXX_CMD}" "${RENDERER_MODE}" "${RENDERER_PATH}" -args \
     --highlight-source \
-    --format tex-fragment \
     --the "${THE_CMD}" \
     --home "${THE_HOME_CMD}" \
     --parser rxc \
     --parser-command "${RXC_CMD}" \
     --rxas-parser-command "${RXAS_CMD}" \
     --parser-arg --syntaxhighlight \
-    --template-dir "${tool_dir}/templates/tex/default" \
+    --template-dir "${TEMPLATE_DIR}" \
     "$@"
 fi
 
-exec env -u CREXX -u THE_BIN -u THE_HOME_DIR -u THE_CREXX_RXC -u THE_CREXX_RXAS \
-  "${CREXX_CMD}" -nokeep "${tool_dir}/render-html.crexx" -args \
+exec env -u CREXX -u THE_BIN -u THE_HOME_DIR -u THE_CREXX_RXC -u THE_CREXX_RXAS -u THE_BATCH_HIGHLIGHT_PROFILE \
+  THE_BATCH_HIGHLIGHT_PROFILE="${HIGHLIGHT_PROFILE}" \
+  "${CREXX_CMD}" "${RENDERER_MODE}" "${RENDERER_PATH}" -args \
   --highlight-source \
-  --format tex-fragment \
   --the "${THE_CMD}" \
   --home "${THE_HOME_CMD}" \
   --parser rxc \
   --parser-command "${RXC_CMD}" \
   --parser-arg --syntaxhighlight \
-  --template-dir "${tool_dir}/templates/tex/default" \
+  --template-dir "${TEMPLATE_DIR}" \
   "$@"

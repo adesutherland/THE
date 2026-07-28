@@ -50,12 +50,12 @@ options levelb
 import rxfnsb
 address the
 
-'cursor file 1 2'
+'cursor file 1 2';
 field = .string[]
 address the "extract /field/" expose field[]
 say "UTF_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
 
-'qquit'
+'qquit';
 PROFILE_EOF
 
   run_with_pty "${THE_BIN}" -p "${PROFILE}" "${SAMPLE}"
@@ -67,7 +67,7 @@ options levelb
 import rxfnsb
 address the
 
-'cursor file 1 8'
+'cursor file 1 8';
 field = .string[]
 address the "extract /field/" expose field[]
 say "ASCII_FIELD=" || field[2] || ":" || field[3] || ":" || field[4]
@@ -96,7 +96,7 @@ address the "set hexdisplay on"
 address the "extract /hexdisplay/" expose hexdisplay[]
 say "HEXDISPLAY_ON=" || hexdisplay[0] || ":" || hexdisplay[1] || ":" || hexdisplay[2]
 
-'qquit'
+'qquit';
 PROFILE_EOF
 
   run_with_pty "${THE_BIN}" -p "${PROFILE}" "${SAMPLE}"
