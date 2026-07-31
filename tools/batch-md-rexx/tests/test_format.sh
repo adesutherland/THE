@@ -6,7 +6,7 @@ TOOL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ROOT_DIR="$(cd "${TOOL_DIR}/../.." && pwd)"
 BUILD_DIR="${THE_BUILD_DIR:-${ROOT_DIR}/cmake-build-debug}"
 WORK_DIR="${BUILD_DIR}/batch-md-rexx-format-test"
-VALIDATOR="${TOOL_DIR}/validate.crexx"
+VALIDATOR="${THE_BATCH_VALIDATE_RXBIN:-${BUILD_DIR}/release/batch-md-rexx/validate.rxbin}"
 SAMPLE="${SCRIPT_DIR}/fixtures/valid.md"
 CREXX="${CREXX:-${THE_CREXX:-}}"
 
@@ -23,12 +23,14 @@ if [[ -z "${CREXX}" || ! -x "${CREXX}" ]]; then
   exit 77
 fi
 
+if [[ "${VALIDATOR}" != *.rxbin || ! -f "${VALIDATOR}" ]]; then
+  echo "Batch Markdown REXX format test requires the precompiled validator: ${VALIDATOR}" >&2
+  exit 1
+fi
+
 rm -rf "${WORK_DIR}"
 mkdir -p "${WORK_DIR}"
-# Expected-failure validator cases can leave CREXX intermediates, so compile a
-# disposable copy instead of writing byproducts beside the source script.
-VALIDATOR_UNDER_TEST="${WORK_DIR}/validate.crexx"
-cp "${VALIDATOR}" "${VALIDATOR_UNDER_TEST}"
+VALIDATOR_UNDER_TEST="${VALIDATOR}"
 
 fail() {
   echo "$*" >&2
@@ -37,10 +39,15 @@ fail() {
 
 run_crexx_capture() {
   local name="$1"
+  local mode="-nokeep"
   shift
 
+  if [[ "$1" == *.rxbin ]]; then
+    mode="-nocompile"
+  fi
+
   set +e
-  "${CREXX}" -nokeep "$@" > "${WORK_DIR}/${name}.out" 2> "${WORK_DIR}/${name}.err"
+  "${CREXX}" "${mode}" "$@" > "${WORK_DIR}/${name}.out" 2> "${WORK_DIR}/${name}.err"
   local status=$?
   set -e
 

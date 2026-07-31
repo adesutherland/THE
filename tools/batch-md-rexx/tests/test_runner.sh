@@ -6,9 +6,11 @@ TOOL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ROOT_DIR="$(cd "${TOOL_DIR}/../.." && pwd)"
 BUILD_DIR="${THE_BUILD_DIR:-${ROOT_DIR}/cmake-build-debug}"
 WORK_DIR="${BUILD_DIR}/batch-md-rexx-runner-test"
-RUNNER="${TOOL_DIR}/the-batch-md-rexx"
 THE_BIN="${THE_BIN:-${BUILD_DIR}/release/the}"
 THE_HOME="${THE_HOME_DIR:-${BUILD_DIR}/release}"
+RUNNER="${THE_BATCH_RUNNER:-${THE_HOME}/the-batch-md-rexx}"
+BATCH_DRIVER="${THE_BATCH_DRIVER_RXBIN:-${THE_HOME}/batch-md-rexx/batch-md-rexx.rxbin}"
+RENDERER="${THE_BATCH_RENDERER_RXBIN:-${THE_HOME}/batch-md-rexx/render-html.rxbin}"
 CREXX="${CREXX:-${THE_CREXX:-}}"
 RXC="${THE_CREXX_RXC:-}"
 
@@ -50,8 +52,24 @@ if grep -aq "CREXX unavailable" "${THE_BIN}"; then
   exit 77
 fi
 
+if [[ ! -x "${RUNNER}" || "${BATCH_DRIVER}" != *.rxbin || ! -f "${BATCH_DRIVER}" ||
+      "${RENDERER}" != *.rxbin || ! -f "${RENDERER}" ]]; then
+  echo "Batch Markdown REXX runner test requires the packaged launcher and RXBIN artifacts" >&2
+  exit 1
+fi
+
 rm -rf "${WORK_DIR}"
 mkdir -p "${WORK_DIR}"
+CREXX_SPY="${WORK_DIR}/crexx-spy"
+CREXX_INVOCATION_LOG="${WORK_DIR}/crexx-invocations.log"
+cat > "${CREXX_SPY}" <<'EOF_CREXX_SPY'
+#!/usr/bin/env bash
+set -euo pipefail
+
+printf '%s\n' "$*" >> "${THE_CREXX_INVOCATION_LOG}"
+exec "${THE_REAL_CREXX}" "$@"
+EOF_CREXX_SPY
+chmod +x "${CREXX_SPY}"
 
 fail() {
   echo "$*" >&2
@@ -90,7 +108,9 @@ assert_empty_stdout() {
 }
 
 env_args=(
-  "CREXX=${CREXX}"
+  "CREXX=${CREXX_SPY}"
+  "THE_REAL_CREXX=${CREXX}"
+  "THE_CREXX_INVOCATION_LOG=${CREXX_INVOCATION_LOG}"
   "THE_BIN=${THE_BIN}"
   "THE_HOME_DIR=${THE_HOME}"
   "THE_CREXX_RXC=${RXC}"
@@ -117,5 +137,11 @@ assert_rc validate 0
 assert_empty_stdout validate
 rg 'batch-md-rexx: validating ' "${WORK_DIR}/validate.err" >/dev/null
 rg 'batch-md-rexx: validation passed' "${WORK_DIR}/validate.err" >/dev/null
+
+rg -- '-nocompile .*batch-md-rexx\.rxbin' "${CREXX_INVOCATION_LOG}" >/dev/null
+rg -- '-nocompile .*render-html\.rxbin' "${CREXX_INVOCATION_LOG}" >/dev/null
+if rg 'batch-md-rexx\.crexx|render-html\.crexx' "${CREXX_INVOCATION_LOG}" >/dev/null; then
+  fail "runner: production driver or renderer was compiled from source"
+fi
 
 echo "Batch Markdown REXX runner test passed."

@@ -6,7 +6,8 @@ TOOL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ROOT_DIR="$(cd "${TOOL_DIR}/../.." && pwd)"
 BUILD_DIR="${THE_BUILD_DIR:-${ROOT_DIR}/cmake-build-debug}"
 WORK_DIR="${BUILD_DIR}/batch-md-rexx-highlight-test"
-HIGHLIGHTER="${TOOL_DIR}/highlight.crexx"
+HIGHLIGHTER_SOURCE="${TOOL_DIR}/highlight.crexx"
+HIGHLIGHTER="${THE_BATCH_HIGHLIGHT_RXBIN:-${BUILD_DIR}/release/batch-md-rexx/highlight.rxbin}"
 VALID_SAMPLE="${SCRIPT_DIR}/fixtures/highlight-valid.rexx"
 INVALID_SAMPLE="${SCRIPT_DIR}/fixtures/highlight-invalid.rexx"
 THE_BIN="${THE_BIN:-${BUILD_DIR}/the}"
@@ -45,12 +46,14 @@ if [[ ! -x "${THE_BIN}" || ! -d "${THE_HOME}" ]]; then
   exit 77
 fi
 
+if [[ "${HIGHLIGHTER}" != *.rxbin || ! -f "${HIGHLIGHTER}" ]]; then
+  echo "Batch Markdown REXX highlight test requires the precompiled highlighter: ${HIGHLIGHTER}" >&2
+  exit 1
+fi
+
 rm -rf "${WORK_DIR}"
 mkdir -p "${WORK_DIR}"
-# Expected diagnostic failures can leave CREXX intermediates, so run a
-# disposable copy of the prototype.
-HIGHLIGHTER_UNDER_TEST="${WORK_DIR}/highlight.crexx"
-cp "${HIGHLIGHTER}" "${HIGHLIGHTER_UNDER_TEST}"
+HIGHLIGHTER_UNDER_TEST="${HIGHLIGHTER}"
 
 fail() {
   echo "$*" >&2
@@ -62,7 +65,7 @@ run_crexx_capture() {
   shift
 
   set +e
-  "${CREXX}" -nokeep "$@" > "${WORK_DIR}/${name}.out" 2> "${WORK_DIR}/${name}.err"
+  "${CREXX}" -nocompile "$@" > "${WORK_DIR}/${name}.out" 2> "${WORK_DIR}/${name}.err"
   local status=$?
   set -e
 
@@ -147,6 +150,6 @@ assert_empty_stderr invalid-allowed
 assert_rg 'highlight source=.*highlight-invalid\.rexx parser=rxc sdslhwait=5000 diagnostics=1' "${WORK_DIR}/invalid-allowed.out"
 assert_rg 'span line=1 start=0 len=7 style=preprocessor' "${WORK_DIR}/invalid-allowed.out"
 
-assert_rg 'command sdslhwait ' "${HIGHLIGHTER}"
+assert_rg 'command sdslhwait ' "${HIGHLIGHTER_SOURCE}"
 
 echo "Batch Markdown REXX highlight prototype test passed."

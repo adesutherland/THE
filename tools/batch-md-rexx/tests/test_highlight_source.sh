@@ -6,14 +6,15 @@ TOOL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ROOT_DIR="$(cd "${TOOL_DIR}/../.." && pwd)"
 BUILD_DIR="${THE_BUILD_DIR:-${ROOT_DIR}/cmake-build-debug}"
 WORK_DIR="${BUILD_DIR}/batch-md-rexx-highlight-source-test"
-RENDERER="${TOOL_DIR}/render-html.crexx"
-WRAPPER="${TOOL_DIR}/the-highlight-source"
+RENDERER_SOURCE="${TOOL_DIR}/render-html.crexx"
 TEMPLATE_DIR="${TOOL_DIR}/templates/tex/default"
 HTML_TEMPLATE_DIR="${TOOL_DIR}/templates/html/default"
 REXX_SAMPLE="${SCRIPT_DIR}/fixtures/crexx-doc-hello.crexx"
 RXAS_SAMPLE="${SCRIPT_DIR}/fixtures/crexx-doc-hello.rxas"
 THE_BIN="${THE_BIN:-${BUILD_DIR}/release/the}"
 THE_HOME="${THE_HOME_DIR:-${BUILD_DIR}/release}"
+RENDERER="${THE_BATCH_RENDERER_RXBIN:-${THE_HOME}/batch-md-rexx/render-html.rxbin}"
+WRAPPER="${THE_HIGHLIGHT_SOURCE:-${THE_HOME}/the-highlight-source}"
 CREXX="${CREXX:-${THE_CREXX:-}}"
 RXC="${THE_CREXX_RXC:-}"
 RXAS="${THE_CREXX_RXAS:-}"
@@ -71,6 +72,11 @@ if grep -aq "CREXX unavailable" "${THE_BIN}"; then
   exit 77
 fi
 
+if [[ "${RENDERER}" != *.rxbin || ! -f "${RENDERER}" || ! -x "${WRAPPER}" ]]; then
+  echo "Batch Markdown source fragment test requires the packaged launcher and renderer RXBIN" >&2
+  exit 1
+fi
+
 rm -rf "${WORK_DIR}"
 mkdir -p "${WORK_DIR}"
 
@@ -107,7 +113,7 @@ assert_rc() {
   fi
 }
 
-run_capture rexx-style "${CREXX}" -nokeep "${RENDERER}" -args \
+run_capture rexx-style "${CREXX}" -nocompile "${RENDERER}" -args \
   --highlight-source \
   --format tex-fragment \
   --language rexx \
@@ -126,7 +132,7 @@ rg '\\end\{TheCodeBlock\}' "${WORK_DIR}/rexx-style.out" >/dev/null
 rg 'hello cRexx world' "${WORK_DIR}/rexx-style.out" >/dev/null
 rg '\\TheSyn' "${WORK_DIR}/rexx-style.out" >/dev/null
 
-run_capture rxas-fragment "${CREXX}" -nokeep "${RENDERER}" -args \
+run_capture rxas-fragment "${CREXX}" -nocompile "${RENDERER}" -args \
   --highlight-source \
   --format tex-fragment \
   --language rxas \
@@ -145,7 +151,7 @@ rg 'setnumdgts' "${WORK_DIR}/rxas-fragment.out" >/dev/null
 rg 'hello cRexx world' "${WORK_DIR}/rxas-fragment.out" >/dev/null
 rg '\\TheSyn' "${WORK_DIR}/rxas-fragment.out" >/dev/null
 
-run_capture body-only "${CREXX}" -nokeep "${RENDERER}" -args \
+run_capture body-only "${CREXX}" -nocompile "${RENDERER}" -args \
   --highlight-source \
   --format tex-fragment \
   --language rexx \
@@ -161,7 +167,7 @@ assert_rc body-only 0
 ! rg '\\begin\{TheCodeBlock\}' "${WORK_DIR}/body-only.out" >/dev/null || fail "body-only: wrapper should be opt-in"
 rg 'hello cRexx world' "${WORK_DIR}/body-only.out" >/dev/null
 
-run_capture html-style "${CREXX}" -nokeep "${RENDERER}" -args \
+run_capture html-style "${CREXX}" -nocompile "${RENDERER}" -args \
   --highlight-source \
   --format html-fragment \
   --language crexx \
@@ -207,7 +213,7 @@ rg '</code></pre>' "${WORK_DIR}/wrapper-html.out" >/dev/null
 
 run_capture timeout-fails-closed env \
   "THE_BATCH_HIGHLIGHT_PROFILE=${TOOL_DIR}/highlight-source-profile.the" \
-  "${CREXX}" -nokeep "${RENDERER}" -args \
+  "${CREXX}" -nocompile "${RENDERER}" -args \
   --highlight-source \
   --format html-fragment \
   --language crexx \
@@ -218,12 +224,12 @@ run_capture timeout-fails-closed env \
   --parser-command "${RXC}" \
   --parser-arg --syntaxhighlight \
   --template-dir "${HTML_TEMPLATE_DIR}" \
-  "${RENDERER}"
+  "${RENDERER_SOURCE}"
 assert_rc timeout-fails-closed 2
 [[ ! -s "${WORK_DIR}/timeout-fails-closed.out" ]] || fail "timeout-fails-closed: partial highlighted output must not be emitted"
 rg 'SDSLHWAIT failed while highlighting' "${WORK_DIR}/timeout-fails-closed.err" >/dev/null
 
-PRECOMPILED_WRAPPER="${THE_HOME}/the-highlight-source"
+PRECOMPILED_WRAPPER="${WRAPPER}"
 [[ -x "${PRECOMPILED_WRAPPER}" ]] || fail "precompiled-wrapper: release launcher is missing"
 [[ -f "${THE_HOME}/batch-md-rexx/render-html.rxbin" ]] || fail "precompiled-wrapper: render-html.rxbin is missing"
 [[ -f "${THE_HOME}/batch-md-rexx/highlight-source-profile.the" ]] || fail "precompiled-wrapper: stable profile is missing"

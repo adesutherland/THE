@@ -6,11 +6,12 @@ TOOL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ROOT_DIR="$(cd "${TOOL_DIR}/../.." && pwd)"
 BUILD_DIR="${THE_BUILD_DIR:-${ROOT_DIR}/cmake-build-debug}"
 WORK_DIR="${BUILD_DIR}/batch-md-rexx-tex-test"
-RENDERER="${TOOL_DIR}/render-html.crexx"
-RUNNER="${TOOL_DIR}/the-batch-md-rexx"
 TEMPLATE_DIR="${TOOL_DIR}/templates/tex/default"
 THE_BIN="${THE_BIN:-${BUILD_DIR}/release/the}"
 THE_HOME="${THE_HOME_DIR:-${BUILD_DIR}/release}"
+RENDERER="${THE_BATCH_RENDERER_RXBIN:-${THE_HOME}/batch-md-rexx/render-html.rxbin}"
+BATCH_DRIVER="${THE_BATCH_DRIVER_RXBIN:-${THE_HOME}/batch-md-rexx/batch-md-rexx.rxbin}"
+RUNNER="${THE_BATCH_RUNNER:-${THE_HOME}/the-batch-md-rexx}"
 CREXX="${CREXX:-${THE_CREXX:-}}"
 RXC="${THE_CREXX_RXC:-}"
 
@@ -50,6 +51,12 @@ fi
 if grep -aq "CREXX unavailable" "${THE_BIN}"; then
   echo "Skipping batch Markdown REXX TeX test; THE was built without CREXX" >&2
   exit 77
+fi
+
+if [[ "${RENDERER}" != *.rxbin || ! -f "${RENDERER}" ||
+      "${BATCH_DRIVER}" != *.rxbin || ! -f "${BATCH_DRIVER}" || ! -x "${RUNNER}" ]]; then
+  echo "Batch Markdown REXX TeX test requires the packaged launcher and RXBIN artifacts" >&2
+  exit 1
 fi
 
 rm -rf "${WORK_DIR}"
@@ -101,7 +108,7 @@ say "- value: a_b & 100"
 ```
 EOF_TEX_MD
 
-run_capture direct "${CREXX}" -nokeep "${RENDERER}" -args \
+run_capture direct "${CREXX}" -nocompile "${RENDERER}" -args \
   --format tex \
   --the "${THE_BIN}" \
   --home "${THE_HOME}" \

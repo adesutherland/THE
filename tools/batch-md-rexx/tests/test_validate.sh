@@ -6,7 +6,7 @@ TOOL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ROOT_DIR="$(cd "${TOOL_DIR}/../.." && pwd)"
 BUILD_DIR="${THE_BUILD_DIR:-${ROOT_DIR}/cmake-build-debug}"
 WORK_DIR="${BUILD_DIR}/batch-md-rexx-validate-test"
-RENDERER="${TOOL_DIR}/render-html.crexx"
+RENDERER="${THE_BATCH_RENDERER_RXBIN:-${BUILD_DIR}/release/batch-md-rexx/render-html.rxbin}"
 THE_BIN="${THE_BIN:-${BUILD_DIR}/release/the}"
 THE_HOME="${THE_HOME_DIR:-${BUILD_DIR}/release}"
 CREXX="${CREXX:-${THE_CREXX:-}}"
@@ -48,10 +48,14 @@ if grep -aq "CREXX unavailable" "${THE_BIN}"; then
   exit 77
 fi
 
+if [[ "${RENDERER}" != *.rxbin || ! -f "${RENDERER}" ]]; then
+  echo "Batch Markdown REXX validate test requires the precompiled renderer: ${RENDERER}" >&2
+  exit 1
+fi
+
 rm -rf "${WORK_DIR}"
 mkdir -p "${WORK_DIR}/expected"
-RENDERER_UNDER_TEST="${WORK_DIR}/render-html.crexx"
-cp "${RENDERER}" "${RENDERER_UNDER_TEST}"
+RENDERER_UNDER_TEST="${RENDERER}"
 
 fail() {
   echo "$*" >&2
@@ -63,7 +67,7 @@ run_crexx_capture() {
   shift
 
   set +e
-  "${CREXX}" -nokeep "$@" > "${WORK_DIR}/${name}.out" 2> "${WORK_DIR}/${name}.err"
+  "${CREXX}" -nocompile "$@" > "${WORK_DIR}/${name}.out" 2> "${WORK_DIR}/${name}.err"
   local status=$?
   set -e
 

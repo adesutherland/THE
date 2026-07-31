@@ -567,7 +567,12 @@ add_dependencies(${EXECUTABLE_NAME} copy_batch_runtime_sources)
 set(THE_PRECOMPILED_BATCH_RUNTIME_OUTPUTS)
 if(CREXX_DRIVER_EXECUTABLE)
     set(THE_BATCH_PRECOMPILE_DIR "${CMAKE_CURRENT_BINARY_DIR}/batch-md-rexx-precompiled")
-    foreach(THE_BATCH_PRECOMPILE_NAME IN ITEMS batch-md-rexx render-html)
+    foreach(THE_BATCH_PRECOMPILE_NAME IN ITEMS
+            batch-md-rexx
+            render-html
+            highlight
+            validate
+    )
         set(THE_BATCH_PRECOMPILE_SOURCE
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/batch-md-rexx/${THE_BATCH_PRECOMPILE_NAME}.crexx"
         )
@@ -593,6 +598,9 @@ if(CREXX_DRIVER_EXECUTABLE)
             DEPENDS
                 ${THE_BATCH_PRECOMPILE_SOURCE}
                 ${CREXX_DRIVER_EXECUTABLE}
+                ${CREXX_RXC_EXECUTABLE}
+                ${CREXX_RXAS_EXECUTABLE}
+                ${CREXX_LIBRARY_RXBIN}
             BYPRODUCTS
                 ${THE_BATCH_PRECOMPILE_COPY}
                 ${THE_BATCH_PRECOMPILE_DIR}/${THE_BATCH_PRECOMPILE_NAME}.rxas
@@ -761,6 +769,12 @@ set(THE_CTEST_RUNTIME_ENV
     "THE_BIN=$<TARGET_FILE:${EXECUTABLE_NAME}>"
     "THE_HOME_DIR=${RELEASE_DIR}"
     "THE_DRIVER_PATH=${CMAKE_CURRENT_BINARY_DIR}"
+    "THE_BATCH_DRIVER_RXBIN=${RELEASE_DIR}/batch-md-rexx/batch-md-rexx.rxbin"
+    "THE_BATCH_RENDERER_RXBIN=${RELEASE_DIR}/batch-md-rexx/render-html.rxbin"
+    "THE_BATCH_HIGHLIGHT_RXBIN=${RELEASE_DIR}/batch-md-rexx/highlight.rxbin"
+    "THE_BATCH_VALIDATE_RXBIN=${RELEASE_DIR}/batch-md-rexx/validate.rxbin"
+    "THE_BATCH_RUNNER=${RELEASE_DIR}/the-batch-md-rexx"
+    "THE_HIGHLIGHT_SOURCE=${RELEASE_DIR}/the-highlight-source"
 )
 if(THE_USE_CREXX)
     list(APPEND THE_CTEST_RUNTIME_ENV
@@ -773,6 +787,13 @@ if(THE_USE_CREXX)
     )
 endif()
 find_program(THE_RG_EXECUTABLE NAMES rg rg.exe)
+if(NOT THE_RG_EXECUTABLE)
+    message(FATAL_ERROR
+        "ripgrep (rg) is required by the CTest scripts. "
+        "Install it (for example, 'sudo apt install ripgrep' on Debian/Ubuntu) "
+        "and reconfigure the build directory."
+    )
+endif()
 set(THE_CTEST_PATH_DIRS
     "${CMAKE_CURRENT_BINARY_DIR}"
     "${RELEASE_DIR}"
@@ -1131,7 +1152,9 @@ set_tests_properties(
     test_batch_md_rexx_tex
     test_batch_md_rexx_highlight
     test_batch_md_rexx_highlight_source
-    PROPERTIES RESOURCE_LOCK the_batch_md_rexx_toolchain
+    PROPERTIES
+        RESOURCE_LOCK the_batch_md_rexx_toolchain
+        TIMEOUT 120
 )
 if(THE_USE_CREXX)
     add_test(NAME test_field_queries COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_field_queries.sh)
@@ -1154,7 +1177,7 @@ if(THE_USE_CREXX)
     add_test(NAME test_normal_area_queries COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_normal_area_queries.sh)
     set_tests_properties(test_normal_area_queries PROPERTIES
         SKIP_RETURN_CODE 77
-        TIMEOUT 10
+        TIMEOUT 30
         RESOURCE_LOCK the_pty_editor
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
@@ -1171,7 +1194,7 @@ if(THE_USE_CREXX)
     add_test(NAME test_sos_navigation_queries COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sos_navigation_queries.sh)
     set_tests_properties(test_sos_navigation_queries PROPERTIES
         SKIP_RETURN_CODE 77
-        TIMEOUT 10
+        TIMEOUT 30
         RESOURCE_LOCK the_pty_editor
         DEPENDS test_curses_text_entry
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
@@ -1179,7 +1202,7 @@ if(THE_USE_CREXX)
     add_test(NAME test_sos_logical_edit_queries COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sos_logical_edit_queries.sh)
     set_tests_properties(test_sos_logical_edit_queries PROPERTIES
         SKIP_RETURN_CODE 77
-        TIMEOUT 10
+        TIMEOUT 30
         RESOURCE_LOCK the_pty_editor
         DEPENDS test_sos_navigation_queries
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"

@@ -31,6 +31,14 @@ should start with the [Syntax Highlighting User Guide](doc/syntax-highlighting.m
 
 The project is natively supported by modern IDEs (like CLion) and easily builds via the standard CMake workflow:
 
+The test suite uses `bash` and `ripgrep` (`rg`) for its integration-test
+assertions. It also uses `expect` to exercise interactive editor prompts through
+a pseudo-terminal. On Debian and Ubuntu, install them before configuring:
+
+```bash
+sudo apt install bash ripgrep expect
+```
+
 ```bash
 mkdir -p cmake-build
 cd cmake-build
