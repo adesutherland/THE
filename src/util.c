@@ -1243,8 +1243,15 @@ CHARTYPE *strtrans( CHARTYPE *str, CHARTYPE oldch, CHARTYPE newch )
            LINE *p = curr_line;
            while (p) { idx++; p = p->prev; }
            if (idx >= 0) {
-               Transaction txn = { TRANSACTION_ADDLINE, idx, 0, NULL, 1 };
-               editor_apply_transaction(CURRENT_FILE->cb, txn);
+               bool use_empty_placeholder = CURRENT_FILE->number_lines == 0
+                                         && idx == 0
+                                         && CURRENT_FILE->cb->line_count == 1
+                                         && CURRENT_FILE->cb->lines
+                                         && CURRENT_FILE->cb->lines[0].length == 0;
+               if (!use_empty_placeholder) {
+                   Transaction txn = { TRANSACTION_ADDLINE, idx, 0, NULL, 1 };
+                   editor_apply_transaction(CURRENT_FILE->cb, txn);
+               }
                if (curr_line->length > 0) {
                    Transaction add_txn = { TRANSACTION_ADDCHARS, idx, 0, (char *)curr_line->line, 0 };
                    editor_apply_transaction(CURRENT_FILE->cb, add_txn);

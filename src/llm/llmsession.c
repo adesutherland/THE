@@ -621,11 +621,17 @@ static int apply_key_name(const char *name)
 static int apply_text_bytes(const char *text)
 {
    int filearea_text = 0;
+   int empty_file_text = 0;
    LogicalCursor saved_cursor;
    LogicalCursor after_cursor;
 
    if (text == NULL)
       text = "";
+   empty_file_text = CURRENT_VIEW != NULL
+                  && CURRENT_FILE != NULL
+                  && CURRENT_VIEW->current_window == WINDOW_FILEAREA
+                  && CURRENT_FILE->number_lines == 0
+                  && text[0] != '\0';
    saved_cursor = (CURRENT_VIEW != NULL)
                 ? CURRENT_VIEW->logical_cursor.current
                 : logical_cursor_invalid();
@@ -649,8 +655,32 @@ static int apply_text_bytes(const char *text)
       }
    }
    (void)Text((CHARTYPE *)text);
+   if (empty_file_text
+   &&  CURRENT_FILE->number_lines > 0
+   &&  CURRENT_VIEW->focus_line > 0)
+   {
+      int after_cell;
+      int zone_row;
+
+#ifdef USE_UTF8
+      TextPos end = textpos_from_byte(rec, rec_len, rec_len);
+      after_cell = end.cell_column;
+#else
+      after_cell = (int)rec_len;
+#endif
+      zone_row = get_row_for_focus_line(current_screen,
+                                        CURRENT_VIEW->focus_line,
+                                        CURRENT_VIEW->current_row);
+      after_cursor = logical_cursor_from_cell(
+         LOGICAL_CURSOR_ZONE_FILEAREA, CURRENT_VIEW->focus_line,
+         zone_row, rec, rec_len, after_cell, TEXT_SNAP_BACKWARD, 1);
+      filearea_text = 1;
+   }
    if (CURRENT_VIEW != NULL)
-      after_cursor = CURRENT_VIEW->logical_cursor.current;
+   {
+      if (!empty_file_text)
+         after_cursor = CURRENT_VIEW->logical_cursor.current;
+   }
    if (filearea_text
    &&  saved_cursor.valid
    &&  saved_cursor.zone == LOGICAL_CURSOR_ZONE_FILEAREA
@@ -751,6 +781,8 @@ static int focus_command(const char *name)
       CURRENT_VIEW->current_window = WINDOW_FILEAREA;
       if (the_driver_is_headless())
          the_driver_set_screen_current_role(current_screen, WINDOW_FILEAREA);
+      if (CURRENT_FILE == NULL || CURRENT_FILE->number_lines == 0)
+         return 1;
       (void)THEcursor_goto(CURRENT_VIEW->focus_line > 0
                               ? CURRENT_VIEW->focus_line : 1,
                            CURRENT_VIEW->current_column > 0

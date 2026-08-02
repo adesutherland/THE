@@ -37,6 +37,10 @@ sample="$work_dir/sample.txt"
 out="$work_dir/out.jsonl"
 err="$work_dir/err.log"
 cache_dir="$work_dir/cache"
+new_profile="$work_dir/new-file-profile.the"
+new_sample="$work_dir/new-file.crexx"
+new_out="$work_dir/new-file.jsonl"
+new_err="$work_dir/new-file.err"
 
 cat > "$profile" <<'PROFILE_EOF'
 options levelb
@@ -69,5 +73,47 @@ rg '"dirty":1' "$out" >/dev/null
 if rg -q 'Error opening terminal|setupterm|initscr' "$out" "$err"; then
   echo "llm CREXX profile test appeared to initialize curses" >&2
   cat "$out" "$err" >&2
+  exit 1
+fi
+
+cat > "$new_profile" <<PROFILE_EOF
+options levelb
+address the
+'set sdslh rxc ${rxc} --syntaxhighlight';
+'set autocolor *.crexx rxc';
+'set coloring on auto';
+PROFILE_EOF
+
+printf '%s\n' \
+  'text /' \
+  'text * comment */' \
+  'command sdslhwait 5000' \
+  'look filearea compact max=80' \
+  'quit' |
+  env \
+    TERM= \
+    THE_HOME_DIR="$release_dir" \
+    THE_CREXX_RXC="$rxc" \
+    THE_CREXX_RXAS="$rxas" \
+    THE_CREXX_IMPORT_DIR="$crexx_bin_dir" \
+    THE_CREXX_LOCATION="$crexx_bin_dir" \
+    THE_CREXX_LIBRARY_RXBIN="$library_rxbin" \
+    CREXXSAA_CACHE_DIR="$cache_dir" \
+    "$the_bin" --driver llm -p "$new_profile" "$new_sample" \
+    >"$new_out" 2>"$new_err"
+
+rg '"path":"[^"]*new-file\.crexx","dirty":1,"lines":1' "$new_out" >/dev/null
+rg '"t":"/\* comment \*/"' "$new_out" >/dev/null
+rg '"s":\[\[0,13,"comment"\]\]' "$new_out" >/dev/null
+
+if rg -q 'Error 0063: Invalid cursor line or column' "$new_out" "$new_err"; then
+  echo "new-file LLM syntax test attempted to focus a nonexistent line" >&2
+  cat "$new_out" "$new_err" >&2
+  exit 1
+fi
+
+if rg -q 'Error opening terminal|setupterm|initscr' "$new_out" "$new_err"; then
+  echo "new-file LLM syntax test appeared to initialize curses" >&2
+  cat "$new_out" "$new_err" >&2
   exit 1
 fi

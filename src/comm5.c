@@ -871,6 +871,7 @@ short Text(CHARTYPE *params)
 /***********************************************************************/
 {
    LENGTHTYPE i=0L;
+   short rc=RC_OK;
    CHARTYPE real_key=0;
    TheDriverCell text_cell=0;
    LENGTHTYPE x=0;
@@ -912,6 +913,37 @@ short Text(CHARTYPE *params)
       display_error( 56, (CHARTYPE *)"", FALSE );
       TRACE_RETURN();
       return(RC_INVALID_ENVIRON);
+   }
+   /*
+    * An empty new file has only TOF and EOF sentinel rows. Create its first
+    * real line before routing text through the normal line-editing path.
+    */
+   if ( CURRENT_VIEW->current_window == WINDOW_FILEAREA
+   &&   CURRENT_FILE->number_lines == 0
+   &&   params[0] != '\0' )
+   {
+      LINE *first_line;
+      LogicalCursor logical;
+      int zone_row;
+
+      rc = Input((CHARTYPE *)"");
+      if ( rc != RC_OK
+      ||   CURRENT_FILE->number_lines == 0 )
+      {
+         TRACE_RETURN();
+         return(rc);
+      }
+      first_line = CURRENT_FILE->first_line->next;
+      zone_row = get_row_for_focus_line(current_screen,
+                                        CURRENT_VIEW->focus_line,
+                                        CURRENT_VIEW->current_row);
+      logical = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_FILEAREA,
+                                         CURRENT_VIEW->focus_line,
+                                         zone_row, first_line->line,
+                                         first_line->length, 0,
+                                         TEXT_SNAP_BACKWARD, 1);
+      logical_cursor_state_focus(&CURRENT_VIEW->logical_cursor, logical);
+      (void)execute_move_cursor(current_screen, CURRENT_VIEW, 0);
    }
    /*
     * If HEX mode is on, convert the hex string...

@@ -189,9 +189,11 @@ dispatch groups.
 4. Prefer `text ...` or `type ...` for literal text insertion.
 5. After sending input, wait for the next snapshot before deciding on another
    action.
-6. Use logical cursor fields for reasoning about position. Treat physical
+6. After edits that affect asynchronous syntax state, issue
+   `command sdslhwait 5000` before inspecting style spans or parser diagnostics.
+7. Use logical cursor fields for reasoning about position. Treat physical
    screen fields as diagnostic context only.
-7. Do not infer UTF layout from visible glyph width. A keycap, flag, ZWJ emoji,
+8. Do not infer UTF layout from visible glyph width. A keycap, flag, ZWJ emoji,
    or combining sequence may have terminal-specific physical width while
    remaining one logical editor cluster.
 
