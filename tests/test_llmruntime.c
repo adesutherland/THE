@@ -147,10 +147,32 @@ static void test_compact_filearea_runtime_format(void)
    expect_absent("runtime.format.prefix", out, "\"p\"");
 }
 
+static void test_command_focus_survives_filearea_frame(void)
+{
+   LlmDriverScreenView view;
+   LogicalCursor cursor;
+
+   setup_screen();
+   cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_COMMAND, 0, 0,
+                                textpos_from_cell_virtual(
+                                   cmd_rec, cmd_rec_len, 4,
+                                   TEXT_SNAP_BACKWARD));
+   logical_cursor_state_focus(&vd_current->logical_cursor, cursor);
+
+   expect_int("runtime.command.focus.view",
+              llm_runtime_screen_view(0, &view), 1);
+   expect_int("runtime.command.focus.zone", view.cursor.zone,
+              LOGICAL_CURSOR_ZONE_COMMAND);
+   expect_int("runtime.command.focus.cell", view.cursor.text.cell_column, 4);
+   expect_contains("runtime.command.focus.status", view.status,
+                   "focus=command");
+}
+
 int main(void)
 {
    test_runtime_view();
    test_compact_filearea_runtime_format();
+   test_command_focus_survives_filearea_frame();
 
    if (failures != 0)
    {

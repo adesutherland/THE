@@ -52,3 +52,7 @@ fix_knr.py
 /parser.log
 /test.toy
 /test_profile.the
+
+# Web frontend build artifacts
+web/node_modules/
+web/dist/

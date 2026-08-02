@@ -1,0 +1,81 @@
+/* Trusted profile for the restricted web frontend. */
+
+options levelb
+address the
+
+/* Browser-entered commands must not gain alternate execution paths. */
+'set impos off';
+'set impmacro off';
+'set macro off';
+'set linend off';
+'set synonym off';
+
+'set cmdarrows tab';
+'define s-tab cursor home save';
+'define backspace sos delback';
+'define ins insertmode toggle';
+
+/* Parser processes are supplied by the container image, not the browser. */
+'set sdslh rxc ~/.local/bin/rxc --syntaxhighlight';
+'set autocolor *.rexx rxc';
+'set autocolor *.rex rxc';
+'set autocolor *.crexx rxc';
+'set autocolor *.crx rxc';
+'set autocolor *.the rxc';
+'set sdslh dslsh-c ~/.local/bin/dslsh-c --syntaxhighlight';
+'set autocolor *.c dslsh-c';
+'set autocolor *.h dslsh-c';
+'set sdslh pyp ~/.local/bin/pyp --syntaxhighlight';
+'set autocolor *.py pyp';
+'set sdslh jsp ~/.local/bin/jsp --syntaxhighlight';
+'set autocolor *.js jsp';
+'set autocolor *.mjs jsp';
+'set autocolor *.cjs jsp';
+'set sdslh mdp ~/.local/bin/mdp --syntaxhighlight';
+'set autocolor *.md mdp';
+'set autocolor *.markdown mdp';
+'set coloring on auto';
+
+'set color gap #6A9955 on #1E1E1E';
+'set color cgap #6A9955 on #1E1E1E';
+'set color filearea #D4D4D4 on #1E1E1E';
+'set color curline #E6F7FF on #264F78';
+'set color cursorline #D4D4D4 on #2D2D30';
+'set color prefix #858585 on #252526';
+'set color cprefix #D4D4D4 on #007ACC';
+'set color tofeof #569CD6 on #1E1E1E';
+'set color cmdline #D4D4D4 on #2D2D30';
+'set color msgline tomato on #1E1E1E';
+'set color idline white on #007ACC';
+'set color statarea white on #007ACC';
+'set prefix gap 1';
+
+'set statopt off *';
+'set statopt on pmsg.1 15 45';
+'set color cberror white on firebrick';
+'set color cbwarn black on gold';
+'set color cbinfo white on #007ACC';
+'set color pmsgerror white on firebrick';
+'set color pmsgwarn black on gold';
+'set color pmsginfo white on #007ACC';
+
+'set ecolor comment #6A9955 on #1E1E1E';
+'set ecolor string #CE9178 on #1E1E1E';
+'set ecolor incomplete_string #CE9178 on #1E1E1E';
+'set ecolor keyword #569CD6 on #1E1E1E';
+'set ecolor preprocessor #C586C0 on #1E1E1E';
+'set ecolor type #4EC9B0 on #1E1E1E';
+'set ecolor function #DCDCAA on #1E1E1E';
+'set ecolor constant #4FC1FF on #1E1E1E';
+'set ecolor macro_name #DCDCAA on #1E1E1E';
+'set ecolor macro_variable #4FC1FF on #1E1E1E';
+'set ecolor macro_constant #B5CEA8 on #1E1E1E';
+'set ecolor identifier #9CDCFE on #1E1E1E';
+'set ecolor number #B5CEA8 on #1E1E1E';
+'set ecolor operator #D4D4D4 on #1E1E1E';
+'set ecolor punctuation #D4D4D4 on #1E1E1E';
+'set ecolor paren #D4D4D4 on #1E1E1E';
+'set ecolor match black on #4D4D4D';
+
+'set cursorstyle insert ibeam blink';
+'set cursorstyle overwrite block steady';

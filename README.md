@@ -9,7 +9,7 @@ This repository is a significantly modernized fork of the original [Hessling Edi
 The primary goals of this fork are:
 1. **Modern Toolchain:** The build system has been rewritten from legacy `make`/`autoconf` scripts to a modern **CMake** implementation.
 2. **C99 Compliance:** The codebase has been refactored from pre-ANSI (K&R) C to the **C99** standard for modern compilers.
-3. **Driver Split:** The editor core is separated from physical UI drivers. The default curses UI and the no-curses LLM UI are runtime-loaded driver modules.
+3. **Driver Split:** The editor core is separated from physical UI drivers. The curses, no-curses LLM, and optional browser UIs are runtime-loaded driver modules.
 4. **CREXX Integration:** This fork supports [CREXX](https://github.com/crexx-org), bringing a modern Rexx scripting engine into the editor.
 
 Supported source platforms are macOS, Linux/POSIX, and native Windows.
@@ -21,7 +21,8 @@ For developers and contributors, a high-level overview of the editor's runtime,
 driver modules, and data structures is available in the
 [Architecture Overview](doc/architecture.md). The driver ownership contract is
 tracked in [Cursor Driver Architecture](doc/cursor-driver-architecture.md), and
-the CREXX bridge is documented separately in [CREXX Integration](doc/crexx.md).
+the browser proof of concept is described in [Web Driver POC](doc/web-driver-poc.md).
+The CREXX bridge is documented separately in [CREXX Integration](doc/crexx.md).
 Documentation authors integrating parser-backed HTML or TeX source listings
 should start with the [Syntax Highlighting User Guide](doc/syntax-highlighting.md).
 
@@ -81,6 +82,26 @@ The no-curses LLM UI uses the real editor runtime:
 ```bash
 ./cmake-build/the --driver llm -n path/to/file.txt
 ```
+
+The browser UI is an opt-in proof of concept. It needs Node.js/npm to build;
+CMake fetches the pinned Mongoose C source for its local HTTP/WebSocket server:
+
+```bash
+cmake -S . -B cmake-build-web -DUSE_WEB_DRIVER=ON
+cmake --build cmake-build-web --target the
+./cmake-build-web/release/the --driver web path/to/file.txt
+```
+
+The command prints a tokenized localhost URL to open in a browser. See
+[Web Driver POC](doc/web-driver-poc.md) for the architecture, protocol, tests,
+security model, and current limitations. Web mode always loads the restricted
+`web-profile.the`; `THE_WEB_PROFILE` is the trusted operator override.
+
+`THE_WEB_WORKSPACE` defines the writable workspace root. Additional
+colon-separated roots can be exposed read-only with
+`THE_WEB_READONLY_ROOTS`. For one-container-per-session deployment, set
+`THE_WEB_BIND=0.0.0.0`, a fixed `THE_WEB_PORT`, and a proxy-known
+`THE_WEB_TOKEN`; authentication and session routing remain proxy concerns.
 
 ### DSL Syntax Highlighter Dependency
 

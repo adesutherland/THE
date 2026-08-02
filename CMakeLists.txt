@@ -11,6 +11,7 @@ option(USE_UTF8 "Enable UTF-8 support" ON)
 option(USE_UTF8PROC "Use utf8proc for Unicode grapheme clusters and character widths" ON)
 option(USE_SDSLH "Build with DSL Syntax Highlighter support" ON)
 option(USE_CREXX "Build with embedded CREXX profile/macro support" ON)
+option(USE_WEB_DRIVER "Build the native browser UI driver" OFF)
 set(DSLSH_LOCAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../DSL-Syntax-Highlighter"
         CACHE PATH "Path to a local DSL-Syntax-Highlighter checkout")
 option(DSLSH_PREFER_LOCAL "Prefer a local/sibling DSL-Syntax-Highlighter checkout when present" ON)
@@ -18,6 +19,19 @@ set(DSLSH_GIT_REPOSITORY "https://github.com/adesutherland/DSL-Syntax-Highlighte
         CACHE STRING "DSL-Syntax-Highlighter Git repository")
 set(DSLSH_GIT_TAG "develop"
         CACHE STRING "DSL-Syntax-Highlighter Git branch, tag, or commit SHA")
+
+if(USE_WEB_DRIVER)
+    include(FetchContent)
+    FetchContent_Declare(
+        mongoose
+        GIT_REPOSITORY https://github.com/cesanta/mongoose.git
+        GIT_TAG 7.21
+        GIT_SHALLOW TRUE
+        SOURCE_SUBDIR cmake-not-used
+    )
+    FetchContent_MakeAvailable(mongoose)
+    find_program(THE_NPM_EXECUTABLE npm REQUIRED)
+endif()
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   # Fallback to local user bin to avoid sudo permission errors during testing
@@ -370,8 +384,11 @@ set(THE_SOURCES
     src/error.c
     src/execute.c
     src/file.c
+    src/frontendaction.c
+    src/frontendpolicy.c
     src/thematch.c
     src/inputevent.c
+    src/inputdispatch.c
     src/linked.c
     src/logcursor.c
     src/llm/llmdriver.c
@@ -453,6 +470,7 @@ endif()
 # Setup Release Directory in Build Folder
 set(RELEASE_DIR "${CMAKE_CURRENT_BINARY_DIR}/release")
 set(RELEASE_DRIVER_DIR "${RELEASE_DIR}/drivers")
+set(THE_DRIVER_MODULES the_driver_curses the_driver_llm)
 
 add_library(the_driver_curses MODULE
     src/drivers/curses/cursesdriver.c
@@ -482,19 +500,94 @@ if(USE_SDSLH)
     target_link_libraries(the_driver_llm DSLSH::editor)
 endif()
 
+if(USE_WEB_DRIVER)
+    set(THE_WEB_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/web")
+    set(THE_WEB_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/web")
+    set(THE_WEB_STAMP "${THE_WEB_BUILD_DIR}/.build-stamp")
+    file(GLOB_RECURSE THE_WEB_SOURCES CONFIGURE_DEPENDS
+        LIST_DIRECTORIES false
+        "${THE_WEB_SOURCE_DIR}/src/*"
+    )
+    list(APPEND THE_WEB_SOURCES
+        "${THE_WEB_SOURCE_DIR}/index.html"
+        "${THE_WEB_SOURCE_DIR}/package.json"
+        "${THE_WEB_SOURCE_DIR}/package-lock.json"
+        "${THE_WEB_SOURCE_DIR}/tsconfig.json"
+        "${THE_WEB_SOURCE_DIR}/vite.config.ts"
+    )
+    add_custom_command(
+        OUTPUT ${THE_WEB_STAMP}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${THE_WEB_BUILD_DIR}
+        COMMAND ${THE_NPM_EXECUTABLE} ci
+        COMMAND ${THE_NPM_EXECUTABLE} run build --
+                --outDir ${THE_WEB_BUILD_DIR} --emptyOutDir
+        COMMAND ${CMAKE_COMMAND} -E touch ${THE_WEB_STAMP}
+        WORKING_DIRECTORY ${THE_WEB_SOURCE_DIR}
+        DEPENDS ${THE_WEB_SOURCES}
+        COMMENT "Building THE Preact web UI"
+        VERBATIM
+    )
+    add_custom_target(the_web_assets ALL DEPENDS ${THE_WEB_STAMP})
+    set(THE_WEB_RELEASE_STAMP "${RELEASE_DIR}/web/.release-stamp")
+    add_custom_command(
+        OUTPUT ${THE_WEB_RELEASE_STAMP}
+        COMMAND ${CMAKE_COMMAND} -E rm -rf ${RELEASE_DIR}/web
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                ${THE_WEB_BUILD_DIR} ${RELEASE_DIR}/web
+        COMMAND ${CMAKE_COMMAND} -E touch ${THE_WEB_RELEASE_STAMP}
+        DEPENDS ${THE_WEB_STAMP}
+        COMMENT "Copying web UI assets to ${RELEASE_DIR}/web"
+    )
+    add_custom_target(the_web_release_assets ALL
+        DEPENDS ${THE_WEB_RELEASE_STAMP})
+    add_dependencies(the_web_release_assets the_web_assets)
+
+    add_library(the_driver_web MODULE
+        src/drivers/web/webdriver.c
+        src/drivers/llm/headlessdriver.c
+        ${mongoose_SOURCE_DIR}/mongoose.c
+    )
+    set_target_properties(the_driver_web PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "the_driver_web"
+    )
+    target_compile_definitions(the_driver_web PRIVATE
+        THE_HEADLESS_DRIVER_NO_MODULE_EXPORTS=1
+        THE_WEB_BUILD_DIR="${THE_WEB_BUILD_DIR}"
+        THE_WEB_INSTALL_DIR="${CMAKE_INSTALL_PREFIX}/share/the/web"
+        MG_ENABLE_DIRLIST=0
+    )
+    target_include_directories(the_driver_web PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/drivers/web
+        ${mongoose_SOURCE_DIR}
+    )
+    if(USE_SDSLH)
+        target_link_libraries(the_driver_web DSLSH::editor)
+    endif()
+    add_dependencies(the_driver_web the_web_assets)
+    add_dependencies(${EXECUTABLE_NAME} the_web_release_assets)
+    list(APPEND THE_DRIVER_MODULES the_driver_web)
+endif()
+
 if(APPLE)
     target_link_options(the_driver_curses PRIVATE "-undefined" "dynamic_lookup")
     target_link_options(the_driver_llm PRIVATE "-undefined" "dynamic_lookup")
+    if(USE_WEB_DRIVER)
+        target_link_options(the_driver_web PRIVATE "-undefined" "dynamic_lookup")
+    endif()
 elseif(WIN32)
     target_link_libraries(the_driver_curses ${EXECUTABLE_NAME})
     target_link_libraries(the_driver_llm ${EXECUTABLE_NAME})
+    if(USE_WEB_DRIVER)
+        target_link_libraries(the_driver_web ${EXECUTABLE_NAME})
+    endif()
 endif()
 
 if(NOT WIN32)
-    add_dependencies(${EXECUTABLE_NAME} the_driver_curses the_driver_llm)
+    add_dependencies(${EXECUTABLE_NAME} ${THE_DRIVER_MODULES})
 endif()
 
-foreach(THE_DRIVER_MODULE the_driver_curses the_driver_llm)
+foreach(THE_DRIVER_MODULE IN LISTS THE_DRIVER_MODULES)
     add_custom_command(TARGET ${THE_DRIVER_MODULE} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory ${RELEASE_DRIVER_DIR}
         COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${THE_DRIVER_MODULE}>
@@ -515,6 +608,7 @@ add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
 
 set(THE_RUNTIME_PROFILE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/profile.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/web-profile.the
     ${CMAKE_CURRENT_SOURCE_DIR}/profile_crexx.the
     ${CMAKE_CURRENT_SOURCE_DIR}/crexxcompile.the
     ${CMAKE_CURRENT_SOURCE_DIR}/crexxrun.the
@@ -707,9 +801,13 @@ endif()
 
 # Install Targets
 install(TARGETS ${EXECUTABLE_NAME} DESTINATION bin)
-install(TARGETS the_driver_curses the_driver_llm
+install(TARGETS ${THE_DRIVER_MODULES}
     LIBRARY DESTINATION lib/the/drivers
     RUNTIME DESTINATION lib/the/drivers)
+if(USE_WEB_DRIVER)
+    install(DIRECTORY ${THE_WEB_BUILD_DIR}/ DESTINATION share/the/web
+        PATTERN ".build-stamp" EXCLUDE)
+endif()
 if(WIN32)
     install(FILES $<TARGET_FILE:${CURSES_LIBRARIES}> DESTINATION bin)
 endif()
@@ -718,7 +816,7 @@ install(PROGRAMS tools/batch-md-rexx/the-highlight-source DESTINATION bin)
 if(WIN32)
     install(PROGRAMS tools/the-env.ps1 DESTINATION bin)
 endif()
-install(FILES doc/THE_Help.txt profile.the profile_crexx.the crexxcompile.the crexxrun.the DESTINATION share/the)
+install(FILES doc/THE_Help.txt profile.the web-profile.the profile_crexx.the crexxcompile.the crexxrun.the DESTINATION share/the)
 install(FILES doc/syntax-highlighting.md DESTINATION share/doc/the)
 install(FILES
     tools/batch-md-rexx/batch-md-rexx.crexx
@@ -859,9 +957,12 @@ if(USE_UTF8 AND USE_UTF8PROC)
     target_compile_definitions(test_logcursor PRIVATE USE_UTF8PROC=1)
 endif()
 add_test(NAME test_logcursor COMMAND test_logcursor)
-add_executable(test_inputevent tests/test_inputevent.c src/inputevent.c)
+add_executable(test_inputevent tests/test_inputevent.c src/inputevent.c src/frontendaction.c)
 target_include_directories(test_inputevent PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 add_test(NAME test_inputevent COMMAND test_inputevent)
+add_executable(test_frontendaction tests/test_frontendaction.c src/frontendaction.c)
+target_include_directories(test_frontendaction PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+add_test(NAME test_frontendaction COMMAND test_frontendaction)
 add_executable(test_keycodes tests/test_keycodes.c)
 target_include_directories(test_keycodes PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 add_test(NAME test_keycodes COMMAND test_keycodes)
@@ -879,7 +980,7 @@ add_test(NAME test_curses_keymap COMMAND test_curses_keymap)
 add_executable(test_transientui tests/test_transientui.c src/transientui.c)
 target_include_directories(test_transientui PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 add_test(NAME test_transientui COMMAND test_transientui)
-add_executable(test_mousehit tests/test_mousehit.c src/mousehit.c src/inputevent.c)
+add_executable(test_mousehit tests/test_mousehit.c src/mousehit.c src/inputevent.c src/frontendaction.c)
 target_include_directories(test_mousehit PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 add_test(NAME test_mousehit COMMAND test_mousehit)
 add_executable(test_uidriver tests/test_uidriver.c src/uidriver.c src/logcursor.c src/textpos.c)
@@ -894,6 +995,7 @@ add_executable(test_headlessdriver
     src/driverlayout.c
     src/drivers/llm/headlessdriver.c
     src/inputevent.c
+    src/frontendaction.c
     src/rendercell.c
     src/thedriver.c
     src/logcursor.c
@@ -908,6 +1010,9 @@ if(USE_UTF8 AND USE_UTF8PROC)
     target_link_libraries(test_headlessdriver ${THE_UTF8PROC_TARGET})
     target_compile_definitions(test_headlessdriver PRIVATE USE_UTF8PROC=1)
 endif()
+if(USE_SDSLH)
+    target_link_libraries(test_headlessdriver DSLSH::editor)
+endif()
 add_test(NAME test_headlessdriver COMMAND test_headlessdriver)
 add_test(NAME test_headlessdriver_no_curses
     COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_no_curses_symbols.sh
@@ -917,6 +1022,7 @@ set_tests_properties(test_headlessdriver_no_curses PROPERTIES
 add_executable(test_headlessdriver_curses_default
     tests/test_headlessdriver_curses_default.c
     src/inputevent.c
+    src/frontendaction.c
     src/thedriver.c
 )
 target_include_directories(test_headlessdriver_curses_default PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
@@ -933,7 +1039,7 @@ if(USE_SDSLH)
     target_link_libraries(test_screenframe DSLSH::editor)
 endif()
 add_test(NAME test_screenframe COMMAND test_screenframe)
-add_executable(test_llmdriver tests/test_llmdriver.c src/llm/llmdriver.c src/inputevent.c src/uidriver.c src/logcursor.c src/textpos.c)
+add_executable(test_llmdriver tests/test_llmdriver.c src/llm/llmdriver.c src/inputevent.c src/frontendaction.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmdriver PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8)
     target_sources(test_llmdriver PRIVATE src/rendercell.c src/utfterm.c src/utflayout.c src/utfcluster.c)
@@ -943,7 +1049,7 @@ if(USE_UTF8 AND USE_UTF8PROC)
     target_compile_definitions(test_llmdriver PRIVATE USE_UTF8PROC=1)
 endif()
 add_test(NAME test_llmdriver COMMAND test_llmdriver)
-add_executable(test_virtual_screen tests/test_virtual_screen.c src/llm/llmdriver.c src/inputevent.c src/uidriver.c src/logcursor.c src/textpos.c)
+add_executable(test_virtual_screen tests/test_virtual_screen.c src/llm/llmdriver.c src/inputevent.c src/frontendaction.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_virtual_screen PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8)
     target_sources(test_virtual_screen PRIVATE src/rendercell.c src/utfterm.c src/utflayout.c src/utfcluster.c)
@@ -958,6 +1064,43 @@ add_test(NAME test_the_llm_full_runtime
             $<TARGET_FILE:the>)
 set_tests_properties(test_the_llm_full_runtime PROPERTIES
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+if(USE_WEB_DRIVER)
+    add_test(NAME test_the_web_runtime
+        COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_web_runtime.sh
+                $<TARGET_FILE:the>
+                ${THE_WEB_BUILD_DIR})
+    set_tests_properties(test_the_web_runtime PROPERTIES
+        TIMEOUT 20
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    add_test(NAME test_webdriver_no_curses
+        COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_no_curses_symbols.sh
+                $<TARGET_FILE:the_driver_web>)
+    set_tests_properties(test_webdriver_no_curses PROPERTIES
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    add_test(NAME test_web_profile_highlighting
+        COMMAND ${THE_BASH_COMMAND}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_web_profile_highlighting.sh
+                $<TARGET_FILE:the>
+                ${RELEASE_DIR}/web-profile.the)
+    set_tests_properties(test_web_profile_highlighting PROPERTIES
+        TIMEOUT 20
+        SKIP_RETURN_CODE 77
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    find_program(THE_CHROMIUM_EXECUTABLE
+        NAMES google-chrome chromium chromium-browser)
+    if(THE_CHROMIUM_EXECUTABLE)
+        add_test(NAME test_the_web_browser
+            COMMAND ${THE_BASH_COMMAND}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_web_browser.sh
+                    $<TARGET_FILE:the>
+                    ${THE_WEB_BUILD_DIR}
+                    ${THE_CHROMIUM_EXECUTABLE})
+        set_tests_properties(test_the_web_browser PROPERTIES
+            TIMEOUT 30
+            RESOURCE_LOCK the_web_browser
+            ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    endif()
+endif()
 add_test(NAME test_rgb_colour_logical
     COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_rgb_colour_logical.sh
             $<TARGET_FILE:the>)
@@ -985,7 +1128,7 @@ set_tests_properties(test_driver_modules PROPERTIES
     TIMEOUT 20
     RESOURCE_LOCK the_pty_editor
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
-add_executable(test_llmruntime tests/test_llmruntime.c src/llm/llmruntime.c src/llm/llmdriver.c src/parserdiagnostics.c src/inputevent.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
+add_executable(test_llmruntime tests/test_llmruntime.c src/llm/llmruntime.c src/llm/llmdriver.c src/parserdiagnostics.c src/inputevent.c src/frontendaction.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmruntime PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8)
     target_sources(test_llmruntime PRIVATE src/rendercell.c src/utfterm.c src/utflayout.c src/utfcluster.c)

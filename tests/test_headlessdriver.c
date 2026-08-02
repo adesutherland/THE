@@ -4,6 +4,7 @@
 
 #include "driverlayout.h"
 #include "headlessdriver.h"
+#include "the.h"
 #include "utfterm.h"
 
 static int failures = 0;
@@ -685,6 +686,37 @@ static void test_input_queue_and_adapter(void)
    expect_int("input.legacy.empty", the_driver_read_legacy_key(), -1);
 }
 
+static void test_filearea_cursor_updates_editor_state(void)
+{
+   const TheDriverOps *ops = &the_headless_driver_ops;
+   VIEW_DETAILS view;
+   TheDriverWindow *win;
+   TheDriverWindowCursor physical;
+   static const CHARTYPE line[] = "alpha";
+
+   memset(&view, 0, sizeof(view));
+   view.focus_line = 12;
+   view.verify_col = 1;
+   headless_driver_reset();
+   headless_driver_set_current_screen(0);
+   headless_driver_set_screen_current_role(0, WINDOW_FILEAREA);
+   win = headless_driver_create_screen_role(0, WINDOW_FILEAREA,
+                                            3, 20, 0, 0);
+
+   expect_int("filearea.move",
+              ops->move_filearea_cursor(0, &view, line,
+                                        sizeof(line) - 1, 1, 2), RC_OK);
+   expect_int("filearea.logical.valid",
+              view.logical_cursor.current.valid, 1);
+   expect_long("filearea.logical.line",
+               view.logical_cursor.current.line_number, 12);
+   expect_int("filearea.logical.cell",
+              view.logical_cursor.current.text.cell_column, 2);
+   physical = ops->capture_window_cursor(win);
+   expect_int("filearea.physical.row", physical.row, 1);
+   expect_int("filearea.physical.col", physical.col, 2);
+}
+
 int main(void)
 {
    test_vtable_complete();
@@ -696,6 +728,7 @@ int main(void)
    test_operation_log();
    test_terminal_report_ops();
    test_input_queue_and_adapter();
+   test_filearea_cursor_updates_editor_state();
    headless_driver_reset();
 
    if (failures != 0)

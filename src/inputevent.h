@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "frontendaction.h"
 #include "logcursor.h"
 
 #define THE_INPUT_COMMAND_MAX 256
@@ -15,6 +16,7 @@ typedef enum
    THE_INPUT_TEXT,
    THE_INPUT_KEY,
    THE_INPUT_COMMAND,
+   THE_INPUT_ACTION,
    THE_INPUT_LOGICAL_HIT,
    THE_INPUT_DEBUG
 } TheInputKind;
@@ -60,7 +62,9 @@ typedef struct
    TheInputKind kind;
    uint32_t codepoint;
    int key_code;
+   int restricted_command;
    char command[THE_INPUT_COMMAND_MAX + 1];
+   TheFrontendAction action;
    TheInputLogicalTarget target;
    TheInputDebugCommand debug_command;
 } TheInputEvent;
@@ -83,6 +87,10 @@ int the_input_event_from_text(uint32_t codepoint, TheInputEvent *out);
 int the_input_event_from_key_name(const char *name, TheInputEvent *out);
 int the_input_event_from_legacy_key(int key_code, TheInputEvent *out);
 int the_input_event_from_command(const char *command, TheInputEvent *out);
+int the_input_event_from_restricted_command(const char *command,
+                                            TheInputEvent *out);
+int the_input_event_from_action(const char *name, const char *argument,
+                                TheInputEvent *out);
 int the_input_event_from_logical_target(TheInputLogicalTargetKind kind,
                                         LINETYPE line_number, int row,
                                         int cell, int screen, int window_id,

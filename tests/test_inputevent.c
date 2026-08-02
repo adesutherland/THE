@@ -110,6 +110,16 @@ static void test_commands_targets_debug_and_queue(void)
    expect_int("command.kind", input.kind, THE_INPUT_COMMAND);
    expect_int("command.not.legacy",
               the_input_event_to_legacy_key(&input, &key), 0);
+   expect_int("restricted command",
+              the_input_event_from_restricted_command("find x", &input), 1);
+   expect_int("restricted command flag", input.restricted_command, 1);
+
+   expect_int("action.parse",
+              the_input_event_from_action("file.open", "file with spaces", &input), 1);
+   expect_int("action.kind", input.kind, THE_INPUT_ACTION);
+   expect_int("action.id", input.action.id, THE_FRONTEND_ACTION_FILE_OPEN);
+   expect_str("action.argument", input.action.argument, "file with spaces");
+   expect_int("action.legacy", the_input_event_to_legacy_key(&input, &key), 0);
 
    expect_int("target.parse",
               the_input_event_from_logical_hit(LOGICAL_CURSOR_ZONE_FILEAREA,

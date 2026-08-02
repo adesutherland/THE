@@ -1,5 +1,6 @@
 #include "headlessdriver.h"
 #include "driverlayout.h"
+#include "the.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -1068,17 +1069,21 @@ static short headless_driver_move_filearea_cursor(
    TheDriverCursorTarget target;
    TheDriverWindow *win;
 
-   (void)view;
    win = headless_screen_role_window(scrno, HEADLESS_ROLE_FILEAREA);
-   cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_FILEAREA, 0, row,
-                                textpos_from_cell_virtual(line, len,
-                                                          logical_col,
-                                                          TEXT_SNAP_BACKWARD));
-   target = driver_layout_filearea_target(cursor, line, len, 0,
-                                          win == NULL ? 0 : win->cols);
-   if (win != NULL)
-      headless_move_cursor(win, row, (short)target.display_col);
-   return 0;
+   if (view == NULL || win == NULL)
+      return RC_OK;
+   cursor = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_FILEAREA,
+                                     view->focus_line, row, line, len,
+                                     logical_col, TEXT_SNAP_BACKWARD, 1);
+   logical_cursor_set_desired_cell(
+      &cursor, driver_layout_width_col_from_logical(line, len,
+                                                    cursor.text.cell_column));
+   target = driver_layout_filearea_target(cursor, line, len,
+                                          (int)view->verify_col - 1,
+                                          win->cols);
+   logical_cursor_state_focus(&view->logical_cursor, cursor);
+   headless_move_cursor(win, row, (short)target.display_col);
+   return RC_OK;
 }
 
 static short headless_driver_filearea_cursor_transition(
@@ -1158,6 +1163,7 @@ static int headless_driver_activate(void)
    return 1;
 }
 
+#ifndef THE_HEADLESS_DRIVER_NO_MODULE_EXPORTS
 const TheDriverModuleLifecycle the_headless_driver_lifecycle = {
    .name = "llm",
    .activate = headless_driver_activate,
@@ -1178,3 +1184,4 @@ const TheDriverModuleLifecycle *the_driver_module_lifecycle(void)
 {
    return &the_headless_driver_lifecycle;
 }
+#endif

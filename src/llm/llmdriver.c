@@ -1150,8 +1150,9 @@ size_t llm_driver_format_semantic_view_with_options(
                  (emitted > 0) ? "," : "", line->logical_row);
          append_json_string(out, out_len, &used, ui_row_role_name(line->role));
          appendf(out, out_len, &used,
-                 ",\"line\":%ld,\"cur\":%d",
-                 (long)line->line_number, line->cursor);
+                 ",\"sc\":%d,\"line\":%ld,\"cur\":%d",
+                 line->logical_start_col, (long)line->line_number,
+                 line->cursor);
          if (options->include_prefix)
          {
             appendf(out, out_len, &used, ",\"p\":");

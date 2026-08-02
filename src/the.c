@@ -37,6 +37,7 @@
 #include <the.h>
 #include <proto.h>
 #include "llmsession.h"
+#include "frontendpolicy.h"
 #include "thedriver.h"
 #include "utfterm.h"
 #include <time.h>
@@ -67,9 +68,10 @@ static void init_signals(void);
 typedef enum
 {
    THE_STARTUP_DRIVER_CURSES = 0,
-   THE_STARTUP_DRIVER_LLM
+   THE_STARTUP_DRIVER_LLM,
+   THE_STARTUP_DRIVER_WEB
 } TheStartupDriver;
-static int filter_driver_args(int argc, char **argv, char ***filtered_argv,
+static int filter_driver_args(int argc, char **argv,
                               TheStartupDriver *startup_driver);
 /*--------------------------- global data -----------------------------*/
    TheDriverWindow *statarea=NULL,*error_window=NULL,*divider=NULL,*filetabs=NULL;
@@ -325,24 +327,25 @@ static int driver_name_to_startup(const char *name,
       *startup_driver = THE_STARTUP_DRIVER_LLM;
       return 1;
    }
+   if (strcmp(name, "web") == 0)
+   {
+      *startup_driver = THE_STARTUP_DRIVER_WEB;
+      return 1;
+   }
    return 0;
 }
 
 /***********************************************************************/
-static int filter_driver_args(int argc, char **argv, char ***filtered_argv,
+static int filter_driver_args(int argc, char **argv,
                               TheStartupDriver *startup_driver)
 /***********************************************************************/
 {
-   char **filtered;
    int in;
    int out = 0;
 
-   if (argv == NULL || filtered_argv == NULL || startup_driver == NULL)
+   if (argv == NULL || startup_driver == NULL)
       return -1;
-   filtered = (char **)malloc(sizeof(char *) * (size_t)argc);
-   if (filtered == NULL)
-      return -1;
-   filtered[out++] = argv[0];
+   argv[out++] = argv[0];
    for (in = 1; in < argc; in++)
    {
       char *arg = argv[in];
@@ -352,8 +355,7 @@ static int filter_driver_args(int argc, char **argv, char ***filtered_argv,
          if (in + 1 >= argc
          ||  !driver_name_to_startup(argv[in + 1], startup_driver))
          {
-            fprintf(stderr, "the: expected --driver curses|llm\n");
-            free(filtered);
+            fprintf(stderr, "the: expected --driver curses|llm|web\n");
             return -1;
          }
          in++;
@@ -363,15 +365,13 @@ static int filter_driver_args(int argc, char **argv, char ***filtered_argv,
       {
          if (!driver_name_to_startup(arg + 9, startup_driver))
          {
-            fprintf(stderr, "the: expected --driver curses|llm\n");
-            free(filtered);
+            fprintf(stderr, "the: expected --driver curses|llm|web\n");
             return -1;
          }
          continue;
       }
-      filtered[out++] = arg;
+      argv[out++] = arg;
    }
-   *filtered_argv = filtered;
    return out;
 }
 
@@ -400,6 +400,7 @@ int main(int argc, char *argv[])
    TheStartupDriver startup_driver = THE_STARTUP_DRIVER_CURSES;
    TheDriverStartupOptions driver_startup_options;
    char driver_error[4096];
+   char frontend_policy_error[512];
 
    TRACE_INITIALISE();
    TRACE_FUNCTION("the.c:     main");
@@ -699,7 +700,7 @@ int main(int argc, char *argv[])
    my_argc = argc;
    my_argv = argv;
 #endif
-   my_argc = filter_driver_args(my_argc, my_argv, &my_argv, &startup_driver);
+   my_argc = filter_driver_args(my_argc, my_argv, &startup_driver);
    if (my_argc < 0)
    {
       cleanup();
@@ -914,15 +915,76 @@ int main(int argc, char *argv[])
       }
    }
 
+   if (startup_driver == THE_STARTUP_DRIVER_WEB)
+   {
+      const char *web_profile = getenv("THE_WEB_PROFILE");
+      const char *web_macro_path = getenv("THE_WEB_MACRO_PATH");
+
+      if (!the_frontend_policy_configure_from_environment(
+             frontend_policy_error, sizeof(frontend_policy_error)))
+      {
+         fprintf(stderr, "the: %s\n", frontend_policy_error);
+         cleanup();
+         return(8);
+      }
+      execute_profile = TRUE;
+      if (specified_prf != NULL)
+      {
+         (*the_free)(specified_prf);
+         specified_prf = NULL;
+      }
+      if (web_profile == NULL || *web_profile == '\0')
+      {
+         if (snprintf(driver_error, sizeof(driver_error), "%sweb-profile.the",
+                      the_home_dir) >= (int)sizeof(driver_error))
+         {
+            fprintf(stderr, "the: web profile path is too long\n");
+            cleanup();
+            return(8);
+         }
+         web_profile = driver_error;
+      }
+      specified_prf = (CHARTYPE *)(*the_malloc)(strlen(web_profile) + 1);
+      if (specified_prf == NULL)
+      {
+         cleanup();
+         return(2);
+      }
+      strcpy((char *)specified_prf, web_profile);
+      if (web_macro_path != NULL && *web_macro_path != '\0')
+         (void)Macropath((CHARTYPE *)web_macro_path);
+   }
+   else
+      the_frontend_policy_disable();
+
    if (optind<my_argc)
    {
       while(optind<my_argc)
       {
+         const char *startup_name = my_argv[optind];
+         char resolved_name[THE_FRONTEND_POLICY_PATH_MAX + 1];
+
+         if (startup_driver == THE_STARTUP_DRIVER_WEB)
+         {
+            if (!the_frontend_policy_resolve_path(
+                   startup_name, 1, resolved_name, sizeof(resolved_name),
+                   NULL, frontend_policy_error,
+                   sizeof(frontend_policy_error)))
+            {
+               fprintf(stderr, "the: %s: %s\n", startup_name,
+                       frontend_policy_error);
+               cleanup();
+               return(8);
+            }
+            startup_name = resolved_name;
+         }
          /* for each trailing arg; assumed to be filenames, add each to a list of filenames to be edited */
          if ((current_file_name = add_LINE(first_file_name,
                                          current_file_name,
-                                         strrmdup(strtrans((CHARTYPE *)my_argv[optind],OSLASH,ISLASH),ISLASH,TRUE),
-                                         strlen(my_argv[optind]),0,TRUE)) == NULL)
+                                         startup_driver == THE_STARTUP_DRIVER_WEB
+                                           ? (CHARTYPE *)startup_name
+                                           : strrmdup(strtrans((CHARTYPE *)my_argv[optind],OSLASH,ISLASH),ISLASH,TRUE),
+                                         strlen(startup_name),0,TRUE)) == NULL)
          {
             cleanup();
             DISPLAY_ERROR(30,(CHARTYPE *)"",FALSE,1);
@@ -935,11 +997,27 @@ int main(int argc, char *argv[])
    }
    else
    {
+      const CHARTYPE *startup_name = CURRENT_DIR;
+      char resolved_name[THE_FRONTEND_POLICY_PATH_MAX + 1];
+
+      if (startup_driver == THE_STARTUP_DRIVER_WEB)
+      {
+         if (!the_frontend_policy_resolve_path(
+                (const char *)CURRENT_DIR, 0, resolved_name,
+                sizeof(resolved_name), NULL, frontend_policy_error,
+                sizeof(frontend_policy_error)))
+         {
+            fprintf(stderr, "the: %s\n", frontend_policy_error);
+            cleanup();
+            return(8);
+         }
+         startup_name = (CHARTYPE *)resolved_name;
+      }
       /* add the current dir to the list of files to be edited */
       if ((current_file_name = add_LINE(first_file_name,
                                       current_file_name,
-                                      CURRENT_DIR,
-                                      strlen((DEFCHAR *)CURRENT_DIR),0,TRUE)) == NULL)
+                                      (CHARTYPE *)startup_name,
+                                      strlen((DEFCHAR *)startup_name),0,TRUE)) == NULL)
       {
          cleanup();
          DISPLAY_ERROR(30,(CHARTYPE *)"",FALSE,1);
@@ -1003,7 +1081,8 @@ int main(int argc, char *argv[])
    /*
     * Override any default paths,filenames etc if supplied on command line
     */
-   if ( setup_system_profile_file() != RC_OK )
+   if ( startup_driver != THE_STARTUP_DRIVER_WEB
+   &&   setup_system_profile_file() != RC_OK )
    {
       cleanup();
       return(8);
@@ -1106,7 +1185,9 @@ int main(int argc, char *argv[])
       rexx_support = FALSE;
    driver_error[0] = '\0';
    if (!the_driver_load(startup_driver == THE_STARTUP_DRIVER_LLM
-                           ? "llm" : "curses",
+                           ? "llm"
+                           : startup_driver == THE_STARTUP_DRIVER_WEB
+                           ? "web" : "curses",
                         my_argv[0], driver_error, sizeof(driver_error)))
    {
       cleanup();
@@ -1200,6 +1281,7 @@ int main(int argc, char *argv[])
    } /* if (batch_only) */
    memset(&driver_startup_options,0,sizeof(driver_startup_options));
    driver_startup_options.slk_format = slk_format;
+   driver_startup_options.program_path = my_argv[0];
 #if defined(USE_XCURSES) && PDC_BUILD >= 2401
    driver_startup_options.initscr_argc = initscr_argc;
    driver_startup_options.initscr_argv = initscr_argv;
@@ -1225,11 +1307,12 @@ int main(int argc, char *argv[])
       return(30);
    }
    set_screen_defaults();
-   if (startup_driver == THE_STARTUP_DRIVER_LLM
+   if ((startup_driver == THE_STARTUP_DRIVER_LLM
+    || startup_driver == THE_STARTUP_DRIVER_WEB)
    &&  set_up_windows(current_screen) != RC_OK)
    {
       cleanup();
-      DISPLAY_ERROR(0,(CHARTYPE *)"creating llm driver windows",FALSE,1);
+      DISPLAY_ERROR(0,(CHARTYPE *)"creating virtual driver windows",FALSE,1);
       return(23);
    }
    /*
@@ -1276,6 +1359,8 @@ int main(int argc, char *argv[])
          cleanup();
          return(24);
       }
+      if (startup_driver == THE_STARTUP_DRIVER_WEB)
+         the_frontend_policy_apply_current_file();
       current_file_name = current_file_name->next;
    }
    first_file_name = lll_free(first_file_name);
@@ -1610,15 +1695,15 @@ static void display_info(CHARTYPE *argv0)
    fprintf(stdout,"THE is distributed under the terms of the GNU General Public License \n");
    fprintf(stdout,"and comes with NO WARRANTY. See the file COPYING for details.\n");
 #if defined(USE_XCURSES)
-   fprintf(stdout,"\nUsage:\n\n%s [--driver curses|llm] [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [-X \"switches\"] [-1[fifoname]] [[dir] [file [...]]]\n",argv0);
+   fprintf(stdout,"\nUsage:\n\n%s [--driver curses|llm|web] [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [-X \"switches\"] [-1[fifoname]] [[dir] [file [...]]]\n",argv0);
 #elif defined(USE_SDLCURSES) && defined(UNIX)
-   fprintf(stdout,"\nUsage:\n\n%s [--driver curses|llm] [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [-1[fifoname]] [[dir] [file [...]]]\n",argv0);
+   fprintf(stdout,"\nUsage:\n\n%s [--driver curses|llm|web] [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [-1[fifoname]] [[dir] [file [...]]]\n",argv0);
 #else
-   fprintf(stdout,"\nUsage:\n\n%s [--driver curses|llm] [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [[dir] [file [...]]]\n",argv0);
+   fprintf(stdout,"\nUsage:\n\n%s [--driver curses|llm|web] [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [[dir] [file [...]]]\n",argv0);
 #endif
    fprintf(stdout,"\nwhere:\n\n");
    fprintf(stdout,"-h,--help              show this message\n");
-   fprintf(stdout,"--driver curses|llm    select curses UI or LLM/no-curses protocol UI\n");
+   fprintf(stdout,"--driver curses|llm|web select curses, LLM, or browser UI\n");
    fprintf(stdout,"-n                     do not execute the user profile file\n");
    fprintf(stdout,"-m                     force display into mono\n");
    fprintf(stdout,"-r                     run THE in read-only mode\n");

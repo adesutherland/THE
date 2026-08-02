@@ -37,6 +37,7 @@
 #include <proto.h>
 #include "thedriver.h"
 #include "inputevent.h"
+#include "inputdispatch.h"
 #ifdef USE_UTF8
 # include "textpos.h"
 #endif
@@ -192,6 +193,33 @@ int process_key(int key, bool mouse_details_present)
       have_input_event = editor_read_input_event(&input_event);
       if (have_input_event)
       {
+         if (input_event.kind == THE_INPUT_COMMAND)
+         {
+            rc = the_input_dispatch_command(input_event.command,
+                                            input_event.restricted_command);
+            if (number_of_files == 0)
+            {
+               TRACE_RETURN();
+               return RC_INVALID_ENVIRON;
+            }
+            goto refresh_after_input;
+         }
+         if (input_event.kind == THE_INPUT_ACTION)
+         {
+            rc = the_input_dispatch_action(&input_event.action);
+            if (number_of_files == 0)
+            {
+               TRACE_RETURN();
+               return RC_INVALID_ENVIRON;
+            }
+            goto refresh_after_input;
+         }
+         if (input_event.kind == THE_INPUT_LOGICAL_HIT)
+         {
+            rc = the_input_dispatch_logical_hit(&input_event.target)
+               ? RC_OK : RC_INVALID_OPERAND;
+            goto refresh_after_input;
+         }
          if (input_event.kind == THE_INPUT_TEXT
          &&  input_event.key_code < 0)
          {
@@ -372,6 +400,7 @@ int process_key(int key, bool mouse_details_present)
       }
    }
 
+refresh_after_input:
    show_statarea();
 
 #ifdef USE_SDSLH

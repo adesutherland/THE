@@ -134,6 +134,7 @@ typedef struct TheDriverModuleLifecycle TheDriverModuleLifecycle;
 typedef struct
 {
    int slk_format;
+   const char *program_path;
    int initscr_argc;
    char **initscr_argv;
    char *x11_switches;

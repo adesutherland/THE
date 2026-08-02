@@ -160,6 +160,13 @@ int llm_runtime_screen_view(CHARTYPE scrno, LlmDriverScreenView *view)
       free(frame);
       return 0;
    }
+   if (!view->cursor.valid && CURRENT_VIEW != NULL
+   &&  CURRENT_VIEW->logical_cursor.current.valid)
+   {
+      view->cursor = CURRENT_VIEW->logical_cursor.current;
+      view->cursor_screen_row = view->cursor.zone_row;
+      view->cursor_screen_col = view->cursor.text.cell_column;
+   }
    free(frame);
 
    llm_runtime_visible_command(command, sizeof(command));

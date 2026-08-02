@@ -109,6 +109,8 @@ const char *the_input_kind_name(TheInputKind kind)
          return "key";
       case THE_INPUT_COMMAND:
          return "command";
+      case THE_INPUT_ACTION:
+         return "action";
       case THE_INPUT_LOGICAL_HIT:
          return "logical-hit";
       case THE_INPUT_DEBUG:
@@ -327,6 +329,27 @@ int the_input_event_from_command(const char *command, TheInputEvent *out)
    out->kind = THE_INPUT_COMMAND;
    input_copy_text(out->command, sizeof(out->command), command);
    return out->command[0] != '\0';
+}
+
+int the_input_event_from_restricted_command(const char *command,
+                                            TheInputEvent *out)
+{
+   if (!the_input_event_from_command(command, out))
+      return 0;
+   out->restricted_command = 1;
+   return 1;
+}
+
+int the_input_event_from_action(const char *name, const char *argument,
+                                TheInputEvent *out)
+{
+   if (out == NULL)
+      return 0;
+   *out = the_input_event_none();
+   if (!the_frontend_action_from_name(name, argument, &out->action))
+      return 0;
+   out->kind = THE_INPUT_ACTION;
+   return 1;
 }
 
 int the_input_event_from_logical_target(TheInputLogicalTargetKind kind,

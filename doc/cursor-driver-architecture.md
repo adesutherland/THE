@@ -80,9 +80,10 @@ cursor painting, or cursor parking back into logical command code.
 Editor code reaches migrated high-level driver behavior through the current
 driver vtable, `the_driver->...`, defined by `TheDriverOps` in
 `src/thedriver.h`. `src/thedriver.c` owns the current-driver pointer, portable
-module loader, and explicit selection helpers. The main `the` executable
-loads `the_driver_curses` by default or for `--driver curses`, and loads
-`the_driver_llm` for `--driver llm`; it no longer links curses directly.
+module loader, and explicit selection helpers. The main `the` executable loads
+`the_driver_curses` by default or for `--driver curses`, loads
+`the_driver_llm` for `--driver llm`, and can load the opt-in `the_driver_web`
+module for `--driver web`; it no longer links curses directly.
 No-curses tests and the LLM runtime can select `the_headless_driver_ops`
 without linking `src/drivers/curses/cursesdriver.c`. During this migration,
 all drivers are expected to expose the same `TheDriverOps` surface.
@@ -145,8 +146,9 @@ focused unit tests, not in a second editor harness.
 
 The main `the` executable does not link curses directly. Runtime-loaded driver
 modules export `the_driver_module_ops()` and optional lifecycle hooks; the
-curses module owns curses startup/shutdown, while the LLM module owns the
-headless full-runtime protocol driver.
+curses module owns curses startup/shutdown, the LLM module owns the headless
+full-runtime protocol driver, and the optional web module owns the localhost
+HTTP/WebSocket adapter described in `doc/web-driver-poc.md`.
 
 `test_driver_modules` guards the main executable for both dynamic dependency
 cleanliness and accidental raw curses API symbol exports. A small compatibility
@@ -239,13 +241,15 @@ Closed checkpoints are summarized here; UTF status and next tasks are in
   retired. No separate editable no-curses mini-runtime remains; real editor
   behavior is proved through `the --driver llm`, and formatter/input-only
   behavior is proved through focused unit tests.
-- `the` proves strict main-binary link isolation by loading the curses and LLM
-  drivers as modules. `test_driver_modules` guards both the main executable and
-  `the_driver_llm.so` against curses dependencies.
+- `the` proves strict main-binary link isolation by loading curses, LLM, and
+  optional web drivers as modules. `test_driver_modules` guards the main
+  executable and `the_driver_llm.so` against curses dependencies;
+  `test_webdriver_no_curses` applies the same check to the web module.
 - The main `the` executable defaults to curses and accepts
-  `--driver curses|llm`. The Windows strategy remains open: keep the curses
-  driver PDCurses-compatible or split a Windows/PDCurses driver if the
-  backend-specific behavior becomes too different.
+  `--driver curses|llm|web` when the optional web module is built. The Windows
+  strategy remains open: keep the curses driver PDCurses-compatible or split a
+  Windows/PDCurses driver if the backend-specific behavior becomes too
+  different.
 - `tests/inventory_direct_curses.sh` is the repeatable debt sweep and ratchet.
   Current counts are actionable `physical-input: 0`, `physical-paint: 0`,
   `physical-attr: 0`, `curses-include: 0`, and `window-state: 0`;

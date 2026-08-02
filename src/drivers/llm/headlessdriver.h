@@ -8,7 +8,9 @@
 #define HEADLESS_DRIVER_OP_LOG_CAPACITY 256
 
 extern const TheDriverOps the_headless_driver_ops;
+#ifndef THE_HEADLESS_DRIVER_NO_MODULE_EXPORTS
 extern const TheDriverModuleLifecycle the_headless_driver_lifecycle;
+#endif
 
 void headless_driver_reset(void);
 void headless_driver_clear_log(void);

@@ -217,6 +217,14 @@ short execute_prefix_commands(void)
    unsigned short y=0,x=0;
    int top_priority_idx=0;
    int save_number_of_files;
+   TheDriverWindowCursor entry_cursor = {0, 0, 0};
+   LogicalCursor entry_logical = logical_cursor_invalid();
+
+   if ( CURRENT_VIEW != NULL )
+      entry_logical = CURRENT_VIEW->logical_cursor.current;
+   if ( curses_started )
+      entry_cursor = the_driver->capture_window_cursor(
+         driver_current_window());
 
    TRACE_FUNCTION( "prefix.c:  execute_prefix_commands" );
    /*
@@ -534,17 +542,14 @@ short execute_prefix_commands(void)
       display_screen( pending_screen );
       if ( PENDING_VIEW->current_window != WINDOW_COMMAND )
       {
-         if ( curses_started )
-         {
-            TheDriverWindowCursor cursor;
-
-            cursor = the_driver->capture_window_cursor(driver_screen_current_window(pending_screen));
-            if (cursor.valid)
-            {
-               y = cursor.row;
-               x = cursor.col;
-            }
-         }
+         if ( entry_logical.valid
+         &&  ( entry_logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+            || entry_logical.zone == LOGICAL_CURSOR_ZONE_PREFIX ) )
+            y = entry_logical.zone_row;
+         else if ( entry_cursor.valid )
+            y = entry_cursor.row;
+         if ( entry_cursor.valid )
+            x = entry_cursor.col;
          PENDING_VIEW->focus_line = get_focus_line_in_view( pending_screen, PENDING_VIEW->focus_line, y );
          y = get_row_for_focus_line( pending_screen, PENDING_VIEW->focus_line, PENDING_VIEW->current_row );
          if ( curses_started )
@@ -559,17 +564,14 @@ short execute_prefix_commands(void)
       display_screen( current_screen );
       if ( CURRENT_VIEW->current_window != WINDOW_COMMAND )
       {
-         if ( curses_started )
-         {
-            TheDriverWindowCursor cursor;
-
-            cursor = the_driver->capture_window_cursor(driver_current_window());
-            if (cursor.valid)
-            {
-               y = cursor.row;
-               x = cursor.col;
-            }
-         }
+         if ( entry_logical.valid
+         &&  ( entry_logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+            || entry_logical.zone == LOGICAL_CURSOR_ZONE_PREFIX ) )
+            y = entry_logical.zone_row;
+         else if ( entry_cursor.valid )
+            y = entry_cursor.row;
+         if ( entry_cursor.valid )
+            x = entry_cursor.col;
          CURRENT_VIEW->focus_line = get_focus_line_in_view( current_screen, CURRENT_VIEW->focus_line, y );
          y = get_row_for_focus_line( current_screen, CURRENT_VIEW->focus_line, CURRENT_VIEW->current_row );
          if ( curses_started )

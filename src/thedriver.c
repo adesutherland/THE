@@ -327,7 +327,9 @@ int the_driver_load(const char *name, const char *argv0,
    }
    if (strcmp(name, "headless") == 0)
       name = "llm";
-   if (strcmp(name, "curses") != 0 && strcmp(name, "llm") != 0)
+   if (strcmp(name, "curses") != 0
+   &&  strcmp(name, "llm") != 0
+   &&  strcmp(name, "web") != 0)
    {
       copy_error(error, error_len, "unknown driver");
       return 0;
@@ -373,7 +375,8 @@ int the_driver_is_curses(void)
 int the_driver_is_headless(void)
 {
    return strcmp(current_driver_name, "llm") == 0
-       || strcmp(current_driver_name, "headless") == 0;
+       || strcmp(current_driver_name, "headless") == 0
+       || strcmp(current_driver_name, "web") == 0;
 }
 
 int the_driver_read_legacy_key(void)

@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "inputevent.h"
+#include "inputdispatch.h"
 #include "llmdriver.h"
 #include "llmruntime.h"
 #include "the.h"
@@ -824,41 +825,15 @@ static int apply_logical_hit(char *args)
       return 0;
    if (window_text != NULL && !parse_long_token(window_text, &window_id))
       return 0;
-   (void)screen_arg;
-   (void)window_id;
-   if (target_kind == THE_INPUT_TARGET_COMMAND)
    {
-      CURRENT_VIEW->current_window = WINDOW_COMMAND;
-      CURRENT_VIEW->cmdline_col = (int)cell;
-      if (the_driver_is_headless())
-         the_driver_set_screen_current_role(current_screen, WINDOW_COMMAND);
-      (void)THEcursor_cmdline(current_screen, CURRENT_VIEW,
-                              CURRENT_VIEW->cmdline_col + 1);
-      return 1;
-   }
-   if (target_kind == THE_INPUT_TARGET_PREFIX)
-   {
-      CURRENT_VIEW->current_window = WINDOW_PREFIX;
-      if (the_driver_is_headless())
-         the_driver_set_screen_current_role(current_screen, WINDOW_PREFIX);
-      if (the_driver != NULL && the_driver->move_prefix_cursor != NULL)
-         the_driver->move_prefix_cursor(current_screen, (short)row,
-                                        (short)cell);
-      return 1;
-   }
-   if (target_kind == THE_INPUT_TARGET_FILEAREA)
-   {
-      LINETYPE target_line = (LINETYPE)line_number;
+      TheInputEvent event;
 
-      CURRENT_VIEW->current_window = WINDOW_FILEAREA;
-      if (the_driver_is_headless())
-         the_driver_set_screen_current_role(current_screen, WINDOW_FILEAREA);
-      if (target_line <= 0)
-         target_line = CURRENT_VIEW->current_line + (LINETYPE)row;
-      (void)THEcursor_goto(target_line, (LENGTHTYPE)cell + 1);
-      return 1;
+      if (!the_input_event_from_logical_target(
+             target_kind, (LINETYPE)line_number, (int)row, (int)cell,
+             (int)screen_arg, (int)window_id, &event))
+         return 0;
+      return the_input_dispatch_logical_hit(&event.target);
    }
-   return 0;
 }
 
 static short apply_real_command(char *command)
