@@ -6,6 +6,7 @@
 #include "the.h"
 
 SCREEN_DETAILS screen[MAX_SCREENS];
+CHARTYPE current_screen = 0;
 VIEW_DETAILS *vd_current = NULL;
 VIEW_DETAILS *vd_first = NULL;
 VIEW_DETAILS *vd_last = NULL;
@@ -14,6 +15,8 @@ int last_message_length = 0;
 CHARTYPE *cmd_rec = NULL;
 LENGTHTYPE cmd_rec_len = 0;
 LENGTHTYPE cmd_verify_col = 1;
+CHARTYPE *pre_rec = NULL;
+LENGTHTYPE pre_rec_len = 0;
 void *(*the_malloc)(size_t) = malloc;
 void *(*the_realloc)(void *, size_t) = realloc;
 void (*the_free)(void *) = free;
@@ -90,6 +93,7 @@ static void setup_screen(void)
    rows[1].contents = (CHARTYPE *)"visible file row";
    rows[1].length = 16;
    rows[1].main_enterable = TRUE;
+   rows[1].prefix_enterable = TRUE;
    strcpy((char *)rows[1].prefix, "000007");
    rows[2].line_type = LINE_SCALE;
    rows[2].line_number = 0;
@@ -104,6 +108,9 @@ static void setup_screen(void)
    cmd_rec = command;
    cmd_rec_len = strlen((char *)command);
    cmd_verify_col = 1;
+   current_screen = 0;
+   pre_rec = NULL;
+   pre_rec_len = 0;
 }
 
 static void test_runtime_view(void)
@@ -168,11 +175,33 @@ static void test_command_focus_survives_filearea_frame(void)
                    "focus=command");
 }
 
+static void test_active_prefix_overlays_visible_prefix(void)
+{
+   static CHARTYPE active_prefix[] = "d";
+   LlmDriverScreenView view;
+   LogicalCursor cursor;
+
+   setup_screen();
+   vd_current->current_window = WINDOW_PREFIX;
+   vd_current->focus_line = 7;
+   pre_rec = active_prefix;
+   pre_rec_len = 1;
+   cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_PREFIX, 7, 1,
+                                textpos_from_cell_virtual(
+                                   pre_rec, pre_rec_len, 1,
+                                   TEXT_SNAP_BACKWARD));
+   logical_cursor_state_focus(&vd_current->logical_cursor, cursor);
+
+   expect_int("runtime.prefix.view", llm_runtime_screen_view(0, &view), 1);
+   expect_contains("runtime.prefix.visible", view.lines[1].prefix, "d");
+}
+
 int main(void)
 {
    test_runtime_view();
    test_compact_filearea_runtime_format();
    test_command_focus_survives_filearea_frame();
+   test_active_prefix_overlays_visible_prefix();
 
    if (failures != 0)
    {

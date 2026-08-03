@@ -139,6 +139,24 @@ static void llm_runtime_parser_diagnostics(LlmDriverScreenView *view)
    the_parser_diagnostics_free(diagnostics);
 }
 
+static void llm_runtime_overlay_active_prefix(CHARTYPE scrno, UiFrame *frame)
+{
+   size_t i;
+
+   if (frame == NULL || scrno != current_screen || CURRENT_VIEW == NULL
+   ||  CURRENT_VIEW->current_window != WINDOW_PREFIX)
+      return;
+   for (i = 0; i < frame->row_count; i++)
+   {
+      if (frame->row[i].line_number == CURRENT_VIEW->focus_line)
+      {
+         ui_frame_set_row_prefix(frame, i, pre_rec, (size_t)pre_rec_len,
+                                 frame->row[i].prefix_editable);
+         return;
+      }
+   }
+}
+
 int llm_runtime_screen_view(CHARTYPE scrno, LlmDriverScreenView *view)
 {
    UiFrame *frame;
@@ -155,6 +173,7 @@ int llm_runtime_screen_view(CHARTYPE scrno, LlmDriverScreenView *view)
       free(frame);
       return 0;
    }
+   llm_runtime_overlay_active_prefix(scrno, frame);
    if (!llm_driver_screen_view_from_frame(frame, view))
    {
       free(frame);
