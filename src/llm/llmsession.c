@@ -398,7 +398,8 @@ static void parse_view_options(char *args, LlmDriverFormatOptions *options)
 
 static void llm_session_refresh(void)
 {
-   if (CURRENT_VIEW != NULL && CURRENT_FILE != NULL)
+   if (CURRENT_VIEW != NULL && CURRENT_FILE != NULL
+   &&  !(CURRENT_VIEW->current_window == WINDOW_PREFIX && prefix_changed))
       pre_process_line(CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL);
    build_screen(current_screen);
    display_screen(current_screen);

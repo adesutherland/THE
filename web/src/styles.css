@@ -299,16 +299,30 @@ button { color: inherit; }
 .syntax-constant { color: #d9a441; }
 .syntax-keyword,
 .syntax-alt-keyword-1,
-.syntax-alt-keyword-2 { color: #69a9dc; }
+.syntax-alt-keyword-2,
+.syntax-alt-keyword-3,
+.syntax-alt-keyword-4,
+.syntax-alt-keyword-5,
+.syntax-alt-keyword-6,
+.syntax-alt-keyword-7,
+.syntax-alt-keyword-8,
+.syntax-alt-keyword-9 { color: #69a9dc; }
+.syntax-identifier { color: #8fc4e8; }
 .syntax-type,
 .syntax-function { color: #7dc4c4; }
 .syntax-preprocessor,
-.syntax-macro { color: #c895cf; }
+.syntax-macro-name { color: #c895cf; }
+.syntax-macro-variable { color: #65b7df; }
+.syntax-macro-constant { color: #a8c48c; }
 .syntax-operator,
 .syntax-punctuation,
 .syntax-paren { color: #d4d8df; }
 .syntax-incomplete-string,
 .syntax-match { color: #e06c75; }
+.syntax-header { color: #d6b36a; }
+.syntax-markup { color: #b9c4d0; }
+.syntax-directory { color: #68b0a0; }
+.syntax-executable { color: #76b68b; }
 .syntax-link { color: #68b0a0; text-decoration: underline; }
 
 .diagnostics {

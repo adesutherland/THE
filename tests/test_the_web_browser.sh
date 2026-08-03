@@ -25,8 +25,11 @@ trap cleanup EXIT
 sample="$work_dir/sample.txt"
 stdout_log="$work_dir/stdout.log"
 stderr_log="$work_dir/stderr.log"
-printf 'alpha beta gamma\n' > "$sample"
+printf 'alpha beta gamma\ndelete me\ngamma\n' > "$sample"
 printf 'second buffer\n' > "$work_dir/second.txt"
+printf '/* crexx comment */\nsay "hello"\n' > "$work_dir/sample.crexx"
+printf '# Heading\n\nA **bold** [link](target).\n' > "$work_dir/sample.md"
+printf 'def greet(name):\n    return "hello " + name\n' > "$work_dir/sample.py"
 
 THE_WEB_ROOT="$web_assets" \
 THE_WEB_WORKSPACE="$work_dir" \
@@ -68,5 +71,5 @@ fi
 wait "$server_pid"
 server_pid=""
 
-printf 'Zalpha beta gamma\n' > "$work_dir/expected.txt"
+printf 'Zalpha beta gamma\ngamma\n' > "$work_dir/expected.txt"
 cmp "$work_dir/expected.txt" "$sample"

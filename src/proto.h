@@ -461,6 +461,7 @@ short THEcursor_up (short);
 short THEcursor_sdown ( CHARTYPE, VIEW_DETAILS *, short );
 short THEcursor_move ( CHARTYPE, VIEW_DETAILS *, bool, bool, short, short );
 short THEcursor_goto (LINETYPE,LENGTHTYPE);
+short THEcursor_logical_target (const TheInputLogicalTarget *);
 short THEcursor_mouse (void);
 long where_now (void);
 long what_current_now (void);

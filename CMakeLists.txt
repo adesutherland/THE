@@ -1064,6 +1064,11 @@ add_test(NAME test_the_llm_full_runtime
             $<TARGET_FILE:the>)
 set_tests_properties(test_the_llm_full_runtime PROPERTIES
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+add_test(NAME test_frontend_prefix_runtime
+    COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_frontend_prefix_runtime.sh
+            $<TARGET_FILE:the>)
+set_tests_properties(test_frontend_prefix_runtime PROPERTIES
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 if(USE_WEB_DRIVER)
     add_test(NAME test_the_web_runtime
         COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_web_runtime.sh
@@ -1084,6 +1089,15 @@ if(USE_WEB_DRIVER)
                 ${RELEASE_DIR}/web-profile.the)
     set_tests_properties(test_web_profile_highlighting PROPERTIES
         TIMEOUT 20
+        SKIP_RETURN_CODE 77
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    add_test(NAME test_web_profile_multifile_highlighting
+        COMMAND ${THE_BASH_COMMAND}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_web_profile_multifile_highlighting.sh
+                $<TARGET_FILE:the>
+                ${RELEASE_DIR}/web-profile.the)
+    set_tests_properties(test_web_profile_multifile_highlighting PROPERTIES
+        TIMEOUT 30
         SKIP_RETURN_CODE 77
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     find_program(THE_CHROMIUM_EXECUTABLE

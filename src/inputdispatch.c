@@ -41,7 +41,16 @@ short the_input_dispatch_action(const TheFrontendAction *action)
    {
       short rc = command_line((CHARTYPE *)command, COMMAND_ONLY_FALSE);
       if (rc == RC_OK && number_of_files > 0 && vd_current != NULL)
+      {
          the_frontend_policy_apply_current_file();
+         if (prepared.id == THE_FRONTEND_ACTION_FILE_OPEN
+         ||  prepared.id == THE_FRONTEND_ACTION_FILE_CREATE
+         ||  prepared.id == THE_FRONTEND_ACTION_BUFFER_SWITCH)
+         {
+            rc = command_line((CHARTYPE *)"set coloring on auto",
+                              COMMAND_ONLY_FALSE);
+         }
+      }
       return rc;
    }
 }
@@ -50,41 +59,5 @@ int the_input_dispatch_logical_hit(const TheInputLogicalTarget *target)
 {
    if (CURRENT_VIEW == NULL || target == NULL)
       return 0;
-
-   if (target->kind == THE_INPUT_TARGET_COMMAND)
-   {
-      CURRENT_VIEW->current_window = WINDOW_COMMAND;
-      CURRENT_VIEW->cmdline_col = target->cell;
-      if (the_driver_is_headless())
-         the_driver_set_screen_current_role(current_screen, WINDOW_COMMAND);
-      (void)THEcursor_cmdline(current_screen, CURRENT_VIEW,
-                              CURRENT_VIEW->cmdline_col + 1);
-      return 1;
-   }
-
-   if (target->kind == THE_INPUT_TARGET_PREFIX)
-   {
-      CURRENT_VIEW->current_window = WINDOW_PREFIX;
-      if (the_driver_is_headless())
-         the_driver_set_screen_current_role(current_screen, WINDOW_PREFIX);
-      if (the_driver != NULL && the_driver->move_prefix_cursor != NULL)
-         the_driver->move_prefix_cursor(current_screen, (short)target->row,
-                                        (short)target->cell);
-      return 1;
-   }
-
-   if (target->kind == THE_INPUT_TARGET_FILEAREA)
-   {
-      LINETYPE target_line = target->line_number;
-
-      CURRENT_VIEW->current_window = WINDOW_FILEAREA;
-      if (the_driver_is_headless())
-         the_driver_set_screen_current_role(current_screen, WINDOW_FILEAREA);
-      if (target_line <= 0)
-         target_line = CURRENT_VIEW->current_line + (LINETYPE)target->row;
-      (void)THEcursor_goto(target_line, (LENGTHTYPE)target->cell + 1);
-      return 1;
-   }
-
-   return 0;
+   return THEcursor_logical_target(target) == RC_OK;
 }

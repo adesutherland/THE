@@ -406,7 +406,7 @@ function App() {
               const cursorVisible = cursorRow === row && snapshot?.focus.zone === "filearea";
               const cursorCell = Math.max(0, (snapshot?.focus.cell ?? 0) - row.sc);
               return (
-                <div class={`screen-row role-${row.role} ${row.cur ? "screen-row-current" : ""}`} key={`${row.r}-${row.line}-${row.role}`}>
+                <div class={`screen-row role-${row.role} ${row.cur ? "screen-row-current" : ""}`} key={`${currentBuffer?.path ?? ""}-${row.r}-${row.line}-${row.role}`}>
                   <button
                     type="button"
                     class="prefix-cell"

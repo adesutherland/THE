@@ -159,6 +159,9 @@ applied to asset responses.
 
 ## Verification
 
+The complete automated matrix, manual scenarios, and release gate are in
+[`web-driver-test-plan.md`](web-driver-test-plan.md).
+
 `test_the_web_runtime` launches a packaged editor against a temporary jailed
 workspace. It authenticates over WebSocket, checks the native action catalog
 and file listing, exercises logical hit, restricted command, text, named-key,

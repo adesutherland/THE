@@ -94,6 +94,36 @@ async function domKey(key, code, ctrlKey = false, shiftKey = false) {
   await evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: ${JSON.stringify(key)}, code: ${JSON.stringify(code)}, ctrlKey: ${ctrlKey}, shiftKey: ${shiftKey}, bubbles: true, cancelable: true}))`);
 }
 
+async function openWorkspaceFile(name) {
+  await evaluate("document.querySelector('[aria-label=\"Open\"]').click()");
+  await waitFor(
+    () => evaluate(`[...document.querySelectorAll('.file-list button')].some((node) => node.textContent.trim() === ${JSON.stringify(name)})`),
+    `${name} in workspace files`,
+  );
+  await evaluate(`[...document.querySelectorAll('.file-list button')].find((node) => node.textContent.trim() === ${JSON.stringify(name)}).click()`);
+  await waitFor(
+    () => evaluate(`document.querySelector('.buffer-tab-current span')?.textContent.trim() === ${JSON.stringify(name)}`),
+    `${name} buffer`,
+  );
+}
+
+async function selectBuffer(name) {
+  await evaluate(`[...document.querySelectorAll('.buffer-tab')].find((node) => node.textContent.trim() === ${JSON.stringify(name)}).click()`);
+  await waitFor(
+    () => evaluate(`document.querySelector('.buffer-tab-current span')?.textContent.trim() === ${JSON.stringify(name)}`),
+    `${name} buffer switch`,
+  );
+}
+
+async function closeCurrentBuffer(name) {
+  await evaluate("document.querySelector('.input-sink').focus()");
+  await domKey("w", "KeyW", true);
+  await waitFor(
+    () => evaluate(`![...document.querySelectorAll('.buffer-tab')].some((node) => node.textContent.trim() === ${JSON.stringify(name)})`),
+    `${name} close`,
+  );
+}
+
 try {
   const portFile = join(profile, "DevToolsActivePort");
   const port = await waitFor(async () => {
@@ -159,6 +189,54 @@ try {
   await waitFor(() => evaluate("!!document.querySelector('.path-dialog')"), "New file dialog");
   await evaluate("[...document.querySelectorAll('.dialog-actions button')].find((node) => node.textContent.trim() === 'Cancel').click()");
 
+  await openWorkspaceFile("sample.crexx");
+  try {
+    await waitFor(
+      () => evaluate("!!document.querySelector('.syntax-comment') && !!document.querySelector('.syntax-keyword') && !!document.querySelector('.syntax-string')"),
+      "cRexx syntax styles",
+    );
+  } catch (error) {
+    const state = await evaluate("({buffer: document.querySelector('.buffer-tab-current')?.textContent.trim(), status: document.querySelector('.status-text')?.textContent.trim(), lines: [...document.querySelectorAll('.line-text')].map((node) => ({text: node.textContent, classes: [...node.querySelectorAll('.syntax')].map((span) => span.className)})).filter((row) => row.text).slice(0, 6)})");
+    throw new Error(`${error.message}; state=${JSON.stringify(state)}`);
+  }
+
+  await openWorkspaceFile("sample.md");
+  try {
+    await waitFor(
+      () => evaluate("!!document.querySelector('.syntax-operator') && (!!document.querySelector('.syntax-preprocessor') || !!document.querySelector('.syntax-identifier')) && !document.querySelector('.syntax-comment') && !document.querySelector('.syntax-string')"),
+      "Markdown syntax styles without stale cRexx spans",
+    );
+  } catch (error) {
+    const state = await evaluate("({buffer: document.querySelector('.buffer-tab-current')?.textContent.trim(), status: document.querySelector('.status-text')?.textContent.trim(), lines: [...document.querySelectorAll('.line-text')].map((node) => ({text: node.textContent, classes: [...node.querySelectorAll('.syntax')].map((span) => span.className)})).filter((row) => row.text).slice(0, 6)})");
+    throw new Error(`${error.message}; state=${JSON.stringify(state)}`);
+  }
+
+  await openWorkspaceFile("sample.py");
+  try {
+    await waitFor(
+      () => evaluate("!!document.querySelector('.syntax-keyword') && !!document.querySelector('.syntax-identifier') && !!document.querySelector('.syntax-string') && !!document.querySelector('.syntax-operator') && !document.querySelector('.syntax-preprocessor') && !document.querySelector('.syntax-comment')"),
+      "Python syntax styles without stale Markdown spans",
+    );
+  } catch (error) {
+    const state = await evaluate("({buffer: document.querySelector('.buffer-tab-current')?.textContent.trim(), status: document.querySelector('.status-text')?.textContent.trim(), lines: [...document.querySelectorAll('.line-text')].map((node) => ({text: node.textContent, classes: [...node.querySelectorAll('.syntax')].map((span) => span.className)})).filter((row) => row.text).slice(0, 6)})");
+    throw new Error(`${error.message}; state=${JSON.stringify(state)}`);
+  }
+  const pythonColors = await evaluate("({keyword: getComputedStyle(document.querySelector('.syntax-keyword')).color, identifier: getComputedStyle(document.querySelector('.syntax-identifier')).color, string: getComputedStyle(document.querySelector('.syntax-string')).color})");
+  if (new Set(Object.values(pythonColors)).size !== 3) {
+    throw new Error(`Python semantic styles are not visually distinct: ${JSON.stringify(pythonColors)}`);
+  }
+
+  await selectBuffer("sample.crexx");
+  await waitFor(
+    () => evaluate("!!document.querySelector('.syntax-comment') && !!document.querySelector('.syntax-string') && !document.querySelector('.syntax-identifier')"),
+    "cRexx styles after buffer switch",
+  );
+  for (const name of ["sample.crexx", "sample.md", "sample.py"]) {
+    await selectBuffer(name);
+    await closeCurrentBuffer(name);
+  }
+  await selectBuffer("sample.txt");
+
   await evaluate("new Promise((resolve) => { const input = document.querySelector('.command-form input'); input.value = 'set insertmode on'; input.dispatchEvent(new Event('input', {bubbles: true})); setTimeout(() => { input.form.requestSubmit(); resolve(true); }, 0); })");
   await sleep(100);
   await evaluate("(() => { const line = [...document.querySelectorAll('.line-content')].find((node) => node.textContent.includes('alpha beta gamma')); const rect = line.getBoundingClientRect(); line.dispatchEvent(new MouseEvent('click', {bubbles: true, clientX: rect.left + 12, clientY: rect.top + 8})); return true; })()");
@@ -185,6 +263,22 @@ try {
     throw new Error(`${error.message}; lines=${JSON.stringify(lines)}`);
   }
   await insertText("Z");
+  await evaluate("(() => { const row = [...document.querySelectorAll('.screen-row')].find((node) => node.querySelector('.line-text')?.textContent === 'delete me'); const prefix = row?.querySelector('.prefix-cell'); if (!prefix) return false; const rect = prefix.getBoundingClientRect(); prefix.dispatchEvent(new MouseEvent('click', {bubbles: true, clientX: rect.left + 4, clientY: rect.top + 8})); return true; })()");
+  await waitFor(
+    () => evaluate("[...document.querySelectorAll('.status-line span')].some((node) => node.textContent.trim() === 'prefix')"),
+    "prefix focus",
+  );
+  await evaluate("document.querySelector('.input-sink').focus()");
+  await insertText("d");
+  await waitFor(
+    () => evaluate("[...document.querySelectorAll('.screen-row')].some((node) => node.querySelector('.line-text')?.textContent === 'delete me' && node.querySelector('.prefix-cell')?.textContent.trim() === 'd')"),
+    "visible prefix command entry",
+  );
+  await domKey("Enter", "Enter");
+  await waitFor(
+    () => evaluate("![...document.querySelectorAll('.line-text')].some((node) => node.textContent === 'delete me') && [...document.querySelectorAll('.line-text')].some((node) => node.textContent === 'gamma')"),
+    "prefix delete execution",
+  );
   await domKey("s", "KeyS", true);
   await waitFor(
     () => evaluate("[...document.querySelectorAll('.status-line span')].some((node) => node.textContent.trim() === 'Saved')"),

@@ -1694,17 +1694,19 @@ static short cursor_mouse_select_screen(const TheInputLogicalTarget *target)
 {
 #if defined(THE_MOUSE_ENABLED)
    int guard = 0;
+   int target_screen;
 
    if (target == NULL)
       return RC_INVALID_ENVIRON;
-   if (target->screen < 0 || target->screen >= display_screens)
+   target_screen = (target->screen < 0) ? current_screen : target->screen;
+   if (target_screen >= display_screens)
       return RC_INVALID_ENVIRON;
-   while (current_screen != target->screen && guard < display_screens)
+   while (current_screen != target_screen && guard < display_screens)
    {
       (void)Nextwindow((CHARTYPE *)"");
       guard++;
    }
-   return (current_screen == target->screen) ? RC_OK : RC_INVALID_ENVIRON;
+   return (current_screen == target_screen) ? RC_OK : RC_INVALID_ENVIRON;
 #else
    INTENTIONALLY_UNUSED_VARIABLE(target);
    return RC_OK;
@@ -1735,6 +1737,28 @@ static const CHARTYPE *cursor_mouse_filearea_line(short row, size_t *len)
    return show_row->contents;
 }
 
+static short cursor_mouse_resolve_row(const TheInputLogicalTarget *target)
+{
+   short row;
+   short i;
+
+   if (target == NULL)
+      return -1;
+   row = (short)target->row;
+   if (target->line_number < 0
+   ||  (row >= 0
+   &&   row < screen[current_screen].rows[WINDOW_FILEAREA]
+   &&   screen[current_screen].sl[row].line_number == target->line_number))
+      return row;
+
+   for (i = 0; i < screen[current_screen].rows[WINDOW_FILEAREA]; i++)
+   {
+      if (screen[current_screen].sl[i].line_number == target->line_number)
+         return i;
+   }
+   return row;
+}
+
 static short cursor_mouse_filearea(const TheInputLogicalTarget *target)
 {
    short row;
@@ -1745,7 +1769,7 @@ static short cursor_mouse_filearea(const TheInputLogicalTarget *target)
 
    if (target == NULL || in_readv)
       return RC_OK;
-   row = (short)target->row;
+   row = cursor_mouse_resolve_row(target);
    if (row < 0 || row >= screen[current_screen].rows[WINDOW_FILEAREA])
       return RC_INVALID_OPERAND;
    row = get_row_for_tof_eof(row, current_screen);
@@ -1781,7 +1805,7 @@ static short cursor_mouse_prefix(const TheInputLogicalTarget *target)
 
    if (target == NULL || in_readv)
       return RC_OK;
-   row = (short)target->row;
+   row = cursor_mouse_resolve_row(target);
    if (row < 0 || row >= screen[current_screen].rows[WINDOW_FILEAREA])
       return RC_INVALID_OPERAND;
    row = get_row_for_tof_eof(row, current_screen);
@@ -1820,7 +1844,7 @@ static short cursor_mouse_command(const TheInputLogicalTarget *target)
    return rc;
 }
 
-static short cursor_mouse_logical_target(const TheInputLogicalTarget *target)
+short THEcursor_logical_target(const TheInputLogicalTarget *target)
 {
    short rc;
 
@@ -1876,7 +1900,7 @@ short THEcursor_mouse(void)
       TRACE_RETURN();
       return(RC_INVALID_ENVIRON);
    }
-   rc = cursor_mouse_logical_target(&target);
+   rc = THEcursor_logical_target(&target);
 #endif
 
    TRACE_RETURN();
