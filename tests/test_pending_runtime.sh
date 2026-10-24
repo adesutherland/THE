@@ -205,6 +205,25 @@ command sos doprefix
 INPUT
 before stop FIRST_PASS_END CHILD_RAN
 
+# A failed macro must also preserve a later command entered by typing, not
+# just entries created with SET PENDING (which have a separate retention flag).
+run stop_typed <<'INPUT'
+command set prefix synonym AA stopper
+command set prefix synonym BB child
+command cursor goto 1 1
+command cursor prefix
+text AA
+command cursor goto 2 1
+command cursor prefix
+text BB
+key enter
+command emsg FIRST_PASS_END
+look prefix compact
+command sos doprefix
+INPUT
+before stop_typed FIRST_PASS_END CHILD_RAN
+require stop_typed '"original":"BB"'
+
 run error <<'INPUT'
 command :1
 command set pending error XX20

@@ -73,6 +73,7 @@ jobs:
           New-Item -ItemType Directory -Force "$crexx/licenses" | Out-Null
           Get-ChildItem "$env:THE_CI_UCRT/share/licenses" -Directory | Where-Object { $_.Name -match 'gcc|openssl|winpthread' } | Copy-Item -Destination "$crexx/licenses" -Recurse
       - name: Build bundled THE with both runtime bridges
+        id: build
         shell: pwsh
         run: |
           $crexx = "$env:THE_CI_SDK/crexx/CREXX-windows-x64"
@@ -94,11 +95,14 @@ jobs:
           ctest --test-dir build-release --output-on-failure --parallel 2
           if ($LASTEXITCODE -ne 0) { throw 'Regression tests failed' }
       - name: Build archive and installer
+        id: package
+        if: always() && steps.build.conclusion == 'success'
         shell: pwsh
         run: |
           python scripts/package-release.py --build-dir build-release --version "4.0.0-ci.$env:GITHUB_RUN_NUMBER" --installer
           if ($LASTEXITCODE -ne 0) { throw 'Packaging failed' }
       - name: Test the installed release candidate
+        if: always() && steps.package.conclusion == 'success'
         shell: pwsh
         run: |
           $installer = @(Get-ChildItem build-release/packages/*-setup.exe)

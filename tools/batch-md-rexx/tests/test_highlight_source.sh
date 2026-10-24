@@ -85,6 +85,13 @@ fail() {
   exit 1
 }
 
+# Git Bash can rewrite closing HTML tags in regex arguments as Windows paths.
+# CMake supplies native paths for these output files; pass them and regexes to
+# ripgrep unchanged. This has no effect outside MSYS.
+rg() {
+  MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' command rg "$@"
+}
+
 run_capture() {
   local name="$1"
   shift

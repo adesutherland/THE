@@ -591,7 +591,8 @@ short execute_prefix_commands(void)
       if (curr_ppc->ppc_processed
       || (curr_ppc->ppc_cmd_idx == (-1)
           && !curr_ppc->ppc_set_by_pending
-          && (!defer_new || curr_ppc->ppc_generation <= cutoff)))
+          && (!defer_new || (curr_ppc->ppc_generation <= cutoff
+                            && curr_ppc->ppc_run_pass == pass))))
          curr_ppc = delete_pending_prefix_command( curr_ppc, PENDING_FILE, NULL );
       else
          curr_ppc = curr_ppc->next;
