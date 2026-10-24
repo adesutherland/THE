@@ -1326,7 +1326,7 @@ short set_THE_key_defaults(int prey,int prex)
   short rc=RC_OK;
 
   TRACE_FUNCTION("default.c: set_THE_key_defaults");
-  define_logical_enter("");
+  define_logical_enter("enter");
   /*
    * This function is for resetting all default values for THE
    * compatibility mode.
@@ -1453,7 +1453,7 @@ short set_KEDIT_key_defaults(int prey,int prex)
    short rc=RC_OK;
 
    TRACE_FUNCTION("default.c: set_KEDIT_key_defaults");
-   define_logical_enter("");
+   define_logical_enter("enter");
    /*
     * This function is for resetting all default values for KEDIT
     * compatibility mode.

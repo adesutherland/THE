@@ -555,6 +555,8 @@ short execute_prefix_commands(void)
          if ( rc == RC_OK )
          {
             curr_ppc->ppc_processed = TRUE;
+            if (PENDING_VIEW==CURRENT_VIEW && xedit_cursor_accept(pc[ispf_idx][cmd_idx].priority))
+               xedit_cursor_record(pc[ispf_idx][cmd_idx].priority);
          }
       }
       /*
@@ -600,7 +602,11 @@ short execute_prefix_commands(void)
    if ( top_priority_idx != (-1) )
    {
       if ( pc[ispf_idx][top_priority_idx].post_function != NULL )
+      {
          rc = (*pc[ispf_idx][top_priority_idx].post_function)( curr_ppc, cmd_idx, long_mult );
+         if (rc==RC_OK && PENDING_VIEW==CURRENT_VIEW && xedit_cursor_accept(pc[ispf_idx][top_priority_idx].priority))
+            xedit_cursor_record(pc[ispf_idx][top_priority_idx].priority);
+      }
    }
 
    if ( PENDING_VIEW == CURRENT_VIEW )
@@ -1621,6 +1627,8 @@ static short try_rexx_prefix_macro( THE_PPC *curr_ppc,short *result )
    short pmacro_rc=0, errnum = 0 ;
    LINETYPE line_number=0L;
    CHARTYPE _THE_FAR pm_parms[(MAX_PREFIX_WIDTH*4)+1];
+   CHARTYPE macro_path[MAX_FILE_NAME+1];
+   CHARTYPE macro_command[MAX_FILE_NAME+(MAX_PREFIX_WIDTH*4)+8];
    short macrorc=0;
    int i;
 
@@ -1633,7 +1641,7 @@ static short try_rexx_prefix_macro( THE_PPC *curr_ppc,short *result )
       TRACE_RETURN();
       return( RC_NOT_COMMAND );
    }
-   get_valid_macro_file_name( find_prefix_synonym( curr_ppc->ppc_command ), temp_cmd, macro_suffix, &errnum );
+   get_valid_macro_file_name( find_prefix_synonym( curr_ppc->ppc_command ), macro_path, macro_suffix, &errnum );
    if (errnum == 0)
    {
       line_number = curr_ppc->ppc_line_number;
@@ -1653,13 +1661,13 @@ static short try_rexx_prefix_macro( THE_PPC *curr_ppc,short *result )
             strcat( (DEFCHAR *)pm_parms, (DEFCHAR *)curr_ppc->ppc_op[i] );
          }
       }
-      strcat( (DEFCHAR *)temp_cmd, (DEFCHAR *)pm_parms );     /* add on the parameter list */
+      snprintf((char *)macro_command,sizeof(macro_command),"\"%s\"%s",macro_path,pm_parms);
       prefix_current_line = line_number;
       in_prefix_macro = TRUE;
       /*
        * Go and execute the prefix macro.
        */
-      pmacro_rc = execute_macro( temp_cmd, TRUE, &macrorc );
+      pmacro_rc = execute_macro( macro_command, TRUE, &macrorc );
       in_prefix_macro = FALSE;
       *result = macrorc;
    }

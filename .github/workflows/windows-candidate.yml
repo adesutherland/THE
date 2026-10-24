@@ -17,16 +17,23 @@ jobs:
           ref: 383e5daab0ffcf6ec83e02db7a01a27709dabb2c
           path: .ci-deps/dslsh
           persist-credentials: false
+      - uses: actions/checkout@v5
+        with:
+          repository: adesutherland/CREXX
+          ref: ae1607b8e145174422cee7f3e73fbcc37a65226c
+          path: .ci-deps/crexx
+          persist-credentials: false
       - uses: msys2/setup-msys2@v2
         id: msys
         with:
           msystem: UCRT64
-          install: mingw-w64-ucrt-x86_64-gcc
+          install: mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-openssl
       - name: Install packaging and test tools
         shell: pwsh
         run: |
           choco install nsis ripgrep --no-progress -y
           "${{ steps.msys.outputs.msys2-location }}/ucrt64/bin" >> $env:GITHUB_PATH
+          "THE_CI_UCRT=${{ steps.msys.outputs.msys2-location }}/ucrt64" >> $env:GITHUB_ENV
           "$env:ProgramFiles\CMake\bin" >> $env:GITHUB_PATH
           "${env:ProgramFiles(x86)}\NSIS" >> $env:GITHUB_PATH
       - name: Fetch verified cREXX SDK and optional Regina
@@ -46,6 +53,24 @@ jobs:
           New-Item -ItemType Directory "$sdk/include" | Out-Null
           Fetch-Checked 'https://raw.githubusercontent.com/adesutherland/CREXX/ae1607b8e145174422cee7f3e73fbcc37a65226c/interpreter/crexxsaa.h' "$sdk/include/crexxsaa.h" '500b61d094eca621fea8b8e6964cac75488539b8e73e3e520a72e72cae59f951'
           "THE_CI_SDK=$sdk" >> $env:GITHUB_ENV
+      - name: Build parser-enabled compiler from the matching cREXX release source
+        shell: pwsh
+        run: |
+          cmake -S .ci-deps/crexx -B build-parser -G Ninja -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DBUILD_TESTING=OFF `
+            -DENABLE_LLAMA=OFF -DENABLE_PARSER_MODE=ON -DCREXX_FORCE_SYSTEM_OPENSSL=ON `
+            -DCREXX_ALLOW_NETWORK_DOWNLOADS=ON "-DOPENSSL_ROOT_DIR=$env:THE_CI_UCRT" `
+            "-DDSLSH_LOCAL_DIR=$env:GITHUB_WORKSPACE/.ci-deps/dslsh"
+          if ($LASTEXITCODE -ne 0) { throw 'Parser compiler configure failed' }
+          cmake --build build-parser --target rxc --parallel 4
+          if ($LASTEXITCODE -ne 0) { throw 'Parser compiler build failed' }
+          $crexx = "$env:THE_CI_SDK/crexx/CREXX-windows-x64"
+          Copy-Item build-parser/bin/rxc.exe "$crexx/bin/rxc.exe" -Force
+          foreach ($dll in @('libgcc_s_seh-1.dll','libwinpthread-1.dll','libstdc++-6.dll','libcrypto-3-x64.dll','libssl-3-x64.dll')) {
+            Copy-Item "$env:THE_CI_UCRT/bin/$dll" "$crexx/bin/" -ErrorAction Stop
+          }
+          New-Item -ItemType Directory -Force "$crexx/licenses" | Out-Null
+          Get-ChildItem "$env:THE_CI_UCRT/share/licenses" -Directory | Where-Object { $_.Name -match 'gcc|openssl|winpthread' } | Copy-Item -Destination "$crexx/licenses" -Recurse
       - name: Build bundled THE with both runtime bridges
         shell: pwsh
         run: |
