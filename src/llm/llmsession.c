@@ -1,3 +1,4 @@
+#include "macroruntime.h"
 #include "llmsession.h"
 
 #include <ctype.h>
@@ -297,7 +298,9 @@ static void print_ack_pending_prefix(void)
    if (CURRENT_FILE != NULL)
    {
       for (curr = CURRENT_FILE->first_ppc; curr != NULL; curr = curr->next)
-         count++;
+         if (!curr->ppc_processed && curr->ppc_orig_command[0] != '?'
+         && curr->ppc_command[0] != '\0')
+            count++;
    }
    printf(",\"pending_prefix\":{\"count\":%d,\"commands\":[", count);
    if (CURRENT_FILE != NULL)
@@ -306,6 +309,9 @@ static void print_ack_pending_prefix(void)
            curr != NULL && emitted < 16;
            curr = curr->next)
       {
+         if (curr->ppc_processed || curr->ppc_orig_command[0] == '?'
+         || curr->ppc_command[0] == '\0')
+            continue;
          if (emitted > 0)
             fputc(',', stdout);
          printf("{\"line\":%ld,\"command\":",
@@ -465,11 +471,10 @@ static void print_capabilities(void)
    fputs(",\"parser_diagnostics\":\"unavailable-in-this-build\"", stdout);
    fputs(",\"sdslh\":false", stdout);
 #endif
-#ifdef USE_CREXX
-   fputs(",\"crexx_macros\":true", stdout);
-#else
-   fputs(",\"crexx_macros\":false", stdout);
-#endif
+   fputs(the_macro_uses_crexx() && rexx_support ? ",\"crexx_macros\":true" : ",\"crexx_macros\":false",stdout);
+   fputs(",\"macro_interpreter\":",stdout);
+   print_json_string(the_macro_interpreter());
+   fputs(rexx_support ? ",\"macro_available\":true" : ",\"macro_available\":false",stdout);
    fputs(",\"crexx\":", stdout);
    print_json_string((const char *)crexx_version);
    fputs(",\"transient_ui\":\"shared-transientui-protocol-adapter\"", stdout);

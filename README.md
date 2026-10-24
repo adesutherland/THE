@@ -30,6 +30,12 @@ should start with the [Syntax Highlighting User Guide](doc/syntax-highlighting.m
 
 ## Building and Installing
 
+The fork now supports optional runtime-loaded Regina macros alongside the
+default cREXX engine. See [interpreter setup](doc/rexx-interpreters.md), the
+[PFXREXX adaptation](doc/pfxrexx.md), and [prebuilt packaging](packaging/README.md).
+The packaging recipes build local candidates; availability of a published
+installer is separate from these source changes.
+
 The project is natively supported by modern IDEs (like CLion) and easily builds via the standard CMake workflow:
 
 The test suite uses `bash` and `ripgrep` (`rg`) for its integration-test

@@ -568,6 +568,8 @@ struct pending_prefix_command
    bool ppc_set_by_pending;     /* was command created by SET PENDING ? */
    bool ppc_processed;                  /* has command been processed ? */
    bool ppc_current_command; /* is this command the current executing one ? */
+   uint64_t ppc_generation;  /* changes whenever a prefix entry is replaced */
+   uint64_t ppc_run_pass;    /* prevents revisiting an entry during one pass */
 };
 typedef struct pending_prefix_command THE_PPC;
 
@@ -940,6 +942,8 @@ typedef struct
    bool colouring;            /* specifies if syntax highlighting is on */
    bool autocolour;                    /* specifies if AUTOCOLOUR is on */
    PARSER_DETAILS *parser;     /* parser to use for syntax highlighting */
+   CHARTYPE input_mask[32768];
+   LENGTHTYPE input_mask_len;
 } PRESERVED_FILE_DETAILS;
 
 typedef struct
@@ -998,6 +1002,8 @@ typedef struct
    CommunicationFunctions *sdslh_comm; /* Parser communication process */
    PARSER_DETAILS *sdslh_parser; /* parser used to initialise cb */
 #endif
+   CHARTYPE input_mask[32768];
+   LENGTHTYPE input_mask_len;
 } FILE_DETAILS;
 
 typedef struct

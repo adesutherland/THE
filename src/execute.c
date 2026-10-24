@@ -37,6 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "macroruntime.h"
 #include "thedriver.h"
 #include "driverlayout.h"
 #include "llmsession.h"
@@ -844,6 +845,7 @@ short insert_new_line(CHARTYPE curr_screen, VIEW_DETAILS *curr_view, CHARTYPE *l
 {
    LINETYPE i;
    LINE *curr=NULL,*save_curr=NULL;
+   CHARTYPE *masked=NULL;
    short y=0;
    LENGTHTYPE new_col=0;
    short new_row=0;
@@ -871,6 +873,12 @@ short insert_new_line(CHARTYPE curr_screen, VIEW_DETAILS *curr_view, CHARTYPE *l
     * Insert into the linked list the number of lines specified. All lines
     * will contain a blank line and a length of zero.
     */
+   if (inc_alt && curr_view->file_for_view->input_mask_len)
+   {
+      masked=xedit_mask_line(curr_view->file_for_view,line,len,&len);
+      if (!masked) return RC_OUT_OF_MEMORY;
+      line=masked;
+   }
    save_curr = curr;
    for ( i = 0; i < num_lines; i++ )
    {
@@ -878,9 +886,11 @@ short insert_new_line(CHARTYPE curr_screen, VIEW_DETAILS *curr_view, CHARTYPE *l
       {
          display_error( 30, (CHARTYPE *)"", FALSE );
          TRACE_RETURN();
+         if (masked) (*the_free)(masked);
          return(RC_OUT_OF_MEMORY);
       }
    }
+   if (masked) (*the_free)(masked);
    /*
     * Fix the positioning of the marked block (if there is one and it is
     * in the current view) and any pending prefix commands.
@@ -2778,6 +2788,11 @@ short execute_macro(CHARTYPE *params,bool error_on_not_found,short *macrorc)
    CHARTYPE *tmpargs=NULL;
 
    TRACE_FUNCTION("execute.c: execute_macro");
+   if (!rexx_support && strcmp(the_macro_interpreter(),"NONE") != 0)
+   {
+      display_error(52,(CHARTYPE *)"",FALSE);
+      return RC_INVALID_ENVIRON;
+   }
    /*
     * Validate the parameters. At least 1 must be present, the filename.
     */
@@ -5965,6 +5980,8 @@ short execute_preserve(VIEW_DETAILS *src_vd, PRESERVED_VIEW_DETAILS **preserved_
    /*
     * Save the FILE details...
     */
+   memcpy((*preserved_file_details)->input_mask,src_fd->input_mask,sizeof(src_fd->input_mask));
+   (*preserved_file_details)->input_mask_len=src_fd->input_mask_len;
    (*preserved_file_details)->autosave                  = src_fd->autosave;
    (*preserved_file_details)->backup                    = src_fd->backup;
    (*preserved_file_details)->eolout                    = src_fd->eolout;
@@ -6073,6 +6090,8 @@ short execute_restore(VIEW_DETAILS *dst_vd, PRESERVED_VIEW_DETAILS **preserved_v
    /*
     * Restore the FILE details...
     */
+   memcpy(dst_fd->input_mask,(*preserved_file_details)->input_mask,sizeof(dst_fd->input_mask));
+   dst_fd->input_mask_len=(*preserved_file_details)->input_mask_len;
    dst_fd->autosave                  = (*preserved_file_details)->autosave;
    dst_fd->backup                    = (*preserved_file_details)->backup;
    dst_fd->eolout                    = (*preserved_file_details)->eolout;

@@ -56,3 +56,6 @@ fix_knr.py
 # Web frontend build artifacts
 web/node_modules/
 web/dist/
+
+# CI-only dependency checkouts
+/.ci-deps/

@@ -22,6 +22,7 @@
 #ifdef USE_CREXX
 # include <crexxsaa.h>
 
+# include "crexxloader.h"
 # if !defined(CREXXSAA_ABI_VERSION) || CREXXSAA_ABI_VERSION < 3
 #  error "THE requires CREXXSAA_ABI_VERSION 3 or newer"
 # endif
@@ -157,6 +158,8 @@ short initialise_crexx(void)
       TRACE_RETURN();
       return(RC_OK);
    }
+
+   if (!load_crexx_runtime()) return RC_INVALID_ENVIRON;
 
    location = crexx_config_value("THE_CREXX_LOCATION",THE_CREXX_IMPORT_DIR);
    library_rxbin = crexx_config_value("THE_CREXX_LIBRARY_RXBIN",THE_CREXX_LIBRARY_RXBIN);

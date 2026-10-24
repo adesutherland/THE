@@ -993,6 +993,9 @@ short Enter(CHARTYPE *params)
    short rc=RC_OK;
 
    TRACE_FUNCTION("comm2.c:   Enter");
+   /* XEDIT attention executes pending macros without overriding their cursor. */
+   if (compatible_feel == COMPAT_XEDIT && CURRENT_VIEW->current_window != WINDOW_COMMAND)
+      return Sos_doprefix((CHARTYPE *)"");
    switch(CURRENT_VIEW->current_window)
    {
       case WINDOW_COMMAND:

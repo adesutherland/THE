@@ -15,7 +15,7 @@
 This fork is explicitly tailored for the modern [CREXX](https://github.com/crexx-org) scripting engine.
 
 ### Current Integration:
-1. **Hosted Profiles and Macros**: THE builds with `NOREXX=1` for legacy interpreters, but `USE_CREXX=ON` enables the `src/crexx.c` bridge through `crexxsaa`.
+1. **Hosted Profiles and Macros**: THE selects one macro engine at startup with `THE_REXX_INTERPRETER=CREXX|REGINA|NONE`. Both bridges load their selected shared runtime explicitly. cREXX is the default; optional Regina support needs `rexxsaa.h` at build time, without a link dependency. See `doc/rexx-interpreters.md`.
 2. **ADDRESS THE**: CREXX scripts run with a native `ADDRESS THE` environment, so profile and macro commands flow through THE's existing command subsystem.
 3. **Source Cache**: CREXX source profiles/macros are compiled and cached by `crexxsaa`; existing `.rxbin` macros can be run directly.
 4. **Documentation**: The current bridge contract is documented in [CREXX Integration](doc/crexx.md).

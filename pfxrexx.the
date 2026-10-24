@@ -1,0 +1,156 @@
+/* THE adaptation of Shmuel Metz's PFXREXX template workflow.
+ * Reference: https://sourceforge.net/p/hessling-editor/feature-requests/76/
+ * Classic Rexx / Regina. See doc/pfxrexx.md for the supported contract.
+ * Uses THE commands and explicit dot placeholders, not CMS GLOBALV or MASK.
+ */
+address THE
+parse upper arg pref name reason pline count extra .
+if reason = 'CLEAR' then exit 0
+if pref <> 'PREFIX' | (reason <> 'SET' & reason <> 'SHADOW') then do
+  'emsg PFXREXX must be invoked from the prefix area';
+  exit 1
+end
+if \datatype(pline,'W') then exit 1
+if count = '' then count = 1
+forever = 0
+if name = 'DO' & count = 'FOREVER' then do
+  forever = 1
+  count = 1
+end
+if \datatype(count,'W') then call bad 'Expected a repetition count from 1 to 99'
+if count < 1 | count > 99 | extra <> '' then call bad 'Expected a repetition count from 1 to 99'
+if abbrev('SELECT',name,3) then name = 'SELECT'
+if wordpos(name,'DO IF SELECT WHEN RI RIC ..') = 0 then call bad 'Unknown template command'
+
+'command preserve';
+'command set scope all';
+'command :'pline;
+'command extract /curline/';
+source = curline.3
+indent = length(source)-length(strip(source,'L'))
+new_line = word(curline.5,1) = 'NEW'
+if name = '..' then do
+  if new_line & (strip(source) = '.' | strip(source) = '') then 'command delete 1';
+  'command restore';
+  exit 0
+end
+if name = 'RIC' & new_line & (strip(source) = '.' | strip(source) = '') then do
+  'command delete 1';
+  'command restore';
+  exit 0
+end
+
+/* EDITV values live for the editor session and can be set in a profile. */
+pfxrexx_indent_do = ''
+pfxrexx_indent_if = ''
+pfxrexx_indent_select = ''
+pfxrexx_indent_when = ''
+'command editv get pfxrexx_indent_do pfxrexx_indent_if pfxrexx_indent_select pfxrexx_indent_when';
+step_do = setting(pfxrexx_indent_do,3)
+step_if = setting(pfxrexx_indent_if,3)
+step_select = setting(pfxrexx_indent_select,1)
+step_when = setting(pfxrexx_indent_when,2)
+old = translate(word(source,1))
+if name = 'WHEN' & old = 'SELECT' then indent = indent+step_select
+if wordpos(name,'DO IF SELECT') > 0 then do
+  select
+    when old = 'DO' then indent = indent+step_do
+    when old = 'IF' | old = 'ELSE' then indent = indent+step_if
+    when old = 'WHEN' | old = 'OTHERWISE' then indent = indent+step_when
+    when old = 'SELECT' then indent = indent+step_select
+    otherwise nop
+  end
+end
+pad = copies(' ',indent)
+text. = ''
+pending. = ''
+select
+  when name = 'DO' then do
+    n = 3
+    text.1 = pad||'do'
+    if forever then text.1 = pad||'do forever'
+    text.2 = pad||copies(' ',step_do)||'.'
+    text.3 = pad||'end'
+    pending.1 = '..'
+    pending.2 = 'RI'
+    focus = 2
+    column = indent+step_do+1
+  end
+  when name = 'IF' then do
+    n = 6
+    text.1 = pad||'if . then do'
+    text.2 = pad||copies(' ',step_if)||'.'
+    text.3 = pad||'end'
+    text.4 = pad||'else do'
+    text.5 = text.2
+    text.6 = text.3
+    pending.1 = '..'
+    pending.2 = 'RI'
+    pending.5 = 'RI'
+    focus = 1
+    column = indent+4
+  end
+  when name = 'SELECT' then do
+    n = 8
+    whenpad = pad||copies(' ',step_select)
+    bodypad = whenpad||copies(' ',step_when)
+    text.1 = pad||'select'
+    text.2 = whenpad||'when . then do'
+    text.3 = bodypad||'.'
+    text.4 = whenpad||'end'
+    text.5 = whenpad||'otherwise do'
+    text.6 = text.3
+    text.7 = text.4
+    text.8 = pad||'end'
+    pending.2 = '..'
+    pending.3 = 'RIC'
+    pending.6 = 'RIC'
+    focus = 2
+    column = indent+step_select+6
+  end
+  when name = 'WHEN' then do
+    n = 3
+    text.1 = pad||'when . then do'
+    text.2 = pad||copies(' ',step_when)||'.'
+    text.3 = pad||'end'
+    pending.1 = '..'
+    pending.2 = 'RIC'
+    focus = 1
+    column = indent+6
+  end
+  otherwise do
+    /* RI/RIC add a chunk; only its last line continues the next chunk. */
+    'command :'pline 'set pending on ..';
+    n = count
+    do i = 1 to n
+      text.i = pad||'.'
+      pending.i = '..'
+    end
+    pending.n = 'RIC'||count
+    focus = 1
+    column = indent+1
+    count = 1
+  end
+end
+do pass = 1 to count
+  do i = 1 to n
+    'command input '||text.i;
+    if pending.i <> '' then 'command set pending on' pending.i;
+  end
+end
+'command restore';
+/* GOTO scrolls to the requested line; no FLSCREEN or cursor priority needed. */
+'command cursor goto' (pline+focus) column;
+exit 0
+
+setting: procedure
+parse arg value, fallback
+if \datatype(value,'W') then return fallback
+if value < 0 | value > 40 then return fallback
+return value
+
+bad:
+parse arg message
+'command :'pline 'set pending error' name;
+'emsg PFXREXX:' message;
+exit 1

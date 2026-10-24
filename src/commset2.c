@@ -357,6 +357,7 @@ SYNTAX
      [SET] PENDing ON string
      [SET] PENDing OFF
      [SET] PENDing BLOCK string
+     [SET] PENDing ERROR string
 
 DESCRIPTION
      The SET PENDING command allows the user to insert or remove commands
@@ -371,8 +372,11 @@ DESCRIPTION
      area of the focus line and identifies the prefix command to be
      a BLOCK command.
 
+     ERROR string displays an invalid prefix entry with a leading question
+     mark. It is not executable or pending and is cleared on the next pass.
+
 COMPATIBILITY
-     XEDIT: Does not support ERROR option.
+     XEDIT: Supports ON, OFF, BLOCK and ERROR.
      KEDIT: N/A
 
 STATUS
@@ -384,12 +388,14 @@ short Pending(CHARTYPE *params)
 #define PEND_ON    1
 #define PEND_OFF   2
 #define PEND_BLOCK 3
+#define PEND_ERROR 4
 #define PEN_PARAMS  3
    CHARTYPE *word[PEN_PARAMS+1];
    CHARTYPE strip[PEN_PARAMS];
    unsigned short num_params=0;
    short rc=RC_OK;
    LINE *curr=NULL;
+   THE_PPC *entry=NULL;
    LINETYPE true_line=0L;
    short command=0;
 
@@ -400,7 +406,7 @@ short Pending(CHARTYPE *params)
    strip[0]=STRIP_BOTH;
    strip[1]=STRIP_BOTH;
    strip[2]=STRIP_BOTH;
-   num_params = param_split(params,word,PEN_PARAMS,WORD_DELIMS,TEMP_PARAM,strip,FALSE);
+   num_params = param_split(params,word,PEN_PARAMS-1,WORD_DELIMS,TEMP_PARAM,strip,FALSE);
    /*
     * If no arguments, error.
     */
@@ -428,6 +434,8 @@ short Pending(CHARTYPE *params)
       command = PEND_ON;
    else if (equal((CHARTYPE *)"block",word[0],5))
       command = PEND_BLOCK;
+   else if (equal((CHARTYPE *)"error",word[0],5))
+      command = PEND_ERROR;
    else
    {
       display_error(1,word[0],FALSE);
@@ -443,6 +451,7 @@ short Pending(CHARTYPE *params)
        */
       case PEND_ON:
       case PEND_BLOCK:
+      case PEND_ERROR:
          /*
           * The second argument must be present and <= PREFIX_WIDTH.
           */
@@ -471,6 +480,8 @@ short Pending(CHARTYPE *params)
             add_prefix_command( current_screen, CURRENT_VIEW, curr, true_line, TRUE, TRUE );
          else
             add_prefix_command( current_screen, CURRENT_VIEW, curr, true_line, FALSE, TRUE );
+         if ( command == PEND_ERROR )
+            mark_pending_prefix_error(curr->pre, CURRENT_VIEW->prefix_width);
          break;
       /*
        * PENDING OFF...
@@ -483,13 +494,12 @@ short Pending(CHARTYPE *params)
             break;
          }
          curr = lll_find( CURRENT_FILE->first_line, CURRENT_FILE->last_line, true_line, CURRENT_FILE->number_lines );
-         /*
-          * Don't delete the pending prefix command as SET PENDING OFF may have been
-          * called by a prefix macro and that would stuff up the pending prefix command linked list.
-          * Just set the pedning prefix command to processed and it will be cleaned up later.
-          */
-         if ( curr->pre )
-            curr->pre->ppc_processed = TRUE;
+         /* Detach and clear the visible entry, retaining the list node until
+          * the execution pass can safely collect it. */
+         entry = curr->pre;
+         clear_pending_prefix_command(entry, CURRENT_FILE, curr);
+         if (!in_prefix_macro)
+            (void)delete_pending_prefix_command(entry, CURRENT_FILE, curr);
          memset( pre_rec, ' ', MAX_PREFIX_WIDTH );
          pre_rec_len = 0;
          break;

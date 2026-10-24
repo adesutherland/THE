@@ -299,6 +299,7 @@ COMMAND command[] =
  {(CHARTYPE *)"macroext",    6,  (-1),            Macroext,         TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"macropath",   6,  (-1),            Macropath,        TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"margins",     3,  (-1),            Margins,          TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
+ {(CHARTYPE *)"mask",        4,  (-1),            Mask,          TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_NONE,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"mark",        4,  (-1),            Mark,             FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm3.c */
  {(CHARTYPE *)"modify",      3,  (-1),            Modify,           FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm3.c */
  {(CHARTYPE *)"mouse",       5,  (-1),            Mouse,            TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */

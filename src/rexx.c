@@ -39,7 +39,20 @@
 # define INCL_RXARI          /* Halt and Trace */
 
 #include <the.h>
+
+#ifdef USE_REGINA
+#define initialise_rexx regina_initialise_rexx
+#define finalise_rexx regina_finalise_rexx
+#define execute_macro_file regina_execute_macro_file
+#define execute_macro_instore regina_execute_macro_instore
+#define set_rexx_variable regina_set_rexx_variable
+#define get_rexx_variable regina_get_rexx_variable
+#define get_rexx_interpreter_version regina_get_rexx_interpreter_version
+#define MyRexxDeregisterFunction regina_MyRexxDeregisterFunction
+#define MyRexxRegisterFunctionExe regina_MyRexxRegisterFunctionExe
+#endif
 #include <proto.h>
+#include "macroruntime.h"
 #include "thedriver.h"
 #include "thedriver.h"
 
@@ -58,6 +71,9 @@ LINETYPE rexxout_number_lines=0L;
 #undef MOUSE_MOVED
 #include <query.h>
 #include <therexx.h>
+#ifdef USE_REGINA
+#include "reginaloader.h"
+#endif
 
 #if defined(HAVE_SYS_WAIT_H)
 # include <sys/wait.h>
@@ -113,7 +129,7 @@ void *THEAllocateMemory
 
    TRACE_FUNCTION("rexx.c:    THEAllocateMemory");
 
-#if defined(REXXALLOCATEMEMORY)
+#if defined(REXXALLOCATEMEMORY) || defined(USE_REGINA)
    ptr = (RXSTRING_STRPTR_TYPE)RexxAllocateMemory( size );
 #elif defined(WIN32) && (defined(USE_OREXX) || defined(USE_OOREXX) || defined(USE_WINREXX) || defined(USE_QUERCUS))
    ptr = (RXSTRING_STRPTR_TYPE)GlobalAlloc( GMEM_FIXED, size );
@@ -133,7 +149,7 @@ void THEFreeMemory
 /***********************************************************************/
 {
    TRACE_FUNCTION("rexx.c:    THEFreeMemory");
-#if defined(REXXFREEMEMORY)
+#if defined(REXXFREEMEMORY) || defined(USE_REGINA)
    RexxFreeMemory( ptr );
 #elif defined(WIN32) && (defined(USE_OREXX) || defined(USE_OOREXX) || defined(USE_WINREXX) || defined(USE_QUERCUS))
    GlobalFree( ptr );
@@ -774,6 +790,9 @@ short initialise_rexx
    char _THE_FAR buf[50];
 
    TRACE_FUNCTION("rexx.c:    initialise_rexx");
+#ifdef USE_REGINA
+   if (!load_regina_runtime()) return RC_INVALID_ENVIRON;
+#endif
 
 #if defined(USE_REXX6000)
    rc = RexxRegisterSubcom((RRSE_ARG0_TYPE)"THE",
@@ -1414,7 +1433,7 @@ static RXSTRING *get_compound_rexx_variable
             memcpy(value->strptr,shv.shvvalue.strptr,value->strlength);
             *(value->strptr+value->strlength) = '\0';
          }
-#if defined(REXXFREEMEMORY)
+#if defined(REXXFREEMEMORY) || defined(USE_REGINA)
          RexxFreeMemory( shv.shvvalue.strptr );
 #elif defined(WIN32) && (defined(USE_OOREXX) || defined(USE_OREXX) || defined(USE_WINREXX) || defined(USE_QUERCUS))
          GlobalFree( shv.shvvalue.strptr );
@@ -2087,27 +2106,59 @@ static short set_rexx_variables_from_file
    TRACE_RETURN();
    return(rc);
 }
-#else
-/*---------------------------------------------------------------------*/
-/* The following are dummy routines to enable the compliation of THE   */
-/* with a nonANSI compiler.                                            */
-/*---------------------------------------------------------------------*/
+#endif
+#ifdef USE_REGINA
+#undef initialise_rexx
+#undef finalise_rexx
+#undef execute_macro_file
+#undef execute_macro_instore
+#undef set_rexx_variable
+#undef get_rexx_variable
+#undef get_rexx_interpreter_version
+#undef MyRexxDeregisterFunction
+#undef MyRexxRegisterFunctionExe
+#endif
+
+static bool macro_initialised=FALSE;
+
+/* The public bridge dispatches one engine for the lifetime of this process. */
 /***********************************************************************/
 short initialise_rexx
       (void)
 /***********************************************************************/
 {
-#ifdef USE_CREXX
- return(initialise_crexx());
+   short rc=RC_INVALID_ENVIRON;
+   if (the_macro_uses_regina())
+   {
+#ifdef USE_REGINA
+      rc=regina_initialise_rexx();
 #else
- return(RC_INVALID_ENVIRON);                        /* force an error */
+      fprintf(stderr,"THE: Regina support was not compiled into this build.\n");
 #endif
+   }
+   else if (the_macro_uses_crexx())
+   {
+#ifdef USE_CREXX
+      rc=initialise_crexx();
+#else
+      fprintf(stderr,"THE: cREXX support was not compiled into this build.\n");
+#endif
+   }
+   else if (strcmp(the_macro_interpreter(),"NONE")!=0)
+      fprintf(stderr,"THE: THE_REXX_INTERPRETER must be CREXX, REGINA or NONE.\n");
+   macro_initialised=(rc==RC_OK);
+   return rc;
 }
 /***********************************************************************/
 short finalise_rexx
       (void)
 /***********************************************************************/
 {
+ if (!macro_initialised) return RC_OK;
+ macro_initialised=FALSE;
+#ifdef USE_REGINA
+ if (the_macro_uses_regina()) return regina_finalise_rexx();
+#endif
 #ifdef USE_CREXX
  return(finalise_crexx());
 #else
@@ -2119,28 +2170,50 @@ short execute_macro_file
       (CHARTYPE *filename,CHARTYPE *params,short *macrorc,bool interactive)
 /***********************************************************************/
 {
-#ifdef USE_CREXX
- return(execute_crexx_macro_file(filename,params,macrorc,interactive));
-#else
- return(RC_OK);
+ short rc=RC_INVALID_ENVIRON;
+ if (!macro_initialised) return rc;
+ xedit_cursor_begin();
+#ifdef USE_REGINA
+ if (the_macro_uses_regina()) rc=regina_execute_macro_file(filename,params,macrorc,interactive);
+ else
 #endif
+#ifdef USE_CREXX
+ rc=execute_crexx_macro_file(filename,params,macrorc,interactive);
+#else
+ rc=RC_INVALID_ENVIRON;
+#endif
+ xedit_cursor_end();
+ return rc;
 }
 /***********************************************************************/
 short execute_macro_instore
       (CHARTYPE *commands,short *macrorc,CHARTYPE **pcode,int *pcode_len,int *tokenised,int macro_ident)
 /***********************************************************************/
 {
-#ifdef USE_CREXX
- return(execute_crexx_macro_instore(commands,macrorc,pcode,pcode_len,tokenised,macro_ident));
-#else
- return(RC_OK);
+ short rc=RC_INVALID_ENVIRON;
+ if (!macro_initialised) return rc;
+ xedit_cursor_begin();
+#ifdef USE_REGINA
+ if (the_macro_uses_regina()) rc=regina_execute_macro_instore(commands,macrorc,pcode,pcode_len,tokenised,macro_ident);
+ else
 #endif
+#ifdef USE_CREXX
+ rc=execute_crexx_macro_instore(commands,macrorc,pcode,pcode_len,tokenised,macro_ident);
+#else
+ rc=RC_INVALID_ENVIRON;
+#endif
+ xedit_cursor_end();
+ return rc;
 }
 /***********************************************************************/
 short set_rexx_variable
       (CHARTYPE *name,CHARTYPE *value,LENGTHTYPE value_length,int suffix)
 /***********************************************************************/
 {
+ if (!macro_initialised) return RC_INVALID_ENVIRON;
+#ifdef USE_REGINA
+ if (the_macro_uses_regina()) return regina_set_rexx_variable(name,value,value_length,suffix);
+#endif
 #ifdef USE_CREXX
  return(set_crexx_variable(name,value,value_length,suffix));
 #else
@@ -2157,6 +2230,10 @@ short get_rexx_variable
       (CHARTYPE *name,CHARTYPE **value,int *value_length)
 /***********************************************************************/
 {
+ if (!macro_initialised) return RC_INVALID_ENVIRON;
+#ifdef USE_REGINA
+ if (the_macro_uses_regina()) return regina_get_rexx_variable(name,value,value_length);
+#endif
 #ifdef USE_CREXX
  return(get_crexx_variable(name,value,value_length));
 #else
@@ -2174,6 +2251,10 @@ CHARTYPE *get_rexx_interpreter_version
       (CHARTYPE *buf)
 /***********************************************************************/
 {
+ if (!macro_initialised) { strcpy((char *)buf,"NONE"); return buf; }
+#ifdef USE_REGINA
+ if (the_macro_uses_regina()) return regina_get_rexx_interpreter_version(buf);
+#endif
 #ifdef USE_CREXX
  return(get_crexx_interpreter_version(buf));
 #else
@@ -2188,6 +2269,9 @@ unsigned long MyRexxDeregisterFunction
    CHARTYPE *Name)       /* Name of function to be deregistered        */
 /***********************************************************************/
 {
+#ifdef USE_REGINA
+ if (the_macro_uses_regina()) return regina_MyRexxDeregisterFunction(Name);
+#endif
    return 0L;
 }
 
@@ -2197,6 +2281,8 @@ unsigned long MyRexxRegisterFunctionExe
    CHARTYPE *Name)         /* Name of function to be registered        */
 /***********************************************************************/
 {
+#ifdef USE_REGINA
+ if (the_macro_uses_regina()) return regina_MyRexxRegisterFunctionExe(Name);
+#endif
    return 0L;
 }
-#endif

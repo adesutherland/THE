@@ -11,6 +11,20 @@ option(USE_UTF8 "Enable UTF-8 support" ON)
 option(USE_UTF8PROC "Use utf8proc for Unicode grapheme clusters and character widths" ON)
 option(USE_SDSLH "Build with DSL Syntax Highlighter support" ON)
 option(USE_CREXX "Build with embedded CREXX profile/macro support" ON)
+if(USE_CREXX)
+    set(THE_DEFAULT_REXX_INTERPRETER CREXX)
+else()
+    set(THE_DEFAULT_REXX_INTERPRETER NONE)
+endif()
+set(THE_REXX_INTERPRETER "${THE_DEFAULT_REXX_INTERPRETER}" CACHE STRING
+    "Macro interpreter: CREXX, REGINA, or NONE (USE_CREXX supplies the initial default)")
+set_property(CACHE THE_REXX_INTERPRETER PROPERTY STRINGS CREXX REGINA NONE)
+string(TOUPPER "${THE_REXX_INTERPRETER}" THE_SELECTED_REXX_INTERPRETER)
+if(NOT THE_SELECTED_REXX_INTERPRETER MATCHES "^(CREXX|REGINA|NONE)$")
+    message(FATAL_ERROR "THE_REXX_INTERPRETER must be CREXX, REGINA, or NONE")
+endif()
+option(THE_ENABLE_REGINA "Compile optional, runtime-loaded Regina support when headers are available" ON)
+option(THE_BUNDLE_CREXX "Install a relocatable editor with its own cREXX runtime and tools" OFF)
 option(USE_WEB_DRIVER "Build the native browser UI driver" OFF)
 set(DSLSH_LOCAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../DSL-Syntax-Highlighter"
         CACHE PATH "Path to a local DSL-Syntax-Highlighter checkout")
@@ -76,6 +90,7 @@ endif()
 # --- Defines ---
 add_compile_definitions(
     HAVE_CONFIG_H
+    THE_DEFAULT_REXX_INTERPRETER="${THE_SELECTED_REXX_INTERPRETER}"
     THE_VERSION="${THE_VERSION}"
     THE_VERSION_DATE="${THE_VERSION_DATE}"
     THE_VARIANT="${THE_VARIANT}"
@@ -85,7 +100,6 @@ add_compile_definitions(
     BUILD3001=1
     HAVE_RESIZETERM=1
     CAN_RESIZE=1
-    NOREXX=1
     HAVE_WATTRSET=1
     HAVE_TOUCHLINE=1
     THE_TRACE=1
@@ -261,7 +275,8 @@ if(USE_UTF8 AND USE_UTF8PROC)
 endif()
 
 set(THE_USE_CREXX FALSE)
-if(USE_CREXX)
+set(THE_USE_REGINA FALSE)
+if(THE_SELECTED_REXX_INTERPRETER STREQUAL "CREXX")
     set(THE_CREXXSAA_MIN_ABI_VERSION 3)
     set(THE_CREXX_LOCAL_DEBUG_BIN "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-debug/bin")
     set(THE_CREXX_LOCAL_RELEASE_BIN "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-release/bin")
@@ -328,12 +343,19 @@ if(USE_CREXX)
     if(CREXXSAA_LIBRARY AND CREXXSAA_INCLUDE_DIR AND CREXXSAA_ABI_OK AND CREXX_RXC_EXECUTABLE AND CREXX_RXAS_EXECUTABLE AND CREXX_LIBRARY_RXBIN)
         get_filename_component(CREXX_IMPORT_DIR "${CREXX_LIBRARY_RXBIN}" DIRECTORY)
         get_filename_component(CREXXSAA_LIBRARY_DIR "${CREXXSAA_LIBRARY}" DIRECTORY)
+        find_file(CREXXSAA_RUNTIME_LIBRARY
+            NAMES libcrexxsaa.dylib libcrexxsaa.so crexxsaa.dll libcrexxsaa.dll
+            HINTS "${CREXXSAA_LIBRARY_DIR}" "${CREXX_IMPORT_DIR}")
+        if(NOT CREXXSAA_RUNTIME_LIBRARY)
+            message(FATAL_ERROR "A shared cREXX runtime is required; set CREXXSAA_RUNTIME_LIBRARY")
+        endif()
         set(THE_USE_CREXX TRUE)
         message(STATUS "Found CREXXSAA library: ${CREXXSAA_LIBRARY}")
         message(STATUS "Found CREXXSAA ABI: ${CREXXSAA_ABI_VERSION}")
         message(STATUS "Found CREXX import directory: ${CREXX_IMPORT_DIR}")
         add_compile_definitions(
             USE_CREXX=1
+            THE_CREXX_SHARED_LIBRARY="${CREXXSAA_RUNTIME_LIBRARY}"
             THE_CREXX_RXC="${CREXX_RXC_EXECUTABLE}"
             THE_CREXX_RXAS="${CREXX_RXAS_EXECUTABLE}"
             THE_CREXX_IMPORT_DIR="${CREXX_IMPORT_DIR}"
@@ -342,6 +364,31 @@ if(USE_CREXX)
     else()
         message(STATUS "CREXXSAA support disabled; missing crexxsaa ABI ${THE_CREXXSAA_MIN_ABI_VERSION}+, rxc, rxas, or library.rxbin")
     endif()
+endif()
+
+if(THE_ENABLE_REGINA OR THE_SELECTED_REXX_INTERPRETER STREQUAL "REGINA")
+    find_path(REGINA_INCLUDE_DIR NAMES rexxsaa.h HINTS "$ENV{REGINA_HOME}/include")
+    if(REGINA_INCLUDE_DIR)
+        set(THE_USE_REGINA TRUE)
+        # Optional test input; the editor itself never links against this library.
+        find_library(REGINA_LIBRARY NAMES regina HINTS "$ENV{REGINA_HOME}/lib")
+        if(WIN32)
+            set(THE_REGINA_LIBRARY_NAME "regina.dll")
+        elseif(APPLE)
+            set(THE_REGINA_LIBRARY_NAME "libregina.dylib")
+        else()
+            set(THE_REGINA_LIBRARY_NAME "libregina.so")
+        endif()
+        add_compile_definitions(USE_REGINA=1 THE_REGINA_LIBRARY="${THE_REGINA_LIBRARY_NAME}")
+        message(STATUS "Optional Regina support: ${REGINA_INCLUDE_DIR} (no link dependency)")
+    elseif(THE_SELECTED_REXX_INTERPRETER STREQUAL "REGINA")
+        message(FATAL_ERROR "Regina support requires rexxsaa.h. Set REGINA_INCLUDE_DIR or REGINA_HOME.")
+    else()
+        message(STATUS "Regina support disabled; rexxsaa.h not found")
+    endif()
+endif()
+if(NOT THE_USE_REGINA)
+    add_compile_definitions(NOREXX=1)
 endif()
 
 # --- Include Directories ---
@@ -358,6 +405,9 @@ endif()
 
 if(THE_USE_CREXX)
     include_directories(${CREXXSAA_INCLUDE_DIR})
+endif()
+if(THE_USE_REGINA)
+    include_directories(${REGINA_INCLUDE_DIR})
 endif()
 
 # --- Source Files ---
@@ -409,6 +459,8 @@ set(THE_SOURCES
     src/regex.c
     src/reserved.c
     src/rexx.c
+    src/macroruntime.c
+    src/xeditcompat.c
     src/scroll.c
     src/screenframe.c
     src/show.c
@@ -453,18 +505,6 @@ endif()
 
 if(USE_SDSLH)
     target_link_libraries(${EXECUTABLE_NAME} DSLSH::editor)
-endif()
-if(THE_USE_CREXX)
-    target_link_libraries(${EXECUTABLE_NAME} ${CREXXSAA_LIBRARY})
-    if(APPLE)
-        set(THE_CREXX_INSTALL_RPATH "@loader_path")
-    else()
-        set(THE_CREXX_INSTALL_RPATH "$ORIGIN")
-    endif()
-    set_target_properties(${EXECUTABLE_NAME} PROPERTIES
-        BUILD_RPATH "${CREXXSAA_LIBRARY_DIR}"
-        INSTALL_RPATH "${THE_CREXX_INSTALL_RPATH}"
-    )
 endif()
 
 # Setup Release Directory in Build Folder
@@ -608,10 +648,13 @@ add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
 
 set(THE_RUNTIME_PROFILE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/profile.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/profile_regina.the
     ${CMAKE_CURRENT_SOURCE_DIR}/web-profile.the
     ${CMAKE_CURRENT_SOURCE_DIR}/profile_crexx.the
     ${CMAKE_CURRENT_SOURCE_DIR}/crexxcompile.the
     ${CMAKE_CURRENT_SOURCE_DIR}/crexxrun.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/pfxrexx.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/pfxsetup.the
 )
 set(THE_COPIED_RUNTIME_PROFILE_OUTPUTS)
 foreach(THE_RUNTIME_PROFILE_SOURCE IN LISTS THE_RUNTIME_PROFILE_SOURCES)
@@ -774,6 +817,20 @@ add_custom_target(copy_end_user_docs ALL
 add_dependencies(${EXECUTABLE_NAME} copy_end_user_docs)
 
 if(USE_UTF8 AND THE_SYSTEM_PROFILE_SOURCES)
+    # Keep terminal calibration in one source; Classic Rexx only needs the
+    # cREXX language-level declaration removed from these command-only scripts.
+    set(THE_REGINA_SYSTEM_PROFILES)
+    foreach(THE_PROFILE_SOURCE IN LISTS THE_SYSTEM_PROFILE_SOURCES)
+        get_filename_component(THE_PROFILE_NAME "${THE_PROFILE_SOURCE}" NAME_WE)
+        file(READ "${THE_PROFILE_SOURCE}" THE_PROFILE_CONTENT)
+        string(REPLACE "options levelb" "/* Classic Rexx profile */"
+            THE_PROFILE_CONTENT "${THE_PROFILE_CONTENT}")
+        set(THE_REGINA_PROFILE "${CMAKE_CURRENT_BINARY_DIR}/profiles/${THE_PROFILE_NAME}-regina.the")
+        file(WRITE "${THE_REGINA_PROFILE}" "${THE_PROFILE_CONTENT}")
+        list(APPEND THE_REGINA_SYSTEM_PROFILES "${THE_REGINA_PROFILE}")
+    endforeach()
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${THE_SYSTEM_PROFILE_SOURCES})
+    list(APPEND THE_SYSTEM_PROFILE_SOURCES ${THE_REGINA_SYSTEM_PROFILES})
     set(THE_COPIED_SYSTEM_PROFILE_OUTPUTS)
     foreach(THE_SYSTEM_PROFILE_SOURCE IN LISTS THE_SYSTEM_PROFILE_SOURCES)
         get_filename_component(THE_SYSTEM_PROFILE_BASENAME "${THE_SYSTEM_PROFILE_SOURCE}" NAME)
@@ -790,6 +847,7 @@ if(USE_UTF8 AND THE_SYSTEM_PROFILE_SOURCES)
     add_custom_target(copy_utf_system_profiles ALL
         DEPENDS ${THE_COPIED_SYSTEM_PROFILE_OUTPUTS}
     )
+    add_dependencies(${EXECUTABLE_NAME} copy_utf_system_profiles)
 endif()
 
 if(WIN32)
@@ -800,7 +858,43 @@ if(WIN32)
 endif()
 
 # Install Targets
-install(TARGETS ${EXECUTABLE_NAME} DESTINATION bin)
+if(THE_BUNDLE_CREXX)
+    if(NOT THE_USE_CREXX OR NOT THE_SELECTED_REXX_INTERPRETER STREQUAL "CREXX")
+        message(FATAL_ERROR "Bundled releases require the default CREXX interpreter")
+    endif()
+    if(NOT THE_USE_REGINA)
+        message(FATAL_ERROR "Bundled releases require Regina headers for optional runtime support")
+    endif()
+    find_program(CREXX_RXVM_EXECUTABLE NAMES rxvm HINTS "${CREXX_IMPORT_DIR}" REQUIRED)
+    find_file(CREXX_LICENSE_FILE NAMES LICENSE HINTS
+        "${CREXXSAA_INCLUDE_DIR}/.." "${CREXX_IMPORT_DIR}/.." "${CREXX_IMPORT_DIR}/../.."
+        REQUIRED)
+    if(NOT CREXX_DRIVER_EXECUTABLE)
+        message(FATAL_ERROR "Bundled releases require the crexx command")
+    endif()
+    get_filename_component(THE_CREXX_RUNTIME_NAME "${CREXXSAA_RUNTIME_LIBRARY}" NAME)
+    configure_file(packaging/the.in packaging/the @ONLY)
+    configure_file(packaging/the.cmd.in packaging/the.cmd @ONLY)
+    install(TARGETS ${EXECUTABLE_NAME} DESTINATION libexec/the)
+    if(WIN32)
+        install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/packaging/the.cmd" DESTINATION bin)
+    else()
+        install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/packaging/the" DESTINATION bin)
+    endif()
+    install(PROGRAMS "${CREXX_RXC_EXECUTABLE}" "${CREXX_RXAS_EXECUTABLE}"
+        "${CREXX_RXVM_EXECUTABLE}" "${CREXX_DRIVER_EXECUTABLE}"
+        DESTINATION libexec/the/crexx)
+    install(FILES "${CREXXSAA_RUNTIME_LIBRARY}" "${CREXX_LIBRARY_RXBIN}"
+        DESTINATION libexec/the/crexx)
+    if(WIN32)
+        # Keep the qualified SDK's runtime cohort beside its private tools.
+        file(GLOB THE_CREXX_COMPANION_DLLS "${CREXX_IMPORT_DIR}/*.dll")
+        install(FILES ${THE_CREXX_COMPANION_DLLS} DESTINATION libexec/the/crexx)
+    endif()
+    install(FILES "${CREXX_LICENSE_FILE}" DESTINATION share/doc/the/crexx)
+else()
+    install(TARGETS ${EXECUTABLE_NAME} DESTINATION bin)
+endif()
 install(TARGETS ${THE_DRIVER_MODULES}
     LIBRARY DESTINATION lib/the/drivers
     RUNTIME DESTINATION lib/the/drivers)
@@ -810,13 +904,25 @@ if(USE_WEB_DRIVER)
 endif()
 if(WIN32)
     install(FILES $<TARGET_FILE:${CURSES_LIBRARIES}> DESTINATION bin)
+    if(THE_BUNDLE_CREXX)
+        install(FILES $<TARGET_FILE:${CURSES_LIBRARIES}> DESTINATION libexec/the)
+    endif()
 endif()
 install(PROGRAMS tools/batch-md-rexx/the-batch-md-rexx DESTINATION bin)
 install(PROGRAMS tools/batch-md-rexx/the-highlight-source DESTINATION bin)
 if(WIN32)
     install(PROGRAMS tools/the-env.ps1 DESTINATION bin)
 endif()
-install(FILES doc/THE_Help.txt profile.the web-profile.the profile_crexx.the crexxcompile.the crexxrun.the DESTINATION share/the)
+install(FILES doc/THE_Help.txt profile.the profile_regina.the web-profile.the profile_crexx.the crexxcompile.the crexxrun.the DESTINATION share/the)
+install(FILES pfxrexx.the pfxsetup.the DESTINATION share/the)
+install(FILES doc/pfxrexx.md doc/rexx-interpreters.md DESTINATION share/doc/the)
+install(FILES LICENSE DESTINATION share/doc/the)
+if(USE_SDSLH AND EXISTS "${DSLSH_SOURCE_DIR}/LICENSE")
+    install(FILES "${DSLSH_SOURCE_DIR}/LICENSE" DESTINATION share/doc/the/dslsh)
+endif()
+if(USE_UTF8PROC AND EXISTS "${utf8proc_SOURCE_DIR}/LICENSE.md")
+    install(FILES "${utf8proc_SOURCE_DIR}/LICENSE.md" DESTINATION share/doc/the/utf8proc)
+endif()
 install(FILES doc/syntax-highlighting.md DESTINATION share/doc/the)
 install(FILES
     tools/batch-md-rexx/batch-md-rexx.crexx
@@ -863,6 +969,7 @@ else()
 endif()
 message(STATUS "Using Bash for tests: ${THE_BASH_COMMAND}")
 set(THE_CTEST_RUNTIME_ENV
+    "THE_REXX_INTERPRETER=${THE_SELECTED_REXX_INTERPRETER}"
     "THE_BUILD_DIR=${CMAKE_CURRENT_BINARY_DIR}"
     "THE_BIN=$<TARGET_FILE:${EXECUTABLE_NAME}>"
     "THE_HOME_DIR=${RELEASE_DIR}"
@@ -874,6 +981,9 @@ set(THE_CTEST_RUNTIME_ENV
     "THE_BATCH_RUNNER=${RELEASE_DIR}/the-batch-md-rexx"
     "THE_HIGHLIGHT_SOURCE=${RELEASE_DIR}/the-highlight-source"
 )
+if(THE_USE_REGINA AND REGINA_LIBRARY)
+    list(APPEND THE_CTEST_RUNTIME_ENV "THE_REGINA_LIBRARY=${REGINA_LIBRARY}")
+endif()
 if(THE_USE_CREXX)
     list(APPEND THE_CTEST_RUNTIME_ENV
         "THE_CREXX_RXC=${CREXX_RXC_EXECUTABLE}"
@@ -891,6 +1001,42 @@ if(NOT THE_RG_EXECUTABLE)
         "Install it (for example, 'sudo apt install ripgrep' on Debian/Ubuntu) "
         "and reconfigure the build directory."
     )
+endif()
+if(THE_USE_CREXX OR THE_USE_REGINA)
+    add_test(NAME test_pending_runtime
+        COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pending_runtime.sh
+                $<TARGET_FILE:the> ${THE_SELECTED_REXX_INTERPRETER})
+    set_tests_properties(test_pending_runtime PROPERTIES
+        TIMEOUT 90 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+endif()
+if(THE_USE_REGINA)
+    add_test(NAME test_pfxrexx
+        COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pfxrexx.sh
+                $<TARGET_FILE:the>)
+    set_tests_properties(test_pfxrexx PROPERTIES
+        TIMEOUT 30 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    add_test(NAME test_pending_regina
+        COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pending_runtime.sh
+                $<TARGET_FILE:the> REGINA)
+    set_tests_properties(test_pending_regina PROPERTIES
+        TIMEOUT 90 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+endif()
+find_program(THE_PYTHON_EXECUTABLE NAMES python3 python)
+if(THE_USE_CREXX AND THE_USE_REGINA AND REGINA_LIBRARY AND THE_PYTHON_EXECUTABLE)
+    add_test(NAME test_xedit_controls
+        COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_xedit_controls.py $<TARGET_FILE:the>)
+    set_tests_properties(test_xedit_controls PROPERTIES TIMEOUT 60
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    add_test(NAME test_macro_runtime
+        COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_macro_runtime.py $<TARGET_FILE:the>)
+    set_tests_properties(test_macro_runtime PROPERTIES TIMEOUT 90 SKIP_RETURN_CODE 77
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    if(UNIX)
+        add_test(NAME test_pfxrexx_curses
+            COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pfxrexx_curses.py $<TARGET_FILE:the>)
+        set_tests_properties(test_pfxrexx_curses PROPERTIES TIMEOUT 20
+            ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    endif()
 endif()
 set(THE_CTEST_PATH_DIRS
     "${CMAKE_CURRENT_BINARY_DIR}"

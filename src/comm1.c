@@ -2103,12 +2103,12 @@ DESCRIPTION
      in the <prefix area>. This command has no effect if run from the <command line>.
      This command replaces TABPRE.
 
-     The optional 'Priority' argument is included for compatibility with XEDIT.
-     The value of the 'priority' argument must be between 0 and 256, but otherwise
-     it is ignored.
+     In XEDIT compatibility mode, cursor requests in a macro/prefix pass use
+     priorities 0 through 255. The highest priority wins; the first request
+     wins a tie. An unprioritized request overrides explicit priorities.
 
 COMPATIBILITY
-     XEDIT: Compatible. Priority is ignored.
+     XEDIT: Cursor priorities are supported within a macro/prefix pass.
      KEDIT: Compatible. Added GOTO and PREFIX option.
 
 STATUS
@@ -2133,7 +2133,7 @@ short Cursor(CHARTYPE *params)
    LINETYPE line=0L;
    LENGTHTYPE column=0L;
    CHARTYPE _THE_FAR buffer[100];
-   /* int priority; */
+   int priority=-1;
 
    TRACE_FUNCTION("comm1.c:   Cursor");
    strip[0]=STRIP_BOTH;
@@ -2158,20 +2158,25 @@ short Cursor(CHARTYPE *params)
    {
       if ( equal( (CHARTYPE *)"priority", word[num_params-2], 1 ) )
       {
-         if ( ( error_number = valid_positive_integer_against_maximum( word[num_params-1], 256 ) ) != 0 )
+         if ( ( error_number = valid_positive_integer_against_maximum( word[num_params-1], 255 ) ) != 0 )
          {
             if ( error_number == 4 )
                sprintf( (DEFCHAR *)buffer, "%s", word[num_params-1] );
             else
-               sprintf( (DEFCHAR *)buffer, "- MUST be <= %d", 256 );
+               sprintf( (DEFCHAR *)buffer, "- MUST be <= %d", 255 );
             display_error( error_number, buffer, FALSE );
             rc = RC_INVALID_OPERAND;
             TRACE_RETURN();
             return(rc);
          }
-         /* priority = atoi( (DEFCHAR *)word[num_params-1] ); */
+         priority = atoi( (DEFCHAR *)word[num_params-1] );
          num_params = num_params - 2;
       }
+   }
+   if (!xedit_cursor_accept(priority))
+   {
+      TRACE_RETURN();
+      return RC_OK;
    }
    state = CURSOR_START;
    idx = 0;
@@ -2671,6 +2676,7 @@ short Cursor(CHARTYPE *params)
       if (time_to_leave)
          break;
    }
+   if (rc==RC_OK) xedit_cursor_record(priority);
    TRACE_RETURN();
    return(rc);
 }

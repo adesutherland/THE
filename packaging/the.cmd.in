@@ -1,0 +1,15 @@
+@echo off
+setlocal
+set "THE_PACKAGE_ROOT=%~dp0.."
+set "THE_PACKAGE_RUNTIME=%THE_PACKAGE_ROOT%\libexec\the\crexx"
+if not defined THE_HOME_DIR set "THE_HOME_DIR=%THE_PACKAGE_ROOT%\share\the"
+if not defined THE_DRIVER_PATH set "THE_DRIVER_PATH=%THE_PACKAGE_ROOT%\lib\the\drivers"
+if not defined THE_CREXX_LIBRARY set "THE_CREXX_LIBRARY=%THE_PACKAGE_RUNTIME%\@THE_CREXX_RUNTIME_NAME@"
+if not defined THE_CREXX_RXC set "THE_CREXX_RXC=%THE_PACKAGE_RUNTIME%\rxc.exe"
+if not defined THE_CREXX_RXAS set "THE_CREXX_RXAS=%THE_PACKAGE_RUNTIME%\rxas.exe"
+if not defined THE_CREXX_LOCATION set "THE_CREXX_LOCATION=%THE_PACKAGE_RUNTIME%"
+if not defined THE_CREXX_IMPORT_DIR set "THE_CREXX_IMPORT_DIR=%THE_PACKAGE_RUNTIME%"
+if not defined THE_CREXX_LIBRARY_RXBIN set "THE_CREXX_LIBRARY_RXBIN=%THE_PACKAGE_RUNTIME%\library.rxbin"
+set "PATH=%THE_PACKAGE_RUNTIME%;%PATH%"
+"%THE_PACKAGE_ROOT%\libexec\the\the.exe" %*
+exit /b %errorlevel%

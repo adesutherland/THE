@@ -36,6 +36,7 @@
 #define MAIN 1
 #include <the.h>
 #include <proto.h>
+#include "macroruntime.h"
 #include "llmsession.h"
 #include "frontendpolicy.h"
 #include "thedriver.h"
@@ -1625,16 +1626,19 @@ int setup_profile_files(CHARTYPE *specified_prf)
     * or directory where THE executable lives
     */
    strcpy((DEFCHAR *)local_prf,(DEFCHAR *)the_home_dir);
-   strcat((DEFCHAR *)local_prf,(DEFCHAR *)THE_PROFILE_FILE);
+   strcat((DEFCHAR *)local_prf,the_macro_uses_regina() ? "profile_regina.the" : THE_PROFILE_FILE);
    strrmdup(strtrans(local_prf,OSLASH,ISLASH),ISLASH,TRUE);
    if (file_readable(local_prf))
       return(rc);
 #if defined(UNIX)
+   if (!the_macro_uses_regina())
+   {
    strcpy((DEFCHAR *)local_prf,(DEFCHAR *)the_home_dir);
    strcat((DEFCHAR *)local_prf,(DEFCHAR *)"profile.the");
    strrmdup(strtrans(local_prf,OSLASH,ISLASH),ISLASH,TRUE);
    if (file_readable(local_prf))
       return(rc);
+   }
 #endif
    /*
     * To get here, no profile files to be executed.
@@ -1655,14 +1659,16 @@ static int setup_system_profile_file(void)
    &&  my_stricmp((DEFCHAR *)term_program,
                   (DEFCHAR *)"Apple_Terminal") == 0)
    {
-      rc = setup_named_system_profile_file("system-apple-terminal.the");
+      rc = setup_named_system_profile_file(the_macro_uses_regina() ?
+             "system-apple-terminal-regina.the" : "system-apple-terminal.the");
       if (rc == RC_OK)
          return(RC_OK);
       if (rc == RC_OUT_OF_MEMORY)
          return(rc);
    }
 
-   rc = setup_named_system_profile_file(THE_SYSTEM_PROFILE_NAME);
+   rc = setup_named_system_profile_file(the_macro_uses_regina() ?
+             "system-" THE_PLATFORM_NAME "-regina.the" : THE_SYSTEM_PROFILE_NAME);
    if (rc == RC_OUT_OF_MEMORY)
       return(rc);
 #endif

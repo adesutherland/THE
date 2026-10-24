@@ -1,0 +1,11 @@
+/* Default Classic Rexx profile for the Regina build of THE.
+   cREXX compiler tools remain optional; profile_crexx.the belongs to the
+   CREXX build and adds its compiler workflow and diagnostics. */
+address THE
+'set cmdarrows tab'
+'define s-tab cursor home save'
+'define backspace sos delback'
+'define ins insertmode toggle'
+'define f5 insertmode toggle'
+'set prefix gap 1'
+'msg Welcome to THE - Regina macros'
