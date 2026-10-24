@@ -936,8 +936,9 @@ int main(int argc, char *argv[])
       }
       if (web_profile == NULL || *web_profile == '\0')
       {
-         if (snprintf(driver_error, sizeof(driver_error), "%sweb-profile.the",
-                      the_home_dir) >= (int)sizeof(driver_error))
+         if (snprintf(driver_error, sizeof(driver_error), "%s%s",
+                      the_home_dir, the_macro_uses_regina() ?
+                      "web-profile-regina.the" : "web-profile.the") >= (int)sizeof(driver_error))
          {
             fprintf(stderr, "the: web profile path is too long\n");
             cleanup();

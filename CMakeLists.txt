@@ -821,7 +821,8 @@ if(USE_UTF8 AND THE_SYSTEM_PROFILE_SOURCES)
     # Keep terminal calibration in one source; Classic Rexx only needs the
     # cREXX language-level declaration removed from these command-only scripts.
     set(THE_REGINA_SYSTEM_PROFILES)
-    foreach(THE_PROFILE_SOURCE IN LISTS THE_SYSTEM_PROFILE_SOURCES)
+    set(THE_CLASSIC_PROFILE_SOURCES ${THE_SYSTEM_PROFILE_SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/web-profile.the")
+    foreach(THE_PROFILE_SOURCE IN LISTS THE_CLASSIC_PROFILE_SOURCES)
         get_filename_component(THE_PROFILE_NAME "${THE_PROFILE_SOURCE}" NAME_WE)
         file(READ "${THE_PROFILE_SOURCE}" THE_PROFILE_CONTENT)
         string(REPLACE "options levelb" "/* Classic Rexx profile */"
@@ -830,7 +831,7 @@ if(USE_UTF8 AND THE_SYSTEM_PROFILE_SOURCES)
         file(WRITE "${THE_REGINA_PROFILE}" "${THE_PROFILE_CONTENT}")
         list(APPEND THE_REGINA_SYSTEM_PROFILES "${THE_REGINA_PROFILE}")
     endforeach()
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${THE_SYSTEM_PROFILE_SOURCES})
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${THE_CLASSIC_PROFILE_SOURCES})
     list(APPEND THE_SYSTEM_PROFILE_SOURCES ${THE_REGINA_SYSTEM_PROFILES})
     set(THE_COPIED_SYSTEM_PROFILE_OUTPUTS)
     foreach(THE_SYSTEM_PROFILE_SOURCE IN LISTS THE_SYSTEM_PROFILE_SOURCES)
@@ -1012,14 +1013,15 @@ if(NOT THE_RG_EXECUTABLE)
         "and reconfigure the build directory."
     )
 endif()
-if(THE_USE_CREXX OR THE_USE_REGINA)
+if(THE_SELECTED_REXX_INTERPRETER STREQUAL "CREXX" AND THE_USE_CREXX
+   OR THE_SELECTED_REXX_INTERPRETER STREQUAL "REGINA" AND THE_USE_REGINA AND REGINA_LIBRARY)
     add_test(NAME test_pending_runtime
         COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pending_runtime.sh
                 $<TARGET_FILE:the> ${THE_SELECTED_REXX_INTERPRETER})
     set_tests_properties(test_pending_runtime PROPERTIES
         TIMEOUT 90 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 endif()
-if(THE_USE_REGINA)
+if(THE_USE_REGINA AND REGINA_LIBRARY)
     add_test(NAME test_pfxrexx
         COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pfxrexx.sh
                 $<TARGET_FILE:the>)
@@ -1233,6 +1235,16 @@ if(USE_WEB_DRIVER)
     set_tests_properties(test_the_web_runtime PROPERTIES
         TIMEOUT 20
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    if(THE_USE_REGINA AND REGINA_LIBRARY)
+        set(THE_WEB_REGINA_TEST_ENV ${THE_CTEST_RUNTIME_ENV})
+        list(FILTER THE_WEB_REGINA_TEST_ENV EXCLUDE REGEX "^THE_REXX_INTERPRETER=")
+        list(APPEND THE_WEB_REGINA_TEST_ENV "THE_REXX_INTERPRETER=REGINA")
+        add_test(NAME test_the_web_runtime_regina
+            COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_web_runtime.sh
+                    $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR})
+        set_tests_properties(test_the_web_runtime_regina PROPERTIES
+            TIMEOUT 20 ENVIRONMENT "${THE_WEB_REGINA_TEST_ENV}")
+    endif()
     add_test(NAME test_webdriver_no_curses
         COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_no_curses_symbols.sh
                 $<TARGET_FILE:the_driver_web>)

@@ -6,7 +6,7 @@ Select one interpreter before starting THE. Switching interpreters requires
 restarting the editor; macros are not automatically translated between dialects.
 
 The bundled package supplies cREXX's shared runtime, compiler, assembler,
-runner and matching `library.rxbin` privately. It does not change an existing
+runner, matching `library.rxbin` and compiler exit module privately. It does not change an existing
 cREXX installation. Launch `bin/the` (`bin/the.cmd` on Windows); its paths are
 relative to the package, so a portable archive can be moved or unpacked into a
 directory containing spaces.
@@ -80,7 +80,9 @@ bridge without linking Regina. Selecting a Regina default requires its headers;
 otherwise their absence disables the optional bridge. Set `REGINA_INCLUDE_DIR`
 or `REGINA_HOME` if necessary. Runtime engine selection is through the
 environment variable with the same name. `-DTHE_ENABLE_REGINA=OFF` omits that
-bridge. No claim is made for running the browser proof of concept with Regina.
+bridge. The browser proof of concept selects a Classic variant of its trusted profile
+for Regina. Its existing restrictions on client-issued macros/OS commands still
+apply.
 
 For a relocatable bundle, configure with `-DTHE_BUNDLE_CREXX=ON` and the default
 cREXX interpreter. A matching shared cREXX runtime and tool set are required;
