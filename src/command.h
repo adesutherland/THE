@@ -210,8 +210,8 @@ COMMAND command[] =
 #else
  {(CHARTYPE *)"duplicate",   0,  THE_KEY_CTRL_D,         Duplicate,        TRUE, FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)"1 BLOCK"},  /* comm2.c */
  {(CHARTYPE *)"enter",       0,  THE_KEY_CTRL_M,         Enter,            FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm2.c */
- {(CHARTYPE *)"enter",       0,  THE_KEY_ENTER,       Enter,            FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm2.c */
 #endif
+ {(CHARTYPE *)"enter",       0,  THE_KEY_ENTER,       Enter,            FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm2.c */
 #if defined(USE_EXTCURSES)
  {(CHARTYPE *)"enter",       5,  THE_KEY_NEWL,        Enter,            FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm2.c */
 #else

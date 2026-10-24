@@ -62,10 +62,11 @@ jobs:
             -DCREXX_ALLOW_NETWORK_DOWNLOADS=ON "-DOPENSSL_ROOT_DIR=$env:THE_CI_UCRT" `
             "-DDSLSH_LOCAL_DIR=$env:GITHUB_WORKSPACE/.ci-deps/dslsh"
           if ($LASTEXITCODE -ne 0) { throw 'Parser compiler configure failed' }
-          cmake --build build-parser --target rxc --parallel 4
+          cmake --build build-parser --target rxc rxas --parallel 4
           if ($LASTEXITCODE -ne 0) { throw 'Parser compiler build failed' }
           $crexx = "$env:THE_CI_SDK/crexx/CREXX-windows-x64"
           Copy-Item build-parser/bin/rxc.exe "$crexx/bin/rxc.exe" -Force
+          Copy-Item build-parser/bin/rxas.exe "$crexx/bin/rxas.exe" -Force
           foreach ($dll in @('libgcc_s_seh-1.dll','libwinpthread-1.dll','libstdc++-6.dll','libcrypto-3-x64.dll','libssl-3-x64.dll')) {
             Copy-Item "$env:THE_CI_UCRT/bin/$dll" "$crexx/bin/" -ErrorAction Stop
           }
