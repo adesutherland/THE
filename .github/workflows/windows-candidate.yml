@@ -53,20 +53,31 @@ jobs:
           New-Item -ItemType Directory "$sdk/include" | Out-Null
           Fetch-Checked 'https://raw.githubusercontent.com/adesutherland/CREXX/ae1607b8e145174422cee7f3e73fbcc37a65226c/interpreter/crexxsaa.h' "$sdk/include/crexxsaa.h" '500b61d094eca621fea8b8e6964cac75488539b8e73e3e520a72e72cae59f951'
           "THE_CI_SDK=$sdk" >> $env:GITHUB_ENV
-      - name: Build parser-enabled compiler from the matching cREXX release source
+      - name: Build parser tools and corrected host runtime from matching cREXX source
         shell: pwsh
         run: |
+          python scripts/prepare-crexx-windows.py .ci-deps/crexx
+          if ($LASTEXITCODE -ne 0) { throw 'cREXX dependency correction failed' }
+          $spawnTest = Join-Path $env:RUNNER_TEMP 'THE spawn helper'
+          New-Item -ItemType Directory -Force $spawnTest | Out-Null
+          gcc -std=c99 -Wall -Wextra -Werror tests/test_windows_spawn.c -o "$spawnTest/argv-test.exe"
+          if ($LASTEXITCODE -ne 0) { throw 'Windows argv test build failed' }
+          & "$spawnTest/argv-test.exe"
+          if ($LASTEXITCODE -ne 0) { throw 'Windows argv round trip failed' }
           cmake -S .ci-deps/crexx -B build-parser -G Ninja -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DBUILD_TESTING=OFF `
             -DENABLE_LLAMA=OFF -DENABLE_PARSER_MODE=ON -DCREXX_FORCE_SYSTEM_OPENSSL=ON `
             -DCREXX_ALLOW_NETWORK_DOWNLOADS=ON "-DOPENSSL_ROOT_DIR=$env:THE_CI_UCRT" `
             "-DDSLSH_LOCAL_DIR=$env:GITHUB_WORKSPACE/.ci-deps/dslsh"
           if ($LASTEXITCODE -ne 0) { throw 'Parser compiler configure failed' }
-          cmake --build build-parser --target rxc rxas --parallel 4
+          cmake --build build-parser --target rxc rxas crexxsaa --parallel 4
           if ($LASTEXITCODE -ne 0) { throw 'Parser compiler build failed' }
           $crexx = "$env:THE_CI_SDK/crexx/CREXX-windows-x64"
           Copy-Item build-parser/bin/rxc.exe "$crexx/bin/rxc.exe" -Force
           Copy-Item build-parser/bin/rxas.exe "$crexx/bin/rxas.exe" -Force
+          $runtime = @(Get-ChildItem build-parser -Recurse -Filter '*crexxsaa.dll')
+          if ($runtime.Count -ne 1) { throw 'Expected exactly one rebuilt cREXX host runtime' }
+          Copy-Item $runtime[0].FullName "$crexx/bin/crexxsaa.dll" -Force
           foreach ($dll in @('libgcc_s_seh-1.dll','libwinpthread-1.dll','libstdc++-6.dll','libcrypto-3-x64.dll','libssl-3-x64.dll')) {
             Copy-Item "$env:THE_CI_UCRT/bin/$dll" "$crexx/bin/" -ErrorAction Stop
           }
