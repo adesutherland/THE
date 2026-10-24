@@ -45,7 +45,7 @@ with tempfile.TemporaryDirectory(prefix='THE package smoke ') as tmp:
             command = f'"{env["COMSPEC"]}" /d /s /c ""{prefix / "bin/the.cmd"}" --driver llm -n "{sample}""'
         else:
             command = [str(prefix / 'bin/the'), '--driver', 'llm', '-n', str(sample)]
-        result = subprocess.run(command, input=commands, text=True, capture_output=True,
+        result = subprocess.run(command, input=commands, text=True, encoding="utf-8", capture_output=True,
                                 env=env, timeout=30, check=True)
         records = [json.loads(line) for line in result.stdout.splitlines() if line.startswith('{')]
         caps = next(r for r in records if 'macro_available' in r)

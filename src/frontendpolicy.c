@@ -432,14 +432,14 @@ int the_frontend_policy_command_allowed(const char *command)
    static const char *const allowed_commands[] =
    {
       "backward", "bottom", "change", "clocate", "copy", "delete",
-      "down", "duplicate", "find", "forward", "input", "left",
+      "down", "duplicate", "find", "forward", "input", "left", "cursor",
       "locate", "lowercase", "next", "previous", "recover", "replace",
       "right", "shift", "sort", "sos", "top", "uppercase", "up"
    };
    static const char *const allowed_set_operands[] =
    {
       "autoscroll", "case", "display", "hex", "highlight", "insertmode",
-      "number", "position", "prefix", "scale", "scope", "tabs",
+      "number", "position", "prefix", "mask", "scale", "scope", "tabs",
       "tabline", "verify", "wordwrap", "wrap", "zone"
    };
    static const char *const allowed_sos_operands[] =
@@ -461,6 +461,10 @@ int the_frontend_policy_command_allowed(const char *command)
       return 1;
    if (!frontend_policy_word(&cursor, verb, sizeof(verb)))
       return 0;
+   if (strcmp(verb, "query") == 0)
+      return frontend_policy_word(&cursor, operand, sizeof(operand))
+          && (strcmp(operand,"flscreen")==0 || strcmp(operand,"mask")==0
+              || strcmp(operand,"cursor")==0);
    if (strcmp(verb, "set") == 0)
       return frontend_policy_word(&cursor, operand, sizeof(operand))
           && frontend_policy_word_in_list(

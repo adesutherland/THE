@@ -25,6 +25,7 @@ if(NOT THE_SELECTED_REXX_INTERPRETER MATCHES "^(CREXX|REGINA|NONE)$")
 endif()
 option(THE_ENABLE_REGINA "Compile optional, runtime-loaded Regina support when headers are available" ON)
 option(THE_BUNDLE_CREXX "Install a relocatable editor with its own cREXX runtime and tools" OFF)
+option(THE_TEST_SHELL_TRACE "Trace top-level shell integration tests for CI diagnostics" OFF)
 option(USE_WEB_DRIVER "Build the native browser UI driver" OFF)
 set(DSLSH_LOCAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../DSL-Syntax-Highlighter"
         CACHE PATH "Path to a local DSL-Syntax-Highlighter checkout")
@@ -866,6 +867,7 @@ if(THE_BUNDLE_CREXX)
         message(FATAL_ERROR "Bundled releases require Regina headers for optional runtime support")
     endif()
     find_program(CREXX_RXVM_EXECUTABLE NAMES rxvm HINTS "${CREXX_IMPORT_DIR}" REQUIRED)
+    find_file(CREXX_RXCEXITS_RXBIN NAMES rxcexits.rxbin HINTS "${CREXX_IMPORT_DIR}" REQUIRED)
     find_file(CREXX_LICENSE_FILE NAMES LICENSE HINTS
         "${CREXXSAA_INCLUDE_DIR}/.." "${CREXX_IMPORT_DIR}/.." "${CREXX_IMPORT_DIR}/../.."
         REQUIRED)
@@ -884,7 +886,7 @@ if(THE_BUNDLE_CREXX)
     install(PROGRAMS "${CREXX_RXC_EXECUTABLE}" "${CREXX_RXAS_EXECUTABLE}"
         "${CREXX_RXVM_EXECUTABLE}" "${CREXX_DRIVER_EXECUTABLE}"
         DESTINATION libexec/the/crexx)
-    install(FILES "${CREXXSAA_RUNTIME_LIBRARY}" "${CREXX_LIBRARY_RXBIN}"
+    install(FILES "${CREXXSAA_RUNTIME_LIBRARY}" "${CREXX_LIBRARY_RXBIN}" "${CREXX_RXCEXITS_RXBIN}"
         DESTINATION libexec/the/crexx)
     if(WIN32)
         # Keep the qualified SDK's runtime cohort beside its private tools.
@@ -968,6 +970,9 @@ else()
     set(THE_BASH_COMMAND bash)
 endif()
 message(STATUS "Using Bash for tests: ${THE_BASH_COMMAND}")
+if(THE_TEST_SHELL_TRACE)
+    list(APPEND THE_BASH_COMMAND -x)
+endif()
 set(THE_CTEST_RUNTIME_ENV
     "THE_REXX_INTERPRETER=${THE_SELECTED_REXX_INTERPRETER}"
     "THE_BUILD_DIR=${CMAKE_CURRENT_BINARY_DIR}"
@@ -986,6 +991,7 @@ if(THE_USE_REGINA AND REGINA_LIBRARY)
 endif()
 if(THE_USE_CREXX)
     list(APPEND THE_CTEST_RUNTIME_ENV
+        "CREXX_BIN_DIR=${CREXX_IMPORT_DIR}"
         "THE_CREXX_RXC=${CREXX_RXC_EXECUTABLE}"
         "THE_CREXX_RXAS=${CREXX_RXAS_EXECUTABLE}"
         "THE_CREXX_IMPORT_DIR=${CREXX_IMPORT_DIR}"

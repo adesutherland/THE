@@ -20,7 +20,7 @@ with tempfile.TemporaryDirectory() as tmp:
     def check(engine, available, **overrides):
         env = dict(os.environ, THE_REXX_INTERPRETER=engine, TERM='', **overrides)
         result = subprocess.run([binary, '--driver', 'llm', '-n', str(sample)],
-                                input='capabilities\nquit\n', text=True,
+                                input='capabilities\nquit\n', text=True, encoding="utf-8",
                                 capture_output=True, env=env, timeout=10, check=True)
         caps = next(json.loads(line) for line in result.stdout.splitlines()
                     if '"macro_available"' in line)

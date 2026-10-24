@@ -11,7 +11,7 @@ run() {
   local name=$1
   printf '%s\n' "${seed:-seed}" tail > "$work/$name.rexx"
   {
-    printf '%s\n' 'command macro pfxsetup' 'command :1'
+    printf '%s\n' 'command macro pfxsetup' 'command set eolout lf' 'command :1'
     cat
     printf '%s\n' quit
   } | TERM= THE_HOME_DIR="$release" THE_MACRO_PATH="$release" \

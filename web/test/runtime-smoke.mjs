@@ -114,6 +114,46 @@ socket.on("message", (data) => {
 
   if (stage === "key" && acknowledgements.has(4)
       && message.focus?.cell === 5) {
+    send(201, { type: "command", command: "cursor goto 1 1" });
+    stage = "controls-cursor";
+    return;
+  }
+
+  if (stage === "controls-cursor" && acknowledgements.has(201) && message.focus?.cell === 0) {
+    send(202, { type: "command", command: "set mask immed   /* */" });
+    stage = "controls-mask";
+    return;
+  }
+  if (stage === "controls-mask" && acknowledgements.has(202)) {
+    send(203, { type: "command", command: "input Z" });
+    stage = "controls-input";
+    return;
+  }
+  if (stage === "controls-input" && acknowledgements.has(203) && message.buffer?.lines === 2) {
+    if (!message.screen_rows.some((row) => row.line === 2 && row.t === "Z /* */")) {
+      fail("web INPUT did not apply the shared mask");
+    }
+    send(204, { type: "command", command: "query flscreen" });
+    stage = "controls-range";
+    return;
+  }
+  if (stage === "controls-range" && acknowledgements.has(204)) {
+    if (!/flscreen\s+1\s+2/i.test(message.status)) fail("web FLSCREEN range is incorrect");
+    send(205, { type: "command", command: "delete 1" });
+    stage = "controls-delete";
+    return;
+  }
+  if (stage === "controls-delete" && acknowledgements.has(205) && message.buffer?.lines === 1) {
+    send(206, { type: "command", command: "set mask immed" });
+    stage = "controls-clear";
+    return;
+  }
+  if (stage === "controls-clear" && acknowledgements.has(206)) {
+    send(207, { type: "command", command: "cursor goto 1 6" });
+    stage = "controls-return";
+    return;
+  }
+  if (stage === "controls-return" && acknowledgements.has(207) && message.focus?.cell === 5) {
     send(5, { type: "action", action: "file.save", argument: "" });
     stage = "save";
     return;

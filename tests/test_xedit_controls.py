@@ -24,7 +24,7 @@ with tempfile.TemporaryDirectory() as tmp:
         env = dict(os.environ, THE_REXX_INTERPRETER=engine, THE_MACRO_PATH=str(work), TERM='')
         result = subprocess.run([str(binary), '--driver', 'llm', '-n', str(sample)],
                                 input='command set compat xedit xedit xedit\n' + commands + '\nquit\n',
-                                text=True, capture_output=True, env=env, timeout=15, check=True)
+                                text=True, encoding="utf-8", capture_output=True, env=env, timeout=15, check=True)
         records = [json.loads(line) for line in result.stdout.splitlines() if line.startswith('{')]
         assert not any(word in result.stderr for word in ('Error ', 'Invalid ', 'Unable to')), result.stderr
         return records, result.stderr

@@ -51,7 +51,7 @@ jobs:
         run: |
           $crexx = "$env:THE_CI_SDK/crexx/CREXX-windows-x64"
           cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=gcc `
-            -DTHE_BUNDLE_CREXX=ON -DTHE_REXX_INTERPRETER=CREXX `
+            -DTHE_BUNDLE_CREXX=ON -DTHE_REXX_INTERPRETER=CREXX -DTHE_TEST_SHELL_TRACE=ON `
             "-DDSLSH_LOCAL_DIR=$env:GITHUB_WORKSPACE/.ci-deps/dslsh" `
             "-DCREXXSAA_INCLUDE_DIR=$env:THE_CI_SDK/include" "-DCREXXSAA_LIBRARY=$crexx/bin/crexxsaa.lib" `
             "-DCREXXSAA_RUNTIME_LIBRARY=$crexx/bin/crexxsaa.dll" "-DCREXX_LIBRARY_RXBIN=$crexx/bin/library.rxbin" `
@@ -85,4 +85,6 @@ jobs:
           path: |
             build-release/packages/*
             build-release/Testing/Temporary/LastTest.log
+            build-release/*test*/**/*.err
+            build-release/*test*/**/*.out
           if-no-files-found: warn
