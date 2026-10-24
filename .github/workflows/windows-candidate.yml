@@ -17,11 +17,16 @@ jobs:
           ref: 383e5daab0ffcf6ec83e02db7a01a27709dabb2c
           path: .ci-deps/dslsh
           persist-credentials: false
-      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: msys2/setup-msys2@v2
+        id: msys
+        with:
+          msystem: UCRT64
+          install: mingw-w64-ucrt-x86_64-gcc
       - name: Install packaging and test tools
         shell: pwsh
         run: |
           choco install nsis ripgrep --no-progress -y
+          "${{ steps.msys.outputs.msys2-location }}/ucrt64/bin" >> $env:GITHUB_PATH
           "$env:ProgramFiles\CMake\bin" >> $env:GITHUB_PATH
           "${env:ProgramFiles(x86)}\NSIS" >> $env:GITHUB_PATH
       - name: Fetch verified cREXX SDK and optional Regina
@@ -45,7 +50,7 @@ jobs:
         shell: pwsh
         run: |
           $crexx = "$env:THE_CI_SDK/crexx/CREXX-windows-x64"
-          cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl `
+          cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=gcc `
             -DTHE_BUNDLE_CREXX=ON -DTHE_REXX_INTERPRETER=CREXX `
             "-DDSLSH_LOCAL_DIR=$env:GITHUB_WORKSPACE/.ci-deps/dslsh" `
             "-DCREXXSAA_INCLUDE_DIR=$env:THE_CI_SDK/include" "-DCREXXSAA_LIBRARY=$crexx/bin/crexxsaa.lib" `
