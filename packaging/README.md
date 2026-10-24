@@ -52,7 +52,7 @@ Windows/Intel qualification already exist.
 
 The Windows candidate workflow uses a GitHub Windows 2025 x64 runner. It pins
 the signed cREXX 1.0.0-beta.3 SDK and matching ABI header by SHA-256, rebuilds
-its parser-enabled compiler from the same release source, and downloads
+its parser-enabled compiler and assembler from the same release source, downloads
 Regina 3.9.6 separately for testing, runs CTest, builds NSIS, and tests the
 installed payload with a restricted PATH. It also tests reinstall, uninstall,
 PATH restoration and retention of a user-created file. Its artifact is a

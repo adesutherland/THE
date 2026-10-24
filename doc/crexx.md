@@ -7,8 +7,11 @@ THE commands.
 
 ## Build discovery
 
-CREXX support is controlled by the CMake `USE_CREXX` option, which defaults to
-`ON`.
+The build default is selected with `THE_REXX_INTERPRETER=CREXX|REGINA|NONE`.
+The older `USE_CREXX` option supplies the initial default when no explicit
+selection is given. The runtime environment variable `THE_REXX_INTERPRETER`
+selects one compiled bridge before THE starts. See
+[interpreter and package setup](rexx-interpreters.md) for optional Regina.
 
 At configure time THE looks for:
 
@@ -20,11 +23,12 @@ At configure time THE looks for:
 
 The search checks the sibling CREXX build directories first and then
 `$HOME/.local/bin` / `$HOME/.local/include`. If these pieces are missing, THE
-builds without the CREXX bridge.
+builds without the CREXX bridge. THE loads the selected shared library at
+runtime; the editor executable does not link against cREXX or Regina.
 
 ## Runtime model
 
-When CREXX support is available:
+When CREXX is selected and its runtime is available:
 
 - THE initializes a `crexxsaa_context`
 - THE registers a native `ADDRESS THE` environment

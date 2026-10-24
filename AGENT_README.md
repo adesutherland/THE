@@ -22,7 +22,7 @@ This fork is explicitly tailored for the modern [CREXX](https://github.com/crexx
 
 ### Remaining Goals:
 1. **Platform Testing**: macOS and local development workflows are the main proven path. Windows and Linux should continue to be validated in CI and release smoke tests, with special attention to runtime driver module loading.
-2. **Packaging**: The CMake `install()` targets stage the executable and resources into a release directory. Future updates may involve integrating `CPack` to generate distributable `.dmg`, `.deb`, or `.zip` files.
+2. **Packaging**: `THE_BUNDLE_CREXX=ON` stages a private cREXX runtime and tools. `scripts/package-release.py` creates a portable ZIP and optional macOS PKG or Windows NSIS installer. See [packaging](packaging/README.md); CI candidates are distinct from signed/published releases and manual platform qualification.
 
 ## 4. Linux VM Notes
 

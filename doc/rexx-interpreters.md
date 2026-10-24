@@ -44,8 +44,11 @@ In Windows PowerShell:
 ```powershell
 $env:THE_REXX_INTERPRETER = 'REGINA'
 $env:THE_REGINA_LIBRARY = 'C:\path\to\Regina\regina.dll'
-the myfile.rexx
+& "$env:LOCALAPPDATA\Programs\THE-cREXX\bin\the.cmd" myfile.rexx
 ```
+
+The full launcher path selects this fork even if upstream THE is also on PATH.
+For a portable ZIP or a custom install directory, use its `bin\the.cmd` instead.
 
 Regina's own dependent libraries must also be available to the OS loader.
 These settings affect this terminal and child processes. Put them in your shell

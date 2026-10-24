@@ -115,6 +115,8 @@
  CURsor Mouse
  CURsor Prefix
        move cursor to specified position
+       XEDIT compatibility accepts an optional final PRIORITY n (0..255).
+       During a macro/prefix pass the highest priority wins; first wins ties.
  DEFine key-name [REXX] [command [args] [[#command [args]...]]]
  DEFine mouse-key-definition IN window [REXX] [command [args] [[#command [args]...]]]
        assign one or many commands to a key or mouse event
@@ -151,6 +153,9 @@
        expand tab characters to spaces
  EXTract /item/[...]
        obtain various internal information about THE
+       MASK.1 is the insertion mask. FLSCREEN.1 and FLSCREEN.2 are the first
+       and last visible file lines (0 and 0 if none; unavailable in batch).
+       In XEDIT compatibility CURSOR.9 is the current macro cursor priority.
  FFile  [filename]
        force a FILE of the current file to disk
        Default: With no parameters, the current file is written.
@@ -524,6 +529,11 @@
  [SET] MARgins left right [[+|-]indent]
        set left and right margins for wordwrap
        Default: 1 72 +0
+ [SET] MASK IMMed [text]
+ [SET] MASK DEFine
+ [SET] MASK MODify
+       set an insertion mask, or prepare an editable SET MASK IMMED command
+       Default: empty mask
  [SET] MOUSE ON|OFF
        turn mouse support on or off
        Default: ON - if mouse supported, OFF - otherwise
@@ -551,6 +561,7 @@
  [SET] PENDing ON string
  [SET] PENDing OFF
  [SET] PENDing BLOCK string
+ [SET] PENDing ERROR string
        set status of pending prefix commands
  [SET] Point .name [OFF]
        assign a name to the current line
