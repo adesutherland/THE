@@ -74,6 +74,9 @@ The generic `crexxsaa` variables are also supported:
 - `CREXXSAA_IMPORT_DIR`
 
 `CREXXSAA_CACHE_DIR` wins over `THE_CREXX_CACHE_DIR` when both are set.
+Without either override, THE uses its private per-user cache, described in
+[interpreter setup](rexx-interpreters.md), and passes that location to child
+cREXX processes. This also applies to direct development builds of THE.
 
 The `crexxsaa` maintenance tool can be used to inspect or clear the compiled
 profile/macro cache:

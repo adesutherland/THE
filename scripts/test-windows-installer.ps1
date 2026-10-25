@@ -7,17 +7,22 @@ $ErrorActionPreference = 'Stop'
 $prefix = Join-Path $env:RUNNER_TEMP 'THE installed candidate'
 $pathBefore = [Environment]::GetEnvironmentVariable('Path', 'User')
 $python = (Get-Command python).Source
-function Install-Candidate {
-    $process = Start-Process -FilePath $Installer -ArgumentList "/S /D=$prefix" -Wait -PassThru
+function Install-Candidate([string]$Runtime = 'BUNDLED') {
+    $process = Start-Process -FilePath $Installer -ArgumentList "/S /CREXX=$Runtime /D=$prefix" -Wait -PassThru
     if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
     if (!(Test-Path -LiteralPath "$prefix\bin\the.cmd")) { throw 'Launcher missing after install' }
 }
 try {
     Install-Candidate
+    if ((Get-Content "$prefix\share\the\runtime-preference" -Raw).Trim() -ne 'BUNDLED') { throw 'Bundled runtime was not the installer default' }
     & $python "$PSScriptRoot\..\tests\test_installed_package.py" $prefix --regina $ReginaLibrary --macros $MacroDirectory
     if ($LASTEXITCODE -ne 0) { throw 'Installed runtime checks failed' }
     Set-Content -LiteralPath "$prefix\keep-user-file.txt" -Value 'retain on uninstall'
-    Install-Candidate
+    Install-Candidate 'INSTALLED'
+    if ((Get-Content "$prefix\share\the\runtime-preference" -Raw).Trim() -ne 'INSTALLED') { throw 'Installed runtime choice was not saved' }
+    & $python "$PSScriptRoot\..\tests\test_runtime_selection.py" --prefix $prefix
+    if ($LASTEXITCODE -ne 0) { throw 'Installed runtime selection/cache checks failed' }
+    Install-Candidate 'BUNDLED'
     $process = Start-Process -FilePath "$prefix\Uninstall.exe" -ArgumentList "/S _?=$prefix" -Wait -PassThru
     if ($process.ExitCode -ne 0) { throw "Uninstall failed: $($process.ExitCode)" }
     if (Test-Path -LiteralPath "$prefix\libexec\the\the.exe") { throw 'Packaged executable survived uninstall' }

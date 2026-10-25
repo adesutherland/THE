@@ -51,16 +51,33 @@ command symlink only when they still belong to this installation.
 ## Existing cREXX installations
 
 All THE installers and portable ZIPs carry a private, matching cREXX tool set
-under `libexec/the/crexx`. They do not detect, upgrade or reuse an existing
-standalone cREXX installation. The launchers select the private tools by
-default and prepend that directory to PATH for THE's child processes only.
+under `libexec/the/crexx`. The default is to use that bundle. Windows offers a
+runtime-choice page; macOS offers an optional "Use an installed cREXX when
+available" choice. Both retain the bundle for automatic fallback. A saved
+installed-runtime preference is rechecked when THE starts, using a complete
+tool cohort and a separate compilation/runtime probe. Missing or incompatible
+copies fall back without a question. The selected tools are prepended to PATH
+for THE's child processes only; standalone installations are never upgraded.
 Windows adds THE's `bin` directory to the user's PATH, not its private cREXX
 directory; macOS installs only the public `the` symlink. A standalone cREXX
 installation stays separate. Windows detects an earlier **THE** installation
-through `HKCU\Software\THE-cREXX`; that is not cREXX runtime detection.
+through `HKCU\Software\THE-cREXX`. Standalone cREXX detection separately uses
+`CREXX_HOME`, its own installation registry, PATH and standard locations.
 Advanced users can explicitly override the tool/runtime paths as described in
 [interpreter setup](../doc/rexx-interpreters.md). Keep the runtime, compiler,
 assembler and bytecode from one compatible distribution.
+
+Silent Windows installations accept `/CREXX=BUNDLED` (default) or
+`/CREXX=INSTALLED`, before the final `/D=...` argument. macOS's corresponding
+Installer choice identifier is `installed-crexx`, initially unselected.
+The preference file is installer-generated `share/the/runtime-preference`,
+outside the immutable payload manifest; reinstalling with the default restores
+bundled mode. Portable archives have no saved preference.
+
+THE's cREXX cache now defaults to a THE-specific per-user directory on every
+platform. Explicit `THE_CREXX_CACHE_DIR` and `CREXXSAA_CACHE_DIR` settings are
+preserved, with the generic setting retaining precedence. See
+[runtime and cache configuration](../doc/rexx-interpreters.md).
 
 ## Windows installer signing and replacement
 

@@ -13,6 +13,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+from macos_installer import build_installer
 
 
 def run(*args):
@@ -64,18 +65,8 @@ def main():
         if args.installer:
             numeric = re.split(r'[-+]', args.version)[0]
             if host == 'darwin':
-                root = work / 'pkgroot'
-                destination = root / 'usr/local/the-crexx'
-                destination.parent.mkdir(parents=True)
-                shutil.copytree(payload, destination, symlinks=True)
-                links = root / 'usr/local/bin'
-                links.mkdir()
-                (links / 'the').symlink_to('../the-crexx/bin/the')
-                component = work / 'component.pkg'
-                run('pkgbuild', '--root', root, '--identifier', 'org.crexx.the',
-                    '--version', numeric, '--install-location', '/', component)
                 installer = output / f'{name}.pkg'
-                run('productbuild', '--package', component, installer)
+                build_installer(payload, installer, args.version, work)
             elif host == 'windows':
                 owned = work / 'owned-files.nsh'
                 entries = ['Delete "$INSTDIR\\' + str(p.relative_to(payload)).replace('/', '\\') + '"'

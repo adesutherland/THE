@@ -7,6 +7,12 @@ ManifestDPIAware true
 !include "LogicLib.nsh"
 !include "x64.nsh"
 !include "WinMessages.nsh"
+!include "nsDialogs.nsh"
+!include "FileFunc.nsh"
+
+Var RuntimeChoice
+Var BundledRadio
+Var InstalledRadio
 
 
 Name "THE cREXX Edition ${THE_VERSION}"
@@ -20,6 +26,7 @@ VIAddVersionKey "FileVersion" "${THE_VERSION}"
 VIAddVersionKey "LegalCopyright" "THE cREXX Edition contributors"
 !define MUI_ABORTWARNING
 !insertmacro MUI_PAGE_DIRECTORY
+Page custom RuntimePage RuntimePageLeave
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
@@ -31,6 +38,42 @@ Function .onInit
     Abort
   ${EndIf}
   SetRegView 64
+  StrCpy $RuntimeChoice "BUNDLED"
+  ${GetParameters} $0
+  ${GetOptions} $0 "/CREXX=" $1
+  ${If} $1 == "INSTALLED"
+    StrCpy $RuntimeChoice "INSTALLED"
+  ${EndIf}
+FunctionEnd
+
+Function RuntimePage
+  !insertmacro MUI_HEADER_TEXT "cREXX runtime" "Choose the cREXX installation THE should use."
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+  ${NSD_CreateRadioButton} 0 10u 100% 14u "Use bundled cREXX (default)"
+  Pop $BundledRadio
+  ${NSD_CreateRadioButton} 0 34u 100% 14u "Use an installed cREXX when available"
+  Pop $InstalledRadio
+  ${If} $RuntimeChoice == "INSTALLED"
+    ${NSD_Check} $InstalledRadio
+  ${Else}
+    ${NSD_Check} $BundledRadio
+  ${EndIf}
+  ${NSD_CreateLabel} 0 62u 100% 54u "THE always includes a bundled copy. If no compatible installed cREXX is available, THE uses the bundle automatically. Regina is configured separately."
+  Pop $0
+  nsDialogs::Show
+FunctionEnd
+
+Function RuntimePageLeave
+  ${NSD_GetState} $InstalledRadio $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $RuntimeChoice "INSTALLED"
+  ${Else}
+    StrCpy $RuntimeChoice "BUNDLED"
+  ${EndIf}
 FunctionEnd
 
 Function un.onInit
@@ -58,6 +101,14 @@ FunctionEnd
 Section "THE cREXX Edition"
   SetOutPath "$INSTDIR"
   File /r "${THE_PAYLOAD}\*"
+  FileOpen $0 "$INSTDIR\share\the\runtime-preference" w
+  FileWrite $0 "$RuntimeChoice$\r$\n"
+  FileClose $0
+  ${If} $RuntimeChoice == "INSTALLED"
+    DetailPrint "THE will use an installed cREXX when compatible, otherwise its bundled copy."
+  ${Else}
+    DetailPrint "THE will use bundled cREXX."
+  ${EndIf}
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\THE-cREXX" "InstallDir" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\THE-cREXX" "DisplayName" "THE cREXX Edition ${THE_VERSION}"
@@ -74,6 +125,9 @@ Section "Uninstall"
   Delete "$SMPROGRAMS\THE cREXX Edition\THE.lnk"
   RMDir "$SMPROGRAMS\THE cREXX Edition"
   !include "${THE_UNINSTALL_FILES}"
+  Delete "$INSTDIR\share\the\runtime-preference"
+  RMDir "$INSTDIR\share\the"
+  RMDir "$INSTDIR\share"
   Delete "$INSTDIR\Uninstall.exe"
   RMDir "$INSTDIR"
   DeleteRegKey HKCU "Software\THE-cREXX"

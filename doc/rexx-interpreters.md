@@ -7,9 +7,41 @@ restarting the editor; macros are not automatically translated between dialects.
 
 The bundled package supplies cREXX's shared runtime, compiler, assembler,
 runner, matching `library.rxbin` and compiler exit module privately. It does not change an existing
-cREXX installation. Launch `bin/the` (`bin/the.cmd` on Windows); its paths are
+cREXX installation. The installers offer bundled cREXX (default) or an
+installed cREXX when compatible. The bundle is always retained for automatic
+fallback. Launch `bin/the` (`bin/the.cmd` on Windows); its paths are
 relative to the package, so a portable archive can be moved or unpacked into a
 directory containing spaces.
+
+The installed-runtime preference is rechecked at startup. THE looks for a
+complete tool set using `CREXX_HOME`, the Windows cREXX installation registry,
+PATH and standard Unix locations. It validates the required hosting API and
+compiles/runs a small probe in a separate process. A missing, incomplete or
+incompatible installation causes an informational message and automatic use
+of the bundled copy; no question is asked. Changing or removing a standalone
+installation therefore does not require reinstalling THE.
+
+`THE_CREXX_RUNTIME=BUNDLED|INSTALLED` overrides the saved installer preference.
+With `INSTALLED`, `THE_CREXX_HOME` can specify the installation root or its
+`bin` directory. If that explicit location is unusable, THE falls back to its
+bundle rather than selecting a different installation. Portable ZIPs default
+to bundled cREXX and support the same environment settings. Runtime selection
+is separate from `THE_REXX_INTERPRETER`, which chooses CREXX, REGINA or NONE.
+
+THE uses its own cREXX source cache by default, including when it selects an
+installed cREXX:
+
+- Windows: `%LOCALAPPDATA%\THE-cREXX\Cache\crexxsaa`.
+- macOS: `~/Library/Caches/org.crexx.the/crexxsaa`.
+- Linux: `$XDG_CACHE_HOME/the/crexxsaa`, or `~/.cache/the/crexxsaa`.
+
+Set `THE_CREXX_CACHE_DIR` to override that location. The existing generic
+`CREXXSAA_CACHE_DIR` override retains precedence when both are set. These
+settings affect THE and its children; no user/system environment setting or
+standalone cREXX cache is changed. Cache reuse still checks source content,
+namespace and compiler/library configuration. Switching tool sets invalidates
+the relevant cached object automatically. Deleting THE's cache forces a
+recompile; the selected cREXX installation stays the same.
 
 THE loads only the selected engine at runtime. The build uses `crexxsaa.h`
 (ABI 3 or newer) and, when Regina support is enabled, `rexxsaa.h`. Users do not

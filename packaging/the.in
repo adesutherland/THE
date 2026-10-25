@@ -7,17 +7,4 @@ while [ -L "$launcher" ]; do
   case $target in /*) launcher=$target ;; *) launcher=$directory/$target ;; esac
 done
 root=$(CDPATH= cd -P -- "$(dirname -- "$launcher")/.." && pwd) || exit 1
-runtime=$root/libexec/the/crexx
-: "${THE_HOME_DIR:=$root/share/the}"
-: "${THE_DRIVER_PATH:=$root/lib/the/drivers}"
-: "${THE_CREXX_LIBRARY:=$runtime/@THE_CREXX_RUNTIME_NAME@}"
-: "${THE_CREXX_RXC:=$runtime/rxc}"
-: "${THE_CREXX_RXAS:=$runtime/rxas}"
-: "${THE_CREXX_LOCATION:=$runtime}"
-: "${THE_CREXX_IMPORT_DIR:=$runtime}"
-: "${THE_CREXX_LIBRARY_RXBIN:=$runtime/library.rxbin}"
-export THE_HOME_DIR THE_DRIVER_PATH THE_CREXX_LIBRARY THE_CREXX_RXC THE_CREXX_RXAS
-export THE_CREXX_LOCATION THE_CREXX_IMPORT_DIR THE_CREXX_LIBRARY_RXBIN
-PATH=$runtime:$PATH
-export PATH
-exec "$root/libexec/the/the" "$@"
+exec "$root/libexec/the/the-launcher" "$root" "$@"

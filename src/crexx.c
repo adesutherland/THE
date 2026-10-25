@@ -142,6 +142,8 @@ static int the_crexx_address_callback(
    return(0);
 }
 
+#include "crexxcache.h"
+
 short initialise_crexx(void)
 {
    const char *location=NULL;
@@ -161,12 +163,18 @@ short initialise_crexx(void)
 
    if (!load_crexx_runtime()) return RC_INVALID_ENVIRON;
 
+   if (the_crexx_configure_cache() != 0)
+   {
+      crexx_display_error("Set THE_CREXX_CACHE_DIR to a writable cache directory",NULL);
+      return RC_INVALID_ENVIRON;
+   }
+
    location = crexx_config_value("THE_CREXX_LOCATION",THE_CREXX_IMPORT_DIR);
    library_rxbin = crexx_config_value("THE_CREXX_LIBRARY_RXBIN",THE_CREXX_LIBRARY_RXBIN);
    rxc = crexx_config_value("THE_CREXX_RXC",THE_CREXX_RXC);
    rxas = crexx_config_value("THE_CREXX_RXAS",THE_CREXX_RXAS);
    import_dir = crexx_config_value("THE_CREXX_IMPORT_DIR",THE_CREXX_IMPORT_DIR);
-   cache_dir = getenv("THE_CREXX_CACHE_DIR");
+   cache_dir = getenv("CREXXSAA_CACHE_DIR");
 
    if (crexxsaa_create(location,library_rxbin,&the_crexx_context) != 0)
    {

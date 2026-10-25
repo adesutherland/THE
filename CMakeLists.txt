@@ -462,6 +462,7 @@ set(THE_SOURCES
     src/reserved.c
     src/rexx.c
     src/macroruntime.c
+    src/crexxcache.c
     src/xeditcompat.c
     src/scroll.c
     src/screenframe.c
@@ -883,6 +884,14 @@ if(THE_BUNDLE_CREXX)
         message(FATAL_ERROR "Bundled releases require the crexx command")
     endif()
     get_filename_component(THE_CREXX_RUNTIME_NAME "${CREXXSAA_RUNTIME_LIBRARY}" NAME)
+    add_executable(the-launcher src/crexxlauncher.c src/crexxcache.c)
+    target_include_directories(the-launcher PRIVATE "${CREXXSAA_INCLUDE_DIR}")
+    target_compile_definitions(the-launcher PRIVATE THE_CREXX_RUNTIME_NAME="${THE_CREXX_RUNTIME_NAME}")
+    target_link_libraries(the-launcher PRIVATE ${CMAKE_DL_LIBS})
+    if(WIN32)
+        target_link_libraries(the-launcher PRIVATE advapi32)
+    endif()
+    install(TARGETS the-launcher DESTINATION libexec/the)
     configure_file(packaging/the.in packaging/the @ONLY)
     configure_file(packaging/the.cmd.in packaging/the.cmd @ONLY)
     install(TARGETS ${EXECUTABLE_NAME} DESTINATION libexec/the)
@@ -892,8 +901,11 @@ if(THE_BUNDLE_CREXX)
         install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/packaging/the" DESTINATION bin)
     endif()
     install(PROGRAMS "${CREXX_RXC_EXECUTABLE}" "${CREXX_RXAS_EXECUTABLE}"
-        "${CREXX_RXVM_EXECUTABLE}" "${CREXX_DRIVER_EXECUTABLE}"
+        "${CREXX_DRIVER_EXECUTABLE}"
         DESTINATION libexec/the/crexx)
+    get_filename_component(THE_CREXX_RXVM_REAL "${CREXX_RXVM_EXECUTABLE}" REALPATH)
+    install(PROGRAMS "${THE_CREXX_RXVM_REAL}" DESTINATION libexec/the/crexx
+        RENAME "rxvm${CMAKE_EXECUTABLE_SUFFIX}")
     install(FILES "${CREXXSAA_RUNTIME_LIBRARY}" "${CREXX_LIBRARY_RXBIN}" "${CREXX_RXCEXITS_RXBIN}"
         DESTINATION libexec/the/crexx)
     if(WIN32)
@@ -1046,6 +1058,11 @@ if(THE_USE_REGINA AND REGINA_LIBRARY)
 endif()
 find_program(THE_PYTHON_EXECUTABLE NAMES python3 python)
 if(THE_PYTHON_EXECUTABLE)
+    if(THE_BUNDLE_CREXX)
+        add_test(NAME test_runtime_selection COMMAND ${THE_PYTHON_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_runtime_selection.py --build-dir ${CMAKE_CURRENT_BINARY_DIR})
+        set_tests_properties(test_runtime_selection PROPERTIES TIMEOUT 180)
+    endif()
     add_test(NAME test_prepare_shmuel COMMAND ${THE_PYTHON_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_prepare_shmuel.py)
     add_test(NAME test_sign_windows_release COMMAND ${THE_PYTHON_EXECUTABLE}
