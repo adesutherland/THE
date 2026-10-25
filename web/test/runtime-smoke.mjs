@@ -58,7 +58,7 @@ socket.on("message", (data) => {
     if (stage !== "files" || message.root !== 0 || message.path !== ""
         || !message.entries?.some((entry) => entry.name === "sample.txt"
           && entry.type === "file" && entry.target.endsWith("/sample.txt"))) {
-      fail("web workspace listing did not expose the sample file");
+      fail("web workspace listing did not expose the sample file: " + JSON.stringify(message));
     }
     const firstLine = lastSnapshot?.screen_rows.find((row) => row.line === 1);
     if (!firstLine) fail("file listing arrived without an editor snapshot");

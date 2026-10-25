@@ -1293,21 +1293,17 @@ if(USE_WEB_DRIVER)
     set_tests_properties(test_web_workspace_policy PROPERTIES TIMEOUT 60
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     add_test(NAME test_the_web_runtime
-        COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_web_runtime.sh
-                $<TARGET_FILE:the>
-                ${THE_WEB_BUILD_DIR})
+        COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_web_smoke.py
+                $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR} ${THE_SELECTED_REXX_INTERPRETER})
     set_tests_properties(test_the_web_runtime PROPERTIES
         TIMEOUT 20
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     if(THE_USE_REGINA AND REGINA_LIBRARY)
-        set(THE_WEB_REGINA_TEST_ENV ${THE_CTEST_RUNTIME_ENV})
-        list(FILTER THE_WEB_REGINA_TEST_ENV EXCLUDE REGEX "^THE_REXX_INTERPRETER=")
-        list(APPEND THE_WEB_REGINA_TEST_ENV "THE_REXX_INTERPRETER=REGINA")
         add_test(NAME test_the_web_runtime_regina
-            COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_web_runtime.sh
-                    $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR})
+            COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_web_smoke.py
+                    $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR} REGINA)
         set_tests_properties(test_the_web_runtime_regina PROPERTIES
-            TIMEOUT 20 ENVIRONMENT "${THE_WEB_REGINA_TEST_ENV}")
+            TIMEOUT 60 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     endif()
     add_test(NAME test_webdriver_no_curses
         COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_no_curses_symbols.sh
@@ -1344,10 +1340,8 @@ if(USE_WEB_DRIVER)
                 RESOURCE_LOCK the_web_browser ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
         endforeach()
         add_test(NAME test_the_web_browser
-            COMMAND ${THE_BASH_COMMAND}
-                    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_web_browser.sh
-                    $<TARGET_FILE:the>
-                    ${THE_WEB_BUILD_DIR}
+            COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_web_smoke.py
+                    $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR} ${THE_SELECTED_REXX_INTERPRETER}
                     ${THE_CHROMIUM_EXECUTABLE})
         set_tests_properties(test_the_web_browser PROPERTIES
             TIMEOUT 30

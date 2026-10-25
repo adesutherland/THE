@@ -20,6 +20,8 @@ try {
   await wait(m => m.screen_rows);
   send({ id: 1, type: "files", root: 0, path: "" });
   const listing = await wait(m => m.type === "files" && m.id === 1);
+  if (!listing.entries.some(e => e.name === "sample.txt" && e.type === "file"))
+    throw new Error("ordinary workspace file was not listed: " + JSON.stringify(listing));
   if (listing.entries.some(e => e.name === "escape")) throw new Error("link was listed");
   send({ id: 2, type: "files", root: 0, path: "escape" });
   await wait(m => m.type === "error" && m.id === 2);

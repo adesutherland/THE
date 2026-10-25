@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#if !defined(_WIN32)
 #include <dirent.h>
+#endif
 #include <sys/stat.h>
 
 #include "headlessdriver.h"
@@ -305,17 +307,79 @@ static int web_driver_append(char *out, size_t out_len, size_t *used,
    return 1;
 }
 
-static int web_driver_workspace_stat(const char *path, struct stat *info)
+/* Mongoose defines its own Windows opendir/readdir with a private dirent
+ * layout. Never mix those symbols with MinGW's public dirent structure. */
+static int web_driver_list_directory(const char *directory,
+                                      int (*entry)(const char *,void *), void *data)
 {
 #if defined(_WIN32)
-   DWORD attributes=GetFileAttributesA(path);
-   if (attributes==INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_REPARSE_POINT))
-      return 0;
-   if (stat(path,info)!=0) return 0;
+   char pattern[WEB_DRIVER_PATH_CAPACITY];
+   WCHAR wide[WEB_DRIVER_PATH_CAPACITY];
+   WIN32_FIND_DATAW info;
+   HANDLE search;
+   if (snprintf(pattern,sizeof(pattern),"%s/*",directory)>=(int)sizeof(pattern)
+   || !MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,pattern,-1,wide,WEB_DRIVER_PATH_CAPACITY)) return 0;
+   search=FindFirstFileW(wide,&info);
+   if (search==INVALID_HANDLE_VALUE) return 0;
+   do
+   {
+      char name[WEB_DRIVER_PATH_CAPACITY];
+      if (WideCharToMultiByte(CP_UTF8,0,info.cFileName,-1,name,sizeof(name),NULL,NULL)
+      && !entry(name,data)) { FindClose(search); return -1; }
+   } while (FindNextFileW(search,&info));
+   FindClose(search);
 #else
-   if (lstat(path,info)!=0 || S_ISLNK(info->st_mode)) return 0;
+   DIR *dir=opendir(directory);
+   struct dirent *item;
+   if (!dir) return 0;
+   while ((item=readdir(dir))!=NULL)
+      if (!entry(item->d_name,data)) { closedir(dir); return -1; }
+   closedir(dir);
 #endif
-   return S_ISDIR(info->st_mode) || S_ISREG(info->st_mode);
+   return 1;
+}
+
+static int web_driver_workspace_kind(const char *path)
+{
+#if defined(_WIN32)
+   WCHAR wide[WEB_DRIVER_PATH_CAPACITY];
+   DWORD attributes;
+   if (!MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,path,-1,wide,WEB_DRIVER_PATH_CAPACITY)) return 0;
+   attributes=GetFileAttributesW(wide);
+   if (attributes==INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) return 0;
+   return (attributes & FILE_ATTRIBUTE_DIRECTORY) ? 2 : 1;
+#else
+   struct stat info;
+   if (lstat(path,&info)!=0 || S_ISLNK(info.st_mode)) return 0;
+   return S_ISDIR(info.st_mode) ? 2 : S_ISREG(info.st_mode) ? 1 : 0;
+#endif
+}
+
+typedef struct
+{
+   char *response;
+   size_t size, used;
+   const char *directory, *relative;
+   int readonly, first;
+} WebFileListing;
+
+static int web_driver_list_entry(const char *name, void *data)
+{
+   WebFileListing *listing=(WebFileListing *)data;
+   char path[WEB_DRIVER_PATH_CAPACITY], relative[WEB_DRIVER_PATH_CAPACITY];
+   int kind;
+   if (strcmp(name,".")==0 || strcmp(name,"..")==0) return 1;
+   if (snprintf(path,sizeof(path),"%s/%s",listing->directory,name)>=(int)sizeof(path)) return 1;
+   kind=web_driver_workspace_kind(path);
+   if (!kind) return 1;
+   if (snprintf(relative,sizeof(relative),"%s%s%s",listing->relative,
+                *listing->relative ? "/" : "",name)>=(int)sizeof(relative)) return 1;
+   if (!web_driver_append(listing->response,listing->size,&listing->used,
+         "%s{\"name\":%m,\"path\":%m,\"target\":%m,\"type\":\"%s\",\"readonly\":%s}",
+         listing->first ? "" : ",",MG_ESC(name),MG_ESC(relative),MG_ESC(path),
+         kind==2 ? "directory" : "file",listing->readonly ? "true" : "false")) return 0;
+   listing->first=0;
+   return 1;
 }
 
 static int web_driver_send_files(struct mg_connection *connection,
@@ -325,16 +389,15 @@ static int web_driver_send_files(struct mg_connection *connection,
    const char *root;
    char candidate[WEB_DRIVER_PATH_CAPACITY];
    char directory[WEB_DRIVER_PATH_CAPACITY];
-   char error[256];
+   char error[256]={0};
    char *response;
    size_t response_len = WEB_DRIVER_SNAPSHOT_CAPACITY;
    size_t used = 0;
    size_t i;
    int root_readonly = 0;
    int resolved_readonly = 0;
-   DIR *dir;
-   struct dirent *entry;
-   int first = 1;
+   WebFileListing listing;
+   int listed;
 
    root = the_frontend_policy_root_at(root_index, &root_readonly);
    if (root == NULL || relative == NULL || relative[0] == '/')
@@ -356,8 +419,7 @@ static int web_driver_send_files(struct mg_connection *connection,
                                               : "invalid workspace location");
       return 0;
    }
-   dir = opendir(directory);
-   if (dir == NULL)
+   if (web_driver_workspace_kind(directory)!=2)
    {
       web_driver_send_status(connection, "error", id,
                              "workspace location is not a directory");
@@ -366,7 +428,6 @@ static int web_driver_send_files(struct mg_connection *connection,
    response = (char *)malloc(response_len);
    if (response == NULL)
    {
-      closedir(dir);
       web_driver_send_status(connection, "error", id, "out of memory");
       return 0;
    }
@@ -391,43 +452,25 @@ static int web_driver_send_files(struct mg_connection *connection,
    }
    if (!web_driver_append(response, response_len, &used, "],\"entries\":["))
       goto too_large;
-   while ((entry = readdir(dir)) != NULL)
+   listing.response=response; listing.size=response_len; listing.used=used;
+   listing.directory=directory; listing.relative=relative;
+   listing.readonly=root_readonly || resolved_readonly; listing.first=1;
+   listed=web_driver_list_directory(directory,web_driver_list_entry,&listing);
+   used=listing.used;
+   if (listed<0) goto too_large;
+   if (!listed)
    {
-      char path[WEB_DRIVER_PATH_CAPACITY];
-      char child_relative[WEB_DRIVER_PATH_CAPACITY];
-      struct stat info;
-
-      if (strcmp(entry->d_name, ".") == 0
-      ||  strcmp(entry->d_name, "..") == 0)
-         continue;
-      if (snprintf(path, sizeof(path), "%s/%s", directory, entry->d_name)
-          >= (int)sizeof(path)
-      ||  !web_driver_workspace_stat(path, &info))
-         continue;
-      if (snprintf(child_relative, sizeof(child_relative), "%s%s%s",
-                   relative, *relative != '\0' ? "/" : "", entry->d_name)
-          >= (int)sizeof(child_relative))
-         continue;
-      if (!web_driver_append(
-             response, response_len, &used,
-             "%s{\"name\":%m,\"path\":%m,\"target\":%m,\"type\":\"%s\","
-             "\"readonly\":%s}",
-             first ? "" : ",", MG_ESC(entry->d_name),
-             MG_ESC(child_relative), MG_ESC(path),
-             S_ISDIR(info.st_mode) ? "directory" : "file",
-             (root_readonly || resolved_readonly) ? "true" : "false"))
-         goto too_large;
-      first = 0;
+      free(response);
+      web_driver_send_status(connection,"error",id,"workspace directory is inaccessible");
+      return 0;
    }
    if (!web_driver_append(response, response_len, &used, "]}"))
       goto too_large;
-   closedir(dir);
    web_driver_send(connection, response, used);
    free(response);
    return 1;
 
 too_large:
-   closedir(dir);
    free(response);
    web_driver_send_status(connection, "error", id,
                           "workspace listing is too large");
