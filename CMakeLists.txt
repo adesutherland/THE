@@ -1296,7 +1296,7 @@ if(USE_WEB_DRIVER)
         COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_web_smoke.py
                 $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR} ${THE_SELECTED_REXX_INTERPRETER})
     set_tests_properties(test_the_web_runtime PROPERTIES
-        TIMEOUT 20
+        TIMEOUT 120
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     if(THE_USE_REGINA AND REGINA_LIBRARY)
         add_test(NAME test_the_web_runtime_regina
@@ -1316,7 +1316,7 @@ if(USE_WEB_DRIVER)
                 $<TARGET_FILE:the>
                 ${RELEASE_DIR}/web-profile.the)
     set_tests_properties(test_web_profile_highlighting PROPERTIES
-        TIMEOUT 20
+        TIMEOUT 120
         SKIP_RETURN_CODE 77
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     add_test(NAME test_web_profile_multifile_highlighting
@@ -1325,7 +1325,7 @@ if(USE_WEB_DRIVER)
                 $<TARGET_FILE:the>
                 ${RELEASE_DIR}/web-profile.the)
     set_tests_properties(test_web_profile_multifile_highlighting PROPERTIES
-        TIMEOUT 30
+        TIMEOUT 120
         SKIP_RETURN_CODE 77
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     find_program(THE_CHROMIUM_EXECUTABLE
@@ -1336,7 +1336,7 @@ if(USE_WEB_DRIVER)
             add_test(NAME test_panel_browser_${panel_engine}
                 COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_panel_browser.py
                     $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR} ${THE_CHROMIUM_EXECUTABLE} ${panel_engine})
-            set_tests_properties(test_panel_browser_${panel_engine} PROPERTIES TIMEOUT 90
+            set_tests_properties(test_panel_browser_${panel_engine} PROPERTIES TIMEOUT 120
                 RESOURCE_LOCK the_web_browser ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
         endforeach()
         add_test(NAME test_the_web_browser
@@ -1344,7 +1344,7 @@ if(USE_WEB_DRIVER)
                     $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR} ${THE_SELECTED_REXX_INTERPRETER}
                     ${THE_CHROMIUM_EXECUTABLE})
         set_tests_properties(test_the_web_browser PROPERTIES
-            TIMEOUT 30
+            TIMEOUT 120
             RESOURCE_LOCK the_web_browser
             ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     endif()

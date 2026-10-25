@@ -13,6 +13,8 @@ const chrome = spawn(chromium, [
   "--headless=new",
   "--no-sandbox",
   "--disable-gpu",
+  "--no-first-run",
+  "--no-default-browser-check",
   "--disable-dev-shm-usage",
   "--remote-debugging-port=0",
   `--user-data-dir=${profile}`,
@@ -127,9 +129,10 @@ async function closeCurrentBuffer(name) {
 try {
   const portFile = join(profile, "DevToolsActivePort");
   const port = await waitFor(async () => {
+    if (chrome.exitCode !== null) throw new Error(`Chrome exited with ${chrome.exitCode}`);
     const contents = await readFile(portFile, "utf8");
     return Number(contents.split("\n", 1)[0]) || 0;
-  }, "Chrome DevTools port");
+  }, "Chrome DevTools port", 30000);
   const targetResponse = await fetch(
     `http://127.0.0.1:${port}/json/new?${encodeURIComponent(pageUrl)}`,
     { method: "PUT" },
@@ -201,6 +204,7 @@ try {
   }
 
   await openWorkspaceFile("sample.md");
+  if (process.env.THE_WEB_TEST_MDP !== "0") {
   try {
     await waitFor(
       () => evaluate("!!document.querySelector('.syntax-operator') && (!!document.querySelector('.syntax-preprocessor') || !!document.querySelector('.syntax-identifier')) && !document.querySelector('.syntax-comment') && !document.querySelector('.syntax-string')"),
@@ -211,7 +215,10 @@ try {
     throw new Error(`${error.message}; state=${JSON.stringify(state)}`);
   }
 
+  } else console.log("Markdown parser unavailable: buffer editing checked; semantic styles skipped");
+
   await openWorkspaceFile("sample.py");
+  if (process.env.THE_WEB_TEST_PYP !== "0") {
   try {
     await waitFor(
       () => evaluate("!!document.querySelector('.syntax-keyword') && !!document.querySelector('.syntax-identifier') && !!document.querySelector('.syntax-string') && !!document.querySelector('.syntax-operator') && !document.querySelector('.syntax-preprocessor') && !document.querySelector('.syntax-comment')"),
@@ -225,6 +232,8 @@ try {
   if (new Set(Object.values(pythonColors)).size !== 3) {
     throw new Error(`Python semantic styles are not visually distinct: ${JSON.stringify(pythonColors)}`);
   }
+
+  } else console.log("Python parser unavailable: buffer editing checked; semantic styles skipped");
 
   await selectBuffer("sample.crexx");
   await waitFor(

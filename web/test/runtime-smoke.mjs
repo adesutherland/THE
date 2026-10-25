@@ -167,7 +167,7 @@ socket.on("message", (data) => {
   }
 
   if (stage === "blocked-sos" && acknowledgements.has(7)
-      && message.buffer?.path?.endsWith("/sample.txt")
+      && message.buffer?.path?.replaceAll("\\", "/").endsWith("/sample.txt")
       && message.status?.includes("unavailable in restricted frontend")) {
     send(8, { type: "command", command: "edit /etc/passwd" });
     stage = "blocked-command";
@@ -175,7 +175,7 @@ socket.on("message", (data) => {
   }
 
   if (stage === "blocked-command" && acknowledgements.has(8)
-      && message.buffer?.path?.endsWith("/sample.txt")
+      && message.buffer?.path?.replaceAll("\\", "/").endsWith("/sample.txt")
       && message.status?.includes("unavailable in restricted frontend")) {
     send(6, { type: "action", action: "file.close", argument: "" });
     stage = "done";

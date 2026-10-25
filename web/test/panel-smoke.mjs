@@ -13,6 +13,8 @@ const chrome = spawn(chromium, [
   "--headless=new",
   "--no-sandbox",
   "--disable-gpu",
+  "--no-first-run",
+  "--no-default-browser-check",
   "--disable-dev-shm-usage",
   "--remote-debugging-port=0",
   `--user-data-dir=${profile}`,
@@ -122,9 +124,10 @@ async function closeCurrentBuffer(name) {
 try {
   const portFile = join(profile, "DevToolsActivePort");
   const port = await waitFor(async () => {
+    if (chrome.exitCode !== null) throw new Error(`Chrome exited with ${chrome.exitCode}`);
     const contents = await readFile(portFile, "utf8");
     return Number(contents.split("\n", 1)[0]) || 0;
-  }, "Chrome DevTools port");
+  }, "Chrome DevTools port", 30000);
   const targetResponse = await fetch(
     `http://127.0.0.1:${port}/json/new?${encodeURIComponent(pageUrl)}`,
     { method: "PUT" },

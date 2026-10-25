@@ -15,23 +15,23 @@ address the
 'define backspace sos delback';
 'define ins insertmode toggle';
 
-/* Parser processes are supplied by the container image, not the browser. */
-'set sdslh rxc ~/.local/bin/rxc --syntaxhighlight';
+/* Host parsers come from PATH; packaged cREXX is private, others optional. */
+'set sdslh rxc rxc --syntaxhighlight';
 'set autocolor *.rexx rxc';
 'set autocolor *.rex rxc';
 'set autocolor *.crexx rxc';
 'set autocolor *.crx rxc';
 'set autocolor *.the rxc';
-'set sdslh dslsh-c ~/.local/bin/dslsh-c --syntaxhighlight';
+'set sdslh dslsh-c dslsh-c --syntaxhighlight';
 'set autocolor *.c dslsh-c';
 'set autocolor *.h dslsh-c';
-'set sdslh pyp ~/.local/bin/pyp --syntaxhighlight';
+'set sdslh pyp pyp --syntaxhighlight';
 'set autocolor *.py pyp';
-'set sdslh jsp ~/.local/bin/jsp --syntaxhighlight';
+'set sdslh jsp jsp --syntaxhighlight';
 'set autocolor *.js jsp';
 'set autocolor *.mjs jsp';
 'set autocolor *.cjs jsp';
-'set sdslh mdp ~/.local/bin/mdp --syntaxhighlight';
+'set sdslh mdp mdp --syntaxhighlight';
 'set autocolor *.md mdp';
 'set autocolor *.markdown mdp';
 'set coloring on auto';

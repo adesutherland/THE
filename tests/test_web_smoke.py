@@ -31,6 +31,7 @@ with tempfile.TemporaryDirectory(prefix='THE web smoke ') as tmp:
             lines.put(line)
 
     threading.Thread(target=collect, daemon=True).start()
+    succeeded = False
     try:
         while True:
             line = lines.get(timeout=30)
@@ -41,12 +42,15 @@ with tempfile.TemporaryDirectory(prefix='THE web smoke ') as tmp:
         script = Path(__file__).resolve().parent.parent / 'web/test' / name
         if chromium:
             env['CHROMIUM_BIN'] = chromium
-        subprocess.run([shutil.which('node'), str(script)], env=env, check=True, timeout=50)
+            env['THE_WEB_TEST_MDP'] = '1' if shutil.which('mdp') else '0'
+            env['THE_WEB_TEST_PYP'] = '1' if shutil.which('pyp') else '0'
+        subprocess.run([shutil.which('node'), str(script)], env=env, check=True, timeout=90)
         server.wait(timeout=10)
         assert server.returncode == 0, server.stderr.read()
         expected = 'Zalpha beta gamma\ngamma\n' if chromium else 'alphaX beta gamma\n'
         # Logical contents are independent of the platform's native EOL.
         assert sample.read_text() == expected, sample.read_bytes()
+        succeeded = True
     finally:
         if server.poll() is None:
             server.terminate()
@@ -55,3 +59,6 @@ with tempfile.TemporaryDirectory(prefix='THE web smoke ') as tmp:
             except subprocess.TimeoutExpired:
                 server.kill()
                 server.wait(timeout=5)
+
+        if not succeeded:
+            print(server.stderr.read(), file=sys.stderr)

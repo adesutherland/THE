@@ -69,7 +69,8 @@ file. Reserved input stays temporary until the macro updates its definitions.
 
 The shared field/input model serves curses, the LLM protocol and the browser.
 The browser renders editable/protected fields, submission controls and a PF/PA
-selector. Trusted host profiles can bind macros; existing restrictions on
+selector. Parser commands use the host PATH: the package provides the cREXX
+highlighter; Markdown, Python, C and JavaScript parser executables are optional. Trusted host profiles can bind macros; existing restrictions on
 client-issued macro/OS commands remain. A browser disconnect cancels its panel.
 Curses uses native keyboard and mouse input. LLM READ holds the macro while
 consuming `look`, `text TEXT`, `key NAME`, and `hit ROW CELL`; `cancel`, `quit`

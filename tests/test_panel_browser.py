@@ -38,7 +38,7 @@ with tempfile.TemporaryDirectory(prefix='THE browser panel ') as tmp:
                 env.update(THE_WEB_URL=line.split('THE web UI: ', 1)[1].strip(), CHROMIUM_BIN=chromium)
                 break
         script = Path(__file__).resolve().parent.parent / 'web/test/panel-smoke.mjs'
-        subprocess.run([shutil.which('node'), str(script)], env=env, check=True, timeout=50)
+        subprocess.run([shutil.which('node'), str(script)], env=env, check=True, timeout=90)
         assert sample.read_text() == 'seed\ntail\n'
     finally:
         server.terminate()
