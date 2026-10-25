@@ -28,6 +28,9 @@ import zipfile
 spec = importlib.util.spec_from_file_location('release_tools', Path(__file__).with_name('sign-windows-release.py'))
 release_tools = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release_tools)
+installer_spec = importlib.util.spec_from_file_location('macos_installer', Path(__file__).with_name('macos_installer.py'))
+installer_builder = importlib.util.module_from_spec(installer_spec)
+installer_spec.loader.exec_module(installer_builder)
 
 SECRET_NAMES = (
     'APPLE_DEVELOPER_ID_CERTIFICATE_BASE64', 'APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD',
@@ -236,8 +239,12 @@ def main():
     release.check()
     with signing_keychain() as keychain:
         for path in binaries:
+            entitlements = []
+            if path.relative_to(payload).as_posix() in ('libexec/the/the', 'libexec/the/the-launcher'):
+                entitlements = ['--entitlements', Path(__file__).resolve().parent.parent /
+                                'packaging/macos/host-entitlements.plist']
             run('codesign', '--force', '--timestamp', '--options', 'runtime', '--keychain', keychain,
-                '--sign', os.environ['APPLE_DEVELOPER_ID_IDENTITY'], path)
+                '--sign', os.environ['APPLE_DEVELOPER_ID_IDENTITY'], *entitlements, path)
         verify_code(payload)
         manifest['files_sha256'] = {p.relative_to(payload).as_posix(): file_hash(p) for p in payload.rglob('*')
                                     if p.is_file() and p != payload / 'manifest.json'}
@@ -249,20 +256,14 @@ def main():
         (payload / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
         validate_payload(payload, args.tag[1:], args.arch, release.commit)
         smoke(payload)
+        if (payload / 'libexec/the/the-launcher').exists():
+            run(sys.executable, Path(__file__).resolve().parent.parent / 'tests/test_runtime_selection.py',
+                '--prefix', payload)
+            print('Signed runtime selection and cache tests passed, including a differently signed installed cREXX', flush=True)
         archive = Path(shutil.make_archive(str(signed / name), 'zip', payload.parent, name))
-        root = work / 'pkgroot'
-        destination = root / 'usr/local/the-crexx'
-        destination.parent.mkdir(parents=True)
-        shutil.copytree(payload, destination)
-        links = root / 'usr/local/bin'
-        links.mkdir()
-        (links / 'the').symlink_to('../the-crexx/bin/the')
-        component = work / 'component.pkg'
-        run('pkgbuild', '--root', root, '--identifier', 'org.crexx.the', '--version',
-            re.split(r'[-+]', args.tag[1:])[0], '--install-location', '/', component)
         installer = signed / (name + '.pkg')
-        run('productbuild', '--package', component, '--sign', os.environ['APPLE_DEVELOPER_ID_INSTALLER_IDENTITY'],
-            '--keychain', keychain, '--timestamp', installer)
+        installer_builder.build_installer(payload, installer, args.tag[1:], work, run=run,
+            identity=os.environ['APPLE_DEVELOPER_ID_INSTALLER_IDENTITY'], keychain=keychain)
         run('pkgutil', '--check-signature', installer)
         submissions = {archive.name: notarize(archive), installer.name: notarize(installer)}
         staple(installer)
@@ -273,6 +274,10 @@ def main():
         if Path('/usr/local/bin/the').resolve() != installed / 'bin/the':
             raise RuntimeError('Installer did not create the expected THE launcher symlink')
         smoke(installed, read_only=True)
+        if (installed / 'libexec/the/the-launcher').exists():
+            run(sys.executable, Path(__file__).resolve().parent.parent / 'tests/test_macos_runtime_installer.py',
+                '--installer', installer)
+            print('macOS Installer default, installed-runtime choice and automatic fallback passed', flush=True)
         print('Signed PKG installed and tested on the disposable runner', flush=True)
     checksums = signed / (name + '-SHA256SUMS.txt')
     checksums.write_text(''.join(f'{file_hash(p)}  {p.name}\n' for p in (archive, installer)))
