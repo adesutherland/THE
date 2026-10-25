@@ -1,0 +1,18 @@
+/* Example: reserved fields and native Regina PULL results. */
+address THE
+'set curline off'
+'set ctlchar ! escape'
+'set ctlchar p protect white'
+'set ctlchar u noprotect green'
+'set reserved 2 !pName: !uGuest           !p  Enter submits; Esc cancels'
+'set reserved 4 !pTopic: !uTHE panels      !p'
+'read nochange tag'
+readrc = rc
+do while queued() > 0
+   parse pull value
+   'emsg PANEL_RESULT' value
+end
+'emsg PANEL_RC' readrc
+'set reserved * off'
+'set curline on M'
+exit readrc

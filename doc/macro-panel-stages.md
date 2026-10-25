@@ -26,3 +26,9 @@ Stage 1 published as [v4.0.0-regina.1](https://github.com/adesutherland/THE/rele
 commit `99e43c2`, after 67/67 macOS tests and Windows run `40177173979`
 (54 passed, 11 unavailable-tool skips). Both installed payloads passed the
 86-workflow patched-original suite; original source remains unchanged.
+
+Stage 2 published as [v4.0.0-levelg.1](https://github.com/adesutherland/THE/releases/tag/v4.0.0-levelg.1),
+commit `c8eae43`, after 70/70 macOS tests and Windows run `40180543859`
+(56 passed, 11 unavailable-tool skips). Both installed payloads passed 121
+patched-original Regina workflows and 121 Level G workflows, with exact text,
+cursor, pending-command and error-marker parity.

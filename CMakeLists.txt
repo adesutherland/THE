@@ -474,6 +474,8 @@ set(THE_SOURCES
     src/textedit.c
     src/textpos.c
     src/utfinput.c
+    src/panel.c
+    src/panelui.c
     src/transientui.c
     src/uidriver.c
     src/utfcluster.c
@@ -621,7 +623,7 @@ elseif(WIN32)
     target_link_libraries(the_driver_curses ${EXECUTABLE_NAME})
     target_link_libraries(the_driver_llm ${EXECUTABLE_NAME})
     if(USE_WEB_DRIVER)
-        target_link_libraries(the_driver_web ${EXECUTABLE_NAME})
+        target_link_libraries(the_driver_web ${EXECUTABLE_NAME} ws2_32 advapi32)
     endif()
 endif()
 
@@ -657,6 +659,8 @@ set(THE_RUNTIME_PROFILE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/crexxrun.the
     ${CMAKE_CURRENT_SOURCE_DIR}/pfxrexx.the
     ${CMAKE_CURRENT_SOURCE_DIR}/pfxsetup.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/paneldemo.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/paneldemo_regina.the
     ${CMAKE_CURRENT_SOURCE_DIR}/pfxsetupg.the
     ${CMAKE_CURRENT_SOURCE_DIR}/pfxstructuredg.the
 )
@@ -909,6 +913,7 @@ install(TARGETS ${THE_DRIVER_MODULES}
     LIBRARY DESTINATION lib/the/drivers
     RUNTIME DESTINATION lib/the/drivers)
 if(USE_WEB_DRIVER)
+    install(FILES ${mongoose_SOURCE_DIR}/LICENSE DESTINATION share/doc/the/mongoose)
     install(DIRECTORY ${THE_WEB_BUILD_DIR}/ DESTINATION share/the/web
         PATTERN ".build-stamp" EXCLUDE)
 endif()
@@ -925,10 +930,10 @@ if(WIN32)
 endif()
 install(FILES doc/THE_Help.txt profile.the profile_regina.the web-profile.the profile_crexx.the crexxcompile.the crexxrun.the DESTINATION share/the)
 install(FILES pfxrexx.the pfxsetup.the DESTINATION share/the)
-install(FILES pfxsetupg.the pfxstructuredg.the DESTINATION share/the)
+install(FILES paneldemo.the paneldemo_regina.the pfxsetupg.the pfxstructuredg.the DESTINATION share/the)
 install(DIRECTORY compat/shmuel DESTINATION share/the/macro-patches/compat)
 install(FILES scripts/prepare-shmuel-macros.py DESTINATION share/the/macro-patches/scripts)
-install(FILES doc/pfxrexx.md doc/pfxrexx-levelg.md doc/rexx-interpreters.md DESTINATION share/doc/the)
+install(FILES doc/panels.md doc/pfxrexx.md doc/pfxrexx-levelg.md doc/rexx-interpreters.md DESTINATION share/doc/the)
 install(FILES LICENSE DESTINATION share/doc/the)
 if(USE_SDSLH AND EXISTS "${DSLSH_SOURCE_DIR}/LICENSE")
     install(FILES "${DSLSH_SOURCE_DIR}/LICENSE" DESTINATION share/doc/the/dslsh)
@@ -1045,6 +1050,15 @@ if(THE_PYTHON_EXECUTABLE)
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_prepare_shmuel.py)
 endif()
 if(THE_USE_REGINA AND REGINA_LIBRARY AND THE_PYTHON_EXECUTABLE)
+    if(NOT WIN32)
+        add_test(NAME test_panel_curses COMMAND ${THE_PYTHON_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_panel_curses.py $<TARGET_FILE:the>)
+        set_tests_properties(test_panel_curses PROPERTIES TIMEOUT 60 RESOURCE_LOCK the_pty_editor
+            ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    endif()
+    add_test(NAME test_panels COMMAND ${THE_PYTHON_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_panels.py $<TARGET_FILE:the>)
+    set_tests_properties(test_panels PROPERTIES TIMEOUT 180 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     add_test(NAME test_trunc COMMAND ${THE_PYTHON_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_trunc.py $<TARGET_FILE:the>)
     set_tests_properties(test_trunc PROPERTIES TIMEOUT 45 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
@@ -1314,8 +1328,16 @@ if(USE_WEB_DRIVER)
         SKIP_RETURN_CODE 77
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     find_program(THE_CHROMIUM_EXECUTABLE
-        NAMES google-chrome chromium chromium-browser)
+        NAMES google-chrome chromium chromium-browser chrome
+        HINTS "$ENV{PROGRAMFILES}/Google/Chrome/Application")
     if(THE_CHROMIUM_EXECUTABLE)
+        foreach(panel_engine CREXX REGINA)
+            add_test(NAME test_panel_browser_${panel_engine}
+                COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_panel_browser.py
+                    $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR} ${THE_CHROMIUM_EXECUTABLE} ${panel_engine})
+            set_tests_properties(test_panel_browser_${panel_engine} PROPERTIES TIMEOUT 90
+                RESOURCE_LOCK the_web_browser ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+        endforeach()
         add_test(NAME test_the_web_browser
             COMMAND ${THE_BASH_COMMAND}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_web_browser.sh
@@ -1355,7 +1377,7 @@ set_tests_properties(test_driver_modules PROPERTIES
     TIMEOUT 20
     RESOURCE_LOCK the_pty_editor
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
-add_executable(test_llmruntime tests/test_llmruntime.c src/llm/llmruntime.c src/llm/llmdriver.c src/parserdiagnostics.c src/inputevent.c src/frontendaction.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
+add_executable(test_llmruntime tests/test_llmruntime.c src/panelui.c src/llm/llmruntime.c src/llm/llmdriver.c src/parserdiagnostics.c src/inputevent.c src/frontendaction.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmruntime PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8)
     target_sources(test_llmruntime PRIVATE src/rendercell.c src/utfterm.c src/utflayout.c src/utfcluster.c)

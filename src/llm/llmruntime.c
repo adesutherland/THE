@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "screenframe.h"
+#include "panelui.h"
 #include "parserdiagnostics.h"
 #include "the.h"
 #include "vars.h"
@@ -219,5 +220,18 @@ size_t llm_runtime_format_screen(CHARTYPE scrno,
    formatted = llm_driver_format_semantic_view_with_options(view, options,
                                                             out, out_len);
    free(view);
+   if (the_panel_active && formatted > 0)
+   {
+      size_t end = strlen(out), n;
+      while (end && (out[end-1]=='\n' || out[end-1]=='\r' || out[end-1]==' ')) end--;
+      if (end && out[end-1]=='}' && out_len-end>16)
+      {
+         end--;
+         memcpy(out+end, ",\"panel\":", 9); end+=9;
+         n=panel_ui_json(the_panel_active,out+end,out_len-end-2);
+         if (n) { end+=n; out[end++]='}'; out[end]=0; formatted=end; }
+         else { out[0]=0; formatted=0; }
+      }
+   }
    return formatted;
 }

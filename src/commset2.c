@@ -1552,7 +1552,7 @@ short Reserved(CHARTYPE *params)
          /*
           * If the reserved row is the same row as CURLINE, return ERROR.
           */
-         if ( calculate_actual_row( CURRENT_VIEW->current_base,
+         if ( !CURRENT_VIEW->curline_off && calculate_actual_row( CURRENT_VIEW->current_base,
                                     CURRENT_VIEW->current_off,
                                     CURRENT_SCREEN.rows[WINDOW_FILEAREA], TRUE ) ==
               calculate_actual_row( base, off, CURRENT_SCREEN.rows[WINDOW_FILEAREA], FALSE ) )

@@ -5927,6 +5927,7 @@ short execute_preserve(VIEW_DETAILS *src_vd, PRESERVED_VIEW_DETAILS **preserved_
    (*preserved_view_details)->case_sort                   = src_vd->case_sort;
    (*preserved_view_details)->cmd_line                    = src_vd->cmd_line;
    (*preserved_view_details)->current_row                 = src_vd->current_row;
+   (*preserved_view_details)->curline_off = src_vd->curline_off;
    (*preserved_view_details)->current_base                = src_vd->current_base;
    (*preserved_view_details)->current_off                 = src_vd->current_off;
    (*preserved_view_details)->display_low                 = src_vd->display_low;
@@ -6039,6 +6040,7 @@ short execute_restore(VIEW_DETAILS *dst_vd, PRESERVED_VIEW_DETAILS **preserved_v
    dst_vd->case_sort                   = (*preserved_view_details)->case_sort;
    dst_vd->cmd_line                    = (*preserved_view_details)->cmd_line;
    dst_vd->current_row                 = (*preserved_view_details)->current_row;
+   dst_vd->curline_off = (*preserved_view_details)->curline_off;
    dst_vd->current_base                = (*preserved_view_details)->current_base;
    dst_vd->current_off                 = (*preserved_view_details)->current_off;
    dst_vd->display_low                 = (*preserved_view_details)->display_low;

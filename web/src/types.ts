@@ -36,6 +36,13 @@ export interface Diagnostic {
 }
 
 export interface Snapshot {
+  panel?: {
+    rows: number;
+    cols: number;
+    active: number;
+    cursor: number;
+    fields: { row: number; cell: number; width: number; editable: number; changed: number; kind: string; text: string }[];
+  };
   mode: string;
   rows: number;
   cols: number;

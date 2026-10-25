@@ -3,7 +3,7 @@
 
 ## Syntax
 ```text
-[SET] CURLine [ON] M[+n|-n] | [+|-]n
+[SET] CURLine OFF | [ON] M[+n|-n] | [+|-]n
 ```
 
 ## Description
@@ -39,3 +39,5 @@ M
 
 ## Status
 Complete.
+
+OFF allows a full READ panel to reserve every row. Restore with SET CURLINE ON M.

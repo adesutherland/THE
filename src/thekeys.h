@@ -8,6 +8,9 @@
  */
 
 #define THE_KEY_NONE        (-1)
+#define THE_KEY_PA1         0x3b0
+#define THE_KEY_PA2         0x3b1
+#define THE_KEY_PA3         0x3b2
 #define THE_KEY_MIN         0x101
 #define THE_KEY_BREAK       0x101
 #define THE_KEY_DOWN        0x102

@@ -77,6 +77,10 @@ The bundled [Level G prefix workflows](pfxrexx-levelg.md) provide the broader
 Rexx and HLASM template workflows with cREXX: run `macro pfxsetupg REXX` or
 `macro pfxsetupg HLASM`. Regina remains available for the patched originals.
 
+The [panel examples](panels.md) work with either engine: `macro paneldemo`
+for cREXX, `macro paneldemo_regina` for Regina. Both use shared protected/editable
+fields and tagged READ results, with the documented queue adaptation for cREXX.
+
 ## Building
 
 `-DTHE_REXX_INTERPRETER=CREXX|REGINA|NONE` sets the build's default.

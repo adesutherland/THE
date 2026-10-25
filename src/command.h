@@ -379,6 +379,7 @@ COMMAND command[] =
 #else
  {(CHARTYPE *)"recover",     3,  THE_KEY_F(8),        Recover,          FALSE,FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm4.c */
 #endif
+ {(CHARTYPE *)"read",        4,  (-1),            THERead,            TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */
  {(CHARTYPE *)"readv",       5,  (-1),            Readv,            TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */
  {(CHARTYPE *)"readonly",    8,  (-1),            THEReadonly,      TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset2.c */
  {(CHARTYPE *)"redit",       5,  (-1),            Redit,            FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */

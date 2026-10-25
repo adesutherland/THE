@@ -9,6 +9,8 @@
  X(RexxRegisterFunctionExe,APIRET,(PCSZ,RexxFunctionHandler *)) \
  X(RexxDeregisterFunction,APIRET,(PCSZ)) \
  X(RexxVariablePool,APIRET,(PSHVBLOCK)) \
+ X(RexxQueryQueue,ULONG,(PSZ,ULONG *)) \
+ X(RexxAddQueue,ULONG,(PSZ,PRXSTRING,ULONG)) \
  X(RexxSetHalt,APIRET,(LONG,LONG)) \
  X(RexxAllocateMemory,PVOID,(ULONG)) \
  X(RexxFreeMemory,APIRET,(PVOID))
@@ -50,6 +52,8 @@ failed:
 #define RexxRegisterFunctionExe the_RexxRegisterFunctionExe
 #define RexxDeregisterFunction the_RexxDeregisterFunction
 #define RexxVariablePool the_RexxVariablePool
+#define RexxQueryQueue the_RexxQueryQueue
+#define RexxAddQueue the_RexxAddQueue
 #define RexxSetHalt the_RexxSetHalt
 #define RexxAllocateMemory the_RexxAllocateMemory
 #define RexxFreeMemory the_RexxFreeMemory

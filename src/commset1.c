@@ -2318,7 +2318,8 @@ DESCRIPTION
 
      See <SET COLOUR> for valid values for 'modifier', 'fore' and 'back'.
 
-     The 'Protect' and 'Noprotect' arguments are ignored.
+     Protect/Noprotect define protected/editable fields during READ panels.
+     Outside READ these flags do not restrict ordinary editing.
 
 COMPATIBILITY
      XEDIT: Similar, but does not support all parameters.
@@ -2646,9 +2647,9 @@ short Curline(CHARTYPE *params)
          }
          else
          {
-            display_error( 1, (CHARTYPE *)word[0], FALSE );
-            TRACE_RETURN();
-            return( RC_INVALID_OPERAND );
+            CURRENT_VIEW->curline_off = TRUE;
+            build_screen(current_screen); display_screen(current_screen);
+            TRACE_RETURN(); return RC_OK;
          }
          break;
       case 2:
@@ -2751,6 +2752,7 @@ short Curline(CHARTYPE *params)
          CURRENT_VIEW->current_base = base;
          CURRENT_VIEW->current_off = off;
       }
+      CURRENT_VIEW->curline_off = FALSE;
       post_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL,TRUE);
       CURRENT_VIEW->current_row = curline_row;
       build_screen(current_screen);
@@ -4304,9 +4306,8 @@ DESCRIPTION
      the following text.
 
      FILECTLCHAR is intended for generated output buffers and simple
-     XEDIT-style display panels. It affects display only. The Protect
-     and Noprotect attributes stored by SET CTLCHAR are still ignored by
-     THE editing commands.
+     XEDIT-style display panels. READ enforces Protect/Noprotect fields.
+     Outside READ these flags do not restrict ordinary editing.
 
 COMPATIBILITY
      XEDIT: Similar to the undocumented READ NOCHANGE file-line CTLCHAR

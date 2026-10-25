@@ -37,6 +37,7 @@
 # define INCL_RXSHV          /* Shared variable support */
 # define INCL_RXSYSEXIT      /* System exit routines */
 # define INCL_RXARI          /* Halt and Trace */
+# define INCL_RXQUEUE        /* Fullscreen READ results */
 
 #include <the.h>
 
@@ -2120,6 +2121,30 @@ static short set_rexx_variables_from_file
 #endif
 
 static bool macro_initialised=FALSE;
+
+int the_read_queue_depth(void)
+{
+#ifdef USE_REGINA
+   ULONG depth=0;
+   if (macro_initialised && the_macro_uses_regina())
+      return RexxQueryQueue("SESSION", &depth) == 0 ? (int)depth : -1;
+#endif
+   return 0;
+}
+
+short the_read_queue_push(const char *text)
+{
+#ifdef USE_REGINA
+   RXSTRING value;
+   if (macro_initialised && the_macro_uses_regina())
+   {
+      MAKERXSTRING(value,(char *)text,strlen(text));
+      return RexxAddQueue("SESSION", &value, RXQUEUE_LIFO) == 0 ? RC_OK : RC_INVALID_ENVIRON;
+   }
+#endif
+   (void)text;
+   return RC_OK;
+}
 
 /* The public bridge dispatches one engine for the lifetime of this process. */
 /***********************************************************************/

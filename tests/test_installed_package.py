@@ -93,3 +93,6 @@ with tempfile.TemporaryDirectory(prefix='THE package smoke ') as tmp:
                            env=g_env, check=True, timeout=180)
             subprocess.run([sys.executable, str(Path(__file__).with_name('test_prefix_port_parity.py')),
                             str(prepared)], env=g_env, check=True, timeout=15)
+            for panel_engine, panel_env in [('REGINA', env), ('CREXX', g_env)]:
+                subprocess.run([sys.executable, str(Path(__file__).with_name('test_panels.py')),
+                                str(executable), panel_engine], env=panel_env, check=True, timeout=180)

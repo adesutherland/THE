@@ -464,6 +464,7 @@ void set_view_defaults(VIEW_DETAILS *viewp)
    viewp->id_line = TRUE;
    viewp->in_ring = FALSE;
    viewp->current_row = 0;   /* this is set once we know the screen size */
+   viewp->curline_off = FALSE;
    viewp->current_base = POSITION_MIDDLE;
    viewp->current_off = 0;
    viewp->display_high = 0;
@@ -856,6 +857,7 @@ short defaults_for_other_files(VIEW_DETAILS *base_view)
       CURRENT_VIEW->case_sort =       base_view->case_sort;
       CURRENT_VIEW->cmd_line =        base_view->cmd_line;
       CURRENT_VIEW->id_line =         base_view->id_line;
+      CURRENT_VIEW->curline_off = base_view->curline_off;
       CURRENT_VIEW->current_base =    base_view->current_base;
       CURRENT_VIEW->current_off =     base_view->current_off;
       CURRENT_VIEW->current_row =     base_view->current_row;
@@ -920,6 +922,7 @@ short defaults_for_other_files(VIEW_DETAILS *base_view)
       CURRENT_VIEW->case_sort =       PREVIOUS_VIEW->case_sort;
       CURRENT_VIEW->cmd_line =        PREVIOUS_VIEW->cmd_line;
       CURRENT_VIEW->id_line =         PREVIOUS_VIEW->id_line;
+      CURRENT_VIEW->curline_off = PREVIOUS_VIEW->curline_off;
       CURRENT_VIEW->current_base =    PREVIOUS_VIEW->current_base;
       CURRENT_VIEW->current_off =     PREVIOUS_VIEW->current_off;
       CURRENT_VIEW->current_row =     PREVIOUS_VIEW->current_row;

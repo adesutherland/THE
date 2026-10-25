@@ -1024,6 +1024,7 @@ typedef struct
    CHARTYPE case_sort;       /* indicates case significance for sorting */
    ROWTYPE cmd_line;                        /* position of command line */
    ROWTYPE current_row;                     /* row which is current row */
+   bool curline_off;             /* allow panels to reserve every row */
    short current_base;   /* indicates relative position of current line */
    short current_off;       /* offset from current_base for current_row */
    SELECTTYPE display_low;                /* low range of display level */
@@ -1105,6 +1106,7 @@ struct view_details
    CHARTYPE case_sort;       /* indicates case significance for sorting */
    ROWTYPE cmd_line;                        /* position of command line */
    ROWTYPE current_row;                     /* row which is current row */
+   bool curline_off;             /* allow panels to reserve every row */
    short current_base;   /* indicates relative position of current line */
    short current_off;       /* offset from current_base for current_row */
    SELECTTYPE display_low;                /* low range of display level */

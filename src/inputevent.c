@@ -47,6 +47,11 @@ static const TheInputKeyName input_key_names[] =
    { "delete", THE_KEY_DC },
    { "del", THE_KEY_DC },
    { "insert", THE_KEY_IC },
+   { "clear", THE_KEY_CLEAR },
+   { "eraseeof", THE_KEY_EOL },
+   { "pa1", THE_KEY_PA1 },
+   { "pa2", THE_KEY_PA2 },
+   { "pa3", THE_KEY_PA3 },
    { NULL, 0 }
 };
 

@@ -220,6 +220,10 @@ function App() {
 
   const onEditorKeyDown = useCallback(
     (event: KeyboardEvent) => {
+      if (snapshot?.panel && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        return;
+      }
       const commandModifier = event.ctrlKey || event.metaKey;
       if (commandModifier && event.key.toLowerCase() === "s") {
         event.preventDefault();
@@ -246,13 +250,13 @@ function App() {
         if (!event.shiftKey) requestAction("edit.undo");
         return;
       }
-      const key = event.shiftKey && event.key === "Tab" ? "backtab" : keyNames[event.key];
+      const key = /^F([1-9]|1[0-9]|2[0-4])$/.test(event.key) ? event.key.toLowerCase() : event.shiftKey && event.key === "Tab" ? "backtab" : keyNames[event.key];
       if (key) {
         event.preventDefault();
         send({ type: "key", key });
       }
     },
-    [requestAction, send],
+    [requestAction, send, snapshot?.panel],
   );
 
   const rows = snapshot?.screen_rows ?? [];
@@ -401,6 +405,32 @@ function App() {
           </aside>
         ) : null}
         <div class="editor-scroll" onClick={focusEditor}>
+          {snapshot?.panel ? (
+            <div class="fullscreen-panel" role="dialog" aria-modal="true" aria-label="Macro panel">
+              <div class="panel-surface" style={{ width: `${snapshot.panel.cols}ch`, height: `${snapshot.panel.rows * 21}px` }}>
+                {snapshot.panel.fields.map((field, index) => (
+                  <span
+                    class={`panel-field ${field.editable ? "panel-editable" : "panel-protected"} ${snapshot.panel?.active === index ? "panel-focused" : ""}`}
+                    style={{ top: `${field.row * 21}px`, left: `${field.cell}ch`, width: `${field.width}ch` }}
+                    onClick={() => { if (field.editable) send({ type: "hit", target: "window", row: field.row, cell: field.cell }); }}
+                  >
+                    {field.text}
+                    {snapshot.panel?.active === index ? <span class="logical-cursor" style={{ left: `${snapshot.panel.cursor}ch` }} /> : null}
+                  </span>
+                ))}
+              </div>
+              <div class="panel-controls">
+                <span>Macro input · Tab changes field</span>
+                <button type="button" onClick={() => send({ type: "key", key: "enter" })}>Enter</button>
+                <select aria-label="Panel function key" onChange={(event) => { if (event.currentTarget.value) send({ type: "key", key: event.currentTarget.value }); event.currentTarget.value = ""; }}>
+                  <option value="">Function key…</option>
+                  {Array.from({ length: 24 }, (_, i) => <option value={`f${i + 1}`}>PF{i + 1}</option>)}
+                  {Array.from({ length: 3 }, (_, i) => <option value={`pa${i + 1}`}>PA{i + 1}</option>)}
+                </select>
+                <button type="button" onClick={() => send({ type: "key", key: "esc" })}>Cancel</button>
+              </div>
+            </div>
+          ) : null}
           <div class="editor-grid" style={{ minWidth: `${Math.max(snapshot?.cols ?? 80, 80)}ch` }}>
             {rows.map((row) => {
               const cursorVisible = cursorRow === row && snapshot?.focus.zone === "filearea";

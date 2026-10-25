@@ -5,6 +5,9 @@ help, the Classic PFXREXX adaptation, compiled Level G Rexx/HLASM prefix
 workflows, the minimal original-macro patch kit, and a private matching cREXX tool set.
 Regina is optional, loaded only when selected, and is never bundled.
 See [interpreter setup](../doc/rexx-interpreters.md).
+The panel candidate enables the experimental browser driver as well as curses
+and LLM input. Run `the --driver web file` to open its local URL. Shared macro
+forms and their qualification limits are described in [panels](../doc/panels.md).
 
 Build maintainers need CMake, the normal THE dependencies, cREXX ABI 3+
 headers/shared runtime/tools, and Regina's `rexxsaa.h` for optional Regina

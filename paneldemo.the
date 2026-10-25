@@ -1,0 +1,29 @@
+/* Level G panel example. READ supplies a sandbox result stem; PUSH/PULL
+ * below uses cREXX's execution-local queue in this same macro invocation. */
+options levelg
+namespace the_panel_demo
+import rxfnsb
+
+main: procedure
+  address the 'set curline off';
+  address the 'set ctlchar ! escape';
+  address the 'set ctlchar p protect white';
+  address the 'set ctlchar u noprotect green';
+  address the 'set reserved 2 !pName: !uGuest           !p  Enter submits; Esc cancels';
+  address the 'set reserved 4 !pTopic: !uTHE panels      !p';
+  pool = .standardaddresssandbox()
+  address the 'read nochange tag' sandbox pool;
+  readrc = rc
+  count = pool.get('read.0') as .int
+  do index = count to 1 by -1
+    value = pool.get('read.' || index)
+    push value
+  end
+  do while queued() > 0
+    parse pull value
+    address the 'emsg PANEL_RESULT ' || value;
+  end
+  address the 'emsg PANEL_RC ' || readrc;
+  address the 'set reserved * off';
+  address the 'set curline on M';
+  exit readrc

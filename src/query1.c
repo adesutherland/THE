@@ -1064,7 +1064,9 @@ short extract_ctrl_function(short number_variables,short itemno,CHARTYPE *itemar
 short extract_curline(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   if (CURRENT_VIEW->current_base == POSITION_MIDDLE)
+   if (CURRENT_VIEW->curline_off)
+      strcpy((DEFCHAR *)query_rsrvd,"OFF");
+   else if (CURRENT_VIEW->current_base == POSITION_MIDDLE)
    {
       if (CURRENT_VIEW->current_off == 0)
          strcpy((DEFCHAR *)query_rsrvd,"M");

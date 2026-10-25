@@ -3558,7 +3558,7 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
       /*
        * Determine if line being processed is the current line.
        */
-      if (cline == screen_view->current_line)
+      if (!screen_view->curline_off && cline == screen_view->current_line)
          scurr->is_current_line = current = TRUE;
       else
          scurr->is_current_line = current = FALSE;

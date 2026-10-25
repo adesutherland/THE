@@ -666,6 +666,7 @@ short Quit (CHARTYPE *);
 short Query (CHARTYPE *);
 short THEReadonly (CHARTYPE *);
 short Readv (CHARTYPE *);
+short THERead (CHARTYPE *);
 short THERecord (CHARTYPE *);
 short Recover (CHARTYPE *);
 short Reexecute (CHARTYPE *);

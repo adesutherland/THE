@@ -12,6 +12,7 @@
 #include "frontendaction.h"
 #include "frontendpolicy.h"
 #include "inputevent.h"
+#include "panelui.h"
 #include "llmdriver.h"
 #include "llmruntime.h"
 #include "mongoose.h"
@@ -707,7 +708,14 @@ static void web_driver_http_event(struct mg_connection *connection, int event,
          web_driver_handle_message(connection, message->data);
    }
    else if (event == MG_EV_CLOSE && web_state.client == connection)
+   {
       web_state.client = NULL;
+      if (the_panel_active)
+      {
+         TheInputEvent cancel;
+         if (the_input_event_from_key_name("esc", &cancel)) the_input_queue_push(&web_state.inputs, cancel);
+      }
+   }
 }
 
 static int web_driver_activate(void)

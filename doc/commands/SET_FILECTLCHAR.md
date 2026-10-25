@@ -25,8 +25,9 @@ A line containing `normal !Rred!N normal` is displayed as `normal red normal`,
 with the middle word shown using the CTLCHAR `R` attributes.
 
 FILECTLCHAR is intended for generated output buffers and simple XEDIT-style
-display panels. It affects display only. The Protect and Noprotect attributes
-stored by SET CTLCHAR are still ignored by THE editing commands.
+display panels. During READ, Protect/Noprotect define the editable fields; see
+[macro panels](../panels.md). Outside READ, ordinary editing commands do not
+enforce those field flags.
 When CTLCHAR colours are applied in file-area lines, THE preserves the current
 file-area background and applies the marker foreground/modifiers. This avoids
 visible background patches in ordinary output buffers.
