@@ -1,4 +1,19 @@
-# Shmuel macro qualification — 24 October 2026
+# Shmuel macro qualification — updated 25 October 2026
+
+All three stages are implemented, committed and published as pre-releases:
+[Regina fixes](https://github.com/adesutherland/THE/releases/tag/v4.0.0-regina.1),
+[Level G ports](https://github.com/adesutherland/THE/releases/tag/v4.0.0-levelg.1),
+and [shared panels](https://github.com/adesutherland/THE/releases/tag/v4.0.0-panels.1).
+The latest installer includes all three. Original downloads remain unchanged;
+corrections are maintained as minimal patches, with independent Level G ports.
+
+The final candidate passed macOS 81/81 and Windows Release
+[run 40187434155](https://github.com/adesutherland/THE/actions/runs/40187434155)
+(64 passed, 13 unavailable-tool skips). Installed payloads passed 121 Regina
+workflows, 121 Level G workflows with exact parity, and 35 panel scenarios.
+Rendered browser forms work with both engines; the installed browser loads its
+own assets with an isolated PATH. Windows install/reinstall/uninstall passed.
+**No handoff to Shmuel until Adrian completes his manual Windows test.**
 
 The sections dated 24 October retain the unchanged-package observations.
 The current delivery is summarized in [the staged report](macro-panel-stages.md),
@@ -162,8 +177,8 @@ minimal patch set. No original download was changed or bundled.
 
 Stage 3 adds shared READ panel fields for curses, browser and LLM input, with
 ALL/NOCHANGE, protection, navigation, submission keys and tagged results. The
-local suite passes 80/80, including real curses and Chromium interaction;
+local suite passes 81/81, including real curses and Chromium interaction;
 the installed macOS payload passes both macro suites and 35 panel scenarios
-across Regina and cREXX. Final Windows qualification and panel pre-release
-publication follow separately. The no-handoff hold remains until Adrian's
+across Regina and cREXX. Final Windows qualification and publication are recorded above and in the
+[staged delivery report](macro-panel-stages.md). The no-handoff hold remains until Adrian's
 manual Windows test, including cursor and ordinary editing behavior.

@@ -189,9 +189,9 @@ try {
   await command("Page.navigate", { url: pageUrl });
   await waitFor(() => evaluate("document.querySelector('.connection')?.textContent.trim() === 'online'"), "reconnected editor");
   await waitFor(() => evaluate("!!document.querySelector('.app-shell') && !document.querySelector('.fullscreen-panel')"), "disconnect cancellation");
+  // The WebSocket opens before its first buffer snapshot is rendered.
+  await waitFor(() => evaluate("[...document.querySelectorAll('.line-text')].map(n => n.textContent).filter(t => t === 'seed' || t === 'tail').join('|') === 'seed|tail'"), "unchanged buffer snapshot after reconnect");
   if (exceptions.length) throw new Error(exceptions.join("\n"));
-  const original = await evaluate("[...document.querySelectorAll('.line-text')].map(n => n.textContent).filter(t => t === 'seed' || t === 'tail')");
-  if (original.join("|") !== "seed|tail") throw new Error("panel changed the underlying file");
   console.log("Browser panel: rendered fields, text, Tab, protected label, PF3, cancel and unchanged file passed");
 } finally {
   if (socket?.readyState === WebSocket.OPEN) socket.close();

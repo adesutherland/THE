@@ -15,6 +15,7 @@ with tempfile.TemporaryDirectory(prefix='THE browser panel ') as tmp:
     root = Path(tmp)
     sample = root / 'sample.txt'
     sample.write_text('seed\ntail\n')
+    original_bytes = sample.read_bytes()
     profile = root / 'profile.the'
     demo = 'paneldemo' if engine == 'CREXX' else 'paneldemo_regina'
     profile.write_text(('options levelg\n' if engine == 'CREXX' else '') +
@@ -39,7 +40,7 @@ with tempfile.TemporaryDirectory(prefix='THE browser panel ') as tmp:
                 break
         script = Path(__file__).resolve().parent.parent / 'web/test/panel-smoke.mjs'
         subprocess.run([shutil.which('node'), str(script)], env=env, check=True, timeout=90)
-        assert sample.read_text() == 'seed\ntail\n'
+        assert sample.read_bytes() == original_bytes
     finally:
         server.terminate()
         try:
@@ -47,5 +48,6 @@ with tempfile.TemporaryDirectory(prefix='THE browser panel ') as tmp:
         except subprocess.TimeoutExpired:
             server.kill()
             server.wait(timeout=5)
+        assert sample.read_bytes() == original_bytes, (engine, sample.read_bytes())
         errors = server.stderr.read()
         assert 'Error 00' not in errors and 'Unable to' not in errors, errors
