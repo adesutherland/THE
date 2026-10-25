@@ -1,5 +1,7 @@
 /* Example: reserved fields and native Regina PULL results. */
 address THE
+'preserve'
+'set linend off'
 'set curline off'
 'set ctlchar ! escape'
 'set ctlchar p protect white'
@@ -15,4 +17,5 @@ end
 'emsg PANEL_RC' readrc
 'set reserved * off'
 'set curline on M'
+'restore'
 exit readrc

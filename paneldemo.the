@@ -5,6 +5,8 @@ namespace the_panel_demo
 import rxfnsb
 
 main: procedure
+  address the 'preserve';
+  address the 'set linend off';
   address the 'set curline off';
   address the 'set ctlchar ! escape';
   address the 'set ctlchar p protect white';
@@ -26,4 +28,5 @@ main: procedure
   address the 'emsg PANEL_RC ' || readrc;
   address the 'set reserved * off';
   address the 'set curline on M';
+  address the 'restore';
   exit readrc

@@ -21,12 +21,12 @@ def run(engine, options, actions, seed='seed\ntail\n', before='', occupied=False
         macro = root / 'read-panel.the'
         if engine == 'REGINA':
             macro.write_text("address THE\n" + ("queue 'existing'\n" if occupied else '') +
-                             "'read " + options + "'\nresult_rc=rc\n" +
+                             "'read " + options + "'\nresult_rc=rc\n'set linend off'\n" +
                              "if result_rc=0 then do\n do while queued()>0\n parse pull value\n 'emsg PANEL_RESULT' value\n end\nend\n" +
                              "'emsg PANEL_RC' result_rc 'QUEUED' queued()\nexit 0\n")
         else:
             macro.write_text("options levelg\nnamespace panel_test\nimport rxfnsb\nmain: procedure\n" +
-                             "  pool = .standardaddresssandbox()\n  address the 'read " + options + "' sandbox pool;\n  result_rc=rc\n" +
+                             "  pool = .standardaddresssandbox()\n  address the 'read " + options + "' sandbox pool;\n  result_rc=rc\n  address the 'set linend off';\n" +
                              "  if result_rc=0 then do\n    count=pool.get('read.0') as .int\n    do i=count to 1 by -1\n      value=pool.get('read.' || i)\n      push value\n    end\n    do while queued()>0\n      parse pull value\n      address the 'emsg PANEL_RESULT ' || value;\n    end\n  end\n" +
                              "  address the 'emsg PANEL_RC ' || result_rc || ' QUEUED ' || queued();\n  exit 0\n")
         env = dict(os.environ, THE_REXX_INTERPRETER=engine, TERM='')
@@ -134,6 +134,11 @@ for engine in engines:
                                   before='command set prefix on left 6 0\n')
     assert text == 'seed\ntail\n' and values[-1].endswith('1 D') and values[-1].startswith('PRF '), (text, values)
     assert any(r.get('pending_prefix', {}).get('count', 0) == 1 for r in records), records[-1]
+
+    text, values, _, records = run(engine, 'ALL NUMBER TAG', lambda p: hit(field(p, 'P', 1)) + 'text X#TOP\nkey enter',
+                                  before='command set prefix on left 6 0\ncommand set linend on #\n')
+    assert text == 'seed\ntail\n' and values[-1].endswith('X#TOP'), (text, values)
+    assert any(c['original'] == 'X#TOP' for r in records for c in r.get('pending_prefix', {}).get('commands', []))
 
     text, values, _, records = run(engine, 'ALL NUMBER TAG', lambda p: hit(field(p, 'P', 1)) + 'key eraseeof\nkey enter',
                                   before='command set prefix on left 6 0\ncommand :1\ncommand set pending on D\n')

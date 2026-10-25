@@ -207,6 +207,8 @@ static short results(ThePanelState *p, int mode, int tag, int number)
       ThePanelField *f=&p->fields[i]; size_t length=trimmed_length(f->text);
       int offset=0;
       if (!f->editable || !f->changed) continue;
+      if (mode==1 && f->kind=='P' && length>(size_t)CURRENT_VIEW->prefix_width)
+      { rc=RC_INVALID_OPERAND; goto done; }
       if (tag)
       {
          if (f->kind=='C') offset=snprintf(buffer,sizeof(buffer),"CMD ");
@@ -260,11 +262,14 @@ static short results(ThePanelState *p, int mode, int tag, int number)
    }
    for (i=0;i<p->count;i++) if (mode==1 && p->fields[i].kind=='P' && p->fields[i].changed)
    {
-      char command[THE_PANEL_TEXT+80]; ThePanelField *f=&p->fields[i];
-      if (trimmed_length(f->text))
-         snprintf(command,sizeof(command),":%ld set pending on %.*s",(long)f->line,(int)trimmed_length(f->text),f->text);
-      else snprintf(command,sizeof(command),":%ld set pending off",(long)f->line);
-      command_line((CHARTYPE *)command,COMMAND_ONLY_FALSE);
+      ThePanelField *f=&p->fields[i];
+      LINE *l=lll_find(CURRENT_FILE->first_line,CURRENT_FILE->last_line,f->line,CURRENT_FILE->number_lines);
+      size_t length=trimmed_length(f->text);
+      /* Queue literal prefix data, without command-line separator parsing. */
+      memset(pre_rec,' ',MAX_PREFIX_WIDTH);
+      memcpy(pre_rec,f->text,length); pre_rec_len=length;
+      pre_rec[CURRENT_VIEW->prefix_width]=0;
+      add_prefix_command(current_screen,CURRENT_VIEW,l,f->line,FALSE,TRUE);
    }
    snprintf(buffer,sizeof(buffer),"%d",count);
    if (in_macro) rc=set_rexx_variable((CHARTYPE *)"READ",(CHARTYPE *)buffer,strlen(buffer),0);
