@@ -38,6 +38,15 @@ static void test_named_keys_and_text(void)
               the_input_event_from_key_name("F12", &input), 1);
    expect_int("key.f12.code", input.key_code, THE_KEY_F(12));
 
+   expect_int("key.backspace.parse", the_input_event_from_key_name("backspace", &input), 1);
+   expect_int("key.backspace.semantic", input.key_code, THE_KEY_BACKSPACE);
+   expect_int("key.backspace.legacy", the_input_event_to_legacy_key(&input, &key), 1);
+#if defined(_WIN32) || defined(USE_XCURSES)
+   expect_int("key.backspace.binding", key, THE_KEY_BKSP);
+#else
+   expect_int("key.backspace.binding", key, THE_KEY_BACKSPACE);
+#endif
+
    expect_int("text.x.parse",
               the_input_event_from_text('x', &input), 1);
    expect_int("text.x.kind", input.kind, THE_INPUT_TEXT);

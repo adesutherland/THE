@@ -422,6 +422,12 @@ int the_input_event_to_legacy_key(const TheInputEvent *input, int *key_code)
    if (input->key_code < 0)
       return 0;
    *key_code = input->key_code;
+#if defined(_WIN32) || defined(USE_XCURSES)
+   /* Keep driver events portable while honoring the legacy BACKSPACE/BKSP
+    * key name and profile binding used by the PDCurses command tables. */
+   if (input->kind==THE_INPUT_KEY && input->key_code==THE_KEY_BACKSPACE)
+      *key_code=THE_KEY_BKSP;
+#endif
    return 1;
 }
 
