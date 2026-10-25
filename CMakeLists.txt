@@ -1048,6 +1048,10 @@ find_program(THE_PYTHON_EXECUTABLE NAMES python3 python)
 if(THE_PYTHON_EXECUTABLE)
     add_test(NAME test_prepare_shmuel COMMAND ${THE_PYTHON_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_prepare_shmuel.py)
+    add_test(NAME test_sign_windows_release COMMAND ${THE_PYTHON_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sign_windows_release.py)
+    add_test(NAME test_sign_macos_release COMMAND ${THE_PYTHON_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sign_macos_release.py)
 endif()
 if(THE_USE_REGINA AND REGINA_LIBRARY AND THE_PYTHON_EXECUTABLE)
     if(NOT WIN32)

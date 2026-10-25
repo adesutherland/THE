@@ -45,6 +45,11 @@ def main():
             helper = payload / 'share/the/installer'
             helper.mkdir(parents=True)
             shutil.copy2(source / 'packaging/windows/update-user-path.ps1', helper)
+        # Apple's pkgbuild omits Finder metadata. Keep the portable archive
+        # and installed payload manifest consistent on every platform.
+        for metadata in payload.rglob('.DS_Store'):
+            if metadata.is_file():
+                metadata.unlink()
         commit = subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip()
         dirty = bool(subprocess.check_output(['git', '-C', str(source), 'status', '--porcelain'], text=True))
         files = {str(p.relative_to(payload)).replace('\\', '/'): hashlib.sha256(p.read_bytes()).hexdigest()

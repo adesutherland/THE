@@ -48,7 +48,89 @@ flag. Uninstall on Windows removes only the packaged files, leaving files the
 user adds. macOS has no uninstaller; remove the package directory and its
 command symlink only when they still belong to this installation.
 
-The script stages and packages only. It does not install, sign, notarize or
+## Existing cREXX installations
+
+All THE installers and portable ZIPs carry a private, matching cREXX tool set
+under `libexec/the/crexx`. They do not detect, upgrade or reuse an existing
+standalone cREXX installation. The launchers select the private tools by
+default and prepend that directory to PATH for THE's child processes only.
+Windows adds THE's `bin` directory to the user's PATH, not its private cREXX
+directory; macOS installs only the public `the` symlink. A standalone cREXX
+installation stays separate. Windows detects an earlier **THE** installation
+through `HKCU\Software\THE-cREXX`; that is not cREXX runtime detection.
+Advanced users can explicitly override the tool/runtime paths as described in
+[interpreter setup](../doc/rexx-interpreters.md). Keep the runtime, compiler,
+assembler and bytecode from one compatible distribution.
+
+## Windows installer signing and replacement
+
+`scripts/sign-windows-release.py` signs the **existing outer installer** from
+an explicit published release tag. It never rebuilds THE, signs the internal
+EXEs/DLLs or changes the portable ZIP. Python 3.9+, GitHub CLI, and
+`osslsigncode` are required. For signing, use `jsign` with local `PROVIDER`,
+`CERTUM_ALIAS` and optional `TSA_URL` settings, or pass an existing single-file
+signing helper. No provider configuration or credentials belong in this repo.
+
+```sh
+# Read-only plan: no signer access or downloads.
+python3 scripts/sign-windows-release.py --tag v4.0.0-panels.1 --dry-run
+
+# Reuse the established local cREXX signer; sign locally first.
+python3 scripts/sign-windows-release.py --tag v4.0.0-panels.1 \
+  --signer ../CREXX/scripts/sign-windows-file.sh
+
+# Sign and replace the installer + Windows checksum file on this exact release.
+python3 scripts/sign-windows-release.py --tag v4.0.0-panels.1 \
+  --signer ../CREXX/scripts/sign-windows-file.sh --upload
+```
+
+The script pins the release/tag and asset digests, checks the published
+checksums, requires signature and timestamp verification, and retains original
+downloads and a credential-free receipt under `build/sign-windows/`. Uploads
+are staged and verified before promotion. Original remote assets are renamed
+to temporary backups and removed only after signed readback succeeds. GitHub
+cannot replace two assets atomically: an interrupted promotion can temporarily
+leave a canonical name missing or its checksum out of sync. On failure, retain
+the `.backup-<id>` / `.sign-<id>` assets for recovery, using the local originals
+and reported invocation ID. Other release assets and the tag stay unchanged.
+The panel candidate's outer Windows installer was signed, timestamp-verified,
+and replaced on 25 October 2026. Its internal payload and portable ZIP were
+preserved. Native Windows verification is part of the manually dispatched
+signing workflow described below.
+
+## Apple signing status
+
+`scripts/package-release.py` creates an unsigned PKG and ZIP. The separate
+`scripts/sign-macos-release.py` and manual `sign-release-installers.yml`
+workflow sign the payload from an existing explicit release tag. They use
+Developer ID Application for all nested Mach-O executables and libraries,
+refresh manifest hashes, test the signed payload, sign the PKG with Developer
+ID Installer, submit both assets for notarization, staple and validate the
+PKG, check Gatekeeper, and test installation before replacing release assets.
+See [release signing](../doc/release-signing.md) for commands and limits.
+
+The panel candidate completed this process successfully in
+[run 40219171572](https://github.com/adesutherland/THE/actions/runs/40219171572),
+including native signed-installation QA on both Windows and macOS. The macOS
+signed manifest has 128 entries after excluding two Finder metadata files.
+
+All nine required Apple secrets were configured in `adesutherland/THE` on
+25 October 2026. The separate Apple secret-validation workflow exercised both
+certificates and Apple account credentials successfully. Required names:
+
+```text
+APPLE_DEVELOPER_ID_CERTIFICATE_BASE64
+APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD
+APPLE_DEVELOPER_ID_IDENTITY
+APPLE_DEVELOPER_ID_INSTALLER_CERTIFICATE_BASE64
+APPLE_DEVELOPER_ID_INSTALLER_CERTIFICATE_PASSWORD
+APPLE_DEVELOPER_ID_INSTALLER_IDENTITY
+APPLE_ID
+APPLE_APP_SPECIFIC_PASSWORD
+APPLE_TEAM_ID
+```
+
+`scripts/package-release.py` stages and packages only. It does not install, sign, notarize or
 publish. A production release still needs dependency/license inventory,
 platform-native install/upgrade/uninstall tests, signing and macOS notarization
 as appropriate. These recipes do not establish that published installers or

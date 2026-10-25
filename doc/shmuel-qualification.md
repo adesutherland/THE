@@ -15,6 +15,17 @@ Rendered browser forms work with both engines; the installed browser loads its
 own assets with an isolated PATH. Windows install/reinstall/uninstall passed.
 **No handoff to Shmuel until Adrian completes his manual Windows test.**
 
+Signing follow-up on 25 October: the latest Windows installer is now signed
+and timestamp-verified. The macOS ARM64 ZIP and PKG are notarized, all eight
+native code files are signed, and the PKG is stapled and Gatekeeper-verified.
+[Run 40219171572](https://github.com/adesutherland/THE/actions/runs/40219171572)
+passed native signed-installation checks on both systems, including payload
+hashes, CREXX/NONE macro execution and browser assets. The Windows payload and
+ZIP are unchanged. macOS signatures and manifest hashes were refreshed and
+two Finder metadata files were omitted; its signed manifest has 128 entries.
+These checks supplement the full regression results above. See the
+[signing record](release-signing.md) for exact asset hashes and scope.
+
 The sections dated 24 October retain the unchanged-package observations.
 The current delivery is summarized in [the staged report](macro-panel-stages.md),
 with [patched-original setup](../compat/shmuel/README.md),
@@ -137,8 +148,9 @@ fix; see [packaging provenance](../packaging/README.md).
 
 Adrian's later test on a Windows machine remains necessary for interactive
 terminal behavior, cursor placement, prefix entry and the complete user
-installation experience. The CI artifact is an unsigned candidate and has not
-been published as a release. No upstream THE or live XEDIT compatibility is
+installation experience. This older ci.9 artifact remains an unsigned candidate;
+the signed release described at the top supersedes its delivery status.
+No upstream THE or live XEDIT compatibility is
 claimed.
 
 The next macro-package work to agree with Shmuel is RIC's mask initialization

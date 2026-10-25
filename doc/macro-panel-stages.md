@@ -49,3 +49,14 @@ browser editing, cREXX highlighting and junction containment. Optional
 Markdown/Python highlighters were absent on Windows; their semantic-color checks
 were skipped. Native Windows curses interaction remains for Adrian's manual
 smoke test. Nothing has been sent to Shmuel.
+
+Signing completed on 25 October using the same immutable panel source tag.
+[Run 40219171572](https://github.com/adesutherland/THE/actions/runs/40219171572)
+passed Windows Authenticode/timestamp and signed install/reinstall/uninstall
+checks. Both ARM64 macOS assets were notarized; the signed/stapled PKG passed
+Gatekeeper and installed hash/macro/browser checks. Eight native code files
+were signed and two Finder metadata files removed, leaving 128 macOS manifest
+entries. Windows inner payload and ZIP stayed unchanged. The source regression
+results above predate signing; this native post-signing QA supplements them.
+See [release signing](release-signing.md). Manual Windows interaction and the
+handoff to Shmuel remain pending.

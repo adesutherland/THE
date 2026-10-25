@@ -16,6 +16,9 @@ Supported source platforms are macOS, Linux/POSIX, and native Windows.
 Historical DOS, OS/2, VMS, Amiga, BeOS, QNX, DJGPP/GO32, and ancient compiler
 source branches have been retired.
 
+For signing existing experimental prereleases and their native installer QA,
+see [Release signing](doc/release-signing.md).
+
 ## Architecture
 For developers and contributors, a high-level overview of the editor's runtime,
 driver modules, and data structures is available in the
