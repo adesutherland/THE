@@ -7,7 +7,16 @@ and [shared panels](https://github.com/adesutherland/THE/releases/tag/v4.0.0-pan
 The latest installer includes all three. Original downloads remain unchanged;
 corrections are maintained as minimal patches, with independent Level G ports.
 
-The final candidate passed macOS 81/81 and Windows Release
+The current delivery is [v4.0.0-panels.2](https://github.com/adesutherland/THE/releases/tag/v4.0.0-panels.2).
+It adds THE-specific cache defaults and a bundled/installed cREXX preference in
+both installers, with automatic bundled fallback. Source QA passed 84/84 on
+macOS and 67 Windows tests with 13 platform/tool skips; both signed installers
+passed native runtime/cache and installation checks. macOS Installer choices
+and a differently signed external cREXX were tested. See the
+[runtime update report](releases-panels-2.md). The manual Windows handoff gate
+below remains in force.
+
+The panels.1 candidate passed macOS 81/81 and Windows Release
 [run 40187434155](https://github.com/adesutherland/THE/actions/runs/40187434155)
 (64 passed, 13 unavailable-tool skips). Installed payloads passed 121 Regina
 workflows, 121 Level G workflows with exact parity, and 35 panel scenarios.
@@ -15,7 +24,7 @@ Rendered browser forms work with both engines; the installed browser loads its
 own assets with an isolated PATH. Windows install/reinstall/uninstall passed.
 **No handoff to Shmuel until Adrian completes his manual Windows test.**
 
-Signing follow-up on 25 October: the latest Windows installer is now signed
+Panels.1 signing follow-up on 25 October: its Windows installer is signed
 and timestamp-verified. The macOS ARM64 ZIP and PKG are notarized, all eight
 native code files are signed, and the PKG is stapled and Gatekeeper-verified.
 [Run 40219171572](https://github.com/adesutherland/THE/actions/runs/40219171572)

@@ -90,14 +90,14 @@ signing helper. No provider configuration or credentials belong in this repo.
 
 ```sh
 # Read-only plan: no signer access or downloads.
-python3 scripts/sign-windows-release.py --tag v4.0.0-panels.1 --dry-run
+python3 scripts/sign-windows-release.py --tag v4.0.0-panels.2 --dry-run
 
 # Reuse the established local cREXX signer; sign locally first.
-python3 scripts/sign-windows-release.py --tag v4.0.0-panels.1 \
+python3 scripts/sign-windows-release.py --tag v4.0.0-panels.2 \
   --signer ../CREXX/scripts/sign-windows-file.sh
 
 # Sign and replace the installer + Windows checksum file on this exact release.
-python3 scripts/sign-windows-release.py --tag v4.0.0-panels.1 \
+python3 scripts/sign-windows-release.py --tag v4.0.0-panels.2 \
   --signer ../CREXX/scripts/sign-windows-file.sh --upload
 ```
 
@@ -126,10 +126,17 @@ ID Installer, submit both assets for notarization, staple and validate the
 PKG, check Gatekeeper, and test installation before replacing release assets.
 See [release signing](../doc/release-signing.md) for commands and limits.
 
-The panel candidate completed this process successfully in
+The panels.1 candidate completed this process successfully in
 [run 40219171572](https://github.com/adesutherland/THE/actions/runs/40219171572),
 including native signed-installation QA on both Windows and macOS. The macOS
 signed manifest has 128 entries after excluding two Finder metadata files.
+
+The current panels.2 candidate passed source Windows run `40223307643` and
+[signed-installer run 40224957673](https://github.com/adesutherland/THE/actions/runs/40224957673)
+on both systems. Native runtime/cache tests, macOS Installer choice selection,
+fallback, signatures and notarization passed. Its Mac manifest has 130 entries
+including the new launcher and resolved VM executable. See the
+[runtime update](../doc/releases-panels-2.md).
 
 All nine required Apple secrets were configured in `adesutherland/THE` on
 25 October 2026. The separate Apple secret-validation workflow exercised both

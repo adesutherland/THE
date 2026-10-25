@@ -60,3 +60,12 @@ entries. Windows inner payload and ZIP stayed unchanged. The source regression
 results above predate signing; this native post-signing QA supplements them.
 See [release signing](release-signing.md). Manual Windows interaction and the
 handoff to Shmuel remain pending.
+
+The follow-up [panels.2 release](https://github.com/adesutherland/THE/releases/tag/v4.0.0-panels.2)
+adds a private per-user THE cREXX cache and installer runtime preferences.
+Mac source QA passed 84/84; Windows run `40223307643` passed 67 with 13 skips.
+Signed-installer run `40224957673` passed both systems, including installed-copy
+selection, cache overrides/reuse, missing/incompatible fallback, and native
+macOS Installer choices. The Mac package is signed, notarized and stapled; the
+Windows installer is signed and timestamped. See the
+[runtime/cache report](releases-panels-2.md). No external handoff has occurred.
