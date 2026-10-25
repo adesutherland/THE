@@ -1,0 +1,97 @@
+name: Sign and verify existing release installers
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Exact published THE release tag
+        type: string
+        required: true
+      architecture:
+        description: macOS architecture (must exist on the release)
+        type: choice
+        options: [arm64, x86_64]
+        default: arm64
+permissions:
+  contents: read
+concurrency:
+  group: sign-existing-${{ inputs.tag }}
+  cancel-in-progress: false
+env:
+  THE_RELEASE_TAG: ${{ inputs.tag }}
+  THE_RELEASE_REPO: ${{ github.repository }}
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Signing-tool regression tests
+        run: python tests/test_sign_windows_release.py
+      - name: Download exact signed Windows installer and verify checksums
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/sign-windows-release.py --repo "$THE_RELEASE_REPO" --tag "$THE_RELEASE_TAG" --dry-run
+          python - <<'PY'
+          import importlib.util, os
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location('release_tools', 'scripts/sign-windows-release.py')
+          tool = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(tool)
+          release = tool.Release(os.environ['THE_RELEASE_REPO'], os.environ['THE_RELEASE_TAG'])
+          stem = 'THE-' + release.tag[1:] + '-windows-x86_64'
+          destination = Path(os.environ['RUNNER_TEMP']) / 'the-signed-input'
+          destination.mkdir()
+          for name in (stem + '-setup.exe', stem + '-SHA256SUMS.txt'):
+              release.download(tool.asset_named(release.original, name), destination / name)
+          tool.validate_checksums(destination / (stem + '-SHA256SUMS.txt'), stem + '-setup.exe', release.original)
+          release.check()
+          PY
+      - name: Verify Authenticode and test installed signed release
+        shell: pwsh
+        run: |
+          $installer = @(Get-ChildItem "$env:RUNNER_TEMP/the-signed-input/*-setup.exe")
+          if ($installer.Count -ne 1) { throw 'Expected one installer' }
+          ./scripts/test-signed-windows-installer.ps1 -Installer $installer[0].FullName
+  macos:
+    needs: windows
+    runs-on: ${{ inputs.architecture == 'x86_64' && 'macos-15-intel' || 'macos-15' }}
+    timeout-minutes: 75
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Signing-tool regression tests
+        run: |
+          python3 tests/test_sign_windows_release.py
+          python3 tests/test_sign_macos_release.py
+      - name: Sign, test, notarize and replace existing macOS release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          THE_MAC_ARCH: ${{ inputs.architecture }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          APPLE_DEVELOPER_ID_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_IDENTITY }}
+          APPLE_DEVELOPER_ID_INSTALLER_CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_CERTIFICATE_BASE64 }}
+          APPLE_DEVELOPER_ID_INSTALLER_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_CERTIFICATE_PASSWORD }}
+          APPLE_DEVELOPER_ID_INSTALLER_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          python3 scripts/sign-macos-release.py --repo "$THE_RELEASE_REPO" --tag "$THE_RELEASE_TAG" \
+            --arch "$THE_MAC_ARCH" --test-install --upload
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-signing-receipts-${{ inputs.architecture }}
+          path: |
+            build/sign-macos/**/input.json
+            build/sign-macos/**/receipt.json
+          if-no-files-found: ignore
+          retention-days: 7
