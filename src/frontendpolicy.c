@@ -10,7 +10,7 @@
 #if defined(_WIN32)
 # include <direct.h>
 # define frontend_getcwd _getcwd
-# define frontend_realpath(path, out) _fullpath((out), (path), THE_FRONTEND_POLICY_PATH_MAX)
+static char *frontend_realpath(const char *path, char *out);
 # define FRONTEND_PATH_SEPARATOR ';'
 #else
 # include <unistd.h>
@@ -21,6 +21,51 @@
 
 #include "the.h"
 #include "vars.h"
+
+#if defined(_WIN32)
+#include <windows.h>
+#include <wchar.h>
+
+/* _fullpath is lexical: it neither checks existence nor resolves junctions.
+ * Workspace containment must compare the actual opened filesystem targets. */
+static char *frontend_realpath(const char *path, char *out)
+{
+   WCHAR input[THE_FRONTEND_POLICY_PATH_MAX+1];
+   WCHAR final[THE_FRONTEND_POLICY_PATH_MAX+9];
+   const WCHAR *name;
+   HANDLE file;
+   DWORD length, attributes, error;
+   int prefix=0, i;
+   if (!MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,path,-1,input,
+                            THE_FRONTEND_POLICY_PATH_MAX+1))
+   { errno=EINVAL; return NULL; }
+   attributes=GetFileAttributesW(input);
+   file=CreateFileW(input,FILE_READ_ATTRIBUTES,
+                     FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,NULL,
+                     OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS,NULL);
+   if (file==INVALID_HANDLE_VALUE)
+   {
+      error=GetLastError();
+      errno=(error==ERROR_FILE_NOT_FOUND || error==ERROR_PATH_NOT_FOUND) ? ENOENT : EACCES;
+      if (attributes!=INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) errno=EACCES;
+      return NULL;
+   }
+   length=GetFinalPathNameByHandleW(file,final,THE_FRONTEND_POLICY_PATH_MAX+9,
+                                    FILE_NAME_NORMALIZED|VOLUME_NAME_DOS);
+   CloseHandle(file);
+   if (!length || length>=THE_FRONTEND_POLICY_PATH_MAX+9)
+   { errno=EACCES; return NULL; }
+   name=final;
+   if (wcsncmp(final,L"\\\\?\\UNC\\",8)==0)
+   { name=final+8; out[0]='/'; out[1]='/'; prefix=2; }
+   else if (wcsncmp(final,L"\\\\?\\",4)==0) name=final+4;
+   if (!WideCharToMultiByte(CP_UTF8,0,name,-1,out+prefix,
+                            THE_FRONTEND_POLICY_PATH_MAX+1-prefix,NULL,NULL))
+   { errno=EINVAL; return NULL; }
+   for (i=0;out[i];i++) if (out[i]=='\\') out[i]='/';
+   return out;
+}
+#endif
 
 typedef struct
 {
@@ -72,6 +117,8 @@ static void frontend_policy_trim_root(char *path)
    if (path == NULL)
       return;
    len = strlen(path);
+   if (len==3 && isalpha((unsigned char)path[0]) && path[1]==':' && (path[2]=='/' || path[2]=='\\'))
+      return;
    while (len > 1 && (path[len - 1] == '/' || path[len - 1] == '\\'))
       path[--len] = '\0';
 }
@@ -201,7 +248,8 @@ static int frontend_policy_path_in_root(const char *path, const char *root)
       return path[0] == '/';
    len = strlen(root);
    return strncmp(path, root, len) == 0
-       && (path[len] == '\0' || path[len] == '/' || path[len] == '\\');
+       && ((len>0 && (root[len-1]=='/' || root[len-1]=='\\'))
+           || path[len] == '\0' || path[len] == '/' || path[len] == '\\');
 }
 
 static int frontend_policy_classify_path(const char *path, int *readonly)

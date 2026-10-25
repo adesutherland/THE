@@ -1,5 +1,10 @@
 # Shmuel macro qualification — 24 October 2026
 
+The sections dated 24 October retain the unchanged-package observations.
+The current delivery is summarized in [the staged report](macro-panel-stages.md),
+with [patched-original setup](../compat/shmuel/README.md),
+[compiled Level G ports](pfxrexx-levelg.md) and [macro panels](panels.md).
+
 This report concerns the experimental THE fork. There was no live XEDIT test
 and no upstream THE qualification. Installer and hosted Windows results must
 be assessed separately from the local macro results below.
@@ -142,4 +147,23 @@ Local QA currently passes 86 behavioral workflows against the patched files,
 all 57 original aliases, the real curses text-entry/save test, and focused
 TRUNC and patch-application tests. These results supersede the earlier
 unchanged-package failures only when the documented patches are applied.
-Stage 1 Windows qualification and pre-release publication are still pending.
+Stage 1 was subsequently qualified on Windows run `40177173979` (54 passed,
+11 unavailable-tool skips) and published as
+[v4.0.0-regina.1](https://github.com/adesutherland/THE/releases/tag/v4.0.0-regina.1).
+
+Stage 2 was published as
+[v4.0.0-levelg.1](https://github.com/adesutherland/THE/releases/tag/v4.0.0-levelg.1)
+after 70/70 macOS tests and Windows run `40180543859` (56 passed, 11 skips).
+The expanded suite runs 121 patched-original Regina workflows and 121 compiled
+Level G workflows, with exact text, cursor, pending-command and error parity.
+It covers both macro packages and all 57 original aliases. Two additional
+numeric-Boolean defects found in label/CASENTRY/IF paths are included in the
+minimal patch set. No original download was changed or bundled.
+
+Stage 3 adds shared READ panel fields for curses, browser and LLM input, with
+ALL/NOCHANGE, protection, navigation, submission keys and tagged results. The
+local suite passes 80/80, including real curses and Chromium interaction;
+the installed macOS payload passes both macro suites and 35 panel scenarios
+across Regina and cREXX. Final Windows qualification and panel pre-release
+publication follow separately. The no-handoff hold remains until Adrian's
+manual Windows test, including cursor and ordinary editing behavior.

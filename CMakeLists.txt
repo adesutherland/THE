@@ -1287,6 +1287,11 @@ add_test(NAME test_frontend_prefix_runtime
 set_tests_properties(test_frontend_prefix_runtime PROPERTIES
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 if(USE_WEB_DRIVER)
+    add_test(NAME test_web_workspace_policy
+        COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_web_policy.py
+            $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR})
+    set_tests_properties(test_web_workspace_policy PROPERTIES TIMEOUT 60
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     add_test(NAME test_the_web_runtime
         COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_web_runtime.sh
                 $<TARGET_FILE:the>

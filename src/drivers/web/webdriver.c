@@ -4,10 +4,6 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-#if defined(_WIN32)
-# define lstat stat
-#endif
-
 #include "headlessdriver.h"
 #include "frontendaction.h"
 #include "frontendpolicy.h"
@@ -16,6 +12,9 @@
 #include "llmdriver.h"
 #include "llmruntime.h"
 #include "mongoose.h"
+#if defined(_WIN32)
+# include <windows.h>
+#endif
 #include "the.h"
 #include "proto.h"
 #include "driverlayout.h"
@@ -275,7 +274,8 @@ static int web_driver_path_in_root(const char *path, const char *root)
       return path[0] == '/';
    len = strlen(root);
    return strncmp(path, root, len) == 0
-       && (path[len] == '\0' || path[len] == '/');
+       && ((len>0 && (root[len-1]=='/' || root[len-1]=='\\'))
+           || path[len] == '\0' || path[len] == '/' || path[len] == '\\');
 }
 
 static const char *web_driver_root_name(size_t index, const char *root)
@@ -303,6 +303,19 @@ static int web_driver_append(char *out, size_t out_len, size_t *used,
       return 0;
    *used += len;
    return 1;
+}
+
+static int web_driver_workspace_stat(const char *path, struct stat *info)
+{
+#if defined(_WIN32)
+   DWORD attributes=GetFileAttributesA(path);
+   if (attributes==INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_REPARSE_POINT))
+      return 0;
+   if (stat(path,info)!=0) return 0;
+#else
+   if (lstat(path,info)!=0 || S_ISLNK(info->st_mode)) return 0;
+#endif
+   return S_ISDIR(info->st_mode) || S_ISREG(info->st_mode);
 }
 
 static int web_driver_send_files(struct mg_connection *connection,
@@ -389,8 +402,7 @@ static int web_driver_send_files(struct mg_connection *connection,
          continue;
       if (snprintf(path, sizeof(path), "%s/%s", directory, entry->d_name)
           >= (int)sizeof(path)
-      ||  lstat(path, &info) != 0 || S_ISLNK(info.st_mode)
-      ||  (!S_ISDIR(info.st_mode) && !S_ISREG(info.st_mode)))
+      ||  !web_driver_workspace_stat(path, &info))
          continue;
       if (snprintf(child_relative, sizeof(child_relative), "%s%s%s",
                    relative, *relative != '\0' ? "/" : "", entry->d_name)
