@@ -138,7 +138,7 @@ class SigningTests(unittest.TestCase):
 
     def test_validation_preserves_original_windows_newlines(self):
         self.write_original_checksums()
-        original = self.checksums.read_bytes().replace(b'\n', b'\r\n')
+        original = self.checksums.read_text().replace('\n', '\r\n').encode()
         self.checksums.write_bytes(original)
         module.validate_checksums(self.checksums, self.installer.name, self.release.original)
         self.assertEqual(self.checksums.read_bytes(), original)
