@@ -183,17 +183,25 @@ static void web_driver_executable_root(const TheDriverStartupOptions *options,
 
 static int web_driver_select_root(const TheDriverStartupOptions *options)
 {
-   const char *candidates[5];
+   const char *candidates[6];
    char executable_root[WEB_DRIVER_PATH_CAPACITY];
+   char installed_root[WEB_DRIVER_PATH_CAPACITY]={0};
+   const char *home=getenv("THE_HOME_DIR");
    size_t i;
 
    web_driver_executable_root(options, executable_root,
                               sizeof(executable_root));
+   if (home && *home && strlen(home)+5<sizeof(installed_root))
+   {
+      strcpy(installed_root,home);
+      strcat(installed_root,"/web");
+   }
    candidates[0] = getenv("THE_WEB_ROOT");
-   candidates[1] = executable_root;
-   candidates[2] = THE_WEB_BUILD_DIR;
-   candidates[3] = THE_WEB_INSTALL_DIR;
-   candidates[4] = "web/dist";
+   candidates[1] = installed_root;
+   candidates[2] = executable_root;
+   candidates[3] = THE_WEB_BUILD_DIR;
+   candidates[4] = THE_WEB_INSTALL_DIR;
+   candidates[5] = "web/dist";
    for (i = 0; i < sizeof(candidates) / sizeof(candidates[0]); i++)
    {
       if (web_driver_file_exists(candidates[i], "index.html"))

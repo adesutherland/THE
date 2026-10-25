@@ -7,6 +7,11 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import queue
+import threading
+import urllib.parse
+import urllib.request
+import uuid
 
 parser = argparse.ArgumentParser()
 parser.add_argument('prefix', type=Path)
@@ -17,6 +22,49 @@ prefix = args.prefix.resolve()
 manifest = json.loads((prefix / 'manifest.json').read_text())
 assert manifest['regina_bundled'] is False
 assert not any('regina.dll' in name.lower() for name in manifest['files_sha256'])
+
+
+def check_installed_web(command, env):
+    if not any('the_driver_web.' in name for name in manifest['files_sha256']):
+        return
+    env = dict(env, THE_WEB_WORKSPACE=env['HOME'])
+    # A unique file existing only in the installed assets proves the server
+    # did not silently fall back to the build tree on the test machine.
+    name = 'installed-probe-' + uuid.uuid4().hex + '.txt'
+    probe = prefix / 'share/the/web' / name
+    probe.write_text('INSTALLED_WEB_OK')
+    web_command = command.replace('--driver llm', '--driver web') if isinstance(command, str) else [
+        'web' if word == 'llm' else word for word in command]
+    server = subprocess.Popen(web_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              text=True, encoding='utf-8', env=env)
+    lines = queue.Queue()
+
+    def collect():
+        for line in server.stdout:
+            lines.put(line)
+        lines.put(None)
+
+    threading.Thread(target=collect, daemon=True).start()
+    try:
+        while True:
+            line = lines.get(timeout=30)
+            assert line is not None, 'Installed web launcher exited: ' + server.stderr.read()
+            if line.startswith('THE web UI: '):
+                parsed = urllib.parse.urlsplit(line.split('THE web UI: ', 1)[1].strip())
+                url = urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, '/' + name, parsed.query, ''))
+                break
+        with urllib.request.urlopen(url, timeout=10) as response:
+            assert response.read() == b'INSTALLED_WEB_OK'
+        print('WEB: installed launcher served its own relocated assets with an isolated PATH')
+    finally:
+        if server.poll() is None:
+            if os.name == 'nt':
+                subprocess.run(['taskkill', '/T', '/F', '/PID', str(server.pid)],
+                               check=True, capture_output=True, env=env)
+            else:
+                server.terminate()
+            server.wait(timeout=10)
+        probe.unlink()
 with tempfile.TemporaryDirectory(prefix='THE package smoke ') as tmp:
     sample = Path(tmp) / 'sample.txt'
     sample.write_text('seed\ntail\n')
@@ -65,6 +113,8 @@ with tempfile.TemporaryDirectory(prefix='THE package smoke ') as tmp:
             if engine == 'CREXX':
                 assert any(line.get('t', '').strip().startswith('ENDIF') for line in views[-1]['screen_rows']), views[-1]
         print(f'{engine}: installed payload passed with an isolated PATH')
+        if engine == 'NONE':
+            check_installed_web(command, env)
         if engine == 'REGINA' and args.macros:
             env['THE_HOME_DIR'] = str(prefix / 'share/the')
             env['THE_DRIVER_PATH'] = str(prefix / 'lib/the/drivers')
