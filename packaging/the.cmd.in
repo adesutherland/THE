@@ -1,6 +1,6 @@
 @echo off
 setlocal
-set "THE_PACKAGE_ROOT=%~dp0.."
+for %%I in ("%~dp0..") do set "THE_PACKAGE_ROOT=%%~fI"
 set "THE_PACKAGE_RUNTIME=%THE_PACKAGE_ROOT%\libexec\the\crexx"
 if not defined THE_HOME_DIR set "THE_HOME_DIR=%THE_PACKAGE_ROOT%\share\the"
 if not defined THE_DRIVER_PATH set "THE_DRIVER_PATH=%THE_PACKAGE_ROOT%\lib\the\drivers"
