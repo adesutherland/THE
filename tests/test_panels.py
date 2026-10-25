@@ -135,6 +135,11 @@ for engine in engines:
     assert text == 'seed\ntail\n' and values[-1].endswith('1 D') and values[-1].startswith('PRF '), (text, values)
     assert any(r.get('pending_prefix', {}).get('count', 0) == 1 for r in records), records[-1]
 
+    text, values, _, records = run(engine, 'ALL NUMBER TAG', lambda p: hit(field(p, 'P', 1)) + 'key eraseeof\nkey enter',
+                                  before='command set prefix on left 6 0\ncommand :1\ncommand set pending on D\n')
+    assert text == 'seed\ntail\n' and values[-1].startswith('PRF ') and values[-1].endswith('1'), (text, values)
+    assert [r['pending_prefix']['count'] for r in records if 'pending_prefix' in r][-1] == 0
+
     text, _, _, records = run(engine, 'ALL TAG', lambda p: 'text Alice\nkey enter', before='command set readonly on file\n')
     assert text == 'seed\ntail\n'
     assert not any(f['editable'] for r in records if 'panel' in r for f in r['panel']['fields'] if f['kind'] == 'F')

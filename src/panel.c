@@ -65,7 +65,13 @@ static int build_panel(ThePanelState *p, int mode)
          LINE *l=lll_find(CURRENT_FILE->first_line,CURRENT_FILE->last_line,s->line_number,CURRENT_FILE->number_lines);
          size_t begin=0, end=l->length;
          int oldcount=p->count, i;
-         if (prefix && !panel_ui_add(p,row,0,prefix,mode!=0,'P',s->line_number,"",0,0)) return 0;
+         if (prefix)
+         {
+            const char *pending=l->pre ? (const char *)l->pre->ppc_orig_command : "";
+            size_t length=strlen(pending);
+            if (length>(size_t)prefix) length=(size_t)prefix;
+            if (!panel_ui_add(p,row,0,prefix,mode!=0,'P',s->line_number,pending,length,0)) return 0;
+         }
          if (!CURRENT_FILE->filectlchar)
          {
             begin=textpos_from_cell(l->line,l->length,(int)CURRENT_VIEW->verify_col-1,TEXT_SNAP_BACKWARD).byte_offset;
@@ -255,7 +261,9 @@ static short results(ThePanelState *p, int mode, int tag, int number)
    for (i=0;i<p->count;i++) if (mode==1 && p->fields[i].kind=='P' && p->fields[i].changed)
    {
       char command[THE_PANEL_TEXT+80]; ThePanelField *f=&p->fields[i];
-      snprintf(command,sizeof(command),":%ld set pending on %.*s",(long)f->line,(int)trimmed_length(f->text),f->text);
+      if (trimmed_length(f->text))
+         snprintf(command,sizeof(command),":%ld set pending on %.*s",(long)f->line,(int)trimmed_length(f->text),f->text);
+      else snprintf(command,sizeof(command),":%ld set pending off",(long)f->line);
       command_line((CHARTYPE *)command,COMMAND_ONLY_FALSE);
    }
    snprintf(buffer,sizeof(buffer),"%d",count);
