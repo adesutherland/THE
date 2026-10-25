@@ -74,7 +74,8 @@ class MacSigningTests(unittest.TestCase):
             for path in self.payload.rglob('*'):
                 output.write(path, path.relative_to(self.root))
         extracted = module.unpack(archive, self.root / 'unpacked', self.name)
-        self.assertTrue((extracted / self.binary.relative_to(self.payload)).stat().st_mode & stat.S_IXUSR)
+        if os.name != 'nt':  # Windows does not expose POSIX executable mode bits.
+            self.assertTrue((extracted / self.binary.relative_to(self.payload)).stat().st_mode & stat.S_IXUSR)
         module.validate_payload(extracted, '4.0.0-test.1', 'arm64', 'a' * 40)
 
     def test_traversal_and_symlink_rejected(self):
