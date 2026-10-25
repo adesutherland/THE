@@ -18,6 +18,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('prefix', type=Path)
 parser.add_argument('--regina', type=Path)
 parser.add_argument('--macros', type=Path)
+parser.add_argument('--read-only-prefix', action='store_true',
+                    help='Read installed browser assets without writing to a system-owned installation')
 args = parser.parse_args()
 prefix = args.prefix.resolve()
 manifest = json.loads((prefix / 'manifest.json').read_text())
@@ -33,9 +35,13 @@ def check_installed_web(command, env):
     env = dict(env, THE_WEB_WORKSPACE=env['HOME'])
     # A unique file existing only in the installed assets proves the server
     # did not silently fall back to the build tree on the test machine.
-    name = 'installed-probe-' + uuid.uuid4().hex + '.txt'
+    name = 'index.html' if args.read_only_prefix else 'installed-probe-' + uuid.uuid4().hex + '.txt'
     probe = prefix / 'share/the/web' / name
-    probe.write_text('INSTALLED_WEB_OK')
+    if args.read_only_prefix:
+        expected = probe.read_bytes()
+    else:
+        probe.write_text('INSTALLED_WEB_OK')
+        expected = probe.read_bytes()
     web_command = command.replace('--driver llm', '--driver web') if isinstance(command, str) else [
         'web' if word == 'llm' else word for word in command]
     server = subprocess.Popen(web_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -57,8 +63,9 @@ def check_installed_web(command, env):
                 url = urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, '/' + name, parsed.query, ''))
                 break
         with urllib.request.urlopen(url, timeout=10) as response:
-            assert response.read() == b'INSTALLED_WEB_OK'
-        print('WEB: installed launcher served its own relocated assets with an isolated PATH')
+            assert response.read() == expected
+        print('WEB: installed launcher served ' + ('read-only installed' if args.read_only_prefix else 'its own relocated') +
+              ' assets with an isolated PATH')
     finally:
         if server.poll() is None:
             if os.name == 'nt':
@@ -67,7 +74,8 @@ def check_installed_web(command, env):
             else:
                 server.terminate()
             server.wait(timeout=10)
-        probe.unlink()
+        if not args.read_only_prefix:
+            probe.unlink()
 with tempfile.TemporaryDirectory(prefix='THE package smoke ') as tmp:
     sample = Path(tmp) / 'sample.txt'
     sample.write_text('seed\ntail\n')

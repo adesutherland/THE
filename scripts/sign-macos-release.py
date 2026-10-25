@@ -167,11 +167,14 @@ def verify_code(payload):
         run('codesign', '--verify', '--strict', path)
 
 
-def smoke(payload):
+def smoke(payload, read_only=False):
     script = Path(__file__).resolve().parent.parent / 'tests/test_installed_package.py'
     # The test removes user/build tool paths and runs real cREXX macros,
     # NONE mode, and the installed browser assets using the package launcher.
-    result = subprocess.run([sys.executable, str(script), str(payload)], capture_output=True, text=True)
+    command = [sys.executable, str(script), str(payload)]
+    if read_only:
+        command.append('--read-only-prefix')
+    result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode:
         print(result.stdout, file=sys.stderr)
         print(result.stderr, file=sys.stderr)
@@ -269,7 +272,7 @@ def main():
         installed = Path('/usr/local/the-crexx')
         if Path('/usr/local/bin/the').resolve() != installed / 'bin/the':
             raise RuntimeError('Installer did not create the expected THE launcher symlink')
-        smoke(installed)
+        smoke(installed, read_only=True)
         print('Signed PKG installed and tested on the disposable runner', flush=True)
     checksums = signed / (name + '-SHA256SUMS.txt')
     checksums.write_text(''.join(f'{file_hash(p)}  {p.name}\n' for p in (archive, installer)))
