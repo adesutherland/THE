@@ -19,7 +19,7 @@ import uuid
 
 
 def gh(*args):
-    return subprocess.check_output(['gh', *map(str, args)], text=True)
+    return subprocess.check_output(['gh', *map(str, args)], text=True, encoding='utf-8')
 
 
 def api(path, *args):
