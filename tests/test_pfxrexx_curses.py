@@ -17,18 +17,25 @@ import time
 
 binary = Path(sys.argv[1]).resolve()
 originals = Path(sys.argv[2]).resolve() if len(sys.argv) > 2 else None
+engine = sys.argv[3] if len(sys.argv) > 3 else 'REGINA'
 with tempfile.TemporaryDirectory() as tmp:
     sample = Path(tmp) / 'sample.rexx'
     sample.write_text('seed\ntail\n')
     profile = Path(tmp) / 'profile.the'
-    setup = 'pfxsetup-original REXX' if originals else 'pfxsetup'
-    profile.write_text("address THE\n'macro " + setup + "'\n'define c-g file'\n"
-                       "'cursor goto 1 1'\n'cursor prefix'\n")
+    setup = 'pfxsetupg REXX' if engine == 'CREXX' else 'pfxsetup-original REXX' if originals else 'pfxsetup'
+    statements = ["'macro " + setup + "'", "'define c-g file'", "'cursor goto 1 1'", "'cursor prefix'"]
+    profile.write_text(('options levelg\n' if engine == 'CREXX' else '') + 'address THE\n' +
+                       '\n'.join(s + ';' for s in statements) + '\n')
     master, slave = pty.openpty()
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 27, 80, 0, 0))
-    env = dict(os.environ, THE_REXX_INTERPRETER='REGINA', TERM='xterm-256color',
+    env = dict(os.environ, THE_REXX_INTERPRETER=engine, TERM='xterm-256color',
                THE_HOME_DIR=str(binary.parent / 'release'),
                THE_MACRO_PATH=str(originals or binary.parent / 'release'))
+    if engine == 'CREXX':
+        # Compile this temporary profile before the timed keyboard sequence.
+        subprocess.run([str(binary), '--driver', 'llm', '-p', str(profile), str(sample)],
+                       input='quit\n', text=True, encoding='utf-8', capture_output=True,
+                       env=env, check=True, timeout=30)
     process = subprocess.Popen([str(binary), '-p', str(profile), str(sample)],
                                stdin=slave, stdout=slave, stderr=slave, env=env)
     os.close(slave)

@@ -73,6 +73,9 @@ compiler-backed highlighting. `the -p profile_crexx.the file.crexx` also binds
 F8 to compile and F9 to run. These extras use cREXX; the shared prefix-command
 compatibility fixes apply with either engine. The Classic template adaptation
 described in [PFXREXX](pfxrexx.md) currently requires Regina.
+The bundled [Level G prefix workflows](pfxrexx-levelg.md) provide the broader
+Rexx and HLASM template workflows with cREXX: run `macro pfxsetupg REXX` or
+`macro pfxsetupg HLASM`. Regina remains available for the patched originals.
 
 ## Building
 

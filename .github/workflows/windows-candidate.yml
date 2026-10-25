@@ -131,6 +131,7 @@ jobs:
             build-release/packages/*
             build-release/Testing/Temporary/LastTest.log
             build-release/shmuel-macros/qualification.json
+            build-release/shmuel-macros/levelg-qualification.json
             build-release/*test*/**/*.err
             build-release/*test*/**/*.out
           if-no-files-found: warn

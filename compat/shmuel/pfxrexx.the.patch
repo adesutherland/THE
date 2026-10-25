@@ -8,16 +8,25 @@
     Indent_DO     = 3
     Indent_IF     = 3
     Indent_label  = 3
-@@ -144,6 +145,9 @@
-    otherwise
+@@ -145,6 +146,9 @@
        nop
     end
-+
+ 
 +if \datatype(Count,'W') then call Error_msg 'Invalid repetition count'
 +if Count < 1 | Count > 99 then call Error_msg 'Expected count from 1 to 99'
- 
++
  if Def_env = XEDIT then
     'COMMAND          EXTRACT /FLSCREEN /FNAME /MASK /ZONE'
+ else
+@@ -163,7 +167,7 @@
+       /* No indent after empty line */
+       Op_col = 1
+       end
+-   when Colon  then do
++   when Colon > 0 then do
+       /* Potential keyword is first word after label */
+       /* Don't assume separating blank */
+       parse var Op_old . ':' Op_new
 @@ -203,6 +207,7 @@
        if abbrev(WHEN,     Command_name,3) then
           Indent = Indent - Indent_WHEN

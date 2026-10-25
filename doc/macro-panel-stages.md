@@ -21,3 +21,8 @@ separate from this staged qualification.
 
 Adrian selected a minimal compatibility patch set against unchanged originals.
 Keep downloads outside the repository and verify original hashes before patching.
+
+Stage 1 published as [v4.0.0-regina.1](https://github.com/adesutherland/THE/releases/tag/v4.0.0-regina.1),
+commit `99e43c2`, after 67/67 macOS tests and Windows run `40177173979`
+(54 passed, 11 unavailable-tool skips). Both installed payloads passed the
+86-workflow patched-original suite; original source remains unchanged.

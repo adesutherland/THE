@@ -5,7 +5,8 @@ from pathlib import Path
 import sys
 from macro_harness import MacroHarness, interpreter_errors
 
-harness = MacroHarness(sys.argv[1], sys.argv[2])
+engine = sys.argv[3] if len(sys.argv) > 3 else 'REGINA'
+harness = MacroHarness(sys.argv[1], sys.argv[2], engine, sys.argv[4] if len(sys.argv) > 4 else None)
 results = []
 counts = {
     'pfxrexx': {'DO': 5, 'IF': 8, 'OTHE': 5, 'OTHER': 5, 'RI': 3, 'RIC': 3,
@@ -24,11 +25,12 @@ def check(package, prefix, **kwargs):
     assert not interpreter_errors(result), (package, prefix, result['errors'])
     assert not result['errors'], (package, prefix, result['errors'])
     assert result['text'][0] == kwargs.get('seed', 'seed') or prefix.startswith(('CU', 'CL', 'UC', 'LC', 'STA', 'UNST')), (package, prefix, result['text'])
-    assert result['text'][-1] == 'tail' or prefix.startswith(('CU', 'CL', 'UC', 'LC')), (package, prefix, result['text'])
+    assert result['text'][-1] == 'tail' or prefix.startswith(('CU', 'CL', 'UC', 'LC', 'STA', 'UNST')), (package, prefix, result['text'])
     snap = result['snapshots'][-1]
     assert 0 <= snap['focus']['line'] <= snap['buffer']['lines'] + 1, (package, prefix, snap)
     results.append({'package': package, 'prefix': prefix, 'text': result['text'],
-                    'focus': snap['focus']})
+                    'focus': snap['focus'],
+                    'pending': next(r['pending_prefix'] for r in reversed(result['records']) if 'pending_prefix' in r)})
     return result
 
 
@@ -57,6 +59,11 @@ for package in ('pfxrexx', 'pfxhlasm'):
         assert result['text'] == ['seed', 'tail'], result
         assert any(row.get('p', '').startswith('?') for snap in result['snapshots']
                    for row in snap['screen_rows']), result
+        results.append({'package': package, 'prefix': 'DO' + str(count),
+                        'text': result['text'], 'focus': result['snapshots'][-1]['focus'],
+                        'pending': next(r['pending_prefix'] for r in reversed(result['records']) if 'pending_prefix' in r),
+                        'error_prefix': next(row['p'] for snap in result['snapshots']
+                                             for row in snap['screen_rows'] if row.get('p', '').startswith('?'))})
 
     upper, lower = ('CU', 'CL') if package == 'pfxrexx' else ('UC', 'LC')
     for alias, seed, expected in ((upper, 'aBcD', 'ABCD'), (lower, 'aBcD', 'abcd'),
@@ -91,6 +98,51 @@ assert result['text'][0][71:72] == '*', result
 result = check('pfxhlasm', 'UNSTA', seed='seed' + ' ' * 67 + '*')
 assert result['text'][0].rstrip() == 'seed', result
 
-out = Path(sys.argv[2]) / 'qualification.json'
+# Indentation and context are part of the contract, not just template text
+# starting from a plain record. These cases run under both engines.
+contexts = [
+    ('pfxrexx', 'DO', 'do'),
+    ('pfxrexx', 'DO', 'label:'),
+    ('pfxrexx', 'IF', ' label:say 1'),
+    ('pfxrexx', 'IF', ' label: say 1'),
+    ('pfxrexx', 'WHEN', 'select'),
+    ('pfxrexx', 'OTHE', ' when . then do'),
+    ('pfxrexx', 'RI', '  if . then do'),
+    ('pfxrexx', 'RIC', '  else'),
+    ('pfxhlasm', 'CASE', '         CASENTRY R1'),
+    ('pfxhlasm', 'WHEN', '         SELECT'),
+    ('pfxhlasm', 'ELSEI', '         IF EQ'),
+    ('pfxhlasm', 'DO', 'label    MVC'),
+    ('pfxhlasm', 'SEA', '         DO INF'),
+]
+for package, prefix, seed in contexts:
+    check(package, prefix, seed=seed)
+
+for operand in ('ONCE', 'INF', 'FOREVER', 'FROM', 'BY 2', 'UNTIL', 'WHILE'):
+    check('pfxhlasm', 'DO ' + operand)
+for operand in ('CC', 'EQ'):
+    check('pfxhlasm', 'IF ' + operand)
+for package, prefix in (('pfxrexx', 'CU C'), ('pfxrexx', 'CL C'),
+                         ('pfxhlasm', 'UC C'), ('pfxhlasm', 'LC C')):
+    check(package, prefix, seed='aBcDeF', column=3)
+check('pfxhlasm', 'STAR2')
+
+for package, prefix, seed, message in (
+        ('pfxrexx', 'CU BAD', 'seed', 'Invalid column designator'),
+        ('pfxhlasm', 'UC BAD', 'seed', 'Invalid column designator'),
+        ('pfxhlasm', 'IF BAD', 'seed', 'invalid'),
+        ('pfxhlasm', 'DO', '         CASENTRY R1', 'not allowed')):
+    result = harness.run(package, prefix, seed=seed)
+    assert not interpreter_errors(result), (package, prefix, result['errors'])
+    assert message.lower() in result['errors'].lower(), (package, prefix, result['errors'])
+    assert result['text'] == [seed, 'tail'], (package, prefix, result['text'])
+    results.append({'package': package, 'prefix': prefix, 'text': result['text'],
+                    'focus': result['snapshots'][-1]['focus'],
+                    'pending': next(r['pending_prefix'] for r in reversed(result['records']) if 'pending_prefix' in r),
+                    'error_prefix': next(row['p'] for snap in result['snapshots']
+                                         for row in snap['screen_rows'] if row.get('p', '').startswith('?'))})
+
+out = Path(sys.argv[2]) / ('levelg-qualification.json' if engine == 'CREXX' else 'qualification.json')
 out.write_text(json.dumps(results, indent=2), encoding='utf-8')
-print('Patched originals:', len(results), 'behavioral workflows passed, including all 57 documented aliases')
+print(('Level G port:' if engine == 'CREXX' else 'Patched originals:'), len(results),
+      'behavioral workflows passed, including all 57 documented aliases')

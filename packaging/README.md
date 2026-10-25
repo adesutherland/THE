@@ -1,7 +1,8 @@
 # Prebuilt THE candidates
 
 The bundled install contains THE, its curses and LLM drivers, profiles and
-help, the Classic PFXREXX adaptation, and a private matching cREXX tool set.
+help, the Classic PFXREXX adaptation, compiled Level G Rexx/HLASM prefix
+workflows, the minimal original-macro patch kit, and a private matching cREXX tool set.
 Regina is optional, loaded only when selected, and is never bundled.
 See [interpreter setup](../doc/rexx-interpreters.md).
 

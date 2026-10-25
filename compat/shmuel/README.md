@@ -33,6 +33,8 @@ Corrections are limited to the experimental fork's tested workflow:
 - PFXREXX: compare against the actual THE placeholder, insert blank records
   explicitly, restore state on error, correct OTHERWISE and upper-case column
   conversion, and isolate case-conversion variables.
+- Label and CASENTRY/IF searches: compare numeric positions explicitly rather
+  than interpreting positions greater than one as Boolean values.
 - PFXHLASM: repair malformed comments/control flow, initialize indentation,
   use the configured SEARCH indentation, restore settings and cursor handling,
   correct WHEN to assembler syntax, supply documented but missing ENDIF,

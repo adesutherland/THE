@@ -8,17 +8,18 @@ import tempfile
 
 
 class MacroHarness:
-    def __init__(self, binary, macros, engine='REGINA'):
+    def __init__(self, binary, macros, engine='REGINA', ports=None):
         self.binary = str(Path(binary).resolve())
         self.macros = Path(macros).resolve()
         self.engine = engine
+        self.ports = Path(ports).resolve() if ports else self.macros
 
     def aliases(self, package):
         text = (self.macros / (package + '.the')).read_text()
         return list(dict.fromkeys(re.findall(r'SET PREFIX SYNONYM\s+(\S+)\s+' + package,
                                              text, re.IGNORECASE)))
 
-    def run(self, package, prefix, seed='seed', passes=1, commands='', before=''):
+    def run(self, package, prefix, seed='seed', passes=1, commands='', before='', column=1):
         with tempfile.TemporaryDirectory(prefix='THE macro workflow ') as tmp:
             work = Path(tmp)
             sample = work / 'sample.txt'
@@ -27,14 +28,17 @@ class MacroHarness:
                      'command set case mixed respect', 'command set prefix on left 12 0',
                      'command set eolout lf']
             for alias in self.aliases(package):
-                setup.append(f'command set prefix synonym {alias} {package}')
-            setup += [before, 'command :1', 'command cursor goto 1 1',
+                program = 'pfxstructuredg' if self.engine == 'CREXX' else package
+                setup.append(f'command set prefix synonym {alias} {program}')
+            if self.engine == 'CREXX':
+                setup.append('command editv set pfx_language ' + package[3:].upper())
+            setup += [before, 'command :1', 'command cursor goto 1 ' + str(column),
                       'command set pending on ' + prefix]
             for _ in range(passes):
                 setup += ['command sos doprefix', 'look filearea compact']
             setup += [commands, 'look filearea compact', 'look prefix compact', 'command save', 'quit']
             env = dict(os.environ, THE_REXX_INTERPRETER=self.engine,
-                       THE_MACRO_PATH=str(self.macros), TERM='')
+                       THE_MACRO_PATH=str(self.ports if self.engine == 'CREXX' else self.macros), TERM='')
             proc = subprocess.run([self.binary, '--driver', 'llm', '-n', str(sample)],
                                   input='\n'.join(setup) + '\n', env=env,
                                   text=True, encoding='utf-8', capture_output=True, timeout=20, check=True)

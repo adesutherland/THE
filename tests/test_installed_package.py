@@ -41,7 +41,11 @@ with tempfile.TemporaryDirectory(prefix='THE package smoke ') as tmp:
         if engine != 'NONE':
             commands += 'command macro "' + str(macro).replace('\\', '/') + '"\n'
         if engine == 'REGINA':
-            commands += 'command macro pfxsetup\ncommand :1\ncommand set pending on DO\ncommand sos doprefix\n'
+            commands += 'command macro pfxsetup\ncommand :1\ncommand cursor goto 1 1\ncommand set pending on DO\ncommand sos doprefix\n'
+        if engine == 'CREXX':
+            commands += 'command macro pfxsetupg REXX\ncommand :1\ncommand cursor goto 1 1\ncommand set pending on DO\ncommand sos doprefix\n'
+            commands += 'look filearea compact\n'
+            commands += 'command macro pfxsetupg HLASM\ncommand :1\ncommand cursor goto 1 1\ncommand set pending on ENDIF\ncommand sos doprefix\n'
         commands += 'look filearea compact\nquit\n'
         if os.name == 'nt':
             command = f'"{env["COMSPEC"]}" /d /s /c ""{prefix / "bin/the.cmd"}" --driver llm -n "{sample}""'
@@ -55,9 +59,11 @@ with tempfile.TemporaryDirectory(prefix='THE package smoke ') as tmp:
         assert not any(word in result.stderr for word in ('Error ', 'Unable to', 'not found')), result.stderr
         if engine != 'NONE':
             assert any(r.get('last_message') == 'PACKAGE_MACRO_OK' for r in records), result.stdout
-        if engine == 'REGINA':
-            view = next(r for r in records if 'screen_rows' in r)
-            assert any(line.get('t') == 'do' for line in view['screen_rows']), view
+        if engine in ('REGINA', 'CREXX'):
+            views = [r for r in records if 'screen_rows' in r]
+            assert any(line.get('t') == 'do' for view in views for line in view['screen_rows']), views
+            if engine == 'CREXX':
+                assert any(line.get('t', '').strip().startswith('ENDIF') for line in views[-1]['screen_rows']), views[-1]
         print(f'{engine}: installed payload passed with an isolated PATH')
         if engine == 'REGINA' and args.macros:
             env['THE_HOME_DIR'] = str(prefix / 'share/the')
@@ -71,3 +77,19 @@ with tempfile.TemporaryDirectory(prefix='THE package smoke ') as tmp:
                 (args.macros / 'provenance.json').read_text())
             subprocess.run([sys.executable, str(Path(__file__).with_name('test_shmuel_macros.py')),
                             str(executable), str(prepared)], env=env, check=True, timeout=120)
+            # Exercise the compiled ports with Regina unavailable, using only
+            # the tools and shared library actually installed in the payload.
+            g_env = dict(env, THE_REXX_INTERPRETER='CREXX', THE_REGINA_LIBRARY=str(Path(tmp) / 'no-regina'))
+            runtime = prefix / 'libexec/the/crexx'
+            libraries = [p for p in runtime.iterdir() if 'crexxsaa' in p.name and p.suffix in ('.dll', '.so', '.dylib')]
+            assert len(libraries) == 1, libraries
+            suffix = '.exe' if os.name == 'nt' else ''
+            g_env.update(THE_CREXX_LIBRARY=str(libraries[0]), THE_CREXX_LOCATION=str(runtime),
+                         THE_CREXX_IMPORT_DIR=str(runtime), THE_CREXX_LIBRARY_RXBIN=str(runtime / 'library.rxbin'),
+                         THE_CREXX_RXC=str(runtime / ('rxc' + suffix)), THE_CREXX_RXAS=str(runtime / ('rxas' + suffix)))
+            g_env['PATH'] = str(runtime) + os.pathsep + env['PATH']
+            subprocess.run([sys.executable, str(Path(__file__).with_name('test_shmuel_macros.py')),
+                            str(executable), str(prepared), 'CREXX', str(prefix / 'share/the')],
+                           env=g_env, check=True, timeout=180)
+            subprocess.run([sys.executable, str(Path(__file__).with_name('test_prefix_port_parity.py')),
+                            str(prepared)], env=g_env, check=True, timeout=15)

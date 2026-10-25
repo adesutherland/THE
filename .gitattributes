@@ -1,0 +1,2 @@
+# Unified patch context includes a single space for empty source lines.
+compat/shmuel/*.patch whitespace=-blank-at-eol

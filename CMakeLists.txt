@@ -657,6 +657,8 @@ set(THE_RUNTIME_PROFILE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/crexxrun.the
     ${CMAKE_CURRENT_SOURCE_DIR}/pfxrexx.the
     ${CMAKE_CURRENT_SOURCE_DIR}/pfxsetup.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/pfxsetupg.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/pfxstructuredg.the
 )
 set(THE_COPIED_RUNTIME_PROFILE_OUTPUTS)
 foreach(THE_RUNTIME_PROFILE_SOURCE IN LISTS THE_RUNTIME_PROFILE_SOURCES)
@@ -923,9 +925,10 @@ if(WIN32)
 endif()
 install(FILES doc/THE_Help.txt profile.the profile_regina.the web-profile.the profile_crexx.the crexxcompile.the crexxrun.the DESTINATION share/the)
 install(FILES pfxrexx.the pfxsetup.the DESTINATION share/the)
+install(FILES pfxsetupg.the pfxstructuredg.the DESTINATION share/the)
 install(DIRECTORY compat/shmuel DESTINATION share/the/macro-patches/compat)
 install(FILES scripts/prepare-shmuel-macros.py DESTINATION share/the/macro-patches/scripts)
-install(FILES doc/pfxrexx.md doc/rexx-interpreters.md DESTINATION share/doc/the)
+install(FILES doc/pfxrexx.md doc/pfxrexx-levelg.md doc/rexx-interpreters.md DESTINATION share/doc/the)
 install(FILES LICENSE DESTINATION share/doc/the)
 if(USE_SDSLH AND EXISTS "${DSLSH_SOURCE_DIR}/LICENSE")
     install(FILES "${DSLSH_SOURCE_DIR}/LICENSE" DESTINATION share/doc/the/dslsh)
@@ -1052,6 +1055,23 @@ if(THE_USE_REGINA AND REGINA_LIBRARY AND THE_PYTHON_EXECUTABLE)
         add_test(NAME test_shmuel_macros COMMAND ${THE_PYTHON_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_shmuel_macros.py $<TARGET_FILE:the> ${THE_SHMUEL_MACRO_DIR})
         set_tests_properties(test_shmuel_macros PROPERTIES TIMEOUT 120 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+        set_tests_properties(test_shmuel_macros PROPERTIES FIXTURES_SETUP prefix_regina)
+        if(THE_USE_CREXX)
+            add_test(NAME test_levelg_prefix COMMAND ${THE_PYTHON_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_shmuel_macros.py $<TARGET_FILE:the>
+                ${THE_SHMUEL_MACRO_DIR} CREXX ${RELEASE_DIR})
+            set_tests_properties(test_levelg_prefix PROPERTIES TIMEOUT 180
+                ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}" FIXTURES_SETUP prefix_levelg)
+            add_test(NAME test_prefix_port_parity COMMAND ${THE_PYTHON_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_prefix_port_parity.py ${THE_SHMUEL_MACRO_DIR})
+            set_tests_properties(test_prefix_port_parity PROPERTIES FIXTURES_REQUIRED "prefix_regina;prefix_levelg")
+            if(UNIX)
+                add_test(NAME test_levelg_curses COMMAND ${THE_PYTHON_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pfxrexx_curses.py $<TARGET_FILE:the> ${RELEASE_DIR} CREXX)
+                set_tests_properties(test_levelg_curses PROPERTIES TIMEOUT 45
+                    FIXTURES_REQUIRED prefix_levelg ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+            endif()
+        endif()
         if(UNIX)
             add_test(NAME test_shmuel_curses COMMAND ${THE_PYTHON_EXECUTABLE}
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pfxrexx_curses.py $<TARGET_FILE:the> ${THE_SHMUEL_MACRO_DIR})

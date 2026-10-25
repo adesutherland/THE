@@ -1,0 +1,25 @@
+/* Set up THE's Level G ports of the Rexx or HLASM prefix workflow. */
+options levelg
+namespace the_prefix_setup_g
+import rxfnsb
+
+main: procedure
+  arg arguments = .string[]
+  kind = 'REXX'
+  if arguments[0] > 0 then kind = translate(strip(arguments[1]))
+  if wordpos(kind, 'REXX HLASM') = 0 then do
+    address the 'emsg Expected REXX or HLASM';
+    exit 1
+  end
+  address the 'command set compat xedit xedit xedit';
+  address the 'command set case mixed respect';
+  address the 'command set prefix on left 12 0';
+  address the 'command editv set pfx_language ' || kind;
+  aliases = '.. CLINE CLC CL CLO CLOW CLOWE CUC CU CUP CUPP CUPPE DO IF OTHE OTHER RI RIC SEL SELE SELEC WHE WHEN'
+  if kind = 'HLASM' then aliases = '.. ASML ASMLE CASE CASEE CASEN DO DOEX DOEXI ELSE ELSEI ENDIF EXITI IF ITERA LC ORELS OTHER OTHRW RI RIC SEA SEAR SEARC SEL SELE SELEC STA STAR STRTS UC UNST UNSTA WHEN'
+  do index = 1 to words(aliases)
+    alias = word(aliases, index)
+    address the 'command set prefix synonym ' || alias || ' pfxstructuredg';
+    address the 'command set prefix synonym ' || translate(alias, 'abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') || ' pfxstructuredg';
+  end
+  exit 0

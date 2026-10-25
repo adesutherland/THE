@@ -26,16 +26,25 @@
  'COMMAND          EXTRACT /COLUMN /FLSCREEN /FNAME /LINE /MASK /TRUNC /ZONE'
  'COMMAND :'Pline 'EXTRACT /CURSOR /CURLINE'
  
-@@ -193,6 +197,9 @@
-       Op_col = wordindex(CURLINE.3,2)
+@@ -194,6 +198,9 @@
        end
     end
-+
+ 
 +if Op_col = 0 then Op_col = 10
 +Indent = Op_col - 1
- 
++
  /* Upper case opcode */
  Op_old = translate(Op_old)
+ 
+@@ -204,7 +211,7 @@
+    when Op_old = CASENTRY then do
+       Indent = Indent + Indent_CASENTRY
+       First_case = '.. CASE LC RI RIC ST STA STAR UC UNST UNSTA'
+-      if \wordpos(Command_name, First_case) then
++      if wordpos(Command_name, First_case) = 0 then
+          call Error_msg Command_name 'not allowed between CASENTRY and first CASE'
+       end
+    when Op_old = DO       then
 @@ -241,6 +248,7 @@
              nop
           end
@@ -101,7 +110,13 @@
              call Get_mask
              Ccol = Ccol+7
              COMMAND ':'Iline INPUT pad'EXITIF if_options'
-@@ -449,7 +457,7 @@
+@@ -444,12 +452,12 @@
+                   Ccol = Ccol+3
+                   end
+                when datatype(Op1,W) | ,
+-                    wordpos(Op1,CCs) then do
++                    wordpos(Op1,CCs) > 0 then do
+                   IF_string = 'IF ('Op1')'
                    Cline = Cline + 1
                    Ccol = Ccol+Indent_IF
                    end
