@@ -5,11 +5,13 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 parser = argparse.ArgumentParser()
 parser.add_argument('prefix', type=Path)
 parser.add_argument('--regina', type=Path)
+parser.add_argument('--macros', type=Path)
 args = parser.parse_args()
 prefix = args.prefix.resolve()
 manifest = json.loads((prefix / 'manifest.json').read_text())
@@ -57,3 +59,15 @@ with tempfile.TemporaryDirectory(prefix='THE package smoke ') as tmp:
             view = next(r for r in records if 'screen_rows' in r)
             assert any(line.get('t') == 'do' for line in view['screen_rows']), view
         print(f'{engine}: installed payload passed with an isolated PATH')
+        if engine == 'REGINA' and args.macros:
+            env['THE_HOME_DIR'] = str(prefix / 'share/the')
+            env['THE_DRIVER_PATH'] = str(prefix / 'lib/the/drivers')
+            executable = prefix / 'libexec/the' / ('the.exe' if os.name == 'nt' else 'the')
+            prepared = Path(tmp) / 'installed patched macros'
+            tool = prefix / 'share/the/macro-patches/scripts/prepare-shmuel-macros.py'
+            subprocess.run([sys.executable, str(tool), '--download', '--output-dir', str(prepared)],
+                           env=env, check=True, timeout=90)
+            assert json.loads((prepared / 'provenance.json').read_text()) == json.loads(
+                (args.macros / 'provenance.json').read_text())
+            subprocess.run([sys.executable, str(Path(__file__).with_name('test_shmuel_macros.py')),
+                            str(executable), str(prepared)], env=env, check=True, timeout=120)

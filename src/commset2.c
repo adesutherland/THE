@@ -4322,9 +4322,10 @@ SYNTAX
      [SET] TRunc n|*
 
 DESCRIPTION
-     The SET TRUNC set command determines the truncation column.  This
-     is the rightmost column of text upon which THE commands are
-     effective.
+     SET TRUNC sets a per-file display-cell limit on inserted, replaced
+     and edited lines. EXTRACT /TRUNC/ returns the effective limit.
+     Existing lines are unchanged until edited. Truncated operations
+     display a warning. PRESERVE/RESTORE saves this setting.
 
 COMPATIBILITY
      XEDIT: Compatible.
@@ -4334,17 +4335,22 @@ DEFAULT
      *
 
 STATUS
-     Incomplete.
+     Basic non-spilling truncation implemented; SET SPILL is not supported.
 **man-end**********************************************************************/
 short Trunc(CHARTYPE *params)
 /***********************************************************************/
 {
-   short rc=RC_OK;
-
-   TRACE_FUNCTION("commset2.c:Trunc");
-   display_error(0,(CHARTYPE *)"This command not yet implemented",FALSE);
-   TRACE_RETURN();
-   return(rc);
+   int error;
+   if (!strcmp((char *)params,"*"))
+      CURRENT_FILE->truncation_column=0;
+   else
+   {
+      error=valid_positive_integer_against_maximum(params,max_line_length);
+      if (error || !atoi((char *)params))
+      { display_error(1,params,FALSE); return RC_INVALID_OPERAND; }
+      CURRENT_FILE->truncation_column=(LENGTHTYPE)atoi((char *)params);
+   }
+   return RC_OK;
 }
 /*man-start*********************************************************************
 COMMAND

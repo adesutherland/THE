@@ -852,6 +852,7 @@ short insert_new_line(CHARTYPE curr_screen, VIEW_DETAILS *curr_view, CHARTYPE *l
    bool on_bottom_of_file=FALSE,on_bottom_of_screen=FALSE;
    short number_focus_rows=0;
    bool leave_cursor=FALSE;
+   bool truncated=FALSE;
    LINETYPE new_focus_line=0L,new_current_line=0L;
 
    TRACE_FUNCTION("execute.c: insert_new_line");
@@ -880,6 +881,12 @@ short insert_new_line(CHARTYPE curr_screen, VIEW_DETAILS *curr_view, CHARTYPE *l
       line=masked;
    }
    save_curr = curr;
+   if (inc_alt)
+   {
+      LENGTHTYPE limited=xedit_truncated_length(curr_view->file_for_view,line,len);
+      truncated=limited<len;
+      len=limited;
+   }
    for ( i = 0; i < num_lines; i++ )
    {
       if ( ( curr = add_LINE( curr_view->file_for_view->first_line, curr, line, len, select, TRUE ) ) == NULL )
@@ -997,8 +1004,9 @@ short insert_new_line(CHARTYPE curr_screen, VIEW_DETAILS *curr_view, CHARTYPE *l
    build_screen( curr_screen );
    display_screen( curr_screen );
 
+   if (truncated) display_error(0,(CHARTYPE *)"Truncated at SET TRUNC column",FALSE);
    TRACE_RETURN();
-   return(RC_OK);
+   return(truncated ? RC_TRUNCATED : RC_OK);
 }
 /***********************************************************************/
 static bool execute_filearea_logical_cursor(LENGTHTYPE *cell, unsigned short *row)
@@ -5982,6 +5990,7 @@ short execute_preserve(VIEW_DETAILS *src_vd, PRESERVED_VIEW_DETAILS **preserved_
     */
    memcpy((*preserved_file_details)->input_mask,src_fd->input_mask,sizeof(src_fd->input_mask));
    (*preserved_file_details)->input_mask_len=src_fd->input_mask_len;
+   (*preserved_file_details)->truncation_column=src_fd->truncation_column;
    (*preserved_file_details)->autosave                  = src_fd->autosave;
    (*preserved_file_details)->backup                    = src_fd->backup;
    (*preserved_file_details)->eolout                    = src_fd->eolout;
@@ -6092,6 +6101,7 @@ short execute_restore(VIEW_DETAILS *dst_vd, PRESERVED_VIEW_DETAILS **preserved_v
     */
    memcpy(dst_fd->input_mask,(*preserved_file_details)->input_mask,sizeof(dst_fd->input_mask));
    dst_fd->input_mask_len=(*preserved_file_details)->input_mask_len;
+   dst_fd->truncation_column=(*preserved_file_details)->truncation_column;
    dst_fd->autosave                  = (*preserved_file_details)->autosave;
    dst_fd->backup                    = (*preserved_file_details)->backup;
    dst_fd->eolout                    = (*preserved_file_details)->eolout;

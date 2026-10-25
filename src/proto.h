@@ -795,6 +795,7 @@ short Zone (CHARTYPE *);
 /* Shared XEDIT macro controls (independent of physical frontend). */
 short Mask(CHARTYPE *);
 CHARTYPE *xedit_mask_line(FILE_DETAILS *,const CHARTYPE *,LENGTHTYPE,LENGTHTYPE *);
+LENGTHTYPE xedit_truncated_length(FILE_DETAILS *,const CHARTYPE *,LENGTHTYPE);
 void xedit_cursor_begin(void);
 void xedit_cursor_end(void);
 bool xedit_cursor_accept(int);

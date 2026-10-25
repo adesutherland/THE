@@ -1512,6 +1512,15 @@ short Replace(CHARTYPE *params)
       if (!masked) return RC_OUT_OF_MEMORY;
       params=masked;
    }
+   {
+      LENGTHTYPE limited=xedit_truncated_length(CURRENT_FILE,params,len_params);
+      if (limited<len_params)
+      {
+         display_error(0,(CHARTYPE *)"Truncated at SET TRUNC column",FALSE);
+         rc=RC_TRUNCATED;
+      }
+      len_params=limited;
+   }
    curr = lll_find(CURRENT_FILE->first_line,CURRENT_FILE->last_line,true_line,CURRENT_FILE->number_lines);
    current_select = curr->select;
    add_to_recovery_list(curr->line,curr->length);

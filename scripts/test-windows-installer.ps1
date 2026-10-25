@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory=$true)][string]$Installer,
-    [Parameter(Mandatory=$true)][string]$ReginaLibrary
+    [Parameter(Mandatory=$true)][string]$ReginaLibrary,
+    [Parameter(Mandatory=$true)][string]$MacroDirectory
 )
 $ErrorActionPreference = 'Stop'
 $prefix = Join-Path $env:RUNNER_TEMP 'THE installed candidate'
@@ -13,7 +14,7 @@ function Install-Candidate {
 }
 try {
     Install-Candidate
-    & $python "$PSScriptRoot\..\tests\test_installed_package.py" $prefix --regina $ReginaLibrary
+    & $python "$PSScriptRoot\..\tests\test_installed_package.py" $prefix --regina $ReginaLibrary --macros $MacroDirectory
     if ($LASTEXITCODE -ne 0) { throw 'Installed runtime checks failed' }
     Set-Content -LiteralPath "$prefix\keep-user-file.txt" -Value 'retain on uninstall'
     Install-Candidate

@@ -7,15 +7,19 @@
 ```
 
 ## Description
-The SET TRUNC set command determines the truncation column. This is the rightmost column of
-text upon which THE commands are effective.
+SET TRUNC sets a per-file limit for inserted, replaced and edited lines.
+The limit uses display cells and never splits a UTF-8 grapheme. Setting a
+limit does not immediately shorten existing lines; it applies when a line is
+modified. INPUT, REPLACE and column edits report truncation with return code 3.
+EXTRACT /TRUNC/ returns the effective numeric limit. EXTRACT /CURLINE/ returns
+text through that limit. PRESERVE/RESTORE saves the setting.
 
 ## Compatibility
-XEDIT: Compatible.
-KEDIT: Compatible.
+XEDIT: Basic non-spilling truncation; SET SPILL modes are not implemented.
+KEDIT: Basic truncation.
 
 ## Default
 *
 
 ## Status
-Incomplete.
+Implemented for insertion, replacement, column edits and line commits.

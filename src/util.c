@@ -1718,6 +1718,15 @@ short post_process_line(VIEW_DETAILS *the_view,LINETYPE line_number,LINE *known_
     * If it has set the changed_flag.
     */
    curr->flags.changed_flag = TRUE;
+   {
+      LENGTHTYPE limited=xedit_truncated_length(the_view->file_for_view,rec,rec_len);
+      if (limited<rec_len)
+      {
+         display_error(0,(CHARTYPE *)"Truncated at SET TRUNC column",FALSE);
+         rc=RC_TRUNCATED;
+      }
+      rec_len=limited;
+   }
    /*
     * Increment the alteration counters, if requested to do so...
     */

@@ -5,6 +5,24 @@
 
 extern CHARTYPE query_num1[50],query_num2[50];
 
+LENGTHTYPE xedit_truncated_length(FILE_DETAILS *file,const CHARTYPE *text,LENGTHTYPE len)
+{
+   if (!file->truncation_column) return len;
+#ifdef USE_UTF8
+   return textpos_from_cell(text,len,file->truncation_column,TEXT_SNAP_BACKWARD).byte_offset;
+#else
+   return min(len,file->truncation_column);
+#endif
+}
+
+short extract_trunc(short count,short item,CHARTYPE *args,CHARTYPE type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
+{
+   sprintf((char *)query_num1,"%d",CURRENT_FILE->truncation_column ? CURRENT_FILE->truncation_column : max_line_length);
+   item_values[1].value=query_num1;
+   item_values[1].len=strlen((char *)query_num1);
+   return 1;
+}
+
 short Mask(CHARTYPE *params)
 {
    CHARTYPE *word[3],strip[2]={STRIP_BOTH,STRIP_NONE};

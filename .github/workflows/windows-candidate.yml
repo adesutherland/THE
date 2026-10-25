@@ -87,9 +87,12 @@ jobs:
         id: build
         shell: pwsh
         run: |
+          python scripts/prepare-shmuel-macros.py --download --output-dir build-release/shmuel-macros
+          if ($LASTEXITCODE -ne 0) { throw 'External macro preparation failed' }
           $crexx = "$env:THE_CI_SDK/crexx/CREXX-windows-x64"
           cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=gcc `
             -DTHE_BUNDLE_CREXX=ON -DTHE_REXX_INTERPRETER=CREXX -DTHE_TEST_SHELL_TRACE=ON `
+            "-DTHE_SHMUEL_MACRO_DIR=$env:GITHUB_WORKSPACE/build-release/shmuel-macros" `
             "-DDSLSH_LOCAL_DIR=$env:GITHUB_WORKSPACE/.ci-deps/dslsh" `
             "-DCREXXSAA_INCLUDE_DIR=$env:THE_CI_SDK/include" "-DCREXXSAA_LIBRARY=$crexx/bin/crexxsaa.lib" `
             "-DCREXXSAA_RUNTIME_LIBRARY=$crexx/bin/crexxsaa.dll" "-DCREXX_LIBRARY_RXBIN=$crexx/bin/library.rxbin" `
@@ -110,7 +113,8 @@ jobs:
         if: always() && steps.build.conclusion == 'success'
         shell: pwsh
         run: |
-          python scripts/package-release.py --build-dir build-release --version "4.0.0-ci.$env:GITHUB_RUN_NUMBER" --installer
+          $version = (Get-Content packaging/candidate-version.txt -Raw).Trim()
+          python scripts/package-release.py --build-dir build-release --version $version --installer
           if ($LASTEXITCODE -ne 0) { throw 'Packaging failed' }
       - name: Test the installed release candidate
         if: always() && steps.package.conclusion == 'success'
@@ -118,7 +122,7 @@ jobs:
         run: |
           $installer = @(Get-ChildItem build-release/packages/*-setup.exe)
           if ($installer.Count -ne 1) { throw 'Expected exactly one installer' }
-          ./scripts/test-windows-installer.ps1 -Installer $installer[0].FullName -ReginaLibrary "$env:THE_CI_SDK/regina/regina.dll"
+          ./scripts/test-windows-installer.ps1 -Installer $installer[0].FullName -ReginaLibrary "$env:THE_CI_SDK/regina/regina.dll" -MacroDirectory "$env:GITHUB_WORKSPACE/build-release/shmuel-macros"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -126,6 +130,7 @@ jobs:
           path: |
             build-release/packages/*
             build-release/Testing/Temporary/LastTest.log
+            build-release/shmuel-macros/qualification.json
             build-release/*test*/**/*.err
             build-release/*test*/**/*.out
           if-no-files-found: warn

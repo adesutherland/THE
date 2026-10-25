@@ -1,0 +1,118 @@
+--- a/pfxrexx.the
++++ b/pfxrexx.the
+@@ -64,6 +64,7 @@
+    Bump = ''                  /* THE CLP after ADD differs from XEDIT */
+    parse upper source opsys calltype path
+    parse upper arg Pref Command_name Func Pline Op1 Op2 Op3 .
++   if Func = CLEAR then exit 0
+    Indent_DO     = 3
+    Indent_IF     = 3
+    Indent_label  = 3
+@@ -144,6 +145,9 @@
+    otherwise
+       nop
+    end
++
++if \datatype(Count,'W') then call Error_msg 'Invalid repetition count'
++if Count < 1 | Count > 99 then call Error_msg 'Expected count from 1 to 99'
+ 
+ if Def_env = XEDIT then
+    'COMMAND          EXTRACT /FLSCREEN /FNAME /MASK /ZONE'
+@@ -203,6 +207,7 @@
+       if abbrev(WHEN,     Command_name,3) then
+          Indent = Indent - Indent_WHEN
+    end
++Indent = max(0,Indent)
+ Op_col = Indent + 1
+ Pad    = left('',Indent)
+ 
+@@ -221,12 +226,13 @@
+               Command_name = 'CLINE' then do
+             Ccol = 0
+             call Get_mask
+-            if CURLINE.5 = NEW & CURLINE.3 = Mask then do
++            if word(CURLINE.5,1) = 'NEW' & CURLINE.3 = translate(Mask,' ','_') then do
+                COMMAND DELETE 1
+                leave
+                end
+             end
+          when Command_name = 'CLC' | abbrev('CLOWE',Command_name) then do
++            Ccol = 0
+             select
+                when Op1 = '' then do
+                   /* Lower case current zone */
+@@ -248,6 +254,7 @@
+                end
+             end
+          when Command_name = 'CUC' | abbrev('CUPPE',Command_name) then do
++            Ccol = 0
+             select
+                when Op1 = '' then do
+                   /* Upper case current zone */
+@@ -261,7 +268,7 @@
+                   end
+                when datatype(Op1,'W') then do
+                   /* Upper case up to specified column */
+-                  call set_case LOWERCAS, Op1
++                  call set_case UPPERCAS, Op1
+                   leave
+                   end
+                otherwise
+@@ -320,15 +327,15 @@
+             Eline  = Cline + 2
+             Pd2    = Pad || left('',Indent_WHEN)
+             call Get_mask
+-            COMMAND ':'Iline INPUT pad || 'otherwise then do'
++            COMMAND ':'Iline INPUT pad || 'otherwise do'
+             call Insert_line RIC, ''
+             COMMAND          INPUT Pd2'end'
+             end
+          when Command_name = 'RI' | Command_name = 'RIC' then do
+-            if CURLINE.5 = NEW & Command_name = 'RIC' then do
++            if word(CURLINE.5,1) = 'NEW' & Command_name = 'RIC' then do
+                /* Delete unaltered RIC line */
+                call Get_mask
+-               if CURLINE.3 = MASK.1 then do
++               if CURLINE.3 = translate(Mask,' ','_') then do
+                   COMMAND DELETE 1
+                   Ccol = 0
+                   leave
+@@ -449,7 +456,10 @@
+ Insert_line:
+    procedure expose Def_env Mask
+    parse arg Set_pend Text
+-   COMMAND INPUT Text
++   if Text = '' then
++      COMMAND ADD 1
++   else
++      COMMAND INPUT Text
+    if Set_pend \= '' then
+       COMMAND SET PENDING ON Set_pend
+    if Def_env = THE then do
+@@ -459,7 +469,7 @@
+    return
+ 
+ Set_case:
+-   procedure expose Count Pline
++   procedure expose Count Pline ZONE.
+    /* arg(1) case   is command name LOWERCAS or UPPERCAS */
+    /* arg(2) cursor is rightmust column to be upper or lower cased */
+    parse upper arg case, cursor
+@@ -488,13 +498,13 @@
+       Text = Command_name Op1
+    else
+       Text = Count || Command_name Op1
+-   if datatypw(Op1,'W') \= datatypw(Op2,'W') then
++   if datatype(Op1,'W') \= datatype(Op2,'W') then
+       Text = Text || Op2
+    else
+       Text = Text    Op2
+    Text = left(Text Op3, 6)
+    if debug then say arg(1)':' Count Op1 Op2 Op3
+    COMMAND EMSG arg(1)':' Count Op1 Op2 Op3
+-   if Def_env = XEDIT then
+-      COMMAND ':'Pline SET PENDING ERROR Text
+-   exit
++   COMMAND RESTORE
++   COMMAND ':'Pline SET PENDING ERROR Text
++   exit 1

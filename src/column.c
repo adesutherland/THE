@@ -233,7 +233,8 @@ short column_command(CHARTYPE *cmd_text,int cmd_type)
    if (CURRENT_VIEW->current_window == WINDOW_COMMAND
    ||  compatible_feel == COMPAT_XEDIT)
    {
-      post_process_line(CURRENT_VIEW,CURRENT_VIEW->current_line,(LINE *)NULL,TRUE);
+      short result=post_process_line(CURRENT_VIEW,CURRENT_VIEW->current_line,(LINE *)NULL,TRUE);
+      if (result!=RC_NO_LINES_CHANGED) rc=result;
       pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL);
    }
    else

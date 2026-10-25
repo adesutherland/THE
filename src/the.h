@@ -944,6 +944,7 @@ typedef struct
    PARSER_DETAILS *parser;     /* parser to use for syntax highlighting */
    CHARTYPE input_mask[32768];
    LENGTHTYPE input_mask_len;
+   LENGTHTYPE truncation_column; /* zero means the configured maximum */
 } PRESERVED_FILE_DETAILS;
 
 typedef struct
@@ -1004,6 +1005,7 @@ typedef struct
 #endif
    CHARTYPE input_mask[32768];
    LENGTHTYPE input_mask_len;
+   LENGTHTYPE truncation_column;
 } FILE_DETAILS;
 
 typedef struct

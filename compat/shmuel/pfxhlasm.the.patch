@@ -1,0 +1,277 @@
+--- a/pfxhlasm.the
++++ b/pfxhlasm.the
+@@ -69,13 +69,14 @@
+ 
+ trace n
+ /* trace ?i */
+-debug = 1
++debug = 0
+ 
+ Def_env = address()
+ if Def_env = THE then do
+    Bump = ''                  /* THE CLP after ADD differs from XEDIT */
+    parse upper source opsys calltype path
+    parse upper arg Pref Command_name Func Pline Op1 Op2 Op3 .
++   if Func = CLEAR then exit 0
+    Indent_CASE     = 2
+    Indent_CASENTRY = 2
+    Indent_DO       = 2
+@@ -169,6 +170,9 @@
+       nop
+    end
+ 
++if \datatype(Count,'W') then call Error_msg 'Invalid repetition count'
++if Count < 1 | Count > 99 then call Error_msg 'Expected count from 1 to 99'
++
+ 'COMMAND          EXTRACT /COLUMN /FLSCREEN /FNAME /LINE /MASK /TRUNC /ZONE'
+ 'COMMAND :'Pline 'EXTRACT /CURSOR /CURLINE'
+ 
+@@ -193,6 +197,9 @@
+       Op_col = wordindex(CURLINE.3,2)
+       end
+    end
++
++if Op_col = 0 then Op_col = 10
++Indent = Op_col - 1
+ 
+ /* Upper case opcode */
+ Op_old = translate(Op_old)
+@@ -241,6 +248,7 @@
+             nop
+          end
+    end
++Indent = max(0,Indent)
+ Op_col = Indent + 1
+ Pad    = left('',Indent)
+ 
+@@ -258,7 +266,7 @@
+          when Command_name = '..' then do
+             Ccol = 0
+             call Get_mask
+-            if CURLINE.5 = NEW & CURLINE.3 = MASK.1 then do
++            if word(CURLINE.5,1) = 'NEW' & CURLINE.3 = MASK.1 then do
+                COMMAND DELETE 1
+                leave
+                end
+@@ -270,7 +278,7 @@
+             COMMAND ':'Iline INPUT pad'ASMLEAVE label'
+             COMMAND          SET   PENDING ON '..'
+             COMMAND          ADD
+-            COMMAND '+1'     SET   PENDING ON 'RI'
++            COMMAND          SET   PENDING ON 'RI'
+             end
+          when Command_name = CASE then do
+             Eline  = Cline + 2
+@@ -293,7 +301,7 @@
+                012345678901234567890
+                CASE case, ...
+                CASENTRY R?,POWER=?,VECTOR=B
+-            /*
++            */
+             Ccol = Ccol + 5
+             COMMAND ':'Iline INPUT pad'CASENTRY R?,POWER=?,VECTOR=B'
+             COMMAND          INPUT pd2'CASE ?'
+@@ -337,7 +345,7 @@
+                   select
+                      when Op2 = '' then
+                         Op2 = 'R?'
+-                     when datatype(Op2,W) = '' then
++                     when datatype(Op2,W) then
+                         Op2 = 'R'Op2
+                      otherwise
+                         nop
+@@ -378,7 +386,7 @@
+             COMMAND ':'Iline INPUT pad'DOEXIT test'
+             COMMAND          SET   PENDING ON '..'
+             COMMAND          ADD
+-            COMMAND '+1'     SET   PENDING ON 'RI'
++            COMMAND          SET   PENDING ON 'RI'
+             end
+          when Command_name = 'ELSE' then do
+             Eline  = Cline + 1
+@@ -398,9 +406,9 @@
+             COMMAND          SET   PENDING ON 'RI'
+             end
+          WHEN Command_name = EXITI then do
+-            Op_col = Ccol + Indent_STRTSRCH
++            Op_col = Ccol + Indent_SEARCH
+             Eline  = Cline + 3
+-            Pd2    = Pad || left('',Indent_STRTSRCH)
++            Pd2    = Pad || left('',Indent_SEARCH)
+             call Get_mask
+             Ccol = Ccol+7
+             COMMAND ':'Iline INPUT pad'EXITIF if_options'
+@@ -449,7 +457,7 @@
+                   Cline = Cline + 1
+                   Ccol = Ccol+Indent_IF
+                   end
+-               when Op1 = CC then
++               when Op1 = CC then do
+                   IF_string = 'IF CC=.'
+                   Ccol = Ccol+6
+                   end
+@@ -470,7 +478,29 @@
+             COMMAND          SET   PENDING ON 'RI'
+             COMMAND          INPUT Pad'ENDIF  ,'
+             end
++         when Command_name = 'ENDIF' then do
++            COMMAND ':'Iline INPUT Pad'ENDIF ,'
++            COMMAND SET PENDING ON '..'
++            Ccol = 0
++            end
++         when Command_name = 'ITERA' then do
++            COMMAND ':'Iline INPUT Pad'ITERATE label'
++            COMMAND SET PENDING ON '..'
++            Ccol = Indent + 9
++            end
++         when Command_name = 'ORELS' | Command_name = 'OTHER' | ,
++              Command_name = 'OTHRW' then do
++            if Command_name = 'ORELS' then Keyword = 'ORELSE'
++            else Keyword = 'OTHRWISE'
++            COMMAND ':'Iline INPUT Pad || Keyword || ' ,'
++            COMMAND SET PENDING ON '..'
++            COMMAND INPUT Pad || left('',Indent_WHEN) || 'opcod ,'
++            COMMAND SET PENDING ON 'RI'
++            Ccol = Indent + Indent_WHEN + 1
++            Cline = Pline + 2
++            end
+          when Command_name = 'LC' then do
++            Ccol = 0
+             select
+                when Op1 = '' then do
+                   /* Lower case current zone */
+@@ -492,7 +522,7 @@
+                end
+             end
+          when Command_name = 'RI' | Command_name = 'RIC' then do
+-            if CURLINE.5 = NEW & Command_name = 'RIC' then do
++            if word(CURLINE.5,1) = 'NEW' & Command_name = 'RIC' then do
+                /* Delete unaltered RIC line */
+                call Get_mask
+                if CURLINE.3 = MASK.1 then do
+@@ -514,9 +544,9 @@
+             end
+          WHEN abbrev('SEARCH',Command_name,3) | ,
+               Command_name = STRTS then do
+-            Op_col = Ccol + Indent_STRTSRCH
++            Op_col = Ccol + Indent_SEARCH
+             Eline  = Cline + 8
+-            Pd2    = Pad || left('',Indent_STRTSRCH)
++            Pd2    = Pad || left('',Indent_SEARCH)
+             call Get_mask
+             /*
+                          1         2
+@@ -551,7 +581,7 @@
+             COMMAND          INPUT Pad'ENDSRCH  ,'
+             end
+          WHEN abbrev('SELECT',Command_name,3) then do
+-            \* Place cursor after keyword WHEN */
++            /* Place cursor after keyword WHEN */
+             Cline  = Cline + 1
+             Ccol   = Indent + Indent_SELECT + 6
+             Op_col = Indent + Indent_SELECT + Indent_WHEN + 1
+@@ -570,14 +600,14 @@
+             COMMAND          INPUT Pad'ENDSEL'
+             end
+          when abbrev(STAR,Command_name,3) then do
+-            Iline = Pline + Count - 1
+-            COMMAND          SET IMAGE OFF
++            Iline = Pline + Pass - 1
+             COMMAND          SET TRUNC max(TRUNC.1,72)
+-            COMMAND ':'Pline CLOCATE 72
+-            COMMAND          OVERLAY '*'
++            COMMAND ':'Iline CLOCATE ':72'
++            COMMAND          COVERLAY '*'
+             Ccol = 0
+             end
+          when Command_name = 'UC' then do
++            Ccol = 0
+             select
+                when Op1 = '' then do
+                   /* Upper case current zone */
+@@ -599,24 +629,23 @@
+                end
+             end
+          when abbrev(UNSTAR,Command_name,4) then do
+-            Iline = Pline + Count - 1
+-            COMMAND          SET IMAGE OFF
++            Iline = Pline + Pass - 1
+             COMMAND          SET TRUNC max(TRUNC.1,72)
+-            COMMAND ':'Pline CLOCATE 72
+-            COMMAND          OVERLAY '_'
++            COMMAND ':'Iline CLOCATE ':72'
++            COMMAND          COVERLAY '_'
+             Ccol = 0
+             end
+-         WHEN Command_name - 'WHEN' then do
+-            \* Place cursor after keyword WHEN */
++         WHEN Command_name = 'WHEN' then do
++            /* Place cursor after keyword WHEN */
+             Ccol   = Indent + 6
+             Op_col = Indent + Indent_WHEN + 1
+             Eline  = Cline + 2
+             Pd2    = Pad || left('',Indent_WHEN)
+             call Get_mask
+-            COMMAND ':'Iline INPUT pad || 'when . then do'
+-            COMMAND          ADD
+-            COMMAND '+1'     SET   PENDING ON 'RIC'
+-            COMMAND          INPUT Pd2'end'
++            COMMAND ':'Iline INPUT pad || 'WHEN if_test'
++            COMMAND SET PENDING ON '..'
++            COMMAND INPUT Pd2'opcod ,'
++            COMMAND SET PENDING ON 'RIC'
+             end
+          otherwise
+             call Error_msg 'Unknown prefix subcommand'
+@@ -633,7 +662,6 @@
+       exit
+       end
+    end
+-exit
+ 
+ /* Final housekeeping */
+ 
+@@ -642,7 +670,7 @@
+       if Debug then
+          say COMMAND ':'Cline CURSOR FILE Cline Ccol PRIORITY 30
+    COMMAND ':'Cline CURSOR FILE Cline Ccol PRIORITY 30
+-   COMMAND EXTRACT '/'PENDING
++   COMMAND EXTRACT '/PENDING *'
+    if Pending.0 > 0 then
+       exit
+    if Line.1 > Pline then
+@@ -656,7 +684,7 @@
+          otherwise
+             nop
+          end
+-      push ':'Pline CURSOR FILE Cline Ccol PRIORITY 70
++      COMMAND CURSOR GOTO Cline Ccol PRIORITY 70
+       end
+    end
+ exit
+@@ -673,6 +701,7 @@
+    return
+ 
+ Set_case:
++   procedure expose Count Pline ZONE.
+    /* case is command name LOWERCAS or UPPERCAS */
+    parse upper arg case, cursor
+    RZONE = min(cursor,ZONE.2)
+@@ -700,14 +729,13 @@
+       Text = Command_name Op1
+    else
+       Text = Count || Command_name Op1
+-   if datatypw(Op1,'W') \= datatypw(Op2,'W') then
++   if datatype(Op1,'W') \= datatype(Op2,'W') then
+       Text = Text || Op2
+    else
+       Text = Text    Op2
+    Text = left(Text Op3, 6)
+    if debug then say arg(1)':' Count Op1 Op2 Op3
+    COMMAND EMSG arg(1)':' Count Op1 Op2 Op3
++   COMMAND RESTORE
+    COMMAND ':'Pline SET PENDING ERROR Text
+-   COMMAND RESTORE
+-   COMMAND ':'Line.1 CLOC ':'COLUMN.1
+-   exit
++   exit 1

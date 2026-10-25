@@ -1085,7 +1085,7 @@ short extract_curline(short number_variables,short itemno,CHARTYPE *itemargs,CHA
                      (compatible_feel==COMPAT_XEDIT)?CURRENT_VIEW->current_line:get_true_line(TRUE),
                      CURRENT_FILE->number_lines);
       item_values[3].value = (CHARTYPE *)curr->line;
-      item_values[3].len = curr->length;
+      item_values[3].len = xedit_truncated_length(CURRENT_FILE,curr->line,curr->length);
       item_values[4].value = (curr->flags.new_flag||curr->flags.changed_flag)?(CHARTYPE *)"ON":(CHARTYPE *)"OFF";
       item_values[4].len = strlen((DEFCHAR *)item_values[4].value);
       if (curr->flags.new_flag)

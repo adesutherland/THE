@@ -1,0 +1,23 @@
+# Macro and panel delivery stages
+
+Authorized 25 October 2026. Work stays on `temp/shmuel-macros`.
+After each stage: local QA, commit/push, Windows Release and installed-package
+QA, then publish a tagged GitHub pre-release with checksums and qualification
+notes. Do not send anything to Shmuel. His handoff and interactive Windows
+qualification wait for Adrian's manual Windows test.
+
+1. Regina: repair dependencies and provide reproducible patches for the
+   downloaded PFXREXX/PFXHLASM files, with behavioral coverage of their aliases,
+   operands, continuations, errors and cursor state. Preserve original hashes.
+2. Level G: independent ports of both workflows, comparing text, pending work,
+   errors and cursor results with the corrected Regina baseline. Keep Regina.
+3. Panels: protected/editable fields, navigation, submission keys and tagged
+   READ ALL / READ NOCHANGE results in shared state, with curses, browser and
+   LLM presentation and both macro engines. Exercise normal editing regressions.
+
+Only a successful exact-commit CI candidate can become a pre-release.
+Production release, upstream THE equivalence and live XEDIT equivalence are
+separate from this staged qualification.
+
+Adrian selected a minimal compatibility patch set against unchanged originals.
+Keep downloads outside the repository and verify original hashes before patching.

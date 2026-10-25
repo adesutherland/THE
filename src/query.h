@@ -187,6 +187,7 @@ typedef enum {
     ITEM_TOF,
     ITEM_TOFEOF,
     ITEM_TRAILING,
+    ITEM_TRUNC,
     ITEM_TYPEAHEAD,
     ITEM_UI,
     ITEM_UNDOING,

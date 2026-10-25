@@ -1008,6 +1008,7 @@ short default_file_attributes(FILE_DETAILS *fd)
    CURRENT_FILE->preserved_file_details = NULL;
    CURRENT_FILE->input_mask[0] = 0;
    CURRENT_FILE->input_mask_len = 0;
+   CURRENT_FILE->truncation_column = 0;
    CURRENT_FILE->fp =              NULL;
    CURRENT_FILE->parser =          NULL;
 #ifdef USE_SDSLH

@@ -81,6 +81,7 @@ extern ExtractFunction extract_curline;
 extern ExtractFunction extract_cursor;
 extern ExtractFunction extract_flscreen;
 extern ExtractFunction extract_mask;
+extern ExtractFunction extract_trunc;
 extern ExtractFunction extract_cursorstay;
 extern ExtractFunction extract_cursorstyle;
 extern ExtractFunction extract_current_function;
@@ -2216,6 +2217,7 @@ QUERY_ITEM _THE_FAR query_item[] =
    {(CHARTYPE *)"tof",             3, 3,ITEM_TOF,           1, 1,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT             ,extract_tof                    },
    {(CHARTYPE *)"tofeof",          6, 6,ITEM_TOFEOF,        1, 1,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_tofeof                 },
    {(CHARTYPE *)"trailing",        8, 8,ITEM_TRAILING,      1, 1,          LVL_FILE,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_trailing               },
+   {(CHARTYPE *)"trunc",           5, 3,ITEM_TRUNC,         1, 1,          LVL_FILE,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT,extract_trunc},
    {(CHARTYPE *)"typeahead",       9, 5,ITEM_TYPEAHEAD,     1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_typeahead              },
    {(CHARTYPE *)"ui",              2, 2,ITEM_UI,            1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT             ,extract_ui                     },
    {(CHARTYPE *)"undoing",         7, 7,ITEM_UNDOING,       1, 1,          LVL_FILE,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_undoing                },
