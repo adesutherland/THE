@@ -6,6 +6,31 @@ fork. All original asset digests and the tag commit are pinned and checked
 throughout signing. The private bundled cREXX installation stays separate
 from any standalone cREXX installation; no installer automatically reuses it.
 
+## Qualified delivery on 25 October 2026
+
+The existing [panel prerelease](https://github.com/adesutherland/THE/releases/tag/v4.0.0-panels.1)
+was signed and its assets replaced without moving source tag
+`42d7135728e6b1fd6501f74ecd8312d3b564991b`.
+[Hosted run 40219171572](https://github.com/adesutherland/THE/actions/runs/40219171572)
+passed both native jobs and all 20 signing-tool regressions (11 Windows,
+9 macOS). Windows verified Authenticode and timestamp, all installed hashes,
+CREXX/NONE modes, browser assets, reinstall/uninstall, PATH and user-file
+retention. The outer installer changed; its ZIP and inner payload stayed intact.
+
+Apple accepted both ARM64 assets for notarization. The PKG passed signature,
+staple and Gatekeeper checks, installation, payload hashes, CREXX/NONE macros
+and browser checks as a normal user. All eight Mach-O files were signed.
+Two `.DS_Store` files were excluded because `pkgbuild` omits them; the updated
+manifest contains 128 payload hashes, with all other non-code files unchanged.
+This post-signing smoke supplements the earlier full macro/panel qualification;
+manual Windows interaction and any external handoff remain pending.
+
+| Published asset | SHA-256 |
+| --- | --- |
+| Windows x64 installer | `711ac3c7642f0945dda142ae4a1e5d1d4720bc8d63035046b42bc645f0ec76b6` |
+| macOS ARM64 PKG | `9c0cd9b5d07ab861d590a66b30f8fa86ddf4edb4fc2a2de1e314424de13edb75` |
+| macOS ARM64 ZIP | `75d9dc71237e458d662b9d2947947e1ce4a28aa24cd8a2ce46e3a54b4aa838d0` |
+
 ## Windows
 
 ```sh
