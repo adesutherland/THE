@@ -57,6 +57,17 @@ class MacSigningTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'identity'):
             module.validate_payload(self.payload, '4.0.0-test.1', 'arm64', 'b' * 40)
 
+    def test_finder_metadata_removed_from_staging_only(self):
+        metadata = self.payload / 'libexec/the/.DS_Store'
+        metadata.write_bytes(b'Finder metadata')
+        untouched = self.root / '.DS_Store'
+        untouched.write_bytes(b'user file outside payload')
+        original_binary = self.binary.read_bytes()
+        self.assertEqual(module.remove_packaging_metadata(self.payload), ['libexec/the/.DS_Store'])
+        self.assertFalse(metadata.exists())
+        self.assertTrue(untouched.exists())
+        self.assertEqual(self.binary.read_bytes(), original_binary)
+
     def test_archive_preserves_executable_mode(self):
         archive = self.root / 'input.zip'
         with zipfile.ZipFile(archive, 'w') as output:

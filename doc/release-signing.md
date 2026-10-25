@@ -31,6 +31,7 @@ The Windows installer must already have been signed locally with SimplySign.
 The macOS job uses the nine Apple secrets with the same names as cREXX-RAG.
 It validates the existing release ZIP and every input manifest hash; signs
 all nested Mach-O executables and libraries with Developer ID Application;
+removes staged Finder `.DS_Store` metadata (which `pkgbuild` excludes),
 refreshes manifest hashes; and smoke-tests the signed payload. It builds a
 Developer ID Installer PKG from that exact signed tree, submits both ZIP and
 PKG to Apple, requires `Accepted`, staples and validates the PKG, and checks

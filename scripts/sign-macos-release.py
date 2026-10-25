@@ -61,6 +61,17 @@ def macho_files(payload):
     return found
 
 
+def remove_packaging_metadata(payload):
+    # pkgbuild excludes Finder metadata, so it must not appear in the manifest
+    # shared by the portable ZIP and installed PKG. Only touch the staged copy.
+    removed = []
+    for path in sorted(payload.rglob('.DS_Store')):
+        if path.is_file():
+            removed.append(path.relative_to(payload).as_posix())
+            path.unlink()
+    return removed
+
+
 def unpack(archive, destination, root_name):
     seen = set()
     with zipfile.ZipFile(archive) as source:
@@ -215,6 +226,7 @@ def main():
     payload = unpack(original / (name + '.zip'), work / 'payload', name)
     manifest = validate_payload(payload, args.tag[1:], args.arch, release.commit)
     old_hashes = manifest['files_sha256'].copy()
+    removed_metadata = remove_packaging_metadata(payload)
     binaries = macho_files(payload)
     changed_names = [p.relative_to(payload).as_posix() for p in binaries]
     print(f'Original manifest verified: {len(old_hashes)} files; signing {len(binaries)} Mach-O files', flush=True)
@@ -226,9 +238,11 @@ def main():
         verify_code(payload)
         manifest['files_sha256'] = {p.relative_to(payload).as_posix(): file_hash(p) for p in payload.rglob('*')
                                     if p.is_file() and p != payload / 'manifest.json'}
-        if any(old_hashes[n] != h for n, h in manifest['files_sha256'].items() if n not in changed_names):
+        if (set(manifest['files_sha256']) != set(old_hashes) - set(removed_metadata) or
+                any(old_hashes[n] != h for n, h in manifest['files_sha256'].items() if n not in changed_names)):
             raise RuntimeError('Signing changed a non-executable payload file')
-        manifest['signing'] = dict(type='Developer ID', source_archive_sha256=inputs['.zip']['digest'])
+        manifest['signing'] = dict(type='Developer ID', source_archive_sha256=inputs['.zip']['digest'],
+                                  removed_packaging_metadata=removed_metadata)
         (payload / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
         validate_payload(payload, args.tag[1:], args.arch, release.commit)
         smoke(payload)
@@ -261,6 +275,7 @@ def main():
     checksums.write_text(''.join(f'{file_hash(p)}  {p.name}\n' for p in (archive, installer)))
     receipt = dict(repo=args.repo, tag=args.tag, source_commit=release.commit, architecture=args.arch,
         source_dirty=manifest['source_dirty'], files_signed=changed_names, notarization=submissions,
+        removed_packaging_metadata=removed_metadata,
         uploaded=False, files_sha256={p.name: file_hash(p) for p in (archive, installer, checksums)})
     receipt_path = work / 'receipt.json'
     receipt_path.write_text(json.dumps(receipt, indent=2) + '\n')
