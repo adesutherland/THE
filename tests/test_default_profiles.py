@@ -39,7 +39,7 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
     ruler=next(r['t'] for r in snap['screen_rows'] if r['role']=='scale')
     assert '+' in ruler and '1' in ruler,ruler
     assert 'CRXTHE 0.9.0' in snap['status'],snap['status']
-    assert sample.read_text()=='alpha\nfindme\n'
+    assert sample.read_text(encoding='utf-8')=='alpha\nfindme\n'
     assert any(row['role']=='reserved' and 'F6 Cmd' in row['t'] and 'F10 Keys' in row['t']
                for row in snap['screen_rows']),snap
     for key in ['f6','esc','ctrl-l']:
@@ -53,7 +53,7 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
 
 
     records,_=run('command cursor goto 1 1\ntext X\nkey ctrl-s\nlook filearea compact')
-    assert sample.read_text()=='Xalpha\nfindme\n',sample.read_text()
+    assert sample.read_text(encoding='utf-8')=='Xalpha\nfindme\n',sample.read_text(encoding='utf-8')
     records,_=run('key ctrl-f\nlook full compact')
     assert any(r.get('command')=='locate /' for r in records),records
     records,_=run('key ctrl-o\nlook full compact')
@@ -63,14 +63,15 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
     records,_=run('command cursor goto 1 1\nkey f4\nlook full compact')
     assert any(r.get('focus',{}).get('zone')=='prefix' for r in records),records
     records,_=run('command cursor goto 1 1\nkey end\nkey enter\ntext beta\nkey ctrl-s')
-    assert sample.read_text()=='Xalpha\nbeta\nfindme\n',sample.read_text()
+    assert sample.read_text(encoding='utf-8')=='Xalpha\nbeta\nfindme\n',sample.read_text(encoding='utf-8')
     empty=root/'new-file.txt'
     records,_=run('text A\nkey enter\ntext B\nkey ctrl-s',empty)
-    assert empty.read_text()=='A\nB\n',empty.read_text()
+    assert empty.read_text(encoding='utf-8')=='A\nB\n',empty.read_text(encoding='utf-8')
 
     navigation=root/'navigation.txt'
     original='α界e\u0301\n\nsecond\n'
     navigation.write_text(original,encoding='utf-8')
+    original_bytes=navigation.read_bytes()
     def last_focus(commands):
         records,_=run(commands+'\nlook full compact',navigation)
         return next(record['focus'] for record in reversed(records) if 'focus' in record)
@@ -88,7 +89,7 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
     expect_focus('command cursor goto 3 1\nkey shift-left','filearea',2,0)
     expect_focus('command cursor goto 3 3\nkey f6\nkey f6','filearea',3,2)
     expect_focus('command cursor goto 3 1\nkey f4\nkey f6\nkey f6','filearea',3,0)
-    assert navigation.read_text()==original
+    assert navigation.read_bytes()==original_bytes,navigation.read_bytes()
 
     # Tab inserts ordinary spaces and uses logical cells rather than UTF-8 bytes.
     for name, original, column, expected in [
@@ -99,14 +100,15 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
         target=root/(name+'-tab.txt')
         target.write_text(original+'\n',encoding='utf-8')
         run('command cursor goto 1 '+str(column)+'\nkey tab\nkey ctrl-s',target)
-        assert target.read_text()==expected+'\n',(name,target.read_text())
+        assert target.read_text(encoding='utf-8')==expected+'\n',(name,target.read_text(encoding='utf-8'))
     new_tab=root/'new-tab.txt'
     run('key tab\ntext beta\nkey ctrl-s',new_tab)
-    assert new_tab.read_text()=='        beta\n',new_tab.read_text()
+    assert new_tab.read_text(encoding='utf-8')=='        beta\n',new_tab.read_text(encoding='utf-8')
     raw=root/'retained-tab.txt'
     raw.write_bytes(b'a\tb\n')
     records,_=run('look full compact\nkey ctrl-s',raw)
-    assert raw.read_bytes()==b'a\tb\n',raw.read_bytes()
+    native_eol=b'\r\n' if os.name=='nt' else b'\n'
+    assert raw.read_bytes()==b'a\tb'+native_eol,raw.read_bytes()
     assert any(row.get('t')=='a\tb' for record in records for row in record.get('screen_rows',[])),records
 
 print(engine+': first-launch ruler, colors/profile, quiet optional parsers, insert/Enter, save, find/open/line prompts, prefix and empty-file editing passed')

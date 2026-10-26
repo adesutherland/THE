@@ -80,3 +80,27 @@ before Adrian's Windows smoke test. The private macro kit remains excluded.
 
 This report supersedes the earlier F6 direct-command description in
 [the prefix/key-guide report](crxthe-prefix-keys-qa.md).
+
+## Windows candidate liaison
+
+At Adrian's request, the source branch was pushed and the Windows chat
+**Use and test installed THE version** began testing exact revision
+`a939b51277eaf57132d5d02d8ae505a0b74d3191` in an isolated worktree.
+[Windows CI run 40352133442](https://github.com/adesutherland/THE/actions/runs/40352133442)
+built the editor, archive and installer successfully, and its installed
+candidate/lifecycle checks passed. The regression step failed three tests,
+so that run is not a qualified release candidate.
+
+Both default-profile tests reached the Unicode navigation fixture and failed
+when Python read its UTF-8 bytes using Windows' default cp1252 encoding. The
+browser script completed, but its Python save check incorrectly required LF
+although THE defaults to CRLF on Windows (`src/default.c`, `SET EOLOUT`).
+The later raw-tab profile check had the same LF-only assumption.
+
+The test correction reads UTF-8 explicitly, compares navigation fixture bytes
+exactly, and asserts complete saved tab/space bytes with the platform's native
+output EOL. Failures now show the actual saved bytes. It changes no editor,
+profile or installer behavior. The five affected profile/browser tests pass
+locally on macOS; the replacement Windows run and workstation byte check are
+still pending. Windows UI smoke, final signed-installer checks and Adrian's
+manual handoff gate remain separate.

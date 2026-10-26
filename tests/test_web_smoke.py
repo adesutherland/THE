@@ -23,7 +23,8 @@ with tempfile.TemporaryDirectory(prefix='THE web smoke ') as tmp:
         (root / name).write_bytes(content.encode())
     env = dict(os.environ, THE_REXX_INTERPRETER=engine, THE_WEB_ROOT=assets, THE_WEB_WORKSPACE=tmp)
     server = subprocess.Popen([binary, '--driver', 'web', str(sample)],
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                              encoding='utf-8', env=env)
     lines = queue.Queue()
 
     def collect():
@@ -49,10 +50,13 @@ with tempfile.TemporaryDirectory(prefix='THE web smoke ') as tmp:
         assert server.returncode == 0, server.stderr.read()
         expected = 'Zalpha beta gamma\ngamma\n' if chromium else 'alphaX beta gamma\n'
         # Logical contents are independent of the platform's native EOL.
-        assert sample.read_text() == expected, sample.read_bytes()
+        assert sample.read_text(encoding='utf-8') == expected, sample.read_bytes()
         if chromium:
-            assert (root/'tabs.txt').read_bytes() == b'a\tb\n'
-            assert (root/'tab-entry.txt').read_bytes() == b'        alpha\n'
+            native_eol = b'\r\n' if os.name == 'nt' else b'\n'
+            tabs = (root/'tabs.txt').read_bytes()
+            tab_entry = (root/'tab-entry.txt').read_bytes()
+            assert tabs == b'a\tb' + native_eol, tabs
+            assert tab_entry == b'        alpha' + native_eol, tab_entry
         succeeded = True
     finally:
         if server.poll() is None:
