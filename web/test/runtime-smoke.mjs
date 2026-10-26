@@ -90,6 +90,37 @@ socket.on("message", (data) => {
     if (message.focus?.zone !== "filearea") {
       fail("web snapshot did not expose the initial editor focus");
     }
+    send(90, { type: "resize", rows: 40, cols: 120 });
+    stage = "resize-grow";
+    return;
+  }
+
+  if (stage === "resize-grow" && message.viewport?.rows === 40 && message.viewport?.cols === 120) {
+    if (firstLine.t !== "alpha beta gamma") fail("resize altered the buffer");
+    send(91, { type: "resize", rows: 18, cols: 66 });
+    stage = "resize-shrink";
+    return;
+  }
+
+  if (stage === "resize-shrink" && message.viewport?.rows === 18 && message.viewport?.cols === 66) {
+    send(92, { type: "key", key: "f1" });
+    stage = "help";
+    return;
+  }
+
+  if (stage === "help" && message.buffer?.path?.endsWith("THE_Help.txt")) {
+    if (process.env.THE_REXX_INTERPRETER !== "NONE") {
+      const lines = message.screen_rows.filter((row) => row.role === "file");
+      if (lines.length < 8 || lines.some((row) => !/^\d{7}$/.test(row.p ?? ""))) {
+        fail("help omitted prefix numbers before refresh");
+      }
+    }
+    send(93, { type: "action", action: "file.close" });
+    stage = "help-return";
+    return;
+  }
+
+  if (stage === "help-return" && message.buffer?.path?.endsWith("sample.txt")) {
     send(10, { type: "files", root: 0, path: "" });
     stage = "files";
     return;
@@ -110,6 +141,13 @@ socket.on("message", (data) => {
 
   if (stage === "text" && acknowledgements.has(3)
       && firstLine.t === "alphaX beta gamma") {
+    send(94, { type: "resize", rows: 32, cols: 110 });
+    stage = "resize-edited";
+    return;
+  }
+
+  if (stage === "resize-edited" && message.viewport?.rows === 32 && message.viewport?.cols === 110) {
+    if (firstLine.t !== "alphaX beta gamma" || message.focus.cell !== 6) fail("resize lost an edit or cursor position");
     send(4, { type: "key", key: "left" });
     stage = "key";
     return;

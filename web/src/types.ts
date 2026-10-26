@@ -36,6 +36,7 @@ export interface Diagnostic {
 }
 
 export interface Snapshot {
+  viewport?: { rows: number; cols: number; reserved_rows: number };
   panel?: {
     rows: number;
     cols: number;

@@ -124,6 +124,8 @@ const char *the_input_kind_name(TheInputKind kind)
          return "action";
       case THE_INPUT_LOGICAL_HIT:
          return "logical-hit";
+      case THE_INPUT_RESIZE:
+         return "resize";
       case THE_INPUT_DEBUG:
          return "debug";
       case THE_INPUT_NONE:
@@ -285,6 +287,17 @@ int the_input_event_from_text(uint32_t codepoint, TheInputEvent *out)
    out->codepoint = codepoint;
    if (codepoint <= 0x7Fu)
       out->key_code = (int)codepoint;
+   return 1;
+}
+
+int the_input_event_from_resize(int rows, int cols, TheInputEvent *out)
+{
+   if (out == NULL) return 0;
+   *out = the_input_event_none();
+   if (rows < 12 || rows > 256 || cols < 40 || cols > 1000) return 0;
+   out->kind = THE_INPUT_RESIZE;
+   out->rows = rows;
+   out->cols = cols;
    return 1;
 }
 

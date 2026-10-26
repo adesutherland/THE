@@ -38,9 +38,9 @@ function basename(path: string): string {
 }
 
 function styledText(text: string, styles: StyleRun[] | undefined) {
-  if (!styles?.length) return text;
+  if (!styles?.length) return text.replaceAll("\t", "→");
 
-  const characters = Array.from(text);
+  const characters = Array.from(text, (character) => character === "\t" ? "→" : character);
   const segments: preact.ComponentChildren[] = [];
   let offset = 0;
 
@@ -88,6 +88,11 @@ function App() {
   const socketRef = useRef<WebSocket | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const nextId = useRef(1);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const cellProbeRef = useRef<HTMLSpanElement | null>(null);
+  const snapshotRef = useRef<Snapshot | null>(null);
+  const viewportSizeRef = useRef("");
 
   const send = useCallback((message: Record<string, unknown>) => {
     const socket = socketRef.current;
@@ -114,6 +119,7 @@ function App() {
       socket.onopen = () => {
         if (disposed || socketRef.current !== socket) return;
         retryAttempt = 0;
+        viewportSizeRef.current = "";
         setConnection("online");
         setLastError("");
         window.setTimeout(focusEditor, 0);
@@ -137,6 +143,7 @@ function App() {
           const message = JSON.parse(String(event.data)) as Snapshot | DriverMessage;
           if ("mode" in message && "screen_rows" in message) {
             const nextSnapshot = message as Snapshot;
+            snapshotRef.current = nextSnapshot;
             setSnapshot(nextSnapshot);
             if (nextSnapshot.focus.zone === "command") setCommand(nextSnapshot.command);
             setLastError("");
@@ -217,6 +224,40 @@ function App() {
     },
     [actionById, requestFiles, sendAction],
   );
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (connection !== "online" || !viewport) return;
+    let animation = 0;
+    const measure = () => {
+      cancelAnimationFrame(animation);
+      animation = requestAnimationFrame(() => {
+        const current = snapshotRef.current;
+        const grid = gridRef.current;
+        const probe = cellProbeRef.current;
+        if (!current || current.panel || !grid || !probe) return;
+        const style = getComputedStyle(grid);
+        const cellWidth = probe.getBoundingClientRect().width / 10;
+        const lineHeight = Number.parseFloat(style.lineHeight);
+        if (!cellWidth || !lineHeight) return;
+        const padding = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom);
+        // The browser draws only the file area; the model also reserves its
+        // command/status/heading rows. Preserve that overhead on resize.
+        const overhead = Math.max(0, current.viewport?.reserved_rows ?? 4);
+        const rows = Math.max(12, Math.min(256, Math.floor((viewport.clientHeight - padding) / lineHeight) + overhead));
+        const cols = Math.max(40, Math.min(1000, Math.floor((viewport.clientWidth - 20) / cellWidth)));
+        const size = `${rows}:${cols}`;
+        if (size !== viewportSizeRef.current || current.viewport?.rows !== rows || current.viewport?.cols !== cols) {
+          viewportSizeRef.current = size;
+          send({ type: "resize", rows, cols });
+        }
+      });
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(viewport);
+    measure();
+    return () => { observer.disconnect(); cancelAnimationFrame(animation); };
+  }, [connection, send, snapshot?.buffer?.path, !!snapshot?.panel]);
 
   const onEditorKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -404,7 +445,7 @@ function App() {
             </div>
           </aside>
         ) : null}
-        <div class="editor-scroll" onClick={focusEditor}>
+        <div class="editor-scroll" ref={viewportRef} onClick={focusEditor}>
           {snapshot?.panel ? (
             <div class="fullscreen-panel" role="dialog" aria-modal="true" aria-label="Macro panel">
               <div class="panel-surface" style={{ width: `${snapshot.panel.cols}ch`, height: `${snapshot.panel.rows * 21}px` }}>
@@ -440,7 +481,8 @@ function App() {
               </div>
             </div>
           ) : null}
-          <div class="editor-grid" style={{ minWidth: `${Math.max(snapshot?.cols ?? 80, 80)}ch` }}>
+          <div class="editor-grid" ref={gridRef} style={{ width: `calc(${snapshot?.viewport?.cols ?? 80}ch + 20px)` }}>
+            <span class="cell-probe" ref={cellProbeRef} aria-hidden="true">0000000000</span>
             {rows.map((row) => {
               const cursorVisible = cursorRow === row && snapshot?.focus.zone === "filearea";
               const cursorCell = Math.max(0, (snapshot?.focus.cell ?? 0) - row.sc);

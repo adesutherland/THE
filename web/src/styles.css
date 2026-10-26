@@ -284,7 +284,7 @@ button { color: inherit; }
 }
 
 .screen-row-current .prefix-cell { color: #b9c1cc; background: #282c32; }
-.line-content { position: relative; min-width: 72ch; padding: 0 10px; white-space: pre; cursor: text; }
+.line-content { position: relative; min-width: 0; overflow: hidden; padding: 0 10px; white-space: pre; cursor: text; }
 .line-text { position: relative; z-index: 1; }
 .cell-probe { position: absolute; visibility: hidden; white-space: pre; }
 

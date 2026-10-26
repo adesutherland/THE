@@ -127,7 +127,6 @@ jobs:
           path: |
             build-release/packages/*
             build-release/Testing/Temporary/LastTest.log
-            build-release/levelg-qa/levelg-qualification.json
             build-release/*test*/**/*.err
             build-release/*test*/**/*.out
           if-no-files-found: warn

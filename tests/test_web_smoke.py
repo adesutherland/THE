@@ -16,7 +16,7 @@ with tempfile.TemporaryDirectory(prefix='THE web smoke ') as tmp:
     root = Path(tmp)
     sample = root / 'sample.txt'
     fixtures = {'sample.txt': 'alpha beta gamma\ndelete me\ngamma\n' if chromium else 'alpha beta gamma\n',
-                'second.txt': 'second buffer\n', 'sample.crexx': '/* crexx comment */\nsay "hello"\n',
+                'second.txt': 'second buffer\n', 'tabs.txt': 'a\tb\n', 'tab-entry.txt': 'alpha\n', 'sample.crexx': '/* crexx comment */\nsay "hello"\n',
                 'sample.md': '# Heading\n\nA **bold** [link](target).\n',
                 'sample.py': 'def greet(name):\n    return "hello " + name\n'}
     for name, content in fixtures.items():
@@ -50,6 +50,9 @@ with tempfile.TemporaryDirectory(prefix='THE web smoke ') as tmp:
         expected = 'Zalpha beta gamma\ngamma\n' if chromium else 'alphaX beta gamma\n'
         # Logical contents are independent of the platform's native EOL.
         assert sample.read_text() == expected, sample.read_bytes()
+        if chromium:
+            assert (root/'tabs.txt').read_bytes() == b'a\tb\n'
+            assert (root/'tab-entry.txt').read_bytes() == b'        alpha\n'
         succeeded = True
     finally:
         if server.poll() is None:

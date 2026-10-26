@@ -27,7 +27,6 @@ endif()
 option(THE_ENABLE_REGINA "Compile optional, runtime-loaded Regina support when headers are available" ON)
 option(THE_BUNDLE_CREXX "Install a relocatable editor with its own cREXX runtime and tools" OFF)
 option(THE_TEST_SHELL_TRACE "Trace top-level shell integration tests for CI diagnostics" OFF)
-set(THE_SHMUEL_MACRO_DIR "" CACHE PATH "Verified, patched external PFXREXX/PFXHLASM QA directory")
 option(USE_WEB_DRIVER "Build the native browser UI driver" OFF)
 set(DSLSH_LOCAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../DSL-Syntax-Highlighter"
         CACHE PATH "Path to a local DSL-Syntax-Highlighter checkout")
@@ -671,12 +670,8 @@ set(THE_RUNTIME_PROFILE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/profile_crexx.the
     ${CMAKE_CURRENT_SOURCE_DIR}/crexxcompile.the
     ${CMAKE_CURRENT_SOURCE_DIR}/crexxrun.the
-    ${CMAKE_CURRENT_SOURCE_DIR}/pfxrexx.the
-    ${CMAKE_CURRENT_SOURCE_DIR}/pfxsetup.the
     ${CMAKE_CURRENT_SOURCE_DIR}/paneldemo.the
     ${CMAKE_CURRENT_SOURCE_DIR}/paneldemo_regina.the
-    ${CMAKE_CURRENT_SOURCE_DIR}/pfxsetupg.the
-    ${CMAKE_CURRENT_SOURCE_DIR}/pfxstructuredg.the
 )
 set(THE_COPIED_RUNTIME_PROFILE_OUTPUTS)
 foreach(THE_RUNTIME_PROFILE_SOURCE IN LISTS THE_RUNTIME_PROFILE_SOURCES)
@@ -959,9 +954,8 @@ install(FILES doc/THE_Help.txt profile.the profile_regina.the web-profile.the pr
 install(FILES web-profile-regina.the DESTINATION share/the)
 install(FILES quickfind.the quickfind_regina.the quickopen.the quickopen_regina.the
     quickline.the quickline_regina.the DESTINATION share/the)
-install(FILES pfxrexx.the pfxsetup.the DESTINATION share/the)
-install(FILES paneldemo.the paneldemo_regina.the pfxsetupg.the pfxstructuredg.the DESTINATION share/the)
-install(FILES doc/panels.md doc/pfxrexx.md doc/pfxrexx-levelg.md doc/rexx-interpreters.md doc/first-launch.md DESTINATION share/doc/the)
+install(FILES paneldemo.the paneldemo_regina.the DESTINATION share/the)
+install(FILES doc/panels.md doc/rexx-interpreters.md doc/first-launch.md DESTINATION share/doc/the)
 install(FILES LICENSE DESTINATION share/doc/the)
 if(USE_SDSLH AND EXISTS "${DSLSH_SOURCE_DIR}/LICENSE")
     install(FILES "${DSLSH_SOURCE_DIR}/LICENSE" DESTINATION share/doc/the/dslsh)
@@ -1061,11 +1055,6 @@ if(THE_SELECTED_REXX_INTERPRETER STREQUAL "CREXX" AND THE_USE_CREXX
         TIMEOUT 90 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 endif()
 if(THE_USE_REGINA AND REGINA_LIBRARY)
-    add_test(NAME test_pfxrexx
-        COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pfxrexx.sh
-                $<TARGET_FILE:the>)
-    set_tests_properties(test_pfxrexx PROPERTIES
-        TIMEOUT 30 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     add_test(NAME test_pending_regina
         COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pending_runtime.sh
                 $<TARGET_FILE:the> REGINA)
@@ -1095,14 +1084,6 @@ if(THE_PYTHON_EXECUTABLE)
         endif()
     endforeach()
 endif()
-if(THE_USE_CREXX AND THE_PYTHON_EXECUTABLE)
-    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/levelg-qa")
-    add_test(NAME test_levelg_standalone COMMAND ${THE_PYTHON_EXECUTABLE}
-        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_shmuel_macros.py $<TARGET_FILE:the>
-        ${CMAKE_CURRENT_BINARY_DIR}/levelg-qa CREXX ${RELEASE_DIR})
-    set_tests_properties(test_levelg_standalone PROPERTIES TIMEOUT 180
-        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
-endif()
 if(THE_USE_REGINA AND REGINA_LIBRARY AND THE_PYTHON_EXECUTABLE)
     if(NOT WIN32)
         add_test(NAME test_default_profile_curses COMMAND ${THE_PYTHON_EXECUTABLE}
@@ -1120,36 +1101,6 @@ if(THE_USE_REGINA AND REGINA_LIBRARY AND THE_PYTHON_EXECUTABLE)
     add_test(NAME test_trunc COMMAND ${THE_PYTHON_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_trunc.py $<TARGET_FILE:the>)
     set_tests_properties(test_trunc PROPERTIES TIMEOUT 45 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
-    if(THE_SHMUEL_MACRO_DIR)
-        if(NOT EXISTS "${THE_SHMUEL_MACRO_DIR}/pfxhlasm.the")
-            message(FATAL_ERROR "Prepare the verified external macros before enabling THE_SHMUEL_MACRO_DIR")
-        endif()
-        add_test(NAME test_shmuel_macros COMMAND ${THE_PYTHON_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_shmuel_macros.py $<TARGET_FILE:the> ${THE_SHMUEL_MACRO_DIR})
-        set_tests_properties(test_shmuel_macros PROPERTIES TIMEOUT 120 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
-        set_tests_properties(test_shmuel_macros PROPERTIES FIXTURES_SETUP prefix_regina)
-        if(THE_USE_CREXX)
-            add_test(NAME test_levelg_prefix COMMAND ${THE_PYTHON_EXECUTABLE}
-                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_shmuel_macros.py $<TARGET_FILE:the>
-                ${THE_SHMUEL_MACRO_DIR} CREXX ${RELEASE_DIR})
-            set_tests_properties(test_levelg_prefix PROPERTIES TIMEOUT 180
-                ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}" FIXTURES_SETUP prefix_levelg)
-            add_test(NAME test_prefix_port_parity COMMAND ${THE_PYTHON_EXECUTABLE}
-                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_prefix_port_parity.py ${THE_SHMUEL_MACRO_DIR})
-            set_tests_properties(test_prefix_port_parity PROPERTIES FIXTURES_REQUIRED "prefix_regina;prefix_levelg")
-            if(UNIX)
-                add_test(NAME test_levelg_curses COMMAND ${THE_PYTHON_EXECUTABLE}
-                    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pfxrexx_curses.py $<TARGET_FILE:the> ${RELEASE_DIR} CREXX)
-                set_tests_properties(test_levelg_curses PROPERTIES TIMEOUT 45
-                    FIXTURES_REQUIRED prefix_levelg ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
-            endif()
-        endif()
-        if(UNIX)
-            add_test(NAME test_shmuel_curses COMMAND ${THE_PYTHON_EXECUTABLE}
-                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pfxrexx_curses.py $<TARGET_FILE:the> ${THE_SHMUEL_MACRO_DIR})
-            set_tests_properties(test_shmuel_curses PROPERTIES TIMEOUT 20 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
-        endif()
-    endif()
 endif()
 if(THE_USE_CREXX AND THE_USE_REGINA AND REGINA_LIBRARY AND THE_PYTHON_EXECUTABLE)
     add_test(NAME test_xedit_controls
@@ -1160,12 +1111,6 @@ if(THE_USE_CREXX AND THE_USE_REGINA AND REGINA_LIBRARY AND THE_PYTHON_EXECUTABLE
         COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_macro_runtime.py $<TARGET_FILE:the>)
     set_tests_properties(test_macro_runtime PROPERTIES TIMEOUT 90 SKIP_RETURN_CODE 77
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
-    if(UNIX)
-        add_test(NAME test_pfxrexx_curses
-            COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pfxrexx_curses.py $<TARGET_FILE:the>)
-        set_tests_properties(test_pfxrexx_curses PROPERTIES TIMEOUT 20
-            ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
-    endif()
 endif()
 set(THE_CTEST_PATH_DIRS
     "${CMAKE_CURRENT_BINARY_DIR}"

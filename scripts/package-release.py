@@ -55,7 +55,7 @@ def main():
         dirty = bool(subprocess.check_output(['git', '-C', str(source), 'status', '--porcelain'], text=True))
         files = {str(p.relative_to(payload)).replace('\\', '/'): hashlib.sha256(p.read_bytes()).hexdigest()
                  for p in sorted(payload.rglob('*')) if p.is_file()}
-        if any('shmuel' in name.lower() or name.endswith('.patch') or 'macro-patches/' in name for name in files):
+        if any('shmuel' in name.lower() or name.endswith('.patch') or 'macro-patches/' in name or Path(name).name.lower().startswith(('pfxrexx', 'pfxhlasm', 'pfxsetup', 'pfxstructured')) for name in files):
             raise RuntimeError('Private compatibility material must not be included in public packages')
         (payload / 'manifest.json').write_text(json.dumps({
             'product': 'CRXTHE', 'display_version': 'CRXTHE ' + args.version,

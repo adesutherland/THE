@@ -1,5 +1,9 @@
 # PFXREXX template adaptation
 
+Historical guide: this macro package and its ports are now held in the
+[private kit](private-compatibility.md), outside the public source and installers.
+The setup commands below require that separately supplied kit.
+
 `pfxrexx.the` is a small THE-native implementation of the structured-input
 workflow described by Shmuel Metz. It is not an unchanged copy of his package,
 an XEDIT emulator, or an upstream THE fix. His

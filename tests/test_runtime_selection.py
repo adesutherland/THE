@@ -89,7 +89,7 @@ with tempfile.TemporaryDirectory(prefix='THE runtime selection ') as temporary:
     sample.write_text('seed\n')
 
     def run_macro(**updates):
-        commands = ('capabilities\ncommand macro pfxsetupg REXX\ncommand macro pfxsetupg HLASM\n' +
+        commands = ('capabilities\n' +
                     f'command macro "{macro.as_posix()}"\n' * 2 + 'quit\n')
         result = subprocess.run([str(launcher), str(prefix), '--driver', 'llm', '-n', str(sample)],
             env=dict(env, CREXXSAA_CACHE_TRACE='1', **updates), input=commands,

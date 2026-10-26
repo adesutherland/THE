@@ -184,7 +184,12 @@ try {
   // Fill a field: the input cursor is at its end, but the painted cursor must
   // remain visible inside the field. The extra character must be rejected.
   await insertText('1234567890123456X');
-  await waitFor(async () => (await cursorGeometry())?.left === '15ch', 'visible cursor at full field boundary');
+  try {
+    await waitFor(async () => (await cursorGeometry())?.left === '15ch', 'visible cursor at full field boundary');
+  } catch (error) {
+    const state = await evaluate("({active:document.activeElement?.outerHTML, fields:[...document.querySelectorAll('.panel-field')].map(n=>({text:n.textContent,cls:n.className,cursor:n.querySelector('.logical-cursor')?.style.left})),status:document.querySelector('.status-text')?.textContent})");
+    throw new Error(error.message + "; state=" + JSON.stringify(state));
+  }
   geometry = await cursorGeometry();
   if (geometry.offset+geometry.width > geometry.fieldWidth+1) throw new Error('panel cursor clipped at field boundary');
   await domKey('Home','Home');
@@ -200,8 +205,13 @@ try {
   await waitFor(() => evaluate("[...document.querySelectorAll('.panel-editable')].some(n => n.textContent.startsWith('Alice')) && [...document.querySelectorAll('.panel-editable')].some(n => n.textContent.startsWith('Rexx'))"), "edited fields");
   await evaluate("document.querySelector('.panel-protected').click()");
   if (await evaluate("document.querySelector('.panel-protected').textContent") !== "Name: ") throw new Error("protected label changed");
+  await command("Emulation.setDeviceMetricsOverride", {width: 1100, height: 650, deviceScaleFactor: 1, mobile: false});
   await domKey("F3", "F3");
   await waitFor(() => evaluate("!document.querySelector('.fullscreen-panel')"), "submitted panel");
+  await waitFor(() => evaluate(`(() => {
+    const viewport=document.querySelector('.editor-scroll'), style=getComputedStyle(document.querySelector('.editor-grid'));
+    return document.querySelectorAll('.screen-row').length === Math.floor((viewport.clientHeight-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom))/parseFloat(style.lineHeight));
+  })()`), "editor resized after panel submission");
   await domKey("F7", "F7");
   await waitFor(() => evaluate("!!document.querySelector('.fullscreen-panel')"), "second panel");
   await insertText("discard");

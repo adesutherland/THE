@@ -490,6 +490,14 @@ static void web_driver_format_snapshot(void)
    LlmDriverFormatOptions options;
 
    web_driver_sync_focus();
+   /* Buffer switches (including HELP) can build rows without preparing their
+    * displayed prefixes. Keep each published frame complete. */
+   if (CURRENT_VIEW != NULL && CURRENT_FILE != NULL
+   &&  the_panel_active == NULL && !in_macro)
+   {
+      build_screen(current_screen);
+      prepare_screen_for_display(current_screen);
+   }
    llm_driver_format_options_init(&options);
    options.compact = 1;
    options.max_text_cols = LLM_DRIVER_MAX_COLS;
@@ -501,6 +509,16 @@ static void web_driver_format_snapshot(void)
    && (web_state.snapshot[web_state.snapshot_len - 1] == '\n'
     || web_state.snapshot[web_state.snapshot_len - 1] == '\r'))
       web_state.snapshot[--web_state.snapshot_len] = '\0';
+   if (web_state.snapshot_len > 0 && web_state.snapshot[web_state.snapshot_len-1] == '}')
+   {
+      size_t offset = web_state.snapshot_len-1;
+      int length = snprintf(web_state.snapshot+offset, sizeof(web_state.snapshot)-offset,
+         ",\"viewport\":{\"rows\":%d,\"cols\":%d,\"reserved_rows\":%d}}",
+         terminal_lines, terminal_cols,
+         terminal_lines-CURRENT_SCREEN.rows[WINDOW_FILEAREA]);
+      if (length > 0 && (size_t)length < sizeof(web_state.snapshot)-offset)
+         web_state.snapshot_len = offset+(size_t)length;
+   }
 }
 
 static void web_driver_publish_snapshot(void)
@@ -634,7 +652,15 @@ static void web_driver_handle_message(struct mg_connection *connection,
       mg_free(type);
       return;
    }
-   if (strcmp(type, "key") == 0)
+   if (strcmp(type, "resize") == 0)
+   {
+      long rows = mg_json_get_long(json, "$.rows", 0);
+      long cols = mg_json_get_long(json, "$.cols", 0);
+      queued = rows >= 12 && rows <= 256 && cols >= 40 && cols <= 1000
+            && the_input_event_from_resize((int)rows, (int)cols, &event)
+            && web_driver_queue_event(event);
+   }
+   else if (strcmp(type, "key") == 0)
    {
       char *name = mg_json_get_str(json, "$.key");
 
@@ -757,14 +783,10 @@ static void web_driver_http_event(struct mg_connection *connection, int event,
       web_state.client = connection;
       len = snprintf(hello, sizeof(hello),
                      "{\"type\":\"hello\",\"protocol\":1,"
-                     "\"driver\":\"web\",\"rows\":24,\"cols\":80}");
+                     "\"driver\":\"web\",\"rows\":%d,\"cols\":%d}", terminal_lines, terminal_cols);
       if (len > 0 && len < (int)sizeof(hello))
          web_driver_send(connection, hello, (size_t)len);
       web_driver_send_action_catalog(connection);
-      /* Profile execution suppresses display preparation. Populate prefix
-       * numbers and presentation state before the first client snapshot. */
-      if (CURRENT_VIEW != NULL && CURRENT_FILE != NULL)
-         display_screen(current_screen);
       web_driver_publish_snapshot();
    }
    else if (event == MG_EV_WS_MSG)

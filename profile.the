@@ -17,6 +17,9 @@ address the
 'set autoscroll half';
 'set tabline off';
 'set coloring on auto';
+'set tabs incr 8';
+'set tabsout off';
+'define tab sos instab';
 'define enter enter cua';
 'define backspace sos cuadelback';
 'define del sos cuadelchar';

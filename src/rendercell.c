@@ -251,6 +251,14 @@ int the_render_cluster_from_text_cluster(TheRenderCluster *dest,
                                     logical_width, logical_width,
                                     logical_width);
    }
+   if (cluster.byte_length == 1 && line[cluster.pos.byte_offset] == '\t')
+   {
+      /* A retained tab byte occupies one logical cell. Never emit a terminal
+       * tab whose physical advance disagrees with the cursor model. */
+      the_render_cluster_set_fallback_codepoint(dest, 0x2192u);
+      dest->flags |= THE_RENDER_CLUSTER_SUBSTITUTE;
+      the_render_cluster_set_widths(dest, 1, 1, 1, 1, 1);
+   }
    return dest->codepoint_count > 0
        ||  (dest->flags & THE_RENDER_CLUSTER_SUBSTITUTE);
 }

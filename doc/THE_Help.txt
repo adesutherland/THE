@@ -5,6 +5,7 @@
   CRXTHE maintenance: github.com/adesutherland/THE/issues
 
   First launch (cREXX or Regina default profile):
+    Tab         Insert spaces to the next eight-column tab stop
     Ctrl-S      Save without leaving the editor
     Ctrl-O      Prepare EDIT on the command line; enter a filename
     Ctrl-F      Prepare LOCATE /; enter text and a closing /

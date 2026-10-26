@@ -35,10 +35,10 @@ for engine in ['CREXX','REGINA']:
             while process.poll() is None and time.monotonic()-start<15:
                 elapsed=time.monotonic()-start
                 if stage==0 and elapsed>1 and output and time.monotonic()-last_output>0.35:
-                    os.write(master,b'Z\x13');stage=1
-                if stage==1 and sample.read_text()=='Zalpha\n':
+                    os.write(master,b'Z\t\x13');stage=1
+                if stage==1 and sample.read_text()=='Z       alpha\n':
                     os.write(master,b'\x1b[F\rbeta\x13');stage=2
-                if stage==2 and sample.read_text()=='Zalpha\nbeta\n':
+                if stage==2 and sample.read_text()=='Z       alpha\nbeta\n':
                     os.write(master,b'\x0cfile\r');stage=3
                 if select.select([master],[],[],0.05)[0]:
                     try:
@@ -49,7 +49,7 @@ for engine in ['CREXX','REGINA']:
             assert stage==3,(engine,'native save/Enter workflow stalled',sample.read_text(),output.decode(errors='replace')[-2500:])
             process.wait(timeout=10)
             assert process.returncode==0,(engine,output.decode(errors='replace')[-1200:])
-            assert sample.read_text()=='Zalpha\nbeta\n'
+            assert sample.read_text()=='Z       alpha\nbeta\n'
             assert 'Error 00' not in output.decode(errors='replace'),output.decode(errors='replace')[-1500:]
         finally:
             if process.poll() is None:process.kill()

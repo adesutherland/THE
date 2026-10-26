@@ -200,8 +200,20 @@ static void test_commands_targets_debug_and_queue(void)
    expect_int("queue.pop.command.kind", popped.kind, THE_INPUT_COMMAND);
 }
 
+static void test_resize(void)
+{
+   TheInputEvent event;
+   expect_int("resize.valid", the_input_event_from_resize(50, 132, &event), 1);
+   expect_int("resize.kind", event.kind, THE_INPUT_RESIZE);
+   expect_int("resize.rows", event.rows, 50);
+   expect_int("resize.cols", event.cols, 132);
+   expect_int("resize.short", the_input_event_from_resize(0, 80, &event), 0);
+   expect_int("resize.wide", the_input_event_from_resize(24, 1001, &event), 0);
+}
+
 int main(void)
 {
+   test_resize();
    test_named_keys_and_text();
    test_legacy_key_normalization();
    test_commands_targets_debug_and_queue();

@@ -259,6 +259,7 @@ void show_statarea (void);
 void clear_statarea (void);
 void display_filetabs (VIEW_DETAILS *);
 void build_screen (CHARTYPE);
+void prepare_screen_for_display (CHARTYPE);
 void display_screen (CHARTYPE);
 void display_cmdline ( CHARTYPE, VIEW_DETAILS * );
 void display_prefix_line ( CHARTYPE, VIEW_DETAILS * );

@@ -1,23 +1,22 @@
-# Separately held compatibility kit
+# Separately held Shmuel compatibility kit
 
-New CRXTHE packages do not contain Shmuel Metz's original macros, the minimal
-patches for those originals, or the preparation/download tool. They are held
-in a separate private review kit for Adrian to send directly to Shmuel after
-the agreed testing and review. Preparing that ZIP does not send it.
+Shmuel Metz's PFXREXX/PFXHLASM workflows are not part of CRXTHE's bundled
+features. All related source is kept in a private review ZIP outside this
+repository: unchanged originals, patched Regina copies, minimal patches,
+the smaller Regina adaptation and the cREXX Level G ports. The kit also
+retains preparation tools, provenance, historical guides and dedicated QA.
 
-The kit retains unchanged originals, hash/provenance information, patched
-Regina copies, the patch inventory, setup macros and the reproducible
-preparation script. It is outside the public source checkout and installer
-payload. Earlier experimental THE releases and Git history are historical;
-this change does not rewrite or retract them.
+The ports follow Shmuel's workflows; porting them does not turn them into
+CRXTHE's own feature package. New public installers and portable archives
+exclude every PFXREXX/PFXHLASM setup/implementation, patch and preparation
+tool. Package checks reject those files. Dedicated workflow/parity tests
+have moved to the private kit; routine product QA tests the editor, profiles,
+macro runtime and generic panel facilities without this package.
 
-CRXTHE's independently authored prefix implementations and panel examples
-remain bundled. `macro pfxsetupg REXX` and `macro pfxsetupg HLASM` use cREXX;
-the smaller `macro pfxsetup` implementation uses Regina. These are distinct
-from Shmuel's supplied source and its compatibility patches.
+General editor profiles, small find/open/line prompt helpers and the generic
+panel examples remain. They are unrelated to the prefix macro package.
+Historical releases and Git history are unchanged. Existing installations
+may retain old files until separately qualified upgrade cleanup is provided.
 
-Public QA tests all 121 independent cREXX workflows without downloading the
-private kit. Maintainers can separately set `THE_SHMUEL_MACRO_DIR` to an
-explicitly supplied prepared directory for original-Regina and parity tests.
-Installed-payload QA accepts the same external directory through `--macros`;
-it no longer fetches or installs compatibility material itself.
+The ZIP is prepared for Adrian to review and send separately. It has not been
+sent; the agreed Windows testing and handoff condition remains in force.

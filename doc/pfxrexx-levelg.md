@@ -1,6 +1,10 @@
 # Compiled Rexx and HLASM prefix workflows
 
-The bundled `pfxstructuredg.the` is an independently written Level G port of
+Historical guide: this macro package and its ports are now held in the
+[private kit](private-compatibility.md), outside the public source and installers.
+The setup commands below require that separately supplied kit.
+
+The private `pfxstructuredg.the` is a Level G port of
 the PFXREXX and PFXHLASM workflows. It runs with cREXX and does not require
 Regina or a download of Shmuel's files. The separately supplied
 [minimal patches](private-compatibility.md) let you use the reference macros

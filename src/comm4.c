@@ -1284,7 +1284,7 @@ short THERefresh(CHARTYPE *params)
       TRACE_RETURN();
       return(RC_INVALID_OPERAND);
    }
-   if (!curses_started)
+   if (!curses_started && !the_driver_is_headless())
    {
       TRACE_RETURN();
       return(RC_INVALID_ENVIRON);

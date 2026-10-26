@@ -18,6 +18,7 @@ typedef enum
    THE_INPUT_COMMAND,
    THE_INPUT_ACTION,
    THE_INPUT_LOGICAL_HIT,
+   THE_INPUT_RESIZE,
    THE_INPUT_DEBUG
 } TheInputKind;
 
@@ -63,6 +64,8 @@ typedef struct
    uint32_t codepoint;
    int key_code;
    int restricted_command;
+   int rows;
+   int cols;
    char command[THE_INPUT_COMMAND_MAX + 1];
    TheFrontendAction action;
    TheInputLogicalTarget target;
@@ -84,6 +87,7 @@ int the_input_logical_target_kind_from_name(const char *name,
                                             TheInputLogicalTargetKind *kind);
 TheInputEvent the_input_event_none(void);
 int the_input_event_from_text(uint32_t codepoint, TheInputEvent *out);
+int the_input_event_from_resize(int rows, int cols, TheInputEvent *out);
 int the_input_event_from_key_name(const char *name, TheInputEvent *out);
 int the_input_event_from_legacy_key(int key_code, TheInputEvent *out);
 int the_input_event_from_command(const char *command, TheInputEvent *out);

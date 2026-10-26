@@ -26,6 +26,7 @@ The status line and startup message expose the CRXTHE identity and key hints.
 
 | Key | Action |
 |---|---|
+| Tab | Insert spaces to the next eight-column tab stop |
 | Ctrl-S | Save and keep editing |
 | Ctrl-O | Prepare `edit `; enter a filename on the command line |
 | Ctrl-F | Prepare `locate /`; enter search text and a closing `/` |
@@ -50,11 +51,6 @@ installation supplies matching `rxc`/`rxas`; external Markdown, C, Python and
 JavaScript parsers are optional. No user-specific `~/.local/bin` paths are
 hard-coded in the defaults.
 
-The independent Rexx/HLASM prefix setup macros select XEDIT attention behavior
-and overwrite mode for their placeholder workflow. That explicit setup takes
-precedence over the normal insert-mode default. Only one language setup should
-be active in a session because the alias names overlap.
-
 The optional `profile_crexx.the` layers development bindings over the default.
 Its F8/F9 compile/run helpers have separate unresolved Mac/Windows failures
 recorded in the [Windows report](windows-installation-qa.md); they are not
@@ -63,3 +59,28 @@ enabled by the normal first-launch profile.
 The new identity, profiles and packaging rules are local source changes until
 a separately qualified candidate is built, signed and published. Earlier
 published THE prereleases retain their original names and contents.
+
+## Tabs and browser sizing
+
+In file text, Tab inserts spaces up to the next tab stop (columns 9, 17, 25,
+etc.). This applies in insert and overwrite modes. `SET TABS INCR 4` selects
+four-column stops instead. Prefix/command focus uses F4/F6; macro panel forms
+continue to use Tab to move between fields.
+
+An existing literal tab byte is retained and shown as `→`, occupying one
+logical cell. It is not a native terminal/browser tab expansion, so cursor
+and prefix alignment agree across frontends. Saving does not convert these
+bytes. For expanded indentation, explicitly use `EXPAND ALL` with the chosen
+`SET TABS` stops. `SET TABSIN ON 8` opts into conversion on input (and converts
+the current buffer when set in a profile); it is not enabled by the stock
+profile. `SET TABSOUT OFF` keeps typed spaces as spaces on save.
+
+The browser measures its editor viewport and updates model rows and columns
+when the window or sidebar changes size, within supported bounds of 12–256
+model rows and 40–1000 columns. Headings/status/command rows are accounted for;
+the rendered file rows fill the available editor area. A macro panel retains
+its declared dimensions, with editor resizing deferred until the panel closes.
+Help is prepared with numbered prefixes on its first display.
+
+Shmuel's prefix macros, adaptations and cREXX ports are all held in a separate
+private kit and are excluded from new CRXTHE packages.

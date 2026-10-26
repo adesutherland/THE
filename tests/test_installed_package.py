@@ -9,7 +9,6 @@ import subprocess
 import sys
 import tempfile
 import queue
-import shutil
 import threading
 import urllib.parse
 import urllib.request
@@ -18,7 +17,6 @@ import uuid
 parser = argparse.ArgumentParser()
 parser.add_argument('prefix', type=Path)
 parser.add_argument('--regina', type=Path)
-parser.add_argument('--macros', type=Path)
 parser.add_argument('--read-only-prefix', action='store_true',
                     help='Read installed browser assets without writing to a system-owned installation')
 args = parser.parse_args()
@@ -26,7 +24,7 @@ prefix = args.prefix.resolve()
 manifest = json.loads((prefix / 'manifest.json').read_text())
 if manifest.get('product') == 'CRXTHE':
     assert not (prefix / 'share/the/macro-patches').exists(), 'Private patch kit included in public package'
-    assert not any('shmuel' in name.lower() or name.endswith('.patch')
+    assert not any('shmuel' in name.lower() or name.endswith('.patch') or Path(name).name.lower().startswith(('pfxrexx', 'pfxhlasm', 'pfxsetup', 'pfxstructured'))
                    for name in manifest['files_sha256']), 'Private compatibility material included'
 for relative, expected in manifest['files_sha256'].items():
     assert hashlib.sha256((prefix / relative).read_bytes()).hexdigest() == expected, relative
@@ -104,12 +102,6 @@ with tempfile.TemporaryDirectory(prefix='THE package smoke ') as tmp:
         commands = 'capabilities\n'
         if engine != 'NONE':
             commands += 'command macro "' + str(macro).replace('\\', '/') + '"\n'
-        if engine == 'REGINA':
-            commands += 'command macro pfxsetup\ncommand :1\ncommand cursor goto 1 1\ncommand set pending on DO\ncommand sos doprefix\n'
-        if engine == 'CREXX':
-            commands += 'command macro pfxsetupg REXX\ncommand :1\ncommand cursor goto 1 1\ncommand set pending on DO\ncommand sos doprefix\n'
-            commands += 'look filearea compact\n'
-            commands += 'command macro pfxsetupg HLASM\ncommand :1\ncommand cursor goto 1 1\ncommand set pending on ENDIF\ncommand sos doprefix\n'
         commands += 'look filearea compact\nquit\n'
         if os.name == 'nt':
             command = f'"{env["COMSPEC"]}" /d /s /c ""{prefix / "bin/the.cmd"}" --driver llm -n "{sample}""'
@@ -123,11 +115,6 @@ with tempfile.TemporaryDirectory(prefix='THE package smoke ') as tmp:
         assert not any(word in result.stderr for word in ('Error ', 'Unable to', 'not found')), result.stderr
         if engine != 'NONE':
             assert any(r.get('last_message') == 'PACKAGE_MACRO_OK' for r in records), result.stdout
-        if engine in ('REGINA', 'CREXX'):
-            views = [r for r in records if 'screen_rows' in r]
-            assert any(line.get('t') == 'do' for view in views for line in view['screen_rows']), views
-            if engine == 'CREXX':
-                assert any(line.get('t', '').strip().startswith('ENDIF') for line in views[-1]['screen_rows']), views[-1]
         if engine != 'NONE' and manifest.get('product') == 'CRXTHE':
             stock = command.replace(' -n ', ' ') if isinstance(command, str) else [a for a in command if a != '-n']
             stock_result = subprocess.run(stock, input='look full compact\nquit\n', text=True,
@@ -139,51 +126,5 @@ with tempfile.TemporaryDirectory(prefix='THE package smoke ') as tmp:
             assert any(row['role'] == 'scale' and '+' in row['t'] for row in stock_view['screen_rows']), stock_view
             assert any(row.get('p') == '0000001' for row in stock_view['screen_rows']), stock_view
         print(f'{engine}: installed payload passed with an isolated PATH')
-        if engine == 'CREXX' and not args.macros:
-            # Full public QA of our independent port needs no original macro
-            # downloads, patch files or private compatibility kit.
-            qa = Path(tmp) / 'independent prefix QA'
-            qa.mkdir()
-            g_env = dict(env, THE_HOME_DIR=str(prefix / 'share/the'),
-                         THE_DRIVER_PATH=str(prefix / 'lib/the/drivers'))
-            runtime = prefix / 'libexec/the/crexx'
-            library = next(p for p in runtime.iterdir()
-                           if 'crexxsaa' in p.name and p.suffix in ('.dll', '.so', '.dylib'))
-            suffix = '.exe' if os.name == 'nt' else ''
-            g_env.update(THE_CREXX_LIBRARY=str(library), THE_CREXX_LOCATION=str(runtime),
-                         THE_CREXX_IMPORT_DIR=str(runtime), THE_CREXX_LIBRARY_RXBIN=str(runtime / 'library.rxbin'),
-                         THE_CREXX_RXC=str(runtime / ('rxc' + suffix)), THE_CREXX_RXAS=str(runtime / ('rxas' + suffix)))
-            g_env['PATH'] = str(runtime) + os.pathsep + env['PATH']
-            executable = prefix / 'libexec/the' / ('the.exe' if os.name == 'nt' else 'the')
-            subprocess.run([sys.executable, str(Path(__file__).with_name('test_shmuel_macros.py')),
-                            str(executable), str(qa), 'CREXX', str(prefix / 'share/the')],
-                           env=g_env, check=True, timeout=180)
         if engine == 'NONE':
             check_installed_web(command, env)
-        if engine == 'REGINA' and args.macros:
-            env['THE_HOME_DIR'] = str(prefix / 'share/the')
-            env['THE_DRIVER_PATH'] = str(prefix / 'lib/the/drivers')
-            executable = prefix / 'libexec/the' / ('the.exe' if os.name == 'nt' else 'the')
-            prepared = Path(tmp) / 'external private macros'
-            shutil.copytree(args.macros, prepared)
-            subprocess.run([sys.executable, str(Path(__file__).with_name('test_shmuel_macros.py')),
-                            str(executable), str(prepared)], env=env, check=True, timeout=120)
-            # Exercise the compiled ports with Regina unavailable, using only
-            # the tools and shared library actually installed in the payload.
-            g_env = dict(env, THE_REXX_INTERPRETER='CREXX', THE_REGINA_LIBRARY=str(Path(tmp) / 'no-regina'))
-            runtime = prefix / 'libexec/the/crexx'
-            libraries = [p for p in runtime.iterdir() if 'crexxsaa' in p.name and p.suffix in ('.dll', '.so', '.dylib')]
-            assert len(libraries) == 1, libraries
-            suffix = '.exe' if os.name == 'nt' else ''
-            g_env.update(THE_CREXX_LIBRARY=str(libraries[0]), THE_CREXX_LOCATION=str(runtime),
-                         THE_CREXX_IMPORT_DIR=str(runtime), THE_CREXX_LIBRARY_RXBIN=str(runtime / 'library.rxbin'),
-                         THE_CREXX_RXC=str(runtime / ('rxc' + suffix)), THE_CREXX_RXAS=str(runtime / ('rxas' + suffix)))
-            g_env['PATH'] = str(runtime) + os.pathsep + env['PATH']
-            subprocess.run([sys.executable, str(Path(__file__).with_name('test_shmuel_macros.py')),
-                            str(executable), str(prepared), 'CREXX', str(prefix / 'share/the')],
-                           env=g_env, check=True, timeout=180)
-            subprocess.run([sys.executable, str(Path(__file__).with_name('test_prefix_port_parity.py')),
-                            str(prepared)], env=g_env, check=True, timeout=15)
-            for panel_engine, panel_env in [('REGINA', env), ('CREXX', g_env)]:
-                subprocess.run([sys.executable, str(Path(__file__).with_name('test_panels.py')),
-                                str(executable), panel_engine], env=panel_env, check=True, timeout=180)

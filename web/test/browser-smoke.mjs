@@ -169,6 +169,44 @@ try {
     "web driver connection",
   );
 
+  async function sizeViewport(width, height) {
+    await command("Emulation.setDeviceMetricsOverride", {width, height, deviceScaleFactor: 1, mobile: false});
+    return waitFor(() => evaluate(`(() => {
+      const viewport = document.querySelector('.editor-scroll'), grid = document.querySelector('.editor-grid');
+      const style = getComputedStyle(grid);
+      const fit = Math.floor((viewport.clientHeight-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom))/parseFloat(style.lineHeight));
+      const rows = document.querySelectorAll('.screen-row').length;
+      return rows === fit ? rows : false;
+    })()`), "editor rows to fit browser viewport");
+  }
+  const largeRows = await sizeViewport(1200, 950);
+  const smallRows = await sizeViewport(900, 550);
+  if (smallRows >= largeRows) throw new Error("browser shrink did not reduce visible rows");
+  const grownRows = await sizeViewport(1200, 950);
+  if (grownRows !== largeRows) throw new Error("browser grow did not restore visible rows");
+
+  await evaluate("document.querySelector('.input-sink').focus()");
+  await domKey("F1", "F1");
+  await waitFor(() => evaluate("document.querySelector('.buffer-tab-current span')?.textContent.trim() === 'THE_Help.txt'"), "help buffer");
+  const helpPrefixes = await evaluate("[...document.querySelectorAll('.role-file .prefix-cell')].map(node=>node.textContent.trim())");
+  if (helpPrefixes.length < 25 || helpPrefixes.some(text=>!/^\d{7}$/.test(text))) throw new Error("help prefix numbers incomplete before refresh");
+  await closeCurrentBuffer("THE_Help.txt");
+  await selectBuffer("sample.txt");
+
+  await openWorkspaceFile("tabs.txt");
+  if (!(await evaluate("[...document.querySelectorAll('.line-text')].some(node=>node.textContent==='a→b')"))) throw new Error("retained tab not visibly marked");
+  await evaluate("document.querySelector('[aria-label=\"Save\"]').click()");
+  await closeCurrentBuffer("tabs.txt");
+  await openWorkspaceFile("tab-entry.txt");
+  await evaluate("document.querySelector('.role-file .line-content').click(); document.querySelector('.input-sink').focus()");
+  await domKey("Home", "Home");
+  await domKey("Tab", "Tab");
+  await waitFor(() => evaluate("[...document.querySelectorAll('.line-text')].some(node=>node.textContent==='        alpha')"), "Tab to insert eight spaces");
+  await domKey("s", "KeyS", true);
+  await waitFor(() => evaluate("document.querySelector('.status-line')?.textContent.includes('Saved')"), "space-indented file saved");
+  await closeCurrentBuffer("tab-entry.txt");
+  await selectBuffer("sample.txt");
+
   await evaluate("[...document.querySelectorAll('.menu-trigger')].find((node) => node.textContent.trim() === 'File').click()");
   const fileMenu = await waitFor(
     () => evaluate("[...document.querySelectorAll('.menu-popover button')].map((node) => node.textContent.trim())"),

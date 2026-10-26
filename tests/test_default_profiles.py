@@ -57,4 +57,23 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
     records,_=run('text A\nkey enter\ntext B\nkey ctrl-s',empty)
     assert empty.read_text()=='A\nB\n',empty.read_text()
 
+    # Tab inserts ordinary spaces and uses logical cells rather than UTF-8 bytes.
+    for name, original, column, expected in [
+        ('ascii', 'alpha', 1, '        alpha'),
+        ('greek', 'αZ', 2, 'α       Z'),
+        ('wide', '界Z', 3, '界      Z'),
+    ]:
+        target=root/(name+'-tab.txt')
+        target.write_text(original+'\n',encoding='utf-8')
+        run('command cursor goto 1 '+str(column)+'\nkey tab\nkey ctrl-s',target)
+        assert target.read_text()==expected+'\n',(name,target.read_text())
+    new_tab=root/'new-tab.txt'
+    run('key tab\ntext beta\nkey ctrl-s',new_tab)
+    assert new_tab.read_text()=='        beta\n',new_tab.read_text()
+    raw=root/'retained-tab.txt'
+    raw.write_bytes(b'a\tb\n')
+    records,_=run('look full compact\nkey ctrl-s',raw)
+    assert raw.read_bytes()==b'a\tb\n',raw.read_bytes()
+    assert any(row.get('t')=='a\tb' for record in records for row in record.get('screen_rows',[])),records
+
 print(engine+': first-launch ruler, colors/profile, quiet optional parsers, insert/Enter, save, find/open/line prompts, prefix and empty-file editing passed')

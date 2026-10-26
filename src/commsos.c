@@ -1658,7 +1658,9 @@ short Sos_instab(CHARTYPE *params)
 {
    unsigned short y=0;
    short rc=RC_OK;
-   LENGTHTYPE col=0,tabcol=0,i;
+   LENGTHTYPE col=0,tabcol=0;
+   CHARTYPE *padding;
+   bool saved_insert;
 
    TRACE_FUNCTION("commsos.c: Sos_instab");
    if ( CURRENT_VIEW->current_window != WINDOW_FILEAREA )
@@ -1668,28 +1670,36 @@ short Sos_instab(CHARTYPE *params)
    }
    sos_current_logical_row_cell(&y, &col);
    col++;
-   for ( i = 0; i < CURRENT_VIEW->numtabs; i++ )
-   {
-      if ( col < CURRENT_VIEW->tabs[i] )
-      {
-         tabcol = CURRENT_VIEW->tabs[i];
-         break;
-      }
-   }
-   if ( tabcol == 0 ) /* after last tab column or on a tab column */
+   tabcol = find_next_tab_col(col);
+   if (tabcol <= col || tabcol > max_line_length)
    {
       TRACE_RETURN();
-      return(rc);
+      return(RC_OK);
    }
-   for ( i = 0; i < tabcol - col; i++ )
+   padding = (CHARTYPE *)(*the_malloc)(tabcol - col + 1);
+   if (padding == NULL)
    {
-      meminschr( rec, ' ', col - 1, max_line_length, rec_len++ );
+      TRACE_RETURN();
+      return(RC_OUT_OF_MEMORY);
    }
-   rec_len = min( max_line_length, rec_len );
-
-   Sos_tabf( (CHARTYPE *)"nochar" );
-   build_screen( current_screen );
-   display_screen( current_screen );
+   memset(padding, ' ', tabcol - col);
+   padding[tabcol - col] = '\0';
+   /* Text performs UTF-8/cell conversion, line creation, read-only checking,
+    * dirty tracking and parser notification. Byte-index meminschr corrupts
+    * multibyte characters and fails to commit the live edit buffer. */
+   saved_insert = INSERTMODEx;
+   INSERTMODEx = TRUE;
+   rc = Text(padding);
+   INSERTMODEx = saved_insert;
+   (*the_free)(padding);
+   if (rc == RC_OK)
+   {
+      post_process_line(CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL, TRUE);
+      pre_process_line(CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL);
+      build_screen(current_screen);
+      display_screen(current_screen);
+      execute_move_cursor(current_screen, CURRENT_VIEW, tabcol-1);
+   }
    INTENTIONALLY_UNUSED_VARIABLE(y);
    TRACE_RETURN();
    return(rc);

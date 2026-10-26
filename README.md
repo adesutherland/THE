@@ -36,8 +36,10 @@ should start with the [Syntax Highlighting User Guide](doc/syntax-highlighting.m
 ## Building and Installing
 
 The fork now supports optional runtime-loaded Regina macros alongside the
-default cREXX engine. See [interpreter setup](doc/rexx-interpreters.md), the
-[independent prefix workflows](doc/pfxrexx-levelg.md), and [prebuilt packaging](packaging/README.md). Shmuel's original macros and compatibility patches are held in a separate private review kit; they are not included in new CRXTHE packages.
+default cREXX engine. See [interpreter setup](doc/rexx-interpreters.md) and [prebuilt packaging](packaging/README.md).
+Shmuel's prefix macro package, all its ports and compatibility patches are held
+in a [separate private kit](doc/private-compatibility.md). They are excluded from
+new CRXTHE packages.
 The packaging recipes build local candidates; availability of a published
 installer is separate from these source changes.
 

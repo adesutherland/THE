@@ -2562,11 +2562,29 @@ void build_screen(CHARTYPE scrno)
    return;
 }
 /***********************************************************************/
+/* Populate frontend-neutral row presentation without drawing or publishing. */
+void prepare_screen_for_display(CHARTYPE scrno)
+{
+   short crow = SCREEN_VIEW(scrno)->current_row;
+   build_lines_for_display(scrno,DIRECTION_FORWARD,(short)(screen[scrno].rows[WINDOW_FILEAREA]-crow),crow);
+   build_lines_for_display(scrno,DIRECTION_BACKWARD,crow,(short)(crow-1));
+   /*
+    * Check for nested comments if using a parser
+    */
+   if (SCREEN_FILE(scrno)->parser
+   &&  SCREEN_FILE(scrno)->parser->have_paired_comments
+   &&  SCREEN_VIEW(scrno)->syntax_headers & HEADER_COMMENT )
+   {
+      SHOW_HIGHLIGHTED_LINE( __LINE__, NULL, "Before paired comments" );
+      parse_paired_comments(scrno,SCREEN_FILE(scrno));
+      SHOW_HIGHLIGHTED_LINE( __LINE__, NULL, "After paired comments" );
+   }
+}
+/***********************************************************************/
 void display_screen(CHARTYPE scrno)
 /***********************************************************************/
 {
    TheDriverWindowCursor previous_cursor = { 0, 0, 0 };
-   short crow;
 
    TRACE_FUNCTION("show.c:    display_screen");
    /*
@@ -2620,20 +2638,7 @@ void display_screen(CHARTYPE scrno)
    /*
     * Display the built lines...
     */
-   crow = SCREEN_VIEW(scrno)->current_row;
-   build_lines_for_display(scrno,DIRECTION_FORWARD,(short)(screen[scrno].rows[WINDOW_FILEAREA]-crow),crow);
-   build_lines_for_display(scrno,DIRECTION_BACKWARD,crow,(short)(crow-1));
-   /*
-    * Check for nested comments if using a parser
-    */
-   if (SCREEN_FILE(scrno)->parser
-   &&  SCREEN_FILE(scrno)->parser->have_paired_comments
-   &&  SCREEN_VIEW(scrno)->syntax_headers & HEADER_COMMENT )
-   {
-      SHOW_HIGHLIGHTED_LINE( __LINE__, NULL, "Before paired comments" );
-      parse_paired_comments(scrno,SCREEN_FILE(scrno));
-      SHOW_HIGHLIGHTED_LINE( __LINE__, NULL, "After paired comments" );
-   }
+   prepare_screen_for_display(scrno);
 
    show_lines(scrno);
    /*
@@ -6112,7 +6117,6 @@ short advance_view(VIEW_DETAILS *next_view,short direction)
    return(RC_OK);
 }
 
-#if defined(CAN_RESIZE) || defined(WIN32)
 /***********************************************************************/
 short THE_Resize(int rows, int cols)
 /***********************************************************************/
@@ -6124,6 +6128,11 @@ short THE_Resize(int rows, int cols)
    /*
     * This function is called as the result of a screen resize.
     */
+   if (the_driver_is_headless())
+   {
+      if (rows > 0) terminal_lines = rows;
+      if (cols > 0) terminal_cols = cols;
+   }
    the_driver_resize_terminal(rows,cols);
    length = terminal_cols + 1;
    if ( length > linebuf_size )
@@ -6167,7 +6176,7 @@ short THE_Resize(int rows, int cols)
       screen_cols[1] = terminal_cols - screen_cols[0];
    }
    set_screen_defaults();
-   if (curses_started)
+   if (curses_started || the_driver_is_headless())
    {
       for (i=0;i<display_screens;i++)
       {
@@ -6178,6 +6187,11 @@ short THE_Resize(int rows, int cols)
          }
       }
    }
+   /* set_screen_defaults allocates fresh SHOW_LINE rows. Populate them before
+    * any frontend can publish a frame or a refresh can inspect the cursor. */
+   if (the_driver_is_headless())
+      for (i=0;i<display_screens;i++)
+         prepare_view((CHARTYPE)i);
    create_statusline_window();
    create_filetabs_window();
 #if defined(SIGWINCH) && defined(USE_NCURSES)
@@ -6186,4 +6200,3 @@ short THE_Resize(int rows, int cols)
    TRACE_RETURN();
    return (RC_OK);
 }
-#endif

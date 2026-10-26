@@ -125,6 +125,7 @@ Client input messages use these shapes:
 {"v":1,"id":4,"type":"action","action":"file.save","argument":""}
 {"v":1,"id":5,"type":"hit","target":"filearea","line":12,"row":8,"cell":4}
 {"v":1,"id":6,"type":"files","root":0,"path":"src"}
+{"v":1,"id":7,"type":"resize","rows":40,"cols":132}
 ```
 
 An acknowledgement means the input was validated and queued. The following
@@ -177,8 +178,10 @@ logical-cursor update that makes sequential browser keys reliable, while
 
 ## POC Limits And Next Slices
 
-- The virtual screen remains fixed at 24 by 80. Browser resize negotiation and
-  a core-safe virtual resize path should be the next UI slice.
+- Browser viewport negotiation updates model dimensions through queued resize
+  events (12–256 rows, 40–1000 columns). Snapshots include `viewport` with total
+  model rows/columns and reserved rows; ordinary `rows`/`cols` describe the
+  file area. The frontend measures available space using `ResizeObserver`.
 - READV, dialog, and popup transient sessions are not yet represented on the
   WebSocket protocol and should not be invoked from the web driver.
 - Snapshots are full-state messages with no revision number or backpressure.

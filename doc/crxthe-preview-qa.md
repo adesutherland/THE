@@ -1,5 +1,10 @@
 # CRXTHE 0.9.0 local preview — 26 October 2026
 
+Subsequent scope correction: all Shmuel-related prefix implementations and
+ports have moved to the private kit too. The bundled-port and public 121-test
+statements below describe this earlier preview, not the current package.
+See [private compatibility](private-compatibility.md).
+
 Adrian selected **CRXTHE 0.9.0**, credited as based on Mark Hessling's THE 4.0.
 This is the independent fork's version. The command banner, VERSION query,
 console identity, browser title and package metadata now distinguish it from

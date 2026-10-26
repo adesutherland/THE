@@ -1,5 +1,9 @@
 # Shmuel macro qualification — updated 26 October 2026
 
+The [Tab/resize and private-kit follow-up](crxthe-ui-qa.md) removes all prefix
+ports from new public packages as well. Earlier bundled-port statements below
+are historical.
+
 The new [CRXTHE 0.9.0 local preview](crxthe-preview-qa.md) adds the independent
 fork identity, matched first-launch profiles and private-kit packaging rules.
 It is separate from the published releases summarized below.

@@ -193,6 +193,13 @@ int process_key(int key, bool mouse_details_present)
       have_input_event = editor_read_input_event(&input_event);
       if (have_input_event)
       {
+         if (input_event.kind == THE_INPUT_RESIZE)
+         {
+            rc = THE_Resize(input_event.rows, input_event.cols);
+            if (rc == RC_OK)
+               rc = THERefresh((CHARTYPE *)"");
+            goto refresh_after_input;
+         }
          if (input_event.kind == THE_INPUT_COMMAND)
          {
             rc = the_input_dispatch_command(input_event.command,
