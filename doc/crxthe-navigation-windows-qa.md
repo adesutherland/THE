@@ -187,3 +187,17 @@ workstation. Its corrected-build CI/native Ctrl-S checks remain pending at
 exact source `99ac22ccc79c8ed75cd457846aca7d2d7ad46dbd`,
 [run 40360809171](https://github.com/adesutherland/THE/actions/runs/40360809171).
 Mac and old-payload diagnostic results do not qualify this Windows repair.
+
+Run 40360809171 built and packaged the repair; existing tests and installer
+checks passed, but both new console tests exited 32 before their ready marker.
+No mode assertion was reached. The raw-build tests had captured their CTest
+environment before its PDCurses shared-library directory was added to PATH.
+Their registration now follows native PATH assembly, and hidden-child startup
+output is captured in failure diagnostics.
+
+The Windows agent separately ran the original helper against a portable
+extraction of that exact `99ac22c` payload for diagnosis only. Both engines
+passed startup and post-OSQ checks at `0xC8`, confirming the repaired packaged
+core/driver loads and restores input mode. This does not turn the failed
+overall CI run into a qualified candidate. Native key/save checks and the
+replacement run with the corrected test environment remain pending.

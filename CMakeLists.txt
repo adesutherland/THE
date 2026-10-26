@@ -1091,12 +1091,6 @@ if(THE_PYTHON_EXECUTABLE)
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_default_profiles.py $<TARGET_FILE:the> ${profile_engine})
             set_tests_properties(test_default_profile_${profile_engine} PROPERTIES TIMEOUT 120
                 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
-            if(WIN32)
-                add_test(NAME test_windows_console_mode_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
-                    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_windows_console_mode.py $<TARGET_FILE:the> ${profile_engine})
-                set_tests_properties(test_windows_console_mode_${profile_engine} PROPERTIES TIMEOUT 100
-                    RESOURCE_LOCK the_native_console ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
-            endif()
         endif()
     endforeach()
 endif()
@@ -1161,6 +1155,19 @@ if(WIN32)
     endforeach()
     string(REPLACE ";" "\\;" THE_CTEST_RUNTIME_PATH "${THE_CTEST_RUNTIME_PATH}")
     list(APPEND THE_CTEST_RUNTIME_ENV "PATH=${THE_CTEST_RUNTIME_PATH}")
+endif()
+# The native curses module depends on the PDCurses DLL in its build directory.
+# Register these after assembling the Windows test PATH, unlike llm-only tests.
+if(WIN32 AND THE_PYTHON_EXECUTABLE)
+    foreach(profile_engine CREXX REGINA)
+        if((profile_engine STREQUAL "CREXX" AND THE_USE_CREXX) OR
+           (profile_engine STREQUAL "REGINA" AND THE_USE_REGINA AND REGINA_LIBRARY))
+            add_test(NAME test_windows_console_mode_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_windows_console_mode.py $<TARGET_FILE:the> ${profile_engine})
+            set_tests_properties(test_windows_console_mode_${profile_engine} PROPERTIES TIMEOUT 100
+                RESOURCE_LOCK the_native_console ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+        endif()
+    endforeach()
 endif()
 add_test(NAME test_curses_boundary
     COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_curses_boundary.sh

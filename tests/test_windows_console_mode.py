@@ -88,18 +88,27 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE console mode ') as temporary:
         startup.dwFlags = subprocess.STARTF_USESHOWWINDOW
         startup.wShowWindow = subprocess.SW_HIDE
         env = dict(os.environ, THE_REXX_INTERPRETER=engine)
-        # No redirected standard handles: Windows supplies this new console's
-        # own handles. OSQ needs neither physical UI nor an extra PTY library.
-        process = subprocess.Popen([str(binary), '--driver', 'curses', '-p',
-                                    str(profile), str(sample)], env=env,
-                                   creationflags=subprocess.CREATE_NEW_CONSOLE,
-                                   startupinfo=startup)
+        log_path = root / ('osq-startup.log' if shell_escape else 'startup.log')
+        startup_log = log_path.open('w', encoding='utf-8')
+        # Curses opens its owned CONIN$/CONOUT$ directly; capture ordinary
+        # startup diagnostics so a loader failure is visible on headless CI.
+        try:
+            process = subprocess.Popen([str(binary), '--driver', 'curses', '-p',
+                                        str(profile), str(sample)], env=env,
+                                       stdout=startup_log, stderr=subprocess.STDOUT,
+                                       creationflags=subprocess.CREATE_NEW_CONSOLE,
+                                       startupinfo=startup)
+        except BaseException:
+            startup_log.close()
+            raise
         try:
             deadline = time.monotonic() + 40
             while not ready.exists() or ready.read_bytes() != sample.read_bytes():
-                assert process.poll() is None, ('Editor exited before ready marker', process.returncode)
+                assert process.poll() is None, ('Editor exited before ready marker', process.returncode,
+                    log_path.read_text(encoding='utf-8', errors='replace'))
                 if time.monotonic() >= deadline:
-                    raise AssertionError('Editor did not complete the console probe profile')
+                    raise AssertionError(('Editor did not complete the console probe profile',
+                        log_path.read_text(encoding='utf-8', errors='replace')))
                 time.sleep(0.05)
             assert ready.read_bytes() == sample.read_bytes(), ready.read_bytes()
             mode = input_mode(process)
@@ -111,3 +120,4 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE console mode ') as temporary:
             if process.poll() is None:
                 process.terminate()
             process.wait(timeout=10)
+            startup_log.close()
