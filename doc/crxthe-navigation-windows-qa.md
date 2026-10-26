@@ -139,6 +139,16 @@ lifecycle passed with the real panels.2 registry, PATH, shortcuts and payload
 hashes verified restored. Evidence is under
 `C:\Users\adria\CRXTHE-windows-qa\0fabc48`.
 
+The actual visible installer was also exercised on that revision: destination
+and runtime pages, bundled default, Open CRXTHE checked and Getting Started
+unchecked on the finish page. Selecting both launched the correct candidate
+without a filename and opened its installed Windows guide in Notepad. The
+Start menu target/Documents folder and new-shell `crxthe` resolution matched
+the disposable candidate; legacy `the` still selected signed panels.2.
+Candidate uninstall restored the baseline registry, PATH, shortcuts and all
+panels.2 hashes. Only the newly opened guide tab was closed. These are
+interactive unsigned-installer results, not a signed-release qualification.
+
 Native F6/prefix traversal/Enter/Tab and command Save/File exit passed under
 both engines, producing exact `Z       alphaQ\r\nbeta\r\n` bytes. Native Ctrl-S
 exposed the console-mode defect below. Final visible UI and signed-installer
@@ -169,6 +179,11 @@ Eight focused Mac profile/native/boundary/module/browser checks pass after
 the repair. A dependency-free Windows regression now creates an owned hidden
 console for each engine, saves a ready marker through THE, attaches read-only
 to the verified child image and asserts processed/line/echo modes are disabled
-both at startup and after OSQ. It closes only its own test process. Its Windows
-execution and a new candidate's native Ctrl-S checks are pending; Mac results
-do not qualify this Windows-specific repair.
+both at startup and after OSQ. It closes only its own test process. The Windows
+agent ran this helper against the old `0fabc48` payload under both engines:
+startup `0xC8` passed and post-OSQ `0xCF` failed exactly as intended. The helper
+needs no extra dependency and hidden consoles were attachable on the
+workstation. Its corrected-build CI/native Ctrl-S checks remain pending at
+exact source `99ac22ccc79c8ed75cd457846aca7d2d7ad46dbd`,
+[run 40360809171](https://github.com/adesutherland/THE/actions/runs/40360809171).
+Mac and old-payload diagnostic results do not qualify this Windows repair.
