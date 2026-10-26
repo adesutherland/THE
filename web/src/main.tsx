@@ -79,6 +79,7 @@ function App() {
   const [connection, setConnection] = useState<"connecting" | "online" | "reconnecting" | "offline">("connecting");
   const [lastError, setLastError] = useState("");
   const [command, setCommand] = useState("");
+  const [commandFocused, setCommandFocused] = useState(false);
   const [actions, setActions] = useState<FrontendActionDefinition[]>([]);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [pathAction, setPathAction] = useState<FrontendActionDefinition | null>(null);
@@ -87,6 +88,7 @@ function App() {
   const [files, setFiles] = useState<FileListMessage | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const commandInputRef = useRef<HTMLInputElement | null>(null);
   const nextId = useRef(1);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
@@ -266,6 +268,12 @@ function App() {
         return;
       }
       const commandModifier = event.ctrlKey || event.metaKey;
+      if (!snapshot?.panel && (event.key === "Escape" || event.key === "F6"
+          || (commandModifier && event.key.toLowerCase() === "l"))) {
+        event.preventDefault();
+        commandInputRef.current?.focus();
+        return;
+      }
       if (commandModifier && event.key.toLowerCase() === "s") {
         event.preventDefault();
         requestAction("file.save");
@@ -307,6 +315,8 @@ function App() {
     () => rows.find((row) => row.r === snapshot?.focus.row && row.line === snapshot?.focus.line),
     [rows, snapshot?.focus.line, snapshot?.focus.row],
   );
+  const prefixCols = snapshot?.viewport?.prefix_cols ?? 7;
+  const prefixGap = snapshot?.viewport?.prefix_gap ?? 1;
   const menus = useMemo(() => {
     const result = new Map<string, FrontendActionDefinition[]>();
     for (const action of actions) {
@@ -481,20 +491,25 @@ function App() {
               </div>
             </div>
           ) : null}
-          <div class="editor-grid" ref={gridRef} style={{ width: `calc(${snapshot?.viewport?.cols ?? 80}ch + 20px)` }}>
+          <div class="editor-grid" ref={gridRef} style={{ width: `calc(${snapshot?.viewport?.cols ?? 80}ch + 20px)`, "--prefix-width": `${prefixCols + prefixGap}ch` }}>
             <span class="cell-probe" ref={cellProbeRef} aria-hidden="true">0000000000</span>
             {rows.map((row) => {
-              const cursorVisible = cursorRow === row && snapshot?.focus.zone === "filearea";
+              const cursorVisible = cursorRow === row && snapshot?.focus.zone === "filearea" && !commandFocused;
+              const prefixCursorVisible = cursorRow === row && snapshot?.focus.zone === "prefix" && !commandFocused;
+              const prefixCursorCell = Math.max(0, Math.min((snapshot?.focus.cell ?? 0), prefixCols - 1));
               const cursorCell = Math.max(0, (snapshot?.focus.cell ?? 0) - row.sc);
               return (
                 <div class={`screen-row role-${row.role} ${row.cur ? "screen-row-current" : ""}`} key={`${currentBuffer?.path ?? ""}-${row.r}-${row.line}-${row.role}`}>
                   <button
                     type="button"
-                    class="prefix-cell"
+                    class={`prefix-cell ${prefixCursorVisible ? "prefix-cell-active" : ""}`}
+                    aria-label={`Prefix line ${row.line}`}
+                    style={{ paddingRight: `${prefixGap}ch` }}
                     tabIndex={-1}
                     onClick={(event) => hitRow(event, row, "prefix")}
                   >
                     {row.pc || row.p || ""}
+                    {prefixCursorVisible ? <span class="logical-cursor prefix-cursor" style={{ left: `${prefixCursorCell}ch` }} /> : null}
                   </button>
                   <div class="line-content" onClick={(event) => hitRow(event, row, "filearea")}>
                     <span class="line-text">{styledText(row.t, row.s)}</span>
@@ -532,6 +547,12 @@ function App() {
           <span class="command-prompt">Command</span>
           <input
             aria-label="THE command"
+            ref={commandInputRef}
+            onFocus={() => setCommandFocused(true)}
+            onBlur={() => setCommandFocused(false)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") { event.preventDefault(); focusEditor(); }
+            }}
             value={command}
             onInput={(event) => setCommand(event.currentTarget.value)}
             spellcheck={false}

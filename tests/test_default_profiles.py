@@ -40,6 +40,17 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
     assert '+' in ruler and '1' in ruler,ruler
     assert 'CRXTHE 0.9.0' in snap['status'],snap['status']
     assert sample.read_text()=='alpha\nfindme\n'
+    assert any(row['role']=='reserved' and 'F6 Cmd' in row['t'] and 'F10 Keys' in row['t']
+               for row in snap['screen_rows']),snap
+    for key in ['f6','esc','ctrl-l']:
+        records,_=run('key '+key+'\nlook full compact')
+        assert any(record.get('focus',{}).get('zone')=='command' for record in records),(key,records)
+    records,_=run('key f10\nlook full compact')
+    assert any('define ' in row['t'].lower() for record in records
+               for row in record.get('screen_rows',[])),records
+    records,_=run('command query colour filetabs\nlook full compact')
+    assert any('#1E1E1E' in (record.get('last_message','')+record.get('status','')).upper() for record in records),records
+
 
     records,_=run('command cursor goto 1 1\ntext X\nkey ctrl-s\nlook filearea compact')
     assert sample.read_text()=='Xalpha\nfindme\n',sample.read_text()

@@ -185,6 +185,37 @@ try {
   const grownRows = await sizeViewport(1200, 950);
   if (grownRows !== largeRows) throw new Error("browser grow did not restore visible rows");
 
+  await evaluate("document.querySelector('.role-file .prefix-cell').click()");
+  await waitFor(() => evaluate("!!document.querySelector('.prefix-cell-active .prefix-cursor')"), "prefix cursor");
+  let prefixGeometry = await evaluate(`(() => {
+    const field=document.querySelector('.prefix-cell-active'), cursor=field.querySelector('.prefix-cursor');
+    const f=field.getBoundingClientRect(), c=cursor.getBoundingClientRect();
+    return {left:c.left-f.left,right:c.right-f.left,width:f.width,margin:getComputedStyle(cursor).marginLeft};
+  })()`);
+  if (Math.abs(prefixGeometry.left)>1 || prefixGeometry.right>prefixGeometry.width || prefixGeometry.margin!=='0px') throw new Error('misaligned prefix cursor '+JSON.stringify(prefixGeometry));
+  await insertText('d');
+  await waitFor(() => evaluate("document.querySelector('.prefix-cursor')?.style.left === '1ch'"), "prefix cursor after typing");
+  await domKey('Backspace','Backspace');
+  await waitFor(() => evaluate("document.querySelector('.prefix-cursor')?.style.left === '0ch'"), "prefix cleared");
+  for (const character of 'zzzzzzz') await insertText(character);
+  await waitFor(() => evaluate("document.querySelector('.prefix-cursor')?.style.left === '6ch'"), "visible prefix cursor at field boundary");
+  for (let i=0;i<7;i++) await domKey('Backspace','Backspace');
+  await waitFor(() => evaluate("document.querySelector('.prefix-cursor')?.style.left === '0ch'"), "full prefix cleared");
+  await domKey('Escape','Escape');
+  await waitFor(() => evaluate("document.activeElement?.getAttribute('aria-label') === 'THE command' && !document.querySelector('.prefix-cursor')"), "Escape command focus");
+  await domKey('Escape','Escape');
+  await waitFor(() => evaluate("document.activeElement?.getAttribute('aria-label') === 'Editor input' && !!document.querySelector('.prefix-cursor')"), "Escape back to prefix editing");
+  await domKey('F6','F6');
+  await waitFor(() => evaluate("document.activeElement?.getAttribute('aria-label') === 'THE command'"), "F6 command focus");
+  await evaluate("new Promise(resolve => {const input=document.querySelector('.command-form input');input.value='cursor goto 1 1';input.dispatchEvent(new Event('input',{bubbles:true}));setTimeout(()=>{input.form.requestSubmit();resolve(true)},0)})");
+  await waitFor(() => evaluate("!!document.querySelector('.line-content .logical-cursor')"), "command execution returns to file editing");
+  if (!(await evaluate("[...document.querySelectorAll('.role-reserved .line-text')].some(n=>n.textContent.includes('F6 Cmd')&&n.textContent.includes('F10 Keys'))"))) throw new Error('function-key guide missing');
+  await domKey('F10','F10');
+  await waitFor(() => evaluate("[...document.querySelectorAll('.line-text')].some(n=>n.textContent.toLowerCase().includes('define '))"), "complete key definitions");
+  const keyBuffer = await evaluate("document.querySelector('.buffer-tab-current span').textContent.trim()");
+  await closeCurrentBuffer(keyBuffer);
+  await selectBuffer('sample.txt');
+
   await evaluate("document.querySelector('.input-sink').focus()");
   await domKey("F1", "F1");
   await waitFor(() => evaluate("document.querySelector('.buffer-tab-current span')?.textContent.trim() === 'THE_Help.txt'"), "help buffer");

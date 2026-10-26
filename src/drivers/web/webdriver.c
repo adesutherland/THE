@@ -513,9 +513,11 @@ static void web_driver_format_snapshot(void)
    {
       size_t offset = web_state.snapshot_len-1;
       int length = snprintf(web_state.snapshot+offset, sizeof(web_state.snapshot)-offset,
-         ",\"viewport\":{\"rows\":%d,\"cols\":%d,\"reserved_rows\":%d}}",
+         ",\"viewport\":{\"rows\":%d,\"cols\":%d,\"reserved_rows\":%d,\"prefix_cols\":%d,\"prefix_gap\":%d}}",
          terminal_lines, terminal_cols,
-         terminal_lines-CURRENT_SCREEN.rows[WINDOW_FILEAREA]);
+         terminal_lines-CURRENT_SCREEN.rows[WINDOW_FILEAREA],
+         CURRENT_VIEW->prefix ? CURRENT_VIEW->prefix_width-CURRENT_VIEW->prefix_gap : 0,
+         CURRENT_VIEW->prefix ? CURRENT_VIEW->prefix_gap : 0);
       if (length > 0 && (size_t)length < sizeof(web_state.snapshot)-offset)
          web_state.snapshot_len = offset+(size_t)length;
    }

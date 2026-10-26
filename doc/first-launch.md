@@ -31,7 +31,8 @@ The status line and startup message expose the CRXTHE identity and key hints.
 | Ctrl-O | Prepare `edit `; enter a filename on the command line |
 | Ctrl-F | Prepare `locate /`; enter search text and a closing `/` |
 | Ctrl-G | Prepare `:`; enter the file line number |
-| Ctrl-L | Move to the command line |
+| Esc / F6 | Move to the command line (browser: Esc again returns to editing) |
+| Ctrl-L | Console command-line shortcut |
 | Ctrl-W / Ctrl-Q | Close this file; unsaved changes are protected |
 | Ctrl-Z | Restore the current line, rather than multi-level undo |
 | F1 | Help, starting with this key guide |
@@ -39,7 +40,8 @@ The status line and startup message expose the CRXTHE identity and key hints.
 | F3 | Save and close the current file |
 | F4 | Prefix area beside the current record |
 | F5 / Insert | Toggle insert and overwrite mode |
-| F6 / Shift-Tab | Toggle command/file focus |
+| Shift-Tab | Toggle console command/file focus |
+| F10 | Open the complete current key-definition list |
 
 On macOS, function keys may require Fn. Use Terminal's ordinary Command-C/V
 for its clipboard. Windows PDCurses additionally binds Ctrl-C/X/V to the
@@ -84,3 +86,19 @@ Help is prepared with numbered prefixes on its first display.
 
 Shmuel's prefix macros, adaptations and cREXX ports are all held in a separate
 private kit and are excluded from new CRXTHE packages.
+
+## Prefix cursor and visible key guide
+
+The browser paints the prefix caret at the actual editable prefix column,
+clamps its painted position inside the field, and highlights the active prefix.
+Prefix text is left-aligned to the same cell positions used for clicks and
+caret movement. The caret is hidden while the browser command field has focus.
+
+A reserved footer row lists F1–F6, F10 and Esc. F10 opens THE's `SHOWKEY ALL`
+view with default and profile key definitions. This key guide is inherited by
+new buffers, including help. The console file-tab strip above the filename
+uses explicit dark colors; with one file it remains an empty strip by design.
+Esc and F6 now go directly to the console command line, with Shift-Tab to
+return. Browser Esc focuses its command input and Esc again returns to editing;
+F6 is also handled when the browser delivers it. Ctrl-L remains a console
+shortcut because browsers generally reserve it for their address bar.

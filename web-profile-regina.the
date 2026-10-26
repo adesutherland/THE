@@ -37,7 +37,9 @@ address the
 'define ins insertmode toggle';
 'define f5 insertmode toggle';
 'define f4 cursor prefix';
-'define f6 cursor home save';
+'define f6 cursor cmdline';
+'define esc cursor cmdline';
+'define f10 showkey all';
 'define c-s save';
 'define c-l cursor cmdline';
 'define c-q quit';
@@ -60,6 +62,9 @@ address the
 'set color ctofeof #569CD6 on #1E1E1E';
 'set color cmdline #D4D4D4 on #2D2D30';
 'set color msgline tomato on #1E1E1E';
+'set color filetabs #B6C6DA on #1E1E1E';
+'set color filetabsdiv #6C7B90 on #1E1E1E';
+'set color reserved #DCE5F2 on #25415F';
 'set color idline #F1F5FA on #25415F';
 'set color scale #91A8C5 on #202731';
 'set color pending #FFD37A on #202731';
@@ -93,6 +98,7 @@ address the
 'set color cblock black on #F0C36B';
 'set cursorstyle insert ibeam steady';
 'set cursorstyle overwrite block steady';
+'set reserved -1 normal         F1 Help F2 Next F3 Save/Close F4 Prefix F5 Ins F6 Cmd F10 Keys Esc Cmd';
 'extract /version/'
 platform = version.3
 'extract /size/'
@@ -152,4 +158,4 @@ end
 'set macro off';
 'set linend off';
 'set synonym off';
-'msg CRXTHE 0.9.0 | Browser editor - File/Open and Ctrl-S Save';
+'msg CRXTHE 0.9.0 | Esc Command  F1 Help  Ctrl-S Save';
