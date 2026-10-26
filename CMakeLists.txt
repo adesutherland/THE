@@ -204,6 +204,13 @@ set(HAVE_CURS_SET 1)
 # compatibility header turns raw() into a no-op, leaving Ctrl-S/Q to IXON.
 set(HAVE_RAW 1)
 set(HAVE_CBREAK 1)
+if(WIN32)
+    # PDCurses must restore its saved input mode after a shell command.
+    # cmd.exe can leave the shared console in cooked mode, consuming Ctrl-S.
+    set(HAVE_DEF_PROG_MODE 1)
+    set(HAVE_RESET_PROG_MODE 1)
+    set(HAVE_RESET_SHELL_MODE 1)
+endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
@@ -1084,6 +1091,12 @@ if(THE_PYTHON_EXECUTABLE)
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_default_profiles.py $<TARGET_FILE:the> ${profile_engine})
             set_tests_properties(test_default_profile_${profile_engine} PROPERTIES TIMEOUT 120
                 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+            if(WIN32)
+                add_test(NAME test_windows_console_mode_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_windows_console_mode.py $<TARGET_FILE:the> ${profile_engine})
+                set_tests_properties(test_windows_console_mode_${profile_engine} PROPERTIES TIMEOUT 100
+                    RESOURCE_LOCK the_native_console ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+            endif()
         endif()
     endforeach()
 endif()

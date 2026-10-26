@@ -2427,7 +2427,7 @@ static void curses_driver_signal_shutdown(void)
 
 static void curses_driver_suspend_terminal(void)
 {
-#ifdef UNIX
+#if defined(UNIX) || defined(WIN32)
 # if defined(USE_EXTCURSES)
    csavetty(FALSE);
    reset_shell_mode();
@@ -2446,7 +2446,7 @@ static void curses_driver_suspend_terminal(void)
 
 static void curses_driver_resume_terminal(void)
 {
-#ifdef UNIX
+#if defined(UNIX) || defined(WIN32)
 # if defined(USE_EXTCURSES)
    cresetty(FALSE);
 # else

@@ -131,9 +131,42 @@ runtime loaders. The cREXX first-launch/navigation/Unicode/tab/footer checks,
 semantic panels and rendered Chrome editor/panel suites pass. These are
 reported workstation results, separate from the coordinator's CI readback.
 
-Regina's extended checks, no-filename/help/ABI checks, native ConPTY,
-workstation installer lifecycle and actual visible UI assessment are still
-in progress. Evidence is under `C:\Users\adria\CRXTHE-windows-qa\0fabc48`.
-The agent reports the old signed installation is still untouched. Final
-signed-installer checks and Adrian's manual Shmuel handoff gate remain open;
-no new tag, signing, release publication or external handoff has occurred.
+The agent subsequently confirmed both engines' extended default-profile,
+rendered editor and panel suites, no-filename listing, new/existing UTF-8
+files, first-display help numbering and F10. An actual old panels.2 LLM DLL
+was rejected cleanly; the matching new DLL succeeded. Workstation installer
+lifecycle passed with the real panels.2 registry, PATH, shortcuts and payload
+hashes verified restored. Evidence is under
+`C:\Users\adria\CRXTHE-windows-qa\0fabc48`.
+
+Native F6/prefix traversal/Enter/Tab and command Save/File exit passed under
+both engines, producing exact `Z       alphaQ\r\nbeta\r\n` bytes. Native Ctrl-S
+exposed the console-mode defect below. Final visible UI and signed-installer
+checks and Adrian's manual Shmuel handoff gate remain open; no new tag,
+signing, release publication or external handoff has occurred.
+
+### Native Windows quiet-shell console mode defect
+
+The Windows agent inspected only its owned running editor through
+AttachConsole/CONIN$/GetConsoleMode. Fresh NONE/-n started at input mode
+`0xC8` (processed/line/echo disabled). Running only `OSQ VER` changed the
+same process to `0xCF`, enabling all three flags. Stock cREXX and Regina
+profiles also left `0xCF`; both perform quiet shell checks for optional tools.
+Temporarily clearing line/echo processing in a disposable diagnostic made
+Ctrl-S save the exact expected bytes immediately. The prior standalone
+getwch probe therefore did not rule out an editor restoration defect.
+
+The source already calls `resume_curses()` after Windows OSQ specifically
+to restore control-key handling (`src/execute.c`). The curses lifecycle's
+suspend/resume implementations had been restricted to UNIX, and CMake had
+not enabled PDCurses' program/shell mode capabilities. The repair enables
+those capabilities on Windows and runs its existing endwin/reset_prog_mode
+lifecycle there. Console changes remain inside the curses driver.
+
+Eight focused Mac profile/native/boundary/module/browser checks pass after
+the repair. A dependency-free Windows regression now creates an owned hidden
+console for each engine, saves a ready marker through THE, attaches read-only
+to the verified child image and asserts processed/line/echo modes are disabled
+both at startup and after OSQ. It closes only its own test process. Its Windows
+execution and a new candidate's native Ctrl-S checks are pending; Mac results
+do not qualify this Windows-specific repair.
