@@ -10,7 +10,7 @@ the_bin=$1
 web_profile=$2
 
 for parser in rxc mdp pyp; do
-  if [[ ! -x "${HOME}/.local/bin/$parser" ]]; then
+  if ! command -v "$parser" >/dev/null 2>&1; then
     echo "$parser syntax highlighter is not installed; skipping" >&2
     exit 77
   fi

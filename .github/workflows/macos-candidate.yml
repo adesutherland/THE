@@ -41,6 +41,7 @@ jobs:
             --output "$sdk/include/crexxsaa.h"
           echo "500b61d094eca621fea8b8e6964cac75488539b8e73e3e520a72e72cae59f951  $sdk/include/crexxsaa.h" | shasum -a 256 --check
           echo "THE_CI_SDK=$sdk" >> "$GITHUB_ENV"
+          echo "$sdk/CREXX-macos-arm64/bin" >> "$GITHUB_PATH"
           echo "THE_CI_REGINA=$(brew --prefix regina-rexx)" >> "$GITHUB_ENV"
       - name: Configure clean bundled Release build
         run: |

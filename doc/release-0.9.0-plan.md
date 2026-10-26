@@ -54,7 +54,18 @@ hand material to Shmuel before Adrian's own Windows smoke test.
    9 Mac-signing tool regressions pass. Hosted confirmation remains open.
 3. STEP-03 (AC-01..04): Run local affected checks, commit and push the repairs;
    freeze that SHA and require successful Mac/Windows candidate runs. Windows
-   agent confirms the matching artifact. OPEN.
+   agent confirms the matching artifact. OPEN. First hosted Mac run at
+   `c55b396` passed the stack regression but failed two qualification checks:
+   the optional parser was absent from PATH, and the native save poll read
+   during destination replacement. The gate remains closed while SDK PATH
+   setup and polling readiness are corrected; assertions are retained.
+   Optional web-profile parser tests now check the same PATH availability as
+   the profile, instead of assuming that files in a developer's `~/.local/bin`
+   are active. Missing optional Markdown/Python parsers remain explicit skips;
+   the provided cREXX parser must run and pass.
+   Local hosted-environment replay passes native keys, provided cREXX styles
+   and rendered browser checks; the absent optional Markdown/Python combination
+   is correctly skipped. Await both replacement hosted runs before tagging.
 4. STEP-04 (AC-05): Create the exact source tag and private draft, sign staged
    Windows assets, dispatch native signed-install verification and Apple
    signing/notarization against the draft. OPEN.
