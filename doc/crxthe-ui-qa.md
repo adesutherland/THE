@@ -49,8 +49,11 @@ An LLM-controlled Chrome walkthrough independently confirmed Tab's eight-space
 insertion and complete help numbering through the last visible row without
 refresh. A local screenshot is retained with Adrian's preview kit.
 
-Local CRXTHE ZIP/PKG staging and relocated installation are checked separately
-from source tests. No Windows runner build, signing, publication or upstream
+Local unsigned CRXTHE ZIP/PKG staging succeeded for code commit `f8e1d66`.
+The fresh relocated ZIP has 128 manifest entries and excludes every prefix
+macro implementation/setup and patch. Manifest integrity, stock profiles and
+isolated-PATH CREXX/NONE/Regina execution passed; the installed web launcher
+served its own assets. These checks are separate from the source suite. No Windows runner build, signing, publication or upstream
 THE/live XEDIT qualification is claimed by this follow-up. The ordinary signed
 local installation and historical release assets remain unchanged. Existing
 installations may retain old macro files until upgrade cleanup is qualified.
