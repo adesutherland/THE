@@ -61,6 +61,8 @@ class Release:
     def __init__(self, repo, tag, allow_draft=False):
         self.repo, self.tag = repo, tag
         self.base = f'repos/{repo}'
+        self.allow_draft = allow_draft
+        self.release_id = None
         self.original = self.info()
         if self.original.get('immutable') or (self.original.get('draft') and not allow_draft):
             raise RuntimeError('Select a mutable published release, or explicitly allow a draft')
@@ -68,6 +70,23 @@ class Release:
         self.expected = {a['id']: fingerprint(a) for a in self.original['assets']}
 
     def info(self):
+        if self.release_id is not None:
+            return api(f'{self.base}/releases/{self.release_id}')
+        if self.allow_draft:
+            # GitHub's /releases/tags endpoint only returns published releases.
+            # Resolve this explicit tag once, then pin every reread to its ID.
+            page = 1
+            while True:
+                releases = api(f'{self.base}/releases?per_page=100&page={page}')
+                matches = [item for item in releases if item['tag_name'] == self.tag]
+                if len(matches) > 1:
+                    raise RuntimeError('Ambiguous release tag; refusing to select a draft')
+                if matches:
+                    self.release_id = matches[0]['id']
+                    return matches[0]
+                if len(releases) < 100:
+                    raise RuntimeError('Exact release tag not found, including accessible drafts')
+                page += 1
         return api(f'{self.base}/releases/tags/{self.tag}')
 
     def tag_commit(self):

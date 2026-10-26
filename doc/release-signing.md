@@ -17,6 +17,9 @@ installer with `sign-windows-release.py --allow-draft --upload`, then dispatch
 `architecture=arm64` and `allow_draft=true`. Draft access is explicit; signing
 tools still reject drafts by default and always reject immutable releases.
 Tag, release identity and asset digests remain pinned during signing.
+Draft discovery searches accessible releases for the explicit tag and pins its
+release ID. Subsequent checks use that ID because GitHub's published-tag REST
+endpoint does not expose drafts. The actual source tag is checked separately.
 
 Keep the release a draft until native Windows signed-installation checks and
 Mac Developer ID signing, notarization, stapling, Gatekeeper, installation and
