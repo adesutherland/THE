@@ -43,6 +43,12 @@ static const TheInputKeyName input_key_names[] =
    { "tab", THE_INPUT_KEY_TAB },
    { "backtab", THE_KEY_BTAB },
    { "btab", THE_KEY_BTAB },
+   { "shift-left", THE_KEY_SLEFT },
+   { "shift-right", THE_KEY_SRIGHT },
+   { "shift-up", THE_KEY_SUP },
+   { "shift-down", THE_KEY_SDOWN },
+   { "shift-home", THE_KEY_SHOME },
+   { "shift-end", THE_KEY_SEND },
    { "backspace", THE_KEY_BACKSPACE },
    { "delete", THE_KEY_DC },
    { "del", THE_KEY_DC },
@@ -289,6 +295,19 @@ int the_input_event_from_key_name(const char *name, TheInputEvent *out)
    if (out == NULL || name == NULL)
       return 0;
    *out = the_input_event_none();
+   if (((name[0]=='c' || name[0]=='C') && name[1]=='-' && name[2] && !name[3]) ||
+       ((name[0]=='c' || name[0]=='C') && (name[1]=='t' || name[1]=='T') &&
+        (name[2]=='r' || name[2]=='R') && (name[3]=='l' || name[3]=='L') &&
+        name[4]=='-' && name[5] && !name[6]))
+   {
+      int letter=toupper((unsigned char)name[strlen(name)-1]);
+      if (letter>='A' && letter<='Z')
+      {
+         out->kind=THE_INPUT_KEY;
+         out->key_code=letter-'A'+1;
+         return 1;
+      }
+   }
    if ((name[0] == 'f' || name[0] == 'F') && isdigit((unsigned char)name[1]))
    {
       char *end = NULL;

@@ -1,6 +1,6 @@
 # THE (The Hessling Editor) - Agent Project Overview
 
-## 1. Current Status (v4.0.CREXX Fork)
+## 1. Current Status (CRXTHE 0.9.0, based on THE 4.0)
 **THE** is a full-screen, character-mode text editor based on the VM/CMS editor XEDIT and KEDIT, originally written by Mark Hessling. This repository represents a significantly modernized fork.
 
 ### Recent Modernizations:

@@ -1,8 +1,10 @@
-# THE (The Hessling Editor) - CREXX Edition
+# CRXTHE 0.9.0
 
-**THE** is a full-screen character-mode text editor based on the VM/CMS editor XEDIT and many features of KEDIT written by Mansfield Software.
+**CRXTHE** is an independently maintained fork based on Mark Hessling's THE 4.0, with cREXX/Regina macros, Unicode editing and separate console, LLM and browser frontends.
 
-### About this Fork (4.0.CREXX)
+Please report CRXTHE defects to [this fork's issue tracker](https://github.com/adesutherland/THE/issues). The original THE attribution and license are retained; this fork's changes are maintained here.
+
+### About this fork
 
 This repository is a significantly modernized fork of the original [Hessling Editor (v4.0)](https://hessling-editor.sourceforge.net). 
 
@@ -35,7 +37,7 @@ should start with the [Syntax Highlighting User Guide](doc/syntax-highlighting.m
 
 The fork now supports optional runtime-loaded Regina macros alongside the
 default cREXX engine. See [interpreter setup](doc/rexx-interpreters.md), the
-[PFXREXX adaptation](doc/pfxrexx.md), and [prebuilt packaging](packaging/README.md).
+[independent prefix workflows](doc/pfxrexx-levelg.md), and [prebuilt packaging](packaging/README.md). Shmuel's original macros and compatibility patches are held in a separate private review kit; they are not included in new CRXTHE packages.
 The packaging recipes build local candidates; availability of a published
 installer is separate from these source changes.
 
@@ -59,7 +61,9 @@ make install
 
 By default, the `install` target will stage the `the` executable and the necessary configuration files (like `THE_Help.txt`, `syntax/` highlights, `profile.the`, and the optional CREXX helper profile/macros) into a standard release directory structure.
 
-On Windows, the default install prefix is `%USERPROFILE%\.local`, matching the
+The following Windows environment script is for a **development checkout**. Prebuilt installers supply their own launcher; do not apply development resource/runtime overrides to an installed release.
+
+On Windows, the default development install prefix is `%USERPROFILE%\.local`, matching the
 local CREXX and DSLSH installs. After installing, configure the current
 PowerShell session with:
 
@@ -134,11 +138,17 @@ cmake -S . -B cmake-build -DDSLSH_PREFER_LOCAL=OFF
 Use a branch name for easy "latest DSLSH" development. Use a tag or commit SHA
 when THE needs a reproducible DSLSH version.
 
-## Quick Tips for macOS Users
+## First launch
 
-By default, THE utilizes the `Home` key to toggle between the command line and the file editing area. However, the `Home` key behaves inconsistently across different Mac terminal emulators.
+The matched cREXX and Regina default profiles provide a top column ruler,
+line numbers, distinct prefix/pending colors, insert-mode typing, Enter to
+split a line, Shift-arrow selection and visible key hints. See the
+[first-launch guide](doc/first-launch.md).
 
-To resolve this, the included `profile.the` automatically binds **F4** and **Shift-Tab** to the `SOS PREFIX` and `SOS TABB` commands. These bindings will quickly jump your cursor into the prefix area or command line respectively.
+Use `crxthe file.txt` in a packaged installation (`crxthe.cmd` on Windows).
+The `the` launcher and `THE_*` configuration names remain compatible aliases.
+The version is **CRXTHE 0.9.0**, independently numbered from upstream THE 4.0.
+This source change does not rename or replace earlier published 4.0 prereleases.
 
 ## Original Author
 

@@ -761,6 +761,10 @@ static void web_driver_http_event(struct mg_connection *connection, int event,
       if (len > 0 && len < (int)sizeof(hello))
          web_driver_send(connection, hello, (size_t)len);
       web_driver_send_action_catalog(connection);
+      /* Profile execution suppresses display preparation. Populate prefix
+       * numbers and presentation state before the first client snapshot. */
+      if (CURRENT_VIEW != NULL && CURRENT_FILE != NULL)
+         display_screen(current_screen);
       web_driver_publish_snapshot();
    }
    else if (event == MG_EV_WS_MSG)

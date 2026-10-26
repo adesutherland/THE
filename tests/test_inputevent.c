@@ -60,6 +60,14 @@ static void test_legacy_key_normalization(void)
    TheInputEvent input;
    int key = 0;
 
+   expect_int("key.ctrl-s.parse",the_input_event_from_key_name("ctrl-s",&input),1);
+   expect_int("key.ctrl-s.code",input.key_code,19);
+   expect_int("key.c-z.parse",the_input_event_from_key_name("C-Z",&input),1);
+   expect_int("key.c-z.code",input.key_code,26);
+   expect_int("key.shift-up.parse",the_input_event_from_key_name("shift-up",&input),1);
+   expect_int("key.shift-up.code",input.key_code,THE_KEY_SUP);
+   expect_int("key.bad-control",the_input_event_from_key_name("ctrl-@",&input),0);
+
    expect_int("legacy.ascii.parse",
               the_input_event_from_legacy_key('a', &input), 1);
    expect_int("legacy.ascii.kind", input.kind, THE_INPUT_TEXT);

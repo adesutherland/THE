@@ -3,6 +3,7 @@
 address THE
 'set compat xedit xedit xedit';
 'set case mixed respect';
+'set insertmode off';
 'set prefix on left 8 0';
 do i = 1 to words('DO IF SEL SELE SELEC SELECT WHEN RI RIC ..')
   name = word('DO IF SEL SELE SELEC SELECT WHEN RI RIC ..',i)

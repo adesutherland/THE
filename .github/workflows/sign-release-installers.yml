@@ -42,7 +42,7 @@ jobs:
           tool = importlib.util.module_from_spec(spec)
           spec.loader.exec_module(tool)
           release = tool.Release(os.environ['THE_RELEASE_REPO'], os.environ['THE_RELEASE_TAG'])
-          stem = 'THE-' + release.tag[1:] + '-windows-x86_64'
+          stem = tool.release_stem(release, 'windows', 'x86_64')
           destination = Path(os.environ['RUNNER_TEMP']) / 'the-signed-input'
           destination.mkdir()
           for name in (stem + '-setup.exe', stem + '-SHA256SUMS.txt'):

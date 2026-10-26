@@ -138,9 +138,31 @@ static void test_builds_filearea_frame(void)
               frame.cursor.cursor.text.cell_column, 2);
 }
 
+static void test_ruler_columns(void)
+{
+   VIEW_DETAILS view;
+   CHARTYPE ruler[20];
+
+   memset(&view, 0, sizeof(view));
+   view.verify_col = 1;
+   view.current_column = 1;
+   screenframe_format_ruler(&view, LINE_SCALE, ruler, 20);
+   expect_strn("ruler.logical.columns", ruler, 20, "|...+....1....+....2");
+   view.verify_col = 96;
+   screenframe_format_ruler(&view, LINE_SCALE, ruler, 15);
+   expect_strn("ruler.horizontal.scroll", ruler, 15, "...10....+...11");
+   view.verify_col = 1;
+   view.numtabs = 2;
+   view.tabs[0] = 1;
+   view.tabs[1] = 9;
+   screenframe_format_ruler(&view, LINE_TABLINE, ruler, 10);
+   expect_strn("ruler.tab.stops", ruler, 10, "|       | ");
+}
+
 int main(void)
 {
    test_role_mapping();
+   test_ruler_columns();
    test_builds_filearea_frame();
 
    if (failures != 0)

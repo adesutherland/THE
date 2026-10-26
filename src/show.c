@@ -83,9 +83,9 @@
 #include <string.h>
 #include <time.h>
 #include "thedriver.h"
+#include "screenframe.h"
 #include "driverlayout.h"
 #ifdef USE_UTF8
-# include "screenframe.h"
 # include "utflayout.h"
 # include "utfrepair.h"
 # include "utfterm.h"
@@ -1872,7 +1872,7 @@ void prepare_idline(CHARTYPE scrno)
 #if defined(__PDCURSES__)
    if ( curses_started )
    {
-      sprintf( (DEFCHAR *)title, "THE %s - %s", the_version, (DEFCHAR *)display_path );
+      sprintf( (DEFCHAR *)title, THE_PRODUCT_NAME " %s - %s", the_version, (DEFCHAR *)display_path );
       /* only display the title if different from previous one */
       if ( strcmp( (DEFCHAR *)title, (DEFCHAR *)old_title ) != 0 )
       {
@@ -2103,8 +2103,9 @@ void show_statarea(void)
    /*
     * Display THE version.
     */
-   sprintf((DEFCHAR*)linebuf,"THE %-9s",the_version);
-   memset((DEFCHAR *)linebuf+10,' ',max(0,terminal_cols-9));
+   memset((DEFCHAR *)linebuf,' ',terminal_cols);
+   snprintf((DEFCHAR *)buffer,sizeof(buffer),"%s",THE_PRODUCT_NAME);
+   memcpy(linebuf,buffer,min(strlen((DEFCHAR *)buffer),STATAREA_OFFSET-1));
    /*
     * Display number of files or copyright on startup.
     */
@@ -3923,9 +3924,6 @@ static void show_lines(CHARTYPE scrno)
 {
    short i=0;
    LENGTHTYPE j=0;
-   LENGTHTYPE true_col=0;
-   LENGTHTYPE off=0,num_tens=0;
-   CHARTYPE tens[30];
    int gap = SCREEN_VIEW(scrno)->prefix_gap;
    int width = SCREEN_VIEW(scrno)->prefix_width-gap;
    LENGTHTYPE filearea_cols = screen[scrno].cols[WINDOW_FILEAREA];
@@ -4036,95 +4034,9 @@ static void show_lines(CHARTYPE scrno)
       if (scurr->line_type & LINE_SCALE
       ||  scurr->line_type & LINE_TABLINE)
       {
-         true_col = SCREEN_VIEW(scrno)->verify_col-1;
-         for (j=0,ptr=linebuf;j<max_cols;j++,ptr++,true_col++)
-         {
-            /*
-             * Display '|' in current column position if this is the scale line.
-             */
-            if (scurr->line_type & LINE_SCALE
-            &&  SCREEN_VIEW(scrno)->current_column == true_col+1)
-            {
-               *ptr = '|';
-               continue;
-            }
-            /*
-             * Display 'T' in each tab column. This overrides all other characters
-             * except column position.
-             */
-            if (scurr->line_type & LINE_TABLINE)
-            {
-               if (is_tab_col(true_col+1))
-               {
-                  *ptr = '|';
-                  continue;
-               }
-            }
-            /*
-             * Only display the following if it is a scale line...
-             */
-            if (scurr->line_type & LINE_SCALE)
-            {
-               if (SCREEN_VIEW(scrno)->margin_left-1 == true_col)
-               {
-                  *ptr = '[';
-                  continue;
-               }
-               if (SCREEN_VIEW(scrno)->margin_right-1 == true_col)
-               {
-                  *ptr = ']';
-                  continue;
-               }
-               if (SCREEN_VIEW(scrno)->margin_indent_offset_status
-               &&  SCREEN_VIEW(scrno)->margin_left+SCREEN_VIEW(scrno)->margin_indent-1 == true_col)
-               {
-                  *ptr = 'p';
-                  continue;
-               }
-               if (!SCREEN_VIEW(scrno)->margin_indent_offset_status
-               &&  SCREEN_VIEW(scrno)->margin_indent-1 == true_col)
-               {
-                  *ptr = 'p';
-                  continue;
-               }
-               if (SCREEN_VIEW(scrno)->zone_start-1 == true_col)
-               {
-                  *ptr = '<';
-                  continue;
-               }
-               if (SCREEN_VIEW(scrno)->zone_end-1 == true_col)
-               {
-                  *ptr = '>';
-                  continue;
-               }
-               if (true_col % 10 == 9)
-               {
-                  /* this is still not perfect, see "marg 1 100" with
-                   * "verify 40 110". We should build the scale first.
-                   */
-                  sprintf((DEFCHAR *)tens,"%ld",(true_col / 10) + 1);
-                  num_tens = strlen((DEFCHAR *)tens);
-                  for (off = num_tens - 1;off >= 0;off--)
-                  {
-                     if (ptr - off < linebuf)
-                        continue;
-                     if ((off == 0) || (ptr[-off] == ' ') || (ptr[-off] == '.'))
-                        ptr[-off] = tens[num_tens - off - 1];
-                  }
-                  continue;
-               }
-               if (true_col % 5 == 4)
-               {
-                  *ptr = '+';
-                  continue;
-               }
-               *ptr = '.';
-            }
-            else /* only TABLINE */
-              *ptr = ' ';
-         }
+         screenframe_format_ruler(SCREEN_VIEW(scrno),scurr->line_type,linebuf,(int)max_cols);
          if (max_cols < filearea_cols)
-            memset(ptr,' ',filearea_cols - max_cols);
+            memset(linebuf+max_cols,' ',filearea_cols - max_cols);
          INIT_LINE_OUTPUT(screen_window_filearea,i);
          /* no need to use UTF-8 length here */
          ADD_LINE_OUTPUT(linebuf,

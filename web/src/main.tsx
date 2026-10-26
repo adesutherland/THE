@@ -261,7 +261,7 @@ function App() {
 
   const rows = snapshot?.screen_rows ?? [];
   const currentBuffer = snapshot?.buffers.find((buffer) => buffer.current);
-  const title = currentBuffer ? basename(currentBuffer.path) : "THE";
+  const title = currentBuffer ? basename(currentBuffer.path) : "CRXTHE";
   const cursorRow = useMemo(
     () => rows.find((row) => row.r === snapshot?.focus.row && row.line === snapshot?.focus.line),
     [rows, snapshot?.focus.line, snapshot?.focus.row],
@@ -289,7 +289,7 @@ function App() {
   return (
     <main class="app-shell">
       <header class="toolbar">
-        <div class="product-mark">THE</div>
+        <div class="product-mark">CRXTHE</div>
         <nav class="menu-bar" aria-label="Application menu">
           {menus.map(([menu, entries]) => (
             <div class="menu-root" key={menu}>
@@ -497,7 +497,7 @@ function App() {
           />
         </form>
         <div class="status-line">
-          <span class="status-text">{lastError || snapshot?.status || "Waiting for THE"}</span>
+          <span class="status-text">{lastError || snapshot?.status || "Waiting for CRXTHE"}</span>
           <span>{snapshot?.focus.zone ?? "-"}</span>
           <span>{snapshot?.focus.line ?? 0}:{(snapshot?.focus.cell ?? 0) + 1}</span>
           <span>{snapshot?.buffer?.dirty ? "Modified" : "Saved"}</span>

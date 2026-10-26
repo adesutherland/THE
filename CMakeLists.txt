@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(THE C)
+project(THE VERSION 0.9.0 LANGUAGES C)
 
-set(THE_VERSION "4.0.CREXX")
-set(THE_VERSION_DATE "02-Apr-2026")
+set(THE_PRODUCT_NAME "CRXTHE")
+set(THE_VERSION "${PROJECT_VERSION}")
+set(THE_VERSION_DATE "26-Oct-2026")
 
 # --- Options ---
 option(USE_WIDE_CHAR "Enable wide character support" ON)
@@ -94,6 +95,7 @@ add_compile_definitions(
     HAVE_CONFIG_H
     THE_DEFAULT_REXX_INTERPRETER="${THE_SELECTED_REXX_INTERPRETER}"
     THE_VERSION="${THE_VERSION}"
+    THE_PRODUCT_NAME="${THE_PRODUCT_NAME}"
     THE_VERSION_DATE="${THE_VERSION_DATE}"
     THE_VARIANT="${THE_VARIANT}"
     THE_PLATFORM_NAME="${THE_PLATFORM_NAME}"
@@ -199,6 +201,10 @@ set(HAVE_WATTRSET 1)
 set(HAVE_TOUCHLINE 1)
 set(HAVE_KEYPAD 1)
 set(HAVE_CURS_SET 1)
+# Maintained ncurses and PDCurses provide raw/cbreak. Without these flags the
+# compatibility header turns raw() into a no-op, leaving Ctrl-S/Q to IXON.
+set(HAVE_RAW 1)
+set(HAVE_CBREAK 1)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
@@ -654,7 +660,14 @@ add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
 set(THE_RUNTIME_PROFILE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/profile.the
     ${CMAKE_CURRENT_SOURCE_DIR}/profile_regina.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/quickfind.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/quickfind_regina.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/quickopen.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/quickopen_regina.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/quickline.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/quickline_regina.the
     ${CMAKE_CURRENT_SOURCE_DIR}/web-profile.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/web-profile-regina.the
     ${CMAKE_CURRENT_SOURCE_DIR}/profile_crexx.the
     ${CMAKE_CURRENT_SOURCE_DIR}/crexxcompile.the
     ${CMAKE_CURRENT_SOURCE_DIR}/crexxrun.the
@@ -829,7 +842,7 @@ if(USE_UTF8 AND THE_SYSTEM_PROFILE_SOURCES)
     # Keep terminal calibration in one source; Classic Rexx only needs the
     # cREXX language-level declaration removed from these command-only scripts.
     set(THE_REGINA_SYSTEM_PROFILES)
-    set(THE_CLASSIC_PROFILE_SOURCES ${THE_SYSTEM_PROFILE_SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/web-profile.the")
+    set(THE_CLASSIC_PROFILE_SOURCES ${THE_SYSTEM_PROFILE_SOURCES})
     foreach(THE_PROFILE_SOURCE IN LISTS THE_CLASSIC_PROFILE_SOURCES)
         get_filename_component(THE_PROFILE_NAME "${THE_PROFILE_SOURCE}" NAME_WE)
         file(READ "${THE_PROFILE_SOURCE}" THE_PROFILE_CONTENT)
@@ -897,8 +910,10 @@ if(THE_BUNDLE_CREXX)
     install(TARGETS ${EXECUTABLE_NAME} DESTINATION libexec/the)
     if(WIN32)
         install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/packaging/the.cmd" DESTINATION bin)
+        install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/packaging/the.cmd" DESTINATION bin RENAME crxthe.cmd)
     else()
         install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/packaging/the" DESTINATION bin)
+        install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/packaging/the" DESTINATION bin RENAME crxthe)
     endif()
     install(PROGRAMS "${CREXX_RXC_EXECUTABLE}" "${CREXX_RXAS_EXECUTABLE}"
         "${CREXX_DRIVER_EXECUTABLE}"
@@ -941,11 +956,12 @@ if(WIN32)
     install(PROGRAMS tools/the-env.ps1 DESTINATION bin)
 endif()
 install(FILES doc/THE_Help.txt profile.the profile_regina.the web-profile.the profile_crexx.the crexxcompile.the crexxrun.the DESTINATION share/the)
+install(FILES web-profile-regina.the DESTINATION share/the)
+install(FILES quickfind.the quickfind_regina.the quickopen.the quickopen_regina.the
+    quickline.the quickline_regina.the DESTINATION share/the)
 install(FILES pfxrexx.the pfxsetup.the DESTINATION share/the)
 install(FILES paneldemo.the paneldemo_regina.the pfxsetupg.the pfxstructuredg.the DESTINATION share/the)
-install(DIRECTORY compat/shmuel DESTINATION share/the/macro-patches/compat)
-install(FILES scripts/prepare-shmuel-macros.py DESTINATION share/the/macro-patches/scripts)
-install(FILES doc/panels.md doc/pfxrexx.md doc/pfxrexx-levelg.md doc/rexx-interpreters.md DESTINATION share/doc/the)
+install(FILES doc/panels.md doc/pfxrexx.md doc/pfxrexx-levelg.md doc/rexx-interpreters.md doc/first-launch.md DESTINATION share/doc/the)
 install(FILES LICENSE DESTINATION share/doc/the)
 if(USE_SDSLH AND EXISTS "${DSLSH_SOURCE_DIR}/LICENSE")
     install(FILES "${DSLSH_SOURCE_DIR}/LICENSE" DESTINATION share/doc/the/dslsh)
@@ -1063,15 +1079,36 @@ if(THE_PYTHON_EXECUTABLE)
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_runtime_selection.py --build-dir ${CMAKE_CURRENT_BINARY_DIR})
         set_tests_properties(test_runtime_selection PROPERTIES TIMEOUT 180)
     endif()
-    add_test(NAME test_prepare_shmuel COMMAND ${THE_PYTHON_EXECUTABLE}
-        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_prepare_shmuel.py)
     add_test(NAME test_sign_windows_release COMMAND ${THE_PYTHON_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sign_windows_release.py)
     add_test(NAME test_sign_macos_release COMMAND ${THE_PYTHON_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sign_macos_release.py)
 endif()
+if(THE_PYTHON_EXECUTABLE)
+    foreach(profile_engine CREXX REGINA)
+        if((profile_engine STREQUAL "CREXX" AND THE_USE_CREXX) OR
+           (profile_engine STREQUAL "REGINA" AND THE_USE_REGINA AND REGINA_LIBRARY))
+            add_test(NAME test_default_profile_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_default_profiles.py $<TARGET_FILE:the> ${profile_engine})
+            set_tests_properties(test_default_profile_${profile_engine} PROPERTIES TIMEOUT 120
+                ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+        endif()
+    endforeach()
+endif()
+if(THE_USE_CREXX AND THE_PYTHON_EXECUTABLE)
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/levelg-qa")
+    add_test(NAME test_levelg_standalone COMMAND ${THE_PYTHON_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_shmuel_macros.py $<TARGET_FILE:the>
+        ${CMAKE_CURRENT_BINARY_DIR}/levelg-qa CREXX ${RELEASE_DIR})
+    set_tests_properties(test_levelg_standalone PROPERTIES TIMEOUT 180
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+endif()
 if(THE_USE_REGINA AND REGINA_LIBRARY AND THE_PYTHON_EXECUTABLE)
     if(NOT WIN32)
+        add_test(NAME test_default_profile_curses COMMAND ${THE_PYTHON_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_default_profile_curses.py $<TARGET_FILE:the>)
+        set_tests_properties(test_default_profile_curses PROPERTIES TIMEOUT 90
+            RESOURCE_LOCK the_pty_editor ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
         add_test(NAME test_panel_curses COMMAND ${THE_PYTHON_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_panel_curses.py $<TARGET_FILE:the>)
         set_tests_properties(test_panel_curses PROPERTIES TIMEOUT 60 RESOURCE_LOCK the_pty_editor

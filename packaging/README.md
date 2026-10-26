@@ -1,8 +1,8 @@
-# Prebuilt THE candidates
+# Prebuilt CRXTHE candidates
 
-The bundled install contains THE, its curses and LLM drivers, profiles and
+The bundled install contains CRXTHE, its curses and LLM drivers, profiles and
 help, the Classic PFXREXX adaptation, compiled Level G Rexx/HLASM prefix
-workflows, the minimal original-macro patch kit, and a private matching cREXX tool set.
+workflows and a private matching cREXX tool set. Shmuel's original macros, patches and preparation tool are excluded; their compatibility kit is held separately for private review.
 Regina is optional, loaded only when selected, and is never bundled.
 See [interpreter setup](../doc/rexx-interpreters.md).
 The panel candidate enables the experimental browser driver as well as curses
@@ -24,6 +24,8 @@ python3 scripts/package-release.py --build-dir build-release \
 ```
 
 The version above is a local candidate label, not a release declaration.
+Package names begin `CRXTHE-0.9.0-...`. The display version and manifest identify the independently maintained fork and its THE 4.0 ancestry. The stable `the` launcher, install/cache directories, registry/package identifiers and `THE_*` configuration keys are retained for compatibility; `crxthe` is the new public launcher alias. Upgrade behavior still needs the next candidate's native installer QA.
+
 `CREXXSAA_RUNTIME_LIBRARY`, `CREXX_RXC_EXECUTABLE`, `CREXX_RXAS_EXECUTABLE`,
 `CREXX_RXVM_EXECUTABLE`, `CREXX_DRIVER_EXECUTABLE`, `CREXX_LIBRARY_RXBIN` and
 `CREXX_LICENSE_FILE` can override dependency discovery. Keep them from one

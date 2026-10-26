@@ -89,6 +89,17 @@ class SigningTests(unittest.TestCase):
         for path in (self.installer, self.checksums):
             self.assertEqual(module.asset_named(self.remote.state, path.name)['digest'], module.digest(path))
 
+    def test_product_asset_stem_retains_historical_support(self):
+        self.assertEqual(module.release_stem(self.release,'windows','x86_64'),
+                         'THE-4.0.0-test.1-windows-x86_64')
+        for asset in self.release.original['assets']:
+            asset['name']=asset['name'].replace('THE-','CRXTHE-',1)
+        self.assertEqual(module.release_stem(self.release,'windows','x86_64'),
+                         'CRXTHE-4.0.0-test.1-windows-x86_64')
+        self.release.original['assets'].append({'name':'THE-4.0.0-test.1-windows-x86_64-SHA256SUMS.txt'})
+        with self.assertRaisesRegex(RuntimeError,'unambiguous'):
+            module.release_stem(self.release,'windows','x86_64')
+
     def test_moving_tag_aborts_before_upload(self):
         self.remote.commit = 'b' * 40
         with self.assertRaisesRegex(RuntimeError, 'changed'):

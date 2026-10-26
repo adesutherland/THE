@@ -1,0 +1,152 @@
+{
+  "commands": [
+    "set cmdarrows tab",
+    "set case mixed respect",
+    "set interface cua",
+    "set insertmode on",
+    "set prefix on left 8 1",
+    "set number on",
+    "set scale on 1",
+    "set curline on 2",
+    "set filetabs on",
+    "set cmdline bottom",
+    "set statusline bottom",
+    "set autoscroll half",
+    "set tabline off",
+    "set coloring on auto",
+    "define enter enter cua",
+    "define backspace sos cuadelback",
+    "define del sos cuadelchar",
+    "define curu cursor cua up",
+    "define curd cursor cua down",
+    "define curl cursor cua left",
+    "define curr cursor cua right",
+    "define home sos leftedge",
+    "define end sos endchar",
+    "define s-tab cursor home save",
+    "define s-curu mark cua up",
+    "define s-curd mark cua down",
+    "define s-curl mark cua left",
+    "define s-curr mark cua right",
+    "define s-home mark cua start",
+    "define s-end mark cua end",
+    "define ins insertmode toggle",
+    "define f5 insertmode toggle",
+    "define f4 cursor prefix",
+    "define f6 cursor home save",
+    "define c-s save",
+    "define c-l cursor cmdline",
+    "define c-q quit",
+    "define c-w quit",
+    "define c-z sos undo",
+    "define c-f macro quickfind{suffix}",
+    "define c-o macro quickopen{suffix}",
+    "define c-g macro quickline{suffix}",
+    "set statopt off *",
+    "set statopt on pmsg.1 15 38",
+    "set color gap #6A9955 on #1E1E1E",
+    "set color cgap #6A9955 on #1E1E1E",
+    "set color arrow #569CD6 on #1E1E1E",
+    "set color filearea #D4D4D4 on #1E1E1E",
+    "set color curline #E6F7FF on #264F78",
+    "set color cursorline #D4D4D4 on #2D2D30",
+    "set color prefix #8C9CB3 on #202731",
+    "set color cprefix #FFFFFF on #315D8A",
+    "set color tofeof #569CD6 on #1E1E1E",
+    "set color ctofeof #569CD6 on #1E1E1E",
+    "set color cmdline #D4D4D4 on #2D2D30",
+    "set color msgline tomato on #1E1E1E",
+    "set color idline #F1F5FA on #25415F",
+    "set color scale #91A8C5 on #202731",
+    "set color pending #FFD37A on #202731",
+    "set color shadow #858585 on #1E1E1E",
+    "set color statarea #DCE5F2 on #25415F",
+    "set color cberror white on firebrick",
+    "set color cbwarn black on gold",
+    "set color cbinfo white on #007ACC",
+    "set color pmsgerror white on firebrick",
+    "set color pmsgwarn black on gold",
+    "set color pmsginfo white on #007ACC",
+    "set ecolor comment #6A9955 on #1E1E1E",
+    "set ecolor string #CE9178 on #1E1E1E",
+    "set ecolor incomplete_string #CE9178 on #1E1E1E",
+    "set ecolor keyword #569CD6 on #1E1E1E",
+    "set ecolor preprocessor #C586C0 on #1E1E1E",
+    "set ecolor type #4EC9B0 on #1E1E1E",
+    "set ecolor function #DCDCAA on #1E1E1E",
+    "set ecolor constant #4FC1FF on #1E1E1E",
+    "set ecolor macro_name #DCDCAA on #1E1E1E",
+    "set ecolor macro_variable #4FC1FF on #1E1E1E",
+    "set ecolor macro_constant #B5CEA8 on #1E1E1E",
+    "set ecolor identifier #9CDCFE on #1E1E1E",
+    "set ecolor number #B5CEA8 on #1E1E1E",
+    "set ecolor operator #D4D4D4 on #1E1E1E",
+    "set ecolor punctuation #D4D4D4 on #1E1E1E",
+    "set ecolor paren #D4D4D4 on #1E1E1E",
+    "set ecolor match black on #4D4D4D",
+    "set cursorstyle insert ibeam blink",
+    "set cursorstyle overwrite block steady",
+    "set color cblock black on #F0C36B",
+    "set cursorstyle insert ibeam steady",
+    "set cursorstyle overwrite block steady"
+  ],
+  "parsers": [
+    {
+      "name": "rxc",
+      "program": "rxc",
+      "arguments": "--syntaxhighlight",
+      "masks": [
+        "*.rexx",
+        "*.rex",
+        "*.crexx",
+        "*.crx",
+        "*.the"
+      ]
+    },
+    {
+      "name": "rxas",
+      "program": "rxas",
+      "arguments": "--syntaxhighlight",
+      "masks": [
+        "*.rxas"
+      ]
+    },
+    {
+      "name": "mdp",
+      "program": "mdp",
+      "arguments": "--syntaxhighlight",
+      "masks": [
+        "*.md",
+        "*.markdown"
+      ]
+    },
+    {
+      "name": "dslsh-c",
+      "program": "dslsh-c",
+      "arguments": "--syntaxhighlight",
+      "masks": [
+        "*.c",
+        "*.h"
+      ]
+    },
+    {
+      "name": "pyp",
+      "program": "pyp",
+      "arguments": "--syntaxhighlight",
+      "masks": [
+        "*.py"
+      ]
+    },
+    {
+      "name": "jsp",
+      "program": "jsp",
+      "arguments": "--syntaxhighlight",
+      "masks": [
+        "*.js",
+        "*.mjs",
+        "*.cjs"
+      ]
+    }
+  ],
+  "welcome": "msg CRXTHE 0.9.0 | F1 Help  Ctrl-S Save  Ctrl-L Command  F4 Prefix"
+}

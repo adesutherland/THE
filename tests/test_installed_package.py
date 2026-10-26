@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import queue
+import shutil
 import threading
 import urllib.parse
 import urllib.request
@@ -23,6 +24,10 @@ parser.add_argument('--read-only-prefix', action='store_true',
 args = parser.parse_args()
 prefix = args.prefix.resolve()
 manifest = json.loads((prefix / 'manifest.json').read_text())
+if manifest.get('product') == 'CRXTHE':
+    assert not (prefix / 'share/the/macro-patches').exists(), 'Private patch kit included in public package'
+    assert not any('shmuel' in name.lower() or name.endswith('.patch')
+                   for name in manifest['files_sha256']), 'Private compatibility material included'
 for relative, expected in manifest['files_sha256'].items():
     assert hashlib.sha256((prefix / relative).read_bytes()).hexdigest() == expected, relative
 assert manifest['regina_bundled'] is False
@@ -123,19 +128,44 @@ with tempfile.TemporaryDirectory(prefix='THE package smoke ') as tmp:
             assert any(line.get('t') == 'do' for view in views for line in view['screen_rows']), views
             if engine == 'CREXX':
                 assert any(line.get('t', '').strip().startswith('ENDIF') for line in views[-1]['screen_rows']), views[-1]
+        if engine != 'NONE' and manifest.get('product') == 'CRXTHE':
+            stock = command.replace(' -n ', ' ') if isinstance(command, str) else [a for a in command if a != '-n']
+            stock_result = subprocess.run(stock, input='look full compact\nquit\n', text=True,
+                                          encoding='utf-8', capture_output=True, env=env, timeout=45, check=True)
+            assert 'Error ' not in stock_result.stderr, stock_result.stderr
+            stock_views = [json.loads(line) for line in stock_result.stdout.splitlines() if line.startswith('{')]
+            stock_view = next(view for view in stock_views if 'screen_rows' in view)
+            assert 'CRXTHE 0.9.0' in stock_view['status'], stock_view
+            assert any(row['role'] == 'scale' and '+' in row['t'] for row in stock_view['screen_rows']), stock_view
+            assert any(row.get('p') == '0000001' for row in stock_view['screen_rows']), stock_view
         print(f'{engine}: installed payload passed with an isolated PATH')
+        if engine == 'CREXX' and not args.macros:
+            # Full public QA of our independent port needs no original macro
+            # downloads, patch files or private compatibility kit.
+            qa = Path(tmp) / 'independent prefix QA'
+            qa.mkdir()
+            g_env = dict(env, THE_HOME_DIR=str(prefix / 'share/the'),
+                         THE_DRIVER_PATH=str(prefix / 'lib/the/drivers'))
+            runtime = prefix / 'libexec/the/crexx'
+            library = next(p for p in runtime.iterdir()
+                           if 'crexxsaa' in p.name and p.suffix in ('.dll', '.so', '.dylib'))
+            suffix = '.exe' if os.name == 'nt' else ''
+            g_env.update(THE_CREXX_LIBRARY=str(library), THE_CREXX_LOCATION=str(runtime),
+                         THE_CREXX_IMPORT_DIR=str(runtime), THE_CREXX_LIBRARY_RXBIN=str(runtime / 'library.rxbin'),
+                         THE_CREXX_RXC=str(runtime / ('rxc' + suffix)), THE_CREXX_RXAS=str(runtime / ('rxas' + suffix)))
+            g_env['PATH'] = str(runtime) + os.pathsep + env['PATH']
+            executable = prefix / 'libexec/the' / ('the.exe' if os.name == 'nt' else 'the')
+            subprocess.run([sys.executable, str(Path(__file__).with_name('test_shmuel_macros.py')),
+                            str(executable), str(qa), 'CREXX', str(prefix / 'share/the')],
+                           env=g_env, check=True, timeout=180)
         if engine == 'NONE':
             check_installed_web(command, env)
         if engine == 'REGINA' and args.macros:
             env['THE_HOME_DIR'] = str(prefix / 'share/the')
             env['THE_DRIVER_PATH'] = str(prefix / 'lib/the/drivers')
             executable = prefix / 'libexec/the' / ('the.exe' if os.name == 'nt' else 'the')
-            prepared = Path(tmp) / 'installed patched macros'
-            tool = prefix / 'share/the/macro-patches/scripts/prepare-shmuel-macros.py'
-            subprocess.run([sys.executable, str(tool), '--download', '--output-dir', str(prepared)],
-                           env=env, check=True, timeout=90)
-            assert json.loads((prepared / 'provenance.json').read_text()) == json.loads(
-                (args.macros / 'provenance.json').read_text())
+            prepared = Path(tmp) / 'external private macros'
+            shutil.copytree(args.macros, prepared)
             subprocess.run([sys.executable, str(Path(__file__).with_name('test_shmuel_macros.py')),
                             str(executable), str(prepared)], env=env, check=True, timeout=120)
             # Exercise the compiled ports with Regina unavailable, using only

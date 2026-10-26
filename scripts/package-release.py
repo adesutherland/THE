@@ -23,7 +23,7 @@ def run(*args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--build-dir', required=True, type=Path)
-    parser.add_argument('--version', required=True, help='Candidate version, e.g. 4.0.0-dev')
+    parser.add_argument('--version', required=True, help='Candidate version, e.g. 0.9.0-preview.1')
     parser.add_argument('--installer', action='store_true')
     args = parser.parse_args()
     if not re.fullmatch(r'\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?', args.version):
@@ -37,7 +37,7 @@ def main():
     output.mkdir(exist_ok=True)
     host = platform.system().lower()
     arch = platform.machine().lower().replace('aarch64', 'arm64').replace('amd64', 'x86_64')
-    name = f'THE-{args.version}-{host}-{arch}'
+    name = f'CRXTHE-{args.version}-{host}-{arch}'
     with tempfile.TemporaryDirectory(prefix='the-package-', dir=build) as tmp:
         work = Path(tmp)
         payload = work / name
@@ -55,7 +55,11 @@ def main():
         dirty = bool(subprocess.check_output(['git', '-C', str(source), 'status', '--porcelain'], text=True))
         files = {str(p.relative_to(payload)).replace('\\', '/'): hashlib.sha256(p.read_bytes()).hexdigest()
                  for p in sorted(payload.rglob('*')) if p.is_file()}
+        if any('shmuel' in name.lower() or name.endswith('.patch') or 'macro-patches/' in name for name in files):
+            raise RuntimeError('Private compatibility material must not be included in public packages')
         (payload / 'manifest.json').write_text(json.dumps({
+            'product': 'CRXTHE', 'display_version': 'CRXTHE ' + args.version,
+            'upstream_product': 'THE', 'upstream_version': '4.0',
             'version': args.version, 'platform': host, 'architecture': arch,
             'source_commit': commit, 'source_dirty': dirty,
             'regina_bundled': False, 'files_sha256': files,

@@ -1,4 +1,8 @@
-# Shmuel macro qualification — updated 25 October 2026
+# Shmuel macro qualification — updated 26 October 2026
+
+The new [CRXTHE 0.9.0 local preview](crxthe-preview-qa.md) adds the independent
+fork identity, matched first-launch profiles and private-kit packaging rules.
+It is separate from the published releases summarized below.
 
 All three stages are implemented, committed and published as pre-releases:
 [Regina fixes](https://github.com/adesutherland/THE/releases/tag/v4.0.0-regina.1),
@@ -43,7 +47,7 @@ These checks supplement the full regression results above. See the
 
 The sections dated 24 October retain the unchanged-package observations.
 The current delivery is summarized in [the staged report](macro-panel-stages.md),
-with [patched-original setup](../compat/shmuel/README.md),
+with [patched-original setup](private-compatibility.md),
 [compiled Level G ports](pfxrexx-levelg.md) and [macro panels](panels.md).
 
 This report concerns the experimental THE fork. There was no live XEDIT test
@@ -184,7 +188,7 @@ sent to Shmuel until Adrian completes his Windows smoke test.
 The compatibility kit now repairs the observed macro defects and supplies
 the documented HLASM aliases that had no implementation. The original source
 hashes above remain the required patch inputs. See the
-[patch inventory and setup](../compat/shmuel/README.md).
+[patch inventory and setup](private-compatibility.md).
 Local QA currently passes 86 behavioral workflows against the patched files,
 all 57 original aliases, the real curses text-entry/save test, and focused
 TRUNC and patch-application tests. These results supersede the earlier

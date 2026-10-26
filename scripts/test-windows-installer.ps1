@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory=$true)][string]$Installer,
     [Parameter(Mandatory=$true)][string]$ReginaLibrary,
-    [Parameter(Mandatory=$true)][string]$MacroDirectory
+    [string]$MacroDirectory
 )
 $ErrorActionPreference = 'Stop'
 $prefix = Join-Path $env:RUNNER_TEMP 'THE installed candidate'
@@ -15,7 +15,9 @@ function Install-Candidate([string]$Runtime = 'BUNDLED') {
 try {
     Install-Candidate
     if ((Get-Content "$prefix\share\the\runtime-preference" -Raw).Trim() -ne 'BUNDLED') { throw 'Bundled runtime was not the installer default' }
-    & $python "$PSScriptRoot\..\tests\test_installed_package.py" $prefix --regina $ReginaLibrary --macros $MacroDirectory
+    $testArguments = @("$PSScriptRoot\..\tests\test_installed_package.py", $prefix, '--regina', $ReginaLibrary)
+    if ($MacroDirectory) { $testArguments += @('--macros', $MacroDirectory) }
+    & $python @testArguments
     if ($LASTEXITCODE -ne 0) { throw 'Installed runtime checks failed' }
     Set-Content -LiteralPath "$prefix\keep-user-file.txt" -Value 'retain on uninstall'
     Install-Candidate 'INSTALLED'

@@ -15,15 +15,16 @@ Var BundledRadio
 Var InstalledRadio
 
 
-Name "THE cREXX Edition ${THE_VERSION}"
+Name "CRXTHE ${THE_VERSION}"
 OutFile "${THE_OUTPUT}"
 InstallDir "$LOCALAPPDATA\Programs\THE-cREXX"
 InstallDirRegKey HKCU "Software\THE-cREXX" "InstallDir"
 VIProductVersion "${THE_FILE_VERSION}"
-VIAddVersionKey "ProductName" "THE cREXX Edition"
-VIAddVersionKey "FileDescription" "THE cREXX Edition Windows x64 Installer"
+VIAddVersionKey "ProductName" "CRXTHE"
+VIAddVersionKey "FileDescription" "CRXTHE Windows x64 Installer"
 VIAddVersionKey "FileVersion" "${THE_VERSION}"
-VIAddVersionKey "LegalCopyright" "THE cREXX Edition contributors"
+VIAddVersionKey "LegalCopyright" "Original THE copyright Mark Hessling; fork changes CRXTHE contributors"
+VIAddVersionKey "Comments" "Independent fork based on THE 4.0; CRXTHE issues: github.com/adesutherland/THE/issues"
 !define MUI_ABORTWARNING
 !insertmacro MUI_PAGE_DIRECTORY
 Page custom RuntimePage RuntimePageLeave
@@ -34,7 +35,7 @@ Page custom RuntimePage RuntimePageLeave
 
 Function .onInit
   ${IfNot} ${RunningX64}
-    MessageBox MB_ICONSTOP "THE cREXX Edition requires 64-bit Windows."
+    MessageBox MB_ICONSTOP "CRXTHE requires 64-bit Windows."
     Abort
   ${EndIf}
   SetRegView 64
@@ -47,7 +48,7 @@ Function .onInit
 FunctionEnd
 
 Function RuntimePage
-  !insertmacro MUI_HEADER_TEXT "cREXX runtime" "Choose the cREXX installation THE should use."
+  !insertmacro MUI_HEADER_TEXT "cREXX runtime" "Choose the cREXX installation CRXTHE should use."
   nsDialogs::Create 1018
   Pop $0
   ${If} $0 == error
@@ -62,7 +63,7 @@ Function RuntimePage
   ${Else}
     ${NSD_Check} $BundledRadio
   ${EndIf}
-  ${NSD_CreateLabel} 0 62u 100% 54u "THE always includes a bundled copy. If no compatible installed cREXX is available, THE uses the bundle automatically. Regina is configured separately."
+  ${NSD_CreateLabel} 0 62u 100% 54u "CRXTHE always includes a bundled copy. If no compatible installed cREXX is available, CRXTHE uses the bundle automatically. Regina is configured separately."
   Pop $0
   nsDialogs::Show
 FunctionEnd
@@ -98,32 +99,34 @@ FunctionEnd
   SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
 !macroend
 
-Section "THE cREXX Edition"
+Section "CRXTHE"
   SetOutPath "$INSTDIR"
   File /r "${THE_PAYLOAD}\*"
   FileOpen $0 "$INSTDIR\share\the\runtime-preference" w
   FileWrite $0 "$RuntimeChoice$\r$\n"
   FileClose $0
   ${If} $RuntimeChoice == "INSTALLED"
-    DetailPrint "THE will use an installed cREXX when compatible, otherwise its bundled copy."
+    DetailPrint "CRXTHE will use an installed cREXX when compatible, otherwise its bundled copy."
   ${Else}
-    DetailPrint "THE will use bundled cREXX."
+    DetailPrint "CRXTHE will use bundled cREXX."
   ${EndIf}
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\THE-cREXX" "InstallDir" "$INSTDIR"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\THE-cREXX" "DisplayName" "THE cREXX Edition ${THE_VERSION}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\THE-cREXX" "DisplayName" "CRXTHE ${THE_VERSION}"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\THE-cREXX" "DisplayVersion" "${THE_VERSION}"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\THE-cREXX" "UninstallString" '"$INSTDIR\Uninstall.exe"'
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\THE-cREXX" "QuietUninstallString" '"$INSTDIR\Uninstall.exe" /S'
-  CreateDirectory "$SMPROGRAMS\THE cREXX Edition"
-  CreateShortCut "$SMPROGRAMS\THE cREXX Edition\THE.lnk" "$INSTDIR\bin\the.cmd"
+  Delete "$SMPROGRAMS\THE cREXX Edition\THE.lnk"
+  RMDir "$SMPROGRAMS\THE cREXX Edition"
+  CreateDirectory "$SMPROGRAMS\CRXTHE"
+  CreateShortCut "$SMPROGRAMS\CRXTHE\CRXTHE.lnk" "$INSTDIR\bin\crxthe.cmd"
   !insertmacro UpdatePath add
 SectionEnd
 
 Section "Uninstall"
   !insertmacro UpdatePath remove
-  Delete "$SMPROGRAMS\THE cREXX Edition\THE.lnk"
-  RMDir "$SMPROGRAMS\THE cREXX Edition"
+  Delete "$SMPROGRAMS\CRXTHE\CRXTHE.lnk"
+  RMDir "$SMPROGRAMS\CRXTHE"
   !include "${THE_UNINSTALL_FILES}"
   Delete "$INSTDIR\share\the\runtime-preference"
   RMDir "$INSTDIR\share\the"

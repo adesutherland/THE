@@ -84,6 +84,9 @@ socket.on("message", (data) => {
     if (firstLine.t !== "alpha beta gamma" || message.buffer?.dirty !== 0) {
       fail("initial web snapshot did not match the opened buffer");
     }
+    if (process.env.THE_REXX_INTERPRETER !== "NONE" && firstLine.p !== "0000001") {
+      fail("first web snapshot omitted the default line number");
+    }
     if (message.focus?.zone !== "filearea") {
       fail("web snapshot did not expose the initial editor focus");
     }

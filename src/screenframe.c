@@ -1,8 +1,47 @@
 #include "screenframe.h"
 
 #include <string.h>
+#include <stdio.h>
 
 #include "the.h"
+
+/* The same column markers serve terminal rendering and semantic/web frames. */
+void screenframe_format_ruler(const struct view_details *view, short line_type,
+                             CHARTYPE *out, int columns)
+{
+   int j, k;
+   if (!view || !out || columns <= 0) return;
+   memset(out,' ',columns);
+   for (j=0;j<columns;j++)
+   {
+      long col=(long)view->verify_col-1+j;
+      if ((line_type & LINE_SCALE) && view->current_column==col+1)
+      { out[j]='|'; continue; }
+      if (line_type & LINE_TABLINE)
+      {
+         for (k=0;k<view->numtabs;k++) if (view->tabs[k]==col+1) break;
+         if (k<view->numtabs) { out[j]='|'; continue; }
+      }
+      if (!(line_type & LINE_SCALE)) continue;
+      if (view->margin_left-1==col) { out[j]='['; continue; }
+      if (view->margin_right-1==col) { out[j]=']'; continue; }
+      if ((view->margin_indent_offset_status && view->margin_left+view->margin_indent-1==col) ||
+          (!view->margin_indent_offset_status && view->margin_indent-1==col))
+      { out[j]='p'; continue; }
+      if (view->zone_start-1==col) { out[j]='<'; continue; }
+      if (view->zone_end-1==col) { out[j]='>'; continue; }
+      if (col % 10==9)
+      {
+         char tens[32]; int length, offset;
+         snprintf(tens,sizeof(tens),"%ld",col/10+1);
+         length=(int)strlen(tens);
+         for (offset=length-1;offset>=0;offset--)
+            if (j-offset>=0 && (!offset || out[j-offset]==' ' || out[j-offset]=='.'))
+               out[j-offset]=tens[length-offset-1];
+      }
+      else out[j]=col % 5==4 ? '+' : '.';
+   }
+}
 
 UiRowRole screenframe_role_from_line_type(short line_type)
 {

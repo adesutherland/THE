@@ -15,6 +15,12 @@ class MacroHarness:
         self.ports = Path(ports).resolve() if ports else self.macros
 
     def aliases(self, package):
+        if self.engine == 'CREXX':
+            # The independently written port owns its alias list. Public QA
+            # does not need the separately supplied Classic source package.
+            text = (self.ports / 'pfxsetupg.the').read_text()
+            lists = re.findall(r"aliases = '([^']+)'", text)
+            return lists[0 if package == 'pfxrexx' else 1].split()
         text = (self.macros / (package + '.the')).read_text()
         return list(dict.fromkeys(re.findall(r'SET PREFIX SYNONYM\s+(\S+)\s+' + package,
                                              text, re.IGNORECASE)))

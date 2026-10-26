@@ -3045,8 +3045,8 @@ short extract_verone_function(short number_variables,short itemno,CHARTYPE *item
 short extract_version(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   item_values[1].value = (CHARTYPE *)"THE";
-   item_values[1].len = 3;
+   item_values[1].value = (CHARTYPE *)THE_PRODUCT_NAME;
+   item_values[1].len = strlen(THE_PRODUCT_NAME);
    item_values[2].value = (CHARTYPE *)the_version;
    item_values[2].len = strlen((DEFCHAR *)the_version);
    item_values[3].value = (CHARTYPE *)"???";

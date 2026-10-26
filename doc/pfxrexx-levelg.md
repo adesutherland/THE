@@ -3,7 +3,7 @@
 The bundled `pfxstructuredg.the` is an independently written Level G port of
 the PFXREXX and PFXHLASM workflows. It runs with cREXX and does not require
 Regina or a download of Shmuel's files. The separately supplied
-[minimal patches](../compat/shmuel/README.md) let you use the reference macros
+[minimal patches](private-compatibility.md) let you use the reference macros
 with Regina instead.
 
 With the default cREXX engine, enter either:

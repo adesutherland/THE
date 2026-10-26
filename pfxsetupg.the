@@ -13,6 +13,7 @@ main: procedure
   end
   address the 'command set compat xedit xedit xedit';
   address the 'command set case mixed respect';
+  address the 'command set insertmode off';
   address the 'command set prefix on left 12 0';
   address the 'command editv set pfx_language ' || kind;
   aliases = '.. CLINE CLC CL CLO CLOW CLOWE CUC CU CUP CUPP CUPPE DO IF OTHE OTHER RI RIC SEL SELE SELEC WHE WHEN'
