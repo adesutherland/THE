@@ -169,6 +169,31 @@ try {
   await waitFor(() => evaluate("!!document.querySelector('.fullscreen-panel')"), "macro panel");
   const labels = await evaluate("[...document.querySelectorAll('.panel-protected')].map(n => n.textContent).join(' ')");
   if (!labels.includes("Name:") || !labels.includes("Topic:")) throw new Error("missing protected labels");
+  async function cursorGeometry() {
+    return evaluate(`(() => {
+      const field = document.querySelector('.panel-focused');
+      const cursor = field?.querySelector('.logical-cursor');
+      if (!field || !cursor) return null;
+      const f = field.getBoundingClientRect(), c = cursor.getBoundingClientRect();
+      return {offset: c.left-f.left, width: c.width, fieldWidth: f.width,
+              left: cursor.style.left, margin: getComputedStyle(cursor).marginLeft};
+    })()`);
+  }
+  let geometry = await cursorGeometry();
+  if (!geometry || Math.abs(geometry.offset) > 1) throw new Error('panel cursor is offset from the first character: '+JSON.stringify(geometry));
+  // Fill a field: the input cursor is at its end, but the painted cursor must
+  // remain visible inside the field. The extra character must be rejected.
+  await insertText('1234567890123456X');
+  await waitFor(async () => (await cursorGeometry())?.left === '15ch', 'visible cursor at full field boundary');
+  geometry = await cursorGeometry();
+  if (geometry.offset+geometry.width > geometry.fieldWidth+1) throw new Error('panel cursor clipped at field boundary');
+  await domKey('Home','Home');
+  // A click halfway across the field must select that cell, not its start.
+  const fieldTarget = await evaluate(`(() => {const r=document.querySelector('.panel-focused').getBoundingClientRect();return {x:r.left+r.width*0.4,y:r.top+r.height/2};})()`);
+  await command('Input.dispatchMouseEvent',{type:'mousePressed',x:fieldTarget.x,y:fieldTarget.y,button:'left',clickCount:1});
+  await command('Input.dispatchMouseEvent',{type:'mouseReleased',x:fieldTarget.x,y:fieldTarget.y,button:'left',clickCount:1});
+  await waitFor(async () => (await cursorGeometry())?.left === '6ch', 'mouse-selected panel cell');
+  await domKey('Home','Home');
   await insertText("Alice");
   await domKey("Tab", "Tab");
   await insertText("Rexx");
@@ -187,7 +212,11 @@ try {
   await command("Page.navigate", { url: "about:blank" });
   await sleep(150);
   await command("Page.navigate", { url: pageUrl });
-  await waitFor(() => evaluate("document.querySelector('.connection')?.textContent.trim() === 'online'"), "reconnected editor");
+  try {
+    await waitFor(() => evaluate("document.querySelector('.connection')?.textContent.trim() === 'online'"), "reconnected editor");
+  } catch (error) {
+    throw new Error(error.message + ': ' + await evaluate("document.body.innerText.slice(-1200)"));
+  }
   await waitFor(() => evaluate("!!document.querySelector('.app-shell') && !document.querySelector('.fullscreen-panel')"), "disconnect cancellation");
   // The WebSocket opens before its first buffer snapshot is rendered.
   await waitFor(() => evaluate("[...document.querySelectorAll('.line-text')].map(n => n.textContent).filter(t => t === 'seed' || t === 'tail').join('|') === 'seed|tail'"), "unchanged buffer snapshot after reconnect");

@@ -41,6 +41,8 @@ export interface Snapshot {
     cols: number;
     active: number;
     cursor: number;
+    cursor_cell?: number;
+    cursor_width?: number;
     fields: { row: number; cell: number; width: number; editable: number; changed: number; kind: string; text: string }[];
   };
   mode: string;

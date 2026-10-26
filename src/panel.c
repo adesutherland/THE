@@ -158,7 +158,16 @@ static void driver_read(ThePanelState *p)
          if (p->active>=0)
          {
             ThePanelField *f=&p->fields[p->active];
-            the_driver->move_window_cursor(window,f->row,f->cell+(p->cursor<f->width?p->cursor:f->width-1));
+            int cell, width;
+            if (panel_ui_cursor(p,&cell,&width))
+            {
+               if (current_cursor_uses_software())
+                  the_driver->overlay_cell_attrs_at(window,f->row,f->cell+cell,width,
+                     the_driver->software_cursor_attr(current_screen,
+                        set_colour(CURRENT_FILE->attr+ATTR_CMDLINE),current_cursor_shape()));
+               the_driver->move_window_cursor(window,f->row,f->cell+cell);
+               the_driver->present_cursor(TRUE);
+            }
          }
          the_driver->refresh_window_now(window);
       }

@@ -300,6 +300,8 @@ button { color: inherit; }
   pointer-events: none;
 }
 
+.panel-field .logical-cursor { margin-left: 0; }
+
 .syntax-comment { color: #77808c; }
 .syntax-string { color: #76b68b; }
 .syntax-number,

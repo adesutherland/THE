@@ -30,6 +30,7 @@ int panel_ui_add(ThePanelState *panel, int row, int cell, int width,
                   size_t length, size_t source_start);
 int panel_ui_event(ThePanelState *panel, const TheInputEvent *event);
 int panel_ui_hit(ThePanelState *panel, int row, int cell);
+int panel_ui_cursor(const ThePanelState *panel, int *cell, int *width);
 size_t panel_ui_json(const ThePanelState *panel, char *out, size_t size);
 
 #endif

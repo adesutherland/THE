@@ -74,6 +74,27 @@ static void next_field(ThePanelState *p, int direction)
    }
 }
 
+/* Keep the painted cursor inside its field and on a whole text cluster.
+ * The input position may be one cell beyond the field after filling it. */
+int panel_ui_cursor(const ThePanelState *p, int *cell, int *width)
+{
+   const ThePanelField *f;
+   TextPos pos;
+   TextCluster cluster;
+   if (!p || p->active < 0 || p->active >= p->count) return 0;
+   f = &p->fields[p->active];
+   if (!f->editable || f->width <= 0) return 0;
+   pos = textpos_from_cell((const CHARTYPE *)f->text, strlen(f->text),
+                          p->cursor < f->width ? p->cursor : f->width - 1,
+                          TEXT_SNAP_BACKWARD);
+   cluster = textpos_cluster_at_boundary((const CHARTYPE *)f->text,
+                                         strlen(f->text), pos);
+   *cell = pos.cell_column;
+   *width = cluster.cell_width > 0 ? cluster.cell_width : 1;
+   if (*width > f->width - *cell) *width = f->width - *cell;
+   return 1;
+}
+
 static int replace_span(ThePanelField *f, int start, int end, const char *text, size_t length)
 {
    size_t oldlen = strlen(f->text), a, b;
@@ -202,7 +223,9 @@ size_t panel_ui_json(const ThePanelState *p, char *out, size_t size)
    if (!p) emit(&w,"null");
    else
    {
-      emit(&w,"{\"rows\":%d,\"cols\":%d,\"active\":%d,\"cursor\":%d,\"fields\":[",p->rows,p->cols,p->active,p->cursor);
+      int cell=0, width=0;
+      panel_ui_cursor(p, &cell, &width);
+      emit(&w,"{\"rows\":%d,\"cols\":%d,\"active\":%d,\"cursor\":%d,\"cursor_cell\":%d,\"cursor_width\":%d,\"fields\":[",p->rows,p->cols,p->active,p->cursor,cell,width);
       for (i=0;i<p->count;i++)
       {
          const ThePanelField *f=&p->fields[i];

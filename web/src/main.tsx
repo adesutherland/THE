@@ -412,10 +412,19 @@ function App() {
                   <span
                     class={`panel-field ${field.editable ? "panel-editable" : "panel-protected"} ${snapshot.panel?.active === index ? "panel-focused" : ""}`}
                     style={{ top: `${field.row * 21}px`, left: `${field.cell}ch`, width: `${field.width}ch` }}
-                    onClick={() => { if (field.editable) send({ type: "hit", target: "window", row: field.row, cell: field.cell }); }}
+                    onClick={(event) => {
+                      if (!field.editable) return;
+                      const bounds = event.currentTarget.getBoundingClientRect();
+                      const offset = Math.max(0, Math.min(field.width - 1,
+                        Math.floor((event.clientX - bounds.left) * field.width / bounds.width)));
+                      send({ type: "hit", target: "window", row: field.row, cell: field.cell + offset });
+                    }}
                   >
                     {field.text}
-                    {snapshot.panel?.active === index ? <span class="logical-cursor" style={{ left: `${snapshot.panel.cursor}ch` }} /> : null}
+                    {snapshot.panel?.active === index ? <span class="logical-cursor" style={{
+                      left: `${snapshot.panel.cursor_cell ?? Math.min(snapshot.panel.cursor, field.width - 1)}ch`,
+                      width: `${snapshot.panel.cursor_width ?? 1}ch`,
+                    }} /> : null}
                   </span>
                 ))}
               </div>
