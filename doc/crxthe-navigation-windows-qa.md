@@ -1,5 +1,11 @@
 # Navigation and Windows first use — 26 October 2026
 
+Latest automated candidate: `90fa7fd502b0472dc146ef69f62834b83687b44f`.
+Windows CI passes **66 tests, with 13 skipped and none failed**; the exact
+artifact also passes both engines' workstation native keyboard/panel/save
+checks. The final installer/visible first-launch repeat remains in progress.
+Signing, publication and Adrian's own Windows/Shmuel handoff gate remain open.
+
 The stock cREXX and Regina profiles now make F6 a command/file toggle. The
 return restores the file's logical caret, including after command repaint.
 From a prefix field F6 enters command; the next F6 enters the file area.
@@ -201,3 +207,47 @@ passed startup and post-OSQ checks at `0xC8`, confirming the repaired packaged
 core/driver loads and restores input mode. This does not turn the failed
 overall CI run into a qualified candidate. Native key/save checks and the
 replacement run with the corrected test environment remain pending.
+
+### Green repaired candidate: 90fa7fd
+
+[Run 40363219661](https://github.com/adesutherland/THE/actions/runs/40363219661)
+is green at exact `90fa7fd502b0472dc146ef69f62834b83687b44f`. The coordinator
+independently verified the head SHA, successful regression/installed-lifecycle
+steps and **66 executed passes, 13 skips, zero failures** (79 registered).
+This includes both native console-mode regressions; the raw-build DLL path
+correction is now exercised on the runner.
+
+The Windows agent verified the exact final artifact's clean manifest/source
+and all 155 payload hashes. SHA-256:
+
+- ZIP: `40409cfbf9a1905415e617fee59a90de50d50c6283098209076d85527053477d`
+- Unsigned setup: `4d1fd9e443047bd3562978e5a5b45c8088fbedbf84649ef61dd3fb46a53d28e5`
+
+On that exact payload, both engines pass actual native ConPTY immediate
+Ctrl-S, remembered F6, Home/Left/prefix/previous-record-end, Tab/Enter,
+OSQ return, ordinary OS/prompt/return, generic panel submit/cancel and restored
+editing/Ctrl-S. Expected saved bytes match and both editors exit zero. No
+live console-mode adjustment or workaround was used. Results are
+`native-final.json` and `native-steps.json` under
+`C:\Users\adria\CRXTHE-windows-qa\90fa7fd`.
+
+The agent also reports the final default-profile/rendered/panel/runtime suite
+complete. Final no-filename/help/ABI, protected installer lifecycle and visible
+finish-page repeats are still in progress; final restoration confirmation and
+the consolidated workstation matrix remain pending. This is still an unsigned
+candidate, not a published release or completed manual Shmuel handoff.
+
+### Separate demo and narrow-browser observations
+
+The actual visible-browser walkthrough on `0fabc48` recorded three additional
+UI/demo items for triage. These are separate from the repaired console blocker:
+
+- `paneldemo` clears the stock reserved key footer (`SET RESERVED * OFF`);
+  its RESTORE did not bring that footer back.
+- That demo returned file focus at line 0/cell 1 from prior line 1/cell 1,
+  requiring navigation before continuing on the original record.
+- At a narrow 455-pixel IAB viewport, the long footer clips later hints,
+  including F10. F10 itself works and resize checks pass at 900/1200 pixels.
+
+No source fixes for these observations were included in the console-mode
+repair. They do not establish data corruption or a general panel-input failure.
