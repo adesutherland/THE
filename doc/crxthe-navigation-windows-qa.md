@@ -3,8 +3,10 @@
 Latest automated candidate: `90fa7fd502b0472dc146ef69f62834b83687b44f`.
 Windows CI passes **66 tests, with 13 skipped and none failed**; the exact
 artifact also passes both engines' workstation native keyboard/panel/save
-checks. The final installer/visible first-launch repeat remains in progress.
-Signing, publication and Adrian's own Windows/Shmuel handoff gate remain open.
+checks. Final workstation qualification is recorded below: automated installer
+lifecycle and visible browser checks pass; the exact final installer's visible
+Finish-page repeat was limited by UI automation. Signing, publication,
+physical Windows inspection and Adrian's Shmuel handoff gate remain open.
 
 The stock cREXX and Regina profiles now make F6 a command/file toggle. The
 return restores the file's logical caret, including after command repaint.
@@ -78,10 +80,12 @@ These are local previews; they have not been signed or published.
 
 The current published installers remain THE v4.0.0-panels.2; they do not
 contain these changes. A new Windows build and runner install/uninstall checks
-have now passed as recorded below. Workstation UI and lifecycle checks,
-interactive finish-page launch, upgrade from the older package, signing and
-publication remain separate work. In particular,
-an old installation may retain legacy files until upgrade cleanup is qualified.
+have now passed as recorded below, alongside final workstation native input,
+visible browser and automated installer lifecycle checks. The final EXE's
+visible Finish-page repeat was incomplete; the earlier flow passed with the
+same installer script and guide. In-place upgrade from the real older folder,
+signing and publication remain separate work. An old installation may retain
+legacy files until upgrade cleanup is qualified.
 Physical Windows keyboard/cursor appearance and the reported macOS Terminal
 strip still need Adrian's visual check. No external Shmuel handoff is authorized
 before Adrian's Windows smoke test. The private macro kit remains excluded.
@@ -189,7 +193,7 @@ both at startup and after OSQ. It closes only its own test process. The Windows
 agent ran this helper against the old `0fabc48` payload under both engines:
 startup `0xC8` passed and post-OSQ `0xCF` failed exactly as intended. The helper
 needs no extra dependency and hidden consoles were attachable on the
-workstation. Its corrected-build CI/native Ctrl-S checks remain pending at
+workstation. Its first corrected-build CI/native checks targeted
 exact source `99ac22ccc79c8ed75cd457846aca7d2d7ad46dbd`,
 [run 40360809171](https://github.com/adesutherland/THE/actions/runs/40360809171).
 Mac and old-payload diagnostic results do not qualify this Windows repair.
@@ -205,8 +209,8 @@ The Windows agent separately ran the original helper against a portable
 extraction of that exact `99ac22c` payload for diagnosis only. Both engines
 passed startup and post-OSQ checks at `0xC8`, confirming the repaired packaged
 core/driver loads and restores input mode. This does not turn the failed
-overall CI run into a qualified candidate. Native key/save checks and the
-replacement run with the corrected test environment remain pending.
+overall CI run into a qualified candidate. The successful replacement run and
+final workstation record below supersede that diagnostic checkpoint.
 
 ### Green repaired candidate: 90fa7fd
 
@@ -225,17 +229,66 @@ and all 155 payload hashes. SHA-256:
 
 On that exact payload, both engines pass actual native ConPTY immediate
 Ctrl-S, remembered F6, Home/Left/prefix/previous-record-end, Tab/Enter,
-OSQ return, ordinary OS/prompt/return, generic panel submit/cancel and restored
-editing/Ctrl-S. Expected saved bytes match and both editors exit zero. No
+OSQ return, ordinary OS/prompt/return, generic panel submit/cancel, explicit
+cursor navigation and resumed editing/Ctrl-S. Expected saved bytes match and both editors exit zero. No
 live console-mode adjustment or workaround was used. Results are
 `native-final.json` and `native-steps.json` under
 `C:\Users\adria\CRXTHE-windows-qa\90fa7fd`.
 
 The agent also reports the final default-profile/rendered/panel/runtime suite
-complete. Final no-filename/help/ABI, protected installer lifecycle and visible
-finish-page repeats are still in progress; final restoration confirmation and
-the consolidated workstation matrix remain pending. This is still an unsigned
-candidate, not a published release or completed manual Shmuel handoff.
+complete. Final no-filename/help/ABI and protected installer lifecycle checks,
+the visible-installer limitation, baseline restoration and consolidated
+workstation matrix are recorded below.
+This is still an unsigned candidate, not a published release or completed
+manual Shmuel handoff.
+
+### Final exact-artifact workstation qualification
+
+The Windows agent completed its report for the exact `90fa7fd` artifact above.
+All 13 workstation suites passed. External optional Markdown/Python parser
+semantic styles were skipped while their buffer editing was checked. These
+workstation results are the Windows agent's evidence; the coordinator directly
+verified the CI totals and confirms that `packaging/windows/the.nsi` and
+`doc/Windows-Readme.txt` are byte-identical between `0fabc48` and `90fa7fd`.
+
+| Area | Final result and scope |
+|---|---|
+| Payload and launch | Clean exact manifest/source, all 155 hashes, public launcher, stock profiles, isolated PATH; cREXX, Regina and NONE pass. |
+| Runtime/cache | Installed/bundled choice, compatibility/fallback, explicit overrides, private cache and invalid-library checks pass. |
+| Native console | Both engines start and return from OSQ at `0xC8`; immediate Ctrl-S, F6 remembered caret, Home/End/Left/prefix, Tab/Enter, OSQ and ordinary OS/prompt/return pass without changing live console flags. |
+| Panel input and subsequent editing | Both engines submit RC0/cancel RC4; explicit cursor navigation and subsequent editing/Ctrl-S pass. Exact final bytes are `UTZ       alphaQRS\r\nbeta\r\n`, and editors exit zero. Demo focus/footer restoration remains separately listed below. |
+| First use | Both engines pass no-filename directory, new/existing UTF-8 files, first-display help numbering and F10. |
+| Driver matching | Actual old panels.2 driver rejected with ABI2 diagnostic; matching new driver loads. |
+| Rendered and visible browser | Both engines' rendered editor/panel suites pass. Actual final90 IAB F6, Ctrl-S, full 16-character field caret, middle-cell mouse placement, Tab/Enter, Esc cancel, explicit navigation/resumed editing and F10 pass with exact UTF-8/tab/CRLF output. Wider 900/1200-pixel resize checks pass. |
+| Final EXE automated lifecycle | Disposable install, runtime choice, reinstall, shortcut/Documents/guide, uninstall, retained user file and PATH restoration pass locally and on hosted CI. |
+| Final EXE visible installer | Incomplete. Destination accessibility text was readable, but fresh-window activation/capture geometry was unavailable. No Install click was executed in this repeat; the owned setup process was stopped. This control limit is not a demonstrated installer defect. |
+| Earlier visible installer | Complete Finish/Open CRXTHE/Getting Started/Start menu/new-shell/rollback walkthrough passed on `0fabc48`. Its installer script and guide are unchanged in the final candidate; this is supporting evidence, not an exact-final visible Finish pass. |
+
+Native ConPTY results prove real input delivery and saved bytes, not physical
+terminal pixels/fonts or host-shortcut behavior. Adrian's physical Windows
+smoke test remains open. The legacy in-place upgrade was not attempted against
+the real signed installation folder. A signed final installer still needs its
+own verification after signing; the current EXE is unsigned.
+
+The final baseline was reverified: signed THE v4.0.0-panels.2 remains the
+default, all 157 old payload hashes match, raw user PATH/value type and product
+and uninstall registry keys match the snapshot, and the old shortcut is
+restored. No candidate shortcuts or processes remain. New-shell resolution
+selects installed `bin\the.cmd` before `.local\bin\the.exe`. User-requested
+Regina 3.9.7 x64 remains installed; standalone cREXX settings/cache and the
+private macro kit are preserved. The Windows source worktree is clean at the
+tested revision, with no Windows product-source changes.
+
+Evidence and the consolidated report are at
+`C:\Users\adria\CRXTHE-windows-qa\90fa7fd\QA-report.txt`, with JSON/logs in
+`results`. `PREVIEW-README.txt` in that folder describes four double-click
+launchers for isolated cREXX console, Regina console, browser and directory
+previews. They use scratch files and do not change global defaults. The agent
+closed its own IAB tab/server and native preview processes.
+
+No tag, signing, release publication or external Shmuel message has occurred.
+Shmuel's private kit is excluded from the candidate; this platform/UI matrix
+does not claim upstream THE or live XEDIT equivalence.
 
 ### Separate demo and narrow-browser observations
 
@@ -251,3 +304,24 @@ UI/demo items for triage. These are separate from the repaired console blocker:
 
 No source fixes for these observations were included in the console-mode
 repair. They do not establish data corruption or a general panel-input failure.
+
+The optional F8/F9 compile/run helpers retain their prior unresolved reports
+and are unbound in the stock profile. This matrix does not claim they were
+repaired; see the historical [Windows findings](windows-installation-qa.md).
+
+### Further installer improvements to consider
+
+The current launcher validates installed-runtime compatibility and bundled
+fallback, and the guide explains stale paths. These are implemented and tested.
+The following are additional setup/diagnostic improvements:
+
+- Report the effective executable/version/resource paths and warn about an old
+  `.local` command or stale `THE_BIN`/developer `THE_*` overrides, preserving
+  intentional customizations.
+- When installed cREXX is selected, show the discovered path, compatibility
+  result and effective bundled fallback. Setup currently records the preference;
+  the launcher performs the validated selection.
+- Make absent optional Regina and skipped checks explicit, with x64 setup and
+  detection guidance.
+- Retain spaced/long-PATH, reinstall/uninstall and user-file tests, and add
+  legacy in-place upgrade cleanup qualification before claiming that behavior.

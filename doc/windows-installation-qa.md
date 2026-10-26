@@ -1,5 +1,9 @@
 # Windows installation findings and next-release checks
 
+This is the historical panels.2 report. Some improvements below have since
+been implemented and tested; see the [current CRXTHE qualification](crxthe-navigation-windows-qa.md)
+for exact candidate results and remaining gates.
+
 Recorded 26 October 2026 from the Windows chat **Use and test installed THE
 version**, at Adrian's explicit request to feed back installation improvements
 and other findings. These are that chat's workstation results, not Windows
