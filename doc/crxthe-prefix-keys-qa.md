@@ -1,5 +1,8 @@
 # Prefix cursor, top strip and key guide — 26 October 2026
 
+The later [navigation report](crxthe-navigation-windows-qa.md) supersedes this
+report's F6 behavior: F6 now toggles command/file focus.
+
 Adrian reported the missing browser prefix caret, an orange console strip above
 the filename on shortcut launch, and a need for visible function-key definitions
 and a command-line shortcut.

@@ -29,6 +29,14 @@ VIAddVersionKey "Comments" "Independent fork based on THE 4.0; CRXTHE issues: gi
 !insertmacro MUI_PAGE_DIRECTORY
 Page custom RuntimePage RuntimePageLeave
 !insertmacro MUI_PAGE_INSTFILES
+!define MUI_FINISHPAGE_TEXT "CRXTHE is ready. Start it from Start > CRXTHE.$\r$\n$\r$\nF6 switches between command and file editing. Open a new terminal before using the crxthe command."
+!define MUI_FINISHPAGE_RUN
+!define MUI_FINISHPAGE_RUN_FUNCTION LaunchCRXTHE
+!define MUI_FINISHPAGE_RUN_TEXT "Open CRXTHE"
+!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\share\doc\the\Windows-Readme.txt"
+!define MUI_FINISHPAGE_SHOWREADME_TEXT "Read Getting Started"
+!define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
+!insertmacro MUI_PAGE_FINISH
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "English"
@@ -77,6 +85,11 @@ Function RuntimePageLeave
   ${EndIf}
 FunctionEnd
 
+Function LaunchCRXTHE
+  SetOutPath "$DOCUMENTS"
+  ExecShell "open" "$INSTDIR\bin\crxthe.cmd"
+FunctionEnd
+
 Function un.onInit
   SetRegView 64
 FunctionEnd
@@ -119,13 +132,16 @@ Section "CRXTHE"
   Delete "$SMPROGRAMS\THE cREXX Edition\THE.lnk"
   RMDir "$SMPROGRAMS\THE cREXX Edition"
   CreateDirectory "$SMPROGRAMS\CRXTHE"
+  SetOutPath "$DOCUMENTS"
   CreateShortCut "$SMPROGRAMS\CRXTHE\CRXTHE.lnk" "$INSTDIR\bin\crxthe.cmd"
+  CreateShortCut "$SMPROGRAMS\CRXTHE\Getting Started.lnk" "$INSTDIR\share\doc\the\Windows-Readme.txt"
   !insertmacro UpdatePath add
 SectionEnd
 
 Section "Uninstall"
   !insertmacro UpdatePath remove
   Delete "$SMPROGRAMS\CRXTHE\CRXTHE.lnk"
+  Delete "$SMPROGRAMS\CRXTHE\Getting Started.lnk"
   RMDir "$SMPROGRAMS\CRXTHE"
   !include "${THE_UNINSTALL_FILES}"
   Delete "$INSTDIR\share\the\runtime-preference"

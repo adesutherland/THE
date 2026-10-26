@@ -62,6 +62,12 @@ if printf '%s\n' "$llm_deps" | rg -i 'curses|ncurses|pdcurses' >/dev/null; then
   exit 1
 fi
 
+for driver in "$curses_module" "$llm_module"; do
+  artifact_symbols "$driver" | rg '^the_driver_module_abi_version$' >/dev/null || {
+    echo "driver is missing its ABI version entry point: $driver" >&2; exit 1;
+  }
+done
+
 main_symbols=$(artifact_symbols "$the_bin")
 raw_curses_symbol_re='^(curses_driver_|doupdate($|[$@])|initscr($|[$@])|endwin($|[$@])|wmove($|[$@])|wgetch($|[$@])|stdscr$|curscr$|newwin($|[$@])|newpad($|[$@])|derwin($|[$@])|subwin($|[$@])|delwin($|[$@])|touchwin($|[$@])|touchline($|[$@])|wnoutrefresh($|[$@])|wrefresh($|[$@])|refresh($|[$@])|curs_set($|[$@])|keypad($|[$@])|box($|[$@])|prefresh($|[$@])|getmouse($|[$@])|mousemask($|[$@]))'
 raw_curses_symbols=$(

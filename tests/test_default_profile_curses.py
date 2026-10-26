@@ -37,19 +37,21 @@ for engine in ['CREXX','REGINA']:
                 if stage==0 and elapsed>1 and output and time.monotonic()-last_output>0.35:
                     os.write(master,b'Z\t\x13');stage=1
                 if stage==1 and sample.read_text()=='Z       alpha\n':
-                    os.write(master,b'\x1b[F\rbeta\x13');stage=2
+                    os.write(master,b'\x1b[H'+b'\x1b[D'*8+b'\x1b[17~\x1b[17~\x1b[F\rbeta\x13');stage=2
                 if stage==2 and sample.read_text()=='Z       alpha\nbeta\n':
-                    os.write(master,b'\x1b[17~file\r');stage=3
+                    os.write(master,b'\x1b[H'+b'\x1b[D'*8+b'Q\x13');stage=3
+                if stage==3 and sample.read_text()=='Z       alphaQ\nbeta\n':
+                    os.write(master,b'\x1b[17~file\r');stage=4
                 if select.select([master],[],[],0.05)[0]:
                     try:
                         output.extend(os.read(master,65536))
                         last_output=time.monotonic()
                     except OSError as error:
                         if error.errno!=errno.EIO:raise
-            assert stage==3,(engine,'native save/Enter workflow stalled',sample.read_text(),output.decode(errors='replace')[-2500:])
+            assert stage==4,(engine,'native save/Enter workflow stalled',sample.read_text(),output.decode(errors='replace')[-2500:])
             process.wait(timeout=10)
             assert process.returncode==0,(engine,output.decode(errors='replace')[-1200:])
-            assert sample.read_text()=='Z       alpha\nbeta\n'
+            assert sample.read_text()=='Z       alphaQ\nbeta\n'
             assert 'Error 00' not in output.decode(errors='replace'),output.decode(errors='replace')[-1500:]
         finally:
             if process.poll() is None:process.kill()

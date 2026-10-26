@@ -965,6 +965,11 @@ static const TheDriverModuleLifecycle web_driver_lifecycle = {
    .current_cursor_uses_software = web_driver_cursor_uses_software
 };
 
+int the_driver_module_abi_version(void)
+{
+   return THE_DRIVER_MODULE_ABI_VERSION;
+}
+
 const TheDriverOps *the_driver_module_ops(void)
 {
    web_driver_ops = the_headless_driver_ops;

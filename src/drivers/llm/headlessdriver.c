@@ -1175,6 +1175,11 @@ const TheDriverModuleLifecycle the_headless_driver_lifecycle = {
    .log_entry = headless_driver_log_entry
 };
 
+int the_driver_module_abi_version(void)
+{
+   return THE_DRIVER_MODULE_ABI_VERSION;
+}
+
 const TheDriverOps *the_driver_module_ops(void)
 {
    return &the_headless_driver_ops;

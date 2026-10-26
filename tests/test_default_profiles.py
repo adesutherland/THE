@@ -68,6 +68,28 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
     records,_=run('text A\nkey enter\ntext B\nkey ctrl-s',empty)
     assert empty.read_text()=='A\nB\n',empty.read_text()
 
+    navigation=root/'navigation.txt'
+    original='α界e\u0301\n\nsecond\n'
+    navigation.write_text(original,encoding='utf-8')
+    def last_focus(commands):
+        records,_=run(commands+'\nlook full compact',navigation)
+        return next(record['focus'] for record in reversed(records) if 'focus' in record)
+    def expect_focus(commands, zone, line, cell):
+        focus=last_focus(commands)
+        assert (focus['zone'],focus['line'],focus['cell'])==(zone,line,cell),(commands,focus)
+    expect_focus('command cursor goto 3 1\nkey left','prefix',3,6)
+    traverse='command cursor goto 3 1\n'+('key left\n'*8)
+    expect_focus(traverse,'filearea',2,0)
+    expect_focus(traverse+('key left\n'*8),'filearea',1,4)
+    expect_focus(traverse+('key left\n'*9),'filearea',1,3)
+    expect_focus('command cursor goto 1 1\n'+('key left\n'*9),'prefix',1,0)
+    expect_focus('command set prefix off\ncommand cursor goto 3 1\nkey left','filearea',2,0)
+    expect_focus('command set prefix on right 8 1\ncommand cursor goto 3 1\n'+('key left\n'*8),'filearea',2,0)
+    expect_focus('command cursor goto 3 1\nkey shift-left','filearea',2,0)
+    expect_focus('command cursor goto 3 3\nkey f6\nkey f6','filearea',3,2)
+    expect_focus('command cursor goto 3 1\nkey f4\nkey f6\nkey f6','filearea',3,0)
+    assert navigation.read_text()==original
+
     # Tab inserts ordinary spaces and uses logical cells rather than UTF-8 bytes.
     for name, original, column, expected in [
         ('ascii', 'alpha', 1, '        alpha'),

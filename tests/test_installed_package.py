@@ -22,7 +22,12 @@ parser.add_argument('--read-only-prefix', action='store_true',
 args = parser.parse_args()
 prefix = args.prefix.resolve()
 manifest = json.loads((prefix / 'manifest.json').read_text())
+launcher_name = 'crxthe' if manifest.get('product') == 'CRXTHE' else 'the'
+launcher = prefix / 'bin' / (launcher_name + ('.cmd' if os.name == 'nt' else ''))
 if manifest.get('product') == 'CRXTHE':
+    if os.name == 'nt':
+        assert (prefix / 'share/doc/the/Windows-Readme.txt').is_file()
+        assert not (prefix / 'bin/the-env.ps1').exists(), 'Development environment script bundled'
     assert not (prefix / 'share/the/macro-patches').exists(), 'Private patch kit included in public package'
     assert not any('shmuel' in name.lower() or name.endswith('.patch') or Path(name).name.lower().startswith(('pfxrexx', 'pfxhlasm', 'pfxsetup', 'pfxstructured'))
                    for name in manifest['files_sha256']), 'Private compatibility material included'
@@ -104,9 +109,9 @@ with tempfile.TemporaryDirectory(prefix='THE package smoke ') as tmp:
             commands += 'command macro "' + str(macro).replace('\\', '/') + '"\n'
         commands += 'look filearea compact\nquit\n'
         if os.name == 'nt':
-            command = f'"{env["COMSPEC"]}" /d /s /c ""{prefix / "bin/the.cmd"}" --driver llm -n "{sample}""'
+            command = f'"{env["COMSPEC"]}" /d /s /c ""{launcher}" --driver llm -n "{sample}""'
         else:
-            command = [str(prefix / 'bin/the'), '--driver', 'llm', '-n', str(sample)]
+            command = [str(launcher), '--driver', 'llm', '-n', str(sample)]
         result = subprocess.run(command, input=commands, text=True, encoding="utf-8", capture_output=True,
                                 env=env, timeout=30, check=True)
         records = [json.loads(line) for line in result.stdout.splitlines() if line.startswith('{')]

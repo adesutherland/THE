@@ -1,3 +1,6 @@
+Windows end-user instructions: [install and first use](../doc/Windows-Readme.txt).
+The build/signing instructions below are for maintainers.
+
 # Prebuilt CRXTHE candidates
 
 The bundled install contains CRXTHE, its curses and LLM drivers, profiles and
@@ -20,7 +23,7 @@ cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release \
 cmake --build build-release --parallel
 ctest --test-dir build-release --output-on-failure
 python3 scripts/package-release.py --build-dir build-release \
-  --version 4.0.0-dev --installer
+  --version 0.9.0-preview.1 --installer
 ```
 
 The version above is a local candidate label, not a release declaration.
@@ -38,10 +41,12 @@ The script creates `build-release/packages/` with a portable ZIP, SHA-256
 checksums, and, with `--installer`, a native installer:
 
 - macOS: Apple's `pkgbuild` and `productbuild`, installing under
-  `/usr/local/the-crexx` with `/usr/local/bin/the` pointing to its launcher.
+  `/usr/local/the-crexx` with `/usr/local/bin/crxthe` and `/usr/local/bin/the`
+  pointing to its launchers.
 - Windows x64: NSIS `makensis`, per-user under
-  `%LOCALAPPDATA%\Programs\THE-cREXX`. The Start menu shortcut launches THE;
-  new terminals can run `the`. The PATH helper follows cREXX-RAG's ownership
+  `%LOCALAPPDATA%\Programs\THE-cREXX`. The Start menu CRXTHE shortcut starts in Documents;
+  new terminals can run `crxthe`. Getting Started is available from the finish
+  page and Start menu. The development `the-env.ps1` is not included. The PATH helper follows cREXX-RAG's ownership
   pattern, preserves long registry PATH values and removes only its own entry.
 - Linux: use the portable ZIP (omit `--installer`).
 
@@ -61,7 +66,7 @@ tool cohort and a separate compilation/runtime probe. Missing or incompatible
 copies fall back without a question. The selected tools are prepended to PATH
 for THE's child processes only; standalone installations are never upgraded.
 Windows adds THE's `bin` directory to the user's PATH, not its private cREXX
-directory; macOS installs only the public `the` symlink. A standalone cREXX
+directory; macOS installs the public `crxthe` and compatible `the` symlinks. A standalone cREXX
 installation stays separate. Windows detects an earlier **THE** installation
 through `HKCU\Software\THE-cREXX`. Standalone cREXX detection separately uses
 `CREXX_HOME`, its own installation registry, PATH and standard locations.

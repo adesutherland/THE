@@ -207,8 +207,23 @@ try {
   await waitFor(() => evaluate("document.activeElement?.getAttribute('aria-label') === 'Editor input' && !!document.querySelector('.prefix-cursor')"), "Escape back to prefix editing");
   await domKey('F6','F6');
   await waitFor(() => evaluate("document.activeElement?.getAttribute('aria-label') === 'THE command'"), "F6 command focus");
+  await domKey('F6','F6');
+  await waitFor(() => evaluate("document.activeElement?.getAttribute('aria-label') === 'Editor input' && !!document.querySelector('.line-content .logical-cursor') && !document.querySelector('.prefix-cursor')"), "F6 back to file editing");
+  await domKey('F6','F6');
+  await waitFor(() => evaluate("document.activeElement?.getAttribute('aria-label') === 'THE command'"), "F6 back to command field");
   await evaluate("new Promise(resolve => {const input=document.querySelector('.command-form input');input.value='cursor goto 1 1';input.dispatchEvent(new Event('input',{bubbles:true}));setTimeout(()=>{input.form.requestSubmit();resolve(true)},0)})");
   await waitFor(() => evaluate("!!document.querySelector('.line-content .logical-cursor')"), "command execution returns to file editing");
+  async function navigationCommand(text) {
+    await evaluate(`new Promise(resolve => {const input=document.querySelector('.command-form input');input.value=${JSON.stringify(text)};input.dispatchEvent(new Event('input',{bubbles:true}));setTimeout(()=>{input.form.requestSubmit();resolve(true)},0)})`);
+  }
+  await navigationCommand('cursor goto 3 1');
+  await waitFor(() => evaluate("document.querySelector('.status-text')?.textContent.includes('focus=filearea line=3')"), "third record for left navigation");
+  await domKey('ArrowLeft','ArrowLeft');
+  await waitFor(() => evaluate("document.querySelector('.status-text')?.textContent.includes('focus=prefix line=3') && document.querySelector('.prefix-cursor')?.style.left === '6ch'"), "left into current prefix");
+  for (let i=0;i<7;i++) await domKey('ArrowLeft','ArrowLeft');
+  await waitFor(() => evaluate("document.querySelector('.status-text')?.textContent.includes('focus=filearea line=2') && document.querySelector('.line-content .logical-cursor')?.style.left === '9ch'"), "left from prefix to previous record end");
+  await navigationCommand('cursor goto 1 1');
+  await waitFor(() => evaluate("document.querySelector('.status-text')?.textContent.includes('focus=filearea line=1')"), "file focus restored");
   if (!(await evaluate("[...document.querySelectorAll('.role-reserved .line-text')].some(n=>n.textContent.includes('F6 Cmd')&&n.textContent.includes('F10 Keys'))"))) throw new Error('function-key guide missing');
   await domKey('F10','F10');
   await waitFor(() => evaluate("[...document.querySelectorAll('.line-text')].some(n=>n.textContent.toLowerCase().includes('define '))"), "complete key definitions");

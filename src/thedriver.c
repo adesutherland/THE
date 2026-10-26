@@ -39,6 +39,7 @@ extern const TheDriverOps the_headless_driver_ops;
 extern const TheDriverModuleLifecycle the_headless_driver_lifecycle;
 #endif
 
+typedef int (*TheDriverModuleAbiFn)(void);
 typedef const TheDriverOps *(*TheDriverModuleOpsFn)(void);
 typedef const TheDriverModuleLifecycle *(*TheDriverModuleLifecycleFn)(void);
 
@@ -158,6 +159,7 @@ static int try_load_file(const char *path, const char *name,
                          char *error, size_t error_len)
 {
    TheDriverModuleOpsFn ops_fn;
+   TheDriverModuleAbiFn abi_fn;
    TheDriverModuleLifecycleFn lifecycle_fn;
    const TheDriverOps *ops;
    const TheDriverModuleLifecycle *lifecycle = NULL;
@@ -173,6 +175,7 @@ static int try_load_file(const char *path, const char *name,
       append_error(error, error_len, message);
       return 0;
    }
+   abi_fn = (TheDriverModuleAbiFn)(void *)GetProcAddress(module, "the_driver_module_abi_version");
    ops_fn = (TheDriverModuleOpsFn)(void *)GetProcAddress(
       module, "the_driver_module_ops");
    lifecycle_fn = (TheDriverModuleLifecycleFn)(void *)GetProcAddress(
@@ -189,10 +192,26 @@ static int try_load_file(const char *path, const char *name,
       append_error(error, error_len, message);
       return 0;
    }
+   abi_fn = (TheDriverModuleAbiFn)dlsym(module, "the_driver_module_abi_version");
    ops_fn = (TheDriverModuleOpsFn)dlsym(module, "the_driver_module_ops");
    lifecycle_fn = (TheDriverModuleLifecycleFn)dlsym(
       module, "the_driver_module_lifecycle");
 #endif
+
+   if (abi_fn == NULL || abi_fn() != THE_DRIVER_MODULE_ABI_VERSION)
+   {
+      char message[512];
+      snprintf(message, sizeof(message),
+         "load failed: %s: incompatible UI driver ABI (expected %d); use matching CRXTHE drivers and check THE_DRIVER_PATH\n",
+         path, THE_DRIVER_MODULE_ABI_VERSION);
+      append_error(error, error_len, message);
+#if defined(_WIN32)
+      FreeLibrary(module);
+#else
+      dlclose(module);
+#endif
+      return 0;
+   }
 
    if (ops_fn == NULL)
    {

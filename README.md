@@ -4,6 +4,9 @@
 
 Please report CRXTHE defects to [this fork's issue tracker](https://github.com/adesutherland/THE/issues). The original THE attribution and license are retained; this fork's changes are maintained here.
 
+Windows users: start with [installation and first use](doc/Windows-Readme.txt).
+Prebuilt installers include cREXX; build tools are for source development only.
+
 ### About this fork
 
 This repository is a significantly modernized fork of the original [Hessling Editor (v4.0)](https://hessling-editor.sourceforge.net). 
@@ -82,7 +85,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\the-env.ps1 -Persist
 
 The script adds `%USERPROFILE%\.local\bin` to `Path` and sets THE/CREXX runtime
 variables including `THE_HOME_DIR`, `THE_DRIVER_PATH`, `CREXX_HOME`, and the
-`THE_CREXX_*` tool paths. The install target also copies the script to
+`THE_CREXX_*` tool paths. A development install (without the bundled runtime) also copies the script to
 `%USERPROFILE%\.local\bin\the-env.ps1`. Restart CLion after persisting the
 environment if it was already running.
 

@@ -37,7 +37,7 @@ address the
 'define ins insertmode toggle';
 'define f5 insertmode toggle';
 'define f4 cursor prefix';
-'define f6 cursor cmdline';
+'define f6 cursor home';
 'define esc cursor cmdline';
 'define f10 showkey all';
 'define c-s save';
@@ -98,7 +98,7 @@ address the
 'set color cblock black on #F0C36B';
 'set cursorstyle insert ibeam steady';
 'set cursorstyle overwrite block steady';
-'set reserved -1 normal         F1 Help F2 Next F3 Save/Close F4 Prefix F5 Ins F6 Cmd F10 Keys Esc Cmd';
+'set reserved -1 normal         F1 Help F2 Next F3 Save/Close F4 Prefix F5 Ins F6 Cmd/File F10 Keys Esc Cmd';
 'extract /version/'
 platform = version.3
 'extract /size/'
@@ -158,4 +158,4 @@ end
 'set macro off';
 'set linend off';
 'set synonym off';
-'msg CRXTHE 0.9.0 | Esc Command  F1 Help  Ctrl-S Save';
+'msg CRXTHE 0.9.0 | Esc Command  F6 Cmd/File  F1 Help  Ctrl-S Save';

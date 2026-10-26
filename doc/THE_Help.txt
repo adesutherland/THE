@@ -10,7 +10,8 @@
     Ctrl-O      Prepare EDIT on the command line; enter a filename
     Ctrl-F      Prepare LOCATE /; enter text and a closing /
     Ctrl-G      Prepare a line-number command; enter the number
-    Esc/F6      Command line (browser: Esc again returns to editing)
+    F6          Toggle command line and file editing
+    Esc         Command line (browser: Esc again returns to editing)
     Ctrl-L      Console command line
     Ctrl-W/Q    Close the file; unsaved changes are protected
     Ctrl-Z      Restore the current line (not multi-level undo)

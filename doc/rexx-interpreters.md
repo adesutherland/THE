@@ -1,6 +1,6 @@
 # Macro interpreters and prebuilt packages
 
-This is the experimental THE cREXX fork. Its changes are not fixes for
+CRXTHE 0.9.0 is an independent fork based on Mark Hessling's THE 4.0. Its changes are not fixes for
 upstream THE. cREXX is the default macro interpreter; Regina is optional.
 Select one interpreter before starting THE. Switching interpreters requires
 restarting the editor; macros are not automatically translated between dialects.
@@ -9,7 +9,7 @@ The bundled package supplies cREXX's shared runtime, compiler, assembler,
 runner, matching `library.rxbin` and compiler exit module privately. It does not change an existing
 cREXX installation. The installers offer bundled cREXX (default) or an
 installed cREXX when compatible. The bundle is always retained for automatic
-fallback. Launch `bin/the` (`bin/the.cmd` on Windows); its paths are
+fallback. Launch `bin/crxthe` (`bin/crxthe.cmd` on Windows); its paths are
 relative to the package, so a portable archive can be moved or unpacked into a
 directory containing spaces.
 
@@ -76,11 +76,11 @@ In Windows PowerShell:
 ```powershell
 $env:THE_REXX_INTERPRETER = 'REGINA'
 $env:THE_REGINA_LIBRARY = 'C:\path\to\Regina\regina.dll'
-& "$env:LOCALAPPDATA\Programs\THE-cREXX\bin\the.cmd" myfile.rexx
+& "$env:LOCALAPPDATA\Programs\THE-cREXX\bin\crxthe.cmd" myfile.rexx
 ```
 
 The full launcher path selects this fork even if upstream THE is also on PATH.
-For a portable ZIP or a custom install directory, use its `bin\the.cmd` instead.
+For a portable ZIP or a custom install directory, use its `bin\crxthe.cmd` instead.
 
 Regina's own dependent libraries must also be available to the OS loader.
 These settings affect this terminal and child processes. Put them in your shell
@@ -100,14 +100,14 @@ from the same cREXX build. These settings are read when THE starts.
 
 ## cREXX extras
 
-The standard profile uses `rxc` and `rxas` on the package's private PATH for
-compiler-backed highlighting. `the -p profile_crexx.the file.crexx` also binds
-F8 to compile and F9 to run. These extras use cREXX; the shared prefix-command
-compatibility fixes apply with either engine. The Classic template adaptation
-described in [PFXREXX](pfxrexx.md) currently requires Regina.
-The bundled [Level G prefix workflows](pfxrexx-levelg.md) provide the broader
-Rexx and HLASM template workflows with cREXX: run `macro pfxsetupg REXX` or
-`macro pfxsetupg HLASM`. Regina remains available for the patched originals.
+The standard profile uses the bundled `rxc` and `rxas` for compiler-backed
+highlighting. See [first launch](first-launch.md) and the Windows
+[installation guide](Windows-Readme.txt) for normal use. The optional F8/F9
+compile/run development helpers have unresolved failures and are not enabled
+by the stock profile.
+
+Shmuel Metz's prefix macros, adaptations, cREXX ports and patches are all kept
+in a [private kit](private-compatibility.md), outside new public packages.
 
 The [panel examples](panels.md) work with either engine: `macro paneldemo`
 for cREXX, `macro paneldemo_regina` for Regina. Both use shared protected/editable

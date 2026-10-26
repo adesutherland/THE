@@ -1060,9 +1060,21 @@ short THEcursor_home( CHARTYPE curr_screen, VIEW_DETAILS *curr_view, bool save )
          curr_view->current_window = WINDOW_FILEAREA;
       cursor = the_driver->capture_window_cursor(driver_screen_current_window(curr_screen));
       y = get_row_for_focus_line( curr_screen, curr_view->focus_line, curr_view->current_row );
-      the_driver->move_window_cursor(driver_screen_current_window(curr_screen), y, cursor.valid ? cursor.col : 0);
-      cursor_focus_store_logical_at(curr_screen, curr_view, y,
-                                    cursor.valid ? cursor.col : 0);
+      if (curr_view->current_window == WINDOW_FILEAREA)
+      {
+         /* A redraw can leave the physical file window cursor at its last
+          * painted column. Restore the editor's saved logical file column. */
+         LogicalCursor saved = curr_view->logical_cursor.filearea;
+         int cell = saved.valid && saved.line_number == curr_view->focus_line
+                  ? max(0, saved.text.cell_column) : 0;
+         the_driver->move_filearea_cursor(curr_screen, curr_view, rec, rec_len, y, cell);
+      }
+      else
+      {
+         the_driver->move_window_cursor(driver_screen_current_window(curr_screen), y, cursor.valid ? cursor.col : 0);
+         cursor_focus_store_logical_at(curr_screen, curr_view, y,
+                                       cursor.valid ? cursor.col : 0);
+      }
    }
    else
    {
@@ -1137,8 +1149,21 @@ short THEcursor_left(short escreen,bool kedit_defaults)
          if ( escreen == CURSOR_CUA
          &&   CURRENT_VIEW->verify_col == 1 )
          {
-            rc = scroll_line( current_screen, CURRENT_VIEW, DIRECTION_BACKWARD, 1L, FALSE, escreen );
-            rc = Sos_endchar( (CHARTYPE *)"" );
+            if (CURRENT_VIEW->prefix && CURRENT_VIEW->mark_type != M_CUA)
+            {
+               rc = Sos_prefix((CHARTYPE *)"");
+               if (rc == RC_OK)
+               {
+                  int last = max(0, CURRENT_VIEW->prefix_width-CURRENT_VIEW->prefix_gap-1);
+                  the_driver->move_prefix_cursor(current_screen, y, (short)last);
+                  cursor_focus_store_logical_at(current_screen, CURRENT_VIEW, y, last);
+               }
+            }
+            else
+            {
+               rc = scroll_line( current_screen, CURRENT_VIEW, DIRECTION_BACKWARD, 1L, FALSE, escreen );
+               rc = Sos_endchar( (CHARTYPE *)"" );
+            }
             break;
          }
          if ( escreen == CURSOR_SCREEN )
@@ -1221,7 +1246,20 @@ short THEcursor_left(short escreen,bool kedit_defaults)
          }
          break;
       case WINDOW_PREFIX:
-         if ( (escreen == CURSOR_ESCREEN
+         if (escreen == CURSOR_CUA)
+         {
+            /* The prefix precedes its record in the editing sequence. At its
+             * first column, continue to the previous visible record's end. */
+            LINETYPE previous = CURRENT_VIEW->focus_line-1;
+            if (previous > 0 && !CURRENT_VIEW->scope_all)
+               previous = find_next_in_scope(CURRENT_VIEW, NULL, previous, DIRECTION_BACKWARD);
+            if (previous > 0 && previous <= CURRENT_FILE->number_lines)
+            {
+               rc = THEcursor_goto(previous, 1);
+               if (rc == RC_OK) rc = Sos_endchar((CHARTYPE *)"");
+            }
+         }
+         else if ( (escreen == CURSOR_ESCREEN
            && (CURRENT_VIEW->prefix&PREFIX_LOCATION_MASK) == PREFIX_RIGHT)
          ||  escreen == CURSOR_SCREEN )
              rc = Sos_rightedge((CHARTYPE *)"");

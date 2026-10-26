@@ -18,6 +18,10 @@ typedef enum { CURSOR_STEADY, CURSOR_BLINK } CursorBlink;
 typedef enum { CURSOR_PRESENTATION_HARDWARE, CURSOR_PRESENTATION_SOFTWARE } CursorPresentation;
 #endif
 
+/* Bump when the driver/core shared layouts change. Pre-CRXTHE modules had
+ * no version entry point and must not be mixed with this VIEW_DETAILS layout. */
+#define THE_DRIVER_MODULE_ABI_VERSION 2
+
 struct view_details;
 typedef struct TheDriverWindow TheDriverWindow;
 

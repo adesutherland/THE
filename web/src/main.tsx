@@ -94,6 +94,7 @@ function App() {
   const gridRef = useRef<HTMLDivElement | null>(null);
   const cellProbeRef = useRef<HTMLSpanElement | null>(null);
   const snapshotRef = useRef<Snapshot | null>(null);
+  const lastFileFocusRef = useRef<Snapshot["focus"] | null>(null);
   const viewportSizeRef = useRef("");
 
   const send = useCallback((message: Record<string, unknown>) => {
@@ -145,6 +146,8 @@ function App() {
           const message = JSON.parse(String(event.data)) as Snapshot | DriverMessage;
           if ("mode" in message && "screen_rows" in message) {
             const nextSnapshot = message as Snapshot;
+            if (snapshotRef.current?.buffer?.path !== nextSnapshot.buffer?.path) lastFileFocusRef.current = null;
+            if (nextSnapshot.focus.zone === "filearea") lastFileFocusRef.current = nextSnapshot.focus;
             snapshotRef.current = nextSnapshot;
             setSnapshot(nextSnapshot);
             if (nextSnapshot.focus.zone === "command") setCommand(nextSnapshot.command);
@@ -260,6 +263,17 @@ function App() {
     measure();
     return () => { observer.disconnect(); cancelAnimationFrame(animation); };
   }, [connection, send, snapshot?.buffer?.path, !!snapshot?.panel]);
+
+  const returnToFile = useCallback(() => {
+    const current = snapshotRef.current?.focus;
+    const saved = lastFileFocusRef.current;
+    const target = current && (current.zone === "filearea" || current.zone === "prefix") ? current : saved;
+    if (target) {
+      const cell = target.zone === "prefix" ? (saved?.line === target.line ? saved.cell : 0) : target.cell;
+      send({ type: "hit", target: "filearea", line: target.line, row: target.row, cell });
+    }
+    focusEditor();
+  }, [focusEditor, send]);
 
   const onEditorKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -552,6 +566,7 @@ function App() {
             onBlur={() => setCommandFocused(false)}
             onKeyDown={(event) => {
               if (event.key === "Escape") { event.preventDefault(); focusEditor(); }
+              if (event.key === "F6") { event.preventDefault(); returnToFile(); }
             }}
             value={command}
             onInput={(event) => setCommand(event.currentTarget.value)}

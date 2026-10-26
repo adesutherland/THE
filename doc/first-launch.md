@@ -31,7 +31,8 @@ The status line and startup message expose the CRXTHE identity and key hints.
 | Ctrl-O | Prepare `edit `; enter a filename on the command line |
 | Ctrl-F | Prepare `locate /`; enter search text and a closing `/` |
 | Ctrl-G | Prepare `:`; enter the file line number |
-| Esc / F6 | Move to the command line (browser: Esc again returns to editing) |
+| F6 | Toggle between command line and file editing |
+| Esc | Move to the command line (browser: Esc again returns to editing) |
 | Ctrl-L | Console command-line shortcut |
 | Ctrl-W / Ctrl-Q | Close this file; unsaved changes are protected |
 | Ctrl-Z | Restore the current line, rather than multi-level undo |
@@ -98,7 +99,16 @@ A reserved footer row lists F1–F6, F10 and Esc. F10 opens THE's `SHOWKEY ALL`
 view with default and profile key definitions. This key guide is inherited by
 new buffers, including help. The console file-tab strip above the filename
 uses explicit dark colors; with one file it remains an empty strip by design.
-Esc and F6 now go directly to the console command line, with Shift-Tab to
-return. Browser Esc focuses its command input and Esc again returns to editing;
+F6 toggles between command and file editing, restoring the file caret. From
+the prefix field, F6 enters command; the next F6 returns to file editing.
+Esc goes directly to the console command line, with Shift-Tab to return.
+Browser Esc focuses its command input and Esc again returns to editing.
 F6 is also handled when the browser delivers it. Ctrl-L remains a console
 shortcut because browsers generally reserve it for their address bar.
+
+Left at the first text column enters the current record's last editable prefix
+column when the prefix is enabled. Left from the prefix's first column moves
+to the previous visible record's end, including empty and Unicode records.
+At the first visible record's first prefix column it stays put. With the
+prefix off, normal CUA previous-record movement remains. Shift-Left remains
+text selection rather than entering a prefix field.
