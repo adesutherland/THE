@@ -24,6 +24,12 @@ Rendered browser forms work with both engines; the installed browser loads its
 own assets with an isolated PATH. Windows install/reinstall/uninstall passed.
 **No handoff to Shmuel until Adrian completes his manual Windows test.**
 
+The subsequent [Windows workstation report](windows-installation-qa.md)
+records installed panels.2 tests with both cREXX and Regina, installation
+precedence/override problems, the F8/F9 failure and remaining visual checks.
+The local [cursor correction and walkthrough](panel-walkthrough-qa.md) is
+separate from the published installer and still needs Windows qualification.
+
 Panels.1 signing follow-up on 25 October: its Windows installer is signed
 and timestamp-verified. The macOS ARM64 ZIP and PKG are notarized, all eight
 native code files are signed, and the PKG is stapled and Gatekeeper-verified.

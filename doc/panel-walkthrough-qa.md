@@ -56,6 +56,10 @@ runtime without replacing the signed installation.
 
 ## Windows and next-release follow-ups
 
+The [consolidated Windows report](windows-installation-qa.md) records the
+complete workstation qualification, environment recovery, optional Regina
+installation and the next-release acceptance checks (WIN-01 through WIN-06).
+
 The Windows chat reports that the installed panels.2 payload passed all 157
 manifest hashes, both 121-workflow macro suites with exact parity, both engines'
 panels, shared controls and native ConPTY prefix/panel editing. Regina 3.9.7
