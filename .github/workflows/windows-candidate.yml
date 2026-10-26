@@ -1,7 +1,7 @@
 name: Windows candidate qualification
 on:
   push:
-    branches: ['temp/shmuel-macros']
+    branches: ['temp/shmuel-macros', 'temp/release-*']
   workflow_dispatch:
 permissions:
   contents: read

@@ -3,6 +3,7 @@
 
 No compiler/build is used. All input manifest hashes and the source tag are
 verified. --upload replaces only this architecture's PKG, ZIP and checksums.
+Private draft assets require --allow-draft and remain drafts after signing.
 Credentials are read from the same nine environment settings as cREXX-RAG.
 """
 import argparse
@@ -191,6 +192,8 @@ def main():
     parser.add_argument('--tag', required=True)
     parser.add_argument('--arch', choices=('arm64', 'x86_64'), default='arm64')
     parser.add_argument('--output-dir', type=Path, default=Path('build/sign-macos'))
+    parser.add_argument('--allow-draft', action='store_true',
+                        help='Explicitly permit signing assets of a private draft release')
     parser.add_argument('--test-install', action='store_true',
                         help='Install and smoke-test on a disposable GitHub-hosted runner before upload')
     mode = parser.add_mutually_exclusive_group()
@@ -201,7 +204,7 @@ def main():
         parser.error('Use OWNER/REPO')
     if not re.fullmatch(r'v\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?', args.tag):
         parser.error('Use an explicit published version tag')
-    release = release_tools.Release(args.repo, args.tag)
+    release = release_tools.Release(args.repo, args.tag, allow_draft=args.allow_draft)
     name = release_tools.release_stem(release, 'darwin', args.arch)
     inputs = {suffix: release_tools.asset_named(release.original, name + suffix)
               for suffix in ('.zip', '.pkg', '-SHA256SUMS.txt')}

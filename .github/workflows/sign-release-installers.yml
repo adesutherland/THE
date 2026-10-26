@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Exact published THE release tag
+        description: Exact CRXTHE release tag (draft access requires explicit opt-in)
         type: string
         required: true
       architecture:
@@ -11,6 +11,10 @@ on:
         type: choice
         options: [arm64, x86_64]
         default: arm64
+      allow_draft:
+        description: Sign a private draft; publish only after this workflow succeeds
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -19,10 +23,13 @@ concurrency:
 env:
   THE_RELEASE_TAG: ${{ inputs.tag }}
   THE_RELEASE_REPO: ${{ github.repository }}
+  THE_RELEASE_ALLOW_DRAFT: ${{ inputs.allow_draft }}
 jobs:
   windows:
     runs-on: windows-2025
     timeout-minutes: 15
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v5
         with:
@@ -34,14 +41,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          python scripts/sign-windows-release.py --repo "$THE_RELEASE_REPO" --tag "$THE_RELEASE_TAG" --dry-run
+          draft_flag=()
+          if [[ "$THE_RELEASE_ALLOW_DRAFT" == "true" ]]; then draft_flag+=(--allow-draft); fi
+          python scripts/sign-windows-release.py --repo "$THE_RELEASE_REPO" --tag "$THE_RELEASE_TAG" --dry-run "${draft_flag[@]}"
           python - <<'PY'
           import importlib.util, os
           from pathlib import Path
           spec = importlib.util.spec_from_file_location('release_tools', 'scripts/sign-windows-release.py')
           tool = importlib.util.module_from_spec(spec)
           spec.loader.exec_module(tool)
-          release = tool.Release(os.environ['THE_RELEASE_REPO'], os.environ['THE_RELEASE_TAG'])
+          release = tool.Release(os.environ['THE_RELEASE_REPO'], os.environ['THE_RELEASE_TAG'],
+                                 allow_draft=os.environ['THE_RELEASE_ALLOW_DRAFT'] == 'true')
           stem = tool.release_stem(release, 'windows', 'x86_64')
           destination = Path(os.environ['RUNNER_TEMP']) / 'the-signed-input'
           destination.mkdir()
@@ -84,8 +94,10 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          draft_flag=()
+          if [[ "$THE_RELEASE_ALLOW_DRAFT" == "true" ]]; then draft_flag+=(--allow-draft); fi
           python3 scripts/sign-macos-release.py --repo "$THE_RELEASE_REPO" --tag "$THE_RELEASE_TAG" \
-            --arch "$THE_MAC_ARCH" --test-install --upload
+            --arch "$THE_MAC_ARCH" --test-install --upload "${draft_flag[@]}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

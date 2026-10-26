@@ -1,0 +1,87 @@
+name: macOS candidate qualification
+on:
+  push:
+    branches: ['temp/shmuel-macros', 'temp/release-*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v5
+        with:
+          repository: adesutherland/DSL-Syntax-Highlighter
+          ref: 383e5daab0ffcf6ec83e02db7a01a27709dabb2c
+          path: .ci-deps/dslsh
+          persist-credentials: false
+      - name: Install build and optional Regina test tools
+        run: |
+          brew install ninja ripgrep regina-rexx
+          if [[ ! -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]]; then
+            brew install --cask google-chrome
+          fi
+      - name: Fetch verified matching cREXX SDK and ABI header
+        run: |
+          set -euo pipefail
+          sdk="$RUNNER_TEMP/the-sdk"
+          mkdir -p "$sdk/include"
+          curl --fail --location --retry 3 --silent --show-error \
+            https://github.com/adesutherland/CREXX/releases/download/v1.0.0-beta.3/CREXX-v1.0.0-beta.3-macos-arm64.zip \
+            --output "$sdk/crexx.zip"
+          echo "2b865862f75c07ee94b0d84b77d58c39f5f418c0b24f88a86e1a612fe195fa43  $sdk/crexx.zip" | shasum -a 256 --check
+          # ditto retains executable modes and the SDK's rxvm -> rxbvm link.
+          ditto -x -k "$sdk/crexx.zip" "$sdk"
+          curl --fail --location --retry 3 --silent --show-error \
+            https://raw.githubusercontent.com/adesutherland/CREXX/ae1607b8e145174422cee7f3e73fbcc37a65226c/interpreter/crexxsaa.h \
+            --output "$sdk/include/crexxsaa.h"
+          echo "500b61d094eca621fea8b8e6964cac75488539b8e73e3e520a72e72cae59f951  $sdk/include/crexxsaa.h" | shasum -a 256 --check
+          echo "THE_CI_SDK=$sdk" >> "$GITHUB_ENV"
+          echo "THE_CI_REGINA=$(brew --prefix regina-rexx)" >> "$GITHUB_ENV"
+      - name: Configure clean bundled Release build
+        run: |
+          set -euo pipefail
+          crexx="$THE_CI_SDK/CREXX-macos-arm64"
+          cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 -DTHE_BUNDLE_CREXX=ON \
+            -DTHE_REXX_INTERPRETER=CREXX -DUSE_WEB_DRIVER=ON \
+            "-DDSLSH_LOCAL_DIR=$GITHUB_WORKSPACE/.ci-deps/dslsh" \
+            "-DREGINA_INCLUDE_DIR=$THE_CI_REGINA/include" \
+            "-DREGINA_LIBRARY=$THE_CI_REGINA/lib/libregina.dylib" \
+            "-DCREXXSAA_INCLUDE_DIR=$THE_CI_SDK/include" \
+            "-DCREXXSAA_LIBRARY=$crexx/bin/libcrexxsaa.dylib" \
+            "-DCREXXSAA_RUNTIME_LIBRARY=$crexx/bin/libcrexxsaa.dylib" \
+            "-DCREXX_RXC_EXECUTABLE=$crexx/bin/rxc" \
+            "-DCREXX_RXAS_EXECUTABLE=$crexx/bin/rxas" \
+            "-DCREXX_RXVM_EXECUTABLE=$crexx/bin/rxvm" \
+            "-DCREXX_DRIVER_EXECUTABLE=$crexx/bin/crexx" \
+            "-DCREXX_LIBRARY_RXBIN=$crexx/bin/library.rxbin" \
+            "-DCREXX_RXCEXITS_RXBIN=$crexx/bin/rxcexits.rxbin" \
+            "-DCREXX_LICENSE_FILE=$crexx/LICENSE" \
+            "-DTHE_CHROMIUM_EXECUTABLE=/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+      - name: Build and run native regression suite
+        run: |
+          cmake --build build-release --parallel 4
+          ctest --test-dir build-release --output-on-failure --parallel 4
+      - name: Package and test relocated payload
+        run: |
+          set -euo pipefail
+          version=$(tr -d '\r\n' < packaging/candidate-version.txt)
+          python3 scripts/package-release.py --build-dir build-release --version "$version" --installer
+          mkdir -p "$RUNNER_TEMP/relocated"
+          ditto -x -k "build-release/packages/CRXTHE-$version-darwin-arm64.zip" "$RUNNER_TEMP/relocated"
+          prefix="$RUNNER_TEMP/relocated/CRXTHE-$version-darwin-arm64"
+          python3 tests/test_installed_package.py "$prefix" --regina "$THE_CI_REGINA/lib/libregina.dylib"
+          python3 tests/test_runtime_selection.py --prefix "$prefix"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-candidate-and-test-results
+          path: |
+            build-release/packages/*
+            build-release/Testing/Temporary/LastTest.log
+          if-no-files-found: warn

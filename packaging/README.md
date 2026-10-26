@@ -3,9 +3,10 @@ The build/signing instructions below are for maintainers.
 
 # Prebuilt CRXTHE candidates
 
-The bundled install contains CRXTHE, its curses and LLM drivers, profiles and
-help, the Classic PFXREXX adaptation, compiled Level G Rexx/HLASM prefix
-workflows and a private matching cREXX tool set. Shmuel's original macros, patches and preparation tool are excluded; their compatibility kit is held separately for private review.
+The bundled install contains CRXTHE, its curses and LLM drivers, profiles,
+help, generic panel examples and a private matching cREXX tool set. Third-party
+compatibility macros, their adaptations/ports, patches and preparation tools
+are excluded; that kit is held separately for private review.
 Regina is optional, loaded only when selected, and is never bundled.
 See [interpreter setup](../doc/rexx-interpreters.md).
 The panel candidate enables the experimental browser driver as well as curses

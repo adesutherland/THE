@@ -1,5 +1,30 @@
 # Signing an existing THE prerelease
 
+## Controlled draft release
+
+The [0.9.0 release plan](release-0.9.0-plan.md) records the source-build and
+packaged-install gates. Both `macos-candidate.yml` and `windows-candidate.yml`
+must pass at the same frozen commit before creating its release tag. Download
+their exact artifacts and verify each clean manifest/source SHA and all hashes.
+The Mac workflow uses a SHA-256-pinned cREXX beta.3 SDK and ABI header, preserves
+the SDK's executable modes/symlink, builds Release for macOS 15+, runs CTest,
+packages, then tests the relocated public launcher with an isolated environment.
+Development-build tests alone do not qualify the release package.
+
+Create a **draft pre-release** with those assets. Sign its outer Windows
+installer with `sign-windows-release.py --allow-draft --upload`, then dispatch
+`sign-release-installers.yml` at the frozen source ref with the exact tag,
+`architecture=arm64` and `allow_draft=true`. Draft access is explicit; signing
+tools still reject drafts by default and always reject immutable releases.
+Tag, release identity and asset digests remain pinned during signing.
+
+Keep the release a draft until native Windows signed-installation checks and
+Mac Developer ID signing, notarization, stapling, Gatekeeper, installation and
+runtime-choice checks all pass. Read back final assets/checksums, set accurate
+release notes, then publish the draft as a pre-release. Its tag remains at the
+qualified source commit. Adrian's physical Windows smoke test still gates any
+Shmuel handoff. No private compatibility material belongs in release assets.
+
 These tools operate on the payload of an explicit published tag. They do not
 build the source at the tip of `main`, move tags or merge the experimental
 fork. All original asset digests and the tag commit are pinned and checked

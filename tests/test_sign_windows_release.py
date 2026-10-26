@@ -89,6 +89,21 @@ class SigningTests(unittest.TestCase):
         for path in (self.installer, self.checksums):
             self.assertEqual(module.asset_named(self.remote.state, path.name)['digest'], module.digest(path))
 
+    def test_draft_requires_explicit_opt_in(self):
+        self.remote.state['draft'] = True
+        with self.assertRaises(RuntimeError):
+            module.Release('owner/THE', 'v4.0.0-test.1')
+        draft = module.Release('owner/THE', 'v4.0.0-test.1', allow_draft=True)
+        self.assertTrue(draft.check()['draft'])
+        self.remote.state['draft'] = False
+        with self.assertRaises(RuntimeError):
+            draft.check()
+
+    def test_draft_opt_in_does_not_allow_immutable_release(self):
+        self.remote.state.update(draft=True, immutable=True)
+        with self.assertRaises(RuntimeError):
+            module.Release('owner/THE', 'v4.0.0-test.1', allow_draft=True)
+
     def test_product_asset_stem_retains_historical_support(self):
         self.assertEqual(module.release_stem(self.release,'windows','x86_64'),
                          'THE-4.0.0-test.1-windows-x86_64')
