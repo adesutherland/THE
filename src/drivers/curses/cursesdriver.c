@@ -2450,6 +2450,12 @@ static void curses_driver_resume_terminal(void)
 # if defined(USE_EXTCURSES)
    cresetty(FALSE);
 # else
+#  if defined(WIN32)
+   /* Quiet OSQ does not suspend curses. Preserve its current dimensions,
+    * mouse and caret settings rather than restoring the startup snapshot. */
+   if (!isendwin())
+      def_prog_mode();
+#  endif
    reset_prog_mode();
 #  ifdef HAVE_BSD_CURSES
    raw();

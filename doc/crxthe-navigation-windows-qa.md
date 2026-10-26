@@ -161,7 +161,9 @@ to restore control-key handling (`src/execute.c`). The curses lifecycle's
 suspend/resume implementations had been restricted to UNIX, and CMake had
 not enabled PDCurses' program/shell mode capabilities. The repair enables
 those capabilities on Windows and runs its existing endwin/reset_prog_mode
-lifecycle there. Console changes remain inside the curses driver.
+lifecycle there. A quiet return snapshots the current curses state before
+resetting the console mode, preserving its current dimensions, mouse and caret
+settings. Console changes remain inside the curses driver.
 
 Eight focused Mac profile/native/boundary/module/browser checks pass after
 the repair. A dependency-free Windows regression now creates an owned hidden
