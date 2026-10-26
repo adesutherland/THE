@@ -51,6 +51,22 @@ assertions have not yet run on Windows.
   This verifies script syntax; it does not produce a runnable candidate.
 - Generated profiles, TypeScript and whitespace checks passed.
 
+From source commit `12e1cd20234de1b9e01f5f6061ab1a81af31773e`, fresh unsigned
+macOS ZIP/PKG previews were built. The relocated ZIP passed manifest integrity,
+cREXX, Regina and no-macro execution, stock profiles and serving its own
+installed browser assets with build/user tool paths removed. The actual local
+cREXX and Regina `.command` shortcuts also passed F6/prefix navigation and
+saved-byte checks in fresh PTYs using disposable files. Adrian's existing
+scratch file and ordinary installed `the` were preserved.
+
+The refreshed isolated preview is under
+`/Users/adrian/THE-macro-tests/crxthe-candidate/CRXTHE-0.9.0-darwin-arm64`.
+The ZIP SHA-256 is
+`493f951915adf6205142001a0e7ebd51cd35f122b07cbdb78e8cdfbcbc378d70`;
+the PKG SHA-256 is
+`569636963885148b4be4c9f0055508da37a58124863850d8dd7eddd103a54f01`.
+These are local previews; they have not been signed or published.
+
 ## Remaining qualification
 
 This is a local CRXTHE preview. The current published installers remain
