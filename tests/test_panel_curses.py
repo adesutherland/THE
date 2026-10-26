@@ -22,7 +22,7 @@ for engine, demo in [('REGINA', 'paneldemo_regina'), ('CREXX', 'paneldemo')]:
         sample.write_text('seed\ntail\n')
         profile = Path(tmp) / 'profile.the'
         profile.write_text(('options levelg\n' if engine == 'CREXX' else '') +
-                           "address THE\n'macro " + demo + "';\n'cursor goto 1 1';\n'set insertmode on';\n'define c-g file';\n")
+                           "address THE\n'cursor goto 2 3';\n'macro " + demo + "';\n'set insertmode on';\n'define c-g file';\n")
         env = dict(os.environ, THE_REXX_INTERPRETER=engine, TERM='xterm-256color')
         if engine == 'CREXX':
             subprocess.run([str(binary), '--driver', 'llm', '-p', str(profile), str(sample)],
@@ -53,7 +53,7 @@ for engine, demo in [('REGINA', 'paneldemo_regina'), ('CREXX', 'paneldemo')]:
             proc.wait(timeout=10)
             text = output.decode(errors='replace')
             assert proc.returncode == 0, text[-1500:]
-            assert sample.read_text() == 'Zseed\ntail\n', (engine, sample.read_text(), text[-1500:])
+            assert sample.read_text() == 'seed\ntaZil\n', (engine, sample.read_text(), text[-1500:])
             assert 'Error 00' not in text, text[-1500:]
         finally:
             if proc.poll() is None:

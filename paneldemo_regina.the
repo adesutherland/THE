@@ -1,5 +1,11 @@
 /* Example: reserved fields and native Regina PULL results. */
 address THE
+'extract /cursor/'
+savedline = cursor.3
+savedcolumn = cursor.4
+savedrow = cursor.1
+savedcell = cursor.2
+'extract /reserved */'
 'preserve'
 'set linend off'
 'set curline off'
@@ -16,6 +22,12 @@ do while queued() > 0
 end
 'emsg PANEL_RC' readrc
 'set reserved * off'
-'set curline on M'
+do index = reserved.0 to 1 by -1
+   'set reserved' reserved.index
+end
 'restore'
+if savedline > 0 & savedcolumn > 0 then
+   'cursor goto' savedline savedcolumn
+else if savedrow > 0 & savedcell > 0 then
+   'cursor screen' savedrow savedcell
 exit readrc

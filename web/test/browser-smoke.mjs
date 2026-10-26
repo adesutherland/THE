@@ -175,7 +175,7 @@ try {
       const viewport = document.querySelector('.editor-scroll'), grid = document.querySelector('.editor-grid');
       const style = getComputedStyle(grid);
       const fit = Math.floor((viewport.clientHeight-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom))/parseFloat(style.lineHeight));
-      const rows = document.querySelectorAll('.screen-row').length;
+      const rows = document.querySelectorAll('.screen-row:not(.key-hint-row)').length;
       return rows === fit ? rows : false;
     })()`), "editor rows to fit browser viewport");
   }
@@ -183,6 +183,18 @@ try {
   const smallRows = await sizeViewport(900, 550);
   if (smallRows >= largeRows) throw new Error("browser shrink did not reduce visible rows");
   const grownRows = await sizeViewport(1200, 950);
+  await sizeViewport(455, 700);
+  const hints = await evaluate(`(() => {
+    const bar=document.querySelector('.key-hints');
+    if (!bar) return null;
+    const outer=bar.getBoundingClientRect();
+    return [...bar.querySelectorAll('.key-hint')].map(n=>{
+      const r=n.getBoundingClientRect();
+      return {key:n.querySelector('kbd').textContent,visible:r.left>=outer.left && r.right<=outer.right && r.top>=outer.top && r.bottom<=outer.bottom};
+    });
+  })()`);
+  if (!hints || hints.length !== 8 || hints.some(h=>!h.visible) || !hints.some(h=>h.key==='F10')) throw new Error('clipped narrow-browser key guide: '+JSON.stringify(hints));
+  await sizeViewport(1200,950);
   if (grownRows !== largeRows) throw new Error("browser grow did not restore visible rows");
 
   await evaluate("document.querySelector('.role-file .prefix-cell').click()");

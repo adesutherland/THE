@@ -158,11 +158,20 @@ try {
   await waitFor(
     () => evaluate("document.readyState === 'complete' && !!document.querySelector('.app-shell')"),
     "THE application shell",
+    30000,
   );
   await waitFor(
     () => evaluate("document.querySelector('.connection')?.textContent.trim() === 'online'"),
     "web driver connection",
   );
+
+  async function restoredEditor() {
+    try {
+      await waitFor(() => evaluate("document.querySelector('.status-line span:nth-child(2)')?.textContent === 'filearea' && document.querySelector('.status-line span:nth-child(3)')?.textContent === '2:3' && document.querySelector('.key-hints')?.textContent.includes('F10')"), "original file caret and key footer after panel cleanup");
+    } catch (error) {
+      throw new Error(error.message+'; '+JSON.stringify(await evaluate("({status:document.querySelector('.status-line')?.textContent,hints:document.querySelector('.key-hints')?.textContent,rows:[...document.querySelectorAll('.role-reserved .line-text')].map(n=>n.textContent)})")));
+    }
+  }
 
   await evaluate("document.querySelector('.input-sink').focus()");
   await domKey("F7", "F7");
@@ -208,20 +217,23 @@ try {
   await command("Emulation.setDeviceMetricsOverride", {width: 1100, height: 650, deviceScaleFactor: 1, mobile: false});
   await domKey("F3", "F3");
   await waitFor(() => evaluate("!document.querySelector('.fullscreen-panel')"), "submitted panel");
+  await restoredEditor();
   await waitFor(() => evaluate(`(() => {
     const viewport=document.querySelector('.editor-scroll'), style=getComputedStyle(document.querySelector('.editor-grid'));
-    return document.querySelectorAll('.screen-row').length === Math.floor((viewport.clientHeight-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom))/parseFloat(style.lineHeight));
+    return document.querySelectorAll('.screen-row:not(.key-hint-row)').length === Math.floor((viewport.clientHeight-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom))/parseFloat(style.lineHeight));
   })()`), "editor resized after panel submission");
   await domKey("F7", "F7");
   await waitFor(() => evaluate("!!document.querySelector('.fullscreen-panel')"), "second panel");
   await insertText("discard");
   await domKey("Escape", "Escape");
   await waitFor(() => evaluate("!document.querySelector('.fullscreen-panel')"), "cancelled panel");
+  await restoredEditor();
   await domKey("F7", "F7");
   await waitFor(() => evaluate("!!document.querySelector('.fullscreen-panel')"), "disconnect panel");
   await command("Page.navigate", { url: "about:blank" });
   await sleep(150);
-  await command("Page.navigate", { url: pageUrl });
+  const history = await command("Page.getNavigationHistory");
+  await command("Page.navigateToHistoryEntry", { entryId: history.entries[history.currentIndex - 1].id });
   try {
     await waitFor(() => evaluate("document.querySelector('.connection')?.textContent.trim() === 'online'"), "reconnected editor");
   } catch (error) {
@@ -229,7 +241,16 @@ try {
   }
   await waitFor(() => evaluate("!!document.querySelector('.app-shell') && !document.querySelector('.fullscreen-panel')"), "disconnect cancellation");
   // The WebSocket opens before its first buffer snapshot is rendered.
-  await waitFor(() => evaluate("[...document.querySelectorAll('.line-text')].map(n => n.textContent).filter(t => t === 'seed' || t === 'tail').join('|') === 'seed|tail'"), "unchanged buffer snapshot after reconnect");
+  try {
+    await waitFor(() => evaluate("[...document.querySelectorAll('.line-text')].map(n => n.textContent).filter(t => t === 'seed' || t === 'tail').join('|') === 'seed|tail'"), "unchanged buffer snapshot after reconnect");
+  } catch (error) {
+    throw new Error(error.message+'; '+JSON.stringify(await evaluate("({status:document.querySelector('.status-line')?.textContent,lines:[...document.querySelectorAll('.line-text')].map(n=>n.textContent),buffers:[...document.querySelectorAll('.buffer-tab')].map(n=>n.textContent),panel:!!document.querySelector('.fullscreen-panel')})")));
+  }
+  await restoredEditor();
+  await evaluate("document.querySelector('.input-sink').focus()");
+  await insertText('Z');
+  await domKey('s','KeyS',true);
+  await waitFor(() => evaluate("[...document.querySelectorAll('.line-text')].some(n => n.textContent === 'taZil') && document.querySelector('.status-line span:last-child')?.textContent === 'Saved'"), 'typing and saving at the restored panel caret');
   if (exceptions.length) throw new Error(exceptions.join("\n"));
   console.log("Browser panel: rendered fields, text, Tab, protected label, PF3, cancel and unchanged file passed");
 } finally {

@@ -14,8 +14,14 @@ READ NOCHANGE TAG
 ```
 
 CURLINE OFF permits reserving every row, including the usual current-line
-row. Remove reserved rows with `SET RESERVED * OFF` and restore ordinary
-behavior with `SET CURLINE ON M`. CURLINE state is preserved by PRESERVE/RESTORE.
+row. `SET RESERVED * OFF` removes all reserved rows, including an existing
+profile's key guide. The examples save `EXTRACT /RESERVED */` and
+`EXTRACT /CURSOR/` before opening their forms, then replay the saved reserved
+definitions and restore the caller's caret after submission or cancellation.
+This keeps the footer and the next typed character in their original places.
+PRESERVE/RESTORE saves CURLINE and other editor settings; it does not save
+reserved definitions or the cursor. A reusable panel macro must handle those
+explicitly, as these examples do.
 Protection applies during READ; outside READ, FILECTLCHAR continues to be
 display markup for ordinary editor operations.
 
@@ -69,7 +75,11 @@ file. Reserved input stays temporary until the macro updates its definitions.
 
 The shared field/input model serves curses, the LLM protocol and the browser.
 The browser renders editable/protected fields, submission controls and a PF/PA
-selector. Parser commands use the host PATH: the package provides the cREXX
+selector. Outside a panel, function-key guides in reserved rows appear as a
+wrapping footer so narrow windows can show every hint. The browser recalculates
+the file area's height when the guide wraps. Navigation away releases its
+connection, cancelling an active READ; returning reconnects to the editor.
+Parser commands use the host PATH: the package provides the cREXX
 highlighter; Markdown, Python, C and JavaScript parser executables are optional. Trusted host profiles can bind macros; existing restrictions on
 client-issued macro/OS commands remain. A browser disconnect cancels its panel.
 Curses uses native keyboard and mouse input. LLM READ holds the macro while

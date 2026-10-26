@@ -37,6 +37,16 @@ function basename(path: string): string {
   return normalized.slice(normalized.lastIndexOf("/") + 1) || path;
 }
 
+// Keep a profile's key-guide text intact even when the editor has few columns.
+// Other reserved rows retain their normal editor positions.
+function keyHintsForRow(row: ScreenRow): { key: string; label: string }[] {
+  if (row.role !== "reserved") return [];
+  const text = row.t.trim();
+  const matches = [...text.matchAll(/\b(F(?:[1-9]\d?)|Esc)\s+(.+?)(?=\s+(?:F(?:[1-9]\d?)|Esc)\s+|$)/g)];
+  if (matches.length < 2 || matches[0].index !== 0) return [];
+  return matches.map((match) => ({ key: match[1], label: match[2] }));
+}
+
 function styledText(text: string, styles: StyleRun[] | undefined) {
   if (!styles?.length) return text.replaceAll("\t", "→");
 
@@ -110,11 +120,12 @@ function App() {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const url = `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;
     let disposed = false;
+    let pageHidden = false;
     let retryTimer: number | undefined;
     let retryAttempt = 0;
 
     const connect = () => {
-      if (disposed) return;
+      if (disposed || pageHidden) return;
       setConnection(retryAttempt === 0 ? "connecting" : "reconnecting");
       const socket = new WebSocket(url);
       socketRef.current = socket;
@@ -165,16 +176,35 @@ function App() {
       };
     };
 
-    connect();
-    return () => {
-      disposed = true;
+    const close = () => {
       if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+      retryTimer = undefined;
       const socket = socketRef.current;
       socketRef.current = null;
       if (socket) {
         socket.onclose = null;
         socket.close();
       }
+    };
+    // Navigating away can cache the page without unmounting the application.
+    // Release control so READ cancels and a returning page can reconnect.
+    const hide = () => {
+      pageHidden = true;
+      close();
+    };
+    const show = () => {
+      if (!pageHidden) return;
+      pageHidden = false;
+      connect();
+    };
+    window.addEventListener("pagehide", hide);
+    window.addEventListener("pageshow", show);
+    connect();
+    return () => {
+      disposed = true;
+      window.removeEventListener("pagehide", hide);
+      window.removeEventListener("pageshow", show);
+      close();
     };
   }, [focusEditor]);
 
@@ -230,6 +260,12 @@ function App() {
     [actionById, requestFiles, sendAction],
   );
 
+  const keyHintRows = useMemo(() => snapshot?.panel ? [] :
+    (snapshot?.screen_rows ?? []).map((row) => ({ row, hints: keyHintsForRow(row) }))
+      .filter((entry) => entry.hints.length > 0), [snapshot?.screen_rows, !!snapshot?.panel]);
+  const keyHintRowIds = new Set(keyHintRows.map(({ row }) => row.r));
+  const keyHints = keyHintRows.flatMap(({ hints }) => hints);
+
   useEffect(() => {
     const viewport = viewportRef.current;
     if (connection !== "online" || !viewport) return;
@@ -249,7 +285,10 @@ function App() {
         // The browser draws only the file area; the model also reserves its
         // command/status/heading rows. Preserve that overhead on resize.
         const overhead = Math.max(0, current.viewport?.reserved_rows ?? 4);
-        const rows = Math.max(12, Math.min(256, Math.floor((viewport.clientHeight - padding) / lineHeight) + overhead));
+        // Key-guide rows are shown in a wrapping footer, so their model rows
+        // take no space in this grid. Fill the recovered rows with file text.
+        const hintRows = current.screen_rows.filter((row) => keyHintsForRow(row).length > 0).length;
+        const rows = Math.max(12, Math.min(256, Math.floor((viewport.clientHeight - padding) / lineHeight) + overhead + hintRows));
         const cols = Math.max(40, Math.min(1000, Math.floor((viewport.clientWidth - 20) / cellWidth)));
         const size = `${rows}:${cols}`;
         if (size !== viewportSizeRef.current || current.viewport?.rows !== rows || current.viewport?.cols !== cols) {
@@ -262,7 +301,7 @@ function App() {
     observer.observe(viewport);
     measure();
     return () => { observer.disconnect(); cancelAnimationFrame(animation); };
-  }, [connection, send, snapshot?.buffer?.path, !!snapshot?.panel]);
+  }, [connection, send, snapshot?.buffer?.path, !!snapshot?.panel, keyHintRows.length]);
 
   const returnToFile = useCallback(() => {
     const current = snapshotRef.current?.focus;
@@ -513,7 +552,7 @@ function App() {
               const prefixCursorCell = Math.max(0, Math.min((snapshot?.focus.cell ?? 0), prefixCols - 1));
               const cursorCell = Math.max(0, (snapshot?.focus.cell ?? 0) - row.sc);
               return (
-                <div class={`screen-row role-${row.role} ${row.cur ? "screen-row-current" : ""}`} key={`${currentBuffer?.path ?? ""}-${row.r}-${row.line}-${row.role}`}>
+                <div class={`screen-row role-${row.role} ${row.cur ? "screen-row-current" : ""} ${keyHintRowIds.has(row.r) ? "key-hint-row" : ""}`} key={`${currentBuffer?.path ?? ""}-${row.r}-${row.line}-${row.role}`}>
                   <button
                     type="button"
                     class={`prefix-cell ${prefixCursorVisible ? "prefix-cell-active" : ""}`}
@@ -557,6 +596,13 @@ function App() {
       </section>
 
       <footer class="command-area">
+        {keyHints.length > 0 ? (
+          <div class="key-hints" role="group" aria-label="Editor key hints">
+            {keyHints.map((hint, index) => <span class="key-hint" key={`${hint.key}-${index}`}>
+              <kbd>{hint.key}</kbd><span>{hint.label}</span>
+            </span>)}
+          </div>
+        ) : null}
         <form class="command-form" onSubmit={(event) => { event.preventDefault(); runCommand(command); }}>
           <span class="command-prompt">Command</span>
           <input

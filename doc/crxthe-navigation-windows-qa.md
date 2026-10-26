@@ -1,6 +1,6 @@
 # Navigation and Windows first use — 26 October 2026
 
-Latest automated candidate: `90fa7fd502b0472dc146ef69f62834b83687b44f`.
+Last Windows-qualified candidate: `90fa7fd502b0472dc146ef69f62834b83687b44f`.
 Windows CI passes **66 tests, with 13 skipped and none failed**; the exact
 artifact also passes both engines' workstation native keyboard/panel/save
 checks. Final workstation qualification is recorded below: automated installer
@@ -303,7 +303,42 @@ UI/demo items for triage. These are separate from the repaired console blocker:
   including F10. F10 itself works and resize checks pass at 900/1200 pixels.
 
 No source fixes for these observations were included in the console-mode
-repair. They do not establish data corruption or a general panel-input failure.
+repair. The subsequent changes below address them; Windows qualification of
+that earlier revision does not qualify the new changes.
+
+### Panel return and responsive footer repair
+
+Both shipped demo variants now explicitly save and replay the caller's reserved
+rows and restore the cursor after READ submits or cancels. This includes the
+profile footer and other reserved text/colors, file positions beyond the first
+line, Unicode logical columns, and entry from prefix/command areas.
+PRESERVE/RESTORE's existing settings contract is unchanged: it does not save
+reserved rows or the cursor. These examples now demonstrate the required
+explicit cleanup instead of relying on that assumption.
+
+The browser renders function-key guide rows in a wrapping footer. All eight
+stock hints, including F10 and Esc, fit at 455 pixels; the file area resizes as
+the guide wraps. Other reserved rows retain their editor placement, and the
+external guide is hidden during a macro panel. Page navigation now closes the
+controlling WebSocket, cancelling an active READ; browser Back reconnects.
+This closes a retained-connection failure exposed by testing the full stock
+cREXX profile, rather than the previous minimal panel-test profile.
+
+Local focused verification passes all six tests: both default profiles, real
+curses panel input with both engines, both rendered Chromium panel suites and
+the rendered editor/resizing suite. Panel checks submit, cancel and navigate
+away/back, assert restored focus/footer, then type and save exact expected file
+bytes without a corrective CURSOR command. Semantic checks also retain a
+custom colored reserved row and exercise Unicode/prefix/command entry.
+A visible IAB walkthrough at 455 pixels confirmed the complete wrapping guide
+and line 2/column 3 caret after cancellation. Generated profile, TypeScript and
+whitespace checks pass. The expanded stock-profile browser test allows 30
+seconds for initial page startup under parallel compilation/test load.
+The final full macOS run passes **78/78 registered tests**, none skipped or
+failed; the Windows-only native-console-mode test is not registered on macOS.
+
+These changes require a new exact-revision Windows retest before tagging or
+signing. Adrian's own physical Windows test still gates any Shmuel handoff.
 
 The optional F8/F9 compile/run helpers retain their prior unresolved reports
 and are unbound in the stock profile. This matrix does not claim they were

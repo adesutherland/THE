@@ -91,6 +91,33 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
     expect_focus('command cursor goto 3 1\nkey f4\nkey f6\nkey f6','filearea',3,0)
     assert navigation.read_bytes()==original_bytes,navigation.read_bytes()
 
+    # A panel is temporary UI: preserve the caller's footer, custom rows and
+    # exact caret, then type/save directly without a corrective CURSOR command.
+    demo = 'paneldemo_regina' if engine == 'REGINA' else 'paneldemo'
+    setup = 'command set reserved 4 yellow on blue Caller row\ncommand cursor goto 3 3\n'
+    baseline,_ = run(setup+'look full compact',navigation)
+    baseline = next(r for r in reversed(baseline) if 'screen_rows' in r)
+    reserved = lambda s: [(r['r'],r['t']) for r in s['screen_rows'] if r['role']=='reserved']
+    for action in ['enter','esc']:
+        navigation.write_bytes(original_bytes)
+        commands = setup+'command macro '+demo+'\nkey '+action
+        records,_ = run(commands+'\nlook full compact',navigation)
+        restored = next(r for r in reversed(records) if 'screen_rows' in r)
+        assert restored['focus']==baseline['focus'],(engine,action,restored['focus'],baseline['focus'])
+        assert reserved(restored)==reserved(baseline),(engine,action,reserved(restored))
+        assert navigation.read_bytes()==original_bytes
+        run(commands+'\ntext Z\nkey ctrl-s',navigation)
+        assert navigation.read_text(encoding='utf-8')=='α界e\u0301\n\nseZcond\n'
+    navigation.write_bytes(original_bytes)
+    for position in ['command cursor goto 1 4',
+                     'command cursor goto 3 3\ncommand cursor prefix',
+                     'command cursor goto 3 3\ncommand cursor cmdline']:
+        before,_ = run(position+'\nlook full compact',navigation)
+        after,_ = run(position+'\ncommand macro '+demo+'\nkey esc\nlook full compact',navigation)
+        before = next(r for r in reversed(before) if 'screen_rows' in r)
+        after = next(r for r in reversed(after) if 'screen_rows' in r)
+        assert after['focus']==before['focus'],(engine,position,before['focus'],after['focus'])
+
     # Tab inserts ordinary spaces and uses logical cells rather than UTF-8 bytes.
     for name, original, column, expected in [
         ('ascii', 'alpha', 1, '        alpha'),
