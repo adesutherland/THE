@@ -17,6 +17,8 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
     sample = root/'sample.txt'
     sample.write_text('alpha\nfindme\n',encoding='utf-8')
     env = dict(os.environ,THE_REXX_INTERPRETER=engine)
+    if engine == 'CREXX':
+        env['THE_CREXX_CACHE_DIR'] = str(root/'macro-cache')
     if os.name == 'nt':
         system=Path(env.get('SystemRoot') or env['SYSTEMROOT'])
         env['PATH']=str(system/'System32')+os.pathsep+str(system)
@@ -101,7 +103,8 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
     for action in ['enter','esc']:
         navigation.write_bytes(original_bytes)
         commands = setup+'command macro '+demo+'\nkey '+action
-        records,_ = run(commands+'\nlook full compact',navigation)
+        records,errors = run(commands+'\nlook full compact',navigation)
+        assert '#NOT_IN_SAME_SCOPE' not in errors,errors
         restored = next(r for r in reversed(records) if 'screen_rows' in r)
         assert restored['focus']==baseline['focus'],(engine,action,restored['focus'],baseline['focus'])
         assert reserved(restored)==reserved(baseline),(engine,action,reserved(restored))

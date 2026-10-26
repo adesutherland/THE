@@ -14,8 +14,8 @@ main: procedure
   address the 'extract /reserved */' sandbox pool;
   reservedcount = pool.get('reserved.0') as .int
   savedreserved = .string[]
-  do index = 1 to reservedcount
-    savedreserved[index] = pool.get('reserved.' || index)
+  do saveindex = 1 to reservedcount
+    savedreserved[saveindex] = pool.get('reserved.' || saveindex)
   end
   address the 'preserve';
   address the 'set linend off';

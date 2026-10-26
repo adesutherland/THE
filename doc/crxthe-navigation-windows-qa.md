@@ -1,6 +1,7 @@
 # Navigation and Windows first use — 26 October 2026
 
-Last Windows-qualified candidate: `90fa7fd502b0472dc146ef69f62834b83687b44f`.
+Last Windows-qualified candidate before the panel repair:
+`90fa7fd502b0472dc146ef69f62834b83687b44f`.
 Windows CI passes **66 tests, with 13 skipped and none failed**; the exact
 artifact also passes both engines' workstation native keyboard/panel/save
 checks. Final workstation qualification is recorded below: automated installer
@@ -339,6 +340,31 @@ failed; the Windows-only native-console-mode test is not registered on macOS.
 
 These changes require a new exact-revision Windows retest before tagging or
 signing. Adrian's own physical Windows test still gates any Shmuel handoff.
+
+### Windows panel-repair checkpoint and first-compile cleanup
+
+Revision `b53f84e83ba741d8bb7feb582db507308bde4c2d` passes
+[Windows run 40382624948](https://github.com/adesutherland/THE/actions/runs/40382624948):
+66 executed passes, 13 skipped, none failed, plus installed lifecycle checks.
+All 155 payload hashes match its clean exact-source manifest. All 13 workstation
+suites pass. Both engines' native submit/cancel restores the footer/caret,
+followed by immediate typing and Ctrl-S without cursor correction. Visible
+browser Enter, Cancel and navigation away/Back also pass that check; all eight
+guide hints fit at 455 pixels. The fixed-column panel itself can require
+horizontal scrolling in a narrow window; this is separate from the wrapping
+editor guide. The local installer lifecycle passes, and all 1,542 protected
+baseline file hashes, environment, registry and shortcuts match after cleanup.
+No new visible physical Finish-page pass or legacy in-place upgrade is claimed.
+
+That retest found one nonfatal cold-compile warning at `paneldemo.the` line 31:
+`#NOT_IN_SAME_SCOPE` for `index`, also used by the new saved-reserved loop.
+The final cleanup names that loop `saveindex`; panel control flow is unchanged.
+Default-profile regression now uses a private empty cREXX cache and rejects
+this warning on panel return. The cold Mac compile is warning-free and direct
+typing/save succeeds. The final variant requires matching Windows artifact
+verification and focused cold-compile/native/browser checks before tagging.
+The complete `b53f84e` Windows report is retained under
+`C:\Users\adria\CRXTHE-windows-qa\b53f84e\QA-report.txt`.
 
 The optional F8/F9 compile/run helpers retain their prior unresolved reports
 and are unbound in the stock profile. This matrix does not claim they were
