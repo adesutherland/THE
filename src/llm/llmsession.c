@@ -334,28 +334,34 @@ static void print_ack_pending_prefix(void)
 
 static void print_ack_runtime_snapshot(void)
 {
-   LlmDriverScreenView view;
+   LlmDriverScreenView *view = (LlmDriverScreenView *)malloc(sizeof(*view));
 
-   if (!llm_runtime_screen_view(current_screen, &view))
+   if (view == NULL)
       return;
+   if (!llm_runtime_screen_view(current_screen, view))
+   {
+      free(view);
+      return;
+   }
    fputs(",\"focus\":{\"zone\":", stdout);
-   print_json_string(logical_cursor_zone_name(view.cursor.zone));
+   print_json_string(logical_cursor_zone_name(view->cursor.zone));
    printf(",\"line\":%ld,\"row\":%d,\"cell\":%d}",
-          (long)view.cursor.line_number,
-          view.cursor.zone_row,
-          view.cursor.text.cell_column);
-   if (view.buffer_valid)
+          (long)view->cursor.line_number,
+          view->cursor.zone_row,
+          view->cursor.text.cell_column);
+   if (view->buffer_valid)
    {
       fputs(",\"buffer\":{\"path\":", stdout);
-      print_json_string(view.buffer_path);
+      print_json_string(view->buffer_path);
       printf(",\"dirty\":%d,\"lines\":%zu}",
-             view.buffer_dirty, view.buffer_line_count);
+             view->buffer_dirty, view->buffer_line_count);
    }
    printf(",\"selection\":{\"active\":%d,\"start_line\":%ld,"
           "\"start_cell\":%d,\"end_line\":%ld,\"end_cell\":%d}",
-          view.selection.active, (long)view.selection.start_line,
-          view.selection.start_cell, (long)view.selection.end_line,
-          view.selection.end_cell);
+          view->selection.active, (long)view->selection.start_line,
+          view->selection.start_cell, (long)view->selection.end_line,
+          view->selection.end_cell);
+   free(view);
    print_ack_pending_prefix();
 }
 
@@ -589,23 +595,32 @@ static void print_view(char *args, int delta)
 {
    static char out[262144];
    LlmDriverFormatOptions options;
-   LlmDriverScreenView view;
+   LlmDriverScreenView *view = (LlmDriverScreenView *)malloc(sizeof(*view));
 
+   /* A screen view is several MiB. Keep it off the native call stack,
+    * including when optimized acknowledgement helpers are inlined. */
+   if (view == NULL)
+   {
+      print_ack(0, RC_OUT_OF_MEMORY, "snapshot allocation failed");
+      return;
+   }
    parse_view_options(args, &options);
    llm_session_refresh();
-   if (!llm_runtime_screen_view(current_screen, &view))
+   if (!llm_runtime_screen_view(current_screen, view))
    {
+      free(view);
       print_ack(0, RC_INVALID_ENVIRON, "snapshot unavailable");
       return;
    }
    if (delta && previous_view_valid)
-      llm_driver_format_delta_view(&previous_view, &view, &options, out,
+      llm_driver_format_delta_view(&previous_view, view, &options, out,
                                    sizeof(out));
    else
-      llm_driver_format_semantic_view_with_options(&view, &options, out,
+      llm_driver_format_semantic_view_with_options(view, &options, out,
                                                    sizeof(out));
-   previous_view = view;
+   previous_view = *view;
    previous_view_valid = 1;
+   free(view);
    fputs(out, stdout);
    fflush(stdout);
 }

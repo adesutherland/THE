@@ -1082,6 +1082,12 @@ if(THE_PYTHON_EXECUTABLE)
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sign_windows_release.py)
     add_test(NAME test_sign_macos_release COMMAND ${THE_PYTHON_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sign_macos_release.py)
+    if(NOT WIN32)
+        add_test(NAME test_llm_stack_budget COMMAND ${THE_PYTHON_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_llm_stack_budget.py $<TARGET_FILE:the>)
+        set_tests_properties(test_llm_stack_budget PROPERTIES TIMEOUT 45
+            ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    endif()
 endif()
 if(THE_PYTHON_EXECUTABLE)
     foreach(profile_engine CREXX REGINA)
