@@ -1,0 +1,44 @@
+name: WebAssembly browser preview
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned Emscripten
+        run: |
+          git clone --branch 6.0.13 --depth 1 https://github.com/emscripten-core/emsdk.git build/toolchains/emsdk
+          build/toolchains/emsdk/emsdk install 6.0.13
+          build/toolchains/emsdk/emsdk activate 6.0.13
+      - name: Build static browser bundle
+        run: |
+          source build/toolchains/emsdk/emsdk_env.sh
+          emcmake cmake -S . -B build-wasm -G Ninja -DCMAKE_BUILD_TYPE=Release -DTHE_BUILD_WASM=ON
+          cmake --build build-wasm --parallel 4
+          node web/test/wasm-core-smoke.mjs build-wasm
+      - name: Qualify browser persistence and failure behavior
+        run: |
+          python3 -m http.server 8766 --bind 127.0.0.1 --directory build-wasm/site > build-wasm/http.log 2>&1 &
+          server=$!
+          trap 'kill "$server"' EXIT
+          export THE_WEB_URL=http://127.0.0.1:8766
+          export CHROMIUM_BIN="$(command -v google-chrome)"
+          node web/test/wasm-browser-smoke.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CRXTHE-0.10.dev-wasm-preview
+          path: build-wasm/site/
+          if-no-files-found: error

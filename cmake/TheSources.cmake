@@ -1,0 +1,79 @@
+set(THE_SOURCES
+    src/box.c
+    src/colour.c
+    src/thecolour.c
+    src/column.c
+    src/comm1.c
+    src/comm2.c
+    src/comm3.c
+    src/comm4.c
+    src/comm5.c
+    src/commset1.c
+    src/commset2.c
+    src/commsos.c
+    src/commutil.c
+    src/crexx.c
+    src/cursor.c
+    src/default.c
+    src/directry.c
+    src/driverlayout.c
+    src/edit.c
+    src/error.c
+    src/execute.c
+    src/file.c
+    src/frontendaction.c
+    src/frontendpolicy.c
+    src/thematch.c
+    src/inputevent.c
+    src/inputdispatch.c
+    src/linked.c
+    src/logcursor.c
+    src/llm/llmdriver.c
+    src/llm/llmruntime.c
+    src/llm/llmsession.c
+    src/mouse.c
+    src/mousehit.c
+    src/memory.c
+    src/nonansi.c
+    src/parser.c
+    src/parserdiagnostics.c
+    src/prefix.c
+    src/print.c
+    src/query.c
+    src/query1.c
+    src/query2.c
+    src/rendercell.c
+    src/regex.c
+    src/reserved.c
+    src/rexx.c
+    src/macroruntime.c
+    src/crexxcache.c
+    src/xeditcompat.c
+    src/scroll.c
+    src/screenframe.c
+    src/show.c
+    src/single.c
+    src/sort.c
+    src/target.c
+    src/the.c
+    src/thedriver.c
+    src/textedit.c
+    src/textpos.c
+    src/utfinput.c
+    src/panel.c
+    src/panelui.c
+    src/transientui.c
+    src/uidriver.c
+    src/utfcluster.c
+    src/utflayout.c
+    src/utfrepair.c
+    src/utfterm.c
+    src/mygetopt.c
+    src/trace.c
+    src/util.c
+)
+
+if(USE_UTF8)
+    list(APPEND THE_SOURCES src/contrib/utf8.c)
+endif()
+

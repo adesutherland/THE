@@ -13,7 +13,8 @@ release. CRXTHE is an independent fork based on Mark Hessling's THE 4.0.
 - [Macro panels](panels.md)
 - [LLM protocol and agent workflows](llm-driver-agent-guide.md)
 - [LLM capability inventory](llm-driver-capabilities.md)
-- [Browser frontend](web-driver-poc.md)
+- [Native browser frontend](web-driver-poc.md)
+- [WebAssembly browser preview and persistent workspace](browser-wasm.md)
 - [Source highlighting for HTML and TeX](syntax-highlighting.md)
 - [Batch Markdown example format and runner](batch-md-rexx-format.md)
 - [Private prefix-macro package boundary](private-compatibility.md)
@@ -42,6 +43,8 @@ limits; an old test receipt is not evidence that a defect has been fixed.
 [The roadmap](roadmap.md) separates planned work and outstanding qualification
 from implemented features. It contains acceptance conditions rather than a
 progress diary. Git history and CI retain change history and execution logs.
+The [WebAssembly browser implementation plan](wasm-browser-plan.md) describes
+the proposed local browser runtime and its acceptance criteria.
 
 Documentation belongs with its user task or owning component. Keep a single
 description of each contract, link to it from related guides, and update it

@@ -14,6 +14,9 @@ git diff --check
 Integration tests need Bash, ripgrep and Expect. Python drives several
 protocol, native-input and packaging checks. Optional parser and browser
 requirements are listed in their tests and the [browser test plan](web-driver-test-plan.md).
+The standalone [WebAssembly preview](browser-wasm.md) has a separate cross-build
+and real-browser persistence/failure harness; native web tests still use the
+WebSocket route.
 CTest supplies the configured interpreter, runtime, tool and resource paths;
 use it instead of assuming a system library or sibling build is selected.
 

@@ -1,3 +1,4 @@
+import { browserWasm, createEditorTransport, type EditorTransport } from "./transport";
 import { render } from "preact";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
@@ -101,6 +102,7 @@ function App() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [connection, setConnection] = useState<"connecting" | "online" | "reconnecting" | "offline">("connecting");
   const [lastError, setLastError] = useState("");
+  const [storageState, setStorageState] = useState("");
   const [command, setCommand] = useState("");
   const [commandFocused, setCommandFocused] = useState(false);
   const [actions, setActions] = useState<FrontendActionDefinition[]>([]);
@@ -109,7 +111,7 @@ function App() {
   const [pathValue, setPathValue] = useState("");
   const [explorerOpen, setExplorerOpen] = useState(false);
   const [files, setFiles] = useState<FileListMessage | null>(null);
-  const socketRef = useRef<WebSocket | null>(null);
+  const socketRef = useRef<EditorTransport | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const commandInputRef = useRef<HTMLInputElement | null>(null);
   const nextId = useRef(1);
@@ -140,7 +142,7 @@ function App() {
     const connect = () => {
       if (disposed || pageHidden) return;
       setConnection(retryAttempt === 0 ? "connecting" : "reconnecting");
-      const socket = new WebSocket(url);
+      const socket = createEditorTransport(url);
       socketRef.current = socket;
 
       socket.onopen = () => {
@@ -154,6 +156,11 @@ function App() {
       socket.onclose = () => {
         if (disposed || socketRef.current !== socket) return;
         socketRef.current = null;
+        if (browserWasm) {
+          setConnection("offline");
+          setLastError("Browser editor closed. Reload to open your workspace.");
+          return;
+        }
         retryAttempt = Math.min(retryAttempt + 1, 5);
         setConnection("reconnecting");
         setLastError("Web driver connection interrupted");
@@ -162,13 +169,20 @@ function App() {
       };
       socket.onerror = () => {
         if (!disposed && socketRef.current === socket) {
-          setLastError("Web driver connection interrupted");
+          if (browserWasm) setConnection("offline");
+          setLastError(browserWasm ? "Browser editor stopped. Reload to reopen saved files." : "Web driver connection interrupted");
         }
       };
       socket.onmessage = (event) => {
         try {
           const message = JSON.parse(String(event.data)) as Snapshot | DriverMessage;
-          if ("mode" in message && "screen_rows" in message) {
+          if ("type" in message && message.type === "storage") {
+            const storage = message as DriverMessage & { state: string };
+            setStorageState(storage.state === "error" ? storage.message ?? "Storage error" : storage.state === "saving" ? "Saving browser workspace…" : "Saved to browser workspace");
+          } else if ("type" in message && message.type === "fatal") {
+            setConnection("offline");
+            setLastError(message.message ?? "Browser editor could not start");
+          } else if ("mode" in message && "screen_rows" in message) {
             const nextSnapshot = message as Snapshot;
             if (snapshotRef.current?.buffer?.path !== nextSnapshot.buffer?.path) lastFileFocusRef.current = null;
             if (nextSnapshot.focus.zone === "filearea") lastFileFocusRef.current = nextSnapshot.focus;
@@ -210,13 +224,21 @@ function App() {
       pageHidden = false;
       connect();
     };
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (browserWasm && snapshotRef.current?.buffers.some((buffer) => buffer.dirty)) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
     window.addEventListener("pagehide", hide);
     window.addEventListener("pageshow", show);
+    window.addEventListener("beforeunload", beforeUnload);
     connect();
     return () => {
       disposed = true;
       window.removeEventListener("pagehide", hide);
       window.removeEventListener("pageshow", show);
+      window.removeEventListener("beforeunload", beforeUnload);
       close();
     };
   }, [focusEditor]);
@@ -365,7 +387,8 @@ function App() {
         if (!event.shiftKey) requestAction("edit.undo");
         return;
       }
-      const key = /^F([1-9]|1[0-9]|2[0-4])$/.test(event.key) ? event.key.toLowerCase() : event.shiftKey && event.key === "Tab" ? "backtab" : keyNames[event.key];
+      let key = /^F([1-9]|1[0-9]|2[0-4])$/.test(event.key) ? event.key.toLowerCase() : event.shiftKey && event.key === "Tab" ? "backtab" : keyNames[event.key];
+      if (event.shiftKey && key && ["left", "right", "up", "down", "home", "end"].includes(key)) key = `shift-${key}`;
       if (key) {
         event.preventDefault();
         send({ type: "key", key });
@@ -637,6 +660,7 @@ function App() {
         </form> : null}
         <div class="status-line">
           <span class="status-text">{lastError || snapshot?.status || "Waiting for CRXTHE"}</span>
+          {browserWasm ? <span class="workspace-storage" role="status">{storageState}</span> : null}
           <span>{snapshot?.focus.zone ?? "-"}</span>
           <span>{snapshot?.focus.line ?? 0}:{(snapshot?.focus.cell ?? 0) + 1}</span>
           <span>{snapshot?.buffer?.dirty ? "Modified" : "Saved"}</span>

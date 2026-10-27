@@ -7,6 +7,12 @@ set(THE_PRODUCT_NAME "CRXTHE")
 set(THE_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.dev")
 set(THE_VERSION_DATE "27-Oct-2026")
 
+option(THE_BUILD_WASM "Build the standalone browser WebAssembly editor" OFF)
+if(THE_BUILD_WASM)
+    include(cmake/TheWasm.cmake)
+    return()
+endif()
+
 # --- Options ---
 option(USE_WIDE_CHAR "Enable wide character support" ON)
 option(USE_UTF8 "Enable UTF-8 support" ON)
@@ -426,84 +432,7 @@ if(THE_USE_REGINA)
 endif()
 
 # --- Source Files ---
-set(THE_SOURCES
-    src/box.c
-    src/colour.c
-    src/thecolour.c
-    src/column.c
-    src/comm1.c
-    src/comm2.c
-    src/comm3.c
-    src/comm4.c
-    src/comm5.c
-    src/commset1.c
-    src/commset2.c
-    src/commsos.c
-    src/commutil.c
-    src/crexx.c
-    src/cursor.c
-    src/default.c
-    src/directry.c
-    src/driverlayout.c
-    src/edit.c
-    src/error.c
-    src/execute.c
-    src/file.c
-    src/frontendaction.c
-    src/frontendpolicy.c
-    src/thematch.c
-    src/inputevent.c
-    src/inputdispatch.c
-    src/linked.c
-    src/logcursor.c
-    src/llm/llmdriver.c
-    src/llm/llmruntime.c
-    src/llm/llmsession.c
-    src/mouse.c
-    src/mousehit.c
-    src/memory.c
-    src/nonansi.c
-    src/parser.c
-    src/parserdiagnostics.c
-    src/prefix.c
-    src/print.c
-    src/query.c
-    src/query1.c
-    src/query2.c
-    src/rendercell.c
-    src/regex.c
-    src/reserved.c
-    src/rexx.c
-    src/macroruntime.c
-    src/crexxcache.c
-    src/xeditcompat.c
-    src/scroll.c
-    src/screenframe.c
-    src/show.c
-    src/single.c
-    src/sort.c
-    src/target.c
-    src/the.c
-    src/thedriver.c
-    src/textedit.c
-    src/textpos.c
-    src/utfinput.c
-    src/panel.c
-    src/panelui.c
-    src/transientui.c
-    src/uidriver.c
-    src/utfcluster.c
-    src/utflayout.c
-    src/utfrepair.c
-    src/utfterm.c
-    src/mygetopt.c
-    src/trace.c
-    src/util.c
-)
-
-if(USE_UTF8)
-    list(APPEND THE_SOURCES src/contrib/utf8.c)
-endif()
+include(cmake/TheSources.cmake)
 
 # --- Executable ---
 set(EXECUTABLE_NAME "the")
@@ -602,6 +531,7 @@ if(USE_WEB_DRIVER)
 
     add_library(the_driver_web MODULE
         src/drivers/web/webdriver.c
+        src/websession.c
         src/drivers/llm/headlessdriver.c
         ${mongoose_SOURCE_DIR}/mongoose.c
     )

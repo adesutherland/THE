@@ -29,6 +29,11 @@
 # define THE_DRIVER_INSTALL_DIR ""
 #endif
 
+#ifdef THE_DRIVER_ENABLE_WEB
+extern const TheDriverOps *the_wasm_driver_operations(void);
+extern const TheDriverModuleLifecycle the_wasm_driver_lifecycle;
+#endif
+
 #ifdef THE_DRIVER_ENABLE_CURSES
 extern const TheDriverOps the_curses_driver_ops;
 extern const TheDriverModuleLifecycle the_curses_driver_lifecycle;
@@ -302,6 +307,16 @@ static int try_load_from_env(const char *name, char *error, size_t error_len)
 
 static int select_static_driver(const char *name)
 {
+#ifdef THE_DRIVER_ENABLE_WEB
+   if (strcmp(name, "web") == 0)
+   {
+      the_driver_select(the_wasm_driver_operations());
+      current_lifecycle = &the_wasm_driver_lifecycle;
+      current_lifecycle_started = 0;
+      snprintf(current_driver_name, sizeof(current_driver_name), "%s", name);
+      return 1;
+   }
+#endif
 #ifdef THE_DRIVER_ENABLE_CURSES
    if (strcmp(name, "curses") == 0)
    {

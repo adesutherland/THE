@@ -1385,6 +1385,19 @@ short save_file(FILE_DETAILS *cf,CHARTYPE *new_fname,bool force,LINETYPE in_line
    if (write_fname != (CHARTYPE *)NULL)
       (*the_free)(write_fname);
 
+#ifdef THE_WASM
+   /* Browser storage is asynchronous. Do not acknowledge a save, close the
+    * buffer or clear its alteration counters until durable sync succeeds. */
+   if (rc == RC_OK)
+   {
+      extern int the_wasm_flush_workspace(void);
+      if (the_wasm_flush_workspace() != 0)
+      {
+         display_error(0, (CHARTYPE *)"Browser storage save failed; buffer remains unsaved", FALSE);
+         rc = RC_DISK_FULL;
+      }
+   }
+#endif
    TRACE_RETURN();
    return(rc);
 }

@@ -1,5 +1,10 @@
 #include <stdarg.h>
 
+#ifdef __EMSCRIPTEN__
+#include <stdint.h>
+typedef uint32_t u_int32_t;
+#endif
+
 #ifdef WIN32
 typedef unsigned int u_int32_t;
 # define snprintf _snprintf

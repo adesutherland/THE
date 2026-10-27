@@ -34,6 +34,7 @@ $Id: the.h,v 1.97 2022/12/27 02:43:49 mark Exp $
 */
 
 #include "thedefs.h"
+#include <stdio.h>
 #ifdef USE_SDSLH
 #include "dslsyntax_common.h"
 #include "dslsyntax_editor.h"

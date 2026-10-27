@@ -1,0 +1,98 @@
+if(NOT EMSCRIPTEN)
+    message(FATAL_ERROR "Use emcmake cmake with -DTHE_BUILD_WASM=ON")
+endif()
+if(NOT EMSCRIPTEN_VERSION VERSION_EQUAL "6.0.13")
+    message(FATAL_ERROR "The browser build is pinned to Emscripten 6.0.13; found ${EMSCRIPTEN_VERSION}")
+endif()
+
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+add_compile_definitions(_GNU_SOURCE=1)
+set(USE_UTF8 ON)
+set(USE_UTF8PROC ON)
+set(UNIX 1)
+set(STDC_HEADERS 1)
+foreach(feature HAVE_STDLIB_H HAVE_STDINT_H HAVE_STRING_H HAVE_MEMORY_H
+        HAVE_STRINGS_H HAVE_UNISTD_H HAVE_ERRNO_H HAVE_CTYPE_H HAVE_WCTYPE_H
+        HAVE_SYS_TYPES_H HAVE_SYS_STAT_H HAVE_SYS_TIME_H HAVE_SYS_WAIT_H
+        HAVE_TIME_H HAVE_LOCALE_H HAVE_STDARG_H HAVE_INTTYPES_H HAVE_SELECT_H HAVE_SYS_SELECT_H HAVE_FCNTL_H HAVE_LIMITS_H
+        HAVE_DIRENT_H HAVE_SIGNAL_H HAVE_SETLOCALE HAVE_REALPATH
+        HAVE_STRCASECMP HAVE_READLINK HAVE_SELECT HAVE_GETCWD HAVE_SNPRINTF
+        HAVE_VSNPRINTF HAVE_MKSTEMP HAVE_RENAME HAVE_LSTAT TIME_WITH_SYS_TIME)
+    set(${feature} 1)
+endforeach()
+configure_file("${CMAKE_SOURCE_DIR}/config.h.in" "${CMAKE_BINARY_DIR}/config.h")
+add_compile_definitions(HAVE_CONFIG_H USE_UTF8 USE_WIDE_CHAR USE_UTF8PROC=1
+    NOREXX=1 THE_WASM=1 THE_DRIVER_ENABLE_WEB=1
+    THE_HEADLESS_DRIVER_NO_MODULE_EXPORTS=1
+    THE_DEFAULT_REXX_INTERPRETER="NONE"
+    THE_PRODUCT_NAME="${THE_PRODUCT_NAME}" THE_VERSION="${THE_VERSION}"
+    THE_VERSION_DATE="${THE_VERSION_DATE}" THE_VARIANT="wasm"
+    THE_PLATFORM_NAME="wasm" THE_SYSTEM_PROFILE_NAME="system-wasm.the"
+    THE_SYSTEM_PROFILE_DIR="/app" CAN_RESIZE=1 BUILD3001=1)
+include_directories("${CMAKE_BINARY_DIR}" "${CMAKE_SOURCE_DIR}/src"
+    "${CMAKE_SOURCE_DIR}/src/llm" "${CMAKE_SOURCE_DIR}/src/drivers/llm"
+    "${CMAKE_SOURCE_DIR}/src/contrib")
+
+include(FetchContent)
+set(UTF8PROC_INSTALL OFF CACHE BOOL "" FORCE)
+set(UTF8PROC_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(utf8proc
+    GIT_REPOSITORY https://github.com/JuliaStrings/utf8proc.git
+    GIT_TAG e5e799221b45bbb90f5fdc5c69b6b8dfbf017e78)
+FetchContent_MakeAvailable(utf8proc)
+include("${CMAKE_SOURCE_DIR}/cmake/TheSources.cmake")
+
+find_program(THE_WASM_PYTHON NAMES python3 REQUIRED)
+find_program(THE_WASM_NPM NAMES npm REQUIRED)
+set(THE_WASM_RESOURCES "${CMAKE_BINARY_DIR}/resources")
+file(GLOB THE_WASM_SYNTAX CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/syntax/*")
+set(THE_WASM_RESOURCE_STAMP "${CMAKE_BINARY_DIR}/resources.stamp")
+add_custom_command(OUTPUT "${THE_WASM_RESOURCE_STAMP}"
+    COMMAND "${THE_WASM_PYTHON}"
+        "${CMAKE_SOURCE_DIR}/scripts/prepare-wasm-resources.py" "${THE_WASM_RESOURCES}"
+    COMMAND "${CMAKE_COMMAND}" -E touch "${THE_WASM_RESOURCE_STAMP}"
+    DEPENDS scripts/prepare-wasm-resources.py profiles/default-profile.json
+        doc/THE_Help.txt ${THE_WASM_SYNTAX}
+    VERBATIM)
+add_custom_target(the_wasm_resources DEPENDS "${THE_WASM_RESOURCE_STAMP}")
+
+add_executable(crxthe_wasm ${THE_SOURCES}
+    src/websession.c src/drivers/llm/headlessdriver.c
+    src/drivers/wasm/wasmdriver.c)
+target_link_libraries(crxthe_wasm PRIVATE utf8proc)
+add_dependencies(crxthe_wasm the_wasm_resources)
+set_property(TARGET crxthe_wasm APPEND PROPERTY LINK_DEPENDS "${THE_WASM_RESOURCE_STAMP}")
+set_target_properties(crxthe_wasm PROPERTIES SUFFIX ".mjs")
+target_link_options(crxthe_wasm PRIVATE
+    -sASYNCIFY=1 -sASYNCIFY_STACK_SIZE=1048576 -sSTACK_SIZE=1048576
+    -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=67108864
+    -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=worker,node
+    "-sEXPORTED_FUNCTIONS=['_main','_the_wasm_main','_setenv','_malloc','_free']"
+    "-sEXPORTED_RUNTIME_METHODS=['ccall','FS','IDBFS','ENV','stringToUTF8']"
+    -lidbfs.js "--preload-file=${THE_WASM_RESOURCES}@/app")
+
+set(THE_WASM_SITE "${CMAKE_BINARY_DIR}/site")
+file(GLOB_RECURSE THE_WASM_WEB_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/web/src/*")
+add_custom_command(OUTPUT "${THE_WASM_SITE}/.build-stamp"
+    COMMAND "${THE_WASM_NPM}" ci
+    COMMAND "${THE_WASM_NPM}" exec tsc -- --noEmit
+    COMMAND "${CMAKE_COMMAND}" -E env THE_WEB_BACKEND=wasm
+        "${THE_WASM_NPM}" run build -- --outDir "${THE_WASM_SITE}" --emptyOutDir
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${THE_WASM_SITE}/wasm"
+    COMMAND "${CMAKE_COMMAND}" -E copy
+        "$<TARGET_FILE:crxthe_wasm>" "${CMAKE_BINARY_DIR}/crxthe_wasm.wasm"
+        "${CMAKE_BINARY_DIR}/crxthe_wasm.data" "${THE_WASM_SITE}/wasm"
+    COMMAND "${CMAKE_COMMAND}" -E touch "${THE_WASM_SITE}/.build-stamp"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/web"
+    DEPENDS crxthe_wasm ${THE_WASM_WEB_SOURCES}
+        "${CMAKE_SOURCE_DIR}/web/vite.config.ts"
+        "${CMAKE_SOURCE_DIR}/web/index.html" "${CMAKE_SOURCE_DIR}/web/tsconfig.json"
+        "${CMAKE_SOURCE_DIR}/web/package.json" "${CMAKE_SOURCE_DIR}/web/package-lock.json"
+    VERBATIM)
+add_custom_target(the_wasm_bundle ALL DEPENDS "${THE_WASM_SITE}/.build-stamp"
+    COMMAND "${THE_WASM_PYTHON}" "${CMAKE_SOURCE_DIR}/scripts/package-wasm-site.py"
+        "${THE_WASM_SITE}" "${utf8proc_SOURCE_DIR}/LICENSE.md"
+        "${EMSCRIPTEN_ROOT_PATH}/LICENSE" "${THE_VERSION}" "${EMSCRIPTEN_VERSION}"
+    VERBATIM)

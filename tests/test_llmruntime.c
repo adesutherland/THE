@@ -18,6 +18,15 @@ LENGTHTYPE cmd_rec_len = 0;
 LENGTHTYPE cmd_verify_col = 1;
 CHARTYPE *pre_rec = NULL;
 LENGTHTYPE pre_rec_len = 0;
+CHARTYPE *rec = NULL;
+LENGTHTYPE rec_len = 0;
+/* The metadata tests supply a tiny line-list fixture instead of the editor. */
+LINE *lll_find(LINE *first, LINE *last, LINETYPE number, LINETYPE count)
+{
+   (void)last; (void)count;
+   while (first != NULL && number-- > 0) first = first->next;
+   return first;
+}
 void *(*the_malloc)(size_t) = malloc;
 void *(*the_realloc)(void *, size_t) = realloc;
 void (*the_free)(void *) = free;
@@ -112,6 +121,35 @@ static void setup_screen(void)
    current_screen = 0;
    pre_rec = NULL;
    pre_rec_len = 0;
+   rec = NULL;
+   rec_len = 0;
+}
+
+static void test_pending_record_is_unsaved(void)
+{
+   LlmDriverScreenView frame;
+   LINE top, line;
+   setup_screen();
+   memset(&top, 0, sizeof(top));
+   memset(&line, 0, sizeof(line));
+   top.next = &line;
+   line.line = (CHARTYPE *)"saved";
+   line.length = 5;
+   vd_current->file_for_view->first_line = &top;
+   vd_current->file_for_view->last_line = &line;
+   vd_current->file_for_view->save_alt = 0;
+   vd_current->focus_line = 1;
+   rec = (CHARTYPE *)"typed";
+   rec_len = 5;
+   llm_runtime_screen_view(0, &frame);
+   expect_int("pending record dirty", frame.buffer_dirty, 1);
+   expect_int("pending record ring dirty", frame.buffers[0].dirty, 1);
+   rec = (CHARTYPE *)"saved";
+   llm_runtime_screen_view(0, &frame);
+   expect_int("unchanged record clean", frame.buffer_dirty, 0);
+   rec_len = 0;
+   llm_runtime_screen_view(0, &frame);
+   expect_int("empty pending record dirty", frame.buffer_dirty, 1);
 }
 
 static void test_runtime_view(void)
@@ -238,6 +276,7 @@ static void test_panel_cursor_bounds(void)
 int main(void)
 {
    test_runtime_view();
+   test_pending_record_is_unsaved();
    test_compact_filearea_runtime_format();
    test_command_focus_survives_filearea_frame();
    test_active_prefix_overlays_visible_prefix();

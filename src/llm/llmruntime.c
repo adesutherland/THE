@@ -8,6 +8,7 @@
 #include "panelui.h"
 #include "parserdiagnostics.h"
 #include "the.h"
+#include "proto.h"
 #include "vars.h"
 
 static void llm_runtime_visible_command(char *out, size_t out_len)
@@ -75,6 +76,21 @@ static void llm_runtime_file_path(const FILE_DETAILS *file,
       snprintf(out, out_len, "%s", (const char *)file->fname);
 }
 
+static int llm_runtime_buffer_dirty(const FILE_DETAILS *file)
+{
+   LINE *line;
+   if (file->save_alt != 0) return 1;
+   /* Typing updates the active core record before post_process_line commits
+    * it to the file's line list. Include that record in unsaved-state reports. */
+   if (CURRENT_VIEW == NULL || CURRENT_FILE != file || rec == NULL
+   || CURRENT_VIEW->focus_line < 1
+   || CURRENT_VIEW->focus_line > file->number_lines) return 0;
+   line = lll_find(file->first_line, file->last_line,
+                   CURRENT_VIEW->focus_line, file->number_lines);
+   return line != NULL && (rec_len != line->length
+       || memcmp(rec, line->line, line->length) != 0);
+}
+
 static void llm_runtime_buffer_metadata(LlmDriverScreenView *view)
 {
    VIEW_DETAILS *vd;
@@ -86,7 +102,7 @@ static void llm_runtime_buffer_metadata(LlmDriverScreenView *view)
    {
       llm_runtime_file_path(CURRENT_FILE, path, sizeof(path));
       llm_driver_screen_view_set_buffer(view, path,
-                                        CURRENT_FILE->save_alt != 0,
+                                        llm_runtime_buffer_dirty(CURRENT_FILE),
                                         (size_t)CURRENT_FILE->number_lines);
    }
    for (vd = vd_first; vd != NULL; vd = vd->next)
@@ -97,7 +113,7 @@ static void llm_runtime_buffer_metadata(LlmDriverScreenView *view)
          continue;
       llm_runtime_file_path(file, path, sizeof(path));
       llm_driver_screen_view_add_buffer_info(view, path,
-                                             file->save_alt != 0,
+                                             llm_runtime_buffer_dirty(file),
                                              (size_t)file->number_lines,
                                              vd == CURRENT_VIEW);
    }

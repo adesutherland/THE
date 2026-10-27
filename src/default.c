@@ -700,11 +700,13 @@ short get_startup_profiles(void)
    TRACE_FUNCTION("default.c: get_startup_profiles");
    /* Shipped profiles are Rexx programs. An unavailable engine must not cause
     * their contents to be interpreted as editor or operating-system commands. */
+#ifndef THE_WASM
    if (!rexx_support)
    {
       TRACE_RETURN();
       return RC_OK;
    }
+#endif
    if (system_prf != (CHARTYPE *)NULL)
    {
       rc = get_profile(system_prf,(CHARTYPE *)NULL);
@@ -718,6 +720,14 @@ short get_startup_profiles(void)
    if (execute_profile
    &&  local_prf != (CHARTYPE *)NULL)
       rc = get_profile(local_prf,prf_arg);
+#ifdef THE_WASM
+   /* The command-only bootstrap mirrors the normal profile's empty-file
+    * positioning until the browser gains its cREXX VM. */
+   if (CURRENT_FILE->number_lines > 0)
+      Cursor((CHARTYPE *)"goto 1 1");
+   else
+      Bottom((CHARTYPE *)"");
+#endif
    TRACE_RETURN();
    return(rc);
 }
