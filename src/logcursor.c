@@ -135,6 +135,7 @@ void logical_cursor_state_init(LogicalCursorState *state)
       return;
    state->current = logical_cursor_invalid();
    state->previous = logical_cursor_invalid();
+   state->filearea = logical_cursor_invalid();
 }
 
 void logical_cursor_state_focus(LogicalCursorState *state, LogicalCursor cursor)
@@ -143,4 +144,6 @@ void logical_cursor_state_focus(LogicalCursorState *state, LogicalCursor cursor)
       return;
    state->previous = state->current;
    state->current = cursor;
+   if (cursor.valid && cursor.zone == LOGICAL_CURSOR_ZONE_FILEAREA)
+      state->filearea = cursor;
 }

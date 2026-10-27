@@ -887,11 +887,6 @@ short extract_pending(short number_variables,short itemno,CHARTYPE *itemargs,CHA
       else
       {
          /*
-          * If we are to look for OLDNAME, find a synonym for it if one exists..
-          */
-         if (find_oldname)
-            name = find_prefix_oldname(name);
-         /*
           * For each pending prefix command...
           */
          curr_ppc = CURRENT_FILE->first_ppc;
@@ -903,6 +898,7 @@ short extract_pending(short number_variables,short itemno,CHARTYPE *itemargs,CHA
              * Ignore the pending prefix if we have already processed it
              */
             if ( curr_ppc->ppc_processed
+            ||   curr_ppc->ppc_orig_command[0] == '?'
             ||   curr_ppc->ppc_current_command )
             {
                curr_ppc = curr_ppc->next;
@@ -968,7 +964,9 @@ short extract_pending(short number_variables,short itemno,CHARTYPE *itemargs,CHA
             /*
              * We want to find a specific command...
              */
-            if ( my_stricmp( (DEFCHAR *)curr_ppc->ppc_command, (DEFCHAR *)name ) == 0 )
+            if ( my_stricmp( (DEFCHAR *)(find_oldname
+                     ? find_prefix_synonym(curr_ppc->ppc_command)
+                     : curr_ppc->ppc_command), (DEFCHAR *)name ) == 0 )
             {
                /*
                 * Are we looking for a specific BLOCK command...
@@ -3047,8 +3045,8 @@ short extract_verone_function(short number_variables,short itemno,CHARTYPE *item
 short extract_version(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   item_values[1].value = (CHARTYPE *)"THE";
-   item_values[1].len = 3;
+   item_values[1].value = (CHARTYPE *)THE_PRODUCT_NAME;
+   item_values[1].len = strlen(THE_PRODUCT_NAME);
    item_values[2].value = (CHARTYPE *)the_version;
    item_values[2].len = strlen((DEFCHAR *)the_version);
    item_values[3].value = (CHARTYPE *)"???";

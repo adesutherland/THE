@@ -1,0 +1,10 @@
+#!/bin/sh
+# Resolve the installed launcher, including /usr/local/bin symlinks.
+launcher=$0
+while [ -L "$launcher" ]; do
+  directory=$(CDPATH= cd -P -- "$(dirname -- "$launcher")" && pwd) || exit 1
+  target=$(readlink "$launcher") || exit 1
+  case $target in /*) launcher=$target ;; *) launcher=$directory/$target ;; esac
+done
+root=$(CDPATH= cd -P -- "$(dirname -- "$launcher")/.." && pwd) || exit 1
+exec "$root/libexec/the/the-launcher" "$root" "$@"

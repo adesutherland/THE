@@ -993,6 +993,9 @@ short Enter(CHARTYPE *params)
    short rc=RC_OK;
 
    TRACE_FUNCTION("comm2.c:   Enter");
+   /* XEDIT attention executes pending macros without overriding their cursor. */
+   if (compatible_feel == COMPAT_XEDIT && CURRENT_VIEW->current_window != WINDOW_COMMAND)
+      return Sos_doprefix((CHARTYPE *)"");
    switch(CURRENT_VIEW->current_window)
    {
       case WINDOW_COMMAND:
@@ -2132,7 +2135,7 @@ short Input(CHARTYPE *params)
    }
    else
    {
-      insert_new_line( current_screen, CURRENT_VIEW, params, len_params, 1L, get_true_line(TRUE),TRUE,TRUE,TRUE,CURRENT_VIEW->display_low,TRUE,FALSE);
+      rc=insert_new_line( current_screen, CURRENT_VIEW, params, len_params, 1L, get_true_line(TRUE),TRUE,TRUE,TRUE,CURRENT_VIEW->display_low,TRUE,FALSE);
    }
    TRACE_RETURN();
    return(rc);

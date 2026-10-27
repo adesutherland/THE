@@ -38,6 +38,15 @@ static void test_named_keys_and_text(void)
               the_input_event_from_key_name("F12", &input), 1);
    expect_int("key.f12.code", input.key_code, THE_KEY_F(12));
 
+   expect_int("key.backspace.parse", the_input_event_from_key_name("backspace", &input), 1);
+   expect_int("key.backspace.semantic", input.key_code, THE_KEY_BACKSPACE);
+   expect_int("key.backspace.legacy", the_input_event_to_legacy_key(&input, &key), 1);
+#if defined(_WIN32) || defined(USE_XCURSES)
+   expect_int("key.backspace.binding", key, THE_KEY_BKSP);
+#else
+   expect_int("key.backspace.binding", key, THE_KEY_BACKSPACE);
+#endif
+
    expect_int("text.x.parse",
               the_input_event_from_text('x', &input), 1);
    expect_int("text.x.kind", input.kind, THE_INPUT_TEXT);
@@ -50,6 +59,14 @@ static void test_legacy_key_normalization(void)
 {
    TheInputEvent input;
    int key = 0;
+
+   expect_int("key.ctrl-s.parse",the_input_event_from_key_name("ctrl-s",&input),1);
+   expect_int("key.ctrl-s.code",input.key_code,19);
+   expect_int("key.c-z.parse",the_input_event_from_key_name("C-Z",&input),1);
+   expect_int("key.c-z.code",input.key_code,26);
+   expect_int("key.shift-up.parse",the_input_event_from_key_name("shift-up",&input),1);
+   expect_int("key.shift-up.code",input.key_code,THE_KEY_SUP);
+   expect_int("key.bad-control",the_input_event_from_key_name("ctrl-@",&input),0);
 
    expect_int("legacy.ascii.parse",
               the_input_event_from_legacy_key('a', &input), 1);
@@ -183,8 +200,20 @@ static void test_commands_targets_debug_and_queue(void)
    expect_int("queue.pop.command.kind", popped.kind, THE_INPUT_COMMAND);
 }
 
+static void test_resize(void)
+{
+   TheInputEvent event;
+   expect_int("resize.valid", the_input_event_from_resize(50, 132, &event), 1);
+   expect_int("resize.kind", event.kind, THE_INPUT_RESIZE);
+   expect_int("resize.rows", event.rows, 50);
+   expect_int("resize.cols", event.cols, 132);
+   expect_int("resize.short", the_input_event_from_resize(0, 80, &event), 0);
+   expect_int("resize.wide", the_input_event_from_resize(24, 1001, &event), 0);
+}
+
 int main(void)
 {
+   test_resize();
    test_named_keys_and_text();
    test_legacy_key_normalization();
    test_commands_targets_debug_and_queue();

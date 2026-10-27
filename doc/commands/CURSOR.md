@@ -58,11 +58,14 @@ command is specific to THE.
 CURSOR PREFIX moves the cursor to the first column of the prefix area (if not in the prefix area), or
 to the first column of the filearea if in the prefix area . This command has no effect if run from the
 command line . This command replaces TABPRE.
-The optional Priority argument is included for compatibility with XEDIT. The value of the priority
-argument must be between 0 and 256, but otherwise it is ignored.
+In XEDIT compatibility mode, priorities range from 0 to 255. Within a macro/prefix
+pass, the highest explicit priority wins and the first request wins a tie. A request
+without PRIORITY overrides explicit priorities. File targets follow surviving lines
+through insertions; deleted targets are discarded. Native THE mode retains immediate
+cursor movement. CURSOR FILE requires a visible target; GOTO can scroll.
 
 ## Compatibility
-XEDIT: Compatible. Priority is ignored.
+XEDIT: Supports macro/prefix-pass cursor priorities.
 KEDIT: Compatible. Added GOTO and PREFIX option.
 
 ## Status

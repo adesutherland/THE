@@ -202,7 +202,7 @@ def main():
     if not re.fullmatch(r'v\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?', args.tag):
         parser.error('Use an explicit published version tag')
     release = release_tools.Release(args.repo, args.tag)
-    name = f'THE-{args.tag[1:]}-darwin-{args.arch}'
+    name = release_tools.release_stem(release, 'darwin', args.arch)
     inputs = {suffix: release_tools.asset_named(release.original, name + suffix)
               for suffix in ('.zip', '.pkg', '-SHA256SUMS.txt')}
     print(f'{args.repo}@{args.tag}: source {release.commit}, architecture {args.arch}', flush=True)

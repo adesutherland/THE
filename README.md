@@ -1,8 +1,13 @@
-# THE (The Hessling Editor) - CREXX Edition
+# CRXTHE 0.10.dev
 
-**THE** is a full-screen character-mode text editor based on the VM/CMS editor XEDIT and many features of KEDIT written by Mansfield Software.
+**CRXTHE** is an independently maintained fork based on Mark Hessling's THE 4.0, with cREXX/Regina macros, Unicode editing and separate console, LLM and browser frontends.
 
-### About this Fork (4.0.CREXX)
+Please report CRXTHE defects to [this fork's issue tracker](https://github.com/adesutherland/THE/issues). The original THE attribution and license are retained; this fork's changes are maintained here.
+
+Windows users: start with [installation and first use](doc/Windows-Readme.txt).
+Prebuilt installers include cREXX; build tools are for source development only.
+
+### About this fork
 
 This repository is a significantly modernized fork of the original [Hessling Editor (v4.0)](https://hessling-editor.sourceforge.net). 
 
@@ -16,14 +21,22 @@ Supported source platforms are macOS, Linux/POSIX, and native Windows.
 Historical DOS, OS/2, VMS, Amiga, BeOS, QNX, DJGPP/GO32, and ancient compiler
 source branches have been retired.
 
-For signing existing experimental prereleases and their native installer QA,
-see [Release signing](doc/release-signing.md).
+## Documentation
+
+Start with the [documentation index](doc/README.md) for user guides, command
+reference and developer contracts. [Known issues](doc/known-issues.md) lists
+current defects and workarounds; the [roadmap](doc/roadmap.md) lists planned work
+and outstanding qualification. These documents describe this source tree;
+installed packages retain the behavior of their own version.
+
+For signing existing experimental prereleases and native installer QA, see
+[release signing](doc/release-signing.md).
 
 ## Architecture
 For developers and contributors, a high-level overview of the editor's runtime,
 driver modules, and data structures is available in the
 [Architecture Overview](doc/architecture.md). The driver ownership contract is
-tracked in [Cursor Driver Architecture](doc/cursor-driver-architecture.md), and
+described in [Cursor Driver Architecture](doc/cursor-driver-architecture.md), and
 the browser proof of concept is described in [Web Driver POC](doc/web-driver-poc.md).
 The CREXX bridge is documented separately in [CREXX Integration](doc/crexx.md).
 Documentation authors integrating parser-backed HTML or TeX source listings
@@ -32,6 +45,14 @@ should start with the [Syntax Highlighting User Guide](doc/syntax-highlighting.m
 ---
 
 ## Building and Installing
+
+The fork supports optional runtime-loaded Regina macros alongside the
+default cREXX engine. See [interpreter setup](doc/rexx-interpreters.md) and [prebuilt packaging](doc/packaging.md).
+Shmuel's prefix macro package, all its ports and compatibility patches are held
+in a [separate private kit](doc/private-compatibility.md). They are excluded from
+new CRXTHE packages.
+The packaging recipes build local candidates; availability of a published
+installer is separate from these source changes.
 
 The project is natively supported by modern IDEs (like CLion) and easily builds via the standard CMake workflow:
 
@@ -44,16 +65,17 @@ sudo apt install bash ripgrep expect
 ```
 
 ```bash
-mkdir -p cmake-build
-cd cmake-build
-cmake ..
-make
-make install
+cmake -S . -B cmake-build
+cmake --build cmake-build --parallel
+ctest --test-dir cmake-build --output-on-failure
+cmake --install cmake-build
 ```
 
 By default, the `install` target will stage the `the` executable and the necessary configuration files (like `THE_Help.txt`, `syntax/` highlights, `profile.the`, and the optional CREXX helper profile/macros) into a standard release directory structure.
 
-On Windows, the default install prefix is `%USERPROFILE%\.local`, matching the
+The following Windows environment script is for a **development checkout**. Prebuilt installers supply their own launcher; do not apply development resource/runtime overrides to an installed release.
+
+On Windows, the default development install prefix is `%USERPROFILE%\.local`, matching the
 local CREXX and DSLSH installs. After installing, configure the current
 PowerShell session with:
 
@@ -70,7 +92,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\the-env.ps1 -Persist
 
 The script adds `%USERPROFILE%\.local\bin` to `Path` and sets THE/CREXX runtime
 variables including `THE_HOME_DIR`, `THE_DRIVER_PATH`, `CREXX_HOME`, and the
-`THE_CREXX_*` tool paths. The install target also copies the script to
+`THE_CREXX_*` tool paths. A development install (without the bundled runtime) also copies the script to
 `%USERPROFILE%\.local\bin\the-env.ps1`. Restart CLion after persisting the
 environment if it was already running.
 
@@ -128,11 +150,18 @@ cmake -S . -B cmake-build -DDSLSH_PREFER_LOCAL=OFF
 Use a branch name for easy "latest DSLSH" development. Use a tag or commit SHA
 when THE needs a reproducible DSLSH version.
 
-## Quick Tips for macOS Users
+## First launch
 
-By default, THE utilizes the `Home` key to toggle between the command line and the file editing area. However, the `Home` key behaves inconsistently across different Mac terminal emulators.
+The matched cREXX and Regina default profiles provide a top column ruler,
+line numbers, distinct prefix/pending colors, insert-mode typing, Enter to
+split a line, Shift-arrow selection and visible key hints. See the
+[first-launch guide](doc/first-launch.md).
 
-To resolve this, the included `profile.the` automatically binds **F4** and **Shift-Tab** to the `SOS PREFIX` and `SOS TABB` commands. These bindings will quickly jump your cursor into the prefix area or command line respectively.
+Use `crxthe file.txt` in a packaged installation (`crxthe.cmd` on Windows).
+The `the` launcher and `THE_*` configuration names remain compatible aliases.
+The version is **CRXTHE 0.10.dev**, a development build towards 0.10.0,
+independently numbered from upstream THE 4.0.
+Earlier 4.0 prereleases retain their own identity and behavior.
 
 ## Original Author
 

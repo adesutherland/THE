@@ -76,7 +76,7 @@ static short prefix_block_exclude (THE_PPC *,short,LINETYPE);
 static THE_PPC *find_top_ppc (THE_PPC *,short);
 static THE_PPC *find_target_ppc (void);
 static THE_PPC *calculate_target_line (void);
-static short try_rexx_prefix_macro (THE_PPC *);
+static short try_rexx_prefix_macro (THE_PPC *,short *);
 static void split_prefix_command ( CHARTYPE *, THE_PPC * );
 static short post_prefix_add (THE_PPC *,short,LINETYPE);
 /*
@@ -202,6 +202,46 @@ static CHARTYPE pending_screen;
 
 LINETYPE prefix_current_line;
 bool in_prefix_macro=FALSE;     /* indicate if processing prefix macro */
+static uint64_t prefix_generation=0;
+static uint64_t prefix_run_pass=0;
+static bool prefix_pass_active=FALSE;
+
+/* Walk the live list each time: a macro can reset, delete, or replace entries.
+ * Generations identify the original invocation even if its node is reused. */
+static THE_PPC *prefix_entry_by_generation(FILE_DETAILS *file,uint64_t generation)
+{
+   THE_PPC *entry;
+   for (entry=file->first_ppc; entry; entry=entry->next)
+      if (entry->ppc_generation == generation)
+         return entry;
+   return NULL;
+}
+
+static THE_PPC *next_prefix_in_pass(FILE_DETAILS *file,uint64_t pass,
+                                  uint64_t cutoff,bool defer_new)
+{
+   THE_PPC *entry;
+   for (entry=file->first_ppc; entry; entry=entry->next)
+   {
+      if (entry->ppc_run_pass == pass)
+         continue;
+      if (entry->ppc_generation > cutoff
+      && (defer_new || entry->ppc_orig_command[0] == '?'))
+         continue;
+      entry->ppc_run_pass = pass;
+      return entry;
+   }
+   return NULL;
+}
+
+static bool prefix_view_is_live(VIEW_DETAILS *view)
+{
+   VIEW_DETAILS *entry;
+   for (entry=vd_first; entry; entry=entry->next)
+      if (entry == view)
+         return TRUE;
+   return FALSE;
+}
 
 /***********************************************************************/
 short execute_prefix_commands(void)
@@ -216,7 +256,17 @@ short execute_prefix_commands(void)
    long target_type=TARGET_NORMAL;
    unsigned short y=0,x=0;
    int top_priority_idx=0;
-   int save_number_of_files;
+   short macro_result=0, result=RC_OK;
+   uint64_t pass, cutoff, generation;
+   bool defer_new, macro_ran=FALSE;
+
+   /* A nested SOS DOPREFIX must not execute work queued by its own macro. */
+   if (prefix_pass_active)
+      return RC_OK;
+   prefix_pass_active = TRUE;
+   xedit_cursor_begin();
+   pass = ++prefix_run_pass;
+   defer_new = compatible_feel == COMPAT_XEDIT;
    TheDriverWindowCursor entry_cursor = {0, 0, 0};
    LogicalCursor entry_logical = logical_cursor_invalid();
 
@@ -236,6 +286,7 @@ short execute_prefix_commands(void)
 
    post_process_line( PENDING_VIEW, PENDING_VIEW->focus_line, (LINE *)NULL, TRUE );
    ispf_idx = (compatible_feel==COMPAT_ISPF) ? 1 : 0;
+   cutoff = prefix_generation;
    /*
     * Do a pass, determining the cmd_idx so that target commands can be matched
     */
@@ -268,19 +319,31 @@ short execute_prefix_commands(void)
     * Validate and execute all pending prefix commands from top of file down
     */
    top_priority_idx=(-1);
-   curr_ppc = PENDING_FILE->first_ppc;
-   while( curr_ppc )
+   while ((curr_ppc = next_prefix_in_pass(PENDING_FILE, pass, cutoff, defer_new)) != NULL)
    {
       /*
        * To imitate XEDIT behaviour, ignore a prefix command if the line on which the prefix command
        * has been entered is not in scope.
        */
+      if (curr_ppc->ppc_processed)
+         continue;
+      if (curr_ppc->ppc_orig_command[0] == '?')
+      {
+         clear_pending_prefix_command(curr_ppc, PENDING_FILE, NULL);
+         continue;
+      }
       curr = lll_find( PENDING_FILE->first_line, PENDING_FILE->last_line, curr_ppc->ppc_line_number, PENDING_FILE->number_lines );
+      if (curr == NULL)
+      {
+         curr_ppc->ppc_processed = TRUE;
+         continue;
+      }
       if ( !( IN_SCOPE( PENDING_VIEW, curr )
       ||   PENDING_VIEW->scope_all
-      ||   pc[ispf_idx][curr_ppc->ppc_cmd_idx].allowed_on_shadow_line == TRUE ) )
+      ||   (curr_ppc->ppc_cmd_idx >= 0
+              && curr_ppc->ppc_cmd_idx < NUMBER_PREFIX_COMMANDS
+              && pc[ispf_idx][curr_ppc->ppc_cmd_idx].allowed_on_shadow_line == TRUE) ) )
       {
-         curr_ppc = curr_ppc->next;
          continue;
       }
       /*
@@ -289,7 +352,6 @@ short execute_prefix_commands(void)
       if ( *(curr_ppc->ppc_orig_command) == '?' )
       {
          clear_pending_prefix_command( curr_ppc, PENDING_FILE, (LINE *)NULL );
-         curr_ppc = curr_ppc->next;
          continue;
       }
       /*
@@ -297,7 +359,6 @@ short execute_prefix_commands(void)
        */
       if ( curr_ppc->ppc_processed )
       {
-         curr_ppc = curr_ppc->next;
          continue;
       }
       /*
@@ -311,12 +372,13 @@ short execute_prefix_commands(void)
        */
       if ( rexx_support )              /* if REXX support is in effect ... */
       {
-         save_number_of_files = number_of_files;
+         generation = curr_ppc->ppc_generation;
+         macro_result = 0;
          /*
           * first determine if the command is a prefix macro BEFORE looking for
           * standard prefix commands.
           */
-         rc = try_rexx_prefix_macro( curr_ppc );
+         rc = try_rexx_prefix_macro( curr_ppc, &macro_result );
          /*
           * If at this point there are no more files in the ring; we assume that
           * this was caused by exitting the last file in the ring from a prefix
@@ -324,22 +386,33 @@ short execute_prefix_commands(void)
           */
          if ( number_of_files == 0 )
          {
-            TRACE_RETURN();
-            return( RC_COMMAND_NO_FILES );
+            result = RC_COMMAND_NO_FILES;
+            goto prefix_done;
          }
-         if ( number_of_files != save_number_of_files
-         &&   PENDING_VIEW != CURRENT_VIEW )
+         if (!prefix_view_is_live(PENDING_VIEW))
          {
-            TRACE_RETURN();
-            return( RC_OK );
+            goto prefix_done;
          }
          /*
           * If it was a Rexx prefix macro, then go get the next pending command
           */
          if ( rc != RC_NOT_COMMAND )
          {
-            curr_ppc->ppc_current_command = FALSE;
-            curr_ppc = curr_ppc->next;
+            macro_ran = TRUE;
+            /* RESET, line deletion, or SET PENDING may have invalidated the
+             * invocation. Never write through its old pointer. */
+            curr_ppc = prefix_entry_by_generation(PENDING_FILE, generation);
+            if (curr_ppc)
+            {
+               curr_ppc->ppc_current_command = FALSE;
+               if (defer_new && rc == RC_OK)
+                  clear_pending_prefix_command(curr_ppc, PENDING_FILE, NULL);
+            }
+            if (defer_new && (rc != RC_OK || macro_result != 0))
+            {
+               result = rc != RC_OK ? rc : macro_result;
+               break;
+            }
             continue;
          }
       }
@@ -351,12 +424,10 @@ short execute_prefix_commands(void)
       if ( ( cmd_idx = parse_prefix_command( curr_ppc ) ) == THE_PPC_NO_TARGET )
       {
          invalidate_prefix( curr_ppc, NULL );
-         curr_ppc = curr_ppc->next;
          continue;
       }
       if ( cmd_idx == THE_PPC_NO_COMMAND )
       {
-         curr_ppc = curr_ppc->next;
          continue;
       }
       /*
@@ -368,7 +439,6 @@ short execute_prefix_commands(void)
       {
          display_error( 56, (CHARTYPE *)"", FALSE );
          invalidate_prefix( curr_ppc, NULL );
-         curr_ppc = curr_ppc->next;
          continue;
       }
       /*
@@ -389,8 +459,7 @@ short execute_prefix_commands(void)
              * "unprocessed"
             curr_ppc->ppc_processed = FALSE;
              */
-            curr_ppc = curr_ppc->next;
-            continue;
+               continue;
          }
          /*
           * If we have the second instance of a block command work out any arguments.
@@ -424,7 +493,6 @@ short execute_prefix_commands(void)
       &&   strcmp((DEFCHAR *)mult,"") != 0 )
       {
          invalidate_prefix( curr_ppc, NULL );
-         curr_ppc = curr_ppc->next;
          continue;
       }
       /*
@@ -473,7 +541,6 @@ short execute_prefix_commands(void)
       if ( rc != RC_OK )
       {
          invalidate_prefix( curr_ppc, NULL );
-         curr_ppc = curr_ppc->next;
          continue;
       }
       curr_ppc->ppc_cmd_param = long_mult;
@@ -488,6 +555,8 @@ short execute_prefix_commands(void)
          if ( rc == RC_OK )
          {
             curr_ppc->ppc_processed = TRUE;
+            if (PENDING_VIEW==CURRENT_VIEW && xedit_cursor_accept(pc[ispf_idx][cmd_idx].priority))
+               xedit_cursor_record(pc[ispf_idx][cmd_idx].priority);
          }
       }
       /*
@@ -503,7 +572,6 @@ short execute_prefix_commands(void)
                top_priority_idx = cmd_idx;
          }
       }
-      curr_ppc = curr_ppc->next;
    }
    /*
     * The "cleared" pending prefix commands now need to be deleted from
@@ -520,8 +588,11 @@ short execute_prefix_commands(void)
    curr_ppc = PENDING_FILE->first_ppc;
    while( curr_ppc )
    {
-      if ( curr_ppc->ppc_cmd_idx == (-1) /* NOT a builtin */
-      &&   !curr_ppc->ppc_set_by_pending )
+      if (curr_ppc->ppc_processed
+      || (curr_ppc->ppc_cmd_idx == (-1)
+          && !curr_ppc->ppc_set_by_pending
+          && (!defer_new || (curr_ppc->ppc_generation <= cutoff
+                            && curr_ppc->ppc_run_pass == pass))))
          curr_ppc = delete_pending_prefix_command( curr_ppc, PENDING_FILE, NULL );
       else
          curr_ppc = curr_ppc->next;
@@ -532,7 +603,11 @@ short execute_prefix_commands(void)
    if ( top_priority_idx != (-1) )
    {
       if ( pc[ispf_idx][top_priority_idx].post_function != NULL )
+      {
          rc = (*pc[ispf_idx][top_priority_idx].post_function)( curr_ppc, cmd_idx, long_mult );
+         if (rc==RC_OK && PENDING_VIEW==CURRENT_VIEW && xedit_cursor_accept(pc[ispf_idx][top_priority_idx].priority))
+            xedit_cursor_record(pc[ispf_idx][top_priority_idx].priority);
+      }
    }
 
    if ( PENDING_VIEW == CURRENT_VIEW )
@@ -540,7 +615,8 @@ short execute_prefix_commands(void)
       pre_process_line( PENDING_VIEW, PENDING_VIEW->focus_line, (LINE *)NULL );
       build_screen( pending_screen );
       display_screen( pending_screen );
-      if ( PENDING_VIEW->current_window != WINDOW_COMMAND )
+      if ( PENDING_VIEW->current_window != WINDOW_COMMAND
+      && !(defer_new && macro_ran) )
       {
          if ( entry_logical.valid
          &&  ( entry_logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
@@ -562,7 +638,8 @@ short execute_prefix_commands(void)
       pre_process_line( CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL );
       build_screen( current_screen );
       display_screen( current_screen );
-      if ( CURRENT_VIEW->current_window != WINDOW_COMMAND )
+      if ( CURRENT_VIEW->current_window != WINDOW_COMMAND
+      && !(defer_new && macro_ran) )
       {
          if ( entry_logical.valid
          &&  ( entry_logical.zone == LOGICAL_CURSOR_ZONE_FILEAREA
@@ -579,8 +656,11 @@ short execute_prefix_commands(void)
          pre_process_line( CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL );
       }
    }
+prefix_done:
+   xedit_cursor_end();
+   prefix_pass_active = FALSE;
    TRACE_RETURN();
-   return( RC_OK );
+   return result;
 }
 
 /***********************************************************************/
@@ -1373,23 +1453,34 @@ static short prefix_block_overlay(THE_PPC *curr_ppc,short cmd_idx,LINETYPE numbe
    return(rc);
 }
 /***********************************************************************/
+void mark_pending_prefix_error(THE_PPC *curr_ppc,unsigned short width)
+{
+   size_t len;
+   if (curr_ppc == NULL)
+      return;
+   width = min(width, MAX_PREFIX_WIDTH);
+   if (width == 0)
+      return;
+   if (curr_ppc->ppc_orig_command[0] != '?')
+   {
+      len = min(strlen((char *)curr_ppc->ppc_orig_command), (size_t)width-1);
+      memmove(curr_ppc->ppc_orig_command+1, curr_ppc->ppc_orig_command, len);
+      curr_ppc->ppc_orig_command[0] = '?';
+      curr_ppc->ppc_orig_command[len+1] = '\0';
+   }
+   curr_ppc->ppc_cmd_idx = THE_PPC_NO_COMMAND;
+   curr_ppc->ppc_block_command = FALSE;
+}
+
 static short invalidate_prefix(THE_PPC *curr_ppc, char *template)
 /***********************************************************************/
 {
-   short len=0;
    CHARTYPE _THE_FAR buf[MAX_PREFIX_WIDTH+150];
-
-   if ( *(curr_ppc->ppc_orig_command) != '?' )
-   {
-      len = strlen( (DEFCHAR *)curr_ppc->ppc_orig_command );
-      meminschr( curr_ppc->ppc_orig_command, '?', 0, PENDING_VIEW->prefix_width, len );
-      *(curr_ppc->ppc_orig_command+len+1) = '\0';
-   }
    /*
     * ensure that there is no chance that a 'real' prefix command can be
     * executed.
     */
-   curr_ppc->ppc_cmd_idx = THE_PPC_NO_COMMAND;
+   mark_pending_prefix_error(curr_ppc, PENDING_VIEW->prefix_width);
    /*
     * Display an error. If we supply a template use that.
     */
@@ -1417,7 +1508,8 @@ void clear_pending_prefix_command( THE_PPC *curr_ppc, FILE_DETAILS *curr_file, L
       return;
    if (curr == (LINE *)NULL)
       curr = lll_find(curr_file->first_line,curr_file->last_line,curr_ppc->ppc_line_number,curr_file->number_lines);
-   curr->pre = NULL;
+   if (curr && curr->pre == curr_ppc)
+      curr->pre = NULL;
    curr_ppc->ppc_cmd_idx = (-1);
    curr_ppc->ppc_block_command = FALSE;
    curr_ppc->ppc_shadow_line = FALSE;
@@ -1441,7 +1533,8 @@ THE_PPC *delete_pending_prefix_command(THE_PPC *curr_ppc,FILE_DETAILS *curr_file
       return(NULL);
    if (curr == (LINE *)NULL)
       curr = lll_find(curr_file->first_line,curr_file->last_line,curr_ppc->ppc_line_number,curr_file->number_lines);
-   curr->pre = NULL;
+   if (curr && curr->pre == curr_ppc)
+      curr->pre = NULL;
    return_ppc = pll_del(&(curr_file->first_ppc),&(curr_file->last_ppc),curr_ppc,DIRECTION_FORWARD);
    return(return_ppc);
 }
@@ -1529,12 +1622,14 @@ static THE_PPC *calculate_target_line(void)
    return(target_ppc);
 }
 /***********************************************************************/
-static short try_rexx_prefix_macro( THE_PPC *curr_ppc )
+static short try_rexx_prefix_macro( THE_PPC *curr_ppc,short *result )
 /***********************************************************************/
 {
    short pmacro_rc=0, errnum = 0 ;
    LINETYPE line_number=0L;
    CHARTYPE _THE_FAR pm_parms[(MAX_PREFIX_WIDTH*4)+1];
+   CHARTYPE macro_path[MAX_FILE_NAME+1];
+   CHARTYPE macro_command[MAX_FILE_NAME+(MAX_PREFIX_WIDTH*4)+8];
    short macrorc=0;
    int i;
 
@@ -1547,7 +1642,7 @@ static short try_rexx_prefix_macro( THE_PPC *curr_ppc )
       TRACE_RETURN();
       return( RC_NOT_COMMAND );
    }
-   get_valid_macro_file_name( find_prefix_synonym( curr_ppc->ppc_command ), temp_cmd, macro_suffix, &errnum );
+   get_valid_macro_file_name( find_prefix_synonym( curr_ppc->ppc_command ), macro_path, macro_suffix, &errnum );
    if (errnum == 0)
    {
       line_number = curr_ppc->ppc_line_number;
@@ -1567,14 +1662,15 @@ static short try_rexx_prefix_macro( THE_PPC *curr_ppc )
             strcat( (DEFCHAR *)pm_parms, (DEFCHAR *)curr_ppc->ppc_op[i] );
          }
       }
-      strcat( (DEFCHAR *)temp_cmd, (DEFCHAR *)pm_parms );     /* add on the parameter list */
+      snprintf((char *)macro_command,sizeof(macro_command),"\"%s\"%s",macro_path,pm_parms);
       prefix_current_line = line_number;
       in_prefix_macro = TRUE;
       /*
        * Go and execute the prefix macro.
        */
-      pmacro_rc = execute_macro( temp_cmd, TRUE, &macrorc );
+      pmacro_rc = execute_macro( macro_command, TRUE, &macrorc );
       in_prefix_macro = FALSE;
+      *result = macrorc;
    }
    else
       pmacro_rc = RC_NOT_COMMAND;
@@ -1823,6 +1919,8 @@ void add_prefix_command(CHARTYPE curr_screen,VIEW_DETAILS *curr_view,LINE *curr,
        */
      curr_ppc->ppc_set_by_pending = set_by_pending;
      curr_ppc->ppc_processed = FALSE;
+     curr_ppc->ppc_current_command = FALSE;
+     curr_ppc->ppc_generation = ++prefix_generation;
    }
 
    if ( redisplay_screen )

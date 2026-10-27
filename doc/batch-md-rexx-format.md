@@ -1,6 +1,6 @@
 # Batch Markdown REXX Example Format
 
-This is the initial source format for batch-rendered REXX examples. It is
+This is the source format for batch-rendered REXX examples. It is
 deliberately small: ordinary Markdown remains ordinary Markdown, and examples
 are marked with fenced code blocks whose info string contains stable metadata.
 
@@ -47,7 +47,7 @@ validates their metadata, and keeps every source line as raw input. Renderers
 must preserve ordinary Markdown byte-for-byte outside sections they explicitly
 generate.
 
-The Story 1 validator can be used to check format metadata and preservation:
+The metadata validator can be used to check format metadata and preservation:
 
 ```sh
 crexx -nokeep tools/batch-md-rexx/validate.crexx -args tools/batch-md-rexx/tests/fixtures/valid.md
@@ -65,9 +65,9 @@ The output should compare byte-for-byte with the input, including real trailing
 blank lines. A normal final newline is not treated as an additional empty
 record.
 
-## Highlight Prototype
+## Source highlighting
 
-Story 2 adds a prototype highlighter for a single REXX source file:
+The source highlighter processes one REXX source file:
 
 ```sh
 crexx -nokeep tools/batch-md-rexx/highlight.crexx -args \
@@ -93,7 +93,7 @@ Diagnostics are written to stderr. Exit status `0` means spans were produced,
 protocol path. Use `--fail-on-diagnostics false` to inspect spans for a source
 file that still has parser diagnostics.
 
-The product path for Story 3 is the editor extract item:
+The full-buffer span interface is the editor extract item:
 
 ```rexx
 stylespans = .string[]
@@ -136,7 +136,7 @@ HTML and TeX integration, and the reverse-proxy contract are documented in the
 
 ## Scanner and HTML Renderer
 
-Story 4 adds scanner mode:
+Scanner mode emits the document manifest:
 
 ```sh
 crexx -nokeep tools/batch-md-rexx/render-html.crexx -args --scan examples.md
@@ -165,7 +165,7 @@ inline style block does not introduce global `body` or document rules.
 
 ## TeX and PDF Output
 
-Story 10 adds TeX output from the same validated examples:
+TeX output uses the same validated examples:
 
 ```sh
 the-batch-md-rexx --format tex examples.md examples.tex
@@ -247,7 +247,7 @@ tools/batch-md-rexx/the-batch-md-rexx --pdf --pdf-engine tectonic \
   /tmp/the-rxas-toolchain-demo.pdf
 ```
 
-Story 5 adds HTML rendering:
+HTML rendering:
 
 ```sh
 crexx -nokeep tools/batch-md-rexx/render-html.crexx -args \
@@ -264,13 +264,13 @@ Markdown text, highlights REXX/CREXX/THE example source through THE
 `STYLESPANS`, and maps known styles to stable `syn-*` CSS classes. Parser
 diagnostics fail the run when `fail-on-diagnostics=true`.
 
-Story 6 executes examples when `run=true`. Standalone examples use CREXX via
+Examples execute when `run=true`. Standalone examples use CREXX via
 `--crexx`; `kind=the-macro` and `kind=address-the` run through a generated THE
 batch profile. Captured stdout and stderr are rendered below the highlighted
 source, and THE message history is included for THE-backed examples. Non-zero
 return codes fail the batch unless `allow-rc=N` or `allow-rc=*` is set.
 
-Story 7 adds validation mode:
+Validation mode:
 
 ```sh
 crexx -nokeep tools/batch-md-rexx/render-html.crexx -args \
@@ -289,7 +289,7 @@ stdout against a fixture file resolved relative to the Markdown source. On
 mismatch the renderer reports the example id, line number, expected text, and
 actual text, then exits non-zero without updating fixtures.
 
-Story 8 renders output according to the `output` attribute:
+Captured output is rendered according to the `output` attribute:
 
 - `output=text` and unknown output names render as escaped preformatted text.
 - `output=rexx`, `output=crexx`, and `output=the` highlight stdout through the
@@ -302,7 +302,7 @@ Story 8 renders output according to the `output` attribute:
   blockquotes, fenced code, simple pipe tables, paragraphs, and inline backtick
   code. Raw HTML in Markdown output is always escaped.
 
-Story 9 adds the packaged runner:
+The packaged runner:
 
 ```sh
 tools/batch-md-rexx/the-batch-md-rexx examples.md examples.html
@@ -354,6 +354,6 @@ THE macro example:
 ```the id=buffer-message run=true kind=the-macro output=text
 options levelb
 address the
-'emsg BATCH_DOC_EXAMPLE'
+'emsg BATCH_DOC_EXAMPLE';
 ```
 ````

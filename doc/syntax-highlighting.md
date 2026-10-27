@@ -642,6 +642,5 @@ command after reading this guide:
   example;
 - `doc/sdslh.md`: THE editor token/category and theme mapping;
 - `doc/batch-md-rexx-format.md`: full Markdown example-runner format;
-- `doc/batch-md-rexx-design.md`: implementation story and design history;
-- `tools/batch-md-rexx/HANDOVER.md`: manual/Docker integration notes;
+- [batch renderer architecture](batch-md-rexx-design.md): module ownership and processing;
 - `doc/crexx.md`: THE's embedded CREXX and CREXXSAA configuration.

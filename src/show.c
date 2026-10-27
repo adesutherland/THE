@@ -83,9 +83,9 @@
 #include <string.h>
 #include <time.h>
 #include "thedriver.h"
+#include "screenframe.h"
 #include "driverlayout.h"
 #ifdef USE_UTF8
-# include "screenframe.h"
 # include "utflayout.h"
 # include "utfrepair.h"
 # include "utfterm.h"
@@ -1872,7 +1872,7 @@ void prepare_idline(CHARTYPE scrno)
 #if defined(__PDCURSES__)
    if ( curses_started )
    {
-      sprintf( (DEFCHAR *)title, "THE %s - %s", the_version, (DEFCHAR *)display_path );
+      sprintf( (DEFCHAR *)title, THE_PRODUCT_NAME " %s - %s", the_version, (DEFCHAR *)display_path );
       /* only display the title if different from previous one */
       if ( strcmp( (DEFCHAR *)title, (DEFCHAR *)old_title ) != 0 )
       {
@@ -2103,8 +2103,9 @@ void show_statarea(void)
    /*
     * Display THE version.
     */
-   sprintf((DEFCHAR*)linebuf,"THE %-9s",the_version);
-   memset((DEFCHAR *)linebuf+10,' ',max(0,terminal_cols-9));
+   memset((DEFCHAR *)linebuf,' ',terminal_cols);
+   snprintf((DEFCHAR *)buffer,sizeof(buffer),"%s",THE_PRODUCT_NAME);
+   memcpy(linebuf,buffer,min(strlen((DEFCHAR *)buffer),STATAREA_OFFSET-1));
    /*
     * Display number of files or copyright on startup.
     */
@@ -2561,11 +2562,29 @@ void build_screen(CHARTYPE scrno)
    return;
 }
 /***********************************************************************/
+/* Populate frontend-neutral row presentation without drawing or publishing. */
+void prepare_screen_for_display(CHARTYPE scrno)
+{
+   short crow = SCREEN_VIEW(scrno)->current_row;
+   build_lines_for_display(scrno,DIRECTION_FORWARD,(short)(screen[scrno].rows[WINDOW_FILEAREA]-crow),crow);
+   build_lines_for_display(scrno,DIRECTION_BACKWARD,crow,(short)(crow-1));
+   /*
+    * Check for nested comments if using a parser
+    */
+   if (SCREEN_FILE(scrno)->parser
+   &&  SCREEN_FILE(scrno)->parser->have_paired_comments
+   &&  SCREEN_VIEW(scrno)->syntax_headers & HEADER_COMMENT )
+   {
+      SHOW_HIGHLIGHTED_LINE( __LINE__, NULL, "Before paired comments" );
+      parse_paired_comments(scrno,SCREEN_FILE(scrno));
+      SHOW_HIGHLIGHTED_LINE( __LINE__, NULL, "After paired comments" );
+   }
+}
+/***********************************************************************/
 void display_screen(CHARTYPE scrno)
 /***********************************************************************/
 {
    TheDriverWindowCursor previous_cursor = { 0, 0, 0 };
-   short crow;
 
    TRACE_FUNCTION("show.c:    display_screen");
    /*
@@ -2619,20 +2638,7 @@ void display_screen(CHARTYPE scrno)
    /*
     * Display the built lines...
     */
-   crow = SCREEN_VIEW(scrno)->current_row;
-   build_lines_for_display(scrno,DIRECTION_FORWARD,(short)(screen[scrno].rows[WINDOW_FILEAREA]-crow),crow);
-   build_lines_for_display(scrno,DIRECTION_BACKWARD,crow,(short)(crow-1));
-   /*
-    * Check for nested comments if using a parser
-    */
-   if (SCREEN_FILE(scrno)->parser
-   &&  SCREEN_FILE(scrno)->parser->have_paired_comments
-   &&  SCREEN_VIEW(scrno)->syntax_headers & HEADER_COMMENT )
-   {
-      SHOW_HIGHLIGHTED_LINE( __LINE__, NULL, "Before paired comments" );
-      parse_paired_comments(scrno,SCREEN_FILE(scrno));
-      SHOW_HIGHLIGHTED_LINE( __LINE__, NULL, "After paired comments" );
-   }
+   prepare_screen_for_display(scrno);
 
    show_lines(scrno);
    /*
@@ -3558,7 +3564,7 @@ static void build_lines_for_display(CHARTYPE scrno,short direction,
       /*
        * Determine if line being processed is the current line.
        */
-      if (cline == screen_view->current_line)
+      if (!screen_view->curline_off && cline == screen_view->current_line)
          scurr->is_current_line = current = TRUE;
       else
          scurr->is_current_line = current = FALSE;
@@ -3923,9 +3929,6 @@ static void show_lines(CHARTYPE scrno)
 {
    short i=0;
    LENGTHTYPE j=0;
-   LENGTHTYPE true_col=0;
-   LENGTHTYPE off=0,num_tens=0;
-   CHARTYPE tens[30];
    int gap = SCREEN_VIEW(scrno)->prefix_gap;
    int width = SCREEN_VIEW(scrno)->prefix_width-gap;
    LENGTHTYPE filearea_cols = screen[scrno].cols[WINDOW_FILEAREA];
@@ -4036,95 +4039,9 @@ static void show_lines(CHARTYPE scrno)
       if (scurr->line_type & LINE_SCALE
       ||  scurr->line_type & LINE_TABLINE)
       {
-         true_col = SCREEN_VIEW(scrno)->verify_col-1;
-         for (j=0,ptr=linebuf;j<max_cols;j++,ptr++,true_col++)
-         {
-            /*
-             * Display '|' in current column position if this is the scale line.
-             */
-            if (scurr->line_type & LINE_SCALE
-            &&  SCREEN_VIEW(scrno)->current_column == true_col+1)
-            {
-               *ptr = '|';
-               continue;
-            }
-            /*
-             * Display 'T' in each tab column. This overrides all other characters
-             * except column position.
-             */
-            if (scurr->line_type & LINE_TABLINE)
-            {
-               if (is_tab_col(true_col+1))
-               {
-                  *ptr = '|';
-                  continue;
-               }
-            }
-            /*
-             * Only display the following if it is a scale line...
-             */
-            if (scurr->line_type & LINE_SCALE)
-            {
-               if (SCREEN_VIEW(scrno)->margin_left-1 == true_col)
-               {
-                  *ptr = '[';
-                  continue;
-               }
-               if (SCREEN_VIEW(scrno)->margin_right-1 == true_col)
-               {
-                  *ptr = ']';
-                  continue;
-               }
-               if (SCREEN_VIEW(scrno)->margin_indent_offset_status
-               &&  SCREEN_VIEW(scrno)->margin_left+SCREEN_VIEW(scrno)->margin_indent-1 == true_col)
-               {
-                  *ptr = 'p';
-                  continue;
-               }
-               if (!SCREEN_VIEW(scrno)->margin_indent_offset_status
-               &&  SCREEN_VIEW(scrno)->margin_indent-1 == true_col)
-               {
-                  *ptr = 'p';
-                  continue;
-               }
-               if (SCREEN_VIEW(scrno)->zone_start-1 == true_col)
-               {
-                  *ptr = '<';
-                  continue;
-               }
-               if (SCREEN_VIEW(scrno)->zone_end-1 == true_col)
-               {
-                  *ptr = '>';
-                  continue;
-               }
-               if (true_col % 10 == 9)
-               {
-                  /* this is still not perfect, see "marg 1 100" with
-                   * "verify 40 110". We should build the scale first.
-                   */
-                  sprintf((DEFCHAR *)tens,"%ld",(true_col / 10) + 1);
-                  num_tens = strlen((DEFCHAR *)tens);
-                  for (off = num_tens - 1;off >= 0;off--)
-                  {
-                     if (ptr - off < linebuf)
-                        continue;
-                     if ((off == 0) || (ptr[-off] == ' ') || (ptr[-off] == '.'))
-                        ptr[-off] = tens[num_tens - off - 1];
-                  }
-                  continue;
-               }
-               if (true_col % 5 == 4)
-               {
-                  *ptr = '+';
-                  continue;
-               }
-               *ptr = '.';
-            }
-            else /* only TABLINE */
-              *ptr = ' ';
-         }
+         screenframe_format_ruler(SCREEN_VIEW(scrno),scurr->line_type,linebuf,(int)max_cols);
          if (max_cols < filearea_cols)
-            memset(ptr,' ',filearea_cols - max_cols);
+            memset(linebuf+max_cols,' ',filearea_cols - max_cols);
          INIT_LINE_OUTPUT(screen_window_filearea,i);
          /* no need to use UTF-8 length here */
          ADD_LINE_OUTPUT(linebuf,
@@ -6200,7 +6117,6 @@ short advance_view(VIEW_DETAILS *next_view,short direction)
    return(RC_OK);
 }
 
-#if defined(CAN_RESIZE) || defined(WIN32)
 /***********************************************************************/
 short THE_Resize(int rows, int cols)
 /***********************************************************************/
@@ -6212,6 +6128,11 @@ short THE_Resize(int rows, int cols)
    /*
     * This function is called as the result of a screen resize.
     */
+   if (the_driver_is_headless())
+   {
+      if (rows > 0) terminal_lines = rows;
+      if (cols > 0) terminal_cols = cols;
+   }
    the_driver_resize_terminal(rows,cols);
    length = terminal_cols + 1;
    if ( length > linebuf_size )
@@ -6255,7 +6176,7 @@ short THE_Resize(int rows, int cols)
       screen_cols[1] = terminal_cols - screen_cols[0];
    }
    set_screen_defaults();
-   if (curses_started)
+   if (curses_started || the_driver_is_headless())
    {
       for (i=0;i<display_screens;i++)
       {
@@ -6266,6 +6187,11 @@ short THE_Resize(int rows, int cols)
          }
       }
    }
+   /* set_screen_defaults allocates fresh SHOW_LINE rows. Populate them before
+    * any frontend can publish a frame or a refresh can inspect the cursor. */
+   if (the_driver_is_headless())
+      for (i=0;i<display_screens;i++)
+         prepare_view((CHARTYPE)i);
    create_statusline_window();
    create_filetabs_window();
 #if defined(SIGWINCH) && defined(USE_NCURSES)
@@ -6274,4 +6200,3 @@ short THE_Resize(int rows, int cols)
    TRACE_RETURN();
    return (RC_OK);
 }
-#endif

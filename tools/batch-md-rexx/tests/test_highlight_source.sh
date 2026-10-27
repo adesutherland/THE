@@ -85,6 +85,13 @@ fail() {
   exit 1
 }
 
+# Git Bash can rewrite closing HTML tags in regex arguments as Windows paths.
+# CMake supplies native paths for these output files; pass them and regexes to
+# ripgrep unchanged. This has no effect outside MSYS.
+rg() {
+  MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' command rg "$@"
+}
+
 run_capture() {
   local name="$1"
   shift
@@ -180,8 +187,8 @@ run_capture html-style "${CREXX}" -nocompile "${RENDERER}" -args \
   --template-dir "${HTML_TEMPLATE_DIR}" \
   "${REXX_SAMPLE}"
 assert_rc html-style 0
-rg '^<style>$' "${WORK_DIR}/html-style.out" >/dev/null
-rg '^</style>$' "${WORK_DIR}/html-style.out" >/dev/null
+rg --crlf '^<style>$' "${WORK_DIR}/html-style.out" >/dev/null
+rg --crlf '^</style>$' "${WORK_DIR}/html-style.out" >/dev/null
 rg '\.the-example-source \.syn-keyword' "${WORK_DIR}/html-style.out" >/dev/null
 rg '<pre class="the-example-source"><code>' "${WORK_DIR}/html-style.out" >/dev/null
 rg '<span class="syn-preprocessor">options</span>' "${WORK_DIR}/html-style.out" >/dev/null
@@ -206,7 +213,7 @@ run_capture wrapper-html env "${env_args[@]}" "${WRAPPER}" \
   --include-style false \
   "${REXX_SAMPLE}"
 assert_rc wrapper-html 0
-! rg '^<style>$' "${WORK_DIR}/wrapper-html.out" >/dev/null || fail "wrapper-html: style definitions should be opt-in"
+! rg --crlf '^<style>$' "${WORK_DIR}/wrapper-html.out" >/dev/null || fail "wrapper-html: style definitions should be opt-in"
 rg '<pre class="the-example-source"><code>' "${WORK_DIR}/wrapper-html.out" >/dev/null
 rg '<span class="syn-preprocessor">options</span>' "${WORK_DIR}/wrapper-html.out" >/dev/null
 rg '</code></pre>' "${WORK_DIR}/wrapper-html.out" >/dev/null

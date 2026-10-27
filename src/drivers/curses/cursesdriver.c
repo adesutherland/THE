@@ -2427,7 +2427,7 @@ static void curses_driver_signal_shutdown(void)
 
 static void curses_driver_suspend_terminal(void)
 {
-#ifdef UNIX
+#if defined(UNIX) || defined(WIN32)
 # if defined(USE_EXTCURSES)
    csavetty(FALSE);
    reset_shell_mode();
@@ -2446,10 +2446,16 @@ static void curses_driver_suspend_terminal(void)
 
 static void curses_driver_resume_terminal(void)
 {
-#ifdef UNIX
+#if defined(UNIX) || defined(WIN32)
 # if defined(USE_EXTCURSES)
    cresetty(FALSE);
 # else
+#  if defined(WIN32)
+   /* Quiet OSQ does not suspend curses. Preserve its current dimensions,
+    * mouse and caret settings rather than restoring the startup snapshot. */
+   if (!isendwin())
+      def_prog_mode();
+#  endif
    reset_prog_mode();
 #  ifdef HAVE_BSD_CURSES
    raw();
@@ -2695,6 +2701,11 @@ const TheDriverModuleLifecycle the_curses_driver_lifecycle = {
    .current_cursor_presentation = curses_driver_current_cursor_presentation,
    .current_cursor_uses_software = curses_driver_current_cursor_uses_software
 };
+
+int the_driver_module_abi_version(void)
+{
+   return THE_DRIVER_MODULE_ABI_VERSION;
+}
 
 const TheDriverOps *the_driver_module_ops(void)
 {

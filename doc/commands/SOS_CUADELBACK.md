@@ -7,10 +7,13 @@ SOS CUADELBAck
 ```
 
 ## Description
-The SOS CUADELBACK command deletes the character to the right of the current cursor position. It
+The SOS CUADELBACK command deletes the character to the left of the current cursor position. It
 differs from SOS DELBACK in the case when the cursor is in the first column of the file and in the
-FILEAREA. Then, the cursor first moves to the last character of the previous line, and deletes this
-character.
+FILEAREA. Then, the current line is joined to the previous line, and the cursor remains at the join
+boundary.
+
+UTF file editing deletes a complete grapheme cluster. The edit is committed before
+refresh and is written to disk by SAVE.
 
 ## Compatibility
 XEDIT: N/A

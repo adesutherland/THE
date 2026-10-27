@@ -205,6 +205,15 @@ static void test_render_cell_model(void)
       TheRenderCluster render;
 
       utf8_terminal_profile_reset();
+      {
+         static const CHARTYPE tab[] = { '\t' };
+         expect_int("render.tab.make", the_render_cluster_from_text_cluster(
+            &render, tab, sizeof(tab), test_cluster_at_begin(tab, sizeof(tab)), 11, 0), 1);
+         expect_int("render.tab.width", render.advance_width, 1);
+         expect_int("render.tab.output", the_render_cluster_to_wchars(
+            &render, wch, sizeof(wch)/sizeof(wch[0])), 1);
+         expect_int("render.tab.marker", wch[0], 0x2192);
+      }
       expect_int("render.combining.make",
                  the_render_cluster_from_text_cluster(
                     &render, combining, sizeof(combining),

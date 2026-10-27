@@ -1,16 +1,15 @@
 # Cursor Driver Architecture
 
-Last updated: 2026-06-02.
-
 This document is the ownership contract for the cursor/driver split. UTF
-design, status, and outstanding items live in `doc/utf-design.md`.
+design lives in [UTF profiles](utf-design.md); outstanding work lives in the
+[roadmap](roadmap.md).
 
 ## Goal
 
 THE must separate editor intent from terminal mechanics. Editor commands should
 work in logical terms: file lines, screen rows, logical text cells, grapheme
 clusters, command-line text, prefix text, and focus zones. Physical drivers then
-materialize that logical state for curses, an LLM client, or a future UI.
+materialize that logical state for curses, an LLM client, or the browser UI.
 
 ```text
 editor command -> logical UI model -> physical driver
@@ -85,8 +84,7 @@ module loader, and explicit selection helpers. The main `the` executable loads
 `the_driver_llm` for `--driver llm`, and can load the opt-in `the_driver_web`
 module for `--driver web`; it no longer links curses directly.
 No-curses tests and the LLM runtime can select `the_headless_driver_ops`
-without linking `src/drivers/curses/cursesdriver.c`. During this migration,
-all drivers are expected to expose the same `TheDriverOps` surface.
+without linking `src/drivers/curses/cursesdriver.c`. All drivers expose the same `TheDriverOps` surface.
 Terminal-only operations may be NOPs, in-memory fake-surface updates, or
 deterministic log entries in non-terminal drivers.
 
@@ -162,163 +160,26 @@ Physical metadata such as display column, terminal class, repair strategy, and
 driver operation logs is useful for debugging, but agents must reason from
 logical coordinates: `zone`, `line_number`, row, and logical cell.
 
-## Current Checkpoint
+## Runtime contracts
 
-Closed checkpoints are summarized here; UTF status and next tasks are in
-`doc/utf-design.md`.
+The core loads matching curses, LLM or optional web modules at startup and
+validates their exported ABI version before using their operation tables.
+Driver lifecycle and physical surface operations are described in the
+[operation reference](driver-vtable-review.md).
 
-- `src/textpos.c`, `src/logcursor.c`, `src/utflayout.c`, `src/utfrepair.c`,
-  and `src/utfterm.c` provide the logical UTF and physical profile foundation.
-- `src/uidriver.c` defines logical row roles, frames, cursor overlays, and
-  fake-driver operation logs.
-- `src/screenframe.c` builds live file-area `UiFrame` snapshots and rebases
-  saved logical cursors onto rebuilt rows.
-- `src/thedriver.h` and `src/thedriver.c` define the real driver vtable,
-  current-driver pointer, and explicit selection helpers. The public header is
-  free of curses public types and exposes only neutral driver
-  attrs, cells, render cells, render clusters, and opaque window handles.
-  Editor code calls `the_driver->...` for migrated high-level operations and
-  for temporary opaque physical edges. The live vtable now has 53 entries
-  after shared display helpers moved out, the wide-cell surface collapsed to
-  render cells/clusters, modal/standard-screen mechanics were contracted, raw
-  input compatibility wrappers were retired, and role/window/cursor
-  presentation helpers were removed.
-- `src/drivers/curses/cursesdriver.c` owns the migrated physical curses mechanics, raw mouse
-  packet decoding, file-area physical cursor materialization from shared
-  layout targets, and the `the_curses_driver_ops` vtable.
-- `src/drivers/llm/headlessdriver.c` owns the first complete no-curses `TheDriverOps`
-  implementation. It provides fake opaque windows, screen-role and global
-  slots, cursor state, queued normalized input events plus the shared
-  legacy-key adapter, cell storage, render-cell/cluster preservation, and
-  deterministic touch/refresh/update plus terminal-report/shell/repair logs.
-  It is used by `the --driver llm` and focused driver tests.
-- `doc/driver-vtable-review.md` is the detailed map of the current vtable. It
-  now tracks the 53-entry `TheDriverOps` surface and records which operations
-  should remain portable, which are NOP/log-capable physical terminal
-  operations, and which should move toward curses-private details. Future
-  curses, headless/LLM, and fake/test drivers should expose the same surface
-  while this migration is in progress.
-- `src/inputevent.c` defines shared normalized input events.
-- `src/the.h` is intended to be curses-free. Core color/style/key state is
-  THE-owned, and curses lowering is private to `src/drivers/curses/**`.
-- `src/driverlayout.c` defines shared display/cursor mapping helpers:
-  `clamp_display_col`, `display_col_from_logical`,
-  `logical_col_from_display`, `viewport_col_for_logical`, and
-  `filearea_target`. Curses and headless drivers use this same helper rather
-  than duplicating layout behavior.
-- `src/mousehit.c` maps driver-edge mouse packets to shared logical-hit
-  targets for normal live curses mouse dispatch.
-- `src/transientui.c` defines the curses-free logical transient UI model for
-  readv, dialog, and popup snapshots: geometry, row roles, prompt/title/edit
-  text, buttons/items, selected/active state, viewport offsets, focus, and hit
-  targets.
-- `src/llm/llmdriver.c` formats semantic snapshots, compact view modes, and debug
-  diagnostics.
-- `src/llm/llmsession.c` plus `the --driver llm` provide the full-runtime
-  LLM protocol route. Startup loads the headless driver before screen role
-  setup, avoids curses initialization, creates registered headless role/global
-  windows, opens real files through `EditFile`, formats snapshots through
-  `llmruntime`/`screenframe`, dispatches `command ...` through
-  `command_line`, and exposes shared-transient readv/dialog/popup protocol
-  state.
-- `show.c`, `execute.c`, `query1.c`, `query2.c`, and `commsos.c` have removed
-  several active-window cursor snapshot fallbacks from the focused cursor,
-  query, SOS, render-exit, status, prefix, and view-switch paths. The closed
-  Step 3 renderer path now uses live `UiFrame` row/cell/text targets for UTF
-  file-area and prefix renderer decisions; command cursor placement requires
-  editor-owned logical command state.
-- `cursor_focus_sync_current()` has been removed. Command, prefix, file-area,
-  query, status, and renderer paths now either update logical cursor/focus
-  state directly or resolve an existing opaque window before using explicit
-  physical cursor primitives.
-- The transient UI headless boundary is closed for readv, dialog, and popup.
-  `test_transientui` proves the model without curses, the curses paths
-  materialize snapshots before painting/handling modal input, and modal mouse
-  handling consumes logical hit targets where practical. Popup rendering no
-  longer exposes pad allocation or pad refresh through `TheDriverOps`; the
-  visible viewport is painted from the transient popup snapshot.
-- The lightweight fake editor harness and headless mini-session executable are
-  retired. No separate editable no-curses mini-runtime remains; real editor
-  behavior is proved through `the --driver llm`, and formatter/input-only
-  behavior is proved through focused unit tests.
-- `the` proves strict main-binary link isolation by loading curses, LLM, and
-  optional web drivers as modules. `test_driver_modules` guards the main
-  executable and `the_driver_llm.so` against curses dependencies;
-  `test_webdriver_no_curses` applies the same check to the web module.
-- The main `the` executable defaults to curses and accepts
-  `--driver curses|llm|web` when the optional web module is built. The Windows
-  strategy remains open: keep the curses driver PDCurses-compatible or split a
-  Windows/PDCurses driver if the backend-specific behavior becomes too
-  different.
-- `tests/inventory_direct_curses.sh` is the repeatable debt sweep and ratchet.
-  Current counts are actionable `physical-input: 0`, `physical-paint: 0`,
-  `physical-attr: 0`, `curses-include: 0`, and `window-state: 0`;
-  `driver-wrapper: 541` is counted as migrated/allowed. The summary now splits
-  `window-state` into
-  `window-handle: 0`, `active-window-macro: 0`, `cell-attr-type: 0`,
-  `renderer-cell-type: 0`, and `header-prototype: 0`. The ratchet is
-  available as both CTest `test_curses_boundary_inventory` and build target
-  `curses_boundary_inventory`. The cleaned transient functions and current
-  project-wide inventory have no raw `physical-input`, `physical-paint`,
-  `physical-attr`, `curses-include`, or `window-state` findings outside
-  `src/drivers/curses/**` or `src/thedriver.*`.
+`src/screenframe.c` rebuilds live row-role snapshots and rebases logical cursor
+positions onto visible rows. `src/driverlayout.c` supplies shared logical/display
+conversion and viewport targets. `src/mousehit.c` converts physical edge
+positions to logical hit targets. `src/llm/llmruntime.c` adapts this state for
+semantic snapshots, and `src/llm/llmsession.c` dispatches protocol inputs to the
+real editor. Modal continuations use `src/transientui.c`; shared panel state
+supports READ without adding a second editing model.
 
-## Status Model
-
-Use this status model for every future slice:
-
-- `Done`: behavior is covered by a no-curses agent/LLM surface, virtual or
-  fake-driver CTest, CREXX/pty full-editor test, or focused unit CTest; the
-  live curses path uses the same logical data; unsupported behavior is declared;
-  and guardrails are tightened for any fully cleaned module or behavior class.
-- `In progress`: behavior has a logical foundation but still has legacy
-  dispatcher, renderer fallback, mouse, command, or physical-local mechanics.
-- `Active slice`: the boundary task currently selected for closure in
-  `doc/utf-design.md`; it may be `none` immediately after a slice closes.
-- `Queued outside active slice`: a larger model or platform decision that
-  should wait until the active boundary slice can expose it cleanly.
-
-The current active categories are:
-
-- Done: logical UTF primitives, terminal profile/repair foundation, UI frame
-  and fake-driver foundation, LLM snapshot formatting, full-runtime no-curses
-  agent proof,
-  file-area logical cursor/editing foundation, command-dispatch Step 2
-  coverage, major render cursor fallback removals, execute wrapper migration,
-  focused query/SOS active-driver fallback removals, normalized live mouse
-  input for normal `THEMouse` dispatch, transient readv/dialog/popup snapshot
-  model and curses-path materialization, focused
-  guardrails, the no-new-debt direct-curses inventory ratchet, and
-  project-wide removal of raw `physical-input`/`physical-paint` findings
-  outside the driver, corrected suffixed-paint inventory coverage, and driver
-  ownership of raw mouse packet decoding, the first active-window/window-handle
-  role-helper cleanup, the real `TheDriverOps` vtable with high-level editor
-  call sites migrated to `the_driver->...`, and neutral public driver types
-  with the `show.c` renderer/window-state macro surface closed, final closure
-  of the legacy ExtCurses/old-curses/VMS window-state compatibility residue,
-  the driver vtable review in `doc/driver-vtable-review.md`, the first
-  complete no-curses headless/test `TheDriverOps` base, the shared
-  display/input semantics slice, the portable render-cell/render-cluster
-  slice that reduced the vtable to 138 entries and added
-  `write_render_cells` / `write_render_cluster_at`, and the
-  modal/standard-screen contraction that reduced the vtable to 130 entries,
-  raw input compatibility wrapper retirement that reduced it to 114, and
-  role/window/cursor presentation contraction that reduced it to 53 and removed
-  `cursor_focus_sync_current()`, the first full-runtime `the --driver llm`
-  proof, runtime-loaded driver modules, parser diagnostics snapshots,
-  full-runtime transient protocol support, target-scoped curses include paths,
-  core/editor `THE_KEY_*` caller names, command-triggered LLM modal
-  continuations, broader real-runtime LLM fixtures, and retirement of the fake
-  LLM harness/headless mini-runtime.
-- Supported source/build platforms are macOS, Linux/POSIX, and native Windows.
-  Legacy DOS, OS/2, VMS, Amiga, BeOS, QNX, DJGPP/GO32, and ancient compiler
-  branches are retired; old command names remain only where they are command
-  compatibility aliases.
-- Queued next: Windows loader verification and
-  Windows/PDCurses driver strategy, terminal/keycap materialization baselines,
-  any future unique-logical-key-ID decision after the mechanical rename,
-  remaining vtable stabilization after real non-curses driver use, and
-  legacy naming/source-branch/build-warning housekeeping.
+The working record `rec` is distinct from its persisted in-memory `LINE`.
+Commit mutations through `post_process_line` before any cursor movement or
+refresh that can reload the record. That function owns alteration counters,
+recovery entries and parser synchronization. Presentation is allowed to read
+state; it must not silently discard an uncommitted edit.
 
 ## Guardrails
 

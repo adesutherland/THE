@@ -58,7 +58,7 @@ socket.on("message", (data) => {
     if (stage !== "files" || message.root !== 0 || message.path !== ""
         || !message.entries?.some((entry) => entry.name === "sample.txt"
           && entry.type === "file" && entry.target.endsWith("/sample.txt"))) {
-      fail("web workspace listing did not expose the sample file");
+      fail("web workspace listing did not expose the sample file: " + JSON.stringify(message));
     }
     const firstLine = lastSnapshot?.screen_rows.find((row) => row.line === 1);
     if (!firstLine) fail("file listing arrived without an editor snapshot");
@@ -84,9 +84,43 @@ socket.on("message", (data) => {
     if (firstLine.t !== "alpha beta gamma" || message.buffer?.dirty !== 0) {
       fail("initial web snapshot did not match the opened buffer");
     }
+    if (process.env.THE_REXX_INTERPRETER !== "NONE" && firstLine.p !== "0000001") {
+      fail("first web snapshot omitted the default line number");
+    }
     if (message.focus?.zone !== "filearea") {
       fail("web snapshot did not expose the initial editor focus");
     }
+    send(90, { type: "resize", rows: 40, cols: 120 });
+    stage = "resize-grow";
+    return;
+  }
+
+  if (stage === "resize-grow" && message.viewport?.rows === 40 && message.viewport?.cols === 120) {
+    if (firstLine.t !== "alpha beta gamma") fail("resize altered the buffer");
+    send(91, { type: "resize", rows: 18, cols: 66 });
+    stage = "resize-shrink";
+    return;
+  }
+
+  if (stage === "resize-shrink" && message.viewport?.rows === 18 && message.viewport?.cols === 66) {
+    send(92, { type: "key", key: "f1" });
+    stage = "help";
+    return;
+  }
+
+  if (stage === "help" && message.buffer?.path?.endsWith("THE_Help.txt")) {
+    if (process.env.THE_REXX_INTERPRETER !== "NONE") {
+      const lines = message.screen_rows.filter((row) => row.role === "file");
+      if (lines.length < 8 || lines.some((row) => !/^\d{7}$/.test(row.p ?? ""))) {
+        fail("help omitted prefix numbers before refresh");
+      }
+    }
+    send(93, { type: "action", action: "file.close" });
+    stage = "help-return";
+    return;
+  }
+
+  if (stage === "help-return" && message.buffer?.path?.endsWith("sample.txt")) {
     send(10, { type: "files", root: 0, path: "" });
     stage = "files";
     return;
@@ -107,6 +141,13 @@ socket.on("message", (data) => {
 
   if (stage === "text" && acknowledgements.has(3)
       && firstLine.t === "alphaX beta gamma") {
+    send(94, { type: "resize", rows: 32, cols: 110 });
+    stage = "resize-edited";
+    return;
+  }
+
+  if (stage === "resize-edited" && message.viewport?.rows === 32 && message.viewport?.cols === 110) {
+    if (firstLine.t !== "alphaX beta gamma" || message.focus.cell !== 6) fail("resize lost an edit or cursor position");
     send(4, { type: "key", key: "left" });
     stage = "key";
     return;
@@ -114,6 +155,46 @@ socket.on("message", (data) => {
 
   if (stage === "key" && acknowledgements.has(4)
       && message.focus?.cell === 5) {
+    send(201, { type: "command", command: "cursor goto 1 1" });
+    stage = "controls-cursor";
+    return;
+  }
+
+  if (stage === "controls-cursor" && acknowledgements.has(201) && message.focus?.cell === 0) {
+    send(202, { type: "command", command: "set mask immed   /* */" });
+    stage = "controls-mask";
+    return;
+  }
+  if (stage === "controls-mask" && acknowledgements.has(202)) {
+    send(203, { type: "command", command: "input Z" });
+    stage = "controls-input";
+    return;
+  }
+  if (stage === "controls-input" && acknowledgements.has(203) && message.buffer?.lines === 2) {
+    if (!message.screen_rows.some((row) => row.line === 2 && row.t === "Z /* */")) {
+      fail("web INPUT did not apply the shared mask");
+    }
+    send(204, { type: "command", command: "query flscreen" });
+    stage = "controls-range";
+    return;
+  }
+  if (stage === "controls-range" && acknowledgements.has(204)) {
+    if (!/flscreen\s+1\s+2/i.test(message.status)) fail("web FLSCREEN range is incorrect");
+    send(205, { type: "command", command: "delete 1" });
+    stage = "controls-delete";
+    return;
+  }
+  if (stage === "controls-delete" && acknowledgements.has(205) && message.buffer?.lines === 1) {
+    send(206, { type: "command", command: "set mask immed" });
+    stage = "controls-clear";
+    return;
+  }
+  if (stage === "controls-clear" && acknowledgements.has(206)) {
+    send(207, { type: "command", command: "cursor goto 1 6" });
+    stage = "controls-return";
+    return;
+  }
+  if (stage === "controls-return" && acknowledgements.has(207) && message.focus?.cell === 5) {
     send(5, { type: "action", action: "file.save", argument: "" });
     stage = "save";
     return;
@@ -127,7 +208,7 @@ socket.on("message", (data) => {
   }
 
   if (stage === "blocked-sos" && acknowledgements.has(7)
-      && message.buffer?.path?.endsWith("/sample.txt")
+      && message.buffer?.path?.replaceAll("\\", "/").endsWith("/sample.txt")
       && message.status?.includes("unavailable in restricted frontend")) {
     send(8, { type: "command", command: "edit /etc/passwd" });
     stage = "blocked-command";
@@ -135,7 +216,7 @@ socket.on("message", (data) => {
   }
 
   if (stage === "blocked-command" && acknowledgements.has(8)
-      && message.buffer?.path?.endsWith("/sample.txt")
+      && message.buffer?.path?.replaceAll("\\", "/").endsWith("/sample.txt")
       && message.status?.includes("unavailable in restricted frontend")) {
     send(6, { type: "action", action: "file.close", argument: "" });
     stage = "done";

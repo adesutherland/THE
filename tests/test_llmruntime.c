@@ -4,6 +4,7 @@
 
 #include "llmruntime.h"
 #include "the.h"
+#include "panelui.h"
 
 SCREEN_DETAILS screen[MAX_SCREENS];
 CHARTYPE current_screen = 0;
@@ -196,12 +197,44 @@ static void test_active_prefix_overlays_visible_prefix(void)
    expect_contains("runtime.prefix.visible", view.lines[1].prefix, "d");
 }
 
+static void test_panel_cursor_bounds(void)
+{
+   static ThePanelState panel;
+   int cell=-1, width=-1;
+   char out[4096];
+   panel_ui_init(&panel, 4, 20);
+   expect_int("panel.cursor.empty", panel_ui_cursor(&panel,&cell,&width), 0);
+   panel_ui_add(&panel,1,6,3,1,'R',0,"abc",3,0);
+   expect_int("panel.cursor.start", panel_ui_cursor(&panel,&cell,&width), 1);
+   expect_int("panel.cursor.start.cell", cell, 0);
+   panel.cursor=3;
+   panel_ui_cursor(&panel,&cell,&width);
+   expect_int("panel.cursor.full.cell", cell, 2);
+   expect_int("panel.cursor.full.width", width, 1);
+   expect_int("panel.cursor.input.position", panel.cursor, 3);
+#ifdef USE_UTF8
+   panel_ui_init(&panel,4,20);
+   panel_ui_add(&panel,1,6,3,1,'R',0,"A\xe7\x95\x8c",4,0);
+   panel.cursor=3;
+   panel_ui_cursor(&panel,&cell,&width);
+   expect_int("panel.cursor.wide.cell", cell, 1);
+   expect_int("panel.cursor.wide.width", width, 2);
+   panel_ui_json(&panel,out,sizeof(out));
+   expect_contains("panel.cursor.json.input",out,"\"cursor\":3");
+   expect_contains("panel.cursor.json.paint",out,"\"cursor_cell\":1,\"cursor_width\":2");
+   expect_contains("panel.cursor.text.unchanged",panel.fields[0].text,"A\xe7\x95\x8c");
+#else
+   (void)out;
+#endif
+}
+
 int main(void)
 {
    test_runtime_view();
    test_compact_filearea_runtime_format();
    test_command_focus_survives_filearea_frame();
    test_active_prefix_overlays_visible_prefix();
+   test_panel_cursor_bounds();
 
    if (failures != 0)
    {

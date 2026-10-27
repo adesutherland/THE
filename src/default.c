@@ -464,6 +464,7 @@ void set_view_defaults(VIEW_DETAILS *viewp)
    viewp->id_line = TRUE;
    viewp->in_ring = FALSE;
    viewp->current_row = 0;   /* this is set once we know the screen size */
+   viewp->curline_off = FALSE;
    viewp->current_base = POSITION_MIDDLE;
    viewp->current_off = 0;
    viewp->display_high = 0;
@@ -697,6 +698,13 @@ short get_startup_profiles(void)
    short rc=RC_OK;
 
    TRACE_FUNCTION("default.c: get_startup_profiles");
+   /* Shipped profiles are Rexx programs. An unavailable engine must not cause
+    * their contents to be interpreted as editor or operating-system commands. */
+   if (!rexx_support)
+   {
+      TRACE_RETURN();
+      return RC_OK;
+   }
    if (system_prf != (CHARTYPE *)NULL)
    {
       rc = get_profile(system_prf,(CHARTYPE *)NULL);
@@ -849,6 +857,7 @@ short defaults_for_other_files(VIEW_DETAILS *base_view)
       CURRENT_VIEW->case_sort =       base_view->case_sort;
       CURRENT_VIEW->cmd_line =        base_view->cmd_line;
       CURRENT_VIEW->id_line =         base_view->id_line;
+      CURRENT_VIEW->curline_off = base_view->curline_off;
       CURRENT_VIEW->current_base =    base_view->current_base;
       CURRENT_VIEW->current_off =     base_view->current_off;
       CURRENT_VIEW->current_row =     base_view->current_row;
@@ -913,6 +922,7 @@ short defaults_for_other_files(VIEW_DETAILS *base_view)
       CURRENT_VIEW->case_sort =       PREVIOUS_VIEW->case_sort;
       CURRENT_VIEW->cmd_line =        PREVIOUS_VIEW->cmd_line;
       CURRENT_VIEW->id_line =         PREVIOUS_VIEW->id_line;
+      CURRENT_VIEW->curline_off = PREVIOUS_VIEW->curline_off;
       CURRENT_VIEW->current_base =    PREVIOUS_VIEW->current_base;
       CURRENT_VIEW->current_off =     PREVIOUS_VIEW->current_off;
       CURRENT_VIEW->current_row =     PREVIOUS_VIEW->current_row;
@@ -999,6 +1009,9 @@ short default_file_attributes(FILE_DETAILS *fd)
    CURRENT_FILE->disposition =     FILE_NORMAL;
    CURRENT_FILE->first_ppc = CURRENT_FILE->last_ppc = NULL;
    CURRENT_FILE->preserved_file_details = NULL;
+   CURRENT_FILE->input_mask[0] = 0;
+   CURRENT_FILE->input_mask_len = 0;
+   CURRENT_FILE->truncation_column = 0;
    CURRENT_FILE->fp =              NULL;
    CURRENT_FILE->parser =          NULL;
 #ifdef USE_SDSLH
@@ -1303,12 +1316,21 @@ void set_screen_defaults(void)
    return;
 }
 /***********************************************************************/
+static void define_logical_enter(const char *command)
+{
+   CHARTYPE definition[80];
+   /* ENTER also names the terminal CR key; address the normalized key by id. */
+   snprintf((char *)definition,sizeof(definition),"\\%d %s",THE_KEY_ENTER,command);
+   Define(definition);
+}
+
 short set_THE_key_defaults(int prey,int prex)
 /***********************************************************************/
 {
   short rc=RC_OK;
 
   TRACE_FUNCTION("default.c: set_THE_key_defaults");
+  define_logical_enter("enter");
   /*
    * This function is for resetting all default values for THE
    * compatibility mode.
@@ -1327,9 +1349,10 @@ short set_THE_key_defaults(int prey,int prex)
   Define((CHARTYPE *)"CURU");
 #if defined(UNIX) && !defined(USE_EXTCURSES) && !defined(USE_XCURSES) && !defined(USE_SDLCURSES)
   Define((CHARTYPE *)"C-M");
+  Define((CHARTYPE *)"ENTER");
   Define((CHARTYPE *)"F16");
 # if defined(THE_KEY_TAB)
-  Define((CHARTYPE *)"THE_KEY_TAB");
+  Define((CHARTYPE *)"TAB");
 # endif
 # if defined(THE_KEY_BTAB)
   Define((CHARTYPE *)"S-TAB");
@@ -1350,6 +1373,7 @@ short set_XEDIT_key_defaults(int prey,int prex)
    short rc=RC_OK;
 
    TRACE_FUNCTION("default.c: set_XEDIT_key_defaults");
+   define_logical_enter("enter");
    /*
     * This function is for resetting all default values for XEDIT
     * compatibility mode.
@@ -1367,16 +1391,17 @@ short set_XEDIT_key_defaults(int prey,int prex)
    Define((CHARTYPE *)"CURR cursor screen right");
    Define((CHARTYPE *)"CURU cursor screen up");
 #if defined(UNIX) && !defined(USE_EXTCURSES) && !defined(USE_XCURSES) && !defined(USE_SDLCURSES)
-   Define((CHARTYPE *)"C-M sos doprefix execute");
+   Define((CHARTYPE *)"C-M enter");
+   Define((CHARTYPE *)"ENTER enter");
 # if defined(THE_KEY_BTAB)
    Define((CHARTYPE *)"S-TAB sos tabfieldb");
 # endif
 # if defined(THE_KEY_TAB)
-   Define((CHARTYPE *)"THE_KEY_TAB sos tabfieldf");
+   Define((CHARTYPE *)"TAB sos tabfieldf");
 # endif
    Define((CHARTYPE *)"C-I sos tabfieldf");
 #else
-   Define((CHARTYPE *)"ENTER sos doprefix execute");
+   Define((CHARTYPE *)"ENTER enter");
    Define((CHARTYPE *)"S-TAB sos tabfieldb");
    Define((CHARTYPE *)"TAB sos tabfieldf");
 #endif
@@ -1390,6 +1415,7 @@ short set_ISPF_key_defaults(int prey,int prex)
    short rc=RC_OK;
 
    TRACE_FUNCTION("default.c: set_XEDIT_key_defaults");
+   define_logical_enter("sos doprefix execute");
    /*
     * This function is for resetting all default values for XEDIT
     * compatibility mode.
@@ -1408,11 +1434,12 @@ short set_ISPF_key_defaults(int prey,int prex)
    Define((CHARTYPE *)"CURU cursor screen up");
 #if defined(UNIX) && !defined(USE_EXTCURSES) && !defined(USE_XCURSES) && !defined(USE_SDLCURSES)
    Define((CHARTYPE *)"C-M sos doprefix execute");
+   Define((CHARTYPE *)"ENTER sos doprefix execute");
 # if defined(THE_KEY_BTAB)
    Define((CHARTYPE *)"S-TAB sos tabfieldb");
 # endif
 # if defined(THE_KEY_TAB)
-   Define((CHARTYPE *)"THE_KEY_TAB sos tabfieldf");
+   Define((CHARTYPE *)"TAB sos tabfieldf");
 # endif
    Define((CHARTYPE *)"C-I sos tabfieldf");
 #else
@@ -1430,6 +1457,7 @@ short set_KEDIT_key_defaults(int prey,int prex)
    short rc=RC_OK;
 
    TRACE_FUNCTION("default.c: set_KEDIT_key_defaults");
+   define_logical_enter("enter");
    /*
     * This function is for resetting all default values for KEDIT
     * compatibility mode.
@@ -1451,7 +1479,7 @@ short set_KEDIT_key_defaults(int prey,int prex)
 #if defined(UNIX) && !defined(USE_EXTCURSES) && !defined(USE_XCURSES) && !defined(USE_SDLCURSES)
    Define((CHARTYPE *)"C-M");
 # if defined(THE_KEY_TAB)
-   Define((CHARTYPE *)"THE_KEY_TAB");
+   Define((CHARTYPE *)"TAB");
 # endif
 # if defined(THE_KEY_BTAB)
    Define((CHARTYPE *)"S-TAB");

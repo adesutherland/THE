@@ -1,0 +1,49 @@
+/* Level G panel example. READ supplies a sandbox result stem; PUSH/PULL
+ * below uses cREXX's execution-local queue in this same macro invocation. */
+options levelg
+namespace the_panel_demo
+import rxfnsb
+
+main: procedure
+  pool = .standardaddresssandbox()
+  address the 'extract /cursor/' sandbox pool;
+  savedline = pool.get('cursor.3') as .int
+  savedcolumn = pool.get('cursor.4') as .int
+  savedrow = pool.get('cursor.1') as .int
+  savedcell = pool.get('cursor.2') as .int
+  address the 'extract /reserved */' sandbox pool;
+  reservedcount = pool.get('reserved.0') as .int
+  savedreserved = .string[]
+  do saveindex = 1 to reservedcount
+    savedreserved[saveindex] = pool.get('reserved.' || saveindex)
+  end
+  address the 'preserve';
+  address the 'set linend off';
+  address the 'set curline off';
+  address the 'set ctlchar ! escape';
+  address the 'set ctlchar p protect white';
+  address the 'set ctlchar u noprotect green';
+  address the 'set reserved 2 !pName: !uGuest           !p  Enter submits; Esc cancels';
+  address the 'set reserved 4 !pTopic: !uTHE panels      !p';
+  address the 'read nochange tag' sandbox pool;
+  readrc = rc
+  count = pool.get('read.0') as .int
+  do index = count to 1 by -1
+    value = pool.get('read.' || index)
+    push value
+  end
+  do while queued() > 0
+    parse pull value
+    address the 'emsg PANEL_RESULT ' || value;
+  end
+  address the 'emsg PANEL_RC ' || readrc;
+  address the 'set reserved * off';
+  do restoreindex = reservedcount to 1 by -1
+    address the 'set reserved ' || savedreserved[restoreindex];
+  end
+  address the 'restore';
+  if savedline > 0 & savedcolumn > 0 then
+    address the 'cursor goto ' || savedline || ' ' || savedcolumn;
+  else if savedrow > 0 & savedcell > 0 then
+    address the 'cursor screen ' || savedrow || ' ' || savedcell;
+  exit readrc

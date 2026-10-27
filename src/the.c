@@ -36,6 +36,7 @@
 #define MAIN 1
 #include <the.h>
 #include <proto.h>
+#include "macroruntime.h"
 #include "llmsession.h"
 #include "frontendpolicy.h"
 #include "thedriver.h"
@@ -401,6 +402,15 @@ int main(int argc, char *argv[])
    TheDriverStartupOptions driver_startup_options;
    char driver_error[4096];
    char frontend_policy_error[512];
+
+   if (argc == 2 && strcmp(argv[1],"--version") == 0)
+   {
+      STARTUPCONSOLE();
+      printf(THE_PRODUCT_NAME " " THE_VERSION "\nBased on Mark Hessling's THE 4.0; independently maintained.\n");
+      printf("CRXTHE issues: https://github.com/adesutherland/THE/issues\n");
+      CLOSEDOWNCONSOLE(0);
+      return 0;
+   }
 
    TRACE_INITIALISE();
    TRACE_FUNCTION("the.c:     main");
@@ -935,8 +945,9 @@ int main(int argc, char *argv[])
       }
       if (web_profile == NULL || *web_profile == '\0')
       {
-         if (snprintf(driver_error, sizeof(driver_error), "%sweb-profile.the",
-                      the_home_dir) >= (int)sizeof(driver_error))
+         if (snprintf(driver_error, sizeof(driver_error), "%s%s",
+                      the_home_dir, the_macro_uses_regina() ?
+                      "web-profile-regina.the" : "web-profile.the") >= (int)sizeof(driver_error))
          {
             fprintf(stderr, "the: web profile path is too long\n");
             cleanup();
@@ -1473,7 +1484,7 @@ int main(int argc, char *argv[])
          the_driver->add_global_string_at(THE_DRIVER_GLOBAL_STATAREA,0,4,"     ");
          the_driver->set_global_window_attr(THE_DRIVER_GLOBAL_STATAREA,
                                             THE_RENDER_ATTR_NORMAL);
-         the_driver->add_global_string_at(THE_DRIVER_GLOBAL_STATAREA,0,0,"THE - END");
+         the_driver->add_global_string_at(THE_DRIVER_GLOBAL_STATAREA,0,0,THE_PRODUCT_NAME " - END");
          the_driver->refresh_window_now(driver_global_window(THE_DRIVER_GLOBAL_STATAREA));
       }
    }
@@ -1625,16 +1636,19 @@ int setup_profile_files(CHARTYPE *specified_prf)
     * or directory where THE executable lives
     */
    strcpy((DEFCHAR *)local_prf,(DEFCHAR *)the_home_dir);
-   strcat((DEFCHAR *)local_prf,(DEFCHAR *)THE_PROFILE_FILE);
+   strcat((DEFCHAR *)local_prf,the_macro_uses_regina() ? "profile_regina.the" : THE_PROFILE_FILE);
    strrmdup(strtrans(local_prf,OSLASH,ISLASH),ISLASH,TRUE);
    if (file_readable(local_prf))
       return(rc);
 #if defined(UNIX)
+   if (!the_macro_uses_regina())
+   {
    strcpy((DEFCHAR *)local_prf,(DEFCHAR *)the_home_dir);
    strcat((DEFCHAR *)local_prf,(DEFCHAR *)"profile.the");
    strrmdup(strtrans(local_prf,OSLASH,ISLASH),ISLASH,TRUE);
    if (file_readable(local_prf))
       return(rc);
+   }
 #endif
    /*
     * To get here, no profile files to be executed.
@@ -1655,14 +1669,16 @@ static int setup_system_profile_file(void)
    &&  my_stricmp((DEFCHAR *)term_program,
                   (DEFCHAR *)"Apple_Terminal") == 0)
    {
-      rc = setup_named_system_profile_file("system-apple-terminal.the");
+      rc = setup_named_system_profile_file(the_macro_uses_regina() ?
+             "system-apple-terminal-regina.the" : "system-apple-terminal.the");
       if (rc == RC_OK)
          return(RC_OK);
       if (rc == RC_OUT_OF_MEMORY)
          return(rc);
    }
 
-   rc = setup_named_system_profile_file(THE_SYSTEM_PROFILE_NAME);
+   rc = setup_named_system_profile_file(the_macro_uses_regina() ?
+             "system-" THE_PLATFORM_NAME "-regina.the" : THE_SYSTEM_PROFILE_NAME);
    if (rc == RC_OUT_OF_MEMORY)
       return(rc);
 #endif
@@ -1691,8 +1707,11 @@ static int setup_named_system_profile_file(const char *profile_name)
 static void display_info(CHARTYPE *argv0)
 /***********************************************************************/
 {
-   fprintf(stdout,"\nTHE %s %2s %s. All rights reserved.\n",the_version,the_release,the_copyright);
-   fprintf(stdout,"THE is distributed under the terms of the GNU General Public License \n");
+   fprintf(stdout,"\n%s %s  %s\n",THE_PRODUCT_NAME,the_version,the_release);
+   fprintf(stdout,"Independent fork based on Mark Hessling's THE 4.0.\n");
+   fprintf(stdout,"%s\n",the_copyright);
+   fprintf(stdout,"CRXTHE maintenance and bug reports: https://github.com/adesutherland/THE/issues\n");
+   fprintf(stdout,"CRXTHE is distributed under the terms of the GNU General Public License \n");
    fprintf(stdout,"and comes with NO WARRANTY. See the file COPYING for details.\n");
 #if defined(USE_XCURSES)
    fprintf(stdout,"\nUsage:\n\n%s [--driver curses|llm|web] [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [-X \"switches\"] [-1[fifoname]] [[dir] [file [...]]]\n",argv0);
@@ -1703,6 +1722,7 @@ static void display_info(CHARTYPE *argv0)
 #endif
    fprintf(stdout,"\nwhere:\n\n");
    fprintf(stdout,"-h,--help              show this message\n");
+   fprintf(stdout,"--version              show CRXTHE version and ancestry\n");
    fprintf(stdout,"--driver curses|llm|web select curses, LLM, or browser UI\n");
    fprintf(stdout,"-n                     do not execute the user profile file\n");
    fprintf(stdout,"-m                     force display into mono\n");

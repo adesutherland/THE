@@ -13,7 +13,8 @@ The SET CTLCHAR command defines control characters to be used when displaying a 
 when SET FILECTLCHAR is ON, ordinary file-area lines.
 Control characters determine how parts of the displayed line are displayed.
 See SET COLOUR for valid values for modifier , fore and back .
-The Protect and Noprotect arguments are ignored.
+Protect and Noprotect define protected and editable fields during READ panels.
+See [macro panels](../panels.md). Outside READ these flags do not restrict normal editing.
 
 ## Compatibility
 XEDIT: Similar, but does not support all parameters.

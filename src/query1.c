@@ -1064,7 +1064,9 @@ short extract_ctrl_function(short number_variables,short itemno,CHARTYPE *itemar
 short extract_curline(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   if (CURRENT_VIEW->current_base == POSITION_MIDDLE)
+   if (CURRENT_VIEW->curline_off)
+      strcpy((DEFCHAR *)query_rsrvd,"OFF");
+   else if (CURRENT_VIEW->current_base == POSITION_MIDDLE)
    {
       if (CURRENT_VIEW->current_off == 0)
          strcpy((DEFCHAR *)query_rsrvd,"M");
@@ -1085,7 +1087,7 @@ short extract_curline(short number_variables,short itemno,CHARTYPE *itemargs,CHA
                      (compatible_feel==COMPAT_XEDIT)?CURRENT_VIEW->current_line:get_true_line(TRUE),
                      CURRENT_FILE->number_lines);
       item_values[3].value = (CHARTYPE *)curr->line;
-      item_values[3].len = curr->length;
+      item_values[3].len = xedit_truncated_length(CURRENT_FILE,curr->line,curr->length);
       item_values[4].value = (curr->flags.new_flag||curr->flags.changed_flag)?(CHARTYPE *)"ON":(CHARTYPE *)"OFF";
       item_values[4].len = strlen((DEFCHAR *)item_values[4].value);
       if (curr->flags.new_flag)
@@ -1119,6 +1121,7 @@ short extract_cursor(short number_variables,short itemno,CHARTYPE *itemargs,CHAR
    LINETYPE current_screen_column=(-1L);
    LINETYPE current_file_line=(-1L);
    LINETYPE current_file_column=(-1L);
+   static CHARTYPE priority_value[16];
 
    get_cursor_position(&current_screen_line,&current_screen_column,
                        &current_file_line,&current_file_column);
@@ -1155,7 +1158,10 @@ short extract_cursor(short number_variables,short itemno,CHARTYPE *itemargs,CHAR
    sprintf((DEFCHAR *)query_num8,"%ld",original_file_column);
    item_values[8].value = query_num8;
    item_values[8].len = strlen((DEFCHAR *)query_num8);
-   return number_variables;
+   sprintf((char *)priority_value,"%d",xedit_cursor_priority());
+   item_values[9].value=priority_value;
+   item_values[9].len=strlen((char *)priority_value);
+   return compatible_feel==COMPAT_XEDIT ? 9 : 8;
 }
 /***********************************************************************/
 short extract_cursorstay(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)

@@ -37,10 +37,20 @@ function basename(path: string): string {
   return normalized.slice(normalized.lastIndexOf("/") + 1) || path;
 }
 
-function styledText(text: string, styles: StyleRun[] | undefined) {
-  if (!styles?.length) return text;
+// Keep a profile's key-guide text intact even when the editor has few columns.
+// Other reserved rows retain their normal editor positions.
+function keyHintsForRow(row: ScreenRow): { key: string; label: string }[] {
+  if (row.role !== "reserved") return [];
+  const text = row.t.trim();
+  const matches = [...text.matchAll(/\b(F(?:[1-9]\d?)|Esc)\s+(.+?)(?=\s+(?:F(?:[1-9]\d?)|Esc)\s+|$)/g)];
+  if (matches.length < 2 || matches[0].index !== 0) return [];
+  return matches.map((match) => ({ key: match[1], label: match[2] }));
+}
 
-  const characters = Array.from(text);
+function styledText(text: string, styles: StyleRun[] | undefined) {
+  if (!styles?.length) return text.replaceAll("\t", "→");
+
+  const characters = Array.from(text, (character) => character === "\t" ? "→" : character);
   const segments: preact.ComponentChildren[] = [];
   let offset = 0;
 
@@ -79,6 +89,7 @@ function App() {
   const [connection, setConnection] = useState<"connecting" | "online" | "reconnecting" | "offline">("connecting");
   const [lastError, setLastError] = useState("");
   const [command, setCommand] = useState("");
+  const [commandFocused, setCommandFocused] = useState(false);
   const [actions, setActions] = useState<FrontendActionDefinition[]>([]);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [pathAction, setPathAction] = useState<FrontendActionDefinition | null>(null);
@@ -87,7 +98,14 @@ function App() {
   const [files, setFiles] = useState<FileListMessage | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const commandInputRef = useRef<HTMLInputElement | null>(null);
   const nextId = useRef(1);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const cellProbeRef = useRef<HTMLSpanElement | null>(null);
+  const snapshotRef = useRef<Snapshot | null>(null);
+  const lastFileFocusRef = useRef<Snapshot["focus"] | null>(null);
+  const viewportSizeRef = useRef("");
 
   const send = useCallback((message: Record<string, unknown>) => {
     const socket = socketRef.current;
@@ -102,11 +120,12 @@ function App() {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const url = `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;
     let disposed = false;
+    let pageHidden = false;
     let retryTimer: number | undefined;
     let retryAttempt = 0;
 
     const connect = () => {
-      if (disposed) return;
+      if (disposed || pageHidden) return;
       setConnection(retryAttempt === 0 ? "connecting" : "reconnecting");
       const socket = new WebSocket(url);
       socketRef.current = socket;
@@ -114,6 +133,7 @@ function App() {
       socket.onopen = () => {
         if (disposed || socketRef.current !== socket) return;
         retryAttempt = 0;
+        viewportSizeRef.current = "";
         setConnection("online");
         setLastError("");
         window.setTimeout(focusEditor, 0);
@@ -137,6 +157,9 @@ function App() {
           const message = JSON.parse(String(event.data)) as Snapshot | DriverMessage;
           if ("mode" in message && "screen_rows" in message) {
             const nextSnapshot = message as Snapshot;
+            if (snapshotRef.current?.buffer?.path !== nextSnapshot.buffer?.path) lastFileFocusRef.current = null;
+            if (nextSnapshot.focus.zone === "filearea") lastFileFocusRef.current = nextSnapshot.focus;
+            snapshotRef.current = nextSnapshot;
             setSnapshot(nextSnapshot);
             if (nextSnapshot.focus.zone === "command") setCommand(nextSnapshot.command);
             setLastError("");
@@ -153,16 +176,35 @@ function App() {
       };
     };
 
-    connect();
-    return () => {
-      disposed = true;
+    const close = () => {
       if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+      retryTimer = undefined;
       const socket = socketRef.current;
       socketRef.current = null;
       if (socket) {
         socket.onclose = null;
         socket.close();
       }
+    };
+    // Navigating away can cache the page without unmounting the application.
+    // Release control so READ cancels and a returning page can reconnect.
+    const hide = () => {
+      pageHidden = true;
+      close();
+    };
+    const show = () => {
+      if (!pageHidden) return;
+      pageHidden = false;
+      connect();
+    };
+    window.addEventListener("pagehide", hide);
+    window.addEventListener("pageshow", show);
+    connect();
+    return () => {
+      disposed = true;
+      window.removeEventListener("pagehide", hide);
+      window.removeEventListener("pageshow", show);
+      close();
     };
   }, [focusEditor]);
 
@@ -218,9 +260,73 @@ function App() {
     [actionById, requestFiles, sendAction],
   );
 
+  const keyHintRows = useMemo(() => snapshot?.panel ? [] :
+    (snapshot?.screen_rows ?? []).map((row) => ({ row, hints: keyHintsForRow(row) }))
+      .filter((entry) => entry.hints.length > 0), [snapshot?.screen_rows, !!snapshot?.panel]);
+  const keyHintRowIds = new Set(keyHintRows.map(({ row }) => row.r));
+  const keyHints = keyHintRows.flatMap(({ hints }) => hints);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (connection !== "online" || !viewport) return;
+    let animation = 0;
+    const measure = () => {
+      cancelAnimationFrame(animation);
+      animation = requestAnimationFrame(() => {
+        const current = snapshotRef.current;
+        const grid = gridRef.current;
+        const probe = cellProbeRef.current;
+        if (!current || current.panel || !grid || !probe) return;
+        const style = getComputedStyle(grid);
+        const cellWidth = probe.getBoundingClientRect().width / 10;
+        const lineHeight = Number.parseFloat(style.lineHeight);
+        if (!cellWidth || !lineHeight) return;
+        const padding = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom);
+        // The browser draws only the file area; the model also reserves its
+        // command/status/heading rows. Preserve that overhead on resize.
+        const overhead = Math.max(0, current.viewport?.reserved_rows ?? 4);
+        // Key-guide rows are shown in a wrapping footer, so their model rows
+        // take no space in this grid. Fill the recovered rows with file text.
+        const hintRows = current.screen_rows.filter((row) => keyHintsForRow(row).length > 0).length;
+        const rows = Math.max(12, Math.min(256, Math.floor((viewport.clientHeight - padding) / lineHeight) + overhead + hintRows));
+        const cols = Math.max(40, Math.min(1000, Math.floor((viewport.clientWidth - 20) / cellWidth)));
+        const size = `${rows}:${cols}`;
+        if (size !== viewportSizeRef.current || current.viewport?.rows !== rows || current.viewport?.cols !== cols) {
+          viewportSizeRef.current = size;
+          send({ type: "resize", rows, cols });
+        }
+      });
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(viewport);
+    measure();
+    return () => { observer.disconnect(); cancelAnimationFrame(animation); };
+  }, [connection, send, snapshot?.buffer?.path, !!snapshot?.panel, keyHintRows.length]);
+
+  const returnToFile = useCallback(() => {
+    const current = snapshotRef.current?.focus;
+    const saved = lastFileFocusRef.current;
+    const target = current && (current.zone === "filearea" || current.zone === "prefix") ? current : saved;
+    if (target) {
+      const cell = target.zone === "prefix" ? (saved?.line === target.line ? saved.cell : 0) : target.cell;
+      send({ type: "hit", target: "filearea", line: target.line, row: target.row, cell });
+    }
+    focusEditor();
+  }, [focusEditor, send]);
+
   const onEditorKeyDown = useCallback(
     (event: KeyboardEvent) => {
+      if (snapshot?.panel && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        return;
+      }
       const commandModifier = event.ctrlKey || event.metaKey;
+      if (!snapshot?.panel && (event.key === "Escape" || event.key === "F6"
+          || (commandModifier && event.key.toLowerCase() === "l"))) {
+        event.preventDefault();
+        commandInputRef.current?.focus();
+        return;
+      }
       if (commandModifier && event.key.toLowerCase() === "s") {
         event.preventDefault();
         requestAction("file.save");
@@ -246,22 +352,24 @@ function App() {
         if (!event.shiftKey) requestAction("edit.undo");
         return;
       }
-      const key = event.shiftKey && event.key === "Tab" ? "backtab" : keyNames[event.key];
+      const key = /^F([1-9]|1[0-9]|2[0-4])$/.test(event.key) ? event.key.toLowerCase() : event.shiftKey && event.key === "Tab" ? "backtab" : keyNames[event.key];
       if (key) {
         event.preventDefault();
         send({ type: "key", key });
       }
     },
-    [requestAction, send],
+    [requestAction, send, snapshot?.panel],
   );
 
   const rows = snapshot?.screen_rows ?? [];
   const currentBuffer = snapshot?.buffers.find((buffer) => buffer.current);
-  const title = currentBuffer ? basename(currentBuffer.path) : "THE";
+  const title = currentBuffer ? basename(currentBuffer.path) : "CRXTHE";
   const cursorRow = useMemo(
     () => rows.find((row) => row.r === snapshot?.focus.row && row.line === snapshot?.focus.line),
     [rows, snapshot?.focus.line, snapshot?.focus.row],
   );
+  const prefixCols = snapshot?.viewport?.prefix_cols ?? 7;
+  const prefixGap = snapshot?.viewport?.prefix_gap ?? 1;
   const menus = useMemo(() => {
     const result = new Map<string, FrontendActionDefinition[]>();
     for (const action of actions) {
@@ -285,7 +393,7 @@ function App() {
   return (
     <main class="app-shell">
       <header class="toolbar">
-        <div class="product-mark">THE</div>
+        <div class="product-mark">CRXTHE</div>
         <nav class="menu-bar" aria-label="Application menu">
           {menus.map(([menu, entries]) => (
             <div class="menu-root" key={menu}>
@@ -400,20 +508,61 @@ function App() {
             </div>
           </aside>
         ) : null}
-        <div class="editor-scroll" onClick={focusEditor}>
-          <div class="editor-grid" style={{ minWidth: `${Math.max(snapshot?.cols ?? 80, 80)}ch` }}>
+        <div class="editor-scroll" ref={viewportRef} onClick={focusEditor}>
+          {snapshot?.panel ? (
+            <div class="fullscreen-panel" role="dialog" aria-modal="true" aria-label="Macro panel">
+              <div class="panel-surface" style={{ width: `${snapshot.panel.cols}ch`, height: `${snapshot.panel.rows * 21}px` }}>
+                {snapshot.panel.fields.map((field, index) => (
+                  <span
+                    class={`panel-field ${field.editable ? "panel-editable" : "panel-protected"} ${snapshot.panel?.active === index ? "panel-focused" : ""}`}
+                    style={{ top: `${field.row * 21}px`, left: `${field.cell}ch`, width: `${field.width}ch` }}
+                    onClick={(event) => {
+                      if (!field.editable) return;
+                      const bounds = event.currentTarget.getBoundingClientRect();
+                      const offset = Math.max(0, Math.min(field.width - 1,
+                        Math.floor((event.clientX - bounds.left) * field.width / bounds.width)));
+                      send({ type: "hit", target: "window", row: field.row, cell: field.cell + offset });
+                    }}
+                  >
+                    {field.text}
+                    {snapshot.panel?.active === index ? <span class="logical-cursor" style={{
+                      left: `${snapshot.panel.cursor_cell ?? Math.min(snapshot.panel.cursor, field.width - 1)}ch`,
+                      width: `${snapshot.panel.cursor_width ?? 1}ch`,
+                    }} /> : null}
+                  </span>
+                ))}
+              </div>
+              <div class="panel-controls">
+                <span>Macro input · Tab changes field</span>
+                <button type="button" onClick={() => send({ type: "key", key: "enter" })}>Enter</button>
+                <select aria-label="Panel function key" onChange={(event) => { if (event.currentTarget.value) send({ type: "key", key: event.currentTarget.value }); event.currentTarget.value = ""; }}>
+                  <option value="">Function key…</option>
+                  {Array.from({ length: 24 }, (_, i) => <option value={`f${i + 1}`}>PF{i + 1}</option>)}
+                  {Array.from({ length: 3 }, (_, i) => <option value={`pa${i + 1}`}>PA{i + 1}</option>)}
+                </select>
+                <button type="button" onClick={() => send({ type: "key", key: "esc" })}>Cancel</button>
+              </div>
+            </div>
+          ) : null}
+          <div class="editor-grid" ref={gridRef} style={{ width: `calc(${snapshot?.viewport?.cols ?? 80}ch + 20px)`, "--prefix-width": `${prefixCols + prefixGap}ch` }}>
+            <span class="cell-probe" ref={cellProbeRef} aria-hidden="true">0000000000</span>
             {rows.map((row) => {
-              const cursorVisible = cursorRow === row && snapshot?.focus.zone === "filearea";
+              const cursorVisible = cursorRow === row && snapshot?.focus.zone === "filearea" && !commandFocused;
+              const prefixCursorVisible = cursorRow === row && snapshot?.focus.zone === "prefix" && !commandFocused;
+              const prefixCursorCell = Math.max(0, Math.min((snapshot?.focus.cell ?? 0), prefixCols - 1));
               const cursorCell = Math.max(0, (snapshot?.focus.cell ?? 0) - row.sc);
               return (
-                <div class={`screen-row role-${row.role} ${row.cur ? "screen-row-current" : ""}`} key={`${currentBuffer?.path ?? ""}-${row.r}-${row.line}-${row.role}`}>
+                <div class={`screen-row role-${row.role} ${row.cur ? "screen-row-current" : ""} ${keyHintRowIds.has(row.r) ? "key-hint-row" : ""}`} key={`${currentBuffer?.path ?? ""}-${row.r}-${row.line}-${row.role}`}>
                   <button
                     type="button"
-                    class="prefix-cell"
+                    class={`prefix-cell ${prefixCursorVisible ? "prefix-cell-active" : ""}`}
+                    aria-label={`Prefix line ${row.line}`}
+                    style={{ paddingRight: `${prefixGap}ch` }}
                     tabIndex={-1}
                     onClick={(event) => hitRow(event, row, "prefix")}
                   >
                     {row.pc || row.p || ""}
+                    {prefixCursorVisible ? <span class="logical-cursor prefix-cursor" style={{ left: `${prefixCursorCell}ch` }} /> : null}
                   </button>
                   <div class="line-content" onClick={(event) => hitRow(event, row, "filearea")}>
                     <span class="line-text">{styledText(row.t, row.s)}</span>
@@ -447,10 +596,24 @@ function App() {
       </section>
 
       <footer class="command-area">
+        {keyHints.length > 0 ? (
+          <div class="key-hints" role="group" aria-label="Editor key hints">
+            {keyHints.map((hint, index) => <span class="key-hint" key={`${hint.key}-${index}`}>
+              <kbd>{hint.key}</kbd><span>{hint.label}</span>
+            </span>)}
+          </div>
+        ) : null}
         <form class="command-form" onSubmit={(event) => { event.preventDefault(); runCommand(command); }}>
           <span class="command-prompt">Command</span>
           <input
             aria-label="THE command"
+            ref={commandInputRef}
+            onFocus={() => setCommandFocused(true)}
+            onBlur={() => setCommandFocused(false)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") { event.preventDefault(); focusEditor(); }
+              if (event.key === "F6") { event.preventDefault(); returnToFile(); }
+            }}
             value={command}
             onInput={(event) => setCommand(event.currentTarget.value)}
             spellcheck={false}
@@ -458,7 +621,7 @@ function App() {
           />
         </form>
         <div class="status-line">
-          <span class="status-text">{lastError || snapshot?.status || "Waiting for THE"}</span>
+          <span class="status-text">{lastError || snapshot?.status || "Waiting for CRXTHE"}</span>
           <span>{snapshot?.focus.zone ?? "-"}</span>
           <span>{snapshot?.focus.line ?? 0}:{(snapshot?.focus.cell ?? 0) + 1}</span>
           <span>{snapshot?.buffer?.dirty ? "Modified" : "Saved"}</span>

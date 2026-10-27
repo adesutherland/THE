@@ -150,8 +150,24 @@ static void test_focus_state(void)
                  0, 0, 0, 0, 0, 0, 0);
 }
 
+static void test_saved_file_position(void)
+{
+   LogicalCursorState state;
+   LogicalCursor file = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_FILEAREA,
+      3, 2, (const CHARTYPE *)"alpha", 5, 3, TEXT_SNAP_BACKWARD, 1);
+   LogicalCursor command = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_COMMAND,
+      0, 0, (const CHARTYPE *)"", 0, 0, TEXT_SNAP_BACKWARD, 1);
+   logical_cursor_state_init(&state);
+   logical_cursor_state_focus(&state, file);
+   logical_cursor_state_focus(&state, command);
+   logical_cursor_state_focus(&state, command);
+   expect_int("saved.file.line", state.filearea.line_number, 3);
+   expect_int("saved.file.cell", state.filearea.text.cell_column, 3);
+}
+
 int main(void)
 {
+   test_saved_file_position();
    test_zones();
    test_filearea_virtual_movement();
    test_command_and_prefix_positions();

@@ -44,6 +44,9 @@
 #cmakedefine HAVE_DERWIN 1
 
 /* Define if curses library has this function */
+#cmakedefine HAVE_DEF_PROG_MODE 1
+
+/* Define if curses library has this function */
 #cmakedefine HAVE_KEYPAD 1
 
 /* Define if curses library has this function */

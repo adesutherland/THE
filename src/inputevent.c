@@ -43,10 +43,21 @@ static const TheInputKeyName input_key_names[] =
    { "tab", THE_INPUT_KEY_TAB },
    { "backtab", THE_KEY_BTAB },
    { "btab", THE_KEY_BTAB },
+   { "shift-left", THE_KEY_SLEFT },
+   { "shift-right", THE_KEY_SRIGHT },
+   { "shift-up", THE_KEY_SUP },
+   { "shift-down", THE_KEY_SDOWN },
+   { "shift-home", THE_KEY_SHOME },
+   { "shift-end", THE_KEY_SEND },
    { "backspace", THE_KEY_BACKSPACE },
    { "delete", THE_KEY_DC },
    { "del", THE_KEY_DC },
    { "insert", THE_KEY_IC },
+   { "clear", THE_KEY_CLEAR },
+   { "eraseeof", THE_KEY_EOL },
+   { "pa1", THE_KEY_PA1 },
+   { "pa2", THE_KEY_PA2 },
+   { "pa3", THE_KEY_PA3 },
    { NULL, 0 }
 };
 
@@ -113,6 +124,8 @@ const char *the_input_kind_name(TheInputKind kind)
          return "action";
       case THE_INPUT_LOGICAL_HIT:
          return "logical-hit";
+      case THE_INPUT_RESIZE:
+         return "resize";
       case THE_INPUT_DEBUG:
          return "debug";
       case THE_INPUT_NONE:
@@ -277,6 +290,17 @@ int the_input_event_from_text(uint32_t codepoint, TheInputEvent *out)
    return 1;
 }
 
+int the_input_event_from_resize(int rows, int cols, TheInputEvent *out)
+{
+   if (out == NULL) return 0;
+   *out = the_input_event_none();
+   if (rows < 12 || rows > 256 || cols < 40 || cols > 1000) return 0;
+   out->kind = THE_INPUT_RESIZE;
+   out->rows = rows;
+   out->cols = cols;
+   return 1;
+}
+
 int the_input_event_from_key_name(const char *name, TheInputEvent *out)
 {
    size_t i;
@@ -284,6 +308,19 @@ int the_input_event_from_key_name(const char *name, TheInputEvent *out)
    if (out == NULL || name == NULL)
       return 0;
    *out = the_input_event_none();
+   if (((name[0]=='c' || name[0]=='C') && name[1]=='-' && name[2] && !name[3]) ||
+       ((name[0]=='c' || name[0]=='C') && (name[1]=='t' || name[1]=='T') &&
+        (name[2]=='r' || name[2]=='R') && (name[3]=='l' || name[3]=='L') &&
+        name[4]=='-' && name[5] && !name[6]))
+   {
+      int letter=toupper((unsigned char)name[strlen(name)-1]);
+      if (letter>='A' && letter<='Z')
+      {
+         out->kind=THE_INPUT_KEY;
+         out->key_code=letter-'A'+1;
+         return 1;
+      }
+   }
    if ((name[0] == 'f' || name[0] == 'F') && isdigit((unsigned char)name[1]))
    {
       char *end = NULL;
@@ -417,6 +454,12 @@ int the_input_event_to_legacy_key(const TheInputEvent *input, int *key_code)
    if (input->key_code < 0)
       return 0;
    *key_code = input->key_code;
+#if defined(_WIN32) || defined(USE_XCURSES)
+   /* Keep driver events portable while honoring the legacy BACKSPACE/BKSP
+    * key name and profile binding used by the PDCurses command tables. */
+   if (input->kind==THE_INPUT_KEY && input->key_code==THE_KEY_BACKSPACE)
+      *key_code=THE_KEY_BKSP;
+#endif
    return 1;
 }
 

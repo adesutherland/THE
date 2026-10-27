@@ -29,6 +29,7 @@ typedef struct
 {
    LogicalCursor current;
    LogicalCursor previous;
+   LogicalCursor filearea; /* Last file position survives command/prefix repaint. */
 } LogicalCursorState;
 
 const char *logical_cursor_zone_name(LogicalCursorZone zone);

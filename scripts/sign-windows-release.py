@@ -45,6 +45,17 @@ def asset_named(info, name):
     return item
 
 
+def release_stem(release, platform, architecture):
+    """Accept historical THE assets and CRXTHE without guessing a release."""
+    candidates = [f'{product}-{release.tag[1:]}-{platform}-{architecture}'
+                  for product in ('CRXTHE', 'THE')]
+    names = {asset['name'] for asset in release.original['assets']}
+    matches = [stem for stem in candidates if stem + '-SHA256SUMS.txt' in names]
+    if len(matches) != 1:
+        raise RuntimeError('Expected one unambiguous CRXTHE or historical THE asset set')
+    return matches[0]
+
+
 class Release:
     def __init__(self, repo, tag):
         self.repo, self.tag = repo, tag
@@ -208,7 +219,7 @@ def main():
     if not re.fullmatch(r'v\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?', args.tag):
         parser.error('Use an explicit version tag, not latest or a moving snapshot')
     release = Release(args.repo, args.tag)
-    stem = f'THE-{args.tag[1:]}-windows-x86_64'
+    stem = release_stem(release, 'windows', 'x86_64')
     installer_asset = asset_named(release.original, stem + '-setup.exe')
     checksum_asset = asset_named(release.original, stem + '-SHA256SUMS.txt')
     print(f'{args.repo}@{args.tag}: source {release.commit}')

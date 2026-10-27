@@ -1,5 +1,36 @@
-                         THE Quick Reference
-                             Version 4.0
+                       CRXTHE Quick Reference
+                           Version 0.10.dev
+
+  Independent fork based on Mark Hessling's THE 4.0.
+  CRXTHE maintenance: github.com/adesutherland/THE/issues
+
+  First launch (cREXX or Regina default profile):
+    Tab         Insert spaces to the next eight-column tab stop
+    Ctrl-S      Save without leaving the editor
+    Ctrl-O      Prepare EDIT on the command line; enter a filename
+    Ctrl-F      Prepare LOCATE /; enter text and a closing /
+    Ctrl-G      Prepare a line-number command; enter the number
+    F6          Toggle command line and file editing
+    Esc         Command line (browser: Esc again returns to editing)
+    Ctrl-L      Console command line
+    Ctrl-W/Q    Close the file; unsaved changes are protected
+    Ctrl-Z      Restore the current line (not multi-level undo)
+    Shift-arrow Select text; Home/End move within the record
+    F1          This help
+    F2          Next open buffer
+    F3          Save and close the current file
+    F4          Prefix area; type a prefix such as D, then Enter
+    F5/Insert   Toggle insert/overwrite mode
+    Shift-Tab   Toggle console command/file focus
+    F10         Complete key-definition list (SHOWKEY ALL)
+
+  Type normally in the file area; Enter splits a line. The top ruler shows
+  logical columns. The prefix area supports line/block commands. Optional
+  syntax parsers are enabled only when found on PATH.
+  On macOS use the terminal's usual Command-C/Command-V. Windows PDCurses
+  also binds Ctrl-C/X/V to the editor's marked-block clipboard commands.
+  Custom profiles override these defaults. See the repository first-launch
+  guide for configuration and macro interpreter choices.
 
  -----------------------
  Command-line invocation
@@ -115,6 +146,8 @@
  CURsor Mouse
  CURsor Prefix
        move cursor to specified position
+       XEDIT compatibility accepts an optional final PRIORITY n (0..255).
+       During a macro/prefix pass the highest priority wins; first wins ties.
  DEFine key-name [REXX] [command [args] [[#command [args]...]]]
  DEFine mouse-key-definition IN window [REXX] [command [args] [[#command [args]...]]]
        assign one or many commands to a key or mouse event
@@ -151,6 +184,9 @@
        expand tab characters to spaces
  EXTract /item/[...]
        obtain various internal information about THE
+       MASK.1 is the insertion mask. FLSCREEN.1 and FLSCREEN.2 are the first
+       and last visible file lines (0 and 0 if none; unavailable in batch).
+       In XEDIT compatibility CURSOR.9 is the current macro cursor priority.
  FFile  [filename]
        force a FILE of the current file to disk
        Default: With no parameters, the current file is written.
@@ -524,6 +560,11 @@
  [SET] MARgins left right [[+|-]indent]
        set left and right margins for wordwrap
        Default: 1 72 +0
+ [SET] MASK IMMed [text]
+ [SET] MASK DEFine
+ [SET] MASK MODify
+       set an insertion mask, or prepare an editable SET MASK IMMED command
+       Default: empty mask
  [SET] MOUSE ON|OFF
        turn mouse support on or off
        Default: ON - if mouse supported, OFF - otherwise
@@ -551,6 +592,7 @@
  [SET] PENDing ON string
  [SET] PENDing OFF
  [SET] PENDing BLOCK string
+ [SET] PENDing ERROR string
        set status of pending prefix commands
  [SET] Point .name [OFF]
        assign a name to the current line

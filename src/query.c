@@ -79,6 +79,9 @@ extern ExtractFunction extract_ctrl_function;
 extern ExtractFunction extract_ctlchar;
 extern ExtractFunction extract_curline;
 extern ExtractFunction extract_cursor;
+extern ExtractFunction extract_flscreen;
+extern ExtractFunction extract_mask;
+extern ExtractFunction extract_trunc;
 extern ExtractFunction extract_cursorstay;
 extern ExtractFunction extract_cursorstyle;
 extern ExtractFunction extract_current_function;
@@ -2099,7 +2102,7 @@ QUERY_ITEM _THE_FAR query_item[] =
    {(CHARTYPE *)"compat",          6, 6,ITEM_COMPAT,        3, 3,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_compat                 },
    {(CHARTYPE *)"ctlchar",         7, 3,ITEM_CTLCHAR,       3, 3,          LVL_GLOB,QUERY_QUERY             |QUERY_EXTRACT             ,extract_ctlchar                },
    {(CHARTYPE *)"curline",         7, 3,ITEM_CURLINE,       6, 6,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_curline                },
-   {(CHARTYPE *)"cursor",          6, 4,ITEM_CURSOR,        8, 8,          LVL_VIEW,QUERY_QUERY             |QUERY_EXTRACT             ,extract_cursor                 },
+   {(CHARTYPE *)"cursor",          6, 4,ITEM_CURSOR,        9, 9,          LVL_VIEW,QUERY_QUERY             |QUERY_EXTRACT             ,extract_cursor                 },
    {(CHARTYPE *)"cursorstay",     10, 8,ITEM_CURSORSTAY,    1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_cursorstay             },
    {(CHARTYPE *)"cursorstyle",    11, 11,ITEM_CURSORSTYLE,   4, 4,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_cursorstyle            },
    {(CHARTYPE *)"define",          6, 6,ITEM_DEFINE,        1, 0,          LVL_GLOB,QUERY_QUERY             |QUERY_EXTRACT             ,extract_define                 },
@@ -2124,6 +2127,7 @@ QUERY_ITEM _THE_FAR query_item[] =
    {(CHARTYPE *)"filename",        8, 5,ITEM_FILENAME,      1, 1,          LVL_FILE,QUERY_QUERY|             QUERY_EXTRACT|QUERY_MODIFY,extract_filename               },
    {(CHARTYPE *)"filestatus",     10,10,ITEM_FILESTATUS,    3, 3,          LVL_FILE,QUERY_QUERY|             QUERY_EXTRACT|QUERY_MODIFY,extract_filestatus             },
    {(CHARTYPE *)"filetabs",        8, 8,ITEM_FILETABS,      1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_filetabs               },
+   {(CHARTYPE *)"flscreen",        8, 3,ITEM_FLSCREEN,      2, 2,          LVL_VIEW,QUERY_QUERY|QUERY_EXTRACT,extract_flscreen},
    {(CHARTYPE *)"fmode",           5, 2,ITEM_FMODE,         1, 1,          LVL_FILE,QUERY_QUERY|             QUERY_EXTRACT|QUERY_MODIFY,extract_fmode                  },
    {(CHARTYPE *)"fname",           5, 2,ITEM_FNAME,         1, 1,          LVL_FILE,QUERY_QUERY|             QUERY_EXTRACT|QUERY_MODIFY,extract_fname                  },
    {(CHARTYPE *)"fpath",           5, 2,ITEM_FPATH,         1, 1,          LVL_FILE,QUERY_QUERY|             QUERY_EXTRACT|QUERY_MODIFY,extract_fpath                  },
@@ -2154,6 +2158,7 @@ QUERY_ITEM _THE_FAR query_item[] =
    {(CHARTYPE *)"macroext",        8, 6,ITEM_MACROEXT,      1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_macroext               },
    {(CHARTYPE *)"macropath",       9, 6,ITEM_MACROPATH,     1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_macropath              },
    {(CHARTYPE *)"margins",         7, 3,ITEM_MARGINS,       3, 3,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_margins                },
+   {(CHARTYPE *)"mask",            4, 4,ITEM_MASK,          1, 1,          LVL_FILE,QUERY_QUERY|QUERY_EXTRACT,extract_mask},
    {(CHARTYPE *)"messages",        8, 4,ITEM_MESSAGES,      0, 0,          LVL_GLOB,QUERY_QUERY             |QUERY_EXTRACT             ,extract_messages               },
    {(CHARTYPE *)"monitor",         7, 7,ITEM_MONITOR,       2, 2,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT             ,extract_monitor                },
    {(CHARTYPE *)"mouse",           5, 5,ITEM_MOUSE,         1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_mouse                  },
@@ -2212,6 +2217,7 @@ QUERY_ITEM _THE_FAR query_item[] =
    {(CHARTYPE *)"tof",             3, 3,ITEM_TOF,           1, 1,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT             ,extract_tof                    },
    {(CHARTYPE *)"tofeof",          6, 6,ITEM_TOFEOF,        1, 1,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_tofeof                 },
    {(CHARTYPE *)"trailing",        8, 8,ITEM_TRAILING,      1, 1,          LVL_FILE,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_trailing               },
+   {(CHARTYPE *)"trunc",           5, 3,ITEM_TRUNC,         1, 1,          LVL_FILE,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT,extract_trunc},
    {(CHARTYPE *)"typeahead",       9, 5,ITEM_TYPEAHEAD,     1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_typeahead              },
    {(CHARTYPE *)"ui",              2, 2,ITEM_UI,            1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT             ,extract_ui                     },
    {(CHARTYPE *)"undoing",         7, 7,ITEM_UNDOING,       1, 1,          LVL_FILE,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_undoing                },
@@ -2560,7 +2566,7 @@ short save_status(CHARTYPE *filename)
    /*
     * For each item that is modifiable, get its value...
     */
-   fprintf( fp, "/* This file generated by STATUS command of THE %s %s*/\n", the_version, the_release );
+   fprintf( fp, "/* This file generated by STATUS command of " THE_PRODUCT_NAME " %s %s*/\n", the_version, the_release );
    for ( i = 0; i < NUMBER_QUERY_ITEM; i++ )
    {
       /*

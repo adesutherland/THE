@@ -7,8 +7,11 @@ THE commands.
 
 ## Build discovery
 
-CREXX support is controlled by the CMake `USE_CREXX` option, which defaults to
-`ON`.
+The build default is selected with `THE_REXX_INTERPRETER=CREXX|REGINA|NONE`.
+The older `USE_CREXX` option supplies the initial default when no explicit
+selection is given. The runtime environment variable `THE_REXX_INTERPRETER`
+selects one compiled bridge before THE starts. See
+[interpreter and package setup](rexx-interpreters.md) for optional Regina.
 
 At configure time THE looks for:
 
@@ -20,11 +23,12 @@ At configure time THE looks for:
 
 The search checks the sibling CREXX build directories first and then
 `$HOME/.local/bin` / `$HOME/.local/include`. If these pieces are missing, THE
-builds without the CREXX bridge.
+builds without the CREXX bridge. THE loads the selected shared library at
+runtime; the editor executable does not link against cREXX or Regina.
 
 ## Runtime model
 
-When CREXX support is available:
+When CREXX is selected and its runtime is available:
 
 - THE initializes a `crexxsaa_context`
 - THE registers a native `ADDRESS THE` environment
@@ -33,8 +37,8 @@ When CREXX support is available:
 - CREXX commands addressed to `THE` are passed to THE's normal command parser
 
 Direct `.rxbin` macros must be rebuilt with the current CREXX toolchain after
-CREXX bytecode format changes. The descriptor-based lookup change uses format
-006 and is exposed through `CREXXSAA_ABI_VERSION` 3.
+CREXX bytecode format changes. The build requires a compatible
+`CREXXSAA_ABI_VERSION` of at least 3.
 
 Hosted profiles and macros should declare their own language level and command
 environment:
@@ -42,11 +46,14 @@ environment:
 ```rexx
 options levelb
 address the
-'msg hello from CREXX'
+'msg hello from CREXX';
 ```
 
 `crexxsaa` does not add `OPTIONS`, `ADDRESS`, imports, or compatibility
-preludes. Source files must be valid CREXX source as written.
+preludes. Source files must be valid CREXX source as written. Terminate
+successive quoted `ADDRESS THE` commands with semicolons: cREXX supports
+continued string literals, so newline-only separation can combine commands.
+This applies to shipped, generated and user-authored profiles.
 
 ## Configuration
 
@@ -70,6 +77,9 @@ The generic `crexxsaa` variables are also supported:
 - `CREXXSAA_IMPORT_DIR`
 
 `CREXXSAA_CACHE_DIR` wins over `THE_CREXX_CACHE_DIR` when both are set.
+Without either override, THE uses its private per-user cache, described in
+[interpreter setup](rexx-interpreters.md), and passes that location to child
+cREXX processes. This also applies to direct development builds of THE.
 
 The `crexxsaa` maintenance tool can be used to inspect or clear the compiled
 profile/macro cache:
@@ -149,6 +159,10 @@ Use the convenience profile explicitly when those bindings are wanted:
 ```sh
 the -p ~/.local/share/the/profile_crexx.the myprog.rexx
 ```
+
+These optional helpers have unresolved platform failures documented in
+[known issues](known-issues.md). Their presence is not evidence that a given
+bundled runtime can compile/run successfully through this path.
 
 The helper macros behind `F8` and `F9` are `crexxcompile.the` and
 `crexxrun.the`. They are intended for interactive editor sessions; THE batch

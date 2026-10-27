@@ -1,9 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(THE C)
+project(THE VERSION 0.10.0 LANGUAGES C)
 
-set(THE_VERSION "4.0.CREXX")
-set(THE_VERSION_DATE "02-Apr-2026")
+set(THE_PRODUCT_NAME "CRXTHE")
+# Keep numeric project metadata for tools; identify source builds explicitly.
+set(THE_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.dev")
+set(THE_VERSION_DATE "27-Oct-2026")
 
 # --- Options ---
 option(USE_WIDE_CHAR "Enable wide character support" ON)
@@ -11,6 +13,21 @@ option(USE_UTF8 "Enable UTF-8 support" ON)
 option(USE_UTF8PROC "Use utf8proc for Unicode grapheme clusters and character widths" ON)
 option(USE_SDSLH "Build with DSL Syntax Highlighter support" ON)
 option(USE_CREXX "Build with embedded CREXX profile/macro support" ON)
+if(USE_CREXX)
+    set(THE_DEFAULT_REXX_INTERPRETER CREXX)
+else()
+    set(THE_DEFAULT_REXX_INTERPRETER NONE)
+endif()
+set(THE_REXX_INTERPRETER "${THE_DEFAULT_REXX_INTERPRETER}" CACHE STRING
+    "Macro interpreter: CREXX, REGINA, or NONE (USE_CREXX supplies the initial default)")
+set_property(CACHE THE_REXX_INTERPRETER PROPERTY STRINGS CREXX REGINA NONE)
+string(TOUPPER "${THE_REXX_INTERPRETER}" THE_SELECTED_REXX_INTERPRETER)
+if(NOT THE_SELECTED_REXX_INTERPRETER MATCHES "^(CREXX|REGINA|NONE)$")
+    message(FATAL_ERROR "THE_REXX_INTERPRETER must be CREXX, REGINA, or NONE")
+endif()
+option(THE_ENABLE_REGINA "Compile optional, runtime-loaded Regina support when headers are available" ON)
+option(THE_BUNDLE_CREXX "Install a relocatable editor with its own cREXX runtime and tools" OFF)
+option(THE_TEST_SHELL_TRACE "Trace top-level shell integration tests for CI diagnostics" OFF)
 option(USE_WEB_DRIVER "Build the native browser UI driver" OFF)
 set(DSLSH_LOCAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../DSL-Syntax-Highlighter"
         CACHE PATH "Path to a local DSL-Syntax-Highlighter checkout")
@@ -76,7 +93,9 @@ endif()
 # --- Defines ---
 add_compile_definitions(
     HAVE_CONFIG_H
+    THE_DEFAULT_REXX_INTERPRETER="${THE_SELECTED_REXX_INTERPRETER}"
     THE_VERSION="${THE_VERSION}"
+    THE_PRODUCT_NAME="${THE_PRODUCT_NAME}"
     THE_VERSION_DATE="${THE_VERSION_DATE}"
     THE_VARIANT="${THE_VARIANT}"
     THE_PLATFORM_NAME="${THE_PLATFORM_NAME}"
@@ -85,7 +104,6 @@ add_compile_definitions(
     BUILD3001=1
     HAVE_RESIZETERM=1
     CAN_RESIZE=1
-    NOREXX=1
     HAVE_WATTRSET=1
     HAVE_TOUCHLINE=1
     THE_TRACE=1
@@ -183,6 +201,17 @@ set(HAVE_WATTRSET 1)
 set(HAVE_TOUCHLINE 1)
 set(HAVE_KEYPAD 1)
 set(HAVE_CURS_SET 1)
+# Maintained ncurses and PDCurses provide raw/cbreak. Without these flags the
+# compatibility header turns raw() into a no-op, leaving Ctrl-S/Q to IXON.
+set(HAVE_RAW 1)
+set(HAVE_CBREAK 1)
+if(WIN32)
+    # PDCurses must restore its saved input mode after a shell command.
+    # cmd.exe can leave the shared console in cooked mode, consuming Ctrl-S.
+    set(HAVE_DEF_PROG_MODE 1)
+    set(HAVE_RESET_PROG_MODE 1)
+    set(HAVE_RESET_SHELL_MODE 1)
+endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
@@ -261,7 +290,8 @@ if(USE_UTF8 AND USE_UTF8PROC)
 endif()
 
 set(THE_USE_CREXX FALSE)
-if(USE_CREXX)
+set(THE_USE_REGINA FALSE)
+if(THE_SELECTED_REXX_INTERPRETER STREQUAL "CREXX")
     set(THE_CREXXSAA_MIN_ABI_VERSION 3)
     set(THE_CREXX_LOCAL_DEBUG_BIN "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-debug/bin")
     set(THE_CREXX_LOCAL_RELEASE_BIN "${CMAKE_CURRENT_SOURCE_DIR}/../CREXX/cmake-build-release/bin")
@@ -328,12 +358,19 @@ if(USE_CREXX)
     if(CREXXSAA_LIBRARY AND CREXXSAA_INCLUDE_DIR AND CREXXSAA_ABI_OK AND CREXX_RXC_EXECUTABLE AND CREXX_RXAS_EXECUTABLE AND CREXX_LIBRARY_RXBIN)
         get_filename_component(CREXX_IMPORT_DIR "${CREXX_LIBRARY_RXBIN}" DIRECTORY)
         get_filename_component(CREXXSAA_LIBRARY_DIR "${CREXXSAA_LIBRARY}" DIRECTORY)
+        find_file(CREXXSAA_RUNTIME_LIBRARY
+            NAMES libcrexxsaa.dylib libcrexxsaa.so crexxsaa.dll libcrexxsaa.dll
+            HINTS "${CREXXSAA_LIBRARY_DIR}" "${CREXX_IMPORT_DIR}")
+        if(NOT CREXXSAA_RUNTIME_LIBRARY)
+            message(FATAL_ERROR "A shared cREXX runtime is required; set CREXXSAA_RUNTIME_LIBRARY")
+        endif()
         set(THE_USE_CREXX TRUE)
         message(STATUS "Found CREXXSAA library: ${CREXXSAA_LIBRARY}")
         message(STATUS "Found CREXXSAA ABI: ${CREXXSAA_ABI_VERSION}")
         message(STATUS "Found CREXX import directory: ${CREXX_IMPORT_DIR}")
         add_compile_definitions(
             USE_CREXX=1
+            THE_CREXX_SHARED_LIBRARY="${CREXXSAA_RUNTIME_LIBRARY}"
             THE_CREXX_RXC="${CREXX_RXC_EXECUTABLE}"
             THE_CREXX_RXAS="${CREXX_RXAS_EXECUTABLE}"
             THE_CREXX_IMPORT_DIR="${CREXX_IMPORT_DIR}"
@@ -342,6 +379,31 @@ if(USE_CREXX)
     else()
         message(STATUS "CREXXSAA support disabled; missing crexxsaa ABI ${THE_CREXXSAA_MIN_ABI_VERSION}+, rxc, rxas, or library.rxbin")
     endif()
+endif()
+
+if(THE_ENABLE_REGINA OR THE_SELECTED_REXX_INTERPRETER STREQUAL "REGINA")
+    find_path(REGINA_INCLUDE_DIR NAMES rexxsaa.h HINTS "$ENV{REGINA_HOME}/include")
+    if(REGINA_INCLUDE_DIR)
+        set(THE_USE_REGINA TRUE)
+        # Optional test input; the editor itself never links against this library.
+        find_library(REGINA_LIBRARY NAMES regina HINTS "$ENV{REGINA_HOME}/lib")
+        if(WIN32)
+            set(THE_REGINA_LIBRARY_NAME "regina.dll")
+        elseif(APPLE)
+            set(THE_REGINA_LIBRARY_NAME "libregina.dylib")
+        else()
+            set(THE_REGINA_LIBRARY_NAME "libregina.so")
+        endif()
+        add_compile_definitions(USE_REGINA=1 THE_REGINA_LIBRARY="${THE_REGINA_LIBRARY_NAME}")
+        message(STATUS "Optional Regina support: ${REGINA_INCLUDE_DIR} (no link dependency)")
+    elseif(THE_SELECTED_REXX_INTERPRETER STREQUAL "REGINA")
+        message(FATAL_ERROR "Regina support requires rexxsaa.h. Set REGINA_INCLUDE_DIR or REGINA_HOME.")
+    else()
+        message(STATUS "Regina support disabled; rexxsaa.h not found")
+    endif()
+endif()
+if(NOT THE_USE_REGINA)
+    add_compile_definitions(NOREXX=1)
 endif()
 
 # --- Include Directories ---
@@ -358,6 +420,9 @@ endif()
 
 if(THE_USE_CREXX)
     include_directories(${CREXXSAA_INCLUDE_DIR})
+endif()
+if(THE_USE_REGINA)
+    include_directories(${REGINA_INCLUDE_DIR})
 endif()
 
 # --- Source Files ---
@@ -409,6 +474,9 @@ set(THE_SOURCES
     src/regex.c
     src/reserved.c
     src/rexx.c
+    src/macroruntime.c
+    src/crexxcache.c
+    src/xeditcompat.c
     src/scroll.c
     src/screenframe.c
     src/show.c
@@ -420,6 +488,8 @@ set(THE_SOURCES
     src/textedit.c
     src/textpos.c
     src/utfinput.c
+    src/panel.c
+    src/panelui.c
     src/transientui.c
     src/uidriver.c
     src/utfcluster.c
@@ -453,18 +523,6 @@ endif()
 
 if(USE_SDSLH)
     target_link_libraries(${EXECUTABLE_NAME} DSLSH::editor)
-endif()
-if(THE_USE_CREXX)
-    target_link_libraries(${EXECUTABLE_NAME} ${CREXXSAA_LIBRARY})
-    if(APPLE)
-        set(THE_CREXX_INSTALL_RPATH "@loader_path")
-    else()
-        set(THE_CREXX_INSTALL_RPATH "$ORIGIN")
-    endif()
-    set_target_properties(${EXECUTABLE_NAME} PROPERTIES
-        BUILD_RPATH "${CREXXSAA_LIBRARY_DIR}"
-        INSTALL_RPATH "${THE_CREXX_INSTALL_RPATH}"
-    )
 endif()
 
 # Setup Release Directory in Build Folder
@@ -579,7 +637,7 @@ elseif(WIN32)
     target_link_libraries(the_driver_curses ${EXECUTABLE_NAME})
     target_link_libraries(the_driver_llm ${EXECUTABLE_NAME})
     if(USE_WEB_DRIVER)
-        target_link_libraries(the_driver_web ${EXECUTABLE_NAME})
+        target_link_libraries(the_driver_web ${EXECUTABLE_NAME} ws2_32 advapi32)
     endif()
 endif()
 
@@ -608,10 +666,20 @@ add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
 
 set(THE_RUNTIME_PROFILE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/profile.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/profile_regina.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/quickfind.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/quickfind_regina.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/quickopen.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/quickopen_regina.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/quickline.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/quickline_regina.the
     ${CMAKE_CURRENT_SOURCE_DIR}/web-profile.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/web-profile-regina.the
     ${CMAKE_CURRENT_SOURCE_DIR}/profile_crexx.the
     ${CMAKE_CURRENT_SOURCE_DIR}/crexxcompile.the
     ${CMAKE_CURRENT_SOURCE_DIR}/crexxrun.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/paneldemo.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/paneldemo_regina.the
 )
 set(THE_COPIED_RUNTIME_PROFILE_OUTPUTS)
 foreach(THE_RUNTIME_PROFILE_SOURCE IN LISTS THE_RUNTIME_PROFILE_SOURCES)
@@ -774,6 +842,21 @@ add_custom_target(copy_end_user_docs ALL
 add_dependencies(${EXECUTABLE_NAME} copy_end_user_docs)
 
 if(USE_UTF8 AND THE_SYSTEM_PROFILE_SOURCES)
+    # Keep terminal calibration in one source; Classic Rexx only needs the
+    # cREXX language-level declaration removed from these command-only scripts.
+    set(THE_REGINA_SYSTEM_PROFILES)
+    set(THE_CLASSIC_PROFILE_SOURCES ${THE_SYSTEM_PROFILE_SOURCES})
+    foreach(THE_PROFILE_SOURCE IN LISTS THE_CLASSIC_PROFILE_SOURCES)
+        get_filename_component(THE_PROFILE_NAME "${THE_PROFILE_SOURCE}" NAME_WE)
+        file(READ "${THE_PROFILE_SOURCE}" THE_PROFILE_CONTENT)
+        string(REPLACE "options levelb" "/* Classic Rexx profile */"
+            THE_PROFILE_CONTENT "${THE_PROFILE_CONTENT}")
+        set(THE_REGINA_PROFILE "${CMAKE_CURRENT_BINARY_DIR}/profiles/${THE_PROFILE_NAME}-regina.the")
+        file(WRITE "${THE_REGINA_PROFILE}" "${THE_PROFILE_CONTENT}")
+        list(APPEND THE_REGINA_SYSTEM_PROFILES "${THE_REGINA_PROFILE}")
+    endforeach()
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${THE_CLASSIC_PROFILE_SOURCES})
+    list(APPEND THE_SYSTEM_PROFILE_SOURCES ${THE_REGINA_SYSTEM_PROFILES})
     set(THE_COPIED_SYSTEM_PROFILE_OUTPUTS)
     foreach(THE_SYSTEM_PROFILE_SOURCE IN LISTS THE_SYSTEM_PROFILE_SOURCES)
         get_filename_component(THE_SYSTEM_PROFILE_BASENAME "${THE_SYSTEM_PROFILE_SOURCE}" NAME)
@@ -790,6 +873,7 @@ if(USE_UTF8 AND THE_SYSTEM_PROFILE_SOURCES)
     add_custom_target(copy_utf_system_profiles ALL
         DEPENDS ${THE_COPIED_SYSTEM_PROFILE_OUTPUTS}
     )
+    add_dependencies(${EXECUTABLE_NAME} copy_utf_system_profiles)
 endif()
 
 if(WIN32)
@@ -800,24 +884,96 @@ if(WIN32)
 endif()
 
 # Install Targets
-install(TARGETS ${EXECUTABLE_NAME} DESTINATION bin)
+if(THE_BUNDLE_CREXX)
+    if(NOT THE_USE_CREXX OR NOT THE_SELECTED_REXX_INTERPRETER STREQUAL "CREXX")
+        message(FATAL_ERROR "Bundled releases require the default CREXX interpreter")
+    endif()
+    if(NOT THE_USE_REGINA)
+        message(FATAL_ERROR "Bundled releases require Regina headers for optional runtime support")
+    endif()
+    find_program(CREXX_RXVM_EXECUTABLE NAMES rxvm HINTS "${CREXX_IMPORT_DIR}" REQUIRED)
+    find_file(CREXX_RXCEXITS_RXBIN NAMES rxcexits.rxbin HINTS "${CREXX_IMPORT_DIR}" REQUIRED)
+    find_file(CREXX_LICENSE_FILE NAMES LICENSE HINTS
+        "${CREXXSAA_INCLUDE_DIR}/.." "${CREXX_IMPORT_DIR}/.." "${CREXX_IMPORT_DIR}/../.."
+        REQUIRED)
+    if(NOT CREXX_DRIVER_EXECUTABLE)
+        message(FATAL_ERROR "Bundled releases require the crexx command")
+    endif()
+    get_filename_component(THE_CREXX_RUNTIME_NAME "${CREXXSAA_RUNTIME_LIBRARY}" NAME)
+    add_executable(the-launcher src/crexxlauncher.c src/crexxcache.c)
+    target_include_directories(the-launcher PRIVATE "${CREXXSAA_INCLUDE_DIR}")
+    target_compile_definitions(the-launcher PRIVATE THE_CREXX_RUNTIME_NAME="${THE_CREXX_RUNTIME_NAME}")
+    target_link_libraries(the-launcher PRIVATE ${CMAKE_DL_LIBS})
+    if(WIN32)
+        target_link_libraries(the-launcher PRIVATE advapi32)
+    endif()
+    install(TARGETS the-launcher DESTINATION libexec/the)
+    configure_file(packaging/the.in packaging/the @ONLY)
+    configure_file(packaging/the.cmd.in packaging/the.cmd @ONLY)
+    install(TARGETS ${EXECUTABLE_NAME} DESTINATION libexec/the)
+    if(WIN32)
+        install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/packaging/the.cmd" DESTINATION bin)
+        install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/packaging/the.cmd" DESTINATION bin RENAME crxthe.cmd)
+    else()
+        install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/packaging/the" DESTINATION bin)
+        install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/packaging/the" DESTINATION bin RENAME crxthe)
+    endif()
+    install(PROGRAMS "${CREXX_RXC_EXECUTABLE}" "${CREXX_RXAS_EXECUTABLE}"
+        "${CREXX_DRIVER_EXECUTABLE}"
+        DESTINATION libexec/the/crexx)
+    get_filename_component(THE_CREXX_RXVM_REAL "${CREXX_RXVM_EXECUTABLE}" REALPATH)
+    install(PROGRAMS "${THE_CREXX_RXVM_REAL}" DESTINATION libexec/the/crexx
+        RENAME "rxvm${CMAKE_EXECUTABLE_SUFFIX}")
+    install(FILES "${CREXXSAA_RUNTIME_LIBRARY}" "${CREXX_LIBRARY_RXBIN}" "${CREXX_RXCEXITS_RXBIN}"
+        DESTINATION libexec/the/crexx)
+    if(WIN32)
+        # Keep the qualified SDK's runtime cohort beside its private tools.
+        file(GLOB THE_CREXX_COMPANION_DLLS "${CREXX_IMPORT_DIR}/*.dll")
+        install(FILES ${THE_CREXX_COMPANION_DLLS} DESTINATION libexec/the/crexx)
+    endif()
+    install(FILES "${CREXX_LICENSE_FILE}" DESTINATION share/doc/the/crexx)
+    get_filename_component(THE_CREXX_LICENSE_ROOT "${CREXX_LICENSE_FILE}" DIRECTORY)
+    if(EXISTS "${THE_CREXX_LICENSE_ROOT}/licenses")
+        install(DIRECTORY "${THE_CREXX_LICENSE_ROOT}/licenses/" DESTINATION share/doc/the/crexx/licenses)
+    endif()
+else()
+    install(TARGETS ${EXECUTABLE_NAME} DESTINATION bin)
+endif()
 install(TARGETS ${THE_DRIVER_MODULES}
     LIBRARY DESTINATION lib/the/drivers
     RUNTIME DESTINATION lib/the/drivers)
 if(USE_WEB_DRIVER)
+    install(FILES ${mongoose_SOURCE_DIR}/LICENSE DESTINATION share/doc/the/mongoose)
     install(DIRECTORY ${THE_WEB_BUILD_DIR}/ DESTINATION share/the/web
         PATTERN ".build-stamp" EXCLUDE)
 endif()
 if(WIN32)
     install(FILES $<TARGET_FILE:${CURSES_LIBRARIES}> DESTINATION bin)
+    if(THE_BUNDLE_CREXX)
+        install(FILES $<TARGET_FILE:${CURSES_LIBRARIES}> DESTINATION libexec/the)
+    endif()
 endif()
 install(PROGRAMS tools/batch-md-rexx/the-batch-md-rexx DESTINATION bin)
 install(PROGRAMS tools/batch-md-rexx/the-highlight-source DESTINATION bin)
 if(WIN32)
-    install(PROGRAMS tools/the-env.ps1 DESTINATION bin)
+    if(NOT THE_BUNDLE_CREXX)
+        install(PROGRAMS tools/the-env.ps1 DESTINATION bin)
+    endif()
 endif()
-install(FILES doc/THE_Help.txt profile.the web-profile.the profile_crexx.the crexxcompile.the crexxrun.the DESTINATION share/the)
-install(FILES doc/syntax-highlighting.md DESTINATION share/doc/the)
+install(FILES doc/THE_Help.txt profile.the profile_regina.the web-profile.the profile_crexx.the crexxcompile.the crexxrun.the DESTINATION share/the)
+install(FILES web-profile-regina.the DESTINATION share/the)
+install(FILES quickfind.the quickfind_regina.the quickopen.the quickopen_regina.the
+    quickline.the quickline_regina.the DESTINATION share/the)
+install(FILES paneldemo.the paneldemo_regina.the DESTINATION share/the)
+install(DIRECTORY doc/ DESTINATION share/doc/the COMPONENT Documentation
+    FILES_MATCHING PATTERN "*.md" PATTERN "Windows-Readme.txt" PATTERN "THE_Help.txt")
+install(FILES LICENSE DESTINATION share/doc/the)
+if(USE_SDSLH AND EXISTS "${DSLSH_SOURCE_DIR}/LICENSE")
+    install(FILES "${DSLSH_SOURCE_DIR}/LICENSE" DESTINATION share/doc/the/dslsh)
+endif()
+if(USE_UTF8PROC AND EXISTS "${utf8proc_SOURCE_DIR}/LICENSE.md")
+    install(FILES "${utf8proc_SOURCE_DIR}/LICENSE.md" DESTINATION share/doc/the/utf8proc)
+endif()
 install(FILES
     tools/batch-md-rexx/batch-md-rexx.crexx
     tools/batch-md-rexx/render-html.crexx
@@ -862,7 +1018,11 @@ else()
     set(THE_BASH_COMMAND bash)
 endif()
 message(STATUS "Using Bash for tests: ${THE_BASH_COMMAND}")
+if(THE_TEST_SHELL_TRACE)
+    list(APPEND THE_BASH_COMMAND -x)
+endif()
 set(THE_CTEST_RUNTIME_ENV
+    "THE_REXX_INTERPRETER=${THE_SELECTED_REXX_INTERPRETER}"
     "THE_BUILD_DIR=${CMAKE_CURRENT_BINARY_DIR}"
     "THE_BIN=$<TARGET_FILE:${EXECUTABLE_NAME}>"
     "THE_HOME_DIR=${RELEASE_DIR}"
@@ -874,8 +1034,12 @@ set(THE_CTEST_RUNTIME_ENV
     "THE_BATCH_RUNNER=${RELEASE_DIR}/the-batch-md-rexx"
     "THE_HIGHLIGHT_SOURCE=${RELEASE_DIR}/the-highlight-source"
 )
+if(THE_USE_REGINA AND REGINA_LIBRARY)
+    list(APPEND THE_CTEST_RUNTIME_ENV "THE_REGINA_LIBRARY=${REGINA_LIBRARY}")
+endif()
 if(THE_USE_CREXX)
     list(APPEND THE_CTEST_RUNTIME_ENV
+        "CREXX_BIN_DIR=${CREXX_IMPORT_DIR}"
         "THE_CREXX_RXC=${CREXX_RXC_EXECUTABLE}"
         "THE_CREXX_RXAS=${CREXX_RXAS_EXECUTABLE}"
         "THE_CREXX_IMPORT_DIR=${CREXX_IMPORT_DIR}"
@@ -891,6 +1055,76 @@ if(NOT THE_RG_EXECUTABLE)
         "Install it (for example, 'sudo apt install ripgrep' on Debian/Ubuntu) "
         "and reconfigure the build directory."
     )
+endif()
+if(THE_SELECTED_REXX_INTERPRETER STREQUAL "CREXX" AND THE_USE_CREXX
+   OR THE_SELECTED_REXX_INTERPRETER STREQUAL "REGINA" AND THE_USE_REGINA AND REGINA_LIBRARY)
+    add_test(NAME test_pending_runtime
+        COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pending_runtime.sh
+                $<TARGET_FILE:the> ${THE_SELECTED_REXX_INTERPRETER})
+    set_tests_properties(test_pending_runtime PROPERTIES
+        TIMEOUT 90 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+endif()
+if(THE_USE_REGINA AND REGINA_LIBRARY)
+    add_test(NAME test_pending_regina
+        COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pending_runtime.sh
+                $<TARGET_FILE:the> REGINA)
+    set_tests_properties(test_pending_regina PROPERTIES
+        TIMEOUT 90 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+endif()
+find_program(THE_PYTHON_EXECUTABLE NAMES python3 python)
+if(THE_PYTHON_EXECUTABLE)
+    if(THE_BUNDLE_CREXX)
+        add_test(NAME test_runtime_selection COMMAND ${THE_PYTHON_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_runtime_selection.py --build-dir ${CMAKE_CURRENT_BINARY_DIR})
+        set_tests_properties(test_runtime_selection PROPERTIES TIMEOUT 180)
+    endif()
+    add_test(NAME test_sign_windows_release COMMAND ${THE_PYTHON_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sign_windows_release.py)
+    add_test(NAME test_sign_macos_release COMMAND ${THE_PYTHON_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sign_macos_release.py)
+endif()
+if(THE_PYTHON_EXECUTABLE)
+    foreach(profile_engine CREXX REGINA)
+        if((profile_engine STREQUAL "CREXX" AND THE_USE_CREXX) OR
+           (profile_engine STREQUAL "REGINA" AND THE_USE_REGINA AND REGINA_LIBRARY))
+            add_test(NAME test_default_profile_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_default_profiles.py $<TARGET_FILE:the> ${profile_engine})
+            set_tests_properties(test_default_profile_${profile_engine} PROPERTIES TIMEOUT 120
+                ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+            add_test(NAME test_delete_persistence_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_delete_persistence.py $<TARGET_FILE:the> ${profile_engine})
+            set_tests_properties(test_delete_persistence_${profile_engine} PROPERTIES TIMEOUT 120
+                ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+        endif()
+    endforeach()
+endif()
+if(THE_USE_REGINA AND REGINA_LIBRARY AND THE_PYTHON_EXECUTABLE)
+    if(NOT WIN32)
+        add_test(NAME test_default_profile_curses COMMAND ${THE_PYTHON_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_default_profile_curses.py $<TARGET_FILE:the>)
+        set_tests_properties(test_default_profile_curses PROPERTIES TIMEOUT 90
+            RESOURCE_LOCK the_pty_editor ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+        add_test(NAME test_panel_curses COMMAND ${THE_PYTHON_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_panel_curses.py $<TARGET_FILE:the>)
+        set_tests_properties(test_panel_curses PROPERTIES TIMEOUT 60 RESOURCE_LOCK the_pty_editor
+            ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    endif()
+    add_test(NAME test_panels COMMAND ${THE_PYTHON_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_panels.py $<TARGET_FILE:the>)
+    set_tests_properties(test_panels PROPERTIES TIMEOUT 180 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    add_test(NAME test_trunc COMMAND ${THE_PYTHON_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_trunc.py $<TARGET_FILE:the>)
+    set_tests_properties(test_trunc PROPERTIES TIMEOUT 45 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+endif()
+if(THE_USE_CREXX AND THE_USE_REGINA AND REGINA_LIBRARY AND THE_PYTHON_EXECUTABLE)
+    add_test(NAME test_xedit_controls
+        COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_xedit_controls.py $<TARGET_FILE:the>)
+    set_tests_properties(test_xedit_controls PROPERTIES TIMEOUT 60
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    add_test(NAME test_macro_runtime
+        COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_macro_runtime.py $<TARGET_FILE:the>)
+    set_tests_properties(test_macro_runtime PROPERTIES TIMEOUT 90 SKIP_RETURN_CODE 77
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 endif()
 set(THE_CTEST_PATH_DIRS
     "${CMAKE_CURRENT_BINARY_DIR}"
@@ -925,6 +1159,19 @@ if(WIN32)
     endforeach()
     string(REPLACE ";" "\\;" THE_CTEST_RUNTIME_PATH "${THE_CTEST_RUNTIME_PATH}")
     list(APPEND THE_CTEST_RUNTIME_ENV "PATH=${THE_CTEST_RUNTIME_PATH}")
+endif()
+# The native curses module depends on the PDCurses DLL in its build directory.
+# Register these after assembling the Windows test PATH, unlike llm-only tests.
+if(WIN32 AND THE_PYTHON_EXECUTABLE)
+    foreach(profile_engine CREXX REGINA)
+        if((profile_engine STREQUAL "CREXX" AND THE_USE_CREXX) OR
+           (profile_engine STREQUAL "REGINA" AND THE_USE_REGINA AND REGINA_LIBRARY))
+            add_test(NAME test_windows_console_mode_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_windows_console_mode.py $<TARGET_FILE:the> ${profile_engine})
+            set_tests_properties(test_windows_console_mode_${profile_engine} PROPERTIES TIMEOUT 100
+                RESOURCE_LOCK the_native_console ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+        endif()
+    endforeach()
 endif()
 add_test(NAME test_curses_boundary
     COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_curses_boundary.sh
@@ -1070,13 +1317,24 @@ add_test(NAME test_frontend_prefix_runtime
 set_tests_properties(test_frontend_prefix_runtime PROPERTIES
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 if(USE_WEB_DRIVER)
-    add_test(NAME test_the_web_runtime
-        COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_web_runtime.sh
-                $<TARGET_FILE:the>
-                ${THE_WEB_BUILD_DIR})
-    set_tests_properties(test_the_web_runtime PROPERTIES
-        TIMEOUT 20
+    add_test(NAME test_web_workspace_policy
+        COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_web_policy.py
+            $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR})
+    set_tests_properties(test_web_workspace_policy PROPERTIES TIMEOUT 60
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    add_test(NAME test_the_web_runtime
+        COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_web_smoke.py
+                $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR} ${THE_SELECTED_REXX_INTERPRETER})
+    set_tests_properties(test_the_web_runtime PROPERTIES
+        TIMEOUT 120
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    if(THE_USE_REGINA AND REGINA_LIBRARY)
+        add_test(NAME test_the_web_runtime_regina
+            COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_web_smoke.py
+                    $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR} REGINA)
+        set_tests_properties(test_the_web_runtime_regina PROPERTIES
+            TIMEOUT 60 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    endif()
     add_test(NAME test_webdriver_no_curses
         COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_no_curses_symbols.sh
                 $<TARGET_FILE:the_driver_web>)
@@ -1088,7 +1346,7 @@ if(USE_WEB_DRIVER)
                 $<TARGET_FILE:the>
                 ${RELEASE_DIR}/web-profile.the)
     set_tests_properties(test_web_profile_highlighting PROPERTIES
-        TIMEOUT 20
+        TIMEOUT 120
         SKIP_RETURN_CODE 77
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     add_test(NAME test_web_profile_multifile_highlighting
@@ -1097,20 +1355,26 @@ if(USE_WEB_DRIVER)
                 $<TARGET_FILE:the>
                 ${RELEASE_DIR}/web-profile.the)
     set_tests_properties(test_web_profile_multifile_highlighting PROPERTIES
-        TIMEOUT 30
+        TIMEOUT 120
         SKIP_RETURN_CODE 77
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     find_program(THE_CHROMIUM_EXECUTABLE
-        NAMES google-chrome chromium chromium-browser)
+        NAMES google-chrome chromium chromium-browser chrome
+        HINTS "$ENV{PROGRAMFILES}/Google/Chrome/Application")
     if(THE_CHROMIUM_EXECUTABLE)
+        foreach(panel_engine CREXX REGINA)
+            add_test(NAME test_panel_browser_${panel_engine}
+                COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_panel_browser.py
+                    $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR} ${THE_CHROMIUM_EXECUTABLE} ${panel_engine})
+            set_tests_properties(test_panel_browser_${panel_engine} PROPERTIES TIMEOUT 120
+                RESOURCE_LOCK the_web_browser ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+        endforeach()
         add_test(NAME test_the_web_browser
-            COMMAND ${THE_BASH_COMMAND}
-                    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_web_browser.sh
-                    $<TARGET_FILE:the>
-                    ${THE_WEB_BUILD_DIR}
+            COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_web_smoke.py
+                    $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR} ${THE_SELECTED_REXX_INTERPRETER}
                     ${THE_CHROMIUM_EXECUTABLE})
         set_tests_properties(test_the_web_browser PROPERTIES
-            TIMEOUT 30
+            TIMEOUT 120
             RESOURCE_LOCK the_web_browser
             ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     endif()
@@ -1142,7 +1406,7 @@ set_tests_properties(test_driver_modules PROPERTIES
     TIMEOUT 20
     RESOURCE_LOCK the_pty_editor
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
-add_executable(test_llmruntime tests/test_llmruntime.c src/llm/llmruntime.c src/llm/llmdriver.c src/parserdiagnostics.c src/inputevent.c src/frontendaction.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
+add_executable(test_llmruntime tests/test_llmruntime.c src/panelui.c src/llm/llmruntime.c src/llm/llmdriver.c src/parserdiagnostics.c src/inputevent.c src/frontendaction.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmruntime PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8)
     target_sources(test_llmruntime PRIVATE src/rendercell.c src/utfterm.c src/utflayout.c src/utfcluster.c)

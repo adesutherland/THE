@@ -1,7 +1,9 @@
 #
 # Use full month and no spaces in date
 #
-VER=40
-VER_DOT=4.0.CREXX
-VER_DATE="02-Apr-2026"
-VER_BASE=4.0
+VER=100
+VER_DOT=0.10.dev
+VER_DATE="27-Oct-2026"
+VER_BASE=0.10
+PRODUCT=CRXTHE
+UPSTREAM_BASE=4.0

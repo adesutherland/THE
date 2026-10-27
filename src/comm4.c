@@ -1284,7 +1284,7 @@ short THERefresh(CHARTYPE *params)
       TRACE_RETURN();
       return(RC_INVALID_OPERAND);
    }
-   if (!curses_started)
+   if (!curses_started && !the_driver_is_headless())
    {
       TRACE_RETURN();
       return(RC_INVALID_ENVIRON);
@@ -1469,6 +1469,7 @@ short Replace(CHARTYPE *params)
    short rc=RC_OK;
    LINETYPE true_line=0L;
    LINE *curr=NULL;
+   CHARTYPE *masked=NULL;
    SELECTTYPE current_select=0;
    THELIST *name=NULL;
 
@@ -1486,7 +1487,8 @@ short Replace(CHARTYPE *params)
             return(RC_INVALID_OPERAND);
             break;
          case -2: /* memory exhausted */
-            display_error( 30, (CHARTYPE *)"", FALSE );
+      if (masked) (*the_free)(masked);
+      display_error( 30, (CHARTYPE *)"", FALSE );
             TRACE_RETURN();
             return(RC_OUT_OF_MEMORY);
             break;
@@ -1503,6 +1505,21 @@ short Replace(CHARTYPE *params)
       display_error(38,(CHARTYPE *)"",FALSE);
       TRACE_RETURN();
       return(RC_OUT_OF_MEMORY); /* ?? */
+   }
+   if (CURRENT_FILE->input_mask_len)
+   {
+      masked=xedit_mask_line(CURRENT_FILE,params,len_params,&len_params);
+      if (!masked) return RC_OUT_OF_MEMORY;
+      params=masked;
+   }
+   {
+      LENGTHTYPE limited=xedit_truncated_length(CURRENT_FILE,params,len_params);
+      if (limited<len_params)
+      {
+         display_error(0,(CHARTYPE *)"Truncated at SET TRUNC column",FALSE);
+         rc=RC_TRUNCATED;
+      }
+      len_params=limited;
    }
    curr = lll_find(CURRENT_FILE->first_line,CURRENT_FILE->last_line,true_line,CURRENT_FILE->number_lines);
    current_select = curr->select;
@@ -1523,6 +1540,7 @@ short Replace(CHARTYPE *params)
       TRACE_RETURN();
       return(RC_OUT_OF_MEMORY);
    }
+   if (masked) (*the_free)(masked);
    increment_alt( CURRENT_FILE );
 
    /*

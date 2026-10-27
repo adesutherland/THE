@@ -1,0 +1,5 @@
+@echo off
+setlocal
+for %%I in ("%~dp0..") do set "THE_PACKAGE_ROOT=%%~fI"
+"%THE_PACKAGE_ROOT%\libexec\the\the-launcher.exe" "%THE_PACKAGE_ROOT%" %*
+exit /b %errorlevel%

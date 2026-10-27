@@ -37,6 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "macroruntime.h"
 #include "thedriver.h"
 #include "driverlayout.h"
 #include "llmsession.h"
@@ -844,12 +845,14 @@ short insert_new_line(CHARTYPE curr_screen, VIEW_DETAILS *curr_view, CHARTYPE *l
 {
    LINETYPE i;
    LINE *curr=NULL,*save_curr=NULL;
+   CHARTYPE *masked=NULL;
    short y=0;
    LENGTHTYPE new_col=0;
    short new_row=0;
    bool on_bottom_of_file=FALSE,on_bottom_of_screen=FALSE;
    short number_focus_rows=0;
    bool leave_cursor=FALSE;
+   bool truncated=FALSE;
    LINETYPE new_focus_line=0L,new_current_line=0L;
 
    TRACE_FUNCTION("execute.c: insert_new_line");
@@ -871,16 +874,30 @@ short insert_new_line(CHARTYPE curr_screen, VIEW_DETAILS *curr_view, CHARTYPE *l
     * Insert into the linked list the number of lines specified. All lines
     * will contain a blank line and a length of zero.
     */
+   if (inc_alt && curr_view->file_for_view->input_mask_len)
+   {
+      masked=xedit_mask_line(curr_view->file_for_view,line,len,&len);
+      if (!masked) return RC_OUT_OF_MEMORY;
+      line=masked;
+   }
    save_curr = curr;
+   if (inc_alt)
+   {
+      LENGTHTYPE limited=xedit_truncated_length(curr_view->file_for_view,line,len);
+      truncated=limited<len;
+      len=limited;
+   }
    for ( i = 0; i < num_lines; i++ )
    {
       if ( ( curr = add_LINE( curr_view->file_for_view->first_line, curr, line, len, select, TRUE ) ) == NULL )
       {
          display_error( 30, (CHARTYPE *)"", FALSE );
          TRACE_RETURN();
+         if (masked) (*the_free)(masked);
          return(RC_OUT_OF_MEMORY);
       }
    }
+   if (masked) (*the_free)(masked);
    /*
     * Fix the positioning of the marked block (if there is one and it is
     * in the current view) and any pending prefix commands.
@@ -987,8 +1004,9 @@ short insert_new_line(CHARTYPE curr_screen, VIEW_DETAILS *curr_view, CHARTYPE *l
    build_screen( curr_screen );
    display_screen( curr_screen );
 
+   if (truncated) display_error(0,(CHARTYPE *)"Truncated at SET TRUNC column",FALSE);
    TRACE_RETURN();
-   return(RC_OK);
+   return(truncated ? RC_TRUNCATED : RC_OK);
 }
 /***********************************************************************/
 static bool execute_filearea_logical_cursor(LENGTHTYPE *cell, unsigned short *row)
@@ -2778,6 +2796,11 @@ short execute_macro(CHARTYPE *params,bool error_on_not_found,short *macrorc)
    CHARTYPE *tmpargs=NULL;
 
    TRACE_FUNCTION("execute.c: execute_macro");
+   if (!rexx_support && strcmp(the_macro_interpreter(),"NONE") != 0)
+   {
+      display_error(52,(CHARTYPE *)"",FALSE);
+      return RC_INVALID_ENVIRON;
+   }
    /*
     * Validate the parameters. At least 1 must be present, the filename.
     */
@@ -5904,6 +5927,7 @@ short execute_preserve(VIEW_DETAILS *src_vd, PRESERVED_VIEW_DETAILS **preserved_
    (*preserved_view_details)->case_sort                   = src_vd->case_sort;
    (*preserved_view_details)->cmd_line                    = src_vd->cmd_line;
    (*preserved_view_details)->current_row                 = src_vd->current_row;
+   (*preserved_view_details)->curline_off = src_vd->curline_off;
    (*preserved_view_details)->current_base                = src_vd->current_base;
    (*preserved_view_details)->current_off                 = src_vd->current_off;
    (*preserved_view_details)->display_low                 = src_vd->display_low;
@@ -5965,6 +5989,9 @@ short execute_preserve(VIEW_DETAILS *src_vd, PRESERVED_VIEW_DETAILS **preserved_
    /*
     * Save the FILE details...
     */
+   memcpy((*preserved_file_details)->input_mask,src_fd->input_mask,sizeof(src_fd->input_mask));
+   (*preserved_file_details)->input_mask_len=src_fd->input_mask_len;
+   (*preserved_file_details)->truncation_column=src_fd->truncation_column;
    (*preserved_file_details)->autosave                  = src_fd->autosave;
    (*preserved_file_details)->backup                    = src_fd->backup;
    (*preserved_file_details)->eolout                    = src_fd->eolout;
@@ -6013,6 +6040,7 @@ short execute_restore(VIEW_DETAILS *dst_vd, PRESERVED_VIEW_DETAILS **preserved_v
    dst_vd->case_sort                   = (*preserved_view_details)->case_sort;
    dst_vd->cmd_line                    = (*preserved_view_details)->cmd_line;
    dst_vd->current_row                 = (*preserved_view_details)->current_row;
+   dst_vd->curline_off = (*preserved_view_details)->curline_off;
    dst_vd->current_base                = (*preserved_view_details)->current_base;
    dst_vd->current_off                 = (*preserved_view_details)->current_off;
    dst_vd->display_low                 = (*preserved_view_details)->display_low;
@@ -6073,6 +6101,9 @@ short execute_restore(VIEW_DETAILS *dst_vd, PRESERVED_VIEW_DETAILS **preserved_v
    /*
     * Restore the FILE details...
     */
+   memcpy(dst_fd->input_mask,(*preserved_file_details)->input_mask,sizeof(dst_fd->input_mask));
+   dst_fd->input_mask_len=(*preserved_file_details)->input_mask_len;
+   dst_fd->truncation_column=(*preserved_file_details)->truncation_column;
    dst_fd->autosave                  = (*preserved_file_details)->autosave;
    dst_fd->backup                    = (*preserved_file_details)->backup;
    dst_fd->eolout                    = (*preserved_file_details)->eolout;
