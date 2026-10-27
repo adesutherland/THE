@@ -117,6 +117,21 @@ static void test_ascii(void)
    expect_size("ascii.count", textpos_count_codepoints(s, sizeof(s)), 3);
 }
 
+static void test_retained_tabs(void)
+{
+   static const CHARTYPE s[] = { 'a', 'a', '\t', 'b', 'b', '\t' };
+   TextPos tab = textpos_from_cell(s, sizeof(s), 2, TEXT_SNAP_BACKWARD);
+   TextCluster cluster = textpos_cluster_at_boundary(s, sizeof(s), tab);
+
+   expect_int("tab.cell.width", text_codepoint_cell_width('\t'), 1);
+   expect_pos("tab.position", tab, 2, 2, 2);
+   expect_cluster("tab.cluster", cluster, 2, 3, 1, 1);
+   expect_pos("tab.after", textpos_from_cell(s, sizeof(s), 3,
+                                           TEXT_SNAP_BACKWARD), 3, 3, 3);
+   expect_u32("tab.character", textpos_codepoint_at_boundary(s, sizeof(s), tab).codepoint, '\t');
+   expect_pos("tab.end", textpos_from_byte(s, sizeof(s), sizeof(s)), 6, 6, 6);
+}
+
 static void test_accent_and_cjk(void)
 {
    static const CHARTYPE s[] = { 'A', 0xC3, 0xA9, 0xE6, 0xBC, 0xA2, 'B' };
@@ -348,6 +363,7 @@ static void test_encode(void)
 
 int main(void)
 {
+   test_retained_tabs();
    test_ascii();
    test_accent_and_cjk();
    test_emoji_snap();

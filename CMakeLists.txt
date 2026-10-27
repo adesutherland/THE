@@ -1106,6 +1106,11 @@ if(THE_USE_REGINA AND REGINA_LIBRARY AND THE_PYTHON_EXECUTABLE)
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_default_profile_curses.py $<TARGET_FILE:the>)
         set_tests_properties(test_default_profile_curses PROPERTIES TIMEOUT 90
             RESOURCE_LOCK the_pty_editor ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+        add_test(NAME test_curses_repaint COMMAND ${THE_PYTHON_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_curses_repaint.py $<TARGET_FILE:the>)
+        set_tests_properties(test_curses_repaint PROPERTIES TIMEOUT 60
+            SKIP_RETURN_CODE 77 RESOURCE_LOCK the_pty_editor
+            ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
         add_test(NAME test_panel_curses COMMAND ${THE_PYTHON_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_panel_curses.py $<TARGET_FILE:the>)
         set_tests_properties(test_panel_curses PROPERTIES TIMEOUT 60 RESOURCE_LOCK the_pty_editor

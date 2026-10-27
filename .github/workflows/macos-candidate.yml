@@ -22,6 +22,9 @@ jobs:
       - name: Install build and optional Regina test tools
         run: |
           brew install ninja ripgrep regina-rexx
+          python3 -m venv "$RUNNER_TEMP/the-test-python"
+          "$RUNNER_TEMP/the-test-python/bin/python" -m pip install pyte==0.8.2
+          echo "THE_CI_TEST_PYTHON=$RUNNER_TEMP/the-test-python/bin/python" >> "$GITHUB_ENV"
           if [[ ! -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]]; then
             brew install --cask google-chrome
           fi
@@ -48,6 +51,7 @@ jobs:
           set -euo pipefail
           crexx="$THE_CI_SDK/CREXX-macos-arm64"
           cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            "-DTHE_PYTHON_EXECUTABLE=$THE_CI_TEST_PYTHON" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 -DTHE_BUNDLE_CREXX=ON \
             -DTHE_REXX_INTERPRETER=CREXX -DUSE_WEB_DRIVER=ON \
             "-DDSLSH_LOCAL_DIR=$GITHUB_WORKSPACE/.ci-deps/dslsh" \

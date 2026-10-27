@@ -28,6 +28,12 @@ driver-neutral frame -> physical terminal or semantic LLM view
 Terminal profiles can change how a cluster is displayed. They must not change
 the bytes, grapheme boundaries, logical cursor position, or editing unit.
 
+A retained tab (U+0009) occupies one editable logical cell and displays as a
+right arrow, including during cursor repaint and in the character status
+preview. Its stored byte remains a tab. The default profile's Tab key inserts
+spaces to the next configured tab stop; this is separate from displaying tabs
+already present in a file.
+
 UTF text entry is separate from display policy. Literal `TEXT`, `INPUT`, LLM
 `text`, and LLM `insert after` accept UTF-8 text. `UTFTEXT`, `UTFINPUT`,
 LLM `text-utf`, and LLM `insert-utf` provide deterministic
