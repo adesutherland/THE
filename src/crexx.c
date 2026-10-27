@@ -148,10 +148,12 @@ short initialise_crexx(void)
 {
    const char *location=NULL;
    const char *library_rxbin=NULL;
+#ifndef THE_WASM
    const char *rxc=NULL;
    const char *rxas=NULL;
    const char *import_dir=NULL;
    const char *cache_dir=NULL;
+#endif
 
    TRACE_FUNCTION("crexx.c:   initialise_crexx");
 
@@ -163,18 +165,22 @@ short initialise_crexx(void)
 
    if (!load_crexx_runtime()) return RC_INVALID_ENVIRON;
 
+#ifndef THE_WASM
    if (the_crexx_configure_cache() != 0)
    {
       crexx_display_error("Set THE_CREXX_CACHE_DIR to a writable cache directory",NULL);
       return RC_INVALID_ENVIRON;
    }
+#endif
 
    location = crexx_config_value("THE_CREXX_LOCATION",THE_CREXX_IMPORT_DIR);
    library_rxbin = crexx_config_value("THE_CREXX_LIBRARY_RXBIN",THE_CREXX_LIBRARY_RXBIN);
+#ifndef THE_WASM
    rxc = crexx_config_value("THE_CREXX_RXC",THE_CREXX_RXC);
    rxas = crexx_config_value("THE_CREXX_RXAS",THE_CREXX_RXAS);
    import_dir = crexx_config_value("THE_CREXX_IMPORT_DIR",THE_CREXX_IMPORT_DIR);
    cache_dir = getenv("CREXXSAA_CACHE_DIR");
+#endif
 
    if (crexxsaa_create(location,library_rxbin,&the_crexx_context) != 0)
    {
@@ -182,6 +188,7 @@ short initialise_crexx(void)
       TRACE_RETURN();
       return(RC_INVALID_ENVIRON);
    }
+#ifndef THE_WASM
    if (crexxsaa_set_compiler(the_crexx_context,rxc,rxas,import_dir) != 0)
    {
       crexx_display_error("Unable to configure CREXX compiler",
@@ -201,6 +208,7 @@ short initialise_crexx(void)
       TRACE_RETURN();
       return(RC_INVALID_ENVIRON);
    }
+#endif
    if (crexxsaa_register_address_environment(
           the_crexx_context,
           "THE",
@@ -278,6 +286,10 @@ static short execute_crexx_macro_path(
       argc = 1;
    }
 
+#ifdef THE_WASM
+   (void)interactive;
+   (void)flags;
+#else
    if (interactive)
    {
 # if defined(WIN32)
@@ -287,11 +299,19 @@ static short execute_crexx_macro_path(
       execute_os_command((CHARTYPE *)"echo",TRUE,FALSE);
 # endif
    }
+#endif
 
    if (crexx_has_suffix((char *)filename,".rxbin"))
       run_rc = crexxsaa_run_rxbin(the_crexx_context,(char *)filename,argc,argv,&program_rc);
    else
+#ifdef THE_WASM
+   {
+      crexx_display_error("Browser macros require precompiled .rxbin files",NULL);
+      return RC_INVALID_OPERAND;
+   }
+#else
       run_rc = crexxsaa_run_source(the_crexx_context,(char *)filename,"THE",flags,argc,argv,&program_rc);
+#endif
 
    if (macrorc != NULL)
       *macrorc = (short)program_rc;

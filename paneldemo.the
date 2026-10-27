@@ -11,10 +11,11 @@ main: procedure
   savedcolumn = pool.get('cursor.4') as .int
   savedrow = pool.get('cursor.1') as .int
   savedcell = pool.get('cursor.2') as .int
-  address the 'extract /field/line/' sandbox pool;
+  address the 'extract /field/line/size/' sandbox pool;
   savedarea = pool.get('field.4')
   savedareacol = pool.get('field.3') as .int
   savedfocus = pool.get('line.1') as .int
+  savedsize = pool.get('size.1') as .int
   address the 'extract /reserved */' sandbox pool;
   reservedcount = pool.get('reserved.0') as .int
   savedreserved = .string[]
@@ -68,6 +69,13 @@ main: procedure
     do prefixcell = 2 to savedareacol
       address the 'cursor cua right';
     end
+  end
+  else if savedline > savedsize then do
+    if savedsize > 0 then do
+      address the 'cursor goto ' || savedsize || ' 1';
+      address the 'cursor cua down';
+    end
+    else address the 'bottom';
   end
   else if savedline > 0 & savedcolumn > 0 then
     address the 'cursor goto ' || savedline || ' ' || savedcolumn;

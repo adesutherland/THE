@@ -1,0 +1,33 @@
+<!doctype html><meta charset="utf-8"><title>cREXX Wasm VM contract harness</title>
+<script type="module">
+import {CrexxVMProcess} from './vm-client.mjs';
+window.runVMContract = async () => {
+  const images = await Promise.all(['library','stdio-probe'].map(async name => {
+    const response = await fetch(`./modules/${name}.rxbin`);
+    if (!response.ok) throw new Error(`Missing ${name}`);
+    return new Uint8Array(await response.arrayBuffer());
+  }));
+  const tick = () => new Promise(resolve => setTimeout(resolve, 20));
+  const stdout = [], stderr = [];
+  const process = await CrexxVMProcess.start({images, arguments: ['α界', ''], stdout: bytes => stdout.push(...bytes), stderr: bytes => stderr.push(...bytes)});
+  let completed = false;
+  process.exit.then(() => completed = true);
+  await tick(); if (completed) throw new Error('Empty input became EOF');
+  await process.write(Uint8Array.of(0,0xce));
+  await tick(); if (completed) throw new Error('Partial input became EOF');
+  await process.write(Uint8Array.of(0xb1,10,255,65));
+  await tick(); if (completed) throw new Error('Open stream became EOF');
+  await process.endInput(); const result = await process.exit;
+  if (result.runtimeCode || result.programCode) throw new Error(JSON.stringify(result));
+  if (JSON.stringify(stdout) !== '[0,206,177,10,255,65]') throw new Error('Byte stream changed');
+  if (new TextDecoder().decode(Uint8Array.from(stderr)) !== 'VM_STDIO_DONE') throw new Error('stderr mixed with stdout');
+  let malformedRefused = false;
+  try { await CrexxVMProcess.start({images:[Uint8Array.of(0,1,2)]}); }
+  catch { malformedRefused = true; }
+  if (!malformedRefused) throw new Error('Malformed RXBIN accepted');
+  const restarted = await CrexxVMProcess.start({images});
+  await restarted.failInput('input failed'); const failed = await restarted.exit;
+  if (failed.runtimeCode !== 0 || failed.programCode !== 2) throw new Error('Read failure became clean EOF');
+  return {ok: true, bytes:stdout, malformedRefused, failed};
+};
+</script>

@@ -720,7 +720,7 @@ short get_startup_profiles(void)
    if (execute_profile
    &&  local_prf != (CHARTYPE *)NULL)
       rc = get_profile(local_prf,prf_arg);
-#ifdef THE_WASM
+#if defined(THE_WASM) && !defined(USE_CREXX)
    /* The command-only bootstrap mirrors the normal profile's empty-file
     * positioning until the browser gains its cREXX VM. */
    if (CURRENT_FILE->number_lines > 0)

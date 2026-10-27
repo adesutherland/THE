@@ -5,6 +5,12 @@ if(NOT EMSCRIPTEN_VERSION VERSION_EQUAL "6.0.13")
     message(FATAL_ERROR "The browser build is pinned to Emscripten 6.0.13; found ${EMSCRIPTEN_VERSION}")
 endif()
 
+option(THE_WASM_CREXX "Run precompiled cREXX browser profiles and macros" OFF)
+if(THE_WASM_CREXX)
+    set(THE_WASM_REXX_DEFAULT CREXX)
+else()
+    set(THE_WASM_REXX_DEFAULT NONE)
+endif()
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 add_compile_definitions(_GNU_SOURCE=1)
@@ -25,7 +31,7 @@ configure_file("${CMAKE_SOURCE_DIR}/config.h.in" "${CMAKE_BINARY_DIR}/config.h")
 add_compile_definitions(HAVE_CONFIG_H USE_UTF8 USE_WIDE_CHAR USE_UTF8PROC=1
     NOREXX=1 THE_WASM=1 THE_DRIVER_ENABLE_WEB=1
     THE_HEADLESS_DRIVER_NO_MODULE_EXPORTS=1
-    THE_DEFAULT_REXX_INTERPRETER="NONE"
+    THE_DEFAULT_REXX_INTERPRETER="${THE_WASM_REXX_DEFAULT}"
     THE_PRODUCT_NAME="${THE_PRODUCT_NAME}" THE_VERSION="${THE_VERSION}"
     THE_VERSION_DATE="${THE_VERSION_DATE}" THE_VARIANT="wasm"
     THE_PLATFORM_NAME="wasm" THE_SYSTEM_PROFILE_NAME="system-wasm.the"
@@ -43,6 +49,19 @@ FetchContent_Declare(utf8proc
 FetchContent_MakeAvailable(utf8proc)
 include("${CMAKE_SOURCE_DIR}/cmake/TheSources.cmake")
 
+if(THE_WASM_CREXX)
+    include("${CMAKE_SOURCE_DIR}/cmake/CrexxWasm.cmake")
+    add_compile_definitions(USE_CREXX=1 THE_CREXX_STATIC=1
+        THE_CREXX_IMPORT_DIR="/app" THE_CREXX_LIBRARY_RXBIN="/app/library.rxbin")
+    add_library(the_wasm_saa STATIC "${THE_CREXX_SOURCE}/interpreter/crexxsaa.c")
+    target_link_libraries(the_wasm_saa PUBLIC rxvm_single_embed)
+    set(THE_WASM_RESOURCE_ARGUMENTS --crexx-bin "${THE_CREXX_HOST_BUILD}/bin")
+    set(THE_WASM_PROFILE_DEPENDS quickfind.the quickopen.the quickline.the paneldemo.the
+        "${THE_CREXX_HOST_BUILD}/bin/rxc" "${THE_CREXX_HOST_BUILD}/bin/rxas"
+        "${THE_CREXX_HOST_BUILD}/bin/rxcexits.rxbin" "${THE_CREXX_HOST_BUILD}/bin/library.rxbin")
+    set(THE_WASM_PACKAGE_ARGUMENTS --crexx-source "${THE_CREXX_SOURCE}" --crexx-revision "${THE_CREXX_REVISION}")
+endif()
+
 find_program(THE_WASM_PYTHON NAMES python3 REQUIRED)
 find_program(THE_WASM_NPM NAMES npm REQUIRED)
 set(THE_WASM_RESOURCES "${CMAKE_BINARY_DIR}/resources")
@@ -50,10 +69,10 @@ file(GLOB THE_WASM_SYNTAX CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/syntax/*")
 set(THE_WASM_RESOURCE_STAMP "${CMAKE_BINARY_DIR}/resources.stamp")
 add_custom_command(OUTPUT "${THE_WASM_RESOURCE_STAMP}"
     COMMAND "${THE_WASM_PYTHON}"
-        "${CMAKE_SOURCE_DIR}/scripts/prepare-wasm-resources.py" "${THE_WASM_RESOURCES}"
+        "${CMAKE_SOURCE_DIR}/scripts/prepare-wasm-resources.py" "${THE_WASM_RESOURCES}" ${THE_WASM_RESOURCE_ARGUMENTS}
     COMMAND "${CMAKE_COMMAND}" -E touch "${THE_WASM_RESOURCE_STAMP}"
     DEPENDS scripts/prepare-wasm-resources.py profiles/default-profile.json
-        doc/THE_Help.txt ${THE_WASM_SYNTAX}
+        doc/THE_Help.txt ${THE_WASM_SYNTAX} ${THE_WASM_PROFILE_DEPENDS}
     VERBATIM)
 add_custom_target(the_wasm_resources DEPENDS "${THE_WASM_RESOURCE_STAMP}")
 
@@ -61,6 +80,11 @@ add_executable(crxthe_wasm ${THE_SOURCES}
     src/websession.c src/drivers/llm/headlessdriver.c
     src/drivers/wasm/wasmdriver.c)
 target_link_libraries(crxthe_wasm PRIVATE utf8proc)
+if(THE_WASM_CREXX)
+    target_sources(crxthe_wasm PRIVATE src/wasm/crexxfs.c src/wasm/crexxresources.c)
+    target_link_libraries(crxthe_wasm PRIVATE the_wasm_saa)
+    target_link_options(crxthe_wasm PRIVATE -Wl,--wrap=fileexists)
+endif()
 add_dependencies(crxthe_wasm the_wasm_resources)
 set_property(TARGET crxthe_wasm APPEND PROPERTY LINK_DEPENDS "${THE_WASM_RESOURCE_STAMP}")
 set_target_properties(crxthe_wasm PROPERTIES SUFFIX ".mjs")
@@ -68,7 +92,7 @@ target_link_options(crxthe_wasm PRIVATE
     -sASYNCIFY=1 -sASYNCIFY_STACK_SIZE=1048576 -sSTACK_SIZE=1048576
     -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=67108864
     -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=worker,node
-    "-sEXPORTED_FUNCTIONS=['_main','_the_wasm_main','_setenv','_malloc','_free']"
+    "-sEXPORTED_FUNCTIONS=['_main','_the_wasm_main','_the_wasm_has_crexx','_setenv','_malloc','_free']"
     "-sEXPORTED_RUNTIME_METHODS=['ccall','FS','IDBFS','ENV','stringToUTF8']"
     -lidbfs.js "--preload-file=${THE_WASM_RESOURCES}@/app")
 
@@ -93,6 +117,8 @@ add_custom_command(OUTPUT "${THE_WASM_SITE}/.build-stamp"
     VERBATIM)
 add_custom_target(the_wasm_bundle ALL DEPENDS "${THE_WASM_SITE}/.build-stamp"
     COMMAND "${THE_WASM_PYTHON}" "${CMAKE_SOURCE_DIR}/scripts/package-wasm-site.py"
-        "${THE_WASM_SITE}" "${utf8proc_SOURCE_DIR}/LICENSE.md"
-        "${EMSCRIPTEN_ROOT_PATH}/LICENSE" "${THE_VERSION}" "${EMSCRIPTEN_VERSION}"
+        "${THE_WASM_SITE}"
+        "${THE_VERSION}" "${EMSCRIPTEN_VERSION}"
+        --utf8-license "${utf8proc_SOURCE_DIR}/LICENSE.md"
+        --emscripten-license "${EMSCRIPTEN_ROOT_PATH}/LICENSE" ${THE_WASM_PACKAGE_ARGUMENTS}
     VERBATIM)

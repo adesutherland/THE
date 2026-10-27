@@ -15,6 +15,15 @@ static void (*base_update)(void);
 static char snapshot[262144];
 
 int main(int argc, char **argv);
+EMSCRIPTEN_KEEPALIVE int the_wasm_has_crexx(void)
+{
+#ifdef USE_CREXX
+   return 1;
+#else
+   return 0;
+#endif
+}
+
 EMSCRIPTEN_KEEPALIVE int the_wasm_main(void)
 {
    char *argv[] = {"crxthe", "--driver", "web", "-s", "/workspace/Welcome.txt", NULL};

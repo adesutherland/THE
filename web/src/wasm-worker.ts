@@ -99,10 +99,12 @@ async function start() {
     await sync();
   }
   fs.chdir("/workspace");
+  const hasCrexx = await editor.ccall("the_wasm_has_crexx", "number", [], [], {});
   for (const [name, value] of Object.entries({
     HOME: "/home/web_user", THE_HOME_DIR: "/app/", THE_WEB_WORKSPACE: "/workspace",
     THE_WEB_READONLY_ROOTS: "/app",
-    THE_WEB_PROFILE: "/app/browser.commands", THE_REXX_INTERPRETER: "NONE",
+    THE_WEB_PROFILE: hasCrexx ? "/app/browser.rxbin" : "/app/browser.commands",
+    THE_REXX_INTERPRETER: hasCrexx ? "CREXX" : "NONE", THE_WEB_MACRO_PATH: "/app:/workspace",
   })) editor.ccall("setenv", "number", ["string", "string", "number"], [name, value, 1], {});
   send({ type: "storage", state: "saved" });
   send({ type: "ready" });

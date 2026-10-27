@@ -146,6 +146,28 @@ try {
   await waitFor(() => evaluate("window.__snapshot?.buffer?.path === '/workspace/Welcome.txt'"), "Wasm startup", 30000);
   const send = (request) => evaluate(`window.__worker.postMessage(${JSON.stringify(request)})`);
   const snapshot = () => evaluate("window.__snapshot");
+  const manifest = await (await fetch(new URL('manifest.json', pageUrl))).json();
+  if (manifest.capabilities.editor_address) {
+    await evaluate("document.querySelector('.input-sink').focus()");
+    await domKey('f', 'KeyF', true);
+    await waitFor(async () => (await snapshot()).command === 'locate /', 'ADDRESS THE quickfind');
+    await send({type: 'action', action: 'edit.undo'});
+    await send({type: 'command', command: 'cursor goto 1 1'});
+    await evaluate("document.querySelector('.input-sink').focus()");
+    await domKey('F7', 'F7');
+    await waitFor(async () => !!(await snapshot()).panel, 'cREXX READ panel');
+    await command('Input.insertText', {text: 'Ada'});
+    await waitFor(async () => (await snapshot()).panel?.fields.some(f => f.changed && f.text.startsWith('Ada')), 'READ field DOM input');
+    await domKey('Enter', 'Enter');
+    await waitFor(async () => { const s = await snapshot(); return !s.panel && s.status.includes('PANEL_RC 0') && s.status.includes('Ada'); }, 'READ stem result/resume');
+    const restored = await snapshot();
+    if (restored.buffer.dirty || restored.focus.line !== 1 || restored.focus.cell !== 0)
+      throw new Error('Panel changed buffer or failed to restore cursor');
+    await domKey('F7', 'F7');
+    await waitFor(async () => !!(await snapshot()).panel, 'repeated READ');
+    await domKey('Escape', 'Escape');
+    await waitFor(async () => { const s = await snapshot(); return !s.panel && s.status.includes('PANEL_RC 4'); }, 'READ cancellation/resume');
+  }
   await send({ type: "command", command: "cursor goto 1 1" });
   await send({ type: "text", text: "é界" });
   await waitFor(async () => (await snapshot()).buffer.dirty, "dirty editing");

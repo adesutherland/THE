@@ -1,3 +1,6 @@
+#ifdef THE_CREXX_STATIC
+static int load_crexx_runtime(void) { return 1; }
+#else
 /* Included after crexxsaa.h; no direct calls/imports to the runtime DLL. */
 #include "macroruntime.h"
 #include "crexxapi.h"
@@ -43,3 +46,5 @@ failed:
 #define crexxsaa_address_variable_set the_crexxsaa_address_variable_set
 #define crexxsaa_address_variable_get_alloc the_crexxsaa_address_variable_get_alloc
 #define crexxsaa_free the_crexxsaa_free
+
+#endif

@@ -1,0 +1,33 @@
+/* Browser host contract: raw byte echo, clean EOF and separate diagnostics. */
+options levelb
+main: procedure = .int
+  arg arguments = .string[]
+  if arguments[0] > 0 then do
+    if arguments[0] <> 2 then return 6
+    if arguments[1] <> 'α界' | arguments[2] <> '' then return 7
+  end
+  input = 0; output = 0; errors = 0; failed = 0; ended = 0; flushed = 0
+  inputname = 'stdin'; outputname = 'stdout'; errorname = 'stderr'
+  readmode = 'rb'; writemode = 'wb'; count = 1
+  assembler fopen input,inputname,readmode
+  assembler fopen output,outputname,writemode
+  assembler fopen errors,errorname,writemode
+  do forever
+    bytes = .binary
+    assembler freadb bytes,input,count
+    assembler ferror failed,input
+    if failed <> 0 then return 2
+    if <blen>(bytes) = 0 then do
+      assembler feof ended,input
+      if ended = 0 then return 3
+      leave
+    end
+    assembler fwriteb output,bytes
+    assembler fflush flushed,output
+    if flushed <> 0 then return 4
+  end
+  message = 'VM_STDIO_DONE' as .binary
+  assembler fwriteb errors,message
+  assembler fflush flushed,errors
+  if flushed <> 0 then return 5
+  return 0

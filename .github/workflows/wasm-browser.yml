@@ -42,3 +42,54 @@ jobs:
           name: CRXTHE-0.10.dev-wasm-preview
           path: build-wasm/site/
           if-no-files-found: error
+  crexx:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v5
+        with:
+          repository: adesutherland/CREXX
+          ref: c566025eedc5ef9f48b4c4a8f8f8919fd89793c5
+          path: build/crexx-source
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare matching native bytecode tools
+        run: |
+          cmake -S build/crexx-source -B build/crexx-host -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+          cmake --build build/crexx-host --target rxc rxas library compiler_exit_bin --parallel 4
+      - name: Install pinned Emscripten
+        run: |
+          git clone --branch 6.0.13 --depth 1 https://github.com/emscripten-core/emsdk.git build/toolchains/emsdk
+          build/toolchains/emsdk/emsdk install 6.0.13
+          build/toolchains/emsdk/emsdk activate 6.0.13
+      - name: Build addressed profiles and stream VM
+        run: |
+          source build/toolchains/emsdk/emsdk_env.sh
+          emcmake cmake -S . -B build-wasm-profile -G Ninja -DCMAKE_BUILD_TYPE=Release -DTHE_BUILD_WASM=ON -DTHE_WASM_CREXX=ON -DTHE_CREXX_SOURCE="$GITHUB_WORKSPACE/build/crexx-source"
+          cmake --build build-wasm-profile --parallel 4
+          node web/test/wasm-core-smoke.mjs build-wasm-profile
+          emcmake cmake -S . -B build-wasm-vm -G Ninja -DCMAKE_BUILD_TYPE=Release -DTHE_BUILD_WASM_VM=ON -DTHE_CREXX_SOURCE="$GITHUB_WORKSPACE/build/crexx-source"
+          cmake --build build-wasm-vm --parallel 4
+          node web/test/wasm-vm-smoke.mjs build-wasm-vm
+      - name: Qualify browser profiles, READ and VM streams
+        run: |
+          python3 -m http.server 8769 --bind 127.0.0.1 --directory build-wasm-profile/site > build-wasm-profile/http.log 2>&1 &
+          editor_server=$!
+          python3 -m http.server 8768 --bind 127.0.0.1 --directory build-wasm-vm/site > build-wasm-vm/http.log 2>&1 &
+          vm_server=$!
+          trap 'kill "$editor_server" "$vm_server"' EXIT
+          export CHROMIUM_BIN="$(command -v google-chrome)"
+          THE_WEB_URL=http://127.0.0.1:8769 node web/test/wasm-browser-smoke.mjs
+          THE_VM_URL=http://127.0.0.1:8768/test.html node web/test/wasm-vm-browser.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CRXTHE-0.10.dev-crexx-wasm-preview
+          path: |
+            build-wasm-profile/site/
+            build-wasm-vm/site/
+          if-no-files-found: error

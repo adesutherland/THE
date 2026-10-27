@@ -387,6 +387,11 @@ function App() {
         if (!event.shiftKey) requestAction("edit.undo");
         return;
       }
+      if (commandModifier && ["f", "g"].includes(event.key.toLowerCase())) {
+        event.preventDefault();
+        send({ type: "key", key: `C-${event.key.toLowerCase()}` });
+        return;
+      }
       let key = /^F([1-9]|1[0-9]|2[0-4])$/.test(event.key) ? event.key.toLowerCase() : event.shiftKey && event.key === "Tab" ? "backtab" : keyNames[event.key];
       if (event.shiftKey && key && ["left", "right", "up", "down", "home", "end"].includes(key)) key = `shift-${key}`;
       if (key) {
