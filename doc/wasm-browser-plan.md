@@ -38,6 +38,32 @@ to the consumer target, plus virtual POSIX file lookup for the profile route.
 Those adapters live in THE; the dependency checkout is not silently patched.
 The standalone buffer/stream host needs no filesystem lookup adapter.
 
+## Project ownership
+
+| Project | Source and local commit responsibility |
+| --- | --- |
+| cREXX | Compiler/VM contracts, bounded Classic frontend observations and maintained portable VM builds. |
+| DSLSH | Parser model, wire/service contracts, language adapters and parser examples, including the Classic Rexx endpoint. |
+| THE | Browser VM embedding host, editor-owned snapshots and revision admission, style/diagnostic projection, profiles/ADDRESS THE, storage, UI, consumer packaging and integration tests. |
+
+The RXVML process/stdio host and JavaScript frame adapter stay in THE for this
+milestone. Extracting reusable upstream browser APIs needs a separate contract,
+dependency pin and integration qualification. DSLSH owns the wire format; a
+reusable JavaScript framing package and bounded wire-admission API are future
+DSLSH work. Editor policy and UI remain THE responsibilities.
+
+Three compatibility fixes belong upstream in cREXX: include `rxvminvoke.c` in
+the single-threaded leaf, enable Emscripten file lookup, and supply the
+constrained-build unavailable-resource fallback. Make that a separate repair,
+then remove THE's adapters and qualify the newly pinned consumer build. The
+current working browser build keeps its already qualified cohort and adapters.
+
+Commit maintained sources, build recipes, dependency pins and tests in their
+owning projects. Generated RXBIN/Wasm/site artifacts, toolchains and local test
+scratch remain build outputs. The Classic browser's cREXX cohort and the older
+standalone compatibility-probe/ordinary CI cohort are distinct; each requires
+its own execution evidence.
+
 ## Classic Rexx connection
 
 The optional browser highlighter is implemented using the maintained Level L
