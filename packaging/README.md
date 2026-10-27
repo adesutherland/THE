@@ -24,11 +24,11 @@ cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release \
 cmake --build build-release --parallel
 ctest --test-dir build-release --output-on-failure
 python3 scripts/package-release.py --build-dir build-release \
-  --version 0.9.0-preview.1 --installer
+  --version 0.9.1-preview.1 --installer
 ```
 
 The version above is a local candidate label, not a release declaration.
-Package names begin `CRXTHE-0.9.0-...`. The display version and manifest identify the independently maintained fork and its THE 4.0 ancestry. The stable `the` launcher, install/cache directories, registry/package identifiers and `THE_*` configuration keys are retained for compatibility; `crxthe` is the new public launcher alias. Upgrade behavior still needs the next candidate's native installer QA.
+Package names begin `CRXTHE-0.9.1-...`. The display version and manifest identify the independently maintained fork and its THE 4.0 ancestry. The stable `the` launcher, install/cache directories, registry/package identifiers and `THE_*` configuration keys are retained for compatibility; `crxthe` is the new public launcher alias. Upgrade behavior still needs the next candidate's native installer QA.
 
 `CREXXSAA_RUNTIME_LIBRARY`, `CREXX_RXC_EXECUTABLE`, `CREXX_RXAS_EXECUTABLE`,
 `CREXX_RXVM_EXECUTABLE`, `CREXX_DRIVER_EXECUTABLE`, `CREXX_LIBRARY_RXBIN` and

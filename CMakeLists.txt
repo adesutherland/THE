@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(THE VERSION 0.9.0 LANGUAGES C)
+project(THE VERSION 0.9.1 LANGUAGES C)
 
 set(THE_PRODUCT_NAME "CRXTHE")
 set(THE_VERSION "${PROJECT_VERSION}")
-set(THE_VERSION_DATE "26-Oct-2026")
+set(THE_VERSION_DATE "27-Oct-2026")
 
 # --- Options ---
 option(USE_WIDE_CHAR "Enable wide character support" ON)

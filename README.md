@@ -1,4 +1,4 @@
-# CRXTHE 0.9.0
+# CRXTHE 0.9.1
 
 **CRXTHE** is an independently maintained fork based on Mark Hessling's THE 4.0, with cREXX/Regina macros, Unicode editing and separate console, LLM and browser frontends.
 
@@ -152,7 +152,7 @@ split a line, Shift-arrow selection and visible key hints. See the
 
 Use `crxthe file.txt` in a packaged installation (`crxthe.cmd` on Windows).
 The `the` launcher and `THE_*` configuration names remain compatible aliases.
-The version is **CRXTHE 0.9.0**, independently numbered from upstream THE 4.0.
+The version is **CRXTHE 0.9.1**, independently numbered from upstream THE 4.0.
 This source change does not rename or replace earlier published 4.0 prereleases.
 
 ## Original Author

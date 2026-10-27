@@ -39,8 +39,8 @@ The signing maintenance at `bc89003` is the parent of this source fix.
   retained the wrong tab position and eight stale status background cells.
   The original user file and the agent's fixture remained unchanged.
 
-Exact successor Windows console-buffer and panel-return checks are still
-required, followed by Adrian's manual test. No Shmuel handoff is authorised.
+The final successor checks and Adrian's Windows approval are recorded below.
+No separate Shmuel message is authorised.
 
 ## F7 form and syntax review
 
@@ -75,7 +75,7 @@ repair keeps legacy output within logical cells, excludes wide continuation
 sentinels from Unicode encoding, and bounds ANSI neighbour repair to the
 logical screen. Its isolated DLL tests passed both macro engines, Unicode
 preview modes and logical/physical neighbour comparisons. The integrated
-artifact still needs hosted and native Windows qualification.
+artifact subsequently passed the qualification below.
 
 ## Separate observation
 
@@ -85,3 +85,21 @@ refresh reloads the working record before committing the deletion, including
 for plain ASCII. No deletion repair is claimed here. The tab
 regression checks its intended navigation/insertion/save boundary separately;
 this additional editing/persistence observation needs its own investigation.
+
+## Final integrated qualification and release approval
+
+Source `dc2ea4022b264e30d0cdc87e2ece64dcc35ae485` passed the complete local
+macOS Release suite (83/83, no skips), TypeScript validation, hosted macOS
+[run 40490388429](https://github.com/adesutherland/THE/actions/runs/40490388429)
+(79 executed passes, four optional skips), and hosted Windows
+[run 40490392546](https://github.com/adesutherland/THE/actions/runs/40490392546)
+(69 executed passes, 12 optional skips). Both packages had clean, matching
+source manifests and every payload hash was verified.
+
+Native Windows repaint, five Unicode preview modes, F7 input/return and
+syntax token checks passed with both cREXX and Regina. ConPTY capture also
+verified the exact RGB colours for the form and five syntax categories.
+Adrian then confirmed the Windows manual smoke test passed and authorised
+publication of a full CRXTHE 0.9.1 release on 27 October 2026. The versioned
+source must be rebuilt and signed through the controlled release gates; the
+0.9.0-named test archives are not release inputs for 0.9.1.

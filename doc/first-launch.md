@@ -1,4 +1,4 @@
-# First launch in CRXTHE 0.9.0
+# First launch in CRXTHE 0.9.1
 
 CRXTHE is an independently maintained fork based on Mark Hessling's THE 4.0.
 Its version number describes this fork. Report CRXTHE defects to

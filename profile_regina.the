@@ -153,4 +153,4 @@ if left(platform,3) = 'WIN' then do
   'define c-x clipboard cut';
   'define c-v clipboard paste';
 end
-'msg CRXTHE 0.9.0 | Esc Command  F6 Cmd/File  F1 Help  Ctrl-S Save';
+'msg CRXTHE 0.9.1 | Esc Command  F6 Cmd/File  F1 Help  Ctrl-S Save';

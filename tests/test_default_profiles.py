@@ -40,7 +40,7 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
     assert any(r['role']=='scale' and r['r']==0 for r in snap['screen_rows']),snap
     ruler=next(r['t'] for r in snap['screen_rows'] if r['role']=='scale')
     assert '+' in ruler and '1' in ruler,ruler
-    assert 'CRXTHE 0.9.0' in snap['status'],snap['status']
+    assert 'CRXTHE 0.9.1' in snap['status'],snap['status']
     assert sample.read_text(encoding='utf-8')=='alpha\nfindme\n'
     assert any(row['role']=='reserved' and 'F6 Cmd' in row['t'] and 'F10 Keys' in row['t']
                for row in snap['screen_rows']),snap

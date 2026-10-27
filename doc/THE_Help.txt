@@ -1,5 +1,5 @@
                        CRXTHE Quick Reference
-                           Version 0.9.0
+                           Version 0.9.1
 
   Independent fork based on Mark Hessling's THE 4.0.
   CRXTHE maintenance: github.com/adesutherland/THE/issues

@@ -1,4 +1,12 @@
-# Signing an existing THE prerelease
+# Signing CRXTHE release installers
+
+## Full 0.9.1 release
+
+Adrian approved a full 0.9.1 release after the Windows smoke test passed.
+The [0.9.1 plan](release-0.9.1-plan.md) uses the same private-draft signing
+gates below, then publishes with `prerelease=false` and `draft=false`.
+The earlier 0.9.0 release and its assets stay unchanged. This release approval
+does not request a separate message to Shmuel.
 
 ## Controlled draft release
 

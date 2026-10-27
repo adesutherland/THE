@@ -1,15 +1,15 @@
-CRXTHE 0.9.0 - Windows installation and first use
+CRXTHE 0.9.1 - Windows installation and first use
 Based on Mark Hessling's THE 4.0; this fork is maintained separately.
 
-These instructions describe the CRXTHE candidate supplied for your test.
-The new CRXTHE 0.9.0 installer has not yet been published. Older THE 4.0
-prereleases do not contain the current profile and navigation changes.
+These instructions describe the CRXTHE 0.9.1 release. Download the signed
+Windows x64 installer from:
+  https://github.com/adesutherland/THE/releases/tag/v0.9.1
+Older THE 4.0 prereleases do not contain these profile and navigation changes.
 
 INSTALL
 
 1. Use the Windows x64 installer (the file ending in -setup.exe).
-   Use the installer supplied with the candidate you are testing; published
-   pre-release installers must be signed.
+   Windows should identify the signed installer publisher as Open Source Developer Adrian Sutherland.
 2. Keep the suggested installation folder and "Use bundled cREXX (default)".
    You do not need to install Rexx, Python, a compiler or build tools.
    If you prefer an existing compatible cREXX, select the other runtime option.
@@ -70,7 +70,7 @@ still select an older installation. In a new PowerShell window check:
 
 For the default install folder, this always selects the installed launcher:
   & "$env:LOCALAPPDATA\Programs\THE-cREXX\bin\crxthe.cmd" --version
-It should identify CRXTHE 0.9.0. For a custom folder, adjust that path.
+It should identify CRXTHE 0.9.1. For a custom folder, adjust that path.
 
 Open a new terminal after installation. Already-running terminals and IDEs
 can retain their old PATH. Do not run the-env.ps1 or set developer paths for
@@ -113,7 +113,7 @@ folder together; an isolated libexec\the\the.exe is not the public launcher.
 For runtime/path diagnostics using the default install folder:
   $crxtheInstall = "$env:LOCALAPPDATA\Programs\THE-cREXX"
   & "$crxtheInstall\libexec\the\the-launcher.exe" --info $crxtheInstall
-For the exact candidate label and source revision:
+For the exact release version and source revision:
   Get-Content "$crxtheInstall\manifest.json" -Raw | ConvertFrom-Json | Select-Object version,source_commit
 The output identifies the selected runtime and cache. The default source cache
 is %LOCALAPPDATA%\THE-cREXX\Cache\crexxsaa. Explicit cache overrides are retained.
