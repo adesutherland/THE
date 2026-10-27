@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -93,6 +94,14 @@ class MacSigningTests(unittest.TestCase):
             with self.assertRaises(RuntimeError) as error:
                 module.run('security', 'import', '-P', 'private-password')
         self.assertNotIn('private', str(error.exception))
+
+    @unittest.skipUnless(os.name == 'posix', 'POSIX stapler fixture commands')
+    def test_shared_crexx_stapling_policy(self):
+        scripts = source.parent
+        for command in ([sys.executable, str(scripts / 'test-macos-stapling.py')],
+                        ['bash', str(scripts / 'test-macos-stapling-network.sh')]):
+            result = subprocess.run(command, capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_keychain_search_list_restored_after_error(self):
         calls = []

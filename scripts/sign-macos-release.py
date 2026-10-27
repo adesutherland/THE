@@ -156,14 +156,11 @@ def notarize(path):
 
 
 def staple(path):
-    for attempt in range(3):
-        result = subprocess.run(['xcrun', 'stapler', 'staple', str(path)], capture_output=True)
-        if result.returncode == 0:
-            run('xcrun', 'stapler', 'validate', path)
-            return
-        if result.returncode != 68 or attempt == 2:
-            raise RuntimeError(f'Stapling failed (exit {result.returncode})')
-        time.sleep(10)
+    # Share cREXX's independent bounded retries for staple and validation.
+    helper = Path(__file__).with_name('staple-macos-installer.sh')
+    result = subprocess.run(['bash', str(helper), str(path)])
+    if result.returncode:
+        raise RuntimeError(f'Stapling failed (exit {result.returncode})')
 
 
 def verify_code(payload):
@@ -269,6 +266,9 @@ def main():
             identity=os.environ['APPLE_DEVELOPER_ID_INSTALLER_IDENTITY'], keychain=keychain)
         run('pkgutil', '--check-signature', installer)
         submissions = {archive.name: notarize(archive), installer.name: notarize(installer)}
+        if (platform.machine() == 'x86_64' and os.environ.get('GITHUB_ACTIONS') == 'true'
+                and os.environ.get('RUNNER_ENVIRONMENT') == 'github-hosted'):
+            run('bash', Path(__file__).with_name('prepare-macos-stapling-network.sh'))
         staple(installer)
         run('spctl', '--assess', '--type', 'install', '--verbose=2', installer)
     if args.test_install:

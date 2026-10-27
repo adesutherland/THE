@@ -26,6 +26,17 @@ it does not rebuild anything or re-sign macOS. The signing tool preserves
 the Windows ZIP, other platforms and earlier releases. See the
 [0.9.1 delivery plan](release-0.9.1-plan.md).
 
+The macOS signer reuses cREXX's `staple-macos-installer.sh`: independent
+bounded retries for staple and validation, with backoff only for ticket-service
+exit 68. Validation remains mandatory. Disposable Intel runners also reuse
+cREXX's guarded TCP transport workaround; ARM64 and local Macs do not change
+network settings. Fast local checks:
+
+```sh
+python3 scripts/test-macos-stapling.py
+bash scripts/test-macos-stapling-network.sh
+```
+
 ## Earlier controlled draft procedure
 
 The following records the earlier manually coordinated prerelease process.
