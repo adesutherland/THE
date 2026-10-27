@@ -3,6 +3,8 @@
 CRXTHE is an independent C99 fork of THE 4.0 for macOS, Linux/POSIX and
 native Windows. Start with the [documentation index](doc/README.md),
 [architecture](doc/architecture.md) and [build/test guide](doc/testing.md).
+Use `main` for development and integration; [AGENTS.md](AGENTS.md) defines
+branch preservation, publication and release-source requirements.
 Current defects belong in [known issues](doc/known-issues.md); future work and
 qualification belong in the [roadmap](doc/roadmap.md).
 

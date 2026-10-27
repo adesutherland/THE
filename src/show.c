@@ -187,7 +187,7 @@ static TextPos show_utf8_advance_codepoint_pos(TextPos pos, TextCodepoint item)
    return pos;
 }
 
-static int show_utf8_line_is_ascii(const CHARTYPE *line, size_t len)
+static int show_utf8_line_uses_simple_cells(const CHARTYPE *line, size_t len)
 {
    size_t i;
 
@@ -195,7 +195,9 @@ static int show_utf8_line_is_ascii(const CHARTYPE *line, size_t len)
       return TRUE;
    for (i = 0; i < len; i++)
    {
-      if (((unsigned char)line[i]) >= 0x80u)
+      /* Retained tabs use the same one-cell arrow on initial paint and cursor
+       * repaint. The byte/ETMODE path would draw a different glyph. */
+      if (((unsigned char)line[i]) >= 0x80u || line[i] == '\t')
          return FALSE;
    }
    return TRUE;
@@ -241,7 +243,7 @@ void show_utf8_note_line_replacement(LINETYPE line_number, const CHARTYPE *line,
    show_utf8_clear_line_replacement_hint();
    if (line_number < 0L || line == NULL || length <= 0)
       return;
-   if (show_utf8_line_is_ascii(line, (size_t)length)
+   if (show_utf8_line_uses_simple_cells(line, (size_t)length)
    &&  show_utf8_ascii_profile_fast_path_ok())
       return;
    utf8_line_replacement_hint.line = (CHARTYPE *)(*the_malloc)((size_t)length);
@@ -356,6 +358,8 @@ static int show_utf8_status_keycap_preview_width(void)
 static uint32_t show_utf8_status_component_display_codepoint(
    uint32_t codepoint, int show_markers)
 {
+   if (codepoint == '\t')
+      return 0x2192u;
    if (codepoint < 32 || codepoint == 0x7Fu)
       return 0;
    if (codepoint == 0x200Du || utf8_cluster_codepoint_is_tag(codepoint))
@@ -2056,6 +2060,16 @@ void show_heading(CHARTYPE scrno)
    return;
 }
 /***********************************************************************/
+static void show_status_put_text(CHARTYPE *row, int width, int col,
+                                  const char *text, size_t length)
+{
+   if (col < 0 || col >= width || text == NULL)
+      return;
+   if (length > (size_t)(width - col))
+      length = (size_t)(width - col);
+   memcpy(row + col, text, length);
+}
+
 void show_statarea(void)
 /***********************************************************************/
 {
@@ -2105,7 +2119,8 @@ void show_statarea(void)
     */
    memset((DEFCHAR *)linebuf,' ',terminal_cols);
    snprintf((DEFCHAR *)buffer,sizeof(buffer),"%s",THE_PRODUCT_NAME);
-   memcpy(linebuf,buffer,min(strlen((DEFCHAR *)buffer),STATAREA_OFFSET-1));
+   show_status_put_text(linebuf, terminal_cols, 0, buffer,
+                        min(strlen(buffer), STATAREA_OFFSET-1));
    /*
     * Display number of files or copyright on startup.
     */
@@ -2136,9 +2151,7 @@ void show_statarea(void)
       }
    }
    length = strlen(buffer);
-   if (STATAREA_OFFSET+length < max(0,terminal_cols-27))
-      memset((DEFCHAR *)linebuf+STATAREA_OFFSET+length,' ',max(0,(terminal_cols-27)-STATAREA_OFFSET+length));
-   memcpy((DEFCHAR*)linebuf+STATAREA_OFFSET,buffer,length);
+   show_status_put_text(linebuf, terminal_cols, STATAREA_OFFSET, buffer, length);
    /*
     * Display CLOCK.
     */
@@ -2146,13 +2159,16 @@ void show_statarea(void)
    {
       timer = time(NULL);
       tblock = localtime(&timer);
-      sprintf((DEFCHAR*)linebuf+max(0,(terminal_cols-((HEXDISPLAYx) ? 36 : 27))),"%2d:%02d%s ",
+      snprintf(buffer, sizeof(buffer), "%2d:%02d%s ",
            (tblock->tm_hour > 12) ? (tblock->tm_hour-12) : (tblock->tm_hour),
             tblock->tm_min,
            (tblock->tm_hour >= 12) ? ("pm") : ("am"));
+      show_status_put_text(linebuf, terminal_cols,
+         max(0, terminal_cols - ((HEXDISPLAYx) ? 36 : 27)), buffer, strlen(buffer));
    }
    else
-      strcpy((DEFCHAR*)linebuf+max(0,(terminal_cols-((HEXDISPLAYx) ? 36 : 27))),"        ");
+      show_status_put_text(linebuf, terminal_cols,
+         max(0, terminal_cols - ((HEXDISPLAYx) ? 36 : 27)), "        ", 8);
    /*
     * Display HEXDISPLAY.
     */
@@ -2310,13 +2326,13 @@ void show_statarea(void)
                      (unsigned char)((key == 0) ? ' ' : key), key, key);
          memcpy(status_field, status_text,
                 min(12, (int)strlen(status_text)));
-         memcpy((DEFCHAR *)linebuf + charpos, status_field,
-                12);
+         show_status_put_text(linebuf, terminal_cols, charpos, status_field, 12);
       }
 #endif
    }
    else
-      strcpy((DEFCHAR*)linebuf+max(0,(terminal_cols-19)),"            ");
+      show_status_put_text(linebuf, terminal_cols,
+                           max(0, terminal_cols-19), "            ", 12);
    /*
     * Display colour setting.
     */
@@ -2328,7 +2344,9 @@ void show_statarea(void)
    /*
     * Display INSERTMODE toggle.
     */
-   strcpy( (DEFCHAR*)linebuf + max( 0, (terminal_cols-5) ), (INSERTMODEx) ? " INS " : "     " );
+   show_status_put_text(linebuf, terminal_cols, max(0, terminal_cols-5),
+                        INSERTMODEx ? " INS " : "     ", 5);
+   linebuf[terminal_cols] = '\0';
    /*
     * Refresh the STATUS LINE.
     */
@@ -2346,7 +2364,16 @@ void show_statarea(void)
    TheDriverAttr status_colour = set_colour( CURRENT_FILE->attr+stat_attr );
 
    INIT_LINE_OUTPUT( statarea, 0 );
-   ADD_LINE_OUTPUT( linebuf, strlen( (DEFCHAR*)linebuf ), status_colour );
+   /* Every refresh owns the whole row, including blanks and cells vacated by
+    * a shorter UTF preview. Field writers must not leave interior NULs. */
+   FILL_LINE_OUTPUT( ' ', terminal_cols, status_colour );
+   END_LINE_OUTPUT();
+   INIT_LINE_OUTPUT( statarea, 0 );
+#ifdef USE_UTF8
+   ADD_LINE_OUTPUT( linebuf, u8_charnum((char *)linebuf, terminal_cols), status_colour );
+#else
+   ADD_LINE_OUTPUT( linebuf, terminal_cols, status_colour );
+#endif
    END_LINE_OUTPUT();
 #ifdef USE_UTF8
    if ( status_field_width > 0 )
@@ -4904,7 +4931,7 @@ static void show_a_line(CHARTYPE scrno,short row, SHOW_LINE *scurr
    }
 
 #ifdef USE_UTF8
-   if (!show_utf8_line_is_ascii(line, current->length)
+   if (!show_utf8_line_uses_simple_cells(line, current->length)
    ||  show_utf8_line_replacement_hint_matches(current)
    ||  !show_utf8_ascii_profile_fast_path_ok())
    {

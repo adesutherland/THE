@@ -33,6 +33,9 @@ use it instead of assuming a system library or sibling build is selected.
 | Parser synchronization, diagnostics and buffer identity | `test_sdslh_integration`, `test_sdslh_multifile_lifecycle`, `test_the_llm_parser_diagnostics`, web highlighting tests |
 | Batch rendering, execution, output validation and source fragments | `test_batch_md_rexx_*` |
 | Runtime discovery, cache, package layout and signing procedures | `test_runtime_selection`, installed-package checks and signing-tool tests |
+| Snapshot/edit/save behavior under a bounded native stack | `test_llm_stack_budget` |
+| Retained tabs, complete status repaint, panel colours and modal input | `test_curses_repaint`, `test_curses_presentation_*`, `test_windows_console_repaint_*` on Windows |
+| Release source must already be on published main | `test_release_source` |
 
 The deletion tests first prove that navigation/inspection/save preserve the
 original bytes. They then exercise named Delete/Backspace, explicit

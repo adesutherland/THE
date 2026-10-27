@@ -26,6 +26,22 @@ driver-neutral frame -> physical terminal or semantic LLM view
 Terminal profiles can change how a cluster is displayed. They must not change
 the bytes, grapheme boundaries, logical cursor position, or editing unit.
 
+A retained tab (U+0009) occupies one editable logical cell and displays as a
+right arrow, including during cursor repaint and in the character status
+preview. Its stored byte remains a tab. The default profile's Tab key inserts
+spaces to the next configured tab stop; this is separate from displaying tabs
+already present in a file.
+
+On the legacy Windows CHAR_INFO output path, each curses cell must map to its
+allocated console columns. Combinable sequences use a precomposed display
+scalar; an isolated combining mark has its own preview cell. An uncomposable
+one-cell cluster can show its base because that legacy console format cannot
+store an arbitrary sequence in one cell. This changes neither file bytes nor
+the exact U+ code list. The ANSI path transmits complete combining sequences
+and repairs neighbouring cells if the host advances beyond their logical
+columns. CHARS, CODES, BOTH and the existing Unicode display modes remain
+available; glyph appearance still depends on the terminal and font.
+
 UTF text entry is separate from display policy. Literal `TEXT`, `INPUT`, LLM
 `text`, and LLM `insert after` accept UTF-8 text. `UTFTEXT`, `UTFINPUT`,
 LLM `text-utf`, and LLM `insert-utf` provide deterministic

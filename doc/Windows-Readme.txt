@@ -9,8 +9,7 @@ are separate.
 INSTALL
 
 1. Use the Windows x64 installer (the file ending in -setup.exe).
-   Use the installer supplied with the candidate you are testing; published
-   pre-release installers must be signed.
+   Windows should identify the signed installer publisher as Open Source Developer Adrian Sutherland.
 2. Keep the suggested installation folder and "Use bundled cREXX (default)".
    You do not need to install Rexx, Python, a compiler or build tools.
    If you prefer an existing compatible cREXX, select the other runtime option.
@@ -114,7 +113,7 @@ folder together; an isolated libexec\the\the.exe is not the public launcher.
 For runtime/path diagnostics using the default install folder:
   $crxtheInstall = "$env:LOCALAPPDATA\Programs\THE-cREXX"
   & "$crxtheInstall\libexec\the\the-launcher.exe" --info $crxtheInstall
-For the exact candidate label and source revision:
+For the exact release version and source revision:
   Get-Content "$crxtheInstall\manifest.json" -Raw | ConvertFrom-Json | Select-Object version,source_commit
 The output identifies the selected runtime and cache. The default source cache
 is %LOCALAPPDATA%\THE-cREXX\Cache\crexxsaa. Explicit cache overrides are retained.

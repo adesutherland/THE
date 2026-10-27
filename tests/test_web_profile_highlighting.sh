@@ -8,7 +8,7 @@ fi
 
 the_bin=$1
 web_profile=$2
-parser=${HOME}/.local/bin/rxc
+parser=$(command -v rxc || true)
 
 if [[ ! -x "$parser" ]]; then
   echo "rxc syntax highlighter is not installed; skipping" >&2

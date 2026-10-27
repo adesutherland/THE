@@ -16,7 +16,8 @@
 
 static int append_fields(ThePanelState *p, const CHARTYPE *raw, size_t length,
                            int row, int cell, int width, int markup,
-                           int editable, char kind, LINETYPE line)
+                           int editable, char kind, LINETYPE line,
+                           TheRenderAttr colour)
 {
    size_t pos=0, start=0;
    int protect=(kind=='R' || markup), col=0;
@@ -36,10 +37,15 @@ static int append_fields(ThePanelState *p, const CHARTYPE *raw, size_t length,
             n=end.byte_offset; span=end.cell_column;
          }
          if (pos==length && !protect) span=width-col;
-         if (span && !panel_ui_add(p,row,cell+col,span,editable && !protect,kind,line,(const char *)raw+start,n,start)) return 0;
+         if (span)
+         {
+            if (!panel_ui_add(p,row,cell+col,span,editable && !protect,kind,line,(const char *)raw+start,n,start)) return 0;
+            p->fields[p->count-1].colour=colour;
+         }
          col+=span;
          if (pos==length) break;
          protect=ctlchar_protect[attr];
+         colour=set_colour(&ctlchar_attr[attr]);
          pos+=2; start=pos;
       }
       else pos++;
@@ -51,14 +57,16 @@ static int build_panel(ThePanelState *p, int mode)
 {
    int row, prefix=CURRENT_VIEW->prefix ? CURRENT_VIEW->prefix_width : 0;
    int cols=CURRENT_SCREEN.cols[WINDOW_FILEAREA];
-   panel_ui_init(p,CURRENT_SCREEN.rows[WINDOW_FILEAREA]+1,cols+prefix);
-   for (row=0;row<p->rows-1;row++)
+   int command=CURRENT_VIEW->cmd_line!='O';
+   panel_ui_init(p,CURRENT_SCREEN.rows[WINDOW_FILEAREA]+command,cols+prefix);
+   p->colour=set_colour(CURRENT_FILE->attr+ATTR_RESERVED);
+   for (row=0;row<CURRENT_SCREEN.rows[WINDOW_FILEAREA];row++)
    {
       SHOW_LINE *s=&CURRENT_SCREEN.sl[row];
       RESERVED *r=find_reserved_line(current_screen,TRUE,row,0,0);
       if (r)
       {
-         if (!append_fields(p,r->line,r->length,row,prefix,cols,CTLCHARx,mode!=0,'R',0)) return 0;
+         if (!append_fields(p,r->line,r->length,row,prefix,cols,CTLCHARx,mode!=0,'R',0,set_colour(r->attr))) return 0;
       }
       else if (s->line_type==LINE_LINE && s->line_number>0 && s->line_number<=CURRENT_FILE->number_lines)
       {
@@ -71,6 +79,7 @@ static int build_panel(ThePanelState *p, int mode)
             size_t length=strlen(pending);
             if (length>(size_t)prefix) length=(size_t)prefix;
             if (!panel_ui_add(p,row,0,prefix,mode!=0,'P',s->line_number,pending,length,0)) return 0;
+            p->fields[p->count-1].colour=set_colour(CURRENT_FILE->attr+ATTR_PREFIX);
          }
          if (!CURRENT_FILE->filectlchar)
          {
@@ -78,11 +87,15 @@ static int build_panel(ThePanelState *p, int mode)
             end=begin+textpos_from_cell(l->line+begin,l->length-begin,cols,TEXT_SNAP_BACKWARD).byte_offset;
          }
          if (!append_fields(p,l->line+begin,end-begin,row,prefix,cols,CURRENT_FILE->filectlchar && CTLCHARx,
-                             mode!=0 && !ISREADONLY(CURRENT_FILE),'F',s->line_number)) return 0;
+                             mode!=0 && !ISREADONLY(CURRENT_FILE),'F',s->line_number,
+                             set_colour(CURRENT_FILE->attr+ATTR_FILEAREA))) return 0;
          for (i=oldcount;i<p->count;i++) if (p->fields[i].kind=='F') p->fields[i].source_start+=begin;
       }
    }
-   return panel_ui_add(p,p->rows-1,0,p->cols,1,'C',0,"",0,0);
+   if (!command) return 1;
+   if (!panel_ui_add(p,p->rows-1,0,p->cols,1,'C',0,"",0,0)) return 0;
+   p->fields[p->count-1].colour=set_colour(CURRENT_FILE->attr+ATTR_CMDLINE);
+   return 1;
 }
 
 static void publish_panel(void)
@@ -146,13 +159,20 @@ static void driver_read(ThePanelState *p)
    while (!p->done)
    {
       TheInputEvent event;
+      int have_input;
       if (window)
       {
-         for (i=0;i<p->rows;i++) the_driver->clear_line_at(window,i,set_colour(CURRENT_FILE->attr+ATTR_RESERVED));
+         for (i=0;i<p->rows;i++)
+         {
+            the_driver->clear_line_at(window,i,p->colour);
+#ifdef USE_UTF8
+            the_driver->fill_cells_at(window,i,0,p->cols,p->colour);
+#endif
+         }
          for (i=0;i<p->count;i++)
          {
             ThePanelField *f=&p->fields[i];
-            the_driver->set_window_attr(window,set_colour(CURRENT_FILE->attr+(f->editable ? ATTR_CMDLINE : ATTR_RESERVED)));
+            the_driver->set_window_attr(window,f->colour);
             the_driver->add_string_at(window,f->row,f->cell,f->text);
          }
          if (p->active>=0)
@@ -164,7 +184,7 @@ static void driver_read(ThePanelState *p)
                if (current_cursor_uses_software())
                   the_driver->overlay_cell_attrs_at(window,f->row,f->cell+cell,width,
                      the_driver->software_cursor_attr(current_screen,
-                        set_colour(CURRENT_FILE->attr+ATTR_CMDLINE),current_cursor_shape()));
+                        f->colour,current_cursor_shape()));
                the_driver->move_window_cursor(window,f->row,f->cell+cell);
                the_driver->present_cursor(TRUE);
             }
@@ -172,7 +192,19 @@ static void driver_read(ThePanelState *p)
          the_driver->refresh_window_now(window);
       }
       else the_driver->update();
-      if (!the_driver->read_input_event(&event))
+      if (window)
+      {
+         /* Curses input may refresh its active window before blocking. Read
+          * from the modal form, so it cannot repaint the caller over it or
+          * move the visible caret back to the caller's window. */
+         TheDriverWindow **slot=driver_current_role_window_slot(CURRENT_VIEW->current_window);
+         TheDriverWindow *caller=*slot;
+         *slot=window;
+         have_input=the_driver->read_input_event(&event);
+         *slot=caller;
+      }
+      else have_input=the_driver->read_input_event(&event);
+      if (!have_input)
       {
          /* Browser polls may time out; a disconnected/closing driver cancels
           * through Escape or the normal shutdown event. */

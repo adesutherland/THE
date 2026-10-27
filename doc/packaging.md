@@ -1,5 +1,10 @@
 # Packaging CRXTHE
 
+Develop and integrate on `main`. New releases require an explicitly authorized
+tag whose source commit is already on `origin/main`; the release workflow
+verifies this before building. Ordinary candidate workflows qualify `main`
+without publishing a release. See [release signing](release-signing.md).
+
 Windows end-user instructions: [install and first use](Windows-Readme.txt).
 The build/signing instructions below are for maintainers working from the
 repository root.

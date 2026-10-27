@@ -12,7 +12,7 @@ import {
   Undo2,
   X,
 } from "lucide-preact";
-import type { DriverMessage, FileListMessage, FrontendActionDefinition, ScreenRow, Snapshot, StyleRun } from "./types";
+import type { DriverMessage, FileListMessage, FrontendActionDefinition, PanelColour, ScreenRow, Snapshot, StyleRun } from "./types";
 import "./styles.css";
 
 const keyNames: Record<string, string> = {
@@ -45,6 +45,19 @@ function keyHintsForRow(row: ScreenRow): { key: string; label: string }[] {
   const matches = [...text.matchAll(/\b(F(?:[1-9]\d?)|Esc)\s+(.+?)(?=\s+(?:F(?:[1-9]\d?)|Esc)\s+|$)/g)];
   if (matches.length < 2 || matches[0].index !== 0) return [];
   return matches.map((match) => ({ key: match[1], label: match[2] }));
+}
+
+function panelColour(colour: PanelColour | undefined): preact.JSX.CSSProperties {
+  if (!colour) return {};
+  const reverse = Boolean(colour.style & 2);
+  return {
+    color: reverse ? colour.background : colour.foreground,
+    backgroundColor: reverse ? colour.foreground : colour.background,
+    fontWeight: colour.style & 1 ? 700 : undefined,
+    fontStyle: colour.style & 32 ? "italic" : undefined,
+    textDecoration: [colour.style & 4 ? "underline" : "", colour.style & 512 ? "overline" : "", colour.style & 1024 ? "line-through" : ""].filter(Boolean).join(" ") || undefined,
+    opacity: colour.style & 16 ? 0.65 : undefined,
+  };
 }
 
 function styledText(text: string, styles: StyleRun[] | undefined) {
@@ -510,12 +523,13 @@ function App() {
         ) : null}
         <div class="editor-scroll" ref={viewportRef} onClick={focusEditor}>
           {snapshot?.panel ? (
-            <div class="fullscreen-panel" role="dialog" aria-modal="true" aria-label="Macro panel">
+            <div class="fullscreen-panel" role="dialog" aria-modal="true" aria-label="Macro panel" style={panelColour(snapshot.panel.colour)}>
+              <div class="panel-viewport">
               <div class="panel-surface" style={{ width: `${snapshot.panel.cols}ch`, height: `${snapshot.panel.rows * 21}px` }}>
                 {snapshot.panel.fields.map((field, index) => (
                   <span
                     class={`panel-field ${field.editable ? "panel-editable" : "panel-protected"} ${snapshot.panel?.active === index ? "panel-focused" : ""}`}
-                    style={{ top: `${field.row * 21}px`, left: `${field.cell}ch`, width: `${field.width}ch` }}
+                    style={{ ...panelColour(field.colour), top: `${field.row * 21}px`, left: `${field.cell}ch`, width: `${field.width}ch` }}
                     onClick={(event) => {
                       if (!field.editable) return;
                       const bounds = event.currentTarget.getBoundingClientRect();
@@ -531,6 +545,7 @@ function App() {
                     }} /> : null}
                   </span>
                 ))}
+              </div>
               </div>
               <div class="panel-controls">
                 <span>Macro input · Tab changes field</span>
@@ -603,7 +618,7 @@ function App() {
             </span>)}
           </div>
         ) : null}
-        <form class="command-form" onSubmit={(event) => { event.preventDefault(); runCommand(command); }}>
+        {!snapshot?.panel ? <form class="command-form" onSubmit={(event) => { event.preventDefault(); runCommand(command); }}>
           <span class="command-prompt">Command</span>
           <input
             aria-label="THE command"
@@ -619,7 +634,7 @@ function App() {
             spellcheck={false}
             autoComplete="off"
           />
-        </form>
+        </form> : null}
         <div class="status-line">
           <span class="status-text">{lastError || snapshot?.status || "Waiting for CRXTHE"}</span>
           <span>{snapshot?.focus.zone ?? "-"}</span>

@@ -3,6 +3,7 @@
 
 An explicit tag is mandatory. No rebuild, inner-payload signing, or ZIP changes.
 The default signs locally; --upload also replaces the installer and checksums.
+Private draft assets require --allow-draft and are never published by this tool.
 --dry-run only reads release metadata. Signing credentials stay in local config.
 """
 import argparse
@@ -57,16 +58,35 @@ def release_stem(release, platform, architecture):
 
 
 class Release:
-    def __init__(self, repo, tag):
+    def __init__(self, repo, tag, allow_draft=False):
         self.repo, self.tag = repo, tag
         self.base = f'repos/{repo}'
+        self.allow_draft = allow_draft
+        self.release_id = None
         self.original = self.info()
-        if self.original.get('draft') or self.original.get('immutable'):
-            raise RuntimeError('Select a published, mutable release')
+        if self.original.get('immutable') or (self.original.get('draft') and not allow_draft):
+            raise RuntimeError('Select a mutable published release, or explicitly allow a draft')
         self.commit = self.tag_commit()
         self.expected = {a['id']: fingerprint(a) for a in self.original['assets']}
 
     def info(self):
+        if self.release_id is not None:
+            return api(f'{self.base}/releases/{self.release_id}')
+        if self.allow_draft:
+            # GitHub's /releases/tags endpoint only returns published releases.
+            # Resolve this explicit tag once, then pin every reread to its ID.
+            page = 1
+            while True:
+                releases = api(f'{self.base}/releases?per_page=100&page={page}')
+                matches = [item for item in releases if item['tag_name'] == self.tag]
+                if len(matches) > 1:
+                    raise RuntimeError('Ambiguous release tag; refusing to select a draft')
+                if matches:
+                    self.release_id = matches[0]['id']
+                    return matches[0]
+                if len(releases) < 100:
+                    raise RuntimeError('Exact release tag not found, including accessible drafts')
+                page += 1
         return api(f'{self.base}/releases/tags/{self.tag}')
 
     def tag_commit(self):
@@ -210,6 +230,8 @@ def main():
     parser.add_argument('--tag', required=True, help='Exact published tag, e.g. v4.0.0-panels.1')
     parser.add_argument('--signer', type=Path, help='Existing local single-file signing helper (optional)')
     parser.add_argument('--output-dir', type=Path, default=Path('build/sign-windows'))
+    parser.add_argument('--allow-draft', action='store_true',
+                        help='Explicitly permit signing assets of a private draft release')
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--upload', action='store_true', help='Also replace the installer and Windows checksum assets')
     mode.add_argument('--dry-run', action='store_true', help='Read metadata only; do not download, sign or upload')
@@ -218,7 +240,7 @@ def main():
         parser.error('Use OWNER/REPO')
     if not re.fullmatch(r'v\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?', args.tag):
         parser.error('Use an explicit version tag, not latest or a moving snapshot')
-    release = Release(args.repo, args.tag)
+    release = Release(args.repo, args.tag, allow_draft=args.allow_draft)
     stem = release_stem(release, 'windows', 'x86_64')
     installer_asset = asset_named(release.original, stem + '-setup.exe')
     checksum_asset = asset_named(release.original, stem + '-SHA256SUMS.txt')

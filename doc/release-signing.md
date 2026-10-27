@@ -1,11 +1,22 @@
 # Release signing
 
-These tools operate on the payload of an explicit published tag. They do not
-build the source at the tip of `main`, move tags or merge the experimental
-fork. All original asset digests and the tag commit are pinned and checked
+Develop and integrate on `main`. A new release needs explicit authorization
+and a tag whose exact source commit is already published on `origin/main`.
+The tag release workflow fetches `main` and checks this before building any
+packages. A source push or candidate CI run is separate from release approval.
+
+The signing tools operate on the payload of an explicit tag. They do not
+build a different source tree or move tags. All original asset digests and the tag commit are pinned and checked
 throughout signing. The private bundled cREXX installation stays separate
 from any standalone cREXX installation. Bundled cREXX remains the default;
 installers offer an installed-runtime preference with automatic bundled fallback.
+
+The recovered `build-release.yml` builds and verifies both platform packages,
+creates a draft, signs/notarizes macOS, verifies final assets and publishes
+when an authorized version tag is pushed. Development builds remain
+`0.10.dev`; prepare a matching numeric release version before tagging.
+Private draft signing requires `--allow-draft`; the signing helpers retain
+draft status. Draft lookup uses its pinned GitHub release ID.
 
 ## Windows
 
@@ -48,6 +59,11 @@ gh workflow run sign-release-installers.yml --repo adesutherland/THE \
 
 The selected architecture must exist on the selected release. Native visual
 checks and any external package handoff are separate activities.
+
+Stapling and validation have separate bounded retries for Apple's temporary
+ticket-service errors. The Intel transport workaround runs only on a
+disposable GitHub-hosted Intel Mac. Its tests use fixtures and require no
+credentials or Apple service access.
 
 Signing uses a temporary private keychain and restores the user's keychain
 search list. Certificate files and the keychain are removed on exit. Public

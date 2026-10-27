@@ -3,6 +3,7 @@
 
 No compiler/build is used. All input manifest hashes and the source tag are
 verified. --upload replaces only this architecture's PKG, ZIP and checksums.
+Private draft assets require --allow-draft and remain drafts after signing.
 Credentials are read from the same nine environment settings as cREXX-RAG.
 """
 import argparse
@@ -155,14 +156,11 @@ def notarize(path):
 
 
 def staple(path):
-    for attempt in range(3):
-        result = subprocess.run(['xcrun', 'stapler', 'staple', str(path)], capture_output=True)
-        if result.returncode == 0:
-            run('xcrun', 'stapler', 'validate', path)
-            return
-        if result.returncode != 68 or attempt == 2:
-            raise RuntimeError(f'Stapling failed (exit {result.returncode})')
-        time.sleep(10)
+    # Share cREXX's independent bounded retries for staple and validation.
+    helper = Path(__file__).with_name('staple-macos-installer.sh')
+    result = subprocess.run(['bash', str(helper), str(path)])
+    if result.returncode:
+        raise RuntimeError(f'Stapling failed (exit {result.returncode})')
 
 
 def verify_code(payload):
@@ -191,6 +189,8 @@ def main():
     parser.add_argument('--tag', required=True)
     parser.add_argument('--arch', choices=('arm64', 'x86_64'), default='arm64')
     parser.add_argument('--output-dir', type=Path, default=Path('build/sign-macos'))
+    parser.add_argument('--allow-draft', action='store_true',
+                        help='Explicitly permit signing assets of a private draft release')
     parser.add_argument('--test-install', action='store_true',
                         help='Install and smoke-test on a disposable GitHub-hosted runner before upload')
     mode = parser.add_mutually_exclusive_group()
@@ -201,7 +201,7 @@ def main():
         parser.error('Use OWNER/REPO')
     if not re.fullmatch(r'v\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?', args.tag):
         parser.error('Use an explicit published version tag')
-    release = release_tools.Release(args.repo, args.tag)
+    release = release_tools.Release(args.repo, args.tag, allow_draft=args.allow_draft)
     name = release_tools.release_stem(release, 'darwin', args.arch)
     inputs = {suffix: release_tools.asset_named(release.original, name + suffix)
               for suffix in ('.zip', '.pkg', '-SHA256SUMS.txt')}
@@ -266,6 +266,9 @@ def main():
             identity=os.environ['APPLE_DEVELOPER_ID_INSTALLER_IDENTITY'], keychain=keychain)
         run('pkgutil', '--check-signature', installer)
         submissions = {archive.name: notarize(archive), installer.name: notarize(installer)}
+        if (platform.machine() == 'x86_64' and os.environ.get('GITHUB_ACTIONS') == 'true'
+                and os.environ.get('RUNNER_ENVIRONMENT') == 'github-hosted'):
+            run('bash', Path(__file__).with_name('prepare-macos-stapling-network.sh'))
         staple(installer)
         run('spctl', '--assess', '--type', 'install', '--verbose=2', installer)
     if args.test_install:

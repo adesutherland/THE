@@ -38,7 +38,13 @@ class FakeGitHub:
     def api(self, endpoint, *args):
         if '/git/ref/' in endpoint:
             return dict(object=dict(type='commit', sha=self.commit))
+        if '/releases?per_page=' in endpoint:
+            return [copy.deepcopy(self.state)]
+        if endpoint.endswith('/releases/' + str(self.state['id'])):
+            return copy.deepcopy(self.state)
         if '/releases/tags/' in endpoint:
+            if self.state['draft']:
+                raise RuntimeError('Published-release endpoint does not expose drafts')
             return copy.deepcopy(self.state)
         item_id = int(endpoint.rsplit('/', 1)[1])
         item = next(a for a in self.state['assets'] if a['id'] == item_id)
@@ -88,6 +94,32 @@ class SigningTests(unittest.TestCase):
                              self.release.original['assets'][item_id - 1])
         for path in (self.installer, self.checksums):
             self.assertEqual(module.asset_named(self.remote.state, path.name)['digest'], module.digest(path))
+
+    def test_draft_requires_explicit_opt_in(self):
+        self.remote.state['draft'] = True
+        with self.assertRaises(RuntimeError):
+            module.Release('owner/THE', 'v4.0.0-test.1')
+        draft = module.Release('owner/THE', 'v4.0.0-test.1', allow_draft=True)
+        self.assertTrue(draft.check()['draft'])
+        self.remote.state['draft'] = False
+        with self.assertRaises(RuntimeError):
+            draft.check()
+
+    def test_draft_opt_in_does_not_allow_immutable_release(self):
+        self.remote.state.update(draft=True, immutable=True)
+        with self.assertRaises(RuntimeError):
+            module.Release('owner/THE', 'v4.0.0-test.1', allow_draft=True)
+
+    def test_draft_discovery_pins_id_without_published_tag_endpoint(self):
+        self.remote.state['draft'] = True
+        with patch.object(module, 'api', wraps=self.remote.api) as requests:
+            draft = module.Release('owner/THE', 'v4.0.0-test.1', allow_draft=True)
+            draft.check()
+        paths = [call.args[0] for call in requests.call_args_list]
+        self.assertEqual(draft.release_id, 12)
+        self.assertIn('repos/owner/THE/releases?per_page=100&page=1', paths)
+        self.assertIn('repos/owner/THE/releases/12', paths)
+        self.assertFalse(any('/releases/tags/' in path for path in paths))
 
     def test_product_asset_stem_retains_historical_support(self):
         self.assertEqual(module.release_stem(self.release,'windows','x86_64'),

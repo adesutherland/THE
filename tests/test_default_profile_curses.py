@@ -17,6 +17,17 @@ import time
 
 binary=Path(sys.argv[1]).resolve()
 repo=Path(__file__).resolve().parent.parent
+
+
+def saved_text(path):
+    # THE may replace the destination during a save. Poll the completed file,
+    # without treating that short replacement window as a missing fixture.
+    try:
+        return path.read_text(encoding='utf-8')
+    except FileNotFoundError:
+        return None
+
+
 for engine in ['CREXX','REGINA']:
     profile=repo/('profile.the' if engine=='CREXX' else 'profile_regina.the')
     with tempfile.TemporaryDirectory(prefix='CRXTHE first terminal ') as temporary:
@@ -38,11 +49,11 @@ for engine in ['CREXX','REGINA']:
                     # Delete X under the caret, then backspace over Y. The
                     # saved control below proves neither deleted byte returns.
                     os.write(master,b'XY\x1b[H\x1b[3~\x1b[C\x08Z\t\x13');stage=1
-                if stage==1 and sample.read_text()=='Z       alpha\n':
+                if stage==1 and saved_text(sample)=='Z       alpha\n':
                     os.write(master,b'\x1b[H'+b'\x1b[D'*8+b'\x1b[17~\x1b[17~\x1b[F\rbeta\x13');stage=2
-                if stage==2 and sample.read_text()=='Z       alpha\nbeta\n':
+                if stage==2 and saved_text(sample)=='Z       alpha\nbeta\n':
                     os.write(master,b'\x1b[H'+b'\x1b[D'*8+b'Q\x13');stage=3
-                if stage==3 and sample.read_text()=='Z       alphaQ\nbeta\n':
+                if stage==3 and saved_text(sample)=='Z       alphaQ\nbeta\n':
                     os.write(master,b'\x1b[17~file\r');stage=4
                 if select.select([master],[],[],0.05)[0]:
                     try:

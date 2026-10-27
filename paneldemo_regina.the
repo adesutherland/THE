@@ -5,28 +5,55 @@ savedline = cursor.3
 savedcolumn = cursor.4
 savedrow = cursor.1
 savedcell = cursor.2
+'extract /field/line/'
+savedarea = field.4
+savedareacol = field.3
+savedfocus = line.1
 'extract /reserved */'
 'preserve'
 'set linend off'
 'set curline off'
+'set prefix off'
+'set scale off'
+'set idline off'
+'set cmdline off'
+'set color reserved #DCE5F2 on #1E1E1E'
+'set color cmdline #DCE5F2 on #1E1E1E'
 'set ctlchar ! escape'
-'set ctlchar p protect white'
-'set ctlchar u noprotect green'
+'set ctlchar p protect #DCE5F2 on #1E1E1E'
+'set ctlchar u noprotect #BDE9D9 on #243B36'
+'set reserved * off'
+'extract /lscreen/'
+panelrows = lscreen.1
+do panelrow = 1 to panelrows - 1
+  'set reserved' panelrow '!p'
+end
 'set reserved 2 !pName: !uGuest           !p  Enter submits; Esc cancels'
 'set reserved 4 !pTopic: !uTHE panels      !p'
+'set reserved -1 !pTab / Shift-Tab changes field; Enter submits; Esc cancels'
 'read nochange tag'
 readrc = rc
+summary = ''
 do while queued() > 0
    parse pull value
-   'emsg PANEL_RESULT' value
+   summary = summary '|' value
 end
-'emsg PANEL_RC' readrc
+'emsg PANEL_RC' readrc summary
 'set reserved * off'
 do index = reserved.0 to 1 by -1
    'set reserved' reserved.index
 end
 'restore'
-if savedline > 0 & savedcolumn > 0 then
+if savedarea = 'COMMAND' then
+   'cursor cmdline' savedareacol
+else if savedarea = 'PREFIX' then do
+   'cursor goto' savedfocus 1
+   'cursor prefix'
+   do prefixcell = 2 to savedareacol
+      'cursor cua right'
+   end
+end
+else if savedline > 0 & savedcolumn > 0 then
    'cursor goto' savedline savedcolumn
 else if savedrow > 0 & savedcell > 0 then
    'cursor screen' savedrow savedcell

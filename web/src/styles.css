@@ -242,7 +242,8 @@ button { color: inherit; }
 .file-list > button span:not(.readonly-label) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .empty-directory { padding: 14px 11px; color: #737d89; font-size: 11px; }
 .editor-scroll { position: relative; min-width: 0; min-height: 0; overflow: auto; background: #17191d; }
-.fullscreen-panel { position: absolute; z-index: 5; inset: 0; min-width: max-content; background: #17191d; padding: 6px; }
+.fullscreen-panel { position: absolute; z-index: 5; inset: 0; min-width: 0; background: #17191d; padding: 6px; display: grid; grid-template-rows: minmax(0, 1fr) auto; overflow: hidden; }
+.panel-viewport { min-width: 0; min-height: 0; overflow: auto; }
 .panel-surface { position: relative; font: 14px/21px var(--editor-font); }
 .panel-field { position: absolute; height: 21px; white-space: pre; overflow: hidden; }
 .panel-editable { background: #243b36; color: #bde9d9; cursor: text; }

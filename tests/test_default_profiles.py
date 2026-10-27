@@ -140,5 +140,10 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
     native_eol=b'\r\n' if os.name=='nt' else b'\n'
     assert raw.read_bytes()==b'a\tb'+native_eol,raw.read_bytes()
     assert any(row.get('t')=='a\tb' for record in records for row in record.get('screen_rows',[])),records
+    records,_=run('command cursor goto 1 2\nkey right\nlook full compact',raw)
+    focus=next(record['focus'] for record in reversed(records) if 'focus' in record)
+    assert (focus['zone'],focus['cell'])==('filearea',2),focus
+    run('command cursor goto 1 2\nkey right\ntext Z\nkey ctrl-s',raw)
+    assert raw.read_bytes()==b'a\tZb'+native_eol,raw.read_bytes()
 
 print(engine+': first-launch ruler, colors/profile, quiet optional parsers, insert/Enter, save, find/open/line prompts, prefix and empty-file editing passed')

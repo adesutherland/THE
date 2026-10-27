@@ -583,6 +583,10 @@ size_t textpos_count_clusters(const CHARTYPE *line, size_t len)
 
 int text_codepoint_cell_width(uint32_t codepoint)
 {
+   /* A tab retained in the buffer is one editable cell (shown as an arrow),
+    * not a zero-width control and not a terminal tab-stop advance. */
+   if (codepoint == '\t')
+      return 1;
 #ifdef USE_UTF8PROC
    int width = utf8proc_charwidth((utf8proc_int32_t)codepoint);
    return (width < 0) ? 0 : width;

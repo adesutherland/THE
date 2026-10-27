@@ -2,6 +2,7 @@
 #define THE_PANELUI_H
 
 #include "inputevent.h"
+#include "thecolour.h"
 
 #define THE_PANEL_MAX_FIELDS 512
 #define THE_PANEL_TEXT 4096
@@ -12,6 +13,7 @@ typedef struct
    char kind; /* R reserved, F file, P prefix, C command */
    LINETYPE line;
    size_t source_start, source_length;
+   TheRenderAttr colour;
    char text[THE_PANEL_TEXT + 1];
    char original[THE_PANEL_TEXT + 1];
 } ThePanelField;
@@ -20,6 +22,7 @@ typedef struct
 {
    int rows, cols, count, active, cursor, done, cancelled;
    int key; /* ENTER, PF1..24 or PA1..3 */
+   TheRenderAttr colour;
    ThePanelField fields[THE_PANEL_MAX_FIELDS];
 } ThePanelState;
 

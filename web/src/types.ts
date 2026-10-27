@@ -35,6 +35,12 @@ export interface Diagnostic {
   message: string;
 }
 
+export interface PanelColour {
+  foreground?: string;
+  background?: string;
+  style: number;
+}
+
 export interface Snapshot {
   viewport?: { rows: number; cols: number; reserved_rows: number; prefix_cols: number; prefix_gap: number };
   panel?: {
@@ -44,7 +50,8 @@ export interface Snapshot {
     cursor: number;
     cursor_cell?: number;
     cursor_width?: number;
-    fields: { row: number; cell: number; width: number; editable: number; changed: number; kind: string; text: string }[];
+    colour?: PanelColour;
+    fields: { row: number; cell: number; width: number; editable: number; changed: number; kind: string; text: string; colour?: PanelColour }[];
   };
   mode: string;
   rows: number;

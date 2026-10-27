@@ -46,7 +46,7 @@ async function waitFor(check, description, timeout = 8000) {
 function command(method, params = {}) {
   const id = nextId++;
   return new Promise((resolve, reject) => {
-    pending.set(id, { resolve, reject });
+    pending.set(id, { resolve, reject, method });
     socket.send(JSON.stringify({ id, method, params }));
   });
 }
@@ -129,7 +129,7 @@ try {
     return Number(contents.split("\n", 1)[0]) || 0;
   }, "Chrome DevTools port", 30000);
   const targetResponse = await fetch(
-    `http://127.0.0.1:${port}/json/new?${encodeURIComponent(pageUrl)}`,
+    `http://127.0.0.1:${port}/json/new?${encodeURIComponent("about:blank")}`,
     { method: "PUT" },
   );
   if (!targetResponse.ok) throw new Error(`unable to create Chrome target: ${targetResponse.status}`);
@@ -145,16 +145,19 @@ try {
     if (message.id && pending.has(message.id)) {
       const request = pending.get(message.id);
       pending.delete(message.id);
-      if (message.error) request.reject(new Error(message.error.message));
+      if (message.error) request.reject(new Error(`${request.method}: ${message.error.message}`));
       else request.resolve(message.result);
     } else if (message.method === "Runtime.exceptionThrown") {
       exceptions.push(message.params?.exceptionDetails?.text || "browser exception");
     }
   });
 
+  // Creating a target may precede its active renderer on a loaded runner.
+  // Attach to a ready blank page before starting the application navigation.
+  await waitFor(() => command("Page.getFrameTree"), "active Chrome page", 30000);
   await command("Runtime.enable");
   await command("Page.enable");
-  await command("Page.bringToFront");
+  await command("Page.navigate", { url: pageUrl });
   await waitFor(
     () => evaluate("document.readyState === 'complete' && !!document.querySelector('.app-shell')"),
     "THE application shell",
@@ -164,6 +167,7 @@ try {
     () => evaluate("document.querySelector('.connection')?.textContent.trim() === 'online'"),
     "web driver connection",
   );
+  await command("Page.bringToFront");
 
   async function restoredEditor() {
     try {
@@ -178,6 +182,25 @@ try {
   await waitFor(() => evaluate("!!document.querySelector('.fullscreen-panel')"), "macro panel");
   const labels = await evaluate("[...document.querySelectorAll('.panel-protected')].map(n => n.textContent).join(' ')");
   if (!labels.includes("Name:") || !labels.includes("Topic:")) throw new Error("missing protected labels");
+  const colours = await evaluate(`(() => {
+    const form=document.querySelector('.fullscreen-panel');
+    const name=[...document.querySelectorAll('.panel-protected')].find(n=>n.textContent==='Name: ');
+    const field=document.querySelector('.panel-editable');
+    return {body:getComputedStyle(form).backgroundColor,label:getComputedStyle(name).color,
+      field:getComputedStyle(field).color,background:getComputedStyle(field).backgroundColor,
+      text:form.textContent};
+  })()`);
+  if (colours.body!=='rgb(30, 30, 30)' || colours.label!=='rgb(220, 229, 242)' ||
+      colours.field!=='rgb(189, 233, 217)' || colours.background!=='rgb(36, 59, 54)')
+    throw new Error('declared panel colours were not rendered: '+JSON.stringify(colours));
+  if (/seed|tail|000000/.test(colours.text)) throw new Error('caller rows leaked into macro form');
+  const controls = await evaluate(`(() => {
+    const form=document.querySelector('.fullscreen-panel').getBoundingClientRect();
+    const controls=document.querySelector('.panel-controls').getBoundingClientRect();
+    return {top:controls.top,bottom:controls.bottom,formTop:form.top,formBottom:form.bottom};
+  })()`);
+  if (controls.top<controls.formTop || controls.bottom>controls.formBottom+1)
+    throw new Error('panel action buttons clipped: '+JSON.stringify(controls));
   async function cursorGeometry() {
     return evaluate(`(() => {
       const field = document.querySelector('.panel-focused');
@@ -212,6 +235,12 @@ try {
   await domKey("Tab", "Tab");
   await insertText("Rexx");
   await waitFor(() => evaluate("[...document.querySelectorAll('.panel-editable')].some(n => n.textContent.startsWith('Alice')) && [...document.querySelectorAll('.panel-editable')].some(n => n.textContent.startsWith('Rexx'))"), "edited fields");
+  await domKey("Tab", "Tab");
+  await insertText("B");
+  await waitFor(() => evaluate("[...document.querySelectorAll('.panel-editable')].some(n => n.textContent.startsWith('Blice'))"), "two-field forward Tab cycle");
+  await domKey("Tab", "Tab", false, true);
+  await insertText("Q");
+  await waitFor(() => evaluate("[...document.querySelectorAll('.panel-editable')].some(n => n.textContent.startsWith('Qexx'))"), "reverse Tab cycle");
   await evaluate("document.querySelector('.panel-protected').click()");
   if (await evaluate("document.querySelector('.panel-protected').textContent") !== "Name: ") throw new Error("protected label changed");
   await command("Emulation.setDeviceMetricsOverride", {width: 1100, height: 650, deviceScaleFactor: 1, mobile: false});
@@ -230,10 +259,13 @@ try {
   await restoredEditor();
   await domKey("F7", "F7");
   await waitFor(() => evaluate("!!document.querySelector('.fullscreen-panel')"), "disconnect panel");
-  await command("Page.navigate", { url: "about:blank" });
-  await sleep(150);
   const history = await command("Page.getNavigationHistory");
-  await command("Page.navigateToHistoryEntry", { entryId: history.entries[history.currentIndex - 1].id });
+  const editorEntry = history.entries[history.currentIndex];
+  await command("Page.navigate", { url: "about:blank" });
+  // Cross-process navigation can temporarily detach the old renderer. Wait
+  // for the blank document, proving disconnect before returning to the form.
+  await waitFor(() => evaluate("document.readyState === 'complete' && location.href === 'about:blank'"), "completed disconnect navigation", 30000);
+  await command("Page.navigateToHistoryEntry", { entryId: editorEntry.id });
   try {
     await waitFor(() => evaluate("document.querySelector('.connection')?.textContent.trim() === 'online'"), "reconnected editor");
   } catch (error) {

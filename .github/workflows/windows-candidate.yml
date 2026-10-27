@@ -2,12 +2,23 @@ name: Windows candidate qualification
 on:
   push:
     branches: ['main']
+  pull_request:
+    branches: [main]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      version:
+        description: Package version supplied by the tag release workflow
+        type: string
+        required: false
+        default: ''
 permissions:
   contents: read
 jobs:
   windows:
     runs-on: windows-2025
+    env:
+      THE_PACKAGE_VERSION: ${{ inputs.version }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
@@ -110,7 +121,7 @@ jobs:
         if: always() && steps.build.conclusion == 'success'
         shell: pwsh
         run: |
-          $version = (Get-Content packaging/candidate-version.txt -Raw).Trim()
+          $version = if ($env:THE_PACKAGE_VERSION) { $env:THE_PACKAGE_VERSION } else { (Get-Content packaging/candidate-version.txt -Raw).Trim() }
           python scripts/package-release.py --build-dir build-release --version $version --installer
           if ($LASTEXITCODE -ne 0) { throw 'Packaging failed' }
       - name: Test the installed release candidate
