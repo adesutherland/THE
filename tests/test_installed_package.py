@@ -127,7 +127,7 @@ with tempfile.TemporaryDirectory(prefix='THE package smoke ') as tmp:
             assert 'Error ' not in stock_result.stderr, stock_result.stderr
             stock_views = [json.loads(line) for line in stock_result.stdout.splitlines() if line.startswith('{')]
             stock_view = next(view for view in stock_views if 'screen_rows' in view)
-            assert 'CRXTHE 0.9.0' in stock_view['status'], stock_view
+            assert manifest['display_version'] in stock_view['status'], stock_view
             assert any(row['role'] == 'scale' and '+' in row['t'] for row in stock_view['screen_rows']), stock_view
             assert any(row.get('p') == '0000001' for row in stock_view['screen_rows']), stock_view
         print(f'{engine}: installed payload passed with an isolated PATH')

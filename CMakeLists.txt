@@ -1,10 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(THE VERSION 0.9.0 LANGUAGES C)
+project(THE VERSION 0.10.0 LANGUAGES C)
 
 set(THE_PRODUCT_NAME "CRXTHE")
-set(THE_VERSION "${PROJECT_VERSION}")
-set(THE_VERSION_DATE "26-Oct-2026")
+# Keep numeric project metadata for tools; identify source builds explicitly.
+set(THE_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.dev")
+set(THE_VERSION_DATE "27-Oct-2026")
 
 # --- Options ---
 option(USE_WIDE_CHAR "Enable wide character support" ON)
@@ -955,7 +956,6 @@ endif()
 install(PROGRAMS tools/batch-md-rexx/the-batch-md-rexx DESTINATION bin)
 install(PROGRAMS tools/batch-md-rexx/the-highlight-source DESTINATION bin)
 if(WIN32)
-    install(FILES doc/Windows-Readme.txt DESTINATION share/doc/the)
     if(NOT THE_BUNDLE_CREXX)
         install(PROGRAMS tools/the-env.ps1 DESTINATION bin)
     endif()
@@ -965,7 +965,8 @@ install(FILES web-profile-regina.the DESTINATION share/the)
 install(FILES quickfind.the quickfind_regina.the quickopen.the quickopen_regina.the
     quickline.the quickline_regina.the DESTINATION share/the)
 install(FILES paneldemo.the paneldemo_regina.the DESTINATION share/the)
-install(FILES doc/panels.md doc/rexx-interpreters.md doc/first-launch.md DESTINATION share/doc/the)
+install(DIRECTORY doc/ DESTINATION share/doc/the COMPONENT Documentation
+    FILES_MATCHING PATTERN "*.md" PATTERN "Windows-Readme.txt" PATTERN "THE_Help.txt")
 install(FILES LICENSE DESTINATION share/doc/the)
 if(USE_SDSLH AND EXISTS "${DSLSH_SOURCE_DIR}/LICENSE")
     install(FILES "${DSLSH_SOURCE_DIR}/LICENSE" DESTINATION share/doc/the/dslsh)
@@ -973,7 +974,6 @@ endif()
 if(USE_UTF8PROC AND EXISTS "${utf8proc_SOURCE_DIR}/LICENSE.md")
     install(FILES "${utf8proc_SOURCE_DIR}/LICENSE.md" DESTINATION share/doc/the/utf8proc)
 endif()
-install(FILES doc/syntax-highlighting.md DESTINATION share/doc/the)
 install(FILES
     tools/batch-md-rexx/batch-md-rexx.crexx
     tools/batch-md-rexx/render-html.crexx

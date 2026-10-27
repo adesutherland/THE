@@ -1,9 +1,10 @@
-CRXTHE 0.9.0 - Windows installation and first use
+CRXTHE 0.10.dev - Windows installation and first use
 Based on Mark Hessling's THE 4.0; this fork is maintained separately.
 
-These instructions describe the CRXTHE candidate supplied for your test.
-The new CRXTHE 0.9.0 installer has not yet been published. Older THE 4.0
-prereleases do not contain the current profile and navigation changes.
+These instructions describe the CRXTHE 0.10.dev package layout and controls.
+Check the installed version and manifest when using an older package; its
+profiles and navigation can differ. Source documentation and release status
+are separate.
 
 INSTALL
 
@@ -70,7 +71,7 @@ still select an older installation. In a new PowerShell window check:
 
 For the default install folder, this always selects the installed launcher:
   & "$env:LOCALAPPDATA\Programs\THE-cREXX\bin\crxthe.cmd" --version
-It should identify CRXTHE 0.9.0. For a custom folder, adjust that path.
+It should identify CRXTHE 0.10.dev. For a custom folder, adjust that path.
 
 Open a new terminal after installation. Already-running terminals and IDEs
 can retain their old PATH. Do not run the-env.ps1 or set developer paths for

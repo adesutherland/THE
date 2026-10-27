@@ -37,8 +37,8 @@ When CREXX is selected and its runtime is available:
 - CREXX commands addressed to `THE` are passed to THE's normal command parser
 
 Direct `.rxbin` macros must be rebuilt with the current CREXX toolchain after
-CREXX bytecode format changes. The descriptor-based lookup change uses format
-006 and is exposed through `CREXXSAA_ABI_VERSION` 3.
+CREXX bytecode format changes. The build requires a compatible
+`CREXXSAA_ABI_VERSION` of at least 3.
 
 Hosted profiles and macros should declare their own language level and command
 environment:
@@ -46,11 +46,14 @@ environment:
 ```rexx
 options levelb
 address the
-'msg hello from CREXX'
+'msg hello from CREXX';
 ```
 
 `crexxsaa` does not add `OPTIONS`, `ADDRESS`, imports, or compatibility
-preludes. Source files must be valid CREXX source as written.
+preludes. Source files must be valid CREXX source as written. Terminate
+successive quoted `ADDRESS THE` commands with semicolons: cREXX supports
+continued string literals, so newline-only separation can combine commands.
+This applies to shipped, generated and user-authored profiles.
 
 ## Configuration
 
@@ -156,6 +159,10 @@ Use the convenience profile explicitly when those bindings are wanted:
 ```sh
 the -p ~/.local/share/the/profile_crexx.the myprog.rexx
 ```
+
+These optional helpers have unresolved platform failures documented in
+[known issues](known-issues.md). Their presence is not evidence that a given
+bundled runtime can compile/run successfully through this path.
 
 The helper macros behind `F8` and `F9` are `crexxcompile.the` and
 `crexxrun.the`. They are intended for interactive editor sessions; THE batch

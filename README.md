@@ -1,4 +1,4 @@
-# CRXTHE 0.9.0
+# CRXTHE 0.10.dev
 
 **CRXTHE** is an independently maintained fork based on Mark Hessling's THE 4.0, with cREXX/Regina macros, Unicode editing and separate console, LLM and browser frontends.
 
@@ -21,14 +21,22 @@ Supported source platforms are macOS, Linux/POSIX, and native Windows.
 Historical DOS, OS/2, VMS, Amiga, BeOS, QNX, DJGPP/GO32, and ancient compiler
 source branches have been retired.
 
-For signing existing experimental prereleases and their native installer QA,
-see [Release signing](doc/release-signing.md).
+## Documentation
+
+Start with the [documentation index](doc/README.md) for user guides, command
+reference and developer contracts. [Known issues](doc/known-issues.md) lists
+current defects and workarounds; the [roadmap](doc/roadmap.md) lists planned work
+and outstanding qualification. These documents describe this source tree;
+installed packages retain the behavior of their own version.
+
+For signing existing experimental prereleases and native installer QA, see
+[release signing](doc/release-signing.md).
 
 ## Architecture
 For developers and contributors, a high-level overview of the editor's runtime,
 driver modules, and data structures is available in the
 [Architecture Overview](doc/architecture.md). The driver ownership contract is
-tracked in [Cursor Driver Architecture](doc/cursor-driver-architecture.md), and
+described in [Cursor Driver Architecture](doc/cursor-driver-architecture.md), and
 the browser proof of concept is described in [Web Driver POC](doc/web-driver-poc.md).
 The CREXX bridge is documented separately in [CREXX Integration](doc/crexx.md).
 Documentation authors integrating parser-backed HTML or TeX source listings
@@ -38,8 +46,8 @@ should start with the [Syntax Highlighting User Guide](doc/syntax-highlighting.m
 
 ## Building and Installing
 
-The fork now supports optional runtime-loaded Regina macros alongside the
-default cREXX engine. See [interpreter setup](doc/rexx-interpreters.md) and [prebuilt packaging](packaging/README.md).
+The fork supports optional runtime-loaded Regina macros alongside the
+default cREXX engine. See [interpreter setup](doc/rexx-interpreters.md) and [prebuilt packaging](doc/packaging.md).
 Shmuel's prefix macro package, all its ports and compatibility patches are held
 in a [separate private kit](doc/private-compatibility.md). They are excluded from
 new CRXTHE packages.
@@ -57,11 +65,10 @@ sudo apt install bash ripgrep expect
 ```
 
 ```bash
-mkdir -p cmake-build
-cd cmake-build
-cmake ..
-make
-make install
+cmake -S . -B cmake-build
+cmake --build cmake-build --parallel
+ctest --test-dir cmake-build --output-on-failure
+cmake --install cmake-build
 ```
 
 By default, the `install` target will stage the `the` executable and the necessary configuration files (like `THE_Help.txt`, `syntax/` highlights, `profile.the`, and the optional CREXX helper profile/macros) into a standard release directory structure.
@@ -152,8 +159,9 @@ split a line, Shift-arrow selection and visible key hints. See the
 
 Use `crxthe file.txt` in a packaged installation (`crxthe.cmd` on Windows).
 The `the` launcher and `THE_*` configuration names remain compatible aliases.
-The version is **CRXTHE 0.9.0**, independently numbered from upstream THE 4.0.
-This source change does not rename or replace earlier published 4.0 prereleases.
+The version is **CRXTHE 0.10.dev**, a development build towards 0.10.0,
+independently numbered from upstream THE 4.0.
+Earlier 4.0 prereleases retain their own identity and behavior.
 
 ## Original Author
 

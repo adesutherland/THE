@@ -1,10 +1,9 @@
 # LLM Driver Agent Guide
 
-Last updated: 2026-06-02.
-
 This guide describes the agent-facing LLM driver surface. It intentionally
-avoids migration planning detail; use `doc/utf-design.md` for UTF status and
-outstanding items.
+describes the implemented protocol. Use [UTF profiles](utf-design.md) for
+text/layout rules, [known issues](known-issues.md) for limitations and the
+[roadmap](roadmap.md) for plans.
 
 ## Purpose
 
@@ -226,3 +225,23 @@ logical hits, real-runtime command dispatch, prefix/block/file-ring state,
 syntax/style spans, parser diagnostics, profile/CREXX paths, transient UI
 state transitions, command-triggered modal continuations, and no-curses link
 checks for `the` and `the_driver_llm.so`.
+
+## Deletion and persistence
+
+Use `command cursor goto LINE COLUMN` to position the caret (one-based).
+`command sos cuadelchar` removes the cluster under it; `command sos cuadelback`
+removes the preceding cluster. CUA commands also join records at their
+respective boundaries. Normalized `key delete` / `key backspace` follow the
+key tables/profile; use explicit commands to require CUA boundary behavior.
+
+```text
+command cursor goto 1 3
+command sos cuadelchar
+look filearea compact
+command save
+```
+
+For `alpha`, this displays and saves `alha`. An unsaved snapshot reports the
+changed text and dirty state; inspecting it does not write the file. SAVE or
+the profile's save binding persists the edit. Reopen the file when verifying
+bytes outside the editor. This is independent of Tab insertion/save behavior.

@@ -29,24 +29,24 @@ By default, `profile.the` maps these areas to a modern dark theme inspired by VS
 
 ```rexx
 /* Examples from default profile.the */
-'set ecolor comment #6A9955 on #1E1E1E'
-'set ecolor string #CE9178 on #1E1E1E'
-'set ecolor keyword #569CD6 on #1E1E1E'
-'set ecolor preprocessor #C586C0 on #1E1E1E'
-'set ecolor type #4EC9B0 on #1E1E1E'
-'set ecolor function #DCDCAA on #1E1E1E'
-'set ecolor constant #4FC1FF on #1E1E1E'
-'set ecolor macro_name #DCDCAA on #1E1E1E'
-'set ecolor macro_variable #4FC1FF on #1E1E1E'
-'set ecolor macro_constant #B5CEA8 on #1E1E1E'
-'set ecolor identifier #9CDCFE on #1E1E1E'
-'set ecolor number #B5CEA8 on #1E1E1E'
-'set ecolor operator #D4D4D4 on #1E1E1E'
-'set ecolor punctuation #D4D4D4 on #1E1E1E'
-'set ecolor paren #D4D4D4 on #1E1E1E'
+'set ecolor comment #6A9955 on #1E1E1E';
+'set ecolor string #CE9178 on #1E1E1E';
+'set ecolor keyword #569CD6 on #1E1E1E';
+'set ecolor preprocessor #C586C0 on #1E1E1E';
+'set ecolor type #4EC9B0 on #1E1E1E';
+'set ecolor function #DCDCAA on #1E1E1E';
+'set ecolor constant #4FC1FF on #1E1E1E';
+'set ecolor macro_name #DCDCAA on #1E1E1E';
+'set ecolor macro_variable #4FC1FF on #1E1E1E';
+'set ecolor macro_constant #B5CEA8 on #1E1E1E';
+'set ecolor identifier #9CDCFE on #1E1E1E';
+'set ecolor number #B5CEA8 on #1E1E1E';
+'set ecolor operator #D4D4D4 on #1E1E1E';
+'set ecolor punctuation #D4D4D4 on #1E1E1E';
+'set ecolor paren #D4D4D4 on #1E1E1E';
 
 /* Bracket Matching (Highlighting the matching brace under cursor) */
-'set ecolor match black on #4D4D4D'
+'set ecolor match black on #4D4D4D';
 ```
 
 `ECOLOR` settings are inherited by files opened later in the file ring, so a

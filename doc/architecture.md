@@ -1,14 +1,13 @@
 # THE Architecture Overview
 
-Last updated: 2026-06-02.
-
 THE is a procedural C editor descended from XEDIT/KEDIT. This fork keeps the
 classic command, file-ring, view, and Rexx macro model, but the UI architecture
 now separates editor state from physical terminal mechanics.
 
 For the detailed cursor/driver contract, read
-`doc/cursor-driver-architecture.md`. For UTF design, status, and outstanding
-items, read `doc/utf-design.md`.
+`doc/cursor-driver-architecture.md`. For UTF behavior, read [terminal profiles](utf-design.md).
+Current limitations and plans are in [known issues](known-issues.md) and
+the [roadmap](roadmap.md).
 
 ## Supported Platforms
 
@@ -38,8 +37,11 @@ Drivers are runtime-loaded modules:
 - `the_driver_llm`: the no-curses LLM UI. It boots the real editor runtime and
   exposes semantic snapshots and normalized input over stdin/stdout through
   `the --driver llm`.
+- `the_driver_web`: an optional browser frontend, reusing headless surfaces and
+  semantic snapshots with a local HTTP/WebSocket transport and restricted
+  workspace/command policy.
 
-Both drivers implement the neutral `TheDriverOps` surface from
+All drivers implement the neutral `TheDriverOps` surface from
 `src/thedriver.h`. Public driver types are curses-free.
 
 ## Core Editor Model
@@ -58,6 +60,20 @@ Core editor code owns logical state: file lines, logical cursor positions,
 row roles, prefix and command-line text, block/selection state, syntax/style
 categories, logical colors, and logical key identity. It must not infer editor
 state from physical curses cursor or window state.
+
+## Working records and text commits
+
+`rec` / `rec_len` are the active edit record; `LINE` owns the buffer's stored
+in-memory text. `pre_process_line` loads a record from its line.
+`post_process_line` commits changes, increments alteration counters, retains
+recovery text and synchronizes the parser. Editing commands must commit before
+cursor movement or presentation can reload that record. `src/commsos.c` follows
+this order for character deletion and erase-to-end. SAVE then writes the
+buffer's committed lines through the normal file path.
+
+UI modules use logical cursor state and shared frames. A refresh is not a text
+mutation or save operation. The loader checks the exported driver-module ABI;
+keep the executable and its modules from a matching build together.
 
 ## Logical UI And Rendering
 
@@ -114,8 +130,11 @@ Useful verification:
 
 ```sh
 git diff --check
-bash tests/inventory_direct_curses.sh --summary /Users/adrian/CLionProjects/THE
+bash tests/inventory_direct_curses.sh --summary "$PWD"
 ctest --test-dir cmake-build-debug \
   -R 'test_driver_modules|test_the_llm_full_runtime|test_curses_boundary|test_curses_boundary_inventory' \
   --output-on-failure
 ```
+
+The maintained [test guide](testing.md) maps contracts to checks and explains
+source, installed, native input and visual qualification.

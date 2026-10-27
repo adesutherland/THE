@@ -23,11 +23,11 @@ def run(*args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--build-dir', required=True, type=Path)
-    parser.add_argument('--version', required=True, help='Candidate version, e.g. 0.9.0-preview.1')
+    parser.add_argument('--version', required=True, help='Candidate version, e.g. 0.10.dev')
     parser.add_argument('--installer', action='store_true')
     args = parser.parse_args()
-    if not re.fullmatch(r'\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?', args.version):
-        parser.error('Use a numeric three-part version with an optional suffix')
+    if not re.fullmatch(r'(?:\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?|\d+\.\d+\.dev)', args.version):
+        parser.error('Use a numeric three-part version with an optional suffix, or MAJOR.MINOR.dev')
     build = args.build_dir.resolve()
     source = Path(__file__).resolve().parent.parent
     cache = (build / 'CMakeCache.txt').read_text()
@@ -67,7 +67,7 @@ def main():
         archive = Path(shutil.make_archive(str(output / name), 'zip', work, name))
         assets = [archive]
         if args.installer:
-            numeric = re.split(r'[-+]', args.version)[0]
+            numeric = re.sub(r'\.dev$', '.0', re.split(r'[-+]', args.version)[0])
             if host == 'darwin':
                 installer = output / f'{name}.pkg'
                 build_installer(payload, installer, args.version, work)

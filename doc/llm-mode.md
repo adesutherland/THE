@@ -1,16 +1,14 @@
 # LLM Mode Agent Guide
 
-Last updated: 2026-06-02.
-
 This document describes THE's LLM-facing mode for agents and tool authors that
 need to inspect editor state and drive editor input without depending on curses
 escape sequences, physical terminal columns, or screen scraping.
 
-For UTF design, status, and outstanding items, read `doc/utf-design.md`.
+For UTF behavior, read [UTF profiles](utf-design.md). See
+[known issues](known-issues.md) and the [roadmap](roadmap.md) for limitations
+and outstanding work.
 
-## Status
-
-Implemented:
+## Implementation
 
 - `the --driver llm` is the strategic no-curses agent/editor surface. It boots
   real THE with the LLM driver module selected, skips curses initialization,
@@ -34,13 +32,6 @@ Implemented:
   viewport offsets, and logical hit targets.
 - Drivers are runtime-loaded modules. `the` no longer links curses directly;
   `the_driver_curses` owns curses startup/shutdown and terminal mechanics.
-
-Retired:
-
-- The lightweight fake editor harness and headless mini-session executable have
-  been removed. Formatter/input-only coverage now belongs in `test_llmdriver`,
-  `test_llmruntime`, `test_transientui`, and `test_inputevent`; full editor
-  behavior belongs in `test_the_llm_full_runtime` through `the --driver llm`.
 
 ## Design Intent
 

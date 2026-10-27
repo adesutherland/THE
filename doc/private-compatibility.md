@@ -18,5 +18,5 @@ panel examples remain. They are unrelated to the prefix macro package.
 Historical releases and Git history are unchanged. Existing installations
 may retain old files until separately qualified upgrade cleanup is provided.
 
-The ZIP is prepared for Adrian to review and send separately. It has not been
-sent; the agreed Windows testing and handoff condition remains in force.
+Private-kit review, platform qualification and any external handoff are separate
+from CRXTHE's public editor documentation and release process.

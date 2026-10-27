@@ -99,5 +99,5 @@ Tests cover both engines, stack order, ALL/NOCHANGE, protected boundaries,
 Unicode, cancellation, readonly input, prefix results, whole-screen forms and
 validation before multi-record commits. Separate tests exercise real curses
 and rendered Chromium forms with both engines. Automated Windows release and
-installed QA remain distinct from Adrian's manual interactive Windows test,
-which still gates handoff to Shmuel. His prefix macros do not require panels.
+installed QA remain distinct from native visual checks. See [testing](testing.md)
+and the [roadmap](roadmap.md) for their scope.

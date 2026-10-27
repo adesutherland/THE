@@ -158,4 +158,4 @@ end
 'set macro off';
 'set linend off';
 'set synonym off';
-'msg CRXTHE 0.9.0 | Esc Command  F6 Cmd/File  F1 Help  Ctrl-S Save';
+'msg CRXTHE 0.10.dev | Esc Command  F6 Cmd/File  F1 Help  Ctrl-S Save';

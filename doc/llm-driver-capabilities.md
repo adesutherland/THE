@@ -1,7 +1,5 @@
 # LLM Driver Capability Inventory
 
-Last updated: 2026-06-06.
-
 This inventory describes the supported no-curses agent/editor surface:
 `the --driver llm`.
 

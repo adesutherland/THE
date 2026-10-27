@@ -47,7 +47,7 @@ def generated():
                       ['set impos off','set impmacro off','set macro off','set linend off','set synonym off']]
         web_name = 'web-profile.the' if engine == 'CREXX' else 'web-profile-regina.the'
         result[web_name] = '\n'.join(lines[:-1] + restricted +
-                                    [quote('msg CRXTHE 0.9.0 | Esc Command  F6 Cmd/File  F1 Help  Ctrl-S Save') + ';']) + '\n'
+                                    [quote(data['welcome']) + ';']) + '\n'
         for name, prompt in [('quickfind', 'locate /'), ('quickopen', 'edit '), ('quickline', ':')]:
             body = ('options levelb\n' if engine == 'CREXX' else '') + 'address the\n'
             body += quote('cmsg ' + prompt) + ';\n' + quote('cursor cmdline ' + str(len(prompt) + 1)) + ';\n'

@@ -1,6 +1,6 @@
 # Macro interpreters and prebuilt packages
 
-CRXTHE 0.9.0 is an independent fork based on Mark Hessling's THE 4.0. Its changes are not fixes for
+CRXTHE 0.10.dev is an independent fork based on Mark Hessling's THE 4.0. Its changes are not fixes for
 upstream THE. cREXX is the default macro interpreter; Regina is optional.
 Select one interpreter before starting THE. Switching interpreters requires
 restarting the editor; macros are not automatically translated between dialects.
@@ -128,5 +128,5 @@ apply.
 
 For a relocatable bundle, configure with `-DTHE_BUNDLE_CREXX=ON` and the default
 cREXX interpreter. A matching shared cREXX runtime and tool set are required;
-the install step stages them privately. See [packaging](../packaging/README.md)
+the install step stages them privately. See [packaging](packaging.md)
 for archive and installer commands and qualification limits.

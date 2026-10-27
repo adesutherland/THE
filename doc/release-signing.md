@@ -1,64 +1,18 @@
-# Signing an existing THE prerelease
+# Release signing
 
 These tools operate on the payload of an explicit published tag. They do not
 build the source at the tip of `main`, move tags or merge the experimental
 fork. All original asset digests and the tag commit are pinned and checked
 throughout signing. The private bundled cREXX installation stays separate
 from any standalone cREXX installation. Bundled cREXX remains the default;
-panels.2 offers an installed-runtime preference with automatic bundled fallback.
-
-## Runtime-choice delivery: panels.2
-
-[v4.0.0-panels.2](https://github.com/adesutherland/THE/releases/tag/v4.0.0-panels.2)
-uses source tag `091aef7b08a2674f6ae3dfa4235ee96e7a19a09c`. Source QA passed
-84/84 macOS tests and Windows [run 40223307643](https://github.com/adesutherland/THE/actions/runs/40223307643)
-(67 passed, 13 platform/tool skips). Both 121-workflow macro suites and exact
-parity passed on the installed Windows payload.
-
-[Signed-installer run 40224957673](https://github.com/adesutherland/THE/actions/runs/40224957673)
-passed on both systems: Authenticode/timestamp and Windows installation;
-Developer ID signatures, Apple notarization, PKG stapling, Gatekeeper and
-macOS installation. Both runtime preferences, explicit overrides, cache
-miss/hit/toolchain changes, and absent/incompatible fallback were tested.
-Native macOS Installer choice application and a differently signed external
-cREXX copy passed. Host/launcher entitlements allow the explicit external
-runtime while retaining hardened runtime and notarization. The Mac payload
-contains ten signed code files and 130 manifest entries; Windows has 157
-entries. The Windows ZIP was unchanged by signing. Manual Windows interaction
-and the handoff to Shmuel remain pending.
-
-See [runtime/cache configuration](https://github.com/adesutherland/THE/blob/v4.0.0-panels.2/doc/rexx-interpreters.md).
-
-## Qualified delivery on 25 October 2026
-
-The existing [panel prerelease](https://github.com/adesutherland/THE/releases/tag/v4.0.0-panels.1)
-was signed and its assets replaced without moving source tag
-`42d7135728e6b1fd6501f74ecd8312d3b564991b`.
-[Hosted run 40219171572](https://github.com/adesutherland/THE/actions/runs/40219171572)
-passed both native jobs and all 20 signing-tool regressions (11 Windows,
-9 macOS). Windows verified Authenticode and timestamp, all installed hashes,
-CREXX/NONE modes, browser assets, reinstall/uninstall, PATH and user-file
-retention. The outer installer changed; its ZIP and inner payload stayed intact.
-
-Apple accepted both ARM64 assets for notarization. The PKG passed signature,
-staple and Gatekeeper checks, installation, payload hashes, CREXX/NONE macros
-and browser checks as a normal user. All eight Mach-O files were signed.
-Two `.DS_Store` files were excluded because `pkgbuild` omits them; the updated
-manifest contains 128 payload hashes, with all other non-code files unchanged.
-This post-signing smoke supplements the earlier full macro/panel qualification;
-manual Windows interaction and any external handoff remain pending.
-
-| Published asset | SHA-256 |
-| --- | --- |
-| Windows x64 installer | `711ac3c7642f0945dda142ae4a1e5d1d4720bc8d63035046b42bc645f0ec76b6` |
-| macOS ARM64 PKG | `9c0cd9b5d07ab861d590a66b30f8fa86ddf4edb4fc2a2de1e314424de13edb75` |
-| macOS ARM64 ZIP | `75d9dc71237e458d662b9d2947947e1ce4a28aa24cd8a2ce46e3a54b4aa838d0` |
+installers offer an installed-runtime preference with automatic bundled fallback.
 
 ## Windows
 
 ```sh
-python3 scripts/sign-windows-release.py --tag v4.0.0-panels.2 --dry-run
-python3 scripts/sign-windows-release.py --tag v4.0.0-panels.2 \
+release_tag=vX.Y.Z  # replace with the explicitly selected published tag
+python3 scripts/sign-windows-release.py --tag "$release_tag" --dry-run
+python3 scripts/sign-windows-release.py --tag "$release_tag" \
   --signer ../CREXX/scripts/sign-windows-file.sh --upload
 ```
 
@@ -76,7 +30,7 @@ tests installation, payload hashes, CREXX/NONE modes, browser assets,
 reinstallation, uninstallation, PATH restoration and user-file preservation.
 The Windows installer must already have been signed locally with SimplySign.
 
-The macOS job uses the nine Apple secrets with the same names as cREXX-RAG.
+The macOS job uses the Apple secrets listed in [packaging](packaging.md).
 It validates the existing release ZIP and every input manifest hash; signs
 all nested Mach-O executables and libraries with Developer ID Application;
 removes staged Finder `.DS_Store` metadata (which `pkgbuild` excludes),
@@ -89,12 +43,11 @@ stapled tickets; the ZIP's notarization is checked by Apple's online service.
 
 ```sh
 gh workflow run sign-release-installers.yml --repo adesutherland/THE \
-  --ref main -f tag=v4.0.0-panels.2 -f architecture=arm64
+  --ref main -f tag="$release_tag" -f architecture=arm64
 ```
 
-The selected architecture must exist on that release; the panel candidate has
-ARM64 macOS assets, not Intel assets. Manual Windows interactive testing and
-the handoff to Shmuel remain separate gates.
+The selected architecture must exist on the selected release. Native visual
+checks and any external package handoff are separate activities.
 
 Signing uses a temporary private keychain and restores the user's keychain
 search list. Certificate files and the keychain are removed on exit. Public

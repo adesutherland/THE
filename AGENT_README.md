@@ -1,34 +1,49 @@
-# THE (The Hessling Editor) - Agent Project Overview
+# Developing CRXTHE
 
-## 1. Current Status (CRXTHE 0.9.0, based on THE 4.0)
-**THE** is a full-screen, character-mode text editor based on the VM/CMS editor XEDIT and KEDIT, originally written by Mark Hessling. This repository represents a significantly modernized fork.
+CRXTHE is an independent C99 fork of THE 4.0 for macOS, Linux/POSIX and
+native Windows. Start with the [documentation index](doc/README.md),
+[architecture](doc/architecture.md) and [build/test guide](doc/testing.md).
+Current defects belong in [known issues](doc/known-issues.md); future work and
+qualification belong in the [roadmap](doc/roadmap.md).
 
-### Recent Modernizations:
-- **Build System**: The legacy GNU Autotools (`configure`) and scattered platform makefiles have been replaced with a unified **CMake** build system (`CMakeLists.txt`).
-- **IDE Support**: The project is now natively supported by modern C/C++ IDEs like CLion out-of-the-box.
-- **Codebase Standardization**: The C codebase has been refactored from pre-ANSI (K&R) C to the **C99 standard**. Legacy `#ifdef HAVE_PROTO` blocks and `Args()` macros were stripped.
-- **Supported Platforms**: Maintained source targets are macOS, Linux/POSIX, and native Windows. Historical DOS, OS/2, VMS, Amiga, BeOS, QNX, DJGPP/GO32, and ancient compiler branches have been retired.
-- **Architecture & Extensibility**: The project separates the editor core from runtime-loaded UI drivers. The default curses UI and the no-curses LLM UI both implement the neutral driver surface. For a detailed breakdown, see the [Architecture Overview](doc/architecture.md) and [Cursor Driver Architecture](doc/cursor-driver-architecture.md).
-- **LLM Driver**: `the --driver llm` exposes real THE runtime state through semantic snapshots and normalized input events without screen scraping curses output. For the agent-facing contract, see the [LLM Mode Agent Guide](doc/llm-mode.md), [LLM Driver Agent Guide](doc/llm-driver-agent-guide.md), and [LLM Driver Capability Inventory](doc/llm-driver-capabilities.md).
+## Engineering contracts
 
-## 2. CREXX Integration
-This fork is explicitly tailored for the modern [CREXX](https://github.com/crexx-org) scripting engine.
+- The editor core owns file bytes, logical cursor/focus, commands, selection,
+  parser state and macro integration. Physical UI behavior belongs in the
+  runtime-loaded driver behind `TheDriverOps`.
+- Use `the --driver llm` for agent/editor tests. It runs the real editor and
+  accepts normalized inputs and semantic snapshots. Do not infer editor state
+  by scraping curses output.
+- Mutation tests must assert text, cursor, dirty state and saved/reopened
+  bytes where relevant. Use a real PTY for changes to console input handling.
+- Keep parser-backed reads inside the DSLSH critical-section helpers. Wait
+  with `SDSLHWAIT` before asserting asynchronous styles or diagnostics.
+- cREXX is the default engine; Regina is optional and selected at startup.
+  Keep compiler, assembler, shared runtime and bytecode from a matching cohort.
+  Consecutive cREXX addressed command literals need explicit semicolons.
+- Default profiles are generated from `profiles/default-profile.json` by
+  `scripts/generate-default-profiles.py`. Update the shared definition and
+  verify generated profiles with `--check`.
+- Terminal-specific Unicode behavior belongs in system profiles, not hidden
+  renderer branches. The Linux profile is conservative because SSH does not
+  reliably identify the client's terminal.
+- Shmuel's prefix workflows and their ports are private and excluded from
+  public packages. Generic macro and panel tests use public probe fixtures.
 
-### Current Integration:
-1. **Hosted Profiles and Macros**: THE selects one macro engine at startup with `THE_REXX_INTERPRETER=CREXX|REGINA|NONE`. Both bridges load their selected shared runtime explicitly. cREXX is the default; optional Regina support needs `rexxsaa.h` at build time, without a link dependency. See `doc/rexx-interpreters.md`.
-2. **ADDRESS THE**: CREXX scripts run with a native `ADDRESS THE` environment, so profile and macro commands flow through THE's existing command subsystem.
-3. **Source Cache**: CREXX source profiles/macros are compiled and cached by `crexxsaa`; existing `.rxbin` macros can be run directly.
-4. **Documentation**: The current bridge contract is documented in [CREXX Integration](doc/crexx.md).
+## Build dependencies
 
-### Remaining Goals:
-1. **Platform Testing**: macOS and local development workflows are the main proven path. Windows and Linux should continue to be validated in CI and release smoke tests, with special attention to runtime driver module loading.
-2. **Packaging**: `THE_BUNDLE_CREXX=ON` stages a private cREXX runtime and tools. `scripts/package-release.py` creates a portable ZIP and optional macOS PKG or Windows NSIS installer. See [packaging](packaging/README.md); CI candidates are distinct from signed/published releases and manual platform qualification.
+CMake discovers a matching cREXX SDK from configured paths, sibling build
+outputs or an installation. Debug and Release builds should select matching
+SDK outputs; review the CMake cache when changing cohorts. Clear stale
+`CREXXSAA_LIBRARY`, `CREXX_RXC_EXECUTABLE`, `CREXX_RXAS_EXECUTABLE` and
+`CREXX_LIBRARY_RXBIN` entries if they pin an unintended build.
 
-## 4. Linux VM Notes
+Use available build parallelism, then run the affected CTest selection and
+complete candidate suite. Do not rebuild over running tests. Native installer,
+visual UI and signed-package checks are separate from source qualification.
 
-- Use high parallelism for commissioning: `cmake --build <dir> --parallel $(nproc)` followed by `ctest --test-dir <dir> --parallel $(nproc) --output-on-failure`.
-- Release builds should prefer the sibling CREXX release output; Debug should prefer the sibling CREXX debug output. If CMake cache entries were created before this behavior, reconfigure with `-UCREXXSAA_LIBRARY -UCREXX_RXC_EXECUTABLE -UCREXX_RXAS_EXECUTABLE -UCREXX_LIBRARY_RXBIN`.
-- UTF terminal policy is profile-visible. Linux currently installs `system-linux.the` with the same conservative sequence-shaped Unicode rules as `system-apple-terminal.the`, because SSH sessions from Apple Terminal expose only `TERM=xterm-256color` and no reliable terminal identity. Do not add hidden terminal-specific branches to the renderer.
-- Use `the --driver llm` for agent/editor smoke tests and UTF diagnostics. Do not scrape curses output for agent workflows.
-- Include new, initially empty files in LLM editor smoke tests. After edits that affect asynchronous syntax state, issue `command sdslhwait 5000` before inspecting semantic style spans or parser diagnostics.
-- For curses typed-text regressions, use a real pty smoke as well as command/profile tests. `tests/test_curses_text_entry.sh` types through the curses edit loop and catches one-byte text buffer bugs that command-driven tests do not exercise.
+## Documentation
+
+Describe implemented behavior for users or developers. Keep proposals in the
+roadmap and unresolved limitations in known issues. Use Git and CI for change
+history and run receipts; do not add session journals or dated progress packs.

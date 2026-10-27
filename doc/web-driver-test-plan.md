@@ -1,7 +1,5 @@
 # Web Driver Test Plan
 
-Last updated: 2026-08-02.
-
 ## Objective
 
 Verify that the web driver is a semantic frontend to THE rather than a second
@@ -9,7 +7,7 @@ editor implementation. Browser clicks, text, keys, menus, and tabs must enter
 the shared input/action layer and produce the same THE command behavior as the
 terminal and LLM frontends.
 
-The initial regression focus is prefix-command entry and parser isolation when
+The regression matrix covers prefix-command entry and parser isolation when
 switching among files with different syntax types.
 
 ## Native Contracts
@@ -41,8 +39,9 @@ The expected behavior comes from the existing THE documentation:
 | `test_sdslh_multifile_lifecycle` | Lower-level parser selection across multiple files | Core SDSLH lifecycle |
 
 The parser tests return CTest skip code 77 when their external parser binaries
-are not installed. A container image intended for web sessions should include
-every parser named by `web-profile.the` and treat a skip as a packaging defect.
+are not installed. A deployment requiring a particular language must include its parser. Optional
+parsers remain optional; report skips explicitly and do not claim their styles
+were verified.
 
 ## Manual Acceptance Check
 

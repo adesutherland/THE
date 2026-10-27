@@ -1,4 +1,4 @@
-# First launch in CRXTHE 0.9.0
+# First launch in CRXTHE 0.10.dev
 
 CRXTHE is an independently maintained fork based on Mark Hessling's THE 4.0.
 Its version number describes this fork. Report CRXTHE defects to
@@ -56,12 +56,12 @@ hard-coded in the defaults.
 
 The optional `profile_crexx.the` layers development bindings over the default.
 Its F8/F9 compile/run helpers have separate unresolved Mac/Windows failures
-recorded in the [Windows report](windows-installation-qa.md); they are not
+recorded in [known issues](known-issues.md); they are not
 enabled by the normal first-launch profile.
 
-The new identity, profiles and packaging rules are local source changes until
-a separately qualified candidate is built, signed and published. Earlier
-published THE prereleases retain their original names and contents.
+This guide describes the profiles in this source tree. An older installed
+package retains its own profiles; inspect its version/manifest when behavior
+differs. See [known issues](known-issues.md) and [qualification work](roadmap.md).
 
 ## Tabs and browser sizing
 
@@ -112,3 +112,18 @@ to the previous visible record's end, including empty and Unicode records.
 At the first visible record's first prefix column it stays put. With the
 prefix off, normal CUA previous-record movement remains. Shift-Left remains
 text selection rather than entering a prefix field.
+
+## Delete, Backspace and saving
+
+In file text, deletion updates the working record and its in-memory line before
+refreshing. Delete removes the character under the caret; Backspace removes
+the preceding character. UTF file editing removes a whole grapheme cluster,
+including its combining marks. Ctrl-S or `SAVE` writes the edited bytes.
+`QQUIT` discards unsaved buffer edits;
+ordinary quit protects them.
+
+`SOS CUADELCHAR` joins the next line when the caret is at or beyond the current
+line's end. `SOS CUADELBACK` at the first column joins onto the preceding line.
+The ordinary `SOS DELCHAR` and `SOS DELBACK` commands do not join lines. Key
+bindings and terminal key identities can differ; inspect F10 / `SHOWKEY ALL`,
+and use the explicit command when a particular boundary behavior is required.

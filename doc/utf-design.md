@@ -1,10 +1,8 @@
-# UTF-8 Design and Status
+# UTF-8 architecture and terminal profiles
 
-Last updated: 2026-06-10.
-
-This is the single UTF-8 design and status note for THE. It replaces the older
-UTF design, handover, and cluster-mapping notes. Keep historical experiments
-out of this file unless they still change a current design decision.
+This guide describes UTF text identity, layout and terminal-profile behavior.
+See [known issues](known-issues.md) for limitations and the
+[roadmap](roadmap.md) for planned work and qualification.
 
 ## Vision
 
@@ -43,10 +41,8 @@ builds:
 - CMake first tries `find_package(utf8proc)`.
 - If no package is available, CMake fetches `JuliaStrings/utf8proc` at
   `v2.11.3` with `FetchContent`.
-- The current local build used the fetched copy under
-  `cmake-build-debug/_deps/utf8proc-src`.
 
-Recommendation: treat `utf8proc` as required for supported UTF behavior. The
+Use `utf8proc` for supported UTF behavior. The
 current fallback code in `src/textpos.c` is useful for build isolation, but it
 is not a complete Unicode implementation. Grapheme boundaries, emoji sequences,
 combining behavior, and character widths should be maintained through
@@ -163,152 +159,63 @@ conservative profile aligned with the Apple Terminal safety rules because SSH
 sessions often hide the real terminal emulator. These settings remain visible
 and replaceable without rebuilding THE.
 
-## Profile Grammar
+## Profile grammar
 
-The current profile grammar makes the concern order explicit and mode-scoped.
-
-Keep the global mode command:
+Select the active display mode with:
 
 ```text
 SET UTF DISPLAY NORMAL|DECOMPOSED|SINGLE|TOGGLE
 ```
 
-Use a rule command whose first operand is the display mode being configured:
+Configure a class in a particular mode with:
 
 ```text
-SET UTF DISPLAY NORMAL     CLASS selector OUTPUT method [parameters...]
-SET UTF DISPLAY DECOMPOSED CLASS selector OUTPUT method [parameters...]
-SET UTF DISPLAY SINGLE     CLASS selector OUTPUT method [parameters...]
+SET UTF DISPLAY NORMAL|DECOMPOSED|SINGLE CLASS class [settings...]
 ```
 
-Every rule has the same shape:
+The class names are `ascii`, `combining`, `combining-stack`, `wide`,
+`ambiguous`, `emoji`, `text-variation`, `emoji-variation`, `modifier`, `keycap`,
+`regional-indicator`, `regional-flag`, `short-zwj`, `heart-zwj`, `family-zwj`,
+`tag-flag` and `private-use`. `CLASS ANY` applies the settings to every class
+in the chosen mode. The implementation uses a table of
+`Utf8TerminalProfileEntry` values, with an entry for each class and mode.
+Later commands update the selected entries; a broad rule should precede any
+class-specific overrides. Modes keep independent entries.
+
+Supported settings include:
 
 ```text
-mode -> selector -> output plan -> physical parameters
-```
-
-The implementation mirrors that shape:
-
-```c
-typedef struct UtfDisplayRule {
-   UtfDisplayMode mode;
-   UtfClusterSelector selector;
-   UtfOutputPlan output;
-   UtfMetricPlan metrics;
-   UtfDisplayStrategy display_strategy;
-   UtfRepairPlan repair;
-   UtfDisplayMark mark;
-} UtfDisplayRule;
-```
-
-Display modes must be independent namespaces. Lookup should search only the
-active mode, in this order:
-
-```text
-exact sequence -> predicate selector -> class selector -> ANY/default
-```
-
-Avoid implicit fallback from `DECOMPOSED` or `SINGLE` to `NORMAL`; if a mode
-needs a default, it should have an explicit `CLASS ANY` rule in that mode. This
-prevents NORMAL platform policy from leaking into SINGLE replacement display or
-DECOMPOSED component display.
-
-Selectors should start with the current class names and then grow into
-structured predicates when class-level policy is too coarse:
-
-```text
-CLASS keycap
-CLASS regional-flag
-CLASS zwj
-CLASS zwj COMPONENTS 2
-CLASS zwj COMPONENTS *
-CLASS rgi
-CLASS rgi-zwj
-CLASS non-rgi-zwj
-SEQUENCE U+1F469 U+200D U+1F4BB
-CLASS ANY
-```
-
-The selector is where cluster searching belongs. It can match broad class,
-exact sequence, component count, ZWJ presence, variation selector presence,
-RGI/non-RGI status, or other cluster facts. The renderer should receive the
-chosen rule, not re-decide selector policy.
-
-Output methods should be reduced to four concepts:
-
-```text
-OUTPUT NATIVE
-OUTPUT SANITIZE [sanitize-policy parameters...]
-OUTPUT REPLACEMENT DEFAULT|BASE|U+nnnn
-OUTPUT CHARACTERS [character-output parameters...]
-```
-
-`NATIVE` writes the stored cluster. `SANITIZE` writes a safe representation of
-the stored cluster for the active profile without changing the file bytes or
-logical cluster identity. `REPLACEMENT` writes a substitute or a class-specific
-base form. `CHARACTERS` writes a controlled component view such as
-decomposed/status display. Existing names such as `base`, `substitute`,
-`components`, and `expanded` can map onto this model during migration, but the
-new design should not treat them as separate display modes.
-
-`SANITIZE` is the preferred NORMAL-mode escape hatch for terminals whose native
-emoji shaping and grid accounting disagree. It should be class-aware rather
-than a global strip pass. Typical macOS policies are:
-
-```text
-keycap        -> base ASCII key (#, *, 0-9)
-regional-flag -> stable region letters or another fixed two-cell label
-tag-flag      -> stable tag label or class replacement
-zwj           -> safe components with ZWJ/variation mechanics removed, or a
-                 class replacement when component output would be misleading
-variation     -> profile-selected text/base presentation
-modifier      -> base emoji or class replacement
-```
-
-When NORMAL uses `SANITIZE`, its default metrics should come from the sanitized
-output. The aim is to make `WIDTH`, `ADVANCE`, `CURSOR`, and `REPAINT` agree as
-often as the chosen replacement allows, so normal editing does not depend on
-unobservable renderer overhang. Reverse video is not implied by `SANITIZE`.
-
-When `DECOMPOSED` writes a cluster character by character, each emitted
-component should itself be rendered through the appropriate simple/single rule.
-That keeps troublesome component code points, such as presentation selectors,
-joiners, tag characters, keycap marks, or other zero-width mechanics, from
-being reintroduced by the decomposed view. Decomposition is therefore not just
-raw code point output; it is a mode-specific character view with per-component
-policy.
-
-Visual highlighting is also mode-specific. Reverse video for replacements or
-component characters is a way to show UTF display facts in `DECOMPOSED` and
-`SINGLE` modes. It should not be an automatic consequence of using replacement
-output in `NORMAL` mode. Normal mode may need replacement output for terminal
-safety, but it should remain visually natural unless a separate mark explicitly
-asks for visible annotation.
-
-Everything else is an output parameter:
-
-```text
+OUTPUT NATIVE|SANITIZE|EXPANDED|COMPONENTS|BASE|SUBSTITUTE [U+nnnn]
+METRICS AUTO|PROFILE|COMPONENTS|EXPANDED|OUTPUT
 WIDTH n ADVANCE n CURSOR n REPAINT n
-METRICS FIXED|OUTPUT|NATIVE
+DISPLAYSTRATEGY INLINE|ISOLATE
 CURSORSTRATEGY cells|line|suffix|prev|first|whole
 REPLACESTRATEGY cells|line|suffix|prev|first|whole
 MARK none|compressed|substituted|unsafe
 ```
 
-Example profile policy:
+A code point after `SUBSTITUTE` selects its replacement character.
+`OUTPUT REPLACEMENT DEFAULT|BASE|U+nnnn` and `OUTPUT CHARACTERS` are accepted
+aliases for replacement/component output. `METRICS FIXED` and `METRICS NATIVE`
+are aliases for `PROFILE`. Accepted output and metric combinations depend on
+the mode; `SINGLE` keeps a one-cell `WIDTH`. See the
+[SET UTF reference](commands/SET_UTF.md) and `src/utfterm.c` for the complete
+validation rules and the compatible `UTF TERMINAL CLASS` form.
+
+Example profile rules:
 
 ```text
-SET UTF DISPLAY NORMAL CLASS keycap OUTPUT SANITIZE KEYCAP METRICS OUTPUT WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1
+SET UTF DISPLAY NORMAL CLASS keycap OUTPUT SANITIZE METRICS OUTPUT WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1
 SET UTF DISPLAY NORMAL CLASS regional-flag OUTPUT NATIVE METRICS PROFILE WIDTH 2 ADVANCE 3 CURSOR 3 REPAINT 3
 SET UTF DISPLAY NORMAL CLASS short-zwj OUTPUT SUBSTITUTE U+25A1 METRICS OUTPUT
 SET UTF DISPLAY DECOMPOSED CLASS regional-flag OUTPUT CHARACTERS METRICS OUTPUT DISPLAYSTRATEGY ISOLATE
-SET UTF DISPLAY DECOMPOSED CLASS zwj OUTPUT CHARACTERS METRICS OUTPUT
+SET UTF DISPLAY DECOMPOSED CLASS short-zwj OUTPUT CHARACTERS METRICS OUTPUT
 SET UTF DISPLAY SINGLE CLASS ANY OUTPUT REPLACEMENT DEFAULT WIDTH 1 ADVANCE 1 CURSOR 1 REPAINT 1
 ```
 
-The important separation is that `NORMAL`, `DECOMPOSED`, and `SINGLE` are not
-variants of one entry. They are separate policies that happen to match the same
-logical cluster.
+Inspect and replay canonical `EXTRACT /UTF/` output to verify the resolved
+profile. Exact-sequence and structured selectors are possible future work in
+the [roadmap](roadmap.md).
 
 ## Simplified Normal Policy
 
@@ -319,7 +226,7 @@ may use `OUTPUT SANITIZE` where the terminal's glyph rendering and grid
 accounting disagree.
 
 This simplifies the curses driver. The driver receives a resolved
-rule and execute it:
+rule and executes it:
 
 ```text
 selector matched -> output transform -> metrics -> cursor/repaint strategy
@@ -501,49 +408,16 @@ Curses cannot directly ask the terminal whether a sequence was recognized as
 RGI. The useful output of any temporary experiment is a profile rule or a
 selector-specific observation, not a claim about Unicode semantics.
 
-## Current Status
+## Editing behavior
 
-Implemented:
+Literal and deterministic code-point entry store UTF-8 without normalization.
+The main file-area cursor, selection, block, shift, case, overlay and SOS
+mutation paths use logical clusters. Delete/Backspace commit their edited
+record before cursor movement or refresh, so subsequent snapshots and SAVE
+use the same text. Terminal profile widths do not change the deletion unit.
+See [test coverage](testing.md) for the regression routes.
 
-- UTF-8 and wide-character support are on by default.
-- Logical positions use UTF-8 bytes, code points, grapheme cluster indexes, and
-  logical cell columns through `TextPos`.
-- `utf8proc` supplies maintained grapheme breaks and character widths when
-  `USE_UTF8PROC=ON`.
-- Cluster classification is shared in `src/utfcluster.c`.
-- Terminal profiles support mode-scoped `SET UTF DISPLAY <mode> CLASS ...`
-  rules with `WIDTH`, `ADVANCE`, `CURSOR`, `REPAINT`, output transforms,
-  class-aware `OUTPUT SANITIZE`, marks, cursor strategies, and replacement
-  strategies.
-- Apple Terminal and current conservative Linux overrides are represented as
-  profile policy, not renderer special cases or compiled fallback tables.
-- Rendering carries logical width plus profile width, advance, cursor, repaint,
-  configured output method, resolved output method, display mode, class, and
-  mark through `TheRenderCluster`.
-- `EXTRACT /UTF/` and `debug utf-display` expose UTF support, active display
-  mode, and canonical replayable display rules.
-- The LLM driver exposes row-level UTF annotations with logical width, `WIDTH`,
-  `ADVANCE`, `CURSOR`, `REPAINT`, display mode, class/selector, configured and
-  resolved output, metrics source, mark, safe emitted display text, and
-  compressed/substituted flags.
-- File-area cursor movement, vertical intent, mouse/hit mapping, status/current
-  position reporting, box/mark/shift/case operations, CUA overlay, `CINSERT`,
-  `CREPLACE`, `COVERLAY`, and SOS logical edits are cluster-aware for the main
-  UTF paths covered by tests.
-- The real no-curses target is `the --driver llm`; it boots the full editor
-  runtime without curses and uses semantic snapshots rather than screen
-  scraping.
-
-Out of scope for terminal profile widths:
-
-- Prefix and command-line cells remain fixed prompt/prefix cells unless a
-  specific text mutation path decodes UTF text.
-- Terminal repair strategies are physical behavior and should not be exposed as
-  position authority for agents or macros.
-
-## Apple Terminal Lessons
-
-Keep these lessons because they still affect design:
+## Apple Terminal rendering policy
 
 - Apple Terminal can retain composition state across local repaint. Repainting
   only the cell after a keycap can visually damage the keycap or the following
@@ -566,91 +440,26 @@ Keep these lessons because they still affect design:
 - A successful cursor-walk probe does not prove replacement behavior. Cursor
   and replacement strategies must be calibrated independently.
 
-## Probe Retirement
+## Validation
 
-The probe executables were useful to discover Apple Terminal behavior, but they
-do not define the architecture. They have been decommissioned now that profile
-grammar and LLM-driver diagnostics express the same policy.
-
-Keep these lessons from the probes:
-
-- Keycap and regional-flag samples report a two-cell cluster and a three-cell
-  `cluster+B` span, but the following `B` is visibly drawn one cell too early.
-  Adding one sacrificial space before the real `B` fixes the visible output
-  while merely increasing the raw span by one. Treat this as evidence for an
-  Apple-specific extra advance/repaint cell, not as a different Unicode width.
-- ZWJ and tag-flag samples can look visually composed while CPR/DSR reports
-  component-like advances such as 5, 7, 8, or 11 cells. That means a successful
-  visual glyph and the terminal's reported cursor position are separate facts.
-- Cursor-position reports cannot be used as an oracle for visual correctness.
-  They are still useful for terminal grid accounting, but manual visual reports
-  or screenshot-based probes are needed to detect overhang, overlap, and
-  composed-glyph success.
-
-Do not spend more implementation time chasing Apple Terminal native redraw
-behavior through hidden C branches. Convert proven unsafe Apple classes to
-profile-visible rules, and use `EXTRACT /UTF/`, `debug utf-display`, and
-LLM-driver snapshots for automated testing.
-
-## Validation Snapshot
-
-Focused validation for this architecture uses the query and LLM diagnostic path
-instead of probe executables:
+Use canonical `EXTRACT /UTF/` output, `debug utf-display` and row-level LLM
+metadata to inspect and replay profile rules. The metadata includes logical
+width, physical width/advance/cursor/repaint, class, mode, output transform and
+resolved safe text. Terminal cursor-position reports measure grid accounting;
+they do not establish whether a composed glyph looks correct.
 
 ```sh
-cmake --build cmake-build-debug --target test_utfterm test_utflayout test_llmdriver test_llmruntime the
 ctest --test-dir cmake-build-debug \
-  -R 'test_utfterm|test_utflayout|test_llmdriver|test_llmruntime|test_the_llm_full_runtime' \
+  -R 'test_utfterm|test_utflayout|test_llmdriver|test_llmruntime|test_the_llm_full_runtime|test_delete_persistence_' \
   --output-on-failure
 ```
 
-A manual `the --driver llm` run confirmed:
-
-- capabilities report `driver=llm`, `curses=false`, full THE dispatcher,
-  CREXX available in this build, syntax/style spans, parser diagnostics, and
-  the supported protocol verbs.
-- UTF row annotations report CJK as `wide/native` with width metadata.
-- macOS profile policy reports keycaps as `keycap/sanitize/resolved=base`
-  with one-cell physical metadata.
-- The normalized `text`/`type` protocol path now feeds UTF-8 text through the
-  logical `Text()` path rather than byte keys.
-
-## Outstanding Items
-
-1. UTF display profile replay hardening.
-   Keep expanding round-trip tests that set mode-scoped display rules, extract
-   canonical `EXTRACT /UTF/` output, replay it into a fresh profile, and verify
-   the same LLM-visible resolved rule facts.
-
-2. Windows and Linux validation.
-   Prove runtime module loading, wide curses/PDCurses behavior, UTF profiles,
-   and `the --driver llm` on Linux and native Windows. Add system profiles only
-   after profile/LLM evidence exists for those terminals.
-
-3. UTF text entry.
-   Closed: literal text paths now pass UTF-8 into logical editing helpers,
-   deterministic code-point commands cover replayable tests, LLM exposes
-   `text-utf` and `insert-utf`, and the curses input edge recognizes terminal
-   UTF-8 byte sequences as normalized text events.
-
-4. Dependency policy.
-   Keep `utf8proc` as the supported UTF dependency. Decide whether to remove
-   the non-utf8proc maintained path or leave it as explicitly unsupported
-   fallback code.
-
-5. Layout/performance cache.
-   A shared per-line UTF layout cache is still desirable so rendering, status,
-   mouse/hit mapping, selections, and LLM metadata consume the same computed
-   byte, cluster, logical, `WIDTH`, and `ADVANCE` map without repeated scans.
-
-6. Remaining legacy column audit.
-   Main box/mark/shift/case paths are covered, but any older command path that
-   still treats `current_column`, `verify_col`, or `verify_end` as a user-facing
-   UTF column should be reviewed opportunistically.
-
-7. Exact profile matching.
-   Class-level profiles are enough for current problems. Add exact sequence or
-   wildcard `MATCH` rules only if class-level policy proves too coarse.
+Calibrate cursor entry/exit, suffix/line repaint and replacement independently.
+A successful cursor walk does not prove replacement behavior. Use temporary
+visual experiments when needed, then express a proven correction in a profile
+rule or physical driver strategy. Probe executables are not part of the product
+architecture. Physical terminal checks remain necessary alongside automated
+logical-state and saved-byte assertions.
 
 ## Guardrails
 

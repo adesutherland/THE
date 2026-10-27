@@ -1,7 +1,5 @@
 # Web Driver POC
 
-Last updated: 2026-08-02.
-
 ## Purpose
 
 The web driver proves that THE can support a browser UI without translating a
@@ -176,25 +174,25 @@ Backspace mapping, Ctrl+S, and File > Close. `test_headlessdriver` guards the
 logical-cursor update that makes sequential browser keys reliable, while
 `test_webdriver_no_curses` guards the module against curses linkage.
 
-## POC Limits And Next Slices
+## Limits
 
-- Browser viewport negotiation updates model dimensions through queued resize
-  events (12–256 rows, 40–1000 columns). Snapshots include `viewport` with total
-  model rows/columns and reserved rows; ordinary `rows`/`cols` describe the
-  file area. The frontend measures available space using `ResizeObserver`.
-- READV, dialog, and popup transient sessions are not yet represented on the
-  WebSocket protocol and should not be invoked from the web driver.
-- Snapshots are full-state messages with no revision number or backpressure.
-  Add revisioned delta snapshots only after profiling real files.
-- The web driver accepts one controlling client. The browser reconnects with
-  bounded exponential backoff, but protocol-level revision/resume semantics are
-  not yet implemented.
-- Trusted macro actions need a separate allowlist layered on
-  `THE_WEB_MACRO_PATH`; macros are not currently callable from the browser.
-- The built-in raw-command allowlist is compiled in. A future profile command
-  can expose operator-approved additions after command metadata includes a
-  security classification.
-- Directory listings are capped by the protocol response buffer and skip
-  symbolic links. Revisioned/paginated listings can be added for large roots.
-- Packaging currently installs static files. Embedding the production bundle
-  in the module can be evaluated after the UI/protocol boundary stabilizes.
+Viewport negotiation uses queued resize events (12–256 rows, 40–1000 columns).
+Snapshots include total `viewport` dimensions and reserved rows; ordinary
+`rows`/`cols` describe the file area. The frontend measures available space
+with `ResizeObserver`. READ panels keep fixed form dimensions while editor
+resize is deferred; the key guide wraps outside panels.
+
+READ panels are supported through shared panel state. READV, dialog and popup
+transients are not exposed over WebSocket and should not be invoked from the
+web driver. Snapshots are full-state messages without revision numbers or
+backpressure. Reconnection uses bounded exponential backoff, without a
+protocol-level revision/resume contract.
+
+Trusted profiles can invoke macro examples, but browser clients cannot issue
+arbitrary macro or OS commands. The raw-command allowlist is compiled in.
+Directory listings are bounded by the response buffer and skip symbolic links.
+Static frontend files are installed beside the runtime module.
+
+See [known issues](known-issues.md) for current limitations and the
+[roadmap](roadmap.md) for potential extensions. Add protocol complexity only
+when an observed use case and measurements justify it.
