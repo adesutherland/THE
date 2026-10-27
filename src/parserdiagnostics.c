@@ -4,6 +4,9 @@
 
 #include "the.h"
 #include "proto.h"
+#ifdef THE_WASM_HIGHLIGHT
+#include "wasm/highlighter.h"
+#endif
 
 #ifdef USE_SDSLH
 typedef struct ParserDiagnosticsCollectContext
@@ -179,6 +182,10 @@ short the_parser_diagnostics_collect(TheParserDiagnostic **diagnostics,
       return RC_INVALID_OPERAND;
    *diagnostics = NULL;
    *count = 0;
+
+#ifdef THE_WASM_HIGHLIGHT
+   return the_wasm_highlight_diagnostics(diagnostics, count);
+#endif
 
 #ifndef USE_SDSLH
    return RC_OK;

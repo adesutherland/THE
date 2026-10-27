@@ -4,6 +4,9 @@
 #include <stdio.h>
 
 #include "the.h"
+#ifdef THE_WASM_HIGHLIGHT
+#include "wasm/highlighter.h"
+#endif
 
 /* The same column markers serve terminal rendering and semantic/web frames. */
 void screenframe_format_ruler(const struct view_details *view, short line_type,
@@ -239,7 +242,10 @@ int screenframe_build(CHARTYPE scrno, UiFrame *frame)
       ui_frame_set_row_prefix(frame, i, show_row->prefix,
                               strlen((const char *)show_row->prefix),
                               show_row->prefix_enterable);
-      screenframe_add_syntax_styles(frame, i, show_row);
+#ifdef THE_WASM_HIGHLIGHT
+      if (!the_wasm_highlight_row(SCREEN_FILE(scrno), frame, i))
+#endif
+         screenframe_add_syntax_styles(frame, i, show_row);
    }
 
    ui_frame_set_cursor_rebased(frame, view->logical_cursor.current);

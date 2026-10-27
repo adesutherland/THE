@@ -49,10 +49,11 @@ workarounds belong in [known issues](known-issues.md).
 
 ## Browser and document tooling
 
-- Extend the [WebAssembly browser preview](browser-wasm.md) with the cREXX VM
-  and precompiled profiles/macros next. The editor, Worker transport and browser
-  persistence are implemented; [remaining acceptance](wasm-browser-plan.md)
-  covers macro READ, import/export, parsing and broader browser qualification.
+- Extend the [WebAssembly browser preview](browser-wasm.md) beyond its implemented
+  editor/storage, precompiled cREXX profiles/READ and optional Level L Classic
+  highlighter. [Remaining acceptance](wasm-browser-plan.md) covers incremental
+  parser transport, import/export, interruption/recovery, publication of the
+  local highlighter cohort and broader browser qualification.
 - Broaden browser acceptance across browsers, viewport sizes and intended
   deployment environments. Authentication, TLS and routing remain host/proxy
   responsibilities.

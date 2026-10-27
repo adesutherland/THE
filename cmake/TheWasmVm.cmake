@@ -4,16 +4,7 @@ endif()
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 include("${CMAKE_SOURCE_DIR}/cmake/CrexxWasm.cmake")
-add_executable(crxthe_rxvm src/wasm/crexxvm.c src/wasm/vmstreams.c src/wasm/crexxresources.c)
-target_link_libraries(crxthe_rxvm PRIVATE rxvm_single_embed)
-set_target_properties(crxthe_rxvm PROPERTIES SUFFIX ".mjs")
-target_link_options(crxthe_rxvm PRIVATE --no-entry
-    -sASYNCIFY=1 -sASYNCIFY_STACK_SIZE=1048576 -sSTACK_SIZE=1048576
-    -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=67108864 -sASSERTIONS=1
-    -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=worker,node
-    "-sEXPORTED_FUNCTIONS=['_the_vm_create','_the_vm_destroy','_the_vm_load','_the_vm_run','_the_vm_program_rc','_the_vm_error','_malloc','_free']"
-    "-sEXPORTED_RUNTIME_METHODS=['ccall','UTF8ToString','HEAPU8','HEAPU32']"
-    -Wl,--wrap=__wasi_fd_read,--wrap=__wasi_fd_write)
+the_add_wasm_vm()
 find_program(THE_VM_RXC NAMES rxc HINTS "${THE_CREXX_HOST_BUILD}/bin" NO_DEFAULT_PATH REQUIRED)
 find_program(THE_VM_RXAS NAMES rxas HINTS "${THE_CREXX_HOST_BUILD}/bin" NO_DEFAULT_PATH REQUIRED)
 set(THE_VM_SITE "${CMAKE_BINARY_DIR}/site")

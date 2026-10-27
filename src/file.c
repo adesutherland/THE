@@ -34,6 +34,9 @@
 
 
 #include "the.h"
+#ifdef THE_WASM_HIGHLIGHT
+#include "wasm/highlighter.h"
+#endif
 #include "proto.h"
 #include "thedriver.h"
 
@@ -1774,6 +1777,9 @@ short free_file_memory(bool free_file_lines)
 /***********************************************************************/
 {
    TRACE_FUNCTION("file.c:    free_file_memory");
+#ifdef THE_WASM_HIGHLIGHT
+   the_wasm_highlight_forget(CURRENT_FILE);
+#endif
    /*
     * If the file name is not NULL, free it...
     */

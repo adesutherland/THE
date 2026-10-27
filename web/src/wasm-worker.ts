@@ -24,6 +24,13 @@ const send = (message: object) => self.postMessage(message);
 const pending: Request[] = [];
 let wake: ((request: Request | null) => void) | undefined;
 let editor: Editor | undefined;
+type HighlightJob = { id: number; revision: number; source: Uint8Array; lines: number };
+let highlighter: {submit(job: HighlightJob): void; forget(id: number): void; reset(): void} | undefined;
+
+function enqueue(request: Request) {
+  if (wake) wake(request);
+  else pending.push(request);
+}
 
 function sync(populate = false) {
   return new Promise<void>((resolve, reject) => editor!.FS.syncfs(populate, (error) => error ? reject(error) : resolve()));
@@ -76,8 +83,8 @@ self.onmessage = ({ data }: MessageEvent<Request>) => {
   }
   if (data.type === "files") { files(data); return; }
   if (pending.length >= 256) { send({ type: "error", message: "Editor input queue is full" }); return; }
-  if (wake) wake(data);
-  else pending.push(data);
+  if (data.type === "parser-restart") highlighter?.reset();
+  enqueue(data);
 };
 
 async function start() {
@@ -87,15 +94,28 @@ async function start() {
     noInitialRun: true,
     locateFile: (name: string) => new URL(name, url).href,
     sendEditorMessage: send, nextEditorRequest, flushWorkspace,
+    requestHighlight: (job: HighlightJob) => highlighter?.submit(job),
+    forgetHighlight: (id: number) => highlighter?.forget(id),
     print: (text: string) => console.debug(text),
     printErr: (text: string) => console.warn(text),
   }) as Editor;
+  if (await editor.ccall("the_wasm_has_highlighter", "number", [], [], {})) {
+    const moduleUrl = new URL(/* @vite-ignore */ "../vm/classic-host.mjs", import.meta.url);
+    const {ClassicHighlighter} = await import(/* @vite-ignore */ moduleUrl.href);
+    highlighter = new ClassicHighlighter(enqueue);
+  }
   const fs = editor.FS;
   fs.mkdir("/workspace");
   fs.mount(editor.IDBFS, {}, "/workspace");
   await sync(true);
   if (!fs.analyzePath("/workspace/Welcome.txt").exists) {
     fs.writeFile("/workspace/Welcome.txt", "Welcome to CRXTHE in your browser.\n\nCtrl-S saves to this browser workspace.\nFiles remain here after you reload.\n");
+    await sync();
+  }
+  if (highlighter && !fs.analyzePath("/workspace/ClassicDemo.rexx").exists) {
+    const response = await fetch(new URL("../examples/ClassicDemo.rexx", import.meta.url));
+    if (!response.ok) throw new Error("Bundled Rexx example unavailable");
+    fs.writeFile("/workspace/ClassicDemo.rexx", await response.text());
     await sync();
   }
   fs.chdir("/workspace");

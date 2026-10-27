@@ -6,6 +6,7 @@ if(NOT EMSCRIPTEN_VERSION VERSION_EQUAL "6.0.13")
 endif()
 
 option(THE_WASM_CREXX "Run precompiled cREXX browser profiles and macros" OFF)
+option(THE_WASM_HIGHLIGHT "Run the Level L Classic Rexx highlighter in a browser VM" OFF)
 if(THE_WASM_CREXX)
     set(THE_WASM_REXX_DEFAULT CREXX)
 else()
@@ -59,7 +60,7 @@ if(THE_WASM_CREXX)
     set(THE_WASM_PROFILE_DEPENDS quickfind.the quickopen.the quickline.the paneldemo.the
         "${THE_CREXX_HOST_BUILD}/bin/rxc" "${THE_CREXX_HOST_BUILD}/bin/rxas"
         "${THE_CREXX_HOST_BUILD}/bin/rxcexits.rxbin" "${THE_CREXX_HOST_BUILD}/bin/library.rxbin")
-    set(THE_WASM_PACKAGE_ARGUMENTS --crexx-source "${THE_CREXX_SOURCE}" --crexx-revision "${THE_CREXX_REVISION}")
+    set(THE_WASM_PACKAGE_ARGUMENTS --crexx-source "${THE_CREXX_SOURCE}" --crexx-revision "${THE_CREXX_REVISION}" --editor-address)
 endif()
 
 find_program(THE_WASM_PYTHON NAMES python3 REQUIRED)
@@ -92,7 +93,7 @@ target_link_options(crxthe_wasm PRIVATE
     -sASYNCIFY=1 -sASYNCIFY_STACK_SIZE=1048576 -sSTACK_SIZE=1048576
     -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=67108864
     -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=worker,node
-    "-sEXPORTED_FUNCTIONS=['_main','_the_wasm_main','_the_wasm_has_crexx','_setenv','_malloc','_free']"
+    "-sEXPORTED_FUNCTIONS=['_main','_the_wasm_main','_the_wasm_has_crexx','_the_wasm_has_highlighter','_setenv','_malloc','_free']"
     "-sEXPORTED_RUNTIME_METHODS=['ccall','FS','IDBFS','ENV','stringToUTF8']"
     -lidbfs.js "--preload-file=${THE_WASM_RESOURCES}@/app")
 
@@ -115,6 +116,9 @@ add_custom_command(OUTPUT "${THE_WASM_SITE}/.build-stamp"
         "${CMAKE_SOURCE_DIR}/web/index.html" "${CMAKE_SOURCE_DIR}/web/tsconfig.json"
         "${CMAKE_SOURCE_DIR}/web/package.json" "${CMAKE_SOURCE_DIR}/web/package-lock.json"
     VERBATIM)
+if(THE_WASM_HIGHLIGHT)
+    include("${CMAKE_SOURCE_DIR}/cmake/TheWasmHighlight.cmake")
+endif()
 add_custom_target(the_wasm_bundle ALL DEPENDS "${THE_WASM_SITE}/.build-stamp"
     COMMAND "${THE_WASM_PYTHON}" "${CMAKE_SOURCE_DIR}/scripts/package-wasm-site.py"
         "${THE_WASM_SITE}"
@@ -122,3 +126,6 @@ add_custom_target(the_wasm_bundle ALL DEPENDS "${THE_WASM_SITE}/.build-stamp"
         --utf8-license "${utf8proc_SOURCE_DIR}/LICENSE.md"
         --emscripten-license "${EMSCRIPTEN_ROOT_PATH}/LICENSE" ${THE_WASM_PACKAGE_ARGUMENTS}
     VERBATIM)
+if(THE_WASM_HIGHLIGHT)
+    add_dependencies(the_wasm_bundle the_wasm_classic_assets)
+endif()

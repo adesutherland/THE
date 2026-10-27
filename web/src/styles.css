@@ -307,6 +307,8 @@ button { color: inherit; }
 .role-reserved .prefix-cell { background: #25415f; }
 
 .syntax-comment { color: #77808c; }
+.syntax-unknown { color: #e06c75; text-decoration: underline wavy; }
+.parser-status { color: #a9c7de; font: inherit; background: none; border: 0; cursor: pointer; }
 .syntax-string { color: #76b68b; }
 .syntax-number,
 .syntax-constant { color: #d9a441; }

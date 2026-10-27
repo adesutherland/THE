@@ -44,7 +44,7 @@ limits; an old test receipt is not evidence that a defect has been fixed.
 from implemented features. It contains acceptance conditions rather than a
 progress diary. Git history and CI retain change history and execution logs.
 The [WebAssembly browser implementation plan](wasm-browser-plan.md) describes
-the proposed local browser runtime and its acceptance criteria.
+the implemented local browser runtime and its remaining acceptance criteria.
 
 Documentation belongs with its user task or owning component. Keep a single
 description of each contract, link to it from related guides, and update it

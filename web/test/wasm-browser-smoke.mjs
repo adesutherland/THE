@@ -267,6 +267,44 @@ try {
   await openWorkspaceFile('browser-ui.txt');
   await waitFor(() => evaluate("window.__snapshot.screen_rows.some(r => r.t.includes('UI α') && r.t.includes('界'))"), "DOM bytes persisted");
   if ((await snapshot()).buffer.dirty) throw new Error('restored buffer dirty');
+  if (manifest.capabilities.classic_rexx_highlighter) {
+    await openWorkspaceFile('ClassicDemo.rexx');
+    await waitFor(async () => (await snapshot()).parser?.state === 'ready', 'Level L parser ready', 30000);
+    let parsed = await snapshot();
+    if (parsed.parser.provider !== 'Level L Classic Rexx' || parsed.parser.applied !== parsed.parser.revision)
+      throw new Error('Wrong parser provider or revision');
+    const greeting = parsed.screen_rows.find(r => r.line === 3);
+    if (!greeting?.s?.some(([a,n,style]) => a === 11 && n === 10 && style === 'string')
+        || !greeting.s.some(([a,n,style]) => a === 0 && n === 8 && style === 'identifier'))
+      throw new Error(`Classic Unicode/identifier styles missing: ${JSON.stringify(greeting)}`);
+    await send({type:'command', command:'cursor goto 3 1'});
+    await waitFor(async () => {const s = await snapshot(); return s.focus.line === 3 && s.focus.cell === 0;}, 'Classic edit cursor');
+    await evaluate("document.querySelector('.input-sink').focus()");
+    await command('Input.insertText', {text:'['});
+    await waitFor(async () => {const s = await snapshot(); return s.buffer.dirty && s.parser.state === 'ready' && s.diagnostics?.some(d => d.code === 'CLASSIC_INPUT');}, 'Level L diagnostics');
+    await evaluate("document.querySelector('[aria-label=Undo]').click()");
+    await waitFor(async () => {const s = await snapshot(); return !s.buffer.dirty && s.parser.state === 'ready' && !s.diagnostics?.length;}, 'Level L repair');
+    await send({type:'command', command:'cursor goto 3 1'});
+    await waitFor(async () => (await snapshot()).focus.cell === 0, 'rapid edit cursor');
+    await evaluate("document.querySelector('.input-sink').focus()");
+    await command('Input.insertText', {text:'abc'});
+    await waitFor(async () => {const s = await snapshot(); return s.parser.state === 'ready' && s.parser.applied === s.parser.revision && s.screen_rows.some(r => r.t.startsWith('abcgreeting'));}, 'latest coalesced revision');
+    await evaluate("document.querySelector('[aria-label=Undo]').click()");
+    await waitFor(async () => {const s = await snapshot(); return !s.buffer.dirty && s.parser.state === 'ready';}, 'rapid edit undo');
+    await selectBuffer('Welcome.txt');
+    if ((await snapshot()).parser?.state !== 'inactive') throw new Error('Classic styles leaked into a text file');
+    await selectBuffer('ClassicDemo.rexx');
+    await waitFor(async () => (await snapshot()).parser.state === 'ready', 'Classic buffer return');
+    const previousRevision = (await snapshot()).parser.revision;
+    await evaluate("document.querySelector('.parser-status').click()");
+    await waitFor(async () => {const s = await snapshot(); return s.parser.revision > previousRevision && s.parser.state === 'ready';}, 'parser Worker restart', 30000);
+    const previousId = (await snapshot()).parser.id;
+    await send({type:'action',action:'file.close'});
+    await waitFor(async () => !(await snapshot()).buffer.path.endsWith('ClassicDemo.rexx'), 'Classic close');
+    await openWorkspaceFile('ClassicDemo.rexx');
+    await waitFor(async () => {const s = await snapshot(); return s.parser.id !== previousId && s.parser.state === 'ready';}, 'Classic reopen identity');
+    console.log('PASS browser Level L: actual VM/DSLSH styles, Unicode, diagnostics/repair, coalesced edits, switching, restart and reopen');
+  }
   if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join('; ')}`);
   if (process.env.THE_WASM_SCREENSHOT) {
     await command('Page.bringToFront');

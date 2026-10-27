@@ -666,6 +666,9 @@ function App() {
         <div class="status-line">
           <span class="status-text">{lastError || snapshot?.status || "Waiting for CRXTHE"}</span>
           {browserWasm ? <span class="workspace-storage" role="status">{storageState}</span> : null}
+          {snapshot?.parser && snapshot.parser.state !== "inactive" ? <button class="parser-status" title="Restart the highlighter" onClick={() => send({type: "parser-restart"})}>
+            {snapshot.parser.provider}: {snapshot.parser.state}
+          </button> : null}
           <span>{snapshot?.focus.zone ?? "-"}</span>
           <span>{snapshot?.focus.line ?? 0}:{(snapshot?.focus.cell ?? 0) + 1}</span>
           <span>{snapshot?.buffer?.dirty ? "Modified" : "Saved"}</span>

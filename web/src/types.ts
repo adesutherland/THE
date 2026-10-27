@@ -42,6 +42,7 @@ export interface PanelColour {
 }
 
 export interface Snapshot {
+  parser?: { provider: string; state: string; id: number; revision: number; applied: number; stale: number };
   viewport?: { rows: number; cols: number; reserved_rows: number; prefix_cols: number; prefix_gap: number };
   panel?: {
     rows: number;

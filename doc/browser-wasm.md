@@ -122,9 +122,68 @@ It installs no native process, socket, filesystem or Classic runtime providers.
 It is separate from the profile VM, which must share the editor's synchronous
 `ADDRESS THE` callback. Both use the same VM source cohort.
 
-The Classic Rexx highlighter and its DSLSH framing/revision adapter are the next
-integration step. The stream host does not yet apply parser results to editor
-buffers, and the Classic interpreter is not bundled.
+## Level L Classic Rexx highlighting
+
+`THE_WASM_HIGHLIGHT=ON` adds the maintained Classic parser in a second Wasm VM
+Worker. It highlights `.rexx` and `.rex` files and publishes located parser
+diagnostics. The edited program is never executed. The status bar identifies
+**Level L Classic Rexx** and reports `pending`, `ready`, `refused`, `error` or
+`too-large`. Click that status to restart the parser without restarting the
+editor. Until a current result is ready, that file's parser colours are cleared.
+Other file types retain their existing colourers.
+
+The first connection sends complete C-owned logical source snapshots through
+DSLSH's existing eight-hex-byte framing. It coalesces unsent revisions and keeps
+one ordered request in flight. The service has one replaceable mirror; the host
+retains each real document ID and revision. Replies enter C through its input
+queue and are checked again against the current revision. Closing a file retires
+its identity, so a late reply cannot attach to a reopened file. JavaScript does
+not own editor text or apply syntax spans. The C owner uses the shared DSLSH
+codec and critical-section helpers, validates bounded coverage and converts
+Unicode codepoint spans to its semantic frame/diagnostic coordinates.
+
+This is a full-snapshot connection, rather than the native incremental
+CodeBuffer transport. Source is limited to 2 MiB per file, replies to 8 MiB and
+200,000 records; requests time out after ten seconds. Active SRCMAP, embedded
+NUL and invalid UTF-8 are refused by the parser contract. The status exposes a
+refusal instead of silently displaying legacy colours. A later valid edit or a
+parser restart can recover. The Classic interpreter is not bundled.
+
+The highlighter cohort is cREXX `67a5e928cddf569595961267bee5d25bf92f267f`
+and DSLSH `0ea4db815abd55cdc5db4a5c41539d7d920e9cb3`. These supporting commits
+are currently local; the ordinary hosted editor/profile CI remains on its
+published cohort. The Classic browser configuration is locally qualified and
+requires a prepared linked image from that cohort. Build it using DSLSH's
+`crexx/README.md`; THE does not regenerate the grammar. The supplied image
+contains its bytecode library closure and needs no external RXPA provider.
+
+Prepare native tools from that cREXX revision as in the profile instructions,
+using separate `build/crexx-classic-source` and `build/crexx-classic-host`
+directories, then configure:
+
+```sh
+emcmake cmake -S . -B build-wasm-classic -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DTHE_BUILD_WASM=ON -DTHE_WASM_CREXX=ON -DTHE_WASM_HIGHLIGHT=ON \
+  -DTHE_CREXX_SOURCE="$PWD/build/crexx-classic-source" \
+  -DTHE_CREXX_HOST_BUILD="$PWD/build/crexx-classic-host" \
+  -DTHE_CREXX_REVISION=67a5e928cddf569595961267bee5d25bf92f267f \
+  -DTHE_DSLSH_SOURCE=/absolute/path/to/DSL-Syntax-Highlighter \
+  -DTHE_WASM_CLASSIC_IMAGE=/absolute/path/to/dslsh-classic.rxbin
+cmake --build build-wasm-classic --parallel 8
+node web/test/wasm-classic-framing.mjs
+node web/test/wasm-classic-core.mjs build-wasm-classic
+python3 -m http.server 8770 --bind 127.0.0.1 --directory build-wasm-classic/site
+THE_WEB_URL=http://127.0.0.1:8770 \
+CHROMIUM_BIN='/path/to/chrome' node web/test/wasm-browser-smoke.mjs
+```
+
+Configuration pins the reviewed image SHA-256 from `cmake/TheWasmHighlight.cmake`.
+A rebuilt image with another checksum needs explicit qualification and
+`THE_WASM_CLASSIC_SHA256`. The browser verifies that checksum before loading
+bytecode. The package records both source revisions, the image checksum and
+licenses. `ClassicDemo.rexx` is copied into a new browser workspace only if
+absent; open it through File/Open. It demonstrates Unicode, nested comments,
+control flow, a continuation and a routine. Existing saved files are preserved.
 
 ## Browser workspace
 

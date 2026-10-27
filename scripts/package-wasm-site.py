@@ -17,6 +17,9 @@ parser.add_argument('--utf8-license', type=Path)
 parser.add_argument('--crexx-source', type=Path)
 parser.add_argument('--crexx-revision')
 parser.add_argument('--vm-only', action='store_true')
+parser.add_argument('--dslsh-source', type=Path)
+parser.add_argument('--classic', action='store_true')
+parser.add_argument('--editor-address', action='store_true')
 args = parser.parse_args()
 site = args.site
 licenses = site / 'licenses'
@@ -45,15 +48,21 @@ if args.crexx_source:
     (licenses / 'utf8-Unlicense.txt').write_text((source / 'third_party/utf8/utf.h').read_text().split('#ifndef', 1)[0])
 for source, name in license_files:
     shutil.copy2(source, licenses / name)
+if args.dslsh_source:
+    shutil.copy2(args.dslsh_source / 'LICENSE', licenses / 'DSLSH-MIT.txt')
+    dependencies['dslsh'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=args.dslsh_source, text=True).strip()
+if args.classic:
+    dependencies['classic_highlighter'] = json.loads((site / 'vm/classic.json').read_text())
 revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
 # Personal untracked scratch files are excluded from source snapshot metadata.
 dirty = bool(subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=root, text=True))
 capabilities = {'crexx_vm': bool(args.crexx_source), 'source_compiler': False, 'external_parsers': False}
+capabilities['classic_rexx_highlighter'] = args.classic
 if args.vm_only:
     capabilities.update(stdin='binary/explicit EOF', stdout='binary', stderr='binary', editor_address=False)
 else:
     capabilities.update(browser_storage='IDBFS/IndexedDB', workspace_lock='Web Locks',
-                        editor_address=bool(args.crexx_source))
+                        editor_address=args.editor_address)
 manifest = {
     'product': 'CRXTHE', 'version': args.version,
     'variant': 'wasm-vm-preview' if args.vm_only else 'wasm-editor-preview',

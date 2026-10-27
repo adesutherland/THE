@@ -8,7 +8,7 @@ selection, parser state and macro integration. Development stays on `main`,
 with version `0.10.dev`. See the [build and user guide](browser-wasm.md).
 
 The agreed sequence is **editor first, cREXX next**. Compiler and assembler
-programs remain build-time host tools. The next parsing proof uses a
+programs remain build-time host tools. The optional parser connection uses a
 precompiled Level L Classic Rexx highlighter running in RXVM; it does not need
 a browser compiler or execution of the user's Rexx source.
 
@@ -22,6 +22,7 @@ a browser compiler or execution of the user's Rexx source.
 | cREXX profiles | Optional static SAA/VM build with a precompiled browser profile generated from the shared defaults. The actual ADDRESS THE callback handles commands and EXTRACT stems. |
 | Macro panels | The public panel example suspends inside ADDRESS THE READ, receives field edits through the READ stem, resumes on Enter/Escape, restores cursor/settings and runs repeatedly. |
 | Generic VM host | Separate Worker process owning one RXVML context, loaded RXBIN buffers, raw stdin/stdout/stderr, explicit EOF and separate runtime/program status. Temporary starvation suspends rather than ending input. |
+| Classic highlighting | Optional Level L VM/DSLSH connection with C-owned source/revision checks, Unicode spans, located diagnostics and parser restart. |
 | Dependency cohort | Emscripten 6.0.13, pinned utf8proc and cREXX revisions; native compiler/assembler/generated headers/bytecode kept together. Artifact metadata and dependency notices are included. |
 
 The macro VM shares the editor Worker because ADDRESS THE calls the editor
@@ -37,40 +38,31 @@ to the consumer target, plus virtual POSIX file lookup for the profile route.
 Those adapters live in THE; the dependency checkout is not silently patched.
 The standalone buffer/stream host needs no filesystem lookup adapter.
 
-## Next: Classic Rexx highlighting over VM streams
+## Classic Rexx connection
 
-The cREXX/DSLSH owner is preparing a maintained Classic frontend adapter and a
-nontrivial example from the existing Level L grammar. Reuse its contextual
-classification, source mapping and parser observations; do not create a second
-Classic grammar in THE. Highlighting must parse source without executing it.
-The Classic interpreter can later use the same stream host with its additional
-provider requirements qualified separately.
+The optional browser highlighter is implemented using the maintained Level L
+Classic frontend and DSLSH adapter. Its linked RXBIN contains the parser and
+library closure, with no external RXPA provider. Source is parsed without
+execution. The macro VM still shares the editor Worker; the parser VM owns a
+separate Worker and binary stdin/stdout/stderr.
 
-1. **Qualify the bytecode closure.** Pin matching cREXX and DSLSH revisions and
-   prebuild the highlighter plus its exact libraries. Inspect the link manifest
-   for native providers. Include only required VM/static components. Prove the
-   actual wasm32 closure; a native RXBIN run does not establish that.
-2. **Adapt the existing service transport.** Feed DSLSH's byte framing through
-   the binary VM pipes. Keep framing independent of output chunk boundaries,
-   handle partial reads, explicit EOF, diagnostics, refusal and process failure.
-   Reuse `dslshsession.service.handle` and its existing stdio protocol instead of
-   inventing a browser grammar interface.
-3. **Correlate results in the host.** Current service replies do not carry a
-   document/revision envelope. Serialize requests per parser instance and retain
-   their buffer ID and revision in the host. Apply only matching results; do not
-   advance the mirror on service failure or refused edits. Hypothesis requests
-   remain noncommitting.
-4. **Keep coordinate conversion in the core.** The service's positions are
-   zero-based Unicode codepoints after the Level L byte-to-codepoint mapping.
-   THE converts these to its own byte/cell/layout coordinates. Browser rendering
-   must not reinterpret parser positions or own the authoritative source text.
-5. **Integrate buffer lifecycle.** Route parser results back to the editor owner
-   through queued inputs and existing DSLSH critical sections. Cover edits,
-   switching/closing buffers, parser restart, stale replies and a grammar error
-   followed by correction. Keep the editor usable while the parser waits.
+The first connection sends bounded full snapshots and coalesces unsent changes.
+One ordered request at a time replaces a single DSLSH service mirror. The
+transport remembers the C-generated document/revision envelope until the reply
+arrives. C admits only the current revision, uses the shared wire codec under
+DSLSH critical sections and converts spans/diagnostics to its own coordinates.
+Closing/reopening retires identity. Pending, refused or failed parses clear old
+colours; restarting the parser resubmits owned snapshots without changing file
+bytes or restarting the editor.
 
-The current generic VM bundle proves byte streams and lifecycle only. It does
-not yet provide browser highlighting or bundle the Classic interpreter.
+The browser does not yet use the native C CodeBuffer delta/emergency-parsing
+transport. Incremental edits and hypothesis requests are later work, preserving
+the existing version/base/refusal contracts. Full-snapshot bounds, local cohort
+pins, prepared-image requirements and test commands are in the
+[build guide](browser-wasm.md#level-l-classic-rexx-highlighting).
+The supporting cREXX/DSLSH commits remain local, so hosted qualification of this
+optional configuration follows their authorized publication. The ordinary
+editor/profile workflow continues using its published cohort.
 
 ## Remaining browser work
 
@@ -97,7 +89,7 @@ not yet provide browser highlighting or bundle the Classic interpreter.
 | Storage | Saved bytes survive reload; refusal retains dirty state and old durable bytes, retry succeeds; competing tab refused. Broader filesystem cases remain above. |
 | Profiles | Compiled startup profile, EXTRACT stem, macro shortcut and edited READ stem checked in Wasm. Source compilation remains unavailable. |
 | Stream VM | Actual RXBIN execution, binary NUL/UTF-8/255 bytes, delayed/partial reads, separate stderr, EOF, I/O failure, failed-load isolation and restart covered. |
-| Parsing | Classic highlighter closure, DSLSH transport and correct-buffer/revision application remain open. |
+| Parsing | Actual Classic VM/DSLSH parsing, Unicode styles, diagnostics/repair, pending-record edits, stale-result rejection, buffer identity, refusal, restart and reopen pass locally in Wasm/Chromium. Incremental transport remains open. |
 | Lifecycle | Input and nested READ yield correctly; storage/init refusal and VM restart are checked. Cooperative cancellation/recovery remain open. |
 | Compatibility | Chromium qualified; broader browser matrix remains open. Native console/LLM/web regressions must continue passing. |
 | Delivery | CI builds static preview artifacts from main with metadata/licenses; no website deployment or release publication is implied. |
@@ -105,5 +97,5 @@ not yet provide browser highlighting or bundle the Classic interpreter.
 Run the focused Node/Wasm and Chromium checks in the build guide, followed by
 native candidate tests for shared-source changes. Do not rebuild a runtime
 while its tests are running. Changes owned by cREXX/DSLSH stay in those
-repositories and must be pinned together before adding the highlighter to the
-browser package.
+repositories; the optional highlighter package pins them together and records
+the prepared image checksum.

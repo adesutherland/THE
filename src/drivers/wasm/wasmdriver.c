@@ -7,6 +7,9 @@
 #include "vars.h"
 #include "headlessdriver.h"
 #include "websession.h"
+#ifdef THE_WASM_HIGHLIGHT
+#include "wasm/highlighter.h"
+#endif
 
 static TheInputQueue inputs;
 static TheDriverOps operations;
@@ -15,6 +18,14 @@ static void (*base_update)(void);
 static char snapshot[262144];
 
 int main(int argc, char **argv);
+EMSCRIPTEN_KEEPALIVE int the_wasm_has_highlighter(void)
+{
+#ifdef THE_WASM_HIGHLIGHT
+   return 1;
+#else
+   return 0;
+#endif
+}
 EMSCRIPTEN_KEEPALIVE int the_wasm_has_crexx(void)
 {
 #ifdef USE_CREXX
@@ -52,6 +63,18 @@ EM_JS(int, browser_integer, (const char *field, int fallback), {
    return Number.isSafeInteger(value) && value >= -2147483648 && value <= 2147483647 ? value : fallback;
 });
 
+#ifdef THE_WASM_HIGHLIGHT
+EM_JS(char *, browser_parser_payload, (), {
+   const value = Module.editorRequest.payload;
+   if (typeof value !== 'string' || value.length > 8388608) return 0;
+   const size = lengthBytesUTF8(value) + 1;
+   if (size > 8388609) return 0;
+   const pointer = _malloc(size);
+   if (pointer) stringToUTF8(value, pointer, size);
+   return pointer;
+});
+#endif
+
 EM_ASYNC_JS(int, the_wasm_flush_workspace, (), {
    try { await Module.flushWorkspace(); return 0; }
    catch (error) { return 1; }
@@ -59,8 +82,26 @@ EM_ASYNC_JS(int, the_wasm_flush_workspace, (), {
 
 static void publish(void)
 {
+#ifdef THE_WASM_HIGHLIGHT
+   the_wasm_highlight_prepare();
+#endif
    if (the_web_format_snapshot(snapshot, sizeof(snapshot)))
+   {
+#ifdef THE_WASM_HIGHLIGHT
+      size_t length = strlen(snapshot);
+      if (length && snapshot[length-1] == '}') {
+         char metadata[256];
+         int added = the_wasm_highlight_metadata(metadata, sizeof(metadata));
+         if (added > 0 && (size_t)added < sizeof(metadata)
+             && length + added + 2 <= sizeof(snapshot)) {
+            snapshot[length-1] = ',';
+            memcpy(snapshot + length, metadata, added);
+            strcpy(snapshot + length + added, "}");
+         }
+      }
+#endif
       browser_send(snapshot);
+   }
 }
 
 static int activate(void)
@@ -89,6 +130,21 @@ static int read_input(TheInputEvent *event)
       if (the_input_queue_pop(&inputs, event)) return 1;
       if (!browser_wait(input_timeout)) return 0;
       if (!browser_string("type", type, sizeof(type))) continue;
+#ifdef THE_WASM_HIGHLIGHT
+      if (strcmp(type, "parser-restart") == 0) {
+         the_wasm_highlight_restart();
+         publish();
+         continue;
+      }
+      if (strcmp(type, "parser-result") == 0) {
+         char *payload = browser_parser_payload();
+         the_wasm_highlight_reply(browser_integer("id", 0), browser_integer("revision", 0),
+                                  payload, browser_integer("failed", 0));
+         free(payload);
+         publish();
+         continue;
+      }
+#endif
       if (strcmp(type, "snapshot") == 0) { publish(); continue; }
       field = strcmp(type,"key")==0 ? "key" : strcmp(type,"text")==0 ? "text"
             : strcmp(type,"command")==0 ? "command" : strcmp(type,"action")==0 ? "action" : "target";
