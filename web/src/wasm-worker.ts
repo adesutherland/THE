@@ -118,6 +118,12 @@ async function start() {
     fs.writeFile("/workspace/ClassicDemo.rexx", await response.text());
     await sync();
   }
+  if (await editor.ccall("the_wasm_has_interpreter", "number", [], [], {}) && !fs.analyzePath("/workspace/RexxRunner.rexx").exists) {
+    const response = await fetch(new URL("../examples/RexxRunner.rexx",import.meta.url));
+    if (!response.ok) throw new Error("Bundled interpreter example unavailable");
+    fs.writeFile("/workspace/RexxRunner.rexx",await response.text());
+    await sync();
+  }
   fs.chdir("/workspace");
   const hasCrexx = await editor.ccall("the_wasm_has_crexx", "number", [], [], {});
   for (const [name, value] of Object.entries({

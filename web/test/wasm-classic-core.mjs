@@ -21,13 +21,13 @@ const args = vm._malloc(12);
 vm.HEAPU32[args >>> 2] = args + 4;
 vm.HEAPU8.set(new TextEncoder().encode('--stdio\0'), args + 4);
 const parserRun = vm.ccall('the_vm_run', 'number', ['number', 'number'], [1, args], {async: true});
-const snapshots = [], jobs = [], forgotten = [], requests = [];
+const snapshots = [], jobs = [], forgotten = [], requests = [], messages = [];
 let wake;
 const data = await readFile(`${directory}/crxthe_wasm.data`);
 const editor = await createEditor({noInitialRun: true,
   wasmBinary: await readFile(`${directory}/crxthe_wasm.wasm`),
   getPreloadedPackage: () => data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
-  sendEditorMessage: message => {if (message.screen_rows) snapshots.push(message);},
+  sendEditorMessage: message => {messages.push(message);if (message.screen_rows) snapshots.push(message);},
   requestHighlight: job => jobs.push(job), forgetHighlight: id => forgotten.push(id),
   nextEditorRequest: () => requests.length ? Promise.resolve(requests.shift()) : new Promise(resolve => {wake = resolve;}),
   flushWorkspace: async () => {},
@@ -83,6 +83,19 @@ assert.equal(snapshot.parser.applied, 0);
 assert.equal(snapshot.parser.state, 'pending');
 assert.equal(snapshot.buffer.dirty, 1);
 assert.equal(editor.FS.readFile('/workspace/Alpha.rexx',{encoding:'utf8'}), source);
+if (editor.ccall('the_wasm_has_interpreter','number',[],[],{})) {
+  send({type:'run-source',id:91});
+  await until(()=>messages.some(m=>m.type==='run-source'&&m.request===91),'run source capture');
+  const captured=messages.find(m=>m.type==='run-source'&&m.request===91);
+  assert.equal(new TextDecoder().decode(Uint8Array.from(captured.source)),source.replace("say '😀'", "xysay '😀'"));
+  assert.equal(captured.filename,'/workspace/Alpha.rexx');
+  assert.equal(captured.id,snapshots.at(-1).source.id);
+  assert.equal(captured.revision,snapshots.at(-1).source.revision);
+  assert.equal(snapshots.at(-1).buffer.dirty,1);
+  assert.equal(snapshots.at(-1).focus.line,2);
+  assert.equal(snapshots.at(-1).focus.cell,2);
+  assert.equal(editor.FS.readFile('/workspace/Alpha.rexx',{encoding:'utf8'}),source);
+}
 send(await parse(currentJob));
 await until(s => s.parser.state === 'ready' && s.parser.applied === currentJob.revision, 'current result');
 send({type:'action',action:'edit.undo'});

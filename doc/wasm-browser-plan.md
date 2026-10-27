@@ -7,8 +7,8 @@ static web deployment. The C core owns file bytes, cursor/focus, commands,
 selection, parser state and macro integration. Development stays on `main`,
 with version `0.10.dev`. See the [build and user guide](browser-wasm.md).
 
-The agreed sequence is **editor first, cREXX next**. Compiler and assembler
-programs remain build-time host tools. The optional parser connection uses a
+The agreed sequence is **editor first, cREXX next**. The native Level B compiler
+and assembler remain build-time host tools. The optional parser connection uses a
 precompiled Level L Classic Rexx highlighter running in RXVM; it does not need
 a browser compiler or execution of the user's Rexx source.
 
@@ -23,6 +23,7 @@ a browser compiler or execution of the user's Rexx source.
 | Macro panels | The public panel example suspends inside ADDRESS THE READ, receives field edits through the READ stem, resumes on Enter/Escape, restores cursor/settings and runs repeatedly. |
 | Generic VM host | Separate Worker process owning one RXVML context, loaded RXBIN buffers, raw stdin/stdout/stderr, explicit EOF and separate runtime/program status. Temporary starvation suspends rather than ending input. |
 | Classic highlighting | Optional Level L VM/DSLSH connection with C-owned source/revision checks, Unicode spans, located diagnostics and parser restart. |
+| Classic programs | Optional interpreter RXBIN in a third, disposable Worker, C-owned unsaved-buffer snapshots, split console, stdin/EOF, structured results and Stop/restart. |
 | Dependency cohort | Emscripten 6.0.13, pinned utf8proc and cREXX revisions; native compiler/assembler/generated headers/bytecode kept together. Artifact metadata and dependency notices are included. |
 
 The macro VM shares the editor Worker because ADDRESS THE calls the editor
@@ -32,6 +33,21 @@ reenter a running or suspended C owner; they only queue input for that owner.
 The VM build uses the maintained single-threaded leaf, not native OS workers,
 sockets, clocks or dynamic plugins. NTHREADED selects switch dispatch; it is
 not by itself a guarantee of a single-threaded runtime.
+
+Classic program execution has a separately built VM with full static Classic
+providers and its own pinned cREXX cohort. The editor/profile and parser build
+retain their qualified provider configuration. The execution Worker has only
+private MEMFS temporary files and explicit console byte streams; it never mounts
+the persistent editor workspace. Source is a value passed to `llcbrowser.run`,
+which uses the existing compiler/IR interpreter with external source lookup
+disabled. It is not fed through stdin or assembled into another RXBIN.
+
+The C source owner supplies a complete immutable logical snapshot and a buffer
+identity/revision. This includes the pending working record and uses LF between
+records, sharing capture with highlighting. Run leaves cursor, dirty state and
+saved bytes intact. Later edits do not modify an executing snapshot. Each Run
+creates a new Worker; Stop discards that execution and its temporary files,
+without claiming graceful Rexx cleanup or restarting the editor/parser.
 
 The cREXX leaf at the pinned revision needs its shared invocation source added
 to the consumer target, plus virtual POSIX file lookup for the profile route.
@@ -116,6 +132,7 @@ editor/profile workflow continues using its published cohort.
 | Profiles | Compiled startup profile, EXTRACT stem, macro shortcut and edited READ stem checked in Wasm. Source compilation remains unavailable. |
 | Stream VM | Actual RXBIN execution, binary NUL/UTF-8/255 bytes, delayed/partial reads, separate stderr, EOF, I/O failure, failed-load isolation and restart covered. |
 | Parsing | Actual Classic VM/DSLSH parsing, Unicode styles, diagnostics/repair, pending-record edits, stale-result rejection, buffer identity, refusal, restart and reopen pass locally in Wasm/Chromium. Incremental transport remains open. |
+| Programs | Actual interpreter RXBIN in Wasm/Chromium: unsaved source, routines/stems/loops/INTERPRET, Unicode I/O, arguments, full integer status, typed conditions, EOF, private files and Stop/restart; split resize and independent editor/highlighter checked. |
 | Lifecycle | Input and nested READ yield correctly; storage/init refusal and VM restart are checked. Cooperative cancellation/recovery remain open. |
 | Compatibility | Chromium qualified; broader browser matrix remains open. Native console/LLM/web regressions must continue passing. |
 | Delivery | CI builds static preview artifacts from main with metadata/licenses; no website deployment or release publication is implied. |

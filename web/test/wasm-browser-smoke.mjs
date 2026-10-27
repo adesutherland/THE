@@ -67,6 +67,12 @@ async function evaluate(expression) {
 async function domKey(key, code, ctrlKey = false, shiftKey = false) {
   await evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: ${JSON.stringify(key)}, code: ${JSON.stringify(code)}, ctrlKey: ${ctrlKey}, shiftKey: ${shiftKey}, bubbles: true, cancelable: true}))`);
 }
+async function consoleEnter(text) {
+  await waitFor(()=>evaluate("document.activeElement?.id==='rexx-input'"),'console input focus');
+  await command('Input.insertText',{text});
+  await command('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13,text:'\r'});
+  await command('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+}
 
 async function openWorkspaceFile(name) {
   await evaluate("document.querySelector('[aria-label=\"Open\"]').click()");
@@ -134,7 +140,7 @@ try {
     const OriginalWorker = Worker;
     window.Worker = class extends OriginalWorker {
       constructor(...args) {
-        super(...args); window.__worker = this;
+        super(...args); if (!String(args[0]).includes('/runner/')) window.__worker = this;
         this.addEventListener('message', ({data}) => {
           window.__messages.push(data);
           if (data.screen_rows) window.__snapshot = data;
@@ -305,6 +311,71 @@ try {
     await waitFor(async () => {const s = await snapshot(); return s.parser.id !== previousId && s.parser.state === 'ready';}, 'Classic reopen identity');
     console.log('PASS browser Level L: actual VM/DSLSH styles, Unicode, diagnostics/repair, coalesced edits, switching, restart and reopen');
   }
+  if (manifest.capabilities.classic_rexx_interpreter) {
+    await command('Emulation.setDeviceMetricsOverride',{width:1200,height:900,deviceScaleFactor:1,mobile:false});
+    await openWorkspaceFile('RexxRunner.rexx');
+    await waitFor(()=>evaluate("!!document.querySelector('.rexx-dock')"),'split console');
+    const initial = await snapshot();
+    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Rexx').click()");
+    await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Waiting for input'"),'interpreter console input',30000);
+    await waitFor(()=>evaluate("document.querySelector('.console-output').textContent.includes('What is your name?')"),'prompt before input');
+    await consoleEnter('Zoë');
+    await waitFor(()=>evaluate("document.querySelector('.run-state').textContent.includes('Completed · status 0')"),'interpreter completion',30000);
+    const text=await evaluate("document.querySelector('.console-output').textContent");
+    if (!text.includes('Hello, Zoë')||!text.includes('Total: 55')||!text.includes('INTERPRET works here too.')||!text.includes('Welcome, Zoë!')) throw new Error(`Rexx output wrong: ${text}`);
+    const after=await snapshot();
+    if (after.buffer.dirty!==initial.buffer.dirty||after.focus.line!==initial.focus.line||after.focus.cell!==initial.focus.cell) throw new Error('Run/input changed editor state');
+    // Execute the pending working record; neither Save nor moving to another line is required.
+    await send({type:'command',command:'cursor goto 2 1'});
+    await send({type:'text',text:"say 'UNSAVED'; "});
+    await waitFor(async()=>{const s=await snapshot();return s.buffer.dirty&&s.screen_rows.some(r=>r.t.includes('UNSAVED'));},'unsaved working line');
+    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Rexx').click()");
+    await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Waiting for input'"),'second interpreter input',30000);
+    if (!await evaluate("document.querySelector('.console-output').textContent.includes('UNSAVED')")) throw new Error('Run missed unsaved working record');
+    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='End input').click()");
+    await waitFor(()=>evaluate("document.querySelector('.run-state').textContent.includes('Completed')"),'explicit EOF',30000);
+    if (!(await snapshot()).buffer.dirty) throw new Error('Run cleared dirty state');
+    await send({type:'action',action:'edit.undo'});
+    await waitFor(async()=>!(await snapshot()).buffer.dirty,'restore program');
+    // Stop a blocked program, then prove its replacement has a fresh input stream.
+    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Rexx').click()");
+    await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Waiting for input'"),'third interpreter input',30000);
+    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Stop').click()");
+    await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Stopped'"),'stopped Worker');
+    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Rexx').click()");
+    await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Waiting for input'"),'restart input',30000);
+    await consoleEnter('Ada');
+    await waitFor(()=>evaluate("document.querySelector('.run-state').textContent.includes('Completed · status 0')"),'restart completed',30000);
+    if (!await evaluate("document.querySelector('.console-output').textContent.includes('Hello, Ada')")) throw new Error('Restart retained old stdin');
+    await send({type:'action',action:'file.create',argument:'RunnerProbe.rexx'});
+    await waitFor(async()=>(await snapshot()).buffer.path.endsWith('RunnerProbe.rexx'),'probe buffer');
+    await send({type:'command',command:"input say arg()||'|'||arg(1)||'|'||arg(2)||'|'||arg(3); exit 7"});
+    await waitFor(async()=>(await snapshot()).screen_rows.some(r=>r.t.includes('say arg()')),'argument probe');
+    await evaluate("const field=document.querySelector('[aria-label=\"Rexx arguments\"]');field.value='first\\n\\nlast';field.dispatchEvent(new Event('input',{bubbles:true}))");
+    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Rexx').click()");
+    await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Completed · status 7'"),'argument status',30000);
+    if (!await evaluate("document.querySelector('.console-output').textContent.includes('3|first||last')")) throw new Error('Argument positions lost');
+    await send({type:'command',command:'replace say 1/0'});
+    await waitFor(async()=>(await snapshot()).screen_rows.some(r=>r.t.includes('say 1/0')),'runtime condition probe');
+    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Rexx').click()");
+    await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Runtime condition'"),'typed runtime condition',30000);
+    if (!await evaluate("!!document.querySelector('.console-stderr')?.textContent")) throw new Error('Runtime condition missing');
+    await send({type:'command',command:'replace parse pull start; do forever; nop; end'});
+    await waitFor(async()=>(await snapshot()).screen_rows.some(r=>r.t.includes('do forever')),'infinite program');
+    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Rexx').click()");
+    await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Waiting for input'"),'infinite program input',30000);
+    await consoleEnter('go');
+    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Stop').click()");
+    await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Stopped'"),'stop infinite program');
+    await send({type:'action',action:'file.save'});
+    await waitFor(async()=>!(await snapshot()).buffer.dirty,'editor responds after infinite program');
+    await selectBuffer('RexxRunner.rexx');
+    const beforeResize=(await snapshot()).viewport.rows;
+    await evaluate("document.querySelector('.console-divider').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true,cancelable:true}))");
+    await waitFor(async()=>(await snapshot()).viewport.rows<beforeResize,'split resize');
+    if (manifest.capabilities.classic_rexx_highlighter) await waitFor(async()=>(await snapshot()).parser.state==='ready','highlighting after execution');
+    console.log('PASS browser interpreter: split console, actual Classic execution/INTERPRET, Unicode stdin/output, EOF, unsaved record, Stop/restart and independent editor/highlighter');
+  }
   if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join('; ')}`);
   if (process.env.THE_WASM_SCREENSHOT) {
     await command('Page.bringToFront');
@@ -312,6 +383,13 @@ try {
     await writeFile(process.env.THE_WASM_SCREENSHOT, Buffer.from(image.data, 'base64'));
   }
   console.log('PASS browser Wasm: persistence/refusal/retry, DOM editing/selection/undo, file ring, resize and tab lock');
+} catch(error) {
+  if (socket?.readyState===WebSocket.OPEN) {
+    try {
+      console.error('Browser failure state:',await evaluate("({state:document.querySelector('.run-state')?.textContent,active:document.activeElement?.outerHTML?.slice(0,400),input:document.querySelector('#rexx-input')?.value,output:document.querySelector('.console-output')?.textContent.slice(-4000)})"));
+    } catch {}
+  }
+  throw error;
 } finally {
   if (socket?.readyState === WebSocket.OPEN) socket.close();
   if (chrome.exitCode === null) {

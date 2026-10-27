@@ -2,6 +2,7 @@
  * enter here; JavaScript never calls into an executing/suspended editor. */
 #include "the.h"
 #include "highlighter.h"
+#include "source.h"
 #include "proto.h"
 #include "vars.h"
 #include "textpos.h"
@@ -11,7 +12,6 @@
 #include <ctype.h>
 #include <limits.h>
 
-#define SOURCE_LIMIT (2u * 1024u * 1024u)
 #define REPLY_LIMIT (8u * 1024u * 1024u)
 #define RECORD_LIMIT 200000u
 
@@ -103,7 +103,7 @@ void the_wasm_highlight_restart(void)
 void the_wasm_highlight_prepare(void)
 {
     HighlightDocument *doc;
-    LINE *line;
+    const TheWasmSource *owned = the_wasm_source_current();
     size_t length = 0, count = 0, offset = 0, points = 0;
     char *source;
     size_t *line_bytes, *line_points;
@@ -114,16 +114,12 @@ void the_wasm_highlight_prepare(void)
     }
     doc = document(CURRENT_FILE, 1);
     if (!doc) return;
-    for (line = CURRENT_FILE->first_line->next; line && line->next; line = line->next) {
-        size_t n = ++count == (size_t)CURRENT_VIEW->focus_line ? rec_len : line->length;
-        if (n >= SOURCE_LIMIT - length) {
-            if (strcmp(doc->state, "too-large")) doc->revision++;
-            doc->state = "too-large"; clear_result(doc);
-            free(doc->source); doc->source = NULL;
-            return;
-        }
-        length += n + 1;
+    if (!owned) {
+        if (strcmp(doc->state, "refused")) doc->revision++;
+        doc->state = "refused"; clear_result(doc);
+        free(doc->source); doc->source = NULL; return;
     }
+    length = owned->length; count = owned->lines;
     source = malloc(length + 1);
     line_bytes = malloc((count + 1) * sizeof(size_t));
     line_points = malloc((count + 1) * sizeof(size_t));
@@ -132,13 +128,14 @@ void the_wasm_highlight_prepare(void)
         clear_result(doc); doc->state = "error"; doc->revision++;
         free(doc->source); doc->source = NULL; return;
     }
+    memcpy(source, owned->bytes, length + 1);
     count = 0;
-    for (line = CURRENT_FILE->first_line->next; line && line->next; line = line->next) {
-        const CHARTYPE *text = count + 1 == (size_t)CURRENT_VIEW->focus_line ? rec : line->line;
-        size_t n = count + 1 == (size_t)CURRENT_VIEW->focus_line ? rec_len : line->length;
+    while (offset < length) {
+        const char *end = memchr(source + offset, '\n', length - offset);
+        size_t n = end ? (size_t)(end - source - offset) : length - offset;
         line_bytes[count] = offset; line_points[count++] = points;
-        memcpy(source + offset, text, n); offset += n; source[offset++] = '\n';
-        points += textpos_count_codepoints(text, n) + 1;
+        points += textpos_count_codepoints((const CHARTYPE *)source + offset, n) + 1;
+        offset += n + 1;
     }
     line_bytes[count] = offset; line_points[count] = points; source[offset] = 0;
     if (doc->source && doc->length == length && !memcmp(doc->source, source, length)) {

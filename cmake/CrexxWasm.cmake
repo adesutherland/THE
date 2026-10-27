@@ -26,7 +26,7 @@ endfunction()
 # Unrelated frontend work may coexist in a developer checkout. The VM and
 # native tools used by this target must still be the pinned source cohort.
 execute_process(COMMAND "${GIT_EXECUTABLE}" diff --quiet HEAD --
-    CMakeLists.txt cmake interpreter platform binutils assembler compiler lib rxpa third_party ports/single-threaded
+    CMakeLists.txt cmake interpreter platform binutils assembler compiler lib langtools rxpa third_party ports/single-threaded
     WORKING_DIRECTORY "${THE_CREXX_SOURCE}" RESULT_VARIABLE crexx_modified)
 if(NOT crexx_modified EQUAL 0)
     message(FATAL_ERROR "cREXX VM/tool sources have uncommitted changes; use the pinned checkout")
@@ -39,6 +39,7 @@ endif()
 set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(CREXX_BUILD_COMPILER OFF CACHE BOOL "" FORCE)
 set(CREXX_VM_CLASSIC_PROVIDERS OFF CACHE BOOL "" FORCE)
+set(CREXX_VM_CLASSIC_FULL_PROVIDERS ${THE_BUILD_WASM_RUNNER} CACHE BOOL "" FORCE)
 set(CREXX_MAINFRAME_ADDRESS OFF CACHE BOOL "" FORCE)
 add_compile_definitions(_GNU_SOURCE=1)
 add_subdirectory("${THE_CREXX_SOURCE}/ports/single-threaded" crexx-vm EXCLUDE_FROM_ALL)

@@ -51,7 +51,7 @@ workarounds belong in [known issues](known-issues.md).
 
 - Extend the [WebAssembly browser preview](browser-wasm.md) beyond its implemented
   editor/storage, precompiled cREXX profiles/READ and optional Level L Classic
-  highlighter. [Remaining acceptance](wasm-browser-plan.md) covers incremental
+  highlighter and Classic interpreter/split console. [Remaining acceptance](wasm-browser-plan.md) covers incremental
   parser transport, import/export, interruption/recovery, publication of the
   local highlighter cohort and broader browser qualification.
 - Broaden browser acceptance across browsers, viewport sizes and intended

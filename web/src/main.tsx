@@ -15,6 +15,7 @@ import {
 } from "lucide-preact";
 import type { DriverMessage, FileListMessage, FrontendActionDefinition, PanelColour, ScreenRow, Snapshot, StyleRun } from "./types";
 import "./styles.css";
+import {RexxConsole, type RunSource} from './rexx-console';
 
 const keyNames: Record<string, string> = {
   ArrowLeft: "left",
@@ -103,6 +104,8 @@ function App() {
   const [connection, setConnection] = useState<"connecting" | "online" | "reconnecting" | "offline">("connecting");
   const [lastError, setLastError] = useState("");
   const [storageState, setStorageState] = useState("");
+  const [interpreterAvailable,setInterpreterAvailable] = useState(false);
+  const [runSource,setRunSource] = useState<RunSource|null>(null);
   const [command, setCommand] = useState("");
   const [commandFocused, setCommandFocused] = useState(false);
   const [actions, setActions] = useState<FrontendActionDefinition[]>([]);
@@ -125,7 +128,9 @@ function App() {
   const send = useCallback((message: Record<string, unknown>) => {
     const socket = socketRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
-    socket.send(JSON.stringify({ v: 1, id: nextId.current++, ...message }));
+    const id = nextId.current++;
+    socket.send(JSON.stringify({ v: 1, id, ...message }));
+    return id;
   }, []);
 
   const focusEditor = useCallback(() => inputRef.current?.focus(), []);
@@ -175,8 +180,12 @@ function App() {
       };
       socket.onmessage = (event) => {
         try {
-          const message = JSON.parse(String(event.data)) as Snapshot | DriverMessage;
-          if ("type" in message && message.type === "storage") {
+          const message = (typeof event.data === 'string' ? JSON.parse(event.data) : event.data) as Snapshot | DriverMessage;
+          if ("type" in message && message.type === "run-source") {
+            setRunSource(message as unknown as RunSource);
+          } else if ("type" in message && message.type === "interpreter") {
+            setInterpreterAvailable(true);
+          } else if ("type" in message && message.type === "storage") {
             const storage = message as DriverMessage & { state: string };
             setStorageState(storage.state === "error" ? storage.message ?? "Storage error" : storage.state === "saving" ? "Saving browser workspace…" : "Saved to browser workspace");
           } else if ("type" in message && message.type === "fatal") {
@@ -494,6 +503,7 @@ function App() {
         ))}
       </nav>
 
+      <div class="workbench">
       <section class="workspace">
         {explorerOpen ? (
           <aside class="file-explorer" aria-label="Workspace files">
@@ -637,6 +647,8 @@ function App() {
           </aside>
         ) : null}
       </section>
+      {browserWasm && interpreterAvailable ? <RexxConsole send={send} source={runSource} snapshot={snapshot} /> : null}
+      </div>
 
       <footer class="command-area">
         {keyHints.length > 0 ? (

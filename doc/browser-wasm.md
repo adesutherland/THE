@@ -147,7 +147,8 @@ CodeBuffer transport. Source is limited to 2 MiB per file, replies to 8 MiB and
 200,000 records; requests time out after ten seconds. Active SRCMAP, embedded
 NUL and invalid UTF-8 are refused by the parser contract. The status exposes a
 refusal instead of silently displaying legacy colours. A later valid edit or a
-parser restart can recover. The Classic interpreter is not bundled.
+parser restart can recover. Classic execution is an additional optional build,
+described below.
 
 The highlighter cohort is cREXX `67a5e928cddf569595961267bee5d25bf92f267f`
 and DSLSH `0ea4db815abd55cdc5db4a5c41539d7d920e9cb3`. These supporting commits
@@ -184,6 +185,95 @@ bytecode. The package records both source revisions, the image checksum and
 licenses. `ClassicDemo.rexx` is copied into a new browser workspace only if
 absent; open it through File/Open. It demonstrates Unicode, nested comments,
 control flow, a continuation and a routine. Existing saved files are preserved.
+
+## Classic Rexx interpreter and console
+
+`THE_WASM_INTERPRETER=ON` adds **Run Rexx** and a console below the editor.
+Drag the divider or focus it and use Up/Down to resize; Collapse keeps the
+console controls visible. Open `RexxRunner.rexx` through File/Open for a working
+example with console input, loops, stems, a routine and `INTERPRET`.
+
+Run executes the entire current buffer, including unsaved changes and the
+current working line. It does not save or clear the buffer's modified flag.
+The console identifies the filename/revision used and reports subsequent buffer
+changes. Enter in the console input field sends a line. End input sends EOF;
+temporarily having no input does not end the program. Arguments are separate
+positions, one per line; empty lines within that field retain empty positions.
+An empty field supplies no arguments. This is not a shell command line.
+
+Output and runtime errors appear in the console. Program return status is
+separate from a VM failure or typed Rexx condition; a failed result's zero
+status is never reported as successful completion. Available cleanup failures
+are retained separately. Runtime VM module/address values do not necessarily
+identify a Rexx source line, so the console does not invent source locations.
+
+Each execution uses a fresh Worker and a compiled `llcbrowser.rxbin` entry
+around cREXX's existing Classic compiler/IR interpreter. Source, logical
+filename and arguments arrive through RXVML values, leaving stdin for the
+program. Ordinary routines, BIFs, private queues, `SAY`, `PULL`, `LINEIN` and
+`INTERPRET` use the existing runtime. External source lookup is disabled in this
+embedding. The editor's profile/macro `ADDRESS THE` bridge is separate; programs
+in this console do not address the editor.
+
+Named streams can create temporary files in execution-private MEMFS. They do
+not reach the persistent editor workspace, host disk or browser filesystem
+handles. No filesystem is mounted into the execution Worker. Dynamic plugins,
+process channels and host commands remain unavailable. Stop terminates only
+that Worker and discards its files; it is not graceful language cleanup. A
+subsequent Run starts with fresh streams and resources.
+
+The initial limits are 2 MiB valid UTF-8 source, a 4096-byte logical filename,
+128 NUL-free argument positions with 1 MiB aggregate argument bytes, the existing bounded
+stdin queue, 8 MiB total output per run and 256 Ki characters of visible
+scrollback. The 120-second execution deadline pauses while waiting for console
+input. A limit or Stop leaves the editor and highlighter available. The bounded
+completion envelope can truncate large values/condition messages and reports
+that fact.
+
+Build the runner separately with `THE_BUILD_WASM_RUNNER=ON`, supplying the
+qualified cREXX source revision, matching native generated headers, prepared
+`llcompiler_llcbrowser_opt` image and SHA-256. This enables
+`CREXX_VM_CLASSIC_FULL_PROVIDERS` only in that build. Pass its `runner/` output
+as `THE_WASM_RUNNER_DIRECTORY` when enabling `THE_WASM_INTERPRETER` in the
+editor build. The existing profile/parser cohort remains independently pinned.
+The packaged manifest records both cohorts and image hashes. Generated RXBIN,
+Wasm and site assets remain build outputs.
+
+The execution cohort is cREXX `7ac74bc6ced98a522222d5495bed51c1da38a077` and
+the 9,593,172-byte prepared image has SHA-256
+`9dc18d8eba321fb258865a9a6e11301df4b721d2b7835efafa1e92fdc9cd0942`.
+It was built from the frozen source content subsequently committed at that
+revision. A configure-only native build supplies current generated headers;
+the runner does not execute a native compiler. Do not use a stale version
+header from an older native build merely because its prepared grammar exists.
+
+```sh
+# CREXX_RUNNER_SOURCE is a clean checkout at the execution revision above.
+cmake -S "$CREXX_RUNNER_SOURCE" -B build/crexx-runner-host -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+emcmake cmake -S . -B build-wasm-rexx -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DTHE_BUILD_WASM_RUNNER=ON -DTHE_CREXX_SOURCE="$CREXX_RUNNER_SOURCE" \
+  -DTHE_CREXX_HOST_BUILD="$PWD/build/crexx-runner-host" \
+  -DTHE_WASM_INTERPRETER_IMAGE=/absolute/path/to/llcbrowser.rxbin
+cmake --build build-wasm-rexx --target the_wasm_runner --parallel 8
+# Add these options to the editor/profile/highlighter configuration above:
+emcmake cmake -S . -B build-wasm-classic \
+  -DTHE_WASM_INTERPRETER=ON -DTHE_WASM_RUNNER_DIRECTORY="$PWD/build-wasm-rexx/runner"
+cmake --build build-wasm-classic --parallel 8
+```
+
+```sh
+node web/test/wasm-run-result.mjs
+node web/test/wasm-interpreter.mjs build-wasm-rexx/runner
+node web/test/wasm-classic-core.mjs build-wasm-interpreter
+THE_WEB_URL=http://127.0.0.1:8771 \
+CHROMIUM_BIN='/path/to/chrome' node web/test/wasm-browser-smoke.mjs
+```
+
+The interpreter check executes the actual Wasm/RXBIN cohort. The browser check
+covers Unicode interactive I/O, argument positions, EOF, unsaved working-record
+execution, typed failure, Stop/restart, an infinite program and split resizing,
+alongside storage, profiles and highlighting.
 
 ## Browser workspace
 

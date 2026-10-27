@@ -7,6 +7,7 @@ endif()
 
 option(THE_WASM_CREXX "Run precompiled cREXX browser profiles and macros" OFF)
 option(THE_WASM_HIGHLIGHT "Run the Level L Classic Rexx highlighter in a browser VM" OFF)
+option(THE_WASM_INTERPRETER "Bundle the Classic Rexx interpreter and split console" OFF)
 if(THE_WASM_CREXX)
     set(THE_WASM_REXX_DEFAULT CREXX)
 else()
@@ -78,7 +79,7 @@ add_custom_command(OUTPUT "${THE_WASM_RESOURCE_STAMP}"
 add_custom_target(the_wasm_resources DEPENDS "${THE_WASM_RESOURCE_STAMP}")
 
 add_executable(crxthe_wasm ${THE_SOURCES}
-    src/websession.c src/drivers/llm/headlessdriver.c
+    src/websession.c src/drivers/llm/headlessdriver.c src/wasm/source.c
     src/drivers/wasm/wasmdriver.c)
 target_link_libraries(crxthe_wasm PRIVATE utf8proc)
 if(THE_WASM_CREXX)
@@ -93,7 +94,7 @@ target_link_options(crxthe_wasm PRIVATE
     -sASYNCIFY=1 -sASYNCIFY_STACK_SIZE=1048576 -sSTACK_SIZE=1048576
     -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=67108864
     -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=worker,node
-    "-sEXPORTED_FUNCTIONS=['_main','_the_wasm_main','_the_wasm_has_crexx','_the_wasm_has_highlighter','_setenv','_malloc','_free']"
+    "-sEXPORTED_FUNCTIONS=['_main','_the_wasm_main','_the_wasm_has_crexx','_the_wasm_has_highlighter','_the_wasm_has_interpreter','_setenv','_malloc','_free']"
     "-sEXPORTED_RUNTIME_METHODS=['ccall','FS','IDBFS','ENV','stringToUTF8']"
     -lidbfs.js "--preload-file=${THE_WASM_RESOURCES}@/app")
 
@@ -119,6 +120,9 @@ add_custom_command(OUTPUT "${THE_WASM_SITE}/.build-stamp"
 if(THE_WASM_HIGHLIGHT)
     include("${CMAKE_SOURCE_DIR}/cmake/TheWasmHighlight.cmake")
 endif()
+if(THE_WASM_INTERPRETER)
+    include("${CMAKE_SOURCE_DIR}/cmake/TheWasmInterpreter.cmake")
+endif()
 add_custom_target(the_wasm_bundle ALL DEPENDS "${THE_WASM_SITE}/.build-stamp"
     COMMAND "${THE_WASM_PYTHON}" "${CMAKE_SOURCE_DIR}/scripts/package-wasm-site.py"
         "${THE_WASM_SITE}"
@@ -128,4 +132,7 @@ add_custom_target(the_wasm_bundle ALL DEPENDS "${THE_WASM_SITE}/.build-stamp"
     VERBATIM)
 if(THE_WASM_HIGHLIGHT)
     add_dependencies(the_wasm_bundle the_wasm_classic_assets)
+endif()
+if(THE_WASM_INTERPRETER)
+    add_dependencies(the_wasm_bundle the_wasm_interpreter_assets)
 endif()

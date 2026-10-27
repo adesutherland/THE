@@ -7,6 +7,7 @@
 #include "vars.h"
 #include "headlessdriver.h"
 #include "websession.h"
+#include "wasm/source.h"
 #ifdef THE_WASM_HIGHLIGHT
 #include "wasm/highlighter.h"
 #endif
@@ -34,6 +35,14 @@ EMSCRIPTEN_KEEPALIVE int the_wasm_has_crexx(void)
    return 0;
 #endif
 }
+EMSCRIPTEN_KEEPALIVE int the_wasm_has_interpreter(void)
+{
+#ifdef THE_WASM_INTERPRETER
+   return 1;
+#else
+   return 0;
+#endif
+}
 
 EMSCRIPTEN_KEEPALIVE int the_wasm_main(void)
 {
@@ -43,6 +52,13 @@ EMSCRIPTEN_KEEPALIVE int the_wasm_main(void)
 
 EM_JS(void, browser_send, (const char *text), {
    Module.sendEditorMessage(JSON.parse(UTF8ToString(text)));
+});
+EM_JS(void, browser_source, (int request, unsigned id, unsigned revision,
+                           const char *source, size_t length, const char *path,
+                           const char *name, const char *error), {
+   Module.sendEditorMessage({type: 'run-source', request, id, revision,
+      source: HEAPU8.slice(source, source + length),
+      filename: UTF8ToString(path) + UTF8ToString(name), error: UTF8ToString(error)});
 });
 
 EM_ASYNC_JS(int, browser_wait, (int timeout), {
@@ -82,11 +98,23 @@ EM_ASYNC_JS(int, the_wasm_flush_workspace, (), {
 
 static void publish(void)
 {
+   const TheWasmSource *source = NULL;
+#if defined(THE_WASM_HIGHLIGHT) || defined(THE_WASM_INTERPRETER)
+   source = the_wasm_source_prepare();
+#endif
 #ifdef THE_WASM_HIGHLIGHT
    the_wasm_highlight_prepare();
 #endif
    if (the_web_format_snapshot(snapshot, sizeof(snapshot)))
    {
+      size_t used = strlen(snapshot);
+      if (source && used && snapshot[used-1] == '}') {
+         char metadata[128];
+         int added = snprintf(metadata, sizeof(metadata),
+                  ",\"source\":{\"id\":%u,\"revision\":%u}}", source->id, source->revision);
+         if (added > 0 && used + added <= sizeof(snapshot))
+            memcpy(snapshot + used - 1, metadata, added + 1);
+      }
 #ifdef THE_WASM_HIGHLIGHT
       size_t length = strlen(snapshot);
       if (length && snapshot[length-1] == '}') {
@@ -116,6 +144,7 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    char catalog[4096];
    (void)options; (void)error; (void)capacity;
    browser_send("{\"type\":\"hello\",\"protocol\":1,\"driver\":\"wasm\"}");
+   if (the_wasm_has_interpreter()) browser_send("{\"type\":\"interpreter\",\"available\":true}");
    if (the_web_format_actions(catalog, sizeof(catalog))) browser_send(catalog);
    return 1;
 }
@@ -130,6 +159,19 @@ static int read_input(TheInputEvent *event)
       if (the_input_queue_pop(&inputs, event)) return 1;
       if (!browser_wait(input_timeout)) return 0;
       if (!browser_string("type", type, sizeof(type))) continue;
+#ifdef THE_WASM_INTERPRETER
+      if (strcmp(type, "run-source") == 0) {
+         const TheWasmSource *source = the_wasm_source_prepare();
+         browser_source(browser_integer("id", 0), source ? source->id : 0,
+                        source ? source->revision : 0, source ? source->bytes : "",
+                        source ? source->length : 0,
+                        CURRENT_FILE ? (char *)CURRENT_FILE->fpath : "",
+                        CURRENT_FILE ? (char *)CURRENT_FILE->fname : "",
+                        source ? "" : the_wasm_source_error());
+         publish();
+         continue;
+      }
+#endif
 #ifdef THE_WASM_HIGHLIGHT
       if (strcmp(type, "parser-restart") == 0) {
          the_wasm_highlight_restart();

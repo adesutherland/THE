@@ -1,25 +1,34 @@
 /** Generic process-style RXBIN host; usable from a page or the editor Worker. */
 export class CrexxVMProcess {
   static async start({images, arguments: args = [], stdout = () => {}, stderr = () => {},
+                      program, inputState = () => {}, signal, outputLimit,
                       workerUrl = new URL('./vm-worker.mjs', import.meta.url)}) {
-    const process = new CrexxVMProcess(workerUrl, stdout, stderr);
+    const process = new CrexxVMProcess(workerUrl, stdout, stderr, inputState);
+    if (signal) {
+      const abort = () => process.terminate(signal.reason ?? new Error('Stopped'));
+      signal.addEventListener('abort', abort, {once: true});
+      process.removeAbort = () => signal.removeEventListener('abort', abort);
+      if (signal.aborted) abort();
+    }
     try {
-      await process.request({type: 'init', images});
-      await process.request({type: 'run', arguments: args});
+      await process.request({type: 'init', images, outputLimit});
+      await process.request(program ? {type: 'interpret', ...program} : {type: 'run', arguments: args});
       return process;
     } catch (error) { process.terminate(error); throw error; }
   }
-  constructor(url, stdout, stderr) {
+  constructor(url, stdout, stderr, inputState = () => {}) {
     this.worker = new Worker(url, {type: 'module'});
     this.pending = new Map(); this.nextId = 1;
     this.exit = new Promise((resolve, reject) => { this.resolveExit = resolve; this.rejectExit = reject; });
     // Initialization may fail before start() returns the exit promise to its caller.
     this.exit.catch(() => {});
     this.worker.onmessage = ({data}) => {
+      if (this.closed) return;
       if (data.type === 'stream') {
         try { (data.fd === 1 ? stdout : stderr)(data.bytes); }
         catch (error) { this.terminate(error); }
       }
+      else if (data.type === 'input-state') inputState(data.waiting);
       else if (data.type === 'exit') {
         this.resolveExit(data); this.finish(new Error('VM has exited'));
       } else if (data.type === 'reply' || data.type === 'error') {
@@ -47,6 +56,7 @@ export class CrexxVMProcess {
   endInput() { return this.request({type: 'eof'}); }
   failInput(message) { return this.request({type: 'stdin-error', message}); }
   finish(error) {
+    this.removeAbort?.();
     this.closed = true; this.worker.terminate();
     for (const request of this.pending.values()) request.reject(error);
     this.pending.clear();

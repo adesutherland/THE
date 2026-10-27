@@ -3,7 +3,7 @@ export interface EditorTransport {
   onopen: (() => void) | null;
   onclose: (() => void) | null;
   onerror: (() => void) | null;
-  onmessage: ((event: { data: string }) => void) | null;
+  onmessage: ((event: { data: unknown }) => void) | null;
   send(data: string): void;
   close(): void;
 }
@@ -13,7 +13,7 @@ class WorkerTransport implements EditorTransport {
   onopen: (() => void) | null = null;
   onclose: (() => void) | null = null;
   onerror: (() => void) | null = null;
-  onmessage: ((event: { data: string }) => void) | null = null;
+  onmessage: ((event: { data: unknown }) => void) | null = null;
   private worker = new Worker(new URL("./wasm-worker.ts", import.meta.url), { type: "module" });
 
   constructor() {
@@ -27,7 +27,7 @@ class WorkerTransport implements EditorTransport {
         this.worker.terminate();
         this.onclose?.();
       } else {
-        this.onmessage?.({ data: JSON.stringify(data) });
+        this.onmessage?.({ data });
         if (data.type === "fatal") {
           this.readyState = 3;
           this.worker.terminate();

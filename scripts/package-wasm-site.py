@@ -19,6 +19,7 @@ parser.add_argument('--crexx-revision')
 parser.add_argument('--vm-only', action='store_true')
 parser.add_argument('--dslsh-source', type=Path)
 parser.add_argument('--classic', action='store_true')
+parser.add_argument('--interpreter', action='store_true')
 parser.add_argument('--editor-address', action='store_true')
 args = parser.parse_args()
 site = args.site
@@ -53,11 +54,18 @@ if args.dslsh_source:
     dependencies['dslsh'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=args.dslsh_source, text=True).strip()
 if args.classic:
     dependencies['classic_highlighter'] = json.loads((site / 'vm/classic.json').read_text())
+if args.interpreter:
+    execution = json.loads((site / 'vm/runner/interpreter.json').read_text())
+    image_hash = hashlib.sha256((site / 'vm/runner/llcbrowser.rxbin').read_bytes()).hexdigest()
+    if image_hash != execution['sha256']:
+        raise RuntimeError('Interpreter image differs from its execution manifest')
+    dependencies['classic_interpreter'] = execution
 revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
 # Personal untracked scratch files are excluded from source snapshot metadata.
 dirty = bool(subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=root, text=True))
 capabilities = {'crexx_vm': bool(args.crexx_source), 'source_compiler': False, 'external_parsers': False}
 capabilities['classic_rexx_highlighter'] = args.classic
+capabilities['classic_rexx_interpreter'] = args.interpreter
 if args.vm_only:
     capabilities.update(stdin='binary/explicit EOF', stdout='binary', stderr='binary', editor_address=False)
 else:
