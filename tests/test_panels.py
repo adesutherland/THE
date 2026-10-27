@@ -89,6 +89,15 @@ def hit(f):
 
 
 for engine in engines:
+    _, _, _, colour_records = run(engine, 'NOCHANGE TAG', lambda p: 'key esc',
+        before='command set ctlchar u noprotect #BDE9D9 on #243B36')
+    colour_panel = next(r['panel'] for r in colour_records if r.get('panel'))
+    assert field(colour_panel, 'R')['colour'] == {
+        'foreground': '#BDE9D9', 'background': '#243B36', 'style': 0}, colour_panel
+    _, _, _, no_command_records = run(engine, 'NOCHANGE TAG', lambda p: 'key esc',
+        before='command set cmdline off')
+    no_command_panel = next(r['panel'] for r in no_command_records if r.get('panel'))
+    assert not any(f['kind'] == 'C' for f in no_command_panel['fields']), no_command_panel
     text, values, errors, records = run(engine, 'NOCHANGE TAG', lambda p: 'text Alice\nkey tab\ntext Rexx\nkey f3')
     assert text == 'seed\ntail\n', text
     assert values[0].startswith('PFK 3'), values

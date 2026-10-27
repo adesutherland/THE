@@ -205,6 +205,13 @@ static void test_panel_cursor_bounds(void)
    panel_ui_init(&panel, 4, 20);
    expect_int("panel.cursor.empty", panel_ui_cursor(&panel,&cell,&width), 0);
    panel_ui_add(&panel,1,6,3,1,'R',0,"abc",3,0);
+   panel.fields[0].colour=the_render_attr_make(
+      the_render_color_from_rgb24(0xBDE9D9),
+      the_render_color_from_rgb24(0x243B36),THE_STYLE_UNDERLINE);
+   panel_ui_json(&panel,out,sizeof(out));
+   expect_contains("panel.colour.foreground",out,"\"foreground\":\"#BDE9D9\"");
+   expect_contains("panel.colour.background",out,"\"background\":\"#243B36\"");
+   expect_contains("panel.colour.style",out,"\"style\":4");
    expect_int("panel.cursor.start", panel_ui_cursor(&panel,&cell,&width), 1);
    expect_int("panel.cursor.start.cell", cell, 0);
    panel.cursor=3;

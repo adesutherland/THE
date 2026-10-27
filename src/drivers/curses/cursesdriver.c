@@ -1228,6 +1228,18 @@ int curses_driver_read_raw_driver_window_key(TheDriverWindow *win)
       curses_driver_window_from_driver(win));
 }
 
+int curses_driver_peek_raw_driver_window_key(TheDriverWindow *win)
+{
+   WINDOW *native=curses_driver_window_from_driver(win);
+   int key;
+   if (native == NULL) return ERR;
+   nodelay(native,TRUE);
+   key=wgetch(native);
+   nodelay(native,FALSE);
+   if (key != ERR) ungetch(key);
+   return key;
+}
+
 int curses_driver_read_input_event(TheInputEvent *event)
 {
    int key;

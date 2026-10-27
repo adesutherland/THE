@@ -54,6 +54,7 @@
 #include "thedriver.h"
 
 int curses_driver_read_raw_driver_window_key(TheDriverWindow *win);
+int curses_driver_peek_raw_driver_window_key(TheDriverWindow *win);
 
 /*
  * Do special character handling if using ncurses, xcurses
@@ -354,15 +355,11 @@ int my_getch (TheDriverWindow *winptr)
             switch (c)
             {
                case KEY_ESC:
-#if defined(HAVE_NODELAY) && defined(HAVE_UNGETCH)
-                  /* this code allows the user to use the ESC key */
-                  nodelay(winptr,TRUE);
-                  tmp_c = curses_driver_read_raw_driver_window_key(winptr);
-                  nodelay(winptr,FALSE);
+                  /* Maintained curses backends support nonblocking input.
+                   * A bare Escape must not wait forever for another byte. */
+                  tmp_c = curses_driver_peek_raw_driver_window_key(winptr);
                   if (tmp_c  == ERR)
                      return(c);
-                  ungetch(tmp_c);
-#endif
                   state = ESCAPE;
                   break;
 

@@ -178,6 +178,25 @@ try {
   await waitFor(() => evaluate("!!document.querySelector('.fullscreen-panel')"), "macro panel");
   const labels = await evaluate("[...document.querySelectorAll('.panel-protected')].map(n => n.textContent).join(' ')");
   if (!labels.includes("Name:") || !labels.includes("Topic:")) throw new Error("missing protected labels");
+  const colours = await evaluate(`(() => {
+    const form=document.querySelector('.fullscreen-panel');
+    const name=[...document.querySelectorAll('.panel-protected')].find(n=>n.textContent==='Name: ');
+    const field=document.querySelector('.panel-editable');
+    return {body:getComputedStyle(form).backgroundColor,label:getComputedStyle(name).color,
+      field:getComputedStyle(field).color,background:getComputedStyle(field).backgroundColor,
+      text:form.textContent};
+  })()`);
+  if (colours.body!=='rgb(30, 30, 30)' || colours.label!=='rgb(220, 229, 242)' ||
+      colours.field!=='rgb(189, 233, 217)' || colours.background!=='rgb(36, 59, 54)')
+    throw new Error('declared panel colours were not rendered: '+JSON.stringify(colours));
+  if (/seed|tail|000000/.test(colours.text)) throw new Error('caller rows leaked into macro form');
+  const controls = await evaluate(`(() => {
+    const form=document.querySelector('.fullscreen-panel').getBoundingClientRect();
+    const controls=document.querySelector('.panel-controls').getBoundingClientRect();
+    return {top:controls.top,bottom:controls.bottom,formTop:form.top,formBottom:form.bottom};
+  })()`);
+  if (controls.top<controls.formTop || controls.bottom>controls.formBottom+1)
+    throw new Error('panel action buttons clipped: '+JSON.stringify(controls));
   async function cursorGeometry() {
     return evaluate(`(() => {
       const field = document.querySelector('.panel-focused');
@@ -212,6 +231,12 @@ try {
   await domKey("Tab", "Tab");
   await insertText("Rexx");
   await waitFor(() => evaluate("[...document.querySelectorAll('.panel-editable')].some(n => n.textContent.startsWith('Alice')) && [...document.querySelectorAll('.panel-editable')].some(n => n.textContent.startsWith('Rexx'))"), "edited fields");
+  await domKey("Tab", "Tab");
+  await insertText("B");
+  await waitFor(() => evaluate("[...document.querySelectorAll('.panel-editable')].some(n => n.textContent.startsWith('Blice'))"), "two-field forward Tab cycle");
+  await domKey("Tab", "Tab", false, true);
+  await insertText("Q");
+  await waitFor(() => evaluate("[...document.querySelectorAll('.panel-editable')].some(n => n.textContent.startsWith('Qexx'))"), "reverse Tab cycle");
   await evaluate("document.querySelector('.panel-protected').click()");
   if (await evaluate("document.querySelector('.panel-protected').textContent") !== "Name: ") throw new Error("protected label changed");
   await command("Emulation.setDeviceMetricsOverride", {width: 1100, height: 650, deviceScaleFactor: 1, mobile: false});

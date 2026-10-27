@@ -22,8 +22,20 @@ This keeps the footer and the next typed character in their original places.
 PRESERVE/RESTORE saves CURLINE and other editor settings; it does not save
 reserved definitions or the cursor. A reusable panel macro must handle those
 explicitly, as these examples do.
+The examples temporarily hide the ID line, prefix, ruler, command field and
+underlying file text. They reserve the form body, declare a dark background
+and contrasting editable fields, and restore the caller's file/prefix/command
+focus after submission or cancellation. Tab and Shift-Tab cycle the two form
+fields. General READ panels still include visible file/prefix/command fields
+when the caller enables those areas.
 Protection applies during READ; outside READ, FILECTLCHAR continues to be
 display markup for ordinary editor operations.
+
+READ preserves the foreground, background and styles declared by CTLCHAR and
+reserved lines. Native curses and browser forms use the same field attributes;
+the Windows console maps them to its available terminal palette. The browser
+keeps Enter, function-key selection and Cancel visible when the form needs
+scrolling. CMDLINE OFF omits its command input field during READ.
 
 ## Input and results
 

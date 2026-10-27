@@ -42,10 +42,46 @@ The signing maintenance at `bc89003` is the parent of this source fix.
 Exact successor Windows console-buffer and panel-return checks are still
 required, followed by Adrian's manual test. No Shmuel handoff is authorised.
 
+## F7 form and syntax review
+
+Adrian clarified that the additional panel report concerns the F7 macro demo.
+The review found that READ retained CTLCHAR protection but discarded its
+colours, and the native input reader could refresh the caller's window over
+the modal form. The panel model now carries declared colours/styles to both
+frontends, and native input reads from the modal window. A bare Escape also
+needed a nonblocking tail check in the POSIX key decoder.
+
+The demos reserve a clean body without file text, prefix numbers, ruler or
+command input, use explicit label/field colours, and restore file, prefix and
+command focus. Return values use one summary message instead of obscuring the
+caller with a message per field. Browser form actions remain visible when the
+body needs scrolling.
+
+New native PTY checks exercise these behaviours with both macro engines and
+validate all cells of comment, keyword, string, identifier and number tokens
+using the bundled rxc parser. They account for emitted OSC palette definitions
+instead of assuming the terminal's original indexed colours. Browser checks
+assert the declared RGB colours and visible action-button bounds. Existing
+prefix/command/file restoration assertions remain in place.
+The combined local optimized macOS suite passes all 83 tests, and the browser
+TypeScript check passes. Direct browser review also confirmed field typing,
+forward/backward Tab, submission and restored editor focus. Direct control of
+the macOS Terminal application was unavailable in this session; its terminal
+coverage is from actual PTY output rather than a Terminal pixel inspection.
+
+Windows b851 native checks confirmed the tab/footer repair but exposed seven
+remaining Unicode overlay failures. The Windows agent's separate PDCurses
+repair keeps legacy output within logical cells, excludes wide continuation
+sentinels from Unicode encoding, and bounds ANSI neighbour repair to the
+logical screen. Its isolated DLL tests passed both macro engines, Unicode
+preview modes and logical/physical neighbour comparisons. The integrated
+artifact still needs hosted and native Windows qualification.
+
 ## Separate observation
 
 A newly explored LLM profile sequence using Delete or direct
 `SOS CUADELCHAR`, followed by save, left the original bytes unchanged. Its
-cause is not established and no deletion repair is claimed here. The tab
+refresh reloads the working record before committing the deletion, including
+for plain ASCII. No deletion repair is claimed here. The tab
 regression checks its intended navigation/insertion/save boundary separately;
 this additional editing/persistence observation needs its own investigation.

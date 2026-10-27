@@ -11,6 +11,10 @@ main: procedure
   savedcolumn = pool.get('cursor.4') as .int
   savedrow = pool.get('cursor.1') as .int
   savedcell = pool.get('cursor.2') as .int
+  address the 'extract /field/line/' sandbox pool;
+  savedarea = pool.get('field.4')
+  savedareacol = pool.get('field.3') as .int
+  savedfocus = pool.get('line.1') as .int
   address the 'extract /reserved */' sandbox pool;
   reservedcount = pool.get('reserved.0') as .int
   savedreserved = .string[]
@@ -20,11 +24,24 @@ main: procedure
   address the 'preserve';
   address the 'set linend off';
   address the 'set curline off';
+  address the 'set prefix off';
+  address the 'set scale off';
+  address the 'set idline off';
+  address the 'set cmdline off';
+  address the 'set color reserved #DCE5F2 on #1E1E1E';
+  address the 'set color cmdline #DCE5F2 on #1E1E1E';
   address the 'set ctlchar ! escape';
-  address the 'set ctlchar p protect white';
-  address the 'set ctlchar u noprotect green';
+  address the 'set ctlchar p protect #DCE5F2 on #1E1E1E';
+  address the 'set ctlchar u noprotect #BDE9D9 on #243B36';
+  address the 'set reserved * off';
+  address the 'extract /lscreen/' sandbox pool;
+  panelrows = pool.get('lscreen.1') as .int
+  do panelrow = 1 to panelrows - 1
+    address the 'set reserved ' || panelrow || ' !p';
+  end
   address the 'set reserved 2 !pName: !uGuest           !p  Enter submits; Esc cancels';
   address the 'set reserved 4 !pTopic: !uTHE panels      !p';
+  address the 'set reserved -1 !pTab / Shift-Tab changes field; Enter submits; Esc cancels';
   address the 'read nochange tag' sandbox pool;
   readrc = rc
   count = pool.get('read.0') as .int
@@ -32,17 +49,27 @@ main: procedure
     value = pool.get('read.' || index)
     push value
   end
+  summary = ''
   do while queued() > 0
     parse pull value
-    address the 'emsg PANEL_RESULT ' || value;
+    summary = summary || ' | ' || value
   end
-  address the 'emsg PANEL_RC ' || readrc;
+  address the 'emsg PANEL_RC ' || readrc || summary;
   address the 'set reserved * off';
   do restoreindex = reservedcount to 1 by -1
     address the 'set reserved ' || savedreserved[restoreindex];
   end
   address the 'restore';
-  if savedline > 0 & savedcolumn > 0 then
+  if savedarea = 'COMMAND' then
+    address the 'cursor cmdline ' || savedareacol;
+  else if savedarea = 'PREFIX' then do
+    address the 'cursor goto ' || savedfocus || ' 1';
+    address the 'cursor prefix';
+    do prefixcell = 2 to savedareacol
+      address the 'cursor cua right';
+    end
+  end
+  else if savedline > 0 & savedcolumn > 0 then
     address the 'cursor goto ' || savedline || ' ' || savedcolumn;
   else if savedrow > 0 & savedcell > 0 then
     address the 'cursor screen ' || savedrow || ' ' || savedcell;

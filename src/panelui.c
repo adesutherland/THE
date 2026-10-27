@@ -216,6 +216,22 @@ static void quoted(Writer *w, const char *s)
       else emit(w,"%c",*p);
    emit(w,"\"");
 }
+static void colour_json(Writer *w, TheRenderAttr attr)
+{
+   static const uint32_t basic[] = {
+      0x000000,0x000080,0x008000,0x008080,0x800000,0x800080,0x808000,0xc0c0c0
+   };
+   emit(w,",\"colour\":{\"style\":%u",(unsigned)the_render_attr_style(attr));
+   if (the_render_attr_has_color(attr))
+   {
+      int fg=the_render_attr_fg(attr), bg=the_render_attr_bg(attr);
+      uint32_t fore=fg<8 ? basic[fg] : the_render_color_rgb24(fg);
+      uint32_t back=bg<8 ? basic[bg] : the_render_color_rgb24(bg);
+      emit(w,",\"foreground\":\"#%06X\",\"background\":\"#%06X\"",(unsigned)fore,(unsigned)back);
+   }
+   emit(w,"}");
+}
+
 size_t panel_ui_json(const ThePanelState *p, char *out, size_t size)
 {
    Writer w={out,size,0,1}; int i;
@@ -225,12 +241,14 @@ size_t panel_ui_json(const ThePanelState *p, char *out, size_t size)
    {
       int cell=0, width=0;
       panel_ui_cursor(p, &cell, &width);
-      emit(&w,"{\"rows\":%d,\"cols\":%d,\"active\":%d,\"cursor\":%d,\"cursor_cell\":%d,\"cursor_width\":%d,\"fields\":[",p->rows,p->cols,p->active,p->cursor,cell,width);
+      emit(&w,"{\"rows\":%d,\"cols\":%d,\"active\":%d,\"cursor\":%d,\"cursor_cell\":%d,\"cursor_width\":%d",p->rows,p->cols,p->active,p->cursor,cell,width);
+      colour_json(&w,p->colour);
+      emit(&w,",\"fields\":[");
       for (i=0;i<p->count;i++)
       {
          const ThePanelField *f=&p->fields[i];
          emit(&w,"%s{\"row\":%d,\"cell\":%d,\"width\":%d,\"line\":%ld,\"editable\":%d,\"changed\":%d,\"kind\":\"%c\",\"text\":",i?",":"",f->row,f->cell,f->width,(long)f->line,f->editable,f->changed,f->kind);
-         quoted(&w,f->text); emit(&w,"}");
+         quoted(&w,f->text); colour_json(&w,f->colour); emit(&w,"}");
       }
       emit(&w,"]}");
    }

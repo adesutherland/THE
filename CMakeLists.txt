@@ -1111,6 +1111,16 @@ if(THE_USE_REGINA AND REGINA_LIBRARY AND THE_PYTHON_EXECUTABLE)
         set_tests_properties(test_curses_repaint PROPERTIES TIMEOUT 60
             SKIP_RETURN_CODE 77 RESOURCE_LOCK the_pty_editor
             ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+        foreach(presentation_engine CREXX REGINA)
+            if(presentation_engine STREQUAL "CREXX" AND NOT THE_USE_CREXX)
+                continue()
+            endif()
+            add_test(NAME test_curses_presentation_${presentation_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_curses_presentation.py $<TARGET_FILE:the> ${presentation_engine})
+            set_tests_properties(test_curses_presentation_${presentation_engine} PROPERTIES TIMEOUT 90
+                SKIP_RETURN_CODE 77 RESOURCE_LOCK the_pty_editor
+                ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+        endforeach()
         add_test(NAME test_panel_curses COMMAND ${THE_PYTHON_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_panel_curses.py $<TARGET_FILE:the>)
         set_tests_properties(test_panel_curses PROPERTIES TIMEOUT 60 RESOURCE_LOCK the_pty_editor
@@ -1176,6 +1186,10 @@ if(WIN32 AND THE_PYTHON_EXECUTABLE)
             add_test(NAME test_windows_console_mode_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_windows_console_mode.py $<TARGET_FILE:the> ${profile_engine})
             set_tests_properties(test_windows_console_mode_${profile_engine} PROPERTIES TIMEOUT 100
+                RESOURCE_LOCK the_native_console ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+            add_test(NAME test_windows_console_repaint_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_windows_console_repaint.py $<TARGET_FILE:the> ${profile_engine})
+            set_tests_properties(test_windows_console_repaint_${profile_engine} PROPERTIES TIMEOUT 150
                 RESOURCE_LOCK the_native_console ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
         endif()
     endforeach()
@@ -1413,7 +1427,7 @@ set_tests_properties(test_driver_modules PROPERTIES
     TIMEOUT 20
     RESOURCE_LOCK the_pty_editor
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
-add_executable(test_llmruntime tests/test_llmruntime.c src/panelui.c src/llm/llmruntime.c src/llm/llmdriver.c src/parserdiagnostics.c src/inputevent.c src/frontendaction.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
+add_executable(test_llmruntime tests/test_llmruntime.c src/panelui.c src/thecolour.c src/llm/llmruntime.c src/llm/llmdriver.c src/parserdiagnostics.c src/inputevent.c src/frontendaction.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmruntime PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8)
     target_sources(test_llmruntime PRIVATE src/rendercell.c src/utfterm.c src/utflayout.c src/utfcluster.c)
