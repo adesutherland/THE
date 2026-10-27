@@ -1,0 +1,188 @@
+name: Build and release CRXTHE
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+concurrency:
+  group: crxthe-release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  metadata:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Validate tag and product version
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python3 scripts/generate-default-profiles.py --check
+          python3 - <<'PY'
+          import os,re
+          from pathlib import Path
+          tag=os.environ['RELEASE_TAG']
+          match=re.fullmatch(r'v(\d+\.\d+\.\d+)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?',tag)
+          assert match, 'Use a version tag such as v0.9.1 or v0.9.1-rc.1'
+          version=match[1]
+          assert Path('packaging/candidate-version.txt').read_text().strip()==version, 'Tag/package version mismatch'
+          assert re.search(r'project\(THE VERSION '+re.escape(version)+r' LANGUAGES C\)',Path('CMakeLists.txt').read_text()), 'Tag/editor version mismatch'
+          assert re.search(r'^VER_DOT='+re.escape(version)+r'$',Path('the.ver').read_text(),re.M), 'Tag/legacy version mismatch'
+          with open(os.environ['GITHUB_OUTPUT'],'a') as out:
+              out.write('version='+tag[1:]+'\nprerelease='+str('-' in tag).lower()+'\n')
+          PY
+  macos:
+    needs: metadata
+    uses: ./.github/workflows/macos-candidate.yml
+    with:
+      version: ${{ needs.metadata.outputs.version }}
+  windows:
+    needs: metadata
+    uses: ./.github/workflows/windows-candidate.yml
+    with:
+      version: ${{ needs.metadata.outputs.version }}
+  draft:
+    needs: [metadata, macos, windows]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: '*-candidate-and-test-results'
+          merge-multiple: true
+          path: release-inputs
+      - name: Verify built assets and create the release draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_VERSION: ${{ needs.metadata.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,subprocess,zipfile
+          from pathlib import Path
+          root=Path('release-inputs/packages'); version=os.environ['RELEASE_VERSION']
+          assets=sorted(root.glob('CRXTHE-*'))
+          assert len(assets)==6, 'Expected installer, ZIP and checksums for each platform'
+          for sums in root.glob('*SHA256SUMS.txt'):
+              for line in sums.read_text().splitlines():
+                  sha,name=line.split(maxsplit=1)
+                  assert hashlib.sha256((root/name.lstrip('*')).read_bytes()).hexdigest()==sha,name
+          for archive in root.glob('*.zip'):
+              with zipfile.ZipFile(archive) as z:
+                  name=next(n for n in z.namelist() if n.endswith('/manifest.json')); stem=name[:-len('manifest.json')]; m=json.loads(z.read(name))
+                  assert m['version']==version and m['source_commit']==os.environ['GITHUB_SHA'] and m['source_dirty'] is False,m
+                  for name,sha in m['files_sha256'].items():
+                      assert hashlib.sha256(z.read(stem+name)).hexdigest()==sha,name
+          notes=Path('doc/release-notes')/(version.split('-',1)[0]+'.md')
+          command=['gh','release','create',os.environ['RELEASE_TAG'],*map(str,assets),'--repo',os.environ['GITHUB_REPOSITORY'],'--verify-tag','--draft','--title','CRXTHE '+version]
+          command+=['--notes-file',str(notes)] if notes.exists() else ['--generate-notes']
+          if '-' in version: command+=['--prerelease']
+          subprocess.run(command,check=True)
+          PY
+  sign-macos:
+    needs: draft
+    runs-on: macos-15
+    timeout-minutes: 75
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Sign, notarize, staple and test the macOS installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          APPLE_DEVELOPER_ID_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_IDENTITY }}
+          APPLE_DEVELOPER_ID_INSTALLER_CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_CERTIFICATE_BASE64 }}
+          APPLE_DEVELOPER_ID_INSTALLER_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_CERTIFICATE_PASSWORD }}
+          APPLE_DEVELOPER_ID_INSTALLER_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          python3 scripts/sign-macos-release.py --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" \
+            --arch arm64 --allow-draft --test-install --upload
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-release-signing-receipts
+          path: |
+            build/sign-macos/**/input.json
+            build/sign-macos/**/receipt.json
+          if-no-files-found: ignore
+  publish:
+    needs: [metadata, sign-macos]
+    runs-on: windows-2025
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Download and verify final signed release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib,importlib.util,json,os,zipfile
+          from pathlib import Path
+          spec=importlib.util.spec_from_file_location('release','scripts/sign-windows-release.py'); tool=importlib.util.module_from_spec(spec); spec.loader.exec_module(tool)
+          release=tool.Release(os.environ['GITHUB_REPOSITORY'],os.environ['RELEASE_TAG'],allow_draft=True)
+          assert release.commit==os.environ['GITHUB_SHA'] and release.original['draft']
+          assert len(release.original['assets'])==6
+          root=Path('release-final'); root.mkdir()
+          for asset in release.original['assets']: release.download(asset,root/asset['name'])
+          for sums in root.glob('*SHA256SUMS.txt'):
+              for line in sums.read_text().splitlines():
+                  sha,name=line.split(maxsplit=1)
+                  assert hashlib.sha256((root/name.lstrip('*')).read_bytes()).hexdigest()==sha,name
+          for archive in root.glob('*.zip'):
+              with zipfile.ZipFile(archive) as z:
+                  name=next(n for n in z.namelist() if n.endswith('/manifest.json')); stem=name[:-len('manifest.json')]; m=json.loads(z.read(name))
+                  assert m['source_commit']==release.commit and m['source_dirty'] is False and m['version']==os.environ['RELEASE_TAG'][1:]
+                  if m['platform']=='darwin': assert m['signing']['type']=='Developer ID'
+                  for name,sha in m['files_sha256'].items(): assert hashlib.sha256(z.read(stem+name)).hexdigest()==sha,name
+          release.check()
+          Path('release-notes.md').write_text(release.original['body'],encoding='utf-8')
+          PY
+      - name: Verify Windows signing state and test a signed installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = @(Get-ChildItem 'release-final/*-setup.exe')
+          if ($installer.Count -ne 1) { throw 'Expected one Windows installer' }
+          $signature = Get-AuthenticodeSignature -LiteralPath $installer[0].FullName
+          if ($signature.Status -eq 'Valid') {
+            ./scripts/test-signed-windows-installer.ps1 -Installer $installer[0].FullName
+            $state = 'Windows installer: Authenticode signature, trusted timestamp and signed-installation checks passed.'
+          } elseif ($signature.Status -eq 'NotSigned') {
+            $state = 'Windows installer: unsigned. As in cREXX-RAG, local SimplySign signing and replacement are a separate maintainer pass.'
+          } else { throw "Invalid installer signature: $($signature.Status)" }
+          Add-Content -Path release-notes.md -Value "`n`n$state"
+      - name: Publish the verified release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          IS_PRERELEASE: ${{ needs.metadata.outputs.prerelease }}
+        run: |
+          printf '\nSource: %s. [Automated release run](%s/%s/actions/runs/%s).\n' \
+            "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" >> release-notes.md
+          latest=true
+          if [[ "$IS_PRERELEASE" == true ]]; then latest=false; fi
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --draft=false --prerelease="$IS_PRERELEASE" --latest="$latest" --notes-file release-notes.md

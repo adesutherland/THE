@@ -1,44 +1,36 @@
-# Controlled CRXTHE 0.9.1 full release
+# CRXTHE 0.9.1 release
 
-Adrian approved a full public 0.9.1 release on 27 October 2026 after manually
-smoke-testing the Windows preview at
-`dc2ea4022b264e30d0cdc87e2ece64dcc35ae485`. That source already passed local
-macOS, hosted macOS/Windows and native Windows dual-engine form, tab,
-Unicode status and syntax-colour checks; see [the follow-up](ui-render-followup.md).
+Adrian approved full publication after his Windows smoke test. The integrated
+product was also qualified with both engines on macOS and Windows, including
+F7, retained tabs, Unicode status repainting and five syntax categories.
+The final product candidate `6b8ce24` passed local 83/83 tests, hosted macOS
+79 passes/four optional skips and Windows 69 passes/12 optional skips, plus
+installed packages and the Windows agent's native/RGB checks.
 
-The only subsequent product changes are the 0.9.1 identity/date, matched
-profile welcome strings and current release/install documentation. The first
-Mac candidate exposed UI test-harness readiness races: the PTY checker
-accepted a quiet partial startup paint, and Chrome received a history command
-during the test's deliberate disconnect navigation. The harness reads the
-editor history before navigating, then waits for the blank document instead
-of using a fixed 150 ms delay. Initial page attachment also waits for an
-active renderer. The native syntax test also waits for an explicit profile-completion marker
-with a successful SDSLHWAIT return code before asserting every token cell
-colour, rather than accepting the earlier plain-text paint. All waits are
-bounded and retain the rendering assertions.
-No editor source changes were needed. Reuse the
-manual interaction approval while requiring matching-source automated checks
-for the versioned rebuild. Keep the v0.9.0 tag and all its assets unchanged.
+Adrian then clarified that releases must follow cREXX-RAG's tag-driven pattern.
+The workflow-only successor adds `.github/workflows/build-release.yml` and
+reuses the same tested platform jobs; it adds no editor behaviour.
 
-1. Commit the consistent 0.9.1 version and documentation. Run local Release
-   checks and both clean hosted candidate workflows at the same exact commit.
-2. Verify both package manifests (0.9.1, clean source, exact frozen commit)
-   and every payload hash. Have the Windows liaison verify that candidate.
-3. Tag only that green commit as v0.9.1. Create a private draft containing the
-   exact rebuilt installers, archives and checksums.
-4. Sign the Windows outer installer locally with SimplySign and a trusted
-   timestamp. Run the hosted signed-installer workflow with explicit draft
-   access: native Windows installed/lifecycle checks, all Mac code signatures,
-   ZIP/PKG notarization, PKG stapling, Gatekeeper and installed/runtime checks.
-5. Download the final signed assets, verify checksums/signatures and unchanged
-   payload provenance, then publish the draft as a full release and latest:
-   draft=false, prerelease=false. Read back the tag, release and all assets.
+To release a version matching the source:
 
-No third-party macro originals, patches or cREXX ports belong in the package.
-No message or material is to be sent to Shmuel as part of this release task.
-The browser UI remains experimental; the separate LLM deletion observation
-is still open. No upstream THE or live XEDIT compatibility claim is added.
+```sh
+git tag -a v0.9.1 -m 'CRXTHE 0.9.1'
+git push origin v0.9.1
+```
 
-Build/signing receipts and the final release notes record completed gates
-without moving the frozen tag for a documentation-only status update.
+The tag automatically builds both installers/ZIPs, runs normal regressions
+once, verifies clean source manifests/checksums, creates its draft, signs and
+notarizes macOS, tests installed packages, verifies final assets and publishes.
+A tag containing a hyphen is a prerelease; v0.9.1 is a full/latest release.
+No manual candidate dispatch or separate publication command is required.
+
+As in cREXX-RAG, Windows SimplySign uses the maintainer's local authenticated
+provider. It is a separate signing/replacement pass; Apple secrets stay in
+GitHub. The publication notes report whether Windows is signed. For this
+release, complete the local Windows signing pass and native signed-installer
+verification too. Preserve the v0.9.0 tag/assets and send nothing to Shmuel.
+
+The UI regressions are reusable checks for reported defects. Diagnostic
+repeat runs are not release steps. Readiness barriers wait for a completed
+terminal paint, completed browser navigation and an explicit successful
+parser-profile marker; all original colour/cursor assertions remain.

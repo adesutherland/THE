@@ -11,6 +11,10 @@ on:
         type: choice
         options: [arm64, x86_64]
         default: arm64
+      windows_only:
+        description: Verify a locally signed Windows replacement without re-signing macOS
+        type: boolean
+        default: false
       allow_draft:
         description: Sign a private draft; publish only after this workflow succeeds
         type: boolean
@@ -67,6 +71,7 @@ jobs:
           if ($installer.Count -ne 1) { throw 'Expected one installer' }
           ./scripts/test-signed-windows-installer.ps1 -Installer $installer[0].FullName
   macos:
+    if: ${{ !inputs.windows_only }}
     needs: windows
     runs-on: ${{ inputs.architecture == 'x86_64' && 'macos-15-intel' || 'macos-15' }}
     timeout-minutes: 75

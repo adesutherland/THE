@@ -1,13 +1,24 @@
 name: macOS candidate qualification
 on:
   push:
-    branches: ['temp/shmuel-macros', 'temp/release-*']
+    branches: [main, 'temp/shmuel-macros', 'temp/release-*']
+  pull_request:
+    branches: [main]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      version:
+        description: Package version supplied by the tag release workflow
+        type: string
+        required: false
+        default: ''
 permissions:
   contents: read
 jobs:
   macos:
     runs-on: macos-15
+    env:
+      THE_PACKAGE_VERSION: ${{ inputs.version }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
@@ -75,7 +86,7 @@ jobs:
       - name: Package and test relocated payload
         run: |
           set -euo pipefail
-          version=$(tr -d '\r\n' < packaging/candidate-version.txt)
+          version=${THE_PACKAGE_VERSION:-$(tr -d '\r\n' < packaging/candidate-version.txt)}
           python3 scripts/package-release.py --build-dir build-release --version "$version" --installer
           mkdir -p "$RUNNER_TEMP/relocated"
           ditto -x -k "build-release/packages/CRXTHE-$version-darwin-arm64.zip" "$RUNNER_TEMP/relocated"

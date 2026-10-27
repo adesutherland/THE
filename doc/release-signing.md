@@ -1,14 +1,35 @@
 # Signing CRXTHE release installers
 
-## Full 0.9.1 release
+## Tag-driven releases
 
-Adrian approved a full 0.9.1 release after the Windows smoke test passed.
-The [0.9.1 plan](release-0.9.1-plan.md) uses the same private-draft signing
-gates below, then publishes with `prerelease=false` and `draft=false`.
-The earlier 0.9.0 release and its assets stay unchanged. This release approval
-does not request a separate message to Shmuel.
+Push a version tag matching the source to run
+[Build and release CRXTHE](../.github/workflows/build-release.yml). It calls
+the normal macOS/Windows build jobs, including installers and regressions,
+then automatically verifies the packages, creates its draft, signs/notarizes
+macOS, tests installed assets and publishes. Plain version tags are full
+releases; tags containing a hyphen are prereleases. Main/PR platform builds
+also create installer artifacts. No candidate workflow dispatch is needed.
 
-## Controlled draft release
+This follows cREXX-RAG. Windows SimplySign remains local because its provider
+and login are on the maintainer's signing machine. To sign and replace the
+Windows installer after the automatic release:
+
+```sh
+python3 scripts/sign-windows-release.py --tag v0.9.1 \
+  --signer /path/to/CREXX/scripts/sign-windows-file.sh --upload
+gh workflow run sign-release-installers.yml --repo adesutherland/THE \
+  --ref v0.9.1 -f tag=v0.9.1 -f windows_only=true
+```
+
+The second command validates the signed Windows installation on its runner;
+it does not rebuild anything or re-sign macOS. The signing tool preserves
+the Windows ZIP, other platforms and earlier releases. See the
+[0.9.1 delivery plan](release-0.9.1-plan.md).
+
+## Earlier controlled draft procedure
+
+The following records the earlier manually coordinated prerelease process.
+New tag releases use the automatic workflow above.
 
 The [0.9.0 release plan](release-0.9.0-plan.md) records the source-build and
 packaged-install gates. Both `macos-candidate.yml` and `windows-candidate.yml`

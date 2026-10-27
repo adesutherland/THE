@@ -1,7 +1,16 @@
+# CRXTHE builds and releases
+
+Pushing a `v*` tag runs [the release workflow](../.github/workflows/build-release.yml):
+both platform builds produce installers, portable archives and checksums, run
+their normal checks, sign/notarize macOS and publish automatically after all
+jobs pass. Main and pull-request builds retain installer artifacts. Windows
+SimplySign is the same separate local signing/replacement step as cREXX-RAG;
+see [signing](../doc/release-signing.md).
+
 Windows end-user instructions: [install and first use](../doc/Windows-Readme.txt).
 The build/signing instructions below are for maintainers.
 
-# Prebuilt CRXTHE candidates
+## Local packaging
 
 The bundled install contains CRXTHE, its curses and LLM drivers, profiles,
 help, generic panel examples and a private matching cREXX tool set. Third-party
