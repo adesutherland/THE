@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Release tags on main pass; unmerged source tags must fail before publishing."""
+import argparse
 import os
 from pathlib import Path
 import subprocess
 import tempfile
 
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--bash', default='bash', help='Bash selected by the build, including Git Bash on Windows')
+args = parser.parse_args()
 helper = Path(__file__).resolve().parent.parent / 'scripts/check-release-source.sh'
 with tempfile.TemporaryDirectory(prefix='THE release source ') as temporary:
     env = dict(os.environ, GIT_AUTHOR_NAME='Release fixture',
@@ -25,11 +29,12 @@ with tempfile.TemporaryDirectory(prefix='THE release source ') as temporary:
     git('tag', 'v1.0.0', main)
     git('tag', 'v1.0.1', unmerged)
     for tag, expected in [('v1.0.0', 0), ('v1.0.1', 1)]:
-        result = subprocess.run(['bash', str(helper), tag], cwd=temporary,
+        result = subprocess.run([args.bash, helper.as_posix(), tag], cwd=temporary,
                                 capture_output=True, text=True)
         assert result.returncode == expected, result
+        assert ('Release source verified' if expected == 0 else 'Release refused') in result.stdout + result.stderr, result
     git('update-ref', 'refs/remotes/origin/main', unmerged)
-    result = subprocess.run(['bash', str(helper), 'v1.0.1'], cwd=temporary,
+    result = subprocess.run([args.bash, helper.as_posix(), 'v1.0.1'], cwd=temporary,
                             capture_output=True, text=True)
     assert result.returncode == 0, result
 print('Release source gate accepts main and rejects unmerged tag commits')

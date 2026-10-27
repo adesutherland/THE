@@ -945,6 +945,7 @@ find_program(THE_BASH_EXECUTABLE
 if(THE_BASH_EXECUTABLE)
     set(THE_BASH_COMMAND "${THE_BASH_EXECUTABLE}")
 else()
+    set(THE_BASH_EXECUTABLE bash)
     set(THE_BASH_COMMAND bash)
 endif()
 message(STATUS "Using Bash for tests: ${THE_BASH_COMMAND}")
@@ -1013,7 +1014,8 @@ if(THE_PYTHON_EXECUTABLE)
     add_test(NAME test_sign_macos_release COMMAND ${THE_PYTHON_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sign_macos_release.py)
     add_test(NAME test_release_source COMMAND ${THE_PYTHON_EXECUTABLE}
-        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_release_source.py)
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_release_source.py
+        --bash "${THE_BASH_EXECUTABLE}")
     if(NOT WIN32)
         add_test(NAME test_llm_stack_budget COMMAND ${THE_PYTHON_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_llm_stack_budget.py $<TARGET_FILE:the>)
