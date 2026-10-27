@@ -259,10 +259,13 @@ try {
   await restoredEditor();
   await domKey("F7", "F7");
   await waitFor(() => evaluate("!!document.querySelector('.fullscreen-panel')"), "disconnect panel");
-  await command("Page.navigate", { url: "about:blank" });
-  await sleep(150);
   const history = await command("Page.getNavigationHistory");
-  await command("Page.navigateToHistoryEntry", { entryId: history.entries[history.currentIndex - 1].id });
+  const editorEntry = history.entries[history.currentIndex];
+  await command("Page.navigate", { url: "about:blank" });
+  // Cross-process navigation can temporarily detach the old renderer. Wait
+  // for the blank document, proving disconnect before returning to the form.
+  await waitFor(() => evaluate("document.readyState === 'complete' && location.href === 'about:blank'"), "completed disconnect navigation", 30000);
+  await command("Page.navigateToHistoryEntry", { entryId: editorEntry.id });
   try {
     await waitFor(() => evaluate("document.querySelector('.connection')?.textContent.trim() === 'online'"), "reconnected editor");
   } catch (error) {

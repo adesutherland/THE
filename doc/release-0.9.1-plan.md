@@ -9,9 +9,11 @@ Unicode status and syntax-colour checks; see [the follow-up](ui-render-followup.
 The only subsequent product changes are the 0.9.1 identity/date, matched
 profile welcome strings and current release/install documentation. The first
 Mac candidate exposed two test-harness readiness races: the PTY checker
-accepted a quiet partial startup paint, and Chrome received a page command
-before its renderer was active. The harness now waits for the fixture and
-active page within bounded deadlines, retaining all rendering assertions.
+accepted a quiet partial startup paint, and Chrome received a history command
+during the test's deliberate disconnect navigation. The harness reads the
+editor history before navigating, then waits for the blank document instead
+of using a fixed 150 ms delay. Initial page attachment also waits for an
+active renderer. All waits are bounded and retain the rendering assertions.
 No editor source changes were needed. Reuse the
 manual interaction approval while requiring matching-source automated checks
 for the versioned rebuild. Keep the v0.9.0 tag and all its assets unchanged.
