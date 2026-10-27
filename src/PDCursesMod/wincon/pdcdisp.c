@@ -156,6 +156,88 @@ static void _set_ansi_color(short f, short b, attr_t attr)
 
 #ifdef PDC_WIDE
 #define IS_SUPPLEMENTAL_MULTILINGUAL_PLANE( c) ((c) & 0x1f0000)
+
+#ifdef USING_COMBINING_CHARACTER_SCHEME
+static WCHAR *_wincon_combined_text(chtype ch, int *units,
+                                    chtype *base, chtype *last)
+{
+    cchar_t root = ch, added, *points;
+    WCHAR *text;
+    int count = 1, i;
+
+    while (root > DUMMY_CHAR_NEXT_TO_FULLWIDTH)
+    {
+        root = PDC_expand_combined_characters(root, &added);
+        count++;
+    }
+    *base = (chtype)root;
+    *last = (chtype)root;
+    points = (cchar_t *)malloc((size_t)count * sizeof(*points));
+    text = (WCHAR *)malloc((size_t)count * 2 * sizeof(*text));
+    if (!points || !text)
+    {
+        free(points);
+        free(text);
+        return NULL;
+    }
+    root = ch;
+    for (i = count - 1; i > 0; i--)
+        root = PDC_expand_combined_characters(root, &points[i]);
+    points[0] = root;
+    *last = (chtype)points[count - 1];
+    *units = 0;
+    for (i = 0; i < count; i++)
+    {
+        cchar_t cp = points[i];
+        if (cp > 0xffff && cp < 0x110000)
+        {
+            text[(*units)++] = (WCHAR)(((cp - 0x10000) >> 10) | 0xd800);
+            text[(*units)++] = (WCHAR)((cp & 0x3ff) | 0xdc00);
+        }
+        else
+            text[(*units)++] = (WCHAR)cp;
+    }
+    free(points);
+    return text;
+}
+#endif
+
+/* CHAR_INFO has one UTF-16 unit per grid cell.  Expanding a combined PDC
+   cell into several CHAR_INFOs moves every following cell, and the console
+   then disagrees with curses' physical-screen cache.  Prefer a precomposed
+   display scalar without changing the original logical cell.  A standalone
+   mark (the status preview uses a space as its base) occupies its own cell.
+   Other combinations without a single-scalar representation retain the base;
+   the legacy console cannot represent an arbitrary cluster in one cell. */
+static chtype _wincon_display_character(chtype ch)
+{
+#ifdef USING_COMBINING_CHARACTER_SCHEME
+    if (ch > DUMMY_CHAR_NEXT_TO_FULLWIDTH)
+    {
+        WCHAR *text, *composed;
+        int units = 0, folded = 0;
+        chtype base, last, display;
+
+        text = _wincon_combined_text(ch, &units, &base, &last);
+        if (!text)
+            return base;
+        composed = (WCHAR *)malloc((size_t)units * sizeof(*composed));
+        if (composed)
+            folded = FoldStringW(MAP_PRECOMPOSED, text, units, composed, units);
+        display = (base == ' ' ? last : base);
+        if (folded == 1)
+            display = composed[0];
+        else if (folded == 2 && IS_HIGH_SURROGATE(composed[0])
+                               && IS_LOW_SURROGATE(composed[1]))
+            display = 0x10000 + ((composed[0] - 0xd800) << 10)
+                                + composed[1] - 0xdc00;
+        free(text);
+        free(composed);
+        return display;
+    }
+#endif
+    return ch;
+}
 #endif
 
 static void _show_run_of_ansi_characters( const attr_t attr,
@@ -163,12 +245,17 @@ static void _show_run_of_ansi_characters( const attr_t attr,
                            const int lineno, const int x, const chtype *srcp, const int len)
 {
 #ifdef PDC_WIDE
-    WCHAR buffer[MAX_PACKET_LEN];
+    WCHAR buffer[MAX_PACKET_LEN * 2];
+    int run_start = 0;
+#ifdef USING_COMBINING_CHARACTER_SCHEME
+    static bool repairing_columns = FALSE;
+#endif
 #else
     char buffer[MAX_PACKET_LEN];
 #endif
     int j, n_out;
 
+    _set_ansi_color( (short)fore, (short)back, attr);
     for (j = n_out = 0; j < len; j++)
     {
         chtype ch = srcp[j];
@@ -181,12 +268,73 @@ static void _show_run_of_ansi_characters( const attr_t attr,
 
 #ifdef PDC_WIDE
         ch &= A_CHARTEXT;
-        if( ch <= MAX_UNICODE)
+#ifdef USING_COMBINING_CHARACTER_SCHEME
+        if (ch > DUMMY_CHAR_NEXT_TO_FULLWIDTH && !repairing_columns)
         {
+            int units = 0;
+            chtype base, last;
+            WCHAR *text = _wincon_combined_text(ch, &units, &base, &last);
+            CONSOLE_SCREEN_BUFFER_INFO after;
+            int next_column = x + j + 1;
+
+            if (next_column < SP->cols
+                && (curscr->_y[lineno][next_column] & A_CHARTEXT)
+                    == DUMMY_CHAR_NEXT_TO_FULLWIDTH)
+                next_column++;
+
+            if (n_out)
+            {
+                PDC_gotoyx(lineno, x + run_start);
+                WriteConsoleW(pdc_con_out, buffer, n_out, NULL, NULL);
+                n_out = 0;
+            }
+            PDC_gotoyx(lineno, x + j);
+            if (text)
+            {
+                /* VT terminals receive the complete sequence.  Anchor the
+                   following run to its logical column even on older hosts
+                   which advance for a combining mark. */
+                WriteConsoleW(pdc_con_out, text, units, NULL, NULL);
+                free(text);
+            }
+            else
+            {
+                WCHAR fallback = (WCHAR)base;
+                WriteConsoleW(pdc_con_out, &fallback, 1, NULL, NULL);
+            }
+            if (GetConsoleScreenBufferInfo(pdc_con_out, &after)
+                && after.dwCursorPosition.Y == lineno
+                && after.dwCursorPosition.X > next_column
+                && next_column < SP->cols)
+            {
+                int spill = after.dwCursorPosition.X - next_column;
+
+                /* Some older console hosts give combining marks a column.
+                   Repair only the overwritten neighbours from the logical
+                   screen, including unchanged cells absent from this packet.
+                   Unsupported clusters encountered during repair use the
+                   bounded legacy representation, avoiding recursive spills. */
+                repairing_columns = TRUE;
+                PDC_transform_line_sliced(lineno, next_column, spill,
+                                           curscr->_y[lineno] + next_column);
+                repairing_columns = FALSE;
+                _set_ansi_color((short)fore, (short)back, attr);
+            }
+            continue;
+        }
+        if (repairing_columns)
+            ch = _wincon_display_character(ch);
+#endif
+        if( ch < MAX_UNICODE)
+        {
+            if (!n_out)
+                run_start = j;
             if( IS_SUPPLEMENTAL_MULTILINGUAL_PLANE( ch))
             {
                 buffer[n_out++] = (WCHAR)((ch - 0x10000) >> 10 | 0xD800); /* first UTF-16 unit */
                 buffer[n_out++] = (WCHAR)(ch & 0x3FF) | 0xDC00;   /* second UTF-16 unit */
+                if (j + 1 < len && (srcp[j + 1] & A_CHARTEXT) == ' ')
+                    j++;  /* THE reserves a second cell for this scalar. */
             }
         else
             buffer[n_out++] = (WCHAR)ch;
@@ -196,11 +344,11 @@ static void _show_run_of_ansi_characters( const attr_t attr,
 #endif
     }
 
-    PDC_gotoyx(lineno, x);
-    _set_ansi_color( (short)fore, (short)back, attr);
 #ifdef PDC_WIDE
+    PDC_gotoyx(lineno, x + run_start);
     WriteConsoleW(pdc_con_out, buffer, n_out, NULL, NULL);
 #else
+    PDC_gotoyx(lineno, x);
     WriteConsoleA(pdc_con_out, buffer, n_out, NULL, NULL);
 #endif
 }
@@ -213,7 +361,7 @@ static void _show_run_of_nonansi_characters( attr_t attr,
     COORD bufSize, bufPos;
     SMALL_RECT sr;
     WORD mapped_attr;
-    int j, n_out;;
+    int j;
 
     fore = pdc_curstoreal[fore];
     back = pdc_curstoreal[back];
@@ -230,7 +378,12 @@ static void _show_run_of_nonansi_characters( attr_t attr,
     if (attr & A_RIGHT)
         mapped_attr |= 0x1000; /* COMMON_LVB_GRID_RVERTICAL */
 
-    for (j = n_out = 0; j < len; j++)
+    for (j = 0; j < len; j++)
+    {
+        buffer[j].Char.UnicodeChar = ' ';
+        buffer[j].Attributes = mapped_attr;
+    }
+    for (j = 0; j < len; j++)
     {
         chtype ch = srcp[j];
 
@@ -242,44 +395,41 @@ static void _show_run_of_nonansi_characters( attr_t attr,
 
 #ifdef PDC_WIDE
         ch &= A_CHARTEXT;
-#ifdef USING_COMBINING_CHARACTER_SCHEME
-        if( ch > DUMMY_CHAR_NEXT_TO_FULLWIDTH)
-        {
-            cchar_t added[10], root = ch;
-            int n_combined = 0;
-
-            while( (root = PDC_expand_combined_characters( root,
-                                   &added[n_combined])) > MAX_UNICODE)
-                n_combined++;
-            buffer[n_out++].Char.UnicodeChar = (WCHAR)root;
-            ch = (chtype)added[n_combined];
-            while( n_combined)
-            {
-                n_combined--;
-                buffer[n_out++].Char.UnicodeChar = (WCHAR)added[n_combined];
-            }
-        }
-#endif
-        if( ch <= MAX_UNICODE)
+        ch = _wincon_display_character(ch);
+        if( ch < MAX_UNICODE)
         {
             if( IS_SUPPLEMENTAL_MULTILINGUAL_PLANE( ch))
             {
-                buffer[n_out++].Char.UnicodeChar = (WCHAR)((ch - 0x10000) >> 10 | 0xD800); /* first UTF-16 unit */
-                buffer[n_out++].Char.UnicodeChar = (WCHAR)(ch & 0x3FF) | 0xDC00;   /* second UTF-16 unit */
+                if (j + 1 < len && ((srcp[j + 1] & A_CHARTEXT) == DUMMY_CHAR_NEXT_TO_FULLWIDTH
+                                || (srcp[j + 1] & A_CHARTEXT) == ' '))
+                {
+                    buffer[j].Char.UnicodeChar = (WCHAR)(((ch - 0x10000) >> 10) | 0xd800);
+                    buffer[j].Attributes |= COMMON_LVB_LEADING_BYTE;
+                    buffer[++j].Char.UnicodeChar = (WCHAR)((ch & 0x3ff) | 0xdc00);
+                    buffer[j].Attributes |= COMMON_LVB_TRAILING_BYTE;
+                }
+                else
+                    buffer[j].Char.UnicodeChar = 0xfffd;
             }
             else
-                buffer[n_out++].Char.UnicodeChar = (WCHAR)ch;
+            {
+                buffer[j].Char.UnicodeChar = (WCHAR)ch;
+                if (j + 1 < len && (srcp[j + 1] & A_CHARTEXT) == DUMMY_CHAR_NEXT_TO_FULLWIDTH)
+                {
+                    buffer[j].Attributes |= COMMON_LVB_LEADING_BYTE;
+                    buffer[++j].Char.UnicodeChar = (WCHAR)ch;
+                    buffer[j].Attributes |= COMMON_LVB_TRAILING_BYTE;
+                }
+            }
         }
 #else
-        buffer[n_out++].Char.UnicodeChar = (WCHAR)( ch & A_CHARTEXT);
+        buffer[j].Char.UnicodeChar = (WCHAR)( ch & A_CHARTEXT);
 #endif
 
     }
 
-    for( j = 0; j < n_out; j++)
-        buffer[j].Attributes = mapped_attr;
     bufPos.X = bufPos.Y = 0;
-    bufSize.X = (SHORT)n_out;
+    bufSize.X = (SHORT)len;
     bufSize.Y = 1;
 
     sr.Top = sr.Bottom = (SHORT)lineno;
