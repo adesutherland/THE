@@ -142,10 +142,15 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE presentation ') as temporary:
         raise SystemExit(77)
     source = root/'sample.crexx'
     source.write_text('/* comment */\nsay "hello"\nanswer = 42\n')
-    profile.write_text(stock.read_text() + "\n'set curline off';\n'sdslhwait 5000';\n")
+    profile.write_text(stock.read_text() + "\n'set curline off';\n'sdslhwait 5000';\n"
+                       "'msg SYNTAX_READY_' || rc;\n")
     terminal = Terminal(profile, source, env)
     try:
-        screen = terminal.wait(lambda s: any('answer = 42' in row for row in s.display))
+        # The file can be painted before its profile/parser wait finishes.
+        # Use the profile's completion marker, independent of the expected
+        # colours, then retain every cell's exact foreground assertion.
+        screen = terminal.wait(lambda s: any('SYNTAX_READY_' in row for row in s.display))
+        assert any('SYNTAX_READY_0' in row for row in screen.display), '\n'.join(screen.display)
         expected = {'/* comment */': '6A9955', 'say': '569CD6', '"hello"': 'CE9178',
                     'answer': '9CDCFE', '42': 'B5CEA8'}
         for token, foreground in expected.items():
