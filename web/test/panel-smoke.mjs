@@ -46,7 +46,7 @@ async function waitFor(check, description, timeout = 8000) {
 function command(method, params = {}) {
   const id = nextId++;
   return new Promise((resolve, reject) => {
-    pending.set(id, { resolve, reject });
+    pending.set(id, { resolve, reject, method });
     socket.send(JSON.stringify({ id, method, params }));
   });
 }
@@ -129,7 +129,7 @@ try {
     return Number(contents.split("\n", 1)[0]) || 0;
   }, "Chrome DevTools port", 30000);
   const targetResponse = await fetch(
-    `http://127.0.0.1:${port}/json/new?${encodeURIComponent(pageUrl)}`,
+    `http://127.0.0.1:${port}/json/new?${encodeURIComponent("about:blank")}`,
     { method: "PUT" },
   );
   if (!targetResponse.ok) throw new Error(`unable to create Chrome target: ${targetResponse.status}`);
@@ -145,16 +145,19 @@ try {
     if (message.id && pending.has(message.id)) {
       const request = pending.get(message.id);
       pending.delete(message.id);
-      if (message.error) request.reject(new Error(message.error.message));
+      if (message.error) request.reject(new Error(`${request.method}: ${message.error.message}`));
       else request.resolve(message.result);
     } else if (message.method === "Runtime.exceptionThrown") {
       exceptions.push(message.params?.exceptionDetails?.text || "browser exception");
     }
   });
 
+  // Creating a target may precede its active renderer on a loaded runner.
+  // Attach to a ready blank page before starting the application navigation.
+  await waitFor(() => command("Page.getFrameTree"), "active Chrome page", 30000);
   await command("Runtime.enable");
   await command("Page.enable");
-  await command("Page.bringToFront");
+  await command("Page.navigate", { url: pageUrl });
   await waitFor(
     () => evaluate("document.readyState === 'complete' && !!document.querySelector('.app-shell')"),
     "THE application shell",
@@ -164,6 +167,7 @@ try {
     () => evaluate("document.querySelector('.connection')?.textContent.trim() === 'online'"),
     "web driver connection",
   );
+  await command("Page.bringToFront");
 
   async function restoredEditor() {
     try {

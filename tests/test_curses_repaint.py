@@ -69,7 +69,12 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE physical repaint ') as tmp:
                 stream.feed(data)
                 quiet = time.monotonic()
             elif quiet is not None and time.monotonic() - quiet > 0.15:
-                break
+                # A quiet PTY can be between profile drawing and the first
+                # file paint on a loaded runner. Wait for the initial fixture,
+                # retaining the same tab/status assertions and hard deadline.
+                if not startup or (any('aa\u2192bb' in row for row in screen.display)
+                                   and 'U+61' in screen.display[-1]):
+                    break
         assert process.poll() is None, '\n'.join(screen.display)
 
     def send(keys):
