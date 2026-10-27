@@ -35,7 +35,9 @@ for engine in ['CREXX','REGINA']:
             while process.poll() is None and time.monotonic()-start<15:
                 elapsed=time.monotonic()-start
                 if stage==0 and elapsed>1 and output and time.monotonic()-last_output>0.35:
-                    os.write(master,b'Z\t\x13');stage=1
+                    # Delete X under the caret, then backspace over Y. The
+                    # saved control below proves neither deleted byte returns.
+                    os.write(master,b'XY\x1b[H\x1b[3~\x1b[C\x08Z\t\x13');stage=1
                 if stage==1 and sample.read_text()=='Z       alpha\n':
                     os.write(master,b'\x1b[H'+b'\x1b[D'*8+b'\x1b[17~\x1b[17~\x1b[F\rbeta\x13');stage=2
                 if stage==2 and sample.read_text()=='Z       alpha\nbeta\n':
@@ -57,4 +59,4 @@ for engine in ['CREXX','REGINA']:
             if process.poll() is None:process.kill()
             process.wait()
             os.close(master)
-print('CREXX and Regina default profiles: real terminal insert, Ctrl-S save, End/Enter, command focus and save/exit passed')
+print('CREXX and Regina default profiles: real terminal Delete/Backspace, insert, Ctrl-S save, End/Enter, command focus and save/exit passed')

@@ -1091,6 +1091,10 @@ if(THE_PYTHON_EXECUTABLE)
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_default_profiles.py $<TARGET_FILE:the> ${profile_engine})
             set_tests_properties(test_default_profile_${profile_engine} PROPERTIES TIMEOUT 120
                 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+            add_test(NAME test_delete_persistence_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_delete_persistence.py $<TARGET_FILE:the> ${profile_engine})
+            set_tests_properties(test_delete_persistence_${profile_engine} PROPERTIES TIMEOUT 120
+                ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
         endif()
     endforeach()
 endif()

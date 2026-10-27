@@ -172,11 +172,10 @@ static void sos_store_filearea_cursor(CHARTYPE scrno, VIEW_DETAILS *view,
 
 static void sos_refresh_filearea_after_edit(unsigned short row)
 {
-#ifdef USE_SDSLH
-   sdslh_update_current_line(row);
-#else
+   /* Rendering may reload rec from LINE. Commit before publishing the frame;
+    * post_process_line also owns dirty/recovery state and parser updates. */
+   post_process_line(CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL, TRUE);
    INTENTIONALLY_UNUSED_VARIABLE(row);
-#endif
    build_screen(current_screen);
    display_screen(current_screen);
    cursor_focus_refresh(current_screen, CURRENT_VIEW);
@@ -350,9 +349,9 @@ static int sos_utf8_delete_filearea_cluster(unsigned short y, int delete_cell)
    delete_len = (LENGTHTYPE)cluster.byte_length;
    memdeln(rec, delete_byte, rec_len, delete_len);
    rec_len = sos_utf8_rec_len_after_delete(old_len, delete_byte, delete_len);
-#ifdef USE_SDSLH
-   sdslh_update_current_line(y);
-#endif
+   /* Cursor movement can repaint too, so commit before returning to it. */
+   post_process_line(CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL, TRUE);
+   INTENTIONALLY_UNUSED_VARIABLE(y);
    return TRUE;
 }
 
@@ -674,11 +673,14 @@ SYNTAX
      SOS CUADELBAck
 
 DESCRIPTION
-     The SOS CUADELBACK command deletes the character to the right of the
+     The SOS CUADELBACK command deletes the character to the left of the
      current cursor position.  It differs from <SOS DELBACK> in the case
      when the cursor is in the first column of the file and in the
-     FILEAREA. Then, the cursor first moves to the last character of the
-     previous line, and deletes this character.
+     FILEAREA. Then, the current line is joined to the previous line, and
+     the cursor remains at the join boundary.
+
+     UTF file editing deletes a complete grapheme cluster. The edit is
+     committed before refresh and is written to disk by SAVE.
 
 COMPATIBILITY
      XEDIT: N/A
@@ -714,12 +716,15 @@ DESCRIPTION
      the last character of the line and in the FILEAREA. Then, the
      next line is joined with the current line.
 
+     UTF file editing deletes a complete grapheme cluster. The edit is
+     committed before refresh and is written to disk by SAVE.
+
 COMPATIBILITY
      XEDIT: N/A
      KEDIT: N/A
 
 SEE ALSO
-     <SOS CURDELBACK>, <SOS DELCHAR>
+     <SOS CUADELBACK>, <SOS DELCHAR>
 
 STATUS
      Complete
@@ -3375,6 +3380,7 @@ static short sosdelback( bool cua )
       memdeln( rec, sos_text_byte_from_cell(rec, rec_len, delete_cell),
                rec_len, 1 );
       rec_len--;
+      post_process_line(CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL, TRUE);
       rc = execute_move_cursor(current_screen, CURRENT_VIEW, delete_cell);
       sos_refresh_filearea_after_edit(y);
    }
@@ -3513,6 +3519,7 @@ static short sosdelchar( bool cua )
          memdeln( rec, sos_text_byte_from_cell(rec, rec_len, current_cell),
                   rec_len, 1 );
          rec_len--;
+         post_process_line(CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL, TRUE);
          rc = execute_move_cursor(current_screen, CURRENT_VIEW,
                                   (LENGTHTYPE)current_cell);
          sos_refresh_filearea_after_edit(y);
