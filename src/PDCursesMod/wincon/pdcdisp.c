@@ -309,6 +309,9 @@ static void _show_run_of_ansi_characters( const attr_t attr,
             {
                 int spill = after.dwCursorPosition.X - next_column;
 
+                if (spill > SP->cols - next_column)
+                    spill = SP->cols - next_column;
+
                 /* Some older console hosts give combining marks a column.
                    Repair only the overwritten neighbours from the logical
                    screen, including unchanged cells absent from this packet.
