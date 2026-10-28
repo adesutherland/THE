@@ -152,8 +152,9 @@ described below.
 
 The highlighter cohort is cREXX `67a5e928cddf569595961267bee5d25bf92f267f`
 and DSLSH `0ea4db815abd55cdc5db4a5c41539d7d920e9cb3`. These supporting commits
-are currently local; the ordinary hosted editor/profile CI remains on its
-published cohort. The Classic browser configuration is locally qualified and
+are published on their projects' `develop` branches. Ordinary hosted
+editor/profile CI uses its separately pinned cohort. The Classic browser
+configuration is locally qualified and
 requires a prepared linked image from that cohort. Build it using DSLSH's
 `crexx/README.md`; THE does not regenerate the grammar. The supplied image
 contains its bytecode library closure and needs no external RXPA provider.
