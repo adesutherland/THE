@@ -271,8 +271,9 @@ async function startTool(job: ToolJob) {
       if (job.role === "runner") own.process = await host.startRexx(options);
       else {
         const vm = await import(
-          /* @vite-ignore */ new URL("../vm/vm-client.mjs", import.meta.url)
-            .href
+          /* @vite-ignore */ new URL(
+            /* @vite-ignore */ "../vm/vm-client.mjs", import.meta.url,
+          ).href
         );
         own.process = await vm.CrexxVMProcess.start({
           ...options,
