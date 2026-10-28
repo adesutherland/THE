@@ -158,11 +158,15 @@ if(THE_WASM_COMPILER_DIRECTORY)
  endif()
  file(WRITE "${CMAKE_BINARY_DIR}/compiler.json" "{\"version\":1,\"crexx\":\"${THE_CREXX_REVISION}\",\"protocol\":\"fresh-module-cli\",\"rxc_sha256\":\"${rxc_hash}\",\"rxas_sha256\":\"${rxas_hash}\"}\n")
  add_custom_target(the_wasm_compiler_assets
+  COMMAND "${CMAKE_COMMAND}" -E rm -rf "${THE_WASM_SITE}/compiler"
   COMMAND "${CMAKE_COMMAND}" -E make_directory "${THE_WASM_SITE}/compiler"
   COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxc" -i "${THE_CREXX_HOST_BUILD}/bin" -o "${CMAKE_BINARY_DIR}/tool-example" "${CMAKE_SOURCE_DIR}/examples/tool-program.crexx"
   COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxas" -o "${CMAKE_BINARY_DIR}/tool-example" "${CMAKE_BINARY_DIR}/tool-example"
   COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_BINARY_DIR}/tool-example.rxbin" "${THE_WASM_SITE}/examples/ToolHello.rxbin"
-  COMMAND "${CMAKE_COMMAND}" -E copy_directory "${THE_WASM_COMPILER_DIRECTORY}" "${THE_WASM_SITE}/compiler"
+  COMMAND "${CMAKE_COMMAND}" -E copy
+   "${THE_WASM_COMPILER_DIRECTORY}/rxc_single.mjs" "${THE_WASM_COMPILER_DIRECTORY}/rxc_single.wasm"
+   "${THE_WASM_COMPILER_DIRECTORY}/rxas_single.mjs" "${THE_WASM_COMPILER_DIRECTORY}/rxas_single.wasm"
+   "${THE_WASM_SITE}/compiler"
   COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_BINARY_DIR}/compiler.json" "${THE_WASM_SITE}/compiler"
   COMMAND "${CMAKE_COMMAND}" -E copy "${THE_CREXX_HOST_BUILD}/bin/library.rxbin" "${THE_CREXX_HOST_BUILD}/bin/rxcexits.rxbin" "${THE_WASM_SITE}/compiler"
   DEPENDS "${THE_WASM_SITE}/.build-stamp" VERBATIM)
