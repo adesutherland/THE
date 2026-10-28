@@ -385,7 +385,7 @@ try {
     const image=Buffer.from(await(await fetch(new URL('examples/ToolHello.rxbin',pageUrl))).arrayBuffer());
     await send({type:'tool-import',name:'ToolHello.rxbin',bytes:image.toString('base64')});
     await waitFor(()=>evaluate("window.__messages.some(m=>m.type==='tool-imported'&&m.path.endsWith('/ToolHello.rxbin'))"),'binary RXBIN import');
-    await send({type:'tool',action:'rxbin',text:'/workspace/ToolHello.rxbin'});
+    await send({type:'command',command:'RX RUN "/workspace/ToolHello.rxbin"'});
     await waitFor(()=>evaluate("window.__tools?.job.state==='Completed · status 9'"),'direct compiled RXBIN',30000);
     if(!await evaluate("window.__tools.chunks.some(c=>c.text.includes('RXBIN program proof'))"))throw Error('Missing RXBIN output');
     await send({type:'tool',action:'register',arguments:'hello-program\nprogram\n/workspace/ToolHello.rxbin\n.rxbin\nHello program'});

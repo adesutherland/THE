@@ -482,7 +482,7 @@ int the_frontend_policy_command_allowed(const char *command)
       "backward", "bottom", "change", "clocate", "copy", "delete",
       "down", "duplicate", "find", "forward", "input", "left", "cursor",
       "locate", "lowercase", "next", "previous", "recover", "replace",
-      "right", "shift", "sort", "sos", "tool", "top", "uppercase", "up"
+      "right", "shift", "sort", "sos", "rx", "top", "uppercase", "up"
    };
    static const char *const allowed_set_operands[] =
    {

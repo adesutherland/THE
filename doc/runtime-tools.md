@@ -8,19 +8,22 @@ split below the editing area. This is a development feature in `0.10.dev`.
 
 ## Run and interact
 
-Open a Classic Rexx file and choose **Run Rexx**, or enter `TOOL RUN`.
+Open a Classic Rexx file and choose **Run Rexx**, or enter `RX RUN`.
 THE captures the whole buffer, including the pending working record. Running
 preserves text, cursor, dirty state and saved bytes. The console keeps the
 captured identity/revision; editing can continue independently.
 
-`TOOL RXBIN "/absolute/workspace/program.rxbin"` runs a compiled program.
+`RX RUN "/absolute/workspace/program.rxbin"` runs a compiled program.
 The graphical console's tool selector provides the same operation. Browser
 **Import RXBIN** copies a binary into the persistent workspace, refusing name
 collisions; native builds use normal workspace files. Compiler-enabled browser
 bundles include `examples/ToolHello.rxbin`, compiled from
 `examples/tool-program.crexx`, for an import/run check. Arguments
 are separate values, one per line in the graphical field, or quoted operands
-after the command's tool/image. These are not shell commands. The standard
+after the command's tool/image. `RX RUN` alone runs the current buffer;
+`RX RUN tool-id` runs a registered tool. Registered IDs take precedence over
+filenames. For example, `RX RUN classic-rexx "Mixed Case"` passes one argument
+to the Classic runner. These are not shell commands. The standard
 library is loaded before ordinary RXBIN programs. Images must match the
 packaged runtime and its available static providers.
 
@@ -29,13 +32,13 @@ Terminal commands are:
 
 | Command | Effect |
 | --- | --- |
-| `TOOL CONSOLE` | Show the split and toggle console input focus. |
-| `TOOL CONSOLE OFF` | Hide the split. |
-| `TOOL INPUT text` | Send a line to the running program. |
-| `TOOL EOF` | Close stdin after queued input drains. |
-| `TOOL STOP` | Terminate the isolated execution. |
-| `TOOL CLEAR` | Clear visible output. |
-| `TOOL STATUS` | Display job state. |
+| `RX CONSOLE` | Show the split and toggle console input focus. |
+| `RX CONSOLE OFF` | Hide the split. |
+| `RX INPUT text` | Send a line to the running program. |
+| `RX EOF` | Close stdin after queued input drains. |
+| `RX STOP` | Terminate the isolated execution. |
+| `RX CLEAR` | Clear visible output. |
+| `RX STATUS` | Display job state. |
 
 When the terminal console has focus, Enter submits a line, Backspace edits,
 Ctrl-D sends EOF, Ctrl-C stops, and Esc returns to the editor. Panels and
@@ -54,11 +57,11 @@ has a 120-second active execution deadline, paused while waiting for stdin.
 
 ## Edit, build and activate a profile
 
-**Edit profile** / `TOOL PROFILE` opens an editable Level B source template.
-Save normally. **Build profile** / `TOOL BUILD` compiles the entire current
+**Edit profile** / `RX PROFILE` opens an editable Level B source template.
+Save normally. **Build profile** / `RX BUILD` compiles the entire current
 buffer with the matching compiler and assembler; it does not save that buffer.
 Compiler diagnostics appear in the console. A successful build is admitted as
-an immutable RXBIN artifact. **Activate profile** / `TOOL ACTIVATE` executes
+an immutable RXBIN artifact. **Activate profile** / `RX ACTIVATE` executes
 that artifact through the session's cREXX context and real `ADDRESS THE` bridge.
 Source changes after building require another build before activation.
 
@@ -79,7 +82,7 @@ unsaved editor text still requires Save.
 
 ## Register language tools and programs
 
-`TOOL REGISTER id role image extensions "label"` adds or replaces a tool.
+`RX REGISTER id role image extensions "label"` adds or replaces a tool.
 Roles are `program`, `profile` and `language` for user-provided images. IDs
 are at most 30 letters, digits, hyphens or underscores. `image` is a workspace
 RXBIN path; extensions are comma-separated, such as `.rexx,.rex`. Registrations
@@ -88,14 +91,14 @@ persist beside the profile. A profile can issue these same commands.
 For example:
 
 ```text
-tool register my-rexx language /workspace/rexx-highlight.rxbin .rexx,.rex "My Rexx highlighter"
-tool language my-rexx
+rx register my-rexx language /workspace/rexx-highlight.rxbin .rexx,.rex "My Rexx highlighter"
+rx language my-rexx
 ```
 
 Language images implement DSLSH's framed stdin/stdout service protocol with
 `--stdio`. They run in independent sessions, with C-owned document/revision
 admission. Browser associations use the last matching registration. Native
-registration installs an SDSLH parser and extension mappings; `TOOL LANGUAGE id`
+registration installs an SDSLH parser and extension mappings; `RX LANGUAGE id`
 restarts/reselects it. The built-in `classic-highlight` selects the packaged
 Level L Classic highlighter on native builds. Other native SDSLH configurations
 remain available. Browser parser restart also uses the existing status control.

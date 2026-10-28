@@ -9,7 +9,7 @@ from pathlib import Path
 binary=Path(sys.argv[1]).resolve();repo=Path(__file__).resolve().parent.parent
 with tempfile.TemporaryDirectory(prefix='THE console PTY ') as d:
  root=Path(d);source=root/'program.rexx';source.write_text("say 'Console ready'\npull name\nsay 'Hello' name\nexit 7\n")
- profile=root/'keys.the';profile.write_text((repo/'profile.the').read_text()+"\n'define C-R tool run';\n'define C-T tool console';\n'define f9 qquit';\n")
+ profile=root/'keys.the';profile.write_text((repo/'profile.the').read_text()+"\n'define C-R RX RUN';\n'define C-T RX CONSOLE';\n'define f9 qquit';\n")
  master,slave=pty.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',30,100,0,0))
  screen=pyte.Screen(100,30);stream=pyte.ByteStream(screen)
  p=subprocess.Popen([str(binary),'-p',str(profile),str(source)],stdin=slave,stdout=slave,stderr=slave,env=dict(os.environ,TERM='xterm-256color',THE_TOOL_CONFIG_DIR=str(root/'config')));os.close(slave)
@@ -32,7 +32,7 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as d:
   wait(lambda:any('status 7' in s for s in screen.display),'completion')
   fcntl.ioctl(master,termios.TIOCSWINSZ,struct.pack('HHHH',24,80,0,0));screen.resize(24,80);p.send_signal(signal.SIGWINCH)
   wait(lambda:any('Console |' in s for s in screen.display[-5:]),'resized split')
-  os.write(master,b'\x1b');wait(lambda:any('TOOL CONSOLE: focus' in s for s in screen.display),'return to editor');os.write(master,b'\x1b[20~');wait(lambda:p.poll() is not None,'quit after restoring editor focus',8)
+  os.write(master,b'\x1b');wait(lambda:any('RX CONSOLE: focus' in s for s in screen.display),'return to editor');os.write(master,b'\x1b[20~');wait(lambda:p.poll() is not None,'quit after restoring editor focus',8)
   assert source.read_text()=="say 'Console ready'\npull name\nsay 'Hello' name\nexit 7\n"
  finally:
   if p.poll() is None:p.kill();p.wait()

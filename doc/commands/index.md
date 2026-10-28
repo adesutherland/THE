@@ -98,6 +98,7 @@
 - [REXX](REXX.md) - execute Rexx instructions
 - [RGTLEFT](RGTLEFT.md) - scroll the screen to the left or right
 - [RIGHT](RIGHT.md) - scroll the screen to the right
+- [RX](RX.md) - run RXBIN programs and manage the console, profiles and language tools
 - [SAVE](SAVE.md) - save changes to current file
 - [SCHANGE](SCHANGE.md) - selectively change strings
 - [SEARCH](SEARCH.md) - locate a string

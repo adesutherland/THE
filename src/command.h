@@ -402,6 +402,7 @@ COMMAND command[] =
  {(CHARTYPE *)"rgtleft",     7,  (-1),            Rgtleft,          TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */
  {(CHARTYPE *)"rexx",        4,  (-1),            THERexx,          TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */
  {(CHARTYPE *)"right",       2,  (-1),            Right,            TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */
+ {(CHARTYPE *)"rx",          2,  (-1),            Rx,            TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_NONE,FALSE,FALSE,TRUE ,CUA_NONE  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},
  {(CHARTYPE *)"=",           1,  (-1),            Reexecute,        TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm5.c */
 #if defined(USE_XCURSES) || defined(WIN32)
  {(CHARTYPE *)"?",           1,  THE_KEY_F(6),          Retrieve,         FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm5.c */
@@ -538,7 +539,6 @@ COMMAND command[] =
  {(CHARTYPE *)"timecheck",   9,  (-1),            Timecheck,        TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset2.c */
  {(CHARTYPE *)"toascii",     7,  (-1),            Toascii,          FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm5.c */
  {(CHARTYPE *)"tofeof",      6,  (-1),            Tofeof,           TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset2.c */
- {(CHARTYPE *)"tool",        4,  (-1),            Tools,            TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_NONE,FALSE,FALSE,TRUE ,CUA_NONE  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},
 #if defined(USE_XCURSES) || defined(WIN32)
  {(CHARTYPE *)"top",         3,  THE_KEY_CTL_PGUP,        Top,              TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm5.c */
 #else

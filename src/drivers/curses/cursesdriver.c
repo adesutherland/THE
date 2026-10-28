@@ -1011,7 +1011,7 @@ static void console_draw(void){
  if(!h)return;
  if(!console_window)console_window=newwin(h,COLS,LINES-h,0);
  if(!console_window)return;
- werase(console_window);wattron(console_window,A_REVERSE);mvwprintw(console_window,0,0," Console | %.80s | %s",c->state,c->focused?"Esc: editor  Ctrl-C: stop  Ctrl-D: EOF":"TOOL CONSOLE: focus");wattroff(console_window,A_REVERSE);
+ werase(console_window);wattron(console_window,A_REVERSE);mvwprintw(console_window,0,0," Console | %.80s | %s",c->state,c->focused?"Esc: editor  Ctrl-C: stop  Ctrl-D: EOF":"RX CONSOLE: focus");wattroff(console_window,A_REVERSE);
  the_tool_console_text(text,sizeof(text));for(p=text;*p;p++)if(*p=='\n')lines++;
  start=text;while(lines>h-3&&*start){if(*start++=='\n')lines--;}
  for(p=start;*p&&row<h-1;p++){unsigned char ch=*p;if(ch=='\n'){row++;wmove(console_window,row,0);}else if(ch=='\t')waddstr(console_window,"  ");else if(ch>=32&&ch!=127){
@@ -1278,12 +1278,12 @@ int curses_driver_read_input_event(TheInputEvent *event)
  *event=the_input_event_none();ok=curses_driver_read_utf8_text_event(key,event);
  if(!ok)ok=the_input_event_from_legacy_key(key,event);
  if(c->focused&&!in_macro&&!the_panel_active){
-  if(key==27)strcpy(command,"tool key escape");
-  else if(key==10||key==13||key==KEY_ENTER)strcpy(command,"tool key enter");
-  else if(key==8||key==127||key==KEY_BACKSPACE)strcpy(command,"tool key backspace");
-  else if(key==3)strcpy(command,"tool key stop");
-  else if(key==4)strcpy(command,"tool key eof");
-  else if(event->kind==THE_INPUT_TEXT)snprintf(command,sizeof(command),"tool type %u",event->codepoint);
+  if(key==27)strcpy(command,"rx key escape");
+  else if(key==10||key==13||key==KEY_ENTER)strcpy(command,"rx key enter");
+  else if(key==8||key==127||key==KEY_BACKSPACE)strcpy(command,"rx key backspace");
+  else if(key==3)strcpy(command,"rx key stop");
+  else if(key==4)strcpy(command,"rx key eof");
+  else if(event->kind==THE_INPUT_TEXT)snprintf(command,sizeof(command),"rx type %u",event->codepoint);
   else return 0;
   return the_input_event_from_command(command,event);
  }

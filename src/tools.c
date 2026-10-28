@@ -108,7 +108,7 @@ int the_tools_prepare_input(const char *action, const char *tool, const char *te
          dispose(p);
          return 0;
       }
-   snprintf(command, sizeof(command), "tool dispatch %u", p->id);
+   snprintf(command, sizeof(command), "rx dispatch %u", p->id);
    if (!the_input_event_from_command(command, event)) {
       dispose(p);
       return 0;
@@ -146,7 +146,7 @@ static short launch(const char *id, int argc, const char *const *argv, const cha
    }
    r.tool = *t;
    if (!strcmp(r.tool.role, "language")) {
-      display_error(0, (CHARTYPE *)"Select a language service with TOOL LANGUAGE", FALSE);
+      display_error(0, (CHARTYPE *)"Select a language service with RX LANGUAGE", FALSE);
       return RC_INVALID_OPERAND;
    }
    if (!strcmp(r.tool.role, "profile")) {
@@ -331,8 +331,11 @@ int the_tools_profile_restore(void) {
 }
 static short action(PendingTool *p) {
    const char *a = p->action;
-   if (!strcmp(a, "run"))
+   if (!strcmp(a, "run")) {
+      if (*p->tool && !the_tool_find(p->tool))
+         return launch("rxbin", p->argc, (const char *const *)p->argv, p->tool);
       return launch(p->tool, p->argc, (const char *const *)p->argv, NULL);
+   }
    if (!strcmp(a, "rxbin"))
       return launch("rxbin", p->argc, (const char *const *)p->argv, p->text);
    if (!strcmp(a, "build"))
@@ -427,7 +430,7 @@ static short action(PendingTool *p) {
    }
    return RC_INVALID_OPERAND;
 }
-short Tools(CHARTYPE *parameters) {
+short Rx(CHARTYPE *parameters) {
    char *words[132], *buffer = copy((char *)parameters), *p = buffer;
    int n = 0;
    short rc = RC_INVALID_OPERAND;
@@ -451,6 +454,15 @@ short Tools(CHARTYPE *parameters) {
       if (*p && isspace((unsigned char)*p))
          p++;
       *out = 0;
+   }
+   /* Command keywords follow THE's case-insensitive convention. Preserve
+    * registered IDs, filenames, program arguments and console input bytes. */
+   if (n) {
+      for (p = words[0]; *p; p++)
+         *p = (char)tolower((unsigned char)*p);
+      if (n > 1 && (!strcmp(words[0], "console") || !strcmp(words[0], "key")))
+         for (p = words[1]; *p; p++)
+            *p = (char)tolower((unsigned char)*p);
    }
    if (n && !strcmp(words[0], "dispatch") && n == 2) {
       unsigned id = (unsigned)strtoul(words[1], NULL, 10);
