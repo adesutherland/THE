@@ -1,23 +1,23 @@
 #include "the.h"
 #include "vars.h"
 #include "panelui.h"
-#include "source.h"
+#include "editorsource.h"
 
 #define SOURCE_LIMIT (2u * 1024u * 1024u)
 typedef struct SourceDocument {
     FILE_DETAILS *file;
-    TheWasmSource source;
+    TheEditorSource source;
     struct SourceDocument *next;
 } SourceDocument;
 static SourceDocument *documents;
-static const TheWasmSource *current;
+static const TheEditorSource *current;
 static unsigned next_id;
 static const char *problem = "No active buffer";
 
-const TheWasmSource *the_wasm_source_current(void) { return current; }
-const char *the_wasm_source_error(void) { return problem; }
+const TheEditorSource *the_editor_source_current(void) { return current; }
+const char *the_editor_source_error(void) { return problem; }
 
-void the_wasm_source_forget(FILE_DETAILS *file)
+void the_editor_source_forget(FILE_DETAILS *file)
 {
     SourceDocument **link = &documents, *doc;
     while ((doc = *link) != NULL) {
@@ -29,7 +29,7 @@ void the_wasm_source_forget(FILE_DETAILS *file)
     }
 }
 
-const TheWasmSource *the_wasm_source_prepare(void)
+const TheEditorSource *the_editor_source_prepare(void)
 {
     SourceDocument *doc;
     LINE *line;
@@ -42,7 +42,7 @@ const TheWasmSource *the_wasm_source_prepare(void)
     if (the_panel_active || in_macro) return NULL;
     for (line = CURRENT_FILE->first_line->next; line && line->next; line = line->next) {
         size_t n = ++count == (size_t)CURRENT_VIEW->focus_line ? rec_len : line->length;
-        if (n >= SOURCE_LIMIT - length) { problem = "Rexx source exceeds the 2 MiB browser limit"; return NULL; }
+        if (n >= SOURCE_LIMIT - length) { problem = "Rexx source exceeds the 2 MiB tool limit"; return NULL; }
         length += n + 1;
     }
     bytes = malloc(length + 1);

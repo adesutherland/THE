@@ -17,6 +17,10 @@ set(THE_SOURCES
     src/default.c
     src/directry.c
     src/driverlayout.c
+    src/editorsource.c
+    src/toolhost.c
+    src/tools.c
+    src/tools_native.c
     src/edit.c
     src/error.c
     src/execute.c

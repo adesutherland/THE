@@ -6,7 +6,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#ifdef __EMSCRIPTEN__
 #include <emscripten.h>
+#else
+#define EMSCRIPTEN_KEEPALIVE
+#endif
 
 #define VM_IMAGE_LIMIT (64u * 1024u * 1024u)
 typedef struct VmImage { void *bytes; struct VmImage *next; } VmImage;

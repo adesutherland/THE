@@ -47,7 +47,8 @@ async function waitFor(check, description, timeout = 8000) {
 function command(method, params = {}, sessionId = undefined) {
   const id = nextId++;
   return new Promise((resolve, reject) => {
-    pending.set(id, { resolve, reject, method });
+    const timer=setTimeout(()=>{pending.delete(id);reject(new Error('CDP timeout: '+method));},30000);
+    pending.set(id, { resolve, reject, method,timer });
     socket.send(JSON.stringify({ id, method, params, sessionId }));
   });
 }
@@ -118,7 +119,7 @@ try {
     const message = JSON.parse(data.toString());
     if (message.id && pending.has(message.id)) {
       const request = pending.get(message.id);
-      pending.delete(message.id);
+      pending.delete(message.id);clearTimeout(request.timer);
       if (message.error) request.reject(new Error(`${request.method}: ${message.error.message}`));
       else request.resolve(message.result);
     } else if (message.method === "Target.attachedToTarget" && message.params.targetInfo.type === "worker") {
@@ -144,6 +145,7 @@ try {
         this.addEventListener('message', ({data}) => {
           window.__messages.push(data);
           if (data.screen_rows) window.__snapshot = data;
+          if (data.type==='tools') window.__tools=data;
         });
       }
     };
@@ -377,6 +379,54 @@ try {
     console.log('PASS browser interpreter: split console, actual Classic execution/INTERPRET, Unicode stdin/output, EOF, unsaved record, Stop/restart and independent editor/highlighter');
   }
   if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join('; ')}`);
+
+  if(manifest.capabilities.profile_source_compiler){
+
+    const image=Buffer.from(await(await fetch(new URL('examples/ToolHello.rxbin',pageUrl))).arrayBuffer());
+    await send({type:'tool-import',name:'ToolHello.rxbin',bytes:image.toString('base64')});
+    await waitFor(()=>evaluate("window.__messages.some(m=>m.type==='tool-imported'&&m.path.endsWith('/ToolHello.rxbin'))"),'binary RXBIN import');
+    await send({type:'tool',action:'rxbin',text:'/workspace/ToolHello.rxbin'});
+    await waitFor(()=>evaluate("window.__tools?.job.state==='Completed · status 9'"),'direct compiled RXBIN',30000);
+    if(!await evaluate("window.__tools.chunks.some(c=>c.text.includes('RXBIN program proof'))"))throw Error('Missing RXBIN output');
+    await send({type:'tool',action:'register',arguments:'hello-program\nprogram\n/workspace/ToolHello.rxbin\n.rxbin\nHello program'});
+    await waitFor(()=>evaluate("window.__tools.catalog.some(t=>t.id==='hello-program')"),'tool registration');
+    await send({type:'tool',action:'run',tool:'hello-program'});
+    await waitFor(()=>evaluate("window.__tools.job.tool==='hello-program'&&!window.__tools.job.running"),'registered RXBIN run',30000);
+    console.log('PASS browser RXBIN: binary import, direct and registered execution with output/status');
+
+    if(manifest.capabilities.classic_rexx_highlighter){
+      const parser=Buffer.from(await(await fetch(new URL('vm/modules/dslsh-classic.rxbin',pageUrl))).arrayBuffer());
+      await send({type:'tool-import',name:'CustomHighlight.rxbin',bytes:parser.toString('base64')});
+      await waitFor(()=>evaluate("window.__messages.some(m=>m.type==='tool-imported'&&m.path.endsWith('/CustomHighlight.rxbin'))"),'language RXBIN import');
+      await send({type:'tool',action:'register',arguments:'custom-classic\nlanguage\n/workspace/CustomHighlight.rxbin\n.rexx,.rex\nCustom Classic'});
+      await openWorkspaceFile('ClassicDemo.rexx');
+      await waitFor(()=>evaluate("window.__snapshot.parser?.state==='ready'&&window.__snapshot.parser.providerId==='custom-classic'"),'registered language RXBIN service',30000);
+      console.log('PASS browser language registration: imported RXBIN, association and admitted current revision');
+    }
+    console.log('CHECK browser profile: edit/build');
+    await send({type:'tool',action:'profile'});
+    await waitFor(()=>evaluate("window.__snapshot?.buffer?.path.endsWith('/profile.the')"),'editable user profile');
+    await send({type:'action',action:'file.save'});
+    await send({type:'tool',action:'build'});
+    await waitFor(()=>evaluate("window.__tools?.job.tool==='profile-compiler'&&!window.__tools.job.running"),'browser source profile compilation',60000);
+    if(await evaluate("window.__tools.job.state")!=='Completed · status 0')throw Error('Profile compilation failed: '+await evaluate("JSON.stringify(window.__tools)"));
+    console.log('CHECK browser profile: activate');
+    await send({type:'tool',action:'activate'});
+    await waitFor(()=>evaluate("window.__tools.chunks.some(c=>c.text.includes('User profile activated'))"),'new addressed profile output');
+    console.log('CHECK browser profile: rejected replacement');
+    // A failed replacement must leave the successfully activated artifact selected.
+    await send({type:'command',command:'cursor goto 2 1'});
+    await send({type:'command',command:'replace options invalid-level'});
+    await send({type:'tool',action:'build'});
+    await waitFor(()=>evaluate("!window.__tools.job.running&&window.__tools.job.state!=='Completed · status 0'"),'failed replacement profile',60000);
+    console.log('CHECK browser profile: save/reload');
+    await send({type:'action',action:'file.save'});
+    await waitFor(()=>evaluate("!window.__snapshot.buffer.dirty"),'save rejected profile source');
+    await command('Page.reload',{ignoreCache:true});
+    await waitFor(()=>evaluate("window.__tools?.chunks.some(c=>c.text.includes('User profile activated'))"),'persisted working profile restore',30000);
+    if(!await evaluate("window.__tools.catalog.some(t=>t.id==='hello-program')"))throw Error('Registry was not restored');
+    console.log('PASS browser profiles: fresh Wasm compiler/assembler, ADDRESS THE, console output, activation, failed-build retention and persisted restore');
+  }
   if (process.env.THE_WASM_SCREENSHOT) {
     await command('Page.bringToFront');
     const image = await command('Page.captureScreenshot', {format: 'png'});
@@ -386,7 +436,7 @@ try {
 } catch(error) {
   if (socket?.readyState===WebSocket.OPEN) {
     try {
-      console.error('Browser failure state:',await evaluate("({state:document.querySelector('.run-state')?.textContent,active:document.activeElement?.outerHTML?.slice(0,400),input:document.querySelector('#rexx-input')?.value,output:document.querySelector('.console-output')?.textContent.slice(-4000)})"));
+      console.error('Browser failure state:',await evaluate("({messages:window.__messages?.slice(-10),body:document.body.innerText.slice(-3000),state:document.querySelector('.run-state')?.textContent,active:document.activeElement?.outerHTML?.slice(0,400),input:document.querySelector('#rexx-input')?.value,output:document.querySelector('.console-output')?.textContent.slice(-4000)})"));
     } catch {}
   }
   throw error;

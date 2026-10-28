@@ -47,8 +47,8 @@ function frame(job) {
 
 /** Transport queue only: source, identity and revision always come from C. */
 export class ClassicHighlighter {
-  constructor(deliver, {base = new URL('./', import.meta.url), timeout = 10000} = {}) {
-    this.deliver = deliver; this.base = base; this.timeout = timeout;
+  constructor(deliver, {base = new URL('./', import.meta.url), timeout = 10000,imageLoader} = {}) {
+    this.imageLoader=imageLoader;this.deliver = deliver; this.base = base; this.timeout = timeout;
     this.pending = new Map(); this.open = new Set(); this.generation = 0;
   }
   submit(job) {
@@ -63,6 +63,7 @@ export class ClassicHighlighter {
     this.pending.clear(); this.running = false;
   }
   async image() {
+    if(this.imageLoader)return this.imageLoader();
     if (!this.imagePromise) this.imagePromise = (async () => {
       const metadata = await (await fetch(new URL('classic.json', this.base))).json();
       const response = await fetch(new URL('modules/dslsh-classic.rxbin', this.base));

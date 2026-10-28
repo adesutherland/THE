@@ -9,9 +9,9 @@ ring, undo and saving stay in the editor core.
 The editor/storage build remains available without cREXX. The optional
 `THE_WASM_CREXX=ON` build adds a static cREXX VM, a compiled browser profile,
 quick-action macros and the public panel example. Profiles use the real
-`ADDRESS THE` callback, including EXTRACT and READ stems. The compiler and
-assembler run on the build host; the browser accepts precompiled `.rxbin`
-macros only. Native OS commands, Regina and native parser processes are
+`ADDRESS THE` callback, including EXTRACT and READ stems. The base variant accepts precompiled `.rxbin` macros. The optional common
+runtime adds source-profile compilation with a matching Wasm compiler and
+assembler; see [tools and profiles](runtime-tools.md). Native OS commands, Regina and native parser processes are
 unavailable.
 
 ## Build and run
@@ -224,7 +224,7 @@ subsequent Run starts with fresh streams and resources.
 
 The initial limits are 2 MiB valid UTF-8 source, a 4096-byte logical filename,
 128 NUL-free argument positions with 1 MiB aggregate argument bytes, the existing bounded
-stdin queue, 8 MiB total output per run and 256 Ki characters of visible
+stdin queue, 8 MiB total output per run and 256 KiB of UTF-8 visible
 scrollback. The 120-second execution deadline pauses while waiting for console
 input. A limit or Stop leaves the editor and highlighter available. The bounded
 completion envelope can truncate large values/condition messages and reports

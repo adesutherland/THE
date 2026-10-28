@@ -7,6 +7,7 @@ endif()
 
 option(THE_WASM_CREXX "Run precompiled cREXX browser profiles and macros" OFF)
 option(THE_WASM_HIGHLIGHT "Run the Level L Classic Rexx highlighter in a browser VM" OFF)
+set(THE_WASM_COMPILER_DIRECTORY "" CACHE PATH "Prepared fresh-module browser compiler SDK")
 option(THE_WASM_INTERPRETER "Bundle the Classic Rexx interpreter and split console" OFF)
 if(THE_WASM_CREXX)
     set(THE_WASM_REXX_DEFAULT CREXX)
@@ -53,7 +54,10 @@ include("${CMAKE_SOURCE_DIR}/cmake/TheSources.cmake")
 
 if(THE_WASM_CREXX)
     include("${CMAKE_SOURCE_DIR}/cmake/CrexxWasm.cmake")
-    add_compile_definitions(USE_CREXX=1 THE_CREXX_STATIC=1
+    if(THE_CREXX_REVISION STREQUAL "8e8cfff4d6109bce277befeb9dd598027d1deb77")
+      add_compile_definitions(THE_TOOL_PROFILE_OUTPUT=1)
+    endif()
+    add_compile_definitions(THE_TOOL_COHORT="${THE_CREXX_REVISION}" USE_CREXX=1 THE_CREXX_STATIC=1
         THE_CREXX_IMPORT_DIR="/app" THE_CREXX_LIBRARY_RXBIN="/app/library.rxbin")
     add_library(the_wasm_saa STATIC "${THE_CREXX_SOURCE}/interpreter/crexxsaa.c")
     target_link_libraries(the_wasm_saa PUBLIC rxvm_single_embed)
@@ -79,8 +83,8 @@ add_custom_command(OUTPUT "${THE_WASM_RESOURCE_STAMP}"
 add_custom_target(the_wasm_resources DEPENDS "${THE_WASM_RESOURCE_STAMP}")
 
 add_executable(crxthe_wasm ${THE_SOURCES}
-    src/websession.c src/drivers/llm/headlessdriver.c src/wasm/source.c
-    src/drivers/wasm/wasmdriver.c)
+    src/websession.c src/drivers/llm/headlessdriver.c
+    src/drivers/wasm/wasmdriver.c src/tools_wasm.c)
 target_link_libraries(crxthe_wasm PRIVATE utf8proc)
 if(THE_WASM_CREXX)
     target_sources(crxthe_wasm PRIVATE src/wasm/crexxfs.c src/wasm/crexxresources.c)
@@ -135,4 +139,32 @@ if(THE_WASM_HIGHLIGHT)
 endif()
 if(THE_WASM_INTERPRETER)
     add_dependencies(the_wasm_bundle the_wasm_interpreter_assets)
+endif()
+
+if(THE_WASM_COMPILER_DIRECTORY)
+ add_compile_definitions(THE_WASM_PROFILE_COMPILER=1)
+ if(NOT THE_CREXX_REVISION STREQUAL "8e8cfff4d6109bce277befeb9dd598027d1deb77")
+  message(FATAL_ERROR "The profile compiler requires the qualified 8e8cfff4 runtime SDK")
+ endif()
+ foreach(asset rxc_single.mjs rxc_single.wasm rxas_single.mjs rxas_single.wasm)
+  if(NOT EXISTS "${THE_WASM_COMPILER_DIRECTORY}/${asset}")
+   message(FATAL_ERROR "Browser compiler missing ${asset}")
+  endif()
+ endforeach()
+ file(SHA256 "${THE_WASM_COMPILER_DIRECTORY}/rxc_single.wasm" rxc_hash)
+ file(SHA256 "${THE_WASM_COMPILER_DIRECTORY}/rxas_single.wasm" rxas_hash)
+ if(NOT rxc_hash STREQUAL "c2f3c5b76d2f1f982611c7338e4a3a30799337522bb86d098ad27e4b0ad1b8b0" OR NOT rxas_hash STREQUAL "1e8127835f8daeb0697bc966cdb2ec1b63c7b79c604bd8c6cbdba31de12f2c27")
+  message(FATAL_ERROR "Profile compiler Wasm differs from its qualified module checksums")
+ endif()
+ file(WRITE "${CMAKE_BINARY_DIR}/compiler.json" "{\"version\":1,\"crexx\":\"${THE_CREXX_REVISION}\",\"protocol\":\"fresh-module-cli\",\"rxc_sha256\":\"${rxc_hash}\",\"rxas_sha256\":\"${rxas_hash}\"}\n")
+ add_custom_target(the_wasm_compiler_assets
+  COMMAND "${CMAKE_COMMAND}" -E make_directory "${THE_WASM_SITE}/compiler"
+  COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxc" -i "${THE_CREXX_HOST_BUILD}/bin" -o "${CMAKE_BINARY_DIR}/tool-example" "${CMAKE_SOURCE_DIR}/examples/tool-program.crexx"
+  COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxas" -o "${CMAKE_BINARY_DIR}/tool-example" "${CMAKE_BINARY_DIR}/tool-example"
+  COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_BINARY_DIR}/tool-example.rxbin" "${THE_WASM_SITE}/examples/ToolHello.rxbin"
+  COMMAND "${CMAKE_COMMAND}" -E copy_directory "${THE_WASM_COMPILER_DIRECTORY}" "${THE_WASM_SITE}/compiler"
+  COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_BINARY_DIR}/compiler.json" "${THE_WASM_SITE}/compiler"
+  COMMAND "${CMAKE_COMMAND}" -E copy "${THE_CREXX_HOST_BUILD}/bin/library.rxbin" "${THE_CREXX_HOST_BUILD}/bin/rxcexits.rxbin" "${THE_WASM_SITE}/compiler"
+  DEPENDS "${THE_WASM_SITE}/.build-stamp" VERBATIM)
+ add_dependencies(the_wasm_bundle the_wasm_compiler_assets)
 endif()

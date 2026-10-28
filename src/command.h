@@ -538,6 +538,7 @@ COMMAND command[] =
  {(CHARTYPE *)"timecheck",   9,  (-1),            Timecheck,        TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset2.c */
  {(CHARTYPE *)"toascii",     7,  (-1),            Toascii,          FALSE,FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm5.c */
  {(CHARTYPE *)"tofeof",      6,  (-1),            Tofeof,           TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset2.c */
+ {(CHARTYPE *)"tool",        4,  (-1),            Tools,            TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_NONE,FALSE,FALSE,TRUE ,CUA_NONE  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},
 #if defined(USE_XCURSES) || defined(WIN32)
  {(CHARTYPE *)"top",         3,  THE_KEY_CTL_PGUP,        Top,              TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm5.c */
 #else

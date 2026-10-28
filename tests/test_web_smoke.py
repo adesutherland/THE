@@ -16,7 +16,7 @@ with tempfile.TemporaryDirectory(prefix='THE web smoke ') as tmp:
     root = Path(tmp)
     sample = root / 'sample.txt'
     fixtures = {'sample.txt': 'alpha beta gamma\ndelete me\ngamma\n' if chromium else 'alpha beta gamma\n',
-                'second.txt': 'second buffer\n', 'tabs.txt': 'a\tb\n', 'tab-entry.txt': 'alpha\n', 'sample.crexx': '/* crexx comment */\nsay "hello"\n',
+                'console.rexx': "say 'native graphical proof'\npull who\nsay 'Hello' who\nexit 7\n", 'second.txt': 'second buffer\n', 'tabs.txt': 'a\tb\n', 'tab-entry.txt': 'alpha\n', 'sample.crexx': '/* crexx comment */\nsay "hello"\n',
                 'sample.md': '# Heading\n\nA **bold** [link](target).\n',
                 'sample.py': 'def greet(name):\n    return "hello " + name\n'}
     for name, content in fixtures.items():

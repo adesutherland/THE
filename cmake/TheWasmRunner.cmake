@@ -16,7 +16,7 @@ endif()
 the_add_wasm_vm()
 target_compile_definitions(crxthe_rxvm PRIVATE THE_WASM_RUNNER=1)
 target_link_options(crxthe_rxvm PRIVATE
-    "-sEXPORTED_FUNCTIONS=['_the_vm_create','_the_vm_destroy','_the_vm_load','_the_vm_interpret','_the_vm_result','_the_vm_error','_the_vm_program_rc','_malloc','_free']"
+    "-sEXPORTED_FUNCTIONS=['_the_vm_create','_the_vm_destroy','_the_vm_load','_the_vm_run','_the_vm_interpret','_the_vm_result','_the_vm_error','_the_vm_program_rc','_malloc','_free']"
     "-sEXPORTED_RUNTIME_METHODS=['ccall','FS','UTF8ToString','HEAPU8','HEAPU32']")
 set(THE_WASM_INTERPRETER_IMAGE "" CACHE FILEPATH "Prepared linked llcbrowser.rxbin")
 set(THE_WASM_INTERPRETER_SHA256 "" CACHE STRING "Qualified interpreter image SHA256")
@@ -30,7 +30,7 @@ endif()
 set(runner_site "${CMAKE_BINARY_DIR}/runner")
 file(MAKE_DIRECTORY "${runner_site}")
 file(WRITE "${runner_site}/interpreter.json"
-    "{\"version\":1,\"crexx\":\"${THE_CREXX_REVISION}\",\"sha256\":\"${THE_WASM_INTERPRETER_SHA256}\",\"entry\":\"llcbrowser.run\"}\n")
+    "{\"version\":1,\"crexx\":\"${THE_CREXX_REVISION}\",\"sha256\":\"${THE_WASM_INTERPRETER_SHA256}\",\"entry\":\"llcbrowser.run\",\"image_crexx\":\"${THE_CREXX_INTERPRETER_IMAGE_REVISION}\"}\n")
 add_custom_target(the_wasm_runner ALL
     COMMAND "${CMAKE_COMMAND}" -E copy "$<TARGET_FILE:crxthe_rxvm>"
         "${CMAKE_BINARY_DIR}/crxthe_rxvm.wasm" "${runner_site}"

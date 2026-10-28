@@ -2,7 +2,8 @@
  * enter here; JavaScript never calls into an executing/suspended editor. */
 #include "the.h"
 #include "highlighter.h"
-#include "source.h"
+#include "editorsource.h"
+#include "tools.h"
 #include "proto.h"
 #include "vars.h"
 #include "textpos.h"
@@ -22,6 +23,7 @@ typedef struct {
 
 typedef struct HighlightDocument {
     FILE_DETAILS *file;
+    char image[THE_TOOL_PATH];
     unsigned id, revision, applied, stale;
     char *source;
     size_t length, points, lines;
@@ -37,17 +39,14 @@ static HighlightDocument *documents;
 static unsigned next_id;
 static int initialized;
 
-EM_JS(void, request_parse, (unsigned id, unsigned revision, const char *source, size_t bytes, size_t lines), {
-    Module.requestHighlight?.({id, revision, source: HEAPU8.slice(source, source + bytes), lines});
+EM_JS(void, request_parse, (unsigned id, unsigned revision, const char *source, size_t bytes, size_t lines, const char *image), {
+    Module.requestHighlight?.({id, revision, source: HEAPU8.slice(source, source + bytes), lines, image:UTF8ToString(image)});
 });
 EM_JS(void, forget_parse, (unsigned id), { Module.forgetHighlight?.(id); });
 
 static int eligible(FILE_DETAILS *file)
 {
-    const char *extension = file && file->fname ? strrchr((char *)file->fname, '.') : NULL;
-    extension = extension ? extension + 1 : "";
-    return file && file->colouring && file->parser
-        && (!strcasecmp(extension, "rexx") || !strcasecmp(extension, "rex"));
+    return file && file->colouring && file->parser && the_tool_for_file((char*)file->fname,"language");
 }
 
 static HighlightDocument *document(FILE_DETAILS *file, int create)
@@ -94,7 +93,7 @@ void the_wasm_highlight_restart(void)
         clear_result(doc);
         doc->revision++;
         doc->state = "pending";
-        if (doc->source) request_parse(doc->id, doc->revision, doc->source, doc->length, doc->lines);
+        if (doc->source) request_parse(doc->id, doc->revision, doc->source, doc->length, doc->lines,doc->image);
     }
 }
 
@@ -103,11 +102,13 @@ void the_wasm_highlight_restart(void)
 void the_wasm_highlight_prepare(void)
 {
     HighlightDocument *doc;
-    const TheWasmSource *owned = the_wasm_source_current();
+    const TheEditorSource *owned = the_editor_source_current();
+    const TheToolDefinition*tool;
     size_t length = 0, count = 0, offset = 0, points = 0;
     char *source;
     size_t *line_bytes, *line_points;
     if (!CURRENT_VIEW || !eligible(CURRENT_FILE) || !CURRENT_FILE->first_line || the_panel_active || in_macro) return;
+    tool=the_tool_for_file((char*)CURRENT_FILE->fname,"language");
     if (!initialized) {
         if (init_parser_thread_utils() != 0) return;
         initialized = 1;
@@ -138,18 +139,19 @@ void the_wasm_highlight_prepare(void)
         offset += n + 1;
     }
     line_bytes[count] = offset; line_points[count] = points; source[offset] = 0;
-    if (doc->source && doc->length == length && !memcmp(doc->source, source, length)) {
+    if (!strcmp(doc->image,tool->image) && doc->source && doc->length == length && !memcmp(doc->source, source, length)) {
         free(source); free(line_bytes); free(line_points); return;
     }
     enter_codeblock_critical_section();
     clear_result(doc);
     free(doc->source); free(doc->line_bytes); free(doc->line_points);
+    snprintf(doc->image,sizeof(doc->image),"%s",tool->image);
     doc->source = source; doc->length = length; doc->points = points; doc->lines = count;
     doc->line_bytes = line_bytes; doc->line_points = line_points;
     doc->revision++;
     doc->state = "pending";
     if (memchr(source, 0, length)) doc->state = "refused";
-    else request_parse(doc->id, doc->revision, source, length, count);
+    else request_parse(doc->id, doc->revision, source, length, count,doc->image);
     exit_codeblock_critical_section();
 }
 
@@ -284,8 +286,10 @@ int the_wasm_highlight_row(FILE_DETAILS *file, UiFrame *frame, size_t index)
 int the_wasm_highlight_metadata(char *out, size_t capacity)
 {
     HighlightDocument *doc = document(CURRENT_FILE, 0);
+    const TheToolDefinition *tool=the_tool_for_file(CURRENT_FILE?(char*)CURRENT_FILE->fname:"","language");
     return snprintf(out, capacity,
-        "\"parser\":{\"provider\":\"Level L Classic Rexx\",\"state\":\"%s\",\"id\":%u,\"revision\":%u,\"applied\":%u,\"stale\":%u}",
+        "\"parser\":{\"provider\":\"%s\",\"providerId\":\"%s\",\"state\":\"%s\",\"id\":%u,\"revision\":%u,\"applied\":%u,\"stale\":%u}",
+        tool&&!strcmp(tool->id,"classic-highlight")?"Level L Classic Rexx":"DSLSH RXBIN",tool?tool->id:"",
         eligible(CURRENT_FILE) && doc ? doc->state : "inactive", doc ? doc->id : 0,
         doc ? doc->revision : 0, doc ? doc->applied : 0, doc ? doc->stale : 0);
 }

@@ -6,6 +6,7 @@ static int load_crexx_runtime(void) { return 1; }
 #include "crexxapi.h"
 #define DECLARE_CREXX(name,result,args) static result (*the_##name) args;
 THE_CREXX_FUNCTIONS(DECLARE_CREXX)
+static int (*the_crexx_output_writer)(crexxsaa_context*,int (*)(int,const char*,size_t,void*),void*);
 #undef DECLARE_CREXX
 
 static int load_crexx_runtime(void)
@@ -26,6 +27,7 @@ static int load_crexx_runtime(void)
    if (!the_##name) { snprintf(error,sizeof(error),"missing %s",#name); goto failed; }
    THE_CREXX_FUNCTIONS(LOAD_CREXX)
 #undef LOAD_CREXX
+   the_crexx_output_writer=(int (*)(crexxsaa_context*,int (*)(int,const char*,size_t,void*),void*))the_macro_library_symbol(library,"crexxsaa_set_output_writer");
    return 1;
 failed:
    fprintf(stderr,"THE: Invalid cREXX library %s: %s\n",path,error);

@@ -1,3 +1,4 @@
+#include "tools.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -378,10 +379,17 @@ too_large:
    return 0;
 }
 
+static void web_driver_publish_tools(void){
+ static char data[1800000];static unsigned version;static struct mg_connection*client;unsigned current=the_tool_console()->version;
+ if(client!=web_state.client){client=web_state.client;version=0;}
+ if(web_state.client&&current!=version){size_t n=the_tool_format_json(data,sizeof(data));if(n){web_driver_send(web_state.client,data,n);version=current;}}
+}
 static void web_driver_publish_snapshot(void)
 {
    if (!web_state.active)
       return;
+   the_tools_native_initialise();
+   web_driver_publish_tools();
    web_state.snapshot_len = the_web_format_snapshot(web_state.snapshot, sizeof(web_state.snapshot));
    web_driver_send(web_state.client, web_state.snapshot,
                    web_state.snapshot_len);
@@ -400,6 +408,12 @@ static void web_driver_handle_message(struct mg_connection *connection, struct m
       web_driver_publish_snapshot();
       web_driver_send_status(connection,"ack",id,"snapshot sent");
       mg_free(type); return;
+   }
+   if (strcmp(type,"tool")==0) {
+      TheInputEvent event;char*a=mg_json_get_str(json,"$.action"),*t=mg_json_get_str(json,"$.tool"),*text=mg_json_get_str(json,"$.text"),*args=mg_json_get_str(json,"$.arguments");
+      queued=the_tools_prepare_lines(a?a:"",t?t:"",text?text:"",args?args:"",&event)&&the_input_queue_push(&web_state.inputs,event);
+      web_driver_send_status(connection,queued?"ack":"error",id,queued?"queued":"invalid tool request");
+      mg_free(a);mg_free(t);mg_free(text);mg_free(args);mg_free(type);return;
    }
    if (strcmp(type,"files")==0)
    {
@@ -611,6 +625,8 @@ static int web_driver_read_input_event(TheInputEvent *event)
             > (uint64_t)web_state.input_timeout_ms - elapsed)
             poll_ms = web_state.input_timeout_ms - (int)elapsed;
       }
+      the_tools_native_poll();
+      web_driver_publish_tools();
       (void)mg_mgr_poll(&web_state.manager, poll_ms);
    }
 }

@@ -34,9 +34,7 @@
 
 
 #include "the.h"
-#ifdef THE_WASM
-#include "wasm/source.h"
-#endif
+#include "editorsource.h"
 #ifdef THE_WASM_HIGHLIGHT
 #include "wasm/highlighter.h"
 #endif
@@ -1780,9 +1778,7 @@ short free_file_memory(bool free_file_lines)
 /***********************************************************************/
 {
    TRACE_FUNCTION("file.c:    free_file_memory");
-#ifdef THE_WASM
-   the_wasm_source_forget(CURRENT_FILE);
-#endif
+   the_editor_source_forget(CURRENT_FILE);
 #ifdef THE_WASM_HIGHLIGHT
    the_wasm_highlight_forget(CURRENT_FILE);
 #endif

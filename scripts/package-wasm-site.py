@@ -66,6 +66,10 @@ dirty = bool(subprocess.check_output(['git', 'status', '--porcelain', '--untrack
 capabilities = {'crexx_vm': bool(args.crexx_source), 'source_compiler': False, 'external_parsers': False}
 capabilities['classic_rexx_highlighter'] = args.classic
 capabilities['classic_rexx_interpreter'] = args.interpreter
+capabilities['common_tool_session'] = not args.vm_only
+capabilities['profile_source_compiler'] = (site / 'compiler/compiler.json').exists()
+if capabilities['profile_source_compiler']:
+    dependencies['profile_compiler'] = json.loads((site / 'compiler/compiler.json').read_text())
 if args.vm_only:
     capabilities.update(stdin='binary/explicit EOF', stdout='binary', stderr='binary', editor_address=False)
 else:

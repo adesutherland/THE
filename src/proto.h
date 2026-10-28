@@ -776,6 +776,7 @@ short Timecheck (CHARTYPE *);
 short Toascii (CHARTYPE *);
 short Tofeof (CHARTYPE *);
 short Top (CHARTYPE *);
+short Tools (CHARTYPE *);
 short Trailing (CHARTYPE *);
 short Trunc (CHARTYPE *);
 short THETypeahead (CHARTYPE *);

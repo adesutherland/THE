@@ -1,0 +1,4 @@
+/* A compiled RXBIN program for the common THE console. */
+options levelb
+say 'RXBIN program proof'
+return 9

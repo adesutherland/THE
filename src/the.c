@@ -1,3 +1,4 @@
+#include "tools.h"
 /***********************************************************************/
 /* THE.C - The Hessling Editor                                         */
 /***********************************************************************/
@@ -1387,6 +1388,7 @@ int main(int argc, char *argv[])
     * We are no longer executing the profile file.
     */
    in_profile = FALSE;
+   (void)the_tools_profile_restore();
    if (startup_driver == THE_STARTUP_DRIVER_LLM)
    {
       (void)llm_session_run_protocol();
@@ -1408,6 +1410,7 @@ int main(int argc, char *argv[])
    /*
     * Finalise rexx support...
     */
+   the_tool_stop("Session ended");
    finalise_rexx();
    /*
     * Free up the dynamically allocated memory.

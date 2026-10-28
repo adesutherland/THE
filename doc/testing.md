@@ -73,3 +73,17 @@ installer checks establish different facts. Record source/dependency versions
 and outcomes in the CI/test result, not an accumulating product-document diary.
 Physical terminal appearance still needs a native visual check. See
 [packaging](packaging.md) for installation and lifecycle tests.
+
+## Common RXBIN tools
+
+With `THE_NATIVE_TOOL_ROOT` configured, CTest includes `test_native_tools` and
+`test_tool_console_curses` (the latter requires pyte and a POSIX PTY). The pure
+C `test_toolhost` runs without a cREXX SDK. Native browser tests also exercise
+the shared console when a tool bundle is available. See
+[tools and profile contracts](runtime-tools.md#verification).
+
+For a combined Wasm build with the optional source-profile compiler, the
+existing `web/test/wasm-browser-smoke.mjs` also checks actual compiler/assembler
+execution, addressed activation, failure retention and IndexedDB restore.
+`web/test/wasm-interpreter.mjs` qualifies the separately prepared execution VM;
+a build of the editor alone does not qualify that VM or its RXBIN image.

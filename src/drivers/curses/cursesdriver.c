@@ -3,6 +3,8 @@
 #include "proto.h"
 #include "driverlayout.h"
 #include "curseskeymap.h"
+#include "tools.h"
+#include "panelui.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -1001,8 +1003,30 @@ void curses_driver_end_terminal_report(void)
    refresh();
 }
 
+static WINDOW *console_window;
+static int console_rows, console_timeout=-1;
+static int console_height(void){return the_tool_console()->visible&&LINES>=16? (LINES>=30?8:5):0;}
+static void console_draw(void){
+ const TheToolConsole*c=the_tool_console();static char text[THE_TOOL_OUTPUT+1];char *p,*start;int h=console_rows,row=1,lines=0;
+ if(!h)return;
+ if(!console_window)console_window=newwin(h,COLS,LINES-h,0);
+ if(!console_window)return;
+ werase(console_window);wattron(console_window,A_REVERSE);mvwprintw(console_window,0,0," Console | %.80s | %s",c->state,c->focused?"Esc: editor  Ctrl-C: stop  Ctrl-D: EOF":"TOOL CONSOLE: focus");wattroff(console_window,A_REVERSE);
+ the_tool_console_text(text,sizeof(text));for(p=text;*p;p++)if(*p=='\n')lines++;
+ start=text;while(lines>h-3&&*start){if(*start++=='\n')lines--;}
+ for(p=start;*p&&row<h-1;p++){unsigned char ch=*p;if(ch=='\n'){row++;wmove(console_window,row,0);}else if(ch=='\t')waddstr(console_window,"  ");else if(ch>=32&&ch!=127){
+#ifdef USE_UTF8
+   wchar_t wc;mbstate_t state={0};size_t n=mbrtowc(&wc,p,strlen(p),&state);if(n!=(size_t)-1&&n!=(size_t)-2&&n){waddnwstr(console_window,&wc,1);p+=n-1;}
+#else
+   waddch(console_window,ch);
+#endif
+  }}
+ mvwprintw(console_window,h-1,0,"> %.*s",COLS>3?COLS-3:0,c->input);
+ wmove(console_window,h-1,(int)c->input_length+2<COLS?(int)c->input_length+2:COLS-1);leaveok(console_window,c->focused?FALSE:TRUE);wnoutrefresh(console_window);
+}
 void curses_driver_update(void)
 {
+   console_draw();
    doupdate();
 }
 
@@ -1020,6 +1044,7 @@ void curses_driver_set_window_timeout(WINDOW *win, int milliseconds)
 
 void curses_driver_set_current_window_timeout(int milliseconds)
 {
+   console_timeout=milliseconds;
    curses_driver_set_window_timeout(curses_driver_current_active_window(),
                                     milliseconds);
 }
@@ -1242,17 +1267,27 @@ int curses_driver_peek_raw_driver_window_key(TheDriverWindow *win)
 
 int curses_driver_read_input_event(TheInputEvent *event)
 {
-   int key;
-
-   if (event == NULL)
-      return 0;
-   *event = the_input_event_none();
-   key = curses_driver_read_current_window_key();
-   if (key == ERR)
-      return 0;
-   if (curses_driver_read_utf8_text_event(key, event))
-      return 1;
-   return the_input_event_from_legacy_key(key, event);
+ int key,ok;char command[80];const TheToolConsole*c;
+ if(!event)return 0;
+ the_tools_native_initialise();the_tools_native_poll();c=the_tool_console();
+ if(console_height()!=console_rows)return the_input_event_from_resize(0,0,event);
+ if(c->running)curses_driver_set_window_timeout(curses_driver_current_active_window(),50);
+ key=curses_driver_read_current_window_key();
+ if(c->running)curses_driver_set_window_timeout(curses_driver_current_active_window(),console_timeout);
+ if(key==ERR){the_tools_native_poll();curses_driver_update();return 0;}
+ *event=the_input_event_none();ok=curses_driver_read_utf8_text_event(key,event);
+ if(!ok)ok=the_input_event_from_legacy_key(key,event);
+ if(c->focused&&!in_macro&&!the_panel_active){
+  if(key==27)strcpy(command,"tool key escape");
+  else if(key==10||key==13||key==KEY_ENTER)strcpy(command,"tool key enter");
+  else if(key==8||key==127||key==KEY_BACKSPACE)strcpy(command,"tool key backspace");
+  else if(key==3)strcpy(command,"tool key stop");
+  else if(key==4)strcpy(command,"tool key eof");
+  else if(event->kind==THE_INPUT_TEXT)snprintf(command,sizeof(command),"tool type %u",event->codepoint);
+  else return 0;
+  return the_input_event_from_command(command,event);
+ }
+ return ok;
 }
 
 int curses_driver_read_terminal_legacy_key(void)
@@ -2244,7 +2279,9 @@ static void curses_driver_set_error(char *error, size_t error_len,
 
 static void curses_driver_refresh_terminal_size(void)
 {
-   terminal_lines = LINES;
+   if(console_window){delwin(console_window);console_window=NULL;}
+   console_rows=console_height();
+   terminal_lines = LINES-console_rows;
    terminal_cols = COLS;
 #ifdef HAVE_BSD_CURSES
    terminal_lines--;
@@ -2499,6 +2536,7 @@ static void curses_driver_resize_terminal(int rows, int cols)
 
 static int curses_driver_is_terminal_resized(void)
 {
+   if(console_height()!=console_rows)return 1;
 #if defined(PDCURSES)
    return is_termresized();
 #elif defined(SIGWINCH) && defined(USE_NCURSES)

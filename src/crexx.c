@@ -17,6 +17,7 @@
 #include <string.h>
 
 #include <the.h>
+#include "tools.h"
 #include <proto.h>
 
 #ifdef USE_CREXX
@@ -236,6 +237,19 @@ short initialise_crexx(void)
    return(RC_OK);
 }
 
+static int console_write(int fd,const char*bytes,size_t n,void*unused){(void)unused;the_tool_profile_output(fd,bytes,n);return 0;}
+static int console_default;
+int the_crexx_console_capture(int enabled){if(!the_crexx_context)return 0;if(enabled==2)console_default=1;enabled=enabled||console_default;
+#ifdef THE_CREXX_STATIC
+#if defined(THE_TOOL_PROFILE_OUTPUT)
+ return crexxsaa_set_output_writer(the_crexx_context,enabled?console_write:NULL,NULL)==0;
+#else
+ return !enabled;
+#endif
+#else
+ return the_crexx_output_writer&&the_crexx_output_writer(the_crexx_context,enabled?console_write:NULL,NULL)==0;
+#endif
+}
 short finalise_crexx(void)
 {
    TRACE_FUNCTION("crexx.c:   finalise_crexx");
@@ -500,6 +514,8 @@ CHARTYPE *get_crexx_interpreter_version(CHARTYPE *buf)
 }
 
 #else
+
+int the_crexx_console_capture(int enabled){(void)enabled;return 0;}
 
 short initialise_crexx(void)
 {

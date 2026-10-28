@@ -15,7 +15,7 @@ import {
 } from "lucide-preact";
 import type { DriverMessage, FileListMessage, FrontendActionDefinition, PanelColour, ScreenRow, Snapshot, StyleRun } from "./types";
 import "./styles.css";
-import {RexxConsole, type RunSource} from './rexx-console';
+import {RexxConsole, type ToolSession} from './rexx-console';
 
 const keyNames: Record<string, string> = {
   ArrowLeft: "left",
@@ -104,8 +104,7 @@ function App() {
   const [connection, setConnection] = useState<"connecting" | "online" | "reconnecting" | "offline">("connecting");
   const [lastError, setLastError] = useState("");
   const [storageState, setStorageState] = useState("");
-  const [interpreterAvailable,setInterpreterAvailable] = useState(false);
-  const [runSource,setRunSource] = useState<RunSource|null>(null);
+  const [toolSession,setToolSession]=useState<ToolSession|null>(null);
   const [command, setCommand] = useState("");
   const [commandFocused, setCommandFocused] = useState(false);
   const [actions, setActions] = useState<FrontendActionDefinition[]>([]);
@@ -181,10 +180,9 @@ function App() {
       socket.onmessage = (event) => {
         try {
           const message = (typeof event.data === 'string' ? JSON.parse(event.data) : event.data) as Snapshot | DriverMessage;
-          if ("type" in message && message.type === "run-source") {
-            setRunSource(message as unknown as RunSource);
-          } else if ("type" in message && message.type === "interpreter") {
-            setInterpreterAvailable(true);
+          if ("type" in message && message.type === "tools") {
+            setToolSession(message as unknown as ToolSession);
+
           } else if ("type" in message && message.type === "storage") {
             const storage = message as DriverMessage & { state: string };
             setStorageState(storage.state === "error" ? storage.message ?? "Storage error" : storage.state === "saving" ? "Saving browser workspace…" : "Saved to browser workspace");
@@ -647,7 +645,7 @@ function App() {
           </aside>
         ) : null}
       </section>
-      {browserWasm && interpreterAvailable ? <RexxConsole send={send} source={runSource} snapshot={snapshot} /> : null}
+      {!snapshot?.panel && toolSession?.catalog.some(t=>t.available) ? <RexxConsole send={send} session={toolSession} snapshot={snapshot} /> : null}
       </div>
 
       <footer class="command-area">

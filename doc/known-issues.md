@@ -44,6 +44,13 @@ installed separately. The browser may intercept F6 or Ctrl-L; Esc provides
 command-field focus. The wrapping key guide and fixed-column forms have
 different sizing behavior.
 
+The common RXBIN tool host is opt-in and requires its prepared dependency
+bundle. It is locally qualified on macOS and Chromium/Wasm; the native Windows
+helper, installed graphical distribution and other browser engines require
+qualification. Native pipes do not signal a waiting-for-input state. Profile
+PULL uses legacy stdin; use ADDRESS THE READ for editor prompts. See
+[tool capabilities and limits](runtime-tools.md).
+
 ## Installation
 
 An older executable, driver directory or development environment override can

@@ -394,6 +394,18 @@ try {
     "Ctrl+S action",
   );
 
+
+  if(await evaluate("!!document.querySelector('.rexx-dock')")){
+    await openWorkspaceFile('console.rexx');
+    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Rexx').click()");
+    await waitFor(()=>evaluate("document.querySelector('.console-output').textContent.includes('native graphical proof')"),'native program console',30000);
+    await evaluate("document.querySelector('#rexx-input').focus()");await command('Input.insertText',{text:'Zoë😀'});await command('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13,text:'\r'});await command('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+    await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Completed · status 7'"),'native completion',30000);
+    if(!await evaluate("document.querySelector('.console-output').textContent.includes('Hello ZOË😀')"))throw Error('Native Unicode console output');
+    await closeCurrentBuffer('console.rexx');
+    await selectBuffer('sample.txt');
+    console.log('PASS native graphical RXBIN host: actual Classic execution, Unicode stdin/output and status');
+  }
   if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   await evaluate("[...document.querySelectorAll('.menu-trigger')].find((node) => node.textContent.trim() === 'File').click()");
   await evaluate("[...document.querySelectorAll('.menu-popover button')].find((node) => node.textContent.trim().startsWith('Close')).click()");
