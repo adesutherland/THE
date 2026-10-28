@@ -4,6 +4,85 @@ THE is a procedural C editor descended from XEDIT/KEDIT. This fork keeps the
 classic command, file-ring, view, and Rexx macro model, but the UI architecture
 now separates editor state from physical terminal mechanics.
 
+## Common desktop and browser application
+
+Desktop and browser are execution hosts for one THE application. Desktop uses
+the native editor/VM and local files; browser uses the Wasm editor/VM, Workers
+and browser storage. Graphical desktop and browser share the workbench UI;
+the terminal driver presents the same editor, console and tool operations.
+
+```mermaid
+flowchart TB
+  UI["THE interface: editor, files, console, profiles, language tools"]
+  SESSION["THE session: C editor core, workspace, configuration"]
+  TOOLS["THE RXBIN host: registration, jobs, streams, editor bridge"]
+  NATIVE["Desktop adapter: native VM, pipes, local files"]
+  WASM["Browser adapter: Wasm VM, Workers, browser storage"]
+  UI <--> SESSION
+  SESSION <--> TOOLS
+  TOOLS --> NATIVE
+  TOOLS --> WASM
+```
+
+THE owns editor state, source identities/revisions, tool registration, job and
+console state, workspace policy, profile selection and result admission. UI
+drivers translate physical input and render that state. They do not own VM
+instances, decide what source to run or independently clear a job's state.
+cREXX owns the VM, compilers/interpreters and portable runtime providers.
+DSLSH owns its language-service model, protocols and adapters. Implementation
+and qualification of this common model follow the stages in the [roadmap](roadmap.md).
+
+### RXBIN roles and sessions
+
+RXBIN is the common executable unit. A tool registration names an image, its
+entry protocol, compatible runtime/dependencies, language associations and
+required host capabilities. Source execution delegates to a registered language
+runner. Compiler and assembler host helpers can implement a registered build
+operation; a native compiler is not relabelled as RXBIN bytecode.
+
+| Role | Lifetime and authority |
+| --- | --- |
+| Program / language runner | One job per invocation, separate stdin/stdout/stderr and completion, explicit Stop. Source runs use the entire C-owned buffer including its pending record. |
+| Profile / macro | Session integration through ADDRESS THE, EXTRACT and READ. Editor commands execute on the editor owner. Compile/validation precedes activation. |
+| Language service | Persistent service sessions with document identities/revisions, styles and diagnostics; independently restartable. Results are admitted by the editor owner. |
+
+These roles share discovery, lifecycle and error reporting, not one VM or one
+stdio protocol. Profile callbacks can require the editor's synchronous execution
+owner, including nested READ. Programs and parsers run independently. Incoming
+messages queue work; they never reenter a running/suspended editor C stack.
+
+### Console and workspace
+
+The console is a THE session model: selected job, bounded output, input, EOF,
+state and completion/error information. A terminal split and a graphical split
+are projections of that model. The editor command line remains distinct from
+program stdin. Language-service control frames never become visible program
+output. A waiting-input or completed state publishes all preceding output.
+Stopping an isolated job preserves editor buffers, views and parser sessions;
+hard termination is distinct from graceful Rexx completion/cleanup.
+
+Workspace files, editable profiles and tool registrations use logical workspace
+identities. Host adapters implement persistence and explicit import/export.
+Saving acknowledges the backend's successful commit before clearing dirty state.
+Run neither saves nor alters the source buffer. A running job retains its source
+identity/revision even when that buffer changes or closes.
+
+### Profile and language-tool workflow
+
+The common profile workflow is **Edit → Build/Validate → Activate**. Source is
+authoritative and compiled images are versioned cache artifacts. Build failure
+retains the last working selection and does not execute partially compiled code.
+Activation errors remain visible; arbitrary editor commands cannot be promised
+transactional rollback. Persisted selection identifies the validated artifact
+and its runtime compatibility, so startup does not silently use a stale cache.
+
+Adding a language service associates a registered RXBIN with a language/file
+type and a supported service protocol. THE manages its lifecycle and accepts
+only results for the current document revision. Built-in/default registrations
+and user additions use the same interface. Capabilities are explicit: native
+filesystem/process facilities are not implied by a browser VM, and a native
+child process alone is not an operating-system sandbox.
+
 For the detailed cursor/driver contract, read
 `doc/cursor-driver-architecture.md`. For UTF behavior, read [terminal profiles](utf-design.md).
 Current limitations and plans are in [known issues](known-issues.md) and

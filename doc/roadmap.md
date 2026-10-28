@@ -7,6 +7,27 @@ workarounds belong in [known issues](known-issues.md).
 
 ## Editing and runtime integration
 
+### Common RXBIN host implementation stages
+
+The [common architecture](architecture.md#common-desktop-and-browser-application)
+is implemented for native desktop (graphical and terminal) and browser. Keep
+each stage usable and validate its owning contracts before proceeding. The
+source implementation covers the five stages below; platform and release
+qualification remains separately listed after the table. See the
+[implemented commands and build inputs](runtime-tools.md).
+
+| Stage | Deliverable | Acceptance |
+| --- | --- | --- |
+| 1. Session contracts | Shared C source identity, tool registration, job/console model and normalized actions. | Pending edits, job identity, bounded streams, EOF, completion and stale-event rejection are independent of UI/host. |
+| 2. Native execution | Native RXBIN/source runner adapter with pipes, termination and the graphical/terminal split console. | Actual native bytecode, interactive stdin, errors and Stop leave the editor responsive; terminal keys and resize use a real PTY. |
+| 3. Browser execution | Existing Wasm runner routed through the common THE session; renderer becomes a presentation client. | Same run/stop/input/EOF behavior, unsaved source and persistent workspace tests; direct RXBIN selection works. |
+| 4. Profiles and tools | Common registration, profile edit/build/validate/activate and language-service selection/restart. | Both hosts execute a newly built addressed profile; failed build retains working selection; a registered highlighter observes revision admission. |
+| 5. Integration | Installed assets, dependency provenance, user guides and common host/driver regression checks. | Native graphical/terminal and browser exercise the same workflows; unavailable platforms/capabilities are reported explicitly. |
+
+Desktop-window packaging and broader browser/OS release qualification remain
+separate from these source-development stages. The existing native web driver
+supplies the graphical desktop presentation without selecting a new shell framework.
+
 - Diagnose and repair the optional F8/F9 helpers. Reproduce each reported
   failure with its matching runtime, then assert compilation artifacts,
   runtime output and failure status through the hosted macro path.
