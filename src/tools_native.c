@@ -229,7 +229,7 @@ static int input(unsigned id, const void *b, size_t n) {
 #endif
    return ok;
 }
-static int eof(unsigned id) {
+static int native_input_eof(unsigned id) {
    if (!job.active || job.id != id)
       return 0;
    job.eof_requested = 1;
@@ -613,7 +613,7 @@ failed:
    return 0;
 }
 void the_tools_native_initialise(void) {
-   TheToolAdapter a = {start, input, eof, stop, poll};
+   TheToolAdapter a = {start, input, native_input_eof, stop, poll};
    const char *configured;
    char helper[THE_TOOL_PATH];
    int enabled;
