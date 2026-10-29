@@ -7,16 +7,17 @@
 ```
 
 ## Description
-The SET IMPOS command is used to set implied operating system command processing from the
-command line. By turning this feature on you can then issue an operating system command without
-the need to prefix the operating system command with the OS command.
+The SET IMPOS command controls implied operating system command processing from the command
+line. It is off by default; use `OS command` or `!command` to run a shell command explicitly.
+`SET IMPOS ON` enables the legacy behavior of passing unrecognized commands to the operating
+system.
 
 ## Compatibility
 XEDIT: Compatible.
 KEDIT: N/A
 
 ## Default
-ON
+OFF
 
 ## See Also
 SET IMPCMSCP

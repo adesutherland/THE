@@ -82,11 +82,15 @@ and editor callback as native THE. The VM can suspend through a nested READ
 while the editor Worker awaits browser input. The browser-specific profile
 uses the shared default key definitions without native PATH or shell probes.
 
-An explicit `macro /workspace/example.rxbin` can run a prepared bytecode file
-in the virtual workspace. Source `.the`/`.rexx` compilation is
-unavailable and reports that precompiled bytecode is required. Import/export
-UI is still future work. Long-running macros currently need a Worker restart;
-cooperative interruption and recovery of unsaved edits remain open.
+Browser command input supports safe editor aliases through [SET SYNONYM](commands/SET_SYNONYM.md).
+Aliases contain one allowed editor command; their fixed and invocation operands
+are checked on every use. Arbitrary `MACRO` commands, inline Rexx, OS commands,
+alias command chains and prefix macros are unavailable through browser input.
+The bundled shortcuts above run through the trusted profile path. The base macro
+host accepts precompiled bytecode; source `.the`/`.rexx` compilation is unavailable
+there. Import/export UI is still future work. Long-running bundled macros
+currently need a Worker restart; cooperative interruption and recovery of
+unsaved edits remain open.
 
 ## Stream-based VM host
 

@@ -5333,20 +5333,21 @@ SYNTAX
      [SET] IMPMACro ON|OFF
 
 DESCRIPTION
-     The SET IMPMACRO command is used to set implied macro processing
-     from the command line. By turning this feature on you can then
-     issue a <macro> command without the need to prefix the macro name
-     with the <MACRO> command.
+     The SET IMPMACRO command controls implied macro processing from
+     the command line. The default is OFF. Use <MACRO> to run a macro
+     explicitly. A <SET SYNONYM> can register a named MACRO command.
+     SET IMPMACRO ON enables the legacy behavior of running an
+     unrecognized command as a matching macro file.
 
 COMPATIBILITY
      XEDIT: N/A
      KEDIT: Compatible.
 
 DEFAULT
-     ON
+     OFF
 
 SEE ALSO
-     <MACRO>, <SET MACROPATH>
+     <MACRO>, <SET MACROPATH>, <SET SYNONYM>
 
 STATUS
      Complete.
@@ -5369,17 +5370,18 @@ SYNTAX
      [SET] IMPOS ON|OFF
 
 DESCRIPTION
-     The SET IMPOS command is used to set implied operating system
-     command processing from the command line. By turning this feature
-     on you can then issue an operating system command without the need
-     to prefix the operating system command with the <OS> command.
+     The SET IMPOS command controls implied operating system command
+     processing from the command line. The default is OFF. Use the <OS>
+     or <!> command to run a shell command explicitly. SET IMPOS ON
+     enables the legacy behavior of passing unrecognized commands to
+     the operating system.
 
 COMPATIBILITY
      XEDIT: Compatible.
      KEDIT: N/A
 
 DEFAULT
-     ON
+     OFF
 
 SEE ALSO
      <SET IMPCMSCP>

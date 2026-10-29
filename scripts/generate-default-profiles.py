@@ -44,7 +44,7 @@ def generated():
                   quote(data['welcome']) + ';']
         result[filename] = '\n'.join(lines) + '\n'
         restricted = [quote(command) + ';' for command in
-                      ['set impos off','set impmacro off','set macro off','set linend off','set synonym off']]
+                      ['set impos off','set impmacro off','set macro off','set linend off','set synonym on']]
         web_name = 'web-profile.the' if engine == 'CREXX' else 'web-profile-regina.the'
         result[web_name] = '\n'.join(lines[:-1] + restricted +
                                     [quote(data['welcome']) + ';']) + '\n'

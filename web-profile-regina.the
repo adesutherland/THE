@@ -157,5 +157,5 @@ end
 'set impmacro off';
 'set macro off';
 'set linend off';
-'set synonym off';
+'set synonym on';
 'msg CRXTHE 0.10.dev | Esc Command  F6 Cmd/File  F1 Help  Ctrl-S Save';

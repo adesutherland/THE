@@ -37,6 +37,7 @@
 #include <proto.h>
 #include "thedriver.h"
 #include "utfterm.h"
+#include "frontendpolicy.h"
 
 /*#define DEBUG 1*/
 
@@ -3161,191 +3162,168 @@ short Stay(CHARTYPE *params)
 }
 /*man-start*********************************************************************
 COMMAND
-     set synonym - define synonyms for commands (unavailable)
+     set synonym - define and remove command aliases
 
 SYNTAX
      [SET] SYNonym ON|OFF
      [SET] SYNonym [LINEND char] newname [n] definition
+     [SET] SYNonym newname
 
 DESCRIPTION
-     The SET SYNONYM command allows the user to define synonyms for
-     commands or macros.
+     SET SYNONYM is the supported way to add named commands. New names
+     contain letters only. The optional minimum abbreviation length 'n'
+     is between 1 and the name length; it defaults to the full length.
+     An exact name wins over other aliases' abbreviations. Otherwise an
+     abbreviation must identify one alias; ambiguous names are rejected.
+     Extra letters do not match an alias. Definitions replace an existing
+     alias of the same full name. A name without a definition removes it.
+     ON and OFF control processing for the current view without deleting
+     definitions. Definitions belong to the editor session.
 
-     The first format indicates if synonym processing is to be performed.
+     Definitions contain built-in commands and fixed operands. Invocation
+     operands are appended after the fixed operands of each command. Only
+     one level of alias processing occurs. An alias may shadow a built-in;
+     COMMAND bypasses aliases. COMMAND itself cannot be an alias name.
 
-     The second format defines a command synonym.
+     Native definitions may wrap explicit MACRO or OS commands, for example:
+     SET SYNONYM build OSNOWAIT make
+     SET SYNONYM check MACRO check.the
+     A leading REXX treats the remainder as an inline Rexx macro. Rexx forms
+     require an available interpreter. LINEND char separates up to 10
+     built-in commands. Without an explicit delimiter, the view's enabled
+     LINEND setting is used. Execution stops on failure and returns that
+     command's return code. Removing or redefining an executing alias
+     affects its next invocation.
 
-     The synonym is 'newname', which effectively adds a new THE
-     command with the definition specified by 'definition'.  The 'n'
-     parameter defines the minimum length of the abbreviation for
-     the new command
-     An optional LINEND character can be specified prior to 'newname'
-     if the 'definition' contains multiple commands.
+     QUERY SYNONYM reports ON or OFF. QUERY SYNONYM name reports a complete
+     definition; QUERY SYNONYM * lists the definitions. EXTRACT /SYNONYM name/
+     returns name, minimum length, complete command definition and delimiter.
+     EXTRACT with the '*' option returns one definition per alias,
+     including chains.
+     An unknown queried name is returned unchanged as an identity definition.
 
-     'definition' can be of the form:
-     [REXX] command [args] [#command [args] [...]]
-     (where # represents the LINEND character specified prior to
-     'newname')
-
-     If the optional keyword; 'REXX', is supplied, the remainder of the
-     command line is treated as a Rexx macro and is passed onto the
-     Rexx interpreter (if you have one) for execution.
-
-     Only 1 level of synonym processing is carried out; therefore
-     a synonym cannot be specified in the 'definition'.
+     Browser sessions accept one allowed editor built-in per alias. Fixed
+     operands and invocation operands are checked against browser policy.
+     Rexx, MACRO, OS, RX tool launches, command chains, LINEND and prefix-macro
+     definitions are unavailable in browser aliases. A rejected or ambiguous
+     alias does not fall back to a built-in of the same name. Bundled profile
+     shortcuts retain their separately trusted execution path.
+     Browser aliases cannot use the name SET, preserving alias management.
+     With cREXX, inline source should declare its language, for example
+     REXX options levelb; return 7.
 
 COMPATIBILITY
-     XEDIT: Compatible. Does not support format that can reorder parameters.
+     XEDIT: Does not support parameter reordering.
      KEDIT: Compatible.
 
 DEFAULT
-     OFF
+     ON
 
 STATUS
-     Incomplete.
+     Complete.
 **man-end**********************************************************************/
 short Synonym(CHARTYPE *params)
 /***********************************************************************/
 {
-#define SYN_PARAMS  4
-   CHARTYPE *word[SYN_PARAMS+1];
-   CHARTYPE strip[SYN_PARAMS];
-   CHARTYPE *rem,*newname,*def;
-   CHARTYPE linend;
-   unsigned short num_params=0;
-   unsigned short exp_num_params=0;
-   short rc=RC_OK,min_abbrev;
+   CHARTYPE *word[5], strip[4]={STRIP_BOTH,STRIP_BOTH,STRIP_BOTH,STRIP_LEADING};
+   CHARTYPE *newname=NULL, *rem=NULL, *def, *p;
+   CHARTYPE linend=0;
+   short rc=RC_INVALID_OPERAND, min_abbrev;
+   long abbreviation;
+   int count, expected=2;
 
    TRACE_FUNCTION("commset2.c:Synonym");
-
-   params = MyStrip( params, STRIP_BOTH, ' ' );
-   if ( equal( (CHARTYPE *)"on", params, 2 ) )
+   params = MyStrip(params,STRIP_BOTH,' ');
+   if (equal((CHARTYPE *)"on",params,2)
+   ||  equal((CHARTYPE *)"off",params,3))
    {
-      CURRENT_VIEW->synonym = TRUE;
-      TRACE_RETURN();
-      return(rc);
+      CURRENT_VIEW->synonym = equal((CHARTYPE *)"on",params,2);
+      return RC_OK;
    }
-   if ( equal( (CHARTYPE *)"off", params, 3 ) )
-   {
-      CURRENT_VIEW->synonym = FALSE;
-      TRACE_RETURN();
-      return(rc);
-   }
-   /*
-    * We can now process commands of the second format
-    */
-   if ( strlen( (DEFCHAR *)params ) > 6
-   &&   memcmpi( params, (CHARTYPE *)"LINEND ", 7 ) == 0 )
-   {
-      strip[0] = STRIP_BOTH;
-      strip[1] = STRIP_BOTH;
-      strip[2] = STRIP_BOTH;
-      strip[3] = STRIP_LEADING;
-      exp_num_params = 4;
-   }
-   else
-   {
-      strip[0] = STRIP_BOTH;
-      strip[1] = STRIP_LEADING;
-      exp_num_params = 2;
-   }
-   num_params = param_split( params, word, exp_num_params, WORD_DELIMS, TEMP_PARAM, strip, FALSE );
-   if ( num_params < exp_num_params )
+   if (strlen((DEFCHAR *)params)>6
+   && memcmpi(params,(CHARTYPE *)"LINEND ",7)==0)
+      expected=4;
+   strip[expected-1] = STRIP_LEADING;
+   count = param_split(params,word,expected,WORD_DELIMS,TEMP_PARAM,strip,FALSE);
+   if (count < expected && !(expected==2 && count==1))
    {
       display_error(3,(CHARTYPE *)"",FALSE);
-      TRACE_RETURN();
-      return(RC_INVALID_OPERAND);
+      return RC_INVALID_OPERAND;
    }
-   if ( exp_num_params == 4)
+   if (expected==4)
    {
-      if ( strlen( (DEFCHAR *)word[1]) != 1 )
+      if (strlen((DEFCHAR *)word[1]) != 1)
       {
          display_error(1,word[1],FALSE);
-         TRACE_RETURN();
-         return(RC_INVALID_OPERAND);
+         return RC_INVALID_OPERAND;
       }
-      linend = word[1][0];
-      newname = my_strdup( word[2] );
-      rem = my_strdup( word[3] );
+      linend=word[1][0];
+      newname=my_strdup(word[2]);
+      rem=my_strdup(word[3]);
    }
    else
    {
-      linend = 0;
-      newname = my_strdup( word[0] );
-      rem = my_strdup( word[1] );
+      newname=my_strdup(word[0]);
+      rem=my_strdup(count==1 ? (CHARTYPE *)"" : word[1]);
    }
-   /*
-    * We have parsed the line to determine the optional LINEND
-    * character, and the newname. We now have to determine if an
-    * abbreviation length is specified...
-    */
-   strip[0] = STRIP_BOTH;
-   strip[1] = STRIP_LEADING;
-   num_params = param_split( rem, word, 2, WORD_DELIMS, TEMP_PARAM, strip, FALSE );
-   if ( num_params == 0 )
+   if (!newname || !rem)
    {
-      display_error(3,(CHARTYPE *)"",FALSE);
-      (*the_free)(newname);
-      (*the_free)( rem );
-      TRACE_RETURN();
-      return(RC_INVALID_OPERAND);
+      display_error(30,(CHARTYPE *)"",FALSE);
+      rc=RC_OUT_OF_MEMORY;
+      goto done;
    }
-   /*
-    * If the first word (word[0]) is numeric, then this is the
-    * abbreviation length
-    */
-   if ( valid_positive_integer( word[0] ) )
+   /* split_command recognizes alphabetic command names. Reject unusable
+    * names and reserve the control forms and COMMAND's built-in bypass. */
+   for (p=newname; *p && isalpha((unsigned char)*p); p++);
+   if (*p || !*newname || strlen((DEFCHAR *)newname)>MAX_FILE_NAME
+   || my_stricmp((DEFCHAR *)newname,"COMMAND")==0
+   || my_stricmp((DEFCHAR *)newname,"ON")==0
+   || my_stricmp((DEFCHAR *)newname,"OFF")==0
+   || my_stricmp((DEFCHAR *)newname,"LINEND")==0)
    {
-      if ( num_params == 1 )
+      display_error(1,newname,FALSE);
+      goto done;
+   }
+   if (!*rem)
+   {
+      rc=remove_define(&first_synonym,&last_synonym,0,newname);
+      goto done;
+   }
+   strip[0]=STRIP_BOTH;
+   strip[1]=STRIP_LEADING;
+   count=param_split(rem,word,2,WORD_DELIMS,TEMP_PARAM,strip,FALSE);
+   min_abbrev=(short)strlen((DEFCHAR *)newname);
+   def=rem;
+   if (count && valid_positive_integer(word[0]))
+   {
+      abbreviation=strtol((DEFCHAR *)word[0],NULL,10);
+      if (count<2 || abbreviation<1 || abbreviation>min_abbrev)
       {
-         display_error(3,(CHARTYPE *)"",FALSE);
-         (*the_free)(newname);
-         (*the_free)( rem );
-         TRACE_RETURN();
-         return(RC_INVALID_OPERAND);
+         display_error(6,word[0],FALSE);
+         goto done;
       }
-      min_abbrev = atoi( (DEFCHAR *)word[0] );
-      if ( min_abbrev > strlen( (DEFCHAR *)newname ) )
-      {
-         display_error(6,(CHARTYPE *)"",FALSE);
-         (*the_free)(newname);
-         (*the_free)( rem );
-         TRACE_RETURN();
-         return(RC_INVALID_OPERAND);
-      }
-      def = word[1];
+      min_abbrev=(short)abbreviation;
+      def=word[1];
    }
+   if (the_frontend_policy_enabled()
+   && (equal(newname,(CHARTYPE *)"SET",min_abbrev)
+       || linend || CURRENT_VIEW->linend_status
+       || !the_frontend_policy_synonym_allowed((char *)def)))
+   {
+      display_error(0,(CHARTYPE *)"Command unavailable in restricted frontend sessions",FALSE);
+      rc=RC_INVALID_ENVIRON;
+      goto done;
+   }
+   if (strlen((DEFCHAR *)def)>5
+   && memcmpi(def,(CHARTYPE *)"REXX ",5)==0)
+      rc=add_define(&first_synonym,&last_synonym,min_abbrev,def+5,TRUE,newname,linend);
    else
-   {
-      min_abbrev = strlen( (DEFCHAR *)newname );
-      def = rem;
-   }
-   /*
-    * Do not allow the command COMMAND to be synonymed.
-    */
-   if ( my_stricmp( (DEFCHAR *)newname, (DEFCHAR *)"COMMAND" ) == 0 )
-   {
-      display_error( 1, newname, FALSE );
-      (*the_free)( newname );
-      (*the_free)( rem );
-      TRACE_RETURN();
-      return(RC_INVALID_OPERAND);
-   }
-   /*
-    * Determine if the first word of the supplied command is REXX
-    * (either case)...
-    */
-   if ( strlen( (DEFCHAR *)def ) > 5
-   &&  memcmpi( def, (CHARTYPE *)"REXX ", 5) == 0 )
-   {
-      rc = add_define(&first_synonym,&last_synonym,min_abbrev,def+5,TRUE,newname,linend);
-   }
-   else
-      rc = add_define(&first_synonym,&last_synonym,min_abbrev,def,FALSE,newname,linend);
-   (*the_free)( newname );
-   (*the_free)( rem );
+      rc=add_define(&first_synonym,&last_synonym,min_abbrev,def,FALSE,newname,linend);
+done:
+   if (newname) (*the_free)(newname);
+   if (rem) (*the_free)(rem);
    TRACE_RETURN();
-   return(rc);
+   return rc;
 }
 /*man-start*********************************************************************
 COMMAND

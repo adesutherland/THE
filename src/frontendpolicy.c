@@ -20,6 +20,7 @@ static char *frontend_realpath(const char *path, char *out);
 #endif
 
 #include "the.h"
+#include "proto.h"
 #include "vars.h"
 
 #if defined(_WIN32)
@@ -475,7 +476,17 @@ static int frontend_policy_word_in_list(const char *word,
    return 0;
 }
 
-int the_frontend_policy_command_allowed(const char *command)
+static const char *frontend_policy_builtin_name(char *word,
+                                               int set_only, int sos_only)
+{
+   bool is_set, is_sos;
+   short index = find_builtin_command((CHARTYPE *)word, set_only, sos_only);
+
+   return index == RC_NOT_COMMAND ? NULL
+        : (const char *)get_command_name(index, &is_set, &is_sos);
+}
+
+int the_frontend_policy_builtin_command_allowed(const char *command)
 {
    static const char *const allowed_commands[] =
    {
@@ -494,7 +505,7 @@ int the_frontend_policy_command_allowed(const char *command)
    {
       "addline", "blockend", "blockstart", "bottomedge", "cuadelback",
       "cuadelchar", "current", "cursoradj", "cursorshift", "delback",
-      "delchar", "delend", "delline", "delword", "doprefix", "endchar",
+      "delchar", "delend", "delline", "delword", "endchar",
       "firstchar", "firstcol", "instab", "lastcol", "leftedge",
       "makecurr", "marginl", "marginr", "parindent", "prefix",
       "rightedge", "settab", "startendchar", "tabb", "tabf",
@@ -504,30 +515,138 @@ int the_frontend_policy_command_allowed(const char *command)
    const char *cursor = command;
    char verb[64];
    char operand[64];
+   const char *name;
 
    if (!frontend_policy.enabled)
       return 1;
    if (!frontend_policy_word(&cursor, verb, sizeof(verb)))
       return 0;
-   if (strcmp(verb, "query") == 0)
+   name = frontend_policy_builtin_name(verb, 0, 0);
+   if (name == NULL)
+      return 0;
+   if (strcmp(name, "query") == 0)
       return frontend_policy_word(&cursor, operand, sizeof(operand))
           && (strcmp(operand,"flscreen")==0 || strcmp(operand,"mask")==0
-              || strcmp(operand,"cursor")==0);
-   if (strcmp(verb, "set") == 0)
-      return frontend_policy_word(&cursor, operand, sizeof(operand))
-          && frontend_policy_word_in_list(
-                operand, allowed_set_operands,
-                sizeof(allowed_set_operands) /
-                sizeof(allowed_set_operands[0]));
-   if (strcmp(verb, "sos") == 0)
-      return frontend_policy_word(&cursor, operand, sizeof(operand))
-          && frontend_policy_word_in_list(
-                operand, allowed_sos_operands,
+              || strcmp(operand,"cursor")==0 || strcmp(operand,"synonym")==0);
+   if (strcmp(name, "set") == 0)
+   {
+      if (!frontend_policy_word(&cursor,operand,sizeof(operand))
+      || !(name=frontend_policy_builtin_name(operand,1,0)))
+         return 0;
+      if (strcmp(name,"synonym") == 0) return 1;
+      if (!frontend_policy_word_in_list(name,allowed_set_operands,
+              sizeof(allowed_set_operands)/sizeof(allowed_set_operands[0])))
+         return 0;
+      /* PREFIX SYNONYM can install a Rexx prefix macro. Ordinary prefix
+       * layout controls retain their existing browser behavior. */
+      if (strcmp(name,"prefix") == 0
+      && frontend_policy_word(&cursor,operand,sizeof(operand))
+      && equal((CHARTYPE *)"synonym",(CHARTYPE *)operand,1))
+         return 0;
+      return 1;
+   }
+   if (strcmp(name, "sos") == 0)
+   {
+      int count = 0;
+
+      /* SOS executes a list of commands, so every operand needs approval. */
+      for (;;)
+      {
+         while (isspace((unsigned char)*cursor)) cursor++;
+         if (*cursor == '\0') return count > 0;
+         if (!frontend_policy_word(&cursor, operand, sizeof(operand))
+         ||  (name = frontend_policy_builtin_name(operand, 0, 1)) == NULL
+         ||  !frontend_policy_word_in_list(
+                name, allowed_sos_operands,
                 sizeof(allowed_sos_operands) /
-                sizeof(allowed_sos_operands[0]));
+                sizeof(allowed_sos_operands[0])))
+            return 0;
+         count++;
+      }
+   }
    return frontend_policy_word_in_list(
-      verb, allowed_commands,
+      name, allowed_commands,
       sizeof(allowed_commands) / sizeof(allowed_commands[0]));
+}
+
+/* A synonym's complete expansion is checked without resolving another
+ * synonym. Definitions have one built-in and cannot register more commands. */
+int the_frontend_policy_synonym_allowed(const char *definition)
+{
+   const char *cursor = definition, *name;
+   char verb[64], operand[64];
+
+   if (!frontend_policy.enabled) return 1;
+   if (!definition || (CURRENT_VIEW && CURRENT_VIEW->linend_status)
+   || strpbrk(definition,"\r\n") != NULL
+   || !the_frontend_policy_builtin_command_allowed(definition)
+   || !frontend_policy_word(&cursor,verb,sizeof(verb)))
+      return 0;
+   name = frontend_policy_builtin_name(verb,0,0);
+   if (!name || strcmp(name,"rx") == 0) return 0;
+   if (strcmp(name,"set") == 0)
+   {
+      if (!frontend_policy_word(&cursor,operand,sizeof(operand))) return 0;
+      name = frontend_policy_builtin_name(operand,1,0);
+      return name && strcmp(name,"synonym") != 0;
+   }
+   if (strcmp(name,"locate") == 0)
+   {
+      TARGET target;
+      short rc;
+      int allowed;
+      while (isspace((unsigned char)*cursor)) cursor++;
+      if (!*cursor) return 1;
+      if (!CURRENT_VIEW) return 0;
+      initialise_target(&target);
+      rc = parse_target((CHARTYPE *)cursor,get_true_line(TRUE),&target,
+                        TARGET_NORMAL|TARGET_SPARE|TARGET_REGEXP|TARGET_BLOCK,
+                        FALSE,FALSE,FALSE);
+      allowed = rc == RC_OK && target.spare == -1;
+      free_target(&target);
+      return allowed;
+   }
+   return 1;
+}
+
+int the_frontend_policy_command_allowed(const char *text)
+{
+   const char *cursor = text;
+   char verb[MAX_FILE_NAME+1], *expansion;
+   const char *name;
+   DEFINE *synonym;
+   bool ambiguous, is_set, is_sos;
+   size_t length;
+   int allowed;
+
+   if (!frontend_policy.enabled) return 1;
+   if (!frontend_policy_word(&cursor,verb,sizeof(verb))) return 0;
+   /* COMMAND always means the native built-in bypass, even if it could
+    * abbreviate an alias such as COMMANDER. It remains unavailable here. */
+   if (strcmp(verb,"command") == 0) return 0;
+   if (CURRENT_VIEW && CURRENT_VIEW->synonym)
+   {
+      synonym = find_synonym((CHARTYPE *)verb,&ambiguous);
+      if (ambiguous) return 0;
+      if (synonym)
+      {
+         /* A disallowed alias shadows its built-in; never fall through. */
+         if (synonym->def_command == -1 || synonym->linend
+         || (synonym->next && my_stricmp((DEFCHAR *)synonym->synonym,
+                         (DEFCHAR *)synonym->next->synonym) == 0))
+            return 0;
+         name = (const char *)get_command_name(synonym->def_command,&is_set,&is_sos);
+         if (!name) return 0;
+         length = strlen(name)+strlen((char *)synonym->def_params)+strlen(cursor)+3;
+         expansion = malloc(length);
+         if (!expansion) return 0;
+         snprintf(expansion,length,"%s %s%s",name,synonym->def_params,cursor);
+         allowed = the_frontend_policy_synonym_allowed(expansion);
+         free(expansion);
+         return allowed;
+      }
+   }
+   return the_frontend_policy_builtin_command_allowed(text);
 }
 
 static int frontend_policy_current_file_path(char *out, size_t out_len)

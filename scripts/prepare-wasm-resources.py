@@ -19,7 +19,7 @@ for name in ['browser', 'quickfind', 'quickopen', 'quickline', 'paneldemo', 'lib
         (destination / (name + suffix)).unlink(missing_ok=True)
 data = json.loads((root / 'profiles/default-profile.json').read_text())
 commands = [command.format(suffix='') for command in data['commands']]
-restricted = ['set impos off', 'set impmacro off', 'set macro off', 'set linend off', 'set synonym off']
+restricted = ['set impos off', 'set impmacro off', 'set macro off', 'set linend off', 'set synonym on']
 if args.crexx_bin:
     bin_dir = args.crexx_bin.resolve()
     commands += ['set macroext rxbin', 'define f7 macro paneldemo.rxbin'] + restricted

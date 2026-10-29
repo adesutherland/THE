@@ -39,6 +39,8 @@
 #include <proto.h>
 #include "thedriver.h"
 #include "logcursor.h"
+#include "frontendpolicy.h"
+#include "inputdispatch.h"
 
 /*#define DEBUG 1*/
 
@@ -1524,7 +1526,8 @@ short Sos_execute(CHARTYPE *params)
       temp_cmd[cmd_rec_len] = '\0';
       MyStrip( temp_cmd, STRIP_LEADING, ' ' );
       add_command( temp_cmd );
-      rc = command_line( temp_cmd, COMMAND_ONLY_FALSE );
+      rc = the_input_dispatch_command((const char *)temp_cmd,
+                                       the_frontend_policy_enabled());
       in_macro = save_in_macro;
    }
    TRACE_RETURN();

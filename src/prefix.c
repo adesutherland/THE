@@ -36,6 +36,7 @@
 #include <the.h>
 #include <proto.h>
 #include "thedriver.h"
+#include "frontendpolicy.h"
 
 /*-------------------------- declarations -----------------------------*/
 static short parse_prefix_command (THE_PPC *);
@@ -1634,6 +1635,10 @@ static short try_rexx_prefix_macro( THE_PPC *curr_ppc,short *result )
    int i;
 
    TRACE_FUNCTION("prefix.c:  try_rexx_prefix_macro");
+   /* Browser prefix input may use built-ins, but cannot launch arbitrary
+    * macros from the workspace, even when a filename matches a built-in. */
+   if (the_frontend_policy_enabled())
+      return RC_NOT_COMMAND;
    /*
     * If the parsed command is blank, ignore it.
     */

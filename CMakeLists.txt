@@ -1301,6 +1301,23 @@ add_test(NAME test_the_llm_full_runtime
             $<TARGET_FILE:the>)
 set_tests_properties(test_the_llm_full_runtime PROPERTIES
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+add_test(NAME test_explicit_commands_default
+    COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_explicit_commands_default.py
+            $<TARGET_FILE:the>)
+set_tests_properties(test_explicit_commands_default PROPERTIES
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+add_test(NAME test_synonym
+    COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_synonym.py
+            $<TARGET_FILE:the> ${THE_SELECTED_REXX_INTERPRETER})
+set_tests_properties(test_synonym PROPERTIES TIMEOUT 90
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+if(THE_USE_REGINA AND REGINA_LIBRARY)
+    add_test(NAME test_synonym_regina
+        COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_synonym.py
+                $<TARGET_FILE:the> REGINA)
+    set_tests_properties(test_synonym_regina PROPERTIES TIMEOUT 90
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+endif()
 add_test(NAME test_frontend_prefix_runtime
     COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_frontend_prefix_runtime.sh
             $<TARGET_FILE:the>)

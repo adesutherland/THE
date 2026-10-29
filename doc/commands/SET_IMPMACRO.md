@@ -7,19 +7,20 @@
 ```
 
 ## Description
-The SET IMPMACRO command is used to set implied macro processing from the command line. By
-turning this feature on you can then issue a macro command without the need to prefix the macro
-name with the MACRO command.
+The SET IMPMACRO command controls implied macro processing from the command line. It is off by
+default; use `MACRO name` to run a macro explicitly. `SET IMPMACRO ON` enables the legacy behavior
+of running an unrecognized command as a matching macro file. A registered synonym such as
+`SET SYNONYM name MACRO name` also provides an explicit macro command.
 
 ## Compatibility
 XEDIT: N/A
 KEDIT: Compatible.
 
 ## Default
-ON
+OFF
 
 ## See Also
-MACRO, SET MACROPATH
+MACRO, SET MACROPATH, SET SYNONYM
 
 ## Status
 Complete.

@@ -42,11 +42,14 @@
 #include "llmsession.h"
 #include "thedriver.h"
 #include "transientui.h"
+#include "frontendpolicy.h"
 
 static CHARTYPE *build_defined_key_definition(int, CHARTYPE *,DEFINE *,int);
 static void save_last_command(CHARTYPE *,CHARTYPE *);
 void AdjustThighlight( int );
 static bool save_target( TARGET * );
+static unsigned int restricted_command_depth;
+static unsigned int restricted_builtin_depth;
 
 #define HEXVAL(c) (((c)>'9')?(tolower(c)-'a'+10):((c)-'0'))
 
@@ -358,121 +361,138 @@ CHARTYPE *get_key_definition( int key, int define_format, bool default_keys, boo
 }
 
 /***********************************************************************/
-static short execute_synonym( CHARTYPE *synonym, CHARTYPE *params )
+DEFINE *find_synonym(CHARTYPE *name,bool *ambiguous)
 /***********************************************************************/
 {
-   DEFINE *curr=(DEFINE *)NULL;
-   short rc=RC_FILE_NOT_FOUND;
-   CHARTYPE *key_cmd=NULL;
-   short macrorc=0;
-   int tokenised=0;
-   int params_len,def_params_len;
-   char *spc;
+   DEFINE *curr, *found=NULL;
+
+   *ambiguous = FALSE;
+   /* Full names always win, regardless of definition order. */
+   for (curr=first_synonym; curr; curr=curr->next)
+      if (my_stricmp((DEFCHAR *)curr->synonym,(DEFCHAR *)name) == 0)
+         return curr;
+   for (curr=first_synonym; curr; curr=curr->next)
+   {
+      if (!equal(curr->synonym,name,curr->def_funkey))
+         continue;
+      if (found && my_stricmp((DEFCHAR *)found->synonym,
+                             (DEFCHAR *)curr->synonym) != 0)
+      {
+         *ambiguous = TRUE;
+         return NULL;
+      }
+      if (!found) found = curr;
+   }
+   return found;
+}
+
+/***********************************************************************/
+static short execute_synonym(DEFINE *definition, CHARTYPE *params)
+/***********************************************************************/
+{
+   DEFINE *curr;
+   CHARTYPE *definitions[MAX_COMMANDS], *key_cmd=NULL;
+   short indices[MAX_COMMANDS], rc=RC_OK, macrorc=0;
+   CHARTYPE *pcode=NULL;
+   int count=0, i, pcode_len=0, tokenised=0;
+   size_t length;
 
    TRACE_FUNCTION("commutil.c:execute_synonym");
-   /*
-    * First check to see if the function key has been redefined and save
-    * all key redefinitions.  This is because we may be redefining a
-    * function key in the middle of its redefinition. eg ENTER key
-    */
-   curr = first_synonym;
-   while(curr != (DEFINE *)NULL)
+   /* Take a copy before executing: a command or Rexx macro can redefine
+    * or remove the very synonym that is currently being executed. */
+   for (curr=definition; curr && count<MAX_COMMANDS; curr=curr->next)
    {
-      if ( equal( curr->synonym, synonym,curr->def_funkey ) )
+      if (my_stricmp((DEFCHAR *)curr->synonym,
+                     (DEFCHAR *)definition->synonym) != 0)
+         break;
+      definitions[count] = my_strdup(curr->def_params);
+      if (!definitions[count])
       {
-         /*
-          * If there are no more files in the ring, and the command is not a
-          * command to edit a new file, then ignore the command.
-          */
-         if (number_of_files == 0
-         &&  curr->def_command != (-1)
-         &&  !command[curr->def_command].edit_command)
-         {
-            rc = RC_OK;
-            curr = NULL;
-            break;
-         }
-         /*
-          * If running in read-only mode and the function selected is not valid
-          * display an error.
-          */
-         if (number_of_files != 0
-         &&  ISREADONLY(CURRENT_FILE)
-         &&  curr->def_command != (-1)
-         &&  !command[curr->def_command].valid_in_readonly)
-         {
-            display_error(56,(CHARTYPE *)"",FALSE);
-            rc = RC_INVALID_ENVIRON;
-            curr = NULL;
-            break;
-         }
-         /*
-          * We need to sort out synonym arguments now. We can have arguments
-          * from the synonym's definition and also from the command line.
-          * Append them in that order.
-          */
-         def_params_len = strlen( (DEFCHAR *)curr->def_params );
-         params_len = strlen( (DEFCHAR *)params );
-         if ((key_cmd = (CHARTYPE *)(*the_malloc)(def_params_len+params_len+2)) == NULL)
-         {
-            display_error(30,(CHARTYPE *)"",FALSE);
-            rc = RC_OUT_OF_MEMORY;
-            curr = NULL;
-            break;
-         }
-         if ( def_params_len && params_len )
-            spc = " ";
-         else
-            spc = "";
-         sprintf( (DEFCHAR *)key_cmd, "%s%s%s", (DEFCHAR *)curr->def_params, spc, (DEFCHAR *)params );
-         if (curr->def_command == (-1))
-         {
-            rc = execute_macro_instore( key_cmd, &macrorc, &curr->pcode, &curr->pcode_len, &tokenised,curr->def_funkey );
-            if (tokenised)
-            {
-               tokenised = 0;
-            }
-            if (number_of_files > 0)
-            {
-               if (display_screens > 1)
-               {
-                  build_screen((CHARTYPE)other_screen);
-                  display_screen((CHARTYPE)other_screen);
-               }
-               build_screen(current_screen);
-               display_screen(current_screen);
-            }
-         }
-         else
-         {
-            /*
-             * If operating in CUA mode, and a CUA block exists, check
-             * if the block should be reset or deleted before executing
-             * the command.
-             */
-            if ( INTERFACEx == INTERFACE_CUA
-            &&  MARK_VIEW == CURRENT_VIEW
-            &&  MARK_VIEW->mark_type == M_CUA )
-            {
-               ResetOrDeleteCUABlock( command[curr->def_command].cua_behaviour );
-            }
-            /*
-             * Possibly reset the THIGHLIGHT area
-             */
-            if ( CURRENT_VIEW->thighlight_on
-            &&   CURRENT_VIEW->thighlight_active )
-            {
-               AdjustThighlight( command[curr->def_command].thighlight_behaviour );
-            }
-            rc = (*command[curr->def_command].function)((CHARTYPE *)key_cmd);
-         }
-         (*the_free)(key_cmd);
+         display_error(30,(CHARTYPE *)"",FALSE);
+         rc = RC_OUT_OF_MEMORY;
+         break;
       }
-      curr = curr->next;
+      indices[count++] = curr->def_command;
    }
-#ifdef THE_TRACE
-   trace_string( "returning: %d\n", rc );
-#endif
+   for (i=0; rc==RC_OK && i<count; i++)
+   {
+      if (number_of_files == 0 && indices[i] != -1
+      && !command[indices[i]].edit_command)
+         break;
+      if (number_of_files != 0 && ISREADONLY(CURRENT_FILE)
+      && indices[i] != -1 && !command[indices[i]].valid_in_readonly)
+      {
+         display_error(56,(CHARTYPE *)"",FALSE);
+         rc = RC_INVALID_ENVIRON;
+         break;
+      }
+      length = strlen((DEFCHAR *)definitions[i])+strlen((DEFCHAR *)params)+2;
+      if (restricted_command_depth && indices[i] != -1)
+         length += strlen((DEFCHAR *)command[indices[i]].text)+1;
+      key_cmd = (CHARTYPE *)(*the_malloc)(length);
+      if (!key_cmd)
+      {
+         display_error(30,(CHARTYPE *)"",FALSE);
+         rc = RC_OUT_OF_MEMORY;
+         break;
+      }
+      sprintf((DEFCHAR *)key_cmd,"%s%s%s",definitions[i],
+              definitions[i][0] && params[0] ? " " : "",params);
+      if (restricted_command_depth)
+      {
+         /* Browser definitions are single built-ins. Recheck their current
+          * definition plus invocation operands and use restricted dispatch;
+          * nested commands inherit the same policy boundary. */
+         if (count != 1 || indices[i] == -1 || definition->linend)
+            rc = RC_INVALID_ENVIRON;
+         else
+         {
+            memmove(key_cmd+strlen((DEFCHAR *)command[indices[i]].text)+1,
+                    key_cmd,strlen((DEFCHAR *)key_cmd)+1);
+            memcpy(key_cmd,command[indices[i]].text,
+                   strlen((DEFCHAR *)command[indices[i]].text));
+            key_cmd[strlen((DEFCHAR *)command[indices[i]].text)] = ' ';
+            if (!the_frontend_policy_synonym_allowed((char *)key_cmd))
+            {
+               display_error(0,(CHARTYPE *)"Command unavailable in restricted frontend sessions",FALSE);
+               rc = RC_INVALID_ENVIRON;
+            }
+            else
+               rc = command_line_restricted_builtin(key_cmd);
+         }
+      }
+      else if (indices[i] == -1)
+      {
+         rc = execute_macro_instore(key_cmd,&macrorc,&pcode,&pcode_len,
+                                    &tokenised,0);
+         if (rc == RC_OK) rc = macrorc;
+         if (pcode) { (*the_free)(pcode); pcode=NULL; pcode_len=0; }
+         if (number_of_files > 0)
+         {
+            if (display_screens > 1)
+            {
+               build_screen((CHARTYPE)other_screen);
+               display_screen((CHARTYPE)other_screen);
+            }
+            build_screen(current_screen);
+            display_screen(current_screen);
+         }
+      }
+      else
+      {
+         if (CURRENT_VIEW && INTERFACEx == INTERFACE_CUA
+         && MARK_VIEW == CURRENT_VIEW && MARK_VIEW->mark_type == M_CUA)
+            ResetOrDeleteCUABlock(command[indices[i]].cua_behaviour);
+         if (CURRENT_VIEW && CURRENT_VIEW->thighlight_on
+         && CURRENT_VIEW->thighlight_active)
+            AdjustThighlight(command[indices[i]].thighlight_behaviour);
+         rc = (*command[indices[i]].function)(key_cmd);
+      }
+      (*the_free)(key_cmd);
+      /* Match command-line sequencing: a normal boundary is not a failure. */
+      if (rc == RC_TOF_EOF_REACHED && i+1<count) rc = RC_OK;
+   }
+   for (i=0; i<count; i++) (*the_free)(definitions[i]);
    TRACE_RETURN();
    return rc;
 }
@@ -971,40 +991,42 @@ static CHARTYPE *build_defined_key_definition(int key, CHARTYPE *buf,DEFINE *cur
 CHARTYPE *build_synonym_definition( DEFINE *curr, CHARTYPE *name, CHARTYPE *buf, bool full_definition )
 /***********************************************************************/
 {
-   CHARTYPE delim[2];
-   DEFCHAR *cmd;
+   DEFINE *part;
+   size_t offset=0;
+   const char *cmd;
+   CHARTYPE delimiter;
 
    TRACE_FUNCTION("commutil.c:build_synonym_definition");
-   /*
-    * The argument, buf, MUST be long enough to to accept the full command
-    * and arguments and MUST have be nul terminated before this function
-    * is called.
-    */
-   delim[1] = '\0';
-   if ( curr )
+   /* The caller reserves the complete definition's name, metadata, commands
+    * and operands. A chain is one synonym, both here and in EXTRACT. */
+   if (!curr)
    {
-      if ( curr->linend )
-         delim[0] = curr->linend;
+      if (full_definition)
+         sprintf((DEFCHAR *)buf,"%s %lu %s",name,
+                 (unsigned long)strlen((DEFCHAR *)name),name);
       else
-         delim[0] = CURRENT_VIEW->linend_value;
-      if ( curr->def_command == (-1) ) /* definition is REXX instore */
-         cmd = "REXX";
-      else
-         cmd = (DEFCHAR *)command[curr->def_command].text;
-      if ( full_definition )
-         sprintf( (DEFCHAR *)buf, "%s %d%s%s %s%s%s", name, curr->def_funkey, (curr->linend) ? " LINEND " : "", (curr->linend) ? (DEFCHAR *)delim : "", cmd, (curr->def_params) ? " " : "", curr->def_params );
-      else
-         sprintf( (DEFCHAR *)buf, "%s%s%s", cmd, (curr->def_params) ? " " : "", curr->def_params );
+         strcpy((DEFCHAR *)buf,(DEFCHAR *)name);
+      return buf;
    }
-   else
+   delimiter=curr->linend ? curr->linend : '#';
+   if (full_definition)
    {
-      if ( full_definition )
-         sprintf( (DEFCHAR *)buf, "%s %lu %s", name, (unsigned long)strlen((DEFCHAR *)name), name );
-      else
-         sprintf( (DEFCHAR *)buf, "%s", name );
+      if (curr->linend)
+         offset=sprintf((DEFCHAR *)buf,"LINEND %c ",delimiter);
+      offset+=sprintf((DEFCHAR *)buf+offset,"%s %d ",curr->synonym,curr->def_funkey);
    }
+   for (part=curr; part; part=part->next)
+   {
+      if (my_stricmp((DEFCHAR *)curr->synonym,(DEFCHAR *)part->synonym)!=0)
+         break;
+      if (part!=curr) buf[offset++]=delimiter;
+      cmd=part->def_command == -1 ? "REXX" : (char *)command[part->def_command].text;
+      offset+=sprintf((DEFCHAR *)buf+offset,"%s%s%s",cmd,
+                      part->def_params[0] ? " " : "",part->def_params);
+   }
+   buf[offset]='\0';
    TRACE_RETURN();
-   return( buf );
+   return buf;
 }
 
 /***********************************************************************/
@@ -1234,6 +1256,53 @@ int set_rexx_variables_for_all_keys(int key_type, int *number_keys_return)
    return(RC_OK);
 }
 /***********************************************************************/
+short find_builtin_command(CHARTYPE *name,bool set_only,bool sos_only)
+/***********************************************************************/
+{
+   short i;
+
+   /* Keep policy resolution and command dispatch in command-table order.
+    * Key-only entries (min_len == 0) are never command-line commands. */
+   for (i = 0; command[i].text != NULL; i++)
+   {
+      if (command[i].text[0] == '\0' || command[i].min_len == 0)
+         continue;
+      if (set_only && !command[i].set_command)
+         continue;
+      if (sos_only && !command[i].sos_command)
+         continue;
+      if (!set_only && !sos_only && command[i].sos_command)
+         continue;
+      if (equal(command[i].text, name, command[i].min_len))
+         return i;
+   }
+   return RC_NOT_COMMAND;
+}
+/***********************************************************************/
+short command_line_restricted(CHARTYPE *cmd_line)
+/***********************************************************************/
+{
+   short rc;
+
+   /* Nested commands (for example a LOCATE target's spare command) inherit
+    * the same boundary. Trusted profiles and frontend file actions enter
+    * command_line normally and retain their existing capabilities. */
+   restricted_command_depth++;
+   rc = command_line(cmd_line, COMMAND_ONLY_TRUE);
+   restricted_command_depth--;
+   return rc;
+}
+/***********************************************************************/
+short command_line_restricted_builtin(CHARTYPE *cmd_line)
+/***********************************************************************/
+{
+   short rc;
+   restricted_builtin_depth++;
+   rc = command_line_restricted(cmd_line);
+   restricted_builtin_depth--;
+   return rc;
+}
+/***********************************************************************/
 short command_line(CHARTYPE *cmd_line,bool command_only)
 /***********************************************************************/
 {
@@ -1254,6 +1323,8 @@ short command_line(CHARTYPE *cmd_line,bool command_only)
    bool display_parse_error;
 
    TRACE_FUNCTION("commutil.c:command_line");
+   if (restricted_command_depth)
+      command_only = COMMAND_ONLY_TRUE;
 #ifdef THE_TRACE
    trace_string( "cmd_line: \"%s\" command_only: %d\n", cmd_line, command_only );
 #endif
@@ -1353,20 +1424,41 @@ fprintf(stderr,"%s %d: Command: [%s] idline: %d\n",__FILE__,__LINE__,command_ent
       last_command_index = -1;
 
       valid_command = FALSE;
+      /* Validate every LINEND-separated command before synonyms, macros,
+       * built-ins or implicit OS fallback can run. */
+      if (restricted_command_depth
+      && !(restricted_builtin_depth
+           ? the_frontend_policy_builtin_command_allowed((const char *)cmd[j])
+           : the_frontend_policy_command_allowed((const char *)cmd[j])))
+      {
+         display_error(0, (CHARTYPE *)
+                       "Command unavailable in restricted frontend sessions",
+                       FALSE);
+         lastrc = rc = RC_INVALID_ENVIRON;
+         break;
+      }
       split_command( cmd[j], cl_cmd, cl_param );
       cl_cmd = MyStrip( cl_cmd, STRIP_BOTH, ' ' );
       /*
        * Check for synonyms first.
        */
-      if ( !command_only
-      &&   CURRENT_VIEW
-      &&   CURRENT_VIEW->synonym )
+      if ( (!command_only || (restricted_command_depth && !restricted_builtin_depth))
+      &&   CURRENT_VIEW && CURRENT_VIEW->synonym
+      &&   my_stricmp((DEFCHAR *)cl_cmd,"COMMAND") != 0 )
       {
-         rc = execute_synonym( cl_cmd, cl_param );
-         if (rc != RC_FILE_NOT_FOUND)
+         bool ambiguous;
+         DEFINE *synonym = find_synonym(cl_cmd,&ambiguous);
+         if (ambiguous)
          {
-            lastrc = (rc==RC_SYSTEM_ERROR)?rc:macrorc;
+            display_error(0,(CHARTYPE *)"Ambiguous command synonym",FALSE);
+            lastrc = rc = RC_INVALID_OPERAND;
+            break;
+         }
+         if (synonym)
+         {
+            lastrc = rc = execute_synonym(synonym,cl_param);
             save_last_command(cmd[j],cl_cmd);
+            if (rc != RC_OK && rc != RC_TOF_EOF_REACHED) break;
             continue;
          }
       }
@@ -1405,22 +1497,11 @@ fprintf(stderr,"%s %d: Command: [%s] idline: %d\n",__FILE__,__LINE__,command_ent
       /*
        * Look up the command in the command array in command.h
        */
-      for ( i = 0; command[i].text != NULL; i++ )
+      i = find_builtin_command(cl_cmd, FALSE, FALSE);
+      rc = RC_OK;
+      if (i != RC_NOT_COMMAND)
       {
-         /*
-          * If no command text, continue.
-          */
-         if ( strcmp( (DEFCHAR *)command[i].text,"" ) == 0 )
-            continue;
-         rc = RC_OK;
-         /*
-          * Check that the supplied command matches the command for the length
-          * of the command and that the length is at least as long as the
-          * necessary significance.
-          */
-         if ( equal( command[i].text, cl_cmd, command[i].min_len )
-         &&   command[i].min_len != 0
-         &&   !command[i].sos_command )
+         do
          {
             /*
              * Found the matching command. Save it for extended error reporting
@@ -1501,8 +1582,7 @@ fprintf(stderr,"%s %d: Command: [%s] idline: %d\n",__FILE__,__LINE__,command_ent
              * and the possibly stripped parameters.
              */
             lastrc = rc = (*command[i].function)( cl_param );
-            break;
-         }
+         } while (FALSE);
       }
 #ifdef THE_TRACE
       trace_string( "executed command: rc: %d valid_command: %d\n", rc, valid_command );
@@ -1521,6 +1601,16 @@ fprintf(stderr,"%s %d: Command: [%s] idline: %d\n",__FILE__,__LINE__,command_ent
       {
          save_last_command(cmd[j],cl_cmd);
          continue;
+      }
+      if (restricted_command_depth)
+      {
+         /* Restricted submission never falls through to targets, macros or
+          * a shell, even if command resolution changes in the future. */
+         display_error(0, (CHARTYPE *)
+                       "Command unavailable in restricted frontend sessions",
+                       FALSE);
+         lastrc = rc = RC_INVALID_ENVIRON;
+         break;
       }
       /*
        * If there are no more files in the ring, then ignore the command.
@@ -2294,6 +2384,8 @@ short add_define(DEFINE **first,DEFINE **last,int key_value,CHARTYPE *commands,b
    }
    if ( synonym )
    {
+      if (!linend && CURRENT_VIEW && CURRENT_VIEW->linend_status)
+         linend = CURRENT_VIEW->linend_value;
       /*
        * If the is called from a SET SYNONYM call, then use the passed value
        * for LINEND...
@@ -2302,15 +2394,15 @@ short add_define(DEFINE **first,DEFINE **last,int key_value,CHARTYPE *commands,b
       {
          command_delim[0] = linend;
          command_delim[1] = '\0';
-         num_commands = command_split(commands,word,MAX_COMMANDS,command_delim,command_entered);
+         num_commands = command_split(commands,word,MAX_COMMANDS+1,command_delim,command_entered);
       }
       else
       {
          if ( CURRENT_VIEW->linend_status )
          {
             command_delim[0] = CURRENT_VIEW->linend_value;
-            command_delim[0] = '\0';
-            num_commands = command_split(commands,word,MAX_COMMANDS,command_delim,command_entered);
+            command_delim[1] = '\0';
+            num_commands = command_split(commands,word,MAX_COMMANDS+1,command_delim,command_entered);
          }
          else
          {
@@ -2331,7 +2423,7 @@ short add_define(DEFINE **first,DEFINE **last,int key_value,CHARTYPE *commands,b
          {
             command_delim[0] = CURRENT_VIEW->linend_value;
             command_delim[1] = '\0';
-            num_commands = command_split(commands,word,MAX_COMMANDS,command_delim,command_entered);
+            num_commands = command_split(commands,word,MAX_COMMANDS+1,command_delim,command_entered);
          }
          else
          {
@@ -2343,14 +2435,19 @@ short add_define(DEFINE **first,DEFINE **last,int key_value,CHARTYPE *commands,b
       {
          command_delim[0] = '#';
          command_delim[1] = '\0';
-         num_commands = command_split(commands,word,MAX_COMMANDS,command_delim,command_entered);
+         num_commands = command_split(commands,word,MAX_COMMANDS+1,command_delim,command_entered);
       }
+   }
+   if (num_commands == 0 || num_commands > MAX_COMMANDS)
+   {
+      display_error(6,(CHARTYPE *)"Too many or empty command definitions",FALSE);
+      rc = RC_INVALID_OPERAND;
    }
    /*
     * For each command entered, split it up into command and params, and
     * validate that each command is valid.  The cmd_nr is discarded here.
     */
-   for ( j = 0; j < num_commands; j++ )
+   for ( j = 0; rc == RC_OK && j < num_commands; j++ )
    {
       split_command( word[j], cl_cmd, cl_param );
       cl_cmd = MyStrip( cl_cmd, STRIP_BOTH, ' ' );
@@ -2368,7 +2465,7 @@ short add_define(DEFINE **first,DEFINE **last,int key_value,CHARTYPE *commands,b
    if ( rc == RC_OK )
    {
       remove_define( first, last, key_value, synonym );
-      for ( j = 0; j < num_commands; j++ )
+      for ( j = 0; rc == RC_OK && j < num_commands; j++ )
       {
          split_command( word[j], cl_cmd, cl_param );
          cl_cmd = MyStrip( cl_cmd, STRIP_BOTH, ' ' );
@@ -3409,39 +3506,9 @@ short execute_set_sos_command(bool set_command,CHARTYPE *params)
 short valid_command_type(bool set_command,CHARTYPE *cmd_line)
 /***********************************************************************/
 {
-   register short i;
-   short rc=RC_NOT_COMMAND;
-
    TRACE_FUNCTION("commutil.c:valid_command_type");
-   for (i=0;command[i].text != NULL;i++)
-   {
-      /*
-       * If no command text, continue.
-       */
-      if (strcmp((DEFCHAR *)command[i].text,"") == 0)
-         continue;
-      /*
-       * Check that the supplied command matches the command for the length
-       * of the command and that the length is at least as long as the
-       * necessary significance.
-       */
-      if (equal(command[i].text,cmd_line,command[i].min_len)
-      && command[i].min_len != 0)
-      {
-         if (set_command && command[i].set_command)
-         {
-            rc = i;
-            break;
-         }
-         if (!set_command && command[i].sos_command)
-         {
-            rc = i;
-            break;
-         }
-      }
-   }
    TRACE_RETURN();
-   return(rc);
+   return find_builtin_command(cmd_line, set_command, !set_command);
 }
 /***********************************************************************/
 short allocate_temp_space(LENGTHTYPE length,CHARTYPE param_type)
@@ -3749,33 +3816,42 @@ short get_valid_macro_file_name(CHARTYPE *inmacroname,CHARTYPE *filename,CHARTYP
 bool define_command(CHARTYPE *cmd_line)
 /***********************************************************************/
 {
-   register short i=0;
-   CHARTYPE buf[7];
+   CHARTYPE word[16];
+   CHARTYPE *cursor=cmd_line;
+   size_t length;
+   short index;
 
    TRACE_FUNCTION("commutil.c:define_command");
-   /*
-    * First check if the command is a synonym, and use the real name to
-    * search the command array.
-    */
-   memset(buf,'\0',7);
-   memcpy(buf,cmd_line,min(6,strlen((DEFCHAR *)cmd_line)));
-   for (i=0;i<7;i++)
+   /* Definition text owns its delimiters. In particular SET SYNONYM must
+    * receive the complete chain when the view already has LINEND enabled. */
+   for (;;)
    {
-      if (buf[i] == ' ')
-         buf[i] = '\0';
+      while (*cursor==' ') cursor++;
+      length=0;
+      while (isalpha((unsigned char)cursor[length])) length++;
+      if (!length || length>=sizeof(word)) return FALSE;
+      memcpy(word,cursor,length);
+      word[length]='\0';
+      cursor+=length;
+      index=find_builtin_command(word,FALSE,FALSE);
+      if (index==RC_NOT_COMMAND) return FALSE;
+      if (strcmp((DEFCHAR *)command[index].text,"command")==0)
+         continue;
+      if (strcmp((DEFCHAR *)command[index].text,"define")==0)
+         return TRUE;
+      if (strcmp((DEFCHAR *)command[index].text,"set")==0)
+      {
+         while (*cursor==' ') cursor++;
+         length=0;
+         while (isalpha((unsigned char)cursor[length])) length++;
+         if (!length || length>=sizeof(word)) return FALSE;
+         memcpy(word,cursor,length);
+         word[length]='\0';
+         index=find_builtin_command(word,TRUE,FALSE);
+         if (index==RC_NOT_COMMAND) return FALSE;
+      }
+      return strcmp((DEFCHAR *)command[index].text,"synonym")==0;
    }
-   if ((i = find_command(buf,FALSE)) == (-1))
-   {
-      TRACE_RETURN();
-      return(FALSE);
-   }
-   if (strcmp("define",(DEFCHAR *)command[i].text) == 0)
-   {
-      TRACE_RETURN();
-      return(TRUE);
-   }
-   TRACE_RETURN();
-   return(FALSE);
 }
 /***********************************************************************/
 int find_key_name(CHARTYPE *keyname)

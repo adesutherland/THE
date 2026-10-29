@@ -2580,101 +2580,96 @@ short extract_synelem( short number_variables, short itemno, CHARTYPE *itemargs,
 short extract_synonym( short number_variables, short itemno, CHARTYPE *itemargs, CHARTYPE query_type, LINETYPE argc, CHARTYPE *arg, LINETYPE arglen )
 /***********************************************************************/
 {
-   int off=0;
-   CHARTYPE *ptr=NULL;
-   DEFINE *curr;
+   static CHARTYPE *results=NULL;
+   CHARTYPE *replacement, *ptr;
+   DEFINE *curr, *part;
+   bool ambiguous;
+   size_t capacity=strlen((DEFCHAR *)itemargs)*2+100, off=0;
 
    TRACE_FUNCTION("query.c:   extract_synonym");
-   if ( blank_field( itemargs ) )
+   if (blank_field(itemargs))
    {
-      if ( CURRENT_VIEW->synonym )
-      {
-         item_values[1].value = (CHARTYPE *)"ON";
-         item_values[1].len = 2;
-         number_variables = 1;
-      }
-      else
-      {
-         item_values[1].value = (CHARTYPE *)"OFF";
-         item_values[1].len = 3;
-         number_variables = 1;
-      }
-      TRACE_RETURN();
-      return( number_variables );
+      item_values[1].value=(CHARTYPE *)(CURRENT_VIEW->synonym ? "ON" : "OFF");
+      item_values[1].len=CURRENT_VIEW->synonym ? 2 : 3;
+      return 1;
    }
-   else if ( strcmp( (DEFCHAR*)itemargs, "*" ) == 0 )
+   /* Reserve all text before publishing item pointers. Definitions are not
+    * limited to the shared filename-sized query scratch buffer. */
+   for (part=first_synonym; part; part=part->next)
    {
-      if (query_type == QUERY_QUERY)
-      {
-         display_error( 1, (CHARTYPE *)itemargs, FALSE );
-         return EXTRACT_ARG_ERROR;
-      }
-      for ( number_variables = 0,curr = first_synonym; curr != NULL; curr = curr->next )
-      {
-         strcpy( (DEFCHAR *)query_rsrvd, "" );
-         ptr = build_synonym_definition( curr, curr->synonym, query_rsrvd, TRUE );
-
-         number_variables++;
-         item_values[number_variables].len = strlen((DEFCHAR *)query_rsrvd);
-         memcpy((DEFCHAR*)trec+off,(DEFCHAR*)query_rsrvd,(item_values[number_variables].len)+1);
-         item_values[number_variables].value = trec+off;
-         off += (item_values[number_variables].len)+1;
-      }
+      bool is_set, is_sos;
+      CHARTYPE *name=part->def_command == -1 ? (CHARTYPE *)"REXX"
+                     : get_command_name(part->def_command,&is_set,&is_sos);
+      capacity+=strlen((DEFCHAR *)part->synonym)+strlen((DEFCHAR *)part->def_params)
+                +strlen((DEFCHAR *)name)+100;
    }
-   else
+   replacement=(CHARTYPE *)(*the_malloc)(capacity);
+   if (!replacement)
    {
-      /*
-       * Try and find a matching synonym
-       */
-      for ( curr = first_synonym; curr != NULL; curr = curr->next )
+      display_error(30,(CHARTYPE *)"",FALSE);
+      return EXTRACT_ARG_ERROR;
+   }
+   if (results) (*the_free)(results);
+   results=replacement;
+   if (strcmp((DEFCHAR *)itemargs,"*")==0)
+   {
+      number_variables=0;
+      for (curr=first_synonym; curr;)
       {
-         if ( equal( curr->synonym, itemargs, curr->def_funkey ) )
-         {
-            break;
-         }
-      }
-
-      if (query_type == QUERY_QUERY)
-      {
-         strcpy( (DEFCHAR *)query_rsrvd, "" );
-         ptr = build_synonym_definition( curr, itemargs, query_rsrvd, TRUE );
-         sprintf((DEFCHAR *)trec,"synonym %s", ptr );
-         display_error(0,trec,TRUE);
-         number_variables = EXTRACT_VARIABLES_SET;
-      }
-      else
-      {
-         /*
-          * EXTRACT
-          */
-         if ( curr )
-         {
-            strcpy( (DEFCHAR *)query_rsrvd, "" );
-            ptr = build_synonym_definition( curr, itemargs, query_rsrvd, FALSE );
-            item_values[1].value = curr->synonym;
-            item_values[1].len = strlen( (DEFCHAR *)curr->synonym );
-            item_values[2].len = sprintf( (DEFCHAR *)query_num1,"%d", curr->def_funkey );
-            item_values[2].value = query_num1;
-            item_values[3].value = ptr;
-            item_values[3].len = strlen( (DEFCHAR *)ptr );
-            item_values[4].len = sprintf( (DEFCHAR *)query_num2,"%c", curr->linend );
-            item_values[4].value = query_num2;
-         }
+         ptr=build_synonym_definition(curr,curr->synonym,results+off,TRUE);
+         if (query_type==QUERY_QUERY)
+            display_error(0,ptr,TRUE);
          else
          {
-            item_values[1].value = item_values[3].value = itemargs;
-            item_values[1].len = item_values[3].len = strlen( (DEFCHAR *)itemargs );
-            item_values[2].len = sprintf( (DEFCHAR *)query_num1,"%ld", item_values[1].len );
-            item_values[2].value = query_num1;
-            item_values[4].value = (CHARTYPE *)"";
-            item_values[4].len = 0;
+            if (number_variables+1 >= MAX_VARIABLES_RETURNED)
+            {
+               display_error(6,(CHARTYPE *)"Too many synonyms to extract",FALSE);
+               return EXTRACT_ARG_ERROR;
+            }
+            number_variables++;
+            item_values[number_variables].value=ptr;
+            item_values[number_variables].len=strlen((DEFCHAR *)ptr);
          }
-         number_variables = 4;
+         off+=strlen((DEFCHAR *)ptr)+1;
+         for (part=curr->next; part && my_stricmp((DEFCHAR *)curr->synonym,
+                             (DEFCHAR *)part->synonym)==0; part=part->next);
+         curr=part;
       }
+      if (query_type==QUERY_QUERY)
+      {
+         if (!first_synonym) display_error(0,(CHARTYPE *)"synonym * (none)",TRUE);
+         number_variables=EXTRACT_VARIABLES_SET;
+      }
+      return number_variables;
    }
-
+   curr=find_synonym(itemargs,&ambiguous);
+   if (ambiguous)
+   {
+      display_error(0,(CHARTYPE *)"Ambiguous command synonym",FALSE);
+      return EXTRACT_ARG_ERROR;
+   }
+   if (query_type==QUERY_QUERY)
+   {
+      strcpy((DEFCHAR *)results,"synonym ");
+      build_synonym_definition(curr,itemargs,results+8,TRUE);
+      display_error(0,results,TRUE);
+      return EXTRACT_VARIABLES_SET;
+   }
+   ptr=build_synonym_definition(curr,itemargs,results,FALSE);
+   item_values[1].value=curr ? curr->synonym : itemargs;
+   item_values[1].len=strlen((DEFCHAR *)item_values[1].value);
+   item_values[2].len=sprintf((DEFCHAR *)query_num1,"%lu",
+                             curr ? (unsigned long)curr->def_funkey
+                                  : (unsigned long)item_values[1].len);
+   item_values[2].value=query_num1;
+   item_values[3].value=ptr;
+   item_values[3].len=strlen((DEFCHAR *)ptr);
+   query_num2[0]=curr ? curr->linend : 0;
+   query_num2[1]='\0';
+   item_values[4].value=query_num2;
+   item_values[4].len=query_num2[0] ? 1 : 0;
    TRACE_RETURN();
-   return(number_variables);
+   return 4;
 }
 /***********************************************************************/
 short extract_tabkey(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)

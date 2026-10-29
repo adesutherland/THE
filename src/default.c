@@ -475,6 +475,8 @@ void set_view_defaults(VIEW_DETAILS *viewp)
    viewp->highlight_low = 0;
    viewp->inputmode = INPUTMODE_LINE;
    viewp->macro = FALSE;
+   viewp->imp_macro = FALSE;
+   viewp->imp_os = FALSE;
    viewp->margin_left = 1;
    viewp->margin_right = 72;
    viewp->margin_indent = 0;
@@ -578,12 +580,6 @@ void set_view_defaults(VIEW_DETAILS *viewp)
    {
       case COMPAT_THE:
          viewp->case_enter = viewp->case_enter_cmdline = viewp->case_enter_prefix = CASE_MIXED;
-         viewp->imp_macro = TRUE;
-#if defined(USE_XCURSES) || defined(UE_SDLCURSES)
-         viewp->imp_os = FALSE;
-#else
-         viewp->imp_os = TRUE;
-#endif
          viewp->linend_status = FALSE;
          viewp->linend_value = '#';
          viewp->stay = TRUE;
@@ -593,12 +589,6 @@ void set_view_defaults(VIEW_DETAILS *viewp)
          break;
       case COMPAT_XEDIT:
          viewp->case_enter = viewp->case_enter_cmdline = viewp->case_enter_prefix = CASE_UPPER;
-         viewp->imp_macro = TRUE;
-#if defined(USE_XCURSES) || defined(USE_SDLCURSES)
-         viewp->imp_os = FALSE;
-#else
-         viewp->imp_os = TRUE;
-#endif
          viewp->linend_status = TRUE;
          viewp->linend_value = '#';
          viewp->stay = FALSE;
@@ -608,12 +598,6 @@ void set_view_defaults(VIEW_DETAILS *viewp)
          break;
       case COMPAT_ISPF:
          viewp->case_enter = viewp->case_enter_cmdline = viewp->case_enter_prefix = CASE_UPPER;
-         viewp->imp_macro = TRUE;
-#if defined(USE_XCURSES) || defined(USE_SDLCURSES)
-         viewp->imp_os = FALSE;
-#else
-         viewp->imp_os = TRUE;
-#endif
          viewp->linend_status = TRUE;
          viewp->linend_value = '#';
          viewp->stay = FALSE;
@@ -624,8 +608,6 @@ void set_view_defaults(VIEW_DETAILS *viewp)
       case COMPAT_KEDITW:
       case COMPAT_KEDIT:
          viewp->case_enter = viewp->case_enter_cmdline = viewp->case_enter_prefix = CASE_MIXED;
-         viewp->imp_macro = FALSE;
-         viewp->imp_os = FALSE;
          viewp->linend_status = FALSE;
          viewp->linend_value = '#';
          viewp->stay = TRUE;

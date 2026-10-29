@@ -294,7 +294,7 @@ short Macro(CHARTYPE *params)
 #endif
    rc = execute_macro( params, TRUE, &macrorc );
    TRACE_RETURN();
-   return( (rc == RC_SYSTEM_ERROR) ? rc : macrorc );
+   return( rc == RC_OK ? macrorc : rc );
 }
 /*man-start*********************************************************************
 COMMAND

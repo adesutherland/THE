@@ -21,6 +21,8 @@ int the_frontend_policy_resolve_path(const char *path, int allow_missing,
 int the_frontend_policy_prepare_action(TheFrontendAction *action,
                                        char *error, size_t error_len);
 int the_frontend_policy_command_allowed(const char *command);
+int the_frontend_policy_builtin_command_allowed(const char *command);
+int the_frontend_policy_synonym_allowed(const char *definition);
 int the_frontend_policy_current_file_writable(char *error,
                                               size_t error_len);
 void the_frontend_policy_apply_current_file(void);

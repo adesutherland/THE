@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
+import { checkCommandPolicy } from "./command-policy.mjs";
 
 const directory = resolve(process.argv[2] ?? "../build-wasm");
 const { default: createEditor } = await import(pathToFileURL(`${directory}/crxthe_wasm.mjs`));
@@ -21,8 +22,11 @@ const editor = await createEditor({
 });
 editor.FS.mkdir('/workspace');
 editor.FS.writeFile('/workspace/Welcome.txt', 'initial\n');
+const policyText = Array.from({length: 80}, (_, index) => `safe ${index + 1}\n`).join('');
+editor.FS.writeFile('/workspace/Policy.txt', policyText);
 editor.FS.chdir('/workspace');
 const hasCrexx = editor.ccall('the_wasm_has_crexx','number',[],[],{});
+if (hasCrexx) editor.FS.writeFile('/workspace/pfx.rxbin', editor.FS.readFile('/app/paneldemo.rxbin'));
 for (const [name, value] of Object.entries({
   HOME: '/home/web_user', THE_HOME_DIR: '/app/', THE_WEB_WORKSPACE: '/workspace',
   THE_WEB_READONLY_ROOTS: '/app',
@@ -46,6 +50,17 @@ async function until(check, label) {
 }
 await until((s) => s.buffer?.path === '/workspace/Welcome.txt', 'startup');
 assert.equal(messages.find((m) => m.type === 'hello')?.driver, 'wasm');
+send({type: 'action', action: 'file.open', argument: 'Policy.txt'});
+await until(s => s.buffer?.path === '/workspace/Policy.txt', 'policy buffer');
+await checkCommandPolicy(async (message, predicate = () => true) => {
+  const before = snapshots.length;
+  send(message);
+  return until(s => snapshots.length > before && predicate(s), JSON.stringify(message));
+}, 2);
+assert.equal(editor.FS.readFile('/workspace/Policy.txt', {encoding: 'utf8'}), policyText);
+assert.equal(editor.FS.analyzePath('/workspace/policy-escape.txt').exists, false);
+send({type: 'action', action: 'file.close'});
+await until(s => s.buffer?.path === '/workspace/Welcome.txt', 'return from policy buffer');
 send({ type: 'command', command: 'cursor goto 1 1' });
 send({ type: 'text', text: 'é界' });
 await until((s) => s.buffer?.dirty && s.screen_rows.some((r) => r.t?.includes('é界initial')), 'UTF-8 editing');

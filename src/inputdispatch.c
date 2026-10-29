@@ -18,7 +18,8 @@ short the_input_dispatch_command(const char *command, int restricted)
                     FALSE);
       return RC_INVALID_ENVIRON;
    }
-   return command_line((CHARTYPE *)command, COMMAND_ONLY_FALSE);
+   return restricted ? command_line_restricted((CHARTYPE *)command)
+                     : command_line((CHARTYPE *)command, COMMAND_ONLY_FALSE);
 }
 
 short the_input_dispatch_action(const TheFrontendAction *action)
@@ -39,7 +40,9 @@ short the_input_dispatch_action(const TheFrontendAction *action)
                                            sizeof(command)))
       return RC_INVALID_OPERAND;
    {
-      short rc = command_line((CHARTYPE *)command, COMMAND_ONLY_FALSE);
+      /* Frontend actions name editor built-ins. User aliases must not
+       * replace Save, Open, Close or the other generated action verbs. */
+      short rc = command_line((CHARTYPE *)command, COMMAND_ONLY_TRUE);
       if (rc == RC_OK && number_of_files > 0 && vd_current != NULL)
       {
          the_frontend_policy_apply_current_file();
@@ -48,7 +51,7 @@ short the_input_dispatch_action(const TheFrontendAction *action)
          ||  prepared.id == THE_FRONTEND_ACTION_BUFFER_SWITCH)
          {
             rc = command_line((CHARTYPE *)"set coloring on auto",
-                              COMMAND_ONLY_FALSE);
+                              COMMAND_ONLY_TRUE);
          }
       }
       return rc;

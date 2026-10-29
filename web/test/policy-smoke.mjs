@@ -1,4 +1,5 @@
 import WebSocket from "ws";
+import { checkCommandPolicy } from "./command-policy.mjs";
 
 const url = new URL(process.env.THE_WEB_URL);
 url.protocol = "ws:";
@@ -7,7 +8,7 @@ const socket = new WebSocket(url);
 const records = [];
 socket.on("message", data => records.push(JSON.parse(data.toString())));
 const wait = async (predicate, from = 0) => {
-  const deadline = Date.now() + 8000;
+  const deadline = Date.now() + 15000;
   while (Date.now() < deadline) {
     const result = records.slice(from).find(predicate);
     if (result) return result;
@@ -16,8 +17,16 @@ const wait = async (predicate, from = 0) => {
   throw new Error("workspace policy response timed out: " + JSON.stringify(records.slice(-3)));
 };
 const send = message => socket.send(JSON.stringify({ v: 1, ...message }));
+let requestId = 100;
+async function request(message, predicate = () => true) {
+  const from = records.length, id = requestId++;
+  send({id, ...message});
+  const ack = await wait(m => m.type === "ack" && m.id === id, from);
+  return wait(m => m.screen_rows && predicate(m), records.indexOf(ack) + 1);
+}
 try {
   await wait(m => m.screen_rows);
+  await checkCommandPolicy(request);
   send({ id: 1, type: "files", root: 0, path: "" });
   const listing = await wait(m => m.type === "files" && m.id === 1);
   if (!listing.entries.some(e => e.name === "sample.txt" && e.type === "file"))
@@ -41,7 +50,7 @@ try {
   const view = await wait(m => m.screen_rows, from);
   if (!view.buffer.path.replaceAll("\\", "/").endsWith("/allowed.txt"))
     throw new Error("new file inside the workspace was rejected");
-  console.log("Workspace policy: link/junction escape and missing-file open rejected; local create passed");
+  console.log("Workspace/command policy: abbreviations and typed commands checked; escapes rejected; local create passed");
 } finally {
   socket.close();
 }
