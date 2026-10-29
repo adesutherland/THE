@@ -28,6 +28,10 @@ def generated():
         else:
             lines += [quote('extract /version/'), 'platform = version.3',quote('extract /size/'),
                       "if size.1 > 0 then 'cursor goto 1 1';", "else 'bottom';"]
+        # Unix DEL is the Backspace byte (127); forward Delete is curses DC.
+        # PDCurses instead names its forward Delete key DEL.
+        lines += ["if left(platform,3) = 'WIN' then 'define del sos cuadelchar';",
+                  "if left(platform,3) \\= 'WIN' then 'define dc sos cuadelchar';"]
         lines += ["check = 'osquiet command -v '", "discard = ' 2>/dev/null'",
                   "if left(platform,3) = 'WIN' then do", "  check = 'osquiet where.exe '",
                   "  discard = ' 2>nul'", 'end']

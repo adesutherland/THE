@@ -20,7 +20,6 @@ address the
 'define tab sos instab';
 'define enter enter cua';
 'define backspace sos cuadelback';
-'define del sos cuadelchar';
 'define curu cursor cua up';
 'define curd cursor cua down';
 'define curl cursor cua left';
@@ -104,6 +103,8 @@ platform = version.3
 'extract /size/'
 if size.1 > 0 then 'cursor goto 1 1';
 else 'bottom';
+if left(platform,3) = 'WIN' then 'define del sos cuadelchar';
+if left(platform,3) \= 'WIN' then 'define dc sos cuadelchar';
 check = 'osquiet command -v '
 discard = ' 2>/dev/null'
 if left(platform,3) = 'WIN' then do

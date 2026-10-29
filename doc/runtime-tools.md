@@ -17,8 +17,8 @@ captured identity/revision; editing can continue independently.
 `RX RUN "/absolute/workspace/program.rxbin"` runs a compiled program.
 The graphical console's tool selector provides the same operation. Browser
 **Import RXBIN** copies a binary into the persistent workspace, refusing name
-collisions; native builds use normal workspace files. Compiler-enabled browser
-bundles include `examples/ToolHello.rxbin`, compiled from
+collisions; native builds use normal workspace files. Browser bundles with the
+cREXX editor and Classic interpreter include `examples/ToolHello.rxbin`, compiled from
 `examples/tool-program.crexx`, for an import/run check. Arguments
 are separate values, one per line in the graphical field, or quoted operands
 after the command's tool/image. `RX RUN` alone runs the current buffer;
@@ -43,13 +43,16 @@ Terminal commands are:
 
 The default terminal profile keeps editor responses immediately above the
 editor command line. **F10 Menu** opens file, editing, navigation, run and
-profile actions; **Key definitions** retains the complete key guide. This
+profile actions, with separate actions to focus or hide the Program console.
+The menu remains available while Program input has focus; a Run chosen there
+starts after the menu closes. **Key definitions** retains the complete key guide. This
 editor response area is separate from the Program console and its labelled
 **Program input** field. Custom profiles can still choose their own MSGLINE
 position and reserved rows.
 
 When the terminal console has focus, Enter submits a line, Backspace edits,
-Ctrl-D sends EOF, Ctrl-C stops, and Esc returns to the editor. Panels and
+Ctrl-D sends EOF, Ctrl-C stops, F10 opens the menu, and Esc returns to the editor.
+Input closes at EOF or completion. Panels and
 macro READ retain their own input route. At fewer than 16 terminal rows or 32
 columns the split hides and input focus returns to the editor; use commands
 or enlarge the terminal. Graphical consoles start

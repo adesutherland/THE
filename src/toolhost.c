@@ -484,6 +484,10 @@ int the_tool_console_key(uint32_t c, int key) {
       changed();
       return 1;
    }
+   /* Ignore new input after EOF or completion; retain any prior draft for
+    * inspection until the next launch resets the input field. */
+   if (!console.running || console.eof)
+      return 1;
    if (key == 3) {
       the_tool_stop("Stopped");
       return 1;

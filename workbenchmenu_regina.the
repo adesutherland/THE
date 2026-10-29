@@ -1,6 +1,6 @@
 /* Generated native command menu; edit profiles/default-profile.json. */
 address the
-'popup centre escape esc /Open or create file.../Save file (Ctrl-S)/Close file (Ctrl-W)/Undo (Ctrl-Z)/Find... (Ctrl-F)/Go to line... (Ctrl-G)/Next file (F2)/Run current Rexx/Program console and input/Stop program/Clear program output/End program input/Edit profile/Build profile/Activate profile/Key definitions/Help (F1)';
+'popup centre escape esc /Open or create file.../Save file (Ctrl-S)/Close file (Ctrl-W)/Undo (Ctrl-Z)/Find... (Ctrl-F)/Go to line... (Ctrl-G)/Next file (F2)/Run current Rexx/Focus program console input/Hide program console/Stop program/Clear program output/End program input/Edit profile/Build profile/Activate profile/Key definitions/Help (F1)';
 select
   when popup.2 = 1 then 'macro quickopen_regina';
   when popup.2 = 2 then 'save';
@@ -9,15 +9,16 @@ select
   when popup.2 = 5 then 'macro quickfind_regina';
   when popup.2 = 6 then 'macro quickline_regina';
   when popup.2 = 7 then 'next';
-  when popup.2 = 8 then 'rx run';
+  when popup.2 = 8 then 'rx menu-run';
   when popup.2 = 9 then 'rx console';
-  when popup.2 = 10 then 'rx stop';
-  when popup.2 = 11 then 'rx clear';
-  when popup.2 = 12 then 'rx eof';
-  when popup.2 = 13 then 'rx profile';
-  when popup.2 = 14 then 'rx build';
-  when popup.2 = 15 then 'rx activate';
-  when popup.2 = 16 then 'showkey all';
-  when popup.2 = 17 then 'help';
+  when popup.2 = 10 then 'rx console off';
+  when popup.2 = 11 then 'rx stop';
+  when popup.2 = 12 then 'rx clear';
+  when popup.2 = 13 then 'rx eof';
+  when popup.2 = 14 then 'rx profile';
+  when popup.2 = 15 then 'rx build';
+  when popup.2 = 16 then 'rx activate';
+  when popup.2 = 17 then 'showkey all';
+  when popup.2 = 18 then 'help';
   otherwise nop
 end

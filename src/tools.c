@@ -4,6 +4,7 @@
 #include "editorsource.h"
 #include "frontendpolicy.h"
 #include "macroruntime.h"
+#include "panelui.h"
 #include "tools.h"
 #include <ctype.h>
 #include <errno.h>
@@ -21,6 +22,7 @@ typedef struct PendingTool {
 #endif
 static PendingTool *pending;
 static unsigned next_request, pending_count;
+static int deferred_menu_run;
 static int initialised, available;
 static char profile_ready[THE_TOOL_PATH], profile_active[THE_TOOL_PATH];
 static unsigned profile_source, profile_revision;
@@ -116,6 +118,13 @@ int the_tools_prepare_input(const char *action, const char *tool, const char *te
    p->next = pending;
    pending = p;
    pending_count++;
+   return 1;
+}
+int the_tools_take_menu_run(TheInputEvent *event) {
+   if (!deferred_menu_run || in_macro || the_panel_active ||
+       !the_input_event_from_command("rx run", event))
+      return 0;
+   deferred_menu_run = 0;
    return 1;
 }
 static int safe_image(const char *image, char *out, size_t cap) {
@@ -331,6 +340,15 @@ int the_tools_profile_restore(void) {
 }
 static short action(PendingTool *p) {
    const char *a = p->action;
+   if (!strcmp(a, "menu-run")) {
+      /* The native popup is a macro. Launch on the next editor input event,
+       * after the macro has returned and the source snapshot is safe. */
+      if (in_macro) {
+         deferred_menu_run = 1;
+         return RC_OK;
+      }
+      return launch("", 0, NULL, NULL);
+   }
    if (!strcmp(a, "run")) {
       if (*p->tool && !the_tool_find(p->tool))
          return launch("rxbin", p->argc, (const char *const *)p->argv, p->tool);

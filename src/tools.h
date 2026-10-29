@@ -7,6 +7,7 @@ int the_tools_prepare_lines(const char *, const char *, const char *, const char
                             TheInputEvent *);
 int the_tools_prepare_input(const char *action, const char *tool, const char *text, int argc,
                             const char *const *argv, TheInputEvent *event);
+int the_tools_take_menu_run(TheInputEvent *event);
 void the_tools_native_initialise(void);
 void the_tools_native_poll(void);
 int the_tools_native_language(const TheToolDefinition *);

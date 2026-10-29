@@ -46,9 +46,10 @@ for engine in ['CREXX','REGINA']:
             while process.poll() is None and time.monotonic()-start<15:
                 elapsed=time.monotonic()-start
                 if stage==0 and elapsed>1 and output and time.monotonic()-last_output>0.35:
-                    # Delete X under the caret, then backspace over Y. The
-                    # saved control below proves neither deleted byte returns.
-                    os.write(master,b'XY\x1b[H\x1b[3~\x1b[C\x08Z\t\x13');stage=1
+                    # Forward Delete removes X. Apple Terminal's Backspace
+                    # sends DEL (0x7f), which must then remove Y to the left;
+                    # Ctrl-H (0x08) must also delete left after typing Q.
+                    os.write(master,b'XY\x1b[H\x1b[3~\x1b[C\x7fQ\x08Z\t\x13');stage=1
                 if stage==1 and saved_text(sample)=='Z       alpha\n':
                     os.write(master,b'\x1b[H'+b'\x1b[D'*8+b'\x1b[17~\x1b[17~\x1b[F\rbeta\x13');stage=2
                 if stage==2 and saved_text(sample)=='Z       alpha\nbeta\n':

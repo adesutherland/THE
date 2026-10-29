@@ -1056,7 +1056,7 @@ static void console_draw(void)
    static char text[THE_TOOL_OUTPUT + 1];
    char heading[384], context[THE_TOOL_PATH + 160];
    const char *p, *start, *end;
-   const char *prompt = "Program input> ";
+   const char *prompt = c->running && !c->eof ? "Program input> " : "Input closed> ";
    int h = console_rows, row = h >= 8 ? 2 : 1;
    int output_rows = h - row - 1, lines = 0, input_col, input_cells;
    size_t length;
@@ -1355,6 +1355,7 @@ int curses_driver_read_input_event(TheInputEvent *event)
  int key,ok;char command[80];const TheToolConsole*c;
  if(!event)return 0;
  the_tools_native_initialise();the_tools_native_poll();c=the_tool_console();
+ if(the_tools_take_menu_run(event))return 1;
  if(console_height()!=console_rows)return the_input_event_from_resize(0,0,event);
  if(c->focused&&!console_rows&&!in_macro&&!the_panel_active)
   return the_input_event_from_command("rx key escape",event);
@@ -1365,6 +1366,8 @@ int curses_driver_read_input_event(TheInputEvent *event)
  *event=the_input_event_none();ok=curses_driver_read_utf8_text_event(key,event);
  if(!ok)ok=the_input_event_from_legacy_key(key,event);
  if(c->focused&&!in_macro&&!the_panel_active){
+  /* Keep the native menu reachable while the program input owns text keys. */
+  if(key==KEY_F(10))return ok;
   if(key==27)strcpy(command,"rx key escape");
   else if(key==10||key==13||key==KEY_ENTER)strcpy(command,"rx key enter");
   else if(key==8||key==127||key==KEY_BACKSPACE)strcpy(command,"rx key backspace");
