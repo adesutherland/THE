@@ -1,5 +1,8 @@
 set(THE_WASM_RUNNER_DIRECTORY "" CACHE PATH "Prepared interpreter build's runner directory")
 include("${CMAKE_SOURCE_DIR}/cmake/ClassicInterpreterCohort.cmake")
+if(THE_WASM_CREXX AND NOT THE_CREXX_REVISION STREQUAL THE_CREXX_INTERPRETER_REVISION)
+    message(FATAL_ERROR "The editor and Classic Rexx runner require the same cREXX runtime cohort")
+endif()
 foreach(asset crxthe_rxvm.mjs crxthe_rxvm.wasm llcbrowser.rxbin interpreter.json)
     if(NOT EXISTS "${THE_WASM_RUNNER_DIRECTORY}/${asset}")
         message(FATAL_ERROR "Prepare THE_BUILD_WASM_RUNNER first; missing ${asset}")
@@ -15,12 +18,22 @@ if(NOT interpreter_image_hash STREQUAL THE_WASM_INTERPRETER_SHA256)
     message(FATAL_ERROR "Prepared runner bytecode differs from its qualified checksum")
 endif()
 add_compile_definitions(THE_WASM_INTERPRETER=1)
+if(THE_WASM_CREXX)
+    set(THE_WASM_RXBIN_EXAMPLE_COMMANDS
+        COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxc" -i "${THE_CREXX_HOST_BUILD}/bin"
+            -o "${CMAKE_BINARY_DIR}/tool-example" "${CMAKE_SOURCE_DIR}/examples/tool-program.crexx"
+        COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxas" -o "${CMAKE_BINARY_DIR}/tool-example"
+            "${CMAKE_BINARY_DIR}/tool-example"
+        COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_BINARY_DIR}/tool-example.rxbin"
+            "${THE_WASM_SITE}/examples/ToolHello.rxbin")
+endif()
 add_custom_target(the_wasm_interpreter_assets
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${THE_WASM_SITE}/vm/runner" "${THE_WASM_SITE}/examples"
     COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_SOURCE_DIR}/web/vm" "${THE_WASM_SITE}/vm"
     COMMAND "${CMAKE_COMMAND}" -E copy_directory "${THE_WASM_RUNNER_DIRECTORY}" "${THE_WASM_SITE}/vm/runner"
     COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_SOURCE_DIR}/examples/browser-interpreter.rexx"
         "${THE_WASM_SITE}/examples/RexxRunner.rexx"
+    ${THE_WASM_RXBIN_EXAMPLE_COMMANDS}
     DEPENDS "${THE_WASM_SITE}/.build-stamp" VERBATIM)
 list(APPEND THE_WASM_PACKAGE_ARGUMENTS --interpreter)
 if(THE_WASM_HIGHLIGHT)

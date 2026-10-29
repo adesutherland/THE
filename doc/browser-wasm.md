@@ -240,22 +240,28 @@ qualified cREXX source revision, matching native generated headers, prepared
 `llcompiler_llcbrowser_opt` image and SHA-256. This enables
 `CREXX_VM_CLASSIC_FULL_PROVIDERS` only in that build. Pass its `runner/` output
 as `THE_WASM_RUNNER_DIRECTORY` when enabling `THE_WASM_INTERPRETER` in the
-editor build. The existing profile/parser cohort remains independently pinned.
-The packaged manifest records both cohorts and image hashes. Generated RXBIN,
-Wasm and site assets remain build outputs.
+editor build. For compiled RXBIN programs, enable `THE_WASM_CREXX` and build
+the editor against the same cREXX runtime revision as the runner. This also
+packages `examples/ToolHello.rxbin` for a direct run/import check. The packaged
+manifest records the runtime, interpreter image and their hashes. Generated
+RXBIN, Wasm and site assets remain build outputs.
 
-The execution cohort is cREXX `7ac74bc6ced98a522222d5495bed51c1da38a077` and
-the 9,593,172-byte prepared image has SHA-256
+The qualified runtime revision is cREXX
+`8e8cfff4d6109bce277befeb9dd598027d1deb77`. The Classic interpreter
+image was prepared from `7ac74bc6ced98a522222d5495bed51c1da38a077`;
+the 9,593,172-byte image has SHA-256
 `9dc18d8eba321fb258865a9a6e11301df4b721d2b7835efafa1e92fdc9cd0942`.
 It was built from the frozen source content subsequently committed at that
-revision. A configure-only native build supplies current generated headers;
-the runner does not execute a native compiler. Do not use a stale version
-header from an older native build merely because its prepared grammar exists.
+revision. The runner needs current generated native headers; the combined editor
+build also needs the matching native compiler, assembler and library. Do not
+use a stale version header from an older native build merely because its
+prepared grammar exists.
 
 ```sh
-# CREXX_RUNNER_SOURCE is a clean checkout at the execution revision above.
+# CREXX_RUNNER_SOURCE is a clean checkout at the qualified runtime revision above.
 cmake -S "$CREXX_RUNNER_SOURCE" -B build/crexx-runner-host -G Ninja \
   -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+cmake --build build/crexx-runner-host --parallel 8
 emcmake cmake -S . -B build-wasm-rexx -G Ninja -DCMAKE_BUILD_TYPE=Release \
   -DTHE_BUILD_WASM_RUNNER=ON -DTHE_CREXX_SOURCE="$CREXX_RUNNER_SOURCE" \
   -DTHE_CREXX_HOST_BUILD="$PWD/build/crexx-runner-host" \
@@ -263,6 +269,8 @@ emcmake cmake -S . -B build-wasm-rexx -G Ninja -DCMAKE_BUILD_TYPE=Release \
 cmake --build build-wasm-rexx --target the_wasm_runner --parallel 8
 # Add these options to the editor/profile/highlighter configuration above:
 emcmake cmake -S . -B build-wasm-classic \
+  -DTHE_WASM_CREXX=ON -DTHE_CREXX_SOURCE="$CREXX_RUNNER_SOURCE" \
+  -DTHE_CREXX_HOST_BUILD="$PWD/build/crexx-runner-host" \
   -DTHE_WASM_INTERPRETER=ON -DTHE_WASM_RUNNER_DIRECTORY="$PWD/build-wasm-rexx/runner"
 cmake --build build-wasm-classic --parallel 8
 ```
@@ -278,7 +286,9 @@ CHROMIUM_BIN='/path/to/chrome' node web/test/wasm-browser-smoke.mjs
 The interpreter check executes the actual Wasm/RXBIN cohort. The browser check
 covers Unicode interactive I/O, argument positions, EOF, unsaved working-record
 execution, typed failure, Stop/restart, an infinite program and split resizing,
-alongside storage, profiles and highlighting.
+alongside storage, profiles and highlighting when those capabilities are built.
+With the editor and interpreter enabled, it also imports and runs the packaged
+compiled RXBIN example directly and as a registered program.
 
 ## Browser workspace
 

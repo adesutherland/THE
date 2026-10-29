@@ -160,9 +160,6 @@ if(THE_WASM_COMPILER_DIRECTORY)
  add_custom_target(the_wasm_compiler_assets
   COMMAND "${CMAKE_COMMAND}" -E rm -rf "${THE_WASM_SITE}/compiler"
   COMMAND "${CMAKE_COMMAND}" -E make_directory "${THE_WASM_SITE}/compiler"
-  COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxc" -i "${THE_CREXX_HOST_BUILD}/bin" -o "${CMAKE_BINARY_DIR}/tool-example" "${CMAKE_SOURCE_DIR}/examples/tool-program.crexx"
-  COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxas" -o "${CMAKE_BINARY_DIR}/tool-example" "${CMAKE_BINARY_DIR}/tool-example"
-  COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_BINARY_DIR}/tool-example.rxbin" "${THE_WASM_SITE}/examples/ToolHello.rxbin"
   COMMAND "${CMAKE_COMMAND}" -E copy
    "${THE_WASM_COMPILER_DIRECTORY}/rxc_single.mjs" "${THE_WASM_COMPILER_DIRECTORY}/rxc_single.wasm"
    "${THE_WASM_COMPILER_DIRECTORY}/rxas_single.mjs" "${THE_WASM_COMPILER_DIRECTORY}/rxas_single.wasm"

@@ -69,6 +69,7 @@ async function domKey(key, code, ctrlKey = false, shiftKey = false) {
   await evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: ${JSON.stringify(key)}, code: ${JSON.stringify(code)}, ctrlKey: ${ctrlKey}, shiftKey: ${shiftKey}, bubbles: true, cancelable: true}))`);
 }
 async function consoleEnter(text) {
+  await evaluate("document.querySelector('#rexx-input').focus()");
   await waitFor(()=>evaluate("document.activeElement?.id==='rexx-input'"),'console input focus');
   await command('Input.insertText',{text});
   await command('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13,text:'\r'});
@@ -380,11 +381,21 @@ try {
   }
   if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join('; ')}`);
 
-  if(manifest.capabilities.profile_source_compiler){
-
+  if(manifest.capabilities.classic_rexx_interpreter && manifest.capabilities.crexx_vm){
     const image=Buffer.from(await(await fetch(new URL('examples/ToolHello.rxbin',pageUrl))).arrayBuffer());
-    await send({type:'tool-import',name:'ToolHello.rxbin',bytes:image.toString('base64')});
+    await evaluate(`(() => {
+      const bytes = Uint8Array.from(atob('${image.toString('base64')}'), char => char.charCodeAt(0));
+      const file = new File([bytes], 'ToolHello.rxbin', {type:'application/octet-stream'});
+      const transfer = new DataTransfer();
+      transfer.items.add(file);
+      const importer = document.querySelector('input[type=file][accept=".rxbin"]');
+      importer.files = transfer.files;
+      importer.dispatchEvent(new Event('change', {bubbles:true}));
+    })()`);
     await waitFor(()=>evaluate("window.__messages.some(m=>m.type==='tool-imported'&&m.path.endsWith('/ToolHello.rxbin'))"),'binary RXBIN import');
+    await waitFor(()=>evaluate("document.querySelector('[aria-label=\"Run tool\"]')?.value==='rxbin'"),'imported RXBIN selected');
+    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run RXBIN').click()");
+    await waitFor(()=>evaluate("window.__tools?.job.state==='Completed · status 9'"),'RXBIN console run',30000);
     await send({type:'command',command:'RX RUN "/workspace/ToolHello.rxbin"'});
     await waitFor(()=>evaluate("window.__tools?.job.state==='Completed · status 9'"),'direct compiled RXBIN',30000);
     if(!await evaluate("window.__tools.chunks.some(c=>c.text.includes('RXBIN program proof'))"))throw Error('Missing RXBIN output');
@@ -392,7 +403,10 @@ try {
     await waitFor(()=>evaluate("window.__tools.catalog.some(t=>t.id==='hello-program')"),'tool registration');
     await send({type:'tool',action:'run',tool:'hello-program'});
     await waitFor(()=>evaluate("window.__tools.job.tool==='hello-program'&&!window.__tools.job.running"),'registered RXBIN run',30000);
-    console.log('PASS browser RXBIN: binary import, direct and registered execution with output/status');
+    console.log('PASS browser RXBIN: console import/run, direct and registered execution with output/status');
+  }
+
+  if(manifest.capabilities.profile_source_compiler){
 
     if(manifest.capabilities.classic_rexx_highlighter){
       const parser=Buffer.from(await(await fetch(new URL('vm/modules/dslsh-classic.rxbin',pageUrl))).arrayBuffer());
@@ -424,7 +438,8 @@ try {
     await waitFor(()=>evaluate("!window.__snapshot.buffer.dirty"),'save rejected profile source');
     await command('Page.reload',{ignoreCache:true});
     await waitFor(()=>evaluate("window.__tools?.chunks.some(c=>c.text.includes('User profile activated'))"),'persisted working profile restore',30000);
-    if(!await evaluate("window.__tools.catalog.some(t=>t.id==='hello-program')"))throw Error('Registry was not restored');
+    if(manifest.capabilities.classic_rexx_interpreter && manifest.capabilities.crexx_vm &&
+        !await evaluate("window.__tools.catalog.some(t=>t.id==='hello-program')"))throw Error('Registry was not restored');
     console.log('PASS browser profiles: fresh Wasm compiler/assembler, ADDRESS THE, console output, activation, failed-build retention and persisted restore');
   }
   if (process.env.THE_WASM_SCREENSHOT) {
