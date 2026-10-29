@@ -58,6 +58,27 @@ field sends a line of stdin; EOF and Stop act on the selected job. Stderr is
 coloured separately. The editor's command line remains available for editor
 commands, including profile build and activation.
 
+The active file's profile colours also control the GTK console. A
+`SET COLOR` change repaints it immediately, and switching files applies the
+new file's colours while preserving the running job, output selection and
+unsent Program input.
+
+| Colour area | GTK presentation |
+| --- | --- |
+| `CONSOLEBODY` | Output text and panel background |
+| `CONSOLEHEADER` | Program console heading |
+| `CONSOLEINPUT` | Program input field and label |
+| `CONSOLECONTROL` | Console buttons and toolbar Run button |
+| `CONSOLESELECTED` | Text selection and hovered, focused or pressed buttons |
+| `CONSOLEDIVIDER` | Divider between editor and console |
+| `CONSOLEERROR` | Stderr text |
+| `CONSOLESTATUS` | Job status and completion line |
+
+For example, `set color consolebody #D4D4D4 on #1E1E1E` changes the output
+colours. GTK supports the roles' logical/RGB colours, reverse, bold, italic,
+underline, strikeout and dim styling. Terminal line-edge and blinking text
+attributes have no GTK widget equivalent.
+
 ## Qualification and current limits
 
 `test_gtk_input` checks physical key translation and UTF-8/line-ending input.
@@ -67,6 +88,10 @@ file cells, click/cursor mapping, UTF-8 editing, pending dirty state/title,
 Ctrl-S, saved bytes, close/reopen, and command-line focus. With a configured
 native tool bundle it also runs a real Rexx program, checks its output, sends
 stdin and checks completion. It writes `gtk-runtime.png` in the build folder.
+The probe also changes all eight console colour areas during a running job,
+switches files and checks widget colours, rendered divider pixels, stderr
+styling, job identity, output selection and unsent input. It verifies the
+wide/right and narrow/below layouts and captures `gtk-runtime-narrow.png`.
 The test skips explicitly when no GTK display is available; a skipped GUI
 test is not visual qualification.
 

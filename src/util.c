@@ -2867,14 +2867,14 @@ VIEW_DETAILS *find_filetab(int x)
    {
       if (the_driver_is_curses())
       {
-         if (x >= 0 && x < THE_NATIVE_MENU_WIDTH)
+         if (x >= 0 && x < THE_NATIVE_CONTROLS_WIDTH)
          {
             TRACE_RETURN();
             return NULL;
          }
          if (x >= 0)
-            x -= THE_NATIVE_MENU_WIDTH;
-         filetabs_width -= THE_NATIVE_MENU_WIDTH;
+            x -= THE_NATIVE_CONTROLS_WIDTH;
+         filetabs_width -= THE_NATIVE_CONTROLS_WIDTH;
       }
       if ( filetabs_start_view == NULL )
          curr = vd_current;

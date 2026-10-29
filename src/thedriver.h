@@ -20,7 +20,14 @@ typedef enum { CURSOR_PRESENTATION_HARDWARE, CURSOR_PRESENTATION_SOFTWARE } Curs
 
 /* Bump when the driver/core shared layouts change. Pre-CRXTHE modules had
  * no version entry point and must not be mixed with this VIEW_DETAILS layout. */
-#define THE_DRIVER_MODULE_ABI_VERSION 2
+#define THE_DRIVER_MODULE_ABI_VERSION 3
+
+typedef enum
+{
+   THE_WORKBENCH_EDITOR = 0,
+   THE_WORKBENCH_CONSOLE,
+   THE_WORKBENCH_MENU
+} TheWorkbenchControl;
 
 struct view_details;
 typedef struct TheDriverWindow TheDriverWindow;
@@ -231,9 +238,13 @@ struct TheDriverOps
                                        short old_row, int old_logical_cell,
                                        int new_logical_cell,
                                        LENGTHTYPE old_verify_col);
+   /* Optional native chrome focus. Enter selects the first control; a query
+    * (enter=false) leaves focus unchanged. Other drivers may omit it. */
+   TheWorkbenchControl (*workbench_focus)(bool enter);
 };
 
 extern const TheDriverOps *the_driver;
+TheWorkbenchControl the_driver_workbench_focus(bool enter);
 
 void the_driver_select(const TheDriverOps *ops);
 int the_driver_load(const char *name, const char *argv0,

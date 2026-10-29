@@ -1,6 +1,6 @@
 import { browserWasm, createEditorTransport, type EditorTransport } from "./transport";
 import { render } from "preact";
-import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
   AlertTriangle,
   ArrowUp,
@@ -14,9 +14,10 @@ import {
   X,
   Menu,
 } from "lucide-preact";
-import type { DriverMessage, FileListMessage, FrontendActionDefinition, PanelColour, ScreenRow, Snapshot, StyleRun } from "./types";
+import type { DriverMessage, FileListMessage, FrontendActionDefinition, ScreenRow, Snapshot, StyleRun } from "./types";
 import "./styles.css";
 import {RexxConsole, type ToolSession} from './rexx-console';
+import { consoleColourVariables, renderColour as panelColour } from "./colours";
 
 const keyNames: Record<string, string> = {
   ArrowLeft: "left",
@@ -51,19 +52,6 @@ function keyHintsForRow(row: ScreenRow): { key: string; label: string }[] {
   const matches = [...text.matchAll(new RegExp(`(${key})\\s+(.+?)(?=\\s+(?:${key})\\s+|$)`, "g"))];
   if (matches.length < 2 || matches[0].index !== 0) return [];
   return matches.map((match) => ({ key: match[1], label: match[2] }));
-}
-
-function panelColour(colour: PanelColour | undefined): preact.JSX.CSSProperties {
-  if (!colour) return {};
-  const reverse = Boolean(colour.style & 2);
-  return {
-    color: reverse ? colour.background : colour.foreground,
-    backgroundColor: reverse ? colour.foreground : colour.background,
-    fontWeight: colour.style & 1 ? 700 : undefined,
-    fontStyle: colour.style & 32 ? "italic" : undefined,
-    textDecoration: [colour.style & 4 ? "underline" : "", colour.style & 512 ? "overline" : "", colour.style & 1024 ? "line-through" : ""].filter(Boolean).join(" ") || undefined,
-    opacity: colour.style & 16 ? 0.65 : undefined,
-  };
 }
 
 function styledText(text: string, styles: StyleRun[] | undefined) {
@@ -105,17 +93,18 @@ function pointerCell(event: MouseEvent, startCell: number): number {
 
 type DockEntry = { id: number; kind: "command" | "response" | "error"; text: string };
 
-function PaneSplitter({ label, orientation, value, minimum, maximum, reverse = false, onChange }: {
+function PaneSplitter({ label, orientation, value, minimum, maximum, reverse = false, consoleDivider = false, onChange }: {
   label: string;
   orientation: "horizontal" | "vertical";
   value: number;
   minimum: number;
   maximum: number;
   reverse?: boolean;
+  consoleDivider?: boolean;
   onChange: (value: number) => void;
 }) {
   const clamp = (next: number) => Math.max(minimum, Math.min(maximum, next));
-  return <div class={`pane-splitter splitter-${orientation}`} role="separator" tabIndex={0}
+  return <div class={`pane-splitter splitter-${orientation} ${consoleDivider ? "console-divider" : ""}`} role="separator" tabIndex={0}
     aria-label={label} aria-orientation={orientation} aria-valuemin={minimum}
     aria-valuemax={maximum} aria-valuenow={Math.round(value)}
     onKeyDown={(event) => {
@@ -343,10 +332,10 @@ function App() {
     };
   }, []);
 
-  useEffect(() => {
-    // Replacing the action list removes its focused About button. Keep the
-    // keyboard inside the new view so Escape can restore the original focus.
-    if (openMenu === "about") menuRef.current?.querySelector<HTMLButtonElement>(".about-menu button")?.focus();
+  useLayoutEffect(() => {
+    // Each view replaces the previous buttons. Give it a focused action while
+    // retaining the original invoking control for Escape.
+    if (openMenu) menuRef.current?.querySelector<HTMLButtonElement>(".menu-popover button:not(:disabled)")?.focus();
   }, [openMenu]);
 
   useEffect(() => {
@@ -474,15 +463,56 @@ function App() {
     focusEditor();
   }, [focusEditor, send]);
 
+  const onWorkbenchKeyDown = useCallback((event: KeyboardEvent) => {
+    // Panels and path dialogs own their keys, including function keys.
+    if (snapshot?.panel || pathAction) return;
+    if (event.key === "F10" && !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      const invokingControl = document.activeElement;
+      if ((!openMenu || !menuRef.current?.contains(invokingControl)) && invokingControl instanceof HTMLElement)
+        menuReturnRef.current = invokingControl;
+      setOpenMenu("application");
+      // The effect handles newly mounted menus; an already open menu also
+      // needs a predictable starting point when F10 is pressed again.
+      if (openMenu === "application")
+        menuRef.current?.querySelector<HTMLButtonElement>(".menu-popover button:not(:disabled)")?.focus();
+      return;
+    }
+    if (!openMenu) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      setOpenMenu(null);
+      const invokingControl = menuReturnRef.current;
+      if (invokingControl?.isConnected && !invokingControl.matches(":disabled") && invokingControl.getClientRects().length)
+        invokingControl.focus();
+      else menuButtonRef.current?.focus();
+      return;
+    }
+    const menu = menuRef.current?.querySelector<HTMLElement>(".menu-popover");
+    if (!menuRef.current?.contains(event.target as Node) || !menu) return;
+    const items = [...menu.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")];
+    if (!items.length) return;
+    const current = items.indexOf(document.activeElement as HTMLButtonElement);
+    let next: number;
+    if (event.key === "ArrowDown") next = (current + 1) % items.length;
+    else if (event.key === "ArrowUp") next = (current <= 0 ? items.length : current) - 1;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = items.length - 1;
+    else if (event.key === "Enter" && current >= 0) {
+      event.preventDefault();
+      event.stopPropagation();
+      items[current].click();
+      return;
+    } else return; // Tab retains ordinary browser traversal.
+    event.preventDefault();
+    event.stopPropagation();
+    items[next]?.focus();
+  }, [openMenu, pathAction, snapshot?.panel]);
+
   const onEditorKeyDown = useCallback(
     (event: KeyboardEvent) => {
-      if (!snapshot?.panel && event.key === "F10") {
-        event.preventDefault();
-        menuReturnRef.current = inputRef.current;
-        setOpenMenu("application");
-        menuButtonRef.current?.focus();
-        return;
-      }
       if (snapshot?.panel && (event.ctrlKey || event.metaKey)) {
         event.preventDefault();
         return;
@@ -581,21 +611,16 @@ function App() {
   };
 
   return (
-    <main class="app-shell">
+    <main class="app-shell" onKeyDownCapture={onWorkbenchKeyDown} style={consoleColourVariables(snapshot?.console_colours)}>
       <header class="toolbar">
         <div class="product-mark">CRXTHE</div>
-        <div class="menu-root" ref={menuRef} onKeyDown={(event) => {
-          if (event.key === "Escape" && openMenu) {
-            event.preventDefault(); event.stopPropagation();
-            setOpenMenu(null); (menuReturnRef.current ?? menuButtonRef.current)?.focus();
-          }
-        }}>
+        <div class="menu-root" ref={menuRef}>
           <button type="button" ref={menuButtonRef} class={`menu-trigger ${openMenu ? "menu-trigger-open" : ""}`}
             aria-expanded={!!openMenu} aria-controls="application-menu"
             onClick={() => { menuReturnRef.current = menuButtonRef.current; setOpenMenu(openMenu ? null : "application"); }}><Menu size={16} /> Menu</button>
           {openMenu ? <nav id="application-menu" class={`menu-popover ${openMenu === "about" ? "about-menu" : ""}`} aria-label={openMenu === "about" ? "About CRXTHE" : "Application menu"}>
             {openMenu === "about" ? <>
-              <button type="button" onClick={() => { setOpenMenu("application"); menuButtonRef.current?.focus(); }}>← Back to Menu</button>
+              <button type="button" onClick={() => setOpenMenu("application")}>← Back to Menu</button>
               <section aria-labelledby="about-title">
                 <h2 id="about-title">CRXTHE</h2>
                 <p>A programmable editor based on THE, with line prefixes, editor commands and Rexx macros.</p>
@@ -818,7 +843,7 @@ function App() {
               {commandHistoryOpen ? "Hide history" : "History"}{dockEntries.length ? ` (${dockEntries.length})` : ""}
             </button>
           </div>
-          <div class="latest-response" role="status" aria-live="polite">{lastError || latestResponse?.text || snapshot?.last_message || "Ready for an editor command"}</div>
+          <div class="latest-response" role="status" aria-live="polite">{lastError || latestResponse?.text || snapshot?.last_message || ""}</div>
           <div id="command-responses" class="command-responses" hidden={!commandHistoryOpen} ref={responseLogRef}
             aria-label="THE command and response history" tabIndex={0}
             onScroll={(event) => { const log = event.currentTarget; followingResponsesRef.current = log.scrollHeight - log.scrollTop - log.clientHeight < 24; }}>
@@ -844,7 +869,7 @@ function App() {
           <button type="button" aria-pressed={activeMobilePane === "diagnostics" && diagnosticsOpen} onClick={() => { setDiagnosticsOpen(true); setMobilePane("diagnostics"); }}>Diagnostics <span>{snapshot?.diagnostics?.length ?? 0}</span></button>
           {toolsAvailable ? <button type="button" aria-pressed={activeMobilePane === "console" && consoleOpen} onClick={() => { setConsoleOpen(true); setMobilePane("console"); }}>Program console{toolSession?.job.waiting ? " · Input requested" : ""}</button> : null}
         </div>
-        {showAux ? <PaneSplitter label="Resize auxiliary panes" orientation="vertical" reverse value={Math.min(auxWidth, maximumAuxWidth)} minimum={300} maximum={maximumAuxWidth} onChange={setAuxWidth} /> : null}
+        {showAux ? <PaneSplitter label="Resize auxiliary panes" orientation="vertical" reverse consoleDivider={consoleOpen && toolsAvailable} value={Math.min(auxWidth, maximumAuxWidth)} minimum={300} maximum={maximumAuxWidth} onChange={setAuxWidth} /> : null}
         <div class={`auxiliary-rail ${diagnosticsOpen && consoleOpen && toolsAvailable ? "auxiliary-split" : ""}`} hidden={!showAux}>
         {diagnosticsOpen ? (
           <aside class="diagnostics" aria-label="Diagnostics">
@@ -866,7 +891,7 @@ function App() {
             ))}
           </aside>
         ) : null}
-        {diagnosticsOpen && consoleOpen && toolsAvailable ? <PaneSplitter label="Resize diagnostics and program console" orientation="horizontal" value={Math.min(diagnosticsHeight, maximumDiagnosticsHeight)} minimum={96} maximum={maximumDiagnosticsHeight} onChange={setDiagnosticsHeight} /> : null}
+        {diagnosticsOpen && consoleOpen && toolsAvailable ? <PaneSplitter label="Resize diagnostics and program console" orientation="horizontal" consoleDivider value={Math.min(diagnosticsHeight, maximumDiagnosticsHeight)} minimum={96} maximum={maximumDiagnosticsHeight} onChange={setDiagnosticsHeight} /> : null}
         {toolsAvailable && toolSession ? <div class="program-console-pane" hidden={!consoleOpen}>
           <RexxConsole send={send} session={toolSession} snapshot={snapshot} onClose={() => { setConsoleOpen(false); focusEditor(); }} focusEditor={focusEditor} />
         </div> : null}

@@ -41,7 +41,10 @@ export interface PanelColour {
   style: number;
 }
 
+export type ConsoleColours = Partial<Record<"body" | "header" | "input" | "control" | "selected" | "divider" | "error" | "status", PanelColour>>;
+
 export interface Snapshot {
+  console_colours?: ConsoleColours;
   source?: {id:number; revision:number};
   parser?: { provider: string; state: string; id: number; revision: number; applied: number; stale: number };
   viewport?: { rows: number; cols: number; reserved_rows: number; prefix_cols: number; prefix_gap: number };

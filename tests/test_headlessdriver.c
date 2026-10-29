@@ -78,9 +78,10 @@ static void test_vtable_complete(void)
    expect_long("ops.size.remainder",
                (long)(sizeof(TheDriverOps) % sizeof(void (*)(void))), 0);
    count = sizeof(TheDriverOps) / sizeof(void (*)(void));
-   expect_long("ops.count", (long)count, 54);
+   expect_long("ops.count", (long)count, 55);
    ops = (const void *const *)(const void *)&the_headless_driver_ops;
-   for (i = 0; i < count; i++)
+   /* Native chrome focus is optional; the preceding editor contract is not. */
+   for (i = 0; i < count - 1; i++)
    {
       if (ops[i] == NULL)
       {
@@ -470,6 +471,10 @@ static void test_selection(void)
    expect_ptr("selection.clear", the_driver, NULL);
    the_driver_select(&the_headless_driver_ops);
    expect_ptr("selection.explicit", the_driver, &the_headless_driver_ops);
+   expect_int("selection.optional.workbench.query", the_driver_workbench_focus(false),
+              THE_WORKBENCH_EDITOR);
+   expect_int("selection.optional.workbench.enter", the_driver_workbench_focus(true),
+              THE_WORKBENCH_EDITOR);
 }
 
 static void test_fake_window_and_cursor_state(void)

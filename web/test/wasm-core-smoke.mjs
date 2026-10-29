@@ -48,7 +48,9 @@ async function until(check, label) {
   }
   throw new Error(`Timeout: ${label}\n${JSON.stringify(snapshots.at(-1))}\n${JSON.stringify(messages.slice(-3))}`);
 }
-await until((s) => s.buffer?.path === '/workspace/Welcome.txt', 'startup');
+const initialSnapshot = await until((s) => s.buffer?.path === '/workspace/Welcome.txt', 'startup');
+const initialConsoleColours = initialSnapshot.console_colours;
+assert.equal(Object.keys(initialConsoleColours ?? {}).length, 8, 'Wasm startup exposes all console colour areas');
 assert.equal(messages.find((m) => m.type === 'hello')?.driver, 'wasm');
 send({type: 'action', action: 'file.open', argument: 'Policy.txt'});
 await until(s => s.buffer?.path === '/workspace/Policy.txt', 'policy buffer');
@@ -61,6 +63,7 @@ assert.equal(editor.FS.readFile('/workspace/Policy.txt', {encoding: 'utf8'}), po
 assert.equal(editor.FS.analyzePath('/workspace/policy-escape.txt').exists, false);
 send({type: 'action', action: 'file.close'});
 await until(s => s.buffer?.path === '/workspace/Welcome.txt', 'return from policy buffer');
+assert.deepEqual(snapshots.at(-1).console_colours, initialConsoleColours, 'file switch restores the current file console colours');
 send({ type: 'command', command: 'cursor goto 1 1' });
 send({ type: 'text', text: 'é界' });
 await until((s) => s.buffer?.dirty && s.screen_rows.some((r) => r.t?.includes('é界initial')), 'UTF-8 editing');

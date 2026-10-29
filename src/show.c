@@ -2509,10 +2509,16 @@ void display_filetabs( VIEW_DETAILS *start)
       INIT_LINE_OUTPUT( filetabs, 0 );
       if (the_driver_is_curses())
       {
+         TheWorkbenchControl control = the_driver_workbench_focus(FALSE);
+         TheDriverAttr selected = set_colour(CURRENT_FILE->attr+ATTR_CONSOLESELECTED);
+         TheDriverAttr chrome = set_colour(CURRENT_FILE->attr+ATTR_RESERVED);
          ADD_LINE_OUTPUT((CHARTYPE *)THE_NATIVE_MENU_LABEL,
                          THE_NATIVE_MENU_WIDTH,
-                         set_colour(CURRENT_FILE->attr+ATTR_RESERVED));
-         fill_len = max(0, fill_len - THE_NATIVE_MENU_WIDTH);
+                         control == THE_WORKBENCH_MENU ? selected : chrome);
+         ADD_LINE_OUTPUT((CHARTYPE *)THE_NATIVE_CONSOLE_LABEL,
+                         THE_NATIVE_CONSOLE_WIDTH,
+                         control == THE_WORKBENCH_CONSOLE ? selected : chrome);
+         fill_len = max(0, fill_len - THE_NATIVE_CONTROLS_WIDTH);
       }
 
       if ( start )

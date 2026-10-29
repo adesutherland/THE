@@ -48,6 +48,16 @@ def generated():
                   quote(data['welcome']) + ';']
         native = [quote(command.format(suffix=suffix)) + ';'
                   for command in data.get('native_commands', [])]
+        # UI describes the active runtime driver. Keep GTK's editing binding;
+        # only a terminal curses driver implements native chrome navigation.
+        if engine == 'CREXX':
+            native += ['ui = .string[]', 'address the "extract /ui/" expose ui[]',
+                       "if pos('CURSES', translate(ui[1])) > 0 then do"]
+        else:
+            native += [quote('extract /ui/'),
+                       "if pos('CURSES', translate(ui.1)) > 0 then do"]
+        native += ['  ' + quote(command.format(suffix=suffix)) + ';'
+                   for command in data.get('curses_commands', [])] + ['end']
         result[filename] = '\n'.join(lines[:-1] + native + lines[-1:]) + '\n'
         restricted = [quote(command) + ';' for command in
                       ['set impos off','set impmacro off','set macro off','set linend off','set synonym on']]

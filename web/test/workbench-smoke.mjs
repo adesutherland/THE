@@ -16,14 +16,24 @@ const received = [];
 const snapshot = {
   mode: "editor", rows: 24, cols: 80,
   focus: { zone: "filearea", line: 1, row: 0, cell: 2 }, command: "",
-  status: "focus=filearea line=1 row=0 cell=2 verify=1 message=Initial response",
+  status: "focus=filearea line=1 row=0 cell=2 verify=1 message=",
   status_line: "PROFILE  Line=1  Column=3  Insert mode",
-  last_message_serial: 7, last_message: "Initial response",
+  last_message_serial: 7, last_message: "",
   buffer: { path: "/workspace/example.rexx", dirty: 0, lines: 100 },
   buffers: [{ index: 0, path: "/workspace/example.rexx", dirty: 0, lines: 100, current: 1 }],
   source: { id: 1, revision: 3 }, history: { undo: 0, redo: 0 },
   viewport: { rows: 24, cols: 80, reserved_rows: 4, prefix_cols: 7, prefix_gap: 1 },
   diagnostics: [{ line: 2, column: 1, severity: "warning", code: "DEMO", message: "Example diagnostic" }],
+  console_colours: {
+    body: { foreground: "#D4D4D4", background: "#1E1E1E", style: 0 },
+    header: { foreground: "#F1F5FA", background: "#25415F", style: 0 },
+    input: { foreground: "#D4D4D4", background: "#2D2D30", style: 0 },
+    control: { foreground: "#D4D4D4", background: "#1E1E1E", style: 0 },
+    selected: { foreground: "#E6F7FF", background: "#264F78", style: 0 },
+    divider: { foreground: "#6C7B90", background: "#1E1E1E", style: 0 },
+    error: { foreground: "#FF6347", background: "#1E1E1E", style: 0 },
+    status: { foreground: "#D4D4D4", background: "#1E1E1E", style: 0 },
+  },
   screen_rows: [],
 };
 const tools = {
@@ -64,6 +74,7 @@ ws.on("connection", (connection) => {
   connection.send(JSON.stringify({ type: "actions", actions: [
     { id: "file.open", menu: "File", label: "Open", requires_argument: true },
     { id: "file.save", menu: "File", label: "Save", requires_argument: false },
+    { id: "file.create", menu: "File", label: "Create", requires_argument: true },
   ] }));
   publishSnapshot(); publishTools();
   connection.on("message", (data) => {
@@ -118,6 +129,12 @@ async function setInput(selector, value) {
 async function pane(label) {
   await evaluate(`[...document.querySelectorAll('.pane-switcher button')].find(n=>n.textContent.startsWith(${JSON.stringify(label)})).click()`);
 }
+async function key(key, modifiers = 0) {
+  const keyCodes = { F10: 121, Escape: 27, ArrowDown: 40, ArrowUp: 38, Home: 36, End: 35, Enter: 13, Tab: 9 };
+  const parameters = { key, code: key, windowsVirtualKeyCode: keyCodes[key], modifiers };
+  await cdp("Input.dispatchKeyEvent", { type: "keyDown", ...parameters });
+  await cdp("Input.dispatchKeyEvent", { type: "keyUp", ...parameters });
+}
 try {
   const port = await wait(async () => { try { return +(await readFile(join(profile, "DevToolsActivePort"), "utf8")).split("\n")[0]; } catch { return false; } }, "Chrome port");
   const target = await (await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: "PUT" })).json();
@@ -136,6 +153,7 @@ try {
   await wait(() => evaluate("!!document.querySelector('.status-line[data-focus-line=\"1\"]')"), "initial editor");
   await cdp("Page.bringToFront");
   assert.equal(await evaluate("document.querySelectorAll('.dock-entry').length"), 0, "initial snapshot must not fabricate a response event");
+  assert.equal(await evaluate("document.querySelector('.latest-response').textContent"), "", "idle response strip stays quiet");
   assert.equal(await evaluate("document.querySelector('.editor-details')"), null);
   assert.equal(await evaluate("document.querySelector('.status-line').textContent.includes('focus=')"), false);
   assert.equal(await evaluate("document.body.textContent.includes('focus=filearea')"), false, "LLM debug state is not product status");
@@ -149,6 +167,7 @@ try {
     await wait(() => evaluate(`document.querySelectorAll('.dock-entry-response').length===${index + 1}`), "semantic response event");
   }
   assert.equal(await evaluate("document.querySelectorAll('.dock-entry-command').length"), 2);
+  assert.equal(await evaluate("document.querySelector('.latest-response').textContent"), "Repeated response", "actual editor responses remain visible");
   snapshot.focus.cell++; snapshot.status_line = "PROFILE  Line=1  Column=4  Insert mode"; publishSnapshot();
   await evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
   assert.equal(await evaluate("document.querySelectorAll('.dock-entry-response').length"), 2, "cursor updates do not duplicate responses");
@@ -169,6 +188,91 @@ try {
   await setInput("[aria-label='Rexx arguments']", "first\n\nlast");
   await evaluate("document.querySelector('.run-program').click()");
   await wait(() => evaluate("document.querySelector('.run-state').textContent==='Running'"), "run fixture");
+
+  // Use real browser key dispatch: default Tab traversal and Enter activation
+  // cannot be qualified by dispatching synthetic KeyboardEvents alone.
+  await setInput("#the-command", "draft editor command");
+  await setInput("#rexx-input", "draft program input");
+  await evaluate("document.querySelector('#the-command').setSelectionRange(2,7);document.querySelector('#rexx-input').setSelectionRange(3,8)");
+  const profileMenusBefore = received.filter((message) => message.type === "key" && message.key === "f10").length;
+  for (const selector of [".input-sink", "#the-command", "#rexx-input", ".console-output", ".console-run-controls button:nth-of-type(2)", ".console-heading button"]) {
+    await evaluate(`window.menuInvoker=document.querySelector(${JSON.stringify(selector)});window.menuInvoker.focus()`);
+    assert.equal(await evaluate("document.activeElement===window.menuInvoker"), true, `focus ${selector}`);
+    await key("F10");
+    await wait(() => evaluate("document.activeElement===document.querySelector('.menu-popover button')"), `F10 focuses first action from ${selector}`);
+    await key("Escape");
+    await wait(() => evaluate("!document.querySelector('.menu-popover') && document.activeElement===window.menuInvoker"), `Escape restores ${selector}`);
+  }
+  assert.equal(received.filter((message) => message.type === "key" && message.key === "f10").length, profileMenusBefore, "workbench F10 stays out of the editor key route");
+  assert.deepEqual(await evaluate("[document.querySelector('#the-command').selectionStart,document.querySelector('#the-command').selectionEnd]"), [2, 7], "menu roundtrip retains command selection");
+  assert.deepEqual(await evaluate("[document.querySelector('#rexx-input').selectionStart,document.querySelector('#rexx-input').selectionEnd]"), [3, 8], "menu roundtrip retains program input selection");
+
+  await evaluate("document.querySelector('.input-sink').focus()");
+  await key("F10");
+  await wait(() => evaluate("document.activeElement===document.querySelector('.menu-popover button')"), "menu keyboard starting point");
+  assert.equal(await evaluate("getComputedStyle(document.activeElement).backgroundColor"), "rgb(38, 79, 120)", "keyboard menu selection uses the shared blue highlight");
+  await key("ArrowDown");
+  assert.equal(await evaluate("document.activeElement.querySelector('span')?.textContent"), "Save", "Down selects next menu action");
+  await key("ArrowUp");
+  assert.equal(await evaluate("document.activeElement.querySelector('span')?.textContent"), "Open", "Up selects previous menu action");
+  await key("ArrowUp");
+  assert.equal(await evaluate("document.activeElement.textContent"), "About CRXTHE", "Up wraps to the last menu action");
+  await key("ArrowDown");
+  assert.equal(await evaluate("document.activeElement.querySelector('span')?.textContent"), "Open", "Down wraps to the first menu action");
+  await key("End");
+  assert.equal(await evaluate("document.activeElement.textContent"), "About CRXTHE", "End selects last menu action");
+  await key("Home");
+  assert.equal(await evaluate("document.activeElement.querySelector('span')?.textContent"), "Open", "Home selects first menu action");
+  await key("Tab");
+  assert.equal(await evaluate("document.activeElement.querySelector('span')?.textContent"), "Save", "Tab traverses ordinary menu buttons");
+  await key("Tab", 8);
+  await key("Tab", 8);
+  assert.equal(await evaluate("document.activeElement.classList.contains('menu-trigger')"), true, "Shift-Tab can leave menu items for the trigger");
+  await key("Tab");
+  await key("ArrowDown");
+  const savesBeforeMenu = received.filter((message) => message.type === "action" && message.action === "file.save").length;
+  await key("Enter");
+  await wait(() => received.filter((message) => message.type === "action" && message.action === "file.save").length === savesBeforeMenu + 1, "Enter activates selected menu action once");
+  await wait(() => evaluate("!document.querySelector('.menu-popover') && document.activeElement.classList.contains('input-sink')"), "menu action restores editor work");
+  assert.equal(received.filter((message) => message.type === "action" && message.action === "file.save").length, savesBeforeMenu + 1, "Enter does not duplicate the native button click");
+
+  const editorTabsBefore = received.filter((message) => message.type === "key" && message.key === "tab").length;
+  await key("Tab");
+  await wait(() => received.filter((message) => message.type === "key" && message.key === "tab").length === editorTabsBefore + 1, "editor Tab remains a profile key");
+  assert.equal(await evaluate("document.activeElement.classList.contains('input-sink')"), true, "editor Tab retains editor focus");
+  await evaluate("document.querySelector('#the-command').focus()");
+  await key("Tab");
+  assert.equal(await evaluate("document.activeElement===document.querySelector('.command-form button')"), true, "command Tab uses native control traversal");
+  await evaluate("document.querySelector('#rexx-input').focus()");
+  await key("Tab");
+  assert.equal(await evaluate("document.activeElement===document.querySelector('.console-input button[type=submit]')"), true, "program input Tab uses native control traversal");
+  assert.equal(received.filter((message) => message.type === "key" && message.key === "tab").length, editorTabsBefore + 1, "control Tab never reaches the editor");
+
+  // Path dialogs and macro panels retain function-key ownership.
+  await evaluate("document.querySelector('.input-sink').focus()");
+  await key("F10");
+  await wait(() => evaluate("document.activeElement===document.querySelector('.menu-popover button')"), "menu before path dialog");
+  await key("ArrowDown");
+  await key("ArrowDown");
+  await key("Enter");
+  await wait(() => evaluate("document.activeElement.id==='file-path'"), "path dialog owns focus");
+  await key("F10");
+  assert.equal(await evaluate("!!document.querySelector('.menu-popover')"), false, "F10 does not open the workbench menu over a path dialog");
+  assert.equal(await evaluate("document.activeElement.id"), "file-path", "dialog retains its invoking focus");
+  await evaluate("document.querySelector('.dialog-actions button').click()");
+  snapshot.panel = { rows: 6, cols: 40, active: 0, cursor: 0,
+    fields: [{ row: 1, cell: 1, width: 16, editable: 1, changed: 0, kind: "input", text: "Panel field" }] };
+  publishSnapshot();
+  await wait(() => evaluate("!!document.querySelector('.fullscreen-panel')"), "macro panel fixture");
+  await evaluate("document.querySelector('.input-sink').focus()");
+  const panelF10Before = received.filter((message) => message.type === "key" && message.key === "f10").length;
+  await key("F10");
+  await wait(() => received.filter((message) => message.type === "key" && message.key === "f10").length === panelF10Before + 1, "panel F10 follows the existing editor key route");
+  assert.equal(await evaluate("!!document.querySelector('.menu-popover')"), false, "F10 does not open the workbench menu over a panel");
+  delete snapshot.panel;
+  publishSnapshot();
+  await wait(() => evaluate("!document.querySelector('.fullscreen-panel')"), "macro panel closes");
+
   for (const [width, height] of [[1280, 800], [1920, 1080]]) {
     await viewport(width, height);
     const files = await geometry(".file-explorer"), editor = await geometry(".editor-pane"), diagnostics = await geometry(".diagnostics"), programConsole = await geometry(".rexx-dock");
@@ -208,6 +312,52 @@ try {
   tools.chunks.push({ fd: 2, text: "latest output\n" }); publishTools();
   await wait(() => evaluate("!!document.querySelector('.new-output')"), "unread output control");
   assert.equal(await evaluate("document.querySelector('.console-output').scrollTop"), 0, "output preserves scrollback position");
+  const originalColours = snapshot.console_colours;
+  const originalPath = snapshot.buffer.path;
+  const toolVersionBeforePalette = tools.version;
+  await evaluate("document.querySelector('#rexx-input').focus();document.querySelector('#rexx-input').setSelectionRange(2,5)");
+  snapshot.console_colours = {
+    body: { foreground: "#123456", background: "#102030", style: 0 },
+    header: { foreground: "#ABCDEF", background: "#112233", style: 0 },
+    input: { foreground: "#FEDCBA", background: "#223344", style: 0 },
+    control: { foreground: "#A1B2C3", background: "#334455", style: 0 },
+    selected: { foreground: "#556677", background: "#CCDDEE", style: 2 },
+    divider: { foreground: "#6789AB", background: "#445566", style: 0 },
+    error: { foreground: "#E14567", background: "#556677", style: 5 },
+    status: { foreground: "#89ABCD", background: "#667788", style: 0 },
+  };
+  publishSnapshot();
+  await wait(() => evaluate("getComputedStyle(document.querySelector('.console-output')).color==='rgb(18, 52, 86)'"), "snapshot recolours live console without a tool update");
+  async function colours(selector) {
+    return evaluate(`(() => {const style=getComputedStyle(document.querySelector(${JSON.stringify(selector)}));return [style.color,style.backgroundColor];})()`);
+  }
+  for (const [selector, expected] of [
+    [".console-output", ["rgb(18, 52, 86)", "rgb(16, 32, 48)"]],
+    [".console-heading", ["rgb(171, 205, 239)", "rgb(17, 34, 51)"]],
+    ["#rexx-input", ["rgb(254, 220, 186)", "rgb(34, 51, 68)"]],
+    [".console-run-controls button:nth-of-type(3)", ["rgb(161, 178, 195)", "rgb(51, 68, 85)"]],
+    [".console-divider", ["rgb(103, 137, 171)", "rgb(68, 85, 102)"]],
+    [".console-stderr", ["rgb(225, 69, 103)", "rgb(85, 102, 119)"]],
+    [".run-state", ["rgb(137, 171, 205)", "rgb(102, 119, 136)"]],
+    [".run-program", ["rgb(137, 171, 205)", "rgb(102, 119, 136)"]],
+  ]) assert.deepEqual(await colours(selector), expected, `console role on ${selector}`);
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.console-stderr')).fontWeight"), "700");
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.console-stderr')).textDecorationLine"), "underline");
+  assert.equal(await evaluate("document.activeElement.id"), "rexx-input", "palette update preserves input focus");
+  assert.deepEqual(await evaluate("[document.activeElement.selectionStart,document.activeElement.selectionEnd]"), [2, 5]);
+  assert.equal(await evaluate("document.querySelector('.console-output').scrollTop"), 0, "palette update preserves scrollback");
+  assert.equal(tools.version, toolVersionBeforePalette, "colour updates do not require a tool event");
+  await key("Tab");
+  assert.deepEqual(await colours(".console-input button[type=submit]"), ["rgb(204, 221, 238)", "rgb(85, 102, 119)"], "focused control uses CONSOLESELECTED with REVERSE");
+  snapshot.buffer.path = snapshot.buffers[0].path = "/workspace/other-colours.rexx";
+  snapshot.console_colours = originalColours;
+  publishSnapshot();
+  await wait(() => evaluate("getComputedStyle(document.querySelector('.console-output')).color==='rgb(212, 212, 212)'"), "file switch changes console palette immediately");
+  assert.equal(await evaluate("window.originalConsole===document.querySelector('.rexx-dock')"), true, "palette and file switches preserve console identity");
+  assert.equal(await evaluate("document.querySelector('#rexx-input').value"), "unsent input");
+  assert.equal(await evaluate("document.querySelector('#the-command').value"), "unsent command");
+  snapshot.buffer.path = snapshot.buffers[0].path = originalPath;
+  publishSnapshot();
   await evaluate("document.querySelector('[aria-label=\"Close program console\"]').click()"); await pane("Program console");
   await viewport(390, 844);
   assert.equal(await evaluate("document.documentElement.scrollWidth<=innerWidth"), true, "phone shell has no horizontal overflow");
@@ -239,7 +389,7 @@ try {
   assert((await geometry(".about-menu")).right <= 390, "phone About fits");
   await wait(() => evaluate("document.querySelector('.about-menu').contains(document.activeElement)"), "About keyboard focus");
   await evaluate("document.activeElement.click()");
-  await wait(() => evaluate("!document.querySelector('.about-menu') && document.activeElement.classList.contains('menu-trigger')"), "About Back to Menu focus");
+  await wait(() => evaluate("!document.querySelector('.about-menu') && document.activeElement===document.querySelector('.menu-popover button')"), "About Back to Menu focus");
   await evaluate("[...document.querySelectorAll('.menu-popover button')].find(n=>n.textContent==='About CRXTHE').click()");
   await wait(() => evaluate("document.querySelector('.about-menu').contains(document.activeElement)"), "About focus after reopening");
   await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))");
@@ -282,7 +432,7 @@ try {
     }
     console.log("Presentation-fixture screenshots: " + destination);
   }
-  console.log("PASS Guided Workbench: 320/390/768/1280/1920 layouts, visible profile hints/status, About, key dispatch, semantic history, separate program input, resize, retained drafts/job, focus and scrollback");
+  console.log("PASS Guided Workbench: 320/390/768/1280/1920 layouts, profile hints/status, shared F10 menu/navigation/focus return, contextual Tab, panel/dialog ownership, quiet idle responses, semantic history, separate program input, retained drafts/job and scrollback");
 } finally {
   socket?.close(); chrome.kill();
   for (const connection of ws.clients) connection.terminate();

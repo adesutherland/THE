@@ -6,7 +6,8 @@
 
 ```text
 RX RUN [tool-id|filename.rxbin] [arguments...]
-RX CONSOLE [OFF]
+RX CONSOLE [ON|OFF]
+RX CONTROLS
 RX INPUT text
 RX EOF
 RX STOP
@@ -26,5 +27,12 @@ Subcommand keywords are case-insensitive; filenames, IDs and data keep their cas
 
 Profiles use **Edit → Build → Activate**. Terminal and graphical consoles use
 the shared job state and separate program stdin from editor commands.
+`RX CONSOLE ON` shows the Program console and focuses its input; `OFF` hides
+it without stopping the job or clearing output. Bare `RX CONSOLE` retains its
+focus toggle for existing profiles.
+`RX CONTROLS` focuses the terminal's Console launcher when FILETABS is on.
+The default terminal profile binds Shift-Tab to this command; Tab and arrow
+keys then move between Console and Menu, Enter activates, and Esc returns
+to the editor. Drivers without native launchers do not support this command.
 See [RXBIN tools, profiles and console](../runtime-tools.md) for capabilities,
 persistence, language registration and build requirements.

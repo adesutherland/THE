@@ -35,36 +35,49 @@ Terminal commands are:
 
 | Command | Effect |
 | --- | --- |
-| `RX CONSOLE` | Show the split and toggle console input focus. |
-| `RX CONSOLE OFF` | Hide the split. |
+| `RX CONSOLE` | Show the split and toggle console input focus (legacy). |
+| `RX CONSOLE ON` | Show the split and focus Program input. |
+| `RX CONSOLE OFF` | Hide the split without stopping its job. |
+| `RX CONTROLS` | Focus the terminal Console launcher (FILETABS on). |
 | `RX INPUT text` | Send a line to the running program. |
 | `RX EOF` | Close stdin after queued input drains. |
 | `RX STOP` | Terminate the isolated execution. |
 | `RX CLEAR` | Clear visible output. |
 | `RX STATUS` | Display job state. |
 
-The default terminal profile keeps editor responses immediately above the
-editor command line. **MENU (F10)** at the upper left can be clicked; F10 opens
+The default terminal profile keeps actual editor responses immediately above
+the editor command line, leaving that row quiet while idle. **MENU (F10)** at
+the upper left and the adjacent persistent **Console** launcher can be clicked;
+Console shows the dock and focuses Program input. F10 opens
 the same pull-down menu for file, editing, navigation, run and
-profile actions, with separate actions to focus or hide the Program console.
+profile actions, with separate actions to show/focus or hide the Program console.
 The menu remains available while Program input has focus; a Run chosen there
 starts after the menu closes. **Key definitions** retains the complete key guide. This
 editor response area is separate from the Program console and its labelled
 **Program input** field. Custom profiles can still choose their own MSGLINE
 position and reserved rows.
 
-The terminal toolbar provides **Run**, **Stop**, **Clear**, **Close** and
-**Focus**, with mouse access. Run captures the current editor buffer. Close
-hides the console while retaining its output and any running program; Focus
-moves to Program input. Run is unavailable during a job, and Stop is available
-while a job runs. The terminal reserves the console's space before laying out
+The terminal toolbar provides **Run**, **Stop**, **Clear**, **Hide** and
+**Editor**, with mouse access. Run captures the current editor buffer. Hide
+retains output and any running program; Editor returns keyboard focus to the
+editor. Run is unavailable during a job, and Stop is available while a job
+runs. The terminal reserves the console's space before laying out
 the editor, including its response, command and status rows.
 
-Choose **F10 Menu → Focus program console** to reach Program input from the
-keyboard. While the console has focus, Tab or Shift-Tab switches between input
-and the toolbar; Left/Right selects a control, Home/End selects the first/last,
-and Enter or Space activates it. Esc returns to the editor, and clicking the
-editor also restores editor focus. Editor Tab and the default F6 Cmd/File
+In the default terminal profile, **Shift-Tab** focuses the Console launcher;
+another Shift-Tab focuses Menu. While either launcher has focus, Tab,
+Shift-Tab or Left/Right moves between them, Enter or Space activates the
+selected launcher, and Esc restores the editor caret. Ordinary editor Tab
+keeps the profile's indentation command. F10 remains a direct menu shortcut.
+The terminal-specific Shift-Tab definition is visible in Key definitions;
+the graphical editor retains its own Shift-Tab binding.
+
+Choose **F10 Menu → Show / focus Program console** to reach Program input from the
+keyboard. While the console has focus, Tab switches between input and the
+toolbar. Shift-Tab moves from input to the toolbar, then to the Console
+launcher; Left/Right selects a toolbar control, Home/End selects the first/last,
+and Enter or Space activates it. Esc or the Editor control returns to the
+editor, and clicking the editor also restores editor focus. Editor Tab and the default F6 Cmd/File
 binding continue to follow the active profile.
 
 In Program input, Enter submits a line, Backspace edits, Ctrl-D sends EOF,

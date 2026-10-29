@@ -93,9 +93,12 @@ button { color: inherit; }
   text-align: left;
   cursor: pointer;
 }
-.menu-popover button:hover { background: #35678b; color: #fff; }
+.menu-popover button:hover,
+.menu-popover button:focus-visible { background: #264f78; color: #e6f7ff; }
+.menu-popover button:focus-visible { outline-offset: -2px; }
 .menu-popover kbd { color: #8f98a5; font: 11px/20px var(--editor-font); }
-.menu-popover button:hover kbd { color: #dce8f1; }
+.menu-popover button:hover kbd,
+.menu-popover button:focus-visible kbd { color: #dce8f1; }
 .about-menu { width: min(330px, calc(100vw - 24px)); }
 .about-menu h2 { color: #edf0f4; font-size: 14px; }
 .about-menu p { margin: 10px; color: #b8c3d0; font-size: 12px; line-height: 1.6; }
@@ -201,6 +204,12 @@ button { color: inherit; }
 .splitter-vertical { cursor: col-resize; }
 .splitter-horizontal { cursor: row-resize; }
 .pane-splitter:hover, .pane-splitter:focus-visible { background: #6098c3; outline: 0; }
+.pane-splitter.console-divider {
+  color: var(--console-divider-color, #6c7b90);
+  background: var(--console-divider-background-color, #1e1e1e);
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+.pane-splitter.console-divider:focus-visible { outline: 2px solid var(--console-selected-color, #e6f7ff); outline-offset: -2px; }
 .file-explorer {
   min-width: 0;
   overflow: hidden;
@@ -488,34 +497,67 @@ button { color: inherit; }
 .dialog-actions .primary-command { border-color: #4e8bb6; background: #356f98; color: #fff; }
 .dialog-actions .primary-command:hover { background: #3e7da8; }
 
-.rexx-dock { display:flex; flex-direction:column; height:100%; min-height:350px; min-width:0; background:#171b20; }
-.console-heading { display:flex; flex:none; align-items:center; flex-wrap:wrap; gap:7px; min-height:38px; padding:5px 10px; border-bottom:1px solid #343e4c; }
-.console-heading strong { font-size:12px; color:#d8e4f0; }
-.rexx-dock button { min-height:28px; padding:3px 8px; border:1px solid #45515f; border-radius:4px; background:#29333e; color:#d4dee8; font-size:11px; cursor:pointer; }
-.rexx-dock button:hover { background:#3b4b5d; }
-.rexx-dock button:disabled { opacity:.4; cursor:default; }
-.rexx-dock .run-program { background:#2c644b; border-color:#448365; }
-.run-state { flex:1; min-width:90px; color:#b9ccdb; font-size:11px; }
+.rexx-dock { display:flex; flex-direction:column; height:100%; min-height:350px; min-width:0; background:var(--console-body-background-color, #1e1e1e); color:var(--console-body-color, #d4d4d4); }
+.console-heading { display:flex; flex:none; align-items:center; flex-wrap:wrap; gap:7px; min-height:38px; padding:5px 10px; border-bottom:1px solid var(--console-divider-color, #6c7b90); }
+.console-heading strong { font-size:12px; color:inherit; font-weight:inherit; }
+.rexx-dock button { min-height:28px; padding:3px 8px; border:1px solid var(--console-divider-color, #6c7b90); border-radius:4px; font-size:11px; cursor:pointer; }
+.rexx-dock button:disabled { cursor:default; }
+.run-state { flex:1; min-width:90px; font-size:11px; }
 .console-run-controls { display:flex; flex-wrap:wrap; flex:none; align-items:center; gap:6px; padding:6px 10px; }
 .console-run-controls label { display:flex; align-items:center; gap:6px; min-width:0; font-size:11px; }
 .console-run-controls select { max-width:170px; }
-.console-context { display:flex; flex-wrap:wrap; flex:none; gap:4px 10px; padding:0 10px 5px; color:#a8b9c8; font-size:11px; }
+.console-context { display:flex; flex-wrap:wrap; flex:none; gap:4px 10px; padding:0 10px 5px; font-size:11px; }
 .console-context > span { min-width:0; overflow-wrap:anywhere; }
-.console-notice { color:#e1bf7c; }
-.console-options { flex:none; max-height:160px; overflow:auto; border-top:1px solid #303a46; color:#bac9d8; font-size:11px; }
+.console-options { flex:none; max-height:160px; overflow:auto; border-top:1px solid var(--console-divider-color, #6c7b90); font-size:11px; }
 .console-options summary { padding:6px 10px; cursor:pointer; }
 .console-options label { display:grid; grid-template-columns:90px minmax(0,1fr); gap:6px; align-items:start; padding:5px 10px; }
 .console-options > button, .console-options p { margin:4px 10px 8px; }
 .console-options textarea { width:100%; min-height:40px; max-height:100px; resize:vertical; }
 .profile-actions { display:flex; flex-wrap:wrap; gap:6px; padding:3px 10px; }
-.rexx-dock input, .rexx-dock textarea, .rexx-dock select { min-width:0; border:1px solid #56697d; border-radius:3px; background:#10151b; color:#e5edf3; padding:4px 6px; font:12px/18px var(--editor-font); }
-.console-output { flex:1 1 90px; min-height:70px; overflow:auto; margin:0; padding:7px 10px; border-block:1px solid #303a46; white-space:pre-wrap; overflow-wrap:anywhere; color:#d2e8d6; font:13px/19px var(--editor-font); }
-.console-stderr { color:#f19a94; }
-.console-echo { color:#91b8d6; }
-.console-input { display:grid; grid-template-columns:minmax(0,1fr) auto auto; flex:none; gap:6px; align-items:center; padding:7px 10px; font-size:11px; color:#b4c5d3; }
+.rexx-dock input, .rexx-dock textarea, .rexx-dock select { min-width:0; border:1px solid var(--console-divider-color, #6c7b90); border-radius:3px; padding:4px 6px; font:12px/18px var(--editor-font); }
+.console-output { flex:1 1 90px; min-height:70px; overflow:auto; margin:0; padding:7px 10px; border-block:1px solid var(--console-divider-color, #6c7b90); white-space:pre-wrap; overflow-wrap:anywhere; font:13px/19px var(--editor-font); }
+.console-input { display:grid; grid-template-columns:minmax(0,1fr) auto auto; flex:none; gap:6px; align-items:center; padding:7px 10px; font-size:11px; }
 .console-input label { grid-column:1 / -1; }
 .console-input input { width:100%; }
-.rexx-dock .new-output { flex:none; border-radius:0; border-inline:0; background:#304a62; }
+.rexx-dock .new-output { flex:none; border-radius:0; border-inline:0; }
+
+.console-output, .console-options {
+  color:var(--console-body-color, #d4d4d4); background-color:var(--console-body-background-color, #1e1e1e);
+  font-weight:var(--console-body-font-weight, 400); font-style:var(--console-body-font-style, normal);
+  text-decoration:var(--console-body-text-decoration, none); opacity:var(--console-body-opacity, 1);
+}
+.console-heading {
+  color:var(--console-header-color, #f1f5fa); background-color:var(--console-header-background-color, #25415f);
+  font-weight:var(--console-header-font-weight, 400); font-style:var(--console-header-font-style, normal);
+  text-decoration:var(--console-header-text-decoration, none); opacity:var(--console-header-opacity, 1);
+}
+.console-input, .rexx-dock input, .rexx-dock textarea {
+  color:var(--console-input-color, #d4d4d4); background-color:var(--console-input-background-color, #2d2d30);
+  font-weight:var(--console-input-font-weight, 400); font-style:var(--console-input-font-style, normal);
+  text-decoration:var(--console-input-text-decoration, none); opacity:var(--console-input-opacity, 1);
+}
+.rexx-dock button, .console-options summary, .console-run-controls select {
+  color:var(--console-control-color, #d4d4d4); background-color:var(--console-control-background-color, #1e1e1e);
+  font-weight:var(--console-control-font-weight, 400); font-style:var(--console-control-font-style, normal);
+  text-decoration:var(--console-control-text-decoration, none); opacity:var(--console-control-opacity, 1);
+}
+.rexx-dock button:hover:not(:disabled), .rexx-dock button:focus-visible:not(:disabled),
+.console-options summary:hover, .console-options summary:focus-visible, .console-run-controls select:focus-visible:not(:disabled) {
+  color:var(--console-selected-color, #e6f7ff); background-color:var(--console-selected-background-color, #264f78);
+  font-weight:var(--console-selected-font-weight, 400); font-style:var(--console-selected-font-style, normal);
+  text-decoration:var(--console-selected-text-decoration, none); opacity:var(--console-selected-opacity, 1);
+}
+.run-state, .console-context, .console-notice, .console-echo, .rexx-dock button:disabled, .console-run-controls select:disabled {
+  color:var(--console-status-color, #d4d4d4); background-color:var(--console-status-background-color, #1e1e1e);
+  font-weight:var(--console-status-font-weight, 400); font-style:var(--console-status-font-style, normal);
+  text-decoration:var(--console-status-text-decoration, none); opacity:var(--console-status-opacity, 1);
+}
+.rexx-dock button:disabled, .console-run-controls select:disabled { opacity:calc(var(--console-status-opacity, 1) * .55); }
+.console-stderr {
+  color:var(--console-error-color, tomato); background-color:var(--console-error-background-color, #1e1e1e);
+  font-weight:var(--console-error-font-weight, 400); font-style:var(--console-error-font-style, normal);
+  text-decoration:var(--console-error-text-decoration, none); opacity:var(--console-error-opacity, 1);
+}
 
 @media (max-width:1099px) {
   .workspace, .workspace.files-open, .workspace.aux-open, .workspace.files-open.aux-open { display:flex; flex-direction:column; overflow-y:auto; }

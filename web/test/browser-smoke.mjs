@@ -431,12 +431,19 @@ try {
     await openWorkspaceFile('console.rexx');
     await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Rexx').click()");
     await waitFor(()=>evaluate("document.querySelector('.console-output').textContent.includes('native graphical proof')"),'native program console',30000);
+    await navigationCommand('set color consolebody #123456 on #234567');
+    await waitFor(()=>evaluate("getComputedStyle(document.querySelector('.console-output')).color==='rgb(18, 52, 86)' && getComputedStyle(document.querySelector('.console-output')).backgroundColor==='rgb(35, 69, 103)'"),'SET COLOR recolours running native browser console');
+    await selectBuffer('sample.txt');
+    await waitFor(()=>evaluate("getComputedStyle(document.querySelector('.console-output')).color!=='rgb(18, 52, 86)'"),'file switch changes running console colours');
+    await selectBuffer('console.rexx');
+    await waitFor(()=>evaluate("getComputedStyle(document.querySelector('.console-output')).color==='rgb(18, 52, 86)'"),'return restores console file colours');
+    if(!await evaluate("document.querySelector('.run-state').textContent==='Running'"))throw Error('Colour commands or file switching interrupted the program');
     await evaluate("document.querySelector('#rexx-input').focus()");await command('Input.insertText',{text:'Zoë😀'});await command('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13,text:'\r'});await command('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Completed · status 7'"),'native completion',30000);
     if(!await evaluate("document.querySelector('.console-output').textContent.includes('Hello ZOË😀')"))throw Error('Native Unicode console output');
     await closeCurrentBuffer('console.rexx');
     await selectBuffer('sample.txt');
-    console.log('PASS native graphical RXBIN host: actual Classic execution, Unicode stdin/output and status');
+    console.log('PASS native graphical RXBIN host: actual Classic execution, live SET COLOR/file-switch console palette, Unicode stdin/output and status');
   }
   if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   await evaluate("document.querySelector('.menu-trigger').click()");

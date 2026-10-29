@@ -128,9 +128,48 @@ size_t the_web_format_actions(char *catalog, size_t capacity)
    return used;
 }
 
+static size_t web_driver_format_console_colours(char *out, size_t capacity)
+{
+   static const char *const names[] = {
+      "body", "header", "input", "control", "selected", "divider", "error", "status"
+   };
+   static const uint32_t basic[] = {
+      0x000000, 0x000080, 0x008000, 0x008080, 0x800000, 0x800080, 0x808000, 0xc0c0c0
+   };
+   size_t i, used = 0;
+
+   for (i = 0; i < sizeof(names) / sizeof(names[0]); i++)
+   {
+      TheRenderAttr attr = set_colour(CURRENT_FILE->attr + ATTR_CONSOLEBODY + i);
+      int added = snprintf(out + used, capacity - used,
+         "%s\"%s\":{\"style\":%u", i ? "," : "", names[i],
+         (unsigned)the_render_attr_style(attr));
+      if (added < 0 || (size_t)added >= capacity - used) return 0;
+      used += (size_t)added;
+      if (the_render_attr_has_color(attr))
+      {
+         int fg = the_render_attr_fg(attr), bg = the_render_attr_bg(attr);
+         uint32_t foreground = fg < THE_RENDER_COLOR_RGB_FIRST ? basic[fg]
+            : the_render_color_rgb24(fg);
+         uint32_t background = bg < THE_RENDER_COLOR_RGB_FIRST ? basic[bg]
+            : the_render_color_rgb24(bg);
+         added = snprintf(out + used, capacity - used,
+            ",\"foreground\":\"#%06X\",\"background\":\"#%06X\"",
+            (unsigned)foreground, (unsigned)background);
+         if (added < 0 || (size_t)added >= capacity - used) return 0;
+         used += (size_t)added;
+      }
+      if (capacity - used < 2) return 0;
+      out[used++] = '}';
+      out[used] = '\0';
+   }
+   return used;
+}
+
 size_t the_web_format_snapshot(char *out, size_t capacity)
 {
    LlmDriverFormatOptions options;
+   char console_colours[1400];
    size_t length;
 
    if (out == NULL || capacity == 0 || CURRENT_VIEW == NULL || CURRENT_FILE == NULL)
@@ -159,14 +198,16 @@ size_t the_web_format_snapshot(char *out, size_t capacity)
    if (length > 0 && out[length-1] == '}')
    {
       size_t offset = length-1;
+      if (!web_driver_format_console_colours(console_colours, sizeof(console_colours)))
+         return 0;
       int appended = snprintf(out+offset, capacity-offset,
-         ",\"viewport\":{\"rows\":%d,\"cols\":%d,\"reserved_rows\":%d,\"prefix_cols\":%d,\"prefix_gap\":%d}}",
+         ",\"viewport\":{\"rows\":%d,\"cols\":%d,\"reserved_rows\":%d,\"prefix_cols\":%d,\"prefix_gap\":%d},\"console_colours\":{%s}}",
          terminal_lines, terminal_cols,
          terminal_lines-CURRENT_SCREEN.rows[WINDOW_FILEAREA],
          CURRENT_VIEW->prefix ? CURRENT_VIEW->prefix_width-CURRENT_VIEW->prefix_gap : 0,
-         CURRENT_VIEW->prefix ? CURRENT_VIEW->prefix_gap : 0);
-      if (appended > 0 && (size_t)appended < capacity-offset)
-         length = offset+(size_t)appended;
+         CURRENT_VIEW->prefix ? CURRENT_VIEW->prefix_gap : 0, console_colours);
+      if (appended <= 0 || (size_t)appended >= capacity-offset) return 0;
+      length = offset+(size_t)appended;
    }
    return length;
 }

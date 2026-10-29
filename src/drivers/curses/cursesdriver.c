@@ -1008,10 +1008,33 @@ static int console_rows, console_cols, console_top, console_left;
 static int console_timeout = -1, console_toolbar_focus, console_control;
 static int console_cached_mouse, console_mouse_button, console_mouse_action;
 static int console_mouse_modifier;
+static TheWorkbenchControl workbench_control = THE_WORKBENCH_EDITOR;
 
 enum { CONSOLE_EDITOR_MIN_COLS = 72, CONSOLE_MIN_COLS = 44 };
 
-static const char *const console_controls[] = { "Run", "Stop", "Clear", "Close", "Focus" };
+static const char *const console_controls[] = { "Run", "Stop", "Clear", "Hide", "Editor" };
+
+static void workbench_set_focus(TheWorkbenchControl control)
+{
+   workbench_control = FILETABSx && filetabs ? control : THE_WORKBENCH_EDITOR;
+   if (workbench_control != THE_WORKBENCH_EDITOR)
+   {
+      console_toolbar_focus = 0;
+      the_tool_console_visibility(the_tool_console()->visible, 0);
+   }
+   if (FILETABSx && filetabs) display_filetabs(NULL);
+   /* The file-tabs repaint must not replace the editor's saved caret. */
+   if (workbench_control == THE_WORKBENCH_EDITOR &&
+       curses_driver_current_active_window())
+      wnoutrefresh(curses_driver_current_active_window());
+}
+
+static TheWorkbenchControl curses_driver_workbench_focus(bool enter)
+{
+   if (enter) workbench_set_focus(THE_WORKBENCH_CONSOLE);
+   if (!FILETABSx || !filetabs) workbench_control = THE_WORKBENCH_EDITOR;
+   return workbench_control;
+}
 
 static void console_delete_windows(void)
 {
@@ -1068,13 +1091,7 @@ static int console_control_event(int control, TheInputEvent *event)
          return the_input_event_from_command("rx console off", event);
       case 4:
          console_toolbar_focus = 0;
-         /* Focus takes the user to the input field, including from its toolbar. */
-         if (c->focused)
-         {
-            curses_driver_update();
-            return 0;
-         }
-         return the_input_event_from_command("rx console", event);
+         return the_input_event_from_command("rx key escape", event);
    }
    return 0;
 }
@@ -1160,7 +1177,7 @@ static int console_output_rows(const char *text, const unsigned char *streams,
             if (stream != last_stream)
             {
                wattrset(console_window, console_theme_attr(
-                  stream == 2 ? ATTR_MSGLINE : ATTR_FILEAREA, 0));
+                  stream == 2 ? ATTR_CONSOLEERROR : ATTR_CONSOLEBODY, 0));
                last_stream = stream;
             }
             wmove(console_window, first_row + row - skip, col);
@@ -1202,7 +1219,7 @@ static void console_draw(void)
          : newwin(1, w, console_top - 1, 0);
    if (console_divider)
    {
-      wattrset(console_divider, console_theme_attr(ATTR_FILETABSDIV, 0));
+      wattrset(console_divider, console_theme_attr(ATTR_CONSOLEDIVIDER, 0));
       wmove(console_divider, 0, 0);
       if (console_left) wvline(console_divider, '|', h);
       else whline(console_divider, '-', w);
@@ -1212,11 +1229,11 @@ static void console_draw(void)
    werase(console_window);
    /* Some supported curses configurations lack wbkgd(). Paint the blanks
     * explicitly so the pane never inherits the terminal's default colours. */
-   wattrset(console_window, console_theme_attr(ATTR_FILEAREA, 0));
+   wattrset(console_window, console_theme_attr(ATTR_CONSOLEBODY, 0));
    for (i = 0; i < h; i++) mvwhline(console_window, i, 0, ' ', w);
    snprintf(heading, sizeof(heading), " Program console | %s",
       c->focused ? "Esc: editor" : (w >= 64 ? "RX CONSOLE: input" : "F10: Menu"));
-   wattrset(console_window, console_theme_attr(ATTR_IDLINE, 0));
+   wattrset(console_window, console_theme_attr(ATTR_CONSOLEHEADER, 0));
    mvwhline(console_window, 0, 0, ' ', w);
    console_write_text(0, 0, heading, strlen(heading), w - 1);
    for (i = 0; i < 5; i++)
@@ -1225,18 +1242,19 @@ static void console_draw(void)
       int selected = c->focused && console_toolbar_focus && console_control == i;
 
       wattrset(console_window, console_theme_attr(
-         selected ? ATTR_CBLOCK : enabled ? ATTR_FILEAREA : ATTR_SHADOW,
-         enabled ? THE_STYLE_BOLD : 0));
+         selected ? ATTR_CONSOLESELECTED
+                  : enabled ? ATTR_CONSOLECONTROL : ATTR_CONSOLESTATUS,
+         enabled && !selected ? THE_STYLE_BOLD : 0));
       col += console_write_text(1, col, console_controls[i], strlen(console_controls[i]), w - col - 1);
       col++;
    }
-   wattrset(console_window, console_theme_attr(ATTR_FILEAREA, 0));
+   wattrset(console_window, console_theme_attr(ATTR_CONSOLESTATUS, 0));
    snprintf(state, sizeof(state), "%s%s", c->state,
       c->running && w < 64 ? " | ^D EOF ^C stop" : "");
    console_write_text(2, 1, state, strlen(state), w - 2);
    if (h >= 8)
    {
-      wattrset(console_window, console_theme_attr(ATTR_SHADOW, 0));
+      wattrset(console_window, console_theme_attr(ATTR_CONSOLESTATUS, 0));
       snprintf(context, sizeof(context), " %s | %s | source %u revision %u",
          c->tool, c->filename, c->source_id, c->revision);
       console_write_text(3, 0, context, strlen(context), w - 1);
@@ -1253,7 +1271,7 @@ static void console_draw(void)
    lines = console_output_rows(text, streams, length, w - 1, 0, row, 0);
    console_output_rows(text, streams, length, w - 1,
                        max(0, lines - output_rows), row, output_rows);
-   wattrset(console_window, console_theme_attr(ATTR_CMDLINE, 0));
+   wattrset(console_window, console_theme_attr(ATTR_CONSOLEINPUT, 0));
    mvwhline(console_window, h - 1, 0, ' ', w);
    input_col = console_write_text(h - 1, 0, prompt, strlen(prompt), w - 2);
    input_cells = w - input_col - 1;
@@ -1285,6 +1303,18 @@ static void console_draw(void)
 void curses_driver_update(void)
 {
    console_draw();
+   if (workbench_control != THE_WORKBENCH_EDITOR && FILETABSx && filetabs
+       && !in_macro && !the_panel_active)
+   {
+      WINDOW *chrome = curses_driver_window_from_driver(filetabs);
+      int col = workbench_control == THE_WORKBENCH_CONSOLE
+         ? THE_NATIVE_MENU_WIDTH + 1 : 1;
+      wmove(chrome, 0, col);
+      leaveok(chrome, FALSE);
+      wnoutrefresh(chrome);
+   }
+   else if (!the_tool_console()->focused && curses_driver_current_active_window())
+      wnoutrefresh(curses_driver_current_active_window());
    doupdate();
 }
 
@@ -1414,11 +1444,6 @@ static int curses_driver_read_window_key(WINDOW *win)
 #endif
 }
 
-static int curses_driver_read_current_window_key(void)
-{
-   return curses_driver_read_window_key(curses_driver_current_active_window());
-}
-
 static int curses_driver_read_raw_window_key(WINDOW *win);
 
 static int curses_driver_utf8_lead_len(int key)
@@ -1533,7 +1558,7 @@ static int console_mouse_event(TheInputEvent *event)
    if (!curses_driver_read_pending_mouse_button(&button, &action, &modifier))
       return 0;
    curses_driver_current_mouse_screen_position(&row, &col);
-   if (FILETABSx && row == 0 && col >= 0 && col < THE_NATIVE_MENU_WIDTH)
+   if (FILETABSx && row == 0 && col >= 0 && col < THE_NATIVE_CONTROLS_WIDTH)
    {
       /* Wait for the completed click. Opening on press would let the
        * release outside the popup dismiss it immediately. */
@@ -1541,11 +1566,18 @@ static int console_mouse_event(TheInputEvent *event)
           (action == CURSES_DRIVER_MOUSE_BUTTON_RELEASED ||
            action == CURSES_DRIVER_MOUSE_BUTTON_CLICKED ||
            action == CURSES_DRIVER_MOUSE_BUTTON_DOUBLE_CLICKED))
-         return the_input_event_from_legacy_key(THE_KEY_F(10), event);
+      {
+         workbench_set_focus(THE_WORKBENCH_EDITOR);
+         return col < THE_NATIVE_MENU_WIDTH
+            ? the_input_event_from_legacy_key(THE_KEY_F(10), event)
+            : the_input_event_from_command("rx console on", event);
+      }
       return 0;
    }
    if ((console_left && col == console_left - 1)
    ||  (!console_left && row == console_top - 1)) return 0;
+   if (button == 1 && workbench_control != THE_WORKBENCH_EDITOR)
+      workbench_set_focus(THE_WORKBENCH_EDITOR);
    if (row < console_top || row >= console_top + console_rows ||
        col < console_left || col >= console_left + console_cols)
    {
@@ -1584,7 +1616,7 @@ static int console_mouse_event(TheInputEvent *event)
       curses_driver_update();
       return 0;
    }
-   return the_input_event_from_command("rx console", event);
+   return the_input_event_from_command("rx console on", event);
 }
 
 int curses_driver_read_input_event(TheInputEvent *event)
@@ -1592,6 +1624,7 @@ int curses_driver_read_input_event(TheInputEvent *event)
    int key, ok;
    char command[80];
    const TheToolConsole *c;
+   WINDOW *input_window;
 
    if (!event) return 0;
    /* The prior event has now been dispatched. A custom binding may have
@@ -1605,11 +1638,15 @@ int curses_driver_read_input_event(TheInputEvent *event)
    if (!c->focused) console_toolbar_focus = 0;
    if (c->focused && !console_rows && !in_macro && !the_panel_active)
       return the_input_event_from_command("rx key escape", event);
+   input_window = workbench_control != THE_WORKBENCH_EDITOR && FILETABSx && filetabs
+      && !in_macro && !the_panel_active
+      ? curses_driver_window_from_driver(filetabs) : curses_driver_current_active_window();
+   curses_driver_set_window_timeout(input_window, console_timeout);
    if (c->running)
-      curses_driver_set_window_timeout(curses_driver_current_active_window(), 50);
-   key = curses_driver_read_current_window_key();
+      curses_driver_set_window_timeout(input_window, 50);
+   key = curses_driver_read_window_key(input_window);
    if (c->running)
-      curses_driver_set_window_timeout(curses_driver_current_active_window(), console_timeout);
+      curses_driver_set_window_timeout(input_window, console_timeout);
    if (key == ERR)
    {
       the_tools_native_poll();
@@ -1622,6 +1659,28 @@ int curses_driver_read_input_event(TheInputEvent *event)
    if (!in_macro && !the_panel_active)
    {
       if (key == THE_KEY_MOUSE) return console_mouse_event(event);
+      if (workbench_control != THE_WORKBENCH_EDITOR)
+      {
+         if (key == THE_KEY_F(10) || key == THE_KEY_RESIZE)
+         {
+            workbench_set_focus(THE_WORKBENCH_EDITOR);
+            return ok;
+         }
+         if (key == 27) workbench_set_focus(THE_WORKBENCH_EDITOR);
+         else if (key == 9 || key == THE_KEY_BTAB || key == THE_KEY_LEFT || key == THE_KEY_RIGHT)
+            workbench_set_focus(workbench_control == THE_WORKBENCH_CONSOLE
+               ? THE_WORKBENCH_MENU : THE_WORKBENCH_CONSOLE);
+         else if (key == 10 || key == 13 || key == THE_KEY_ENTER || key == ' ')
+         {
+            TheWorkbenchControl control = workbench_control;
+            workbench_set_focus(THE_WORKBENCH_EDITOR);
+            return control == THE_WORKBENCH_MENU
+               ? the_input_event_from_legacy_key(THE_KEY_F(10), event)
+               : the_input_event_from_command("rx console on", event);
+         }
+         curses_driver_update();
+         return 0;
+      }
       if (c->focused)
       {
          /* F10 and resize keep their normal editor route. Profile-defined
@@ -1629,7 +1688,9 @@ int curses_driver_read_input_event(TheInputEvent *event)
          if (key == THE_KEY_F(10) || key == THE_KEY_RESIZE) return ok;
          if (key == 9 || key == THE_KEY_BTAB)
          {
-            console_toolbar_focus = !console_toolbar_focus;
+            if (key == THE_KEY_BTAB && console_toolbar_focus && FILETABSx)
+               workbench_set_focus(THE_WORKBENCH_CONSOLE);
+            else console_toolbar_focus = !console_toolbar_focus;
             curses_driver_update();
             return 0;
          }
@@ -2637,7 +2698,8 @@ const TheDriverOps the_curses_driver_ops = {
    .redraw_screen_cursor = curses_driver_redraw_screen_cursor,
    .move_prefix_cursor = curses_driver_move_prefix_cursor,
    .move_filearea_cursor = curses_driver_move_filearea_cursor,
-   .filearea_cursor_transition = curses_driver_filearea_cursor_transition
+   .filearea_cursor_transition = curses_driver_filearea_cursor_transition,
+   .workbench_focus = curses_driver_workbench_focus
 };
 
 static void curses_driver_set_error(char *error, size_t error_len,

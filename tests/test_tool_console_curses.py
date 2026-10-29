@@ -49,7 +49,18 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
     profile = root / 'keys.the'
     profile.write_text((repo / 'profile.the').read_text() + "\n"
                        "'define C-T RX CONSOLE';\n'define f9 qquit';\n"
-                       "'define tab msg EDITOR_TAB';\n")
+                       "'define tab msg EDITOR_TAB';\n"
+                       "'set color consolebody #D4D4D4 on #1E1E1E';\n"
+                       "'set color consoleheader #F1F5FA on #25415F';\n"
+                       "'set color consoleinput #D4D4D4 on #2D2D30';\n"
+                       "'set color consolecontrol #D4D4D4 on #1E1E1E';\n"
+                       "'set color consoleselected #E6F7FF on #264F78';\n"
+                       "'set color consoledivider #6C7B90 on #1E1E1E';\n"
+                       "'set color consoleerror tomato on #1E1E1E';\n"
+                       "'set color consolestatus #858585 on #1E1E1E';\n"
+                       "'define c-y set color consolebody #A1B2C3 on #243648';\n"
+                       "'define c-u set color consolebody #D4D4D4 on #1E1E1E';\n"
+                       "'define c-b msg RESPONSE_PROBE';\n")
     master, slave = pty.openpty()
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 30, 144, 0, 0))
     screen = pyte.Screen(144, 30)
@@ -113,7 +124,7 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
 
     def click(text):
         row, col = next((y, line.index(text)) for y, line in enumerate(screen.display)
-                        if 'Run Stop Clear Close Focus' in line and text in line)
+                        if 'Run Stop Clear Hide Editor' in line and text in line)
         click_at(row, col)
 
     try:
@@ -121,12 +132,15 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         menu(8)
         wait(lambda: 'Program console |' in screen.display[0][96:], 'wide right dock')
         assert any('say' in row[:95] for row in screen.display), screen.display
-        assert 'Run Stop Clear Close Focus' in screen.display[1][96:], screen.display
+        assert 'Run Stop Clear Hide Editor' in screen.display[1][96:], screen.display
         assert 'F10 Menu' in screen.display[-4][:95], screen.display
-        assert 'Response: Ready' in screen.display[-3][:95], screen.display
+        assert not screen.display[-3][:95].strip(), screen.display
         assert '======>' in screen.display[-2][:95], screen.display
         assert 'CRXTHE' in screen.display[-1][:95], screen.display
         assert 'Program input>' in screen.display[-1][96:], screen.display
+        os.write(master, b'\x02')
+        wait(lambda: 'RESPONSE_PROBE' in screen.display[-3][:95],
+             'editor response appears above command line')
         wait(lambda: any(pane(row).startswith('NO-NL') for row in range(4, screen.lines - 1)),
              'output without a final newline')
         console = [pane(row) for row in range(4, screen.lines - 1)]
@@ -147,6 +161,15 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         colour(screen.buffer[29][96].fg, 'D4D4D4')
         colour(screen.buffer[29][143].bg, '2D2D30')
         colour(screen.buffer[10][95].fg, '6C7B90')
+        os.write(master, b'\x19')
+        wait(lambda: screen.buffer[4][96].fg != 'D4D4D4',
+             'SET COLOR CONSOLEBODY repaints open pane')
+        colour(screen.buffer[4][96].fg, 'A1B2C3')
+        colour(screen.buffer[4][143].bg, '243648')
+        os.write(master, b'\x15')
+        wait(lambda: screen.buffer[4][96].fg != 'A1B2C3',
+             'restore console body colour')
+        colour(screen.buffer[4][96].fg, 'D4D4D4')
         # The divider owns its column without moving editor/input focus.
         caret = (screen.cursor.x, screen.cursor.y)
         click_at(4, 95)
@@ -166,8 +189,8 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         wait(lambda: contains('Esc: editor'), 'menu reopens running console')
         os.write(master, b'\x1b')
         wait(lambda: contains('F10: Menu'), 'return editor before mouse focus')
-        click('Focus')
-        wait(lambda: contains('Esc: editor'), 'mouse focuses input')
+        click_at(0, 15)
+        wait(lambda: contains('Esc: editor'), 'persistent launcher focuses input')
         os.write(master, 'Zoë😀x'.encode() + b'\x7f')
         wait(lambda: 'Zoë😀' in screen.display[-1] and 'Zoë😀x' not in screen.display[-1],
              'Mac Backspace edits Unicode input')
@@ -176,6 +199,26 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         wait(lambda: contains('Hello ZOË😀'), 'Unicode stdin/output')
         os.write(master, b'sec')
         wait(lambda: 'sec' in screen.display[-1], 'draft before resize')
+        os.write(master, b'\x1b[Z\x1b[Z')
+        wait(lambda: (screen.cursor.x, screen.cursor.y) == (15, 0),
+             'console Shift-Tab returns through toolbar to Console launcher')
+        colour(screen.buffer[0][15].fg, 'E6F7FF')
+        colour(screen.buffer[0][15].bg, '264F78')
+        os.write(master, b'\x1b')
+        wait(lambda: contains('F10: Menu') and 0 < screen.cursor.y < 26,
+             'launcher Escape restores editor')
+        click_at(0, 15)
+        wait(lambda: contains('Esc: editor') and 'sec' in screen.display[-1],
+             'Console launcher retains pending Program input')
+        click('Editor')
+        wait(lambda: contains('F10: Menu') and 0 < screen.cursor.y < 26,
+             'Editor control returns keyboard focus')
+        click('Hide')
+        wait(lambda: not contains('Program console |'), 'Hide with running program draft')
+        click_at(0, 15)
+        wait(lambda: contains('Esc: editor') and 'sec' in screen.display[-1],
+             'persistent Console launcher restores hidden program draft')
+        assert source.read_text() == program
         resize(30, 100)
         wait(lambda: 'Program console |' in screen.display[-8], 'narrow bottom dock')
         assert 'sec' in screen.display[-1], screen.display
@@ -195,14 +238,20 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         assert 'late' not in screen.display[-1].lower(), screen.display
 
         # Tab belongs to controls only while the console owns focus.
-        os.write(master, b'\x1b[Z\x1b[H\x1b[C\x1b[C\r')
+        os.write(master, b'\x1b[Z\x1b[H\x1b[C\x1b[C')
+        wait(lambda: screen.cursor.y == screen.lines - 7 and screen.cursor.x == 10,
+             'toolbar Clear control selected')
+        colour(screen.buffer[screen.lines - 7][10].fg, 'E6F7FF')
+        colour(screen.buffer[screen.lines - 7][10].bg, '264F78')
+        os.write(master, b'\r')
         wait(lambda: not contains('Third THIRD'), 'keyboard Clear control')
         os.write(master, b'\x1b[H\r')
         wait(lambda: contains('Console ready') and contains('Running'), 'keyboard Run control')
         os.write(master, b'\t\x1b[C\r')
         wait(lambda: contains('Stopped'), 'keyboard Stop control')
         os.write(master, b'\x1b[F\r')
-        wait(lambda: screen.cursor.y == 29, 'keyboard Focus control returns to input')
+        wait(lambda: contains('RX CONSOLE: input') and screen.cursor.y < 21,
+             'keyboard Editor control returns to editor')
         click_at(4, 10)
         wait(lambda: contains('RX CONSOLE: input') and screen.cursor.y == 4,
              'editor mouse route restores focus and places cursor')
@@ -216,12 +265,12 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
              'mouse Clear control')
         click('Stop')
         wait(lambda: contains('Stopped'), 'mouse Stop control')
-        click('Close')
-        wait(lambda: not contains('Program console |'), 'mouse Close control')
+        click('Hide')
+        wait(lambda: not contains('Program console |'), 'mouse Hide control')
         menu(9)
         wait(lambda: contains('Esc: editor'), 'menu reopens and focuses console')
         resize(16, 32)
-        wait(lambda: contains('Esc: editor') and contains('Run Stop Clear Close Focus'),
+        wait(lambda: contains('Esc: editor') and contains('Run Stop Clear Hide Editor'),
              'compact console keeps controls and editor return visible')
         assert contains('F10 Menu'), screen.display
         resize(24, 117)

@@ -57,7 +57,27 @@ Valid values for area :
 - POPUPBORDER - border for a popup
 - POPUPCURLINE - the highlighted line in a popup
 - POPUPDIVIDER - dividing line in a popup
+- CONSOLEBODY - Program console background and standard output
+- CONSOLEHEADER - Program console heading
+- CONSOLEINPUT - Program input row
+- CONSOLECONTROL - available console toolbar controls
+- CONSOLESELECTED - console toolbar control with keyboard focus
+- CONSOLEDIVIDER - separator between editor and Program console
+- CONSOLEERROR - Program console standard error output
+- CONSOLESTATUS - job state, source context and unavailable toolbar controls
 - \* - All areas (second format only)
+
+The `CONSOLE...` areas style the Program console in the terminal, GTK, and
+browser. They are stored with the current file, like other `SET COLOR` areas.
+Changes repaint an open console immediately. Switching files uses the newly
+current file's console colours, including while a program continues to run.
+The browser accepts `SET COLOR` for these eight console areas; other browser
+colour changes remain unavailable. For example:
+
+```text
+SET COLOR CONSOLEBODY #D4D4D4 ON #1E1E1E
+SET COLOR CONSOLESELECTED #E6F7FF ON #264F78
+```
 
 Valid values for foreground, background and color :
 - BLAck

@@ -735,6 +735,13 @@ const char *the_driver_ui_version(void)
    return "unloaded";
 }
 
+TheWorkbenchControl the_driver_workbench_focus(bool enter)
+{
+   if (the_driver != NULL && the_driver->workbench_focus != NULL)
+      return the_driver->workbench_focus(enter);
+   return THE_WORKBENCH_EDITOR;
+}
+
 int the_driver_mouse_interval(int interval)
 {
    if (current_lifecycle != NULL && current_lifecycle->mouse_interval != NULL)

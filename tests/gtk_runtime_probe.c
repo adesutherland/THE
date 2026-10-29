@@ -11,6 +11,22 @@
 static unsigned phase;
 static char sample[4096], other[4096], program[4096];
 static const char expected[] = "alpha\nbe\303\251ta\n";
+static unsigned palette_job, palette_source, palette_revision;
+static char *palette_output;
+static GtkTextBuffer *palette_buffer;
+static const struct {
+   const char *name, *definition;
+   unsigned foreground, background;
+} palette[] = {
+   {"consolebody", "#c1d2e3 on #112233 bold", 0xc1d2e3, 0x112233},
+   {"consoleheader", "#f1dfc0 on #283746 bold", 0xf1dfc0, 0x283746},
+   {"consoleinput", "#8adaf0 on #173143 underline", 0x8adaf0, 0x173143},
+   {"consolecontrol", "#d2e3f4 on #354657", 0xd2e3f4, 0x354657},
+   {"consoleselected", "#eac78b on #172435 bold reverse", 0x172435, 0xeac78b},
+   {"consoledivider", "#7dd5cf on #0c4b55", 0x7dd5cf, 0x0c4b55},
+   {"consoleerror", "#ffb1a3 on #6a2531 bold italic", 0xffb1a3, 0x6a2531},
+   {"consolestatus", "#caffc0 on #23452f bold", 0xcaffc0, 0x23452f}
+};
 
 static void assert_source(const char *text)
 {
@@ -193,6 +209,159 @@ static void assert_layout(GtkOrientation orientation)
    assert(CURRENT_VIEW->current_window == WINDOW_COMMAND);
 }
 
+static void assert_rgb(const GdkRGBA *actual, unsigned expected)
+{
+   assert(ABS(actual->red - ((expected >> 16) & 255) / 255.0) < .001);
+   assert(ABS(actual->green - ((expected >> 8) & 255) / 255.0) < .001);
+   assert(ABS(actual->blue - (expected & 255) / 255.0) < .001);
+   assert(actual->alpha > .999);
+}
+
+static void assert_widget_palette(GtkWidget *widget, GtkStateFlags state, int index,
+                                   int custom)
+{
+   GdkRGBA foreground, expected_fg, expected_bg, *background = NULL;
+   GtkStyleContext *context = gtk_widget_get_style_context(widget);
+   console_colours(set_colour(CURRENT_FILE->attr + ATTR_CONSOLEBODY + index),
+                       &expected_fg, &expected_bg);
+   gtk_style_context_get_color(context, state, &foreground);
+   gtk_style_context_get(context, state, "background-color", &background, NULL);
+   assert(background);
+   if (custom)
+   {
+      assert_rgb(&foreground, palette[index].foreground);
+      assert_rgb(background, palette[index].background);
+   }
+   else
+   {
+      assert(ABS(foreground.red - expected_fg.red) < .001);
+      assert(ABS(foreground.green - expected_fg.green) < .001);
+      assert(ABS(foreground.blue - expected_fg.blue) < .001);
+      assert(ABS(background->red - expected_bg.red) < .001);
+      assert(ABS(background->green - expected_bg.green) < .001);
+      assert(ABS(background->blue - expected_bg.blue) < .001);
+   }
+   gdk_rgba_free(background);
+}
+
+static unsigned rgba_rgb(const GdkRGBA *colour)
+{
+   return ((unsigned)(colour->red * 255 + .5) << 16)
+        | ((unsigned)(colour->green * 255 + .5) << 8)
+        | (unsigned)(colour->blue * 255 + .5);
+}
+
+static void assert_divider_palette(void)
+{
+   GtkAllocation allocation, editor, console;
+   GdkRGBA fg, bg;
+   cairo_surface_t *surface;
+   cairo_t *cr;
+   unsigned char *pixels;
+   int stride, x, y, found_fg = 0, found_bg = 0;
+   int horizontal = gtk_orientable_get_orientation(GTK_ORIENTABLE(ui.split))
+                      == GTK_ORIENTATION_HORIZONTAL;
+   console_colours(set_colour(CURRENT_FILE->attr + ATTR_CONSOLEDIVIDER), &fg, &bg);
+   gtk_widget_get_allocation(ui.split, &allocation);
+   bounds_in_split(ui.editor, &editor);
+   bounds_in_split(ui.console, &console);
+   surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, allocation.width, allocation.height);
+   cr = cairo_create(surface);
+   gtk_widget_draw(ui.split, cr);
+   cairo_surface_flush(surface);
+   pixels = cairo_image_surface_get_data(surface);
+   stride = cairo_image_surface_get_stride(surface);
+   for (y = horizontal ? allocation.height / 2 : editor.y + editor.height;
+        y < (horizontal ? allocation.height / 2 + 1 : console.y); y++)
+      for (x = horizontal ? editor.x + editor.width : allocation.width / 2;
+           x < (horizontal ? console.x : allocation.width / 2 + 1); x++)
+      {
+         unsigned pixel = *(uint32_t *)(pixels + y * stride + x * 4) & 0xffffff;
+         found_fg |= pixel == rgba_rgb(&fg);
+         found_bg |= pixel == rgba_rgb(&bg);
+      }
+   assert(found_fg && found_bg);
+   cairo_destroy(cr);
+   cairo_surface_destroy(surface);
+}
+
+static void assert_palette(int custom)
+{
+   GtkTextTag *error_tag;
+   GdkRGBA *fg = NULL, *bg = NULL;
+   int weight;
+   PangoStyle style;
+   await_frame();
+   assert(ui.console_colours_valid);
+   assert_widget_palette(ui.output, GTK_STATE_FLAG_NORMAL, 0, custom);
+   assert_widget_palette(ui.header, GTK_STATE_FLAG_NORMAL, 1, custom);
+   assert_widget_palette(ui.input, GTK_STATE_FLAG_NORMAL, 2, custom);
+   assert_widget_palette(ui.send, GTK_STATE_FLAG_NORMAL, 3, custom);
+   assert_widget_palette(ui.send, GTK_STATE_FLAG_PRELIGHT, 4, custom);
+   assert_widget_palette(ui.state, GTK_STATE_FLAG_NORMAL, 7, custom);
+   assert_divider_palette();
+   error_tag = gtk_text_tag_table_lookup(gtk_text_buffer_get_tag_table(palette_buffer), "stderr");
+   g_object_get(error_tag, "foreground-rgba", &fg, "background-rgba", &bg,
+                   "weight", &weight, "style", &style, NULL);
+   assert(fg && bg);
+   if (custom)
+   {
+      assert_rgb(fg, palette[6].foreground);
+      assert_rgb(bg, palette[6].background);
+      assert(weight == PANGO_WEIGHT_BOLD && style == PANGO_STYLE_ITALIC);
+   }
+   else
+   {
+      GdkRGBA expected_fg, expected_bg;
+      console_colours(set_colour(CURRENT_FILE->attr + ATTR_CONSOLEERROR),
+                        &expected_fg, &expected_bg);
+      assert(rgba_rgb(fg) == rgba_rgb(&expected_fg));
+      assert(rgba_rgb(bg) == rgba_rgb(&expected_bg));
+   }
+   gdk_rgba_free(fg);
+   gdk_rgba_free(bg);
+}
+
+static void assert_palette_preserves_job(void)
+{
+   GtkTextIter first, last;
+   char *text = console_text();
+   const TheToolConsole *console = the_tool_console();
+   assert(console->id == palette_job && console->running);
+   assert(console->source_id == palette_source && console->revision == palette_revision);
+   assert(!strcmp(text, palette_output));
+   g_free(text);
+   assert(gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui.output)) == palette_buffer);
+   assert(gtk_text_buffer_get_selection_bounds(palette_buffer, &first, &last));
+   assert(gtk_text_iter_get_offset(&first) == 0 && gtk_text_iter_get_offset(&last) == 5);
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "unsent draft"));
+}
+
+static void change_palette(void)
+{
+   GtkTextIter first, last;
+   const TheToolConsole *console = the_tool_console();
+   size_t i;
+   palette_job = console->id;
+   palette_source = console->source_id;
+   palette_revision = console->revision;
+   the_tool_output(console->id, 2, "GTK stderr colour probe\n", 24);
+   sync_console();
+   palette_output = console_text();
+   palette_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui.output));
+   gtk_text_buffer_get_iter_at_offset(palette_buffer, &first, 0);
+   gtk_text_buffer_get_iter_at_offset(palette_buffer, &last, 5);
+   gtk_text_buffer_select_range(palette_buffer, &last, &first);
+   gtk_entry_set_text(GTK_ENTRY(ui.input), "unsent draft");
+   for (i = 0; i < G_N_ELEMENTS(palette); i++)
+   {
+      char command[128];
+      g_snprintf(command, sizeof(command), "set color %s %s", palette[i].name,
+                     palette[i].definition);
+      queue_command(command);
+   }
+}
+
 static int probe_read_input(TheInputEvent *event)
 {
    GdkEventKey key;
@@ -280,16 +449,36 @@ static int probe_read_input(TheInputEvent *event)
          {
             assert(!getenv("THE_GTK_REQUIRE_PROGRAM"));
             puts("GTK_PROGRAM_CONSOLE_NOT_CONFIGURED");
-            phase = 11;
+            phase = 14;
             queue_command("cursor cmdline");
          }
          break;
       case 9:
          await_console(0);
+         change_palette();
+         break;
+      case 10:
+         assert_palette(1);
+         assert_palette_preserves_job();
+         open_file(other);
+         break;
+      case 11:
+         assert(!strcmp((char *)CURRENT_FILE->fname, "other.txt"));
+         assert_palette(0);
+         assert_palette_preserves_job();
+         open_file(program);
+         break;
+      case 12:
+         assert(!strcmp((char *)CURRENT_FILE->fname, "program.rexx"));
+         assert_palette(1);
+         assert_palette_preserves_job();
+         g_free(palette_output);
+         palette_output = NULL;
+         puts("GTK_PROFILE_PALETTE_LIVE_FILE_SWITCH_JOB_SELECTION_PASS");
          gtk_entry_set_text(GTK_ENTRY(ui.input), "Ada");
          send_input(ui.input, NULL);
          break;
-      case 10:
+      case 13:
          await_console(1);
          assert(gtk_widget_get_sensitive(ui.run));
          assert(!gtk_widget_get_sensitive(ui.stop));
@@ -298,18 +487,18 @@ static int probe_read_input(TheInputEvent *event)
          puts("GTK_PROGRAM_OUTPUT_STDIN_COMPLETION_PASS");
          queue_command("cursor cmdline");
          break;
-      case 11:
+      case 14:
          assert(CURRENT_VIEW->current_window == WINDOW_COMMAND);
          resize_window(1366, GTK_ORIENTATION_HORIZONTAL);
          queue_command("cursor cmdline");
          break;
-      case 12:
+      case 15:
          assert_layout(GTK_ORIENTATION_HORIZONTAL);
          screenshot(NULL);
          resize_window(900, GTK_ORIENTATION_VERTICAL);
          queue_command("cursor cmdline");
          break;
-      case 13:
+      case 16:
          assert_layout(GTK_ORIENTATION_VERTICAL);
          screenshot("narrow");
          queue_command("cancel");

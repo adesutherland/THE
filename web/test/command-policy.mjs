@@ -11,6 +11,14 @@ export async function checkCommandPolicy(request, bufferCount = 1) {
     return request({type: "key", key: "enter"});
   };
 
+  const consoleAreas = ["body", "header", "input", "control", "selected", "divider", "error", "status"];
+  for (const area of consoleAreas) {
+    const coloured = await command(`set color console${area} #123456 on #234567`);
+    assert.deepEqual(coloured.console_colours?.[area], { foreground: "#123456", background: "#234567", style: 0 },
+                     `SET COLOR CONSOLE${area.toUpperCase()} must update the shared snapshot`);
+    assert.equal(coloured.buffer.dirty, 0, "console colours must not change file bytes");
+  }
+
   for (const submit of [command, typed]) {
     let bottomFirst;
     for (const spelling of ["b", "bot", "bottom", "BoT"]) {
@@ -30,6 +38,9 @@ export async function checkCommandPolicy(request, bufferCount = 1) {
     assert.equal(hiddenPrefix.viewport.prefix_cols, 0, "SET PRE must resolve to PREFIX");
     const shownPrefix = await submit("set pre on");
     assert.ok(shownPrefix.viewport.prefix_cols > 0, "SET PRE ON must restore the prefix");
+    const reversed = await submit("set colour consolebody #345678 on #456789 reverse");
+    assert.deepEqual(reversed.console_colours.body, { foreground: "#345678", background: "#456789", style: 2 },
+                     "both command routes admit console COLOUR and preserve logical styles");
     await submit("sos bottomedg topedge");
     await command("cursor goto 1 1");
     const nested = await submit("locate /safe 2/ osquiet echo POLICY_ESCAPE > policy-escape.txt");
@@ -89,6 +100,10 @@ export async function checkCommandPolicy(request, bufferCount = 1) {
       "set synonym set bottom", "set synonym settings 3 bottom",
       "set synonym b locate /safe 2/ osquiet echo POLICY_ESCAPE",
       "set prefix synonym pp policy", "set pre s pp policy",
+      "set color filearea red on blue", "set colour popup white on blue",
+      "set color * red on blue", "set color consolebody",
+      "set color consolebody nonsense", "set color consolebody red on blue bottom",
+      "set colour consolebody red on blue;top", "set color consolebody red on blue osquiet echo POLICY_ESCAPE",
       "macro policy", "sos firstcol ex", "sos ex", "sos doprefix", "finishx",
     ]) {
       const denied = await submit(text);

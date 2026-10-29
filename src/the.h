@@ -386,10 +386,21 @@ void ui_log(const char *fmt, ...);
 #define ATTR_PMSGERROR  43
 #define ATTR_PMSGWARN   44
 #define ATTR_PMSGINFO   45
-#define ATTR_MAX        46
+#define ATTR_CONSOLEBODY      46
+#define ATTR_CONSOLEHEADER    47
+#define ATTR_CONSOLEINPUT     48
+#define ATTR_CONSOLECONTROL   49
+#define ATTR_CONSOLESELECTED  50
+#define ATTR_CONSOLEDIVIDER   51
+#define ATTR_CONSOLEERROR     52
+#define ATTR_CONSOLESTATUS    53
+#define ATTR_MAX             54
 /* Native file-tabs chrome reserves a clickable menu label at the left edge. */
 #define THE_NATIVE_MENU_LABEL " MENU (F10) | "
 #define THE_NATIVE_MENU_WIDTH ((int)(sizeof(THE_NATIVE_MENU_LABEL) - 1))
+#define THE_NATIVE_CONSOLE_LABEL " Console | "
+#define THE_NATIVE_CONSOLE_WIDTH ((int)(sizeof(THE_NATIVE_CONSOLE_LABEL) - 1))
+#define THE_NATIVE_CONTROLS_WIDTH (THE_NATIVE_MENU_WIDTH + THE_NATIVE_CONSOLE_WIDTH)
 /*--------------------- -- ecolour defines -----------------------------*/
 #define ECOLOUR_COMMENTS               0
 #define ECOLOUR_STRINGS                1

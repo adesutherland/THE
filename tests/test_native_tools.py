@@ -38,8 +38,9 @@ with tempfile.TemporaryDirectory(prefix='THE tools ') as d:
     assert 'buffer is not executed\n' not in ''.join(c['text'] for c in session['chunks']),session
     snap=next(r for r in records if 'screen_rows' in r);assert snap['buffer']['dirty']==0 and snap['focus']['cell']==0,snap
     assert source.read_text()=="say 'buffer is not executed'\n"
-    records=run("say 'console controls'\n",'command RX CONSOLE\ntools\ncommand RX CONSOLE OFF\ntools')
-    opened,closed=tools(records);assert opened['visible'] and not closed['visible'],records
+    records=run("say 'console controls'\n",'command RX CONSOLE ON\ntools\ncommand RX CONSOLE ON\ntools\ncommand RX CONSOLE OFF\ntools')
+    opened,still_open,closed=tools(records)
+    assert opened['visible'] and still_open['visible'] and not closed['visible'],records
     records=run("do forever\nnop\nend\n",'command RX RUN\ntoolwait 200\ncommand RX STOP\ntools\ncommand RX RUN\ncommand RX STOP\ntools')
     first,last=tools(records);assert first['job']['state']==last['job']['state']=='Stopped';assert first['job']['id']!=last['job']['id']
     records=run("signal missing\n",'command RX RUN\ntoolwait 10000\ntools');assert tools(records)[-1]['job']['state']=='Runtime condition',records

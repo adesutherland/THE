@@ -77,6 +77,18 @@ address the
 'set color pmsgerror white on firebrick';
 'set color pmsgwarn black on gold';
 'set color pmsginfo white on #007ACC';
+'set color popup #D4D4D4 on #202328';
+'set color popupcurline #E6F7FF on #264F78';
+'set color popupborder #6C7B90 on #202328';
+'set color popupdivider #6C7B90 on #202328';
+'set color consolebody #D4D4D4 on #1E1E1E';
+'set color consoleheader #F1F5FA on #25415F';
+'set color consoleinput #D4D4D4 on #2D2D30';
+'set color consolecontrol #D4D4D4 on #1E1E1E';
+'set color consoleselected #E6F7FF on #264F78';
+'set color consoledivider #6C7B90 on #1E1E1E';
+'set color consoleerror tomato on #1E1E1E';
+'set color consolestatus #D4D4D4 on #1E1E1E';
 'set ecolor comment #6A9955 on #1E1E1E';
 'set ecolor string #CE9178 on #1E1E1E';
 'set ecolor incomplete_string #CE9178 on #1E1E1E';
@@ -159,6 +171,11 @@ if left(platform,3) = 'WIN' then do
 end
 'define f10 macro workbenchmenu';
 'set reserved -2 normal         F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save';
-'set reserved -1 #D4D4D4 on #202328         Response: Ready';
+'set reserved -1 #D4D4D4 on #202328';
 'set msgline on -2 1';
+ui = .string[]
+address the "extract /ui/" expose ui[]
+if pos('CURSES', translate(ui[1])) > 0 then do
+  'define s-tab rx controls';
+end
 'msg CRXTHE 0.10.dev | Esc Command  F6 Cmd/File  F1 Help  Ctrl-S Save';

@@ -47,8 +47,9 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
     for key in ['f6','esc','ctrl-l']:
         records,_=run('key '+key+'\nlook full compact')
         assert any(record.get('focus',{}).get('zone')=='command' for record in records),(key,records)
-    assert any(row['role']=='reserved' and 'Response:' in row['t']
+    assert any(row['role']=='reserved' and not row['t'].strip()
                for row in snap['screen_rows']),snap
+    assert all('Response: Ready' not in row['t'] for row in snap['screen_rows']),snap
     records,_=run('command showkey all\nlook full compact')
     assert any('define ' in row['t'].lower() for record in records
                for row in record.get('screen_rows',[])),records

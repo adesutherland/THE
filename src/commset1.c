@@ -92,6 +92,15 @@ static short set_active_colour( short area )
       TRACE_RETURN();
       return(RC_OK);
    }
+   /* Console colours are file attributes, but the console is not an editor
+    * window role. Repaint the active frontend after a SET COLOR command. */
+   if (area >= ATTR_CONSOLEBODY && area <= ATTR_CONSOLESTATUS)
+   {
+      if (the_driver->update != NULL)
+         the_driver->update();
+      TRACE_RETURN();
+      return(RC_OK);
+   }
 #if ( defined(USE_XCURSES) || defined(USE_SDLCURSES) || defined(USE_WINGUICURSES) ) && PDC_BUILD >= 2501
    /*
     * For the special BOUNDMARK colour, set the curses global colour
@@ -1764,6 +1773,10 @@ short Colour(CHARTYPE *params)
                      window_set[valid_areas[i].area_window] = TRUE;
                   }
                }
+               /* The wildcard also changes console slots, whose pane is not
+                * represented in the editor window-role table. */
+               if (curses_started && the_driver->update != NULL)
+                  the_driver->update();
             }
             else
             {

@@ -494,11 +494,25 @@ short Rx(CHARTYPE *parameters) {
          rc = action(found);
          dispose(found);
       }
+   } else if (n == 1 && !strcmp(words[0], "controls")) {
+      rc = the_driver_workbench_focus(TRUE) != THE_WORKBENCH_EDITOR
+         ? RC_OK : RC_INVALID_ENVIRON;
    } else if (n && !strcmp(words[0], "console")) {
       const TheToolConsole *c = the_tool_console();
-      int off = n > 1 && !strcmp(words[1], "off");
-      the_tool_console_visibility(!off, off ? 0 : !c->focused);
-      rc = RC_OK;
+      if (n == 1) {
+         /* Keep the historical focus toggle for typed RX CONSOLE. */
+         the_tool_console_visibility(1, !c->focused);
+         rc = RC_OK;
+      } else if (n == 2 && !strcmp(words[1], "on")) {
+         the_tool_console_visibility(1, 1);
+         rc = RC_OK;
+      } else if (n == 2 && !strcmp(words[1], "off")) {
+         the_tool_console_visibility(0, 0);
+         rc = RC_OK;
+      } else {
+         display_error(1, (CHARTYPE *)(n > 1 ? words[1] : ""), FALSE);
+         rc = RC_INVALID_OPERAND;
+      }
    } else if (n && !strcmp(words[0], "type") && n == 2) {
       rc = the_tool_console_key((uint32_t)strtoul(words[1], NULL, 10), 0) ? RC_OK
                                                                           : RC_INVALID_OPERAND;

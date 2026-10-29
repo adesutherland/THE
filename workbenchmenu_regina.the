@@ -1,6 +1,6 @@
 /* Generated native command menu; edit profiles/default-profile.json. */
 address the
-'popup topleft escape esc /Open or create file.../Save file (Ctrl-S)/Close file (Ctrl-W)/Undo (Ctrl-Z)/Find... (Ctrl-F)/Go to line... (Ctrl-G)/Next file (F2)/Run current Rexx/Focus program console input/Hide program console/Stop program/Clear program output/End program input/Edit profile/Build profile/Activate profile/Key definitions/Help (F1)';
+'popup topleft escape esc /Open or create file.../Save file (Ctrl-S)/Close file (Ctrl-W)/Undo (Ctrl-Z)/Find... (Ctrl-F)/Go to line... (Ctrl-G)/Next file (F2)/Run current Rexx/Show / focus Program console/Hide program console/Stop program/Clear program output/End program input/Edit profile/Build profile/Activate profile/Key definitions/Help (F1)';
 select
   when popup.2 = 1 then 'macro quickopen_regina';
   when popup.2 = 2 then 'save';
@@ -10,7 +10,7 @@ select
   when popup.2 = 6 then 'macro quickline_regina';
   when popup.2 = 7 then 'next';
   when popup.2 = 8 then 'rx menu-run';
-  when popup.2 = 9 then 'rx console';
+  when popup.2 = 9 then 'rx console on';
   when popup.2 = 10 then 'rx console off';
   when popup.2 = 11 then 'rx stop';
   when popup.2 = 12 then 'rx clear';

@@ -486,6 +486,32 @@ static const char *frontend_policy_builtin_name(char *word,
         : (const char *)get_command_name(index, &is_set, &is_sos);
 }
 
+static int frontend_policy_console_colour_allowed(const char *cursor)
+{
+   static const char *const areas[] = {
+      "consolebody", "consoleheader", "consoleinput", "consolecontrol",
+      "consoleselected", "consoledivider", "consoleerror", "consolestatus"
+   };
+   char area[64];
+   size_t i;
+   COLOUR_ATTR attr;
+   CHARTYPE *remainder = NULL;
+   bool any_colours = FALSE;
+
+   if (vd_current == NULL || CURRENT_FILE == NULL
+   || !frontend_policy_word(&cursor, area, sizeof(area))) return 0;
+   for (i = 0; i < sizeof(areas) / sizeof(areas[0]); i++)
+      if (strcmp(area, areas[i]) == 0) break;
+   if (i == sizeof(areas) / sizeof(areas[0])) return 0;
+   while (isspace((unsigned char)*cursor)) cursor++;
+   if (!*cursor || strpbrk(cursor, "\r\n") != NULL) return 0;
+   /* Validate the complete expression with the command parser on a copy.
+    * Spare operands, extra commands and other colour areas remain denied. */
+   attr = CURRENT_FILE->attr[ATTR_CONSOLEBODY + i];
+   return parse_colours((CHARTYPE *)cursor, &attr, &remainder, FALSE,
+                         &any_colours) == RC_OK && any_colours;
+}
+
 int the_frontend_policy_builtin_command_allowed(const char *command)
 {
    static const char *const allowed_commands[] =
@@ -534,6 +560,8 @@ int the_frontend_policy_builtin_command_allowed(const char *command)
       || !(name=frontend_policy_builtin_name(operand,1,0)))
          return 0;
       if (strcmp(name,"synonym") == 0) return 1;
+      if (strcmp(name,"color") == 0 || strcmp(name,"colour") == 0)
+         return frontend_policy_console_colour_allowed(cursor);
       if (!frontend_policy_word_in_list(name,allowed_set_operands,
               sizeof(allowed_set_operands)/sizeof(allowed_set_operands[0])))
          return 0;

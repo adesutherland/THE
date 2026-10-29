@@ -17,6 +17,7 @@
 #define GTK_TEXT_LIMIT (1024u * 1024u)
 #define GTK_QUEUE_LIMIT 4096u
 #define GTK_CONSOLE_WIDE_WIDTH 1200
+#define GTK_CONSOLE_COLOURS (ATTR_CONSOLESTATUS - ATTR_CONSOLEBODY + 1)
 
 typedef struct
 {
@@ -34,7 +35,7 @@ typedef struct
 static struct
 {
    GtkWidget *window, *split, *editor, *console, *output, *input, *state;
-   GtkWidget *run, *stop, *eof, *send;
+   GtkWidget *run, *stop, *eof, *send, *header;
    GtkIMContext *im;
    PangoFontDescription *font;
    GList *surfaces;
@@ -44,6 +45,10 @@ static struct
    int cursor_visible, blink_visible;
    int split_positioned;
    unsigned console_version;
+   unsigned console_job_id;
+   GtkCssProvider *console_css;
+   TheDriverAttr console_colours[GTK_CONSOLE_COLOURS];
+   int console_colours_valid;
    guint tick, split_layout_idle;
    TheDriverWindow *input_window;
 } ui;
@@ -372,7 +377,7 @@ static gboolean scrolled(GtkWidget *widget, GdkEventScroll *event, gpointer data
    return TRUE;
 }
 
-static void colour(cairo_t *cr, int logical, int foreground)
+static unsigned logical_rgb(int logical, int foreground)
 {
    static const unsigned palette[] = {
       0x1e1e1e, 0x569cd6, 0x6a9955, 0x4ec9b0,
@@ -383,8 +388,124 @@ static void colour(cairo_t *cr, int logical, int foreground)
       rgb = palette[logical];
    else if (the_render_color_is_rgb(logical))
       rgb = the_render_color_rgb24(logical);
+   return rgb;
+}
+
+static void colour(cairo_t *cr, int logical, int foreground)
+{
+   unsigned rgb = logical_rgb(logical, foreground);
    cairo_set_source_rgb(cr, ((rgb >> 16) & 255) / 255.0,
                         ((rgb >> 8) & 255) / 255.0, (rgb & 255) / 255.0);
+}
+
+static void console_colours(TheDriverAttr attr, GdkRGBA *foreground, GdkRGBA *background)
+{
+   unsigned fg = logical_rgb(the_render_attr_fg(attr), 1);
+   unsigned bg = logical_rgb(the_render_attr_bg(attr), 0);
+   TheRenderStyle style = the_render_attr_style(attr);
+   if (style & THE_STYLE_REVERSE)
+   {
+      unsigned swap = fg; fg = bg; bg = swap;
+   }
+   *foreground = (GdkRGBA){((fg >> 16) & 255) / 255.0,
+                           ((fg >> 8) & 255) / 255.0, (fg & 255) / 255.0, 1};
+   *background = (GdkRGBA){((bg >> 16) & 255) / 255.0,
+                           ((bg >> 8) & 255) / 255.0, (bg & 255) / 255.0, 1};
+   if (style & THE_STYLE_DIM)
+   {
+      foreground->red = foreground->red * .65 + background->red * .35;
+      foreground->green = foreground->green * .65 + background->green * .35;
+      foreground->blue = foreground->blue * .65 + background->blue * .35;
+   }
+}
+
+static void console_css_rule(GString *css, const char *selector, TheDriverAttr attr,
+                               int border)
+{
+   GdkRGBA fg, bg;
+   char *foreground, *background;
+   TheRenderStyle style = the_render_attr_style(attr);
+   console_colours(attr, &fg, &bg);
+   foreground = gdk_rgba_to_string(&fg);
+   background = gdk_rgba_to_string(&bg);
+   g_string_append_printf(css,
+      "%s { color: %s; background-color: %s; background-image: none; transition: none;"
+      "font-weight: %s; font-style: %s; text-decoration-line: %s%s%s;",
+      selector, foreground, background, style & THE_STYLE_BOLD ? "bold" : "normal",
+      style & THE_STYLE_ITALIC ? "italic" : "normal",
+      style & THE_STYLE_UNDERLINE ? "underline " : "",
+      style & THE_STYLE_STRIKEOUT ? "line-through " : "",
+      style & (THE_STYLE_UNDERLINE | THE_STYLE_STRIKEOUT) ? "" : "none");
+   if (border)
+      g_string_append_printf(css, "border-color: %s;", foreground);
+   g_string_append(css, "}\n");
+   g_free(foreground);
+   g_free(background);
+}
+
+static void sync_console_palette(void)
+{
+   TheDriverAttr colours[GTK_CONSOLE_COLOURS];
+   GtkTextTag *error_tag;
+   GdkRGBA fg, bg;
+   TheRenderStyle style;
+   GString *css;
+   GError *error = NULL;
+   int i;
+   if (!ui.console_css || !CURRENT_VIEW || !CURRENT_FILE)
+      return;
+   for (i = 0; i < GTK_CONSOLE_COLOURS; i++)
+      colours[i] = set_colour(CURRENT_FILE->attr + ATTR_CONSOLEBODY + i);
+   if (ui.console_colours_valid
+   && !memcmp(colours, ui.console_colours, sizeof(colours)))
+      return;
+   css = g_string_new(NULL);
+#define CONSOLE_RULE(selector, role, border) \
+   console_css_rule(css, selector, colours[(role) - ATTR_CONSOLEBODY], border)
+   CONSOLE_RULE("#the-editor-console-split, #the-program-console, "
+                "#the-console-output, #the-console-output text",
+                ATTR_CONSOLEBODY, 0);
+   CONSOLE_RULE("#the-program-console .the-console-header, "
+                "#the-program-console .the-console-header label", ATTR_CONSOLEHEADER, 0);
+   CONSOLE_RULE("#the-console-input-row, #the-console-input-row label, #the-console-input",
+                ATTR_CONSOLEINPUT, 1);
+   CONSOLE_RULE("#the-program-console .the-console-control, "
+                "#the-program-console .the-console-control label, "
+                "#the-program-run, #the-program-run label", ATTR_CONSOLECONTROL, 1);
+   CONSOLE_RULE("#the-console-output text selection, #the-console-input selection, "
+                "#the-program-console .the-console-control:hover, "
+                "#the-program-console .the-console-control:hover label, "
+                "#the-program-console .the-console-control:focus, "
+                "#the-program-console .the-console-control:focus label, "
+                "#the-program-console .the-console-control:active, "
+                "#the-program-console .the-console-control:active label, "
+                "#the-program-run:hover, #the-program-run:hover label, "
+                "#the-program-run:focus, #the-program-run:focus label, "
+                "#the-program-run:active, #the-program-run:active label", ATTR_CONSOLESELECTED, 1);
+   CONSOLE_RULE("#the-program-console #the-console-status", ATTR_CONSOLESTATUS, 0);
+   CONSOLE_RULE("#the-editor-console-split > separator", ATTR_CONSOLEDIVIDER, 1);
+   g_string_append(css,
+      "#the-editor-console-split > separator { border-style: solid; border-width: 1px; }\n");
+#undef CONSOLE_RULE
+   if (!gtk_css_provider_load_from_data(ui.console_css, css->str, css->len, &error))
+   {
+      g_warning("GTK console palette: %s", error->message);
+      g_clear_error(&error);
+      g_string_free(css, TRUE);
+      return;
+   }
+   g_string_free(css, TRUE);
+   error_tag = gtk_text_tag_table_lookup(gtk_text_buffer_get_tag_table(
+      gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui.output))), "stderr");
+   style = the_render_attr_style(colours[ATTR_CONSOLEERROR - ATTR_CONSOLEBODY]);
+   console_colours(colours[ATTR_CONSOLEERROR - ATTR_CONSOLEBODY], &fg, &bg);
+   g_object_set(error_tag, "foreground-rgba", &fg, "background-rgba", &bg,
+      "weight", style & THE_STYLE_BOLD ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL,
+      "style", style & THE_STYLE_ITALIC ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL,
+      "underline", style & THE_STYLE_UNDERLINE ? PANGO_UNDERLINE_SINGLE : PANGO_UNDERLINE_NONE,
+      "strikethrough", (style & THE_STYLE_STRIKEOUT) != 0, NULL);
+   memcpy(ui.console_colours, colours, sizeof(colours));
+   ui.console_colours_valid = 1;
 }
 
 static void draw_surface(cairo_t *cr, PangoLayout *layout, GtkSurface *surface)
@@ -519,8 +640,14 @@ static void sync_console(void)
    const TheToolConsole *console = the_tool_console();
    size_t i;
    GtkTextBuffer *buffer;
-   GtkTextIter end;
-   if (!ui.console || console->version == ui.console_version)
+   GtkTextIter end, anchor, insert;
+   int selection = 0, anchor_offset = 0, insert_offset = 0;
+   if (!ui.console)
+      return;
+   /* Colours belong to the active file, independently of a job's version.
+    * Updating CSS/tags alone leaves output, selection and job state intact. */
+   sync_console_palette();
+   if (console->version == ui.console_version)
       return;
    ui.console_version = console->version;
    gtk_widget_set_visible(ui.console, console->visible);
@@ -532,6 +659,15 @@ static void sync_console(void)
    gtk_widget_set_sensitive(ui.input, console->running && !console->eof);
    gtk_widget_set_sensitive(ui.send, console->running && !console->eof);
    buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui.output));
+   selection = console->id == ui.console_job_id && gtk_text_buffer_get_has_selection(buffer);
+   if (selection)
+   {
+      gtk_text_buffer_get_iter_at_mark(buffer, &anchor, gtk_text_buffer_get_selection_bound(buffer));
+      gtk_text_buffer_get_iter_at_mark(buffer, &insert, gtk_text_buffer_get_insert(buffer));
+      anchor_offset = gtk_text_iter_get_offset(&anchor);
+      insert_offset = gtk_text_iter_get_offset(&insert);
+   }
+   ui.console_job_id = console->id;
    gtk_text_buffer_set_text(buffer, "", 0);
    for (i = 0; i < console->count; i++)
    {
@@ -541,8 +677,18 @@ static void sync_console(void)
          console->chunks[i].fd == 2 ? "stderr" : "stdout", NULL);
       g_free(text);
    }
-   gtk_text_buffer_get_end_iter(buffer, &end);
-   gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(ui.output), &end, 0, FALSE, 0, 1);
+   if (selection)
+   {
+      int count = gtk_text_buffer_get_char_count(buffer);
+      gtk_text_buffer_get_iter_at_offset(buffer, &anchor, MIN(anchor_offset, count));
+      gtk_text_buffer_get_iter_at_offset(buffer, &insert, MIN(insert_offset, count));
+      gtk_text_buffer_select_range(buffer, &insert, &anchor);
+   }
+   else
+   {
+      gtk_text_buffer_get_end_iter(buffer, &end);
+      gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(ui.output), &end, 0, FALSE, 0, 1);
+   }
 }
 
 static gboolean blink(gpointer data)
@@ -558,6 +704,7 @@ static GtkWidget *button(GtkWidget *box, const char *label,
                           GCallback callback, const char *argument)
 {
    GtkWidget *widget = gtk_button_new_with_label(label);
+   gtk_style_context_add_class(gtk_widget_get_style_context(widget), "the-console-control");
    gtk_box_pack_start(GTK_BOX(box), widget, FALSE, FALSE, 0);
    g_signal_connect(widget, "clicked", callback, (gpointer)argument);
    return widget;
@@ -644,7 +791,9 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    button(toolbar, "Command", G_CALLBACK(command_action), "cursor cmdline");
    button(toolbar, "Next file", G_CALLBACK(command_action), "next");
    ui.run = button(toolbar, "Run", G_CALLBACK(tool_action), "run");
+   gtk_widget_set_name(ui.run, "the-program-run");
    ui.split = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
+   gtk_widget_set_name(ui.split, "the-editor-console-split");
    g_signal_connect(ui.split, "size-allocate", G_CALLBACK(split_allocated), NULL);
    gtk_box_pack_start(GTK_BOX(root), ui.split, TRUE, TRUE, 0);
    ui.editor = gtk_drawing_area_new();
@@ -674,9 +823,12 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    g_signal_connect(ui.editor, "focus-in-event", G_CALLBACK(editor_focus), NULL);
    g_signal_connect(ui.editor, "focus-out-event", G_CALLBACK(editor_focus), NULL);
    ui.console = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+   gtk_widget_set_name(ui.console, "the-program-console");
    gtk_container_set_border_width(GTK_CONTAINER(ui.console), 6);
    gtk_paned_pack2(GTK_PANED(ui.split), ui.console, FALSE, FALSE);
    heading = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+   ui.header = heading;
+   gtk_style_context_add_class(gtk_widget_get_style_context(heading), "the-console-header");
    gtk_box_pack_start(GTK_BOX(ui.console), heading, FALSE, FALSE, 0);
    controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_box_pack_start(GTK_BOX(heading), controls, FALSE, FALSE, 0);
@@ -686,6 +838,7 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
       gtk_box_pack_start(GTK_BOX(controls), label, TRUE, TRUE, 0);
    }
    ui.state = gtk_label_new("Ready");
+   gtk_widget_set_name(ui.state, "the-console-status");
    gtk_label_set_ellipsize(GTK_LABEL(ui.state), PANGO_ELLIPSIZE_END);
    gtk_label_set_xalign(GTK_LABEL(ui.state), 0);
    gtk_box_pack_start(GTK_BOX(heading), ui.state, FALSE, FALSE, 0);
@@ -697,21 +850,26 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    gtk_widget_set_size_request(scroller, -1, 125);
    gtk_box_pack_start(GTK_BOX(ui.console), scroller, TRUE, TRUE, 0);
    ui.output = gtk_text_view_new();
+   gtk_widget_set_name(ui.output, "the-console-output");
    gtk_text_view_set_editable(GTK_TEXT_VIEW(ui.output), FALSE);
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(ui.output), FALSE);
    gtk_text_view_set_monospace(GTK_TEXT_VIEW(ui.output), TRUE);
    gtk_container_add(GTK_CONTAINER(scroller), ui.output);
-   gtk_text_buffer_create_tag(gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui.output)),
-                               "stderr", "foreground", "#bc3030", NULL);
+   gtk_text_buffer_create_tag(gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui.output)), "stderr", NULL);
    gtk_text_buffer_create_tag(gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui.output)), "stdout", NULL);
    entry = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   gtk_widget_set_name(entry, "the-console-input-row");
    gtk_box_pack_start(GTK_BOX(ui.console), entry, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(entry), gtk_label_new("Program input"), FALSE, FALSE, 0);
    ui.input = gtk_entry_new();
+   gtk_widget_set_name(ui.input, "the-console-input");
    gtk_entry_set_max_length(GTK_ENTRY(ui.input), 4096);
    gtk_box_pack_start(GTK_BOX(entry), ui.input, TRUE, TRUE, 0);
    g_signal_connect(ui.input, "activate", G_CALLBACK(send_input), NULL);
    ui.send = button(entry, "Send", G_CALLBACK(send_input), NULL);
+   ui.console_css = gtk_css_provider_new();
+   gtk_style_context_add_provider_for_screen(gtk_widget_get_screen(ui.window),
+      GTK_STYLE_PROVIDER(ui.console_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1);
    gtk_widget_show_all(ui.window);
    gtk_widget_grab_focus(ui.editor);
    the_tool_console_visibility(1, 0);
@@ -870,6 +1028,13 @@ static void shutdown_driver(int prompt)
    ui.split_layout_idle = 0;
    if (ui.im) g_object_unref(ui.im);
    ui.im = NULL;
+   if (ui.console_css)
+   {
+      gtk_style_context_remove_provider_for_screen(gtk_widget_get_screen(ui.window),
+                                                    GTK_STYLE_PROVIDER(ui.console_css));
+      g_object_unref(ui.console_css);
+      ui.console_css = NULL;
+   }
    if (ui.window) gtk_widget_destroy(ui.window);
    ui.window = ui.editor = ui.console = NULL;
    if (ui.font) pango_font_description_free(ui.font);

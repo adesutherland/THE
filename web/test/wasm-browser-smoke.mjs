@@ -325,6 +325,13 @@ try {
     await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Rexx').click()");
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Waiting for input'"),'interpreter console input',30000);
     await waitFor(()=>evaluate("document.querySelector('.console-output').textContent.includes('What is your name?')"),'prompt before input');
+    await send({type:'command',command:'set colour consolebody #123456 on #234567'});
+    await waitFor(()=>evaluate("getComputedStyle(document.querySelector('.console-output')).color==='rgb(18, 52, 86)' && getComputedStyle(document.querySelector('.console-output')).backgroundColor==='rgb(35, 69, 103)'"),'SET COLOUR recolours running Wasm console');
+    await selectBuffer('Welcome.txt');
+    await waitFor(()=>evaluate("getComputedStyle(document.querySelector('.console-output')).color!=='rgb(18, 52, 86)'"),'Wasm file switch changes console palette');
+    await selectBuffer('RexxRunner.rexx');
+    await waitFor(()=>evaluate("getComputedStyle(document.querySelector('.console-output')).color==='rgb(18, 52, 86)'"),'Wasm return restores console file palette');
+    if(!await evaluate("document.querySelector('.run-state').textContent==='Waiting for input'"))throw Error('Colour commands or file switching interrupted Wasm program input');
     await consoleEnter('Zoë');
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent.includes('Completed · status 0')"),'interpreter completion',30000);
     const text=await evaluate("document.querySelector('.console-output').textContent");

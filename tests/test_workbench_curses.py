@@ -58,7 +58,7 @@ for engine in ['CREXX', 'REGINA']:
                     quiet = time.monotonic()
                 if predicate() and (process.poll() is not None or time.monotonic() - quiet >= .15):
                     return
-            raise AssertionError(engine + ': ' + label + '\n' + '\n'.join(screen.display))
+            raise AssertionError(engine + ': ' + label + ' ' + str(screen.cursor) + '\n' + '\n'.join(screen.display))
 
         def send(keys):
             os.write(master, keys)
@@ -82,20 +82,59 @@ for engine in ['CREXX', 'REGINA']:
             wait(lambda: 'F10 Menu' in screen.display[rows - 4]
                  and 'CRXTHE 0.10.dev' in screen.display[rows - 3], 'guided footer')
             assert 'MENU (F10)' in screen.display[0][:14], screen.display
+            assert 'Console' in screen.display[0][14:25], screen.display
             click_at(0, 2)
             wait(lambda: 'Open or create file' in screen.display[2][:40],
                  'top-left mouse menu opens below its button')
             send(b'\x1b')
             wait(lambda: 'Open or create file' not in '\n'.join(screen.display),
                  'mouse menu cancels')
+            command('showkey')
+            wait(lambda: any('Press the key' in row for row in screen.display), 'key guide')
+            send(b'\x1b[Z')
+            wait(lambda: any('rx controls' in row.lower() for row in screen.display),
+                 'key guide reports the actual terminal Shift-Tab binding')
+            send(b' ')
             command('msg FIRST_RESPONSE')
             response('FIRST_RESPONSE')
             assert screen.cursor.y == rows - 2, screen.cursor
+            send(b'UNSUBMITTED')
+            wait(lambda: 'UNSUBMITTED' in screen.display[rows - 2], 'editor command draft')
+            draft = screen.display[rows - 2]
+            draft_caret = (screen.cursor.x, screen.cursor.y)
+            send(b'\x1b[Z')
+            wait(lambda: (screen.cursor.x, screen.cursor.y) == (15, 0), 'Shift-Tab focuses Console')
+            assert screen.buffer[0][15].bg != screen.buffer[0][1].bg, screen.display
+            send(b'\x1b[Z')
+            wait(lambda: (screen.cursor.x, screen.cursor.y) == (1, 0), 'Shift-Tab then focuses Menu')
+            for keys, x in [(b'\t', 15), (b'\x1b[D', 1), (b'\x1b[C', 15)]:
+                send(keys)
+                wait(lambda: (screen.cursor.x, screen.cursor.y) == (x, 0), 'chrome traversal')
+            send(b'\x1b')
+            wait(lambda: (screen.cursor.x, screen.cursor.y) == draft_caret, 'Escape restores command caret')
+            assert screen.display[rows - 2] == draft, screen.display
+            send(b'\x15')
             send(b'\x1b[17~')  # F6: return to file
             wait(lambda: screen.cursor.y < rows - 4, 'file focus')
             send(b'Z')  # Leave a pending working record before opening Menu.
             wait(lambda: any('Zalpha' in row for row in screen.display), 'pending edit')
             caret = (screen.cursor.x, screen.cursor.y)
+            send(b'\x1b[Z\r')
+            wait(lambda: 'Program console |' in screen.display[rows - 8],
+                 'Console launcher opens the dock')
+            assert any('Zalpha' in row for row in screen.display), screen.display
+            send(b'\x1b')
+            wait(lambda: (screen.cursor.x, screen.cursor.y) == caret, 'console Escape restores editor caret')
+            click_at(rows - 7, 17)  # Hide in the bottom-docked toolbar.
+            wait(lambda: not any('Program console |' in row for row in screen.display)
+                 and (screen.cursor.x, screen.cursor.y) == caret, 'Hide preserves pending editor record')
+            assert source.read_text() == 'alpha\nbeta\ngamma\ndelta\n', source.read_text()
+            send(b'\x1b[Z\x1b[Z\r')
+            wait(lambda: any('Open or create file' in row for row in screen.display),
+                 'Shift-Tab reaches and activates Menu')
+            send(b'\x1b')
+            wait(lambda: not any('Open or create file' in row for row in screen.display)
+                 and (screen.cursor.x, screen.cursor.y) == caret, 'chrome Menu restores pending caret')
             send(b'\x1b[21~')  # F10
             wait(lambda: any('Open or create file' in row for row in screen.display), 'Menu')
             send(b'\x1b')
@@ -141,4 +180,4 @@ for engine in ['CREXX', 'REGINA']:
             process.wait()
             os.close(master)
 
-print('Both engines: terminal Menu, response/command adjacency, pending edits, custom MSGLINE and compact resize passed')
+print('Both engines: Shift-Tab launchers, truthful key guide, draft/caret preservation, Menu, response rows and compact resize passed')
