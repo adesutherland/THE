@@ -119,6 +119,10 @@ Drivers are runtime-loaded modules:
 - `the_driver_web`: an optional browser frontend, reusing headless surfaces and
   semantic snapshots with a local HTTP/WebSocket transport and restricted
   workspace/command policy.
+- `the_driver_gtk`: an optional GTK 3 desktop frontend. It renders interactive
+  driver surfaces through Cairo/Pango and queues normalized editor actions;
+  its Program console projects the existing native tool-host model. See the
+  [GTK driver guide](gtk-driver.md) for build instructions and current limits.
 
 All drivers implement the neutral `TheDriverOps` surface from
 `src/thedriver.h`. Public driver types are curses-free.

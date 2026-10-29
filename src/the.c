@@ -71,7 +71,8 @@ typedef enum
 {
    THE_STARTUP_DRIVER_CURSES = 0,
    THE_STARTUP_DRIVER_LLM,
-   THE_STARTUP_DRIVER_WEB
+   THE_STARTUP_DRIVER_WEB,
+   THE_STARTUP_DRIVER_GTK
 } TheStartupDriver;
 static int filter_driver_args(int argc, char **argv,
                               TheStartupDriver *startup_driver);
@@ -334,6 +335,11 @@ static int driver_name_to_startup(const char *name,
       *startup_driver = THE_STARTUP_DRIVER_WEB;
       return 1;
    }
+   if (strcmp(name, "gtk") == 0)
+   {
+      *startup_driver = THE_STARTUP_DRIVER_GTK;
+      return 1;
+   }
    return 0;
 }
 
@@ -357,7 +363,7 @@ static int filter_driver_args(int argc, char **argv,
          if (in + 1 >= argc
          ||  !driver_name_to_startup(argv[in + 1], startup_driver))
          {
-            fprintf(stderr, "the: expected --driver curses|llm|web\n");
+            fprintf(stderr, "the: expected --driver curses|llm|web|gtk\n");
             return -1;
          }
          in++;
@@ -367,7 +373,7 @@ static int filter_driver_args(int argc, char **argv,
       {
          if (!driver_name_to_startup(arg + 9, startup_driver))
          {
-            fprintf(stderr, "the: expected --driver curses|llm|web\n");
+            fprintf(stderr, "the: expected --driver curses|llm|web|gtk\n");
             return -1;
          }
          continue;
@@ -1094,6 +1100,7 @@ int main(int argc, char *argv[])
     * Override any default paths,filenames etc if supplied on command line
     */
    if ( startup_driver != THE_STARTUP_DRIVER_WEB
+   &&   startup_driver != THE_STARTUP_DRIVER_GTK
    &&   setup_system_profile_file() != RC_OK )
    {
       cleanup();
@@ -1199,7 +1206,9 @@ int main(int argc, char *argv[])
    if (!the_driver_load(startup_driver == THE_STARTUP_DRIVER_LLM
                            ? "llm"
                            : startup_driver == THE_STARTUP_DRIVER_WEB
-                           ? "web" : "curses",
+                           ? "web"
+                           : startup_driver == THE_STARTUP_DRIVER_GTK
+                           ? "gtk" : "curses",
                         my_argv[0], driver_error, sizeof(driver_error)))
    {
       cleanup();
@@ -1320,7 +1329,8 @@ int main(int argc, char *argv[])
    }
    set_screen_defaults();
    if ((startup_driver == THE_STARTUP_DRIVER_LLM
-    || startup_driver == THE_STARTUP_DRIVER_WEB)
+    || startup_driver == THE_STARTUP_DRIVER_WEB
+    || startup_driver == THE_STARTUP_DRIVER_GTK)
    &&  set_up_windows(current_screen) != RC_OK)
    {
       cleanup();
@@ -1717,11 +1727,11 @@ static void display_info(CHARTYPE *argv0)
    fprintf(stdout,"CRXTHE is distributed under the terms of the GNU General Public License \n");
    fprintf(stdout,"and comes with NO WARRANTY. See the file COPYING for details.\n");
 #if defined(USE_XCURSES)
-   fprintf(stdout,"\nUsage:\n\n%s [--driver curses|llm|web] [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [-X \"switches\"] [-1[fifoname]] [[dir] [file [...]]]\n",argv0);
+   fprintf(stdout,"\nUsage:\n\n%s [--driver curses|llm|web|gtk] [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [-X \"switches\"] [-1[fifoname]] [[dir] [file [...]]]\n",argv0);
 #elif defined(USE_SDLCURSES) && defined(UNIX)
-   fprintf(stdout,"\nUsage:\n\n%s [--driver curses|llm|web] [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [-1[fifoname]] [[dir] [file [...]]]\n",argv0);
+   fprintf(stdout,"\nUsage:\n\n%s [--driver curses|llm|web|gtk] [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [-1[fifoname]] [[dir] [file [...]]]\n",argv0);
 #else
-   fprintf(stdout,"\nUsage:\n\n%s [--driver curses|llm|web] [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [[dir] [file [...]]]\n",argv0);
+   fprintf(stdout,"\nUsage:\n\n%s [--driver curses|llm|web|gtk] [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [[dir] [file [...]]]\n",argv0);
 #endif
    fprintf(stdout,"\nwhere:\n\n");
    fprintf(stdout,"-h,--help              show this message\n");

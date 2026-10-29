@@ -21,6 +21,7 @@ CHARTYPE *pre_rec = NULL;
 LENGTHTYPE pre_rec_len = 0;
 CHARTYPE *rec = NULL;
 LENGTHTYPE rec_len = 0;
+bool in_macro = FALSE;
 static const char *status_line_fixture = "CRXTHE        profile status text";
 /* Real status formatting is exercised by test_llm_status_line. */
 int format_statarea(CHARTYPE *out, size_t out_size)

@@ -14,6 +14,7 @@ release. CRXTHE is an independent fork based on Mark Hessling's THE 4.0.
 - [LLM protocol and agent workflows](llm-driver-agent-guide.md)
 - [LLM capability inventory](llm-driver-capabilities.md)
 - [RXBIN tools, profiles and console](runtime-tools.md)
+- [GTK desktop frontend](gtk-driver.md)
 - [Native browser frontend](web-driver-poc.md)
 - [WebAssembly browser preview and persistent workspace](browser-wasm.md)
 - [Source highlighting for HTML and TeX](syntax-highlighting.md)

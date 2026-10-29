@@ -48,6 +48,11 @@ option(THE_ENABLE_REGINA "Compile optional, runtime-loaded Regina support when h
 option(THE_BUNDLE_CREXX "Install a relocatable editor with its own cREXX runtime and tools" OFF)
 option(THE_TEST_SHELL_TRACE "Trace top-level shell integration tests for CI diagnostics" OFF)
 option(USE_WEB_DRIVER "Build the native browser UI driver" OFF)
+option(USE_GTK_DRIVER "Build the native GTK 3 desktop UI driver" OFF)
+if(USE_GTK_DRIVER)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(THE_GTK REQUIRED IMPORTED_TARGET gtk+-3.0>=3.24)
+endif()
 set(DSLSH_LOCAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../DSL-Syntax-Highlighter"
         CACHE PATH "Path to a local DSL-Syntax-Highlighter checkout")
 option(DSLSH_PREFER_LOCAL "Prefer a local/sibling DSL-Syntax-Highlighter checkout when present" ON)
@@ -507,6 +512,25 @@ if(USE_SDSLH)
     target_link_libraries(the_driver_llm DSLSH::editor)
 endif()
 
+if(USE_GTK_DRIVER)
+    add_library(the_driver_gtk MODULE
+        src/drivers/gtk/gtkdriver.c
+        src/drivers/gtk/gtkinput.c
+        src/drivers/llm/headlessdriver.c
+    )
+    set_target_properties(the_driver_gtk PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "the_driver_gtk"
+    )
+    target_compile_definitions(the_driver_gtk PRIVATE
+        THE_HEADLESS_DRIVER_NO_MODULE_EXPORTS=1)
+    target_link_libraries(the_driver_gtk PkgConfig::THE_GTK)
+    if(USE_SDSLH)
+        target_link_libraries(the_driver_gtk DSLSH::editor)
+    endif()
+    list(APPEND THE_DRIVER_MODULES the_driver_gtk)
+endif()
+
 if(USE_WEB_DRIVER)
     set(THE_WEB_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/web")
     set(THE_WEB_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/web")
@@ -580,12 +604,18 @@ endif()
 if(APPLE)
     target_link_options(the_driver_curses PRIVATE "-undefined" "dynamic_lookup")
     target_link_options(the_driver_llm PRIVATE "-undefined" "dynamic_lookup")
+    if(USE_GTK_DRIVER)
+        target_link_options(the_driver_gtk PRIVATE "-undefined" "dynamic_lookup")
+    endif()
     if(USE_WEB_DRIVER)
         target_link_options(the_driver_web PRIVATE "-undefined" "dynamic_lookup")
     endif()
 elseif(WIN32)
     target_link_libraries(the_driver_curses ${EXECUTABLE_NAME})
     target_link_libraries(the_driver_llm ${EXECUTABLE_NAME})
+    if(USE_GTK_DRIVER)
+        target_link_libraries(the_driver_gtk ${EXECUTABLE_NAME})
+    endif()
     if(USE_WEB_DRIVER)
         target_link_libraries(the_driver_web ${EXECUTABLE_NAME} ws2_32 advapi32)
     endif()
@@ -1196,6 +1226,53 @@ add_test(NAME test_logcursor COMMAND test_logcursor)
 add_executable(test_inputevent tests/test_inputevent.c src/inputevent.c src/frontendaction.c)
 target_include_directories(test_inputevent PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 add_test(NAME test_inputevent COMMAND test_inputevent)
+if(USE_GTK_DRIVER)
+    add_executable(test_gtk_input tests/test_gtk_input.c
+        src/drivers/gtk/gtkinput.c src/inputevent.c src/frontendaction.c)
+    target_include_directories(test_gtk_input PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/drivers/gtk)
+    target_link_libraries(test_gtk_input PkgConfig::THE_GTK)
+    # These are assertions over input contracts, including Release builds.
+    if(MSVC)
+        target_compile_options(test_gtk_input PRIVATE /UNDEBUG)
+    else()
+        target_compile_options(test_gtk_input PRIVATE -UNDEBUG)
+    endif()
+    add_test(NAME test_gtk_input COMMAND test_gtk_input)
+    if(THE_PYTHON_EXECUTABLE AND (THE_USE_CREXX OR THE_USE_REGINA))
+        add_library(test_gtk_runtime_driver MODULE tests/gtk_runtime_probe.c
+            src/drivers/gtk/gtkinput.c src/drivers/llm/headlessdriver.c)
+        set_target_properties(test_gtk_runtime_driver PROPERTIES PREFIX "")
+        target_compile_definitions(test_gtk_runtime_driver PRIVATE
+            THE_HEADLESS_DRIVER_NO_MODULE_EXPORTS=1)
+        target_include_directories(test_gtk_runtime_driver PRIVATE
+            ${CMAKE_SOURCE_DIR}/src/drivers/gtk)
+        target_link_libraries(test_gtk_runtime_driver PkgConfig::THE_GTK)
+        if(USE_SDSLH)
+            target_link_libraries(test_gtk_runtime_driver DSLSH::editor)
+        endif()
+        if(APPLE)
+            target_link_options(test_gtk_runtime_driver PRIVATE "-undefined" "dynamic_lookup")
+        elseif(WIN32)
+            target_link_libraries(test_gtk_runtime_driver ${EXECUTABLE_NAME})
+        endif()
+        if(MSVC)
+            target_compile_options(test_gtk_runtime_driver PRIVATE /UNDEBUG)
+        else()
+            target_compile_options(test_gtk_runtime_driver PRIVATE -UNDEBUG)
+        endif()
+        add_test(NAME test_gtk_runtime COMMAND ${THE_PYTHON_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_gtk_runtime.py
+            $<TARGET_FILE:the> $<TARGET_FILE:test_gtk_runtime_driver>
+            ${CMAKE_CURRENT_BINARY_DIR}/gtk-runtime.png)
+        set(THE_GTK_TEST_ENV ${THE_CTEST_RUNTIME_ENV})
+        if(THE_NATIVE_TOOL_ROOT)
+            list(APPEND THE_GTK_TEST_ENV "THE_GTK_REQUIRE_PROGRAM=1")
+        endif()
+        set_tests_properties(test_gtk_runtime PROPERTIES TIMEOUT 65
+            SKIP_RETURN_CODE 77 ENVIRONMENT "${THE_GTK_TEST_ENV}")
+    endif()
+endif()
 add_executable(test_frontendaction tests/test_frontendaction.c src/frontendaction.c)
 target_include_directories(test_frontendaction PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 add_test(NAME test_frontendaction COMMAND test_frontendaction)
@@ -1442,7 +1519,7 @@ set_tests_properties(test_driver_modules PROPERTIES
     TIMEOUT 20
     RESOURCE_LOCK the_pty_editor
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
-add_executable(test_llmruntime tests/test_llmruntime.c src/panelui.c src/thecolour.c src/llm/llmruntime.c src/llm/llmdriver.c src/parserdiagnostics.c src/inputevent.c src/frontendaction.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
+add_executable(test_llmruntime tests/test_llmruntime.c src/panelui.c src/thecolour.c src/editorsource.c src/llm/llmruntime.c src/llm/llmdriver.c src/parserdiagnostics.c src/inputevent.c src/frontendaction.c src/screenframe.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmruntime PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8)
     target_sources(test_llmruntime PRIVATE src/rendercell.c src/utfterm.c src/utflayout.c src/utfcluster.c)

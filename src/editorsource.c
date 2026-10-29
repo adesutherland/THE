@@ -1,5 +1,6 @@
 #include "the.h"
 #include "vars.h"
+#include "proto.h"
 #include "panelui.h"
 #include "editorsource.h"
 
@@ -16,6 +17,22 @@ static const char *problem = "No active buffer";
 
 const TheEditorSource *the_editor_source_current(void) { return current; }
 const char *the_editor_source_error(void) { return problem; }
+
+int the_editor_buffer_dirty(const FILE_DETAILS *file)
+{
+    LINE *line;
+    if (file == NULL) return 0;
+    if (file->save_alt != 0) return 1;
+    /* Typing updates the active core record before post_process_line commits
+     * it to the file's line list. Include that record in unsaved-state reports. */
+    if (CURRENT_VIEW == NULL || CURRENT_FILE != file || rec == NULL
+    || CURRENT_VIEW->focus_line < 1
+    || CURRENT_VIEW->focus_line > file->number_lines) return 0;
+    line = lll_find(file->first_line, file->last_line,
+                    CURRENT_VIEW->focus_line, file->number_lines);
+    return line != NULL && (rec_len != line->length
+        || memcmp(rec, line->line, line->length) != 0);
+}
 
 void the_editor_source_forget(FILE_DETAILS *file)
 {

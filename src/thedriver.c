@@ -363,7 +363,8 @@ int the_driver_load(const char *name, const char *argv0,
       name = "llm";
    if (strcmp(name, "curses") != 0
    &&  strcmp(name, "llm") != 0
-   &&  strcmp(name, "web") != 0)
+   &&  strcmp(name, "web") != 0
+   &&  strcmp(name, "gtk") != 0)
    {
       copy_error(error, error_len, "unknown driver");
       return 0;
