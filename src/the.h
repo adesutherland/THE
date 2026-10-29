@@ -387,6 +387,9 @@ void ui_log(const char *fmt, ...);
 #define ATTR_PMSGWARN   44
 #define ATTR_PMSGINFO   45
 #define ATTR_MAX        46
+/* Native file-tabs chrome reserves a clickable menu label at the left edge. */
+#define THE_NATIVE_MENU_LABEL " MENU (F10) | "
+#define THE_NATIVE_MENU_WIDTH ((int)(sizeof(THE_NATIVE_MENU_LABEL) - 1))
 /*--------------------- -- ecolour defines -----------------------------*/
 #define ECOLOUR_COMMENTS               0
 #define ECOLOUR_STRINGS                1

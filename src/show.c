@@ -2507,6 +2507,13 @@ void display_filetabs( VIEW_DETAILS *start)
       normal = set_colour( CURRENT_FILE->attr+ATTR_FILETABS );
       high = set_colour( CURRENT_FILE->attr+ATTR_FILETABSDIV );
       INIT_LINE_OUTPUT( filetabs, 0 );
+      if (the_driver_is_curses())
+      {
+         ADD_LINE_OUTPUT((CHARTYPE *)THE_NATIVE_MENU_LABEL,
+                         THE_NATIVE_MENU_WIDTH,
+                         set_colour(CURRENT_FILE->attr+ATTR_RESERVED));
+         fill_len = max(0, fill_len - THE_NATIVE_MENU_WIDTH);
+      }
 
       if ( start )
          curr = start;

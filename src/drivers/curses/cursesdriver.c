@@ -1003,7 +1003,7 @@ void curses_driver_end_terminal_report(void)
    refresh();
 }
 
-static WINDOW *console_window;
+static WINDOW *console_window, *console_divider;
 static int console_rows, console_cols, console_top, console_left;
 static int console_timeout = -1, console_toolbar_focus, console_control;
 static int console_cached_mouse, console_mouse_button, console_mouse_action;
@@ -1012,6 +1012,21 @@ static int console_mouse_modifier;
 enum { CONSOLE_EDITOR_MIN_COLS = 72, CONSOLE_MIN_COLS = 44 };
 
 static const char *const console_controls[] = { "Run", "Stop", "Clear", "Close", "Focus" };
+
+static void console_delete_windows(void)
+{
+   if (console_window) delwin(console_window);
+   if (console_divider) delwin(console_divider);
+   console_window = console_divider = NULL;
+}
+
+static chtype console_theme_attr(int role, TheRenderStyle style)
+{
+   TheRenderAttr attr = CURRENT_VIEW && CURRENT_FILE
+      ? set_colour(CURRENT_FILE->attr + role) : THE_RENDER_ATTR_NORMAL;
+
+   return curses_driver_lower_attr(the_render_attr_merge_style(attr, style));
+}
 
 static int console_is_right(void)
 {
@@ -1069,94 +1084,177 @@ static int console_control_event(int control, TheInputEvent *event)
 static int console_write_text(int row, int col, const char *text, size_t length,
                               int cells)
 {
-   size_t offset = 0;
+   TextPos pos = textpos_begin();
    int used = 0;
 
    wmove(console_window, row, col);
-   while (offset < length && used < cells)
+   while (pos.byte_offset < length && used < cells)
    {
       TextCluster cluster = textpos_cluster_at_boundary(
-         (const CHARTYPE *)text, length, textpos_from_byte(
-            (const CHARTYPE *)text, length, offset));
-      int width = cluster.cell_width;
+         (const CHARTYPE *)text, length, pos);
+      int width = cluster.valid ? max(1, cluster.cell_width) : 1;
       size_t bytes = cluster.byte_length;
 
       if (!bytes) break;
-      if (text[offset] == '\t')
+      if (text[pos.byte_offset] == '\t')
       {
          if (used + 2 > cells) break;
          waddstr(console_window, "  ");
          used += 2;
       }
-      else if ((unsigned char)text[offset] >= 32 && text[offset] != 127)
+      else if ((unsigned char)text[pos.byte_offset] >= 32
+            && text[pos.byte_offset] != 127)
       {
          if (used + width > cells) break;
-         if (cluster.valid)
-            waddnstr(console_window, text + offset, (int)bytes);
+         if (cluster.valid && cluster.cell_width > 0)
+            waddnstr(console_window, text + pos.byte_offset, (int)bytes);
          else
             waddch(console_window, '?');
-         used += cluster.valid ? width : 1;
+         used += width;
       }
-      offset += bytes;
+      pos = cluster.end;
    }
    return used;
+}
+
+/* Count and paint the same visual rows, so tailing and resize use exactly the
+ * same cell boundaries. The last column remains unused to avoid curses wrap. */
+static int console_output_rows(const char *text, const unsigned char *streams,
+                               size_t length, int cells, int skip,
+                               int first_row, int paint_rows)
+{
+   TextPos pos = textpos_begin();
+   int row = 0, col = 0, pending_row = 0, last_stream = -1;
+
+   while (pos.byte_offset < length)
+   {
+      TextCluster cluster = textpos_cluster_at_boundary(
+         (const CHARTYPE *)text, length, pos);
+      unsigned char ch = (unsigned char)text[pos.byte_offset];
+      int width;
+
+      if (!cluster.byte_length) break;
+      if (ch == '\n' || (ch == '\r' && cluster.byte_length == 2
+                       && text[pos.byte_offset + 1] == '\n'))
+      {
+         row++;
+         col = pending_row = 0;
+         last_stream = -1;
+      }
+      else if (ch == '\t' || (ch >= 32 && ch != 127))
+      {
+         width = ch == '\t' ? 2
+            : cluster.valid ? max(1, cluster.cell_width) : 1;
+         /* Even an oversized grapheme must make progress in a narrow pane. */
+         if (width > cells) width = 1;
+         if (col && col + width > cells)
+         {
+            row++;
+            col = 0;
+            last_stream = -1;
+         }
+         if (row >= skip && row - skip < paint_rows)
+         {
+            int stream = streams[pos.byte_offset];
+
+            if (stream != last_stream)
+            {
+               wattrset(console_window, console_theme_attr(
+                  stream == 2 ? ATTR_MSGLINE : ATTR_FILEAREA, 0));
+               last_stream = stream;
+            }
+            wmove(console_window, first_row + row - skip, col);
+            if (ch == '\t') waddstr(console_window, "  ");
+            else if (cluster.valid && cluster.cell_width > 0
+                  && cluster.cell_width <= cells)
+               waddnstr(console_window, text + pos.byte_offset,
+                        (int)cluster.byte_length);
+            else waddch(console_window, '?');
+         }
+         col += width;
+         pending_row = 1;
+      }
+      pos = cluster.end;
+   }
+   /* A trailing newline completes a row without appending an empty one. */
+   return row + pending_row;
 }
 
 static void console_draw(void)
 {
    const TheToolConsole *c = the_tool_console();
    static char text[THE_TOOL_OUTPUT + 1];
+   static unsigned char streams[THE_TOOL_OUTPUT];
    char heading[384], context[THE_TOOL_PATH + 160], state[128];
-   const char *p, *start, *end;
    const char *prompt = c->running && !c->eof ? "Program input> " : "Input closed> ";
    int h = console_rows, w = console_cols, row = h >= 8 ? 4 : 3;
-   int output_rows = h - row - 1, lines = 0, input_col, input_cells;
+   int output_rows = h - row - 1, lines, input_col, input_cells;
    int i, col = 1;
-   size_t length;
+   size_t length = 0, chunk;
    TextCellSlice input_slice;
 
    if (!h) return;
    if (!console_window) console_window = newwin(h, w, console_top, console_left);
    if (!console_window) return;
+   if (!console_divider)
+      console_divider = console_left
+         ? newwin(h, 1, console_top, console_left - 1)
+         : newwin(1, w, console_top - 1, 0);
+   if (console_divider)
+   {
+      wattrset(console_divider, console_theme_attr(ATTR_FILETABSDIV, 0));
+      wmove(console_divider, 0, 0);
+      if (console_left) wvline(console_divider, '|', h);
+      else whline(console_divider, '-', w);
+      leaveok(console_divider, TRUE);
+      wnoutrefresh(console_divider);
+   }
    werase(console_window);
+   /* Some supported curses configurations lack wbkgd(). Paint the blanks
+    * explicitly so the pane never inherits the terminal's default colours. */
+   wattrset(console_window, console_theme_attr(ATTR_FILEAREA, 0));
+   for (i = 0; i < h; i++) mvwhline(console_window, i, 0, ' ', w);
    snprintf(heading, sizeof(heading), " Program console | %s",
       c->focused ? "Esc: editor" : (w >= 64 ? "RX CONSOLE: input" : "F10: Menu"));
-   wattron(console_window, A_REVERSE);
+   wattrset(console_window, console_theme_attr(ATTR_IDLINE, 0));
+   mvwhline(console_window, 0, 0, ' ', w);
    console_write_text(0, 0, heading, strlen(heading), w - 1);
-   wattroff(console_window, A_REVERSE);
    for (i = 0; i < 5; i++)
    {
       int enabled = i == 0 ? !c->running : i == 1 ? c->running : 1;
       int selected = c->focused && console_toolbar_focus && console_control == i;
 
-      wattrset(console_window, selected ? A_REVERSE : enabled ? A_BOLD : A_DIM);
+      wattrset(console_window, console_theme_attr(
+         selected ? ATTR_CBLOCK : enabled ? ATTR_FILEAREA : ATTR_SHADOW,
+         enabled ? THE_STYLE_BOLD : 0));
       col += console_write_text(1, col, console_controls[i], strlen(console_controls[i]), w - col - 1);
       col++;
    }
-   wattrset(console_window, A_NORMAL);
+   wattrset(console_window, console_theme_attr(ATTR_FILEAREA, 0));
    snprintf(state, sizeof(state), "%s%s", c->state,
       c->running && w < 64 ? " | ^D EOF ^C stop" : "");
    console_write_text(2, 1, state, strlen(state), w - 2);
    if (h >= 8)
    {
+      wattrset(console_window, console_theme_attr(ATTR_SHADOW, 0));
       snprintf(context, sizeof(context), " %s | %s | source %u revision %u",
          c->tool, c->filename, c->source_id, c->revision);
       console_write_text(3, 0, context, strlen(context), w - 1);
    }
-   length = the_tool_console_text(text, sizeof(text));
-   /* A trailing newline finishes the last output row rather than adding a
-    * blank one that would hide the newest result in a short dock. */
-   for (p = text; *p; p++) if (*p == '\n' && p[1]) lines++;
-   start = text;
-   while (lines >= output_rows && *start)
-      if (*start++ == '\n') lines--;
-   while (*start && row < h - 1)
+   for (chunk = 0; chunk < c->count && length < THE_TOOL_OUTPUT; chunk++)
    {
-      end = strchr(start, '\n');
-      if (!end) end = text + length;
-      console_write_text(row++, 0, start, (size_t)(end - start), w - 1);
-      start = *end ? end + 1 : end;
+      size_t bytes = min(c->chunks[chunk].length, THE_TOOL_OUTPUT - length);
+
+      memcpy(text + length, c->chunks[chunk].text, bytes);
+      memset(streams + length, c->chunks[chunk].fd, bytes);
+      length += bytes;
    }
+   text[length] = 0;
+   lines = console_output_rows(text, streams, length, w - 1, 0, row, 0);
+   console_output_rows(text, streams, length, w - 1,
+                       max(0, lines - output_rows), row, output_rows);
+   wattrset(console_window, console_theme_attr(ATTR_CMDLINE, 0));
+   mvwhline(console_window, h - 1, 0, ' ', w);
    input_col = console_write_text(h - 1, 0, prompt, strlen(prompt), w - 2);
    input_cells = w - input_col - 1;
    input_slice = textpos_slice_cells((const CHARTYPE *)c->input, c->input_length,
@@ -1435,6 +1533,19 @@ static int console_mouse_event(TheInputEvent *event)
    if (!curses_driver_read_pending_mouse_button(&button, &action, &modifier))
       return 0;
    curses_driver_current_mouse_screen_position(&row, &col);
+   if (FILETABSx && row == 0 && col >= 0 && col < THE_NATIVE_MENU_WIDTH)
+   {
+      /* Wait for the completed click. Opening on press would let the
+       * release outside the popup dismiss it immediately. */
+      if (button == 1 && !modifier &&
+          (action == CURSES_DRIVER_MOUSE_BUTTON_RELEASED ||
+           action == CURSES_DRIVER_MOUSE_BUTTON_CLICKED ||
+           action == CURSES_DRIVER_MOUSE_BUTTON_DOUBLE_CLICKED))
+         return the_input_event_from_legacy_key(THE_KEY_F(10), event);
+      return 0;
+   }
+   if ((console_left && col == console_left - 1)
+   ||  (!console_left && row == console_top - 1)) return 0;
    if (row < console_top || row >= console_top + console_rows ||
        col < console_left || col >= console_left + console_cols)
    {
@@ -1510,7 +1621,7 @@ int curses_driver_read_input_event(TheInputEvent *event)
    if (!ok) ok = the_input_event_from_legacy_key(key, event);
    if (!in_macro && !the_panel_active)
    {
-      if (key == THE_KEY_MOUSE && console_rows) return console_mouse_event(event);
+      if (key == THE_KEY_MOUSE) return console_mouse_event(event);
       if (c->focused)
       {
          /* F10 and resize keep their normal editor route. Profile-defined
@@ -2548,12 +2659,12 @@ static void curses_driver_set_error(char *error, size_t error_len,
 
 static void curses_driver_refresh_terminal_size(void)
 {
-   if(console_window){delwin(console_window);console_window=NULL;}
+   console_delete_windows();
    console_rows=console_height();
    console_cols=console_width();
    console_left=console_rows && console_is_right() ? COLS-console_cols : 0;
    console_top=console_rows && !console_is_right() ? LINES-console_rows : 0;
-   terminal_lines = console_rows && !console_is_right() ? LINES-console_rows : LINES;
+   terminal_lines = console_rows && !console_is_right() ? console_top-1 : LINES;
    terminal_cols = console_left ? console_left-1 : COLS;
 #ifdef HAVE_BSD_CURSES
    terminal_lines--;

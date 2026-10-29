@@ -7,11 +7,13 @@ if os.name == 'nt':
     raise SystemExit(77)
 try:
     import pyte
+    from pyte import graphics
 except ImportError:
     raise SystemExit(77)
 
 import fcntl
 import pty
+import re
 import select
 import signal
 import struct
@@ -23,8 +25,22 @@ from pathlib import Path
 
 binary = Path(sys.argv[1]).resolve()
 repo = Path(__file__).resolve().parent.parent
-program = ("say 'Console ready'\npull name\nsay 'Hello' name\npull name\n"
+program = ("say 'Console ready'\n"
+           "say 'ASCII:' || copies('A', 41) || 'TAIL'\n"
+           "say 'WIDE:' || copies('B', 41) || '界e\u0301TAIL'\n"
+           "say 'TAB:' || '09'x || 'TAIL'\n"
+           "say 'CRLF' || '0d0a'x || 'NEXT'\n"
+           "say 'BLANK-BEFORE'\nsay ''\nsay 'BLANK-AFTER'\n"
+           "call charout , 'NO-NL' || copies('Z', 198) || 'END'\n"
+           "pull name\nsay 'Hello' name\npull name\n"
            "say 'Again' name\npull name\nsay 'Third' name\nexit 7\n")
+palette = list(graphics.FG_BG_256)
+
+
+def colour(actual, expected):
+    assert len(actual) == 6, (actual, expected)
+    assert all(abs(int(actual[i:i+2], 16) - int(expected[i:i+2], 16)) <= 2
+               for i in (0, 2, 4)), (actual, expected)
 
 with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
     root = Path(directory)
@@ -38,6 +54,7 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 30, 144, 0, 0))
     screen = pyte.Screen(144, 30)
     stream = pyte.ByteStream(screen)
+    output = bytearray()
     process = subprocess.Popen(
         [str(binary), '-p', str(profile), str(source)], stdin=slave, stdout=slave,
         stderr=slave, env=dict(os.environ, TERM='xterm-256color',
@@ -50,7 +67,18 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         while time.monotonic() < end:
             if select.select([master], [], [], .05)[0]:
                 try:
-                    stream.feed(os.read(master, 65536))
+                    data = os.read(master, 65536)
+                    output.extend(data)
+                    # ncurses defines RGB colours with OSC 4 before emitting
+                    # indexed SGR. pyte needs that palette applied explicitly.
+                    graphics.FG_BG_256[:] = palette
+                    for match in re.finditer(rb'\x1b\]4;(\d+);rgb:([0-9a-fA-F]+)/([0-9a-fA-F]+)/([0-9a-fA-F]+)', output):
+                        index = int(match[1])
+                        if index < 256:
+                            parts = [round(int(part, 16) * 255 / (16 ** len(part) - 1))
+                                     for part in match.groups()[1:]]
+                            graphics.FG_BG_256[index] = ''.join(f'{part:02x}' for part in parts)
+                    stream.feed(data)
                 except OSError:
                     if check():
                         return
@@ -62,6 +90,11 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
 
     def contains(text):
         return any(text in row for row in screen.display)
+
+    def pane(row, left=96):
+        # Display strings omit a wide glyph's continuation cell. Slice actual
+        # terminal columns so Unicode in the editor cannot shift pane offsets.
+        return ''.join(screen.buffer[row][col].data for col in range(left, screen.columns))
 
     def resize(rows, cols):
         fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack('HHHH', rows, cols, 0, 0))
@@ -94,6 +127,39 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         assert '======>' in screen.display[-2][:95], screen.display
         assert 'CRXTHE' in screen.display[-1][:95], screen.display
         assert 'Program input>' in screen.display[-1][96:], screen.display
+        wait(lambda: any(pane(row).startswith('NO-NL') for row in range(4, screen.lines - 1)),
+             'output without a final newline')
+        console = [pane(row) for row in range(4, screen.lines - 1)]
+        assert console[1] == 'ASCII:' + 'A' * 41 + ' ', console
+        assert console[2].startswith('TAIL'), console
+        assert console[3] == 'WIDE:' + 'B' * 41 + '  ', console
+        assert console[4].startswith('界éTAIL'), console
+        assert console[5].startswith('TAB:  TAIL'), console
+        assert console[6].startswith('CRLF') and console[7].startswith('NEXT'), console
+        assert console[8].startswith('BLANK-BEFORE') and not console[9].strip(), console
+        assert console[10].startswith('BLANK-AFTER') and console[11].startswith('NO-NL'), console
+        assert console[15].startswith('Z' * 15 + 'END'), console
+        assert all(screen.buffer[row][95].data == '|' for row in range(30)), screen.display
+        colour(screen.buffer[0][97].fg, 'F1F5FA')
+        colour(screen.buffer[0][143].bg, '25415F')
+        colour(screen.buffer[4][96].fg, 'D4D4D4')
+        colour(screen.buffer[4][143].bg, '1E1E1E')
+        colour(screen.buffer[29][96].fg, 'D4D4D4')
+        colour(screen.buffer[29][143].bg, '2D2D30')
+        colour(screen.buffer[10][95].fg, '6C7B90')
+        # The divider owns its column without moving editor/input focus.
+        caret = (screen.cursor.x, screen.cursor.y)
+        click_at(4, 95)
+        wait(lambda: (screen.cursor.x, screen.cursor.y) == caret, 'divider click keeps focus')
+        resize(30, 117)
+        wait(lambda: 'Program console |' in screen.display[0][73:]
+             and any(pane(row, 73).startswith('AAAATAIL') for row in range(4, screen.lines - 1)),
+             'output reflows at the minimum right dock width')
+        assert all(screen.buffer[row][72].data == '|' for row in range(30)), screen.display
+        assert any(pane(row, 73).startswith('BBB界éTAIL') for row in range(4, screen.lines - 1)), screen.display
+        resize(30, 144)
+        wait(lambda: pane(5).startswith('ASCII:' + 'A' * 41)
+             and pane(6).startswith('TAIL'), 'output reflows back to wide dock')
         menu(10)
         wait(lambda: not contains('Program console |'), 'menu hides running console')
         menu(9)
@@ -113,6 +179,15 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         resize(30, 100)
         wait(lambda: 'Program console |' in screen.display[-8], 'narrow bottom dock')
         assert 'sec' in screen.display[-1], screen.display
+        # Tail visual rows, including continuation rows from one long record.
+        assert screen.display[-4] == 'Z' * 99 + ' ', screen.display
+        assert screen.display[-3].startswith('Z' * 5 + 'END› Zoë😀'), screen.display
+        assert screen.display[-2].startswith('Hello ZOË😀'), screen.display
+        assert all(screen.buffer[21][col].data == '-' for col in range(100)), screen.display
+        caret = (screen.cursor.x, screen.cursor.y)
+        click_at(21, 50)
+        wait(lambda: (screen.cursor.x, screen.cursor.y) == caret,
+             'horizontal divider click keeps input focus')
         os.write(master, b'ond\rthird\r')
         wait(lambda: contains('Third THIRD') and contains('status 7'), 'queued repeated input and completion')
         os.write(master, b'late\r')
@@ -151,6 +226,7 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         assert contains('F10 Menu'), screen.display
         resize(24, 117)
         wait(lambda: 'Program console |' in screen.display[0][73:], 'minimum useful right dock')
+        assert all(screen.buffer[row][72].data == '|' for row in range(24)), screen.display
         resize(24, 116)
         wait(lambda: 'Program console |' in screen.display[-8], 'below threshold uses bottom dock')
         resize(15, 60)
@@ -168,4 +244,4 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
             process.wait()
         os.close(master)
 
-print('Adaptive terminal console, mouse/keyboard controls, Unicode stdin and resize passed')
+print('Themed terminal console, cell wrapping/tailing, divider, controls, Unicode stdin and resize passed')

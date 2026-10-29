@@ -44,7 +44,8 @@ Terminal commands are:
 | `RX STATUS` | Display job state. |
 
 The default terminal profile keeps editor responses immediately above the
-editor command line. **F10 Menu** opens file, editing, navigation, run and
+editor command line. **MENU (F10)** at the upper left can be clicked; F10 opens
+the same pull-down menu for file, editing, navigation, run and
 profile actions, with separate actions to focus or hide the Program console.
 The menu remains available while Program input has focus; a Run chosen there
 starts after the menu closes. **Key definitions** retains the complete key guide. This

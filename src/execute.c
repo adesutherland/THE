@@ -5256,6 +5256,18 @@ short prepare_popup( CHARTYPE *params )
             state = STATE_START;
             break;
          case STATE_POPUP_LOCATION_TEXT:
+            if ( len_params >= 7
+            &&   memcmpi( params, (CHARTYPE *)"topleft", 7 ) == 0 )
+            {
+               location = 'L';
+               other_options++;
+               params += 7;
+               strtrunc(params);
+               len_params = strlen((DEFCHAR *)params);
+               i = 0;
+               state = STATE_START;
+               break;
+            }
             if ( len_params < 4
             ||   memcmpi( params, (CHARTYPE *)"text", 4 ) != 0 )
             {
@@ -5496,6 +5508,11 @@ short prepare_popup( CHARTYPE *params )
             x = (terminal_cols - width) / 2;
             y = (terminal_lines - height) / 2;
             break;
+         case 'L':
+            /* The native MENU label occupies row zero. Open beneath it. */
+            x = 0;
+            y = 1;
+            break;
          case 'T':
             /*
              * Get the current window text position and get the
@@ -5607,6 +5624,7 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
    int y_overlap;
    int offset_lines=0;
    int escape_key_index = 0;
+   int resized = 0;
    const char * const *popup_items = (const char * const *)args;
    TransientUiPopupState popup_state;
    TransientUiSnapshot popup_snapshot;
@@ -5735,6 +5753,11 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
       the_driver->refresh_window_now(dialog_win);
 
       key = the_driver_read_terminal_legacy_key();
+      if (key == THE_KEY_RESIZE || the_driver_is_terminal_resized())
+      {
+         resized = 1;
+         break;
+      }
 #if defined(USE_XCURSES)
       /*
        * Ignore scrollbar "keys"
@@ -5825,6 +5848,11 @@ short execute_popup(int y, int x, int height, int width, int pad_height, int pad
 
    the_driver->delete_window(dialog_win);
    the_driver->present_cursor(TRUE);
+   if (resized)
+   {
+      the_driver->clear_terminal_screen();
+      (void)THE_Resize(0,0);
+   }
    /*
     * Set the Rexx variables POPUP.0, POPUP.1 and POPUP.2 depending
     * on whether an item was selected and which item.

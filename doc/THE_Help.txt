@@ -268,7 +268,7 @@
        execute an operating system command and capture output
  OVERLAYBox
        overlay marked block on current cursor position
- POPUP [MOUSE|TEXT|CENTER|CENTRE|BELOW|ABOVE] [INITIAL n] [ESCAPE keyname] /item1[/item2/...]
+ POPUP [MOUSE|TEXT|CENTER|CENTRE|TOPLEFT|BELOW|ABOVE] [INITIAL n] [ESCAPE keyname] /item1[/item2/...]
        display popup menu
  PREServe
        save various editor settings

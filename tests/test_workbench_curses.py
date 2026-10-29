@@ -63,6 +63,11 @@ for engine in ['CREXX', 'REGINA']:
         def send(keys):
             os.write(master, keys)
 
+        def click_at(row, col):
+            # Xterm button-1 press/release, decoded by the native mouse reader.
+            position = bytes((col + 33, row + 33))
+            send(b'\x1b[M ' + position + b'\x1b[M#' + position)
+
         def command(text):
             send(b'\x1b')
             wait(lambda: screen.cursor.y == rows - 2, 'command focus')
@@ -76,6 +81,13 @@ for engine in ['CREXX', 'REGINA']:
         try:
             wait(lambda: 'F10 Menu' in screen.display[rows - 4]
                  and 'CRXTHE 0.10.dev' in screen.display[rows - 3], 'guided footer')
+            assert 'MENU (F10)' in screen.display[0][:14], screen.display
+            click_at(0, 2)
+            wait(lambda: 'Open or create file' in screen.display[2][:40],
+                 'top-left mouse menu opens below its button')
+            send(b'\x1b')
+            wait(lambda: 'Open or create file' not in '\n'.join(screen.display),
+                 'mouse menu cancels')
             command('msg FIRST_RESPONSE')
             response('FIRST_RESPONSE')
             assert screen.cursor.y == rows - 2, screen.cursor
@@ -93,7 +105,8 @@ for engine in ['CREXX', 'REGINA']:
             wait(lambda: source.read_text() == 'ZQalpha\nbeta\ngamma\ndelta\n', 'save after Menu')
             send(b'\x1b[21~')
             wait(lambda: any('Open or create file' in row for row in screen.display), 'Menu reopened')
-            send(b'\x1b[B' * 4 + b'\r')  # Find, using the real popup selection route.
+            find_row = next(y for y, line in enumerate(screen.display) if 'Find...' in line)
+            click_at(find_row, screen.display[find_row].index('Find...') + 1)
             wait(lambda: 'locate /' in screen.display[rows - 2], 'Menu Find opens command')
             send(b'\x15')  # Clear the prepared command before a new command.
             command('set msgline on 3 1')
@@ -101,7 +114,11 @@ for engine in ['CREXX', 'REGINA']:
             wait(lambda: any('CUSTOM_RESPONSE' in row for row in screen.display[:rows - 4]),
                  'custom message position')
             command('set msgline on -2 1')
-            for height, width in [(16, 60), (16, 32), (15, 40), (24, 80)]:
+            for index, (height, width) in enumerate([(16, 60), (16, 32), (15, 40), (24, 80)]):
+                if index == 0:
+                    send(b'\x1b[21~')
+                    wait(lambda: 'Open or create file' in '\n'.join(screen.display),
+                         'menu open before resize')
                 rows, cols = height, width
                 fcntl.ioctl(master, termios.TIOCSWINSZ,
                             struct.pack('HHHH', rows, cols, 0, 0))
@@ -109,6 +126,7 @@ for engine in ['CREXX', 'REGINA']:
                 process.send_signal(signal.SIGWINCH)
                 wait(lambda: screen.display[rows - 2].startswith('======>')
                      and 'F10 Menu' in screen.display[rows - 4], 'resize footer')
+                assert 'Open or create file' not in '\n'.join(screen.display), screen.display
                 command('msg COMPACT_RESPONSE')
                 response('COMPACT_RESPONSE')
                 assert 'F10 Menu' in screen.display[rows - 4], screen.display

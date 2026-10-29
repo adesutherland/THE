@@ -2856,6 +2856,7 @@ VIEW_DETAILS *find_filetab(int x)
    bool process_view=FALSE;
    register int j=0;
    int fname_len, fname_start = 0;
+   int filetabs_width = terminal_cols;
    bool first = TRUE, more = FALSE;
 
    TRACE_FUNCTION("util.c:    find_filetab");
@@ -2864,6 +2865,17 @@ VIEW_DETAILS *find_filetab(int x)
     */
    if ( FILETABSx )
    {
+      if (the_driver_is_curses())
+      {
+         if (x >= 0 && x < THE_NATIVE_MENU_WIDTH)
+         {
+            TRACE_RETURN();
+            return NULL;
+         }
+         if (x >= 0)
+            x -= THE_NATIVE_MENU_WIDTH;
+         filetabs_width -= THE_NATIVE_MENU_WIDTH;
+      }
       if ( filetabs_start_view == NULL )
          curr = vd_current;
       else
@@ -2901,7 +2913,7 @@ VIEW_DETAILS *find_filetab(int x)
                {
                   fname_start += DEFAULT_FILETABS_GAP_WIDTH;
                }
-               if ( fname_start + fname_len > terminal_cols-2 )
+               if ( fname_start + fname_len > filetabs_width-2 )
                {
                   more = TRUE;
                   break;
@@ -2919,13 +2931,13 @@ VIEW_DETAILS *find_filetab(int x)
          if (curr == NULL)
             curr = vd_first;
       }
-      if ( more && x == terminal_cols-1 )
+      if ( more && x == filetabs_width-1 )
       {
          Tabfile( (CHARTYPE *)"+" );
          TRACE_RETURN();
          return NULL;
       }
-      if ( more && x == terminal_cols-2 )
+      if ( more && x == filetabs_width-2 )
       {
          Tabfile( (CHARTYPE *)"-" );
          TRACE_RETURN();

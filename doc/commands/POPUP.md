@@ -3,7 +3,7 @@
 
 ## Syntax
 ```text
-POPUP [MOUSE|TEXT|CENTER|CENTRE|BELOW|ABOVE] [INITIAL n] [ESCAPE keyname]
+POPUP [MOUSE|TEXT|CENTER|CENTRE|TOPLEFT|BELOW|ABOVE] [INITIAL n] [ESCAPE keyname]
 [KEYS keyname,keyname,...] /item1[/item2/...]
 ```
 
@@ -24,6 +24,8 @@ text cursor is displayed. The popup window will use at most from the line below 
 bottom of the screen.
 CENTRE or CENTER specifies that the popup window is centred in the middle of the screen. This
 option will use all of the screen to display the popup window if necessary.
+TOPLEFT places the popup at column one, directly below the top row. The native
+workbench menu uses this position for both F10 and its clickable menu label.
 If the location is not specified, then the default is CENTRE
 INITIAL specifies the item to be highlighted when the popup window is first displayed. This value
 must be within the bounds of the items specified.
@@ -53,7 +55,7 @@ The colours used for the popup are:
 
 ## Compatibility
 XEDIT: N/A
-KEDIT: KEDIT does not support INITIAL, ESCAPE, KEYS, ABOVE or BELOW options.
+KEDIT: KEDIT does not support INITIAL, ESCAPE, KEYS, ABOVE, BELOW or TOPLEFT options.
 
 ## See Also
 DIALOG, ALERT
