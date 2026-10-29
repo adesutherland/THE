@@ -128,11 +128,11 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE presentation ') as temporary:
         terminal.send(b'\x1b[ZQ')
         terminal.wait(lambda s: any('Blice' in row for row in s.display) and any('Qexx' in row for row in s.display))
         terminal.send(b'\r')
-        terminal.wait(lambda s: any('tail' in row for row in s.display) and any('F10 Keys' in row for row in s.display))
+        terminal.wait(lambda s: any('tail' in row for row in s.display) and any('F10 Menu' in row for row in s.display))
         terminal.send(b'\x1b[18~')
         terminal.wait(lambda s: any('Guest' in row for row in s.display))
         terminal.send(b'\x1b')
-        terminal.wait(lambda s: any('tail' in row for row in s.display) and any('F10 Keys' in row for row in s.display))
+        terminal.wait(lambda s: any('tail' in row for row in s.display) and any('F10 Menu' in row for row in s.display))
         assert sample.read_bytes() == original
     finally:
         terminal.close()

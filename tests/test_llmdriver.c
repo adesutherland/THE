@@ -90,6 +90,46 @@ static void test_semantic_view_from_frame(void)
                    "{\"start\": 3, \"len\": 2, \"style\": \"string\"}");
 }
 
+static void test_message_snapshot_fields(void)
+{
+   static LlmDriverScreenView previous;
+   static LlmDriverScreenView current;
+   LlmDriverFormatOptions options;
+   char out[4096];
+
+   llm_driver_screen_view_init(&previous, 1, 80, logical_cursor_invalid());
+   llm_driver_screen_view_set_status(&previous, "focus=filearea message=old");
+   llm_driver_screen_view_set_last_message(&previous, 4, "old");
+   current = previous;
+   llm_driver_screen_view_set_last_message(&current, 5, "new \"message\"");
+
+   llm_driver_format_options_init(&options);
+   options.compact = 1;
+   options.include_status = 0;
+   llm_driver_format_semantic_view_with_options(&current, &options,
+                                                out, sizeof(out));
+   expect_contains("message.compact.serial", out,
+                   "\"last_message_serial\":5");
+   expect_contains("message.compact.text", out,
+                   "\"last_message\":\"new \\\"message\\\"\"");
+   expect_int("message.compact.no.status", strstr(out, "\"status\"") == NULL, 1);
+
+   options.compact = 0;
+   llm_driver_format_semantic_view_with_options(&current, &options,
+                                                out, sizeof(out));
+   expect_contains("message.full.serial", out,
+                   "\"last_message_serial\": 5");
+   expect_contains("message.full.text", out,
+                   "\"last_message\": \"new \\\"message\\\"\"");
+
+   llm_driver_format_delta_view(&previous, &current, &options,
+                                out, sizeof(out));
+   expect_contains("message.delta.serial", out,
+                   "\"last_message_serial\":5");
+   expect_contains("message.delta.text", out,
+                   "\"last_message\":\"new \\\"message\\\"\"");
+}
+
 static void test_compact_filearea_view_options(void)
 {
    UiFrame frame;
@@ -488,6 +528,7 @@ int main(void)
 {
    test_screen_view_format();
    test_semantic_view_from_frame();
+   test_message_snapshot_fields();
    test_compact_filearea_view_options();
    test_reserved_view_options();
    test_agent_metadata_and_delta();

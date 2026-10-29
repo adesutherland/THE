@@ -1004,25 +1004,110 @@ void curses_driver_end_terminal_report(void)
 }
 
 static WINDOW *console_window;
-static int console_rows, console_timeout=-1;
-static int console_height(void){return the_tool_console()->visible&&LINES>=16? (LINES>=30?8:5):0;}
-static void console_draw(void){
- const TheToolConsole*c=the_tool_console();static char text[THE_TOOL_OUTPUT+1];char *p,*start;int h=console_rows,row=1,lines=0;
- if(!h)return;
- if(!console_window)console_window=newwin(h,COLS,LINES-h,0);
- if(!console_window)return;
- werase(console_window);wattron(console_window,A_REVERSE);mvwprintw(console_window,0,0," Console | %.80s | %s",c->state,c->focused?"Esc: editor  Ctrl-C: stop  Ctrl-D: EOF":"RX CONSOLE: focus");wattroff(console_window,A_REVERSE);
- the_tool_console_text(text,sizeof(text));for(p=text;*p;p++)if(*p=='\n')lines++;
- start=text;while(lines>h-3&&*start){if(*start++=='\n')lines--;}
- for(p=start;*p&&row<h-1;p++){unsigned char ch=*p;if(ch=='\n'){row++;wmove(console_window,row,0);}else if(ch=='\t')waddstr(console_window,"  ");else if(ch>=32&&ch!=127){
-#ifdef USE_UTF8
-   wchar_t wc;mbstate_t state={0};size_t n=mbrtowc(&wc,p,strlen(p),&state);if(n!=(size_t)-1&&n!=(size_t)-2&&n){waddnwstr(console_window,&wc,1);p+=n-1;}
-#else
-   waddch(console_window,ch);
-#endif
-  }}
- mvwprintw(console_window,h-1,0,"> %.*s",COLS>3?COLS-3:0,c->input);
- wmove(console_window,h-1,(int)c->input_length+2<COLS?(int)c->input_length+2:COLS-1);leaveok(console_window,c->focused?FALSE:TRUE);wnoutrefresh(console_window);
+static int console_rows, console_timeout = -1;
+
+static int console_height(void)
+{
+   return the_tool_console()->visible && LINES >= 16 && COLS >= 32
+      ? (LINES >= 30 ? 8 : 5) : 0;
+}
+
+/* Bound every physical row in cells. A long program line must not wrap into
+ * the editor's response row, input field or following terminal line. */
+static int console_write_text(int row, int col, const char *text, size_t length,
+                              int cells)
+{
+   size_t offset = 0;
+   int used = 0;
+
+   wmove(console_window, row, col);
+   while (offset < length && used < cells)
+   {
+      TextCluster cluster = textpos_cluster_at_boundary(
+         (const CHARTYPE *)text, length, textpos_from_byte(
+            (const CHARTYPE *)text, length, offset));
+      int width = cluster.cell_width;
+      size_t bytes = cluster.byte_length;
+
+      if (!bytes) break;
+      if (text[offset] == '\t')
+      {
+         if (used + 2 > cells) break;
+         waddstr(console_window, "  ");
+         used += 2;
+      }
+      else if ((unsigned char)text[offset] >= 32 && text[offset] != 127)
+      {
+         if (used + width > cells) break;
+         if (cluster.valid)
+            waddnstr(console_window, text + offset, (int)bytes);
+         else
+            waddch(console_window, '?');
+         used += cluster.valid ? width : 1;
+      }
+      offset += bytes;
+   }
+   return used;
+}
+
+static void console_draw(void)
+{
+   const TheToolConsole *c = the_tool_console();
+   static char text[THE_TOOL_OUTPUT + 1];
+   char heading[384], context[THE_TOOL_PATH + 160];
+   const char *p, *start, *end;
+   const char *prompt = "Program input> ";
+   int h = console_rows, row = h >= 8 ? 2 : 1;
+   int output_rows = h - row - 1, lines = 0, input_col, input_cells;
+   size_t length;
+   TextCellSlice input_slice;
+
+   if (!h) return;
+   if (!console_window) console_window = newwin(h, COLS, LINES - h, 0);
+   if (!console_window) return;
+   werase(console_window);
+   snprintf(heading, sizeof(heading), " Program console | %s | %s",
+      c->focused ? "Esc: editor" : (COLS >= 64 ? "RX CONSOLE: input" : "F10: Menu"),
+      c->state);
+   wattron(console_window, A_REVERSE);
+   console_write_text(0, 0, heading, strlen(heading), COLS - 1);
+   wattroff(console_window, A_REVERSE);
+   if (h >= 8)
+   {
+      snprintf(context, sizeof(context), " %s | %s | source %u revision %u",
+         c->tool, c->filename, c->source_id, c->revision);
+      console_write_text(1, 0, context, strlen(context), COLS - 1);
+   }
+   length = the_tool_console_text(text, sizeof(text));
+   for (p = text; *p; p++) if (*p == '\n') lines++;
+   start = text;
+   while (lines >= output_rows && *start)
+      if (*start++ == '\n') lines--;
+   while (*start && row < h - 1)
+   {
+      end = strchr(start, '\n');
+      if (!end) end = text + length;
+      console_write_text(row++, 0, start, (size_t)(end - start), COLS - 1);
+      start = *end ? end + 1 : end;
+   }
+   input_col = console_write_text(h - 1, 0, prompt, strlen(prompt), COLS - 2);
+   input_cells = COLS - input_col - 1;
+   input_slice = textpos_slice_cells((const CHARTYPE *)c->input, c->input_length,
+      max(0, textpos_from_byte((const CHARTYPE *)c->input, c->input_length,
+         c->input_length).cell_column - input_cells + 1), input_cells - 1);
+   input_col += console_write_text(h - 1, input_col,
+      c->input + input_slice.start.byte_offset,
+      input_slice.end.byte_offset - input_slice.start.byte_offset, input_cells - 1);
+   if (!c->input_length)
+   {
+      const char *hint = c->running && !c->eof
+         ? (COLS >= 64 ? "Ctrl-D: EOF  Ctrl-C: stop" : "^D EOF  ^C stop") : "input closed";
+      console_write_text(h - 1, COLS - (int)strlen(hint) - 2,
+         hint, strlen(hint), (int)strlen(hint));
+   }
+   wmove(console_window, h - 1, input_col);
+   leaveok(console_window, c->focused ? FALSE : TRUE);
+   wnoutrefresh(console_window);
 }
 void curses_driver_update(void)
 {
@@ -1271,6 +1356,8 @@ int curses_driver_read_input_event(TheInputEvent *event)
  if(!event)return 0;
  the_tools_native_initialise();the_tools_native_poll();c=the_tool_console();
  if(console_height()!=console_rows)return the_input_event_from_resize(0,0,event);
+ if(c->focused&&!console_rows&&!in_macro&&!the_panel_active)
+  return the_input_event_from_command("rx key escape",event);
  if(c->running)curses_driver_set_window_timeout(curses_driver_current_active_window(),50);
  key=curses_driver_read_current_window_key();
  if(c->running)curses_driver_set_window_timeout(curses_driver_current_active_window(),console_timeout);

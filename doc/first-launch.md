@@ -42,7 +42,7 @@ The status line and startup message expose the CRXTHE identity and key hints.
 | F4 | Prefix area beside the current record |
 | F5 / Insert | Toggle insert and overwrite mode |
 | Shift-Tab | Toggle console command/file focus |
-| F10 | Open the complete current key-definition list |
+| F10 | Terminal command Menu, including the complete key-definition list |
 
 On macOS, function keys may require Fn. Use Terminal's ordinary Command-C/V
 for its clipboard. Windows PDCurses additionally binds Ctrl-C/X/V to the
@@ -95,9 +95,11 @@ clamps its painted position inside the field, and highlights the active prefix.
 Prefix text is left-aligned to the same cell positions used for clicks and
 caret movement. The caret is hidden while the browser command field has focus.
 
-A reserved footer row lists F1–F6, F10 and Esc. F10 opens THE's `SHOWKEY ALL`
-view with default and profile key definitions. This key guide is inherited by
-new buffers, including help. The console file-tab strip above the filename
+A terminal footer leads with **F10 Menu**, followed by command/file focus and
+help shortcuts. The Menu offers file, editing, navigation, program and profile
+actions; **Key definitions** opens `SHOWKEY ALL`. Editor responses appear in
+the reserved row immediately above the command line. These footer rows are
+inherited by new buffers, including help. The console file-tab strip above the filename
 uses explicit dark colors; with one file it remains an empty strip by design.
 F6 toggles between command and file editing, restoring the file caret. From
 the prefix field, F6 enters command; the next F6 returns to file editing.
@@ -125,5 +127,6 @@ ordinary quit protects them.
 `SOS CUADELCHAR` joins the next line when the caret is at or beyond the current
 line's end. `SOS CUADELBACK` at the first column joins onto the preceding line.
 The ordinary `SOS DELCHAR` and `SOS DELBACK` commands do not join lines. Key
-bindings and terminal key identities can differ; inspect F10 / `SHOWKEY ALL`,
-and use the explicit command when a particular boundary behavior is required.
+bindings and terminal key identities can differ; inspect Menu → Key definitions
+or `SHOWKEY ALL`, and use the explicit command when a particular boundary
+behavior is required.

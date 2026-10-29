@@ -42,12 +42,14 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
     assert '+' in ruler and '1' in ruler,ruler
     assert 'CRXTHE 0.10.dev' in snap['status'],snap['status']
     assert sample.read_text(encoding='utf-8')=='alpha\nfindme\n'
-    assert any(row['role']=='reserved' and 'F6 Cmd' in row['t'] and 'F10 Keys' in row['t']
+    assert any(row['role']=='reserved' and 'F6 Cmd' in row['t'] and 'F10 Menu' in row['t']
                for row in snap['screen_rows']),snap
     for key in ['f6','esc','ctrl-l']:
         records,_=run('key '+key+'\nlook full compact')
         assert any(record.get('focus',{}).get('zone')=='command' for record in records),(key,records)
-    records,_=run('key f10\nlook full compact')
+    assert any(row['role']=='reserved' and 'Response:' in row['t']
+               for row in snap['screen_rows']),snap
+    records,_=run('command showkey all\nlook full compact')
     assert any('define ' in row['t'].lower() for record in records
                for row in record.get('screen_rows',[])),records
     records,_=run('command query colour filetabs\nlook full compact')

@@ -101,6 +101,12 @@ ACK responses include `message_changed`; `last_message` appears only when THE
 has produced a fresh human-facing message since the previous ACK. ACKs also
 include compact focus, buffer, selection, and pending-prefix state.
 
+Full, compact, and delta snapshots always include `last_message_serial` and
+`last_message`. The serial advances when THE records a human-facing message;
+the text is the latest such message (up to 4096 bytes). Consumers can compare
+serials to detect a new message even if its text repeats. The existing `status`
+field remains a diagnostic summary of focus, position, and message.
+
 ## Screen View Contract
 
 `LlmDriverScreenView` is the current snapshot structure. It contains:

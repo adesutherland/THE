@@ -12,6 +12,7 @@ import {
   Save,
   Undo2,
   X,
+  Menu,
 } from "lucide-preact";
 import type { DriverMessage, FileListMessage, FrontendActionDefinition, PanelColour, ScreenRow, Snapshot, StyleRun } from "./types";
 import "./styles.css";
@@ -99,6 +100,50 @@ function pointerCell(event: MouseEvent, startCell: number): number {
   return startCell + Math.max(0, Math.floor((event.clientX - rect.left - padding) / width));
 }
 
+type DockEntry = { id: number; kind: "command" | "response" | "error"; text: string };
+
+function PaneSplitter({ label, orientation, value, minimum, maximum, reverse = false, onChange }: {
+  label: string;
+  orientation: "horizontal" | "vertical";
+  value: number;
+  minimum: number;
+  maximum: number;
+  reverse?: boolean;
+  onChange: (value: number) => void;
+}) {
+  const clamp = (next: number) => Math.max(minimum, Math.min(maximum, next));
+  return <div class={`pane-splitter splitter-${orientation}`} role="separator" tabIndex={0}
+    aria-label={label} aria-orientation={orientation} aria-valuemin={minimum}
+    aria-valuemax={maximum} aria-valuenow={Math.round(value)}
+    onKeyDown={(event) => {
+      const previous = orientation === "vertical" ? "ArrowLeft" : "ArrowUp";
+      const next = orientation === "vertical" ? "ArrowRight" : "ArrowDown";
+      if (![previous, next, "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      onChange(event.key === "Home" ? minimum : event.key === "End" ? maximum
+        : clamp(value + (event.key === previous ? -20 : 20) * (reverse ? -1 : 1)));
+    }}
+    onPointerDown={(event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      const element = event.currentTarget;
+      const start = orientation === "vertical" ? event.clientX : event.clientY;
+      const previous = value;
+      element.setPointerCapture(event.pointerId);
+      element.onpointermove = (move) => onChange(clamp(previous +
+        ((orientation === "vertical" ? move.clientX : move.clientY) - start) * (reverse ? -1 : 1)));
+      const finish = () => {
+        element.onpointermove = null;
+        element.onpointerup = null;
+        element.onpointercancel = null;
+        element.onlostpointercapture = null;
+      };
+      element.onpointerup = finish;
+      element.onpointercancel = finish;
+      element.onlostpointercapture = finish;
+    }} />;
+}
+
 function App() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [connection, setConnection] = useState<"connecting" | "online" | "reconnecting" | "offline">("connecting");
@@ -109,6 +154,15 @@ function App() {
   const [commandFocused, setCommandFocused] = useState(false);
   const [actions, setActions] = useState<FrontendActionDefinition[]>([]);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const [consoleOpen, setConsoleOpen] = useState(false);
+  const [mobilePane, setMobilePane] = useState<"files" | "diagnostics" | "console">("files");
+  const [filesWidth, setFilesWidth] = useState(216);
+  const [auxWidth, setAuxWidth] = useState(400);
+  const [diagnosticsHeight, setDiagnosticsHeight] = useState(190);
+  const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const [commandHistoryOpen, setCommandHistoryOpen] = useState(false);
+  const [dockEntries, setDockEntries] = useState<DockEntry[]>([]);
   const [pathAction, setPathAction] = useState<FrontendActionDefinition | null>(null);
   const [pathValue, setPathValue] = useState("");
   const [explorerOpen, setExplorerOpen] = useState(false);
@@ -123,6 +177,20 @@ function App() {
   const snapshotRef = useRef<Snapshot | null>(null);
   const lastFileFocusRef = useRef<Snapshot["focus"] | null>(null);
   const viewportSizeRef = useRef("");
+  const messageSerialRef = useRef<number | null>(null);
+  const dockIdRef = useRef(0);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const menuReturnRef = useRef<HTMLElement | null>(null);
+  const responseLogRef = useRef<HTMLDivElement | null>(null);
+  const followingResponsesRef = useRef(true);
+  const lastShownJob = useRef(0);
+
+  const appendDockEntry = useCallback((kind: DockEntry["kind"], text: string) => {
+    if (!text) return;
+    const entry = { id: ++dockIdRef.current, kind, text };
+    setDockEntries((entries) => [...entries.slice(-199), entry]);
+  }, []);
 
   const send = useCallback((message: Record<string, unknown>) => {
     const socket = socketRef.current;
@@ -191,6 +259,11 @@ function App() {
             setLastError(message.message ?? "Browser editor could not start");
           } else if ("mode" in message && "screen_rows" in message) {
             const nextSnapshot = message as Snapshot;
+            if (typeof nextSnapshot.last_message_serial === "number") {
+              if (messageSerialRef.current !== null && messageSerialRef.current !== nextSnapshot.last_message_serial)
+                appendDockEntry("response", nextSnapshot.last_message ?? "");
+              messageSerialRef.current = nextSnapshot.last_message_serial;
+            }
             if (snapshotRef.current?.buffer?.path !== nextSnapshot.buffer?.path) lastFileFocusRef.current = null;
             if (nextSnapshot.focus.zone === "filearea") lastFileFocusRef.current = nextSnapshot.focus;
             snapshotRef.current = nextSnapshot;
@@ -203,6 +276,7 @@ function App() {
             setFiles(message as FileListMessage);
           } else if ("type" in message && message.type === "error") {
             setLastError(message.message ?? "Driver rejected the input");
+            appendDockEntry("error", message.message ?? "Driver rejected the input");
           }
         } catch {
           setLastError("The web driver returned invalid JSON");
@@ -248,17 +322,51 @@ function App() {
       window.removeEventListener("beforeunload", beforeUnload);
       close();
     };
-  }, [focusEditor]);
+  }, [appendDockEntry, focusEditor]);
+
+  useEffect(() => {
+    const resized = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener("resize", resized);
+    return () => window.removeEventListener("resize", resized);
+  }, []);
+
+  useEffect(() => {
+    const closeMenu = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setOpenMenu(null);
+    };
+    document.addEventListener("pointerdown", closeMenu);
+    return () => {
+      document.removeEventListener("pointerdown", closeMenu);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (toolSession?.job.id && toolSession.job.id !== lastShownJob.current) {
+      lastShownJob.current = toolSession.job.id;
+      setConsoleOpen(true);
+      setMobilePane("console");
+    }
+  }, [toolSession?.job.id]);
+
+  useEffect(() => {
+    if (snapshot?.diagnostics?.length) setDiagnosticsOpen(true);
+  }, [snapshot?.buffer?.path, !!snapshot?.diagnostics?.length]);
+
+  useEffect(() => {
+    if (followingResponsesRef.current && responseLogRef.current)
+      responseLogRef.current.scrollTop = responseLogRef.current.scrollHeight;
+  }, [dockEntries[dockEntries.length - 1]?.id, commandHistoryOpen]);
 
   const runCommand = useCallback(
     (value: string) => {
       const trimmed = value.trim();
       if (!trimmed) return;
-      send({ type: "command", command: trimmed });
+      if (send({ type: "command", command: trimmed }) === undefined) return;
+      appendDockEntry("command", trimmed);
       setCommand("");
       window.setTimeout(focusEditor, 0);
     },
-    [focusEditor, send],
+    [appendDockEntry, focusEditor, send],
   );
 
   const sendAction = useCallback(
@@ -289,6 +397,7 @@ function App() {
       setOpenMenu(null);
       if (id === "file.open" && argument === undefined) {
         setExplorerOpen(true);
+        setMobilePane("files");
         requestFiles();
         return;
       }
@@ -306,7 +415,8 @@ function App() {
     (snapshot?.screen_rows ?? []).map((row) => ({ row, hints: keyHintsForRow(row) }))
       .filter((entry) => entry.hints.length > 0), [snapshot?.screen_rows, !!snapshot?.panel]);
   const keyHintRowIds = new Set(keyHintRows.map(({ row }) => row.r));
-  const keyHints = keyHintRows.flatMap(({ hints }) => hints);
+  const keyHints = keyHintRows.flatMap(({ hints }) => hints).map((hint) =>
+    hint.key === "F10" ? { ...hint, label: "Menu" } : hint);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -358,6 +468,13 @@ function App() {
 
   const onEditorKeyDown = useCallback(
     (event: KeyboardEvent) => {
+      if (!snapshot?.panel && event.key === "F10") {
+        event.preventDefault();
+        menuReturnRef.current = inputRef.current;
+        setOpenMenu("application");
+        menuButtonRef.current?.focus();
+        return;
+      }
       if (snapshot?.panel && (event.ctrlKey || event.metaKey)) {
         event.preventDefault();
         return;
@@ -438,34 +555,57 @@ function App() {
     [focusEditor, send],
   );
 
+  const toolsAvailable = !!toolSession?.catalog.some((tool) => tool.available);
+  const maximumFilesWidth = Math.max(180, Math.min(400, Math.floor(windowSize.width * .25)));
+  const maximumAuxWidth = Math.max(300, Math.min(650, Math.floor(windowSize.width * .36)));
+  const maximumDiagnosticsHeight = Math.max(96, Math.min(440, Math.floor((windowSize.height - 120) * .35)));
+  const showAux = diagnosticsOpen || (consoleOpen && toolsAvailable);
+  const activeMobilePane = mobilePane === "files" && explorerOpen ? "files"
+    : mobilePane === "diagnostics" && diagnosticsOpen ? "diagnostics"
+    : mobilePane === "console" && consoleOpen && toolsAvailable ? "console"
+    : explorerOpen ? "files" : diagnosticsOpen ? "diagnostics" : "console";
+  const latestResponse = [...dockEntries].reverse().find((entry) => entry.kind !== "command");
+  const toggleFiles = () => {
+    if (window.innerWidth >= 1100 || activeMobilePane === "files") setExplorerOpen(!explorerOpen);
+    else setExplorerOpen(true);
+    setMobilePane("files");
+    if (!explorerOpen) requestFiles();
+  };
+
   return (
     <main class="app-shell">
       <header class="toolbar">
         <div class="product-mark">CRXTHE</div>
-        <nav class="menu-bar" aria-label="Application menu">
-          {menus.map(([menu, entries]) => (
-            <div class="menu-root" key={menu}>
-              <button
-                type="button"
-                class={`menu-trigger ${openMenu === menu ? "menu-trigger-open" : ""}`}
-                aria-expanded={openMenu === menu}
-                onClick={() => setOpenMenu(openMenu === menu ? null : menu)}
-              >
-                {menu}
-              </button>
-              {openMenu === menu ? (
-                <div class="menu-popover" role="menu">
-                  {entries.map((action) => (
-                    <button type="button" role="menuitem" onClick={() => requestAction(action.id)}>
-                      <span>{action.label}</span>
-                      <kbd>{action.id === "file.create" ? "Ctrl+N" : action.id === "file.open" ? "Ctrl+O" : action.id === "file.save" ? "Ctrl+S" : action.id === "file.close" ? "Ctrl+W" : action.id === "edit.undo" ? "Ctrl+Z" : ""}</kbd>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ))}
-        </nav>
+        <div class="menu-root" ref={menuRef} onKeyDown={(event) => {
+          if (event.key === "Escape" && openMenu) {
+            event.preventDefault(); event.stopPropagation();
+            setOpenMenu(null); (menuReturnRef.current ?? menuButtonRef.current)?.focus();
+          }
+        }}>
+          <button type="button" ref={menuButtonRef} class={`menu-trigger ${openMenu ? "menu-trigger-open" : ""}`}
+            aria-expanded={!!openMenu} aria-controls="application-menu"
+            onClick={() => { menuReturnRef.current = menuButtonRef.current; setOpenMenu(openMenu ? null : "application"); }}><Menu size={16} /> Menu</button>
+          {openMenu ? <nav id="application-menu" class="menu-popover" aria-label="Application menu">
+            {menus.map(([menu, entries]) => <section key={menu} aria-label={menu}>
+              <h2>{menu}</h2>
+              {entries.map((action) => <button type="button" onClick={() => requestAction(action.id)}>
+                <span>{action.label}</span>
+                <kbd>{action.id === "file.create" ? "Ctrl+N" : action.id === "file.open" ? "Ctrl+O" : action.id === "file.save" ? "Ctrl+S" : action.id === "file.close" ? "Ctrl+W" : action.id === "edit.undo" ? "Ctrl+Z" : ""}</kbd>
+              </button>)}
+            </section>)}
+            <section aria-label="Workbench"><h2>Workbench</h2>
+              <button type="button" onClick={() => { toggleFiles(); setOpenMenu(null); }}>Files</button>
+              <button type="button" onClick={() => { setDiagnosticsOpen(true); setMobilePane("diagnostics"); setOpenMenu(null); }}>Diagnostics</button>
+              {toolsAvailable ? <button type="button" onClick={() => { setConsoleOpen(true); setMobilePane("console"); setOpenMenu(null); }}>Program console</button> : null}
+              <button type="button" onClick={() => {
+                setOpenMenu(null);
+                // Keep the existing admitted profile-key route: SHOWKEY is
+                // deliberately unavailable as a typed restricted command.
+                send({ type: "key", key: "f10" }); focusEditor();
+              }}>Key definitions</button>
+            </section>
+          </nav> : null}
+        </div>
         <div class="document-title" title={currentBuffer?.path}>{title}</div>
         <div class="toolbar-actions">
           <button class="icon-button" type="button" title="Open" aria-label="Open" onClick={() => requestAction("file.open")}>
@@ -502,12 +642,22 @@ function App() {
       </nav>
 
       <div class="workbench">
-      <section class="workspace">
+      <div class="pane-switcher" role="group" aria-label="Workbench panes">
+        <button type="button" aria-pressed={explorerOpen} onClick={toggleFiles}>Files</button>
+        <button type="button" aria-pressed={diagnosticsOpen} onClick={() => { setDiagnosticsOpen(window.innerWidth < 1100 && activeMobilePane !== "diagnostics" ? true : !diagnosticsOpen); setMobilePane("diagnostics"); }}>Diagnostics <span>{snapshot?.diagnostics?.length ?? 0}</span></button>
+        {toolsAvailable ? <button type="button" aria-pressed={consoleOpen} onClick={() => { setConsoleOpen(window.innerWidth < 1100 && activeMobilePane !== "console" ? true : !consoleOpen); setMobilePane("console"); }}>
+          Program console{toolSession?.job.waiting ? " · Input requested" : toolSession?.job.running ? " · Running" : ""}
+        </button> : null}
+      </div>
+      <section class={`workspace mobile-pane-${activeMobilePane} ${explorerOpen ? "files-open" : ""} ${showAux ? "aux-open" : ""}`} style={{
+        "--files-width": `${Math.min(filesWidth, maximumFilesWidth)}px`, "--aux-width": `${Math.min(auxWidth, maximumAuxWidth)}px`,
+        "--diagnostics-height": `${Math.min(diagnosticsHeight, maximumDiagnosticsHeight)}px`,
+      }}>
         {explorerOpen ? (
           <aside class="file-explorer" aria-label="Workspace files">
             <div class="explorer-heading">
               <span>Files</span>
-              <button class="icon-button" type="button" title="Close files" aria-label="Close files" onClick={() => setExplorerOpen(false)}><X size={16} /></button>
+              <button class="icon-button" type="button" title="Close files" aria-label="Close files" onClick={() => { setExplorerOpen(false); focusEditor(); }}><X size={16} /></button>
             </div>
             <div class="root-switcher" aria-label="Workspace roots">
               {files?.roots.map((root) => (
@@ -557,6 +707,8 @@ function App() {
             </div>
           </aside>
         ) : null}
+        {explorerOpen ? <PaneSplitter label="Resize files pane" orientation="vertical" value={Math.min(filesWidth, maximumFilesWidth)} minimum={180} maximum={maximumFilesWidth} onChange={setFilesWidth} /> : null}
+        <div class="editor-pane">
         <div class="editor-scroll" ref={viewportRef} onClick={focusEditor}>
           {snapshot?.panel ? (
             <div class="fullscreen-panel" role="dialog" aria-modal="true" aria-label="Macro panel" style={panelColour(snapshot.panel.colour)}>
@@ -625,10 +777,56 @@ function App() {
           </div>
         </div>
 
-        {snapshot?.diagnostics?.length ? (
+        <footer class="command-area" aria-label="THE commands and responses">
+          <div class="dock-heading"><strong>THE command</strong>
+            <button type="button" aria-expanded={commandHistoryOpen} aria-controls="command-responses" onClick={() => setCommandHistoryOpen(!commandHistoryOpen)}>
+              {commandHistoryOpen ? "Hide history" : "History"}{dockEntries.length ? ` (${dockEntries.length})` : ""}
+            </button>
+          </div>
+          <div class="latest-response" role="status" aria-live="polite">{lastError || latestResponse?.text || snapshot?.last_message || "Ready for an editor command"}</div>
+          <div id="command-responses" class="command-responses" hidden={!commandHistoryOpen} ref={responseLogRef}
+            aria-label="THE command and response history" tabIndex={0}
+            onScroll={(event) => { const log = event.currentTarget; followingResponsesRef.current = log.scrollHeight - log.scrollTop - log.clientHeight < 24; }}>
+            {dockEntries.length ? dockEntries.map((entry) => <div class={`dock-entry dock-entry-${entry.kind}`} key={entry.id}>
+              <span>{entry.kind === "command" ? "Command" : entry.kind === "error" ? "Error" : "Response"}</span><code>{entry.text}</code>
+            </div>) : <p>Commands and editor messages appear here.</p>}
+          </div>
+          {!snapshot?.panel ? <form class="command-form" onSubmit={(event) => { event.preventDefault(); runCommand(command); }}>
+            <label class="command-prompt" for="the-command">Command</label>
+            <input id="the-command" aria-label="THE command" ref={commandInputRef}
+              onFocus={() => setCommandFocused(true)} onBlur={() => setCommandFocused(false)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") { event.preventDefault(); focusEditor(); }
+                if (event.key === "F6") { event.preventDefault(); returnToFile(); }
+              }} value={command} onInput={(event) => setCommand(event.currentTarget.value)} spellcheck={false} autoComplete="off" />
+            <button type="submit" disabled={connection !== "online" || !command.trim()}>Execute</button>
+          </form> : null}
+          <div class="status-line" aria-label="Editing status" data-focus-zone={snapshot?.focus.zone} data-focus-line={snapshot?.focus.line}>
+            <span>Ln {snapshot?.focus.line ?? 0}, Col {(snapshot?.focus.cell ?? 0) + 1}</span>
+            <span>{snapshot?.focus.zone === "prefix" ? "Prefix" : snapshot?.focus.zone === "command" || commandFocused ? "Command" : "File"}</span>
+            <span>{snapshot?.buffer?.dirty ? "Modified" : "Saved"}</span>
+            {browserWasm ? <span class="workspace-storage" role="status">{storageState}</span> : null}
+            {snapshot?.parser && snapshot.parser.state !== "inactive" ? <button class="parser-status" title="Restart the highlighter" onClick={() => send({type: "parser-restart"})}>Syntax: {snapshot.parser.state}</button> : null}
+          </div>
+          <details class="editor-details"><summary>Details and key guide</summary>
+            {keyHints.length > 0 ? <div class="key-hints" role="group" aria-label="Editor key hints">{keyHints.map((hint, index) => <span class="key-hint" key={`${hint.key}-${index}`}><kbd>{hint.key}</kbd><span>{hint.label}</span></span>)}</div> : null}
+            <pre class="status-text">{snapshot?.status || "Waiting for CRXTHE"}</pre>
+          </details>
+        </footer>
+        </div>
+
+        <div class="mobile-aux-tabs" role="group" aria-label="Choose auxiliary pane">
+          <button type="button" aria-pressed={activeMobilePane === "files" && explorerOpen} onClick={() => { setExplorerOpen(true); setMobilePane("files"); requestFiles(); }}>Files</button>
+          <button type="button" aria-pressed={activeMobilePane === "diagnostics" && diagnosticsOpen} onClick={() => { setDiagnosticsOpen(true); setMobilePane("diagnostics"); }}>Diagnostics <span>{snapshot?.diagnostics?.length ?? 0}</span></button>
+          {toolsAvailable ? <button type="button" aria-pressed={activeMobilePane === "console" && consoleOpen} onClick={() => { setConsoleOpen(true); setMobilePane("console"); }}>Program console{toolSession?.job.waiting ? " · Input requested" : ""}</button> : null}
+        </div>
+        {showAux ? <PaneSplitter label="Resize auxiliary panes" orientation="vertical" reverse value={Math.min(auxWidth, maximumAuxWidth)} minimum={300} maximum={maximumAuxWidth} onChange={setAuxWidth} /> : null}
+        <div class={`auxiliary-rail ${diagnosticsOpen && consoleOpen && toolsAvailable ? "auxiliary-split" : ""}`} hidden={!showAux}>
+        {diagnosticsOpen ? (
           <aside class="diagnostics" aria-label="Diagnostics">
-            <div class="panel-heading">Diagnostics <span>{snapshot.diagnostics.length}</span></div>
-            {snapshot.diagnostics.map((diagnostic) => (
+            <div class="panel-heading">Diagnostics <span>{snapshot?.diagnostics?.length ?? 0}</span><button type="button" class="icon-button" aria-label="Close diagnostics" onClick={() => { setDiagnosticsOpen(false); focusEditor(); }}><X size={16} /></button></div>
+            {!snapshot?.diagnostics?.length ? <p class="empty-directory">No diagnostics for this buffer.</p> : null}
+            {snapshot?.diagnostics?.map((diagnostic) => (
               <button
                 type="button"
                 class="diagnostic-row"
@@ -644,46 +842,13 @@ function App() {
             ))}
           </aside>
         ) : null}
-      </section>
-      {!snapshot?.panel && toolSession?.catalog.some(t=>t.available) ? <RexxConsole send={send} session={toolSession} snapshot={snapshot} /> : null}
-      </div>
-
-      <footer class="command-area">
-        {keyHints.length > 0 ? (
-          <div class="key-hints" role="group" aria-label="Editor key hints">
-            {keyHints.map((hint, index) => <span class="key-hint" key={`${hint.key}-${index}`}>
-              <kbd>{hint.key}</kbd><span>{hint.label}</span>
-            </span>)}
-          </div>
-        ) : null}
-        {!snapshot?.panel ? <form class="command-form" onSubmit={(event) => { event.preventDefault(); runCommand(command); }}>
-          <span class="command-prompt">Command</span>
-          <input
-            aria-label="THE command"
-            ref={commandInputRef}
-            onFocus={() => setCommandFocused(true)}
-            onBlur={() => setCommandFocused(false)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") { event.preventDefault(); focusEditor(); }
-              if (event.key === "F6") { event.preventDefault(); returnToFile(); }
-            }}
-            value={command}
-            onInput={(event) => setCommand(event.currentTarget.value)}
-            spellcheck={false}
-            autoComplete="off"
-          />
-        </form> : null}
-        <div class="status-line">
-          <span class="status-text">{lastError || snapshot?.status || "Waiting for CRXTHE"}</span>
-          {browserWasm ? <span class="workspace-storage" role="status">{storageState}</span> : null}
-          {snapshot?.parser && snapshot.parser.state !== "inactive" ? <button class="parser-status" title="Restart the highlighter" onClick={() => send({type: "parser-restart"})}>
-            {snapshot.parser.provider}: {snapshot.parser.state}
-          </button> : null}
-          <span>{snapshot?.focus.zone ?? "-"}</span>
-          <span>{snapshot?.focus.line ?? 0}:{(snapshot?.focus.cell ?? 0) + 1}</span>
-          <span>{snapshot?.buffer?.dirty ? "Modified" : "Saved"}</span>
+        {diagnosticsOpen && consoleOpen && toolsAvailable ? <PaneSplitter label="Resize diagnostics and program console" orientation="horizontal" value={Math.min(diagnosticsHeight, maximumDiagnosticsHeight)} minimum={96} maximum={maximumDiagnosticsHeight} onChange={setDiagnosticsHeight} /> : null}
+        {toolsAvailable && toolSession ? <div class="program-console-pane" hidden={!consoleOpen}>
+          <RexxConsole send={send} session={toolSession} snapshot={snapshot} onClose={() => { setConsoleOpen(false); focusEditor(); }} focusEditor={focusEditor} />
+        </div> : null}
         </div>
-      </footer>
+      </section>
+      </div>
 
       <textarea
         ref={inputRef}

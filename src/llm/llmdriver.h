@@ -12,6 +12,7 @@
 #define LLM_DRIVER_MAX_COLS 1000
 #define LLM_DRIVER_MAX_PREFIX 20
 #define LLM_DRIVER_MAX_COMMAND 256
+#define LLM_DRIVER_MAX_MESSAGE 4096
 #define LLM_DRIVER_MAX_PATH 1024
 #define LLM_DRIVER_MAX_BUFFERS 16
 #define LLM_DRIVER_MAX_PROJECT_FILES 32
@@ -114,6 +115,8 @@ typedef struct
    LlmDriverScreenLine lines[LLM_DRIVER_MAX_ROWS];
    char command_line[LLM_DRIVER_MAX_COMMAND + 1];
    char status[LLM_DRIVER_MAX_COMMAND + 1];
+   unsigned long last_message_serial;
+   char last_message[LLM_DRIVER_MAX_MESSAGE + 1];
    char buffer_path[LLM_DRIVER_MAX_PATH + 1];
    size_t buffer_line_count;
    int buffer_dirty;
@@ -222,6 +225,9 @@ void llm_driver_screen_view_set_command(LlmDriverScreenView *view,
                                         const char *command_line);
 void llm_driver_screen_view_set_status(LlmDriverScreenView *view,
                                        const char *status);
+void llm_driver_screen_view_set_last_message(LlmDriverScreenView *view,
+                                             unsigned long serial,
+                                             const char *message);
 void llm_driver_screen_view_set_buffer(LlmDriverScreenView *view,
                                        const char *path, int dirty,
                                        size_t line_count);

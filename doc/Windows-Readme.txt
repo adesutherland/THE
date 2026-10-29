@@ -46,7 +46,7 @@ FIRST KEYS TO TRY
   Ctrl-Q        Close the current file, protecting unsaved changes.
   F1            Help.                 F2  Next open file.
   F4            Prefix field.         F5  Insert/overwrite mode.
-  F10           All current key definitions.
+  F10           Command Menu (includes Key definitions).
   Tab           Insert spaces up to the next eight-column tab stop.
 
 From the first text column, Left enters that record's prefix field.

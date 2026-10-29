@@ -372,9 +372,9 @@ try {
     await send({type:'action',action:'file.save'});
     await waitFor(async()=>!(await snapshot()).buffer.dirty,'editor responds after infinite program');
     await selectBuffer('RexxRunner.rexx');
-    const beforeResize=(await snapshot()).viewport.rows;
-    await evaluate("document.querySelector('.console-divider').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true,cancelable:true}))");
-    await waitFor(async()=>(await snapshot()).viewport.rows<beforeResize,'split resize');
+    const beforeResize=(await snapshot()).viewport.cols;
+    await evaluate("document.querySelector('[aria-label=\"Resize auxiliary panes\"]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true,cancelable:true}))");
+    await waitFor(async()=>(await snapshot()).viewport.cols<beforeResize,'auxiliary split resize');
     if (manifest.capabilities.classic_rexx_highlighter) await waitFor(async()=>(await snapshot()).parser.state==='ready','highlighting after execution');
     console.log('PASS browser interpreter: split console, actual Classic execution/INTERPRET, Unicode stdin/output, EOF, unsaved record, Stop/restart and independent editor/highlighter');
   }

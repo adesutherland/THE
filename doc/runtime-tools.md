@@ -2,9 +2,10 @@
 
 THE's [common architecture](architecture.md#common-desktop-and-browser-application)
 is implemented by a C session model (`toolhost.c`), editor integration
-(`tools.c`) and native/Wasm resource adapters. The native graphical driver
-and browser use the same console component. The terminal driver presents a
-split below the editing area. This is a development feature in `0.10.dev`.
+(`tools.c`) and native/Wasm resource adapters. The native-host and Wasm browser
+modes use the same Program console UI. The terminal driver presents a
+**Program console** split below the editing area. This is a development feature
+in `0.10.dev`.
 
 ## Run and interact
 
@@ -40,10 +41,18 @@ Terminal commands are:
 | `RX CLEAR` | Clear visible output. |
 | `RX STATUS` | Display job state. |
 
+The default terminal profile keeps editor responses immediately above the
+editor command line. **F10 Menu** opens file, editing, navigation, run and
+profile actions; **Key definitions** retains the complete key guide. This
+editor response area is separate from the Program console and its labelled
+**Program input** field. Custom profiles can still choose their own MSGLINE
+position and reserved rows.
+
 When the terminal console has focus, Enter submits a line, Backspace edits,
 Ctrl-D sends EOF, Ctrl-C stops, and Esc returns to the editor. Panels and
-macro READ retain their own input route. At fewer than 16 terminal rows, hide
-the split and use commands or enlarge the terminal. Graphical consoles start
+macro READ retain their own input route. At fewer than 16 terminal rows or 32
+columns the split hides and input focus returns to the editor; use commands
+or enlarge the terminal. Graphical consoles start
 collapsed and expand on a run; their divider adjusts height.
 
 A native job uses a separate VM process with pipes. A browser job uses a fresh

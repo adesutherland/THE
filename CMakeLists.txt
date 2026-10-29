@@ -623,6 +623,8 @@ set(THE_RUNTIME_PROFILE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/quickopen_regina.the
     ${CMAKE_CURRENT_SOURCE_DIR}/quickline.the
     ${CMAKE_CURRENT_SOURCE_DIR}/quickline_regina.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/workbenchmenu.the
+    ${CMAKE_CURRENT_SOURCE_DIR}/workbenchmenu_regina.the
     ${CMAKE_CURRENT_SOURCE_DIR}/web-profile.the
     ${CMAKE_CURRENT_SOURCE_DIR}/web-profile-regina.the
     ${CMAKE_CURRENT_SOURCE_DIR}/profile_crexx.the
@@ -914,6 +916,7 @@ install(FILES doc/THE_Help.txt profile.the profile_regina.the web-profile.the pr
 install(FILES web-profile-regina.the DESTINATION share/the)
 install(FILES quickfind.the quickfind_regina.the quickopen.the quickopen_regina.the
     quickline.the quickline_regina.the DESTINATION share/the)
+install(FILES workbenchmenu.the workbenchmenu_regina.the DESTINATION share/the)
 install(FILES paneldemo.the paneldemo_regina.the DESTINATION share/the)
 install(DIRECTORY doc/ DESTINATION share/doc/the COMPONENT Documentation
     FILES_MATCHING PATTERN "*.md" PATTERN "Windows-Readme.txt" PATTERN "THE_Help.txt")
@@ -1064,6 +1067,13 @@ if(THE_USE_REGINA AND REGINA_LIBRARY AND THE_PYTHON_EXECUTABLE)
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_default_profile_curses.py $<TARGET_FILE:the>)
         set_tests_properties(test_default_profile_curses PROPERTIES TIMEOUT 90
             RESOURCE_LOCK the_pty_editor ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+        if(THE_USE_CREXX)
+            add_test(NAME test_workbench_curses COMMAND ${THE_PYTHON_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_workbench_curses.py $<TARGET_FILE:the>)
+            set_tests_properties(test_workbench_curses PROPERTIES TIMEOUT 120
+                SKIP_RETURN_CODE 77 RESOURCE_LOCK the_pty_editor
+                ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+        endif()
         add_test(NAME test_curses_repaint COMMAND ${THE_PYTHON_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_curses_repaint.py $<TARGET_FILE:the>)
         set_tests_properties(test_curses_repaint PROPERTIES TIMEOUT 60
@@ -1286,6 +1296,11 @@ if(USE_UTF8 AND USE_UTF8PROC)
     target_compile_definitions(test_llmdriver PRIVATE USE_UTF8PROC=1)
 endif()
 add_test(NAME test_llmdriver COMMAND test_llmdriver)
+add_test(NAME test_llm_message_snapshot
+    COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_llm_message_snapshot.py
+            $<TARGET_FILE:the>)
+set_tests_properties(test_llm_message_snapshot PROPERTIES
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 add_executable(test_virtual_screen tests/test_virtual_screen.c src/llm/llmdriver.c src/inputevent.c src/frontendaction.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_virtual_screen PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8)
@@ -1369,6 +1384,15 @@ if(USE_WEB_DRIVER)
         NAMES google-chrome chromium chromium-browser chrome
         HINTS "$ENV{PROGRAMFILES}/Google/Chrome/Application")
     if(THE_CHROMIUM_EXECUTABLE)
+        find_program(THE_NODE_EXECUTABLE NAMES node)
+        if(THE_NODE_EXECUTABLE)
+            add_test(NAME test_web_workbench_ui
+                COMMAND ${THE_NODE_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/web/test/workbench-smoke.mjs)
+            set_tests_properties(test_web_workbench_ui PROPERTIES TIMEOUT 120
+                RESOURCE_LOCK the_web_browser
+                ENVIRONMENT "${THE_CTEST_RUNTIME_ENV};CHROMIUM_BIN=${THE_CHROMIUM_EXECUTABLE};THE_WEB_ASSETS=${THE_WEB_BUILD_DIR}")
+        endif()
         foreach(panel_engine CREXX REGINA)
             add_test(NAME test_panel_browser_${panel_engine}
                 COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_panel_browser.py

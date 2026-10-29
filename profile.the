@@ -157,4 +157,8 @@ if left(platform,3) = 'WIN' then do
   'define c-x clipboard cut';
   'define c-v clipboard paste';
 end
+'define f10 macro workbenchmenu';
+'set reserved -2 normal         F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save';
+'set reserved -1 #D4D4D4 on #202328         Response: Ready';
+'set msgline on -2 1';
 'msg CRXTHE 0.10.dev | Esc Command  F6 Cmd/File  F1 Help  Ctrl-S Save';

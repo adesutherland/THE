@@ -42,7 +42,9 @@ def generated():
         lines += ["if left(platform,3) = 'WIN' then do", "  'define c-c clipboard copy';",
                   "  'define c-x clipboard cut';", "  'define c-v clipboard paste';", 'end',
                   quote(data['welcome']) + ';']
-        result[filename] = '\n'.join(lines) + '\n'
+        native = [quote(command.format(suffix=suffix)) + ';'
+                  for command in data.get('native_commands', [])]
+        result[filename] = '\n'.join(lines[:-1] + native + lines[-1:]) + '\n'
         restricted = [quote(command) + ';' for command in
                       ['set impos off','set impmacro off','set macro off','set linend off','set synonym on']]
         web_name = 'web-profile.the' if engine == 'CREXX' else 'web-profile-regina.the'
@@ -52,6 +54,21 @@ def generated():
             body = ('options levelb\n' if engine == 'CREXX' else '') + 'address the\n'
             body += quote('cmsg ' + prompt) + ';\n' + quote('cursor cmdline ' + str(len(prompt) + 1)) + ';\n'
             result[name + suffix + '.the'] = body
+        menu = data.get('native_menu', [])
+        menu_command = 'popup centre escape esc /' + '/'.join(item[0] for item in menu)
+        body = '/* Generated native command menu; edit profiles/default-profile.json. */\n'
+        body += ('options levelb\n' if engine == 'CREXX' else '') + 'address the\n'
+        if engine == 'CREXX':
+            body += 'popup = .string[]\naddress the ' + quote(menu_command) + ' expose popup[];\n'
+            choice = 'popup[2]'
+        else:
+            body += quote(menu_command) + ';\n'
+            choice = 'popup.2'
+        body += 'select\n'
+        for index, (_, command) in enumerate(menu, 1):
+            body += '  when ' + choice + ' = ' + str(index) + ' then ' + quote(command.format(suffix=suffix)) + ';\n'
+        body += '  otherwise nop\nend\n'
+        result['workbenchmenu' + suffix + '.the'] = body
     return result
 
 

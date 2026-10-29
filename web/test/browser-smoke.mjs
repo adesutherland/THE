@@ -175,6 +175,7 @@ try {
 
   async function sizeViewport(width, height) {
     await command("Emulation.setDeviceMetricsOverride", {width, height, deviceScaleFactor: 1, mobile: false});
+    await evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
     return waitFor(() => evaluate(`(() => {
       const viewport = document.querySelector('.editor-scroll'), grid = document.querySelector('.editor-grid');
       const style = getComputedStyle(grid);
@@ -185,8 +186,9 @@ try {
   }
   const largeRows = await sizeViewport(1200, 950);
   const smallRows = await sizeViewport(900, 550);
-  if (smallRows >= largeRows) throw new Error("browser shrink did not reduce visible rows");
+  if (smallRows >= largeRows) throw new Error("browser shrink did not reduce visible rows: " + JSON.stringify({largeRows, smallRows, geometry: await evaluate("[...document.querySelectorAll('.app-shell,.workbench,.workspace,.editor-pane,.editor-scroll,.command-area')].map(n=>({class:n.className,height:n.clientHeight,rows:getComputedStyle(n).gridTemplateRows}))")}));
   const grownRows = await sizeViewport(1200, 950);
+  await evaluate("document.querySelector('.editor-details').open = true");
   await sizeViewport(455, 700);
   const hints = await evaluate(`(() => {
     const bar=document.querySelector('.key-hints');
@@ -198,6 +200,7 @@ try {
     });
   })()`);
   if (!hints || hints.length !== 8 || hints.some(h=>!h.visible) || !hints.some(h=>h.key==='F10')) throw new Error('clipped narrow-browser key guide: '+JSON.stringify(hints));
+  await evaluate("document.querySelector('.editor-details').open = false");
   await sizeViewport(1200,950);
   if (grownRows !== largeRows) throw new Error("browser grow did not restore visible rows");
 
@@ -240,8 +243,14 @@ try {
   await waitFor(() => evaluate("document.querySelector('.status-text')?.textContent.includes('focus=filearea line=2') && document.querySelector('.line-content .logical-cursor')?.style.left === '9ch'"), "left from prefix to previous record end");
   await navigationCommand('cursor goto 1 1');
   await waitFor(() => evaluate("document.querySelector('.status-text')?.textContent.includes('focus=filearea line=1')"), "file focus restored");
-  if (!(await evaluate("[...document.querySelectorAll('.role-reserved .line-text')].some(n=>n.textContent.includes('F6 Cmd')&&n.textContent.includes('F10 Keys'))"))) throw new Error('function-key guide missing');
+  if (!(await evaluate("document.querySelector('.key-hints')?.textContent.includes('F6Cmd/File') && document.querySelector('.key-hints')?.textContent.includes('F10Menu')"))) throw new Error('function-key guide missing');
   await domKey('F10','F10');
+  await waitFor(() => evaluate("!!document.querySelector('.menu-popover')"), "F10 application Menu");
+  await domKey('Escape','Escape');
+  await waitFor(() => evaluate("!document.querySelector('.menu-popover') && document.activeElement.classList.contains('input-sink')"), "Menu Escape restores editor focus");
+  await evaluate("document.querySelector('.menu-trigger').click()");
+  await waitFor(() => evaluate("!!document.querySelector('.menu-popover')"), "application Menu reopened");
+  await evaluate("[...document.querySelectorAll('.menu-popover button')].find(node=>node.textContent.trim()==='Key definitions').click()");
   await waitFor(() => evaluate("[...document.querySelectorAll('.line-text')].some(n=>n.textContent.toLowerCase().includes('define '))"), "complete key definitions");
   const keyBuffer = await evaluate("document.querySelector('.buffer-tab-current span').textContent.trim()");
   await closeCurrentBuffer(keyBuffer);
@@ -269,7 +278,7 @@ try {
   await closeCurrentBuffer("tab-entry.txt");
   await selectBuffer("sample.txt");
 
-  await evaluate("[...document.querySelectorAll('.menu-trigger')].find((node) => node.textContent.trim() === 'File').click()");
+  await evaluate("document.querySelector('.menu-trigger').click()");
   const fileMenu = await waitFor(
     () => evaluate("[...document.querySelectorAll('.menu-popover button')].map((node) => node.textContent.trim())"),
     "File menu",
@@ -287,7 +296,7 @@ try {
   );
   await evaluate("document.querySelector('.explorer-heading [aria-label=\"Close files\"]').click()");
 
-  await evaluate("[...document.querySelectorAll('.menu-trigger')].find((node) => node.textContent.trim() === 'File').click()");
+  await evaluate("document.querySelector('.menu-trigger').click()");
   await evaluate("[...document.querySelectorAll('.menu-popover button')].find((node) => node.textContent.trim().startsWith('New')).click()");
   await waitFor(() => evaluate("!!document.querySelector('.path-dialog')"), "New file dialog");
   await evaluate("[...document.querySelectorAll('.dialog-actions button')].find((node) => node.textContent.trim() === 'Cancel').click()");
@@ -374,7 +383,7 @@ try {
   await insertText("Z");
   await evaluate("(() => { const row = [...document.querySelectorAll('.screen-row')].find((node) => node.querySelector('.line-text')?.textContent === 'delete me'); const prefix = row?.querySelector('.prefix-cell'); if (!prefix) return false; const rect = prefix.getBoundingClientRect(); prefix.dispatchEvent(new MouseEvent('click', {bubbles: true, clientX: rect.left + 4, clientY: rect.top + 8})); return true; })()");
   await waitFor(
-    () => evaluate("[...document.querySelectorAll('.status-line span')].some((node) => node.textContent.trim() === 'prefix')"),
+    () => evaluate("[...document.querySelectorAll('.status-line span')].some((node) => node.textContent.trim() === 'Prefix')"),
     "prefix focus",
   );
   await evaluate("document.querySelector('.input-sink').focus()");
@@ -407,7 +416,7 @@ try {
     console.log('PASS native graphical RXBIN host: actual Classic execution, Unicode stdin/output and status');
   }
   if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
-  await evaluate("[...document.querySelectorAll('.menu-trigger')].find((node) => node.textContent.trim() === 'File').click()");
+  await evaluate("document.querySelector('.menu-trigger').click()");
   await evaluate("[...document.querySelectorAll('.menu-popover button')].find((node) => node.textContent.trim().startsWith('Close')).click()");
   await sleep(150);
 } finally {

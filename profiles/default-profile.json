@@ -99,6 +99,31 @@
     "set cursorstyle overwrite block steady",
     "set reserved -1 normal         F1 Help F2 Next F3 Save/Close F4 Prefix F5 Ins F6 Cmd/File F10 Keys Esc Cmd"
   ],
+  "native_commands": [
+    "define f10 macro workbenchmenu{suffix}",
+    "set reserved -2 normal         F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save",
+    "set reserved -1 #D4D4D4 on #202328         Response: Ready",
+    "set msgline on -2 1"
+  ],
+  "native_menu": [
+    ["Open or create file...", "macro quickopen{suffix}"],
+    ["Save file (Ctrl-S)", "save"],
+    ["Close file (Ctrl-W)", "quit"],
+    ["Undo (Ctrl-Z)", "sos undo"],
+    ["Find... (Ctrl-F)", "macro quickfind{suffix}"],
+    ["Go to line... (Ctrl-G)", "macro quickline{suffix}"],
+    ["Next file (F2)", "next"],
+    ["Run current Rexx", "rx run"],
+    ["Program console and input", "rx console"],
+    ["Stop program", "rx stop"],
+    ["Clear program output", "rx clear"],
+    ["End program input", "rx eof"],
+    ["Edit profile", "rx profile"],
+    ["Build profile", "rx build"],
+    ["Activate profile", "rx activate"],
+    ["Key definitions", "showkey all"],
+    ["Help (F1)", "help"]
+  ],
   "parsers": [
     {
       "name": "rxc",

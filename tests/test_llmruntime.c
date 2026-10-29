@@ -13,6 +13,7 @@ VIEW_DETAILS *vd_first = NULL;
 VIEW_DETAILS *vd_last = NULL;
 CHARTYPE *last_message = NULL;
 int last_message_length = 0;
+unsigned long last_message_serial = 0;
 CHARTYPE *cmd_rec = NULL;
 LENGTHTYPE cmd_rec_len = 0;
 LENGTHTYPE cmd_verify_col = 1;
@@ -89,6 +90,7 @@ static void setup_screen(void)
    vd_first = &view;
    vd_last = &view;
    last_message = message;
+   last_message_serial = 7;
    view.tofeof = TRUE;
    view.verify_col = 1;
    screen[0].screen_view = &view;
@@ -163,6 +165,8 @@ static void test_runtime_view(void)
    expect_contains("runtime.command", view.command_line, "command text");
    expect_contains("runtime.status", view.status, "focus=filearea");
    expect_contains("runtime.status.message", view.status, "runtime message");
+   expect_int("runtime.message.serial", (int)view.last_message_serial, 7);
+   expect_contains("runtime.message.text", view.last_message, "runtime message");
    expect_int("runtime.buffer.valid", view.buffer_valid, 1);
    expect_contains("runtime.buffer.path", view.buffer_path,
                    "/tmp/sample.the");

@@ -26,7 +26,19 @@ qualification remains separately listed after the table. See the
 
 Desktop-window packaging and broader browser/OS release qualification remain
 separate from these source-development stages. The existing native web driver
-supplies the graphical desktop presentation without selecting a new shell framework.
+supplies the browser presentation; there is no native GUI frontend yet.
+
+### Planned GTK workbench
+
+GTK is the planned native GUI framework; a GTK frontend is not implemented.
+It should follow the guided browser and terminal interaction: one Menu entry
+for discoverable actions, an editor command/response area, compact editing
+status, and optional files, diagnostics and help panes. Program execution has
+its own Program console with stdout/stderr, job state and labelled Program
+input, plus Stop, Clear and End input controls. Editor commands and responses
+must remain separate from program stdin and output. Reuse C-owned editor,
+response and tool-session state through the driver boundary; do not create a
+second command dispatcher or execution host inside GTK.
 
 - Diagnose and repair the optional F8/F9 helpers. Reproduce each reported
   failure with its matching runtime, then assert compilation artifacts,

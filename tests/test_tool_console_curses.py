@@ -15,24 +15,45 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as d:
  p=subprocess.Popen([str(binary),'-p',str(profile),str(source)],stdin=slave,stdout=slave,stderr=slave,env=dict(os.environ,TERM='xterm-256color',THE_TOOL_CONFIG_DIR=str(root/'config')));os.close(slave)
  def wait(check,label,timeout=20):
   end=time.monotonic()+timeout
+  quiet=time.monotonic()
   while time.monotonic()<end:
    if select.select([master],[],[],.05)[0]:
     try:stream.feed(os.read(master,65536))
     except OSError:
      if check():return
      break
-   if check():return
+    quiet=time.monotonic()
+   if check() and (p.poll() is not None or time.monotonic()-quiet>=.15):return
   raise AssertionError(label+'\n'+'\n'.join(screen.display))
  try:
   wait(lambda:any('Console ready' in s for s in screen.display),'editor source')
-  os.write(master,b'\x12');wait(lambda:any('Console |' in s for s in screen.display),'split console')
+  os.write(master,b'\x12');wait(lambda:any('Program console |' in s for s in screen.display),'split console')
   assert any('say' in s for s in screen.display[:20]),screen.display
   os.write(master,b'\x14');wait(lambda:any('Esc: editor' in s for s in screen.display),'console focus')
-  os.write(master,'Zoë😀\r'.encode());wait(lambda:any('Hello ZOË😀' in s for s in screen.display),'Unicode stdin and output')
-  wait(lambda:any('status 7' in s for s in screen.display),'completion')
+  assert any('Program input>' in s for s in screen.display),screen.display
+  assert any('Ctrl-D: EOF' in s for s in screen.display),screen.display
+  fcntl.ioctl(master,termios.TIOCSWINSZ,struct.pack('HHHH',16,32,0,0));screen.resize(16,32);p.send_signal(signal.SIGWINCH)
+  wait(lambda:any('Esc: editor' in s for s in screen.display[-5:]),'compact program focus hint')
+  assert any('^D EOF' in s and '^C stop' in s for s in screen.display[-5:]),screen.display
+  assert any('F10 Menu' in s for s in screen.display[:-5]),screen.display
+  os.write(master,'Zoë😀'.encode());wait(lambda:'Zoë😀' in screen.display[-1],'Unicode input field')
+  assert screen.cursor.x==len('Program input> ')+5,screen.cursor
+  os.write(master,b'\r');wait(lambda:any('Hello ZOË😀' in s for s in screen.display),'Unicode stdin and output')
   fcntl.ioctl(master,termios.TIOCSWINSZ,struct.pack('HHHH',24,80,0,0));screen.resize(24,80);p.send_signal(signal.SIGWINCH)
-  wait(lambda:any('Console |' in s for s in screen.display[-5:]),'resized split')
-  os.write(master,b'\x1b');wait(lambda:any('RX CONSOLE: focus' in s for s in screen.display),'return to editor');os.write(master,b'\x1b[20~');wait(lambda:p.poll() is not None,'quit after restoring editor focus',8)
+  wait(lambda:any('Program console |' in s for s in screen.display[-5:]),'resized split')
+  wait(lambda:any('status 7' in s for s in screen.display),'completion')
+  os.write(master,b'\x1b');wait(lambda:any('RX CONSOLE: input' in s for s in screen.display),'return to editor')
+  os.write(master,b'\x1b');wait(lambda:screen.cursor.y==17,'editor command focus')
+  os.write(master,b'msg EDITOR_RESPONSE\r')
+  wait(lambda:any('EDITOR_RESPONSE' in s for s in screen.display[:-5]),'separate editor response')
+  assert not any('EDITOR_RESPONSE' in s for s in screen.display[-5:]),screen.display
+  assert any('Hello ZOË😀' in s for s in screen.display[-5:]),screen.display
+  os.write(master,b'\x14');wait(lambda:any('Esc: editor' in s for s in screen.display),'focus before compact resize')
+  fcntl.ioctl(master,termios.TIOCSWINSZ,struct.pack('HHHH',15,60,0,0));screen.resize(15,60);p.send_signal(signal.SIGWINCH)
+  wait(lambda:not any('Program console |' in s for s in screen.display),'hide split below minimum height')
+  os.write(master,b'\x1b');wait(lambda:screen.cursor.y==13,'compact command focus')
+  os.write(master,b'msg COMPACT_EDITOR\r');wait(lambda:any('COMPACT_EDITOR' in s for s in screen.display),'editing with hidden split')
+  os.write(master,b'\x1b[20~');wait(lambda:p.poll() is not None,'quit after restoring editor focus',8)
   assert source.read_text()=="say 'Console ready'\npull name\nsay 'Hello' name\nexit 7\n"
  finally:
   if p.poll() is None:p.kill();p.wait()

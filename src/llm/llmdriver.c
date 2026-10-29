@@ -871,6 +871,16 @@ void llm_driver_screen_view_set_status(LlmDriverScreenView *view,
       copy_text(view->status, sizeof(view->status), status);
 }
 
+void llm_driver_screen_view_set_last_message(LlmDriverScreenView *view,
+                                             unsigned long serial,
+                                             const char *message)
+{
+   if (view == NULL)
+      return;
+   view->last_message_serial = serial;
+   copy_text(view->last_message, sizeof(view->last_message), message);
+}
+
 void llm_driver_screen_view_set_buffer(LlmDriverScreenView *view,
                                        const char *path, int dirty,
                                        size_t line_count)
@@ -1094,6 +1104,9 @@ size_t llm_driver_format_semantic_view_with_options(
          appendf(out, out_len, &used, ",\"status\":");
          append_json_string(out, out_len, &used, view->status);
       }
+      appendf(out, out_len, &used, ",\"last_message_serial\":%lu,\"last_message\":",
+              view->last_message_serial);
+      append_json_string(out, out_len, &used, view->last_message);
       if (view->buffer_valid)
       {
          appendf(out, out_len, &used, ",\"buffer\":{\"path\":");
@@ -1208,6 +1221,10 @@ size_t llm_driver_format_semantic_view_with_options(
       append_json_string(out, out_len, &used, view->status);
       appendf(out, out_len, &used, ",\n");
    }
+   appendf(out, out_len, &used, "  \"last_message_serial\": %lu,\n"
+           "  \"last_message\": ", view->last_message_serial);
+   append_json_string(out, out_len, &used, view->last_message);
+   appendf(out, out_len, &used, ",\n");
    if (view->buffer_valid)
    {
       appendf(out, out_len, &used,
@@ -1352,7 +1369,8 @@ size_t llm_driver_format_delta_view(const LlmDriverScreenView *previous,
 
    appendf(out, out_len, &used,
            "{\"mode\":\"delta\",\"baseline\":%d,\"focus_changed\":%d,"
-           "\"status_changed\":%d,\"buffer_changed\":%d,\"rows\":[",
+           "\"status_changed\":%d,\"buffer_changed\":%d,"
+           "\"last_message_serial\":%lu,\"last_message\":",
            previous != NULL,
            previous == NULL
         || previous->cursor.zone != current->cursor.zone
@@ -1364,7 +1382,10 @@ size_t llm_driver_format_delta_view(const LlmDriverScreenView *previous,
            previous == NULL
         || previous->buffer_dirty != current->buffer_dirty
         || previous->buffer_line_count != current->buffer_line_count
-        || strcmp(previous->buffer_path, current->buffer_path) != 0);
+        || strcmp(previous->buffer_path, current->buffer_path) != 0,
+           current->last_message_serial);
+   append_json_string(out, out_len, &used, current->last_message);
+   appendf(out, out_len, &used, ",\"rows\":[");
 
    for (i = 0; i < current->line_count; i++)
    {

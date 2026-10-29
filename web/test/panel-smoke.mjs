@@ -171,7 +171,7 @@ try {
 
   async function restoredEditor() {
     try {
-      await waitFor(() => evaluate("document.querySelector('.status-line span:nth-child(2)')?.textContent === 'filearea' && document.querySelector('.status-line span:nth-child(3)')?.textContent === '2:3' && document.querySelector('.key-hints')?.textContent.includes('F10')"), "original file caret and key footer after panel cleanup");
+      await waitFor(() => evaluate("document.querySelector('.status-line')?.dataset.focusZone === 'filearea' && document.querySelector('.status-line span:first-child')?.textContent === 'Ln 2, Col 3' && document.querySelector('.key-hints')?.textContent.includes('F10')"), "original file caret and key footer after panel cleanup");
     } catch (error) {
       throw new Error(error.message+'; '+JSON.stringify(await evaluate("({status:document.querySelector('.status-line')?.textContent,hints:document.querySelector('.key-hints')?.textContent,rows:[...document.querySelectorAll('.role-reserved .line-text')].map(n=>n.textContent)})")));
     }
@@ -282,7 +282,7 @@ try {
   await evaluate("document.querySelector('.input-sink').focus()");
   await insertText('Z');
   await domKey('s','KeyS',true);
-  await waitFor(() => evaluate("[...document.querySelectorAll('.line-text')].some(n => n.textContent === 'taZil') && document.querySelector('.status-line span:last-child')?.textContent === 'Saved'"), 'typing and saving at the restored panel caret');
+  await waitFor(() => evaluate("[...document.querySelectorAll('.line-text')].some(n => n.textContent === 'taZil') && [...document.querySelectorAll('.status-line span')].some(n => n.textContent === 'Saved')"), 'typing and saving at the restored panel caret');
   if (exceptions.length) throw new Error(exceptions.join("\n"));
   console.log("Browser panel: rendered fields, text, Tab, protected label, PF3, cancel and unchanged file passed");
 } finally {
