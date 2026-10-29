@@ -21,6 +21,14 @@ CHARTYPE *pre_rec = NULL;
 LENGTHTYPE pre_rec_len = 0;
 CHARTYPE *rec = NULL;
 LENGTHTYPE rec_len = 0;
+static const char *status_line_fixture = "CRXTHE        profile status text";
+/* Real status formatting is exercised by test_llm_status_line. */
+int format_statarea(CHARTYPE *out, size_t out_size)
+{
+   snprintf((char *)out, out_size, "%s",
+            status_line_fixture != NULL ? status_line_fixture : "");
+   return status_line_fixture != NULL;
+}
 /* The metadata tests supply a tiny line-list fixture instead of the editor. */
 LINE *lll_find(LINE *first, LINE *last, LINETYPE number, LINETYPE count)
 {
@@ -165,6 +173,9 @@ static void test_runtime_view(void)
    expect_contains("runtime.command", view.command_line, "command text");
    expect_contains("runtime.status", view.status, "focus=filearea");
    expect_contains("runtime.status.message", view.status, "runtime message");
+   expect_int("runtime.status.line.visible", view.status_line_visible, 1);
+   expect_contains("runtime.status.line.text", view.status_line,
+                   "profile status text");
    expect_int("runtime.message.serial", (int)view.last_message_serial, 7);
    expect_contains("runtime.message.text", view.last_message, "runtime message");
    expect_int("runtime.buffer.valid", view.buffer_valid, 1);
@@ -172,6 +183,12 @@ static void test_runtime_view(void)
                    "/tmp/sample.the");
    expect_int("runtime.buffer.dirty", view.buffer_dirty, 1);
    expect_int("runtime.buffers", (int)view.buffer_count, 1);
+
+   status_line_fixture = NULL;
+   expect_int("runtime.status.line.off.view", llm_runtime_screen_view(0, &view), 1);
+   expect_int("runtime.status.line.off.visible", view.status_line_visible, 0);
+   expect_int("runtime.status.line.off.empty", view.status_line[0], 0);
+   status_line_fixture = "CRXTHE        profile status text";
 }
 
 static void test_compact_filearea_runtime_format(void)

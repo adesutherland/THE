@@ -51,8 +51,10 @@ def generated():
         result[filename] = '\n'.join(lines[:-1] + native + lines[-1:]) + '\n'
         restricted = [quote(command) + ';' for command in
                       ['set impos off','set impmacro off','set macro off','set linend off','set synonym on']]
+        web = [quote(command.format(suffix=suffix)) + ';'
+               for command in data.get('web_commands', [])]
         web_name = 'web-profile.the' if engine == 'CREXX' else 'web-profile-regina.the'
-        result[web_name] = '\n'.join(lines[:-1] + restricted +
+        result[web_name] = '\n'.join(lines[:-1] + web + restricted +
                                     [quote(data['welcome']) + ';']) + '\n'
         for name, prompt in [('quickfind', 'locate /'), ('quickopen', 'edit '), ('quickline', ':')]:
             body = ('options levelb\n' if engine == 'CREXX' else '') + 'address the\n'

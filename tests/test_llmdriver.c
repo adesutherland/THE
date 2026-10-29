@@ -90,6 +90,51 @@ static void test_semantic_view_from_frame(void)
                    "{\"start\": 3, \"len\": 2, \"style\": \"string\"}");
 }
 
+static void test_status_line_fields(void)
+{
+   static LlmDriverScreenView previous;
+   static LlmDriverScreenView current;
+   LlmDriverFormatOptions options;
+   char out[4096];
+
+   llm_driver_screen_view_init(&previous, 1, 80, logical_cursor_invalid());
+   current = previous;
+   llm_driver_screen_view_set_status_line(&current, "CRXTHE   Profile=\"ON\"");
+   llm_driver_format_options_init(&options);
+   options.compact = 1;
+   llm_driver_format_semantic_view_with_options(&current, &options,
+                                                out, sizeof(out));
+   expect_contains("status.line.compact", out,
+                   "\"status_line\":\"CRXTHE   Profile=\\\"ON\\\"\"");
+   options.compact = 0;
+   llm_driver_format_semantic_view_with_options(&current, &options,
+                                                out, sizeof(out));
+   expect_contains("status.line.full", out,
+                   "\"status_line\": \"CRXTHE   Profile=\\\"ON\\\"\"");
+   llm_driver_format_delta_view(&previous, &current, &options,
+                                out, sizeof(out));
+   expect_contains("status.line.delta.changed", out, "\"status_changed\":1");
+   expect_contains("status.line.delta.text", out,
+                   "\"status_line\":\"CRXTHE   Profile=");
+
+   previous = current;
+   llm_driver_screen_view_set_status_line(&current, NULL);
+   llm_driver_format_delta_view(&previous, &current, &options,
+                                out, sizeof(out));
+   expect_contains("status.line.delta.off", out, "\"status_line\":null");
+   expect_contains("status.line.delta.off.changed", out, "\"status_changed\":1");
+   llm_driver_format_semantic_view_with_options(&current, &options,
+                                                out, sizeof(out));
+   expect_contains("status.line.full.off", out, "\"status_line\": null");
+   options.include_status = 0;
+   llm_driver_format_semantic_view_with_options(&current, &options,
+                                                out, sizeof(out));
+   expect_int("status.line.full.excluded", strstr(out, "\"status_line\"") == NULL, 1);
+   llm_driver_format_delta_view(&previous, &current, &options,
+                                out, sizeof(out));
+   expect_int("status.line.delta.excluded", strstr(out, "\"status_line\"") == NULL, 1);
+}
+
 static void test_message_snapshot_fields(void)
 {
    static LlmDriverScreenView previous;
@@ -528,6 +573,7 @@ int main(void)
 {
    test_screen_view_format();
    test_semantic_view_from_frame();
+   test_status_line_fields();
    test_message_snapshot_fields();
    test_compact_filearea_view_options();
    test_reserved_view_options();

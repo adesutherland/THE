@@ -3254,13 +3254,20 @@ int number_query_item( void )
 }
 
 /***********************************************************************/
-void format_options( CHARTYPE *buf )
+void format_options( CHARTYPE *buf, size_t buf_size )
 /***********************************************************************/
 {
    LINE *curr=first_option;
    int tail,col,itemno,linelen,valuelen,number_variables,max_col=0,off;
 
    TRACE_FUNCTION("query.c:   format_options");
+
+   if (buf == NULL || buf_size == 0)
+   {
+      TRACE_RETURN();
+      return;
+   }
+   memset(buf, ' ', buf_size - 1);
 
    while(curr != NULL)
    {
@@ -3272,18 +3279,23 @@ void format_options( CHARTYPE *buf )
          col = curr->select;
          linelen = curr->line?strlen((DEFCHAR *)curr->line):0;
          valuelen = (curr->save_select)?min(curr->save_select,item_values[tail].len):item_values[tail].len;
-         if (curr->line)
+         /* STATOPT positions survive a terminal resize, and extracted values
+          * may be longer than a row. Clip each write to the supplied buffer. */
+         if (curr->line && col >= 0 && (size_t)col < buf_size - 1)
          {
-            memcpy(buf+col,(DEFCHAR *)curr->line,linelen);
+            memcpy(buf+col,(DEFCHAR *)curr->line,
+                   min((size_t)linelen, buf_size - 1 - (size_t)col));
          }
-         memcpy(buf+col+linelen,(DEFCHAR *)item_values[tail].value,valuelen);
+         if (col + linelen >= 0 && (size_t)(col + linelen) < buf_size - 1)
+            memcpy(buf+col+linelen,(DEFCHAR *)item_values[tail].value,
+                   min((size_t)valuelen, buf_size - 1 - (size_t)(col + linelen)));
          off = col+linelen+valuelen;
          if (off > max_col)
             max_col = off;
       }
       curr = curr->next;
    }
-   buf[max_col] = '\0';
+   buf[min((size_t)max_col, buf_size - 1)] = '\0';
    TRACE_RETURN();
    return;
 }

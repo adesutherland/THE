@@ -153,6 +153,9 @@ try {
   ` });
   await command("Page.navigate", { url: pageUrl });
   await waitFor(() => evaluate("window.__snapshot?.buffer?.path === '/workspace/Welcome.txt'"), "Wasm startup", 30000);
+  await waitFor(() => evaluate("document.querySelector('.key-hints')?.textContent.includes('F10Menu') && document.querySelector('.key-hints')?.textContent.includes('Ctrl-SSave')"), "visible packaged profile key guide");
+  if (!(await evaluate("typeof window.__snapshot.status_line === 'string' && document.querySelector('.profile-status')?.textContent === window.__snapshot.status_line && !document.querySelector('.editor-details')")))
+    throw new Error("native profile status line is not visible under the browser editor");
   const send = (request) => evaluate(`window.__worker.postMessage(${JSON.stringify(request)})`);
   const snapshot = () => evaluate("window.__snapshot");
   const manifest = await (await fetch(new URL('manifest.json', pageUrl))).json();
@@ -396,9 +399,9 @@ try {
     await waitFor(()=>evaluate("document.querySelector('[aria-label=\"Run tool\"]')?.value==='rxbin'"),'imported RXBIN selected');
     await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run RXBIN').click()");
     await waitFor(()=>evaluate("window.__tools?.job.state==='Completed · status 9'"),'RXBIN console run',30000);
+    const previousRxbinJob = await evaluate("window.__tools.job.id");
     await send({type:'command',command:'RX RUN "/workspace/ToolHello.rxbin"'});
-    await waitFor(()=>evaluate("window.__tools?.job.state==='Completed · status 9'"),'direct compiled RXBIN',30000);
-    if(!await evaluate("window.__tools.chunks.some(c=>c.text.includes('RXBIN program proof'))"))throw Error('Missing RXBIN output');
+    await waitFor(()=>evaluate(`window.__tools?.job.id>${previousRxbinJob} && window.__tools.job.state==='Completed · status 9' && window.__tools.chunks.some(c=>c.text.includes('RXBIN program proof'))`),'direct compiled RXBIN and output',30000);
     await send({type:'tool',action:'register',arguments:'hello-program\nprogram\n/workspace/ToolHello.rxbin\n.rxbin\nHello program'});
     await waitFor(()=>evaluate("window.__tools.catalog.some(t=>t.id==='hello-program')"),'tool registration');
     await send({type:'tool',action:'run',tool:'hello-program'});

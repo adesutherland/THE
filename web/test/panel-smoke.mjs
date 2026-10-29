@@ -171,7 +171,7 @@ try {
 
   async function restoredEditor() {
     try {
-      await waitFor(() => evaluate("document.querySelector('.status-line')?.dataset.focusZone === 'filearea' && document.querySelector('.status-line span:first-child')?.textContent === 'Ln 2, Col 3' && document.querySelector('.key-hints')?.textContent.includes('F10')"), "original file caret and key footer after panel cleanup");
+      await waitFor(() => evaluate("document.querySelector('.status-line')?.dataset.focusZone === 'filearea' && document.querySelector('.status-line')?.dataset.focusLine === '2' && document.querySelector('.status-line')?.dataset.focusCell === '2' && document.querySelector('.key-hints')?.textContent.includes('F10')"), "original file caret and key footer after panel cleanup");
     } catch (error) {
       throw new Error(error.message+'; '+JSON.stringify(await evaluate("({status:document.querySelector('.status-line')?.textContent,hints:document.querySelector('.key-hints')?.textContent,rows:[...document.querySelectorAll('.role-reserved .line-text')].map(n=>n.textContent)})")));
     }
@@ -219,7 +219,7 @@ try {
   try {
     await waitFor(async () => (await cursorGeometry())?.left === '15ch', 'visible cursor at full field boundary');
   } catch (error) {
-    const state = await evaluate("({active:document.activeElement?.outerHTML, fields:[...document.querySelectorAll('.panel-field')].map(n=>({text:n.textContent,cls:n.className,cursor:n.querySelector('.logical-cursor')?.style.left})),status:document.querySelector('.status-text')?.textContent})");
+    const state = await evaluate("({active:document.activeElement?.outerHTML, fields:[...document.querySelectorAll('.panel-field')].map(n=>({text:n.textContent,cls:n.className,cursor:n.querySelector('.logical-cursor')?.style.left})),status:document.querySelector('.status-line')?.textContent})");
     throw new Error(error.message + "; state=" + JSON.stringify(state));
   }
   geometry = await cursorGeometry();
@@ -282,7 +282,7 @@ try {
   await evaluate("document.querySelector('.input-sink').focus()");
   await insertText('Z');
   await domKey('s','KeyS',true);
-  await waitFor(() => evaluate("[...document.querySelectorAll('.line-text')].some(n => n.textContent === 'taZil') && [...document.querySelectorAll('.status-line span')].some(n => n.textContent === 'Saved')"), 'typing and saving at the restored panel caret');
+  await waitFor(() => evaluate("[...document.querySelectorAll('.line-text')].some(n => n.textContent === 'taZil') && document.querySelector('.status-line')?.dataset.bufferDirty === '0'"), 'typing and saving at the restored panel caret');
   if (exceptions.length) throw new Error(exceptions.join("\n"));
   console.log("Browser panel: rendered fields, text, Tab, protected label, PF3, cancel and unchanged file passed");
 } finally {

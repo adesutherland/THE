@@ -65,6 +65,8 @@ async function evaluate(expression) {
 
 async function key(key, code, modifiers = 0, text = undefined) {
   const virtualKey = key === "Backspace" ? 8
+    : key === "Delete" ? 46
+    : key === "Home" ? 36
     : key === "End" ? 35
       : key.length === 1 ? key.toUpperCase().charCodeAt(0) : 0;
   await command("Input.dispatchKeyEvent", {
@@ -188,7 +190,6 @@ try {
   const smallRows = await sizeViewport(900, 550);
   if (smallRows >= largeRows) throw new Error("browser shrink did not reduce visible rows: " + JSON.stringify({largeRows, smallRows, geometry: await evaluate("[...document.querySelectorAll('.app-shell,.workbench,.workspace,.editor-pane,.editor-scroll,.command-area')].map(n=>({class:n.className,height:n.clientHeight,rows:getComputedStyle(n).gridTemplateRows}))")}));
   const grownRows = await sizeViewport(1200, 950);
-  await evaluate("document.querySelector('.editor-details').open = true");
   await sizeViewport(455, 700);
   const hints = await evaluate(`(() => {
     const bar=document.querySelector('.key-hints');
@@ -199,8 +200,7 @@ try {
       return {key:n.querySelector('kbd').textContent,visible:r.left>=outer.left && r.right<=outer.right && r.top>=outer.top && r.bottom<=outer.bottom};
     });
   })()`);
-  if (!hints || hints.length !== 8 || hints.some(h=>!h.visible) || !hints.some(h=>h.key==='F10')) throw new Error('clipped narrow-browser key guide: '+JSON.stringify(hints));
-  await evaluate("document.querySelector('.editor-details').open = false");
+  if (!hints || hints.some(h=>!h.visible) || !hints.some(h=>h.key==='F10') || !hints.some(h=>h.key==='Ctrl-S')) throw new Error('incomplete or clipped narrow-browser key guide: '+JSON.stringify(hints));
   await sizeViewport(1200,950);
   if (grownRows !== largeRows) throw new Error("browser grow did not restore visible rows");
 
@@ -236,13 +236,13 @@ try {
     await evaluate(`new Promise(resolve => {const input=document.querySelector('.command-form input');input.value=${JSON.stringify(text)};input.dispatchEvent(new Event('input',{bubbles:true}));setTimeout(()=>{input.form.requestSubmit();resolve(true)},0)})`);
   }
   await navigationCommand('cursor goto 3 1');
-  await waitFor(() => evaluate("document.querySelector('.status-text')?.textContent.includes('focus=filearea line=3')"), "third record for left navigation");
+  await waitFor(() => evaluate("document.querySelector('.status-line')?.dataset.focusZone==='filearea' && document.querySelector('.status-line')?.dataset.focusLine==='3'"), "third record for left navigation");
   await domKey('ArrowLeft','ArrowLeft');
-  await waitFor(() => evaluate("document.querySelector('.status-text')?.textContent.includes('focus=prefix line=3') && document.querySelector('.prefix-cursor')?.style.left === '6ch'"), "left into current prefix");
+  await waitFor(() => evaluate("document.querySelector('.status-line')?.dataset.focusZone==='prefix' && document.querySelector('.status-line')?.dataset.focusLine==='3' && document.querySelector('.prefix-cursor')?.style.left === '6ch'"), "left into current prefix");
   for (let i=0;i<7;i++) await domKey('ArrowLeft','ArrowLeft');
-  await waitFor(() => evaluate("document.querySelector('.status-text')?.textContent.includes('focus=filearea line=2') && document.querySelector('.line-content .logical-cursor')?.style.left === '9ch'"), "left from prefix to previous record end");
+  await waitFor(() => evaluate("document.querySelector('.status-line')?.dataset.focusZone==='filearea' && document.querySelector('.status-line')?.dataset.focusLine==='2' && document.querySelector('.line-content .logical-cursor')?.style.left === '9ch'"), "left from prefix to previous record end");
   await navigationCommand('cursor goto 1 1');
-  await waitFor(() => evaluate("document.querySelector('.status-text')?.textContent.includes('focus=filearea line=1')"), "file focus restored");
+  await waitFor(() => evaluate("document.querySelector('.status-line')?.dataset.focusZone==='filearea' && document.querySelector('.status-line')?.dataset.focusLine==='1'"), "file focus restored");
   if (!(await evaluate("document.querySelector('.key-hints')?.textContent.includes('F6Cmd/File') && document.querySelector('.key-hints')?.textContent.includes('F10Menu')"))) throw new Error('function-key guide missing');
   await domKey('F10','F10');
   await waitFor(() => evaluate("!!document.querySelector('.menu-popover')"), "F10 application Menu");
@@ -274,7 +274,7 @@ try {
   await domKey("Tab", "Tab");
   await waitFor(() => evaluate("[...document.querySelectorAll('.line-text')].some(node=>node.textContent==='        alpha')"), "Tab to insert eight spaces");
   await domKey("s", "KeyS", true);
-  await waitFor(() => evaluate("document.querySelector('.status-line')?.textContent.includes('Saved')"), "space-indented file saved");
+  await waitFor(() => evaluate("document.querySelector('.status-line')?.dataset.bufferDirty === '0'"), "space-indented file saved");
   await closeCurrentBuffer("tab-entry.txt");
   await selectBuffer("sample.txt");
 
@@ -308,7 +308,7 @@ try {
       "cRexx syntax styles",
     );
   } catch (error) {
-    const state = await evaluate("({buffer: document.querySelector('.buffer-tab-current')?.textContent.trim(), status: document.querySelector('.status-text')?.textContent.trim(), lines: [...document.querySelectorAll('.line-text')].map((node) => ({text: node.textContent, classes: [...node.querySelectorAll('.syntax')].map((span) => span.className)})).filter((row) => row.text).slice(0, 6)})");
+    const state = await evaluate("({buffer: document.querySelector('.buffer-tab-current')?.textContent.trim(), status: document.querySelector('.status-line')?.textContent.trim(), lines: [...document.querySelectorAll('.line-text')].map((node) => ({text: node.textContent, classes: [...node.querySelectorAll('.syntax')].map((span) => span.className)})).filter((row) => row.text).slice(0, 6)})");
     throw new Error(`${error.message}; state=${JSON.stringify(state)}`);
   }
 
@@ -320,7 +320,7 @@ try {
       "Markdown syntax styles without stale cRexx spans",
     );
   } catch (error) {
-    const state = await evaluate("({buffer: document.querySelector('.buffer-tab-current')?.textContent.trim(), status: document.querySelector('.status-text')?.textContent.trim(), lines: [...document.querySelectorAll('.line-text')].map((node) => ({text: node.textContent, classes: [...node.querySelectorAll('.syntax')].map((span) => span.className)})).filter((row) => row.text).slice(0, 6)})");
+    const state = await evaluate("({buffer: document.querySelector('.buffer-tab-current')?.textContent.trim(), status: document.querySelector('.status-line')?.textContent.trim(), lines: [...document.querySelectorAll('.line-text')].map((node) => ({text: node.textContent, classes: [...node.querySelectorAll('.syntax')].map((span) => span.className)})).filter((row) => row.text).slice(0, 6)})");
     throw new Error(`${error.message}; state=${JSON.stringify(state)}`);
   }
 
@@ -334,7 +334,7 @@ try {
       "Python syntax styles without stale Markdown spans",
     );
   } catch (error) {
-    const state = await evaluate("({buffer: document.querySelector('.buffer-tab-current')?.textContent.trim(), status: document.querySelector('.status-text')?.textContent.trim(), lines: [...document.querySelectorAll('.line-text')].map((node) => ({text: node.textContent, classes: [...node.querySelectorAll('.syntax')].map((span) => span.className)})).filter((row) => row.text).slice(0, 6)})");
+    const state = await evaluate("({buffer: document.querySelector('.buffer-tab-current')?.textContent.trim(), status: document.querySelector('.status-line')?.textContent.trim(), lines: [...document.querySelectorAll('.line-text')].map((node) => ({text: node.textContent, classes: [...node.querySelectorAll('.syntax')].map((span) => span.className)})).filter((row) => row.text).slice(0, 6)})");
     throw new Error(`${error.message}; state=${JSON.stringify(state)}`);
   }
   const pythonColors = await evaluate("({keyword: getComputedStyle(document.querySelector('.syntax-keyword')).color, identifier: getComputedStyle(document.querySelector('.syntax-identifier')).color, string: getComputedStyle(document.querySelector('.syntax-string')).color})");
@@ -363,27 +363,50 @@ try {
   await insertText("X");
   try {
     await waitFor(
-      () => evaluate("[...document.querySelectorAll('.line-text')].some((node) => node.textContent === 'Xalpha beta gamma')"),
+      () => evaluate("[...document.querySelectorAll('.line-text')].some((node) => node.textContent === 'Xalpha beta gamma') && document.querySelector('.line-content .logical-cursor')?.style.left === '1ch' && document.querySelector('.status-line').dataset.bufferDirty === '1'"),
       "printable keyboard input",
     );
   } catch (error) {
     const state = await evaluate("({active: document.activeElement?.className, sink: document.querySelector('.input-sink')?.value, lines: [...document.querySelectorAll('.line-text')].map((node) => node.textContent).filter(Boolean).slice(0, 5)})");
     throw new Error(`${error.message}; state=${JSON.stringify(state)}`);
   }
-  await domKey("Backspace", "Backspace");
+  await key("Backspace", "Backspace");
   try {
     await waitFor(
-      () => evaluate("[...document.querySelectorAll('.line-text')].some((node) => node.textContent === 'alpha beta gamma')"),
-      "Backspace mapping",
+      () => evaluate("[...document.querySelectorAll('.line-text')].some((node) => node.textContent === 'alpha beta gamma') && document.querySelector('.line-content .logical-cursor')?.style.left === '0ch' && document.querySelector('.status-line').dataset.bufferDirty === '0'"),
+      "physical Backspace deletes left and moves the cursor",
     );
   } catch (error) {
     const lines = await evaluate("[...document.querySelectorAll('.line-text')].map((node) => node.textContent).filter(Boolean).slice(0, 5)");
     throw new Error(`${error.message}; lines=${JSON.stringify(lines)}`);
   }
+  await key("Delete", "Delete");
+  await waitFor(
+    () => evaluate("[...document.querySelectorAll('.line-text')].some((node) => node.textContent === 'lpha beta gamma') && document.querySelector('.line-content .logical-cursor')?.style.left === '0ch' && document.querySelector('.status-line').dataset.bufferDirty === '1'"),
+    "physical forward Delete removes the current character without moving the cursor",
+  );
+  await domKey("s", "KeyS", true);
+  await waitFor(() => evaluate("document.querySelector('.status-line').dataset.bufferDirty === '0'"), "forward Delete saved");
+  // Keep a second file open while the edited file is closed and read afresh.
+  await openWorkspaceFile("second.txt");
+  await selectBuffer("sample.txt");
+  await closeCurrentBuffer("sample.txt");
+  await openWorkspaceFile("sample.txt");
+  await navigationCommand("cursor goto 1 1");
+  await waitFor(
+    () => evaluate("[...document.querySelectorAll('.line-text')].some((node) => node.textContent === 'lpha beta gamma') && document.querySelector('.line-content .logical-cursor')?.style.left === '0ch' && document.querySelector('.status-line').dataset.bufferDirty === '0'"),
+    "saved Delete bytes survive closing and reopening",
+  );
+  await selectBuffer("second.txt");
+  await closeCurrentBuffer("second.txt");
+  await selectBuffer("sample.txt");
+  await evaluate("document.querySelector('.input-sink').focus()");
+  await insertText("a");
+  await key("Home", "Home");
   await insertText("Z");
   await evaluate("(() => { const row = [...document.querySelectorAll('.screen-row')].find((node) => node.querySelector('.line-text')?.textContent === 'delete me'); const prefix = row?.querySelector('.prefix-cell'); if (!prefix) return false; const rect = prefix.getBoundingClientRect(); prefix.dispatchEvent(new MouseEvent('click', {bubbles: true, clientX: rect.left + 4, clientY: rect.top + 8})); return true; })()");
   await waitFor(
-    () => evaluate("[...document.querySelectorAll('.status-line span')].some((node) => node.textContent.trim() === 'Prefix')"),
+    () => evaluate("document.querySelector('.status-line').dataset.focusZone === 'prefix'"),
     "prefix focus",
   );
   await evaluate("document.querySelector('.input-sink').focus()");
@@ -399,7 +422,7 @@ try {
   );
   await domKey("s", "KeyS", true);
   await waitFor(
-    () => evaluate("[...document.querySelectorAll('.status-line span')].some((node) => node.textContent.trim() === 'Saved')"),
+    () => evaluate("document.querySelector('.status-line').dataset.bufferDirty === '0'"),
     "Ctrl+S action",
   );
 

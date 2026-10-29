@@ -115,6 +115,8 @@ typedef struct
    LlmDriverScreenLine lines[LLM_DRIVER_MAX_ROWS];
    char command_line[LLM_DRIVER_MAX_COMMAND + 1];
    char status[LLM_DRIVER_MAX_COMMAND + 1];
+   int status_line_visible;
+   char status_line[LLM_DRIVER_MAX_COLS + 1];
    unsigned long last_message_serial;
    char last_message[LLM_DRIVER_MAX_MESSAGE + 1];
    char buffer_path[LLM_DRIVER_MAX_PATH + 1];
@@ -225,6 +227,8 @@ void llm_driver_screen_view_set_command(LlmDriverScreenView *view,
                                         const char *command_line);
 void llm_driver_screen_view_set_status(LlmDriverScreenView *view,
                                        const char *status);
+void llm_driver_screen_view_set_status_line(LlmDriverScreenView *view,
+                                            const char *status_line);
 void llm_driver_screen_view_set_last_message(LlmDriverScreenView *view,
                                              unsigned long serial,
                                              const char *message);

@@ -2070,7 +2070,24 @@ static void show_status_put_text(CHARTYPE *row, int width, int col,
    memcpy(row + col, text, length);
 }
 
-void show_statarea(void)
+typedef struct
+{
+#ifdef USE_UTF8
+   int charpos;
+   int draw_status_cluster;
+   int status_field_width;
+   int status_cluster_offset;
+   int status_cluster_expanded_width;
+   char status_field[21];
+   const CHARTYPE *status_cluster_line;
+   size_t status_cluster_len;
+   TextCluster status_cluster;
+#else
+   int unused;
+#endif
+} ShowStatusPreview;
+
+static int prepare_statarea(CHARTYPE *row, int width, ShowStatusPreview *preview)
 /***********************************************************************/
 {
 #ifdef USE_UTF8
@@ -2079,7 +2096,7 @@ void show_statarea(void)
    int status_field_width = 0;
    int status_cluster_offset = 0;
    int status_cluster_expanded_width = 1;
-   char status_field[21];
+   char status_field[21] = {0};
    const CHARTYPE *status_cluster_line = NULL;
    size_t status_cluster_len = 0;
    TextCluster status_cluster = {0};
@@ -2093,7 +2110,8 @@ void show_statarea(void)
    int length;
    char _THE_FAR buffer[THE_MAX_SCREEN_WIDTH+10];
 
-   TRACE_FUNCTION("show.c:    show_statarea");
+   TRACE_FUNCTION("show.c:    prepare_statarea");
+   memset(preview, 0, sizeof(*preview));
    /*
     * Reset parser severity at the start of every status line refresh.
     * It will be updated by extract_pmsg if it is called via format_options.
@@ -2101,25 +2119,17 @@ void show_statarea(void)
    current_parser_severity = 0;
    /*
     * If the status line is off, just exit...
-    */   if ( STATUSLINEx == 'O' || !curses_started || CURRENT_VIEW == NULL )
+    */   if (!STATUSLINEON() || CURRENT_VIEW == NULL || width <= 0)
    {
       TRACE_RETURN();
-      return;
-   }
-   /*
-    * If GUI option set for status line...
-    */
-   if (STATUSLINEx == 'G')
-   {
-      TRACE_RETURN();
-      return;
+      return FALSE;
    }
    /*
     * Display THE version.
     */
-   memset((DEFCHAR *)linebuf,' ',terminal_cols);
+   memset((DEFCHAR *)row,' ',width);
    snprintf((DEFCHAR *)buffer,sizeof(buffer),"%s",THE_PRODUCT_NAME);
-   show_status_put_text(linebuf, terminal_cols, 0, buffer,
+   show_status_put_text(row, width, 0, buffer,
                         min(strlen(buffer), STATAREA_OFFSET-1));
    /*
     * Display number of files or copyright on startup.
@@ -2146,12 +2156,11 @@ void show_statarea(void)
       }
       else
       {
-         memset(buffer,' ',min(terminal_cols,sizeof(buffer)));
-         format_options((CHARTYPE *)buffer);
+         format_options((CHARTYPE *)buffer, sizeof(buffer));
       }
    }
    length = strlen(buffer);
-   show_status_put_text(linebuf, terminal_cols, STATAREA_OFFSET, buffer, length);
+   show_status_put_text(row, width, STATAREA_OFFSET, buffer, length);
    /*
     * Display CLOCK.
     */
@@ -2163,12 +2172,12 @@ void show_statarea(void)
            (tblock->tm_hour > 12) ? (tblock->tm_hour-12) : (tblock->tm_hour),
             tblock->tm_min,
            (tblock->tm_hour >= 12) ? ("pm") : ("am"));
-      show_status_put_text(linebuf, terminal_cols,
-         max(0, terminal_cols - ((HEXDISPLAYx) ? 36 : 27)), buffer, strlen(buffer));
+      show_status_put_text(row, width,
+         max(0, width - ((HEXDISPLAYx) ? 36 : 27)), buffer, strlen(buffer));
    }
    else
-      show_status_put_text(linebuf, terminal_cols,
-         max(0, terminal_cols - ((HEXDISPLAYx) ? 36 : 27)), "        ", 8);
+      show_status_put_text(row, width,
+         max(0, width - ((HEXDISPLAYx) ? 36 : 27)), "        ", 8);
    /*
     * Display HEXDISPLAY.
     */
@@ -2191,7 +2200,7 @@ void show_statarea(void)
       }
 #ifdef USE_UTF8
       status_field[0] = '\0';
-      charpos = max(0,(terminal_cols-27));
+      charpos = max(0,(width-27));
       {
          char codebuf[128];
          TextPos pos;
@@ -2203,7 +2212,7 @@ void show_statarea(void)
          int want_chars = show_utf8_status_wants_chars();
          int want_codes = show_utf8_status_wants_codes();
 
-         status_field_width = min(20, max(0, (terminal_cols-7) - charpos));
+         status_field_width = min(20, max(0, (width-7) - charpos));
          codebuf[0] = '\0';
          if (want_codes)
          {
@@ -2303,8 +2312,8 @@ void show_statarea(void)
          }
          if (status_field_width > 0)
          {
-            memset((DEFCHAR *)linebuf + charpos, ' ', (size_t)status_field_width);
-            memcpy((DEFCHAR *)linebuf + charpos, status_field,
+            memset((DEFCHAR *)row + charpos, ' ', (size_t)status_field_width);
+            memcpy((DEFCHAR *)row + charpos, status_field,
                    min(status_field_width, (int)strlen(status_field)));
          }
       }
@@ -2312,7 +2321,7 @@ void show_statarea(void)
       {
          char status_field[21];
          char status_text[21];
-         int charpos = max(0,(terminal_cols-19));
+         int charpos = max(0,(width-19));
 
          memset(status_field, ' ', sizeof(status_field));
          status_field[20] = '\0';
@@ -2326,27 +2335,73 @@ void show_statarea(void)
                      (unsigned char)((key == 0) ? ' ' : key), key, key);
          memcpy(status_field, status_text,
                 min(12, (int)strlen(status_text)));
-         show_status_put_text(linebuf, terminal_cols, charpos, status_field, 12);
+         show_status_put_text(row, width, charpos, status_field, 12);
       }
 #endif
    }
    else
-      show_status_put_text(linebuf, terminal_cols,
-                           max(0, terminal_cols-19), "            ", 12);
+      show_status_put_text(row, width,
+                           max(0, width-19), "            ", 12);
    /*
     * Display colour setting.
     */
-   linebuf[max(0,(terminal_cols-7))] = (colour_support) ? 'C' : 'c';
+   row[max(0,(width-7))] = (colour_support) ? 'C' : 'c';
    /*
     * Display REXX support character.
     */
-   linebuf[max(0,(terminal_cols-6))] = (rexx_support) ? REXX_INT_CHAR : ' ';
+   row[max(0,(width-6))] = (rexx_support) ? REXX_INT_CHAR : ' ';
    /*
     * Display INSERTMODE toggle.
     */
-   show_status_put_text(linebuf, terminal_cols, max(0, terminal_cols-5),
+   show_status_put_text(row, width, max(0, width-5),
                         INSERTMODEx ? " INS " : "     ", 5);
-   linebuf[terminal_cols] = '\0';
+   row[width] = '\0';
+#ifdef USE_UTF8
+   preview->charpos = charpos;
+   preview->draw_status_cluster = draw_status_cluster;
+   preview->status_field_width = status_field_width;
+   preview->status_cluster_offset = status_cluster_offset;
+   preview->status_cluster_expanded_width = status_cluster_expanded_width;
+   memcpy(preview->status_field, status_field, sizeof(status_field));
+   preview->status_cluster_line = status_cluster_line;
+   preview->status_cluster_len = status_cluster_len;
+   preview->status_cluster = status_cluster;
+#endif
+   TRACE_RETURN();
+   return TRUE;
+}
+
+/* Format the editor-owned status text without requiring a physical UI.
+ * Native UTF HEXDISPLAY glyph painting remains in show_statarea. */
+int format_statarea(CHARTYPE *out, size_t out_size)
+{
+   CHARTYPE row[THE_MAX_SCREEN_WIDTH + 1];
+   ShowStatusPreview preview;
+   int width = min(terminal_cols, THE_MAX_SCREEN_WIDTH);
+   size_t length;
+
+   if (out == NULL || out_size == 0)
+      return FALSE;
+   out[0] = '\0';
+   if (!prepare_statarea(row, width, &preview))
+      return FALSE;
+   length = min((size_t)width, out_size - 1);
+   memcpy(out, row, length);
+   out[length] = '\0';
+   return TRUE;
+}
+
+void show_statarea(void)
+/***********************************************************************/
+{
+   ShowStatusPreview preview;
+
+   TRACE_FUNCTION("show.c:    show_statarea");
+   if (!curses_started || !prepare_statarea(linebuf, terminal_cols, &preview))
+   {
+      TRACE_RETURN();
+      return;
+   }
    /*
     * Refresh the STATUS LINE.
     */
@@ -2376,18 +2431,18 @@ void show_statarea(void)
 #endif
    END_LINE_OUTPUT();
 #ifdef USE_UTF8
-   if ( status_field_width > 0 )
+   if ( preview.status_field_width > 0 )
    {
-      show_fill_cells_at(statarea, 0, charpos, status_field_width, status_colour);
-      show_write_ascii_cells_at(statarea, 0, charpos, status_field,
-                                status_field_width, status_colour);
+      show_fill_cells_at(statarea, 0, preview.charpos, preview.status_field_width, status_colour);
+      show_write_ascii_cells_at(statarea, 0, preview.charpos, preview.status_field,
+                                preview.status_field_width, status_colour);
    }
-   if ( draw_status_cluster )
+   if ( preview.draw_status_cluster )
    {
       show_write_utf8_component_preview_cluster_at(
-         statarea, 0, charpos + status_cluster_offset,
-         status_cluster_expanded_width, status_cluster_line,
-         status_cluster_len, status_cluster, status_colour);
+         statarea, 0, preview.charpos + preview.status_cluster_offset,
+         preview.status_cluster_expanded_width, preview.status_cluster_line,
+         preview.status_cluster_len, preview.status_cluster, status_colour);
    }
 #endif
    the_driver->refresh_window(driver_global_window(THE_DRIVER_GLOBAL_STATAREA));

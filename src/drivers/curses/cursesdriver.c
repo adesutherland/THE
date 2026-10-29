@@ -1004,12 +1004,64 @@ void curses_driver_end_terminal_report(void)
 }
 
 static WINDOW *console_window;
-static int console_rows, console_timeout = -1;
+static int console_rows, console_cols, console_top, console_left;
+static int console_timeout = -1, console_toolbar_focus, console_control;
+static int console_cached_mouse, console_mouse_button, console_mouse_action;
+static int console_mouse_modifier;
+
+enum { CONSOLE_EDITOR_MIN_COLS = 72, CONSOLE_MIN_COLS = 44 };
+
+static const char *const console_controls[] = { "Run", "Stop", "Clear", "Close", "Focus" };
+
+static int console_is_right(void)
+{
+   return COLS >= CONSOLE_EDITOR_MIN_COLS + 1 + CONSOLE_MIN_COLS;
+}
 
 static int console_height(void)
 {
    return the_tool_console()->visible && LINES >= 16 && COLS >= 32
-      ? (LINES >= 30 ? 8 : 5) : 0;
+      ? (console_is_right() ? LINES : (LINES >= 24 ? 8 : 6)) : 0;
+}
+
+static int console_width(void)
+{
+   if (!console_height()) return 0;
+   return console_is_right() ? max(CONSOLE_MIN_COLS, COLS / 3) : COLS;
+}
+
+static int console_layout_changed(void)
+{
+   return console_height() != console_rows || console_width() != console_cols;
+}
+
+static int console_control_event(int control, TheInputEvent *event)
+{
+   const TheToolConsole *c = the_tool_console();
+
+   switch (control)
+   {
+      case 0:
+         if (c->running) return 0;
+         console_toolbar_focus = 0;
+         return the_input_event_from_command("rx run", event);
+      case 1:
+         return c->running ? the_input_event_from_command("rx stop", event) : 0;
+      case 2: return the_input_event_from_command("rx clear", event);
+      case 3:
+         console_toolbar_focus = 0;
+         return the_input_event_from_command("rx console off", event);
+      case 4:
+         console_toolbar_focus = 0;
+         /* Focus takes the user to the input field, including from its toolbar. */
+         if (c->focused)
+         {
+            curses_driver_update();
+            return 0;
+         }
+         return the_input_event_from_command("rx console", event);
+   }
+   return 0;
 }
 
 /* Bound every physical row in cells. A long program line must not wrap into
@@ -1054,32 +1106,47 @@ static void console_draw(void)
 {
    const TheToolConsole *c = the_tool_console();
    static char text[THE_TOOL_OUTPUT + 1];
-   char heading[384], context[THE_TOOL_PATH + 160];
+   char heading[384], context[THE_TOOL_PATH + 160], state[128];
    const char *p, *start, *end;
    const char *prompt = c->running && !c->eof ? "Program input> " : "Input closed> ";
-   int h = console_rows, row = h >= 8 ? 2 : 1;
+   int h = console_rows, w = console_cols, row = h >= 8 ? 4 : 3;
    int output_rows = h - row - 1, lines = 0, input_col, input_cells;
+   int i, col = 1;
    size_t length;
    TextCellSlice input_slice;
 
    if (!h) return;
-   if (!console_window) console_window = newwin(h, COLS, LINES - h, 0);
+   if (!console_window) console_window = newwin(h, w, console_top, console_left);
    if (!console_window) return;
    werase(console_window);
-   snprintf(heading, sizeof(heading), " Program console | %s | %s",
-      c->focused ? "Esc: editor" : (COLS >= 64 ? "RX CONSOLE: input" : "F10: Menu"),
-      c->state);
+   snprintf(heading, sizeof(heading), " Program console | %s",
+      c->focused ? "Esc: editor" : (w >= 64 ? "RX CONSOLE: input" : "F10: Menu"));
    wattron(console_window, A_REVERSE);
-   console_write_text(0, 0, heading, strlen(heading), COLS - 1);
+   console_write_text(0, 0, heading, strlen(heading), w - 1);
    wattroff(console_window, A_REVERSE);
+   for (i = 0; i < 5; i++)
+   {
+      int enabled = i == 0 ? !c->running : i == 1 ? c->running : 1;
+      int selected = c->focused && console_toolbar_focus && console_control == i;
+
+      wattrset(console_window, selected ? A_REVERSE : enabled ? A_BOLD : A_DIM);
+      col += console_write_text(1, col, console_controls[i], strlen(console_controls[i]), w - col - 1);
+      col++;
+   }
+   wattrset(console_window, A_NORMAL);
+   snprintf(state, sizeof(state), "%s%s", c->state,
+      c->running && w < 64 ? " | ^D EOF ^C stop" : "");
+   console_write_text(2, 1, state, strlen(state), w - 2);
    if (h >= 8)
    {
       snprintf(context, sizeof(context), " %s | %s | source %u revision %u",
          c->tool, c->filename, c->source_id, c->revision);
-      console_write_text(1, 0, context, strlen(context), COLS - 1);
+      console_write_text(3, 0, context, strlen(context), w - 1);
    }
    length = the_tool_console_text(text, sizeof(text));
-   for (p = text; *p; p++) if (*p == '\n') lines++;
+   /* A trailing newline finishes the last output row rather than adding a
+    * blank one that would hide the newest result in a short dock. */
+   for (p = text; *p; p++) if (*p == '\n' && p[1]) lines++;
    start = text;
    while (lines >= output_rows && *start)
       if (*start++ == '\n') lines--;
@@ -1087,11 +1154,11 @@ static void console_draw(void)
    {
       end = strchr(start, '\n');
       if (!end) end = text + length;
-      console_write_text(row++, 0, start, (size_t)(end - start), COLS - 1);
+      console_write_text(row++, 0, start, (size_t)(end - start), w - 1);
       start = *end ? end + 1 : end;
    }
-   input_col = console_write_text(h - 1, 0, prompt, strlen(prompt), COLS - 2);
-   input_cells = COLS - input_col - 1;
+   input_col = console_write_text(h - 1, 0, prompt, strlen(prompt), w - 2);
+   input_cells = w - input_col - 1;
    input_slice = textpos_slice_cells((const CHARTYPE *)c->input, c->input_length,
       max(0, textpos_from_byte((const CHARTYPE *)c->input, c->input_length,
          c->input_length).cell_column - input_cells + 1), input_cells - 1);
@@ -1100,12 +1167,20 @@ static void console_draw(void)
       input_slice.end.byte_offset - input_slice.start.byte_offset, input_cells - 1);
    if (!c->input_length)
    {
-      const char *hint = c->running && !c->eof
-         ? (COLS >= 64 ? "Ctrl-D: EOF  Ctrl-C: stop" : "^D EOF  ^C stop") : "input closed";
-      console_write_text(h - 1, COLS - (int)strlen(hint) - 2,
-         hint, strlen(hint), (int)strlen(hint));
+      const char *hint = console_toolbar_focus ? "Arrows/Enter"
+         : c->running && !c->eof && w >= 64
+            ? "Tab: controls  Ctrl-D: EOF  Ctrl-C: stop" : "Tab: controls";
+      if (w - (int)strlen(hint) - 2 >= input_col)
+         console_write_text(h - 1, w - (int)strlen(hint) - 2,
+            hint, strlen(hint), (int)strlen(hint));
    }
-   wmove(console_window, h - 1, input_col);
+   if (c->focused && console_toolbar_focus)
+   {
+      col = 1;
+      for (i = 0; i < console_control; i++) col += (int)strlen(console_controls[i]) + 1;
+      wmove(console_window, 1, col);
+   }
+   else wmove(console_window, h - 1, input_col);
    leaveok(console_window, c->focused ? FALSE : TRUE);
    wnoutrefresh(console_window);
 }
@@ -1350,34 +1425,130 @@ int curses_driver_peek_raw_driver_window_key(TheDriverWindow *win)
    return key;
 }
 
+/* Inspect each mouse packet once. Editor packets remain available to the
+ * editor's normal mouse bindings through read_pending_mouse_button(). */
+static int console_mouse_event(TheInputEvent *event)
+{
+   const TheToolConsole *c = the_tool_console();
+   int button, action, modifier, row, col, i, start = 1;
+
+   if (!curses_driver_read_pending_mouse_button(&button, &action, &modifier))
+      return 0;
+   curses_driver_current_mouse_screen_position(&row, &col);
+   if (row < console_top || row >= console_top + console_rows ||
+       col < console_left || col >= console_left + console_cols)
+   {
+      console_cached_mouse = 1;
+      console_mouse_button = button;
+      console_mouse_action = action;
+      console_mouse_modifier = modifier;
+      if (button == 1 && c->focused)
+      {
+         console_toolbar_focus = 0;
+         the_tool_console_visibility(c->visible, 0);
+      }
+      return the_input_event_from_legacy_key(THE_KEY_MOUSE, event);
+   }
+   if (button != 1 || modifier ||
+       (action != CURSES_DRIVER_MOUSE_BUTTON_PRESSED &&
+        action != CURSES_DRIVER_MOUSE_BUTTON_CLICKED &&
+        action != CURSES_DRIVER_MOUSE_BUTTON_DOUBLE_CLICKED)) return 0;
+   row -= console_top;
+   col -= console_left;
+   if (row == 1)
+   {
+      for (i = 0; i < 5; i++)
+      {
+         if (col >= start && col < start + (int)strlen(console_controls[i]))
+         {
+            console_control = i;
+            return console_control_event(i, event);
+         }
+         start += (int)strlen(console_controls[i]) + 1;
+      }
+   }
+   console_toolbar_focus = 0;
+   if (c->focused)
+   {
+      curses_driver_update();
+      return 0;
+   }
+   return the_input_event_from_command("rx console", event);
+}
+
 int curses_driver_read_input_event(TheInputEvent *event)
 {
- int key,ok;char command[80];const TheToolConsole*c;
- if(!event)return 0;
- the_tools_native_initialise();the_tools_native_poll();c=the_tool_console();
- if(the_tools_take_menu_run(event))return 1;
- if(console_height()!=console_rows)return the_input_event_from_resize(0,0,event);
- if(c->focused&&!console_rows&&!in_macro&&!the_panel_active)
-  return the_input_event_from_command("rx key escape",event);
- if(c->running)curses_driver_set_window_timeout(curses_driver_current_active_window(),50);
- key=curses_driver_read_current_window_key();
- if(c->running)curses_driver_set_window_timeout(curses_driver_current_active_window(),console_timeout);
- if(key==ERR){the_tools_native_poll();curses_driver_update();return 0;}
- *event=the_input_event_none();ok=curses_driver_read_utf8_text_event(key,event);
- if(!ok)ok=the_input_event_from_legacy_key(key,event);
- if(c->focused&&!in_macro&&!the_panel_active){
-  /* Keep the native menu reachable while the program input owns text keys. */
-  if(key==KEY_F(10))return ok;
-  if(key==27)strcpy(command,"rx key escape");
-  else if(key==10||key==13||key==KEY_ENTER)strcpy(command,"rx key enter");
-  else if(key==8||key==127||key==KEY_BACKSPACE)strcpy(command,"rx key backspace");
-  else if(key==3)strcpy(command,"rx key stop");
-  else if(key==4)strcpy(command,"rx key eof");
-  else if(event->kind==THE_INPUT_TEXT)snprintf(command,sizeof(command),"rx type %u",event->codepoint);
-  else return 0;
-  return the_input_event_from_command(command,event);
- }
- return ok;
+   int key, ok;
+   char command[80];
+   const TheToolConsole *c;
+
+   if (!event) return 0;
+   /* The prior event has now been dispatched. A custom binding may have
+    * ignored its mouse packet; never let it replace a later physical click. */
+   console_cached_mouse = 0;
+   the_tools_native_initialise();
+   the_tools_native_poll();
+   c = the_tool_console();
+   if (the_tools_take_menu_run(event)) return 1;
+   if (console_layout_changed()) return the_input_event_from_resize(0, 0, event);
+   if (!c->focused) console_toolbar_focus = 0;
+   if (c->focused && !console_rows && !in_macro && !the_panel_active)
+      return the_input_event_from_command("rx key escape", event);
+   if (c->running)
+      curses_driver_set_window_timeout(curses_driver_current_active_window(), 50);
+   key = curses_driver_read_current_window_key();
+   if (c->running)
+      curses_driver_set_window_timeout(curses_driver_current_active_window(), console_timeout);
+   if (key == ERR)
+   {
+      the_tools_native_poll();
+      curses_driver_update();
+      return 0;
+   }
+   *event = the_input_event_none();
+   ok = curses_driver_read_utf8_text_event(key, event);
+   if (!ok) ok = the_input_event_from_legacy_key(key, event);
+   if (!in_macro && !the_panel_active)
+   {
+      if (key == THE_KEY_MOUSE && console_rows) return console_mouse_event(event);
+      if (c->focused)
+      {
+         /* F10 and resize keep their normal editor route. Profile-defined
+          * editor keys, including Tab and F6, are untouched outside the dock. */
+         if (key == THE_KEY_F(10) || key == THE_KEY_RESIZE) return ok;
+         if (key == 9 || key == THE_KEY_BTAB)
+         {
+            console_toolbar_focus = !console_toolbar_focus;
+            curses_driver_update();
+            return 0;
+         }
+         if (key == 27)
+         {
+            console_toolbar_focus = 0;
+            strcpy(command, "rx key escape");
+         }
+         else if (key == 3) strcpy(command, "rx key stop");
+         else if (console_toolbar_focus)
+         {
+            if (key == THE_KEY_LEFT) console_control = (console_control + 4) % 5;
+            else if (key == THE_KEY_RIGHT) console_control = (console_control + 1) % 5;
+            else if (key == THE_KEY_HOME) console_control = 0;
+            else if (key == THE_KEY_END) console_control = 4;
+            else if (key == 10 || key == 13 || key == THE_KEY_ENTER || key == ' ')
+               return console_control_event(console_control, event);
+            curses_driver_update();
+            return 0;
+         }
+         else if (key == 10 || key == 13 || key == THE_KEY_ENTER) strcpy(command, "rx key enter");
+         else if (key == 8 || key == 127 || key == THE_KEY_BACKSPACE) strcpy(command, "rx key backspace");
+         else if (key == 4) strcpy(command, "rx key eof");
+         else if (event->kind == THE_INPUT_TEXT)
+            snprintf(command, sizeof(command), "rx type %u", event->codepoint);
+         else return 0;
+         return the_input_event_from_command(command, event);
+      }
+   }
+   return ok;
 }
 
 int curses_driver_read_terminal_legacy_key(void)
@@ -1705,6 +1876,14 @@ static int curses_driver_read_ncurses_mouse_button(int *button, int *action,
 int curses_driver_read_pending_mouse_button(int *button, int *action,
                                             int *modifier)
 {
+   if (console_cached_mouse)
+   {
+      console_cached_mouse = 0;
+      if (button) *button = console_mouse_button;
+      if (action) *action = console_mouse_action;
+      if (modifier) *modifier = console_mouse_modifier;
+      return 1;
+   }
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)
    int raw_button = 0;
    int raw_action = 0;
@@ -2371,8 +2550,11 @@ static void curses_driver_refresh_terminal_size(void)
 {
    if(console_window){delwin(console_window);console_window=NULL;}
    console_rows=console_height();
-   terminal_lines = LINES-console_rows;
-   terminal_cols = COLS;
+   console_cols=console_width();
+   console_left=console_rows && console_is_right() ? COLS-console_cols : 0;
+   console_top=console_rows && !console_is_right() ? LINES-console_rows : 0;
+   terminal_lines = console_rows && !console_is_right() ? LINES-console_rows : LINES;
+   terminal_cols = console_left ? console_left-1 : COLS;
 #ifdef HAVE_BSD_CURSES
    terminal_lines--;
 #endif
@@ -2626,7 +2808,7 @@ static void curses_driver_resize_terminal(int rows, int cols)
 
 static int curses_driver_is_terminal_resized(void)
 {
-   if(console_height()!=console_rows)return 1;
+   if(console_layout_changed())return 1;
 #if defined(PDCURSES)
    return is_termresized();
 #elif defined(SIGWINCH) && defined(USE_NCURSES)

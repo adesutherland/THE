@@ -1301,6 +1301,11 @@ add_test(NAME test_llm_message_snapshot
             $<TARGET_FILE:the>)
 set_tests_properties(test_llm_message_snapshot PROPERTIES
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+add_test(NAME test_llm_status_line
+    COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_llm_status_line.py
+            $<TARGET_FILE:the>)
+set_tests_properties(test_llm_status_line PROPERTIES
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 add_executable(test_virtual_screen tests/test_virtual_screen.c src/llm/llmdriver.c src/inputevent.c src/frontendaction.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_virtual_screen PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8)

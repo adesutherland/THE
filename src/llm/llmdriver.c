@@ -871,6 +871,15 @@ void llm_driver_screen_view_set_status(LlmDriverScreenView *view,
       copy_text(view->status, sizeof(view->status), status);
 }
 
+void llm_driver_screen_view_set_status_line(LlmDriverScreenView *view,
+                                            const char *status_line)
+{
+   if (view == NULL)
+      return;
+   view->status_line_visible = status_line != NULL;
+   copy_text(view->status_line, sizeof(view->status_line), status_line);
+}
+
 void llm_driver_screen_view_set_last_message(LlmDriverScreenView *view,
                                              unsigned long serial,
                                              const char *message)
@@ -1000,6 +1009,8 @@ size_t llm_driver_format_screen_view(const LlmDriverScreenView *view,
       appendf(out, out_len, &used, "command: %s\n", view->command_line);
    if (view->status[0] != '\0')
       appendf(out, out_len, &used, "status: %s\n", view->status);
+   if (view->status_line_visible)
+      appendf(out, out_len, &used, "status_line: %s\n", view->status_line);
    if (view->buffer_valid)
       appendf(out, out_len, &used, "buffer path=\"%s\" dirty=%d lines=%zu\n",
               view->buffer_path, view->buffer_dirty,
@@ -1103,6 +1114,11 @@ size_t llm_driver_format_semantic_view_with_options(
       {
          appendf(out, out_len, &used, ",\"status\":");
          append_json_string(out, out_len, &used, view->status);
+         appendf(out, out_len, &used, ",\"status_line\":");
+         if (view->status_line_visible)
+            append_json_string(out, out_len, &used, view->status_line);
+         else
+            appendf(out, out_len, &used, "null");
       }
       appendf(out, out_len, &used, ",\"last_message_serial\":%lu,\"last_message\":",
               view->last_message_serial);
@@ -1219,6 +1235,11 @@ size_t llm_driver_format_semantic_view_with_options(
    {
       appendf(out, out_len, &used, "  \"status\": ");
       append_json_string(out, out_len, &used, view->status);
+      appendf(out, out_len, &used, ",\n  \"status_line\": ");
+      if (view->status_line_visible)
+         append_json_string(out, out_len, &used, view->status_line);
+      else
+         appendf(out, out_len, &used, "null");
       appendf(out, out_len, &used, ",\n");
    }
    appendf(out, out_len, &used, "  \"last_message_serial\": %lu,\n"
@@ -1378,13 +1399,23 @@ size_t llm_driver_format_delta_view(const LlmDriverScreenView *previous,
         || previous->cursor.zone_row != current->cursor.zone_row
         || previous->cursor.text.cell_column != current->cursor.text.cell_column,
            previous == NULL
-        || strcmp(previous->status, current->status) != 0,
+        || strcmp(previous->status, current->status) != 0
+        || previous->status_line_visible != current->status_line_visible
+        || strcmp(previous->status_line, current->status_line) != 0,
            previous == NULL
         || previous->buffer_dirty != current->buffer_dirty
         || previous->buffer_line_count != current->buffer_line_count
         || strcmp(previous->buffer_path, current->buffer_path) != 0,
            current->last_message_serial);
    append_json_string(out, out_len, &used, current->last_message);
+   if (options->include_status)
+   {
+      appendf(out, out_len, &used, ",\"status_line\":");
+      if (current->status_line_visible)
+         append_json_string(out, out_len, &used, current->status_line);
+      else
+         appendf(out, out_len, &used, "null");
+   }
    appendf(out, out_len, &used, ",\"rows\":[");
 
    for (i = 0; i < current->line_count; i++)

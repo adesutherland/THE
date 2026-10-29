@@ -1,79 +1,171 @@
 #!/usr/bin/env python3
-"""Physical split, focus, Unicode stdin, resizing and return to editor on a PTY."""
-import os,sys
-if os.name=='nt':raise SystemExit(77)
-try:import pyte
-except ImportError:raise SystemExit(77)
-import fcntl,pty,select,signal,struct,subprocess,tempfile,termios,time
+"""Adaptive native console, real mouse/keyboard controls and nonblocking stdin."""
+import os
+import sys
+
+if os.name == 'nt':
+    raise SystemExit(77)
+try:
+    import pyte
+except ImportError:
+    raise SystemExit(77)
+
+import fcntl
+import pty
+import select
+import signal
+import struct
+import subprocess
+import tempfile
+import termios
+import time
 from pathlib import Path
-binary=Path(sys.argv[1]).resolve();repo=Path(__file__).resolve().parent.parent
-with tempfile.TemporaryDirectory(prefix='THE console PTY ') as d:
- root=Path(d);source=root/'program.rexx';source.write_text("say 'Console ready'\npull name\nsay 'Hello' name\npull name\nsay 'Again' name\npull name\nsay 'Third' name\nexit 7\n")
- profile=root/'keys.the';profile.write_text((repo/'profile.the').read_text()+"\n'define C-R RX RUN';\n'define C-T RX CONSOLE';\n'define f9 qquit';\n")
- master,slave=pty.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',30,100,0,0))
- screen=pyte.Screen(100,30);stream=pyte.ByteStream(screen)
- p=subprocess.Popen([str(binary),'-p',str(profile),str(source)],stdin=slave,stdout=slave,stderr=slave,env=dict(os.environ,TERM='xterm-256color',THE_TOOL_CONFIG_DIR=str(root/'config')));os.close(slave)
- def wait(check,label,timeout=20):
-  end=time.monotonic()+timeout
-  quiet=time.monotonic()
-  while time.monotonic()<end:
-   if select.select([master],[],[],.05)[0]:
-    try:stream.feed(os.read(master,65536))
-    except OSError:
-     if check():return
-     break
-    quiet=time.monotonic()
-   if check() and (p.poll() is not None or time.monotonic()-quiet>=.15):return
-  raise AssertionError(label+'\n'+'\n'.join(screen.display))
- try:
-  wait(lambda:any('Console ready' in s for s in screen.display),'editor source')
-  # Use the actual native menu for launch, focus, hide, and re-open.
-  def menu(index):
-   os.write(master,b'\x1b[21~');wait(lambda:any('Open or create file' in s for s in screen.display),'menu opens')
-   os.write(master,b'\x1b[B'*(index-1)+b'\r')
-  menu(8);wait(lambda:any('Program console |' in s for s in screen.display),'menu run opens split console')
-  assert any('say' in s for s in screen.display[:20]),screen.display
-  menu(10);wait(lambda:not any('Program console |' in s for s in screen.display),'menu hides running console')
-  menu(9);wait(lambda:any('Esc: editor' in s for s in screen.display),'menu reopens and focuses console')
-  menu(10);wait(lambda:not any('Program console |' in s for s in screen.display),'F10 menu hides focused console')
-  menu(9);wait(lambda:any('Esc: editor' in s for s in screen.display),'refocus after hide')
-  assert any('Program input>' in s for s in screen.display),screen.display
-  assert any('Ctrl-D: EOF' in s for s in screen.display),screen.display
-  fcntl.ioctl(master,termios.TIOCSWINSZ,struct.pack('HHHH',16,32,0,0));screen.resize(16,32);p.send_signal(signal.SIGWINCH)
-  wait(lambda:any('Esc: editor' in s for s in screen.display[-5:]),'compact program focus hint')
-  assert any('^D EOF' in s and '^C stop' in s for s in screen.display[-5:]),screen.display
-  assert any('F10 Menu' in s for s in screen.display[:-5]),screen.display
-  os.write(master,'Zoë😀'.encode());wait(lambda:'Zoë😀' in screen.display[-1],'Unicode input field')
-  assert screen.cursor.x==len('Program input> ')+5,screen.cursor
-  os.write(master,b'\r');wait(lambda:any('Hello ZOË😀' in s for s in screen.display),'Unicode stdin and output')
-  os.write(master,b'second\r');wait(lambda:any('Again SECOND' in s for s in screen.display),'second input')
-  os.write(master,b'third\r');wait(lambda:any('Third THIRD' in s for s in screen.display),'third input')
-  fcntl.ioctl(master,termios.TIOCSWINSZ,struct.pack('HHHH',24,80,0,0));screen.resize(24,80);p.send_signal(signal.SIGWINCH)
-  wait(lambda:any('Program console |' in s for s in screen.display[-5:]),'resized split')
-  wait(lambda:any('status 7' in s for s in screen.display),'completion')
-  os.write(master,b'late\r')
-  wait(lambda:any('Input closed>' in s for s in screen.display[-5:]),'completed input is visibly closed')
-  assert not any('late' in s.lower() for s in screen.display[-5:]),screen.display
-  os.write(master,b'\x1b');wait(lambda:any('RX CONSOLE: input' in s for s in screen.display),'editor focus before rerun')
-  menu(10);wait(lambda:not any('Program console |' in s for s in screen.display),'hide completed console')
-  menu(8);wait(lambda:any('Program console |' in s for s in screen.display),'rerun after hide')
-  menu(9);wait(lambda:any('Esc: editor' in s for s in screen.display),'focus rerun console')
-  os.write(master,b'one\rtwo\rthree\r');wait(lambda:any('Third THREE' in s for s in screen.display),'rerun repeated input')
-  wait(lambda:any('status 7' in s for s in screen.display),'rerun completion')
-  os.write(master,b'\x1b');wait(lambda:any('RX CONSOLE: input' in s for s in screen.display),'return to editor')
-  os.write(master,b'\x1b');wait(lambda:screen.cursor.y==17,'editor command focus')
-  os.write(master,b'msg EDITOR_RESPONSE\r')
-  wait(lambda:any('EDITOR_RESPONSE' in s for s in screen.display[:-5]),'separate editor response')
-  assert not any('EDITOR_RESPONSE' in s for s in screen.display[-5:]),screen.display
-  assert any('Third THREE' in s for s in screen.display[-5:]),screen.display
-  os.write(master,b'\x14');wait(lambda:any('Esc: editor' in s for s in screen.display),'focus before compact resize')
-  fcntl.ioctl(master,termios.TIOCSWINSZ,struct.pack('HHHH',15,60,0,0));screen.resize(15,60);p.send_signal(signal.SIGWINCH)
-  wait(lambda:not any('Program console |' in s for s in screen.display),'hide split below minimum height')
-  os.write(master,b'\x1b');wait(lambda:screen.cursor.y==13,'compact command focus')
-  os.write(master,b'msg COMPACT_EDITOR\r');wait(lambda:any('COMPACT_EDITOR' in s for s in screen.display),'editing with hidden split')
-  os.write(master,b'\x1b[20~');wait(lambda:p.poll() is not None,'quit after restoring editor focus',8)
-  assert source.read_text()=="say 'Console ready'\npull name\nsay 'Hello' name\npull name\nsay 'Again' name\npull name\nsay 'Third' name\nexit 7\n"
- finally:
-  if p.poll() is None:p.kill();p.wait()
-  os.close(master)
-print('Terminal split console, Unicode stdin/output, focus and resize passed')
+
+binary = Path(sys.argv[1]).resolve()
+repo = Path(__file__).resolve().parent.parent
+program = ("say 'Console ready'\npull name\nsay 'Hello' name\npull name\n"
+           "say 'Again' name\npull name\nsay 'Third' name\nexit 7\n")
+
+with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
+    root = Path(directory)
+    source = root / 'program.rexx'
+    source.write_text(program)
+    profile = root / 'keys.the'
+    profile.write_text((repo / 'profile.the').read_text() + "\n"
+                       "'define C-T RX CONSOLE';\n'define f9 qquit';\n"
+                       "'define tab msg EDITOR_TAB';\n")
+    master, slave = pty.openpty()
+    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 30, 144, 0, 0))
+    screen = pyte.Screen(144, 30)
+    stream = pyte.ByteStream(screen)
+    process = subprocess.Popen(
+        [str(binary), '-p', str(profile), str(source)], stdin=slave, stdout=slave,
+        stderr=slave, env=dict(os.environ, TERM='xterm-256color',
+                              THE_TOOL_CONFIG_DIR=str(root / 'config')))
+    os.close(slave)
+
+    def wait(check, label, timeout=15):
+        end = time.monotonic() + timeout
+        quiet = time.monotonic()
+        while time.monotonic() < end:
+            if select.select([master], [], [], .05)[0]:
+                try:
+                    stream.feed(os.read(master, 65536))
+                except OSError:
+                    if check():
+                        return
+                    break
+                quiet = time.monotonic()
+            if check() and (process.poll() is not None or time.monotonic() - quiet >= .15):
+                return
+        raise AssertionError(label + '\n' + '\n'.join(screen.display))
+
+    def contains(text):
+        return any(text in row for row in screen.display)
+
+    def resize(rows, cols):
+        fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack('HHHH', rows, cols, 0, 0))
+        screen.resize(rows, cols)
+        process.send_signal(signal.SIGWINCH)
+
+    def menu(index):
+        os.write(master, b'\x1b[21~')
+        wait(lambda: contains('Open or create file'), 'F10 opens native menu')
+        os.write(master, b'\x1b[B' * (index - 1) + b'\r')
+
+    def click_at(row, col):
+        # Real xterm mouse press/release, decoded by curses.
+        position = bytes((col + 33, row + 33))
+        os.write(master, b'\x1b[M ' + position + b'\x1b[M#' + position)
+
+    def click(text):
+        row, col = next((y, line.index(text)) for y, line in enumerate(screen.display)
+                        if 'Run Stop Clear Close Focus' in line and text in line)
+        click_at(row, col)
+
+    try:
+        wait(lambda: contains('Console ready'), 'editor source')
+        menu(8)
+        wait(lambda: 'Program console |' in screen.display[0][96:], 'wide right dock')
+        assert any('say' in row[:95] for row in screen.display), screen.display
+        assert 'Run Stop Clear Close Focus' in screen.display[1][96:], screen.display
+        assert 'F10 Menu' in screen.display[-4][:95], screen.display
+        assert 'Response: Ready' in screen.display[-3][:95], screen.display
+        assert '======>' in screen.display[-2][:95], screen.display
+        assert 'CRXTHE' in screen.display[-1][:95], screen.display
+        assert 'Program input>' in screen.display[-1][96:], screen.display
+        menu(10)
+        wait(lambda: not contains('Program console |'), 'menu hides running console')
+        menu(9)
+        wait(lambda: contains('Esc: editor'), 'menu reopens running console')
+        os.write(master, b'\x1b')
+        wait(lambda: contains('F10: Menu'), 'return editor before mouse focus')
+        click('Focus')
+        wait(lambda: contains('Esc: editor'), 'mouse focuses input')
+        os.write(master, 'Zoë😀x'.encode() + b'\x7f')
+        wait(lambda: 'Zoë😀' in screen.display[-1] and 'Zoë😀x' not in screen.display[-1],
+             'Mac Backspace edits Unicode input')
+        assert screen.cursor.x == 96 + len('Program input> ') + 5, screen.cursor
+        os.write(master, b'\r')
+        wait(lambda: contains('Hello ZOË😀'), 'Unicode stdin/output')
+        os.write(master, b'sec')
+        wait(lambda: 'sec' in screen.display[-1], 'draft before resize')
+        resize(30, 100)
+        wait(lambda: 'Program console |' in screen.display[-8], 'narrow bottom dock')
+        assert 'sec' in screen.display[-1], screen.display
+        os.write(master, b'ond\rthird\r')
+        wait(lambda: contains('Third THIRD') and contains('status 7'), 'queued repeated input and completion')
+        os.write(master, b'late\r')
+        wait(lambda: 'Input closed>' in screen.display[-1], 'completed input closes')
+        assert 'late' not in screen.display[-1].lower(), screen.display
+
+        # Tab belongs to controls only while the console owns focus.
+        os.write(master, b'\x1b[Z\x1b[H\x1b[C\x1b[C\r')
+        wait(lambda: not contains('Third THIRD'), 'keyboard Clear control')
+        os.write(master, b'\x1b[H\r')
+        wait(lambda: contains('Console ready') and contains('Running'), 'keyboard Run control')
+        os.write(master, b'\t\x1b[C\r')
+        wait(lambda: contains('Stopped'), 'keyboard Stop control')
+        os.write(master, b'\x1b[F\r')
+        wait(lambda: screen.cursor.y == 29, 'keyboard Focus control returns to input')
+        click_at(4, 10)
+        wait(lambda: contains('RX CONSOLE: input') and screen.cursor.y == 4,
+             'editor mouse route restores focus and places cursor')
+        os.write(master, b'\t')
+        wait(lambda: contains('EDITOR_TAB'), 'editor retains its profile Tab binding')
+
+        click('Run')
+        wait(lambda: contains('Running'), 'mouse Run control')
+        click('Clear')
+        wait(lambda: not any('Console ready' in row for row in screen.display[-4:]),
+             'mouse Clear control')
+        click('Stop')
+        wait(lambda: contains('Stopped'), 'mouse Stop control')
+        click('Close')
+        wait(lambda: not contains('Program console |'), 'mouse Close control')
+        menu(9)
+        wait(lambda: contains('Esc: editor'), 'menu reopens and focuses console')
+        resize(16, 32)
+        wait(lambda: contains('Esc: editor') and contains('Run Stop Clear Close Focus'),
+             'compact console keeps controls and editor return visible')
+        assert contains('F10 Menu'), screen.display
+        resize(24, 117)
+        wait(lambda: 'Program console |' in screen.display[0][73:], 'minimum useful right dock')
+        resize(24, 116)
+        wait(lambda: 'Program console |' in screen.display[-8], 'below threshold uses bottom dock')
+        resize(15, 60)
+        wait(lambda: not contains('Program console |'), 'small terminal hides console')
+        os.write(master, b'\x1b')
+        wait(lambda: screen.cursor.y == 13, 'hidden console returns input to editor')
+        os.write(master, b'msg COMPACT_EDITOR\r')
+        wait(lambda: contains('COMPACT_EDITOR'), 'editor responds after compact resize')
+        os.write(master, b'\x1b[20~')
+        wait(lambda: process.poll() is not None, 'quit', 8)
+        assert source.read_text() == program
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+        os.close(master)
+
+print('Adaptive terminal console, mouse/keyboard controls, Unicode stdin and resize passed')

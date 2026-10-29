@@ -77,7 +77,10 @@ Physical terminal appearance still needs a native visual check. See
 ## Common RXBIN tools
 
 With `THE_NATIVE_TOOL_ROOT` configured, CTest includes `test_native_tools` and
-`test_tool_console_curses` (the latter requires pyte and a POSIX PTY). The pure
+`test_tool_console_curses` (the latter requires pyte and a POSIX PTY). Its real
+terminal journey checks right/bottom docking and the width threshold,
+mouse/keyboard toolbar controls, retained editor Tab bindings, Unicode input
+and Backspace, repeated stdin, completion and compact-terminal resizing. The pure
 C `test_toolhost` runs without a cREXX SDK. Native browser tests also exercise
 the shared console when a tool bundle is available. See
 [tools and profile contracts](runtime-tools.md#verification).

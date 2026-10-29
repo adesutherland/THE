@@ -17,6 +17,7 @@ const snapshot = {
   mode: "editor", rows: 24, cols: 80,
   focus: { zone: "filearea", line: 1, row: 0, cell: 2 }, command: "",
   status: "focus=filearea line=1 row=0 cell=2 verify=1 message=Initial response",
+  status_line: "PROFILE  Line=1  Column=3  Insert mode",
   last_message_serial: 7, last_message: "Initial response",
   buffer: { path: "/workspace/example.rexx", dirty: 0, lines: 100 },
   buffers: [{ index: 0, path: "/workspace/example.rexx", dirty: 0, lines: 100, current: 1 }],
@@ -40,6 +41,10 @@ function publishSnapshot() {
     r: row, role: "file", line: row + 1, cur: row === 0 ? 1 : 0, sc: 0,
     p: String(row + 1).padStart(7, "0"), t: row === 0 ? "say 'Hello from THE'" : `/* record ${row + 1} */`,
   }));
+  snapshot.screen_rows[1] = { r: 1, role: "reserved", line: 0, cur: 0, sc: 0, t: "Profile note: keep this reserved row in the editor" };
+  const guide = snapshot.screen_rows.length - 1;
+  snapshot.screen_rows[guide] = { r: guide, role: "reserved", line: 0, cur: 0, sc: 0,
+    t: "F1 Profile help F6 Cmd/File F10 Menu Esc Cmd Ctrl-S Save" };
   client?.send(JSON.stringify(snapshot));
 }
 function publishTools() { tools.version++; client?.send(JSON.stringify(tools)); }
@@ -131,20 +136,34 @@ try {
   await wait(() => evaluate("!!document.querySelector('.status-line[data-focus-line=\"1\"]')"), "initial editor");
   await cdp("Page.bringToFront");
   assert.equal(await evaluate("document.querySelectorAll('.dock-entry').length"), 0, "initial snapshot must not fabricate a response event");
-  assert.equal(await evaluate("document.querySelector('.editor-details').open"), false);
+  assert.equal(await evaluate("document.querySelector('.editor-details')"), null);
   assert.equal(await evaluate("document.querySelector('.status-line').textContent.includes('focus=')"), false);
+  assert.equal(await evaluate("document.body.textContent.includes('focus=filearea')"), false, "LLM debug state is not product status");
+  assert.equal(await evaluate("document.querySelector('.profile-status').textContent"), snapshot.status_line, "profile status text is shown verbatim");
+  assert.deepEqual(await evaluate("[...document.querySelectorAll('.key-hint')].map(n=>[n.querySelector('kbd').textContent,n.querySelector('span').textContent])"),
+    [["F1", "Profile help"], ["F6", "Cmd/File"], ["F10", "Menu"], ["Esc", "Cmd"], ["Ctrl-S", "Save"]], "profile key names and labels are preserved");
+  assert.equal(await evaluate("document.querySelector('.editor-grid .role-reserved:not(.key-hint-row)').textContent.trim()"), "Profile note: keep this reserved row in the editor");
   for (let index = 0; index < 2; index++) {
     await setInput("#the-command", "locate /alpha/");
     await evaluate("document.querySelector('.command-form').requestSubmit()");
     await wait(() => evaluate(`document.querySelectorAll('.dock-entry-response').length===${index + 1}`), "semantic response event");
   }
   assert.equal(await evaluate("document.querySelectorAll('.dock-entry-command').length"), 2);
-  snapshot.focus.cell++; publishSnapshot();
+  snapshot.focus.cell++; snapshot.status_line = "PROFILE  Line=1  Column=4  Insert mode"; publishSnapshot();
   await evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
   assert.equal(await evaluate("document.querySelectorAll('.dock-entry-response').length"), 2, "cursor updates do not duplicate responses");
+  assert.equal(await evaluate("document.querySelector('.profile-status').textContent"), snapshot.status_line, "profile status updates with snapshots");
   await evaluate("document.querySelector('[aria-label=\"Save\"]').click()");
   await wait(() => evaluate("document.querySelectorAll('.dock-entry-response').length===3"), "Save response");
   assert.equal(await evaluate("document.querySelectorAll('.dock-entry-command').length"), 2, "Save is not an editor command submission");
+  await evaluate("document.querySelector('.input-sink').dispatchEvent(new KeyboardEvent('keydown',{key:'s',code:'KeyS',ctrlKey:true,bubbles:true,cancelable:true}))");
+  await wait(() => received.filter((message) => message.type === "action" && message.action === "file.save").length === 2, "Ctrl-S Save action");
+  await evaluate("document.querySelector('.input-sink').dispatchEvent(new KeyboardEvent('keydown',{key:'F1',bubbles:true,cancelable:true}))");
+  await wait(() => received.some((message) => message.type === "key" && message.key === "f1"), "profile function key forwarding");
+  await evaluate("document.querySelector('.input-sink').focus();document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'F6',bubbles:true,cancelable:true}))");
+  assert.equal(await evaluate("document.activeElement.id"), "the-command", "F6 focuses THE command");
+  await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))");
+  assert.equal(await evaluate("document.activeElement.className"), "input-sink", "Escape restores editing");
   await pane("Files"); await pane("Program console");
   await evaluate("document.querySelector('.console-options').open=true");
   await setInput("[aria-label='Rexx arguments']", "first\n\nlast");
@@ -156,6 +175,8 @@ try {
     assert(files.visible && editor.visible && diagnostics.visible && programConsole.visible, "all wide panes visible");
     assert(files.right <= editor.left && editor.right <= programConsole.left && diagnostics.bottom <= programConsole.top, "wide panes do not overlap");
     assert(programConsole.right <= width && programConsole.bottom <= height + 1, "console fits viewport");
+    const surface = await geometry(".editor-scroll"), status = await geometry(".editor-status"), commands = await geometry(".command-area");
+    assert(Math.abs(surface.bottom - status.top) < 1 && status.bottom <= commands.top, "status and guide immediately follow editor");
   }
   const initialFiles = (await geometry(".file-explorer")).width;
   await evaluate("document.querySelector('[aria-label=\"Resize files pane\"]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true,cancelable:true}))");
@@ -200,11 +221,29 @@ try {
   const editor = await geometry(".editor-pane"), commands = await geometry(".command-area"), programConsole = await geometry(".rexx-dock");
   assert(editor.top < commands.top && commands.bottom <= programConsole.top && programConsole.right <= 390, "phone editor/command/console vertical flow");
   assert.equal((await geometry(".file-explorer")).visible, false, "phone has one selected auxiliary pane");
-  await evaluate("document.querySelector('.menu-trigger').click()");
+  for (const width of [320, 390, 768]) {
+    await viewport(width, 844);
+    assert.equal(await evaluate("document.documentElement.scrollWidth<=innerWidth"), true, `no shell overflow at ${width}`);
+    assert.equal(await evaluate("[...document.querySelectorAll('.key-hint')].every(n=>{const r=n.getBoundingClientRect(),b=n.closest('.key-hints').getBoundingClientRect();return r.left>=b.left&&r.right<=b.right&&r.top>=b.top&&r.bottom<=b.bottom})"), true, `all profile hints wrap at ${width}`);
+    const surface = await geometry(".editor-scroll"), status = await geometry(".editor-status"), commands = await geometry(".command-area");
+    assert(Math.abs(surface.bottom - status.top) < 1 && status.bottom <= commands.top, `phone footer follows editor at ${width}`);
+  }
+  await viewport(390, 844);
+  await evaluate("document.querySelector('.input-sink').focus();document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'F10',bubbles:true,cancelable:true}))");
   assert.equal(await evaluate("document.querySelectorAll('.menu-trigger').length"), 1);
   assert((await geometry(".menu-popover")).right <= 390, "phone menu fits");
-  await evaluate("document.querySelector('.menu-trigger').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))");
-  await wait(() => evaluate("!document.querySelector('.menu-popover') && document.activeElement.classList.contains('menu-trigger')"), "Menu Escape focus return");
+  await evaluate("[...document.querySelectorAll('.menu-popover button')].find(n=>n.textContent==='About CRXTHE').click()");
+  assert.equal(await evaluate("document.querySelector('.about-menu').getAttribute('aria-label')"), "About CRXTHE");
+  assert.equal(await evaluate("document.querySelector('.about-menu').textContent.includes('Program console')"), true);
+  assert.equal(await evaluate("document.querySelector('.about-menu').textContent.includes('focus=')"), false);
+  assert((await geometry(".about-menu")).right <= 390, "phone About fits");
+  await wait(() => evaluate("document.querySelector('.about-menu').contains(document.activeElement)"), "About keyboard focus");
+  await evaluate("document.activeElement.click()");
+  await wait(() => evaluate("!document.querySelector('.about-menu') && document.activeElement.classList.contains('menu-trigger')"), "About Back to Menu focus");
+  await evaluate("[...document.querySelectorAll('.menu-popover button')].find(n=>n.textContent==='About CRXTHE').click()");
+  await wait(() => evaluate("document.querySelector('.about-menu').contains(document.activeElement)"), "About focus after reopening");
+  await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))");
+  await wait(() => evaluate("!document.querySelector('.menu-popover') && document.activeElement.classList.contains('input-sink')"), "F10 Menu Escape returns to editing");
   await viewport(390, 450);
   await evaluate("document.querySelector('#rexx-input').scrollIntoView({block:'nearest'})");
   assert((await geometry("#rexx-input")).bottom <= 450, "program input stays reachable in a short phone viewport");
@@ -214,6 +253,14 @@ try {
   assert.equal(await evaluate("document.querySelector('#the-command').value"), "unsent command");
   assert.equal(await evaluate("document.querySelector('[aria-label=\"Rexx arguments\"]').value"), "first\n\nlast");
   assert.equal(tools.job.running, true);
+  const profileStatus = snapshot.status_line;
+  snapshot.status_line = null; publishSnapshot();
+  await wait(() => evaluate("document.querySelector('.status-line').hidden"), "profile statusline off");
+  assert.equal((await geometry(".key-hints")).visible, true, "statusline off does not hide the profile guide");
+  delete snapshot.status_line; publishSnapshot();
+  await wait(() => evaluate("document.querySelector('.status-line').textContent.includes('Ln 1, Col 4')"), "legacy semantic summary fallback");
+  snapshot.status_line = profileStatus; publishSnapshot();
+  await wait(() => evaluate("!!document.querySelector('.profile-status')"), "profile status restored");
   assert(received.some((message) => message.type === "resize"));
   assert.deepEqual(exceptions, []);
   if (process.env.THE_WORKBENCH_SCREENSHOTS) {
@@ -235,7 +282,7 @@ try {
     }
     console.log("Presentation-fixture screenshots: " + destination);
   }
-  console.log("PASS Guided Workbench: 390/1280/1920 layouts, Menu, semantic history, separate program input, resize, retained drafts/job, focus and scrollback");
+  console.log("PASS Guided Workbench: 320/390/768/1280/1920 layouts, visible profile hints/status, About, key dispatch, semantic history, separate program input, resize, retained drafts/job, focus and scrollback");
 } finally {
   socket?.close(); chrome.kill();
   for (const connection of ws.clients) connection.terminate();

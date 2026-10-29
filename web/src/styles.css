@@ -96,6 +96,9 @@ button { color: inherit; }
 .menu-popover button:hover { background: #35678b; color: #fff; }
 .menu-popover kbd { color: #8f98a5; font: 11px/20px var(--editor-font); }
 .menu-popover button:hover kbd { color: #dce8f1; }
+.about-menu { width: min(330px, calc(100vw - 24px)); }
+.about-menu h2 { color: #edf0f4; font-size: 14px; }
+.about-menu p { margin: 10px; color: #b8c3d0; font-size: 12px; line-height: 1.6; }
 
 .product-mark {
   height: 24px;
@@ -189,7 +192,7 @@ button { color: inherit; }
 .workspace.files-open { grid-template-columns: var(--files-width) 8px minmax(0, 1fr); }
 .workspace.aux-open { grid-template-columns: minmax(0, 1fr) 8px var(--aux-width); }
 .workspace.files-open.aux-open { grid-template-columns: var(--files-width) 8px minmax(0, 1fr) 8px var(--aux-width); }
-.editor-pane { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+.editor-pane { display: grid; grid-template-rows: minmax(0, 1fr) auto auto; min-width: 0; min-height: 0; }
 .auxiliary-rail { display: grid; min-width: 0; min-height: 0; background: #1b1e22; overflow: hidden; }
 .auxiliary-rail.auxiliary-split { grid-template-rows: minmax(80px, min(var(--diagnostics-height), 35%)) 8px minmax(0, 1fr); }
 .mobile-aux-tabs { display: none; }
@@ -419,7 +422,8 @@ button { color: inherit; }
 .dock-entry code { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/18px var(--editor-font); }
 .dock-entry-error code { color: #f1aaa2; }
 .key-hints { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 5px 12px; background: #25415f; color: #dce5f2; font: 12px/18px var(--editor-font); }
-.key-hint { display: inline-flex; gap: 5px; white-space: nowrap; }
+.key-hint { display: inline-flex; gap: 5px; min-width: 0; max-width: 100%; }
+.key-hint > span { overflow-wrap: anywhere; }
 .key-hint kbd { color: #fff; font: inherit; font-weight: 600; }
 .command-form { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px; align-items: center; min-height: 40px; padding: 3px 10px; }
 .command-form button:disabled { opacity: .45; cursor: default; }
@@ -427,11 +431,11 @@ button { color: inherit; }
 .command-form input { width: 100%; height: 27px; padding: 3px 8px; border: 1px solid #424850; border-radius: 3px; outline: 0; background: #16181b; color: #e3e7ed; font: 13px/20px var(--editor-font); }
 .command-form input:focus { border-color: #5a98c4; box-shadow: 0 0 0 1px #5a98c4; }
 
-.status-line { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; min-height: 29px; padding: 3px 10px; border-top: 1px solid #30343a; color: #adb7c4; font: 11px/20px var(--editor-font); }
-.status-line .workspace-storage { flex: 1; }
-.editor-details { max-height: 160px; overflow: auto; border-top: 1px solid #30343a; font-size: 11px; }
-.editor-details summary { padding: 5px 10px; cursor: pointer; color: #a9b9ca; }
-.status-text { margin: 0; padding: 5px 10px; color: #94a0af; white-space: pre-wrap; overflow-wrap: anywhere; }
+.editor-status { min-width: 0; border-top: 1px solid #34383f; background: #202328; }
+.status-line, .editor-indicators { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; min-height: 29px; padding: 3px 10px; color: #adb7c4; font: 11px/20px var(--editor-font); }
+.profile-status { min-width: 0; max-width: 100%; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.editor-indicators { min-height: 0; color: #9eacbd; }
+.editor-indicators .workspace-storage { flex: 1; }
 
 .input-sink { position: fixed; left: -100px; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
@@ -516,8 +520,7 @@ button { color: inherit; }
 @media (max-width:1099px) {
   .workspace, .workspace.files-open, .workspace.aux-open, .workspace.files-open.aux-open { display:flex; flex-direction:column; overflow-y:auto; }
   .workspace > .pane-splitter, .auxiliary-rail > .pane-splitter { display:none; }
-  .editor-pane { flex:none; order:1; height:min(560px,72dvh); min-height:380px; }
-  .editor-scroll { min-height:220px; }
+  .editor-pane { flex:none; order:1; height:auto; min-height:0; grid-template-rows:clamp(220px,45dvh,450px) auto auto; }
   .file-explorer { flex:none; order:3; height:330px; width:100%; border-right:0; border-top:1px solid #566373; }
   .auxiliary-rail, .auxiliary-rail.auxiliary-split { display:flex; flex:none; flex-direction:column; order:3; min-height:0; height:auto; border-top:1px solid #566373; }
   .mobile-aux-tabs { display:flex; flex:none; order:2; flex-wrap:wrap; gap:4px; padding:5px 8px; }
@@ -547,14 +550,13 @@ button { color: inherit; }
   .pane-switcher { gap:4px; padding:4px 6px; }
   .pane-switcher button, .mobile-aux-tabs button { min-height:40px; padding:5px 8px; }
   .pane-switcher button { font-size:11px; }
-  .editor-pane { height:max(450px,65dvh); min-height:450px; }
+  .editor-pane { grid-template-rows:clamp(220px,38dvh,360px) auto auto; }
   .command-form { grid-template-columns:minmax(0,1fr) auto; padding-inline:7px; gap:4px; min-height:44px; }
   .command-prompt { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
   .command-form input { height:36px; font-size:16px; }
   .command-form button { min-height:36px; }
-  .status-line { gap:3px 10px; padding:4px 8px; }
-  .status-line .workspace-storage { flex-basis:100%; }
-  .dock-heading button, .editor-details summary { min-height:36px; }
+  .status-line, .editor-indicators { gap:3px 10px; padding:4px 8px; }
+  .dock-heading button { min-height:36px; }
   .command-responses { max-height:130px; }
   .program-console-pane { height:470px; }
   .rexx-dock { min-height:420px; }

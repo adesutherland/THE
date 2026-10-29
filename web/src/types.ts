@@ -61,6 +61,7 @@ export interface Snapshot {
   focus: Focus;
   command: string;
   status: string;
+  status_line?: string | null;
   last_message_serial?: number;
   last_message?: string;
   buffer?: {

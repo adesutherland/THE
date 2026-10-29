@@ -18,7 +18,8 @@ for name in ['browser', 'quickfind', 'quickopen', 'quickline', 'paneldemo', 'lib
     for suffix in ['.commands', '.the', '.rxas', '.rxbin']:
         (destination / (name + suffix)).unlink(missing_ok=True)
 data = json.loads((root / 'profiles/default-profile.json').read_text())
-commands = [command.format(suffix='') for command in data['commands']]
+commands = [command.format(suffix='') for command in
+            data['commands'] + data.get('web_commands', [])]
 restricted = ['set impos off', 'set impmacro off', 'set macro off', 'set linend off', 'set synonym on']
 if args.crexx_bin:
     bin_dir = args.crexx_bin.resolve()

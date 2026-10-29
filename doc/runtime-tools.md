@@ -3,8 +3,10 @@
 THE's [common architecture](architecture.md#common-desktop-and-browser-application)
 is implemented by a C session model (`toolhost.c`), editor integration
 (`tools.c`) and native/Wasm resource adapters. The native-host and Wasm browser
-modes use the same Program console UI. The terminal driver presents a
-**Program console** split below the editing area. This is a development feature
+modes use the same Program console UI. The terminal driver docks the
+**Program console** on the right when there is room for at least 72 editor
+columns, a separator and 44 console columns (117 columns total); otherwise it
+appears below the editing area. This is a development feature
 in `0.10.dev`.
 
 ## Run and interact
@@ -50,8 +52,22 @@ editor response area is separate from the Program console and its labelled
 **Program input** field. Custom profiles can still choose their own MSGLINE
 position and reserved rows.
 
-When the terminal console has focus, Enter submits a line, Backspace edits,
-Ctrl-D sends EOF, Ctrl-C stops, F10 opens the menu, and Esc returns to the editor.
+The terminal toolbar provides **Run**, **Stop**, **Clear**, **Close** and
+**Focus**, with mouse access. Run captures the current editor buffer. Close
+hides the console while retaining its output and any running program; Focus
+moves to Program input. Run is unavailable during a job, and Stop is available
+while a job runs. The terminal reserves the console's space before laying out
+the editor, including its response, command and status rows.
+
+Choose **F10 Menu → Focus program console** to reach Program input from the
+keyboard. While the console has focus, Tab or Shift-Tab switches between input
+and the toolbar; Left/Right selects a control, Home/End selects the first/last,
+and Enter or Space activates it. Esc returns to the editor, and clicking the
+editor also restores editor focus. Editor Tab and the default F6 Cmd/File
+binding continue to follow the active profile.
+
+In Program input, Enter submits a line, Backspace edits, Ctrl-D sends EOF,
+Ctrl-C stops, F10 opens the menu, and Esc returns to the editor.
 Input closes at EOF or completion. Panels and
 macro READ retain their own input route. At fewer than 16 terminal rows or 32
 columns the split hides and input focus returns to the editor; use commands

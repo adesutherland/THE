@@ -45,7 +45,10 @@ function basename(path: string): string {
 function keyHintsForRow(row: ScreenRow): { key: string; label: string }[] {
   if (row.role !== "reserved") return [];
   const text = row.t.trim();
-  const matches = [...text.matchAll(/\b(F(?:[1-9]\d?)|Esc)\s+(.+?)(?=\s+(?:F(?:[1-9]\d?)|Esc)\s+|$)/g)];
+  // A modified shortcut is a separate hint, never part of the preceding
+  // function key's label. Keep the profile's spelling and labels unchanged.
+  const key = "(?:(?:Ctrl|Control|Alt|Meta|Shift)[+-])+(?:F(?:[1-9]|1[0-9]|2[0-4])|[A-Za-z0-9])|F(?:[1-9]|1[0-9]|2[0-4])|Esc";
+  const matches = [...text.matchAll(new RegExp(`(${key})\\s+(.+?)(?=\\s+(?:${key})\\s+|$)`, "g"))];
   if (matches.length < 2 || matches[0].index !== 0) return [];
   return matches.map((match) => ({ key: match[1], label: match[2] }));
 }
@@ -153,7 +156,7 @@ function App() {
   const [command, setCommand] = useState("");
   const [commandFocused, setCommandFocused] = useState(false);
   const [actions, setActions] = useState<FrontendActionDefinition[]>([]);
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState<"application" | "about" | null>(null);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [mobilePane, setMobilePane] = useState<"files" | "diagnostics" | "console">("files");
@@ -341,6 +344,12 @@ function App() {
   }, []);
 
   useEffect(() => {
+    // Replacing the action list removes its focused About button. Keep the
+    // keyboard inside the new view so Escape can restore the original focus.
+    if (openMenu === "about") menuRef.current?.querySelector<HTMLButtonElement>(".about-menu button")?.focus();
+  }, [openMenu]);
+
+  useEffect(() => {
     if (toolSession?.job.id && toolSession.job.id !== lastShownJob.current) {
       lastShownJob.current = toolSession.job.id;
       setConsoleOpen(true);
@@ -415,8 +424,7 @@ function App() {
     (snapshot?.screen_rows ?? []).map((row) => ({ row, hints: keyHintsForRow(row) }))
       .filter((entry) => entry.hints.length > 0), [snapshot?.screen_rows, !!snapshot?.panel]);
   const keyHintRowIds = new Set(keyHintRows.map(({ row }) => row.r));
-  const keyHints = keyHintRows.flatMap(({ hints }) => hints).map((hint) =>
-    hint.key === "F10" ? { ...hint, label: "Menu" } : hint);
+  const keyHints = keyHintRows.flatMap(({ hints }) => hints);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -585,7 +593,16 @@ function App() {
           <button type="button" ref={menuButtonRef} class={`menu-trigger ${openMenu ? "menu-trigger-open" : ""}`}
             aria-expanded={!!openMenu} aria-controls="application-menu"
             onClick={() => { menuReturnRef.current = menuButtonRef.current; setOpenMenu(openMenu ? null : "application"); }}><Menu size={16} /> Menu</button>
-          {openMenu ? <nav id="application-menu" class="menu-popover" aria-label="Application menu">
+          {openMenu ? <nav id="application-menu" class={`menu-popover ${openMenu === "about" ? "about-menu" : ""}`} aria-label={openMenu === "about" ? "About CRXTHE" : "Application menu"}>
+            {openMenu === "about" ? <>
+              <button type="button" onClick={() => { setOpenMenu("application"); menuButtonRef.current?.focus(); }}>← Back to Menu</button>
+              <section aria-labelledby="about-title">
+                <h2 id="about-title">CRXTHE</h2>
+                <p>A programmable editor based on THE, with line prefixes, editor commands and Rexx macros.</p>
+                <p>Use the THE command field for editor commands. The Program console has separate input and output for the program you run.</p>
+                <p>Help describes editor commands. Key definitions shows the active profile’s bindings.</p>
+              </section>
+            </> : <>
             {menus.map(([menu, entries]) => <section key={menu} aria-label={menu}>
               <h2>{menu}</h2>
               {entries.map((action) => <button type="button" onClick={() => requestAction(action.id)}>
@@ -604,6 +621,8 @@ function App() {
                 send({ type: "key", key: "f10" }); focusEditor();
               }}>Key definitions</button>
             </section>
+            <section aria-label="About"><button type="button" onClick={() => setOpenMenu("about")}>About CRXTHE</button></section>
+            </>}
           </nav> : null}
         </div>
         <div class="document-title" title={currentBuffer?.path}>{title}</div>
@@ -777,6 +796,22 @@ function App() {
           </div>
         </div>
 
+        <section class="editor-status" aria-label="Editor status and key guide">
+          <div class="status-line" aria-label="Editing status" hidden={snapshot?.status_line === null}
+            data-focus-zone={snapshot?.focus.zone} data-focus-line={snapshot?.focus.line} data-focus-cell={snapshot?.focus.cell} data-buffer-dirty={snapshot?.buffer?.dirty ?? 0}>
+            {typeof snapshot?.status_line === "string" ? <pre class="profile-status">{snapshot.status_line}</pre> : <>
+            <span>Ln {snapshot?.focus.line ?? 0}, Col {(snapshot?.focus.cell ?? 0) + 1}</span>
+            <span>{snapshot?.focus.zone === "prefix" ? "Prefix" : snapshot?.focus.zone === "command" || commandFocused ? "Command" : "File"}</span>
+            <span>{snapshot?.buffer?.dirty ? "Modified" : "Saved"}</span>
+            </>}
+          </div>
+          {browserWasm || (snapshot?.parser && snapshot.parser.state !== "inactive") ? <div class="editor-indicators" aria-label="Workspace and syntax status">
+            {browserWasm ? <span class="workspace-storage" role="status">{storageState}</span> : null}
+            {snapshot?.parser && snapshot.parser.state !== "inactive" ? <button class="parser-status" title="Restart the highlighter" onClick={() => send({type: "parser-restart"})}>Syntax: {snapshot.parser.state}</button> : null}
+          </div> : null}
+          {keyHints.length > 0 ? <div class="key-hints" role="group" aria-label="Editor key hints">{keyHints.map((hint, index) => <span class="key-hint" key={`${hint.key}-${index}`}><kbd>{hint.key}</kbd><span>{hint.label}</span></span>)}</div> : null}
+        </section>
+
         <footer class="command-area" aria-label="THE commands and responses">
           <div class="dock-heading"><strong>THE command</strong>
             <button type="button" aria-expanded={commandHistoryOpen} aria-controls="command-responses" onClick={() => setCommandHistoryOpen(!commandHistoryOpen)}>
@@ -801,17 +836,6 @@ function App() {
               }} value={command} onInput={(event) => setCommand(event.currentTarget.value)} spellcheck={false} autoComplete="off" />
             <button type="submit" disabled={connection !== "online" || !command.trim()}>Execute</button>
           </form> : null}
-          <div class="status-line" aria-label="Editing status" data-focus-zone={snapshot?.focus.zone} data-focus-line={snapshot?.focus.line}>
-            <span>Ln {snapshot?.focus.line ?? 0}, Col {(snapshot?.focus.cell ?? 0) + 1}</span>
-            <span>{snapshot?.focus.zone === "prefix" ? "Prefix" : snapshot?.focus.zone === "command" || commandFocused ? "Command" : "File"}</span>
-            <span>{snapshot?.buffer?.dirty ? "Modified" : "Saved"}</span>
-            {browserWasm ? <span class="workspace-storage" role="status">{storageState}</span> : null}
-            {snapshot?.parser && snapshot.parser.state !== "inactive" ? <button class="parser-status" title="Restart the highlighter" onClick={() => send({type: "parser-restart"})}>Syntax: {snapshot.parser.state}</button> : null}
-          </div>
-          <details class="editor-details"><summary>Details and key guide</summary>
-            {keyHints.length > 0 ? <div class="key-hints" role="group" aria-label="Editor key hints">{keyHints.map((hint, index) => <span class="key-hint" key={`${hint.key}-${index}`}><kbd>{hint.key}</kbd><span>{hint.label}</span></span>)}</div> : null}
-            <pre class="status-text">{snapshot?.status || "Waiting for CRXTHE"}</pre>
-          </details>
         </footer>
         </div>
 

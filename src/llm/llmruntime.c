@@ -179,6 +179,7 @@ int llm_runtime_screen_view(CHARTYPE scrno, LlmDriverScreenView *view)
    UiFrame *frame;
    char command[LLM_DRIVER_MAX_COMMAND + 1];
    char status[LLM_DRIVER_MAX_COMMAND + 1];
+   CHARTYPE status_line[LLM_DRIVER_MAX_COLS + 1];
 
    if (view == NULL)
       return 0;
@@ -221,6 +222,9 @@ int llm_runtime_screen_view(CHARTYPE scrno, LlmDriverScreenView *view)
    llm_driver_screen_view_set_command(view, command);
    llm_runtime_status(scrno, view, status, sizeof(status));
    llm_driver_screen_view_set_status(view, status);
+   llm_driver_screen_view_set_status_line(view,
+      format_statarea(status_line, sizeof(status_line))
+         ? (const char *)status_line : NULL);
    llm_driver_screen_view_set_last_message(view, last_message_serial,
                                            (const char *)last_message);
    llm_runtime_buffer_metadata(view);

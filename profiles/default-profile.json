@@ -95,8 +95,10 @@
     "set cursorstyle overwrite block steady",
     "set color cblock black on #F0C36B",
     "set cursorstyle insert ibeam steady",
-    "set cursorstyle overwrite block steady",
-    "set reserved -1 normal         F1 Help F2 Next F3 Save/Close F4 Prefix F5 Ins F6 Cmd/File F10 Keys Esc Cmd"
+    "set cursorstyle overwrite block steady"
+  ],
+  "web_commands": [
+    "set reserved -1 normal         F1 Help F2 Next F3 Save/Close F4 Prefix F5 Ins F6 Cmd/File F10 Menu Esc Cmd Ctrl-S Save"
   ],
   "native_commands": [
     "define f10 macro workbenchmenu{suffix}",

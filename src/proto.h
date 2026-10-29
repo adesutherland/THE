@@ -259,6 +259,7 @@ CHARTYPE get_syntax_element (CHARTYPE, int, int);
                                                              /* show.c */
 void prepare_idline (CHARTYPE);
 void show_heading (CHARTYPE);
+int format_statarea (CHARTYPE *, size_t);
 void show_statarea (void);
 void clear_statarea (void);
 void display_filetabs (VIEW_DETAILS *);
@@ -442,7 +443,7 @@ short get_number_dynamic_items (int);
 short get_item_values (int,short,CHARTYPE *,CHARTYPE,LINETYPE,CHARTYPE *,LINETYPE);
 int number_query_item ( void );
 int number_function_item ( void );
-void format_options ( CHARTYPE * );
+void format_options ( CHARTYPE *, size_t );
                                                          /* directry.c */
 short set_dirtype (CHARTYPE *);
 CHARTYPE *get_dirtype (CHARTYPE *);

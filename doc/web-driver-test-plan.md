@@ -36,6 +36,7 @@ The expected behavior comes from the existing THE documentation:
 | `test_web_profile_multifile_highlighting` | cRexx to Markdown to Python and back, with style presence and stale-style absence | Parser/file lifecycle isolation |
 | `test_the_web_runtime` | WebSocket hit, text, key, action, save, close, and jail policy | Web protocol/native event bridge |
 | `test_the_web_browser` | Production Preact bundle in Chromium, including prefix entry/execution and mixed-language buffer switching | DOM events, keyboard mapping, reconciliation, or CSS style coverage |
+| `test_web_workbench_ui` | Always-visible editing status and profile key guide, About, responsive panes, retained command/program input and output scrollback | Workbench presentation, key dispatch, focus or layout |
 | `test_sdslh_multifile_lifecycle` | Lower-level parser selection across multiple files | Core SDSLH lifecycle |
 
 The parser tests return CTest skip code 77 when their external parser binaries
@@ -68,6 +69,14 @@ Build with `USE_WEB_DRIVER=ON`, start THE with a workspace containing `.crexx`,
 7. Exercise File New, Open, Save, and Close and Edit Undo from both menu or
    toolbar and their keyboard shortcuts. Confirm each operation has the same
    native result and respects writable/read-only workspace roots.
+8. Confirm editing status and the active profile's key guide are visible
+   immediately beneath the editing area. Check the guide, Menu and About at
+   phone and desktop widths, with the Program console open. Other reserved
+   profile rows retain their positions in the editing area.
+9. At the start of a record, insert a character, then press physical Backspace:
+   the inserted character disappears and the cursor moves left. Press physical
+   Delete: the current character disappears and the cursor stays in place.
+   Confirm the modified state, save, close and reopen to check the saved text.
 
 For a failed manual case, capture the active buffer path, status text, visible
 row and prefix, browser console exception, and the server stderr log. Reproduce
