@@ -884,7 +884,7 @@ function App() {
                   focusEditor();
                 }}
               >
-                <span class={`severity severity-${diagnostic.severity}`}>{diagnostic.severity || "info"}</span>
+                <span class={`severity severity-${(diagnostic.severity || "info").toLowerCase()}`}>{diagnostic.severity || "info"}</span>
                 <span class="diagnostic-location">{diagnostic.line}:{diagnostic.column}</span>
                 <span class="diagnostic-message">{diagnostic.message}</span>
               </button>

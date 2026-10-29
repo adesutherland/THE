@@ -9,6 +9,7 @@
 #include "editorsource.h"
 
 static unsigned phase;
+static unsigned preflight;
 static char sample[4096], other[4096], program[4096];
 static const char expected[] = "alpha\nbe\303\251ta\n";
 static unsigned palette_job, palette_source, palette_revision;
@@ -251,6 +252,114 @@ static unsigned rgba_rgb(const GdkRGBA *colour)
         | (unsigned)(colour->blue * 255 + .5);
 }
 
+static void assert_default_palette(void)
+{
+   static const unsigned foreground[] = {
+      0xd4d4d4, 0xf1f5fa, 0xd4d4d4, 0xd4d4d4,
+      0xe6f7ff, 0x6c7b90, 0xff6347, 0xd4d4d4
+   };
+   static const unsigned background[] = {
+      0x1e1e1e, 0x25415f, 0x2d2d30, 0x1e1e1e,
+      0x264f78, 0x1e1e1e, 0x1e1e1e, 0x1e1e1e
+   };
+   unsigned i;
+   await_frame();
+   assert(colour_support);
+   for (i = 0; i < G_N_ELEMENTS(foreground); i++)
+   {
+      GdkRGBA fg, bg;
+      TheDriverAttr attr = set_colour(CURRENT_FILE->attr + ATTR_CONSOLEBODY + i);
+      assert(!(the_render_attr_style(attr) & THE_STYLE_REVERSE));
+      console_colours(attr, &fg, &bg);
+      assert_rgb(&fg, foreground[i]);
+      assert_rgb(&bg, background[i]);
+   }
+   assert_widget_palette(ui.output, GTK_STATE_FLAG_NORMAL, 0, 0);
+   assert_widget_palette(ui.header, GTK_STATE_FLAG_NORMAL, 1, 0);
+   assert_widget_palette(ui.state, GTK_STATE_FLAG_NORMAL, 7, 0);
+}
+
+static void click_noneditable_row(int reserved)
+{
+   GtkWidget *focus = gtk_window_get_focus(GTK_WINDOW(ui.window));
+   TheDriverWindow *status = driver_global_window(THE_DRIVER_GLOBAL_STATAREA);
+   TheDriverWindowOrigin origin = operations.window_origin(status);
+   TheDriverWindow *file = driver_current_role_window(WINDOW_FILEAREA);
+   GdkEventButton hit = {0};
+   int row;
+   assert(status && origin.valid);
+   hit.button = 1;
+   row = 0;
+   if (reserved)
+   {
+      origin = operations.window_origin(file);
+      for (; row < CURRENT_SCREEN.rows[WINDOW_FILEAREA]; row++)
+         if (CURRENT_SCREEN.sl[row].line_type == LINE_RESERVED)
+            break;
+      assert(row < CURRENT_SCREEN.rows[WINDOW_FILEAREA]);
+   }
+   hit.x = (origin.col + 3) * ui.cell_width + 1;
+   hit.y = (origin.row + row) * ui.cell_height + 1;
+   clicked(ui.editor, &hit, NULL);
+   assert(g_queue_is_empty(&ui.inputs));
+   assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == focus);
+}
+
+static void assert_original_saved(void)
+{
+   char *bytes = NULL;
+   gsize length;
+   const char original[] = "alpha\nbeta\n";
+   assert(g_file_get_contents(sample, &bytes, &length, NULL));
+   assert(length == sizeof(original) - 1);
+   assert(!memcmp(bytes, original, length));
+   g_free(bytes);
+}
+
+static void assert_program_input_keeps_focus(void)
+{
+   const char source[] = "say 'GTK program ready'\npull name\nsay 'Hello' name\n";
+   LINETYPE focus_line = CURRENT_VIEW->focus_line;
+   int current_window = CURRENT_VIEW->current_window;
+   int cell_column = CURRENT_VIEW->logical_cursor.current.text.cell_column;
+   GdkEventKey key = {0};
+   char *saved = NULL;
+   gsize length;
+   assert(gtk_widget_get_sensitive(ui.input));
+   gtk_entry_set_text(GTK_ENTRY(ui.input), "Program draft");
+   gtk_widget_grab_focus(ui.input);
+   gtk_editable_set_position(GTK_EDITABLE(ui.input), -1);
+   assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+   click_noneditable_row(0);
+   assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+   key.type = GDK_KEY_PRESS;
+   key.window = gtk_widget_get_window(ui.input);
+   key.keyval = GDK_KEY_x;
+   key.string = "x";
+   key.length = 1;
+   assert(gtk_window_propagate_key_event(GTK_WINDOW(ui.window), &key));
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "Program draftx"));
+   click_noneditable_row(1);
+   assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+   key.keyval = GDK_KEY_y;
+   key.string = "y";
+   assert(gtk_window_propagate_key_event(GTK_WINDOW(ui.window), &key));
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "Program draftxy"));
+   assert_source(source);
+   assert(!the_editor_buffer_dirty(CURRENT_FILE));
+   assert(CURRENT_VIEW->focus_line == focus_line);
+   assert(CURRENT_VIEW->current_window == current_window);
+   assert(CURRENT_VIEW->logical_cursor.current.text.cell_column == cell_column);
+   assert(g_queue_is_empty(&ui.inputs));
+   assert(g_file_get_contents(program, &saved, &length, NULL));
+   assert(length == sizeof(source) - 1 && !memcmp(saved, source, length));
+   g_free(saved);
+   screenshot("console-input-focus");
+   puts("GTK_PROGRAM_INPUT_FOCUS_STATUS_RESERVED_CLICKS_PASS");
+   gtk_entry_set_text(GTK_ENTRY(ui.input), "");
+   gtk_widget_grab_focus(ui.editor);
+}
+
 static void assert_divider_palette(void)
 {
    GtkAllocation allocation, editor, console;
@@ -380,6 +489,91 @@ static int probe_read_input(TheInputEvent *event)
       g_main_context_iteration(NULL, FALSE);
    if (!g_queue_is_empty(&ui.inputs) || ui.rows != terminal_lines || ui.cols != terminal_cols)
       return read_input(event);
+   if (preflight < 9)
+   {
+      g_snprintf(sample, sizeof(sample), "%s/sample.txt", directory);
+      switch (preflight++)
+      {
+         case 0:
+            assert_source("alpha\nbeta\n");
+            assert(!the_editor_buffer_dirty(CURRENT_FILE));
+            assert_default_palette();
+            assert(gtk_orientable_get_orientation(GTK_ORIENTABLE(ui.split))
+                   == GTK_ORIENTATION_HORIZONTAL);
+            screenshot("default-launch");
+            resize_window(1366, GTK_ORIENTATION_HORIZONTAL);
+            queue_command("cursor cmdline");
+            break;
+         case 1:
+            screenshot("default-wide");
+            window = driver_current_role_window(WINDOW_FILEAREA);
+            origin = operations.window_origin(window);
+            for (row = 0; row < CURRENT_SCREEN.rows[WINDOW_FILEAREA]; row++)
+               if (CURRENT_SCREEN.sl[row].line_number == 1)
+                  break;
+            assert(row < CURRENT_SCREEN.rows[WINDOW_FILEAREA]);
+            memset(&hit, 0, sizeof(hit));
+            hit.button = 1;
+            hit.x = origin.col * ui.cell_width + 1;
+            hit.y = (origin.row + row) * ui.cell_height + 1;
+            clicked(ui.editor, &hit, NULL);
+            break;
+         case 2:
+            assert(CURRENT_VIEW->current_window == WINDOW_FILEAREA);
+            assert(CURRENT_VIEW->focus_line == 1);
+            assert(CURRENT_VIEW->logical_cursor.current.text.cell_column == 0);
+            click_noneditable_row(0);
+            im_commit(ui.im, "X", NULL);
+            break;
+         case 3:
+            assert_source("Xalpha\nbeta\n");
+            assert(the_editor_buffer_dirty(CURRENT_FILE));
+            assert(g_str_has_prefix(gtk_window_get_title(GTK_WINDOW(ui.window)), "* "));
+            assert_original_saved();
+            assert(CURRENT_VIEW->focus_line == 1);
+            assert(CURRENT_VIEW->logical_cursor.current.text.cell_column == 1);
+            screenshot("status-click-typed");
+            memset(&key, 0, sizeof(key));
+            key.keyval = GDK_KEY_BackSpace;
+            assert(key_pressed(ui.editor, &key, NULL));
+            break;
+         case 4:
+            assert_source("alpha\nbeta\n");
+            assert(!the_editor_buffer_dirty(CURRENT_FILE));
+            click_noneditable_row(1);
+            assert(CURRENT_VIEW->focus_line == 1);
+            assert(CURRENT_VIEW->logical_cursor.current.text.cell_column == 0);
+            im_commit(ui.im, "Y", NULL);
+            break;
+         case 5:
+            assert_source("Yalpha\nbeta\n");
+            assert(the_editor_buffer_dirty(CURRENT_FILE));
+            assert(CURRENT_VIEW->current_window == WINDOW_FILEAREA);
+            assert(CURRENT_VIEW->focus_line == 1);
+            assert(CURRENT_VIEW->logical_cursor.current.text.cell_column == 1);
+            assert_original_saved();
+            screenshot("reserved-click-typed");
+            file_action(NULL, "edit.undo");
+            break;
+         case 6:
+            assert_source("alpha\nbeta\n");
+            assert(!the_editor_buffer_dirty(CURRENT_FILE));
+            file_action(NULL, "file.save");
+            break;
+         case 7:
+            assert_original_saved();
+            assert(!the_editor_buffer_dirty(CURRENT_FILE));
+            resize_window(900, GTK_ORIENTATION_VERTICAL);
+            queue_command("cursor cmdline");
+            break;
+         case 8:
+            screenshot("default-narrow");
+            puts("GTK_DEFAULT_PALETTE_STATUS_RESERVED_TYPE_BACKSPACE_UNDO_SAVE_PASS");
+            queue_command("cursor cmdline");
+            break;
+      }
+      return read_input(event);
+   }
    switch (phase++)
    {
       case 0:
@@ -455,6 +649,7 @@ static int probe_read_input(TheInputEvent *event)
          break;
       case 9:
          await_console(0);
+         assert_program_input_keeps_focus();
          change_palette();
          break;
       case 10:

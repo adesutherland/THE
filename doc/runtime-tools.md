@@ -72,7 +72,7 @@ keeps the profile's indentation command. F10 remains a direct menu shortcut.
 The terminal-specific Shift-Tab definition is visible in Key definitions;
 the graphical editor retains its own Shift-Tab binding.
 
-Choose **F10 Menu → Show / focus Program console** to reach Program input from the
+Choose **F10 Menu → Show or focus Program console** to reach Program input from the
 keyboard. While the console has focus, Tab switches between input and the
 toolbar. Shift-Tab moves from input to the toolbar, then to the Console
 launcher; Left/Right selects a toolbar control, Home/End selects the first/last,

@@ -27,12 +27,20 @@ def main():
             return 77
         assert completed.returncode == 0, (completed.returncode, completed.stdout, completed.stderr)
         for marker in ("GTK_OPEN_EDIT_CURSOR_DIRTY_SAVE_REOPEN_PASS",
+                       "GTK_DEFAULT_PALETTE_STATUS_RESERVED_TYPE_BACKSPACE_UNDO_SAVE_PASS",
                        "GTK_VIRTUAL_SURFACES_COMMAND_LINE_PASS"):
             assert marker in completed.stdout, (marker, completed.stdout, completed.stderr)
         if environment.get("THE_GTK_REQUIRE_PROGRAM"):
             assert "GTK_PROGRAM_OUTPUT_STDIN_COMPLETION_PASS" in completed.stdout, completed.stdout
+            assert "GTK_PROGRAM_INPUT_FOCUS_STATUS_RESERVED_CLICKS_PASS" in completed.stdout, completed.stdout
+            assert Path(screenshot).with_name(
+                Path(screenshot).stem + "-console-input-focus.png").is_file()
         assert (root / "sample.txt").read_bytes() == "alpha\nbeéta\n".encode("utf-8")
         assert Path(screenshot).is_file(), "GTK widget screenshot was not written"
+        for suffix in ("default-launch", "default-wide", "default-narrow",
+                       "status-click-typed", "reserved-click-typed"):
+            assert Path(screenshot).with_name(
+                Path(screenshot).stem + "-" + suffix + ".png").is_file(), suffix
         print(completed.stdout.strip())
         if completed.stderr:
             print(completed.stderr, file=sys.stderr)

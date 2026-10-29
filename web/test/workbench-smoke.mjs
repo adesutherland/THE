@@ -23,7 +23,7 @@ const snapshot = {
   buffers: [{ index: 0, path: "/workspace/example.rexx", dirty: 0, lines: 100, current: 1 }],
   source: { id: 1, revision: 3 }, history: { undo: 0, redo: 0 },
   viewport: { rows: 24, cols: 80, reserved_rows: 4, prefix_cols: 7, prefix_gap: 1 },
-  diagnostics: [{ line: 2, column: 1, severity: "warning", code: "DEMO", message: "Example diagnostic" }],
+  diagnostics: [{ line: 2, column: 1, severity: "ERROR", code: "DEMO", message: "Example diagnostic" }],
   console_colours: {
     body: { foreground: "#D4D4D4", background: "#1E1E1E", style: 0 },
     header: { foreground: "#F1F5FA", background: "#25415F", style: 0 },
@@ -363,6 +363,27 @@ try {
   assert.equal(await evaluate("document.documentElement.scrollWidth<=innerWidth"), true, "phone shell has no horizontal overflow");
   assert.equal((await geometry(".pane-switcher")).visible, false, "phone has one auxiliary selector");
   assert.equal((await geometry(".mobile-aux-tabs")).visible, true);
+  assert.equal(await evaluate("document.querySelector('.diagnostic-row .severity').classList.contains('severity-error')"), true, "uppercase parser severity gets error class");
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.diagnostic-row .severity')).color"), "rgb(224, 108, 117)", "uppercase parser error uses error colour");
+  const originalDiagnostics = snapshot.diagnostics;
+  snapshot.diagnostics = Array.from({ length: 20 }, (_, index) => ({ line: index + 2, column: 1, severity: "ERROR", code: "DEMO", message: `Example diagnostic ${index + 1}` }));
+  publishSnapshot();
+  await viewport(455, 700);
+  await evaluate("[...document.querySelectorAll('.mobile-aux-tabs button')].find(n=>n.textContent.startsWith('Diagnostics')).click()");
+  await wait(() => evaluate("document.querySelector('.workspace').classList.contains('mobile-pane-diagnostics')"), "phone diagnostics selection");
+  const mobileDiagnostics = await geometry(".diagnostics");
+  assert(mobileDiagnostics.visible && mobileDiagnostics.top >= 0 && mobileDiagnostics.bottom <= 700, "phone diagnostics pane fits viewport");
+  assert.equal(await evaluate("document.querySelector('.diagnostics').scrollHeight > document.querySelector('.diagnostics').clientHeight"), true, "long diagnostics scroll inside pane");
+  await evaluate("document.querySelector('.diagnostics').scrollTop = document.querySelector('.diagnostics').scrollHeight");
+  assert.equal(await evaluate("(() => { const pane=document.querySelector('.diagnostics').getBoundingClientRect(), row=[...document.querySelectorAll('.diagnostic-row')].at(-1).getBoundingClientRect(); return row.top>=pane.top && row.bottom<=pane.bottom; })()"), true, "last diagnostic remains reachable in phone pane");
+  await viewport(455, 450);
+  assert.equal(await evaluate("document.querySelector('.workspace').scrollHeight > document.querySelector('.workspace').clientHeight"), true, "short phone scrolls the workspace to reach diagnostics");
+  await evaluate("document.querySelector('.diagnostics').scrollIntoView({block:'end'})");
+  const shortDiagnostics = await geometry(".diagnostics");
+  assert(shortDiagnostics.top >= 0 && shortDiagnostics.bottom <= 450, "short phone can bring diagnostics fully into view");
+  snapshot.diagnostics = originalDiagnostics;
+  publishSnapshot();
+  await viewport(390, 844);
   await evaluate("[...document.querySelectorAll('.mobile-aux-tabs button')].find(n=>n.textContent==='Files').click()");
   await wait(() => evaluate("document.querySelector('.workspace').classList.contains('mobile-pane-files')"), "phone files selection");
   assert.equal((await geometry(".mobile-aux-tabs")).visible, true, "selector remains available with Files selected");

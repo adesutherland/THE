@@ -71,6 +71,8 @@ def generated():
             body += quote('cmsg ' + prompt) + ';\n' + quote('cursor cmdline ' + str(len(prompt) + 1)) + ';\n'
             result[name + suffix + '.the'] = body
         menu = data.get('native_menu', [])
+        if any('/' in label for label, _ in menu):
+            raise ValueError('native_menu labels must not contain the POPUP delimiter /')
         menu_command = 'popup topleft escape esc /' + '/'.join(item[0] for item in menu)
         body = '/* Generated native command menu; edit profiles/default-profile.json. */\n'
         body += ('options levelb\n' if engine == 'CREXX' else '') + 'address the\n'

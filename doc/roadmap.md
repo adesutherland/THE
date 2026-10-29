@@ -25,20 +25,19 @@ qualification remains separately listed after the table. See the
 | 5. Integration | Installed assets, dependency provenance, user guides and common host/driver regression checks. | Native graphical/terminal and browser exercise the same workflows; unavailable platforms/capabilities are reported explicitly. |
 
 Desktop-window packaging and broader browser/OS release qualification remain
-separate from these source-development stages. The existing native web driver
-supplies the browser presentation; there is no native GUI frontend yet.
+separate from these source-development stages. The browser has its own web
+presentation, and an optional first GTK 3 desktop frontend now exists.
 
-### Planned GTK workbench
+### Cross-platform workbench review
 
-GTK is the planned native GUI framework; a GTK frontend is not implemented.
-It should follow the guided browser and terminal interaction: one Menu entry
-for discoverable actions, an editor command/response area, compact editing
-status, and optional files, diagnostics and help panes. Program execution has
-its own Program console with stdout/stderr, job state and labelled Program
-input, plus Stop, Clear and End input controls. Editor commands and responses
-must remain separate from program stdin and output. Reuse C-owned editor,
-response and tool-session state through the driver boundary; do not create a
-second command dispatcher or execution host inside GTK.
+Review the browser, terminal and GTK frontends together through real file,
+editing, run and console workflows. Keep the guided workbench's discoverable
+actions, editor command/response area, profile-defined status and separate
+Program input/output, while adapting layout and controls to each platform.
+Resolve keyboard focus between editor, menus and console; file discovery in
+the terminal; native menu placement on macOS; diagnostics visibility; and
+responsive console placement. Keep editor and tool-session state in the C core
+through the driver boundary.
 
 - Diagnose and repair the optional F8/F9 helpers. Reproduce each reported
   failure with its matching runtime, then assert compilation artifacts,

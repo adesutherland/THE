@@ -42,6 +42,11 @@ keys map to the same logical Ctrl-letter identities. The native menus add
 no key accelerators that override those definitions. Use the Paste menu or
 button for clipboard text; CRLF, CR and LF become normal Enter input and
 tabs follow the profile's Tab definition. Queued text is limited to 1 MiB.
+The status and reserved rows are display information, separate from file
+bytes. Clicking them retains the current GTK control's keyboard focus and
+the previous logical insertion point. If the editor already has focus,
+subsequent typing continues at that insertion point; if Program input has
+focus, typing stays in Program input.
 
 GTK uses the regular user profile, including `-p` and `-n`. It skips the
 platform terminal-calibration system profile, whose cursor/repaint values
@@ -57,6 +62,11 @@ shows bounded stdout/stderr and completion state. Its separate Program input
 field sends a line of stdin; EOF and Stop act on the selected job. Stderr is
 coloured separately. The editor's command line remains available for editor
 commands, including profile build and activation.
+
+The console appears to the right when the window can fit 80 editor columns,
+the console controls' measured minimum width and the divider. It moves below
+the editor in narrower windows. The font and GTK theme determine the exact
+breakpoint. Resizing within either layout retains a manually adjusted divider.
 
 The active file's profile colours also control the GTK console. A
 `SET COLOR` change repaints it immediately, and switching files applies the
@@ -94,6 +104,12 @@ styling, job identity, output selection and unsent input. It verifies the
 wide/right and narrow/below layouts and captures `gtk-runtime-narrow.png`.
 The test skips explicitly when no GTK display is available; a skipped GUI
 test is not visual qualification.
+It also checks all eight default RGB console roles without reverse video,
+captures the default launch, wide and narrow layouts, and verifies that typing
+after a status or reserved-row click reaches the retained file cursor.
+Backspace and Undo remove those edits, and saved bytes remain unchanged.
+During a running program, the same clicks preserve Program input focus and
+typed input without changing editor text or saved bytes.
 
 ```sh
 ctest --test-dir build/gtk --output-on-failure -R '^test_gtk_'
@@ -103,6 +119,8 @@ This first version provides keyboard editing and point-click focus. Drag
 selection, system clipboard Copy/Cut, drag-and-drop, font/zoom preferences,
 GUI tool registration and platform accessibility integration are not yet
 implemented. Existing keyboard selection and editor commands remain usable.
+On macOS, this frontend's menus currently appear inside the window; it does
+not integrate them into the global menu bar.
 The Program console captures the registered tool host's streams; arbitrary
 shell escapes still use the launching process's standard streams. Long
 synchronous macros and shell escapes can hold the GUI event loop.

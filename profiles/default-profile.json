@@ -130,7 +130,7 @@
     ["Go to line... (Ctrl-G)", "macro quickline{suffix}"],
     ["Next file (F2)", "next"],
     ["Run current Rexx", "rx menu-run"],
-    ["Show / focus Program console", "rx console on"],
+    ["Show or focus Program console", "rx console on"],
     ["Hide program console", "rx console off"],
     ["Stop program", "rx stop"],
     ["Clear program output", "rx clear"],

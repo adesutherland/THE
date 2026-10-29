@@ -611,6 +611,9 @@ button { color: inherit; }
   .file-list > button, .root-switcher button { min-height:40px; }
   .diagnostic-row { min-height:44px; }
   .diagnostic-message { white-space:normal; }
+  .workspace.mobile-pane-diagnostics .editor-pane { grid-template-rows:minmax(140px,25dvh) auto auto; }
+  .workspace.mobile-pane-diagnostics .auxiliary-rail { flex:1 0 120px; height:0; min-height:120px; }
+  .workspace.mobile-pane-diagnostics .diagnostics { flex:1 1 auto; min-height:0; max-height:none; overflow-y:auto; }
 }
 
 @media (prefers-reduced-motion:reduce) { .connection-reconnecting svg { animation:none; } }

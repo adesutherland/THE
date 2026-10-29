@@ -12,6 +12,7 @@ except ImportError:
     raise SystemExit(77)
 
 import fcntl
+import json
 import pty
 import re
 import select
@@ -25,6 +26,8 @@ from pathlib import Path
 
 binary = Path(sys.argv[1]).resolve()
 repo = Path(__file__).resolve().parent.parent
+menu_labels = [label for label, _ in json.loads(
+    (repo / 'profiles/default-profile.json').read_text())['native_menu']]
 program = ("say 'Console ready'\n"
            "say 'ASCII:' || copies('A', 41) || 'TAIL'\n"
            "say 'WIDE:' || copies('B', 41) || '界e\u0301TAIL'\n"
@@ -69,6 +72,7 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
     process = subprocess.Popen(
         [str(binary), '-p', str(profile), str(source)], stdin=slave, stdout=slave,
         stderr=slave, env=dict(os.environ, TERM='xterm-256color',
+                              THE_MACRO_PATH=str(repo),
                               THE_TOOL_CONFIG_DIR=str(root / 'config')))
     os.close(slave)
 
@@ -112,10 +116,20 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         screen.resize(rows, cols)
         process.send_signal(signal.SIGWINCH)
 
-    def menu(index):
+    def menu(label):
         os.write(master, b'\x1b[21~')
         wait(lambda: contains('Open or create file'), 'F10 opens native menu')
-        os.write(master, b'\x1b[B' * (index - 1) + b'\r')
+        # Read the labels actually displayed, so delimiter mistakes cannot
+        # silently shift a visible action onto a different numeric dispatch.
+        positions = []
+        for expected in menu_labels:
+            matches = [row for row, line in enumerate(screen.display)
+                       if line.startswith('  ' + expected)]
+            assert len(matches) == 1, (expected, screen.display)
+            positions.append(matches[0])
+        assert positions == list(range(positions[0], positions[0] + len(menu_labels))), screen.display
+        selected = positions[menu_labels.index(label)] - positions[0]
+        os.write(master, b'\x1b[B' * selected + b'\r')
 
     def click_at(row, col):
         # Real xterm mouse press/release, decoded by curses.
@@ -129,7 +143,7 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
 
     try:
         wait(lambda: contains('Console ready'), 'editor source')
-        menu(8)
+        menu('Run current Rexx')
         wait(lambda: 'Program console |' in screen.display[0][96:], 'wide right dock')
         assert any('say' in row[:95] for row in screen.display), screen.display
         assert 'Run Stop Clear Hide Editor' in screen.display[1][96:], screen.display
@@ -183,10 +197,18 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         resize(30, 144)
         wait(lambda: pane(5).startswith('ASCII:' + 'A' * 41)
              and pane(6).startswith('TAIL'), 'output reflows back to wide dock')
-        menu(10)
+        menu('Hide program console')
         wait(lambda: not contains('Program console |'), 'menu hides running console')
-        menu(9)
+        menu('Show or focus Program console')
         wait(lambda: contains('Esc: editor'), 'menu reopens running console')
+        assert contains('Running'), screen.display
+        menu('Stop program')
+        wait(lambda: contains('Stopped'), 'visible Stop menu action stops the job')
+        menu('Run current Rexx')
+        wait(lambda: contains('Running') and contains('Console ready'),
+             'visible Run menu action restarts the job')
+        menu('Show or focus Program console')
+        wait(lambda: contains('Esc: editor'), 'focus restarted program input')
         os.write(master, b'\x1b')
         wait(lambda: contains('F10: Menu'), 'return editor before mouse focus')
         click_at(0, 15)
@@ -267,7 +289,7 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         wait(lambda: contains('Stopped'), 'mouse Stop control')
         click('Hide')
         wait(lambda: not contains('Program console |'), 'mouse Hide control')
-        menu(9)
+        menu('Show or focus Program console')
         wait(lambda: contains('Esc: editor'), 'menu reopens and focuses console')
         resize(16, 32)
         wait(lambda: contains('Esc: editor') and contains('Run Stop Clear Hide Editor'),

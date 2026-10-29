@@ -30,6 +30,15 @@ Supported UTF builds should retain `USE_UTF8=ON` and `USE_UTF8PROC=ON`.
 Prefix and command fields retain their fixed-cell compatibility model unless
 the particular mutation path decodes UTF text.
 
+## Workbench interaction
+
+| Surface | Current limitation | Current route |
+| --- | --- | --- |
+| Terminal Program console | Output follows the tail; there is no keyboard scrollback. At 80×24 the bottom dock can show only three output rows. F6 has no action while Program input or its toolbar owns focus. | Use Esc or the Editor control to return to editing; F6 then follows the profile. Use a wider terminal to see more output. |
+| Terminal file opening | Open/create prepares an `EDIT` command but has no file picker or path completion. | Type a path at the prompt, or use `DIRECTORY` to inspect files. |
+| GTK desktop | The menu bar is inside the window on macOS. If the editor has focus, clicking a noninteractive status or reserved row leaves its prior insertion point active; later typing edits there. Such clicks no longer steal focus from Program input. | Use the native Open/New chooser; click a file or command cell to choose the insertion point. Backspace or Undo removes an unintended edit. |
+| Browser diagnostics | The UI currently shows `Diagnostics 0` both for a clean buffer and for a build with no diagnostic service. The Classic interpreter alone does not provide parser diagnostics. | Check the build's highlighter capability; use a build with a language service to receive diagnostics. |
+
 ## Panels and browser
 
 The [panel contract](panels.md) lists unsupported CMS/3270 facilities, field

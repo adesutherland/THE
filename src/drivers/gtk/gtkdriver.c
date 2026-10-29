@@ -16,7 +16,7 @@
 
 #define GTK_TEXT_LIMIT (1024u * 1024u)
 #define GTK_QUEUE_LIMIT 4096u
-#define GTK_CONSOLE_WIDE_WIDTH 1200
+#define GTK_EDITOR_MIN_COLUMNS 80
 #define GTK_CONSOLE_COLOURS (ATTR_CONSOLESTATUS - ATTR_CONSOLEBODY + 1)
 
 typedef struct
@@ -306,7 +306,15 @@ static gboolean position_split(gpointer data)
 
 static void split_allocated(GtkWidget *widget, GtkAllocation *allocation, gpointer data)
 {
-   GtkOrientation orientation = allocation->width >= GTK_CONSOLE_WIDE_WIDTH
+   int console_width = 0;
+   GtkOrientation orientation;
+   /* Fit a useful editor grid beside the console using the current font and
+    * theme's real widget minimums. A pixel-only breakpoint needlessly stacks
+    * the console below the editor at the default desktop window width. */
+   if (ui.console)
+      gtk_widget_get_preferred_width(ui.console, &console_width, NULL);
+   orientation = allocation->width >= GTK_EDITOR_MIN_COLUMNS * ui.cell_width
+                                      + console_width + ui.cell_width
                                  ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL;
    (void)data;
    /* Reset the divider only when changing layouts. Resizing within a layout
@@ -329,7 +337,6 @@ static gboolean clicked(GtkWidget *widget, GdkEventButton *button, gpointer data
    int row = (int)button->y / ui.cell_height;
    int col = (int)button->x / ui.cell_width;
    (void)data;
-   gtk_widget_grab_focus(widget);
    if (button->button != 1 || the_panel_active || in_macro)
       return TRUE;
    for (screen_no = 0; screen_no < display_screens; screen_no++)
@@ -349,18 +356,29 @@ static gboolean clicked(GtkWidget *widget, GdkEventButton *button, gpointer data
          kind = role == WINDOW_FILEAREA ? THE_INPUT_TARGET_FILEAREA
               : role == WINDOW_PREFIX ? THE_INPUT_TARGET_PREFIX
               : THE_INPUT_TARGET_COMMAND;
-         if (role == WINDOW_FILEAREA && screen[screen_no].sl)
+         if (role != WINDOW_COMMAND && screen[screen_no].sl)
          {
             SHOW_LINE *line = &screen[screen_no].sl[local_row];
-            const CHARTYPE *text = line->contents ? line->contents : rec;
-            size_t length = line->contents ? line->length : rec_len;
-            cell = driver_layout_logical_col_from_display(text, length,
-               (int)screen[screen_no].screen_view->verify_col - 1, cell,
-               TEXT_SNAP_BACKWARD);
+            int enterable = role == WINDOW_FILEAREA ? line->main_enterable
+                                                     : line->prefix_enterable;
+            /* Mirror the core's cursorable-row contract. Display-only rows
+             * must not pull keyboard focus away from Program input or other
+             * controls when the core would reject their cursor target. */
+            if (!enterable && line->line_type != LINE_TOF && line->line_type != LINE_EOF)
+               return TRUE;
+            if (role == WINDOW_FILEAREA)
+            {
+               const CHARTYPE *text = line->contents ? line->contents : rec;
+               size_t length = line->contents ? line->length : rec_len;
+               cell = driver_layout_logical_col_from_display(text, length,
+                  (int)screen[screen_no].screen_view->verify_col - 1, cell,
+                  TEXT_SNAP_BACKWARD);
+            }
          }
          if (the_input_event_from_logical_target(kind, -1, local_row,
-                                                    cell, screen_no, 0, &event))
-            queue_event(event);
+                                                    cell, screen_no, 0, &event)
+         && queue_event(event))
+            gtk_widget_grab_focus(widget);
          return TRUE;
       }
    }
