@@ -10,9 +10,10 @@ Read `AGENT_README.md` for the editor's engineering and testing contracts.
 - Use subagents for bounded implementation and review. Give each a clear scope
   and acceptance check; the coordinator owns integration, verification and
   status. Avoid overlapping edits.
-- Assign routine or bounded work to `gpt-6-sol` at `xhigh` reasoning, and design
-  or difficult work to `gpt-6.1-sol`. Use `gpt-6-astra` only with Adrian's explicit
-  approval for exceptionally difficult work, blockers or nuanced English writing.
+- Use `xhigh` reasoning for all three models: `gpt-6-sol` for routine or bounded
+  work, `gpt-6.1-sol` for design or difficult work, and `gpt-6-astra` only with
+  Adrian's explicit approval for exceptionally difficult work, blockers or
+  nuanced English writing.
 - Apply the engineering, branch, publication and release rules to every agent.
 
 ## Main line
