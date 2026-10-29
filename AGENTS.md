@@ -2,6 +2,19 @@
 
 Read `AGENT_README.md` for the editor's engineering and testing contracts.
 
+## Coordination
+
+- The primary agent is the continuing THE coordinator. Keep the objective,
+  review scope, remaining-item count and finish line explicit across turns.
+  Record tangents for later.
+- Use subagents for bounded implementation and review. Give each a clear scope
+  and acceptance check; the coordinator owns integration, verification and
+  status. Avoid overlapping edits.
+- Assign routine or bounded work to `gpt-6-sol` at `xhigh` reasoning, and design
+  or difficult work to `gpt-6.1-sol`. Use `gpt-6-astra` only with Adrian's explicit
+  approval for exceptionally difficult work, blockers or nuanced English writing.
+- Apply the engineering, branch, publication and release rules to every agent.
+
 ## Main line
 
 - Work on `main`. Commit and integrate changes there. Create another branch or
