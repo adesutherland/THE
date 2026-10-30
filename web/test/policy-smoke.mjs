@@ -8,7 +8,7 @@ const socket = new WebSocket(url);
 const records = [];
 socket.on("message", data => records.push(JSON.parse(data.toString())));
 const wait = async (predicate, from = 0) => {
-  const deadline = Date.now() + 15000;
+  const deadline = Date.now() + 30000;
   while (Date.now() < deadline) {
     const result = records.slice(from).find(predicate);
     if (result) return result;

@@ -400,7 +400,9 @@ void ui_log(const char *fmt, ...);
 #define THE_NATIVE_MENU_WIDTH ((int)(sizeof(THE_NATIVE_MENU_LABEL) - 1))
 #define THE_NATIVE_CONSOLE_LABEL " Console | "
 #define THE_NATIVE_CONSOLE_WIDTH ((int)(sizeof(THE_NATIVE_CONSOLE_LABEL) - 1))
-#define THE_NATIVE_CONTROLS_WIDTH (THE_NATIVE_MENU_WIDTH + THE_NATIVE_CONSOLE_WIDTH)
+#define THE_NATIVE_RUN_LABEL " Run Rexx | "
+#define THE_NATIVE_RUN_WIDTH ((int)(sizeof(THE_NATIVE_RUN_LABEL) - 1))
+#define THE_NATIVE_CONTROLS_WIDTH (THE_NATIVE_MENU_WIDTH + THE_NATIVE_CONSOLE_WIDTH + THE_NATIVE_RUN_WIDTH)
 /*--------------------- -- ecolour defines -----------------------------*/
 #define ECOLOUR_COMMENTS               0
 #define ECOLOUR_STRINGS                1
@@ -641,6 +643,7 @@ struct reserved
    TheDriverAttr *highlighting;           /* array of colours for highlighting */
    COLOUR_ATTR *attr;                              /* colour attributes */
    bool autoscroll;  /* does the reserved line scroll with autoscroll settings */
+   char footer[THE_FOOTER_NAME_MAX+1]; /* optional explicit profile footer name */
 };
 typedef struct reserved RESERVED;
 

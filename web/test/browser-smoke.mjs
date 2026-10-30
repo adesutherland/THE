@@ -182,7 +182,7 @@ try {
       const viewport = document.querySelector('.editor-scroll'), grid = document.querySelector('.editor-grid');
       const style = getComputedStyle(grid);
       const fit = Math.floor((viewport.clientHeight-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom))/parseFloat(style.lineHeight));
-      const rows = document.querySelectorAll('.screen-row:not(.key-hint-row)').length;
+      const rows = document.querySelectorAll('.screen-row:not(.profile-footer-source)').length;
       return rows === fit ? rows : false;
     })()`), "editor rows to fit browser viewport");
   }
@@ -194,13 +194,9 @@ try {
   const hints = await evaluate(`(() => {
     const bar=document.querySelector('.key-hints');
     if (!bar) return null;
-    const outer=bar.getBoundingClientRect();
-    return [...bar.querySelectorAll('.key-hint')].map(n=>{
-      const r=n.getBoundingClientRect();
-      return {key:n.querySelector('kbd').textContent,visible:r.left>=outer.left && r.right<=outer.right && r.top>=outer.top && r.bottom<=outer.bottom};
-    });
+    return {text:bar.textContent,footer:bar.dataset.footer,fits:bar.scrollWidth<=bar.clientWidth && bar.scrollHeight<=bar.clientHeight};
   })()`);
-  if (!hints || hints.some(h=>!h.visible) || !hints.some(h=>h.key==='F10') || !hints.some(h=>h.key==='Ctrl-S')) throw new Error('incomplete or clipped narrow-browser key guide: '+JSON.stringify(hints));
+  if (!hints?.fits || hints.footer !== 'keys' || !/F10\s+Menu/.test(hints.text) || !/Ctrl-S\s+Save/.test(hints.text)) throw new Error('incomplete or clipped narrow-browser named footer: '+JSON.stringify(hints));
   await sizeViewport(1200,950);
   if (grownRows !== largeRows) throw new Error("browser grow did not restore visible rows");
 
@@ -243,7 +239,7 @@ try {
   await waitFor(() => evaluate("document.querySelector('.status-line')?.dataset.focusZone==='filearea' && document.querySelector('.status-line')?.dataset.focusLine==='2' && document.querySelector('.line-content .logical-cursor')?.style.left === '9ch'"), "left from prefix to previous record end");
   await navigationCommand('cursor goto 1 1');
   await waitFor(() => evaluate("document.querySelector('.status-line')?.dataset.focusZone==='filearea' && document.querySelector('.status-line')?.dataset.focusLine==='1'"), "file focus restored");
-  if (!(await evaluate("document.querySelector('.key-hints')?.textContent.includes('F6Cmd/File') && document.querySelector('.key-hints')?.textContent.includes('F10Menu')"))) throw new Error('function-key guide missing');
+  if (!(await evaluate("document.querySelector('.key-hints')?.textContent.includes('F6 Cmd/File') && /F10\\s+Menu/.test(document.querySelector('.key-hints')?.textContent)"))) throw new Error('function-key guide missing');
   await domKey('F10','F10');
   await waitFor(() => evaluate("!!document.querySelector('.menu-popover')"), "F10 application Menu");
   await domKey('Escape','Escape');
@@ -427,9 +423,9 @@ try {
   );
 
 
-  if(await evaluate("!!document.querySelector('.rexx-dock')")){
+  if(await evaluate("!!document.querySelector('.pane-switcher .run-rexx:not(:disabled)')")){
     await openWorkspaceFile('console.rexx');
-    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Rexx').click()");
+    await evaluate("document.querySelector('.pane-switcher .run-rexx').click()");
     await waitFor(()=>evaluate("document.querySelector('.console-output').textContent.includes('native graphical proof')"),'native program console',30000);
     await navigationCommand('set color consolebody #123456 on #234567');
     await waitFor(()=>evaluate("getComputedStyle(document.querySelector('.console-output')).color==='rgb(18, 52, 86)' && getComputedStyle(document.querySelector('.console-output')).backgroundColor==='rgb(35, 69, 103)'"),'SET COLOR recolours running native browser console');

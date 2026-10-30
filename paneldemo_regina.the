@@ -10,6 +10,7 @@ savedarea = field.4
 savedareacol = field.3
 savedfocus = line.1
 'extract /reserved */'
+'extract /footer */'
 'preserve'
 'set linend off'
 'set curline off'
@@ -42,6 +43,9 @@ end
 'set reserved * off'
 do index = reserved.0 to 1 by -1
    'set reserved' reserved.index
+end
+do index = 1 to footer.0
+   'set footer' footer.index
 end
 'restore'
 if savedarea = 'COMMAND' then

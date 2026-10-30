@@ -34,9 +34,9 @@ the particular mutation path decodes UTF text.
 
 | Surface | Current limitation | Current route |
 | --- | --- | --- |
-| Terminal Program console | Output follows the tail; there is no keyboard scrollback. At 80×24 the bottom dock can show only three output rows. F6 has no action while Program input or its toolbar owns focus. | Use Esc or the Editor control to return to editing; F6 then follows the profile. Use a wider terminal to see more output. |
+| Terminal Program console | At 80×24 the bottom dock can show only three output rows at once. | Focus the Program console and use PageUp/PageDown or Home/End for scrollback; expand the terminal for more visible output. |
 | Terminal file opening | Open/create prepares an `EDIT` command but has no file picker or path completion. | Type a path at the prompt, or use `DIRECTORY` to inspect files. |
-| GTK desktop | The menu bar is inside the window on macOS. If the editor has focus, clicking a noninteractive status or reserved row leaves its prior insertion point active; later typing edits there. Such clicks no longer steal focus from Program input. | Use the native Open/New chooser; click a file or command cell to choose the insertion point. Backspace or Undo removes an unintended edit. |
+| GTK desktop | The unpackaged macOS executable appears as `the` in the system menu bar. GTK output follows new text unless a selection is active; it has no unread-output cue. | Use the native Open/New chooser and scroll the Program output to inspect earlier text. |
 | Browser diagnostics | The UI currently shows `Diagnostics 0` both for a clean buffer and for a build with no diagnostic service. The Classic interpreter alone does not provide parser diagnostics. | Check the build's highlighter capability; use a build with a language service to receive diagnostics. |
 
 ## Panels and browser

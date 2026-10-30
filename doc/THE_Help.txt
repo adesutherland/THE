@@ -21,8 +21,8 @@
     F3          Save and close the current file
     F4          Prefix area; type a prefix such as D, then Enter
     F5/Insert   Toggle insert/overwrite mode
-    Shift-Tab   Toggle console command/file focus
-    F10         Complete key-definition list (SHOWKEY ALL)
+    Shift-Tab   Move from editing to workbench controls
+    F10         Open Menu (Key definitions is available there)
 
   Type normally in the file area; Enter splits a line. The top ruler shows
   logical columns. The prefix area supports line/block commands. Optional
@@ -501,6 +501,17 @@
        change the path of the existing file
  [SET] FType ext
        change the extension of the existing file
+ [SET] FOOTER name position|OFF
+       name an existing reserved row for footer presentation
+       Names begin with a letter and have up to 31 ASCII letters, digits,
+       underscores or hyphens; names ignore case. Use the same position
+       specification as SET RESERVED. OFF retains the reserved text.
+       Replacement or deletion of a reserved row removes its name.
+       Stock names: keys (key guide), response (blank editor-response row).
+       Other names allow additional profile footer rows, in screen order.
+       STATUSLINE, CMDLINE and MSGLINE retain their existing controls.
+       EXTRACT /FOOTER */ returns footer.0=count and footer.n=name position;
+       restore these associations after restoring SET RESERVED rows.
  [SET] FULLFName ON|OFF
        specify if complete filename to be displayed
        Default: ON

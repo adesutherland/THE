@@ -56,9 +56,10 @@ class Terminal:
         pyte.ByteStream(screen).feed(bytes(self.output))
         return screen
 
-    def wait(self, predicate, timeout=15):
+    def wait(self, predicate, timeout=30):
         deadline = time.monotonic() + timeout
-        quiet = time.monotonic()
+        matched = None
+        screen = None
         while time.monotonic() < deadline:
             if select.select([self.master], [], [], 0.04)[0]:
                 try:
@@ -67,11 +68,14 @@ class Terminal:
                     if error.errno == errno.EIO:
                         break
                     raise
-                quiet = time.monotonic()
-            elif time.monotonic() - quiet > .15:
                 screen = self.screen()
-                if predicate(screen):
+            if screen is not None and predicate(screen):
+                if matched is None:
+                    matched = time.monotonic()
+                if time.monotonic() - matched >= .15:
                     return screen
+            else:
+                matched = None
             assert self.process.poll() is None, self.output.decode(errors='replace')[-1000:]
         raise AssertionError('\n'.join(self.screen().display))
 

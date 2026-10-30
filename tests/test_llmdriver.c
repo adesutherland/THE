@@ -216,6 +216,45 @@ static void test_compact_filearea_view_options(void)
    expect_int("compact.hides.prefix", strstr(out, "\"p\"") == NULL, 1);
 }
 
+static void test_named_footer_metadata(void)
+{
+   UiFrame frame;
+   static LlmDriverScreenView previous,current;
+   LlmDriverFormatOptions options;
+   char out[4096];
+
+   ui_frame_init(&frame,2,80);
+   ui_frame_set_row(&frame,0,UI_ROW_RESERVED,0,0,0,
+                    (const CHARTYPE *)"Custom guide",12,0);
+   ui_frame_set_row(&frame,1,UI_ROW_RESERVED,0,1,0,
+                    (const CHARTYPE *)"F10 Menu note",13,0);
+   llm_driver_screen_view_from_frame(&frame,&previous);
+   frame.row[0].footer = "keys";
+   frame.row[0].footer_text = (const CHARTYPE *)"  Full custom guide  ";
+   frame.row[0].footer_text_len = 21;
+   frame.row[0].footer_attr = the_render_attr_make(4, 7, THE_STYLE_BOLD);
+   llm_driver_screen_view_from_frame(&frame,&current);
+   expect_int("footer.frame",strcmp(current.lines[0].footer,"keys"),0);
+   expect_int("footer.ordinary",current.lines[1].footer[0],0);
+   llm_driver_format_options_init(&options);
+   options.compact = 1;
+   llm_driver_format_semantic_view_with_options(&current,&options,out,sizeof(out));
+   expect_contains("footer.compact",out,"\"footer\":\"keys\"");
+   expect_contains("footer.compact.text",out,"\"footer_text\":\"  Full custom guide  \"");
+   expect_contains("footer.compact.colour",out,"\"footer_colour\":{\"style\":1,\"foreground\":\"#800000\",\"background\":\"#C0C0C0\"}");
+   options.compact = 0;
+   llm_driver_format_semantic_view_with_options(&current,&options,out,sizeof(out));
+   expect_contains("footer.full",out,"\"footer\": \"keys\"");
+   expect_contains("footer.full.text",out,"\"footer_text\": \"  Full custom guide  \"");
+   expect_contains("footer.full.colour",out,"\"footer_colour\": {\"style\": 1,\"foreground\": \"#800000\",\"background\": \"#C0C0C0\"}");
+   llm_driver_format_delta_view(&previous,&current,&options,out,sizeof(out));
+   expect_contains("footer.delta.add",out,"\"footer\":\"keys\"");
+   expect_contains("footer.delta.colour",out,"\"footer_colour\":{\"style\":1,\"foreground\":\"#800000\",\"background\":\"#C0C0C0\"}");
+   llm_driver_format_delta_view(&current,&previous,&options,out,sizeof(out));
+   expect_contains("footer.delta.remove.row",out,"\"t\":\"Custom guide\"");
+   expect_int("footer.delta.remove.name",strstr(out,"\"footer\"") == NULL,1);
+}
+
 static void test_reserved_view_options(void)
 {
    LlmDriverScreenView view;
@@ -575,6 +614,7 @@ int main(void)
    test_semantic_view_from_frame();
    test_status_line_fields();
    test_message_snapshot_fields();
+   test_named_footer_metadata();
    test_compact_filearea_view_options();
    test_reserved_view_options();
    test_agent_metadata_and_delta();

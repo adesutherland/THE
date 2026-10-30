@@ -109,6 +109,11 @@ address the
 'set color cblock black on #F0C36B';
 'set cursorstyle insert ibeam steady';
 'set cursorstyle overwrite block steady';
+'set reserved -2 normal         F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab Controls';
+'set footer keys -2';
+'set reserved -1 #D4D4D4 on #202328';
+'set footer response -1';
+'set msgline on -2 1';
 'extract /version/'
 platform = version.3
 'extract /size/'
@@ -166,11 +171,7 @@ if left(platform,3) = 'WIN' then do
   'define c-v clipboard paste';
 end
 'define f10 macro workbenchmenu_regina';
-'set reserved -2 normal         F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save';
-'set reserved -1 #D4D4D4 on #202328';
-'set msgline on -2 1';
 'extract /ui/'
 if pos('CURSES', translate(ui.1)) > 0 then do
   'define s-tab rx controls';
 end
-'msg CRXTHE 0.10.dev | Esc Command  F6 Cmd/File  F1 Help  Ctrl-S Save';

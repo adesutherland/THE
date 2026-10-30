@@ -4784,6 +4784,97 @@ STATUS
 
 /*man-start*********************************************************************
 COMMAND
+     set footer - name an existing reserved row for footer presentation
+
+SYNTAX
+     [SET] FOOTER name +|-n|OFF
+
+DESCRIPTION
+     SET FOOTER associates an existing <reserved line> with an explicit
+     profile name. Define its text, colour and position with <SET RESERVED>
+     first, then use the same position specification with SET FOOTER.
+
+     Names have one to 31 ASCII letters, digits, underscores or hyphens,
+     begin with a letter, and are case-insensitive. A name belongs to one
+     row per file, and a row has at most one name. Assigning a name again
+     moves that association; OFF removes it without deleting the row.
+     Replacing or deleting a reserved row removes its name. New files
+     inherit names with their reserved rows except in XEDIT compatibility
+     mode, where reserved rows are not copied.
+
+     Native drivers retain the SET RESERVED row position. A frontend may
+     present explicitly named rows in its footer, in their screen order.
+     Unnamed reserved rows retain their ordinary arbitrary-row meaning.
+     The stock profile uses keys for its key guide and response for its
+     blank editor-response row. <SET STATUSLINE>, <SET CMDLINE> and
+     <SET MSGLINE> continue to control their existing core display areas.
+
+COMPATIBILITY
+     XEDIT: N/A
+     KEDIT: N/A
+
+SEE ALSO
+     <SET RESERVED>, <SET STATUSLINE>, <SET CMDLINE>, <SET MSGLINE>
+
+STATUS
+     Complete.
+**man-end**********************************************************************/
+short Footer(CHARTYPE *params)
+/***********************************************************************/
+{
+   CHARTYPE *word[4];
+   CHARTYPE strip[3] = {STRIP_BOTH,STRIP_BOTH,STRIP_BOTH};
+   unsigned short count;
+   short base=0,off=0,rc;
+   size_t i,length;
+   char name[THE_FOOTER_NAME_MAX+1];
+   RESERVED *curr,*target=NULL;
+
+   count = param_split(params,word,3,WORD_DELIMS,TEMP_PARAM,strip,FALSE);
+   if (count != 2)
+   {
+      display_error(count < 2 ? 3 : 1,count < 2 ? (CHARTYPE *)"" : word[2],FALSE);
+      return RC_INVALID_OPERAND;
+   }
+   length = strlen((const char *)word[0]);
+   if (length == 0 || length > THE_FOOTER_NAME_MAX)
+   {
+      display_error(1,word[0],FALSE);
+      return RC_INVALID_OPERAND;
+   }
+   for (i=0;i<length;i++)
+   {
+      unsigned char c=word[0][i];
+      if (c >= 'A' && c <= 'Z') c += 'a'-'A';
+      if (!((c >= 'a' && c <= 'z')
+      || (i > 0 && ((c >= '0' && c <= '9') || c == '_' || c == '-'))))
+      {
+         display_error(1,word[0],FALSE);
+         return RC_INVALID_OPERAND;
+      }
+      name[i] = (char)c;
+   }
+   name[length] = '\0';
+   if (!equal((CHARTYPE *)"off",word[1],3))
+   {
+      rc = execute_set_row_position(word[1],&base,&off);
+      if (rc != RC_OK) return rc;
+      target = find_reserved_line(current_screen,FALSE,0,base,off);
+      if (target == NULL)
+      {
+         display_error(64,(CHARTYPE *)"- no RESERVED line at footer position",FALSE);
+         return RC_INVALID_OPERAND;
+      }
+   }
+   for (curr=CURRENT_FILE->first_reserved;curr != NULL;curr=curr->next)
+      if (strcmp(curr->footer,name) == 0) curr->footer[0] = '\0';
+   if (target != NULL) strcpy(target->footer,name);
+   build_screen(current_screen);
+   display_screen(current_screen);
+   return RC_OK;
+}
+/*man-start*********************************************************************
+COMMAND
      set fullfname - specify if complete filename to be displayed
 
 SYNTAX

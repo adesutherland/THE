@@ -249,7 +249,7 @@ try {
   await restoredEditor();
   await waitFor(() => evaluate(`(() => {
     const viewport=document.querySelector('.editor-scroll'), style=getComputedStyle(document.querySelector('.editor-grid'));
-    return document.querySelectorAll('.screen-row:not(.key-hint-row)').length === Math.floor((viewport.clientHeight-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom))/parseFloat(style.lineHeight));
+    return document.querySelectorAll('.screen-row:not(.profile-footer-source)').length === Math.floor((viewport.clientHeight-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom))/parseFloat(style.lineHeight));
   })()`), "editor resized after panel submission");
   await domKey("F7", "F7");
   await waitFor(() => evaluate("!!document.querySelector('.fullscreen-panel')"), "second panel");

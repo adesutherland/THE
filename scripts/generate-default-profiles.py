@@ -44,8 +44,7 @@ def generated():
         # Windows PDCurses has editor block clipboard support. On macOS/Linux
         # retain terminal clipboard shortcuts rather than bind unsupported APIs.
         lines += ["if left(platform,3) = 'WIN' then do", "  'define c-c clipboard copy';",
-                  "  'define c-x clipboard cut';", "  'define c-v clipboard paste';", 'end',
-                  quote(data['welcome']) + ';']
+                  "  'define c-x clipboard cut';", "  'define c-v clipboard paste';", 'end']
         native = [quote(command.format(suffix=suffix)) + ';'
                   for command in data.get('native_commands', [])]
         # UI describes the active runtime driver. Keep GTK's editing binding;
@@ -58,14 +57,13 @@ def generated():
                        "if pos('CURSES', translate(ui.1)) > 0 then do"]
         native += ['  ' + quote(command.format(suffix=suffix)) + ';'
                    for command in data.get('curses_commands', [])] + ['end']
-        result[filename] = '\n'.join(lines[:-1] + native + lines[-1:]) + '\n'
+        result[filename] = '\n'.join(lines + native) + '\n'
         restricted = [quote(command) + ';' for command in
                       ['set impos off','set impmacro off','set macro off','set linend off','set synonym on']]
         web = [quote(command.format(suffix=suffix)) + ';'
                for command in data.get('web_commands', [])]
         web_name = 'web-profile.the' if engine == 'CREXX' else 'web-profile-regina.the'
-        result[web_name] = '\n'.join(lines[:-1] + web + restricted +
-                                    [quote(data['welcome']) + ';']) + '\n'
+        result[web_name] = '\n'.join(lines + web + restricted) + '\n'
         for name, prompt in [('quickfind', 'locate /'), ('quickopen', 'edit '), ('quickline', ':')]:
             body = ('options levelb\n' if engine == 'CREXX' else '') + 'address the\n'
             body += quote('cmsg ' + prompt) + ';\n' + quote('cursor cmdline ' + str(len(prompt) + 1)) + ';\n'

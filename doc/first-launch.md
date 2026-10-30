@@ -22,7 +22,8 @@ The top ruler shows logical columns. Line numbers and prefix commands have a
 distinct shaded area; active prefixes and pending commands use separate colors.
 Insert mode starts on. Enter splits a line, Home/End move within it, and
 Shift-arrow/Home/End support selection where the terminal supplies those keys.
-The status line and startup message expose the CRXTHE identity and key hints.
+The status line identifies CRXTHE. One named key-guide row shows the main
+shortcuts; the response row starts blank until an editor command reports a message.
 
 | Key | Action |
 |---|---|
@@ -41,8 +42,8 @@ The status line and startup message expose the CRXTHE identity and key hints.
 | F3 | Save and close the current file |
 | F4 | Prefix area beside the current record |
 | F5 / Insert | Toggle insert and overwrite mode |
-| Shift-Tab | Toggle console command/file focus |
-| F10 | Terminal command Menu, including the complete key-definition list |
+| Shift-Tab | Move from editing into visible workbench controls; ordinary Tab still edits |
+| F10 | Open Menu, including Key definitions |
 
 On macOS, function keys may require Fn. Use Terminal's ordinary Command-C/V
 for its clipboard. Windows PDCurses additionally binds Ctrl-C/X/V to the
@@ -95,18 +96,54 @@ clamps its painted position inside the field, and highlights the active prefix.
 Prefix text is left-aligned to the same cell positions used for clicks and
 caret movement. The caret is hidden while the browser command field has focus.
 
-A terminal footer leads with **F10 Menu**, followed by command/file focus and
+A profile footer leads with **F10 Menu**, followed by command/file focus and
 help shortcuts. The Menu offers file, editing, navigation, program and profile
-actions; **Key definitions** opens `SHOWKEY ALL`. Editor responses appear in
-the reserved row immediately above the command line. These footer rows are
-inherited by new buffers, including help. The console file-tab strip above the filename
-uses explicit dark colors; with one file it remains an empty strip by design.
+actions; **Key definitions** opens `SHOWKEY ALL`. Editor responses appear
+immediately above the command line. These footer rows are inherited by new
+buffers, including help. The terminal file-tab strip also contains Menu,
+Console and Run Rexx controls even when only one file is open.
 F6 toggles between command and file editing, restoring the file caret. From
 the prefix field, F6 enters command; the next F6 returns to file editing.
-Esc goes directly to the console command line, with Shift-Tab to return.
+Esc goes to the THE command line. Shift-Tab from editing enters controls.
 Browser Esc focuses its command input and Esc again returns to editing.
 F6 is also handled when the browser delivers it. Ctrl-L remains a console
 shortcut because browsers generally reserve it for their address bar.
+
+Profiles name reserved footer rows explicitly. For example:
+
+```text
+set reserved -3 normal Project-specific editing hints
+set footer project-hints -3
+set reserved -2 normal F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab Controls
+set footer keys -2
+set reserved -1 normal
+set footer response -1
+set msgline on -2 1
+```
+
+`SET RESERVED` still controls arbitrary text, colour and screen position.
+`SET FOOTER name position` annotates an existing reserved row, using the same
+position specification. Names begin with an ASCII letter, contain up to 31
+letters, digits, underscores or hyphens, and ignore case. Each row has one
+name, and each name identifies one row in the current file. Assign a name to
+another reserved row to move it, or use `SET FOOTER name OFF` to remove the
+name while retaining the reserved text. Replacing or deleting a reserved row
+also removes its name. New buffers inherit the names with their reserved
+rows; XEDIT compatibility continues to omit reserved rows from new buffers.
+
+Native frontends display these rows at their reserved positions. The browser
+places named rows in its footer in screen order and renders their profile
+text and base colour; ordinary unnamed reserved rows stay among the editor rows.
+The stock names are `keys` and `response`. The browser's `response` row shows
+the current editor response in place of its blank placeholder. There is no
+text-pattern detection. `SET STATUSLINE`, `SET CMDLINE` and `SET MSGLINE`
+continue to control the existing core status, command and message areas;
+footer names do not replace those commands. Semantic row snapshots expose a
+name as the optional `footer` field on a `reserved` row. Its `footer_text`
+contains the complete display text, including spaces, before the native
+prefix/gap split; `footer_colour` carries the reserved row's base style and
+colours. `EXTRACT /FOOTER */` returns `name position` values for
+macros that save and restore reserved rows, such as the supplied panel demos.
 
 Left at the first text column enters the current record's last editable prefix
 column when the prefix is enabled. Left from the prefix's first column moves

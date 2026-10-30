@@ -30,14 +30,13 @@ presentation, and an optional first GTK 3 desktop frontend now exists.
 
 ### Cross-platform workbench review
 
-Review the browser, terminal and GTK frontends together through real file,
-editing, run and console workflows. Keep the guided workbench's discoverable
-actions, editor command/response area, profile-defined status and separate
-Program input/output, while adapting layout and controls to each platform.
-Resolve keyboard focus between editor, menus and console; file discovery in
-the terminal; native menu placement on macOS; diagnostics visibility; and
-responsive console placement. Keep editor and tool-session state in the C core
-through the driver boundary.
+Continue the shared browser, terminal and GTK review through real file,
+editing, run and console workflows. The guided workbench now has visible
+Menu and Run routes, profile-defined footer rows, keyboard access to controls,
+and separate Program input/output. Remaining work includes terminal file
+discovery beyond the `EDIT` prompt, GTK output reading position and unread
+cue, and explicit diagnostics capability states across frontends. Keep editor
+and tool-session state in the C core through the driver boundary.
 
 - Diagnose and repair the optional F8/F9 helpers. Reproduce each reported
   failure with its matching runtime, then assert compilation artifacts,

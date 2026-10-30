@@ -36,6 +36,9 @@ $Id: thedefs.h,v 1.22 2022/10/23 21:57:53 mark Exp $
 #ifndef THE_THEDEFS_H
 #define THE_THEDEFS_H
 
+/* Profile names attached to reserved footer rows, excluding the terminator. */
+#define THE_FOOTER_NAME_MAX 31
+
 #ifndef TRUE
 # define TRUE 1
 #endif

@@ -3,6 +3,9 @@ export type StyleRun = [start: number, length: number, style: string];
 export interface ScreenRow {
   r: number;
   role: string;
+  footer?: string;
+  footer_text?: string;
+  footer_colour?: PanelColour;
   line: number;
   cur: number;
   sc: number;

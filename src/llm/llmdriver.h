@@ -57,6 +57,9 @@ typedef struct
    LINETYPE line_number;
    int logical_row;
    UiRowRole role;
+   char footer[THE_FOOTER_NAME_MAX + 1];
+   char footer_text[LLM_DRIVER_MAX_COLS + 1];
+   TheRenderAttr footer_attr;
    int logical_start_col;
    int editable;
    int current;

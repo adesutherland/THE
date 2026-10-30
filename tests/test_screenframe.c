@@ -159,11 +159,48 @@ static void test_ruler_columns(void)
    expect_strn("ruler.tab.stops", ruler, 10, "|       | ");
 }
 
+static void test_reserved_footer_names(void)
+{
+   VIEW_DETAILS view;
+   SHOW_LINE rows[2];
+   RESERVED reserved;
+   UiFrame frame;
+
+   memset(screen,0,sizeof(screen));
+   memset(&view,0,sizeof(view));
+   memset(rows,0,sizeof(rows));
+   memset(&reserved,0,sizeof(reserved));
+   strcpy(reserved.footer,"keys");
+   reserved.disp = (CHARTYPE *)"Full custom guide";
+   reserved.disp_length = 17;
+   view.verify_col = 1;
+   screen[0].screen_view = &view;
+   screen[0].sl = rows;
+   screen[0].rows[WINDOW_FILEAREA] = 2;
+   screen[0].cols[WINDOW_FILEAREA] = 80;
+   rows[0].line_type = rows[1].line_type = LINE_RESERVED;
+   rows[0].rsrvd = &reserved;
+   rows[0].contents = (CHARTYPE *)"Custom guide";
+   rows[0].length = 12;
+   rows[1].contents = (CHARTYPE *)"F10 Menu is an ordinary note";
+   rows[1].length = 27;
+   expect_int("footer.build",screenframe_build(0,&frame),1);
+   expect_int("footer.explicit",frame.row[0].footer != NULL
+              && strcmp(frame.row[0].footer,"keys") == 0,1);
+   expect_int("footer.note.unnamed",frame.row[1].footer == NULL,1);
+   expect_strn("footer.complete.text",frame.row[0].footer_text,
+               frame.row[0].footer_text_len,"Full custom guide");
+   rows[0].line_type = LINE_LINE;
+   expect_int("footer.rebuild",screenframe_build(0,&frame),1);
+   expect_int("footer.file.unnamed",frame.row[0].footer == NULL,1);
+}
+
 int main(void)
 {
    test_role_mapping();
    test_ruler_columns();
    test_builds_filearea_frame();
+   test_reserved_footer_names();
 
    if (failures != 0)
    {

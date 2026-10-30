@@ -26,12 +26,20 @@ def main():
             print("SKIP: a GTK display is required; use xvfb-run on Linux")
             return 77
         assert completed.returncode == 0, (completed.returncode, completed.stdout, completed.stderr)
+        assert "Gtk-CRITICAL" not in completed.stderr, completed.stderr
         for marker in ("GTK_OPEN_EDIT_CURSOR_DIRTY_SAVE_REOPEN_PASS",
                        "GTK_DEFAULT_PALETTE_STATUS_RESERVED_TYPE_BACKSPACE_UNDO_SAVE_PASS",
+                       "GTK_APPLICATION_NATIVE_MENUS_SAFE_QUEUED_ACTIONS_PASS",
+                       "GTK_WORKBENCH_SHIFT_TAB_ESC_CARET_DRAFT_TAB_PASS",
+                       "GTK_PROFILE_GUIDE_VISIBLE_WIDE_AND_NARROW_PASS",
+                       "GTK_NATIVE_QUIT_RETAINS_UNSAVED_TEXT_AND_FILE_BYTES_PASS",
                        "GTK_VIRTUAL_SURFACES_COMMAND_LINE_PASS"):
             assert marker in completed.stdout, (marker, completed.stdout, completed.stderr)
         if environment.get("THE_GTK_REQUIRE_PROGRAM"):
             assert "GTK_PROGRAM_OUTPUT_STDIN_COMPLETION_PASS" in completed.stdout, completed.stdout
+            assert "GTK_WORKBENCH_PROFILE_F6_INPUT_CONTROL_DRAFT_CARET_PASS" in completed.stdout, completed.stdout
+            assert "GTK_WORKBENCH_PROFILE_F10_MENU_ESC_DRAFT_CARET_PASS" in completed.stdout, completed.stdout
+            assert "GTK_WORKBENCH_F10_CANCEL_RESTORES_INPUT_SELECTION_CARET_CONTROL_EDITOR_PASS" in completed.stdout, completed.stdout
             assert "GTK_PROGRAM_INPUT_FOCUS_STATUS_RESERVED_CLICKS_PASS" in completed.stdout, completed.stdout
             assert Path(screenshot).with_name(
                 Path(screenshot).stem + "-console-input-focus.png").is_file()

@@ -982,6 +982,7 @@ short default_file_attributes(FILE_DETAILS *fd)
 /***********************************************************************/
 {
    RESERVED *curr=NULL;
+   RESERVED *copy=NULL;
    short rc=RC_OK;
 
    TRACE_FUNCTION("default.c: default_file_attributes");
@@ -1031,11 +1032,12 @@ short default_file_attributes(FILE_DETAILS *fd)
          curr = fd->first_reserved;
          while( curr != NULL )
          {
-            if ( add_reserved_line( curr->spec, curr->line, curr->base, curr->off, curr->attr, curr->autoscroll ) == NULL )
+            if ( (copy = add_reserved_line( curr->spec, curr->line, curr->base, curr->off, curr->attr, curr->autoscroll )) == NULL )
             {
                rc = RC_OUT_OF_MEMORY;
                break;
             }
+            memcpy(copy->footer, curr->footer, sizeof(copy->footer));
             curr = curr->next;
          }
       }

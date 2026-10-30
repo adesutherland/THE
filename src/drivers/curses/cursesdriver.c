@@ -1006,9 +1006,16 @@ void curses_driver_end_terminal_report(void)
 static WINDOW *console_window, *console_divider;
 static int console_rows, console_cols, console_top, console_left;
 static int console_timeout = -1, console_toolbar_focus, console_control;
+static int console_scroll_offset, console_scroll_lines, console_scroll_page;
+static unsigned console_scroll_id;
 static int console_cached_mouse, console_mouse_button, console_mouse_action;
 static int console_mouse_modifier;
 static TheWorkbenchControl workbench_control = THE_WORKBENCH_EDITOR;
+static struct
+{
+   int active, program_focused, toolbar_focused, toolbar_control;
+   TheWorkbenchControl chrome;
+} workbench_menu_origin;
 
 enum { CONSOLE_EDITOR_MIN_COLS = 72, CONSOLE_MIN_COLS = 44 };
 
@@ -1027,6 +1034,41 @@ static void workbench_set_focus(TheWorkbenchControl control)
    if (workbench_control == THE_WORKBENCH_EDITOR &&
        curses_driver_current_active_window())
       wnoutrefresh(curses_driver_current_active_window());
+}
+
+static void workbench_remember_menu_origin(void)
+{
+   workbench_menu_origin.active = 1;
+   workbench_menu_origin.program_focused = the_tool_console()->focused;
+   workbench_menu_origin.toolbar_focused = console_toolbar_focus;
+   workbench_menu_origin.toolbar_control = console_control;
+   workbench_menu_origin.chrome = workbench_control;
+}
+
+static void workbench_restore_cancelled_menu(void)
+{
+   if (!workbench_menu_origin.active) return;
+   workbench_menu_origin.active = 0;
+   if (workbench_menu_origin.program_focused)
+   {
+      console_toolbar_focus = workbench_menu_origin.toolbar_focused;
+      console_control = workbench_menu_origin.toolbar_control;
+      the_tool_console_visibility(the_tool_console()->visible, 1);
+   }
+   else if (workbench_menu_origin.chrome != THE_WORKBENCH_EDITOR)
+      workbench_set_focus(workbench_menu_origin.chrome);
+}
+
+static TheWorkbenchControl workbench_traverse(TheWorkbenchControl control,
+                                              int reverse)
+{
+   if (reverse)
+      return control == THE_WORKBENCH_RUN ? THE_WORKBENCH_CONSOLE
+         : control == THE_WORKBENCH_CONSOLE ? THE_WORKBENCH_MENU
+         : THE_WORKBENCH_RUN;
+   return control == THE_WORKBENCH_MENU ? THE_WORKBENCH_CONSOLE
+      : control == THE_WORKBENCH_CONSOLE ? THE_WORKBENCH_RUN
+      : THE_WORKBENCH_MENU;
 }
 
 static TheWorkbenchControl curses_driver_workbench_focus(bool enter)
@@ -1232,7 +1274,8 @@ static void console_draw(void)
    wattrset(console_window, console_theme_attr(ATTR_CONSOLEBODY, 0));
    for (i = 0; i < h; i++) mvwhline(console_window, i, 0, ' ', w);
    snprintf(heading, sizeof(heading), " Program console | %s",
-      c->focused ? "Esc: editor" : (w >= 64 ? "RX CONSOLE: input" : "F10: Menu"));
+      c->focused ? (w < 40 ? "Esc Cmd" : "Esc Cmd F6 File")
+         : (w >= 64 ? "RX CONSOLE: input" : "F10: Menu"));
    wattrset(console_window, console_theme_attr(ATTR_CONSOLEHEADER, 0));
    mvwhline(console_window, 0, 0, ' ', w);
    console_write_text(0, 0, heading, strlen(heading), w - 1);
@@ -1255,8 +1298,11 @@ static void console_draw(void)
    if (h >= 8)
    {
       wattrset(console_window, console_theme_attr(ATTR_CONSOLESTATUS, 0));
-      snprintf(context, sizeof(context), " %s | %s | source %u revision %u",
-         c->tool, c->filename, c->source_id, c->revision);
+      if (w < 64)
+         snprintf(context, sizeof(context), " PgUp/PgDn scroll | Home/End");
+      else
+         snprintf(context, sizeof(context), " %s | %s | source %u revision %u | PgUp/PgDn scroll",
+            c->tool, c->filename, c->source_id, c->revision);
       console_write_text(3, 0, context, strlen(context), w - 1);
    }
    for (chunk = 0; chunk < c->count && length < THE_TOOL_OUTPUT; chunk++)
@@ -1269,8 +1315,19 @@ static void console_draw(void)
    }
    text[length] = 0;
    lines = console_output_rows(text, streams, length, w - 1, 0, row, 0);
+   if (c->id != console_scroll_id || !c->count)
+   {
+      console_scroll_id = c->id;
+      console_scroll_offset = 0;
+   }
+   else if (console_scroll_offset && lines > console_scroll_lines)
+      console_scroll_offset += lines - console_scroll_lines;
+   console_scroll_lines = lines;
+   console_scroll_page = max(1, output_rows - 1);
+   console_scroll_offset = min(console_scroll_offset, max(0, lines - output_rows));
    console_output_rows(text, streams, length, w - 1,
-                       max(0, lines - output_rows), row, output_rows);
+                       max(0, lines - output_rows - console_scroll_offset),
+                       row, output_rows);
    wattrset(console_window, console_theme_attr(ATTR_CONSOLEINPUT, 0));
    mvwhline(console_window, h - 1, 0, ' ', w);
    input_col = console_write_text(h - 1, 0, prompt, strlen(prompt), w - 2);
@@ -1308,7 +1365,9 @@ void curses_driver_update(void)
    {
       WINDOW *chrome = curses_driver_window_from_driver(filetabs);
       int col = workbench_control == THE_WORKBENCH_CONSOLE
-         ? THE_NATIVE_MENU_WIDTH + 1 : 1;
+         ? THE_NATIVE_MENU_WIDTH + 1
+         : workbench_control == THE_WORKBENCH_RUN
+            ? THE_NATIVE_MENU_WIDTH + THE_NATIVE_CONSOLE_WIDTH + 1 : 1;
       wmove(chrome, 0, col);
       leaveok(chrome, FALSE);
       wnoutrefresh(chrome);
@@ -1567,10 +1626,14 @@ static int console_mouse_event(TheInputEvent *event)
            action == CURSES_DRIVER_MOUSE_BUTTON_CLICKED ||
            action == CURSES_DRIVER_MOUSE_BUTTON_DOUBLE_CLICKED))
       {
+         if (col < THE_NATIVE_MENU_WIDTH)
+            workbench_remember_menu_origin();
          workbench_set_focus(THE_WORKBENCH_EDITOR);
          return col < THE_NATIVE_MENU_WIDTH
             ? the_input_event_from_legacy_key(THE_KEY_F(10), event)
-            : the_input_event_from_command("rx console on", event);
+            : col < THE_NATIVE_MENU_WIDTH + THE_NATIVE_CONSOLE_WIDTH
+               ? the_input_event_from_command("rx console on", event)
+               : the_input_event_from_command("rx run", event);
       }
       return 0;
    }
@@ -1627,6 +1690,8 @@ int curses_driver_read_input_event(TheInputEvent *event)
    WINDOW *input_window;
 
    if (!event) return 0;
+   /* A menu selection has returned to ordinary input without Escape. */
+   workbench_menu_origin.active = 0;
    /* The prior event has now been dispatched. A custom binding may have
     * ignored its mouse packet; never let it replace a later physical click. */
    console_cached_mouse = 0;
@@ -1661,31 +1726,62 @@ int curses_driver_read_input_event(TheInputEvent *event)
       if (key == THE_KEY_MOUSE) return console_mouse_event(event);
       if (workbench_control != THE_WORKBENCH_EDITOR)
       {
-         if (key == THE_KEY_F(10) || key == THE_KEY_RESIZE)
+         if (key == THE_KEY_F(10) || key == THE_KEY_F(6) ||
+             key == THE_KEY_RESIZE)
+         {
+            if (key == THE_KEY_F(10)) workbench_remember_menu_origin();
+            workbench_set_focus(THE_WORKBENCH_EDITOR);
+            return ok;
+         }
+         if (key == 27)
          {
             workbench_set_focus(THE_WORKBENCH_EDITOR);
             return ok;
          }
-         if (key == 27) workbench_set_focus(THE_WORKBENCH_EDITOR);
          else if (key == 9 || key == THE_KEY_BTAB || key == THE_KEY_LEFT || key == THE_KEY_RIGHT)
-            workbench_set_focus(workbench_control == THE_WORKBENCH_CONSOLE
-               ? THE_WORKBENCH_MENU : THE_WORKBENCH_CONSOLE);
+            workbench_set_focus(workbench_traverse(workbench_control,
+               key == THE_KEY_BTAB || key == THE_KEY_LEFT));
          else if (key == 10 || key == 13 || key == THE_KEY_ENTER || key == ' ')
          {
             TheWorkbenchControl control = workbench_control;
+            if (control == THE_WORKBENCH_MENU)
+               workbench_remember_menu_origin();
             workbench_set_focus(THE_WORKBENCH_EDITOR);
             return control == THE_WORKBENCH_MENU
                ? the_input_event_from_legacy_key(THE_KEY_F(10), event)
-               : the_input_event_from_command("rx console on", event);
+               : the_input_event_from_command(control == THE_WORKBENCH_RUN
+                  ? "rx run" : "rx console on", event);
          }
          curses_driver_update();
          return 0;
       }
       if (c->focused)
       {
-         /* F10 and resize keep their normal editor route. Profile-defined
-          * editor keys, including Tab and F6, are untouched outside the dock. */
-         if (key == THE_KEY_F(10) || key == THE_KEY_RESIZE) return ok;
+         /* Route editor shortcuts through their active profile after leaving
+          * Program input. The unsent input stays in the console model. */
+         if (key == THE_KEY_F(10) || key == THE_KEY_F(6) || key == 27)
+         {
+            if (key == THE_KEY_F(10)) workbench_remember_menu_origin();
+            console_toolbar_focus = 0;
+            the_tool_console_visibility(c->visible, 0);
+            return ok;
+         }
+         if (key == THE_KEY_RESIZE) return ok;
+         if (key == THE_KEY_PPAGE || key == THE_KEY_NPAGE ||
+             (!console_toolbar_focus &&
+              (key == THE_KEY_HOME || key == THE_KEY_END)))
+         {
+            int maximum = max(0, console_scroll_lines - console_scroll_page - 1);
+            if (key == THE_KEY_HOME) console_scroll_offset = maximum;
+            else if (key == THE_KEY_END) console_scroll_offset = 0;
+            else if (key == THE_KEY_PPAGE)
+               console_scroll_offset = min(maximum,
+                  console_scroll_offset + console_scroll_page);
+            else console_scroll_offset = max(0,
+                  console_scroll_offset - console_scroll_page);
+            curses_driver_update();
+            return 0;
+         }
          if (key == 9 || key == THE_KEY_BTAB)
          {
             if (key == THE_KEY_BTAB && console_toolbar_focus && FILETABSx)
@@ -1725,7 +1821,16 @@ int curses_driver_read_input_event(TheInputEvent *event)
 
 int curses_driver_read_terminal_legacy_key(void)
 {
-   return curses_driver_read_window_key(stdscr);
+   int key = curses_driver_read_window_key(stdscr);
+
+   if (workbench_menu_origin.active)
+   {
+      if (key == 27) workbench_restore_cancelled_menu();
+      else if (key == 10 || key == 13 || key == THE_KEY_ENTER ||
+               key == THE_KEY_MOUSE)
+         workbench_menu_origin.active = 0;
+   }
+   return key;
 }
 
 #if defined(PDCURSES_MOUSE_ENABLED) || defined(NCURSES_MOUSE_VERSION)

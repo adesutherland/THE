@@ -111,6 +111,11 @@ address the
 'set color cblock black on #F0C36B';
 'set cursorstyle insert ibeam steady';
 'set cursorstyle overwrite block steady';
+'set reserved -2 normal         F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab Controls';
+'set footer keys -2';
+'set reserved -1 #D4D4D4 on #202328';
+'set footer response -1';
+'set msgline on -2 1';
 version = .string[]
 address the "extract /version/" expose version[]
 platform = version[3]
@@ -169,10 +174,8 @@ if left(platform,3) = 'WIN' then do
   'define c-x clipboard cut';
   'define c-v clipboard paste';
 end
-'set reserved -1 normal         F1 Help F2 Next F3 Save/Close F4 Prefix F5 Ins F6 Cmd/File F10 Menu Esc Cmd Ctrl-S Save';
 'set impos off';
 'set impmacro off';
 'set macro off';
 'set linend off';
 'set synonym on';
-'msg CRXTHE 0.10.dev | Esc Command  F6 Cmd/File  F1 Help  Ctrl-S Save';

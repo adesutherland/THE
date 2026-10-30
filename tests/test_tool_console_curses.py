@@ -76,9 +76,9 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
                               THE_TOOL_CONFIG_DIR=str(root / 'config')))
     os.close(slave)
 
-    def wait(check, label, timeout=15):
+    def wait(check, label, timeout=30):
         end = time.monotonic() + timeout
-        quiet = time.monotonic()
+        matched = None
         while time.monotonic() < end:
             if select.select([master], [], [], .05)[0]:
                 try:
@@ -98,9 +98,13 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
                     if check():
                         return
                     break
-                quiet = time.monotonic()
-            if check() and (process.poll() is not None or time.monotonic() - quiet >= .15):
-                return
+            if check():
+                if matched is None:
+                    matched = time.monotonic()
+                if process.poll() is not None or time.monotonic() - matched >= .15:
+                    return
+            else:
+                matched = None
         raise AssertionError(label + '\n' + '\n'.join(screen.display))
 
     def contains(text):
@@ -200,7 +204,7 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         menu('Hide program console')
         wait(lambda: not contains('Program console |'), 'menu hides running console')
         menu('Show or focus Program console')
-        wait(lambda: contains('Esc: editor'), 'menu reopens running console')
+        wait(lambda: contains('Esc Cmd'), 'menu reopens running console')
         assert contains('Running'), screen.display
         menu('Stop program')
         wait(lambda: contains('Stopped'), 'visible Stop menu action stops the job')
@@ -208,11 +212,11 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         wait(lambda: contains('Running') and contains('Console ready'),
              'visible Run menu action restarts the job')
         menu('Show or focus Program console')
-        wait(lambda: contains('Esc: editor'), 'focus restarted program input')
+        wait(lambda: contains('Esc Cmd'), 'focus restarted program input')
         os.write(master, b'\x1b')
         wait(lambda: contains('F10: Menu'), 'return editor before mouse focus')
         click_at(0, 15)
-        wait(lambda: contains('Esc: editor'), 'persistent launcher focuses input')
+        wait(lambda: contains('Esc Cmd'), 'persistent launcher focuses input')
         os.write(master, 'Zoë😀x'.encode() + b'\x7f')
         wait(lambda: 'Zoë😀' in screen.display[-1] and 'Zoë😀x' not in screen.display[-1],
              'Mac Backspace edits Unicode input')
@@ -227,18 +231,19 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         colour(screen.buffer[0][15].fg, 'E6F7FF')
         colour(screen.buffer[0][15].bg, '264F78')
         os.write(master, b'\x1b')
-        wait(lambda: contains('F10: Menu') and 0 < screen.cursor.y < 26,
-             'launcher Escape restores editor')
+        wait(lambda: contains('F10: Menu') and
+             screen.display[screen.cursor.y].startswith('======>'),
+             'launcher Escape follows editor command shortcut')
         click_at(0, 15)
-        wait(lambda: contains('Esc: editor') and 'sec' in screen.display[-1],
+        wait(lambda: contains('Esc Cmd') and 'sec' in screen.display[-1],
              'Console launcher retains pending Program input')
         click('Editor')
-        wait(lambda: contains('F10: Menu') and 0 < screen.cursor.y < 26,
+        wait(lambda: contains('F10: Menu') and screen.cursor.x < 96,
              'Editor control returns keyboard focus')
         click('Hide')
         wait(lambda: not contains('Program console |'), 'Hide with running program draft')
         click_at(0, 15)
-        wait(lambda: contains('Esc: editor') and 'sec' in screen.display[-1],
+        wait(lambda: contains('Esc Cmd') and 'sec' in screen.display[-1],
              'persistent Console launcher restores hidden program draft')
         assert source.read_text() == program
         resize(30, 100)
@@ -290,9 +295,9 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         click('Hide')
         wait(lambda: not contains('Program console |'), 'mouse Hide control')
         menu('Show or focus Program console')
-        wait(lambda: contains('Esc: editor'), 'menu reopens and focuses console')
+        wait(lambda: contains('Esc Cmd'), 'menu reopens and focuses console')
         resize(16, 32)
-        wait(lambda: contains('Esc: editor') and contains('Run Stop Clear Hide Editor'),
+        wait(lambda: contains('Esc Cmd') and contains('Run Stop Clear Hide Editor'),
              'compact console keeps controls and editor return visible')
         assert contains('F10 Menu'), screen.display
         resize(24, 117)

@@ -193,9 +193,11 @@ control flow, a continuation and a routine. Existing saved files are preserved.
 
 ## Classic Rexx interpreter and console
 
-`THE_WASM_INTERPRETER=ON` adds **Run Rexx** and a console below the editor.
-Drag the divider or focus it and use Up/Down to resize; Collapse keeps the
-console controls visible. Open `RexxRunner.rexx` through File/Open for a working
+`THE_WASM_INTERPRETER=ON` adds a visible **Run Rexx** action and a Program
+console. On wide screens the console sits beside the editor; on phones it
+follows the editor in the vertical workbench. Run opens the console and executes
+the current buffer. When Classic Rexx is unavailable, the action remains visible
+with a reason. Open `RexxRunner.rexx` through File/Open for a working
 example with console input, loops, stems, a routine and `INTERPRET`.
 
 Run executes the entire current buffer, including unsaved changes and the

@@ -684,6 +684,7 @@ short Repeat (CHARTYPE *);
 short Replace (CHARTYPE *);
 short Reprofile (CHARTYPE *);
 short Reserved (CHARTYPE *);
+short Footer (CHARTYPE *);
 short Reset (CHARTYPE *);
 short Restore (CHARTYPE *);
 short Retrieve (CHARTYPE *);

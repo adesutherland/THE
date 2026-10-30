@@ -102,6 +102,7 @@ typedef enum {
     ITEM_FNAME,
     ITEM_FPATH,
     ITEM_FTYPE,
+    ITEM_FOOTER,
     ITEM_FULLFNAME,
     ITEM_GETENV,
     ITEM_HEADER,

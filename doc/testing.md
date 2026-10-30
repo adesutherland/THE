@@ -25,6 +25,7 @@ use it instead of assuming a system library or sibling build is selected.
 | Contract | Regression route |
 | --- | --- |
 | Stock profiles, prompts, layout, navigation, Tab insertion and save | `test_default_profile_CREXX`, `test_default_profile_REGINA` |
+| Explicit footer names, custom reserved text, order, OFF, replacement and buffer inheritance | `test_named_footer`, `test_screenframe`, `test_llmdriver` |
 | Character deletion survives refresh, dirty tracking, save and reopen | `test_delete_persistence_CREXX`, `test_delete_persistence_REGINA` |
 | Real terminal Delete/Backspace, text input, Tab, Ctrl-S, Enter and focus restoration | `test_default_profile_curses`, `test_curses_text_entry` |
 | Full semantic editor runtime, file ring, UTF edits and modal continuations | `test_the_llm_full_runtime`, `test_the_llm_profile_crexx` |

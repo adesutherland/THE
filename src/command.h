@@ -260,6 +260,7 @@ COMMAND command[] =
  {(CHARTYPE *)"forward",     2,  THE_KEY_NPAGE,       Forward,          TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""}, /* comm2.c */
  {(CHARTYPE *)"forward",     2,  THE_KEY_NPAGE,  Forward,          TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""}, /* comm2.c */
 #endif
+ {(CHARTYPE *)"footer",      6,  (-1),            Footer,           TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"fullfname",   6,  (-1),            Fullfname,        TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */
  {(CHARTYPE *)"get",         3,  (-1),            Get,              TRUE, FALSE,FALSE,FALSE,FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_RESET_ALL    ,(CHARTYPE *)""},  /* comm2.c */
  {(CHARTYPE *)"header",      4,  (-1),            THEHeader,        TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* commset1.c */

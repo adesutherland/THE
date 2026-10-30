@@ -31,7 +31,7 @@ if args.crexx_bin:
     source = destination / 'browser.the'
     source.write_text('options levelb\nimport rxfnsb\naddress the\n' + '\n'.join(map(quote, commands)) +
                       '\nsize = .string[]\naddress the "extract /size/" expose size[]\n' +
-                      "if size[1] > 0 then 'cursor goto 1 1';\nelse 'bottom';\n" + quote(data['welcome']) + '\n')
+                      "if size[1] > 0 then 'cursor goto 1 1';\nelse 'bottom';\n")
     macros = [('browser', source)] + [(name, root / (name + '.the')) for name in
                                      ['quickfind', 'quickopen', 'quickline', 'paneldemo']]
     for name, path in macros:
@@ -44,6 +44,6 @@ if args.crexx_bin:
 else:
     commands = [command for command in commands if ' macro ' not in command]
     commands += ['define c-f cursor cmdline', 'define c-o cursor cmdline', 'define c-g cursor cmdline']
-    (destination / 'browser.commands').write_text('\n'.join(commands + restricted + [data['welcome']]) + '\n')
+    (destination / 'browser.commands').write_text('\n'.join(commands + restricted) + '\n')
 shutil.copy2(root / 'doc/THE_Help.txt', destination / 'THE_Help.txt')
 shutil.copytree(root / 'syntax', destination / 'syntax', dirs_exist_ok=True)

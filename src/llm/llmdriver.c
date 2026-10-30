@@ -117,6 +117,32 @@ static int append_json_string(char *out, size_t out_len, size_t *used,
    return appendf(out, out_len, used, "\"");
 }
 
+static void append_footer_colour(char *out, size_t out_len, size_t *used,
+                                 TheRenderAttr attr, int pretty)
+{
+   static const uint32_t basic[] = {
+      0x000000, 0x000080, 0x008000, 0x008080,
+      0x800000, 0x800080, 0x808000, 0xc0c0c0
+   };
+   const char *colon = pretty ? ": " : ":";
+
+   appendf(out, out_len, used, ",%s\"footer_colour\"%s{\"style\"%s%u",
+           pretty ? " " : "", colon, colon,
+           (unsigned)the_render_attr_style(attr));
+   if (the_render_attr_has_color(attr))
+   {
+      int fg = the_render_attr_fg(attr), bg = the_render_attr_bg(attr);
+      uint32_t foreground = fg < THE_RENDER_COLOR_RGB_FIRST ? basic[fg]
+         : the_render_color_rgb24(fg);
+      uint32_t background = bg < THE_RENDER_COLOR_RGB_FIRST ? basic[bg]
+         : the_render_color_rgb24(bg);
+      appendf(out, out_len, used,
+              ",\"foreground\"%s\"#%06X\",\"background\"%s\"#%06X\"",
+              colon, (unsigned)foreground, colon, (unsigned)background);
+   }
+   appendf(out, out_len, used, "}");
+}
+
 static int append_json_string_n(char *out, size_t out_len, size_t *used,
                                 const char *text, size_t text_len)
 {
@@ -787,6 +813,9 @@ int llm_driver_screen_view_set_row(LlmDriverScreenView *view, size_t index,
    line->line_number = line_number;
    line->logical_row = logical_row;
    line->role = role;
+   line->footer[0] = '\0';
+   line->footer_text[0] = '\0';
+   line->footer_attr = THE_RENDER_ATTR_NORMAL;
    line->logical_start_col = logical_start_col;
    line->editable = editable;
    line->current = current;
@@ -837,6 +866,12 @@ int llm_driver_screen_view_from_frame(const UiFrame *frame,
       line->line_number = row->line_number;
       line->logical_row = row->screen_row;
       line->role = row->role;
+      copy_text(line->footer, sizeof(line->footer),
+                 row->role == UI_ROW_RESERVED ? row->footer : NULL);
+      copy_text_n(line->footer_text, sizeof(line->footer_text),
+                  line->footer[0] != '\0' ? (const char *)row->footer_text : NULL,
+                  row->footer_text_len);
+      line->footer_attr = line->footer[0] != '\0' ? row->footer_attr : THE_RENDER_ATTR_NORMAL;
       line->logical_start_col = row->logical_start_col;
       line->editable = row->editable;
       line->current = has_cursor && cursor_index == i;
@@ -1178,6 +1213,14 @@ size_t llm_driver_format_semantic_view_with_options(
          appendf(out, out_len, &used, "%s{\"r\":%d,\"role\":",
                  (emitted > 0) ? "," : "", line->logical_row);
          append_json_string(out, out_len, &used, ui_row_role_name(line->role));
+         if (line->footer[0] != '\0')
+         {
+            appendf(out, out_len, &used, ",\"footer\":");
+            append_json_string(out, out_len, &used, line->footer);
+            appendf(out, out_len, &used, ",\"footer_text\":");
+            append_json_string(out, out_len, &used, line->footer_text);
+            append_footer_colour(out, out_len, &used, line->footer_attr, 0);
+         }
          appendf(out, out_len, &used,
                  ",\"sc\":%d,\"line\":%ld,\"cur\":%d",
                  line->logical_start_col, (long)line->line_number,
@@ -1305,6 +1348,14 @@ size_t llm_driver_format_semantic_view_with_options(
               (emitted > 0) ? "," : "", i);
       append_json_string(out, out_len, &used,
                          ui_row_role_name(line->role));
+      if (line->footer[0] != '\0')
+      {
+         appendf(out, out_len, &used, ", \"footer\": ");
+         append_json_string(out, out_len, &used, line->footer);
+         appendf(out, out_len, &used, ", \"footer_text\": ");
+         append_json_string(out, out_len, &used, line->footer_text);
+         append_footer_colour(out, out_len, &used, line->footer_attr, 1);
+      }
       appendf(out, out_len, &used,
               ", \"line\": %ld, \"screen_row\": %d, \"start_cell\": %d, "
               "\"editable\": %d, \"current\": %d, \"cursor\": %d, "
@@ -1358,6 +1409,9 @@ static int llm_driver_line_changed(const LlmDriverScreenLine *left,
    return left->line_number != right->line_number
        || left->logical_row != right->logical_row
        || left->role != right->role
+       || strcmp(left->footer, right->footer) != 0
+       || strcmp(left->footer_text, right->footer_text) != 0
+       || left->footer_attr != right->footer_attr
        || left->cursor != right->cursor
        || strcmp(left->prefix, right->prefix) != 0
        || strcmp(left->prefix_command, right->prefix_command) != 0
@@ -1432,6 +1486,14 @@ size_t llm_driver_format_delta_view(const LlmDriverScreenView *previous,
       appendf(out, out_len, &used, "%s{\"r\":%d,\"role\":",
               emitted > 0 ? "," : "", line->logical_row);
       append_json_string(out, out_len, &used, ui_row_role_name(line->role));
+      if (line->footer[0] != '\0')
+      {
+         appendf(out, out_len, &used, ",\"footer\":");
+         append_json_string(out, out_len, &used, line->footer);
+         appendf(out, out_len, &used, ",\"footer_text\":");
+         append_json_string(out, out_len, &used, line->footer_text);
+         append_footer_colour(out, out_len, &used, line->footer_attr, 0);
+      }
       appendf(out, out_len, &used, ",\"line\":%ld,\"cur\":%d",
               (long)line->line_number, line->cursor);
       if (options->include_prefix)

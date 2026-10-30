@@ -117,6 +117,7 @@ extern ExtractFunction extract_fpath;
 extern ExtractFunction extract_ftype;
 extern ExtractFunction extract_fdisplay;
 extern ExtractFunction extract_fullfname;
+extern ExtractFunction extract_footer;
 extern ExtractFunction extract_getenv;
 extern ExtractFunction extract_hex;
 extern ExtractFunction extract_header;
@@ -1356,6 +1357,17 @@ REPROFile
      reprofle.0      - 1
      reprofle.1      - ON|OFF
 
+FOOTER [*]
+     Return the explicit names and position specifications of reserved footer
+     rows. Set by <SET FOOTER>. Unnamed reserved rows are omitted.
+     Each value can be used as the operands of SET FOOTER after restoring the
+     corresponding SET RESERVED row.
+     (E)
+
+     footer.0        - the number of named footer rows
+     footer.1        - name followed by the reserved position specification
+     footer.n        - name followed by the reserved position specification
+
 RESERved [*]
      Return with list of the screen rows that have been reserved.
      Set by <SET RESERVED>.
@@ -2130,6 +2142,7 @@ QUERY_ITEM _THE_FAR query_item[] =
    {(CHARTYPE *)"flscreen",        8, 3,ITEM_FLSCREEN,      2, 2,          LVL_VIEW,QUERY_QUERY|QUERY_EXTRACT,extract_flscreen},
    {(CHARTYPE *)"fmode",           5, 2,ITEM_FMODE,         1, 1,          LVL_FILE,QUERY_QUERY|             QUERY_EXTRACT|QUERY_MODIFY,extract_fmode                  },
    {(CHARTYPE *)"fname",           5, 2,ITEM_FNAME,         1, 1,          LVL_FILE,QUERY_QUERY|             QUERY_EXTRACT|QUERY_MODIFY,extract_fname                  },
+   {(CHARTYPE *)"footer",          6, 6,ITEM_FOOTER,        0, 0,          LVL_FILE,                         QUERY_EXTRACT             ,extract_footer                 },
    {(CHARTYPE *)"fpath",           5, 2,ITEM_FPATH,         1, 1,          LVL_FILE,QUERY_QUERY|             QUERY_EXTRACT|QUERY_MODIFY,extract_fpath                  },
    {(CHARTYPE *)"ftype",           5, 2,ITEM_FTYPE,         1, 1,          LVL_FILE,QUERY_QUERY|             QUERY_EXTRACT|QUERY_MODIFY,extract_ftype                  },
    {(CHARTYPE *)"fullfname",       9, 6,ITEM_FULLFNAME,     1, 1,          LVL_FILE,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_fullfname              },

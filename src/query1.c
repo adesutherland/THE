@@ -1888,6 +1888,47 @@ short extract_ftype(short number_variables,short itemno,CHARTYPE *itemargs,CHART
 }
 
 /***********************************************************************/
+short extract_footer(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
+/***********************************************************************/
+{
+   RESERVED *curr;
+   CHARTYPE *value;
+   size_t length;
+   short rc;
+
+   if (itemargs[0] != '\0' && strcmp((const char *)itemargs,"*") != 0)
+      return EXTRACT_ARG_ERROR;
+   number_variables = 0;
+   for (curr=CURRENT_FILE->first_reserved;curr != NULL;curr=curr->next)
+   {
+      if (curr->footer[0] == '\0') continue;
+      length = strlen(curr->footer)+strlen((const char *)curr->spec)+2;
+      value = (CHARTYPE *)(*the_malloc)(length);
+      if (value == NULL)
+      {
+         display_error(30,(CHARTYPE *)"",FALSE);
+         return EXTRACT_ARG_ERROR;
+      }
+      snprintf((char *)value,length,"%s %s",curr->footer,(const char *)curr->spec);
+      rc = set_rexx_variable(query_item[itemno].name,value,length-1,++number_variables);
+      (*the_free)(value);
+      if (rc == RC_SYSTEM_ERROR)
+      {
+         display_error(54,(CHARTYPE *)"",FALSE);
+         return EXTRACT_ARG_ERROR;
+      }
+   }
+   snprintf((char *)query_num1,sizeof(query_num1),"%d",number_variables);
+   rc = set_rexx_variable(query_item[itemno].name,query_num1,
+                           strlen((const char *)query_num1),0);
+   if (rc == RC_SYSTEM_ERROR)
+   {
+      display_error(54,(CHARTYPE *)"",FALSE);
+      return EXTRACT_ARG_ERROR;
+   }
+   return EXTRACT_VARIABLES_SET;
+}
+/***********************************************************************/
 short extract_fullfname(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {

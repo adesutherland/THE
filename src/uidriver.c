@@ -191,6 +191,10 @@ int ui_frame_set_row(UiFrame *frame, size_t index, UiRowRole role,
       return 0;
    row = &frame->row[index];
    row->role = role;
+   row->footer = NULL;
+   row->footer_text = NULL;
+   row->footer_text_len = 0;
+   row->footer_attr = THE_RENDER_ATTR_NORMAL;
    row->line_number = line_number;
    row->screen_row = screen_row;
    row->logical_start_col = logical_start_col;

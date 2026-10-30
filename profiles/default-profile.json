@@ -107,16 +107,16 @@
     "set cursorstyle overwrite block steady",
     "set color cblock black on #F0C36B",
     "set cursorstyle insert ibeam steady",
-    "set cursorstyle overwrite block steady"
-  ],
-  "web_commands": [
-    "set reserved -1 normal         F1 Help F2 Next F3 Save/Close F4 Prefix F5 Ins F6 Cmd/File F10 Menu Esc Cmd Ctrl-S Save"
-  ],
-  "native_commands": [
-    "define f10 macro workbenchmenu{suffix}",
-    "set reserved -2 normal         F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save",
+    "set cursorstyle overwrite block steady",
+    "set reserved -2 normal         F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab Controls",
+    "set footer keys -2",
     "set reserved -1 #D4D4D4 on #202328",
+    "set footer response -1",
     "set msgline on -2 1"
+  ],
+  "web_commands": [],
+  "native_commands": [
+    "define f10 macro workbenchmenu{suffix}"
   ],
   "curses_commands": [
     "define s-tab rx controls"
@@ -198,6 +198,5 @@
         "*.cjs"
       ]
     }
-  ],
-  "welcome": "msg CRXTHE 0.10.dev | Esc Command  F6 Cmd/File  F1 Help  Ctrl-S Save"
+  ]
 }

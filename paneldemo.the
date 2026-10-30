@@ -22,6 +22,12 @@ main: procedure
   do saveindex = 1 to reservedcount
     savedreserved[saveindex] = pool.get('reserved.' || saveindex)
   end
+  address the 'extract /footer */' sandbox pool;
+  footercount = pool.get('footer.0') as .int
+  savedfooter = .string[]
+  do savefooterindex = 1 to footercount
+    savedfooter[savefooterindex] = pool.get('footer.' || savefooterindex)
+  end
   address the 'preserve';
   address the 'set linend off';
   address the 'set curline off';
@@ -59,6 +65,9 @@ main: procedure
   address the 'set reserved * off';
   do restoreindex = reservedcount to 1 by -1
     address the 'set reserved ' || savedreserved[restoreindex];
+  end
+  do restorefooterindex = 1 to footercount
+    address the 'set footer ' || savedfooter[restorefooterindex];
   end
   address the 'restore';
   if savedarea = 'COMMAND' then

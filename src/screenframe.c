@@ -242,6 +242,21 @@ int screenframe_build(CHARTYPE scrno, UiFrame *frame)
       ui_frame_set_row_prefix(frame, i, show_row->prefix,
                               strlen((const char *)show_row->prefix),
                               show_row->prefix_enterable);
+      if (role == UI_ROW_RESERVED && show_row->rsrvd != NULL
+      &&  show_row->rsrvd->footer[0] != '\0')
+      {
+         frame->row[i].footer = show_row->rsrvd->footer;
+         frame->row[i].footer_text = show_row->rsrvd->disp;
+         frame->row[i].footer_text_len = show_row->rsrvd->disp_length;
+         if (show_row->rsrvd->attr != NULL)
+         {
+            const COLOUR_ATTR *attr = show_row->rsrvd->attr;
+            frame->row[i].footer_attr = attr->fg != THE_COLOR_UNSPECIFIED
+                                      && attr->bg != THE_COLOR_UNSPECIFIED
+               ? the_render_attr_make(attr->fg, attr->bg, attr->style)
+               : the_render_attr_from_style(attr->mono_style);
+         }
+      }
 #ifdef THE_WASM_HIGHLIGHT
       if (!the_wasm_highlight_row(SCREEN_FILE(scrno), frame, i))
 #endif

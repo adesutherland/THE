@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 #include "logcursor.h"
+#include "thecolour.h"
 
 #define UI_DRIVER_MAX_ROWS 256
 #define UI_DRIVER_MAX_OPS 1024
@@ -77,6 +78,10 @@ typedef struct
 typedef struct
 {
    UiRowRole role;
+   const char *footer; /* optional name for a reserved footer row */
+   const CHARTYPE *footer_text; /* complete display text, before prefix split */
+   size_t footer_text_len;
+   TheRenderAttr footer_attr; /* profile colour for a named reserved row */
    LINETYPE line_number;
    int screen_row;
    int logical_start_col;

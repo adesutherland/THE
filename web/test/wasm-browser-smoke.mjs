@@ -153,7 +153,7 @@ try {
   ` });
   await command("Page.navigate", { url: pageUrl });
   await waitFor(() => evaluate("window.__snapshot?.buffer?.path === '/workspace/Welcome.txt'"), "Wasm startup", 30000);
-  await waitFor(() => evaluate("document.querySelector('.key-hints')?.textContent.includes('F10Menu') && document.querySelector('.key-hints')?.textContent.includes('Ctrl-SSave')"), "visible packaged profile key guide");
+  await waitFor(() => evaluate("/F10\\s+Menu/.test(document.querySelector('.key-hints')?.textContent) && /Ctrl-S\\s+Save/.test(document.querySelector('.key-hints')?.textContent)"), "visible packaged profile key guide");
   if (!(await evaluate("typeof window.__snapshot.status_line === 'string' && document.querySelector('.profile-status')?.textContent === window.__snapshot.status_line && !document.querySelector('.editor-details')")))
     throw new Error("native profile status line is not visible under the browser editor");
   const send = (request) => evaluate(`window.__worker.postMessage(${JSON.stringify(request)})`);
@@ -322,7 +322,7 @@ try {
     await openWorkspaceFile('RexxRunner.rexx');
     await waitFor(()=>evaluate("!!document.querySelector('.rexx-dock')"),'split console');
     const initial = await snapshot();
-    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Rexx').click()");
+    await evaluate("document.querySelector('.pane-switcher .run-rexx').click()");
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Waiting for input'"),'interpreter console input',30000);
     await waitFor(()=>evaluate("document.querySelector('.console-output').textContent.includes('What is your name?')"),'prompt before input');
     await send({type:'command',command:'set colour consolebody #123456 on #234567'});
@@ -342,7 +342,7 @@ try {
     await send({type:'command',command:'cursor goto 2 1'});
     await send({type:'text',text:"say 'UNSAVED'; "});
     await waitFor(async()=>{const s=await snapshot();return s.buffer.dirty&&s.screen_rows.some(r=>r.t.includes('UNSAVED'));},'unsaved working line');
-    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Rexx').click()");
+    await evaluate("document.querySelector('.pane-switcher .run-rexx').click()");
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Waiting for input'"),'second interpreter input',30000);
     if (!await evaluate("document.querySelector('.console-output').textContent.includes('UNSAVED')")) throw new Error('Run missed unsaved working record');
     await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='End input').click()");

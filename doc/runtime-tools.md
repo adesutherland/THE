@@ -47,8 +47,9 @@ Terminal commands are:
 
 The default terminal profile keeps actual editor responses immediately above
 the editor command line, leaving that row quiet while idle. **MENU (F10)** at
-the upper left and the adjacent persistent **Console** launcher can be clicked;
-Console shows the dock and focuses Program input. F10 opens
+the upper left, **Console**, and **Run Rexx** are visible controls. Console
+shows the dock and focuses Program input; Run Rexx captures the current buffer.
+F10 opens
 the same pull-down menu for file, editing, navigation, run and
 profile actions, with separate actions to show/focus or hide the Program console.
 The menu remains available while Program input has focus; a Run chosen there
@@ -65,23 +66,26 @@ runs. The terminal reserves the console's space before laying out
 the editor, including its response, command and status rows.
 
 In the default terminal profile, **Shift-Tab** focuses the Console launcher;
-another Shift-Tab focuses Menu. While either launcher has focus, Tab,
-Shift-Tab or Left/Right moves between them, Enter or Space activates the
+another Shift-Tab focuses Menu, then Run Rexx. While a top control has focus,
+Tab, Shift-Tab or Left/Right moves between the three, Enter or Space activates the
 selected launcher, and Esc restores the editor caret. Ordinary editor Tab
 keeps the profile's indentation command. F10 remains a direct menu shortcut.
 The terminal-specific Shift-Tab definition is visible in Key definitions;
-the graphical editor retains its own Shift-Tab binding.
+GTK and browser controls handle the same focus transition in their drivers.
 
-Choose **F10 Menu → Show or focus Program console** to reach Program input from the
+Choose **Console** or **F10 Menu → Show or focus Program console** to reach Program input from the
 keyboard. While the console has focus, Tab switches between input and the
 toolbar. Shift-Tab moves from input to the toolbar, then to the Console
 launcher; Left/Right selects a toolbar control, Home/End selects the first/last,
-and Enter or Space activates it. Esc or the Editor control returns to the
-editor, and clicking the editor also restores editor focus. Editor Tab and the default F6 Cmd/File
-binding continue to follow the active profile.
+and Enter or Space activates it. Esc focuses the THE command line; F6 or the
+Editor control returns to the file. Clicking the editor also restores file
+focus. Ordinary editor Tab continues to follow the active profile.
 
 In Program input, Enter submits a line, Backspace edits, Ctrl-D sends EOF,
-Ctrl-C stops, F10 opens the menu, and Esc returns to the editor.
+Ctrl-C stops, F10 opens the menu, Esc focuses the THE command line, and F6
+returns to the file. PageUp/PageDown scroll retained output, Home shows the
+earliest output, and End returns to the latest output while Program input has
+focus. The current scroll position stays put as new output arrives.
 Input closes at EOF or completion. Panels and
 macro READ retain their own input route. At fewer than 16 terminal rows or 32
 columns the split hides and input focus returns to the editor; use commands

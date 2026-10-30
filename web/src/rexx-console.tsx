@@ -21,10 +21,11 @@ export type ToolSession = {
 
 // Presentation only: THE owns source capture, registry, job identity and streams.
 // This component stays mounted when its pane is hidden or the layout changes.
-export function RexxConsole({ send, session, snapshot, onClose, focusEditor }: {
+export function RexxConsole({ send, session, snapshot, runRequest, onClose, focusEditor }: {
   send: (message: Record<string, unknown>) => number | undefined;
   session: ToolSession;
   snapshot: Snapshot | null;
+  runRequest: number;
   onClose: () => void;
   focusEditor: () => void;
 }) {
@@ -37,12 +38,22 @@ export function RexxConsole({ send, session, snapshot, onClose, focusEditor }: {
   const root = useRef<HTMLDivElement>(null);
   const log = useRef<HTMLPreElement>(null);
   const entry = useRef<HTMLInputElement>(null);
+  const lastRunRequest = useRef(runRequest);
   const followingOutput = useRef(true);
   const requestedInputFocus = useRef(false);
   const outputVersion = useRef("");
   const job = session.job;
   const act = (action: string, text = "", selected = tool) =>
     send({ type: "tool", action, tool: selected, text, arguments: args });
+
+  useEffect(() => {
+    if (lastRunRequest.current === runRequest) return;
+    lastRunRequest.current = runRequest;
+    setTool("classic-rexx");
+    requestedInputFocus.current = true;
+    log.current?.focus();
+    act("run", "", "classic-rexx");
+  }, [runRequest]);
 
   useEffect(() => {
     if (!session.catalog.some((candidate) => candidate.id === tool)) {
@@ -78,7 +89,7 @@ export function RexxConsole({ send, session, snapshot, onClose, focusEditor }: {
     <div class="console-heading">
       <strong>Program console</strong>
       <span class="run-state" role="status">{job.state}</span>
-      <button type="button" onClick={onClose} aria-label="Close program console">Close</button>
+      <button type="button" onClick={onClose} aria-label="Hide program console">Hide</button>
     </div>
     <div class="console-run-controls">
       <label>Tool <select aria-label="Run tool" value={tool} disabled={job.running}

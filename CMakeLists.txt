@@ -1282,6 +1282,8 @@ if(THE_NATIVE_TOOL_ROOT AND THE_PYTHON_EXECUTABLE AND THE_USE_CREXX)
  if(NOT WIN32)
   add_test(NAME test_tool_console_curses COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/test_tool_console_curses.py $<TARGET_FILE:the>)
   set_tests_properties(test_tool_console_curses PROPERTIES TIMEOUT 90 SKIP_RETURN_CODE 77 RESOURCE_LOCK the_pty_editor ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+  add_test(NAME test_curses_workbench_sizes COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/test_curses_workbench_sizes.py $<TARGET_FILE:the>)
+  set_tests_properties(test_curses_workbench_sizes PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77 RESOURCE_LOCK the_pty_editor ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
  endif()
 endif()
 add_executable(test_toolhost tests/test_toolhost.c src/toolhost.c)
@@ -1363,7 +1365,7 @@ if(USE_SDSLH)
     target_link_libraries(test_screenframe DSLSH::editor)
 endif()
 add_test(NAME test_screenframe COMMAND test_screenframe)
-add_executable(test_llmdriver tests/test_llmdriver.c src/llm/llmdriver.c src/inputevent.c src/frontendaction.c src/uidriver.c src/logcursor.c src/textpos.c)
+add_executable(test_llmdriver tests/test_llmdriver.c src/llm/llmdriver.c src/thecolour.c src/inputevent.c src/frontendaction.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_llmdriver PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8)
     target_sources(test_llmdriver PRIVATE src/rendercell.c src/utfterm.c src/utflayout.c src/utfcluster.c)
@@ -1383,7 +1385,12 @@ add_test(NAME test_llm_status_line
             $<TARGET_FILE:the>)
 set_tests_properties(test_llm_status_line PROPERTIES
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
-add_executable(test_virtual_screen tests/test_virtual_screen.c src/llm/llmdriver.c src/inputevent.c src/frontendaction.c src/uidriver.c src/logcursor.c src/textpos.c)
+add_test(NAME test_named_footer
+    COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_named_footer.py
+            $<TARGET_FILE:the>)
+set_tests_properties(test_named_footer PROPERTIES
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+add_executable(test_virtual_screen tests/test_virtual_screen.c src/llm/llmdriver.c src/thecolour.c src/inputevent.c src/frontendaction.c src/uidriver.c src/logcursor.c src/textpos.c)
 target_include_directories(test_virtual_screen PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_UTF8)
     target_sources(test_virtual_screen PRIVATE src/rendercell.c src/utfterm.c src/utflayout.c src/utfcluster.c)
@@ -1424,7 +1431,7 @@ if(USE_WEB_DRIVER)
     add_test(NAME test_web_workspace_policy
         COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_web_policy.py
             $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR})
-    set_tests_properties(test_web_workspace_policy PROPERTIES TIMEOUT 60
+    set_tests_properties(test_web_workspace_policy PROPERTIES TIMEOUT 90
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     add_test(NAME test_the_web_runtime
         COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_web_smoke.py

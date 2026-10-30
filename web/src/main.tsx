@@ -41,23 +41,25 @@ function basename(path: string): string {
   return normalized.slice(normalized.lastIndexOf("/") + 1) || path;
 }
 
-// Keep a profile's key-guide text intact even when the editor has few columns.
-// Other reserved rows retain their normal editor positions.
-function keyHintsForRow(row: ScreenRow): { key: string; label: string }[] {
-  if (row.role !== "reserved") return [];
-  const text = row.t.trim();
-  // A modified shortcut is a separate hint, never part of the preceding
-  // function key's label. Keep the profile's spelling and labels unchanged.
-  const key = "(?:(?:Ctrl|Control|Alt|Meta|Shift)[+-])+(?:F(?:[1-9]|1[0-9]|2[0-4])|[A-Za-z0-9])|F(?:[1-9]|1[0-9]|2[0-4])|Esc";
-  const matches = [...text.matchAll(new RegExp(`(${key})\\s+(.+?)(?=\\s+(?:${key})\\s+|$)`, "g"))];
-  if (matches.length < 2 || matches[0].index !== 0) return [];
-  return matches.map((match) => ({ key: match[1], label: match[2] }));
+// Reserved rows move out of the grid only when the profile names them.
+// Their text and styles stay under profile control, including non-key footers.
+function isFooterRow(row: ScreenRow): boolean {
+  return row.role === "reserved" && !!row.footer;
 }
 
-function styledText(text: string, styles: StyleRun[] | undefined) {
-  if (!styles?.length) return text.replaceAll("\t", "→");
+function footerContent(row: ScreenRow): preact.ComponentChildren {
+  if (row.footer_text === undefined) return styledText(row.t, row.s, false);
+  // The physical frame splits reserved text at the prefix. A named footer
+  // carries its complete display text separately, before that split.
+  if (row.t && row.s?.length && row.footer_text.endsWith(row.t))
+    return <>{row.footer_text.slice(0, -row.t.length)}{styledText(row.t, row.s, false)}</>;
+  return row.footer_text;
+}
 
-  const characters = Array.from(text, (character) => character === "\t" ? "→" : character);
+function styledText(text: string, styles: StyleRun[] | undefined, showTabs = true) {
+  if (!styles?.length) return showTabs ? text.replaceAll("\t", "→") : text;
+
+  const characters = Array.from(text, (character) => showTabs && character === "\t" ? "→" : character);
   const segments: preact.ComponentChildren[] = [];
   let offset = 0;
 
@@ -140,6 +142,7 @@ function App() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [connection, setConnection] = useState<"connecting" | "online" | "reconnecting" | "offline">("connecting");
   const [lastError, setLastError] = useState("");
+  const [latestMessage, setLatestMessage] = useState("");
   const [storageState, setStorageState] = useState("");
   const [toolSession,setToolSession]=useState<ToolSession|null>(null);
   const [command, setCommand] = useState("");
@@ -148,6 +151,7 @@ function App() {
   const [openMenu, setOpenMenu] = useState<"application" | "about" | null>(null);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [consoleOpen, setConsoleOpen] = useState(false);
+  const [runRequest, setRunRequest] = useState(0);
   const [mobilePane, setMobilePane] = useState<"files" | "diagnostics" | "console">("files");
   const [filesWidth, setFilesWidth] = useState(216);
   const [auxWidth, setAuxWidth] = useState(400);
@@ -173,13 +177,15 @@ function App() {
   const dockIdRef = useRef(0);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const consoleButtonRef = useRef<HTMLButtonElement | null>(null);
+  const mobileConsoleButtonRef = useRef<HTMLButtonElement | null>(null);
   const menuReturnRef = useRef<HTMLElement | null>(null);
   const responseLogRef = useRef<HTMLDivElement | null>(null);
   const followingResponsesRef = useRef(true);
   const lastShownJob = useRef(0);
 
   const appendDockEntry = useCallback((kind: DockEntry["kind"], text: string) => {
-    if (!text) return;
+    if (!text.trim()) return;
     const entry = { id: ++dockIdRef.current, kind, text };
     setDockEntries((entries) => [...entries.slice(-199), entry]);
   }, []);
@@ -251,6 +257,7 @@ function App() {
             setLastError(message.message ?? "Browser editor could not start");
           } else if ("mode" in message && "screen_rows" in message) {
             const nextSnapshot = message as Snapshot;
+            if (nextSnapshot.last_message?.trim()) setLatestMessage(nextSnapshot.last_message);
             if (typeof nextSnapshot.last_message_serial === "number") {
               if (messageSerialRef.current !== null && messageSerialRef.current !== nextSnapshot.last_message_serial)
                 appendDockEntry("response", nextSnapshot.last_message ?? "");
@@ -409,11 +416,9 @@ function App() {
     [actionById, requestFiles, sendAction],
   );
 
-  const keyHintRows = useMemo(() => snapshot?.panel ? [] :
-    (snapshot?.screen_rows ?? []).map((row) => ({ row, hints: keyHintsForRow(row) }))
-      .filter((entry) => entry.hints.length > 0), [snapshot?.screen_rows, !!snapshot?.panel]);
-  const keyHintRowIds = new Set(keyHintRows.map(({ row }) => row.r));
-  const keyHints = keyHintRows.flatMap(({ hints }) => hints);
+  const footerRows = useMemo(() => snapshot?.panel ? [] :
+    (snapshot?.screen_rows ?? []).filter(isFooterRow), [snapshot?.screen_rows, !!snapshot?.panel]);
+  const footerRowIds = new Set(footerRows.map((row) => row.r));
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -434,10 +439,10 @@ function App() {
         // The browser draws only the file area; the model also reserves its
         // command/status/heading rows. Preserve that overhead on resize.
         const overhead = Math.max(0, current.viewport?.reserved_rows ?? 4);
-        // Key-guide rows are shown in a wrapping footer, so their model rows
+        // Named rows are shown in a wrapping footer, so their model rows
         // take no space in this grid. Fill the recovered rows with file text.
-        const hintRows = current.screen_rows.filter((row) => keyHintsForRow(row).length > 0).length;
-        const rows = Math.max(12, Math.min(256, Math.floor((viewport.clientHeight - padding) / lineHeight) + overhead + hintRows));
+        const namedRows = current.screen_rows.filter(isFooterRow).length;
+        const rows = Math.max(12, Math.min(256, Math.floor((viewport.clientHeight - padding) / lineHeight) + overhead + namedRows));
         const cols = Math.max(40, Math.min(1000, Math.floor((viewport.clientWidth - 20) / cellWidth)));
         const size = `${rows}:${cols}`;
         if (size !== viewportSizeRef.current || current.viewport?.rows !== rows || current.viewport?.cols !== cols) {
@@ -450,7 +455,7 @@ function App() {
     observer.observe(viewport);
     measure();
     return () => { observer.disconnect(); cancelAnimationFrame(animation); };
-  }, [connection, send, snapshot?.buffer?.path, !!snapshot?.panel, keyHintRows.length]);
+  }, [connection, send, snapshot?.buffer?.path, !!snapshot?.panel, footerRows.length]);
 
   const returnToFile = useCallback(() => {
     const current = snapshotRef.current?.focus;
@@ -466,6 +471,20 @@ function App() {
   const onWorkbenchKeyDown = useCallback((event: KeyboardEvent) => {
     // Panels and path dialogs own their keys, including function keys.
     if (snapshot?.panel || pathAction) return;
+    if (!openMenu && event.key === "Tab" && event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey &&
+        (event.target === consoleButtonRef.current || event.target === mobileConsoleButtonRef.current)) {
+      event.preventDefault();
+      menuButtonRef.current?.focus();
+      return;
+    }
+    if (!openMenu && (event.target as HTMLElement).closest(".program-console-pane, .console-toggle, .run-rexx") &&
+        (event.key === "F6" || event.key === "Escape")) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === "F6") commandInputRef.current?.focus();
+      else returnToFile();
+      return;
+    }
     if (event.key === "F10" && !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {
       event.preventDefault();
       event.stopPropagation();
@@ -509,7 +528,7 @@ function App() {
     event.preventDefault();
     event.stopPropagation();
     items[next]?.focus();
-  }, [openMenu, pathAction, snapshot?.panel]);
+  }, [openMenu, pathAction, returnToFile, snapshot?.panel]);
 
   const onEditorKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -518,6 +537,13 @@ function App() {
         return;
       }
       const commandModifier = event.ctrlKey || event.metaKey;
+      if (!snapshot?.panel && event.key === "Tab" && event.shiftKey && !commandModifier && !event.altKey) {
+        event.preventDefault();
+        const consoleButton = [consoleButtonRef.current, mobileConsoleButtonRef.current]
+          .find((button) => button?.getClientRects().length);
+        (consoleButton ?? menuButtonRef.current)?.focus();
+        return;
+      }
       if (!snapshot?.panel && (event.key === "Escape" || event.key === "F6"
           || (commandModifier && event.key.toLowerCase() === "l"))) {
         event.preventDefault();
@@ -593,14 +619,24 @@ function App() {
     [focusEditor, send],
   );
 
-  const toolsAvailable = !!toolSession?.catalog.some((tool) => tool.available);
+  const runUnavailable = connection !== "online" ? "Editor is offline"
+    : snapshot?.panel ? "Close the macro panel to run Rexx"
+    : toolSession?.job.running ? "A program is already running"
+    : !toolSession?.catalog.some((tool) => tool.id === "classic-rexx" && tool.available) ? "Classic Rexx is unavailable"
+    : "";
+  const runRexx = () => {
+    if (runUnavailable) return;
+    setConsoleOpen(true);
+    setMobilePane("console");
+    setRunRequest((request) => request + 1);
+  };
   const maximumFilesWidth = Math.max(180, Math.min(400, Math.floor(windowSize.width * .25)));
   const maximumAuxWidth = Math.max(300, Math.min(650, Math.floor(windowSize.width * .36)));
   const maximumDiagnosticsHeight = Math.max(96, Math.min(440, Math.floor((windowSize.height - 120) * .35)));
-  const showAux = diagnosticsOpen || (consoleOpen && toolsAvailable);
+  const showAux = diagnosticsOpen || consoleOpen;
   const activeMobilePane = mobilePane === "files" && explorerOpen ? "files"
     : mobilePane === "diagnostics" && diagnosticsOpen ? "diagnostics"
-    : mobilePane === "console" && consoleOpen && toolsAvailable ? "console"
+    : mobilePane === "console" && consoleOpen ? "console"
     : explorerOpen ? "files" : diagnosticsOpen ? "diagnostics" : "console";
   const latestResponse = [...dockEntries].reverse().find((entry) => entry.kind !== "command");
   const toggleFiles = () => {
@@ -638,7 +674,7 @@ function App() {
             <section aria-label="Workbench"><h2>Workbench</h2>
               <button type="button" onClick={() => { toggleFiles(); setOpenMenu(null); }}>Files</button>
               <button type="button" onClick={() => { setDiagnosticsOpen(true); setMobilePane("diagnostics"); setOpenMenu(null); }}>Diagnostics</button>
-              {toolsAvailable ? <button type="button" onClick={() => { setConsoleOpen(true); setMobilePane("console"); setOpenMenu(null); }}>Program console</button> : null}
+              <button type="button" onClick={() => { setConsoleOpen(true); setMobilePane("console"); setOpenMenu(null); }}>Program console</button>
               <button type="button" onClick={() => {
                 setOpenMenu(null);
                 // Keep the existing admitted profile-key route: SHOWKEY is
@@ -650,7 +686,13 @@ function App() {
             </>}
           </nav> : null}
         </div>
-        <div class="document-title" title={currentBuffer?.path}>{title}</div>
+        <div class="document-title" title={currentBuffer?.path}>
+          <span class="document-name">{title}</span>
+          {browserWasm || (snapshot?.parser && snapshot.parser.state !== "inactive") ? <div class="workspace-indicators" aria-label="Workspace and syntax status">
+            {browserWasm ? <span class="workspace-storage" role="status">{storageState}</span> : null}
+            {snapshot?.parser && snapshot.parser.state !== "inactive" ? <button class="parser-status" title="Restart the highlighter" onClick={() => send({type: "parser-restart"})}>Syntax: {snapshot.parser.state}</button> : null}
+          </div> : null}
+        </div>
         <div class="toolbar-actions">
           <button class="icon-button" type="button" title="Open" aria-label="Open" onClick={() => requestAction("file.open")}>
             <FolderOpen size={17} />
@@ -689,9 +731,11 @@ function App() {
       <div class="pane-switcher" role="group" aria-label="Workbench panes">
         <button type="button" aria-pressed={explorerOpen} onClick={toggleFiles}>Files</button>
         <button type="button" aria-pressed={diagnosticsOpen} onClick={() => { setDiagnosticsOpen(window.innerWidth < 1100 && activeMobilePane !== "diagnostics" ? true : !diagnosticsOpen); setMobilePane("diagnostics"); }}>Diagnostics <span>{snapshot?.diagnostics?.length ?? 0}</span></button>
-        {toolsAvailable ? <button type="button" aria-pressed={consoleOpen} onClick={() => { setConsoleOpen(window.innerWidth < 1100 && activeMobilePane !== "console" ? true : !consoleOpen); setMobilePane("console"); }}>
-          Program console{toolSession?.job.waiting ? " · Input requested" : toolSession?.job.running ? " · Running" : ""}
-        </button> : null}
+        <button type="button" class="console-toggle" ref={consoleButtonRef} aria-pressed={consoleOpen} onClick={() => { setConsoleOpen(window.innerWidth < 1100 && activeMobilePane !== "console" ? true : !consoleOpen); setMobilePane("console"); }}>
+          Console{toolSession?.job.waiting ? " · Input requested" : toolSession?.job.running ? " · Running" : ""}
+        </button>
+        <button type="button" class="run-rexx" disabled={!!runUnavailable} title={runUnavailable || "Run the current buffer, including unsaved edits"} aria-describedby={runUnavailable ? "run-unavailable" : undefined} onClick={runRexx}>Run Rexx</button>
+        {runUnavailable ? <span class="run-unavailable" id="run-unavailable">{runUnavailable}</span> : null}
       </div>
       <section class={`workspace mobile-pane-${activeMobilePane} ${explorerOpen ? "files-open" : ""} ${showAux ? "aux-open" : ""}`} style={{
         "--files-width": `${Math.min(filesWidth, maximumFilesWidth)}px`, "--aux-width": `${Math.min(auxWidth, maximumAuxWidth)}px`,
@@ -799,7 +843,7 @@ function App() {
               const prefixCursorCell = Math.max(0, Math.min((snapshot?.focus.cell ?? 0), prefixCols - 1));
               const cursorCell = Math.max(0, (snapshot?.focus.cell ?? 0) - row.sc);
               return (
-                <div class={`screen-row role-${row.role} ${row.cur ? "screen-row-current" : ""} ${keyHintRowIds.has(row.r) ? "key-hint-row" : ""}`} key={`${currentBuffer?.path ?? ""}-${row.r}-${row.line}-${row.role}`}>
+                <div class={`screen-row role-${row.role} ${row.cur ? "screen-row-current" : ""} ${footerRowIds.has(row.r) ? "profile-footer-source" : ""}`} key={`${currentBuffer?.path ?? ""}-${row.r}-${row.line}-${row.role}`}>
                   <button
                     type="button"
                     class={`prefix-cell ${prefixCursorVisible ? "prefix-cell-active" : ""}`}
@@ -830,20 +874,10 @@ function App() {
             <span>{snapshot?.buffer?.dirty ? "Modified" : "Saved"}</span>
             </>}
           </div>
-          {browserWasm || (snapshot?.parser && snapshot.parser.state !== "inactive") ? <div class="editor-indicators" aria-label="Workspace and syntax status">
-            {browserWasm ? <span class="workspace-storage" role="status">{storageState}</span> : null}
-            {snapshot?.parser && snapshot.parser.state !== "inactive" ? <button class="parser-status" title="Restart the highlighter" onClick={() => send({type: "parser-restart"})}>Syntax: {snapshot.parser.state}</button> : null}
-          </div> : null}
-          {keyHints.length > 0 ? <div class="key-hints" role="group" aria-label="Editor key hints">{keyHints.map((hint, index) => <span class="key-hint" key={`${hint.key}-${index}`}><kbd>{hint.key}</kbd><span>{hint.label}</span></span>)}</div> : null}
+          {footerRows.filter((row) => row.footer !== "response").map((row) => <pre class={`profile-footer-row ${row.footer === "keys" ? "key-hints" : ""}`} data-footer={row.footer} key={`${row.footer}-${row.r}`} style={panelColour(row.footer_colour)}>{footerContent(row)}</pre>)}
         </section>
 
         <footer class="command-area" aria-label="THE commands and responses">
-          <div class="dock-heading"><strong>THE command</strong>
-            <button type="button" aria-expanded={commandHistoryOpen} aria-controls="command-responses" onClick={() => setCommandHistoryOpen(!commandHistoryOpen)}>
-              {commandHistoryOpen ? "Hide history" : "History"}{dockEntries.length ? ` (${dockEntries.length})` : ""}
-            </button>
-          </div>
-          <div class="latest-response" role="status" aria-live="polite">{lastError || latestResponse?.text || snapshot?.last_message || ""}</div>
           <div id="command-responses" class="command-responses" hidden={!commandHistoryOpen} ref={responseLogRef}
             aria-label="THE command and response history" tabIndex={0}
             onScroll={(event) => { const log = event.currentTarget; followingResponsesRef.current = log.scrollHeight - log.scrollTop - log.clientHeight < 24; }}>
@@ -851,8 +885,9 @@ function App() {
               <span>{entry.kind === "command" ? "Command" : entry.kind === "error" ? "Error" : "Response"}</span><code>{entry.text}</code>
             </div>) : <p>Commands and editor messages appear here.</p>}
           </div>
+          <div class="latest-response" role="status" aria-live="polite" hidden={!lastError && !latestResponse && !latestMessage}>{lastError || latestResponse?.text || latestMessage}</div>
           {!snapshot?.panel ? <form class="command-form" onSubmit={(event) => { event.preventDefault(); runCommand(command); }}>
-            <label class="command-prompt" for="the-command">Command</label>
+            <label class="command-prompt" for="the-command">THE</label>
             <input id="the-command" aria-label="THE command" ref={commandInputRef}
               onFocus={() => setCommandFocused(true)} onBlur={() => setCommandFocused(false)}
               onKeyDown={(event) => {
@@ -860,6 +895,9 @@ function App() {
                 if (event.key === "F6") { event.preventDefault(); returnToFile(); }
               }} value={command} onInput={(event) => setCommand(event.currentTarget.value)} spellcheck={false} autoComplete="off" />
             <button type="submit" disabled={connection !== "online" || !command.trim()}>Execute</button>
+            <button type="button" class="command-history-toggle" aria-expanded={commandHistoryOpen} aria-controls="command-responses" onClick={() => setCommandHistoryOpen(!commandHistoryOpen)}>
+              {commandHistoryOpen ? "Hide history" : "History"}{dockEntries.length ? ` (${dockEntries.length})` : ""}
+            </button>
           </form> : null}
         </footer>
         </div>
@@ -867,10 +905,12 @@ function App() {
         <div class="mobile-aux-tabs" role="group" aria-label="Choose auxiliary pane">
           <button type="button" aria-pressed={activeMobilePane === "files" && explorerOpen} onClick={() => { setExplorerOpen(true); setMobilePane("files"); requestFiles(); }}>Files</button>
           <button type="button" aria-pressed={activeMobilePane === "diagnostics" && diagnosticsOpen} onClick={() => { setDiagnosticsOpen(true); setMobilePane("diagnostics"); }}>Diagnostics <span>{snapshot?.diagnostics?.length ?? 0}</span></button>
-          {toolsAvailable ? <button type="button" aria-pressed={activeMobilePane === "console" && consoleOpen} onClick={() => { setConsoleOpen(true); setMobilePane("console"); }}>Program console{toolSession?.job.waiting ? " · Input requested" : ""}</button> : null}
+          <button type="button" class="console-toggle" ref={mobileConsoleButtonRef} aria-pressed={activeMobilePane === "console" && consoleOpen} onClick={() => { setConsoleOpen(true); setMobilePane("console"); }}>Console{toolSession?.job.waiting ? " · Input requested" : ""}</button>
+          <button type="button" class="run-rexx" disabled={!!runUnavailable} title={runUnavailable || "Run the current buffer, including unsaved edits"} aria-describedby={runUnavailable ? "mobile-run-unavailable" : undefined} onClick={runRexx}>Run Rexx</button>
+          {runUnavailable ? <span class="run-unavailable" id="mobile-run-unavailable">{runUnavailable}</span> : null}
         </div>
-        {showAux ? <PaneSplitter label="Resize auxiliary panes" orientation="vertical" reverse consoleDivider={consoleOpen && toolsAvailable} value={Math.min(auxWidth, maximumAuxWidth)} minimum={300} maximum={maximumAuxWidth} onChange={setAuxWidth} /> : null}
-        <div class={`auxiliary-rail ${diagnosticsOpen && consoleOpen && toolsAvailable ? "auxiliary-split" : ""}`} hidden={!showAux}>
+        {showAux ? <PaneSplitter label="Resize auxiliary panes" orientation="vertical" reverse consoleDivider={consoleOpen} value={Math.min(auxWidth, maximumAuxWidth)} minimum={300} maximum={maximumAuxWidth} onChange={setAuxWidth} /> : null}
+        <div class={`auxiliary-rail ${diagnosticsOpen && consoleOpen ? "auxiliary-split" : ""}`} hidden={!showAux}>
         {diagnosticsOpen ? (
           <aside class="diagnostics" aria-label="Diagnostics">
             <div class="panel-heading">Diagnostics <span>{snapshot?.diagnostics?.length ?? 0}</span><button type="button" class="icon-button" aria-label="Close diagnostics" onClick={() => { setDiagnosticsOpen(false); focusEditor(); }}><X size={16} /></button></div>
@@ -891,10 +931,11 @@ function App() {
             ))}
           </aside>
         ) : null}
-        {diagnosticsOpen && consoleOpen && toolsAvailable ? <PaneSplitter label="Resize diagnostics and program console" orientation="horizontal" consoleDivider value={Math.min(diagnosticsHeight, maximumDiagnosticsHeight)} minimum={96} maximum={maximumDiagnosticsHeight} onChange={setDiagnosticsHeight} /> : null}
-        {toolsAvailable && toolSession ? <div class="program-console-pane" hidden={!consoleOpen}>
-          <RexxConsole send={send} session={toolSession} snapshot={snapshot} onClose={() => { setConsoleOpen(false); focusEditor(); }} focusEditor={focusEditor} />
-        </div> : null}
+        {diagnosticsOpen && consoleOpen ? <PaneSplitter label="Resize diagnostics and program console" orientation="horizontal" consoleDivider value={Math.min(diagnosticsHeight, maximumDiagnosticsHeight)} minimum={96} maximum={maximumDiagnosticsHeight} onChange={setDiagnosticsHeight} /> : null}
+        <div class="program-console-pane" hidden={!consoleOpen}>
+          {toolSession ? <RexxConsole send={send} session={toolSession} snapshot={snapshot} runRequest={runRequest} onClose={() => { setConsoleOpen(false); focusEditor(); }} focusEditor={focusEditor} />
+            : <p class="empty-directory">Program console unavailable: no program tools were provided.</p>}
+        </div>
         </div>
       </section>
       </div>

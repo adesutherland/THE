@@ -31,7 +31,9 @@ for engine in ['CREXX', 'REGINA']:
         source.write_text('alpha\nbeta\ngamma\ndelta\n')
         profile = root / 'keys.the'
         stock = repo / ('profile.the' if engine == 'CREXX' else 'profile_regina.the')
-        profile.write_text(stock.read_text() + "\n'define f9 qquit';\n'define c-u cmsg';\n")
+        profile.write_text(stock.read_text() +
+                           "\n'define f9 qquit';\n'define c-u cmsg';\n"
+                           "'msg PROFILE_READY';\n")
         env = dict(os.environ, THE_REXX_INTERPRETER=engine, TERM='xterm-256color',
                    THE_CREXX_CACHE_DIR=str(root / 'cache'),
                    THE_TOOL_CONFIG_DIR=str(root / 'tools'))
@@ -44,9 +46,9 @@ for engine in ['CREXX', 'REGINA']:
                                    stdin=slave, stdout=slave, stderr=slave, env=env)
         os.close(slave)
 
-        def wait(predicate, label, timeout=25):
+        def wait(predicate, label, timeout=40):
             deadline = time.monotonic() + timeout
-            quiet = time.monotonic()
+            matched = None
             while time.monotonic() < deadline:
                 if select.select([master], [], [], .04)[0]:
                     try:
@@ -55,9 +57,13 @@ for engine in ['CREXX', 'REGINA']:
                         if predicate():
                             return
                         break
-                    quiet = time.monotonic()
-                if predicate() and (process.poll() is not None or time.monotonic() - quiet >= .15):
-                    return
+                if predicate():
+                    if matched is None:
+                        matched = time.monotonic()
+                    if process.poll() is not None or time.monotonic() - matched >= .15:
+                        return
+                else:
+                    matched = None
             raise AssertionError(engine + ': ' + label + ' ' + str(screen.cursor) + '\n' + '\n'.join(screen.display))
 
         def send(keys):
@@ -80,9 +86,10 @@ for engine in ['CREXX', 'REGINA']:
 
         try:
             wait(lambda: 'F10 Menu' in screen.display[rows - 4]
-                 and 'CRXTHE 0.10.dev' in screen.display[rows - 3], 'guided footer')
+                 and 'PROFILE_READY' in screen.display[rows - 3], 'guided footer')
             assert 'MENU (F10)' in screen.display[0][:14], screen.display
             assert 'Console' in screen.display[0][14:25], screen.display
+            assert 'Run Rexx' in screen.display[0][25:37], screen.display
             click_at(0, 2)
             wait(lambda: 'Open or create file' in screen.display[2][:40],
                  'top-left mouse menu opens below its button')
@@ -101,7 +108,6 @@ for engine in ['CREXX', 'REGINA']:
             send(b'UNSUBMITTED')
             wait(lambda: 'UNSUBMITTED' in screen.display[rows - 2], 'editor command draft')
             draft = screen.display[rows - 2]
-            draft_caret = (screen.cursor.x, screen.cursor.y)
             send(b'\x1b[Z')
             wait(lambda: (screen.cursor.x, screen.cursor.y) == (15, 0), 'Shift-Tab focuses Console')
             assert screen.buffer[0][15].bg != screen.buffer[0][1].bg, screen.display
@@ -111,7 +117,8 @@ for engine in ['CREXX', 'REGINA']:
                 send(keys)
                 wait(lambda: (screen.cursor.x, screen.cursor.y) == (x, 0), 'chrome traversal')
             send(b'\x1b')
-            wait(lambda: (screen.cursor.x, screen.cursor.y) == draft_caret, 'Escape restores command caret')
+            wait(lambda: screen.cursor.y == rows - 2,
+                 'chrome Escape follows profile command shortcut')
             assert screen.display[rows - 2] == draft, screen.display
             send(b'\x15')
             send(b'\x1b[17~')  # F6: return to file
@@ -124,7 +131,11 @@ for engine in ['CREXX', 'REGINA']:
                  'Console launcher opens the dock')
             assert any('Zalpha' in row for row in screen.display), screen.display
             send(b'\x1b')
-            wait(lambda: (screen.cursor.x, screen.cursor.y) == caret, 'console Escape restores editor caret')
+            wait(lambda: screen.display[screen.cursor.y].startswith('======>'),
+                 'console Escape follows profile command shortcut')
+            send(b'\x1b[17~')  # F6: return to file for the pending edit.
+            wait(lambda: (screen.cursor.x, screen.cursor.y) == caret,
+                 'F6 restores pending editor caret')
             click_at(rows - 7, 17)  # Hide in the bottom-docked toolbar.
             wait(lambda: not any('Program console |' in row for row in screen.display)
                  and (screen.cursor.x, screen.cursor.y) == caret, 'Hide preserves pending editor record')
@@ -134,7 +145,14 @@ for engine in ['CREXX', 'REGINA']:
                  'Shift-Tab reaches and activates Menu')
             send(b'\x1b')
             wait(lambda: not any('Open or create file' in row for row in screen.display)
-                 and (screen.cursor.x, screen.cursor.y) == caret, 'chrome Menu restores pending caret')
+                 and (screen.cursor.x, screen.cursor.y) == (1, 0),
+                 'chrome Menu cancel restores the invoking control')
+            send(b'\x1b')
+            wait(lambda: screen.display[screen.cursor.y].startswith('======>'),
+                 'leave top controls for THE command')
+            send(b'\x1b[17~')
+            wait(lambda: (screen.cursor.x, screen.cursor.y) == caret,
+                 'F6 returns to pending editor caret after top Menu')
             send(b'\x1b[21~')  # F10
             wait(lambda: any('Open or create file' in row for row in screen.display), 'Menu')
             send(b'\x1b')

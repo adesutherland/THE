@@ -40,14 +40,16 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
     assert any(r['role']=='scale' and r['r']==0 for r in snap['screen_rows']),snap
     ruler=next(r['t'] for r in snap['screen_rows'] if r['role']=='scale')
     assert '+' in ruler and '1' in ruler,ruler
-    assert 'CRXTHE 0.10.dev' in snap['status'],snap['status']
+    assert snap['status_line'].startswith('CRXTHE'),snap['status_line']
+    assert snap['last_message']=='',snap['last_message']
     assert sample.read_text(encoding='utf-8')=='alpha\nfindme\n'
-    assert any(row['role']=='reserved' and 'F6 Cmd' in row['t'] and 'F10 Menu' in row['t']
-               for row in snap['screen_rows']),snap
+    guides=[row for row in snap['screen_rows'] if row.get('footer')=='keys']
+    assert len(guides)==1 and 'F6 Cmd' in guides[0]['t'] and 'F10 Menu' in guides[0]['t'],snap
+    assert any(row.get('p')=='0000001' for row in snap['screen_rows']),snap
     for key in ['f6','esc','ctrl-l']:
         records,_=run('key '+key+'\nlook full compact')
         assert any(record.get('focus',{}).get('zone')=='command' for record in records),(key,records)
-    assert any(row['role']=='reserved' and not row['t'].strip()
+    assert any(row['role']=='reserved' and row.get('footer')=='response' and not row['t'].strip()
                for row in snap['screen_rows']),snap
     assert all('Response: Ready' not in row['t'] for row in snap['screen_rows']),snap
     records,_=run('command showkey all\nlook full compact')
@@ -102,7 +104,7 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
     setup = 'command set reserved 4 yellow on blue Caller row\ncommand cursor goto 3 3\n'
     baseline,_ = run(setup+'look full compact',navigation)
     baseline = next(r for r in reversed(baseline) if 'screen_rows' in r)
-    reserved = lambda s: [(r['r'],r['t']) for r in s['screen_rows'] if r['role']=='reserved']
+    reserved = lambda s: [(r['r'],r['t'],r.get('footer')) for r in s['screen_rows'] if r['role']=='reserved']
     for action in ['enter','esc']:
         navigation.write_bytes(original_bytes)
         commands = setup+'command macro '+demo+'\nkey '+action
