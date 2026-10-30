@@ -175,6 +175,40 @@ static void test_message_snapshot_fields(void)
                    "\"last_message\":\"new \\\"message\\\"\"");
 }
 
+static void test_diagnostic_presentation_metadata(void)
+{
+   static LlmDriverScreenView previous, current;
+   LlmDriverFormatOptions options;
+   char out[4096];
+   llm_driver_screen_view_init(&previous,1,80,logical_cursor_invalid());
+   current = previous;
+   llm_driver_screen_view_set_status_line(&current,"CRXTHE  Bad token  Saved");
+   strcpy(current.status_pmsg,"Bad token");
+   strcpy(current.status_pmsg_severity,"ERROR");
+   current.status_pmsg_start = 8; current.status_pmsg_length = 9;
+   current.status_pmsg_colour = the_render_attr_make(7,4,THE_STYLE_BOLD);
+   current.diagnostic_colours_valid = 1;
+   current.diagnostic_colours[0] = current.status_pmsg_colour;
+   current.diagnostic_colours[1] = the_render_attr_make(0,6,0);
+   current.diagnostic_colours[2] = the_render_attr_make(7,1,0);
+   llm_driver_format_options_init(&options);
+   for (int compact=0;compact<2;compact++)
+   {
+      options.compact = compact;
+      llm_driver_format_semantic_view_with_options(&current,&options,out,sizeof(out));
+      expect_contains("diagnostic.status.segment",out,"\"text\":\"Bad token\",\"severity\":\"ERROR\",\"start\":8,\"length\":9");
+      expect_contains("diagnostic.profile.palette",out,"\"diagnostic_colours\":{\"error\":{\"style\":1,\"foreground\":\"#C0C0C0\",\"background\":\"#800000\"}");
+   }
+   llm_driver_format_delta_view(&previous,&current,&options,out,sizeof(out));
+   expect_contains("diagnostic.delta.status",out,"\"status_changed\":1");
+   expect_contains("diagnostic.delta.segment",out,"\"status_pmsg\":{\"text\":\"Bad token\"");
+   previous = current;
+   current.status_pmsg[0] = 0;
+   llm_driver_format_delta_view(&previous,&current,&options,out,sizeof(out));
+   expect_contains("diagnostic.delta.clear",out,"\"status_pmsg\":null");
+   expect_contains("diagnostic.delta.clear.changed",out,"\"status_changed\":1");
+}
+
 static void test_compact_filearea_view_options(void)
 {
    UiFrame frame;
@@ -614,6 +648,7 @@ int main(void)
    test_semantic_view_from_frame();
    test_status_line_fields();
    test_message_snapshot_fields();
+   test_diagnostic_presentation_metadata();
    test_named_footer_metadata();
    test_compact_filearea_view_options();
    test_reserved_view_options();

@@ -573,30 +573,12 @@ short extract_parser(short number_variables,short itemno,CHARTYPE *itemargs,CHAR
 short extract_pmsg(short number_variables,short itemno,CHARTYPE *itemargs,CHARTYPE query_type,LINETYPE argc,CHARTYPE *arg,LINETYPE arglen)
 /***********************************************************************/
 {
-   LINETYPE screen_line=0;
-   LENGTHTYPE screen_column=0;
-   LINETYPE current_file_line=(-1L);
-   LENGTHTYPE current_file_column=(-1);
+   TheParserDiagnostic diagnostic;
 
    strcpy((DEFCHAR *)query_rsrvd, "");
    current_parser_severity = 0;
-   get_cursor_position(&screen_line, &screen_column, &current_file_line, &current_file_column);
-
-#ifdef USE_SDSLH
-   enter_codeblock_critical_section();
-   if (CURRENT_FILE && CURRENT_FILE->cb && current_file_line > 0 && current_file_line <= (LINETYPE)CURRENT_FILE->cb->line_count) {
-       CodeBufferLine *line = &CURRENT_FILE->cb->lines[current_file_line - 1];
-       if (current_file_column > 0 && current_file_column <= line->length) {
-           CodeBufferCharacter *ch = &line->characters[current_file_column - 1];
-           if (ch->node && ch->node->message) {
-               strncpy((DEFCHAR *)query_rsrvd, ch->node->message, sizeof(query_rsrvd) - 1);
-               query_rsrvd[sizeof(query_rsrvd) - 1] = '\0';
-               current_parser_severity = ch->node->severity;
-           }
-       }
-   }
-   exit_codeblock_critical_section();
-#endif
+   if (the_parser_diagnostic_at_cursor(&diagnostic, &current_parser_severity))
+      snprintf((char *)query_rsrvd, sizeof(query_rsrvd), "%s", the_parser_diagnostic_display_message(&diagnostic));
    item_values[1].value = query_rsrvd;
    item_values[1].len = strlen((DEFCHAR *)query_rsrvd);
    

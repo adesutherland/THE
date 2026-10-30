@@ -15,6 +15,8 @@
 # include <wchar.h>
 #endif
 
+static TheWorkbenchControl workbench_control = THE_WORKBENCH_EDITOR;
+
 static int curses_driver_valid_screen(CHARTYPE scrno)
 {
    return scrno < MAX_SCREENS;
@@ -453,16 +455,21 @@ static TheDriverWindow **curses_driver_global_window_slot(
 
 static CursorShape curses_driver_current_cursor_shape(void)
 {
+   if (the_tool_console()->focused) return cursorstyle_insert_shape;
    return INSERTMODEx ? cursorstyle_insert_shape : cursorstyle_over_shape;
 }
 
 static CursorBlink curses_driver_current_cursor_blink(void)
 {
+   if (the_tool_console()->focused) return cursorstyle_insert_blink;
    return INSERTMODEx ? cursorstyle_insert_blink : cursorstyle_over_blink;
 }
 
 static CursorPresentation curses_driver_current_cursor_presentation(void)
 {
+   if (the_tool_console()->focused ||
+       workbench_control != THE_WORKBENCH_EDITOR)
+      return CURSOR_PRESENTATION_HARDWARE;
 #ifdef USE_UTF8
    if (CURRENT_VIEW != NULL
    &&  (CURRENT_VIEW->current_window == WINDOW_FILEAREA
@@ -1010,7 +1017,6 @@ static int console_scroll_offset, console_scroll_lines, console_scroll_page;
 static unsigned console_scroll_id;
 static int console_cached_mouse, console_mouse_button, console_mouse_action;
 static int console_mouse_modifier;
-static TheWorkbenchControl workbench_control = THE_WORKBENCH_EDITOR;
 static struct
 {
    int active, program_focused, toolbar_focused, toolbar_control;
@@ -1359,6 +1365,10 @@ static void console_draw(void)
 }
 void curses_driver_update(void)
 {
+   static int cursor_focus_state = -1;
+   int focus_state = the_tool_console()->focused ? 2
+      : workbench_control != THE_WORKBENCH_EDITOR ? 1 : 0;
+
    console_draw();
    if (workbench_control != THE_WORKBENCH_EDITOR && FILETABSx && filetabs
        && !in_macro && !the_panel_active)
@@ -1374,6 +1384,11 @@ void curses_driver_update(void)
    }
    else if (!the_tool_console()->focused && curses_driver_current_active_window())
       wnoutrefresh(curses_driver_current_active_window());
+   if (!in_macro && !the_panel_active && focus_state != cursor_focus_state)
+   {
+      cursor_focus_state = focus_state;
+      curses_driver_apply_cursor_visibility(TRUE);
+   }
    doupdate();
 }
 

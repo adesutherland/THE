@@ -117,8 +117,8 @@ static int append_json_string(char *out, size_t out_len, size_t *used,
    return appendf(out, out_len, used, "\"");
 }
 
-static void append_footer_colour(char *out, size_t out_len, size_t *used,
-                                 TheRenderAttr attr, int pretty)
+static void append_colour(char *out, size_t out_len, size_t *used,
+                           TheRenderAttr attr, int pretty)
 {
    static const uint32_t basic[] = {
       0x000000, 0x000080, 0x008000, 0x008080,
@@ -126,8 +126,7 @@ static void append_footer_colour(char *out, size_t out_len, size_t *used,
    };
    const char *colon = pretty ? ": " : ":";
 
-   appendf(out, out_len, used, ",%s\"footer_colour\"%s{\"style\"%s%u",
-           pretty ? " " : "", colon, colon,
+   appendf(out, out_len, used, "{\"style\"%s%u", colon,
            (unsigned)the_render_attr_style(attr));
    if (the_render_attr_has_color(attr))
    {
@@ -141,6 +140,44 @@ static void append_footer_colour(char *out, size_t out_len, size_t *used,
               colon, (unsigned)foreground, colon, (unsigned)background);
    }
    appendf(out, out_len, used, "}");
+}
+
+static void append_footer_colour(char *out, size_t out_len, size_t *used,
+                                 TheRenderAttr attr, int pretty)
+{
+   appendf(out, out_len, used, pretty ? ", \"footer_colour\": " : ",\"footer_colour\":");
+   append_colour(out, out_len, used, attr, pretty);
+}
+
+static void append_diagnostic_metadata(char *out, size_t out_len, size_t *used,
+                                       const LlmDriverScreenView *view)
+{
+   appendf(out, out_len, used, ",\"status_pmsg\":");
+   if (!view->status_line_visible || !view->status_pmsg[0] || view->status_pmsg_length <= 0)
+      appendf(out, out_len, used, "null");
+   else
+   {
+      appendf(out, out_len, used, "{\"text\":");
+      append_json_string(out, out_len, used, view->status_pmsg);
+      appendf(out, out_len, used, ",\"severity\":");
+      append_json_string(out, out_len, used, view->status_pmsg_severity);
+      appendf(out, out_len, used, ",\"start\":%d,\"length\":%d,\"colour\":",
+              view->status_pmsg_start, view->status_pmsg_length);
+      append_colour(out, out_len, used, view->status_pmsg_colour, 0);
+      appendf(out, out_len, used, "}");
+   }
+   if (view->diagnostic_colours_valid)
+   {
+      static const char *names[] = {"error", "warning", "information"};
+      size_t i;
+      appendf(out, out_len, used, ",\"diagnostic_colours\":{");
+      for (i = 0; i < 3; i++)
+      {
+         appendf(out, out_len, used, "%s\"%s\":", i ? "," : "", names[i]);
+         append_colour(out, out_len, used, view->diagnostic_colours[i], 0);
+      }
+      appendf(out, out_len, used, "}");
+   }
 }
 
 static int append_json_string_n(char *out, size_t out_len, size_t *used,
@@ -1154,6 +1191,7 @@ size_t llm_driver_format_semantic_view_with_options(
             append_json_string(out, out_len, &used, view->status_line);
          else
             appendf(out, out_len, &used, "null");
+         append_diagnostic_metadata(out, out_len, &used, view);
       }
       appendf(out, out_len, &used, ",\"last_message_serial\":%lu,\"last_message\":",
               view->last_message_serial);
@@ -1283,6 +1321,7 @@ size_t llm_driver_format_semantic_view_with_options(
          append_json_string(out, out_len, &used, view->status_line);
       else
          appendf(out, out_len, &used, "null");
+      append_diagnostic_metadata(out, out_len, &used, view);
       appendf(out, out_len, &used, ",\n");
    }
    appendf(out, out_len, &used, "  \"last_message_serial\": %lu,\n"
@@ -1455,7 +1494,15 @@ size_t llm_driver_format_delta_view(const LlmDriverScreenView *previous,
            previous == NULL
         || strcmp(previous->status, current->status) != 0
         || previous->status_line_visible != current->status_line_visible
-        || strcmp(previous->status_line, current->status_line) != 0,
+        || strcmp(previous->status_line, current->status_line) != 0
+        || strcmp(previous->status_pmsg, current->status_pmsg) != 0
+        || strcmp(previous->status_pmsg_severity, current->status_pmsg_severity) != 0
+        || previous->status_pmsg_start != current->status_pmsg_start
+        || previous->status_pmsg_length != current->status_pmsg_length
+        || previous->status_pmsg_colour != current->status_pmsg_colour
+        || previous->diagnostic_colours_valid != current->diagnostic_colours_valid
+        || memcmp(previous->diagnostic_colours, current->diagnostic_colours,
+                  sizeof(current->diagnostic_colours)) != 0,
            previous == NULL
         || previous->buffer_dirty != current->buffer_dirty
         || previous->buffer_line_count != current->buffer_line_count
@@ -1469,6 +1516,7 @@ size_t llm_driver_format_delta_view(const LlmDriverScreenView *previous,
          append_json_string(out, out_len, &used, current->status_line);
       else
          appendf(out, out_len, &used, "null");
+      append_diagnostic_metadata(out, out_len, &used, current);
    }
    appendf(out, out_len, &used, ",\"rows\":[");
 

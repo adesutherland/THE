@@ -195,12 +195,62 @@ static void test_reserved_footer_names(void)
    expect_int("footer.file.unnamed",frame.row[0].footer == NULL,1);
 }
 
+#ifdef USE_SDSLH
+static void test_diagnostic_precedence_and_unicode(void)
+{
+   VIEW_DETAILS view;
+   FILE_DETAILS file;
+   PARSER_DETAILS parser;
+   CodeBuffer buffer;
+   CodeBufferLine line;
+   CodeBufferCharacter characters[4];
+   SHOW_LINE row;
+   UiFrame frame;
+   unsigned char styles[6];
+   const char *source = "\xe7\x95\x8cif?";
+   memset(&view,0,sizeof(view)); memset(&file,0,sizeof(file));
+   memset(&parser,0,sizeof(parser)); memset(&buffer,0,sizeof(buffer));
+   memset(&line,0,sizeof(line)); memset(characters,0,sizeof(characters));
+   memset(&row,0,sizeof(row)); memset(screen,0,sizeof(screen));
+   memset(styles,ECOLOUR_KEYWORDS,sizeof(styles));
+   expect_int("diagnostic.mutex",init_parser_thread_utils(),0);
+   view.file_for_view = &file;
+   file.colouring = TRUE; file.parser = &parser; file.cb = &buffer;
+   parser.is_sdslh_parser = TRUE;
+   buffer.lines = &line; buffer.line_count = 1;
+   line.characters = characters; line.length = 4;
+   characters[1].severity = CB_ERROR;
+   characters[2].severity = CB_WARNING;
+   characters[3].severity = CB_INFORMATION;
+   screen[0].screen_view = &view; screen[0].sl = &row;
+   screen[0].rows[WINDOW_FILEAREA] = 1; screen[0].cols[WINDOW_FILEAREA] = 80;
+   row.line_type = LINE_LINE; row.line_number = 1;
+   row.contents = (CHARTYPE *)source; row.length = strlen(source);
+   row.highlight_type = styles;
+   expect_int("diagnostic.build",screenframe_build(0,&frame),1);
+   expect_int("diagnostic.disjoint.count",(int)frame.row[0].style_count,4);
+   expect_int("diagnostic.unicode.start",frame.row[0].styles[1].start_cell,1);
+   expect_int("diagnostic.unicode.length",frame.row[0].styles[1].cell_count,1);
+   expect_int("diagnostic.error.over.keyword",frame.row[0].styles[1].style,UI_SYNTAX_DIAGNOSTIC_ERROR);
+   expect_int("diagnostic.warning",frame.row[0].styles[2].style,UI_SYNTAX_DIAGNOSTIC_WARNING);
+   expect_int("diagnostic.information",frame.row[0].styles[3].style,UI_SYNTAX_DIAGNOSTIC_INFORMATION);
+   memset(characters,0,sizeof(characters));
+   expect_int("diagnostic.repaired.build",screenframe_build(0,&frame),1);
+   expect_int("diagnostic.repaired.count",(int)frame.row[0].style_count,1);
+   expect_int("diagnostic.repaired.length",frame.row[0].styles[0].cell_count,4);
+   expect_strn("diagnostic.no.text.mutation",row.contents,row.length,source);
+}
+#endif
+
 int main(void)
 {
    test_role_mapping();
    test_ruler_columns();
    test_builds_filearea_frame();
    test_reserved_footer_names();
+#ifdef USE_SDSLH
+   test_diagnostic_precedence_and_unicode();
+#endif
 
    if (failures != 0)
    {

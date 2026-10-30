@@ -22,6 +22,19 @@ LENGTHTYPE pre_rec_len = 0;
 CHARTYPE *rec = NULL;
 LENGTHTYPE rec_len = 0;
 bool in_macro = FALSE;
+LINE *first_option = NULL;
+/* This fixture has no parser or profile options; the full editor tests cover
+ * cursor-local diagnostics and actual palette values. */
+void get_cursor_position(LINETYPE *screen_line, LENGTHTYPE *screen_column,
+                         LINETYPE *file_line, LENGTHTYPE *file_column)
+{
+   *screen_line = *screen_column = *file_line = *file_column = 0;
+}
+TheDriverAttr set_colour(const COLOUR_ATTR *attribute)
+{
+   (void)attribute;
+   return 0;
+}
 static const char *status_line_fixture = "CRXTHE        profile status text";
 /* Real status formatting is exercised by test_llm_status_line. */
 int format_statarea(CHARTYPE *out, size_t out_size)

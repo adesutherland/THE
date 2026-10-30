@@ -1439,6 +1439,16 @@ if(USE_WEB_DRIVER)
     set_tests_properties(test_the_web_runtime PROPERTIES
         TIMEOUT 120
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    if(USE_SDSLH AND THE_USE_CREXX)
+        find_program(THE_NODE_EXECUTABLE NAMES node)
+        if(THE_NODE_EXECUTABLE)
+            add_test(NAME test_native_parser_status
+                COMMAND ${THE_NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/web/test/native-parser-status.mjs
+                    $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR})
+            set_tests_properties(test_native_parser_status PROPERTIES TIMEOUT 90 SKIP_RETURN_CODE 77
+                ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+        endif()
+    endif()
     if(THE_USE_REGINA AND REGINA_LIBRARY)
         add_test(NAME test_the_web_runtime_regina
             COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_web_smoke.py

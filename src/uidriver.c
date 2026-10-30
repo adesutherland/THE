@@ -139,9 +139,26 @@ const char *ui_syntax_style_name(UiSyntaxStyle style)
          return "alt-keyword-9";
       case UI_SYNTAX_UNKNOWN:
          return "unknown";
+      case UI_SYNTAX_DIAGNOSTIC_ERROR:
+         return "diagnostic-error";
+      case UI_SYNTAX_DIAGNOSTIC_WARNING:
+         return "diagnostic-warning";
+      case UI_SYNTAX_DIAGNOSTIC_INFORMATION:
+         return "diagnostic-information";
       case UI_SYNTAX_NONE:
       default:
          return "none";
+   }
+}
+
+UiSyntaxStyle ui_diagnostic_style(int severity)
+{
+   switch (severity)
+   {
+      case '3': return UI_SYNTAX_DIAGNOSTIC_ERROR;
+      case '2': return UI_SYNTAX_DIAGNOSTIC_WARNING;
+      case '1': return UI_SYNTAX_DIAGNOSTIC_INFORMATION;
+      default: return UI_SYNTAX_NONE;
    }
 }
 

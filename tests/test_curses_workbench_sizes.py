@@ -42,6 +42,7 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
                     struct.pack('HHHH', rows, cols, 0, 0))
         screen = pyte.Screen(cols, rows)
         stream = pyte.ByteStream(screen)
+        output = bytearray()
         process = subprocess.Popen([str(binary), '--driver', 'curses',
                                     '-p', str(profile), str(source)],
                                    stdin=slave, stdout=slave, stderr=slave, env=env)
@@ -53,7 +54,9 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
             while time.monotonic() < deadline:
                 if select.select([master], [], [], .05)[0]:
                     try:
-                        stream.feed(os.read(master, 65536))
+                        data = os.read(master, 65536)
+                        output.extend(data)
+                        stream.feed(data)
                     except OSError:
                         break
                     quiet = time.monotonic()
@@ -129,11 +132,28 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
                 assert 'Program console |' in screen.display[0][73:], screen.display
             else:
                 assert 'Program console |' in screen.display[rows - 8], screen.display
+            before_focus = len(output)
             click_at(0, 15)
             wait(lambda: console_focused() and 'Program input>' in screen.display[-1],
                  'Console launcher focuses program input')
+            assert not screen.cursor.hidden, f'{cols}x{rows}: Program input caret hidden'
+            input_start = (73 if cols == 117 else 0) + len('Program input> ')
+            assert (screen.cursor.x, screen.cursor.y) == (input_start, rows - 1), screen.cursor
+            assert b'\x1b[6 q' in output[before_focus:], \
+                f'{cols}x{rows}: profile insert I-beam cursor shape not sent'
             send(b'DRAFT')
-            wait(lambda: 'DRAFT' in screen.display[-1], 'unsent program input')
+            wait(lambda: 'DRAFT' in screen.display[-1] and
+                 (screen.cursor.x, screen.cursor.y) == (input_start + 5, rows - 1)
+                 and not screen.cursor.hidden, 'visible caret advances with Program input')
+            send(b'\x7f')
+            wait(lambda: 'DRAF' in screen.display[-1] and
+                 'DRAFT' not in screen.display[-1] and
+                 (screen.cursor.x, screen.cursor.y) == (input_start + 4, rows - 1)
+                 and not screen.cursor.hidden, 'Backspace moves visible Program caret')
+            send(b'T')
+            wait(lambda: 'DRAFT' in screen.display[-1] and
+                 (screen.cursor.x, screen.cursor.y) == (input_start + 5, rows - 1),
+                 'Program draft restored after Backspace')
             input_caret = (screen.cursor.x, screen.cursor.y)
             send(b'\x1b[21~')
             wait(lambda: has('Run current Rexx'), 'Program input F10 opens menu')
@@ -171,6 +191,9 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
             send(b'\x1b[17~')  # F6
             wait(lambda: screen.display[screen.cursor.y].startswith('======>')
                  and not console_focused(), 'F6 follows editor Cmd/File toggle')
+            assert screen.cursor.hidden, f'{cols}x{rows}: editor software cursor should hide hardware'
+            assert screen.buffer[screen.cursor.y][screen.cursor.x].underscore, \
+                f'{cols}x{rows}: editor command caret not visually underlined'
             send(b'\x1b[17~')
             wait(lambda: screen.cursor.y < (rows - 8 if cols == 80 else rows - 4),
                  'second F6 reaches editor file')
@@ -193,10 +216,23 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
             assert 'DRAFT' in screen.display[-1], screen.display
             send(b'\t')
             wait(lambda: has('EDITOR_TAB'), 'editor Tab retains profile binding')
+            click_at(0, 15)
+            wait(lambda: console_focused() and 'DRAFT' in screen.display[-1] and
+                 not screen.cursor.hidden, 'return to visible Program input caret')
+            send(b'\r')
+            wait(lambda: has('ECHO DRAFT') and 'Input closed>' in screen.display[-1]
+                 and not screen.cursor.hidden,
+                 'submitted stdin completes with visible Program caret')
+            assert screen.cursor.y == rows - 1, screen.cursor
+            send(b'\x1b')
+            wait(lambda: screen.display[screen.cursor.y].startswith('======>'),
+                 'Escape returns to THE command after stdin')
+            assert screen.cursor.hidden and screen.buffer[screen.cursor.y][screen.cursor.x].underscore, \
+                f'{cols}x{rows}: editor command caret not visible after Program return'
         finally:
             if process.poll() is None:
                 process.kill()
             process.wait()
             os.close(master)
 
-print('117x30 and 80x24: menu, direct Run, keyboard focus, scrollback, F6/Esc and input draft passed')
+print('117x30 and 80x24: menu, Run, scrollback, visible Program caret, stdin and editor return passed')

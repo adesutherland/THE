@@ -12,6 +12,42 @@
 #include "vars.h"
 #include "editorsource.h"
 
+static void llm_runtime_diagnostic_presentation(LlmDriverScreenView *view)
+{
+   TheParserDiagnostic diagnostic;
+   LINE *option;
+   int severity;
+   if (!view || !CURRENT_FILE) return;
+   view->diagnostic_colours_valid = 1;
+   view->diagnostic_colours[0] = set_colour(CURRENT_FILE->attr + ATTR_CBERROR);
+   view->diagnostic_colours[1] = set_colour(CURRENT_FILE->attr + ATTR_CBWARN);
+   view->diagnostic_colours[2] = set_colour(CURRENT_FILE->attr + ATTR_CBINFO);
+   if (!view->status_line_visible || !the_parser_diagnostic_at_cursor(&diagnostic, &severity)) return;
+   for (option = first_option; option; option = option->next)
+   {
+      size_t offset, length = 0, limit;
+      const char *message = the_parser_diagnostic_display_message(&diagnostic);
+      if (!option->name || strcmp((char *)option->name, "PMSG.1")) continue;
+      offset = STATAREA_OFFSET + option->select + (option->line ? strlen((char *)option->line) : 0);
+      if (offset >= strlen(view->status_line)) continue;
+      limit = strlen(message);
+      if (option->save_select && (size_t)option->save_select < limit) limit = option->save_select;
+      /* Later profile fields, the clock or a narrow viewport can overwrite
+       * the tail. Decorate only message bytes still present in the row. */
+      while (length < limit && view->status_line[offset + length]
+             && view->status_line[offset + length] == message[length]) length++;
+      if (!length) continue;
+      snprintf(view->status_pmsg, sizeof(view->status_pmsg), "%s", message);
+      snprintf(view->status_pmsg_severity, sizeof(view->status_pmsg_severity), "%s", diagnostic.severity);
+      view->status_pmsg_start = (int)textpos_count_codepoints((CHARTYPE *)view->status_line, offset);
+      view->status_pmsg_length = (int)textpos_count_codepoints((CHARTYPE *)view->status_line + offset, length);
+      view->status_pmsg_colour = set_colour(CURRENT_FILE->attr +
+         (severity == '3' ? ATTR_PMSGERROR : severity == '2' ? ATTR_PMSGWARN
+                                                       : severity == '1' ? ATTR_PMSGINFO : ATTR_STATAREA));
+      break;
+   }
+}
+
 static void llm_runtime_visible_command(char *out, size_t out_len)
 {
    size_t start;
@@ -211,6 +247,7 @@ int llm_runtime_screen_view(CHARTYPE scrno, LlmDriverScreenView *view)
    llm_driver_screen_view_set_status_line(view,
       format_statarea(status_line, sizeof(status_line))
          ? (const char *)status_line : NULL);
+   llm_runtime_diagnostic_presentation(view);
    llm_driver_screen_view_set_last_message(view, last_message_serial,
                                            (const char *)last_message);
    llm_runtime_buffer_metadata(view);

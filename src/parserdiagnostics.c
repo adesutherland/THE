@@ -1,6 +1,7 @@
 #include "parserdiagnostics.h"
 
 #include <string.h>
+#include <ctype.h>
 
 #include "the.h"
 #include "proto.h"
@@ -227,4 +228,76 @@ void the_parser_diagnostics_free(TheParserDiagnostic *diagnostics)
 {
    if (diagnostics != NULL)
       (*the_free)(diagnostics);
+}
+
+int the_parser_diagnostic_at_cursor(TheParserDiagnostic *diagnostic, int *severity)
+{
+   LINETYPE screen_line, line;
+   LENGTHTYPE screen_column, column;
+   int found = 0;
+   if (!diagnostic || !severity) return 0;
+   memset(diagnostic, 0, sizeof(*diagnostic));
+   *severity = 0;
+   if (!CURRENT_VIEW || !CURRENT_FILE || CURRENT_VIEW->current_window != WINDOW_FILEAREA)
+      return 0;
+   get_cursor_position(&screen_line, &screen_column, &line, &column);
+#ifdef THE_WASM_HIGHLIGHT
+   return the_wasm_highlight_message(line, column - 1, diagnostic, severity);
+#elif defined(USE_SDSLH)
+   if (CURRENT_FILE->colouring && CURRENT_FILE->parser
+   && CURRENT_FILE->parser->is_sdslh_parser && CURRENT_FILE->cb && line > 0 && column > 0
+   && enter_codeblock_critical_section() == 0)
+   {
+      CodeBuffer *cb = CURRENT_FILE->cb;
+      if ((size_t)line <= cb->line_count)
+      {
+         CodeBufferLine *parser_line = &cb->lines[line - 1];
+         LogicalCursor cursor = CURRENT_VIEW->logical_cursor.current;
+         size_t point = cursor.valid && cursor.zone == LOGICAL_CURSOR_ZONE_FILEAREA
+            && cursor.line_number == line ? cursor.text.codepoint_index : (size_t)column - 1;
+         if (parser_line->characters && point < parser_line->length)
+         {
+            CB_Node *node = parser_line->characters[point].node;
+            if (node && node->message && node->message[0])
+            {
+               diagnostic->line = line; diagnostic->column = column;
+               *severity = node->severity;
+               parser_diagnostics_copy_field(diagnostic->severity, sizeof(diagnostic->severity),
+                                              parser_diagnostics_severity_name(node->severity), "NONE");
+               parser_diagnostics_copy_field(diagnostic->code, sizeof(diagnostic->code), node->message_code, "-");
+               parser_diagnostics_copy_field(diagnostic->message, sizeof(diagnostic->message), node->message, "");
+               found = 1;
+            }
+         }
+      }
+      exit_codeblock_critical_section();
+   }
+#endif
+   return found;
+}
+
+const char *the_parser_diagnostic_display_message(const TheParserDiagnostic *diagnostic)
+{
+   const char *message, *end;
+   size_t code_length;
+   if (!diagnostic) return "";
+   message = diagnostic->message;
+   code_length = strlen(diagnostic->code);
+   if (code_length && message[0] == '['
+   && !strncmp(message + 1, diagnostic->code, code_length)
+   && message[code_length + 1] == ']')
+      message += code_length + 2;
+   while (*message == ' ') message++;
+   /* Keep protocol/compiler labels in PMSGS and snapshots. PMSG's limited
+    * profile field presents the explanation before these machine labels. */
+   for (;;)
+   {
+      end = message;
+      while (isupper((unsigned char)*end) || isdigit((unsigned char)*end)
+             || *end == '_' || *end == '-' || *end == '.') end++;
+      if (end == message || *end != ':') break;
+      message = end + 1;
+      while (*message == ' ') message++;
+   }
+   return message;
 }

@@ -37,7 +37,7 @@ the particular mutation path decodes UTF text.
 | Terminal Program console | At 80×24 the bottom dock can show only three output rows at once. | Focus the Program console and use PageUp/PageDown or Home/End for scrollback; expand the terminal for more visible output. |
 | Terminal file opening | Open/create prepares an `EDIT` command but has no file picker or path completion. | Type a path at the prompt, or use `DIRECTORY` to inspect files. |
 | GTK desktop | The unpackaged macOS executable appears as `the` in the system menu bar. GTK output follows new text unless a selection is active; it has no unread-output cue. | Use the native Open/New chooser and scroll the Program output to inspect earlier text. |
-| Browser diagnostics | The UI currently shows `Diagnostics 0` both for a clean buffer and for a build with no diagnostic service. The Classic interpreter alone does not provide parser diagnostics. | Check the build's highlighter capability; use a build with a language service to receive diagnostics. |
+| Browser parser diagnostics | Inline error colours and cursor-local status messages require a configured parser service. The Classic interpreter alone does not provide parser diagnostics. | Check the build's highlighter capability and the Syntax state at the top of the workbench. |
 
 ## Panels and browser
 

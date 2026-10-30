@@ -294,8 +294,39 @@ try {
     await evaluate("document.querySelector('.input-sink').focus()");
     await command('Input.insertText', {text:'['});
     await waitFor(async () => {const s = await snapshot(); return s.buffer.dirty && s.parser.state === 'ready' && s.diagnostics?.some(d => d.code === 'CLASSIC_INPUT');}, 'Level L diagnostics');
-    await evaluate("document.querySelector('[aria-label=Undo]').click()");
-    await waitFor(async () => {const s = await snapshot(); return !s.buffer.dirty && s.parser.state === 'ready' && !s.diagnostics?.length;}, 'Level L repair');
+    parsed = await snapshot();
+    const error = parsed.diagnostics.find(d => d.code === 'CLASSIC_INPUT');
+    await send({type:'command', command:`cursor goto ${error.line} ${error.column}`});
+    await waitFor(async () => {const s = await snapshot(); return s.focus.line === error.line && s.focus.cell === error.column - 1 && s.status_pmsg?.severity === 'ERROR';}, 'cursor-local error status');
+    parsed = await snapshot();
+    if (!parsed.screen_rows.find(r => r.line === error.line)?.s?.some(([, , style]) => style === 'diagnostic-error'))
+      throw new Error('Parser error missing from editor styles');
+    if (!await evaluate("!!document.querySelector('.syntax-diagnostic-error') && !!document.querySelector('.status-pmsg-error')"))
+      throw new Error('Parser error missing from visible editor or profile status');
+    if (await evaluate("!!document.querySelector('.diagnostics') || [...document.querySelectorAll('button')].some(b => b.textContent.startsWith('Diagnostics'))"))
+      throw new Error('Browser-only Diagnostics pane or control remains');
+    // CURSOR GOTO commits/reloads the working record. SOS UNDO then restores
+    // that already-edited record, so repair the located byte explicitly.
+    await evaluate("document.querySelector('.input-sink').focus()");
+    await domKey('Delete', 'Delete');
+    await waitFor(async () => {const s = await snapshot(); return s.screen_rows.find(r => r.line === 3)?.t === greeting.t && s.parser.state === 'ready' && !s.diagnostics?.length;}, 'Level L explicit repair');
+    parsed = await snapshot();
+    if (parsed.focus.line !== error.line || parsed.focus.cell !== error.column - 1)
+      throw new Error('Repair moved the diagnostic caret');
+    if (await evaluate("!!document.querySelector('.syntax-diagnostic-error, .status-pmsg-error')"))
+      throw new Error('Stale parser error remains after repair');
+    await evaluate("document.querySelector('[aria-label=Save]').click()");
+    await waitFor(async () => !(await snapshot()).buffer.dirty, 'save repaired Classic source');
+    const repairedBytes = await evaluate(`new Promise((resolve,reject) => {
+      const request=indexedDB.open('/workspace');request.onerror=()=>reject(request.error);
+      request.onsuccess=()=>{
+        const db=request.result,get=db.transaction('FILE_DATA').objectStore('FILE_DATA').get('/workspace/ClassicDemo.rexx');
+        get.onsuccess=()=>{resolve(Array.from(get.result.contents));db.close();};get.onerror=()=>reject(get.error);
+      };
+    })`);
+    const classicBytes = new Uint8Array(await (await fetch(new URL('examples/ClassicDemo.rexx', pageUrl))).arrayBuffer());
+    if (JSON.stringify(repairedBytes) !== JSON.stringify(Array.from(classicBytes)))
+      throw new Error('Explicit diagnostic repair changed saved Classic source bytes');
     await send({type:'command', command:'cursor goto 3 1'});
     await waitFor(async () => (await snapshot()).focus.cell === 0, 'rapid edit cursor');
     await evaluate("document.querySelector('.input-sink').focus()");

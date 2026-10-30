@@ -241,7 +241,8 @@ void the_wasm_highlight_reply(unsigned id, unsigned revision, const char *payloa
             if (token->type == LEXER_EOF && token->length == 0 && token->pos == doc->points) continue;
             if (token->pos != cursor || token->length == 0) goto done;
             cursor += token->length;
-            UiSyntaxStyle style = token_style(token->type);
+            UiSyntaxStyle style = ui_diagnostic_style(token->severity);
+            if (style == UI_SYNTAX_NONE) style = token_style(token->type);
             if (style != UI_SYNTAX_NONE) spans[count++] = (HighlightSpan){token->pos, token->length, style};
         }
     }
@@ -292,6 +293,45 @@ int the_wasm_highlight_metadata(char *out, size_t capacity)
         tool&&!strcmp(tool->id,"classic-highlight")?"Level L Classic Rexx":"DSLSH RXBIN",tool?tool->id:"",
         eligible(CURRENT_FILE) && doc ? doc->state : "inactive", doc ? doc->id : 0,
         doc ? doc->revision : 0, doc ? doc->applied : 0, doc ? doc->stale : 0);
+}
+
+int the_wasm_highlight_message(LINETYPE line, int cell, TheParserDiagnostic *out,
+                                int *severity)
+{
+    HighlightDocument *doc;
+    size_t bytes, point;
+    int found = 0;
+    the_wasm_highlight_prepare();
+    doc = document(CURRENT_FILE, 0);
+    if (!out || !severity || !eligible(CURRENT_FILE) || !doc || !doc->tokens
+        || doc->applied != doc->revision || strcmp(doc->state, "ready")
+        || line < 1 || (size_t)line > doc->lines || cell < 0) return 0;
+    bytes = doc->line_bytes[line] - doc->line_bytes[line - 1] - 1;
+    TextPos position = textpos_from_cell((CHARTYPE *)doc->source + doc->line_bytes[line - 1],
+                                        bytes, cell, TEXT_SNAP_BACKWARD);
+    if (position.cell_column != cell || position.byte_offset >= bytes) return 0;
+    point = doc->line_points[line - 1] + position.codepoint_index;
+    enter_codeblock_critical_section();
+    /* The native code buffer associates characters with their lexical leaf,
+     * rather than a containing parse-tree diagnostic. Use that same owner. */
+    for (size_t i = 0; i < doc->tokens->count; i++) {
+        CB_SerializedToken *token = &doc->tokens->tokens[i];
+        if (token->type < LEXER_WHITESPACE || token->type >= PARSE_TREE
+            || point < token->pos || point - token->pos >= token->length) continue;
+        if (token->message && *token->message) {
+            out->line = line; out->column = cell + 1;
+            *severity = token->severity;
+            snprintf(out->severity, sizeof(out->severity), "%s", token->severity == CB_ERROR ? "ERROR"
+                     : token->severity == CB_WARNING ? "WARNING"
+                     : token->severity == CB_INFORMATION ? "INFORMATION" : "NONE");
+            snprintf(out->code, sizeof(out->code), "%s", token->message_code ? token->message_code : "");
+            snprintf(out->message, sizeof(out->message), "%s", token->message);
+            found = 1;
+        }
+        break;
+    }
+    exit_codeblock_critical_section();
+    return found;
 }
 
 short the_wasm_highlight_diagnostics(TheParserDiagnostic **out, int *count)

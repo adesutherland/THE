@@ -143,32 +143,59 @@ static UiSyntaxStyle screenframe_syntax_style_from_ecolour(unsigned char ecolour
 }
 
 static void screenframe_add_syntax_styles(UiFrame *frame, size_t row_index,
-                                          const SHOW_LINE *row)
+                                          const SHOW_LINE *row,
+                                          FILE_DETAILS *file)
 {
-   size_t start;
-   size_t pos = 0;
-
-   if (frame == NULL || row == NULL || row->highlight_type == NULL)
+   size_t start = 0, point = 0;
+   TextPos pos = textpos_begin();
+   UiSyntaxStyle previous = UI_SYNTAX_NONE;
+   if (frame == NULL || row == NULL || row->contents == NULL)
       return;
-   while (pos < row->length)
+#ifdef USE_SDSLH
+   CodeBufferLine *parser_line = NULL;
+   int locked = 0;
+   if (file && file->colouring && file->parser && file->parser->is_sdslh_parser
+   && file->cb && row && row->line_type == LINE_LINE && row->line_number > 0)
    {
-      UiSyntaxStyle style;
-
-      style = screenframe_syntax_style_from_ecolour(row->highlight_type[pos]);
-      if (style == UI_SYNTAX_NONE)
-      {
-         pos++;
-         continue;
-      }
-      start = pos++;
-      while (pos < row->length
-      &&     screenframe_syntax_style_from_ecolour(row->highlight_type[pos]) == style)
-      {
-         pos++;
-      }
-      ui_frame_add_row_style(frame, row_index, (int)start,
-                             (int)(pos - start), style);
+      locked = enter_codeblock_critical_section() == 0;
+      if (locked && (size_t)row->line_number <= file->cb->line_count)
+         parser_line = &file->cb->lines[row->line_number - 1];
    }
+#else
+   (void)file;
+#endif
+
+   while (pos.byte_offset < row->length)
+   {
+      UiSyntaxStyle style = row->highlight_type
+         ? screenframe_syntax_style_from_ecolour(row->highlight_type[pos.byte_offset])
+         : UI_SYNTAX_NONE;
+#ifdef USE_SDSLH
+      /* Match the native renderer's severity-over-syntax precedence. Parser
+       * slots and wire style positions are codepoints, not UTF-8 bytes. */
+      if (parser_line && parser_line->characters && point < parser_line->length)
+      {
+         UiSyntaxStyle diagnostic = ui_diagnostic_style(parser_line->characters[point].severity);
+         if (diagnostic != UI_SYNTAX_NONE) style = diagnostic;
+      }
+#endif
+      if (style != previous)
+      {
+         if (previous != UI_SYNTAX_NONE)
+            ui_frame_add_row_style(frame, row_index, (int)start,
+                                   (int)(point - start), previous);
+         previous = style;
+         start = point;
+      }
+      pos = textpos_next_codepoint(row->contents, row->length, pos);
+      point++;
+   }
+   if (previous != UI_SYNTAX_NONE)
+      ui_frame_add_row_style(frame, row_index, (int)start,
+                             (int)(point - start), previous);
+#ifdef USE_SDSLH
+   if (locked) exit_codeblock_critical_section();
+#endif
 }
 
 static const CHARTYPE *screenframe_text_for_row(VIEW_DETAILS *view,
@@ -260,7 +287,7 @@ int screenframe_build(CHARTYPE scrno, UiFrame *frame)
 #ifdef THE_WASM_HIGHLIGHT
       if (!the_wasm_highlight_row(SCREEN_FILE(scrno), frame, i))
 #endif
-         screenframe_add_syntax_styles(frame, i, show_row);
+         screenframe_add_syntax_styles(frame, i, show_row, SCREEN_FILE(scrno));
    }
 
    ui_frame_set_cursor_rebased(frame, view->logical_cursor.current);

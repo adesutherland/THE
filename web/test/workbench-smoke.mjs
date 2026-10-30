@@ -14,6 +14,7 @@ const assets = resolve(process.env.THE_WEB_ASSETS || new URL("../dist", import.m
 const profile = await mkdtemp(join(tmpdir(), "the-workbench-"));
 const received = [];
 let customFooter = true;
+let presentDiagnostic = false;
 const snapshot = {
   mode: "editor", rows: 24, cols: 80,
   focus: { zone: "filearea", line: 1, row: 0, cell: 2 }, command: "",
@@ -55,6 +56,7 @@ function publishSnapshot() {
   }));
   snapshot.screen_rows[1] = { r: 1, role: "reserved", line: 0, cur: 0, sc: 0, t: "Profile note: keep this reserved row in the editor" };
   snapshot.screen_rows[2] = { r: 2, role: "reserved", line: 0, cur: 0, sc: 0, t: "F1 Reserved note F6 Another note F10 Keep in grid" };
+  if (presentDiagnostic) snapshot.screen_rows[3].s = [[3, 6, "diagnostic-error"]];
   if (customFooter) snapshot.screen_rows[snapshot.screen_rows.length - 3] = {
     r: snapshot.screen_rows.length - 3, role: "reserved", footer: "build", line: 0, cur: 0, sc: 0,
     t: "profile-defined footer text", footer_text: "Build: profile-defined footer text", s: [[0, 7, "keyword"]],
@@ -184,7 +186,27 @@ try {
     ["Profile note: keep this reserved row in the editor", "F1 Reserved note F6 Another note F10 Keep in grid"], "ordinary reserved rows stay in the grid even when they look like shortcuts");
   customFooter = false; publishSnapshot();
   await wait(() => evaluate("!document.querySelector('[data-footer=build]')"), "profile removes custom footer");
-  await evaluate("document.querySelector('[aria-label=\"Close diagnostics\"]').click()");
+  assert.equal(await evaluate("!!document.querySelector('.diagnostics, .diagnostic-row, [aria-label=\"Close diagnostics\"]')"), false,
+    "parser diagnostics use editor/status presentation, not a separate pane");
+  assert.equal(await evaluate("[...document.querySelectorAll('button')].some(button => button.textContent.startsWith('Diagnostics'))"), false,
+    "no browser-only Diagnostics control is exposed");
+  const originalStatus = snapshot.status_line;
+  presentDiagnostic = true;
+  snapshot.status_line = "PROFILE  DEMO error  Line=4";
+  snapshot.status_pmsg = { text: "DEMO error in this record", severity: "ERROR", start: 9, length: 10,
+    colour: { foreground: "#FFFFFF", background: "#B22222", style: 1 } };
+  snapshot.diagnostic_colours = { error: { foreground: "#FFFFFF", background: "#B22222", style: 1 } };
+  publishSnapshot();
+  await wait(() => evaluate("!!document.querySelector('.syntax-diagnostic-error, .status-pmsg')"), "inline parser error");
+  assert.equal(await evaluate("document.querySelector('.status-pmsg').textContent"), "DEMO error", "cursor-local error uses profile status line");
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.status-pmsg')).backgroundColor"), "rgb(178, 34, 34)", "PMSGERROR profile colour reaches status");
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.syntax-diagnostic-error')).backgroundColor"), "rgb(178, 34, 34)", "CBERROR profile colour reaches editor text");
+  assert.equal(await evaluate("document.querySelectorAll('.dock-entry').length"), 0, "parser cursor message does not enter command history");
+  presentDiagnostic = false;
+  snapshot.status_line = originalStatus;
+  snapshot.status_pmsg = null;
+  publishSnapshot();
+  await wait(() => evaluate("!document.querySelector('.syntax-diagnostic-error, .status-pmsg')"), "parser error clears");
   const closedPaneGeometry = [];
   for (const [width, height] of [[390, 844], [800, 700]]) {
     await viewport(width, height);
@@ -203,7 +225,6 @@ try {
   }
   console.log("Closed-pane responsive geometry: " + JSON.stringify(closedPaneGeometry));
   await viewport(1280, 800);
-  await pane("Diagnostics");
   for (let index = 0; index < 2; index++) {
     await setInput("#the-command", "locate /alpha/");
     await evaluate("document.querySelector('.command-form').requestSubmit()");
@@ -358,9 +379,9 @@ try {
 
   for (const [width, height] of [[1280, 800], [1920, 1080]]) {
     await viewport(width, height);
-    const files = await geometry(".file-explorer"), editor = await geometry(".editor-pane"), diagnostics = await geometry(".diagnostics"), programConsole = await geometry(".rexx-dock");
-    assert(files.visible && editor.visible && diagnostics.visible && programConsole.visible, "all wide panes visible");
-    assert(files.right <= editor.left && editor.right <= programConsole.left && diagnostics.bottom <= programConsole.top, "wide panes do not overlap");
+    const files = await geometry(".file-explorer"), editor = await geometry(".editor-pane"), programConsole = await geometry(".rexx-dock");
+    assert(files.visible && editor.visible && programConsole.visible, "wide workbench panes visible");
+    assert(files.right <= editor.left && editor.right <= programConsole.left, "wide panes do not overlap");
     assert(programConsole.right <= width && programConsole.bottom <= height + 1, "console fits viewport");
     const surface = await geometry(".editor-scroll"), status = await geometry(".editor-status"), commands = await geometry(".command-area");
     assert(Math.abs(surface.bottom - status.top) < 1 && status.bottom <= commands.top, "status and guide immediately follow editor");
@@ -380,9 +401,6 @@ try {
   const previousConsoleWidth = (await geometry(".rexx-dock")).width;
   await evaluate("document.querySelector('[aria-label=\"Resize auxiliary panes\"]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true,cancelable:true}))");
   await wait(async () => (await geometry(".rexx-dock")).width > previousConsoleWidth, "auxiliary resize");
-  const previousDiagnosticsHeight = (await geometry(".diagnostics")).height;
-  await evaluate("document.querySelector('[aria-label=\"Resize diagnostics and program console\"]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true}))");
-  await wait(async () => (await geometry(".diagnostics")).height > previousDiagnosticsHeight, "diagnostics/console resize");
   await setInput("#rexx-input", "unsent input");
   await setInput("#the-command", "unsent command");
   await evaluate("window.originalConsole=document.querySelector('.rexx-dock');document.querySelector('.input-sink').focus()");
@@ -446,26 +464,10 @@ try {
   assert.equal(await evaluate("document.documentElement.scrollWidth<=innerWidth"), true, "phone shell has no horizontal overflow");
   assert.equal((await geometry(".pane-switcher")).visible, false, "phone has one auxiliary selector");
   assert.equal((await geometry(".mobile-aux-tabs")).visible, true);
-  assert.equal(await evaluate("document.querySelector('.diagnostic-row .severity').classList.contains('severity-error')"), true, "uppercase parser severity gets error class");
-  assert.equal(await evaluate("getComputedStyle(document.querySelector('.diagnostic-row .severity')).color"), "rgb(224, 108, 117)", "uppercase parser error uses error colour");
-  const originalDiagnostics = snapshot.diagnostics;
-  snapshot.diagnostics = Array.from({ length: 20 }, (_, index) => ({ line: index + 2, column: 1, severity: "ERROR", code: "DEMO", message: `Example diagnostic ${index + 1}` }));
-  publishSnapshot();
-  await viewport(455, 700);
-  await evaluate("[...document.querySelectorAll('.mobile-aux-tabs button')].find(n=>n.textContent.startsWith('Diagnostics')).click()");
-  await wait(() => evaluate("document.querySelector('.workspace').classList.contains('mobile-pane-diagnostics')"), "phone diagnostics selection");
-  const mobileDiagnostics = await geometry(".diagnostics");
-  assert(mobileDiagnostics.visible && mobileDiagnostics.top >= 0 && mobileDiagnostics.bottom <= 700, "phone diagnostics pane fits viewport");
-  assert.equal(await evaluate("document.querySelector('.diagnostics').scrollHeight > document.querySelector('.diagnostics').clientHeight"), true, "long diagnostics scroll inside pane");
-  await evaluate("document.querySelector('.diagnostics').scrollTop = document.querySelector('.diagnostics').scrollHeight");
-  assert.equal(await evaluate("(() => { const pane=document.querySelector('.diagnostics').getBoundingClientRect(), row=[...document.querySelectorAll('.diagnostic-row')].at(-1).getBoundingClientRect(); return row.top>=pane.top && row.bottom<=pane.bottom; })()"), true, "last diagnostic remains reachable in phone pane");
-  await viewport(455, 450);
-  assert.equal(await evaluate("document.querySelector('.workspace').scrollHeight > document.querySelector('.workspace').clientHeight"), true, "short phone scrolls the workspace to reach diagnostics");
-  await evaluate("document.querySelector('.diagnostics').scrollIntoView({block:'end'})");
-  const shortDiagnostics = await geometry(".diagnostics");
-  assert(shortDiagnostics.top >= 0 && shortDiagnostics.bottom <= 450, "short phone can bring diagnostics fully into view");
-  snapshot.diagnostics = originalDiagnostics;
-  publishSnapshot();
+  assert.equal(await evaluate("!!document.querySelector('.diagnostics, .diagnostic-row')"), false,
+    "phone has no Diagnostics pane");
+  assert.equal(await evaluate("[...document.querySelectorAll('.mobile-aux-tabs button')].some(button => button.textContent.startsWith('Diagnostics'))"), false,
+    "phone controls use the same editor/status diagnostic presentation");
   await viewport(390, 844);
   await evaluate("[...document.querySelectorAll('.mobile-aux-tabs button')].find(n=>n.textContent==='Files').click()");
   await wait(() => evaluate("document.querySelector('.workspace').classList.contains('mobile-pane-files')"), "phone files selection");

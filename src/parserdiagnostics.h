@@ -19,5 +19,7 @@ typedef struct
 short the_parser_diagnostics_collect(TheParserDiagnostic **diagnostics,
                                      int *count);
 void the_parser_diagnostics_free(TheParserDiagnostic *diagnostics);
+int the_parser_diagnostic_at_cursor(TheParserDiagnostic *diagnostic, int *severity);
+const char *the_parser_diagnostic_display_message(const TheParserDiagnostic *diagnostic);
 
 #endif

@@ -11,6 +11,8 @@ void the_wasm_highlight_restart(void);
 int the_wasm_highlight_row(FILE_DETAILS *file, UiFrame *frame, size_t row);
 int the_wasm_highlight_metadata(char *out, size_t capacity);
 short the_wasm_highlight_diagnostics(TheParserDiagnostic **out, int *count);
+int the_wasm_highlight_message(LINETYPE line, int cell, TheParserDiagnostic *out,
+                                int *severity);
 void the_wasm_highlight_reply(unsigned id, unsigned revision, const char *payload, int failed);
 
 #endif

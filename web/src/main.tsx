@@ -17,7 +17,8 @@ import {
 import type { DriverMessage, FileListMessage, FrontendActionDefinition, ScreenRow, Snapshot, StyleRun } from "./types";
 import "./styles.css";
 import {RexxConsole, type ToolSession} from './rexx-console';
-import { consoleColourVariables, renderColour as panelColour } from "./colours";
+import { consoleColourVariables, diagnosticColourVariables, renderColour as panelColour } from "./colours";
+import { HighlightPresentation } from "./highlight-presentation";
 
 const keyNames: Record<string, string> = {
   ArrowLeft: "left",
@@ -54,6 +55,15 @@ function footerContent(row: ScreenRow): preact.ComponentChildren {
   if (row.t && row.s?.length && row.footer_text.endsWith(row.t))
     return <>{row.footer_text.slice(0, -row.t.length)}{styledText(row.t, row.s, false)}</>;
   return row.footer_text;
+}
+
+function statusContent(line: string, message: Snapshot["status_pmsg"]): preact.ComponentChildren {
+  if (!message || !Number.isInteger(message.start) || !Number.isInteger(message.length)) return line;
+  const points = Array.from(line);
+  const start = message.start, end = start + message.length;
+  if (start < 0 || message.length <= 0 || end > points.length) return line;
+  const severity = ["ERROR", "WARNING", "INFORMATION"].includes(message.severity) ? message.severity.toLowerCase() : "information";
+  return <>{points.slice(0, start).join("")}<span class={`status-pmsg status-pmsg-${severity}`} style={panelColour(message.colour)} title={message.text}>{points.slice(start, end).join("")}</span>{points.slice(end).join("")}</>;
 }
 
 function styledText(text: string, styles: StyleRun[] | undefined, showTabs = true) {
@@ -149,13 +159,11 @@ function App() {
   const [commandFocused, setCommandFocused] = useState(false);
   const [actions, setActions] = useState<FrontendActionDefinition[]>([]);
   const [openMenu, setOpenMenu] = useState<"application" | "about" | null>(null);
-  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [runRequest, setRunRequest] = useState(0);
-  const [mobilePane, setMobilePane] = useState<"files" | "diagnostics" | "console">("files");
+  const [mobilePane, setMobilePane] = useState<"files" | "console">("files");
   const [filesWidth, setFilesWidth] = useState(216);
   const [auxWidth, setAuxWidth] = useState(400);
-  const [diagnosticsHeight, setDiagnosticsHeight] = useState(190);
   const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [commandHistoryOpen, setCommandHistoryOpen] = useState(false);
   const [dockEntries, setDockEntries] = useState<DockEntry[]>([]);
@@ -171,6 +179,7 @@ function App() {
   const gridRef = useRef<HTMLDivElement | null>(null);
   const cellProbeRef = useRef<HTMLSpanElement | null>(null);
   const snapshotRef = useRef<Snapshot | null>(null);
+  const highlightPresentationRef = useRef(new HighlightPresentation());
   const lastFileFocusRef = useRef<Snapshot["focus"] | null>(null);
   const viewportSizeRef = useRef("");
   const messageSerialRef = useRef<number | null>(null);
@@ -352,10 +361,6 @@ function App() {
       setMobilePane("console");
     }
   }, [toolSession?.job.id]);
-
-  useEffect(() => {
-    if (snapshot?.diagnostics?.length) setDiagnosticsOpen(true);
-  }, [snapshot?.buffer?.path, !!snapshot?.diagnostics?.length]);
 
   useEffect(() => {
     if (followingResponsesRef.current && responseLogRef.current)
@@ -590,7 +595,7 @@ function App() {
     [requestAction, send, snapshot?.panel],
   );
 
-  const rows = snapshot?.screen_rows ?? [];
+  const rows = useMemo(() => highlightPresentationRef.current.rows(snapshot), [snapshot]);
   const currentBuffer = snapshot?.buffers.find((buffer) => buffer.current);
   const title = currentBuffer ? basename(currentBuffer.path) : "CRXTHE";
   const cursorRow = useMemo(
@@ -632,12 +637,10 @@ function App() {
   };
   const maximumFilesWidth = Math.max(180, Math.min(400, Math.floor(windowSize.width * .25)));
   const maximumAuxWidth = Math.max(300, Math.min(650, Math.floor(windowSize.width * .36)));
-  const maximumDiagnosticsHeight = Math.max(96, Math.min(440, Math.floor((windowSize.height - 120) * .35)));
-  const showAux = diagnosticsOpen || consoleOpen;
+  const showAux = consoleOpen;
   const activeMobilePane = mobilePane === "files" && explorerOpen ? "files"
-    : mobilePane === "diagnostics" && diagnosticsOpen ? "diagnostics"
     : mobilePane === "console" && consoleOpen ? "console"
-    : explorerOpen ? "files" : diagnosticsOpen ? "diagnostics" : "console";
+    : explorerOpen ? "files" : "console";
   const latestResponse = [...dockEntries].reverse().find((entry) => entry.kind !== "command");
   const toggleFiles = () => {
     if (window.innerWidth >= 1100 || activeMobilePane === "files") setExplorerOpen(!explorerOpen);
@@ -647,7 +650,7 @@ function App() {
   };
 
   return (
-    <main class="app-shell" onKeyDownCapture={onWorkbenchKeyDown} style={consoleColourVariables(snapshot?.console_colours)}>
+    <main class="app-shell" onKeyDownCapture={onWorkbenchKeyDown} style={{...consoleColourVariables(snapshot?.console_colours), ...diagnosticColourVariables(snapshot?.diagnostic_colours)}}>
       <header class="toolbar">
         <div class="product-mark">CRXTHE</div>
         <div class="menu-root" ref={menuRef}>
@@ -673,7 +676,6 @@ function App() {
             </section>)}
             <section aria-label="Workbench"><h2>Workbench</h2>
               <button type="button" onClick={() => { toggleFiles(); setOpenMenu(null); }}>Files</button>
-              <button type="button" onClick={() => { setDiagnosticsOpen(true); setMobilePane("diagnostics"); setOpenMenu(null); }}>Diagnostics</button>
               <button type="button" onClick={() => { setConsoleOpen(true); setMobilePane("console"); setOpenMenu(null); }}>Program console</button>
               <button type="button" onClick={() => {
                 setOpenMenu(null);
@@ -730,7 +732,6 @@ function App() {
       <div class="workbench">
       <div class="pane-switcher" role="group" aria-label="Workbench panes">
         <button type="button" aria-pressed={explorerOpen} onClick={toggleFiles}>Files</button>
-        <button type="button" aria-pressed={diagnosticsOpen} onClick={() => { setDiagnosticsOpen(window.innerWidth < 1100 && activeMobilePane !== "diagnostics" ? true : !diagnosticsOpen); setMobilePane("diagnostics"); }}>Diagnostics <span>{snapshot?.diagnostics?.length ?? 0}</span></button>
         <button type="button" class="console-toggle" ref={consoleButtonRef} aria-pressed={consoleOpen} onClick={() => { setConsoleOpen(window.innerWidth < 1100 && activeMobilePane !== "console" ? true : !consoleOpen); setMobilePane("console"); }}>
           Console{toolSession?.job.waiting ? " · Input requested" : toolSession?.job.running ? " · Running" : ""}
         </button>
@@ -739,7 +740,6 @@ function App() {
       </div>
       <section class={`workspace mobile-pane-${activeMobilePane} ${explorerOpen ? "files-open" : ""} ${showAux ? "aux-open" : ""}`} style={{
         "--files-width": `${Math.min(filesWidth, maximumFilesWidth)}px`, "--aux-width": `${Math.min(auxWidth, maximumAuxWidth)}px`,
-        "--diagnostics-height": `${Math.min(diagnosticsHeight, maximumDiagnosticsHeight)}px`,
       }}>
         {explorerOpen ? (
           <aside class="file-explorer" aria-label="Workspace files">
@@ -868,7 +868,7 @@ function App() {
         <section class="editor-status" aria-label="Editor status and key guide">
           <div class="status-line" aria-label="Editing status" hidden={snapshot?.status_line === null}
             data-focus-zone={snapshot?.focus.zone} data-focus-line={snapshot?.focus.line} data-focus-cell={snapshot?.focus.cell} data-buffer-dirty={snapshot?.buffer?.dirty ?? 0}>
-            {typeof snapshot?.status_line === "string" ? <pre class="profile-status">{snapshot.status_line}</pre> : <>
+            {typeof snapshot?.status_line === "string" ? <pre class="profile-status">{statusContent(snapshot.status_line, snapshot.status_pmsg)}</pre> : <>
             <span>Ln {snapshot?.focus.line ?? 0}, Col {(snapshot?.focus.cell ?? 0) + 1}</span>
             <span>{snapshot?.focus.zone === "prefix" ? "Prefix" : snapshot?.focus.zone === "command" || commandFocused ? "Command" : "File"}</span>
             <span>{snapshot?.buffer?.dirty ? "Modified" : "Saved"}</span>
@@ -904,34 +904,12 @@ function App() {
 
         <div class="mobile-aux-tabs" role="group" aria-label="Choose auxiliary pane">
           <button type="button" aria-pressed={activeMobilePane === "files" && explorerOpen} onClick={() => { setExplorerOpen(true); setMobilePane("files"); requestFiles(); }}>Files</button>
-          <button type="button" aria-pressed={activeMobilePane === "diagnostics" && diagnosticsOpen} onClick={() => { setDiagnosticsOpen(true); setMobilePane("diagnostics"); }}>Diagnostics <span>{snapshot?.diagnostics?.length ?? 0}</span></button>
           <button type="button" class="console-toggle" ref={mobileConsoleButtonRef} aria-pressed={activeMobilePane === "console" && consoleOpen} onClick={() => { setConsoleOpen(true); setMobilePane("console"); }}>Console{toolSession?.job.waiting ? " · Input requested" : ""}</button>
           <button type="button" class="run-rexx" disabled={!!runUnavailable} title={runUnavailable || "Run the current buffer, including unsaved edits"} aria-describedby={runUnavailable ? "mobile-run-unavailable" : undefined} onClick={runRexx}>Run Rexx</button>
           {runUnavailable ? <span class="run-unavailable" id="mobile-run-unavailable">{runUnavailable}</span> : null}
         </div>
         {showAux ? <PaneSplitter label="Resize auxiliary panes" orientation="vertical" reverse consoleDivider={consoleOpen} value={Math.min(auxWidth, maximumAuxWidth)} minimum={300} maximum={maximumAuxWidth} onChange={setAuxWidth} /> : null}
-        <div class={`auxiliary-rail ${diagnosticsOpen && consoleOpen ? "auxiliary-split" : ""}`} hidden={!showAux}>
-        {diagnosticsOpen ? (
-          <aside class="diagnostics" aria-label="Diagnostics">
-            <div class="panel-heading">Diagnostics <span>{snapshot?.diagnostics?.length ?? 0}</span><button type="button" class="icon-button" aria-label="Close diagnostics" onClick={() => { setDiagnosticsOpen(false); focusEditor(); }}><X size={16} /></button></div>
-            {!snapshot?.diagnostics?.length ? <p class="empty-directory">No diagnostics for this buffer.</p> : null}
-            {snapshot?.diagnostics?.map((diagnostic) => (
-              <button
-                type="button"
-                class="diagnostic-row"
-                onClick={() => {
-                  send({ type: "hit", target: "filearea", line: diagnostic.line, row: 0, cell: Math.max(0, diagnostic.column - 1) });
-                  focusEditor();
-                }}
-              >
-                <span class={`severity severity-${(diagnostic.severity || "info").toLowerCase()}`}>{diagnostic.severity || "info"}</span>
-                <span class="diagnostic-location">{diagnostic.line}:{diagnostic.column}</span>
-                <span class="diagnostic-message">{diagnostic.message}</span>
-              </button>
-            ))}
-          </aside>
-        ) : null}
-        {diagnosticsOpen && consoleOpen ? <PaneSplitter label="Resize diagnostics and program console" orientation="horizontal" consoleDivider value={Math.min(diagnosticsHeight, maximumDiagnosticsHeight)} minimum={96} maximum={maximumDiagnosticsHeight} onChange={setDiagnosticsHeight} /> : null}
+        <div class="auxiliary-rail" hidden={!showAux}>
         <div class="program-console-pane" hidden={!consoleOpen}>
           {toolSession ? <RexxConsole send={send} session={toolSession} snapshot={snapshot} runRequest={runRequest} onClose={() => { setConsoleOpen(false); focusEditor(); }} focusEditor={focusEditor} />
             : <p class="empty-directory">Program console unavailable: no program tools were provided.</p>}

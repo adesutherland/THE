@@ -1,5 +1,5 @@
 import type { JSX } from "preact";
-import type { ConsoleColours, PanelColour } from "./types";
+import type { ConsoleColours, DiagnosticColours, PanelColour } from "./types";
 
 export function renderColour(colour: PanelColour | undefined): JSX.CSSProperties {
   if (!colour) return {};
@@ -31,6 +31,17 @@ export function consoleColourVariables(colours: ConsoleColours | undefined): JSX
       if (value !== undefined)
         variables[`--console-${area}-${property.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`] = value;
     }
+  }
+  return variables;
+}
+
+export function diagnosticColourVariables(colours: DiagnosticColours | undefined): JSX.CSSProperties {
+  const variables: JSX.CSSProperties = {};
+  for (const [severity, colour] of Object.entries(colours ?? {})) {
+    const rendered = renderColour(colour);
+    if (rendered.color) variables[`--diagnostic-${severity}-color`] = rendered.color;
+    if (rendered.backgroundColor) variables[`--diagnostic-${severity}-background-color`] = rendered.backgroundColor;
+    if (rendered.fontWeight) variables[`--diagnostic-${severity}-font-weight`] = rendered.fontWeight;
   }
   return variables;
 }

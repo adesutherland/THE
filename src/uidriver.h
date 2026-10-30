@@ -65,7 +65,10 @@ typedef enum
    UI_SYNTAX_ALT_KEYWORD_7,
    UI_SYNTAX_ALT_KEYWORD_8,
    UI_SYNTAX_ALT_KEYWORD_9,
-   UI_SYNTAX_UNKNOWN
+   UI_SYNTAX_UNKNOWN,
+   UI_SYNTAX_DIAGNOSTIC_ERROR,
+   UI_SYNTAX_DIAGNOSTIC_WARNING,
+   UI_SYNTAX_DIAGNOSTIC_INFORMATION
 } UiSyntaxStyle;
 
 typedef struct
@@ -135,6 +138,8 @@ typedef struct
 
 const char *ui_row_role_name(UiRowRole role);
 const char *ui_syntax_style_name(UiSyntaxStyle style);
+/* DSLSH severity codes are the printable characters '0' through '3'. */
+UiSyntaxStyle ui_diagnostic_style(int severity);
 int ui_row_role_allows_cursor(UiRowRole role);
 UiRowRole ui_row_role_from_cursor_zone(LogicalCursorZone zone);
 void ui_frame_init(UiFrame *frame, int rows, int cols);

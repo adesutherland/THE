@@ -203,7 +203,6 @@ button { color: inherit; }
 .workspace.files-open.aux-open { grid-template-columns: var(--files-width) 8px minmax(0, 1fr) 8px var(--aux-width); }
 .editor-pane { display: grid; grid-template-rows: minmax(0, 1fr) auto auto; min-width: 0; min-height: 0; }
 .auxiliary-rail { display: grid; min-width: 0; min-height: 0; background: #1b1e22; overflow: hidden; }
-.auxiliary-rail.auxiliary-split { grid-template-rows: minmax(80px, min(var(--diagnostics-height), 35%)) 8px minmax(0, 1fr); }
 .mobile-aux-tabs { display: none; }
 .program-console-pane { min-width: 0; min-height: 0; overflow: auto; }
 .pane-splitter { background: #29313b; touch-action: none; }
@@ -382,49 +381,12 @@ button { color: inherit; }
 .syntax-directory { color: #68b0a0; }
 .syntax-executable { color: #76b68b; }
 .syntax-link { color: #68b0a0; text-decoration: underline; }
-
-.diagnostics {
-  min-width: 0;
-  min-height: 0;
-  overflow-y: auto;
-  border-left: 1px solid #34383f;
-  background: #1b1e22;
-}
-
-.panel-heading {
-  display: flex;
-  justify-content: space-between;
-  padding: 9px 11px;
-  border-bottom: 1px solid #34383f;
-  color: #c5cbd4;
-  font-size: 12px;
-  font-weight: 600;
-  align-items: center;
-  gap: 8px;
-}
-.panel-heading .icon-button { margin-left: auto; }
-
-.diagnostic-row {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
-  gap: 8px;
-  width: 100%;
-  padding: 8px 10px;
-  border: 0;
-  border-bottom: 1px solid #2c3036;
-  background: transparent;
-  color: #b9c0ca;
-  font-size: 11px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.diagnostic-row:hover { background: #25292f; }
-.severity { color: #d9a441; text-transform: uppercase; }
-.severity-error { color: #e06c75; }
-.severity-warning { color: #d9a441; }
-.diagnostic-location { color: #7f8996; font-family: var(--editor-font); }
-.diagnostic-message { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.syntax-diagnostic-error { color: var(--diagnostic-error-color, #fff); background-color: var(--diagnostic-error-background-color, firebrick); font-weight: var(--diagnostic-error-font-weight, 700); }
+.syntax-diagnostic-warning { color: var(--diagnostic-warning-color, #000); background-color: var(--diagnostic-warning-background-color, gold); font-weight: var(--diagnostic-warning-font-weight, 400); }
+.syntax-diagnostic-information { color: var(--diagnostic-information-color, #fff); background-color: var(--diagnostic-information-background-color, #007acc); font-weight: var(--diagnostic-information-font-weight, 400); }
+.status-pmsg-error { color: #fff; background-color: firebrick; }
+.status-pmsg-warning { color: #000; background-color: gold; }
+.status-pmsg-information { color: #fff; background-color: #007acc; }
 
 .screen-row.profile-footer-source { display: none; }
 .command-area { min-width: 0; border-top: 1px solid #34383f; background: #202328; }
@@ -566,14 +528,11 @@ button { color: inherit; }
   .editor-pane { flex:none; order:1; height:auto; min-height:0; grid-template-rows:clamp(220px,45dvh,450px) auto auto; }
   .workspace:not(.files-open):not(.aux-open) .editor-pane { flex:1 1 0; grid-template-rows:minmax(0,1fr) auto auto; }
   .file-explorer { flex:none; order:3; height:330px; width:100%; border-right:0; border-top:1px solid #566373; }
-  .auxiliary-rail, .auxiliary-rail.auxiliary-split { display:flex; flex:none; flex-direction:column; order:3; min-height:0; height:auto; border-top:1px solid #566373; }
+  .auxiliary-rail { display:flex; flex:none; flex-direction:column; order:3; min-height:0; height:auto; border-top:1px solid #566373; }
   .mobile-aux-tabs { display:flex; flex:none; order:2; flex-wrap:wrap; gap:4px; padding:5px 8px; }
-  .diagnostics { flex:none; max-height:330px; }
   .program-console-pane { flex:none; height:410px; }
   .workspace:not(.mobile-pane-files) .file-explorer { display:none; }
   .workspace.mobile-pane-files .auxiliary-rail { display:none; }
-  .workspace.mobile-pane-diagnostics .program-console-pane { display:none; }
-  .workspace.mobile-pane-console .diagnostics { display:none; }
   .connection span { display:none; }
 }
 
@@ -611,11 +570,6 @@ button { color: inherit; }
   .console-run-controls, .console-heading { padding-inline:8px; }
   .console-run-controls select { max-width:155px; }
   .file-list > button, .root-switcher button { min-height:40px; }
-  .diagnostic-row { min-height:44px; }
-  .diagnostic-message { white-space:normal; }
-  .workspace.mobile-pane-diagnostics .editor-pane { grid-template-rows:minmax(140px,25dvh) auto auto; }
-  .workspace.mobile-pane-diagnostics .auxiliary-rail { flex:1 0 120px; height:0; min-height:120px; }
-  .workspace.mobile-pane-diagnostics .diagnostics { flex:1 1 auto; min-height:0; max-height:none; overflow-y:auto; }
 }
 
 @media (prefers-reduced-motion:reduce) { .connection-reconnecting svg { animation:none; } }

@@ -67,3 +67,5 @@ if rg -q 'Error opening terminal|setupterm|initscr' "$out" "$err"; then
   cat "$out" "$err" >&2
   exit 1
 fi
+
+python3 "$repo_root/tests/test_parser_presentation.py" "$the_bin"

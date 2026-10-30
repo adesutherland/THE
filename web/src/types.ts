@@ -45,11 +45,14 @@ export interface PanelColour {
 }
 
 export type ConsoleColours = Partial<Record<"body" | "header" | "input" | "control" | "selected" | "divider" | "error" | "status", PanelColour>>;
+export type DiagnosticColours = Partial<Record<"error" | "warning" | "information", PanelColour>>;
 
 export interface Snapshot {
   console_colours?: ConsoleColours;
+  diagnostic_colours?: DiagnosticColours;
+  status_pmsg?: { text: string; severity: string; start: number; length: number; colour?: PanelColour } | null;
   source?: {id:number; revision:number};
-  parser?: { provider: string; state: string; id: number; revision: number; applied: number; stale: number };
+  parser?: { provider: string; providerId?: string; state: string; id: number; revision: number; applied: number; stale: number };
   viewport?: { rows: number; cols: number; reserved_rows: number; prefix_cols: number; prefix_gap: number };
   panel?: {
     rows: number;

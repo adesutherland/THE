@@ -130,11 +130,20 @@ It is separate from the profile VM, which must share the editor's synchronous
 
 `THE_WASM_HIGHLIGHT=ON` adds the maintained Classic parser in a second Wasm VM
 Worker. It highlights `.rexx` and `.rex` files and publishes located parser
-diagnostics. The edited program is never executed. The status bar identifies
-**Level L Classic Rexx** and reports `pending`, `ready`, `refused`, `error` or
+diagnostics. Errors, warnings and information appear on the affected editor
+text using the profile's `CBERROR`, `CBWARN` and `CBINFO` colours. When the
+cursor is on marked text, the profile's `PMSG.1` status field shows the
+message with its `PMSGERROR`, `PMSGWARN` or `PMSGINFO` colour. There is no
+separate browser Diagnostics pane. The edited program is never executed. The
+parser indicator identifies **Level L Classic Rexx** and reports `pending`,
+`ready`, `refused`, `error` or
 `too-large`. Click that status to restart the parser without restarting the
-editor. Until a current result is ready, that file's parser colours are cleared.
-Other file types retain their existing colourers.
+editor. While an edited revision is pending, the browser retains the previous
+lexical paint only for unchanged visible text in the same source/parser
+identity. Changed text receives no cached colours. A completed result replaces
+that paint; a parser/profile restart, refusal or failure clears it. Diagnostic
+severity is never retained from an older result. Other file types retain their
+existing colourers.
 
 The first connection sends complete C-owned logical source snapshots through
 DSLSH's existing eight-hex-byte framing. It coalesces unsent revisions and keeps
@@ -142,8 +151,8 @@ one ordered request in flight. The service has one replaceable mirror; the host
 retains each real document ID and revision. Replies enter C through its input
 queue and are checked again against the current revision. Closing a file retires
 its identity, so a late reply cannot attach to a reopened file. JavaScript does
-not own editor text or apply syntax spans. The C owner uses the shared DSLSH
-codec and critical-section helpers, validates bounded coverage and converts
+not own editor text or authoritative parser results. The C owner uses the
+shared DSLSH codec and critical-section helpers, validates bounded coverage and converts
 Unicode codepoint spans to its semantic frame/diagnostic coordinates.
 
 This is a full-snapshot connection, rather than the native incremental
@@ -181,7 +190,17 @@ node web/test/wasm-classic-core.mjs build-wasm-classic
 python3 -m http.server 8770 --bind 127.0.0.1 --directory build-wasm-classic/site
 THE_WEB_URL=http://127.0.0.1:8770 \
 CHROMIUM_BIN='/path/to/chrome' node web/test/wasm-browser-smoke.mjs
+THE_WEB_URL=http://127.0.0.1:8770 \
+CHROMIUM_BIN='/path/to/chrome' node web/test/wasm-paint-smoke.mjs
+node web/test/highlight-presentation.mjs
 ```
+
+The paint smoke requires a running highlighter-enabled site, so it is a manual
+browser check rather than a native CTest dependency. It delays only delivery of
+completed UI snapshots to force observable pending frames, then checks pixel
+continuity on untouched text, DOM selection and caret retention, and exact
+saved/reopened bytes. The presentation check also covers identity changes,
+parser refusal/failure and removal of stale diagnostic styles.
 
 Configuration pins the reviewed image SHA-256 from `cmake/TheWasmHighlight.cmake`.
 A rebuilt image with another checksum needs explicit qualification and

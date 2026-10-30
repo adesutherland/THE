@@ -84,6 +84,13 @@ for engine in ['CREXX', 'REGINA']:
         def response(token):
             wait(lambda: token in screen.display[rows - 3], 'adjacent response: ' + token)
 
+        def saved_bytes_match(expected):
+            try:
+                return source.read_bytes() == expected
+            except FileNotFoundError:
+                # BACKUP renames the old file before writing its replacement.
+                return False
+
         try:
             wait(lambda: 'F10 Menu' in screen.display[rows - 4]
                  and 'PROFILE_READY' in screen.display[rows - 3], 'guided footer')
@@ -159,7 +166,9 @@ for engine in ['CREXX', 'REGINA']:
             wait(lambda: not any('Open or create file' in row for row in screen.display)
                  and (screen.cursor.x, screen.cursor.y) == caret, 'Menu cancel restores caret')
             send(b'Q\x13')
-            wait(lambda: source.read_text() == 'ZQalpha\nbeta\ngamma\ndelta\n', 'save after Menu')
+            expected_saved = b'ZQalpha\nbeta\ngamma\ndelta\n'
+            wait(lambda: saved_bytes_match(expected_saved), 'save after Menu')
+            assert source.read_bytes() == expected_saved
             send(b'\x1b[21~')
             wait(lambda: any('Open or create file' in row for row in screen.display), 'Menu reopened')
             find_row = next(y for y, line in enumerate(screen.display) if 'Find...' in line)
@@ -191,7 +200,7 @@ for engine in ['CREXX', 'REGINA']:
             send(b'\x1b[20~')  # F9: bounded test quit
             wait(lambda: process.poll() is not None, 'quit after resize', timeout=10)
             assert process.returncode == 0, process.returncode
-            assert source.read_text() == 'ZQalpha\nbeta\ngamma\ndelta\n'
+            assert source.read_bytes() == expected_saved
         finally:
             if process.poll() is None:
                 process.kill()

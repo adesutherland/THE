@@ -85,6 +85,7 @@
 #include "thedriver.h"
 #include "screenframe.h"
 #include "driverlayout.h"
+#include "parserdiagnostics.h"
 #ifdef USE_UTF8
 # include "utflayout.h"
 # include "utfrepair.h"
@@ -2087,6 +2088,53 @@ typedef struct
 #endif
 } ShowStatusPreview;
 
+static int startup_status_has_parser_message(void)
+{
+   LINE *option;
+   TheParserDiagnostic diagnostic;
+   int severity;
+
+   for (option = first_option; option; option = option->next)
+      if (option->name && strcmp((char *)option->name, "PMSG.1") == 0)
+         return the_parser_diagnostic_at_cursor(&diagnostic, &severity);
+   return FALSE;
+}
+
+static void status_parser_message_range(const CHARTYPE *row, int width,
+                                         int *start, int *length)
+{
+   LINE *option;
+   TheParserDiagnostic diagnostic;
+   int severity;
+   *start = *length = 0;
+   if (!the_parser_diagnostic_at_cursor(&diagnostic, &severity)) return;
+   for (option = first_option; option; option = option->next)
+   {
+      int offset, limit, count = 0;
+      const char *message = the_parser_diagnostic_display_message(&diagnostic);
+      if (!option->name || strcmp((char *)option->name, "PMSG.1")) continue;
+      offset = STATAREA_OFFSET + option->select + (option->line ? strlen((char *)option->line) : 0);
+      if (offset < 0 || offset >= width) continue;
+      limit = strlen(message);
+      if (option->save_select) limit = min(limit, option->save_select);
+      limit = min(limit, width - offset);
+      /* Respect profile placement and any later profile option that already
+       * overwrote its tail. Only protect the message actually formatted. */
+      while (count < limit && row[offset + count] == message[count]) count++;
+      if (count) { *start = offset; *length = count; }
+      return;
+   }
+}
+
+static int status_field_overlaps_message(int start, int length,
+                                          int message_start, int message_length)
+{
+   /* Keep one blank cell after PMSG so a narrow status does not join the
+    * explanation directly to a right-aligned indicator. */
+   return message_length > 0 && start < message_start + message_length + 1
+      && message_start < start + length;
+}
+
 static int prepare_statarea(CHARTYPE *row, int width, ShowStatusPreview *preview)
 /***********************************************************************/
 {
@@ -2108,6 +2156,8 @@ static int prepare_statarea(CHARTYPE *row, int width, ShowStatusPreview *preview
    time_t timer;
    struct tm *tblock=NULL;
    int length;
+   int pmsg_start = 0, pmsg_length = 0;
+   int clock_start, hex_start, hex_length;
    char _THE_FAR buffer[THE_MAX_SCREEN_WIDTH+10];
 
    TRACE_FUNCTION("show.c:    prepare_statarea");
@@ -2134,7 +2184,9 @@ static int prepare_statarea(CHARTYPE *row, int width, ShowStatusPreview *preview
    /*
     * Display number of files or copyright on startup.
     */
-   if (initial)
+   /* Command-driven frontends may not request a physical key, so startup's
+    * copyright must not mask a configured cursor-local parser message. */
+   if (initial && !startup_status_has_parser_message())
    {
       strcpy((DEFCHAR*)buffer,"   ");
       strcat((DEFCHAR*)buffer,(DEFCHAR*)the_copyright);
@@ -2161,10 +2213,19 @@ static int prepare_statarea(CHARTYPE *row, int width, ShowStatusPreview *preview
    }
    length = strlen(buffer);
    show_status_put_text(row, width, STATAREA_OFFSET, buffer, length);
+   status_parser_message_range(row, width, &pmsg_start, &pmsg_length);
+   clock_start = max(0, width - ((HEXDISPLAYx) ? 36 : 27));
+#ifdef USE_UTF8
+   hex_start = max(0, width - 27);
+   hex_length = min(20, max(0, (width - 7) - hex_start));
+#else
+   hex_start = max(0, width - 19);
+   hex_length = 12;
+#endif
    /*
     * Display CLOCK.
     */
-   if (CLOCKx)
+   if (CLOCKx && !status_field_overlaps_message(clock_start, 8, pmsg_start, pmsg_length))
    {
       timer = time(NULL);
       tblock = localtime(&timer);
@@ -2175,13 +2236,13 @@ static int prepare_statarea(CHARTYPE *row, int width, ShowStatusPreview *preview
       show_status_put_text(row, width,
          max(0, width - ((HEXDISPLAYx) ? 36 : 27)), buffer, strlen(buffer));
    }
-   else
+   else if (!status_field_overlaps_message(clock_start, 8, pmsg_start, pmsg_length))
       show_status_put_text(row, width,
          max(0, width - ((HEXDISPLAYx) ? 36 : 27)), "        ", 8);
    /*
     * Display HEXDISPLAY.
     */
-   if (HEXDISPLAYx)
+   if (HEXDISPLAYx && !status_field_overlaps_message(hex_start, hex_length, pmsg_start, pmsg_length))
    {
       if (show_status_target(CURRENT_VIEW, &status_line, &status_len,
                              &status_cell))
@@ -2339,22 +2400,25 @@ static int prepare_statarea(CHARTYPE *row, int width, ShowStatusPreview *preview
       }
 #endif
    }
-   else
+   else if (!status_field_overlaps_message(max(0, width - 19), 12, pmsg_start, pmsg_length))
       show_status_put_text(row, width,
                            max(0, width-19), "            ", 12);
    /*
     * Display colour setting.
     */
-   row[max(0,(width-7))] = (colour_support) ? 'C' : 'c';
+   if (!status_field_overlaps_message(max(0, width - 7), 1, pmsg_start, pmsg_length))
+      row[max(0,(width-7))] = (colour_support) ? 'C' : 'c';
    /*
     * Display REXX support character.
     */
-   row[max(0,(width-6))] = (rexx_support) ? REXX_INT_CHAR : ' ';
+   if (!status_field_overlaps_message(max(0, width - 6), 1, pmsg_start, pmsg_length))
+      row[max(0,(width-6))] = (rexx_support) ? REXX_INT_CHAR : ' ';
    /*
     * Display INSERTMODE toggle.
     */
-   show_status_put_text(row, width, max(0, width-5),
-                        INSERTMODEx ? " INS " : "     ", 5);
+   if (!status_field_overlaps_message(max(0, width - 5), 5, pmsg_start, pmsg_length))
+      show_status_put_text(row, width, max(0, width-5),
+                           INSERTMODEx ? " INS " : "     ", 5);
    row[width] = '\0';
 #ifdef USE_UTF8
    preview->charpos = charpos;

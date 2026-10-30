@@ -120,6 +120,12 @@ typedef struct
    char status[LLM_DRIVER_MAX_COMMAND + 1];
    int status_line_visible;
    char status_line[LLM_DRIVER_MAX_COLS + 1];
+   char status_pmsg[LLM_DRIVER_MAX_DIAGNOSTIC_MESSAGE];
+   char status_pmsg_severity[LLM_DRIVER_MAX_DIAGNOSTIC_SEVERITY];
+   int status_pmsg_start, status_pmsg_length;
+   TheRenderAttr status_pmsg_colour;
+   int diagnostic_colours_valid;
+   TheRenderAttr diagnostic_colours[3]; /* error, warning, information */
    unsigned long last_message_serial;
    char last_message[LLM_DRIVER_MAX_MESSAGE + 1];
    char buffer_path[LLM_DRIVER_MAX_PATH + 1];
