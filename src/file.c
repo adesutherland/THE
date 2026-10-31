@@ -40,6 +40,7 @@
 #endif
 #include "proto.h"
 #include "workbenchdocument.h"
+#include "editgroup.h"
 #include "thedriver.h"
 
 #include <errno.h>
@@ -918,6 +919,10 @@ short save_file(FILE_DETAILS *cf,CHARTYPE *new_fname,bool force,LINETYPE in_line
    LINETYPE my_num_file_lines=0L;
    short direction=(in_lines < 0L ? DIRECTION_BACKWARD : DIRECTION_FORWARD);
    LINE *curr=NULL;
+   const void *checkpoint_file=NULL;
+   const unsigned char *checkpoint_base=NULL,*checkpoint_text=NULL;
+   size_t checkpoint_line=0,checkpoint_base_length=0,checkpoint_length=0;
+   int checkpoint_overlay=0;
    FILE *fp=NULL;
    LENGTHTYPE col=0,newcol=0;
    long off=0L;
@@ -932,6 +937,11 @@ short save_file(FILE_DETAILS *cf,CHARTYPE *new_fname,bool force,LINETYPE in_line
 #endif
 
    TRACE_FUNCTION("file.c:    save_file");
+   /* SAVE can enter through a direct key binding, not command_line. The
+    * edit-group's own optional autosave tail suppresses this admission hook. */
+   the_edit_group_changed();
+   if(autosave) checkpoint_overlay=the_workbench_document_record(&checkpoint_file,&checkpoint_line,
+      &checkpoint_base,&checkpoint_base_length,&checkpoint_text,&checkpoint_length) && checkpoint_file==cf;
 
    /*
     * Do not attempt to autosave a pseudo file...
@@ -1241,6 +1251,13 @@ short save_file(FILE_DETAILS *cf,CHARTYPE *new_fname,bool force,LINETYPE in_line
             num_actual_lines++;
             break;
          default:
+         {
+            LINE output=*curr;
+            /* A recovery checkpoint must include a certified pending working
+             * record without committing it or changing its ownership. */
+            if(checkpoint_overlay && checkpoint_line==(size_t)(start_line+(LINETYPE)(i*direction))) {
+               output.line=(CHARTYPE *)checkpoint_text; output.length=(LENGTHTYPE)checkpoint_length;
+            }
             rc = 0;
             if (cf->tabsout_on)
             {
@@ -1249,7 +1266,7 @@ short save_file(FILE_DETAILS *cf,CHARTYPE *new_fname,bool force,LINETYPE in_line
                while (1)
                {
                   newcol = col;
-                  while ((c = next_char(curr,&off,end_col+1)) == ' ')
+                  while ((c = next_char(&output,&off,end_col+1)) == ' ')
                   {
                      newcol++;
                      if ((newcol % cf->tabsout_num) == 0)
@@ -1275,9 +1292,9 @@ short save_file(FILE_DETAILS *cf,CHARTYPE *new_fname,bool force,LINETYPE in_line
             }
             else
             {
-               if ( start_col < curr->length )
+               if ( start_col < output.length )
                {
-                  if ( ( rc = write_line( curr->line+start_col, min( curr->length-start_col, (end_col - start_col) + 1 ), fp, CURRENT_FILE->trailing ) ) == RC_DISK_FULL )
+                  if ( ( rc = write_line( output.line+start_col, min( output.length-start_col, (end_col - start_col) + 1 ), fp, CURRENT_FILE->trailing ) ) == RC_DISK_FULL )
                      break;
                }
                else
@@ -1296,6 +1313,7 @@ short save_file(FILE_DETAILS *cf,CHARTYPE *new_fname,bool force,LINETYPE in_line
                break;
             num_actual_lines++;
             break;
+         }
       }
       /*
        * Proceed to the next record, even if the current record not in scope.
@@ -1470,6 +1488,7 @@ void increment_alt(FILE_DETAILS *cf)
 /***********************************************************************/
 {
    TRACE_FUNCTION("file.c:    increment_alt");
+   the_edit_group_changed();
    cf->autosave_alt++;
    cf->save_alt++;
    /*

@@ -792,7 +792,8 @@ static int apply_text_bytes_body(const char *text)
 static int apply_text_bytes(const char *text)
 {
    int result;
-   the_workbench_document_enter();
+   the_workbench_document_input_enter(CURRENT_VIEW && CURRENT_VIEW->current_window==WINDOW_COMMAND
+      && !(INTERFACEx==INTERFACE_CUA && MARK_VIEW==CURRENT_VIEW && MARK_VIEW->mark_type==M_CUA));
    result = apply_text_bytes_body(text);
    the_workbench_document_leave();
    llm_session_refresh();

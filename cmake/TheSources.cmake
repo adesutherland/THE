@@ -19,6 +19,8 @@ set(THE_SOURCES
     src/driverlayout.c
     src/editorsource.c
     src/editordocument.c
+    src/editgroup.c
+    src/editorgroup.c
     src/toolhost.c
     src/tools.c
     src/workbench.c

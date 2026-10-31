@@ -8,6 +8,7 @@
 #include "query.h"
 #include "editordocument.h"
 #include "workbenchform.h"
+#include "editorgroup.h"
 
 #include <ctype.h>
 #include <limits.h>
@@ -272,6 +273,35 @@ static int fallback_tokens(const Token *t,TheWorkbenchPlacement *out,size_t *cou
 }
 
 static int unsigned64_value(const Token *t,uint64_t *value);
+static int edit_number(const Token *t,uint64_t *value)
+{ return !(t->text[0]=='0' && t->text[1]) && unsigned64_value(t,value) && *value; }
+static short edit_request_tokens(const Tokens *tokens)
+{
+   const Token *t=tokens->values; size_t n=tokens->count,i,count=0;
+   TheDocumentWriteToken expected; TheDocumentLineEdit edits[4];
+   TheEditGroupPlan *plan=NULL; TheEditGroupReceipt receipt; uint64_t group,line; short rc;
+   memset(&expected,0,sizeof(expected)); memset(edits,0,sizeof(edits));
+   the_editor_edit_group_initialize();
+   if(n==7 && keyword(t+1,"UNDO") && edit_number(t+2,&group) && keyword(t+3,"DOCUMENT")
+   && edit_number(t+4,&expected.document_id) && keyword(t+5,"EXPECT") && edit_number(t+6,&expected.write_revision))
+      rc=the_edit_group_undo(group,expected,&receipt);
+   else {
+      if(n<12 || !keyword(t+1,"APPLY") || !keyword(t+2,"DOCUMENT")
+      || !edit_number(t+3,&expected.document_id) || !keyword(t+4,"EXPECT")
+      || !edit_number(t+5,&expected.write_revision) || (n-6)%6) return bad();
+      for(i=6;i<n;i+=6) {
+         if(count==4 || !keyword(t+i,"LINE") || !edit_number(t+i+1,&line) || line>SIZE_MAX
+         || !keyword(t+i+2,"BEFORE") || !t[i+3].quoted || !keyword(t+i+4,"AFTER") || !t[i+5].quoted) return bad();
+         edits[count].line=(size_t)line; edits[count].before=(const unsigned char *)t[i+3].text;
+         edits[count].before_length=strlen(t[i+3].text); edits[count].after=(const unsigned char *)t[i+5].text;
+         edits[count].after_length=strlen(t[i+5].text); count++;
+      }
+      rc=the_edit_group_prepare(expected,edits,count,&plan);
+      if(!rc) { rc=the_edit_group_commit(plan,&receipt); if(!rc) plan=NULL; }
+      the_edit_group_abort(plan);
+   }
+   return the_workbench_result(rc ? the_edit_group_error() : "ok",rc,rc ? "Edit group refused; editor state preserved" : "");
+}
 static int form_modal(void) { return the_panel_active!=NULL; }
 static short form_request_tokens(const Tokens *tokens)
 {
@@ -308,6 +338,7 @@ static short command_operands(const char *operands)
    if (!tokenize(operands,&tokens)) return bad();
    n = tokens.count;
    if (!n) return bad();
+   if(keyword(t,"EDIT")) return edit_request_tokens(&tokens);
    if(keyword(t,"FORM"))
    {
       TheWorkbenchForm form;
@@ -482,7 +513,7 @@ short the_workbench_command(const char *operands)
    while (*p && *p != ' ' && *p != '\t' && n < 15) first.text[n++]=*p++;
    while (*p == ' ' || *p == '\t') p++;
    n=0; while (*p && *p != ' ' && *p != '\t' && n < 15) second.text[n++]=*p++;
-   runtime=keyword(&first,"INVOKE") || (keyword(&first,"PANEL") && panel_operation_token(&second))
+   runtime=keyword(&first,"INVOKE") || keyword(&first,"EDIT") || (keyword(&first,"PANEL") && panel_operation_token(&second))
       || (keyword(&first,"FIELD") && keyword(&second,"SET"))
       || (keyword(&first,"FORM") && (keyword(&second,"SUBMIT") || keyword(&second,"CANCEL")));
    rc=command_operands(operands);
@@ -597,6 +628,14 @@ short extract_workbench(short number_variables,short itemno,CHARTYPE *itemargs,C
       if (tokens.values[0].quoted) return query_bad();
       for (n = 0; tokens.values[0].text[n]; n++) tokens.values[0].text[n] = (char)toupper((unsigned char)tokens.values[0].text[n]);
       section = tokens.values[0].text;
+      if(!strcmp(section,"WRITE")) {
+         uint64_t id=0; short rc;
+         if(tokens.count!=1 && (tokens.count!=3 || !keyword(tokens.values+1,"DOCUMENT")
+         || !edit_number(tokens.values+2,&id))) return query_bad();
+         rc=the_editor_edit_group_json(json,sizeof(json),id);
+         if(rc) { the_workbench_result(the_edit_group_error(),rc,"Write token unavailable"); inspection_refusal_serial++; return EXTRACT_ARG_ERROR; }
+         goto formatted;
+      }
       if(!strcmp(section,"FIELDS") || !strcmp(section,"FORM"))
       {
          int admitted=query_form(&tokens,json,sizeof(json));

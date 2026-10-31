@@ -36,6 +36,7 @@
 #include "the.h"
 #include "proto.h"
 #include "editordocument.h"
+#include "editgroup.h"
 #include "headlessdriver.h"
 #include "thedriver.h"
 
@@ -1655,6 +1656,7 @@ void pre_process_line(VIEW_DETAILS *the_view,LINETYPE line_number,LINE *known_cu
     */
    if (curr == (LINE *)NULL)
       curr = lll_find( the_view->file_for_view->first_line, the_view->file_for_view->last_line, line_number, the_view->file_for_view->number_lines );
+   the_workbench_document_record_will_reload();
    memset( rec, ' ', max_line_length );
    memcpy( rec, curr->line, curr->length );
    rec_len = curr->length;
@@ -1723,6 +1725,7 @@ short post_process_line(VIEW_DETAILS *the_view,LINETYPE line_number,LINE *known_
     */
    curr->flags.changed_flag = TRUE;
    the_workbench_document_changed();
+   the_edit_group_changed();
    {
       LENGTHTYPE limited=xedit_truncated_length(the_view->file_for_view,rec,rec_len);
       if (limited<rec_len)

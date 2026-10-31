@@ -294,7 +294,12 @@ static int document_process_key(int key, bool mouse_details_present,int *guarded
          key = normalized_key;
    }
 #if defined(THE_MOUSE_ENABLED)
-   if (!the_editor_document_inspection_key(key)) { the_workbench_document_enter(); *guarded=1; }
+   if (!the_editor_document_inspection_key(key)) {
+      the_workbench_document_input_enter(the_editor_document_command_record_key(key)
+         || (text_event_len>0 && CURRENT_VIEW->current_window==WINDOW_COMMAND
+         && !(INTERFACEx==INTERFACE_CUA && MARK_VIEW==CURRENT_VIEW && MARK_VIEW->mark_type==M_CUA)));
+      *guarded=1;
+   }
    if (!the_input_legacy_key_is_mouse(key))
    {
       if (!mouse_details_present)
@@ -303,7 +308,12 @@ static int document_process_key(int key, bool mouse_details_present,int *guarded
 #endif
 
 #if !defined(THE_MOUSE_ENABLED)
-   if (!the_editor_document_inspection_key(key)) { the_workbench_document_enter(); *guarded=1; }
+   if (!the_editor_document_inspection_key(key)) {
+      the_workbench_document_input_enter(the_editor_document_command_record_key(key)
+         || (text_event_len>0 && CURRENT_VIEW->current_window==WINDOW_COMMAND
+         && !(INTERFACEx==INTERFACE_CUA && MARK_VIEW==CURRENT_VIEW && MARK_VIEW->mark_type==M_CUA)));
+      *guarded=1;
+   }
 #endif
 
 #ifdef CAN_RESIZE

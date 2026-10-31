@@ -5,7 +5,8 @@ are C-owned session state. Forms have no implicit editor-buffer binding.
 Editing, Submit and Cancel do not change file bytes, dirty state or file undo.
 Submit publishes a structured result version; it does not invoke a command,
 macro, program or shell. Editable file-field projections remain unavailable
-until the core edit-group and write-revision service is qualified.
+until Phase 3C binds them through the separate
+[core edit-group and write-token service](workbench-edit-groups.md).
 
 ## Define a form
 

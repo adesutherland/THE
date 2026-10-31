@@ -1,4 +1,5 @@
 #include "workbenchdocument.h"
+#include "editgroup.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +13,8 @@ static Document *documents;
 static TheWorkbenchDocumentProvider provider;
 static uint64_t next_id, revision=1;
 static size_t executing;
+static size_t execution_scopes;
+static unsigned char mutation_scopes[256];
 static int exhausted, record_known;
 static const void *record_file;
 static size_t record_line, base_length;
@@ -21,14 +24,32 @@ void the_workbench_document_provider(const TheWorkbenchDocumentProvider *value)
 { if (value) provider=*value; else memset(&provider,0,sizeof(provider)); }
 void the_workbench_document_changed(void)
 { if (revision == UINT64_MAX) exhausted=1; else revision++; }
-void the_workbench_document_enter(void)
-{ the_workbench_document_changed(); executing++; }
+void the_workbench_document_input_enter(int command_record_only)
+{
+   int mutation=!command_record_only || execution_scopes>=sizeof(mutation_scopes);
+   if(execution_scopes<sizeof(mutation_scopes)) mutation_scopes[execution_scopes]=(unsigned char)mutation;
+   execution_scopes++; if(mutation) the_edit_group_mutation_enter();
+   the_workbench_document_changed(); executing++;
+}
+void the_workbench_document_enter(void) { the_workbench_document_input_enter(0); }
 void the_workbench_document_leave(void)
-{ the_workbench_document_changed(); if (executing) executing--; }
+{
+   if(execution_scopes) {
+      execution_scopes--;
+      if(execution_scopes>=sizeof(mutation_scopes) || mutation_scopes[execution_scopes]) the_edit_group_mutation_leave();
+   }
+   the_workbench_document_changed(); if (executing) executing--;
+}
 void the_workbench_document_resolving(int entering)
 { if (entering) executing++; else if (executing) executing--; }
 void the_workbench_document_record_unknown(void)
 { record_known=0; record_file=NULL; record_line=0; }
+void the_workbench_document_record_will_reload(void)
+{
+   const unsigned char *bytes; size_t length;
+   if(record_known && provider.pending && provider.pending(&bytes,&length)
+   && (length!=base_length || (length && memcmp(bytes,base,length)))) the_edit_group_changed();
+}
 void the_workbench_document_structure(const void *first)
 {
    Document *doc; int changed=0;
@@ -36,7 +57,7 @@ void the_workbench_document_structure(const void *first)
    if (record_known && provider.owns_list(record_file,first))
    { the_workbench_document_record_unknown(); changed=1; }
    for (doc=documents;doc;doc=doc->next) if (provider.owns_list(doc->file,first)) { changed=1; break; }
-   if (changed) the_workbench_document_changed();
+   if (changed) { the_workbench_document_changed(); the_edit_group_changed(); }
 }
 void the_workbench_document_record_bind(const void *file,size_t line,const void *bytes,size_t length)
 {
@@ -64,17 +85,20 @@ void the_workbench_document_forget(const void *file)
    while ((doc=*link)!=NULL)
    {
       if (doc->file!=file) { link=&doc->next; continue; }
-      *link=doc->next; free(doc); the_workbench_document_changed(); return;
+      *link=doc->next; the_edit_group_forget(doc->id); free(doc); the_workbench_document_changed(); return;
    }
 }
 void the_workbench_document_reset(void)
 {
    while (documents) { Document *doc=documents; documents=doc->next; free(doc); }
-   free(base); base=NULL; base_length=0; executing=0;
+   free(base); base=NULL; base_length=0; executing=execution_scopes=0;
+   the_edit_group_reset();
    the_workbench_document_record_unknown(); the_workbench_document_changed();
 }
 static Document *find(uint64_t id)
 { Document *doc; for (doc=documents;doc;doc=doc->next) if (doc->id==id) return doc; return NULL; }
+const void *the_workbench_document_file(uint64_t id)
+{ Document *doc=find(id); return doc ? doc->file : NULL; }
 
 /* A valid scalar is indivisible; malformed octets remain individually
  * addressable raw bytes. No inspection repairs the editor's stored data. */
@@ -97,6 +121,22 @@ static int pending_base_matches(const void *file,size_t lines)
    if (file!=record_file || !record_line || record_line>lines) return 1;
    return provider.line(file,record_line,&bytes,&length) && length==base_length
       && (!length || !memcmp(bytes,base,length));
+}
+int the_workbench_document_record(const void **file,size_t *line,const unsigned char **owned_base,
+   size_t *length,const unsigned char **pending,size_t *pending_length)
+{
+   size_t lines; int dirty;
+   if(!record_known || !record_file || !provider.info || !provider.pending
+   || !provider.info(record_file,&lines,&dirty) || !pending_base_matches(record_file,lines)
+   || !provider.pending(pending,pending_length) || (!*pending && *pending_length)
+   || *pending_length>THE_WORKBENCH_DOCUMENT_RECORD_MAX) return 0;
+   *file=record_file; *line=record_line; *owned_base=base; *length=base_length; return 1;
+}
+void the_workbench_document_record_exchange(const void *file,size_t line,unsigned char **owned,size_t *length)
+{
+   unsigned char *old=base; size_t old_length=base_length;
+   base=*owned; base_length=*length; *owned=old; *length=old_length;
+   record_file=file; record_line=line; record_known=1;
 }
 int the_workbench_document_pending_owned(const void *file,size_t line)
 {

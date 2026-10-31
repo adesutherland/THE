@@ -1,7 +1,7 @@
 # Extensible THE workbench: staged design and frozen contract
 
 **Status: phase 1, phase-2A LOG, phase-2B live read-only DOCUMENT and phase-3A
-independent form cores are implemented in development source; later phases
+independent forms and the phase-3B bounded edit-group core are implemented in development source; later phases
 remain proposed.** Use [shared workbench actions and menus](workbench-actions-menus.md)
 for the implemented grammar, limits, transactions and surface behavior. This
 document retains the broader frozen contract and staged design; it does not
@@ -26,8 +26,10 @@ immutable live-buffer bindings, conservative revision tokens and copied bounded
 pages, including safe pending records and close/reopen isolation. FILE-path
 snapshots remain deferred; physical frontend qualification is a separate gate.
 The [phase-3A form guide](workbench-forms.md) describes independent staged values
-and submitted results. Atomic editor apply and editable file projections remain
-separate Phase3B/3C gates; the conservative read epoch is not an apply token.
+and submitted results. The [phase-3B edit-group guide](workbench-edit-groups.md)
+describes conditional same-line apply/undo, its separate write token, and the
+native parser pause boundary. Editable file projections remain a separate
+Phase 3C gate; the conservative read epoch is not an apply token.
 
 The implementation's invocation generation guard uses `INVOKE id EXPECT n`;
 macro argument vectors are not implemented in phase 1. Examples and wider object

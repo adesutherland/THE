@@ -64,6 +64,9 @@ void the_workbench_document_provider(const TheWorkbenchDocumentProvider *provide
 uint64_t the_workbench_document_identify(const void *file);
 void the_workbench_document_forget(const void *file);
 void the_workbench_document_enter(void);
+/* Command-record typing/navigation is busy for document reads, but cannot
+ * invalidate a write token until its resolved command actually dispatches. */
+void the_workbench_document_input_enter(int command_record_only);
 void the_workbench_document_leave(void);
 /* Resolution remains busy until the dispatcher proves a read-only builtin;
  * it does not invalidate a token merely by resolving that inspection. */
@@ -71,11 +74,21 @@ void the_workbench_document_resolving(int entering);
 void the_workbench_document_changed(void);
 void the_workbench_document_record_bind(const void *file, size_t line, const void *base, size_t length);
 void the_workbench_document_record_unknown(void);
+void the_workbench_document_record_will_reload(void);
 /* Certifies a real pending overlay for a particular file/line without
  * inferring ownership from the current UI focus or committing the record. */
 int the_workbench_document_pending_owned(const void *file, size_t line);
 void the_workbench_document_structure(const void *first_line);
 /* Teardown forgets handles, never resets the identity counter. */
 void the_workbench_document_reset(void);
+
+/* Private editor-owner edit-group seam. No pointer escapes to a frontend.
+ * Exchange adopts a malloc-owned certified base without allocating. */
+const void *the_workbench_document_file(uint64_t id);
+int the_workbench_document_record(const void **file,size_t *line,
+   const unsigned char **base,size_t *base_length,
+   const unsigned char **pending,size_t *pending_length);
+void the_workbench_document_record_exchange(const void *file,size_t line,
+   unsigned char **owned_base,size_t *length);
 
 #endif

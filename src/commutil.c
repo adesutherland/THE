@@ -38,6 +38,8 @@
 #include "the.h"
 #include "proto.h"
 #include "editordocument.h"
+#include "editgroup.h"
+#include "editorgroup.h"
 #include "workbench.h"
 #include "key.h"
 #include "command.h"
@@ -410,6 +412,7 @@ static short execute_synonym(DEFINE *definition, CHARTYPE *params)
 
    TRACE_FUNCTION("commutil.c:execute_synonym");
    the_workbench_document_changed();
+   the_edit_group_changed();
    /* Take a copy before executing: a command or Rexx macro can redefine
     * or remove the very synonym that is currently being executed. */
    for (curr=definition; curr && count<MAX_COMMANDS; curr=curr->next)
@@ -1347,6 +1350,29 @@ int the_editor_document_inspection_key(int key)
    memcpy(text,cmd_rec,(size_t)cmd_rec_len); text[cmd_rec_len]=0;
    return the_editor_document_inspection_command(text);
 }
+int the_editor_document_command_record_key(int key)
+{
+   DEFINE *entry,*binding=NULL; short index=RC_NOT_COMMAND; size_t i;
+   short (*function)(CHARTYPE *); const char *params;
+   if(!CURRENT_VIEW || CURRENT_VIEW->current_window!=WINDOW_COMMAND
+   || (INTERFACEx==INTERFACE_CUA && MARK_VIEW==CURRENT_VIEW && MARK_VIEW->mark_type==M_CUA)) return 0;
+   for(entry=first_define;entry;entry=entry->next) if(entry->def_funkey==key) {
+      if(binding) return 0; binding=entry;
+   }
+   if(binding) { index=binding->def_command; params=(const char *)binding->def_params; }
+   else {
+      params="";
+      for(i=0;command[i].text;i++) if(command[i].funkey==key) { index=(short)i; params=(const char *)command[i].params; break; }
+   }
+   if(index<0) return !binding && key>=32 && key<256 && key!=127;
+   function=command[index].function;
+   if(function==Cursor) return !my_stricmp(params,"LEFT") || !my_stricmp(params,"RIGHT")
+      || !my_stricmp(params,"UP") || !my_stricmp(params,"DOWN");
+   if(function==Text || function==UTFText) return 1;
+   return !*params && (function==Sos_delback || function==Sos_delchar || function==Sos_delend
+      || function==Sos_delword || function==Sos_endchar || function==Sos_firstchar
+      || function==Sos_firstcol || function==Sos_leftedge || function==Sos_rightedge);
+}
 static short document_command_line(CHARTYPE *cmd_line,bool command_only,int *inspection_scope);
 short command_line(CHARTYPE *cmd_line,bool command_only)
 {
@@ -1640,7 +1666,8 @@ fprintf(stderr,"%s %d: Command: [%s] idline: %d\n",__FILE__,__LINE__,command_ent
              * and the possibly stripped parameters.
              */
             if (inspection_scope && *inspection_scope
-            && (command[i].function==Query || command[i].function==Extract))
+            && (command[i].function==Query || command[i].function==Extract
+            || (command[i].function==Workbench && the_editor_document_inspection_command((const char *)cmd[j]))))
             {
                the_workbench_document_resolving(0);
                *inspection_scope=0;

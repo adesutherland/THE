@@ -2,6 +2,7 @@
 #include "proto.h"
 #include "panelui.h"
 #include "editordocument.h"
+#include "editorgroup.h"
 
 #include <ctype.h>
 #include <string.h>
@@ -38,6 +39,7 @@ static void initialize(void)
 {
    static const TheWorkbenchDocumentProvider provider={document_info,document_line,document_pending,document_blocked,document_no_pending,document_owns_list};
    the_workbench_document_provider(&provider);
+   the_editor_edit_group_initialize();
 }
 uint64_t the_editor_document_active(void)
 { initialize(); return CURRENT_VIEW ? the_workbench_document_identify(CURRENT_FILE) : 0; }
@@ -63,20 +65,22 @@ int the_editor_document_inspection_command(const char *command)
    int linend=number_of_files ? CURRENT_VIEW->linend_status : LINEND_STATUSx;
    CHARTYPE delimiter=number_of_files ? CURRENT_VIEW->linend_value : LINEND_VALUEx;
    if (linend && strchr(p,delimiter)) return 0;
-   if (word(&q,"QUERY",1)) return word(&q,"WORKBENCH",9);
+   if(the_editor_edit_group_command(p)) return 1;
    q=p;
-   if (word(&q,"EXTRACT",3))
-   {
-      const char *end; unsigned char delim;
-      while (*q==' ' || *q=='\t') q++;
-      if (!*q) return 0;
-      delim=(unsigned char)*q++; end=strchr(q,delim);
-      if (end) { const char *tail=end+1; while (*tail==' ' || *tail=='\t') tail++; if (*tail) return 0; }
-      /* Workbench without operands can end at the extractor delimiter. */
-      size_t i;
-      if (strlen(q)<9) return 0;
-      for (i=0;i<9;i++) if (toupper((unsigned char)q[i])!="WORKBENCH"[i]) return 0;
-      return !q[9] || q[9]==' ' || q[9]=='\t' || (unsigned char)q[9]==delim;
+   if(word(&q,"WORKBENCH",9)) {
+      const char *form=q;
+      if(word(&q,"FIELD",5) && word(&q,"SET",3)) return 1;
+      q=form;
+      if(word(&q,"FORM",4) && (word(&q,"SUBMIT",6) || word(&q,"CANCEL",6))) return 1;
    }
-   return 0;
+   q=p;
+   if (word(&q,"QUERY",1)) return 1;
+   q=p;
+   return word(&q,"EXTRACT",3);
+}
+int the_editor_edit_group_command(const char *command)
+{
+   const char *p=command ? command : "";
+   if(!word(&p,"WORKBENCH",9) || !word(&p,"EDIT",4)) return 0;
+   return word(&p,"APPLY",5) || word(&p,"UNDO",4);
 }
