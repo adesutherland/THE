@@ -1,11 +1,14 @@
 #include <ctype.h>
 #include <limits.h>
+#include <inttypes.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "websession.h"
 #include "frontendaction.h"
 #include "workbench.h"
+#include "workbenchruntime.h"
 #include "headlessdriver.h"
 #include "llmdriver.h"
 #include "llmruntime.h"
@@ -134,10 +137,10 @@ size_t the_web_format_actions(char *catalog, size_t capacity)
 void the_web_publish_workbench(void (*send)(const char *, size_t, void *),
                                void *context, unsigned long publication)
 {
-   static const char *const sections[] = { "ACTIONS", "MENUS", "ITEMS" };
+   static const char *const sections[] = { "ACTIONS", "MENUS", "ITEMS", "PANELS" };
    char page[THE_WORKBENCH_JSON_MAX];
    char message[THE_WORKBENCH_JSON_MAX + 80];
-   size_t totals[3], section, offset;
+   size_t totals[4], section, offset;
    int prefix;
 
    if (send == NULL)
@@ -145,12 +148,13 @@ void the_web_publish_workbench(void (*send)(const char *, size_t, void *),
    totals[0] = the_workbench_action_count();
    totals[1] = the_workbench_menu_count();
    totals[2] = the_workbench_item_count();
+   totals[3] = the_workbench_panel_count();
    prefix = snprintf(message, sizeof(message),
                      "{\"type\":\"workbench\",\"operation\":\"list\",\"publication\":%lu,\"data\":",
                      publication);
    if (prefix <= 0 || (size_t)prefix >= sizeof(message))
       return;
-   for (section = 0; section < 3; section++)
+   for (section = 0; section < 4; section++)
    {
       for (offset = 0; offset < totals[section] || offset == 0;
            offset += THE_WORKBENCH_PAGE_MAX)
@@ -236,7 +240,8 @@ const TheWebWorkbenchReceipt *the_web_workbench_receipt_find(
 }
 
 int the_web_workbench_receipt_begin(TheWebWorkbenchReceipts *receipts,
-                                    const char *request_id, const char *action,
+                                    const char *request_id, const char *operation,
+                                    const char *action,
                                     unsigned long generation,
                                     const char *argument)
 {
@@ -260,13 +265,15 @@ int the_web_workbench_receipt_begin(TheWebWorkbenchReceipts *receipts,
       sequence = sequence * 10 + (*p - '0');
    }
    if (!sequence) return -1;
-   if (action == NULL || strlen(action) > THE_WORKBENCH_ID_MAX
+   if (operation == NULL || !*operation || strlen(operation) >= sizeof(entry->operation)
+   || action == NULL || strlen(action) > THE_WORKBENCH_ID_MAX
    || argument != NULL && strlen(argument) > THE_WORKBENCH_OPERAND_MAX)
       return -5;
    previous = the_web_workbench_receipt_find(receipts, request_id);
    if (previous)
       return previous->generation == generation
          && previous->has_argument == (argument != NULL)
+         && strcmp(previous->operation, operation) == 0
          && strcmp(previous->action, action) == 0
          && (argument == NULL || strcmp(previous->argument, argument) == 0)
          ? 0 : -4;
@@ -284,6 +291,7 @@ int the_web_workbench_receipt_begin(TheWebWorkbenchReceipts *receipts,
    entry = &receipts->entries[index];
    memset(entry, 0, sizeof(*entry));
    strcpy(entry->request_id, request_id);
+   strcpy(entry->operation, operation);
    strcpy(entry->action, action);
    if (argument != NULL) strcpy(entry->argument, argument);
    entry->has_argument = argument != NULL;
@@ -359,6 +367,167 @@ static size_t web_json_string(char *out, size_t capacity, const char *value)
    }
    out[used++] = '"'; out[used] = '\0';
    return used;
+}
+
+static int web_append(char *out, size_t capacity, size_t *used,
+                      const char *format, ...)
+{
+   va_list arguments;
+   int length;
+   if (*used >= capacity) return 0;
+   va_start(arguments, format);
+   length = vsnprintf(out + *used, capacity - *used, format, arguments);
+   va_end(arguments);
+   if (length < 0 || (size_t)length >= capacity - *used) return 0;
+   *used += (size_t)length;
+   return 1;
+}
+
+static int web_append_string(char *out, size_t capacity, size_t *used,
+                             const char *value)
+{
+   size_t length;
+   if (*used >= capacity) return 0;
+   length = web_json_string(out + *used, capacity - *used, value);
+   if (!length) return 0;
+   *used += length;
+   return 1;
+}
+
+static const char *web_placement_name(TheWorkbenchPlacement placement)
+{
+   switch (placement)
+   {
+      case THE_WORKBENCH_PLACE_RIGHT: return "right";
+      case THE_WORKBENCH_PLACE_BELOW: return "below";
+      case THE_WORKBENCH_PLACE_TAB: return "tab";
+      default: return "none";
+   }
+}
+
+static const char *web_log_error_name(TheWorkbenchLogResult result)
+{
+   switch (result)
+   {
+      case THE_WORKBENCH_LOG_OK: return "ok";
+      case THE_WORKBENCH_LOG_MISSING: return "missing-object";
+      case THE_WORKBENCH_LOG_STALE: return "stale-generation";
+      case THE_WORKBENCH_LOG_LIMIT:
+      case THE_WORKBENCH_LOG_NOMEM: return "limit-exceeded";
+      default: return "invalid-operand";
+   }
+}
+
+size_t the_web_format_panel_state(char *out, size_t capacity)
+{
+   const TheWorkbenchFocusRequest *focus = the_workbench_focus_request();
+   size_t used = 0, index;
+   if (out == NULL || capacity < 128 || focus == NULL) return 0;
+   if (!web_append(out,capacity,&used,
+      "{\"type\":\"workbench\",\"operation\":\"panel-state\",\"revision\":%lu,\"stateRevision\":\"%lu\",\"focus\":{\"serial\":\"%lu\",\"panel\":",
+      the_workbench_revision(),the_workbench_panel_state_revision(),focus->serial)
+   || !web_append_string(out,capacity,&used,focus->panel)
+   || !web_append(out,capacity,&used,",\"generation\":\"%lu\",\"previousPanel\":",focus->generation)
+   || !web_append_string(out,capacity,&used,focus->previous_panel)
+   || !web_append(out,capacity,&used,
+      ",\"previousGeneration\":\"%lu\",\"restoring\":%s},\"panels\":[",
+      focus->previous_generation,focus->restoring ? "true" : "false")) return 0;
+   for (index = 0; index < the_workbench_panel_count(); index++)
+   {
+      const TheWorkbenchPanel *panel = the_workbench_panel_at(index);
+      const TheWorkbenchPanelState *state = panel ? the_workbench_panel_state(panel->id) : NULL;
+      const TheWorkbenchLogInfo *log = panel ? the_workbench_log_find(panel->model) : NULL;
+      const TheWorkbenchModelState *model = panel ? the_workbench_model_state(panel->model) : NULL;
+      if (panel == NULL) return 0;
+      if (!web_append(out,capacity,&used,"%s{\"id\":",index ? "," : "")
+      || !web_append_string(out,capacity,&used,panel->id)
+      || !web_append(out,capacity,&used,
+         ",\"generation\":\"%lu\",\"visible\":%s,\"focused\":%s,\"effectivePlacement\":",
+         panel->generation,state && state->visible ? "true" : "false",
+         state && state->focused ? "true" : "false")
+      || !web_append_string(out,capacity,&used,
+         web_placement_name(state ? state->effective : THE_WORKBENCH_PLACE_NONE))
+      || !web_append(out,capacity,&used,",\"reason\":")
+      || !web_append_string(out,capacity,&used,state ? state->reason : "unavailable-renderer")
+      || !web_append(out,capacity,&used,",\"model\":")
+      || !web_append_string(out,capacity,&used,panel->model)
+      || !web_append(out,capacity,&used,
+         ",\"modelGeneration\":\"%" PRIu64 "\",\"contentRevision\":\"%" PRIu64 "\",\"omittedBytes\":\"%" PRIu64 "\",\"omittedRecords\":\"%" PRIu64 "\",\"modelError\":",
+         panel->model_generation,log ? log->revision : 0,
+         log ? log->omitted_bytes : 0,log ? log->omitted_records : 0)
+      || !web_append_string(out,capacity,&used,
+         model ? web_log_error_name(model->last_error) : "ok")
+      || !web_append(out,capacity,&used,"}")) return 0;
+   }
+   if (!web_append(out,capacity,&used,"]}")) return 0;
+   return used;
+}
+
+size_t the_web_format_log_page(char *out, size_t capacity,
+                               const char *id, uint64_t generation,
+                               uint64_t cursor, size_t offset,
+                               size_t records, size_t bytes)
+{
+   char page[THE_WORKBENCH_JSON_MAX];
+   size_t used = 0, length;
+   if (out == NULL || !id || capacity < 128
+   || the_workbench_log_json(page,sizeof(page),id,generation,cursor,
+                             offset,records,bytes) != 0) return 0;
+   length = strlen(page);
+   if (!web_append(out,capacity,&used,
+       "{\"type\":\"workbench\",\"operation\":\"log\",\"data\":")
+   || used + length + 2 > capacity) return 0;
+   memcpy(out + used,page,length); used += length;
+   out[used++] = '}'; out[used] = '\0';
+   return used;
+}
+
+int the_web_parse_u64(const char *value, uint64_t *out)
+{
+   uint64_t number = 0;
+   const unsigned char *p = (const unsigned char *)value;
+   if (value == NULL || out == NULL || !*p || (*p == '0' && p[1])) return 0;
+   for (; *p; p++)
+   {
+      if (*p < '0' || *p > '9' || number > (UINT64_MAX - (*p - '0')) / 10)
+         return 0;
+      number = number * 10 + (*p - '0');
+   }
+   *out = number;
+   return 1;
+}
+
+int the_web_panel_layout(const char *id, uint64_t generation,
+                         const char *placement, int cols, int rows)
+{
+   const TheWorkbenchPanel *panel = id ? the_workbench_panel_find(id) : NULL;
+   const TheWorkbenchPanelState *state = panel ? the_workbench_panel_state(id) : NULL;
+   TheWorkbenchPlacement chosen = THE_WORKBENCH_PLACE_NONE;
+   size_t index;
+   int allowed = 0;
+   if (panel == NULL || state == NULL || !state->visible
+   || generation == 0 || generation > ULONG_MAX
+   || panel->generation != (unsigned long)generation
+   || placement == NULL || cols < 0 || rows < 0
+   || cols > 10000 || rows > 10000) return 0;
+   if (!strcmp(placement,"inactive-tab"))
+      return !state->focused && the_workbench_panel_effective(id,
+         (unsigned long)generation,THE_WORKBENCH_PLACE_TAB,"inactive-tab");
+   if (!strcmp(placement,"right")) chosen = THE_WORKBENCH_PLACE_RIGHT;
+   else if (!strcmp(placement,"below")) chosen = THE_WORKBENCH_PLACE_BELOW;
+   else if (!strcmp(placement,"tab")) chosen = THE_WORKBENCH_PLACE_TAB;
+   else if (strcmp(placement,"none")) return 0;
+   if (chosen == THE_WORKBENCH_PLACE_NONE)
+      return the_workbench_panel_effective(id,(unsigned long)generation,
+                  chosen,"unavailable-renderer");
+   if (chosen == panel->placement) allowed = 1;
+   for (index = 0; index < panel->fallback_count; index++)
+      if (chosen == panel->fallbacks[index]) allowed = 1;
+   if (!allowed) return 0;
+   if (cols < panel->mincols || rows < panel->minrows)
+      return the_workbench_panel_effective(id,(unsigned long)generation,
+                  THE_WORKBENCH_PLACE_NONE,"unavailable-renderer");
+   return the_workbench_panel_effective(id,(unsigned long)generation,chosen,"ok");
 }
 
 int the_web_format_workbench_receipt(char *out, size_t capacity,

@@ -41,6 +41,8 @@ def main():
             assert marker in completed.stdout, (marker, completed.stdout, completed.stderr)
         if environment.get("THE_GTK_REQUIRE_PROGRAM"):
             assert "GTK_PROGRAM_OUTPUT_STDIN_COMPLETION_PASS" in completed.stdout, completed.stdout
+            assert "GTK_NAMED_LOG_CONTROL_ESCAPE_SCROLL_FOCUS_PROGRAM_DRAFT_RETURN_PASS" in completed.stdout, completed.stdout
+            assert "GTK_LOG_PUT_PLACE_GENERATION_PROGRAM_EDITOR_FOCUS_RETURN_PASS" in completed.stdout, completed.stdout
             assert "GTK_WORKBENCH_PROFILE_F6_INPUT_CONTROL_DRAFT_CARET_PASS" in completed.stdout, completed.stdout
             assert "GTK_WORKBENCH_PROFILE_F10_MENU_ESC_DRAFT_CARET_PASS" in completed.stdout, completed.stdout
             assert "GTK_WORKBENCH_F10_CANCEL_RESTORES_INPUT_SELECTION_CARET_CONTROL_EDITOR_PASS" in completed.stdout, completed.stdout

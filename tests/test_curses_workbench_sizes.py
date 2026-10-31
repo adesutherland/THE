@@ -28,11 +28,37 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
     root = Path(temporary)
     source = root / 'program.rexx'
     source.write_text(program)
+    (root / 'native_replace.the').write_text(
+        "/* Replace the focused panel through a real menu-invoked macro. */\n"
+        "'workbench begin owner native.logs';\n"
+        "if rc <> 0 then exit rc;\n"
+        "'workbench panel place native.logone right fallback below,tab mincols 32';\n"
+        "if rc <> 0 then exit rc;\n"
+        "'workbench commit';\nif rc <> 0 then exit rc;\n'msg LOG_GENERATION_REPLACED';\n")
+    # Runtime-owned definitions can be replaced by the later interactive
+    # macro. Profile-owned definitions deliberately reject session mutation.
+    (root / 'native_logs_setup.the').write_text(
+                       "/* Test session LOG graph, before the runner binds routes. */\n"
+                       "'workbench begin owner native.logs';\n"
+                       "'workbench panel put native.logone kind log model native.stdout';\n"
+                       "'workbench panel put native.logtwo kind log model native.stderr';\n"
+                       "'workbench route put native.out from tool:classic-rexx/stdout to log:native.stdout';\n"
+                       "'workbench route put native.err from tool:classic-rexx/stderr to log:native.stderr';\n"
+                       "'workbench menu put native.regression label \"Native regression\" order 999';\n"
+                       "'workbench action put native.replace label \"Replace focused LOG\" macro \"native_replace\"';\n"
+                       "'workbench item put native.regression native.replaceitem label \"Replace focused LOG\" action native.replace';\n"
+                       "'workbench commit';\n"
+                       "'msg LOG_GRAPH_READY';\n")
     profile = root / 'profile.the'
     profile.write_text((repo / 'profile.the').read_text() +
-                       "\n'define tab msg EDITOR_TAB';\n'msg PROFILE_READY';\n")
+                       "\n'define f5 macro native_logs_setup';\n"
+                       "'define f7 workbench panel show native.logone';\n"
+                       "'define f8 workbench panel show native.logtwo';\n"
+                       "'define f9 workbench panel focus native.logone';\n"
+                       "'define c-u cmsg';\n"
+                       "'define tab msg EDITOR_TAB';\n'msg PROFILE_READY';\n")
     env = dict(os.environ, TERM='xterm-256color', THE_REXX_INTERPRETER='CREXX',
-               THE_HOME_DIR=str(repo), THE_MACRO_PATH=str(repo),
+               THE_HOME_DIR=str(repo), THE_MACRO_PATH=str(root) + os.pathsep + str(repo),
                THE_CREXX_CACHE_DIR=str(root / 'cache'),
                THE_TOOL_CONFIG_DIR=str(root / 'tools'))
 
@@ -89,10 +115,19 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
             heading = screen.display[0][73:] if cols == 117 else screen.display[rows - 8]
             return 'Esc Cmd' in heading
 
+        def replace_focused_log():
+            send(b'\x1b[21~\x1b[F')  # F10, then the final profile-declared action.
+            wait(lambda: has('Replace focused LOG'), 'focused LOG opens replacement action')
+            send(b'\r')
+            wait(lambda: has('LOG_GENERATION_REPLACED') and not has('Replace focused LOG'),
+                 'focused LOG generation replacement committed')
+
         try:
             wait(lambda: 'F10 Menu' in screen.display[rows - 4] and
                  'PROFILE_READY' in screen.display[rows - 3] and
                  'Run Rexx' in screen.display[0][:37], 'profile and chrome')
+            send(b'\x1b[15~')
+            wait(lambda: has('LOG_GRAPH_READY'), 'session LOG graph published before runner launch')
             assert 'MENU (F10)' in screen.display[0][:14], screen.display
             assert 'Console' in screen.display[0][14:25], screen.display
             send(b'\x1b[21~')
@@ -132,6 +167,8 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
                 assert 'Program console |' in screen.display[0][73:], screen.display
             else:
                 assert 'Program console |' in screen.display[rows - 8], screen.display
+            send(b'\x1b[18~\x1b[19~')  # Show both LOG panes while editor retains focus.
+            wait(lambda: has('Logs') and not has('Log: native.'), 'SHOW retains selected Program pane')
             before_focus = len(output)
             click_at(0, 15)
             wait(lambda: console_focused() and 'Program input>' in screen.display[-1],
@@ -155,6 +192,54 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
                  (screen.cursor.x, screen.cursor.y) == (input_start + 5, rows - 1),
                  'Program draft restored after Backspace')
             input_caret = (screen.cursor.x, screen.cursor.y)
+            send(b'\t\x1b[F')  # Existing toolbar, then its new Logs control.
+            log_control = ((73 if cols == 117 else 0) + 28, 1 if cols == 117 else rows - 7)
+            wait(lambda: (screen.cursor.x, screen.cursor.y) == log_control, 'keyboard reaches Logs control')
+            send(b'\r')
+            wait(lambda: has('Log: native.logone') and has('LINE 40'), 'explicit focus selects routed log')
+            send(b'\x1b[H')
+            wait(lambda: any((line[73:] if cols == 117 else line).strip() == 'LINE 1' for line in screen.display), 'log Home reaches retained beginning')
+            send(b'\x1b[6~')
+            wait(lambda: not any((line[73:] if cols == 117 else line).strip() == 'LINE 1' for line in screen.display), 'log PageDown scrolls')
+            send(b'\t')
+            wait(lambda: has('Log: native.logtwo'), 'Tab selects another named log')
+            send(b'h')
+            wait(lambda: console_focused() and 'DRAFT' in screen.display[-1]
+                 and (screen.cursor.x, screen.cursor.y) == log_control, 'Hide restores Program toolbar and draft')
+            send(b'\t')
+            wait(lambda: (screen.cursor.x, screen.cursor.y) == input_caret, 'Program input caret survives LOG focus')
+            send(b'\t\x1b[F\r')
+            wait(lambda: has('Log: native.logone'), 'remaining log can be focused again')
+            send(b'\x1b')
+            wait(lambda: console_focused() and (screen.cursor.x, screen.cursor.y) == log_control,
+                 'LOG Escape restores Program toolbar without hiding log')
+            send(b'\t')
+            wait(lambda: (screen.cursor.x, screen.cursor.y) == input_caret and 'DRAFT' in screen.display[-1],
+                 'LOG return preserves unsent Program input')
+            send(b'\t\x1b[F\r')
+            wait(lambda: has('Log: native.logone'), 'Program origin focuses LOG before replacement')
+            replace_focused_log()
+            wait(lambda: console_focused() and (screen.cursor.x, screen.cursor.y) == log_control
+                 and 'DRAFT' in screen.display[-1], 'generation change restores Program toolbar and draft')
+            send(b'\t')
+            wait(lambda: (screen.cursor.x, screen.cursor.y) == input_caret,
+                 'generation change preserves Program input caret')
+            send(b'\x7f')
+            wait(lambda: 'DRAF' in screen.display[-1] and 'DRAFT' not in screen.display[-1]
+                 and screen.cursor.x == input_caret[0] - 1,
+                 'Program keyboard remains usable after LOG replacement')
+            send(b'T')
+            wait(lambda: 'DRAFT' in screen.display[-1] and (screen.cursor.x, screen.cursor.y) == input_caret,
+                 'Program draft can be restored after LOG replacement')
+            send(b'\t\x1b[F\r')
+            wait(lambda: has('Log: native.logone') and has('LINE 40'),
+                 'replacement LOG retains content and accepts fresh-generation focus')
+            send(b'\x1b')
+            wait(lambda: console_focused() and (screen.cursor.x, screen.cursor.y) == log_control,
+                 'replacement LOG Escape restores Program toolbar')
+            send(b'\t')
+            wait(lambda: console_focused() and (screen.cursor.x, screen.cursor.y) == input_caret,
+                 'replacement LOG Escape restores Program input')
             send(b'\x1b[21~')
             wait(lambda: has('Run current Rexx'), 'Program input F10 opens menu')
             send(b'\x1b')
@@ -194,6 +279,24 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
             assert screen.cursor.hidden, f'{cols}x{rows}: editor software cursor should hide hardware'
             assert screen.buffer[screen.cursor.y][screen.cursor.x].underscore, \
                 f'{cols}x{rows}: editor command caret not visually underlined'
+            send(b'msg EDITOR_UNSENT\x1b[D\x1b[D')
+            wait(lambda: has('msg EDITOR_UNSENT'), 'editor retains an unsent command before LOG focus')
+            editor_draft_caret = (screen.cursor.x, screen.cursor.y)
+            send(b'\x1b[20~')  # Profile F9 focuses LOG without changing editor origin.
+            wait(lambda: has('Log: native.logone'), 'editor origin focuses LOG before replacement')
+            replace_focused_log()
+            wait(lambda: not console_focused() and (screen.cursor.x, screen.cursor.y) == editor_draft_caret
+                 and has('msg EDITOR_UNSENT'), 'generation change restores editor command and caret')
+            send(b'\x1b[C')
+            wait(lambda: (screen.cursor.x, screen.cursor.y) == (editor_draft_caret[0] + 1, editor_draft_caret[1]),
+                 'editor keyboard remains usable after LOG replacement')
+            send(b'\x1b[D\x1b[20~')
+            wait(lambda: has('Log: native.logone') and has('LINE 40'), 'editor can refocus replacement LOG')
+            send(b'\x1b')
+            wait(lambda: (screen.cursor.x, screen.cursor.y) == editor_draft_caret
+                 and has('msg EDITOR_UNSENT'), 'replacement LOG Escape restores editor draft')
+            send(b'\x15')
+            wait(lambda: not has('msg EDITOR_UNSENT'), 'clear only the unsent editor command')
             send(b'\x1b[17~')
             wait(lambda: screen.cursor.y < (rows - 8 if cols == 80 else rows - 4),
                  'second F6 reaches editor file')
@@ -235,4 +338,4 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
             process.wait()
             os.close(master)
 
-print('117x30 and 80x24: menu, Run, scrollback, visible Program caret, stdin and editor return passed')
+print('117x30 and 80x24: named logs, generation replacement, Program/editor draft/caret return, menu, scrollback and stdin passed')

@@ -18,6 +18,9 @@ let workbenchPublication = 0;
 let workbenchRuns = 0;
 let customFooter = true;
 let presentDiagnostic = false;
+let fixturePanels = [];
+let fixturePanelState = null;
+const fixtureLogExtras = new Map();
 const snapshot = {
   mode: "editor", rows: 24, cols: 80,
   focus: { zone: "filearea", line: 1, row: 0, cell: 2 }, command: "",
@@ -81,6 +84,8 @@ function publishWorkbench(revision, generation, label, saveReason = "ok") {
   const actions = [
     { id: "the.file.open", owner: "the.builtin", label: "Open", generation: 1, kind: "builtin", builtin: "file.open", operand: "", enabled: true, reason: "ok" },
     { id: "the.file.save", owner: "the.builtin", label: "Save", generation: 2, kind: "builtin", builtin: "file.save", operand: "", enabled: saveReason === "ok", reason: saveReason },
+    ...(fixturePanels.length ? [{ id: "user.show", owner: "user.logs", label: "Show output", generation: 5,
+      kind: "panel", panel: "user.output", operation: "show", enabled: true, reason: "ok" }] : []),
     ...(label ? [{ id: "user.run", owner: "user.tools", label, generation, kind: "builtin", builtin: "edit.undo", operand: "", enabled: true, reason: "ok" }] : []),
     ...(label ? [{ id: "user.boundopen", owner: "user.tools", label: "Bound Open", generation, kind: "builtin", builtin: "file.open", operand: "/workspace/example.rexx", enabled: true, reason: "ok" }] : []),
     ...Array.from({ length: 9 }, (_, index) => ({ id: `user.unlisted${index}`, owner: "user.tools", label: `Unlisted ${index}`, generation: index + 30, kind: "builtin", builtin: "edit.undo", operand: "", enabled: true, reason: "ok" })),
@@ -94,14 +99,16 @@ function publishWorkbench(revision, generation, label, saveReason = "ok") {
   const items = [
     { id: "the.item.open", owner: "the.builtin", label: "Open", generation: 1, menu: "the.file", action: "the.file.open", order: 0, separator: false },
     { id: "the.item.save", owner: "the.builtin", label: "Save", generation: 2, menu: "the.file", action: "the.file.save", order: 1, separator: false },
+    ...(fixturePanels.length ? [{ id: "user.showitem", owner: "user.logs", label: "Show output", generation: 5,
+      menu: "the.file", action: "user.show", order: 2, separator: false }] : []),
     ...(label ? [{ id: "user.item", owner: "user.tools", label, generation, menu: "user.tools", action: "user.run", order: 0, separator: false }] : []),
     ...(label ? [{ id: "user.zitem", owner: "user.tools", label: "Second", generation, menu: "user.tools", action: "user.run", order: 0, separator: false },
       { id: "user.separator", owner: "user.tools", label: "", generation, menu: "user.tools", action: "", order: 0, separator: true },
       { id: "user.aitem", owner: "user.tools", label: "Third", generation, menu: "user.tools", action: "user.run", order: 0, separator: false },
       { id: "user.bounditem", owner: "user.tools", label: "Bound Open", generation, menu: "user.tools", action: "user.boundopen", order: 1, separator: false }] : []),
   ];
-  for (const [section, records] of Object.entries({ actions, menus, items }))
-    for (let offset = 0; offset < records.length; offset += 8)
+  for (const [section, records] of Object.entries({ actions, menus, items, panels: fixturePanels }))
+    for (let offset = 0; offset < records.length || offset === 0; offset += 8)
       client?.send(JSON.stringify({ type: "workbench", operation: "list", publication, data: { schemaVersion: 1, revision, section, total: records.length, offset, nextOffset: offset + 8 < records.length ? offset + 8 : null, records: records.slice(offset, offset + 8) } }));
 }
 const server = createServer(async (request, response) => {
@@ -137,11 +144,43 @@ ws.on("connection", (connection) => {
       snapshot.last_message = "Repeated response";
       publishSnapshot();
     } else if (message.type === "workbench" && message.operation === "invoke") {
-      const stale = message.expectGeneration !== workbenchGeneration;
+      const stale = message.expectGeneration !== (message.action === "user.show" ? 5 : workbenchGeneration);
       if (!stale) workbenchRuns++;
+      if (!stale && message.action === "user.show" && fixturePanelState) {
+        fixturePanelState = { ...fixturePanelState, stateRevision: String(Number(fixturePanelState.stateRevision) + 1),
+          panels: fixturePanelState.panels.map((panel) => panel.id === "user.output"
+            ? { ...panel, visible: true, reason: "ok" } : panel) };
+        connection.send(JSON.stringify(fixturePanelState));
+      }
       connection.send(JSON.stringify({ type: "workbench", operation: "result", requestId: message.requestId,
         state: "complete", code: stale ? "stale-generation" : "ok", rc: stale ? -3 : 0,
         revision: snapshot.source.revision, message: stale ? "Action generation is stale" : "" }));
+    } else if (message.type === "workbench" && message.operation === "log.list") {
+      const second = message.model === "user.errorlog";
+      const continuing = message.cursor !== "0" && fixtureLogExtras.has(message.model);
+      const text = continuing ? fixtureLogExtras.get(message.model)
+        : (second ? "second output\n" : "safe <img>\u0007 output\n")
+        + Array.from({ length: 100 }, (_, index) => `${second ? "second" : "first"} line ${index}\n`).join("");
+      connection.send(JSON.stringify({ type: "workbench", operation: "log", data: {
+        schemaVersion: 1, revision: 5, section: "log", id: message.model,
+        generation: "1", contentRevision: continuing ? "3" : "2", firstCursor: "1", nextCursor: continuing ? "3" : "2",
+        nextOffset: 0, more: false, omitted: !continuing && !second, omittedBytes: second ? "0" : "4", omittedRecords: second ? "0" : "1",
+        records: [{ cursor: continuing ? "2" : "1", job: "9", stream: 1, sequence: continuing ? "2" : "1", offset: 0,
+          length: text.length, originalLength: text.length, text }],
+      } }));
+    } else if (message.type === "workbench" && message.operation?.startsWith("panel.")) {
+      if (fixturePanelState && message.operation !== "panel.layout") {
+        const focus = message.operation === "panel.focus";
+        const restoring = message.operation === "panel.return";
+        fixturePanelState = { ...fixturePanelState,
+          focus: { ...fixturePanelState.focus, serial: String(Number(fixturePanelState.focus.serial) + 1),
+            panel: restoring ? "" : message.panel, generation: "1", restoring },
+          panels: fixturePanelState.panels.map((panel) => ({ ...panel,
+            focused: focus && panel.id === message.panel })) };
+        connection.send(JSON.stringify(fixturePanelState));
+        connection.send(JSON.stringify({ type: "workbench", operation: "result", requestId: message.requestId,
+          state: "complete", code: "ok", rc: 0, revision: 5, message: "" }));
+      }
     } else if (message.type === "tool" && message.action === "run") {
       Object.assign(tools.job, { id: tools.job.id + 1, running: true, waiting: false, state: "Running" });
       tools.visible = true;
@@ -645,6 +684,173 @@ try {
   await wait(() => evaluate("!document.querySelector('[data-menu-id=\"user.tools\"]')"), "removed menu item");
   await evaluate("document.querySelector('.menu-trigger').click()");
   assert.deepEqual(await evaluate("({draft:document.querySelector('#the-command').value,dirty:document.querySelector('.status-line').dataset.bufferDirty,zone:document.querySelector('.status-line').dataset.focusZone,line:document.querySelector('.status-line').dataset.focusLine,cell:document.querySelector('.status-line').dataset.focusCell})"), preservedEditor, "menu publication and activation preserve editor state");
+  fixturePanels = [{ id: "user.output", owner: "user.logs", title: "Named output", generation: "1",
+    kind: "log", model: "user.outputlog", modelGeneration: "1", placement: "right",
+    fallbacks: ["below", "tab"], mincols: 10, minrows: 4, visible: true,
+    focused: false, effectivePlacement: "none", reason: "ok", contentRevision: "2", modelError: "ok" },
+  { id: "user.errors", owner: "user.logs", title: "Error output", generation: "1",
+    kind: "log", model: "user.errorlog", modelGeneration: "1", placement: "below",
+    fallbacks: ["tab"], mincols: 10, minrows: 4, visible: true,
+    focused: false, effectivePlacement: "none", reason: "ok", contentRevision: "2", modelError: "ok" }];
+  fixturePanelState = { type: "workbench", operation: "panel-state", revision: 5,
+    stateRevision: "1", focus: { serial: "0", panel: "", generation: "0",
+      previousPanel: "", previousGeneration: "0", restoring: false },
+    panels: [{ id: "user.output", generation: "1", visible: true, focused: false,
+      effectivePlacement: "none", reason: "ok", model: "user.outputlog",
+      modelGeneration: "1", contentRevision: "2", omittedBytes: "4", omittedRecords: "1", modelError: "ok" },
+    { id: "user.errors", generation: "1", visible: true, focused: false,
+      effectivePlacement: "none", reason: "ok", model: "user.errorlog",
+      modelGeneration: "1", contentRevision: "2", omittedBytes: "0", omittedRecords: "0", modelError: "ok" }] };
+  publishWorkbench(5, 0, "");
+  client.send(JSON.stringify(fixturePanelState));
+  await wait(() => evaluate("document.querySelector('.named-log-toggle')?.textContent.includes('Named output')"), "named log tab");
+  await evaluate("document.querySelector('.named-log-toggle').click()");
+  await wait(() => evaluate("document.querySelector('.named-log-output')?.textContent.includes('safe <img>')"), "named log output");
+  assert.equal(await evaluate("!!document.querySelector('.named-log-output img')"), false, "log text cannot create markup");
+  assert.equal(await evaluate("document.querySelector('.named-log-output')?.textContent.includes('\\\\x07')"), true, "log control byte is visible escaped text");
+  assert.equal(await evaluate("!!document.querySelector('.named-log-omitted')"), true, "retention omission is visible");
+  await wait(() => received.some((message) => message.type === "workbench" && message.operation === "panel.layout" && message.placement === "right"), "wide measured placement");
+  await evaluate("(() => { const output=document.querySelector('.named-log-output');output.scrollTop=100;output.dispatchEvent(new Event('scroll')); })()");
+  await evaluate("document.querySelector('.named-log-toggle[data-panel-id=\"user.errors\"]').click()");
+  await wait(() => evaluate("document.querySelector('.named-log-output')?.textContent.includes('second output')"), "second named log content");
+  await wait(() => evaluate("document.querySelector('.workspace').classList.contains('aux-below')"), "preferred BELOW uses actual wide layout");
+  await wait(() => received.some((message) => message.type === "workbench" && message.operation === "panel.layout" && message.panel === "user.errors" && message.placement === "below"), "wide below placement");
+  await wait(() => received.some((message) => message.type === "workbench" && message.operation === "panel.layout" && message.panel === "user.output" && message.placement === "inactive-tab"), "inactive named pane reports tab");
+  await evaluate("(() => { const output=document.querySelector('.named-log-output');output.scrollTop=40;output.dispatchEvent(new Event('scroll')); })()");
+  await evaluate("document.querySelector('.named-log-toggle[data-panel-id=\"user.output\"]').click()");
+  await wait(() => evaluate("document.querySelector('.named-log-output')?.textContent.includes('safe <img>')"), "first named log restored");
+  assert.equal(await evaluate("document.querySelector('.named-log-output').scrollTop"), 100, "first log retains its scroll position");
+  await evaluate("document.querySelector('.named-log-toggle[data-panel-id=\"user.errors\"]').click()");
+  await wait(() => evaluate("document.querySelector('.named-log-output')?.textContent.includes('second output')"), "second named log restored");
+  assert.equal(await evaluate("document.querySelector('.named-log-output').scrollTop"), 40, "second log retains independent scroll position");
+  await evaluate("(() => { const output=document.querySelector('.named-log-output');output.scrollTop=output.scrollHeight;output.dispatchEvent(new Event('scroll')); })()");
+  fixtureLogExtras.set("user.outputlog", "live first output\n");
+  fixtureLogExtras.set("user.errorlog", "live second output\n");
+  fixturePanelState = { ...fixturePanelState, stateRevision: "2",
+    panels: fixturePanelState.panels.map((panel) => ({ ...panel, contentRevision: "3" })) };
+  client.send(JSON.stringify(fixturePanelState));
+  await wait(() => evaluate("document.querySelector('.named-log-output')?.textContent.includes('live second output')"), "live append to following second log");
+  assert.equal(await evaluate("(() => { const node=document.querySelector('.named-log-output');return node.scrollHeight-node.scrollTop-node.clientHeight<24; })()"), true,
+    "second log follows live output");
+  await evaluate("document.querySelector('.named-log-toggle[data-panel-id=\"user.output\"]').click()");
+  await wait(() => evaluate("document.querySelector('.named-log-output')?.textContent.includes('live first output')"), "inactive first log received live append");
+  assert.equal(await evaluate("document.querySelector('.named-log-output').scrollTop"), 100,
+    "first log keeps scrolled-back position after live append");
+  fixturePanels[0] = { ...fixturePanels[0], mincols: 80 };
+  publishWorkbench(6, 0, "");
+  await wait(() => evaluate("document.querySelector('.workspace').classList.contains('aux-below')"), "right mincols fallback renders below at wide width");
+  await wait(() => received.some((message) => message.type === "workbench" && message.operation === "panel.layout" && message.panel === "user.output" && message.placement === "below"), "right mincols fallback reports below");
+  fixturePanels[0] = { ...fixturePanels[0], mincols: 10 };
+  publishWorkbench(7, 0, "");
+  await wait(() => evaluate("!document.querySelector('.workspace').classList.contains('aux-below')"), "restored right pane uses rail");
+  await viewport(768, 800);
+  await wait(() => received.some((message) => message.type === "workbench" && message.operation === "panel.layout" && message.panel === "user.errors" && message.placement === "below"), "narrow below placement");
+  await evaluate("document.querySelector('.named-log-toggle[data-panel-id=\"user.output\"]').click()");
+  await viewport(390, 844);
+  await wait(() => received.some((message) => message.type === "workbench" && message.operation === "panel.layout" && message.placement === "tab"), "phone measured placement");
+  await viewport(1920, 1080);
+  await evaluate("document.querySelector('.named-log-output').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))");
+  await wait(() => fixturePanelState.panels[0].focused === false, "initial named panel focus returned");
+  await evaluate("document.querySelector('#the-command').focus();document.querySelector('.named-log-toggle').click()");
+  await wait(() => evaluate("document.activeElement?.classList.contains('named-log-output')"), "named panel keyboard focus");
+  await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))");
+  await wait(() => evaluate("document.activeElement?.id==='the-command'"), "named panel returns previous command focus");
+  await evaluate("[...document.querySelectorAll('.auxiliary-tabs [role=tab]')].find(node=>node.textContent==='Program console').click()");
+  await evaluate("(() => { const input=document.querySelector('#rexx-input');input.focus();input.setSelectionRange(2,6);document.querySelector('.named-log-toggle').click(); })()");
+  await wait(() => evaluate("document.activeElement?.classList.contains('named-log-output')"), "named panel focus from Program input");
+  await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))");
+  await wait(() => evaluate("document.activeElement?.id==='rexx-input'"), "Escape returns Program input focus");
+  assert.deepEqual(await evaluate("({value:document.querySelector('#rexx-input').value,start:document.querySelector('#rexx-input').selectionStart,end:document.querySelector('#rexx-input').selectionEnd,visible:!!document.querySelector('.program-console-pane').getClientRects().length})"),
+    { value: "unsent input", start: 2, end: 6, visible: true }, "Escape restores Program draft and selection");
+  await evaluate("document.querySelector('.named-log-toggle').click()");
+  await wait(() => evaluate("document.activeElement?.classList.contains('named-log-output')"), "named panel focus before Program tab");
+  await evaluate("[...document.querySelectorAll('.auxiliary-tabs [role=tab]')].find(node=>node.textContent==='Program console').click()");
+  await wait(() => evaluate("document.activeElement?.id==='rexx-input'"), "Program tab returns input focus");
+  assert.equal(await evaluate("document.querySelector('.program-console-pane').getClientRects().length>0 && document.querySelector('#rexx-input').selectionStart===2 && document.querySelector('#rexx-input').selectionEnd===6"), true,
+    "Program tab restores pane and exact selection");
+  assert.equal(fixturePanelState.panels[0].focused, false, "Program tab queues semantic panel RETURN");
+  fixturePanels[0] = { ...fixturePanels[0], visible: false };
+  fixturePanelState = { ...fixturePanelState, stateRevision: "3",
+    panels: fixturePanelState.panels.map((panel) => panel.id === "user.output"
+      ? { ...panel, visible: false, focused: false, reason: "hidden" } : panel) };
+  publishWorkbench(8, 0, "");
+  client.send(JSON.stringify(fixturePanelState));
+  await wait(() => evaluate("!document.querySelector('.named-log-pane[data-panel-id=\"user.output\"]')"), "hidden LOG starts PANEL SHOW case");
+  await evaluate("document.querySelector('#rexx-input').focus();document.querySelector('#rexx-input').setSelectionRange(2,6)");
+  await key("F10");
+  await wait(() => evaluate("!!document.querySelector('[data-item-id=\"user.showitem\"]')"), "Program input opens PANEL SHOW menu item");
+  await evaluate("document.querySelector('[data-item-id=\"user.showitem\"]').click()");
+  await wait(() => evaluate("document.activeElement?.id==='rexx-input'"), "PANEL SHOW retains Program input focus");
+  await wait(() => evaluate("!!document.querySelector('.named-log-pane[data-panel-id=\"user.output\"]')?.getClientRects().length && !!document.querySelector('.program-console-pane')?.getClientRects().length"),
+    "PANEL SHOW displays LOG body alongside Program input");
+  assert.equal(await evaluate("document.querySelector('#rexx-input').selectionStart===2 && document.querySelector('#rexx-input').selectionEnd===6"), true,
+    "PANEL SHOW retains Program input selection");
+  assert.equal(fixturePanelState.panels[0].visible, true, "PANEL SHOW receives visible runtime state");
+  await viewport(390, 844);
+  assert.equal(await evaluate("!!document.querySelector('.named-log-pane[data-panel-id=\"user.output\"]')?.getClientRects().length && !!document.querySelector('.program-console-pane')?.getClientRects().length && document.activeElement?.id==='rexx-input'"), true,
+    "phone SHOW keeps LOG and Program accessible without taking typing focus");
+  await viewport(1920, 1080);
+  await evaluate("document.querySelector('[aria-label=\"Hide program console\"]').click()");
+  await wait(() => evaluate("document.querySelector('.program-console-pane')?.hidden && !document.querySelector('.auxiliary-rail')?.classList.contains('program-and-log') && !!document.querySelector('.named-log-pane[data-panel-id=\"user.output\"]')?.getClientRects().length"),
+    "hiding Program lets LOG fill the rail");
+  await evaluate("document.querySelector('.pane-switcher .console-toggle').click()");
+  await wait(() => evaluate("!document.querySelector('.program-console-pane')?.hidden"), "reopened Program pane");
+  assert.equal(await evaluate("document.querySelector('#rexx-input').value==='unsent input' && document.querySelector('#rexx-input').selectionStart===2 && document.querySelector('#rexx-input').selectionEnd===6"), true,
+    "reopening Program retains draft and selection");
+  fixturePanels[0] = { ...fixturePanels[0], visible: false };
+  fixturePanelState = { ...fixturePanelState, stateRevision: "5",
+    panels: fixturePanelState.panels.map((panel) => panel.id === "user.output"
+      ? { ...panel, visible: false, focused: false, reason: "hidden" } : panel) };
+  publishWorkbench(9, 0, "");
+  client.send(JSON.stringify(fixturePanelState));
+  await wait(() => evaluate("!document.querySelector('.named-log-pane[data-panel-id=\"user.output\"]')"), "hidden LOG starts command SHOW case");
+  await evaluate("document.querySelector('#the-command').focus()");
+  await key("F10");
+  await wait(() => evaluate("!!document.querySelector('[data-item-id=\"user.showitem\"]')"), "command input opens PANEL SHOW menu item");
+  await evaluate("document.querySelector('[data-item-id=\"user.showitem\"]').click()");
+  await wait(() => evaluate("document.activeElement?.id==='the-command'"), "PANEL SHOW retains command input focus");
+  await wait(() => evaluate("!!document.querySelector('.named-log-pane[data-panel-id=\"user.output\"]')?.getClientRects().length"),
+    "PANEL SHOW displays LOG body from command input");
+  assert.equal(fixturePanelState.panels[0].focused, false, "PANEL SHOW does not take core focus");
+  assert.deepEqual(await evaluate("({draft:document.querySelector('#the-command').value,dirty:document.querySelector('.status-line').dataset.bufferDirty,zone:document.querySelector('.status-line').dataset.focusZone,line:document.querySelector('.status-line').dataset.focusLine,cell:document.querySelector('.status-line').dataset.focusCell})"), preservedEditor, "named output does not mutate editor state");
+  const localCommandDraft = await evaluate("document.querySelector('#the-command').value");
+  snapshot.focus = { ...snapshot.focus, zone: "command" };
+  publishSnapshot();
+  await wait(() => evaluate("document.querySelector('.status-line')?.dataset.focusZone==='command'"), "unchanged core command snapshot delivered");
+  assert.equal(await evaluate("document.querySelector('#the-command').value"), localCommandDraft,
+    "unrelated command-focus snapshot preserves local draft");
+  snapshot.command = "core command update";
+  publishSnapshot();
+  await wait(() => evaluate("document.querySelector('#the-command').value==='core command update'"), "genuine core command update reaches input");
+  snapshot.command = "";
+  publishSnapshot();
+  await wait(() => evaluate("document.querySelector('#the-command').value===''"), "genuine core command clear reaches input");
+  await evaluate(`(() => { const input=document.querySelector('#the-command');const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;setter.call(input,${JSON.stringify(localCommandDraft)});input.dispatchEvent(new Event('input',{bubbles:true})); })()`);
+  snapshot.focus = { ...snapshot.focus, zone: "filearea" };
+  snapshot.command = "deferred core command";
+  publishSnapshot();
+  await wait(() => evaluate("document.querySelector('.status-line')?.dataset.focusZone==='filearea'"), "deferred core command arrives in file area");
+  assert.equal(await evaluate("document.querySelector('#the-command').value"), localCommandDraft,
+    "file-area core update waits while local draft remains visible");
+  snapshot.focus = { ...snapshot.focus, zone: "command" };
+  publishSnapshot();
+  await wait(() => evaluate("document.querySelector('#the-command').value==='deferred core command'"),
+    "command focus applies deferred core update");
+  await evaluate("(() => { const input=document.querySelector('#the-command');const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;setter.call(input,'fresh local draft');input.dispatchEvent(new Event('input',{bubbles:true})); })()");
+  const savedCommandStatusLine = snapshot.status_line;
+  snapshot.status_line = "UNCHANGED_CORE_COMMAND_BARRIER";
+  publishSnapshot();
+  await wait(() => evaluate("document.querySelector('.profile-status')?.textContent==='UNCHANGED_CORE_COMMAND_BARRIER'"),
+    "unchanged core command snapshot delivered after local edit");
+  assert.equal(await evaluate("document.querySelector('#the-command').value"), "fresh local draft",
+    "unchanged later snapshot preserves newly typed draft");
+  snapshot.status_line = savedCommandStatusLine;
+  snapshot.command = "";
+  publishSnapshot();
+  await wait(() => evaluate("document.querySelector('#the-command').value===''"), "later core clear still applies");
+  snapshot.focus = { ...snapshot.focus, zone: "filearea" };
+  publishSnapshot();
+  await evaluate(`(() => { const input=document.querySelector('#the-command');const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;setter.call(input,${JSON.stringify(localCommandDraft)});input.dispatchEvent(new Event('input',{bubbles:true})); })()`);
   assert(received.some((message) => message.type === "resize"));
   assert.deepEqual(exceptions, []);
   if (process.env.THE_WORKBENCH_SCREENSHOTS) {

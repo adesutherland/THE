@@ -39,6 +39,7 @@
 #include <proto.h>
 #include "llmsession.h"
 #include "thedriver.h"
+#include "workbench.h"
 
 /*man-start*********************************************************************
 COMMAND
@@ -684,7 +685,12 @@ short Query(CHARTYPE *params)
    }
    CURRENT_VIEW->msgmode_status = save_msgmode_status;
    TRACE_RETURN();
-   return(workbench_query && itemno == EXTRACT_ARG_ERROR ? RC_INVALID_OPERAND : RC_OK);
+   if (workbench_query && itemno == EXTRACT_ARG_ERROR)
+   {
+      short failure=the_workbench_last_result()->rc;
+      return failure != RC_OK ? failure : RC_INVALID_OPERAND;
+   }
+   return RC_OK;
 }
 /*man-start*********************************************************************
 COMMAND

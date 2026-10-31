@@ -6,6 +6,7 @@
 #include "tools.h"
 #include "panelui.h"
 #include "workbench.h"
+#include "workbenchruntime.h"
 
 /* ncurses always provides batched refresh. Some generated configurations
  * leave HAVE_WNOUTREFRESH unset; the legacy wrefresh fallback would then
@@ -30,6 +31,7 @@
 #endif
 
 static TheWorkbenchControl workbench_control = THE_WORKBENCH_EDITOR;
+static int native_log_focused(void);
 
 static int curses_driver_valid_screen(CHARTYPE scrno)
 {
@@ -481,7 +483,7 @@ static CursorBlink curses_driver_current_cursor_blink(void)
 
 static CursorPresentation curses_driver_current_cursor_presentation(void)
 {
-   if (the_tool_console()->focused ||
+   if (the_tool_console()->focused || native_log_focused() ||
        workbench_control != THE_WORKBENCH_EDITOR)
       return CURSOR_PRESENTATION_HARDWARE;
 #ifdef USE_UTF8
@@ -1033,13 +1035,141 @@ static int console_cached_mouse, console_mouse_button, console_mouse_action;
 static int console_mouse_modifier;
 static struct
 {
+   char selected[THE_WORKBENCH_ID_MAX + 1];
+   unsigned long selected_generation, focus_serial;
+   int focused, origin_program, origin_toolbar, origin_control;
+   TheWorkbenchControl origin_chrome;
+   struct
+   {
+      char id[THE_WORKBENCH_ID_MAX + 1];
+      unsigned long generation;
+      int scroll, lines, width;
+      uint64_t revision, anchor_cursor;
+      size_t anchor_offset;
+   } views[THE_WORKBENCH_PANEL_MAX];
+   size_t count;
+} log_ui;
+
+static int native_log_focused(void) { return log_ui.focused; }
+
+static size_t native_log_count(void)
+{
+   size_t i, count = 0;
+   for (i = 0; i < the_workbench_panel_count(); i++)
+   {
+      const TheWorkbenchPanel *panel = the_workbench_panel_at(i);
+      const TheWorkbenchPanelState *state = the_workbench_panel_state(panel->id);
+      if (panel->kind == THE_WORKBENCH_PANEL_LOG && state && state->visible) count++;
+   }
+   return count;
+}
+
+static const TheWorkbenchPanel *native_log_at(size_t index)
+{
+   size_t i;
+   for (i = 0; i < the_workbench_panel_count(); i++)
+   {
+      const TheWorkbenchPanel *panel = the_workbench_panel_at(i);
+      const TheWorkbenchPanelState *state = the_workbench_panel_state(panel->id);
+      if (panel->kind == THE_WORKBENCH_PANEL_LOG && state && state->visible)
+      { if (!index--) return panel; }
+   }
+   return NULL;
+}
+
+static const TheWorkbenchPanel *native_selected_log(void)
+{
+   const TheWorkbenchPanel *panel = the_workbench_panel_find(log_ui.selected);
+   const TheWorkbenchPanelState *state = panel ? the_workbench_panel_state(panel->id) : NULL;
+   return panel && panel->generation == log_ui.selected_generation && state && state->visible ? panel : NULL;
+}
+
+static int native_log_event(const TheWorkbenchPanel *panel, TheWorkbenchPanelOperation operation,
+                            TheInputEvent *event)
+{
+   return panel && the_input_event_from_workbench_panel(panel->id, panel->generation, operation, event);
+}
+
+static void native_logs_sync(void)
+{
+   const TheWorkbenchFocusRequest *focus = the_workbench_focus_request();
+   const TheWorkbenchPanel *panel;
+   size_t i, j;
+   for (i = 0; i < log_ui.count; )
+   {
+      panel = the_workbench_panel_find(log_ui.views[i].id);
+      if (!panel || panel->generation != log_ui.views[i].generation)
+      { memmove(log_ui.views + i, log_ui.views + i + 1, (--log_ui.count - i) * sizeof(log_ui.views[0])); continue; }
+      i++;
+   }
+   for (i = 0; i < the_workbench_panel_count(); i++)
+   {
+      panel = the_workbench_panel_at(i);
+      if (panel->kind != THE_WORKBENCH_PANEL_LOG) continue;
+      for (j = 0; j < log_ui.count && strcmp(log_ui.views[j].id, panel->id); j++);
+      if (j == log_ui.count && log_ui.count < THE_WORKBENCH_PANEL_MAX)
+      {
+         memset(log_ui.views + j, 0, sizeof(log_ui.views[j]));
+         strcpy(log_ui.views[j].id, panel->id); log_ui.views[j].generation = panel->generation;
+         log_ui.count++;
+      }
+   }
+   if (focus && focus->serial != log_ui.focus_serial)
+   {
+      log_ui.focus_serial = focus->serial;
+      panel = the_workbench_panel_find(focus->panel);
+      if (panel && panel->generation == focus->generation)
+      {
+         if (!log_ui.focused)
+         {
+            log_ui.origin_program = the_tool_console()->focused;
+            log_ui.origin_toolbar = console_toolbar_focus; log_ui.origin_control = console_control;
+            log_ui.origin_chrome = workbench_control;
+         }
+         strcpy(log_ui.selected, panel->id); log_ui.selected_generation = panel->generation;
+         log_ui.focused = 1; workbench_control = THE_WORKBENCH_EDITOR;
+         if (the_tool_console()->focused)
+            the_tool_console_visibility(the_tool_console()->visible, 0);
+      }
+      else if (!focus->panel[0] && log_ui.focused)
+      {
+         log_ui.focused = 0;
+         console_toolbar_focus = log_ui.origin_toolbar; console_control = log_ui.origin_control;
+         workbench_control = log_ui.origin_chrome;
+         if (log_ui.origin_program && the_tool_console()->visible)
+         {
+            log_ui.selected[0] = '\0';
+            the_tool_console_visibility(1, 1);
+         }
+      }
+   }
+   if (!log_ui.focused && the_tool_console()->focused) log_ui.selected[0] = '\0';
+   if (!native_selected_log())
+   {
+      log_ui.selected[0] = '\0';
+      if (!the_tool_console()->visible && (panel = native_log_at(0)) != NULL)
+      { strcpy(log_ui.selected, panel->id); log_ui.selected_generation = panel->generation; }
+   }
+   if (console_control > 4 && !native_log_count()) console_control = 0;
+}
+
+static int native_log_view(const TheWorkbenchPanel *panel)
+{
+   size_t i;
+   for (i = 0; i < log_ui.count; i++)
+      if (!strcmp(log_ui.views[i].id, panel->id) && log_ui.views[i].generation == panel->generation) return (int)i;
+   return -1;
+}
+static struct
+{
    int active, program_focused, toolbar_focused, toolbar_control;
    TheWorkbenchControl chrome;
 } workbench_menu_origin;
 
 enum { CONSOLE_EDITOR_MIN_COLS = 72, CONSOLE_MIN_COLS = 44 };
 
-static const char *const console_controls[] = { "Run", "Stop", "Clear", "Hide", "Editor" };
+static const char *const console_controls[] = { "Run", "Stop", "Clear", "Hide", "Editor", "Logs" };
+static int console_control_count(void) { return native_log_count() ? 6 : 5; }
 
 static void workbench_set_focus(TheWorkbenchControl control)
 {
@@ -1113,21 +1243,49 @@ static chtype console_theme_attr(int role, TheRenderStyle style)
    return curses_driver_lower_attr(the_render_attr_merge_style(attr, style));
 }
 
+static TheWorkbenchPlacement native_log_placement(const TheWorkbenchPanel *panel)
+{
+   size_t i;
+   int right = COLS >= CONSOLE_EDITOR_MIN_COLS + 1 + max(CONSOLE_MIN_COLS, panel->mincols)
+      && LINES >= max(16, panel->minrows);
+   int below_rows = max(LINES >= 24 ? 8 : 6, panel->minrows);
+   int below = COLS >= max(32, panel->mincols) && LINES >= 16 && LINES - below_rows - 1 >= 9;
+   for (i = 0; i <= panel->fallback_count; i++)
+   {
+      TheWorkbenchPlacement candidate = i ? panel->fallbacks[i - 1] : panel->placement;
+      if ((candidate == THE_WORKBENCH_PLACE_RIGHT && right) ||
+          (candidate == THE_WORKBENCH_PLACE_BELOW && below) ||
+          (candidate == THE_WORKBENCH_PLACE_TAB && (right || below))) return candidate;
+   }
+   return THE_WORKBENCH_PLACE_NONE;
+}
+
 static int console_is_right(void)
 {
+   const TheWorkbenchPanel *panel = native_selected_log();
+   if (panel)
+   {
+      TheWorkbenchPlacement place = native_log_placement(panel);
+      if (place == THE_WORKBENCH_PLACE_BELOW || place == THE_WORKBENCH_PLACE_NONE) return 0;
+      if (place == THE_WORKBENCH_PLACE_RIGHT) return 1;
+      if (place == THE_WORKBENCH_PLACE_TAB)
+         return COLS >= CONSOLE_EDITOR_MIN_COLS + 1 + max(CONSOLE_MIN_COLS, panel->mincols);
+   }
    return COLS >= CONSOLE_EDITOR_MIN_COLS + 1 + CONSOLE_MIN_COLS;
 }
 
 static int console_height(void)
 {
-   return the_tool_console()->visible && LINES >= 16 && COLS >= 32
-      ? (console_is_right() ? LINES : (LINES >= 24 ? 8 : 6)) : 0;
+   return (the_tool_console()->visible || native_log_count()) && LINES >= 16 && COLS >= 32
+      ? (console_is_right() ? LINES : max(LINES >= 24 ? 8 : 6,
+          native_selected_log() ? min(native_selected_log()->minrows, LINES - 10) : 0)) : 0;
 }
 
 static int console_width(void)
 {
    if (!console_height()) return 0;
-   return console_is_right() ? max(CONSOLE_MIN_COLS, COLS / 3) : COLS;
+   return console_is_right() ? max(max(CONSOLE_MIN_COLS, COLS / 3),
+      native_selected_log() ? native_selected_log()->mincols : 0) : COLS;
 }
 
 static int console_layout_changed(void)
@@ -1154,6 +1312,7 @@ static int console_control_event(int control, TheInputEvent *event)
       case 4:
          console_toolbar_focus = 0;
          return the_input_event_from_command("rx key escape", event);
+      case 5: return native_log_event(native_log_at(0), THE_WORKBENCH_PANEL_FOCUS, event);
    }
    return 0;
 }
@@ -1205,10 +1364,11 @@ static int console_write_text(int row, int col, const char *text, size_t length,
  * same cell boundaries. The last column remains unused to avoid curses wrap. */
 static int console_output_rows(const char *text, const unsigned char *streams,
                                size_t length, int cells, int skip,
-                               int first_row, int paint_rows)
+                               int first_row, int paint_rows, size_t *row_start, int target_row)
 {
    TextPos pos = textpos_begin();
    int row = 0, col = 0, pending_row = 0, last_stream = -1;
+   if (row_start) *row_start = 0;
 
    while (pos.byte_offset < length)
    {
@@ -1222,6 +1382,7 @@ static int console_output_rows(const char *text, const unsigned char *streams,
                        && text[pos.byte_offset + 1] == '\n'))
       {
          row++;
+         if (row_start && row == target_row) *row_start = cluster.end.byte_offset;
          col = pending_row = 0;
          last_stream = -1;
       }
@@ -1234,6 +1395,7 @@ static int console_output_rows(const char *text, const unsigned char *streams,
          if (col && col + width > cells)
          {
             row++;
+            if (row_start && row == target_row) *row_start = pos.byte_offset;
             col = 0;
             last_stream = -1;
          }
@@ -1262,6 +1424,134 @@ static int console_output_rows(const char *text, const unsigned char *streams,
    }
    /* A trailing newline completes a row without appending an empty one. */
    return row + pending_row;
+}
+
+#define NATIVE_LOG_RENDER_MAX (THE_WORKBENCH_LOG_TEXT_MAX * 4u)
+static char log_render_text[NATIVE_LOG_RENDER_MAX + 1];
+static unsigned char log_render_streams[NATIVE_LOG_RENDER_MAX];
+static struct { uint64_t cursor; size_t start; } log_render_records[THE_WORKBENCH_LOG_RECORD_MAX];
+static size_t log_render_record_count;
+static uint64_t log_render_revision;
+
+/* Logs are already UTF-8 text, with explicit lengths. Only LF is interpreted;
+ * all other terminal controls, including NUL, ESC and C1, remain visible data. */
+static size_t native_log_text(const TheWorkbenchPanel *panel, uint64_t *omitted)
+{
+   TheWorkbenchLogPage page;
+   uint64_t cursor = 0;
+   size_t offset = 0, used = 0, i, j;
+   *omitted = 0; log_render_record_count = 0; log_render_revision = 0;
+   do
+   {
+      if (the_workbench_log_page(panel->model, panel->model_generation, cursor, offset,
+          THE_WORKBENCH_LOG_PAGE_MAX, THE_WORKBENCH_LOG_TEXT_MAX, &page) != THE_WORKBENCH_LOG_OK) break;
+      *omitted = page.log.omitted_bytes; log_render_revision = page.log.revision;
+      for (i = 0; i < page.count; i++)
+      {
+         const TheWorkbenchLogSlice *slice = page.slices + i;
+         if (log_render_record_count < THE_WORKBENCH_LOG_RECORD_MAX &&
+             (!log_render_record_count || log_render_records[log_render_record_count - 1].cursor != slice->cursor))
+         {
+            log_render_records[log_render_record_count].cursor = slice->cursor;
+            log_render_records[log_render_record_count++].start = used;
+         }
+         for (j = 0; j < slice->length && used < NATIVE_LOG_RENDER_MAX; j++)
+         {
+            unsigned char c = (unsigned char)slice->text[j];
+            char escape[8]; const char *bytes = slice->text + j; size_t n = 1;
+            if ((c < 32 && c != '\n') || c == 127)
+            { snprintf(escape, sizeof(escape), "\\x%02X", c); bytes = escape; n = 4; }
+            else if (c == 0xc2 && j + 1 < slice->length &&
+                     (unsigned char)slice->text[j + 1] >= 0x80 && (unsigned char)slice->text[j + 1] <= 0x9f)
+            { snprintf(escape, sizeof(escape), "\\u00%02X", (unsigned char)slice->text[++j]); bytes = escape; n = 6; }
+            if (n > NATIVE_LOG_RENDER_MAX - used) break;
+            memcpy(log_render_text + used, bytes, n);
+            memset(log_render_streams + used, slice->stream, n); used += n;
+         }
+      }
+      cursor = page.next_cursor; offset = page.next_offset;
+   } while (page.more && used < NATIVE_LOG_RENDER_MAX);
+   log_render_text[used] = '\0';
+   return used;
+}
+
+static const char *native_log_error_name(TheWorkbenchLogResult result)
+{
+   switch (result)
+   {
+      case THE_WORKBENCH_LOG_INVALID: return "invalid-output";
+      case THE_WORKBENCH_LOG_MISSING: return "missing-model";
+      case THE_WORKBENCH_LOG_STALE: return "stale-model";
+      case THE_WORKBENCH_LOG_LIMIT: return "limit-exceeded";
+      case THE_WORKBENCH_LOG_NOMEM: return "out-of-memory";
+      default: return "ok";
+   }
+}
+
+static void native_log_draw(const TheWorkbenchPanel *panel)
+{
+   uint64_t omitted;
+   size_t length = native_log_text(panel, &omitted);
+   int view = native_log_view(panel), rows = console_rows - 3, lines, scroll = 0, skip;
+   size_t anchor = 0, i;
+   char heading[THE_WORKBENCH_LABEL_MAX + 100], status[160];
+   if (view < 0) return;
+   if (native_log_placement(panel) == THE_WORKBENCH_PLACE_NONE)
+   {
+      const char *reason = "Log collapsed: insufficient space. Esc returns; H hides.";
+      console_write_text(0, 0, reason, strlen(reason), console_cols - 1);
+      wnoutrefresh(console_window); return;
+   }
+   wattrset(console_window, console_theme_attr(log_ui.focused ? ATTR_CONSOLESELECTED : ATTR_CONSOLEHEADER, 0));
+   snprintf(heading, sizeof(heading), " Log: %s%s", panel->title,
+            log_ui.focused ? " | Esc Return" : " | read-only");
+   console_write_text(0, 0, heading, strlen(heading), console_cols - 1);
+   wattrset(console_window, console_theme_attr(ATTR_CONSOLECONTROL, 0));
+   {
+      const char *controls = "Tab panes  PgUp/PgDn Home/End  H Hide";
+      console_write_text(1, 1, controls, strlen(controls), console_cols - 2);
+   }
+   lines = console_output_rows(log_render_text, log_render_streams, length, console_cols - 1, 0, 2, 0, NULL, 0);
+   if (log_ui.views[view].scroll && log_ui.views[view].anchor_cursor &&
+       (log_ui.views[view].revision != log_render_revision || log_ui.views[view].width != console_cols))
+   {
+      /* Retained record cursors anchor the viewport even when a new append
+       * evicts old records and leaves the total retained row count unchanged. */
+      skip = 0;
+      for (i = 0; i < log_render_record_count; i++)
+         if (log_render_records[i].cursor == log_ui.views[view].anchor_cursor)
+         {
+            TextCluster cluster;
+            anchor = min(length, log_render_records[i].start + log_ui.views[view].anchor_offset);
+            cluster = textpos_cluster_at_boundary((const CHARTYPE *)log_render_text, length,
+               textpos_from_byte((const CHARTYPE *)log_render_text, length, anchor));
+            skip = max(0, console_output_rows(log_render_text, log_render_streams,
+               min(length, cluster.end.byte_offset), console_cols - 1, 0, 2, 0, NULL, 0) - 1);
+            break;
+         }
+      log_ui.views[view].scroll = max(0, lines - rows - skip);
+   }
+   log_ui.views[view].lines = lines; log_ui.views[view].revision = log_render_revision;
+   log_ui.views[view].width = console_cols;
+   log_ui.views[view].scroll = min(log_ui.views[view].scroll, max(0, lines - rows));
+   scroll = log_ui.views[view].scroll; skip = max(0, lines - rows - scroll);
+   console_output_rows(log_render_text, log_render_streams, length, console_cols - 1,
+                       skip, 2, rows, &anchor, skip);
+   log_ui.views[view].anchor_cursor = 0;
+   for (i = 0; i < log_render_record_count; i++)
+      if (log_render_records[i].start <= anchor)
+      {
+         log_ui.views[view].anchor_cursor = log_render_records[i].cursor;
+         log_ui.views[view].anchor_offset = anchor - log_render_records[i].start;
+      }
+   wattrset(console_window, console_theme_attr(ATTR_CONSOLESTATUS, 0));
+   if (the_workbench_model_state(panel->model) && the_workbench_model_state(panel->model)->last_error != THE_WORKBENCH_LOG_OK)
+      snprintf(status, sizeof(status), " Log output error: %s", native_log_error_name(the_workbench_model_state(panel->model)->last_error));
+   else if (omitted) snprintf(status, sizeof(status), " History omitted: %llu bytes", (unsigned long long)omitted);
+   else snprintf(status, sizeof(status), " Read-only | %lu visible log%s", (unsigned long)native_log_count(), native_log_count() == 1 ? "" : "s");
+   console_write_text(console_rows - 1, 0, status, strlen(status), console_cols - 1);
+   wmove(console_window, 0, 1); leaveok(console_window, log_ui.focused ? FALSE : TRUE);
+   wnoutrefresh(console_window);
 }
 
 static void console_draw(void)
@@ -1298,13 +1588,14 @@ static void console_draw(void)
     * explicitly so the pane never inherits the terminal's default colours. */
    wattrset(console_window, console_theme_attr(ATTR_CONSOLEBODY, 0));
    for (i = 0; i < h; i++) mvwhline(console_window, i, 0, ' ', w);
+   if (native_selected_log()) { native_log_draw(native_selected_log()); return; }
    snprintf(heading, sizeof(heading), " Program console | %s",
       c->focused ? (w < 40 ? "Esc Cmd" : "Esc Cmd F6 File")
          : (w >= 64 ? "RX CONSOLE: input" : "F10: Menu"));
    wattrset(console_window, console_theme_attr(ATTR_CONSOLEHEADER, 0));
    mvwhline(console_window, 0, 0, ' ', w);
    console_write_text(0, 0, heading, strlen(heading), w - 1);
-   for (i = 0; i < 5; i++)
+   for (i = 0; i < console_control_count(); i++)
    {
       int enabled = i == 0 ? !c->running : i == 1 ? c->running : 1;
       int selected = c->focused && console_toolbar_focus && console_control == i;
@@ -1339,7 +1630,7 @@ static void console_draw(void)
       length += bytes;
    }
    text[length] = 0;
-   lines = console_output_rows(text, streams, length, w - 1, 0, row, 0);
+   lines = console_output_rows(text, streams, length, w - 1, 0, row, 0, NULL, 0);
    if (c->id != console_scroll_id || !c->count)
    {
       console_scroll_id = c->id;
@@ -1352,7 +1643,7 @@ static void console_draw(void)
    console_scroll_offset = min(console_scroll_offset, max(0, lines - output_rows));
    console_output_rows(text, streams, length, w - 1,
                        max(0, lines - output_rows - console_scroll_offset),
-                       row, output_rows);
+                       row, output_rows, NULL, 0);
    wattrset(console_window, console_theme_attr(ATTR_CONSOLEINPUT, 0));
    mvwhline(console_window, h - 1, 0, ' ', w);
    input_col = console_write_text(h - 1, 0, prompt, strlen(prompt), w - 2);
@@ -1762,7 +2053,9 @@ invoke:
 void curses_driver_update(void)
 {
    static int cursor_focus_state = -1;
-   int focus_state = the_tool_console()->focused ? 2
+   int focus_state;
+   native_logs_sync();
+   focus_state = log_ui.focused ? 3 : the_tool_console()->focused ? 2
       : workbench_control != THE_WORKBENCH_EDITOR ? 1 : 0;
 
    console_draw();
@@ -1778,12 +2071,24 @@ void curses_driver_update(void)
       leaveok(chrome, FALSE);
       wnoutrefresh(chrome);
    }
-   else if (!the_tool_console()->focused && curses_driver_current_active_window())
+   else if (!log_ui.focused && !the_tool_console()->focused && curses_driver_current_active_window())
       wnoutrefresh(curses_driver_current_active_window());
    if (!in_macro && !the_panel_active && focus_state != cursor_focus_state)
    {
       cursor_focus_state = focus_state;
       curses_driver_apply_cursor_visibility(TRUE);
+   }
+   {
+      size_t i;
+      for (i = 0; i < the_workbench_panel_count(); i++)
+      {
+         const TheWorkbenchPanel *panel = the_workbench_panel_at(i);
+         const TheWorkbenchPanelState *state = the_workbench_panel_state(panel->id);
+         TheWorkbenchPlacement place = !state || !state->visible || !console_rows ? THE_WORKBENCH_PLACE_NONE
+            : native_selected_log() == panel ? native_log_placement(panel) : THE_WORKBENCH_PLACE_TAB;
+         the_workbench_panel_effective(panel->id, panel->generation, place,
+            !state || !state->visible ? "hidden" : !console_rows || place == THE_WORKBENCH_PLACE_NONE ? "insufficient-space" : place == THE_WORKBENCH_PLACE_TAB ? "auxiliary-tab" : "");
+      }
    }
    native_menu_draw();
    doupdate();
@@ -2028,6 +2333,14 @@ static int console_mouse_event(TheInputEvent *event)
    if (!curses_driver_read_pending_mouse_button(&button, &action, &modifier))
       return 0;
    curses_driver_current_mouse_screen_position(&row, &col);
+   if (native_selected_log() && row >= console_top && row < console_top + console_rows &&
+       col >= console_left && col < console_left + console_cols)
+   {
+      if (button == 1 && !modifier &&
+          (action == CURSES_DRIVER_MOUSE_BUTTON_PRESSED || action == CURSES_DRIVER_MOUSE_BUTTON_CLICKED))
+         return native_log_event(native_selected_log(), THE_WORKBENCH_PANEL_FOCUS, event);
+      return 0;
+   }
    if (FILETABSx && row == 0 && col >= 0 && col < THE_NATIVE_CONTROLS_WIDTH)
    {
       /* Wait for the completed click. Opening on press would let the
@@ -2039,6 +2352,15 @@ static int console_mouse_event(TheInputEvent *event)
       {
          if (col < THE_NATIVE_MENU_WIDTH)
             workbench_remember_menu_origin();
+         if (col >= THE_NATIVE_MENU_WIDTH && col < THE_NATIVE_MENU_WIDTH + THE_NATIVE_CONSOLE_WIDTH)
+         {
+            if (log_ui.focused && native_selected_log())
+            {
+               log_ui.origin_program = 1; log_ui.origin_toolbar = 0; log_ui.origin_chrome = THE_WORKBENCH_EDITOR;
+               return native_log_event(native_selected_log(), THE_WORKBENCH_PANEL_RETURN, event);
+            }
+            log_ui.selected[0] = '\0';
+         }
          workbench_set_focus(THE_WORKBENCH_EDITOR);
          return col < THE_NATIVE_MENU_WIDTH
             ? native_menu_open()
@@ -2074,7 +2396,7 @@ static int console_mouse_event(TheInputEvent *event)
    col -= console_left;
    if (row == 1)
    {
-      for (i = 0; i < 5; i++)
+      for (i = 0; i < console_control_count(); i++)
       {
          if (col >= start && col < start + (int)strlen(console_controls[i]))
          {
@@ -2093,6 +2415,41 @@ static int console_mouse_event(TheInputEvent *event)
    return the_input_event_from_command("rx console on", event);
 }
 
+static int native_log_key(int key, TheInputEvent *event)
+{
+   const TheWorkbenchPanel *panel = native_selected_log(), *next;
+   int view = panel ? native_log_view(panel) : -1;
+   size_t i, count = native_log_count();
+   if (!panel) return 0;
+   if (key == 27) return native_log_event(panel, THE_WORKBENCH_PANEL_RETURN, event);
+   if (key == 'h' || key == 'H' || key == 23) return native_log_event(panel, THE_WORKBENCH_PANEL_HIDE, event);
+   if (key == 9 || key == THE_KEY_BTAB)
+   {
+      for (i = 0; i < count && native_log_at(i) != panel; i++);
+      if ((key == 9 && i + 1 == count) || (key == THE_KEY_BTAB && !i))
+      {
+         if (the_tool_console()->visible)
+         {
+            log_ui.origin_program = 1; log_ui.origin_toolbar = 0; log_ui.origin_chrome = THE_WORKBENCH_EDITOR;
+            return native_log_event(panel, THE_WORKBENCH_PANEL_RETURN, event);
+         }
+      }
+      next = native_log_at(key == 9 ? (i + 1) % count : (i + count - 1) % count);
+      return native_log_event(next, THE_WORKBENCH_PANEL_FOCUS, event);
+   }
+   if (view >= 0)
+   {
+      int page = max(1, console_rows - 4), maximum = max(0, log_ui.views[view].lines - (console_rows - 3));
+      if (key == THE_KEY_HOME) log_ui.views[view].scroll = maximum;
+      else if (key == THE_KEY_END) log_ui.views[view].scroll = 0;
+      else if (key == THE_KEY_UP || key == THE_KEY_PPAGE)
+         log_ui.views[view].scroll = min(maximum, log_ui.views[view].scroll + (key == THE_KEY_UP ? 1 : page));
+      else if (key == THE_KEY_DOWN || key == THE_KEY_NPAGE)
+         log_ui.views[view].scroll = max(0, log_ui.views[view].scroll - (key == THE_KEY_DOWN ? 1 : page));
+   }
+   curses_driver_update(); return 0;
+}
+
 int curses_driver_read_input_event(TheInputEvent *event)
 {
    int key, ok;
@@ -2108,7 +2465,13 @@ int curses_driver_read_input_event(TheInputEvent *event)
    console_cached_mouse = 0;
    the_tools_native_initialise();
    the_tools_native_poll();
+   native_logs_sync();
    c = the_tool_console();
+   if (log_ui.focused && c->focused && native_selected_log())
+   {
+      log_ui.origin_program = 1; log_ui.origin_toolbar = 0; log_ui.origin_chrome = THE_WORKBENCH_EDITOR;
+      return native_log_event(native_selected_log(), THE_WORKBENCH_PANEL_RETURN, event);
+   }
    if (the_tools_take_menu_run(event)) return 1;
    if (console_layout_changed())
    {
@@ -2123,6 +2486,7 @@ int curses_driver_read_input_event(TheInputEvent *event)
     * caret away from the menu on every active-job timeout. */
    input_window = native_menu.active && native_menu.window && !in_macro && !the_panel_active
       ? native_menu.window
+      : log_ui.focused && console_window && !in_macro && !the_panel_active ? console_window
       : workbench_control != THE_WORKBENCH_EDITOR && FILETABSx && filetabs
         && !in_macro && !the_panel_active
          ? curses_driver_window_from_driver(filetabs) : curses_driver_current_active_window();
@@ -2149,6 +2513,7 @@ int curses_driver_read_input_event(TheInputEvent *event)
          return native_menu_key(key, &input, event);
       }
       if (key == THE_KEY_F(10) && shared_menu_key_binding()) return native_menu_open();
+      if (log_ui.focused && key != THE_KEY_RESIZE && key != THE_KEY_MOUSE) return native_log_key(key, event);
       if (key == THE_KEY_MOUSE) return console_mouse_event(event);
       if (workbench_control != THE_WORKBENCH_EDITOR)
       {
@@ -2224,10 +2589,10 @@ int curses_driver_read_input_event(TheInputEvent *event)
          else if (key == 3) strcpy(command, "rx key stop");
          else if (console_toolbar_focus)
          {
-            if (key == THE_KEY_LEFT) console_control = (console_control + 4) % 5;
-            else if (key == THE_KEY_RIGHT) console_control = (console_control + 1) % 5;
+            if (key == THE_KEY_LEFT) console_control = (console_control + console_control_count() - 1) % console_control_count();
+            else if (key == THE_KEY_RIGHT) console_control = (console_control + 1) % console_control_count();
             else if (key == THE_KEY_HOME) console_control = 0;
-            else if (key == THE_KEY_END) console_control = 4;
+            else if (key == THE_KEY_END) console_control = console_control_count() - 1;
             else if (key == 10 || key == 13 || key == THE_KEY_ENTER || key == ' ')
                return console_control_event(console_control, event);
             curses_driver_update();

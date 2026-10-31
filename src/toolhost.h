@@ -29,6 +29,22 @@ typedef struct {
    void (*stop)(unsigned);
    void (*poll)(void);
 } TheToolAdapter;
+/* Optional session-owned output observer. begin runs after job ID allocation,
+ * before backend.start, and may refuse the launch. It cleans up its own partial
+ * state on failure. Every successful begin gets exactly one end, including a
+ * backend start failure. A successful begin may return a NULL binding.
+ * text receives complete, decoded UTF-8 program stdout/stderr only, with a
+ * job-global sequence starting at 1 across both streams. Final decoder flushes
+ * precede end. Profile output, stdin echoes and condition/status text are not
+ * program output. Callbacks must not reenter the tool host. Borrowed text is
+ * valid only during the callback; the binding belongs to the observer. */
+typedef struct {
+   int (*begin)(unsigned job_id, const char *tool_id, void **binding,
+                char *error, size_t capacity);
+   void (*text)(void *binding, unsigned job_id, int fd, uint64_t sequence,
+                const void *bytes, size_t length);
+   void (*end)(void *binding, unsigned job_id);
+} TheToolObserver;
 typedef struct {
    int fd;
    char *text;
@@ -46,6 +62,10 @@ typedef struct {
 
 void the_tool_host_reset(void);
 void the_tool_host_adapter(const TheToolAdapter *adapter);
+/* All three callbacks are required. NULL disables observation. Changes are
+ * refused while a job/binding is active; reset stops and releases before
+ * clearing the observer configuration. */
+int the_tool_host_observer(const TheToolObserver *observer);
 int the_tool_register(const TheToolDefinition *tool);
 const TheToolDefinition *the_tool_find(const char *id);
 const TheToolDefinition *the_tool_at(size_t index);

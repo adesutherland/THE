@@ -167,6 +167,7 @@ try {
   await command("Page.addScriptToEvaluateOnNewDocument", { source: `
     window.__theSockets = [];
     window.__workbenchResults = [];
+    window.__workbenchMessages = [];
     window.__workbenchSession = '';
     window.__workbenchNext = 1;
     window.__nextWorkbenchId = () => window.__workbenchSession + '.' + window.__workbenchNext++;
@@ -182,11 +183,13 @@ try {
               window.__workbenchSession = value.workbenchSession;
               window.__workbenchNext = value.workbenchNextRequest;
             }
+            if (value.screen_rows) window.__snapshot = value;
             if (value.type === 'workbench' && value.operation === 'result') {
               window.__workbenchResults.push(value);
               const sequence = Number(value.requestId?.split('.').at(-1));
               if (Number.isSafeInteger(sequence)) window.__workbenchNext = Math.max(window.__workbenchNext, sequence + 1);
             }
+            if (value.type === 'workbench') window.__workbenchMessages.push(value);
           } catch {}
         });
       }
@@ -521,6 +524,62 @@ try {
   await evaluate(`window.__theSockets[0].send(JSON.stringify({type:'workbench',version:1,operation:'invoke',requestId:${JSON.stringify(replayId)},action:'the.edit.undo',expectGeneration:${saveGeneration}}))`);
   await waitFor(() => evaluate(`window.__workbenchResults.some(result => result.requestId === ${JSON.stringify(replayId)} && result.code === 'request-id-conflict')`), "request ID payload conflict");
   console.log("PASS native browser shared workbench: add, invoke, replace, stale generation, poisoned label and remove");
+  await navigationCommand('workbench begin owner user.logs');
+  await navigationCommand('workbench panel put user.output kind log model user.outputlog');
+  await navigationCommand('workbench panel place user.output right fallback below,tab mincols 10');
+  await navigationCommand('workbench route put user.stdout from tool:classic-rexx/stdout to log:user.outputlog');
+  await navigationCommand('workbench action put user.show label "Show output" panel user.output op show');
+  await navigationCommand('workbench menu put user.logs label "Logs" order 50');
+  await navigationCommand('workbench item put user.logs user.showitem label "Show output" action user.show');
+  await navigationCommand('workbench commit');
+  await waitFor(() => evaluate("!!document.querySelector('.named-log-toggle[data-panel-id=\"user.output\"]')"), 'native LOG catalog publication');
+  const logRunnerAvailable = await evaluate("!!document.querySelector('.pane-switcher .run-rexx:not(:disabled)')");
+  if (logRunnerAvailable) {
+    await openWorkspaceFile('console.rexx');
+    await evaluate("document.querySelector('.pane-switcher .run-rexx').click()");
+    await waitFor(() => evaluate("document.querySelector('.console-output')?.textContent.includes('native graphical proof')"), 'native routed program stdout', 30000);
+    await waitFor(() => evaluate("!!document.querySelector('#rexx-input:not(:disabled)')?.getClientRects().length"), 'active Program input before native PANEL SHOW');
+    await evaluate("document.querySelector('#rexx-input').focus()");
+    await command('Input.insertText', {text: 'pending program input'});
+    await evaluate("document.querySelector('#rexx-input').setSelectionRange(2,8)");
+    await domKey('F10', 'F10');
+    await waitFor(() => evaluate("!!document.querySelector('[data-item-id=\"user.showitem\"]')"), 'native PANEL SHOW menu item');
+    await evaluate("document.querySelector('[data-item-id=\"user.showitem\"]').click()");
+    await waitFor(() => evaluate("!!document.querySelector('.named-log-pane[data-panel-id=\"user.output\"]')?.getClientRects().length && document.activeElement?.id==='rexx-input'"), 'native SHOW displays LOG and retains Program focus');
+    if (!await evaluate("document.querySelector('#rexx-input').value==='pending program input' && document.querySelector('#rexx-input').selectionStart===2 && document.querySelector('#rexx-input').selectionEnd===8 && window.__workbenchMessages.some(m=>m.operation==='panel-state'&&m.panels?.some(p=>p.id==='user.output'&&p.visible&&!p.focused))"))
+      throw Error('native PANEL SHOW lost Program draft/selection or focused core pane');
+    await navigationCommand('workbench panel hide user.output');
+    await waitFor(() => evaluate("window.__workbenchMessages.at(-1)?.operation==='panel-state' && window.__workbenchMessages.at(-1).panels.some(p=>p.id==='user.output'&&!p.visible)"), 'native LOG hidden before command SHOW');
+  }
+  await evaluate("document.querySelector('#the-command').focus()");
+  await command('Input.insertText', {text: 'pending command'});
+  const pendingCommandDraft = await evaluate("document.querySelector('#the-command').value");
+  if (!pendingCommandDraft.includes('pending command')) throw Error('native command draft was not entered');
+  await domKey('F10', 'F10');
+  await waitFor(() => evaluate("!!document.querySelector('[data-item-id=\"user.showitem\"]')"), 'command PANEL SHOW menu item');
+  await evaluate("document.querySelector('[data-item-id=\"user.showitem\"]').click()");
+  await waitFor(() => evaluate("!!document.querySelector('.named-log-pane[data-panel-id=\"user.output\"]')?.getClientRects().length && document.activeElement?.id==='the-command'"), 'native SHOW displays LOG and retains command focus');
+  const afterCommandDraft = await evaluate("document.querySelector('#the-command').value");
+  if (afterCommandDraft !== pendingCommandDraft)
+    throw Error(`native PANEL SHOW changed command draft: ${JSON.stringify({before:pendingCommandDraft,after:afterCommandDraft})}`);
+  if (logRunnerAvailable) {
+    await waitFor(() => evaluate("document.querySelector('.named-log-output')?.textContent.includes('native graphical proof')"), 'native LOG pane renders actual stdout', 30000).catch(async (error) => {
+      throw new Error(`${error.message}: ${JSON.stringify(await evaluate("({pane:document.querySelector('.named-log-pane')?.outerHTML.slice(0,500),messages:window.__workbenchMessages.slice(-12),status:document.querySelector('.status-line')?.textContent})"))}`);
+    });
+    const logBeforeInput = await evaluate("window.__snapshot");
+    if (logBeforeInput.buffer.dirty || !logBeforeInput.focus) throw Error('LOG output changed editor state');
+    await evaluate("[...document.querySelectorAll('.auxiliary-tabs [role=tab]')].find(node=>node.textContent==='Program console').click()");
+    await evaluate("document.querySelector('#rexx-input').focus()");
+    await command('Input.dispatchKeyEvent', {type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13,text:'\r'});
+    await command('Input.dispatchKeyEvent', {type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+    await waitFor(() => evaluate("document.querySelector('.run-state')?.textContent.includes('Completed')"), 'native routed program completion', 30000);
+    await closeCurrentBuffer('console.rexx');
+    await selectBuffer('sample.txt');
+    console.log('PASS native browser LOG pane: actual routed Classic stdout and dynamic content');
+  } else {
+    await waitFor(() => evaluate("!!document.querySelector('.named-log-output')"), 'native LOG pane without runner');
+    console.log('PASS native browser LOG pane: route catalog and panel UI (Classic runner unavailable)');
+  }
   if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   await evaluate("document.querySelector('.menu-trigger').click()");
   const beforeCloseResults = +(await evaluate("window.__workbenchResults.length"));

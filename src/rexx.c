@@ -56,6 +56,7 @@
 #include "macroruntime.h"
 #include "thedriver.h"
 #include "thedriver.h"
+#include "workbench.h"
 
 LINE *rexxout_first_line=NULL;
 LINE *rexxout_last_line=NULL;
@@ -234,6 +235,53 @@ unsigned long MyRexxRegisterFunctionExe
    return rc;
 }
 
+/* Only a single, explicitly named read-only inspection may return a negative
+ * WORKBENCH value without raising the interpreter's generic ERROR condition.
+ * Regina otherwise replaces the supplied numeric result with RC 1. */
+static bool workbench_inspection_command(const CHARTYPE *bytes,size_t length)
+{
+   size_t i=0,start,n,j;
+   CHARTYPE delimiter=0;
+   const char *name;
+   bool extract=FALSE;
+   bool linend=number_of_files ? CURRENT_VIEW->linend_status : LINEND_STATUSx;
+   CHARTYPE linend_value=number_of_files ? CURRENT_VIEW->linend_value : LINEND_VALUEx;
+   for (j=0;j<length;j++)
+      if (!bytes[j] || (linend && bytes[j] == linend_value)) return FALSE;
+   while (i<length && (bytes[i]==' ' || bytes[i]=='\t')) i++;
+   start=i;
+   while (i<length && bytes[i]!=' ' && bytes[i]!='\t') i++;
+   n=i-start;
+   if (n>=1 && n<=5 && (bytes[start]=='q' || bytes[start]=='Q')) name="query";
+   else if (n>=3 && n<=7 && (bytes[start]=='e' || bytes[start]=='E'))
+   { name="extract"; extract=TRUE; }
+   else return FALSE;
+   for (j=0;j<n;j++)
+   {
+      CHARTYPE c=bytes[start+j]; if (c>='A' && c<='Z') c+='a'-'A';
+      if (c != (CHARTYPE)name[j]) return FALSE;
+   }
+   while (i<length && (bytes[i]==' ' || bytes[i]=='\t')) i++;
+   if (extract)
+   { if (i==length) return FALSE; delimiter=bytes[i++]; }
+   start=i;
+   while (i<length && bytes[i]!=' ' && bytes[i]!='\t' && (!extract || bytes[i]!=delimiter)) i++;
+   if (i-start != 9) return FALSE;
+   for (j=0;j<9;j++)
+   {
+      CHARTYPE c=bytes[start+j]; if (c>='A' && c<='Z') c+='a'-'A';
+      if (c != (CHARTYPE)"workbench"[j]) return FALSE;
+   }
+   if (extract)
+   {
+      while (i<length && bytes[i]!=delimiter) i++;
+      if (i<length) i++;
+      while (i<length && (bytes[i]==' ' || bytes[i]=='\t')) i++;
+      if (i!=length) return FALSE;
+   }
+   return TRUE;
+}
+
 /***********************************************************************/
 RSH_RETURN_TYPE THE_Commands
    (
@@ -243,6 +291,8 @@ RSH_RETURN_TYPE THE_Commands
 /***********************************************************************/
 {
    short rc=RC_OK;
+   bool inspection=workbench_inspection_command((const CHARTYPE *)Command->strptr,Command->strlength);
+   unsigned long inspection_before=the_workbench_inspection_refusal_serial();
 
    TRACE_FUNCTION("rexx.c:    THE_Commands");
 
@@ -266,7 +316,13 @@ RSH_RETURN_TYPE THE_Commands
       halt_signalled = 1;
    }
    else if (rc < 0)
-      *Flags = RXSUBCOM_ERROR;             /* raise an error condition   */
+   {
+      if (inspection && inspection_before != the_workbench_inspection_refusal_serial()
+      && rc == the_workbench_last_result()->rc)
+         *Flags = RXSUBCOM_OK;             /* preserve the inspection value */
+      else
+         *Flags = RXSUBCOM_ERROR;          /* raise an error condition   */
+   }
    else
       *Flags = RXSUBCOM_OK;                /* not found is not an error  */
    /*

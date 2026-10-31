@@ -492,7 +492,7 @@ static void print_capabilities(void)
    print_json_string((const char *)crexx_version);
    fputs(",\"transient_ui\":\"shared-transientui-protocol-adapter\"", stdout);
    fputs(",\"build_test_hooks\":\"external-shell-or-ctest\"", stdout);
-   fputs(",\"workbench\":{\"schemaVersion\":1,\"actions\":true,\"menus\":true,\"invocation\":\"command\"}", stdout);
+   fputs(",\"workbench\":{\"schemaVersion\":1,\"actions\":true,\"menus\":true,\"logPanels\":true,\"routes\":true,\"logInspection\":\"command\",\"invocation\":\"command\"}", stdout);
    fputs(",\"inputs\":[\"look\",\"delta\",\"capabilities\",\"focus\",\"hit\",\"key\",\"text\",\"type\",\"text-utf\",\"insert\",\"insert-utf\",\"command\",\"tools\",\"toolwait\",\"debug\",\"transient\",\"quit\"]", stdout);
    fputs(",\"view_modes\":[\"full\",\"filearea\",\"reserved\",\"prefix\",\"focus\"]", stdout);
    fputs(",\"transient_commands\":[\"transient readv [TEXT]\",\"transient dialog [TEXT]\",\"transient popup\",\"transient look\",\"transient key NAME\",\"transient text TEXT\",\"transient hit ROW COL\",\"transient result\",\"transient close\",\"transient cancel\"]", stdout);

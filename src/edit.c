@@ -240,6 +240,18 @@ int process_key(int key, bool mouse_details_present)
             }
             goto refresh_after_input;
          }
+         if (input_event.kind == THE_INPUT_WORKBENCH_PANEL)
+         {
+            rc = the_input_dispatch_workbench_panel(&input_event);
+            if (rc != RC_OK)
+            {
+               const TheWorkbenchResult *result = the_workbench_last_result();
+               char message[256];
+               snprintf(message,sizeof(message),"WORKBENCH %s: %s",result->code,result->message);
+               display_error(0,(CHARTYPE *)message,FALSE);
+            }
+            goto refresh_after_input;
+         }
          if (input_event.kind == THE_INPUT_LOGICAL_HIT)
          {
             rc = the_input_dispatch_logical_hit(&input_event.target)

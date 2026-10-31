@@ -63,3 +63,10 @@ int the_input_dispatch_logical_hit(const TheInputLogicalTarget *target)
       return 0;
    return THEcursor_logical_target(target) == RC_OK;
 }
+
+short the_input_dispatch_workbench_panel(const TheInputEvent *input)
+{
+   if (!input || input->kind != THE_INPUT_WORKBENCH_PANEL) return RC_INVALID_OPERAND;
+   return the_workbench_panel_operation(the_input_event_workbench_panel_id(input),
+      the_input_event_workbench_panel_generation(input),the_input_event_workbench_panel_operation(input));
+}

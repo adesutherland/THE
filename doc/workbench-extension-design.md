@@ -1,7 +1,7 @@
 # Extensible THE workbench: staged design and frozen contract
 
-**Status: phase 1 implemented in the development source; later phases remain
-proposed.** Use [shared workbench actions and menus](workbench-actions-menus.md)
+**Status: phase 1 and the phase-2A LOG core are implemented in the development
+source; document panes and later phases remain proposed.** Use [shared workbench actions and menus](workbench-actions-menus.md)
 for the implemented grammar, limits, transactions and surface behavior. This
 document retains the broader frozen contract and staged design; it does not
 claim that later commands, registries or protocol extensions are implemented or
@@ -15,9 +15,14 @@ layout authoritative.
 Phase 1 provides the shared C action/menu/item registry, owner-bound definition
 transactions, outer profile publication, QUERY/EXTRACT pages and explicit
 builtin/command/macro invocation. Terminal, GTK, browser/Wasm and LLM adapters
-consume the published definitions. `TOOL`/`PANEL` actions, named panes, forms,
-routes, new execution adapters and file-output publication remain later-phase
+consume the published definitions. `TOOL` actions, DOCUMENT/field panes, forms,
+file routes, new execution adapters and file-output publication remain later-phase
 contracts. Existing RX tools and console behavior retain their own interfaces.
+The [phase-2A LOG guide](workbench-log-panes.md) describes transactional LOG
+panels, runtime presentation requests, singleton-job routes and bounded content
+inspection. DOCUMENT panes remain unsupported pending a qualified document-token
+and read service; physical frontend qualification is a separate gate.
+
 The implementation's invocation generation guard uses `INVOKE id EXPECT n`;
 macro argument vectors are not implemented in phase 1. Examples and wider object
 models below must be read with those boundaries.

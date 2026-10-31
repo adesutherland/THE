@@ -1,6 +1,7 @@
 #include "the.h"
 #include "proto.h"
 #include "workbench.h"
+#include "workbenchruntime.h"
 #include "frontendpolicy.h"
 #include "inputdispatch.h"
 #include "panelui.h"
@@ -92,6 +93,21 @@ int the_workbench_restricted(void)
 #endif
 }
 
+static void invocation_completed(void);
+static short panel_operation(const char *id,unsigned long generation,TheWorkbenchPanelOperation operation)
+{
+   if (the_workbench_activation_active()) return the_workbench_result("activation-pending",RC_INVALID_ENVIRON,"Panel runtime operations require completed profile activation");
+   if (the_panel_active) return the_workbench_result("busy-modal",RC_INVALID_ENVIRON,"A modal READ owns editor input");
+   return the_workbench_runtime_panel(id,generation,operation);
+}
+
+short the_workbench_panel_operation(const char *id,unsigned long generation,TheWorkbenchPanelOperation operation)
+{
+   short rc=panel_operation(id,generation,operation);
+   invocation_completed();
+   return rc;
+}
+
 const char *the_workbench_action_reason(const TheWorkbenchAction *action)
 {
    if (!action) return "missing-action";
@@ -108,6 +124,14 @@ const char *the_workbench_action_reason(const TheWorkbenchAction *action)
          if (!the_frontend_action_init(action->builtin,action->operand,&prepared)) return "invalid-operand";
          if (!the_frontend_policy_prepare_action(&prepared,error,sizeof(error))) return "policy-denied";
       }
+      return "ok";
+   }
+   if (action->kind == THE_WORKBENCH_ACTION_PANEL)
+   {
+      const TheWorkbenchPanel *p=the_workbench_panel_find(action->panel);
+      const TheWorkbenchPanelState *state=the_workbench_panel_state(action->panel);
+      if (!p || !state) return "missing-object";
+      if (action->panel_operation == THE_WORKBENCH_PANEL_FOCUS && !state->visible) return "capability-unavailable";
       return "ok";
    }
    if (the_workbench_restricted()) return "policy-denied";
@@ -133,6 +157,11 @@ static short invoke_action(const char *id, unsigned long generation,
    if (the_workbench_activation_active() && strncmp(copy.owner,"the.",4))
       return the_workbench_result("activation-pending",RC_INVALID_ENVIRON,"Profile actions cannot run before activation completes");
    if (the_panel_active) return the_workbench_result("busy-modal",RC_INVALID_ENVIRON,"A modal READ owns editor input");
+   if (copy.kind == THE_WORKBENCH_ACTION_PANEL)
+   {
+      if (argument && *argument) return bad();
+      return the_workbench_panel_operation(copy.panel,0,copy.panel_operation);
+   }
    if (copy.kind == THE_WORKBENCH_ACTION_BUILTIN)
    {
       if (!the_frontend_action_init(copy.builtin,argument ? argument : copy.operand,&builtin)) return bad();
@@ -169,6 +198,7 @@ static unsigned long invocation_serial;
 static unsigned int invocation_depth;
 static char invocation_ids[THE_WORKBENCH_INVOKE_DEPTH_MAX][THE_WORKBENCH_ID_MAX+1];
 static const char *invocation_refusal;
+static void invocation_completed(void) { if (!invocation_depth) invocation_serial++; }
 unsigned long the_workbench_invocation_serial(void) { return invocation_serial; }
 short the_workbench_invoke(const char *id, unsigned long generation, const char *argument)
 {
@@ -207,6 +237,36 @@ short the_workbench_invoke(const char *id, unsigned long generation, const char 
       invocation_serial++;
    }
    return rc;
+}
+
+static TheWorkbenchPanelOperation panel_operation_token(const Token *t)
+{
+   if (keyword(t,"SHOW")) return THE_WORKBENCH_PANEL_SHOW;
+   if (keyword(t,"HIDE")) return THE_WORKBENCH_PANEL_HIDE;
+   if (keyword(t,"FOCUS")) return THE_WORKBENCH_PANEL_FOCUS;
+   return 0;
+}
+static TheWorkbenchPlacement placement_token(const Token *t)
+{
+   if (keyword(t,"RIGHT")) return THE_WORKBENCH_PLACE_RIGHT;
+   if (keyword(t,"BELOW")) return THE_WORKBENCH_PLACE_BELOW;
+   if (keyword(t,"TAB")) return THE_WORKBENCH_PLACE_TAB;
+   return 0;
+}
+static int fallback_tokens(const Token *t,TheWorkbenchPlacement *out,size_t *count)
+{
+   const char *p=t->text; *count=0;
+   if (t->quoted || !*p) return 0;
+   while (*p)
+   {
+      Token word; size_t n=0;
+      memset(&word,0,sizeof(word));
+      while (*p && *p != ',') { if (n == 8) return 0; word.text[n++]=*p++; }
+      if (!n || *count == 3 || !(out[*count]=placement_token(&word))) return 0;
+      (*count)++;
+      if (*p == ',' && !*++p) return 0;
+   }
+   return 1;
 }
 
 static short command_operands(const char *operands)
@@ -254,8 +314,14 @@ static short command_operands(const char *operands)
          if (a.kind == THE_WORKBENCH_ACTION_MACRO && strchr(t[6].text,'"')) return bad();
          strcpy(a.operand,t[6].text);
       }
-      else if (keyword(&t[5],"TOOL") || keyword(&t[5],"PANEL"))
-         return the_workbench_result("unsupported-feature",RC_INVALID_ENVIRON,"Tool and panel actions are outside phase one");
+      else if (keyword(&t[5],"PANEL"))
+      {
+         if (n != 9 || t[6].quoted || strlen(t[6].text) > THE_WORKBENCH_ID_MAX
+         || !keyword(&t[7],"OP") || !(a.panel_operation=panel_operation_token(t+8))) return bad();
+         a.kind=THE_WORKBENCH_ACTION_PANEL; strcpy(a.panel,t[6].text);
+      }
+      else if (keyword(&t[5],"TOOL"))
+         return the_workbench_result("unsupported-feature",RC_INVALID_ENVIRON,"Tool actions are outside this checkpoint");
       else return bad();
       return the_workbench_put_action(&a);
    }
@@ -289,23 +355,67 @@ static short command_operands(const char *operands)
       else if (n != option) return bad();
       return the_workbench_put_item(&item);
    }
-   if (keyword(&t[0],"PANEL") || keyword(&t[0],"FORM") || keyword(&t[0],"FIELD")
-   || keyword(&t[0],"TOOL") || keyword(&t[0],"ROUTE") || keyword(&t[0],"RUN") || keyword(&t[0],"JOB"))
+   if (keyword(&t[0],"PANEL"))
+   {
+      TheWorkbenchPanel p; TheWorkbenchPanelOperation op;
+      if (n >= 2 && (op=panel_operation_token(t+1)))
+      {
+         if (n != 3 || t[2].quoted) return bad();
+         return the_workbench_panel_operation(t[2].text,0,op);
+      }
+      if (n == 3 && keyword(t+1,"REMOVE") && !t[2].quoted) return the_workbench_remove_panel(t[2].text);
+      if (n >= 5 && keyword(t+1,"PUT") && keyword(t+3,"KIND") && !keyword(t+4,"LOG"))
+         return the_workbench_result("unsupported-feature",RC_INVALID_ENVIRON,"Document and field panels require later contracts");
+      memset(&p,0,sizeof(p));
+      if (n == 7 && keyword(t+1,"PUT") && !t[2].quoted && strlen(t[2].text) <= THE_WORKBENCH_ID_MAX
+      && keyword(t+3,"KIND") && keyword(t+4,"LOG") && keyword(t+5,"MODEL")
+      && !t[6].quoted && strlen(t[6].text) <= THE_WORKBENCH_ID_MAX)
+      {
+         strcpy(p.id,t[2].text); strcpy(p.model,t[6].text); p.kind=THE_WORKBENCH_PANEL_LOG;
+         return the_workbench_put_panel(&p);
+      }
+      if (n == 8 && keyword(t+1,"PLACE") && !t[2].quoted && (p.placement=placement_token(t+3))
+      && keyword(t+4,"FALLBACK") && fallback_tokens(t+5,p.fallbacks,&p.fallback_count)
+      && keyword(t+6,"MINCOLS") && order_value(t+7,&p.mincols))
+         return the_workbench_place_panel(t[2].text,p.placement,p.fallbacks,p.fallback_count,p.mincols);
+      return bad();
+   }
+   if (keyword(&t[0],"ROUTE"))
+   {
+      TheWorkbenchRoute r; const char *slash; size_t length;
+      if (n == 3 && keyword(t+1,"REMOVE") && !t[2].quoted) return the_workbench_remove_route(t[2].text);
+      if (n != 7 || !keyword(t+1,"PUT") || t[2].quoted || strlen(t[2].text) > THE_WORKBENCH_ID_MAX
+      || !keyword(t+3,"FROM") || !keyword(t+5,"TO") || t[4].quoted || t[6].quoted) return bad();
+      if (strncmp(t[4].text,"tool:",5) || strncmp(t[6].text,"log:",4))
+         return the_workbench_result("unsupported-feature",RC_INVALID_ENVIRON,"Only tool stdout/stderr to log routes are implemented");
+      slash=strchr(t[4].text+5,'/');
+      if (!slash || !(length=(size_t)(slash-t[4].text-5)) || length > THE_WORKBENCH_ID_MAX
+      || strlen(t[6].text+4) > THE_WORKBENCH_ID_MAX) return bad();
+      memset(&r,0,sizeof(r)); strcpy(r.id,t[2].text); memcpy(r.tool,t[4].text+5,length); strcpy(r.model,t[6].text+4);
+      if (!strcmp(slash+1,"stdout")) r.stream=1;
+      else if (!strcmp(slash+1,"stderr")) r.stream=2;
+      else return the_workbench_result("unsupported-feature",RC_INVALID_ENVIRON,"Only stdout/stderr routes are implemented");
+      return the_workbench_put_route(&r);
+   }
+   if (keyword(&t[0],"FORM") || keyword(&t[0],"FIELD")
+   || keyword(&t[0],"TOOL") || keyword(&t[0],"RUN") || keyword(&t[0],"JOB"))
       return the_workbench_result("unsupported-feature",RC_INVALID_ENVIRON,"This workbench feature is outside phase one");
    return bad();
 }
 
 short the_workbench_command(const char *operands)
 {
-   const char *p = operands ? operands : "";
-   const char *word = "INVOKE";
-   int invocation = 1;
-   short rc;
+   const char *p=operands ? operands : "";
+   Token first,second; size_t n=0;
+   int runtime; short rc;
+   memset(&first,0,sizeof(first)); memset(&second,0,sizeof(second));
    while (*p == ' ' || *p == '\t') p++;
-   while (*word) if (toupper((unsigned char)*p++) != *word++) { invocation = 0; break; }
-   if (invocation && *p && *p != ' ' && *p != '\t') invocation = 0;
-   rc = command_operands(operands);
-   if (rc != RC_OK && !invocation) the_workbench_poison_definition();
+   while (*p && *p != ' ' && *p != '\t' && n < 15) first.text[n++]=*p++;
+   while (*p == ' ' || *p == '\t') p++;
+   n=0; while (*p && *p != ' ' && *p != '\t' && n < 15) second.text[n++]=*p++;
+   runtime=keyword(&first,"INVOKE") || (keyword(&first,"PANEL") && panel_operation_token(&second));
+   rc=command_operands(operands);
+   if (rc != RC_OK && !runtime) the_workbench_poison_definition();
    return rc;
 }
 
@@ -321,9 +431,50 @@ short Workbench(CHARTYPE *parameters)
    return rc;
 }
 
+static int unsigned64_value(const Token *t,uint64_t *value)
+{
+   const char *p=t->text; uint64_t n=0;
+   if (t->quoted || !*p) return 0;
+   for (;*p;p++)
+   {
+      if (*p < '0' || *p > '9' || n > (UINT64_MAX-(unsigned)(*p-'0'))/10) return 0;
+      n=n*10+(unsigned)(*p-'0');
+   }
+   *value=n; return 1;
+}
+static int query_log(const Tokens *tokens,char *json,size_t capacity)
+{
+   uint64_t generation=0,cursor=0,value;
+   size_t offset=0,records=8,bytes=4096,n;
+   unsigned seen=0,bit;
+   const TheWorkbenchModelState *model;
+   if (tokens->count < 2 || tokens->values[1].quoted) return 0;
+   for (n=2;n<tokens->count;n+=2)
+   {
+      if (n+1 >= tokens->count || !unsigned64_value(tokens->values+n+1,&value)) return 0;
+      if (keyword(tokens->values+n,"EXPECT")) { bit=1; if(!value) return 0; generation=value; }
+      else if (keyword(tokens->values+n,"CURSOR")) { bit=2; cursor=value; }
+      else if (keyword(tokens->values+n,"OFFSET")) { bit=4; if(value > SIZE_MAX) return 0; offset=(size_t)value; }
+      else if (keyword(tokens->values+n,"LIMIT")) { bit=8; if(!value || value>8) return 0; records=(size_t)value; }
+      else if (keyword(tokens->values+n,"BYTES")) { bit=16; if(!value || value>THE_WORKBENCH_LOG_JSON_BYTES_MAX) return 0; bytes=(size_t)value; }
+      else return 0;
+      if (seen & bit) return 0;
+      seen|=bit;
+   }
+   model=the_workbench_model_state(tokens->values[1].text);
+   if (!model) { the_workbench_result("missing-object",RC_INVALID_OPERAND,"No published log has that ID"); return -1; }
+   if (!generation) generation=model->generation;
+   return the_workbench_log_json(json,capacity,model->id,generation,cursor,offset,records,bytes) == RC_OK ? 1 : -1;
+}
+
+static unsigned long inspection_refusal_serial;
+unsigned long the_workbench_inspection_refusal_serial(void)
+{ return inspection_refusal_serial; }
+
 static short query_bad(void)
 {
    bad();
+   inspection_refusal_serial++;
    return EXTRACT_ARG_ERROR;
 }
 
@@ -340,6 +491,13 @@ short extract_workbench(short number_variables,short itemno,CHARTYPE *itemargs,C
       if (tokens.values[0].quoted) return query_bad();
       for (n = 0; tokens.values[0].text[n]; n++) tokens.values[0].text[n] = (char)toupper((unsigned char)tokens.values[0].text[n]);
       section = tokens.values[0].text;
+      if (!strcmp(section,"LOG"))
+      {
+         int admitted=query_log(&tokens,json,sizeof(json));
+         if (admitted < 0) { inspection_refusal_serial++; return EXTRACT_ARG_ERROR; }
+         if (!admitted) return query_bad();
+         goto formatted;
+      }
       for (n = 1; n < tokens.count; n += 2)
       {
          if (n+1 >= tokens.count || !order_value(&tokens.values[n+1],&value)) return query_bad();
@@ -349,6 +507,7 @@ short extract_workbench(short number_variables,short itemno,CHARTYPE *itemargs,C
       }
    }
    if (!the_workbench_json(json,sizeof(json),section,offset,count,1)) return query_bad();
+formatted:
    if (query_type == QUERY_QUERY)
    {
       display_error(0,(CHARTYPE *)json,TRUE);

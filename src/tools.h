@@ -13,6 +13,9 @@ void the_tools_native_poll(void);
 int the_tools_native_language(const TheToolDefinition *);
 const char *the_tools_profile_path(void);
 void the_tools_profile_built(unsigned id, const char *path, unsigned source_id, unsigned revision);
+/* Restore persisted tool definitions before startup profiles validate routes.
+ * Metadata only: no language activation, profile execution or program launch. */
+void the_tools_restore_metadata(void);
 int the_tools_profile_restore(void);
 int the_tools_backend_available(void);
 #endif

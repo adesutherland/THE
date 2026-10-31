@@ -22,6 +22,8 @@ set(THE_SOURCES
     src/tools.c
     src/workbench.c
     src/workbenchcommand.c
+    src/workbenchruntime.c
+    src/workbenchlog.c
     src/tools_native.c
     src/edit.c
     src/error.c

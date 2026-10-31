@@ -125,6 +125,8 @@ const char *the_input_kind_name(TheInputKind kind)
          return "action";
       case THE_INPUT_WORKBENCH_INVOKE:
          return "workbench-invoke";
+      case THE_INPUT_WORKBENCH_PANEL:
+         return "workbench-panel";
       case THE_INPUT_LOGICAL_HIT:
          return "logical-hit";
       case THE_INPUT_RESIZE:
@@ -415,6 +417,21 @@ unsigned long the_input_event_workbench_generation(const TheInputEvent *input)
 { return input && input->kind == THE_INPUT_WORKBENCH_INVOKE ? (unsigned long)input->target.line_number : 0; }
 const char *the_input_event_workbench_argument(const TheInputEvent *input)
 { return input && input->kind == THE_INPUT_WORKBENCH_INVOKE && input->rows ? input->action.argument : NULL; }
+
+int the_input_event_from_workbench_panel(const char *id,unsigned long generation,
+   TheWorkbenchPanelOperation operation,TheInputEvent *out)
+{
+   if (!generation || operation < THE_WORKBENCH_PANEL_SHOW || operation > THE_WORKBENCH_PANEL_RETURN
+   || !the_input_event_from_workbench_invoke(id,generation,NULL,out)) return 0;
+   out->kind=THE_INPUT_WORKBENCH_PANEL; out->codepoint=(uint32_t)operation;
+   return 1;
+}
+const char *the_input_event_workbench_panel_id(const TheInputEvent *input)
+{ return input && input->kind == THE_INPUT_WORKBENCH_PANEL ? input->command : NULL; }
+unsigned long the_input_event_workbench_panel_generation(const TheInputEvent *input)
+{ return input && input->kind == THE_INPUT_WORKBENCH_PANEL ? (unsigned long)input->target.line_number : 0; }
+TheWorkbenchPanelOperation the_input_event_workbench_panel_operation(const TheInputEvent *input)
+{ return input && input->kind == THE_INPUT_WORKBENCH_PANEL ? (TheWorkbenchPanelOperation)input->codepoint : 0; }
 
 int the_input_event_from_logical_target(TheInputLogicalTargetKind kind,
                                         LINETYPE line_number, int row,

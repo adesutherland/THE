@@ -1,4 +1,5 @@
 #include "workbench.h"
+#include "workbenchruntime.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -18,6 +19,130 @@ static TheWorkbenchAction action(const char *id)
    a.kind = THE_WORKBENCH_ACTION_COMMAND; strcpy(a.operand,"input DECLARED");
    return a;
 }
+static int tool_lookup(const char *id,TheWorkbenchToolInfo *out,void *context)
+{
+   (void)context;
+   if (!strcmp(id,"classic-rexx") || !strcmp(id,"rxbin")) { out->role="runner"; out->available=1; return 1; }
+   if (!strcmp(id,"disabled")) { out->role="program"; out->available=0; return 1; }
+   if (!strcmp(id,"language")) { out->role="language"; out->available=1; return 1; }
+   return 0;
+}
+static void log_panels(void)
+{
+   TheWorkbenchPanel p={0}, p2;
+   TheWorkbenchRoute r={0}, err;
+   TheWorkbenchAction a=action("user.show");
+   TheWorkbenchRouteLease *lease;
+   TheWorkbenchLogPage page;
+   const TheWorkbenchLogInfo *log;
+   unsigned long rev,ui,focus,gen;
+   uint64_t loggen,content;
+   char json[THE_WORKBENCH_JSON_MAX],error[256];
+   static const char data[]={'A',0,27,'[','m','<','b','>'};
+   size_t i;
+   the_workbench_reset(); the_workbench_set_tool_lookup(tool_lookup,NULL);
+   strcpy(p.id,"user.panel"); strcpy(p.model,"user.log"); p.kind=THE_WORKBENCH_PANEL_LOG;
+   strcpy(r.id,"user.stdout"); strcpy(r.tool,"classic-rexx"); strcpy(r.model,p.model); r.stream=1;
+   a.kind=THE_WORKBENCH_ACTION_PANEL; a.operand[0]=0; strcpy(a.panel,p.id); a.panel_operation=THE_WORKBENCH_PANEL_SHOW;
+   the_workbench_begin("user.logs");
+   check(the_workbench_put_action(&a)==0 && the_workbench_put_route(&r)==0 && the_workbench_put_panel(&p)==0,"stage forward panel/model references");
+   check(!the_workbench_panel_count() && !the_workbench_log_count(),"draft creates no live panel/log");
+   the_workbench_abort();
+   the_workbench_activation_begin("/log-profile"); the_workbench_begin("user.logs");
+   the_workbench_put_panel(&p); the_workbench_put_route(&r); the_workbench_commit();
+   check(!the_workbench_log_count(),"profile inner commit creates no runtime log");
+   check(the_workbench_activation_end(0)==-3 && !the_workbench_panel_count() && !the_workbench_log_count(),"profile log rollback");
+   the_workbench_begin("user.logs"); the_workbench_put_action(&a); the_workbench_put_route(&r); the_workbench_put_panel(&p);
+   err=r; strcpy(err.id,"user.stderr"); err.stream=2; the_workbench_put_route(&err);
+   check(the_workbench_commit()==0 && the_workbench_panel_count()==1 && the_workbench_route_count()==2,"publish complete log graph");
+   gen=the_workbench_panel_find(p.id)->generation; loggen=the_workbench_panel_find(p.id)->model_generation;
+   check(loggen && the_workbench_model_count()==1 && the_workbench_log_count()==1,"one retained model");
+   check(the_workbench_json(json,sizeof(json),"PANELS",0,8,0) && strstr(json,"\"modelGeneration\":\"") && strstr(json,"\"visible\":false"),"panel metadata and string tokens");
+   the_workbench_begin("user.logs"); the_workbench_remove_panel(p.id);
+   check(the_workbench_commit()==-3,"referenced panel removal refused"); code("object-in-use"); the_workbench_abort();
+   the_workbench_begin("user.logs");
+   check(the_workbench_place_panel(p.id,THE_WORKBENCH_PLACE_RIGHT,NULL,0,0)==5,"zero panel minimum refused"); the_workbench_abort();
+   the_workbench_begin("user.logs"); r.stream=1; strcpy(r.id,"user.duplicate"); the_workbench_put_route(&r);
+   check(the_workbench_commit()==-3,"ambiguous primary stream refused"); code("object-in-use"); the_workbench_abort();
+   rev=the_workbench_revision(); ui=the_workbench_panel_state_revision(); focus=the_workbench_focus_request()->serial;
+   check(the_workbench_runtime_panel(p.id,gen,THE_WORKBENCH_PANEL_FOCUS)==-3,"hidden panel does not focus");
+   check(the_workbench_panel_state_revision()==ui && the_workbench_focus_request()->serial==focus,"refused focus changes no state");
+   check(the_workbench_runtime_panel(p.id,gen,THE_WORKBENCH_PANEL_SHOW)==0,"show panel");
+   check(the_workbench_revision()==rev && the_workbench_focus_request()->serial==focus,"show changes neither definitions nor focus");
+   check(the_workbench_runtime_panel(p.id,gen+1,THE_WORKBENCH_PANEL_HIDE)==-3 && the_workbench_panel_state(p.id)->visible,"stale panel request refused");
+   check(the_workbench_runtime_panel(p.id,gen,THE_WORKBENCH_PANEL_FOCUS)==0 && the_workbench_panel_state(p.id)->focused,"explicit panel focus");
+   focus=the_workbench_focus_request()->serial;
+   lease=the_workbench_routes_bind("classic-rexx",99,error,sizeof(error)); check(lease!=NULL,"bind immutable streams");
+   check(the_workbench_route_output(lease,1,1,data,sizeof(data))==THE_WORKBENCH_LOG_OK,"length-aware routed controls");
+   check(the_workbench_route_output(lease,2,2,"error",5)==THE_WORKBENCH_LOG_OK,"stderr remains typed");
+   check(the_workbench_focus_request()->serial==focus && the_workbench_panel_state(p.id)->focused,"output never changes focus");
+   check(the_workbench_log_page(p.model,loggen,0,0,8,100,&page)==THE_WORKBENCH_LOG_OK && page.count==2 && page.slices[0].job==99 && page.slices[1].stream==2,"job stream sequence retained");
+   check(the_workbench_log_json(json,sizeof(json),p.model,loggen,0,0,8,100)==0 && strstr(json,"\\u0000") && strstr(json,"\\u001b"),"log JSON escapes embedded controls");
+   content=the_workbench_log_find(p.model)->revision; ui=the_workbench_panel_state_revision();
+   check(the_workbench_route_output(lease,1,3,"\x80",1)==THE_WORKBENCH_LOG_INVALID,"invalid routed UTF8 refused");
+   check(the_workbench_panel_state_revision()>ui && the_workbench_log_find(p.model)->revision==content,"append failure publishes state without fake content change");
+   check(the_workbench_model_state(p.model)->last_error==THE_WORKBENCH_LOG_INVALID,"route error inspectable");
+   check(the_workbench_runtime_panel(p.id,gen,THE_WORKBENCH_PANEL_RETURN)==0 && the_workbench_panel_state(p.id)->visible && !the_workbench_panel_state(p.id)->focused,"return preserves visible log");
+   check(the_workbench_focus_request()->restoring && !the_workbench_focus_request()->panel[0],"return requests prior origin");
+   check(the_workbench_runtime_panel(p.id,gen,THE_WORKBENCH_PANEL_RETURN)==-3,"return requires focus ownership");
+   for (i=0;i<2;i++)
+   {
+      unsigned long previous_generation=gen;
+      the_workbench_runtime_panel(p.id,gen,THE_WORKBENCH_PANEL_FOCUS);
+      focus=the_workbench_focus_request()->serial; ui=the_workbench_panel_state_revision();
+      content=the_workbench_log_find(p.model)->revision;
+      the_workbench_begin("user.logs");
+      if (i) the_workbench_put_panel(&p);
+      else the_workbench_place_panel(p.id,THE_WORKBENCH_PLACE_BELOW,NULL,0,32);
+      check(the_workbench_commit()==0,"focused panel definition change publishes");
+      gen=the_workbench_panel_find(p.id)->generation;
+      check(gen != previous_generation && the_workbench_panel_state(p.id)->visible && !the_workbench_panel_state(p.id)->focused,"replacement retains visibility and returns focus");
+      check(the_workbench_focus_request()->serial==focus+1 && the_workbench_focus_request()->restoring && !the_workbench_focus_request()->panel[0]
+            && !strcmp(the_workbench_focus_request()->previous_panel,p.id) && the_workbench_focus_request()->previous_generation==previous_generation,"replacement returns old renderer generation");
+      check(the_workbench_panel_state_revision()>ui && the_workbench_log_find(p.model)->revision==content,"replacement publishes state without changing text");
+      check(the_workbench_runtime_panel(p.id,previous_generation,THE_WORKBENCH_PANEL_RETURN)==-3,"stale return cannot retain focus ownership");
+   }
+   p2=p; strcpy(p2.id,"user.second"); strcpy(p2.model,"user.next");
+   the_workbench_begin("user.logs"); the_workbench_put_panel(&p2);
+   r=err; strcpy(r.id,"user.stdout"); r.stream=1; strcpy(r.model,p2.model); the_workbench_put_route(&r); the_workbench_commit();
+   check(the_workbench_route_output(lease,1,4,"old",3)==THE_WORKBENCH_LOG_OK && !the_workbench_log_find(p2.model)->bytes,"template replacement cannot retarget a job");
+   check(the_workbench_log_find(p.model)->bytes==sizeof(data)+8,"original route receives output once");
+   the_workbench_runtime_panel(p.id,gen,THE_WORKBENCH_PANEL_FOCUS);
+   the_workbench_begin("user.logs"); the_workbench_reset_owner("user.logs");
+   check(the_workbench_commit()==0 && !the_workbench_panel_count() && !the_workbench_route_count(),"owner reset removes graph");
+   check(the_workbench_focus_request()->restoring && !the_workbench_focus_request()->panel[0],"focused removal requests return");
+   check(the_workbench_model_count()==2 && the_workbench_route_output(lease,1,5,"detached",8)==THE_WORKBENCH_LOG_OK,"removed pane retains pinned model output");
+   the_workbench_routes_release(lease);
+   check(!the_workbench_model_state(p.model)->leases,"terminal release removes pins");
+   the_workbench_begin("other.logs"); the_workbench_put_panel(&p);
+   check(the_workbench_commit()==-3,"retained log cannot change owner"); code("policy-denied"); the_workbench_abort();
+   /* Force a late runtime resource failure; the earlier candidate allocation
+    * must disappear and the published graph stay unchanged. */
+   for(i=0;i<29;i++) { char id[32]; snprintf(id,sizeof(id),"raw.log%lu",(unsigned long)i); the_workbench_log_create(id); }
+   rev=the_workbench_revision();
+   the_workbench_begin("user.logs"); strcpy(p.id,"user.new1"); strcpy(p.model,"user.newlog1"); the_workbench_put_panel(&p);
+   strcpy(p.id,"user.new2"); strcpy(p.model,"user.newlog2"); the_workbench_put_panel(&p);
+   check(the_workbench_commit()==94 && the_workbench_revision()==rev && !the_workbench_panel_count(),"resource failure publishes no partial graph");
+   check(!the_workbench_log_find("user.newlog1") && the_workbench_log_count()==31 && the_workbench_model_count()==2,"candidate log allocations rolled back"); the_workbench_abort();
+   the_workbench_reset();
+   strcpy(p.id,"user.panel"); strcpy(p.model,"user.log"); r=err; r.stream=1; strcpy(r.id,"user.stdout");
+   the_workbench_begin("user.logs"); the_workbench_put_panel(&p); the_workbench_put_route(&r); the_workbench_commit();
+   lease=the_workbench_routes_bind("classic-rexx",101,error,sizeof(error)); check(lease!=NULL,"active-reset bind");
+   the_workbench_reset();
+   check(the_workbench_route_output(lease,1,1,"late",4)==THE_WORKBENCH_LOG_STALE,"reset invalidates observer binding without freeing it");
+   the_workbench_begin("user.logs"); the_workbench_put_panel(&p); the_workbench_put_route(&r); the_workbench_commit();
+   check(!the_workbench_routes_bind("classic-rexx",102,error,sizeof(error)),"observer retains lifetime until end");
+   the_workbench_routes_release(lease); the_workbench_routes_release(lease);
+   lease=the_workbench_routes_bind("classic-rexx",102,error,sizeof(error)); check(lease!=NULL,"observer end permits next job");
+   check(the_workbench_route_output(lease,1,1,"new",3)==THE_WORKBENCH_LOG_OK,"new job uses new log generation");
+   log=the_workbench_log_find(p.model); check(log && log->bytes==3,"stale job did not populate recreated log");
+   the_workbench_routes_release(lease); the_workbench_reset();
+   restricted=1; the_workbench_activation_begin("/trusted-web-profile"); the_workbench_begin("web.logs");
+   the_workbench_put_panel(&p); r=err; r.stream=1; strcpy(r.id,"user.stdout"); the_workbench_put_route(&r);
+   check(the_workbench_commit()==0 && the_workbench_activation_end(1)==0,"trusted restricted startup declares safe log route");
+   restricted=0; the_workbench_reset();
+}
+
 int main(void)
 {
    TheWorkbenchAction a = action("user.action");
@@ -102,6 +227,7 @@ int main(void)
    check(the_workbench_put_action(&a) == 5,"reject overlong UTF8");
    the_workbench_abort();
    the_workbench_reset();
+   log_panels();
    if (failures) return 1;
    puts("workbench registry tests passed"); return 0;
 }

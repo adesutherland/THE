@@ -12,6 +12,7 @@
 #include "editorsource.h"
 #include "panelui.h"
 #include "workbench.h"
+#include "workbenchruntime.h"
 #include "tools.h"
 #include "gtkinput.h"
 
@@ -32,6 +33,20 @@ typedef struct
    char *text;
    const char *cursor;
 } GtkInput;
+
+typedef struct
+{
+   char id[THE_WORKBENCH_ID_MAX + 1];
+   unsigned long generation;
+   uint64_t revision, next_cursor;
+   GtkWidget *page, *view, *scroller, *status;
+   GdkFrameClock *scroll_clock;
+   GtkAdjustment *scroll_adjustment;
+   gulong scroll_handler;
+   double scroll_value;
+   struct { uint64_t cursor; int character; } records[THE_WORKBENCH_LOG_RECORD_MAX];
+   size_t record_count;
+} GtkLogPane;
 
 static struct
 {
@@ -59,10 +74,21 @@ static struct
    GtkWidget *native_menu;
    unsigned long menu_revision;
    GPtrArray *menu_actions;
+   GtkWidget *auxiliary, *log_origin, *last_nonlog_focus;
+   GPtrArray *logs;
+   char focused_log[THE_WORKBENCH_ID_MAX + 1];
+   unsigned long focused_log_generation, log_focus_serial;
+   int syncing_logs, log_origin_program, log_entry_position;
+   int log_selection_start, log_selection_end, log_entry_selected;
 } ui;
 
 static TheDriverOps operations;
 static void sync_menus(void);
+static void sync_logs(void);
+static GtkLogPane *log_for_widget(GtkWidget *widget);
+static int queue_panel(GtkLogPane *pane, TheWorkbenchPanelOperation operation);
+static void remember_log_origin(GtkWidget *focus);
+static void cycle_log(GtkLogPane *pane, int reverse);
 static void open_native_menu(GtkWidget *focus, GdkEventKey *trigger);
 
 static void redraw(void)
@@ -294,6 +320,19 @@ static gboolean workbench_key_pressed(GtkWidget *widget, GdkEventKey *key, gpoin
    GtkWidget *focus = gtk_window_get_focus(GTK_WINDOW(ui.window));
    TheInputEvent event;
    (void)widget; (void)data;
+   if (!the_panel_active && !in_macro && !ui.input_window)
+   {
+      GtkLogPane *pane = log_for_widget(focus);
+      if (pane)
+      {
+         if (key->keyval == GDK_KEY_Escape) return queue_panel(pane, THE_WORKBENCH_PANEL_RETURN);
+         if (key->keyval == GDK_KEY_h || key->keyval == GDK_KEY_H ||
+             ((key->state & GDK_CONTROL_MASK) && key->keyval == GDK_KEY_w))
+            return queue_panel(pane, THE_WORKBENCH_PANEL_HIDE);
+         if (key->keyval == GDK_KEY_Tab || key->keyval == GDK_KEY_ISO_Left_Tab)
+         { cycle_log(pane, key->keyval == GDK_KEY_ISO_Left_Tab || (key->state & GDK_SHIFT_MASK)); return TRUE; }
+      }
+   }
    if (the_panel_active || in_macro || ui.input_window
    || key->state & (GDK_CONTROL_MASK | GDK_META_MASK | GDK_MOD1_MASK))
       return FALSE;
@@ -405,11 +444,19 @@ static void split_allocated(GtkWidget *widget, GtkAllocation *allocation, gpoint
    /* Fit a useful editor grid beside the console using the current font and
     * theme's real widget minimums. A pixel-only breakpoint needlessly stacks
     * the console below the editor at the default desktop window width. */
-   if (ui.console)
-      gtk_widget_get_preferred_width(ui.console, &console_width, NULL);
-   orientation = allocation->width >= GTK_EDITOR_MIN_COLUMNS * ui.cell_width
-                                      + console_width + ui.cell_width
-                                 ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL;
+   if (ui.auxiliary)
+      gtk_widget_get_preferred_width(ui.auxiliary, &console_width, NULL);
+   {
+      GtkWidget *selected = ui.auxiliary ? gtk_notebook_get_nth_page(GTK_NOTEBOOK(ui.auxiliary),
+         gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.auxiliary))) : NULL;
+      GtkLogPane *pane = log_for_widget(selected);
+      const TheWorkbenchPanel *panel = pane ? the_workbench_panel_find(pane->id) : NULL;
+      if (panel) console_width = MAX(console_width, panel->mincols * ui.cell_width);
+      orientation = allocation->width >= GTK_EDITOR_MIN_COLUMNS * ui.cell_width
+                                         + console_width + ui.cell_width
+                                    ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL;
+      if (panel && panel->placement == THE_WORKBENCH_PLACE_BELOW) orientation = GTK_ORIENTATION_VERTICAL;
+   }
    (void)data;
    /* Reset the divider only when changing layouts. Resizing within a layout
     * retains the user's divider adjustment and GtkPaned's resize behavior. */
@@ -803,6 +850,425 @@ static void sync_console(void)
    }
 }
 
+static GtkLogPane *find_log(const char *id, unsigned long generation)
+{
+   guint i;
+   if (!ui.logs) return NULL;
+   for (i = 0; i < ui.logs->len; i++)
+   {
+      GtkLogPane *pane = g_ptr_array_index(ui.logs, i);
+      if (!strcmp(pane->id, id) && pane->generation == generation) return pane;
+   }
+   return NULL;
+}
+
+static GtkLogPane *log_for_widget(GtkWidget *widget)
+{
+   guint i;
+   if (!widget || !ui.logs) return NULL;
+   for (i = 0; i < ui.logs->len; i++)
+   {
+      GtkLogPane *pane = g_ptr_array_index(ui.logs, i);
+      if (widget == pane->page || gtk_widget_is_ancestor(widget, pane->page)) return pane;
+   }
+   return NULL;
+}
+
+static int queue_panel(GtkLogPane *pane, TheWorkbenchPanelOperation operation)
+{
+   TheInputEvent event;
+   if (the_panel_active || in_macro || !pane) return 0;
+   if (operation == THE_WORKBENCH_PANEL_FOCUS && !ui.focused_log[0] && !ui.log_origin)
+      remember_log_origin(gtk_window_get_focus(GTK_WINDOW(ui.window)));
+   if (operation == THE_WORKBENCH_PANEL_RETURN && !ui.focused_log[0])
+   {
+      GtkWidget *target = ui.last_nonlog_focus;
+      gtk_widget_grab_focus(target && gtk_widget_is_drawable(target) && gtk_widget_is_sensitive(target) ? target : ui.editor);
+      return 1;
+   }
+   return the_input_event_from_workbench_panel(pane->id, pane->generation, operation, &event) && queue_event(event);
+}
+
+static void remember_log_origin(GtkWidget *focus)
+{
+   if (!focus || focus == ui.auxiliary || log_for_widget(focus))
+      focus = ui.last_nonlog_focus ? ui.last_nonlog_focus : ui.editor;
+   g_clear_object(&ui.log_origin);
+   ui.log_origin = g_object_ref(focus ? focus : ui.editor);
+   ui.log_origin_program = the_tool_console()->focused;
+   ui.log_entry_selected = 0;
+   if (ui.log_origin == ui.input)
+   {
+      ui.log_entry_position = gtk_editable_get_position(GTK_EDITABLE(ui.input));
+      ui.log_entry_selected = gtk_editable_get_selection_bounds(GTK_EDITABLE(ui.input),
+         &ui.log_selection_start, &ui.log_selection_end);
+   }
+}
+
+static void restore_log_origin(void)
+{
+   GtkWidget *focus = ui.log_origin;
+   if (focus && (focus == ui.console || gtk_widget_is_ancestor(focus, ui.console)))
+      gtk_notebook_set_current_page(GTK_NOTEBOOK(ui.auxiliary), 0);
+   if (!focus || !gtk_widget_is_drawable(focus) || !gtk_widget_is_sensitive(focus)) focus = ui.editor;
+   if (ui.log_origin_program && the_tool_console()->visible)
+      the_tool_console_visibility(1, 1);
+   gtk_widget_grab_focus(focus);
+   if (focus == ui.input)
+   {
+      if (ui.log_entry_selected)
+         gtk_editable_select_region(GTK_EDITABLE(ui.input),
+            ui.log_entry_position == ui.log_selection_start ? ui.log_selection_end : ui.log_selection_start,
+            ui.log_entry_position);
+      else gtk_editable_set_position(GTK_EDITABLE(ui.input), ui.log_entry_position);
+   }
+   g_clear_object(&ui.log_origin);
+}
+
+static void select_program_from_log(GtkLogPane *pane)
+{
+   remember_log_origin(gtk_widget_get_sensitive(ui.input) ? ui.input : ui.output);
+   ui.log_origin_program = the_tool_console()->visible;
+   queue_panel(pane, THE_WORKBENCH_PANEL_RETURN);
+}
+
+static void cycle_log(GtkLogPane *pane, int reverse)
+{
+   int page = gtk_notebook_page_num(GTK_NOTEBOOK(ui.auxiliary), pane->page);
+   int n = gtk_notebook_get_n_pages(GTK_NOTEBOOK(ui.auxiliary)), tries;
+   for (tries = 0; tries < n; tries++)
+   {
+      GtkWidget *next;
+      GtkLogPane *log;
+      page = (page + n + (reverse ? -1 : 1)) % n;
+      next = gtk_notebook_get_nth_page(GTK_NOTEBOOK(ui.auxiliary), page);
+      if (!gtk_widget_get_visible(next)) continue;
+      if (next == ui.console) { select_program_from_log(pane); return; }
+      log = log_for_widget(next);
+      if (log) { queue_panel(log, THE_WORKBENCH_PANEL_FOCUS); return; }
+   }
+}
+
+static void auxiliary_switched(GtkNotebook *notebook, GtkWidget *page, guint number, gpointer data)
+{
+   GtkLogPane *pane;
+   (void)notebook; (void)number; (void)data;
+   if (ui.syncing_logs || the_panel_active || in_macro) return;
+   pane = log_for_widget(page);
+   if (pane) queue_panel(pane, THE_WORKBENCH_PANEL_FOCUS);
+   else if (page == ui.console && ui.focused_log[0])
+      select_program_from_log(find_log(ui.focused_log, ui.focused_log_generation));
+}
+
+static void remember_nonlog_focus(GtkWindow *window, GtkWidget *focus, gpointer data)
+{
+   (void)window; (void)data;
+   if (!focus || focus == ui.auxiliary || log_for_widget(focus)) return;
+   g_clear_object(&ui.last_nonlog_focus); ui.last_nonlog_focus = g_object_ref(focus);
+}
+
+static gboolean log_button_pressed(GtkWidget *widget, GdkEventButton *event, gpointer data)
+{
+   (void)widget;
+   if (event->button == 1) queue_panel(data, THE_WORKBENCH_PANEL_FOCUS);
+   return FALSE;
+}
+
+static void log_hide_clicked(GtkWidget *widget, gpointer data)
+{ (void)widget; queue_panel(data, THE_WORKBENCH_PANEL_HIDE); }
+static void log_return_clicked(GtkWidget *widget, gpointer data)
+{ (void)widget; queue_panel(data, THE_WORKBENCH_PANEL_RETURN); }
+
+static void cancel_log_scroll(GtkLogPane *pane)
+{
+   if (pane->scroll_clock && pane->scroll_handler)
+      g_signal_handler_disconnect(pane->scroll_clock, pane->scroll_handler);
+   pane->scroll_handler = 0;
+   g_clear_object(&pane->scroll_clock); g_clear_object(&pane->scroll_adjustment);
+}
+
+static void log_scroll_after_paint(GdkFrameClock *clock, gpointer data)
+{
+   GtkLogPane *pane = data;
+   (void)clock;
+   gtk_adjustment_set_value(pane->scroll_adjustment, pane->scroll_value);
+   cancel_log_scroll(pane);
+}
+
+static void free_log_pane(gpointer data)
+{
+   GtkLogPane *pane = data;
+   cancel_log_scroll(pane); g_free(pane);
+}
+
+static GtkLogPane *create_log(const TheWorkbenchPanel *panel)
+{
+   GtkLogPane *pane = g_new0(GtkLogPane, 1);
+   GtkWidget *controls, *hide, *back;
+   GtkTextBuffer *buffer;
+   strcpy(pane->id, panel->id); pane->generation = panel->generation;
+   pane->revision = UINT64_MAX;
+   pane->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+   gtk_container_set_border_width(GTK_CONTAINER(pane->page), 6);
+   controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   pane->status = gtk_label_new("Read-only log");
+   gtk_label_set_xalign(GTK_LABEL(pane->status), 0);
+   gtk_box_pack_start(GTK_BOX(controls), pane->status, TRUE, TRUE, 0);
+   hide = gtk_button_new_with_label("Hide"); back = gtk_button_new_with_label("Return");
+   g_signal_connect(hide, "clicked", G_CALLBACK(log_hide_clicked), pane);
+   g_signal_connect(back, "clicked", G_CALLBACK(log_return_clicked), pane);
+   gtk_box_pack_start(GTK_BOX(controls), hide, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(controls), back, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(pane->page), controls, FALSE, FALSE, 0);
+   pane->scroller = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(pane->scroller), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   pane->view = gtk_text_view_new();
+   g_signal_connect(pane->view, "button-press-event", G_CALLBACK(log_button_pressed), pane);
+   gtk_text_view_set_editable(GTK_TEXT_VIEW(pane->view), FALSE);
+   gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(pane->view), FALSE);
+   gtk_text_view_set_monospace(GTK_TEXT_VIEW(pane->view), TRUE);
+   gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(pane->view), GTK_WRAP_CHAR);
+   gtk_widget_set_tooltip_text(pane->view, "Read-only log. Page Up/Down and Home/End scroll; Tab visits panes; H hides; Esc returns.");
+   gtk_container_add(GTK_CONTAINER(pane->scroller), pane->view);
+   gtk_box_pack_start(GTK_BOX(pane->page), pane->scroller, TRUE, TRUE, 0);
+   buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(pane->view));
+   gtk_text_buffer_create_tag(buffer, "stdout", NULL);
+   gtk_text_buffer_create_tag(buffer, "stderr", "foreground", "tomato", NULL);
+   gtk_notebook_append_page(GTK_NOTEBOOK(ui.auxiliary), pane->page, gtk_label_new(panel->title));
+   gtk_widget_show_all(pane->page);
+   g_ptr_array_add(ui.logs, pane);
+   return pane;
+}
+
+static void append_log_text(GString *text, const char *bytes, size_t length)
+{
+   size_t i;
+   for (i = 0; i < length; i++)
+   {
+      unsigned char c = (unsigned char)bytes[i];
+      if ((c < 32 && c != '\n') || c == 127) g_string_append_printf(text, "\\x%02X", c);
+      else if (c == 0xc2 && i + 1 < length &&
+               (unsigned char)bytes[i + 1] >= 0x80 && (unsigned char)bytes[i + 1] <= 0x9f)
+         g_string_append_printf(text, "\\u00%02X", (unsigned char)bytes[++i]);
+      else g_string_append_c(text, bytes[i]);
+   }
+}
+
+static void sync_log_text(GtkLogPane *pane, const TheWorkbenchPanel *panel)
+{
+   const TheWorkbenchLogInfo *info = the_workbench_log_find(panel->model);
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(pane->view));
+   GtkAdjustment *adjustment = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(pane->scroller));
+   GtkTextIter insert, anchor, end, first;
+   TheWorkbenchLogPage page;
+   GString *text;
+   uint64_t cursor = 0;
+   size_t offset = 0, i, new_count = 0;
+   int selected, insert_offset, anchor_offset, removed = 0;
+   int follow, incremental = 0;
+   double scroll, deleted_y = 0;
+   char status[160];
+   if (!info || info->generation != panel->model_generation || pane->revision == info->revision) return;
+   pane->revision = info->revision;
+   selected = gtk_text_buffer_get_has_selection(buffer);
+   gtk_text_buffer_get_iter_at_mark(buffer, &insert, gtk_text_buffer_get_insert(buffer));
+   gtk_text_buffer_get_iter_at_mark(buffer, &anchor, gtk_text_buffer_get_selection_bound(buffer));
+   insert_offset = gtk_text_iter_get_offset(&insert); anchor_offset = gtk_text_iter_get_offset(&anchor);
+   scroll = gtk_adjustment_get_value(adjustment);
+   follow = !selected && scroll >= gtk_adjustment_get_upper(adjustment) - gtk_adjustment_get_page_size(adjustment) - 2;
+   if (pane->record_count && info->first_cursor != pane->records[0].cursor)
+   {
+      GdkRectangle location;
+      removed = gtk_text_buffer_get_char_count(buffer);
+      for (i = 0; i < pane->record_count; i++)
+         if (pane->records[i].cursor == info->first_cursor) { removed = pane->records[i].character; break; }
+      gtk_text_buffer_get_iter_at_offset(buffer, &end, removed);
+      gtk_text_view_get_iter_location(GTK_TEXT_VIEW(pane->view), &end, &location); deleted_y = location.y;
+   }
+   cancel_log_scroll(pane);
+   if (pane->record_count && info->records)
+   {
+      for (i = 0; i < pane->record_count; i++)
+         if (pane->records[i].cursor == info->first_cursor)
+         {
+            size_t retained = pane->record_count - i, j;
+            incremental = 1;
+            if (removed)
+            {
+               gtk_text_buffer_get_start_iter(buffer, &first);
+               gtk_text_buffer_get_iter_at_offset(buffer, &end, removed);
+               gtk_text_buffer_delete(buffer, &first, &end);
+            }
+            memmove(pane->records, pane->records + i, retained * sizeof(pane->records[0]));
+            for (j = 0; j < retained; j++) pane->records[j].character -= removed;
+            new_count = retained; cursor = pane->next_cursor;
+            break;
+         }
+   }
+   if (!incremental) gtk_text_buffer_set_text(buffer, "", 0);
+   text = g_string_new(NULL);
+   do
+   {
+      if (the_workbench_log_page(panel->model, panel->model_generation, cursor, offset,
+          THE_WORKBENCH_LOG_PAGE_MAX, THE_WORKBENCH_LOG_TEXT_MAX, &page) != THE_WORKBENCH_LOG_OK) break;
+      for (i = 0; i < page.count; i++)
+      {
+         const TheWorkbenchLogSlice *slice = page.slices + i;
+         if (new_count < THE_WORKBENCH_LOG_RECORD_MAX && (!new_count || pane->records[new_count - 1].cursor != slice->cursor))
+         {
+            pane->records[new_count].cursor = slice->cursor;
+            pane->records[new_count++].character = gtk_text_buffer_get_char_count(buffer);
+         }
+         g_string_truncate(text, 0); append_log_text(text, slice->text, slice->length);
+         gtk_text_buffer_get_end_iter(buffer, &end);
+         gtk_text_buffer_insert_with_tags_by_name(buffer, &end, text->str, text->len,
+                                                 slice->stream == 2 ? "stderr" : "stdout", NULL);
+      }
+      cursor = page.next_cursor; offset = page.next_offset;
+   } while (page.more);
+   g_string_free(text, TRUE); pane->record_count = new_count; pane->next_cursor = info->next_cursor;
+   if (selected && !incremental)
+   {
+      int count = gtk_text_buffer_get_char_count(buffer);
+      gtk_text_buffer_get_iter_at_offset(buffer, &insert, CLAMP(insert_offset - removed, 0, count));
+      gtk_text_buffer_get_iter_at_offset(buffer, &anchor, CLAMP(anchor_offset - removed, 0, count));
+      gtk_text_buffer_select_range(buffer, &insert, &anchor);
+   }
+   if (follow)
+   {
+      gtk_text_buffer_get_end_iter(buffer, &end);
+      gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(pane->view), &end, 0, FALSE, 0, 1);
+   }
+   else if (incremental && !removed) gtk_adjustment_set_value(adjustment, scroll);
+   else
+   {
+      /* TextView validates layout and may scroll its insertion mark later.
+       * Restore the user's viewport after that frame without moving focus. */
+      pane->scroll_value = MAX(0, scroll - deleted_y);
+      pane->scroll_clock = gtk_widget_get_frame_clock(pane->view);
+      if (pane->scroll_clock)
+      {
+         g_object_ref(pane->scroll_clock);
+         pane->scroll_adjustment = g_object_ref(adjustment);
+         pane->scroll_handler = g_signal_connect(pane->scroll_clock, "after-paint", G_CALLBACK(log_scroll_after_paint), pane);
+         gtk_widget_queue_draw(pane->view);
+      }
+      else gtk_adjustment_set_value(adjustment, pane->scroll_value);
+   }
+   if (info->omitted_bytes) g_snprintf(status, sizeof(status), "History omitted: %llu bytes", (unsigned long long)info->omitted_bytes);
+   else g_snprintf(status, sizeof(status), "Read-only log");
+   gtk_label_set_text(GTK_LABEL(pane->status), status);
+}
+
+static const char *log_error_name(TheWorkbenchLogResult result)
+{
+   switch (result)
+   {
+      case THE_WORKBENCH_LOG_INVALID: return "invalid-output";
+      case THE_WORKBENCH_LOG_MISSING: return "missing-model";
+      case THE_WORKBENCH_LOG_STALE: return "stale-model";
+      case THE_WORKBENCH_LOG_LIMIT: return "limit-exceeded";
+      case THE_WORKBENCH_LOG_NOMEM: return "out-of-memory";
+      default: return "ok";
+   }
+}
+
+static void sync_logs(void)
+{
+   const TheWorkbenchFocusRequest *focus;
+   guint i;
+   int visible = 0;
+   if (!ui.auxiliary || !ui.logs) return;
+   ui.syncing_logs++;
+   for (i = 0; i < ui.logs->len; )
+   {
+      GtkLogPane *pane = g_ptr_array_index(ui.logs, i);
+      const TheWorkbenchPanel *panel = the_workbench_panel_find(pane->id);
+      if (!panel || panel->generation != pane->generation)
+      { gtk_widget_destroy(pane->page); g_ptr_array_remove_index(ui.logs, i); continue; }
+      i++;
+   }
+   for (i = 0; i < the_workbench_panel_count(); i++)
+   {
+      const TheWorkbenchPanel *panel = the_workbench_panel_at(i);
+      const TheWorkbenchPanelState *state = the_workbench_panel_state(panel->id);
+      GtkLogPane *pane;
+      if (panel->kind != THE_WORKBENCH_PANEL_LOG) continue;
+      pane = find_log(panel->id, panel->generation);
+      if (!pane) pane = create_log(panel);
+      gtk_widget_set_visible(pane->page, state && state->visible);
+      if (state && state->visible)
+      {
+         const TheWorkbenchModelState *model = the_workbench_model_state(panel->model);
+         const TheWorkbenchLogInfo *info = the_workbench_log_find(panel->model);
+         char status[160];
+         visible++; sync_log_text(pane, panel);
+         if (model && model->last_error != THE_WORKBENCH_LOG_OK)
+            g_snprintf(status, sizeof(status), "Log output error: %s", log_error_name(model->last_error));
+         else if (info && info->omitted_bytes)
+            g_snprintf(status, sizeof(status), "History omitted: %llu bytes", (unsigned long long)info->omitted_bytes);
+         else g_strlcpy(status, "Read-only log", sizeof(status));
+         if (strcmp(gtk_label_get_text(GTK_LABEL(pane->status)), status)) gtk_label_set_text(GTK_LABEL(pane->status), status);
+      }
+   }
+   gtk_notebook_set_show_tabs(GTK_NOTEBOOK(ui.auxiliary), visible > 0);
+   gtk_widget_set_visible(ui.auxiliary, visible || the_tool_console()->visible);
+   focus = the_workbench_focus_request();
+   if (focus && focus->serial != ui.log_focus_serial)
+   {
+      GtkLogPane *pane = find_log(focus->panel, focus->generation);
+      ui.log_focus_serial = focus->serial;
+      if (pane && gtk_widget_get_visible(pane->page))
+      {
+         if (!ui.focused_log[0] && !ui.log_origin) remember_log_origin(gtk_window_get_focus(GTK_WINDOW(ui.window)));
+         strcpy(ui.focused_log, pane->id); ui.focused_log_generation = pane->generation;
+         if (the_tool_console()->focused) the_tool_console_visibility(the_tool_console()->visible, 0);
+         gtk_notebook_set_current_page(GTK_NOTEBOOK(ui.auxiliary), gtk_notebook_page_num(GTK_NOTEBOOK(ui.auxiliary), pane->page));
+         gtk_widget_grab_focus(pane->view);
+      }
+      else if (!focus->panel[0] && ui.focused_log[0])
+      { ui.focused_log[0] = '\0'; restore_log_origin(); }
+   }
+   for (i = 0; i < ui.logs->len; i++)
+   {
+      GtkLogPane *pane = g_ptr_array_index(ui.logs, i);
+      int shown = gtk_widget_get_visible(pane->page);
+      int selected_page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(ui.auxiliary), gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.auxiliary))) == pane->page;
+      TheWorkbenchPlacement placement = !shown ? THE_WORKBENCH_PLACE_NONE : !selected_page ? THE_WORKBENCH_PLACE_TAB
+         : gtk_orientable_get_orientation(GTK_ORIENTABLE(ui.split)) == GTK_ORIENTATION_HORIZONTAL
+            ? THE_WORKBENCH_PLACE_RIGHT : THE_WORKBENCH_PLACE_BELOW;
+      const TheWorkbenchPanel *panel = the_workbench_panel_find(pane->id);
+      GtkAllocation allocation;
+      int fits = 1, allowed = 0, controls_height = 0;
+      size_t fallback;
+      gtk_widget_get_allocation(pane->page, &allocation);
+      gtk_widget_get_preferred_height(gtk_widget_get_parent(pane->status), &controls_height, NULL);
+      if (shown && selected_page && panel && allocation.width > 1 && allocation.height > 1)
+         fits = allocation.width - 12 >= panel->mincols * ui.cell_width &&
+            allocation.height - 16 - controls_height >= panel->minrows * ui.cell_height;
+      if (panel && shown && selected_page)
+      {
+         if (panel->placement == placement || panel->placement == THE_WORKBENCH_PLACE_TAB) allowed = 1;
+         for (fallback = 0; fallback < panel->fallback_count; fallback++)
+            if (panel->fallbacks[fallback] == placement) allowed = 1;
+         if (!allowed)
+            for (fallback = 0; fallback < panel->fallback_count; fallback++)
+               if (panel->fallbacks[fallback] == THE_WORKBENCH_PLACE_TAB) { placement = THE_WORKBENCH_PLACE_TAB; allowed = 1; break; }
+         if (panel->placement == THE_WORKBENCH_PLACE_TAB) placement = THE_WORKBENCH_PLACE_TAB;
+      }
+      else allowed = 1;
+      if (!fits || !allowed) placement = THE_WORKBENCH_PLACE_NONE;
+      if (shown && selected_page)
+      {
+         gtk_widget_set_visible(pane->scroller, fits && allowed);
+         if (!fits || !allowed) gtk_label_set_text(GTK_LABEL(pane->status), "Log collapsed: insufficient space");
+      }
+      the_workbench_panel_effective(pane->id, pane->generation, placement,
+                                   !shown ? "hidden" : !fits ? "insufficient-space" : !allowed ? "placement-unavailable" : !selected_page ? "auxiliary-tab" : "");
+   }
+   ui.syncing_logs--;
+}
+
 static gboolean blink(gpointer data)
 {
    (void)data;
@@ -871,7 +1337,8 @@ static void menu_action(GSimpleAction *action, GVariant *parameter, gpointer dat
    && queue_event(event))
    {
       ui.menu_canceled = 0;
-      gtk_widget_grab_focus(ui.editor);
+      if (!found || found->kind != THE_WORKBENCH_ACTION_PANEL)
+         gtk_widget_grab_focus(ui.editor);
    }
    g_free(path);
 }
@@ -1068,6 +1535,7 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    gtk_window_set_default_size(GTK_WINDOW(ui.window), 1120, 820);
    g_signal_connect(ui.window, "delete-event", G_CALLBACK(close_window), NULL);
    g_signal_connect(ui.window, "key-press-event", G_CALLBACK(workbench_key_pressed), NULL);
+   g_signal_connect(ui.window, "set-focus", G_CALLBACK(remember_nonlog_focus), NULL);
    root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    gtk_container_add(GTK_CONTAINER(ui.window), root);
    {
@@ -1125,10 +1593,17 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    g_signal_connect(ui.editor, "realize", G_CALLBACK(editor_realized), NULL);
    g_signal_connect(ui.editor, "focus-in-event", G_CALLBACK(editor_focus), NULL);
    g_signal_connect(ui.editor, "focus-out-event", G_CALLBACK(editor_focus), NULL);
+   ui.auxiliary = gtk_notebook_new();
+   ui.logs = g_ptr_array_new_with_free_func(free_log_pane);
+   gtk_notebook_set_show_tabs(GTK_NOTEBOOK(ui.auxiliary), FALSE);
+   gtk_notebook_set_show_border(GTK_NOTEBOOK(ui.auxiliary), FALSE);
+   gtk_notebook_set_scrollable(GTK_NOTEBOOK(ui.auxiliary), TRUE);
+   g_signal_connect(ui.auxiliary, "switch-page", G_CALLBACK(auxiliary_switched), NULL);
+   gtk_paned_pack2(GTK_PANED(ui.split), ui.auxiliary, FALSE, FALSE);
    ui.console = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
    gtk_widget_set_name(ui.console, "the-program-console");
    gtk_container_set_border_width(GTK_CONTAINER(ui.console), 6);
-   gtk_paned_pack2(GTK_PANED(ui.split), ui.console, FALSE, FALSE);
+   gtk_notebook_append_page(GTK_NOTEBOOK(ui.auxiliary), ui.console, gtk_label_new("Program"));
    heading = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    ui.header = heading;
    gtk_style_context_add_class(gtk_widget_get_style_context(heading), "the-console-header");
@@ -1273,6 +1748,7 @@ static void update(void)
       g_free(title);
    }
    sync_console();
+   sync_logs();
    sync_menus();
    redraw();
 }
@@ -1297,6 +1773,7 @@ static int read_input(TheInputEvent *event)
       }
       the_tools_native_poll();
       sync_console();
+      sync_logs();
       sync_menus();
       while (g_main_context_pending(NULL))
          g_main_context_iteration(NULL, FALSE);
@@ -1350,7 +1827,11 @@ static void shutdown_driver(int prompt)
    if (ui.native_menu) gtk_menu_shell_deactivate(GTK_MENU_SHELL(ui.native_menu));
    g_clear_object(&ui.menu_focus);
    ui.menu_popup = NULL;
+   g_clear_object(&ui.log_origin);
+   g_clear_object(&ui.last_nonlog_focus);
    if (ui.window) gtk_widget_destroy(ui.window);
+   if (ui.logs) g_ptr_array_unref(ui.logs);
+   ui.logs = NULL;
    ui.window = ui.editor = ui.console = NULL;
    g_clear_object(&ui.menu_model);
    if (ui.menu_actions) g_ptr_array_unref(ui.menu_actions);

@@ -2,6 +2,7 @@
 #define THE_WORKBENCH_H
 
 #include <stddef.h>
+#include <stdint.h>
 #include "frontendaction.h"
 
 #define THE_WORKBENCH_VERSION 1
@@ -13,6 +14,8 @@
 #define THE_WORKBENCH_MENU_MAX 32
 #define THE_WORKBENCH_ITEM_MAX 256
 #define THE_WORKBENCH_OWNER_MAX 32
+#define THE_WORKBENCH_PANEL_MAX 32
+#define THE_WORKBENCH_ROUTE_MAX 32
 #define THE_WORKBENCH_PAGE_MAX 8
 #define THE_WORKBENCH_INVOKE_DEPTH_MAX 8
 #define THE_WORKBENCH_JSON_MAX 65536
@@ -26,6 +29,24 @@ typedef enum
    THE_WORKBENCH_ACTION_PANEL = 5
 } TheWorkbenchActionKind;
 
+typedef enum
+{
+   THE_WORKBENCH_PANEL_SHOW = 1,
+   THE_WORKBENCH_PANEL_HIDE,
+   THE_WORKBENCH_PANEL_FOCUS,
+   THE_WORKBENCH_PANEL_RETURN /* normalized internal request only */
+} TheWorkbenchPanelOperation;
+
+typedef enum
+{
+   THE_WORKBENCH_PLACE_NONE = 0,
+   THE_WORKBENCH_PLACE_RIGHT,
+   THE_WORKBENCH_PLACE_BELOW,
+   THE_WORKBENCH_PLACE_TAB
+} TheWorkbenchPlacement;
+
+typedef enum { THE_WORKBENCH_PANEL_LOG = 1 } TheWorkbenchPanelKind;
+
 typedef struct
 {
    char id[THE_WORKBENCH_ID_MAX + 1];
@@ -35,6 +56,8 @@ typedef struct
    TheWorkbenchActionKind kind;
    TheFrontendActionId builtin;
    char operand[THE_WORKBENCH_OPERAND_MAX + 1];
+   char panel[THE_WORKBENCH_ID_MAX + 1];
+   TheWorkbenchPanelOperation panel_operation;
 } TheWorkbenchAction;
 
 typedef struct
@@ -60,6 +83,38 @@ typedef struct
 
 typedef struct
 {
+   char id[THE_WORKBENCH_ID_MAX + 1];
+   char owner[THE_WORKBENCH_ID_MAX + 1];
+   char title[THE_WORKBENCH_LABEL_MAX + 1];
+   unsigned long generation;
+   TheWorkbenchPanelKind kind;
+   char model[THE_WORKBENCH_ID_MAX + 1];
+   uint64_t model_generation;
+   TheWorkbenchPlacement placement;
+   TheWorkbenchPlacement fallbacks[3];
+   size_t fallback_count;
+   int mincols, minrows;
+} TheWorkbenchPanel;
+
+typedef struct
+{
+   char id[THE_WORKBENCH_ID_MAX + 1];
+   char owner[THE_WORKBENCH_ID_MAX + 1];
+   unsigned long generation;
+   char tool[THE_WORKBENCH_ID_MAX + 1];
+   char model[THE_WORKBENCH_ID_MAX + 1];
+   int stream;
+} TheWorkbenchRoute;
+
+/* Lookup is pure metadata and must be registered before profile definitions.
+ * Found but unavailable tools remain valid template references. */
+typedef struct { const char *role; int available; } TheWorkbenchToolInfo;
+typedef int (*TheWorkbenchToolLookup)(const char *id, TheWorkbenchToolInfo *out, void *context);
+void the_workbench_set_tool_lookup(TheWorkbenchToolLookup lookup, void *context);
+int the_workbench_tool_info(const char *id, TheWorkbenchToolInfo *out);
+
+typedef struct
+{
    const char *code;
    const char *message;
    short rc;
@@ -72,10 +127,15 @@ unsigned long the_workbench_revision(void);
 size_t the_workbench_action_count(void);
 size_t the_workbench_menu_count(void);
 size_t the_workbench_item_count(void);
+size_t the_workbench_panel_count(void);
+size_t the_workbench_route_count(void);
 const TheWorkbenchAction *the_workbench_action_at(size_t index);
 const TheWorkbenchAction *the_workbench_action_find(const char *id);
 const TheWorkbenchMenu *the_workbench_menu_at(size_t index);
 const TheWorkbenchItem *the_workbench_item_at(size_t index);
+const TheWorkbenchPanel *the_workbench_panel_at(size_t index);
+const TheWorkbenchPanel *the_workbench_panel_find(const char *id);
+const TheWorkbenchRoute *the_workbench_route_at(size_t index);
 const TheWorkbenchResult *the_workbench_last_result(void);
 const char *the_workbench_action_kind_name(TheWorkbenchActionKind kind);
 /* Runtime admission hint. Invoke always revalidates. */
@@ -93,6 +153,16 @@ short the_workbench_put_menu(const TheWorkbenchMenu *menu);
 short the_workbench_remove_menu(const char *id);
 short the_workbench_put_item(const TheWorkbenchItem *item);
 short the_workbench_remove_item(const char *menu, const char *id);
+short the_workbench_put_panel(const TheWorkbenchPanel *panel);
+short the_workbench_place_panel(const char *id, TheWorkbenchPlacement placement,
+   const TheWorkbenchPlacement *fallbacks, size_t fallback_count, int mincols);
+short the_workbench_remove_panel(const char *id);
+short the_workbench_put_route(const TheWorkbenchRoute *route);
+short the_workbench_remove_route(const char *id);
+const char *the_workbench_placement_name(TheWorkbenchPlacement placement);
+/* Execution-owner admission; no driver or tool callback may call reentrantly. */
+short the_workbench_panel_operation(const char *id, unsigned long generation,
+                                   TheWorkbenchPanelOperation operation);
 int the_workbench_transaction_active(void);
 int the_workbench_activation_active(void);
 short the_workbench_activation_begin(const char *profile);
@@ -112,6 +182,8 @@ short the_workbench_invoke(const char *id, unsigned long generation,
                            const char *argument);
 /* Advances once after the outermost explicit invocation has finished. */
 unsigned long the_workbench_invocation_serial(void);
+/* Internal Rexx admission marker; advances only on failed QUERY/EXTRACT. */
+unsigned long the_workbench_inspection_refusal_serial(void);
 /* JSON page; candidate=1 is for the current profile's QUERY/EXTRACT only.
  * sections SUMMARY/CAPABILITIES/ACTIONS/MENUS/ITEMS; page limit 1..8. */
 int the_workbench_json(char *out, size_t length, const char *section,

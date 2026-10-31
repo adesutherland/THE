@@ -7,6 +7,7 @@
 #include "panelui.h"
 #include "tools.h"
 #include "workbench.h"
+#include "workbenchruntime.h"
 #include <ctype.h>
 #include <errno.h>
 #include <sys/stat.h>
@@ -27,7 +28,40 @@ static int deferred_menu_run;
 static int initialised, available;
 static char profile_ready[THE_TOOL_PATH], profile_active[THE_TOOL_PATH];
 static unsigned profile_source, profile_revision;
+static TheToolDefinition restored_languages[THE_TOOL_LIMIT];
+static size_t restored_language_count;
 int the_crexx_console_capture(int);
+static int workbench_tool_lookup(const char *id, TheWorkbenchToolInfo *info, void *context) {
+   const TheToolDefinition *tool = the_tool_find(id);
+   (void)context;
+   if (!tool || !info)
+      return 0;
+   info->role = tool->role;
+   info->available = tool->available;
+   return 1;
+}
+static int workbench_job_begin(unsigned id, const char *tool, void **binding,
+                                char *error, size_t capacity) {
+   *binding = the_workbench_routes_bind(tool, id, error, capacity);
+   return *binding != NULL;
+}
+static void workbench_job_text(void *binding, unsigned id, int fd, uint64_t sequence,
+                               const void *bytes, size_t length) {
+   (void)id;
+   /* The core lease records an inspectable route error on failure. Observers
+    * remain non-reentrant; log publication never implicitly stops a program. */
+   (void)the_workbench_route_output(binding, fd, sequence, bytes, length);
+}
+static void workbench_job_end(void *binding, unsigned id) {
+   (void)id;
+   the_workbench_routes_release(binding);
+}
+static void workbench_tools_register(void) {
+   const TheToolObserver value = {workbench_job_begin, workbench_job_text, workbench_job_end};
+   the_workbench_set_tool_lookup(workbench_tool_lookup, NULL);
+   /* An active job retains its already installed observer and pinned routes. */
+   (void)the_tool_host_observer(&value);
+}
 static char *copy(const char *s) {
    size_t n = strlen(s ? s : "");
    char *p = malloc(n + 1);
@@ -71,6 +105,7 @@ void the_tools_initialise(const TheToolAdapter *a, int enabled) {
            ".the,.crexx");
    builtin("classic-highlight", "Classic Rexx highlighter", "language", "dslsh",
            "@classic-highlight", ".rexx,.rex");
+   workbench_tools_register();
 }
 int the_tools_backend_available(void) { return available; }
 static void ensure(void) {
@@ -149,6 +184,7 @@ static short run_profile_image(const char *image, const char *identity, short *m
 {
    char command[THE_TOOL_PATH + 8];
    short rc, finish;
+   workbench_tools_register();
 #if defined(THE_WASM)
    rc = the_workbench_activation_begin_untrusted(identity);
 #else
@@ -173,6 +209,7 @@ static short launch(const char *id, int argc, const char *const *argv, const cha
    const TheToolDefinition *t;
    char name[THE_TOOL_PATH], error[1024];
    ensure();
+   workbench_tools_register();
    t = the_tool_find(id && *id ? id : "classic-rexx");
    if (!t) {
       display_error(0, (CHARTYPE *)"Unknown tool", FALSE);
@@ -241,7 +278,14 @@ static void profile_selection(void);
 int the_wasm_flush_workspace(void);
 #endif
 static void registry_save(void);
-static void registry_restore(void);
+static void registry_restore_metadata(void);
+static void registry_activate_languages(void);
+static void registry_skip_language(const char *id) {
+   size_t i;
+   for (i = 0; i < restored_language_count; i++)
+      if (!strcmp(restored_languages[i].id, id))
+         restored_languages[i].id[0] = 0;
+}
 static short activate(void) {
    short rc, macro_rc = 0;
    const TheEditorSource *s = the_editor_source_prepare();
@@ -307,12 +351,17 @@ static void profile_selection(void) {
    }
    rename(temporary, path);
 }
+void the_tools_restore_metadata(void) {
+   ensure();
+   if (initialised)
+      registry_restore_metadata();
+}
 int the_tools_profile_restore(void) {
    char path[THE_TOOL_PATH], cohort[100];
    FILE *f;
    short macro_rc = 0, rc;
-   ensure();
-   registry_restore();
+   the_tools_restore_metadata();
+   registry_activate_languages();
    if (available)
       the_crexx_console_capture(2);
    if (!the_macro_uses_crexx() || !profile_file(path, sizeof(path), "active"))
@@ -416,6 +465,7 @@ static short action(PendingTool *p) {
       const TheToolDefinition *t = the_tool_find(p->tool);
       if (!t || strcmp(t->role, "language"))
          return RC_INVALID_OPERAND;
+      registry_skip_language(t->id);
 #ifdef __EMSCRIPTEN__
       return RC_OK;
 #else
@@ -447,6 +497,7 @@ static short action(PendingTool *p) {
          return RC_INVALID_OPERAND;
       if (!the_tool_register(&t))
          return RC_INVALID_OPERAND;
+      registry_skip_language(t.id);
 #ifndef __EMSCRIPTEN__
       if (!strcmp(t.role, "language") && !the_tools_native_language(&t))
          return RC_INVALID_ENVIRON;
@@ -611,7 +662,7 @@ static void registry_save(void) {
    else
       rename(tmp, path);
 }
-static void registry_restore(void) {
+static void registry_restore_metadata(void) {
    char path[THE_TOOL_PATH], line[4096];
    FILE *f;
    static int done;
@@ -650,10 +701,28 @@ static void registry_restore(void) {
          continue;
       if (!the_tool_register(&t))
          continue;
-#ifndef __EMSCRIPTEN__
-      if (!strcmp(t.role, "language"))
-         the_tools_native_language(&t);
-#endif
+      if (!strcmp(t.role, "language") && restored_language_count < THE_TOOL_LIMIT)
+         restored_languages[restored_language_count++] = t;
    }
    fclose(f);
+}
+static void registry_activate_languages(void) {
+#ifndef __EMSCRIPTEN__
+   size_t i;
+   static int done;
+   if (done)
+      return;
+   done = 1;
+   for (i = 0; i < restored_language_count; i++) {
+      const TheToolDefinition *saved = restored_languages + i;
+      const TheToolDefinition *current = the_tool_find(saved->id);
+      /* Startup profiles may explicitly replace/select these definitions.
+       * Deferred activation never restores old metadata over their changes. */
+      if (current && !strcmp(current->role, saved->role) &&
+          !strcmp(current->label, saved->label) && !strcmp(current->entry, saved->entry) &&
+          !strcmp(current->image, saved->image) && !strcmp(current->extensions, saved->extensions) &&
+          current->available == saved->available)
+         the_tools_native_language(current);
+   }
+#endif
 }

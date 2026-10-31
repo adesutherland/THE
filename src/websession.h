@@ -15,6 +15,7 @@ typedef struct
    short rc;
    unsigned long revision;
    char action[THE_WORKBENCH_ID_MAX + 1];
+   char operation[24];
    char argument[THE_WORKBENCH_OPERAND_MAX + 1];
    unsigned long generation;
    int has_argument;
@@ -47,12 +48,21 @@ int the_web_workbench_reasons_changed(TheWebWorkbenchReasonState *state);
 size_t the_web_format_workbench_page(char *out, size_t capacity,
                                      const char *section, size_t offset,
                                      size_t limit);
+size_t the_web_format_panel_state(char *out, size_t capacity);
+size_t the_web_format_log_page(char *out, size_t capacity,
+                               const char *id, uint64_t generation,
+                               uint64_t cursor, size_t offset,
+                               size_t records, size_t bytes);
+int the_web_parse_u64(const char *text, uint64_t *value);
+int the_web_panel_layout(const char *id, uint64_t generation,
+                         const char *placement, int cols, int rows);
 void the_web_workbench_receipts_init(TheWebWorkbenchReceipts *receipts,
                                      const char *nonce);
 /* 1 new, 0 replay, -1 invalid ID, -3 busy, -4 conflict, -5 operand,
  * -6 unknown/evicted receipt. */
 int the_web_workbench_receipt_begin(TheWebWorkbenchReceipts *receipts,
-                                    const char *request_id, const char *action,
+                                    const char *request_id, const char *operation,
+                                    const char *action,
                                     unsigned long generation,
                                     const char *argument);
 const TheWebWorkbenchReceipt *the_web_workbench_receipt_find(

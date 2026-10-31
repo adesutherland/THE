@@ -10,9 +10,30 @@ static TheToolDefinition catalog[THE_TOOL_LIMIT];
 static size_t catalog_count;
 static TheToolConsole console;
 static TheToolAdapter backend;
+static TheToolObserver observer, active_observer;
+static void *observer_binding;
+static unsigned observer_job;
+static uint64_t observer_sequence;
+static int observing;
 static unsigned serial;
 static unsigned char pending[4][4];
 static size_t pending_length[4];
+static void decode(int, const unsigned char *, size_t, int, int);
+
+static void observer_end(void) {
+   TheToolObserver ending;
+   void *binding;
+   unsigned id;
+   if (!observing)
+      return;
+   ending = active_observer;
+   binding = observer_binding;
+   id = observer_job;
+   observing = 0;
+   observer_binding = NULL;
+   memset(&active_observer, 0, sizeof(active_observer));
+   ending.end(binding, id);
+}
 
 static int identifier(const char *s) {
    size_t n = 0;
@@ -38,12 +59,23 @@ void the_tool_host_reset(void) {
    memset(&console, 0, sizeof(console));
    strcpy(console.state, "Ready");
    memset(&backend, 0, sizeof(backend));
+   memset(&observer, 0, sizeof(observer));
    catalog_count = 0;
    memset(pending_length, 0, sizeof(pending_length));
 }
 void the_tool_host_adapter(const TheToolAdapter *adapter) {
    if (adapter)
       backend = *adapter;
+}
+int the_tool_host_observer(const TheToolObserver *value) {
+   if (console.running || observing ||
+       (value && (!value->begin || !value->text || !value->end)))
+      return 0;
+   if (value)
+      observer = *value;
+   else
+      memset(&observer, 0, sizeof(observer));
+   return 1;
 }
 const TheToolConsole *the_tool_console(void) { return &console; }
 size_t the_tool_count(void) { return catalog_count; }
@@ -141,8 +173,25 @@ int the_tool_launch(const TheToolRequest *r, char *error, size_t capacity) {
    changed();
    owned = *r;
    owned.id = console.id;
+   if (observer.begin) {
+      void *binding = NULL;
+      if (!observer.begin(owned.id, owned.tool.id, &binding, error, capacity)) {
+         console.running = 0;
+         strcpy(console.state, "Failed");
+         changed();
+         return 0;
+      }
+      active_observer = observer;
+      observer_binding = binding;
+      observer_job = owned.id;
+      observer_sequence = 0;
+      observing = 1;
+   }
    if (!backend.start(&owned, error, capacity)) {
       console.running = 0;
+      decode(1, NULL, 0, 1, 1);
+      decode(2, NULL, 0, 1, 1);
+      observer_end();
       snprintf(console.state, sizeof(console.state), "Failed");
       changed();
       return 0;
@@ -207,8 +256,18 @@ static void append(int fd, const char *text, size_t length) {
    }
    changed();
 }
+/* The decoder explicitly identifies program text. Other console text uses
+ * append directly or decodes with program=false. */
+static void decoded_text(int fd, const char *text, size_t length, int program) {
+   if (!length)
+      return;
+   if (program && fd <= 2 && observing)
+      active_observer.text(observer_binding, observer_job, fd,
+                           ++observer_sequence, text, length);
+   append(fd > 2 ? fd - 2 : fd, text, length);
+}
 /* Validate complete UTF-8 scalars; preserve partial stdout/stderr separately. */
-static void decode(int fd, const unsigned char *s, size_t n, int final) {
+static void decode(int fd, const unsigned char *s, size_t n, int final, int program) {
    unsigned char *all;
    size_t size = pending_length[fd - 1] + n, i = 0, start = 0;
    all = malloc(size ? size : 1);
@@ -230,7 +289,7 @@ static void decode(int fd, const unsigned char *s, size_t n, int final) {
               : c >= 0xf0 && c <= 0xf4 ? 4
                                        : 0;
       if (width && size - i < width && !final) {
-         append(fd > 2 ? fd - 2 : fd, (char *)all + start, i - start);
+         decoded_text(fd, (char *)all + start, i - start, program);
          pending_length[fd - 1] = size - i;
          memcpy(pending[fd - 1], all + i, size - i);
          free(all);
@@ -247,11 +306,11 @@ static void decode(int fd, const unsigned char *s, size_t n, int final) {
          i += width;
          continue;
       }
-      append(fd > 2 ? fd - 2 : fd, (char *)all + start, i - start);
-      append(fd > 2 ? fd - 2 : fd, "\xef\xbf\xbd", 3);
+      decoded_text(fd, (char *)all + start, i - start, program);
+      decoded_text(fd, "\xef\xbf\xbd", 3, program);
       start = ++i;
    }
-   append(fd > 2 ? fd - 2 : fd, (char *)all + start, size - start);
+   decoded_text(fd, (char *)all + start, size - start, program);
    free(all);
 }
 void the_tool_output(unsigned id, int fd, const void *s, size_t n) {
@@ -262,7 +321,7 @@ void the_tool_output(unsigned id, int fd, const void *s, size_t n) {
       return;
    }
    console.total += n;
-   decode(fd, s, n, 0);
+   decode(fd, s, n, 0, 1);
 }
 void the_tool_profile_output(int fd, const void *bytes, size_t n) {
    if (fd != 1 && fd != 2)
@@ -273,7 +332,7 @@ void the_tool_profile_output(int fd, const void *bytes, size_t n) {
       console.omitted = 1;
    }
    console.visible = 1;
-   decode(fd + 2, bytes, n, 1);
+   decode(fd + 2, bytes, n, 1, 0);
    changed();
 }
 static int field(const char *wire, const char *key, char *out, size_t cap) {
@@ -383,13 +442,13 @@ static void result_condition(const char *llb, const char *prefix, const char *la
    append(2, label, strlen(label));
    snprintf(key, sizeof(key), "%sNameHex", prefix);
    if (field(llb, key, encoded, 131073) && (text = unhex(encoded))) {
-      decode(2, (unsigned char *)text, strlen(text), 1);
+      decode(2, (unsigned char *)text, strlen(text), 1, 0);
       free(text);
    }
    append(2, ": ", 2);
    snprintf(key, sizeof(key), "%sMessageHex", prefix);
    if (field(llb, key, encoded, 131073) && (text = unhex(encoded))) {
-      decode(2, (unsigned char *)text, strlen(text), 1);
+      decode(2, (unsigned char *)text, strlen(text), 1, 0);
       free(text);
    }
    append(2, "\n", 1);
@@ -401,8 +460,8 @@ void the_tool_finish(unsigned id, int code, const char *status, const char *erro
    int condition = 0;
    if (!console.running || console.id != id)
       return;
-   decode(1, NULL, 0, 1);
-   decode(2, NULL, 0, 1);
+   decode(1, NULL, 0, 1, 1);
+   decode(2, NULL, 0, 1, 1);
    if (llb && *llb && !code) {
       if (!valid_llb(llb)) {
          code = -1;
@@ -438,6 +497,7 @@ void the_tool_finish(unsigned id, int code, const char *status, const char *erro
       snprintf(console.state, sizeof(console.state), "Completed · status %s", console.status);
    }
    console.running = console.waiting = 0;
+   observer_end();
    changed();
 }
 
@@ -447,8 +507,9 @@ void the_tool_stop(const char *reason) {
       console.running = console.waiting = 0;
       if (backend.stop)
          backend.stop(id);
-      decode(1, NULL, 0, 1);
-      decode(2, NULL, 0, 1);
+      decode(1, NULL, 0, 1, 1);
+      decode(2, NULL, 0, 1, 1);
+      observer_end();
       snprintf(console.state, sizeof(console.state), "%s", reason ? reason : "Stopped");
       changed();
    }

@@ -12,6 +12,10 @@ static unsigned phase;
 static unsigned preflight;
 static int dirty_quit_checked;
 static unsigned workbench_focus_phase;
+static unsigned log_probe_phase;
+static int log_origin_window;
+static LogicalCursor log_origin_cursor;
+static char *log_input_draft;
 static int workbench_menu_seen;
 static int workbench_editor_window;
 static LogicalCursor workbench_editor_cursor;
@@ -678,6 +682,216 @@ static void change_palette(void)
    }
 }
 
+static void replace_focused_log(int place)
+{
+   const TheWorkbenchPanel *panel = the_workbench_panel_find("gtk.logone");
+   TheWorkbenchPanel replacement = *panel;
+   const TheWorkbenchLogInfo *info = the_workbench_log_find(panel->model);
+   size_t retained_bytes = info->bytes;
+   assert(the_workbench_panel_state(panel->id)->focused);
+   assert(!the_workbench_begin("gtk.logs"));
+   if (place)
+      assert(!the_workbench_place_panel(panel->id, replacement.placement,
+         replacement.fallbacks, replacement.fallback_count, replacement.mincols));
+   else
+   {
+      strcpy(replacement.title, "Replacement / \"log\" Ω");
+      assert(!the_workbench_put_panel(&replacement));
+   }
+   assert(!the_workbench_commit());
+   panel = the_workbench_panel_find(replacement.id);
+   assert(panel->generation != replacement.generation);
+   assert(panel->model_generation == replacement.model_generation);
+   assert(the_workbench_log_find(panel->model)->bytes == retained_bytes);
+   assert(the_workbench_panel_state(panel->id)->visible);
+   assert(!the_workbench_panel_state(panel->id)->focused);
+   sync_logs(); await_frame();
+   assert(!ui.focused_log[0]);
+   assert(!find_log(panel->id, replacement.generation));
+   assert(find_log(panel->id, panel->generation));
+}
+
+static void assert_log_program_draft(void)
+{
+   int first, last;
+   assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "LOG unsent draft"));
+   assert(gtk_editable_get_selection_bounds(GTK_EDITABLE(ui.input), &first, &last));
+   assert(first == 3 && last == 11 && gtk_editable_get_position(GTK_EDITABLE(ui.input)) == 3);
+}
+
+static void named_log_step(void)
+{
+   const TheWorkbenchPanel *panel;
+   GtkLogPane *pane;
+   GtkTextBuffer *buffer;
+   GtkTextIter first, last;
+   char *text;
+   switch (log_probe_phase++)
+   {
+      case 0:
+      {
+         TheWorkbenchPanel value = {0};
+         log_origin_window = CURRENT_VIEW->current_window;
+         log_origin_cursor = CURRENT_VIEW->logical_cursor.current;
+         log_input_draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(ui.input)));
+         gtk_entry_set_text(GTK_ENTRY(ui.input), "LOG unsent draft");
+         gtk_widget_grab_focus(ui.input);
+         gtk_editable_select_region(GTK_EDITABLE(ui.input), 11, 3);
+         the_tool_console_visibility(1, 1);
+         assert(!the_workbench_begin("gtk.logs"));
+         strcpy(value.id, "gtk.logone"); strcpy(value.title, "Named / \"log\" Ω");
+         strcpy(value.model, "gtk.stdout"); value.kind = THE_WORKBENCH_PANEL_LOG;
+         assert(!the_workbench_put_panel(&value));
+         strcpy(value.id, "gtk.logtwo"); strcpy(value.title, "Second log"); strcpy(value.model, "gtk.stderr");
+         assert(!the_workbench_put_panel(&value)); assert(!the_workbench_commit());
+         panel = the_workbench_panel_find("gtk.logone");
+         {
+            GString *lines = g_string_new(NULL);
+            unsigned i;
+            for (i = 1; i <= 80; i++) g_string_append_printf(lines, "LOG-LINE %u\n", i);
+            g_string_append_len(lines, "NUL:\0 ESC:\033 C1:\302\233 Ω\n", sizeof("NUL:\0 ESC:\033 C1:\302\233 Ω\n") - 1);
+            assert(the_workbench_log_append(panel->model, panel->model_generation, 1001, 1, 1,
+                                            lines->str, lines->len) == THE_WORKBENCH_LOG_OK);
+            g_string_free(lines, TRUE);
+         }
+         sync_logs(); pane = find_log(panel->id, panel->generation); assert(pane);
+         assert(queue_panel(pane, THE_WORKBENCH_PANEL_SHOW));
+         break;
+      }
+      case 1:
+         panel = the_workbench_panel_find("gtk.logtwo"); sync_logs();
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+         assert(queue_panel(find_log(panel->id, panel->generation), THE_WORKBENCH_PANEL_SHOW));
+         break;
+      case 2:
+         panel = the_workbench_panel_find("gtk.logone"); pane = find_log(panel->id, panel->generation);
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+         assert(gtk_notebook_get_nth_page(GTK_NOTEBOOK(ui.auxiliary),
+            gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.auxiliary))) == ui.console);
+         resize_window(1366, GTK_ORIENTATION_HORIZONTAL);
+         assert(queue_panel(pane, THE_WORKBENCH_PANEL_FOCUS));
+         break;
+      case 3:
+      {
+         GtkAdjustment *adjustment;
+         double scroll;
+         int a, b;
+         panel = the_workbench_panel_find("gtk.logone"); pane = find_log(panel->id, panel->generation);
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == pane->view);
+         assert(the_workbench_panel_state(panel->id)->effective == THE_WORKBENCH_PLACE_RIGHT);
+         buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(pane->view));
+         gtk_text_buffer_get_bounds(buffer, &first, &last);
+         text = gtk_text_buffer_get_text(buffer, &first, &last, FALSE);
+         assert(strstr(text, "NUL:\\x00 ESC:\\x1B C1:\\u009B Ω")); g_free(text);
+         gtk_text_buffer_get_iter_at_offset(buffer, &first, 3); gtk_text_buffer_get_iter_at_offset(buffer, &last, 9);
+         gtk_text_buffer_select_range(buffer, &last, &first);
+         adjustment = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(pane->scroller));
+         gtk_adjustment_set_value(adjustment, 100); await_frame(); scroll = gtk_adjustment_get_value(adjustment);
+         assert(the_workbench_log_append(panel->model, panel->model_generation, 1001, 2, 2,
+                                         "APPENDED stderr\n", 16) == THE_WORKBENCH_LOG_OK);
+         sync_logs(); await_frame();
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == pane->view);
+         assert(gtk_text_buffer_get_selection_bounds(buffer, &first, &last));
+         a = gtk_text_iter_get_offset(&first); b = gtk_text_iter_get_offset(&last);
+         assert(a == 3 && b == 9);
+         assert(gtk_adjustment_get_value(adjustment) >= scroll - ui.cell_height &&
+                gtk_adjustment_get_value(adjustment) <= scroll + ui.cell_height);
+         assert_profile_guide(); screenshot("named-log-right");
+         press_workbench_key(GDK_KEY_Escape, 0);
+         break;
+      }
+      case 4:
+      {
+         int first_offset, last_offset;
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+         assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "LOG unsent draft"));
+         assert(gtk_editable_get_selection_bounds(GTK_EDITABLE(ui.input), &first_offset, &last_offset));
+         assert(first_offset == 3 && last_offset == 11 && gtk_editable_get_position(GTK_EDITABLE(ui.input)) == 3);
+         resize_window(900, GTK_ORIENTATION_VERTICAL);
+         gtk_widget_grab_focus(ui.stop);
+         panel = the_workbench_panel_find("gtk.logtwo");
+         assert(queue_panel(find_log(panel->id, panel->generation), THE_WORKBENCH_PANEL_FOCUS));
+         break;
+      }
+      case 5:
+         panel = the_workbench_panel_find("gtk.logtwo"); pane = find_log(panel->id, panel->generation);
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == pane->view);
+         assert(the_workbench_panel_state(panel->id)->effective == THE_WORKBENCH_PLACE_BELOW);
+         assert_profile_guide(); screenshot("named-log-below");
+         press_workbench_key(GDK_KEY_h, 0);
+         break;
+      case 6:
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.stop);
+         assert(!the_workbench_panel_state("gtk.logtwo")->visible);
+         gtk_widget_grab_focus(ui.editor);
+         panel = the_workbench_panel_find("gtk.logone");
+         assert(queue_panel(find_log(panel->id, panel->generation), THE_WORKBENCH_PANEL_FOCUS));
+         break;
+      case 7:
+         panel = the_workbench_panel_find("gtk.logone"); pane = find_log(panel->id, panel->generation);
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == pane->view);
+         press_workbench_key(GDK_KEY_Escape, 0);
+         break;
+      case 8:
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.editor);
+         assert(CURRENT_VIEW->current_window == log_origin_window);
+         assert(!memcmp(&CURRENT_VIEW->logical_cursor.current, &log_origin_cursor, sizeof(log_origin_cursor)));
+         gtk_widget_grab_focus(ui.input);
+         gtk_editable_select_region(GTK_EDITABLE(ui.input), 11, 3);
+         panel = the_workbench_panel_find("gtk.logone");
+         assert(queue_panel(find_log(panel->id, panel->generation), THE_WORKBENCH_PANEL_FOCUS));
+         break;
+      case 9:
+         replace_focused_log(0);  /* Same-model PUT must return to the saved Program origin. */
+         assert_log_program_draft();
+         panel = the_workbench_panel_find("gtk.logone");
+         assert(queue_panel(find_log(panel->id, panel->generation), THE_WORKBENCH_PANEL_FOCUS));
+         break;
+      case 10:
+         panel = the_workbench_panel_find("gtk.logone"); pane = find_log(panel->id, panel->generation);
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == pane->view);
+         assert(ui.focused_log_generation == panel->generation);
+         press_workbench_key(GDK_KEY_Escape, 0);
+         break;
+      case 11:
+         assert_log_program_draft();
+         gtk_widget_grab_focus(ui.editor);
+         panel = the_workbench_panel_find("gtk.logone");
+         assert(queue_panel(find_log(panel->id, panel->generation), THE_WORKBENCH_PANEL_FOCUS));
+         break;
+      case 12:
+         replace_focused_log(1);  /* PLACE also replaces the focused generation. */
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.editor);
+         assert(CURRENT_VIEW->current_window == log_origin_window);
+         assert(!memcmp(&CURRENT_VIEW->logical_cursor.current, &log_origin_cursor, sizeof(log_origin_cursor)));
+         assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "LOG unsent draft"));
+         panel = the_workbench_panel_find("gtk.logone");
+         assert(queue_panel(find_log(panel->id, panel->generation), THE_WORKBENCH_PANEL_FOCUS));
+         break;
+      case 13:
+         panel = the_workbench_panel_find("gtk.logone"); pane = find_log(panel->id, panel->generation);
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == pane->view);
+         assert(ui.focused_log_generation == panel->generation);
+         press_workbench_key(GDK_KEY_Escape, 0);
+         break;
+      case 14:
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.editor);
+         assert(CURRENT_VIEW->current_window == log_origin_window);
+         assert(!memcmp(&CURRENT_VIEW->logical_cursor.current, &log_origin_cursor, sizeof(log_origin_cursor)));
+         assert(!the_workbench_begin("gtk.logs"));
+         assert(!the_workbench_reset_owner("gtk.logs")); assert(!the_workbench_commit());
+         sync_logs(); assert(!ui.logs->len);
+         gtk_entry_set_text(GTK_ENTRY(ui.input), log_input_draft); g_free(log_input_draft); log_input_draft = NULL;
+         assert_source("say 'GTK program ready'\npull name\nsay 'Hello' name\n");
+         puts("GTK_NAMED_LOG_CONTROL_ESCAPE_SCROLL_FOCUS_PROGRAM_DRAFT_RETURN_PASS");
+         puts("GTK_LOG_PUT_PLACE_GENERATION_PROGRAM_EDITOR_FOCUS_RETURN_PASS");
+         queue_command("nop");
+         break;
+      default: assert(0);
+   }
+}
+
 static int probe_read_input(TheInputEvent *event)
 {
    GdkEventKey key;
@@ -873,6 +1087,7 @@ static int probe_read_input(TheInputEvent *event)
          break;
       case 9:
          await_console(0);
+         if (log_probe_phase < 15) { named_log_step(); --phase; break; }
          if (workbench_focus_phase == 0)
          {
             assert_program_input_keeps_focus();

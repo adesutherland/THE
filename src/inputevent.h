@@ -21,7 +21,8 @@ typedef enum
    THE_INPUT_LOGICAL_HIT,
    THE_INPUT_RESIZE,
    THE_INPUT_DEBUG,
-   THE_INPUT_WORKBENCH_INVOKE
+   THE_INPUT_WORKBENCH_INVOKE,
+   THE_INPUT_WORKBENCH_PANEL
 } TheInputKind;
 
 typedef enum
@@ -105,6 +106,11 @@ int the_input_event_from_workbench_invoke(const char *id, unsigned long generati
 const char *the_input_event_workbench_id(const TheInputEvent *input);
 unsigned long the_input_event_workbench_generation(const TheInputEvent *input);
 const char *the_input_event_workbench_argument(const TheInputEvent *input);
+int the_input_event_from_workbench_panel(const char *id, unsigned long generation,
+   TheWorkbenchPanelOperation operation, TheInputEvent *out);
+const char *the_input_event_workbench_panel_id(const TheInputEvent *input);
+unsigned long the_input_event_workbench_panel_generation(const TheInputEvent *input);
+TheWorkbenchPanelOperation the_input_event_workbench_panel_operation(const TheInputEvent *input);
 int the_input_event_from_logical_target(TheInputLogicalTargetKind kind,
                                         LINETYPE line_number, int row,
                                         int cell, int screen, int window_id,

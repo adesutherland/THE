@@ -108,9 +108,11 @@ export interface WorkbenchActionDefinition {
   owner: string;
   label: string;
   generation: number;
-  kind: "builtin" | "command" | "macro";
+  kind: "builtin" | "command" | "macro" | "panel";
   builtin: string;
   operand: string;
+  panel?: string;
+  operation?: "show" | "hide" | "focus";
   enabled: boolean;
   reason: string;
 }
@@ -134,14 +136,95 @@ export interface WorkbenchItemDefinition {
   separator: boolean;
 }
 
+export interface WorkbenchPanelDefinition {
+  id: string;
+  owner: string;
+  title: string;
+  generation: string;
+  kind: "log";
+  model: string;
+  modelGeneration: string;
+  placement: "right" | "below" | "tab";
+  fallbacks: Array<"right" | "below" | "tab">;
+  mincols: number;
+  minrows: number;
+  visible: boolean;
+  focused: boolean;
+  effectivePlacement: "none" | "right" | "below" | "tab";
+  reason: string;
+  contentRevision: string;
+  modelError: string;
+}
+
+export interface WorkbenchPanelState {
+  id: string;
+  generation: string;
+  visible: boolean;
+  focused: boolean;
+  effectivePlacement: "none" | "right" | "below" | "tab";
+  reason: string;
+  model: string;
+  modelGeneration: string;
+  contentRevision: string;
+  modelError: string;
+  omittedBytes: string;
+  omittedRecords: string;
+}
+
+export interface WorkbenchFocusRequest {
+  serial: string;
+  panel: string;
+  generation: string;
+  previousPanel: string;
+  previousGeneration: string;
+  restoring: boolean;
+}
+
+export interface WorkbenchPanelStateMessage {
+  type: "workbench";
+  operation: "panel-state";
+  revision: number;
+  stateRevision: string;
+  focus: WorkbenchFocusRequest;
+  panels: WorkbenchPanelState[];
+}
+
+export interface WorkbenchLogRecord {
+  cursor: string;
+  job: string;
+  stream: number;
+  sequence: string;
+  offset: number;
+  length: number;
+  originalLength: number;
+  text: string;
+}
+
+export interface WorkbenchLogPage {
+  schemaVersion: 1;
+  revision: number;
+  section: "log";
+  id: string;
+  generation: string;
+  contentRevision: string;
+  firstCursor: string;
+  nextCursor: string;
+  nextOffset: number;
+  more: boolean;
+  omitted: boolean;
+  omittedBytes: string;
+  omittedRecords: string;
+  records: WorkbenchLogRecord[];
+}
+
 export interface WorkbenchPage {
   schemaVersion: 1;
   revision: number;
-  section: "actions" | "menus" | "items";
+  section: "actions" | "menus" | "items" | "panels";
   total: number;
   offset: number;
   nextOffset: number | null;
-  records: WorkbenchActionDefinition[] | WorkbenchMenuDefinition[] | WorkbenchItemDefinition[];
+  records: WorkbenchActionDefinition[] | WorkbenchMenuDefinition[] | WorkbenchItemDefinition[] | WorkbenchPanelDefinition[];
 }
 
 export interface WorkspaceRoot {

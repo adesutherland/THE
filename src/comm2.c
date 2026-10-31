@@ -38,6 +38,7 @@
 #include <the.h>
 #include <proto.h>
 #include "thedriver.h"
+#include "workbench.h"
 #include "utfinput.h"
 #ifdef USE_UTF8
 # include "textedit.h"
@@ -1209,8 +1210,16 @@ short Extract(CHARTYPE *params)
        */
       if (num_values == EXTRACT_ARG_ERROR)
       {
+         short failure=RC_INVALID_OPERAND;
+         /* WORKBENCH carries a stable numeric refusal as well as its code.
+          * Preserve legacy argument-error mapping for every other extractor. */
+         if (!strcmp((DEFCHAR *)query_item[itemno].name,"workbench"))
+         {
+            failure=the_workbench_last_result()->rc;
+            if (failure == RC_OK) failure=RC_INVALID_OPERAND;
+         }
          TRACE_RETURN();
-         return(RC_INVALID_OPERAND);
+         return failure;
       }
       /*
        * If the REXX variables have already been set, don't try to set them.

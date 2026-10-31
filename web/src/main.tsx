@@ -14,8 +14,8 @@ import {
   X,
   Menu,
 } from "lucide-preact";
-import type { DriverMessage, FileListMessage, FrontendActionDefinition, ScreenRow, Snapshot, StyleRun, WorkbenchActionDefinition, WorkbenchPage } from "./types";
-import { WorkbenchPageCollector, type WorkbenchCatalog } from "./workbench";
+import type { DriverMessage, FileListMessage, FrontendActionDefinition, ScreenRow, Snapshot, StyleRun, WorkbenchActionDefinition, WorkbenchPage, WorkbenchPanelDefinition, WorkbenchPanelStateMessage, WorkbenchLogPage, WorkbenchLogRecord } from "./types";
+import { WorkbenchPageCollector, displayLogText, type WorkbenchCatalog } from "./workbench";
 import "./styles.css";
 import {RexxConsole, type ToolSession} from './rexx-console';
 import { consoleColourVariables, diagnosticColourVariables, renderColour as panelColour } from "./colours";
@@ -90,6 +90,18 @@ function styledText(text: string, styles: StyleRun[] | undefined, showTabs = tru
   return segments;
 }
 
+type NamedLogView = {
+  generation: string;
+  contentRevision: string;
+  nextCursor: string;
+  nextOffset: number;
+  records: WorkbenchLogRecord[];
+  omitted: boolean;
+  omittedBytes: string;
+  omittedRecords: string;
+  more: boolean;
+};
+
 function pointerCell(event: MouseEvent, startCell: number): number {
   const target = event.currentTarget as HTMLElement;
   const rect = target.getBoundingClientRect();
@@ -160,6 +172,10 @@ function App() {
   const [commandFocused, setCommandFocused] = useState(false);
   const [actions, setActions] = useState<FrontendActionDefinition[]>([]);
   const [workbench, setWorkbench] = useState<WorkbenchCatalog | null>(null);
+  const [panelState, setPanelState] = useState<WorkbenchPanelStateMessage | null>(null);
+  const [logViews, setLogViews] = useState<Record<string, NamedLogView>>({});
+  const [selectedAux, setSelectedAux] = useState("console");
+  const [showProgramWithLog, setShowProgramWithLog] = useState(false);
   const [openMenu, setOpenMenu] = useState<"application" | "about" | null>(null);
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [runRequest, setRunRequest] = useState(0);
@@ -183,6 +199,7 @@ function App() {
   const gridRef = useRef<HTMLDivElement | null>(null);
   const cellProbeRef = useRef<HTMLSpanElement | null>(null);
   const snapshotRef = useRef<Snapshot | null>(null);
+  const appliedCoreCommandRef = useRef("");
   const highlightPresentationRef = useRef(new HighlightPresentation());
   const lastFileFocusRef = useRef<Snapshot["focus"] | null>(null);
   const viewportSizeRef = useRef("");
@@ -194,7 +211,18 @@ function App() {
   const mobileConsoleButtonRef = useRef<HTMLButtonElement | null>(null);
   const menuReturnRef = useRef<HTMLElement | null>(null);
   const pathReturnRef = useRef<HTMLElement | null>(null);
+  const pathFocusReturnRef = useRef<HTMLElement | null>(null);
+  const pathFocusReturnPendingRef = useRef(false);
   const workbenchPagesRef = useRef(new WorkbenchPageCollector());
+  const panelStateRef = useRef<WorkbenchPanelStateMessage | null>(null);
+  const logViewsRef = useRef<Record<string, NamedLogView>>({});
+  const logPendingRef = useRef(new Set<string>());
+  const focusSerialRef = useRef("0");
+  const panelFocusOriginRef = useRef<HTMLElement | null>(null);
+  const auxRailRef = useRef<HTMLDivElement | null>(null);
+  const namedLogRef = useRef<HTMLPreElement | null>(null);
+  const logScrollRef = useRef(new Map<string, { top: number; follow: boolean }>());
+  const layoutReportsRef = useRef(new Map<string, string>());
   const workbenchSessionRef = useRef("");
   const workbenchNextRequestRef = useRef(1);
   const responseLogRef = useRef<HTMLDivElement | null>(null);
@@ -215,6 +243,17 @@ function App() {
     return id;
   }, []);
 
+  const requestLogPage = useCallback((model: string, generation: string,
+    view?: NamedLogView) => {
+    const key = `${model}:${generation}`;
+    if (logPendingRef.current.has(key)) return;
+    const current = view ?? logViewsRef.current[key];
+    if (send({ type: "workbench", version: 1, operation: "log.list",
+      model, generation, cursor: current?.nextCursor ?? "0",
+      offset: current?.nextOffset ?? 0, records: 8, bytes: 512 }) !== undefined)
+      logPendingRef.current.add(key);
+  }, [send]);
+
   const focusEditor = useCallback(() => inputRef.current?.focus(), []);
   const rememberPathFocus = useCallback(() => {
     const active = document.activeElement;
@@ -223,15 +262,11 @@ function App() {
       : active instanceof HTMLElement ? active : null;
   }, []);
   const closePathDialog = useCallback(() => {
-    const prior = pathReturnRef.current;
+    pathFocusReturnRef.current = pathReturnRef.current;
+    pathFocusReturnPendingRef.current = true;
     pathReturnRef.current = null;
     setPathAction(null);
-    window.setTimeout(() => {
-      if (prior?.isConnected && !prior.matches(":disabled") && prior.getClientRects().length)
-        prior.focus();
-      else focusEditor();
-    }, 0);
-  }, [focusEditor]);
+  }, []);
 
   useEffect(() => {
     const token = new URLSearchParams(window.location.search).get("token") ?? "";
@@ -252,10 +287,20 @@ function App() {
         if (disposed || socketRef.current !== socket) return;
         retryAttempt = 0;
         viewportSizeRef.current = "";
+        appliedCoreCommandRef.current = "";
         setConnection("online");
         workbenchPagesRef.current.reset();
         workbenchSessionRef.current = "";
+        panelStateRef.current = null;
+        logViewsRef.current = {};
+        logScrollRef.current.clear();
+        logPendingRef.current.clear();
+        layoutReportsRef.current.clear();
+        focusSerialRef.current = "0";
+        panelFocusOriginRef.current = null;
         setWorkbench(null);
+        setPanelState(null);
+        setLogViews({});
         setLastError("");
         window.setTimeout(focusEditor, 0);
       };
@@ -307,7 +352,11 @@ function App() {
             if (nextSnapshot.focus.zone === "filearea") lastFileFocusRef.current = nextSnapshot.focus;
             snapshotRef.current = nextSnapshot;
             setSnapshot(nextSnapshot);
-            if (nextSnapshot.focus.zone === "command") setCommand(nextSnapshot.command);
+            if (nextSnapshot.focus.zone === "command"
+                && appliedCoreCommandRef.current !== nextSnapshot.command) {
+              appliedCoreCommandRef.current = nextSnapshot.command;
+              setCommand(nextSnapshot.command);
+            }
             setLastError("");
           } else if ("type" in message && message.type === "actions" && message.actions) {
             setActions(message.actions);
@@ -315,8 +364,47 @@ function App() {
             const listing = message as unknown as { data: WorkbenchPage; publication?: number };
             const catalog = workbenchPagesRef.current.accept(listing.data, listing.publication);
             if (catalog) setWorkbench(catalog);
+          } else if ("type" in message && message.type === "workbench" && (message as { operation?: string }).operation === "panel-state") {
+            const next = message as WorkbenchPanelStateMessage;
+            panelStateRef.current = next;
+            setPanelState(next);
+            for (const panel of next.panels) {
+              if (!panel.visible) continue;
+              const key = `${panel.model}:${panel.modelGeneration}`;
+              const view = logViewsRef.current[key];
+              if (!view || view.contentRevision !== panel.contentRevision || view.more)
+                requestLogPage(panel.model, panel.modelGeneration);
+            }
+          } else if ("type" in message && message.type === "workbench" && (message as { operation?: string }).operation === "log") {
+            const page = (message as unknown as { data: WorkbenchLogPage }).data;
+            const key = `${page.id}:${page.generation}`;
+            logPendingRef.current.delete(key);
+            const live = panelStateRef.current?.panels.find((panel) =>
+              panel.model === page.id && panel.modelGeneration === page.generation);
+            if (!live || !Array.isArray(page.records)) return;
+            const prior = logViewsRef.current[key];
+            const reset = !prior || page.omitted || prior.generation !== page.generation;
+            const records = reset ? [...page.records] : [...prior.records, ...page.records];
+            let characters = records.reduce((total, record) => total + record.text.length, 0);
+            let trimmed = false;
+            while (characters > 262144 && records.length > 1) {
+              characters -= records.shift()!.text.length;
+              trimmed = true;
+            }
+            const next: NamedLogView = {
+              generation: page.generation, contentRevision: page.contentRevision,
+              nextCursor: page.nextCursor, nextOffset: page.nextOffset, records,
+              omitted: !!page.omitted || !!prior?.omitted || trimmed,
+              omittedBytes: page.omittedBytes, omittedRecords: page.omittedRecords,
+              more: page.more,
+            };
+            logViewsRef.current = { ...logViewsRef.current, [key]: next };
+            setLogViews(logViewsRef.current);
+            if (page.more || page.contentRevision !== live.contentRevision)
+              requestLogPage(page.id, page.generation, next);
           } else if ("type" in message && message.type === "workbench" && (message as { operation?: string }).operation === "result") {
             const result = message as { code?: string; message?: string; requestId?: string };
+            if (!result.requestId) logPendingRef.current.clear();
             const prefix = `${workbenchSessionRef.current}.`;
             if (result.requestId?.startsWith(prefix)) {
               const sequence = Number(result.requestId.slice(prefix.length));
@@ -378,7 +466,7 @@ function App() {
       window.removeEventListener("beforeunload", beforeUnload);
       close();
     };
-  }, [appendDockEntry, focusEditor]);
+  }, [appendDockEntry, focusEditor, requestLogPage]);
 
   useEffect(() => {
     const resized = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
@@ -409,6 +497,16 @@ function App() {
     return () => window.clearTimeout(focus);
   }, [pathAction]);
 
+  useLayoutEffect(() => {
+    if (pathAction || !pathFocusReturnPendingRef.current) return;
+    pathFocusReturnPendingRef.current = false;
+    const prior = pathFocusReturnRef.current;
+    pathFocusReturnRef.current = null;
+    if (prior?.isConnected && !prior.matches(":disabled") && prior.getClientRects().length)
+      prior.focus();
+    else focusEditor();
+  }, [pathAction, focusEditor]);
+
   useEffect(() => {
     if (toolSession?.job.id && toolSession.job.id !== lastShownJob.current) {
       lastShownJob.current = toolSession.job.id;
@@ -435,25 +533,64 @@ function App() {
   );
 
   const sendAction = useCallback(
-    (action: string, argument = "") => {
+    (action: string, argument = "", restoreFocus = true) => {
       send({ type: "action", action, argument });
       setOpenMenu(null);
-      window.setTimeout(focusEditor, 0);
+      if (restoreFocus) window.setTimeout(focusEditor, 0);
     },
     [focusEditor, send],
   );
 
-  const sendWorkbenchAction = useCallback((action: WorkbenchActionDefinition, argument?: string) => {
+  const rememberPanelFocusOrigin = useCallback(() => {
+    if (panelFocusOriginRef.current?.isConnected) return;
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active.closest(".named-log-pane")) return;
+    const origin = menuRef.current?.contains(active) ? menuReturnRef.current : active;
+    if (origin instanceof HTMLElement) panelFocusOriginRef.current = origin;
+  }, []);
+
+  const sendPanelOperation = useCallback((panel: string, generation: string,
+    operation: "show" | "hide" | "focus" | "return") => {
+    if (!workbenchSessionRef.current) return;
+    if (operation === "focus") rememberPanelFocusOrigin();
+    send({ type: "workbench", version: 1, operation: `panel.${operation}`,
+      requestId: `${workbenchSessionRef.current}.${workbenchNextRequestRef.current++}`,
+      panel, expectGeneration: generation });
+  }, [rememberPanelFocusOrigin, send]);
+
+  const selectProgramConsole = useCallback(() => {
+    const focused = panelStateRef.current?.panels.find((panel) => panel.focused);
+    if (focused) sendPanelOperation(focused.id, focused.generation, "return");
+    setConsoleOpen(true);
+    setSelectedAux("console");
+    setShowProgramWithLog(false);
+    setMobilePane("console");
+  }, [sendPanelOperation]);
+
+  const sendWorkbenchAction = useCallback((action: WorkbenchActionDefinition, argument?: string,
+    restoreFocus = true) => {
     if (!workbenchSessionRef.current) {
       setLastError("Workbench session is not ready");
       return;
     }
+    if (action.kind === "panel" && action.operation === "focus")
+      rememberPanelFocusOrigin();
     send({ type: "workbench", version: 1, operation: "invoke",
       requestId: `${workbenchSessionRef.current}.${workbenchNextRequestRef.current++}`, action: action.id,
       expectGeneration: action.generation, ...(argument === undefined ? {} : { argument }) });
     setOpenMenu(null);
-    window.setTimeout(focusEditor, 0);
-  }, [focusEditor, send]);
+    if (action.kind === "panel" && action.operation === "show" && action.panel) {
+      const origin = menuReturnRef.current;
+      setShowProgramWithLog(!!origin?.closest(".program-console-pane") && consoleOpen);
+      setSelectedAux(action.panel);
+      setMobilePane("console");
+    }
+    if (restoreFocus && action.kind === "panel" && action.operation !== "focus") {
+      const origin = menuReturnRef.current;
+      window.setTimeout(() => { if (origin?.isConnected) origin.focus(); }, 0);
+    } else if (restoreFocus && action.kind !== "panel")
+      window.setTimeout(focusEditor, 0);
+  }, [consoleOpen, focusEditor, rememberPanelFocusOrigin, send]);
 
   const actionById = useMemo(
     () => new Map(actions.map((action) => [action.id, action])),
@@ -569,6 +706,15 @@ function App() {
   const onWorkbenchKeyDown = useCallback((event: KeyboardEvent) => {
     // Panels and path dialogs own their keys, including function keys.
     if (snapshot?.panel || pathAction) return;
+    if (!openMenu && (event.target as HTMLElement).closest(".named-log-pane")
+        && (event.key === "Escape" || event.key === "F6")) {
+      event.preventDefault(); event.stopPropagation();
+      const pane = (event.target as HTMLElement).closest<HTMLElement>(".named-log-pane");
+      const state = panelStateRef.current?.panels.find((item) => item.id === pane?.dataset.panelId);
+      if (state?.focused) sendPanelOperation(state.id, state.generation, "return");
+      else returnToFile();
+      return;
+    }
     if (!openMenu && event.key === "Tab" && event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey &&
         (event.target === consoleButtonRef.current || event.target === mobileConsoleButtonRef.current)) {
       event.preventDefault();
@@ -626,7 +772,7 @@ function App() {
     event.preventDefault();
     event.stopPropagation();
     items[next]?.focus();
-  }, [openMenu, pathAction, returnToFile, snapshot?.panel]);
+  }, [openMenu, pathAction, returnToFile, sendPanelOperation, snapshot?.panel]);
 
   const onEditorKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -735,21 +881,119 @@ function App() {
   const runRexx = () => {
     if (runUnavailable) return;
     setConsoleOpen(true);
+    setSelectedAux("console");
     setMobilePane("console");
     setRunRequest((request) => request + 1);
   };
   const maximumFilesWidth = Math.max(180, Math.min(400, Math.floor(windowSize.width * .25)));
   const maximumAuxWidth = Math.max(300, Math.min(650, Math.floor(windowSize.width * .36)));
-  const showAux = consoleOpen;
+  const visibleNamedPanels = useMemo(() => {
+    const states = new Map(panelState?.panels.map((panel) => [panel.id, panel]));
+    return (workbench?.panels ?? []).flatMap((panel) => {
+      const state = states.get(panel.id);
+      if (state && state.generation !== panel.generation) return [];
+      const combined = { ...panel, ...state };
+      return combined.visible ? [combined] : [];
+    });
+  }, [panelState, workbench]);
+  const showAux = consoleOpen || visibleNamedPanels.length > 0;
+  const activeAux = selectedAux === "console" && consoleOpen ? "console"
+    : visibleNamedPanels.some((panel) => panel.id === selectedAux) ? selectedAux
+    : visibleNamedPanels[0]?.id ?? "console";
+  const activeNamedPanel = visibleNamedPanels.find((panel) => panel.id === activeAux);
+  const placementFor = (panel: WorkbenchPanelDefinition) => {
+    const wide = windowSize.width >= 1100;
+    const phone = windowSize.width <= 640;
+    for (const candidate of [panel.placement, ...panel.fallbacks]) {
+      if (candidate === "right" && !wide || candidate === "below" && phone) continue;
+      const width = candidate === "below" || !wide ? windowSize.width
+        : Math.min(auxWidth, maximumAuxWidth);
+      const height = candidate === "right" ? windowSize.height - 130 : 410;
+      if (Math.floor(width / 8) >= panel.mincols && Math.floor(height / 18) >= panel.minrows)
+        return candidate;
+    }
+    return "none";
+  };
+  const activePanelPlacement = activeNamedPanel ? placementFor(activeNamedPanel) : "right";
+  const activeNamedLog = activeNamedPanel
+    ? logViews[`${activeNamedPanel.model}:${activeNamedPanel.modelGeneration}`] : undefined;
   const activeMobilePane = mobilePane === "files" && explorerOpen ? "files"
-    : mobilePane === "console" && consoleOpen ? "console"
+    : mobilePane === "console" && showAux ? "console"
     : explorerOpen ? "files" : "console";
   const latestResponse = [...dockEntries].reverse().find((entry) => entry.kind !== "command");
+
+  useEffect(() => {
+    const focus = panelState?.focus;
+    if (!focus || focus.serial === focusSerialRef.current) return;
+    focusSerialRef.current = focus.serial;
+    if (focus.serial === "0") return;
+    if (focus.restoring) {
+      const origin = panelFocusOriginRef.current;
+      panelFocusOriginRef.current = null;
+      if (origin?.closest(".program-console-pane")) {
+        setConsoleOpen(true);
+        setSelectedAux("console");
+        setMobilePane("console");
+      }
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+        if (origin?.isConnected && origin.getClientRects().length) origin.focus();
+        else focusEditor();
+      }));
+    } else if (focus.panel) {
+      if (!panelFocusOriginRef.current) {
+        const active = document.activeElement;
+        if (active instanceof HTMLElement && !active.closest(".named-log-pane"))
+          panelFocusOriginRef.current = active;
+      }
+      setSelectedAux(focus.panel);
+      setShowProgramWithLog(false);
+      setMobilePane("console");
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => namedLogRef.current?.focus()));
+    }
+  }, [focusEditor, panelState?.focus]);
+
+  useLayoutEffect(() => {
+    if (!showAux || connection !== "online") return;
+    const rectangle = (consoleOpen && showProgramWithLog && activeNamedPanel
+      ? auxRailRef.current?.querySelector(".named-log-pane") : auxRailRef.current)?.getBoundingClientRect();
+    if (!rectangle) return;
+    const cols = Math.max(0, Math.floor(rectangle.width / 8));
+    const rows = Math.max(0, Math.floor(rectangle.height / 18));
+    for (const panel of visibleNamedPanels) {
+      const desired = panel.id === activeAux ? placementFor(panel) : "inactive-tab";
+      const placement = desired === "inactive-tab" || (cols >= panel.mincols && rows >= panel.minrows)
+        ? desired : "none";
+      const report = `${panel.generation}:${placement}:${cols}:${rows}`;
+      if (layoutReportsRef.current.get(panel.id) === report) continue;
+      if (send({ type: "workbench", version: 1, operation: "panel.layout",
+        panel: panel.id, expectGeneration: panel.generation,
+        placement, cols, rows }) !== undefined)
+        layoutReportsRef.current.set(panel.id, report);
+    }
+    for (const id of [...layoutReportsRef.current.keys()])
+      if (!visibleNamedPanels.some((panel) => panel.id === id)) layoutReportsRef.current.delete(id);
+  }, [activeAux, auxWidth, connection, consoleOpen, send, showAux, showProgramWithLog, visibleNamedPanels, windowSize]);
+
+  useEffect(() => {
+    if (!activeNamedPanel || !namedLogRef.current) return;
+    const key = `${activeNamedPanel.id}:${activeNamedPanel.generation}`;
+    if (logScrollRef.current.get(key)?.follow === false) return;
+    namedLogRef.current.scrollTop = namedLogRef.current.scrollHeight;
+  }, [activeNamedPanel?.id, activeNamedLog?.records.length]);
   const toggleFiles = () => {
     if (window.innerWidth >= 1100 || activeMobilePane === "files") setExplorerOpen(!explorerOpen);
     else setExplorerOpen(true);
     setMobilePane("files");
     if (!explorerOpen) requestFiles();
+  };
+  const showOrFocusPanel = (panel: WorkbenchPanelDefinition) => {
+    const state = panelState?.panels.find((item) => item.id === panel.id
+      && item.generation === panel.generation);
+    const visible = state?.visible ?? panel.visible;
+    setSelectedAux(panel.id);
+    setShowProgramWithLog(false);
+    setMobilePane("console");
+    sendPanelOperation(panel.id, panel.generation, visible ? "focus" : "show");
   };
 
   return (
@@ -793,7 +1037,7 @@ function App() {
             </section>)}
             <section aria-label="Workbench"><h2>Workbench</h2>
               <button type="button" onClick={() => { toggleFiles(); setOpenMenu(null); }}>Files</button>
-              <button type="button" onClick={() => { setConsoleOpen(true); setMobilePane("console"); setOpenMenu(null); }}>Program console</button>
+              <button type="button" onClick={() => { setConsoleOpen(true); setSelectedAux("console"); setMobilePane("console"); setOpenMenu(null); }}>Program console</button>
               <button type="button" onClick={() => {
                 setOpenMenu(null);
                 // Keep the existing admitted profile-key route: SHOWKEY is
@@ -849,13 +1093,21 @@ function App() {
       <div class="workbench">
       <div class="pane-switcher" role="group" aria-label="Workbench panes">
         <button type="button" aria-pressed={explorerOpen} onClick={toggleFiles}>Files</button>
-        <button type="button" class="console-toggle" ref={consoleButtonRef} aria-pressed={consoleOpen} onClick={() => { setConsoleOpen(window.innerWidth < 1100 && activeMobilePane !== "console" ? true : !consoleOpen); setMobilePane("console"); }}>
+        <button type="button" class="console-toggle" ref={consoleButtonRef} aria-pressed={activeAux === "console" && consoleOpen} onClick={() => {
+          if (panelStateRef.current?.panels.some((panel) => panel.focused)) selectProgramConsole();
+          else { setConsoleOpen(window.innerWidth < 1100 && activeMobilePane !== "console" ? true : !consoleOpen); setSelectedAux("console"); setMobilePane("console"); }
+        }}>
           Console{toolSession?.job.waiting ? " · Input requested" : toolSession?.job.running ? " · Running" : ""}
         </button>
+        {workbench?.panels.map((panel) => <button type="button" key={panel.id}
+          class="named-log-toggle" data-panel-id={panel.id}
+          onPointerDown={rememberPanelFocusOrigin}
+          aria-pressed={activeAux === panel.id && visibleNamedPanels.some((item) => item.id === panel.id)}
+          onClick={() => showOrFocusPanel(panel)}>{panel.title}</button>)}
         <button type="button" class="run-rexx" disabled={!!runUnavailable} title={runUnavailable || "Run the current buffer, including unsaved edits"} aria-describedby={runUnavailable ? "run-unavailable" : undefined} onClick={runRexx}>Run Rexx</button>
         {runUnavailable ? <span class="run-unavailable" id="run-unavailable">{runUnavailable}</span> : null}
       </div>
-      <section class={`workspace mobile-pane-${activeMobilePane} ${explorerOpen ? "files-open" : ""} ${showAux ? "aux-open" : ""}`} style={{
+      <section class={`workspace mobile-pane-${activeMobilePane} ${explorerOpen ? "files-open" : ""} ${showAux ? "aux-open" : ""} ${activeNamedPanel && activePanelPlacement === "below" ? "aux-below" : ""}`} style={{
         "--files-width": `${Math.min(filesWidth, maximumFilesWidth)}px`, "--aux-width": `${Math.min(auxWidth, maximumAuxWidth)}px`,
       }}>
         {explorerOpen ? (
@@ -1024,16 +1276,58 @@ function App() {
 
         <div class="mobile-aux-tabs" role="group" aria-label="Choose auxiliary pane">
           <button type="button" aria-pressed={activeMobilePane === "files" && explorerOpen} onClick={() => { setExplorerOpen(true); setMobilePane("files"); requestFiles(); }}>Files</button>
-          <button type="button" class="console-toggle" ref={mobileConsoleButtonRef} aria-pressed={activeMobilePane === "console" && consoleOpen} onClick={() => { setConsoleOpen(true); setMobilePane("console"); }}>Console{toolSession?.job.waiting ? " · Input requested" : ""}</button>
+          <button type="button" class="console-toggle" ref={mobileConsoleButtonRef} aria-pressed={activeMobilePane === "console" && activeAux === "console" && consoleOpen} onClick={selectProgramConsole}>Console{toolSession?.job.waiting ? " · Input requested" : ""}</button>
+          {workbench?.panels.map((panel) => <button type="button" key={panel.id}
+            data-panel-id={panel.id} aria-pressed={activeMobilePane === "console" && activeAux === panel.id}
+            onPointerDown={rememberPanelFocusOrigin} onClick={() => showOrFocusPanel(panel)}>{panel.title}</button>)}
           <button type="button" class="run-rexx" disabled={!!runUnavailable} title={runUnavailable || "Run the current buffer, including unsaved edits"} aria-describedby={runUnavailable ? "mobile-run-unavailable" : undefined} onClick={runRexx}>Run Rexx</button>
           {runUnavailable ? <span class="run-unavailable" id="mobile-run-unavailable">{runUnavailable}</span> : null}
         </div>
-        {showAux ? <PaneSplitter label="Resize auxiliary panes" orientation="vertical" reverse consoleDivider={consoleOpen} value={Math.min(auxWidth, maximumAuxWidth)} minimum={300} maximum={maximumAuxWidth} onChange={setAuxWidth} /> : null}
-        <div class="auxiliary-rail" hidden={!showAux}>
-        <div class="program-console-pane" hidden={!consoleOpen}>
-          {toolSession ? <RexxConsole send={send} session={toolSession} snapshot={snapshot} runRequest={runRequest} onClose={() => { setConsoleOpen(false); focusEditor(); }} focusEditor={focusEditor} />
+        {showAux ? <PaneSplitter label="Resize auxiliary panes" orientation="vertical" reverse consoleDivider={activeAux === "console" && consoleOpen} value={Math.min(auxWidth, maximumAuxWidth)} minimum={300} maximum={maximumAuxWidth} onChange={setAuxWidth} /> : null}
+        <div class={`auxiliary-rail ${consoleOpen && showProgramWithLog && activeNamedPanel ? "program-and-log" : ""}`} ref={auxRailRef} hidden={!showAux}>
+        <div class="auxiliary-tabs" role="tablist" aria-label="Auxiliary panes">
+          {consoleOpen ? <button type="button" role="tab" aria-selected={activeAux === "console"}
+            onClick={selectProgramConsole}>Program console</button> : null}
+          {visibleNamedPanels.map((panel) => <button type="button" key={panel.id}
+            role="tab" data-panel-id={panel.id} aria-selected={activeAux === panel.id}
+            onPointerDown={rememberPanelFocusOrigin} onClick={() => showOrFocusPanel(panel)}>{panel.title}</button>)}
+        </div>
+        <div class="program-console-pane" hidden={!consoleOpen || activeAux !== "console" && !(showProgramWithLog && activeNamedPanel)}>
+          {toolSession ? <RexxConsole send={send} session={toolSession} snapshot={snapshot} runRequest={runRequest} onClose={() => { setConsoleOpen(false); setShowProgramWithLog(false); focusEditor(); }} focusEditor={focusEditor} />
             : <p class="empty-directory">Program console unavailable: no program tools were provided.</p>}
         </div>
+        {activeNamedPanel ? <div class="named-log-pane" data-panel-id={activeNamedPanel.id}
+          aria-label={activeNamedPanel.title} role="tabpanel">
+          <div class="named-log-heading"><strong>{activeNamedPanel.title}</strong>
+            <button type="button" onClick={() => sendPanelOperation(activeNamedPanel.id, activeNamedPanel.generation, "hide")}>Hide</button>
+          </div>
+          {activeNamedPanel.modelError && activeNamedPanel.modelError !== "ok"
+            ? <p class="named-log-error" role="status">Log route error: {activeNamedPanel.modelError}</p> : null}
+          {(activeNamedLog?.omitted || !!activeNamedPanel.omittedBytes && activeNamedPanel.omittedBytes !== "0")
+            ? <p class="named-log-omitted" role="status">Older output omitted</p> : null}
+          {activeNamedPanel.effectivePlacement === "none" && activeNamedPanel.reason !== "hidden"
+            ? <p class="named-log-unavailable" role="status">{activeNamedPanel.reason.replaceAll("-", " ")}</p> : null}
+          <pre class="named-log-output" hidden={activePanelPlacement === "none"} ref={(node) => {
+            const key = `${activeNamedPanel.id}:${activeNamedPanel.generation}`;
+            if (node) {
+              namedLogRef.current = node;
+              const saved = logScrollRef.current.get(key);
+              if (saved) node.scrollTop = saved.top;
+              else node.scrollTop = node.scrollHeight;
+            } else if (namedLogRef.current?.dataset.panelKey === key) namedLogRef.current = null;
+          }} tabIndex={0}
+            data-panel-key={`${activeNamedPanel.id}:${activeNamedPanel.generation}`}
+            aria-label={`${activeNamedPanel.title} output`}
+            onScroll={(event) => {
+              const node = event.currentTarget;
+              logScrollRef.current.set(`${activeNamedPanel.id}:${activeNamedPanel.generation}`, {
+                top: node.scrollTop,
+                follow: node.scrollHeight - node.scrollTop - node.clientHeight < 24,
+              });
+            }}>{activeNamedLog?.records.map((record) => <span key={`${record.cursor}:${record.offset}`}
+              class={record.stream === 2 ? "named-log-stderr" : "named-log-stdout"}>
+              {displayLogText(record.text)}</span>)}</pre>
+        </div> : null}
         </div>
       </section>
       </div>
@@ -1066,9 +1360,9 @@ function App() {
             event.preventDefault();
             if (!pathValue) return;
             const value = pathValue;
-            if ("generation" in pathAction) sendWorkbenchAction(pathAction, value);
-            else sendAction(pathAction.id, value);
-            setPathAction(null);
+            if ("generation" in pathAction) sendWorkbenchAction(pathAction, value, false);
+            else sendAction(pathAction.id, value, false);
+            closePathDialog();
           }}>
             <div class="dialog-heading">
               <h2 id="path-dialog-title">{pathAction.label} file</h2>

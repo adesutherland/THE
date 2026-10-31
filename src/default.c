@@ -36,6 +36,7 @@
 #include <the.h>
 #include <proto.h>
 #include "workbench.h"
+#include "tools.h"
 
 /*--------------------------- global data -----------------------------*/
 /*#define DEBUG 1*/
@@ -633,6 +634,9 @@ short get_profile(CHARTYPE *prf_file,CHARTYPE *prf_arg)
    short workbench_rc;
 
    TRACE_FUNCTION("default.c: get_profile");
+   /* Persisted definitions must resolve during startup route validation.
+    * Language services and compiled profiles retain their later activation. */
+   the_tools_restore_metadata();
    workbench_rc = the_workbench_activation_begin((const char *)prf_file);
    if (workbench_rc != RC_OK)
    {

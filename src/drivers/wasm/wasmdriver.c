@@ -1,5 +1,6 @@
 #include <emscripten.h>
 #include <stdio.h>
+#include <limits.h>
 #include <string.h>
 
 #include "the.h"
@@ -8,6 +9,7 @@
 #include "headlessdriver.h"
 #include "websession.h"
 #include "workbench.h"
+#include "workbenchruntime.h"
 #include "editorsource.h"
 #include "tools.h"
 void the_tools_wasm_initialise(int);
@@ -24,6 +26,7 @@ static unsigned long workbench_revision;
 static unsigned long workbench_publication;
 static TheWebWorkbenchReasonState workbench_reasons;
 static TheWebWorkbenchReceipts workbench_receipts;
+static char workbench_panel_state[32768];
 
 int main(int argc, char **argv);
 EMSCRIPTEN_KEEPALIVE int the_wasm_has_highlighter(void)
@@ -60,6 +63,17 @@ EMSCRIPTEN_KEEPALIVE int the_wasm_main(void)
 EM_JS(void, browser_send, (const char *text), {
    Module.sendEditorMessage(JSON.parse(UTF8ToString(text)));
 });
+
+static void publish_panel_state(void)
+{
+   char current[32768];
+   size_t length = the_web_format_panel_state(current,sizeof(current));
+   if (length && strcmp(current,workbench_panel_state) != 0)
+   {
+      memcpy(workbench_panel_state,current,length + 1);
+      browser_send(current);
+   }
+}
 
 static void browser_send_workbench_page(const char *text, size_t length,
                                         void *context)
@@ -171,6 +185,7 @@ static void publish(void)
    the_wasm_highlight_prepare();
 #endif
    publish_workbench();
+   publish_panel_state();
    if (the_web_format_snapshot(snapshot, sizeof(snapshot)))
    {
       size_t used = strlen(snapshot);
@@ -209,6 +224,7 @@ static int activate(void)
    workbench_revision = 0;
    workbench_publication = 0;
    memset(&workbench_reasons, 0, sizeof(workbench_reasons));
+   workbench_panel_state[0] = '\0';
    headless_driver_reset();
    return 1;
 }
@@ -226,6 +242,7 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    if (the_wasm_has_interpreter()) browser_send("{\"type\":\"interpreter\",\"available\":true}");
    if (the_web_format_actions(catalog, sizeof(catalog))) browser_send(catalog);
    publish_workbench();
+   publish_panel_state();
    return 1;
 }
 
@@ -237,7 +254,8 @@ static int read_input(TheInputEvent *event)
       const char *field;
       int queued;
       if (the_input_queue_pop(&inputs, event)) {
-         if (event->kind == THE_INPUT_WORKBENCH_INVOKE)
+         if (event->kind == THE_INPUT_WORKBENCH_INVOKE
+         || event->kind == THE_INPUT_WORKBENCH_PANEL)
             the_web_workbench_receipt_dispatched(&workbench_receipts);
          return 1;
       }
@@ -271,7 +289,7 @@ static int read_input(TheInputEvent *event)
             int operands_ok = browser_workbench_string_valid("action",0)
                && browser_workbench_string_valid("argument",1);
             int accepted = request_id_ok ? the_web_workbench_receipt_begin(
-               &workbench_receipts,have_id ? request_id : NULL,
+               &workbench_receipts,have_id ? request_id : NULL,"invoke",
                have_action ? action : NULL,
                generation > 0 ? (unsigned long)generation : 0,operand) : -1;
             if (accepted == 1) {
@@ -295,6 +313,95 @@ static int read_input(TheInputEvent *event)
                   : accepted == -5 ? "Invalid workbench action or argument"
                   : "Invalid workbench request ID");
             free(operand);
+            continue;
+         }
+         if (!strcmp(operation,"log.list")) {
+            char model[THE_WORKBENCH_ID_MAX + 2], generation_text[32], cursor_text[32];
+            uint64_t generation = 0, cursor = 0;
+            int offset = browser_integer("offset",-1), records = browser_integer("records",-1);
+            int bytes = browser_integer("bytes",-1);
+            int valid = browser_workbench_string_valid("model",0)
+               && browser_workbench_string_valid("generation",0)
+               && browser_workbench_string_valid("cursor",0)
+               && browser_string("model",model,sizeof(model))
+               && browser_string("generation",generation_text,sizeof(generation_text))
+               && browser_string("cursor",cursor_text,sizeof(cursor_text))
+               && the_web_parse_u64(generation_text,&generation) && generation
+               && the_web_parse_u64(cursor_text,&cursor)
+               && offset >= 0 && offset <= 262144 && records >= 1 && records <= 8
+               && bytes >= 1 && bytes <= THE_WORKBENCH_LOG_JSON_BYTES_MAX;
+            if (valid) {
+               static char page[THE_WORKBENCH_JSON_MAX + 80];
+               if (the_web_format_log_page(page,sizeof(page),model,generation,cursor,
+                     (size_t)offset,(size_t)records,(size_t)bytes)) {
+                  browser_send(page);
+                  continue;
+               }
+            }
+            {
+               const TheWorkbenchResult *result = valid ? the_workbench_last_result() : NULL;
+               browser_send_workbench_refusal("",
+                  result && result->code && strcmp(result->code,"ok") ? result->code : "invalid-operand",
+                  result && result->code && strcmp(result->code,"ok") ? result->message : "Invalid log page request");
+            }
+            continue;
+         }
+         if (!strcmp(operation,"panel.layout")) {
+            char panel[THE_WORKBENCH_ID_MAX + 2], generation_text[32], placement[32];
+            uint64_t generation = 0;
+            int cols = browser_integer("cols",-1), rows = browser_integer("rows",-1);
+            if (browser_workbench_string_valid("panel",0)
+            && browser_workbench_string_valid("expectGeneration",0)
+            && browser_workbench_string_valid("placement",0)
+            && browser_string("panel",panel,sizeof(panel))
+            && browser_string("expectGeneration",generation_text,sizeof(generation_text))
+            && browser_string("placement",placement,sizeof(placement))
+            && the_web_parse_u64(generation_text,&generation)
+            && cols >= 0 && cols <= 10000 && rows >= 0 && rows <= 10000)
+               the_web_panel_layout(panel,generation,placement,cols,rows);
+            publish_panel_state();
+            continue;
+         }
+         if (!strcmp(operation,"panel.show") || !strcmp(operation,"panel.hide")
+         || !strcmp(operation,"panel.focus") || !strcmp(operation,"panel.return")) {
+            char panel[THE_WORKBENCH_ID_MAX + 2], generation_text[32];
+            uint64_t generation = 0;
+            int have_id = browser_string("requestId",request_id,sizeof(request_id));
+            int have_panel = browser_string("panel",panel,sizeof(panel));
+            int have_generation = browser_string("expectGeneration",generation_text,sizeof(generation_text));
+            int operands_ok = browser_workbench_string_valid("panel",0)
+               && browser_workbench_string_valid("expectGeneration",0)
+               && have_panel && have_generation
+               && the_web_parse_u64(generation_text,&generation)
+               && generation > 0 && generation <= ULONG_MAX;
+            TheWorkbenchPanelOperation panel_operation =
+               !strcmp(operation,"panel.show") ? THE_WORKBENCH_PANEL_SHOW
+             : !strcmp(operation,"panel.hide") ? THE_WORKBENCH_PANEL_HIDE
+             : !strcmp(operation,"panel.focus") ? THE_WORKBENCH_PANEL_FOCUS
+             : THE_WORKBENCH_PANEL_RETURN;
+            int accepted = browser_workbench_string_valid("requestId",0)
+               ? the_web_workbench_receipt_begin(&workbench_receipts,
+                    have_id ? request_id : NULL,operation,
+                    have_panel ? panel : NULL,
+                    operands_ok ? (unsigned long)generation : 0,NULL) : -1;
+            if (accepted == 1) {
+               TheInputEvent next;
+               if (!operands_ok || !the_input_event_from_workbench_panel(panel,
+                     (unsigned long)generation,panel_operation,&next)
+               || !the_input_queue_push(&inputs,next))
+                  the_web_workbench_receipt_refuse(&workbench_receipts,
+                     "invalid-operand",5,"Invalid panel request or input queue full");
+            }
+            if (accepted == 1 || accepted == 0 || accepted == -3)
+               browser_send_workbench_receipt(the_web_workbench_receipt_find(
+                  &workbench_receipts,request_id));
+            else browser_send_workbench_refusal(have_id ? request_id : "",
+               accepted == -4 ? "request-id-conflict" : accepted == -6
+                  ? "receipt-unknown" : accepted == -5
+                  ? "invalid-operand" : "invalid-request-id",
+               accepted == -4 ? "Request ID was already used for another operation"
+                  : accepted == -6 ? "Receipt expired or unknown; reconcile before retrying"
+                  : accepted == -5 ? "Invalid panel ID" : "Invalid workbench request ID");
             continue;
          }
          browser_send_workbench_refusal("","invalid-operand","Invalid workbench operation");
