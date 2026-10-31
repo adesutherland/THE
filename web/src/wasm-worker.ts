@@ -356,10 +356,29 @@ async function importTool(request: Request) {
 }
 async function start() {
   const url = new URL("../wasm/crxthe_wasm.mjs", import.meta.url);
+  const manifestResponse = await fetch(new URL("../manifest.json", import.meta.url), { cache: "no-store" });
+  if (!manifestResponse.ok && manifestResponse.status !== 404)
+    throw Error("Browser editor manifest unavailable");
+  let revision = "";
+  if (manifestResponse.ok) {
+    const source = await manifestResponse.text();
+    // Vite serves index.html for an absent manifest in an unpackaged dev site.
+    if (!/^\s*<(?:!doctype|html)\b/i.test(source)) {
+      const manifest = JSON.parse(source) as { files?: Record<string, { sha256?: string }> };
+      revision = manifest.files?.["wasm/crxthe_wasm.wasm"]?.sha256 ?? "";
+      if (!/^[a-f0-9]{64}$/.test(revision))
+        throw Error("Browser editor module checksum unavailable");
+      url.searchParams.set("v", revision);
+    }
+  }
   const { default: createEditor } = await import(/* @vite-ignore */ url.href);
   editor = (await createEditor({
     noInitialRun: true,
-    locateFile: (name: string) => new URL(name, url).href,
+    locateFile: (name: string) => {
+      const asset = new URL(name, url);
+      if (revision) asset.searchParams.set("v", revision);
+      return asset.href;
+    },
     sendEditorMessage: send,
     nextEditorRequest,
     flushWorkspace,
