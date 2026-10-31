@@ -266,8 +266,16 @@ static void test_active_prefix_overlays_visible_prefix(void)
                                    TEXT_SNAP_BACKWARD));
    logical_cursor_state_focus(&vd_current->logical_cursor, cursor);
 
+   pre_rec_len = 0;
+   expect_int("runtime.prefix.empty.view", llm_runtime_screen_view(0, &view), 1);
+   expect_int("runtime.prefix.empty.number", strcmp((char *)view.lines[1].prefix, "000007"), 0);
+   strcpy((char *)screen[0].sl[1].prefix, "=======");
+   expect_int("runtime.prefix.number.off.view", llm_runtime_screen_view(0, &view), 1);
+   expect_int("runtime.prefix.number.off", strcmp((char *)view.lines[1].prefix, "======="), 0);
+
+   pre_rec_len = 1;
    expect_int("runtime.prefix.view", llm_runtime_screen_view(0, &view), 1);
-   expect_contains("runtime.prefix.visible", view.lines[1].prefix, "d");
+   expect_int("runtime.prefix.visible", strcmp(view.lines[1].prefix, "d"), 0);
 }
 
 static void test_panel_cursor_bounds(void)
