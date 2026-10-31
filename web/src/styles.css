@@ -617,3 +617,22 @@ button { color: inherit; }
 }
 
 @media (prefers-reduced-motion:reduce) { .connection-reconnecting svg { animation:none; } }
+
+.named-file-fields-pane { display:flex; flex-direction:column; }
+.file-field-body { display:flex; flex-direction:column; flex:1; min-width:0; min-height:0; color:#d4d4d4; }
+.file-field-status { flex:none; margin:0; padding:7px 10px; color:#b7c6d5; font-size:11px; }
+.file-field-grid { flex:1; min-width:0; min-height:0; overflow:auto; padding:8px 10px; background:#171b20; font:14px/1.8 ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre; overflow-wrap:normal; }
+.file-field-grid:focus-visible { outline:2px solid #7297bb; outline-offset:-2px; }
+.file-field-row { position:relative; height:1.8em; min-height:1.8em; }
+.file-field-span { position:absolute; top:0; height:1.8em; white-space:pre; overflow:hidden; }
+.file-field-protected { color:#bdc8d3; }
+.file-field-editable input { display:block; box-sizing:border-box; width:100%; min-width:0; height:100%; margin:0; padding:0; border:0; border-bottom:1px solid #7297bb; border-radius:0; background:#26394a; color:#edf5fc; font:inherit; letter-spacing:inherit; }
+.file-field-editable input:focus-visible { outline:2px solid #a9cbe8; outline-offset:-2px; }
+.file-field-editable input:disabled { opacity:.75; }
+.file-field-controls { flex:none; display:flex; flex-wrap:wrap; gap:6px; padding:8px 10px; border-top:1px solid #3e4852; }
+.file-field-controls button { padding:6px 10px; border:1px solid #566373; border-radius:4px; background:#304a62; color:#edf5fc; cursor:pointer; }
+.file-field-controls button:disabled { opacity:.5; cursor:default; }
+@media (max-width:640px) {
+  .file-field-controls button { min-height:40px; }
+  .file-field-grid { font-size:16px; }
+}

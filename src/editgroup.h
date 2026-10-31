@@ -30,6 +30,9 @@ typedef struct {
 typedef struct TheEditGroupPlan TheEditGroupPlan;
 
 short the_edit_group_token(uint64_t document_id, TheDocumentWriteToken *out);
+/* Internal copied-capture seam for final profile publication. This observes
+ * the same epoch but grants no write admission during activation. */
+short the_edit_group_capture_token(uint64_t document_id, TheDocumentWriteToken *out);
 short the_edit_group_prepare(TheDocumentWriteToken expected,
    const TheDocumentLineEdit *edits, size_t count, TheEditGroupPlan **out);
 /* Success consumes the plan. Refusal leaves it abortable and preserves the
@@ -55,6 +58,9 @@ typedef struct {
    void (*destroy)(void *prepared);
    int (*parser_available)(uint64_t document_id);
    const char *(*error)(void);
+   /* Read-only availability: modal, identity and certified record checks remain;
+    * final profile publication may capture while writes are activation-blocked. */
+   short (*capture_available)(uint64_t document_id);
 } TheEditGroupProvider;
 void the_edit_group_provider(const TheEditGroupProvider *provider);
 void the_edit_group_mutation_enter(void);

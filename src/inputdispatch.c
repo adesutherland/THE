@@ -79,3 +79,11 @@ short the_input_dispatch_workbench_form(const TheInputEvent *input)
    the_workbench_forms_modal_lookup(form_modal);
    return the_workbench_form_request(&request);
 }
+
+short the_input_dispatch_workbench_filefields(const TheInputEvent *input)
+{
+   TheWorkbenchFileFieldsRequest request;
+   if(!the_input_event_workbench_filefields(input,&request)) return RC_INVALID_OPERAND;
+   the_editor_filefields_initialize();
+   return the_workbench_filefields_request(&request);
+}

@@ -136,6 +136,9 @@ static void protocol_read(ThePanelState *p)
             llm_session_handle_form_input(rejected);
             continue;
          }
+         if(strlen(command)>=10 && !memcmp(command,"filefield ",10)) {
+            char rejected[]="filefield invalid"; llm_session_handle_form_input(rejected); continue;
+         }
          input[0]=0;
       }
       input[strcspn(input,"\r\n")]=0;
@@ -232,7 +235,11 @@ static void driver_read(ThePanelState *p)
          p->done=p->cancelled=1;
          continue;
       }
-      if (event.kind==THE_INPUT_WORKBENCH_FORM)
+      if(event.kind==THE_INPUT_WORKBENCH_FILEFIELDS)
+      {
+         the_input_dispatch_workbench_filefields(&event);
+      }
+      else if (event.kind==THE_INPUT_WORKBENCH_FORM)
       {
          /* The modal owner still completes queued typed requests. The shared
           * dispatcher observes the_panel_active and records busy-modal without

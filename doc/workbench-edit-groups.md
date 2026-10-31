@@ -2,8 +2,8 @@
 
 Phase 3B provides a core service for replacing existing logical lines as one
 undoable group. It includes native command and macro adapters. Independent
-[forms](workbench-forms.md) still have no editor binding: editable file-field
-projections and their frontend controls remain Phase 3C work.
+[forms](workbench-forms.md) have no editor binding. Qualified staged
+[CTLCHAR file fields](workbench-file-fields.md) use this service for Apply.
 
 ## Commands and write tokens
 

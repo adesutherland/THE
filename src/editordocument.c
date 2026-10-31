@@ -3,6 +3,7 @@
 #include "panelui.h"
 #include "editordocument.h"
 #include "editorgroup.h"
+#include "workbenchfilefields.h"
 
 #include <ctype.h>
 #include <string.h>
@@ -40,6 +41,7 @@ static void initialize(void)
    static const TheWorkbenchDocumentProvider provider={document_info,document_line,document_pending,document_blocked,document_no_pending,document_owns_list};
    the_workbench_document_provider(&provider);
    the_editor_edit_group_initialize();
+   the_editor_filefields_initialize();
 }
 uint64_t the_editor_document_active(void)
 { initialize(); return CURRENT_VIEW ? the_workbench_document_identify(CURRENT_FILE) : 0; }
@@ -68,7 +70,8 @@ int the_editor_document_inspection_command(const char *command)
    if(the_editor_edit_group_command(p)) return 1;
    q=p;
    if(word(&q,"WORKBENCH",9)) {
-      const char *form=q;
+      const char *form=q,*operation=q;
+      if(word(&operation,"PANEL",5) && (word(&operation,"SET",3) || word(&operation,"APPLY",5) || word(&operation,"CANCEL",6) || word(&operation,"RELOAD",6) || word(&operation,"SHOW",4) || word(&operation,"HIDE",4) || word(&operation,"FOCUS",5))) return 1;
       if(word(&q,"FIELD",5) && word(&q,"SET",3)) return 1;
       q=form;
       if(word(&q,"FORM",4) && (word(&q,"SUBMIT",6) || word(&q,"CANCEL",6))) return 1;

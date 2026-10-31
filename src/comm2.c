@@ -37,6 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "workbenchfilefields.h"
 #include "thedriver.h"
 #include "workbench.h"
 #include "utfinput.h"
@@ -1269,6 +1270,7 @@ short Ffile(CHARTYPE *params)
    short rc=RC_OK;
 
    TRACE_FUNCTION( "comm2.c:   Ffile" );
+   if(the_editor_filefields_close(0)) { TRACE_RETURN(); return RC_INVALID_ENVIRON; }
    /*
     * The filename can be quoted; so strip leading and trailing
     * double quotes
@@ -1321,6 +1323,7 @@ short File(CHARTYPE *params)
    short rc=RC_OK;
 
    TRACE_FUNCTION( "comm2.c:   File" );
+   if(the_editor_filefields_close(0)) { TRACE_RETURN(); return RC_INVALID_ENVIRON; }
    post_process_line( CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL, TRUE );
    /*
     * The filename can be quoted; so strip leading and trailing

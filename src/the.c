@@ -41,6 +41,8 @@
 #include "llmsession.h"
 #include "frontendpolicy.h"
 #include "thedriver.h"
+#include "workbench.h"
+#include "workbenchdocument.h"
 #include "utfterm.h"
 #include <time.h>
 #ifdef WIN32
@@ -1847,6 +1849,8 @@ void cleanup(void)
 #endif
 
    the_driver_shutdown(TRUE);
+   the_workbench_reset();
+   the_workbench_document_reset();
 #if !defined(USE_XCURSES) && !defined(USE_WINGUICURSES) && !defined(USE_SDLCURSES)
    if (!CLEARSCREENx
    && been_interactive)

@@ -267,7 +267,8 @@ static int read_input(TheInputEvent *event)
       if (the_input_queue_pop(&inputs, event)) {
          if (event->kind == THE_INPUT_WORKBENCH_INVOKE
          || event->kind == THE_INPUT_WORKBENCH_PANEL
-         || event->kind == THE_INPUT_WORKBENCH_FORM)
+         || event->kind == THE_INPUT_WORKBENCH_FORM
+         || event->kind == THE_INPUT_WORKBENCH_FILEFIELDS)
             the_web_workbench_receipt_dispatched(&workbench_receipts);
          return 1;
       }
@@ -365,6 +366,98 @@ static int read_input(TheInputEvent *event)
             && offset>=0 && limit>=1 && limit<=8 && bytes>=1 && bytes<=8192
             && the_web_format_form_page(page,sizeof(page),form,(size_t)offset,(size_t)limit,(size_t)bytes,0)) browser_send(page);
             else browser_send_workbench_refusal("","invalid-operand","Invalid form page request");
+            continue;
+         }
+         if (!strcmp(operation,"filefield.list")) {
+            char panel[THE_WORKBENCH_ID_MAX+2],generation_text[32],revision_text[32];
+            char page[THE_WORKBENCH_JSON_MAX+80];
+            uint64_t generation=0,revision=0;
+            int offset=browser_integer("offset",-1),limit=browser_integer("records",-1),bytes=browser_integer("bytes",-1);
+            const TheWorkbenchPanel *definition;
+            int valid=browser_workbench_string_valid("panel",0)
+               && browser_workbench_string_valid("expectGeneration",0)
+               && browser_workbench_string_valid("expectRevision",0)
+               && browser_string("panel",panel,sizeof(panel))
+               && browser_string("expectGeneration",generation_text,sizeof(generation_text))
+               && browser_string("expectRevision",revision_text,sizeof(revision_text))
+               && the_web_parse_u64(generation_text,&generation) && generation && generation<=ULONG_MAX
+               && the_web_parse_u64(revision_text,&revision) && revision
+               && offset>=0 && offset<=THE_WORKBENCH_FILEFIELDS_RECORDS_MAX
+               && limit>=1 && limit<=8 && bytes>=1 && bytes<=8192;
+            definition=valid ? the_workbench_panel_find(panel) : NULL;
+            if (valid && definition && definition->generation==generation) {
+               const TheWorkbenchFileFieldsState *state=the_workbench_filefields_state(panel);
+               if (state && state->draft_revision==revision
+               && the_web_format_filefield_page(page,sizeof(page),panel,(size_t)offset,(size_t)limit,(size_t)bytes)) {
+                  browser_send(page); continue;
+               }
+            }
+            {
+               const TheWorkbenchFileFieldsState *state=valid ? the_workbench_filefields_state(panel) : NULL;
+               const TheWorkbenchResult *result=valid && state && state->draft_revision==revision
+                  && definition && definition->generation==generation ? the_workbench_last_result() : NULL;
+               browser_send_workbench_refusal("",!valid ? "invalid-operand"
+                  : !definition || definition->generation!=generation ? "stale-generation"
+                  : !state || state->draft_revision!=revision ? "stale-revision"
+                  : result && result->code ? result->code : "invalid-operand",
+                  result && result->message ? result->message : !valid ? "Invalid file-field page request"
+                  : "File fields changed; reload projection");
+            }
+            continue;
+         }
+         if (!strcmp(operation,"filefield.set") || !strcmp(operation,"filefield.edit")
+         || !strcmp(operation,"filefield.apply")
+         || !strcmp(operation,"filefield.cancel") || !strcmp(operation,"filefield.reload")) {
+            TheWorkbenchFileFieldsRequest request; TheInputEvent event;
+            char generation_text[32],revision_text[32],edit_name[16]; uint64_t generation=0;
+            int valid,accepted,have_id=browser_string("requestId",request_id,sizeof(request_id));
+            memset(&request,0,sizeof(request));
+            request.operation=!strcmp(operation,"filefield.set") ? THE_WORKBENCH_FILEFIELDS_SET
+               : !strcmp(operation,"filefield.edit") ? THE_WORKBENCH_FILEFIELDS_EDIT
+               : !strcmp(operation,"filefield.apply") ? THE_WORKBENCH_FILEFIELDS_APPLY
+               : !strcmp(operation,"filefield.cancel") ? THE_WORKBENCH_FILEFIELDS_CANCEL : THE_WORKBENCH_FILEFIELDS_RELOAD;
+            valid=browser_workbench_string_valid("panel",0)
+               && browser_string("panel",request.panel,sizeof(request.panel))
+               && browser_workbench_string_valid("expectGeneration",0)
+               && browser_string("expectGeneration",generation_text,sizeof(generation_text))
+               && browser_workbench_string_valid("expectRevision",0)
+               && browser_string("expectRevision",revision_text,sizeof(revision_text))
+               && the_web_parse_u64(generation_text,&generation) && generation && generation<=ULONG_MAX
+               && the_web_parse_u64(revision_text,&request.draft_revision) && request.draft_revision;
+            if (valid && request.operation==THE_WORKBENCH_FILEFIELDS_SET)
+               valid=browser_workbench_string_valid("field",0)
+                  && browser_string("field",request.field,sizeof(request.field))
+                  && browser_workbench_string_valid("value",0) && browser_form_value_valid()
+                  && browser_string("value",request.value,sizeof(request.value));
+            if (valid && request.operation==THE_WORKBENCH_FILEFIELDS_EDIT) {
+               int offset=browser_integer("offset",-1),codepoint=browser_integer("codepoint",-1);
+               valid=browser_workbench_string_valid("field",0)
+                  && browser_string("field",request.field,sizeof(request.field))
+                  && browser_workbench_string_valid("edit",0)
+                  && browser_string("edit",edit_name,sizeof(edit_name))
+                  && offset>=0 && offset<=THE_WORKBENCH_FIELD_VALUE_MAX;
+               request.edit=!valid ? 0 : !strcmp(edit_name,"insert") ? THE_WORKBENCH_FORM_INSERT
+                  : !strcmp(edit_name,"backspace") ? THE_WORKBENCH_FORM_BACKSPACE
+                  : !strcmp(edit_name,"delete") ? THE_WORKBENCH_FORM_DELETE
+                  : !strcmp(edit_name,"clear") ? THE_WORKBENCH_FORM_CLEAR : 0;
+               valid=valid && request.edit && (request.edit!=THE_WORKBENCH_FORM_INSERT
+                  || codepoint>=0 && codepoint<=0x10ffff
+                     && !(codepoint>=0xd800 && codepoint<=0xdfff));
+               request.cell=-1; request.utf16_offset=(size_t)offset;
+               request.codepoint=codepoint<0 ? 0u : (uint32_t)codepoint;
+            }
+            request.panel_generation=(unsigned long)generation;
+            request.length=strlen(request.value);
+            accepted=have_id && browser_workbench_string_valid("requestId",0)
+               ? valid ? the_web_workbench_filefield_begin(&workbench_receipts,request_id,&request,&event) : -5 : -1;
+            if (accepted==1 && !the_input_queue_push(&inputs,event))
+               the_web_workbench_receipt_refuse(&workbench_receipts,"invalid-operand",5,"File-field input queue full");
+            if (accepted==1 || accepted==0 || accepted==-3)
+               browser_send_workbench_receipt(the_web_workbench_receipt_find(&workbench_receipts,request_id));
+            else browser_send_workbench_refusal(have_id ? request_id : "",
+               accepted==-4 ? "request-id-conflict" : accepted==-6 ? "receipt-unknown"
+                  : accepted==-5 ? "invalid-operand" : "invalid-request-id",
+               "Invalid or conflicting file-field request");
             continue;
          }
          if (!strcmp(operation,"form.set") || !strcmp(operation,"form.submit") || !strcmp(operation,"form.cancel")) {

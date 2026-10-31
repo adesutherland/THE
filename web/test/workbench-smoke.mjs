@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { extname, join, resolve } from "node:path";
 import WebSocket, { WebSocketServer } from "ws";
 import "./form-coordinator-smoke.mjs";
+import "./file-field-coordinator-smoke.mjs";
 
 const chromium = process.env.CHROMIUM_BIN;
 if (!chromium) throw new Error("CHROMIUM_BIN is required");
@@ -25,6 +26,14 @@ const fixtureLogExtras = new Map();
 let holdDocumentPage = false;
 const heldDocumentPages = [];
 const fixtureForms = new Map();
+let fixtureFileFields = null;
+function publishFileFieldState() {
+  fixturePanelState = { ...fixturePanelState, stateRevision: String(BigInt(fixturePanelState.stateRevision) + 1n),
+    panels: fixturePanelState.panels.map((panel) => panel.kind === "file-fields" ? { ...panel,
+      draftRevision: fixtureFileFields.draftRevision, writeRevision: fixtureFileFields.writeRevision,
+      projectionDirty: fixtureFileFields.dirty, projectionActive: fixtureFileFields.active } : panel) };
+  client?.send(JSON.stringify(fixturePanelState));
+}
 function publishFormState() {
   fixturePanelState = { ...fixturePanelState, stateRevision: String(Number(fixturePanelState.stateRevision) + 1),
     panels: fixturePanelState.panels.map((panel) => {
@@ -198,6 +207,35 @@ ws.on("connection", (connection) => {
       } };
       if (holdDocumentPage) heldDocumentPages.push(page);
       else connection.send(JSON.stringify(page));
+    } else if (message.type === "workbench" && message.operation === "filefield.list") {
+      const panel = fixturePanelState.panels.find((panel) => panel.id === message.panel);
+      const state = fixtureFileFields;
+      connection.send(JSON.stringify({ type: "workbench", operation: "filefield", data: {
+        schemaVersion: 1, section: "file-fields", panel: panel.id, panelGeneration: panel.generation,
+        documentId: panel.documentId, writeRevision: state.writeRevision, draftRevision: state.draftRevision,
+        dirty: state.dirty, active: state.active, total: state.rows.length, offset: message.offset,
+        nextOffset: message.offset + 8 < state.rows.length ? message.offset + 8 : null,
+        records: state.rows.slice(message.offset, message.offset + 8),
+      } }));
+    } else if (message.type === "workbench" && ["filefield.set", "filefield.apply", "filefield.cancel", "filefield.reload"].includes(message.operation)) {
+      connection.send(JSON.stringify({ type: "workbench", operation: "result", requestId: message.requestId, state: "queued", code: "queued" }));
+      setTimeout(() => {
+        const state = fixtureFileFields, panel = fixturePanelState.panels.find((panel) => panel.id === message.panel);
+        const field = state.rows.flatMap((row) => row.spans).find((span) => span.id === message.field);
+        const code = message.expectGeneration !== panel.generation ? "stale-generation"
+          : message.expectRevision !== state.draftRevision || message.operation === "filefield.apply" && state.stale ? "stale-revision"
+          : message.operation === "filefield.set" && !field?.editable ? "field-protected" : "ok";
+        if (code === "ok") {
+          if (message.operation === "filefield.set") { field.value = message.value; state.dirty = true; }
+          if (message.operation === "filefield.apply") { state.savedValue = state.rows[0].spans[1].value; state.dirty = false; }
+          if (["filefield.cancel", "filefield.reload"].includes(message.operation)) {
+            state.rows[0].spans[1].value = state.savedValue; state.dirty = false; state.stale = false; state.active = message.operation !== "filefield.cancel";
+          }
+          state.draftRevision = String(BigInt(state.draftRevision) + 1n); publishFileFieldState();
+        }
+        connection.send(JSON.stringify({ type: "workbench", operation: "result", requestId: message.requestId,
+          state: "complete", code, message: code === "ok" ? "" : "buffer changed", draftRevision: state.draftRevision }));
+      }, 25);
     } else if (message.type === "workbench" && message.operation === "form.list") {
       const form = fixtureForms.get(message.form);
       connection.send(JSON.stringify({ type: "workbench", operation: "form", data: {
@@ -1022,9 +1060,61 @@ try {
   await evaluate("document.querySelector('.named-form-toggle[data-panel-id=\"user.options.pane\"]').click()");
   await wait(() => evaluate("document.querySelector('.named-form-field input')?.getAttribute('aria-label')==='Option' && document.querySelector('.named-form-field input').value==='Guest'"), "second independent FORM retains own values");
   assert.deepEqual(await evaluate("({draft:document.querySelector('#the-command').value,dirty:document.querySelector('.status-line').dataset.bufferDirty,zone:document.querySelector('.status-line').dataset.focusZone,line:document.querySelector('.status-line').dataset.focusLine,cell:document.querySelector('.status-line').dataset.focusCell})"), preservedEditor, "DOCUMENT inspection preserves editor text cursor dirty state and command draft");
+  fixtureFileFields = { draftRevision: "9007199254741093", writeRevision: "9007199254741193",
+    dirty: false, active: true, stale: false, savedValue: "Guest", rows: Array.from({ length: 12 }, (_, index) => ({
+      line: index + 1, cells: 180, spans: [
+        { id: "", cell: 0, maxcells: 24, editable: false, value: "Protected <img> label", dirty: false },
+        { id: `s${index + 1}`, cell: 24, maxcells: 40, editable: true, value: index ? `row ${index + 1}` : "Guest", dirty: false },
+        { id: "", cell: 64, maxcells: 116, editable: false, value: " protected tail".padEnd(116), dirty: false },
+      ],
+    })) };
+  fixturePanels = [{ ...logFixturePanels[0], id: "user.filefields", title: "File fields", kind: "file-fields",
+    generation: "9007199254741293", model: "", modelGeneration: "0", documentId: "9007199254741393", visible: false,
+    draftRevision: fixtureFileFields.draftRevision, writeRevision: fixtureFileFields.writeRevision,
+    projectionDirty: false, projectionActive: true }];
+  fixturePanelState = { ...fixturePanelState, revision: 13, stateRevision: "31", panels: fixturePanels.map((panel) => ({ ...panel })),
+    focus: { ...fixturePanelState.focus, serial: "60", restoring: false, panel: "" } };
+  publishWorkbench(13, 0, ""); client.send(JSON.stringify(fixturePanelState));
+  await viewport(1280, 800);
+  await evaluate("document.querySelector('#the-command').focus();document.querySelector('.named-file-fields-toggle').click()");
+  await wait(() => evaluate("document.querySelectorAll('.file-field-row').length===12"), "file-field complete bounded core rows");
+  assert.equal(await evaluate("document.activeElement?.id==='the-command'"), true, "file-field SHOW preserves command focus");
+  assert.equal(await evaluate("!!document.querySelector('.file-field-protected') && !document.querySelector('.file-field-protected input, .file-field-protected img')"), true, "file-field protected spans escape markup and contain no input");
+  await evaluate("document.querySelector('.named-file-fields-toggle').click()");
+  await wait(() => evaluate("document.activeElement?.dataset.fieldId==='s1'"), "file-field FOCUS selects editable span");
+  await evaluate("(() => {const input=document.querySelector('.file-field-editable input');for(const value of ['A','AB','Alice 😀']){input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));}document.querySelector('.file-field-controls button').click();})()");
+  await wait(() => fixtureFileFields.savedValue === "Alice 😀" && !fixtureFileFields.dirty, "file-field serialized coalesced edits precede Apply");
+  await wait(() => evaluate("!document.querySelector('.file-field-editable input').disabled"), "file-field Apply receipt unlocks input");
+  assert(received.filter((message) => message.operation === "filefield.set").every((message) => typeof message.expectRevision === "string" && message.expectGeneration === "9007199254741293"), "file-field exact string tokens survive browser path");
+  const fileSetsBeforeComposition = received.filter((message) => message.operation === "filefield.set").length;
+  await evaluate("(() => {const input=document.querySelector('.file-field-editable input');input.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));input.value='未完';input.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('.file-field-controls button').click();})()");
+  await sleep(50);
+  assert.equal(received.filter((message) => message.operation === "filefield.set").length, fileSetsBeforeComposition, "file-field Apply waits for IME completion");
+  assert.equal(await evaluate("document.querySelector('.file-field-editable input').disabled"), false, "file-field composing input stays enabled through terminal intent");
+  await evaluate("(() => {const input=document.querySelector('.file-field-editable input');input.value='完成 😀';input.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}));})()");
+  await wait(() => fixtureFileFields.savedValue === "完成 😀" && !fixtureFileFields.dirty, "file-field composition drains before Apply");
+  await wait(() => evaluate("!document.querySelector('.file-field-editable input').disabled"), "file-field composition receipt");
+  fixtureFileFields.stale = true;
+  await evaluate("(() => {const input=document.querySelector('.file-field-editable input');input.value='local conflict';input.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('.file-field-controls button').click();})()");
+  await wait(() => evaluate("document.querySelector('.file-field-status')?.textContent.includes('stale-revision')"), "file-field stale Apply shows error");
+  assert.equal(await evaluate("document.querySelector('.file-field-editable input').value"), "local conflict", "file-field stale Apply retains staged draft");
+  assert.equal(fixtureFileFields.savedValue, "完成 😀", "rejected file-field Apply changes no source bytes");
+  await evaluate("document.querySelector('.file-field-controls button:nth-child(4)').click()");
+  await wait(() => evaluate("document.querySelector('.file-field-editable input')?.value==='完成 😀' && !document.querySelector('.file-field-editable input').disabled"), "file-field explicit Reload reconciles stale draft");
+  await evaluate("(() => {const input=document.querySelector('.file-field-editable input');input.value='cancel this';input.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('.file-field-controls button:nth-child(2)').click();})()");
+  await wait(() => evaluate("document.querySelector('.file-field-editable input')?.value==='完成 😀' && document.querySelector('.file-field-editable input').disabled"), "file-field Cancel releases projection and discards staged draft");
+  for (const [width, placement] of [[1280, "right"], [768, "below"], [390, "tab"]]) {
+    await viewport(width, 800);
+    await wait(() => received.some((message) => message.operation === "panel.layout" && message.panel === "user.filefields" && message.placement === placement), `file-field measured ${placement} placement`);
+    assert.equal(await evaluate("(() => {const grid=document.querySelector('.file-field-grid');return grid.scrollWidth>grid.clientWidth && getComputedStyle(grid).whiteSpace==='pre' && document.documentElement.scrollWidth<=innerWidth;})()"), true, "file-field rows remain unwrapped and horizontally scrollable inside viewport");
+  }
+  await evaluate("document.querySelector('.file-field-grid').scrollLeft=150;document.querySelector('.file-field-grid').dispatchEvent(new Event('scroll'));document.querySelector('.file-field-grid').focus()");
+  await key("Escape");
+  await wait(() => evaluate("document.activeElement?.id==='the-command'"), "file-field RETURN restores invoking command");
+  console.log("PASS browser file-field pane: typed bounded rows, protected fixed cells, exact tokens, serialized Apply, IME, Cancel/Reload, stale retention and wide/narrow/phone scrolling");
   fixturePanels = logFixturePanels;
-  fixturePanelState = { ...fixturePanelState, revision: 13, stateRevision: "30", panels: fixturePanels.map((panel) => ({ ...panel })) };
-  publishWorkbench(13, 0, "");
+  fixturePanelState = { ...fixturePanelState, revision: 14, stateRevision: "30", panels: fixturePanels.map((panel) => ({ ...panel })) };
+  publishWorkbench(14, 0, "");
   client.send(JSON.stringify(fixturePanelState));
   await viewport(1280, 800);
   const localCommandDraft = await evaluate("document.querySelector('#the-command').value");

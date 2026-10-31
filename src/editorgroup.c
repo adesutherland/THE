@@ -45,14 +45,19 @@ static const char *error(void) { return problem; }
 static int certified(const void **file,size_t *line,const unsigned char **base,size_t *base_length,
    const unsigned char **pending,size_t *length)
 { return the_workbench_document_record(file,line,base,base_length,pending,length); }
-static short available(uint64_t id)
+static short capture_available(uint64_t id)
 {
    const void *owner; size_t line,base_length,length; const unsigned char *base,*pending;
    if(the_panel_active) return refused("busy-modal",-3);
-   if(the_workbench_activation_active()) return refused("activation-pending",-3);
    if(!the_workbench_document_file(id)) return refused("document-closed",-3);
    if(!certified(&owner,&line,&base,&base_length,&pending,&length)) return refused("record-unavailable",-3);
    problem="ok"; return 0;
+}
+static short available(uint64_t id)
+{
+   if(the_panel_active) return refused("busy-modal",-3);
+   if(the_workbench_activation_active()) return refused("activation-pending",-3);
+   return capture_available(id);
 }
 static void destroy(void *opaque)
 {
@@ -196,7 +201,7 @@ static void finish(void *opaque,int undo,TheEditGroupReceipt *receipt)
 }
 void the_editor_edit_group_initialize(void)
 {
-   static const TheEditGroupProvider p={available,prepare,validate,publish,finish,destroy,parser_available,error};
+   static const TheEditGroupProvider p={available,prepare,validate,publish,finish,destroy,parser_available,error,capture_available};
    the_edit_group_provider(&p);
 }
 short the_editor_edit_group_json(char *out,size_t cap,uint64_t id)

@@ -15,6 +15,7 @@
 #include "workbenchruntime.h"
 #include "workbenchdocument.h"
 #include "workbenchform.h"
+#include "workbenchfilefields.h"
 #include "tools.h"
 #include "gtkinput.h"
 
@@ -40,6 +41,7 @@ typedef struct
    char *text;
    const char *cursor;
    TheWorkbenchFormRequest *form;
+   TheWorkbenchFileFieldsRequest *filefields;
 } GtkInput;
 
 typedef struct
@@ -61,6 +63,14 @@ typedef struct
 typedef struct
 {
    char id[THE_WORKBENCH_ID_MAX + 1];
+   GtkWidget *entry;
+   void *pane;
+   int width;
+} GtkFileField;
+
+typedef struct
+{
+   char id[THE_WORKBENCH_ID_MAX + 1];
    unsigned long generation;
    uint64_t revision, next_cursor;
    GtkWidget *page, *view, *scroller, *status;
@@ -77,6 +87,11 @@ typedef struct
    unsigned long form_generation;
    GtkWidget *form_submit, *form_cancel, *form_return, *form_hide;
    int form_syncing;
+   GPtrArray *filefields;
+   uint64_t filefields_revision, filefields_pending, filefields_receipt;
+   GtkWidget *filefields_reload, *filefields_focus;
+   int filefields_syncing, filefields_rebuild;
+   char filefields_error[96];
 } GtkLogPane;
 
 static struct
@@ -95,6 +110,7 @@ static struct
    unsigned console_version;
    unsigned console_job_id;
    GtkCssProvider *console_css;
+   GtkCssProvider *filefields_css;
    TheDriverAttr console_colours[GTK_CONSOLE_COLOURS];
    int console_colours_valid;
    guint tick, split_layout_idle;
@@ -115,6 +131,8 @@ static struct
    size_t form_count;
    uint64_t form_sequence;
    GtkFormSession *form_pending;
+   uint64_t filefields_sequence, filefields_pending;
+   ThePanelState *filefields_scratch;
 } ui;
 
 static TheDriverOps operations;
@@ -132,6 +150,12 @@ static void sync_form(GtkLogPane *pane, const TheWorkbenchPanel *panel);
 static void create_form(GtkLogPane *pane, const TheWorkbenchPanel *panel, GtkWidget *controls);
 static gboolean form_key(GtkLogPane *pane, GtkWidget *focus, GdkEventKey *key);
 static void focus_form(GtkLogPane *pane);
+static GtkLogPane *find_log(const char *id, unsigned long generation);
+static void filefields_receipt(void);
+static void sync_filefields(GtkLogPane *pane, const TheWorkbenchPanel *panel);
+static GtkLogPane *create_filefields(const TheWorkbenchPanel *panel);
+static gboolean filefields_key(GtkLogPane *pane, GtkWidget *focus, GdkEventKey *key);
+static void focus_filefields(GtkLogPane *pane);
 static void open_native_menu(GtkWidget *focus, GdkEventKey *trigger);
 
 static void redraw(void)
@@ -188,8 +212,27 @@ static int pop_input(TheInputEvent *event)
    if (!input)
       return 0;
    form_receipt();
+   filefields_receipt();
    input = g_queue_peek_head(&ui.inputs);
    if (!input) return 0;
+   if (ui.filefields_pending) return 0;
+   if (input->filefields)
+   {
+      GtkLogPane *pane = find_log(input->filefields->panel, input->filefields->panel_generation);
+      const TheWorkbenchFileFieldsState *state = the_workbench_filefields_state(input->filefields->panel);
+      int recovery = input->filefields->operation == THE_WORKBENCH_FILEFIELDS_RELOAD || input->filefields->operation == THE_WORKBENCH_FILEFIELDS_CANCEL;
+      if (!pane || !state || (!recovery && pane->filefields_revision != state->draft_revision))
+      {
+         if (pane) strcpy(pane->filefields_error, "stale-revision; Reload or Cancel");
+         g_queue_pop_head(&ui.inputs); g_free(input->filefields); g_free(input); return 0;
+      }
+      input->filefields->draft_revision = state->draft_revision;
+      input->filefields->request_id = ++ui.filefields_sequence;
+      if (!the_input_event_from_workbench_filefields(input->filefields, event))
+      { g_queue_pop_head(&ui.inputs); g_free(input->filefields); g_free(input); return 0; }
+      ui.filefields_pending = pane->filefields_pending = input->filefields->request_id;
+      g_queue_pop_head(&ui.inputs); g_free(input->filefields); g_free(input); return 1;
+   }
    if (input->form)
    {
       GtkFormSession *session = form_session(input->form->form);
@@ -391,7 +434,7 @@ static gboolean workbench_key_pressed(GtkWidget *widget, GdkEventKey *key, gpoin
       {
          const TheWorkbenchPanel *kind = the_workbench_panel_find(pane->id);
          if (kind && kind->kind == THE_WORKBENCH_PANEL_FIELDS && key->keyval != GDK_KEY_F10)
-            return form_key(pane, focus, key);
+            return kind->document_id ? filefields_key(pane, focus, key) : form_key(pane, focus, key);
          if (key->keyval == GDK_KEY_Escape) return queue_panel(pane, THE_WORKBENCH_PANEL_RETURN);
          if (key->keyval == GDK_KEY_h || key->keyval == GDK_KEY_H ||
              ((key->state & GDK_CONTROL_MASK) && key->keyval == GDK_KEY_w))
@@ -1255,6 +1298,336 @@ static gboolean form_key(GtkLogPane *pane, GtkWidget *focus, GdkEventKey *key)
    return FALSE; /* GtkEntry owns typing/selection; it never targets the editor. */
 }
 
+static void discard_filefields_inputs(const char *panel)
+{
+   GList *item = ui.inputs.head;
+   while (item)
+   {
+      GList *next = item->next;
+      GtkInput *input = item->data;
+      if (input->filefields && !strcmp(input->filefields->panel, panel))
+      { g_queue_delete_link(&ui.inputs, item); g_free(input->filefields); g_free(input); }
+      item = next;
+   }
+}
+
+static int filefields_inputs_pending(GtkLogPane *pane)
+{
+   GList *item;
+   if (pane->filefields_pending) return 1;
+   for (item = ui.inputs.head; item; item = item->next)
+   {
+      GtkInput *input = item->data;
+      if (input->filefields && !strcmp(input->filefields->panel, pane->id)) return 1;
+   }
+   return 0;
+}
+
+static void filefields_receipt(void)
+{
+   const TheWorkbenchFileFieldsReceipt *receipt = the_workbench_filefields_receipt();
+   GtkLogPane *pane;
+   if (!ui.filefields_pending || !receipt || receipt->request_id != ui.filefields_pending) return;
+   ui.filefields_pending = 0;
+   pane = find_log(receipt->panel, receipt->panel_generation);
+   if (!pane || receipt->serial == pane->filefields_receipt) return;
+   pane->filefields_receipt = receipt->serial; pane->filefields_pending = 0;
+   if (!receipt->rc)
+   {
+      pane->filefields_revision = receipt->draft_revision; pane->filefields_error[0] = 0;
+      if (receipt->operation == THE_WORKBENCH_FILEFIELDS_RELOAD) pane->filefields_rebuild = 1;
+   }
+   else
+   {
+      g_snprintf(pane->filefields_error, sizeof(pane->filefields_error), "%s; Reload or Cancel", receipt->code);
+      discard_filefields_inputs(pane->id);
+   }
+}
+
+static int queue_filefields(GtkLogPane *pane, TheWorkbenchFileFieldsOperation operation, const char *field, const char *value)
+{
+   const TheWorkbenchPanel *panel = the_workbench_panel_find(pane->id);
+   GtkInput *input;
+   size_t length = value ? strlen(value) : 0;
+   if (pane->filefields_syncing || in_macro || the_panel_active || !panel || panel->generation != pane->generation) return 0;
+   if (length > THE_WORKBENCH_FIELD_VALUE_MAX || g_queue_get_length(&ui.inputs) >= GTK_QUEUE_LIMIT)
+   { strcpy(pane->filefields_error, "limit-exceeded"); gtk_widget_error_bell(pane->page); return 0; }
+   input = g_new0(GtkInput, 1); input->filefields = g_new0(TheWorkbenchFileFieldsRequest, 1);
+   input->filefields->operation = operation; input->filefields->panel_generation = pane->generation;
+   strcpy(input->filefields->panel, pane->id);
+   if (field) strcpy(input->filefields->field, field);
+   if (length) memcpy(input->filefields->value, value, length);
+   input->filefields->length = length;
+   g_queue_push_tail(&ui.inputs, input); return 1;
+}
+
+static void filefields_apply_clicked(GtkWidget *widget, gpointer data)
+{ (void)widget; queue_filefields(data, THE_WORKBENCH_FILEFIELDS_APPLY, NULL, NULL); }
+static void filefields_cancel_clicked(GtkWidget *widget, gpointer data)
+{ (void)widget; queue_filefields(data, THE_WORKBENCH_FILEFIELDS_CANCEL, NULL, NULL); }
+static void filefields_reload_clicked(GtkWidget *widget, gpointer data)
+{ (void)widget; queue_filefields(data, THE_WORKBENCH_FILEFIELDS_RELOAD, NULL, NULL); }
+
+static gboolean filefields_focused(GtkWidget *widget, GdkEventFocus *event, gpointer data)
+{
+   GtkLogPane *pane = data;
+   if (event->in) pane->filefields_focus = widget;
+   return FALSE;
+}
+
+/* Native entry edits are staged through the same fixed-cell panel operations
+ * as READ. Only the normalized SET request can change the C-owned draft. */
+static ThePanelState *filefields_scratch(GtkFileField *field, int character)
+{
+   const char *value = gtk_entry_get_text(GTK_ENTRY(field->entry));
+   const char *at = g_utf8_offset_to_pointer(value, CLAMP(character, 0, (int)g_utf8_strlen(value, -1)));
+   ThePanelState *scratch;
+   if (!ui.filefields_scratch) ui.filefields_scratch = g_new0(ThePanelState, 1);
+   scratch = ui.filefields_scratch;
+   scratch->rows = 1; scratch->cols = field->width; scratch->count = 0;
+   scratch->active = -1; scratch->done = scratch->cancelled = 0;
+   if (!panel_ui_add(scratch, 0, 0, field->width, 1, 'F', 1, value, strlen(value), 0)) return NULL;
+   scratch->cursor = textpos_from_byte((const CHARTYPE *)value, strlen(value), (size_t)(at - value)).cell_column;
+   return scratch;
+}
+
+static void filefields_commit_entry(GtkFileField *field, ThePanelState *scratch)
+{
+   GtkLogPane *pane = field->pane;
+   const char *value = scratch->fields[0].text;
+   size_t length = strlen(value);
+   TextPos at = textpos_from_cell((const CHARTYPE *)value, length, scratch->cursor, TEXT_SNAP_BACKWARD);
+   if (!queue_filefields(pane, THE_WORKBENCH_FILEFIELDS_SET, field->id, value)) return;
+   pane->filefields_syncing++;
+   gtk_entry_set_text(GTK_ENTRY(field->entry), value);
+   gtk_editable_set_position(GTK_EDITABLE(field->entry), (int)g_utf8_pointer_to_offset(value, value + at.byte_offset));
+   pane->filefields_syncing--;
+}
+
+static void filefields_insert(GtkEditable *entry, const char *text, int length, int *position, gpointer data)
+{
+   GtkFileField *field = data;
+   GtkLogPane *pane = field->pane;
+   ThePanelState *scratch;
+   const char *cursor, *end;
+   if (pane->filefields_syncing) return;
+   g_signal_stop_emission_by_name(entry, "insert-text");
+   if (length < 0) length = (int)strlen(text);
+   if (!g_utf8_validate(text, length, NULL)) { gtk_widget_error_bell(field->entry); return; }
+   scratch = filefields_scratch(field, *position);
+   if (!scratch) return;
+   for (cursor = text, end = text + length; cursor < end; cursor = g_utf8_next_char(cursor))
+   {
+      TheInputEvent input;
+      gunichar codepoint = g_utf8_get_char(cursor);
+      if (codepoint < 32 || codepoint == 127 || !the_input_event_from_text(codepoint, &input) || !panel_ui_event(scratch, &input))
+      { gtk_widget_error_bell(field->entry); return; }
+   }
+   filefields_commit_entry(field, scratch);
+   *position = gtk_editable_get_position(entry);
+}
+
+static void filefields_delete(GtkEditable *entry, int start, int end, gpointer data)
+{
+   GtkFileField *field = data;
+   GtkLogPane *pane = field->pane;
+   ThePanelState *scratch;
+   TheInputEvent input = the_input_event_none();
+   const char *value, *last;
+   int count;
+   if (pane->filefields_syncing) return;
+   g_signal_stop_emission_by_name(entry, "delete-text");
+   value = gtk_entry_get_text(GTK_ENTRY(entry));
+   if (end < 0) end = (int)g_utf8_strlen(value, -1);
+   scratch = filefields_scratch(field, start);
+   if (!scratch) return;
+   last = g_utf8_offset_to_pointer(value, CLAMP(end, 0, (int)g_utf8_strlen(value, -1)));
+   count = textpos_from_byte((const CHARTYPE *)value, strlen(value), (size_t)(last - value)).cell_column - scratch->cursor;
+   input.kind = THE_INPUT_KEY; input.key_code = THE_KEY_DC;
+   while (count > 0)
+   {
+      TextPos at = textpos_from_cell((const CHARTYPE *)scratch->fields[0].text, strlen(scratch->fields[0].text), scratch->cursor, TEXT_SNAP_BACKWARD);
+      TextPos next = textpos_next_cluster((const CHARTYPE *)scratch->fields[0].text, strlen(scratch->fields[0].text), at);
+      int width = next.cell_column - at.cell_column;
+      if (width <= 0 || !panel_ui_event(scratch, &input)) break;
+      count -= width;
+   }
+   filefields_commit_entry(field, scratch);
+}
+
+static void populate_filefields(GtkLogPane *pane)
+{
+   const TheWorkbenchFileFieldsState *state = the_workbench_filefields_state(pane->id);
+   GList *children = gtk_container_get_children(GTK_CONTAINER(pane->view)), *item;
+   size_t i;
+   int columns = 1;
+   pane->filefields_focus = NULL;
+   for (item = children; item; item = item->next) gtk_widget_destroy(item->data);
+   g_list_free(children); g_ptr_array_set_size(pane->filefields, 0);
+   if (!state) return;
+   for (i = 0; i < state->spans; i++)
+   {
+      const TheWorkbenchFileFieldSpan *span = the_workbench_filefields_span(pane->id, i);
+      GtkWidget *widget;
+      char description[192];
+      if (!span) continue;
+      columns = MAX(columns, span->cell + span->maxcells);
+      if (span->editable)
+      {
+         GtkFileField *field = g_new0(GtkFileField, 1);
+         strcpy(field->id, span->id); field->pane = pane; field->width = span->maxcells;
+         widget = field->entry = gtk_entry_new();
+         gtk_entry_set_has_frame(GTK_ENTRY(widget), FALSE);
+         gtk_entry_set_width_chars(GTK_ENTRY(widget), 1); gtk_entry_set_max_width_chars(GTK_ENTRY(widget), 1);
+         gtk_entry_set_overwrite_mode(GTK_ENTRY(widget), TRUE);
+         gtk_entry_set_text(GTK_ENTRY(widget), span->value);
+         gtk_style_context_add_class(gtk_widget_get_style_context(widget), "the-filefield");
+         g_signal_connect(widget, "insert-text", G_CALLBACK(filefields_insert), field);
+         g_signal_connect(widget, "delete-text", G_CALLBACK(filefields_delete), field);
+         g_signal_connect(widget, "focus-in-event", G_CALLBACK(filefields_focused), pane);
+         g_signal_connect(widget, "button-press-event", G_CALLBACK(log_button_pressed), pane);
+         g_ptr_array_add(pane->filefields, field);
+      }
+      else
+      {
+         widget = gtk_label_new(span->value); gtk_label_set_xalign(GTK_LABEL(widget), 0);
+         gtk_label_set_yalign(GTK_LABEL(widget), 0.5);
+      }
+      gtk_style_context_add_class(gtk_widget_get_style_context(widget), "the-filefield-cell");
+      gtk_style_context_add_provider(gtk_widget_get_style_context(widget), GTK_STYLE_PROVIDER(ui.filefields_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+      g_snprintf(description, sizeof(description), "%s text, line %lu, cell %d, width %d%s", span->editable ? "Editable fixed-cell" : "Protected",
+         (unsigned long)span->line, span->cell + 1, span->maxcells, span->editable ? ". Tab visits fields and buttons; Esc returns, retaining the draft." : "");
+      gtk_widget_set_tooltip_text(widget, description);
+      atk_object_set_name(gtk_widget_get_accessible(widget), description);
+      gtk_widget_set_size_request(widget, MAX(1, span->maxcells * ui.cell_width), ui.cell_height);
+      gtk_fixed_put(GTK_FIXED(pane->view), widget, span->cell * ui.cell_width, ((int)span->line - 1) * ui.cell_height);
+   }
+   gtk_widget_set_size_request(pane->view, columns * ui.cell_width, MAX(1, (int)state->records) * ui.cell_height);
+   gtk_widget_show_all(pane->view);
+}
+
+static GtkLogPane *create_filefields(const TheWorkbenchPanel *panel)
+{
+   GtkLogPane *pane = g_new0(GtkLogPane, 1);
+   GtkWidget *buttons, *controls;
+   const TheWorkbenchFileFieldsState *state = the_workbench_filefields_state(panel->id);
+   strcpy(pane->id, panel->id); pane->generation = panel->generation;
+   pane->filefields_revision = state ? state->draft_revision : 0;
+   pane->filefields = g_ptr_array_new_with_free_func(g_free);
+   if (!ui.filefields_css)
+   {
+      ui.filefields_css = gtk_css_provider_new();
+      {
+         char *family = g_strescape(pango_font_description_get_family(ui.font), NULL);
+         char *css = g_strdup_printf(".the-filefield-cell { font-family: \"%s\"; font-size: %dpt; } entry.the-filefield { padding: 0; border: 0; min-width: 0; min-height: 0; border-radius: 0; }", family, pango_font_description_get_size(ui.font) / PANGO_SCALE);
+         gtk_css_provider_load_from_data(ui.filefields_css, css, -1, NULL); g_free(css); g_free(family);
+      }
+   }
+   pane->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4); gtk_container_set_border_width(GTK_CONTAINER(pane->page), 6);
+   gtk_widget_set_name(pane->page, "the-workbench-pane");
+   controls = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+   gtk_box_pack_start(GTK_BOX(pane->page), controls, FALSE, FALSE, 0);
+   pane->status = gtk_label_new("File fields"); gtk_widget_set_name(pane->status, "the-workbench-status");
+   gtk_label_set_xalign(GTK_LABEL(pane->status), 0); gtk_label_set_line_wrap(GTK_LABEL(pane->status), TRUE);
+   gtk_box_pack_start(GTK_BOX(controls), pane->status, FALSE, FALSE, 0);
+   buttons = gtk_flow_box_new(); gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(buttons), GTK_SELECTION_NONE);
+   gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(buttons), 1); gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(buttons), 5);
+   gtk_flow_box_set_homogeneous(GTK_FLOW_BOX(buttons), FALSE);
+   pane->form_submit = gtk_button_new_with_label("Apply"); pane->form_cancel = gtk_button_new_with_label("Cancel");
+   pane->filefields_reload = gtk_button_new_with_label("Reload"); pane->form_hide = gtk_button_new_with_label("Hide"); pane->form_return = gtk_button_new_with_label("Return");
+   {
+      GtkWidget *controls[] = { pane->form_submit, pane->form_cancel, pane->filefields_reload, pane->form_hide, pane->form_return };
+      GCallback callbacks[] = { G_CALLBACK(filefields_apply_clicked), G_CALLBACK(filefields_cancel_clicked), G_CALLBACK(filefields_reload_clicked), G_CALLBACK(log_hide_clicked), G_CALLBACK(log_return_clicked) };
+      size_t i;
+      for (i = 0; i < 5; i++) { gtk_container_add(GTK_CONTAINER(buttons), controls[i]); g_signal_connect(controls[i], "clicked", callbacks[i], pane); g_signal_connect(controls[i], "focus-in-event", G_CALLBACK(filefields_focused), pane); }
+   }
+   gtk_box_pack_start(GTK_BOX(controls), buttons, FALSE, FALSE, 0);
+   pane->scroller = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(pane->scroller), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   gtk_widget_set_can_focus(pane->scroller, TRUE);
+   gtk_widget_set_tooltip_text(pane->scroller, "Fixed-cell CTLCHAR file fields. Scroll both axes; protected text cannot be edited. Tab visits fields, Apply, Cancel, Reload, Hide, Return and this viewport. Ctrl+Tab visits panes; Esc returns without cancelling. Apply changes the editor buffer; Save remains explicit.");
+   g_signal_connect(pane->scroller, "focus-in-event", G_CALLBACK(filefields_focused), pane);
+   pane->view = gtk_fixed_new(); gtk_container_add(GTK_CONTAINER(pane->scroller), pane->view);
+   gtk_box_pack_start(GTK_BOX(pane->page), pane->scroller, TRUE, TRUE, 0);
+   populate_filefields(pane);
+   gtk_notebook_append_page(GTK_NOTEBOOK(ui.auxiliary), pane->page, gtk_label_new(panel->title));
+   gtk_widget_show_all(pane->page); g_ptr_array_add(ui.logs, pane); return pane;
+}
+
+static void sync_filefields(GtkLogPane *pane, const TheWorkbenchPanel *panel)
+{
+   const TheWorkbenchFileFieldsState *state = the_workbench_filefields_state(panel->id);
+   char status[256];
+   size_t i, j;
+   if (!state) { gtk_label_set_text(GTK_LABEL(pane->status), "File fields unavailable"); return; }
+   if (pane->filefields_rebuild)
+   { pane->filefields_rebuild = 0; populate_filefields(pane); if (!strcmp(ui.focused_log, pane->id)) focus_filefields(pane); }
+   if (!filefields_inputs_pending(pane))
+   {
+      if (state->draft_revision != pane->filefields_revision) strcpy(pane->filefields_error, "stale-revision; Reload or Cancel");
+      pane->filefields_syncing++;
+      for (i = 0; i < pane->filefields->len; i++)
+      {
+         GtkFileField *field = g_ptr_array_index(pane->filefields, i);
+         for (j = 0; j < state->spans; j++)
+         {
+            const TheWorkbenchFileFieldSpan *span = the_workbench_filefields_span(panel->id, j);
+            if (!span || strcmp(span->id, field->id)) continue;
+            if (strcmp(span->value, gtk_entry_get_text(GTK_ENTRY(field->entry))))
+            {
+               int at = gtk_editable_get_position(GTK_EDITABLE(field->entry));
+               gtk_entry_set_text(GTK_ENTRY(field->entry), span->value);
+               gtk_editable_set_position(GTK_EDITABLE(field->entry), MIN(at, (int)g_utf8_strlen(span->value, -1)));
+            }
+            gtk_editable_set_editable(GTK_EDITABLE(field->entry), state->active);
+            break;
+         }
+      }
+      pane->filefields_syncing--;
+   }
+   if (pane->filefields_error[0]) g_snprintf(status, sizeof(status), "File fields | %s", pane->filefields_error);
+   else g_snprintf(status, sizeof(status), "File fields | %s | Tab fields/buttons; Esc Return | Apply changes buffer; Save explicitly",
+      !state->active ? "Cancelled; Reload to edit" : state->dirty ? "Draft" : "Ready");
+   gtk_label_set_text(GTK_LABEL(pane->status), status);
+   gtk_widget_set_sensitive(pane->form_submit, state->active);
+}
+
+static void focus_filefields(GtkLogPane *pane)
+{
+   if (pane->filefields_focus && gtk_widget_is_drawable(pane->filefields_focus) && gtk_widget_is_sensitive(pane->filefields_focus)) gtk_widget_grab_focus(pane->filefields_focus);
+   else if (pane->filefields->len && gtk_widget_is_drawable(pane->scroller)) gtk_widget_grab_focus(((GtkFileField *)g_ptr_array_index(pane->filefields, 0))->entry);
+   else gtk_widget_grab_focus(pane->filefields_reload);
+}
+
+static gboolean filefields_key(GtkLogPane *pane, GtkWidget *focus, GdkEventKey *key)
+{
+   GtkWidget *targets[THE_WORKBENCH_FILEFIELDS_SPANS_MAX + 6];
+   size_t count = 0, i, current = 0;
+   if (key->keyval == GDK_KEY_Escape) return queue_panel(pane, THE_WORKBENCH_PANEL_RETURN);
+   if (key->keyval == GDK_KEY_Tab || key->keyval == GDK_KEY_ISO_Left_Tab)
+   {
+      int reverse = key->keyval == GDK_KEY_ISO_Left_Tab || (key->state & GDK_SHIFT_MASK);
+      if (key->state & GDK_CONTROL_MASK) { cycle_log(pane, reverse); return TRUE; }
+      if (gtk_widget_get_visible(pane->scroller))
+         for (i = 0; i < pane->filefields->len; i++) targets[count++] = ((GtkFileField *)g_ptr_array_index(pane->filefields, i))->entry;
+      if (gtk_widget_get_sensitive(pane->form_submit)) targets[count++] = pane->form_submit;
+      targets[count++] = pane->form_cancel; targets[count++] = pane->filefields_reload;
+      targets[count++] = pane->form_hide; targets[count++] = pane->form_return;
+      if (gtk_widget_get_visible(pane->scroller)) targets[count++] = pane->scroller;
+      for (i = 0; i < count; i++) if (targets[i] == focus) { current = i; break; }
+      gtk_widget_grab_focus(targets[(current + count + (reverse ? -1 : 1)) % count]); return TRUE;
+   }
+   if ((key->state & GDK_CONTROL_MASK) && (key->keyval == GDK_KEY_Return || key->keyval == GDK_KEY_KP_Enter))
+   { queue_filefields(pane, THE_WORKBENCH_FILEFIELDS_APPLY, NULL, NULL); return TRUE; }
+   if (key->keyval == GDK_KEY_Page_Up || key->keyval == GDK_KEY_Page_Down)
+   {
+      GtkAdjustment *adjustment = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(pane->scroller));
+      double at = gtk_adjustment_get_value(adjustment), step = gtk_adjustment_get_page_increment(adjustment);
+      gtk_adjustment_set_value(adjustment, at + (key->keyval == GDK_KEY_Page_Up ? -step : step)); return TRUE;
+   }
+   return FALSE;
+}
+
 static void cancel_log_scroll(GtkLogPane *pane)
 {
    if (pane->scroll_clock && pane->scroll_handler)
@@ -1275,11 +1648,13 @@ static void free_log_pane(gpointer data)
 {
    GtkLogPane *pane = data;
    if (pane->form_fields) g_ptr_array_free(pane->form_fields, TRUE);
+   if (pane->filefields) g_ptr_array_free(pane->filefields, TRUE);
    cancel_log_scroll(pane); g_free(pane);
 }
 
 static GtkLogPane *create_log(const TheWorkbenchPanel *panel)
 {
+   if (panel->kind == THE_WORKBENCH_PANEL_FIELDS && panel->document_id) return create_filefields(panel);
    GtkLogPane *pane = g_new0(GtkLogPane, 1);
    GtkWidget *controls, *hide, *back;
    GtkTextBuffer *buffer;
@@ -1633,6 +2008,7 @@ static void sync_logs(void)
    int visible = 0;
    if (!ui.auxiliary || !ui.logs) return;
    form_receipt();
+   filefields_receipt();
    ui.syncing_logs++;
    for (i = 0; i < ui.logs->len; )
    {
@@ -1658,7 +2034,7 @@ static void sync_logs(void)
          const TheWorkbenchLogInfo *info = the_workbench_log_find(panel->model);
          char status[160];
          visible++;
-         if (panel->kind == THE_WORKBENCH_PANEL_FIELDS) { sync_form(pane, panel); continue; }
+         if (panel->kind == THE_WORKBENCH_PANEL_FIELDS) { if (panel->document_id) sync_filefields(pane, panel); else sync_form(pane, panel); continue; }
          if (panel->kind == THE_WORKBENCH_PANEL_DOCUMENT) { sync_document_text(pane, panel); continue; }
          sync_log_text(pane, panel);
          if (model && model->last_error != THE_WORKBENCH_LOG_OK)
@@ -1683,7 +2059,8 @@ static void sync_logs(void)
          strcpy(ui.focused_log, pane->id); ui.focused_log_generation = pane->generation;
          if (the_tool_console()->focused) the_tool_console_visibility(the_tool_console()->visible, 0);
          gtk_notebook_set_current_page(GTK_NOTEBOOK(ui.auxiliary), gtk_notebook_page_num(GTK_NOTEBOOK(ui.auxiliary), pane->page));
-         if (pane->form_fields)
+         if (pane->filefields) focus_filefields(pane);
+         else if (pane->form_fields)
          {
             const TheWorkbenchPanel *panel = the_workbench_panel_find(pane->id);
             const TheWorkbenchFormState *state = the_workbench_form_state(panel->form);
@@ -1738,7 +2115,7 @@ static void sync_logs(void)
       {
          gtk_widget_set_visible(pane->scroller, fits && allowed);
          if (!fits || !allowed) gtk_label_set_text(GTK_LABEL(pane->status),
-            panel && panel->kind == THE_WORKBENCH_PANEL_DOCUMENT
+            panel && panel->kind == THE_WORKBENCH_PANEL_FIELDS ? "Fields collapsed: insufficient space; Return and recovery controls remain available" : panel && panel->kind == THE_WORKBENCH_PANEL_DOCUMENT
                ? "Document collapsed: insufficient space" : "Log collapsed: insufficient space");
       }
       the_workbench_panel_effective(pane->id, pane->generation, placement,
@@ -2335,9 +2712,12 @@ static void shutdown_driver(int prompt)
       GtkInput *input = g_queue_pop_head(&ui.inputs);
       g_free(input->text);
       g_free(input->form);
+      g_free(input->filefields);
       g_free(input);
    }
    headless_driver_reset();
+   g_clear_object(&ui.filefields_css);
+   g_clear_pointer(&ui.filefields_scratch, g_free);
 }
 
 static const TheDriverModuleLifecycle lifecycle = {

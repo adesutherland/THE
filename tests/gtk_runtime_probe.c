@@ -16,6 +16,9 @@ static unsigned workbench_focus_phase;
 static unsigned log_probe_phase;
 static unsigned document_probe_phase;
 static unsigned form_probe_phase;
+static unsigned filefields_probe_phase;
+static char filefields_probe_path[4096];
+static char *filefields_input_draft;
 static int form_origin_window;
 static LogicalCursor form_origin_cursor;
 static char *form_input_draft;
@@ -1233,6 +1236,127 @@ static void form_step(void)
    }
 }
 
+static void filefields_step(void)
+{
+   const TheWorkbenchPanel *panel = the_workbench_panel_find("gtk.filefields");
+   GtkLogPane *pane = panel ? find_log(panel->id, panel->generation) : NULL;
+   const TheWorkbenchFileFieldsState *state = the_workbench_filefields_state("gtk.filefields");
+   switch (filefields_probe_phase++)
+   {
+      case 0:
+      {
+         GString *fixture = g_string_new("!pName: !uGuest     !p LOCK Ω\n");
+         unsigned i;
+         for (i = 2; i <= 15; i++) g_string_append_printf(fixture, "!pRow %02u !uvalue%02u   !p locked\n", i, i);
+         g_snprintf(filefields_probe_path, sizeof(filefields_probe_path), "%s/filefields.txt", getenv("THE_GTK_PROBE_DIR"));
+         assert(g_file_set_contents(filefields_probe_path, fixture->str, fixture->len, NULL)); g_string_free(fixture, TRUE);
+         open_file(filefields_probe_path); break;
+      }
+      case 1: queue_command("set ctlchar ! escape"); break;
+      case 2: queue_command("set ctlchar p protect white"); break;
+      case 3: queue_command("set ctlchar u noprotect green"); break;
+      case 4: queue_command("set filectlchar on"); break;
+      case 5:
+      {
+         TheWorkbenchPanel value = {0};
+         strcpy(value.id, "gtk.filefields"); strcpy(value.title, "CTLCHAR file fields / Ω");
+         value.kind = THE_WORKBENCH_PANEL_FIELDS; value.document_id = the_editor_document_active();
+         the_editor_filefields_initialize();
+         assert(!the_workbench_begin("gtk.filefields.owner")); assert(!the_workbench_put_panel(&value)); assert(!the_workbench_commit()); sync_logs();
+         panel = the_workbench_panel_find(value.id); pane = find_log(panel->id, panel->generation);
+         filefields_input_draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(ui.input)));
+         gtk_entry_set_text(GTK_ENTRY(ui.input), "FILEFIELDS Program draft"); gtk_widget_grab_focus(ui.input);
+         gtk_editable_select_region(GTK_EDITABLE(ui.input), 12, 4); the_tool_console_visibility(1, 1);
+         assert(queue_panel(pane, THE_WORKBENCH_PANEL_SHOW)); break;
+      }
+      case 6:
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+         resize_window(1366, GTK_ORIENTATION_HORIZONTAL); assert(queue_panel(pane, THE_WORKBENCH_PANEL_FOCUS)); break;
+      case 7:
+      {
+         GtkFileField *field = g_ptr_array_index(pane->filefields, 0);
+         int position = 0;
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == field->entry);
+         assert(state->records == 15 && pane->filefields->len == 15);
+         gtk_editable_insert_text(GTK_EDITABLE(field->entry), "界", -1, &position);
+         gtk_editable_insert_text(GTK_EDITABLE(field->entry), "é", -1, &position);
+         break;
+      }
+      case 8:
+      {
+         const TheWorkbenchFileFieldSpan *span = the_workbench_filefields_span(panel->id, 1);
+         assert(span && span->editable && g_str_has_prefix(span->value, "界ést"));
+         assert(state->dirty && !the_editor_buffer_dirty(CURRENT_FILE));
+         assert(g_str_has_prefix((const char *)CURRENT_FILE->first_line->next->line, "!pName: !uGuest"));
+         screenshot("filefields-right"); press_workbench_key(GDK_KEY_Escape, 0); break;
+      }
+      case 9:
+      {
+         int first, last;
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+         assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "FILEFIELDS Program draft"));
+         assert(gtk_editable_get_selection_bounds(GTK_EDITABLE(ui.input), &first, &last) && first == 4 && last == 12);
+         assert(queue_panel(pane, THE_WORKBENCH_PANEL_FOCUS)); break;
+      }
+      case 10:
+      {
+         GtkFileField *field = g_ptr_array_index(pane->filefields, 0);
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == field->entry);
+         assert(gtk_editable_get_position(GTK_EDITABLE(field->entry)) == 2);
+         g_signal_emit_by_name(pane->form_submit, "clicked"); break;
+      }
+      case 11:
+      {
+         char *saved;
+         unsigned i;
+         assert(!state->dirty && the_editor_buffer_dirty(CURRENT_FILE));
+         assert(g_str_has_prefix((const char *)CURRENT_FILE->first_line->next->line, "!pName: !u界ést"));
+         assert(g_file_get_contents(filefields_probe_path, &saved, NULL, NULL)); assert(g_str_has_prefix(saved, "!pName: !uGuest")); g_free(saved);
+         resize_window(900, GTK_ORIENTATION_VERTICAL);
+         for (i = 0; i < 14; i++) press_workbench_key(GDK_KEY_Tab, 0);
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ((GtkFileField *)g_ptr_array_index(pane->filefields, 14))->entry);
+         await_frame();
+         assert(gtk_adjustment_get_value(gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(pane->scroller))) > 0);
+         screenshot("filefields-below");
+         g_signal_emit_by_name(pane->form_cancel, "clicked"); break;
+      }
+      case 12:
+         assert(!state->active && !state->dirty);
+         g_signal_emit_by_name(pane->filefields_reload, "clicked"); break;
+      case 13:
+      {
+         GtkFileField *field = g_ptr_array_index(pane->filefields, 0);
+         int position = 0;
+         assert(state->active && !pane->filefields_error[0]);
+         the_edit_group_changed();
+         gtk_editable_insert_text(GTK_EDITABLE(field->entry), "Z", -1, &position);
+         g_signal_emit_by_name(pane->form_submit, "clicked"); break;
+      }
+      case 14:
+         assert(strstr(pane->filefields_error, "stale"));
+         assert(g_str_has_prefix(the_workbench_filefields_span(panel->id, 1)->value, "Zést"));
+         g_signal_emit_by_name(pane->filefields_reload, "clicked"); break;
+      case 15:
+         assert(!pane->filefields_error[0] && state->active);
+         queue_command("save"); break;
+      case 16:
+      {
+         char *saved;
+         assert(g_file_get_contents(filefields_probe_path, &saved, NULL, NULL)); assert(g_str_has_prefix(saved, "!pName: !u界ést")); g_free(saved);
+         g_signal_emit_by_name(pane->form_cancel, "clicked"); break;
+      }
+      case 17:
+         assert(!the_workbench_begin("gtk.filefields.owner")); assert(!the_workbench_reset_owner("gtk.filefields.owner")); assert(!the_workbench_commit()); sync_logs();
+         gtk_entry_set_text(GTK_ENTRY(ui.input), filefields_input_draft); g_free(filefields_input_draft); filefields_input_draft = NULL;
+         queue_command("qquit"); break;
+      case 18:
+         assert_source("say 'GTK program ready'\npull name\nsay 'Hello' name\n");
+         puts("GTK_FILEFIELDS_FIXED_CELLS_PROTECTED_APPLY_CANCEL_RELOAD_STALE_RETURN_SCROLL_SAVE_PASS");
+         queue_command("nop"); break;
+      default: assert(0);
+   }
+}
+
 static int probe_read_input(TheInputEvent *event)
 {
    GdkEventKey key;
@@ -1431,6 +1555,7 @@ static int probe_read_input(TheInputEvent *event)
          if (log_probe_phase < 15) { named_log_step(); --phase; break; }
          if (document_probe_phase < 16) { document_step(); --phase; break; }
          if (form_probe_phase < 13) { form_step(); --phase; break; }
+         if (filefields_probe_phase < 19) { filefields_step(); --phase; break; }
          if (workbench_focus_phase == 0)
          {
             assert_program_input_keeps_focus();

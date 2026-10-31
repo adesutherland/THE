@@ -56,17 +56,19 @@ void the_edit_group_info(TheEditGroupInfo *out)
       out->undo_available=!exhausted && latest->after_revision==mutation_epoch;
    }
 }
-short the_edit_group_token(uint64_t id,TheDocumentWriteToken *out)
+static short token(uint64_t id,TheDocumentWriteToken *out,int capture)
 {
-   short rc;
+   short rc; short (*available)(uint64_t)=capture && provider.capture_available ? provider.capture_available : provider.available;
    if(!out || !id) return fail("invalid-operand",5);
    memset(out,0,sizeof(*out));
    if(publishing) return fail("busy-document",-3);
    if(exhausted) return fail("limit-exceeded",94);
-   if(!provider.available) return fail("capability-unavailable",-3);
-   if((rc=provider.available(id))) return provider_fail(&provider,rc);
+   if(!available) return fail("capability-unavailable",-3);
+   if((rc=available(id))) return provider_fail(&provider,rc);
    out->document_id=id; out->write_revision=mutation_epoch; problem="ok"; return 0;
 }
+short the_edit_group_token(uint64_t id,TheDocumentWriteToken *out) { return token(id,out,0); }
+short the_edit_group_capture_token(uint64_t id,TheDocumentWriteToken *out) { return token(id,out,1); }
 static int utf8(const unsigned char *p,size_t length)
 {
    size_t i=0,n,j; unsigned value;

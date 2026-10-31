@@ -28,8 +28,8 @@ snapshots remain deferred; physical frontend qualification is a separate gate.
 The [phase-3A form guide](workbench-forms.md) describes independent staged values
 and submitted results. The [phase-3B edit-group guide](workbench-edit-groups.md)
 describes conditional same-line apply/undo, its separate write token, and the
-native parser pause boundary. Editable file projections remain a separate
-Phase 3C gate; the conservative read epoch is not an apply token.
+native parser pause boundary. The bounded [CTLCHAR file-field projection](workbench-file-fields.md)
+uses that service for Apply; the conservative read epoch is not an apply token.
 
 The implementation's invocation generation guard uses `INVOKE id EXPECT n`;
 macro argument vectors are not implemented in phase 1. Examples and wider object
@@ -473,10 +473,10 @@ The current READ fixed-cell overwrite, Unicode movement, protected boundaries,
 changed-field order and cancellation semantics are reused where applicable.
 Byte spans and logical field cells are distinct; no UTF-16/browser offset may
 become a file byte offset. New persistent projections do not weaken current
-`READ ALL` validation-before-commit. Their proposed edit group must be
-implemented and tested against THE's actual recovery/undo facilities before
-advertising single-step undo. Until that exists, editable projections are
-unavailable; read-only document panes and independent forms can ship first.
+`READ ALL` validation-before-commit. The bounded [CTLCHAR projection](workbench-file-fields.md) applies through
+the separately qualified core edit group and conditional group undo. Save
+remains explicit; general editable document panes and other projection schemas
+remain outside this implementation.
 
 ## Execution and IO routing
 

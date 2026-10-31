@@ -141,7 +141,7 @@ export interface WorkbenchPanelDefinition {
   owner: string;
   title: string;
   generation: string;
-  kind: "log" | "document" | "fields";
+  kind: "log" | "document" | "fields" | "file-fields";
   model: string;
   modelGeneration: string;
   placement: "right" | "below" | "tab";
@@ -167,6 +167,9 @@ export interface WorkbenchPanelDefinition {
   formDirty?: boolean;
   submitted?: boolean;
   fieldCount?: number;
+  writeRevision?: string;
+  projectionDirty?: boolean;
+  projectionActive?: boolean;
 }
 
 export interface WorkbenchPanelState {
@@ -182,7 +185,7 @@ export interface WorkbenchPanelState {
   modelError: string;
   omittedBytes: string;
   omittedRecords: string;
-  kind?: "log" | "document" | "fields";
+  kind?: "log" | "document" | "fields" | "file-fields";
   readonly?: boolean;
   documentId?: string;
   documentRevision?: string;
@@ -196,6 +199,42 @@ export interface WorkbenchPanelState {
   formDirty?: boolean;
   submitted?: boolean;
   fieldCount?: number;
+  writeRevision?: string;
+  projectionDirty?: boolean;
+  projectionActive?: boolean;
+}
+
+// Positions and field boundaries are copied from the C projection. Browser
+// string indexes never serve as document byte or logical-cell offsets.
+export interface WorkbenchFileFieldSpan {
+  id: string;
+  cell: number;
+  maxcells: number;
+  editable: boolean;
+  value: string;
+  dirty: boolean;
+}
+
+export interface WorkbenchFileFieldRow {
+  line: number;
+  cells: number;
+  spans: WorkbenchFileFieldSpan[];
+}
+
+export interface WorkbenchFileFieldPage {
+  schemaVersion: 1;
+  section: "file-fields";
+  panel: string;
+  panelGeneration: string;
+  documentId: string;
+  writeRevision: string;
+  draftRevision: string;
+  dirty: boolean;
+  active: boolean;
+  total: number;
+  offset: number;
+  nextOffset: number | null;
+  records: WorkbenchFileFieldRow[];
 }
 
 export interface WorkbenchFormField {

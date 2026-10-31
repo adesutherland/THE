@@ -4,9 +4,9 @@ Phase 3A adds named forms whose definitions, staged values and submitted results
 are C-owned session state. Forms have no implicit editor-buffer binding.
 Editing, Submit and Cancel do not change file bytes, dirty state or file undo.
 Submit publishes a structured result version; it does not invoke a command,
-macro, program or shell. Editable file-field projections remain unavailable
-until Phase 3C binds them through the separate
-[core edit-group and write-token service](workbench-edit-groups.md).
+macro, program or shell. Staged [CTLCHAR file-field projections](workbench-file-fields.md)
+bind live buffers separately and use the
+[core edit-group and write-token service](workbench-edit-groups.md) for Apply.
 
 ## Define a form
 

@@ -1092,6 +1092,10 @@ if(THE_PYTHON_EXECUTABLE)
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_workbench_document_runtime.py $<TARGET_FILE:the> ${profile_engine})
             set_tests_properties(test_workbench_document_runtime_${profile_engine} PROPERTIES TIMEOUT 90
                 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+            add_test(NAME test_workbench_filefields_runtime_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_workbench_filefields_runtime.py $<TARGET_FILE:the> ${profile_engine})
+            set_tests_properties(test_workbench_filefields_runtime_${profile_engine} PROPERTIES TIMEOUT 90
+                ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
             add_test(NAME test_workbench_form_runtime_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_workbench_form_runtime.py $<TARGET_FILE:the> ${profile_engine})
             set_tests_properties(test_workbench_form_runtime_${profile_engine} PROPERTIES TIMEOUT 90
@@ -1131,6 +1135,11 @@ if(THE_USE_REGINA AND REGINA_LIBRARY AND THE_PYTHON_EXECUTABLE)
             add_test(NAME test_workbench_curses COMMAND ${THE_PYTHON_EXECUTABLE}
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_workbench_curses.py $<TARGET_FILE:the>)
             set_tests_properties(test_workbench_curses PROPERTIES TIMEOUT 120
+                SKIP_RETURN_CODE 77 RESOURCE_LOCK the_pty_editor
+                ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+            add_test(NAME test_workbench_filefields_curses COMMAND ${THE_PYTHON_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_workbench_filefields_curses.py $<TARGET_FILE:the>)
+            set_tests_properties(test_workbench_filefields_curses PROPERTIES TIMEOUT 120
                 SKIP_RETURN_CODE 77 RESOURCE_LOCK the_pty_editor
                 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
         endif()
@@ -1330,8 +1339,11 @@ add_test(NAME test_workbenchdocument COMMAND test_workbenchdocument)
 add_executable(test_workbenchform tests/test_workbenchform.c src/workbenchform.c src/workbenchdocument.c src/workbench.c src/workbenchruntime.c src/workbenchlog.c src/inputevent.c src/textpos.c src/frontendaction.c)
 target_include_directories(test_workbenchform PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
 add_test(NAME test_workbenchform COMMAND test_workbenchform)
-foreach(workbench_test test_workbench test_workbenchdocument test_workbenchform)
-    target_sources(${workbench_test} PRIVATE src/editgroup.c)
+add_executable(test_workbenchfilefields tests/test_workbenchfilefields.c src/workbenchform.c src/workbenchdocument.c src/workbench.c src/workbenchruntime.c src/workbenchlog.c src/inputevent.c src/textpos.c src/frontendaction.c)
+target_include_directories(test_workbenchfilefields PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+add_test(NAME test_workbenchfilefields COMMAND test_workbenchfilefields)
+foreach(workbench_test test_workbench test_workbenchdocument test_workbenchform test_workbenchfilefields)
+    target_sources(${workbench_test} PRIVATE src/editgroup.c src/workbenchfilefields.c)
     target_include_directories(${workbench_test} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     if(USE_UTF8 AND USE_UTF8PROC)
         target_link_libraries(${workbench_test} ${THE_UTF8PROC_TARGET})
@@ -1560,6 +1572,13 @@ if(USE_WEB_DRIVER)
                 COMMAND ${THE_NODE_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/web/test/workbench-smoke.mjs)
             set_tests_properties(test_web_workbench_ui PROPERTIES TIMEOUT 120
+                RESOURCE_LOCK the_web_browser
+                ENVIRONMENT "${THE_CTEST_RUNTIME_ENV};CHROMIUM_BIN=${THE_CHROMIUM_EXECUTABLE};THE_WEB_ASSETS=${THE_WEB_BUILD_DIR}")
+            add_test(NAME test_web_file_fields_ui
+                COMMAND ${THE_NODE_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/web/test/file-field-browser-smoke.mjs
+                    $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR})
+            set_tests_properties(test_web_file_fields_ui PROPERTIES TIMEOUT 120
                 RESOURCE_LOCK the_web_browser
                 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV};CHROMIUM_BIN=${THE_CHROMIUM_EXECUTABLE};THE_WEB_ASSETS=${THE_WEB_BUILD_DIR}")
         endif()

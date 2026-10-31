@@ -605,6 +605,110 @@ static void web_driver_handle_message(struct mg_connection *connection, struct m
          else web_driver_send_workbench_refusal(connection,"","invalid-operand","Invalid form page request");
          mg_free(form);
       }
+      else if (version == 1 && operation && !strcmp(operation,"filefield.list"))
+      {
+         char *panel=mg_json_get_str(json,"$.panel");
+         char *generation_text=mg_json_get_str(json,"$.expectGeneration");
+         char *revision_text=mg_json_get_str(json,"$.expectRevision");
+         uint64_t generation=0,revision=0;
+         long offset=mg_json_get_long(json,"$.offset",-1),limit=mg_json_get_long(json,"$.records",-1);
+         long bytes=mg_json_get_long(json,"$.bytes",-1);
+         char page[THE_WORKBENCH_JSON_MAX+80]; size_t length=0;
+         const TheWorkbenchPanel *definition=panel ? the_workbench_panel_find(panel) : NULL;
+         int valid=web_driver_workbench_string_field(json,"$.panel",0)
+            && web_driver_workbench_string_field(json,"$.expectGeneration",0)
+            && web_driver_workbench_string_field(json,"$.expectRevision",0)
+            && the_web_parse_u64(generation_text,&generation) && generation && generation<=ULONG_MAX
+            && the_web_parse_u64(revision_text,&revision) && revision
+            && offset>=0 && offset<=THE_WORKBENCH_FILEFIELDS_RECORDS_MAX
+            && limit>=1 && limit<=8 && bytes>=1 && bytes<=8192;
+         if (valid && definition && definition->generation==generation)
+         {
+            const TheWorkbenchFileFieldsState *state=the_workbench_filefields_state(panel);
+            if (state && state->draft_revision==revision)
+               length=the_web_format_filefield_page(page,sizeof(page),panel,(size_t)offset,(size_t)limit,(size_t)bytes);
+         }
+         if (length) web_driver_send(connection,page,length);
+         else
+         {
+            const TheWorkbenchFileFieldsState *state=valid ? the_workbench_filefields_state(panel) : NULL;
+            const TheWorkbenchResult *result=valid && state && state->draft_revision==revision
+               && definition && definition->generation==generation ? the_workbench_last_result() : NULL;
+            web_driver_send_workbench_refusal(connection,"",!valid ? "invalid-operand"
+               : !definition || definition->generation!=generation ? "stale-generation"
+               : !state || state->draft_revision!=revision ? "stale-revision"
+               : result && result->code ? result->code : "invalid-operand",
+               result && result->message ? result->message : !valid ? "Invalid file-field page request"
+               : "File fields changed; reload projection");
+         }
+         mg_free(panel);mg_free(generation_text);mg_free(revision_text);
+      }
+      else if (version == 1 && operation && (!strcmp(operation,"filefield.set")
+         || !strcmp(operation,"filefield.edit")
+         || !strcmp(operation,"filefield.apply") || !strcmp(operation,"filefield.cancel")
+         || !strcmp(operation,"filefield.reload")))
+      {
+         TheWorkbenchFileFieldsRequest request; TheInputEvent event;
+         char *request_id=mg_json_get_str(json,"$.requestId"),*panel=mg_json_get_str(json,"$.panel");
+         char *field=mg_json_get_str(json,"$.field"),*value=mg_json_get_str(json,"$.value");
+         char *edit_name=mg_json_get_str(json,"$.edit");
+         char *generation_text=mg_json_get_str(json,"$.expectGeneration");
+         char *revision_text=mg_json_get_str(json,"$.expectRevision");
+         uint64_t generation=0; int accepted,valid;
+         memset(&request,0,sizeof(request));
+         request.operation=!strcmp(operation,"filefield.set") ? THE_WORKBENCH_FILEFIELDS_SET
+            : !strcmp(operation,"filefield.edit") ? THE_WORKBENCH_FILEFIELDS_EDIT
+            : !strcmp(operation,"filefield.apply") ? THE_WORKBENCH_FILEFIELDS_APPLY
+            : !strcmp(operation,"filefield.cancel") ? THE_WORKBENCH_FILEFIELDS_CANCEL : THE_WORKBENCH_FILEFIELDS_RELOAD;
+         valid=web_driver_workbench_string_field(json,"$.panel",0)
+            && web_driver_workbench_string_field(json,"$.expectGeneration",0)
+            && web_driver_workbench_string_field(json,"$.expectRevision",0)
+            && panel && strlen(panel)<=THE_WORKBENCH_ID_MAX
+            && the_web_parse_u64(generation_text,&generation) && generation && generation<=ULONG_MAX
+            && the_web_parse_u64(revision_text,&request.draft_revision) && request.draft_revision;
+         if (valid && request.operation==THE_WORKBENCH_FILEFIELDS_SET)
+            valid=web_driver_workbench_string_field(json,"$.field",0)
+               && web_driver_workbench_string_field(json,"$.value",0)
+               && field && strlen(field)<=THE_WORKBENCH_ID_MAX
+               && value && strlen(value)<=THE_WORKBENCH_FIELD_VALUE_MAX;
+         if (valid && request.operation==THE_WORKBENCH_FILEFIELDS_EDIT)
+         {
+            long offset=mg_json_get_long(json,"$.offset",-1);
+            long codepoint=mg_json_get_long(json,"$.codepoint",-1);
+            valid=web_driver_workbench_string_field(json,"$.field",0)
+               && web_driver_workbench_string_field(json,"$.edit",0)
+               && field && strlen(field)<=THE_WORKBENCH_ID_MAX
+               && edit_name && offset>=0 && offset<=THE_WORKBENCH_FIELD_VALUE_MAX;
+            request.edit=!valid ? 0 : !strcmp(edit_name,"insert") ? THE_WORKBENCH_FORM_INSERT
+               : !strcmp(edit_name,"backspace") ? THE_WORKBENCH_FORM_BACKSPACE
+               : !strcmp(edit_name,"delete") ? THE_WORKBENCH_FORM_DELETE
+               : !strcmp(edit_name,"clear") ? THE_WORKBENCH_FORM_CLEAR : 0;
+            valid=valid && request.edit && (request.edit!=THE_WORKBENCH_FORM_INSERT
+               || codepoint>=0 && codepoint<=0x10ffff
+                  && !(codepoint>=0xd800 && codepoint<=0xdfff));
+            request.cell=-1; request.utf16_offset=(size_t)offset;
+            request.codepoint=codepoint<0 ? 0u : (uint32_t)codepoint;
+         }
+         if (valid)
+         {
+            strcpy(request.panel,panel);request.panel_generation=(unsigned long)generation;
+            if (request.operation==THE_WORKBENCH_FILEFIELDS_SET)
+            { strcpy(request.field,field);strcpy(request.value,value);request.length=strlen(value); }
+            if (request.operation==THE_WORKBENCH_FILEFIELDS_EDIT) strcpy(request.field,field);
+         }
+         accepted=web_driver_workbench_string_field(json,"$.requestId",0)
+            ? valid ? the_web_workbench_filefield_begin(&web_state.workbench_receipts,request_id,&request,&event) : -5 : -1;
+         if (accepted==1 && !the_input_queue_push(&web_state.inputs,event))
+            the_web_workbench_receipt_refuse(&web_state.workbench_receipts,"invalid-operand",5,"File-field input queue full");
+         if (accepted==1 || accepted==0 || accepted==-3)
+            web_driver_send_workbench_receipt(connection,the_web_workbench_receipt_find(&web_state.workbench_receipts,request_id));
+         else web_driver_send_workbench_refusal(connection,request_id,
+            accepted==-4 ? "request-id-conflict" : accepted==-6 ? "receipt-unknown"
+               : accepted==-5 ? "invalid-operand" : "invalid-request-id",
+            "Invalid or conflicting file-field request");
+         mg_free(request_id);mg_free(panel);mg_free(field);mg_free(value);mg_free(edit_name);
+         mg_free(generation_text);mg_free(revision_text);
+      }
       else if (version == 1 && operation && (!strcmp(operation,"form.set")
          || !strcmp(operation,"form.submit") || !strcmp(operation,"form.cancel")))
       {
@@ -965,7 +1069,8 @@ static int web_driver_read_input_event(TheInputEvent *event)
       {
          if (event->kind == THE_INPUT_WORKBENCH_INVOKE
          || event->kind == THE_INPUT_WORKBENCH_PANEL
-         || event->kind == THE_INPUT_WORKBENCH_FORM)
+         || event->kind == THE_INPUT_WORKBENCH_FORM
+         || event->kind == THE_INPUT_WORKBENCH_FILEFIELDS)
             the_web_workbench_receipt_dispatched(&web_state.workbench_receipts);
          return event->kind != THE_INPUT_NONE;
       }

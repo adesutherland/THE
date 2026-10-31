@@ -4,6 +4,7 @@
 #include "inputevent.h"
 #include "workbench.h"
 #include "workbenchform.h"
+#include "workbenchfilefields.h"
 
 #define THE_WEB_WORKBENCH_RECEIPTS 256
 #define THE_WEB_WORKBENCH_REQUEST_ID_MAX 64
@@ -19,8 +20,8 @@ typedef struct
    char operation[24];
    char argument[THE_WORKBENCH_OPERAND_MAX + 1];
    unsigned long generation;
-   uint64_t form_request_id, draft_revision, result_revision;
-   int caret;
+   uint64_t form_request_id, filefield_request_id, draft_revision, result_revision, group;
+   int caret, utf16_caret;
    int has_argument;
    int pending;
 } TheWebWorkbenchReceipt;
@@ -34,6 +35,7 @@ typedef struct
    int pending_index;
    unsigned long dispatch_serial;
    uint64_t form_serial;
+   uint64_t filefield_serial;
 } TheWebWorkbenchReceipts;
 typedef struct
 {
@@ -63,8 +65,12 @@ size_t the_web_format_document_page(char *out, size_t capacity,
                                     size_t records, size_t bytes);
 size_t the_web_format_form_page(char *out,size_t capacity,const char *form,
                                 size_t offset,size_t limit,size_t bytes,int submitted);
+size_t the_web_format_filefield_page(char *out,size_t capacity,const char *panel,
+                                    size_t offset,size_t limit,size_t bytes);
 int the_web_workbench_form_begin(TheWebWorkbenchReceipts *receipts,
    const char *request_id,TheWorkbenchFormRequest *request,TheInputEvent *event);
+int the_web_workbench_filefield_begin(TheWebWorkbenchReceipts *receipts,
+   const char *request_id,TheWorkbenchFileFieldsRequest *request,TheInputEvent *event);
 int the_web_parse_u64(const char *text, uint64_t *value);
 int the_web_panel_layout(const char *id, uint64_t generation,
                          const char *placement, int cols, int rows);

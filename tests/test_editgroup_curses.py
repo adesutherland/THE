@@ -57,6 +57,14 @@ with tempfile.TemporaryDirectory(prefix='THE group PTY ') as temporary:
     def send(value):
         os.write(master, value)
 
+    def saved_bytes():
+        # A poll can land during SAVE's path replacement without indicating
+        # a failed save.
+        try:
+            return sample.read_bytes()
+        except FileNotFoundError:
+            return None
+
     def metadata():
         send(b'query workbench write\r')
         wait(lambda: has('"section":"write"'), 'physical QUERY WRITE response')
@@ -77,7 +85,7 @@ with tempfile.TemporaryDirectory(prefix='THE group PTY ') as temporary:
         applied = metadata()
         assert applied['undoAvailable'] and sample.read_bytes() == b'alpha\nbeta\n', applied
         send(b'\x1bOQ')  # F2 is a direct SAVE binding, still in command origin.
-        wait(lambda: sample.read_bytes() == b'typed\ntail\n', 'bound SAVE persisted complete group')
+        wait(lambda: saved_bytes() == b'typed\ntail\n', 'bound SAVE persisted complete group')
         saved = metadata()
         assert not saved['undoAvailable'] and saved['writeRevision'] != applied['writeRevision'], saved
         send((f'workbench edit undo {applied["group"]} document {applied["documentId"]}'

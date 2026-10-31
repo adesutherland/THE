@@ -261,6 +261,12 @@ static int document_process_key(int key, bool mouse_details_present,int *guarded
             }
             goto refresh_after_input;
          }
+         if (input_event.kind == THE_INPUT_WORKBENCH_FILEFIELDS)
+         {
+            rc=the_input_dispatch_workbench_filefields(&input_event);
+            if(rc!=RC_OK) display_error(0,(CHARTYPE *)the_workbench_last_result()->message,FALSE);
+            goto refresh_after_input;
+         }
          if (input_event.kind == THE_INPUT_WORKBENCH_FORM)
          {
             rc=the_input_dispatch_workbench_form(&input_event);
@@ -294,7 +300,12 @@ static int document_process_key(int key, bool mouse_details_present,int *guarded
          key = normalized_key;
    }
 #if defined(THE_MOUSE_ENABLED)
-   if (!the_editor_document_inspection_key(key)) {
+   if ((key!=THE_KEY_NONE || text_event_len!=0)
+   && !the_editor_document_inspection_key(key)
+#ifdef USE_SDSLH
+   && key!=THE_KEY_PARSE_COMPLETE
+#endif
+   ) {
       the_workbench_document_input_enter(the_editor_document_command_record_key(key)
          || (text_event_len>0 && CURRENT_VIEW->current_window==WINDOW_COMMAND
          && !(INTERFACEx==INTERFACE_CUA && MARK_VIEW==CURRENT_VIEW && MARK_VIEW->mark_type==M_CUA)));
@@ -308,7 +319,12 @@ static int document_process_key(int key, bool mouse_details_present,int *guarded
 #endif
 
 #if !defined(THE_MOUSE_ENABLED)
-   if (!the_editor_document_inspection_key(key)) {
+   if ((key!=THE_KEY_NONE || text_event_len!=0)
+   && !the_editor_document_inspection_key(key)
+#ifdef USE_SDSLH
+   && key!=THE_KEY_PARSE_COMPLETE
+#endif
+   ) {
       the_workbench_document_input_enter(the_editor_document_command_record_key(key)
          || (text_event_len>0 && CURRENT_VIEW->current_window==WINDOW_COMMAND
          && !(INTERFACEx==INTERFACE_CUA && MARK_VIEW==CURRENT_VIEW && MARK_VIEW->mark_type==M_CUA)));

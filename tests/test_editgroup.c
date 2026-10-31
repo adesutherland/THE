@@ -181,7 +181,9 @@ int main(void)
    the_panel_active=(ThePanelState *)(uintptr_t)1;
    check(the_edit_group_token(document_id,&t)==-3 && !strcmp(the_edit_group_error(),"busy-modal"),"modal owner refuses write admission");
    the_panel_active=NULL; activation=1;
-   check(the_edit_group_token(document_id,&t)==-3 && !strcmp(the_edit_group_error(),"activation-pending"),"activation cannot write editor bytes"); activation=0;
+   check(the_edit_group_token(document_id,&t)==-3 && !strcmp(the_edit_group_error(),"activation-pending"),"activation cannot write editor bytes");
+   check(!the_edit_group_capture_token(document_id,&t) && t.document_id==document_id,"final activation may capture the exact epoch without write admission");
+   check(the_edit_group_token(document_id,&t)==-3 && !strcmp(the_edit_group_error(),"activation-pending"),"capture does not grant activation write admission"); activation=0;
    edits[0]=change(1,"PENDING","PENDING"); edits[1]=change(2,"beta","new"); first=records[1];
    check(!the_edit_group_prepare(token(),edits,2,&plan) && !the_edit_group_commit(plan,&receipt)
       && receipt.changed_lines==1 && records[1].line==first.line && records[1].length==5

@@ -41,6 +41,7 @@
 #include "proto.h"
 #include "workbenchdocument.h"
 #include "editgroup.h"
+#include "workbenchfilefields.h"
 #include "thedriver.h"
 
 #include <errno.h>
@@ -1551,6 +1552,7 @@ short free_view_memory(bool free_file_lines,bool display_the_screen)
    short save_gap=0,save_prefix_width=0;
 
    TRACE_FUNCTION("file.c:    free_view_memory");
+   if(free_file_lines && the_editor_filefields_close(0)) { TRACE_RETURN(); return RC_INVALID_ENVIRON; }
    /*
     * Before freeing up anything, determine which scenario is current...
     */

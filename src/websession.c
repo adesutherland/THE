@@ -332,8 +332,10 @@ void the_web_workbench_receipt_dispatched(TheWebWorkbenchReceipts *receipts)
    if (receipts != NULL && receipts->pending_index >= 0)
    {
       const TheWorkbenchFormReceipt *form=the_workbench_form_receipt();
+      const TheWorkbenchFileFieldsReceipt *filefield=the_workbench_filefields_receipt();
       receipts->dispatch_serial = the_workbench_invocation_serial();
       receipts->form_serial = form ? form->serial : 0;
+      receipts->filefield_serial = filefield ? filefield->serial : 0;
    }
 }
 
@@ -343,6 +345,7 @@ const TheWebWorkbenchReceipt *the_web_workbench_receipt_complete(
    TheWebWorkbenchReceipt *entry;
    const TheWorkbenchResult *result;
    const TheWorkbenchFormReceipt *form=NULL;
+   const TheWorkbenchFileFieldsReceipt *filefield=NULL;
    if (receipts == NULL || receipts->pending_index < 0) return NULL;
    entry = &receipts->entries[receipts->pending_index];
    if (entry->form_request_id)
@@ -354,11 +357,22 @@ const TheWebWorkbenchReceipt *the_web_workbench_receipt_complete(
       entry->result_revision=form->result_revision;
       entry->caret=form->caret;
    }
+   else if (entry->filefield_request_id)
+   {
+      filefield=the_workbench_filefields_receipt();
+      if (!filefield || filefield->serial==receipts->filefield_serial
+      || filefield->request_id!=entry->filefield_request_id
+      || strcmp(filefield->panel,entry->action)) return NULL;
+      entry->draft_revision=filefield->draft_revision;
+      entry->group=filefield->group;
+      entry->caret=filefield->caret;
+      entry->utf16_caret=filefield->utf16_caret;
+   }
    else if (the_workbench_invocation_serial() == receipts->dispatch_serial) return NULL;
    result = the_workbench_last_result();
-   snprintf(entry->code, sizeof(entry->code), "%s", form ? form->code : result->code);
+   snprintf(entry->code, sizeof(entry->code), "%s", form ? form->code : filefield ? filefield->code : result->code);
    snprintf(entry->message, sizeof(entry->message), "%s", result->message);
-   entry->rc = form ? form->rc : result->rc;
+   entry->rc = form ? form->rc : filefield ? filefield->rc : result->rc;
    entry->revision = result->revision;
    entry->pending = 0;
    receipts->pending_index = -1;
@@ -481,7 +495,16 @@ size_t the_web_format_panel_state(char *out, size_t capacity)
             panel->document_id,document.revision,document.available ? "true" : "false",document.lines)
          || !web_append_string(out,capacity,&used,document.reason ? document.reason : "unavailable-document")) return 0;
       }
-      if (panel->kind == THE_WORKBENCH_PANEL_FIELDS)
+      if (panel->kind == THE_WORKBENCH_PANEL_FIELDS && panel->document_id)
+      {
+         const TheWorkbenchFileFieldsState *fields=the_workbench_filefields_state(panel->id);
+         if (!web_append(out,capacity,&used,
+            ",\"kind\":\"file-fields\",\"documentId\":\"%" PRIu64 "\",\"writeRevision\":\"%" PRIu64 "\",\"draftRevision\":\"%" PRIu64 "\",\"projectionDirty\":%s,\"projectionActive\":%s,\"fieldCount\":%zu,\"lineCount\":%zu",
+            panel->document_id,fields ? fields->write_revision : 0,fields ? fields->draft_revision : 0,
+            fields && fields->dirty ? "true" : "false",fields && fields->active ? "true" : "false",
+            fields ? fields->spans : 0,fields ? fields->records : 0)) return 0;
+      }
+      else if (panel->kind == THE_WORKBENCH_PANEL_FIELDS)
       {
          const TheWorkbenchFormState *form=the_workbench_form_state(panel->form);
          if (!web_append(out,capacity,&used,",\"kind\":\"fields\",\"form\":")
@@ -546,6 +569,18 @@ size_t the_web_format_form_page(char *out,size_t capacity,const char *form,
    return used;
 }
 
+size_t the_web_format_filefield_page(char *out,size_t capacity,const char *panel,
+                                    size_t offset,size_t limit,size_t bytes)
+{
+   char page[THE_WORKBENCH_JSON_MAX]; size_t used=0,length;
+   if (!out || !panel || the_workbench_filefields_json(page,sizeof(page),panel,offset,limit,bytes)) return 0;
+   length=strlen(page);
+   if (!web_append(out,capacity,&used,"{\"type\":\"workbench\",\"operation\":\"filefield\",\"data\":")
+   || used+length+2>capacity) return 0;
+   memcpy(out+used,page,length); used+=length; out[used++]='}'; out[used]=0;
+   return used;
+}
+
 int the_web_workbench_form_begin(TheWebWorkbenchReceipts *receipts,
    const char *request_id,TheWorkbenchFormRequest *request,TheInputEvent *event)
 {
@@ -569,6 +604,36 @@ int the_web_workbench_form_begin(TheWebWorkbenchReceipts *receipts,
       entry->form_request_id=request->request_id;
       entry->draft_revision=request->draft_revision;
       entry->caret=-1;
+   }
+   return accepted;
+}
+
+int the_web_workbench_filefield_begin(TheWebWorkbenchReceipts *receipts,
+   const char *request_id,TheWorkbenchFileFieldsRequest *request,TheInputEvent *event)
+{
+   char argument[THE_WORKBENCH_OPERAND_MAX+1]; const char *operation,*sequence;
+   int length,accepted;
+   if (!request_id || !request || !event || !(sequence=strrchr(request_id,'.'))
+   || !the_web_parse_u64(sequence+1,&request->request_id) || !request->request_id) return -1;
+   if (!the_input_event_from_workbench_filefields(request,event)) return -5;
+   operation=request->operation==THE_WORKBENCH_FILEFIELDS_SET ? "filefield.set"
+      : request->operation==THE_WORKBENCH_FILEFIELDS_EDIT ? "filefield.edit"
+      : request->operation==THE_WORKBENCH_FILEFIELDS_APPLY ? "filefield.apply"
+      : request->operation==THE_WORKBENCH_FILEFIELDS_RELOAD ? "filefield.reload"
+      : request->operation==THE_WORKBENCH_FILEFIELDS_CANCEL ? "filefield.cancel" : "filefield.return";
+   length=snprintf(argument,sizeof(argument),"%lu:%" PRIu64 ":%zu:%d:%d:%zu:%" PRIu32 ":%s:%s",
+      request->panel_generation,request->draft_revision,request->length,
+      (int)request->edit,request->cell,request->utf16_offset,request->codepoint,request->field,request->value);
+   if (length<0 || (size_t)length>=sizeof(argument)) return -5;
+   accepted=the_web_workbench_receipt_begin(receipts,request_id,operation,request->panel,
+      request->panel_generation,argument);
+   if (accepted==1)
+   {
+      TheWebWorkbenchReceipt *entry=&receipts->entries[receipts->pending_index];
+      entry->filefield_request_id=request->request_id;
+      entry->draft_revision=request->draft_revision;
+      entry->caret=-1;
+      entry->utf16_caret=-1;
    }
    return accepted;
 }
@@ -652,6 +717,14 @@ int the_web_format_workbench_receipt(char *out, size_t capacity,
    {
       length=snprintf(out+used,capacity-used,",\"form\":\"%s\",\"formGeneration\":\"%lu\",\"draftRevision\":\"%" PRIu64 "\",\"resultRevision\":\"%" PRIu64 "\",\"caret\":%d",
          receipt->action,receipt->generation,receipt->draft_revision,receipt->result_revision,receipt->caret);
+      if (length<0 || (size_t)length>=capacity-used) return 0;
+      used+=(size_t)length;
+   }
+   if (receipt->filefield_request_id)
+   {
+      length=snprintf(out+used,capacity-used,
+         ",\"panel\":\"%s\",\"panelGeneration\":\"%lu\",\"draftRevision\":\"%" PRIu64 "\",\"group\":\"%" PRIu64 "\",\"caret\":%d,\"utf16Caret\":%d",
+         receipt->action,receipt->generation,receipt->draft_revision,receipt->group,receipt->caret,receipt->utf16_caret);
       if (length<0 || (size_t)length>=capacity-used) return 0;
       used+=(size_t)length;
    }

@@ -155,8 +155,8 @@ rg '"parser_diagnostics":"first-class-snapshot-array"|"parser_diagnostics":"unav
 rg '"transient_ui":"shared-transientui-protocol-adapter"' "$out" >/dev/null
 rg '"utf":true' "$out" >/dev/null
 rg '"utf_display_mode":"normal"' "$out" >/dev/null
-rg '"inputs":\["look","delta","capabilities","focus","hit","key","text","type","text-utf","insert","insert-utf","command","form","tools","toolwait","debug","transient","quit"\]' "$out" >/dev/null
-rg '"workbench":\{"schemaVersion":1,"actions":true,"menus":true,"logPanels":true,"documentPanels":true,"documentAccess":"readonly","documentInspection":"command","forms":true,"formInput":"typed-hex","formInspection":"command","formValueBytes":1024,"routes":true,"logInspection":"command","invocation":"command"\}' "$out" >/dev/null
+rg '"inputs":\["look","delta","capabilities","focus","hit","key","text","type","text-utf","insert","insert-utf","command","form","filefield","tools","toolwait","debug","transient","quit"\]' "$out" >/dev/null
+rg '"workbench":\{"schemaVersion":1,"actions":true,"menus":true,"logPanels":true,"documentPanels":true,"documentAccess":"readonly","documentInspection":"command","forms":true,"formInput":"typed-hex","formInspection":"command","fileFields":true,"fileFieldInput":"typed-hex","formValueBytes":1024,"routes":true,"logInspection":"command","invocation":"command"\}' "$out" >/dev/null
 rg '"workbench":\{"schemaVersion":1,"revision":[0-9]+,"section":"summary"' "$out" >/dev/null
 rg '"debug_commands":\[[^]]*"utf-display"' "$out" >/dev/null
 rg '"debug":"utf-display","supported":true,"active_mode":"normal"' "$out" >/dev/null

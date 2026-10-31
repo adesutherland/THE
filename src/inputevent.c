@@ -129,6 +129,8 @@ const char *the_input_kind_name(TheInputKind kind)
          return "workbench-panel";
       case THE_INPUT_WORKBENCH_FORM:
          return "workbench-form";
+      case THE_INPUT_WORKBENCH_FILEFIELDS:
+         return "workbench-filefields";
       case THE_INPUT_LOGICAL_HIT:
          return "logical-hit";
       case THE_INPUT_RESIZE:
@@ -494,6 +496,29 @@ int the_input_event_workbench_form(const TheInputEvent *input,TheWorkbenchFormRe
    return out->value[out->length]==0 && !memchr(out->value,0,out->length);
 }
 
+int the_input_event_from_workbench_filefields(const TheWorkbenchFileFieldsRequest *r,TheInputEvent *out)
+{
+   TheWorkbenchFormRequest f;
+   if(!r || r->operation<THE_WORKBENCH_FILEFIELDS_SET || r->operation>THE_WORKBENCH_FILEFIELDS_RETURN) return 0;
+   memset(&f,0,sizeof(f)); f.operation=THE_WORKBENCH_FORM_SET; f.request_id=r->request_id; f.draft_revision=r->draft_revision;
+   f.form_generation=r->panel_generation; f.panel_generation=r->panel_generation;
+   memcpy(f.form,r->panel,sizeof(f.form)); memcpy(f.panel,r->panel,sizeof(f.panel)); memcpy(f.field,r->field,sizeof(f.field));
+   memcpy(f.value,r->value,sizeof(f.value)); f.length=r->length; f.edit=r->edit; f.cell=r->cell; f.codepoint=r->codepoint;
+   if(!the_input_event_from_workbench_form(&f,out)) return 0;
+   if(r->utf16_offset>THE_WORKBENCH_FIELD_VALUE_MAX) return 0;
+   out->kind=THE_INPUT_WORKBENCH_FILEFIELDS; out->rows=(int)r->operation; out->cols=(int)r->utf16_offset; return 1;
+}
+int the_input_event_workbench_filefields(const TheInputEvent *input,TheWorkbenchFileFieldsRequest *out)
+{
+   TheInputEvent copy; TheWorkbenchFormRequest f;
+   if(!input || !out || input->kind!=THE_INPUT_WORKBENCH_FILEFIELDS || input->rows<THE_WORKBENCH_FILEFIELDS_SET || input->rows>THE_WORKBENCH_FILEFIELDS_RETURN) return 0;
+   copy=*input; copy.kind=THE_INPUT_WORKBENCH_FORM;
+   if(!the_input_event_workbench_form(&copy,&f)) return 0;
+   memset(out,0,sizeof(*out)); out->operation=(TheWorkbenchFileFieldsOperation)input->rows; out->request_id=f.request_id; out->draft_revision=f.draft_revision;
+   out->panel_generation=f.panel_generation; strcpy(out->panel,f.panel); strcpy(out->field,f.field); memcpy(out->value,f.value,sizeof(out->value));
+   if(input->cols<0 || input->cols>THE_WORKBENCH_FIELD_VALUE_MAX) return 0;
+   out->utf16_offset=(size_t)input->cols; out->length=f.length; out->edit=f.edit; out->cell=f.cell; out->codepoint=f.codepoint; return 1;
+}
 int the_input_event_from_logical_target(TheInputLogicalTargetKind kind,
                                         LINETYPE line_number, int row,
                                         int cell, int screen, int window_id,

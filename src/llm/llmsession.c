@@ -27,6 +27,7 @@
 #include "workbench.h"
 #include "workbenchdocument.h"
 #include "workbenchform.h"
+#include "workbenchfilefields.h"
 #ifdef USE_UTF8
 # include "utfterm.h"
 #endif
@@ -499,8 +500,8 @@ static void print_capabilities(void)
    print_json_string((const char *)crexx_version);
    fputs(",\"transient_ui\":\"shared-transientui-protocol-adapter\"", stdout);
    fputs(",\"build_test_hooks\":\"external-shell-or-ctest\"", stdout);
-   fputs(",\"workbench\":{\"schemaVersion\":1,\"actions\":true,\"menus\":true,\"logPanels\":true,\"documentPanels\":true,\"documentAccess\":\"readonly\",\"documentInspection\":\"command\",\"forms\":true,\"formInput\":\"typed-hex\",\"formInspection\":\"command\",\"formValueBytes\":1024,\"routes\":true,\"logInspection\":\"command\",\"invocation\":\"command\"}", stdout);
-   fputs(",\"inputs\":[\"look\",\"delta\",\"capabilities\",\"focus\",\"hit\",\"key\",\"text\",\"type\",\"text-utf\",\"insert\",\"insert-utf\",\"command\",\"form\",\"tools\",\"toolwait\",\"debug\",\"transient\",\"quit\"]", stdout);
+   fputs(",\"workbench\":{\"schemaVersion\":1,\"actions\":true,\"menus\":true,\"logPanels\":true,\"documentPanels\":true,\"documentAccess\":\"readonly\",\"documentInspection\":\"command\",\"forms\":true,\"formInput\":\"typed-hex\",\"formInspection\":\"command\",\"fileFields\":true,\"fileFieldInput\":\"typed-hex\",\"formValueBytes\":1024,\"routes\":true,\"logInspection\":\"command\",\"invocation\":\"command\"}", stdout);
+   fputs(",\"inputs\":[\"look\",\"delta\",\"capabilities\",\"focus\",\"hit\",\"key\",\"text\",\"type\",\"text-utf\",\"insert\",\"insert-utf\",\"command\",\"form\",\"filefield\",\"tools\",\"toolwait\",\"debug\",\"transient\",\"quit\"]", stdout);
    fputs(",\"view_modes\":[\"full\",\"filearea\",\"reserved\",\"prefix\",\"focus\"]", stdout);
    fputs(",\"transient_commands\":[\"transient readv [TEXT]\",\"transient dialog [TEXT]\",\"transient popup\",\"transient look\",\"transient key NAME\",\"transient text TEXT\",\"transient hit ROW COL\",\"transient result\",\"transient close\",\"transient cancel\"]", stdout);
    fputs(",\"debug_commands\":[\"describe-focus\",\"describe-row\",\"list-visible-rows\",\"dump-cursor-mapping\",\"dump-driver-ops\",\"explain-last-render\",\"utf-display\"]", stdout);
@@ -1034,9 +1035,41 @@ static void apply_form_protocol(char *args)
    fflush(stdout);
 }
 
+static void apply_filefields_protocol(char *args)
+{
+   static uint64_t next_request;
+   TheWorkbenchFileFieldsRequest request; TheInputEvent event; const TheWorkbenchFileFieldsReceipt *receipt; const TheWorkbenchResult *result;
+   char *tokens[7],*token; size_t count=0,i,length; uint64_t generation; short rc=RC_INVALID_OPERAND; int valid=1;
+   memset(&request,0,sizeof(request)); request.cell=-1;
+   for(token=strtok(args," \t");token && count<7;token=strtok(NULL," \t")) tokens[count++]=token;
+   if(token || count<4) valid=0;
+   if(valid) {
+      request.operation=ascii_equal_ci(tokens[0],"set") ? THE_WORKBENCH_FILEFIELDS_SET : ascii_equal_ci(tokens[0],"apply") ? THE_WORKBENCH_FILEFIELDS_APPLY : ascii_equal_ci(tokens[0],"reload") ? THE_WORKBENCH_FILEFIELDS_RELOAD : ascii_equal_ci(tokens[0],"cancel") ? THE_WORKBENCH_FILEFIELDS_CANCEL : ascii_equal_ci(tokens[0],"return") ? THE_WORKBENCH_FILEFIELDS_RETURN : 0;
+      if(!request.operation || count!=(request.operation==THE_WORKBENCH_FILEFIELDS_SET ? 6u : 4u) || strlen(tokens[1])>THE_WORKBENCH_ID_MAX || !form_u64(tokens[2],&generation) || generation>ULONG_MAX || !form_u64(tokens[3],&request.draft_revision)) valid=0;
+      else {
+         strcpy(request.panel,tokens[1]); request.panel_generation=(unsigned long)generation;
+         if(request.operation==THE_WORKBENCH_FILEFIELDS_SET) {
+            length=!strcmp(tokens[5],"-") ? 0 : strlen(tokens[5]);
+            if(strlen(tokens[4])>THE_WORKBENCH_ID_MAX || length%2 || length>THE_WORKBENCH_FIELD_VALUE_MAX*2) valid=0;
+            else { strcpy(request.field,tokens[4]); request.length=length/2;
+               for(i=0;i<request.length;i++) { int hi=form_hex_digit((unsigned char)tokens[5][i*2]),lo=form_hex_digit((unsigned char)tokens[5][i*2+1]);
+                  if(hi<0 || lo<0 || !(request.value[i]=(char)((hi<<4)|lo))) { valid=0; break; }
+               }
+            }
+         }
+      }
+   }
+   if(valid && next_request!=UINT64_MAX) { request.request_id=++next_request; if(the_input_event_from_workbench_filefields(&request,&event)) rc=the_input_dispatch_workbench_filefields(&event); else valid=0; } else valid=0;
+   if(!valid) the_workbench_result("invalid-operand",RC_INVALID_OPERAND,"Invalid typed file-field input");
+   receipt=valid ? the_workbench_filefields_receipt() : NULL; result=the_workbench_last_result();
+   fputs("{\"type\":\"workbench\",\"operation\":\"filefield-receipt\",\"panel\":",stdout); print_json_string(request.panel);
+   printf(",\"panelGeneration\":\"%lu\",\"requestId\":\"%" PRIu64 "\",\"rc\":%d,\"code\":",request.panel_generation,request.request_id,(int)(valid ? rc : RC_INVALID_OPERAND)); print_json_string(receipt ? receipt->code : result->code);
+   printf(",\"draftRevision\":\"%" PRIu64 "\",\"group\":\"%" PRIu64 "\",\"caret\":%d}\n",receipt ? receipt->draft_revision : 0,receipt ? receipt->group : 0,receipt ? receipt->caret : -1); fflush(stdout);
+}
 int llm_session_handle_form_input(char *line)
 {
    char *command=trim(line);
+   if(command && ascii_starts_ci(command,"filefield ")) { apply_filefields_protocol(command+10); return 1; }
    if (!command || !ascii_starts_ci(command,"form ")) return 0;
    apply_form_protocol(command+5);
    return 1;
@@ -1528,7 +1561,9 @@ int llm_session_run_protocol(void)
    previous_view_valid = 0;
    last_ack_message_serial = last_message_serial;
    reset_transient_session();
-   (void)focus_command("filearea");
+   /* Initial physical focus alignment is not a user navigation admission.
+    * Actual record changes still invalidate through the editor-owner hooks. */
+   (void)focus_command_body("filearea");
    llm_session_refresh();
    while (fgets(line, sizeof(line), stdin) != NULL)
    {
@@ -1536,12 +1571,12 @@ int llm_session_run_protocol(void)
       char *command;
 
       if (!strchr(line,'\n') && strlen(line)==sizeof(line)-1
-      && ascii_starts_ci(trim(line),"form "))
+      && (ascii_starts_ci(trim(line),"form ") || ascii_starts_ci(trim(line),"filefield ")))
       {
          int byte;
          while ((byte=fgetc(stdin))!=EOF && byte!='\n') {}
-         line[0]=0;
-         apply_form_protocol(line);
+         { int fields=ascii_starts_ci(trim(line),"filefield "); line[0]=0;
+           if(fields) apply_filefields_protocol(line); else apply_form_protocol(line); }
          continue;
       }
       line[strcspn(line, "\r\n")] = '\0';

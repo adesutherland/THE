@@ -8,6 +8,7 @@
 #include "query.h"
 #include "editordocument.h"
 #include "workbenchform.h"
+#include "workbenchfilefields.h"
 #include "editorgroup.h"
 
 #include <ctype.h>
@@ -330,6 +331,30 @@ static short form_request_tokens(const Tokens *tokens)
    the_workbench_forms_modal_lookup(form_modal);
    return the_workbench_form_request(&r);
 }
+static short filefields_request_tokens(const Tokens *tokens)
+{
+   const Token *t=tokens->values; size_t n=tokens->count,i=3; TheWorkbenchFileFieldsRequest r; const TheWorkbenchPanel *p; const TheWorkbenchFileFieldsState *s;
+   memset(&r,0,sizeof(r)); r.cell=-1;
+   if(n<3 || t[2].quoted || strlen(t[2].text)>THE_WORKBENCH_ID_MAX) return bad();
+   strcpy(r.panel,t[2].text);
+   r.operation=keyword(t+1,"SET") ? THE_WORKBENCH_FILEFIELDS_SET : keyword(t+1,"APPLY") ? THE_WORKBENCH_FILEFIELDS_APPLY : keyword(t+1,"RELOAD") ? THE_WORKBENCH_FILEFIELDS_RELOAD : THE_WORKBENCH_FILEFIELDS_CANCEL;
+   if(r.operation==THE_WORKBENCH_FILEFIELDS_SET) {
+      if(n<9 || !keyword(t+3,"FIELD") || t[4].quoted || strlen(t[4].text)>THE_WORKBENCH_ID_MAX || !keyword(t+5,"VALUE") || !t[6].quoted) return bad();
+      strcpy(r.field,t[4].text); r.length=strlen(t[6].text); if(r.length>THE_WORKBENCH_FIELD_VALUE_MAX) return the_workbench_result("limit-exceeded",94,"Field byte limit exceeded");
+      memcpy(r.value,t[6].text,r.length+1); i=7;
+   }
+   for(;i<n;i+=2) {
+      if(i+1>=n) return bad();
+      if(keyword(t+i,"EXPECT") && !r.draft_revision) { if(!unsigned64_value(t+i+1,&r.draft_revision) || !r.draft_revision) return bad(); }
+      else if(keyword(t+i,"GENERATION") && !r.panel_generation) { if(!generation_value(t+i+1,&r.panel_generation)) return bad(); }
+      else return bad();
+   }
+   if(!r.draft_revision && r.operation!=THE_WORKBENCH_FILEFIELDS_CANCEL && r.operation!=THE_WORKBENCH_FILEFIELDS_RELOAD) return bad();
+   p=the_workbench_panel_find(r.panel); s=the_workbench_filefields_state(r.panel);
+   if(p && !r.panel_generation) r.panel_generation=p->generation;
+   if(s && !r.draft_revision) r.draft_revision=s->draft_revision;
+   the_editor_filefields_initialize(); return the_workbench_filefields_request(&r);
+}
 static short command_operands(const char *operands)
 {
    Tokens tokens;
@@ -445,7 +470,7 @@ static short command_operands(const char *operands)
    if (keyword(&t[0],"PANEL"))
    {
       TheWorkbenchPanel p; TheWorkbenchPanelOperation op;
-      if(n>=2 && keyword(t+1,"APPLY")) return the_workbench_result("unsupported-feature",-3,"Editable file-field apply requires the core edit-group service");
+      if(n>=2 && (keyword(t+1,"SET") || keyword(t+1,"APPLY") || keyword(t+1,"RELOAD") || keyword(t+1,"CANCEL"))) return filefields_request_tokens(&tokens);
       if (n >= 2 && (op=panel_operation_token(t+1)))
       {
          if (n != 3 || t[2].quoted) return bad();
@@ -458,6 +483,10 @@ static short command_operands(const char *operands)
          if(keyword(t+4,"FIELDS") && n==7 && keyword(t+5,"FORM") && !t[2].quoted && !t[6].quoted
          && strlen(t[2].text)<=THE_WORKBENCH_ID_MAX && strlen(t[6].text)<=THE_WORKBENCH_ID_MAX)
          { p.kind=THE_WORKBENCH_PANEL_FIELDS; strcpy(p.id,t[2].text); strcpy(p.form,t[6].text); return the_workbench_put_panel(&p); }
+         if(keyword(t+4,"FIELDS") && n==11 && !t[2].quoted && strlen(t[2].text)<=THE_WORKBENCH_ID_MAX
+         && keyword(t+5,"BUFFER") && keyword(t+6,"ACTIVE") && keyword(t+7,"MARKUP") && keyword(t+8,"CTLCHAR") && keyword(t+9,"ACCESS") && keyword(t+10,"STAGED"))
+         { p.kind=THE_WORKBENCH_PANEL_FIELDS; strcpy(p.id,t[2].text); p.document_id=the_editor_document_active(); the_editor_filefields_initialize();
+           if(!p.document_id) return the_workbench_result("document-unavailable",-3,"No active document can be bound"); return the_workbench_put_panel(&p); }
          if (!keyword(t+4,"DOCUMENT") || (n>5 && keyword(t+5,"FILE")))
             return the_workbench_result("unsupported-feature",RC_INVALID_ENVIRON,"Only live read-only buffer documents are implemented");
          if (n!=9 || t[2].quoted || strlen(t[2].text)>THE_WORKBENCH_ID_MAX
@@ -513,7 +542,7 @@ short the_workbench_command(const char *operands)
    while (*p && *p != ' ' && *p != '\t' && n < 15) first.text[n++]=*p++;
    while (*p == ' ' || *p == '\t') p++;
    n=0; while (*p && *p != ' ' && *p != '\t' && n < 15) second.text[n++]=*p++;
-   runtime=keyword(&first,"INVOKE") || keyword(&first,"EDIT") || (keyword(&first,"PANEL") && panel_operation_token(&second))
+   runtime=keyword(&first,"INVOKE") || keyword(&first,"EDIT") || (keyword(&first,"PANEL") && (panel_operation_token(&second) || keyword(&second,"SET") || keyword(&second,"APPLY") || keyword(&second,"RELOAD") || keyword(&second,"CANCEL")))
       || (keyword(&first,"FIELD") && keyword(&second,"SET"))
       || (keyword(&first,"FORM") && (keyword(&second,"SUBMIT") || keyword(&second,"CANCEL")));
    rc=command_operands(operands);
@@ -604,6 +633,20 @@ static int query_form(const Tokens *tokens,char *json,size_t capacity)
    return the_workbench_form_json(json,capacity,tokens->values[1].text,offset,limit,bytes,submitted)==RC_OK ? 1 : -1;
 }
 
+static int query_filefields(const Tokens *tokens,char *json,size_t capacity)
+{
+   size_t n,offset=0,limit=8,bytes=8192; uint64_t value; unsigned seen=0,bit;
+   if(tokens->count<2 || tokens->values[1].quoted) return 0;
+   for(n=2;n<tokens->count;n+=2) {
+      if(n+1>=tokens->count || !unsigned64_value(tokens->values+n+1,&value) || value>SIZE_MAX) return 0;
+      if(keyword(tokens->values+n,"OFFSET")) { bit=1; offset=(size_t)value; }
+      else if(keyword(tokens->values+n,"LIMIT")) { bit=2; limit=(size_t)value; }
+      else if(keyword(tokens->values+n,"BYTES")) { bit=4; bytes=(size_t)value; }
+      else return 0;
+      if(seen & bit) return 0; seen|=bit;
+   }
+   return the_workbench_filefields_json(json,capacity,tokens->values[1].text,offset,limit,bytes)==RC_OK ? 1 : -1;
+}
 static unsigned long inspection_refusal_serial;
 unsigned long the_workbench_inspection_refusal_serial(void)
 { return inspection_refusal_serial; }
@@ -635,6 +678,11 @@ short extract_workbench(short number_variables,short itemno,CHARTYPE *itemargs,C
          rc=the_editor_edit_group_json(json,sizeof(json),id);
          if(rc) { the_workbench_result(the_edit_group_error(),rc,"Write token unavailable"); inspection_refusal_serial++; return EXTRACT_ARG_ERROR; }
          goto formatted;
+      }
+      if(!strcmp(section,"FILEFIELDS")) {
+         int admitted=query_filefields(&tokens,json,sizeof(json));
+         if(admitted<0) { inspection_refusal_serial++; return EXTRACT_ARG_ERROR; }
+         if(!admitted) return query_bad(); goto formatted;
       }
       if(!strcmp(section,"FIELDS") || !strcmp(section,"FORM"))
       {

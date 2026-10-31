@@ -9,6 +9,7 @@
 #include "workbenchruntime.h"
 #include "workbenchdocument.h"
 #include "workbenchform.h"
+#include "workbenchfilefields.h"
 
 /* ncurses always provides batched refresh. Some generated configurations
  * leave HAVE_WNOUTREFRESH unset; the legacy wrefresh fallback would then
@@ -1052,6 +1053,12 @@ typedef struct
    int active, cell, top, blocked;
    char error[64];
 } NativeFormView;
+typedef struct
+{
+   uint64_t revision, pending, receipt;
+   int initialized, active, cell, top, left, follow;
+   char error[96];
+} NativeFileFieldsView;
 static uint64_t native_form_request_id;
 static struct
 {
@@ -1068,6 +1075,7 @@ static struct
       size_t anchor_offset;
       NativeDocumentView document;
       NativeFormView form;
+      NativeFileFieldsView filefields;
    } views[THE_WORKBENCH_PANEL_MAX];
    size_t count;
 } log_ui;
@@ -1075,6 +1083,34 @@ static struct
 static int native_log_focused(void) { return log_ui.focused; }
 static int native_text_panel(const TheWorkbenchPanel *panel)
 { return panel->kind == THE_WORKBENCH_PANEL_LOG || panel->kind == THE_WORKBENCH_PANEL_DOCUMENT || panel->kind == THE_WORKBENCH_PANEL_FIELDS; }
+
+static void native_filefields_sync(const TheWorkbenchPanel *panel, NativeFileFieldsView *view)
+{
+   const TheWorkbenchFileFieldsState *state = the_workbench_filefields_state(panel->id);
+   const TheWorkbenchFileFieldsReceipt *receipt = the_workbench_filefields_receipt();
+   if (!state) { strcpy(view->error, "File fields unavailable"); return; }
+   if (!view->initialized)
+   {
+      view->initialized = view->follow = 1; view->revision = state->draft_revision;
+      while (view->active < (int)state->spans && !the_workbench_filefields_span(panel->id, view->active)->editable) view->active++;
+   }
+   if (view->pending && receipt && receipt->request_id == view->pending && receipt->serial != view->receipt && !strcmp(receipt->panel, panel->id))
+   {
+      view->receipt = receipt->serial; view->pending = 0;
+      if (!receipt->rc)
+      {
+         view->revision = receipt->draft_revision; view->error[0] = 0;
+         if (receipt->caret >= 0) { view->cell = receipt->caret; view->follow = 1; }
+         if (receipt->operation == THE_WORKBENCH_FILEFIELDS_RELOAD)
+         { view->active = 0; view->cell = view->top = view->left = 0; view->follow = 1;
+           while (view->active < (int)state->spans && !the_workbench_filefields_span(panel->id, view->active)->editable) view->active++; }
+      }
+      else snprintf(view->error, sizeof(view->error), "%s; Reload or Cancel", receipt->code);
+   }
+   if (!view->pending && state->draft_revision != view->revision)
+      strcpy(view->error, "stale-revision; Reload or Cancel");
+   if (view->active > (int)state->spans + 4) view->active = (int)state->spans;
+}
 
 static const TheWorkbenchField *native_form_field(const char *form, size_t index)
 {
@@ -1196,7 +1232,10 @@ static void native_logs_sync(void)
          log_ui.focused = 1; workbench_control = THE_WORKBENCH_EDITOR;
          if (panel->kind == THE_WORKBENCH_PANEL_FIELDS)
             for (i = 0; i < log_ui.count; i++) if (!strcmp(log_ui.views[i].id, panel->id))
-               native_form_sync(panel, &log_ui.views[i].form, 1);
+            {
+               if (panel->document_id) native_filefields_sync(panel, &log_ui.views[i].filefields);
+               else native_form_sync(panel, &log_ui.views[i].form, 1);
+            }
          if (the_tool_console()->focused)
             the_tool_console_visibility(the_tool_console()->visible, 0);
       }
@@ -1712,6 +1751,146 @@ static int native_form_event(const TheWorkbenchPanel *panel, NativeFormView *vie
    return 1;
 }
 
+static int native_filefields_event(const TheWorkbenchPanel *panel, NativeFileFieldsView *view,
+   TheWorkbenchFileFieldsOperation operation, TheWorkbenchFormEdit edit, uint32_t codepoint, TheInputEvent *event)
+{
+   TheWorkbenchFileFieldsRequest request = {0};
+   const TheWorkbenchFileFieldsState *state;
+   const TheWorkbenchFileFieldSpan *span;
+   native_filefields_sync(panel, view);
+   state = the_workbench_filefields_state(panel->id);
+   if (!state || view->pending) return 0;
+   if (operation != THE_WORKBENCH_FILEFIELDS_RELOAD && operation != THE_WORKBENCH_FILEFIELDS_CANCEL && state->draft_revision != view->revision) return 0;
+   request.operation = operation; request.edit = edit; request.cell = view->cell; request.codepoint = codepoint;
+   request.request_id = ++native_form_request_id; request.panel_generation = panel->generation;
+   request.draft_revision = state->draft_revision; strcpy(request.panel, panel->id);
+   if (operation == THE_WORKBENCH_FILEFIELDS_EDIT)
+   {
+      span = the_workbench_filefields_span(panel->id, view->active);
+      if (!span || !span->editable) return 0;
+      strcpy(request.field, span->id);
+   }
+   if (!the_input_event_from_workbench_filefields(&request, event)) return 0;
+   view->pending = request.request_id;
+   return 1;
+}
+
+static const char *native_filefields_controls[] = { "Apply", "Cancel", "Reload", "Hide", "Return" };
+static const int native_filefields_control_cells[] = { 0, 6, 13, 20, 25 };
+
+static void native_filefields_draw(const TheWorkbenchPanel *panel)
+{
+   int index = native_log_view(panel), rows = max(1, console_rows - 3), i, cursor_row = 1, cursor_col = 1;
+   const TheWorkbenchFileFieldsState *state = the_workbench_filefields_state(panel->id);
+   const TheWorkbenchFileFieldSpan *active;
+   NativeFileFieldsView *view;
+   char heading[THE_WORKBENCH_LABEL_MAX + 40], status[192];
+   if (index < 0) return;
+   view = &log_ui.views[index].filefields; native_filefields_sync(panel, view);
+   wattrset(console_window, console_theme_attr(log_ui.focused ? ATTR_CONSOLESELECTED : ATTR_CONSOLEHEADER, 0));
+   snprintf(heading, sizeof(heading), " File fields: %s", panel->title);
+   console_write_text(0, 0, heading, strlen(heading), console_cols - 1);
+   for (i = 0; i < 5; i++)
+   {
+      wattrset(console_window, console_theme_attr(state && view->active == (int)state->spans + i ? ATTR_CONSOLESELECTED : ATTR_CONSOLECONTROL, 0));
+      console_write_text(1, native_filefields_control_cells[i], native_filefields_controls[i], strlen(native_filefields_controls[i]), console_cols - native_filefields_control_cells[i] - 1);
+   }
+   active = state && view->active < (int)state->spans ? the_workbench_filefields_span(panel->id, view->active) : NULL;
+   if (active && view->follow)
+   {
+      int caret = active->cell + min(view->cell, max(0, active->maxcells - 1));
+      if ((int)active->line - 1 < view->top) view->top = (int)active->line - 1;
+      if ((int)active->line - 1 >= view->top + rows) view->top = (int)active->line - rows;
+      if (caret < view->left) view->left = caret;
+      if (caret >= view->left + console_cols - 2) view->left = caret - console_cols + 3;
+   }
+   view->follow = 0;
+   if (state && native_log_placement(panel) != THE_WORKBENCH_PLACE_NONE)
+      for (i = 0; i < (int)state->spans; i++)
+      {
+         const TheWorkbenchFileFieldSpan *span = the_workbench_filefields_span(panel->id, i);
+         int row, first, width, column;
+         TextCellSlice slice;
+         if (!span) continue;
+         row = (int)span->line - 1 - view->top + 2;
+         if (row < 2 || row >= console_rows - 1) continue;
+         first = max(0, view->left - span->cell); column = max(1, span->cell - view->left + 1);
+         width = min(span->maxcells - first, console_cols - column - 1);
+         if (width <= 0) continue;
+         wattrset(console_window, console_theme_attr(span->editable ? ATTR_CONSOLEINPUT : ATTR_CONSOLEBODY, 0));
+         mvwhline(console_window, row, column, ' ', width);
+         slice = textpos_slice_cells((const CHARTYPE *)span->value, strlen(span->value), first, width);
+         /* Preserve whole clusters when the left viewport crosses a wide glyph. */
+         column += max(0, slice.start.cell_column - first);
+         console_write_text(row, column, span->value + slice.start.byte_offset, slice.end.byte_offset - slice.start.byte_offset, console_cols - column - 1);
+      }
+   if (state && view->active >= (int)state->spans) cursor_col = native_filefields_control_cells[view->active - (int)state->spans];
+   else if (active)
+   {
+      cursor_row = (int)active->line - 1 - view->top + 2;
+      cursor_col = active->cell + min(view->cell, max(0, active->maxcells - 1)) - view->left + 1;
+      if (cursor_row < 2 || cursor_row >= console_rows - 1 || cursor_col < 1 || cursor_col >= console_cols - 1) { cursor_row = 0; cursor_col = 1; }
+   }
+   wattrset(console_window, console_theme_attr(ATTR_CONSOLESTATUS, 0));
+   if (view->error[0]) snprintf(status, sizeof(status), " %s", view->error);
+   else if (native_log_placement(panel) == THE_WORKBENCH_PLACE_NONE) snprintf(status, sizeof(status), " Collapsed; Tab controls; Esc Return");
+   else snprintf(status, sizeof(status), " %s | Tab fields/buttons F12 panes Esc Return | PgUp/PgDn scroll", state && state->active ? state->dirty ? "Draft" : "Ready" : "Cancelled; Reload to edit");
+   console_write_text(console_rows - 1, 0, status, strlen(status), console_cols - 1);
+   wmove(console_window, cursor_row, min(console_cols - 2, cursor_col)); leaveok(console_window, log_ui.focused ? FALSE : TRUE);
+   wnoutrefresh(console_window);
+}
+
+static int native_filefields_key(const TheWorkbenchPanel *panel, int key, TheInputEvent *event)
+{
+   int index = native_log_view(panel), step, maximum;
+   const TheWorkbenchFileFieldsState *state = the_workbench_filefields_state(panel->id);
+   const TheWorkbenchFileFieldSpan *span;
+   NativeFileFieldsView *view;
+   TheInputEvent input = *event;
+   if (key == 27) return native_log_event(panel, THE_WORKBENCH_PANEL_RETURN, event);
+   if (index < 0 || !state) return 0;
+   view = &log_ui.views[index].filefields; native_filefields_sync(panel, view);
+   if (key == 9 || key == THE_KEY_BTAB)
+   {
+      step = key == 9 ? 1 : -1;
+      do { view->active = (view->active + (int)state->spans + 5 + step) % ((int)state->spans + 5); }
+      while (view->active < (int)state->spans && !the_workbench_filefields_span(panel->id, view->active)->editable);
+      view->cell = 0; view->follow = 1; curses_driver_update(); return 0;
+   }
+   if (key == THE_KEY_UP || key == THE_KEY_DOWN || key == THE_KEY_PPAGE || key == THE_KEY_NPAGE)
+   {
+      maximum = max(0, (int)state->records - max(1, console_rows - 3));
+      step = key == THE_KEY_UP || key == THE_KEY_DOWN ? 1 : max(1, console_rows - 4);
+      if (key == THE_KEY_UP || key == THE_KEY_PPAGE) step = -step;
+      view->top = min(maximum, max(0, view->top + step)); curses_driver_update(); return 0;
+   }
+   if (view->active >= (int)state->spans)
+   {
+      if (key == THE_KEY_LEFT || key == THE_KEY_RIGHT) { view->left = max(0, view->left + (key == THE_KEY_LEFT ? -8 : 8)); curses_driver_update(); return 0; }
+      if (key != 10 && key != 13 && key != THE_KEY_ENTER && key != ' ') return 0;
+      step = view->active - (int)state->spans;
+      if (step == 3 || step == 4) return native_log_event(panel, step == 3 ? THE_WORKBENCH_PANEL_HIDE : THE_WORKBENCH_PANEL_RETURN, event);
+      return native_filefields_event(panel, view, step == 0 ? THE_WORKBENCH_FILEFIELDS_APPLY : step == 1 ? THE_WORKBENCH_FILEFIELDS_CANCEL : THE_WORKBENCH_FILEFIELDS_RELOAD, 0, 0, event);
+   }
+   span = the_workbench_filefields_span(panel->id, view->active);
+   if (!span) return 0;
+   if (key == THE_KEY_LEFT || key == THE_KEY_RIGHT || key == THE_KEY_HOME || key == THE_KEY_END)
+   {
+      size_t length = strlen(span->value);
+      TextPos at = textpos_from_cell((const CHARTYPE *)span->value, length, view->cell, TEXT_SNAP_BACKWARD);
+      if (key == THE_KEY_LEFT) view->cell = textpos_prev_cluster((const CHARTYPE *)span->value, length, at).cell_column;
+      else if (key == THE_KEY_RIGHT) view->cell = textpos_next_cluster((const CHARTYPE *)span->value, length, at).cell_column;
+      else view->cell = key == THE_KEY_HOME ? 0 : span->maxcells;
+      view->follow = 1; curses_driver_update(); return 0;
+   }
+   if (key == 8 || key == 127 || key == THE_KEY_BACKSPACE) return native_filefields_event(panel, view, THE_WORKBENCH_FILEFIELDS_EDIT, THE_WORKBENCH_FORM_BACKSPACE, 0, event);
+   if (key == THE_KEY_DC) return native_filefields_event(panel, view, THE_WORKBENCH_FILEFIELDS_EDIT, THE_WORKBENCH_FORM_DELETE, 0, event);
+   if (key == 21) return native_filefields_event(panel, view, THE_WORKBENCH_FILEFIELDS_EDIT, THE_WORKBENCH_FORM_CLEAR, 0, event);
+   if (input.kind == THE_INPUT_TEXT && input.codepoint >= 32) return native_filefields_event(panel, view, THE_WORKBENCH_FILEFIELDS_EDIT, THE_WORKBENCH_FORM_INSERT, input.codepoint, event);
+   if (key >= 32 && key < 127) return native_filefields_event(panel, view, THE_WORKBENCH_FILEFIELDS_EDIT, THE_WORKBENCH_FORM_INSERT, (uint32_t)key, event);
+   return 0;
+}
+
 static void native_form_draw(const TheWorkbenchPanel *panel)
 {
    int index = native_log_view(panel), visible = max(1, (console_rows - 3) / 2), row, n, cursor_row = 1, cursor_col = 1;
@@ -1909,7 +2088,8 @@ static void console_draw(void)
    for (i = 0; i < h; i++) mvwhline(console_window, i, 0, ' ', w);
    if (native_selected_log())
    {
-      if (native_selected_log()->kind == THE_WORKBENCH_PANEL_FIELDS) native_form_draw(native_selected_log());
+      if (native_selected_log()->kind == THE_WORKBENCH_PANEL_FIELDS && native_selected_log()->document_id) native_filefields_draw(native_selected_log());
+      else if (native_selected_log()->kind == THE_WORKBENCH_PANEL_FIELDS) native_form_draw(native_selected_log());
       else if (native_selected_log()->kind == THE_WORKBENCH_PANEL_DOCUMENT) native_document_draw(native_selected_log());
       else native_log_draw(native_selected_log());
       return;
@@ -2663,7 +2843,36 @@ static int console_mouse_event(TheInputEvent *event)
    {
       if (button == 1 && !modifier &&
           (action == CURSES_DRIVER_MOUSE_BUTTON_PRESSED || action == CURSES_DRIVER_MOUSE_BUTTON_CLICKED))
+      {
+         const TheWorkbenchPanel *panel = native_selected_log();
+         const TheWorkbenchFileFieldsState *state = panel->kind == THE_WORKBENCH_PANEL_FIELDS && panel->document_id ? the_workbench_filefields_state(panel->id) : NULL;
+         int index = native_log_view(panel);
+         if (state && index >= 0)
+         {
+            NativeFileFieldsView *view = &log_ui.views[index].filefields;
+            int local_row = row - console_top, local_col = col - console_left;
+            if (local_row == 1)
+               for (i = 0; i < 5; i++)
+                  if (local_col >= native_filefields_control_cells[i] && local_col < native_filefields_control_cells[i] + (int)strlen(native_filefields_controls[i]))
+                  {
+                     view->active = (int)state->spans + i;
+                     if (i >= 3) return native_log_event(panel, i == 3 ? THE_WORKBENCH_PANEL_HIDE : THE_WORKBENCH_PANEL_RETURN, event);
+                     return native_filefields_event(panel, view, i == 0 ? THE_WORKBENCH_FILEFIELDS_APPLY : i == 1 ? THE_WORKBENCH_FILEFIELDS_CANCEL : THE_WORKBENCH_FILEFIELDS_RELOAD, 0, 0, event);
+                  }
+            if (local_row >= 2 && local_row < console_rows - 1)
+               for (i = 0; i < (int)state->spans; i++)
+               {
+                  const TheWorkbenchFileFieldSpan *span = the_workbench_filefields_span(panel->id, i);
+                  int cell = local_col - 1 + view->left;
+                  if (span && span->editable && (int)span->line - 1 == local_row - 2 + view->top && cell >= span->cell && cell < span->cell + span->maxcells)
+                  {
+                     view->active = i; view->cell = textpos_from_cell((const CHARTYPE *)span->value, strlen(span->value), cell - span->cell, TEXT_SNAP_BACKWARD).cell_column;
+                     view->follow = 1; break;
+                  }
+               }
+         }
          return native_log_event(native_selected_log(), THE_WORKBENCH_PANEL_FOCUS, event);
+      }
       return 0;
    }
    if (FILETABSx && row == 0 && col >= 0 && col < THE_NATIVE_CONTROLS_WIDTH)
@@ -2747,7 +2956,7 @@ static int native_log_key(int key, TheInputEvent *event)
    size_t i, count = native_log_count();
    if (!panel) return 0;
    if (panel->kind == THE_WORKBENCH_PANEL_FIELDS)
-   { if (key != THE_KEY_F(12)) return native_form_key(panel, key, event); key = 9; }
+   { if (key != THE_KEY_F(12)) return panel->document_id ? native_filefields_key(panel, key, event) : native_form_key(panel, key, event); key = 9; }
    if (key == 27) return native_log_event(panel, THE_WORKBENCH_PANEL_RETURN, event);
    if (key == 'h' || key == 'H' || key == 23) return native_log_event(panel, THE_WORKBENCH_PANEL_HIDE, event);
    if (key == 9 || key == THE_KEY_BTAB)

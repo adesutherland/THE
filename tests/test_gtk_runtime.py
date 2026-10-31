@@ -45,6 +45,8 @@ def main():
             assert "GTK_LOG_PUT_PLACE_GENERATION_PROGRAM_EDITOR_FOCUS_RETURN_PASS" in completed.stdout, completed.stdout
             assert "GTK_DOCUMENT_READONLY_PAGING_REVISION_BINDING_FOCUS_RETURN_PASS" in completed.stdout, completed.stdout
             assert "GTK_FORMS_BURST_PROTECTED_LIMIT_SUBMIT_CANCEL_STALE_RETURN_PASS" in completed.stdout, completed.stdout
+            assert "GTK_FILEFIELDS_FIXED_CELLS_PROTECTED_APPLY_CANCEL_RELOAD_STALE_RETURN_SCROLL_SAVE_PASS" in completed.stdout, completed.stdout
+            assert (root / "filefields.txt").read_bytes().startswith("!pName: !u界ést".encode("utf-8"))
             assert (root / "document.txt").read_bytes().startswith("DOC-CHANGED Ω\n".encode("utf-8"))
             assert "GTK_WORKBENCH_PROFILE_F6_INPUT_CONTROL_DRAFT_CARET_PASS" in completed.stdout, completed.stdout
             assert "GTK_WORKBENCH_PROFILE_F10_MENU_ESC_DRAFT_CARET_PASS" in completed.stdout, completed.stdout

@@ -37,6 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "workbenchfilefields.h"
 #include "llmsession.h"
 #include "thedriver.h"
 #include "workbench.h"
@@ -585,6 +586,7 @@ short Qquit(CHARTYPE *params)
 /***********************************************************************/
 {
    TRACE_FUNCTION( "comm4.c:   Qquit" );
+   if(the_editor_filefields_close(0)) { TRACE_RETURN(); return RC_INVALID_ENVIRON; }
    /*
     * No arguments are allowed; error if any are present.
     */
@@ -722,6 +724,7 @@ short Quit(CHARTYPE *params)
 /***********************************************************************/
 {
    TRACE_FUNCTION("comm4.c:   Quit");
+   if(the_editor_filefields_close(0)) { TRACE_RETURN(); return RC_INVALID_ENVIRON; }
    /*
     * No arguments are allowed; error if any are present.
     */
@@ -1158,6 +1161,7 @@ short Redit(CHARTYPE *params)
    CHARTYPE *edit_fname;
 
    TRACE_FUNCTION("comm4.c:   Redit");
+   if(the_editor_filefields_close(0)) { TRACE_RETURN(); return RC_INVALID_ENVIRON; }
    if (strcmp((DEFCHAR *)params,"") != 0)
    {
       display_error(1,params,FALSE);

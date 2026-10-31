@@ -29,6 +29,8 @@ set(THE_SOURCES
     src/workbenchlog.c
     src/workbenchdocument.c
     src/workbenchform.c
+    src/workbenchfilefields.c
+    src/editorfilefields.c
     src/tools_native.c
     src/edit.c
     src/error.c

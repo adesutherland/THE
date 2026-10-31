@@ -14,7 +14,7 @@ import {
   X,
   Menu,
 } from "lucide-preact";
-import type { DriverMessage, FileListMessage, FrontendActionDefinition, ScreenRow, Snapshot, StyleRun, WorkbenchActionDefinition, WorkbenchPage, WorkbenchPanelDefinition, WorkbenchPanelState, WorkbenchPanelStateMessage, WorkbenchLogPage, WorkbenchLogRecord, WorkbenchDocumentPage, WorkbenchFormPage } from "./types";
+import type { DriverMessage, FileListMessage, FrontendActionDefinition, ScreenRow, Snapshot, StyleRun, WorkbenchActionDefinition, WorkbenchPage, WorkbenchPanelDefinition, WorkbenchPanelState, WorkbenchPanelStateMessage, WorkbenchLogPage, WorkbenchLogRecord, WorkbenchDocumentPage, WorkbenchFormPage, WorkbenchFileFieldPage } from "./types";
 import { WorkbenchPageCollector, displayLogText, type WorkbenchCatalog } from "./workbench";
 import "./styles.css";
 import {RexxConsole, type ToolSession} from './rexx-console';
@@ -22,6 +22,8 @@ import { consoleColourVariables, diagnosticColourVariables, renderColour as pane
 import { HighlightPresentation } from "./highlight-presentation";
 import { WorkbenchForms, type FormView } from "./workbench-forms";
 import { NamedFormPane, type FormViewport } from "./form-pane";
+import { WorkbenchFileFields, type FileFieldView } from "./workbench-file-fields";
+import { FileFieldPane } from "./file-field-pane";
 
 const keyNames: Record<string, string> = {
   ArrowLeft: "left",
@@ -188,6 +190,7 @@ function App() {
   const [documentErrors, setDocumentErrors] = useState<Record<string, string>>({});
   const [documentLoading, setDocumentLoading] = useState<Record<string, boolean>>({});
   const [formViews, setFormViews] = useState<Record<string, FormView>>({});
+  const [fileFieldViews, setFileFieldViews] = useState<Record<string, FileFieldView>>({});
   const [selectedAux, setSelectedAux] = useState("console");
   const [showProgramWithLog, setShowProgramWithLog] = useState(false);
   const [openMenu, setOpenMenu] = useState<"application" | "about" | null>(null);
@@ -234,6 +237,7 @@ function App() {
   const documentViewsRef = useRef<Record<string, NamedDocumentView>>({});
   const documentPendingRef = useRef(new Map<string, DocumentRequest>());
   const formsRef = useRef<WorkbenchForms | null>(null);
+  const fileFieldsRef = useRef<WorkbenchFileFields | null>(null);
   const pendingWorkbenchRef = useRef(new Set<string>());
   const formFocusRef = useRef<HTMLDivElement | null>(null);
   const formViewportsRef = useRef(new Map<string, FormViewport>());
@@ -337,6 +341,7 @@ function App() {
         documentPendingRef.current.clear();
         pendingWorkbenchRef.current.clear();
         formsRef.current?.reset();
+        fileFieldsRef.current?.reset();
         formViewportsRef.current.clear();
         logScrollRef.current.clear();
         logPendingRef.current.clear();
@@ -417,6 +422,7 @@ function App() {
             panelStateRef.current = next;
             setPanelState(next);
             formsRef.current?.observe(next.panels);
+            fileFieldsRef.current?.observe(next.panels);
             const liveKeys = new Set(next.panels.map((panel) => `${panel.id}:${panel.generation}`));
             const expired = Object.keys(documentViewsRef.current).filter((key) => !liveKeys.has(key));
             if (expired.length) {
@@ -435,7 +441,7 @@ function App() {
             setDocumentErrors((errors) => Object.fromEntries(Object.entries(errors).filter(([key]) => liveKeys.has(key))));
             for (const panel of next.panels) {
               if (!panel.visible) continue;
-              if (panel.kind === "fields") continue;
+              if (panel.kind === "fields" || panel.kind === "file-fields") continue;
               if (panel.kind === "document") {
                 const view = documentViewsRef.current[`${panel.id}:${panel.generation}`];
                 if (!view || view.page.documentRevision !== panel.documentRevision)
@@ -494,10 +500,13 @@ function App() {
             setDocumentViews(documentViewsRef.current);
           } else if ("type" in message && message.type === "workbench" && (message as { operation?: string }).operation === "form") {
             formsRef.current?.page((message as unknown as { data: WorkbenchFormPage }).data);
+          } else if ("type" in message && message.type === "workbench" && (message as { operation?: string }).operation === "filefield") {
+            fileFieldsRef.current?.page((message as unknown as { data: WorkbenchFileFieldPage }).data);
           } else if ("type" in message && message.type === "workbench" && (message as { operation?: string }).operation === "result") {
             const result = message as { code?: string; message?: string; requestId?: string; state?: string; draftRevision?: string };
             if (result.state !== "queued" && result.requestId) pendingWorkbenchRef.current.delete(result.requestId);
             formsRef.current?.result(result);
+            fileFieldsRef.current?.result(result);
             if (!result.requestId) {
               logPendingRef.current.clear();
               if (result.code && result.code !== "ok") {
@@ -670,6 +679,14 @@ function App() {
     returning: (panel) => sendPanelOperation(panel.id, panel.generation, "return"),
   });
 
+  if (!fileFieldsRef.current) fileFieldsRef.current = new WorkbenchFileFields({
+    send, changed: setFileFieldViews,
+    nextId: () => `${workbenchSessionRef.current}.${workbenchNextRequestRef.current++}`,
+    available: () => !!workbenchSessionRef.current && !pendingWorkbenchRef.current.size,
+    focus: (panel) => sendPanelOperation(panel.id, panel.generation, "focus"),
+    returning: (panel) => sendPanelOperation(panel.id, panel.generation, "return"),
+  });
+
   const selectProgramConsole = useCallback(() => {
     const focused = panelStateRef.current?.panels.find((panel) => panel.focused);
     if (focused) sendPanelOperation(focused.id, focused.generation, "return");
@@ -824,6 +841,7 @@ function App() {
       const pane = (event.target as HTMLElement).closest<HTMLElement>(".named-panel-pane");
       const state = panelStateRef.current?.panels.find((item) => item.id === pane?.dataset.panelId);
       if (state?.kind === "fields" && state.focused) formsRef.current?.intent(state, "return");
+      else if (state?.kind === "file-fields" && state.focused) fileFieldsRef.current?.intent(state, "return");
       else if (state?.focused) sendPanelOperation(state.id, state.generation, "return");
       else returnToFile();
       return;
@@ -836,7 +854,7 @@ function App() {
       event.preventDefault(); event.stopPropagation();
       return;
     }
-    if (!openMenu && (event.target as HTMLElement).closest(".named-fields-pane")
+    if (!openMenu && (event.target as HTMLElement).closest(".named-fields-pane, .named-file-fields-pane")
       && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
       event.preventDefault(); event.stopPropagation(); return;
     }
@@ -1044,7 +1062,7 @@ function App() {
     && activeNamedPanel.kind === "log"
     ? logViews[`${activeNamedPanel.model}:${activeNamedPanel.modelGeneration}`] : undefined;
   const activePanelKey = activeNamedPanel ? `${activeNamedPanel.id}:${activeNamedPanel.generation}` : "";
-  if (activeNamedPanel?.kind === "fields" && !formViewportsRef.current.has(activePanelKey))
+  if ((activeNamedPanel?.kind === "fields" || activeNamedPanel?.kind === "file-fields") && !formViewportsRef.current.has(activePanelKey))
     formViewportsRef.current.set(activePanelKey, { top: 0, left: 0, field: "", start: 0, end: 0 });
   const documentView = documentViews[activePanelKey];
   const activeDocumentPage = activeNamedPanel?.documentAvailable
@@ -1471,6 +1489,10 @@ function App() {
           </> : null}
           {activeNamedPanel.kind === "fields" ? activePanelPlacement !== "none" ? <NamedFormPane panel={activeNamedPanel}
             view={formViews[`${activeNamedPanel.form}:${activeNamedPanel.formGeneration}`]} forms={formsRef.current!}
+            viewport={formViewportsRef.current.get(activePanelKey)!}
+            focusRef={(node) => { formFocusRef.current = node; }} /> : null :
+          activeNamedPanel.kind === "file-fields" ? activePanelPlacement !== "none" ? <FileFieldPane panel={activeNamedPanel}
+            view={fileFieldViews[activePanelKey]} fields={fileFieldsRef.current!}
             viewport={formViewportsRef.current.get(activePanelKey)!}
             focusRef={(node) => { formFocusRef.current = node; }} /> : null :
           <pre class={`named-panel-output named-${activeNamedPanel.kind}-output`} hidden={activePanelPlacement === "none"} ref={(node) => {

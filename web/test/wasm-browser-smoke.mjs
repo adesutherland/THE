@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import WebSocket from "ws";
+import { fileFieldSmoke } from "./wasm-file-fields.mjs";
 
 const pageUrl = process.env.THE_WEB_URL;
 const chromium = process.env.CHROMIUM_BIN;
@@ -159,6 +160,10 @@ try {
   const send = (request) => evaluate(`window.__worker.postMessage(${JSON.stringify(request)})`);
   const snapshot = () => evaluate("window.__snapshot");
   const manifest = await (await fetch(new URL('manifest.json', pageUrl))).json();
+  if (process.env.THE_WASM_FILE_FIELDS_ONLY === "1") {
+    await fileFieldSmoke({ send, evaluate, command, waitFor, snapshot });
+    if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
+  } else {
   const beforeWorkbench = await snapshot();
   await send({type:'command',command:'workbench begin owner user.browser'});
   await send({type:'command',command:'workbench action put user.save label "Safe Save" builtin file.save'});
@@ -522,6 +527,7 @@ try {
     await writeFile(process.env.THE_WASM_SCREENSHOT, Buffer.from(image.data, 'base64'));
   }
   console.log('PASS browser Wasm: persistence/refusal/retry, DOM editing/selection/undo, file ring, resize and tab lock');
+  }
 } catch(error) {
   if (socket?.readyState===WebSocket.OPEN) {
     try {

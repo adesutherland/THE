@@ -37,6 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "workbenchfilefields.h"
 #include "thedriver.h"
 
 /*#define DEBUG 1*/
@@ -601,6 +602,7 @@ short Cancel(CHARTYPE *params)
    short to_save = 0, rc;
 
    TRACE_FUNCTION( "comm1.c:   Cancel" );
+   if(the_editor_filefields_close(1)) { TRACE_RETURN(); return RC_INVALID_ENVIRON; }
    /*
     * One optional argument allowed
     */
@@ -750,6 +752,7 @@ short Ccancel(CHARTYPE *params)
 /***********************************************************************/
 {
    TRACE_FUNCTION("comm1.c:   Ccancel");
+   if(the_editor_filefields_close(1)) { TRACE_RETURN(); return RC_INVALID_ENVIRON; }
    /*
     * No arguments are allowed; error if any are present.
     */
