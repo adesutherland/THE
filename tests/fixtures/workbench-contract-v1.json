@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "kind": "workbench-contract",
+  "executable": false,
+  "status": "phase-0-frozen",
+  "purpose": "Public acceptance data; later-phase cases specify contracts and do not claim implemented behavior.",
+  "phaseOrder": ["actions-menus", "log-readonly-document-panes", "forms-editable-fields", "qualified-file-io-adapters"],
+  "commandStrings": {
+    "delimiter": "double-quote",
+    "embeddedQuote": "doubled-double-quote",
+    "backslash": "literal",
+    "idCase": "sensitive",
+    "keywordCase": "insensitive"
+  },
+  "phase1Limits": {
+    "idBytes": 63,
+    "labelBytes": 255,
+    "operandBytes": 2048,
+    "commandBytes": 8192,
+    "jsonPageBytes": 65536,
+    "owners": 32,
+    "actions": 128,
+    "menus": 32,
+    "items": 256,
+    "pageRecords": 8
+  },
+  "cases": [
+    {
+      "id": "declaration-is-inert",
+      "phase": 1,
+      "commands": [
+        "WORKBENCH BEGIN OWNER public.probe",
+        "WORKBENCH ACTION PUT public.save LABEL \"Save current file\" BUILTIN file.save",
+        "WORKBENCH MENU PUT public.tools LABEL \"Tools\" ORDER 50",
+        "WORKBENCH ITEM PUT public.tools public.saveitem LABEL \"Save current file\" ACTION public.save",
+        "WORKBENCH COMMIT"
+      ],
+      "expect": {"code": "ok", "rc": 0, "publicationCount": 1, "invocationCount": 0, "editorBytesChanged": false, "cursorChanged": false}
+    },
+    {
+      "id": "quoted-label-remains-data",
+      "phase": 1,
+      "operand": "LABEL \"Say \"\"hello\"\"; OS unwanted\"",
+      "expect": {"decodedLabel": "Say \"hello\"; OS unwanted", "invocationCount": 0}
+    },
+    {
+      "id": "windows-path-backslashes-remain-literal",
+      "phase": 1,
+      "operand": "MACRO \"C:\\Tools\\check.rexx\"",
+      "expect": {"decodedOperand": "C:\\Tools\\check.rexx", "invocationCount": 0}
+    },
+    {
+      "id": "malformed-string-poisons-draft",
+      "phase": 1,
+      "precondition": "An explicit transaction is open.",
+      "commands": ["WORKBENCH MENU PUT public.bad LABEL \"unterminated", "WORKBENCH COMMIT"],
+      "expect": {"operationCode": "invalid-operand", "operationRc": 5, "commitCode": "transaction-failed", "commitRc": -3, "publicationCount": 0, "priorPublishedGraphRetained": true}
+    },
+    {
+      "id": "complete-graph-reference-validation",
+      "phase": 1,
+      "precondition": "A transaction contains an item that references an absent action.",
+      "operation": "COMMIT",
+      "expect": {"code": "missing-action", "rc": 5, "publicationCount": 0, "priorPublishedGraphRetained": true}
+    },
+    {
+      "id": "referenced-action-removal-is-atomic",
+      "phase": 1,
+      "precondition": "A published item references the action being removed, and that item remains in the candidate.",
+      "operation": "COMMIT",
+      "expect": {"code": "object-in-use", "rc": -3, "publicationCount": 0, "priorPublishedGraphRetained": true}
+    },
+    {
+      "id": "profile-failure-after-inner-commit",
+      "phase": 1,
+      "precondition": "A profile stages and explicitly commits valid workbench definitions, then returns failure.",
+      "expect": {"publicationCount": 0, "priorPublishedGraphRetained": true, "candidateInvocable": false, "arbitraryEditorEffectsRolledBack": false}
+    },
+    {
+      "id": "owner-cannot-impersonate-another-context",
+      "phase": 1,
+      "precondition": "The requested owner belongs to a different trusted execution context.",
+      "operation": "BEGIN OWNER other.profile",
+      "expect": {"code": "policy-denied", "rc": -3, "publicationCount": 0}
+    },
+    {
+      "id": "later-phase-request-refuses-in-phase-one",
+      "phase": 1,
+      "commands": ["WORKBENCH PANEL PUT public.output KIND LOG MODEL public.log"],
+      "expect": {"code": "unsupported-feature", "rc": -3, "publicationCount": 0, "invocationCount": 0}
+    },
+    {
+      "id": "counted-json-inspection",
+      "phase": 1,
+      "commands": ["EXTRACT /WORKBENCH ACTIONS OFFSET 0 LIMIT 8/"],
+      "expect": {"stemCount": 1, "stemRecord": "WORKBENCH.1", "schemaVersion": 1, "maxRecords": 8, "maxSerializedBytes": 65536, "requiredPageKeys": ["revision", "total", "nextOffset", "records"]}
+    },
+    {
+      "id": "stale-generation-refuses-recreated-action",
+      "phase": 2,
+      "precondition": "A structured invoke refers to the generation before an action was removed and recreated.",
+      "expect": {"code": "stale-generation", "rc": -3, "invocationCount": 0}
+    },
+    {
+      "id": "pane-removal-does-not-stop-job",
+      "phase": 2,
+      "precondition": "A running singleton job routes output to a named log pane.",
+      "operation": "Remove its pane and reset its owner.",
+      "expect": {"jobStopped": false, "jobDetached": true, "stopStatusLogAccessible": true, "editorBytesChanged": false}
+    },
+    {
+      "id": "stale-field-apply-preserves-bytes",
+      "phase": 3,
+      "precondition": "The underlying buffer or pending record changed after projection capture.",
+      "operation": "Apply staged fields against the captured document revision.",
+      "expect": {"code": "stale-revision", "rc": -3, "editorBytesChanged": false, "stagedValuesRetained": true}
+    },
+    {
+      "id": "file-publication-lost-acknowledgement",
+      "phase": 4,
+      "precondition": "A file publication may have committed, but its acknowledgement was lost.",
+      "expect": {"code": "publication-unknown", "rc": 100, "targetUnchangedClaimAllowed": false, "blindAppendReplayAllowed": false, "reconciliationRequired": true}
+    },
+    {
+      "id": "oorexx-wasm-no-substitution",
+      "phase": 4,
+      "precondition": "A native ooRexx adapter is requested on a Wasm host without a separately qualified implementation.",
+      "expect": {"code": "unsupported-host", "rc": -3, "invocationCount": 0, "interpreterSubstitutionAllowed": false}
+    }
+  ]
+}

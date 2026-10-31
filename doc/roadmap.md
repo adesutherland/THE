@@ -30,10 +30,12 @@ presentation, and an optional first GTK 3 desktop frontend now exists.
 
 ### Cross-platform workbench review
 
-The [extensible workbench proposal](workbench-extension-design.md) defines
-profile-owned menus, panes, forms, tool IO routes and capability reporting as
-separate future increments. Its command syntax and platform contracts remain
-proposals for review.
+The [extensible workbench staged design](workbench-extension-design.md) freezes
+the phase-0 command, ownership, limit and result contracts. The authorized order
+is shared actions/menus, named log/read-only document panes, forms/editable
+fields, then qualified file IO and ooRexx adapters. Each increment retains its
+own implementation and surface-qualification gate; later contracts do not
+claim available features.
 
 Continue the shared browser, terminal and GTK review through real file,
 editing, run and console workflows. The guided workbench now has visible

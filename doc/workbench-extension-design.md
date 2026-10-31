@@ -1,8 +1,12 @@
-# Extensible THE workbench: requirements and design proposal
+# Extensible THE workbench: staged design and frozen contract
 
-**Status: proposal for review.** None of the `WORKBENCH` commands, registries or
-protocol extensions below is implemented by this document. Existing commands
-are identified separately. This extends the current editor and Program console
+**Status: phase-0 contract frozen; staged implementation authorized.** This
+document defines the contract, not evidence that every `WORKBENCH` command,
+registry or protocol extension below is implemented or qualified. Existing
+commands are identified separately. The authorized order is shared menus and
+actions, named log/read-only document panes, forms and editable fields, then
+qualified file IO and ooRexx adapters. Implementation and qualification of each
+stage remain separate acceptance gates. This extends the current editor and Program console
 into a profile-configurable workbench; it does not replace THE with a different
 editor or make a browser layout authoritative.
 
@@ -109,10 +113,16 @@ Regina macro bridge already supplies an ooRexx program runner.
 
 The core owns a `WorkbenchSession` alongside existing editor/tool state. Objects
 have an opaque stable ID, owner ID, generation, title, creation order and
-session revision. Proposed public IDs use ASCII letters/digits/dot/underscore/
+session revision. Public IDs use ASCII letters/digits/dot/underscore/
 hyphen, begin with a letter, and are at most 63 bytes. IDs are case-sensitive;
 command keywords follow THE's case-insensitive convention. `the.*` is reserved
-for built-ins. Labels are UTF-8 data, never command identifiers or delimiters.
+for built-ins. IDs are unique within each object kind across the session;
+item IDs are unique among all items, including items in different menus. An ID
+may be reused in a different kind, but references are always typed. Removing and
+recreating an ID allocates a new generation; replacement also advances its
+generation. Generations and revisions are opaque nonnegative integers, never
+inferred from a label or an array index. Labels are UTF-8 data, never command
+identifiers or delimiters.
 
 | Object | Required data and ownership |
 | --- | --- |
@@ -140,6 +150,18 @@ another profile, remove another owner's definitions, claim `the.*`, or create
 authority by inventing an ID. `BEGIN`/`COMMIT` stages **workbench definitions only**: validate all
 references, limits and trust before accepting the draft; `ABORT` discards it.
 Outside profile activation, a successful `COMMIT` publishes one revision.
+
+All definition changes require an explicit `BEGIN OWNER id`; transactions do
+not nest and have one owner. A mutation or `COMMIT` outside a transaction
+returns `transaction-required`; nested `BEGIN` returns `transaction-active`.
+`ABORT` discards an open draft, and repeated `ABORT` succeeds. A rejected
+mutation leaves the draft unchanged but marks it failed; `COMMIT` then returns
+`transaction-failed` and publishes nothing until `ABORT` discards the draft.
+Complete-graph validation happens at commit, so definitions may be added or
+removed in any order inside one transaction. A failed final validation also
+marks the transaction failed. Inspection remains available to diagnose the
+draft. Invocation is a runtime request, never a definition change, and cannot
+invoke an unpublished candidate.
 
 Profile activation adds an outer workbench staging scope inherited by macros
 called from that profile. Explicit `COMMIT` merges into that activation's
@@ -187,9 +209,9 @@ input starvation publish `waiting-input`; native pipes currently cannot do so.
 One terminal transition drains/publishes preceding output, freezes completion,
 releases execution resources once and retains bounded inspectable history.
 
-## Proposed command surface
+## Frozen command grammar
 
-The following is a candidate grammar, **not existing syntax**. Use one
+The following is the version-1 contract, **not a blanket implementation claim**. Use one
 `WORKBENCH` family to avoid overloading `RX` with every UI concept. Initial
 keywords require full spelling until abbreviation compatibility is reviewed.
 A profile may define `SET SYNONYM wb WORKBENCH` once the command exists.
@@ -248,22 +270,57 @@ WORKBENCH JOB EOF job-id
 WORKBENCH JOB STOP job-id
 WORKBENCH FILE INSPECT "path"
 
-QUERY WORKBENCH [CAPABILITIES|ACTIONS|MENUS|PANELS|JOBS|ROUTES]
-EXTRACT /WORKBENCH PANELS/
+QUERY WORKBENCH [SUMMARY|CAPABILITIES|ACTIONS|MENUS|ITEMS] [OFFSET integer] [LIMIT integer]
+EXTRACT /WORKBENCH [SUMMARY|CAPABILITIES|ACTIONS|MENUS|ITEMS] [OFFSET integer] [LIMIT integer]/
 ```
 
-`QUERY` is human-readable; `EXTRACT` returns versioned counted records/stems
-through the existing engine bridge. The exact stem schema is a phase-one design
-task, not an assumption that cREXX and Regina queues work identically. Existing
-`READ` results and return codes remain unchanged.
+Phase 1 admits definition transactions, owner reset, actions of kind `BUILTIN`,
+`COMMAND` and `MACRO`, menus/items, explicit invoke and the five inspection
+sections above. `TOOL`/`PANEL` actions and all panel/form/field/route/tool/job/file
+commands are reserved for their later phase. A recognized later-phase request
+returns `unsupported-feature`; it must not partially define an object or fall
+through to macro/OS dispatch. Later capability-advertised inspection sections
+may add `PANELS`, `FORMS`, `JOBS`, `ROUTES` and `TOOLS` without changing the
+version-1 page envelope.
 
-Operands are parsed once into typed values; argv entries remain separate. The
-new parser must specify literal quoting/escaping and reject unterminated quotes,
-NUL, duplicate options and unknown options without partial changes. It must not
+`QUERY` displays the same bounded JSON page returned by `EXTRACT`.
+`SUMMARY` is the default and includes counts, limits and the last workbench
+result. Each page has `schemaVersion: 1`, the published definition `revision`,
+`total`, `nextOffset` (null at the end), and `records`. `OFFSET` defaults to zero;
+`LIMIT` defaults to eight and accepts 1 through 8. Offset beyond the end returns
+an empty successful page. `EXTRACT` sets `WORKBENCH.0` to 1 and `WORKBENCH.1` to
+that one JSON page, without assuming cREXX and Regina queue implementations are
+identical. It never truncates JSON: serialization above 65,536 bytes returns
+`limit-exceeded` without replacing a previous extract result. Existing `READ`
+results and return codes remain unchanged.
+
+Operands are parsed once into typed values; argv entries remain separate.
+Keywords and enum operands require their full spelling and are case-insensitive.
+IDs remain case-sensitive. A quoted string starts/ends with double quotes;
+two consecutive double quotes inside it encode one literal double quote.
+Backslashes are literal, including in Windows paths: there are no C, shell,
+JSON, variable, wildcard or backslash escapes. Empty quoted strings are accepted
+where the operand's own validation permits them. String operands shown quoted
+in the grammar require quotes. Space and tab separate tokens outside quotes;
+all other ASCII control bytes, DEL, NUL, invalid UTF-8 and embedded line breaks
+are rejected. A closing quote must be followed by whitespace or end of command.
+There is exactly one `WORKBENCH` operation per addressed command; no trailing
+command separator or comment syntax is recognized. The parser rejects
+unterminated quotes, extra tokens, duplicate options, unknown options, integer
+overflow and signed values where an unsigned operand is required, without
+partial changes. It must not
 reuse the permissive current `RX` tokenizer for arbitrary interpolated commands.
 Programmatic frontends use structured arguments, not generated command strings.
 Literal command actions store a fixed explicit command; runtime file paths or
 field values are never substituted into that text.
+
+For example, `LABEL "Say ""hello"""` stores `Say "hello"`,
+`MACRO "C:\Tools\check.rexx"` stores the backslashes literally, and
+`LABEL "x; OS unwanted"` remains one label. A `COMMAND` action is different:
+its explicitly supplied fixed command is executed only by a later explicit
+invocation, through the existing command dispatcher and policy. The new quoting
+contract grants no new command-chain or shell authority. `ORDER` accepts
+0 through 2,147,483,647 and defaults to zero; ties retain creation order, then ID.
 
 `PANEL PUT ... KIND LOG MODEL id` creates a bounded session log if absent,
 otherwise attaches to an existing compatible log. It does not create a file.
@@ -274,7 +331,21 @@ a generated command. New typed actions retain built-in synonym bypass. A
 `COMMAND` action deliberately has normal command/synonym semantics and the
 same restricted-session admission checks as a typed command line.
 
-### Profile example: menu and an output pane
+### Phase-1 profile example: shared action and menu
+
+This contract example uses an existing typed built-in. Definitions have no
+effect on the file until the user explicitly invokes the item/action.
+
+```rexx
+address THE
+'workbench begin owner user.tools';
+'workbench action put user.save label "Save current file" builtin file.save';
+'workbench menu put user.tools label "Tools" order 50';
+'workbench item put user.tools user.saveitem label "Save current file" action user.save';
+'workbench commit';
+```
+
+### Phase-2 contract example: menu and an output pane
 
 This is proposed profile source using existing Rexx `ADDRESS THE` conventions.
 For cREXX, addressed command literals have explicit semicolons.
@@ -314,9 +385,11 @@ READ NOCHANGE TAG
 A proposed named-field form avoids editing the caller's reserved guide:
 
 ```text
+WORKBENCH BEGIN OWNER user.forms
 WORKBENCH FORM PUT user.person
 WORKBENCH FIELD PUT user.person name LABEL "Name" VALUE "Guest" ACCESS EDIT MAXCELLS 40
 WORKBENCH PANEL PUT user.personpane KIND FIELDS FORM user.person
+WORKBENCH COMMIT
 WORKBENCH PANEL SHOW user.personpane
 WORKBENCH PANEL FOCUS user.personpane
 ```
@@ -473,8 +546,34 @@ normal reload/conflict handling rather than silently replaced in memory.
 
 Keep the current 2 MiB source, 1 MiB aggregate argv, 128 argv entries, 8 MiB job
 output and 256 KiB retained text as initial limits, surfaced by capabilities.
-Also bound action/menu/panel/form counts, queued requests and retained job/model
-bytes; fix actual values during phase one. Preserve UTF-8 decoder state per
+The following limits freeze the initial workbench contract. Limits for a later
+phase do not imply that phase is available; a constrained host may advertise a
+lower effective limit before accepting a definition or launch. Byte lengths
+exclude C terminators. Quotas apply to a complete candidate graph, including
+retained live dependencies, rather than accepting an over-limit draft for a
+frontend to trim.
+
+| Resource | Initial ceiling | First applicable phase |
+| --- | --- | --- |
+| ID / label / stored action operand | 63 / 255 / 2,048 UTF-8 bytes | 1 |
+| One definition command / serialized inspection page | 8,192 / 65,536 bytes | 1 |
+| Owners / actions / menus / menu items | 32 / 128 / 32 / 256 per session | 1 |
+| Definition transaction | One open transaction; no nesting | 1 |
+| Inspection page | 8 records; explicit limit 1 through 8 | 1 |
+| Panels / retained log models | 32 / 32 per session | 2 |
+| Log text / aggregate retained model text | 256 KiB per model / 8 MiB per session | 2 |
+| Program jobs / queued normalized requests | One active program / 64 queued requests | 2 |
+| Request receipts | 256 retained IDs per connection epoch; no replay after eviction | 2 |
+| Forms / fields / field value | 32 forms / 128 fields per form / 4,096 UTF-8 bytes per field | 3 |
+| Field logical width | 1 through 1,024 cells; byte and cell limits both apply | 3 |
+| Tools / routes | 32 tool definitions / 32 route templates per session | 4 |
+| File stdin / staged file output | 8 MiB / 8 MiB, including starting bytes for APPEND | 4 |
+| Published file-output targets | One per program job | 4 |
+
+No phase silently evicts published definitions or live jobs to admit another
+one. Bounded log history may omit oldest text with explicit omission metadata;
+it never changes raw file-capture bytes. Receipt eviction is an inspection
+boundary, not permission to execute an old request again. Preserve UTF-8 decoder state per
 stream, mark omitted history, and preserve a user's output scroll/selection when
 new data arrives. Binary output needs a declared byte sink; it must not be
 silently repaired into supposedly exact text. Rendering text escapes controls
@@ -498,12 +597,27 @@ support does not authorize its use in a restricted browser session. Capability
 records include version, supported operations, limits, alternatives and reason.
 Tool definitions and each action/panel expose their resolved state.
 
-Candidate codes are `ok`, `invalid-operand`, `missing-object`, `missing-action`,
-`unsupported-feature`, `unsupported-host`, `capability-unavailable`,
-`policy-denied`, `readonly`, `busy-modal`, `busy-job`, `object-in-use`, `stale-revision`,
-`limit-exceeded`, `publication-unknown` and `host-failed`. Code strings are stable and messages are
-human-readable; no error is converted into implicit macro/shell dispatch.
-These complement THE numeric return codes rather than changing existing RCs.
+Stable result codes complement THE's existing numeric return codes. Consumers
+use `code` to distinguish refusals that share a numeric RC; `message` is human
+text and is not parsed for authority decisions. The mapping is:
+
+| Stable code | Numeric RC | Existing THE constant |
+| --- | --- | --- |
+| `ok` | 0 | `RC_OK` |
+| `invalid-operand`, `missing-object`, `missing-action` | 5 | `RC_INVALID_OPERAND` |
+| `unsupported-feature`, `unsupported-host`, `capability-unavailable`, `policy-denied`, `busy-modal`, `busy-job`, `object-in-use`, `stale-generation`, `stale-revision`, `transaction-required`, `transaction-active`, `transaction-failed` | -3 | `RC_INVALID_ENVIRON` |
+| `readonly` | 12 | `RC_ACCESS_DENIED` |
+| `limit-exceeded` | 94 | `RC_OUT_OF_MEMORY` |
+| `host-failed` | 99 | `RC_SYSTEM_ERROR` |
+| `io-failed`, `publication-unknown` | 100 | `RC_IO_ERROR` |
+| `command-failed` | Actual dispatched command RC | Preserve the existing command's result |
+
+For `INVOKE`, admission success does not hide a later dispatched command
+failure. Its result preserves that command's numeric RC and uses
+`command-failed`. Phase 1 implements only applicable codes; later-phase codes
+are reserved until their feature is qualified. Existing unrelated commands and
+`READ` retain their return-code contracts. No workbench error becomes implicit
+macro/shell dispatch.
 
 Trusted installed/startup profiles may declare workbench objects under their
 owner. Importing a document, RXBIN, workspace configuration or remote message
@@ -556,25 +670,43 @@ discipline. Drivers must not import one another's widget types.
 
 ## LLM and browser protocol extension
 
-Add a versioned `workbench` section to capability discovery and semantic
-snapshots, with separate revisions for definitions, panel content and job state.
+Workbench data uses `schemaVersion: 1`. This is independent of the existing
+driver ABI number and does not authorize changing shared ABI structs. Add a
+versioned `workbench` section to capability discovery and semantic snapshots,
+with separate revisions for definitions, panel content and job state.
 Retain existing `look`, `delta`, `tools`, `command` and panel fields for
 compatibility. Advertise actual supported inputs, including existing tool
-inspection/polling. Add operations through the normalized request layer:
+inspection/polling. Phase 1 uses the existing LLM `command` path for the frozen
+command grammar and existing `EXTRACT` bridge for JSON pages. A schema-version
+field alone does not advertise a new input verb or later-phase operation.
+
+The later structured request extension uses one UTF-8 JSON object per message,
+with required `type: "workbench"` and `version: 1`. Browser transports pass that
+object to the normalized request layer. For the line-oriented LLM transport,
+the reserved form is `workbench ` followed by that compact JSON object on one
+line; strings containing line breaks use JSON escapes. There is no shell-like
+quoting around the JSON. This verb is advertised only once its generation,
+receipt and refusal checks are implemented and tested. Example later requests:
 
 ```json
-{"type":"workbench","operation":"invoke","action":"user.run","requestId":"r17","expectGeneration":3}
-{"type":"workbench","operation":"field.set","panel":"user.personpane","field":"name","value":"Alice","expectRevision":8,"requestId":"r18"}
-{"type":"workbench","operation":"panel.apply","panel":"user.settings","expectDocumentRevision":"doc7:12","requestId":"r19"}
+{"type":"workbench","version":1,"operation":"invoke","action":"user.run","requestId":"r17","expectGeneration":3}
+{"type":"workbench","version":1,"operation":"field.set","panel":"user.personpane","field":"name","value":"Alice","expectRevision":8,"requestId":"r18"}
+{"type":"workbench","version":1,"operation":"panel.apply","panel":"user.settings","expectDocumentRevision":"doc7:12","requestId":"r19"}
 ```
 
-Responses identify request ID, stable result code, numeric THE RC, resulting
+Unknown versions refuse with `unsupported-feature` and no mutation; malformed
+JSON or unknown/duplicate fields refuse with `invalid-operand`. Each operation
+has a fixed typed schema; arbitrary JSON keys cannot become command operands.
+Responses identify version, request ID, stable result code, numeric THE RC, resulting
 revision and any job ID/effective placement. Deltas identify removed objects and
 omitted content. A bounded request receipt cache prevents a transport retry from
-running the same job twice; expired/unknown receipts require explicit client
-reconciliation rather than blind replay. Generations reject events for removed
-and recreated objects. This is additive protocol design; the current LLM
-line-oriented transport needs a specified encoding/verb mapping before use.
+running the same job twice. Within a connection epoch the same request ID with
+the same complete payload returns the retained receipt without execution;
+the same ID with a different payload returns `invalid-operand`. Expired/unknown
+receipts and reconnecting clients require explicit inspection/reconciliation,
+never blind replay. Generations reject events for removed and recreated
+objects. Structured declaration strings use JSON's own escaping; they are
+typed values, not text fed back through the command tokenizer.
 
 Agents inspect a panel or stream by ID with bounded paging; they do not parse
 terminal output or menu labels to infer jobs. Unsupported operations produce the
@@ -584,15 +716,19 @@ enforce the same core policy even if a client sends forged direct requests.
 
 ## Phased delivery and acceptance
 
-Each phase is a separate reviewable increment. Implementation authorization,
-commit/push and releases remain separate from approval of this proposal.
+Each phase is a separate reviewable increment in the authorized order. Phase 0
+freezes the contract and public fixtures; completion of later phases requires
+the acceptance evidence below. Commit/push and releases remain separate
+authorization boundaries. The contract fixtures are
+[`tests/fixtures/workbench-contract-v1.json`](../tests/fixtures/workbench-contract-v1.json);
+they are non-executable acceptance data, not evidence of a passing runtime.
 
 | Phase | Bounded delivery | Acceptance gate |
 | --- | --- | --- |
-| 0. Freeze contract | Resolve decisions below; define IDs, quoting, count/byte limits, ownership, numeric RC mapping and protocol versions. | Public fixtures describe success/refusal/lifetime without platform-specific command meanings. Document existing versus proposed features. |
+| 0. Freeze contract | IDs, quoting, count/byte limits, ownership, numeric RC mapping, inspection schema and later protocol version are fixed here. | Public fixtures describe success/refusal/lifetime without platform-specific command meanings. Existing features remain distinct from staged contracts. |
 | 1. Actions and menus | C-owned registry, definition transactions and activation-scoped publication, QUERY/EXTRACT, capability/refusal records; default profile generated definitions; adapters for existing static actions. | One profile adds/replaces/removes a menu/item on terminal, GTK, browser and LLM; replay has no duplicates; no declaration executes code; late profile failure after explicit COMMIT retains the prior published graph; invalid reference creation/removal publishes nothing; cancellation and keyboard traversal preserve editor caret and pending command. |
 | 2. Panels and existing console | Named log/document panes, placement/fallback model, existing singleton job integration, typed stdout/stderr routes and semantic snapshots. Preserve `RX` commands. | Existing Classic/RXBIN run, input, EOF, Stop and hide/show work through all qualified hosts; wrong-host tools are disabled with reasons; source bytes/cursor/dirty/save state are preserved; wide/narrow/phone and real-PTY resize pass. |
-| 3. Forms and file fields | Independent named forms; qualified field renderers; read-only file views first, then staged editable projections after core edit-group/revision support. | Protected/Unicode fields, submit/cancel, readonly, stale revision, offscreen text/markup and multi-record validation tested. An accepted apply is undoable as specified and save/reopen matches bytes; cancelled/rejected apply changes nothing. |
+| 3. Forms and file fields | Independent named forms and qualified field renderers, then staged editable projections after core edit-group/revision support. Read-only document panes belong to phase 2. | Protected/Unicode fields, submit/cancel, readonly, stale revision, offscreen text/markup and multi-record validation tested. An accepted apply is undoable as specified and save/reopen matches bytes; cancelled/rejected apply changes nothing. |
 | 4. File IO and additional execution adapters | Bounded exact-byte file stdin and staged CREATE/REPLACE/APPEND output with conditional atomic publication; explicit native ooRexx/process registration and dependency/authority checks; DSLSH diagnostic panes without protocol rerouting. | File bytes, finite-input EOF, collisions/stale targets, readonly/workspace refusal, raw binary capture and failure-before-publication preservation pass on each qualified host; unsupported atomic modes refuse explicitly. Actual ooRexx executable on each claimed native platform; argv/IO/conditions/Stop preserve editor; browser refusal and stale parser replies are tested. No interpreter substitution. |
 | 5. Optional concurrency and persistence | Job table, selected job per pane, retained model quotas and user-selected durable workspace definitions. | Concurrent output/EOF/Stop never crosses job IDs; removing panes/owners retains Stop/log access; restore validates schema/cohort/trust and never restarts jobs automatically. |
 
@@ -602,7 +738,8 @@ Focused checks should extend `test_frontendaction`, `test_toolhost`,
 Agent/core checks use the real `the --driver llm` runtime; terminal input/resize
 uses a real PTY; browser behavior uses rendered browser acceptance. Run affected
 checks and the required complete candidate suite for implementation changes.
-No executable behavior changes in this proposal require a compiler/test run.
+Contract-only documentation/fixture edits require JSON and documentation
+validation; they do not by themselves require a compiler/test run.
 
 Required cross-cutting acceptance cases:
 
@@ -641,35 +778,38 @@ Required cross-cutting acceptance cases:
   and saved/reopened bytes. Hosted CI, installed packages, visual platform QA,
   signing and release qualification require their own evidence.
 
-## Decisions for Adrian
+## Settled defaults and qualification boundaries
 
-1. **Command naming:** use the proposed `WORKBENCH` family, or shorter separate
-   `MENU`/`PANEL`/`ROUTE` commands? Recommendation: one explicit family initially,
-   with user aliases through existing `SET SYNONYM`.
-2. **First scope:** stop after shared menus + named Program/log/read-only file
-   panes, or include independent forms in the first usable increment?
-   Recommendation: deliver menus/panes first; editable file fields follow a
-   separately proved revision/edit-group contract.
-3. **Panel layout:** allow arbitrary split trees, or editor centre plus ordered
-   left/right/below auxiliary regions with tab fallback? Recommendation: bounded
-   regions first; keep profile-defined minima and user splitter choices.
-4. **Source-run resolution:** retain a clearly labelled Classic Rexx action,
-   or resolve a generic Run through an explicit language/tool association?
-   Recommendation: keep existing Classic behavior; add generic Run only with a
-   visible resolved tool and an ambiguity refusal.
-5. **Persistence:** profiles recreate definitions, or also save interactive
-   workbench edits automatically? Recommendation: profiles authoritative first;
-   persist user layout preferences separately, never runnable state implicitly.
-6. **Concurrency:** retain one program job until all surfaces share the model,
-   or include a job table immediately? Recommendation: retain one initially,
-   reserve stable job IDs and detached-job access from the start.
-7. **Native authority:** initially support only explicitly registered
-   ooRexx/executables with argv, or also generic shell tools? Recommendation:
-   named adapters first; existing explicit `OS`/`!` remains available according
-   to current native policy without becoming a portable tool protocol.
-8. **Form layout:** fixed logical cell layout only, or optional labels/flow
-   hints for phone reflow? Recommendation: preserve fixed CTLCHAR semantics and
-   add flow hints only to independent named forms; never reflow file byte spans.
+The user's staged implementation order settles the first-scope decision. The
+proposal recommendations are the defaults for the remaining design choices:
+
+1. Use one explicit `WORKBENCH` command family; user aliases use existing
+   `SET SYNONYM` after the command exists.
+2. Deliver shared actions/menus, then named log/read-only document panes, then
+   independent forms and separately qualified editable file projections, then
+   exact file IO and additional execution adapters. Do not move editable fields
+   ahead of the core revision/edit-group proof.
+3. Use ordered left/right/below auxiliary regions with below/tab fallback,
+   preserving editor minima and explicit user splitter preferences. Arbitrary
+   split trees remain deferred.
+4. Retain a clearly labelled Classic Rexx action. A future generic Run requires
+   a visible explicit language/tool resolution and refusal on ambiguity.
+5. Profiles authoritatively recreate definitions. Persist user layout preferences
+   separately; never persist or automatically restart runnable state implicitly.
+6. Keep one program job initially, reserving stable job IDs and detached-job
+   Stop/status/log access. Language-service sessions remain separate.
+7. Register named native adapters/executables with separate argv. Existing
+   explicit `OS`/`!` follows native policy and does not become a shell tool
+   protocol or gain browser authority.
+8. Preserve fixed CTLCHAR cell semantics. Optional flow hints apply only to
+   independent named forms; file byte spans are never reflowed.
+
+The phase-1 limits are frozen implementation constraints. Numeric ceilings
+listed for phases 2 through 4 are explicit initial design defaults for those
+unimplemented, host-qualified stages; qualification may lower advertised limits
+before accepting work. Capability discovery must identify the actual phase and
+supported operations. Documentation of a later contract is not an availability
+claim, and source qualification is not hosted CI, installation or release proof.
 
 Tangents retained for later: generic terminal emulation, arbitrary native/DOM
 widgets, network plugin installation, shell pipelines, rich binary viewers and

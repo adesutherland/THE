@@ -24,7 +24,7 @@ release. CRXTHE is an independent fork based on Mark Hessling's THE 4.0.
 ## Developing and packaging
 
 - [Architecture and module ownership](architecture.md)
-- [Extensible workbench requirements and design proposal](workbench-extension-design.md)
+- [Extensible workbench staged design and frozen contract](workbench-extension-design.md)
 - [Cursor and driver contracts](cursor-driver-architecture.md)
 - [Driver operations](driver-vtable-review.md)
 - [Unicode text, layout and terminal profiles](utf-design.md)
