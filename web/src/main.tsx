@@ -14,7 +14,8 @@ import {
   X,
   Menu,
 } from "lucide-preact";
-import type { DriverMessage, FileListMessage, FrontendActionDefinition, ScreenRow, Snapshot, StyleRun } from "./types";
+import type { DriverMessage, FileListMessage, FrontendActionDefinition, ScreenRow, Snapshot, StyleRun, WorkbenchActionDefinition, WorkbenchPage } from "./types";
+import { WorkbenchPageCollector, type WorkbenchCatalog } from "./workbench";
 import "./styles.css";
 import {RexxConsole, type ToolSession} from './rexx-console';
 import { consoleColourVariables, diagnosticColourVariables, renderColour as panelColour } from "./colours";
@@ -158,6 +159,7 @@ function App() {
   const [command, setCommand] = useState("");
   const [commandFocused, setCommandFocused] = useState(false);
   const [actions, setActions] = useState<FrontendActionDefinition[]>([]);
+  const [workbench, setWorkbench] = useState<WorkbenchCatalog | null>(null);
   const [openMenu, setOpenMenu] = useState<"application" | "about" | null>(null);
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [runRequest, setRunRequest] = useState(0);
@@ -167,13 +169,15 @@ function App() {
   const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [commandHistoryOpen, setCommandHistoryOpen] = useState(false);
   const [dockEntries, setDockEntries] = useState<DockEntry[]>([]);
-  const [pathAction, setPathAction] = useState<FrontendActionDefinition | null>(null);
+  const [pathAction, setPathAction] = useState<FrontendActionDefinition | WorkbenchActionDefinition | null>(null);
+  const [explorerAction, setExplorerAction] = useState<WorkbenchActionDefinition | null>(null);
   const [pathValue, setPathValue] = useState("");
   const [explorerOpen, setExplorerOpen] = useState(false);
   const [files, setFiles] = useState<FileListMessage | null>(null);
   const socketRef = useRef<EditorTransport | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const commandInputRef = useRef<HTMLInputElement | null>(null);
+  const pathInputRef = useRef<HTMLInputElement | null>(null);
   const nextId = useRef(1);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
@@ -189,6 +193,10 @@ function App() {
   const consoleButtonRef = useRef<HTMLButtonElement | null>(null);
   const mobileConsoleButtonRef = useRef<HTMLButtonElement | null>(null);
   const menuReturnRef = useRef<HTMLElement | null>(null);
+  const pathReturnRef = useRef<HTMLElement | null>(null);
+  const workbenchPagesRef = useRef(new WorkbenchPageCollector());
+  const workbenchSessionRef = useRef("");
+  const workbenchNextRequestRef = useRef(1);
   const responseLogRef = useRef<HTMLDivElement | null>(null);
   const followingResponsesRef = useRef(true);
   const lastShownJob = useRef(0);
@@ -208,6 +216,22 @@ function App() {
   }, []);
 
   const focusEditor = useCallback(() => inputRef.current?.focus(), []);
+  const rememberPathFocus = useCallback(() => {
+    const active = document.activeElement;
+    pathReturnRef.current = menuRef.current?.contains(active)
+      ? menuReturnRef.current
+      : active instanceof HTMLElement ? active : null;
+  }, []);
+  const closePathDialog = useCallback(() => {
+    const prior = pathReturnRef.current;
+    pathReturnRef.current = null;
+    setPathAction(null);
+    window.setTimeout(() => {
+      if (prior?.isConnected && !prior.matches(":disabled") && prior.getClientRects().length)
+        prior.focus();
+      else focusEditor();
+    }, 0);
+  }, [focusEditor]);
 
   useEffect(() => {
     const token = new URLSearchParams(window.location.search).get("token") ?? "";
@@ -229,6 +253,9 @@ function App() {
         retryAttempt = 0;
         viewportSizeRef.current = "";
         setConnection("online");
+        workbenchPagesRef.current.reset();
+        workbenchSessionRef.current = "";
+        setWorkbench(null);
         setLastError("");
         window.setTimeout(focusEditor, 0);
       };
@@ -255,7 +282,11 @@ function App() {
       socket.onmessage = (event) => {
         try {
           const message = (typeof event.data === 'string' ? JSON.parse(event.data) : event.data) as Snapshot | DriverMessage;
-          if ("type" in message && message.type === "tools") {
+          if ("type" in message && message.type === "hello") {
+            const hello = message as DriverMessage;
+            workbenchSessionRef.current = hello.workbenchSession ?? "";
+            workbenchNextRequestRef.current = hello.workbenchNextRequest ?? 1;
+          } else if ("type" in message && message.type === "tools") {
             setToolSession(message as unknown as ToolSession);
 
           } else if ("type" in message && message.type === "storage") {
@@ -280,6 +311,23 @@ function App() {
             setLastError("");
           } else if ("type" in message && message.type === "actions" && message.actions) {
             setActions(message.actions);
+          } else if ("type" in message && message.type === "workbench" && (message as { operation?: string }).operation === "list") {
+            const listing = message as unknown as { data: WorkbenchPage; publication?: number };
+            const catalog = workbenchPagesRef.current.accept(listing.data, listing.publication);
+            if (catalog) setWorkbench(catalog);
+          } else if ("type" in message && message.type === "workbench" && (message as { operation?: string }).operation === "result") {
+            const result = message as { code?: string; message?: string; requestId?: string };
+            const prefix = `${workbenchSessionRef.current}.`;
+            if (result.requestId?.startsWith(prefix)) {
+              const sequence = Number(result.requestId.slice(prefix.length));
+              if (Number.isSafeInteger(sequence) && sequence > 0)
+                workbenchNextRequestRef.current = Math.max(workbenchNextRequestRef.current, sequence + 1);
+            }
+            if (result.code && result.code !== "ok") {
+              const reason = result.message || result.code;
+              setLastError(reason);
+              appendDockEntry("error", reason);
+            }
           } else if ("type" in message && message.type === "files") {
             setFiles(message as FileListMessage);
           } else if ("type" in message && message.type === "error") {
@@ -354,6 +402,13 @@ function App() {
     if (openMenu) menuRef.current?.querySelector<HTMLButtonElement>(".menu-popover button:not(:disabled)")?.focus();
   }, [openMenu]);
 
+  useLayoutEffect(() => {
+    if (!pathAction) return;
+    pathInputRef.current?.focus();
+    const focus = window.setTimeout(() => pathInputRef.current?.focus(), 0);
+    return () => window.clearTimeout(focus);
+  }, [pathAction]);
+
   useEffect(() => {
     if (toolSession?.job.id && toolSession.job.id !== lastShownJob.current) {
       lastShownJob.current = toolSession.job.id;
@@ -388,6 +443,18 @@ function App() {
     [focusEditor, send],
   );
 
+  const sendWorkbenchAction = useCallback((action: WorkbenchActionDefinition, argument?: string) => {
+    if (!workbenchSessionRef.current) {
+      setLastError("Workbench session is not ready");
+      return;
+    }
+    send({ type: "workbench", version: 1, operation: "invoke",
+      requestId: `${workbenchSessionRef.current}.${workbenchNextRequestRef.current++}`, action: action.id,
+      expectGeneration: action.generation, ...(argument === undefined ? {} : { argument }) });
+    setOpenMenu(null);
+    window.setTimeout(focusEditor, 0);
+  }, [focusEditor, send]);
+
   const actionById = useMemo(
     () => new Map(actions.map((action) => [action.id, action])),
     [actions],
@@ -406,20 +473,46 @@ function App() {
       if (!action) return;
       setOpenMenu(null);
       if (id === "file.open" && argument === undefined) {
+        setExplorerAction(null);
         setExplorerOpen(true);
         setMobilePane("files");
         requestFiles();
         return;
       }
       if (action.requires_argument && argument === undefined) {
+        rememberPathFocus();
         setPathValue("");
         setPathAction(action);
         return;
       }
       sendAction(id, argument ?? "");
     },
-    [actionById, requestFiles, sendAction],
+    [actionById, rememberPathFocus, requestFiles, sendAction],
   );
+
+  const requestWorkbenchAction = useCallback((action: WorkbenchActionDefinition, argument?: string) => {
+    if (action.reason !== "ok" && action.reason !== "argument-required") return;
+    if (action.kind === "builtin" && action.builtin === "file.open"
+        && !action.operand && argument === undefined) {
+      setExplorerAction(action);
+      setExplorerOpen(true);
+      setMobilePane("files");
+      requestFiles();
+      setOpenMenu(null);
+      return;
+    }
+    if ((action.reason === "argument-required"
+        || (action.kind === "builtin" && !action.operand
+            && ["file.create", "buffer.switch"].includes(action.builtin)))
+        && argument === undefined) {
+      rememberPathFocus();
+      setPathAction(action);
+      setPathValue("");
+      setOpenMenu(null);
+      return;
+    }
+    sendWorkbenchAction(action, argument);
+  }, [rememberPathFocus, requestFiles, sendWorkbenchAction]);
 
   const footerRows = useMemo(() => snapshot?.panel ? [] :
     (snapshot?.screen_rows ?? []).filter(isFooterRow), [snapshot?.screen_rows, !!snapshot?.panel]);
@@ -605,6 +698,15 @@ function App() {
   const prefixCols = snapshot?.viewport?.prefix_cols ?? 7;
   const prefixGap = snapshot?.viewport?.prefix_gap ?? 1;
   const menus = useMemo(() => {
+    if (workbench) {
+      const actionById = new Map(workbench.actions.map((action) => [action.id, action]));
+      return [...workbench.menus]
+        .sort((a, b) => a.order - b.order)
+        .map((menu) => ({ id: menu.id, label: menu.label, entries: [...workbench.items]
+          .filter((item) => item.menu === menu.id)
+          .sort((a, b) => a.order - b.order)
+          .map((item) => ({ item, action: actionById.get(item.action) })) }));
+    }
     const result = new Map<string, FrontendActionDefinition[]>();
     for (const action of actions) {
       if (!action.menu) continue;
@@ -612,8 +714,9 @@ function App() {
       entries.push(action);
       result.set(action.menu, entries);
     }
-    return [...result.entries()];
-  }, [actions]);
+    return [...result.entries()].map(([label, entries]) => ({ id: label, label,
+      entries: entries.map((action) => ({ item: { id: action.id, label: action.label, separator: false }, action })) }));
+  }, [actions, workbench]);
 
   const hitRow = useCallback(
     (event: MouseEvent, row: ScreenRow, target: "filearea" | "prefix") => {
@@ -656,7 +759,14 @@ function App() {
         <div class="menu-root" ref={menuRef}>
           <button type="button" ref={menuButtonRef} class={`menu-trigger ${openMenu ? "menu-trigger-open" : ""}`}
             aria-expanded={!!openMenu} aria-controls="application-menu"
-            onClick={() => { menuReturnRef.current = menuButtonRef.current; setOpenMenu(openMenu ? null : "application"); }}><Menu size={16} /> Menu</button>
+            onPointerDown={() => {
+              const active = document.activeElement;
+              menuReturnRef.current = active instanceof HTMLElement ? active : menuButtonRef.current;
+            }}
+            onClick={(event) => {
+              if (event.detail === 0) menuReturnRef.current = menuButtonRef.current;
+              setOpenMenu(openMenu ? null : "application");
+            }}><Menu size={16} /> Menu</button>
           {openMenu ? <nav id="application-menu" class={`menu-popover ${openMenu === "about" ? "about-menu" : ""}`} aria-label={openMenu === "about" ? "About CRXTHE" : "Application menu"}>
             {openMenu === "about" ? <>
               <button type="button" onClick={() => setOpenMenu("application")}>← Back to Menu</button>
@@ -667,12 +777,19 @@ function App() {
                 <p>Help describes editor commands. Key definitions shows the active profile’s bindings.</p>
               </section>
             </> : <>
-            {menus.map(([menu, entries]) => <section key={menu} aria-label={menu}>
-              <h2>{menu}</h2>
-              {entries.map((action) => <button type="button" onClick={() => requestAction(action.id)}>
-                <span>{action.label}</span>
-                <kbd>{action.id === "file.create" ? "Ctrl+N" : action.id === "file.open" ? "Ctrl+O" : action.id === "file.save" ? "Ctrl+S" : action.id === "file.close" ? "Ctrl+W" : action.id === "edit.undo" ? "Ctrl+Z" : ""}</kbd>
-              </button>)}
+            {menus.map((menu) => <section key={menu.id} aria-label={menu.label} data-menu-id={menu.id}>
+              <h2>{menu.label}</h2>
+              {menu.entries.map(({ item, action }) => item.separator ? <hr key={item.id} /> : action ? <button
+                key={item.id} type="button" data-item-id={item.id}
+                data-action-id={action.id} data-generation={"generation" in action ? action.generation : undefined}
+                disabled={"generation" in action && action.reason !== "ok" && action.reason !== "argument-required"}
+                title={"generation" in action && action.reason !== "ok" && action.reason !== "argument-required" ? action.reason : undefined}
+                onClick={() => "generation" in action ? requestWorkbenchAction(action) : requestAction(action.id)}>
+                <span>{item.label}</span>
+                <kbd>{("generation" in action ? action.builtin : action.id) === "file.create" ? "Ctrl+N" : ("generation" in action ? action.builtin : action.id) === "file.open" ? "Ctrl+O" : ("generation" in action ? action.builtin : action.id) === "file.save" ? "Ctrl+S" : ("generation" in action ? action.builtin : action.id) === "file.close" ? "Ctrl+W" : ("generation" in action ? action.builtin : action.id) === "edit.undo" ? "Ctrl+Z" : ""}</kbd>
+                {"generation" in action && action.reason !== "ok" && action.reason !== "argument-required"
+                  ? <small class="menu-action-reason">{action.reason.replaceAll("-", " ")}</small> : null}
+              </button> : null)}
             </section>)}
             <section aria-label="Workbench"><h2>Workbench</h2>
               <button type="button" onClick={() => { toggleFiles(); setOpenMenu(null); }}>Files</button>
@@ -781,7 +898,10 @@ function App() {
                   onClick={() => {
                     if (entry.type === "directory") requestFiles(files?.root ?? 0, entry.path);
                     else {
-                      requestAction("file.open", entry.target);
+                      if (explorerAction) {
+                        requestWorkbenchAction(explorerAction, entry.target);
+                        setExplorerAction(null);
+                      } else requestAction("file.open", entry.target);
                       setExplorerOpen(false);
                     }
                   }}
@@ -935,24 +1055,30 @@ function App() {
 
       {pathAction ? (
         <div class="dialog-backdrop" role="presentation" onMouseDown={(event) => {
-          if (event.currentTarget === event.target) setPathAction(null);
+          if (event.currentTarget === event.target) closePathDialog();
         }}>
-          <form class="path-dialog" role="dialog" aria-modal="true" aria-labelledby="path-dialog-title" onSubmit={(event) => {
+          <form class="path-dialog" role="dialog" aria-modal="true" aria-labelledby="path-dialog-title"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault(); event.stopPropagation(); closePathDialog();
+            }
+          }} onSubmit={(event) => {
             event.preventDefault();
-            const value = pathValue.trim();
-            if (!value) return;
-            sendAction(pathAction.id, value);
+            if (!pathValue) return;
+            const value = pathValue;
+            if ("generation" in pathAction) sendWorkbenchAction(pathAction, value);
+            else sendAction(pathAction.id, value);
             setPathAction(null);
           }}>
             <div class="dialog-heading">
               <h2 id="path-dialog-title">{pathAction.label} file</h2>
-              <button class="icon-button" type="button" aria-label="Close" title="Close" onClick={() => setPathAction(null)}><X size={17} /></button>
+              <button class="icon-button" type="button" aria-label="Close" title="Close" onClick={closePathDialog}><X size={17} /></button>
             </div>
             <label for="file-path">Path</label>
-            <input id="file-path" autoFocus value={pathValue} onInput={(event) => setPathValue(event.currentTarget.value)} spellcheck={false} autoComplete="off" />
+            <input id="file-path" ref={pathInputRef} autoFocus value={pathValue} onInput={(event) => setPathValue(event.currentTarget.value)} spellcheck={false} autoComplete="off" />
             <div class="dialog-actions">
-              <button type="button" onClick={() => setPathAction(null)}>Cancel</button>
-              <button type="submit" class="primary-command" disabled={!pathValue.trim()}>{pathAction.label}</button>
+              <button type="button" onClick={closePathDialog}>Cancel</button>
+              <button type="submit" class="primary-command" disabled={!pathValue}>{pathAction.label}</button>
             </div>
           </form>
         </div>

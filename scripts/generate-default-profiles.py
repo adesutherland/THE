@@ -45,6 +45,24 @@ def generated():
         # retain terminal clipboard shortcuts rather than bind unsupported APIs.
         lines += ["if left(platform,3) = 'WIN' then do", "  'define c-c clipboard copy';",
                   "  'define c-x clipboard cut';", "  'define c-v clipboard paste';", 'end']
+        # Shared session definitions are data. A successful profile activation
+        # publishes this graph; declaring it never invokes the commands.
+        workbench = ['workbench begin owner profile.default',
+                     'workbench reset owner profile.default',
+                     'workbench menu put profile.workbench label "Workbench" order 30']
+        for index, (label, command) in enumerate(data.get('native_menu', []), 1):
+            action = 'profile.action.' + str(index)
+            item = 'profile.item.' + str(index)
+            escaped_label = label.replace('"', '""')
+            escaped_command = command.format(suffix=suffix).replace('"', '""')
+            builtin = {'save': 'file.save', 'quit': 'file.close', 'sos undo': 'edit.undo'}.get(command)
+            invocation = ('builtin ' + builtin) if builtin else ('command "' + escaped_command + '"')
+            workbench += ['workbench action put ' + action + ' label "' + escaped_label +
+                          '" ' + invocation,
+                          'workbench item put profile.workbench ' + item + ' label "' +
+                          escaped_label + '" action ' + action + ' order ' + str(index)]
+        workbench += ['workbench commit']
+        shared_lines = [quote(command) + ';' for command in workbench]
         native = [quote(command.format(suffix=suffix)) + ';'
                   for command in data.get('native_commands', [])]
         # UI describes the active runtime driver. Keep GTK's editing binding;
@@ -57,7 +75,7 @@ def generated():
                        "if pos('CURSES', translate(ui.1)) > 0 then do"]
         native += ['  ' + quote(command.format(suffix=suffix)) + ';'
                    for command in data.get('curses_commands', [])] + ['end']
-        result[filename] = '\n'.join(lines + native) + '\n'
+        result[filename] = '\n'.join(lines + shared_lines + native) + '\n'
         restricted = [quote(command) + ';' for command in
                       ['set impos off','set impmacro off','set macro off','set linend off','set synonym on']]
         web = [quote(command.format(suffix=suffix)) + ';'

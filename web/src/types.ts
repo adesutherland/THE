@@ -89,6 +89,8 @@ export interface Snapshot {
 
 export interface DriverMessage {
   type: string;
+  workbenchSession?: string;
+  workbenchNextRequest?: number;
   id?: number;
   message?: string;
   actions?: FrontendActionDefinition[];
@@ -99,6 +101,47 @@ export interface FrontendActionDefinition {
   menu: string | null;
   label: string;
   requires_argument: boolean;
+}
+
+export interface WorkbenchActionDefinition {
+  id: string;
+  owner: string;
+  label: string;
+  generation: number;
+  kind: "builtin" | "command" | "macro";
+  builtin: string;
+  operand: string;
+  enabled: boolean;
+  reason: string;
+}
+
+export interface WorkbenchMenuDefinition {
+  id: string;
+  owner: string;
+  label: string;
+  generation: number;
+  order: number;
+}
+
+export interface WorkbenchItemDefinition {
+  id: string;
+  owner: string;
+  label: string;
+  generation: number;
+  menu: string;
+  action: string;
+  order: number;
+  separator: boolean;
+}
+
+export interface WorkbenchPage {
+  schemaVersion: 1;
+  revision: number;
+  section: "actions" | "menus" | "items";
+  total: number;
+  offset: number;
+  nextOffset: number | null;
+  records: WorkbenchActionDefinition[] | WorkbenchMenuDefinition[] | WorkbenchItemDefinition[];
 }
 
 export interface WorkspaceRoot {

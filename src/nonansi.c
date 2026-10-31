@@ -136,7 +136,17 @@ short remove_file(CHARTYPE *filename)
    return(RC_OK);
 }
 /***********************************************************************/
-void convert_equals_in_filename(CHARTYPE *outfilename,CHARTYPE *infilename)
+static int filename_append(CHARTYPE *out, const CHARTYPE *part)
+{
+   size_t used = strlen((DEFCHAR *)out);
+   size_t count = part ? strlen((const char *)part) : 0;
+   if (count > MAX_FILE_NAME - used) return 0;
+   if (count) memcpy(out + used,part,count);
+   out[used + count] = '\0';
+   return 1;
+}
+/***********************************************************************/
+short convert_equals_in_filename(CHARTYPE *outfilename,CHARTYPE *infilename)
 /***********************************************************************/
 {
   /*
@@ -164,6 +174,11 @@ void convert_equals_in_filename(CHARTYPE *outfilename,CHARTYPE *infilename)
 #endif
 /*--------------------------- processing ------------------------------*/
    TRACE_FUNCTION("nonansi.c: convert_equals_in_filename");
+   if (!outfilename || !infilename || strlen((DEFCHAR *)infilename) > MAX_FILE_NAME)
+   {
+      TRACE_RETURN();
+      return RC_BAD_FILEID;
+   }
    /*
     * If we don't have a current file, or there are no equivalence chars
     * just copy the incoming filename to the outgoing filename...
@@ -174,7 +189,7 @@ void convert_equals_in_filename(CHARTYPE *outfilename,CHARTYPE *infilename)
    {
       strcpy( (DEFCHAR *)outfilename, (DEFCHAR *)infilename );
       TRACE_RETURN();
-      return;
+      return RC_OK;
    }
   /*
    * Split the incoming file name into 2 or 3 pieces; fpath/filename or
@@ -219,6 +234,11 @@ void convert_equals_in_filename(CHARTYPE *outfilename,CHARTYPE *infilename)
    /*
     * Split the current filename and path into its component parts
     */
+   if (strlen((DEFCHAR *)CURRENT_FILE->fpath) + strlen((DEFCHAR *)CURRENT_FILE->fname) > MAX_FILE_NAME)
+   {
+      TRACE_RETURN();
+      return RC_BAD_FILEID;
+   }
    strcpy( (DEFCHAR *)current_filename, (DEFCHAR *)CURRENT_FILE->fpath );
    strcat( (DEFCHAR *)current_filename, (DEFCHAR *)CURRENT_FILE->fname );
 #if defined(WIN32) && !defined(__CYGWIN32__)
@@ -259,42 +279,43 @@ void convert_equals_in_filename(CHARTYPE *outfilename,CHARTYPE *infilename)
    /*
     * Now its time to put the new file name together
     */
+   outfilename[0] = '\0';
 #if defined(WIN32) && !defined(__CYGWIN32__)
    if ( in_fmode && !equal( in_fmode, EQUIVCHARstr, 1 ) )
-      strcpy( (DEFCHAR *)outfilename, (DEFCHAR *)in_fmode );
+   {
+      if (!filename_append(outfilename,in_fmode)) goto conversion_error;
+   }
    else if ( current_fmode )
-      strcpy( (DEFCHAR *)outfilename, (DEFCHAR *)current_fmode );
-   else
-      strcpy( (DEFCHAR *)outfilename, "" );
-   if ( *outfilename != '\0' )
-      strcat( (DEFCHAR *)outfilename, ":" );
-#else
-   strcpy( (DEFCHAR *)outfilename, "" );
+   {
+      if (!filename_append(outfilename,current_fmode)) goto conversion_error;
+   }
+   if (*outfilename != '\0' && !filename_append(outfilename,(CHARTYPE *)":"))
+      goto conversion_error;
 #endif
-   if ( in_fpath && !equal( in_fpath, EQUIVCHARstr, 1 ) )
-      strcat( (DEFCHAR *)outfilename, (DEFCHAR *)in_fpath );
-   else
-      strcat( (DEFCHAR *)outfilename, (DEFCHAR *)current_fpath );
-   strcat( (DEFCHAR *)outfilename, (DEFCHAR *)ISTR_SLASH );
-   if ( in_fname && !equal( in_fname, EQUIVCHARstr, 1 ) )
-      strcat( (DEFCHAR *)outfilename, (DEFCHAR *)in_fname );
-   else
-      strcat( (DEFCHAR *)outfilename, (DEFCHAR *)current_fname );
+   if (!filename_append(outfilename,
+           in_fpath && !equal(in_fpath,EQUIVCHARstr,1) ? in_fpath : current_fpath)
+   || !filename_append(outfilename,ISTR_SLASH)
+   || !filename_append(outfilename,
+           in_fname && !equal(in_fname,EQUIVCHARstr,1) ? in_fname : current_fname))
+      goto conversion_error;
    if ( in_ftype && !equal( in_ftype, EQUIVCHARstr, 1 ) )
    {
-      strcat( (DEFCHAR *)outfilename, "." );
-      strcat( (DEFCHAR *)outfilename, (DEFCHAR *)in_ftype );
+      if (!filename_append(outfilename,(CHARTYPE *)".")) goto conversion_error;
+      if (!filename_append(outfilename,in_ftype)) goto conversion_error;
    }
    else
    {
       if ( current_ftype )
       {
-         strcat( (DEFCHAR *)outfilename, "." );
-         strcat( (DEFCHAR *)outfilename, (DEFCHAR *)current_ftype );
+         if (!filename_append(outfilename,(CHARTYPE *)".")) goto conversion_error;
+         if (!filename_append(outfilename,current_ftype)) goto conversion_error;
       }
    }
    TRACE_RETURN();
-   return;
+   return RC_OK;
+conversion_error:
+   TRACE_RETURN();
+   return RC_BAD_FILEID;
 }
 
 #if defined(WIN32) && !defined(__CYGWIN32__)
@@ -424,6 +445,11 @@ short splitpath(CHARTYPE *filename)
 
    TRACE_FUNCTION("nonansi.c: splitpath");
 
+   if (!filename || strlen((DEFCHAR *)filename) > MAX_FILE_NAME)
+   {
+      TRACE_RETURN();
+      return RC_BAD_FILEID;
+   }
    normalize_windows_shell_path(normalized_filename,
                                 sizeof(normalized_filename), filename);
    filename = normalized_filename;
@@ -442,7 +468,11 @@ short splitpath(CHARTYPE *filename)
    }
    strcpy(sp_path,"");
    strcpy(sp_fname,"");
-   convert_equals_in_filename( conv_filename, filename );
+   if (convert_equals_in_filename(conv_filename,filename) != RC_OK)
+   {
+      TRACE_RETURN();
+      return RC_BAD_FILEID;
+   }
    strcpy( work_filename, conv_filename );
    /*
     * If the supplied filename is empty, set the path = cwd and filename
@@ -480,7 +510,13 @@ short splitpath(CHARTYPE *filename)
     * Save the current working directory on the specified drive, or the
     * current drive if not specified.
     */
-   getcwd(current_dir,MAX_FILE_NAME);
+   if (getcwd(current_dir,MAX_FILE_NAME) == NULL)
+   {
+      if (new_dos_disk != current_dos_disk) _chdrive(current_dos_disk);
+      chdir(curr_path);
+      TRACE_RETURN();
+      return RC_BAD_FILEID;
+   }
    /*
     * If the work_filename contains a drive specifier, special handling is
     * needed.
@@ -501,6 +537,14 @@ short splitpath(CHARTYPE *filename)
          if (*(conv_filename+1) == ':'
          &&  *(conv_filename+2) != ISLASH)
          {
+            if (strlen((DEFCHAR *)current_dir) + strlen((DEFCHAR *)conv_filename+2)
+               + (current_dir[strlen((DEFCHAR *)current_dir)-1] == ISLASH ? 0 : 1) > MAX_FILE_NAME)
+            {
+               if (new_dos_disk != current_dos_disk) _chdrive(current_dos_disk);
+               chdir(curr_path);
+               TRACE_RETURN();
+               return RC_BAD_FILEID;
+            }
             strcpy(work_filename,current_dir);
             if (current_dir[strlen(current_dir)-1] != ISLASH)
                strcat(work_filename,ISTR_SLASH);
@@ -615,7 +659,11 @@ short splitpath(CHARTYPE *filename)
    }
    strcpy( (DEFCHAR *)sp_path, "" );
    strcpy( (DEFCHAR *)sp_fname, "" );
-   convert_equals_in_filename( conv_filename, filename );
+   if (convert_equals_in_filename(conv_filename,filename) != RC_OK)
+   {
+      TRACE_RETURN();
+      return RC_BAD_FILEID;
+   }
    if ( strlen( (DEFCHAR *)conv_filename ) > MAX_FILE_NAME )
    {
       TRACE_RETURN();
@@ -664,6 +712,11 @@ short splitpath(CHARTYPE *filename)
          {
             TRACE_RETURN();
             return(RC_BAD_FILEID);
+         }
+         if (strlen(pwd->pw_dir) + (len == -1 ? 0 : strlen((DEFCHAR *)(conv_filename+1+len))) > MAX_FILE_NAME)
+         {
+            TRACE_RETURN();
+            return RC_BAD_FILEID;
          }
          strcpy((DEFCHAR *)work_filename,pwd->pw_dir);
          if (len != (-1))

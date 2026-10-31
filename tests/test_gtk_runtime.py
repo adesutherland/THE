@@ -19,9 +19,12 @@ def main():
                            THE_GTK_PROBE_DIR=directory,
                            THE_GTK_PROBE_SCREENSHOT=screenshot,
                            THE_TOOL_CONFIG_DIR=str(root / "tool-config"))
-        completed = subprocess.run([binary, "--driver", "gtk", str(root / "sample.txt")],
-                                   cwd=directory, env=environment, text=True,
-                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=55)
+        try:
+            completed = subprocess.run([binary, "--driver", "gtk", str(root / "sample.txt")],
+                                       cwd=directory, env=environment, text=True,
+                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=55)
+        except subprocess.TimeoutExpired as error:
+            raise AssertionError((error.stdout, error.stderr)) from error
         if "GTK 3 could not open a display" in completed.stderr + completed.stdout:
             print("SKIP: a GTK display is required; use xvfb-run on Linux")
             return 77
@@ -30,6 +33,7 @@ def main():
         for marker in ("GTK_OPEN_EDIT_CURSOR_DIRTY_SAVE_REOPEN_PASS",
                        "GTK_DEFAULT_PALETTE_STATUS_RESERVED_TYPE_BACKSPACE_UNDO_SAVE_PASS",
                        "GTK_APPLICATION_NATIVE_MENUS_SAFE_QUEUED_ACTIONS_PASS",
+                       "GTK_SHARED_MENU_UTF8_LABEL_REVISION_ID_GENERATION_PASS",
                        "GTK_WORKBENCH_SHIFT_TAB_ESC_CARET_DRAFT_TAB_PASS",
                        "GTK_PROFILE_GUIDE_VISIBLE_WIDE_AND_NARROW_PASS",
                        "GTK_NATIVE_QUIT_RETAINS_UNSAVED_TEXT_AND_FILE_BYTES_PASS",

@@ -7,6 +7,7 @@
 #include "vars.h"
 #include "headlessdriver.h"
 #include "websession.h"
+#include "workbench.h"
 #include "editorsource.h"
 #include "tools.h"
 void the_tools_wasm_initialise(int);
@@ -19,6 +20,10 @@ static TheDriverOps operations;
 static int input_timeout = -1;
 static void (*base_update)(void);
 static char snapshot[262144];
+static unsigned long workbench_revision;
+static unsigned long workbench_publication;
+static TheWebWorkbenchReasonState workbench_reasons;
+static TheWebWorkbenchReceipts workbench_receipts;
 
 int main(int argc, char **argv);
 EMSCRIPTEN_KEEPALIVE int the_wasm_has_highlighter(void)
@@ -55,6 +60,45 @@ EMSCRIPTEN_KEEPALIVE int the_wasm_main(void)
 EM_JS(void, browser_send, (const char *text), {
    Module.sendEditorMessage(JSON.parse(UTF8ToString(text)));
 });
+
+static void browser_send_workbench_page(const char *text, size_t length,
+                                        void *context)
+{
+   (void)length; (void)context;
+   browser_send(text);
+}
+
+static void publish_workbench(void)
+{
+   unsigned long current = the_workbench_revision();
+   int reasons_changed = the_web_workbench_reasons_changed(&workbench_reasons);
+   if (current != workbench_revision || reasons_changed)
+   {
+      the_web_publish_workbench(browser_send_workbench_page, NULL,
+                                ++workbench_publication);
+      workbench_revision = current;
+   }
+}
+
+static void browser_send_workbench_receipt(const TheWebWorkbenchReceipt *receipt)
+{
+   char message[1024];
+   if (the_web_format_workbench_receipt(message,sizeof(message),receipt))
+      browser_send(message);
+}
+
+static void browser_send_workbench_refusal(const char *request_id,
+   const char *code, const char *message)
+{
+   TheWebWorkbenchReceipt receipt;
+   memset(&receipt,0,sizeof(receipt));
+   snprintf(receipt.request_id,sizeof(receipt.request_id),"%s",request_id ? request_id : "");
+   snprintf(receipt.code,sizeof(receipt.code),"%s",code);
+   snprintf(receipt.message,sizeof(receipt.message),"%s",message);
+   receipt.rc = -3;
+   receipt.revision = the_workbench_revision();
+   browser_send_workbench_receipt(&receipt);
+}
 EM_JS(void, browser_source, (int request, unsigned id, unsigned revision,
                            const char *source, size_t length, const char *path,
                            const char *name, const char *error), {
@@ -86,6 +130,15 @@ EM_JS(int, browser_integer, (const char *field, int fallback), {
 EM_JS(char *,browser_payload,(const char *field,int limit),{
  const value=Module.editorRequest[UTF8ToString(field)];if(typeof value!=='string')return 0;const n=lengthBytesUTF8(value)+1;if(n>limit)return 0;const p=_malloc(n);if(p)stringToUTF8(value,p,n);return p;
 });
+EM_JS(int,browser_workbench_string_valid,(const char *field,int optional),{
+ const value=Module.editorRequest[UTF8ToString(field)];
+ return value===undefined ? optional : typeof value==='string' && !value.includes('\0');
+});
+EM_JS(void,browser_workbench_nonce,(char *out,int capacity),{
+ const bytes=new Uint8Array(12);
+ globalThis.crypto.getRandomValues(bytes);
+ stringToUTF8(Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join(""),out,capacity);
+});
 EM_JS(void,browser_output,(unsigned id,int fd),{const b=Module.editorRequest.bytes;if(!(b instanceof Uint8Array)||b.length>1048576)return;const p=_malloc(b.length);if(p){HEAPU8.set(b,p);_the_tools_wasm_output(id,fd,p,b.length);_free(p);}});
 EMSCRIPTEN_KEEPALIVE void the_tools_wasm_output(unsigned id,int fd,const void *b,size_t n){the_tool_output(id,fd,b,n);}
 #ifdef THE_WASM_HIGHLIGHT
@@ -108,12 +161,16 @@ EM_ASYNC_JS(int, the_wasm_flush_workspace, (), {
 static void publish(void)
 {
    const TheEditorSource *source = NULL;
+   const TheWebWorkbenchReceipt *completed =
+      the_web_workbench_receipt_complete(&workbench_receipts);
+   if (completed) browser_send_workbench_receipt(completed);
 #if defined(THE_WASM_HIGHLIGHT) || defined(THE_WASM_INTERPRETER)
    source = the_editor_source_prepare();
 #endif
 #ifdef THE_WASM_HIGHLIGHT
    the_wasm_highlight_prepare();
 #endif
+   publish_workbench();
    if (the_web_format_snapshot(snapshot, sizeof(snapshot)))
    {
       size_t used = strlen(snapshot);
@@ -144,8 +201,14 @@ static void publish(void)
 
 static int activate(void)
 {
+   char nonce[THE_WEB_WORKBENCH_NONCE_MAX + 1];
    the_tools_wasm_initialise(the_wasm_has_interpreter());
    the_input_queue_init(&inputs);
+   browser_workbench_nonce(nonce,sizeof(nonce));
+   the_web_workbench_receipts_init(&workbench_receipts,nonce);
+   workbench_revision = 0;
+   workbench_publication = 0;
+   memset(&workbench_reasons, 0, sizeof(workbench_reasons));
    headless_driver_reset();
    return 1;
 }
@@ -153,10 +216,16 @@ static int activate(void)
 static int startup(const TheDriverStartupOptions *options, char *error, size_t capacity)
 {
    char catalog[4096];
+   char hello[256];
    (void)options; (void)error; (void)capacity;
-   browser_send("{\"type\":\"hello\",\"protocol\":1,\"driver\":\"wasm\"}");
+   snprintf(hello,sizeof(hello),
+      "{\"type\":\"hello\",\"protocol\":1,\"driver\":\"wasm\","
+      "\"workbenchSession\":\"%s\",\"workbenchNextRequest\":%llu}",
+      workbench_receipts.nonce,workbench_receipts.high_water + 1);
+   browser_send(hello);
    if (the_wasm_has_interpreter()) browser_send("{\"type\":\"interpreter\",\"available\":true}");
    if (the_web_format_actions(catalog, sizeof(catalog))) browser_send(catalog);
+   publish_workbench();
    return 1;
 }
 
@@ -167,9 +236,70 @@ static int read_input(TheInputEvent *event)
       char type[32], value[1024], argument[THE_FRONTEND_ACTION_ARGUMENT_MAX + 1];
       const char *field;
       int queued;
-      if (the_input_queue_pop(&inputs, event)) return 1;
+      if (the_input_queue_pop(&inputs, event)) {
+         if (event->kind == THE_INPUT_WORKBENCH_INVOKE)
+            the_web_workbench_receipt_dispatched(&workbench_receipts);
+         return 1;
+      }
       if (!browser_wait(input_timeout)) return 0;
       if (!browser_string("type", type, sizeof(type))) continue;
+      if (strcmp(type,"workbench") == 0) {
+         char operation[32], section[32], request_id[THE_WEB_WORKBENCH_REQUEST_ID_MAX + 2];
+         int version = browser_integer("version",0);
+         if (!browser_string("operation",operation,sizeof(operation)) || version != 1) {
+            browser_send_workbench_refusal("","invalid-operand","Invalid workbench operation");
+            continue;
+         }
+         if (!strcmp(operation,"list")) {
+            char page[THE_WORKBENCH_JSON_MAX + 80];
+            int offset = browser_integer("offset",0), limit = browser_integer("limit",8);
+            if (browser_string("section",section,sizeof(section)) && offset >= 0
+            && limit >= 1 && limit <= 8
+            && the_web_format_workbench_page(page,sizeof(page),
+                  section[0] ? section : "SUMMARY",(size_t)offset,(size_t)limit))
+               browser_send(page);
+            else browser_send_workbench_refusal("","invalid-operand","Invalid workbench list request");
+            continue;
+         }
+         if (!strcmp(operation,"invoke")) {
+            char action[THE_WORKBENCH_ID_MAX + 2];
+            char *operand = browser_payload("argument",THE_WORKBENCH_OPERAND_MAX + 1);
+            int generation = browser_integer("expectGeneration",0);
+            int have_id = browser_string("requestId",request_id,sizeof(request_id));
+            int have_action = browser_string("action",action,sizeof(action));
+            int request_id_ok = browser_workbench_string_valid("requestId",0);
+            int operands_ok = browser_workbench_string_valid("action",0)
+               && browser_workbench_string_valid("argument",1);
+            int accepted = request_id_ok ? the_web_workbench_receipt_begin(
+               &workbench_receipts,have_id ? request_id : NULL,
+               have_action ? action : NULL,
+               generation > 0 ? (unsigned long)generation : 0,operand) : -1;
+            if (accepted == 1) {
+               TheInputEvent next;
+               if (!operands_ok || !have_action || generation <= 0
+               || !the_input_event_from_workbench_invoke(action,
+                     (unsigned long)generation,operand,&next)
+               || !the_input_queue_push(&inputs,next))
+                  the_web_workbench_receipt_refuse(&workbench_receipts,
+                     "invalid-operand",5,"Invalid workbench action or input queue full");
+            }
+            if (accepted == 1 || accepted == 0 || accepted == -3)
+               browser_send_workbench_receipt(the_web_workbench_receipt_find(
+                  &workbench_receipts,request_id));
+            else browser_send_workbench_refusal(have_id ? request_id : "",
+               accepted == -4 ? "request-id-conflict" : accepted == -6
+                  ? "receipt-unknown" : accepted == -5
+                  ? "invalid-operand" : "invalid-request-id",
+               accepted == -4 ? "Request ID was already used for another action"
+                  : accepted == -6 ? "Receipt expired or unknown; reconcile before retrying"
+                  : accepted == -5 ? "Invalid workbench action or argument"
+                  : "Invalid workbench request ID");
+            free(operand);
+            continue;
+         }
+         browser_send_workbench_refusal("","invalid-operand","Invalid workbench operation");
+         continue;
+      }
 #ifdef THE_WASM_INTERPRETER
       if (strcmp(type, "run-source") == 0) {
          const TheEditorSource *source = the_editor_source_prepare();

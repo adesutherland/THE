@@ -13,6 +13,9 @@ if (!chromium) throw new Error("CHROMIUM_BIN is required");
 const assets = resolve(process.env.THE_WEB_ASSETS || new URL("../dist", import.meta.url).pathname);
 const profile = await mkdtemp(join(tmpdir(), "the-workbench-"));
 const received = [];
+let workbenchGeneration = 0;
+let workbenchPublication = 0;
+let workbenchRuns = 0;
 let customFooter = true;
 let presentDiagnostic = false;
 const snapshot = {
@@ -72,6 +75,35 @@ function publishSnapshot() {
   client?.send(JSON.stringify(snapshot));
 }
 function publishTools() { tools.version++; client?.send(JSON.stringify(tools)); }
+function publishWorkbench(revision, generation, label, saveReason = "ok") {
+  workbenchGeneration = generation;
+  const publication = ++workbenchPublication;
+  const actions = [
+    { id: "the.file.open", owner: "the.builtin", label: "Open", generation: 1, kind: "builtin", builtin: "file.open", operand: "", enabled: true, reason: "ok" },
+    { id: "the.file.save", owner: "the.builtin", label: "Save", generation: 2, kind: "builtin", builtin: "file.save", operand: "", enabled: saveReason === "ok", reason: saveReason },
+    ...(label ? [{ id: "user.run", owner: "user.tools", label, generation, kind: "builtin", builtin: "edit.undo", operand: "", enabled: true, reason: "ok" }] : []),
+    ...(label ? [{ id: "user.boundopen", owner: "user.tools", label: "Bound Open", generation, kind: "builtin", builtin: "file.open", operand: "/workspace/example.rexx", enabled: true, reason: "ok" }] : []),
+    ...Array.from({ length: 9 }, (_, index) => ({ id: `user.unlisted${index}`, owner: "user.tools", label: `Unlisted ${index}`, generation: index + 30, kind: "builtin", builtin: "edit.undo", operand: "", enabled: true, reason: "ok" })),
+  ];
+  const menus = [
+    { id: "the.file", owner: "the.builtin", label: "File", generation: 1, order: 0 },
+    ...(label ? [{ id: "user.tools", owner: "user.tools", label: "Tools", generation, order: 50 }] : []),
+    ...(label ? [{ id: "user.zmenu", owner: "user.tools", label: "Later", generation, order: 50 },
+      { id: "user.amenu", owner: "user.tools", label: "Last", generation, order: 50 }] : []),
+  ];
+  const items = [
+    { id: "the.item.open", owner: "the.builtin", label: "Open", generation: 1, menu: "the.file", action: "the.file.open", order: 0, separator: false },
+    { id: "the.item.save", owner: "the.builtin", label: "Save", generation: 2, menu: "the.file", action: "the.file.save", order: 1, separator: false },
+    ...(label ? [{ id: "user.item", owner: "user.tools", label, generation, menu: "user.tools", action: "user.run", order: 0, separator: false }] : []),
+    ...(label ? [{ id: "user.zitem", owner: "user.tools", label: "Second", generation, menu: "user.tools", action: "user.run", order: 0, separator: false },
+      { id: "user.separator", owner: "user.tools", label: "", generation, menu: "user.tools", action: "", order: 0, separator: true },
+      { id: "user.aitem", owner: "user.tools", label: "Third", generation, menu: "user.tools", action: "user.run", order: 0, separator: false },
+      { id: "user.bounditem", owner: "user.tools", label: "Bound Open", generation, menu: "user.tools", action: "user.boundopen", order: 1, separator: false }] : []),
+  ];
+  for (const [section, records] of Object.entries({ actions, menus, items }))
+    for (let offset = 0; offset < records.length; offset += 8)
+      client?.send(JSON.stringify({ type: "workbench", operation: "list", publication, data: { schemaVersion: 1, revision, section, total: records.length, offset, nextOffset: offset + 8 < records.length ? offset + 8 : null, records: records.slice(offset, offset + 8) } }));
+}
 const server = createServer(async (request, response) => {
   try {
     const pathname = new URL(request.url, "http://localhost").pathname;
@@ -85,6 +117,7 @@ const server = createServer(async (request, response) => {
 const ws = new WebSocketServer({ server });
 ws.on("connection", (connection) => {
   client = connection;
+  connection.send(JSON.stringify({ type: "hello", workbenchSession: "fixture123", workbenchNextRequest: 1 }));
   connection.send(JSON.stringify({ type: "actions", actions: [
     { id: "file.open", menu: "File", label: "Open", requires_argument: true },
     { id: "file.save", menu: "File", label: "Save", requires_argument: false },
@@ -103,6 +136,12 @@ ws.on("connection", (connection) => {
       snapshot.last_message_serial++;
       snapshot.last_message = "Repeated response";
       publishSnapshot();
+    } else if (message.type === "workbench" && message.operation === "invoke") {
+      const stale = message.expectGeneration !== workbenchGeneration;
+      if (!stale) workbenchRuns++;
+      connection.send(JSON.stringify({ type: "workbench", operation: "result", requestId: message.requestId,
+        state: "complete", code: stale ? "stale-generation" : "ok", rc: stale ? -3 : 0,
+        revision: snapshot.source.revision, message: stale ? "Action generation is stale" : "" }));
     } else if (message.type === "tool" && message.action === "run") {
       Object.assign(tools.job, { id: tools.job.id + 1, running: true, waiting: false, state: "Running" });
       tools.visible = true;
@@ -363,7 +402,24 @@ try {
   await key("F10");
   assert.equal(await evaluate("!!document.querySelector('.menu-popover')"), false, "F10 does not open the workbench menu over a path dialog");
   assert.equal(await evaluate("document.activeElement.id"), "file-path", "dialog retains its invoking focus");
-  await evaluate("document.querySelector('.dialog-actions button').click()");
+  await evaluate("(() => { const input=document.querySelector('#file-path'); const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set; setter.call(input,'  exact path  '); input.dispatchEvent(new Event('input',{bubbles:true})); })()");
+  await evaluate("document.querySelector('.dialog-actions button[type=submit]').click()");
+  await wait(() => received.some((message) => message.type === "action" && message.action === "file.create" && message.argument === "  exact path  "), "path prompt preserves exact whitespace");
+  await wait(() => evaluate("!document.querySelector('.path-dialog')"), "path prompt closes before next menu");
+  await evaluate("document.querySelector('#the-command').focus()");
+  await key("F10");
+  await wait(() => evaluate("document.activeElement===document.querySelector('.menu-popover button')"), "command opened menu");
+  await evaluate("[...document.querySelectorAll('.menu-popover button')].find(node=>node.textContent.trim().startsWith('Create')).click()");
+  await wait(() => evaluate("document.activeElement.id==='file-path'"), "command invoked path prompt");
+  await key("Escape");
+  await wait(() => evaluate("document.activeElement.id==='the-command'"), "Escape returns to command input");
+  await evaluate("document.querySelector('#rexx-input').focus()");
+  await key("F10");
+  await wait(() => evaluate("document.activeElement===document.querySelector('.menu-popover button')"), "program input opened menu");
+  await evaluate("[...document.querySelectorAll('.menu-popover button')].find(node=>node.textContent.trim().startsWith('Create')).click()");
+  await wait(() => evaluate("document.activeElement.id==='file-path'"), "program input invoked path prompt");
+  await evaluate("document.querySelector('.dialog-actions button[type=button]').click()");
+  await wait(() => evaluate("document.activeElement.id==='rexx-input'"), "Cancel returns to program input");
   snapshot.panel = { rows: 6, cols: 40, active: 0, cursor: 0,
     fields: [{ row: 1, cell: 1, width: 16, editable: 1, changed: 0, kind: "input", text: "Panel field" }] };
   publishSnapshot();
@@ -539,6 +595,56 @@ try {
   await wait(() => evaluate("document.querySelector('.status-line').textContent.includes('Ln 1, Col 4')"), "legacy semantic summary fallback");
   snapshot.status_line = profileStatus; publishSnapshot();
   await wait(() => evaluate("!!document.querySelector('.profile-status')"), "profile status restored");
+  const preservedEditor = await evaluate("({draft:document.querySelector('#the-command').value,dirty:document.querySelector('.status-line').dataset.bufferDirty,zone:document.querySelector('.status-line').dataset.focusZone,line:document.querySelector('.status-line').dataset.focusLine,cell:document.querySelector('.status-line').dataset.focusCell})");
+  const poisoned = 'Check / <img src=x onerror="window.poisoned=true">';
+  publishWorkbench(2, 24, poisoned);
+  await evaluate("document.querySelector('.input-sink').focus();document.querySelector('.menu-trigger').click()");
+  await wait(() => evaluate("!!document.querySelector('[data-menu-id=\"user.tools\"]')"), "profile menu published");
+  client.send(JSON.stringify({ type: "workbench", operation: "list", data: {
+    schemaVersion: 1, revision: 2, section: "menus", total: 4, offset: 1, nextOffset: 2,
+    records: [{ id: "user.tools", owner: "user.tools", label: "Stale Tools", generation: 24, order: 50 }],
+  } }));
+  const statusBeforeStalePage = snapshot.status_line;
+  snapshot.status_line = "STALE_PAGE_BARRIER"; publishSnapshot();
+  await wait(() => evaluate("document.querySelector('.profile-status')?.textContent === 'STALE_PAGE_BARRIER'"), "stale page delivery barrier");
+  assert.equal(await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] h2')?.textContent"),
+    "Tools", "unversioned page cannot replace a numbered publication");
+  snapshot.status_line = statusBeforeStalePage; publishSnapshot();
+  assert.deepEqual(await evaluate("[...document.querySelectorAll('.menu-popover section[data-menu-id]')].map(node=>node.dataset.menuId)"),
+    ["the.file", "user.tools", "user.zmenu", "user.amenu"], "equal menu order retains definition sequence");
+  assert.deepEqual(await evaluate("[...document.querySelector('[data-menu-id=\"user.tools\"]').children].slice(1).map(node=>node.dataset.itemId||node.tagName.toLowerCase())"),
+    ["user.item", "user.zitem", "hr", "user.aitem", "user.bounditem"], "equal item order retains definition sequence including separator");
+  assert.equal(await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button span').textContent"), poisoned, "profile label is plain text");
+  assert.equal(await evaluate("!!document.querySelector('.menu-popover img') || !!window.poisoned"), false, "poisoned label cannot create markup");
+  await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button').click()");
+  await wait(() => received.some((message) => message.type === "workbench" && message.operation === "invoke" && message.action === "user.run"), "semantic action invoke");
+  assert.equal(received.filter((message) => message.type === "workbench" && message.operation === "invoke" && message.action === "user.run").length, 1, "menu activation runs once");
+  assert.equal(workbenchRuns, 1);
+  publishWorkbench(3, 25, "Replaced action");
+  await evaluate("document.querySelector('.menu-trigger').click()");
+  await wait(() => evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button span')?.textContent === 'Replaced action'"), "replaced menu item");
+  assert.equal(await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button').dataset.generation"), "25");
+  await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button').click()");
+  await wait(() => workbenchRuns === 2, "replaced generation invoke");
+  publishWorkbench(3, 25, "Replaced action", "policy-denied");
+  await evaluate("document.querySelector('.menu-trigger').click()");
+  await wait(() => evaluate("document.querySelector('[data-action-id=\"the.file.save\"]')?.disabled === true"), "same-revision policy refusal refresh");
+  assert.equal(await evaluate("document.querySelector('[data-action-id=\"the.file.save\"]').title"), "policy-denied");
+  publishWorkbench(3, 25, "Replaced action", "ok");
+  await wait(() => evaluate("document.querySelector('[data-action-id=\"the.file.save\"]')?.disabled === false"), "same-revision policy recovery refresh");
+  const filesBeforeBoundOpen = received.filter((message) => message.type === "files").length;
+  const explorerBeforeBoundOpen = await evaluate("!!document.querySelector('.file-explorer')");
+  await evaluate("document.querySelector('[data-item-id=\"user.bounditem\"]').click()");
+  await wait(() => received.some((message) => message.type === "workbench" && message.operation === "invoke" && message.action === "user.boundopen"), "bound Open invokes semantic action");
+  assert.equal(received.filter((message) => message.type === "files").length, filesBeforeBoundOpen, "bound Open skips chooser request");
+  assert.equal(await evaluate("!!document.querySelector('.file-explorer')"), explorerBeforeBoundOpen, "bound Open preserves explorer state");
+  assert.equal(received.filter((message) => message.type === "workbench" && message.operation === "invoke" && message.action === "user.boundopen").at(-1).argument,
+    undefined, "bound Open keeps registered operand");
+  publishWorkbench(4, 0, "");
+  await evaluate("document.querySelector('.menu-trigger').click()");
+  await wait(() => evaluate("!document.querySelector('[data-menu-id=\"user.tools\"]')"), "removed menu item");
+  await evaluate("document.querySelector('.menu-trigger').click()");
+  assert.deepEqual(await evaluate("({draft:document.querySelector('#the-command').value,dirty:document.querySelector('.status-line').dataset.bufferDirty,zone:document.querySelector('.status-line').dataset.focusZone,line:document.querySelector('.status-line').dataset.focusLine,cell:document.querySelector('.status-line').dataset.focusCell})"), preservedEditor, "menu publication and activation preserve editor state");
   assert(received.some((message) => message.type === "resize"));
   assert.deepEqual(exceptions, []);
   if (process.env.THE_WORKBENCH_SCREENSHOTS) {

@@ -6,6 +6,7 @@
 #include "macroruntime.h"
 #include "panelui.h"
 #include "tools.h"
+#include "workbench.h"
 #include <ctype.h>
 #include <errno.h>
 #include <sys/stat.h>
@@ -142,6 +143,30 @@ static int safe_image(const char *image, char *out, size_t cap) {
    }
    return 1;
 }
+/* Profile execution has an outer definition scope even when invoked through
+ * a compiled tool. Its stable source identity survives immutable build names. */
+static short run_profile_image(const char *image, const char *identity, short *macro_rc)
+{
+   char command[THE_TOOL_PATH + 8];
+   short rc, finish;
+#if defined(THE_WASM)
+   rc = the_workbench_activation_begin_untrusted(identity);
+#else
+   rc = the_frontend_policy_enabled() ? the_workbench_activation_begin_untrusted(identity)
+                                      : the_workbench_activation_begin(identity);
+#endif
+   if (rc != RC_OK) return rc;
+   if (!the_crexx_console_capture(1))
+   {
+      the_workbench_activation_end(0);
+      return RC_INVALID_ENVIRON;
+   }
+   snprintf(command,sizeof(command),"\"%s\"",image);
+   rc = execute_macro((CHARTYPE *)command,FALSE,macro_rc);
+   the_crexx_console_capture(0);
+   finish = the_workbench_activation_end(rc == RC_OK && *macro_rc == 0);
+   return rc != RC_OK ? rc : *macro_rc ? *macro_rc : finish;
+}
 static short launch(const char *id, int argc, const char *const *argv, const char *image) {
    TheToolRequest r = {0};
    const TheEditorSource *s;
@@ -160,15 +185,10 @@ static short launch(const char *id, int argc, const char *const *argv, const cha
    }
    if (!strcmp(r.tool.role, "profile")) {
       short macro_rc = 0, rc;
-      char command[THE_TOOL_PATH + 8];
       if (!the_macro_uses_crexx())
          return RC_INVALID_ENVIRON;
-      snprintf(command, sizeof(command), "\"%s\"", r.tool.image);
-      if (!the_crexx_console_capture(1))
-         return RC_INVALID_ENVIRON;
-      rc = execute_macro((CHARTYPE *)command, FALSE, &macro_rc);
-      the_crexx_console_capture(0);
-      return rc == RC_OK ? macro_rc : rc;
+      rc = run_profile_image(r.tool.image,r.tool.image,&macro_rc);
+      return rc;
    }
    if (image && *image && !safe_image(image, r.tool.image, sizeof(r.tool.image)))
       return RC_INVALID_OPERAND;
@@ -224,7 +244,6 @@ static void registry_save(void);
 static void registry_restore(void);
 static short activate(void) {
    short rc, macro_rc = 0;
-   char command[THE_TOOL_PATH + 16];
    const TheEditorSource *s = the_editor_source_prepare();
    if (!*profile_ready) {
       display_error(0, (CHARTYPE *)"Build a profile before activating it", FALSE);
@@ -239,11 +258,7 @@ static short activate(void) {
       display_error(0, (CHARTYPE *)"This profile requires cREXX", FALSE);
       return RC_INVALID_ENVIRON;
    }
-   snprintf(command, sizeof(command), "\"%s\"", profile_ready);
-   if (!the_crexx_console_capture(1))
-      return RC_INVALID_ENVIRON;
-   rc = execute_macro((CHARTYPE *)command, FALSE, &macro_rc);
-   the_crexx_console_capture(0);
+   rc = run_profile_image(profile_ready,the_tools_profile_path(),&macro_rc);
    if (rc == RC_OK && macro_rc == 0) {
       snprintf(profile_active, sizeof(profile_active), "%s", profile_ready);
       profile_selection();
@@ -293,7 +308,7 @@ static void profile_selection(void) {
    rename(temporary, path);
 }
 int the_tools_profile_restore(void) {
-   char path[THE_TOOL_PATH], command[THE_TOOL_PATH + 8], cohort[100];
+   char path[THE_TOOL_PATH], cohort[100];
    FILE *f;
    short macro_rc = 0, rc;
    ensure();
@@ -327,11 +342,7 @@ int the_tools_profile_restore(void) {
           strchr(slash + 1, '\\'))
          return 0;
    }
-   snprintf(command, sizeof(command), "\"%s\"", path);
-   if (!the_crexx_console_capture(1))
-      return RC_INVALID_ENVIRON;
-   rc = execute_macro((CHARTYPE *)command, FALSE, &macro_rc);
-   the_crexx_console_capture(0);
+   rc = run_profile_image(path,the_tools_profile_path(),&macro_rc);
    if (rc == RC_OK && !macro_rc) {
       snprintf(profile_active, sizeof(profile_active), "%s", path);
       return 1;

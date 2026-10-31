@@ -11,6 +11,7 @@
 #include "headlessdriver.h"
 #include "editorsource.h"
 #include "panelui.h"
+#include "workbench.h"
 #include "tools.h"
 #include "gtkinput.h"
 
@@ -54,9 +55,15 @@ static struct
    TheDriverWindow *input_window, *menu_popup;
    int menu_canceled, menu_entry_position, menu_selection_start, menu_selection_end;
    int menu_entry_selected;
+   GMenu *menu_model;
+   GtkWidget *native_menu;
+   unsigned long menu_revision;
+   GPtrArray *menu_actions;
 } ui;
 
 static TheDriverOps operations;
+static void sync_menus(void);
+static void open_native_menu(GtkWidget *focus, GdkEventKey *trigger);
 
 static void redraw(void)
 {
@@ -146,12 +153,6 @@ static void command_action(GtkWidget *widget, gpointer command)
 {
    (void)widget;
    queue_command(command);
-}
-
-static void toggle_console(GtkWidget *widget, gpointer data)
-{
-   (void)widget; (void)data;
-   queue_command(the_tool_console()->visible ? "rx console off" : "rx console");
 }
 
 static void tool_action(GtkWidget *widget, gpointer action)
@@ -279,6 +280,15 @@ static void finish_menu_focus(void)
    ui.menu_canceled = 0;
 }
 
+/* Only lower the stock shared-menu binding. Profiles retain authority to
+ * redefine F10; modal READ and active macros always keep their own keys. */
+static int shared_menu_key_binding(void)
+{
+   const char *definition = (const char *)get_key_definition(THE_KEY_F(10), THE_KEY_DEFINE_RAW, TRUE, FALSE);
+   return definition && (!my_stricmp((DEFCHAR *)definition, "macro workbenchmenu")
+      || !my_stricmp((DEFCHAR *)definition, "macro workbenchmenu_regina"));
+}
+
 static gboolean workbench_key_pressed(GtkWidget *widget, GdkEventKey *key, gpointer data)
 {
    GtkWidget *focus = gtk_window_get_focus(GTK_WINDOW(ui.window));
@@ -305,12 +315,14 @@ static gboolean workbench_key_pressed(GtkWidget *widget, GdkEventKey *key, gpoin
       gtk_widget_grab_focus(ui.editor);
       return TRUE;
    }
+   if (key->keyval == GDK_KEY_F10 && shared_menu_key_binding())
+   {
+      open_native_menu(focus, key);
+      return TRUE;
+   }
    if ((key->keyval == GDK_KEY_F10 || (focus != ui.editor && key->keyval == GDK_KEY_F6))
    && the_gtk_input_key(key->keyval, key->state, &event) && queue_event(event))
    {
-      /* The active profile owns Cmd/File and its F10 workbench menu. */
-      if (key->keyval == GDK_KEY_F10)
-         remember_menu_focus(focus);
       gtk_widget_grab_focus(ui.editor);
       return TRUE;
    }
@@ -810,42 +822,195 @@ static GtkWidget *button(GtkWidget *box, const char *label,
    return widget;
 }
 
-typedef void (*GtkMenuCallback)(GtkWidget *, gpointer);
-
 typedef struct
 {
-   GtkMenuCallback callback;
-   const char *argument;
+   char id[THE_WORKBENCH_ID_MAX + 1];
+   char name[32];
+   unsigned long generation;
+   GMenu *section; /* borrowed from the current menu model */
+   int index;
+   char label[THE_WORKBENCH_LABEL_MAX + 1], reason[64];
 } GtkMenuAction;
+
+static int menu_action_enabled(const TheWorkbenchAction *action)
+{
+   const char *reason = the_workbench_action_reason(action);
+   return !strcmp(reason, "ok") || !strcmp(reason, "argument-required");
+}
 
 static void menu_action(GSimpleAction *action, GVariant *parameter, gpointer data)
 {
    GtkMenuAction *entry = data;
+   const TheWorkbenchAction *found = the_workbench_action_find(entry->id);
+   TheInputEvent event;
+   char *path = NULL;
    (void)action; (void)parameter;
-   entry->callback(NULL, (gpointer)entry->argument);
+   if (the_panel_active || in_macro) return;
+   /* The chooser supplies data to the typed action. Core invocation still
+    * revalidates the copied generation, path and active frontend policy. */
+   if (found && found->generation == entry->generation
+   && found->kind == THE_WORKBENCH_ACTION_BUILTIN && !found->operand[0]
+   && (found->builtin == THE_FRONTEND_ACTION_FILE_OPEN
+       || found->builtin == THE_FRONTEND_ACTION_FILE_CREATE
+       || found->builtin == THE_FRONTEND_ACTION_BUFFER_SWITCH))
+   {
+      int creating = found->builtin == THE_FRONTEND_ACTION_FILE_CREATE;
+      GtkWidget *dialog = gtk_file_chooser_dialog_new(
+         creating ? "New file" : "Open file", GTK_WINDOW(ui.window),
+         creating ? GTK_FILE_CHOOSER_ACTION_SAVE : GTK_FILE_CHOOSER_ACTION_OPEN,
+         "_Cancel", GTK_RESPONSE_CANCEL, creating ? "_Create" : "_Open",
+         GTK_RESPONSE_ACCEPT, NULL);
+      if (CURRENT_FILE)
+         gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), (char *)CURRENT_FILE->fpath);
+      if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT)
+         path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+      gtk_widget_destroy(dialog);
+      if (!path) return;
+   }
+   if (the_input_event_from_workbench_invoke(entry->id, entry->generation, path, &event)
+   && queue_event(event))
+   {
+      ui.menu_canceled = 0;
+      gtk_widget_grab_focus(ui.editor);
+   }
+   g_free(path);
 }
 
-static GMenu *menu(GMenu *bar, const char *label)
+/* GMenu labels use underscores for mnemonics. Escape them so a published
+ * label remains literal data, including slash, quotes and Unicode. */
+static char *menu_label(const char *label)
 {
-   GMenu *items = g_menu_new();
-   g_menu_append_submenu(bar, label, G_MENU_MODEL(items));
-   return items;
+   GString *escaped = g_string_new(NULL);
+   for (; *label; label++)
+   {
+      if (*label == '_') g_string_append_c(escaped, '_');
+      g_string_append_c(escaped, *label);
+   }
+   return g_string_free(escaped, FALSE);
 }
 
-static void menu_item(GMenu *items, const char *label, const char *name,
-                        GtkMenuCallback callback, const char *argument)
+static void sync_menus(void)
 {
-   GtkMenuAction *entry = g_new(GtkMenuAction, 1);
-   GSimpleAction *action = g_simple_action_new(name, NULL);
-   char *detailed = g_strconcat("app.", name, NULL);
-   entry->callback = callback;
-   entry->argument = argument;
-   g_object_set_data_full(G_OBJECT(action), "the-menu-action", entry, g_free);
-   g_signal_connect(action, "activate", G_CALLBACK(menu_action), entry);
-   g_action_map_add_action(G_ACTION_MAP(ui.application), G_ACTION(action));
-   g_menu_append(items, label, detailed);
-   g_object_unref(action);
-   g_free(detailed);
+   size_t menus[THE_WORKBENCH_MENU_MAX], items[THE_WORKBENCH_ITEM_MAX];
+   size_t nm, ni, i, j, k, n;
+   if (!ui.application || !ui.menu_model) return;
+   if (ui.menu_revision != the_workbench_revision())
+   {
+      if (ui.native_menu) gtk_menu_shell_deactivate(GTK_MENU_SHELL(ui.native_menu));
+      for (i = 0; i < ui.menu_actions->len; i++)
+      {
+         GtkMenuAction *entry = g_ptr_array_index(ui.menu_actions, i);
+         g_action_map_remove_action(G_ACTION_MAP(ui.application), entry->name);
+      }
+      g_ptr_array_set_size(ui.menu_actions, 0);
+      g_menu_remove_all(ui.menu_model);
+      nm = the_workbench_menu_count(); ni = the_workbench_item_count();
+      for (i = 0; i < nm; i++)
+      {
+         menus[i] = i;
+         for (j = i; j && the_workbench_menu_at(menus[j - 1])->order >
+                             the_workbench_menu_at(menus[j])->order; j--)
+         { k = menus[j]; menus[j] = menus[j - 1]; menus[j - 1] = k; }
+      }
+      for (i = 0; i < nm; i++)
+      {
+         const TheWorkbenchMenu *menu = the_workbench_menu_at(menus[i]);
+         GMenu *submenu = g_menu_new(), *section = g_menu_new();
+         char *label = menu_label(menu->label);
+         n = 0;
+         for (j = 0; j < ni; j++)
+            if (!strcmp(the_workbench_item_at(j)->menu, menu->id))
+            {
+               items[n++] = j;
+               for (k = n - 1; k && the_workbench_item_at(items[k - 1])->order >
+                                     the_workbench_item_at(items[k])->order; k--)
+               { size_t swap = items[k]; items[k] = items[k - 1]; items[k - 1] = swap; }
+            }
+         for (j = 0; j < n; j++)
+         {
+            const TheWorkbenchItem *item = the_workbench_item_at(items[j]);
+            const TheWorkbenchAction *action = the_workbench_action_find(item->action);
+            if (item->separator)
+            {
+               if (g_menu_model_get_n_items(G_MENU_MODEL(section)))
+                  g_menu_append_section(submenu, NULL, G_MENU_MODEL(section));
+               g_object_unref(section); section = g_menu_new();
+            }
+            else if (action)
+            {
+               GtkMenuAction *entry = g_new0(GtkMenuAction, 1);
+               GSimpleAction *native;
+               char *detailed, *item_label = menu_label(item->label);
+               strcpy(entry->id, action->id); entry->generation = action->generation;
+               strcpy(entry->label, item->label); entry->section = section;
+               entry->index = g_menu_model_get_n_items(G_MENU_MODEL(section));
+               /* A delayed native-menu event must never resolve a recycled
+                * action name to a different published definition. */
+               g_snprintf(entry->name, sizeof(entry->name), "wb-%lu-%u",
+                          entry->generation, ui.menu_actions->len);
+               native = g_simple_action_new(entry->name, NULL);
+               g_object_set_data_full(G_OBJECT(native), "the-workbench-entry", entry, g_free);
+               g_signal_connect(native, "activate", G_CALLBACK(menu_action), entry);
+               g_simple_action_set_enabled(native, menu_action_enabled(action));
+               g_action_map_add_action(G_ACTION_MAP(ui.application), G_ACTION(native));
+               g_ptr_array_add(ui.menu_actions, entry);
+               detailed = g_strconcat("app.", entry->name, NULL);
+               g_menu_append(section, item_label, detailed);
+               g_free(detailed); g_free(item_label); g_object_unref(native);
+            }
+         }
+         if (g_menu_model_get_n_items(G_MENU_MODEL(section)))
+            g_menu_append_section(submenu, NULL, G_MENU_MODEL(section));
+         g_menu_append_submenu(ui.menu_model, label, G_MENU_MODEL(submenu));
+         g_free(label); g_object_unref(section); g_object_unref(submenu);
+      }
+      ui.menu_revision = the_workbench_revision();
+   }
+   for (i = 0; i < ui.menu_actions->len; i++)
+   {
+      GtkMenuAction *entry = g_ptr_array_index(ui.menu_actions, i);
+      GAction *action = g_action_map_lookup_action(G_ACTION_MAP(ui.application), entry->name);
+      const TheWorkbenchAction *definition = the_workbench_action_find(entry->id);
+      const char *reason = the_workbench_action_reason(definition);
+      int enabled = menu_action_enabled(definition);
+      g_simple_action_set_enabled(G_SIMPLE_ACTION(action), enabled);
+      if (strcmp(entry->reason, reason))
+      {
+         char *label = menu_label(entry->label);
+         char *display = enabled ? g_strdup(label) : g_strdup_printf("%s (%s)", label, reason);
+         char *detailed = g_strconcat("app.", entry->name, NULL);
+         g_menu_remove(entry->section, entry->index);
+         g_menu_insert(entry->section, entry->index, display, detailed);
+         g_strlcpy(entry->reason, reason, sizeof(entry->reason));
+         g_free(label); g_free(display); g_free(detailed);
+      }
+   }
+}
+
+static void native_menu_deactivated(GtkWidget *widget, gpointer data)
+{
+   (void)data;
+   if (ui.native_menu == widget)
+   {
+      ui.native_menu = NULL;
+      finish_menu_focus();
+      gtk_widget_destroy(widget);
+   }
+}
+
+static void open_native_menu(GtkWidget *focus, GdkEventKey *trigger)
+{
+   sync_menus();
+   if (ui.native_menu) return;
+   remember_menu_focus(focus);
+   ui.menu_canceled = 1;
+   ui.native_menu = gtk_menu_new_from_model(G_MENU_MODEL(ui.menu_model));
+   gtk_menu_attach_to_widget(GTK_MENU(ui.native_menu), ui.window, NULL);
+   g_signal_connect(ui.native_menu, "deactivate", G_CALLBACK(native_menu_deactivated), NULL);
+   gtk_widget_show_all(ui.native_menu);
+   gtk_menu_popup_at_widget(GTK_MENU(ui.native_menu), ui.editor,
+                           GDK_GRAVITY_NORTH_WEST, GDK_GRAVITY_NORTH_WEST, (GdkEvent *)trigger);
+   gtk_menu_shell_select_first(GTK_MENU_SHELL(ui.native_menu), TRUE);
 }
 
 static void application_activated(GApplication *application, gpointer data)
@@ -869,7 +1034,6 @@ static int activate(void)
 static int startup(const TheDriverStartupOptions *options, char *error, size_t capacity)
 {
    GtkWidget *root, *toolbar, *scroller, *heading, *controls, *entry;
-   GMenu *bar, *items;
    GError *application_error = NULL;
    PangoLayout *layout;
    int width, height;
@@ -906,36 +1070,17 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    g_signal_connect(ui.window, "key-press-event", G_CALLBACK(workbench_key_pressed), NULL);
    root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    gtk_container_add(GTK_CONTAINER(ui.window), root);
-   bar = g_menu_new();
-   items = menu(bar, "File");
-   menu_item(items, "New…", "file-new", file_action, "file.create");
-   menu_item(items, "Open…", "file-open", file_action, "file.open");
-   menu_item(items, "Save", "file-save", file_action, "file.save");
-   menu_item(items, "Close current file", "file-close", file_action, "file.close");
-   menu_item(items, "Next file", "file-next", command_action, "next");
-   menu_item(items, "Exit (retain unsaved files)", "quit", command_action, "cancel");
-   g_object_unref(items);
-   items = menu(bar, "Edit");
-   menu_item(items, "Undo", "edit-undo", file_action, "edit.undo");
-   menu_item(items, "Paste clipboard", "edit-paste", paste_action, NULL);
-   menu_item(items, "Command line", "edit-command", command_action, "cursor cmdline");
-   g_object_unref(items);
-   items = menu(bar, "Program");
-   menu_item(items, "Run current Rexx file", "program-run", tool_action, "run");
-   menu_item(items, "Show / hide console", "program-console", toggle_console, NULL);
-   menu_item(items, "Stop", "program-stop", tool_action, "stop");
-   menu_item(items, "End input", "program-eof", tool_action, "eof");
-   menu_item(items, "Clear output", "program-clear", tool_action, "clear");
-   menu_item(items, "Edit profile", "preferences", tool_action, "profile");
-   menu_item(items, "Build profile", "program-build", tool_action, "build");
-   menu_item(items, "Activate profile", "program-activate", tool_action, "activate");
-   g_object_unref(items);
-   items = menu(bar, "Help");
-   menu_item(items, "Editor help", "help-editor", command_action, "help");
-   menu_item(items, "Key definitions", "help-keys", command_action, "showkey all");
-   g_object_unref(items);
-   gtk_application_set_menubar(ui.application, G_MENU_MODEL(bar));
-   g_object_unref(bar);
+   {
+      /* Quartz Dock/system Quit is an application lifecycle action. */
+      GSimpleAction *quit = g_simple_action_new("quit", NULL);
+      g_signal_connect_swapped(quit, "activate", G_CALLBACK(queue_command), "cancel");
+      g_action_map_add_action(G_ACTION_MAP(ui.application), G_ACTION(quit));
+      g_object_unref(quit);
+   }
+   ui.menu_model = g_menu_new();
+   ui.menu_actions = g_ptr_array_new();
+   sync_menus();
+   gtk_application_set_menubar(ui.application, G_MENU_MODEL(ui.menu_model));
    toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_container_set_border_width(GTK_CONTAINER(toolbar), 6);
    gtk_box_pack_start(GTK_BOX(root), toolbar, FALSE, FALSE, 0);
@@ -1128,6 +1273,7 @@ static void update(void)
       g_free(title);
    }
    sync_console();
+   sync_menus();
    redraw();
 }
 
@@ -1136,9 +1282,10 @@ static int read_input(TheInputEvent *event)
    gint64 deadline = ui.timeout < 0 ? G_MAXINT64
                                     : g_get_monotonic_time() + ui.timeout * 1000;
    *event = the_input_event_none();
+   if (!in_macro && !the_panel_active && the_tools_take_menu_run(event)) return 1;
    while (ui.active)
    {
-      if (ui.menu_focus && !ui.menu_popup && !in_macro && g_queue_is_empty(&ui.inputs))
+      if (ui.menu_focus && !ui.menu_popup && !ui.native_menu && !in_macro && g_queue_is_empty(&ui.inputs))
          finish_menu_focus();
       if (!ui.input_window && !the_panel_active && !in_macro && ui.rows && ui.cols
       && (ui.rows != terminal_lines || ui.cols != terminal_cols))
@@ -1150,6 +1297,7 @@ static int read_input(TheInputEvent *event)
       }
       the_tools_native_poll();
       sync_console();
+      sync_menus();
       while (g_main_context_pending(NULL))
          g_main_context_iteration(NULL, FALSE);
       if (!g_queue_is_empty(&ui.inputs))
@@ -1199,10 +1347,14 @@ static void shutdown_driver(int prompt)
       g_object_unref(ui.console_css);
       ui.console_css = NULL;
    }
+   if (ui.native_menu) gtk_menu_shell_deactivate(GTK_MENU_SHELL(ui.native_menu));
    g_clear_object(&ui.menu_focus);
    ui.menu_popup = NULL;
    if (ui.window) gtk_widget_destroy(ui.window);
    ui.window = ui.editor = ui.console = NULL;
+   g_clear_object(&ui.menu_model);
+   if (ui.menu_actions) g_ptr_array_unref(ui.menu_actions);
+   ui.menu_actions = NULL;
    if (ui.im) g_object_unref(ui.im);
    ui.im = NULL;
    if (ui.application)

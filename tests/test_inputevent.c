@@ -138,6 +138,17 @@ static void test_commands_targets_debug_and_queue(void)
    expect_str("action.argument", input.action.argument, "file with spaces");
    expect_int("action.legacy", the_input_event_to_legacy_key(&input, &key), 0);
 
+   expect_int("workbench.parse",
+              the_input_event_from_workbench_invoke("public.action", 27, "a file.txt", &input), 1);
+   expect_int("workbench.kind", input.kind, THE_INPUT_WORKBENCH_INVOKE);
+   expect_str("workbench.id", the_input_event_workbench_id(&input), "public.action");
+   expect_int("workbench.generation", the_input_event_workbench_generation(&input), 27);
+   expect_str("workbench.argument", the_input_event_workbench_argument(&input), "a file.txt");
+   expect_int("workbench.legacy", the_input_event_to_legacy_key(&input, &key), 0);
+   expect_int("workbench.noarg", the_input_event_from_workbench_invoke("public.action", 27, NULL, &input), 1);
+   expect_int("workbench.absent.argument", the_input_event_workbench_argument(&input) == NULL, 1);
+   expect_int("workbench.invalid", the_input_event_from_workbench_invoke("bad;input", 27, NULL, &input), 0);
+
    expect_int("target.parse",
               the_input_event_from_logical_hit(LOGICAL_CURSOR_ZONE_FILEAREA,
                                                99, 4, 7, &input), 1);

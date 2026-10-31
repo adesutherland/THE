@@ -96,6 +96,8 @@ button { color: inherit; }
 .menu-popover button:hover,
 .menu-popover button:focus-visible { background: #264f78; color: #e6f7ff; }
 .menu-popover button:focus-visible { outline-offset: -2px; }
+.menu-popover button:disabled { color: #8f98a5; cursor: default; }
+.menu-popover .menu-action-reason { grid-column: 1 / -1; color: #aeb7c3; font-size: 11px; }
 .menu-popover kbd { color: #8f98a5; font: 11px/20px var(--editor-font); }
 .menu-popover button:hover kbd,
 .menu-popover button:focus-visible kbd { color: #dce8f1; }

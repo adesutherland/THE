@@ -519,7 +519,7 @@ int the_frontend_policy_builtin_command_allowed(const char *command)
       "backward", "bottom", "change", "clocate", "copy", "delete",
       "down", "duplicate", "find", "forward", "input", "left", "cursor",
       "locate", "lowercase", "next", "previous", "recover", "replace",
-      "right", "shift", "sort", "sos", "rx", "top", "uppercase", "up"
+      "right", "shift", "sort", "sos", "rx", "top", "uppercase", "up", "workbench"
    };
    static const char *const allowed_set_operands[] =
    {
@@ -553,7 +553,8 @@ int the_frontend_policy_builtin_command_allowed(const char *command)
    if (strcmp(name, "query") == 0)
       return frontend_policy_word(&cursor, operand, sizeof(operand))
           && (strcmp(operand,"flscreen")==0 || strcmp(operand,"mask")==0
-              || strcmp(operand,"cursor")==0 || strcmp(operand,"synonym")==0);
+              || strcmp(operand,"cursor")==0 || strcmp(operand,"synonym")==0
+              || strcmp(operand,"workbench")==0);
    if (strcmp(name, "set") == 0)
    {
       if (!frontend_policy_word(&cursor,operand,sizeof(operand))

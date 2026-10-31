@@ -1,14 +1,26 @@
 # Extensible THE workbench: staged design and frozen contract
 
-**Status: phase-0 contract frozen; staged implementation authorized.** This
-document defines the contract, not evidence that every `WORKBENCH` command,
-registry or protocol extension below is implemented or qualified. Existing
-commands are identified separately. The authorized order is shared menus and
-actions, named log/read-only document panes, forms and editable fields, then
-qualified file IO and ooRexx adapters. Implementation and qualification of each
-stage remain separate acceptance gates. This extends the current editor and Program console
-into a profile-configurable workbench; it does not replace THE with a different
-editor or make a browser layout authoritative.
+**Status: phase 1 implemented in the development source; later phases remain
+proposed.** Use [shared workbench actions and menus](workbench-actions-menus.md)
+for the implemented grammar, limits, transactions and surface behavior. This
+document retains the broader frozen contract and staged design; it does not
+claim that later commands, registries or protocol extensions are implemented or
+qualified. The subsequent order is named log/read-only document panes, forms
+and editable fields, then qualified file IO and ooRexx adapters. Implementation,
+platform qualification and release publication remain separate gates. This
+extends the current editor and Program console into a profile-configurable
+workbench; it does not replace THE with a different editor or make a browser
+layout authoritative.
+
+Phase 1 provides the shared C action/menu/item registry, owner-bound definition
+transactions, outer profile publication, QUERY/EXTRACT pages and explicit
+builtin/command/macro invocation. Terminal, GTK, browser/Wasm and LLM adapters
+consume the published definitions. `TOOL`/`PANEL` actions, named panes, forms,
+routes, new execution adapters and file-output publication remain later-phase
+contracts. Existing RX tools and console behavior retain their own interfaces.
+The implementation's invocation generation guard uses `INVOKE id EXPECT n`;
+macro argument vectors are not implemented in phase 1. Examples and wider object
+models below must be read with those boundaries.
 
 ## Objective and finish line
 
@@ -42,12 +54,12 @@ release qualification. Line references identify the relevant definitions.
 | A second job is rejected; adapters supply start/input/EOF/stop/poll. Output admits only the current running job ID and fd 1/2, with bounded retention and a hard output limit. | [`toolhost.c:105–150,165–208,257–265`](../src/toolhost.c#L105), [`toolhost.h:6–10,25–31`](../src/toolhost.h#L6). | Panel removal must not become implicit Stop; later concurrency requires a job table and job-qualified events, not duplicated singleton state. |
 | Source capture includes the pending working record, retains identity/revision, and refuses capture during macro/panel execution. | [`editorsource.c:49–88`](../src/editorsource.c#L49), [`tools.c:123–128,145–195`](../src/tools.c#L123). | Preserve unsaved execution without Save. Queue eligible actions at safe editor boundaries with a bound target identity. |
 | `RX` supplies run, register, profile/build/activate, language, input/EOF/stop/clear/status and console visibility. UI payloads use owned pending requests rather than interpolated argv. | [`tools.c:80–128,341–551`](../src/tools.c#L80), [runtime tools](runtime-tools.md). | Keep `RX` compatibility; general presentation commands must not imply a Rexx-only application model. |
-| The current native popup is generated from the profile definition; GTK builds its own GMenu and the browser combines action metadata with additional controls. | [`profiles/default-profile.json:119–141`](../profiles/default-profile.json#L119), [`workbenchmenu.the:1–24`](../workbenchmenu.the#L1), [`gtkdriver.c:909–936`](../src/drivers/gtk/gtkdriver.c#L909), [`main.tsx:607–617,653–687`](../web/src/main.tsx#L607). | Converge on one session menu/action model, rendered through each frontend's normal controls. |
+| Phase-1 menus share one C-owned action/menu/item registry; terminal, GTK and browser adapters lower the published graph. The generated popup remains a legacy fallback. | [Implemented workbench guide](workbench-actions-menus.md), [registry API](../src/workbench.h), [shared profile definition](../profiles/default-profile.json). | Keep later panel/tool presentation on the same session ownership boundary. |
 | `READ` forms use shared editable/protected field state and preserve caller cursor/focus. `READ ALL` stages file replacements before committing; NOCHANGE/cancel retain the file. | [`panelui.h:7–37`](../src/panelui.h#L7), [`panel.c:232–324,327–365`](../src/panel.c#L232), [macro panels](panels.md). | Reuse field/input semantics. A persistent field pane needs explicit revision, commit and lifetime rules beyond current modal READ. |
 | Driver ABI 3 exposes low-level windows/input and one optional workbench focus callback; it has no general menu/panel capability registry. | [`thedriver.h:21–31,155–245`](../src/thedriver.h#L21). | Add a versioned optional workbench interface; retain the existing renderer and older-driver fallback. |
 | Terminal console is right-docked at sufficient width, otherwise below; it hides below 16 rows/32 columns. GTK measures its console controls and reserves 80 editor columns. | [`cursesdriver.c:1026,1102–1116`](../src/drivers/curses/cursesdriver.c#L1026), [`gtkdriver.c:19`](../src/drivers/gtk/gtkdriver.c#L19), [GTK layout](gtk-driver.md#program-console). | Placement is a preference with minimum sizes and fallback order, not a promise of physical coordinates. |
 | Browser shares semantic snapshots, fields and tool state. Native-host requests use restricted command/action paths; Wasm has a separate Worker host and excludes Regina/native OS/parser processes. | [`websession.c:169–212,300–325`](../src/websession.c#L169), [`wasmdriver.c:201–213`](../src/drivers/wasm/wasmdriver.c#L201), [Wasm limits](browser-wasm.md#browser-webassembly-preview). | Browser-native and browser-Wasm are different hosts behind a similar UI; negotiate both UI and execution capabilities. |
-| LLM runs the real dispatcher, reports capabilities and semantic rows, and includes active panel JSON. It separately accepts `tools`/`toolwait`, although those are absent from its advertised input list. | [`llmsession.c:453–499,1375–1393`](../src/llm/llmsession.c#L453), [`llmruntime.c:277–291`](../src/llm/llmruntime.c#L277). | Extend the existing protocol coherently and advertise every supported extension; do not make agents scrape graphical controls. |
+| LLM runs the real dispatcher, advertises `tools`/`toolwait` and workbench schema 1, and appends a published workbench summary to look/delta. Full action/menu/item pages use QUERY/EXTRACT. | [Implemented workbench guide](workbench-actions-menus.md), [LLM session adapter](../src/llm/llmsession.c). | Extend the normalized protocol coherently; agents discover IDs and state rather than scrape graphical controls. |
 | Unknown commands default to neither implied macro nor OS execution. `MACRO`, `OS`/`!`, and `SET SYNONYM` are explicit facilities; browser synonyms are constrained to safe editor commands. | [`commset1.c:5434–5504`](../src/commset1.c#L5434), [`commset2.c:3165–3209`](../src/commset2.c#L3165), [`frontendpolicy.c:515–597,600–677`](../src/frontendpolicy.c#L515). | Raw command actions obey normal dispatch and frontend policy; typed built-in actions preserve their intentional alias bypass. Neither path gains new authority. |
 | Active macro engines are cREXX, optional Regina, or NONE, selected at startup; ooRexx is not an active engine. | [`rexx.c:2149–2174`](../src/rexx.c#L2149), [interpreter guide](rexx-interpreters.md). | Treat a future ooRexx program adapter separately from any future in-process macro-engine integration. |
 
@@ -230,7 +242,7 @@ WORKBENCH ACTION PUT id LABEL "label" MACRO "macro-path" [ARG "value"]...
 WORKBENCH ACTION PUT id LABEL "label" TOOL tool-id SOURCE ACTIVE [ARG "value"]...
 WORKBENCH ACTION PUT id LABEL "label" PANEL panel-id OP SHOW|FOCUS|HIDE
 WORKBENCH ACTION REMOVE id
-WORKBENCH INVOKE action-id
+WORKBENCH INVOKE action-id [EXPECT generation]
 
 WORKBENCH MENU PUT menu-id LABEL "label" [ORDER integer]
 WORKBENCH ITEM PUT menu-id item-id LABEL "label" ACTION action-id [ORDER integer]
@@ -285,7 +297,7 @@ version-1 page envelope.
 
 `QUERY` displays the same bounded JSON page returned by `EXTRACT`.
 `SUMMARY` is the default and includes counts, limits and the last workbench
-result. Each page has `schemaVersion: 1`, the published definition `revision`,
+result. `ACTIONS`, `MENUS` and `ITEMS` pages have `schemaVersion: 1`, the published definition `revision`,
 `total`, `nextOffset` (null at the end), and `records`. `OFFSET` defaults to zero;
 `LIMIT` defaults to eight and accepts 1 through 8. Offset beyond the end returns
 an empty successful page. `EXTRACT` sets `WORKBENCH.0` to 1 and `WORKBENCH.1` to
@@ -560,10 +572,11 @@ frontend to trim.
 | Owners / actions / menus / menu items | 32 / 128 / 32 / 256 per session | 1 |
 | Definition transaction | One open transaction; no nesting | 1 |
 | Inspection page | 8 records; explicit limit 1 through 8 | 1 |
+| Active invocation nesting | 8; active-ID cycles are refused | 1 |
 | Panels / retained log models | 32 / 32 per session | 2 |
 | Log text / aggregate retained model text | 256 KiB per model / 8 MiB per session | 2 |
 | Program jobs / queued normalized requests | One active program / 64 queued requests | 2 |
-| Request receipts | 256 retained IDs per connection epoch; no replay after eviction | 2 |
+| Browser invocation receipts | 256 retained IDs per session nonce; no replay after eviction | 1 |
 | Forms / fields / field value | 32 forms / 128 fields per form / 4,096 UTF-8 bytes per field | 3 |
 | Field logical width | 1 through 1,024 cells; byte and cell limits both apply | 3 |
 | Tools / routes | 32 tool definitions / 32 route templates per session | 4 |
@@ -605,7 +618,7 @@ text and is not parsed for authority decisions. The mapping is:
 | --- | --- | --- |
 | `ok` | 0 | `RC_OK` |
 | `invalid-operand`, `missing-object`, `missing-action` | 5 | `RC_INVALID_OPERAND` |
-| `unsupported-feature`, `unsupported-host`, `capability-unavailable`, `policy-denied`, `busy-modal`, `busy-job`, `object-in-use`, `stale-generation`, `stale-revision`, `transaction-required`, `transaction-active`, `transaction-failed` | -3 | `RC_INVALID_ENVIRON` |
+| `unsupported-feature`, `unsupported-host`, `capability-unavailable`, `policy-denied`, `busy-modal`, `busy-job`, `object-in-use`, `stale-generation`, `stale-revision`, `transaction-required`, `transaction-active`, `transaction-failed`, `activation-pending`, `activation-failed` | -3 | `RC_INVALID_ENVIRON` |
 | `readonly` | 12 | `RC_ACCESS_DENIED` |
 | `limit-exceeded` | 94 | `RC_OUT_OF_MEMORY` |
 | `host-failed` | 99 | `RC_SYSTEM_ERROR` |

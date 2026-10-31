@@ -5,11 +5,25 @@
 #include "curseskeymap.h"
 #include "tools.h"
 #include "panelui.h"
+#include "workbench.h"
+
+/* ncurses always provides batched refresh. Some generated configurations
+ * leave HAVE_WNOUTREFRESH unset; the legacy wrefresh fallback would then
+ * present each background pane before its menu overlay on every job poll. */
+#if defined(USE_NCURSES) && !defined(HAVE_WNOUTREFRESH)
+# undef wnoutrefresh
+#endif
 
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <dirent.h>
+#endif
 
 #ifdef USE_UTF8
 # include <wchar.h>
@@ -1146,13 +1160,13 @@ static int console_control_event(int control, TheInputEvent *event)
 
 /* Bound every physical row in cells. A long program line must not wrap into
  * the editor's response row, input field or following terminal line. */
-static int console_write_text(int row, int col, const char *text, size_t length,
-                              int cells)
+static int curses_write_text(WINDOW *window, int row, int col, const char *text, size_t length,
+                             int cells)
 {
    TextPos pos = textpos_begin();
    int used = 0;
 
-   wmove(console_window, row, col);
+   wmove(window, row, col);
    while (pos.byte_offset < length && used < cells)
    {
       TextCluster cluster = textpos_cluster_at_boundary(
@@ -1164,7 +1178,7 @@ static int console_write_text(int row, int col, const char *text, size_t length,
       if (text[pos.byte_offset] == '\t')
       {
          if (used + 2 > cells) break;
-         waddstr(console_window, "  ");
+         waddstr(window, "  ");
          used += 2;
       }
       else if ((unsigned char)text[pos.byte_offset] >= 32
@@ -1172,14 +1186,19 @@ static int console_write_text(int row, int col, const char *text, size_t length,
       {
          if (used + width > cells) break;
          if (cluster.valid && cluster.cell_width > 0)
-            waddnstr(console_window, text + pos.byte_offset, (int)bytes);
+            waddnstr(window, text + pos.byte_offset, (int)bytes);
          else
-            waddch(console_window, '?');
+            waddch(window, '?');
          used += width;
       }
       pos = cluster.end;
    }
    return used;
+}
+
+static int console_write_text(int row, int col, const char *text, size_t length, int cells)
+{
+   return curses_write_text(console_window, row, col, text, length, cells);
 }
 
 /* Count and paint the same visual rows, so tailing and resize use exactly the
@@ -1363,6 +1382,383 @@ static void console_draw(void)
    leaveok(console_window, c->focused ? FALSE : TRUE);
    wnoutrefresh(console_window);
 }
+/* Labels are UTF-8 data; neither POPUP delimiters nor command syntax are
+ * involved. The copied action identity survives a later graph publication. */
+static struct
+{
+   WINDOW *window;
+   int active, selected, first, count, rows, cols, top, left, prompting;
+   unsigned long revision;
+   char argument[THE_WORKBENCH_OPERAND_MAX + 1];
+   int path_count, path_selected, path_first, path_more;
+   size_t path_base_length;
+   struct { char path[THE_WORKBENCH_OPERAND_MAX + 1]; int directory; } paths[128];
+   struct
+   {
+      char item[THE_WORKBENCH_ID_MAX + 1], action[THE_WORKBENCH_ID_MAX + 1];
+      char label[THE_WORKBENCH_LABEL_MAX * 2 + 5];
+      unsigned long generation;
+      int separator;
+   } entries[THE_WORKBENCH_ITEM_MAX];
+} native_menu;
+
+/* Only lower the stock shared-menu binding. Profiles retain authority to
+ * redefine F10; modal READ and active macros always keep their own keys. */
+static int shared_menu_key_binding(void)
+{
+   const char *definition = (const char *)get_key_definition(THE_KEY_F(10), THE_KEY_DEFINE_RAW, TRUE, FALSE);
+   return definition && (!my_stricmp((DEFCHAR *)definition, "macro workbenchmenu")
+      || !my_stricmp((DEFCHAR *)definition, "macro workbenchmenu_regina"));
+}
+
+static void native_menu_close(int canceled)
+{
+   if (native_menu.window) delwin(native_menu.window);
+   native_menu.window = NULL;
+   native_menu.active = native_menu.prompting = 0;
+   if (canceled) workbench_restore_cancelled_menu();
+   else workbench_menu_origin.active = 0;
+   touchwin(stdscr);
+   if (curses_driver_current_active_window())
+      touchwin(curses_driver_current_active_window());
+   display_screen(current_screen);
+   /* The status row is global rather than part of display_screen(). */
+   show_statarea();
+}
+
+static void native_menu_sync(void)
+{
+   size_t menus[THE_WORKBENCH_MENU_MAX], items[THE_WORKBENCH_ITEM_MAX];
+   size_t nm = the_workbench_menu_count(), ni = the_workbench_item_count();
+   size_t i, j, k, n;
+   char selected[THE_WORKBENCH_ID_MAX + 1] = "";
+   if (native_menu.revision == the_workbench_revision()) return;
+   if (native_menu.count && native_menu.selected < native_menu.count)
+      strcpy(selected, native_menu.entries[native_menu.selected].item);
+   for (i = 0; i < nm; i++)
+   {
+      menus[i] = i;
+      for (j = i; j && the_workbench_menu_at(menus[j - 1])->order >
+                          the_workbench_menu_at(menus[j])->order; j--)
+      { k = menus[j]; menus[j] = menus[j - 1]; menus[j - 1] = k; }
+   }
+   native_menu.count = 0;
+   native_menu.selected = 0;
+   for (i = 0; i < nm; i++)
+   {
+      const TheWorkbenchMenu *menu = the_workbench_menu_at(menus[i]);
+      n = 0;
+      for (j = 0; j < ni; j++)
+         if (!strcmp(the_workbench_item_at(j)->menu, menu->id))
+         {
+            items[n++] = j;
+            for (k = n - 1; k && the_workbench_item_at(items[k - 1])->order >
+                                  the_workbench_item_at(items[k])->order; k--)
+            { size_t swap = items[k]; items[k] = items[k - 1]; items[k - 1] = swap; }
+         }
+      for (j = 0; j < n; j++)
+      {
+         const TheWorkbenchItem *item = the_workbench_item_at(items[j]);
+         const TheWorkbenchAction *action = the_workbench_action_find(item->action);
+         int entry = native_menu.count++;
+         strcpy(native_menu.entries[entry].item, item->id);
+         strcpy(native_menu.entries[entry].action, item->action);
+         native_menu.entries[entry].generation = action ? action->generation : 0;
+         native_menu.entries[entry].separator = item->separator;
+         snprintf(native_menu.entries[entry].label, sizeof(native_menu.entries[entry].label),
+                  "%s: %s", menu->label, item->separator ? "--------" : item->label);
+         if (!strcmp(selected, item->id)) native_menu.selected = entry;
+      }
+   }
+   native_menu.revision = the_workbench_revision();
+}
+
+static void native_path_entry(const char *directory, const char *base,
+                                const char *prefix, const char *name, int is_directory)
+{
+   int n = native_menu.path_count;
+   if (!strcmp(name, ".") || strncmp(name, prefix, strlen(prefix))) return;
+   if (n == (int)(sizeof(native_menu.paths) / sizeof(native_menu.paths[0])))
+   { native_menu.path_more = 1; return; }
+   if (strlen(base) + strlen(name) + 2 > sizeof(native_menu.paths[n].path)) return;
+   (void)directory;
+   snprintf(native_menu.paths[n].path, sizeof(native_menu.paths[n].path), "%s%s%s",
+            base, name, is_directory ? "/" : "");
+   native_menu.paths[n].directory = is_directory;
+   native_menu.path_count++;
+}
+
+static int native_path_compare(const void *a, const void *b)
+{
+   /* path is the first member of both bounded completion records. */
+   return strcmp((const char *)a, (const char *)b);
+}
+
+static void native_path_refresh(void)
+{
+   char directory[THE_WORKBENCH_OPERAND_MAX + 1], base[THE_WORKBENCH_OPERAND_MAX + 1];
+   const char *last = strrchr(native_menu.argument, '/'), *prefix;
+   size_t length;
+#ifdef _WIN32
+   const char *backslash = strrchr(native_menu.argument, '\\');
+   if (backslash && (!last || backslash > last)) last = backslash;
+#endif
+   length = last ? (size_t)(last - native_menu.argument) + 1 : 0;
+   memcpy(base, native_menu.argument, length); base[length] = '\0';
+   strcpy(directory, length ? base : ".");
+   prefix = native_menu.argument + length;
+   native_menu.path_base_length = length;
+   native_menu.path_count = native_menu.path_more = native_menu.path_first = 0;
+   native_menu.path_selected = -1;
+#ifdef _WIN32
+   {
+      char pattern[THE_WORKBENCH_OPERAND_MAX + 4];
+      WCHAR wide[THE_WORKBENCH_OPERAND_MAX + 4];
+      WIN32_FIND_DATAW info;
+      HANDLE search;
+      snprintf(pattern, sizeof(pattern), "%s/*", directory);
+      if (!MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, pattern, -1, wide,
+                               sizeof(wide) / sizeof(wide[0]))) return;
+      search = FindFirstFileW(wide, &info);
+      if (search == INVALID_HANDLE_VALUE) return;
+      do
+      {
+         char name[THE_WORKBENCH_OPERAND_MAX + 1];
+         if (WideCharToMultiByte(CP_UTF8, 0, info.cFileName, -1, name, sizeof(name), NULL, NULL))
+            native_path_entry(directory, base, prefix, name, !!(info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY));
+         if (native_menu.path_more) break;
+      } while (FindNextFileW(search, &info));
+      FindClose(search);
+   }
+#else
+   {
+      DIR *listing = opendir(directory);
+      struct dirent *entry;
+      if (!listing) return;
+      while ((entry = readdir(listing)) != NULL)
+      {
+         struct stat info;
+         char path[THE_WORKBENCH_OPERAND_MAX + 1];
+         if (snprintf(path, sizeof(path), "%s/%s", directory, entry->d_name) >= (int)sizeof(path)) continue;
+         native_path_entry(directory, base, prefix, entry->d_name,
+                           !stat(path, &info) && S_ISDIR(info.st_mode));
+         if (native_menu.path_more) break;
+      }
+      closedir(listing);
+   }
+#endif
+   qsort(native_menu.paths, (size_t)native_menu.path_count, sizeof(native_menu.paths[0]), native_path_compare);
+}
+
+static int native_action_needs_argument(const TheWorkbenchAction *action)
+{
+   const TheFrontendActionDefinition *definition = action && action->kind == THE_WORKBENCH_ACTION_BUILTIN
+      ? the_frontend_action_definition(action->builtin) : NULL;
+   return definition && definition->requires_argument && !action->operand[0];
+}
+
+static void native_menu_draw(void)
+{
+   int row, height, width, page;
+   const char *hint = "Arrows/Tab: select  Enter: invoke  Esc: return";
+   if (!native_menu.active) return;
+   native_menu_sync();
+   /* terminal_lines/cols describe editor space after console reservation.
+    * A modal menu is a physical overlay, not an auxiliary editor pane. */
+   height = min(getmaxy(stdscr) - 2, native_menu.count + 4);
+   width = min(getmaxx(stdscr), 78);
+   if (height < 5 || width < 12) { native_menu_close(1); return; }
+   if (!native_menu.window || height != native_menu.rows || width != native_menu.cols)
+   {
+      if (native_menu.window) delwin(native_menu.window);
+      native_menu.rows = height; native_menu.cols = width;
+      native_menu.top = 1; native_menu.left = 0;
+      native_menu.window = newwin(height, width, native_menu.top, native_menu.left);
+      keypad(native_menu.window, TRUE);
+   }
+   werase(native_menu.window);
+   wattrset(native_menu.window, console_theme_attr(ATTR_POPUP, THE_STYLE_NORMAL));
+   box(native_menu.window, 0, 0);
+   {
+      const char *title = native_menu.prompting ? (native_menu.path_more
+         ? " Choose path (128+ matches; type to filter) "
+         : " Choose path (type, arrows, Tab, Enter; Esc cancels) ") : " Menu ";
+      curses_write_text(native_menu.window, 0, 2, title, strlen(title), width - 4);
+   }
+   page = height - 3;
+   if (native_menu.selected < native_menu.first) native_menu.first = native_menu.selected;
+   if (native_menu.selected >= native_menu.first + page)
+      native_menu.first = native_menu.selected - page + 1;
+   if (native_menu.prompting)
+   {
+      if (native_menu.path_selected >= native_menu.path_first + page)
+         native_menu.path_first = native_menu.path_selected - page + 1;
+      if (native_menu.path_selected >= 0 && native_menu.path_selected < native_menu.path_first)
+         native_menu.path_first = native_menu.path_selected;
+      for (row = 0; row < page && native_menu.path_first + row < native_menu.path_count; row++)
+      {
+         int entry = native_menu.path_first + row;
+         wattrset(native_menu.window, console_theme_attr(entry == native_menu.path_selected
+            ? ATTR_POP_CURLINE : ATTR_POPUP, THE_STYLE_NORMAL));
+         const char *name = native_menu.paths[entry].path + native_menu.path_base_length;
+         curses_write_text(native_menu.window, row + 1, 2, name, strlen(name), width - 4);
+      }
+   }
+   else for (row = 0; row < page && native_menu.first + row < native_menu.count; row++)
+   {
+      int entry = native_menu.first + row;
+      const TheWorkbenchAction *action = the_workbench_action_find(native_menu.entries[entry].action);
+      const char *reason = action ? the_workbench_action_reason(action) : "unavailable";
+      int promptable = native_action_needs_argument(action);
+      wattrset(native_menu.window, console_theme_attr(entry == native_menu.selected
+         ? ATTR_POP_CURLINE : ATTR_POPUP, (reason && strcmp(reason, "ok") && !promptable) ? THE_STYLE_DIM : THE_STYLE_NORMAL));
+      mvwhline(native_menu.window, row + 1, 1, ' ', width - 2);
+      curses_write_text(native_menu.window, row + 1, 2, native_menu.entries[entry].label,
+                        strlen(native_menu.entries[entry].label), width - 4);
+   }
+   wattrset(native_menu.window, console_theme_attr(ATTR_POPUP, THE_STYLE_NORMAL));
+   if (native_menu.prompting)
+   {
+      char path[THE_WORKBENCH_OPERAND_MAX + 12];
+      const char *tail = native_menu.argument;
+      size_t bytes = strlen(tail);
+      int clipped = 0;
+      /* Keep the part being edited visible even for a deep directory. */
+      while (bytes > (size_t)max(1, width - 12))
+      {
+         TextCluster cluster = textpos_cluster_at_boundary((const CHARTYPE *)tail, bytes, textpos_begin());
+         size_t skip = cluster.byte_length ? cluster.byte_length : 1;
+         tail += skip; bytes -= skip; clipped = 1;
+      }
+      snprintf(path, sizeof(path), "Path: %s%s", clipped ? "..." : "", tail);
+      curses_write_text(native_menu.window, height - 2, 1, path, strlen(path), width - 2);
+   }
+   else
+   {
+      if (native_menu.count)
+      {
+         const char *reason = the_workbench_action_reason(
+            the_workbench_action_find(native_menu.entries[native_menu.selected].action));
+         if (strcmp(reason, "ok") && strcmp(reason, "argument-required")) hint = reason;
+      }
+      curses_write_text(native_menu.window, height - 2, 1, hint, strlen(hint), width - 2);
+   }
+   if (native_menu.prompting)
+      wmove(native_menu.window, height - 2, min(width - 2, 7 + (int)strlen(native_menu.argument)));
+   else wmove(native_menu.window, min(height - 2, native_menu.selected - native_menu.first + 1), 1);
+   wnoutrefresh(native_menu.window);
+}
+
+static int native_menu_open(void)
+{
+   if (!workbench_menu_origin.active) workbench_remember_menu_origin();
+   native_menu.active = 1; native_menu.prompting = 0;
+   native_menu.selected = native_menu.count = native_menu.first = 0;
+   native_menu.argument[0] = '\0'; native_menu.revision = 0;
+   native_menu_sync();
+   curses_driver_update();
+   return 0;
+}
+
+static int native_menu_key(int key, const TheInputEvent *input, TheInputEvent *event)
+{
+   int step = 0, tries;
+   if (key == THE_KEY_RESIZE || key == 27)
+   { native_menu_close(1); curses_driver_update(); return key == THE_KEY_RESIZE; }
+   if (native_menu.prompting)
+   {
+      size_t length = strlen(native_menu.argument);
+      if (key == THE_KEY_UP || key == THE_KEY_DOWN)
+      {
+         if (native_menu.path_count)
+            native_menu.path_selected = (native_menu.path_selected + native_menu.path_count +
+               (key == THE_KEY_UP ? -1 : 1)) % native_menu.path_count;
+      }
+      else if (key == 9 && native_menu.path_count)
+      {
+         strcpy(native_menu.argument, native_menu.paths[max(0, native_menu.path_selected)].path);
+         native_path_refresh();
+      }
+      else if (key == 21)
+      { native_menu.argument[0] = '\0'; native_path_refresh(); }
+      else if (key == 8 || key == 127 || key == THE_KEY_BACKSPACE)
+      {
+         if (length) { do { length--; } while (length && ((unsigned char)native_menu.argument[length] & 0xc0) == 0x80); native_menu.argument[length] = '\0'; }
+         native_path_refresh();
+      }
+      else if (key == 10 || key == 13 || key == THE_KEY_ENTER)
+      {
+         if (native_menu.path_selected >= 0)
+         {
+            int directory = native_menu.paths[native_menu.path_selected].directory;
+            strcpy(native_menu.argument, native_menu.paths[native_menu.path_selected].path);
+            native_path_refresh();
+            if (directory) { curses_driver_update(); return 0; }
+         }
+         if (*native_menu.argument) goto invoke;
+      }
+      else if (input->kind == THE_INPUT_TEXT)
+      {
+         CHARTYPE bytes[4];
+         size_t n = text_utf8_encode(input->codepoint, bytes);
+         if (input->codepoint >= 32 && n && length + n <= THE_WORKBENCH_OPERAND_MAX)
+         { memcpy(native_menu.argument + length, bytes, n); native_menu.argument[length + n] = '\0'; native_path_refresh(); }
+      }
+   }
+   else if (key == THE_KEY_UP || key == THE_KEY_BTAB || key == THE_KEY_LEFT) step = -1;
+   else if (key == THE_KEY_DOWN || key == 9 || key == THE_KEY_RIGHT) step = 1;
+   else if (key == THE_KEY_HOME) native_menu.selected = 0;
+   else if (key == THE_KEY_END) native_menu.selected = max(0, native_menu.count - 1);
+   else if (key == THE_KEY_MOUSE)
+   {
+      int button, action, modifier, row, col;
+      if (curses_driver_read_pending_mouse_button(&button, &action, &modifier))
+      {
+         curses_driver_current_mouse_screen_position(&row, &col);
+         row -= native_menu.top + 1;
+         if (button == 1 && !modifier && row >= 0 && row < native_menu.rows - 3 &&
+             col >= native_menu.left && col < native_menu.left + native_menu.cols &&
+             row + native_menu.first < native_menu.count)
+         {
+            native_menu.selected = row + native_menu.first;
+            if (action == CURSES_DRIVER_MOUSE_BUTTON_RELEASED || action == CURSES_DRIVER_MOUSE_BUTTON_CLICKED)
+               goto activate;
+         }
+      }
+   }
+   else if (key == 10 || key == 13 || key == THE_KEY_ENTER || key == ' ')
+   {
+activate:
+      if (native_menu.count && !native_menu.entries[native_menu.selected].separator)
+      {
+         const TheWorkbenchAction *action = the_workbench_action_find(native_menu.entries[native_menu.selected].action);
+         const char *reason = action ? the_workbench_action_reason(action) : "unavailable";
+         if (native_action_needs_argument(action) && (!reason || !strcmp(reason, "ok") || !strcmp(reason, "argument-required")))
+         {
+            native_menu.prompting = 1;
+            snprintf(native_menu.argument, sizeof(native_menu.argument), "%s", CURRENT_FILE ? (char *)CURRENT_FILE->fpath : "");
+            native_path_refresh();
+         }
+         else if (!reason || !strcmp(reason, "ok"))
+         {
+invoke:
+            if (the_input_event_from_workbench_invoke(native_menu.entries[native_menu.selected].action,
+               native_menu.entries[native_menu.selected].generation,
+               native_menu.prompting ? native_menu.argument : NULL, event))
+            { native_menu_close(0); curses_driver_update(); return 1; }
+         }
+      }
+   }
+   if (step && native_menu.count)
+      for (tries = 0; tries < native_menu.count; tries++)
+      {
+         native_menu.selected = (native_menu.selected + native_menu.count + step) % native_menu.count;
+         if (!native_menu.entries[native_menu.selected].separator) break;
+      }
+   curses_driver_update();
+   return 0;
+}
+
 void curses_driver_update(void)
 {
    static int cursor_focus_state = -1;
@@ -1389,6 +1785,7 @@ void curses_driver_update(void)
       cursor_focus_state = focus_state;
       curses_driver_apply_cursor_visibility(TRUE);
    }
+   native_menu_draw();
    doupdate();
 }
 
@@ -1571,7 +1968,7 @@ static int curses_driver_decode_utf8_bytes(const unsigned char *bytes,
    return 1;
 }
 
-static int curses_driver_read_utf8_text_event(int first_key,
+static int curses_driver_read_utf8_text_event(WINDOW *input_window, int first_key,
                                               TheInputEvent *event)
 {
    unsigned char bytes[4];
@@ -1585,8 +1982,7 @@ static int curses_driver_read_utf8_text_event(int first_key,
    bytes[0] = (unsigned char)first_key;
    for (i = 1; i < len; i++)
    {
-      int next_key = curses_driver_read_raw_window_key(
-                        curses_driver_current_active_window());
+      int next_key = curses_driver_read_raw_window_key(input_window);
 
       if (!curses_driver_utf8_continuation(next_key))
          return 0;
@@ -1645,7 +2041,7 @@ static int console_mouse_event(TheInputEvent *event)
             workbench_remember_menu_origin();
          workbench_set_focus(THE_WORKBENCH_EDITOR);
          return col < THE_NATIVE_MENU_WIDTH
-            ? the_input_event_from_legacy_key(THE_KEY_F(10), event)
+            ? native_menu_open()
             : col < THE_NATIVE_MENU_WIDTH + THE_NATIVE_CONSOLE_WIDTH
                ? the_input_event_from_command("rx console on", event)
                : the_input_event_from_command("rx run", event);
@@ -1706,7 +2102,7 @@ int curses_driver_read_input_event(TheInputEvent *event)
 
    if (!event) return 0;
    /* A menu selection has returned to ordinary input without Escape. */
-   workbench_menu_origin.active = 0;
+   if (!native_menu.active) workbench_menu_origin.active = 0;
    /* The prior event has now been dispatched. A custom binding may have
     * ignored its mouse packet; never let it replace a later physical click. */
    console_cached_mouse = 0;
@@ -1714,13 +2110,22 @@ int curses_driver_read_input_event(TheInputEvent *event)
    the_tools_native_poll();
    c = the_tool_console();
    if (the_tools_take_menu_run(event)) return 1;
-   if (console_layout_changed()) return the_input_event_from_resize(0, 0, event);
+   if (console_layout_changed())
+   {
+      if (native_menu.active) native_menu_close(1);
+      return the_input_event_from_resize(0, 0, event);
+   }
    if (!c->focused) console_toolbar_focus = 0;
    if (c->focused && !console_rows && !in_macro && !the_panel_active)
       return the_input_event_from_command("rx key escape", event);
-   input_window = workbench_control != THE_WORKBENCH_EDITOR && FILETABSx && filetabs
-      && !in_macro && !the_panel_active
-      ? curses_driver_window_from_driver(filetabs) : curses_driver_current_active_window();
+   /* wgetch() refreshes its window and caret. The visible menu owns input;
+    * polling the underlying Program/editor window would move the terminal
+    * caret away from the menu on every active-job timeout. */
+   input_window = native_menu.active && native_menu.window && !in_macro && !the_panel_active
+      ? native_menu.window
+      : workbench_control != THE_WORKBENCH_EDITOR && FILETABSx && filetabs
+        && !in_macro && !the_panel_active
+         ? curses_driver_window_from_driver(filetabs) : curses_driver_current_active_window();
    curses_driver_set_window_timeout(input_window, console_timeout);
    if (c->running)
       curses_driver_set_window_timeout(input_window, 50);
@@ -1734,10 +2139,16 @@ int curses_driver_read_input_event(TheInputEvent *event)
       return 0;
    }
    *event = the_input_event_none();
-   ok = curses_driver_read_utf8_text_event(key, event);
+   ok = curses_driver_read_utf8_text_event(input_window, key, event);
    if (!ok) ok = the_input_event_from_legacy_key(key, event);
    if (!in_macro && !the_panel_active)
    {
+      if (native_menu.active)
+      {
+         TheInputEvent input = *event;
+         return native_menu_key(key, &input, event);
+      }
+      if (key == THE_KEY_F(10) && shared_menu_key_binding()) return native_menu_open();
       if (key == THE_KEY_MOUSE) return console_mouse_event(event);
       if (workbench_control != THE_WORKBENCH_EDITOR)
       {
@@ -1763,7 +2174,7 @@ int curses_driver_read_input_event(TheInputEvent *event)
                workbench_remember_menu_origin();
             workbench_set_focus(THE_WORKBENCH_EDITOR);
             return control == THE_WORKBENCH_MENU
-               ? the_input_event_from_legacy_key(THE_KEY_F(10), event)
+               ? native_menu_open()
                : the_input_event_from_command(control == THE_WORKBENCH_RUN
                   ? "rx run" : "rx console on", event);
          }
@@ -3083,6 +3494,8 @@ static void curses_driver_resume_terminal(void)
 
 static void curses_driver_resize_terminal(int rows, int cols)
 {
+   /* Core may detect SIGWINCH before it asks the driver for another key. */
+   if (native_menu.active) native_menu_close(1);
 #if defined(SIGWINCH) && defined(USE_NCURSES) && defined(HAVE_RESIZETERM)
    if (rows && cols)
       resizeterm(rows, cols);

@@ -35,6 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "workbench.h"
 
 /*--------------------------- global data -----------------------------*/
 /*#define DEBUG 1*/
@@ -629,8 +630,15 @@ short get_profile(CHARTYPE *prf_file,CHARTYPE *prf_arg)
    short rc=RC_OK;
    bool save_in_macro=in_macro;
    short macrorc=0;
+   short workbench_rc;
 
    TRACE_FUNCTION("default.c: get_profile");
+   workbench_rc = the_workbench_activation_begin((const char *)prf_file);
+   if (workbench_rc != RC_OK)
+   {
+      TRACE_RETURN();
+      return workbench_rc;
+   }
    in_macro = TRUE;
    /*
     * If REXX is supported, process the macro as a REXX macro...
@@ -669,8 +677,20 @@ short get_profile(CHARTYPE *prf_file,CHARTYPE *prf_arg)
       if (rc == RC_NOREXX_ERROR)
          display_error(52,(CHARTYPE *)"",FALSE);
    }
+   workbench_rc = the_workbench_activation_end(rc == RC_OK && macrorc == 0);
+   if (workbench_rc != RC_OK)
+   {
+      const TheWorkbenchResult *result = the_workbench_last_result();
+      char message[256];
+      snprintf(message,sizeof(message),"WORKBENCH %s: %s",result->code,result->message);
+      display_error(0,(CHARTYPE *)message,FALSE);
+      if (rc == RC_OK) rc = workbench_rc;
+   }
    in_macro = save_in_macro;
    TRACE_RETURN();
+   /* Interactive startup historically continues after profile errors. Keep
+    * the prior workbench usable; the visible error and last_result retain
+    * the failed activation rather than claiming a new publication. */
    return(batch_only ? rc : RC_OK);
 }
 /***********************************************************************/

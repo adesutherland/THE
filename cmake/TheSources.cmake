@@ -20,6 +20,8 @@ set(THE_SOURCES
     src/editorsource.c
     src/toolhost.c
     src/tools.c
+    src/workbench.c
+    src/workbenchcommand.c
     src/tools_native.c
     src/edit.c
     src/error.c

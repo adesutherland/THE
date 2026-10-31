@@ -1,8 +1,11 @@
+#include <ctype.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "websession.h"
 #include "frontendaction.h"
+#include "workbench.h"
 #include "headlessdriver.h"
 #include "llmdriver.h"
 #include "llmruntime.h"
@@ -126,6 +129,268 @@ size_t the_web_format_actions(char *catalog, size_t capacity)
       return 0;
    used += (size_t)len;
    return used;
+}
+
+void the_web_publish_workbench(void (*send)(const char *, size_t, void *),
+                               void *context, unsigned long publication)
+{
+   static const char *const sections[] = { "ACTIONS", "MENUS", "ITEMS" };
+   char page[THE_WORKBENCH_JSON_MAX];
+   char message[THE_WORKBENCH_JSON_MAX + 80];
+   size_t totals[3], section, offset;
+   int prefix;
+
+   if (send == NULL)
+      return;
+   totals[0] = the_workbench_action_count();
+   totals[1] = the_workbench_menu_count();
+   totals[2] = the_workbench_item_count();
+   prefix = snprintf(message, sizeof(message),
+                     "{\"type\":\"workbench\",\"operation\":\"list\",\"publication\":%lu,\"data\":",
+                     publication);
+   if (prefix <= 0 || (size_t)prefix >= sizeof(message))
+      return;
+   for (section = 0; section < 3; section++)
+   {
+      for (offset = 0; offset < totals[section] || offset == 0;
+           offset += THE_WORKBENCH_PAGE_MAX)
+      {
+         size_t length;
+         if (!the_workbench_json(page, sizeof(page), sections[section],
+                                 offset, THE_WORKBENCH_PAGE_MAX, 0))
+            return;
+         length = strlen(page);
+         if ((size_t)prefix + length + 2 > sizeof(message))
+            return;
+         memcpy(message + prefix, page, length);
+         message[prefix + length] = '}';
+         message[prefix + length + 1] = '\0';
+         send(message, (size_t)prefix + length + 1, context);
+      }
+   }
+}
+
+int the_web_workbench_reasons_changed(TheWebWorkbenchReasonState *state)
+{
+   TheWebWorkbenchReasonState current;
+   size_t index;
+   if (state == NULL) return 0;
+   memset(&current, 0, sizeof(current));
+   current.count = the_workbench_action_count();
+   if (current.count > THE_WORKBENCH_ACTION_MAX) return 0;
+   for (index = 0; index < current.count; index++)
+      snprintf(current.reasons[index], sizeof(current.reasons[index]), "%s",
+               the_workbench_action_reason(the_workbench_action_at(index)));
+   if (current.count == state->count
+   && memcmp(current.reasons, state->reasons, sizeof(current.reasons)) == 0)
+      return 0;
+   *state = current;
+   return 1;
+}
+
+size_t the_web_format_workbench_page(char *out, size_t capacity,
+                                     const char *section, size_t offset,
+                                     size_t limit)
+{
+   char page[THE_WORKBENCH_JSON_MAX];
+   char upper[32];
+   size_t i, length;
+   int prefix;
+   if (out == NULL || section == NULL || strlen(section) >= sizeof(upper))
+      return 0;
+   for (i = 0; section[i]; i++)
+      upper[i] = (char)toupper((unsigned char)section[i]);
+   upper[i] = '\0';
+   if (!the_workbench_json(page, sizeof(page), upper, offset, limit, 0))
+      return 0;
+   prefix = snprintf(out, capacity,
+                     "{\"type\":\"workbench\",\"operation\":\"list\",\"data\":");
+   length = strlen(page);
+   if (prefix < 0 || (size_t)prefix + length + 2 > capacity)
+      return 0;
+   memcpy(out + prefix, page, length);
+   out[prefix + length] = '}';
+   out[prefix + length + 1] = '\0';
+   return (size_t)prefix + length + 1;
+}
+
+void the_web_workbench_receipts_init(TheWebWorkbenchReceipts *receipts,
+                                     const char *nonce)
+{
+   if (receipts == NULL) return;
+   memset(receipts, 0, sizeof(*receipts));
+   receipts->pending_index = -1;
+   if (nonce != NULL && strlen(nonce) <= THE_WEB_WORKBENCH_NONCE_MAX)
+      strcpy(receipts->nonce, nonce);
+}
+
+const TheWebWorkbenchReceipt *the_web_workbench_receipt_find(
+   const TheWebWorkbenchReceipts *receipts, const char *request_id)
+{
+   size_t i;
+   if (receipts == NULL || request_id == NULL) return NULL;
+   for (i = 0; i < receipts->count; i++)
+      if (strcmp(receipts->entries[i].request_id, request_id) == 0)
+         return &receipts->entries[i];
+   return NULL;
+}
+
+int the_web_workbench_receipt_begin(TheWebWorkbenchReceipts *receipts,
+                                    const char *request_id, const char *action,
+                                    unsigned long generation,
+                                    const char *argument)
+{
+   const unsigned char *p;
+   TheWebWorkbenchReceipt *entry;
+   const TheWebWorkbenchReceipt *previous;
+   unsigned long long sequence = 0;
+   size_t nonce_length, request_length, index;
+   if (receipts == NULL || request_id == NULL || !receipts->nonce[0]
+   || (request_length = strlen(request_id)) > THE_WEB_WORKBENCH_REQUEST_ID_MAX) return -1;
+   nonce_length = strlen(receipts->nonce);
+   if (request_length <= nonce_length
+   || strncmp(request_id, receipts->nonce, nonce_length) != 0
+   || request_id[nonce_length] != '.') return -1;
+   p = (const unsigned char *)request_id + nonce_length + 1;
+   if (!*p || (*p == '0' && p[1])) return -1;
+   for (; *p; p++)
+   {
+      if (*p < '0' || *p > '9'
+      || sequence > (ULLONG_MAX - (*p - '0')) / 10) return -1;
+      sequence = sequence * 10 + (*p - '0');
+   }
+   if (!sequence) return -1;
+   if (action == NULL || strlen(action) > THE_WORKBENCH_ID_MAX
+   || argument != NULL && strlen(argument) > THE_WORKBENCH_OPERAND_MAX)
+      return -5;
+   previous = the_web_workbench_receipt_find(receipts, request_id);
+   if (previous)
+      return previous->generation == generation
+         && previous->has_argument == (argument != NULL)
+         && strcmp(previous->action, action) == 0
+         && (argument == NULL || strcmp(previous->argument, argument) == 0)
+         ? 0 : -4;
+   if (sequence <= receipts->high_water) return -6;
+   receipts->high_water = sequence;
+   if (receipts->count < THE_WEB_WORKBENCH_RECEIPTS)
+      index = receipts->count++;
+   else
+   {
+      index = receipts->next_slot;
+      if ((int)index == receipts->pending_index)
+         index = (index + 1) % THE_WEB_WORKBENCH_RECEIPTS;
+   }
+   receipts->next_slot = (index + 1) % THE_WEB_WORKBENCH_RECEIPTS;
+   entry = &receipts->entries[index];
+   memset(entry, 0, sizeof(*entry));
+   strcpy(entry->request_id, request_id);
+   strcpy(entry->action, action);
+   if (argument != NULL) strcpy(entry->argument, argument);
+   entry->has_argument = argument != NULL;
+   entry->generation = generation;
+   entry->revision = the_workbench_revision();
+   if (receipts->pending_index >= 0)
+   {
+      strcpy(entry->code, "busy");
+      strcpy(entry->message, "Another workbench action is pending");
+      entry->rc = -3;
+      return -3;
+   }
+   strcpy(entry->code, "queued");
+   strcpy(entry->message, "queued");
+   entry->pending = 1;
+   receipts->pending_index = (int)index;
+   return 1;
+}
+
+void the_web_workbench_receipt_refuse(TheWebWorkbenchReceipts *receipts,
+                                      const char *code, short rc,
+                                      const char *message)
+{
+   TheWebWorkbenchReceipt *entry;
+   if (receipts == NULL || receipts->pending_index < 0) return;
+   entry = &receipts->entries[receipts->pending_index];
+   snprintf(entry->code, sizeof(entry->code), "%s", code ? code : "invalid-operand");
+   snprintf(entry->message, sizeof(entry->message), "%s", message ? message : "Invalid workbench request");
+   entry->rc = rc;
+   entry->revision = the_workbench_revision();
+   entry->pending = 0;
+   receipts->pending_index = -1;
+}
+
+void the_web_workbench_receipt_dispatched(TheWebWorkbenchReceipts *receipts)
+{
+   if (receipts != NULL && receipts->pending_index >= 0)
+      receipts->dispatch_serial = the_workbench_invocation_serial();
+}
+
+const TheWebWorkbenchReceipt *the_web_workbench_receipt_complete(
+   TheWebWorkbenchReceipts *receipts)
+{
+   TheWebWorkbenchReceipt *entry;
+   const TheWorkbenchResult *result;
+   if (receipts == NULL || receipts->pending_index < 0
+   || the_workbench_invocation_serial() == receipts->dispatch_serial)
+      return NULL;
+   entry = &receipts->entries[receipts->pending_index];
+   result = the_workbench_last_result();
+   snprintf(entry->code, sizeof(entry->code), "%s", result->code);
+   snprintf(entry->message, sizeof(entry->message), "%s", result->message);
+   entry->rc = result->rc;
+   entry->revision = result->revision;
+   entry->pending = 0;
+   receipts->pending_index = -1;
+   return entry;
+}
+
+static size_t web_json_string(char *out, size_t capacity, const char *value)
+{
+   const unsigned char *p = (const unsigned char *)(value ? value : "");
+   size_t used = 0;
+   if (capacity < 3) return 0;
+   out[used++] = '"';
+   for (; *p; p++)
+   {
+      if (used + 7 >= capacity) return 0;
+      if (*p == '"' || *p == '\\') { out[used++] = '\\'; out[used++] = (char)*p; }
+      else if (*p < 0x20) used += (size_t)snprintf(out + used, capacity - used,
+                                                  "\\u%04x", (unsigned)*p);
+      else out[used++] = (char)*p;
+   }
+   out[used++] = '"'; out[used] = '\0';
+   return used;
+}
+
+int the_web_format_workbench_receipt(char *out, size_t capacity,
+                                     const TheWebWorkbenchReceipt *receipt)
+{
+   size_t used;
+   int length;
+   if (out == NULL || receipt == NULL || capacity < 100) return 0;
+   length = snprintf(out, capacity,
+      "{\"type\":\"workbench\",\"operation\":\"result\",\"requestId\":");
+   if (length < 0 || (size_t)length >= capacity) return 0;
+   used = (size_t)length;
+   length = (int)web_json_string(out + used, capacity - used, receipt->request_id);
+   if (!length) return 0;
+   used += (size_t)length;
+   length = snprintf(out + used, capacity - used, ",\"state\":\"%s\",\"code\":",
+                     receipt->pending ? "queued" : "complete");
+   if (length < 0 || (size_t)length >= capacity - used) return 0;
+   used += (size_t)length;
+   length = (int)web_json_string(out + used, capacity - used, receipt->code);
+   if (!length) return 0;
+   used += (size_t)length;
+   length = snprintf(out + used, capacity - used, ",\"rc\":%d,\"revision\":%lu,\"message\":",
+                     receipt->rc, receipt->revision);
+   if (length < 0 || (size_t)length >= capacity - used) return 0;
+   used += (size_t)length;
+   length = (int)web_json_string(out + used, capacity - used, receipt->message);
+   if (!length) return 0;
+   used += (size_t)length;
+   if (used + 2 > capacity) return 0;
+   out[used++] = '}'; out[used] = '\0';
+   return (int)used;
 }
 
 static size_t web_driver_format_console_colours(char *out, size_t capacity)

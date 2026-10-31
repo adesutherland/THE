@@ -170,6 +170,46 @@ if left(platform,3) = 'WIN' then do
   'define c-x clipboard cut';
   'define c-v clipboard paste';
 end
+'workbench begin owner profile.default';
+'workbench reset owner profile.default';
+'workbench menu put profile.workbench label "Workbench" order 30';
+'workbench action put profile.action.1 label "Open or create file..." command "macro quickopen_regina"';
+'workbench item put profile.workbench profile.item.1 label "Open or create file..." action profile.action.1 order 1';
+'workbench action put profile.action.2 label "Save file (Ctrl-S)" builtin file.save';
+'workbench item put profile.workbench profile.item.2 label "Save file (Ctrl-S)" action profile.action.2 order 2';
+'workbench action put profile.action.3 label "Close file (Ctrl-W)" builtin file.close';
+'workbench item put profile.workbench profile.item.3 label "Close file (Ctrl-W)" action profile.action.3 order 3';
+'workbench action put profile.action.4 label "Undo (Ctrl-Z)" builtin edit.undo';
+'workbench item put profile.workbench profile.item.4 label "Undo (Ctrl-Z)" action profile.action.4 order 4';
+'workbench action put profile.action.5 label "Find... (Ctrl-F)" command "macro quickfind_regina"';
+'workbench item put profile.workbench profile.item.5 label "Find... (Ctrl-F)" action profile.action.5 order 5';
+'workbench action put profile.action.6 label "Go to line... (Ctrl-G)" command "macro quickline_regina"';
+'workbench item put profile.workbench profile.item.6 label "Go to line... (Ctrl-G)" action profile.action.6 order 6';
+'workbench action put profile.action.7 label "Next file (F2)" command "next"';
+'workbench item put profile.workbench profile.item.7 label "Next file (F2)" action profile.action.7 order 7';
+'workbench action put profile.action.8 label "Run current Rexx" command "rx menu-run"';
+'workbench item put profile.workbench profile.item.8 label "Run current Rexx" action profile.action.8 order 8';
+'workbench action put profile.action.9 label "Show or focus Program console" command "rx console on"';
+'workbench item put profile.workbench profile.item.9 label "Show or focus Program console" action profile.action.9 order 9';
+'workbench action put profile.action.10 label "Hide program console" command "rx console off"';
+'workbench item put profile.workbench profile.item.10 label "Hide program console" action profile.action.10 order 10';
+'workbench action put profile.action.11 label "Stop program" command "rx stop"';
+'workbench item put profile.workbench profile.item.11 label "Stop program" action profile.action.11 order 11';
+'workbench action put profile.action.12 label "Clear program output" command "rx clear"';
+'workbench item put profile.workbench profile.item.12 label "Clear program output" action profile.action.12 order 12';
+'workbench action put profile.action.13 label "End program input" command "rx eof"';
+'workbench item put profile.workbench profile.item.13 label "End program input" action profile.action.13 order 13';
+'workbench action put profile.action.14 label "Edit profile" command "rx profile"';
+'workbench item put profile.workbench profile.item.14 label "Edit profile" action profile.action.14 order 14';
+'workbench action put profile.action.15 label "Build profile" command "rx build"';
+'workbench item put profile.workbench profile.item.15 label "Build profile" action profile.action.15 order 15';
+'workbench action put profile.action.16 label "Activate profile" command "rx activate"';
+'workbench item put profile.workbench profile.item.16 label "Activate profile" action profile.action.16 order 16';
+'workbench action put profile.action.17 label "Key definitions" command "showkey all"';
+'workbench item put profile.workbench profile.item.17 label "Key definitions" action profile.action.17 order 17';
+'workbench action put profile.action.18 label "Help (F1)" command "help"';
+'workbench item put profile.workbench profile.item.18 label "Help (F1)" action profile.action.18 order 18';
+'workbench commit';
 'define f10 macro workbenchmenu_regina';
 'extract /ui/'
 if pos('CURSES', translate(ui.1)) > 0 then do

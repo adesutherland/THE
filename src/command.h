@@ -403,6 +403,7 @@ COMMAND command[] =
  {(CHARTYPE *)"rgtleft",     7,  (-1),            Rgtleft,          TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */
  {(CHARTYPE *)"rexx",        4,  (-1),            THERexx,          TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */
  {(CHARTYPE *)"right",       2,  (-1),            Right,            TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm4.c */
+ {(CHARTYPE *)"workbench",   9,  (-1),            Workbench,        TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_NONE,FALSE,FALSE,TRUE ,CUA_NONE         ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},
  {(CHARTYPE *)"rx",          2,  (-1),            Rx,            TRUE, TRUE, FALSE,TRUE, FALSE,STRIP_NONE,FALSE,FALSE,TRUE ,CUA_NONE  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},
  {(CHARTYPE *)"=",           1,  (-1),            Reexecute,        TRUE, FALSE,FALSE,TRUE, FALSE,STRIP_BOTH,FALSE,FALSE,TRUE ,CUA_RESET_BLOCK  ,THIGHLIGHT_NONE         ,(CHARTYPE *)""},  /* comm5.c */
 #if defined(USE_XCURSES) || defined(WIN32)

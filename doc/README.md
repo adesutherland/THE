@@ -10,6 +10,7 @@ release. CRXTHE is an independent fork based on Mark Hessling's THE 4.0.
 - [Windows installation and first use](Windows-Readme.txt)
 - [Command reference](commands/index.md) and [installed help](THE_Help.txt)
 - [Macro interpreters, runtime selection and cache](rexx-interpreters.md)
+- [Shared workbench actions and menus](workbench-actions-menus.md)
 - [Macro panels](panels.md)
 - [LLM protocol and agent workflows](llm-driver-agent-guide.md)
 - [LLM capability inventory](llm-driver-capabilities.md)

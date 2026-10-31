@@ -201,6 +201,7 @@ typedef enum {
     ITEM_WIDTH,
     ITEM_WORD,
     ITEM_WORDWRAP,
+    ITEM_WORKBENCH,
     ITEM_WRAP,
     ITEM_XTERMINAL,
     ITEM_ZONE,

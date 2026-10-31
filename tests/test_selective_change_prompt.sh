@@ -55,15 +55,16 @@ TERM=xterm expect >"${TRANSCRIPT}" 2>&1 <<'EXPECT_EOF'
 set timeout 10
 spawn $env(THE_BIN) -p $env(PROFILE) $env(SAMPLE)
 
+# Batched refresh can coalesce EMSG before SCHange; wait for the modal prompt.
 expect {
-  -re {SCHANGE_READY_SKIP} { after 100; send "n" }
+  -ex {Press 'N' for next,'C' to change 'Q' to quit} { after 100; send "n" }
   timeout { exit 2 }
   eof { exit 3 }
 }
 expect -re {SCHANGE_SKIP_FIELD=b:7:TEXT}
 
 expect {
-  -re {SCHANGE_READY_CHANGE} { after 100; send "c" }
+  -ex {Press 'N' for next,'C' to change 'Q' to quit} { after 100; send "c" }
   timeout { exit 4 }
   eof { exit 5 }
 }

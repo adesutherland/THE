@@ -1,6 +1,7 @@
 #include "inputevent.h"
 
 #include <ctype.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -122,6 +123,8 @@ const char *the_input_kind_name(TheInputKind kind)
          return "command";
       case THE_INPUT_ACTION:
          return "action";
+      case THE_INPUT_WORKBENCH_INVOKE:
+         return "workbench-invoke";
       case THE_INPUT_LOGICAL_HIT:
          return "logical-hit";
       case THE_INPUT_RESIZE:
@@ -388,6 +391,30 @@ int the_input_event_from_action(const char *name, const char *argument,
    out->kind = THE_INPUT_ACTION;
    return 1;
 }
+
+int the_input_event_from_workbench_invoke(const char *id, unsigned long generation,
+                                           const char *argument, TheInputEvent *out)
+{
+   const unsigned char *p = (const unsigned char *)id;
+   if (!out || !p || !((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z'))
+   || generation > LONG_MAX || strlen(id) > THE_WORKBENCH_ID_MAX
+   || (argument && strlen(argument) > THE_WORKBENCH_OPERAND_MAX)) return 0;
+   for (; *p; p++) if (!( (*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z')
+      || (*p >= '0' && *p <= '9') || *p == '.' || *p == '_' || *p == '-')) return 0;
+   *out = the_input_event_none();
+   out->kind = THE_INPUT_WORKBENCH_INVOKE;
+   strcpy(out->command,id); out->target.line_number = (LINETYPE)generation;
+   out->rows = argument != NULL;
+   if (argument) strcpy(out->action.argument,argument);
+   return 1;
+}
+
+const char *the_input_event_workbench_id(const TheInputEvent *input)
+{ return input && input->kind == THE_INPUT_WORKBENCH_INVOKE ? input->command : NULL; }
+unsigned long the_input_event_workbench_generation(const TheInputEvent *input)
+{ return input && input->kind == THE_INPUT_WORKBENCH_INVOKE ? (unsigned long)input->target.line_number : 0; }
+const char *the_input_event_workbench_argument(const TheInputEvent *input)
+{ return input && input->kind == THE_INPUT_WORKBENCH_INVOKE && input->rows ? input->action.argument : NULL; }
 
 int the_input_event_from_logical_target(TheInputLogicalTargetKind kind,
                                         LINETYPE line_number, int row,

@@ -22,6 +22,7 @@
 #include "transientui.h"
 #include "utfinput.h"
 #include "vars.h"
+#include "workbench.h"
 #ifdef USE_UTF8
 # include "utfterm.h"
 #endif
@@ -491,7 +492,8 @@ static void print_capabilities(void)
    print_json_string((const char *)crexx_version);
    fputs(",\"transient_ui\":\"shared-transientui-protocol-adapter\"", stdout);
    fputs(",\"build_test_hooks\":\"external-shell-or-ctest\"", stdout);
-   fputs(",\"inputs\":[\"look\",\"delta\",\"capabilities\",\"focus\",\"hit\",\"key\",\"text\",\"type\",\"text-utf\",\"insert\",\"insert-utf\",\"command\",\"debug\",\"transient\",\"quit\"]", stdout);
+   fputs(",\"workbench\":{\"schemaVersion\":1,\"actions\":true,\"menus\":true,\"invocation\":\"command\"}", stdout);
+   fputs(",\"inputs\":[\"look\",\"delta\",\"capabilities\",\"focus\",\"hit\",\"key\",\"text\",\"type\",\"text-utf\",\"insert\",\"insert-utf\",\"command\",\"tools\",\"toolwait\",\"debug\",\"transient\",\"quit\"]", stdout);
    fputs(",\"view_modes\":[\"full\",\"filearea\",\"reserved\",\"prefix\",\"focus\"]", stdout);
    fputs(",\"transient_commands\":[\"transient readv [TEXT]\",\"transient dialog [TEXT]\",\"transient popup\",\"transient look\",\"transient key NAME\",\"transient text TEXT\",\"transient hit ROW COL\",\"transient result\",\"transient close\",\"transient cancel\"]", stdout);
    fputs(",\"debug_commands\":[\"describe-focus\",\"describe-row\",\"list-visible-rows\",\"dump-cursor-mapping\",\"dump-driver-ops\",\"explain-last-render\",\"utf-display\"]", stdout);
@@ -597,6 +599,37 @@ int llm_session_begin_popup_continuation(
    return 1;
 }
 
+static void append_workbench_summary(char *out, size_t capacity)
+{
+   char summary[4096];
+   const char suffix[] = ",\"workbench\":";
+   size_t end, summary_len, suffix_len = sizeof(suffix) - 1;
+
+   if (out == NULL || capacity == 0
+   ||  !the_workbench_json(summary, sizeof(summary), "SUMMARY", 0, 1, 0))
+      return;
+   end = strlen(out);
+   while (end && (out[end - 1] == '\n' || out[end - 1] == '\r'
+                || out[end - 1] == ' '))
+      end--;
+   if (end == 0 || out[end - 1] != '}')
+      return;
+   summary_len = strlen(summary);
+   while (summary_len && (summary[summary_len - 1] == '\n'
+                      || summary[summary_len - 1] == '\r'))
+      summary_len--;
+   if (end - 1 + suffix_len + summary_len + 3 > capacity)
+      return;
+   end--;
+   memcpy(out + end, suffix, suffix_len);
+   end += suffix_len;
+   memcpy(out + end, summary, summary_len);
+   end += summary_len;
+   out[end++] = '}';
+   out[end++] = '\n';
+   out[end] = '\0';
+}
+
 static void print_view(char *args, int delta)
 {
    static char out[262144];
@@ -627,6 +660,7 @@ static void print_view(char *args, int delta)
    previous_view = *view;
    previous_view_valid = 1;
    free(view);
+   append_workbench_summary(out, sizeof(out));
    fputs(out, stdout);
    fflush(stdout);
 }

@@ -164,6 +164,34 @@ try {
   await waitFor(() => command("Page.getFrameTree"), "active Chrome page", 30000);
   await command("Runtime.enable");
   await command("Page.enable");
+  await command("Page.addScriptToEvaluateOnNewDocument", { source: `
+    window.__theSockets = [];
+    window.__workbenchResults = [];
+    window.__workbenchSession = '';
+    window.__workbenchNext = 1;
+    window.__nextWorkbenchId = () => window.__workbenchSession + '.' + window.__workbenchNext++;
+    const NativeSocket = window.WebSocket;
+    window.WebSocket = class extends NativeSocket {
+      constructor(...args) {
+        super(...args);
+        window.__theSockets.push(this);
+        this.addEventListener('message', (event) => {
+          try {
+            const value = JSON.parse(event.data);
+            if (value.type === 'hello') {
+              window.__workbenchSession = value.workbenchSession;
+              window.__workbenchNext = value.workbenchNextRequest;
+            }
+            if (value.type === 'workbench' && value.operation === 'result') {
+              window.__workbenchResults.push(value);
+              const sequence = Number(value.requestId?.split('.').at(-1));
+              if (Number.isSafeInteger(sequence)) window.__workbenchNext = Math.max(window.__workbenchNext, sequence + 1);
+            }
+          } catch {}
+        });
+      }
+    };
+  ` });
   await command("Page.navigate", { url: pageUrl });
   await waitFor(
     () => evaluate("document.readyState === 'complete' && !!document.querySelector('.app-shell')"),
@@ -441,10 +469,67 @@ try {
     await selectBuffer('sample.txt');
     console.log('PASS native graphical RXBIN host: actual Classic execution, live SET COLOR/file-switch console palette, Unicode stdin/output and status');
   }
+  // The restricted browser admits typed builtins through the shared registry.
+  // Its command and macro action kinds remain subject to core policy.
+  const beforeWorkbench = await evaluate("({draft:document.querySelector('#the-command').value,dirty:document.querySelector('.status-line').dataset.bufferDirty,zone:document.querySelector('.status-line').dataset.focusZone,line:document.querySelector('.status-line').dataset.focusLine,cell:document.querySelector('.status-line').dataset.focusCell})");
+  const poisonedLabel = 'Check / <img src=x onerror="window.poisoned=true">';
+  await navigationCommand('workbench begin owner user.web');
+  await navigationCommand('workbench action put user.save label "Safe Save" builtin file.save');
+  await navigationCommand('workbench menu put user.tools label "Tools" order 50');
+  await navigationCommand(`workbench item put user.tools user.saveitem label "${poisonedLabel.replaceAll('"', '""')}" action user.save`);
+  await navigationCommand('workbench commit');
+  await evaluate("document.querySelector('.menu-trigger').click()");
+  await waitFor(() => evaluate("!!document.querySelector('[data-menu-id=\"user.tools\"] button')"), "published profile menu in native Chrome");
+  if (!await evaluate(`document.querySelector('[data-menu-id="user.tools"] button span').textContent === ${JSON.stringify(poisonedLabel)} && !document.querySelector('.menu-popover img') && !window.poisoned`))
+    throw new Error("workbench label changed markup or text");
+  const oldGeneration = +(await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button').dataset.generation"));
+  await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button').click()");
+  await waitFor(() => evaluate("window.__workbenchResults.some(result => result.code === 'ok' && result.state === 'complete')"), "shared menu action result");
+  await navigationCommand('workbench begin owner user.web');
+  await navigationCommand('workbench action put user.save label "Replaced Save" builtin file.save');
+  await navigationCommand('workbench item put user.tools user.saveitem label "Replaced Save" action user.save');
+  await navigationCommand('workbench commit');
+  await evaluate("document.querySelector('.menu-trigger').click()");
+  await waitFor(() => evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button span')?.textContent === 'Replaced Save'"), "replaced shared menu");
+  const newGeneration = +(await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button').dataset.generation"));
+  if (newGeneration <= oldGeneration) throw new Error("replaced action did not advance generation");
+  const staleRequest = await evaluate("window.__nextWorkbenchId()");
+  await evaluate(`window.__theSockets[0].send(JSON.stringify({type:'workbench',version:1,operation:'invoke',requestId:${JSON.stringify(staleRequest)},action:'user.save',expectGeneration:${oldGeneration}}))`);
+  await waitFor(() => evaluate(`window.__workbenchResults.some(result => result.requestId === ${JSON.stringify(staleRequest)} && result.code === 'stale-generation')`), "stale generation refusal");
+  const nulRequest = await evaluate("window.__nextWorkbenchId()");
+  await evaluate(`window.__theSockets[0].send(JSON.stringify({type:'workbench',version:1,operation:'invoke',requestId:${JSON.stringify(nulRequest)},action:'user.save\\u0000hidden',expectGeneration:${newGeneration}}))`);
+  await waitFor(() => evaluate(`window.__workbenchResults.some(result => result.requestId === ${JSON.stringify(nulRequest)} && result.code === 'invalid-operand')`), "native JSON NUL refusal");
+  await navigationCommand('workbench begin owner user.web');
+  await navigationCommand('workbench item remove user.tools user.saveitem');
+  await navigationCommand('workbench action remove user.save');
+  await navigationCommand('workbench menu remove user.tools');
+  await navigationCommand('workbench commit');
+  await waitFor(() => evaluate("!document.querySelector('[data-menu-id=\"user.tools\"]')"), "removed shared menu");
+  await evaluate("document.querySelector('.menu-trigger').click()");
+  if (JSON.stringify(await evaluate("({draft:document.querySelector('#the-command').value,dirty:document.querySelector('.status-line').dataset.bufferDirty,zone:document.querySelector('.status-line').dataset.focusZone,line:document.querySelector('.status-line').dataset.focusLine,cell:document.querySelector('.status-line').dataset.focusCell})")) !== JSON.stringify(beforeWorkbench))
+    throw new Error("workbench menu cycle changed editor state");
+  // A transport replay with the same request ID returns the cached completion.
+  await evaluate("document.querySelector('.menu-trigger').click()");
+  const saveGeneration = +(await evaluate("document.querySelector('[data-action-id=\"the.file.save\"]').dataset.generation"));
+  await evaluate("document.querySelector('.menu-trigger').click();document.querySelector('.input-sink').focus()");
+  const replayId = await evaluate("window.__nextWorkbenchId()");
+  await evaluate(`(() => { const request={type:'workbench',version:1,operation:'invoke',requestId:${JSON.stringify(replayId)},action:'the.file.save',expectGeneration:${saveGeneration}};window.__theSockets[0].send(JSON.stringify(request));window.__theSockets[0].send(JSON.stringify(request)); })()`);
+  await waitFor(() => evaluate(`window.__workbenchResults.some(result => result.requestId === ${JSON.stringify(replayId)} && result.state === 'complete' && result.code === 'ok')`), "deduplicated Save receipt");
+  await sleep(200);
+  if (await evaluate(`new Set(window.__workbenchResults.filter(result => result.requestId === ${JSON.stringify(replayId)} && result.state === 'complete').map(result => JSON.stringify(result))).size !== 1`))
+    throw new Error("request replay changed its completed receipt");
+  await evaluate(`window.__theSockets[0].send(JSON.stringify({type:'workbench',version:1,operation:'invoke',requestId:${JSON.stringify(replayId)},action:'the.edit.undo',expectGeneration:${saveGeneration}}))`);
+  await waitFor(() => evaluate(`window.__workbenchResults.some(result => result.requestId === ${JSON.stringify(replayId)} && result.code === 'request-id-conflict')`), "request ID payload conflict");
+  console.log("PASS native browser shared workbench: add, invoke, replace, stale generation, poisoned label and remove");
   if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   await evaluate("document.querySelector('.menu-trigger').click()");
+  const beforeCloseResults = +(await evaluate("window.__workbenchResults.length"));
   await evaluate("[...document.querySelectorAll('.menu-popover button')].find((node) => node.textContent.trim().startsWith('Close')).click()");
-  await sleep(150);
+  await waitFor(() => evaluate(`window.__workbenchResults.length > ${beforeCloseResults} || window.__theSockets[0].readyState !== WebSocket.OPEN`), "shared Close action response");
+  if (await evaluate("window.__theSockets[0].readyState === WebSocket.OPEN")) {
+    const result = await evaluate("window.__workbenchResults.at(-1)");
+    if (result.code !== "ok") throw new Error(`shared Close refused: ${JSON.stringify(result)}`);
+  }
 } finally {
   if (socket?.readyState === WebSocket.OPEN) socket.close();
   if (chrome.exitCode === null) {

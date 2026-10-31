@@ -155,7 +155,9 @@ rg '"parser_diagnostics":"first-class-snapshot-array"|"parser_diagnostics":"unav
 rg '"transient_ui":"shared-transientui-protocol-adapter"' "$out" >/dev/null
 rg '"utf":true' "$out" >/dev/null
 rg '"utf_display_mode":"normal"' "$out" >/dev/null
-rg '"inputs":\["look","delta","capabilities","focus","hit","key","text","type","text-utf","insert","insert-utf","command","debug","transient","quit"\]' "$out" >/dev/null
+rg '"inputs":\["look","delta","capabilities","focus","hit","key","text","type","text-utf","insert","insert-utf","command","tools","toolwait","debug","transient","quit"\]' "$out" >/dev/null
+rg '"workbench":\{"schemaVersion":1,"actions":true,"menus":true,"invocation":"command"\}' "$out" >/dev/null
+rg '"workbench":\{"schemaVersion":1,"revision":[0-9]+,"section":"summary"' "$out" >/dev/null
 rg '"debug_commands":\[[^]]*"utf-display"' "$out" >/dev/null
 rg '"debug":"utf-display","supported":true,"active_mode":"normal"' "$out" >/dev/null
 rg '"debug":"utf-display","supported":true,"active_mode":"decomposed"' "$out" >/dev/null

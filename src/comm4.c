@@ -636,6 +636,7 @@ short Query(CHARTYPE *params)
    short itemno=0;
    bool save_msgmode_status = CURRENT_VIEW->msgmode_status;
    CHARTYPE item_type=0;
+   bool workbench_query=FALSE;
 
    TRACE_FUNCTION( "comm4.c:   Query" );
    strip[0]=STRIP_BOTH;
@@ -658,6 +659,7 @@ short Query(CHARTYPE *params)
     * Note that multi-line outputs like PARSER or COLOR will be displayed as part
     * of get_item_values()
     */
+   workbench_query = my_stricmp((DEFCHAR *)word[0],"workbench") == 0;
    itemno = get_item_values( 1, itemno, (CHARTYPE *)word[1], QUERY_QUERY, 0L, NULL, 0L );
    /*
     * Save the current position and size of the message line so we can
@@ -682,7 +684,7 @@ short Query(CHARTYPE *params)
    }
    CURRENT_VIEW->msgmode_status = save_msgmode_status;
    TRACE_RETURN();
-   return(RC_OK);
+   return(workbench_query && itemno == EXTRACT_ARG_ERROR ? RC_INVALID_OPERAND : RC_OK);
 }
 /*man-start*********************************************************************
 COMMAND

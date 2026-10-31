@@ -42,7 +42,7 @@ short the_input_dispatch_action(const TheFrontendAction *action)
    {
       /* Frontend actions name editor built-ins. User aliases must not
        * replace Save, Open, Close or the other generated action verbs. */
-      short rc = command_line((CHARTYPE *)command, COMMAND_ONLY_TRUE);
+      short rc = command_line_builtin_single((CHARTYPE *)command);
       if (rc == RC_OK && number_of_files > 0 && vd_current != NULL)
       {
          the_frontend_policy_apply_current_file();
@@ -50,8 +50,7 @@ short the_input_dispatch_action(const TheFrontendAction *action)
          ||  prepared.id == THE_FRONTEND_ACTION_FILE_CREATE
          ||  prepared.id == THE_FRONTEND_ACTION_BUFFER_SWITCH)
          {
-            rc = command_line((CHARTYPE *)"set coloring on auto",
-                              COMMAND_ONLY_TRUE);
+            rc = command_line_builtin_single((CHARTYPE *)"set coloring on auto");
          }
       }
       return rc;

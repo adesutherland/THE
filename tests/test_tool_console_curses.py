@@ -128,11 +128,11 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         positions = []
         for expected in menu_labels:
             matches = [row for row, line in enumerate(screen.display)
-                       if line.startswith('  ' + expected)]
+                       if 'Workbench: ' + expected in line]
             assert len(matches) == 1, (expected, screen.display)
             positions.append(matches[0])
         assert positions == list(range(positions[0], positions[0] + len(menu_labels))), screen.display
-        selected = positions[menu_labels.index(label)] - positions[0]
+        selected = positions[menu_labels.index(label)] - 2
         os.write(master, b'\x1b[B' * selected + b'\r')
 
     def click_at(row, col):

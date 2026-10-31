@@ -29,10 +29,17 @@ for engine in ['CREXX', 'REGINA']:
         root = Path(temporary)
         source = root / 'sample.txt'
         source.write_text('alpha\nbeta\ngamma\ndelta\n')
+        chosen = root / 'other path Ω.txt'
+        chosen.write_text('chooser file bytes\n')
         profile = root / 'keys.the'
         stock = repo / ('profile.the' if engine == 'CREXX' else 'profile_regina.the')
         profile.write_text(stock.read_text() +
                            "\n'define f9 qquit';\n'define c-u cmsg';\n"
+                           "'workbench begin owner native.probe';\n"
+                           "'workbench menu put native.tools label \"Tools / \"\"quoted\"\" Ω\" order 15';\n"
+                           "'workbench action put native.check label \"Check / \"\"quoted\"\" Ω\" command \"msg NATIVE_MENU_INVOKED\"';\n"
+                           "'workbench item put native.tools native.item label \"Check / \"\"quoted\"\" Ω\" action native.check';\n"
+                           "'workbench commit';\n"
                            "'msg PROFILE_READY';\n")
         env = dict(os.environ, THE_REXX_INTERPRETER=engine, TERM='xterm-256color',
                    THE_CREXX_CACHE_DIR=str(root / 'cache'),
@@ -80,6 +87,7 @@ for engine in ['CREXX', 'REGINA']:
             send(b'\x15')
             wait(lambda: not screen.display[rows - 2][8:].strip(), 'clear command')
             send(text.encode() + b'\r')
+            wait(lambda: not screen.display[rows - 2][8:].strip(), 'submitted command: ' + text)
 
         def response(token):
             wait(lambda: token in screen.display[rows - 3], 'adjacent response: ' + token)
@@ -98,11 +106,63 @@ for engine in ['CREXX', 'REGINA']:
             assert 'Console' in screen.display[0][14:25], screen.display
             assert 'Run Rexx' in screen.display[0][25:37], screen.display
             click_at(0, 2)
-            wait(lambda: 'Open or create file' in screen.display[2][:40],
+            wait(lambda: any('Open or create file' in row for row in screen.display),
                  'top-left mouse menu opens below its button')
             send(b'\x1b')
             wait(lambda: 'Open or create file' not in '\n'.join(screen.display),
                  'mouse menu cancels')
+            # Definitions do not execute; poisoned labels remain visible data.
+            assert not any('NATIVE_MENU_INVOKED' in row for row in screen.display)
+            send(b'\x1b[21~')
+            wait(lambda: any('Check / "quoted" Ω' in row for row in screen.display),
+                 'shared UTF-8 slash/quote label')
+            custom = next(y for y, line in enumerate(screen.display) if 'Check / "quoted" Ω' in line)
+            click_at(custom, 4)
+            response('NATIVE_MENU_INVOKED')
+            command('define f10 msg CUSTOM_F10_BINDING')
+            send(b'\x1b[21~')
+            response('CUSTOM_F10_BINDING')
+            assert not any('Open or create file' in row for row in screen.display)
+            command('define f10 macro workbenchmenu' + ('_regina' if engine == 'REGINA' else ''))
+            command('workbench begin owner native.live')
+            command('workbench menu put native.live label "Live / label" order 15')
+            command('workbench action put native.liveaction label "Live" command "msg NATIVE_LIVE_INVOKED"')
+            command('workbench item put native.live native.liveitem label "Replaced / label" action native.liveaction')
+            command('workbench commit')
+            send(b'\x1b[21~')
+            wait(lambda: any('Replaced / label' in row for row in screen.display), 'published replacement')
+            send(b'\x1b')
+            wait(lambda: not any('Replaced / label' in row for row in screen.display), 'cancel updated menu')
+            command('workbench begin owner native.live')
+            command('workbench menu remove native.live')
+            command('workbench action remove native.liveaction')
+            command('workbench commit')
+            # Keyboard-only path filtering and cancellation leave the caller intact.
+            send(b'CHOOSER_PENDING')
+            wait(lambda: 'CHOOSER_PENDING' in screen.display[rows - 2], 'chooser command draft')
+            chooser_draft = screen.display[rows - 2]
+            chooser_caret = (screen.cursor.x, screen.cursor.y)
+            chooser_tabs = screen.display[0]
+            send(b'\x1b[21~\x1b[H\x1b[B\r')
+            wait(lambda: any('Choose path' in row for row in screen.display), 'keyboard path chooser')
+            send('other'.encode())
+            wait(lambda: any('other path Ω.txt' in row for row in screen.display), 'filtered Unicode filename')
+            send(b'\t\x1b')
+            wait(lambda: not any('Choose path' in row for row in screen.display), 'cancel path chooser')
+            assert screen.display[rows - 2] == chooser_draft, screen.display
+            assert (screen.cursor.x, screen.cursor.y) == chooser_caret, screen.cursor
+            assert screen.display[0] == chooser_tabs, screen.display
+            assert source.read_bytes() == b'alpha\nbeta\ngamma\ndelta\n'
+            send(b'\x1b[21~\x1b[H\x1b[B\r')
+            wait(lambda: any('Choose path' in row for row in screen.display), 'retry path chooser')
+            send('other'.encode())
+            wait(lambda: any('other path Ω.txt' in row for row in screen.display), 'retry filtered filename')
+            send(b'\x1b[B\r')
+            wait(lambda: any('chooser file bytes' in row for row in screen.display), 'keyboard opens chosen file')
+            assert chosen.read_bytes() == b'chooser file bytes\n'
+            command('qquit')
+            wait(lambda: any('alpha' in row for row in screen.display), 'return to original buffer')
+            send(b'\x15')
             command('showkey')
             wait(lambda: any('Press the key' in row for row in screen.display), 'key guide')
             send(b'\x1b[Z')
@@ -169,6 +229,16 @@ for engine in ['CREXX', 'REGINA']:
             expected_saved = b'ZQalpha\nbeta\ngamma\ndelta\n'
             wait(lambda: saved_bytes_match(expected_saved), 'save after Menu')
             assert source.read_bytes() == expected_saved
+            send(b'\x1bOS')  # F4: the profile's Prefix command.
+            wait(lambda: screen.cursor.x < 8 and screen.cursor.y < rows - 4, 'prefix focus')
+            send(b'\x1b[C')
+            wait(lambda: 0 < screen.cursor.x < 8, 'prefix caret')
+            prefix_caret = (screen.cursor.x, screen.cursor.y)
+            send(b'\x1b[21~')
+            wait(lambda: any('Open or create file' in row for row in screen.display), 'prefix Menu')
+            send(b'\x1b')
+            wait(lambda: not any('Open or create file' in row for row in screen.display)
+                 and (screen.cursor.x, screen.cursor.y) == prefix_caret, 'Menu cancel restores exact prefix caret')
             send(b'\x1b[21~')
             wait(lambda: any('Open or create file' in row for row in screen.display), 'Menu reopened')
             find_row = next(y for y, line in enumerate(screen.display) if 'Find...' in line)

@@ -50,6 +50,7 @@ void AdjustThighlight( int );
 static bool save_target( TARGET * );
 static unsigned int restricted_command_depth;
 static unsigned int restricted_builtin_depth;
+static unsigned int single_builtin_command_depth;
 
 #define HEXVAL(c) (((c)>'9')?(tolower(c)-'a'+10):((c)-'0'))
 
@@ -1311,6 +1312,19 @@ short command_line_restricted_builtin(CHARTYPE *cmd_line)
    return rc;
 }
 /***********************************************************************/
+short command_line_builtin_single(CHARTYPE *cmd_line)
+/***********************************************************************/
+{
+   short rc;
+   /* Typed operands are data even when they contain the current LINEND
+    * byte. Keep that rule across nested dispatch, and restore it after
+    * every command_line return path. */
+   single_builtin_command_depth++;
+   rc = command_line(cmd_line,COMMAND_ONLY_TRUE);
+   single_builtin_command_depth--;
+   return rc;
+}
+/***********************************************************************/
 short command_line(CHARTYPE *cmd_line,bool command_only)
 /***********************************************************************/
 {
@@ -1409,6 +1423,7 @@ fprintf(stderr,"%s %d: Command: [%s] idline: %d\n",__FILE__,__LINE__,command_ent
     * individual commands.
     */
    if ( linend_status
+   &&   !single_builtin_command_depth
    &&   !define_command( cmd_line ) )
    {
       command_delim[0] = linend_value;
@@ -3724,17 +3739,32 @@ short get_valid_macro_file_name(CHARTYPE *inmacroname,CHARTYPE *filename,CHARTYP
    CHARTYPE delims[3];
    bool file_found=FALSE;
    CHARTYPE _THE_FAR macroname[MAX_FILE_NAME+1] ;
-   int len_macroname=strlen((DEFCHAR*)inmacroname);
-   int len_macro_suffix=strlen((DEFCHAR*)macro_ext);
+   size_t len_macroname;
+   size_t len_macro_suffix;
+   size_t dir_length, suffix_length, separator_length;
    bool append_suffix=TRUE;
 
    TRACE_FUNCTION("commutil.c:get_valid_macro_file_name");
+   if (!inmacroname || !filename || !macro_ext || !errnum)
+   {
+      TRACE_RETURN();
+      return RC_INVALID_OPERAND;
+   }
+   *errnum = 9;
+   len_macroname = strlen((DEFCHAR *)inmacroname);
+   len_macro_suffix = strlen((DEFCHAR *)macro_ext);
+   if (len_macroname > MAX_FILE_NAME || len_macro_suffix > MAX_FILE_NAME)
+   {
+      TRACE_RETURN();
+      return RC_INVALID_OPERAND;
+   }
    /*
     * Create the full name of the macro file by prepending the default
     * macropath provided the filename does not already contain a path.
     */
    strcpy( (DEFCHAR*)macroname, (DEFCHAR*)inmacroname );
    strrmdup(strtrans(macroname,OSLASH,ISLASH),ISLASH,TRUE);
+   len_macroname = strlen((DEFCHAR *)macroname);
 #if defined(UNIX)
    strcpy((DEFCHAR *)delims,(DEFCHAR *)ISTR_SLASH);
    if (strpbrk((DEFCHAR *)macroname,(DEFCHAR *)delims) == NULL
@@ -3761,14 +3791,19 @@ short get_valid_macro_file_name(CHARTYPE *inmacroname,CHARTYPE *filename,CHARTYP
       file_found = FALSE;
       for ( i = 0; i < max_macro_dirs; i++ )
       {
-         strcpy( (DEFCHAR *)filename, (DEFCHAR *)the_macro_dir[i] );
-         if ( strlen( (DEFCHAR *)filename ) == 0 )
-            continue;
-         if ( *(filename+strlen( (DEFCHAR *)filename) - 1 ) != ISLASH )
-            strcat( (DEFCHAR *)filename, (DEFCHAR *)ISTR_SLASH );
-         strcat( (DEFCHAR *)filename, (DEFCHAR *)macroname );     /* append the file name */
-         if ( append_suffix )
-            strcat( (DEFCHAR *)filename, (DEFCHAR *)macro_ext ); /* append default suffix */
+         dir_length = strlen((DEFCHAR *)the_macro_dir[i]);
+         if (!dir_length) continue;
+         separator_length = the_macro_dir[i][dir_length-1] == ISLASH ? 0 : 1;
+         suffix_length = append_suffix ? len_macro_suffix : 0;
+         if (dir_length > MAX_FILE_NAME
+         || len_macroname + separator_length + suffix_length > MAX_FILE_NAME - dir_length)
+         {
+            TRACE_RETURN();
+            return RC_INVALID_OPERAND;
+         }
+         snprintf((DEFCHAR *)filename,MAX_FILE_NAME+1,"%s%s%s%s",the_macro_dir[i],
+                  separator_length ? (DEFCHAR *)ISTR_SLASH : "",macroname,
+                  append_suffix ? (DEFCHAR *)macro_ext : "");
          if ( file_exists( filename ) == THE_FILE_EXISTS )     /* check if file exists... */
          {
             file_found = TRUE;
@@ -3777,9 +3812,13 @@ short get_valid_macro_file_name(CHARTYPE *inmacroname,CHARTYPE *filename,CHARTYP
       }
       if ( !file_found )
       {
-         strcpy( (DEFCHAR *)filename, (DEFCHAR *)macroname );
-         if ( append_suffix )
-            strcat( (DEFCHAR *)filename, (DEFCHAR *)macro_ext );
+         if (len_macroname + (append_suffix ? len_macro_suffix : 0) > MAX_FILE_NAME)
+         {
+            TRACE_RETURN();
+            return RC_INVALID_OPERAND;
+         }
+         snprintf((DEFCHAR *)filename,MAX_FILE_NAME+1,"%s%s",macroname,
+                  append_suffix ? (DEFCHAR *)macro_ext : "");
          *errnum = 11;
          TRACE_RETURN();
          return(RC_FILE_NOT_FOUND);
@@ -3791,14 +3830,19 @@ short get_valid_macro_file_name(CHARTYPE *inmacroname,CHARTYPE *filename,CHARTYP
        * The supplied macro file name does contain a path...so just check to
        * ensure that the file exists.
        */
-      if ( splitpath( macroname ) != RC_OK )
+      short path_rc = splitpath(macroname);
+      if (path_rc != RC_OK)
       {
          *errnum = 9;
          TRACE_RETURN();
-         return(RC_FILE_NOT_FOUND);
+         return path_rc == RC_BAD_FILEID ? RC_INVALID_OPERAND : RC_FILE_NOT_FOUND;
       }
-      strcpy( (DEFCHAR *)filename, (DEFCHAR *)sp_path );
-      strcat( (DEFCHAR *)filename, (DEFCHAR *)sp_fname );
+      if (strlen((DEFCHAR *)sp_path) + strlen((DEFCHAR *)sp_fname) > MAX_FILE_NAME)
+      {
+         TRACE_RETURN();
+         return RC_INVALID_OPERAND;
+      }
+      snprintf((DEFCHAR *)filename,MAX_FILE_NAME+1,"%s%s",sp_path,sp_fname);
       if ( file_exists( filename ) != THE_FILE_EXISTS
       ||   strcmp( (DEFCHAR *)sp_fname, "" ) == 0 )
       {
@@ -3841,8 +3885,23 @@ bool define_command(CHARTYPE *cmd_line)
       memcpy(word,cursor,length);
       word[length]='\0';
       cursor+=length;
+      /* WORKBENCH owns all declaration delimiters, including a quoted
+       * label containing the current LINEND byte. A single safe synonym to
+       * that builtin has the same data contract. */
+      if (CURRENT_VIEW && CURRENT_VIEW->synonym)
+      {
+         bool ambiguous;
+         DEFINE *alias = find_synonym(word,&ambiguous);
+         if (!ambiguous && alias && alias->def_command >= 0
+         && !(alias->next && my_stricmp((DEFCHAR *)alias->synonym,
+                                        (DEFCHAR *)alias->next->synonym) == 0)
+         && strcmp((DEFCHAR *)command[alias->def_command].text,"workbench") == 0)
+            return TRUE;
+      }
       index=find_builtin_command(word,FALSE,FALSE);
       if (index==RC_NOT_COMMAND) return FALSE;
+      if (strcmp((DEFCHAR *)command[index].text,"workbench")==0)
+         return TRUE;
       if (strcmp((DEFCHAR *)command[index].text,"command")==0)
          continue;
       if (strcmp((DEFCHAR *)command[index].text,"define")==0)

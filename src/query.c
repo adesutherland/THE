@@ -215,6 +215,7 @@ extern ExtractFunction extract_topedge_function;
 extern ExtractFunction extract_trailing;
 extern ExtractFunction extract_typeahead;
 extern ExtractFunction extract_ui;
+extern ExtractFunction extract_workbench;
 extern ExtractFunction extract_undoing;
 extern ExtractFunction extract_untaa;
 extern ExtractFunction extract_utf;
@@ -2243,6 +2244,7 @@ QUERY_ITEM _THE_FAR query_item[] =
    {(CHARTYPE *)"width",           5, 1,ITEM_WIDTH,         1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_width                  },
    {(CHARTYPE *)"word",            4, 4,ITEM_WORD,          1, 1,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_word                   },
    {(CHARTYPE *)"wordwrap",        8, 5,ITEM_WORDWRAP,      1, 1,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_wordwrap               },
+   {(CHARTYPE *)"workbench",       9, 9,ITEM_WORKBENCH,     1, 1,          LVL_GLOB,QUERY_QUERY             |QUERY_EXTRACT             ,extract_workbench              },
    {(CHARTYPE *)"wrap",            4, 2,ITEM_WRAP,          1, 1,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_wrap                   },
    {(CHARTYPE *)"xterminal",       9, 5,ITEM_XTERMINAL,     1, 1,          LVL_GLOB,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_xterminal              },
    {(CHARTYPE *)"zone",            4, 1,ITEM_ZONE,          2, 2,          LVL_VIEW,QUERY_QUERY|QUERY_STATUS|QUERY_EXTRACT|QUERY_MODIFY,extract_zone                   },

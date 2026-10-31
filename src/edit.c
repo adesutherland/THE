@@ -221,6 +221,25 @@ int process_key(int key, bool mouse_details_present)
             }
             goto refresh_after_input;
          }
+         if (input_event.kind == THE_INPUT_WORKBENCH_INVOKE)
+         {
+            rc = the_workbench_invoke(the_input_event_workbench_id(&input_event),
+                                      the_input_event_workbench_generation(&input_event),
+                                      the_input_event_workbench_argument(&input_event));
+            if (rc != RC_OK)
+            {
+               const TheWorkbenchResult *result = the_workbench_last_result();
+               char message[256];
+               snprintf(message,sizeof(message),"WORKBENCH %s: %s",result->code,result->message);
+               display_error(0,(CHARTYPE *)message,FALSE);
+            }
+            if (number_of_files == 0)
+            {
+               TRACE_RETURN();
+               return RC_INVALID_ENVIRON;
+            }
+            goto refresh_after_input;
+         }
          if (input_event.kind == THE_INPUT_LOGICAL_HIT)
          {
             rc = the_input_dispatch_logical_hit(&input_event.target)

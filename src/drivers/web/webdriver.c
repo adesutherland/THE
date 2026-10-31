@@ -12,6 +12,7 @@
 #include "frontendpolicy.h"
 #include "inputevent.h"
 #include "websession.h"
+#include "workbench.h"
 #include "panelui.h"
 #include "llmdriver.h"
 #include "llmruntime.h"
@@ -51,6 +52,10 @@ typedef struct
    char root[WEB_DRIVER_PATH_CAPACITY];
    char snapshot[WEB_DRIVER_SNAPSHOT_CAPACITY];
    size_t snapshot_len;
+   unsigned long workbench_revision;
+   unsigned long workbench_publication;
+   TheWebWorkbenchReasonState workbench_reasons;
+   TheWebWorkbenchReceipts workbench_receipts;
 } WebDriverState;
 
 static WebDriverState web_state;
@@ -166,6 +171,75 @@ static void web_driver_send_action_catalog(struct mg_connection *connection)
    char catalog[4096];
    size_t length = the_web_format_actions(catalog, sizeof(catalog));
    web_driver_send(connection, catalog, length);
+}
+
+static void web_driver_send_workbench_page(const char *text, size_t length,
+                                           void *context)
+{
+   web_driver_send((struct mg_connection *)context, text, length);
+}
+
+static void web_driver_send_workbench_receipt(
+   struct mg_connection *connection, const TheWebWorkbenchReceipt *receipt)
+{
+   char message[1024];
+   int length = the_web_format_workbench_receipt(message, sizeof(message), receipt);
+   if (length > 0) web_driver_send(connection, message, (size_t)length);
+}
+
+static void web_driver_send_workbench_refusal(struct mg_connection *connection,
+   const char *request_id, const char *code, const char *message)
+{
+   TheWebWorkbenchReceipt receipt;
+   memset(&receipt, 0, sizeof(receipt));
+   snprintf(receipt.request_id, sizeof(receipt.request_id), "%s",
+            request_id ? request_id : "");
+   snprintf(receipt.code, sizeof(receipt.code), "%s", code);
+   snprintf(receipt.message, sizeof(receipt.message), "%s", message);
+   receipt.rc = -3;
+   receipt.revision = the_workbench_revision();
+   web_driver_send_workbench_receipt(connection, &receipt);
+}
+
+/* Mongoose returns decoded C strings; reject JSON NUL escapes before those
+ * strings can be truncated into a different ID or operand. */
+static int web_driver_workbench_string_field(struct mg_str json,
+                                             const char *path, int optional)
+{
+   int token_len = 0, offset = mg_json_get(json,path,&token_len);
+   size_t i, length;
+   const char *token;
+   if (offset < 0) return optional;
+   if (token_len < 2 || json.buf[offset] != '"') return 0;
+   token = json.buf + offset;
+   length = (size_t)token_len;
+   for (i = 1; i + 1 < length; i++)
+   {
+      if (token[i] == '\0') return 0;
+      if (token[i] == '\\')
+      {
+         if (i + 1 >= length - 1) return 0;
+         if (token[i+1] == 'u' && i + 5 < length - 1
+         && token[i+2] == '0' && token[i+3] == '0'
+         && token[i+4] == '0' && token[i+5] == '0') return 0;
+         if (token[i+1] == 'u') i += 5;
+         else i++;
+      }
+   }
+   return 1;
+}
+
+static void web_driver_publish_workbench(void)
+{
+   unsigned long current = the_workbench_revision();
+   int reasons_changed = the_web_workbench_reasons_changed(&web_state.workbench_reasons);
+   if (web_state.client != NULL
+   && (current != web_state.workbench_revision || reasons_changed))
+   {
+      the_web_publish_workbench(web_driver_send_workbench_page, web_state.client,
+                                ++web_state.workbench_publication);
+      web_state.workbench_revision = current;
+   }
 }
 
 static int web_driver_path_in_root(const char *path, const char *root)
@@ -386,9 +460,14 @@ static void web_driver_publish_tools(void){
 }
 static void web_driver_publish_snapshot(void)
 {
+   const TheWebWorkbenchReceipt *completed;
    if (!web_state.active)
       return;
+   completed = the_web_workbench_receipt_complete(&web_state.workbench_receipts);
+   if (completed != NULL)
+      web_driver_send_workbench_receipt(web_state.client, completed);
    the_tools_native_initialise();
+   web_driver_publish_workbench();
    web_driver_publish_tools();
    web_state.snapshot_len = the_web_format_snapshot(web_state.snapshot, sizeof(web_state.snapshot));
    web_driver_send(web_state.client, web_state.snapshot,
@@ -408,6 +487,61 @@ static void web_driver_handle_message(struct mg_connection *connection, struct m
       web_driver_publish_snapshot();
       web_driver_send_status(connection,"ack",id,"snapshot sent");
       mg_free(type); return;
+   }
+   if (strcmp(type,"workbench")==0)
+   {
+      char *operation = mg_json_get_str(json,"$.operation");
+      long version = mg_json_get_long(json,"$.version",0);
+      if (version == 1 && operation && strcmp(operation,"list") == 0)
+      {
+         char *section = mg_json_get_str(json,"$.section");
+         long offset = mg_json_get_long(json,"$.offset",0);
+         long limit = mg_json_get_long(json,"$.limit",8);
+         char page[THE_WORKBENCH_JSON_MAX + 80];
+         size_t length = offset >= 0 && limit >= 1 && limit <= 8
+            ? the_web_format_workbench_page(page,sizeof(page),
+                section ? section : "SUMMARY",(size_t)offset,(size_t)limit) : 0;
+         if (length) web_driver_send(connection,page,length);
+         else web_driver_send_status(connection,"error",id,"invalid workbench list request");
+         mg_free(section);
+      }
+      else if (version == 1 && operation && strcmp(operation,"invoke") == 0)
+      {
+         char *request_id = mg_json_get_str(json,"$.requestId");
+         char *action = mg_json_get_str(json,"$.action");
+         char *operand = mg_json_get_str(json,"$.argument");
+         long generation = mg_json_get_long(json,"$.expectGeneration",0);
+         int request_id_ok = web_driver_workbench_string_field(json,"$.requestId",0);
+         int operands_ok = web_driver_workbench_string_field(json,"$.action",0)
+            && web_driver_workbench_string_field(json,"$.argument",1);
+         int accepted = request_id_ok ? the_web_workbench_receipt_begin(
+            &web_state.workbench_receipts, request_id,action,
+            generation > 0 ? (unsigned long)generation : 0,operand) : -1;
+         if (accepted == 1)
+         {
+            TheInputEvent event;
+            if (!operands_ok || !action || generation <= 0
+            || !the_input_event_from_workbench_invoke(action,
+                   (unsigned long)generation,operand,&event)
+            || !the_input_queue_push(&web_state.inputs,event))
+               the_web_workbench_receipt_refuse(&web_state.workbench_receipts,
+                  "invalid-operand",5,"Invalid workbench action or input queue full");
+         }
+         if (accepted == 1 || accepted == 0 || accepted == -3)
+            web_driver_send_workbench_receipt(connection,
+               the_web_workbench_receipt_find(&web_state.workbench_receipts,request_id));
+         else web_driver_send_workbench_refusal(connection,request_id,
+            accepted == -4 ? "request-id-conflict" : accepted == -6
+               ? "receipt-unknown" : accepted == -5
+               ? "invalid-operand" : "invalid-request-id",
+            accepted == -4 ? "Request ID was already used for another action"
+               : accepted == -6 ? "Receipt expired or unknown; reconcile before retrying"
+               : accepted == -5 ? "Invalid workbench action or argument"
+               : "Invalid workbench request ID");
+         mg_free(request_id); mg_free(action); mg_free(operand);
+      }
+      else web_driver_send_status(connection,"error",id,"invalid workbench operation");
+      mg_free(operation); mg_free(type); return;
    }
    if (strcmp(type,"tool")==0) {
       TheInputEvent event;char*a=mg_json_get_str(json,"$.action"),*t=mg_json_get_str(json,"$.tool"),*text=mg_json_get_str(json,"$.text"),*args=mg_json_get_str(json,"$.arguments");
@@ -492,9 +626,14 @@ static void web_driver_http_event(struct mg_connection *connection, int event,
          return;
       }
       web_state.client = connection;
+      web_state.workbench_revision = 0;
+      memset(&web_state.workbench_reasons, 0, sizeof(web_state.workbench_reasons));
       len = snprintf(hello, sizeof(hello),
                      "{\"type\":\"hello\",\"protocol\":1,"
-                     "\"driver\":\"web\",\"rows\":%d,\"cols\":%d}", terminal_lines, terminal_cols);
+                     "\"driver\":\"web\",\"rows\":%d,\"cols\":%d,"
+                     "\"workbenchSession\":\"%s\",\"workbenchNextRequest\":%llu}",
+                     terminal_lines, terminal_cols, web_state.workbench_receipts.nonce,
+                     web_state.workbench_receipts.high_water + 1);
       if (len > 0 && len < (int)sizeof(hello))
          web_driver_send(connection, hello, (size_t)len);
       web_driver_send_action_catalog(connection);
@@ -559,6 +698,11 @@ static int web_driver_start(const TheDriverStartupOptions *options,
    }
    else
       mg_random_str(web_state.token, sizeof(web_state.token));
+   {
+      char nonce[THE_WEB_WORKBENCH_NONCE_MAX + 1];
+      mg_random_str(nonce, sizeof(nonce));
+      the_web_workbench_receipts_init(&web_state.workbench_receipts, nonce);
+   }
    if (configured_bind == NULL || *configured_bind == '\0')
       configured_bind = "127.0.0.1";
    if (snprintf(listen_url, sizeof(listen_url), "http://%s:%s",
@@ -612,7 +756,11 @@ static int web_driver_read_input_event(TheInputEvent *event)
       int poll_ms = 50;
 
       if (the_input_queue_pop(&web_state.inputs, event))
+      {
+         if (event->kind == THE_INPUT_WORKBENCH_INVOKE)
+            the_web_workbench_receipt_dispatched(&web_state.workbench_receipts);
          return event->kind != THE_INPUT_NONE;
+      }
       if (!web_state.active)
          return 0;
       if (web_state.input_timeout_ms >= 0)

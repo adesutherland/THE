@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "frontendaction.h"
+#include "workbench.h"
 #include "logcursor.h"
 
 #define THE_INPUT_COMMAND_MAX 256
@@ -19,7 +20,8 @@ typedef enum
    THE_INPUT_ACTION,
    THE_INPUT_LOGICAL_HIT,
    THE_INPUT_RESIZE,
-   THE_INPUT_DEBUG
+   THE_INPUT_DEBUG,
+   THE_INPUT_WORKBENCH_INVOKE
 } TheInputKind;
 
 typedef enum
@@ -95,6 +97,14 @@ int the_input_event_from_restricted_command(const char *command,
                                             TheInputEvent *out);
 int the_input_event_from_action(const char *name, const char *argument,
                                 TheInputEvent *out);
+/* ABI 3 storage reuse for WORKBENCH_INVOKE: command=id,
+ * target.line_number=generation, action.argument=typed argument, rows=present.
+ * Use these accessors rather than reading the reused fields in adapters. */
+int the_input_event_from_workbench_invoke(const char *id, unsigned long generation,
+                                           const char *argument, TheInputEvent *out);
+const char *the_input_event_workbench_id(const TheInputEvent *input);
+unsigned long the_input_event_workbench_generation(const TheInputEvent *input);
+const char *the_input_event_workbench_argument(const TheInputEvent *input);
 int the_input_event_from_logical_target(TheInputLogicalTargetKind kind,
                                         LINETYPE line_number, int row,
                                         int cell, int screen, int window_id,

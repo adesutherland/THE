@@ -12,7 +12,7 @@ static unsigned phase;
 static unsigned preflight;
 static int dirty_quit_checked;
 static unsigned workbench_focus_phase;
-static int workbench_menu_seen, workbench_menu_pending;
+static int workbench_menu_seen;
 static int workbench_editor_window;
 static LogicalCursor workbench_editor_cursor;
 static char sample[4096], other[4096], program[4096];
@@ -293,26 +293,46 @@ static void count_menubars(GtkWidget *widget, gpointer data)
       gtk_container_forall(GTK_CONTAINER(widget), count_menubars, data);
 }
 
+static void activate_shared_action(const char *id)
+{
+   unsigned i;
+   sync_menus();
+   for (i = 0; i < ui.menu_actions->len; i++)
+   {
+      GtkMenuAction *entry = g_ptr_array_index(ui.menu_actions, i);
+      if (!strcmp(entry->id, id))
+      {
+         g_action_group_activate_action(G_ACTION_GROUP(ui.application), entry->name, NULL);
+         return;
+      }
+   }
+   assert(0);
+}
+
 static void assert_application_menus(void)
 {
-   static const char *labels[] = {"File", "Edit", "Program", "Help"};
-   GMenuModel *bar = gtk_application_get_menubar(ui.application);
+   GMenuModel *bar;
    TheInputEvent queued;
+   TheWorkbenchMenu menu = {0};
+   TheWorkbenchItem item = {0};
+   TheWorkbenchAction action = {0};
    unsigned i, menubars = 0;
+   unsigned long generation;
+   char previous_name[32] = "";
    gboolean remote = FALSE;
    assert(GTK_IS_APPLICATION_WINDOW(ui.window));
    assert(g_application_get_is_registered(G_APPLICATION(ui.application)));
    assert(gtk_window_get_application(GTK_WINDOW(ui.window)) == ui.application);
-   assert(bar && g_menu_model_get_n_items(bar) == G_N_ELEMENTS(labels));
-   for (i = 0; i < G_N_ELEMENTS(labels); i++)
+   sync_menus();
+   bar = gtk_application_get_menubar(ui.application);
+   assert(bar && g_menu_model_get_n_items(bar) == the_workbench_menu_count());
+   for (i = 0; i < the_workbench_menu_count(); i++)
    {
       char *label = NULL;
       GMenuModel *items = g_menu_model_get_item_link(bar, i, G_MENU_LINK_SUBMENU);
       assert(g_menu_model_get_item_attribute(bar, i, G_MENU_ATTRIBUTE_LABEL, "s", &label));
-      assert(!strcmp(label, labels[i]));
       assert(items && g_menu_model_get_n_items(items) > 0);
-      g_free(label);
-      g_object_unref(items);
+      g_free(label); g_object_unref(items);
    }
    g_object_get(gtk_settings_get_default(), "gtk-shell-shows-menubar", &remote, NULL);
 #ifdef GDK_WINDOWING_QUARTZ
@@ -320,14 +340,55 @@ static void assert_application_menus(void)
 #endif
    count_menubars(ui.window, &menubars);
    assert(menubars == (remote ? 0 : 1));
-   g_action_group_activate_action(G_ACTION_GROUP(ui.application), "edit-command", NULL);
-   assert(pop_input(&queued));
-   assert(queued.kind == THE_INPUT_COMMAND && !strcmp(queued.command, "cursor cmdline"));
+   strcpy(menu.id, "gtk.probe.menu"); strcpy(menu.label, "Tools / \"quoted\" Ω"); menu.order = 50;
+   strcpy(action.id, "gtk.probe.action"); strcpy(action.label, "Declare / Ω");
+   action.kind = THE_WORKBENCH_ACTION_COMMAND; strcpy(action.operand, "msg GTK_DECLARED_ONLY");
+   strcpy(item.id, "gtk.probe.item"); strcpy(item.menu, menu.id);
+   strcpy(item.action, action.id); strcpy(item.label, "Check / \"quoted\" Ω");
+   assert(!the_workbench_begin("gtk.probe"));
+   assert(!the_workbench_put_menu(&menu)); assert(!the_workbench_put_action(&action));
+   assert(!the_workbench_put_item(&item)); assert(!the_workbench_commit());
+   assert(g_queue_is_empty(&ui.inputs));
+   sync_menus();
+   assert(g_menu_model_get_n_items(bar) == the_workbench_menu_count());
+   {
+      char *label = NULL;
+      assert(g_menu_model_get_item_attribute(bar, the_workbench_menu_count() - 1,
+                                           G_MENU_ATTRIBUTE_LABEL, "s", &label));
+      assert(!strcmp(label, menu.label)); g_free(label);
+   }
+   generation = the_workbench_action_find(action.id)->generation;
+   for (i = 0; i < ui.menu_actions->len; i++)
+   {
+      GtkMenuAction *entry = g_ptr_array_index(ui.menu_actions, i);
+      if (!strcmp(entry->id, action.id))
+      {
+         strcpy(previous_name, entry->name);
+         g_action_group_activate_action(G_ACTION_GROUP(ui.application), entry->name, NULL);
+      }
+   }
+   assert(pop_input(&queued)); assert(queued.kind == THE_INPUT_WORKBENCH_INVOKE);
+   assert(!strcmp(the_input_event_workbench_id(&queued), action.id));
+   assert(the_input_event_workbench_generation(&queued) == generation);
+   assert(!the_input_event_workbench_argument(&queued));
+   assert(g_queue_is_empty(&ui.inputs));
+   assert(!the_workbench_begin("gtk.probe"));
+   strcpy(item.label, "Replaced / Ω"); assert(!the_workbench_put_item(&item));
+   strcpy(action.operand, "msg GTK_REPLACED_ONLY"); assert(!the_workbench_put_action(&action));
+   assert(!the_workbench_commit()); sync_menus();
+   assert(!g_action_group_has_action(G_ACTION_GROUP(ui.application), previous_name));
+   assert(the_workbench_action_find(action.id)->generation != generation);
+   assert(the_input_event_workbench_generation(&queued) == generation);
+   assert(!the_workbench_begin("gtk.probe"));
+   assert(!the_workbench_remove_menu(menu.id)); assert(!the_workbench_remove_action(action.id));
+   assert(!the_workbench_commit()); sync_menus();
+   assert(g_menu_model_get_n_items(bar) == the_workbench_menu_count());
    g_action_group_activate_action(G_ACTION_GROUP(ui.application), "quit", NULL);
    assert(pop_input(&queued));
    assert(queued.kind == THE_INPUT_COMMAND && !strcmp(queued.command, "cancel"));
    assert(g_queue_is_empty(&ui.inputs));
    puts("GTK_APPLICATION_NATIVE_MENUS_SAFE_QUEUED_ACTIONS_PASS");
+   puts("GTK_SHARED_MENU_UTF8_LABEL_REVISION_ID_GENERATION_PASS");
 }
 
 static void assert_profile_guide(void)
@@ -361,35 +422,24 @@ static void assert_profile_guide(void)
 
 static void press_workbench_key(guint keyval, GdkModifierType state)
 {
-   GdkEventKey key = {0};
+   GdkEvent *event = gdk_event_new(GDK_KEY_PRESS);
+   GdkEventKey *key = &event->key;
    gboolean handled = FALSE;
-   key.type = GDK_KEY_PRESS;
-   key.window = gtk_widget_get_window(ui.window);
-   key.keyval = keyval;
-   key.state = state;
-   g_signal_emit_by_name(ui.window, "key-press-event", &key, &handled);
+   key->window = g_object_ref(gtk_widget_get_window(ui.window));
+   key->keyval = keyval;
+   key->state = state;
+   gdk_event_set_device(event, gdk_seat_get_keyboard(gdk_display_get_default_seat(
+      gtk_widget_get_display(ui.window))));
+   g_signal_emit_by_name(ui.window, "key-press-event", key, &handled);
+   gdk_event_free(event);
    assert(handled);
 }
 
 static void assert_profile_menu(void)
 {
-   TheDriverWindowSize size;
-   GString *text;
-   TheDriverWindow *popup = ((GtkSurface *)g_list_last(ui.surfaces)->data)->window;
-   int row, col;
-   size = operations.window_size(popup);
-   assert(size.valid && in_macro);
-   text = g_string_new(NULL);
-   for (row = 0; row < size.rows; row++)
-      for (col = 0; col < size.cols; col++)
-      {
-         TheRenderCell cell;
-         int present = headless_driver_render_cell_at(popup, row, col, &cell);
-         g_string_append_c(text, present && cell.codepoint_count && cell.codepoints[0] < 128
-            ? (char)cell.codepoints[0] : ' ');
-      }
-   assert(strstr(text->str, "Open or create file"));
-   g_string_free(text, TRUE);
+   assert(ui.native_menu && GTK_IS_MENU(ui.native_menu));
+   assert(!in_macro);
+   assert(ui.menu_revision == the_workbench_revision());
    ++workbench_menu_seen;
    screenshot("workbench-menu");
 }
@@ -640,17 +690,9 @@ static int probe_read_input(TheInputEvent *event)
    assert(directory);
    /* Startup profile errors can page messages before the interactive editor.
     * Dismiss the page; the contract checks begin once startup has completed. */
-   if (in_macro && workbench_menu_pending)
-   {
-      assert_profile_menu();
-      GdkEventKey escape = {0};
-      workbench_menu_pending = 0;
-      escape.keyval = GDK_KEY_Escape;
-      assert(key_pressed(ui.editor, &escape, NULL));
-      return read_input(event);
-   }
    if (in_macro || !been_interactive)
       return the_input_event_from_key_name("enter", event);
+   if (the_tools_take_menu_run(event)) return 1;
    while (g_main_context_pending(NULL))
       g_main_context_iteration(NULL, FALSE);
    if (!g_queue_is_empty(&ui.inputs) || ui.rows != terminal_lines || ui.cols != terminal_cols)
@@ -723,12 +765,12 @@ static int probe_read_input(TheInputEvent *event)
             assert(CURRENT_VIEW->logical_cursor.current.text.cell_column == 1);
             assert_original_saved();
             screenshot("reserved-click-typed");
-            g_action_group_activate_action(G_ACTION_GROUP(ui.application), "edit-undo", NULL);
+            activate_shared_action("the.edit.undo");
             break;
          case 6:
             assert_source("alpha\nbeta\n");
             assert(!the_editor_buffer_dirty(CURRENT_FILE));
-            g_action_group_activate_action(G_ACTION_GROUP(ui.application), "file-save", NULL);
+            activate_shared_action("the.file.save");
             break;
          case 7:
             assert_original_saved();
@@ -820,7 +862,7 @@ static int probe_read_input(TheInputEvent *event)
       case 8:
          assert(!strcmp((char *)CURRENT_FILE->fname, "program.rexx"));
          if (the_tools_backend_available())
-            g_action_group_activate_action(G_ACTION_GROUP(ui.application), "program-run", NULL);
+            activate_shared_action("profile.action.8");
          else
          {
             assert(!getenv("THE_GTK_REQUIRE_PROGRAM"));
@@ -903,8 +945,10 @@ static int probe_read_input(TheInputEvent *event)
             if (workbench_focus_phase == 4)
                gtk_editable_set_position(GTK_EDITABLE(ui.input), 5);
          }
-         workbench_menu_pending = 1;
          press_workbench_key(GDK_KEY_F10, 0);
+         assert_profile_menu();
+         queue_command("nop");
+         gtk_menu_shell_deactivate(GTK_MENU_SHELL(ui.native_menu));
          --phase;
          break;
       case 10:
