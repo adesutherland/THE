@@ -183,7 +183,12 @@ static void llm_runtime_overlay_active_prefix(CHARTYPE scrno, UiFrame *frame)
    size_t i;
 
    if (frame == NULL || scrno != current_screen || CURRENT_VIEW == NULL
-   ||  CURRENT_VIEW->current_window != WINDOW_PREFIX || pre_rec_len == 0)
+   ||  CURRENT_VIEW->current_window != WINDOW_PREFIX
+   ||  pre_rec == NULL || pre_rec_len <= 0 || pre_rec_len > MAX_PREFIX_WIDTH)
+      return;
+   for (i = 0; i < (size_t)pre_rec_len && pre_rec[i] == ' '; i++)
+      ;
+   if (i == (size_t)pre_rec_len)
       return;
    for (i = 0; i < frame->row_count; i++)
    {

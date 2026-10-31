@@ -252,10 +252,13 @@ static void test_command_focus_survives_filearea_frame(void)
 static void test_active_prefix_overlays_visible_prefix(void)
 {
    static CHARTYPE active_prefix[] = "d";
+   static CHARTYPE blank_prefix[] = "   ";
    LlmDriverScreenView view;
    LogicalCursor cursor;
 
    setup_screen();
+   screen[0].sl[1].contents = (CHARTYPE *)"";
+   screen[0].sl[1].length = 0;
    vd_current->current_window = WINDOW_PREFIX;
    vd_current->focus_line = 7;
    pre_rec = active_prefix;
@@ -269,10 +272,21 @@ static void test_active_prefix_overlays_visible_prefix(void)
    pre_rec_len = 0;
    expect_int("runtime.prefix.empty.view", llm_runtime_screen_view(0, &view), 1);
    expect_int("runtime.prefix.empty.number", strcmp((char *)view.lines[1].prefix, "000007"), 0);
+   pre_rec = blank_prefix;
+   pre_rec_len = 3;
+   cursor = logical_cursor_make(LOGICAL_CURSOR_ZONE_PREFIX, 7, 1,
+                                textpos_from_cell_virtual(
+                                   pre_rec, pre_rec_len, 3,
+                                   TEXT_SNAP_BACKWARD));
+   logical_cursor_state_focus(&vd_current->logical_cursor, cursor);
+   expect_int("runtime.prefix.spaces.view", llm_runtime_screen_view(0, &view), 1);
+   expect_int("runtime.prefix.spaces.number", strcmp((char *)view.lines[1].prefix, "000007"), 0);
+   expect_int("runtime.prefix.spaces.cursor", view.cursor.text.cell_column, 3);
    strcpy((char *)screen[0].sl[1].prefix, "=======");
    expect_int("runtime.prefix.number.off.view", llm_runtime_screen_view(0, &view), 1);
    expect_int("runtime.prefix.number.off", strcmp((char *)view.lines[1].prefix, "======="), 0);
 
+   pre_rec = active_prefix;
    pre_rec_len = 1;
    expect_int("runtime.prefix.view", llm_runtime_screen_view(0, &view), 1);
    expect_int("runtime.prefix.visible", strcmp(view.lines[1].prefix, "d"), 0);

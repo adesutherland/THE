@@ -8,6 +8,9 @@ import WebSocket from "ws";
 const url = process.env.THE_WEB_URL;
 const chromium = process.env.CHROMIUM_BIN;
 if (!url || !chromium) throw new Error("THE_WEB_URL and CHROMIUM_BIN are required");
+const targetLine = Number(process.env.THE_PREFIX_LINE ?? 2);
+const clickCell = Number(process.env.THE_PREFIX_CLICK_CELL ?? 0);
+const entry = process.env.THE_PREFIX_ENTRY ?? "mouse";
 
 const profile = await mkdtemp(join(tmpdir(), "the-prefix-"));
 const chrome = spawn(chromium, ["--headless=new", "--no-sandbox", "--disable-gpu",
@@ -104,9 +107,24 @@ try {
   ` });
   await cdp("Page.navigate", { url });
   await until(() => evaluate("document.querySelector('.connection')?.textContent.trim() === 'online' && !!document.querySelector('.role-file .prefix-cell')"), "editor");
-  const before = await evaluate("document.querySelector('.role-file .prefix-cell').firstChild?.textContent");
-  const initialText = await evaluate("window.__snapshot?.screen_rows.find(r=>r.line===1)?.t");
-  await evaluate("document.querySelector('.role-file .prefix-cell').click()");
+  const targetPrefix = `.role-file .prefix-cell[aria-label="Prefix line ${targetLine}"]`;
+  const before = await evaluate(`document.querySelector(${JSON.stringify(targetPrefix)}).firstChild?.textContent`);
+  const initialText = await evaluate(`window.__snapshot?.screen_rows.find(r=>r.line===${targetLine})?.t`);
+  if (targetLine === 2) assert.equal(initialText, "", "Welcome.txt line 2 is a blank file line");
+  if (entry === "f4" || entry === "arrow") {
+    await evaluate(`document.querySelector(${JSON.stringify(targetPrefix)}).nextElementSibling.click()`);
+    await until(() => evaluate("document.querySelector('.status-line')?.dataset.focusZone === 'filearea'"), "file focus before keyboard entry");
+    await key("Home", "Home");
+    if (entry === "f4") await key("F4", "F4");
+    else await key("ArrowLeft", "ArrowLeft");
+  } else {
+    const hit = await evaluate(`(() => {
+      const rect=document.querySelector(${JSON.stringify(targetPrefix)}).getBoundingClientRect();
+      return {x:rect.left+rect.width/8*(${clickCell}+0.5),y:rect.top+rect.height/2};
+    })()`);
+    await cdp("Input.dispatchMouseEvent", { type: "mousePressed", x: hit.x, y: hit.y, button: "left", clickCount: 1 });
+    await cdp("Input.dispatchMouseEvent", { type: "mouseReleased", x: hit.x, y: hit.y, button: "left", clickCount: 1 });
+  }
   const focused = await until(async () => { const value=await state(); return value?.focus === "prefix" ? value : false; }, "prefix focus");
   const screenshot = process.env.THE_PREFIX_SCREENSHOT;
   if (screenshot) {
@@ -124,6 +142,17 @@ try {
     "logical cursor remains within the prefix cell");
   assert.notEqual(focused.caretColor, focused.background, "logical cursor remains visible");
 
+  await type(" ");
+  const spaced = await until(async () => { const value=await state(); return value?.cursorLeft !== focused.cursorLeft ? value : false; }, "space in prefix");
+  assert.equal(spaced.modelPrefix, before, "a blank prefix edit retains the formatted number");
+  await key("Backspace", "Backspace");
+  const blankAgain = await until(async () => { const value=await state(); return value?.cursorLeft === 0 ? value : false; }, "space removed");
+  assert.equal(blankAgain.modelPrefix, before, "removing a space retains the number");
+  await key("Tab", "Tab");
+  const tabbed = await state();
+  assert.equal(tabbed?.modelPrefix, before, "Tab in the prefix does not hide the number");
+  assert.equal(tabbed?.lineText, initialText, "Tab in the prefix does not edit the file");
+
   await type("d");
   const typed = await until(async () => { const value=await state(); return value?.modelPrefix === "d" ? value : false; }, "typed prefix");
   assert.equal(typed.text, "d", "typed command replaces the number during editing");
@@ -131,7 +160,14 @@ try {
   const cleared = await until(async () => { const value=await state(); return value?.modelPrefix === before ? value : false; }, "cleared prefix");
   assert.equal(cleared.text, before, "clearing the command restores the number");
 
-  await evaluate("document.querySelector('.role-file .line-content').click()");
+  await type("d");
+  await until(async () => (await state())?.modelPrefix === "d", "second typed prefix");
+  await key("ArrowLeft", "ArrowLeft");
+  await key("Delete", "Delete");
+  const deleted = await until(async () => { const value=await state(); return value?.modelPrefix === before ? value : false; }, "Delete cleared prefix");
+  assert.equal(deleted.text, before, "Delete restores the number");
+
+  await evaluate(`document.querySelector(${JSON.stringify(targetPrefix)}).nextElementSibling.click()`);
   await until(() => evaluate("document.querySelector('.status-line')?.dataset.focusZone === 'filearea'"), "file focus");
   await key("Home", "Home");
   await key("ArrowLeft", "ArrowLeft");
@@ -141,11 +177,17 @@ try {
   assert(contrast(keyboard.color, keyboard.background) >= 4.5, "keyboard focused number has readable contrast");
   assert.notEqual(keyboard.caretColor, keyboard.background, "keyboard focused cursor remains visible");
 
+  await evaluate(`document.querySelector(${JSON.stringify(targetPrefix)}).nextElementSibling.click()`);
+  await until(() => evaluate("document.querySelector('.status-line')?.dataset.focusZone === 'filearea'"), "file focus before F4");
+  await key("F4", "F4");
+  const functionKey = await until(async () => { const value=await state(); return value?.focus === "prefix" ? value : false; }, "F4 prefix focus");
+  assert.equal(functionKey.modelPrefix, before, "F4 keeps the blank line number visible");
+
   await evaluate(`new Promise(resolve => { const input=document.querySelector('.command-form input');
     input.value='set number off'; input.dispatchEvent(new Event('input',{bubbles:true}));
     setTimeout(() => { input.form.requestSubmit(); resolve(true); }, 0); })`);
-  await until(() => evaluate("window.__snapshot?.screen_rows.find(r=>r.line===1)?.p === '======='"), "NUMBER OFF");
-  await evaluate("document.querySelector('.role-file .prefix-cell').click()");
+  await until(() => evaluate(`window.__snapshot?.screen_rows.find(r=>r.line===${targetLine})?.p === '======='`), "NUMBER OFF");
+  await evaluate(`document.querySelector(${JSON.stringify(targetPrefix)}).click()`);
   const unnumbered = await until(async () => { const value=await state(); return value?.focus === "prefix" ? value : false; }, "unnumbered prefix focus");
   assert.equal(unnumbered.text, "=======", "NUMBER OFF remains unnumbered in prefix focus");
   assert.equal(unnumbered.modelPrefix, "=======", "NUMBER OFF semantic prefix is preserved");
