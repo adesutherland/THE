@@ -22,7 +22,10 @@ import time
 
 binary = Path(sys.argv[1]).resolve()
 repo = Path(__file__).resolve().parent.parent
-program = "do i = 1 to 40\n  say 'LINE' i\nend\npull answer\nsay 'ECHO' answer\n"
+tail = b'/* ' + b'a' * 803 + '€'.encode('utf-8')
+tail += b'a' * (9000 - len(tail) - len(b' FINAL_UTF8_Z */')) + b' FINAL_UTF8_Z */'
+program = ("do i = 1 to 40\n  say 'LINE' i\nend\npull answer\nsay 'ECHO' answer\n" +
+           ''.join(f'/* DOC-LINE {line:03d} Ω */\n' for line in range(1, 81)) + tail.decode('utf-8') + '\n')
 
 with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
     root = Path(temporary)
@@ -42,6 +45,7 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
                        "'workbench begin owner native.logs';\n"
                        "'workbench panel put native.logone kind log model native.stdout';\n"
                        "'workbench panel put native.logtwo kind log model native.stderr';\n"
+                       "'workbench panel put native.document kind document buffer active access readonly';\n"
                        "'workbench route put native.out from tool:classic-rexx/stdout to log:native.stdout';\n"
                        "'workbench route put native.err from tool:classic-rexx/stderr to log:native.stderr';\n"
                        "'workbench menu put native.regression label \"Native regression\" order 999';\n"
@@ -52,6 +56,8 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
     profile = root / 'profile.the'
     profile.write_text((repo / 'profile.the').read_text() +
                        "\n'define f5 macro native_logs_setup';\n"
+                       "'define f3 workbench panel focus native.document';\n"
+                       "'define f4 workbench panel show native.document';\n"
                        "'define f7 workbench panel show native.logone';\n"
                        "'define f8 workbench panel show native.logtwo';\n"
                        "'define f9 workbench panel focus native.logone';\n"
@@ -70,6 +76,7 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
         stream = pyte.ByteStream(screen)
         output = bytearray()
         process = subprocess.Popen([str(binary), '--driver', 'curses',
+                                    '-w', '16384',
                                     '-p', str(profile), str(source)],
                                    stdin=slave, stdout=slave, stderr=slave, env=env)
         os.close(slave)
@@ -110,6 +117,10 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
 
         def output_line(number):
             return any(line.strip() == f'LINE {number}' for line in body().splitlines())
+
+        def document_body():
+            first = 2 if cols == 117 else rows - 6
+            return '\n'.join(line[73:] if cols == 117 else line for line in screen.display[first:rows - 1])
 
         def console_focused():
             heading = screen.display[0][73:] if cols == 117 else screen.display[rows - 8]
@@ -297,6 +308,30 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
                  and has('msg EDITOR_UNSENT'), 'replacement LOG Escape restores editor draft')
             send(b'\x15')
             wait(lambda: not has('msg EDITOR_UNSENT'), 'clear only the unsent editor command')
+            send(b'msg DOCUMENT_DRAFT\x1b[D\x1b[D')
+            wait(lambda: has('msg DOCUMENT_DRAFT'), 'editor command staged before DOCUMENT SHOW')
+            document_origin = (screen.cursor.x, screen.cursor.y)
+            send(b'\x1bOS')  # F4 SHOW does not select or focus the document.
+            wait(lambda: (screen.cursor.x, screen.cursor.y) == document_origin
+                 and not has('Document: native.document'), 'DOCUMENT SHOW preserves editor typing focus')
+            send(b'\x1bOR')  # F3 explicit focus.
+            wait(lambda: has('Document: native.document') and has('Read-only') and 'do i = 1 to 40' in document_body(),
+                 'DOCUMENT focus renders the bound source and read-only cue')
+            send(b'POISON\x7f\r')
+            wait(lambda: has('Document: native.document') and not has('POISON'), 'DOCUMENT consumes edit and typing keys')
+            send(b'\x1b[F')
+            wait(lambda: 'FINAL_UTF8_Z' in document_body(), 'DOCUMENT End reaches UTF-8-aligned final bytes')
+            send(b'\x1b[H')
+            wait(lambda: 'do i = 1 to 40' in document_body() and 'FINAL_UTF8_Z' not in document_body(), 'DOCUMENT Home restores its first page')
+            send(b'\x1b[6~')
+            wait(lambda: 'do i = 1 to 40' not in document_body(), 'DOCUMENT PageDown advances independent viewport')
+            send(b'\x1b')
+            wait(lambda: (screen.cursor.x, screen.cursor.y) == document_origin and has('msg DOCUMENT_DRAFT'),
+                 'DOCUMENT RETURN preserves unsent editor command and caret')
+            send(b'\x15')
+            wait(lambda: not has('msg DOCUMENT_DRAFT'), 'clear only the unsent DOCUMENT origin command')
+            send(b'query workbench document native.document limit 1 bytes 64\r')
+            wait(lambda: has('"section":"document"'), 'physical command-line QUERY DOCUMENT admits its bounded read')
             send(b'\x1b[17~')
             wait(lambda: screen.cursor.y < (rows - 8 if cols == 80 else rows - 4),
                  'second F6 reaches editor file')
@@ -322,6 +357,16 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
             click_at(0, 15)
             wait(lambda: console_focused() and 'DRAFT' in screen.display[-1] and
                  not screen.cursor.hidden, 'return to visible Program input caret')
+            send(b'\t\x1b[F\r')
+            wait(lambda: has('Log: native.logone'), 'Program toolbar selects a named pane')
+            send(b'\t')
+            wait(lambda: has('Document: native.document') and 'do i = 1 to 40' not in document_body(),
+                 'DOCUMENT viewport survives pane switching and Program focus origin')
+            send(b'\x1b')
+            wait(lambda: console_focused() and 'DRAFT' in screen.display[-1], 'DOCUMENT RETURN restores Program draft')
+            send(b'\t')
+            wait(lambda: (screen.cursor.x, screen.cursor.y) == input_caret,
+                 'DOCUMENT RETURN restores Program input caret')
             send(b'\r')
             wait(lambda: has('ECHO DRAFT') and 'Input closed>' in screen.display[-1]
                  and not screen.cursor.hidden,
@@ -332,10 +377,11 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
                  'Escape returns to THE command after stdin')
             assert screen.cursor.hidden and screen.buffer[screen.cursor.y][screen.cursor.x].underscore, \
                 f'{cols}x{rows}: editor command caret not visible after Program return'
+            assert source.read_text() == program, 'read-only DOCUMENT changed saved source bytes'
         finally:
             if process.poll() is None:
                 process.kill()
             process.wait()
             os.close(master)
 
-print('117x30 and 80x24: named logs, generation replacement, Program/editor draft/caret return, menu, scrollback and stdin passed')
+print('117x30 and 80x24: LOG/DOCUMENT paging, read-only keys, generation replacement, Program/editor draft/caret return, menu, scrollback and stdin passed')

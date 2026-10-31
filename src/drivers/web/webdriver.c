@@ -15,6 +15,7 @@
 #include "websession.h"
 #include "workbench.h"
 #include "workbenchruntime.h"
+#include "workbenchdocument.h"
 #include "panelui.h"
 #include "llmdriver.h"
 #include "llmruntime.h"
@@ -590,6 +591,42 @@ static void web_driver_handle_message(struct mg_connection *connection, struct m
                   ? result->message : "Invalid log page request");
          }
          mg_free(model); mg_free(generation_text); mg_free(cursor_text);
+      }
+      else if (version == 1 && operation && !strcmp(operation,"document.list"))
+      {
+         char *panel = mg_json_get_str(json,"$.panel");
+         char *generation_text = mg_json_get_str(json,"$.expectGeneration");
+         char *revision_text = mg_json_get_str(json,"$.expectRevision");
+         uint64_t generation = 0, revision = 0;
+         long line = mg_json_get_long(json,"$.line",-1);
+         long offset = mg_json_get_long(json,"$.offset",-1);
+         long records = mg_json_get_long(json,"$.records",-1);
+         long bytes = mg_json_get_long(json,"$.bytes",-1);
+         char page[THE_WORKBENCH_JSON_MAX + 80];
+         size_t length = 0;
+         const TheWorkbenchPanel *definition = panel ? the_workbench_panel_find(panel) : NULL;
+         int valid = web_driver_workbench_string_field(json,"$.panel",0)
+         && web_driver_workbench_string_field(json,"$.expectGeneration",0)
+         && web_driver_workbench_string_field(json,"$.expectRevision",0)
+         && the_web_parse_u64(generation_text,&generation) && generation
+         && the_web_parse_u64(revision_text,&revision) && revision
+         && line >= 1 && offset >= 0 && offset <= THE_WORKBENCH_DOCUMENT_RECORD_MAX
+         && records >= 1 && records <= THE_WORKBENCH_DOCUMENT_LINES_MAX
+         && bytes >= 1 && bytes <= THE_WORKBENCH_DOCUMENT_BYTES_MAX;
+         int stale = valid && (!definition || definition->generation != generation);
+         if (valid && !stale)
+            length = the_web_format_document_page(page,sizeof(page),panel,revision,
+               (size_t)line,(size_t)offset,(size_t)records,(size_t)bytes);
+         if (length) web_driver_send(connection,page,length);
+         else
+         {
+            const TheWorkbenchResult *result = valid && !stale ? the_workbench_last_result() : NULL;
+            web_driver_send_workbench_refusal(connection,"",stale ? "stale-generation"
+               : result && result->code && strcmp(result->code,"ok") ? result->code : "invalid-operand",
+               stale ? "Panel generation is stale" : result && result->code && strcmp(result->code,"ok")
+                  ? result->message : "Invalid document page request");
+         }
+         mg_free(panel); mg_free(generation_text); mg_free(revision_text);
       }
       else if (version == 1 && operation && !strcmp(operation,"panel.layout"))
       {

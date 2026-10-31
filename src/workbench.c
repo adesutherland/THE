@@ -1,5 +1,6 @@
 #include "workbench.h"
 #include "workbenchruntime.h"
+#include "workbenchdocument.h"
 #include <inttypes.h>
 
 #include <ctype.h>
@@ -346,9 +347,18 @@ short the_workbench_put_panel(const TheWorkbenchPanel *value)
 {
    TheWorkbenchPanel p;
    int i; short rc=require_transaction(); if (rc) return rc;
-   if (!value || !valid_id(value->id) || !valid_id(value->model)
+   if (!value || !valid_id(value->id)
    || (value->title[0] && !valid_text(value->title,THE_WORKBENCH_LABEL_MAX,0))) return invalid();
-   if (value->kind != THE_WORKBENCH_PANEL_LOG) return definition_result("unsupported-feature",-3,"Only LOG panels are implemented");
+   if (value->kind == THE_WORKBENCH_PANEL_LOG)
+   { if (!valid_id(value->model) || value->document_id) return invalid(); }
+   else if (value->kind == THE_WORKBENCH_PANEL_DOCUMENT)
+   {
+      TheWorkbenchDocumentInfo info;
+      if (value->model[0] || !value->document_id) return invalid();
+      if (the_workbench_document_info(value->document_id,&info)==THE_WORKBENCH_DOCUMENT_MISSING)
+         return definition_result("document-closed",-3,"The document binding is no longer live");
+   }
+   else return definition_result("unsupported-feature",-3,"This panel kind is not implemented");
    if (!strncmp(value->id,"the.",4) || !strncmp(value->model,"the.",4)) return denied();
    p=*value;
    if (!p.title[0]) strcpy(p.title,p.id);
@@ -453,10 +463,11 @@ static short validate(const WorkbenchGraph *g)
    }
    for (n=0;n<g->npanels;n++)
    {
+      if (g->panels[n].kind!=THE_WORKBENCH_PANEL_LOG) continue;
       const TheWorkbenchModelState *m=the_workbench_model_state(g->panels[n].model);
       size_t k;
       if (m && strcmp(m->owner,g->panels[n].owner)) return denied();
-      for (k=0;k<n;k++) if (!strcmp(g->panels[k].model,g->panels[n].model)
+      for (k=0;k<n;k++) if (g->panels[k].kind==THE_WORKBENCH_PANEL_LOG && !strcmp(g->panels[k].model,g->panels[n].model)
       && strcmp(g->panels[k].owner,g->panels[n].owner)) return denied();
    }
    for (n=0;n<g->nactions;n++) if (g->actions[n].kind == THE_WORKBENCH_ACTION_PANEL)
@@ -611,7 +622,7 @@ int the_workbench_json(char *out, size_t len, const char *section, size_t offset
    }
    else if (type == 1)
    {
-      js(&j,",\"actions\":true,\"menus\":true,\"panels\":true,\"logPanels\":true,\"documentPanels\":false,\"routes\":true,\"tools\":false");
+      js(&j,",\"actions\":true,\"menus\":true,\"panels\":true,\"logPanels\":true,\"documentPanels\":true,\"routes\":true,\"tools\":false");
       json_limits(&j); js(&j,"}");
    }
    else
@@ -649,7 +660,14 @@ int the_workbench_json(char *out, size_t len, const char *section, size_t offset
             size_t k;
             if (state && state->generation != p->generation) state=NULL;
             js(&j,"{\"id\":"); jq(&j,p->id); js(&j,",\"owner\":"); jq(&j,p->owner); js(&j,",\"title\":"); jq(&j,p->title);
-            js(&j,",\"generation\":\"%lu\",\"kind\":\"log\",\"model\":",p->generation); jq(&j,p->model);
+            js(&j,",\"generation\":\"%lu\",\"kind\":\"%s\",\"model\":",p->generation,p->kind==THE_WORKBENCH_PANEL_DOCUMENT ? "document" : "log"); jq(&j,p->model);
+            if (p->kind==THE_WORKBENCH_PANEL_DOCUMENT)
+            {
+               TheWorkbenchDocumentInfo info;
+               the_workbench_document_info(p->document_id,&info);
+               js(&j,",\"readonly\":true,\"documentId\":\"%" PRIu64 "\",\"documentRevision\":\"%" PRIu64 "\",\"documentAvailable\":%s,\"documentReason\":",p->document_id,info.revision,info.available ? "true" : "false"); jq(&j,info.reason);
+               js(&j,",\"lineCount\":%lu,\"dirty\":%s",(unsigned long)info.lines,info.dirty ? "true" : "false");
+            }
             js(&j,",\"modelGeneration\":\"%" PRIu64 "\",\"placement\":",p->model_generation); jq(&j,the_workbench_placement_name(p->placement));
             js(&j,",\"fallbacks\":["); for (k=0;k<p->fallback_count;k++) { if(k) js(&j,","); jq(&j,the_workbench_placement_name(p->fallbacks[k])); }
             js(&j,"],\"mincols\":%d,\"minrows\":%d,\"visible\":%s,\"focused\":%s,\"effectivePlacement\":",p->mincols,p->minrows,state && state->visible ? "true" : "false",state && state->focused ? "true" : "false");

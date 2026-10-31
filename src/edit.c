@@ -38,6 +38,7 @@
 #include "thedriver.h"
 #include "inputevent.h"
 #include "inputdispatch.h"
+#include "editordocument.h"
 #ifdef USE_UTF8
 # include "textpos.h"
 #endif
@@ -157,7 +158,15 @@ void editor(void)
 }
 
 /***********************************************************************/
-int process_key(int key, bool mouse_details_present)
+static int document_process_key(int key,bool mouse_details_present,int *guarded);
+int process_key(int key,bool mouse_details_present)
+{
+   int guarded=0;
+   int rc=document_process_key(key,mouse_details_present,&guarded);
+   if (guarded) the_workbench_document_leave();
+   return rc;
+}
+static int document_process_key(int key, bool mouse_details_present,int *guarded)
 /***********************************************************************/
 {
    TheDriverWindowCursor cursor;
@@ -254,6 +263,7 @@ int process_key(int key, bool mouse_details_present)
          }
          if (input_event.kind == THE_INPUT_LOGICAL_HIT)
          {
+            the_workbench_document_enter(); *guarded=1;
             rc = the_input_dispatch_logical_hit(&input_event.target)
                ? RC_OK : RC_INVALID_OPERAND;
             goto refresh_after_input;
@@ -278,11 +288,16 @@ int process_key(int key, bool mouse_details_present)
          key = normalized_key;
    }
 #if defined(THE_MOUSE_ENABLED)
+   if (!the_editor_document_inspection_key(key)) { the_workbench_document_enter(); *guarded=1; }
    if (!the_input_legacy_key_is_mouse(key))
    {
       if (!mouse_details_present)
          reset_saved_mouse_pos();
    }
+#endif
+
+#if !defined(THE_MOUSE_ENABLED)
+   if (!the_editor_document_inspection_key(key)) { the_workbench_document_enter(); *guarded=1; }
 #endif
 
 #ifdef CAN_RESIZE
@@ -439,6 +454,7 @@ int process_key(int key, bool mouse_details_present)
    }
 
 refresh_after_input:
+   if (*guarded) { the_workbench_document_leave(); *guarded=0; }
    show_statarea();
 
 #ifdef USE_SDSLH

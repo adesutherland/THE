@@ -1088,6 +1088,10 @@ if(THE_PYTHON_EXECUTABLE)
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_workbench_runtime.py $<TARGET_FILE:the> ${profile_engine})
             set_tests_properties(test_workbench_runtime_${profile_engine} PROPERTIES TIMEOUT 120
                 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+            add_test(NAME test_workbench_document_runtime_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_workbench_document_runtime.py $<TARGET_FILE:the> ${profile_engine})
+            set_tests_properties(test_workbench_document_runtime_${profile_engine} PROPERTIES TIMEOUT 90
+                ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
             add_test(NAME test_workbench_boundaries_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_workbench_boundaries.py $<TARGET_FILE:the> ${profile_engine})
             set_tests_properties(test_workbench_boundaries_${profile_engine} PROPERTIES TIMEOUT 90
@@ -1290,9 +1294,13 @@ else()
 endif()
 add_test(NAME test_workbenchlog COMMAND test_workbenchlog)
 
-add_executable(test_workbench tests/test_workbench.c src/workbench.c src/workbenchruntime.c src/workbenchlog.c src/frontendaction.c)
+add_executable(test_workbench tests/test_workbench.c src/workbench.c src/workbenchruntime.c src/workbenchlog.c src/workbenchdocument.c src/frontendaction.c)
 target_include_directories(test_workbench PRIVATE ${CMAKE_SOURCE_DIR}/src)
 add_test(NAME test_workbench COMMAND test_workbench)
+
+add_executable(test_workbenchdocument tests/test_workbenchdocument.c src/workbenchdocument.c src/workbench.c src/workbenchruntime.c src/workbenchlog.c src/frontendaction.c)
+target_include_directories(test_workbenchdocument PRIVATE ${CMAKE_SOURCE_DIR}/src)
+add_test(NAME test_workbenchdocument COMMAND test_workbenchdocument)
 
 add_executable(test_frontendaction tests/test_frontendaction.c src/frontendaction.c)
 target_include_directories(test_frontendaction PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})

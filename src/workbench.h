@@ -45,7 +45,7 @@ typedef enum
    THE_WORKBENCH_PLACE_TAB
 } TheWorkbenchPlacement;
 
-typedef enum { THE_WORKBENCH_PANEL_LOG = 1 } TheWorkbenchPanelKind;
+typedef enum { THE_WORKBENCH_PANEL_LOG = 1, THE_WORKBENCH_PANEL_DOCUMENT = 2 } TheWorkbenchPanelKind;
 
 typedef struct
 {
@@ -90,6 +90,7 @@ typedef struct
    TheWorkbenchPanelKind kind;
    char model[THE_WORKBENCH_ID_MAX + 1];
    uint64_t model_generation;
+   uint64_t document_id; /* Immutable live-buffer binding; never a path lookup. */
    TheWorkbenchPlacement placement;
    TheWorkbenchPlacement fallbacks[3];
    size_t fallback_count;

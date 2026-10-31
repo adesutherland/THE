@@ -20,7 +20,7 @@ def main():
                            THE_GTK_PROBE_SCREENSHOT=screenshot,
                            THE_TOOL_CONFIG_DIR=str(root / "tool-config"))
         try:
-            completed = subprocess.run([binary, "--driver", "gtk", str(root / "sample.txt")],
+            completed = subprocess.run([binary, "--driver", "gtk", "-w", "16384", str(root / "sample.txt")],
                                        cwd=directory, env=environment, text=True,
                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=55)
         except subprocess.TimeoutExpired as error:
@@ -43,6 +43,8 @@ def main():
             assert "GTK_PROGRAM_OUTPUT_STDIN_COMPLETION_PASS" in completed.stdout, completed.stdout
             assert "GTK_NAMED_LOG_CONTROL_ESCAPE_SCROLL_FOCUS_PROGRAM_DRAFT_RETURN_PASS" in completed.stdout, completed.stdout
             assert "GTK_LOG_PUT_PLACE_GENERATION_PROGRAM_EDITOR_FOCUS_RETURN_PASS" in completed.stdout, completed.stdout
+            assert "GTK_DOCUMENT_READONLY_PAGING_REVISION_BINDING_FOCUS_RETURN_PASS" in completed.stdout, completed.stdout
+            assert (root / "document.txt").read_bytes().startswith("DOC-CHANGED Ω\n".encode("utf-8"))
             assert "GTK_WORKBENCH_PROFILE_F6_INPUT_CONTROL_DRAFT_CARET_PASS" in completed.stdout, completed.stdout
             assert "GTK_WORKBENCH_PROFILE_F10_MENU_ESC_DRAFT_CARET_PASS" in completed.stdout, completed.stdout
             assert "GTK_WORKBENCH_F10_CANCEL_RESTORES_INPUT_SELECTION_CARET_CONTROL_EDITOR_PASS" in completed.stdout, completed.stdout

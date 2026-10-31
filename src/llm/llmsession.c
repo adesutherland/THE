@@ -23,6 +23,7 @@
 #include "utfinput.h"
 #include "vars.h"
 #include "workbench.h"
+#include "workbenchdocument.h"
 #ifdef USE_UTF8
 # include "utfterm.h"
 #endif
@@ -417,8 +418,11 @@ static void parse_view_options(char *args, LlmDriverFormatOptions *options)
 
 static void llm_session_refresh(void)
 {
+   /* A certified pending record remains authoritative during presentation. */
    if (CURRENT_VIEW != NULL && CURRENT_FILE != NULL
-   &&  !(CURRENT_VIEW->current_window == WINDOW_PREFIX && prefix_changed))
+   &&  !(CURRENT_VIEW->current_window == WINDOW_PREFIX && prefix_changed)
+   &&  !the_workbench_document_pending_owned(CURRENT_FILE,
+           (size_t)CURRENT_VIEW->focus_line))
       pre_process_line(CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL);
    build_screen(current_screen);
    display_screen(current_screen);
@@ -492,7 +496,7 @@ static void print_capabilities(void)
    print_json_string((const char *)crexx_version);
    fputs(",\"transient_ui\":\"shared-transientui-protocol-adapter\"", stdout);
    fputs(",\"build_test_hooks\":\"external-shell-or-ctest\"", stdout);
-   fputs(",\"workbench\":{\"schemaVersion\":1,\"actions\":true,\"menus\":true,\"logPanels\":true,\"routes\":true,\"logInspection\":\"command\",\"invocation\":\"command\"}", stdout);
+   fputs(",\"workbench\":{\"schemaVersion\":1,\"actions\":true,\"menus\":true,\"logPanels\":true,\"documentPanels\":true,\"documentAccess\":\"readonly\",\"documentInspection\":\"command\",\"routes\":true,\"logInspection\":\"command\",\"invocation\":\"command\"}", stdout);
    fputs(",\"inputs\":[\"look\",\"delta\",\"capabilities\",\"focus\",\"hit\",\"key\",\"text\",\"type\",\"text-utf\",\"insert\",\"insert-utf\",\"command\",\"tools\",\"toolwait\",\"debug\",\"transient\",\"quit\"]", stdout);
    fputs(",\"view_modes\":[\"full\",\"filearea\",\"reserved\",\"prefix\",\"focus\"]", stdout);
    fputs(",\"transient_commands\":[\"transient readv [TEXT]\",\"transient dialog [TEXT]\",\"transient popup\",\"transient look\",\"transient key NAME\",\"transient text TEXT\",\"transient hit ROW COL\",\"transient result\",\"transient close\",\"transient cancel\"]", stdout);
@@ -680,7 +684,7 @@ static int apply_key_name(const char *name)
    return 1;
 }
 
-static int apply_text_bytes(const char *text)
+static int apply_text_bytes_body(const char *text)
 {
    int filearea_text = 0;
    int empty_file_text = 0;
@@ -779,8 +783,17 @@ static int apply_text_bytes(const char *text)
                                    after_cursor.text.cell_column);
       }
    }
-   llm_session_refresh();
    return 1;
+}
+
+static int apply_text_bytes(const char *text)
+{
+   int result;
+   the_workbench_document_enter();
+   result = apply_text_bytes_body(text);
+   the_workbench_document_leave();
+   llm_session_refresh();
+   return result;
 }
 
 static int apply_text_codes(const char *codes, short *out_rc)
@@ -815,7 +828,7 @@ static int apply_text_codes(const char *codes, short *out_rc)
    return ok;
 }
 
-static int focus_command(const char *name)
+static int focus_command_body(const char *name)
 {
    if (CURRENT_VIEW == NULL)
       return 0;
@@ -854,7 +867,16 @@ static int focus_command(const char *name)
    return 0;
 }
 
-static int apply_logical_hit(char *args)
+static int focus_command(const char *name)
+{
+   int result;
+   the_workbench_document_enter();
+   result = focus_command_body(name);
+   the_workbench_document_leave();
+   return result;
+}
+
+static int apply_logical_hit_body(char *args)
 {
    TheInputLogicalTargetKind target_kind;
    char *target;
@@ -895,6 +917,15 @@ static int apply_logical_hit(char *args)
          return 0;
       return the_input_dispatch_logical_hit(&event.target);
    }
+}
+
+static int apply_logical_hit(char *args)
+{
+   int result;
+   the_workbench_document_enter();
+   result = apply_logical_hit_body(args);
+   the_workbench_document_leave();
+   return result;
 }
 
 static short apply_real_command(char *command)

@@ -10,6 +10,7 @@
 #include "websession.h"
 #include "workbench.h"
 #include "workbenchruntime.h"
+#include "workbenchdocument.h"
 #include "editorsource.h"
 #include "tools.h"
 void the_tools_wasm_initialise(int);
@@ -343,6 +344,41 @@ static int read_input(TheInputEvent *event)
                browser_send_workbench_refusal("",
                   result && result->code && strcmp(result->code,"ok") ? result->code : "invalid-operand",
                   result && result->code && strcmp(result->code,"ok") ? result->message : "Invalid log page request");
+            }
+            continue;
+         }
+         if (!strcmp(operation,"document.list")) {
+            char panel[THE_WORKBENCH_ID_MAX + 2], generation_text[32], revision_text[32];
+            uint64_t generation = 0, revision = 0;
+            int line = browser_integer("line",-1), offset = browser_integer("offset",-1);
+            int records = browser_integer("records",-1), bytes = browser_integer("bytes",-1);
+            int valid = browser_workbench_string_valid("panel",0)
+               && browser_workbench_string_valid("expectGeneration",0)
+               && browser_workbench_string_valid("expectRevision",0)
+               && browser_string("panel",panel,sizeof(panel))
+               && browser_string("expectGeneration",generation_text,sizeof(generation_text))
+               && browser_string("expectRevision",revision_text,sizeof(revision_text))
+               && the_web_parse_u64(generation_text,&generation) && generation
+               && the_web_parse_u64(revision_text,&revision) && revision
+               && line >= 1 && offset >= 0 && offset <= THE_WORKBENCH_DOCUMENT_RECORD_MAX
+               && records >= 1 && records <= THE_WORKBENCH_DOCUMENT_LINES_MAX
+               && bytes >= 1 && bytes <= THE_WORKBENCH_DOCUMENT_BYTES_MAX;
+            const TheWorkbenchPanel *definition = valid ? the_workbench_panel_find(panel) : NULL;
+            int stale = valid && (!definition || definition->generation != generation);
+            if (valid && !stale) {
+               static char page[THE_WORKBENCH_JSON_MAX + 80];
+               if (the_web_format_document_page(page,sizeof(page),panel,revision,
+                     (size_t)line,(size_t)offset,(size_t)records,(size_t)bytes)) {
+                  browser_send(page);
+                  continue;
+               }
+            }
+            {
+               const TheWorkbenchResult *result = valid && !stale ? the_workbench_last_result() : NULL;
+               browser_send_workbench_refusal("",stale ? "stale-generation"
+                  : result && result->code && strcmp(result->code,"ok") ? result->code : "invalid-operand",
+                  stale ? "Panel generation is stale" : result && result->code && strcmp(result->code,"ok")
+                     ? result->message : "Invalid document page request");
             }
             continue;
          }

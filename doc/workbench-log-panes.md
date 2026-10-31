@@ -2,8 +2,8 @@
 
 Phase 2A adds C-owned LOG panel definitions, retained text models and program
 stdout/stderr routes. It builds on the [action/menu transactions](workbench-actions-menus.md).
-Read-only DOCUMENT panes remain unsupported until the editor supplies a qualified
-document identity and bounded-read service. Forms, file routes, new execution
+[Read-only DOCUMENT panes](workbench-document-panes.md) add live buffer views
+through a separate bounded-read service. Forms, file routes, new execution
 adapters and concurrent program jobs remain later phases of the
 [workbench design](workbench-extension-design.md).
 

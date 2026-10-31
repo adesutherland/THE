@@ -141,7 +141,7 @@ export interface WorkbenchPanelDefinition {
   owner: string;
   title: string;
   generation: string;
-  kind: "log";
+  kind: "log" | "document";
   model: string;
   modelGeneration: string;
   placement: "right" | "below" | "tab";
@@ -154,6 +154,12 @@ export interface WorkbenchPanelDefinition {
   reason: string;
   contentRevision: string;
   modelError: string;
+  readonly?: boolean;
+  documentId?: string;
+  documentRevision?: string;
+  documentAvailable?: boolean;
+  documentReason?: string;
+  lineCount?: number;
 }
 
 export interface WorkbenchPanelState {
@@ -169,6 +175,29 @@ export interface WorkbenchPanelState {
   modelError: string;
   omittedBytes: string;
   omittedRecords: string;
+  kind?: "log" | "document";
+  readonly?: boolean;
+  documentId?: string;
+  documentRevision?: string;
+  documentAvailable?: boolean;
+  documentReason?: string;
+  lineCount?: number;
+}
+
+export interface WorkbenchDocumentPage {
+  schemaVersion: 1;
+  revision: number;
+  section: "document";
+  panel: string;
+  panelGeneration: string;
+  documentId: string;
+  documentRevision: string;
+  lineCount: number;
+  dirty: boolean;
+  nextLine: number;
+  nextOffset: number;
+  more: boolean;
+  records: Array<{ line: number; offset: number; length: number; originalLength: number; text: string; bytesHex: string }>;
 }
 
 export interface WorkbenchFocusRequest {

@@ -57,6 +57,7 @@
 #include "thedriver.h"
 #include "thedriver.h"
 #include "workbench.h"
+#include "workbenchdocument.h"
 
 LINE *rexxout_first_line=NULL;
 LINE *rexxout_last_line=NULL;
@@ -2253,6 +2254,7 @@ short execute_macro_file
 {
  short rc=RC_INVALID_ENVIRON;
  if (!macro_initialised) return rc;
+ the_workbench_document_enter();
  xedit_cursor_begin();
 #ifdef USE_REGINA
  if (the_macro_uses_regina()) rc=regina_execute_macro_file(filename,params,macrorc,interactive);
@@ -2264,6 +2266,7 @@ short execute_macro_file
  rc=RC_INVALID_ENVIRON;
 #endif
  xedit_cursor_end();
+ the_workbench_document_leave();
  return rc;
 }
 /***********************************************************************/
@@ -2273,6 +2276,7 @@ short execute_macro_instore
 {
  short rc=RC_INVALID_ENVIRON;
  if (!macro_initialised) return rc;
+ the_workbench_document_enter();
  xedit_cursor_begin();
 #ifdef USE_REGINA
  if (the_macro_uses_regina()) rc=regina_execute_macro_instore(commands,macrorc,pcode,pcode_len,tokenised,macro_ident);
@@ -2284,6 +2288,7 @@ short execute_macro_instore
  rc=RC_INVALID_ENVIRON;
 #endif
  xedit_cursor_end();
+ the_workbench_document_leave();
  return rc;
 }
 /***********************************************************************/

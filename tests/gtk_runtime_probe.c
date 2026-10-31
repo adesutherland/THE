@@ -7,12 +7,19 @@
 #include <assert.h>
 #include <stdio.h>
 #include "editorsource.h"
+#include "editordocument.h"
 
 static unsigned phase;
 static unsigned preflight;
 static int dirty_quit_checked;
 static unsigned workbench_focus_phase;
 static unsigned log_probe_phase;
+static unsigned document_probe_phase;
+static uint64_t document_probe_id, document_probe_revision;
+static char document_probe_path[4096];
+static int document_origin_window;
+static LogicalCursor document_origin_cursor;
+static char *document_input_draft;
 static int log_origin_window;
 static LogicalCursor log_origin_cursor;
 static char *log_input_draft;
@@ -127,6 +134,8 @@ static void await_frame(void)
       g_usleep(5000);
    }
    g_signal_handler_disconnect(clock, handler);
+   if (!painted) fprintf(stderr, "GTK frame timeout: preflight=%u phase=%u log=%u document=%u\n",
+      preflight, phase, log_probe_phase, document_probe_phase);
    assert(painted);
 }
 
@@ -892,6 +901,184 @@ static void named_log_step(void)
    }
 }
 
+static char *document_probe_text(GtkLogPane *pane)
+{
+   GtkTextIter first, last;
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(pane->view));
+   gtk_text_buffer_get_bounds(buffer, &first, &last);
+   return gtk_text_buffer_get_text(buffer, &first, &last, FALSE);
+}
+
+static void document_step(void)
+{
+   const TheWorkbenchPanel *panel = the_workbench_panel_find("gtk.document");
+   GtkLogPane *pane = panel ? find_log(panel->id, panel->generation) : NULL;
+   TheWorkbenchDocumentInfo info;
+   char command[4200], *text;
+   switch (document_probe_phase++)
+   {
+      case 0:
+      {
+         GString *fixture = g_string_new(NULL);
+         unsigned i;
+         g_snprintf(document_probe_path, sizeof(document_probe_path), "%s/document.txt", getenv("THE_GTK_PROBE_DIR"));
+         for (i = 1; i <= 96; i++) g_string_append_printf(fixture, "DOC-LINE %03u Ω < & >\n", i);
+         g_string_append(fixture, "/* ");
+         for (i = 0; i < 803; i++) g_string_append_c(fixture, 'a');
+         g_string_append(fixture, "€");
+         for (i = 809; i < 9000 - strlen(" FINAL_UTF8_Z */"); i++) g_string_append_c(fixture, 'a');
+         g_string_append(fixture, " FINAL_UTF8_Z */\n");
+         assert(g_file_set_contents(document_probe_path, fixture->str, fixture->len, NULL));
+         g_string_free(fixture, TRUE);
+         g_snprintf(command, sizeof(command), "edit %s", document_probe_path); queue_command(command);
+         break;
+      }
+      case 1:
+      {
+         TheWorkbenchPanel value = {0};
+         assert(!strcmp((char *)CURRENT_FILE->fname, "document.txt"));
+         document_probe_id = the_editor_document_active();
+         assert(the_workbench_document_info(document_probe_id, &info) == THE_WORKBENCH_DOCUMENT_OK && info.lines == 97);
+         document_probe_revision = info.revision;
+         strcpy(value.id, "gtk.document"); strcpy(value.title, "Document / Ω");
+         value.kind = THE_WORKBENCH_PANEL_DOCUMENT; value.document_id = document_probe_id;
+         assert(!the_workbench_begin("gtk.documents")); assert(!the_workbench_put_panel(&value)); assert(!the_workbench_commit());
+         g_snprintf(command, sizeof(command), "edit %s", program); queue_command(command);
+         break;
+      }
+      case 2:
+         assert_source("say 'GTK program ready'\npull name\nsay 'Hello' name\n");
+         document_origin_window = CURRENT_VIEW->current_window; document_origin_cursor = CURRENT_VIEW->logical_cursor.current;
+         document_input_draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(ui.input)));
+         gtk_entry_set_text(GTK_ENTRY(ui.input), "DOCUMENT unsent draft");
+         gtk_widget_grab_focus(ui.input); gtk_editable_select_region(GTK_EDITABLE(ui.input), 11, 3);
+         the_tool_console_visibility(1, 1); sync_logs();
+         panel = the_workbench_panel_find("gtk.document"); pane = find_log(panel->id, panel->generation);
+         assert(queue_panel(pane, THE_WORKBENCH_PANEL_SHOW));
+         break;
+      case 3:
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+         assert(gtk_notebook_get_nth_page(GTK_NOTEBOOK(ui.auxiliary), gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.auxiliary))) == ui.console);
+         resize_window(1366, GTK_ORIENTATION_HORIZONTAL);
+         assert(queue_panel(pane, THE_WORKBENCH_PANEL_FOCUS));
+         break;
+      case 4:
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == pane->view);
+         assert(the_workbench_panel_state(panel->id)->effective == THE_WORKBENCH_PLACE_RIGHT);
+         assert(strstr(gtk_label_get_text(GTK_LABEL(pane->status)), "Read-only document"));
+         text = document_probe_text(pane); assert(strstr(text, "DOC-LINE 001 Ω < & >")); g_free(text);
+         {
+            GdkEventKey key = {0};
+            GtkClipboard *clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+            char *saved = gtk_clipboard_wait_for_text(clipboard), *copied;
+            key.state = GDK_CONTROL_MASK; key.keyval = GDK_KEY_a;
+            assert(!workbench_key_pressed(ui.window, &key, NULL));
+            g_signal_emit_by_name(pane->view, "select-all", TRUE);
+            assert(gtk_text_buffer_get_has_selection(gtk_text_view_get_buffer(GTK_TEXT_VIEW(pane->view))));
+            key.keyval = GDK_KEY_c;
+            assert(!workbench_key_pressed(ui.window, &key, NULL));
+            g_signal_emit_by_name(pane->view, "copy-clipboard");
+            copied = gtk_clipboard_wait_for_text(clipboard); assert(copied && strstr(copied, "DOC-LINE 001 Ω < & >"));
+            g_free(copied);
+            if (saved) { gtk_clipboard_set_text(clipboard, saved, -1); g_free(saved); }
+            else gtk_clipboard_clear(clipboard);
+         }
+         press_workbench_key(GDK_KEY_x, 0); press_workbench_key(GDK_KEY_BackSpace, 0); press_workbench_key(GDK_KEY_Return, 0);
+         assert(g_queue_is_empty(&ui.inputs));
+         text = document_probe_text(pane); assert(strstr(text, "DOC-LINE 001 Ω < & >")); g_free(text);
+         assert_source("say 'GTK program ready'\npull name\nsay 'Hello' name\n"); assert(!the_editor_buffer_dirty(CURRENT_FILE));
+         press_workbench_key(GDK_KEY_Page_Down, 0); await_frame();
+         assert(pane->document_first.line > 1);
+         screenshot("document-right"); press_workbench_key(GDK_KEY_Escape, 0);
+         break;
+      case 5:
+      {
+         int first, last;
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+         assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "DOCUMENT unsent draft"));
+         assert(gtk_editable_get_selection_bounds(GTK_EDITABLE(ui.input), &first, &last));
+         assert(first == 3 && last == 11 && gtk_editable_get_position(GTK_EDITABLE(ui.input)) == 3);
+         assert(queue_panel(pane, THE_WORKBENCH_PANEL_FOCUS));
+         break;
+      }
+      case 6:
+         assert(pane->document_first.line > 1);
+         resize_window(900, GTK_ORIENTATION_VERTICAL); sync_logs(); await_frame();
+         assert(the_workbench_panel_state(panel->id)->effective == THE_WORKBENCH_PLACE_BELOW);
+         press_workbench_key(GDK_KEY_Home, 0); assert(pane->document_first.line == 1);
+         press_workbench_key(GDK_KEY_End, 0);
+         text = document_probe_text(pane); assert(strstr(text, "FINAL_UTF8_Z")); g_free(text);
+         break;
+      case 7:
+      {
+         GtkAdjustment *adjustment = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(pane->scroller));
+         GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(pane->view));
+         GtkTextIter end, first, last;
+         GdkRectangle marker, visible;
+         await_frame();
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == pane->view);
+         assert(gtk_adjustment_get_value(adjustment) >= gtk_adjustment_get_upper(adjustment)
+            - gtk_adjustment_get_page_size(adjustment) - ui.cell_height);
+         gtk_text_buffer_get_end_iter(buffer, &end);
+         assert(gtk_text_iter_backward_search(&end, "FINAL_UTF8_Z", GTK_TEXT_SEARCH_TEXT_ONLY, &first, &last, NULL));
+         gtk_text_view_get_iter_location(GTK_TEXT_VIEW(pane->view), &first, &marker);
+         gtk_text_view_get_visible_rect(GTK_TEXT_VIEW(pane->view), &visible);
+         assert(marker.y >= visible.y && marker.y < visible.y + visible.height);
+         assert_profile_guide(); screenshot("document-below"); press_workbench_key(GDK_KEY_Escape, 0);
+         break;
+      }
+      case 8:
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+         assert(CURRENT_VIEW->current_window == document_origin_window);
+         assert(!memcmp(&CURRENT_VIEW->logical_cursor.current, &document_origin_cursor, sizeof(document_origin_cursor)));
+         gtk_widget_grab_focus(ui.editor);
+         g_snprintf(command, sizeof(command), "edit %s", document_probe_path); queue_command(command);
+         break;
+      case 9:
+         assert(the_editor_document_active() == document_probe_id);
+         queue_command("cursor goto 1 1"); queue_command("replace DOC-CHANGED Ω"); queue_command("save");
+         break;
+      case 10:
+         assert(the_workbench_document_info(document_probe_id, &info) == THE_WORKBENCH_DOCUMENT_OK);
+         assert(info.revision > document_probe_revision);
+         document_origin_window = CURRENT_VIEW->current_window; document_origin_cursor = CURRENT_VIEW->logical_cursor.current;
+         pane->document_request = -2; sync_logs(); await_frame();
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.editor);
+         text = document_probe_text(pane); assert(strstr(text, "DOC-CHANGED Ω")); g_free(text);
+         assert(queue_panel(pane, THE_WORKBENCH_PANEL_FOCUS));
+         break;
+      case 11:
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == pane->view);
+         press_workbench_key(GDK_KEY_Escape, 0);
+         break;
+      case 12:
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.editor);
+         assert(CURRENT_VIEW->current_window == document_origin_window);
+         assert(!memcmp(&CURRENT_VIEW->logical_cursor.current, &document_origin_cursor, sizeof(document_origin_cursor)));
+         queue_command("quit");
+         break;
+      case 13:
+         assert(the_workbench_document_info(document_probe_id, &info) == THE_WORKBENCH_DOCUMENT_MISSING);
+         sync_logs(); assert(strstr(gtk_label_get_text(GTK_LABEL(pane->status)), "document-closed"));
+         g_snprintf(command, sizeof(command), "edit %s", document_probe_path); queue_command(command);
+         break;
+      case 14:
+         assert(the_editor_document_active() != document_probe_id);
+         assert(panel->document_id == document_probe_id);
+         assert(the_workbench_document_info(document_probe_id, &info) == THE_WORKBENCH_DOCUMENT_MISSING);
+         queue_command("quit");
+         break;
+      case 15:
+         assert(!the_workbench_begin("gtk.documents")); assert(!the_workbench_reset_owner("gtk.documents")); assert(!the_workbench_commit());
+         sync_logs(); assert(!ui.logs->len);
+         gtk_entry_set_text(GTK_ENTRY(ui.input), document_input_draft); g_free(document_input_draft); document_input_draft = NULL;
+         assert_source("say 'GTK program ready'\npull name\nsay 'Hello' name\n"); assert(!the_editor_buffer_dirty(CURRENT_FILE));
+         puts("GTK_DOCUMENT_READONLY_PAGING_REVISION_BINDING_FOCUS_RETURN_PASS"); queue_command("nop");
+         break;
+      default: assert(0);
+   }
+}
+
 static int probe_read_input(TheInputEvent *event)
 {
    GdkEventKey key;
@@ -1088,6 +1275,7 @@ static int probe_read_input(TheInputEvent *event)
       case 9:
          await_console(0);
          if (log_probe_phase < 15) { named_log_step(); --phase; break; }
+         if (document_probe_phase < 16) { document_step(); --phase; break; }
          if (workbench_focus_phase == 0)
          {
             assert_program_input_keeps_focus();

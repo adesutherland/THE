@@ -179,7 +179,7 @@ with tempfile.TemporaryDirectory(prefix='THE workbench ') as temporary:
                   'command workbench panel hide public.output\ncommand query workbench panels\nlook full compact')
     assert not query(records)['records'][0]['visible'] and not snapshot(records)['buffer']['dirty'], records
     records = run('command workbench begin owner public.logs\n'
-                  'command workbench panel put public.doc kind document buffer active access readonly\n'
+                  'command workbench panel put public.doc kind document file "unsupported.txt" access readonly\n'
                   'command query workbench\nlook full compact')
     assert query(records)['lastResult']['code'] == 'unsupported-feature' and sample.read_bytes() == original
     failed_log = profile('failed-log.the', log_definitions, 7)

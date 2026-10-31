@@ -207,16 +207,23 @@ button { color: inherit; }
 .auxiliary-rail { display: grid; grid-template-rows:auto minmax(0,1fr); min-width: 0; min-height: 0; background: #1b1e22; overflow: hidden; }
 .auxiliary-rail.program-and-log { grid-template-rows:auto minmax(0,1fr) minmax(0,1fr); }
 .auxiliary-rail.program-and-log .program-console-pane { grid-row:2; }
-.auxiliary-rail.program-and-log .named-log-pane { grid-row:3; }
+.auxiliary-rail.program-and-log .named-panel-pane { grid-row:3; }
 .auxiliary-tabs { display:flex; gap:3px; overflow-x:auto; padding:4px 6px; border-bottom:1px solid #3e4852; }
-.auxiliary-tabs button, .named-log-heading button { flex:none; border:1px solid #424b57; border-radius:4px; padding:4px 8px; background:#252c34; color:#c4d0dd; font-size:11px; cursor:pointer; }
+.auxiliary-tabs button, .named-panel-heading button, .named-document-navigation button { flex:none; border:1px solid #424b57; border-radius:4px; padding:4px 8px; background:#252c34; color:#c4d0dd; font-size:11px; cursor:pointer; }
 .auxiliary-tabs button[aria-selected="true"] { border-color:#7297bb; background:#304a62; color:#edf5fc; }
-.named-log-pane { display:grid; grid-template-rows:auto auto auto auto minmax(0,1fr); min-width:0; min-height:0; overflow:hidden; }
-.named-log-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 9px; border-bottom:1px solid #3e4852; color:#eef1f5; font-size:12px; }
+.named-panel-pane { display:grid; grid-template-rows:auto auto auto auto minmax(0,1fr); min-width:0; min-height:0; overflow:hidden; }
+.named-panel-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 9px; border-bottom:1px solid #3e4852; color:#eef1f5; font-size:12px; }
 .named-log-error, .named-log-omitted, .named-log-unavailable { margin:0; padding:3px 9px; color:#f2c375; font-size:11px; }
 .named-log-error { color:#ff8a78; }
-.named-log-output { grid-row:5; margin:0; padding:8px 10px; overflow:auto; min-height:0; color:#d4d4d4; background:#171b20; font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
-.named-log-output:focus-visible { outline:2px solid #7297bb; outline-offset:-2px; }
+.named-panel-output { grid-row:5; margin:0; padding:8px 10px; overflow:auto; min-height:0; color:#d4d4d4; background:#171b20; font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+.named-panel-output:focus-visible { outline:2px solid #7297bb; outline-offset:-2px; }
+.named-document-pane { display:flex; flex-direction:column; }
+.named-document-output { flex:1; white-space:pre; overflow-wrap:normal; }
+.named-document-status { margin:0; padding:4px 9px; color:#b7c6d5; font-size:11px; }
+.named-document-navigation { display:flex; gap:5px; padding:3px 9px 6px; }
+.named-document-navigation button:disabled { opacity:.5; cursor:default; }
+.named-document-line { display:flex; min-height:1.45em; }
+.named-document-line-number { flex:none; min-width:4ch; margin-right:2ch; color:#8d9ba9; text-align:right; user-select:none; }
 .named-log-stderr { color:#ff8a78; }
 .mobile-aux-tabs { display: none; }
 .program-console-pane { min-width: 0; min-height: 0; overflow: auto; }
@@ -551,9 +558,9 @@ button { color: inherit; }
   .workspace:not(.files-open):not(.aux-open) .editor-pane { flex:1 1 0; grid-template-rows:minmax(0,1fr) auto auto; }
   .file-explorer { flex:none; order:3; height:330px; width:100%; border-right:0; border-top:1px solid #566373; }
   .auxiliary-rail { display:flex; flex:none; flex-direction:column; order:3; min-height:0; height:auto; border-top:1px solid #566373; }
-  .auxiliary-rail.program-and-log .program-console-pane, .auxiliary-rail.program-and-log .named-log-pane { height:330px; }
+  .auxiliary-rail.program-and-log .program-console-pane, .auxiliary-rail.program-and-log .named-panel-pane { height:330px; }
   .auxiliary-tabs { display:none; }
-  .named-log-pane { flex:none; height:410px; }
+  .named-panel-pane { flex:none; height:410px; }
   .mobile-aux-tabs { display:flex; flex:none; order:2; flex-wrap:wrap; gap:4px; padding:5px 8px; }
   .program-console-pane { flex:none; height:410px; }
   .workspace:not(.mobile-pane-files) .file-explorer { display:none; }

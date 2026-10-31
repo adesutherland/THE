@@ -8,7 +8,8 @@ release. The [staged design](workbench-extension-design.md) describes later
 panels, forms, routes and execution adapters; those features are outside phase 1.
 Existing [RX tools and Program console](runtime-tools.md) remain available.
 The implemented [phase-2A LOG core](workbench-log-panes.md) adds named log panes
-and stream routes; read-only document panes remain a later increment.
+and stream routes; [phase-2B DOCUMENT panes](workbench-document-panes.md) add
+bounded read-only views of live editor buffers.
 
 ## Define a menu
 

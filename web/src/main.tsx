@@ -14,7 +14,7 @@ import {
   X,
   Menu,
 } from "lucide-preact";
-import type { DriverMessage, FileListMessage, FrontendActionDefinition, ScreenRow, Snapshot, StyleRun, WorkbenchActionDefinition, WorkbenchPage, WorkbenchPanelDefinition, WorkbenchPanelStateMessage, WorkbenchLogPage, WorkbenchLogRecord } from "./types";
+import type { DriverMessage, FileListMessage, FrontendActionDefinition, ScreenRow, Snapshot, StyleRun, WorkbenchActionDefinition, WorkbenchPage, WorkbenchPanelDefinition, WorkbenchPanelState, WorkbenchPanelStateMessage, WorkbenchLogPage, WorkbenchLogRecord, WorkbenchDocumentPage } from "./types";
 import { WorkbenchPageCollector, displayLogText, type WorkbenchCatalog } from "./workbench";
 import "./styles.css";
 import {RexxConsole, type ToolSession} from './rexx-console';
@@ -102,6 +102,14 @@ type NamedLogView = {
   more: boolean;
 };
 
+type DocumentPosition = { line: number; offset: number };
+type NamedDocumentView = {
+  page: WorkbenchDocumentPage;
+  start: DocumentPosition;
+  previous: DocumentPosition[];
+};
+type DocumentRequest = DocumentPosition & { revision: string; previous: DocumentPosition[] };
+
 function pointerCell(event: MouseEvent, startCell: number): number {
   const target = event.currentTarget as HTMLElement;
   const rect = target.getBoundingClientRect();
@@ -174,6 +182,9 @@ function App() {
   const [workbench, setWorkbench] = useState<WorkbenchCatalog | null>(null);
   const [panelState, setPanelState] = useState<WorkbenchPanelStateMessage | null>(null);
   const [logViews, setLogViews] = useState<Record<string, NamedLogView>>({});
+  const [documentViews, setDocumentViews] = useState<Record<string, NamedDocumentView>>({});
+  const [documentErrors, setDocumentErrors] = useState<Record<string, string>>({});
+  const [documentLoading, setDocumentLoading] = useState<Record<string, boolean>>({});
   const [selectedAux, setSelectedAux] = useState("console");
   const [showProgramWithLog, setShowProgramWithLog] = useState(false);
   const [openMenu, setOpenMenu] = useState<"application" | "about" | null>(null);
@@ -217,11 +228,13 @@ function App() {
   const panelStateRef = useRef<WorkbenchPanelStateMessage | null>(null);
   const logViewsRef = useRef<Record<string, NamedLogView>>({});
   const logPendingRef = useRef(new Set<string>());
+  const documentViewsRef = useRef<Record<string, NamedDocumentView>>({});
+  const documentPendingRef = useRef(new Map<string, DocumentRequest>());
   const focusSerialRef = useRef("0");
   const panelFocusOriginRef = useRef<HTMLElement | null>(null);
   const auxRailRef = useRef<HTMLDivElement | null>(null);
   const namedLogRef = useRef<HTMLPreElement | null>(null);
-  const logScrollRef = useRef(new Map<string, { top: number; follow: boolean }>());
+  const logScrollRef = useRef(new Map<string, { top: number; left: number; follow: boolean }>());
   const layoutReportsRef = useRef(new Map<string, string>());
   const workbenchSessionRef = useRef("");
   const workbenchNextRequestRef = useRef(1);
@@ -252,6 +265,25 @@ function App() {
       model, generation, cursor: current?.nextCursor ?? "0",
       offset: current?.nextOffset ?? 0, records: 8, bytes: 512 }) !== undefined)
       logPendingRef.current.add(key);
+  }, [send]);
+
+  const requestDocumentPage = useCallback((panel: WorkbenchPanelDefinition | WorkbenchPanelState,
+    start?: DocumentPosition, previous?: DocumentPosition[]) => {
+    if (!panel.documentAvailable || !panel.documentRevision) return;
+    const key = `${panel.id}:${panel.generation}`;
+    if (documentPendingRef.current.has(key)) return;
+    const view = documentViewsRef.current[key];
+    const unchanged = view?.page.documentRevision === panel.documentRevision;
+    const position = start ?? { line: Math.max(1, Math.min(view?.start.line ?? 1, panel.lineCount ?? 1)),
+      offset: unchanged ? view?.start.offset ?? 0 : 0 };
+    if (send({ type: "workbench", version: 1, operation: "document.list", panel: panel.id,
+      expectGeneration: panel.generation, expectRevision: panel.documentRevision,
+      ...position, records: 8, bytes: 8192 }) !== undefined) {
+      documentPendingRef.current.set(key, { ...position, revision: panel.documentRevision,
+        previous: previous ?? (unchanged ? view?.previous ?? [] : []) });
+      setDocumentLoading((loading) => ({ ...loading, [key]: true }));
+      setDocumentErrors((errors) => ({ ...errors, [key]: "" }));
+    }
   }, [send]);
 
   const focusEditor = useCallback(() => inputRef.current?.focus(), []);
@@ -293,6 +325,8 @@ function App() {
         workbenchSessionRef.current = "";
         panelStateRef.current = null;
         logViewsRef.current = {};
+        documentViewsRef.current = {};
+        documentPendingRef.current.clear();
         logScrollRef.current.clear();
         logPendingRef.current.clear();
         layoutReportsRef.current.clear();
@@ -301,6 +335,9 @@ function App() {
         setWorkbench(null);
         setPanelState(null);
         setLogViews({});
+        setDocumentViews({});
+        setDocumentErrors({});
+        setDocumentLoading({});
         setLastError("");
         window.setTimeout(focusEditor, 0);
       };
@@ -368,8 +405,28 @@ function App() {
             const next = message as WorkbenchPanelStateMessage;
             panelStateRef.current = next;
             setPanelState(next);
+            const liveKeys = new Set(next.panels.map((panel) => `${panel.id}:${panel.generation}`));
+            const expired = Object.keys(documentViewsRef.current).filter((key) => !liveKeys.has(key));
+            if (expired.length) {
+              const retained = { ...documentViewsRef.current };
+              expired.forEach((key) => delete retained[key]);
+              documentViewsRef.current = retained;
+              setDocumentViews(retained);
+            }
+            for (const key of documentPendingRef.current.keys())
+              if (!liveKeys.has(key)) documentPendingRef.current.delete(key);
+            for (const key of logScrollRef.current.keys())
+              if (!liveKeys.has(key)) logScrollRef.current.delete(key);
+            setDocumentLoading((loading) => Object.fromEntries(Object.entries(loading).filter(([key]) => liveKeys.has(key))));
+            setDocumentErrors((errors) => Object.fromEntries(Object.entries(errors).filter(([key]) => liveKeys.has(key))));
             for (const panel of next.panels) {
               if (!panel.visible) continue;
+              if (panel.kind === "document") {
+                const view = documentViewsRef.current[`${panel.id}:${panel.generation}`];
+                if (!view || view.page.documentRevision !== panel.documentRevision)
+                  requestDocumentPage(panel);
+                continue;
+              }
               const key = `${panel.model}:${panel.modelGeneration}`;
               const view = logViewsRef.current[key];
               if (!view || view.contentRevision !== panel.contentRevision || view.more)
@@ -402,9 +459,37 @@ function App() {
             setLogViews(logViewsRef.current);
             if (page.more || page.contentRevision !== live.contentRevision)
               requestLogPage(page.id, page.generation, next);
+          } else if ("type" in message && message.type === "workbench" && (message as { operation?: string }).operation === "document") {
+            const page = (message as unknown as { data: WorkbenchDocumentPage }).data;
+            const key = `${page.panel}:${page.panelGeneration}`;
+            const pending = documentPendingRef.current.get(key);
+            if (!pending || pending.revision !== page.documentRevision) return;
+            documentPendingRef.current.delete(key);
+            setDocumentLoading((loading) => ({ ...loading, [key]: false }));
+            const live = panelStateRef.current?.panels.find((panel) => panel.id === page.panel
+              && panel.generation === page.panelGeneration);
+            if (!live || !live.documentAvailable || live.documentId !== page.documentId) return;
+            if (live.documentRevision !== page.documentRevision) {
+              requestDocumentPage(live);
+              return;
+            }
+            if (!Array.isArray(page.records) || page.records.length > 8) return;
+            const next = { page, start: { line: pending.line, offset: pending.offset }, previous: pending.previous };
+            documentViewsRef.current = { ...documentViewsRef.current, [key]: next };
+            setDocumentViews(documentViewsRef.current);
           } else if ("type" in message && message.type === "workbench" && (message as { operation?: string }).operation === "result") {
             const result = message as { code?: string; message?: string; requestId?: string };
-            if (!result.requestId) logPendingRef.current.clear();
+            if (!result.requestId) {
+              logPendingRef.current.clear();
+              if (result.code && result.code !== "ok") {
+                const errors = Object.fromEntries([...documentPendingRef.current.keys()]
+                  .map((key) => [key, result.message || result.code!]));
+                setDocumentErrors((prior) => ({ ...prior, ...errors }));
+                setDocumentLoading((loading) => ({ ...loading,
+                  ...Object.fromEntries([...documentPendingRef.current.keys()].map((key) => [key, false])) }));
+              }
+              documentPendingRef.current.clear();
+            }
             const prefix = `${workbenchSessionRef.current}.`;
             if (result.requestId?.startsWith(prefix)) {
               const sequence = Number(result.requestId.slice(prefix.length));
@@ -466,7 +551,7 @@ function App() {
       window.removeEventListener("beforeunload", beforeUnload);
       close();
     };
-  }, [appendDockEntry, focusEditor, requestLogPage]);
+  }, [appendDockEntry, focusEditor, requestDocumentPage, requestLogPage]);
 
   useEffect(() => {
     const resized = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
@@ -544,7 +629,7 @@ function App() {
   const rememberPanelFocusOrigin = useCallback(() => {
     if (panelFocusOriginRef.current?.isConnected) return;
     const active = document.activeElement;
-    if (active instanceof HTMLElement && active.closest(".named-log-pane")) return;
+    if (active instanceof HTMLElement && active.closest(".named-panel-pane")) return;
     const origin = menuRef.current?.contains(active) ? menuReturnRef.current : active;
     if (origin instanceof HTMLElement) panelFocusOriginRef.current = origin;
   }, []);
@@ -706,13 +791,21 @@ function App() {
   const onWorkbenchKeyDown = useCallback((event: KeyboardEvent) => {
     // Panels and path dialogs own their keys, including function keys.
     if (snapshot?.panel || pathAction) return;
-    if (!openMenu && (event.target as HTMLElement).closest(".named-log-pane")
+    if (!openMenu && (event.target as HTMLElement).closest(".named-panel-pane")
         && (event.key === "Escape" || event.key === "F6")) {
       event.preventDefault(); event.stopPropagation();
-      const pane = (event.target as HTMLElement).closest<HTMLElement>(".named-log-pane");
+      const pane = (event.target as HTMLElement).closest<HTMLElement>(".named-panel-pane");
       const state = panelStateRef.current?.panels.find((item) => item.id === pane?.dataset.panelId);
       if (state?.focused) sendPanelOperation(state.id, state.generation, "return");
       else returnToFile();
+      return;
+    }
+    if (!openMenu && (event.target as HTMLElement).closest(".named-document-pane")
+      && ((!event.ctrlKey && !event.metaKey && event.key.length === 1)
+        || ["Backspace", "Delete", "Insert"].includes(event.key)
+        || event.key === "Enter" && !(event.target instanceof HTMLButtonElement)
+        || (event.ctrlKey || event.metaKey) && ["s", "z", "y", "x", "v"].includes(event.key.toLowerCase()))) {
+      event.preventDefault(); event.stopPropagation();
       return;
     }
     if (!openMenu && event.key === "Tab" && event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey &&
@@ -916,7 +1009,13 @@ function App() {
   };
   const activePanelPlacement = activeNamedPanel ? placementFor(activeNamedPanel) : "right";
   const activeNamedLog = activeNamedPanel
+    && activeNamedPanel.kind === "log"
     ? logViews[`${activeNamedPanel.model}:${activeNamedPanel.modelGeneration}`] : undefined;
+  const activePanelKey = activeNamedPanel ? `${activeNamedPanel.id}:${activeNamedPanel.generation}` : "";
+  const documentView = documentViews[activePanelKey];
+  const activeDocumentPage = activeNamedPanel?.documentAvailable
+    && documentView?.page.documentId === activeNamedPanel.documentId
+    && documentView.page.documentRevision === activeNamedPanel.documentRevision ? documentView.page : undefined;
   const activeMobilePane = mobilePane === "files" && explorerOpen ? "files"
     : mobilePane === "console" && showAux ? "console"
     : explorerOpen ? "files" : "console";
@@ -942,7 +1041,7 @@ function App() {
     } else if (focus.panel) {
       if (!panelFocusOriginRef.current) {
         const active = document.activeElement;
-        if (active instanceof HTMLElement && !active.closest(".named-log-pane"))
+        if (active instanceof HTMLElement && !active.closest(".named-panel-pane"))
           panelFocusOriginRef.current = active;
       }
       setSelectedAux(focus.panel);
@@ -955,7 +1054,7 @@ function App() {
   useLayoutEffect(() => {
     if (!showAux || connection !== "online") return;
     const rectangle = (consoleOpen && showProgramWithLog && activeNamedPanel
-      ? auxRailRef.current?.querySelector(".named-log-pane") : auxRailRef.current)?.getBoundingClientRect();
+      ? auxRailRef.current?.querySelector(".named-panel-pane") : auxRailRef.current)?.getBoundingClientRect();
     if (!rectangle) return;
     const cols = Math.max(0, Math.floor(rectangle.width / 8));
     const rows = Math.max(0, Math.floor(rectangle.height / 18));
@@ -975,7 +1074,7 @@ function App() {
   }, [activeAux, auxWidth, connection, consoleOpen, send, showAux, showProgramWithLog, visibleNamedPanels, windowSize]);
 
   useEffect(() => {
-    if (!activeNamedPanel || !namedLogRef.current) return;
+    if (!activeNamedPanel || activeNamedPanel.kind !== "log" || !namedLogRef.current) return;
     const key = `${activeNamedPanel.id}:${activeNamedPanel.generation}`;
     if (logScrollRef.current.get(key)?.follow === false) return;
     namedLogRef.current.scrollTop = namedLogRef.current.scrollHeight;
@@ -1100,7 +1199,7 @@ function App() {
           Console{toolSession?.job.waiting ? " · Input requested" : toolSession?.job.running ? " · Running" : ""}
         </button>
         {workbench?.panels.map((panel) => <button type="button" key={panel.id}
-          class="named-log-toggle" data-panel-id={panel.id}
+          class={panel.kind === "document" ? "named-document-toggle" : "named-log-toggle"} data-panel-id={panel.id}
           onPointerDown={rememberPanelFocusOrigin}
           aria-pressed={activeAux === panel.id && visibleNamedPanels.some((item) => item.id === panel.id)}
           onClick={() => showOrFocusPanel(panel)}>{panel.title}</button>)}
@@ -1296,35 +1395,62 @@ function App() {
           {toolSession ? <RexxConsole send={send} session={toolSession} snapshot={snapshot} runRequest={runRequest} onClose={() => { setConsoleOpen(false); setShowProgramWithLog(false); focusEditor(); }} focusEditor={focusEditor} />
             : <p class="empty-directory">Program console unavailable: no program tools were provided.</p>}
         </div>
-        {activeNamedPanel ? <div class="named-log-pane" data-panel-id={activeNamedPanel.id}
+        {activeNamedPanel ? <div class={`named-panel-pane named-${activeNamedPanel.kind}-pane`} data-panel-id={activeNamedPanel.id}
+          onBeforeInput={(event) => { if (activeNamedPanel.kind === "document") { event.preventDefault(); event.stopPropagation(); } }}
+          onPaste={(event) => { if (activeNamedPanel.kind === "document") { event.preventDefault(); event.stopPropagation(); } }}
+          onDrop={(event) => { if (activeNamedPanel.kind === "document") { event.preventDefault(); event.stopPropagation(); } }}
           aria-label={activeNamedPanel.title} role="tabpanel">
-          <div class="named-log-heading"><strong>{activeNamedPanel.title}</strong>
+          <div class="named-panel-heading"><strong>{activeNamedPanel.title}</strong>
             <button type="button" onClick={() => sendPanelOperation(activeNamedPanel.id, activeNamedPanel.generation, "hide")}>Hide</button>
           </div>
-          {activeNamedPanel.modelError && activeNamedPanel.modelError !== "ok"
+          {activeNamedPanel.kind === "log" && activeNamedPanel.modelError && activeNamedPanel.modelError !== "ok"
             ? <p class="named-log-error" role="status">Log route error: {activeNamedPanel.modelError}</p> : null}
-          {(activeNamedLog?.omitted || !!activeNamedPanel.omittedBytes && activeNamedPanel.omittedBytes !== "0")
+          {activeNamedPanel.kind === "log" && (activeNamedLog?.omitted || !!activeNamedPanel.omittedBytes && activeNamedPanel.omittedBytes !== "0")
             ? <p class="named-log-omitted" role="status">Older output omitted</p> : null}
           {activeNamedPanel.effectivePlacement === "none" && activeNamedPanel.reason !== "hidden"
             ? <p class="named-log-unavailable" role="status">{activeNamedPanel.reason.replaceAll("-", " ")}</p> : null}
-          <pre class="named-log-output" hidden={activePanelPlacement === "none"} ref={(node) => {
+          {activeNamedPanel.kind === "document" ? <>
+            <p class="named-document-status" role="status">Read only · {activeNamedPanel.lineCount ?? 0} lines
+              {!activeNamedPanel.documentAvailable ? ` · ${(activeNamedPanel.documentReason || "unavailable document").replaceAll("-", " ")}`
+                : documentErrors[activePanelKey] ? ` · ${documentErrors[activePanelKey]}`
+                : !activeDocumentPage ? " · Loading document…" : ""}</p>
+            <div class="named-document-navigation" role="group" aria-label="Document pages">
+              <button type="button" disabled={!activeDocumentPage || !documentView.previous.length || documentLoading[activePanelKey]}
+                onClick={() => {
+                  const previous = [...documentView.previous];
+                  const position = previous.pop();
+                  if (position) requestDocumentPage(activeNamedPanel, position, previous);
+                }}>Previous</button>
+              <button type="button" disabled={!activeDocumentPage?.more || documentLoading[activePanelKey]}
+                onClick={() => {
+                  if (activeDocumentPage) requestDocumentPage(activeNamedPanel,
+                    { line: activeDocumentPage.nextLine, offset: activeDocumentPage.nextOffset },
+                    [...documentView.previous, documentView.start].slice(-256));
+                }}>Next</button>
+              <button type="button" disabled={!activeNamedPanel.documentAvailable || documentLoading[activePanelKey]}
+                onClick={() => requestDocumentPage(activeNamedPanel)}>Refresh</button>
+            </div>
+          </> : null}
+          <pre class={`named-panel-output named-${activeNamedPanel.kind}-output`} hidden={activePanelPlacement === "none"} ref={(node) => {
             const key = `${activeNamedPanel.id}:${activeNamedPanel.generation}`;
             if (node) {
               namedLogRef.current = node;
               const saved = logScrollRef.current.get(key);
-              if (saved) node.scrollTop = saved.top;
-              else node.scrollTop = node.scrollHeight;
+              node.scrollTop = saved?.top ?? (activeNamedPanel.kind === "log" ? node.scrollHeight : 0);
+              node.scrollLeft = saved?.left ?? 0;
             } else if (namedLogRef.current?.dataset.panelKey === key) namedLogRef.current = null;
           }} tabIndex={0}
             data-panel-key={`${activeNamedPanel.id}:${activeNamedPanel.generation}`}
-            aria-label={`${activeNamedPanel.title} output`}
+            aria-label={`${activeNamedPanel.title} ${activeNamedPanel.kind === "document" ? "read only document" : "output"}`}
             onScroll={(event) => {
               const node = event.currentTarget;
               logScrollRef.current.set(`${activeNamedPanel.id}:${activeNamedPanel.generation}`, {
-                top: node.scrollTop,
+                top: node.scrollTop, left: node.scrollLeft,
                 follow: node.scrollHeight - node.scrollTop - node.clientHeight < 24,
               });
-            }}>{activeNamedLog?.records.map((record) => <span key={`${record.cursor}:${record.offset}`}
+            }}>{activeNamedPanel.kind === "document" ? activeDocumentPage?.records.map((record) =>
+              <span class="named-document-line" key={`${record.line}:${record.offset}`}><span class="named-document-line-number" aria-hidden="true">{record.line}{record.offset ? "+" : ""}</span><span>{displayLogText(record.text)}</span></span>)
+              : activeNamedLog?.records.map((record) => <span key={`${record.cursor}:${record.offset}`}
               class={record.stream === 2 ? "named-log-stderr" : "named-log-stdout"}>
               {displayLogText(record.text)}</span>)}</pre>
         </div> : null}

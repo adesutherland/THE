@@ -39,6 +39,7 @@
 #include "wasm/highlighter.h"
 #endif
 #include "proto.h"
+#include "workbenchdocument.h"
 #include "thedriver.h"
 
 #include <errno.h>
@@ -1778,6 +1779,7 @@ short free_file_memory(bool free_file_lines)
 /***********************************************************************/
 {
    TRACE_FUNCTION("file.c:    free_file_memory");
+   the_workbench_document_forget(CURRENT_FILE);
    the_editor_source_forget(CURRENT_FILE);
 #ifdef THE_WASM_HIGHLIGHT
    the_wasm_highlight_forget(CURRENT_FILE);

@@ -9,6 +9,7 @@
 #include "frontendaction.h"
 #include "workbench.h"
 #include "workbenchruntime.h"
+#include "workbenchdocument.h"
 #include "headlessdriver.h"
 #include "llmdriver.h"
 #include "llmruntime.h"
@@ -438,6 +439,7 @@ size_t the_web_format_panel_state(char *out, size_t capacity)
       const TheWorkbenchPanelState *state = panel ? the_workbench_panel_state(panel->id) : NULL;
       const TheWorkbenchLogInfo *log = panel ? the_workbench_log_find(panel->model) : NULL;
       const TheWorkbenchModelState *model = panel ? the_workbench_model_state(panel->model) : NULL;
+      TheWorkbenchDocumentInfo document;
       if (panel == NULL) return 0;
       if (!web_append(out,capacity,&used,"%s{\"id\":",index ? "," : "")
       || !web_append_string(out,capacity,&used,panel->id)
@@ -456,8 +458,17 @@ size_t the_web_format_panel_state(char *out, size_t capacity)
          panel->model_generation,log ? log->revision : 0,
          log ? log->omitted_bytes : 0,log ? log->omitted_records : 0)
       || !web_append_string(out,capacity,&used,
-         model ? web_log_error_name(model->last_error) : "ok")
-      || !web_append(out,capacity,&used,"}")) return 0;
+         model ? web_log_error_name(model->last_error) : "ok")) return 0;
+      if (panel->kind == THE_WORKBENCH_PANEL_DOCUMENT)
+      {
+         memset(&document,0,sizeof(document));
+         the_workbench_document_info(panel->document_id,&document);
+         if (!web_append(out,capacity,&used,
+            ",\"kind\":\"document\",\"readonly\":true,\"documentId\":\"%" PRIu64 "\",\"documentRevision\":\"%" PRIu64 "\",\"documentAvailable\":%s,\"lineCount\":%zu,\"documentReason\":",
+            panel->document_id,document.revision,document.available ? "true" : "false",document.lines)
+         || !web_append_string(out,capacity,&used,document.reason ? document.reason : "unavailable-document")) return 0;
+      }
+      if (!web_append(out,capacity,&used,"}")) return 0;
    }
    if (!web_append(out,capacity,&used,"]}")) return 0;
    return used;
@@ -476,6 +487,25 @@ size_t the_web_format_log_page(char *out, size_t capacity,
    length = strlen(page);
    if (!web_append(out,capacity,&used,
        "{\"type\":\"workbench\",\"operation\":\"log\",\"data\":")
+   || used + length + 2 > capacity) return 0;
+   memcpy(out + used,page,length); used += length;
+   out[used++] = '}'; out[used] = '\0';
+   return used;
+}
+
+size_t the_web_format_document_page(char *out, size_t capacity,
+                                    const char *panel, uint64_t revision,
+                                    size_t line, size_t offset,
+                                    size_t records, size_t bytes)
+{
+   char page[THE_WORKBENCH_JSON_MAX];
+   size_t used = 0, length;
+   if (out == NULL || !panel || capacity < 128
+   || the_workbench_document_json(page,sizeof(page),panel,revision,line,offset,
+                                  records,bytes) != 0) return 0;
+   length = strlen(page);
+   if (!web_append(out,capacity,&used,
+       "{\"type\":\"workbench\",\"operation\":\"document\",\"data\":")
    || used + length + 2 > capacity) return 0;
    memcpy(out + used,page,length); used += length;
    out[used++] = '}'; out[used] = '\0';

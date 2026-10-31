@@ -21,6 +21,8 @@ let presentDiagnostic = false;
 let fixturePanels = [];
 let fixturePanelState = null;
 const fixtureLogExtras = new Map();
+let holdDocumentPage = false;
+const heldDocumentPages = [];
 const snapshot = {
   mode: "editor", rows: 24, cols: 80,
   focus: { zone: "filearea", line: 1, row: 0, cell: 2 }, command: "",
@@ -168,6 +170,23 @@ ws.on("connection", (connection) => {
         records: [{ cursor: continuing ? "2" : "1", job: "9", stream: 1, sequence: continuing ? "2" : "1", offset: 0,
           length: text.length, originalLength: text.length, text }],
       } }));
+    } else if (message.type === "workbench" && message.operation === "document.list") {
+      const panel = fixturePanelState?.panels.find((item) => item.id === message.panel);
+      const records = Array.from({ length: Math.min(8, 25 - message.line) }, (_, index) => {
+        const line = message.line + index;
+        const text = `${message.panel} revision ${panel.documentRevision} line ${line} <img>\u0007 ${"x".repeat(240)}`;
+        return { line, offset: 0, length: text.length, originalLength: text.length,
+          text, bytesHex: Buffer.from(text).toString("hex") };
+      });
+      const page = { type: "workbench", operation: "document", data: {
+        schemaVersion: 1, revision: 10, section: "document", panel: panel.id,
+        panelGeneration: panel.generation, documentId: panel.documentId,
+        documentRevision: panel.documentRevision, lineCount: 24, dirty: false,
+        nextLine: message.line + records.length, nextOffset: 0,
+        more: message.line + records.length <= 24, records,
+      } };
+      if (holdDocumentPage) heldDocumentPages.push(page);
+      else connection.send(JSON.stringify(page));
     } else if (message.type === "workbench" && message.operation?.startsWith("panel.")) {
       if (fixturePanelState && message.operation !== "panel.layout") {
         const focus = message.operation === "panel.focus";
@@ -813,6 +832,81 @@ try {
     "PANEL SHOW displays LOG body from command input");
   assert.equal(fixturePanelState.panels[0].focused, false, "PANEL SHOW does not take core focus");
   assert.deepEqual(await evaluate("({draft:document.querySelector('#the-command').value,dirty:document.querySelector('.status-line').dataset.bufferDirty,zone:document.querySelector('.status-line').dataset.focusZone,line:document.querySelector('.status-line').dataset.focusLine,cell:document.querySelector('.status-line').dataset.focusCell})"), preservedEditor, "named output does not mutate editor state");
+  const logFixturePanels = fixturePanels;
+  fixturePanels = ["user.reference", "user.reference2"].map((id, index) => ({
+    ...logFixturePanels[0], id, title: `Reference ${index + 1}`, kind: "document", generation: "9",
+    model: "", modelGeneration: "0", readonly: true, documentId: String(9007199254740993n + BigInt(index)),
+    documentRevision: "9007199254740997", documentAvailable: true, documentReason: "ok", lineCount: 24,
+    visible: true, focused: false, placement: "right", mincols: 10,
+  }));
+  fixturePanelState = { ...fixturePanelState, revision: 10, stateRevision: "10",
+    panels: fixturePanels.map((panel) => ({ ...panel })),
+    focus: { serial: "20", panel: "", generation: "0", previousPanel: "", previousGeneration: "0", restoring: false } };
+  publishWorkbench(10, 0, "");
+  client.send(JSON.stringify(fixturePanelState));
+  await viewport(1280, 800);
+  await evaluate("document.querySelector('#the-command').focus()");
+  await wait(() => evaluate("!!document.querySelector('.named-document-toggle')"), "DOCUMENT selector");
+  await evaluate("document.querySelector('.named-document-toggle[data-panel-id=\"user.reference\"]').click()");
+  await wait(() => evaluate("document.activeElement?.classList.contains('named-document-output') && document.querySelector('.named-document-output')?.textContent.includes('line 1')"), "bounded DOCUMENT text and focus");
+  const documentReads = received.filter((message) => message.operation === "document.list");
+  assert(documentReads.every((message) => message.records === 8 && message.bytes === 8192
+    && message.expectGeneration === "9" && message.expectRevision === "9007199254740997"), "copied document bounds and exact string tokens");
+  assert.equal(await evaluate("document.querySelectorAll('.named-document-line').length"), 8, "document retains one bounded page");
+  assert.equal(await evaluate("!!document.querySelector('.named-document-output img')"), false, "DOCUMENT text cannot create markup");
+  assert.equal(await evaluate("document.querySelector('.named-document-output').textContent.includes('\\\\x07')"), true, "DOCUMENT control bytes are visible escaped text");
+  assert.equal(await evaluate("/Read only/.test(document.querySelector('.named-document-status').textContent) && !document.querySelector('.named-log-omitted,.named-log-error,.named-log-output')"), true, "DOCUMENT read-only status has no log semantics");
+  const beforeDocumentInput = received.length;
+  const deniedDocumentEvents = await evaluate(`(() => { const node=document.querySelector('.named-document-output');return [
+    ...['a','Delete','Backspace','Enter'].map(key=>new KeyboardEvent('keydown',{key,bubbles:true,cancelable:true})),
+    ...['s','z','y','v'].map(key=>new KeyboardEvent('keydown',{key,ctrlKey:true,bubbles:true,cancelable:true})),
+    new Event('beforeinput',{bubbles:true,cancelable:true}),new Event('paste',{bubbles:true,cancelable:true}),new Event('drop',{bubbles:true,cancelable:true})
+  ].map(event=>!node.dispatchEvent(event));})()`);
+  assert(deniedDocumentEvents.every(Boolean), "DOCUMENT consumes typing, paste, drop, save, delete and undo");
+  assert.equal(received.slice(beforeDocumentInput).some((message) => ["key", "text", "command", "action"].includes(message.type)), false, "DOCUMENT mutations cannot reach editor");
+  await evaluate("document.querySelector('.named-document-navigation button:nth-child(2)').click()");
+  await wait(() => evaluate("document.querySelector('.named-document-line')?.textContent.includes('line 9')"), "DOCUMENT next bounded page");
+  await evaluate("(() => {const node=document.querySelector('.named-document-output');node.scrollLeft=130;node.dispatchEvent(new Event('scroll'));})()");
+  await evaluate("document.querySelector('.named-document-toggle[data-panel-id=\"user.reference2\"]').click()");
+  await wait(() => evaluate("document.querySelector('.named-document-output')?.textContent.includes('user.reference2')"), "second DOCUMENT binding");
+  assert.equal(await evaluate("document.querySelector('.named-document-output').scrollLeft"), 0, "second DOCUMENT starts at its own viewport");
+  await evaluate("document.querySelector('.named-document-toggle[data-panel-id=\"user.reference\"]').click()");
+  await wait(() => evaluate("document.querySelector('.named-document-line')?.textContent.includes('line 9')"), "first DOCUMENT page restored");
+  assert.equal(await evaluate("document.querySelector('.named-document-output').scrollLeft"), 130, "DOCUMENT viewport is independent per pane generation");
+  await evaluate("document.querySelector('.named-document-navigation button:first-child').click()");
+  await wait(() => evaluate("document.querySelector('.named-document-line')?.textContent.includes('line 1')"), "DOCUMENT previous bounded page");
+  for (const [width, placement] of [[1280, "right"], [768, "below"], [390, "tab"]]) {
+    await viewport(width, 800);
+    await wait(() => received.some((message) => message.operation === "panel.layout"
+      && message.panel === "user.reference" && message.placement === placement), `DOCUMENT measured ${placement} placement`);
+    assert((await geometry('.named-document-output')).width <= width, "DOCUMENT fits measured viewport");
+  }
+  await key("Escape");
+  await wait(() => evaluate("document.activeElement?.id==='the-command'"), "DOCUMENT RETURN restores invoking control");
+  holdDocumentPage = true;
+  fixturePanelState = { ...fixturePanelState, stateRevision: "11", panels: fixturePanelState.panels.map((panel) => ({ ...panel, documentRevision: "9007199254740998" })) };
+  client.send(JSON.stringify(fixturePanelState));
+  await wait(() => heldDocumentPages.length === 2, "old revision DOCUMENT reads held");
+  fixturePanelState = { ...fixturePanelState, stateRevision: "12", panels: fixturePanelState.panels.map((panel) => ({ ...panel, documentRevision: "9007199254740999" })) };
+  client.send(JSON.stringify(fixturePanelState));
+  holdDocumentPage = false;
+  for (const page of heldDocumentPages.splice(0)) client.send(JSON.stringify(page));
+  await wait(() => evaluate("document.querySelector('.named-document-output')?.textContent.includes('revision 9007199254740999')"), "DOCUMENT rejects stale copied revision and refreshes");
+  fixturePanelState = { ...fixturePanelState, stateRevision: "13", panels: fixturePanelState.panels.map((panel) => ({ ...panel, documentAvailable: false, documentReason: "document-closed" })) };
+  client.send(JSON.stringify(fixturePanelState));
+  await wait(() => evaluate("document.querySelector('.named-document-status')?.textContent.includes('document closed') && !document.querySelector('.named-document-line')"), "closed DOCUMENT invalidates copied display");
+  fixturePanels = fixturePanels.map((panel) => ({ ...panel, generation: "10", documentId: String(BigInt(panel.documentId) + 100n) }));
+  fixturePanelState = { ...fixturePanelState, stateRevision: "14", panels: fixturePanels.map((panel) => ({ ...panel, documentRevision: "9007199254741000" })) };
+  publishWorkbench(11, 0, "");
+  client.send(JSON.stringify(fixturePanelState));
+  await wait(() => evaluate("document.querySelector('.named-document-output')?.textContent.includes('revision 9007199254741000')"), "replacement DOCUMENT generation copies fresh page");
+  assert.equal(await evaluate("document.querySelector('.named-document-output').scrollLeft"), 0, "replacement DOCUMENT generation does not inherit retired viewport");
+  assert.deepEqual(await evaluate("({draft:document.querySelector('#the-command').value,dirty:document.querySelector('.status-line').dataset.bufferDirty,zone:document.querySelector('.status-line').dataset.focusZone,line:document.querySelector('.status-line').dataset.focusLine,cell:document.querySelector('.status-line').dataset.focusCell})"), preservedEditor, "DOCUMENT inspection preserves editor text cursor dirty state and command draft");
+  fixturePanels = logFixturePanels;
+  fixturePanelState = { ...fixturePanelState, revision: 12, stateRevision: "15", panels: fixturePanels.map((panel) => ({ ...panel })) };
+  publishWorkbench(12, 0, "");
+  client.send(JSON.stringify(fixturePanelState));
+  await viewport(1280, 800);
   const localCommandDraft = await evaluate("document.querySelector('#the-command').value");
   snapshot.focus = { ...snapshot.focus, zone: "command" };
   publishSnapshot();

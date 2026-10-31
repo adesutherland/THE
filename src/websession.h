@@ -53,6 +53,10 @@ size_t the_web_format_log_page(char *out, size_t capacity,
                                const char *id, uint64_t generation,
                                uint64_t cursor, size_t offset,
                                size_t records, size_t bytes);
+size_t the_web_format_document_page(char *out, size_t capacity,
+                                    const char *panel, uint64_t revision,
+                                    size_t line, size_t offset,
+                                    size_t records, size_t bytes);
 int the_web_parse_u64(const char *text, uint64_t *value);
 int the_web_panel_layout(const char *id, uint64_t generation,
                          const char *placement, int cols, int rows);

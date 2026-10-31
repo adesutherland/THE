@@ -35,6 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "workbenchdocument.h"
 #include "workbench.h"
 #include "tools.h"
 
@@ -644,6 +645,7 @@ short get_profile(CHARTYPE *prf_file,CHARTYPE *prf_arg)
       return workbench_rc;
    }
    in_macro = TRUE;
+   the_workbench_document_enter();
    /*
     * If REXX is supported, process the macro as a REXX macro...
     */
@@ -691,6 +693,7 @@ short get_profile(CHARTYPE *prf_file,CHARTYPE *prf_arg)
       if (rc == RC_OK) rc = workbench_rc;
    }
    in_macro = save_in_macro;
+   the_workbench_document_leave();
    TRACE_RETURN();
    /* Interactive startup historically continues after profile errors. Keep
     * the prior workbench usable; the visible error and last_result retain

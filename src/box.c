@@ -36,6 +36,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "workbenchdocument.h"
 #include "thedriver.h"
 #ifdef USE_UTF8
 # include "utflayout.h"
@@ -788,6 +789,7 @@ static short box_copy_to_temp(BOXP *prm)
  short rc=RC_OK;
 
  TRACE_FUNCTION("box.c:     box_copy_to_temp");
+ the_workbench_document_record_unknown();
  tmp = prm->curr_src;
  for ( i = 0L; i < prm->num_lines ; i++ )
  {

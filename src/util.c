@@ -35,6 +35,7 @@
 
 #include "the.h"
 #include "proto.h"
+#include "editordocument.h"
 #include "headlessdriver.h"
 #include "thedriver.h"
 
@@ -1657,6 +1658,7 @@ void pre_process_line(VIEW_DETAILS *the_view,LINETYPE line_number,LINE *known_cu
    memset( rec, ' ', max_line_length );
    memcpy( rec, curr->line, curr->length );
    rec_len = curr->length;
+   the_editor_document_record_bind(the_view->file_for_view,line_number,curr);
    /*
     * Now set up the prefix command from the linked list...
     */
@@ -1689,6 +1691,7 @@ short post_process_line(VIEW_DETAILS *the_view,LINETYPE line_number,LINE *known_
     */
    if (the_view->file_for_view->first_line == NULL)
    {
+      the_workbench_document_record_unknown();
       TRACE_RETURN();
       return(RC_OK);
    }
@@ -1711,6 +1714,7 @@ short post_process_line(VIEW_DETAILS *the_view,LINETYPE line_number,LINE *known_
    if ( rec_len == curr->length
    && ( memcmp( rec, curr->line, curr->length) == 0 ) )
    {
+      the_editor_document_record_bind(the_view->file_for_view,line_number,curr);
       TRACE_RETURN();
       return(RC_NO_LINES_CHANGED);
    }
@@ -1718,6 +1722,7 @@ short post_process_line(VIEW_DETAILS *the_view,LINETYPE line_number,LINE *known_
     * If it has set the changed_flag.
     */
    curr->flags.changed_flag = TRUE;
+   the_workbench_document_changed();
    {
       LENGTHTYPE limited=xedit_truncated_length(the_view->file_for_view,rec,rec_len);
       if (limited<rec_len)
@@ -1745,6 +1750,7 @@ short post_process_line(VIEW_DETAILS *the_view,LINETYPE line_number,LINE *known_
       curr->line = (CHARTYPE *)(*the_realloc)((void *)curr->line,(rec_len+1)*sizeof(CHARTYPE));
       if (curr->line == NULL)
       {
+         the_workbench_document_record_unknown();
          display_error(30,(CHARTYPE *)"",FALSE);
          TRACE_RETURN();
          return(RC_OUT_OF_MEMORY);
@@ -1757,6 +1763,7 @@ short post_process_line(VIEW_DETAILS *the_view,LINETYPE line_number,LINE *known_
    memcpy( curr->line, rec, rec_len );
    curr->length = rec_len;
    *(curr->line+rec_len) = '\0';
+   the_editor_document_record_bind(the_view->file_for_view,line_number,curr);
 
 #ifdef USE_SDSLH
    if (the_view && the_view->file_for_view && the_view->file_for_view->sdslh_comm && the_view->file_for_view->cb && curr->flags.changed_flag) {

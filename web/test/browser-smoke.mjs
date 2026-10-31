@@ -580,6 +580,38 @@ try {
     await waitFor(() => evaluate("!!document.querySelector('.named-log-output')"), 'native LOG pane without runner');
     console.log('PASS native browser LOG pane: route catalog and panel UI (Classic runner unavailable)');
   }
+  await navigationCommand('workbench begin owner user.documents');
+  await navigationCommand('workbench panel put user.reference kind document buffer active access readonly');
+  await navigationCommand('workbench panel place user.reference right fallback below,tab mincols 10');
+  await navigationCommand('workbench commit');
+  await waitFor(() => evaluate("!!document.querySelector('.named-document-toggle[data-panel-id=\"user.reference\"]')"), 'native DOCUMENT catalog publication');
+  await evaluate("document.querySelector('#the-command').focus();document.querySelector('.named-document-toggle').click()");
+  await waitFor(() => evaluate("document.querySelector('.named-document-output')?.textContent.includes('Zalpha beta gamma')"), 'native DOCUMENT copied bytes');
+  if (!await evaluate("document.activeElement?.id==='the-command' && window.__workbenchMessages.findLast(message=>message.operation==='panel-state').panels.some(panel=>panel.id==='user.reference'&&panel.visible&&!panel.focused)"))
+    throw new Error('native DOCUMENT SHOW took focus from command input');
+  await evaluate("document.querySelector('.named-document-toggle').click()");
+  await waitFor(() => evaluate("document.activeElement?.classList.contains('named-document-output')"), 'native DOCUMENT explicit FOCUS');
+  const beforeDocument = await evaluate("JSON.stringify({buffer:window.__snapshot.buffer,focus:window.__snapshot.focus,rows:window.__snapshot.screen_rows.map(row=>[row.line,row.t])})");
+  await evaluate("(() => {const node=document.querySelector('.named-document-output');for(const key of ['a','Delete','Backspace'])node.dispatchEvent(new KeyboardEvent('keydown',{key,bubbles:true,cancelable:true}));for(const key of ['s','z','v'])node.dispatchEvent(new KeyboardEvent('keydown',{key,ctrlKey:true,bubbles:true,cancelable:true}));node.dispatchEvent(new Event('paste',{bubbles:true,cancelable:true}));})()");
+  await sleep(100);
+  if (await evaluate("JSON.stringify({buffer:window.__snapshot.buffer,focus:window.__snapshot.focus,rows:window.__snapshot.screen_rows.map(row=>[row.line,row.t])})") !== beforeDocument)
+    throw new Error('read-only DOCUMENT input changed editor text, cursor or dirty state');
+  const copiedDocument = await evaluate("window.__workbenchMessages.findLast(message=>message.operation==='document').data");
+  if (copiedDocument.records.length > 8 || copiedDocument.records[0].bytesHex !== Buffer.from('Zalpha beta gamma').toString('hex'))
+    throw new Error(`native DOCUMENT copied range mismatch: ${JSON.stringify(copiedDocument)}`);
+  await domKey('Escape','Escape');
+  await waitFor(() => evaluate("document.activeElement?.id==='the-command'"), 'native DOCUMENT RETURN');
+  await openWorkspaceFile('second.txt');
+  await evaluate("document.querySelector('.named-document-toggle').click()");
+  await waitFor(() => evaluate("document.querySelector('.named-document-output')?.textContent.includes('Zalpha beta gamma')"), 'DOCUMENT retains original binding after buffer switch');
+  await domKey('Escape','Escape');
+  await closeCurrentBuffer('second.txt');
+  await selectBuffer('sample.txt');
+  await navigationCommand('cursor goto 1 1');
+  const staleDocumentResults = +(await evaluate("window.__workbenchResults.length"));
+  await evaluate(`window.__theSockets[0].send(JSON.stringify({type:'workbench',version:1,operation:'document.list',panel:'user.reference',expectGeneration:${JSON.stringify(copiedDocument.panelGeneration)},expectRevision:${JSON.stringify(copiedDocument.documentRevision)},line:1,offset:0,records:8,bytes:8192}))`);
+  await waitFor(() => evaluate(`window.__workbenchResults.slice(${staleDocumentResults}).some(result=>result.code==='stale-revision')`), 'native stale DOCUMENT revision refusal');
+  console.log('PASS native browser DOCUMENT: bounded raw/display copy, read-only input, RETURN, immutable binding and stale revision');
   if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   await evaluate("document.querySelector('.menu-trigger').click()");
   const beforeCloseResults = +(await evaluate("window.__workbenchResults.length"));

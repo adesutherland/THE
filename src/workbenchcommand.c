@@ -6,6 +6,7 @@
 #include "inputdispatch.h"
 #include "panelui.h"
 #include "query.h"
+#include "editordocument.h"
 
 #include <ctype.h>
 #include <limits.h>
@@ -364,9 +365,18 @@ static short command_operands(const char *operands)
          return the_workbench_panel_operation(t[2].text,0,op);
       }
       if (n == 3 && keyword(t+1,"REMOVE") && !t[2].quoted) return the_workbench_remove_panel(t[2].text);
-      if (n >= 5 && keyword(t+1,"PUT") && keyword(t+3,"KIND") && !keyword(t+4,"LOG"))
-         return the_workbench_result("unsupported-feature",RC_INVALID_ENVIRON,"Document and field panels require later contracts");
       memset(&p,0,sizeof(p));
+      if (n >= 5 && keyword(t+1,"PUT") && keyword(t+3,"KIND") && !keyword(t+4,"LOG"))
+      {
+         if (!keyword(t+4,"DOCUMENT") || (n>5 && keyword(t+5,"FILE")))
+            return the_workbench_result("unsupported-feature",RC_INVALID_ENVIRON,"Only live read-only buffer documents are implemented");
+         if (n!=9 || t[2].quoted || strlen(t[2].text)>THE_WORKBENCH_ID_MAX
+         || !keyword(t+5,"BUFFER") || !keyword(t+6,"ACTIVE") || !keyword(t+7,"ACCESS") || !keyword(t+8,"READONLY")) return bad();
+         p.kind=THE_WORKBENCH_PANEL_DOCUMENT; strcpy(p.id,t[2].text);
+         p.document_id=the_editor_document_active();
+         if (!p.document_id) return the_workbench_result("document-unavailable",RC_INVALID_ENVIRON,"No active document can be bound");
+         return the_workbench_put_panel(&p);
+      }
       if (n == 7 && keyword(t+1,"PUT") && !t[2].quoted && strlen(t[2].text) <= THE_WORKBENCH_ID_MAX
       && keyword(t+3,"KIND") && keyword(t+4,"LOG") && keyword(t+5,"MODEL")
       && !t[6].quoted && strlen(t[6].text) <= THE_WORKBENCH_ID_MAX)
@@ -466,6 +476,24 @@ static int query_log(const Tokens *tokens,char *json,size_t capacity)
    if (!generation) generation=model->generation;
    return the_workbench_log_json(json,capacity,model->id,generation,cursor,offset,records,bytes) == RC_OK ? 1 : -1;
 }
+static int query_document(const Tokens *tokens,char *json,size_t capacity)
+{
+   uint64_t expected=0,value; size_t line=1,offset=0,records=8,bytes=4096,n;
+   unsigned seen=0,bit;
+   if (tokens->count<2 || tokens->values[1].quoted) return 0;
+   for (n=2;n<tokens->count;n+=2)
+   {
+      if (n+1>=tokens->count || !unsigned64_value(tokens->values+n+1,&value)) return 0;
+      if (keyword(tokens->values+n,"EXPECT")) { bit=1; if(!value) return 0; expected=value; }
+      else if (keyword(tokens->values+n,"LINE")) { bit=2; if(!value || value>SIZE_MAX) return 0; line=(size_t)value; }
+      else if (keyword(tokens->values+n,"OFFSET")) { bit=4; if(value>SIZE_MAX) return 0; offset=(size_t)value; }
+      else if (keyword(tokens->values+n,"LIMIT")) { bit=8; if(!value || value>8) return 0; records=(size_t)value; }
+      else if (keyword(tokens->values+n,"BYTES")) { bit=16; if(!value || value>THE_WORKBENCH_DOCUMENT_BYTES_MAX) return 0; bytes=(size_t)value; }
+      else return 0;
+      if (seen & bit) return 0; seen|=bit;
+   }
+   return the_workbench_document_json(json,capacity,tokens->values[1].text,expected,line,offset,records,bytes)==RC_OK ? 1 : -1;
+}
 
 static unsigned long inspection_refusal_serial;
 unsigned long the_workbench_inspection_refusal_serial(void)
@@ -491,9 +519,9 @@ short extract_workbench(short number_variables,short itemno,CHARTYPE *itemargs,C
       if (tokens.values[0].quoted) return query_bad();
       for (n = 0; tokens.values[0].text[n]; n++) tokens.values[0].text[n] = (char)toupper((unsigned char)tokens.values[0].text[n]);
       section = tokens.values[0].text;
-      if (!strcmp(section,"LOG"))
+      if (!strcmp(section,"LOG") || !strcmp(section,"DOCUMENT"))
       {
-         int admitted=query_log(&tokens,json,sizeof(json));
+         int admitted=!strcmp(section,"LOG") ? query_log(&tokens,json,sizeof(json)) : query_document(&tokens,json,sizeof(json));
          if (admitted < 0) { inspection_refusal_serial++; return EXTRACT_ARG_ERROR; }
          if (!admitted) return query_bad();
          goto formatted;

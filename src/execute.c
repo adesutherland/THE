@@ -37,6 +37,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "workbenchdocument.h"
 #include "macroruntime.h"
 #include "thedriver.h"
 #include "driverlayout.h"
@@ -2483,6 +2484,7 @@ short execute_split_join(short action,bool aligned,bool cursorarg)
           * Copy any changes in the focus line to the linked list.
           */
          post_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,(LINE *)NULL,TRUE);
+         the_workbench_document_record_unknown();
          memset(rec,' ',max_line_length);
          if (col < curr->length)
          {

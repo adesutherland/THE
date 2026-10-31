@@ -20,6 +20,7 @@ address the
 'WORKBENCH BEGIN OWNER public.logs';
 'WORKBENCH PANEL PUT public.output KIND LOG MODEL public.programlog';
 'WORKBENCH PANEL PLACE public.output RIGHT FALLBACK BELOW,TAB MINCOLS 10';
+'WORKBENCH PANEL PUT public.reference KIND DOCUMENT BUFFER ACTIVE ACCESS READONLY';
 'WORKBENCH ROUTE PUT public.stdout FROM tool:classic-rexx/stdout TO log:public.programlog';
 'WORKBENCH COMMIT';
 return 0
@@ -44,7 +45,8 @@ return 0
     async flushWorkspace() {},
   });
   editor.FS.mkdir('/workspace');
-  editor.FS.writeFile('/workspace/Welcome.txt', "say 'startup routed stdout'\nexit 0\n");
+  editor.FS.writeFile('/workspace/Welcome.txt', "say 'startup routed stdout'\nexit 0\n"
+    + Array.from({ length: 18 }, (_, index) => `/* document ${index} 😀 */\n`).join(''));
   editor.FS.writeFile('/workspace/startup.rxbin', await readFile(`${output}.rxbin`));
   editor.FS.chdir('/workspace');
   assert.equal(editor.ccall('the_wasm_has_crexx', 'number', [], [], {}), 1,
@@ -73,6 +75,39 @@ return 0
   const panel = await wait(() => page('panels')?.records.find((record) => record.id === 'public.output'),
     'trusted startup LOG panel publication');
   assert.equal(panel.model, 'public.programlog');
+  const reference = await wait(() => page('panels')?.records.find((record) => record.id === 'public.reference'),
+    'trusted startup DOCUMENT panel publication');
+  assert.equal(reference.kind, 'document');
+  assert.equal(reference.readonly, true);
+  const referenceState = await wait(() => messages.findLast((message) => message.operation === 'panel-state')
+    ?.panels.find((record) => record.id === 'public.reference' && record.documentAvailable), 'DOCUMENT available metadata');
+  send({ type: 'workbench', version: 1, operation: 'document.list', panel: reference.id,
+    expectGeneration: reference.generation, expectRevision: referenceState.documentRevision,
+    line: 1, offset: 0, records: 8, bytes: 8192 });
+  const documentPage = await wait(() => messages.findLast((message) => message.operation === 'document')?.data,
+    'Wasm bounded copied DOCUMENT page');
+  assert.equal(documentPage.documentId, reference.documentId);
+  assert.equal(documentPage.records.length, 8);
+  assert.equal(documentPage.records[0].bytesHex, Buffer.from("say 'startup routed stdout'").toString('hex'));
+  assert.equal(documentPage.nextLine, 9);
+  assert.equal(documentPage.more, true);
+  send({ type: 'workbench', version: 1, operation: 'document.list', panel: reference.id,
+    expectGeneration: reference.generation, expectRevision: referenceState.documentRevision,
+    line: documentPage.nextLine, offset: documentPage.nextOffset, records: 8, bytes: 8192 });
+  await wait(() => messages.findLast((message) => message.operation === 'document')?.data.records[0]?.line === 9,
+    'Wasm DOCUMENT continuation');
+  const beforeStale = messages.length;
+  send({ type: 'workbench', version: 1, operation: 'document.list', panel: reference.id,
+    expectGeneration: reference.generation, expectRevision: String(BigInt(referenceState.documentRevision) - 1n),
+    line: 1, offset: 0, records: 8, bytes: 8192 });
+  await wait(() => messages.slice(beforeStale).some((message) => message.code === 'stale-revision'),
+    'Wasm DOCUMENT stale revision refusal');
+  const beforeGeneration = messages.length;
+  send({ type: 'workbench', version: 1, operation: 'document.list', panel: reference.id,
+    expectGeneration: String(BigInt(reference.generation) + 1n), expectRevision: referenceState.documentRevision,
+    line: 1, offset: 0, records: 8, bytes: 8192 });
+  await wait(() => messages.slice(beforeGeneration).some((message) => message.code === 'stale-generation'),
+    'Wasm DOCUMENT stale pane refusal');
   send({ type: 'workbench', version: 1, operation: 'list', section: 'routes', offset: 0, limit: 8 });
   const routes = await wait(() => page('routes'), 'trusted startup route publication');
   assert.equal(routes.records.find((record) => record.id === 'public.stdout')?.model,
@@ -106,7 +141,7 @@ return 0
   send({ type: 'action', action: 'file.close' });
   assert.equal(await Promise.race([run, new Promise((_, reject) =>
     setTimeout(() => reject(new Error('shutdown timeout')), 3000))]), 0);
-  console.log(`PASS Wasm trusted startup LOG route and panel-state${classic.available ? ', stdout and log page' : ' (runner unavailable in this build)'}`);
+  console.log(`PASS Wasm trusted startup LOG route and panel-state${classic.available ? ', stdout and log page' : ' (runner unavailable in this build)'}; DOCUMENT copied ranges, continuation and stale revision/generation`);
 } finally {
   await rm(temporary, { recursive: true, force: true });
 }

@@ -35,6 +35,7 @@
 
 #include <the.h>
 #include <proto.h>
+#include "workbenchdocument.h"
 
 /***********************************************************************/
 THELIST *ll_add( THELIST *first, THELIST *curr, unsigned short size )
@@ -205,6 +206,7 @@ LINE *lll_add(LINE *first,LINE *curr,unsigned short size)
    LINE *next=NULL;
 
    TRACE_FUNCTION("linked.c:    lll_add");
+   the_workbench_document_structure(first);
 
    if ((next=(LINE *)(*the_malloc)(size)) != (LINE *)NULL)
    {
@@ -253,6 +255,7 @@ LINE *lll_del(LINE **first,LINE **last,LINE *curr,short direction)
    LINE *new_curr=NULL;
 
    TRACE_FUNCTION("linked.c:    lll_del");
+   the_workbench_document_structure(*first);
    /*
     * Delete the only record
     */
@@ -319,6 +322,7 @@ LINE *lll_free(LINE *first)
    LINE *new_curr=NULL;
 
    TRACE_FUNCTION("linked.c:    lll_free");
+   the_workbench_document_structure(first);
    curr = first;
    while (curr != NULL)
    {

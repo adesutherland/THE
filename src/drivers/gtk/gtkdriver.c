@@ -13,6 +13,7 @@
 #include "panelui.h"
 #include "workbench.h"
 #include "workbenchruntime.h"
+#include "workbenchdocument.h"
 #include "tools.h"
 #include "gtkinput.h"
 
@@ -20,6 +21,11 @@
 #define GTK_QUEUE_LIMIT 4096u
 #define GTK_EDITOR_MIN_COLUMNS 80
 #define GTK_CONSOLE_COLOURS (ATTR_CONSOLESTATUS - ATTR_CONSOLEBODY + 1)
+
+typedef struct
+{
+   size_t line, offset;
+} GtkDocumentCursor;
 
 typedef struct
 {
@@ -46,6 +52,9 @@ typedef struct
    double scroll_value;
    struct { uint64_t cursor; int character; } records[THE_WORKBENCH_LOG_RECORD_MAX];
    size_t record_count;
+   GtkDocumentCursor document_first, document_next, document_previous[32];
+   size_t document_previous_count, document_lines;
+   int document_more, document_request, document_budget, document_tail;
 } GtkLogPane;
 
 static struct
@@ -89,6 +98,8 @@ static GtkLogPane *log_for_widget(GtkWidget *widget);
 static int queue_panel(GtkLogPane *pane, TheWorkbenchPanelOperation operation);
 static void remember_log_origin(GtkWidget *focus);
 static void cycle_log(GtkLogPane *pane, int reverse);
+static gboolean document_key(GtkLogPane *pane, guint key);
+static gboolean document_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer data);
 static void open_native_menu(GtkWidget *focus, GdkEventKey *trigger);
 
 static void redraw(void)
@@ -331,6 +342,19 @@ static gboolean workbench_key_pressed(GtkWidget *widget, GdkEventKey *key, gpoin
             return queue_panel(pane, THE_WORKBENCH_PANEL_HIDE);
          if (key->keyval == GDK_KEY_Tab || key->keyval == GDK_KEY_ISO_Left_Tab)
          { cycle_log(pane, key->keyval == GDK_KEY_ISO_Left_Tab || (key->state & GDK_SHIFT_MASK)); return TRUE; }
+         {
+            const TheWorkbenchPanel *panel = the_workbench_panel_find(pane->id);
+            if (panel && panel->kind == THE_WORKBENCH_PANEL_DOCUMENT && focus == pane->view &&
+                key->keyval != GDK_KEY_F10 && key->keyval != GDK_KEY_F6)
+            {
+               if (((key->state & (GDK_CONTROL_MASK | GDK_META_MASK | GDK_SUPER_MASK)) &&
+                     (key->keyval == GDK_KEY_c || key->keyval == GDK_KEY_C || key->keyval == GDK_KEY_a || key->keyval == GDK_KEY_A)) ||
+                   ((key->state & GDK_SHIFT_MASK) && (key->keyval == GDK_KEY_Left || key->keyval == GDK_KEY_Right ||
+                     key->keyval == GDK_KEY_Up || key->keyval == GDK_KEY_Down || key->keyval == GDK_KEY_Home || key->keyval == GDK_KEY_End)))
+                  return FALSE; /* Native selection/copy remains read-only. */
+               return document_key(pane, key->keyval);
+            }
+         }
       }
    }
    if (the_panel_active || in_macro || ui.input_window
@@ -622,7 +646,8 @@ static void sync_console_palette(void)
 #define CONSOLE_RULE(selector, role, border) \
    console_css_rule(css, selector, colours[(role) - ATTR_CONSOLEBODY], border)
    CONSOLE_RULE("#the-editor-console-split, #the-program-console, "
-                "#the-console-output, #the-console-output text",
+                "#the-console-output, #the-console-output text, "
+                "#the-workbench-pane, #the-workbench-text, #the-workbench-text text",
                 ATTR_CONSOLEBODY, 0);
    CONSOLE_RULE("#the-program-console .the-console-header, "
                 "#the-program-console .the-console-header label", ATTR_CONSOLEHEADER, 0);
@@ -631,7 +656,7 @@ static void sync_console_palette(void)
    CONSOLE_RULE("#the-program-console .the-console-control, "
                 "#the-program-console .the-console-control label, "
                 "#the-program-run, #the-program-run label", ATTR_CONSOLECONTROL, 1);
-   CONSOLE_RULE("#the-console-output text selection, #the-console-input selection, "
+   CONSOLE_RULE("#the-console-output text selection, #the-console-input selection, #the-workbench-text text selection, "
                 "#the-program-console .the-console-control:hover, "
                 "#the-program-console .the-console-control:hover label, "
                 "#the-program-console .the-console-control:focus, "
@@ -641,7 +666,7 @@ static void sync_console_palette(void)
                 "#the-program-run:hover, #the-program-run:hover label, "
                 "#the-program-run:focus, #the-program-run:focus label, "
                 "#the-program-run:active, #the-program-run:active label", ATTR_CONSOLESELECTED, 1);
-   CONSOLE_RULE("#the-program-console #the-console-status", ATTR_CONSOLESTATUS, 0);
+   CONSOLE_RULE("#the-program-console #the-console-status, #the-workbench-status", ATTR_CONSOLESTATUS, 0);
    CONSOLE_RULE("#the-editor-console-split > separator", ATTR_CONSOLEDIVIDER, 1);
    g_string_append(css,
       "#the-editor-console-split > separator { border-style: solid; border-width: 1px; }\n");
@@ -1009,9 +1034,11 @@ static GtkLogPane *create_log(const TheWorkbenchPanel *panel)
    strcpy(pane->id, panel->id); pane->generation = panel->generation;
    pane->revision = UINT64_MAX;
    pane->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+   gtk_widget_set_name(pane->page, "the-workbench-pane");
    gtk_container_set_border_width(GTK_CONTAINER(pane->page), 6);
    controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-   pane->status = gtk_label_new("Read-only log");
+   pane->status = gtk_label_new(panel->kind == THE_WORKBENCH_PANEL_DOCUMENT ? "Read-only document" : "Read-only log");
+   gtk_widget_set_name(pane->status, "the-workbench-status");
    gtk_label_set_xalign(GTK_LABEL(pane->status), 0);
    gtk_box_pack_start(GTK_BOX(controls), pane->status, TRUE, TRUE, 0);
    hide = gtk_button_new_with_label("Hide"); back = gtk_button_new_with_label("Return");
@@ -1023,12 +1050,16 @@ static GtkLogPane *create_log(const TheWorkbenchPanel *panel)
    pane->scroller = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(pane->scroller), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
    pane->view = gtk_text_view_new();
+   gtk_widget_set_name(pane->view, "the-workbench-text");
    g_signal_connect(pane->view, "button-press-event", G_CALLBACK(log_button_pressed), pane);
+   g_signal_connect(pane->view, "scroll-event", G_CALLBACK(document_scroll), pane);
    gtk_text_view_set_editable(GTK_TEXT_VIEW(pane->view), FALSE);
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(pane->view), FALSE);
    gtk_text_view_set_monospace(GTK_TEXT_VIEW(pane->view), TRUE);
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(pane->view), GTK_WRAP_CHAR);
-   gtk_widget_set_tooltip_text(pane->view, "Read-only log. Page Up/Down and Home/End scroll; Tab visits panes; H hides; Esc returns.");
+   gtk_widget_set_tooltip_text(pane->view, panel->kind == THE_WORKBENCH_PANEL_DOCUMENT
+      ? "Read-only document. Arrows and Page Up/Down scroll; Home/End visits the beginning/end; Tab visits panes; H hides; Esc returns."
+      : "Read-only log. Page Up/Down and Home/End scroll; Tab visits panes; H hides; Esc returns.");
    gtk_container_add(GTK_CONTAINER(pane->scroller), pane->view);
    gtk_box_pack_start(GTK_BOX(pane->page), pane->scroller, TRUE, TRUE, 0);
    buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(pane->view));
@@ -1160,6 +1191,167 @@ static void sync_log_text(GtkLogPane *pane, const TheWorkbenchPanel *panel)
    gtk_label_set_text(GTK_LABEL(pane->status), status);
 }
 
+static void append_document_text(GString *text, const unsigned char *bytes, size_t length)
+{
+   size_t i = 0;
+   while (i < length)
+   {
+      gunichar cp = g_utf8_get_char_validated((const char *)bytes + i, length - i);
+      size_t n = cp == (gunichar)-1 || cp == (gunichar)-2 ? 1
+         : (size_t)(g_utf8_next_char((const char *)bytes + i) - ((const char *)bytes + i));
+      if (cp == (gunichar)-1 || cp == (gunichar)-2 || cp < 32 || cp == 127)
+         g_string_append_printf(text, "\\x%02X", bytes[i]);
+      else if (cp >= 128 && cp <= 159) g_string_append_printf(text, "\\u%04X", cp);
+      else g_string_append_len(text, (const char *)bytes + i, n);
+      i += n;
+   }
+}
+
+static void sync_document_text(GtkLogPane *pane, const TheWorkbenchPanel *panel)
+{
+   TheWorkbenchDocumentInfo info;
+   TheWorkbenchDocumentPage page;
+   TheWorkbenchDocumentResult result = the_workbench_document_info(panel->document_id, &info);
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(pane->view));
+   GtkAdjustment *adjustment = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(pane->scroller));
+   GtkAllocation allocation;
+   GtkDocumentCursor cursor;
+   GtkTextIter first, last;
+   GString *text;
+   size_t raw = 0, lines = 0, i;
+   int budget, request = pane->document_request, a = 0, b = 0;
+   gboolean selection;
+   double scroll;
+   char status[192];
+   if (result != THE_WORKBENCH_DOCUMENT_OK || !info.available)
+   {
+      g_snprintf(status, sizeof(status), "Read-only document | %s", info.reason ? info.reason : the_workbench_document_result_name(result));
+      if (result == THE_WORKBENCH_DOCUMENT_MISSING) gtk_text_buffer_set_text(buffer, "", 0);
+      gtk_label_set_text(GTK_LABEL(pane->status), status);
+      return;
+   }
+   pane->document_lines = info.lines;
+   gtk_widget_get_allocation(pane->view, &allocation);
+   budget = CLAMP(allocation.height / MAX(1, ui.cell_height), 1, 64);
+   if (!pane->document_first.line) pane->document_first.line = 1;
+   if (pane->document_first.line > MAX((size_t)1, info.lines))
+   { pane->document_first.line = MAX((size_t)1, info.lines); pane->document_first.offset = 0; }
+   if (pane->revision != info.revision || request || pane->document_budget != budget)
+   {
+      if (request) pane->document_tail = request == 2;
+      if (request == -2) { pane->document_first.line = 1; pane->document_first.offset = 0; pane->document_previous_count = 0; }
+      else if (request == -1)
+      {
+         if (pane->document_previous_count) pane->document_first = pane->document_previous[--pane->document_previous_count];
+         else { pane->document_first.line = pane->document_first.line > (size_t)budget ? pane->document_first.line - budget : 1; pane->document_first.offset = 0; }
+      }
+      else if (request == 1 && pane->document_more)
+      {
+         if (pane->document_previous_count == G_N_ELEMENTS(pane->document_previous))
+         { memmove(pane->document_previous, pane->document_previous + 1, 31 * sizeof(pane->document_previous[0])); pane->document_previous_count--; }
+         pane->document_previous[pane->document_previous_count++] = pane->document_first;
+         pane->document_first = pane->document_next;
+      }
+      else if (request == 2)
+      {
+         pane->document_first.line = MAX((size_t)1, info.lines); pane->document_first.offset = 0;
+         if (the_workbench_document_read(panel->document_id, info.revision, pane->document_first.line, 0, 1,
+             THE_WORKBENCH_DOCUMENT_BYTES_MAX, &page) == THE_WORKBENCH_DOCUMENT_OK && page.count)
+            pane->document_first.offset = page.slices[0].original_length > THE_WORKBENCH_DOCUMENT_BYTES_MAX
+               ? page.slices[0].original_length - THE_WORKBENCH_DOCUMENT_BYTES_MAX : 0;
+      }
+      pane->document_request = 0; cursor = pane->document_first;
+      text = g_string_sized_new(THE_WORKBENCH_DOCUMENT_BYTES_MAX);
+      do
+      {
+         unsigned retry = 0;
+         do {
+            result = the_workbench_document_read(panel->document_id, info.revision, cursor.line, cursor.offset,
+               MIN((size_t)THE_WORKBENCH_DOCUMENT_LINES_MAX, (size_t)budget - lines),
+               THE_WORKBENCH_DOCUMENT_BYTES_MAX - raw, &page);
+            if (result != THE_WORKBENCH_DOCUMENT_INVALID || !cursor.offset || request != 2 || retry++ == 3) break;
+            cursor.offset++; pane->document_first = cursor;
+         } while (1);
+         if (result == THE_WORKBENCH_DOCUMENT_INVALID && cursor.offset && pane->revision != info.revision)
+         {
+            cursor.offset = 0; pane->document_first = cursor;
+            result = the_workbench_document_read(panel->document_id, info.revision, cursor.line, 0,
+               MIN((size_t)THE_WORKBENCH_DOCUMENT_LINES_MAX, (size_t)budget - lines), THE_WORKBENCH_DOCUMENT_BYTES_MAX - raw, &page);
+         }
+         if (result != THE_WORKBENCH_DOCUMENT_OK) break;
+         for (i = 0; i < page.count; i++)
+         {
+            const TheWorkbenchDocumentSlice *slice = page.slices + i;
+            append_document_text(text, page.bytes + slice->data_offset, slice->length);
+            if (slice->offset + slice->length == slice->original_length) g_string_append_c(text, '\n');
+         }
+         raw += page.length; lines += page.count;
+         cursor.line = page.next_line; cursor.offset = page.next_offset; pane->document_more = page.more;
+      } while (page.more && lines < (size_t)budget && raw < THE_WORKBENCH_DOCUMENT_BYTES_MAX);
+      if (result == THE_WORKBENCH_DOCUMENT_OK || (raw && result == THE_WORKBENCH_DOCUMENT_LIMIT))
+      {
+         selection = !request && gtk_text_buffer_get_selection_bounds(buffer, &first, &last);
+         if (selection) { a = gtk_text_iter_get_offset(&first); b = gtk_text_iter_get_offset(&last); }
+         scroll = request ? 0 : gtk_adjustment_get_value(adjustment);
+         gtk_text_buffer_set_text(buffer, text->str, text->len);
+         if (selection)
+         {
+            int count = gtk_text_buffer_get_char_count(buffer);
+            gtk_text_buffer_get_iter_at_offset(buffer, &first, MIN(a, count)); gtk_text_buffer_get_iter_at_offset(buffer, &last, MIN(b, count));
+            gtk_text_buffer_select_range(buffer, &last, &first);
+         }
+         cancel_log_scroll(pane); pane->scroll_value = pane->document_tail ? G_MAXDOUBLE : scroll;
+         pane->scroll_clock = gtk_widget_get_frame_clock(pane->view);
+         if (pane->scroll_clock)
+         {
+            g_object_ref(pane->scroll_clock); pane->scroll_adjustment = g_object_ref(adjustment);
+            pane->scroll_handler = g_signal_connect(pane->scroll_clock, "after-paint", G_CALLBACK(log_scroll_after_paint), pane);
+            gtk_widget_queue_draw(pane->view);
+         }
+         pane->document_next = cursor; pane->revision = info.revision; pane->document_budget = budget;
+      }
+      g_string_free(text, TRUE);
+   }
+   if (result != THE_WORKBENCH_DOCUMENT_OK && result != THE_WORKBENCH_DOCUMENT_LIMIT)
+      g_snprintf(status, sizeof(status), "Read-only document | %s", the_workbench_document_result_name(result));
+   else g_snprintf(status, sizeof(status), "Read-only document | Line %lu/%lu%s%s", (unsigned long)pane->document_first.line,
+      (unsigned long)info.lines, pane->document_first.offset ? " (continued)" : "", info.dirty ? " | Modified" : "");
+   gtk_label_set_text(GTK_LABEL(pane->status), status);
+}
+
+static gboolean document_key(GtkLogPane *pane, guint key)
+{
+   GtkAdjustment *adjustment = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(pane->scroller));
+   double at = gtk_adjustment_get_value(adjustment);
+   double bottom = MAX(0, gtk_adjustment_get_upper(adjustment) - gtk_adjustment_get_page_size(adjustment));
+   double step = key == GDK_KEY_Up || key == GDK_KEY_Down ? ui.cell_height : gtk_adjustment_get_page_size(adjustment);
+   if (key == GDK_KEY_Up || key == GDK_KEY_Down || key == GDK_KEY_Page_Up || key == GDK_KEY_Page_Down || key == GDK_KEY_Home)
+      pane->document_tail = 0;
+   if (key == GDK_KEY_Home) pane->document_request = -2;
+   else if (key == GDK_KEY_End) pane->document_request = 2;
+   else if (key == GDK_KEY_Down || key == GDK_KEY_Page_Down)
+   { if (at < bottom - 1) gtk_adjustment_set_value(adjustment, MIN(bottom, at + step)); else if (pane->document_more) pane->document_request = 1; }
+   else if (key == GDK_KEY_Up || key == GDK_KEY_Page_Up)
+   { if (at > 1) gtk_adjustment_set_value(adjustment, MAX(0, at - step)); else pane->document_request = -1; }
+   /* Every other edit/typing key stays inside this read-only surface. */
+   if (pane->document_request) sync_logs();
+   return TRUE;
+}
+
+static gboolean document_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer data)
+{
+   GtkLogPane *pane = data;
+   const TheWorkbenchPanel *panel = the_workbench_panel_find(pane->id);
+   double dx = 0, dy = 0;
+   (void)widget;
+   if (!panel || panel->kind != THE_WORKBENCH_PANEL_DOCUMENT) return FALSE;
+   if (event->direction == GDK_SCROLL_UP) return document_key(pane, GDK_KEY_Up);
+   if (event->direction == GDK_SCROLL_DOWN) return document_key(pane, GDK_KEY_Down);
+   if (gdk_event_get_scroll_deltas((GdkEvent *)event, &dx, &dy) && dy)
+      return document_key(pane, dy < 0 ? GDK_KEY_Up : GDK_KEY_Down);
+   return TRUE;
+}
+
 static const char *log_error_name(TheWorkbenchLogResult result)
 {
    switch (result)
@@ -1193,7 +1385,7 @@ static void sync_logs(void)
       const TheWorkbenchPanel *panel = the_workbench_panel_at(i);
       const TheWorkbenchPanelState *state = the_workbench_panel_state(panel->id);
       GtkLogPane *pane;
-      if (panel->kind != THE_WORKBENCH_PANEL_LOG) continue;
+      if (panel->kind != THE_WORKBENCH_PANEL_LOG && panel->kind != THE_WORKBENCH_PANEL_DOCUMENT) continue;
       pane = find_log(panel->id, panel->generation);
       if (!pane) pane = create_log(panel);
       gtk_widget_set_visible(pane->page, state && state->visible);
@@ -1202,7 +1394,9 @@ static void sync_logs(void)
          const TheWorkbenchModelState *model = the_workbench_model_state(panel->model);
          const TheWorkbenchLogInfo *info = the_workbench_log_find(panel->model);
          char status[160];
-         visible++; sync_log_text(pane, panel);
+         visible++;
+         if (panel->kind == THE_WORKBENCH_PANEL_DOCUMENT) { sync_document_text(pane, panel); continue; }
+         sync_log_text(pane, panel);
          if (model && model->last_error != THE_WORKBENCH_LOG_OK)
             g_snprintf(status, sizeof(status), "Log output error: %s", log_error_name(model->last_error));
          else if (info && info->omitted_bytes)
@@ -1261,7 +1455,9 @@ static void sync_logs(void)
       if (shown && selected_page)
       {
          gtk_widget_set_visible(pane->scroller, fits && allowed);
-         if (!fits || !allowed) gtk_label_set_text(GTK_LABEL(pane->status), "Log collapsed: insufficient space");
+         if (!fits || !allowed) gtk_label_set_text(GTK_LABEL(pane->status),
+            panel && panel->kind == THE_WORKBENCH_PANEL_DOCUMENT
+               ? "Document collapsed: insufficient space" : "Log collapsed: insufficient space");
       }
       the_workbench_panel_effective(pane->id, pane->generation, placement,
                                    !shown ? "hidden" : !fits ? "insufficient-space" : !allowed ? "placement-unavailable" : !selected_page ? "auxiliary-tab" : "");

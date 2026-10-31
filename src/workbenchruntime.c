@@ -1,4 +1,5 @@
 #include "workbenchruntime.h"
+#include "workbenchdocument.h"
 
 #include <inttypes.h>
 #include <stdarg.h>
@@ -57,7 +58,18 @@ short the_workbench_runtime_publish(TheWorkbenchPanel *panels, size_t count)
    memset(next,0,sizeof(next));
    for (i=0;i<count;i++)
    {
-      int index=model_index(panels[i].model);
+      int index;
+      if (panels[i].kind==THE_WORKBENCH_PANEL_DOCUMENT)
+      {
+         TheWorkbenchDocumentInfo info;
+         const TheWorkbenchPanel *previous=the_workbench_panel_find(panels[i].id);
+         if (the_workbench_document_info(panels[i].document_id,&info)==THE_WORKBENCH_DOCUMENT_MISSING
+         && (!previous || previous->kind!=THE_WORKBENCH_PANEL_DOCUMENT || previous->document_id!=panels[i].document_id))
+         { rc=fail("document-closed",-3,"Candidate document closed before publication"); break; }
+         panels[i].model_generation=0;
+         goto panel_state;
+      }
+      index=model_index(panels[i].model);
       if (index < 0)
       {
          const TheWorkbenchLogInfo *log;
@@ -79,12 +91,14 @@ short the_workbench_runtime_publish(TheWorkbenchPanel *panels, size_t count)
       || the_workbench_log_find(models[index].id)->generation != models[index].generation)
       { rc=fail("missing-object",5,"Retained log generation is unavailable"); break; }
       panels[i].model_generation=models[index].generation;
+panel_state:
       strcpy(next[i].id,panels[i].id); next[i].generation=panels[i].generation;
       strcpy(next[i].reason,"hidden");
       for (j=0;j<state_count;j++) if (!strcmp(states[j].id,panels[i].id))
       {
          const TheWorkbenchPanel *previous=the_workbench_panel_find(panels[i].id);
-         if (previous && !strcmp(previous->model,panels[i].model))
+         if (previous && previous->kind==panels[i].kind
+         && previous->document_id==panels[i].document_id && !strcmp(previous->model,panels[i].model))
          { next[i]=states[j]; next[i].generation=panels[i].generation; }
          break;
       }
@@ -296,4 +310,53 @@ short the_workbench_log_json(char *out,size_t capacity,const char *id,uint64_t g
    js(&j,"]}");
    if (!j.good) { out[0]=0; return fail("limit-exceeded",94,"Log JSON capacity exceeded"); }
    return 0; /* Inspection preserves the previous operation receipt. */
+}
+
+static void document_quote(LogJson *j,const unsigned char *bytes,size_t length)
+{
+   size_t i=0,n,k; js(j,"\"");
+   while (i<length)
+   {
+      unsigned char c=bytes[i]; n=the_workbench_document_unit(bytes+i,length-i);
+      if (c>=0x80 && n==1) js(j,"\\ufffd");
+      else if (c=='"' || c=='\\') js(j,"\\%c",c);
+      else if (c<32 || c==127) js(j,"\\u%04x",c);
+      else for (k=0;k<n;k++) js(j,"%c",bytes[i+k]);
+      i+=n;
+   }
+   js(j,"\"");
+}
+short the_workbench_document_json(char *out,size_t capacity,const char *id,uint64_t expected,
+   size_t line,size_t offset,size_t lines,size_t bytes)
+{
+   const TheWorkbenchPanel *panel=the_workbench_panel_find(id);
+   TheWorkbenchDocumentPage page;
+   TheWorkbenchDocumentResult result;
+   LogJson j; size_t i,k;
+   if (!out || !capacity) return fail("invalid-operand",5,"Missing document JSON buffer");
+   out[0]=0;
+   if (!panel || panel->kind!=THE_WORKBENCH_PANEL_DOCUMENT)
+      return fail("missing-object",5,"No published DOCUMENT panel has that ID");
+   if (!bytes || bytes>THE_WORKBENCH_DOCUMENT_BYTES_MAX) return fail("invalid-operand",5,"Invalid document byte budget");
+   /* Reserve room for worst-case JSON escaping plus exact hexadecimal bytes. */
+   result=the_workbench_document_read(panel->document_id,expected,line,offset,lines,bytes>7168 ? 7168 : bytes,&page);
+   if (result!=THE_WORKBENCH_DOCUMENT_OK)
+   {
+      const char *reason=result==THE_WORKBENCH_DOCUMENT_BUSY && page.info.reason ? page.info.reason : the_workbench_document_result_name(result);
+      return fail(reason,result==THE_WORKBENCH_DOCUMENT_INVALID ? 5 : result==THE_WORKBENCH_DOCUMENT_LIMIT || result==THE_WORKBENCH_DOCUMENT_NOMEM ? 94 : -3,"Document inspection was refused");
+   }
+   j.out=out; j.capacity=capacity; j.used=0; j.good=1;
+   js(&j,"{\"schemaVersion\":1,\"revision\":%lu,\"section\":\"document\",\"panel\":",the_workbench_revision()); quote(&j,id,strlen(id));
+   js(&j,",\"panelGeneration\":\"%lu\",\"documentId\":\"%" PRIu64 "\",\"documentRevision\":\"%" PRIu64 "\",\"lineCount\":%lu,\"dirty\":%s,\"nextLine\":%lu,\"nextOffset\":%lu,\"more\":%s,\"records\":[",
+      panel->generation,page.info.id,page.info.revision,(unsigned long)page.info.lines,page.info.dirty ? "true" : "false",(unsigned long)page.next_line,(unsigned long)page.next_offset,page.more ? "true" : "false");
+   for (i=0;i<page.count;i++)
+   {
+      const TheWorkbenchDocumentSlice *s=page.slices+i; const unsigned char *data=page.bytes+s->data_offset;
+      js(&j,"%s{\"line\":%lu,\"offset\":%lu,\"length\":%lu,\"originalLength\":%lu,\"text\":",i ? "," : "",(unsigned long)s->line,(unsigned long)s->offset,(unsigned long)s->length,(unsigned long)s->original_length);
+      document_quote(&j,data,s->length); js(&j,",\"bytesHex\":\"");
+      for (k=0;k<s->length;k++) js(&j,"%02x",data[k]); js(&j,"\"}");
+   }
+   js(&j,"]}");
+   if (!j.good) { out[0]=0; return fail("limit-exceeded",94,"Document JSON capacity exceeded"); }
+   return 0;
 }
