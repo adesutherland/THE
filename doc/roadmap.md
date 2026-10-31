@@ -30,6 +30,11 @@ presentation, and an optional first GTK 3 desktop frontend now exists.
 
 ### Cross-platform workbench review
 
+The [extensible workbench proposal](workbench-extension-design.md) defines
+profile-owned menus, panes, forms, tool IO routes and capability reporting as
+separate future increments. Its command syntax and platform contracts remain
+proposals for review.
+
 Continue the shared browser, terminal and GTK review through real file,
 editing, run and console workflows. The guided workbench now has visible
 Menu and Run routes, profile-defined footer rows, keyboard access to controls,
