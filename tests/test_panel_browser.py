@@ -20,6 +20,10 @@ with tempfile.TemporaryDirectory(prefix='THE browser panel ') as tmp:
     repo = Path(__file__).resolve().parent.parent
     stock = repo / ('web-profile.the' if engine == 'CREXX' else 'web-profile-regina.the')
     profile.write_text(stock.read_text(encoding='utf-8') +
+                       "'workbench begin owner public.modalprobe';\n"
+                       "'workbench form put public.modalprobe.form';\n"
+                       "'workbench field put public.modalprobe.form name label \"Name\" value \"Guest\" access edit maxcells 40';\n"
+                       "'workbench commit';\n" +
                        "'cursor goto 2 3';\n'define f7 macro " + demo + "';\n", encoding='utf-8')
     env = dict(os.environ, THE_REXX_INTERPRETER=engine,
                THE_WEB_ROOT=str(Path(assets).resolve()), THE_WEB_WORKSPACE=tmp, THE_WEB_PROFILE=str(profile))

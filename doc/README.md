@@ -13,6 +13,7 @@ release. CRXTHE is an independent fork based on Mark Hessling's THE 4.0.
 - [Shared workbench actions and menus](workbench-actions-menus.md)
 - [Named LOG panes, routes and inspection](workbench-log-panes.md)
 - [Read-only DOCUMENT panes and bounded inspection](workbench-document-panes.md)
+- [Independent forms, staged values and submitted results](workbench-forms.md)
 - [Macro panels](panels.md)
 - [LLM protocol and agent workflows](llm-driver-agent-guide.md)
 - [LLM capability inventory](llm-driver-capabilities.md)

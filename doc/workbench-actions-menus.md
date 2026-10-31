@@ -10,6 +10,8 @@ Existing [RX tools and Program console](runtime-tools.md) remain available.
 The implemented [phase-2A LOG core](workbench-log-panes.md) adds named log panes
 and stream routes; [phase-2B DOCUMENT panes](workbench-document-panes.md) add
 bounded read-only views of live editor buffers.
+The [phase-3A form core](workbench-forms.md) adds independently staged values and
+structured submitted results without editor writes.
 
 ## Define a menu
 

@@ -15,6 +15,10 @@ static int dirty_quit_checked;
 static unsigned workbench_focus_phase;
 static unsigned log_probe_phase;
 static unsigned document_probe_phase;
+static unsigned form_probe_phase;
+static int form_origin_window;
+static LogicalCursor form_origin_cursor;
+static char *form_input_draft;
 static uint64_t document_probe_id, document_probe_revision;
 static char document_probe_path[4096];
 static int document_origin_window;
@@ -1079,6 +1083,156 @@ static void document_step(void)
    }
 }
 
+static GtkFormField *probe_form_field(GtkLogPane *pane, const char *id)
+{
+   guint i;
+   for (i = 0; i < pane->form_fields->len; i++)
+   {
+      GtkFormField *field = g_ptr_array_index(pane->form_fields, i);
+      if (!strcmp(field->id, id)) return field;
+   }
+   assert(0); return NULL;
+}
+
+static void form_step(void)
+{
+   const TheWorkbenchPanel *panel = the_workbench_panel_find("gtk.formpane");
+   GtkLogPane *pane = panel ? find_log(panel->id, panel->generation) : NULL;
+   const TheWorkbenchFormState *state = the_workbench_form_state("gtk.person");
+   switch (form_probe_phase++)
+   {
+      case 0:
+      {
+         TheWorkbenchForm form = {0}; TheWorkbenchPanel value = {0}; TheWorkbenchField field = {0}; unsigned i;
+         strcpy(form.id, "gtk.person"); assert(!the_workbench_begin("gtk.forms")); assert(!the_workbench_put_form(&form));
+         strcpy(field.form, form.id); field.access = THE_WORKBENCH_FIELD_EDIT; field.maxcells = 16;
+         strcpy(field.id, "name"); strcpy(field.label, "Name / Ω"); assert(!the_workbench_put_field(&field));
+         strcpy(field.id, "locked"); strcpy(field.label, "Protected"); strcpy(field.value, "LOCK Ω"); field.access = THE_WORKBENCH_FIELD_READONLY;
+         assert(!the_workbench_put_field(&field));
+         strcpy(field.id, "note"); strcpy(field.label, "Note"); strcpy(field.value, "kept"); field.access = THE_WORKBENCH_FIELD_EDIT;
+         assert(!the_workbench_put_field(&field)); field.value[0] = 0;
+         for (i = 0; i < 5; i++)
+         { g_snprintf(field.id, sizeof(field.id), "extra%u", i); g_snprintf(field.label, sizeof(field.label), "Extra %u", i); assert(!the_workbench_put_field(&field)); }
+         strcpy(value.id, "gtk.formpane"); strcpy(value.title, "Independent form / Ω"); value.kind = THE_WORKBENCH_PANEL_FIELDS; strcpy(value.form, form.id);
+         assert(!the_workbench_put_panel(&value)); assert(!the_workbench_commit()); sync_logs();
+         panel = the_workbench_panel_find(value.id); pane = find_log(panel->id, panel->generation);
+         form_origin_window = CURRENT_VIEW->current_window; form_origin_cursor = CURRENT_VIEW->logical_cursor.current;
+         form_input_draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(ui.input)));
+         gtk_entry_set_text(GTK_ENTRY(ui.input), "FORM Program draft"); gtk_widget_grab_focus(ui.input);
+         gtk_editable_select_region(GTK_EDITABLE(ui.input), 10, 3); the_tool_console_visibility(1, 1);
+         assert(queue_panel(pane, THE_WORKBENCH_PANEL_SHOW));
+         break;
+      }
+      case 1:
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+         resize_window(1366, GTK_ORIENTATION_HORIZONTAL); assert(queue_panel(pane, THE_WORKBENCH_PANEL_FOCUS));
+         gtk_entry_set_text(GTK_ENTRY(probe_form_field(pane, "name")->entry), "click");
+         gtk_entry_set_text(GTK_ENTRY(probe_form_field(pane, "name")->entry), "click typed");
+         break;
+      case 2:
+      {
+         GtkFormField *name = probe_form_field(pane, "name");
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == name->entry);
+         assert(!strcmp(the_workbench_field_state("gtk.person", "name")->value, "click typed"));
+         assert(the_workbench_panel_state(panel->id)->effective == THE_WORKBENCH_PLACE_RIGHT);
+         assert(!gtk_editable_get_editable(GTK_EDITABLE(probe_form_field(pane, "locked")->entry)));
+         /* Native widget changes can arrive before any core dispatch. */
+         gtk_entry_set_text(GTK_ENTRY(name->entry), "h"); gtk_entry_set_text(GTK_ENTRY(name->entry), "hé"); gtk_entry_set_text(GTK_ENTRY(name->entry), "hé h");
+         g_signal_emit_by_name(pane->form_submit, "clicked");
+         break;
+      }
+      case 3:
+         assert(!strcmp(the_workbench_field_state("gtk.person", "name")->value, "hé h"));
+         assert(!strcmp(the_workbench_field_state("gtk.person", "locked")->value, "LOCK Ω"));
+         assert(state->submitted && state->result_revision == 1 && !state->dirty);
+         assert(!the_panel_active && !the_editor_buffer_dirty(CURRENT_FILE));
+         assert_source("say 'GTK program ready'\npull name\nsay 'Hello' name\n");
+         screenshot("form-right"); resize_window(900, GTK_ORIENTATION_VERTICAL);
+         gtk_entry_set_text(GTK_ENTRY(probe_form_field(pane, "name")->entry), "12345678901234567");
+         break;
+      case 4:
+      {
+         unsigned i;
+         assert(!strcmp(the_workbench_field_state("gtk.person", "name")->value, "hé h"));
+         assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(probe_form_field(pane, "name")->entry)), "hé h"));
+         assert(the_workbench_panel_state(panel->id)->effective == THE_WORKBENCH_PLACE_BELOW);
+         for (i = 0; i < 6; i++) press_workbench_key(GDK_KEY_Tab, 0);
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == probe_form_field(pane, "extra4")->entry);
+         await_frame();
+         assert(gtk_adjustment_get_value(gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(pane->scroller))) > 0);
+         gtk_entry_set_text(GTK_ENTRY(probe_form_field(pane, "extra4")->entry), "temporary");
+         g_signal_emit_by_name(pane->form_cancel, "clicked");
+         break;
+      }
+      case 5:
+         assert(!state->dirty && !strcmp(the_workbench_field_state("gtk.person", "extra4")->value, ""));
+         assert(!strcmp(the_workbench_field_state("gtk.person", "name")->value, "hé h"));
+         gtk_entry_set_text(GTK_ENTRY(probe_form_field(pane, "name")->entry), "RETURN DRAFT");
+         press_workbench_key(GDK_KEY_Escape, 0);
+         break;
+      case 6:
+      {
+         int first, last;
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+         assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "FORM Program draft"));
+         assert(gtk_editable_get_selection_bounds(GTK_EDITABLE(ui.input), &first, &last));
+         assert(first == 3 && last == 10 && gtk_editable_get_position(GTK_EDITABLE(ui.input)) == 3);
+         assert(!strcmp(the_workbench_field_state("gtk.person", "name")->value, "RETURN DRAFT"));
+         assert(queue_panel(pane, THE_WORKBENCH_PANEL_FOCUS));
+         break;
+      }
+      case 7:
+      {
+         TheWorkbenchFormRequest external = {0};
+         TheInputEvent next;
+         gtk_entry_set_text(GTK_ENTRY(probe_form_field(pane, "name")->entry), "QUEUED OLD");
+         external.operation = THE_WORKBENCH_FORM_SET; external.request_id = 100000;
+         strcpy(external.form, "gtk.person"); strcpy(external.field, "note"); strcpy(external.value, "external"); external.length = 8;
+         external.form_generation = state->generation; external.draft_revision = state->draft_revision;
+         assert(!the_workbench_form_request(&external));
+         assert(the_input_event_from_command("nop", &next)); assert(queue_event(next));
+         break;
+      }
+      case 8:
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == probe_form_field(pane, "name")->entry);
+         assert(!strcmp(the_workbench_field_state("gtk.person", "name")->value, "RETURN DRAFT"));
+         assert(!strcmp(the_workbench_field_state("gtk.person", "note")->value, "external"));
+         assert(strstr(gtk_label_get_text(GTK_LABEL(pane->status)), "stale-revision"));
+         screenshot("form-below"); press_workbench_key(GDK_KEY_Escape, 0);
+         break;
+      case 9:
+         gtk_widget_grab_focus(ui.editor);
+         assert(queue_panel(pane, THE_WORKBENCH_PANEL_FOCUS));
+         break;
+      case 10:
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == probe_form_field(pane, "name")->entry);
+         press_workbench_key(GDK_KEY_Escape, 0);
+         break;
+      case 11:
+         if (gtk_window_get_focus(GTK_WINDOW(ui.window)) != ui.editor)
+         {
+            GtkWidget *focus = gtk_window_get_focus(GTK_WINDOW(ui.window));
+            fprintf(stderr, "Form editor RETURN focus=%s pane=%s origin=%s program=%d\n",
+               focus ? gtk_widget_get_name(focus) : "none", ui.focused_log,
+               ui.log_origin ? gtk_widget_get_name(ui.log_origin) : "none", the_tool_console()->focused);
+         }
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.editor);
+         assert(CURRENT_VIEW->current_window == form_origin_window);
+         assert(!memcmp(&CURRENT_VIEW->logical_cursor.current, &form_origin_cursor, sizeof(form_origin_cursor)));
+         queue_form(pane, THE_WORKBENCH_FORM_CANCEL, NULL, NULL);
+         break;
+      case 12:
+         assert(!state->dirty);
+         assert(!the_workbench_begin("gtk.forms")); assert(!the_workbench_reset_owner("gtk.forms")); assert(!the_workbench_commit());
+         sync_logs(); assert(!ui.logs->len);
+         gtk_entry_set_text(GTK_ENTRY(ui.input), form_input_draft); g_free(form_input_draft); form_input_draft = NULL;
+         assert_source("say 'GTK program ready'\npull name\nsay 'Hello' name\n"); assert(!the_editor_buffer_dirty(CURRENT_FILE));
+         puts("GTK_FORMS_BURST_PROTECTED_LIMIT_SUBMIT_CANCEL_STALE_RETURN_PASS"); queue_command("nop");
+         break;
+      default: assert(0);
+   }
+}
+
 static int probe_read_input(TheInputEvent *event)
 {
    GdkEventKey key;
@@ -1276,6 +1430,7 @@ static int probe_read_input(TheInputEvent *event)
          await_console(0);
          if (log_probe_phase < 15) { named_log_step(); --phase; break; }
          if (document_probe_phase < 16) { document_step(); --phase; break; }
+         if (form_probe_phase < 13) { form_step(); --phase; break; }
          if (workbench_focus_phase == 0)
          {
             assert_program_input_keeps_focus();

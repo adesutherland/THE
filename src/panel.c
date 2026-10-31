@@ -8,7 +8,9 @@
 #include "thedriver.h"
 #include "driverwindow.h"
 #include "thekeys.h"
+#include "inputdispatch.h"
 #include "llm/llmruntime.h"
+#include "llm/llmsession.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -118,7 +120,26 @@ static void protocol_read(ThePanelState *p)
    while (!p->done && fgets(input,sizeof(input),stdin))
    {
       TheInputEvent event;
+      if (!strchr(input,'\n') && !feof(stdin))
+      {
+         char *command=input;
+         int c;
+         /* One protocol line owns one input. Never admit a valid prefix of
+          * an oversized request or reinterpret its tail as modal typing. */
+         while ((c=fgetc(stdin))!=EOF && c!='\n') {}
+         while (*command && isspace((unsigned char)*command)) command++;
+         if (strlen(command)>=5 && toupper((unsigned char)command[0])=='F'
+         && toupper((unsigned char)command[1])=='O' && toupper((unsigned char)command[2])=='R'
+         && toupper((unsigned char)command[3])=='M' && isspace((unsigned char)command[4]))
+         {
+            char rejected[]="form invalid";
+            llm_session_handle_form_input(rejected);
+            continue;
+         }
+         input[0]=0;
+      }
       input[strcspn(input,"\r\n")]=0;
+      if (llm_session_handle_form_input(input)) continue;
       if (!strncmp(input,"text ",5) || !strncmp(input,"type ",5))
       {
          const CHARTYPE *s=(CHARTYPE *)input+5;
@@ -211,7 +232,14 @@ static void driver_read(ThePanelState *p)
          p->done=p->cancelled=1;
          continue;
       }
-      if (event.kind==THE_INPUT_KEY && the_input_legacy_key_is_mouse(event.key_code))
+      if (event.kind==THE_INPUT_WORKBENCH_FORM)
+      {
+         /* The modal owner still completes queued typed requests. The shared
+          * dispatcher observes the_panel_active and records busy-modal without
+          * changing either this READ model or the independent form draft. */
+         the_input_dispatch_workbench_form(&event);
+      }
+      else if (event.kind==THE_INPUT_KEY && the_input_legacy_key_is_mouse(event.key_code))
       {
          TheDriverMouseEvent mouse;
          if (window && the_driver_read_transient_mouse_event(window,&mouse) && mouse.inside)

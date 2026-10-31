@@ -16,6 +16,10 @@
 #define THE_WORKBENCH_OWNER_MAX 32
 #define THE_WORKBENCH_PANEL_MAX 32
 #define THE_WORKBENCH_ROUTE_MAX 32
+#define THE_WORKBENCH_FORM_MAX 32
+#define THE_WORKBENCH_FIELDS_PER_FORM_MAX 128
+#define THE_WORKBENCH_FIELD_MAX 512
+#define THE_WORKBENCH_FIELD_VALUE_MAX 1024
 #define THE_WORKBENCH_PAGE_MAX 8
 #define THE_WORKBENCH_INVOKE_DEPTH_MAX 8
 #define THE_WORKBENCH_JSON_MAX 65536
@@ -45,7 +49,20 @@ typedef enum
    THE_WORKBENCH_PLACE_TAB
 } TheWorkbenchPlacement;
 
-typedef enum { THE_WORKBENCH_PANEL_LOG = 1, THE_WORKBENCH_PANEL_DOCUMENT = 2 } TheWorkbenchPanelKind;
+typedef enum { THE_WORKBENCH_PANEL_LOG = 1, THE_WORKBENCH_PANEL_DOCUMENT = 2, THE_WORKBENCH_PANEL_FIELDS = 3 } TheWorkbenchPanelKind;
+typedef enum { THE_WORKBENCH_FIELD_EDIT = 1, THE_WORKBENCH_FIELD_READONLY = 2 } TheWorkbenchFieldAccess;
+
+typedef struct {
+   char id[THE_WORKBENCH_ID_MAX+1], owner[THE_WORKBENCH_ID_MAX+1];
+   unsigned long generation;
+} TheWorkbenchForm;
+typedef struct {
+   char id[THE_WORKBENCH_ID_MAX+1], owner[THE_WORKBENCH_ID_MAX+1], form[THE_WORKBENCH_ID_MAX+1];
+   char label[THE_WORKBENCH_LABEL_MAX+1], value[THE_WORKBENCH_FIELD_VALUE_MAX+1];
+   unsigned long generation;
+   TheWorkbenchFieldAccess access;
+   int maxcells;
+} TheWorkbenchField;
 
 typedef struct
 {
@@ -95,6 +112,8 @@ typedef struct
    TheWorkbenchPlacement fallbacks[3];
    size_t fallback_count;
    int mincols, minrows;
+   char form[THE_WORKBENCH_ID_MAX+1];
+   unsigned long form_generation;
 } TheWorkbenchPanel;
 
 typedef struct
@@ -137,6 +156,12 @@ const TheWorkbenchItem *the_workbench_item_at(size_t index);
 const TheWorkbenchPanel *the_workbench_panel_at(size_t index);
 const TheWorkbenchPanel *the_workbench_panel_find(const char *id);
 const TheWorkbenchRoute *the_workbench_route_at(size_t index);
+size_t the_workbench_form_count(void);
+size_t the_workbench_field_count(void);
+const TheWorkbenchForm *the_workbench_form_at(size_t index);
+const TheWorkbenchForm *the_workbench_form_find(const char *id);
+const TheWorkbenchField *the_workbench_field_at(size_t index);
+const TheWorkbenchField *the_workbench_field_find(const char *form,const char *id);
 const TheWorkbenchResult *the_workbench_last_result(void);
 const char *the_workbench_action_kind_name(TheWorkbenchActionKind kind);
 /* Runtime admission hint. Invoke always revalidates. */
@@ -160,6 +185,10 @@ short the_workbench_place_panel(const char *id, TheWorkbenchPlacement placement,
 short the_workbench_remove_panel(const char *id);
 short the_workbench_put_route(const TheWorkbenchRoute *route);
 short the_workbench_remove_route(const char *id);
+short the_workbench_put_form(const TheWorkbenchForm *form);
+short the_workbench_remove_form(const char *id);
+short the_workbench_put_field(const TheWorkbenchField *field);
+short the_workbench_remove_field(const char *form, const char *id);
 const char *the_workbench_placement_name(TheWorkbenchPlacement placement);
 /* Execution-owner admission; no driver or tool callback may call reentrantly. */
 short the_workbench_panel_operation(const char *id, unsigned long generation,

@@ -46,6 +46,16 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
                        "'workbench panel put native.logone kind log model native.stdout';\n"
                        "'workbench panel put native.logtwo kind log model native.stderr';\n"
                        "'workbench panel put native.document kind document buffer active access readonly';\n"
+                       "'workbench form put native.person';\n"
+                       "'workbench field put native.person native.name label \"Name\" value \"\" access edit maxcells 8';\n"
+                       "'workbench field put native.person native.lock label \"Protected\" value \"LOCK Ω\" access readonly maxcells 16';\n"
+                       "'workbench field put native.person native.note label \"Note\" value \"kept\" access edit maxcells 12';\n"
+                       "'workbench field put native.person native.extra0 label \"Extra 0\" value \"\" access edit maxcells 20';\n"
+                       "'workbench field put native.person native.extra1 label \"Extra 1\" value \"\" access edit maxcells 20';\n"
+                       "'workbench field put native.person native.extra2 label \"Extra 2\" value \"\" access edit maxcells 20';\n"
+                       "'workbench field put native.person native.extra3 label \"Extra 3\" value \"\" access edit maxcells 20';\n"
+                       "'workbench field put native.person native.extra4 label \"Extra 4\" value \"\" access edit maxcells 20';\n"
+                       "'workbench panel put native.formpane kind fields form native.person';\n"
                        "'workbench route put native.out from tool:classic-rexx/stdout to log:native.stdout';\n"
                        "'workbench route put native.err from tool:classic-rexx/stderr to log:native.stderr';\n"
                        "'workbench menu put native.regression label \"Native regression\" order 999';\n"
@@ -56,6 +66,8 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
     profile = root / 'profile.the'
     profile.write_text((repo / 'profile.the').read_text() +
                        "\n'define f5 macro native_logs_setup';\n"
+                       "'define f2 workbench panel show native.formpane';\n"
+                       "'define f11 workbench panel focus native.formpane';\n"
                        "'define f3 workbench panel focus native.document';\n"
                        "'define f4 workbench panel show native.document';\n"
                        "'define f7 workbench panel show native.logone';\n"
@@ -332,6 +344,36 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
             wait(lambda: not has('msg DOCUMENT_DRAFT'), 'clear only the unsent DOCUMENT origin command')
             send(b'query workbench document native.document limit 1 bytes 64\r')
             wait(lambda: has('"section":"document"'), 'physical command-line QUERY DOCUMENT admits its bounded read')
+            send(b'msg FORM_DRAFT\x1b[D\x1b[D')
+            wait(lambda: has('msg FORM_DRAFT'), 'editor draft staged before named form')
+            form_origin = (screen.cursor.x, screen.cursor.y)
+            send(b'\x1bOQ')  # F2 SHOW without focus.
+            wait(lambda: (screen.cursor.x, screen.cursor.y) == form_origin and not has('Form: native.formpane'),
+                 'FORM SHOW keeps editor command focus')
+            send(b'\x1b[23~')
+            wait(lambda: has('Form: native.formpane') and 'Name' in document_body(), 'FORM FOCUS renders independent fields')
+            send('123456789'.encode())
+            wait(lambda: '12345678' in document_body() and has('limit-exceeded'), 'FORM cell limit refuses excess burst input')
+            send(b'\x15')
+            send('hé h'.encode())
+            wait(lambda: 'hé h' in document_body() and has('Form: native.formpane'), 'FORM Unicode burst and h stay in editable field')
+            send(b'\t\x15draft')
+            wait(lambda: 'Note' in document_body() and 'draft' in document_body(), 'FORM Tab skips protected field and scrolls to editable Note')
+            send(b'\x1b[Z\x1b[Z\x1b[Z\x1b[Z\r')  # Name, Return, Cancel, Submit.
+            wait(lambda: has('Submitted'), 'FORM Submit publishes data without editor execution')
+            send(b'\x1b[Ztail')  # Last editable field is reached from Submit.
+            wait(lambda: 'Extra 4' in document_body() and 'tail' in document_body(), 'FORM offscreen field reachable with keyboard')
+            send(b'\t\t\r')  # Submit, then Cancel.
+            wait(lambda: 'tail' not in document_body(), 'FORM Cancel restores submitted baseline')
+            send(b'\t\t')  # Return, then Name.
+            wait(lambda: 'Name' in document_body() and 'hé h' in document_body(), 'FORM submitted value survives Cancel')
+            send(b'\x15Unsent')
+            wait(lambda: 'Unsent' in document_body(), 'FORM draft staged before RETURN')
+            send(b'\x1b')
+            wait(lambda: (screen.cursor.x, screen.cursor.y) == form_origin and has('msg FORM_DRAFT'),
+                 'FORM RETURN preserves editor draft and caret')
+            send(b'\x15')
+            wait(lambda: not has('msg FORM_DRAFT'), 'clear only named form origin command')
             send(b'\x1b[17~')
             wait(lambda: screen.cursor.y < (rows - 8 if cols == 80 else rows - 4),
                  'second F6 reaches editor file')
@@ -367,6 +409,16 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
             send(b'\t')
             wait(lambda: (screen.cursor.x, screen.cursor.y) == input_caret,
                  'DOCUMENT RETURN restores Program input caret')
+            send(b'\t\x1b[F\r')
+            wait(lambda: has('Log: native.logone'), 'Program reaches named panes after form edits')
+            send(b'\t')
+            wait(lambda: has('Document: native.document'), 'Program visits DOCUMENT before FORM')
+            send(b'\t')
+            wait(lambda: has('Form: native.formpane') and 'Unsent' in document_body(), 'FORM retains core-owned draft across Program pane switch')
+            send(b'\x1b')
+            wait(lambda: console_focused() and 'DRAFT' in screen.display[-1], 'FORM RETURN restores Program draft')
+            send(b'\t')
+            wait(lambda: (screen.cursor.x, screen.cursor.y) == input_caret, 'FORM RETURN restores Program input caret')
             send(b'\r')
             wait(lambda: has('ECHO DRAFT') and 'Input closed>' in screen.display[-1]
                  and not screen.cursor.hidden,
@@ -384,4 +436,4 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
             process.wait()
             os.close(master)
 
-print('117x30 and 80x24: LOG/DOCUMENT paging, read-only keys, generation replacement, Program/editor draft/caret return, menu, scrollback and stdin passed')
+print('117x30 and 80x24: LOG/DOCUMENT/FORMS, Unicode/protection/limits/Submit/Cancel, Program/editor draft/caret return, menu, scrollback and stdin passed')

@@ -1,6 +1,7 @@
 #include "workbench.h"
 #include "workbenchruntime.h"
 #include "workbenchdocument.h"
+#include "workbenchform.h"
 #include <inttypes.h>
 
 #include <ctype.h>
@@ -31,8 +32,10 @@ typedef struct
    TheWorkbenchItem items[THE_WORKBENCH_ITEM_MAX];
    TheWorkbenchPanel panels[THE_WORKBENCH_PANEL_MAX];
    TheWorkbenchRoute routes[THE_WORKBENCH_ROUTE_MAX];
+   TheWorkbenchForm forms[THE_WORKBENCH_FORM_MAX];
+   TheWorkbenchField fields[THE_WORKBENCH_FIELD_MAX];
    WorkbenchOwner owners[THE_WORKBENCH_OWNER_MAX];
-   size_t nactions, nmenus, nitems, nowners, npanels, nroutes;
+   size_t nactions, nmenus, nitems, nowners, npanels, nroutes,nforms,nfields;
 } WorkbenchGraph;
 
 static WorkbenchGraph published, activation, draft;
@@ -95,6 +98,10 @@ static int panel_index(const WorkbenchGraph *g, const char *id)
 { size_t i; for (i=0;i<g->npanels;i++) if (!strcmp(g->panels[i].id,id)) return (int)i; return -1; }
 static int route_index(const WorkbenchGraph *g, const char *id)
 { size_t i; for (i=0;i<g->nroutes;i++) if (!strcmp(g->routes[i].id,id)) return (int)i; return -1; }
+static int form_index(const WorkbenchGraph *g,const char *id)
+{ size_t i; for(i=0;i<g->nforms;i++) if(!strcmp(g->forms[i].id,id)) return (int)i; return -1; }
+static int field_index(const WorkbenchGraph *g,const char *form,const char *id)
+{ size_t i; for(i=0;i<g->nfields;i++) if(!strcmp(g->fields[i].id,id) && !strcmp(g->fields[i].form,form)) return (int)i; return -1; }
 void the_workbench_set_tool_lookup(TheWorkbenchToolLookup lookup,void *context)
 { tool_lookup=lookup; tool_lookup_context=context; }
 int the_workbench_tool_info(const char *id,TheWorkbenchToolInfo *out)
@@ -140,6 +147,7 @@ static void initialize(void)
 void the_workbench_reset(void)
 {
    the_workbench_runtime_reset();
+   the_workbench_forms_reset();
    memset(&published,0,sizeof(published)); memset(&activation,0,sizeof(activation));
    memset(&draft,0,sizeof(draft)); initialized = transaction = transaction_failed = 0;
    activating = activation_failed = activation_changed = 0;
@@ -175,6 +183,14 @@ size_t the_workbench_menu_count(void) { initialize(); return published.nmenus; }
 size_t the_workbench_item_count(void) { initialize(); return published.nitems; }
 size_t the_workbench_panel_count(void) { initialize(); return published.npanels; }
 size_t the_workbench_route_count(void) { initialize(); return published.nroutes; }
+size_t the_workbench_form_count(void) { initialize(); return published.nforms; }
+size_t the_workbench_field_count(void) { initialize(); return published.nfields; }
+const TheWorkbenchForm *the_workbench_form_at(size_t i) { initialize(); return i<published.nforms ? published.forms+i : NULL; }
+const TheWorkbenchField *the_workbench_field_at(size_t i) { initialize(); return i<published.nfields ? published.fields+i : NULL; }
+const TheWorkbenchForm *the_workbench_form_find(const char *id)
+{ int i; initialize(); i=id ? form_index(&published,id) : -1; return i<0 ? NULL : published.forms+i; }
+const TheWorkbenchField *the_workbench_field_find(const char *form,const char *id)
+{ int i; initialize(); i=form && id ? field_index(&published,form,id) : -1; return i<0 ? NULL : published.fields+i; }
 const TheWorkbenchPanel *the_workbench_panel_at(size_t i) { initialize(); return i < published.npanels ? published.panels+i : NULL; }
 const TheWorkbenchPanel *the_workbench_panel_find(const char *id)
 { int i; initialize(); i=id ? panel_index(&published,id) : -1; return i < 0 ? NULL : published.panels+i; }
@@ -358,6 +374,8 @@ short the_workbench_put_panel(const TheWorkbenchPanel *value)
       if (the_workbench_document_info(value->document_id,&info)==THE_WORKBENCH_DOCUMENT_MISSING)
          return definition_result("document-closed",-3,"The document binding is no longer live");
    }
+   else if(value->kind==THE_WORKBENCH_PANEL_FIELDS)
+   { if(!valid_id(value->form) || value->model[0] || value->document_id) return invalid(); }
    else return definition_result("unsupported-feature",-3,"This panel kind is not implemented");
    if (!strncmp(value->id,"the.",4) || !strncmp(value->model,"the.",4)) return denied();
    p=*value;
@@ -418,9 +436,59 @@ short the_workbench_remove_route(const char *id)
    memmove(draft.routes+i,draft.routes+i+1,(--draft.nroutes-(size_t)i)*sizeof(draft.routes[0])); return ok();
 }
 
+short the_workbench_put_form(const TheWorkbenchForm *value)
+{
+   TheWorkbenchForm form; int i; short rc=require_transaction(); if(rc) return rc;
+   if(!value || !valid_id(value->id)) return invalid(); if(!strncmp(value->id,"the.",4)) return denied();
+   i=form_index(&draft,value->id); if(i>=0 && (rc=owned(draft.forms[i].owner))) return rc;
+   if((i<0 && draft.nforms==THE_WORKBENCH_FORM_MAX) || generation==LONG_MAX) return limit();
+   if(i<0) i=(int)draft.nforms++;
+   form=*value; strcpy(form.owner,transaction_owner); form.generation=++generation; draft.forms[i]=form; return ok();
+}
+short the_workbench_put_field(const TheWorkbenchField *value)
+{
+   TheWorkbenchField field; int i,form; size_t n,count=0; short rc=require_transaction(); if(rc) return rc;
+   if(!value || !valid_id(value->id) || !valid_id(value->form)
+   || !valid_text(value->label,THE_WORKBENCH_LABEL_MAX,1) || !memchr(value->value,0,sizeof(value->value))
+   || !the_workbench_field_value_valid(value->value,strlen(value->value),value->maxcells)
+   || (value->access!=THE_WORKBENCH_FIELD_EDIT && value->access!=THE_WORKBENCH_FIELD_READONLY)) return invalid();
+   if(!strncmp(value->id,"the.",4)) return denied();
+   form=form_index(&draft,value->form); if(form<0) return definition_result("missing-object",5,"Create the form before its fields");
+   if((rc=owned(draft.forms[form].owner))) return rc;
+   i=field_index(&draft,value->form,value->id); if(i>=0 && (rc=owned(draft.fields[i].owner))) return rc;
+   for(n=0;n<draft.nfields;n++) if(!strcmp(draft.fields[n].form,value->form)) count++;
+   if((i<0 && (draft.nfields==THE_WORKBENCH_FIELD_MAX || count==THE_WORKBENCH_FIELDS_PER_FORM_MAX)) || generation>LONG_MAX-2) return limit();
+   if(i<0) i=(int)draft.nfields++;
+   field=*value; strcpy(field.owner,transaction_owner); field.generation=++generation; draft.fields[i]=field;
+   draft.forms[form].generation=++generation; return ok();
+}
+short the_workbench_remove_field(const char *form,const char *id)
+{
+   int i,f; short rc=require_transaction(); if(rc) return rc;
+   if(!valid_id(form) || !valid_id(id)) return invalid();
+   i=field_index(&draft,form,id); if(i<0) return ok();
+   if(strcmp(draft.fields[i].form,form)) return invalid(); if((rc=owned(draft.fields[i].owner))) return rc;
+   if(generation==LONG_MAX) return limit();
+   f=form_index(&draft,form); if(f>=0) draft.forms[f].generation=++generation;
+   memmove(draft.fields+i,draft.fields+i+1,(--draft.nfields-(size_t)i)*sizeof(draft.fields[0])); return ok();
+}
+short the_workbench_remove_form(const char *id)
+{
+   int i; size_t n; short rc=require_transaction(); if(rc) return rc;
+   if(!valid_id(id)) return invalid(); i=form_index(&draft,id); if(i<0) return ok();
+   if((rc=owned(draft.forms[i].owner))) return rc;
+   for(n=draft.nfields;n>0;n--) if(!strcmp(draft.fields[n-1].form,id))
+   { memmove(draft.fields+n-1,draft.fields+n,(draft.nfields-n)*sizeof(draft.fields[0])); draft.nfields--; }
+   memmove(draft.forms+i,draft.forms+i+1,(--draft.nforms-(size_t)i)*sizeof(draft.forms[0])); return ok();
+}
+
 static void remove_owner(WorkbenchGraph *g, const char *owner)
 {
    size_t n;
+   for(n=g->nfields;n>0;n--) if(!strcmp(g->fields[n-1].owner,owner))
+   { memmove(g->fields+n-1,g->fields+n,(g->nfields-n)*sizeof(g->fields[0])); g->nfields--; }
+   for(n=g->nforms;n>0;n--) if(!strcmp(g->forms[n-1].owner,owner))
+   { memmove(g->forms+n-1,g->forms+n,(g->nforms-n)*sizeof(g->forms[0])); g->nforms--; }
    for (n=g->nroutes;n>0;n--) if (!strcmp(g->routes[n-1].owner,owner))
    { memmove(g->routes+n-1,g->routes+n,(g->nroutes-n)*sizeof(g->routes[0])); g->nroutes--; }
    for (n=g->npanels;n>0;n--) if (!strcmp(g->panels[n-1].owner,owner))
@@ -441,9 +509,22 @@ short the_workbench_reset_owner(const char *owner)
 
 static int reference_allowed(const char *owner, const char *target)
 { return !strcmp(owner,target) || !strcmp(target,"the.builtin"); }
-static short validate(const WorkbenchGraph *g)
+static short validate(WorkbenchGraph *g)
 {
    size_t n; int i;
+   for(n=0;n<g->nfields;n++)
+   {
+      i=form_index(g,g->fields[n].form);
+      if(i<0) return definition_result("missing-object",5,"Field refers to a missing form");
+      if(!reference_allowed(g->fields[n].owner,g->forms[i].owner)) return denied();
+   }
+   for(n=0;n<g->npanels;n++) if(g->panels[n].kind==THE_WORKBENCH_PANEL_FIELDS)
+   {
+      i=form_index(g,g->panels[n].form);
+      if(i<0) return definition_result("object-in-use",-3,"Fields pane refers to a missing form");
+      if(!reference_allowed(g->panels[n].owner,g->forms[i].owner)) return denied();
+      g->panels[n].form_generation=g->forms[i].generation;
+   }
    for (n = 0; n < g->nitems; n++)
    {
       const TheWorkbenchItem *item = &g->items[n];
@@ -498,6 +579,15 @@ static short validate(const WorkbenchGraph *g)
    return 0;
 }
 
+static short publish(WorkbenchGraph *graph)
+{
+   TheWorkbenchFormPublication *forms=NULL; short rc;
+   rc=the_workbench_forms_prepare(graph->forms,graph->nforms,graph->fields,graph->nfields,&forms);
+   if(rc) return rc;
+   rc=the_workbench_runtime_publish(graph->panels,graph->npanels);
+   if(rc) { the_workbench_forms_abort(forms); return rc; }
+   the_workbench_forms_commit(forms); published=*graph; revision++; return 0;
+}
 short the_workbench_commit(void)
 {
    short rc = require_transaction(); if (rc) return rc;
@@ -505,9 +595,8 @@ short the_workbench_commit(void)
    if (activating) { activation = draft; activation_changed = 1; }
    else
    {
-      if ((rc=the_workbench_runtime_publish(draft.panels,draft.npanels)))
+      if ((rc=publish(&draft)))
       { the_workbench_poison_definition(); return rc; }
-      published = draft; revision++;
    }
    transaction = transaction_failed = 0; transaction_owner[0] = '\0';
    return ok();
@@ -545,9 +634,8 @@ short the_workbench_activation_end(int success)
    }
    if (activation_changed)
    {
-      rc=the_workbench_runtime_publish(activation.panels,activation.npanels);
+      rc=publish(&activation);
       if (rc) { activating=0; context[0]=0; return definition_result("activation-failed",-3,"Profile log resources could not be published"); }
-      published = activation; revision++;
    }
    activating = 0; context[0] = '\0'; return ok();
 }
@@ -588,7 +676,7 @@ static const char *log_result_code(TheWorkbenchLogResult result)
 }
 static void json_limits(Json *j)
 {
-   js(j,",\"limits\":{\"idBytes\":63,\"labelBytes\":255,\"operandBytes\":2048,\"commandBytes\":8192,\"actions\":128,\"menus\":32,\"items\":256,\"owners\":32,\"panels\":32,\"routes\":32,\"logs\":32,\"logBytes\":262144,\"logSessionBytes\":8388608,\"logPageBytes\":8192,\"pageRecords\":8,\"jsonBytes\":65536,\"invokeDepth\":8}");
+   js(j,",\"limits\":{\"idBytes\":63,\"labelBytes\":255,\"operandBytes\":2048,\"commandBytes\":8192,\"actions\":128,\"menus\":32,\"items\":256,\"owners\":32,\"panels\":32,\"routes\":32,\"logs\":32,\"logBytes\":262144,\"logSessionBytes\":8388608,\"logPageBytes\":8192,\"pageRecords\":8,\"jsonBytes\":65536,\"invokeDepth\":8,\"forms\":32,\"fields\":512,\"fieldsPerForm\":128,\"fieldValueBytes\":1024,\"fieldMaxCells\":1024}");
 }
 int the_workbench_json(char *out, size_t len, const char *section, size_t offset, size_t count, int candidate)
 {
@@ -605,9 +693,10 @@ int the_workbench_json(char *out, size_t len, const char *section, size_t offset
    else if (!strcmp(section,"PANELS")) type=5;
    else if (!strcmp(section,"ROUTES")) type=6;
    else if (!strcmp(section,"LOGS")) type=7;
+   else if (!strcmp(section,"FORMS")) type=8;
    else return 0;
    js(&j,"{\"schemaVersion\":1,\"revision\":%lu,\"section\":\"%s\"",revision,
-      type == 0 ? "summary" : type == 1 ? "capabilities" : type == 2 ? "actions" : type == 3 ? "menus" : type == 4 ? "items" : type == 5 ? "panels" : type == 6 ? "routes" : "logs");
+      type == 0 ? "summary" : type == 1 ? "capabilities" : type == 2 ? "actions" : type == 3 ? "menus" : type == 4 ? "items" : type == 5 ? "panels" : type == 6 ? "routes" : type==7 ? "logs" : "forms");
    if (type == 0)
    {
       const TheWorkbenchFocusRequest *focus=the_workbench_focus_request();
@@ -616,18 +705,19 @@ int the_workbench_json(char *out, size_t len, const char *section, size_t offset
          (unsigned long)g->npanels,(unsigned long)g->nroutes,(unsigned long)the_workbench_model_count(),
          the_workbench_panel_state_revision(),transaction ? "true" : "false",activating ? "true" : "false");
       jq(&j,last_result.code); js(&j,",\"rc\":%d,\"message\":",last_result.rc); jq(&j,last_result.message); js(&j,"}");
+      js(&j,",\"forms\":%lu,\"fields\":%lu,\"formStateRevision\":\"%" PRIu64 "\"",(unsigned long)g->nforms,(unsigned long)g->nfields,the_workbench_form_state_revision());
       js(&j,",\"focusRequest\":{\"serial\":%lu,\"panel\":",focus->serial); jq(&j,focus->panel);
       js(&j,",\"generation\":\"%lu\",\"restoring\":%s,\"previousPanel\":",focus->generation,focus->restoring ? "true" : "false"); jq(&j,focus->previous_panel); js(&j,",\"previousGeneration\":\"%lu\"}",focus->previous_generation);
       json_limits(&j); js(&j,"}");
    }
    else if (type == 1)
    {
-      js(&j,",\"actions\":true,\"menus\":true,\"panels\":true,\"logPanels\":true,\"documentPanels\":true,\"routes\":true,\"tools\":false");
+      js(&j,",\"actions\":true,\"menus\":true,\"panels\":true,\"logPanels\":true,\"documentPanels\":true,\"forms\":true,\"editableFileFields\":false,\"routes\":true,\"tools\":false");
       json_limits(&j); js(&j,"}");
    }
    else
    {
-      total=type == 2 ? g->nactions : type == 3 ? g->nmenus : type == 4 ? g->nitems : type == 5 ? g->npanels : type == 6 ? g->nroutes : the_workbench_model_count();
+      total=type == 2 ? g->nactions : type == 3 ? g->nmenus : type == 4 ? g->nitems : type == 5 ? g->npanels : type == 6 ? g->nroutes : type==7 ? the_workbench_model_count() : g->nforms;
       end=offset < total ? offset + (count < total-offset ? count : total-offset) : offset;
       js(&j,",\"total\":%lu,\"offset\":%lu,\"nextOffset\":",(unsigned long)total,(unsigned long)offset);
       if (end < total) js(&j,"%lu",(unsigned long)end); else js(&j,"null");
@@ -660,7 +750,14 @@ int the_workbench_json(char *out, size_t len, const char *section, size_t offset
             size_t k;
             if (state && state->generation != p->generation) state=NULL;
             js(&j,"{\"id\":"); jq(&j,p->id); js(&j,",\"owner\":"); jq(&j,p->owner); js(&j,",\"title\":"); jq(&j,p->title);
-            js(&j,",\"generation\":\"%lu\",\"kind\":\"%s\",\"model\":",p->generation,p->kind==THE_WORKBENCH_PANEL_DOCUMENT ? "document" : "log"); jq(&j,p->model);
+            js(&j,",\"generation\":\"%lu\",\"kind\":\"%s\",\"model\":",p->generation,p->kind==THE_WORKBENCH_PANEL_FIELDS ? "fields" : p->kind==THE_WORKBENCH_PANEL_DOCUMENT ? "document" : "log"); jq(&j,p->model);
+            if(p->kind==THE_WORKBENCH_PANEL_FIELDS)
+            {
+               const TheWorkbenchFormState *form=the_workbench_form_state(p->form);
+               if(form && form->generation!=p->form_generation) form=NULL;
+               js(&j,",\"form\":"); jq(&j,p->form);
+               js(&j,",\"formGeneration\":\"%lu\",\"draftRevision\":\"%" PRIu64 "\",\"resultRevision\":\"%" PRIu64 "\",\"formDirty\":%s,\"submitted\":%s,\"fieldCount\":%lu",p->form_generation,form ? form->draft_revision : 0,form ? form->result_revision : 0,form && form->dirty ? "true" : "false",form && form->submitted ? "true" : "false",(unsigned long)(form ? form->fields : 0));
+            }
             if (p->kind==THE_WORKBENCH_PANEL_DOCUMENT)
             {
                TheWorkbenchDocumentInfo info;
@@ -682,6 +779,14 @@ int the_workbench_json(char *out, size_t len, const char *section, size_t offset
             js(&j,"{\"id\":"); jq(&j,r->id); js(&j,",\"owner\":"); jq(&j,r->owner); js(&j,",\"generation\":%lu,\"tool\":",r->generation); jq(&j,r->tool);
             js(&j,",\"stream\":"); jq(&j,r->stream == 1 ? "stdout" : "stderr"); js(&j,",\"model\":"); jq(&j,r->model);
             js(&j,",\"modelGeneration\":\"%" PRIu64 "\",\"available\":%s,\"lastError\":",model ? model->generation : 0,available ? "true" : "false"); jq(&j,model ? log_result_code(model->last_error) : "activation-pending"); js(&j,"}");
+         }
+         else if(type==8)
+         {
+            const TheWorkbenchForm *f=g->forms+n; const TheWorkbenchFormState *state=the_workbench_form_state(f->id); size_t k,fields=0;
+            if(state && state->generation!=f->generation) state=NULL;
+            for(k=0;k<g->nfields;k++) if(!strcmp(g->fields[k].form,f->id)) fields++;
+            js(&j,"{\"id\":"); jq(&j,f->id); js(&j,",\"owner\":"); jq(&j,f->owner);
+            js(&j,",\"generation\":\"%lu\",\"draftRevision\":\"%" PRIu64 "\",\"resultRevision\":\"%" PRIu64 "\",\"dirty\":%s,\"submitted\":%s,\"fieldCount\":%lu}",f->generation,state ? state->draft_revision : 0,state ? state->result_revision : 0,state && state->dirty ? "true" : "false",state && state->submitted ? "true" : "false",(unsigned long)fields);
          }
          else
          {

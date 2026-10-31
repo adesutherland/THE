@@ -224,6 +224,18 @@ button { color: inherit; }
 .named-document-navigation button:disabled { opacity:.5; cursor:default; }
 .named-document-line { display:flex; min-height:1.45em; }
 .named-document-line-number { flex:none; min-width:4ch; margin-right:2ch; color:#8d9ba9; text-align:right; user-select:none; }
+.named-fields-pane { display:flex; flex-direction:column; }
+.named-form-body { min-height:0; flex:1; overflow:auto; padding:8px 10px; color:#d4d4d4; }
+.named-form-body:focus-visible { outline:2px solid #7297bb; outline-offset:-2px; }
+.named-form-status { margin:0 0 10px; color:#b7c6d5; font-size:11px; }
+.named-form-fields { display:grid; gap:12px; }
+.named-form-field { display:grid; gap:5px; min-width:0; font-size:12px; }
+.named-form-field input, .named-form-field output { box-sizing:border-box; min-width:0; width:100%; padding:7px; border:1px solid #566373; border-radius:4px; background:#171b20; color:#edf5fc; font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; }
+.named-form-field output { display:block; border-color:#343d47; background:#20262d; white-space:pre-wrap; overflow-wrap:anywhere; }
+.named-form-field input:focus-visible { outline:2px solid #7297bb; outline-offset:1px; }
+.named-form-controls { display:flex; flex-wrap:wrap; gap:6px; margin-top:16px; }
+.named-form-controls button { padding:6px 10px; border:1px solid #566373; border-radius:4px; background:#304a62; color:#edf5fc; cursor:pointer; }
+.named-form-controls button:disabled { opacity:.5; cursor:default; }
 .named-log-stderr { color:#ff8a78; }
 .mobile-aux-tabs { display: none; }
 .program-console-pane { min-width: 0; min-height: 0; overflow: auto; }

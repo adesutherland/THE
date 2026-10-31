@@ -149,6 +149,16 @@ EM_JS(int,browser_workbench_string_valid,(const char *field,int optional),{
  const value=Module.editorRequest[UTF8ToString(field)];
  return value===undefined ? optional : typeof value==='string' && !value.includes('\0');
 });
+EM_JS(int,browser_form_value_valid,(),{
+ const value=Module.editorRequest.value;
+ if(typeof value!=='string'||value.includes('\0'))return 0;
+ for(let i=0;i<value.length;i++){
+   const code=value.charCodeAt(i);
+   if(code>=0xd800&&code<=0xdbff){const next=value.charCodeAt(++i);if(!(next>=0xdc00&&next<=0xdfff))return 0;}
+   else if(code>=0xdc00&&code<=0xdfff)return 0;
+ }
+ return 1;
+});
 EM_JS(void,browser_workbench_nonce,(char *out,int capacity),{
  const bytes=new Uint8Array(12);
  globalThis.crypto.getRandomValues(bytes);
@@ -256,7 +266,8 @@ static int read_input(TheInputEvent *event)
       int queued;
       if (the_input_queue_pop(&inputs, event)) {
          if (event->kind == THE_INPUT_WORKBENCH_INVOKE
-         || event->kind == THE_INPUT_WORKBENCH_PANEL)
+         || event->kind == THE_INPUT_WORKBENCH_PANEL
+         || event->kind == THE_INPUT_WORKBENCH_FORM)
             the_web_workbench_receipt_dispatched(&workbench_receipts);
          return 1;
       }
@@ -345,6 +356,46 @@ static int read_input(TheInputEvent *event)
                   result && result->code && strcmp(result->code,"ok") ? result->code : "invalid-operand",
                   result && result->code && strcmp(result->code,"ok") ? result->message : "Invalid log page request");
             }
+            continue;
+         }
+         if (!strcmp(operation,"form.list")) {
+            char form[THE_WORKBENCH_ID_MAX+2],page[THE_WORKBENCH_JSON_MAX+80];
+            int offset=browser_integer("offset",-1),limit=browser_integer("records",-1),bytes=browser_integer("bytes",-1);
+            if (browser_workbench_string_valid("form",0) && browser_string("form",form,sizeof(form))
+            && offset>=0 && limit>=1 && limit<=8 && bytes>=1 && bytes<=8192
+            && the_web_format_form_page(page,sizeof(page),form,(size_t)offset,(size_t)limit,(size_t)bytes,0)) browser_send(page);
+            else browser_send_workbench_refusal("","invalid-operand","Invalid form page request");
+            continue;
+         }
+         if (!strcmp(operation,"form.set") || !strcmp(operation,"form.submit") || !strcmp(operation,"form.cancel")) {
+            TheWorkbenchFormRequest request; TheInputEvent event;
+            char generation[32],revision[32],panel_generation[32]; uint64_t gen=0,pgen=0;
+            int valid,accepted,have_id=browser_string("requestId",request_id,sizeof(request_id));
+            memset(&request,0,sizeof(request));
+            request.operation=!strcmp(operation,"form.set") ? THE_WORKBENCH_FORM_SET
+               : !strcmp(operation,"form.submit") ? THE_WORKBENCH_FORM_SUBMIT : THE_WORKBENCH_FORM_CANCEL;
+            valid=browser_workbench_string_valid("form",0) && browser_string("form",request.form,sizeof(request.form))
+               && browser_workbench_string_valid("expectGeneration",0) && browser_string("expectGeneration",generation,sizeof(generation))
+               && browser_workbench_string_valid("expectRevision",0) && browser_string("expectRevision",revision,sizeof(revision))
+               && browser_workbench_string_valid("panel",1) && browser_string("panel",request.panel,sizeof(request.panel))
+               && browser_workbench_string_valid("expectPanelGeneration",1) && browser_string("expectPanelGeneration",panel_generation,sizeof(panel_generation))
+               && the_web_parse_u64(generation,&gen) && gen && gen<=ULONG_MAX
+               && the_web_parse_u64(revision,&request.draft_revision) && request.draft_revision
+               && (!request.panel[0] || the_web_parse_u64(panel_generation,&pgen) && pgen && pgen<=ULONG_MAX);
+            if (valid && request.operation==THE_WORKBENCH_FORM_SET)
+               valid=browser_workbench_string_valid("field",0) && browser_string("field",request.field,sizeof(request.field))
+                  && browser_form_value_valid() && browser_string("value",request.value,sizeof(request.value));
+            request.form_generation=(unsigned long)gen;request.panel_generation=(unsigned long)pgen;
+            request.length=strlen(request.value);
+            accepted=have_id && browser_workbench_string_valid("requestId",0)
+               ? valid ? the_web_workbench_form_begin(&workbench_receipts,request_id,&request,&event) : -5 : -1;
+            if (accepted==1 && !the_input_queue_push(&inputs,event))
+               the_web_workbench_receipt_refuse(&workbench_receipts,"invalid-operand",5,"Form input queue full");
+            if (accepted==1 || accepted==0 || accepted==-3)
+               browser_send_workbench_receipt(the_web_workbench_receipt_find(&workbench_receipts,request_id));
+            else browser_send_workbench_refusal(have_id ? request_id : "",
+               accepted==-4 ? "request-id-conflict" : accepted==-6 ? "receipt-unknown" : accepted==-5 ? "invalid-operand" : "invalid-request-id",
+               "Invalid or conflicting form request");
             continue;
          }
          if (!strcmp(operation,"document.list")) {

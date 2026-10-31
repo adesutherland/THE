@@ -261,6 +261,12 @@ static int document_process_key(int key, bool mouse_details_present,int *guarded
             }
             goto refresh_after_input;
          }
+         if (input_event.kind == THE_INPUT_WORKBENCH_FORM)
+         {
+            rc=the_input_dispatch_workbench_form(&input_event);
+            if (rc!=RC_OK) display_error(0,(CHARTYPE *)the_workbench_last_result()->message,FALSE);
+            goto refresh_after_input;
+         }
          if (input_event.kind == THE_INPUT_LOGICAL_HIT)
          {
             the_workbench_document_enter(); *guarded=1;

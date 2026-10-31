@@ -127,6 +127,8 @@ const char *the_input_kind_name(TheInputKind kind)
          return "workbench-invoke";
       case THE_INPUT_WORKBENCH_PANEL:
          return "workbench-panel";
+      case THE_INPUT_WORKBENCH_FORM:
+         return "workbench-form";
       case THE_INPUT_LOGICAL_HIT:
          return "logical-hit";
       case THE_INPUT_RESIZE:
@@ -432,6 +434,65 @@ unsigned long the_input_event_workbench_panel_generation(const TheInputEvent *in
 { return input && input->kind == THE_INPUT_WORKBENCH_PANEL ? (unsigned long)input->target.line_number : 0; }
 TheWorkbenchPanelOperation the_input_event_workbench_panel_operation(const TheInputEvent *input)
 { return input && input->kind == THE_INPUT_WORKBENCH_PANEL ? (TheWorkbenchPanelOperation)input->codepoint : 0; }
+
+/* ABI3 private storage for this kind: three fixed ID slots in command,
+ * value followed by counted metadata in action.argument. No command parsing. */
+typedef struct {
+   uint64_t request,revision,form_generation,panel_generation;
+   uint32_t magic,operation,edit,codepoint,length;
+   int32_t cell;
+} FormInput;
+static int form_id(const char *id,int empty)
+{
+   size_t n;
+   if (!id || (!*id && !empty)) return 0;
+   if(*id && !((*id>='A' && *id<='Z') || (*id>='a' && *id<='z'))) return 0;
+   for (n=0;n<=THE_WORKBENCH_ID_MAX;n++)
+   {
+      unsigned char c=(unsigned char)id[n];
+      if (!c) return 1;
+      if (!isalpha(c) && !isdigit(c) && c!='.' && c!='_' && c!='-') return 0;
+   }
+   return 0;
+}
+int the_input_event_from_workbench_form(const TheWorkbenchFormRequest *r,TheInputEvent *out)
+{
+   FormInput wire;
+   if (!r || !out || !r->form_generation || !r->draft_revision
+   || !form_id(r->form,0) || !form_id(r->field,1) || !form_id(r->panel,1)
+   || (r->panel[0] && !r->panel_generation) || r->length>THE_WORKBENCH_FIELD_VALUE_MAX
+   || r->value[r->length] || memchr(r->value,0,r->length)
+   || r->operation<THE_WORKBENCH_FORM_SET || r->operation>THE_WORKBENCH_FORM_CANCEL) return 0;
+   memset(&wire,0,sizeof(wire)); wire.magic=UINT32_C(0x464f524d);
+   wire.request=r->request_id; wire.revision=r->draft_revision;
+   wire.form_generation=r->form_generation; wire.panel_generation=r->panel_generation;
+   wire.operation=r->operation; wire.edit=r->edit; wire.codepoint=r->codepoint;
+   wire.length=(uint32_t)r->length; wire.cell=r->cell;
+   *out=the_input_event_none(); out->kind=THE_INPUT_WORKBENCH_FORM;
+   memcpy(out->command,r->form,strlen(r->form)+1);
+   memcpy(out->command+64,r->field,strlen(r->field)+1);
+   memcpy(out->command+128,r->panel,strlen(r->panel)+1);
+   memcpy(out->action.argument,r->value,r->length+1);
+   memcpy(out->action.argument+THE_WORKBENCH_FIELD_VALUE_MAX+1,&wire,sizeof(wire));
+   return 1;
+}
+int the_input_event_workbench_form(const TheInputEvent *input,TheWorkbenchFormRequest *out)
+{
+   FormInput wire;
+   if (!input || !out || input->kind!=THE_INPUT_WORKBENCH_FORM
+   || !memchr(input->command,0,64) || !memchr(input->command+64,0,64)
+   || !memchr(input->command+128,0,64)) return 0;
+   memcpy(&wire,input->action.argument+THE_WORKBENCH_FIELD_VALUE_MAX+1,sizeof(wire));
+   if (wire.magic!=UINT32_C(0x464f524d) || wire.length>THE_WORKBENCH_FIELD_VALUE_MAX
+   || wire.form_generation>ULONG_MAX || wire.panel_generation>ULONG_MAX) return 0;
+   memset(out,0,sizeof(*out)); out->operation=(TheWorkbenchFormOperation)wire.operation;
+   out->request_id=wire.request; out->draft_revision=wire.revision;
+   out->form_generation=(unsigned long)wire.form_generation; out->panel_generation=(unsigned long)wire.panel_generation;
+   strcpy(out->form,input->command); strcpy(out->field,input->command+64); strcpy(out->panel,input->command+128);
+   out->length=wire.length; memcpy(out->value,input->action.argument,out->length);
+   out->edit=(TheWorkbenchFormEdit)wire.edit; out->codepoint=wire.codepoint; out->cell=wire.cell;
+   return out->value[out->length]==0 && !memchr(out->value,0,out->length);
+}
 
 int the_input_event_from_logical_target(TheInputLogicalTargetKind kind,
                                         LINETYPE line_number, int row,

@@ -6,6 +6,7 @@
 
 #include "frontendaction.h"
 #include "workbench.h"
+#include "workbenchform.h"
 #include "logcursor.h"
 
 #define THE_INPUT_COMMAND_MAX 256
@@ -22,7 +23,8 @@ typedef enum
    THE_INPUT_RESIZE,
    THE_INPUT_DEBUG,
    THE_INPUT_WORKBENCH_INVOKE,
-   THE_INPUT_WORKBENCH_PANEL
+   THE_INPUT_WORKBENCH_PANEL,
+   THE_INPUT_WORKBENCH_FORM
 } TheInputKind;
 
 typedef enum
@@ -111,6 +113,8 @@ int the_input_event_from_workbench_panel(const char *id, unsigned long generatio
 const char *the_input_event_workbench_panel_id(const TheInputEvent *input);
 unsigned long the_input_event_workbench_panel_generation(const TheInputEvent *input);
 TheWorkbenchPanelOperation the_input_event_workbench_panel_operation(const TheInputEvent *input);
+int the_input_event_from_workbench_form(const TheWorkbenchFormRequest *request,TheInputEvent *out);
+int the_input_event_workbench_form(const TheInputEvent *input,TheWorkbenchFormRequest *out);
 int the_input_event_from_logical_target(TheInputLogicalTargetKind kind,
                                         LINETYPE line_number, int row,
                                         int cell, int screen, int window_id,

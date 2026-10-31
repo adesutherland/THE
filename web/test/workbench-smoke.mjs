@@ -7,6 +7,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, join, resolve } from "node:path";
 import WebSocket, { WebSocketServer } from "ws";
+import "./form-coordinator-smoke.mjs";
 
 const chromium = process.env.CHROMIUM_BIN;
 if (!chromium) throw new Error("CHROMIUM_BIN is required");
@@ -23,6 +24,16 @@ let fixturePanelState = null;
 const fixtureLogExtras = new Map();
 let holdDocumentPage = false;
 const heldDocumentPages = [];
+const fixtureForms = new Map();
+function publishFormState() {
+  fixturePanelState = { ...fixturePanelState, stateRevision: String(Number(fixturePanelState.stateRevision) + 1),
+    panels: fixturePanelState.panels.map((panel) => {
+      const form = fixtureForms.get(panel.form);
+      return form ? { ...panel, draftRevision: form.draftRevision, resultRevision: form.resultRevision,
+        submitted: form.submitted, formDirty: form.dirty } : panel;
+    }) };
+  client?.send(JSON.stringify(fixturePanelState));
+}
 const snapshot = {
   mode: "editor", rows: 24, cols: 80,
   focus: { zone: "filearea", line: 1, row: 0, cell: 2 }, command: "",
@@ -187,15 +198,52 @@ ws.on("connection", (connection) => {
       } };
       if (holdDocumentPage) heldDocumentPages.push(page);
       else connection.send(JSON.stringify(page));
+    } else if (message.type === "workbench" && message.operation === "form.list") {
+      const form = fixtureForms.get(message.form);
+      connection.send(JSON.stringify({ type: "workbench", operation: "form", data: {
+        schemaVersion: 1, revision: 12, section: "fields", form: message.form, generation: form.generation,
+        draftRevision: form.draftRevision, resultRevision: form.resultRevision, submitted: form.submitted,
+        dirty: form.dirty, total: form.fields.length, offset: message.offset,
+        nextOffset: message.offset + 8 < form.fields.length ? message.offset + 8 : null,
+        records: form.fields.slice(message.offset, message.offset + 8),
+      } }));
+    } else if (message.type === "workbench" && ["form.set", "form.submit", "form.cancel"].includes(message.operation)) {
+      connection.send(JSON.stringify({ type: "workbench", operation: "result", requestId: message.requestId, state: "queued", code: "queued" }));
+      setTimeout(() => {
+        const form = fixtureForms.get(message.form);
+        const field = form.fields.find((field) => field.id === message.field);
+        const code = message.expectGeneration !== form.generation ? "stale-generation"
+          : message.expectRevision !== form.draftRevision ? "stale-revision"
+          : message.operation === "form.set" && field?.access !== "edit" ? "protected-field"
+          : message.operation === "form.set" && (Buffer.byteLength(message.value) > 1024 || Array.from(message.value).length > field.maxcells) ? "limit-exceeded" : "ok";
+        if (code === "ok") {
+          if (message.operation === "form.set") field.value = message.value;
+          if (message.operation === "form.submit") {
+            form.baseline = form.fields.map((field) => field.value); form.submitted = true;
+            form.resultRevision = String(BigInt(form.resultRevision) + 1n);
+          }
+          if (message.operation === "form.cancel") form.fields.forEach((field, index) => { field.value = form.baseline[index]; });
+          form.draftRevision = String(BigInt(form.draftRevision) + 1n);
+          form.dirty = form.fields.some((field, index) => field.value !== form.baseline[index]);
+          form.fields.forEach((field, index) => { field.length = Buffer.byteLength(field.value); field.dirty = field.value !== form.baseline[index]; });
+          publishFormState();
+        }
+        connection.send(JSON.stringify({ type: "workbench", operation: "result", requestId: message.requestId,
+          state: "complete", code, rc: code === "ok" ? 0 : -3, form: message.form,
+          formGeneration: form.generation, draftRevision: form.draftRevision, resultRevision: form.resultRevision,
+          message: code === "ok" ? "" : code }));
+      }, 25);
     } else if (message.type === "workbench" && message.operation?.startsWith("panel.")) {
       if (fixturePanelState && message.operation !== "panel.layout") {
         const focus = message.operation === "panel.focus";
         const restoring = message.operation === "panel.return";
         fixturePanelState = { ...fixturePanelState,
-          focus: { ...fixturePanelState.focus, serial: String(Number(fixturePanelState.focus.serial) + 1),
-            panel: restoring ? "" : message.panel, generation: "1", restoring },
+          focus: focus || restoring ? { ...fixturePanelState.focus, serial: String(Number(fixturePanelState.focus.serial) + 1),
+            panel: restoring ? "" : message.panel, generation: "1", restoring } : fixturePanelState.focus,
           panels: fixturePanelState.panels.map((panel) => ({ ...panel,
-            focused: focus && panel.id === message.panel })) };
+            visible: panel.id === message.panel && message.operation === "panel.show" ? true
+              : panel.id === message.panel && message.operation === "panel.hide" ? false : panel.visible,
+            focused: focus ? panel.id === message.panel : restoring ? false : panel.focused })) };
         connection.send(JSON.stringify(fixturePanelState));
         connection.send(JSON.stringify({ type: "workbench", operation: "result", requestId: message.requestId,
           state: "complete", code: "ok", rc: 0, revision: 5, message: "" }));
@@ -901,10 +949,82 @@ try {
   client.send(JSON.stringify(fixturePanelState));
   await wait(() => evaluate("document.querySelector('.named-document-output')?.textContent.includes('revision 9007199254741000')"), "replacement DOCUMENT generation copies fresh page");
   assert.equal(await evaluate("document.querySelector('.named-document-output').scrollLeft"), 0, "replacement DOCUMENT generation does not inherit retired viewport");
+  for (const [id, label] of [["user.person", "Name"], ["user.options", "Option"]]) {
+    const fields = Array.from({ length: 12 }, (_, index) => ({ id: `${id}.field${index}`, generation: String(index + 1),
+      label: index === 0 ? label : index === 1 ? "Protected value" : `Field ${index}`,
+      access: index === 1 ? "readonly" : "edit", maxcells: 1024,
+      value: index === 1 ? "safe <img> protected" : index === 0 ? "Guest" : `value ${index}`, length: 5, dirty: false }));
+    fixtureForms.set(id, { generation: "9007199254741001", draftRevision: "9007199254741002", resultRevision: "0",
+      submitted: false, dirty: false, fields, baseline: fields.map((field) => field.value) });
+  }
+  fixturePanels = [...fixtureForms].map(([form, state], index) => ({ ...logFixturePanels[0],
+    id: `${form}.pane`, title: index ? "Options" : "Person", kind: "fields", generation: "20", visible: false,
+    model: "", modelGeneration: "0", form, formGeneration: state.generation,
+    draftRevision: state.draftRevision, resultRevision: "0", formDirty: false, submitted: false, fieldCount: 12,
+  }));
+  fixturePanelState = { ...fixturePanelState, revision: 12, stateRevision: "20", panels: fixturePanels.map((panel) => ({ ...panel })),
+    focus: { ...fixturePanelState.focus, serial: "40", restoring: false, panel: "" } };
+  publishWorkbench(12, 0, ""); client.send(JSON.stringify(fixturePanelState));
+  await viewport(1280, 800);
+  await evaluate("document.querySelector('#the-command').focus();document.querySelector('.named-form-toggle[data-panel-id=\"user.person.pane\"]').click()");
+  await wait(() => evaluate("document.querySelector('.named-form-field input')?.value==='Guest'"), "FORM bounded field pages");
+  assert.equal(await evaluate("document.activeElement?.id==='the-command'"), true, "FORM SHOW preserves command focus");
+  assert.equal(await evaluate("document.querySelectorAll('.named-form-field').length"), 12, "FORM collects bounded C field pages");
+  assert.equal(await evaluate("!!document.querySelector('.named-form-field output') && !document.querySelector('.named-form-field output img')"), true, "protected field has no editable control and escapes markup");
+  await evaluate("document.querySelector('.named-form-toggle[data-panel-id=\"user.person.pane\"]').click()");
+  await wait(() => evaluate("document.activeElement?.getAttribute('aria-label')==='Name'"), "FORM explicit FOCUS selects first editable field");
+  const formEditsBefore = received.filter((message) => message.operation === "form.set").length;
+  await evaluate("(() => {const input=document.querySelector('.named-form-field input');for(const value of ['A','AB','Alice 😀']){input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));}document.querySelector('.named-form-controls button[type=submit]').click();})()");
+  await wait(() => fixtureForms.get("user.person").submitted && fixtureForms.get("user.person").fields[0].value === "Alice 😀", "FORM serial coalesced edits precede Submit");
+  await wait(() => evaluate("document.querySelector('.named-form-status')?.textContent==='Submitted'"), "FORM submitted result state");
+  await wait(() => evaluate("!document.querySelector('.named-form-field input')?.disabled"), "FORM submit receipt admits further typing");
+  const admittedFormEdits = received.filter((message) => message.operation === "form.set").slice(formEditsBefore);
+  assert(admittedFormEdits.length <= 2 && admittedFormEdits.every((message) => typeof message.expectRevision === "string" && message.expectGeneration === "9007199254741001"), "FORM serial edits preserve exact C revision tokens");
+  const beforeComposition = received.filter((message) => message.operation === "form.set").length;
+  await evaluate("(() => {const input=document.querySelector('.named-form-field input');input.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));input.value='未完';input.dispatchEvent(new Event('input',{bubbles:true}));})()");
+  await sleep(50);
+  assert.equal(received.filter((message) => message.operation === "form.set").length, beforeComposition, "FORM holds IME composition until commit");
+  await evaluate("(() => {const input=document.querySelector('.named-form-field input');input.value='完成 😀';input.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}));document.querySelector('.named-form-controls button:nth-child(2)').click();})()");
+  await wait(() => received.some((message) => message.operation === "form.cancel") && fixtureForms.get("user.person").fields[0].value === "Alice 😀" && !fixtureForms.get("user.person").dirty, "FORM Cancel restores submitted baseline");
+  await wait(() => evaluate("!document.querySelector('.named-form-field input')?.disabled"), "FORM Cancel receipt admits further typing");
+  const submitsBeforeComposition = received.filter((message) => message.operation === "form.submit").length;
+  await evaluate("(() => {const input=document.querySelector('.named-form-field input');input.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));input.value='submit composition';input.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('.named-form-controls button[type=submit]').click();})()");
+  await sleep(50);
+  assert.equal(received.filter((message) => message.operation === "form.submit").length, submitsBeforeComposition, "FORM Submit waits for active composition");
+  assert.equal(await evaluate("document.querySelector('.named-form-field input').disabled"), false, "FORM terminal intent keeps IME control enabled");
+  await evaluate("document.querySelector('.named-form-field input').dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}))");
+  await wait(() => received.filter((message) => message.operation === "form.submit").length > submitsBeforeComposition
+    && fixtureForms.get("user.person").fields[0].value === "submit composition" && !fixtureForms.get("user.person").dirty, "FORM compositionend drains edit then Submit");
+  await wait(() => evaluate("!document.querySelector('.named-form-field input')?.disabled"), "FORM composition Submit completes");
+  const returnsBeforeComposition = received.filter((message) => message.operation === "panel.return").length;
+  await evaluate("(() => {const input=document.querySelector('.named-form-field input');input.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));input.value='retained draft';input.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('.named-form-controls button:nth-child(3)').click();})()");
+  await sleep(50);
+  assert.equal(received.filter((message) => message.operation === "panel.return").length, returnsBeforeComposition, "FORM RETURN waits for active composition");
+  await evaluate("document.querySelector('.named-form-field input').dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}))");
+  await wait(async () => await evaluate("document.activeElement?.id==='the-command'") && fixtureForms.get("user.person").fields[0].value === "retained draft", "FORM RETURN flushes edit and restores origin");
+  await evaluate("document.querySelector('.named-form-toggle[data-panel-id=\"user.person.pane\"]').click()");
+  await wait(() => evaluate("document.activeElement?.getAttribute('aria-label')==='Name'"), "FORM focus restored after RETURN");
+  const editsBeforeExternal = received.filter((message) => message.operation === "form.set").length;
+  await evaluate("(() => {const input=document.querySelector('.named-form-field input');input.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));input.value='local conflict';input.dispatchEvent(new Event('input',{bubbles:true}));})()");
+  const changedForm = fixtureForms.get("user.person"); changedForm.draftRevision = String(BigInt(changedForm.draftRevision) + 1n); changedForm.fields[0].value = "external value"; publishFormState();
+  await wait(() => evaluate("document.querySelector('.named-form-status')?.textContent.includes('stale-revision') && !!document.querySelector('.named-form-controls button:last-child')"), "FORM stale edit is explicit");
+  await evaluate("document.querySelector('.named-form-field input').dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}))");
+  await sleep(50);
+  assert.equal(received.filter((message) => message.operation === "form.set").length, editsBeforeExternal, "FORM external change cannot rebase queued composition onto newer revision");
+  assert.equal(changedForm.fields[0].value, "external value", "stale FORM edit preserves C-owned value");
+  await evaluate("document.querySelector('.named-form-controls button:last-child').click()");
+  await wait(() => evaluate("document.querySelector('.named-form-field input')?.value==='external value' && !document.querySelector('.named-form-field input').disabled"), "FORM explicit reload reconciles conflict");
+  for (const [width, placement] of [[1280, "right"], [768, "below"], [390, "tab"]]) {
+    await viewport(width, 800);
+    await wait(() => received.some((message) => message.operation === "panel.layout" && message.panel === "user.person.pane" && message.placement === placement), `FORM measured ${placement} placement`);
+    const formBox = await geometry('.named-form-body'); assert(formBox.visible && formBox.width > 0 && formBox.width <= width, "FORM fields fit viewport and remain scrollable");
+  }
+  await evaluate("document.querySelector('.named-form-toggle[data-panel-id=\"user.options.pane\"]').click()");
+  await wait(() => evaluate("document.querySelector('.named-form-field input')?.getAttribute('aria-label')==='Option' && document.querySelector('.named-form-field input').value==='Guest'"), "second independent FORM retains own values");
   assert.deepEqual(await evaluate("({draft:document.querySelector('#the-command').value,dirty:document.querySelector('.status-line').dataset.bufferDirty,zone:document.querySelector('.status-line').dataset.focusZone,line:document.querySelector('.status-line').dataset.focusLine,cell:document.querySelector('.status-line').dataset.focusCell})"), preservedEditor, "DOCUMENT inspection preserves editor text cursor dirty state and command draft");
   fixturePanels = logFixturePanels;
-  fixturePanelState = { ...fixturePanelState, revision: 12, stateRevision: "15", panels: fixturePanels.map((panel) => ({ ...panel })) };
-  publishWorkbench(12, 0, "");
+  fixturePanelState = { ...fixturePanelState, revision: 13, stateRevision: "30", panels: fixturePanels.map((panel) => ({ ...panel })) };
+  publishWorkbench(13, 0, "");
   client.send(JSON.stringify(fixturePanelState));
   await viewport(1280, 800);
   const localCommandDraft = await evaluate("document.querySelector('#the-command').value");

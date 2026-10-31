@@ -14,12 +14,14 @@ import {
   X,
   Menu,
 } from "lucide-preact";
-import type { DriverMessage, FileListMessage, FrontendActionDefinition, ScreenRow, Snapshot, StyleRun, WorkbenchActionDefinition, WorkbenchPage, WorkbenchPanelDefinition, WorkbenchPanelState, WorkbenchPanelStateMessage, WorkbenchLogPage, WorkbenchLogRecord, WorkbenchDocumentPage } from "./types";
+import type { DriverMessage, FileListMessage, FrontendActionDefinition, ScreenRow, Snapshot, StyleRun, WorkbenchActionDefinition, WorkbenchPage, WorkbenchPanelDefinition, WorkbenchPanelState, WorkbenchPanelStateMessage, WorkbenchLogPage, WorkbenchLogRecord, WorkbenchDocumentPage, WorkbenchFormPage } from "./types";
 import { WorkbenchPageCollector, displayLogText, type WorkbenchCatalog } from "./workbench";
 import "./styles.css";
 import {RexxConsole, type ToolSession} from './rexx-console';
 import { consoleColourVariables, diagnosticColourVariables, renderColour as panelColour } from "./colours";
 import { HighlightPresentation } from "./highlight-presentation";
+import { WorkbenchForms, type FormView } from "./workbench-forms";
+import { NamedFormPane, type FormViewport } from "./form-pane";
 
 const keyNames: Record<string, string> = {
   ArrowLeft: "left",
@@ -185,6 +187,7 @@ function App() {
   const [documentViews, setDocumentViews] = useState<Record<string, NamedDocumentView>>({});
   const [documentErrors, setDocumentErrors] = useState<Record<string, string>>({});
   const [documentLoading, setDocumentLoading] = useState<Record<string, boolean>>({});
+  const [formViews, setFormViews] = useState<Record<string, FormView>>({});
   const [selectedAux, setSelectedAux] = useState("console");
   const [showProgramWithLog, setShowProgramWithLog] = useState(false);
   const [openMenu, setOpenMenu] = useState<"application" | "about" | null>(null);
@@ -230,6 +233,10 @@ function App() {
   const logPendingRef = useRef(new Set<string>());
   const documentViewsRef = useRef<Record<string, NamedDocumentView>>({});
   const documentPendingRef = useRef(new Map<string, DocumentRequest>());
+  const formsRef = useRef<WorkbenchForms | null>(null);
+  const pendingWorkbenchRef = useRef(new Set<string>());
+  const formFocusRef = useRef<HTMLDivElement | null>(null);
+  const formViewportsRef = useRef(new Map<string, FormViewport>());
   const focusSerialRef = useRef("0");
   const panelFocusOriginRef = useRef<HTMLElement | null>(null);
   const auxRailRef = useRef<HTMLDivElement | null>(null);
@@ -252,6 +259,7 @@ function App() {
     const socket = socketRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
     const id = nextId.current++;
+    if (typeof message.requestId === "string") pendingWorkbenchRef.current.add(message.requestId);
     socket.send(JSON.stringify({ v: 1, id, ...message }));
     return id;
   }, []);
@@ -327,6 +335,9 @@ function App() {
         logViewsRef.current = {};
         documentViewsRef.current = {};
         documentPendingRef.current.clear();
+        pendingWorkbenchRef.current.clear();
+        formsRef.current?.reset();
+        formViewportsRef.current.clear();
         logScrollRef.current.clear();
         logPendingRef.current.clear();
         layoutReportsRef.current.clear();
@@ -405,6 +416,7 @@ function App() {
             const next = message as WorkbenchPanelStateMessage;
             panelStateRef.current = next;
             setPanelState(next);
+            formsRef.current?.observe(next.panels);
             const liveKeys = new Set(next.panels.map((panel) => `${panel.id}:${panel.generation}`));
             const expired = Object.keys(documentViewsRef.current).filter((key) => !liveKeys.has(key));
             if (expired.length) {
@@ -417,10 +429,13 @@ function App() {
               if (!liveKeys.has(key)) documentPendingRef.current.delete(key);
             for (const key of logScrollRef.current.keys())
               if (!liveKeys.has(key)) logScrollRef.current.delete(key);
+            for (const key of formViewportsRef.current.keys())
+              if (!liveKeys.has(key)) formViewportsRef.current.delete(key);
             setDocumentLoading((loading) => Object.fromEntries(Object.entries(loading).filter(([key]) => liveKeys.has(key))));
             setDocumentErrors((errors) => Object.fromEntries(Object.entries(errors).filter(([key]) => liveKeys.has(key))));
             for (const panel of next.panels) {
               if (!panel.visible) continue;
+              if (panel.kind === "fields") continue;
               if (panel.kind === "document") {
                 const view = documentViewsRef.current[`${panel.id}:${panel.generation}`];
                 if (!view || view.page.documentRevision !== panel.documentRevision)
@@ -477,8 +492,12 @@ function App() {
             const next = { page, start: { line: pending.line, offset: pending.offset }, previous: pending.previous };
             documentViewsRef.current = { ...documentViewsRef.current, [key]: next };
             setDocumentViews(documentViewsRef.current);
+          } else if ("type" in message && message.type === "workbench" && (message as { operation?: string }).operation === "form") {
+            formsRef.current?.page((message as unknown as { data: WorkbenchFormPage }).data);
           } else if ("type" in message && message.type === "workbench" && (message as { operation?: string }).operation === "result") {
-            const result = message as { code?: string; message?: string; requestId?: string };
+            const result = message as { code?: string; message?: string; requestId?: string; state?: string; draftRevision?: string };
+            if (result.state !== "queued" && result.requestId) pendingWorkbenchRef.current.delete(result.requestId);
+            formsRef.current?.result(result);
             if (!result.requestId) {
               logPendingRef.current.clear();
               if (result.code && result.code !== "ok") {
@@ -496,7 +515,7 @@ function App() {
               if (Number.isSafeInteger(sequence) && sequence > 0)
                 workbenchNextRequestRef.current = Math.max(workbenchNextRequestRef.current, sequence + 1);
             }
-            if (result.code && result.code !== "ok") {
+            if (result.state !== "queued" && result.code && result.code !== "ok") {
               const reason = result.message || result.code;
               setLastError(reason);
               appendDockEntry("error", reason);
@@ -638,10 +657,18 @@ function App() {
     operation: "show" | "hide" | "focus" | "return") => {
     if (!workbenchSessionRef.current) return;
     if (operation === "focus") rememberPanelFocusOrigin();
-    send({ type: "workbench", version: 1, operation: `panel.${operation}`,
-      requestId: `${workbenchSessionRef.current}.${workbenchNextRequestRef.current++}`,
-      panel, expectGeneration: generation });
+    const requestId = `${workbenchSessionRef.current}.${workbenchNextRequestRef.current++}`;
+    if (send({ type: "workbench", version: 1, operation: `panel.${operation}`,
+      requestId, panel, expectGeneration: generation }) !== undefined) return requestId;
   }, [rememberPanelFocusOrigin, send]);
+
+  if (!formsRef.current) formsRef.current = new WorkbenchForms({
+    send, changed: setFormViews,
+    nextId: () => `${workbenchSessionRef.current}.${workbenchNextRequestRef.current++}`,
+    available: () => !!workbenchSessionRef.current && !pendingWorkbenchRef.current.size,
+    focus: (panel) => sendPanelOperation(panel.id, panel.generation, "focus"),
+    returning: (panel) => sendPanelOperation(panel.id, panel.generation, "return"),
+  });
 
   const selectProgramConsole = useCallback(() => {
     const focused = panelStateRef.current?.panels.find((panel) => panel.focused);
@@ -796,7 +823,8 @@ function App() {
       event.preventDefault(); event.stopPropagation();
       const pane = (event.target as HTMLElement).closest<HTMLElement>(".named-panel-pane");
       const state = panelStateRef.current?.panels.find((item) => item.id === pane?.dataset.panelId);
-      if (state?.focused) sendPanelOperation(state.id, state.generation, "return");
+      if (state?.kind === "fields" && state.focused) formsRef.current?.intent(state, "return");
+      else if (state?.focused) sendPanelOperation(state.id, state.generation, "return");
       else returnToFile();
       return;
     }
@@ -807,6 +835,10 @@ function App() {
         || (event.ctrlKey || event.metaKey) && ["s", "z", "y", "x", "v"].includes(event.key.toLowerCase()))) {
       event.preventDefault(); event.stopPropagation();
       return;
+    }
+    if (!openMenu && (event.target as HTMLElement).closest(".named-fields-pane")
+      && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+      event.preventDefault(); event.stopPropagation(); return;
     }
     if (!openMenu && event.key === "Tab" && event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey &&
         (event.target === consoleButtonRef.current || event.target === mobileConsoleButtonRef.current)) {
@@ -1012,6 +1044,8 @@ function App() {
     && activeNamedPanel.kind === "log"
     ? logViews[`${activeNamedPanel.model}:${activeNamedPanel.modelGeneration}`] : undefined;
   const activePanelKey = activeNamedPanel ? `${activeNamedPanel.id}:${activeNamedPanel.generation}` : "";
+  if (activeNamedPanel?.kind === "fields" && !formViewportsRef.current.has(activePanelKey))
+    formViewportsRef.current.set(activePanelKey, { top: 0, left: 0, field: "", start: 0, end: 0 });
   const documentView = documentViews[activePanelKey];
   const activeDocumentPage = activeNamedPanel?.documentAvailable
     && documentView?.page.documentId === activeNamedPanel.documentId
@@ -1047,7 +1081,10 @@ function App() {
       setSelectedAux(focus.panel);
       setShowProgramWithLog(false);
       setMobilePane("console");
-      window.requestAnimationFrame(() => window.requestAnimationFrame(() => namedLogRef.current?.focus()));
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+        if (formFocusRef.current) formFocusRef.current.focus();
+        else namedLogRef.current?.focus();
+      }));
     }
   }, [focusEditor, panelState?.focus]);
 
@@ -1199,7 +1236,7 @@ function App() {
           Console{toolSession?.job.waiting ? " · Input requested" : toolSession?.job.running ? " · Running" : ""}
         </button>
         {workbench?.panels.map((panel) => <button type="button" key={panel.id}
-          class={panel.kind === "document" ? "named-document-toggle" : "named-log-toggle"} data-panel-id={panel.id}
+          class={`named-${panel.kind === "fields" ? "form" : panel.kind}-toggle`} data-panel-id={panel.id}
           onPointerDown={rememberPanelFocusOrigin}
           aria-pressed={activeAux === panel.id && visibleNamedPanels.some((item) => item.id === panel.id)}
           onClick={() => showOrFocusPanel(panel)}>{panel.title}</button>)}
@@ -1396,6 +1433,7 @@ function App() {
             : <p class="empty-directory">Program console unavailable: no program tools were provided.</p>}
         </div>
         {activeNamedPanel ? <div class={`named-panel-pane named-${activeNamedPanel.kind}-pane`} data-panel-id={activeNamedPanel.id}
+          onPointerDown={rememberPanelFocusOrigin}
           onBeforeInput={(event) => { if (activeNamedPanel.kind === "document") { event.preventDefault(); event.stopPropagation(); } }}
           onPaste={(event) => { if (activeNamedPanel.kind === "document") { event.preventDefault(); event.stopPropagation(); } }}
           onDrop={(event) => { if (activeNamedPanel.kind === "document") { event.preventDefault(); event.stopPropagation(); } }}
@@ -1431,6 +1469,10 @@ function App() {
                 onClick={() => requestDocumentPage(activeNamedPanel)}>Refresh</button>
             </div>
           </> : null}
+          {activeNamedPanel.kind === "fields" ? activePanelPlacement !== "none" ? <NamedFormPane panel={activeNamedPanel}
+            view={formViews[`${activeNamedPanel.form}:${activeNamedPanel.formGeneration}`]} forms={formsRef.current!}
+            viewport={formViewportsRef.current.get(activePanelKey)!}
+            focusRef={(node) => { formFocusRef.current = node; }} /> : null :
           <pre class={`named-panel-output named-${activeNamedPanel.kind}-output`} hidden={activePanelPlacement === "none"} ref={(node) => {
             const key = `${activeNamedPanel.id}:${activeNamedPanel.generation}`;
             if (node) {
@@ -1452,7 +1494,7 @@ function App() {
               <span class="named-document-line" key={`${record.line}:${record.offset}`}><span class="named-document-line-number" aria-hidden="true">{record.line}{record.offset ? "+" : ""}</span><span>{displayLogText(record.text)}</span></span>)
               : activeNamedLog?.records.map((record) => <span key={`${record.cursor}:${record.offset}`}
               class={record.stream === 2 ? "named-log-stderr" : "named-log-stdout"}>
-              {displayLogText(record.text)}</span>)}</pre>
+              {displayLogText(record.text)}</span>)}</pre>}
         </div> : null}
         </div>
       </section>

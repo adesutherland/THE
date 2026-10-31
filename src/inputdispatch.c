@@ -6,6 +6,7 @@
 #include "thedriver.h"
 #include "vars.h"
 #include "frontendpolicy.h"
+#include "panelui.h"
 
 short the_input_dispatch_command(const char *command, int restricted)
 {
@@ -69,4 +70,12 @@ short the_input_dispatch_workbench_panel(const TheInputEvent *input)
    if (!input || input->kind != THE_INPUT_WORKBENCH_PANEL) return RC_INVALID_OPERAND;
    return the_workbench_panel_operation(the_input_event_workbench_panel_id(input),
       the_input_event_workbench_panel_generation(input),the_input_event_workbench_panel_operation(input));
+}
+static int form_modal(void) { return the_panel_active!=NULL; }
+short the_input_dispatch_workbench_form(const TheInputEvent *input)
+{
+   TheWorkbenchFormRequest request;
+   if (!the_input_event_workbench_form(input,&request)) return RC_INVALID_OPERAND;
+   the_workbench_forms_modal_lookup(form_modal);
+   return the_workbench_form_request(&request);
 }

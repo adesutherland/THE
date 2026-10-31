@@ -7,6 +7,7 @@
 #include "panelui.h"
 #include "query.h"
 #include "editordocument.h"
+#include "workbenchform.h"
 
 #include <ctype.h>
 #include <limits.h>
@@ -270,6 +271,35 @@ static int fallback_tokens(const Token *t,TheWorkbenchPlacement *out,size_t *cou
    return 1;
 }
 
+static int unsigned64_value(const Token *t,uint64_t *value);
+static int form_modal(void) { return the_panel_active!=NULL; }
+static short form_request_tokens(const Tokens *tokens)
+{
+   const Token *t=tokens->values; size_t n=tokens->count,i; TheWorkbenchFormRequest r; const TheWorkbenchFormState *s;
+   memset(&r,0,sizeof(r));
+   if(n<3 || t[2].quoted || strlen(t[2].text)>THE_WORKBENCH_ID_MAX) return bad();
+   strcpy(r.form,t[2].text);
+   if(keyword(t,"FIELD"))
+   {
+      if(n<8 || t[3].quoted || strlen(t[3].text)>THE_WORKBENCH_ID_MAX || !keyword(t+4,"VALUE") || !t[5].quoted) return bad();
+      r.operation=THE_WORKBENCH_FORM_SET; strcpy(r.field,t[3].text); r.length=strlen(t[5].text);
+      if(r.length>THE_WORKBENCH_FIELD_VALUE_MAX) return the_workbench_result("limit-exceeded",94,"Field value byte limit exceeded");
+      memcpy(r.value,t[5].text,r.length+1); i=6;
+   }
+   else { r.operation=keyword(t+1,"SUBMIT") ? THE_WORKBENCH_FORM_SUBMIT : THE_WORKBENCH_FORM_CANCEL; i=3; }
+   for(;i<n;i+=2)
+   {
+      if(i+1>=n) return bad();
+      if(keyword(t+i,"EXPECT") && !r.draft_revision) { if(!unsigned64_value(t+i+1,&r.draft_revision) || !r.draft_revision) return bad(); }
+      else if(keyword(t+i,"GENERATION") && !r.form_generation) { if(!generation_value(t+i+1,&r.form_generation)) return bad(); }
+      else return bad();
+   }
+   if(!r.draft_revision && r.operation!=THE_WORKBENCH_FORM_CANCEL) return bad();
+   s=the_workbench_form_state(r.form);
+   if(s) { if(!r.form_generation) r.form_generation=s->generation; if(!r.draft_revision) r.draft_revision=s->draft_revision; }
+   the_workbench_forms_modal_lookup(form_modal);
+   return the_workbench_form_request(&r);
+}
 static short command_operands(const char *operands)
 {
    Tokens tokens;
@@ -278,6 +308,31 @@ static short command_operands(const char *operands)
    if (!tokenize(operands,&tokens)) return bad();
    n = tokens.count;
    if (!n) return bad();
+   if(keyword(t,"FORM"))
+   {
+      TheWorkbenchForm form;
+      if(n>=3 && (keyword(t+1,"SUBMIT") || keyword(t+1,"CANCEL"))) return form_request_tokens(&tokens);
+      if(n!=3 || t[2].quoted || strlen(t[2].text)>THE_WORKBENCH_ID_MAX) return bad();
+      if(keyword(t+1,"REMOVE")) return the_workbench_remove_form(t[2].text);
+      if(!keyword(t+1,"PUT")) return bad();
+      memset(&form,0,sizeof(form)); strcpy(form.id,t[2].text); return the_workbench_put_form(&form);
+   }
+   if(keyword(t,"FIELD"))
+   {
+      TheWorkbenchField field;
+      if(n>=2 && keyword(t+1,"SET")) return form_request_tokens(&tokens);
+      if(n==4 && keyword(t+1,"REMOVE") && !t[2].quoted && !t[3].quoted) return the_workbench_remove_field(t[2].text,t[3].text);
+      if(n!=12 || !keyword(t+1,"PUT") || t[2].quoted || t[3].quoted
+      || strlen(t[2].text)>THE_WORKBENCH_ID_MAX || strlen(t[3].text)>THE_WORKBENCH_ID_MAX
+      || !keyword(t+4,"LABEL") || !t[5].quoted || strlen(t[5].text)>THE_WORKBENCH_LABEL_MAX
+      || !keyword(t+6,"VALUE") || !t[7].quoted || !keyword(t+8,"ACCESS") || !keyword(t+10,"MAXCELLS")) return bad();
+      if(strlen(t[7].text)>THE_WORKBENCH_FIELD_VALUE_MAX) return the_workbench_result("limit-exceeded",94,"Field value byte limit exceeded");
+      memset(&field,0,sizeof(field)); strcpy(field.form,t[2].text); strcpy(field.id,t[3].text); strcpy(field.label,t[5].text); strcpy(field.value,t[7].text);
+      if(keyword(t+9,"EDIT")) field.access=THE_WORKBENCH_FIELD_EDIT;
+      else if(keyword(t+9,"READONLY")) field.access=THE_WORKBENCH_FIELD_READONLY; else return bad();
+      if(!order_value(t+11,&field.maxcells)) return bad();
+      return the_workbench_put_field(&field);
+   }
    if (keyword(&t[0],"BEGIN") && n == 3 && keyword(&t[1],"OWNER") && !t[2].quoted)
       return the_workbench_begin(t[2].text);
    if (keyword(&t[0],"COMMIT") && n == 1) return the_workbench_commit();
@@ -359,6 +414,7 @@ static short command_operands(const char *operands)
    if (keyword(&t[0],"PANEL"))
    {
       TheWorkbenchPanel p; TheWorkbenchPanelOperation op;
+      if(n>=2 && keyword(t+1,"APPLY")) return the_workbench_result("unsupported-feature",-3,"Editable file-field apply requires the core edit-group service");
       if (n >= 2 && (op=panel_operation_token(t+1)))
       {
          if (n != 3 || t[2].quoted) return bad();
@@ -368,6 +424,9 @@ static short command_operands(const char *operands)
       memset(&p,0,sizeof(p));
       if (n >= 5 && keyword(t+1,"PUT") && keyword(t+3,"KIND") && !keyword(t+4,"LOG"))
       {
+         if(keyword(t+4,"FIELDS") && n==7 && keyword(t+5,"FORM") && !t[2].quoted && !t[6].quoted
+         && strlen(t[2].text)<=THE_WORKBENCH_ID_MAX && strlen(t[6].text)<=THE_WORKBENCH_ID_MAX)
+         { p.kind=THE_WORKBENCH_PANEL_FIELDS; strcpy(p.id,t[2].text); strcpy(p.form,t[6].text); return the_workbench_put_panel(&p); }
          if (!keyword(t+4,"DOCUMENT") || (n>5 && keyword(t+5,"FILE")))
             return the_workbench_result("unsupported-feature",RC_INVALID_ENVIRON,"Only live read-only buffer documents are implemented");
          if (n!=9 || t[2].quoted || strlen(t[2].text)>THE_WORKBENCH_ID_MAX
@@ -423,7 +482,9 @@ short the_workbench_command(const char *operands)
    while (*p && *p != ' ' && *p != '\t' && n < 15) first.text[n++]=*p++;
    while (*p == ' ' || *p == '\t') p++;
    n=0; while (*p && *p != ' ' && *p != '\t' && n < 15) second.text[n++]=*p++;
-   runtime=keyword(&first,"INVOKE") || (keyword(&first,"PANEL") && panel_operation_token(&second));
+   runtime=keyword(&first,"INVOKE") || (keyword(&first,"PANEL") && panel_operation_token(&second))
+      || (keyword(&first,"FIELD") && keyword(&second,"SET"))
+      || (keyword(&first,"FORM") && (keyword(&second,"SUBMIT") || keyword(&second,"CANCEL")));
    rc=command_operands(operands);
    if (rc != RC_OK && !runtime) the_workbench_poison_definition();
    return rc;
@@ -494,6 +555,23 @@ static int query_document(const Tokens *tokens,char *json,size_t capacity)
    }
    return the_workbench_document_json(json,capacity,tokens->values[1].text,expected,line,offset,records,bytes)==RC_OK ? 1 : -1;
 }
+static int query_form(const Tokens *tokens,char *json,size_t capacity)
+{
+   size_t n,offset=0,limit=8,bytes=8192; uint64_t value; unsigned seen=0,bit; int submitted=keyword(tokens->values,"FORM");
+   if(tokens->count<2 || tokens->values[1].quoted) return 0;
+   n=2;
+   if(submitted) { if(tokens->count<3 || !keyword(tokens->values+2,"RESULT")) return 0; n=3; }
+   for(;n<tokens->count;n+=2)
+   {
+      if(n+1>=tokens->count || !unsigned64_value(tokens->values+n+1,&value) || value>SIZE_MAX) return 0;
+      if(keyword(tokens->values+n,"OFFSET")) { bit=1; offset=(size_t)value; }
+      else if(keyword(tokens->values+n,"LIMIT")) { bit=2; limit=(size_t)value; }
+      else if(keyword(tokens->values+n,"BYTES")) { bit=4; bytes=(size_t)value; }
+      else return 0;
+      if(seen & bit) return 0; seen|=bit;
+   }
+   return the_workbench_form_json(json,capacity,tokens->values[1].text,offset,limit,bytes,submitted)==RC_OK ? 1 : -1;
+}
 
 static unsigned long inspection_refusal_serial;
 unsigned long the_workbench_inspection_refusal_serial(void)
@@ -519,6 +597,13 @@ short extract_workbench(short number_variables,short itemno,CHARTYPE *itemargs,C
       if (tokens.values[0].quoted) return query_bad();
       for (n = 0; tokens.values[0].text[n]; n++) tokens.values[0].text[n] = (char)toupper((unsigned char)tokens.values[0].text[n]);
       section = tokens.values[0].text;
+      if(!strcmp(section,"FIELDS") || !strcmp(section,"FORM"))
+      {
+         int admitted=query_form(&tokens,json,sizeof(json));
+         if(admitted<0) { inspection_refusal_serial++; return EXTRACT_ARG_ERROR; }
+         if(!admitted) return query_bad();
+         goto formatted;
+      }
       if (!strcmp(section,"LOG") || !strcmp(section,"DOCUMENT"))
       {
          int admitted=!strcmp(section,"LOG") ? query_log(&tokens,json,sizeof(json)) : query_document(&tokens,json,sizeof(json));

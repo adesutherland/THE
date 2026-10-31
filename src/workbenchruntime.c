@@ -59,6 +59,8 @@ short the_workbench_runtime_publish(TheWorkbenchPanel *panels, size_t count)
    for (i=0;i<count;i++)
    {
       int index;
+      if(panels[i].kind==THE_WORKBENCH_PANEL_FIELDS)
+      { panels[i].model_generation=0; goto panel_state; }
       if (panels[i].kind==THE_WORKBENCH_PANEL_DOCUMENT)
       {
          TheWorkbenchDocumentInfo info;
@@ -98,8 +100,12 @@ panel_state:
       {
          const TheWorkbenchPanel *previous=the_workbench_panel_find(panels[i].id);
          if (previous && previous->kind==panels[i].kind
-         && previous->document_id==panels[i].document_id && !strcmp(previous->model,panels[i].model))
-         { next[i]=states[j]; next[i].generation=panels[i].generation; }
+         && previous->document_id==panels[i].document_id && !strcmp(previous->model,panels[i].model)
+         && !strcmp(previous->form,panels[i].form))
+         {
+            next[i]=states[j]; next[i].generation=panels[i].generation;
+            if(previous->form_generation!=panels[i].form_generation) next[i].focused=0;
+         }
          break;
       }
    }

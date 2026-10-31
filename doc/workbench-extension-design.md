@@ -1,7 +1,8 @@
 # Extensible THE workbench: staged design and frozen contract
 
-**Status: phase 1, phase-2A LOG and phase-2B live read-only DOCUMENT cores are
-implemented in development source; later phases remain proposed.** Use [shared workbench actions and menus](workbench-actions-menus.md)
+**Status: phase 1, phase-2A LOG, phase-2B live read-only DOCUMENT and phase-3A
+independent form cores are implemented in development source; later phases
+remain proposed.** Use [shared workbench actions and menus](workbench-actions-menus.md)
 for the implemented grammar, limits, transactions and surface behavior. This
 document retains the broader frozen contract and staged design; it does not
 claim that later commands, registries or protocol extensions are implemented or
@@ -15,7 +16,7 @@ layout authoritative.
 Phase 1 provides the shared C action/menu/item registry, owner-bound definition
 transactions, outer profile publication, QUERY/EXTRACT pages and explicit
 builtin/command/macro invocation. Terminal, GTK, browser/Wasm and LLM adapters
-consume the published definitions. `TOOL` actions, file-backed DOCUMENT/field panes, forms,
+consume the published definitions. `TOOL` actions, file-backed DOCUMENT/field panes,
 file routes, new execution adapters and file-output publication remain later-phase
 contracts. Existing RX tools and console behavior retain their own interfaces.
 The [phase-2A LOG guide](workbench-log-panes.md) describes transactional LOG
@@ -24,6 +25,9 @@ inspection. The [phase-2B DOCUMENT guide](workbench-document-panes.md) describes
 immutable live-buffer bindings, conservative revision tokens and copied bounded
 pages, including safe pending records and close/reopen isolation. FILE-path
 snapshots remain deferred; physical frontend qualification is a separate gate.
+The [phase-3A form guide](workbench-forms.md) describes independent staged values
+and submitted results. Atomic editor apply and editable file projections remain
+separate Phase3B/3C gates; the conservative read epoch is not an apply token.
 
 The implementation's invocation generation guard uses `INVOKE id EXPECT n`;
 macro argument vectors are not implemented in phase 1. Examples and wider object
@@ -136,7 +140,9 @@ session revision. Public IDs use ASCII letters/digits/dot/underscore/
 hyphen, begin with a letter, and are at most 63 bytes. IDs are case-sensitive;
 command keywords follow THE's case-insensitive convention. `the.*` is reserved
 for built-ins. IDs are unique within each object kind across the session;
-item IDs are unique among all items, including items in different menus. An ID
+item IDs are unique among all items, including items in different menus.
+Phase3A field IDs are scoped to their form, identified by `(form-id, field-id)`.
+An ID
 may be reused in a different kind, but references are always typed. Removing and
 recreating an ID allocates a new generation; replacement also advances its
 generation. Generations and revisions are opaque nonnegative integers, never
@@ -584,7 +590,7 @@ frontend to trim.
 | Log text / aggregate retained model text | 256 KiB per model / 8 MiB per session | 2 |
 | Program jobs / queued normalized requests | One active program / 64 queued requests | 2 |
 | Browser invocation receipts | 256 retained IDs per session nonce; no replay after eviction | 1 |
-| Forms / fields / field value | 32 forms / 128 fields per form / 4,096 UTF-8 bytes per field | 3 |
+| Forms / fields / field value | Phase3A: 32 forms / 128 fields per form, 512 per session / 1,024 UTF-8 bytes per field; later expansion to 4,096 requires transport qualification | 3 |
 | Field logical width | 1 through 1,024 cells; byte and cell limits both apply | 3 |
 | Tools / routes | 32 tool definitions / 32 route templates per session | 4 |
 | File stdin / staged file output | 8 MiB / 8 MiB, including starting bytes for APPEND | 4 |

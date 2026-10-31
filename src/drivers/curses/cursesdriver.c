@@ -8,6 +8,7 @@
 #include "workbench.h"
 #include "workbenchruntime.h"
 #include "workbenchdocument.h"
+#include "workbenchform.h"
 
 /* ncurses always provides batched refresh. Some generated configurations
  * leave HAVE_WNOUTREFRESH unset; the legacy wrefresh fallback would then
@@ -1044,6 +1045,14 @@ typedef struct
    char text[THE_WORKBENCH_DOCUMENT_BYTES_MAX * 4 + 65], reason[64];
    size_t length;
 } NativeDocumentView;
+typedef struct
+{
+   unsigned long generation;
+   uint64_t revision, pending, receipt;
+   int active, cell, top, blocked;
+   char error[64];
+} NativeFormView;
+static uint64_t native_form_request_id;
 static struct
 {
    char selected[THE_WORKBENCH_ID_MAX + 1];
@@ -1058,13 +1067,56 @@ static struct
       uint64_t revision, anchor_cursor;
       size_t anchor_offset;
       NativeDocumentView document;
+      NativeFormView form;
    } views[THE_WORKBENCH_PANEL_MAX];
    size_t count;
 } log_ui;
 
 static int native_log_focused(void) { return log_ui.focused; }
 static int native_text_panel(const TheWorkbenchPanel *panel)
-{ return panel->kind == THE_WORKBENCH_PANEL_LOG || panel->kind == THE_WORKBENCH_PANEL_DOCUMENT; }
+{ return panel->kind == THE_WORKBENCH_PANEL_LOG || panel->kind == THE_WORKBENCH_PANEL_DOCUMENT || panel->kind == THE_WORKBENCH_PANEL_FIELDS; }
+
+static const TheWorkbenchField *native_form_field(const char *form, size_t index)
+{
+   size_t i;
+   for (i = 0; i < the_workbench_field_count(); i++)
+   {
+      const TheWorkbenchField *field = the_workbench_field_at(i);
+      if (!strcmp(field->form, form) && !index--) return field;
+   }
+   return NULL;
+}
+
+static void native_form_sync(const TheWorkbenchPanel *panel, NativeFormView *view, int focus)
+{
+   const TheWorkbenchFormState *state = the_workbench_form_state(panel->form);
+   const TheWorkbenchFormReceipt *receipt = the_workbench_form_receipt();
+   if (!state) { view->blocked = 1; strcpy(view->error, "missing-form"); return; }
+   if (focus || !view->generation)
+   {
+      if (view->generation != state->generation) { view->active = 0; view->cell = 0; view->top = 0; }
+      view->generation = state->generation; view->revision = state->draft_revision;
+      view->pending = 0; view->blocked = 0; view->error[0] = 0;
+      if (view->active > (int)state->fields + 2) view->active = 0;
+      while (view->active < (int)state->fields && native_form_field(panel->form, view->active)->access != THE_WORKBENCH_FIELD_EDIT) view->active++;
+   }
+   if (view->pending && receipt && receipt->request_id == view->pending && receipt->serial != view->receipt)
+   {
+      view->receipt = receipt->serial; view->pending = 0;
+      if (!receipt->rc)
+      {
+         view->revision = receipt->draft_revision; view->error[0] = 0;
+         if (receipt->caret >= 0) view->cell = receipt->caret;
+      }
+      else
+      {
+         snprintf(view->error, sizeof(view->error), "%s", receipt->code);
+         view->blocked = !strcmp(receipt->code, "stale-revision") || !strcmp(receipt->code, "stale-generation");
+      }
+   }
+   if (state->generation != view->generation || (!view->pending && state->draft_revision != view->revision))
+   { view->blocked = 1; strcpy(view->error, "stale-revision; refocus form"); }
+}
 
 static size_t native_log_count(void)
 {
@@ -1142,6 +1194,9 @@ static void native_logs_sync(void)
          }
          strcpy(log_ui.selected, panel->id); log_ui.selected_generation = panel->generation;
          log_ui.focused = 1; workbench_control = THE_WORKBENCH_EDITOR;
+         if (panel->kind == THE_WORKBENCH_PANEL_FIELDS)
+            for (i = 0; i < log_ui.count; i++) if (!strcmp(log_ui.views[i].id, panel->id))
+               native_form_sync(panel, &log_ui.views[i].form, 1);
          if (the_tool_console()->focused)
             the_tool_console_visibility(the_tool_console()->visible, 0);
       }
@@ -1640,6 +1695,118 @@ static void native_document_draw(const TheWorkbenchPanel *panel)
    wnoutrefresh(console_window);
 }
 
+static int native_form_event(const TheWorkbenchPanel *panel, NativeFormView *view,
+   TheWorkbenchFormOperation operation, TheWorkbenchFormEdit edit, uint32_t codepoint, TheInputEvent *event)
+{
+   TheWorkbenchFormRequest request = {0};
+   const TheWorkbenchField *field = native_form_field(panel->form, view->active);
+   native_form_sync(panel, view, 0);
+   if (view->pending || view->blocked) return 0;
+   request.operation = operation; request.edit = edit; request.cell = view->cell; request.codepoint = codepoint;
+   request.request_id = ++native_form_request_id; request.form_generation = view->generation; request.draft_revision = view->revision;
+   strcpy(request.panel, panel->id); request.panel_generation = panel->generation; strcpy(request.form, panel->form);
+   if (operation == THE_WORKBENCH_FORM_EDIT)
+   { if (!field) return 0; strcpy(request.field, field->id); }
+   if (!the_input_event_from_workbench_form(&request, event)) return 0;
+   view->pending = request.request_id;
+   return 1;
+}
+
+static void native_form_draw(const TheWorkbenchPanel *panel)
+{
+   int index = native_log_view(panel), visible = max(1, (console_rows - 3) / 2), row, n, cursor_row = 1, cursor_col = 1;
+   const TheWorkbenchFormState *state = the_workbench_form_state(panel->form);
+   NativeFormView *view;
+   char heading[THE_WORKBENCH_LABEL_MAX + 32], status[160];
+   if (index < 0) return;
+   view = &log_ui.views[index].form; native_form_sync(panel, view, 0);
+   wattrset(console_window, console_theme_attr(log_ui.focused ? ATTR_CONSOLESELECTED : ATTR_CONSOLEHEADER, 0));
+   snprintf(heading, sizeof(heading), " Form: %s", panel->title);
+   console_write_text(0, 0, heading, strlen(heading), console_cols - 1);
+   wattrset(console_window, console_theme_attr(ATTR_CONSOLECONTROL, 0));
+   console_write_text(1, 1, "Submit  Cancel  Return", 22, console_cols - 2);
+   if (state)
+   {
+      if (view->active < (int)state->fields)
+      {
+         if (view->active < view->top) view->top = view->active;
+         if (view->active >= view->top + visible) view->top = view->active - visible + 1;
+      }
+      for (n = view->top, row = 2; n < (int)state->fields && n < view->top + visible && row + 1 < console_rows - 1; n++, row += 2)
+      {
+         const TheWorkbenchField *field = native_form_field(panel->form, n);
+         const TheWorkbenchFieldState *value = field ? the_workbench_field_state(panel->form, field->id) : NULL;
+         char label[THE_WORKBENCH_LABEL_MAX + 32];
+         int left = n == view->active ? max(0, view->cell - console_cols + 4) : 0;
+         TextCellSlice slice;
+         if (!field || !value) continue;
+         snprintf(label, sizeof(label), "%s%s", field->label, field->access == THE_WORKBENCH_FIELD_READONLY ? " [Read-only]" : "");
+         wattrset(console_window, console_theme_attr(ATTR_CONSOLESTATUS, 0));
+         console_write_text(row, 1, label, strlen(label), console_cols - 2);
+         wattrset(console_window, console_theme_attr(field->access == THE_WORKBENCH_FIELD_READONLY ? ATTR_CONSOLESTATUS : ATTR_CONSOLEINPUT, 0));
+         mvwhline(console_window, row + 1, 1, ' ', console_cols - 2);
+         slice = textpos_slice_cells((const CHARTYPE *)value->value, value->length, left, console_cols - 3);
+         console_write_text(row + 1, 1, value->value + slice.start.byte_offset,
+            slice.end.byte_offset - slice.start.byte_offset, console_cols - 3);
+         if (n == view->active) { cursor_row = row + 1; cursor_col = min(console_cols - 2, 1 + view->cell - left); }
+      }
+      if (view->active >= (int)state->fields) cursor_col = 1 + 8 * (view->active - (int)state->fields);
+   }
+   wattrset(console_window, console_theme_attr(ATTR_CONSOLESTATUS, 0));
+   if (view->error[0]) snprintf(status, sizeof(status), " %s", view->error);
+   else snprintf(status, sizeof(status), " %s | Tab fields  F12 panes  Esc Return", state && state->dirty ? "Draft" : state && state->submitted ? "Submitted" : "Ready");
+   console_write_text(console_rows - 1, 0, status, strlen(status), console_cols - 1);
+   wmove(console_window, cursor_row, cursor_col); leaveok(console_window, log_ui.focused ? FALSE : TRUE);
+   wnoutrefresh(console_window);
+}
+
+static int native_form_key(const TheWorkbenchPanel *panel, int key, TheInputEvent *event)
+{
+   int index = native_log_view(panel), step;
+   const TheWorkbenchFormState *state = the_workbench_form_state(panel->form);
+   NativeFormView *view;
+   const TheWorkbenchField *field;
+   const TheWorkbenchFieldState *value;
+   TheInputEvent input = *event;
+   if (index < 0 || !state) return 0;
+   view = &log_ui.views[index].form; native_form_sync(panel, view, 0);
+   if (key == 27) return native_log_event(panel, THE_WORKBENCH_PANEL_RETURN, event);
+   if (key == 9 || key == THE_KEY_BTAB)
+   {
+      step = key == 9 ? 1 : -1;
+      do { view->active = (view->active + (int)state->fields + 3 + step) % ((int)state->fields + 3); }
+      while (view->active < (int)state->fields && native_form_field(panel->form, view->active)->access != THE_WORKBENCH_FIELD_EDIT);
+      view->cell = 0; curses_driver_update(); return 0;
+   }
+   if (view->active >= (int)state->fields)
+   {
+      if (key != 10 && key != 13 && key != THE_KEY_ENTER && key != ' ') return 0;
+      step = view->active - (int)state->fields;
+      if (step == 2) return native_log_event(panel, THE_WORKBENCH_PANEL_RETURN, event);
+      return native_form_event(panel, view, step ? THE_WORKBENCH_FORM_CANCEL : THE_WORKBENCH_FORM_SUBMIT, 0, 0, event);
+   }
+   field = native_form_field(panel->form, view->active);
+   value = field ? the_workbench_field_state(panel->form, field->id) : NULL;
+   if (!value) return 0;
+   if (key == THE_KEY_LEFT || key == THE_KEY_RIGHT || key == THE_KEY_HOME || key == THE_KEY_END)
+   {
+      TextPos at = textpos_from_cell((const CHARTYPE *)value->value, value->length, view->cell, TEXT_SNAP_BACKWARD);
+      if (key == THE_KEY_LEFT) view->cell = textpos_prev_cluster((const CHARTYPE *)value->value, value->length, at).cell_column;
+      else if (key == THE_KEY_RIGHT) view->cell = textpos_next_cluster((const CHARTYPE *)value->value, value->length, at).cell_column;
+      else view->cell = key == THE_KEY_HOME ? 0 : textpos_from_byte((const CHARTYPE *)value->value, value->length, value->length).cell_column;
+      curses_driver_update(); return 0;
+   }
+   if (key == 8 || key == 127 || key == THE_KEY_BACKSPACE)
+      return native_form_event(panel, view, THE_WORKBENCH_FORM_EDIT, THE_WORKBENCH_FORM_BACKSPACE, 0, event);
+   if (key == THE_KEY_DC) return native_form_event(panel, view, THE_WORKBENCH_FORM_EDIT, THE_WORKBENCH_FORM_DELETE, 0, event);
+   if (key == 21) { view->cell = 0; return native_form_event(panel, view, THE_WORKBENCH_FORM_EDIT, THE_WORKBENCH_FORM_CLEAR, 0, event); }
+   if (input.kind == THE_INPUT_TEXT && input.codepoint >= 32)
+      return native_form_event(panel, view, THE_WORKBENCH_FORM_EDIT, THE_WORKBENCH_FORM_INSERT, input.codepoint, event);
+   if (key >= 32 && key < 127)
+      return native_form_event(panel, view, THE_WORKBENCH_FORM_EDIT, THE_WORKBENCH_FORM_INSERT, (uint32_t)key, event);
+   return 0;
+}
+
 static void native_log_draw(const TheWorkbenchPanel *panel)
 {
    uint64_t omitted;
@@ -1742,7 +1909,8 @@ static void console_draw(void)
    for (i = 0; i < h; i++) mvwhline(console_window, i, 0, ' ', w);
    if (native_selected_log())
    {
-      if (native_selected_log()->kind == THE_WORKBENCH_PANEL_DOCUMENT) native_document_draw(native_selected_log());
+      if (native_selected_log()->kind == THE_WORKBENCH_PANEL_FIELDS) native_form_draw(native_selected_log());
+      else if (native_selected_log()->kind == THE_WORKBENCH_PANEL_DOCUMENT) native_document_draw(native_selected_log());
       else native_log_draw(native_selected_log());
       return;
    }
@@ -2578,6 +2746,8 @@ static int native_log_key(int key, TheInputEvent *event)
    int view = panel ? native_log_view(panel) : -1;
    size_t i, count = native_log_count();
    if (!panel) return 0;
+   if (panel->kind == THE_WORKBENCH_PANEL_FIELDS)
+   { if (key != THE_KEY_F(12)) return native_form_key(panel, key, event); key = 9; }
    if (key == 27) return native_log_event(panel, THE_WORKBENCH_PANEL_RETURN, event);
    if (key == 'h' || key == 'H' || key == 23) return native_log_event(panel, THE_WORKBENCH_PANEL_HIDE, event);
    if (key == 9 || key == THE_KEY_BTAB)

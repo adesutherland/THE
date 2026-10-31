@@ -14,6 +14,7 @@
 #include "workbench.h"
 #include "workbenchruntime.h"
 #include "workbenchdocument.h"
+#include "workbenchform.h"
 #include "tools.h"
 #include "gtkinput.h"
 
@@ -38,7 +39,24 @@ typedef struct
    TheInputEvent event;
    char *text;
    const char *cursor;
+   TheWorkbenchFormRequest *form;
 } GtkInput;
+
+typedef struct
+{
+   char id[THE_WORKBENCH_ID_MAX + 1], error[64];
+   unsigned long generation;
+   uint64_t revision, pending, receipt;
+   int blocked;
+} GtkFormSession;
+
+typedef struct
+{
+   char id[THE_WORKBENCH_ID_MAX + 1];
+   GtkWidget *entry;
+   void *pane;
+   int editable;
+} GtkFormField;
 
 typedef struct
 {
@@ -55,6 +73,10 @@ typedef struct
    GtkDocumentCursor document_first, document_next, document_previous[32];
    size_t document_previous_count, document_lines;
    int document_more, document_request, document_budget, document_tail;
+   GPtrArray *form_fields;
+   unsigned long form_generation;
+   GtkWidget *form_submit, *form_cancel, *form_return, *form_hide;
+   int form_syncing;
 } GtkLogPane;
 
 static struct
@@ -89,6 +111,10 @@ static struct
    unsigned long focused_log_generation, log_focus_serial;
    int syncing_logs, log_origin_program, log_entry_position;
    int log_selection_start, log_selection_end, log_entry_selected;
+   GtkFormSession forms[THE_WORKBENCH_FORM_MAX];
+   size_t form_count;
+   uint64_t form_sequence;
+   GtkFormSession *form_pending;
 } ui;
 
 static TheDriverOps operations;
@@ -100,6 +126,12 @@ static void remember_log_origin(GtkWidget *focus);
 static void cycle_log(GtkLogPane *pane, int reverse);
 static gboolean document_key(GtkLogPane *pane, guint key);
 static gboolean document_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer data);
+static GtkFormSession *form_session(const char *id);
+static void form_receipt(void);
+static void sync_form(GtkLogPane *pane, const TheWorkbenchPanel *panel);
+static void create_form(GtkLogPane *pane, const TheWorkbenchPanel *panel, GtkWidget *controls);
+static gboolean form_key(GtkLogPane *pane, GtkWidget *focus, GdkEventKey *key);
+static void focus_form(GtkLogPane *pane);
 static void open_native_menu(GtkWidget *focus, GdkEventKey *trigger);
 
 static void redraw(void)
@@ -155,6 +187,27 @@ static int pop_input(TheInputEvent *event)
    GtkInput *input = g_queue_peek_head(&ui.inputs);
    if (!input)
       return 0;
+   form_receipt();
+   input = g_queue_peek_head(&ui.inputs);
+   if (!input) return 0;
+   if (input->form)
+   {
+      GtkFormSession *session = form_session(input->form->form);
+      const TheWorkbenchFormState *state = the_workbench_form_state(input->form->form);
+      if (ui.form_pending) return 0;
+      if (!session || !state || session->blocked || session->generation != input->form->form_generation || session->revision != state->draft_revision)
+      {
+         if (session) { session->blocked = 1; strcpy(session->error, "stale-revision; refocus form"); }
+         g_queue_pop_head(&ui.inputs); g_free(input->form); g_free(input); return 0;
+      }
+      input->form->draft_revision = session->revision;
+      input->form->request_id = ++ui.form_sequence;
+      if (!the_input_event_from_workbench_form(input->form, event))
+      { g_queue_pop_head(&ui.inputs); g_free(input->form); g_free(input); return 0; }
+      session->pending = input->form->request_id; ui.form_pending = session;
+      g_queue_pop_head(&ui.inputs); g_free(input->form); g_free(input);
+      return 1;
+   }
    if (input->text)
    {
       if (!the_gtk_input_text(&input->cursor, event))
@@ -286,10 +339,10 @@ static void remember_menu_focus(GtkWidget *focus)
    ui.menu_popup = NULL;
    ui.menu_canceled = 0;
    ui.menu_entry_selected = 0;
-   if (ui.menu_focus == ui.input)
+   if (ui.menu_focus && GTK_IS_ENTRY(ui.menu_focus))
    {
-      ui.menu_entry_position = gtk_editable_get_position(GTK_EDITABLE(ui.input));
-      ui.menu_entry_selected = gtk_editable_get_selection_bounds(GTK_EDITABLE(ui.input),
+      ui.menu_entry_position = gtk_editable_get_position(GTK_EDITABLE(ui.menu_focus));
+      ui.menu_entry_selected = gtk_editable_get_selection_bounds(GTK_EDITABLE(ui.menu_focus),
          &ui.menu_selection_start, &ui.menu_selection_end);
    }
 }
@@ -301,15 +354,15 @@ static void finish_menu_focus(void)
       GtkWidget *focus = gtk_widget_is_drawable(ui.menu_focus)
                      && gtk_widget_is_sensitive(ui.menu_focus) ? ui.menu_focus : ui.editor;
       gtk_widget_grab_focus(focus);
-      if (focus == ui.input)
+      if (GTK_IS_ENTRY(focus))
       {
          if (ui.menu_entry_selected)
-            gtk_editable_select_region(GTK_EDITABLE(ui.input),
+            gtk_editable_select_region(GTK_EDITABLE(focus),
                ui.menu_entry_position == ui.menu_selection_start
                   ? ui.menu_selection_end : ui.menu_selection_start,
                ui.menu_entry_position);
          else
-            gtk_editable_set_position(GTK_EDITABLE(ui.input), ui.menu_entry_position);
+            gtk_editable_set_position(GTK_EDITABLE(focus), ui.menu_entry_position);
       }
    }
    g_clear_object(&ui.menu_focus);
@@ -336,6 +389,9 @@ static gboolean workbench_key_pressed(GtkWidget *widget, GdkEventKey *key, gpoin
       GtkLogPane *pane = log_for_widget(focus);
       if (pane)
       {
+         const TheWorkbenchPanel *kind = the_workbench_panel_find(pane->id);
+         if (kind && kind->kind == THE_WORKBENCH_PANEL_FIELDS && key->keyval != GDK_KEY_F10)
+            return form_key(pane, focus, key);
          if (key->keyval == GDK_KEY_Escape) return queue_panel(pane, THE_WORKBENCH_PANEL_RETURN);
          if (key->keyval == GDK_KEY_h || key->keyval == GDK_KEY_H ||
              ((key->state & GDK_CONTROL_MASK) && key->keyval == GDK_KEY_w))
@@ -920,7 +976,8 @@ static void remember_log_origin(GtkWidget *focus)
       focus = ui.last_nonlog_focus ? ui.last_nonlog_focus : ui.editor;
    g_clear_object(&ui.log_origin);
    ui.log_origin = g_object_ref(focus ? focus : ui.editor);
-   ui.log_origin_program = the_tool_console()->focused;
+   ui.log_origin_program = the_tool_console()->focused && focus &&
+      (focus == ui.console || gtk_widget_is_ancestor(focus, ui.console));
    ui.log_entry_selected = 0;
    if (ui.log_origin == ui.input)
    {
@@ -1004,6 +1061,200 @@ static void log_hide_clicked(GtkWidget *widget, gpointer data)
 static void log_return_clicked(GtkWidget *widget, gpointer data)
 { (void)widget; queue_panel(data, THE_WORKBENCH_PANEL_RETURN); }
 
+static GtkFormSession *form_session(const char *id)
+{
+   size_t i, available = THE_WORKBENCH_FORM_MAX;
+   const TheWorkbenchFormState *state = the_workbench_form_state(id);
+   if (!state) return NULL;
+   for (i = 0; i < ui.form_count; i++)
+   {
+      if (!strcmp(ui.forms[i].id, id)) return ui.forms + i;
+      if (ui.forms + i != ui.form_pending && !the_workbench_form_state(ui.forms[i].id)) available = i;
+   }
+   if (available < THE_WORKBENCH_FORM_MAX) { i = available; memset(ui.forms + i, 0, sizeof(ui.forms[i])); }
+   else { if (ui.form_count == THE_WORKBENCH_FORM_MAX) return NULL; i = ui.form_count++; }
+   strcpy(ui.forms[i].id, id); ui.forms[i].generation = state->generation;
+   ui.forms[i].revision = state->draft_revision;
+   return ui.forms + i;
+}
+
+static void discard_form_inputs(const char *form)
+{
+   GList *item = ui.inputs.head;
+   while (item)
+   {
+      GList *next = item->next;
+      GtkInput *input = item->data;
+      if (input->form && !strcmp(input->form->form, form))
+      { g_queue_delete_link(&ui.inputs, item); g_free(input->form); g_free(input); }
+      item = next;
+   }
+}
+
+static void form_receipt(void)
+{
+   GtkFormSession *session = ui.form_pending;
+   const TheWorkbenchFormReceipt *receipt = the_workbench_form_receipt();
+   if (!session || !receipt || receipt->request_id != session->pending || receipt->serial == session->receipt) return;
+   session->receipt = receipt->serial; session->pending = 0; ui.form_pending = NULL;
+   if (!receipt->rc) { session->revision = receipt->draft_revision; session->error[0] = 0; }
+   else
+   {
+      g_strlcpy(session->error, receipt->code, sizeof(session->error));
+      session->blocked = !strcmp(receipt->code, "stale-revision") || !strcmp(receipt->code, "stale-generation");
+      discard_form_inputs(session->id);
+   }
+}
+
+static int form_inputs_pending(const char *id)
+{
+   GList *item;
+   if (ui.form_pending && !strcmp(ui.form_pending->id, id)) return 1;
+   for (item = ui.inputs.head; item; item = item->next)
+   {
+      GtkInput *input = item->data;
+      if (input->form && !strcmp(input->form->form, id)) return 1;
+   }
+   return 0;
+}
+
+static void queue_form(GtkLogPane *pane, TheWorkbenchFormOperation operation, const char *field, const char *value)
+{
+   const TheWorkbenchPanel *panel = the_workbench_panel_find(pane->id);
+   GtkFormSession *session;
+   GtkInput *input;
+   size_t length = value ? strlen(value) : 0;
+   if (pane->form_syncing || in_macro || the_panel_active || !panel || panel->generation != pane->generation) return;
+   session = form_session(panel->form);
+   if (!session || session->blocked || length > THE_WORKBENCH_FIELD_VALUE_MAX || g_queue_get_length(&ui.inputs) >= GTK_QUEUE_LIMIT)
+   {
+      if (session && length > THE_WORKBENCH_FIELD_VALUE_MAX) strcpy(session->error, "limit-exceeded");
+      gtk_widget_error_bell(pane->page); sync_form(pane, panel); return;
+   }
+   input = g_new0(GtkInput, 1); input->form = g_new0(TheWorkbenchFormRequest, 1);
+   input->form->operation = operation; input->form->form_generation = session->generation;
+   input->form->panel_generation = pane->generation;
+   strcpy(input->form->panel, pane->id); strcpy(input->form->form, panel->form);
+   if (field) strcpy(input->form->field, field);
+   if (length) memcpy(input->form->value, value, length);
+   input->form->length = length;
+   g_queue_push_tail(&ui.inputs, input);
+}
+
+static void form_changed(GtkEditable *entry, gpointer data)
+{
+   GtkFormField *field = data;
+   queue_form(field->pane, THE_WORKBENCH_FORM_SET, field->id, gtk_entry_get_text(GTK_ENTRY(entry)));
+}
+static void form_submit_clicked(GtkWidget *widget, gpointer data)
+{ (void)widget; queue_form(data, THE_WORKBENCH_FORM_SUBMIT, NULL, NULL); }
+static void form_cancel_clicked(GtkWidget *widget, gpointer data)
+{ (void)widget; queue_form(data, THE_WORKBENCH_FORM_CANCEL, NULL, NULL); }
+
+static void create_form(GtkLogPane *pane, const TheWorkbenchPanel *panel, GtkWidget *controls)
+{
+   size_t i;
+   pane->form_fields = g_ptr_array_new_with_free_func(g_free);
+   pane->form_generation = panel->form_generation;
+   pane->form_submit = gtk_button_new_with_label("Submit"); pane->form_cancel = gtk_button_new_with_label("Cancel");
+   g_signal_connect(pane->form_submit, "clicked", G_CALLBACK(form_submit_clicked), pane);
+   g_signal_connect(pane->form_cancel, "clicked", G_CALLBACK(form_cancel_clicked), pane);
+   gtk_box_pack_start(GTK_BOX(controls), pane->form_submit, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(controls), pane->form_cancel, FALSE, FALSE, 0);
+   gtk_box_reorder_child(GTK_BOX(controls), pane->form_submit, 1);
+   gtk_box_reorder_child(GTK_BOX(controls), pane->form_cancel, 2);
+   pane->view = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+   for (i = 0; i < the_workbench_field_count(); i++)
+   {
+      const TheWorkbenchField *definition = the_workbench_field_at(i);
+      const TheWorkbenchFieldState *state;
+      GtkFormField *field;
+      GtkWidget *row, *label;
+      char caption[THE_WORKBENCH_LABEL_MAX + 32];
+      if (strcmp(definition->form, panel->form)) continue;
+      state = the_workbench_field_state(panel->form, definition->id);
+      field = g_new0(GtkFormField, 1); field->pane = pane; strcpy(field->id, definition->id);
+      field->editable = definition->access == THE_WORKBENCH_FIELD_EDIT;
+      row = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+      g_snprintf(caption, sizeof(caption), "%s%s", definition->label, field->editable ? "" : " [Read-only]");
+      label = gtk_label_new(caption); gtk_label_set_xalign(GTK_LABEL(label), 0); gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
+      gtk_widget_set_name(label, "the-workbench-status");
+      field->entry = gtk_entry_new(); gtk_entry_set_width_chars(GTK_ENTRY(field->entry), 12);
+      gtk_entry_set_text(GTK_ENTRY(field->entry), state ? state->value : definition->value);
+      gtk_editable_set_editable(GTK_EDITABLE(field->entry), field->editable);
+      gtk_widget_set_tooltip_text(field->entry, field->editable ? "Form draft. Tab visits fields and controls; Enter submits; Esc returns without cancelling." : "Read-only field");
+      gtk_box_pack_start(GTK_BOX(row), label, FALSE, FALSE, 0); gtk_box_pack_start(GTK_BOX(row), field->entry, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(pane->view), row, FALSE, FALSE, 0);
+      g_signal_connect(field->entry, "button-press-event", G_CALLBACK(log_button_pressed), pane);
+      if (field->editable) g_signal_connect(field->entry, "changed", G_CALLBACK(form_changed), field);
+      g_signal_connect(field->entry, "activate", G_CALLBACK(form_submit_clicked), pane);
+      g_ptr_array_add(pane->form_fields, field);
+   }
+}
+
+static void sync_form(GtkLogPane *pane, const TheWorkbenchPanel *panel)
+{
+   const TheWorkbenchFormState *state = the_workbench_form_state(panel->form);
+   GtkFormSession *session = form_session(panel->form);
+   guint i;
+   char status[192];
+   if (!state || !session) { gtk_label_set_text(GTK_LABEL(pane->status), "Form unavailable"); return; }
+   if (!session->pending && state->draft_revision != session->revision)
+   { session->blocked = 1; strcpy(session->error, "stale-revision; refocus form"); }
+   pane->form_syncing++;
+   if (!form_inputs_pending(panel->form))
+      for (i = 0; i < pane->form_fields->len; i++)
+      {
+         GtkFormField *field = g_ptr_array_index(pane->form_fields, i);
+         const TheWorkbenchFieldState *value = the_workbench_field_state(panel->form, field->id);
+         if (value && strcmp(value->value, gtk_entry_get_text(GTK_ENTRY(field->entry))))
+         {
+            int at = gtk_editable_get_position(GTK_EDITABLE(field->entry));
+            gtk_entry_set_text(GTK_ENTRY(field->entry), value->value);
+            gtk_editable_set_position(GTK_EDITABLE(field->entry), MIN(at, (int)g_utf8_strlen(value->value, value->length)));
+         }
+      }
+   pane->form_syncing--;
+   if (session->error[0]) g_snprintf(status, sizeof(status), "Form | %s", session->error);
+   else g_snprintf(status, sizeof(status), "%s | Draft %llu | Result %llu", state->dirty ? "Draft" : state->submitted ? "Submitted" : "Ready",
+      (unsigned long long)state->draft_revision, (unsigned long long)state->result_revision);
+   gtk_label_set_text(GTK_LABEL(pane->status), status);
+}
+
+static void focus_form(GtkLogPane *pane)
+{
+   guint i;
+   for (i = 0; i < pane->form_fields->len; i++)
+   {
+      GtkFormField *field = g_ptr_array_index(pane->form_fields, i);
+      if (field->editable) { gtk_widget_grab_focus(field->entry); return; }
+   }
+   gtk_widget_grab_focus(pane->form_submit);
+}
+
+static gboolean form_key(GtkLogPane *pane, GtkWidget *focus, GdkEventKey *key)
+{
+   GtkWidget *targets[THE_WORKBENCH_FIELDS_PER_FORM_MAX + 4];
+   size_t count = 0, i, current = 0;
+   if (key->keyval == GDK_KEY_Escape) return queue_panel(pane, THE_WORKBENCH_PANEL_RETURN);
+   if (key->keyval == GDK_KEY_Tab || key->keyval == GDK_KEY_ISO_Left_Tab)
+   {
+      int reverse = key->keyval == GDK_KEY_ISO_Left_Tab || (key->state & GDK_SHIFT_MASK);
+      if (key->state & GDK_CONTROL_MASK) { cycle_log(pane, reverse); return TRUE; }
+      for (i = 0; i < pane->form_fields->len; i++)
+      {
+         GtkFormField *field = g_ptr_array_index(pane->form_fields, i);
+         if (field->editable) targets[count++] = field->entry;
+      }
+      targets[count++] = pane->form_submit; targets[count++] = pane->form_cancel; targets[count++] = pane->form_hide; targets[count++] = pane->form_return;
+      for (i = 0; i < count; i++) if (targets[i] == focus) { current = i; break; }
+      gtk_widget_grab_focus(targets[(current + count + (reverse ? -1 : 1)) % count]); return TRUE;
+   }
+   if ((key->state & GDK_CONTROL_MASK) && (key->keyval == GDK_KEY_Return || key->keyval == GDK_KEY_KP_Enter))
+   { queue_form(pane, THE_WORKBENCH_FORM_SUBMIT, NULL, NULL); return TRUE; }
+   return FALSE; /* GtkEntry owns typing/selection; it never targets the editor. */
+}
+
 static void cancel_log_scroll(GtkLogPane *pane)
 {
    if (pane->scroll_clock && pane->scroll_handler)
@@ -1023,6 +1274,7 @@ static void log_scroll_after_paint(GdkFrameClock *clock, gpointer data)
 static void free_log_pane(gpointer data)
 {
    GtkLogPane *pane = data;
+   if (pane->form_fields) g_ptr_array_free(pane->form_fields, TRUE);
    cancel_log_scroll(pane); g_free(pane);
 }
 
@@ -1037,11 +1289,13 @@ static GtkLogPane *create_log(const TheWorkbenchPanel *panel)
    gtk_widget_set_name(pane->page, "the-workbench-pane");
    gtk_container_set_border_width(GTK_CONTAINER(pane->page), 6);
    controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-   pane->status = gtk_label_new(panel->kind == THE_WORKBENCH_PANEL_DOCUMENT ? "Read-only document" : "Read-only log");
+   pane->status = gtk_label_new(panel->kind == THE_WORKBENCH_PANEL_FIELDS ? "Form" : panel->kind == THE_WORKBENCH_PANEL_DOCUMENT ? "Read-only document" : "Read-only log");
    gtk_widget_set_name(pane->status, "the-workbench-status");
    gtk_label_set_xalign(GTK_LABEL(pane->status), 0);
+   gtk_label_set_ellipsize(GTK_LABEL(pane->status), PANGO_ELLIPSIZE_END);
    gtk_box_pack_start(GTK_BOX(controls), pane->status, TRUE, TRUE, 0);
    hide = gtk_button_new_with_label("Hide"); back = gtk_button_new_with_label("Return");
+   pane->form_return = back; pane->form_hide = hide;
    g_signal_connect(hide, "clicked", G_CALLBACK(log_hide_clicked), pane);
    g_signal_connect(back, "clicked", G_CALLBACK(log_return_clicked), pane);
    gtk_box_pack_start(GTK_BOX(controls), hide, FALSE, FALSE, 0);
@@ -1049,6 +1303,9 @@ static GtkLogPane *create_log(const TheWorkbenchPanel *panel)
    gtk_box_pack_start(GTK_BOX(pane->page), controls, FALSE, FALSE, 0);
    pane->scroller = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(pane->scroller), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   if (panel->kind == THE_WORKBENCH_PANEL_FIELDS) create_form(pane, panel, controls);
+   else
+   {
    pane->view = gtk_text_view_new();
    gtk_widget_set_name(pane->view, "the-workbench-text");
    g_signal_connect(pane->view, "button-press-event", G_CALLBACK(log_button_pressed), pane);
@@ -1060,11 +1317,15 @@ static GtkLogPane *create_log(const TheWorkbenchPanel *panel)
    gtk_widget_set_tooltip_text(pane->view, panel->kind == THE_WORKBENCH_PANEL_DOCUMENT
       ? "Read-only document. Arrows and Page Up/Down scroll; Home/End visits the beginning/end; Tab visits panes; H hides; Esc returns."
       : "Read-only log. Page Up/Down and Home/End scroll; Tab visits panes; H hides; Esc returns.");
+   }
    gtk_container_add(GTK_CONTAINER(pane->scroller), pane->view);
    gtk_box_pack_start(GTK_BOX(pane->page), pane->scroller, TRUE, TRUE, 0);
-   buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(pane->view));
-   gtk_text_buffer_create_tag(buffer, "stdout", NULL);
-   gtk_text_buffer_create_tag(buffer, "stderr", "foreground", "tomato", NULL);
+   if (panel->kind != THE_WORKBENCH_PANEL_FIELDS)
+   {
+      buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(pane->view));
+      gtk_text_buffer_create_tag(buffer, "stdout", NULL);
+      gtk_text_buffer_create_tag(buffer, "stderr", "foreground", "tomato", NULL);
+   }
    gtk_notebook_append_page(GTK_NOTEBOOK(ui.auxiliary), pane->page, gtk_label_new(panel->title));
    gtk_widget_show_all(pane->page);
    g_ptr_array_add(ui.logs, pane);
@@ -1371,12 +1632,14 @@ static void sync_logs(void)
    guint i;
    int visible = 0;
    if (!ui.auxiliary || !ui.logs) return;
+   form_receipt();
    ui.syncing_logs++;
    for (i = 0; i < ui.logs->len; )
    {
       GtkLogPane *pane = g_ptr_array_index(ui.logs, i);
       const TheWorkbenchPanel *panel = the_workbench_panel_find(pane->id);
-      if (!panel || panel->generation != pane->generation)
+      if (!panel || panel->generation != pane->generation ||
+          (pane->form_fields && panel->form_generation != pane->form_generation))
       { gtk_widget_destroy(pane->page); g_ptr_array_remove_index(ui.logs, i); continue; }
       i++;
    }
@@ -1385,7 +1648,7 @@ static void sync_logs(void)
       const TheWorkbenchPanel *panel = the_workbench_panel_at(i);
       const TheWorkbenchPanelState *state = the_workbench_panel_state(panel->id);
       GtkLogPane *pane;
-      if (panel->kind != THE_WORKBENCH_PANEL_LOG && panel->kind != THE_WORKBENCH_PANEL_DOCUMENT) continue;
+      if (panel->kind != THE_WORKBENCH_PANEL_LOG && panel->kind != THE_WORKBENCH_PANEL_DOCUMENT && panel->kind != THE_WORKBENCH_PANEL_FIELDS) continue;
       pane = find_log(panel->id, panel->generation);
       if (!pane) pane = create_log(panel);
       gtk_widget_set_visible(pane->page, state && state->visible);
@@ -1395,6 +1658,7 @@ static void sync_logs(void)
          const TheWorkbenchLogInfo *info = the_workbench_log_find(panel->model);
          char status[160];
          visible++;
+         if (panel->kind == THE_WORKBENCH_PANEL_FIELDS) { sync_form(pane, panel); continue; }
          if (panel->kind == THE_WORKBENCH_PANEL_DOCUMENT) { sync_document_text(pane, panel); continue; }
          sync_log_text(pane, panel);
          if (model && model->last_error != THE_WORKBENCH_LOG_OK)
@@ -1414,11 +1678,29 @@ static void sync_logs(void)
       ui.log_focus_serial = focus->serial;
       if (pane && gtk_widget_get_visible(pane->page))
       {
+         GtkWidget *prior_focus = gtk_window_get_focus(GTK_WINDOW(ui.window));
          if (!ui.focused_log[0] && !ui.log_origin) remember_log_origin(gtk_window_get_focus(GTK_WINDOW(ui.window)));
          strcpy(ui.focused_log, pane->id); ui.focused_log_generation = pane->generation;
          if (the_tool_console()->focused) the_tool_console_visibility(the_tool_console()->visible, 0);
          gtk_notebook_set_current_page(GTK_NOTEBOOK(ui.auxiliary), gtk_notebook_page_num(GTK_NOTEBOOK(ui.auxiliary), pane->page));
-         gtk_widget_grab_focus(pane->view);
+         if (pane->form_fields)
+         {
+            const TheWorkbenchPanel *panel = the_workbench_panel_find(pane->id);
+            const TheWorkbenchFormState *state = the_workbench_form_state(panel->form);
+            GtkFormSession *session = form_session(panel->form);
+            if (state && session && !session->pending &&
+                (session->blocked || session->generation != state->generation || session->revision != state->draft_revision))
+            {
+               /* An initial FOCUS may already have valid typing queued behind
+                * it. Discard only requests from an explicitly stale session. */
+               discard_form_inputs(panel->form); session->generation = state->generation; session->revision = state->draft_revision;
+               session->blocked = 0; session->error[0] = 0;
+            }
+            if (prior_focus && GTK_IS_ENTRY(prior_focus) && gtk_widget_is_ancestor(prior_focus, pane->page))
+               gtk_widget_grab_focus(prior_focus);
+            else focus_form(pane);
+         }
+         else gtk_widget_grab_focus(pane->view);
       }
       else if (!focus->panel[0] && ui.focused_log[0])
       { ui.focused_log[0] = '\0'; restore_log_origin(); }
@@ -2052,6 +2334,7 @@ static void shutdown_driver(int prompt)
    {
       GtkInput *input = g_queue_pop_head(&ui.inputs);
       g_free(input->text);
+      g_free(input->form);
       g_free(input);
    }
    headless_driver_reset();

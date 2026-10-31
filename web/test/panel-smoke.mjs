@@ -157,6 +157,13 @@ try {
   await waitFor(() => command("Page.getFrameTree"), "active Chrome page", 30000);
   await command("Runtime.enable");
   await command("Page.enable");
+  await command("Page.addScriptToEvaluateOnNewDocument", { source: `
+    window.__panelMessages=[];window.__panelSequence=0;
+    const Socket=window.WebSocket;
+    window.WebSocket=class extends Socket{constructor(...args){super(...args);window.__panelSocket=this;
+      this.addEventListener('message',event=>{try{const value=JSON.parse(event.data);window.__panelMessages.push(value);
+        if(value.type==='hello')window.__panelSession=value.workbenchSession;}catch{}});}}
+  ` });
   await command("Page.navigate", { url: pageUrl });
   await waitFor(
     () => evaluate("document.readyState === 'complete' && !!document.querySelector('.app-shell')"),
@@ -168,6 +175,9 @@ try {
     "web driver connection",
   );
   await command("Page.bringToFront");
+  await evaluate("window.__panelSocket.send(JSON.stringify({type:'workbench',version:1,operation:'form.list',form:'public.modalprobe.form',offset:0,records:8,bytes:8192}))");
+  await waitFor(() => evaluate("window.__panelMessages.some(message=>message.operation==='form')"), "named form before modal READ");
+  const namedForm = await evaluate("window.__panelMessages.find(message=>message.operation==='form').data");
 
   async function restoredEditor() {
     try {
@@ -180,6 +190,14 @@ try {
   await evaluate("document.querySelector('.input-sink').focus()");
   await domKey("F7", "F7");
   await waitFor(() => evaluate("!!document.querySelector('.fullscreen-panel')"), "macro panel");
+  const modalBeforeTyped = await evaluate("document.querySelector('.panel-surface').textContent");
+  const modalRequest = await evaluate(`(() => {const request={type:'workbench',version:1,operation:'form.set',
+    requestId:window.__panelSession+'.'+(++window.__panelSequence),form:'public.modalprobe.form',
+    expectGeneration:${JSON.stringify(namedForm.generation)},expectRevision:${JSON.stringify(namedForm.draftRevision)},field:'name',value:'must refuse'};
+    window.__panelSocket.send(JSON.stringify(request));return request;})()`);
+  await waitFor(() => evaluate(`window.__panelMessages.some(message=>message.requestId===${JSON.stringify(modalRequest.requestId)}&&message.state==='complete'&&message.code==='busy-modal')`), "modal READ completes typed form refusal");
+  if (await evaluate("document.querySelector('.panel-surface').textContent") !== modalBeforeTyped)
+    throw new Error("typed form request changed active READ fields");
   const labels = await evaluate("[...document.querySelectorAll('.panel-protected')].map(n => n.textContent).join(' ')");
   if (!labels.includes("Name:") || !labels.includes("Topic:")) throw new Error("missing protected labels");
   const colours = await evaluate(`(() => {
@@ -247,6 +265,10 @@ try {
   await domKey("F3", "F3");
   await waitFor(() => evaluate("!document.querySelector('.fullscreen-panel')"), "submitted panel");
   await restoredEditor();
+  const resumedRequest = await evaluate(`(() => {const request={...${JSON.stringify(modalRequest)},requestId:window.__panelSession+'.'+(++window.__panelSequence),value:'Resumed'};window.__panelSocket.send(JSON.stringify(request));return request;})()`);
+  await waitFor(() => evaluate(`window.__panelMessages.some(message=>message.requestId===${JSON.stringify(resumedRequest.requestId)}&&message.state==='complete'&&message.code==='ok')`), "form SET succeeds after modal READ releases ownership");
+  await evaluate("window.__panelSocket.send(JSON.stringify({type:'workbench',version:1,operation:'form.list',form:'public.modalprobe.form',offset:0,records:8,bytes:8192}))");
+  await waitFor(() => evaluate("window.__panelMessages.findLast(message=>message.operation==='form')?.data.records[0]?.value==='Resumed'"), "form draft preserved across refused modal request");
   await waitFor(() => evaluate(`(() => {
     const viewport=document.querySelector('.editor-scroll'), style=getComputedStyle(document.querySelector('.editor-grid'));
     return document.querySelectorAll('.screen-row:not(.profile-footer-source)').length === Math.floor((viewport.clientHeight-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom))/parseFloat(style.lineHeight));

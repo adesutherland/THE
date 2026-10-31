@@ -8,6 +8,8 @@
 #include "llmsession.h"
 
 #include <ctype.h>
+#include <inttypes.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,6 +26,7 @@
 #include "vars.h"
 #include "workbench.h"
 #include "workbenchdocument.h"
+#include "workbenchform.h"
 #ifdef USE_UTF8
 # include "utfterm.h"
 #endif
@@ -496,8 +499,8 @@ static void print_capabilities(void)
    print_json_string((const char *)crexx_version);
    fputs(",\"transient_ui\":\"shared-transientui-protocol-adapter\"", stdout);
    fputs(",\"build_test_hooks\":\"external-shell-or-ctest\"", stdout);
-   fputs(",\"workbench\":{\"schemaVersion\":1,\"actions\":true,\"menus\":true,\"logPanels\":true,\"documentPanels\":true,\"documentAccess\":\"readonly\",\"documentInspection\":\"command\",\"routes\":true,\"logInspection\":\"command\",\"invocation\":\"command\"}", stdout);
-   fputs(",\"inputs\":[\"look\",\"delta\",\"capabilities\",\"focus\",\"hit\",\"key\",\"text\",\"type\",\"text-utf\",\"insert\",\"insert-utf\",\"command\",\"tools\",\"toolwait\",\"debug\",\"transient\",\"quit\"]", stdout);
+   fputs(",\"workbench\":{\"schemaVersion\":1,\"actions\":true,\"menus\":true,\"logPanels\":true,\"documentPanels\":true,\"documentAccess\":\"readonly\",\"documentInspection\":\"command\",\"forms\":true,\"formInput\":\"typed-hex\",\"formInspection\":\"command\",\"formValueBytes\":1024,\"routes\":true,\"logInspection\":\"command\",\"invocation\":\"command\"}", stdout);
+   fputs(",\"inputs\":[\"look\",\"delta\",\"capabilities\",\"focus\",\"hit\",\"key\",\"text\",\"type\",\"text-utf\",\"insert\",\"insert-utf\",\"command\",\"form\",\"tools\",\"toolwait\",\"debug\",\"transient\",\"quit\"]", stdout);
    fputs(",\"view_modes\":[\"full\",\"filearea\",\"reserved\",\"prefix\",\"focus\"]", stdout);
    fputs(",\"transient_commands\":[\"transient readv [TEXT]\",\"transient dialog [TEXT]\",\"transient popup\",\"transient look\",\"transient key NAME\",\"transient text TEXT\",\"transient hit ROW COL\",\"transient result\",\"transient close\",\"transient cancel\"]", stdout);
    fputs(",\"debug_commands\":[\"describe-focus\",\"describe-row\",\"list-visible-rows\",\"dump-cursor-mapping\",\"dump-driver-ops\",\"explain-last-render\",\"utf-display\"]", stdout);
@@ -937,6 +940,105 @@ static short apply_real_command(char *command)
    rc = command_line((CHARTYPE *)command, COMMAND_ONLY_FALSE);
    llm_session_refresh();
    return rc;
+}
+
+static int form_u64(const char *text, uint64_t *out)
+{
+   const unsigned char *p=(const unsigned char *)text;
+   uint64_t value=0;
+   if (!p || !*p || (*p=='0' && p[1])) return 0;
+   for (;*p;p++)
+   {
+      if (*p<'0' || *p>'9' || value>(UINT64_MAX-(*p-'0'))/10) return 0;
+      value=value*10+(*p-'0');
+   }
+   *out=value;
+   return value!=0;
+}
+
+static int form_hex_digit(unsigned char value)
+{
+   if (value>='0' && value<='9') return value-'0';
+   if (value>='a' && value<='f') return value-'a'+10;
+   if (value>='A' && value<='F') return value-'A'+10;
+   return -1;
+}
+
+/* This scalar protocol never passes values through the command tokenizer. */
+static void apply_form_protocol(char *args)
+{
+   static uint64_t next_request;
+   TheWorkbenchFormRequest request;
+   TheInputEvent event;
+   const TheWorkbenchFormReceipt *receipt;
+   const TheWorkbenchResult *result;
+   char *tokens[7],*token;
+   size_t count=0,i,length;
+   uint64_t generation;
+   short rc=RC_INVALID_OPERAND;
+   int valid=1;
+   memset(&request,0,sizeof(request));
+   request.cell=-1;
+   for (token=strtok(args," \t");token && count<7;token=strtok(NULL," \t")) tokens[count++]=token;
+   if (token || count<4) valid=0;
+   if (valid)
+   {
+      request.operation=ascii_equal_ci(tokens[0],"set") ? THE_WORKBENCH_FORM_SET
+         : ascii_equal_ci(tokens[0],"submit") ? THE_WORKBENCH_FORM_SUBMIT
+         : ascii_equal_ci(tokens[0],"cancel") ? THE_WORKBENCH_FORM_CANCEL : 0;
+      if (!request.operation || count!=(request.operation==THE_WORKBENCH_FORM_SET ? 6u : 4u)
+      || strlen(tokens[1])>THE_WORKBENCH_ID_MAX || !form_u64(tokens[2],&generation)
+      || generation>ULONG_MAX || !form_u64(tokens[3],&request.draft_revision)) valid=0;
+      else
+      {
+         strcpy(request.form,tokens[1]); request.form_generation=(unsigned long)generation;
+         if (request.operation==THE_WORKBENCH_FORM_SET)
+         {
+            length=!strcmp(tokens[5],"-") ? 0 : strlen(tokens[5]);
+            if (strlen(tokens[4])>THE_WORKBENCH_ID_MAX || length%2
+            || length>THE_WORKBENCH_FIELD_VALUE_MAX*2) valid=0;
+            else
+            {
+               strcpy(request.field,tokens[4]); request.length=length/2;
+               for(i=0;i<request.length;i++)
+               {
+                  int hi=form_hex_digit((unsigned char)tokens[5][i*2]);
+                  int lo=form_hex_digit((unsigned char)tokens[5][i*2+1]);
+                  if (hi<0 || lo<0 || !(request.value[i]=(char)((hi<<4)|lo))) { valid=0; break; }
+               }
+               if (valid && !the_workbench_field_value_valid(request.value,request.length,1024)) valid=0;
+            }
+         }
+      }
+   }
+   if (valid && next_request!=UINT64_MAX)
+   {
+      request.request_id=++next_request;
+      if (the_input_event_from_workbench_form(&request,&event))
+         rc=the_input_dispatch_workbench_form(&event);
+      else valid=0;
+   }
+   else valid=0;
+   if (!valid) the_workbench_result("invalid-operand",RC_INVALID_OPERAND,"Invalid typed form input");
+   receipt=valid ? the_workbench_form_receipt() : NULL;
+   result=the_workbench_last_result();
+   fputs("{\"type\":\"workbench\",\"operation\":\"form-receipt\",\"form\":",stdout);
+   print_json_string(request.form);
+   printf(",\"formGeneration\":\"%lu\",\"requestId\":\"%" PRIu64 "\",\"rc\":%d,\"code\":",
+      request.form_generation,request.request_id,(int)(valid ? rc : RC_INVALID_OPERAND));
+   print_json_string(receipt ? receipt->code : result->code);
+   printf(",\"draftRevision\":\"%" PRIu64 "\",\"resultRevision\":\"%" PRIu64 "\",\"caret\":%d}\n",
+      receipt ? receipt->draft_revision : 0,receipt ? receipt->result_revision : 0,
+      receipt ? receipt->caret : -1);
+   fflush(stdout);
+}
+
+int llm_session_handle_form_input(char *line)
+{
+   char *command=trim(line);
+   if (!command || !ascii_starts_ci(command,"form ")) return 0;
+   apply_form_protocol(command+5);
+   return 1;
 }
 
 static int apply_insert_after_command(char *args, const char *input_command,
@@ -1432,6 +1534,15 @@ int llm_session_run_protocol(void)
       char original[4096];
       char *command;
 
+      if (!strchr(line,'\n') && strlen(line)==sizeof(line)-1
+      && ascii_starts_ci(trim(line),"form "))
+      {
+         int byte;
+         while ((byte=fgetc(stdin))!=EOF && byte!='\n') {}
+         line[0]=0;
+         apply_form_protocol(line);
+         continue;
+      }
       line[strcspn(line, "\r\n")] = '\0';
       copy_text(original, sizeof(original), line);
       command = trim(line);
@@ -1442,6 +1553,7 @@ int llm_session_run_protocol(void)
          print_ack(1, RC_OK, "bye");
          break;
       }
+      if (llm_session_handle_form_input(command)) continue;
       if(ascii_equal_ci(command,"tools")) {static char data[1800000];the_tools_native_initialise();the_tools_native_poll();if(the_tool_format_json(data,sizeof(data)))puts(data);fflush(stdout);continue;}
       if(ascii_starts_ci(command,"toolwait ")) {long ms=strtol(command+9,NULL,10);long i;if(ms<0||ms>30000){print_ack(0,RC_INVALID_OPERAND,"bad wait");continue;}for(i=0;i<ms;i+=10){the_tools_native_poll();if(!the_tool_console()->running)break;
 #ifdef _WIN32

@@ -592,6 +592,64 @@ static void web_driver_handle_message(struct mg_connection *connection, struct m
          }
          mg_free(model); mg_free(generation_text); mg_free(cursor_text);
       }
+      else if (version == 1 && operation && !strcmp(operation,"form.list"))
+      {
+         char *form=mg_json_get_str(json,"$.form");
+         long offset=mg_json_get_long(json,"$.offset",-1),limit=mg_json_get_long(json,"$.records",-1);
+         long bytes=mg_json_get_long(json,"$.bytes",-1);
+         char page[THE_WORKBENCH_JSON_MAX+80];
+         size_t length=web_driver_workbench_string_field(json,"$.form",0)
+            && offset>=0 && limit>=1 && limit<=8 && bytes>=1 && bytes<=8192
+            ? the_web_format_form_page(page,sizeof(page),form,(size_t)offset,(size_t)limit,(size_t)bytes,0) : 0;
+         if (length) web_driver_send(connection,page,length);
+         else web_driver_send_workbench_refusal(connection,"","invalid-operand","Invalid form page request");
+         mg_free(form);
+      }
+      else if (version == 1 && operation && (!strcmp(operation,"form.set")
+         || !strcmp(operation,"form.submit") || !strcmp(operation,"form.cancel")))
+      {
+         TheWorkbenchFormRequest request; TheInputEvent event;
+         char *request_id=mg_json_get_str(json,"$.requestId"),*form=mg_json_get_str(json,"$.form");
+         char *field=mg_json_get_str(json,"$.field"),*value=mg_json_get_str(json,"$.value");
+         char *panel=mg_json_get_str(json,"$.panel"),*generation=mg_json_get_str(json,"$.expectGeneration");
+         char *revision=mg_json_get_str(json,"$.expectRevision"),*panel_generation=mg_json_get_str(json,"$.expectPanelGeneration");
+         uint64_t gen=0,pgen=0; int accepted,valid;
+         memset(&request,0,sizeof(request));
+         request.operation=!strcmp(operation,"form.set") ? THE_WORKBENCH_FORM_SET
+            : !strcmp(operation,"form.submit") ? THE_WORKBENCH_FORM_SUBMIT : THE_WORKBENCH_FORM_CANCEL;
+         valid=web_driver_workbench_string_field(json,"$.form",0)
+            && web_driver_workbench_string_field(json,"$.expectGeneration",0)
+            && web_driver_workbench_string_field(json,"$.expectRevision",0)
+            && web_driver_workbench_string_field(json,"$.panel",1)
+            && web_driver_workbench_string_field(json,"$.expectPanelGeneration",1)
+            && form && strlen(form)<=THE_WORKBENCH_ID_MAX
+            && the_web_parse_u64(generation,&gen) && gen && gen<=ULONG_MAX
+            && the_web_parse_u64(revision,&request.draft_revision) && request.draft_revision
+            && (!panel || strlen(panel)<=THE_WORKBENCH_ID_MAX && panel_generation
+               && the_web_parse_u64(panel_generation,&pgen) && pgen && pgen<=ULONG_MAX);
+         if (valid && request.operation==THE_WORKBENCH_FORM_SET)
+            valid=web_driver_workbench_string_field(json,"$.field",0)
+               && web_driver_workbench_string_field(json,"$.value",0)
+               && field && strlen(field)<=THE_WORKBENCH_ID_MAX && value && strlen(value)<=THE_WORKBENCH_FIELD_VALUE_MAX;
+         if (valid)
+         {
+            strcpy(request.form,form); request.form_generation=(unsigned long)gen;
+            if (panel) { strcpy(request.panel,panel); request.panel_generation=(unsigned long)pgen; }
+            if (request.operation==THE_WORKBENCH_FORM_SET)
+            { strcpy(request.field,field); strcpy(request.value,value); request.length=strlen(value); }
+         }
+         accepted=web_driver_workbench_string_field(json,"$.requestId",0)
+            ? valid ? the_web_workbench_form_begin(&web_state.workbench_receipts,request_id,&request,&event) : -5 : -1;
+         if (accepted==1 && !the_input_queue_push(&web_state.inputs,event))
+            the_web_workbench_receipt_refuse(&web_state.workbench_receipts,"invalid-operand",5,"Form input queue full");
+         if (accepted==1 || accepted==0 || accepted==-3)
+            web_driver_send_workbench_receipt(connection,the_web_workbench_receipt_find(&web_state.workbench_receipts,request_id));
+         else web_driver_send_workbench_refusal(connection,request_id,
+            accepted==-4 ? "request-id-conflict" : accepted==-6 ? "receipt-unknown" : accepted==-5 ? "invalid-operand" : "invalid-request-id",
+            "Invalid or conflicting form request");
+         mg_free(request_id);mg_free(form);mg_free(field);mg_free(value);mg_free(panel);
+         mg_free(generation);mg_free(revision);mg_free(panel_generation);
+      }
       else if (version == 1 && operation && !strcmp(operation,"document.list"))
       {
          char *panel = mg_json_get_str(json,"$.panel");
@@ -906,7 +964,8 @@ static int web_driver_read_input_event(TheInputEvent *event)
       if (the_input_queue_pop(&web_state.inputs, event))
       {
          if (event->kind == THE_INPUT_WORKBENCH_INVOKE
-         || event->kind == THE_INPUT_WORKBENCH_PANEL)
+         || event->kind == THE_INPUT_WORKBENCH_PANEL
+         || event->kind == THE_INPUT_WORKBENCH_FORM)
             the_web_workbench_receipt_dispatched(&web_state.workbench_receipts);
          return event->kind != THE_INPUT_NONE;
       }

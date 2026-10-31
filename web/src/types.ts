@@ -141,7 +141,7 @@ export interface WorkbenchPanelDefinition {
   owner: string;
   title: string;
   generation: string;
-  kind: "log" | "document";
+  kind: "log" | "document" | "fields";
   model: string;
   modelGeneration: string;
   placement: "right" | "below" | "tab";
@@ -160,6 +160,13 @@ export interface WorkbenchPanelDefinition {
   documentAvailable?: boolean;
   documentReason?: string;
   lineCount?: number;
+  form?: string;
+  formGeneration?: string;
+  draftRevision?: string;
+  resultRevision?: string;
+  formDirty?: boolean;
+  submitted?: boolean;
+  fieldCount?: number;
 }
 
 export interface WorkbenchPanelState {
@@ -175,13 +182,47 @@ export interface WorkbenchPanelState {
   modelError: string;
   omittedBytes: string;
   omittedRecords: string;
-  kind?: "log" | "document";
+  kind?: "log" | "document" | "fields";
   readonly?: boolean;
   documentId?: string;
   documentRevision?: string;
   documentAvailable?: boolean;
   documentReason?: string;
   lineCount?: number;
+  form?: string;
+  formGeneration?: string;
+  draftRevision?: string;
+  resultRevision?: string;
+  formDirty?: boolean;
+  submitted?: boolean;
+  fieldCount?: number;
+}
+
+export interface WorkbenchFormField {
+  id: string;
+  generation: string;
+  label: string;
+  access: "edit" | "readonly";
+  maxcells: number;
+  value: string;
+  length: number;
+  dirty: boolean;
+}
+
+export interface WorkbenchFormPage {
+  schemaVersion: 1;
+  revision: number;
+  section: "fields" | "form-result";
+  form: string;
+  generation: string;
+  draftRevision: string;
+  resultRevision: string;
+  submitted: boolean;
+  dirty: boolean;
+  total: number;
+  offset: number;
+  nextOffset: number | null;
+  records: WorkbenchFormField[];
 }
 
 export interface WorkbenchDocumentPage {

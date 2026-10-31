@@ -330,7 +330,11 @@ void the_web_workbench_receipt_refuse(TheWebWorkbenchReceipts *receipts,
 void the_web_workbench_receipt_dispatched(TheWebWorkbenchReceipts *receipts)
 {
    if (receipts != NULL && receipts->pending_index >= 0)
+   {
+      const TheWorkbenchFormReceipt *form=the_workbench_form_receipt();
       receipts->dispatch_serial = the_workbench_invocation_serial();
+      receipts->form_serial = form ? form->serial : 0;
+   }
 }
 
 const TheWebWorkbenchReceipt *the_web_workbench_receipt_complete(
@@ -338,14 +342,23 @@ const TheWebWorkbenchReceipt *the_web_workbench_receipt_complete(
 {
    TheWebWorkbenchReceipt *entry;
    const TheWorkbenchResult *result;
-   if (receipts == NULL || receipts->pending_index < 0
-   || the_workbench_invocation_serial() == receipts->dispatch_serial)
-      return NULL;
+   const TheWorkbenchFormReceipt *form=NULL;
+   if (receipts == NULL || receipts->pending_index < 0) return NULL;
    entry = &receipts->entries[receipts->pending_index];
+   if (entry->form_request_id)
+   {
+      form=the_workbench_form_receipt();
+      if (!form || form->serial==receipts->form_serial || form->request_id!=entry->form_request_id
+      || strcmp(form->form,entry->action)) return NULL;
+      entry->draft_revision=form->draft_revision;
+      entry->result_revision=form->result_revision;
+      entry->caret=form->caret;
+   }
+   else if (the_workbench_invocation_serial() == receipts->dispatch_serial) return NULL;
    result = the_workbench_last_result();
-   snprintf(entry->code, sizeof(entry->code), "%s", result->code);
+   snprintf(entry->code, sizeof(entry->code), "%s", form ? form->code : result->code);
    snprintf(entry->message, sizeof(entry->message), "%s", result->message);
-   entry->rc = result->rc;
+   entry->rc = form ? form->rc : result->rc;
    entry->revision = result->revision;
    entry->pending = 0;
    receipts->pending_index = -1;
@@ -468,6 +481,15 @@ size_t the_web_format_panel_state(char *out, size_t capacity)
             panel->document_id,document.revision,document.available ? "true" : "false",document.lines)
          || !web_append_string(out,capacity,&used,document.reason ? document.reason : "unavailable-document")) return 0;
       }
+      if (panel->kind == THE_WORKBENCH_PANEL_FIELDS)
+      {
+         const TheWorkbenchFormState *form=the_workbench_form_state(panel->form);
+         if (!web_append(out,capacity,&used,",\"kind\":\"fields\",\"form\":")
+         || !web_append_string(out,capacity,&used,panel->form)
+         || !web_append(out,capacity,&used,",\"formGeneration\":\"%lu\",\"draftRevision\":\"%" PRIu64 "\",\"resultRevision\":\"%" PRIu64 "\",\"formDirty\":%s,\"submitted\":%s,\"fieldCount\":%zu",
+            panel->form_generation,form ? form->draft_revision : 0,form ? form->result_revision : 0,
+            form && form->dirty ? "true" : "false",form && form->submitted ? "true" : "false",form ? form->fields : 0)) return 0;
+      }
       if (!web_append(out,capacity,&used,"}")) return 0;
    }
    if (!web_append(out,capacity,&used,"]}")) return 0;
@@ -510,6 +532,45 @@ size_t the_web_format_document_page(char *out, size_t capacity,
    memcpy(out + used,page,length); used += length;
    out[used++] = '}'; out[used] = '\0';
    return used;
+}
+
+size_t the_web_format_form_page(char *out,size_t capacity,const char *form,
+                                size_t offset,size_t limit,size_t bytes,int submitted)
+{
+   char page[THE_WORKBENCH_JSON_MAX]; size_t used=0,length;
+   if (!out || !form || the_workbench_form_json(page,sizeof(page),form,offset,limit,bytes,submitted)) return 0;
+   length=strlen(page);
+   if (!web_append(out,capacity,&used,"{\"type\":\"workbench\",\"operation\":\"form\",\"data\":")
+   || used+length+2>capacity) return 0;
+   memcpy(out+used,page,length); used+=length; out[used++]='}'; out[used]=0;
+   return used;
+}
+
+int the_web_workbench_form_begin(TheWebWorkbenchReceipts *receipts,
+   const char *request_id,TheWorkbenchFormRequest *request,TheInputEvent *event)
+{
+   char argument[THE_WORKBENCH_OPERAND_MAX+1]; const char *operation,*sequence;
+   int length,accepted;
+   if (!request_id || !request || !event || !(sequence=strrchr(request_id,'.'))
+   || !the_web_parse_u64(sequence+1,&request->request_id) || !request->request_id) return -1;
+   if (!the_input_event_from_workbench_form(request,event)) return -5;
+   operation=request->operation==THE_WORKBENCH_FORM_SET ? "form.set"
+      : request->operation==THE_WORKBENCH_FORM_EDIT ? "form.edit"
+      : request->operation==THE_WORKBENCH_FORM_SUBMIT ? "form.submit" : "form.cancel";
+   length=snprintf(argument,sizeof(argument),"%lu:%" PRIu64 ":%lu:%zu:%d:%d:%" PRIu32 ":%s:%s:%s",
+      request->form_generation,request->draft_revision,request->panel_generation,request->length,
+      (int)request->edit,request->cell,request->codepoint,request->field,request->panel,request->value);
+   if (length<0 || (size_t)length>=sizeof(argument)) return -5;
+   accepted=the_web_workbench_receipt_begin(receipts,request_id,operation,request->form,
+      request->form_generation,argument);
+   if (accepted==1)
+   {
+      TheWebWorkbenchReceipt *entry=&receipts->entries[receipts->pending_index];
+      entry->form_request_id=request->request_id;
+      entry->draft_revision=request->draft_revision;
+      entry->caret=-1;
+   }
+   return accepted;
 }
 
 int the_web_parse_u64(const char *value, uint64_t *out)
@@ -587,6 +648,13 @@ int the_web_format_workbench_receipt(char *out, size_t capacity,
    length = (int)web_json_string(out + used, capacity - used, receipt->message);
    if (!length) return 0;
    used += (size_t)length;
+   if (receipt->form_request_id)
+   {
+      length=snprintf(out+used,capacity-used,",\"form\":\"%s\",\"formGeneration\":\"%lu\",\"draftRevision\":\"%" PRIu64 "\",\"resultRevision\":\"%" PRIu64 "\",\"caret\":%d",
+         receipt->action,receipt->generation,receipt->draft_revision,receipt->result_revision,receipt->caret);
+      if (length<0 || (size_t)length>=capacity-used) return 0;
+      used+=(size_t)length;
+   }
    if (used + 2 > capacity) return 0;
    out[used++] = '}'; out[used] = '\0';
    return (int)used;

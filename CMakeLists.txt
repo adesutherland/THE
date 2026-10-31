@@ -1092,6 +1092,10 @@ if(THE_PYTHON_EXECUTABLE)
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_workbench_document_runtime.py $<TARGET_FILE:the> ${profile_engine})
             set_tests_properties(test_workbench_document_runtime_${profile_engine} PROPERTIES TIMEOUT 90
                 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+            add_test(NAME test_workbench_form_runtime_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_workbench_form_runtime.py $<TARGET_FILE:the> ${profile_engine})
+            set_tests_properties(test_workbench_form_runtime_${profile_engine} PROPERTIES TIMEOUT 90
+                ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
             add_test(NAME test_workbench_boundaries_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_workbench_boundaries.py $<TARGET_FILE:the> ${profile_engine})
             set_tests_properties(test_workbench_boundaries_${profile_engine} PROPERTIES TIMEOUT 90
@@ -1294,13 +1298,24 @@ else()
 endif()
 add_test(NAME test_workbenchlog COMMAND test_workbenchlog)
 
-add_executable(test_workbench tests/test_workbench.c src/workbench.c src/workbenchruntime.c src/workbenchlog.c src/workbenchdocument.c src/frontendaction.c)
+add_executable(test_workbench tests/test_workbench.c src/workbench.c src/workbenchruntime.c src/workbenchlog.c src/workbenchdocument.c src/workbenchform.c src/textpos.c src/frontendaction.c)
 target_include_directories(test_workbench PRIVATE ${CMAKE_SOURCE_DIR}/src)
 add_test(NAME test_workbench COMMAND test_workbench)
 
-add_executable(test_workbenchdocument tests/test_workbenchdocument.c src/workbenchdocument.c src/workbench.c src/workbenchruntime.c src/workbenchlog.c src/frontendaction.c)
+add_executable(test_workbenchdocument tests/test_workbenchdocument.c src/workbenchdocument.c src/workbench.c src/workbenchruntime.c src/workbenchlog.c src/workbenchform.c src/textpos.c src/frontendaction.c)
 target_include_directories(test_workbenchdocument PRIVATE ${CMAKE_SOURCE_DIR}/src)
 add_test(NAME test_workbenchdocument COMMAND test_workbenchdocument)
+
+add_executable(test_workbenchform tests/test_workbenchform.c src/workbenchform.c src/workbenchdocument.c src/workbench.c src/workbenchruntime.c src/workbenchlog.c src/inputevent.c src/textpos.c src/frontendaction.c)
+target_include_directories(test_workbenchform PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
+add_test(NAME test_workbenchform COMMAND test_workbenchform)
+foreach(workbench_test test_workbench test_workbenchdocument test_workbenchform)
+    target_include_directories(${workbench_test} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+    if(USE_UTF8 AND USE_UTF8PROC)
+        target_link_libraries(${workbench_test} ${THE_UTF8PROC_TARGET})
+        target_compile_definitions(${workbench_test} PRIVATE USE_UTF8PROC=1)
+    endif()
+endforeach()
 
 add_executable(test_frontendaction tests/test_frontendaction.c src/frontendaction.c)
 target_include_directories(test_frontendaction PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR})
@@ -1433,6 +1448,11 @@ add_test(NAME test_the_llm_full_runtime
     COMMAND ${THE_BASH_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_the_llm_full_runtime.sh
             $<TARGET_FILE:the>)
 set_tests_properties(test_the_llm_full_runtime PROPERTIES
+    ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+add_test(NAME test_llm_forms_protocol
+    COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_llm_forms_protocol.py
+            $<TARGET_FILE:the>)
+set_tests_properties(test_llm_forms_protocol PROPERTIES TIMEOUT 90
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 add_test(NAME test_explicit_commands_default
     COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_explicit_commands_default.py

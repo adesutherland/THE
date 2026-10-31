@@ -6,6 +6,8 @@
 #include "transientui.h"
 
 int llm_session_run_protocol(void);
+/* One narrow typed form line; emits its receipt, including modal refusal. */
+int llm_session_handle_form_input(char *line);
 int llm_session_begin_readv_continuation(const char *initial, int start_col,
                                          int cols);
 int llm_session_begin_dialog_continuation(
