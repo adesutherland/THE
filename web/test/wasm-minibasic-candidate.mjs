@@ -109,6 +109,16 @@ export async function minibasicCandidateSmoke({
   for (const [id, role, image] of [["minibasic", "runner", "MiniBASIC.rxbin"], ["minibasic-syntax", "language", "MiniBASICHighlight.rxbin"]])
     assert.equal(await evaluate(`window.__tools.catalog.some(tool=>tool.id===${JSON.stringify(id)}&&tool.role===${JSON.stringify(role)}&&tool.image===${JSON.stringify(`/workspace/${image}`)}&&tool.extensions==='.bas'&&tool.available)`), true, `${id} registered by profile`);
 
+  async function reloadSavedProfile(description) {
+    const generation = await evaluate("window.__minibasicGeneration=Math.random()");
+    await command("Page.reload", { ignoreCache: true });
+    await waitFor(() => evaluate(`window.__minibasicGeneration!==${generation}&&!!window.__snapshot&&window.__tools?.chunks.some(chunk=>chunk.text.includes('MiniBASIC candidate profile activated'))`), description, 30000);
+    assert.deepEqual(await durable(profilePath), savedProfile, "editable MiniBASIC profile source survives reload");
+    assert.deepEqual(await durable("/workspace/.crxthe-tools/active"), selectedProfile, "compiled profile selection survives reload");
+    assert.deepEqual(await durable("/workspace/.crxthe-tools/tools.registry"), registry, "MiniBASIC registrations survive reload");
+    assert.deepEqual(await durable(sourcePath), [...original], "saved MiniBASIC source survives reload");
+  }
+
   await openWorkspaceFile("MiniBASIC.bas");
   const ready = () => waitFor(async () => {
     const state = await snapshot();
@@ -148,10 +158,9 @@ export async function minibasicCandidateSmoke({
   }, "MiniBASIC explicit syntax repair", 30000);
   assert.equal(await evaluate("!!document.querySelector('.syntax-diagnostic-error,.status-pmsg-error')"), false, "repaired MiniBASIC clears diagnostic styles");
   assert.deepEqual(await durable(sourcePath), [...original], "syntax edit/repair leaves durable MiniBASIC bytes unchanged");
-  // The maintained sample has no final LF. Discard the repaired test buffer
-  // instead of saving, which would add an LF and change the fixture bytes.
-  await send({ type: "command", command: "qquit" });
-  await waitFor(async () => (await snapshot()).buffer.path !== sourcePath, "discard repaired MiniBASIC test buffer");
+  // Reload discards the repaired test buffer through the browser lifecycle.
+  // Saving would add a final LF that is absent from the maintained sample.
+  await reloadSavedProfile("discard repaired MiniBASIC buffer and restore saved profile");
   await openWorkspaceFile("MiniBASIC.bas");
   await ready();
   await waitFor(async () => !(await snapshot()).buffer.dirty && !(await snapshot()).diagnostics?.length, "reopen clean original MiniBASIC source");
@@ -182,24 +191,14 @@ export async function minibasicCandidateSmoke({
   assert.equal(await evaluate("document.querySelector('.console-output').textContent.includes('The number is non-negative: 5')"), true, "MiniBASIC INPUT reached positive branch");
   assert.ok((await snapshot()).buffer.dirty, "MiniBASIC Run preserves unsaved state");
   assert.deepEqual(await durable(sourcePath), [...original], "MiniBASIC Run preserves saved source bytes");
-  // Discard only this deliberately unsaved test edit. Source capture may have
-  // committed the working record, so reopening is independent of line undo.
-  await send({ type: "command", command: "qquit" });
-  await waitFor(async () => (await snapshot()).buffer.path !== sourcePath, "discard unsaved MiniBASIC test buffer");
-  await openWorkspaceFile("MiniBASIC.bas");
-  await send({ type: "command", command: `cursor goto ${sumLine} 1` });
-  await waitFor(async () => !(await snapshot()).buffer.dirty &&
-    (await snapshot()).screen_rows.some(row => row.line === sumLine && row.t === sumText), "reopen original MiniBASIC source before reload");
-
-  const generation = await evaluate("window.__minibasicGeneration=Math.random()");
-  await command("Page.reload", { ignoreCache: true });
-  await waitFor(() => evaluate(`window.__minibasicGeneration!==${generation}&&window.__tools?.chunks.some(chunk=>chunk.text.includes('MiniBASIC candidate profile activated'))`), "MiniBASIC profile restored after reload", 30000);
-  assert.deepEqual(await durable(profilePath), savedProfile, "editable MiniBASIC profile source survives reload");
-  assert.deepEqual(await durable("/workspace/.crxthe-tools/active"), selectedProfile, "compiled profile selection survives reload");
-  assert.deepEqual(await durable("/workspace/.crxthe-tools/tools.registry"), registry, "MiniBASIC registrations survive reload");
-  assert.deepEqual(await durable(sourcePath), [...original], "saved MiniBASIC source survives reload");
+  // Reload discards the deliberately unsaved snapshot and restores the saved
+  // source/profile without requiring an unrestricted editor quit command.
+  await reloadSavedProfile("discard unsaved MiniBASIC run edit and restore saved profile");
   await openWorkspaceFile("MiniBASIC.bas");
   await ready();
+  await send({ type: "command", command: `cursor goto ${sumLine} 1` });
+  await waitFor(async () => !(await snapshot()).buffer.dirty &&
+    (await snapshot()).screen_rows.some(row => row.line === sumLine && row.t === sumText), "reopen clean original MiniBASIC source after reload");
   await runFromEditor();
   await waitFor(() => evaluate("window.__tools.job.tool==='minibasic'&&window.__tools.job.waiting"), "restored MiniBASIC runner INPUT", 30000);
   await consoleEnter("-5");
