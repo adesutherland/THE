@@ -130,11 +130,26 @@ export async function minibasicCandidateSmoke({
       state.diagnostics?.some(diagnostic => diagnostic.code === "L_INPUT" && diagnostic.line === letLine && diagnostic.column === 1);
   }, "located MiniBASIC syntax diagnostic", 30000);
   await send({ type: "command", command: `cursor goto ${letLine} 1` });
-  await waitFor(async () => (await snapshot()).status_pmsg?.severity === "ERROR", "MiniBASIC cursor-local diagnostic");
+  await waitFor(async () => {
+    const state = await snapshot();
+    return state.focus.line === letLine && state.focus.cell === 0 && state.status_pmsg?.severity === "ERROR";
+  }, "MiniBASIC cursor-local diagnostic");
   assert.equal(await evaluate("!!document.querySelector('.syntax-diagnostic-error')&&!!document.querySelector('.status-pmsg-error')"), true, "MiniBASIC error visible at cursor");
-  await send({ type: "action", action: "edit.undo" });
-  await ready();
-  await waitFor(async () => !(await snapshot()).buffer.dirty && !(await snapshot()).diagnostics?.length, "MiniBASIC syntax repair");
+  // Moving to the diagnostic commits/reloads the working record, so its line
+  // undo baseline now contains '['. Repair that located byte explicitly.
+  await evaluate("document.querySelector('.input-sink').focus()");
+  await waitFor(() => evaluate("document.activeElement===document.querySelector('.input-sink')"), "MiniBASIC diagnostic repair focus");
+  await command("Input.dispatchKeyEvent", { type: "keyDown", key: "Delete", code: "Delete", windowsVirtualKeyCode: 46 });
+  await command("Input.dispatchKeyEvent", { type: "keyUp", key: "Delete", code: "Delete", windowsVirtualKeyCode: 46 });
+  await waitFor(async () => {
+    const state = await snapshot();
+    return state.screen_rows.some(row => row.line === letLine && row.t === sourceLines[letLine - 1]) &&
+      state.parser?.state === "ready" && state.parser.applied === state.parser.revision && !state.diagnostics?.length;
+  }, "MiniBASIC explicit syntax repair", 30000);
+  assert.equal(await evaluate("!!document.querySelector('.syntax-diagnostic-error,.status-pmsg-error')"), false, "repaired MiniBASIC clears diagnostic styles");
+  await evaluate("document.querySelector('[aria-label=Save]').click()");
+  await waitFor(async () => !(await snapshot()).buffer.dirty, "save repaired MiniBASIC source");
+  assert.deepEqual(await durable(sourcePath), [...original], "explicit MiniBASIC repair preserves exact saved bytes");
 
   // Keep the edit in the current working record. Run must capture it without
   // saving it or substituting the durable BASIC file for the source snapshot.
@@ -161,8 +176,14 @@ export async function minibasicCandidateSmoke({
   assert.equal(await evaluate("document.querySelector('.console-output').textContent.includes('The number is non-negative: 5')"), true, "MiniBASIC INPUT reached positive branch");
   assert.ok((await snapshot()).buffer.dirty, "MiniBASIC Run preserves unsaved state");
   assert.deepEqual(await durable(sourcePath), [...original], "MiniBASIC Run preserves saved source bytes");
-  await send({ type: "action", action: "edit.undo" });
-  await waitFor(async () => !(await snapshot()).buffer.dirty, "restore unsaved MiniBASIC edit before reload");
+  // Discard only this deliberately unsaved test edit. Source capture may have
+  // committed the working record, so reopening is independent of line undo.
+  await send({ type: "command", command: "qquit" });
+  await waitFor(async () => (await snapshot()).buffer.path !== sourcePath, "discard unsaved MiniBASIC test buffer");
+  await openWorkspaceFile("MiniBASIC.bas");
+  await send({ type: "command", command: `cursor goto ${sumLine} 1` });
+  await waitFor(async () => !(await snapshot()).buffer.dirty &&
+    (await snapshot()).screen_rows.some(row => row.line === sumLine && row.t === sumText), "reopen original MiniBASIC source before reload");
 
   const generation = await evaluate("window.__minibasicGeneration=Math.random()");
   await command("Page.reload", { ignoreCache: true });
