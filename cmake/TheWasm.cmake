@@ -54,8 +54,9 @@ include("${CMAKE_SOURCE_DIR}/cmake/TheSources.cmake")
 
 if(THE_WASM_CREXX)
     include("${CMAKE_SOURCE_DIR}/cmake/CrexxWasm.cmake")
-    if(THE_CREXX_REVISION STREQUAL "8e8cfff4d6109bce277befeb9dd598027d1deb77")
-      add_compile_definitions(THE_TOOL_PROFILE_OUTPUT=1)
+    if(THE_CREXX_REVISION STREQUAL "8e8cfff4d6109bce277befeb9dd598027d1deb77"
+       OR THE_CREXX_REVISION STREQUAL "43807b4368cb3dcda49d67c0ac15599cf1e22594")
+        add_compile_definitions(THE_TOOL_PROFILE_OUTPUT=1)
     endif()
     add_compile_definitions(THE_TOOL_COHORT="${THE_CREXX_REVISION}" USE_CREXX=1 THE_CREXX_STATIC=1
         THE_CREXX_IMPORT_DIR="/app" THE_CREXX_LIBRARY_RXBIN="/app/library.rxbin")
@@ -66,6 +67,39 @@ if(THE_WASM_CREXX)
         "${THE_CREXX_HOST_BUILD}/bin/rxc" "${THE_CREXX_HOST_BUILD}/bin/rxas"
         "${THE_CREXX_HOST_BUILD}/bin/rxcexits.rxbin" "${THE_CREXX_HOST_BUILD}/bin/library.rxbin")
     set(THE_WASM_PACKAGE_ARGUMENTS --crexx-source "${THE_CREXX_SOURCE}" --crexx-revision "${THE_CREXX_REVISION}" --editor-address)
+endif()
+
+set(THE_WASM_MINIBASIC_RUNNER "" CACHE FILEPATH "Prepared MiniBASIC source-file runner RXBIN")
+set(THE_WASM_MINIBASIC_HIGHLIGHT "" CACHE FILEPATH "Prepared MiniBASIC DSLSH RXBIN")
+set(THE_WASM_MINIBASIC_RUNNER_SHA256 "0f5c8820f70d80202063c6b08c5f92b8f5fd9a87922022e996815b05d1da94dd"
+    CACHE STRING "Reviewed MiniBASIC runner checksum")
+set(THE_WASM_MINIBASIC_HIGHLIGHT_SHA256 "065e4887a688a6948c042b847fbdaf3874b060b26d31299094084473b5adc60f"
+    CACHE STRING "Reviewed MiniBASIC highlighter checksum")
+if(THE_WASM_MINIBASIC_RUNNER OR THE_WASM_MINIBASIC_HIGHLIGHT)
+    if(NOT THE_WASM_CREXX OR NOT THE_WASM_HIGHLIGHT OR NOT THE_WASM_INTERPRETER
+       OR NOT THE_WASM_COMPILER_DIRECTORY)
+        message(FATAL_ERROR "MiniBASIC candidate requires cREXX, highlighter, interpreter and profile compiler")
+    endif()
+    if(NOT EXISTS "${THE_WASM_MINIBASIC_RUNNER}" OR NOT THE_WASM_MINIBASIC_RUNNER_SHA256
+       OR NOT EXISTS "${THE_WASM_MINIBASIC_HIGHLIGHT}" OR NOT THE_WASM_MINIBASIC_HIGHLIGHT_SHA256)
+        message(FATAL_ERROR "Supply both MiniBASIC images and reviewed checksums")
+    endif()
+    file(SHA256 "${THE_WASM_MINIBASIC_RUNNER}" runner_sha)
+    file(SHA256 "${THE_WASM_MINIBASIC_HIGHLIGHT}" highlight_sha)
+    if(NOT runner_sha STREQUAL THE_WASM_MINIBASIC_RUNNER_SHA256
+       OR NOT highlight_sha STREQUAL THE_WASM_MINIBASIC_HIGHLIGHT_SHA256)
+        message(FATAL_ERROR "MiniBASIC images differ from the reviewed checksums")
+    endif()
+    set(THE_WASM_MINIBASIC_SOURCE "${THE_CREXX_SOURCE}/examples/minibasic/basic1.bas")
+    if(NOT EXISTS "${THE_WASM_MINIBASIC_SOURCE}")
+        message(FATAL_ERROR "The maintained MiniBASIC source example is missing")
+    endif()
+    list(APPEND THE_WASM_RESOURCE_ARGUMENTS
+        --minibasic-source "${THE_WASM_MINIBASIC_SOURCE}")
+    list(APPEND THE_WASM_PROFILE_DEPENDS "${THE_WASM_MINIBASIC_SOURCE}")
+    list(APPEND THE_WASM_PACKAGE_ARGUMENTS
+        --minibasic-runner-sha256 "${THE_WASM_MINIBASIC_RUNNER_SHA256}"
+        --minibasic-highlighter-sha256 "${THE_WASM_MINIBASIC_HIGHLIGHT_SHA256}")
 endif()
 
 find_program(THE_WASM_PYTHON NAMES python3 REQUIRED)
@@ -140,11 +174,25 @@ endif()
 if(THE_WASM_INTERPRETER)
     add_dependencies(the_wasm_bundle the_wasm_interpreter_assets)
 endif()
+if(THE_WASM_MINIBASIC_RUNNER)
+    add_custom_target(the_wasm_minibasic_assets
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${THE_WASM_SITE}/examples"
+        COMMAND "${CMAKE_COMMAND}" -E copy "${THE_WASM_MINIBASIC_RUNNER}"
+            "${THE_WASM_SITE}/examples/MiniBASIC.rxbin"
+        COMMAND "${CMAKE_COMMAND}" -E copy "${THE_WASM_MINIBASIC_HIGHLIGHT}"
+            "${THE_WASM_SITE}/examples/MiniBASICHighlight.rxbin"
+        COMMAND "${CMAKE_COMMAND}" -E copy "${THE_WASM_MINIBASIC_SOURCE}"
+            "${THE_WASM_SITE}/examples/MiniBASIC.bas"
+        DEPENDS "${THE_WASM_SITE}/.build-stamp" "${THE_WASM_MINIBASIC_RUNNER}"
+            "${THE_WASM_MINIBASIC_HIGHLIGHT}" "${THE_WASM_MINIBASIC_SOURCE}"
+        VERBATIM)
+    add_dependencies(the_wasm_bundle the_wasm_minibasic_assets)
+endif()
 
 if(THE_WASM_COMPILER_DIRECTORY)
  add_compile_definitions(THE_WASM_PROFILE_COMPILER=1)
- if(NOT THE_CREXX_REVISION STREQUAL "8e8cfff4d6109bce277befeb9dd598027d1deb77")
-  message(FATAL_ERROR "The profile compiler requires the qualified 8e8cfff4 runtime SDK")
+ if(NOT THE_CREXX_REVISION STREQUAL "43807b4368cb3dcda49d67c0ac15599cf1e22594")
+  message(FATAL_ERROR "The profile compiler requires the qualified 43807b436 runtime SDK")
  endif()
  foreach(asset rxc_single.mjs rxc_single.wasm rxas_single.mjs rxas_single.wasm)
   if(NOT EXISTS "${THE_WASM_COMPILER_DIRECTORY}/${asset}")
@@ -153,7 +201,7 @@ if(THE_WASM_COMPILER_DIRECTORY)
  endforeach()
  file(SHA256 "${THE_WASM_COMPILER_DIRECTORY}/rxc_single.wasm" rxc_hash)
  file(SHA256 "${THE_WASM_COMPILER_DIRECTORY}/rxas_single.wasm" rxas_hash)
- if(NOT rxc_hash STREQUAL "c2f3c5b76d2f1f982611c7338e4a3a30799337522bb86d098ad27e4b0ad1b8b0" OR NOT rxas_hash STREQUAL "1e8127835f8daeb0697bc966cdb2ec1b63c7b79c604bd8c6cbdba31de12f2c27")
+ if(NOT rxc_hash STREQUAL "d9a45b2cb6d135339df0f73520ae62cc1a4b19c7ab1ec73f3b76905222f5a2f1" OR NOT rxas_hash STREQUAL "1556f446bf1b14d123c2525b4be5d3d7cfe2a6379862e67b739ea090dc6f4c8a")
   message(FATAL_ERROR "Profile compiler Wasm differs from its qualified module checksums")
  endif()
  file(WRITE "${CMAKE_BINARY_DIR}/compiler.json" "{\"version\":1,\"crexx\":\"${THE_CREXX_REVISION}\",\"protocol\":\"fresh-module-cli\",\"rxc_sha256\":\"${rxc_hash}\",\"rxas_sha256\":\"${rxas_hash}\"}\n")

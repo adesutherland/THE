@@ -43,25 +43,28 @@ pthreads, COOP or COEP. Subdirectory deployment and an offline service worker
 are not qualified in this milestone.
 
 The CI workflow `wasm-browser.yml` builds a preview artifact from `main` and
-runs the core and Chromium checks. It does not deploy a website or make a
-release. Chromium is locally qualified; Firefox, WebKit, mobile browsers and
-private-browsing persistence remain open qualification work.
+runs the core and Chromium checks against its separately pinned published
+cREXX profile cohort. The current combined Rexx/MiniBASIC review candidate
+uses newer local dependency commits and has local qualification only until
+those commits are published and CI is updated. CI does not deploy a website
+or make a release. Firefox, WebKit, mobile browsers and private-browsing
+persistence remain open qualification work.
 
 ## Precompiled cREXX profiles and macros
 
 Use the pinned cREXX source revision from `cmake/CrexxWasm.cmake`. Prepare a
 matching native compiler, assembler, library and certified compiler exits
-before cross-compiling. For a separate dependency checkout:
+before cross-compiling. The current browser review cohort is in the local
+`../CREXX` development checkout; it has not yet been published upstream.
+For that checkout:
 
 ```sh
-git clone https://github.com/adesutherland/CREXX.git build/crexx-source
-git -C build/crexx-source checkout --detach c566025eedc5ef9f48b4c4a8f8f8919fd89793c5
-cmake -S build/crexx-source -B build/crexx-host -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+cmake -S ../CREXX -B build/crexx-host -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
 cmake --build build/crexx-host --target rxc rxas library compiler_exit_bin --parallel 8
 source build/toolchains/emsdk/emsdk_env.sh
 emcmake cmake -S . -B build-wasm-profile -G Ninja -DCMAKE_BUILD_TYPE=Release \
   -DTHE_BUILD_WASM=ON -DTHE_WASM_CREXX=ON \
-  -DTHE_CREXX_SOURCE="$PWD/build/crexx-source"
+  -DTHE_CREXX_SOURCE="$PWD/../CREXX"
 cmake --build build-wasm-profile --parallel 8
 python3 -m http.server 8769 --bind 127.0.0.1 --directory build-wasm-profile/site
 ```
@@ -71,8 +74,8 @@ different location. Configuration checks the source revision, clean VM/tool
 sources and generated host version header. Do not mix bytecode or tools from
 another cREXX cohort. The bundle records the dependency revision and licenses.
 The cREXX source checkout is not modified by the build. The browser adapter
-supplies virtual POSIX file lookup and links the shared invocation owner
-missing from this revision's optional single-threaded build target.
+supplies virtual POSIX file lookup and links the shared invocation owner when
+the optional single-threaded build target does not already include it.
 
 Ctrl-F and Ctrl-G run the bundled quick-find and quick-line macros. Ctrl-O
 keeps the browser workspace file picker; `quickopen.rxbin` is also bundled.
@@ -88,7 +91,8 @@ are checked on every use. Arbitrary `MACRO` commands, inline Rexx, OS commands,
 alias command chains and prefix macros are unavailable through browser input.
 The bundled shortcuts above run through the trusted profile path. The base macro
 host accepts precompiled bytecode; source `.the`/`.rexx` compilation is unavailable
-there. Import/export UI is still future work. Long-running bundled macros
+there. The Program console can import compiled RXBIN files; general file
+import/export is still future work. Long-running bundled macros
 currently need a Worker restart; cooperative interruption and recovery of
 unsaved edits remain open.
 
@@ -163,26 +167,21 @@ refusal instead of silently displaying legacy colours. A later valid edit or a
 parser restart can recover. Classic execution is an additional optional build,
 described below.
 
-The highlighter cohort is cREXX `67a5e928cddf569595961267bee5d25bf92f267f`
-and DSLSH `0ea4db815abd55cdc5db4a5c41539d7d920e9cb3`. These supporting commits
-are published on their projects' `develop` branches. Ordinary hosted
-editor/profile CI uses its separately pinned cohort. The Classic browser
-configuration is locally qualified and
-requires a prepared linked image from that cohort. Build it using DSLSH's
-`crexx/README.md`; THE does not regenerate the grammar. The supplied image
-contains its bytecode library closure and needs no external RXPA provider.
-
-Prepare native tools from that cREXX revision as in the profile instructions,
-using separate `build/crexx-classic-source` and `build/crexx-classic-host`
-directories, then configure:
+The current local browser review cohort is cREXX
+`43807b4368cb3dcda49d67c0ac15599cf1e22594` and DSLSH
+`ee025115bbc31a48575b151f990d2d3533d69a57`. Prepare the linked Classic
+image using DSLSH's `crexx/README.md` and matching native cREXX tools; THE
+does not regenerate the grammar. The image contains its bytecode library
+closure and needs no external RXPA provider. With those local checkouts and
+the prepared image, configure:
 
 ```sh
 emcmake cmake -S . -B build-wasm-classic -G Ninja -DCMAKE_BUILD_TYPE=Release \
   -DTHE_BUILD_WASM=ON -DTHE_WASM_CREXX=ON -DTHE_WASM_HIGHLIGHT=ON \
-  -DTHE_CREXX_SOURCE="$PWD/build/crexx-classic-source" \
-  -DTHE_CREXX_HOST_BUILD="$PWD/build/crexx-classic-host" \
-  -DTHE_CREXX_REVISION=67a5e928cddf569595961267bee5d25bf92f267f \
-  -DTHE_DSLSH_SOURCE=/absolute/path/to/DSL-Syntax-Highlighter \
+  -DTHE_CREXX_SOURCE="$PWD/../CREXX" \
+  -DTHE_CREXX_HOST_BUILD="$PWD/../CREXX/cmake-build-debug" \
+  -DTHE_CREXX_REVISION=43807b4368cb3dcda49d67c0ac15599cf1e22594 \
+  -DTHE_DSLSH_SOURCE="$PWD/../DSL-Syntax-Highlighter" \
   -DTHE_WASM_CLASSIC_IMAGE=/absolute/path/to/dslsh-classic.rxbin
 cmake --build build-wasm-classic --parallel 8
 node web/test/wasm-classic-framing.mjs
@@ -267,16 +266,12 @@ packages `examples/ToolHello.rxbin` for a direct run/import check. The packaged
 manifest records the runtime, interpreter image and their hashes. Generated
 RXBIN, Wasm and site assets remain build outputs.
 
-The qualified runtime revision is cREXX
-`8e8cfff4d6109bce277befeb9dd598027d1deb77`. The Classic interpreter
-image was prepared from `7ac74bc6ced98a522222d5495bed51c1da38a077`;
-the 9,593,172-byte image has SHA-256
-`9dc18d8eba321fb258865a9a6e11301df4b721d2b7835efafa1e92fdc9cd0942`.
-It was built from the frozen source content subsequently committed at that
-revision. The runner needs current generated native headers; the combined editor
-build also needs the matching native compiler, assembler and library. Do not
-use a stale version header from an older native build merely because its
-prepared grammar exists.
+The local review candidate pins the interpreter image and runtime to cREXX
+`43807b4368cb3dcda49d67c0ac15599cf1e22594`; the reviewed image checksum
+is in `cmake/ClassicInterpreterCohort.cmake`. The runner needs matching
+generated native headers; the combined editor build also needs the matching
+native compiler, assembler and library. A stale version header or prepared
+grammar from an older build does not qualify this cohort.
 
 ```sh
 # CREXX_RUNNER_SOURCE is a clean checkout at the qualified runtime revision above.
@@ -320,6 +315,16 @@ an empty file: use `input your first line`, then click its file row to edit.
 Opening another saved file adds it to the file ring. The initial
 `Welcome.txt` is created only if absent.
 
+**Files → Profile sources** opens editable copies of the bundled browser
+profile (`browser.the`) and macro sources. These copies are saved in the
+browser workspace and are never overwritten on reload or update, so an older
+copy can differ from the installed version. Startup uses the packaged image.
+**Console → Profile → Edit profile**
+opens the separate `/workspace/.crxthe-tools/profile.the` user source. Save
+that source, then use Build profile and Activate profile to apply it; the
+compiler also accepts unsaved buffer text, but Save is needed to retain the
+source across reloads.
+
 Ctrl-S and the Save button write the core's bytes, then wait for `FS.syncfs`
 to finish. Only successful synchronization clears the buffer's dirty state.
 The storage status reports saving, saved or failure. A failed save retains
@@ -330,7 +335,7 @@ buffer closes the editor; reload to reopen the workspace.
 Storage belongs to this browser profile and exact origin, including its port.
 Reload restores saved files, not unsaved editor sessions. Clearing site data,
 using another profile/origin or browser storage eviction can remove those
-files. Browser import/export and direct local filesystem access are later
+files. General browser file import/export and direct local filesystem access are later
 work; this preview has no native filesystem access. One tab holds an exclusive
 workspace lock. A second tab explains the conflict; close the first and reload
 the second to take over. Initialization/storage refusal stops startup rather

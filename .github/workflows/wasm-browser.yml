@@ -70,10 +70,10 @@ jobs:
       - name: Build addressed profiles and stream VM
         run: |
           source build/toolchains/emsdk/emsdk_env.sh
-          emcmake cmake -S . -B build-wasm-profile -G Ninja -DCMAKE_BUILD_TYPE=Release -DTHE_BUILD_WASM=ON -DTHE_WASM_CREXX=ON -DTHE_CREXX_SOURCE="$GITHUB_WORKSPACE/build/crexx-source"
+          emcmake cmake -S . -B build-wasm-profile -G Ninja -DCMAKE_BUILD_TYPE=Release -DTHE_BUILD_WASM=ON -DTHE_WASM_CREXX=ON -DTHE_CREXX_REVISION=c566025eedc5ef9f48b4c4a8f8f8919fd89793c5 -DTHE_CREXX_SOURCE="$GITHUB_WORKSPACE/build/crexx-source"
           cmake --build build-wasm-profile --parallel 4
           node web/test/wasm-core-smoke.mjs build-wasm-profile
-          emcmake cmake -S . -B build-wasm-vm -G Ninja -DCMAKE_BUILD_TYPE=Release -DTHE_BUILD_WASM_VM=ON -DTHE_CREXX_SOURCE="$GITHUB_WORKSPACE/build/crexx-source"
+          emcmake cmake -S . -B build-wasm-vm -G Ninja -DCMAKE_BUILD_TYPE=Release -DTHE_BUILD_WASM_VM=ON -DTHE_CREXX_REVISION=c566025eedc5ef9f48b4c4a8f8f8919fd89793c5 -DTHE_CREXX_SOURCE="$GITHUB_WORKSPACE/build/crexx-source"
           cmake --build build-wasm-vm --parallel 4
           node web/test/wasm-vm-smoke.mjs build-wasm-vm
       - name: Qualify browser profiles, READ and VM streams

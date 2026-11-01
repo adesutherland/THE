@@ -10,6 +10,7 @@ root = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('destination', type=Path)
 parser.add_argument('--crexx-bin', type=Path)
+parser.add_argument('--minibasic-source', type=Path)
 args = parser.parse_args()
 destination = args.destination.resolve()
 destination.mkdir(parents=True, exist_ok=True)
@@ -17,6 +18,8 @@ destination.mkdir(parents=True, exist_ok=True)
 for name in ['browser', 'quickfind', 'quickopen', 'quickline', 'paneldemo', 'library']:
     for suffix in ['.commands', '.the', '.rxas', '.rxbin']:
         (destination / (name + suffix)).unlink(missing_ok=True)
+(destination / 'MiniBASIC.bas').unlink(missing_ok=True)
+(destination / 'MiniBASIC-profile.the').unlink(missing_ok=True)
 data = json.loads((root / 'profiles/default-profile.json').read_text())
 commands = [command.format(suffix='') for command in
             data['commands'] + data.get('web_commands', [])]
@@ -50,3 +53,11 @@ else:
     (destination / 'browser.commands').write_text('\n'.join(commands + restricted) + '\n')
 shutil.copy2(root / 'doc/THE_Help.txt', destination / 'THE_Help.txt')
 shutil.copytree(root / 'syntax', destination / 'syntax', dirs_exist_ok=True)
+if args.minibasic_source:
+    shutil.copy2(args.minibasic_source, destination / 'MiniBASIC.bas')
+    (destination / 'MiniBASIC-profile.the').write_text(
+        '/* Import the two MiniBASIC RXBIN examples before activating this profile. */\n'
+        'options levelb\naddress the\n'
+        "'rx register minibasic runner /workspace/MiniBASIC.rxbin .bas \"MiniBASIC\"';\n"
+        "'rx register minibasic-syntax language /workspace/MiniBASICHighlight.rxbin .bas \"MiniBASIC syntax\"';\n"
+    )

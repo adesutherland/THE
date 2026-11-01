@@ -57,7 +57,7 @@ export function RexxConsole({ send, session, snapshot, runRequest, onClose, focu
   useEffect(() => {
     if (job.tool && session.catalog.some((candidate) => candidate.id === job.tool))
       setTool(job.tool);
-  }, [job.id, job.tool, session.catalog]);
+  }, [job.id, job.tool]);
 
   useEffect(() => {
     if (!session.catalog.some((candidate) => candidate.id === tool)) {

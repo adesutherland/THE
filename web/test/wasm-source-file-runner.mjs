@@ -31,7 +31,7 @@ export async function sourceFileRunnerSmoke({pageUrl, send, snapshot, evaluate, 
   await send({type:'command', command:'RX EOF'});
   await waitFor(() => evaluate("window.__tools.job.state==='Completed · status 0'"), 'source runner completion', 30000);
   const finished = await evaluate('window.__tools');
-  const output = finished.chunks.map(c => c.text).join('');
+  const output = finished.chunks.filter(c => c.fd !== 0).map(c => c.text).join('');
   const captured = 'SOURCE-BEGIN\nPENDING DISK FIRST\nSOURCE-END\n';
   if (output.split(captured).length !== 3 || !output.includes('SOURCE-NAME:Lesson Zoë.BAS\n') ||
       !output.includes('STDIN-BEGIN\nZoë😀\nSTDIN-END') || output.includes('LATER') || output.includes('/run/'))
@@ -41,10 +41,23 @@ export async function sourceFileRunnerSmoke({pageUrl, send, snapshot, evaluate, 
   const completed = await snapshot();
   if (JSON.stringify(completed.buffer) !== JSON.stringify(edited.buffer) || completed.focus.line !== edited.focus.line || completed.focus.cell !== edited.focus.cell)
     throw Error('Source runner completion changed editor state');
-  // Reopen the saved file: execution and later edits never saved the snapshot.
-  await send({type:'command', command:'qquit'});
-  await waitFor(async () => (await snapshot()).buffer.path !== path, 'close unsaved DSL source');
-  await send({type:'command', command:'edit "' + path + '"'});
+  // The restricted browser deliberately has no QQUIT. Check durable bytes
+  // before restoring the test buffer through allowed editor operations.
+  const durable = await evaluate(`new Promise((resolve,reject)=>{const open=indexedDB.open('/workspace');
+    open.onerror=()=>reject(open.error);open.onsuccess=()=>{const db=open.result;
+    const get=db.transaction('FILE_DATA').objectStore('FILE_DATA').get(${JSON.stringify(path)});
+    get.onsuccess=()=>{resolve(get.result?Array.from(get.result.contents):null);db.close();};
+    get.onerror=()=>{reject(get.error);db.close();};};})`);
+  if (Buffer.from(durable).toString('utf8') !== 'DISK FIRST\n')
+    throw Error('Source run or later edits changed saved bytes');
+  await send({type:'command', command:'cursor goto 1 1'});
+  await send({type:'command', command:'replace DISK FIRST'});
+  await waitFor(async () => (await snapshot()).screen_rows.some(r => r.t === 'DISK FIRST'), 'restore DSL source record');
+  await send({type:'action', action:'file.save'});
+  await waitFor(async () => !(await snapshot()).buffer.dirty, 'save restored DSL source');
+  await send({type:'action', action:'file.close'});
+  await waitFor(async () => (await snapshot()).buffer.path !== path, 'close restored DSL source');
+  await send({type:'action', action:'file.open', argument:path});
   await waitFor(async () => (await snapshot()).buffer.path === path && !(await snapshot()).buffer.dirty, 'reopen saved DSL source');
   if (!(await snapshot()).screen_rows.some(r => r.t === 'DISK FIRST')) throw Error('Source run overwrote saved bytes');
   await send({type:'command', command:'RX RUN source-probe "Mixed Case" "" "Zoë😀"'});

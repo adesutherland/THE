@@ -1,5 +1,5 @@
 include_guard(GLOBAL)
-set(THE_CREXX_REVISION "c566025eedc5ef9f48b4c4a8f8f8919fd89793c5" CACHE STRING "Pinned cREXX VM/tool source revision")
+set(THE_CREXX_REVISION "43807b4368cb3dcda49d67c0ac15599cf1e22594" CACHE STRING "Pinned cREXX VM/tool source revision")
 set(THE_CREXX_SOURCE "${CMAKE_SOURCE_DIR}/../CREXX" CACHE PATH "Matching cREXX source checkout")
 set(THE_CREXX_HOST_BUILD "${CMAKE_SOURCE_DIR}/build/crexx-host" CACHE PATH "Matching native cREXX build")
 find_package(Git REQUIRED)

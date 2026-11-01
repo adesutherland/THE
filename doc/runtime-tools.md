@@ -155,8 +155,8 @@ associate `.bas` with both the interpreter and grammar-backed highlighter
 without changing Classic Rexx registrations:
 
 ```text
-rx register minibasic runner /workspace/minibasic.rxbin .bas "MiniBASIC"
-rx register minibasic-syntax language /workspace/dslsh-minibasic.rxbin .bas "MiniBASIC syntax"
+rx register minibasic runner /workspace/MiniBASIC.rxbin .bas "MiniBASIC"
+rx register minibasic-syntax language /workspace/MiniBASICHighlight.rxbin .bas "MiniBASIC syntax"
 ```
 
 Native profiles use absolute paths to the same kind of prepared images.
@@ -169,9 +169,13 @@ filesystem. This staging is not an operating-system sandbox.
 
 The runner must be compiled for the exact configured runtime and available
 providers. A newly built cREXX Level L MiniBASIC image is not qualified merely
-because the generic source-file runner works: the separately pinned native,
-browser interpreter and parser cohorts described below remain distinct. No
-MiniBASIC image is included in those pinned bundles by this registration example.
+because the generic source-file runner works. The optional browser review
+candidate packages matching MiniBASIC interpreter and DSLSH images as importable
+examples, plus a `.bas` source file; ordinary browser builds do not. Import
+both images into the browser workspace, then place the two registrations above
+in the editable user profile and build/activate it. The candidate also places
+`Profile sources/MiniBASIC-profile.the` in the workspace as a complete editable
+example; it is never activated automatically.
 
 For example:
 
@@ -223,13 +227,13 @@ resulting `rxc_single.mjs/.wasm` and `rxas_single.mjs/.wasm` directory as
 only the packaged library/exits and current source staged into their MEMFS.
 The main editor requires the pinned runtime's context output-writer API.
 
-The common development cohort pins runtime/compiler to cREXX `8e8cfff4`.
-The closed interpreter RXBIN was generated at `7ac74bc6`; the independent
-highlighter VM/image retain their qualified `67a5e928` cohort. These boundaries
-are recorded separately, including image checksums; they are not represented
-as one source revision. `THE_WASM_PARSER_VM_DIRECTORY` permits the qualified
-parser VM to be reused while building the editor with the newer profile SDK.
-See [browser build instructions](browser-wasm.md) for the remaining inputs.
+The current local browser review cohort pins its runtime, compiler,
+interpreter and parser VM to cREXX `43807b436`, with the DSLSH source at
+`ee025115`. The prepared images and compiler modules have separate reviewed
+checksums. This cohort has not yet been published upstream. The native helper
+described above retains its earlier `8e8cfff4` bundle and provenance; it is
+not silently relabeled as the browser candidate. See the
+[browser build instructions](browser-wasm.md) for the remaining inputs.
 
 ## Verification
 

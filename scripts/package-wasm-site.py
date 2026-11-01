@@ -21,6 +21,8 @@ parser.add_argument('--dslsh-source', type=Path)
 parser.add_argument('--classic', action='store_true')
 parser.add_argument('--interpreter', action='store_true')
 parser.add_argument('--editor-address', action='store_true')
+parser.add_argument('--minibasic-runner-sha256')
+parser.add_argument('--minibasic-highlighter-sha256')
 args = parser.parse_args()
 site = args.site
 licenses = site / 'licenses'
@@ -70,6 +72,25 @@ capabilities['common_tool_session'] = not args.vm_only
 capabilities['profile_source_compiler'] = (site / 'compiler/compiler.json').exists()
 if capabilities['profile_source_compiler']:
     dependencies['profile_compiler'] = json.loads((site / 'compiler/compiler.json').read_text())
+minibasic_files = [site / 'examples' / name for name in
+                   ('MiniBASIC.rxbin', 'MiniBASICHighlight.rxbin', 'MiniBASIC.bas')]
+if any(path.is_file() for path in minibasic_files) and not all(path.is_file() for path in minibasic_files):
+    raise RuntimeError('Incomplete MiniBASIC browser candidate assets')
+capabilities['minibasic_candidate'] = all(path.is_file() for path in minibasic_files)
+if capabilities['minibasic_candidate']:
+    if not args.crexx_source or not args.dslsh_source or not capabilities['profile_source_compiler']:
+        raise RuntimeError('MiniBASIC candidate requires its matching runtime, parser and profile compiler')
+    if (hashlib.sha256(minibasic_files[0].read_bytes()).hexdigest() != args.minibasic_runner_sha256
+            or hashlib.sha256(minibasic_files[1].read_bytes()).hexdigest() != args.minibasic_highlighter_sha256):
+        raise RuntimeError('MiniBASIC candidate image changed after configuration')
+    dependencies['minibasic'] = {
+        'crexx': dependencies['crexx']['revision'],
+        'dslsh': dependencies['dslsh'],
+        'runner_sha256': args.minibasic_runner_sha256,
+        'highlighter_sha256': args.minibasic_highlighter_sha256,
+    }
+elif args.minibasic_runner_sha256 or args.minibasic_highlighter_sha256:
+    raise RuntimeError('Configured MiniBASIC candidate assets are missing')
 if args.vm_only:
     capabilities.update(stdin='binary/explicit EOF', stdout='binary', stderr='binary', editor_address=False)
 else:

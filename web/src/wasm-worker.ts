@@ -436,7 +436,7 @@ async function start() {
   // These are editable source snapshots. Never replace a saved user copy on
   // reload or after an application update; startup still uses /app's image.
   const profileSources = ["browser.the", "browser.commands", "quickfind.the",
-    "quickopen.the", "quickline.the", "paneldemo.the"]
+    "quickopen.the", "quickline.the", "paneldemo.the", "MiniBASIC-profile.the"]
     .filter((name) => fs.analyzePath("/app/" + name).exists);
   if (profileSources.length) {
     const directory = "/workspace/Profile sources";
@@ -462,7 +462,12 @@ async function start() {
         "Console > Profile > Edit profile opens the separate editable user override\n" +
         "at .crxthe-tools/profile.the.\n" +
         "Save its source, then choose Build profile and Activate profile to apply it.\n" +
-        "Build profile compiles the current buffer, including unsaved edits.\n");
+        "Build profile compiles the current buffer, including unsaved edits.\n" +
+        (fs.analyzePath("/app/MiniBASIC-profile.the").exists
+          ? "\nMiniBASIC-profile.the is an optional example. Import both MiniBASIC RXBIN\n" +
+            "images from the Program console, open the example here, then Build\n" +
+            "and Activate it to add a BASIC runner and syntax highlighter.\n"
+          : ""));
       changed = true;
     }
     if (changed) await sync();
@@ -492,6 +497,11 @@ async function start() {
     if (!response.ok)
       throw new Error("Bundled interpreter example unavailable");
     fs.writeFile("/workspace/RexxRunner.rexx", await response.text());
+    await sync();
+  }
+  if (fs.analyzePath("/app/MiniBASIC.bas").exists &&
+      !fs.analyzePath("/workspace/MiniBASIC.bas").exists) {
+    fs.writeFile("/workspace/MiniBASIC.bas", fs.readFile("/app/MiniBASIC.bas"));
     await sync();
   }
   if (!fs.analyzePath("/workspace/.crxthe-tools").exists)

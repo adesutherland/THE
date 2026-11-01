@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 
 /** Optional candidate acceptance through the same Files/Console/editor UI. */
 export async function minibasicCandidateSmoke({
-  pageUrl, manifest, send, snapshot, evaluate, command, waitFor, openWorkspaceFile, consoleEnter,
+  pageUrl, manifest, send, snapshot, evaluate, command, waitFor, openWorkspaceFile, consoleEnter, reloadAcceptingUnsaved,
 }) {
   if (!manifest.capabilities.minibasic_candidate) return;
   for (const capability of ["editor_address", "profile_source_compiler", "classic_rexx_highlighter", "classic_rexx_interpreter"])
@@ -111,7 +111,7 @@ export async function minibasicCandidateSmoke({
 
   async function reloadSavedProfile(description) {
     const generation = await evaluate("window.__minibasicGeneration=Math.random()");
-    await command("Page.reload", { ignoreCache: true });
+    await reloadAcceptingUnsaved(generation);
     await waitFor(() => evaluate(`window.__minibasicGeneration!==${generation}&&!!window.__snapshot&&window.__tools?.chunks.some(chunk=>chunk.text.includes('MiniBASIC candidate profile activated'))`), description, 30000);
     assert.deepEqual(await durable(profilePath), savedProfile, "editable MiniBASIC profile source survives reload");
     assert.deepEqual(await durable("/workspace/.crxthe-tools/active"), selectedProfile, "compiled profile selection survives reload");
@@ -120,10 +120,17 @@ export async function minibasicCandidateSmoke({
   }
 
   await openWorkspaceFile("MiniBASIC.bas");
-  const ready = () => waitFor(async () => {
-    const state = await snapshot();
-    return state.parser?.state === "ready" && state.parser.providerId === "minibasic-syntax" && state.parser.applied === state.parser.revision;
-  }, "current MiniBASIC parser revision", 30000);
+  const ready = async () => {
+    try {
+      await waitFor(async () => {
+        const state = await snapshot();
+        return state.parser?.state === "ready" && state.parser.providerId === "minibasic-syntax" && state.parser.applied === state.parser.revision;
+      }, "current MiniBASIC parser revision", 30000);
+    } catch (error) {
+      const state = await snapshot();
+      throw new Error(`${error.message}; parser=${JSON.stringify(state.parser)}; diagnostics=${JSON.stringify(state.diagnostics)}`);
+    }
+  };
   await ready();
   assert.equal((await snapshot()).diagnostics?.length ?? 0, 0, "valid MiniBASIC source has no diagnostics");
   await send({ type: "command", command: `cursor goto ${letLine} 1` });

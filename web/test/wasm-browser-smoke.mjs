@@ -31,6 +31,7 @@ let workerSession;
 let nextId = 1;
 const pending = new Map();
 const exceptions = [];
+let acceptUnsavedDialogs = false;
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -79,6 +80,16 @@ async function consoleEnter(text) {
   await command('Input.insertText',{text});
   await command('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13,text:'\r'});
   await command('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+}
+
+async function reloadAcceptingUnsaved(previousGeneration) {
+  acceptUnsavedDialogs = true;
+  try {
+    await command("Page.reload", { ignoreCache: true });
+    await waitFor(() => evaluate(`window.__minibasicGeneration !== ${previousGeneration} && window.__snapshot?.buffer?.path === '/workspace/Welcome.txt'`), "browser reload after accepting unsaved changes", 30000);
+  } finally {
+    acceptUnsavedDialogs = false;
+  }
 }
 
 async function openWorkspaceFile(name) {
@@ -132,6 +143,8 @@ try {
       workerSession = message.params.sessionId;
     } else if (message.method === "Runtime.exceptionThrown") {
       exceptions.push(message.params?.exceptionDetails?.text || "browser exception");
+    } else if (message.method === "Page.javascriptDialogOpening" && acceptUnsavedDialogs) {
+      void command("Page.handleJavaScriptDialog", { accept: true }).catch(error => exceptions.push(error.message));
     }
   });
 
@@ -179,6 +192,9 @@ try {
   console.log("PASS rebuilt Wasm native TOOL/action/RUN unsupported-host refusals preserve editor");
   if (process.env.THE_WASM_PROFILE_SOURCES_ONLY === "1") {
     await profileSourcesSmoke({ send, evaluate, command, waitFor, snapshot, hasCrexx: manifest.capabilities.editor_address });
+    if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
+  } else if (process.env.THE_WASM_MINIBASIC_ONLY === "1") {
+    await minibasicCandidateSmoke({pageUrl, manifest, send, snapshot, evaluate, command, waitFor, openWorkspaceFile, consoleEnter, reloadAcceptingUnsaved});
     if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   } else if (process.env.THE_WASM_FILE_FIELDS_ONLY === "1") {
     await fileFieldSmoke({ send, evaluate, command, waitFor, snapshot });
@@ -494,7 +510,7 @@ try {
     })()`);
     await waitFor(()=>evaluate("window.__messages.some(m=>m.type==='tool-imported'&&m.path.endsWith('/ToolHello.rxbin'))"),'binary RXBIN import');
     await waitFor(()=>evaluate("document.querySelector('[aria-label=\"Run tool\"]')?.value==='rxbin'"),'imported RXBIN selected');
-    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run RXBIN').click()");
+    await evaluate("document.querySelector('.rexx-dock .run-program').click()");
     await waitFor(()=>evaluate("window.__tools?.job.state==='Completed · status 9'"),'RXBIN console run',30000);
     const previousRxbinJob = await evaluate("window.__tools.job.id");
     await send({type:'command',command:'RX RUN "/workspace/ToolHello.rxbin"'});
@@ -543,7 +559,7 @@ try {
         !await evaluate("window.__tools.catalog.some(t=>t.id==='hello-program')"))throw Error('Registry was not restored');
     console.log('PASS browser profiles: fresh Wasm compiler/assembler, ADDRESS THE, console output, activation, failed-build retention and persisted restore');
   }
-  await minibasicCandidateSmoke({pageUrl, manifest, send, snapshot, evaluate, command, waitFor, openWorkspaceFile, consoleEnter});
+  await minibasicCandidateSmoke({pageUrl, manifest, send, snapshot, evaluate, command, waitFor, openWorkspaceFile, consoleEnter, reloadAcceptingUnsaved});
   if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join('; ')}`);
   if (process.env.THE_WASM_SCREENSHOT) {
     await command('Page.bringToFront');

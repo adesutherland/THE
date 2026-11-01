@@ -46,7 +46,7 @@ EM_JS(void, forget_parse, (unsigned id), { Module.forgetHighlight?.(id); });
 
 static int eligible(FILE_DETAILS *file)
 {
-    return file && file->colouring && file->parser && the_tool_for_file((char*)file->fname,"language");
+    return file && file->colouring && the_tool_for_file((char*)file->fname,"language");
 }
 
 static HighlightDocument *document(FILE_DETAILS *file, int create)
@@ -199,9 +199,10 @@ static int valid_wire(const char *payload, size_t extent)
     size_t count, type, pos, length, identifier;
     if (!payload || strlen(payload) > REPLY_LIMIT || !number(&p, RECORD_LIMIT, &count, 0) || !count) return 0;
     for (size_t i = 0; i < count; i++) {
-        if (!number(&p, 102, &type, 0) || !number(&p, extent, &pos, 0)
+        if (!number(&p, TREE_UP, &type, 0) || !number(&p, extent, &pos, 0)
             || !number(&p, extent - pos, &length, 0) || !number(&p, INT_MAX, &identifier, 0)) return 0;
-        if (!((type >= 33 && type < 70) || type == 71 || type == 100 || type == 101)) return 0;
+        if (!((type >= LEXER_WHITESPACE && type <= PARSE_TREE_STRUCTURE)
+              || type == TREE_DOWN || type == TREE_UP)) return 0;
         if (*p < '0' || *p > '3' || p[1] != '|') return 0;
         p += 2;
         for (int field = 0; field < 2; field++) {
