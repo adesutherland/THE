@@ -433,6 +433,40 @@ async function start() {
   fs.mkdir("/workspace");
   fs.mount(editor.IDBFS, {}, "/workspace");
   await sync(true);
+  // These are editable source snapshots. Never replace a saved user copy on
+  // reload or after an application update; startup still uses /app's image.
+  const profileSources = ["browser.the", "browser.commands", "quickfind.the",
+    "quickopen.the", "quickline.the", "paneldemo.the"]
+    .filter((name) => fs.analyzePath("/app/" + name).exists);
+  if (profileSources.length) {
+    const directory = "/workspace/Profile sources";
+    if (!fs.analyzePath(directory).exists) fs.mkdir(directory);
+    let changed = false;
+    for (const name of profileSources) {
+      const path = directory + "/" + name;
+      if (!fs.analyzePath(path).exists) {
+        fs.writeFile(path, fs.readFile("/app/" + name));
+        changed = true;
+      }
+    }
+    const readme = directory + "/README.txt";
+    if (!fs.analyzePath(readme).exists) {
+      fs.writeFile(readme,
+        "Browser profile and macro sources\n\n" +
+        "These editable copies show the sources bundled with this editor.\n" +
+        "browser.the is the bundled stock browser profile (browser.commands in\n" +
+        "an editor without cREXX). The other .the files are bundled macros.\n" +
+        "Save keeps your changes in this browser workspace. Reloading or updating\n" +
+        "the editor preserves existing copies; they are not refreshed automatically.\n\n" +
+        "Editing a copy does not change the installed startup profile or macros.\n" +
+        "Console > Profile > Edit profile opens the separate editable user override\n" +
+        "at .crxthe-tools/profile.the.\n" +
+        "Save its source, then choose Build profile and Activate profile to apply it.\n" +
+        "Build profile compiles the current buffer, including unsaved edits.\n");
+      changed = true;
+    }
+    if (changed) await sync();
+  }
   if (!fs.analyzePath("/workspace/Welcome.txt").exists) {
     fs.writeFile(
       "/workspace/Welcome.txt",

@@ -35,11 +35,14 @@ if args.crexx_bin:
     macros = [('browser', source)] + [(name, root / (name + '.the')) for name in
                                      ['quickfind', 'quickopen', 'quickline', 'paneldemo']]
     for name, path in macros:
+        # Keep the exact source used for each bundled image available to the
+        # browser editor as well as the precompiled startup/macro artifact.
+        if path != source:
+            shutil.copy2(path, destination / (name + '.the'))
         output = destination / name
         subprocess.run([str(bin_dir / 'rxc'), '-i', str(bin_dir), '-o', str(output), str(path)], check=True)
         subprocess.run([str(bin_dir / 'rxas'), '-o', str(output), str(output)], check=True)
         output.with_suffix('.rxas').unlink()
-    source.unlink()
     shutil.copy2(bin_dir / 'library.rxbin', destination / 'library.rxbin')
 else:
     commands = [command for command in commands if ' macro ' not in command]

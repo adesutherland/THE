@@ -6,6 +6,7 @@ import WebSocket from "ws";
 import { fileFieldSmoke } from "./wasm-file-fields.mjs";
 import { checkNativeToolPolicy } from "./native-tools-policy.mjs";
 import { sourceFileRunnerSmoke } from "./wasm-source-file-runner.mjs";
+import { profileSourcesSmoke, profileActivationStorageFailureSmoke } from "./wasm-profile-sources.mjs";
 
 const pageUrl = process.env.THE_WEB_URL;
 const chromium = process.env.CHROMIUM_BIN;
@@ -175,10 +176,14 @@ try {
   };
   await checkNativeToolPolicy(nativePolicyRequest, "unsupported-host", nativePolicyInspect);
   console.log("PASS rebuilt Wasm native TOOL/action/RUN unsupported-host refusals preserve editor");
-  if (process.env.THE_WASM_FILE_FIELDS_ONLY === "1") {
+  if (process.env.THE_WASM_PROFILE_SOURCES_ONLY === "1") {
+    await profileSourcesSmoke({ send, evaluate, command, waitFor, snapshot, hasCrexx: manifest.capabilities.editor_address });
+    if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
+  } else if (process.env.THE_WASM_FILE_FIELDS_ONLY === "1") {
     await fileFieldSmoke({ send, evaluate, command, waitFor, snapshot });
     if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   } else {
+  await profileSourcesSmoke({ send, evaluate, command, waitFor, snapshot, hasCrexx: manifest.capabilities.editor_address });
   const beforeWorkbench = await snapshot();
   await send({type:'command',command:'workbench begin owner user.browser'});
   await send({type:'command',command:'workbench action put user.save label "Safe Save" builtin file.save'});
@@ -520,7 +525,7 @@ try {
     await waitFor(()=>evaluate("window.__tools?.job.tool==='profile-compiler'&&!window.__tools.job.running"),'browser source profile compilation',60000);
     if(await evaluate("window.__tools.job.state")!=='Completed · status 0')throw Error('Profile compilation failed: '+await evaluate("JSON.stringify(window.__tools)"));
     console.log('CHECK browser profile: activate');
-    await send({type:'tool',action:'activate'});
+    await profileActivationStorageFailureSmoke({ send, evaluate, command, waitFor, snapshot });
     await waitFor(()=>evaluate("window.__tools.chunks.some(c=>c.text.includes('User profile activated'))"),'new addressed profile output');
     console.log('CHECK browser profile: rejected replacement');
     // A failed replacement must leave the successfully activated artifact selected.

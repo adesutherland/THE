@@ -393,7 +393,7 @@ void the_tools_profile_built(unsigned id, const char *path, unsigned source_id, 
    profile_revision = revision;
 }
 static void profile_directory(void);
-static void profile_selection(void);
+static int profile_selection(void);
 #ifdef __EMSCRIPTEN__
 int the_wasm_flush_workspace(void);
 #endif
@@ -425,9 +425,15 @@ static short activate(void) {
    rc = run_profile_image(profile_ready,the_tools_profile_path(),&macro_rc);
    if (rc == RC_OK && macro_rc == 0) {
       snprintf(profile_active, sizeof(profile_active), "%s", profile_ready);
-      profile_selection();
+      if (!profile_selection()) {
+         display_error(0, (CHARTYPE *)"Profile applied; selection could not be saved. Retry Activate", FALSE);
+         return RC_ACCESS_DENIED;
+      }
 #ifdef __EMSCRIPTEN__
-      the_wasm_flush_workspace();
+      if (the_wasm_flush_workspace() != 0) {
+         display_error(0, (CHARTYPE *)"Profile applied; browser storage save failed. Retry Activate", FALSE);
+         return RC_DISK_FULL;
+      }
 #endif
       display_error(0, (CHARTYPE *)"Profile activated", FALSE);
    } else
@@ -456,20 +462,23 @@ static void profile_directory(void) {
    mkdir(path, 0700);
 #endif
 }
-static void profile_selection(void) {
+static int profile_selection(void) {
    char path[THE_TOOL_PATH], temporary[THE_TOOL_PATH + 8];
    FILE *f;
+   int failed;
    if (!profile_file(path, sizeof(path), "active"))
-      return;
+      return 0;
    snprintf(temporary, sizeof(temporary), "%s.tmp", path);
    f = fopen(temporary, "wb");
    if (!f)
-      return;
-   if (fprintf(f, "%s\n%s\n", profile_active, THE_TOOL_COHORT) < 0 || fclose(f)) {
+      return 0;
+   failed = fprintf(f, "%s\n%s\n", profile_active, THE_TOOL_COHORT) < 0;
+   if (fclose(f)) failed = 1;
+   if (failed || rename(temporary, path)) {
       remove(temporary);
-      return;
+      return 0;
    }
-   rename(temporary, path);
+   return 1;
 }
 void the_tools_restore_metadata(void) {
    ensure();
