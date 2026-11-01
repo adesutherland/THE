@@ -18,6 +18,11 @@ tool actions, output panes, language associations and key bindings. The host
 supplies the bounded explorer/console capabilities, rather than implementing
 them as Rexx widgets. Declaring objects never executes a tool. A user profile
 can replace or extend its own definitions without changing frontend source.
+DSL language services and programs are separately registered RXBIN images,
+each matched to the VM cohort that hosts it. The profile associates file types
+with a DSLSH language image and supplies explicit actions for a program image.
+Opening a file never executes either image. Passing the current unsaved DSL
+buffer to a registered source runner requires a further adapter contract.
 
 **Use browser/WebAssembly as the first reference user experience** for the
 guided workbench, including wide and phone layouts. Its visual arrangement is
@@ -42,10 +47,11 @@ The LLM driver exposes the same objects and outcomes as data and commands.
    changing frontend source or gaining host privileges.
 3. Highlight Classic Rexx and report real parser diagnostics, including an
    explicit unavailable state when its service is absent. Demonstrate the
-   registered highlighter contract with DSLSH's public `toyparser/test.toy`
-   fixture on a qualified native build. A DSL runner is a separately registered
-   tool in a later increment; syntax association does not execute code. No new
-   grammar is required for this baseline.
+   registered RXBIN language-service contract with the matching bundled
+   Classic highlighter. A specific non-Rexx DSL language image and source
+   runner follow in a later increment; both use matching RXBIN images, with a
+   source-snapshot contract for the runner. No new grammar is required for
+   this baseline.
 4. Run the current unsaved Classic Rexx buffer and the bundled, matching
    `examples/ToolHello.rxbin` utility from profile-defined actions. Capture
    source identity and revision. Show stdout, stderr, completion and errors;
@@ -74,7 +80,7 @@ separate qualification.
 | Browser workspace | `/workspace` is IDBFS backed by IndexedDB. Save synchronizes it; saved files survive reload for the same origin/browser profile, subject to browser storage retention. | Keep it as the default file provider and show storage failures without claiming Save succeeded. |
 | User's local files | Only RXBIN has a narrow file-picker import. General source import/export and direct file handles are absent. | Add single-file UTF-8 source import and explicit export/download, bounded to 2 MiB, so a source can leave browser storage. Preserve bytes, reject name collisions and never access local disk silently. |
 | Server files | The Wasm static site has no server file protocol. The separate native WebSocket browser driver is a different host. | Defer a specific connector until a real service and its authorization/conflict contract are selected. |
-| Program execution | In optional interpreter-enabled bundles, Classic source runs in an isolated Worker; matching RXBIN images require the corresponding cREXX runtime and runner bundle. The base editor/storage build has neither run target. These Workers do not mount the editor workspace or address THE. | Ship a qualified interpreter-enabled bundle with Classic and `ToolHello.rxbin` as browser run targets. Another Wasm tool needs an explicit adapter; a server tool needs an explicit service/job adapter. |
+| Program execution | In optional interpreter-enabled bundles, Classic source runs in an isolated Worker; matching RXBIN images require the corresponding cREXX runtime and runner bundle. The base editor/storage build has neither run target. These Workers do not mount the editor workspace or address THE. | Ship a qualified interpreter-enabled bundle with Classic and `ToolHello.rxbin` as browser run targets. A matching RXBIN DSL program can use the registered program path; running the active unsaved DSL buffer requires the later source-runner adapter. A different Wasm module or remote service needs its own adapter. |
 
 Browser APIs can support user-selected file handles on implementations that
 provide File System Access, or an origin-private store such as OPFS. Neither is
@@ -112,7 +118,10 @@ native menus/choosers and a resizable layout. Current native POSIX FILE routes
 support finite byte stdin and one atomic CREATE output. An explicit native
 process source tool is qualified locally on macOS arm64; this does not qualify
 Linux, Windows, GTK packaging or installed ooRexx. Its source snapshot does not
-preserve the original file directory for relative includes.
+preserve the original file directory for relative includes. Native executable
+tools, including ooRexx, belong to desktop hosts only. The browser has RXBIN/
+Wasm adapters and may later use explicit remote services, but it never presents
+a remote service as a locally running native tool.
 
 This first version does **not** include a debugger protocol/UI, multiple
 concurrent jobs, arbitrary pane tiling, automatic server sync, arbitrary shell
