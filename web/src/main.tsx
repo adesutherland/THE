@@ -17,7 +17,9 @@ import {
 import type { DriverMessage, FileListMessage, FrontendActionDefinition, ScreenRow, Snapshot, StyleRun, WorkbenchActionDefinition, WorkbenchPage, WorkbenchPanelDefinition, WorkbenchPanelState, WorkbenchPanelStateMessage, WorkbenchLogPage, WorkbenchLogRecord, WorkbenchDocumentPage, WorkbenchFormPage, WorkbenchFileFieldPage } from "./types";
 import { WorkbenchPageCollector, displayLogText, type WorkbenchCatalog } from "./workbench";
 import "./styles.css";
-import {RexxConsole, type ToolSession} from './rexx-console';
+import { RexxConsole } from "./rexx-console";
+import { CurrentFileActions, ToolsProfiles, fileActionReason } from "./file-tools";
+import type { FileToolAction, ToolSession } from "./tool-session";
 import { consoleColourVariables, diagnosticColourVariables, renderColour as panelColour } from "./colours";
 import { HighlightPresentation } from "./highlight-presentation";
 import { WorkbenchForms, type FormView } from "./workbench-forms";
@@ -195,7 +197,9 @@ function App() {
   const [showProgramWithLog, setShowProgramWithLog] = useState(false);
   const [openMenu, setOpenMenu] = useState<"application" | "about" | null>(null);
   const [consoleOpen, setConsoleOpen] = useState(false);
-  const [runRequest, setRunRequest] = useState(0);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [programFocusRequest, setProgramFocusRequest] = useState(0);
+  const [toolArguments, setToolArguments] = useState("");
   const [mobilePane, setMobilePane] = useState<"files" | "console">("files");
   const [filesWidth, setFilesWidth] = useState(216);
   const [auxWidth, setAuxWidth] = useState(400);
@@ -252,6 +256,7 @@ function App() {
   const responseLogRef = useRef<HTMLDivElement | null>(null);
   const followingResponsesRef = useRef(true);
   const lastShownJob = useRef(0);
+  const lastShownBuild = useRef(0);
 
   const appendDockEntry = useCallback((kind: DockEntry["kind"], text: string) => {
     if (!text.trim()) return;
@@ -624,9 +629,21 @@ function App() {
     if (toolSession?.job.id && toolSession.job.id !== lastShownJob.current) {
       lastShownJob.current = toolSession.job.id;
       setConsoleOpen(true);
+      setSelectedAux("console");
       setMobilePane("console");
     }
   }, [toolSession?.job.id]);
+
+  useEffect(() => {
+    const id = toolSession?.build?.job.id;
+    if (id && id !== lastShownBuild.current) {
+      lastShownBuild.current = id;
+      setToolsOpen(true);
+      setSelectedAux("tools");
+      setShowProgramWithLog(false);
+      setMobilePane("console");
+    }
+  }, [toolSession?.build?.job.id]);
 
   useEffect(() => {
     if (followingResponsesRef.current && responseLogRef.current)
@@ -692,6 +709,15 @@ function App() {
     if (focused) sendPanelOperation(focused.id, focused.generation, "return");
     setConsoleOpen(true);
     setSelectedAux("console");
+    setShowProgramWithLog(false);
+    setMobilePane("console");
+  }, [sendPanelOperation]);
+
+  const selectToolsProfiles = useCallback(() => {
+    const focused = panelStateRef.current?.panels.find((panel) => panel.focused);
+    if (focused) sendPanelOperation(focused.id, focused.generation, "return");
+    setToolsOpen(true);
+    setSelectedAux("tools");
     setShowProgramWithLog(false);
     setMobilePane("console");
   }, [sendPanelOperation]);
@@ -864,7 +890,7 @@ function App() {
       menuButtonRef.current?.focus();
       return;
     }
-    if (!openMenu && (event.target as HTMLElement).closest(".program-console-pane, .console-toggle, .run-rexx") &&
+    if (!openMenu && (event.target as HTMLElement).closest(".program-console-pane, .console-toggle, .tools-profiles-pane, .tools-toggle, .current-file-tools") &&
         (event.key === "F6" || event.key === "Escape")) {
       event.preventDefault();
       event.stopPropagation();
@@ -1016,17 +1042,23 @@ function App() {
     [focusEditor, send],
   );
 
-  const runUnavailable = connection !== "online" ? "Editor is offline"
-    : snapshot?.panel ? "Close the macro panel to run"
-    : toolSession?.job.running ? "A program is already running"
-    : !toolSession?.catalog.some((tool) => tool.role === "runner" && tool.available) ? "No source runner is available"
-    : "";
-  const runRexx = () => {
-    if (runUnavailable) return;
-    setConsoleOpen(true);
-    setSelectedAux("console");
-    setMobilePane("console");
-    setRunRequest((request) => request + 1);
+  const currentFileAction = (action: FileToolAction) => {
+    if (fileActionReason(toolSession, snapshot, connection === "online", action)) return;
+    const file = toolSession?.currentFile;
+    if (!file || send({ type: "tool", action: `file-${action.id}`, tool: action.tool, text: "", arguments: toolArguments,
+      sourceId: file.sourceId, revision: file.revision,
+      ...(action.generation ? { generation: action.generation } : {}) }) === undefined) return;
+    if (action.id === "run") {
+      selectProgramConsole();
+      setProgramFocusRequest((request) => request + 1);
+    } else selectToolsProfiles();
+  };
+  const runWithTool = (tool: string, image: string) => {
+    const file = toolSession?.currentFile;
+    if (send({ type: "tool", action: tool === "rxbin" ? "rxbin" : "run", tool, text: image,
+      arguments: toolArguments, sourceId: file?.sourceId, revision: file?.revision }) === undefined) return;
+    selectProgramConsole();
+    setProgramFocusRequest((request) => request + 1);
   };
   const maximumFilesWidth = Math.max(180, Math.min(400, Math.floor(windowSize.width * .25)));
   const maximumAuxWidth = Math.max(300, Math.min(650, Math.floor(windowSize.width * .36)));
@@ -1039,10 +1071,11 @@ function App() {
       return combined.visible ? [combined] : [];
     });
   }, [panelState, workbench]);
-  const showAux = consoleOpen || visibleNamedPanels.length > 0;
+  const showAux = consoleOpen || toolsOpen || visibleNamedPanels.length > 0;
   const activeAux = selectedAux === "console" && consoleOpen ? "console"
+    : selectedAux === "tools" && toolsOpen ? "tools"
     : visibleNamedPanels.some((panel) => panel.id === selectedAux) ? selectedAux
-    : visibleNamedPanels[0]?.id ?? "console";
+    : visibleNamedPanels[0]?.id ?? (consoleOpen ? "console" : "tools");
   const activeNamedPanel = visibleNamedPanels.find((panel) => panel.id === activeAux);
   const placementFor = (panel: WorkbenchPanelDefinition) => {
     const wide = windowSize.width >= 1100;
@@ -1192,6 +1225,7 @@ function App() {
             <section aria-label="Workbench"><h2>Workbench</h2>
               <button type="button" onClick={() => { toggleFiles(); setOpenMenu(null); }}>Files</button>
               <button type="button" onClick={() => { setConsoleOpen(true); setSelectedAux("console"); setMobilePane("console"); setOpenMenu(null); }}>Program console</button>
+              <button type="button" onClick={() => { selectToolsProfiles(); setOpenMenu(null); }}>Tools & Profiles</button>
               <button type="button" onClick={() => {
                 setOpenMenu(null);
                 // Keep the existing admitted profile-key route: SHOWKEY is
@@ -1245,6 +1279,7 @@ function App() {
       </nav>
 
       <div class="workbench">
+      <div class="workbench-header">
       <div class="pane-switcher" role="group" aria-label="Workbench panes">
         <button type="button" aria-pressed={explorerOpen} onClick={toggleFiles}>Files</button>
         <button type="button" class="console-toggle" ref={consoleButtonRef} aria-pressed={activeAux === "console" && consoleOpen} onClick={() => {
@@ -1253,13 +1288,16 @@ function App() {
         }}>
           Console{toolSession?.job.waiting ? " · Input requested" : toolSession?.job.running ? " · Running" : ""}
         </button>
+        <button type="button" class="tools-toggle" aria-pressed={activeAux === "tools" && toolsOpen}
+          onClick={selectToolsProfiles}>Tools & Profiles</button>
         {workbench?.panels.map((panel) => <button type="button" key={panel.id}
           class={`named-${panel.kind === "fields" ? "form" : panel.kind}-toggle`} data-panel-id={panel.id}
           onPointerDown={rememberPanelFocusOrigin}
           aria-pressed={activeAux === panel.id && visibleNamedPanels.some((item) => item.id === panel.id)}
           onClick={() => showOrFocusPanel(panel)}>{panel.title}</button>)}
-        <button type="button" class="run-rexx" disabled={!!runUnavailable} title={runUnavailable || "Run the current buffer, including unsaved edits"} aria-describedby={runUnavailable ? "run-unavailable" : undefined} onClick={runRexx}>Run</button>
-        {runUnavailable ? <span class="run-unavailable" id="run-unavailable">{runUnavailable}</span> : null}
+      </div>
+      <CurrentFileActions session={toolSession} snapshot={snapshot} online={connection === "online"}
+        onAction={currentFileAction} onSetup={selectToolsProfiles} />
       </div>
       <section class={`workspace mobile-pane-${activeMobilePane} ${explorerOpen ? "files-open" : ""} ${showAux ? "aux-open" : ""} ${activeNamedPanel && activePanelPlacement === "below" ? "aux-below" : ""}`} style={{
         "--files-width": `${Math.min(filesWidth, maximumFilesWidth)}px`, "--aux-width": `${Math.min(auxWidth, maximumAuxWidth)}px`,
@@ -1431,24 +1469,32 @@ function App() {
         <div class="mobile-aux-tabs" role="group" aria-label="Choose auxiliary pane">
           <button type="button" aria-pressed={activeMobilePane === "files" && explorerOpen} onClick={() => { setExplorerOpen(true); setMobilePane("files"); requestFiles(); }}>Files</button>
           <button type="button" class="console-toggle" ref={mobileConsoleButtonRef} aria-pressed={activeMobilePane === "console" && activeAux === "console" && consoleOpen} onClick={selectProgramConsole}>Console{toolSession?.job.waiting ? " · Input requested" : ""}</button>
+          <button type="button" class="tools-toggle" aria-pressed={activeMobilePane === "console" && activeAux === "tools" && toolsOpen}
+            onClick={selectToolsProfiles}>Tools & Profiles</button>
           {workbench?.panels.map((panel) => <button type="button" key={panel.id}
             data-panel-id={panel.id} aria-pressed={activeMobilePane === "console" && activeAux === panel.id}
             onPointerDown={rememberPanelFocusOrigin} onClick={() => showOrFocusPanel(panel)}>{panel.title}</button>)}
-          <button type="button" class="run-rexx" disabled={!!runUnavailable} title={runUnavailable || "Run the current buffer, including unsaved edits"} aria-describedby={runUnavailable ? "mobile-run-unavailable" : undefined} onClick={runRexx}>Run</button>
-          {runUnavailable ? <span class="run-unavailable" id="mobile-run-unavailable">{runUnavailable}</span> : null}
         </div>
         {showAux ? <PaneSplitter label="Resize auxiliary panes" orientation="vertical" reverse consoleDivider={activeAux === "console" && consoleOpen} value={Math.min(auxWidth, maximumAuxWidth)} minimum={300} maximum={maximumAuxWidth} onChange={setAuxWidth} /> : null}
         <div class={`auxiliary-rail ${consoleOpen && showProgramWithLog && activeNamedPanel ? "program-and-log" : ""}`} ref={auxRailRef} hidden={!showAux}>
         <div class="auxiliary-tabs" role="tablist" aria-label="Auxiliary panes">
           {consoleOpen ? <button type="button" role="tab" aria-selected={activeAux === "console"}
             onClick={selectProgramConsole}>Program console</button> : null}
+          {toolsOpen ? <button type="button" role="tab" aria-selected={activeAux === "tools"}
+            onClick={selectToolsProfiles}>Tools & Profiles</button> : null}
           {visibleNamedPanels.map((panel) => <button type="button" key={panel.id}
             role="tab" data-panel-id={panel.id} aria-selected={activeAux === panel.id}
             onPointerDown={rememberPanelFocusOrigin} onClick={() => showOrFocusPanel(panel)}>{panel.title}</button>)}
         </div>
         <div class="program-console-pane" hidden={!consoleOpen || activeAux !== "console" && !(showProgramWithLog && activeNamedPanel)}>
-          {toolSession ? <RexxConsole send={send} session={toolSession} snapshot={snapshot} runRequest={runRequest} onClose={() => { setConsoleOpen(false); setShowProgramWithLog(false); focusEditor(); }} focusEditor={focusEditor} />
+          {toolSession ? <RexxConsole send={send} session={toolSession} snapshot={snapshot} focusRequest={programFocusRequest} onClose={() => { setConsoleOpen(false); setShowProgramWithLog(false); focusEditor(); }} focusEditor={focusEditor} />
             : <p class="empty-directory">Program console unavailable: no program tools were provided.</p>}
+        </div>
+        <div class="tools-profiles-pane" hidden={!toolsOpen || activeAux !== "tools"}>
+          {toolSession ? <ToolsProfiles send={send} session={toolSession} snapshot={snapshot} online={connection === "online"}
+            argumentsText={toolArguments} onArguments={setToolArguments} onProgramRun={runWithTool}
+            onClose={() => { setToolsOpen(false); focusEditor(); }} focusEditor={focusEditor} />
+            : <p class="empty-directory">Tools unavailable: waiting for the editor.</p>}
         </div>
         {activeNamedPanel ? <div class={`named-panel-pane named-${activeNamedPanel.kind}-pane`} data-panel-id={activeNamedPanel.id}
           onPointerDown={rememberPanelFocusOrigin}

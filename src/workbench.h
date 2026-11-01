@@ -8,6 +8,7 @@
 #define THE_WORKBENCH_VERSION 1
 #define THE_WORKBENCH_ID_MAX 63
 #define THE_WORKBENCH_LABEL_MAX 255
+#define THE_WORKBENCH_FILEEXT_MAX 31
 #define THE_WORKBENCH_OPERAND_MAX 2048
 #define THE_WORKBENCH_COMMAND_MAX 8192
 #define THE_WORKBENCH_ACTION_MAX 128
@@ -100,6 +101,10 @@ typedef struct
    TheWorkbenchPanelOperation panel_operation;
    char tool[THE_WORKBENCH_ID_MAX+1];
    TheWorkbenchArguments arguments;
+   /* A profile-defined macro Build action for one file extension.  Empty
+    * means this is an ordinary workbench action. */
+   char file_extension[THE_WORKBENCH_FILEEXT_MAX+1];
+   int file_build;
 } TheWorkbenchAction;
 
 typedef struct
@@ -181,6 +186,8 @@ const TheWorkbenchTool *the_workbench_tool_at(size_t);
 const TheWorkbenchTool *the_workbench_tool_find(const char *);
 const TheWorkbenchAction *the_workbench_action_at(size_t index);
 const TheWorkbenchAction *the_workbench_action_find(const char *id);
+/* Contextual Build metadata is borrowed from the published graph. */
+const TheWorkbenchAction *the_workbench_file_build(const char *path);
 const TheWorkbenchMenu *the_workbench_menu_at(size_t index);
 const TheWorkbenchItem *the_workbench_item_at(size_t index);
 const TheWorkbenchPanel *the_workbench_panel_at(size_t index);
@@ -243,6 +250,10 @@ short the_workbench_command(const char *operands);
 short the_workbench_invoke(const char *id, unsigned long generation,
                            const char *argument);
 short the_workbench_invoke_bound(const char *,unsigned long,const char *,int,uint64_t);
+/* Explicit file Build rechecks action generation, extension and browser path
+ * policy before passing the target path as one macro argument. */
+short the_workbench_file_build_invoke(const char *id,unsigned long generation,
+                                      const char *target);
 /* Advances once after the outermost explicit invocation has finished. */
 unsigned long the_workbench_invocation_serial(void);
 /* Internal Rexx admission marker; advances only on failed QUERY/EXTRACT. */

@@ -303,6 +303,35 @@ int main(void) {
    assert(!strcmp(the_tool_console()->state, "Output limit reached"));
    the_tool_clear();
    assert(the_tool_console()->bytes == 0);
+   /* Compiler jobs and synchronous editor Build macros retain a separate
+    * output history; launching the next program does not erase the build. */
+   assert(the_tool_launch(&request,error,sizeof(error)));
+   the_tool_output(running,1,"program-history",15);
+   the_tool_finish(running,0,"0",NULL,NULL);
+   {
+      TheToolRequest compiler=request;
+      strcpy(compiler.tool.id,"profile-compiler");
+      strcpy(compiler.tool.role,"compiler");
+      assert(the_tool_launch(&compiler,error,sizeof(error)));
+      the_tool_output(running,2,"compile-error",13);
+      the_tool_finish(running,1,NULL,NULL,NULL);
+      assert(!strcmp(the_tool_program_console()->chunks[0].text,"program-history"));
+      assert(!strcmp(the_tool_build_console()->chunks[0].text,"compile-error"));
+      assert(the_tool_format_json(json,2097152));
+      assert(strstr(json,"\"build\":{\"job\":") && strstr(json,"program-history") && strstr(json,"compile-error"));
+      assert(the_tool_build_capture_begin("public.build","/work/Lesson.BAS",7,3));
+      the_tool_profile_output(1,"macro-build",11);
+      the_tool_build_capture_end(7);
+      assert(!strcmp(the_tool_build_console()->state,"Failed"));
+      assert(!strcmp(the_tool_program_console()->chunks[0].text,"program-history"));
+      assert(!strcmp(the_tool_build_console()->chunks[0].text,"macro-build"));
+      the_tool_clear_program();
+      assert(the_tool_program_console()->bytes==0);
+      assert(!strcmp(the_tool_build_console()->chunks[0].text,"macro-build"));
+      assert(the_tool_launch(&request,error,sizeof(error)));
+      the_tool_finish(running,0,"0",NULL,NULL);
+      assert(!strcmp(the_tool_build_console()->chunks[0].text,"macro-build"));
+   }
    observer_contract(&request);
    free(json);
    the_tool_host_reset();

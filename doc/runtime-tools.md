@@ -12,9 +12,11 @@ in `0.10.dev`.
 ## Run and interact
 
 Open a source file and choose **Run file**, or enter `RX RUN`.
-THE selects the last available registered `runner` matching the filename's
-extension, ignoring extension case. Without a matching runner it retains the
-Classic Rexx fallback. An explicit `RX RUN tool-id` always selects that tool.
+THE selects the last registered `runner` matching the filename's
+extension, ignoring extension case, then checks its availability. A file
+without an associated runner shows an unavailable Run action; it is not
+silently sent to Classic Rexx. An explicit
+`RX RUN tool-id` always selects that tool.
 THE captures the whole buffer, including the pending working record. Running
 preserves text, cursor, dirty state and saved bytes. The console keeps the
 captured identity/revision; editing can continue independently.
@@ -34,6 +36,21 @@ library is loaded before ordinary RXBIN programs. Images must match the
 packaged runtime and its available static providers.
 
 Graphical controls provide **Stop**, **Clear**, line input and **End input**.
+
+In the browser, actions beside the selected file show **Build**, **Run** and
+**Activate** with the associated tool or a reason they are unavailable. A
+`.the` source can be built to an immutable RXBIN, run as a compiled THE macro,
+or explicitly activated as a profile; Build and Activate results appear in
+**Tools & Profiles**. A `.rexx` file runs with its associated Classic runner.
+Other file types run only when a profile associates a runner with that type.
+**Tools & Profiles** also contains explicit tool selection, RXBIN import,
+profile editing and build state. The browser **Program console** contains only
+program output, input, Stop, EOF and Clear. Choosing a file never executes it.
+File actions recheck the selected source and action definition before running;
+a changed source or profile requires another explicit selection. A profile can
+also define a contextual Build macro for an extension through
+[`WORKBENCH ACTION ... FILEEXT ... PURPOSE BUILD`](workbench-actions-menus.md).
+
 Terminal commands are:
 
 | Command | Effect |
@@ -109,25 +126,30 @@ has a 120-second active execution deadline, paused while waiting for stdin.
 **Edit profile** / `RX PROFILE` opens an editable Level B source template.
 Save normally. **Build profile** / `RX BUILD` compiles the entire current
 buffer with the matching compiler and assembler; it does not save that buffer.
-Compiler diagnostics appear in the console. A successful build is admitted as
+Compiler diagnostics appear in the browser's Tools & Profiles Build results
+(and in the native host's console presentation). A successful build is admitted as
 an immutable RXBIN artifact. **Activate profile** / `RX ACTIVATE` executes
 that artifact through the session's cREXX context and real `ADDRESS THE` bridge.
 Source changes after building require another build before activation.
 
 `SAY` and supported runtime diagnostics during activation use the context-local
-output writer and appear in the console. Editor commands, EXTRACT and READ use
+output writer and appear with the Build results in the browser. Editor commands, EXTRACT and READ use
 the existing synchronous bridge. Profile `PULL` still uses the legacy runtime
 stdin; use `ADDRESS THE READ` for editor interaction. Program console stdin is
 a separate channel. Activation requires cREXX's optional output-writer API.
 
 The selected artifact is persisted only after successful activation. Failed
-builds retain that selection; arbitrary profile commands cannot be rolled back
-if activation itself fails. Startup restores a selection only for the matching
-runtime cohort. The profile directory defaults to `$HOME/.crxthe-tools` on
+builds retain that selection. Profile-owned RX registrations and workbench
+definitions are replaced on successful reactivation and restored after failed
+activation; arbitrary editor changes made by a profile still cannot be rolled
+back. Startup restores a selection only for the matching runtime cohort.
+The profile directory defaults to `$HOME/.crxthe-tools` on
 native systems (`USERPROFILE` when HOME is absent), or
 `/workspace/.crxthe-tools` in the browser. `THE_TOOL_CONFIG_DIR` overrides it.
-Browser profiles, registry and selection are committed to IndexedDB; ordinary
-unsaved editor text still requires Save.
+Browser profiles, independent registry entries and selection are committed to
+IndexedDB; active-profile registrations are recreated by replaying that
+profile at startup. Older registry entries without ownership information are
+preserved. Ordinary unsaved editor text still requires Save.
 
 ## Register language tools and programs
 
@@ -135,7 +157,9 @@ unsaved editor text still requires Save.
 Roles are `program`, `runner`, `profile` and `language` for user-provided images. IDs
 are at most 30 letters, digits, hyphens or underscores. `image` is a workspace
 RXBIN path; extensions are comma-separated, such as `.rexx,.rex`. Registrations
-persist beside the profile. A profile can issue these same commands.
+persist beside the profile when registered independently. Entries made during
+activation belong to that profile and are replaced on its next successful
+activation. A profile can issue these same commands.
 
 A `runner` uses the `source-file` entry contract: THE captures the whole current
 buffer, including its pending record, and stages those immutable snapshot bytes

@@ -1590,7 +1590,7 @@ int llm_session_run_protocol(void)
          break;
       }
       if (llm_session_handle_form_input(command)) continue;
-      if(ascii_equal_ci(command,"tools")) {static char data[1800000];the_tools_native_initialise();the_tools_native_poll();if(the_tool_format_json(data,sizeof(data)))puts(data);fflush(stdout);continue;}
+      if(ascii_equal_ci(command,"tools")) {static char data[3600000];the_tools_native_initialise();the_tools_native_poll();if(the_tools_format_json(data,sizeof(data)))puts(data);fflush(stdout);continue;}
       if(ascii_starts_ci(command,"toolwait ")) {long ms=strtol(command+9,NULL,10);long i;if(ms<0||ms>30000){print_ack(0,RC_INVALID_OPERAND,"bad wait");continue;}for(i=0;i<ms;i+=10){the_tools_native_poll();if(!the_tool_console()->running)break;
 #ifdef _WIN32
  Sleep(10);

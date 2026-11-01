@@ -266,6 +266,33 @@ int main(void)
    check(the_workbench_put_action(&a) == 5,"reject overlong UTF8");
    the_workbench_abort();
    the_workbench_reset();
+   restricted=1;
+   a=action("public.build");a.kind=THE_WORKBENCH_ACTION_MACRO;
+   strcpy(a.operand,"/workspace/build.rxbin");
+   strcpy(a.file_extension,".bas");a.file_build=1;
+   check(the_workbench_activation_begin_untrusted("/workspace/profile.rxbin")==0,
+         "restricted user profile activation begins");
+   check(the_workbench_begin("public.profile")==0 && the_workbench_put_action(&a)==0
+         && the_workbench_commit()==0 && the_workbench_activation_end(1)==0,
+         "restricted profile publishes only typed file Build macro");
+   check(the_workbench_file_build("/workspace/program.BAS")
+         ==the_workbench_action_find(a.id),"file Build matches extension without changing file");
+   check(!the_workbench_file_build("/workspace/program.rexx"),"file Build does not leak to another extension");
+   check(the_workbench_activation_begin_untrusted("/workspace/other-profile.rxbin")==0
+         && the_workbench_begin("public.profile")==0,
+         "next restricted user profile can reuse replaced owner");
+   strcpy(a.file_extension,".crexx");
+   check(the_workbench_put_action(&a)==0 && the_workbench_commit()==0
+         && the_workbench_activation_end(1)==0
+         && !the_workbench_file_build("program.bas")
+         && the_workbench_file_build("program.crexx"),
+         "new user profile replaces prior profile actions and ownership");
+   check(the_workbench_activation_begin_untrusted("/workspace/failing-profile.rxbin")==0
+         && the_workbench_activation_end(0)==-3
+         && the_workbench_file_build("program.crexx"),
+         "failed user profile leaves prior published Build action");
+   restricted=0;
+   the_workbench_reset();
    log_panels();
    if (failures) return 1;
    puts("workbench registry tests passed"); return 0;

@@ -12,6 +12,8 @@
 #include "workbenchfileio.h"
 #include <ctype.h>
 #include <errno.h>
+#include <stdarg.h>
+#include <limits.h>
 #include <sys/stat.h>
 #if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
 #include <unistd.h>
@@ -19,6 +21,8 @@
 
 typedef struct PendingTool {
    unsigned id;
+   unsigned source_id, revision;
+   unsigned long generation;
    char *action, *tool, *text;
    int argc;
    char **argv;
@@ -33,6 +37,55 @@ static int deferred_menu_run;
 static int initialised, available;
 static char profile_ready[THE_TOOL_PATH], profile_active[THE_TOOL_PATH];
 static unsigned profile_source, profile_revision;
+static char profile_source_path[THE_TOOL_PATH];
+static char profile_active_source_path[THE_TOOL_PATH];
+static unsigned profile_active_source,profile_active_revision;
+static int profile_activation_role;
+static struct {
+   unsigned serial,source_id,revision,job;
+   short rc;
+   char action[32],code[40],message[256];
+} file_result;
+typedef struct {
+   char id[64];
+   int existed;
+   TheToolDefinition previous;
+} ProfileToolOverride;
+static ProfileToolOverride profile_overrides[THE_TOOL_LIMIT];
+static size_t profile_override_count,legacy_registry_entries;
+static int profile_recording;
+typedef struct {
+   TheToolDefinition catalog[THE_TOOL_LIMIT];
+   size_t count,override_count;
+   ProfileToolOverride overrides[THE_TOOL_LIMIT];
+} ProfileRegistrySnapshot;
+static void registry_save(void);
+static int profile_override_index(const char *id) {
+   size_t i;for(i=0;i<profile_override_count;i++)if(!strcmp(profile_overrides[i].id,id))return (int)i;
+   return -1;
+}
+static ProfileRegistrySnapshot *profile_registry_begin(void) {
+   ProfileRegistrySnapshot *saved;size_t i;
+   if(profile_recording)return NULL;
+   saved=malloc(sizeof(*saved));if(!saved)return NULL;
+   saved->count=the_tool_count();for(i=0;i<saved->count;i++)saved->catalog[i]=*the_tool_at(i);
+   saved->override_count=profile_override_count;
+   memcpy(saved->overrides,profile_overrides,profile_override_count*sizeof(profile_overrides[0]));
+   for(i=0;i<profile_override_count;i++) {
+      ProfileToolOverride *entry=profile_overrides+i;
+      if(entry->existed)the_tool_register(&entry->previous);else the_tool_remove(entry->id);
+   }
+   profile_override_count=0;profile_recording=1;return saved;
+}
+static void profile_registry_end(ProfileRegistrySnapshot *saved,int success) {
+   if(!success) {
+      the_tool_catalog_restore(saved->catalog,saved->count);
+      profile_override_count=saved->override_count;
+      memcpy(profile_overrides,saved->overrides,profile_override_count*sizeof(profile_overrides[0]));
+   }
+   profile_recording=0;free(saved);
+   if(success)registry_save();
+}
 static TheToolDefinition restored_languages[THE_TOOL_LIMIT];
 static size_t restored_language_count;
 static short file_launch_rc;
@@ -300,6 +353,7 @@ static short run_profile_image(const char *image, const char *identity, short *m
 {
    char command[THE_TOOL_PATH + 8];
    short rc, finish;
+   ProfileRegistrySnapshot *registry;
    workbench_tools_register();
 #if defined(THE_WASM)
    rc = the_workbench_activation_begin_untrusted(identity);
@@ -308,15 +362,19 @@ static short run_profile_image(const char *image, const char *identity, short *m
                                       : the_workbench_activation_begin(identity);
 #endif
    if (rc != RC_OK) return rc;
+   registry=profile_registry_begin();
+   if(!registry) { the_workbench_activation_end(0);return RC_OUT_OF_MEMORY; }
    if (!the_crexx_console_capture(1))
    {
       the_workbench_activation_end(0);
+      profile_registry_end(registry,0);
       return RC_INVALID_ENVIRON;
    }
    snprintf(command,sizeof(command),"\"%s\"",image);
    rc = execute_macro((CHARTYPE *)command,FALSE,macro_rc);
    the_crexx_console_capture(0);
    finish = the_workbench_activation_end(rc == RC_OK && *macro_rc == 0);
+   profile_registry_end(registry,rc==RC_OK && *macro_rc==0 && finish==RC_OK);
    return rc != RC_OK ? rc : *macro_rc ? *macro_rc : finish;
 }
 static short launch(const char *id, int argc, const char *const *argv, const char *image) {
@@ -328,10 +386,8 @@ static short launch(const char *id, int argc, const char *const *argv, const cha
    workbench_tools_register();
    t = id && *id ? the_tool_find(id) :
        CURRENT_FILE ? the_tool_for_file((char *)CURRENT_FILE->fname, "runner") : NULL;
-   if ((!id || !*id) && !t)
-      t = the_tool_find("classic-rexx");
    if (!t) {
-      display_error(0, (CHARTYPE *)"Unknown tool", FALSE);
+      display_error(0, (CHARTYPE *)"No runner is associated with this file; choose an explicit tool", FALSE);
       return RC_INVALID_OPERAND;
    }
    r.tool = *t;
@@ -386,11 +442,18 @@ const char *the_tools_profile_path(void) {
    return path;
 }
 void the_tools_profile_built(unsigned id, const char *path, unsigned source_id, unsigned revision) {
-   if (the_tool_console()->id != id)
+   const TheToolConsole *job=the_tool_console();
+   const TheToolDefinition *tool=the_tool_find(job->tool);
+   char resolved[THE_TOOL_PATH];
+   if (job->id != id || !job->running || !tool || strcmp(tool->role,"compiler")
+   || job->source_id!=source_id || job->revision!=revision
+   || !safe_image(path,resolved,sizeof(resolved)))
       return;
-   snprintf(profile_ready, sizeof(profile_ready), "%s", path);
+   snprintf(profile_ready, sizeof(profile_ready), "%s", resolved);
    profile_source = source_id;
    profile_revision = revision;
+   snprintf(profile_source_path,sizeof(profile_source_path),"%s",job->filename);
+   { const char *ext=strrchr(job->filename,'.'); profile_activation_role=ext && !my_stricmp(ext,".the"); }
 }
 static void profile_directory(void);
 static int profile_selection(void);
@@ -408,8 +471,9 @@ static void registry_skip_language(const char *id) {
 }
 static short activate(void) {
    short rc, macro_rc = 0;
+   int captured=0;
    const TheEditorSource *s = the_editor_source_prepare();
-   if (!*profile_ready) {
+   if (!*profile_ready || !profile_activation_role) {
       display_error(0, (CHARTYPE *)"Build a profile before activating it", FALSE);
       return RC_INVALID_OPERAND;
    }
@@ -422,22 +486,30 @@ static short activate(void) {
       display_error(0, (CHARTYPE *)"This profile requires cREXX", FALSE);
       return RC_INVALID_ENVIRON;
    }
-   rc = run_profile_image(profile_ready,the_tools_profile_path(),&macro_rc);
+   if(!the_tool_console()->running) {
+      if(!the_tool_build_capture_begin("profile-activation",profile_source_path,profile_source,profile_revision))return RC_INVALID_ENVIRON;
+      captured=1;
+   }
+   rc = run_profile_image(profile_ready,profile_source_path,&macro_rc);
    if (rc == RC_OK && macro_rc == 0) {
       snprintf(profile_active, sizeof(profile_active), "%s", profile_ready);
+      snprintf(profile_active_source_path,sizeof(profile_active_source_path),"%s",profile_source_path);
+      profile_active_source=profile_source;profile_active_revision=profile_revision;
       if (!profile_selection()) {
          display_error(0, (CHARTYPE *)"Profile applied; selection could not be saved. Retry Activate", FALSE);
-         return RC_ACCESS_DENIED;
+         rc=RC_ACCESS_DENIED;goto finished;
       }
 #ifdef __EMSCRIPTEN__
       if (the_wasm_flush_workspace() != 0) {
          display_error(0, (CHARTYPE *)"Profile applied; browser storage save failed. Retry Activate", FALSE);
-         return RC_DISK_FULL;
+         rc=RC_DISK_FULL;goto finished;
       }
 #endif
       display_error(0, (CHARTYPE *)"Profile activated", FALSE);
    } else
       display_error(0, (CHARTYPE *)"Profile activation failed; previous selection retained", FALSE);
+finished:
+   if(captured)the_tool_build_capture_end(rc);
    return rc;
 }
 static int profile_file(char *out, size_t cap, const char *name) {
@@ -472,7 +544,7 @@ static int profile_selection(void) {
    f = fopen(temporary, "wb");
    if (!f)
       return 0;
-   failed = fprintf(f, "%s\n%s\n", profile_active, THE_TOOL_COHORT) < 0;
+   failed = fprintf(f, "%s\n%s\n%s\n", profile_active, THE_TOOL_COHORT,profile_active_source_path) < 0;
    if (fclose(f)) failed = 1;
    if (failed || rename(temporary, path)) {
       remove(temporary);
@@ -486,7 +558,7 @@ void the_tools_restore_metadata(void) {
       registry_restore_metadata();
 }
 int the_tools_profile_restore(void) {
-   char path[THE_TOOL_PATH], cohort[100];
+   char path[THE_TOOL_PATH], cohort[100],identity[THE_TOOL_PATH];
    FILE *f;
    short macro_rc = 0, rc;
    the_tools_restore_metadata();
@@ -506,6 +578,8 @@ int the_tools_profile_restore(void) {
       fclose(f);
       return 0;
    }
+   if(!fgets(identity,sizeof(identity),f))snprintf(identity,sizeof(identity),"%s",the_tools_profile_path());
+   identity[strcspn(identity,"\r\n")]=0;
    fclose(f);
    cohort[strcspn(cohort, "\r\n")] = 0;
    if (strcmp(cohort, THE_TOOL_COHORT))
@@ -520,15 +594,142 @@ int the_tools_profile_restore(void) {
           strchr(slash + 1, '\\'))
          return 0;
    }
-   rc = run_profile_image(path,the_tools_profile_path(),&macro_rc);
+   if(!the_tool_build_capture_begin("profile-activation",identity,0,0))return 0;
+   rc = run_profile_image(path,identity,&macro_rc);
+   the_tool_build_capture_end(rc);
    if (rc == RC_OK && !macro_rc) {
       snprintf(profile_active, sizeof(profile_active), "%s", path);
+      snprintf(profile_active_source_path,sizeof(profile_active_source_path),"%s",identity);
       return 1;
    }
    return 0;
 }
+typedef struct {
+   const char *id,*label,*reason,*tool;
+   const TheWorkbenchAction *macro;
+} FileAction;
+static void file_actions(const TheEditorSource *source,FileAction out[3]) {
+   const char *ext=CURRENT_FILE ? strrchr((char *)CURRENT_FILE->fname,'.') : NULL;
+   const TheToolDefinition *runner=CURRENT_FILE ? the_tool_for_file((char *)CURRENT_FILE->fname,"runner") : NULL;
+   const TheToolDefinition *compiler=the_tool_find("profile-compiler");
+   char path[THE_TOOL_PATH];
+   const TheWorkbenchAction *build=NULL;
+   const char *busy=!source ? the_editor_source_error() : the_tool_console()->running ? "Stop the current job first" : NULL;
+   int profile=ext && !my_stricmp(ext,".the");
+   int compilable=profile || (ext && !my_stricmp(ext,".crexx"));
+   out[0]=(FileAction){"build",profile ? "Build THE" : "Build source", "No Build action is associated with this file", "",NULL};
+   out[1]=(FileAction){"run","Run","No runner is associated with this file",runner ? runner->id : "",NULL};
+   out[2]=(FileAction){"activate","Activate built profile","This file has no profile activation role",profile ? "profile-compiler" : "",NULL};
+   if(compilable) { out[0].tool="profile-compiler";out[0].reason=compiler && compiler->available ? "" : "Profile compiler is unavailable"; }
+   else if(CURRENT_FILE) {
+      snprintf(path,sizeof(path),"%s%s",CURRENT_FILE->fpath,CURRENT_FILE->fname);
+      build=the_workbench_file_build(path);
+      if(build) {
+         out[0].macro=build;out[0].tool=build->id;out[0].label=build->label;
+         out[0].reason=the_workbench_action_reason(build);
+         if(!strcmp(out[0].reason,"ok"))out[0].reason=the_editor_buffer_dirty(CURRENT_FILE) ? "Save the current file before Build" : "";
+      }
+   }
+   if(runner) out[1].reason=runner->available ? "" : "Associated runner is unavailable";
+   if(profile) {
+      out[1].label="Run built macro";out[1].tool="built-macro";
+      out[1].reason=!*profile_ready ? "Build this THE source before running it"
+         : !source || source->id!=profile_source || source->revision!=profile_revision ? "THE source changed; build it again"
+         : !rexx_support || !the_macro_uses_crexx() ? "THE macro execution requires available cREXX" : "";
+   }
+   if(profile) out[2].reason=!*profile_ready ? "Build this profile before activation"
+      : !source || source->id!=profile_source || source->revision!=profile_revision ? "Profile source changed; build it again"
+      : !profile_activation_role ? "This build has no profile activation role"
+      : !rexx_support || !the_macro_uses_crexx() ? "Profile activation requires available cREXX" : "";
+   if(busy) { size_t i;for(i=0;i<3;i++)out[i].reason=busy; }
+}
+static short file_outcome(const char *action,unsigned id,unsigned revision,const char *code,short rc,const char *message) {
+   file_result.serial++;
+   file_result.source_id=id;file_result.revision=revision;file_result.rc=rc;file_result.job=0;
+   snprintf(file_result.action,sizeof(file_result.action),"%s",action);
+   snprintf(file_result.code,sizeof(file_result.code),"%s",code);
+   snprintf(file_result.message,sizeof(file_result.message),"%s",message);
+   return rc;
+}
+/* A macro receives the real selected path. Refuse stale disk bytes instead of
+ * silently saving or letting the macro build an older revision. Source uses
+ * LF logical records and includes a final record terminator. */
+static int file_source_matches(const char *path,const TheEditorSource *source) {
+   FILE *file;size_t offset=0;int c,next,good=1;
+   if(the_editor_buffer_dirty(CURRENT_FILE) || !(file=fopen(path,"rb")))return 0;
+   while((c=fgetc(file))!=EOF) {
+      if(c=='\r') { next=fgetc(file);if(next!=EOF && next!='\n')ungetc(next,file);c='\n'; }
+      if(offset>=source->length || (unsigned char)source->bytes[offset++]!=(unsigned char)c) { good=0;break; }
+   }
+   if(ferror(file))good=0;
+   fclose(file);
+   return good && (offset==source->length || (offset+1==source->length && source->bytes[offset]=='\n'));
+}
+static short file_action(PendingTool *p) {
+   const TheEditorSource *source=the_editor_source_prepare();
+   const char *name=p->action+5;
+   FileAction actions[3];size_t i;short rc;
+   if(!source || !p->source_id || !p->revision || source->id!=p->source_id || source->revision!=p->revision)
+      return file_outcome(name,p->source_id,p->revision,"stale-source",RC_INVALID_OPERAND,"The current file changed; refresh its actions and retry");
+   file_actions(source,actions);
+   for(i=0;i<3 && strcmp(actions[i].id,name);i++) {}
+   if(i==3) return file_outcome(name,p->source_id,p->revision,"invalid-operand",RC_INVALID_OPERAND,"Unknown file action");
+   if(*actions[i].reason) return file_outcome(name,p->source_id,p->revision,"unavailable",RC_INVALID_ENVIRON,actions[i].reason);
+   if(i==0) {
+      if(actions[i].macro) {
+         char target[THE_TOOL_PATH],id[THE_WORKBENCH_ID_MAX+1];
+         unsigned long generation=actions[i].macro->generation;
+         if(strcmp(p->tool,actions[i].macro->id) || p->generation!=generation)
+            return file_outcome(name,p->source_id,p->revision,"stale-action",RC_INVALID_OPERAND,"The Build action changed; refresh its definition and retry");
+         snprintf(target,sizeof(target),"%s%s",CURRENT_FILE->fpath,CURRENT_FILE->fname);
+         if(!file_source_matches(target,source))
+            return file_outcome(name,p->source_id,p->revision,"source-conflict",RC_INVALID_ENVIRON,"Saved file differs from the current source; save or reload it before Build");
+         strcpy(id,actions[i].macro->id);
+         if(!the_tool_build_capture_begin(id,target,p->source_id,p->revision)) rc=RC_INVALID_ENVIRON;
+         else {
+            if(!the_crexx_console_capture(1))rc=RC_INVALID_ENVIRON;
+            else { rc=the_workbench_file_build_invoke(id,generation,target);the_crexx_console_capture(0); }
+            the_tool_build_capture_end(rc);
+         }
+      } else {
+         rc=launch(actions[i].tool,0,NULL,NULL);
+         if(!rc) { profile_ready[0]=0;profile_source=p->source_id;profile_revision=p->revision;profile_activation_role=0; }
+      }
+   } else if(i==1 && !strcmp(actions[i].tool,"built-macro")) {
+      char invocation[THE_TOOL_PATH+3],target[THE_TOOL_PATH];
+      snprintf(target,sizeof(target),"%s%s",CURRENT_FILE->fpath,CURRENT_FILE->fname);
+      if(!the_tool_program_capture_begin("built-macro",target,p->source_id,p->revision)) rc=RC_INVALID_ENVIRON;
+      else {
+         if(!the_crexx_console_capture(1)) rc=RC_INVALID_ENVIRON;
+         else { snprintf(invocation,sizeof(invocation),"\"%s\"",profile_ready);rc=Macro((CHARTYPE *)invocation);the_crexx_console_capture(0); }
+         the_tool_program_capture_end(rc);
+      }
+   } else if(i==1) rc=launch(actions[i].tool,p->argc,(const char *const *)p->argv,NULL);
+   else {
+      char target[THE_TOOL_PATH];snprintf(target,sizeof(target),"%s%s",CURRENT_FILE->fpath,CURRENT_FILE->fname);
+      if(!the_tool_build_capture_begin("profile-activation",target,p->source_id,p->revision)) rc=RC_INVALID_ENVIRON;
+      else { rc=activate();the_tool_build_capture_end(rc); }
+   }
+   file_outcome(name,p->source_id,p->revision,rc ? "failed" : i==2 ? "activated" : actions[i].macro || !strcmp(actions[i].tool,"built-macro") ? "completed" : "started",rc,
+      rc ? "File action failed; inspect its output" : i==2 ? "Profile activated" : actions[i].macro ? "Build completed" : i==0 ? "Build started" : !strcmp(actions[i].tool,"built-macro") ? "Macro completed" : "Program started");
+   if(!rc && i!=2 && !actions[i].macro && strcmp(actions[i].tool,"built-macro")) file_result.job=the_tool_console()->id;
+   return rc;
+}
+short the_tools_file_build_active(const char *id,unsigned long generation) {
+   const TheEditorSource *source=the_editor_source_prepare();
+   PendingTool request={0};
+   request.action="file-build";request.tool=(char *)(id ? id : "");request.generation=generation;
+   if(source) { request.source_id=source->id;request.revision=source->revision; }
+   return file_action(&request);
+}
 static short action(PendingTool *p) {
    const char *a = p->action;
+   if(!strncmp(a,"file-",5)) return file_action(p);
+   if(p->source_id && (!strcmp(a,"run") || !strcmp(a,"build") || !strcmp(a,"activate"))) {
+      const TheEditorSource *source=the_editor_source_prepare();
+      if(!source || source->id!=p->source_id || source->revision!=p->revision)
+         return file_outcome(a,p->source_id,p->revision,"stale-source",RC_INVALID_OPERAND,"The selected source changed; refresh and retry");
+   }
    if (!strcmp(a, "menu-run")) {
       /* The native popup is a macro. Launch on the next editor input event,
        * after the macro has returned and the source snapshot is safe. */
@@ -539,6 +740,9 @@ static short action(PendingTool *p) {
       return launch("", 0, NULL, NULL);
    }
    if (!strcmp(a, "run")) {
+      const TheToolDefinition *selected=*p->tool ? the_tool_find(p->tool) : NULL;
+      if(selected && (!strcmp(selected->role,"compiler") || !strcmp(selected->role,"language")))
+         return file_outcome("run",p->source_id,p->revision,"invalid-tool",RC_INVALID_OPERAND,"Choose a runner or program for Run");
       if (*p->tool && !the_tool_find(p->tool))
          return launch("rxbin", p->argc, (const char *const *)p->argv, p->tool);
       return launch(p->tool, p->argc, (const char *const *)p->argv, NULL);
@@ -554,7 +758,7 @@ static short action(PendingTool *p) {
       return RC_OK;
    }
    if (!strcmp(a, "clear")) {
-      the_tool_clear();
+      if(p->id)the_tool_clear_program();else the_tool_clear();
       return RC_OK;
    }
    if (!strcmp(a, "input")) {
@@ -603,6 +807,8 @@ static short action(PendingTool *p) {
    }
    if (!strcmp(a, "register")) {
       TheToolDefinition t = {0};
+      ProfileToolOverride baseline={0};
+      int override;
       if(p->argc && the_workbench_tool_find(p->argv[0])) return RC_INVALID_OPERAND;
       if (p->argc < 3 || strlen(p->argv[0]) > 30 ||
           (strcmp(p->argv[1], "program") && strcmp(p->argv[1], "runner") && strcmp(p->argv[1], "profile") &&
@@ -626,16 +832,27 @@ static short action(PendingTool *p) {
       if (strpbrk(t.image, "\t\r\n\"") || strpbrk(t.label, "\t\r\n") ||
           strpbrk(t.extensions, "\t\r\n"))
          return RC_INVALID_OPERAND;
+      override=profile_override_index(t.id);
+      if(profile_recording && override<0) {
+         const TheToolDefinition *previous=the_tool_find(t.id);
+         if(profile_override_count==THE_TOOL_LIMIT)return RC_OUT_OF_MEMORY;
+         strcpy(baseline.id,t.id);baseline.existed=previous!=NULL;
+         if(previous)baseline.previous=*previous;
+      }
       if (!the_tool_register(&t))
          return RC_INVALID_OPERAND;
+      if(profile_recording && override<0)profile_overrides[profile_override_count++]=baseline;
+      else if(!profile_recording && override>=0) {
+         memmove(profile_overrides+override,profile_overrides+override+1,(--profile_override_count-(size_t)override)*sizeof(profile_overrides[0]));
+      }
       registry_skip_language(t.id);
 #ifndef __EMSCRIPTEN__
       if (!strcmp(t.role, "language") && !the_tools_native_language(&t))
          return RC_INVALID_ENVIRON;
 #endif
-      registry_save();
+      if(!profile_recording)registry_save();
 #ifdef __EMSCRIPTEN__
-      the_wasm_flush_workspace();
+      if(!profile_recording)the_wasm_flush_workspace();
 #endif
       return RC_OK;
    }
@@ -769,6 +986,74 @@ int the_tools_prepare_lines(const char *a, const char *t, const char *text, cons
    free(buffer);
    return ok;
 }
+int the_tools_prepare_lines_bound(const char *a,const char *t,const char *text,const char *arguments,
+                                  unsigned id,unsigned revision,const char *generation,TheInputEvent *event) {
+   unsigned long token=0;
+   if(generation && *generation) {
+      const char *p=generation;
+      for(;*p;p++) { unsigned digit=(unsigned char)*p-'0';if(digit>9 || token>(ULONG_MAX-digit)/10)return 0;token=token*10+digit; }
+   }
+   if(!the_tools_prepare_lines(a,t,text,arguments,event)) return 0;
+   pending->source_id=id;pending->revision=revision;pending->generation=token;
+   return 1;
+}
+
+typedef struct { char *out;size_t capacity,used;int failed; } FileJson;
+static void file_json(FileJson *w,const char *format,...) {
+   va_list args;int n;
+   if(w->failed) return;
+   va_start(args,format);n=vsnprintf(w->out+w->used,w->capacity-w->used,format,args);va_end(args);
+   if(n<0 || (size_t)n>=w->capacity-w->used)w->failed=1;else w->used+=(size_t)n;
+}
+static void file_json_string(FileJson *w,const char *s) {
+   file_json(w,"\"");
+   for(;*s;s++) { unsigned c=(unsigned char)*s;
+      if(c=='"' || c=='\\')file_json(w,"\\%c",c);
+      else if(c<32)file_json(w,"\\u%04x",c);
+      else file_json(w,"%c",c);
+   }
+   file_json(w,"\"");
+}
+size_t the_tools_format_json(char *out,size_t capacity) {
+   const TheEditorSource *source;
+   const TheToolConsole *job=the_tool_console();
+   FileAction actions[3];FileJson w;size_t i,n;char path[THE_TOOL_PATH]="";
+   ensure();
+   source=the_editor_source_prepare();
+   if(CURRENT_FILE)snprintf(path,sizeof(path),"%s%s",CURRENT_FILE->fpath,CURRENT_FILE->fname);
+   file_actions(source,actions);
+   if(file_result.job && job->id==file_result.job && !job->running) {
+      int good=!strcmp(job->status,"0") && !strncmp(job->state,"Completed",9);
+      file_result.serial++;file_result.job=0;file_result.rc=good ? RC_OK : RC_INVALID_ENVIRON;
+      snprintf(file_result.code,sizeof(file_result.code),"%s",good ? "completed" : "failed");
+      snprintf(file_result.message,sizeof(file_result.message),"%s",job->state);
+   }
+   n=the_tool_format_json(out,capacity);
+   if(!n || out[n-1]!='}')return 0;
+   w=(FileJson){out,capacity,n-1,0};
+   file_json(&w,",\"currentFile\":{\"sourceId\":%u,\"revision\":%u,\"path\":",source ? source->id : 0,source ? source->revision : 0);
+   file_json_string(&w,path);file_json(&w,",\"actions\":[");
+   for(i=0;i<3;i++) {
+      file_json(&w,"%s{\"id\":",i ? "," : "");file_json_string(&w,actions[i].id);
+      file_json(&w,",\"label\":");file_json_string(&w,actions[i].label);
+      file_json(&w,",\"enabled\":%s,\"reason\":",*actions[i].reason ? "false" : "true");file_json_string(&w,actions[i].reason);
+      file_json(&w,",\"tool\":");file_json_string(&w,actions[i].tool);
+      file_json(&w,",\"target\":\"current-file\",\"generation\":\"%lu\"}",actions[i].macro ? actions[i].macro->generation : 0);
+   }
+   file_json(&w,"]},\"profile\":{\"sourcePath\":");
+   file_json_string(&w,*profile_source_path ? profile_source_path : the_tools_profile_path());
+   file_json(&w,",\"build\":{\"sourceId\":%u,\"revision\":%u,\"image\":",profile_source,profile_revision);
+   file_json_string(&w,profile_ready);
+   file_json(&w,",\"state\":");
+   file_json_string(&w,!*profile_ready ? "none" : source && source->id==profile_source && source->revision==profile_revision ? "ready" : "stale");
+   file_json(&w,"},\"active\":{\"image\":");file_json_string(&w,profile_active);
+   file_json(&w,",\"sourcePath\":");file_json_string(&w,profile_active_source_path);
+   file_json(&w,",\"sourceId\":%u,\"revision\":%u},\"registry\":{\"replacement\":\"profile-owned\",\"legacyEntries\":%lu,\"legacyProvenance\":\"unknown-preserved\"}",profile_active_source,profile_active_revision,(unsigned long)legacy_registry_entries);
+   file_json(&w,"},\"fileResult\":{\"serial\":%u,\"sourceId\":%u,\"revision\":%u,\"rc\":%d,\"action\":",file_result.serial,file_result.source_id,file_result.revision,file_result.rc);
+   file_json_string(&w,file_result.action);file_json(&w,",\"code\":");file_json_string(&w,file_result.code);
+   file_json(&w,",\"message\":");file_json_string(&w,file_result.message);file_json(&w,"}}");
+   return w.failed ? 0 : w.used;
+}
 
 static void registry_save(void) {
    char path[THE_TOOL_PATH], tmp[THE_TOOL_PATH + 8];
@@ -783,6 +1068,11 @@ static void registry_save(void) {
       return;
    for (i = 0; i < the_tool_count(); i++) {
       const TheToolDefinition *t = the_tool_at(i);
+      int owned=profile_override_index(t->id);
+      if(owned>=0) {
+         if(!profile_overrides[owned].existed)continue;
+         t=&profile_overrides[owned].previous;
+      }
       if (!*t->image || t->image[0] == '@')
          continue;
       fprintf(f, "%s\t%s\t%s\t%s\t%s\t%s\n", t->id, t->label, t->role, t->entry, t->image,
@@ -832,6 +1122,7 @@ static void registry_restore_metadata(void) {
          continue;
       if (!the_tool_register(&t))
          continue;
+      legacy_registry_entries++;
       if (!strcmp(t.role, "language") && restored_language_count < THE_TOOL_LIMIT)
          restored_languages[restored_language_count++] = t;
    }

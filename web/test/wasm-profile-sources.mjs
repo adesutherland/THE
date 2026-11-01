@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-// Visible Files/Console controls open real buffers. IDBFS checks prove that
+// Visible Files/Tools controls open real buffers. IDBFS checks prove that
 // Save and startup seeding preserve the exact edited source bytes on reload.
 export async function profileSourcesSmoke({ send, evaluate, command, waitFor, snapshot, hasCrexx }) {
   const names = hasCrexx
@@ -64,13 +64,13 @@ export async function profileSourcesSmoke({ send, evaluate, command, waitFor, sn
   const stockBytes = Buffer.from(await durable(stockPath)).toString("utf8");
   assert.equal(stockBytes, marker + Buffer.from(originals.get(stockPath)).toString("utf8"));
 
-  // Open the separate user override through its visible profile control.
-  await evaluate(`(() => {const button=document.querySelector('.console-toggle');
+  // Open the separate user override from Tools & Profiles, while the Program
+  // console remains dedicated to program input and output.
+  await evaluate(`(() => {const button=document.querySelector('.tools-toggle');
     if(button.getAttribute('aria-pressed')!=='true')button.click();})()`);
-  await waitFor(() => evaluate("!!document.querySelector('.profile-options summary')"), "profile controls");
-  await evaluate("(() => {const options=document.querySelector('.profile-options');if(!options.open)options.querySelector('summary').click();})()");
-  assert.equal(await evaluate("[...document.querySelectorAll('.profile-actions button')].find(node=>node.textContent==='Edit profile').getClientRects().length>0"), true);
-  await evaluate("[...document.querySelectorAll('.profile-actions button')].find(node=>node.textContent==='Edit profile').click()");
+  await waitFor(() => evaluate("!!document.querySelector('.tools-profiles-pane')?.getClientRects().length"), "visible Tools and profiles pane");
+  assert.equal(await evaluate("!!document.querySelector('.tools-profiles-pane .profile-setup button') && !document.querySelector('.rexx-dock .profile-setup')"), true);
+  await evaluate("[...document.querySelectorAll('.tools-profiles-pane .profile-setup button')].find(node=>node.textContent==='Edit profile').click()");
   const userPath = "/workspace/.crxthe-tools/profile.the";
   await waitFor(async () => (await snapshot()).buffer?.path === userPath, "separate user profile");
   await prependAndSave("/* Saved user override 界 */ ");

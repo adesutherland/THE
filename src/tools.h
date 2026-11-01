@@ -9,6 +9,11 @@ void the_tools_initialise(const TheToolAdapter *adapter, int available);
 void the_tools_fileio_initialize(void);
 int the_tools_prepare_lines(const char *, const char *, const char *, const char *,
                             TheInputEvent *);
+/* Source and published-action tokens are rechecked on the editor input owner. */
+int the_tools_prepare_lines_bound(const char *,const char *,const char *,const char *,
+                                  unsigned,unsigned,const char *,TheInputEvent *);
+size_t the_tools_format_json(char *,size_t);
+short the_tools_file_build_active(const char *,unsigned long);
 int the_tools_prepare_input(const char *action, const char *tool, const char *text, int argc,
                             const char *const *argv, TheInputEvent *event);
 int the_tools_take_menu_run(TheInputEvent *event);

@@ -103,6 +103,34 @@ int the_workbench_restricted(void)
 #endif
 }
 
+static int path_below(const char *path,const char *root)
+{
+   size_t n;
+   if (!path || !root) return 0;
+   n=strlen(root);
+   if (n==1 && root[0]=='/') return path[0]=='/' && path[1]!='\0';
+   return n && !strncmp(path,root,n) && path[n]=='/';
+}
+
+static const char *file_build_path_reason(const char *path,int macro)
+{
+   char resolved[THE_FRONTEND_POLICY_PATH_MAX+1],error[256];
+   const char *workspace;
+   int readonly=0;
+   size_t n;
+   if (!the_workbench_restricted()) return "ok";
+   if (!the_frontend_policy_enabled()) return "policy-denied";
+   if (!path || !(workspace=the_frontend_policy_root_at(0,NULL))
+   || !the_frontend_policy_resolve_path(path,macro ? 0 : 1,resolved,sizeof(resolved),
+                                        &readonly,error,sizeof(error))
+   || !path_below(resolved,workspace)) return "policy-denied";
+   if (macro) {
+      n=strlen(resolved);
+      if (n<6 || strcmp(resolved+n-6,".rxbin")) return "policy-denied";
+   }
+   return "ok";
+}
+
 static void invocation_completed(void);
 static short panel_operation(const char *id,unsigned long generation,TheWorkbenchPanelOperation operation)
 {
@@ -153,7 +181,12 @@ const char *the_workbench_action_reason(const TheWorkbenchAction *action)
       if(the_tool_console()->running) return "busy-job";
       return the_workbench_native_tool_reason(tool);
    }
-   if (the_workbench_restricted()) return "policy-denied";
+   if (the_workbench_restricted()) {
+      if (action->kind!=THE_WORKBENCH_ACTION_MACRO || !action->file_build)
+         return "policy-denied";
+      if (!rexx_support) return "capability-unavailable";
+      return file_build_path_reason(action->operand,1);
+   }
    if (action->kind == THE_WORKBENCH_ACTION_MACRO && !rexx_support) return "capability-unavailable";
    if (action->kind != THE_WORKBENCH_ACTION_COMMAND && action->kind != THE_WORKBENCH_ACTION_MACRO)
       return "unsupported-feature";
@@ -176,6 +209,12 @@ static short invoke_action(const char *id, unsigned long generation,
    if (the_workbench_activation_active() && strncmp(copy.owner,"the.",4))
       return the_workbench_result("activation-pending",RC_INVALID_ENVIRON,"Profile actions cannot run before activation completes");
    if (the_panel_active) return the_workbench_result("busy-modal",RC_INVALID_ENVIRON,"A modal READ owns editor input");
+   if (copy.file_build) {
+      if (argument && *argument) return bad();
+      rc=the_tools_file_build_active(copy.id,copy.generation);
+      return the_workbench_result(rc==RC_OK ? "ok" : "command-failed",rc,
+         rc==RC_OK ? "" : "File Build failed; inspect the Build result in Tools & Profiles");
+   }
    if (copy.kind == THE_WORKBENCH_ACTION_PANEL)
    {
       if (argument && *argument) return bad();
@@ -199,7 +238,7 @@ static short invoke_action(const char *id, unsigned long generation,
    else
    {
       if (argument && *argument) return bad();
-      if (the_workbench_restricted())
+      if (the_workbench_restricted() && !copy.file_build)
          return the_workbench_result("policy-denied",RC_INVALID_ENVIRON,"Command and macro actions are unavailable in restricted sessions");
       if (copy.kind == THE_WORKBENCH_ACTION_COMMAND)
          rc = the_input_dispatch_command(copy.operand,0);
@@ -208,6 +247,8 @@ static short invoke_action(const char *id, unsigned long generation,
          char name[THE_WORKBENCH_OPERAND_MAX + 3];
          if (!rexx_support) return the_workbench_result("capability-unavailable",RC_INVALID_ENVIRON,"No macro interpreter is available");
          if (strchr(copy.operand,'"')) return bad();
+         if (copy.file_build)
+            return the_workbench_result("invalid-operand",RC_INVALID_OPERAND,"File Build requires an explicit selected target");
          snprintf(name,sizeof(name),"\"%s\"",copy.operand);
          rc = Macro((CHARTYPE *)name);
       }
@@ -215,6 +256,34 @@ static short invoke_action(const char *id, unsigned long generation,
    }
    return the_workbench_result(rc == RC_OK ? "ok" : "command-failed",rc,
                                rc == RC_OK ? "" : "The explicit workbench action returned a nonzero THE result");
+}
+
+short the_workbench_file_build_invoke(const char *id,unsigned long generation,
+                                      const char *target)
+{
+   const TheWorkbenchAction *found;
+   TheWorkbenchAction action;
+   char invocation[2*THE_WORKBENCH_OPERAND_MAX+8];
+   const char *reason;
+   short rc;
+   if (!id || !target || !*target || !generation) return bad();
+   found=the_workbench_action_find(id);
+   if (!found || !found->file_build) return the_workbench_result("missing-action",RC_INVALID_OPERAND,"No file Build action has that ID");
+   action=*found;
+   if (action.generation!=generation) return the_workbench_result("stale-generation",RC_INVALID_ENVIRON,"File Build action changed");
+   if (the_workbench_file_build(target)!=found) return the_workbench_result("invalid-operand",RC_INVALID_OPERAND,"Build action does not belong to this file type");
+   if (the_workbench_activation_active()) return the_workbench_result("activation-pending",RC_INVALID_ENVIRON,"File Build requires a completed profile activation");
+   if (the_panel_active || in_macro) return the_workbench_result("busy-modal",RC_INVALID_ENVIRON,"Editor input is busy");
+   reason=file_build_path_reason(action.operand,1);
+   if (strcmp(reason,"ok")) return the_workbench_result(reason,RC_INVALID_ENVIRON,"Build macro is not in the browser workspace");
+   reason=file_build_path_reason(target,0);
+   if (strcmp(reason,"ok")) return the_workbench_result(reason,RC_INVALID_ENVIRON,"Build target is not in the browser workspace");
+   if (!rexx_support) return the_workbench_result("capability-unavailable",RC_INVALID_ENVIRON,"No macro interpreter is available");
+   if (strchr(action.operand,'"') || strchr(target,'\n') || strchr(target,'\r')) return bad();
+   if (snprintf(invocation,sizeof(invocation),"\"%s\" %s",action.operand,target)>=(int)sizeof(invocation)) return bad();
+   rc=Macro((CHARTYPE *)invocation);
+   return the_workbench_result(rc==RC_OK ? "ok" : "command-failed",rc,
+      rc==RC_OK ? "" : "The file Build macro returned a nonzero THE result");
 }
 
 static unsigned long invocation_serial;
@@ -466,13 +535,24 @@ static short command_operands(const char *operands)
       }
       else if (keyword(&t[5],"COMMAND") || keyword(&t[5],"MACRO"))
       {
-         if (the_workbench_restricted()) return the_workbench_result("policy-denied",RC_INVALID_ENVIRON,"Restricted sessions may define only typed builtin actions");
          if (n > 7 && keyword(&t[7],"ARG"))
             return the_workbench_result("unsupported-feature",RC_INVALID_ENVIRON,"Macro argument vectors are outside phase one");
-         if (n != 7 || !t[6].quoted) return bad();
+         if ((n != 7 && n != 11) || !t[6].quoted) return bad();
          a.kind = keyword(&t[5],"COMMAND") ? THE_WORKBENCH_ACTION_COMMAND : THE_WORKBENCH_ACTION_MACRO;
          if (a.kind == THE_WORKBENCH_ACTION_MACRO && strchr(t[6].text,'"')) return bad();
          strcpy(a.operand,t[6].text);
+         if (n==11) {
+            if (a.kind!=THE_WORKBENCH_ACTION_MACRO || !keyword(&t[7],"FILEEXT")
+            || !t[8].quoted || strlen(t[8].text)>THE_WORKBENCH_FILEEXT_MAX
+            || !keyword(&t[9],"PURPOSE") || !keyword(&t[10],"BUILD")) return bad();
+            a.file_build=1;strcpy(a.file_extension,t[8].text);
+         }
+         if (the_workbench_restricted()) {
+            const char *reason;
+            if (!a.file_build) return the_workbench_result("policy-denied",RC_INVALID_ENVIRON,"Restricted sessions require a typed file Build macro");
+            reason=file_build_path_reason(a.operand,1);
+            if (strcmp(reason,"ok")) return the_workbench_result(reason,RC_INVALID_ENVIRON,"Build macro must be an existing workspace RXBIN");
+         }
       }
       else if (keyword(&t[5],"PANEL"))
       {

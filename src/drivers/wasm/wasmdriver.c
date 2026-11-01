@@ -221,7 +221,7 @@ static void publish(void)
       }
 #endif
       browser_send(snapshot);
-      {static char tools[1800000];if(the_tool_format_json(tools,sizeof(tools)))browser_send(tools);}
+      {static char tools[3600000];if(the_tools_format_json(tools,sizeof(tools)))browser_send(tools);}
    }
 }
 
@@ -617,8 +617,8 @@ static int read_input(TheInputEvent *event)
 #endif
       if(!strcmp(type,"tool-import")){browser_import();publish();continue;}
       if(!strcmp(type,"tool")){
-         char a[40],t[64],*text=browser_payload("text",1048577),*args=browser_payload("arguments",1048577);TheInputEvent e;
-         if(browser_string("action",a,sizeof(a))&&browser_string("tool",t,sizeof(t))&&the_tools_prepare_lines(a,t,text?text:"",args?args:"",&e))the_input_queue_push(&inputs,e);
+         char a[40],t[64],generation[32],*text=browser_payload("text",1048577),*args=browser_payload("arguments",1048577);TheInputEvent e;
+         if(browser_string("generation",generation,sizeof(generation))&&browser_string("action",a,sizeof(a))&&browser_string("tool",t,sizeof(t))&&the_tools_prepare_lines_bound(a,t,text?text:"",args?args:"",browser_integer("sourceId",0),browser_integer("revision",0),generation,&e))the_input_queue_push(&inputs,e);
          free(text);free(args);continue;
       }
       if(!strcmp(type,"tool-event")){

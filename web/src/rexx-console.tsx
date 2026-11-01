@@ -1,70 +1,36 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { browserWasm } from "./transport";
 import type { Snapshot } from "./types";
-
-export type ToolSession = {
-  type: "tools";
-  version: number;
-  job: {
-    id: number; sourceId: number; revision: number;
-    running: boolean; waiting: boolean; eof: boolean;
-    state: string; filename: string; tool: string;
-  };
-  visible: boolean;
-  omitted: boolean;
-  chunks: { fd: number; text: string }[];
-  catalog: {
-    id: string; label: string; role: string; image: string;
-    extensions: string; available: boolean;
-  }[];
-};
+import type { ToolSession } from "./tool-session";
 
 // Presentation only: THE owns source capture, registry, job identity and streams.
 // This component stays mounted when its pane is hidden or the layout changes.
-export function RexxConsole({ send, session, snapshot, runRequest, onClose, focusEditor }: {
+export function RexxConsole({ send, session, snapshot, focusRequest, onClose, focusEditor }: {
   send: (message: Record<string, unknown>) => number | undefined;
   session: ToolSession;
   snapshot: Snapshot | null;
-  runRequest: number;
+  focusRequest: number;
   onClose: () => void;
   focusEditor: () => void;
 }) {
-  const [args, setArgs] = useState("");
   const [input, setInput] = useState("");
-  const [tool, setTool] = useState("classic-rexx");
-  const [image, setImage] = useState("");
   const [unread, setUnread] = useState(false);
-  const importer = useRef<HTMLInputElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const log = useRef<HTMLPreElement>(null);
   const entry = useRef<HTMLInputElement>(null);
-  const lastRunRequest = useRef(runRequest);
+  const lastFocusRequest = useRef(focusRequest);
   const followingOutput = useRef(true);
   const requestedInputFocus = useRef(false);
   const outputVersion = useRef("");
   const job = session.job;
-  const act = (action: string, text = "", selected = tool) =>
-    send({ type: "tool", action, tool: selected, text, arguments: args });
+  const act = (action: string, text = "") =>
+    send({ type: "tool", action, tool: "", text, arguments: "" });
 
   useEffect(() => {
-    if (lastRunRequest.current === runRequest) return;
-    lastRunRequest.current = runRequest;
+    if (lastFocusRequest.current === focusRequest) return;
+    lastFocusRequest.current = focusRequest;
     requestedInputFocus.current = true;
     log.current?.focus();
-    act("run", "", "");
-  }, [runRequest]);
-
-  useEffect(() => {
-    if (job.tool && session.catalog.some((candidate) => candidate.id === job.tool))
-      setTool(job.tool);
-  }, [job.id, job.tool]);
-
-  useEffect(() => {
-    if (!session.catalog.some((candidate) => candidate.id === tool)) {
-      const available = session.catalog.find((candidate) => candidate.available && ["runner", "program"].includes(candidate.role));
-      if (available) setTool(available.id);
-    }
-  }, [session.catalog, tool]);
+  }, [focusRequest]);
   useEffect(() => {
     followingOutput.current = true;
     setUnread(false);
@@ -87,7 +53,7 @@ export function RexxConsole({ send, session, snapshot, runRequest, onClose, focu
 
   const changed = snapshot?.source && job.sourceId &&
     (snapshot.source.id !== job.sourceId || snapshot.source.revision !== job.revision);
-  const runAvailable = session.catalog.some((candidate) => candidate.id === tool && candidate.available);
+  const buildRunning = !!session.build?.job.running;
 
   return <div class="rexx-dock" ref={root} aria-label="Program console">
     <div class="console-heading">
@@ -95,56 +61,15 @@ export function RexxConsole({ send, session, snapshot, runRequest, onClose, focu
       <span class="run-state" role="status">{job.state}</span>
       <button type="button" onClick={onClose} aria-label="Hide program console">Hide</button>
     </div>
-    <div class="console-run-controls">
-      <label>Tool <select aria-label="Run tool" value={tool} disabled={job.running}
-        onChange={(event) => setTool(event.currentTarget.value)}>
-        {session.catalog.filter((candidate) => ["runner", "program"].includes(candidate.role)).map((candidate) =>
-          <option key={candidate.id} value={candidate.id} disabled={!candidate.available}>{candidate.label}</option>)}
-      </select></label>
-      <button type="button" class="run-program" disabled={job.running || !!snapshot?.panel || !runAvailable}
-        onClick={(event) => {
-          event.currentTarget.focus();
-          requestedInputFocus.current = true;
-          act(tool === "rxbin" ? "rxbin" : "run", image);
-        }}>Run {session.catalog.find((candidate) => candidate.id === tool)?.label ?? "program"}</button>
+    <div class="console-runtime-controls">
       <button type="button" onClick={() => act("stop")} disabled={!job.running}>Stop</button>
-      <button type="button" onClick={() => act("clear")}>Clear</button>
+      <button type="button" onClick={() => act("clear")} disabled={buildRunning}>Clear</button>
     </div>
     <div class="console-context">
-      <span title={job.filename}>{job.filename ? `${job.filename} · revision ${job.revision}` : "Runs the current buffer, including unsaved edits."}</span>
+      <span title={job.filename}>{job.filename ? `${job.filename} · revision ${job.revision} · ${session.catalog.find((tool) => tool.id === job.tool)?.label ?? (job.tool === "built-macro" ? "THE macro" : job.tool)}` : "Run a file using its actions beside the filename."}</span>
       {changed ? <span class="console-notice">Buffer changed since run</span> : null}
       {session.omitted ? <span class="console-notice">Older output omitted</span> : null}
     </div>
-    <details class="console-options"><summary>Arguments and run options</summary>
-      <label>Arguments<textarea rows={2} aria-label="Rexx arguments" placeholder="One argument per line"
-        value={args} disabled={job.running} onInput={(event) => setArgs(event.currentTarget.value)} /></label>
-      {tool === "rxbin" ? <label>RXBIN workspace path<input value={image} aria-label="RXBIN path" disabled={job.running}
-        onInput={(event) => setImage(event.currentTarget.value)} /></label> : null}
-      {browserWasm ? <>
-        <input ref={importer} type="file" accept=".rxbin" hidden onChange={(event) => {
-          const file = event.currentTarget.files?.[0];
-          if (!file) return;
-          const reader = new FileReader();
-          reader.onload = () => {
-            send({ type: "tool-import", name: file.name, bytes: String(reader.result).split(",")[1] });
-            setImage("/workspace/" + file.name);
-            setTool("rxbin");
-          };
-          reader.readAsDataURL(file);
-          event.currentTarget.value = "";
-        }} />
-        <button type="button" disabled={job.running} onClick={() => importer.current?.click()}>Import RXBIN</button>
-      </> : null}
-    </details>
-    <details class="console-options profile-options"><summary>Profile: Edit → Build → Activate</summary>
-      <div class="profile-actions">
-        <button type="button" onClick={() => act("profile")} disabled={job.running}>Edit profile</button>
-        <button type="button" onClick={() => act("build")}
-          disabled={job.running || !session.catalog.some((candidate) => candidate.id === "profile-compiler" && candidate.available)}>Build profile</button>
-        <button type="button" onClick={() => act("activate")} disabled={job.running}>Activate profile</button>
-      </div>
-      <p>Source profiles use cREXX Level B.</p>
-    </details>
     <pre class="console-output" aria-label="Program output" ref={log} tabIndex={0}
       onScroll={(event) => {
         const output = event.currentTarget;
@@ -168,7 +93,7 @@ export function RexxConsole({ send, session, snapshot, runRequest, onClose, focu
       <label for="rexx-input">{job.waiting ? "Program input requested" : "Program input"}</label>
       <input id="rexx-input" ref={entry} value={input} onInput={(event) => setInput(event.currentTarget.value)}
         onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); focusEditor(); } }}
-        disabled={!job.running || job.eof || !!snapshot?.panel} autoComplete="off" aria-label="Rexx input" />
+        disabled={!job.running || job.eof || !!snapshot?.panel} autoComplete="off" aria-label="Program input" />
       <button type="submit" disabled={!job.running || job.eof || !!snapshot?.panel}>Send</button>
       <button type="button" onClick={() => act("eof")} disabled={!job.running || job.eof}>End input</button>
     </form>

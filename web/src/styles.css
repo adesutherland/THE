@@ -192,12 +192,24 @@ button { color: inherit; }
 .dirty-mark { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: #d9a441; }
 
 .workbench { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.workbench-header { min-width:0; }
 .pane-switcher { display: flex; gap: 4px; flex-wrap: wrap; padding: 4px 8px; border-bottom: 1px solid #34383f; background: #1b1e22; }
-.pane-switcher button, .mobile-aux-tabs button, .command-form button, .parser-status {
+.pane-switcher button, .mobile-aux-tabs button, .command-form button, .parser-status, .current-file-tools button {
   border: 1px solid #424b57; border-radius: 4px; padding: 4px 9px; background: #252c34; color: #c4d0dd; font-size: 11px; cursor: pointer;
 }
 .pane-switcher button:disabled, .mobile-aux-tabs button:disabled { opacity:.55; cursor:default; }
-.run-unavailable { align-self:center; color:#9eacbd; font-size:11px; }
+.current-file-tools { display:flex; align-items:center; gap:10px 16px; flex-wrap:wrap; min-width:0; padding:6px 10px; border-bottom:1px solid #34383f; background:#20252b; }
+.current-file-identity { display:flex; flex-direction:column; gap:2px; min-width:0; max-width:250px; }
+.current-file-identity strong { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:12px; font-weight:500; color:#edf1f5; }
+.current-file-identity > span { font-size:10px; color:#9eacbd; }
+.current-file-action-list { display:flex; flex-wrap:wrap; gap:7px 15px; min-width:0; }
+.current-file-action { display:flex; align-items:center; gap:7px; min-width:0; }
+.current-file-tools button { flex:none; min-height:29px; }
+.current-file-tools button:disabled { opacity:.55; cursor:default; }
+.file-action-context { display:flex; flex-direction:column; gap:1px; min-width:0; max-width:240px; color:#aab8c8; font-size:10px; overflow-wrap:anywhere; }
+.file-action-tool { color:#dce7f0; }
+.current-file-tools .file-setup-link { margin-left:auto; background:transparent; border-color:transparent; color:#a5c8e8; }
+.current-file-result { flex-basis:100%; margin:0; color:#ff9b8b; font-size:11px; overflow-wrap:anywhere; }
 .pane-switcher [aria-pressed="true"], .mobile-aux-tabs [aria-pressed="true"] { border-color: #7297bb; background: #304a62; color: #edf5fc; }
 .workspace { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }
 .workspace.files-open { grid-template-columns: var(--files-width) 8px minmax(0, 1fr); }
@@ -238,7 +250,39 @@ button { color: inherit; }
 .named-form-controls button:disabled { opacity:.5; cursor:default; }
 .named-log-stderr { color:#ff8a78; }
 .mobile-aux-tabs { display: none; }
-.program-console-pane { min-width: 0; min-height: 0; overflow: auto; }
+.program-console-pane, .tools-profiles-pane { min-width: 0; min-height: 0; overflow: auto; }
+.tools-profiles { min-width:0; min-height:100%; color:#d4dce6; background:#1b2026; font-size:12px; }
+.tools-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 10px; border-bottom:1px solid #414c59; background:#25415f; }
+.tools-heading strong { font-size:12px; font-weight:500; }
+.tools-profiles button { min-height:29px; padding:4px 8px; border:1px solid #526277; border-radius:4px; background:#263340; color:#e2ebf5; cursor:pointer; font-size:11px; }
+.tools-profiles button:disabled { opacity:.55; cursor:default; }
+.tools-body { padding:0 10px 12px; }
+.tools-body > section { min-width:0; padding:12px 0; }
+.tools-body > section + section { border-top:1px solid #3a444f; }
+.tools-body h2 { margin:0 0 7px; font-size:12px; font-weight:600; color:#edf2f7; }
+.tools-body p { margin:7px 0; line-height:1.5; overflow-wrap:anywhere; }
+.tools-body .tools-hint { color:#aab8c8; font-size:11px; }
+.profile-status-list { display:grid; grid-template-columns:45px minmax(0,1fr); gap:7px 9px; margin:12px 0; }
+.profile-status-list dt { color:#aab8c8; }
+.profile-status-list dd { min-width:0; margin:0; overflow-wrap:anywhere; font:11px/1.5 var(--editor-font); }
+.profile-status-list small { display:block; margin-top:3px; color:#aab8c8; font:10px/1.5 var(--editor-font); }
+.tools-section-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.tools-section-heading h2 { margin:0; }
+.build-state, .file-result { font-size:11px; color:#b8c8d7; }
+.file-result-error { color:#ff9b8b; }
+.build-output { min-height:70px; max-height:240px; overflow:auto; margin:8px 0 0; padding:8px; border:1px solid #414c59; border-radius:3px; white-space:pre-wrap; overflow-wrap:anywhere; background:#151a1f; color:#d4dce6; font:12px/1.5 var(--editor-font); }
+.run-setup label { display:flex; flex-direction:column; gap:5px; margin:10px 0; color:#c5d1df; font-size:11px; }
+.run-setup input, .run-setup select, .run-setup textarea { min-width:0; width:100%; padding:6px; border:1px solid #526277; border-radius:3px; background:#151b22; color:#e2ebf5; font:12px/1.5 var(--editor-font); }
+.run-setup textarea { resize:vertical; min-height:50px; max-height:160px; }
+.run-setup .tools-hint { margin-left:7px; }
+.tool-import { margin-top:12px; }
+.tool-import .tools-hint { margin-left:0; }
+.tool-import > span { display:block; margin-top:6px; overflow-wrap:anywhere; }
+.explicit-run-target { font-size:11px; color:#b8c8d7; }
+.tool-catalog ul { display:grid; gap:7px; margin:0; padding:0; list-style:none; }
+.tool-catalog li { display:grid; gap:3px; padding:7px 8px; border:1px solid #39434f; border-radius:3px; }
+.tool-catalog li strong { font-size:11px; font-weight:500; }
+.tool-catalog li > span, .tool-catalog li small { color:#aab8c8; font-size:10px; overflow-wrap:anywhere; }
 @media (min-width:1100px) {
   .workspace.aux-below { display:flex; flex-direction:column; overflow-y:auto; }
   .workspace.aux-below > .pane-splitter { display:none; }
@@ -507,17 +551,9 @@ button { color: inherit; }
 .rexx-dock button { min-height:28px; padding:3px 8px; border:1px solid var(--console-divider-color, #6c7b90); border-radius:4px; font-size:11px; cursor:pointer; }
 .rexx-dock button:disabled { cursor:default; }
 .run-state { flex:1; min-width:90px; font-size:11px; }
-.console-run-controls { display:flex; flex-wrap:wrap; flex:none; align-items:center; gap:6px; padding:6px 10px; }
-.console-run-controls label { display:flex; align-items:center; gap:6px; min-width:0; font-size:11px; }
-.console-run-controls select { max-width:170px; }
+.console-runtime-controls { display:flex; flex-wrap:wrap; flex:none; align-items:center; gap:6px; padding:6px 10px; }
 .console-context { display:flex; flex-wrap:wrap; flex:none; gap:4px 10px; padding:0 10px 5px; font-size:11px; }
 .console-context > span { min-width:0; overflow-wrap:anywhere; }
-.console-options { flex:none; max-height:160px; overflow:auto; border-top:1px solid var(--console-divider-color, #6c7b90); font-size:11px; }
-.console-options summary { padding:6px 10px; cursor:pointer; }
-.console-options label { display:grid; grid-template-columns:90px minmax(0,1fr); gap:6px; align-items:start; padding:5px 10px; }
-.console-options > button, .console-options p { margin:4px 10px 8px; }
-.console-options textarea { width:100%; min-height:40px; max-height:100px; resize:vertical; }
-.profile-actions { display:flex; flex-wrap:wrap; gap:6px; padding:3px 10px; }
 .rexx-dock input, .rexx-dock textarea, .rexx-dock select { min-width:0; border:1px solid var(--console-divider-color, #6c7b90); border-radius:3px; padding:4px 6px; font:12px/18px var(--editor-font); }
 .console-output { flex:1 1 90px; min-height:70px; overflow:auto; margin:0; padding:7px 10px; border-block:1px solid var(--console-divider-color, #6c7b90); white-space:pre-wrap; overflow-wrap:anywhere; font:13px/19px var(--editor-font); }
 .console-input { display:grid; grid-template-columns:minmax(0,1fr) auto auto; flex:none; gap:6px; align-items:center; padding:7px 10px; font-size:11px; }
@@ -525,7 +561,7 @@ button { color: inherit; }
 .console-input input { width:100%; }
 .rexx-dock .new-output { flex:none; border-radius:0; border-inline:0; }
 
-.console-output, .console-options {
+.console-output {
   color:var(--console-body-color, #d4d4d4); background-color:var(--console-body-background-color, #1e1e1e);
   font-weight:var(--console-body-font-weight, 400); font-style:var(--console-body-font-style, normal);
   text-decoration:var(--console-body-text-decoration, none); opacity:var(--console-body-opacity, 1);
@@ -540,23 +576,22 @@ button { color: inherit; }
   font-weight:var(--console-input-font-weight, 400); font-style:var(--console-input-font-style, normal);
   text-decoration:var(--console-input-text-decoration, none); opacity:var(--console-input-opacity, 1);
 }
-.rexx-dock button, .console-options summary, .console-run-controls select {
+.rexx-dock button {
   color:var(--console-control-color, #d4d4d4); background-color:var(--console-control-background-color, #1e1e1e);
   font-weight:var(--console-control-font-weight, 400); font-style:var(--console-control-font-style, normal);
   text-decoration:var(--console-control-text-decoration, none); opacity:var(--console-control-opacity, 1);
 }
-.rexx-dock button:hover:not(:disabled), .rexx-dock button:focus-visible:not(:disabled),
-.console-options summary:hover, .console-options summary:focus-visible, .console-run-controls select:focus-visible:not(:disabled) {
+.rexx-dock button:hover:not(:disabled), .rexx-dock button:focus-visible:not(:disabled) {
   color:var(--console-selected-color, #e6f7ff); background-color:var(--console-selected-background-color, #264f78);
   font-weight:var(--console-selected-font-weight, 400); font-style:var(--console-selected-font-style, normal);
   text-decoration:var(--console-selected-text-decoration, none); opacity:var(--console-selected-opacity, 1);
 }
-.run-state, .console-context, .console-notice, .console-echo, .rexx-dock button:disabled, .console-run-controls select:disabled {
+.run-state, .console-context, .console-notice, .console-echo, .rexx-dock button:disabled {
   color:var(--console-status-color, #d4d4d4); background-color:var(--console-status-background-color, #1e1e1e);
   font-weight:var(--console-status-font-weight, 400); font-style:var(--console-status-font-style, normal);
   text-decoration:var(--console-status-text-decoration, none); opacity:var(--console-status-opacity, 1);
 }
-.rexx-dock button:disabled, .console-run-controls select:disabled { opacity:calc(var(--console-status-opacity, 1) * .55); }
+.rexx-dock button:disabled { opacity:calc(var(--console-status-opacity, 1) * .55); }
 .console-stderr {
   color:var(--console-error-color, tomato); background-color:var(--console-error-background-color, #1e1e1e);
   font-weight:var(--console-error-font-weight, 400); font-style:var(--console-error-font-style, normal);
@@ -574,7 +609,7 @@ button { color: inherit; }
   .auxiliary-tabs { display:none; }
   .named-panel-pane { flex:none; height:410px; }
   .mobile-aux-tabs { display:flex; flex:none; order:2; flex-wrap:wrap; gap:4px; padding:5px 8px; }
-  .program-console-pane { flex:none; height:410px; }
+  .program-console-pane, .tools-profiles-pane { flex:none; height:410px; }
   .workspace:not(.mobile-pane-files) .file-explorer { display:none; }
   .workspace.mobile-pane-files .auxiliary-rail { display:none; }
   .connection span { display:none; }
@@ -592,27 +627,33 @@ button { color: inherit; }
   .toolbar-actions .icon-button { min-width:38px; min-height:42px; }
   .toolbar-actions .icon-button:nth-child(n+3) { display:none; }
   .connection { margin-left:0; }
-  .workbench { grid-template-rows:minmax(0,1fr); }
+  .workbench { grid-template-rows:auto minmax(0,1fr); }
   .pane-switcher { display:none; }
   .pane-switcher { gap:4px; padding:4px 6px; }
   .pane-switcher button, .mobile-aux-tabs button { min-height:40px; padding:5px 8px; }
   .pane-switcher button { font-size:11px; }
+  .current-file-tools { gap:7px 10px; padding:6px 8px; }
+  .current-file-identity { flex:1 1 140px; max-width:none; }
+  .current-file-action-list { flex:1 1 100%; gap:8px 12px; order:3; }
+  .current-file-action { flex:1 1 140px; align-items:flex-start; }
+  .current-file-tools button { min-height:38px; }
+  .current-file-tools .file-setup-link { font-size:10px; }
+  .file-action-context { padding-top:4px; max-width:none; }
   .editor-pane { grid-template-rows:clamp(220px,38dvh,360px) auto auto; }
   .command-form { grid-template-columns:auto minmax(0,1fr) auto auto; padding-inline:7px; gap:4px; min-height:44px; }
   .command-prompt { padding-right:2px; }
   .command-form input { height:36px; font-size:16px; }
   .command-form button { min-height:36px; }
   .status-line { gap:3px 10px; padding:4px 8px; }
-  .run-unavailable { flex-basis:100%; padding-inline:2px; }
   .command-responses { max-height:130px; }
-  .program-console-pane { height:470px; }
+  .program-console-pane, .tools-profiles-pane { height:470px; }
+  .tools-profiles button, .tools-profiles select { min-height:38px; }
+  .run-setup input, .run-setup textarea { font-size:16px; }
   .rexx-dock { min-height:420px; }
   .rexx-dock button, .rexx-dock select { min-height:38px; }
   .rexx-dock input, .rexx-dock textarea { font-size:16px; }
-  .console-options summary { min-height:38px; }
   .console-input { gap:5px; padding-inline:8px; }
-  .console-run-controls, .console-heading { padding-inline:8px; }
-  .console-run-controls select { max-width:155px; }
+  .console-runtime-controls, .console-heading { padding-inline:8px; }
   .file-list > button, .root-switcher button { min-height:40px; }
 }
 

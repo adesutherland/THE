@@ -471,9 +471,11 @@ too_large:
 }
 
 static void web_driver_publish_tools(void){
- static char data[1800000];static unsigned version;static struct mg_connection*client;unsigned current=the_tool_console()->version;
- if(client!=web_state.client){client=web_state.client;version=0;}
- if(web_state.client&&current!=version){size_t n=the_tool_format_json(data,sizeof(data));if(n){web_driver_send(web_state.client,data,n);version=current;}}
+ static char data[3600000];static unsigned long previous;static struct mg_connection*client;
+ if(client!=web_state.client){client=web_state.client;previous=0;}
+ if(web_state.client){size_t n=the_tools_format_json(data,sizeof(data)),i;unsigned long fingerprint=5381;
+   for(i=0;i<n;i++)fingerprint=(fingerprint*33)^(unsigned char)data[i];
+   if(n&&fingerprint!=previous){web_driver_send(web_state.client,data,n);previous=fingerprint;}}
 }
 static void web_driver_publish_snapshot(void)
 {
@@ -853,10 +855,10 @@ static void web_driver_handle_message(struct mg_connection *connection, struct m
       mg_free(operation); mg_free(type); return;
    }
    if (strcmp(type,"tool")==0) {
-      TheInputEvent event;char*a=mg_json_get_str(json,"$.action"),*t=mg_json_get_str(json,"$.tool"),*text=mg_json_get_str(json,"$.text"),*args=mg_json_get_str(json,"$.arguments");
-      queued=the_tools_prepare_lines(a?a:"",t?t:"",text?text:"",args?args:"",&event)&&the_input_queue_push(&web_state.inputs,event);
+      TheInputEvent event;char*a=mg_json_get_str(json,"$.action"),*t=mg_json_get_str(json,"$.tool"),*text=mg_json_get_str(json,"$.text"),*args=mg_json_get_str(json,"$.arguments"),*generation=mg_json_get_str(json,"$.generation");
+      queued=the_tools_prepare_lines_bound(a?a:"",t?t:"",text?text:"",args?args:"",(unsigned)mg_json_get_long(json,"$.sourceId",0),(unsigned)mg_json_get_long(json,"$.revision",0),generation,&event)&&the_input_queue_push(&web_state.inputs,event);
       web_driver_send_status(connection,queued?"ack":"error",id,queued?"queued":"invalid tool request");
-      mg_free(a);mg_free(t);mg_free(text);mg_free(args);mg_free(type);return;
+      mg_free(a);mg_free(t);mg_free(text);mg_free(args);mg_free(generation);mg_free(type);return;
    }
    if (strcmp(type,"files")==0)
    {

@@ -63,6 +63,7 @@ WORKBENCH RESET OWNER owner-id
 WORKBENCH ACTION PUT id LABEL "label" BUILTIN builtin-id [ARGUMENT "value"]
 WORKBENCH ACTION PUT id LABEL "label" COMMAND "explicit THE command"
 WORKBENCH ACTION PUT id LABEL "label" MACRO "macro-path"
+WORKBENCH ACTION PUT id LABEL "label" MACRO "image.rxbin" FILEEXT ".ext" PURPOSE BUILD
 WORKBENCH ACTION REMOVE id
 WORKBENCH INVOKE action-id [EXPECT generation]
 
@@ -108,6 +109,18 @@ phase 1 accepts no `ARG` vector. Its path cannot contain a double quote and its
 resolved filename must fit the editor's 1,000-byte filename limit. Defining an
 action neither runs the command nor proves that a macro/runtime/path exists.
 
+The `FILEEXT ... PURPOSE BUILD` form makes a macro a contextual Build action
+for one selected file type. Extensions match without regard to case; a second
+Build declaration for the same extension is refused. Build passes the selected
+file path as the macro's single Rexx argument. The file must be saved with the
+same bytes that are visible in the editor before Build runs. The action's ID,
+generation, selected document and source revision are rechecked at invocation.
+Build output and its result belong to Tools & Profiles; the Program console
+remains the destination for running program I/O. A Build action can also be
+placed in a menu, where it acts on the selected file. A dependency build can
+use the same action when all of its steps are available to browser macros and
+registered tools; this does not add native process access to the browser.
+
 ## Transactions and profile activation
 
 All definition changes, including `RESET OWNER`, require one explicit,
@@ -136,6 +149,8 @@ failure discards all candidate definitions, including earlier inner commits.
 Rerunning a successful profile replaces its owned definitions and removes
 omitted ones. Arbitrary editor changes and explicit external effects retain
 existing profile rollback limitations.
+In the restricted browser, activating a different user profile also replaces
+the previous user profile's definitions; the trusted stock profile remains.
 
 Inspection normally reads published objects. Inside a profile it can read the
 committed activation candidate; an open transaction's uncommitted draft is not
@@ -144,11 +159,16 @@ completes. Interactive startup continues after a profile error with the prior
 graph, a visible error and `lastResult.code` of `activation-failed`. Batch and
 explicit activation report failure.
 
-Restricted native-browser and Wasm sessions admit typed builtin definitions,
-not arbitrary `COMMAND` or `MACRO` actions. Trusted startup profiles can declare
-those builtin menus. Importing or compiling a workspace profile/image does not
-grant declaration trust. Invocation rechecks generation, current path/session
-policy and modal state; a disabled UI item is not an authorization check.
+Restricted native-browser and Wasm sessions admit typed builtin definitions
+and the contextual file Build macro form above, but not arbitrary `COMMAND` or
+`MACRO` actions. The Build macro must name an existing `.rxbin` image inside the
+browser workspace; the target must also be in that workspace. An explicitly
+activated workspace profile can publish these bounded definitions. On
+reactivation, its omitted definitions are removed; failed activation retains
+the previously published graph. Importing or compiling an image grants no
+startup trust or host process authority. Invocation rechecks generation,
+extension, workspace policy and modal state; a disabled UI item is not an
+authorization check.
 
 ## Use the published menu
 

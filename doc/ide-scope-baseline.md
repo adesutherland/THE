@@ -90,24 +90,20 @@ part of this cross-browser baseline. A browser can call a server over an
 authorized HTTP or WebSocket protocol, subject to origin/network rules, but
 no such Wasm file or execution service exists in this source tree.
 
-The browser must also close a **profile composition gap** before this baseline
-is complete. Its Files, Console and Run file controls are partly hard-coded;
-their visibility, labels and actions must derive from published profile IDs.
-Current Wasm activation refuses workbench transactions from newly built
-workspace profiles; restricted sessions refuse arbitrary COMMAND and MACRO
-workbench actions. Move the stock controls into a reviewed bundled profile,
-add typed browser-safe tool/console actions, and permit explicitly activated
-user profiles to publish only capability-checked objects. A user macro action
-must name a matching workspace RXBIN image and be admitted at invocation under
-the same restricted editor policy. The browser must offer a matching build path
-for authored macro source; explicit RXBIN import remains an alternative. An
-imported or compiled profile/macro must
-not become a trusted bootstrap or gain OS, local-file or network authority.
-Reject incompatible action definitions without partially publishing a profile;
-deny unsafe addressed commands at invocation without expanding host authority.
-This macro-action policy and its qualification are part of the first-version
-gap; bundled, reviewed macros
-remain available for the stock workflow.
+The browser still has a **profile composition gap** before this full baseline
+is complete. The current file-centric browser workflow exposes selected-file
+Build, Run and Activate with explicit source and result state; editable profiles
+can publish bounded Build macro actions for an extension. The macro must name
+a workspace RXBIN, receives the selected saved file path, and runs under the
+restricted editor policy. Activation replaces that profile's action and RX
+registration definitions, while a failed activation restores them. The Files,
+Console and other stock controls remain partly hard-coded; their visibility,
+labels and action IDs must ultimately derive from a reviewed bundled profile.
+General user macro menu actions remain outside the current browser admission
+rule; the typed Build macro can be placed in a menu. Source import/export and
+the remaining stock-profile composition journey also remain baseline work.
+An imported or compiled profile/macro does not become a trusted bootstrap or
+gain OS, local-file or network authority.
 
 ## Desktop and deferred capabilities
 

@@ -70,6 +70,14 @@ const snapshot = {
 const tools = {
   type: "tools", version: 1, visible: false, omitted: false, chunks: [],
   job: { id: 0, sourceId: 1, revision: 3, running: false, waiting: false, eof: false, state: "Ready", filename: "/workspace/example.rexx", tool: "classic-rexx" },
+  build: { job: { id: 0, sourceId: 0, revision: 0, running: false, waiting: false, eof: false, state: "Ready", filename: "", tool: "" }, omitted: false, chunks: [] },
+  currentFile: { sourceId: 1, revision: 3, path: "/workspace/example.rexx", actions: [
+    { id: "run", label: "Run", enabled: true, reason: "ok", tool: "classic-rexx", target: "current-file" },
+    { id: "build", label: "Build", enabled: false, reason: "no-build-tool", tool: "", target: "current-file" },
+    { id: "activate", label: "Activate", enabled: false, reason: "not-a-profile", tool: "", target: "current-file" },
+  ] },
+  profile: { sourcePath: "/workspace/.crxthe-tools/profile.the", build: { sourceId: 0, revision: 0, image: "", state: "none" }, active: { image: "" } },
+  fileResult: { serial: 0, action: "", sourceId: 0, revision: 0, code: "", rc: 0, message: "" },
   catalog: [
     { id: "classic-rexx", label: "Classic Rexx", role: "runner", image: "runner.rxbin", extensions: ".rexx", available: true },
     { id: "rxbin", label: "RXBIN", role: "program", image: "", extensions: ".rxbin", available: true },
@@ -99,7 +107,15 @@ function publishSnapshot() {
     t: "F1 Profile help F6 Cmd/File F10 Menu Esc Cmd Ctrl-S Save" };
   client?.send(JSON.stringify(snapshot));
 }
-function publishTools() { tools.version++; client?.send(JSON.stringify(tools)); }
+function publishTools() {
+  const run = tools.currentFile.actions[0];
+  run.enabled = tools.catalog.find(candidate => candidate.id === "classic-rexx")?.available && !tools.job.running;
+  run.reason = run.enabled ? "ok" : tools.job.running ? "already-running" : "runner-unavailable";
+  tools.currentFile.sourceId = snapshot.source.id;
+  tools.currentFile.revision = snapshot.source.revision;
+  tools.currentFile.path = snapshot.buffer.path;
+  tools.version++; client?.send(JSON.stringify(tools));
+}
 function publishWorkbench(revision, generation, label, saveReason = "ok") {
   workbenchGeneration = generation;
   const publication = ++workbenchPublication;
@@ -286,7 +302,7 @@ ws.on("connection", (connection) => {
         connection.send(JSON.stringify({ type: "workbench", operation: "result", requestId: message.requestId,
           state: "complete", code: "ok", rc: 0, revision: 5, message: "" }));
       }
-    } else if (message.type === "tool" && message.action === "run") {
+    } else if (message.type === "tool" && ["run", "file-run"].includes(message.action)) {
       Object.assign(tools.job, { id: tools.job.id + 1, running: true, waiting: false, state: "Running" });
       tools.visible = true;
       publishTools();
@@ -434,31 +450,32 @@ try {
   await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))");
   assert.equal(await evaluate("document.activeElement.className"), "input-sink", "Escape restores editing");
   tools.catalog.forEach(candidate => candidate.available = false); publishTools();
-  await wait(() => evaluate("document.querySelector('#run-unavailable')?.textContent==='No source runner is available'"), "unavailable runtime reason");
-  for (const [width, selector, reason] of [[1280, '.pane-switcher .run-rexx', '#run-unavailable'], [390, '.mobile-aux-tabs .run-rexx', '#mobile-run-unavailable']]) {
+  await wait(() => evaluate("document.querySelector('.file-action-run')?.disabled"), "unavailable runtime reason");
+  for (const width of [1280, 390]) {
     await viewport(width, 844);
-    await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'nearest'})`);
-    assert.equal(await evaluate(`document.querySelector(${JSON.stringify(selector)}).disabled`), true, "unavailable Run remains disabled");
-    assert.equal(await evaluate(`document.querySelector(${JSON.stringify(reason)}).textContent`), "No source runner is available", "unavailable Run reason is visible text");
-    const control = await geometry(selector), explanation = await geometry(reason);
+    await evaluate("document.querySelector('.file-action-run').scrollIntoView({block:'nearest'})");
+    assert.equal(await evaluate("document.querySelector('.file-action-run').disabled"), true, "unavailable Run remains disabled");
+    assert.equal(await evaluate("document.querySelector('.file-action-run + .file-action-context').textContent.includes('runner unavailable')"), true, "unavailable Run reason is visible text");
+    const control = await geometry('.file-action-run'), explanation = await geometry('.file-action-run + .file-action-context');
     assert(control.visible && explanation.visible && explanation.right<=width, "unavailable Run and reason fit the viewport");
   }
   await viewport(1280, 800);
   tools.catalog.forEach(candidate => candidate.available = true); publishTools();
-  await wait(() => evaluate("!document.querySelector('.pane-switcher .run-rexx').disabled"), "runtime available again");
-  await pane("Files"); await pane("Console");
-  await evaluate("document.querySelector('.console-options').open=true");
-  await setInput("[aria-label='Rexx arguments']", "first\n\nlast");
-  const runCount = received.filter(message => message.type === "tool" && message.action === "run").length;
+  await wait(() => evaluate("!document.querySelector('.file-action-run').disabled"), "runtime available again");
+  await pane("Files"); await pane("Tools & Profiles");
+  await setInput("[aria-label='Program arguments']", "first\n\nlast");
+  const runCount = received.filter(message => message.type === "tool" && message.action === "file-run").length;
   snapshot.buffer.dirty = snapshot.buffers[0].dirty = 1; snapshot.source.revision++;
-  publishSnapshot();
-  await evaluate("document.querySelector('[aria-label=\"Hide program console\"]').click()");
-  await evaluate("document.querySelector('.pane-switcher .run-rexx').click()");
+  publishSnapshot(); publishTools();
+  await wait(() => evaluate("!document.querySelector('.file-action-run').disabled && document.querySelector('.current-file-identity').textContent.includes('unsaved edits')"), "current-file action catches up with edited source");
+  await evaluate("document.querySelector('.file-action-run').click()");
   await wait(() => evaluate("document.querySelector('.run-state').textContent==='Running'"), "visible Run Rexx opens the console and runs");
-  const runMessage = received.filter(message => message.type === "tool" && message.action === "run");
+  const runMessage = received.filter(message => message.type === "tool" && message.action === "file-run");
   assert.equal(runMessage.length, runCount + 1, "visible Run Rexx sends one run request");
-  assert.deepEqual([runMessage.at(-1).tool, runMessage.at(-1).text, runMessage.at(-1).arguments], ["", "", "first\n\nlast"], "Run uses the current buffer capture route and retains arguments");
-  assert.equal(await evaluate("document.querySelector('.pane-switcher .run-rexx').disabled && document.querySelector('#run-unavailable').textContent"), "A program is already running", "disabled Run reason is visible");
+  assert.deepEqual([runMessage.at(-1).tool, runMessage.at(-1).text, runMessage.at(-1).arguments,
+    runMessage.at(-1).sourceId, runMessage.at(-1).revision], ["classic-rexx", "", "first\n\nlast", snapshot.source.id, snapshot.source.revision],
+    "Run uses the selected source token and retains arguments");
+  assert.equal(await evaluate("document.querySelector('.file-action-run').disabled && document.querySelector('.file-action-run + .file-action-context').textContent.includes('already running')"), true, "disabled Run reason is visible");
 
   // Use real browser key dispatch: default Tab traversal and Enter activation
   // cannot be qualified by dispatching synthetic KeyboardEvents alone.
@@ -466,7 +483,7 @@ try {
   await setInput("#rexx-input", "draft program input");
   await evaluate("document.querySelector('#the-command').setSelectionRange(2,7);document.querySelector('#rexx-input').setSelectionRange(3,8)");
   const profileMenusBefore = received.filter((message) => message.type === "key" && message.key === "f10").length;
-  for (const selector of [".input-sink", "#the-command", "#rexx-input", ".console-output", ".console-run-controls button:nth-of-type(2)", ".console-heading button"]) {
+  for (const selector of [".input-sink", "#the-command", "#rexx-input", ".console-output", ".console-runtime-controls button:nth-of-type(2)", ".console-heading button"]) {
     await evaluate(`window.menuInvoker=document.querySelector(${JSON.stringify(selector)});window.menuInvoker.focus()`);
     assert.equal(await evaluate("document.activeElement===window.menuInvoker"), true, `focus ${selector}`);
     await key("F10");
@@ -517,7 +534,7 @@ try {
   await key("Tab", 8);
   assert.equal(await evaluate("document.activeElement===document.querySelector('.menu-trigger')"), true, "next Shift-Tab reaches Menu");
   assert.equal(received.filter(message => message.type === "key" && message.key === "backtab").length, backtabsBefore, "workbench traversal never sends backtab to editor");
-  for (const selector of ["#rexx-input", ".console-input button[type=submit]", ".console-run-controls button:last-child", ".console-output", ".console-heading button"]) {
+  for (const selector of ["#rexx-input", ".console-input button[type=submit]", ".console-runtime-controls button:last-child", ".console-output", ".console-heading button"]) {
     await evaluate(`document.querySelector(${JSON.stringify(selector)}).focus()`);
     await key("F6");
     assert.equal(await evaluate("document.activeElement.id"), "the-command", `F6 from ${selector} reaches THE command`);
@@ -636,11 +653,10 @@ try {
     [".console-output", ["rgb(18, 52, 86)", "rgb(16, 32, 48)"]],
     [".console-heading", ["rgb(171, 205, 239)", "rgb(17, 34, 51)"]],
     ["#rexx-input", ["rgb(254, 220, 186)", "rgb(34, 51, 68)"]],
-    [".console-run-controls button:nth-of-type(3)", ["rgb(161, 178, 195)", "rgb(51, 68, 85)"]],
+    [".console-runtime-controls button:nth-of-type(2)", ["rgb(161, 178, 195)", "rgb(51, 68, 85)"]],
     [".console-divider", ["rgb(103, 137, 171)", "rgb(68, 85, 102)"]],
     [".console-stderr", ["rgb(225, 69, 103)", "rgb(85, 102, 119)"]],
     [".run-state", ["rgb(137, 171, 205)", "rgb(102, 119, 136)"]],
-    [".run-program", ["rgb(137, 171, 205)", "rgb(102, 119, 136)"]],
   ]) assert.deepEqual(await colours(selector), expected, `console role on ${selector}`);
   assert.equal(await evaluate("getComputedStyle(document.querySelector('.console-stderr')).fontWeight"), "700");
   assert.equal(await evaluate("getComputedStyle(document.querySelector('.console-stderr')).textDecorationLine"), "underline");
@@ -685,8 +701,8 @@ try {
     assert(Math.abs(surface.bottom - status.top) < 1 && status.bottom <= commands.top, `phone footer follows editor at ${width}`);
   }
   await viewport(390, 844);
-  assert.equal((await geometry(".mobile-aux-tabs .run-rexx")).visible, true, "phone has visible Run Rexx");
-  assert.equal(await evaluate("document.querySelector('.mobile-aux-tabs .run-rexx').disabled && document.querySelector('#mobile-run-unavailable').textContent"), "A program is already running", "phone shows disabled Run reason");
+  assert.equal((await geometry(".file-action-run")).visible, true, "phone has visible current-file Run");
+  assert.equal(await evaluate("document.querySelector('.file-action-run').disabled && document.querySelector('.file-action-run + .file-action-context').textContent.includes('already running')"), true, "phone shows disabled Run reason");
   await evaluate("document.querySelector('.input-sink').focus()");
   await key("Tab", 8);
   assert.equal(await evaluate("document.activeElement===document.querySelector('.mobile-aux-tabs .console-toggle')"), true, "phone Shift-Tab reaches visible Console");
@@ -708,10 +724,10 @@ try {
   await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))");
   await wait(() => evaluate("!document.querySelector('.menu-popover') && document.activeElement.classList.contains('input-sink')"), "F10 Menu Escape returns to editing");
   tools.job.running = false; tools.job.waiting = false; tools.job.state = "Completed"; publishTools();
-  await wait(() => evaluate("!document.querySelector('.mobile-aux-tabs .run-rexx').disabled"), "phone runtime ready");
-  const phoneRunsBefore = received.filter(message => message.type === "tool" && message.action === "run").length;
-  await evaluate("document.querySelector('.mobile-aux-tabs .run-rexx').click()");
-  await wait(() => received.filter(message => message.type === "tool" && message.action === "run").length === phoneRunsBefore + 1, "phone visible Run starts current buffer");
+  await wait(() => evaluate("!document.querySelector('.file-action-run').disabled"), "phone runtime ready");
+  const phoneRunsBefore = received.filter(message => message.type === "tool" && message.action === "file-run").length;
+  await evaluate("document.querySelector('.file-action-run').click()");
+  await wait(() => received.filter(message => message.type === "tool" && message.action === "file-run").length === phoneRunsBefore + 1, "phone visible Run starts current buffer");
   await wait(() => evaluate("document.querySelector('.run-state').textContent==='Running' && document.querySelector('.workspace').classList.contains('mobile-pane-console')"), "phone Run opens the console");
   assert.equal(await evaluate("document.querySelector('#rexx-input').value"), "unsent input", "phone run retains unsent stdin draft");
   assert.equal(await evaluate("document.querySelector('#the-command').value"), "unsent command", "phone run retains editor command draft");
@@ -729,7 +745,7 @@ try {
   assert.equal(await evaluate("window.originalConsole===document.querySelector('.rexx-dock')"), true, "layout and hiding preserve component identity");
   assert.equal(await evaluate("document.querySelector('#rexx-input').value"), "unsent input");
   assert.equal(await evaluate("document.querySelector('#the-command').value"), "unsent command");
-  assert.equal(await evaluate("document.querySelector('[aria-label=\"Rexx arguments\"]').value"), "first\n\nlast");
+  assert.equal(await evaluate("document.querySelector('[aria-label=\"Program arguments\"]').value"), "first\n\nlast");
   assert.equal(tools.job.running, true);
   const profileStatus = snapshot.status_line;
   snapshot.status_line = null; publishSnapshot();
@@ -1162,16 +1178,23 @@ try {
     await mkdir(destination, { recursive: true });
     tools.chunks = [{ fd: 1, text: "Hello from THE\nWhat is your name?\n" }, { fd: 0, text: "Zoë\n" }, { fd: 1, text: "Hello, ZOË\nWaiting for another line…\n" }];
     publishTools();
-    await evaluate("document.querySelector('.console-options').open=false;document.querySelector('.new-output')?.click()");
+    await evaluate("document.querySelector('.new-output')?.click()");
     for (const [width, height] of [[390, 844], [1280, 800], [1920, 1080]]) {
       await viewport(width, height);
       await evaluate("document.querySelector('.workspace').scrollTop=0");
       const screenshot = await cdp("Page.captureScreenshot", { format: "png" });
       await writeFile(join(destination, `workbench-${width}.png`), Buffer.from(screenshot.data, "base64"));
-      if (width === 390) {
+      if (width === 390 || width === 1280) {
+        const paneSelector = width === 390 ? ".mobile-aux-tabs" : ".pane-switcher";
+        await evaluate(`document.querySelector(${JSON.stringify(paneSelector + " .tools-toggle")}).click()`);
+        await wait(() => evaluate("!!document.querySelector('.tools-profiles-pane')?.getClientRects().length"), "screenshot Tools and profiles pane");
+        const toolsImage = await cdp("Page.captureScreenshot", { format: "png" });
+        await writeFile(join(destination, `workbench-${width}-tools.png`), Buffer.from(toolsImage.data, "base64"));
+        await evaluate("document.querySelector('.mobile-aux-tabs .console-toggle').click()");
+        await wait(() => evaluate("!!document.querySelector('.rexx-dock')?.getClientRects().length"), "screenshot Program console pane");
         await evaluate("document.querySelector('#rexx-input').scrollIntoView({block:'nearest'})");
         const consoleImage = await cdp("Page.captureScreenshot", { format: "png" });
-        await writeFile(join(destination, "workbench-390-console.png"), Buffer.from(consoleImage.data, "base64"));
+        await writeFile(join(destination, `workbench-${width}-console.png`), Buffer.from(consoleImage.data, "base64"));
       }
     }
     console.log("Presentation-fixture screenshots: " + destination);

@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import WebSocket from "ws";
 import { fileFieldSmoke } from "./wasm-file-fields.mjs";
 import { checkNativeToolPolicy } from "./native-tools-policy.mjs";
@@ -111,6 +112,11 @@ async function selectBuffer(name) {
     () => evaluate(`document.querySelector('.buffer-tab-current span')?.textContent.trim() === ${JSON.stringify(name)}`),
     `${name} buffer switch`,
   );
+}
+
+async function runCurrentFile() {
+  await waitFor(() => evaluate("(() => {const file=window.__tools?.currentFile,source=window.__snapshot?.source;return file&&source&&file.sourceId===source.id&&file.revision===source.revision&&!document.querySelector('.file-action-run')?.disabled;})()"), "eligible selected-file Run");
+  await evaluate("document.querySelector('.file-action-run').click()");
 }
 
 try {
@@ -428,7 +434,7 @@ try {
     await openWorkspaceFile('RexxRunner.rexx');
     await waitFor(()=>evaluate("!!document.querySelector('.rexx-dock')"),'split console');
     const initial = await snapshot();
-    await evaluate("document.querySelector('.pane-switcher .run-rexx').click()");
+    await runCurrentFile();
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Waiting for input'"),'interpreter console input',30000);
     await waitFor(()=>evaluate("document.querySelector('.console-output').textContent.includes('What is your name?')"),'prompt before input');
     await send({type:'command',command:'set colour consolebody #123456 on #234567'});
@@ -448,7 +454,7 @@ try {
     await send({type:'command',command:'cursor goto 2 1'});
     await send({type:'text',text:"say 'UNSAVED'; "});
     await waitFor(async()=>{const s=await snapshot();return s.buffer.dirty&&s.screen_rows.some(r=>r.t.includes('UNSAVED'));},'unsaved working line');
-    await evaluate("document.querySelector('.pane-switcher .run-rexx').click()");
+    await runCurrentFile();
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Waiting for input'"),'second interpreter input',30000);
     if (!await evaluate("document.querySelector('.console-output').textContent.includes('UNSAVED')")) throw new Error('Run missed unsaved working record');
     await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='End input').click()");
@@ -457,11 +463,11 @@ try {
     await send({type:'action',action:'edit.undo'});
     await waitFor(async()=>!(await snapshot()).buffer.dirty,'restore program');
     // Stop a blocked program, then prove its replacement has a fresh input stream.
-    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Classic Rexx').click()");
+    await runCurrentFile();
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Waiting for input'"),'third interpreter input',30000);
     await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Stop').click()");
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Stopped'"),'stopped Worker');
-    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Classic Rexx').click()");
+    await runCurrentFile();
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Waiting for input'"),'restart input',30000);
     await consoleEnter('Ada');
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent.includes('Completed · status 0')"),'restart completed',30000);
@@ -470,18 +476,18 @@ try {
     await waitFor(async()=>(await snapshot()).buffer.path.endsWith('RunnerProbe.rexx'),'probe buffer');
     await send({type:'command',command:"input say arg()||'|'||arg(1)||'|'||arg(2)||'|'||arg(3); exit 7"});
     await waitFor(async()=>(await snapshot()).screen_rows.some(r=>r.t.includes('say arg()')),'argument probe');
-    await evaluate("const field=document.querySelector('[aria-label=\"Rexx arguments\"]');field.value='first\\n\\nlast';field.dispatchEvent(new Event('input',{bubbles:true}))");
-    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Classic Rexx').click()");
+    await evaluate("const field=document.querySelector('[aria-label=\"Program arguments\"]');field.value='first\\n\\nlast';field.dispatchEvent(new Event('input',{bubbles:true}))");
+    await runCurrentFile();
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Completed · status 7'"),'argument status',30000);
     if (!await evaluate("document.querySelector('.console-output').textContent.includes('3|first||last')")) throw new Error('Argument positions lost');
     await send({type:'command',command:'replace say 1/0'});
     await waitFor(async()=>(await snapshot()).screen_rows.some(r=>r.t.includes('say 1/0')),'runtime condition probe');
-    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Classic Rexx').click()");
+    await runCurrentFile();
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Runtime condition'"),'typed runtime condition',30000);
     if (!await evaluate("!!document.querySelector('.console-stderr')?.textContent")) throw new Error('Runtime condition missing');
     await send({type:'command',command:'replace parse pull start; do forever; nop; end'});
     await waitFor(async()=>(await snapshot()).screen_rows.some(r=>r.t.includes('do forever')),'infinite program');
-    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Classic Rexx').click()");
+    await runCurrentFile();
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Waiting for input'"),'infinite program input',30000);
     await consoleEnter('go');
     await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Stop').click()");
@@ -499,18 +505,20 @@ try {
 
   if(manifest.capabilities.classic_rexx_interpreter && manifest.capabilities.crexx_vm){
     const image=Buffer.from(await(await fetch(new URL('examples/ToolHello.rxbin',pageUrl))).arrayBuffer());
+    await evaluate("document.querySelector('.tools-toggle').click()");
+    await waitFor(() => evaluate("!!document.querySelector('.tools-profiles-pane')?.getClientRects().length"), "explicit program tools pane");
     await evaluate(`(() => {
       const bytes = Uint8Array.from(atob('${image.toString('base64')}'), char => char.charCodeAt(0));
       const file = new File([bytes], 'ToolHello.rxbin', {type:'application/octet-stream'});
       const transfer = new DataTransfer();
       transfer.items.add(file);
-      const importer = document.querySelector('input[type=file][accept=".rxbin"]');
+      const importer = document.querySelector('.tools-profiles-pane input[type=file][accept=".rxbin"]');
       importer.files = transfer.files;
       importer.dispatchEvent(new Event('change', {bubbles:true}));
     })()`);
     await waitFor(()=>evaluate("window.__messages.some(m=>m.type==='tool-imported'&&m.path.endsWith('/ToolHello.rxbin'))"),'binary RXBIN import');
     await waitFor(()=>evaluate("document.querySelector('[aria-label=\"Run tool\"]')?.value==='rxbin'"),'imported RXBIN selected');
-    await evaluate("document.querySelector('.rexx-dock .run-program').click()");
+    await evaluate("document.querySelector('.tools-profiles-pane .run-with-tool').click()");
     await waitFor(()=>evaluate("window.__tools?.job.state==='Completed · status 9'"),'RXBIN console run',30000);
     const previousRxbinJob = await evaluate("window.__tools.job.id");
     await send({type:'command',command:'RX RUN "/workspace/ToolHello.rxbin"'});
@@ -539,27 +547,38 @@ try {
     await waitFor(()=>evaluate("window.__snapshot?.buffer?.path.endsWith('/profile.the')"),'editable user profile');
     await send({type:'action',action:'file.save'});
     await send({type:'tool',action:'build'});
-    await waitFor(()=>evaluate("window.__tools?.job.tool==='profile-compiler'&&!window.__tools.job.running"),'browser source profile compilation',60000);
-    if(await evaluate("window.__tools.job.state")!=='Completed · status 0')throw Error('Profile compilation failed: '+await evaluate("JSON.stringify(window.__tools)"));
+    await waitFor(()=>evaluate("window.__tools?.build?.job.tool==='profile-compiler'&&!window.__tools.build.job.running"),'browser source profile compilation',60000);
+    if(await evaluate("window.__tools.build.job.state")!=='Completed · status 0')throw Error('Profile compilation failed: '+await evaluate("JSON.stringify(window.__tools)"));
     console.log('CHECK browser profile: activate');
     await profileActivationStorageFailureSmoke({ send, evaluate, command, waitFor, snapshot });
-    await waitFor(()=>evaluate("window.__tools.chunks.some(c=>c.text.includes('User profile activated'))"),'new addressed profile output');
+    await waitFor(()=>evaluate("window.__tools.build.chunks.some(c=>c.text.includes('User profile activated'))"),'new addressed profile output');
     console.log('CHECK browser profile: rejected replacement');
     // A failed replacement must leave the successfully activated artifact selected.
     await send({type:'command',command:'cursor goto 2 1'});
     await send({type:'command',command:'replace options invalid-level'});
     await send({type:'tool',action:'build'});
-    await waitFor(()=>evaluate("!window.__tools.job.running&&window.__tools.job.state!=='Completed · status 0'"),'failed replacement profile',60000);
+    await waitFor(()=>evaluate("!window.__tools.build.job.running&&window.__tools.build.job.state!=='Completed · status 0'"),'failed replacement profile',60000);
     console.log('CHECK browser profile: save/reload');
     await send({type:'action',action:'file.save'});
     await waitFor(()=>evaluate("!window.__snapshot.buffer.dirty"),'save rejected profile source');
     await command('Page.reload',{ignoreCache:true});
-    await waitFor(()=>evaluate("window.__tools?.chunks.some(c=>c.text.includes('User profile activated'))"),'persisted working profile restore',30000);
+    await waitFor(()=>evaluate("window.__tools?.build?.chunks.some(c=>c.text.includes('User profile activated'))"),'persisted working profile restore',30000);
     if(manifest.capabilities.classic_rexx_interpreter && manifest.capabilities.crexx_vm &&
         !await evaluate("window.__tools.catalog.some(t=>t.id==='hello-program')"))throw Error('Registry was not restored');
     console.log('PASS browser profiles: fresh Wasm compiler/assembler, ADDRESS THE, console output, activation, failed-build retention and persisted restore');
   }
-  await minibasicCandidateSmoke({pageUrl, manifest, send, snapshot, evaluate, command, waitFor, openWorkspaceFile, consoleEnter, reloadAcceptingUnsaved});
+  if (manifest.capabilities.minibasic_candidate) {
+    // The ordinary smoke intentionally registers a separate .bas runner.
+    // Qualify the candidate's fresh-file refusal in its own browser profile.
+    const child = spawn(process.execPath, [fileURLToPath(import.meta.url)], {
+      env: { ...process.env, THE_WASM_MINIBASIC_ONLY: "1" }, stdio: "inherit",
+    });
+    const status = await new Promise((resolve, reject) => {
+      child.once("error", reject);
+      child.once("exit", (code, signal) => resolve({ code, signal }));
+    });
+    if (status.code !== 0) throw new Error(`MiniBASIC candidate browser journey failed: ${JSON.stringify(status)}`);
+  }
   if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join('; ')}`);
   if (process.env.THE_WASM_SCREENSHOT) {
     await command('Page.bringToFront');

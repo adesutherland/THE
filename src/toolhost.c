@@ -10,6 +10,11 @@
 static TheToolDefinition catalog[THE_TOOL_LIMIT];
 static size_t catalog_count;
 static TheToolConsole console;
+/* One backend may run at a time, but compiler output has its own history.
+ * Struct moves transfer chunk ownership; a history never aliases console. */
+static TheToolConsole program_history, build_history;
+static int build_mode;
+static unsigned publication_version;
 static TheToolAdapter backend;
 static TheToolObserver observer, active_observer;
 static void *observer_binding;
@@ -56,7 +61,14 @@ static int identifier(const char *s) {
          return 0;
    return 1;
 }
-static void changed(void) { console.version++; }
+static void changed(void) { console.version = ++publication_version; }
+static void select_console(int build) {
+   if (build == build_mode) return;
+   if (build_mode) { build_history = console; console = program_history; memset(&program_history,0,sizeof(program_history)); }
+   else { program_history = console; console = build_history; memset(&build_history,0,sizeof(build_history)); }
+   build_mode = build;
+   changed();
+}
 void the_tool_clear(void) {
    size_t i;
    for (i = 0; i < console.count; i++)
@@ -65,10 +77,22 @@ void the_tool_clear(void) {
    console.omitted = 0;
    changed();
 }
+void the_tool_clear_program(void) {
+   TheToolConsole *program=build_mode ? &program_history : &console;
+   size_t i;
+   for(i=0;i<program->count;i++)free(program->chunks[i].text);
+   program->count=program->bytes=0;program->omitted=0;
+   changed();
+}
 void the_tool_host_reset(void) {
    the_tool_stop("Stopped");
    the_tool_clear();
+   select_console(!build_mode);
+   the_tool_clear();
    memset(&console, 0, sizeof(console));
+   memset(&program_history,0,sizeof(program_history));
+   memset(&build_history,0,sizeof(build_history));
+   build_mode=0;
    strcpy(console.state, "Ready");
    memset(&backend, 0, sizeof(backend));
    memset(&observer, 0, sizeof(observer));
@@ -97,6 +121,31 @@ int the_tool_host_io(const TheToolIO *value) {
    return 1;
 }
 const TheToolConsole *the_tool_console(void) { return &console; }
+const TheToolConsole *the_tool_program_console(void) { return build_mode ? &program_history : &console; }
+const TheToolConsole *the_tool_build_console(void) { return build_mode ? &console : &build_history; }
+static int capture_begin(int build,const char *tool,const char *filename,unsigned source,unsigned revision) {
+   if(console.running) return 0;
+   select_console(build);the_tool_clear();
+   memset(pending_length,0,sizeof(pending_length));
+   console.id=++serial;console.source_id=source;console.revision=revision;
+   console.running=1;console.waiting=console.eof=0;console.total=0;console.status[0]=0;
+   console.input_length=0;console.input[0]=0;console.visible=1;
+   snprintf(console.tool,sizeof(console.tool),"%s",tool ? tool : "");
+   snprintf(console.filename,sizeof(console.filename),"%s",filename ? filename : "");
+   strcpy(console.state,"Running");changed();return 1;
+}
+int the_tool_build_capture_begin(const char *tool,const char *filename,unsigned source,unsigned revision) {
+   return capture_begin(1,tool,filename,source,revision);
+}
+int the_tool_program_capture_begin(const char *tool,const char *filename,unsigned source,unsigned revision) {
+   return capture_begin(0,tool,filename,source,revision);
+}
+void the_tool_build_capture_end(short rc) {
+   if(build_mode && console.running) the_tool_finish(console.id,rc,rc ? NULL : "0",NULL,NULL);
+}
+void the_tool_program_capture_end(short rc) {
+   if(!build_mode && console.running) the_tool_finish(console.id,rc,rc ? NULL : "0",NULL,NULL);
+}
 size_t the_tool_count(void) { return catalog_count; }
 const TheToolDefinition *the_tool_at(size_t i) { return i < catalog_count ? &catalog[i] : NULL; }
 const TheToolDefinition *the_tool_find(const char *id) {
@@ -127,13 +176,26 @@ int the_tool_register(const TheToolDefinition *t) {
    changed();
    return 1;
 }
+int the_tool_remove(const char *id) {
+   size_t i;
+   for(i=0;i<catalog_count;i++)if(!strcmp(catalog[i].id,id)) {
+      memmove(catalog+i,catalog+i+1,(catalog_count-i-1)*sizeof(catalog[0]));
+      catalog_count--;changed();return 1;
+   }
+   return 0;
+}
+/* Owner-only rollback of metadata already accepted by this catalog. */
+int the_tool_catalog_restore(const TheToolDefinition *saved,size_t count) {
+   if(count>THE_TOOL_LIMIT || (count && !saved))return 0;
+   memcpy(catalog,saved,count*sizeof(catalog[0]));catalog_count=count;changed();return 1;
+}
 const TheToolDefinition *the_tool_for_file(const char *name, const char *role) {
    const char *ext = strrchr(name ? name : "", '.');
    size_t i;
    if (!ext)
       return NULL;
    for (i = catalog_count; i-- > 0;)
-      if (catalog[i].available && !strcmp(catalog[i].role, role)) {
+      if (!strcmp(catalog[i].role, role)) {
          const char *p = catalog[i].extensions;
          while (*p) {
             const char *end = strchr(p, ',');
@@ -189,6 +251,7 @@ int the_tool_launch(const TheToolRequest *r, char *error, size_t capacity) {
          return 0;
       }
    }
+   select_console(!strcmp(r->tool.role,"compiler"));
    the_tool_clear();
    memset(pending_length, 0, sizeof(pending_length));
    console.id = ++serial;
@@ -718,30 +781,40 @@ static void quoted(Writer *w, const char *s, size_t n) {
    writef(w, "\"");
 }
 #define Q(w, s) quoted(w, s, strlen(s))
+static void console_json(Writer *writer, const TheToolConsole *value) {
+   Writer w = *writer;
+   size_t i;
+   writef(&w,
+          "\"job\":{\"id\":%u,\"sourceId\":%u,\"revision\":%u,"
+          "\"running\":%s,\"waiting\":%s,\"eof\":%s,\"state\":",
+          value->id, value->source_id, value->revision,
+          value->running ? "true" : "false", value->waiting ? "true" : "false",
+          value->eof ? "true" : "false");
+   Q(&w, value->state);
+   writef(&w, ",\"status\":");
+   Q(&w, value->status);
+   writef(&w, ",\"filename\":");
+   Q(&w, value->filename);
+   writef(&w, ",\"tool\":");
+   Q(&w, value->tool);
+   writef(&w, "},\"visible\":%s,\"omitted\":%s,\"chunks\":[", value->visible ? "true" : "false",
+          value->omitted ? "true" : "false");
+   for (i = 0; i < value->count; i++) {
+      writef(&w, "%s{\"fd\":%d,\"text\":", i ? "," : "", value->chunks[i].fd);
+      quoted(&w, value->chunks[i].text, value->chunks[i].length);
+      writef(&w, "}");
+   }
+   writef(&w, "]");
+   *writer = w;
+}
 size_t the_tool_format_json(char *out, size_t cap) {
    Writer w = {out, cap, 0, 0};
    size_t i;
-   writef(&w,
-          "{\"type\":\"tools\",\"version\":%u,\"job\":{\"id\":%u,\"sourceId\":%u,\"revision\":%u,"
-          "\"running\":%s,\"waiting\":%s,\"eof\":%s,\"state\":",
-          console.version, console.id, console.source_id, console.revision,
-          console.running ? "true" : "false", console.waiting ? "true" : "false",
-          console.eof ? "true" : "false");
-   Q(&w, console.state);
-   writef(&w, ",\"status\":");
-   Q(&w, console.status);
-   writef(&w, ",\"filename\":");
-   Q(&w, console.filename);
-   writef(&w, ",\"tool\":");
-   Q(&w, console.tool);
-   writef(&w, "},\"visible\":%s,\"omitted\":%s,\"chunks\":[", console.visible ? "true" : "false",
-          console.omitted ? "true" : "false");
-   for (i = 0; i < console.count; i++) {
-      writef(&w, "%s{\"fd\":%d,\"text\":", i ? "," : "", console.chunks[i].fd);
-      quoted(&w, console.chunks[i].text, console.chunks[i].length);
-      writef(&w, "}");
-   }
-   writef(&w, "],\"catalog\":[");
+   writef(&w,"{\"type\":\"tools\",\"version\":%u,",publication_version);
+   console_json(&w,the_tool_program_console());
+   writef(&w,",\"build\":{");
+   console_json(&w,the_tool_build_console());
+   writef(&w,"},\"catalog\":[");
    for (i = 0; i < catalog_count; i++) {
       TheToolDefinition *t = &catalog[i];
       writef(&w, "%s{\"id\":", i ? "," : "");

@@ -46,6 +46,9 @@ static int initialized, transaction, transaction_failed, activating;
 static int activation_failed, activation_changed, activation_trusted;
 static char transaction_owner[THE_WORKBENCH_ID_MAX + 1];
 static char context[THE_WORKBENCH_OPERAND_MAX + 1];
+/* Restricted workspace profiles are one active user composition.  The stock
+ * trusted profile remains outside this replacement scope. */
+static char active_untrusted_context[THE_WORKBENCH_OPERAND_MAX + 1];
 static unsigned long revision, generation;
 static TheWorkbenchToolLookup tool_lookup;
 static void *tool_lookup_context;
@@ -62,6 +65,31 @@ static int valid_id(const char *s)
       || (*s >= 'a' && *s <= 'z') || (*s >= '0' && *s <= '9')
       || *s == '.' || *s == '_' || *s == '-')) return 0;
    return 1;
+}
+
+static int valid_file_extension(const char *s)
+{
+   size_t n=0;
+   if (!s || *s++!='.') return 0;
+   while (*s) {
+      if (++n>THE_WORKBENCH_FILEEXT_MAX-1 ||
+          !( (*s>='A' && *s<='Z') || (*s>='a' && *s<='z')
+          || (*s>='0' && *s<='9') || *s=='_' || *s=='-')) return 0;
+      s++;
+   }
+   return n>0;
+}
+
+static int extension_matches(const char *path,const char *extension)
+{
+   const char *base,*dot;
+   if (!path || !extension || !*extension) return 0;
+   base=strrchr(path,'/'); base=base ? base+1 : path;
+   dot=strrchr(base,'.');
+   if (!dot) return 0;
+   while (*dot && *extension)
+      if (tolower((unsigned char)*dot++)!=tolower((unsigned char)*extension++)) return 0;
+   return !*dot && !*extension;
 }
 
 /* UTF-8 data, without control characters, overlong forms or surrogates. */
@@ -217,7 +245,8 @@ void the_workbench_reset(void)
    memset(&published,0,sizeof(published)); memset(&activation,0,sizeof(activation));
    memset(&draft,0,sizeof(draft)); initialized = transaction = transaction_failed = 0;
    activating = activation_failed = activation_changed = 0;
-   context[0] = transaction_owner[0] = '\0'; revision = generation = 0;
+   context[0] = transaction_owner[0] = active_untrusted_context[0] = '\0';
+   revision = generation = 0;
    last_result.code = "ok"; last_result.message = ""; last_result.rc = 0;
    initialize();
 }
@@ -272,6 +301,19 @@ const TheWorkbenchMenu *the_workbench_menu_at(size_t i) { initialize(); return i
 const TheWorkbenchItem *the_workbench_item_at(size_t i) { initialize(); return i < published.nitems ? &published.items[i] : NULL; }
 const TheWorkbenchAction *the_workbench_action_find(const char *id)
 { int i; initialize(); i = id ? action_index(&published,id) : -1; return i >= 0 ? &published.actions[i] : NULL; }
+const TheWorkbenchAction *the_workbench_file_build(const char *path)
+{
+   size_t i;
+   const TheWorkbenchAction *match=NULL;
+   initialize();
+   for (i=0;i<published.nactions;i++) {
+      const TheWorkbenchAction *a=published.actions+i;
+      if (!a->file_build || !extension_matches(path,a->file_extension)) continue;
+      if (match) return NULL; /* Ambiguous registrations cannot pick a tool. */
+      match=a;
+   }
+   return match;
+}
 const TheWorkbenchResult *the_workbench_last_result(void) { initialize(); return &last_result; }
 const char *the_workbench_action_kind_name(TheWorkbenchActionKind kind)
 { switch (kind) { case THE_WORKBENCH_ACTION_BUILTIN: return "builtin"; case THE_WORKBENCH_ACTION_COMMAND: return "command"; case THE_WORKBENCH_ACTION_MACRO: return "macro"; case THE_WORKBENCH_ACTION_PANEL: return "panel"; case THE_WORKBENCH_ACTION_TOOL:return "tool"; default: return "unsupported"; } }
@@ -283,7 +325,7 @@ short the_workbench_begin(const char *owner)
    WorkbenchGraph *base;
    int i;
    initialize();
-   if (activating && !activation_trusted) return denied();
+   if (activating && !activation_trusted && !the_workbench_restricted()) return denied();
    if (transaction) return definition_result("transaction-active",WB_ENVIRON,"A workbench transaction is already active");
    if (!valid_id(owner)) return invalid();
    if (!strncmp(owner,"the.",4)) return denied();
@@ -354,13 +396,17 @@ short the_workbench_put_action(const TheWorkbenchAction *value)
    short rc = require_transaction(); if (rc) return rc;
    if (!value || !valid_id(value->id) || !valid_text(value->label,THE_WORKBENCH_LABEL_MAX,0)
    || !valid_text(value->operand,THE_WORKBENCH_OPERAND_MAX,1)) return invalid();
+   if (value->file_build && (value->kind!=THE_WORKBENCH_ACTION_MACRO
+   || !valid_file_extension(value->file_extension))) return invalid();
+   if (!value->file_build && value->file_extension[0]) return invalid();
    if (!strncmp(value->id,"the.",4)) return denied();
    if(value->kind==THE_WORKBENCH_ACTION_TOOL) {
       const char *host=the_workbench_native_host_reason();
       if(strcmp(host,"ok")) return definition_result(host,WB_ENVIRON,"Native tool actions are unavailable in this host/session");
    }
    if (the_workbench_restricted() && value->kind != THE_WORKBENCH_ACTION_BUILTIN
-   && value->kind != THE_WORKBENCH_ACTION_PANEL)
+   && value->kind != THE_WORKBENCH_ACTION_PANEL
+   && !(value->kind==THE_WORKBENCH_ACTION_MACRO && value->file_build))
       return definition_result("policy-denied",WB_ENVIRON,"Restricted sessions may define only typed builtin actions");
    if (value->kind == THE_WORKBENCH_ACTION_BUILTIN)
    {
@@ -632,7 +678,11 @@ static int reference_allowed(const char *owner, const char *target)
 { return !strcmp(owner,target) || !strcmp(target,"the.builtin"); }
 static short validate(WorkbenchGraph *g)
 {
-   size_t n; int i;
+   size_t n,k; int i;
+   for(n=0;n<g->nactions;n++) if(g->actions[n].file_build)
+      for(k=0;k<n;k++) if(g->actions[k].file_build &&
+         extension_matches(g->actions[n].file_extension,g->actions[k].file_extension))
+         return definition_result("object-in-use",WB_ENVIRON,"File Build extension is already assigned");
    for(n=0;n<g->ntools;n++) {
       TheWorkbenchToolInfo legacy;
       if(tool_lookup && tool_lookup(g->tools[n].id,&legacy,tool_lookup_context))
@@ -764,8 +814,18 @@ static short activation_begin(const char *profile, int trusted)
    if (!valid_text(profile,THE_WORKBENCH_OPERAND_MAX,0)) return invalid();
    activation = published; strcpy(context,profile); activating = 1;
    activation_failed = activation_changed = 0; activation_trusted = trusted;
-   for (n = 0; trusted && n < activation.nowners; n++) if (!strcmp(activation.owners[n].context,context))
-   { remove_owner(&activation,activation.owners[n].id); activation_changed = 1; }
+   for (n = activation.nowners; n > 0; n--)
+   {
+      WorkbenchOwner *owner=activation.owners+n-1;
+      if (strcmp(owner->context,context) &&
+          (trusted || !active_untrusted_context[0] ||
+           strcmp(owner->context,active_untrusted_context))) continue;
+      remove_owner(&activation,owner->id); activation_changed = 1;
+      if (!trusted) {
+         memmove(owner,owner+1,(activation.nowners-n)*sizeof(*owner));
+         activation.nowners--;
+      }
+   }
    return ok();
 }
 short the_workbench_activation_begin(const char *profile)
@@ -787,6 +847,8 @@ short the_workbench_activation_end(int success)
       rc=publish(&activation);
       if (rc) { activating=0; context[0]=0; return definition_result("activation-failed",-3,"Profile workbench resources could not be published"); }
    }
+   if (!activation_trusted)
+      strcpy(active_untrusted_context,context);
    activating = 0; context[0] = '\0'; return ok();
 }
 
@@ -899,6 +961,7 @@ int the_workbench_json(char *out, size_t len, const char *section, size_t offset
             js(&j,",\"kind\":"); jq(&j,the_workbench_action_kind_name(a->kind));
             js(&j,",\"builtin\":"); jq(&j,a->kind == THE_WORKBENCH_ACTION_BUILTIN ? the_frontend_action_name(a->builtin) : "");
             js(&j,",\"operand\":"); jq(&j,a->operand);
+            if (a->file_build) { js(&j,",\"fileExtension\":");jq(&j,a->file_extension);js(&j,",\"filePurpose\":\"build\""); }
             js(&j,",\"requiresArgument\":%s",a->kind == THE_WORKBENCH_ACTION_BUILTIN && the_frontend_action_definition(a->builtin) && the_frontend_action_definition(a->builtin)->requires_argument ? "true" : "false");
             if (a->kind == THE_WORKBENCH_ACTION_PANEL)
             { js(&j,",\"panel\":"); jq(&j,a->panel); js(&j,",\"operation\":"); jq(&j,a->panel_operation == THE_WORKBENCH_PANEL_SHOW ? "show" : a->panel_operation == THE_WORKBENCH_PANEL_HIDE ? "hide" : "focus"); }

@@ -82,12 +82,34 @@ with tempfile.TemporaryDirectory(prefix='THE tools ') as d:
     records=run("do forever\nnop\nend\n",'command RX RUN\ntoolwait 200\ncommand RX STOP\ntools\ncommand RX RUN\ncommand RX STOP\ntools')
     first,last=tools(records);assert first['job']['state']==last['job']['state']=='Stopped';assert first['job']['id']!=last['job']['id']
     records=run("signal missing\n",'command RX RUN\ntoolwait 10000\ntools');assert tools(records)[-1]['job']['state']=='Runtime condition',records
-    records=run("options levelb\naddress THE\n'set number on';\nsay 'profile console proof'\nreturn 0\n",'command RX BUILD\ntoolwait 30000\ncommand RX ACTIVATE\ntools')
-    assert 'profile console proof' in ''.join(c['text'] for c in tools(records)[-1]['chunks']),records
+    profile_source=root/'UserProfile.the'
+    records=run("options levelb\naddress THE\n'set number on';\nsay 'profile console proof'\nreturn 0\n",'command RX BUILD\ntoolwait 30000\ncommand RX ACTIVATE\ntools',profile_source)
+    assert 'profile console proof' in ''.join(c['text'] for c in tools(records)[-1]['build']['chunks']),records
     selected=(config/'active').read_text();assert Path(selected.splitlines()[0]).is_file()
     # A new editor restores the immutable artifact and its addressed settings.
-    records=run("say 'untouched'\n",'tools');assert 'profile console proof' in ''.join(c['text'] for c in tools(records)[-1]['chunks']),records
-    records=run("options levelb\nthis is invalid !!\n",'command RX BUILD\ntoolwait 30000\ntools');assert tools(records)[-1]['job']['state']!='Completed · status 0';assert (config/'active').read_text()==selected
+    records=run("say 'untouched'\n",'tools');assert 'profile console proof' in ''.join(c['text'] for c in tools(records)[-1]['build']['chunks']),records
+    records=run("options levelb\nthis is invalid !!\n",'command RX BUILD\ntoolwait 30000\ntools',profile_source);assert tools(records)[-1]['build']['job']['state']!='Completed · status 0';assert (config/'active').read_text()==selected
+    # Profile registrations replace the prior profile's own associations.
+    # Failure restores the old catalog, and reload replays profile-only tools
+    # rather than persisting them as independent registry definitions.
+    owned=root/'OwnedProfile.the';omitted=root/'OmittedProfile.the';failed=root/'FailedProfile.the'
+    owned.write_text(f'options levelb\naddress THE\n\'rx register owned-probe runner "{runner_image}" .own "Owned runner"\';\nreturn 0\n')
+    omitted.write_text('options levelb\nreturn 0\n')
+    failed.write_text(f'options levelb\naddress THE\n\'rx register owned-probe runner "{runner_image}" .bad "Bad replacement"\';\nreturn 7\n')
+    def activate_path(path):
+        return f'command edit "{path}"\ncommand RX BUILD\ntoolwait 30000\ncommand RX ACTIVATE\ntools\n'
+    commands=activate_path(owned)+activate_path(omitted)+activate_path(owned)+activate_path(failed)
+    p=subprocess.run([str(binary),'--driver','llm','-n',str(source)],input=commands+'quit\n',text=True,capture_output=True,env=env,timeout=150)
+    assert p.returncode==0,p.stderr
+    states=tools([json.loads(s) for s in p.stdout.splitlines() if s.startswith('{')])
+    assert len(states)==4,states
+    assert any(t['id']=='owned-probe' and t['extensions']=='.own' for t in states[0]['catalog']),states[0]
+    assert not any(t['id']=='owned-probe' for t in states[1]['catalog']),states[1]
+    assert any(t['id']=='owned-probe' and t['extensions']=='.own' for t in states[3]['catalog']),states[3]
+    assert states[3]['profile']['active']['image']==states[2]['profile']['active']['image'],states[3]
+    assert 'owned-probe' not in (config/'tools.registry').read_text()
+    restored=tools(run("say 'untouched'\n",'tools'))[-1]
+    assert any(t['id']=='owned-probe' and t['extensions']=='.own' for t in restored['catalog']),restored
     records=run("/* Classic parser */\nsay 'hello'\n",'command RX LANGUAGE classic-highlight\ncommand sdslhwait 10000\nlook filearea compact')
     assert all(r.get('rc',0)==0 for r in records),records
     snap=next(r for r in records if 'screen_rows' in r)

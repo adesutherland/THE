@@ -80,12 +80,23 @@ void the_tool_host_adapter(const TheToolAdapter *adapter);
 int the_tool_host_observer(const TheToolObserver *observer);
 int the_tool_host_io(const TheToolIO *io);
 int the_tool_register(const TheToolDefinition *tool);
+/* Owner-only profile rollback; saved definitions must come from this catalog. */
+int the_tool_remove(const char *id);
+int the_tool_catalog_restore(const TheToolDefinition *,size_t);
 const TheToolDefinition *the_tool_find(const char *id);
 const TheToolDefinition *the_tool_at(size_t index);
 size_t the_tool_count(void);
 const TheToolDefinition *the_tool_for_file(const char *filename, const char *role);
 int the_tool_launch(const TheToolRequest *request, char *error, size_t capacity);
 const TheToolConsole *the_tool_console(void);
+/* Active backend lifecycle remains above; frontends retain independent output
+ * lanes through these accessors. Compiler/macro captures never erase Program. */
+const TheToolConsole *the_tool_program_console(void);
+const TheToolConsole *the_tool_build_console(void);
+int the_tool_build_capture_begin(const char *,const char *,unsigned,unsigned);
+void the_tool_build_capture_end(short);
+int the_tool_program_capture_begin(const char *,const char *,unsigned,unsigned);
+void the_tool_program_capture_end(short);
 void the_tool_started(unsigned id);
 void the_tool_waiting(unsigned id, int waiting);
 void the_tool_output(unsigned id, int fd, const void *bytes, size_t length);
@@ -95,6 +106,7 @@ void the_tool_stop(const char *reason);
 int the_tool_input(const void *bytes, size_t length);
 int the_tool_eof(void);
 void the_tool_clear(void);
+void the_tool_clear_program(void);
 void the_tool_profile_output(int, const void *, size_t);
 void the_tool_console_visibility(int visible, int focused);
 int the_tool_console_key(uint32_t codepoint, int key);
