@@ -9,6 +9,7 @@
 #include "editordocument.h"
 #include "workbenchform.h"
 #include "workbenchfilefields.h"
+#include "workbenchfileio.h"
 #include "editorgroup.h"
 
 #include <ctype.h>
@@ -513,6 +514,29 @@ static short command_operands(const char *operands)
    {
       TheWorkbenchRoute r; const char *slash; size_t length;
       if (n == 3 && keyword(t+1,"REMOVE") && !t[2].quoted) return the_workbench_remove_route(t[2].text);
+      if(n>=4 && keyword(t+1,"PUT") && !t[2].quoted && strlen(t[2].text)<=THE_WORKBENCH_ID_MAX && keyword(t+3,"FROM")) {
+         const Token *endpoint=NULL;
+         memset(&r,0,sizeof(r)); strcpy(r.id,t[2].text);
+         if(n==12 && keyword(t+4,"FILE") && t[5].quoted && keyword(t+6,"TO")
+         && keyword(t+8,"FORMAT") && keyword(t+9,"BYTES") && keyword(t+10,"EOF") && keyword(t+11,"END")) {
+            r.kind=THE_WORKBENCH_ROUTE_FILE_INPUT; strcpy(r.path,t[5].text); endpoint=t+7;
+         } else if((n==14 || n==16) && keyword(t+5,"TO") && keyword(t+6,"FILE") && t[7].quoted
+         && keyword(t+8,"FORMAT") && keyword(t+9,"BYTES") && keyword(t+10,"MODE")) {
+            if(keyword(t+11,"REPLACE") || keyword(t+11,"APPEND"))
+               return the_workbench_result("unsupported-feature",RC_INVALID_ENVIRON,"REPLACE and APPEND require qualified conditional atomic publication");
+            if(n!=14 || !keyword(t+11,"CREATE") || !keyword(t+12,"PUBLISH") || !keyword(t+13,"SUCCESS")) return bad();
+            r.kind=THE_WORKBENCH_ROUTE_FILE_OUTPUT; strcpy(r.path,t[7].text); endpoint=t+4;
+         }
+         if(endpoint) {
+            if(endpoint->quoted || strncmp(endpoint->text,"tool:",5) || !(slash=strchr(endpoint->text+5,'/'))
+            || !(length=(size_t)(slash-endpoint->text-5)) || length>THE_WORKBENCH_ID_MAX) return bad();
+            memcpy(r.tool,endpoint->text+5,length);
+            if(r.kind==THE_WORKBENCH_ROUTE_FILE_INPUT) { if(strcmp(slash+1,"stdin")) return bad(); }
+            else if(!strcmp(slash+1,"stdout")) r.stream=1;
+            else if(!strcmp(slash+1,"stderr")) r.stream=2; else return bad();
+            return the_workbench_put_route(&r);
+         }
+      }
       if (n != 7 || !keyword(t+1,"PUT") || t[2].quoted || strlen(t[2].text) > THE_WORKBENCH_ID_MAX
       || !keyword(t+3,"FROM") || !keyword(t+5,"TO") || t[4].quoted || t[6].quoted) return bad();
       if (strncmp(t[4].text,"tool:",5) || strncmp(t[6].text,"log:",4))
@@ -525,6 +549,16 @@ static short command_operands(const char *operands)
       else if (!strcmp(slash+1,"stderr")) r.stream=2;
       else return the_workbench_result("unsupported-feature",RC_INVALID_ENVIRON,"Only stdout/stderr routes are implemented");
       return the_workbench_put_route(&r);
+   }
+   if(keyword(t,"FILE")) {
+      static char json[THE_WORKBENCH_JSON_MAX];
+      if(n!=3 || !keyword(t+1,"INSPECT") || !t[2].quoted) return bad();
+      if(the_workbench_restricted() || !the_workbench_fileio_supported()) return the_workbench_result("unsupported-feature",RC_INVALID_ENVIRON,"Native FILE inspection is unavailable in this host");
+      if(!the_workbench_fileio_inspect_json(t[2].text,json,sizeof(json))) {
+         const TheWorkbenchFileReceipt *r=the_workbench_fileio_receipt();
+         return the_workbench_result(r->code,RC_INVALID_ENVIRON,r->message);
+      }
+      display_error(0,(CHARTYPE *)json,TRUE);return the_workbench_result("ok",RC_OK,"");
    }
    if (keyword(&t[0],"FORM") || keyword(&t[0],"FIELD")
    || keyword(&t[0],"TOOL") || keyword(&t[0],"RUN") || keyword(&t[0],"JOB"))
@@ -542,7 +576,7 @@ short the_workbench_command(const char *operands)
    while (*p && *p != ' ' && *p != '\t' && n < 15) first.text[n++]=*p++;
    while (*p == ' ' || *p == '\t') p++;
    n=0; while (*p && *p != ' ' && *p != '\t' && n < 15) second.text[n++]=*p++;
-   runtime=keyword(&first,"INVOKE") || keyword(&first,"EDIT") || (keyword(&first,"PANEL") && (panel_operation_token(&second) || keyword(&second,"SET") || keyword(&second,"APPLY") || keyword(&second,"RELOAD") || keyword(&second,"CANCEL")))
+   runtime=keyword(&first,"INVOKE") || keyword(&first,"EDIT") || (keyword(&first,"FILE") && keyword(&second,"INSPECT")) || (keyword(&first,"PANEL") && (panel_operation_token(&second) || keyword(&second,"SET") || keyword(&second,"APPLY") || keyword(&second,"RELOAD") || keyword(&second,"CANCEL")))
       || (keyword(&first,"FIELD") && keyword(&second,"SET"))
       || (keyword(&first,"FORM") && (keyword(&second,"SUBMIT") || keyword(&second,"CANCEL")));
    rc=command_operands(operands);
@@ -671,6 +705,12 @@ short extract_workbench(short number_variables,short itemno,CHARTYPE *itemargs,C
       if (tokens.values[0].quoted) return query_bad();
       for (n = 0; tokens.values[0].text[n]; n++) tokens.values[0].text[n] = (char)toupper((unsigned char)tokens.values[0].text[n]);
       section = tokens.values[0].text;
+      if(!strcmp(section,"FILE")) {
+         if(tokens.count!=2 || !tokens.values[1].quoted) return query_bad();
+         if(the_workbench_restricted() || !the_workbench_fileio_supported()) { the_workbench_result("unsupported-feature",RC_INVALID_ENVIRON,"Native FILE inspection is unavailable in this host"); inspection_refusal_serial++; return EXTRACT_ARG_ERROR; }
+         if(!the_workbench_fileio_inspect_json(tokens.values[1].text,json,sizeof(json))) { const TheWorkbenchFileReceipt *r=the_workbench_fileio_receipt(); the_workbench_result(r->code,RC_INVALID_ENVIRON,r->message); inspection_refusal_serial++; return EXTRACT_ARG_ERROR; }
+         goto formatted;
+      }
       if(!strcmp(section,"WRITE")) {
          uint64_t id=0; short rc;
          if(tokens.count!=1 && (tokens.count!=3 || !keyword(tokens.values+1,"DOCUMENT")

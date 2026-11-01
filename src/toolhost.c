@@ -15,10 +15,21 @@ static void *observer_binding;
 static unsigned observer_job;
 static uint64_t observer_sequence;
 static int observing;
+static TheToolIO io, active_io;
+static void *io_binding;
+static int io_active, fixed_input;
 static unsigned serial;
 static unsigned char pending[4][4];
 static size_t pending_length[4];
 static void decode(int, const unsigned char *, size_t, int, int);
+
+static int io_end(int success,char *error,size_t capacity) {
+   TheToolIO ending; void *binding;
+   if(!io_active) return 1;
+   ending=active_io; binding=io_binding;
+   io_active=0; io_binding=NULL; memset(&active_io,0,sizeof(active_io));
+   return ending.end(binding,console.id,success,error,capacity);
+}
 
 static void observer_end(void) {
    TheToolObserver ending;
@@ -60,6 +71,8 @@ void the_tool_host_reset(void) {
    strcpy(console.state, "Ready");
    memset(&backend, 0, sizeof(backend));
    memset(&observer, 0, sizeof(observer));
+   memset(&io, 0, sizeof(io));
+   fixed_input=0;
    catalog_count = 0;
    memset(pending_length, 0, sizeof(pending_length));
 }
@@ -75,6 +88,11 @@ int the_tool_host_observer(const TheToolObserver *value) {
       observer = *value;
    else
       memset(&observer, 0, sizeof(observer));
+   return 1;
+}
+int the_tool_host_io(const TheToolIO *value) {
+   if(console.running || io_active || (value && (!value->begin || !value->raw || !value->end))) return 0;
+   if(value) io=*value; else memset(&io,0,sizeof(io));
    return 1;
 }
 const TheToolConsole *the_tool_console(void) { return &console; }
@@ -136,6 +154,8 @@ const TheToolDefinition *the_tool_for_file(const char *name, const char *role) {
 }
 int the_tool_launch(const TheToolRequest *r, char *error, size_t capacity) {
    TheToolRequest owned;
+   const void *finite_bytes=NULL;
+   size_t finite_length=0;
    size_t total = 0;
    int i;
    if (console.running) {
@@ -167,15 +187,28 @@ int the_tool_launch(const TheToolRequest *r, char *error, size_t capacity) {
    console.input_length = 0;
    console.input[0] = 0;
    console.status[0] = 0;
+   fixed_input=0;
    snprintf(console.state, sizeof(console.state), "Starting…");
    snprintf(console.filename, sizeof(console.filename), "%s", r->filename ? r->filename : "");
    snprintf(console.tool, sizeof(console.tool), "%s", r->tool.id);
    changed();
    owned = *r;
    owned.id = console.id;
+   if(io.begin) {
+      void *binding=NULL;
+      if(!io.begin(owned.id,owned.tool.id,&binding,&finite_bytes,&finite_length,&fixed_input,error,capacity)) {
+         console.running=0; strcpy(console.state,"Failed"); changed(); return 0;
+      }
+      active_io=io; io_binding=binding; io_active=1;
+      if(fixed_input && ((!finite_bytes && finite_length) || finite_length>THE_TOOL_OUTPUT_LIMIT || !backend.input || !backend.eof)) {
+         snprintf(error,capacity,"unsupported-feature: Host cannot accept finite FILE input");
+         (void)io_end(0,NULL,0); console.running=0; strcpy(console.state,"Failed"); changed(); return 0;
+      }
+   }
    if (observer.begin) {
       void *binding = NULL;
       if (!observer.begin(owned.id, owned.tool.id, &binding, error, capacity)) {
+         (void)io_end(0,NULL,0);
          console.running = 0;
          strcpy(console.state, "Failed");
          changed();
@@ -187,14 +220,24 @@ int the_tool_launch(const TheToolRequest *r, char *error, size_t capacity) {
       observer_sequence = 0;
       observing = 1;
    }
+   owned.finite_input=fixed_input;
    if (!backend.start(&owned, error, capacity)) {
       console.running = 0;
       decode(1, NULL, 0, 1, 1);
       decode(2, NULL, 0, 1, 1);
       observer_end();
+      (void)io_end(0,NULL,0);
       snprintf(console.state, sizeof(console.state), "Failed");
       changed();
       return 0;
+   }
+   if(fixed_input && console.running && console.id==owned.id) {
+      if((finite_length && !backend.input(owned.id,finite_bytes,finite_length)) || !backend.eof(owned.id)) {
+         snprintf(error,capacity,"io-failure: Host refused finite FILE input");
+         if(backend.stop) backend.stop(owned.id);
+         the_tool_finish(owned.id,-1,NULL,error,NULL); return 0;
+      }
+      console.eof=1; console.waiting=0; changed();
    }
    return 1;
 }
@@ -206,6 +249,7 @@ void the_tool_started(unsigned id) {
 }
 void the_tool_waiting(unsigned id, int value) {
    if (console.running && console.id == id) {
+      if(fixed_input) return;
       console.waiting = !!value;
       strcpy(console.state, value ? "Waiting for input" : "Running");
       changed();
@@ -314,6 +358,7 @@ static void decode(int fd, const unsigned char *s, size_t n, int final, int prog
    free(all);
 }
 void the_tool_output(unsigned id, int fd, const void *s, size_t n) {
+   char error[256];
    if (!console.running || console.id != id || (fd != 1 && fd != 2))
       return;
    if (n > THE_TOOL_OUTPUT_LIMIT - console.total) {
@@ -321,6 +366,10 @@ void the_tool_output(unsigned id, int fd, const void *s, size_t n) {
       return;
    }
    console.total += n;
+   if(io_active && !active_io.raw(io_binding,id,fd,s,n,error,sizeof(error))) {
+      if(backend.stop) backend.stop(id);
+      the_tool_finish(id,-1,NULL,error,NULL); return;
+   }
    decode(fd, s, n, 0, 1);
 }
 void the_tool_profile_output(int fd, const void *bytes, size_t n) {
@@ -457,6 +506,7 @@ static void result_condition(const char *llb, const char *prefix, const char *la
 void the_tool_finish(unsigned id, int code, const char *status, const char *error,
                      const char *llb) {
    char flag[4], value[32];
+   char publication_error[256];
    int condition = 0;
    if (!console.running || console.id != id)
       return;
@@ -476,14 +526,24 @@ void the_tool_finish(unsigned id, int code, const char *status, const char *erro
             status = value;
          }
          field(llb, "hasCleanup", flag, sizeof(flag));
-         if (!strcmp(flag, "1"))
+         if (!strcmp(flag, "1")) {
+            condition=1;
             result_condition(llb, "cleanup", "\nCleanup: ");
+         }
          field(llb, "truncated", flag, sizeof(flag));
          if (!strcmp(flag, "1"))
             append(2, "\nInterpreter result text was truncated.\n",
                    strlen("\nInterpreter result text was truncated.\n"));
       }
    }
+   if(io_active) {
+      int success=!code && !(error && *error) && !condition && (!status || !strcmp(status,"0"));
+      if(success) { strcpy(console.state,"Publishing"); changed(); }
+      if(!io_end(success,publication_error,sizeof(publication_error))) {
+         code=-1; error=publication_error;
+      }
+   }
+   if(status) snprintf(console.status,sizeof(console.status),"%s",status);
    if (code || (error && *error)) {
       strcpy(console.state, "Failed");
       if (error) {
@@ -510,12 +570,13 @@ void the_tool_stop(const char *reason) {
       decode(1, NULL, 0, 1, 1);
       decode(2, NULL, 0, 1, 1);
       observer_end();
+      (void)io_end(0,NULL,0);
       snprintf(console.state, sizeof(console.state), "%s", reason ? reason : "Stopped");
       changed();
    }
 }
 int the_tool_input(const void *s, size_t n) {
-   if (!console.running || console.eof || n > 1048576 || !backend.input)
+   if (!console.running || console.eof || fixed_input || n > 1048576 || !backend.input)
       return 0;
    if (!backend.input(console.id, s, n))
       return 0;
@@ -524,7 +585,7 @@ int the_tool_input(const void *s, size_t n) {
    return 1;
 }
 int the_tool_eof(void) {
-   if (!console.running || console.eof || !backend.eof || !backend.eof(console.id))
+   if (!console.running || console.eof || fixed_input || !backend.eof || !backend.eof(console.id))
       return 0;
    console.eof = 1;
    changed();
@@ -545,14 +606,14 @@ int the_tool_console_key(uint32_t c, int key) {
       changed();
       return 1;
    }
+   if (key == 3 && console.running) {
+      the_tool_stop("Stopped");
+      return 1;
+   }
    /* Ignore new input after EOF or completion; retain any prior draft for
     * inspection until the next launch resets the input field. */
    if (!console.running || console.eof)
       return 1;
-   if (key == 3) {
-      the_tool_stop("Stopped");
-      return 1;
-   }
    if (key == 4)
       return the_tool_eof();
    if (key == 10 || key == 13) {

@@ -64,6 +64,8 @@ typedef struct {
    int maxcells;
 } TheWorkbenchField;
 
+typedef enum { THE_WORKBENCH_ROUTE_LOG=0, THE_WORKBENCH_ROUTE_FILE_INPUT,
+   THE_WORKBENCH_ROUTE_FILE_OUTPUT } TheWorkbenchRouteKind;
 typedef struct
 {
    char id[THE_WORKBENCH_ID_MAX + 1];
@@ -124,6 +126,8 @@ typedef struct
    char tool[THE_WORKBENCH_ID_MAX + 1];
    char model[THE_WORKBENCH_ID_MAX + 1];
    int stream;
+   TheWorkbenchRouteKind kind;
+   char path[THE_WORKBENCH_OPERAND_MAX+1];
 } TheWorkbenchRoute;
 
 /* Lookup is pure metadata and must be registered before profile definitions.

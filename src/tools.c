@@ -8,6 +8,7 @@
 #include "tools.h"
 #include "workbench.h"
 #include "workbenchruntime.h"
+#include "workbenchfileio.h"
 #include <ctype.h>
 #include <errno.h>
 #include <sys/stat.h>
@@ -30,7 +31,60 @@ static char profile_ready[THE_TOOL_PATH], profile_active[THE_TOOL_PATH];
 static unsigned profile_source, profile_revision;
 static TheToolDefinition restored_languages[THE_TOOL_LIMIT];
 static size_t restored_language_count;
+static short file_launch_rc;
 int the_crexx_console_capture(int);
+static int workbench_file_authority(const char *canonical,int writing,int published,char *error,size_t capacity) {
+   VIEW_DETAILS *view;
+   (void)published;
+   if(the_frontend_policy_enabled()) { snprintf(error,capacity,"Native FILE routes are unavailable in restricted sessions");return 0; }
+   if(writing && (the_readonly || READONLYx==READONLY_FORCE)) { snprintf(error,capacity,"Session is readonly");return 0; }
+#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
+   if(writing) for(view=vd_first;view;view=view->next) {
+      FILE_DETAILS *file=view->file_for_view; char path[4096],parent[4096],resolved[4096],*slash;
+      if(!file || !file->fpath || !file->fname) continue;
+      if(snprintf(path,sizeof(path),"%s%s",(char *)file->fpath,(char *)file->fname)>=(int)sizeof(path)) continue;
+      /* A new clean editor buffer can name an absent file. Resolve its parent
+       * too; output refuses every open target until reload/conflict state is
+       * available, preserving pending and staged edits without side effects. */
+      if(!realpath(path,resolved)) {
+         strcpy(parent,path); slash=strrchr(parent,'/'); if(!slash) continue; *slash=0;
+         if(!realpath(parent,resolved)) continue;
+         if(strlen(resolved)+strlen(slash+1)+2>=sizeof(path)) continue;
+         snprintf(path,sizeof(path),"%s/%s",resolved,slash+1);strcpy(resolved,path);
+      }
+      if(!strcmp(resolved,canonical)) { snprintf(error,capacity,"Output target is open in the editor; close it before running this route");return 0; }
+   }
+#else
+   (void)view;
+#endif
+   return 1;
+}
+void the_tools_fileio_initialize(void) { the_workbench_fileio_authority(workbench_file_authority); }
+static int workbench_io_begin(unsigned id,const char *tool,void **binding,const void **bytes,size_t *length,int *finite,char *error,size_t capacity) {
+   TheWorkbenchFileRequest request={0}; size_t i;
+   *binding=NULL;*bytes=NULL;*length=0;*finite=0;
+   for(i=0;i<the_workbench_route_count();i++) {
+      const TheWorkbenchRoute *r=the_workbench_route_at(i);
+      if(strcmp(r->tool,tool)) continue;
+      if(r->kind==THE_WORKBENCH_ROUTE_FILE_INPUT) request.input=r->path;
+      if(r->kind==THE_WORKBENCH_ROUTE_FILE_OUTPUT) { request.output=r->path;request.stream=r->stream; }
+   }
+   if(!request.input && !request.output) return 1;
+   if(the_frontend_policy_enabled() || !the_workbench_fileio_supported()) { snprintf(error,capacity,"unsupported-feature: Native FILE routes are unavailable in this host");file_launch_rc=RC_INVALID_ENVIRON;return 0; }
+   *binding=the_workbench_fileio_begin(id,&request,error,capacity);
+   if(!*binding) { const TheWorkbenchFileReceipt *r=the_workbench_fileio_receipt();file_launch_rc=!strcmp(r->code,"limit-exceeded") ? 94 : !strcmp(r->code,"invalid-operand") ? RC_INVALID_OPERAND : RC_INVALID_ENVIRON;the_workbench_result(r->code,file_launch_rc,r->message);return 0; }
+   if(request.input) { *finite=1;*bytes=the_workbench_fileio_input(*binding,length); }
+   return 1;
+}
+static int workbench_io_raw(void *binding,unsigned id,int fd,const void *bytes,size_t length,char *error,size_t capacity) {
+   (void)id;return !binding || the_workbench_fileio_output(binding,fd,bytes,length,error,capacity);
+}
+static int workbench_io_end(void *binding,unsigned id,int success,char *error,size_t capacity) {
+   int good; (void)id;
+   good=the_workbench_fileio_end(binding,success,error,capacity);
+   if(!good) { const TheWorkbenchFileReceipt *r=the_workbench_fileio_receipt();the_workbench_result(r->code,-3,r->message); }
+   return good;
+}
 static int workbench_tool_lookup(const char *id, TheWorkbenchToolInfo *info, void *context) {
    const TheToolDefinition *tool = the_tool_find(id);
    (void)context;
@@ -58,9 +112,12 @@ static void workbench_job_end(void *binding, unsigned id) {
 }
 static void workbench_tools_register(void) {
    const TheToolObserver value = {workbench_job_begin, workbench_job_text, workbench_job_end};
+   const TheToolIO io={workbench_io_begin,workbench_io_raw,workbench_io_end};
+   the_tools_fileio_initialize();
    the_workbench_set_tool_lookup(workbench_tool_lookup, NULL);
    /* An active job retains its already installed observer and pinned routes. */
    (void)the_tool_host_observer(&value);
+   (void)the_tool_host_io(&io);
 }
 static char *copy(const char *s) {
    size_t n = strlen(s ? s : "");
@@ -245,9 +302,10 @@ static short launch(const char *id, int argc, const char *const *argv, const cha
       r.filename = r.tool.image;
    r.argc = argc;
    r.argv = argv;
+   file_launch_rc=0;
    if (!the_tool_launch(&r, error, sizeof(error))) {
       display_error(0, (CHARTYPE *)error, FALSE);
-      return RC_INVALID_OPERAND;
+      return file_launch_rc ? file_launch_rc : RC_INVALID_OPERAND;
    }
    return RC_OK;
 }

@@ -33,6 +33,7 @@ use it instead of assuming a system library or sibling build is selected.
 | UTF clusters, positions, mutation and rendering metrics | `test_textpos`, `test_textedit`, `test_utfcluster`, `test_utflayout`, `test_utfterm`, `test_utfrepair` |
 | No-curses executable/modules and physical ownership | `test_driver_modules`, `test_curses_boundary`, `test_curses_boundary_inventory`, `test_webdriver_no_curses` when enabled |
 | Staged CTLCHAR capture, fixed-cell UTF edits, protected bytes, pending records, atomic Apply/undo, close dependency and save/reopen | `test_workbenchfilefields`, `test_workbench_filefields_runtime_CREXX`, `test_workbench_filefields_runtime_REGINA`, `test_workbench_filefields_curses`, `test_web_file_fields_ui`; GTK pane assertions require a working display |
+| Native exact-byte FILE stdin, finite EOF, atomic CREATE, collision/policy/storage failure preservation and open-buffer refusal | `test_workbenchfileio`, `test_workbench_fileio_runtime`; unsupported host/mode admission also uses `test_workbench` |
 | Panels, protection, submit/cancel, footer/caret restoration and resumed save | `test_panels`, `test_panel_curses`, browser panel tests |
 | Windows console mode before/after quiet shell commands | `test_windows_console_mode_CREXX`, `test_windows_console_mode_REGINA` on Windows |
 | Parser synchronization, diagnostics and buffer identity | `test_sdslh_integration`, `test_sdslh_multifile_lifecycle`, `test_the_llm_parser_diagnostics`, web highlighting tests |

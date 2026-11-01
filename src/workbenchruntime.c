@@ -210,6 +210,7 @@ TheWorkbenchRouteLease *the_workbench_routes_bind(const char *tool, uint64_t job
       const TheWorkbenchRoute *route=the_workbench_route_at(i);
       const TheWorkbenchModelState *model;
       if (strcmp(route->tool,tool)) continue;
+      if(route->kind!=THE_WORKBENCH_ROUTE_LOG) continue;
       model=the_workbench_model_state(route->model);
       if (!model || strcmp(model->owner,route->owner)
       || !the_workbench_log_find(model->id)

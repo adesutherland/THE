@@ -47,6 +47,9 @@ async function change(value) {
   await until(() => evaluate(`document.querySelector(${JSON.stringify(input)})?.value.trimEnd()===${JSON.stringify(value)} && !document.querySelector(${JSON.stringify(input)}).disabled`), `field value ${value}`);
 }
 async function click(index) {
+  // A field SET may have updated the input while the coordinator is still
+  // loading the next page. Wait for the action itself to be admitted.
+  await until(() => evaluate(`(() => {const button=document.querySelector('.file-field-controls button:nth-child(${index})');return !!button&&!button.disabled})()`), `file-field control ${index} ready`);
   await evaluate(`document.querySelector('.file-field-controls button:nth-child(${index})').click()`);
 }
 try {

@@ -4,6 +4,7 @@
 #include "the.h"
 #include "proto.h"
 #include "toolrequest.h"
+#include <ctype.h>
 #include <errno.h>
 #include <sys/stat.h>
 #ifdef _WIN32
@@ -11,6 +12,7 @@
 #include <fcntl.h>
 #include <io.h>
 #include <windows.h>
+#include <wchar.h>
 #define unlink _unlink
 #define rmdir _rmdir
 #else
@@ -25,9 +27,15 @@
 #define THE_NATIVE_TOOL_ROOT ""
 #endif
 #define INPUT_LIMIT 16777216u
+/* ooRexx's native CLI joins argv into an 8192-byte buffer. Until tool
+ * definitions distinguish native runtime families, use its safe bound for
+ * every native-process source runner, including generic executables. */
+#define NATIVE_ARGUMENT_LIMIT 8191u
 typedef struct {
    unsigned id, source_id, revision;
-   int active, compiler, exited, eof_requested;
+   int active, compiler, exited, eof_requested, native_process, directory_created, finite_input;
+   unsigned long process_status;
+   int process_signal, wait_error, input_error;
    char directory[THE_TOOL_PATH];
    char *input;
    size_t length, offset;
@@ -36,6 +44,7 @@ typedef struct {
    CRITICAL_SECTION lock;
    CONDITION_VARIABLE wake;
    volatile LONG closing, write_error;
+   size_t input_pending;
 #else
    int in, out, err;
    pid_t pid;
@@ -54,6 +63,34 @@ static int exists(const char *p) {
    fclose(f);
    return 1;
 }
+#ifdef _WIN32
+static wchar_t *wide(const char *s);
+static void remove_native_directory(const wchar_t *directory, int depth) {
+   wchar_t path[THE_TOOL_PATH + MAX_PATH];
+   WIN32_FIND_DATAW data;
+   HANDLE find;
+   if (depth > 64 || swprintf(path, sizeof(path) / sizeof(*path), L"%ls\\*", directory) < 0)
+      return;
+   find = FindFirstFileW(path, &data);
+   if (find == INVALID_HANDLE_VALUE)
+      return;
+   do {
+      if (!wcscmp(data.cFileName, L".") || !wcscmp(data.cFileName, L".."))
+         continue;
+      if (swprintf(path, sizeof(path) / sizeof(*path), L"%ls\\%ls", directory, data.cFileName) < 0)
+         continue;
+      if ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
+          !(data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT))
+         remove_native_directory(path, depth + 1);
+      else if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+         RemoveDirectoryW(path);
+      else
+         DeleteFileW(path);
+   } while (FindNextFileW(find, &data));
+   FindClose(find);
+   RemoveDirectoryW(directory);
+}
+#endif
 static void remove_job_directory(const char *directory, int depth) {
    char path[THE_TOOL_PATH + 256];
    if (depth > 64)
@@ -102,9 +139,25 @@ static void remove_job_directory(const char *directory, int depth) {
 #endif
 }
 static void cleanup_files(void) {
-   if (*job.directory)
+   /* A failed exclusive directory creation does not own the rejected path. */
+   if (job.native_process && !job.directory_created) {
+      job.directory[0] = 0;
+      return;
+   }
+   if (*job.directory) {
+#ifdef _WIN32
+      if (job.native_process) {
+         wchar_t *directory = wide(job.directory);
+         if (directory) {
+            remove_native_directory(directory, 0);
+            free(directory);
+         }
+      } else
+#endif
       remove_job_directory(job.directory, 0);
+   }
    job.directory[0] = 0;
+   job.directory_created = 0;
 }
 
 #ifdef _WIN32
@@ -114,6 +167,58 @@ static wchar_t *wide(const char *s) {
    if (w)
       MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s, -1, w, n);
    return w;
+}
+/* CreateProcess receives a command line rather than argv. Quote every UTF-8
+ * argument using the Windows CRT rules, including embedded quotes and trailing
+ * backslashes. lpApplicationName still names the explicit executable. */
+static void quote_argument(char **out, const char *value) {
+   *(*out)++ = '"';
+   while (*value) {
+      size_t slashes = 0;
+      while (*value == '\\') {
+         slashes++;
+         value++;
+      }
+      if (*value == '"' || !*value)
+         slashes *= 2;
+      while (slashes--)
+         *(*out)++ = '\\';
+      if (*value == '"')
+         *(*out)++ = '\\';
+      if (*value)
+         *(*out)++ = *value++;
+   }
+   *(*out)++ = '"';
+}
+static wchar_t *native_command(const char *executable, const char *source,
+                               int argc, const char *const *argv) {
+   size_t bytes = strlen(executable) + strlen(source), capacity;
+   char *buffer, *out;
+   wchar_t *result;
+   int i;
+   for (i = 0; i < argc; i++)
+      bytes += strlen(argv[i]);
+   capacity = 2 * bytes + 3 * ((size_t)argc + 2) + 1;
+   buffer = malloc(capacity);
+   if (!buffer)
+      return NULL;
+   out = buffer;
+   quote_argument(&out, executable);
+   *out++ = ' ';
+   quote_argument(&out, source);
+   for (i = 0; i < argc; i++) {
+      *out++ = ' ';
+      quote_argument(&out, argv[i]);
+   }
+   *out = 0;
+   result = wide(buffer);
+   free(buffer);
+   if (result && wcslen(result) >= 32767) {
+      free(result);
+      result = NULL;
+      errno = E2BIG;
+   }
+   return result;
 }
 static void close_handle(HANDLE *h) {
    if (*h) {
@@ -148,6 +253,9 @@ static DWORD WINAPI writer(void *unused) {
          }
          offset += got;
          n -= got;
+         EnterCriticalSection(&job.lock);
+         job.input_pending -= got;
+         LeaveCriticalSection(&job.lock);
       }
       free(b);
       if (job.write_error || (!n && eof))
@@ -187,8 +295,9 @@ static void stop(unsigned id) {
    close_handle(&job.out);
    close_handle(&job.err);
 #else
-   if (!job.exited) {
+   if (job.native_process || !job.exited)
       kill(-job.pid, SIGKILL);
+   if (!job.exited) {
       while (waitpid(job.pid, NULL, 0) < 0 && errno == EINTR) {
       }
    }
@@ -220,6 +329,9 @@ static int input(unsigned id, const void *b, size_t n) {
          if (n)
             memcpy(p + job.length, b, n);
          job.length += n;
+#ifdef _WIN32
+         job.input_pending += n;
+#endif
          ok = 1;
       }
    }
@@ -301,6 +413,47 @@ static void finish(void) {
    FILE *f;
    size_t n;
    unsigned id = job.id;
+   int input_failed;
+#ifdef _WIN32
+   EnterCriticalSection(&job.lock);
+   input_failed = job.finite_input && (!job.eof_requested || job.write_error ||
+      job.input_pending != 0 || WaitForSingleObject(job.writer, 0) != WAIT_OBJECT_0);
+   LeaveCriticalSection(&job.lock);
+#else
+   input_failed = job.finite_input && (!job.eof_requested || job.input_error ||
+                                     job.length != 0 || job.in >= 0);
+#endif
+   if (job.native_process) {
+      char status[32], failure[160];
+      const char *failure_text = NULL;
+      if (job.wait_error) {
+         strcpy(status, "unknown");
+         snprintf(failure, sizeof(failure), "Cannot obtain native process status: %s",
+                  strerror(job.wait_error));
+         failure_text = failure;
+      } else if (job.process_signal) {
+         snprintf(status, sizeof(status), "signal:%d", job.process_signal);
+         snprintf(failure, sizeof(failure), "Native process terminated by signal %d",
+                  job.process_signal);
+         failure_text = failure;
+      } else {
+         snprintf(status, sizeof(status), "%lu", job.process_status);
+         if (job.process_status) {
+            snprintf(failure, sizeof(failure), "Native process exited with status %lu",
+                     job.process_status);
+            failure_text = failure;
+         }
+      }
+      if (input_failed) {
+         strcpy(failure, "Native process stdin delivery failed before all queued bytes and EOF drained");
+         failure_text = failure;
+      }
+      /* A CLI supplies process completion only. In particular, an ooRexx
+       * condition's truncated exit code must never become a typed condition. */
+      the_tool_finish(id, failure_text ? -1 : 0, status, failure_text, NULL);
+      stop(id);
+      return;
+   }
    join(path, sizeof(path), job.directory, "result");
    f = fopen(path, "rb");
    if (f) {
@@ -339,6 +492,13 @@ static void finish(void) {
       if (error)
          strcpy(error, "Profile compilation failed");
    }
+   if (input_failed) {
+      rc = -1;
+      free(error);
+      error = malloc(112);
+      if (error)
+         strcpy(error, "Native tool stdin delivery failed before all queued bytes and EOF drained");
+   }
    {
       char number[32];
       snprintf(number, sizeof(number), "%d", status);
@@ -360,6 +520,9 @@ static void poll(void) {
       while (job.active && *streams[i]) {
          DWORD n = 0, got = 0;
          if (!PeekNamedPipe(*streams[i], NULL, 0, NULL, &n, NULL)) {
+            if (job.native_process && GetLastError() != ERROR_BROKEN_PIPE &&
+                GetLastError() != ERROR_NO_DATA)
+               job.wait_error = EIO;
             close_handle(streams[i]);
             break;
          }
@@ -368,6 +531,9 @@ static void poll(void) {
          if (n > sizeof(b))
             n = sizeof(b);
          if (!ReadFile(*streams[i], b, n, &got, NULL) || !got) {
+            if (job.native_process && GetLastError() != ERROR_BROKEN_PIPE &&
+                GetLastError() != ERROR_NO_DATA)
+               job.wait_error = EIO;
             close_handle(streams[i]);
             break;
          }
@@ -375,17 +541,30 @@ static void poll(void) {
       }
    if (!job.active)
       return;
-   if (GetExitCodeProcess(job.process, &status) && status != STILL_ACTIVE)
+   if (!job.exited && GetExitCodeProcess(job.process, &status) &&
+       (status != STILL_ACTIVE ||
+        (job.native_process && WaitForSingleObject(job.process, 0) == WAIT_OBJECT_0))) {
+      job.process_status = status;
       job.exited = 1;
+   }
    if (job.exited) {
-      for (i = 0; i < 2; i++)
+      /* Empty is not EOF: descendants can retain inherited write handles after
+       * the leader exits. Native jobs complete only after broken-pipe/EOF. */
+      for (i = 0; !job.native_process && i < 2; i++)
          if (*streams[i]) {
             DWORD n = 0;
             if (PeekNamedPipe(*streams[i], NULL, 0, NULL, &n, NULL) && !n)
                close_handle(streams[i]);
          }
-      if (!job.out && !job.err)
+      if (!job.out && !job.err) {
+         /* Finite stdin is not delivered until the writer has actually sent
+          * every byte and closed EOF. The queue alone excludes in-flight data.
+          * A blocked descendant remains a running job with explicit Stop. */
+         if (job.finite_input && job.eof_requested && job.writer &&
+             WaitForSingleObject(job.writer, 0) == WAIT_TIMEOUT)
+            return;
          finish();
+      }
    }
 #else
    int *streams[2] = {&job.out, &job.err};
@@ -405,8 +584,10 @@ static void poll(void) {
             job.input = NULL;
             job.offset = 0;
          }
-      } else if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
+      } else if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+         job.input_error = errno;
          close_fd(&job.in);
+      }
    }
    if (job.eof_requested && !job.length)
       close_fd(&job.in);
@@ -423,8 +604,19 @@ static void poll(void) {
       }
    if (!job.active)
       return;
-   if (!job.exited && waitpid(job.pid, &status, WNOHANG) == job.pid)
-      job.exited = 1;
+   if (!job.exited) {
+      pid_t waited = waitpid(job.pid, &status, WNOHANG);
+      if (waited == job.pid) {
+         job.exited = 1;
+         if (WIFEXITED(status))
+            job.process_status = (unsigned long)WEXITSTATUS(status);
+         else if (WIFSIGNALED(status))
+            job.process_signal = WTERMSIG(status);
+      } else if (waited < 0 && errno != EINTR && job.native_process) {
+         job.wait_error = errno;
+         job.exited = 1;
+      }
+   }
    if (job.exited && job.out < 0 && job.err < 0)
       finish();
 #endif
@@ -443,13 +635,66 @@ static int start(const TheToolRequest *r, char *error, size_t cap) {
    JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits = {0};
 #else
    int ins[2] = {-1, -1}, outs[2] = {-1, -1}, errs[2] = {-1, -1};
+   int exec_error[2] = {-1, -1};
+   char *native_argv[THE_TOOL_ARGS + 3];
    const char *tmp = getenv("TMPDIR");
 #endif
+   if (job.active) {
+      snprintf(error, cap, "Stop the current native job first");
+      return 0;
+   }
+   if (!r) {
+      snprintf(error, cap, "Missing native tool request");
+      return 0;
+   }
    memset(&job, 0, sizeof(job));
    job.id = r->id;
    job.source_id = r->source_id;
    job.revision = r->revision;
+   job.finite_input = r->finite_input;
    job.compiler = !strcmp(r->tool.role, "compiler");
+   job.native_process = !strcmp(r->tool.entry, "native-process");
+   if (job.native_process) {
+      size_t bytes = r->argc > 0 ? (size_t)r->argc - 1 : 0;
+#ifndef _WIN32
+      struct stat info;
+#endif
+      if (!memchr(r->tool.image, 0, sizeof(r->tool.image)) ||
+          r->argc < 0 || r->argc > THE_TOOL_ARGS ||
+          (r->argc && !r->argv) || r->source_length > 2097152u ||
+          (r->source_length && (!r->source || memchr(r->source, 0, r->source_length)))) {
+         snprintf(error, cap, "Invalid native process source or argv");
+         return 0;
+      }
+      for (i = 0; i < r->argc; i++) {
+         size_t length = r->argv[i] ? strlen(r->argv[i]) : NATIVE_ARGUMENT_LIMIT + 1;
+         if (length > NATIVE_ARGUMENT_LIMIT - bytes) {
+            snprintf(error, cap, "Native process arguments exceed 8191 bytes including separators");
+            return 0;
+         }
+         bytes += length;
+      }
+#ifdef _WIN32
+      {
+      wchar_t *executable = wide(r->tool.image);
+      DWORD attributes = executable ? GetFileAttributesW(executable) : INVALID_FILE_ATTRIBUTES;
+      free(executable);
+      if (!((isalpha((unsigned char)r->tool.image[0]) && r->tool.image[1] == ':' &&
+             (r->tool.image[2] == '/' || r->tool.image[2] == '\\')) ||
+            (r->tool.image[0] == '\\' && r->tool.image[1] == '\\')) ||
+          attributes == INVALID_FILE_ATTRIBUTES ||
+          (attributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_DEVICE))) {
+#else
+      if (r->tool.image[0] != '/' || stat(r->tool.image, &info) ||
+          !S_ISREG(info.st_mode) || access(r->tool.image, X_OK)) {
+#endif
+         snprintf(error, cap, "Native process requires an available absolute executable");
+         return 0;
+      }
+#ifdef _WIN32
+      }
+#endif
+   }
    mode = job.compiler                       ? 2
           : !strcmp(r->tool.role, "runner")  ? 1
           : !strcmp(r->tool.entry, "linked") ? 3
@@ -461,12 +706,27 @@ static int start(const TheToolRequest *r, char *error, size_t cap) {
    else
       snprintf(image, sizeof(image), "%s", r->tool.image);
 #ifdef _WIN32
-   GetTempPathA(sizeof(tmp), tmp);
-   if (!GetTempFileNameA(tmp, "the", 0, job.directory))
-      goto failed;
-   DeleteFileA(job.directory);
-   if (!CreateDirectoryA(job.directory, NULL))
-      goto failed;
+   if (job.native_process) {
+      wchar_t temporary[MAX_PATH], directory[MAX_PATH];
+      DWORD length = GetTempPathW(MAX_PATH, temporary);
+      if (!length || length >= MAX_PATH || !GetTempFileNameW(temporary, L"the", 0, directory))
+         goto failed;
+      if (!WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, directory, -1,
+                               job.directory, sizeof(job.directory), NULL, NULL)) {
+         DeleteFileW(directory);
+         goto failed;
+      }
+      if (!DeleteFileW(directory) || !CreateDirectoryW(directory, NULL))
+         goto failed;
+      job.directory_created = 1;
+   } else {
+      GetTempPathA(sizeof(tmp), tmp);
+      if (!GetTempFileNameA(tmp, "the", 0, job.directory))
+         goto failed;
+      DeleteFileA(job.directory);
+      if (!CreateDirectoryA(job.directory, NULL))
+         goto failed;
+   }
    join(helper, sizeof(helper), root, "the_rxbin_host.exe");
 #else
    job.in = job.out = job.err = -1;
@@ -474,19 +734,43 @@ static int start(const TheToolRequest *r, char *error, size_t cap) {
             tmp && *tmp ? tmp : "/tmp");
    if (!mkdtemp(job.directory))
       goto failed;
+   job.directory_created = 1;
+   if (job.native_process) {
+      char *canonical = realpath(job.directory, NULL);
+      if (!canonical)
+         goto failed;
+      if (strlen(canonical) >= sizeof(job.directory)) {
+         free(canonical);
+         errno = ENAMETOOLONG;
+         goto failed;
+      }
+      strcpy(job.directory, canonical);
+      free(canonical);
+   }
    join(helper, sizeof(helper), root, "the_rxbin_host");
 #endif
-   join(path, sizeof(path), job.directory, "request");
+   join(path, sizeof(path), job.directory, job.native_process ? "source.rex" : "request");
+#ifdef _WIN32
+   if (job.native_process) {
+      wchar_t *source_path = wide(path);
+      f = source_path ? _wfopen(source_path, L"wb") : NULL;
+      free(source_path);
+   } else
+#endif
    f = fopen(path, "wb");
    if (!f)
       goto failed;
-   ok = fwrite("THEJOB1\n", 1, 8, f) == 8 && tool_write_uint(f, (uint32_t)mode) &&
-        tool_write_uint(f, (uint32_t)r->argc) && tool_write_bytes(f, image, strlen(image)) &&
-        tool_write_bytes(f, sdk, strlen(sdk)) &&
-        tool_write_bytes(f, r->filename, strlen(r->filename)) &&
-        tool_write_bytes(f, r->source, r->source_length);
-   for (i = 0; i < r->argc && ok; i++)
-      ok = tool_write_bytes(f, r->argv[i], strlen(r->argv[i]));
+   if (job.native_process)
+      ok = !r->source_length || fwrite(r->source, 1, r->source_length, f) == r->source_length;
+   else {
+      ok = fwrite("THEJOB1\n", 1, 8, f) == 8 && tool_write_uint(f, (uint32_t)mode) &&
+           tool_write_uint(f, (uint32_t)r->argc) && tool_write_bytes(f, image, strlen(image)) &&
+           tool_write_bytes(f, sdk, strlen(sdk)) &&
+           tool_write_bytes(f, r->filename, strlen(r->filename)) &&
+           tool_write_bytes(f, r->source, r->source_length);
+      for (i = 0; i < r->argc && ok; i++)
+         ok = tool_write_bytes(f, r->argv[i], strlen(r->argv[i]));
+   }
    if (fclose(f))
       ok = 0;
    if (!ok)
@@ -499,9 +783,14 @@ static int start(const TheToolRequest *r, char *error, size_t cap) {
    SetHandleInformation(job.in, HANDLE_FLAG_INHERIT, 0);
    SetHandleInformation(job.out, HANDLE_FLAG_INHERIT, 0);
    SetHandleInformation(job.err, HANDLE_FLAG_INHERIT, 0);
-   snprintf(path, sizeof(path), "\"%s\" \"%s\"", helper, job.directory);
-   command = wide(path);
-   exe = wide(helper);
+   if (job.native_process) {
+      command = native_command(r->tool.image, path, r->argc, r->argv);
+      exe = wide(r->tool.image);
+   } else {
+      snprintf(path, sizeof(path), "\"%s\" \"%s\"", helper, job.directory);
+      command = wide(path);
+      exe = wide(helper);
+   }
    si.cb = sizeof(si);
    si.dwFlags = STARTF_USESTDHANDLES;
    si.hStdInput = child_in;
@@ -540,6 +829,15 @@ static int start(const TheToolRequest *r, char *error, size_t cap) {
    ResumeThread(pi.hThread);
    CloseHandle(pi.hThread);
 #else
+   if (job.native_process) {
+      native_argv[0] = (char *)r->tool.image;
+      native_argv[1] = path;
+      for (i = 0; i < r->argc; i++)
+         native_argv[i + 2] = (char *)r->argv[i];
+      native_argv[r->argc + 2] = NULL;
+      if (pipe(exec_error) || fcntl(exec_error[1], F_SETFD, FD_CLOEXEC) < 0)
+         goto failed;
+   }
    if (socketpair(AF_UNIX, SOCK_STREAM, 0, ins) || pipe(outs) || pipe(errs))
       goto failed;
    job.pid = fork();
@@ -556,13 +854,37 @@ static int start(const TheToolRequest *r, char *error, size_t cap) {
       close(outs[1]);
       close(errs[0]);
       close(errs[1]);
-      execl(helper, helper, job.directory, (char *)NULL);
+      if (job.native_process) {
+         int failure;
+         close(exec_error[0]);
+         execv(r->tool.image, native_argv);
+         failure = errno;
+         (void)write(exec_error[1], &failure, sizeof(failure));
+      } else
+         execl(helper, helper, job.directory, (char *)NULL);
       _exit(127);
    }
    setpgid(job.pid, job.pid);
-   close(ins[0]);
-   close(outs[1]);
-   close(errs[1]);
+   close_fd(ins);
+   close_fd(outs + 1);
+   close_fd(errs + 1);
+   if (job.native_process) {
+      int failure = 0;
+      ssize_t got;
+      close_fd(exec_error + 1);
+      do {
+         got = read(exec_error[0], &failure, sizeof(failure));
+      } while (got < 0 && errno == EINTR);
+      close_fd(exec_error);
+      if (got != 0) {
+         int saved = got > 0 ? failure : errno;
+         kill(-job.pid, SIGKILL);
+         while (waitpid(job.pid, NULL, 0) < 0 && errno == EINTR) {}
+         job.exited = 1;
+         errno = saved;
+         goto failed;
+      }
+   }
    job.in = ins[1];
    job.out = outs[0];
    job.err = errs[0];
@@ -583,6 +905,12 @@ static int start(const TheToolRequest *r, char *error, size_t cap) {
    the_tool_started(r->id);
    return 1;
 failed:
+#ifdef _WIN32
+   if (job.native_process)
+      snprintf(error, cap, "Cannot start native process: Windows error %lu, errno %d",
+               (unsigned long)GetLastError(), errno);
+   else
+#endif
    snprintf(error, cap, "Cannot start native tool: %s", strerror(errno));
 #ifdef _WIN32
    free(command);
@@ -600,6 +928,8 @@ failed:
       close_handle(&job.group);
    }
 #else
+   close_fd(exec_error);
+   close_fd(exec_error + 1);
    for (i = 0; i < 2; i++) {
       if (ins[i] >= 0)
          close(ins[i]);

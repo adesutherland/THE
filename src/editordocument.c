@@ -71,6 +71,8 @@ int the_editor_document_inspection_command(const char *command)
    q=p;
    if(word(&q,"WORKBENCH",9)) {
       const char *form=q,*operation=q;
+      if(word(&operation,"FILE",4) && word(&operation,"INSPECT",7)) return 1;
+      operation=q;
       if(word(&operation,"PANEL",5) && (word(&operation,"SET",3) || word(&operation,"APPLY",5) || word(&operation,"CANCEL",6) || word(&operation,"RELOAD",6) || word(&operation,"SHOW",4) || word(&operation,"HIDE",4) || word(&operation,"FOCUS",5))) return 1;
       if(word(&q,"FIELD",5) && word(&q,"SET",3)) return 1;
       q=form;

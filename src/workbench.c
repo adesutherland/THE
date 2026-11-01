@@ -3,6 +3,7 @@
 #include "workbenchdocument.h"
 #include "workbenchform.h"
 #include "workbenchfilefields.h"
+#include "workbenchfileio.h"
 #include <inttypes.h>
 
 #include <ctype.h>
@@ -420,9 +421,18 @@ short the_workbench_remove_panel(const char *id)
 short the_workbench_put_route(const TheWorkbenchRoute *value)
 {
    TheWorkbenchRoute r; int i; short rc=require_transaction(); if (rc) return rc;
-   if (!value || !valid_id(value->id) || !valid_id(value->tool) || !valid_id(value->model)
-   || (value->stream != 1 && value->stream != 2)) return invalid();
-   if (!strncmp(value->id,"the.",4) || !strncmp(value->model,"the.",4)) return denied();
+   if (!value || !valid_id(value->id) || !valid_id(value->tool)
+   || value->kind<THE_WORKBENCH_ROUTE_LOG || value->kind>THE_WORKBENCH_ROUTE_FILE_OUTPUT) return invalid();
+   if(value->kind==THE_WORKBENCH_ROUTE_LOG) {
+      if(!valid_id(value->model) || (value->stream!=1 && value->stream!=2)) return invalid();
+      if(!strncmp(value->model,"the.",4)) return denied();
+   } else {
+      if(!memchr(value->path,0,sizeof(value->path)) || !value->path[0]
+      || (value->kind==THE_WORKBENCH_ROUTE_FILE_INPUT ? value->stream!=0 : (value->stream!=1 && value->stream!=2))) return invalid();
+      if(the_workbench_restricted() || !the_workbench_fileio_supported())
+         return definition_result("unsupported-feature",WB_ENVIRON,"Native FILE routes are unavailable in this host");
+   }
+   if (!strncmp(value->id,"the.",4)) return denied();
    i=route_index(&draft,value->id);
    if (i >= 0 && (rc=owned(draft.routes[i].owner))) return rc;
    if ((i < 0 && draft.nroutes == THE_WORKBENCH_ROUTE_MAX) || generation == LONG_MAX) return limit();
@@ -569,14 +579,22 @@ static short validate(WorkbenchGraph *g)
       const TheWorkbenchModelState *m=the_workbench_model_state(r->model);
       const char *owner=m ? m->owner : NULL;
       TheWorkbenchToolInfo info; size_t k;
-      for (k=0;k<g->npanels;k++) if (!strcmp(g->panels[k].model,r->model)) { owner=g->panels[k].owner; break; }
-      if (!owner) return definition_result("missing-object",5,"Route refers to a missing log model");
-      if (!reference_allowed(r->owner,owner)) return denied();
+      if(r->kind==THE_WORKBENCH_ROUTE_LOG) {
+         for (k=0;k<g->npanels;k++) if (!strcmp(g->panels[k].model,r->model)) { owner=g->panels[k].owner; break; }
+         if (!owner) return definition_result("missing-object",5,"Route refers to a missing log model");
+         if (!reference_allowed(r->owner,owner)) return denied();
+      }
       if (!the_workbench_tool_info(r->tool,&info)) return definition_result("missing-object",5,"Route refers to an unknown tool");
       if (!info.role || (strcmp(info.role,"runner") && strcmp(info.role,"program") && strcmp(info.role,"compiler")))
          return definition_result("unsupported-feature",-3,"Only program stdout/stderr log routes are supported");
-      for (k=0;k<n;k++) if (!strcmp(g->routes[k].tool,r->tool) && g->routes[k].stream == r->stream)
-         return definition_result("object-in-use",-3,"A tool stream already has a primary log route");
+      if(r->kind!=THE_WORKBENCH_ROUTE_LOG) {
+         static char path_error[256];
+         const char *code=the_workbench_fileio_check(r->path,r->kind==THE_WORKBENCH_ROUTE_FILE_OUTPUT,0,path_error,sizeof(path_error));
+         if(strcmp(code,"ok")) return definition_result(code,!strcmp(code,"invalid-operand")?5:-3,path_error);
+      }
+      for (k=0;k<n;k++) if (!strcmp(g->routes[k].tool,r->tool)
+      && ((g->routes[k].kind==r->kind && (r->kind==THE_WORKBENCH_ROUTE_FILE_OUTPUT || g->routes[k].stream==r->stream))))
+         return definition_result("object-in-use",-3,"A tool already has that input, output file or primary log route");
    }
    return 0;
 }
@@ -687,6 +705,13 @@ int the_workbench_json(char *out, size_t len, const char *section, size_t offset
    Json j; const WorkbenchGraph *g; size_t n,total,end; int type;
    initialize();
    if (!out || !len || !count || count > THE_WORKBENCH_PAGE_MAX) return 0;
+   if(section && !strcmp(section,"FILEIO")) {
+      if(the_workbench_restricted()) {
+         int n=snprintf(out,len,"{\"schemaVersion\":1,\"section\":\"FILEIO\",\"available\":false,\"create\":false,\"replace\":false,\"append\":false,\"code\":\"unsupported-feature\"}");
+         return n>=0 && (size_t)n<len;
+      }
+      return the_workbench_fileio_json(out,len);
+   }
    out[0]=0; j.out=out; j.len=len; j.used=0; j.good=1;
    g=candidate && activating ? &activation : &published;
    if (!section || !*section || !strcmp(section,"SUMMARY")) type=0;
@@ -717,6 +742,10 @@ int the_workbench_json(char *out, size_t len, const char *section, size_t offset
    else if (type == 1)
    {
       js(&j,",\"actions\":true,\"menus\":true,\"panels\":true,\"logPanels\":true,\"documentPanels\":true,\"forms\":true,\"editableFileFields\":true,\"routes\":true,\"tools\":false");
+      js(&j,",\"fileInput\":%s,\"fileCreate\":%s,\"fileReplace\":false,\"fileAppend\":false,\"fileWorkspace\":",
+         !the_workbench_restricted() && the_workbench_fileio_supported()?"true":"false",
+         !the_workbench_restricted() && the_workbench_fileio_supported()?"true":"false");
+      jq(&j,the_workbench_restricted()?"":the_workbench_fileio_workspace());
       json_limits(&j); js(&j,"}");
    }
    else
@@ -786,7 +815,15 @@ int the_workbench_json(char *out, size_t len, const char *section, size_t offset
             const TheWorkbenchModelState *model=the_workbench_model_state(r->model);
             TheWorkbenchToolInfo info; int available=the_workbench_tool_info(r->tool,&info) && info.available;
             js(&j,"{\"id\":"); jq(&j,r->id); js(&j,",\"owner\":"); jq(&j,r->owner); js(&j,",\"generation\":%lu,\"tool\":",r->generation); jq(&j,r->tool);
-            js(&j,",\"stream\":"); jq(&j,r->stream == 1 ? "stdout" : "stderr"); js(&j,",\"model\":"); jq(&j,r->model);
+            js(&j,",\"stream\":"); jq(&j,r->stream == 0 ? "stdin" : r->stream == 1 ? "stdout" : "stderr");
+            if(r->kind!=THE_WORKBENCH_ROUTE_LOG) {
+               char reason[256];const char *code=the_workbench_fileio_check(r->path,r->kind==THE_WORKBENCH_ROUTE_FILE_OUTPUT,1,reason,sizeof(reason));
+               js(&j,",\"kind\":");jq(&j,r->kind==THE_WORKBENCH_ROUTE_FILE_INPUT?"file-input":"file-output");
+               js(&j,",\"path\":");jq(&j,r->path);js(&j,",\"format\":\"bytes\",\"mode\":");jq(&j,r->kind==THE_WORKBENCH_ROUTE_FILE_INPUT?"finite":"create");
+               js(&j,",\"available\":%s,\"reason\":",available && !the_workbench_restricted() && the_workbench_fileio_supported() && !strcmp(code,"ok")?"true":"false");
+               jq(&j,the_workbench_restricted()?"unsupported-feature":!available?"capability-unavailable":code);js(&j,"}");continue;
+            }
+            js(&j,",\"model\":"); jq(&j,r->model);
             js(&j,",\"modelGeneration\":\"%" PRIu64 "\",\"available\":%s,\"lastError\":",model ? model->generation : 0,available ? "true" : "false"); jq(&j,model ? log_result_code(model->last_error) : "activation-pending"); js(&j,"}");
          }
          else if(type==8)

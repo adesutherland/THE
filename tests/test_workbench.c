@@ -1,5 +1,6 @@
 #include "workbench.h"
 #include "workbenchruntime.h"
+#include "workbenchfileio.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -213,6 +214,25 @@ int main(void)
    the_workbench_begin("public.browser"); a = action("public.command");
    check(the_workbench_put_action(&a) == -3,"typed API cannot bypass restricted policy"); code("policy-denied");
    the_workbench_abort(); restricted = 0;
+   {
+      TheWorkbenchRoute route={0};
+      (void)the_workbench_fileio_initialize(".");
+      strcpy(route.id,"public.file");strcpy(route.tool,"classic-rexx");strcpy(route.path,"never-created-by-definition.bin");
+      route.kind=THE_WORKBENCH_ROUTE_FILE_OUTPUT;route.stream=1;
+      restricted=1;the_workbench_begin("public.fileowner");
+      check(the_workbench_put_route(&route)==-3,"restricted host refuses native FILE route through typed API");code("unsupported-feature");
+      check(the_workbench_json(json,sizeof(json),"CAPABILITIES",0,8,0) && strstr(json,"\"fileCreate\":false"),"restricted host advertises FILE unavailable");
+      check(the_workbench_json(json,sizeof(json),"FILEIO",0,8,0) && strstr(json,"\"available\":false") && !strstr(json,"\"workspace\""),"restricted host exposes no native path authority");
+      the_workbench_abort();restricted=0;
+      if(the_workbench_fileio_supported()) {
+         the_workbench_set_tool_lookup(tool_lookup,NULL);the_workbench_begin("public.fileowner");
+         check(the_workbench_put_route(&route)==0 && the_workbench_commit()==0,"publish FILE template without creating target");
+         check(the_workbench_json(json,sizeof(json),"ROUTES",0,8,0) && strstr(json,"\"kind\":\"file-output\"") && strstr(json,"\"mode\":\"create\""),"FILE route typed inspection");
+         the_workbench_begin("public.fileowner");strcpy(route.id,"public.secondfile");route.stream=2;
+         check(the_workbench_put_route(&route)==0 && the_workbench_commit()==-3,"one FILE output sink per tool");code("object-in-use");the_workbench_abort();
+         the_workbench_begin("public.fileowner");check(the_workbench_remove_route("public.file")==0 && the_workbench_commit()==0,"remove FILE template");
+      }
+   }
    the_workbench_begin("public.quota");
    for (gen = 0; gen < THE_WORKBENCH_ACTION_MAX - 6; gen++)
    {

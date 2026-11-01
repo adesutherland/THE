@@ -21,6 +21,7 @@ typedef struct {
    size_t source_length;
    int argc;
    const char *const *argv;
+   int finite_input; /* Host-owned: require complete queued stdin and EOF. */
 } TheToolRequest;
 typedef struct {
    int (*start)(const TheToolRequest *, char *, size_t);
@@ -45,6 +46,17 @@ typedef struct {
                 const void *bytes, size_t length);
    void (*end)(void *binding, unsigned job_id);
 } TheToolObserver;
+/* Optional exact-byte IO owner, independent of the decoded log observer.
+ * begin runs before the backend starts and may supply immutable finite stdin.
+ * raw runs before decoding. end is called exactly once after every successful
+ * begin, including failed start/Stop/reset; success requires drained streams,
+ * runtime/status zero and no condition. It must release the binding and may
+ * refuse publication. No callback may reenter this host. */
+typedef struct {
+   int (*begin)(unsigned,const char *,void **,const void **,size_t *,int *,char *,size_t);
+   int (*raw)(void *,unsigned,int,const void *,size_t,char *,size_t);
+   int (*end)(void *,unsigned,int,char *,size_t);
+} TheToolIO;
 typedef struct {
    int fd;
    char *text;
@@ -66,6 +78,7 @@ void the_tool_host_adapter(const TheToolAdapter *adapter);
  * refused while a job/binding is active; reset stops and releases before
  * clearing the observer configuration. */
 int the_tool_host_observer(const TheToolObserver *observer);
+int the_tool_host_io(const TheToolIO *io);
 int the_tool_register(const TheToolDefinition *tool);
 const TheToolDefinition *the_tool_find(const char *id);
 const TheToolDefinition *the_tool_at(size_t index);

@@ -42,6 +42,7 @@
 #include "frontendpolicy.h"
 #include "thedriver.h"
 #include "workbench.h"
+#include "workbenchfileio.h"
 #include "workbenchdocument.h"
 #include "utfterm.h"
 #include <time.h>
@@ -411,6 +412,9 @@ int main(int argc, char *argv[])
    TheDriverStartupOptions driver_startup_options;
    char driver_error[4096];
    char frontend_policy_error[512];
+
+   (void)the_workbench_fileio_initialize(".");
+   the_tools_fileio_initialize();
 
    if (argc == 2 && strcmp(argv[1],"--version") == 0)
    {

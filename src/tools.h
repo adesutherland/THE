@@ -3,6 +3,7 @@
 #include "inputevent.h"
 #include "toolhost.h"
 void the_tools_initialise(const TheToolAdapter *adapter, int available);
+void the_tools_fileio_initialize(void);
 int the_tools_prepare_lines(const char *, const char *, const char *, const char *,
                             TheInputEvent *);
 int the_tools_prepare_input(const char *action, const char *tool, const char *text, int argc,

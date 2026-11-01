@@ -30,6 +30,11 @@ and submitted results. The [phase-3B edit-group guide](workbench-edit-groups.md)
 describes conditional same-line apply/undo, its separate write token, and the
 native parser pause boundary. The bounded [CTLCHAR file-field projection](workbench-file-fields.md)
 uses that service for Apply; the conservative read epoch is not an apply token.
+The initial [native FILE route increment](workbench-file-io.md) implements
+exact-byte finite stdin and one staged atomic `CREATE` sink on native POSIX.
+It is limited to the canonical startup workspace and refuses every output
+target open in the editor. `REPLACE`, `APPEND`, Windows and browser file routes
+remain unavailable; the complete phase-4 acceptance gate is still separate.
 
 The implementation's invocation generation guard uses `INVOKE id EXPECT n`;
 macro argument vectors are not implemented in phase 1. Examples and wider object
