@@ -144,11 +144,30 @@ static void log_panels(void)
    restricted=0; the_workbench_reset();
 }
 
+static void native_arguments(void)
+{
+   TheWorkbenchArguments args={0};char value[2049];
+   memset(value,'a',2048);value[2048]=0;
+   check(the_workbench_arguments_append(&args,value),"native argv first 2048");
+   check(the_workbench_arguments_append(&args,value),"native argv second 2048");
+   check(the_workbench_arguments_append(&args,value),"native argv third 2048");
+   value[2044]=0;
+   check(the_workbench_arguments_append(&args,value),"native joined argv exactly 8191");
+   check(the_workbench_arguments_valid(&args),"native exact-bound argv validates");
+   check(!the_workbench_arguments_append(&args,""),"native extra empty ARG exceeds joined bound");
+   args.bytes[sizeof(args.bytes)-1]='x';
+   check(!the_workbench_arguments_valid(&args),"native unterminated packed argv refuses");
+   memset(&args,0,sizeof(args));
+   check(the_workbench_arguments_append(&args,""),"native empty argv remains an entry");
+   check(args.argc==1 && !args.bytes[0],"native empty argv count");
+   check(!the_workbench_arguments_append(&args,"\xc0\x80"),"native malformed UTF8 argv refuses");
+}
 int main(void)
 {
    TheWorkbenchAction a = action("user.action");
    TheWorkbenchMenu m = {0}; TheWorkbenchItem item = {0};
    unsigned long rev, gen; char json[THE_WORKBENCH_JSON_MAX];
+   native_arguments();
    the_workbench_reset(); rev = the_workbench_revision();
    check(the_workbench_action_count() == 6,"builtin registry");
    strcpy(m.id,"user.menu"); strcpy(m.label,"Menu");

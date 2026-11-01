@@ -34,10 +34,11 @@ typedef struct
    TheWorkbenchItem items[THE_WORKBENCH_ITEM_MAX];
    TheWorkbenchPanel panels[THE_WORKBENCH_PANEL_MAX];
    TheWorkbenchRoute routes[THE_WORKBENCH_ROUTE_MAX];
+   TheWorkbenchTool tools[THE_WORKBENCH_TOOL_MAX];
    TheWorkbenchForm forms[THE_WORKBENCH_FORM_MAX];
    TheWorkbenchField fields[THE_WORKBENCH_FIELD_MAX];
    WorkbenchOwner owners[THE_WORKBENCH_OWNER_MAX];
-   size_t nactions, nmenus, nitems, nowners, npanels, nroutes,nforms,nfields;
+   size_t nactions, nmenus, nitems, nowners, npanels, nroutes,nforms,nfields,ntools;
 } WorkbenchGraph;
 
 static WorkbenchGraph published, activation, draft;
@@ -48,6 +49,7 @@ static char context[THE_WORKBENCH_OPERAND_MAX + 1];
 static unsigned long revision, generation;
 static TheWorkbenchToolLookup tool_lookup;
 static void *tool_lookup_context;
+static TheWorkbenchNativeToolResolver native_tool_resolver;
 static TheWorkbenchResult last_result = { "ok", "", 0, 0 };
 
 static int valid_id(const char *s)
@@ -89,6 +91,55 @@ static int valid_text(const char *s, size_t max, int empty)
 
 static int action_index(const WorkbenchGraph *g, const char *id)
 { size_t i; for (i = 0; i < g->nactions; i++) if (!strcmp(g->actions[i].id,id)) return (int)i; return -1; }
+static int tool_index(const WorkbenchGraph *g,const char *id)
+{ size_t i; for(i=0;i<g->ntools;i++) if(!strcmp(g->tools[i].id,id)) return (int)i; return -1; }
+int the_workbench_arguments_valid(const TheWorkbenchArguments *args)
+{
+   size_t i,used=0,joined=0;
+   if(!args || args->argc>THE_WORKBENCH_ARG_MAX) return 0;
+   for(i=0;i<args->argc;i++) {
+      const char *end;
+      if(args->offsets[i]!=used || used>=sizeof(args->bytes)
+      || !(end=memchr(args->bytes+used,0,sizeof(args->bytes)-used))
+      || !valid_text(args->bytes+used,THE_WORKBENCH_OPERAND_MAX,1)) return 0;
+      if((size_t)(end-(args->bytes+used))+(i?1u:0u)>8191u-joined) return 0;
+      joined+=(size_t)(end-(args->bytes+used))+(i?1u:0u);
+      used=(size_t)(end-args->bytes)+1;
+   }
+   return 1;
+}
+int the_workbench_arguments_append(TheWorkbenchArguments *args,const char *value)
+{
+   size_t used,length;
+   if(!the_workbench_arguments_valid(args) || args->argc==THE_WORKBENCH_ARG_MAX
+   || !valid_text(value,THE_WORKBENCH_OPERAND_MAX,1)) return 0;
+   used=args->argc ? args->offsets[args->argc-1]+strlen(args->bytes+args->offsets[args->argc-1])+1 : 0;
+   length=strlen(value)+1;
+   if(length>sizeof(args->bytes)-used) return 0;
+   args->offsets[args->argc++]=(unsigned short)used;
+   memcpy(args->bytes+used,value,length); return 1;
+}
+const char *the_workbench_native_host_reason(void)
+{
+#if defined(__EMSCRIPTEN__) || defined(THE_WASM)
+   return "unsupported-host";
+#else
+   if(the_workbench_restricted()) return "policy-denied";
+#if defined(__APPLE__) && (defined(__arm64__) || defined(__aarch64__))
+   return "ok";
+#else
+   return "unsupported-host";
+#endif
+#endif
+}
+void the_workbench_set_native_tool_resolver(TheWorkbenchNativeToolResolver resolver)
+{ native_tool_resolver=resolver; }
+const char *the_workbench_native_tool_reason(const TheWorkbenchTool *tool)
+{
+   const char *host=the_workbench_native_host_reason();
+   if(strcmp(host,"ok")) return host;
+   return tool && native_tool_resolver ? native_tool_resolver(tool) : "capability-unavailable";
+}
 static int menu_index(const WorkbenchGraph *g, const char *id)
 { size_t i; for (i = 0; i < g->nmenus; i++) if (!strcmp(g->menus[i].id,id)) return (int)i; return -1; }
 static int item_index(const WorkbenchGraph *g, const char *id)
@@ -107,7 +158,19 @@ static int field_index(const WorkbenchGraph *g,const char *form,const char *id)
 void the_workbench_set_tool_lookup(TheWorkbenchToolLookup lookup,void *context)
 { tool_lookup=lookup; tool_lookup_context=context; }
 int the_workbench_tool_info(const char *id,TheWorkbenchToolInfo *out)
-{ return tool_lookup && id && out ? tool_lookup(id,out,tool_lookup_context) : 0; }
+{
+   const TheWorkbenchTool *native=id ? the_workbench_tool_find(id) : NULL;
+   if(!out) return 0;
+   if(native) { out->role="runner";out->available=!strcmp(the_workbench_native_tool_reason(native),"ok");return 1; }
+   return tool_lookup && id ? tool_lookup(id,out,tool_lookup_context) : 0;
+}
+static int graph_tool_info(const WorkbenchGraph *g,const char *id,TheWorkbenchToolInfo *out)
+{
+   int i=tool_index(g,id);
+   if(i>=0) { out->role="runner";out->available=!strcmp(the_workbench_native_tool_reason(g->tools+i),"ok");return 1; }
+   if(tool_index(&published,id)>=0 || (activating && tool_index(&activation,id)>=0)) return 0;
+   return tool_lookup ? tool_lookup(id,out,tool_lookup_context) : 0;
+}
 
 static void initialize(void)
 {
@@ -186,6 +249,10 @@ size_t the_workbench_menu_count(void) { initialize(); return published.nmenus; }
 size_t the_workbench_item_count(void) { initialize(); return published.nitems; }
 size_t the_workbench_panel_count(void) { initialize(); return published.npanels; }
 size_t the_workbench_route_count(void) { initialize(); return published.nroutes; }
+size_t the_workbench_tool_count(void) { initialize();return published.ntools; }
+const TheWorkbenchTool *the_workbench_tool_at(size_t i) { initialize();return i<published.ntools ? published.tools+i : NULL; }
+const TheWorkbenchTool *the_workbench_tool_find(const char *id)
+{ int i;initialize();i=id ? tool_index(&published,id) : -1;return i>=0 ? published.tools+i : NULL; }
 size_t the_workbench_form_count(void) { initialize(); return published.nforms; }
 size_t the_workbench_field_count(void) { initialize(); return published.nfields; }
 const TheWorkbenchForm *the_workbench_form_at(size_t i) { initialize(); return i<published.nforms ? published.forms+i : NULL; }
@@ -207,7 +274,7 @@ const TheWorkbenchAction *the_workbench_action_find(const char *id)
 { int i; initialize(); i = id ? action_index(&published,id) : -1; return i >= 0 ? &published.actions[i] : NULL; }
 const TheWorkbenchResult *the_workbench_last_result(void) { initialize(); return &last_result; }
 const char *the_workbench_action_kind_name(TheWorkbenchActionKind kind)
-{ switch (kind) { case THE_WORKBENCH_ACTION_BUILTIN: return "builtin"; case THE_WORKBENCH_ACTION_COMMAND: return "command"; case THE_WORKBENCH_ACTION_MACRO: return "macro"; case THE_WORKBENCH_ACTION_PANEL: return "panel"; default: return "unsupported"; } }
+{ switch (kind) { case THE_WORKBENCH_ACTION_BUILTIN: return "builtin"; case THE_WORKBENCH_ACTION_COMMAND: return "command"; case THE_WORKBENCH_ACTION_MACRO: return "macro"; case THE_WORKBENCH_ACTION_PANEL: return "panel"; case THE_WORKBENCH_ACTION_TOOL:return "tool"; default: return "unsupported"; } }
 int the_workbench_transaction_active(void) { return transaction; }
 int the_workbench_activation_active(void) { return activating; }
 
@@ -245,6 +312,39 @@ static short require_transaction(void)
 static short owned(const char *owner)
 { return !strcmp(owner,transaction_owner) ? 0 : denied(); }
 
+short the_workbench_put_tool(const TheWorkbenchTool *value)
+{
+   TheWorkbenchTool tool; TheWorkbenchToolInfo legacy; int i;
+   const char *host=the_workbench_native_host_reason();
+   short rc=require_transaction();if(rc) return rc;
+   if(strcmp(host,"ok")) return definition_result(host,WB_ENVIRON,"Native process declarations are unavailable in this host/session");
+   if(!value || !valid_id(value->id)
+   || !valid_text(value->executable,sizeof(value->executable)-1,0)
+   || !(value->executable[0]=='/' || (isalpha((unsigned char)value->executable[0])
+        && value->executable[1]==':' && (value->executable[2]=='/' || value->executable[2]=='\\'))
+        || (value->executable[0]=='\\' && value->executable[1]=='\\'))) return invalid();
+   if(!strncmp(value->id,"the.",4)) return denied();
+   if(!strcmp(value->id,"classic-rexx") || !strcmp(value->id,"rxbin")
+   || !strcmp(value->id,"profile-compiler") || !strcmp(value->id,"classic-highlight"))
+      return definition_result("object-in-use",WB_ENVIRON,"A builtin RX tool owns that ID");
+   i=tool_index(&draft,value->id);
+   if(i>=0 && (rc=owned(draft.tools[i].owner))) return rc;
+   if(tool_lookup && tool_lookup(value->id,&legacy,tool_lookup_context))
+      return definition_result("object-in-use",WB_ENVIRON,"A legacy RX tool already owns that ID");
+   if((i<0 && draft.ntools==THE_WORKBENCH_TOOL_MAX) || generation==LONG_MAX) return limit();
+   tool=*value;strcpy(tool.owner,transaction_owner);tool.generation=++generation;
+   if(i<0) i=(int)draft.ntools++;
+   draft.tools[i]=tool;return ok();
+}
+short the_workbench_remove_tool(const char *id)
+{
+   int i;short rc=require_transaction();if(rc) return rc;
+   if(!valid_id(id)) return invalid();if(!strncmp(id,"the.",4)) return denied();
+   i=tool_index(&draft,id);if(i<0) return ok();
+   if((rc=owned(draft.tools[i].owner))) return rc;
+   memmove(draft.tools+i,draft.tools+i+1,(--draft.ntools-(size_t)i)*sizeof(draft.tools[0]));return ok();
+}
+
 short the_workbench_put_action(const TheWorkbenchAction *value)
 {
    TheWorkbenchAction a;
@@ -255,6 +355,10 @@ short the_workbench_put_action(const TheWorkbenchAction *value)
    if (!value || !valid_id(value->id) || !valid_text(value->label,THE_WORKBENCH_LABEL_MAX,0)
    || !valid_text(value->operand,THE_WORKBENCH_OPERAND_MAX,1)) return invalid();
    if (!strncmp(value->id,"the.",4)) return denied();
+   if(value->kind==THE_WORKBENCH_ACTION_TOOL) {
+      const char *host=the_workbench_native_host_reason();
+      if(strcmp(host,"ok")) return definition_result(host,WB_ENVIRON,"Native tool actions are unavailable in this host/session");
+   }
    if (the_workbench_restricted() && value->kind != THE_WORKBENCH_ACTION_BUILTIN
    && value->kind != THE_WORKBENCH_ACTION_PANEL)
       return definition_result("policy-denied",WB_ENVIRON,"Restricted sessions may define only typed builtin actions");
@@ -268,6 +372,9 @@ short the_workbench_put_action(const TheWorkbenchAction *value)
    {
       if (!valid_id(value->panel) || value->operand[0]
       || value->panel_operation < THE_WORKBENCH_PANEL_SHOW || value->panel_operation > THE_WORKBENCH_PANEL_FOCUS) return invalid();
+   }
+   else if(value->kind==THE_WORKBENCH_ACTION_TOOL) {
+      if(!valid_id(value->tool) || value->operand[0] || !the_workbench_arguments_valid(&value->arguments)) return invalid();
    }
    else if (value->kind != THE_WORKBENCH_ACTION_COMMAND && value->kind != THE_WORKBENCH_ACTION_MACRO)
       return definition_result("unsupported-feature",WB_ENVIRON,"This action kind is not implemented");
@@ -497,6 +604,8 @@ short the_workbench_remove_form(const char *id)
 static void remove_owner(WorkbenchGraph *g, const char *owner)
 {
    size_t n;
+   for(n=g->ntools;n>0;n--) if(!strcmp(g->tools[n-1].owner,owner))
+   { memmove(g->tools+n-1,g->tools+n,(g->ntools-n)*sizeof(g->tools[0]));g->ntools--; }
    for(n=g->nfields;n>0;n--) if(!strcmp(g->fields[n-1].owner,owner))
    { memmove(g->fields+n-1,g->fields+n,(g->nfields-n)*sizeof(g->fields[0])); g->nfields--; }
    for(n=g->nforms;n>0;n--) if(!strcmp(g->forms[n-1].owner,owner))
@@ -524,6 +633,20 @@ static int reference_allowed(const char *owner, const char *target)
 static short validate(WorkbenchGraph *g)
 {
    size_t n; int i;
+   for(n=0;n<g->ntools;n++) {
+      TheWorkbenchToolInfo legacy;
+      if(tool_lookup && tool_lookup(g->tools[n].id,&legacy,tool_lookup_context))
+         return definition_result("object-in-use",WB_ENVIRON,"A legacy RX tool claimed a candidate native tool ID");
+   }
+   for(n=0;n<g->nactions;n++) if(g->actions[n].kind==THE_WORKBENCH_ACTION_TOOL) {
+      const TheWorkbenchAction *a=g->actions+n;
+      i=tool_index(g,a->tool);
+      if(i<0) {
+         int existed=tool_index(activating ? &activation : &published,a->tool)>=0;
+         return definition_result(existed ? "object-in-use" : "missing-object",existed ? WB_ENVIRON : WB_INVALID,"Tool action refers to a missing native tool");
+      }
+      if(!reference_allowed(a->owner,g->tools[i].owner)) return denied();
+   }
    for(n=0;n<g->nfields;n++)
    {
       i=form_index(g,g->fields[n].form);
@@ -584,7 +707,12 @@ static short validate(WorkbenchGraph *g)
          if (!owner) return definition_result("missing-object",5,"Route refers to a missing log model");
          if (!reference_allowed(r->owner,owner)) return denied();
       }
-      if (!the_workbench_tool_info(r->tool,&info)) return definition_result("missing-object",5,"Route refers to an unknown tool");
+      if (!graph_tool_info(g,r->tool,&info)) {
+         int existed=tool_index(activating ? &activation : &published,r->tool)>=0;
+         return definition_result(existed?"object-in-use":"missing-object",existed?-3:5,"Route refers to an unknown tool");
+      }
+      i=tool_index(g,r->tool);
+      if(i>=0 && !reference_allowed(r->owner,g->tools[i].owner)) return denied();
       if (!info.role || (strcmp(info.role,"runner") && strcmp(info.role,"program") && strcmp(info.role,"compiler")))
          return definition_result("unsupported-feature",-3,"Only program stdout/stderr log routes are supported");
       if(r->kind!=THE_WORKBENCH_ROUTE_LOG) {
@@ -723,9 +851,10 @@ int the_workbench_json(char *out, size_t len, const char *section, size_t offset
    else if (!strcmp(section,"ROUTES")) type=6;
    else if (!strcmp(section,"LOGS")) type=7;
    else if (!strcmp(section,"FORMS")) type=8;
+   else if (!strcmp(section,"TOOLS")) type=9;
    else return 0;
    js(&j,"{\"schemaVersion\":1,\"revision\":%lu,\"section\":\"%s\"",revision,
-      type == 0 ? "summary" : type == 1 ? "capabilities" : type == 2 ? "actions" : type == 3 ? "menus" : type == 4 ? "items" : type == 5 ? "panels" : type == 6 ? "routes" : type==7 ? "logs" : "forms");
+      type == 0 ? "summary" : type == 1 ? "capabilities" : type == 2 ? "actions" : type == 3 ? "menus" : type == 4 ? "items" : type == 5 ? "panels" : type == 6 ? "routes" : type==7 ? "logs" : type==8 ? "forms" : "tools");
    if (type == 0)
    {
       const TheWorkbenchFocusRequest *focus=the_workbench_focus_request();
@@ -735,13 +864,18 @@ int the_workbench_json(char *out, size_t len, const char *section, size_t offset
          the_workbench_panel_state_revision(),transaction ? "true" : "false",activating ? "true" : "false");
       jq(&j,last_result.code); js(&j,",\"rc\":%d,\"message\":",last_result.rc); jq(&j,last_result.message); js(&j,"}");
       js(&j,",\"forms\":%lu,\"fields\":%lu,\"formStateRevision\":\"%" PRIu64 "\"",(unsigned long)g->nforms,(unsigned long)g->nfields,the_workbench_form_state_revision());
+      js(&j,",\"tools\":%lu",(unsigned long)g->ntools);
       js(&j,",\"focusRequest\":{\"serial\":%lu,\"panel\":",focus->serial); jq(&j,focus->panel);
       js(&j,",\"generation\":\"%lu\",\"restoring\":%s,\"previousPanel\":",focus->generation,focus->restoring ? "true" : "false"); jq(&j,focus->previous_panel); js(&j,",\"previousGeneration\":\"%lu\"}",focus->previous_generation);
       json_limits(&j); js(&j,"}");
    }
    else if (type == 1)
    {
-      js(&j,",\"actions\":true,\"menus\":true,\"panels\":true,\"logPanels\":true,\"documentPanels\":true,\"forms\":true,\"editableFileFields\":true,\"routes\":true,\"tools\":false");
+      js(&j,",\"actions\":true,\"menus\":true,\"panels\":true,\"logPanels\":true,\"documentPanels\":true,\"forms\":true,\"editableFileFields\":true,\"routes\":true,\"tools\":true");
+      js(&j,",\"nativeProcess\":%s,\"nativeProcessReason\":",!strcmp(the_workbench_native_host_reason(),"ok")?"true":"false");
+      jq(&j,the_workbench_native_host_reason());
+      js(&j,",\"nativeProcessQualification\":\"macos-arm64\",\"nativeSource\":\"snapshot\",\"nativeWorkingDirectory\":\"session\",\"nativeEnvironment\":\"inherit\",\"nativeEncoding\":\"captured-bytes-lf\",\"nativeIncludes\":\"interpreter-search-from-staged-source\",\"nativeCompletion\":\"process-exit-only\",\"nativeMacroInvocation\":false");
+      js(&j,",\"nativeLimits\":{\"tools\":32,\"argvEntries\":128,\"joinedArgvBytes\":8191,\"sourceBytes\":2097152,\"executableBytes\":2047}");
       js(&j,",\"fileInput\":%s,\"fileCreate\":%s,\"fileReplace\":false,\"fileAppend\":false,\"fileWorkspace\":",
          !the_workbench_restricted() && the_workbench_fileio_supported()?"true":"false",
          !the_workbench_restricted() && the_workbench_fileio_supported()?"true":"false");
@@ -750,7 +884,7 @@ int the_workbench_json(char *out, size_t len, const char *section, size_t offset
    }
    else
    {
-      total=type == 2 ? g->nactions : type == 3 ? g->nmenus : type == 4 ? g->nitems : type == 5 ? g->npanels : type == 6 ? g->nroutes : type==7 ? the_workbench_model_count() : g->nforms;
+      total=type == 2 ? g->nactions : type == 3 ? g->nmenus : type == 4 ? g->nitems : type == 5 ? g->npanels : type == 6 ? g->nroutes : type==7 ? the_workbench_model_count() : type==8 ? g->nforms : g->ntools;
       end=offset < total ? offset + (count < total-offset ? count : total-offset) : offset;
       js(&j,",\"total\":%lu,\"offset\":%lu,\"nextOffset\":",(unsigned long)total,(unsigned long)offset);
       if (end < total) js(&j,"%lu",(unsigned long)end); else js(&j,"null");
@@ -768,6 +902,10 @@ int the_workbench_json(char *out, size_t len, const char *section, size_t offset
             js(&j,",\"requiresArgument\":%s",a->kind == THE_WORKBENCH_ACTION_BUILTIN && the_frontend_action_definition(a->builtin) && the_frontend_action_definition(a->builtin)->requires_argument ? "true" : "false");
             if (a->kind == THE_WORKBENCH_ACTION_PANEL)
             { js(&j,",\"panel\":"); jq(&j,a->panel); js(&j,",\"operation\":"); jq(&j,a->panel_operation == THE_WORKBENCH_PANEL_SHOW ? "show" : a->panel_operation == THE_WORKBENCH_PANEL_HIDE ? "hide" : "focus"); }
+            if(a->kind==THE_WORKBENCH_ACTION_TOOL) {
+               js(&j,",\"tool\":");jq(&j,a->tool);
+               js(&j,",\"source\":\"active\",\"argumentCount\":%u",a->arguments.argc);
+            }
             js(&j,",\"enabled\":%s,\"reason\":",!strcmp(reason,"ok") ? "true" : "false"); jq(&j,reason); js(&j,"}");
          }
          else if (type == 3)
@@ -825,6 +963,14 @@ int the_workbench_json(char *out, size_t len, const char *section, size_t offset
             }
             js(&j,",\"model\":"); jq(&j,r->model);
             js(&j,",\"modelGeneration\":\"%" PRIu64 "\",\"available\":%s,\"lastError\":",model ? model->generation : 0,available ? "true" : "false"); jq(&j,model ? log_result_code(model->last_error) : "activation-pending"); js(&j,"}");
+         }
+         else if(type==9) {
+            const TheWorkbenchTool *tool=g->tools+n;
+            const char *reason=the_workbench_native_tool_reason(tool);
+            js(&j,"{\"id\":");jq(&j,tool->id);js(&j,",\"owner\":");jq(&j,tool->owner);
+            js(&j,",\"generation\":%lu,\"role\":\"runner\",\"adapter\":\"native-process\",\"source\":\"snapshot\",\"executable\":",tool->generation);jq(&j,tool->executable);
+            js(&j,",\"available\":%s,\"reason\":",!strcmp(reason,"ok")?"true":"false");jq(&j,reason);
+            js(&j,",\"completion\":\"process-exit-only\",\"joinedArgvBytes\":8191}");
          }
          else if(type==8)
          {

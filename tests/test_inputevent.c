@@ -5,6 +5,12 @@
 #include "inputevent.h"
 
 static int failures = 0;
+static uint64_t active_tool_document;
+static int tool_source(const char *id,uint64_t *document)
+{
+   if(strcmp(id,"public.tool")) return 0;
+   *document=active_tool_document;return 1;
+}
 
 static void expect_int(const char *name, int got, int want)
 {
@@ -221,10 +227,40 @@ static void test_resize(void)
    expect_int("resize.short", the_input_event_from_resize(0, 80, &event), 0);
    expect_int("resize.wide", the_input_event_from_resize(24, 1001, &event), 0);
 }
+static void test_queued_tool_source(void)
+{
+   TheInputQueue queue;
+   TheInputEvent event,popped;
+   uint64_t pinned=0;
+   the_input_queue_init(&queue);
+   the_input_workbench_source_lookup(tool_source);
+   active_tool_document=UINT64_C(0x1234567887654321);
+   the_input_event_from_command("next",&event);
+   expect_int("tool.queue.switch",the_input_queue_push(&queue,event),1);
+   expect_int("tool.queue.invoke",the_input_event_from_workbench_invoke("public.tool",7,NULL,&event),1);
+   expect_int("tool.queue.pin.present",the_input_event_workbench_source(&event,&pinned),1);
+   expect_int("tool.queue.pin.full64",pinned==active_tool_document,1);
+   expect_int("tool.queue.push",the_input_queue_push(&queue,event),1);
+   expect_int("tool.queue.pop.switch",the_input_queue_pop(&queue,&popped),1);
+   expect_str("tool.queue.switch.first",popped.command,"next");
+   active_tool_document=22; /* The queued switch runs before this TOOL event. */
+   expect_int("tool.queue.pop.invoke",the_input_queue_pop(&queue,&popped),1);
+   expect_int("tool.queue.pin.retained",the_input_event_workbench_source(&popped,&pinned),1);
+   expect_int("tool.queue.switch.is.stale",pinned!=active_tool_document,1);
+   expect_int("tool.queue.argument.absent",the_input_event_workbench_argument(&popped)==NULL,1);
+   expect_int("tool.queue.generation",the_input_event_workbench_generation(&popped)==7,1);
+   active_tool_document=0; /* Closed source cannot select another current file. */
+   expect_int("tool.queue.closed.is.stale",pinned!=active_tool_document,1);
+   expect_int("tool.ordinary.invoke",the_input_event_from_workbench_invoke("public.save",8,"name",&event),1);
+   expect_int("tool.ordinary.not.pinned",the_input_event_workbench_source(&event,&pinned),0);
+   expect_str("tool.ordinary.argument",the_input_event_workbench_argument(&event),"name");
+   the_input_workbench_source_lookup(NULL);
+}
 
 int main(void)
 {
    test_resize();
+   test_queued_tool_source();
    test_named_keys_and_text();
    test_legacy_key_normalization();
    test_commands_targets_debug_and_queue();

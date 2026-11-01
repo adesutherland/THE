@@ -16,6 +16,7 @@ release. CRXTHE is an independent fork based on Mark Hessling's THE 4.0.
 - [Independent forms, staged values and submitted results](workbench-forms.md)
 - [Staged CTLCHAR file fields](workbench-file-fields.md)
 - [Native FILE stdin and atomic CREATE output](workbench-file-io.md)
+- [Explicit native source tools and ooRexx qualification](workbench-native-tools.md)
 - [Atomic editor edit groups and conditional undo](workbench-edit-groups.md)
 - [Macro panels](panels.md)
 - [LLM protocol and agent workflows](llm-driver-agent-guide.md)

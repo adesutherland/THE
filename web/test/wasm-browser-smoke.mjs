@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import WebSocket from "ws";
 import { fileFieldSmoke } from "./wasm-file-fields.mjs";
+import { checkNativeToolPolicy } from "./native-tools-policy.mjs";
 
 const pageUrl = process.env.THE_WEB_URL;
 const chromium = process.env.CHROMIUM_BIN;
@@ -160,6 +161,19 @@ try {
   const send = (request) => evaluate(`window.__worker.postMessage(${JSON.stringify(request)})`);
   const snapshot = () => evaluate("window.__snapshot");
   const manifest = await (await fetch(new URL('manifest.json', pageUrl))).json();
+  const nativePolicyRequest = async request => {
+    const before = await evaluate("window.__messages.filter(m=>m.screen_rows).length");
+    await send(request);
+    await waitFor(() => evaluate(`window.__messages.filter(m=>m.screen_rows).length>${before}`), "native tool refusal snapshot");
+    return snapshot();
+  };
+  const nativePolicyInspect = async section => {
+    const before = await evaluate("window.__messages.length");
+    await send({type: "workbench", version: 1, operation: "list", section, offset: 0, limit: 8});
+    return waitFor(() => evaluate(`window.__messages.slice(${before}).find(m=>m.operation==='list'&&m.data?.section===${JSON.stringify(section.toLowerCase())})?.data`), "native tool refusal inspection");
+  };
+  await checkNativeToolPolicy(nativePolicyRequest, "unsupported-host", nativePolicyInspect);
+  console.log("PASS rebuilt Wasm native TOOL/action/RUN unsupported-host refusals preserve editor");
   if (process.env.THE_WASM_FILE_FIELDS_ONLY === "1") {
     await fileFieldSmoke({ send, evaluate, command, waitFor, snapshot });
     if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);

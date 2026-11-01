@@ -16,6 +16,9 @@
 #define THE_WORKBENCH_OWNER_MAX 32
 #define THE_WORKBENCH_PANEL_MAX 32
 #define THE_WORKBENCH_ROUTE_MAX 32
+#define THE_WORKBENCH_TOOL_MAX 32
+#define THE_WORKBENCH_ARG_MAX 128
+#define THE_WORKBENCH_ARG_BYTES 8192
 #define THE_WORKBENCH_FORM_MAX 32
 #define THE_WORKBENCH_FIELDS_PER_FORM_MAX 128
 #define THE_WORKBENCH_FIELD_MAX 512
@@ -29,7 +32,7 @@ typedef enum
    THE_WORKBENCH_ACTION_BUILTIN = 1,
    THE_WORKBENCH_ACTION_COMMAND,
    THE_WORKBENCH_ACTION_MACRO,
-   THE_WORKBENCH_ACTION_TOOL = 4, /* reserved until phase two */
+   THE_WORKBENCH_ACTION_TOOL = 4,
    THE_WORKBENCH_ACTION_PANEL = 5
 } TheWorkbenchActionKind;
 
@@ -66,6 +69,24 @@ typedef struct {
 
 typedef enum { THE_WORKBENCH_ROUTE_LOG=0, THE_WORKBENCH_ROUTE_FILE_INPUT,
    THE_WORKBENCH_ROUTE_FILE_OUTPUT } TheWorkbenchRouteKind;
+typedef struct {
+   unsigned argc;
+   unsigned short offsets[THE_WORKBENCH_ARG_MAX];
+   char bytes[THE_WORKBENCH_ARG_BYTES];
+} TheWorkbenchArguments;
+typedef struct {
+   char id[THE_WORKBENCH_ID_MAX+1], owner[THE_WORKBENCH_ID_MAX+1];
+   unsigned long generation;
+   char executable[THE_WORKBENCH_OPERAND_MAX];
+} TheWorkbenchTool;
+/* Packed argv includes terminators; its joined CLI representation is <=8191
+ * bytes. Values remain data, and quoted empty values remain actual argv. */
+int the_workbench_arguments_append(TheWorkbenchArguments *,const char *);
+int the_workbench_arguments_valid(const TheWorkbenchArguments *);
+const char *the_workbench_native_host_reason(void);
+typedef const char *(*TheWorkbenchNativeToolResolver)(const TheWorkbenchTool *);
+void the_workbench_set_native_tool_resolver(TheWorkbenchNativeToolResolver);
+const char *the_workbench_native_tool_reason(const TheWorkbenchTool *);
 typedef struct
 {
    char id[THE_WORKBENCH_ID_MAX + 1];
@@ -77,6 +98,8 @@ typedef struct
    char operand[THE_WORKBENCH_OPERAND_MAX + 1];
    char panel[THE_WORKBENCH_ID_MAX + 1];
    TheWorkbenchPanelOperation panel_operation;
+   char tool[THE_WORKBENCH_ID_MAX+1];
+   TheWorkbenchArguments arguments;
 } TheWorkbenchAction;
 
 typedef struct
@@ -153,6 +176,9 @@ size_t the_workbench_menu_count(void);
 size_t the_workbench_item_count(void);
 size_t the_workbench_panel_count(void);
 size_t the_workbench_route_count(void);
+size_t the_workbench_tool_count(void);
+const TheWorkbenchTool *the_workbench_tool_at(size_t);
+const TheWorkbenchTool *the_workbench_tool_find(const char *);
 const TheWorkbenchAction *the_workbench_action_at(size_t index);
 const TheWorkbenchAction *the_workbench_action_find(const char *id);
 const TheWorkbenchMenu *the_workbench_menu_at(size_t index);
@@ -189,6 +215,8 @@ short the_workbench_place_panel(const char *id, TheWorkbenchPlacement placement,
 short the_workbench_remove_panel(const char *id);
 short the_workbench_put_route(const TheWorkbenchRoute *route);
 short the_workbench_remove_route(const char *id);
+short the_workbench_put_tool(const TheWorkbenchTool *);
+short the_workbench_remove_tool(const char *);
 short the_workbench_put_form(const TheWorkbenchForm *form);
 short the_workbench_remove_form(const char *id);
 short the_workbench_put_field(const TheWorkbenchField *field);
@@ -214,6 +242,7 @@ short the_workbench_command(const char *operands);
  * generation=0 omits the optional optimistic generation check. */
 short the_workbench_invoke(const char *id, unsigned long generation,
                            const char *argument);
+short the_workbench_invoke_bound(const char *,unsigned long,const char *,int,uint64_t);
 /* Advances once after the outermost explicit invocation has finished. */
 unsigned long the_workbench_invocation_serial(void);
 /* Internal Rexx admission marker; advances only on failed QUERY/EXTRACT. */

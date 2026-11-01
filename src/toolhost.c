@@ -714,6 +714,8 @@ size_t the_tool_format_json(char *out, size_t cap) {
           console.running ? "true" : "false", console.waiting ? "true" : "false",
           console.eof ? "true" : "false");
    Q(&w, console.state);
+   writef(&w, ",\"status\":");
+   Q(&w, console.status);
    writef(&w, ",\"filename\":");
    Q(&w, console.filename);
    writef(&w, ",\"tool\":");

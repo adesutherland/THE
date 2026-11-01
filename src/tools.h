@@ -2,6 +2,9 @@
 #define THE_TOOLS_H
 #include "inputevent.h"
 #include "toolhost.h"
+#include "workbench.h"
+short the_tools_workbench_run(const char *,const TheWorkbenchArguments *);
+void the_tools_workbench_initialize(void);
 void the_tools_initialise(const TheToolAdapter *adapter, int available);
 void the_tools_fileio_initialize(void);
 int the_tools_prepare_lines(const char *, const char *, const char *, const char *,

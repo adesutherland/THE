@@ -11,14 +11,16 @@
 #include "workbenchfilefields.h"
 #include "workbenchfileio.h"
 #include "editorgroup.h"
+#include "tools.h"
 
 #include <ctype.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct { char text[THE_WORKBENCH_OPERAND_MAX + 1]; int quoted; } Token;
-typedef struct { Token values[32]; size_t count; } Tokens;
+#define TOKEN_MAX (2 * THE_WORKBENCH_ARG_MAX + 16)
+typedef struct { char *text; int quoted; } Token;
+typedef struct { Token values[TOKEN_MAX]; char arena[THE_WORKBENCH_COMMAND_MAX+TOKEN_MAX+1]; size_t count; } Tokens;
 
 static short bad(void)
 { return the_workbench_result("invalid-operand",RC_INVALID_OPERAND,"Invalid workbench operands or quoting"); }
@@ -26,7 +28,7 @@ static short bad(void)
 static int keyword(const Token *t, const char *s)
 {
    const unsigned char *p = (const unsigned char *)t->text;
-   if (t->quoted) return 0;
+   if (!p || t->quoted) return 0;
    while (*p && *s) if (toupper(*p++) != *s++) return 0;
    return !*p && !*s;
 }
@@ -34,6 +36,7 @@ static int keyword(const Token *t, const char *s)
 static int tokenize(const char *s, Tokens *tokens)
 {
    const unsigned char *p = (const unsigned char *)s;
+   size_t used=0;
    memset(tokens,0,sizeof(*tokens));
    if (!s || strlen(s) > THE_WORKBENCH_COMMAND_MAX) return 0;
    while (*p)
@@ -41,8 +44,9 @@ static int tokenize(const char *s, Tokens *tokens)
       Token *t; size_t n = 0; int closed = 0;
       while (*p == ' ' || *p == '\t') p++;
       if (!*p) break;
-      if (tokens->count == 32) return 0;
+      if (tokens->count == TOKEN_MAX) return 0;
       t = &tokens->values[tokens->count++]; t->quoted = *p == '"';
+      t->text=tokens->arena+used;
       if (t->quoted) p++;
       while (*p)
       {
@@ -60,6 +64,7 @@ static int tokenize(const char *s, Tokens *tokens)
       }
       if (t->quoted && (!closed || (*p && *p != ' ' && *p != '\t'))) return 0;
       t->text[n] = '\0';
+      used+=n+1;
    }
    return 1;
 }
@@ -139,6 +144,15 @@ const char *the_workbench_action_reason(const TheWorkbenchAction *action)
       if (action->panel_operation == THE_WORKBENCH_PANEL_FOCUS && !state->visible) return "capability-unavailable";
       return "ok";
    }
+   if(action->kind==THE_WORKBENCH_ACTION_TOOL) {
+      const TheWorkbenchTool *tool=the_workbench_tool_find(action->tool);
+      const char *host=the_workbench_native_host_reason();
+      if(strcmp(host,"ok")) return host;
+      if(!tool) return "missing-object";
+      if(in_macro) return "busy-modal";
+      if(the_tool_console()->running) return "busy-job";
+      return the_workbench_native_tool_reason(tool);
+   }
    if (the_workbench_restricted()) return "policy-denied";
    if (action->kind == THE_WORKBENCH_ACTION_MACRO && !rexx_support) return "capability-unavailable";
    if (action->kind != THE_WORKBENCH_ACTION_COMMAND && action->kind != THE_WORKBENCH_ACTION_MACRO)
@@ -166,6 +180,10 @@ static short invoke_action(const char *id, unsigned long generation,
    {
       if (argument && *argument) return bad();
       return the_workbench_panel_operation(copy.panel,0,copy.panel_operation);
+   }
+   if(copy.kind==THE_WORKBENCH_ACTION_TOOL) {
+      if(argument && *argument) return bad();
+      return the_tools_workbench_run(copy.tool,&copy.arguments);
    }
    if (copy.kind == THE_WORKBENCH_ACTION_BUILTIN)
    {
@@ -205,6 +223,18 @@ static char invocation_ids[THE_WORKBENCH_INVOKE_DEPTH_MAX][THE_WORKBENCH_ID_MAX+
 static const char *invocation_refusal;
 static void invocation_completed(void) { if (!invocation_depth) invocation_serial++; }
 unsigned long the_workbench_invocation_serial(void) { return invocation_serial; }
+short the_workbench_invoke_bound(const char *id,unsigned long generation,
+   const char *argument,int pinned,uint64_t document)
+{
+   const TheWorkbenchAction *action=the_workbench_action_find(id);
+   if(action && action->kind==THE_WORKBENCH_ACTION_TOOL
+   && (!generation || generation==action->generation)
+   && (!pinned || !document || document!=the_editor_document_active())) {
+      invocation_completed();
+      return the_workbench_result("stale-revision",RC_INVALID_ENVIRON,"Queued TOOL source changed or closed before dispatch");
+   }
+   return the_workbench_invoke(id,generation,argument);
+}
 short the_workbench_invoke(const char *id, unsigned long generation, const char *argument)
 {
    unsigned int i;
@@ -264,8 +294,7 @@ static int fallback_tokens(const Token *t,TheWorkbenchPlacement *out,size_t *cou
    if (t->quoted || !*p) return 0;
    while (*p)
    {
-      Token word; size_t n=0;
-      memset(&word,0,sizeof(word));
+      char value[9]={0};Token word={value,0};size_t n=0;
       while (*p && *p != ',') { if (n == 8) return 0; word.text[n++]=*p++; }
       if (!n || *count == 3 || !(out[*count]=placement_token(&word))) return 0;
       (*count)++;
@@ -361,9 +390,27 @@ static short command_operands(const char *operands)
    Tokens tokens;
    Token *t = tokens.values;
    size_t n;
+   the_tools_workbench_initialize();
    if (!tokenize(operands,&tokens)) return bad();
    n = tokens.count;
    if (!n) return bad();
+   if(keyword(t,"TOOL")) {
+      TheWorkbenchTool tool={0};
+      if(n==3 && keyword(t+1,"REMOVE") && !t[2].quoted) return the_workbench_remove_tool(t[2].text);
+      if(n!=11 || !keyword(t+1,"PUT") || t[2].quoted || strlen(t[2].text)>THE_WORKBENCH_ID_MAX
+      || !keyword(t+3,"ROLE") || !keyword(t+4,"RUNNER") || !keyword(t+5,"ADAPTER")
+      || !keyword(t+6,"NATIVE-PROCESS") || !keyword(t+7,"EXECUTABLE") || !t[8].quoted
+      || strlen(t[8].text)>=sizeof(tool.executable) || !keyword(t+9,"SOURCE") || !keyword(t+10,"SNAPSHOT")) return bad();
+      strcpy(tool.id,t[2].text);strcpy(tool.executable,t[8].text);return the_workbench_put_tool(&tool);
+   }
+   if(keyword(t,"RUN")) {
+      TheWorkbenchArguments args={0};size_t i;
+      if(n<4 || t[1].quoted || strlen(t[1].text)>THE_WORKBENCH_ID_MAX
+      || !keyword(t+2,"SOURCE") || !keyword(t+3,"ACTIVE") || (n-4)%2) return bad();
+      for(i=4;i<n;i+=2) if(!keyword(t+i,"ARG") || !t[i+1].quoted
+      || !the_workbench_arguments_append(&args,t[i+1].text)) return bad();
+      return the_tools_workbench_run(t[1].text,&args);
+   }
    if(keyword(t,"EDIT")) return edit_request_tokens(&tokens);
    if(keyword(t,"FORM"))
    {
@@ -434,7 +481,14 @@ static short command_operands(const char *operands)
          a.kind=THE_WORKBENCH_ACTION_PANEL; strcpy(a.panel,t[6].text);
       }
       else if (keyword(&t[5],"TOOL"))
-         return the_workbench_result("unsupported-feature",RC_INVALID_ENVIRON,"Tool actions are outside this checkpoint");
+      {
+         size_t i;
+         if(n<9 || t[6].quoted || strlen(t[6].text)>THE_WORKBENCH_ID_MAX
+         || !keyword(t+7,"SOURCE") || !keyword(t+8,"ACTIVE") || (n-9)%2) return bad();
+         a.kind=THE_WORKBENCH_ACTION_TOOL;strcpy(a.tool,t[6].text);
+         for(i=9;i<n;i+=2) if(!keyword(t+i,"ARG") || !t[i+1].quoted
+         || !the_workbench_arguments_append(&a.arguments,t[i+1].text)) return bad();
+      }
       else return bad();
       return the_workbench_put_action(&a);
    }
@@ -569,14 +623,14 @@ static short command_operands(const char *operands)
 short the_workbench_command(const char *operands)
 {
    const char *p=operands ? operands : "";
-   Token first,second; size_t n=0;
+   char first_text[16]={0},second_text[16]={0};
+   Token first={first_text,0},second={second_text,0}; size_t n=0;
    int runtime; short rc;
-   memset(&first,0,sizeof(first)); memset(&second,0,sizeof(second));
    while (*p == ' ' || *p == '\t') p++;
    while (*p && *p != ' ' && *p != '\t' && n < 15) first.text[n++]=*p++;
    while (*p == ' ' || *p == '\t') p++;
    n=0; while (*p && *p != ' ' && *p != '\t' && n < 15) second.text[n++]=*p++;
-   runtime=keyword(&first,"INVOKE") || keyword(&first,"EDIT") || (keyword(&first,"FILE") && keyword(&second,"INSPECT")) || (keyword(&first,"PANEL") && (panel_operation_token(&second) || keyword(&second,"SET") || keyword(&second,"APPLY") || keyword(&second,"RELOAD") || keyword(&second,"CANCEL")))
+   runtime=keyword(&first,"RUN") || keyword(&first,"INVOKE") || keyword(&first,"EDIT") || (keyword(&first,"FILE") && keyword(&second,"INSPECT")) || (keyword(&first,"PANEL") && (panel_operation_token(&second) || keyword(&second,"SET") || keyword(&second,"APPLY") || keyword(&second,"RELOAD") || keyword(&second,"CANCEL")))
       || (keyword(&first,"FIELD") && keyword(&second,"SET"))
       || (keyword(&first,"FORM") && (keyword(&second,"SUBMIT") || keyword(&second,"CANCEL")));
    rc=command_operands(operands);

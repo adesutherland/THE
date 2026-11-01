@@ -232,9 +232,11 @@ static int document_process_key(int key, bool mouse_details_present,int *guarded
          }
          if (input_event.kind == THE_INPUT_WORKBENCH_INVOKE)
          {
-            rc = the_workbench_invoke(the_input_event_workbench_id(&input_event),
+            uint64_t document=0;
+            int pinned=the_input_event_workbench_source(&input_event,&document);
+            rc = the_workbench_invoke_bound(the_input_event_workbench_id(&input_event),
                                       the_input_event_workbench_generation(&input_event),
-                                      the_input_event_workbench_argument(&input_event));
+                                      the_input_event_workbench_argument(&input_event),pinned,document);
             if (rc != RC_OK)
             {
                const TheWorkbenchResult *result = the_workbench_last_result();

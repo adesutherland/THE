@@ -255,6 +255,8 @@ int main(void) {
        "0\nvalueHex=\nhasCleanup=0\ncleanupNameHex=\ncleanupMessageHex=\ncleanupCode="
        "0\ncleanupModule=0\ncleanupAddress=0\ntruncated=0\n");
    assert(!strcmp(the_tool_console()->status, "9223372036854775807"));
+   assert(the_tool_format_json(json, 2097152));
+   assert(strstr(json, "\"status\":\"9223372036854775807\""));
    assert(the_tool_launch(&request, error, sizeof(error)));
    the_tool_finish(
        running, 0, "0", NULL,

@@ -6,6 +6,9 @@
 #include <string.h>
 
 #include "getch.h"
+static TheInputWorkbenchSourceLookup workbench_source_lookup;
+void the_input_workbench_source_lookup(TheInputWorkbenchSourceLookup lookup)
+{ workbench_source_lookup=lookup; }
 
 #ifdef THE_KEY_TAB
 # define THE_INPUT_KEY_TAB THE_KEY_TAB
@@ -412,7 +415,19 @@ int the_input_event_from_workbench_invoke(const char *id, unsigned long generati
    strcpy(out->command,id); out->target.line_number = (LINETYPE)generation;
    out->rows = argument != NULL;
    if (argument) strcpy(out->action.argument,argument);
+   if(workbench_source_lookup) {
+      uint64_t source=0;
+      if(workbench_source_lookup(id,&source)) {
+         if(argument) return 0;
+         out->cols=1;memcpy(out->action.argument,&source,sizeof(source));
+      }
+   }
    return 1;
+}
+int the_input_event_workbench_source(const TheInputEvent *event,uint64_t *source)
+{
+   if(!event || !source || event->kind!=THE_INPUT_WORKBENCH_INVOKE || event->cols!=1 || event->rows) return 0;
+   memcpy(source,event->action.argument,sizeof(*source));return 1;
 }
 
 const char *the_input_event_workbench_id(const TheInputEvent *input)

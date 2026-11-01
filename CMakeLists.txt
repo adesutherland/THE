@@ -1369,6 +1369,38 @@ endif()
 add_executable(test_toolhost tests/test_toolhost.c src/toolhost.c)
 target_include_directories(test_toolhost PRIVATE ${CMAKE_SOURCE_DIR}/src)
 add_test(NAME test_toolhost COMMAND test_toolhost)
+if(THE_PYTHON_EXECUTABLE)
+    set(native_tool_profile_engine "")
+    if(THE_USE_CREXX)
+        set(native_tool_profile_engine CREXX)
+    endif()
+    add_test(NAME test_workbench_native_tools_runtime COMMAND ${THE_PYTHON_EXECUTABLE}
+        ${CMAKE_SOURCE_DIR}/tests/test_workbench_native_tools_runtime.py $<TARGET_FILE:the> ${native_tool_profile_engine})
+    set_tests_properties(test_workbench_native_tools_runtime PROPERTIES TIMEOUT 90 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    if(UNIX)
+        add_library(test_native_tool_queue_driver MODULE tests/native_tool_queue_probe.c)
+        set_target_properties(test_native_tool_queue_driver PROPERTIES PREFIX "")
+        target_include_directories(test_native_tool_queue_driver PRIVATE
+            ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/drivers/llm ${CMAKE_CURRENT_BINARY_DIR})
+        if(USE_SDSLH)
+            target_link_libraries(test_native_tool_queue_driver DSLSH::editor)
+        endif()
+        target_compile_options(test_native_tool_queue_driver PRIVATE -UNDEBUG)
+        if(APPLE)
+            target_link_options(test_native_tool_queue_driver PRIVATE "-undefined" "dynamic_lookup")
+        endif()
+        add_test(NAME test_native_tool_queue COMMAND ${THE_PYTHON_EXECUTABLE}
+            ${CMAKE_SOURCE_DIR}/tests/test_native_tool_queue.py $<TARGET_FILE:the> $<TARGET_FILE:test_native_tool_queue_driver>)
+        set_tests_properties(test_native_tool_queue PROPERTIES TIMEOUT 30 SKIP_RETURN_CODE 77
+            ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    endif()
+    if(UNIX AND THE_USE_CREXX)
+        add_test(NAME test_workbench_native_tools_curses COMMAND ${THE_PYTHON_EXECUTABLE}
+            ${CMAKE_SOURCE_DIR}/tests/test_workbench_native_tools_curses.py $<TARGET_FILE:the>)
+        set_tests_properties(test_workbench_native_tools_curses PROPERTIES TIMEOUT 90
+            SKIP_RETURN_CODE 77 RESOURCE_LOCK the_pty_editor ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    endif()
+endif()
 if(UNIX AND NOT EMSCRIPTEN)
     add_executable(test_workbenchfileio tests/test_workbenchfileio.c src/workbenchfileio.c src/toolhost.c)
     target_include_directories(test_workbenchfileio PRIVATE ${CMAKE_SOURCE_DIR}/src)
@@ -1532,6 +1564,14 @@ add_test(NAME test_frontend_prefix_runtime
 set_tests_properties(test_frontend_prefix_runtime PROPERTIES
     ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 if(USE_WEB_DRIVER)
+    find_program(THE_NATIVE_TOOL_NODE NAMES node)
+    if(THE_NATIVE_TOOL_NODE)
+        add_test(NAME test_workbench_native_tools_browser
+            COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/test_workbench_native_tools_browser.py
+                $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR})
+        set_tests_properties(test_workbench_native_tools_browser PROPERTIES TIMEOUT 90
+            ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    endif()
     add_test(NAME test_web_workspace_policy
         COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_web_policy.py
             $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR})

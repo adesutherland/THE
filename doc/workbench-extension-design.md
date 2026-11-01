@@ -1,8 +1,9 @@
 # Extensible THE workbench: staged design and frozen contract
 
-**Status: phase 1, phase-2A LOG, phase-2B live read-only DOCUMENT and phase-3A
-independent forms and the phase-3B bounded edit-group core are implemented in development source; later phases
-remain proposed.** Use [shared workbench actions and menus](workbench-actions-menus.md)
+**Status: phase 1, phase-2A LOG, phase-2B live DOCUMENT, phase-3A forms,
+phase-3B edit groups, phase-3C CTLCHAR projections and bounded phase-4 FILE/native
+source-tool increments are implemented in development source. The complete
+phase-4 gate and later extensions remain separate.** Use [shared workbench actions and menus](workbench-actions-menus.md)
 for the implemented grammar, limits, transactions and surface behavior. This
 document retains the broader frozen contract and staged design; it does not
 claim that later commands, registries or protocol extensions are implemented or
@@ -16,9 +17,9 @@ layout authoritative.
 Phase 1 provides the shared C action/menu/item registry, owner-bound definition
 transactions, outer profile publication, QUERY/EXTRACT pages and explicit
 builtin/command/macro invocation. Terminal, GTK, browser/Wasm and LLM adapters
-consume the published definitions. `TOOL` actions, file-backed DOCUMENT/field panes,
-file routes, new execution adapters and file-output publication remain later-phase
-contracts. Existing RX tools and console behavior retain their own interfaces.
+consume the published definitions. Later increments below add their own bounded
+contracts; file-backed DOCUMENT snapshots remain deferred. Existing RX tools
+and console behavior retain their own interfaces.
 The [phase-2A LOG guide](workbench-log-panes.md) describes transactional LOG
 panels, runtime presentation requests, singleton-job routes and bounded content
 inspection. The [phase-2B DOCUMENT guide](workbench-document-panes.md) describes
@@ -35,6 +36,11 @@ exact-byte finite stdin and one staged atomic `CREATE` sink on native POSIX.
 It is limited to the canonical startup workspace and refuses every output
 target open in the editor. `REPLACE`, `APPEND`, Windows and browser file routes
 remain unavailable; the complete phase-4 acceptance gate is still separate.
+The [explicit native source-tool guide](workbench-native-tools.md) describes
+transactional TOOL definitions/actions and RUN, qualified on macOS arm64 with
+process-exit-only completion. Other native hosts and Wasm refuse execution;
+restricted native browser sessions retain their policy refusal. The macro
+engine and legacy RXBIN registry remain independent.
 
 The implementation's invocation generation guard uses `INVOKE id EXPECT n`;
 macro argument vectors are not implemented in phase 1. Examples and wider object
@@ -441,7 +447,8 @@ RX REGISTER mylanguage language /workspace/myparser.rxbin .example "Example lang
 RX LANGUAGE mylanguage
 ```
 
-This native ooRexx registration is **proposed for phase 4**:
+This native ooRexx registration is **implemented in the bounded native
+source-tool increment**, subject to its host/dependency qualifications:
 
 ```text
 WORKBENCH TOOL PUT user.oorexx ROLE RUNNER ADAPTER NATIVE-PROCESS EXECUTABLE "/configured/path/rexx" SOURCE SNAPSHOT
@@ -449,9 +456,9 @@ WORKBENCH ACTION PUT user.oorun LABEL "Run with ooRexx" TOOL user.oorexx SOURCE 
 ```
 
 The native adapter stages an immutable source snapshot and passes its pathname
-and argv as separate process arguments. Its working directory, environment
-inheritance, source encoding and included-file resolution must be explicit
-adapter settings, with supported values in capability discovery. A source tool
+and argv as separate process arguments. Its initial fixed working-directory,
+environment, source-encoding and include-resolution settings are explicit in
+[capability discovery](workbench-native-tools.md). A later source tool
 that requires the original saved file uses an explicit `SOURCE FILE` contract
 instead; it cannot silently save unsaved text. Changing THE's macro interpreter
 does not select this runner, and running this tool does not change the macro

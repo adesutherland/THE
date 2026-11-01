@@ -2,6 +2,7 @@
 #include "vars.h"
 #include "proto.h"
 #include "editorsource.h"
+#include "editordocument.h"
 #include "frontendpolicy.h"
 #include "macroruntime.h"
 #include "panelui.h"
@@ -12,6 +13,9 @@
 #include <ctype.h>
 #include <errno.h>
 #include <sys/stat.h>
+#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
+#include <unistd.h>
+#endif
 
 typedef struct PendingTool {
    unsigned id;
@@ -32,6 +36,21 @@ static unsigned profile_source, profile_revision;
 static TheToolDefinition restored_languages[THE_TOOL_LIMIT];
 static size_t restored_language_count;
 static short file_launch_rc;
+static const char *workbench_native_dependency(const TheWorkbenchTool *tool) {
+#if defined(__APPLE__) && (defined(__arm64__) || defined(__aarch64__))
+   struct stat info;
+   if(!tool || tool->executable[0]!='/' || stat(tool->executable,&info)
+   || !S_ISREG(info.st_mode) || access(tool->executable,X_OK)) return "capability-unavailable";
+   return "ok";
+#else
+   (void)tool;return "unsupported-host";
+#endif
+}
+static int workbench_source_identity(const char *id,uint64_t *document) {
+   const TheWorkbenchAction *action=the_workbench_action_find(id);
+   if(!action || action->kind!=THE_WORKBENCH_ACTION_TOOL) return 0;
+   *document=the_editor_document_active();return 1;
+}
 int the_crexx_console_capture(int);
 static int workbench_file_authority(const char *canonical,int writing,int published,char *error,size_t capacity) {
    VIEW_DETAILS *view;
@@ -115,6 +134,8 @@ static void workbench_tools_register(void) {
    const TheToolIO io={workbench_io_begin,workbench_io_raw,workbench_io_end};
    the_tools_fileio_initialize();
    the_workbench_set_tool_lookup(workbench_tool_lookup, NULL);
+   the_workbench_set_native_tool_resolver(workbench_native_dependency);
+   the_input_workbench_source_lookup(workbench_source_identity);
    /* An active job retains its already installed observer and pinned routes. */
    (void)the_tool_host_observer(&value);
    (void)the_tool_host_io(&io);
@@ -169,6 +190,44 @@ static void ensure(void) {
 #ifndef __EMSCRIPTEN__
    the_tools_native_initialise();
 #endif
+}
+void the_tools_workbench_initialize(void) { ensure();workbench_tools_register(); }
+short the_tools_workbench_run(const char *id,const TheWorkbenchArguments *arguments) {
+   const TheWorkbenchTool *tool;
+   const TheEditorSource *source;
+   const char *reason,*argv[THE_WORKBENCH_ARG_MAX];
+   TheToolRequest request={0};
+   char filename[THE_TOOL_PATH];
+   static char error[1024];
+   unsigned i;
+   ensure();workbench_tools_register();
+   reason=the_workbench_native_host_reason();
+   if(strcmp(reason,"ok")) return the_workbench_result(reason,RC_INVALID_ENVIRON,"Native process execution is unavailable in this host/session");
+   if(the_workbench_activation_active()) return the_workbench_result("activation-pending",RC_INVALID_ENVIRON,"Tool execution requires completed profile activation");
+   if(in_macro || the_panel_active) return the_workbench_result("busy-modal",RC_INVALID_ENVIRON,"Finish the macro or modal READ before running a source tool");
+   if(the_tool_console()->running) return the_workbench_result("busy-job",RC_INVALID_ENVIRON,"Stop the current program first");
+   tool=the_workbench_tool_find(id);
+   if(!tool) return the_workbench_result("missing-object",RC_INVALID_OPERAND,"No published native tool has that ID");
+   reason=the_workbench_native_tool_reason(tool);
+   if(strcmp(reason,"ok")) return the_workbench_result(reason,RC_INVALID_ENVIRON,"Configured native executable is unavailable");
+   if(!the_workbench_arguments_valid(arguments)) return the_workbench_result("invalid-operand",RC_INVALID_OPERAND,"Invalid native argument vector");
+   source=the_editor_source_prepare();
+   if(!source) return the_workbench_result("invalid-operand",RC_INVALID_OPERAND,the_editor_source_error());
+   strcpy(request.tool.id,tool->id);strcpy(request.tool.label,tool->id);
+   strcpy(request.tool.role,"runner");strcpy(request.tool.entry,"native-process");
+   strcpy(request.tool.image,tool->executable);request.tool.available=1;
+   request.source=source->bytes;request.source_length=source->length;
+   request.source_id=source->id;request.revision=source->revision;
+   snprintf(filename,sizeof(filename),"%s%s",(char *)CURRENT_FILE->fpath,(char *)CURRENT_FILE->fname);
+   request.filename=filename;request.argc=(int)arguments->argc;request.argv=argv;
+   for(i=0;i<arguments->argc;i++) argv[i]=arguments->bytes+arguments->offsets[i];
+   file_launch_rc=0;
+   if(!the_tool_launch(&request,error,sizeof(error))) {
+      if(file_launch_rc) return file_launch_rc;
+      reason=the_workbench_native_tool_reason(tool);
+      return the_workbench_result(strcmp(reason,"ok")?reason:"host-failed",strcmp(reason,"ok")?RC_INVALID_ENVIRON:RC_SYSTEM_ERROR,error);
+   }
+   return the_workbench_result("ok",RC_OK,"");
 }
 int the_tools_prepare_input(const char *action, const char *tool, const char *text, int argc,
                             const char *const *argv, TheInputEvent *event) {
@@ -532,6 +591,7 @@ static short action(PendingTool *p) {
    }
    if (!strcmp(a, "register")) {
       TheToolDefinition t = {0};
+      if(p->argc && the_workbench_tool_find(p->argv[0])) return RC_INVALID_OPERAND;
       if (p->argc < 3 || strlen(p->argv[0]) > 30 ||
           (strcmp(p->argv[1], "program") && strcmp(p->argv[1], "profile") &&
            strcmp(p->argv[1], "language")) ||

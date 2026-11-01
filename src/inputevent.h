@@ -110,6 +110,13 @@ int the_input_event_from_workbench_invoke(const char *id, unsigned long generati
 const char *the_input_event_workbench_id(const TheInputEvent *input);
 unsigned long the_input_event_workbench_generation(const TheInputEvent *input);
 const char *the_input_event_workbench_argument(const TheInputEvent *input);
+/* Optional editor-owner lookup. Only TOOL actions pin an immutable document
+ * ID at enqueue; no source bytes are captured by a driver/event constructor.
+ * ABI-3 storage reuse: cols=1 and action.argument holds the uint64_t pin when
+ * rows=0. Other actions and the event struct layout are unchanged. */
+typedef int (*TheInputWorkbenchSourceLookup)(const char *,uint64_t *);
+void the_input_workbench_source_lookup(TheInputWorkbenchSourceLookup);
+int the_input_event_workbench_source(const TheInputEvent *,uint64_t *);
 int the_input_event_from_workbench_panel(const char *id, unsigned long generation,
    TheWorkbenchPanelOperation operation, TheInputEvent *out);
 const char *the_input_event_workbench_panel_id(const TheInputEvent *input);
