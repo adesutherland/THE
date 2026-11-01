@@ -147,9 +147,15 @@ export async function minibasicCandidateSmoke({
       state.parser?.state === "ready" && state.parser.applied === state.parser.revision && !state.diagnostics?.length;
   }, "MiniBASIC explicit syntax repair", 30000);
   assert.equal(await evaluate("!!document.querySelector('.syntax-diagnostic-error,.status-pmsg-error')"), false, "repaired MiniBASIC clears diagnostic styles");
-  await evaluate("document.querySelector('[aria-label=Save]').click()");
-  await waitFor(async () => !(await snapshot()).buffer.dirty, "save repaired MiniBASIC source");
-  assert.deepEqual(await durable(sourcePath), [...original], "explicit MiniBASIC repair preserves exact saved bytes");
+  assert.deepEqual(await durable(sourcePath), [...original], "syntax edit/repair leaves durable MiniBASIC bytes unchanged");
+  // The maintained sample has no final LF. Discard the repaired test buffer
+  // instead of saving, which would add an LF and change the fixture bytes.
+  await send({ type: "command", command: "qquit" });
+  await waitFor(async () => (await snapshot()).buffer.path !== sourcePath, "discard repaired MiniBASIC test buffer");
+  await openWorkspaceFile("MiniBASIC.bas");
+  await ready();
+  await waitFor(async () => !(await snapshot()).buffer.dirty && !(await snapshot()).diagnostics?.length, "reopen clean original MiniBASIC source");
+  assert.deepEqual(await durable(sourcePath), [...original], "reopened MiniBASIC retains original source and final-LF state");
 
   // Keep the edit in the current working record. Run must capture it without
   // saving it or substituting the durable BASIC file for the source snapshot.
