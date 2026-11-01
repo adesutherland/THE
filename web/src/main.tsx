@@ -1017,9 +1017,9 @@ function App() {
   );
 
   const runUnavailable = connection !== "online" ? "Editor is offline"
-    : snapshot?.panel ? "Close the macro panel to run Rexx"
+    : snapshot?.panel ? "Close the macro panel to run"
     : toolSession?.job.running ? "A program is already running"
-    : !toolSession?.catalog.some((tool) => tool.id === "classic-rexx" && tool.available) ? "Classic Rexx is unavailable"
+    : !toolSession?.catalog.some((tool) => tool.role === "runner" && tool.available) ? "No source runner is available"
     : "";
   const runRexx = () => {
     if (runUnavailable) return;
@@ -1258,7 +1258,7 @@ function App() {
           onPointerDown={rememberPanelFocusOrigin}
           aria-pressed={activeAux === panel.id && visibleNamedPanels.some((item) => item.id === panel.id)}
           onClick={() => showOrFocusPanel(panel)}>{panel.title}</button>)}
-        <button type="button" class="run-rexx" disabled={!!runUnavailable} title={runUnavailable || "Run the current buffer, including unsaved edits"} aria-describedby={runUnavailable ? "run-unavailable" : undefined} onClick={runRexx}>Run Rexx</button>
+        <button type="button" class="run-rexx" disabled={!!runUnavailable} title={runUnavailable || "Run the current buffer, including unsaved edits"} aria-describedby={runUnavailable ? "run-unavailable" : undefined} onClick={runRexx}>Run</button>
         {runUnavailable ? <span class="run-unavailable" id="run-unavailable">{runUnavailable}</span> : null}
       </div>
       <section class={`workspace mobile-pane-${activeMobilePane} ${explorerOpen ? "files-open" : ""} ${showAux ? "aux-open" : ""} ${activeNamedPanel && activePanelPlacement === "below" ? "aux-below" : ""}`} style={{
@@ -1434,7 +1434,7 @@ function App() {
           {workbench?.panels.map((panel) => <button type="button" key={panel.id}
             data-panel-id={panel.id} aria-pressed={activeMobilePane === "console" && activeAux === panel.id}
             onPointerDown={rememberPanelFocusOrigin} onClick={() => showOrFocusPanel(panel)}>{panel.title}</button>)}
-          <button type="button" class="run-rexx" disabled={!!runUnavailable} title={runUnavailable || "Run the current buffer, including unsaved edits"} aria-describedby={runUnavailable ? "mobile-run-unavailable" : undefined} onClick={runRexx}>Run Rexx</button>
+          <button type="button" class="run-rexx" disabled={!!runUnavailable} title={runUnavailable || "Run the current buffer, including unsaved edits"} aria-describedby={runUnavailable ? "mobile-run-unavailable" : undefined} onClick={runRexx}>Run</button>
           {runUnavailable ? <span class="run-unavailable" id="mobile-run-unavailable">{runUnavailable}</span> : null}
         </div>
         {showAux ? <PaneSplitter label="Resize auxiliary panes" orientation="vertical" reverse consoleDivider={activeAux === "console" && consoleOpen} value={Math.min(auxWidth, maximumAuxWidth)} minimum={300} maximum={maximumAuxWidth} onChange={setAuxWidth} /> : null}

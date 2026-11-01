@@ -1,4 +1,5 @@
 #include "toolhost.h"
+#include "toolsource.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -221,6 +222,26 @@ int main(void) {
    assert(the_tool_register(&definition));
    assert(the_tool_count() == 1);
    assert(the_tool_for_file("/work/hello.rexx", "runner"));
+   {
+      TheToolDefinition source_runner = definition;
+      char name[256];
+      strcpy(source_runner.id, "source-probe");
+      strcpy(source_runner.entry, "source-file");
+      strcpy(source_runner.extensions, ".bas");
+      assert(the_tool_register(&source_runner));
+      assert(!strcmp(the_tool_for_file("/work/Lesson.BAS", "runner")->id, "source-probe"));
+      assert(!the_tool_for_file("/work/unknown.txt", "runner"));
+      tool_source_name("/work/Lesson Zoë.BAS", name); assert(!strcmp(name, "Lesson Zoë.BAS"));
+      tool_source_name("C:\\work\\CON.bas", name); assert(!strcmp(name, "_CON.bas"));
+      tool_source_name("/work/..", name); assert(!strcmp(name, "source"));
+      tool_source_name("/work/bad:name. ", name); assert(!strcmp(name, "bad_name__"));
+      request.tool = source_runner;
+      request.filename = "/work/Lesson.BAS";
+      request.argc = THE_TOOL_ARGS;
+      assert(!the_tool_launch(&request, error, sizeof(error)));
+      assert(strstr(error, "127"));
+      request.argc = 0;
+   }
    request.tool = definition;
    request.filename = "/work/hello.rexx";
    request.source = "say 'hello'\n";

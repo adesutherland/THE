@@ -1,5 +1,6 @@
 /* THE session state. Adapters own OS/Worker resources, never this model. */
 #include "toolhost.h"
+#include "toolsource.h"
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -167,6 +168,11 @@ int the_tool_launch(const TheToolRequest *r, char *error, size_t capacity) {
       snprintf(error, capacity, "Tool or host capability unavailable");
       return 0;
    }
+   /* The ordinary RXBIN entry receives the staged source filename first. */
+   if (!strcmp(r->tool.entry, "source-file") && r->argc >= THE_TOOL_ARGS) {
+      snprintf(error, capacity, "Source-file runners accept at most 127 program arguments");
+      return 0;
+   }
    for (i = 0; i < r->argc; i++) {
       size_t n = r->argv[i] ? strlen(r->argv[i]) : 1048577;
       if (n > 1048576 - total) {
@@ -174,6 +180,14 @@ int the_tool_launch(const TheToolRequest *r, char *error, size_t capacity) {
          return 0;
       }
       total += n;
+   }
+   if (!strcmp(r->tool.entry, "source-file")) {
+      char name[256];
+      tool_source_name(r->filename, name);
+      if (strlen(name) > 1048576 - total) {
+         snprintf(error, capacity, "Arguments including the source filename exceed 1 MiB");
+         return 0;
+      }
    }
    the_tool_clear();
    memset(pending_length, 0, sizeof(pending_length));

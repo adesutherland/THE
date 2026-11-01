@@ -35,6 +35,6 @@ add_custom_target(the_wasm_runner ALL
     COMMAND "${CMAKE_COMMAND}" -E copy "$<TARGET_FILE:crxthe_rxvm>"
         "${CMAKE_BINARY_DIR}/crxthe_rxvm.wasm" "${runner_site}"
     COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_SOURCE_DIR}/web/vm/vm-worker.mjs"
-        "${CMAKE_SOURCE_DIR}/web/vm/byte-input.mjs" "${runner_site}"
+        "${CMAKE_SOURCE_DIR}/web/vm/byte-input.mjs" "${CMAKE_SOURCE_DIR}/web/vm/source-file.mjs" "${runner_site}"
     COMMAND "${CMAKE_COMMAND}" -E copy "${THE_WASM_INTERPRETER_IMAGE}" "${runner_site}/llcbrowser.rxbin"
     DEPENDS crxthe_rxvm "${THE_WASM_INTERPRETER_IMAGE}" VERBATIM)

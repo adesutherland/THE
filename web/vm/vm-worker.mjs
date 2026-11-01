@@ -1,4 +1,5 @@
 import { ByteInput } from './byte-input.mjs';
+import { sourceFilename } from './source-file.mjs';
 
 let vm, input = new ByteInput(), phase = 'new';
 const send = message => self.postMessage(message);
@@ -26,7 +27,7 @@ function argumentsBlock(values) {
     throw new Error('Invalid VM arguments');
   const encoded = values.map(value => new TextEncoder().encode(value));
   const length = encoded.reduce((n, value) => n + value.length + 1, values.length * 4);
-  if (length > 1048576 + 128 * 5) throw new Error('VM arguments exceed the host budget');
+  if (encoded.reduce((n, value) => n + value.length, 0) > 1048576) throw new Error('VM arguments exceed the host budget');
   const pointer = vm._malloc(Math.max(1, length));
   if (!pointer) throw new Error('Unable to allocate VM arguments');
   let offset = values.length * 4;
@@ -77,7 +78,18 @@ self.onmessage = async ({data}) => {
       phase = 'ready'; fatal = false; send({type: 'reply', id});
     } else if (data.type === 'run' || data.type === 'interpret') {
       if (phase !== 'ready') throw new Error('VM is not ready to run');
-      const pointer = argumentsBlock(data.arguments ?? []);
+      let values = data.arguments ?? [];
+      if (data.type === 'run' && data.sourceFile !== undefined) {
+        const snapshot = data.sourceFile;
+        if (!(snapshot?.source instanceof Uint8Array) || snapshot.source.length > 2097152 ||
+            snapshot.source.includes(0) || typeof snapshot.filename !== 'string' || !Array.isArray(values))
+          throw new Error('Invalid source-file snapshot');
+        const name = sourceFilename(snapshot.filename);
+        vm.FS.mkdir('/run'); vm.FS.mkdir('/run/snapshot'); vm.FS.chdir('/run/snapshot');
+        vm.FS.writeFile(name, snapshot.source);
+        values = [name, ...values];
+      }
+      const pointer = argumentsBlock(values);
       let source, filename;
       fatal = true;
       phase = 'running'; send({type: 'reply', id});
@@ -93,7 +105,7 @@ self.onmessage = async ({data}) => {
             [source,data.source.length,filename,name.length,(data.arguments ?? []).length,pointer], {async:true});
           result = vm.ccall('the_vm_result', 'string', [], []);
         } else runtimeCode = await vm.ccall('the_vm_run', 'number', ['number', 'number'],
-          [(data.arguments ?? []).length, pointer], {async: true});
+          [values.length, pointer], {async: true});
         const programCode = vm._the_vm_program_rc();
         const error = runtimeCode ? vm.ccall('the_vm_error', 'string', [], []) : vm.vmStreamError;
         check(vm._the_vm_destroy()); phase = 'ended';

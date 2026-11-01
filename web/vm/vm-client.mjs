@@ -1,7 +1,7 @@
 /** Generic process-style RXBIN host; usable from a page or the editor Worker. */
 export class CrexxVMProcess {
   static async start({images, arguments: args = [], stdout = () => {}, stderr = () => {},
-                      program, inputState = () => {}, signal, outputLimit,
+                      program, sourceFile, inputState = () => {}, signal, outputLimit,
                       workerUrl = new URL('./vm-worker.mjs', import.meta.url)}) {
     const process = new CrexxVMProcess(workerUrl, stdout, stderr, inputState);
     if (signal) {
@@ -12,7 +12,7 @@ export class CrexxVMProcess {
     }
     try {
       await process.request({type: 'init', images, outputLimit});
-      await process.request(program ? {type: 'interpret', ...program} : {type: 'run', arguments: args});
+      await process.request(program ? {type: 'interpret', ...program} : {type: 'run', arguments: args, sourceFile});
       return process;
     } catch (error) { process.terminate(error); throw error; }
   }

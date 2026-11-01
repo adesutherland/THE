@@ -501,7 +501,7 @@ static void assert_workbench_focus_cycle(void)
    assert(!memcmp(&cursor, &CURRENT_VIEW->logical_cursor, sizeof(cursor)));
    assert(CURRENT_VIEW->focus_line == focus_line);
    assert(CURRENT_VIEW->current_window == current_window);
-   assert(!strcmp(gtk_button_get_label(GTK_BUTTON(ui.run)), "Run Rexx"));
+   assert(!strcmp(gtk_button_get_label(GTK_BUTTON(ui.run)), "Run file"));
    gtk_entry_set_text(GTK_ENTRY(ui.input), draft);
    g_free(draft);
 }

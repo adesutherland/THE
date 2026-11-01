@@ -25,12 +25,20 @@ if(THE_WASM_CREXX)
         COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxas" -o "${CMAKE_BINARY_DIR}/tool-example"
             "${CMAKE_BINARY_DIR}/tool-example"
         COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_BINARY_DIR}/tool-example.rxbin"
-            "${THE_WASM_SITE}/examples/ToolHello.rxbin")
+            "${THE_WASM_SITE}/examples/ToolHello.rxbin"
+        COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxc" -i "${THE_CREXX_HOST_BUILD}/bin"
+            -o "${CMAKE_BINARY_DIR}/source-file-probe" "${CMAKE_SOURCE_DIR}/tests/source-file-runner.crexx"
+        COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxas" -o "${CMAKE_BINARY_DIR}/source-file-probe"
+            "${CMAKE_BINARY_DIR}/source-file-probe"
+        COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_BINARY_DIR}/source-file-probe.rxbin"
+            "${THE_WASM_SITE}/examples/SourceFileProbe.rxbin")
 endif()
 add_custom_target(the_wasm_interpreter_assets
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${THE_WASM_SITE}/vm/runner" "${THE_WASM_SITE}/examples"
     COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_SOURCE_DIR}/web/vm" "${THE_WASM_SITE}/vm"
     COMMAND "${CMAKE_COMMAND}" -E copy_directory "${THE_WASM_RUNNER_DIRECTORY}" "${THE_WASM_SITE}/vm/runner"
+    COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_SOURCE_DIR}/web/vm/vm-worker.mjs"
+        "${CMAKE_SOURCE_DIR}/web/vm/byte-input.mjs" "${CMAKE_SOURCE_DIR}/web/vm/source-file.mjs" "${THE_WASM_SITE}/vm/runner"
     COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_SOURCE_DIR}/examples/browser-interpreter.rexx"
         "${THE_WASM_SITE}/examples/RexxRunner.rexx"
     ${THE_WASM_RXBIN_EXAMPLE_COMMANDS}

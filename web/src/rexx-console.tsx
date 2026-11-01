@@ -49,11 +49,15 @@ export function RexxConsole({ send, session, snapshot, runRequest, onClose, focu
   useEffect(() => {
     if (lastRunRequest.current === runRequest) return;
     lastRunRequest.current = runRequest;
-    setTool("classic-rexx");
     requestedInputFocus.current = true;
     log.current?.focus();
-    act("run", "", "classic-rexx");
+    act("run", "", "");
   }, [runRequest]);
+
+  useEffect(() => {
+    if (job.tool && session.catalog.some((candidate) => candidate.id === job.tool))
+      setTool(job.tool);
+  }, [job.id, job.tool, session.catalog]);
 
   useEffect(() => {
     if (!session.catalog.some((candidate) => candidate.id === tool)) {
@@ -102,7 +106,7 @@ export function RexxConsole({ send, session, snapshot, runRequest, onClose, focu
           event.currentTarget.focus();
           requestedInputFocus.current = true;
           act(tool === "rxbin" ? "rxbin" : "run", image);
-        }}>Run {tool === "classic-rexx" ? "Rexx" : "RXBIN"}</button>
+        }}>Run {session.catalog.find((candidate) => candidate.id === tool)?.label ?? "program"}</button>
       <button type="button" onClick={() => act("stop")} disabled={!job.running}>Stop</button>
       <button type="button" onClick={() => act("clear")}>Clear</button>
     </div>

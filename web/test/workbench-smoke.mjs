@@ -434,12 +434,12 @@ try {
   await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))");
   assert.equal(await evaluate("document.activeElement.className"), "input-sink", "Escape restores editing");
   tools.catalog.forEach(candidate => candidate.available = false); publishTools();
-  await wait(() => evaluate("document.querySelector('#run-unavailable')?.textContent==='Classic Rexx is unavailable'"), "unavailable runtime reason");
+  await wait(() => evaluate("document.querySelector('#run-unavailable')?.textContent==='No source runner is available'"), "unavailable runtime reason");
   for (const [width, selector, reason] of [[1280, '.pane-switcher .run-rexx', '#run-unavailable'], [390, '.mobile-aux-tabs .run-rexx', '#mobile-run-unavailable']]) {
     await viewport(width, 844);
     await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'nearest'})`);
     assert.equal(await evaluate(`document.querySelector(${JSON.stringify(selector)}).disabled`), true, "unavailable Run remains disabled");
-    assert.equal(await evaluate(`document.querySelector(${JSON.stringify(reason)}).textContent`), "Classic Rexx is unavailable", "unavailable Run reason is visible text");
+    assert.equal(await evaluate(`document.querySelector(${JSON.stringify(reason)}).textContent`), "No source runner is available", "unavailable Run reason is visible text");
     const control = await geometry(selector), explanation = await geometry(reason);
     assert(control.visible && explanation.visible && explanation.right<=width, "unavailable Run and reason fit the viewport");
   }
@@ -457,7 +457,7 @@ try {
   await wait(() => evaluate("document.querySelector('.run-state').textContent==='Running'"), "visible Run Rexx opens the console and runs");
   const runMessage = received.filter(message => message.type === "tool" && message.action === "run");
   assert.equal(runMessage.length, runCount + 1, "visible Run Rexx sends one run request");
-  assert.deepEqual([runMessage.at(-1).tool, runMessage.at(-1).text, runMessage.at(-1).arguments], ["classic-rexx", "", "first\n\nlast"], "Run Rexx uses the current buffer capture route and retains arguments");
+  assert.deepEqual([runMessage.at(-1).tool, runMessage.at(-1).text, runMessage.at(-1).arguments], ["", "", "first\n\nlast"], "Run uses the current buffer capture route and retains arguments");
   assert.equal(await evaluate("document.querySelector('.pane-switcher .run-rexx').disabled && document.querySelector('#run-unavailable').textContent"), "A program is already running", "disabled Run reason is visible");
 
   // Use real browser key dispatch: default Tab traversal and Enter activation

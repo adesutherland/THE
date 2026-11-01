@@ -59,7 +59,7 @@ const TheEditorSource *the_editor_source_prepare(void)
     if (the_panel_active || in_macro) return NULL;
     for (line = CURRENT_FILE->first_line->next; line && line->next; line = line->next) {
         size_t n = ++count == (size_t)CURRENT_VIEW->focus_line ? rec_len : line->length;
-        if (n >= SOURCE_LIMIT - length) { problem = "Rexx source exceeds the 2 MiB tool limit"; return NULL; }
+        if (n >= SOURCE_LIMIT - length) { problem = "Source exceeds the 2 MiB tool limit"; return NULL; }
         length += n + 1;
     }
     bytes = malloc(length + 1);
@@ -71,7 +71,7 @@ const TheEditorSource *the_editor_source_prepare(void)
         memcpy(bytes + offset, text, n); offset += n; bytes[offset++] = '\n';
     }
     bytes[length] = 0;
-    if (memchr(bytes, 0, length)) { free(bytes); problem = "Rexx source contains NUL bytes"; return NULL; }
+    if (memchr(bytes, 0, length)) { free(bytes); problem = "Source contains NUL bytes"; return NULL; }
     for (doc = documents; doc && doc->file != CURRENT_FILE; doc = doc->next) {}
     if (!doc) {
         doc = calloc(1, sizeof(*doc));

@@ -1,7 +1,9 @@
 /* Isolated native RXVML process. stdout/stderr belong exclusively to its job. */
 #include "toolrequest.h"
+#include "toolsource.h"
 #include <errno.h>
 #include <limits.h>
+#include <sys/stat.h>
 #ifdef _WIN32
 #include <direct.h>
 #include <process.h>
@@ -90,10 +92,29 @@ static int spawn(char *const *args) {
    return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 #endif
 }
+static int stage_source(const char *name, const char *source, size_t length) {
+   FILE *file;
+   int good;
+#ifdef _WIN32
+   int n = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name, -1, NULL, 0);
+   wchar_t *wide = n ? malloc((size_t)n * sizeof(*wide)) : NULL;
+   if (!wide) return 0;
+   MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name, -1, wide, n);
+   file = _wfopen(wide, L"wb");
+   free(wide);
+#else
+   file = fopen(name, "wb");
+#endif
+   if (!file) return 0;
+   good = !length || fwrite(source, 1, length, file) == length;
+   return fclose(file) == 0 && good;
+}
 static int run(const char *directory) {
    char path[4096], magic[8], *image = NULL, *sdk = NULL, *filename = NULL, *source = NULL,
                               **args = NULL;
    size_t n, image_n, sdk_n, name_n, source_n;
+   char source_name[256];
+   const char *source_args[128];
    uint32_t mode, argc = 0, i;
    FILE *f;
    int rc = -1, status = 0;
@@ -103,7 +124,7 @@ static int run(const char *directory) {
    if (!f)
       return 125;
    if (fread(magic, 1, 8, f) != 8 || memcmp(magic, "THEJOB1\n", 8) || !tool_read_uint(f, &mode) ||
-       mode > 3 || !tool_read_uint(f, &argc) || argc > 128)
+       mode > 4 || !tool_read_uint(f, &argc) || argc > 128 || (mode == 4 && argc >= 128))
       goto request_done;
    image = tool_read_bytes(f, &image_n);
    sdk = tool_read_bytes(f, &sdk_n);
@@ -125,6 +146,24 @@ static int run(const char *directory) {
    if (chdir(directory)) {
       error = "Cannot enter private job directory";
       goto request_done;
+   }
+   if (mode == 4) {
+      if (source_n > 2097152 || memchr(source, 0, source_n)) goto request_done;
+      tool_source_name(filename, source_name);
+#ifdef _WIN32
+      if (_mkdir("snapshot") || chdir("snapshot")) {
+#else
+      if (mkdir("snapshot", 0700) || chdir("snapshot")) {
+#endif
+         error = "Cannot prepare private source directory";
+         goto request_done;
+      }
+      if (!stage_source(source_name, source, source_n)) {
+         error = "Cannot stage source snapshot";
+         goto request_done;
+      }
+      source_args[0] = source_name;
+      for (i = 0; i < argc; i++) source_args[i + 1] = args[i];
    }
    if (mode == 2) {
       char compiler[4096], assembler[4096], src[4096], out[4096];
@@ -173,7 +212,7 @@ static int run(const char *directory) {
          error = the_vm_error();
          goto request_done;
       }
-      if (mode == 0) {
+      if (mode == 0 || mode == 4) {
          snprintf(path, sizeof(path), "%s/library.rxbin", sdk);
          if (load(path)) {
             error = "Cannot load standard library";
@@ -188,7 +227,7 @@ static int run(const char *directory) {
          rc = the_vm_interpret(source, source_n, filename, name_n, (int)argc, (const char **)args);
          wire = the_vm_result();
       } else {
-         rc = the_vm_run((int)argc, (const char **)args);
+         rc = the_vm_run((int)argc + (mode == 4), mode == 4 ? source_args : (const char **)args);
          status = the_vm_program_rc();
       }
       error = rc ? the_vm_error() : "";

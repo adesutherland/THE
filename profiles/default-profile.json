@@ -129,7 +129,7 @@
     ["Find... (Ctrl-F)", "macro quickfind{suffix}"],
     ["Go to line... (Ctrl-G)", "macro quickline{suffix}"],
     ["Next file (F2)", "next"],
-    ["Run current Rexx", "rx menu-run"],
+    ["Run file", "rx menu-run"],
     ["Show or focus Program console", "rx console on"],
     ["Hide program console", "rx console off"],
     ["Stop program", "rx stop"],

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import WebSocket from "ws";
 import { fileFieldSmoke } from "./wasm-file-fields.mjs";
 import { checkNativeToolPolicy } from "./native-tools-policy.mjs";
+import { sourceFileRunnerSmoke } from "./wasm-source-file-runner.mjs";
 
 const pageUrl = process.env.THE_WEB_URL;
 const chromium = process.env.CHROMIUM_BIN;
@@ -434,11 +435,11 @@ try {
     await send({type:'action',action:'edit.undo'});
     await waitFor(async()=>!(await snapshot()).buffer.dirty,'restore program');
     // Stop a blocked program, then prove its replacement has a fresh input stream.
-    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Rexx').click()");
+    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Classic Rexx').click()");
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Waiting for input'"),'third interpreter input',30000);
     await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Stop').click()");
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Stopped'"),'stopped Worker');
-    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Rexx').click()");
+    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Classic Rexx').click()");
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Waiting for input'"),'restart input',30000);
     await consoleEnter('Ada');
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent.includes('Completed · status 0')"),'restart completed',30000);
@@ -448,17 +449,17 @@ try {
     await send({type:'command',command:"input say arg()||'|'||arg(1)||'|'||arg(2)||'|'||arg(3); exit 7"});
     await waitFor(async()=>(await snapshot()).screen_rows.some(r=>r.t.includes('say arg()')),'argument probe');
     await evaluate("const field=document.querySelector('[aria-label=\"Rexx arguments\"]');field.value='first\\n\\nlast';field.dispatchEvent(new Event('input',{bubbles:true}))");
-    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Rexx').click()");
+    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Classic Rexx').click()");
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Completed · status 7'"),'argument status',30000);
     if (!await evaluate("document.querySelector('.console-output').textContent.includes('3|first||last')")) throw new Error('Argument positions lost');
     await send({type:'command',command:'replace say 1/0'});
     await waitFor(async()=>(await snapshot()).screen_rows.some(r=>r.t.includes('say 1/0')),'runtime condition probe');
-    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Rexx').click()");
+    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Classic Rexx').click()");
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Runtime condition'"),'typed runtime condition',30000);
     if (!await evaluate("!!document.querySelector('.console-stderr')?.textContent")) throw new Error('Runtime condition missing');
     await send({type:'command',command:'replace parse pull start; do forever; nop; end'});
     await waitFor(async()=>(await snapshot()).screen_rows.some(r=>r.t.includes('do forever')),'infinite program');
-    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Rexx').click()");
+    await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Run Classic Rexx').click()");
     await waitFor(()=>evaluate("document.querySelector('.run-state').textContent==='Waiting for input'"),'infinite program input',30000);
     await consoleEnter('go');
     await evaluate("[...document.querySelectorAll('.rexx-dock button')].find(b=>b.textContent==='Stop').click()");
@@ -497,6 +498,7 @@ try {
     await send({type:'tool',action:'run',tool:'hello-program'});
     await waitFor(()=>evaluate("window.__tools.job.tool==='hello-program'&&!window.__tools.job.running"),'registered RXBIN run',30000);
     console.log('PASS browser RXBIN: console import/run, direct and registered execution with output/status');
+    await sourceFileRunnerSmoke({pageUrl, send, snapshot, evaluate, waitFor});
   }
 
   if(manifest.capabilities.profile_source_compiler){

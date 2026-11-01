@@ -268,7 +268,7 @@ async function startTool(job: ToolJob) {
         stderr: (bytes: Uint8Array) => event("output", { fd: 2, bytes }),
         inputState,
       };
-      if (job.role === "runner") own.process = await host.startRexx(options);
+      if (job.entry === "classic-source") own.process = await host.startRexx(options);
       else {
         const vm = await import(
           /* @vite-ignore */ new URL(
@@ -282,6 +282,10 @@ async function startTool(job: ToolJob) {
             editor!.FS.readFile(job.image),
           ],
           arguments: job.arguments,
+          sourceFile: job.entry === "source-file"
+            ? { source: job.source, filename: job.filename }
+            : undefined,
+          outputLimit: 8388608,
           workerUrl: new URL("../vm/runner/vm-worker.mjs", import.meta.url),
         });
       }

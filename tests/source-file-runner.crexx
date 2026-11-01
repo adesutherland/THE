@@ -1,0 +1,52 @@
+/* Ordinary RXBIN main: file source first, ordinary argv next, stdin separate. */
+options levelb
+main: procedure = .int
+  arg arguments = .string[]
+  if arguments[0] < 1 then return 20
+  say 'SOURCE-NAME:' || arguments[1]
+  say 'ARGC:' || (arguments[0] - 1)
+  do index = 2 to arguments[0]
+    say 'ARG:' || arguments[index]
+  end
+  output = 0; input = 0; count = 1; failed = 0; ended = 0; flushed = 0
+  outputname = 'stdout'; inputname = 'stdin'; readmode = 'rb'; writemode = 'wb'
+  assembler fopen output,outputname,writemode
+  /* Reopen after stdin so tests can change the editor while the job waits. */
+  do pass = 1 to 2
+    source = 0
+    assembler fopen source,arguments[1],readmode
+    if source = 0 then return 21
+    say 'SOURCE-BEGIN'
+    do forever
+      bytes = .binary
+      assembler freadb bytes,source,count
+      assembler ferror failed,source
+      if failed <> 0 then return 22
+      if <blen>(bytes) = 0 then leave
+      assembler fwriteb output,bytes
+    end
+    assembler fclose failed,source
+    if failed <> 0 then return 26
+    say 'SOURCE-END'
+    assembler fflush flushed,output
+    if flushed <> 0 then return 23
+    if pass = 1 then do
+      assembler fopen input,inputname,readmode
+      say 'STDIN-BEGIN'
+      assembler fflush flushed,output
+      do forever
+        bytes = .binary
+        assembler freadb bytes,input,count
+        assembler ferror failed,input
+        if failed <> 0 then return 24
+        if <blen>(bytes) = 0 then do
+          assembler feof ended,input
+          if ended = 0 then return 25
+          leave
+        end
+        assembler fwriteb output,bytes
+      end
+      say 'STDIN-END'
+    end
+  end
+  return 0

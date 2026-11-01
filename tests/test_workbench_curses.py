@@ -104,7 +104,7 @@ for engine in ['CREXX', 'REGINA']:
                  and 'PROFILE_READY' in screen.display[rows - 3], 'guided footer')
             assert 'MENU (F10)' in screen.display[0][:14], screen.display
             assert 'Console' in screen.display[0][14:25], screen.display
-            assert 'Run Rexx' in screen.display[0][25:37], screen.display
+            assert 'Run file' in screen.display[0][25:37], screen.display
             click_at(0, 2)
             wait(lambda: any('Open or create file' in row for row in screen.display),
                  'top-left mouse menu opens below its button')

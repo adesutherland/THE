@@ -326,7 +326,10 @@ static short launch(const char *id, int argc, const char *const *argv, const cha
    char name[THE_TOOL_PATH], error[1024];
    ensure();
    workbench_tools_register();
-   t = the_tool_find(id && *id ? id : "classic-rexx");
+   t = id && *id ? the_tool_find(id) :
+       CURRENT_FILE ? the_tool_for_file((char *)CURRENT_FILE->fname, "runner") : NULL;
+   if ((!id || !*id) && !t)
+      t = the_tool_find("classic-rexx");
    if (!t) {
       display_error(0, (CHARTYPE *)"Unknown tool", FALSE);
       return RC_INVALID_OPERAND;
@@ -593,7 +596,7 @@ static short action(PendingTool *p) {
       TheToolDefinition t = {0};
       if(p->argc && the_workbench_tool_find(p->argv[0])) return RC_INVALID_OPERAND;
       if (p->argc < 3 || strlen(p->argv[0]) > 30 ||
-          (strcmp(p->argv[1], "program") && strcmp(p->argv[1], "profile") &&
+          (strcmp(p->argv[1], "program") && strcmp(p->argv[1], "runner") && strcmp(p->argv[1], "profile") &&
            strcmp(p->argv[1], "language")) ||
           (p->argc > 3 && strlen(p->argv[3]) >= sizeof(t.extensions)) ||
           (p->argc > 4 && strlen(p->argv[4]) >= sizeof(t.label)))
@@ -605,7 +608,8 @@ static short action(PendingTool *p) {
          return RC_INVALID_OPERAND;
       snprintf(t.extensions, sizeof(t.extensions), "%s", p->argc > 3 ? p->argv[3] : "");
       snprintf(t.entry, sizeof(t.entry), "%s",
-               !strcmp(t.role, "language")  ? "dslsh"
+               !strcmp(t.role, "runner")    ? "source-file"
+               : !strcmp(t.role, "language")  ? "dslsh"
                : !strcmp(t.role, "profile") ? "address-the"
                                             : "program");
       t.available = available ||

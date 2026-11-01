@@ -11,7 +11,10 @@ in `0.10.dev`.
 
 ## Run and interact
 
-Open a Classic Rexx file and choose **Run Rexx**, or enter `RX RUN`.
+Open a source file and choose **Run file**, or enter `RX RUN`.
+THE selects the last available registered `runner` matching the filename's
+extension, ignoring extension case. Without a matching runner it retains the
+Classic Rexx fallback. An explicit `RX RUN tool-id` always selects that tool.
 THE captures the whole buffer, including the pending working record. Running
 preserves text, cursor, dirty state and saved bytes. The console keeps the
 captured identity/revision; editing can continue independently.
@@ -47,8 +50,8 @@ Terminal commands are:
 
 The default terminal profile keeps actual editor responses immediately above
 the editor command line, leaving that row quiet while idle. **MENU (F10)** at
-the upper left, **Console**, and **Run Rexx** are visible controls. Console
-shows the dock and focuses Program input; Run Rexx captures the current buffer.
+the upper left, **Console**, and **Run file** are visible controls. Console
+shows the dock and focuses Program input; Run file captures the current buffer.
 F10 opens
 the same pull-down menu for file, editing, navigation, run and
 profile actions, with separate actions to show/focus or hide the Program console.
@@ -66,7 +69,7 @@ runs. The terminal reserves the console's space before laying out
 the editor, including its response, command and status rows.
 
 In the default terminal profile, **Shift-Tab** focuses the Console launcher;
-another Shift-Tab focuses Menu, then Run Rexx. While a top control has focus,
+another Shift-Tab focuses Menu, then Run file. While a top control has focus,
 Tab, Shift-Tab or Left/Right moves between the three, Enter or Space activates the
 selected launcher, and Esc restores the editor caret. Ordinary editor Tab
 keeps the profile's indentation command. F10 remains a direct menu shortcut.
@@ -129,10 +132,46 @@ unsaved editor text still requires Save.
 ## Register language tools and programs
 
 `RX REGISTER id role image extensions "label"` adds or replaces a tool.
-Roles are `program`, `profile` and `language` for user-provided images. IDs
+Roles are `program`, `runner`, `profile` and `language` for user-provided images. IDs
 are at most 30 letters, digits, hyphens or underscores. `image` is a workspace
 RXBIN path; extensions are comma-separated, such as `.rexx,.rex`. Registrations
 persist beside the profile. A profile can issue these same commands.
+
+A `runner` uses the `source-file` entry contract: THE captures the whole current
+buffer, including its pending record, and stages those immutable snapshot bytes
+in the job's private filesystem. It invokes the image's ordinary RXBIN `main`
+with the relative snapshot filename as its first argument, followed by the
+ordinary argument vector. Program stdin stays available for interactive input;
+source bytes never travel through stdin. The standard library is loaded first.
+The snapshot basename follows the source filename, with unsafe characters and
+reserved platform names made portable. The console retains the original logical
+filename, source identity and revision. The private directory is never passed as
+the source argument; arbitrary text produced by the runner is not rewritten.
+At most 127 ordinary arguments fit beside the source argument within the shared
+128-argument, 1 MiB budget. The existing 2 MiB source limit also applies.
+
+For separately prepared, matching MiniBASIC images, a browser profile can
+associate `.bas` with both the interpreter and grammar-backed highlighter
+without changing Classic Rexx registrations:
+
+```text
+rx register minibasic runner /workspace/minibasic.rxbin .bas "MiniBASIC"
+rx register minibasic-syntax language /workspace/dslsh-minibasic.rxbin .bas "MiniBASIC syntax"
+```
+
+Native profiles use absolute paths to the same kind of prepared images.
+
+Opening a `.bas` file does not execute it. `RX RUN` captures the unsaved editor
+source when invoked; it does not save that source. Changes or closure of the
+buffer after launch do not change the running snapshot. Native jobs remove the
+staged file at completion or Stop; browser jobs discard their private Worker
+filesystem. This staging is not an operating-system sandbox.
+
+The runner must be compiled for the exact configured runtime and available
+providers. A newly built cREXX Level L MiniBASIC image is not qualified merely
+because the generic source-file runner works: the separately pinned native,
+browser interpreter and parser cohorts described below remain distinct. No
+MiniBASIC image is included in those pinned bundles by this registration example.
 
 For example:
 
@@ -194,10 +233,15 @@ See [browser build instructions](browser-wasm.md) for the remaining inputs.
 
 ## Verification
 
-`test_toolhost` covers identity, bounded streams, UTF-8 chunks, EOF and stale
+`test_toolhost` covers identity, bounded streams, UTF-8 chunks, EOF, runner
+association/argument limits and stale
 replies. `test_native_tools` exercises the real LLM editor and VM process,
-including interactive stdin, Stop, conditions, profile activation and restore.
+including pending unsaved source-file snapshots, independent stdin, preserved
+argv and saved bytes, Stop, conditions, profile activation and registry restore.
 `test_tool_console_curses` uses a real PTY for the split, Unicode input/output,
 focus and resize. Native graphical and Wasm browser checks exercise the common
 console through their actual transports; browser checks also cover storage
 failure/retry and compiler/activation failure recovery.
+The Wasm VM contract harness also runs an ordinary source-file RXBIN fixture
+through the actual private Worker filesystem and rejects an argument vector
+whose prepended source filename would exceed the VM argument limit.

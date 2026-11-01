@@ -91,7 +91,7 @@ authorized HTTP or WebSocket protocol, subject to origin/network rules, but
 no such Wasm file or execution service exists in this source tree.
 
 The browser must also close a **profile composition gap** before this baseline
-is complete. Its Files, Console and Run Rexx controls are partly hard-coded;
+is complete. Its Files, Console and Run file controls are partly hard-coded;
 their visibility, labels and actions must derive from published profile IDs.
 Current Wasm activation refuses workbench transactions from newly built
 workspace profiles; restricted sessions refuse arbitrary COMMAND and MACRO

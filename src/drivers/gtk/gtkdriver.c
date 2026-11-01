@@ -2414,8 +2414,8 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    button(toolbar, "Paste", G_CALLBACK(paste_action), NULL);
    button(toolbar, "Command", G_CALLBACK(command_action), "cursor cmdline");
    button(toolbar, "Next file", G_CALLBACK(command_action), "next");
-   ui.run = button(toolbar, "Run Rexx", G_CALLBACK(tool_action), "run");
-   gtk_widget_set_tooltip_text(ui.run, "Run the current Rexx file in the Program console.");
+   ui.run = button(toolbar, "Run file", G_CALLBACK(tool_action), "run");
+   gtk_widget_set_tooltip_text(ui.run, "Run the current file, including unsaved edits, in the Program console.");
    gtk_widget_set_name(ui.run, "the-program-run");
    ui.split = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
    gtk_widget_set_name(ui.split, "the-editor-console-split");

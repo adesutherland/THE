@@ -6,9 +6,10 @@ binary=Path(sys.argv[1]).resolve()
 with tempfile.TemporaryDirectory(prefix='THE tools ') as d:
     root=Path(d); source=root/'program.rexx'; config=root/'config';config.mkdir()
     env=dict(os.environ,THE_TOOL_CONFIG_DIR=str(config))
-    def run(text,commands):
-        source.write_text(text)
-        p=subprocess.run([str(binary),'--driver','llm','-n',str(source)],input=commands+'\nquit\n',text=True,capture_output=True,env=env,timeout=50)
+    def run(text,commands,path=None):
+        target=path or source
+        target.write_text(text)
+        p=subprocess.run([str(binary),'--driver','llm','-n',str(target)],input=commands+'\nquit\n',text=True,capture_output=True,env=env,timeout=50)
         assert p.returncode==0,p.stderr
         return [json.loads(s) for s in p.stdout.splitlines() if s.startswith('{')]
     def tools(records): return [r for r in records if r.get('type')=='tools']
@@ -38,6 +39,43 @@ with tempfile.TemporaryDirectory(prefix='THE tools ') as d:
     assert 'buffer is not executed\n' not in ''.join(c['text'] for c in session['chunks']),session
     snap=next(r for r in records if 'screen_rows' in r);assert snap['buffer']['dirty']==0 and snap['focus']['cell']==0,snap
     assert source.read_text()=="say 'buffer is not executed'\n"
+    # A profile selects a source-file RXBIN runner by extension. It receives an
+    # immutable unsaved snapshot as argv[1], with Program stdin kept separate.
+    runner_stem=root/'Source File Runner'
+    fixture=Path(__file__).with_name('source-file-runner.crexx')
+    subprocess.run([str(compiler),'-i',env['THE_CREXX_IMPORT_DIR'],'-o',str(runner_stem),str(fixture)],capture_output=True,text=True,check=True,timeout=30)
+    subprocess.run([str(assembler),'-o',str(runner_stem),str(runner_stem)],capture_output=True,text=True,check=True,timeout=30)
+    runner_image=runner_stem.with_suffix('.rxbin');dsl_source=root/'Lesson Zoë.BAS'
+    disk_text='DISK FIRST\nSECOND\n'
+    records=run(disk_text,
+        f'command RX REGISTER source-probe runner "{runner_image}" .bas "Source probe"\n'
+        'command set insertmode on\ncommand cursor goto 1 1\ntext PENDING \nlook full compact\n'
+        'command RX RUN\ntoolwait 300\ntools\nlook full compact\n'
+        'text LATER \nlook full compact\ncommand RX INPUT Zoë😀\ncommand RX EOF\n'
+        'toolwait 10000\ntools\nlook full compact\n'
+        'command RX RUN source-probe "Mixed Case" "" "Zoë😀"\n'
+        'command RX EOF\ntoolwait 10000\ntools',dsl_source)
+    assert all(r.get('rc',0)==0 for r in records),records
+    before,launched,edited,completed=[r for r in records if 'screen_rows' in r]
+    assert before['buffer']['dirty'] and before['buffer']==launched['buffer'],records
+    assert before['focus']==launched['focus'] and edited['buffer']==completed['buffer'],records
+    assert edited['focus']==completed['focus'] and dsl_source.read_text()==disk_text,records
+    active,finished,explicit=tools(records)
+    assert active['job']['running'] and active['job']['tool']=='source-probe',active
+    assert Path(active['job']['filename']).resolve()==dsl_source.resolve() and active['job']['sourceId'],active
+    assert finished['job']['state']=='Completed · status 0',finished
+    assert finished['job']['sourceId']==active['job']['sourceId'] and finished['job']['revision']==active['job']['revision'],finished
+    captured='PENDINGDISK FIRST\nSECOND\n'
+    output=''.join(c['text'] for c in finished['chunks'])
+    assert output.count('SOURCE-BEGIN\n'+captured+'SOURCE-END\n')==2,output
+    assert 'SOURCE-NAME:Lesson Zoë.BAS\n' in output and 'STDIN-BEGIN\n' in output and '\nZoë😀\nSTDIN-END' in output,output
+    assert 'LATER' not in output and 'crxthe-job-' not in output,output
+    assert explicit['job']['state']=='Completed · status 0' and explicit['job']['revision']>finished['job']['revision'],explicit
+    output=''.join(c['text'] for c in explicit['chunks'])
+    assert 'ARGC:3\nARG:Mixed Case\nARG:\nARG:Zoë😀\n' in output,output
+    # Registry restore retains the runner entry and extension dispatch.
+    restored=run(disk_text,'command RX RUN\ncommand RX EOF\ntoolwait 10000\ntools',dsl_source)
+    assert tools(restored)[-1]['job']['tool']=='source-probe' and tools(restored)[-1]['job']['state']=='Completed · status 0',restored
     records=run("say 'console controls'\n",'command RX CONSOLE ON\ntools\ncommand RX CONSOLE ON\ntools\ncommand RX CONSOLE OFF\ntools')
     opened,still_open,closed=tools(records)
     assert opened['visible'] and still_open['visible'] and not closed['visible'],records
@@ -55,4 +93,4 @@ with tempfile.TemporaryDirectory(prefix='THE tools ') as d:
     snap=next(r for r in records if 'screen_rows' in r)
     styles=[style[2] for row in snap['screen_rows'] for style in row.get('s',[])]
     assert 'comment' in styles and 'string' in styles,records
-print('Native tool jobs, input, status, Stop, conditions and profile activation/restore passed')
+print('Native tool jobs, source-file snapshots/argv/stdin, input, status, Stop, conditions and profile activation/restore passed')

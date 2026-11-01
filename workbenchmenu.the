@@ -2,7 +2,7 @@
 options levelb
 address the
 popup = .string[]
-address the 'popup topleft escape esc /Open or create file.../Save file (Ctrl-S)/Close file (Ctrl-W)/Undo (Ctrl-Z)/Find... (Ctrl-F)/Go to line... (Ctrl-G)/Next file (F2)/Run current Rexx/Show or focus Program console/Hide program console/Stop program/Clear program output/End program input/Edit profile/Build profile/Activate profile/Key definitions/Help (F1)' expose popup[];
+address the 'popup topleft escape esc /Open or create file.../Save file (Ctrl-S)/Close file (Ctrl-W)/Undo (Ctrl-Z)/Find... (Ctrl-F)/Go to line... (Ctrl-G)/Next file (F2)/Run file/Show or focus Program console/Hide program console/Stop program/Clear program output/End program input/Edit profile/Build profile/Activate profile/Key definitions/Help (F1)' expose popup[];
 select
   when popup[2] = 1 then 'macro quickopen';
   when popup[2] = 2 then 'save';

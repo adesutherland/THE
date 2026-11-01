@@ -28,6 +28,30 @@ window.runVMContract = async () => {
   const restarted = await CrexxVMProcess.start({images});
   await restarted.failInput('input failed'); const failed = await restarted.exit;
   if (failed.runtimeCode !== 0 || failed.programCode !== 2) throw new Error('Read failure became clean EOF');
-  return {ok: true, bytes:stdout, malformedRefused, failed};
+  const sourceImage = new Uint8Array(await (await fetch('./modules/source-file-probe.rxbin')).arrayBuffer());
+  const source = new TextEncoder().encode('UNSAVED α界\n');
+  const sourceOutput = [];
+  let waiting = false;
+  const sourceProcess = await CrexxVMProcess.start({images:[images[0], sourceImage],
+    sourceFile:{source, filename:'/workspace/Lesson Zoë.bas'}, arguments:['Mixed Case', '', 'Zoë😀'],
+    stdout:bytes => sourceOutput.push(...bytes), inputState:value => waiting = value});
+  for (let tries = 0; tries < 100 && !waiting; tries++) await tick();
+  if (!waiting) throw Error('Source-file runner did not wait for Program stdin');
+  source.fill(88); // The worker owns its immutable copy, not this caller array.
+  await sourceProcess.write(new TextEncoder().encode('console α界\n'));
+  await sourceProcess.endInput();
+  const sourceResult = await sourceProcess.exit;
+  if (sourceResult.runtimeCode || sourceResult.programCode) throw Error(JSON.stringify(sourceResult));
+  const sourceText = new TextDecoder().decode(Uint8Array.from(sourceOutput));
+  if (sourceText.split('SOURCE-BEGIN\nUNSAVED α界\nSOURCE-END\n').length !== 3 ||
+      !sourceText.includes('SOURCE-NAME:Lesson Zoë.bas\nARGC:3\nARG:Mixed Case\nARG:\nARG:Zoë😀\n') ||
+      !sourceText.includes('STDIN-BEGIN\nconsole α界\nSTDIN-END\n') || sourceText.includes('/run/'))
+    throw Error('Source-file runner changed bytes/argv/stdin: ' + sourceText);
+  let sourceArgLimitRefused = false;
+  try { await CrexxVMProcess.start({images:[images[0], sourceImage],
+    sourceFile:{source:new Uint8Array(), filename:'CON.bas'}, arguments:Array(128).fill('')}); }
+  catch { sourceArgLimitRefused = true; }
+  if (!sourceArgLimitRefused) throw Error('Source filename bypassed the 128-argument VM bound');
+  return {ok: true, bytes:stdout, malformedRefused, failed, sourceArgLimitRefused};
 };
 </script>

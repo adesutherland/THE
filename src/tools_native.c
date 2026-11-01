@@ -695,7 +695,8 @@ static int start(const TheToolRequest *r, char *error, size_t cap) {
       }
 #endif
    }
-   mode = job.compiler                       ? 2
+   mode = !strcmp(r->tool.entry, "source-file") ? 4
+          : job.compiler                       ? 2
           : !strcmp(r->tool.role, "runner")  ? 1
           : !strcmp(r->tool.entry, "linked") ? 3
                                              : 0;

@@ -20,7 +20,7 @@ function(the_add_wasm_vm)
         -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=67108864 -sASSERTIONS=1
         -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=worker,node
         "-sEXPORTED_FUNCTIONS=['_the_vm_create','_the_vm_destroy','_the_vm_load','_the_vm_run','_the_vm_program_rc','_the_vm_error','_malloc','_free']"
-        "-sEXPORTED_RUNTIME_METHODS=['ccall','UTF8ToString','HEAPU8','HEAPU32']"
+        "-sEXPORTED_RUNTIME_METHODS=['ccall','FS','UTF8ToString','HEAPU8','HEAPU32']"
         -Wl,--wrap=__wasi_fd_read,--wrap=__wasi_fd_write)
 endfunction()
 # Unrelated frontend work may coexist in a developer checkout. The VM and

@@ -147,7 +147,7 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
 
     try:
         wait(lambda: contains('Console ready'), 'editor source')
-        menu('Run current Rexx')
+        menu('Run file')
         wait(lambda: 'Program console |' in screen.display[0][96:], 'wide right dock')
         assert any('say' in row[:95] for row in screen.display), screen.display
         assert 'Run Stop Clear Hide Editor' in screen.display[1][96:], screen.display
@@ -208,7 +208,7 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         assert contains('Running'), screen.display
         menu('Stop program')
         wait(lambda: contains('Stopped'), 'visible Stop menu action stops the job')
-        menu('Run current Rexx')
+        menu('Run file')
         wait(lambda: contains('Running') and contains('Console ready'),
              'visible Run menu action restarts the job')
         menu('Show or focus Program console')

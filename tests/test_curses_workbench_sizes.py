@@ -148,44 +148,44 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
         try:
             wait(lambda: 'F10 Menu' in screen.display[rows - 4] and
                  'PROFILE_READY' in screen.display[rows - 3] and
-                 'Run Rexx' in screen.display[0][:37], 'profile and chrome')
+                 'Run file' in screen.display[0][:37], 'profile and chrome')
             send(b'\x1b[15~')
             wait(lambda: has('LOG_GRAPH_READY'), 'session LOG graph published before runner launch')
             assert 'MENU (F10)' in screen.display[0][:14], screen.display
             assert 'Console' in screen.display[0][14:25], screen.display
             send(b'\x1b[21~')
-            wait(lambda: has('Run current Rexx'), 'F10 menu exposes Run Rexx')
+            wait(lambda: has('Workbench: Run file'), 'F10 menu exposes Run file')
             send(b'\x1b')
-            wait(lambda: not has('Run current Rexx'), 'menu closes')
+            wait(lambda: not has('Workbench: Run file'), 'menu closes')
             send(b'\x1b[Z')
             wait(lambda: (screen.cursor.x, screen.cursor.y) == (15, 0),
                  'Shift-Tab focuses Console')
             send(b'\x1b[21~')
-            wait(lambda: has('Run current Rexx'), 'top chrome F10 opens menu')
+            wait(lambda: has('Workbench: Run file'), 'top chrome F10 opens menu')
             send(b'\x1b')
             wait(lambda: (screen.cursor.x, screen.cursor.y) == (15, 0) and
-                 not has('Run current Rexx'), 'menu cancel restores top chrome focus')
+                 not has('Workbench: Run file'), 'menu cancel restores top chrome focus')
             send(b'\x1b[Z')
             wait(lambda: (screen.cursor.x, screen.cursor.y) == (1, 0),
                  'Shift-Tab focuses Menu')
             send(b'\r' if cols == 117 else b' ')
-            wait(lambda: has('Run current Rexx'), 'Menu control opens popup')
+            wait(lambda: has('Workbench: Run file'), 'Menu control opens popup')
             send(b'\x1b')
             wait(lambda: (screen.cursor.x, screen.cursor.y) == (1, 0) and
-                 not has('Run current Rexx'),
+                 not has('Workbench: Run file'),
                  'menu cancel restores keyboard selected Menu')
             send(b'\t')
             wait(lambda: (screen.cursor.x, screen.cursor.y) == (15, 0),
                  'Tab returns to Console control')
             send(b'\t')
             wait(lambda: (screen.cursor.x, screen.cursor.y) == (26, 0),
-                 'Tab focuses direct Run Rexx')
+                 'Tab focuses direct Run file')
             if cols == 117:
                 click_at(0, 29)
             else:
                 send(b'\r')
             wait(lambda: 'Program input>' in screen.display[-1] and output_line(40),
-                 'Run Rexx starts program and opens console', timeout=40)
+                 'Run file starts program and opens console', timeout=40)
             if cols == 117:
                 assert 'Program console |' in screen.display[0][73:], screen.display
             else:
@@ -264,11 +264,11 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
             wait(lambda: console_focused() and (screen.cursor.x, screen.cursor.y) == input_caret,
                  'replacement LOG Escape restores Program input')
             send(b'\x1b[21~')
-            wait(lambda: has('Run current Rexx'), 'Program input F10 opens menu')
+            wait(lambda: has('Workbench: Run file'), 'Program input F10 opens menu')
             send(b'\x1b')
             wait(lambda: console_focused() and
                  (screen.cursor.x, screen.cursor.y) == input_caret and
-                 not has('Run current Rexx'),
+                 not has('Workbench: Run file'),
                  'menu cancel restores Program input caret and draft')
             assert 'DRAFT' in screen.display[-1], screen.display
             send(b'\t\x1b[C\x1b[C')
@@ -276,11 +276,11 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
                  'Program toolbar control selected')
             toolbar_caret = (screen.cursor.x, screen.cursor.y)
             send(b'\x1b[21~')
-            wait(lambda: has('Run current Rexx'), 'Program toolbar F10 opens menu')
+            wait(lambda: has('Workbench: Run file'), 'Program toolbar F10 opens menu')
             send(b'\x1b')
             wait(lambda: console_focused() and
                  (screen.cursor.x, screen.cursor.y) == toolbar_caret and
-                 not has('Run current Rexx'),
+                 not has('Workbench: Run file'),
                  'menu cancel restores selected Program toolbar control')
             assert 'DRAFT' in screen.display[-1], screen.display
             send(b'\t')

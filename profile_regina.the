@@ -187,8 +187,8 @@ end
 'workbench item put profile.workbench profile.item.6 label "Go to line... (Ctrl-G)" action profile.action.6 order 6';
 'workbench action put profile.action.7 label "Next file (F2)" command "next"';
 'workbench item put profile.workbench profile.item.7 label "Next file (F2)" action profile.action.7 order 7';
-'workbench action put profile.action.8 label "Run current Rexx" command "rx menu-run"';
-'workbench item put profile.workbench profile.item.8 label "Run current Rexx" action profile.action.8 order 8';
+'workbench action put profile.action.8 label "Run file" command "rx menu-run"';
+'workbench item put profile.workbench profile.item.8 label "Run file" action profile.action.8 order 8';
 'workbench action put profile.action.9 label "Show or focus Program console" command "rx console on"';
 'workbench item put profile.workbench profile.item.9 label "Show or focus Program console" action profile.action.9 order 9';
 'workbench action put profile.action.10 label "Hide program console" command "rx console off"';
