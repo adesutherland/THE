@@ -1,7 +1,8 @@
-# Profile-built IDE scope baseline (proposal)
+# Profile-built IDE scope baseline
 
-**Status: proposed for review, not yet frozen or fully implemented.** This is
-the finish line for one small IDE, rather than a list of every possible tool.
+**Status: fixed first-milestone scope; implementation is incomplete.** Change
+this baseline only through an explicit scope decision. This is the finish line
+for one small IDE, rather than a list of every possible tool.
 The [workbench contracts](workbench-extension-design.md) and implemented guides
 remain authoritative for current commands and limits.
 
@@ -36,8 +37,9 @@ The LLM driver exposes the same objects and outcomes as data and commands.
    an owner's definitions neither duplicates controls nor runs anything;
    failed activation leaves the previous published composition usable. One
    explicitly activated user profile must add a safe menu item backed by a
-   matching browser macro image, without changing frontend source or gaining
-   host privileges.
+   user-authored macro. The browser journey edits that macro's source, builds
+   a matching RXBIN image, then invokes it from the menu without
+   changing frontend source or gaining host privileges.
 3. Highlight Classic Rexx and report real parser diagnostics, including an
    explicit unavailable state when its service is absent. Demonstrate the
    registered highlighter contract with DSLSH's public `toyparser/test.toy`
@@ -48,8 +50,9 @@ The LLM driver exposes the same objects and outcomes as data and commands.
    `examples/ToolHello.rxbin` utility from profile-defined actions. Capture
    source identity and revision. Show stdout, stderr, completion and errors;
    provide separate program input, EOF, Stop and output hide/reopen. Preserve
-   the reader's scroll position as output arrives; provide a return-to-latest control and
-   unread indication. Continued editing must not change the running snapshot.
+   the reader's scroll position as output arrives; provide a return-to-latest
+   control and unread indication. Continued editing must not change the
+   running snapshot.
 5. Show a named log and read-only live document, and stage/submit one named
    form. Existing CTLCHAR file-field panes remain an optional profile feature;
    Apply uses the core edit group and Save remains explicit.
@@ -90,12 +93,14 @@ workbench actions. Move the stock controls into a reviewed bundled profile,
 add typed browser-safe tool/console actions, and permit explicitly activated
 user profiles to publish only capability-checked objects. A user macro action
 must name a matching workspace RXBIN image and be admitted at invocation under
-the same restricted editor policy. An imported or compiled profile/macro must
+the same restricted editor policy. The browser must offer a matching build path
+for authored macro source; explicit RXBIN import remains an alternative. An
+imported or compiled profile/macro must
 not become a trusted bootstrap or gain OS, local-file or network authority.
 Reject incompatible action definitions without partially publishing a profile;
 deny unsafe addressed commands at invocation without expanding host authority.
-This macro-action policy and its
-qualification are part of the first-version gap; bundled, reviewed macros
+This macro-action policy and its qualification are part of the first-version
+gap; bundled, reviewed macros
 remain available for the stock workflow.
 
 ## Desktop and deferred capabilities
