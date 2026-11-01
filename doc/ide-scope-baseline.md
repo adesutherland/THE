@@ -91,12 +91,14 @@ authorized HTTP or WebSocket protocol, subject to origin/network rules, but
 no such Wasm file or execution service exists in this source tree.
 
 The browser still has a **profile composition gap** before this full baseline
-is complete. The current file-centric browser workflow exposes selected-file
-Build, Run and Activate with explicit source and result state; editable profiles
+is complete. The current file-centric browser workflow exposes role-specific
+Build, Run and Apply with explicit source and result state; editable profiles
 can publish bounded Build macro actions for an extension. The macro must name
 a workspace RXBIN, receives the selected saved file path, and runs under the
 restricted editor policy. Activation replaces that profile's action and RX
-registration definitions, while a failed activation restores them. The Files,
+registration definitions, while a failed activation restores them. An imported
+`.profile.rxbin` can be applied explicitly from Tools & Profiles after a
+bounded workspace check and immutable copy. The Files,
 Console and other stock controls remain partly hard-coded; their visibility,
 labels and action IDs must ultimately derive from a reviewed bundled profile.
 General user macro menu actions remain outside the current browser admission

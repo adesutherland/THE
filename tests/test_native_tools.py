@@ -82,17 +82,110 @@ with tempfile.TemporaryDirectory(prefix='THE tools ') as d:
     records=run("do forever\nnop\nend\n",'command RX RUN\ntoolwait 200\ncommand RX STOP\ntools\ncommand RX RUN\ncommand RX STOP\ntools')
     first,last=tools(records);assert first['job']['state']==last['job']['state']=='Stopped';assert first['job']['id']!=last['job']['id']
     records=run("signal missing\n",'command RX RUN\ntoolwait 10000\ntools');assert tools(records)[-1]['job']['state']=='Runtime condition',records
-    profile_source=root/'UserProfile.the'
+    fresh_profile=tools(run("say 'untouched'\n",'command RX PROFILE\ntools'))[-1]
+    assert Path(fresh_profile['currentFile']['path']).resolve()==(config/'user.profile.the').resolve(),fresh_profile
+    assert (config/'user.profile.the').is_file(),fresh_profile
+    legacy_source=config/'profile.the';legacy_source.write_text('options levelb\nreturn 0\n')
+    legacy_profile=tools(run("say 'untouched'\n",'command RX PROFILE\ntools'))[-1]
+    assert Path(legacy_profile['currentFile']['path']).resolve()==legacy_source.resolve(),legacy_profile
+    assert legacy_profile['currentFile']['role']=='profile-source',legacy_profile
+    # Primary file purpose is explicit. Generic THE macros do not expose Apply;
+    # an intentional legacy RX ACTIVATE can still apply their current build.
+    for name,role in [('Probe.the','macro-source'),('User.profile.the','profile-source'),
+                      ('browser.the','profile-source'),('MiniBASIC-profile.the','profile-source'),
+                      ('program.crexx','crexx-source')]:
+        state=tools(run('options levelb\nreturn 0\n','tools',root/name))[-1]
+        assert state['currentFile']['role']==role,state
+        actions={a['id']:a for a in state['currentFile']['actions']}
+        assert actions['build']['enabled'],state
+        assert bool(actions['activate']['tool'])==(role=='profile-source'),state
+        assert bool(actions['run']['tool'])==(role=='macro-source'),state
+    macro_source=root/'Probe.the'
+    records=run('options levelb\nsay \'macro proof\'\nreturn 0\n',
+                'command RX BUILD\ntoolwait 30000\ncommand RX ACTIVATE\ntools',macro_source)
+    macro_state=tools(records)[-1]
+    assert macro_state['profile']['build']['role']=='macro-source',macro_state
+    assert macro_state['profile']['build']['name']=='Probe.rxbin',macro_state
+    assert macro_state['profile']['build']['image'].endswith('.rxbin') and not macro_state['profile']['build']['image'].endswith('.profile.rxbin'),macro_state
+    assert (config/'active').is_file(),macro_state
+    assert any('macro proof' in c['text'] for c in macro_state['build']['chunks']),macro_state
+    macro_actions={a['id']:a for a in macro_state['currentFile']['actions']}
+    assert not macro_actions['activate']['enabled'] and not macro_actions['activate']['tool'],macro_state
+    profile_source=root/'User.profile.the'
     records=run("options levelb\naddress THE\n'set number on';\nsay 'profile console proof'\nreturn 0\n",'command RX BUILD\ntoolwait 30000\ncommand RX ACTIVATE\ntools',profile_source)
     assert 'profile console proof' in ''.join(c['text'] for c in tools(records)[-1]['build']['chunks']),records
     selected=(config/'active').read_text();assert Path(selected.splitlines()[0]).is_file()
+    profile_state=tools(records)[-1]
+    assert profile_state['profile']['build']['role']=='profile-source',profile_state
+    assert profile_state['profile']['build']['name']=='User.profile.rxbin',profile_state
+    assert selected.splitlines()[0].endswith('.profile.rxbin'),selected
     # A new editor restores the immutable artifact and its addressed settings.
     records=run("say 'untouched'\n",'tools');assert 'profile console proof' in ''.join(c['text'] for c in tools(records)[-1]['build']['chunks']),records
+    active_edit=tools(run("say 'untouched'\n",'command RX PROFILE\ntools'))[-1]
+    assert Path(active_edit['currentFile']['path']).resolve()==profile_source.resolve(),active_edit
     records=run("options levelb\nthis is invalid !!\n",'command RX BUILD\ntoolwait 30000\ntools',profile_source);assert tools(records)[-1]['build']['job']['state']!='Completed · status 0';assert (config/'active').read_text()==selected
     # Profile registrations replace the prior profile's own associations.
     # Failure restores the old catalog, and reload replays profile-only tools
     # rather than persisting them as independent registry definitions.
-    owned=root/'OwnedProfile.the';omitted=root/'OmittedProfile.the';failed=root/'FailedProfile.the'
+    # Existing immutable build-*.rxbin selections remain restorable after the
+    # compound-extension introduction. Their source identity remains stable.
+    old_image=config/'build-legacy.rxbin'
+    old_image.write_bytes(Path(selected.splitlines()[0]).read_bytes())
+    legacy_selection='\n'.join([str(old_image),*selected.splitlines()[1:3]])+'\n'
+    (config/'active').write_text(legacy_selection)
+    restored_legacy=tools(run("say 'untouched'\n",'tools'))[-1]
+    assert restored_legacy['profile']['active']['image']==str(old_image),restored_legacy
+    assert 'profile console proof' in ''.join(c['text'] for c in restored_legacy['build']['chunks']),restored_legacy
+    (config/'active').write_text(selected)
+    # Imported profiles retain an immutable copy and never send binary bytes to
+    # Edit profile. Startup replays the copy even after the import is changed.
+    imported=root/'Imported.profile.rxbin';imported.write_bytes(Path(selected.splitlines()[0]).read_bytes())
+    records=run("say 'untouched'\n",f'look filearea compact\ncommand RX APPLY-PROFILE "{imported}"\ntools\nlook filearea compact')
+    imported_state=tools(records)[-1]
+    assert imported_state['fileResult']['action']=='apply-profile' and imported_state['fileResult']['code']=='applied',imported_state
+    imported_active=imported_state['profile']['active']
+    assert imported_active['image']!=str(imported) and imported_active['image'].endswith('.profile.rxbin'),imported_active
+    assert imported_active['kind']=='compiled-image' and not imported_active['sourcePath'],imported_active
+    assert Path(imported_active['image']).read_bytes()==imported.read_bytes(),imported_active
+    snapshots=[r for r in records if 'screen_rows' in r]
+    assert snapshots[0]['buffer']==snapshots[1]['buffer'] and snapshots[0]['focus']==snapshots[1]['focus'],records
+    imported_selected=(config/'active').read_text()
+    imported.write_bytes(b'import changed after Apply')
+    imported_restored=tools(run("say 'untouched'\n",'tools'))[-1]
+    assert imported_restored['profile']['active']['image']==imported_active['image'],imported_restored
+    assert not imported_restored['profile']['active']['sourcePath'],imported_restored
+    assert 'profile console proof' in ''.join(c['text'] for c in imported_restored['build']['chunks']),imported_restored
+    fallback_edit=tools(run("say 'untouched'\n",'command RX PROFILE\ntools'))[-1]
+    assert Path(fallback_edit['currentFile']['path']).resolve()==legacy_source.resolve(),fallback_edit
+    invalid_profile=root/'Invalid.profile.rxbin';invalid_profile.write_bytes(b'not RXBIN')
+    oversized=root/'Oversized.profile.rxbin'
+    with oversized.open('wb') as image_file:
+        image_file.write(b'cReXx007');image_file.truncate(64*1024*1024+1)
+    for refused in [invalid_profile,oversized,root/'missing.profile.rxbin',runner_image]:
+        refused_state=tools(run("say 'untouched'\n",f'command RX APPLY-PROFILE "{refused}"\ntools'))[-1]
+        assert refused_state['fileResult']['code']=='invalid-image',refused_state
+        assert refused_state['profile']['active']['image']==imported_active['image'],refused_state
+        assert (config/'active').read_text()==imported_selected,refused_state
+    # A persistence failure after successful execution must report partial
+    # success honestly and retain the applied image for recovery/retry.
+    (config/'active').unlink();(config/'active').mkdir()
+    partial=tools(run("say 'untouched'\n",f'command RX APPLY-PROFILE "{selected.splitlines()[0]}"\ntools'))[-1]
+    assert partial['fileResult']['code']=='applied-unsaved' and partial['fileResult']['rc'],partial
+    assert Path(partial['profile']['active']['image']).is_file(),partial
+    assert partial['profile']['active']['kind']=='compiled-image',partial
+    assert 'profile console proof' in ''.join(c['text'] for c in partial['build']['chunks']),partial
+    (config/'active').rmdir();(config/'active').write_text(imported_selected)
+    failing_source=root/'Failure.crexx';failing_stem=root/'Failure'
+    failing_source.write_text('options levelb\nreturn 7\n')
+    subprocess.run([str(compiler),'-i',env['THE_CREXX_IMPORT_DIR'],'-o',str(failing_stem),str(failing_source)],capture_output=True,text=True,check=True,timeout=30)
+    subprocess.run([str(assembler),'-o',str(failing_stem),str(failing_stem)],capture_output=True,text=True,check=True,timeout=30)
+    failing_image=root/'Failure.profile.rxbin';failing_stem.with_suffix('.rxbin').rename(failing_image)
+    retained=set(config.glob('build-import-*.profile.rxbin'))
+    failure_state=tools(run("say 'untouched'\n",f'command RX APPLY-PROFILE "{failing_image}"\ntools'))[-1]
+    assert failure_state['fileResult']['code']=='failed' and failure_state['fileResult']['rc'],failure_state
+    assert failure_state['profile']['active']['image']==imported_active['image'],failure_state
+    assert (config/'active').read_text()==imported_selected and set(config.glob('build-import-*.profile.rxbin'))==retained,failure_state
+    owned=root/'Owned.profile.the';omitted=root/'Omitted.profile.the';failed=root/'Failed.profile.the'
     owned.write_text(f'options levelb\naddress THE\n\'rx register owned-probe runner "{runner_image}" .own "Owned runner"\';\nreturn 0\n')
     omitted.write_text('options levelb\nreturn 0\n')
     failed.write_text(f'options levelb\naddress THE\n\'rx register owned-probe runner "{runner_image}" .bad "Bad replacement"\';\nreturn 7\n')

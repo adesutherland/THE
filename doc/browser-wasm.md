@@ -319,11 +319,19 @@ Opening another saved file adds it to the file ring. The initial
 profile (`browser.the`) and macro sources. These copies are saved in the
 browser workspace and are never overwritten on reload or update, so an older
 copy can differ from the installed version. Startup uses the packaged image.
-**Console → Profile → Edit profile**
-opens the separate `/workspace/.crxthe-tools/profile.the` user source. Save
-that source, then use Build profile and Activate profile to apply it; the
+**Tools & Profiles → Edit profile** opens the user profile source. A fresh
+workspace creates `/workspace/.crxthe-tools/user.profile.the`; an existing
+`profile.the` remains available without renaming. Save that source, then use
+**Build profile** and **Apply profile** beside the selected file; the
 compiler also accepts unsaved buffer text, but Save is needed to retain the
-source across reloads.
+source across reloads. A successful build creates an immutable artifact whose
+name ends in `.profile.rxbin`; it uses the ordinary RXBIN format.
+**Tools & Profiles → Apply compiled profile** also accepts a prepared
+`.profile.rxbin` in the browser workspace. Import it through the adjacent
+control or enter its workspace path. THE validates and copies it to an
+immutable private artifact before applying it; the original import is not
+opened in the editor or used for later startup. The bytecode must match the
+packaged cREXX runtime. A failed load retains the previous profile selection.
 
 Ctrl-S and the Save button write the core's bytes, then wait for `FS.syncfs`
 to finish. Only successful synchronization clears the buffer's dirty state.

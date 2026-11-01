@@ -47,21 +47,34 @@ export async function minibasicCandidateSmoke({
     if (tool) assert.equal(action.tool, tool, `${path} ${id} tool`);
     return action;
   }
+  async function expectRole(path, role) {
+    await waitFor(() => evaluate(`window.__tools?.currentFile?.path===${JSON.stringify(path)}`), `${path} role`);
+    assert.equal(await evaluate("window.__tools.currentFile.role"), role, `${path} source role`);
+  }
+  async function expectVisibleActions(ids) {
+    await waitFor(() => evaluate(`JSON.stringify([...document.querySelectorAll('.current-file-action-list > button[class*="file-action-"]')]
+      .map(node=>[...node.classList].find(name=>name.startsWith('file-action-'))?.slice('file-action-'.length)).sort())===${JSON.stringify(JSON.stringify([...ids].sort()))}`),
+      `visible ${ids.join("/")} actions`);
+  }
 
   // A fresh BASIC document must not inherit the stock Classic Rexx runner.
   await openWorkspaceFile("MiniBASIC.bas");
   const basicRun = await expectCurrentAction(sourcePath, "run", false);
   assert.ok(basicRun.reason, "unconfigured BASIC explains its Run refusal");
-  assert.equal(await evaluate("document.querySelector('.file-action-run')?.disabled"), true,
-    "the visible BASIC Run control is disabled before profile setup");
+  assert.equal(await evaluate("document.querySelector('.file-action-run')"), null,
+    "unassociated BASIC does not offer a misleading primary Run");
+  assert.equal(await evaluate("document.querySelector('.file-action-configure')?.disabled"), false,
+    "unassociated BASIC offers Configure runner");
   const preflightJob = await evaluate("window.__tools.job.id");
-  await evaluate("document.querySelector('.file-action-run').click()");
-  assert.equal(await evaluate("window.__tools.job.id"), preflightJob, "disabled BASIC Run did not start Classic Rexx");
+  await evaluate("document.querySelector('.file-action-configure').click()");
+  await waitFor(() => evaluate("!!document.querySelector('.tools-profiles-pane')?.getClientRects().length"),
+    "Configure runner opens Tools and profiles");
+  assert.equal(await evaluate("window.__tools.job.id"), preflightJob, "Configure runner did not start Classic Rexx");
   await openWorkspaceFile("RexxRunner.rexx");
   await expectCurrentAction("/workspace/RexxRunner.rexx", "run", true, "classic-rexx");
   assert.equal(await evaluate("document.querySelector('.file-action-run')?.disabled"), false,
     "the visible Rexx Run control is enabled");
-  assert.equal(await evaluate("document.querySelector('.file-action-run + .file-action-context .file-action-tool')?.textContent"), "Classic Rexx",
+  assert.match(await evaluate("document.querySelector('.file-action-run')?.textContent"), /Classic Rexx/,
     "Rexx Run visibly names its selected runner");
 
   async function showConsole() {
@@ -119,30 +132,265 @@ export async function minibasicCandidateSmoke({
   const savedMacro = await durable(macroPath);
   assert.equal(Buffer.from(savedMacro).toString("utf8").trimEnd(), macroLines.join("\n"),
     "Build macro source bytes are inspectable");
+  await expectRole(macroPath, "macro-source");
   await expectCurrentAction(macroPath, "build", true, "profile-compiler");
   await expectCurrentAction(macroPath, "activate", false);
+  await expectVisibleActions(["build", "run"]);
+  assert.equal(await evaluate("document.querySelector('.file-action-activate')"), null,
+    "ordinary THE macro has no primary Apply profile action");
   const unbuiltMacroRun = await expectCurrentAction(macroPath, "run", false);
   assert.match(unbuiltMacroRun.reason, /build/i, "unbuilt THE macro explains its Run refusal");
+  assert.match(await evaluate("document.querySelector('.current-file-status')?.textContent"), /Build this macro before running/i,
+    "macro prerequisite is visible beside its actions");
+  assert.notEqual(unbuiltMacroRun.reason, (await currentAction("activate")).reason,
+    "macro Run and profile Apply have distinct disabled reasons");
   const macroBuildJob = await evaluate("window.__tools.build?.job.id ?? 0");
   await evaluate("document.querySelector('.file-action-build').click()");
   await waitFor(() => evaluate(`window.__tools.build?.job.id>${macroBuildJob}&&window.__tools.build.job.tool==='profile-compiler'&&!window.__tools.build.job.running`), "Build macro RXBIN", 60000);
   assert.equal(await evaluate("window.__tools.build.job.state"), "Completed · status 0", "Build macro compiled");
   const macroImage = await evaluate("window.__tools.profile.build.image");
   assert.match(macroImage, /^\/workspace\/\.crxthe-tools\/.*\.rxbin$/, "Build macro has immutable RXBIN image");
+  assert.doesNotMatch(macroImage, /\.profile\.rxbin$/, "ordinary macro build is not a profile artifact");
+  assert.equal(await evaluate("window.__tools.profile.build.name"), "BuildProbe.rxbin",
+    "macro Build exposes its logical output name");
+  assert.equal(await evaluate("window.__tools.profile.build.role"), "macro-source");
+  assert.equal(await evaluate("window.__tools.profile.build.sourcePath"), macroPath);
   assert.deepEqual(await durable(macroPath), savedMacro, "compiling macro did not save or rewrite its source");
   await expectCurrentAction(macroPath, "run", true, "built-macro");
+  assert.match(await evaluate("document.querySelector('.current-file-status')?.textContent"), /Macro built|Run macro/i,
+    "macro build outcome is visible beside its actions");
   const macroRunBefore = await evaluate("window.__tools.job.id");
   await evaluate("document.querySelector('.file-action-run').click()");
   await waitFor(() => evaluate(`window.__tools.job.id>${macroRunBefore}&&window.__tools.job.tool==='built-macro'&&!window.__tools.job.running`), "Run selected built THE macro", 30000);
   assert.equal(await evaluate("window.__tools.fileResult.code"), "completed", "built THE macro completed");
   assert.equal(await evaluate("window.__tools.job.state"), "Completed · status 0", "built THE macro status");
   assert.deepEqual(await durable(macroPath), savedMacro, "running the built macro did not rewrite its source");
+  await openWorkspaceFile("RexxRunner.rexx");
+  await expectRole("/workspace/RexxRunner.rexx", "other");
+  await openWorkspaceFile("BuildProbe.the");
+  await expectCurrentAction(macroPath, "run", true, "built-macro");
+  assert.equal(await evaluate("window.__tools.profile.build.state"), "ready",
+    "returning to unchanged macro does not report a stale build");
+
+  // A named profile is compiled from its selected source and applied as a
+  // persistent profile. Its image is distinct from an ordinary macro image.
+  await send({ type: "action", action: "file.create", argument: "Foo.profile.the" });
+  const namedPath = "/workspace/Foo.profile.the";
+  await waitFor(async () => (await snapshot()).buffer.path === namedPath, "named profile source buffer");
+  const namedLines = [
+    "/* Named profile acceptance */", "options levelb", "import rxfnsb", "address THE",
+    "'rx register named-profile-probe runner /workspace/MiniBASIC.rxbin .namedprobe \"Named profile probe\"';",
+    "say 'Named profile acceptance applied'", "return 0",
+  ];
+  await send({ type: "command", command: "top" });
+  await send({ type: "command", command: "delete *" });
+  await send({ type: "command", command: "top" });
+  for (const line of namedLines) await send({ type: "command", command: `input ${line}` });
+  const namedDirty = await snapshot();
+  assert.ok(namedDirty.buffer.dirty, "named profile source is dirty before Save");
+  assert.equal(namedDirty.buffer.path, namedPath, "named profile keeps selected source identity");
+  assert.notEqual(Buffer.from(await durable(namedPath) ?? []).toString("utf8").trimEnd(), namedLines.join("\n"),
+    "unsaved named profile source bytes are not durable");
+  await send({ type: "action", action: "file.save" });
+  await waitFor(async () => !(await snapshot()).buffer.dirty, "saved named profile source");
+  const savedNamed = await durable(namedPath);
+  assert.equal(Buffer.from(savedNamed).toString("utf8").trimEnd(), namedLines.join("\n"),
+    "named profile Save persists exact source bytes");
+  await expectRole(namedPath, "profile-source");
+  const namedBuild = await expectCurrentAction(namedPath, "build", true, "profile-compiler");
+  assert.match(namedBuild.label, /Build profile/);
+  const namedApplyBefore = await expectCurrentAction(namedPath, "activate", false);
+  assert.match(namedApplyBefore.reason, /build/i, "unbuilt profile explains Apply refusal");
+  assert.match(await evaluate("document.querySelector('.current-file-status')?.textContent"), /Build this profile before applying/i,
+    "profile prerequisite is distinct and visible beside its actions");
+  await expectVisibleActions(["build", "activate"]);
+  assert.equal(await evaluate("document.querySelector('.file-action-run')"), null,
+    "profile source has no primary Run macro action");
+  const namedBeforeBuild = await snapshot();
+  const namedBuildJob = await evaluate("window.__tools.build.job.id");
+  await evaluate("document.querySelector('.file-action-build').click()");
+  await waitFor(() => evaluate(`window.__tools.build.job.id>${namedBuildJob}&&!window.__tools.build.job.running`),
+    "named profile build", 60000);
+  assert.equal(await evaluate("window.__tools.build.job.state"), "Completed · status 0");
+  const namedImage = await evaluate("window.__tools.profile.build.image");
+  assert.match(namedImage, /^\/workspace\/\.crxthe-tools\/build-[^/]+-[0-9a-f-]{36}\.profile\.rxbin$/i,
+    "named profile Build creates an immutable profile RXBIN");
+  assert.equal(await evaluate("window.__tools.profile.build.name"), "Foo.profile.rxbin",
+    "named profile Build exposes its logical output name");
+  assert.notEqual(namedImage, macroImage, "profile and macro images are distinct");
+  assert.ok((await durable(namedImage))?.length, "profile RXBIN persists in the browser workspace");
+  assert.equal(await evaluate("window.__tools.profile.build.role"), "profile-source");
+  assert.equal(await evaluate("window.__tools.profile.build.sourcePath"), namedPath);
+  assert.deepEqual(await durable(namedPath), savedNamed, "Build preserves saved named profile bytes");
+  assert.equal((await snapshot()).source.id, namedBeforeBuild.source.id, "Build preserves profile source identity");
+  assert.match(await evaluate("document.querySelector('.current-file-status')?.textContent"), /Foo\.profile\.rxbin|Apply profile/,
+    "profile build outcome explains the next action");
+  const priorNamedImage = namedImage;
+  const secondNamedJob = await evaluate("window.__tools.build.job.id");
+  await evaluate("document.querySelector('.file-action-build').click()");
+  await waitFor(() => evaluate(`window.__tools.build.job.id>${secondNamedJob}&&!window.__tools.build.job.running`),
+    "repeat named profile build", 60000);
+  assert.equal(await evaluate("window.__tools.build.job.state"), "Completed · status 0");
+  const latestNamedImage = await evaluate("window.__tools.profile.build.image");
+  assert.notEqual(latestNamedImage, priorNamedImage, "rebuilding creates a new immutable profile path");
+  assert.ok((await durable(priorNamedImage))?.length, "earlier profile artifact remains available");
+  assert.ok((await durable(latestNamedImage))?.length, "later profile artifact persists");
+  await expectCurrentAction(namedPath, "activate", true);
+  await openWorkspaceFile("RexxRunner.rexx");
+  await openWorkspaceFile("Foo.profile.the");
+  await expectCurrentAction(namedPath, "activate", true);
+  assert.equal(await evaluate("window.__tools.profile.build.state"), "ready",
+    "returning to unchanged named profile does not report a stale build");
+  await command("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: false });
+  await waitFor(() => evaluate("document.querySelector('.file-action-activate')?.getClientRects().length"),
+    "phone Apply profile action");
+  await evaluate("document.querySelector('.file-action-build').scrollIntoView({block:'center'})");
+  assert.equal(await evaluate("(() => { const rect=document.querySelector('.file-action-activate').getBoundingClientRect(); const build=document.querySelector('.file-action-build').getBoundingClientRect(); return rect.left>=0&&rect.right<=innerWidth&&rect.width>0&&build.left>=0&&build.right<=innerWidth&&build.width>0; })()"),
+    true, "phone Apply profile control fits viewport");
+  await command("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
+  const touchBuildJob = await evaluate("window.__tools.build.job.id");
+  const buildCenter = await evaluate("(() => { const rect=document.querySelector('.file-action-build').getBoundingClientRect(); return {x:rect.left+rect.width/2,y:rect.top+rect.height/2}; })()");
+  await command("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [buildCenter] });
+  await command("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await waitFor(() => evaluate(`window.__tools.build.job.id>${touchBuildJob}&&!window.__tools.build.job.running`),
+    "phone touch Build profile", 60000);
+  assert.equal(await evaluate("window.__tools.build.job.state"), "Completed · status 0");
+  await command("Emulation.setTouchEmulationEnabled", { enabled: false });
+  await evaluate("document.querySelector('.file-action-activate').focus()");
+  await command("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" });
+  await command("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+  await waitFor(() => evaluate("window.__tools.build?.chunks.some(chunk=>chunk.text.includes('Named profile acceptance applied'))"),
+    "phone keyboard Apply profile", 30000);
+  await waitFor(async () => (await snapshot()).last_message === "Profile activated", "named profile activation");
+  const selectedNamed = await durable("/workspace/.crxthe-tools/active");
+  assert.ok(selectedNamed?.length, "named profile selection is durable");
+  await waitFor(() => evaluate("window.__tools.catalog.some(tool=>tool.id==='named-profile-probe'&&tool.extensions==='.namedprobe'&&tool.available)"),
+    "named profile registration effect");
+  await command("Emulation.clearDeviceMetricsOverride");
+  const namedGeneration = await evaluate("window.__minibasicGeneration=Math.random()");
+  await reloadAcceptingUnsaved(namedGeneration);
+  assert.deepEqual(await durable(namedPath), savedNamed, "named profile source survives reload");
+  assert.deepEqual(await durable("/workspace/.crxthe-tools/active"), selectedNamed,
+    "named profile selection survives reload");
+  await waitFor(() => evaluate("window.__tools.catalog.some(tool=>tool.id==='named-profile-probe'&&tool.extensions==='.namedprobe'&&tool.available)"),
+    "named profile registration restores after reload", 30000);
+
+  // Apply a compiled profile brought in through the browser's RXBIN importer.
+  // The selected profile must be a private immutable snapshot of those bytes.
+  const preparedName = "NamedPrepared.profile.rxbin";
+  const preparedPath = `/workspace/${preparedName}`;
+  const preparedBytes = Buffer.from(await durable(latestNamedImage));
+  await showTools();
+  const runToolBeforeProfileImport = await evaluate("document.querySelector('[aria-label=\"Run tool\"]')?.value");
+  await importImage(preparedName, preparedBytes);
+  await waitFor(() => evaluate(`document.querySelector('[aria-label="Compiled profile path"]')?.value===${JSON.stringify(preparedPath)}`),
+    "profile import populates Apply path");
+  assert.equal(await evaluate("document.querySelector('[aria-label=\"Run tool\"]')?.value"), runToolBeforeProfileImport,
+    "profile import does not select the RXBIN program runner");
+  async function applyProfilePath(path) {
+    await showTools();
+    await waitFor(() => evaluate("!!document.querySelector('[aria-label=\"Compiled profile path\"]')"),
+      "compiled profile path control");
+    await evaluate(`(() => { const input=document.querySelector('[aria-label="Compiled profile path"]');
+      input.value=${JSON.stringify(path)};input.dispatchEvent(new Event('input',{bubbles:true})); })()`);
+    await waitFor(() => evaluate(`document.querySelector('[aria-label="Compiled profile path"]').value===${JSON.stringify(path)}`),
+      "compiled profile path entry");
+    await waitFor(() => evaluate("!document.querySelector('.apply-compiled-profile').disabled"),
+      "compiled profile Apply eligibility");
+    const serial = await evaluate("window.__tools.fileResult.serial");
+    await evaluate("document.querySelector('.apply-compiled-profile').click()");
+    return waitFor(() => evaluate(`window.__tools.fileResult.serial>${serial}&&window.__tools.fileResult.action==='apply-profile'&&window.__tools.fileResult`),
+      `Apply compiled profile ${path}`, 30000);
+  }
+  const preparedResult = await applyProfilePath(preparedPath);
+  assert.equal(preparedResult.code, "applied", "imported compiled profile applied");
+  assert.equal(preparedResult.rc, 0);
+  assert.equal(preparedResult.sourceId, 0, "image Apply result is independent of selected editor source");
+  const appliedImport = await evaluate("window.__tools.profile.active");
+  assert.equal(appliedImport.kind, "compiled-image", "active profile records compiled-image provenance");
+  assert.equal(appliedImport.sourcePath, "", "compiled image has no editable source path");
+  assert.equal(appliedImport.sourceId, 0, "image Apply has no editor source binding");
+  assert.match(appliedImport.image, /^\/workspace\/\.crxthe-tools\/[^/]+\.profile\.rxbin$/,
+    "image Apply selects an immutable private profile path");
+  assert.notEqual(appliedImport.image, preparedPath, "active selection is separate from imported original");
+  assert.ok(Buffer.from(await durable(appliedImport.image)).equals(preparedBytes),
+    "active snapshot preserves exact imported bytes");
+  assert.match(await evaluate("document.querySelector('.compiled-profile-status')?.textContent"), /applied|active/i,
+    "explicit Apply outcome is visible in Tools and profiles");
+
+  const activeSelection = await durable("/workspace/.crxthe-tools/active");
+  const missingResult = await applyProfilePath("/workspace/Missing.profile.rxbin");
+  assert.notEqual(missingResult.code, "applied", "missing profile image refused");
+  assert.deepEqual(await durable("/workspace/.crxthe-tools/active"), activeSelection,
+    "invalid path does not replace active profile selection");
+  assert.equal(await evaluate("window.__tools.profile.active.image"), appliedImport.image);
+
+  await send({ type: "action", action: "file.create", argument: "Invalid.profile.rxbin" });
+  const invalidPath = "/workspace/Invalid.profile.rxbin";
+  await waitFor(async () => (await snapshot()).buffer.path === invalidPath, "invalid image fixture buffer");
+  await send({ type: "command", command: "top" });
+  await send({ type: "command", command: "delete *" });
+  await send({ type: "command", command: "top" });
+  await send({ type: "command", command: "input Invalid compiled profile image" });
+  await waitFor(async () => {
+    const state = await snapshot();
+    return state.buffer.path === invalidPath && state.buffer.dirty &&
+      state.screen_rows.some(row => row.t === "Invalid compiled profile image");
+  }, "invalid image fixture source edit");
+  await send({ type: "action", action: "file.save" });
+  await waitFor(async () => {
+    const state = await snapshot(), bytes = await durable(invalidPath);
+    return state.buffer.path === invalidPath && !state.buffer.dirty && bytes?.length;
+  }, "invalid image fixture saved");
+  assert.doesNotMatch(Buffer.from(await durable(invalidPath)).toString("utf8"), /^cReXx007/);
+  const invalidSource = await snapshot();
+  const invalidResult = await applyProfilePath(invalidPath);
+  assert.equal(invalidResult.code, "invalid-image", "bad RXBIN magic refused");
+  assert.equal((await snapshot()).source.id, invalidSource.source.id,
+    "bad image Apply preserves selected editor source");
+  assert.deepEqual(await durable("/workspace/.crxthe-tools/active"), activeSelection,
+    "bad magic does not replace active profile selection");
+
+  // The import cannot be overwritten through Import RXBIN, so alter only its
+  // persisted original record after Apply and prove the snapshot on restart.
+  await evaluate(`new Promise((resolve,reject)=>{const open=indexedDB.open('/workspace');
+    open.onerror=()=>reject(open.error);open.onsuccess=()=>{const db=open.result;
+      const tx=db.transaction('FILE_DATA','readwrite');const store=tx.objectStore('FILE_DATA');
+      const get=store.get(${JSON.stringify(preparedPath)});
+      get.onerror=()=>reject(get.error);get.onsuccess=()=>{
+        const record=get.result;record.contents=new TextEncoder().encode('invalid original after Apply');
+        store.put(record,${JSON.stringify(preparedPath)});};
+      tx.oncomplete=()=>{db.close();resolve(true);};tx.onerror=()=>{db.close();reject(tx.error);};};})`);
+  assert.notDeepEqual(await durable(preparedPath), [...preparedBytes], "imported original changed after Apply");
+  const importedGeneration = await evaluate("window.__minibasicGeneration=Math.random()");
+  await reloadAcceptingUnsaved(importedGeneration);
+  assert.deepEqual(await durable("/workspace/.crxthe-tools/active"), activeSelection,
+    "image Apply selection persists independently of original import");
+  assert.ok(Buffer.from(await durable(appliedImport.image)).equals(preparedBytes),
+    "immutable active snapshot survives altered original and reload");
+  await waitFor(() => evaluate("window.__tools.catalog.some(tool=>tool.id==='named-profile-probe'&&tool.extensions==='.namedprobe'&&tool.available)"),
+    "imported profile registration restores after reload", 30000);
+
+  // Keep both supported legacy profile names in the action classification.
+  await evaluate("document.querySelector('[aria-label=\"Open\"]').click()");
+  await waitFor(() => evaluate("!!document.querySelector('.root-switcher button')"), "Files root switcher");
+  await evaluate("document.querySelector('.root-switcher button').click()");
+  await waitFor(() => evaluate("document.querySelector('.explorer-path > span')?.textContent==='/'"),
+    "workspace Files root");
+  await evaluate("[...document.querySelectorAll('.file-list button')].find(node=>node.textContent.trim()==='Profile sources').click()");
+  await waitFor(() => evaluate("[...document.querySelectorAll('.file-list button')].some(node=>node.textContent.trim()==='MiniBASIC-profile.the')"),
+    "legacy MiniBASIC profile source in Files");
+  await evaluate("[...document.querySelectorAll('.file-list button')].find(node=>node.textContent.trim()==='MiniBASIC-profile.the').click()");
+  await expectRole("/workspace/Profile sources/MiniBASIC-profile.the", "profile-source");
+  await expectVisibleActions(["build", "activate"]);
 
   // Registrations come from editable source, then the real browser compiler
   // and ADDRESS THE activation; no registry or filesystem injection is used.
   await profileButton("Edit profile");
-  const profilePath = "/workspace/.crxthe-tools/profile.the";
+  const profilePath = "/workspace/.crxthe-tools/user.profile.the";
   await waitFor(async () => (await snapshot()).buffer.path === profilePath, "MiniBASIC editable profile");
+  await expectRole(profilePath, "profile-source");
+  await expectVisibleActions(["build", "activate"]);
   const profileLines = [
     "/* MiniBASIC candidate profile */", "options levelb", "import rxfnsb", "address THE",
     "'rx register minibasic runner /workspace/MiniBASIC.rxbin .bas \"MiniBASIC\"';",
@@ -290,7 +538,7 @@ export async function minibasicCandidateSmoke({
   const dirtyBuild = await expectCurrentAction(sourcePath, "build", false, "user.basicbuild");
   assert.match(dirtyBuild.reason, /save|dirty/i, "unsaved BASIC explains Build refusal");
   await expectCurrentAction(sourcePath, "run", true, "minibasic");
-  assert.equal(await evaluate("document.querySelector('.file-action-run + .file-action-context .file-action-tool')?.textContent"), "MiniBASIC",
+  assert.match(await evaluate("document.querySelector('.file-action-run')?.textContent"), /MiniBASIC/,
     "BASIC Run visibly names the profile-selected runner");
   const runFromEditor = async () => evaluate("document.querySelector('.file-action-run').click()");
   await showConsole();
@@ -351,5 +599,12 @@ export async function minibasicCandidateSmoke({
   assert.equal(await evaluate("!window.__tools.catalog.some(tool=>tool.id==='minibasic'||tool.id==='minibasic-syntax')"), true,
     "omitted BASIC association stays removed after reload");
   assert.deepEqual(await durable(sourcePath), [...original], "profile replacement preserved saved BASIC source");
-  console.log("PASS MiniBASIC file journey: fresh BASIC refusal, Classic Rexx association, Tools/Profile setup, selected .the Build/Activate, profile BASIC runner and macro Build result, unsaved INPUT run and durable reload");
+  await send({ type: "action", action: "file.create", argument: "/workspace/.crxthe-tools/profile.the" });
+  const legacyPath = "/workspace/.crxthe-tools/profile.the";
+  await waitFor(async () => (await snapshot()).buffer.path === legacyPath, "legacy profile.the buffer");
+  await expectRole(legacyPath, "profile-source");
+  await expectVisibleActions(["build", "activate"]);
+  assert.equal(await evaluate("document.querySelector('.file-action-run')"), null,
+    "legacy profile.the retains profile actions rather than macro Run");
+  console.log("PASS MiniBASIC file journey: Configure runner, ordinary THE macro Build/Run, named profile immutable Build/Apply/reload, legacy profile names, profile BASIC runner and Build result, unsaved INPUT run and durable reload");
 }

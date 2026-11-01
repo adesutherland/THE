@@ -21,6 +21,10 @@ void the_tools_native_initialise(void);
 void the_tools_native_poll(void);
 int the_tools_native_language(const TheToolDefinition *);
 const char *the_tools_profile_path(void);
+/* Primary file purpose is explicit; RX ACTIVATE retains its legacy opt-in. */
+const char *the_tools_source_role(const char *path);
+/* Logical output basename; hosts add uniqueness before the compound suffix. */
+size_t the_tools_build_name(const char *path,char *out,size_t capacity);
 void the_tools_profile_built(unsigned id, const char *path, unsigned source_id, unsigned revision);
 /* Restore persisted tool definitions before startup profiles validate routes.
  * Metadata only: no language activation, profile execution or program launch. */

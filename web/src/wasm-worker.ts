@@ -158,6 +158,8 @@ type ToolJob = {
   entry: string;
   image: string;
   filename: string;
+  sourceRole: string;
+  outputName: string;
   source: Uint8Array;
   arguments: string[];
 };
@@ -233,7 +235,11 @@ async function startTool(job: ToolJob) {
           finish({ code: -1, error: data.error });
         else if (data.type === "built") {
           try {
-            const path = `/workspace/.crxthe-tools/build-${crypto.randomUUID()}.rxbin`;
+            const profile = job.sourceRole === "profile-source";
+            const suffix = profile ? ".profile.rxbin" : ".rxbin";
+            const stem = job.outputName.slice(0, -suffix.length)
+              .toLowerCase().replace(/[^a-z0-9._-]+/g, "-").slice(0, 80) || "source";
+            const path = `/workspace/.crxthe-tools/build-${stem}-${crypto.randomUUID()}${suffix}`;
             editor!.FS.writeFile(path, data.bytes);
             await sync();
             if (!current()) return;
@@ -455,18 +461,24 @@ async function start() {
         "Browser profile and macro sources\n\n" +
         "These editable copies show the sources bundled with this editor.\n" +
         "browser.the is the bundled stock browser profile (browser.commands in\n" +
-        "an editor without cREXX). The other .the files are bundled macros.\n" +
+        "an editor without cREXX). MiniBASIC-profile.the is a legacy profile\n" +
+        "example; the other .the files are bundled macros.\n" +
         "Save keeps your changes in this browser workspace. Reloading or updating\n" +
         "the editor preserves existing copies; they are not refreshed automatically.\n\n" +
         "Editing a copy does not change the installed startup profile or macros.\n" +
-        "Console > Profile > Edit profile opens the separate editable user override\n" +
-        "at .crxthe-tools/profile.the.\n" +
-        "Save its source, then choose Build profile and Activate profile to apply it.\n" +
+        "Tools & Profiles > Edit profile opens the editable user profile. New\n" +
+        "workspaces use .crxthe-tools/user.profile.the; existing profile.the\n" +
+        "files remain supported. Name new profiles name.profile.the.\n" +
+        "Choose Build profile and Apply profile above the selected source to apply it.\n" +
         "Build profile compiles the current buffer, including unsaved edits.\n" +
+        "Each build keeps an immutable name-identifier.profile.rxbin artifact.\n" +
+        "Prepared .profile.rxbin images can be imported and applied in Tools &\n" +
+        "Profiles without rebuilding source. Apply retains an immutable copy.\n" +
+        "Ordinary .the macros use Build macro and Run macro.\n" +
         (fs.analyzePath("/app/MiniBASIC-profile.the").exists
           ? "\nMiniBASIC-profile.the is an optional example. Import both MiniBASIC RXBIN\n" +
-            "images from the Program console, open the example here, then Build\n" +
-            "and Activate it to add a BASIC runner and syntax highlighter.\n"
+            "images in Tools & Profiles, open the example here, then choose Build\n" +
+            "profile and Apply profile to add a BASIC runner and syntax highlighter.\n"
           : ""));
       changed = true;
     }

@@ -3,7 +3,7 @@
 #include <string.h>
 EM_JS(int, wasm_start,
       (unsigned id, unsigned source_id, unsigned revision, const char *role, const char *entry,
-       const char *image, const char *filename, const char *source, size_t length, int argc,
+       const char *image, const char *filename, const char *source_role,const char *output_name,const char *source, size_t length, int argc,
        const char *const *argv),
       {
          const args = [];
@@ -17,6 +17,8 @@ EM_JS(int, wasm_start,
             entry : UTF8ToString(entry),
             image : UTF8ToString(image),
             filename : UTF8ToString(filename),
+            sourceRole : UTF8ToString(source_role),
+            outputName : UTF8ToString(output_name),
             source : HEAPU8.slice(source, source + length),
             arguments : args
          });
@@ -27,10 +29,12 @@ EM_JS(int, wasm_input, (unsigned id, const void *bytes, size_t length),
 EM_JS(int, wasm_eof, (unsigned id), { return Module.toolEof(id) ? 1 : 0; });
 EM_JS(void, wasm_stop, (unsigned id), { Module.stopTool(id); });
 static int start(const TheToolRequest *r, char *error, size_t cap) {
+   char output_name[THE_TOOL_PATH];
    (void)error;
    (void)cap;
+   the_tools_build_name(r->filename,output_name,sizeof(output_name));
    return wasm_start(r->id, r->source_id, r->revision, r->tool.role, r->tool.entry, r->tool.image,
-                     r->filename ? r->filename : "", r->source ? r->source : "", r->source_length,
+                     r->filename ? r->filename : "",the_tools_source_role(r->filename),output_name,r->source ? r->source : "", r->source_length,
                      r->argc, r->argv);
 }
 static void capability(const char *id, int enabled) {

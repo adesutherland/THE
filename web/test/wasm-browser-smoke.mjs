@@ -95,6 +95,10 @@ async function reloadAcceptingUnsaved(previousGeneration) {
 
 async function openWorkspaceFile(name) {
   await evaluate("document.querySelector('[aria-label=\"Open\"]').click()");
+  await waitFor(() => evaluate("!!document.querySelector('.root-switcher button')"), "workspace Files roots");
+  await evaluate("document.querySelector('.root-switcher button').click()");
+  await waitFor(() => evaluate("document.querySelector('.explorer-path > span')?.textContent==='/'"),
+    "workspace Files root");
   await waitFor(
     () => evaluate(`[...document.querySelectorAll('.file-list button')].some((node) => node.textContent.trim() === ${JSON.stringify(name)})`),
     `${name} in workspace files`,
@@ -544,7 +548,7 @@ try {
     }
     console.log('CHECK browser profile: edit/build');
     await send({type:'tool',action:'profile'});
-    await waitFor(()=>evaluate("window.__snapshot?.buffer?.path.endsWith('/profile.the')"),'editable user profile');
+    await waitFor(()=>evaluate("window.__snapshot?.buffer?.path.endsWith('/user.profile.the')"),'editable user profile');
     await send({type:'action',action:'file.save'});
     await send({type:'tool',action:'build'});
     await waitFor(()=>evaluate("window.__tools?.build?.job.tool==='profile-compiler'&&!window.__tools.build.job.running"),'browser source profile compilation',60000);

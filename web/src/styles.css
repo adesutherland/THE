@@ -198,18 +198,23 @@ button { color: inherit; }
   border: 1px solid #424b57; border-radius: 4px; padding: 4px 9px; background: #252c34; color: #c4d0dd; font-size: 11px; cursor: pointer;
 }
 .pane-switcher button:disabled, .mobile-aux-tabs button:disabled { opacity:.55; cursor:default; }
-.current-file-tools { display:flex; align-items:center; gap:10px 16px; flex-wrap:wrap; min-width:0; padding:6px 10px; border-bottom:1px solid #34383f; background:#20252b; }
-.current-file-identity { display:flex; flex-direction:column; gap:2px; min-width:0; max-width:250px; }
-.current-file-identity strong { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:12px; font-weight:500; color:#edf1f5; }
-.current-file-identity > span { font-size:10px; color:#9eacbd; }
-.current-file-action-list { display:flex; flex-wrap:wrap; gap:7px 15px; min-width:0; }
-.current-file-action { display:flex; align-items:center; gap:7px; min-width:0; }
-.current-file-tools button { flex:none; min-height:29px; }
-.current-file-tools button:disabled { opacity:.55; cursor:default; }
-.file-action-context { display:flex; flex-direction:column; gap:1px; min-width:0; max-width:240px; color:#aab8c8; font-size:10px; overflow-wrap:anywhere; }
-.file-action-tool { color:#dce7f0; }
-.current-file-tools .file-setup-link { margin-left:auto; background:transparent; border-color:transparent; color:#a5c8e8; }
-.current-file-result { flex-basis:100%; margin:0; color:#ff9b8b; font-size:11px; overflow-wrap:anywhere; }
+.current-file-tools { display:grid; grid-template-columns:minmax(140px,250px) minmax(0,1fr); align-items:center; gap:3px 18px; min-width:0; padding:7px 10px; border-bottom:1px solid #343e49; background:#20272f; }
+.current-file-identity { display:flex; align-items:center; gap:7px; flex-wrap:wrap; min-width:0; grid-row:1 / 3; }
+.current-file-identity strong { flex:1 1 100%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:13px; font-weight:600; color:#edf1f5; }
+.file-purpose { color:#c4d3e3; font-size:12px; }
+.file-unsaved { color:#e1bc79; font-size:12px; }
+.current-file-controls { display:flex; align-items:center; gap:8px; min-width:0; }
+.current-file-action-list { display:flex; flex-wrap:wrap; gap:6px; min-width:0; }
+.current-file-tools button { flex:none; min-height:34px; padding:6px 11px; border-color:#667c92; background:#2a3745; color:#e6edf5; font-size:12px; }
+.current-file-tools button:enabled:hover { border-color:#97b8d5; background:#35495b; }
+.current-file-tools button:focus-visible { outline:2px solid #a4d5ff; outline-offset:2px; }
+.current-file-tools .file-action-primary { border-color:#7cb9e4; background:#32658c; color:#fff; font-weight:600; }
+.current-file-tools .file-action-primary:enabled:hover { background:#3b79a5; }
+.current-file-tools button:disabled { opacity:1; border-color:#424f5c; border-style:dashed; background:#20272f; color:#8998a8; cursor:default; }
+.current-file-tools .file-setup-link { margin-left:auto; padding-inline:7px; background:transparent; border-color:transparent; color:#a9cdec; }
+.current-file-status { grid-column:2; min-width:0; margin:0; color:#c0cddd; font-size:12px; line-height:1.4; overflow-wrap:anywhere; }
+.current-file-status.file-result-error { color:#ffb1a5; }
+.current-file-status.file-result-success { color:#a7ddb2; }
 .pane-switcher [aria-pressed="true"], .mobile-aux-tabs [aria-pressed="true"] { border-color: #7297bb; background: #304a62; color: #edf5fc; }
 .workspace { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }
 .workspace.files-open { grid-template-columns: var(--files-width) 8px minmax(0, 1fr); }
@@ -270,6 +275,15 @@ button { color: inherit; }
 .tools-section-heading h2 { margin:0; }
 .build-state, .file-result { font-size:11px; color:#b8c8d7; }
 .file-result-error { color:#ff9b8b; }
+.file-result-success { color:#a7ddb2; }
+.compiled-profile-setup { margin-top:16px; padding-top:12px; border-top:1px solid #3a444f; }
+.compiled-profile-setup h3 { margin:0 0 7px; color:#edf2f7; font-size:12px; font-weight:600; }
+.compiled-profile-setup label { display:flex; flex-direction:column; gap:5px; margin:10px 0; color:#c5d1df; }
+.compiled-profile-setup input { min-width:0; width:100%; padding:6px; border:1px solid #526277; border-radius:3px; background:#151b22; color:#e2ebf5; font:12px/1.5 var(--editor-font); }
+.compiled-profile-choices { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+.compiled-profile-status { font-size:12px; }
+.tools-profiles .apply-compiled-profile:enabled { border-color:#7cb9e4; background:#32658c; color:#fff; }
+.tools-profiles button:focus-visible, .compiled-profile-setup input:focus-visible { outline:2px solid #a4d5ff; outline-offset:2px; }
 .build-output { min-height:70px; max-height:240px; overflow:auto; margin:8px 0 0; padding:8px; border:1px solid #414c59; border-radius:3px; white-space:pre-wrap; overflow-wrap:anywhere; background:#151a1f; color:#d4dce6; font:12px/1.5 var(--editor-font); }
 .run-setup label { display:flex; flex-direction:column; gap:5px; margin:10px 0; color:#c5d1df; font-size:11px; }
 .run-setup input, .run-setup select, .run-setup textarea { min-width:0; width:100%; padding:6px; border:1px solid #526277; border-radius:3px; background:#151b22; color:#e2ebf5; font:12px/1.5 var(--editor-font); }
@@ -632,13 +646,15 @@ button { color: inherit; }
   .pane-switcher { gap:4px; padding:4px 6px; }
   .pane-switcher button, .mobile-aux-tabs button { min-height:40px; padding:5px 8px; }
   .pane-switcher button { font-size:11px; }
-  .current-file-tools { gap:7px 10px; padding:6px 8px; }
-  .current-file-identity { flex:1 1 140px; max-width:none; }
-  .current-file-action-list { flex:1 1 100%; gap:8px 12px; order:3; }
-  .current-file-action { flex:1 1 140px; align-items:flex-start; }
-  .current-file-tools button { min-height:38px; }
-  .current-file-tools .file-setup-link { font-size:10px; }
-  .file-action-context { padding-top:4px; max-width:none; }
+  .current-file-tools { grid-template-columns:minmax(0,1fr); gap:5px; padding:7px 8px; }
+  .current-file-identity { grid-row:auto; flex-wrap:nowrap; }
+  .current-file-identity strong { flex:1 1 auto; }
+  .file-purpose, .file-unsaved { flex:none; font-size:11px; }
+  .current-file-controls { flex-wrap:wrap; gap:4px; }
+  .current-file-action-list { flex:1 1 auto; gap:6px; }
+  .current-file-tools button { min-height:44px; padding:6px 9px; }
+  .current-file-tools .file-setup-link { margin-left:0; padding-inline:4px; }
+  .current-file-status { grid-column:1; }
   .editor-pane { grid-template-rows:clamp(220px,38dvh,360px) auto auto; }
   .command-form { grid-template-columns:auto minmax(0,1fr) auto auto; padding-inline:7px; gap:4px; min-height:44px; }
   .command-prompt { padding-right:2px; }
@@ -648,7 +664,8 @@ button { color: inherit; }
   .command-responses { max-height:130px; }
   .program-console-pane, .tools-profiles-pane { height:470px; }
   .tools-profiles button, .tools-profiles select { min-height:38px; }
-  .run-setup input, .run-setup textarea { font-size:16px; }
+  .run-setup input, .run-setup textarea, .compiled-profile-setup input { font-size:16px; }
+  .compiled-profile-setup button { min-height:44px; }
   .rexx-dock { min-height:420px; }
   .rexx-dock button, .rexx-dock select { min-height:38px; }
   .rexx-dock input, .rexx-dock textarea { font-size:16px; }

@@ -30,12 +30,18 @@ export type ToolSession = ToolOutput & {
   }[];
   currentFile?: {
     sourceId: number; revision: number; path: string;
+    role?: "profile-source" | "macro-source" | "crexx-source" | "other";
     actions: FileToolAction[];
   };
   profile?: {
     sourcePath: string;
-    build: { sourceId: number; revision: number; image: string; state: "none" | "ready" | "stale" };
-    active: { image: string };
+    build: {
+      sourceId: number; revision: number; image: string; state: "none" | "ready" | "stale";
+      role?: "profile-source" | "macro-source" | "crexx-source" | "none";
+      sourcePath?: string; name?: string;
+    };
+    active: { image: string; sourcePath?: string; kind?: "source" | "compiled-image" };
+    applyImage?: { enabled: boolean; reason: string };
   };
   fileResult?: {
     serial: number; action: string; sourceId: number; revision: number;

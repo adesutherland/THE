@@ -71,7 +71,7 @@ export async function profileSourcesSmoke({ send, evaluate, command, waitFor, sn
   await waitFor(() => evaluate("!!document.querySelector('.tools-profiles-pane')?.getClientRects().length"), "visible Tools and profiles pane");
   assert.equal(await evaluate("!!document.querySelector('.tools-profiles-pane .profile-setup button') && !document.querySelector('.rexx-dock .profile-setup')"), true);
   await evaluate("[...document.querySelectorAll('.tools-profiles-pane .profile-setup button')].find(node=>node.textContent==='Edit profile').click()");
-  const userPath = "/workspace/.crxthe-tools/profile.the";
+  const userPath = "/workspace/.crxthe-tools/user.profile.the";
   await waitFor(async () => (await snapshot()).buffer?.path === userPath, "separate user profile");
   await prependAndSave("/* Saved user override 界 */ ");
   const userBytes = await durable(userPath);
@@ -84,7 +84,7 @@ export async function profileSourcesSmoke({ send, evaluate, command, waitFor, sn
   assert.equal(Buffer.from(await durable(stockPath)).toString("utf8"), stockBytes,
     "startup never overwrites an edited stock source copy");
   assert.ok((await snapshot()).screen_rows.some(row => row.line === 1 && row.t.startsWith(marker)));
-  await openFile("profile.the", ".crxthe-tools");
+  await openFile("user.profile.the", ".crxthe-tools");
   assert.deepEqual(await durable(userPath), userBytes, "editable user override survives reload");
   assert.ok((await snapshot()).screen_rows.some(row => row.line === 1 && row.t.startsWith("/* Saved user override 界 */ ")));
   for (const [path, bytes] of originals) {

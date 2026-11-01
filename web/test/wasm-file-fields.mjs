@@ -45,7 +45,7 @@ export async function fileFieldSmoke({ send, evaluate, command, waitFor, snapsho
   assert.equal(Buffer.from(await durable()).toString("utf8"), source);
 
   await send({ type: "tool", action: "profile" });
-  await waitFor(async () => (await snapshot()).buffer?.path.endsWith("/profile.the"), "Wasm profile source");
+  await waitFor(async () => (await snapshot()).buffer?.path.endsWith("/user.profile.the"), "Wasm profile source");
   await editorCommand("cursor goto 4 1");
   await editorCommand('replace \'edit "/workspace/FileFields.txt"\';');
   const setup = ["set ctlchar ! escape", "set ctlchar p protect white", "set ctlchar u noprotect green", "set filectlchar on"];

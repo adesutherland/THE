@@ -455,8 +455,8 @@ try {
     await viewport(width, 844);
     await evaluate("document.querySelector('.file-action-run').scrollIntoView({block:'nearest'})");
     assert.equal(await evaluate("document.querySelector('.file-action-run').disabled"), true, "unavailable Run remains disabled");
-    assert.equal(await evaluate("document.querySelector('.file-action-run + .file-action-context').textContent.includes('runner unavailable')"), true, "unavailable Run reason is visible text");
-    const control = await geometry('.file-action-run'), explanation = await geometry('.file-action-run + .file-action-context');
+    assert.equal(await evaluate("document.querySelector('.current-file-status').textContent.includes('runner is unavailable')"), true, "unavailable Run reason is visible text");
+    const control = await geometry('.file-action-run'), explanation = await geometry('.current-file-status');
     assert(control.visible && explanation.visible && explanation.right<=width, "unavailable Run and reason fit the viewport");
   }
   await viewport(1280, 800);
@@ -467,7 +467,7 @@ try {
   const runCount = received.filter(message => message.type === "tool" && message.action === "file-run").length;
   snapshot.buffer.dirty = snapshot.buffers[0].dirty = 1; snapshot.source.revision++;
   publishSnapshot(); publishTools();
-  await wait(() => evaluate("!document.querySelector('.file-action-run').disabled && document.querySelector('.current-file-identity').textContent.includes('unsaved edits')"), "current-file action catches up with edited source");
+  await wait(() => evaluate("!document.querySelector('.file-action-run').disabled && document.querySelector('.file-unsaved')?.textContent==='Unsaved edits'"), "current-file action catches up with edited source");
   await evaluate("document.querySelector('.file-action-run').click()");
   await wait(() => evaluate("document.querySelector('.run-state').textContent==='Running'"), "visible Run Rexx opens the console and runs");
   const runMessage = received.filter(message => message.type === "tool" && message.action === "file-run");
@@ -475,7 +475,7 @@ try {
   assert.deepEqual([runMessage.at(-1).tool, runMessage.at(-1).text, runMessage.at(-1).arguments,
     runMessage.at(-1).sourceId, runMessage.at(-1).revision], ["classic-rexx", "", "first\n\nlast", snapshot.source.id, snapshot.source.revision],
     "Run uses the selected source token and retains arguments");
-  assert.equal(await evaluate("document.querySelector('.file-action-run').disabled && document.querySelector('.file-action-run + .file-action-context').textContent.includes('already running')"), true, "disabled Run reason is visible");
+  assert.equal(await evaluate("document.querySelector('.file-action-run').disabled && document.querySelector('.current-file-status').textContent.includes('Program running')"), true, "running state is visible beside disabled Run");
 
   // Use real browser key dispatch: default Tab traversal and Enter activation
   // cannot be qualified by dispatching synthetic KeyboardEvents alone.
@@ -702,7 +702,7 @@ try {
   }
   await viewport(390, 844);
   assert.equal((await geometry(".file-action-run")).visible, true, "phone has visible current-file Run");
-  assert.equal(await evaluate("document.querySelector('.file-action-run').disabled && document.querySelector('.file-action-run + .file-action-context').textContent.includes('already running')"), true, "phone shows disabled Run reason");
+  assert.equal(await evaluate("document.querySelector('.file-action-run').disabled && document.querySelector('.current-file-status').textContent.includes('Program running')"), true, "phone shows running state beside disabled Run");
   await evaluate("document.querySelector('.input-sink').focus()");
   await key("Tab", 8);
   assert.equal(await evaluate("document.activeElement===document.querySelector('.mobile-aux-tabs .console-toggle')"), true, "phone Shift-Tab reaches visible Console");

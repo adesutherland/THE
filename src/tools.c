@@ -15,7 +15,14 @@
 #include <stdarg.h>
 #include <limits.h>
 #include <sys/stat.h>
-#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
+#include <fcntl.h>
+#include <time.h>
+#ifdef _WIN32
+#include <io.h>
+#ifndef S_ISREG
+#define S_ISREG(mode) (((mode) & _S_IFMT) == _S_IFREG)
+#endif
+#else
 #include <unistd.h>
 #endif
 
@@ -39,6 +46,8 @@ static char profile_ready[THE_TOOL_PATH], profile_active[THE_TOOL_PATH];
 static unsigned profile_source, profile_revision;
 static char profile_source_path[THE_TOOL_PATH];
 static char profile_active_source_path[THE_TOOL_PATH];
+static char profile_active_identity[THE_TOOL_PATH];
+static int profile_active_compiled;
 static unsigned profile_active_source,profile_active_revision;
 static int profile_activation_role;
 static struct {
@@ -431,6 +440,7 @@ const char *the_tools_profile_path(void) {
    static char path[THE_TOOL_PATH];
    const char *root = getenv("THE_TOOL_CONFIG_DIR");
    const char *home;
+   struct stat info;
    if (root && *root)
       snprintf(path, sizeof(path), "%s/profile.the", root);
    else {
@@ -439,7 +449,67 @@ const char *the_tools_profile_path(void) {
          home = getenv("USERPROFILE");
       snprintf(path, sizeof(path), "%s/.crxthe-tools/profile.the", home ? home : ".");
    }
+   /* Keep existing workspaces on their editable legacy source. New workspaces
+    * use the explicit profile extension without moving registry/active files. */
+   if(stat(path,&info) || !S_ISREG(info.st_mode)) {
+      char *slash=strrchr(path,'/');
+      if(slash)snprintf(slash+1,sizeof(path)-(size_t)(slash+1-path),"user.profile.the");
+   }
    return path;
+}
+static int path_suffix(const char *path,const char *suffix) {
+   size_t n=path ? strlen(path) : 0,m=strlen(suffix);
+   return n>=m && !my_stricmp(path+n-m,suffix);
+}
+static int same_source_path(const char *left,const char *right) {
+   if(!strcmp(left,right))return 1;
+#ifdef _WIN32
+   {
+      char a[THE_TOOL_PATH],b[THE_TOOL_PATH];
+      return _fullpath(a,left,sizeof(a)) && _fullpath(b,right,sizeof(b)) && !my_stricmp(a,b);
+   }
+#else
+   {
+      struct stat a,b;
+      return !stat(left,&a) && !stat(right,&b) && a.st_dev==b.st_dev && a.st_ino==b.st_ino;
+   }
+#endif
+}
+const char *the_tools_source_role(const char *path) {
+   const char *name,*backslash;
+   if(!path || !*path)return "other";
+   name=strrchr(path,'/');name=name ? name+1 : path;
+   backslash=strrchr(name,'\\');if(backslash)name=backslash+1;
+   if(path_suffix(name,".profile.the") || !my_stricmp(name,"browser.the")
+   || !my_stricmp(name,"MiniBASIC-profile.the")
+   || path_suffix(path,"/.crxthe-tools/profile.the")
+   || path_suffix(path,"\\.crxthe-tools\\profile.the")
+   || same_source_path(path,the_tools_profile_path()))return "profile-source";
+   /* A custom THE_TOOL_CONFIG_DIR can retain its legacy profile.the. */
+   if(!my_stricmp(name,"profile.the")) {
+      const char *root=getenv("THE_TOOL_CONFIG_DIR");char legacy[THE_TOOL_PATH];
+      if(root && *root) {
+         snprintf(legacy,sizeof(legacy),"%s/profile.the",root);
+         if(same_source_path(path,legacy))return "profile-source";
+      }
+   }
+   if(path_suffix(name,".the"))return "macro-source";
+   if(path_suffix(name,".crexx"))return "crexx-source";
+   return "other";
+}
+size_t the_tools_build_name(const char *path,char *out,size_t capacity) {
+   const char *name=path ? path : "",*slash=strrchr(name,'/'),*backslash;
+   size_t length;int n;
+   if(slash)name=slash+1;
+   backslash=strrchr(name,'\\');if(backslash)name=backslash+1;
+   length=strlen(name);
+   if(path_suffix(name,".profile.the"))length-=12;
+   else if(path_suffix(name,"-profile.the") && !strcmp(the_tools_source_role(path),"profile-source"))length-=12;
+   else if(path_suffix(name,".the"))length-=4;
+   else if(path_suffix(name,".crexx"))length-=6;
+   n=snprintf(out,capacity,"%.*s%s",(int)length,name,
+      !strcmp(the_tools_source_role(path),"profile-source") ? ".profile.rxbin" : ".rxbin");
+   return n<0 || (size_t)n>=capacity ? 0 : (size_t)n;
 }
 void the_tools_profile_built(unsigned id, const char *path, unsigned source_id, unsigned revision) {
    const TheToolConsole *job=the_tool_console();
@@ -453,7 +523,10 @@ void the_tools_profile_built(unsigned id, const char *path, unsigned source_id, 
    profile_source = source_id;
    profile_revision = revision;
    snprintf(profile_source_path,sizeof(profile_source_path),"%s",job->filename);
-   { const char *ext=strrchr(job->filename,'.'); profile_activation_role=ext && !my_stricmp(ext,".the"); }
+   /* RX ACTIVATE is an intentional legacy command for applying a .the macro.
+    * The primary file action separately requires an explicit profile role. */
+   { const char *role=the_tools_source_role(job->filename);
+     profile_activation_role=!strcmp(role,"profile-source") || !strcmp(role,"macro-source"); }
 }
 static void profile_directory(void);
 static int profile_selection(void);
@@ -494,6 +567,8 @@ static short activate(void) {
    if (rc == RC_OK && macro_rc == 0) {
       snprintf(profile_active, sizeof(profile_active), "%s", profile_ready);
       snprintf(profile_active_source_path,sizeof(profile_active_source_path),"%s",profile_source_path);
+      snprintf(profile_active_identity,sizeof(profile_active_identity),"%s",profile_source_path);
+      profile_active_compiled=0;
       profile_active_source=profile_source;profile_active_revision=profile_revision;
       if (!profile_selection()) {
          display_error(0, (CHARTYPE *)"Profile applied; selection could not be saved. Retry Activate", FALSE);
@@ -544,7 +619,9 @@ static int profile_selection(void) {
    f = fopen(temporary, "wb");
    if (!f)
       return 0;
-   failed = fprintf(f, "%s\n%s\n%s\n", profile_active, THE_TOOL_COHORT,profile_active_source_path) < 0;
+   failed = fprintf(f, "%s\n%s\n%s\n%s\n", profile_active, THE_TOOL_COHORT,
+      *profile_active_identity ? profile_active_identity : profile_active_source_path,
+      profile_active_compiled ? "compiled-image" : "source") < 0;
    if (fclose(f)) failed = 1;
    if (failed || rename(temporary, path)) {
       remove(temporary);
@@ -558,7 +635,7 @@ void the_tools_restore_metadata(void) {
       registry_restore_metadata();
 }
 int the_tools_profile_restore(void) {
-   char path[THE_TOOL_PATH], cohort[100],identity[THE_TOOL_PATH];
+   char path[THE_TOOL_PATH], cohort[100],identity[THE_TOOL_PATH],kind[32]="";
    FILE *f;
    short macro_rc = 0, rc;
    the_tools_restore_metadata();
@@ -580,6 +657,7 @@ int the_tools_profile_restore(void) {
    }
    if(!fgets(identity,sizeof(identity),f))snprintf(identity,sizeof(identity),"%s",the_tools_profile_path());
    identity[strcspn(identity,"\r\n")]=0;
+   if(fgets(kind,sizeof(kind),f))kind[strcspn(kind,"\r\n")]=0;
    fclose(f);
    cohort[strcspn(cohort, "\r\n")] = 0;
    if (strcmp(cohort, THE_TOOL_COHORT))
@@ -599,7 +677,9 @@ int the_tools_profile_restore(void) {
    the_tool_build_capture_end(rc);
    if (rc == RC_OK && !macro_rc) {
       snprintf(profile_active, sizeof(profile_active), "%s", path);
-      snprintf(profile_active_source_path,sizeof(profile_active_source_path),"%s",identity);
+      profile_active_compiled=!strcmp(kind,"compiled-image");
+      snprintf(profile_active_identity,sizeof(profile_active_identity),"%s",identity);
+      snprintf(profile_active_source_path,sizeof(profile_active_source_path),"%s",profile_active_compiled ? "" : identity);
       return 1;
    }
    return 0;
@@ -609,20 +689,22 @@ typedef struct {
    const TheWorkbenchAction *macro;
 } FileAction;
 static void file_actions(const TheEditorSource *source,FileAction out[3]) {
-   const char *ext=CURRENT_FILE ? strrchr((char *)CURRENT_FILE->fname,'.') : NULL;
    const TheToolDefinition *runner=CURRENT_FILE ? the_tool_for_file((char *)CURRENT_FILE->fname,"runner") : NULL;
    const TheToolDefinition *compiler=the_tool_find("profile-compiler");
-   char path[THE_TOOL_PATH];
+   char path[THE_TOOL_PATH]="";
+   const char *role;
    const TheWorkbenchAction *build=NULL;
    const char *busy=!source ? the_editor_source_error() : the_tool_console()->running ? "Stop the current job first" : NULL;
-   int profile=ext && !my_stricmp(ext,".the");
-   int compilable=profile || (ext && !my_stricmp(ext,".crexx"));
-   out[0]=(FileAction){"build",profile ? "Build THE" : "Build source", "No Build action is associated with this file", "",NULL};
+   int profile,macro,compilable;
+   if(CURRENT_FILE)snprintf(path,sizeof(path),"%s%s",CURRENT_FILE->fpath,CURRENT_FILE->fname);
+   role=the_tools_source_role(path);
+   profile=!strcmp(role,"profile-source");macro=!strcmp(role,"macro-source");
+   compilable=profile || macro || !strcmp(role,"crexx-source");
+   out[0]=(FileAction){"build",profile ? "Build profile" : macro ? "Build macro" : "Build source", "No Build action is associated with this file", "",NULL};
    out[1]=(FileAction){"run","Run","No runner is associated with this file",runner ? runner->id : "",NULL};
-   out[2]=(FileAction){"activate","Activate built profile","This file has no profile activation role",profile ? "profile-compiler" : "",NULL};
+   out[2]=(FileAction){"activate","Apply profile","This file has no profile activation role",profile ? "profile-compiler" : "",NULL};
    if(compilable) { out[0].tool="profile-compiler";out[0].reason=compiler && compiler->available ? "" : "Profile compiler is unavailable"; }
    else if(CURRENT_FILE) {
-      snprintf(path,sizeof(path),"%s%s",CURRENT_FILE->fpath,CURRENT_FILE->fname);
       build=the_workbench_file_build(path);
       if(build) {
          out[0].macro=build;out[0].tool=build->id;out[0].label=build->label;
@@ -631,8 +713,9 @@ static void file_actions(const TheEditorSource *source,FileAction out[3]) {
       }
    }
    if(runner) out[1].reason=runner->available ? "" : "Associated runner is unavailable";
-   if(profile) {
-      out[1].label="Run built macro";out[1].tool="built-macro";
+   if(profile) { out[1].tool="";out[1].reason="Use Apply profile for this profile source"; }
+   if(macro) {
+      out[1].label="Run macro";out[1].tool="built-macro";
       out[1].reason=!*profile_ready ? "Build this THE source before running it"
          : !source || source->id!=profile_source || source->revision!=profile_revision ? "THE source changed; build it again"
          : !rexx_support || !the_macro_uses_crexx() ? "THE macro execution requires available cREXX" : "";
@@ -650,6 +733,117 @@ static short file_outcome(const char *action,unsigned id,unsigned revision,const
    snprintf(file_result.code,sizeof(file_result.code),"%s",code);
    snprintf(file_result.message,sizeof(file_result.message),"%s",message);
    return rc;
+}
+static const char *apply_image_reason(void) {
+   int readonly=0;
+   if(!rexx_support || !the_macro_uses_crexx())return "Compiled profile application requires available cREXX";
+   if(the_frontend_policy_enabled()) {
+      if(!the_frontend_policy_root_at(0,&readonly))return "Workspace is unavailable";
+      if(readonly)return "Workspace is readonly";
+   }
+   if(in_macro || the_panel_active)return "Finish the macro or modal READ before applying a profile";
+   if(the_tool_console()->running)return "Stop the current job first";
+   return "";
+}
+static int profile_workspace_path(const char *path) {
+   const char *root;size_t n;
+   if(!the_frontend_policy_enabled())return 1;
+   root=the_frontend_policy_root_at(0,NULL);if(!root)return 0;
+   n=strlen(root);
+   return !strncmp(path,root,n) && (!path[n] || path[n]=='/' || (n==1 && root[0]=='/'));
+}
+/* Copy imports before executing them: later edits to an imported workspace
+ * file must never alter the profile selected for startup. Exclusive creation
+ * keeps these snapshots immutable even across simultaneous editor sessions. */
+static int snapshot_profile_image(const char *image,char *out,size_t capacity,char *error,size_t error_capacity) {
+   static unsigned serial;
+   char base[THE_TOOL_PATH],resolved[THE_TOOL_PATH],*slash;
+   unsigned char bytes[65536];
+   FILE *input=NULL,*output=NULL;struct stat info;
+   size_t length,total=0;int fd=-1,readonly=0,attempt,n,good=0;
+   input=fopen(image,"rb");
+   if(!input || fstat(fileno(input),&info) || !S_ISREG(info.st_mode)
+   || info.st_size<8 || info.st_size>64u*1024u*1024u
+   || fread(bytes,1,8,input)!=8 || memcmp(bytes,"cReXx007",8)) {
+      snprintf(error,error_capacity,"Choose a valid cREXX RXBIN profile no larger than 64 MiB");goto finished;
+   }
+   rewind(input);profile_directory();
+   snprintf(base,sizeof(base),"%s",the_tools_profile_path());slash=strrchr(base,'/');
+   if(!slash)goto finished;
+   *slash=0;
+   for(attempt=0;attempt<1024;attempt++) {
+      n=snprintf(out,capacity,"%s/build-import-%lu-%u.profile.rxbin",base,(unsigned long)time(NULL),++serial);
+      if(n<0 || (size_t)n>=capacity)goto finished;
+      if(!the_frontend_policy_resolve_path(out,1,resolved,sizeof(resolved),&readonly,error,error_capacity) || readonly
+      || !profile_workspace_path(resolved))goto finished;
+#ifdef _WIN32
+      fd=_open(resolved,_O_CREAT|_O_EXCL|_O_WRONLY|_O_BINARY,_S_IREAD|_S_IWRITE);
+#else
+      fd=open(resolved,O_CREAT|O_EXCL|O_WRONLY,0600);
+#endif
+      if(fd>=0 || errno!=EEXIST)break;
+   }
+   if(fd<0)goto finished;
+#ifdef _WIN32
+   output=_fdopen(fd,"wb");if(!output)_close(fd);
+#else
+   output=fdopen(fd,"wb");if(!output)close(fd);
+#endif
+   if(!output) { remove(resolved);goto finished; }
+   while((length=fread(bytes,1,sizeof(bytes),input))) {
+      if(length>64u*1024u*1024u-total || fwrite(bytes,1,length,output)!=length)goto finished;
+      total+=length;
+   }
+   if(ferror(input))goto finished;
+   good=1;
+finished:
+   if(input)fclose(input);
+   if(output && fclose(output))good=0;
+   if(!good) {
+      if(output)remove(resolved);
+      if(!*error)snprintf(error,error_capacity,"Cannot retain an immutable profile snapshot");
+   }
+   return good;
+}
+static void discard_profile_snapshot(const char *path) {
+   remove(path);
+#ifdef __EMSCRIPTEN__
+   the_wasm_flush_workspace();
+#endif
+}
+static short apply_profile_image(const char *image) {
+   const char *reason=apply_image_reason();
+   char resolved[THE_TOOL_PATH],snapshot[THE_TOOL_PATH],error[256]="";
+   int readonly,applied;short rc,macro_rc=0;
+   if(*reason)return file_outcome("apply-profile",0,0,"unavailable",RC_INVALID_ENVIRON,reason);
+   if(!image || !path_suffix(image,".profile.rxbin") || strpbrk(image,"\r\n")
+   || !the_frontend_policy_resolve_path(image,0,resolved,sizeof(resolved),&readonly,error,sizeof(error)))
+      return file_outcome("apply-profile",0,0,"invalid-image",RC_INVALID_OPERAND,*error ? error : "Choose a .profile.rxbin workspace path");
+   if(!profile_workspace_path(resolved))
+      return file_outcome("apply-profile",0,0,"invalid-image",RC_INVALID_OPERAND,"Choose a .profile.rxbin file inside the writable workspace");
+   if(!snapshot_profile_image(resolved,snapshot,sizeof(snapshot),error,sizeof(error)))
+      return file_outcome("apply-profile",0,0,"invalid-image",RC_INVALID_OPERAND,error);
+#ifdef __EMSCRIPTEN__
+   if(the_wasm_flush_workspace()!=0) { discard_profile_snapshot(snapshot);return file_outcome("apply-profile",0,0,"failed",RC_DISK_FULL,"Profile snapshot could not be saved in browser storage"); }
+#endif
+   if(!the_tool_build_capture_begin("profile-activation",resolved,0,0)) { discard_profile_snapshot(snapshot);return file_outcome("apply-profile",0,0,"unavailable",RC_INVALID_ENVIRON,"Profile output capture is unavailable"); }
+   rc=run_profile_image(snapshot,resolved,&macro_rc);
+   applied=!rc;
+   if(!rc) {
+      snprintf(profile_active,sizeof(profile_active),"%s",snapshot);
+      snprintf(profile_active_identity,sizeof(profile_active_identity),"%s",resolved);
+      profile_active_source_path[0]=0;profile_active_compiled=1;
+      profile_active_source=profile_active_revision=0;
+      if(!profile_selection())rc=RC_ACCESS_DENIED;
+#ifdef __EMSCRIPTEN__
+      if(!rc && the_wasm_flush_workspace()!=0)rc=RC_DISK_FULL;
+#endif
+   }
+   the_tool_build_capture_end(rc);
+   if(!applied)discard_profile_snapshot(snapshot);
+   return file_outcome("apply-profile",0,0,applied && rc ? "applied-unsaved" : rc ? "failed" : "applied",rc,
+      applied && rc ? "Profile applied in this session; startup selection could not be saved. Retry Apply"
+      : rc ? "Profile application failed; previous selection retained. Inspect Build results" : "Compiled profile applied and saved for future sessions");
 }
 /* A macro receives the real selected path. Refuse stale disk bytes instead of
  * silently saving or letting the macro build an older revision. Source uses
@@ -753,6 +947,7 @@ static short action(PendingTool *p) {
       return launch("profile-compiler", 0, NULL, NULL);
    if (!strcmp(a, "activate"))
       return activate();
+   if (!strcmp(a,"apply-profile"))return apply_profile_image(p->text);
    if (!strcmp(a, "stop")) {
       the_tool_stop("Stopped");
       return RC_OK;
@@ -776,22 +971,25 @@ static short action(PendingTool *p) {
    if (!strcmp(a, "eof"))
       return the_tool_eof() ? RC_OK : RC_INVALID_ENVIRON;
    if (!strcmp(a, "profile")) {
-      char command[THE_TOOL_PATH + 16];
+      char command[THE_TOOL_PATH + 16],path[THE_TOOL_PATH];
       FILE *f;
       profile_directory();
-      f = fopen(the_tools_profile_path(), "rb");
+      /* Edit the source of the applied profile when it still exists. */
+      f=*profile_active_source_path ? fopen(profile_active_source_path,"rb") : NULL;
+      snprintf(path,sizeof(path),"%s",f ? profile_active_source_path : the_tools_profile_path());
+      if(!f)f = fopen(path, "rb");
       if (f)
          fclose(f);
       else {
-         f = fopen(the_tools_profile_path(), "wb");
+         f = fopen(path, "wb");
          if (!f)
             return RC_ACCESS_DENIED;
-         fputs("/* THE user profile: build, then activate. */\noptions levelb\naddress THE\n'set "
+         fputs("/* THE user profile: build, then apply. */\noptions levelb\naddress THE\n'set "
                "number on';\nsay 'User profile activated'\nreturn 0\n",
                f);
          fclose(f);
       }
-      snprintf(command, sizeof(command), "edit \"%s\"", the_tools_profile_path());
+      snprintf(command, sizeof(command), "edit \"%s\"", path);
       return command_line((CHARTYPE *)command, COMMAND_ONLY_FALSE);
    }
    if (!strcmp(a, "language")) {
@@ -942,7 +1140,7 @@ short Rx(CHARTYPE *parameters) {
       direct.text = "";
       direct.argc = n > 2 ? n - 2 : 0;
       direct.argv = words + 2;
-      if (!strcmp(words[0], "rxbin")) {
+      if (!strcmp(words[0], "rxbin") || !strcmp(words[0],"apply-profile")) {
          direct.text = n > 1 ? words[1] : "";
          direct.tool = "rxbin";
       }
@@ -1017,7 +1215,7 @@ static void file_json_string(FileJson *w,const char *s) {
 size_t the_tools_format_json(char *out,size_t capacity) {
    const TheEditorSource *source;
    const TheToolConsole *job=the_tool_console();
-   FileAction actions[3];FileJson w;size_t i,n;char path[THE_TOOL_PATH]="";
+   FileAction actions[3];FileJson w;size_t i,n;char path[THE_TOOL_PATH]="",build_name[THE_TOOL_PATH]="";
    ensure();
    source=the_editor_source_prepare();
    if(CURRENT_FILE)snprintf(path,sizeof(path),"%s%s",CURRENT_FILE->fpath,CURRENT_FILE->fname);
@@ -1032,7 +1230,8 @@ size_t the_tools_format_json(char *out,size_t capacity) {
    if(!n || out[n-1]!='}')return 0;
    w=(FileJson){out,capacity,n-1,0};
    file_json(&w,",\"currentFile\":{\"sourceId\":%u,\"revision\":%u,\"path\":",source ? source->id : 0,source ? source->revision : 0);
-   file_json_string(&w,path);file_json(&w,",\"actions\":[");
+   file_json_string(&w,path);file_json(&w,",\"role\":");file_json_string(&w,the_tools_source_role(path));
+   file_json(&w,",\"actions\":[");
    for(i=0;i<3;i++) {
       file_json(&w,"%s{\"id\":",i ? "," : "");file_json_string(&w,actions[i].id);
       file_json(&w,",\"label\":");file_json_string(&w,actions[i].label);
@@ -1044,11 +1243,18 @@ size_t the_tools_format_json(char *out,size_t capacity) {
    file_json_string(&w,*profile_source_path ? profile_source_path : the_tools_profile_path());
    file_json(&w,",\"build\":{\"sourceId\":%u,\"revision\":%u,\"image\":",profile_source,profile_revision);
    file_json_string(&w,profile_ready);
+   if(*profile_source_path)the_tools_build_name(profile_source_path,build_name,sizeof(build_name));
+   file_json(&w,",\"name\":");file_json_string(&w,build_name);
+   file_json(&w,",\"role\":");file_json_string(&w,*profile_source_path ? the_tools_source_role(profile_source_path) : "none");
+   file_json(&w,",\"sourcePath\":");file_json_string(&w,profile_source_path);
    file_json(&w,",\"state\":");
    file_json_string(&w,!*profile_ready ? "none" : source && source->id==profile_source && source->revision==profile_revision ? "ready" : "stale");
    file_json(&w,"},\"active\":{\"image\":");file_json_string(&w,profile_active);
    file_json(&w,",\"sourcePath\":");file_json_string(&w,profile_active_source_path);
-   file_json(&w,",\"sourceId\":%u,\"revision\":%u},\"registry\":{\"replacement\":\"profile-owned\",\"legacyEntries\":%lu,\"legacyProvenance\":\"unknown-preserved\"}",profile_active_source,profile_active_revision,(unsigned long)legacy_registry_entries);
+   file_json(&w,",\"sourceId\":%u,\"revision\":%u,\"kind\":",profile_active_source,profile_active_revision);
+   file_json_string(&w,profile_active_compiled ? "compiled-image" : "source");
+   file_json(&w,"},\"applyImage\":{\"enabled\":%s,\"reason\":",*apply_image_reason() ? "false" : "true");file_json_string(&w,apply_image_reason());
+   file_json(&w,"},\"registry\":{\"replacement\":\"profile-owned\",\"legacyEntries\":%lu,\"legacyProvenance\":\"unknown-preserved\"}",(unsigned long)legacy_registry_entries);
    file_json(&w,"},\"fileResult\":{\"serial\":%u,\"sourceId\":%u,\"revision\":%u,\"rc\":%d,\"action\":",file_result.serial,file_result.source_id,file_result.revision,file_result.rc);
    file_json_string(&w,file_result.action);file_json(&w,",\"code\":");file_json_string(&w,file_result.code);
    file_json(&w,",\"message\":");file_json_string(&w,file_result.message);file_json(&w,"}}");

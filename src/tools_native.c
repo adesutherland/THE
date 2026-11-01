@@ -351,7 +351,10 @@ static int native_input_eof(unsigned id) {
    return 1;
 }
 static int save_profile(char *out, size_t cap) {
-   char source[THE_TOOL_PATH + 32], base[THE_TOOL_PATH], *slash;
+   char source[THE_TOOL_PATH + 32], base[THE_TOOL_PATH], name[THE_TOOL_PATH],stem[81], *slash;
+   const char *suffix;
+   size_t i,length;
+   const TheToolConsole *console=the_tool_console();
    FILE *in, *f;
    unsigned char b[65536];
    size_t n;
@@ -366,8 +369,16 @@ static int save_profile(char *out, size_t cap) {
 #else
    mkdir(base, 0700);
 #endif
-   snprintf(out, cap, "%s/build-%s-%u.rxbin", base,
-            strrchr(job.directory, '/') ? strrchr(job.directory, '/') + 1 : job.directory, job.id);
+   suffix=!strcmp(the_tools_source_role(console->filename),"profile-source") ? ".profile.rxbin" : ".rxbin";
+   if(!the_tools_build_name(console->filename,name,sizeof(name)))return 0;
+   length=strlen(name)-strlen(suffix);if(length>sizeof(stem)-1)length=sizeof(stem)-1;
+   for(i=0;i<length;i++) {
+      unsigned char c=(unsigned char)name[i];
+      stem[i]=c<128 && (isalnum(c) || c=='.' || c=='_' || c=='-') ? (char)tolower(c) : '-';
+   }
+   stem[length]=0;
+   if(snprintf(out, cap, "%s/build-%s-%s-%u%s", base,*stem ? stem : "source",
+            strrchr(job.directory, '/') ? strrchr(job.directory, '/') + 1 : job.directory, job.id,suffix)>=(int)cap)return 0;
    join(source, sizeof(source), job.directory, "profile.rxbin");
    in = fopen(source, "rb");
    if (!in)

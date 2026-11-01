@@ -1051,7 +1051,7 @@ function App() {
     if (action.id === "run") {
       selectProgramConsole();
       setProgramFocusRequest((request) => request + 1);
-    } else selectToolsProfiles();
+    }
   };
   const runWithTool = (tool: string, image: string) => {
     const file = toolSession?.currentFile;

@@ -37,10 +37,14 @@ packaged runtime and its available static providers.
 
 Graphical controls provide **Stop**, **Clear**, line input and **End input**.
 
-In the browser, actions beside the selected file show **Build**, **Run** and
-**Activate** with the associated tool or a reason they are unavailable. A
-`.the` source can be built to an immutable RXBIN, run as a compiled THE macro,
-or explicitly activated as a profile; Build and Activate results appear in
+In the browser, actions beside the selected file follow its purpose. A
+`name.the` macro offers **Build macro** and **Run macro**; a
+`name.profile.the` profile offers **Build profile** and **Apply profile**.
+Both compile with the same Level B toolchain. Profile builds use an immutable
+filename ending in `.profile.rxbin`; ordinary macro builds end in `.rxbin`.
+Applying a profile changes the editor setup and selects it for restoration at
+startup. Existing `profile.the`, `browser.the` and `MiniBASIC-profile.the`
+remain recognized as profiles. Build and Apply results appear in
 **Tools & Profiles**. A `.rexx` file runs with its associated Classic runner.
 Other file types run only when a profile associates a runner with that type.
 **Tools & Profiles** also contains explicit tool selection, RXBIN import,
@@ -50,6 +54,19 @@ File actions recheck the selected source and action definition before running;
 a changed source or profile requires another explicit selection. A profile can
 also define a contextual Build macro for an extension through
 [`WORKBENCH ACTION ... FILEEXT ... PURPOSE BUILD`](workbench-actions-menus.md).
+
+**Apply compiled profile** in Tools & Profiles accepts a workspace file ending
+in `.profile.rxbin`. THE checks the RXBIN header and available cREXX runtime,
+copies the image to an immutable private artifact, then applies and selects
+that copy for startup. Editing or replacing the imported file later does not
+change the selected profile. Compatibility with the current cREXX bytecode
+cohort is established by loading the image, not by its filename or header.
+An invalid image or failed execution leaves the prior selection usable.
+If browser storage fails after execution, THE reports that the new profile is
+applied in this session but its startup selection was not saved.
+The compiled image is not opened as editor text. **Edit profile** opens an
+editable source, or creates the default source if the selected profile came
+from a compiled image without one.
 
 Terminal commands are:
 
@@ -124,11 +141,12 @@ has a 120-second active execution deadline, paused while waiting for stdin.
 ## Edit, build and activate a profile
 
 **Edit profile** / `RX PROFILE` opens an editable Level B source template.
-Save normally. **Build profile** / `RX BUILD` compiles the entire current
+New browser workspaces use `user.profile.the`; existing `profile.the` sources
+remain in place. Save normally. **Build profile** / `RX BUILD` compiles the entire current
 buffer with the matching compiler and assembler; it does not save that buffer.
 Compiler diagnostics appear in the browser's Tools & Profiles Build results
 (and in the native host's console presentation). A successful build is admitted as
-an immutable RXBIN artifact. **Activate profile** / `RX ACTIVATE` executes
+an immutable RXBIN artifact. **Apply profile** / `RX ACTIVATE` executes
 that artifact through the session's cREXX context and real `ADDRESS THE` bridge.
 Source changes after building require another build before activation.
 

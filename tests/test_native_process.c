@@ -36,6 +36,11 @@ void the_tool_finish(unsigned id, int code, const char *status,
 }
 /* The component's unrelated RXBIN initialization/profile dependencies. */
 const char *the_tools_profile_path(void) { return "/unqualified/profile.the"; }
+const char *the_tools_source_role(const char *path) { (void)path; assert(0); return "other"; }
+size_t the_tools_build_name(const char *path,char *out,size_t capacity) {
+   (void)path; (void)out; (void)capacity; assert(0); return 0;
+}
+const TheToolConsole *the_tool_console(void) { assert(0); return NULL; }
 void the_tools_profile_built(unsigned id, const char *path, unsigned source, unsigned revision) {
    (void)id; (void)path; (void)source; (void)revision; assert(0);
 }
