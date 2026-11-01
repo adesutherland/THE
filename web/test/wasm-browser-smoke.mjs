@@ -7,6 +7,7 @@ import { fileFieldSmoke } from "./wasm-file-fields.mjs";
 import { checkNativeToolPolicy } from "./native-tools-policy.mjs";
 import { sourceFileRunnerSmoke } from "./wasm-source-file-runner.mjs";
 import { profileSourcesSmoke, profileActivationStorageFailureSmoke } from "./wasm-profile-sources.mjs";
+import { minibasicCandidateSmoke } from "./wasm-minibasic-candidate.mjs";
 
 const pageUrl = process.env.THE_WEB_URL;
 const chromium = process.env.CHROMIUM_BIN;
@@ -542,6 +543,8 @@ try {
         !await evaluate("window.__tools.catalog.some(t=>t.id==='hello-program')"))throw Error('Registry was not restored');
     console.log('PASS browser profiles: fresh Wasm compiler/assembler, ADDRESS THE, console output, activation, failed-build retention and persisted restore');
   }
+  await minibasicCandidateSmoke({pageUrl, manifest, send, snapshot, evaluate, command, waitFor, openWorkspaceFile, consoleEnter});
+  if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join('; ')}`);
   if (process.env.THE_WASM_SCREENSHOT) {
     await command('Page.bringToFront');
     const image = await command('Page.captureScreenshot', {format: 'png'});
