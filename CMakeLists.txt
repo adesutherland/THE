@@ -950,7 +950,7 @@ install(FILES workbenchmenu.the workbenchmenu_regina.the DESTINATION share/the)
 install(FILES paneldemo.the paneldemo_regina.the DESTINATION share/the)
 install(DIRECTORY doc/ DESTINATION share/doc/the COMPONENT Documentation
     FILES_MATCHING PATTERN "*.md" PATTERN "Windows-Readme.txt" PATTERN "THE_Help.txt")
-install(FILES LICENSE DESTINATION share/doc/the)
+install(FILES LICENSE LICENSE-NOTICE.md DESTINATION share/doc/the)
 if(USE_SDSLH AND EXISTS "${DSLSH_SOURCE_DIR}/LICENSE")
     install(FILES "${DSLSH_SOURCE_DIR}/LICENSE" DESTINATION share/doc/the/dslsh)
 endif()

@@ -28,6 +28,7 @@ site = args.site
 licenses = site / 'licenses'
 licenses.mkdir(exist_ok=True)
 license_files = [(root / 'LICENSE', 'CRXTHE-GPL-2.0.txt'),
+                 (root / 'LICENSE-NOTICE.md', 'LICENSE-NOTICE.md'),
                  (args.emscripten_license, 'Emscripten.txt')]
 dependencies = {'emscripten': args.sdk_version}
 if not args.vm_only:

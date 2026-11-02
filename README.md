@@ -172,4 +172,5 @@ His original copyright and licence notices remain in the source.
 CRXTHE development and modernization: Adrian Sutherland, with the cREXX team
 and other contributors. CRXTHE editor changes remain under the GNU General
 Public License, version 2 or later. Bundled cREXX and other dependencies carry
-their own licence notices in the packages.
+their own licence notices in the packages. See the [license incompatibility
+notice](LICENSE-NOTICE.md) for the desktop curses driver.

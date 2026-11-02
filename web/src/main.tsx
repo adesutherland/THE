@@ -1225,7 +1225,7 @@ function App() {
                 <p>Original THE: Copyright (C) 1991-2026 Mark Hessling.</p>
                 <p>CRXTHE development and modernization: Adrian Sutherland with the cREXX team and contributors.</p>
                 <p>Editor licence: GNU GPL version 2 or later. Bundled cREXX and other dependencies retain their separate notices.</p>
-                {browserWasm ? <p><a href="/licenses/CRXTHE-GPL-2.0.txt" target="_blank" rel="noreferrer">Editor licence</a> · <a href="/licenses/cREXX-MIT.txt" target="_blank" rel="noreferrer">cREXX licence</a></p> : null}
+                {browserWasm ? <p><a href="/licenses/CRXTHE-GPL-2.0.txt" target="_blank" rel="noreferrer">Editor licence</a> · <a href="/licenses/LICENSE-NOTICE.md" target="_blank" rel="noreferrer">Licence notice</a> · <a href="/licenses/cREXX-MIT.txt" target="_blank" rel="noreferrer">cREXX licence</a></p> : null}
               </section>
             </> : <>
             {menus.map((menu) => <section key={menu.id} aria-label={menu.label} data-menu-id={menu.id}>

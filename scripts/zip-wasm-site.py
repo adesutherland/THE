@@ -21,7 +21,8 @@ def package(site: Path, output: Path) -> None:
         raise ValueError("Manifest file index is missing")
     required = {"index.html", "HOSTING.txt", "manifest.json",
                 "wasm/crxthe_wasm.mjs", "wasm/crxthe_wasm.wasm",
-                "licenses/CRXTHE-GPL-2.0.txt", "licenses/Emscripten.txt"}
+                "licenses/CRXTHE-GPL-2.0.txt", "licenses/LICENSE-NOTICE.md",
+                "licenses/Emscripten.txt"}
     included = {}
     for path in site.rglob("*"):
         if path.is_symlink():
