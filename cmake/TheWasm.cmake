@@ -235,3 +235,12 @@ if(THE_WASM_COMPILER_DIRECTORY)
   DEPENDS "${THE_WASM_SITE}/.build-stamp" VERBATIM)
  add_dependencies(the_wasm_bundle the_wasm_compiler_assets)
 endif()
+
+add_custom_target(the_wasm_browser_candidate
+    COMMAND "${THE_WASM_PYTHON}" "${CMAKE_SOURCE_DIR}/scripts/verify-browser-candidate.py"
+        --site "${THE_WASM_SITE}"
+        --fixture-build "${CMAKE_BINARY_DIR}"
+        --output-dir "${CMAKE_BINARY_DIR}/candidate"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    USES_TERMINAL VERBATIM)
+add_dependencies(the_wasm_browser_candidate the_wasm_bundle)

@@ -97,7 +97,32 @@ language example, runtime errors and Stop/restart, plus the curated public
 example inventory. Contract-test RXBIN images stay outside the static site;
 the harness reads `tool-example.rxbin` and `source-file-probe.rxbin` from
 `build/wasm-review-candidate` by default. Set `THE_WASM_FIXTURE_BUILD` when
-testing a different matching build. Run against the extracted distribution
-ZIP as well as the development site before qualifying a browser candidate.
+testing a different matching build. The candidate target below tests the
+extracted distribution ZIP; direct browser runs also support development sites.
 `web/test/wasm-interpreter.mjs` qualifies the separately prepared execution VM;
 a build of the editor alone does not qualify that VM or its RXBIN image.
+
+## Browser distribution candidate
+
+For a configured combined browser build, use one target to build, package and
+qualify the distribution:
+
+```sh
+cmake --build build/wasm-review-candidate --target the_wasm_browser_candidate --parallel
+```
+
+The target requires committed tracked source and the combined cREXX runtime,
+Classic Rexx interpreter/highlighter, source compiler and MiniBASIC capabilities.
+It finds Node.js on PATH and Chrome/Chromium in its standard macOS location or
+on PATH; set `CHROMIUM_BIN` to select another executable. It creates the
+deterministic ZIP in temporary storage, extracts it, serves that copy on an
+available loopback port, and runs the complete browser smoke and paint suites.
+Test fixtures come from the selected build directory. Focused-suite environment
+flags are cleared for this target.
+
+Only after both suites pass does `build/wasm-review-candidate/candidate/` receive
+`CRXTHE-browser-candidate.zip`, its `.zip.sha256` checksum, `.qa.json` receipt
+and `.qa.log` output. The receipt records the exact source revision, ZIP hash,
+capabilities and test commands/results. Failure leaves any earlier successful
+candidate unchanged. This qualifies the extracted ZIP locally; publication,
+hosted-browser checks and release authorization remain separate.
