@@ -231,6 +231,9 @@ try {
   } else if (process.env.THE_WASM_PUBLIC_EXAMPLES_ONLY === "1") {
     await publicExamplesSmoke({pageUrl, manifest, send, snapshot, evaluate, waitFor, openWorkspaceFile, consoleEnter});
     if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
+  } else if (process.env.THE_WASM_LEVEL_B_RECOVERY_ONLY === "1") {
+    await publicExamplesSmoke({pageUrl, manifest, send, snapshot, evaluate, waitFor, openWorkspaceFile, consoleEnter, recoveryLanguage: 'LevelB'});
+    if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   } else if (process.env.THE_WASM_COMMANDS_ONLY === "1") {
     await waitFor(() => !!workerSession, "editor Worker debugger");
     await wasmEditorCommandsSmoke({send, snapshot, evaluate, command, waitFor, workerSession});

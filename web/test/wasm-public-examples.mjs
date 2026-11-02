@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 
 // Start in a fresh browser workspace: these are the actual public examples,
 // selected through Files and executed through the visible per-file actions.
-export async function publicExamplesSmoke({pageUrl, manifest, send, snapshot, evaluate, waitFor, openWorkspaceFile, consoleEnter}) {
+export async function publicExamplesSmoke({pageUrl, manifest, send, snapshot, evaluate, waitFor, openWorkspaceFile, consoleEnter, recoveryLanguage}) {
   const names = Object.keys(manifest.files).filter(path => path.startsWith('examples/'))
     .map(path => path.slice('examples/'.length)).sort();
   const expected = ['Examples.txt'];
@@ -35,7 +35,7 @@ export async function publicExamplesSmoke({pageUrl, manifest, send, snapshot, ev
     cases.push(['MiniBASIC.bas', /SUM = 55\n[\s\S]*The number is non-negative: 4\n/, '4'],
       ['MiniBASICPrimes.bas', /^2\n3\n5\n7\n11\n13\n17\n19\n23\n29\n$/],
       ['MiniBASICStrings.bas', /^direct "quote"\nassigned "quote"\nassigned "quote"\nassigned "quote"\nleft  right\nleft  right\n\n$/]);
-  for (const [name, output, input] of cases) {
+  for (const [name, output, input] of recoveryLanguage ? [] : cases) {
     const path = `/workspace/${name}`;
     const response = await fetch(new URL(`examples/${name}`, pageUrl));
     assert.equal(response.ok, true, `${name} public source is served`);
@@ -92,6 +92,9 @@ export async function publicExamplesSmoke({pageUrl, manifest, send, snapshot, ev
     probes.push(['BASIC', '.bas', ['10 GOTO 999'], ['10 GOTO 10'], 'MiniBASICPrimes.bas']);
   async function buildIfNeeded(name) {
     if (!name.endsWith('.crexx')) return;
+    await waitFor(() => evaluate(`window.__tools?.currentFile?.path===${JSON.stringify(`/workspace/${name}`)}&&
+      window.__tools.currentFile.sourceId===window.__snapshot.source.id&&
+      window.__tools.currentFile.revision===window.__snapshot.source.revision`), `${name} current revision actions`);
     const id = await evaluate('window.__tools.build.job.id');
     await waitFor(() => evaluate("!!document.querySelector('.file-action-build')&&!document.querySelector('.file-action-build').disabled"), `${name} probe Build enabled`);
     await evaluate("document.querySelector('.file-action-build').click()");
@@ -106,13 +109,16 @@ export async function publicExamplesSmoke({pageUrl, manifest, send, snapshot, ev
     await waitFor(() => evaluate(`window.__tools.job.id>${id}`), `${name} probe launched`);
     return id;
   }
-  for (const [label, suffix, failure, infinite, example] of probes) {
+  for (const [label, suffix, failure, infinite, example] of probes.filter(probe => !recoveryLanguage || probe[0] === recoveryLanguage)) {
     for (const [kind, lines] of [['error', failure], ['stop', infinite]]) {
       const name = `QA-${label}-${kind}${suffix}`;
       await send({type: 'action', action: 'file.create', argument: name});
       await waitFor(async () => (await snapshot()).buffer.path === `/workspace/${name}`, `${name} isolated source`);
       for (const line of lines) await send({type: 'command', command: `input ${line}`});
-      await waitFor(async () => (await snapshot()).buffer.dirty, `${name} unsaved probe`);
+      await waitFor(async () => {
+        const state = await snapshot();
+        return state.buffer.dirty && state.buffer.lines === lines.length;
+      }, `${name} complete unsaved probe`);
       await launch(name);
       if (kind === 'error') {
         await waitFor(() => evaluate('!window.__tools.job.running'), `${label} runtime error completes`, 30000);
