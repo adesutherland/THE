@@ -120,7 +120,8 @@ available loopback port, and runs the complete browser smoke and paint suites.
 Test fixtures come from the selected build directory. Focused-suite environment
 flags are cleared for this target.
 
-Only after both suites pass does `build/wasm-review-candidate/candidate/` receive
+Only after both suites pass does a new immutable directory under
+`build/wasm-review-candidate/candidate/` receive
 `CRXTHE-browser-candidate.zip`, its `.zip.sha256` checksum, `.qa.json` receipt
 and `.qa.log` output. The receipt records the exact source revision, ZIP hash,
 capabilities and test commands/results. Failure leaves any earlier successful

@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 from threading import Thread
+from uuid import uuid4
 import zipfile
 
 
@@ -138,6 +139,11 @@ def qualify(site, fixture_build, output_dir):
             extracted = staging / "site"
             with zipfile.ZipFile(archive) as zipped:
                 zipped.extractall(extracted)
+            packaged_manifest = json.loads((extracted / "manifest.json").read_text())
+            if packaged_manifest != manifest:
+                raise ValueError("Site changed while packaging the candidate; rebuild and retry")
+            manifest = packaged_manifest
+            check_source(manifest)
             digest = sha256(archive.read_bytes()).hexdigest()
             server = ThreadingHTTPServer(("127.0.0.1", 0), partial(SiteHandler, directory=str(extracted)))
             thread = Thread(target=server.serve_forever, daemon=True)
@@ -164,18 +170,17 @@ def qualify(site, fixture_build, output_dir):
                                  ("THE_WEB_URL", "CHROMIUM_BIN", "THE_WASM_FIXTURE_BUILD")},
         }
         receipt_path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
-        # Publish the receipt last: it binds the ZIP hash, source and successful
-        # checks. A failed check leaves every previous successful output intact.
+        # Install the complete result as one directory rename. Existing
+        # candidates stay immutable even if copying a new artifact fails.
         output_dir.mkdir(parents=True, exist_ok=True)
-        for artifact in (archive, archive.with_suffix(".zip.sha256"), log_path, receipt_path):
-            with tempfile.NamedTemporaryFile(dir=output_dir, delete=False) as pending:
-                pending_path = Path(pending.name)
-            try:
-                shutil.copyfile(artifact, pending_path)
-                os.replace(pending_path, output_dir / artifact.name)
-            finally:
-                pending_path.unlink(missing_ok=True)
-        print(f"PASS browser candidate: {output_dir / archive.name} (SHA-256 {digest})")
+        generation = output_dir / f"{manifest['source_revision'][:12]}-{digest[:12]}-{uuid4().hex[:8]}"
+        with tempfile.TemporaryDirectory(prefix=".qualifying-", dir=output_dir) as pending:
+            bundle = Path(pending) / "bundle"
+            bundle.mkdir()
+            for artifact in (archive, archive.with_suffix(".zip.sha256"), log_path, receipt_path):
+                shutil.copyfile(artifact, bundle / artifact.name)
+            os.replace(bundle, generation)
+        print(f"PASS browser candidate: {generation / archive.name} (SHA-256 {digest})")
 
 
 def main():
