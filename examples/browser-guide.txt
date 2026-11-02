@@ -13,6 +13,13 @@ enter an opening balance as the first Program argument. Select a source file
 and choose Run Classic Rexx beside its filename. ClassicDemo.rexx is a parser
 and highlighting example; it is not intended as a runnable program.
 
+Level B (.crexx)
+----------------
+LevelBSquares.crexx uses cREXX Level B arithmetic and a loop. Select the source
+and choose Build source, then Run with cREXX beside its filename. The Program
+console prints "Level B sum of squares: 55". This uses the browser compiler
+and the isolated program VM; it requires the combined compiler/runtime bundle.
+
 Level G (.crexx and .rxbin)
 --------------------------
 LevelGAccumulator.crexx uses a typed class and prints the sum of five squares

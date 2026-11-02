@@ -520,6 +520,7 @@ async function start() {
   }
   let seeded = false;
   for (const name of ["Examples.txt", "RexxWords.rexx", "RexxLedger.rexx",
+    "LevelBSquares.crexx",
     "LevelGAccumulator.crexx", "LevelGAccumulator.rxbin",
     "LevelGFibonacci.crexx", "LevelGFibonacci.rxbin",
     "MiniBASICPrimes.bas", "MiniBASICStrings.bas",

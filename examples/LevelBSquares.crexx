@@ -1,0 +1,9 @@
+/* Browser Level B arithmetic and loop. */
+options levelb
+
+total = 0
+do n = 1 to 5
+  total = total + n * n
+end
+say 'Level B sum of squares:' total
+return 0

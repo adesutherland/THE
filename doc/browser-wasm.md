@@ -316,7 +316,8 @@ Classic Rexx programs (`RexxWords.rexx`, `RexxLedger.rexx`), two Level G source
 files with matching precompiled RXBIN images (`LevelGAccumulator` and
 `LevelGFibonacci`), and two additional MiniBASIC programs
 (`MiniBASICPrimes.bas`, `MiniBASICStrings.bas`). The example index names the
-required runtime and expected output. Saved workspace copies are never
+required runtime and expected output. `LevelBSquares.crexx` demonstrates Level B
+source compilation and program execution, printing a sum of 55. Saved workspace copies are never
 replaced by an updated site. The optional browser compiler builds THE macro,
 profile and `.crexx` sources. Select a Level G source, choose **Build source**,
 then **Run with cREXX**. Build captures unsaved edits into an immutable RXBIN;

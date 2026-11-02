@@ -39,6 +39,7 @@ if(THE_WASM_CREXX)
         COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_BINARY_DIR}/level-g-fibonacci.rxbin"
             "${THE_WASM_SITE}/examples/LevelGFibonacci.rxbin"
         COMMAND "${CMAKE_COMMAND}" -E copy
+            "${CMAKE_SOURCE_DIR}/examples/LevelBSquares.crexx"
             "${CMAKE_SOURCE_DIR}/examples/LevelGAccumulator.crexx"
             "${CMAKE_SOURCE_DIR}/examples/LevelGFibonacci.crexx"
             "${THE_WASM_SITE}/examples"
@@ -65,6 +66,7 @@ add_custom_target(the_wasm_interpreter_assets
     DEPENDS "${THE_WASM_SITE}/.build-stamp"
         "${CMAKE_SOURCE_DIR}/examples/RexxWords.rexx"
         "${CMAKE_SOURCE_DIR}/examples/RexxLedger.rexx"
+        "${CMAKE_SOURCE_DIR}/examples/LevelBSquares.crexx"
         "${CMAKE_SOURCE_DIR}/examples/LevelGAccumulator.crexx"
         "${CMAKE_SOURCE_DIR}/examples/LevelGFibonacci.crexx"
     VERBATIM)
