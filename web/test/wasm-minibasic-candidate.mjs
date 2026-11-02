@@ -57,7 +57,8 @@ export async function minibasicCandidateSmoke({
       `visible ${ids.join("/")} actions`);
   }
 
-  // A fresh BASIC document must not inherit the stock Classic Rexx runner.
+  // A fresh BASIC document runs with its bundled interpreter and highlighter
+  // before any user profile is built or applied.
   await openWorkspaceFile("MiniBASIC.bas");
   await waitFor(async () => {
     const state = await snapshot();
@@ -65,18 +66,37 @@ export async function minibasicCandidateSmoke({
       && state.parser.applied === state.parser.revision;
   }, "stock MiniBASIC syntax before any user profile", 30000);
   assert.equal(await evaluate("!!document.querySelector('.syntax-keyword')&&!!document.querySelector('.syntax-number')"), true,
-    "stock MiniBASIC syntax is visible before runner setup");
-  const basicRun = await expectCurrentAction(sourcePath, "run", false);
-  assert.ok(basicRun.reason, "unconfigured BASIC explains its Run refusal");
-  assert.equal(await evaluate("document.querySelector('.file-action-run')"), null,
-    "unassociated BASIC does not offer a misleading primary Run");
-  assert.equal(await evaluate("document.querySelector('.file-action-configure')?.disabled"), false,
-    "unassociated BASIC offers Configure runner");
-  const preflightJob = await evaluate("window.__tools.job.id");
-  await evaluate("document.querySelector('.file-action-configure').click()");
-  await waitFor(() => evaluate("!!document.querySelector('.tools-profiles-pane')?.getClientRects().length"),
-    "Configure runner opens Tools and profiles");
-  assert.equal(await evaluate("window.__tools.job.id"), preflightJob, "Configure runner did not start Classic Rexx");
+    "stock MiniBASIC syntax is visible before user profile setup");
+  assert.equal(await durable("/workspace/.crxthe-tools/active"), null, "stock Run requires no saved user profile");
+  await expectCurrentAction(sourcePath, "run", true, "minibasic");
+  const basicBuild = await expectCurrentAction(sourcePath, "build", false);
+  assert.match(basicBuild.reason, /No Build action is associated/, "interpreted BASIC has no stock Build tool");
+  await expectVisibleActions(["run"]);
+  assert.match(await evaluate("document.querySelector('.file-action-run')?.textContent"), /MiniBASIC/,
+    "stock BASIC Run visibly names its interpreter");
+  assert.equal(await evaluate("document.querySelector('.file-action-configure')"), null,
+    "stock BASIC Run requires no Configure runner step");
+  const beforeStockRun = await snapshot();
+  const stockRunJob = await evaluate("window.__tools.job.id");
+  await showConsole();
+  await evaluate("document.querySelector('.file-action-run').click()");
+  await waitFor(() => evaluate(`window.__tools.job.id>${stockRunJob}&&window.__tools.job.tool==='minibasic'&&window.__tools.job.waiting`),
+    "stock MiniBASIC Run reaches INPUT", 30000);
+  const stockJob = await evaluate("window.__tools.job");
+  assert.equal(stockJob.filename, sourcePath, "stock Run uses the selected BASIC file");
+  assert.equal(stockJob.sourceId, beforeStockRun.source.id, "stock Run captures the selected source identity");
+  assert.equal(stockJob.revision, beforeStockRun.source.revision, "stock Run captures the selected source revision");
+  assert.equal(await evaluate("document.querySelector('.console-output').textContent.includes('SUM = 55')"), true,
+    "stock MiniBASIC Run executes the bundled loop before profile setup");
+  await consoleEnter("0");
+  await waitFor(() => evaluate("window.__tools.job.state==='Completed · status 0'"), "stock MiniBASIC interactive completion", 30000);
+  assert.equal(await evaluate("document.querySelector('.console-output').textContent.includes('The number is non-negative: 0')"), true,
+    "stock MiniBASIC INPUT reaches its zero branch");
+  const afterStockRun = await snapshot();
+  assert.deepEqual(afterStockRun.buffer, beforeStockRun.buffer, "stock Run preserves clean BASIC buffer state");
+  assert.deepEqual(afterStockRun.source, beforeStockRun.source, "stock Run preserves BASIC source identity and revision");
+  assert.deepEqual(afterStockRun.focus, beforeStockRun.focus, "stock Run preserves BASIC editor focus");
+  assert.deepEqual(await durable(sourcePath), [...original], "stock Run preserves exact saved BASIC bytes");
   await openWorkspaceFile("RexxRunner.rexx");
   await expectCurrentAction("/workspace/RexxRunner.rexx", "run", true, "classic-rexx");
   assert.equal(await evaluate("document.querySelector('.file-action-run')?.disabled"), false,
@@ -402,7 +422,7 @@ export async function minibasicCandidateSmoke({
   await expectVisibleActions(["build", "activate"]);
   const profileLines = [
     "/* MiniBASIC candidate profile */", "options levelb", "import rxfnsb", "address THE",
-    "'rx register minibasic runner /workspace/MiniBASIC.rxbin .bas \"MiniBASIC\"';",
+    "'rx register minibasic runner /workspace/MiniBASIC.rxbin .bas \"User MiniBASIC\"';",
     "'rx register minibasic-syntax language /workspace/MiniBASICHighlight.rxbin .bas \"User MiniBASIC syntax\"';",
     "'workbench begin owner user.minibasic';",
     `'workbench action put user.basicbuild label "Build BASIC" macro "${macroImage}" fileext ".bas" purpose build';`,
@@ -447,6 +467,8 @@ export async function minibasicCandidateSmoke({
   assert.ok(selectedProfile?.length, "immutable MiniBASIC profile selection persisted");
   for (const [id, role, image] of [["minibasic", "runner", "MiniBASIC.rxbin"], ["minibasic-syntax", "language", "MiniBASICHighlight.rxbin"]])
     assert.equal(await evaluate(`window.__tools.catalog.some(tool=>tool.id===${JSON.stringify(id)}&&tool.role===${JSON.stringify(role)}&&tool.image===${JSON.stringify(`/workspace/${image}`)}&&tool.extensions==='.bas'&&tool.available)`), true, `${id} registered by profile`);
+  assert.equal(await evaluate("window.__tools.catalog.find(tool=>tool.id==='minibasic').label"), "User MiniBASIC",
+    "user profile overrides the stock BASIC runner definition");
   assert.equal(await evaluate("window.__tools.catalog.find(tool=>tool.id==='minibasic-syntax').label"), "User MiniBASIC syntax",
     "user profile overrides the stock BASIC language definition");
 
@@ -458,6 +480,8 @@ export async function minibasicCandidateSmoke({
     assert.deepEqual(await durable("/workspace/.crxthe-tools/active"), selectedProfile, "compiled profile selection survives reload");
     await waitFor(() => evaluate("window.__tools.catalog.some(tool=>tool.id==='minibasic'&&tool.role==='runner'&&tool.available)&&window.__tools.catalog.some(tool=>tool.id==='minibasic-syntax'&&tool.role==='language'&&tool.available)"),
       "profile-owned MiniBASIC registrations replay on reload", 30000);
+    assert.equal(await evaluate("window.__tools.catalog.find(tool=>tool.id==='minibasic').label"), "User MiniBASIC",
+      "saved user runner override wins over stock Run on reload");
     assert.equal(await evaluate("window.__tools.catalog.find(tool=>tool.id==='minibasic-syntax').label"), "User MiniBASIC syntax",
       "saved user language override wins over stock syntax on reload");
     assert.deepEqual(await durable(sourcePath), [...original], "saved MiniBASIC source survives reload");
@@ -580,11 +604,11 @@ export async function minibasicCandidateSmoke({
   await consoleEnter("-5");
   await waitFor(() => evaluate("window.__tools.job.state==='Completed · status 0'"), "restored MiniBASIC runner completion", 30000);
   assert.equal(await evaluate("document.querySelector('.console-output').textContent.includes('SUM = 55')&&!document.querySelector('.console-output').textContent.includes('UNSAVED SUM')&&document.querySelector('.console-output').textContent.includes('The number is negative: -5')"), true, "restored BASIC bytes and negative INPUT branch");
-  // Replacement removes the profile's runner and restores stock syntax. A
-  // reload must keep that baseline without resurrecting the optional runner.
+  // Replacement removes the user's overrides and custom Build action. Both
+  // stock BASIC registrations must remain available after Apply and reload.
   await profileButton("Edit profile");
   await waitFor(async () => (await snapshot()).buffer.path === profilePath, "replacement profile source");
-  const replacementLines = ["/* Keep stock BASIC syntax without an optional runner */", "options levelb", "import rxfnsb",
+  const replacementLines = ["/* Restore stock BASIC Run and syntax */", "options levelb", "import rxfnsb",
     "say 'Replacement profile activated'", "return 0"];
   await send({ type: "command", command: "top" });
   await send({ type: "command", command: "delete *" });
@@ -600,16 +624,18 @@ export async function minibasicCandidateSmoke({
   await expectCurrentAction(profilePath, "activate", true);
   await evaluate("document.querySelector('.file-action-activate').click()");
   await waitFor(() => evaluate("window.__tools.build.chunks.some(chunk=>chunk.text.includes('Replacement profile activated'))"), "replacement profile activation", 30000);
-  const stockSyntaxOnly = "!window.__tools.catalog.some(tool=>tool.id==='minibasic')&&window.__tools.catalog.some(tool=>tool.id==='minibasic-syntax'&&tool.label==='MiniBASIC syntax'&&tool.role==='language'&&tool.available)";
-  await waitFor(() => evaluate(stockSyntaxOnly), "removed optional runner and restored stock BASIC syntax");
+  const stockBasic = "window.__tools.catalog.some(tool=>tool.id==='minibasic'&&tool.label==='MiniBASIC'&&tool.role==='runner'&&tool.extensions==='.bas'&&tool.available)&&window.__tools.catalog.some(tool=>tool.id==='minibasic-syntax'&&tool.label==='MiniBASIC syntax'&&tool.role==='language'&&tool.extensions==='.bas'&&tool.available)";
+  await waitFor(() => evaluate(stockBasic), "removed user overrides and restored stock BASIC Run and syntax");
   const replacementGeneration = await evaluate("window.__minibasicGeneration=Math.random()");
   await reloadAcceptingUnsaved(replacementGeneration);
-  await waitFor(() => evaluate(`!!window.__tools?.catalog&&${stockSyntaxOnly}`),
+  await waitFor(() => evaluate(`!!window.__tools?.catalog&&${stockBasic}`),
     "replacement profile replay on reload", 30000);
   await openWorkspaceFile("MiniBASIC.bas");
-  await expectCurrentAction(sourcePath, "run", false);
-  await expectCurrentAction(sourcePath, "build", false);
-  assert.equal(await evaluate(stockSyntaxOnly), true, "stock syntax survives reload without the removed runner");
+  await expectCurrentAction(sourcePath, "run", true, "minibasic");
+  const restoredBuild = await expectCurrentAction(sourcePath, "build", false);
+  assert.match(restoredBuild.reason, /No Build action is associated/, "replacement removes the custom BASIC Build action");
+  await expectVisibleActions(["run"]);
+  assert.equal(await evaluate(stockBasic), true, "stock BASIC Run and syntax survive replacement and reload");
   await waitFor(async () => {
     const state = await snapshot();
     return state.parser?.state === "ready" && state.parser.providerId === "minibasic-syntax"
@@ -617,6 +643,15 @@ export async function minibasicCandidateSmoke({
   }, "stock BASIC parser after profile replacement", 30000);
   assert.equal(await evaluate("!!document.querySelector('.syntax-keyword')&&!!document.querySelector('.syntax-number')"), true,
     "profile replacement preserves visible stock BASIC syntax");
+  const replacementRunJob = await evaluate("window.__tools.job.id");
+  await showConsole();
+  await runFromEditor();
+  await waitFor(() => evaluate(`window.__tools.job.id>${replacementRunJob}&&window.__tools.job.tool==='minibasic'&&window.__tools.job.waiting`),
+    "stock MiniBASIC Run after profile replacement", 30000);
+  await consoleEnter("2");
+  await waitFor(() => evaluate("window.__tools.job.state==='Completed · status 0'"), "stock MiniBASIC completion after replacement", 30000);
+  assert.equal(await evaluate("document.querySelector('.console-output').textContent.includes('SUM = 55')&&document.querySelector('.console-output').textContent.includes('The number is non-negative: 2')"), true,
+    "restored stock BASIC runner executes output and INPUT");
   assert.deepEqual(await durable(sourcePath), [...original], "profile replacement preserved saved BASIC source");
   await send({ type: "action", action: "file.create", argument: "/workspace/.crxthe-tools/profile.the" });
   const legacyPath = "/workspace/.crxthe-tools/profile.the";
@@ -625,5 +660,5 @@ export async function minibasicCandidateSmoke({
   await expectVisibleActions(["build", "activate"]);
   assert.equal(await evaluate("document.querySelector('.file-action-run')"), null,
     "legacy profile.the retains profile actions rather than macro Run");
-  console.log("PASS MiniBASIC file journey: Configure runner, ordinary THE macro Build/Run, named profile immutable Build/Apply/reload, legacy profile names, profile BASIC runner and Build result, unsaved INPUT run and durable reload");
+  console.log("PASS MiniBASIC file journey: stock Run/INPUT, ordinary THE macro Build/Run, named profile immutable Build/Apply/reload, legacy profile names, user runner/syntax overrides and custom Build, unsaved INPUT run, replacement restores stock Run/syntax");
 }

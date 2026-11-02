@@ -13,6 +13,7 @@ import { minibasicCandidateSmoke } from "./wasm-minibasic-candidate.mjs";
 import { levelGCandidateSmoke } from "./wasm-level-g-candidate.mjs";
 import { levelBCandidateSmoke } from "./wasm-level-b-candidate.mjs";
 import { defaultSyntaxSmoke } from "./wasm-default-syntax.mjs";
+import { publicExamplesSmoke } from "./wasm-public-examples.mjs";
 
 const pageUrl = process.env.THE_WEB_URL;
 const chromium = process.env.CHROMIUM_BIN;
@@ -205,7 +206,13 @@ try {
   await checkNativeToolPolicy(nativePolicyRequest, "unsupported-host", nativePolicyInspect);
   console.log("PASS rebuilt Wasm native TOOL/action/RUN unsupported-host refusals preserve editor");
   if (process.env.THE_WASM_DEFAULT_SYNTAX_ONLY === "1") {
+    // Include enough source rows for the examples' different token kinds;
+    // the default headless viewport leaves only four visible file lines.
+    await command('Emulation.setDeviceMetricsOverride', {width: 1400, height: 1000, deviceScaleFactor: 1, mobile: false});
     await defaultSyntaxSmoke({ pageUrl, manifest, send, snapshot, evaluate, waitFor, openWorkspaceFile });
+    if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
+  } else if (process.env.THE_WASM_PUBLIC_EXAMPLES_ONLY === "1") {
+    await publicExamplesSmoke({pageUrl, manifest, send, snapshot, evaluate, waitFor, openWorkspaceFile, consoleEnter});
     if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   } else if (process.env.THE_WASM_COMMANDS_ONLY === "1") {
     await waitFor(() => !!workerSession, "editor Worker debugger");
@@ -215,7 +222,7 @@ try {
     await profileSourcesSmoke({ send, evaluate, command, waitFor, snapshot, hasCrexx: manifest.capabilities.editor_address });
     if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   } else if (process.env.THE_WASM_LEVEL_B_ONLY === "1") {
-    await levelBCandidateSmoke({pageUrl, manifest, snapshot, evaluate, waitFor, openWorkspaceFile});
+    await levelBCandidateSmoke({pageUrl, manifest, send, snapshot, evaluate, command, waitFor, openWorkspaceFile});
     if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   } else if (process.env.THE_WASM_LEVEL_G_ONLY === "1") {
     await levelGCandidateSmoke({pageUrl, manifest, send, snapshot, evaluate, command, waitFor, openWorkspaceFile});
@@ -227,6 +234,16 @@ try {
     await fileFieldSmoke({ send, evaluate, command, waitFor, snapshot });
     if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   } else {
+  for (const flag of ['THE_WASM_DEFAULT_SYNTAX_ONLY', 'THE_WASM_PUBLIC_EXAMPLES_ONLY']) {
+    const child = spawn(process.execPath, [fileURLToPath(import.meta.url)], {
+      env: { ...process.env, [flag]: '1' }, stdio: 'inherit',
+    });
+    const status = await new Promise((resolve, reject) => {
+      child.once('error', reject);
+      child.once('exit', (code, signal) => resolve({code, signal}));
+    });
+    if (status.code !== 0) throw new Error(`${flag} fresh browser journey failed: ${JSON.stringify(status)}`);
+  }
   await waitFor(() => !!workerSession, "editor Worker debugger");
   await wasmEditorCommandsSmoke({send, snapshot, evaluate, command, waitFor, workerSession});
   await profileSourcesSmoke({ send, evaluate, command, waitFor, snapshot, hasCrexx: manifest.capabilities.editor_address });
@@ -527,7 +544,8 @@ try {
   if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join('; ')}`);
 
   if(manifest.capabilities.classic_rexx_interpreter && manifest.capabilities.crexx_vm){
-    const image=Buffer.from(await(await fetch(new URL('examples/ToolHello.rxbin',pageUrl))).arrayBuffer());
+    const fixtureBuild = process.env.THE_WASM_FIXTURE_BUILD || fileURLToPath(new URL('../../build/wasm-review-candidate/', import.meta.url));
+    const image=await readFile(join(fixtureBuild, 'tool-example.rxbin'));
     await evaluate("document.querySelector('.tools-toggle').click()");
     await waitFor(() => evaluate("!!document.querySelector('.tools-profiles-pane')?.getClientRects().length"), "explicit program tools pane");
     await evaluate(`(() => {
@@ -551,7 +569,7 @@ try {
     await send({type:'tool',action:'run',tool:'hello-program'});
     await waitFor(()=>evaluate("window.__tools.job.tool==='hello-program'&&!window.__tools.job.running"),'registered RXBIN run',30000);
     console.log('PASS browser RXBIN: console import/run, direct and registered execution with output/status');
-    await sourceFileRunnerSmoke({pageUrl, send, snapshot, evaluate, waitFor});
+    await sourceFileRunnerSmoke({image: await readFile(join(fixtureBuild, 'source-file-probe.rxbin')), send, snapshot, evaluate, waitFor});
   }
 
   if(manifest.capabilities.profile_source_compiler){
@@ -610,7 +628,7 @@ try {
   }
   if (manifest.capabilities.minibasic_candidate) {
     // The ordinary smoke intentionally registers a separate .bas runner.
-    // Qualify the candidate's fresh-file refusal in its own browser profile.
+    // Qualify stock BASIC defaults and user-profile overrides separately.
     const child = spawn(process.execPath, [fileURLToPath(import.meta.url)], {
       env: { ...process.env, THE_WASM_MINIBASIC_ONLY: "1" }, stdio: "inherit",
     });

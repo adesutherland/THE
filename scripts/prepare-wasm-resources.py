@@ -27,7 +27,8 @@ commands = [command.format(suffix='') for command in
             data['commands'] + data.get('web_commands', []) + data.get('wasm_commands', [])]
 if args.minibasic_source:
     # CMake supplies this source only with the matching, checksum-checked
-    # runner/highlighter pair. The worker seeds those images before startup.
+    # runner/highlighter pair. The worker seeds both before the stock profile
+    # registers direct Run and syntax; interpreted BASIC needs no Build step.
     commands += data['wasm_minibasic_commands']
 restricted = ['set impos off', 'set impmacro off', 'set macro off', 'set linend off', 'set synonym on']
 if args.crexx_bin:
@@ -62,7 +63,7 @@ shutil.copytree(root / 'syntax', destination / 'syntax', dirs_exist_ok=True)
 if args.minibasic_source:
     shutil.copy2(args.minibasic_source, destination / 'MiniBASIC.bas')
     (destination / 'MiniBASIC-profile.the').write_text(
-        '/* Stock browser syntax is enabled. Apply adds the runner and overrides the language service. */\n'
+        '/* Stock browser Run and syntax are enabled. This example can override either registration. */\n'
         'options levelb\naddress the\n'
         "'rx register minibasic runner /workspace/MiniBASIC.rxbin .bas \"MiniBASIC\"';\n"
         "'rx register minibasic-syntax language /workspace/MiniBASICHighlight.rxbin .bas \"MiniBASIC syntax\"';\n"

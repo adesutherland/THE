@@ -53,7 +53,7 @@ The LLM driver exposes the same objects and outcomes as data and commands.
    source-snapshot contract for the runner. No new grammar is required for
    this baseline.
 4. Run the current unsaved Classic Rexx buffer and the bundled, matching
-   `examples/ToolHello.rxbin` utility from profile-defined actions. Capture
+   `examples/LevelGAccumulator.rxbin` program from profile-defined actions. Capture
    source identity and revision. Show stdout, stderr, completion and errors;
    provide separate program input, EOF, Stop and output hide/reopen. Preserve
    the reader's scroll position as output arrives; provide a return-to-latest
@@ -80,7 +80,7 @@ separate qualification.
 | Browser workspace | `/workspace` is IDBFS backed by IndexedDB. Save synchronizes it; saved files survive reload for the same origin/browser profile, subject to browser storage retention. | Keep it as the default file provider and show storage failures without claiming Save succeeded. |
 | User's local files | Only RXBIN has a narrow file-picker import. General source import/export and direct file handles are absent. | Add single-file UTF-8 source import and explicit export/download, bounded to 2 MiB, so a source can leave browser storage. Preserve bytes, reject name collisions and never access local disk silently. |
 | Server files | The Wasm static site has no server file protocol. The separate native WebSocket browser driver is a different host. | Defer a specific connector until a real service and its authorization/conflict contract are selected. |
-| Program execution | In optional interpreter-enabled bundles, Classic source runs in an isolated Worker; matching RXBIN images require the corresponding cREXX runtime and runner bundle. The base editor/storage build has neither run target. These Workers do not mount the editor workspace or address THE. | Ship a qualified interpreter-enabled bundle with Classic and `ToolHello.rxbin` as browser run targets. A matching RXBIN DSL program can use the registered program path; running the active unsaved DSL buffer requires the later source-runner adapter. A different Wasm module or remote service needs its own adapter. |
+| Program execution | In optional interpreter-enabled bundles, Classic source runs in an isolated Worker; matching RXBIN images require the corresponding cREXX runtime and runner bundle. The base editor/storage build has neither run target. These Workers do not mount the editor workspace or address THE. | Ship a qualified interpreter-enabled bundle with Classic and the Level G RXBIN examples as browser run targets. A matching RXBIN DSL program can use the registered program path; running the active unsaved DSL buffer uses the source-runner adapter. A different Wasm module or remote service needs its own adapter. |
 
 Browser APIs can support user-selected file handles on implementations that
 provide File System Access, or an origin-private store such as OPFS. Neither is

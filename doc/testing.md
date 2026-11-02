@@ -92,5 +92,12 @@ the shared console when a tool bundle is available. See
 For a combined Wasm build with the optional source-profile compiler, the
 existing `web/test/wasm-browser-smoke.mjs` also checks actual compiler/assembler
 execution, addressed activation, failure retention and IndexedDB restore.
+Its fresh-workspace passes check visible syntax and actions for every bundled
+language example, runtime errors and Stop/restart, plus the curated public
+example inventory. Contract-test RXBIN images stay outside the static site;
+the harness reads `tool-example.rxbin` and `source-file-probe.rxbin` from
+`build/wasm-review-candidate` by default. Set `THE_WASM_FIXTURE_BUILD` when
+testing a different matching build. Run against the extracted distribution
+ZIP as well as the development site before qualifying a browser candidate.
 `web/test/wasm-interpreter.mjs` qualifies the separately prepared execution VM;
 a build of the editor alone does not qualify that VM or its RXBIN image.

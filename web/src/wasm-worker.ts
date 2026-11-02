@@ -371,12 +371,17 @@ async function start() {
     throw Error("Browser editor manifest unavailable");
   let revision = "";
   let packagedFiles: Record<string, { sha256?: string }> = {};
+  let capabilities: Record<string, boolean> = {};
   if (manifestResponse.ok) {
     const source = await manifestResponse.text();
     // Vite serves index.html for an absent manifest in an unpackaged dev site.
     if (!/^\s*<(?:!doctype|html)\b/i.test(source)) {
-      const manifest = JSON.parse(source) as { files?: Record<string, { sha256?: string }> };
+      const manifest = JSON.parse(source) as {
+        files?: Record<string, { sha256?: string }>;
+        capabilities?: Record<string, boolean>;
+      };
       packagedFiles = manifest.files ?? {};
+      capabilities = manifest.capabilities ?? {};
       revision = manifest.files?.["wasm/crxthe_wasm.wasm"]?.sha256 ?? "";
       if (!/^[a-f0-9]{64}$/.test(revision))
         throw Error("Browser editor module checksum unavailable");
@@ -463,8 +468,10 @@ async function start() {
         "Browser profile and macro sources\n\n" +
         "These editable copies show the sources bundled with this editor.\n" +
         "browser.the is the bundled stock browser profile (browser.commands in\n" +
-        "an editor without cREXX). MiniBASIC-profile.the is an optional profile\n" +
-        "example; the other .the files are bundled macros.\n" +
+        "an editor without cREXX). The other .the files are bundled macros.\n" +
+        (capabilities.minibasic_candidate
+          ? "MiniBASIC-profile.the is an optional editable profile example.\n"
+          : "") +
         "Save keeps your changes in this browser workspace. Reloading or updating\n" +
         "the editor preserves existing copies; they are not refreshed automatically.\n\n" +
         "Editing a copy does not change the installed startup profile or macros.\n" +
@@ -477,27 +484,50 @@ async function start() {
         "Prepared .profile.rxbin images can be imported and applied in Tools &\n" +
         "Profiles without rebuilding source. Apply retains an immutable copy.\n" +
         "Ordinary .the macros use Build macro and Run macro.\n" +
-        (fs.analyzePath("/app/MiniBASIC-profile.the").exists
-          ? "\nThe stock browser profile highlights .bas files. To run BASIC, open\n" +
-            "MiniBASIC-profile.the, then Build profile and Apply profile.\n" +
-            "Matching RXBIN images are copied into new workspaces; import them\n" +
-            "if removed. The example also overrides the BASIC highlighter.\n"
+        (capabilities.minibasic_candidate
+          ? "\nThis bundle's stock profile registers the BASIC runner and highlighter.\n" +
+            "Open MiniBASIC.bas and choose Run with MiniBASIC; no build or profile\n" +
+            "setup is needed. MiniBASIC-profile.the shows how to customize\n" +
+            "those registrations with a user profile.\n"
           : ""));
       changed = true;
     }
     if (changed) await sync();
   }
   if (!fs.analyzePath("/workspace/Welcome.txt").exists) {
+    const classic = capabilities.classic_rexx_interpreter &&
+      !!packagedFiles["examples/RexxRunner.rexx"];
+    const crexx = capabilities.source_compiler &&
+      !!packagedFiles["examples/LevelBSquares.crexx"];
+    const basic = capabilities.minibasic_candidate &&
+      !!packagedFiles["examples/MiniBASIC.bas"];
     fs.writeFile(
       "/workspace/Welcome.txt",
       "Welcome to CRXTHE in your browser.\n\n" +
-      "Try a cREXX program:\n" +
-      "1. Click Files to open the file list.\n" +
-      "2. Open LevelBSquares.crexx (or another .crexx program).\n" +
-      "3. Above the editor, choose Build source, then Run with cREXX.\n" +
-      "4. Click Console to see the program's output.\n\n" +
-      "After editing a .crexx program, build it again before running it.\n" +
-      "Ctrl-S saves to this browser workspace. Files remain after reload.\n",
+      "Click Files, then select an example.\n" +
+      "Use the actions above the editor.\n\n" +
+      (classic
+        ? "Classic Rexx (.rexx)\n" +
+          "  Open RexxRunner.rexx.\n" +
+          "  Choose Run with Classic Rexx.\n\n"
+        : "") +
+      (crexx
+        ? "cREXX (.crexx): Level B or Level G\n" +
+          "  Open LevelBSquares.crexx.\n" +
+          "  Choose Build source, then Run with cREXX.\n" +
+          "  Build again after edits.\n\n"
+        : "") +
+      (basic
+        ? "BASIC (.bas)\n" +
+          "  Open MiniBASIC.bas.\n" +
+          "  Choose Run with MiniBASIC.\n" +
+          "  Interpreted: no build or profile setup.\n\n"
+        : "") +
+      (classic || crexx || basic
+        ? "Console shows output and accepts input.\n"
+        : "Use Files to explore this editor build.\n\n") +
+      "Ctrl-S saves in this browser workspace.\n" +
+      "Open Examples.txt for more examples.\n",
     );
     await sync();
   }

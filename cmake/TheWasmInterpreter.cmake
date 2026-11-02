@@ -24,8 +24,6 @@ if(THE_WASM_CREXX)
             -o "${CMAKE_BINARY_DIR}/tool-example" "${CMAKE_SOURCE_DIR}/examples/tool-program.crexx"
         COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxas" -o "${CMAKE_BINARY_DIR}/tool-example"
             "${CMAKE_BINARY_DIR}/tool-example"
-        COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_BINARY_DIR}/tool-example.rxbin"
-            "${THE_WASM_SITE}/examples/ToolHello.rxbin"
         COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxc" -i "${THE_CREXX_HOST_BUILD}/bin"
             -o "${CMAKE_BINARY_DIR}/level-g-accumulator" "${CMAKE_SOURCE_DIR}/examples/LevelGAccumulator.crexx"
         COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxas" -o "${CMAKE_BINARY_DIR}/level-g-accumulator"
@@ -47,7 +45,10 @@ if(THE_WASM_CREXX)
             -o "${CMAKE_BINARY_DIR}/source-file-probe" "${CMAKE_SOURCE_DIR}/tests/source-file-runner.crexx"
         COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxas" -o "${CMAKE_BINARY_DIR}/source-file-probe"
             "${CMAKE_BINARY_DIR}/source-file-probe"
-        COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_BINARY_DIR}/source-file-probe.rxbin"
+        # Test fixtures stay outside the public static site. Browser contract
+        # tests import these matching images from the local build directory.
+        COMMAND "${CMAKE_COMMAND}" -E rm -f
+            "${THE_WASM_SITE}/examples/ToolHello.rxbin"
             "${THE_WASM_SITE}/examples/SourceFileProbe.rxbin")
 endif()
 add_custom_target(the_wasm_interpreter_assets

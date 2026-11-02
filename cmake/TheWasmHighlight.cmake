@@ -59,7 +59,7 @@ add_custom_target(the_wasm_classic_assets
     COMMAND "${CMAKE_COMMAND}" -E copy "${parser_module}"
         "${parser_wasm}" "${THE_WASM_CLASSIC_FILES}/classic.json" "${THE_WASM_SITE}/vm"
     COMMAND "${CMAKE_COMMAND}" -E copy "${THE_WASM_CLASSIC_IMAGE}" "${THE_WASM_SITE}/vm/modules/dslsh-classic.rxbin"
-    COMMAND "${CMAKE_COMMAND}" -E copy "${THE_DSLSH_SOURCE}/crexx/examples/classic.rexx" "${THE_WASM_SITE}/examples/ClassicDemo.rexx"
+    COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_SOURCE_DIR}/examples/ClassicDemo.rexx" "${THE_WASM_SITE}/examples/ClassicDemo.rexx"
     DEPENDS ${parser_dependency} "${THE_WASM_SITE}/.build-stamp" "${THE_WASM_CLASSIC_IMAGE}"
     VERBATIM)
 list(APPEND THE_WASM_PACKAGE_ARGUMENTS --dslsh-source "${THE_DSLSH_SOURCE}" --classic)

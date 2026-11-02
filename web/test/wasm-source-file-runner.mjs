@@ -1,6 +1,5 @@
 /** Real editor/VM contract through the shared RX commands. */
-export async function sourceFileRunnerSmoke({pageUrl, send, snapshot, evaluate, waitFor}) {
-  const image = Buffer.from(await (await fetch(new URL('examples/SourceFileProbe.rxbin', pageUrl))).arrayBuffer());
+export async function sourceFileRunnerSmoke({image, send, snapshot, evaluate, waitFor}) {
   await send({type:'tool-import', name:'SourceFileProbe.rxbin', bytes:image.toString('base64')});
   await waitFor(() => evaluate("window.__messages.some(m=>m.type==='tool-imported'&&m.path==='/workspace/SourceFileProbe.rxbin')"), 'source runner image import');
   await send({type:'command', command:'RX REGISTER source-probe runner /workspace/SourceFileProbe.rxbin .bas "Source probe"'});

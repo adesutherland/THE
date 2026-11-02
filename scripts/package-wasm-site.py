@@ -98,6 +98,27 @@ if args.vm_only:
 else:
     capabilities.update(browser_storage='IDBFS/IndexedDB', workspace_lock='Web Locks',
                         editor_address=args.editor_address)
+# Keep the public examples deliberate. Test probes are built beside the site
+# and imported by the QA harness, never distributed as learner programs.
+if not args.vm_only:
+    expected_examples = {'Examples.txt'}
+    if args.classic:
+        expected_examples.add('ClassicDemo.rexx')
+    if args.interpreter:
+        expected_examples.update({'RexxRunner.rexx', 'RexxWords.rexx', 'RexxLedger.rexx'})
+        if args.editor_address:
+            expected_examples.update({'LevelBSquares.crexx', 'LevelGAccumulator.crexx',
+                                      'LevelGFibonacci.crexx', 'LevelGAccumulator.rxbin',
+                                      'LevelGFibonacci.rxbin'})
+    if capabilities['minibasic_candidate']:
+        expected_examples.update({'MiniBASIC.bas', 'MiniBASICPrimes.bas', 'MiniBASICStrings.bas',
+                                  'MiniBASIC.rxbin', 'MiniBASICHighlight.rxbin'})
+    actual_examples = {str(path.relative_to(site / 'examples'))
+                       for path in (site / 'examples').rglob('*') if path.is_file()}
+    if actual_examples != expected_examples:
+        raise RuntimeError('Public example inventory differs: '
+                           f'missing={sorted(expected_examples - actual_examples)}, '
+                           f'unexpected={sorted(actual_examples - expected_examples)}')
 manifest = {
     'product': 'CRXTHE', 'version': args.version,
     'variant': 'wasm-vm-preview' if args.vm_only else 'wasm-editor-preview',

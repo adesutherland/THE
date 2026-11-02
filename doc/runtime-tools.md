@@ -24,9 +24,9 @@ captured identity/revision; editing can continue independently.
 `RX RUN "/absolute/workspace/program.rxbin"` runs a compiled program.
 The graphical console's tool selector provides the same operation. Browser
 **Import RXBIN** copies a binary into the persistent workspace, refusing name
-collisions; native builds use normal workspace files. Browser bundles with the
-cREXX editor and Classic interpreter include `examples/ToolHello.rxbin`, compiled from
-`examples/tool-program.crexx`, for an import/run check. Arguments
+collisions; native builds use normal workspace files. The combined browser
+candidate includes matching `LevelGAccumulator.rxbin` and
+`LevelGFibonacci.rxbin` examples that run through **RXBIN program**. Arguments
 are separate values, one per line in the graphical field, or quoted operands
 after the command's tool/image. `RX RUN` alone runs the current buffer;
 `RX RUN tool-id` runs a registered tool. Registered IDs take precedence over
@@ -221,14 +221,12 @@ because the generic source-file runner works. The optional browser review
 candidate packages matching MiniBASIC interpreter and DSLSH images, plus three
 `.bas` source files; ordinary browser builds do not. Missing images and source
 files are copied from the package without replacing saved workspace copies.
-The stock browser profile registers the bundled syntax service, so `.bas`
-files have syntax colours on first open. The runner remains opt-in. If an image
-was removed, import its matching copy. Place the two registrations above in the
-editable user profile and build/apply it. The candidate also places
-`Profile sources/MiniBASIC-profile.the` in the workspace as a complete editable
-example; it is never applied automatically. Applying a user profile can override
-the stock language definition. Replacing that profile restores the stock syntax
-service and removes its optional runner.
+The stock combined browser profile registers both images, so `.bas` files have
+syntax colours and **Run with MiniBASIC** on first open. BASIC is interpreted;
+there is no source build step. `Profile sources/MiniBASIC-profile.the` is a
+complete editable example for overriding the stock registrations. Applying a
+user profile can replace those definitions; the stock registrations return
+when the stock profile is restored.
 
 For example:
 

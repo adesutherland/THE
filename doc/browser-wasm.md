@@ -14,6 +14,12 @@ runtime adds source-profile compilation with a matching Wasm compiler and
 assembler; see [tools and profiles](runtime-tools.md). Native OS commands, Regina and native parser processes are
 unavailable.
 
+The combined review candidate also runs Classic Rexx (`.rexx`), compiled
+cREXX (`.crexx` and `.rxbin`) and interpreted MiniBASIC (`.bas`). Click
+**Files** to select an example; its Run action appears above the editor.
+The **Program console** shows output and accepts requested input. These
+language actions depend on the matching assets in the browser bundle.
+
 ## Build and run
 
 Use CMake, Ninja, Git, Python 3 and npm. Install the pinned Emscripten SDK:
@@ -150,9 +156,9 @@ severity is never retained from an older result. The stock browser profile
 maps `.crexx` sources to the built-in Rexx lexical colourer. This gives comments,
 keywords, strings and numbers their syntax colours without compiler diagnostics;
 it does not claim a browser cREXX DSLSH parser. Other file types retain their
-existing colourers. A combined MiniBASIC candidate also registers its bundled
-DSLSH language image for `.bas` by default. Its runner remains opt-in through
-`MiniBASIC-profile.the` or the editable user profile.
+existing colourers. The combined MiniBASIC candidate registers its matching
+DSLSH language image and runner for `.bas` by default. `MiniBASIC-profile.the`
+is an editable example for overriding those registrations.
 
 The first connection sends complete C-owned logical source snapshots through
 DSLSH's existing eight-hex-byte framing. It coalesces unsent revisions and keeps
@@ -213,8 +219,9 @@ A rebuilt image with another checksum needs explicit qualification and
 `THE_WASM_CLASSIC_SHA256`. The browser verifies that checksum before loading
 bytecode. The package records both source revisions, the image checksum and
 licenses. `ClassicDemo.rexx` is copied into a new browser workspace only if
-absent; open it through File/Open. It demonstrates Unicode, nested comments,
-control flow, a continuation and a routine. Existing saved files are preserved.
+absent; open it through Files. It is runnable and demonstrates Unicode, nested
+comments, control flow, a continuation and a routine. Existing saved files are
+preserved.
 
 ## Classic Rexx interpreter and console
 
@@ -269,7 +276,7 @@ qualified cREXX source revision, matching native generated headers, prepared
 as `THE_WASM_RUNNER_DIRECTORY` when enabling `THE_WASM_INTERPRETER` in the
 editor build. For compiled RXBIN programs, enable `THE_WASM_CREXX` and build
 the editor against the same cREXX runtime revision as the runner. This also
-packages `examples/ToolHello.rxbin` for a direct run/import check. The packaged
+packages matching Level G RXBIN examples. The packaged
 manifest records the runtime, interpreter image and their hashes. Generated
 RXBIN, Wasm and site assets remain build outputs.
 
@@ -310,18 +317,18 @@ The interpreter check executes the actual Wasm/RXBIN cohort. The browser check
 covers Unicode interactive I/O, argument positions, EOF, unsaved working-record
 execution, typed failure, Stop/restart, an infinite program and split resizing,
 alongside storage, profiles and highlighting when those capabilities are built.
-With the editor and interpreter enabled, it also imports and runs the packaged
-compiled RXBIN example directly and as a registered program.
+With cREXX and the interpreter enabled, it also imports and runs a compiled
+RXBIN test fixture directly and as a registered program.
 
 ## Browser workspace
 
 ### Examples
 
-The browser workspace receives `Examples.txt` if absent, with the exact Run steps for
-the examples included in that build. The combined candidate includes two
-Classic Rexx programs (`RexxWords.rexx`, `RexxLedger.rexx`), two Level G source
-files with matching precompiled RXBIN images (`LevelGAccumulator` and
-`LevelGFibonacci`), and two additional MiniBASIC programs
+The browser workspace receives `Examples.txt` if absent, with Run steps for
+the combined candidate. It includes four Classic Rexx programs
+(`RexxRunner.rexx`, `ClassicDemo.rexx`, `RexxWords.rexx`, `RexxLedger.rexx`),
+two Level G source files with matching precompiled RXBIN images
+(`LevelGAccumulator` and `LevelGFibonacci`), and two additional MiniBASIC programs
 (`MiniBASICPrimes.bas`, `MiniBASICStrings.bas`). The example index names the
 required runtime and expected output. `LevelBSquares.crexx` demonstrates Level B
 source compilation and program execution, printing a sum of 55. Saved workspace copies are never
@@ -333,6 +340,10 @@ new build. The program runs in an isolated VM with output in Program console,
 separate from macro/profile `ADDRESS THE` execution. Precompiled images run
 through **Tools & Profiles > RXBIN program** with an explicit workspace path,
 or `RX RUN "/workspace/program.rxbin"`; they are not text editor buffers.
+Select `MiniBASIC.bas` and choose **Run with MiniBASIC**. The stock combined profile
+provides its runner and highlighter; BASIC needs no build step. Enter the
+requested number in Program console. `MiniBASIC-profile.the` under **Files →
+Profile sources** is an editable override example, not a setup requirement.
 
 This compiler worker receives one source snapshot and the bundled standard
 library/compiler exits. It does not resolve other workspace source modules or

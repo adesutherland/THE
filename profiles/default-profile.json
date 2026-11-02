@@ -119,6 +119,7 @@
     "set autocolor *.crexx REXX"
   ],
   "wasm_minibasic_commands": [
+    "rx register minibasic runner /workspace/MiniBASIC.rxbin .bas \"MiniBASIC\"",
     "rx register minibasic-syntax language /workspace/MiniBASICHighlight.rxbin .bas \"MiniBASIC syntax\""
   ],
   "native_commands": [

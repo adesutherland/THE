@@ -9,7 +9,15 @@ export async function defaultSyntaxSmoke({ pageUrl, manifest, send, snapshot, ev
     get.onerror=()=>{reject(get.error);db.close();};};})`);
   assert.equal((await snapshot()).buffer.path, "/workspace/Welcome.txt", "fresh workspace opens Welcome");
   const welcome = Buffer.from(await durable("/workspace/Welcome.txt")).toString("utf8");
-  for (const text of ["Files", "LevelBSquares.crexx", "Build source", "Run with cREXX", "Console"])
+  const welcomeSteps = ["Files"];
+  if (manifest.capabilities.source_compiler && manifest.files["examples/LevelBSquares.crexx"])
+    welcomeSteps.push("LevelBSquares.crexx", "Build source", "Run with cREXX");
+  if (manifest.capabilities.classic_rexx_interpreter && manifest.files["examples/RexxRunner.rexx"])
+    welcomeSteps.push("RexxRunner.rexx", "Run with Classic Rexx");
+  if (manifest.capabilities.minibasic_candidate)
+    welcomeSteps.push("MiniBASIC.bas", "Run with MiniBASIC", "no build or profile setup");
+  if (welcomeSteps.length > 1) welcomeSteps.push("Console");
+  for (const text of welcomeSteps)
     assert.ok(welcome.includes(text), `Welcome explains ${text}`);
 
   async function check(name, styles, provider) {
@@ -37,13 +45,24 @@ export async function defaultSyntaxSmoke({ pageUrl, manifest, send, snapshot, ev
     for (const name of ["ClassicDemo.rexx", "RexxRunner.rexx", "RexxWords.rexx", "RexxLedger.rexx"])
       if (manifest.files[`examples/${name}`]) await check(name, ["comment", "keyword", "string"], "classic-highlight");
   }
-  if (manifest.files["examples/LevelBSquares.crexx"])
-    await check("LevelBSquares.crexx", ["comment", "keyword", "number"]);
+  for (const name of ["LevelBSquares.crexx", "LevelGAccumulator.crexx", "LevelGFibonacci.crexx"])
+    if (manifest.files[`examples/${name}`]) await check(name, ["comment", "keyword", "number"]);
   if (manifest.capabilities.minibasic_candidate) {
-    await check("MiniBASIC.bas", ["comment", "keyword", "number"], "minibasic-syntax");
-    await waitFor(() => evaluate("window.__tools?.currentFile?.path==='/workspace/MiniBASIC.bas'"), "default BASIC actions");
-    assert.equal(await evaluate("window.__tools.currentFile.actions.find(action=>action.id==='run').enabled"), false,
-      "stock BASIC syntax does not opt into the optional runner");
+    for (const name of ["MiniBASIC.bas", "MiniBASICPrimes.bas", "MiniBASICStrings.bas"]) {
+      assert.ok(manifest.files[`examples/${name}`], `MiniBASIC candidate includes ${name}`);
+      await check(name, ["comment", "keyword", "number"], "minibasic-syntax");
+      await waitFor(() => evaluate(`window.__tools?.currentFile?.path===${JSON.stringify(`/workspace/${name}`)}`), `${name} default actions`);
+      assert.deepEqual(await evaluate("(({enabled,tool})=>({enabled,tool}))(window.__tools.currentFile.actions.find(action=>action.id==='run'))"),
+        { enabled: true, tool: "minibasic" }, `${name} stock Run selects the bundled interpreter`);
+      assert.equal(await evaluate("document.querySelector('.file-action-run')?.disabled"), false,
+        `${name} exposes enabled Run without profile setup`);
+      assert.match(await evaluate("document.querySelector('.file-action-run')?.textContent"), /MiniBASIC/,
+        `${name} Run names its interpreter`);
+      assert.equal(await evaluate("window.__tools.currentFile.actions.find(action=>action.id==='build').enabled"), false,
+        `${name} needs no stock Build action`);
+      assert.equal(await evaluate("document.querySelector('.file-action-build,.file-action-configure')"), null,
+        `${name} offers direct Run without Build or Configure runner`);
+    }
   }
   await openWorkspaceFile("Welcome.txt");
   await send({ type: "command", command: "cursor goto 1 1" });

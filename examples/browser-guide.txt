@@ -1,17 +1,18 @@
 Browser examples (0.10.dev review candidate)
 ========================================
 
-Open these files from Files > Open. Missing bundled examples are copied into
-the browser workspace when their runtime is present. Save your edits to keep
-them; the site does not replace an existing workspace file.
+Click Files, then select a bundled example. Its Run action appears above the
+editor. Examples are copied into a new browser workspace when their runtime
+is present. Ctrl-S saves your edits; the site does not replace an existing
+workspace file. Click Console for program output or requested input.
 
 Classic Rexx (.rexx)
 --------------------
 RexxRunner.rexx asks for a name in the Program console. RexxWords.rexx lists
 the words in a sentence. RexxLedger.rexx shows a running balance; optionally
 enter an opening balance as the first Program argument. Select a source file
-and choose Run Classic Rexx beside its filename. ClassicDemo.rexx is a parser
-and highlighting example; it is not intended as a runnable program.
+and choose Run with Classic Rexx beside its filename. ClassicDemo.rexx is a
+runnable program that also exercises Unicode parsing and highlighting.
 
 Level B (.crexx)
 ----------------
@@ -48,16 +49,12 @@ MiniBASIC (.bas)
 MiniBASIC.bas adds 1 to 10, then asks for one number in the Program console.
 MiniBASICPrimes.bas prints primes through 30. MiniBASICStrings.bas demonstrates
 assigned, copied and quoted strings. The MiniBASIC files appear only in a
-candidate with the MiniBASIC runner and highlighter. Syntax colours are enabled
-on first open by the stock browser profile. To enable Run for .bas:
-
-1. The two RXBIN images are copied into the workspace if absent.
-   If you removed them, use Tools & Profiles to import matching images.
-2. In Files > Profile sources, open MiniBASIC-profile.the. Build profile, then
-   Apply profile. This adds the optional runner and overrides the stock
-   language registration. Replacing it with another profile retains stock syntax.
-3. Open a .bas file and choose Run MiniBASIC beside its filename. For
-   MiniBASIC.bas, enter a number when the Program console asks for input.
+candidate with the MiniBASIC runner and highlighter. The stock browser profile
+registers both, so .bas files have syntax colours and Run with MiniBASIC on first
+open. Select MiniBASIC.bas and choose Run with MiniBASIC. Enter a number when the
+Program console asks for input. BASIC is interpreted: no build or profile
+setup is needed. Files > Profile sources > MiniBASIC-profile.the is an editable
+example for overriding the stock registrations, not a required setup step.
 
 No example needs a host shell or access to your computer's files. Browser
 workspace files persist for this origin and browser profile, subject to site
