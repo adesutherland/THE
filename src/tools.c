@@ -240,8 +240,9 @@ void the_tools_initialise(const TheToolAdapter *a, int enabled) {
    the_tool_host_reset();
    the_tool_host_adapter(a);
    builtin("classic-rexx", "Classic Rexx", "runner", "classic-source", "@classic", ".rexx,.rex");
+   builtin("crexx", "cREXX", "runner", "compiled-source", "@built", ".crexx");
    builtin("rxbin", "RXBIN program", "program", "program", "", ".rxbin");
-   builtin("profile-compiler", "Profile compiler", "compiler", "profile-source", "@compiler",
+   builtin("profile-compiler", "cREXX compiler", "compiler", "profile-source", "@compiler",
            ".the,.crexx");
    builtin("classic-highlight", "Classic Rexx highlighter", "language", "dslsh",
            "@classic-highlight", ".rexx,.rex");
@@ -386,6 +387,12 @@ static short run_profile_image(const char *image, const char *identity, short *m
    profile_registry_end(registry,rc==RC_OK && *macro_rc==0 && finish==RC_OK);
    return rc != RC_OK ? rc : *macro_rc ? *macro_rc : finish;
 }
+static int path_suffix(const char *,const char *);
+static const char *compiled_source_reason(const TheEditorSource *source) {
+   if(!CURRENT_FILE || !path_suffix((char *)CURRENT_FILE->fname,".crexx"))return "Open a .crexx source before running this tool";
+   return !*profile_ready ? "Build this cREXX source before running it"
+      : !source || source->id!=profile_source || source->revision!=profile_revision ? "cREXX source changed; build it again" : "";
+}
 static short launch(const char *id, int argc, const char *const *argv, const char *image) {
    TheToolRequest r = {0};
    const TheEditorSource *s;
@@ -425,6 +432,13 @@ static short launch(const char *id, int argc, const char *const *argv, const cha
       r.revision = s->revision;
       snprintf(name, sizeof(name), "%s%s", CURRENT_FILE->fpath, CURRENT_FILE->fname);
       r.filename = name;
+      if(!strcmp(r.tool.entry,"compiled-source")) {
+         const char *reason=compiled_source_reason(s);
+         if(*reason) { display_error(0,(CHARTYPE *)reason,FALSE);return RC_INVALID_OPERAND; }
+         if(!safe_image(profile_ready,r.tool.image,sizeof(r.tool.image)))return RC_INVALID_OPERAND;
+         snprintf(r.tool.entry,sizeof(r.tool.entry),"program");
+         snprintf(r.tool.role,sizeof(r.tool.role),"program");
+      }
    } else
       r.filename = r.tool.image;
    r.argc = argc;
@@ -703,7 +717,7 @@ static void file_actions(const TheEditorSource *source,FileAction out[3]) {
    out[0]=(FileAction){"build",profile ? "Build profile" : macro ? "Build macro" : "Build source", "No Build action is associated with this file", "",NULL};
    out[1]=(FileAction){"run","Run","No runner is associated with this file",runner ? runner->id : "",NULL};
    out[2]=(FileAction){"activate","Apply profile","This file has no profile activation role",profile ? "profile-compiler" : "",NULL};
-   if(compilable) { out[0].tool="profile-compiler";out[0].reason=compiler && compiler->available ? "" : "Profile compiler is unavailable"; }
+   if(compilable) { out[0].tool="profile-compiler";out[0].reason=compiler && compiler->available ? "" : "cREXX compiler is unavailable"; }
    else if(CURRENT_FILE) {
       build=the_workbench_file_build(path);
       if(build) {
@@ -713,6 +727,7 @@ static void file_actions(const TheEditorSource *source,FileAction out[3]) {
       }
    }
    if(runner) out[1].reason=runner->available ? "" : "Associated runner is unavailable";
+   if(runner && runner->available && !strcmp(runner->entry,"compiled-source"))out[1].reason=compiled_source_reason(source);
    if(profile) { out[1].tool="";out[1].reason="Use Apply profile for this profile source"; }
    if(macro) {
       out[1].label="Run macro";out[1].tool="built-macro";

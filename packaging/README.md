@@ -32,6 +32,13 @@ the whole site, reads it back and writes the ZIP's SHA-256 sidecar. It does not
 tag, sign, upload or publish anything. The manifest identifies a dirty source
 tree when the source has uncommitted tracked changes.
 
+Before distributing the GPL-covered WebAssembly editor publicly, make the
+corresponding source and build scripts for the manifest's exact source commit
+available to recipients, alongside the separate dependency notices. A
+`source_url` field is provenance metadata; check that it resolves to the
+packaged commit before relying on it. Keep candidates built from unpublished
+local commits local until their source is supplied.
+
 For a local HTTP check, serve the **unpacked ZIP** at the origin root:
 
 ```sh

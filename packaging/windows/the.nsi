@@ -23,7 +23,7 @@ VIProductVersion "${THE_FILE_VERSION}"
 VIAddVersionKey "ProductName" "CRXTHE"
 VIAddVersionKey "FileDescription" "CRXTHE Windows x64 Installer"
 VIAddVersionKey "FileVersion" "${THE_VERSION}"
-VIAddVersionKey "LegalCopyright" "Original THE copyright Mark Hessling; fork changes CRXTHE contributors"
+VIAddVersionKey "LegalCopyright" "Original THE copyright Mark Hessling; CRXTHE by Adrian Sutherland and cREXX team"
 VIAddVersionKey "Comments" "Independent fork based on THE 4.0; CRXTHE issues: github.com/adesutherland/THE/issues"
 !define MUI_ABORTWARNING
 !insertmacro MUI_PAGE_DIRECTORY

@@ -4,6 +4,7 @@
 /*
  * THE - The Hessling Editor. A text editor similar to VM/CMS xedit.
  * Copyright (C) 1991-2026 Mark Hessling
+ * CRXTHE modifications Copyright (C) 2026 Adrian Sutherland.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as

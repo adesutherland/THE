@@ -1,3 +1,4 @@
+// CRXTHE browser workbench Copyright (C) 2026 Adrian Sutherland.
 import { browserWasm, createEditorTransport, type EditorTransport } from "./transport";
 import { render } from "preact";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -1221,6 +1222,10 @@ function App() {
                 <p>A programmable editor based on THE, with line prefixes, editor commands and Rexx macros.</p>
                 <p>Use the THE command field for editor commands. The Program console has separate input and output for the program you run.</p>
                 <p>Help describes editor commands. Key definitions shows the active profile’s bindings.</p>
+                <p>Original THE: Copyright (C) 1991-2026 Mark Hessling.</p>
+                <p>CRXTHE development and modernization: Adrian Sutherland with the cREXX team and contributors.</p>
+                <p>Editor licence: GNU GPL version 2 or later. Bundled cREXX and other dependencies retain their separate notices.</p>
+                {browserWasm ? <p><a href="/licenses/CRXTHE-GPL-2.0.txt" target="_blank" rel="noreferrer">Editor licence</a> · <a href="/licenses/cREXX-MIT.txt" target="_blank" rel="noreferrer">cREXX licence</a></p> : null}
               </section>
             </> : <>
             {menus.map((menu) => <section key={menu.id} aria-label={menu.label} data-menu-id={menu.id}>

@@ -5,6 +5,7 @@
 /*
  * THE - The Hessling Editor. A text editor similar to VM/CMS xedit.
  * Copyright (C) 1991-2026 Mark Hessling
+ * CRXTHE modifications Copyright (C) 2026 Adrian Sutherland.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -142,7 +143,7 @@ static int filter_driver_args(int argc, char **argv,
 
    CHARTYPE *the_version = (CHARTYPE *)THE_VERSION;
    CHARTYPE *the_release = (CHARTYPE *)THE_VERSION_DATE;
-   CHARTYPE *the_copyright = (CHARTYPE *)"Copyright 1991-2026 Mark Hessling";
+   CHARTYPE *the_copyright = (CHARTYPE *)"Copyright (C) 1991-2026 Mark Hessling; CRXTHE by the cREXX team";
    CHARTYPE *term_name;  /* $TERM value */
    CHARTYPE *tempfilename = (CHARTYPE *)NULL;
    CHARTYPE *stdinprofile = (CHARTYPE *)NULL;
@@ -1731,7 +1732,7 @@ static void display_info(CHARTYPE *argv0)
    fprintf(stdout,"%s\n",the_copyright);
    fprintf(stdout,"CRXTHE maintenance and bug reports: https://github.com/adesutherland/THE/issues\n");
    fprintf(stdout,"CRXTHE is distributed under the terms of the GNU General Public License \n");
-   fprintf(stdout,"and comes with NO WARRANTY. See the file COPYING for details.\n");
+   fprintf(stdout,"and comes with NO WARRANTY. See the bundled licence or source LICENSE for details.\n");
 #if defined(USE_XCURSES)
    fprintf(stdout,"\nUsage:\n\n%s [--driver curses|llm|web|gtk] [-hnmrsbq] [-p profile] [-a profile_arg] [-l line_num] [-c col_num] [-w width] [-u display_length] [-k[fmt]] [-X \"switches\"] [-1[fifoname]] [[dir] [file [...]]]\n",argv0);
 #elif defined(USE_SDLCURSES) && defined(UNIX)

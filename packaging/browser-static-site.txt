@@ -17,3 +17,11 @@ belongs to that exact origin and browser profile. Back up important saved
 files before clearing browser data or moving the site to another origin.
 
 This archive is a local candidate, not a release or published website.
+Before public hosting, provide the exact corresponding GPL-covered editor
+source for the commit named in manifest.json and retain the bundled dependency
+notices. A manifest source URL alone is not sufficient if that commit is not
+publicly available.
+
+Original THE: Mark Hessling. CRXTHE development: Adrian Sutherland with the
+cREXX team and contributors. See licenses/ for the editor and bundled
+dependency notices.

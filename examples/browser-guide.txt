@@ -17,9 +17,16 @@ Level G (.crexx and .rxbin)
 --------------------------
 LevelGAccumulator.crexx uses a typed class and prints the sum of five squares
 (55). LevelGFibonacci.crexx uses a typed routine and prints terms 0 through 10
-(ending at 55). The .crexx files let you inspect the source. This browser
-bundle does not compile general Level G source. Run the matching PRECOMPILED
-image from the THE command field:
+(ending at 55). In a bundle with the cREXX compiler, select a .crexx source,
+choose Build source, then Run with cREXX beside its filename. Build includes
+unsaved edits. After editing, build again before Run; each build keeps its own
+RXBIN image. This route supports self-contained source and imports from the
+bundled standard library. Other workspace modules, native plugins and host
+commands are not available to the browser compiler/runtime.
+
+Matching PRECOMPILED images are also included. In Tools & Profiles select
+RXBIN program, enter the image's workspace path, then choose Run with tool.
+Alternatively, run the explicit path from the THE command field:
 
   RX RUN "/workspace/LevelGAccumulator.rxbin"
   RX RUN "/workspace/LevelGFibonacci.rxbin"

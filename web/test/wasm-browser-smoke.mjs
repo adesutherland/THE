@@ -10,6 +10,7 @@ import { sourceFileRunnerSmoke } from "./wasm-source-file-runner.mjs";
 import { wasmEditorCommandsSmoke } from "./wasm-editor-commands.mjs";
 import { profileSourcesSmoke, profileActivationStorageFailureSmoke } from "./wasm-profile-sources.mjs";
 import { minibasicCandidateSmoke } from "./wasm-minibasic-candidate.mjs";
+import { levelGCandidateSmoke } from "./wasm-level-g-candidate.mjs";
 
 const pageUrl = process.env.THE_WEB_URL;
 const chromium = process.env.CHROMIUM_BIN;
@@ -207,6 +208,9 @@ try {
     if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   } else if (process.env.THE_WASM_PROFILE_SOURCES_ONLY === "1") {
     await profileSourcesSmoke({ send, evaluate, command, waitFor, snapshot, hasCrexx: manifest.capabilities.editor_address });
+    if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
+  } else if (process.env.THE_WASM_LEVEL_G_ONLY === "1") {
+    await levelGCandidateSmoke({pageUrl, manifest, send, snapshot, evaluate, command, waitFor, openWorkspaceFile});
     if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   } else if (process.env.THE_WASM_MINIBASIC_ONLY === "1") {
     await minibasicCandidateSmoke({pageUrl, manifest, send, snapshot, evaluate, command, waitFor, openWorkspaceFile, consoleEnter, reloadAcceptingUnsaved});
@@ -577,6 +581,16 @@ try {
     if(manifest.capabilities.classic_rexx_interpreter && manifest.capabilities.crexx_vm &&
         !await evaluate("window.__tools.catalog.some(t=>t.id==='hello-program')"))throw Error('Registry was not restored');
     console.log('PASS browser profiles: fresh Wasm compiler/assembler, ADDRESS THE, console output, activation, failed-build retention and persisted restore');
+  }
+  if (manifest.capabilities.source_compiler && manifest.capabilities.classic_rexx_interpreter) {
+    const child = spawn(process.execPath, [fileURLToPath(import.meta.url)], {
+      env: { ...process.env, THE_WASM_LEVEL_G_ONLY: "1" }, stdio: "inherit",
+    });
+    const status = await new Promise((resolve, reject) => {
+      child.once("error", reject);
+      child.once("exit", (code, signal) => resolve({ code, signal }));
+    });
+    if (status.code !== 0) throw new Error(`Level G candidate browser journey failed: ${JSON.stringify(status)}`);
   }
   if (manifest.capabilities.minibasic_candidate) {
     // The ordinary smoke intentionally registers a separate .bas runner.

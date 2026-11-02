@@ -51,6 +51,7 @@ export function CurrentFileActions({ session, snapshot, online, onAction, onSetu
   const role = currentFileRole(sourceMatches ? file : undefined, path);
   const profile = role === "profile-source";
   const macro = role === "macro-source";
+  const crexx = role === "crexx-source";
   const purpose = profile ? "THE profile" : macro ? "THE macro" : "Program";
   const actions = file?.actions ?? [];
   const build = actions.find((action) => action.id === "build");
@@ -91,12 +92,13 @@ export function CurrentFileActions({ session, snapshot, online, onAction, onSetu
   }
   if (!status) {
     if (configure) status = "Choose a runner for this file in Tools & Profiles.";
-    else if (profile || macro) {
+    else if (profile || macro || crexx) {
       if (next?.enabled) status = profile ? "Apply profile saves these settings for future sessions."
-        : "Run macro executes the built source once.";
+        : macro ? "Run macro executes the built source once."
+        : "Run executes the build of this source revision. Output is in Program console.";
       else if (!build?.enabled) status = buildReason || nextReason;
-      else if (editedBuild) status = `Source changed. Build ${profile ? "profile" : "macro"} again before ${profile ? "applying" : "running"}.`;
-      else if (!buildMatches) status = `Build this ${profile ? "profile" : "macro"} before ${profile ? "applying" : "running"} it.`;
+      else if (editedBuild) status = `Source changed. Build ${profile ? "profile" : macro ? "macro" : "source"} again before ${profile ? "applying" : "running"}.`;
+      else if (!buildMatches) status = `Build this ${profile ? "profile" : macro ? "macro" : "source"} before ${profile ? "applying" : "running"} it.`;
       else status = nextReason;
     } else status = primary?.id === "build" ? "Build uses the current buffer, including unsaved edits."
       : primary ? "Runs the current buffer, including unsaved edits. Output is in Program console."

@@ -2,6 +2,7 @@
 self.onmessage = async ({ data }) => {
   try {
     let assembly;
+    const sourceName = data.sourceRole === "crexx-source" ? "/source.crexx" : "/profile.the";
     for (const name of ["rxc", "rxas"]) {
       const base = new URL(/* @vite-ignore */ "../compiler/", import.meta.url);
       const url = new URL(name + "_single.mjs", base);
@@ -36,12 +37,12 @@ self.onmessage = async ({ data }) => {
         );
       }
       module.FS.writeFile(
-        "/profile." + (name === "rxc" ? "the" : "rxas"),
+        name === "rxc" ? sourceName : "/profile.rxas",
         name === "rxc" ? data.source : assembly,
       );
       const result = module.callMain(
         name === "rxc"
-          ? ["--no-exe-import", "-i", "/sdk", "-o", "/profile", "/profile.the"]
+          ? ["--no-exe-import", "-i", "/sdk", "-o", "/profile", sourceName]
           : ["-o", "/profile", "/profile"],
       );
       if (status || (typeof result === "number" && result))

@@ -99,7 +99,30 @@ with tempfile.TemporaryDirectory(prefix='THE tools ') as d:
         actions={a['id']:a for a in state['currentFile']['actions']}
         assert actions['build']['enabled'],state
         assert bool(actions['activate']['tool'])==(role=='profile-source'),state
-        assert bool(actions['run']['tool'])==(role=='macro-source'),state
+        assert bool(actions['run']['tool'])==(role in ('macro-source','crexx-source')),state
+        if role=='crexx-source':
+            assert actions['run']['tool']=='crexx' and not actions['run']['enabled'],state
+    # Compiled source programs use the isolated VM, with their source revision
+    # kept distinct from ADDRESS THE macros and profile application.
+    levelg_source=root/'LevelGAccumulator.crexx'
+    levelg_text=(Path(__file__).parent.parent/'examples/LevelGAccumulator.crexx').read_text()
+    records=run(levelg_text,
+                'command RX BUILD\ntoolwait 30000\ntools\n'
+                'command RX RUN\ntoolwait 10000\ntools\n'
+                'command cursor goto 5 1\ncommand replace do n = 1 to 6\n'
+                'command RX RUN\ntools\nlook full compact',levelg_source)
+    built,completed,refused=tools(records)
+    assert built['profile']['build']['role']=='crexx-source',built
+    assert built['profile']['build']['image'].endswith('.rxbin'),built
+    assert completed['job']['tool']=='crexx' and completed['job']['state']=='Completed · status 0',completed
+    assert 'sum of squares: 55\n' in ''.join(c['text'] for c in completed['chunks']),completed
+    assert completed['job']['sourceId']==built['profile']['build']['sourceId'],records
+    assert completed['job']['revision']==built['profile']['build']['revision'],records
+    assert refused['job']['id']==completed['job']['id'],records
+    assert not next(a for a in refused['currentFile']['actions'] if a['id']=='run')['enabled'],refused
+    changed=next(r for r in records if 'screen_rows' in r)
+    assert changed['buffer']['dirty'] and 'changed; build' in changed['last_message'],changed
+    assert levelg_source.read_text()==levelg_text
     macro_source=root/'Probe.the'
     records=run('options levelb\nsay \'macro proof\'\nreturn 0\n',
                 'command RX BUILD\ntoolwait 30000\ncommand RX ACTIVATE\ntools',macro_source)

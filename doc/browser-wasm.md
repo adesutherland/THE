@@ -317,8 +317,19 @@ files with matching precompiled RXBIN images (`LevelGAccumulator` and
 `LevelGFibonacci`), and two additional MiniBASIC programs
 (`MiniBASICPrimes.bas`, `MiniBASICStrings.bas`). The example index names the
 required runtime and expected output. Saved workspace copies are never
-replaced by an updated site. The browser profile compiler builds THE macro and
-profile sources; general Level G source compilation is not part of this bundle.
+replaced by an updated site. The optional browser compiler builds THE macro,
+profile and `.crexx` sources. Select a Level G source, choose **Build source**,
+then **Run with cREXX**. Build captures unsaved edits into an immutable RXBIN;
+Run requires that exact source identity and revision, so editing requires a
+new build. The program runs in an isolated VM with output in Program console,
+separate from macro/profile `ADDRESS THE` execution. Precompiled images run
+through **Tools & Profiles > RXBIN program** with an explicit workspace path,
+or `RX RUN "/workspace/program.rxbin"`; they are not text editor buffers.
+
+This compiler worker receives one source snapshot and the bundled standard
+library/compiler exits. It does not resolve other workspace source modules or
+imports. The two packaged Level G examples qualify typed routine and class
+execution in this cohort; native plugins and host commands remain unavailable.
 
 The [static ZIP candidate instructions](../packaging/README.md#browser-static-site-candidate)
 cover archive validation and local HTTP checks. This package is a review

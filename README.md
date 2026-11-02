@@ -163,7 +163,13 @@ The version is **CRXTHE 0.10.dev**, a development build towards 0.10.0,
 independently numbered from upstream THE 4.0.
 Earlier 4.0 prereleases retain their own identity and behavior.
 
-## Original Author
+## Credits and licence
 
-Mark Hessling (mark@rexx.org)
-[The Hessling Editor SourceForge](https://hessling-editor.sourceforge.net)
+Original THE: Mark Hessling (mark@rexx.org),
+[The Hessling Editor SourceForge](https://hessling-editor.sourceforge.net).
+His original copyright and licence notices remain in the source.
+
+CRXTHE development and modernization: Adrian Sutherland, with the cREXX team
+and other contributors. CRXTHE editor changes remain under the GNU General
+Public License, version 2 or later. Bundled cREXX and other dependencies carry
+their own licence notices in the packages.

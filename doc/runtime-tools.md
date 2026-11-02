@@ -46,6 +46,12 @@ Applying a profile changes the editor setup and selects it for restoration at
 startup. Existing `profile.the`, `browser.the` and `MiniBASIC-profile.the`
 remain recognized as profiles. Build and Apply results appear in
 **Tools & Profiles**. A `.rexx` file runs with its associated Classic runner.
+With the source compiler enabled, a `.crexx` program offers **Build source**
+and **Run with cREXX**. Build captures the current buffer into an immutable
+RXBIN. Run checks its source identity and revision and uses the isolated
+program VM; edits require another build. `RX RUN` selects this same runner.
+The browser compiler receives one source plus the bundled SDK, so other
+workspace module imports are unavailable.
 Other file types run only when a profile associates a runner with that type.
 **Tools & Profiles** also contains explicit tool selection, RXBIN import,
 profile editing and build state. The browser **Program console** contains only

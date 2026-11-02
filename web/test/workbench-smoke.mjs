@@ -750,6 +750,8 @@ try {
   await evaluate("[...document.querySelectorAll('.menu-popover button')].find(n=>n.textContent==='About CRXTHE').click()");
   assert.equal(await evaluate("document.querySelector('.about-menu').getAttribute('aria-label')"), "About CRXTHE");
   assert.equal(await evaluate("document.querySelector('.about-menu').textContent.includes('Program console')"), true);
+  assert.equal(await evaluate("['Mark Hessling', 'Adrian Sutherland', 'cREXX team', 'GNU GPL'].every(name => document.querySelector('.about-menu').textContent.includes(name))"), true,
+    "About distinguishes the original editor, fork contributors and licence");
   assert.equal(await evaluate("document.querySelector('.about-menu').textContent.includes('focus=')"), false);
   assert((await geometry(".about-menu")).right <= 390, "phone About fits");
   await wait(() => evaluate("document.querySelector('.about-menu').contains(document.activeElement)"), "About keyboard focus");

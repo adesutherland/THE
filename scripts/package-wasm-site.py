@@ -70,6 +70,7 @@ capabilities['classic_rexx_highlighter'] = args.classic
 capabilities['classic_rexx_interpreter'] = args.interpreter
 capabilities['common_tool_session'] = not args.vm_only
 capabilities['profile_source_compiler'] = (site / 'compiler/compiler.json').exists()
+capabilities['source_compiler'] = capabilities['profile_source_compiler']
 if capabilities['profile_source_compiler']:
     dependencies['profile_compiler'] = json.loads((site / 'compiler/compiler.json').read_text())
 minibasic_files = [site / 'examples' / name for name in
