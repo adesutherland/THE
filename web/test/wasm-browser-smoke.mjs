@@ -37,6 +37,7 @@ let workerSession;
 let nextId = 1;
 const pending = new Map();
 const exceptions = [];
+const assetRequests = [];
 let acceptUnsavedDialogs = false;
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -155,9 +156,16 @@ try {
       if (message.error) request.reject(new Error(`${request.method}: ${message.error.message}`));
       else request.resolve(message.result);
     } else if (message.method === "Target.attachedToTarget" && message.params.targetInfo.type === "worker") {
-      workerSession = message.params.sessionId;
+      const session = message.params.sessionId;
+      workerSession = session;
+      void (async () => {
+        await command("Network.enable", {}, session);
+        await command("Runtime.runIfWaitingForDebugger", {}, session);
+      })().catch(error => exceptions.push(error.message));
     } else if (message.method === "Runtime.exceptionThrown") {
       exceptions.push(message.params?.exceptionDetails?.text || "browser exception");
+    } else if (message.method === "Network.requestWillBeSent") {
+      assetRequests.push(message.params.request.url);
     } else if (message.method === "Page.javascriptDialogOpening" && acceptUnsavedDialogs) {
       void command("Page.handleJavaScriptDialog", { accept: true }).catch(error => exceptions.push(error.message));
     }
@@ -167,9 +175,10 @@ try {
   // Attach to a ready blank page before starting the application navigation.
   await waitFor(() => command("Page.getFrameTree"), "active Chrome page", 30000);
   await command("Runtime.enable");
+  await command("Network.enable");
   await command("Page.bringToFront");
   await command("Page.enable");
-  await command("Target.setAutoAttach", { autoAttach: true, waitForDebuggerOnStart: false, flatten: true });
+  await command("Target.setAutoAttach", { autoAttach: true, waitForDebuggerOnStart: true, flatten: true });
   await command("Page.addScriptToEvaluateOnNewDocument", { source: `
     window.__messages = [];
     const OriginalWorker = Worker;
@@ -192,6 +201,14 @@ try {
   const send = (request) => evaluate(`window.__worker.postMessage(${JSON.stringify(request)})`);
   const snapshot = () => evaluate("window.__snapshot");
   const manifest = await (await fetch(new URL('manifest.json', pageUrl))).json();
+  // The loader, executable and preloaded profile data are independently
+  // versioned: a profile-only update must not reuse a cached .data image.
+  for (const name of ['crxthe_wasm.mjs', 'crxthe_wasm.wasm', 'crxthe_wasm.data']) {
+    await waitFor(() => assetRequests.some(request => {
+      const url = new URL(request);
+      return url.pathname.endsWith(`/wasm/${name}`) && url.searchParams.get('v') === manifest.files[`wasm/${name}`].sha256;
+    }), `${name} request uses its own content checksum`);
+  }
   const nativePolicyRequest = async request => {
     const before = await evaluate("window.__messages.filter(m=>m.screen_rows).length");
     await send(request);

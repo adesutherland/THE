@@ -382,9 +382,12 @@ async function start() {
       };
       packagedFiles = manifest.files ?? {};
       capabilities = manifest.capabilities ?? {};
-      revision = manifest.files?.["wasm/crxthe_wasm.wasm"]?.sha256 ?? "";
-      if (!/^[a-f0-9]{64}$/.test(revision))
-        throw Error("Browser editor module checksum unavailable");
+      // The compiled profile lives in .data. It and the loader can change
+      // without changing the executable, so each asset needs its own key.
+      for (const name of ["crxthe_wasm.mjs", "crxthe_wasm.wasm", "crxthe_wasm.data"])
+        if (!/^[a-f0-9]{64}$/.test(packagedFiles[`wasm/${name}`]?.sha256 ?? ""))
+          throw Error(`Browser editor asset checksum unavailable: ${name}`);
+      revision = packagedFiles["wasm/crxthe_wasm.mjs"].sha256!;
       url.searchParams.set("v", revision);
     }
   }
@@ -393,7 +396,8 @@ async function start() {
     noInitialRun: true,
     locateFile: (name: string) => {
       const asset = new URL(name, url);
-      if (revision) asset.searchParams.set("v", revision);
+      const assetRevision = packagedFiles[`wasm/${name}`]?.sha256 ?? revision;
+      if (assetRevision) asset.searchParams.set("v", assetRevision);
       return asset.href;
     },
     sendEditorMessage: send,
