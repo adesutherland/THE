@@ -99,12 +99,16 @@ export async function checkCommandPolicy(request, bufferCount = 1) {
       "set synonym b set prefix synonym pp policy", "set synonym b set synonym pp top",
       "set synonym set bottom", "set synonym settings 3 bottom",
       "set synonym b locate /safe 2/ osquiet echo POLICY_ESCAPE",
+      "set synonym b search /safe 2/ bottom",
+      "set synonym b search /safe 2/ osquiet echo POLICY_ESCAPE",
       "set prefix synonym pp policy", "set pre s pp policy",
       "set color filearea red on blue", "set colour popup white on blue",
       "set color * red on blue", "set color consolebody",
       "set color consolebody nonsense", "set color consolebody red on blue bottom",
       "set colour consolebody red on blue;top", "set color consolebody red on blue osquiet echo POLICY_ESCAPE",
       "macro policy", "sos firstcol ex", "sos ex", "sos doprefix", "finishx",
+      "save policy-escape.txt", "save ../policy-escape.txt", "ssave policy-escape.txt",
+      "file", "ffile", "set autosave 1", "set filename policy-escape.txt",
     ]) {
       const denied = await submit(text);
       assert.ok(denied.status.includes("unavailable in restricted frontend"),
@@ -140,4 +144,105 @@ export async function checkCommandPolicy(request, bufferCount = 1) {
   await command("cursor cmdline 1");
   await request({type: "action", action: "edit.undo"}, s => s.command === "");
   await command("cursor goto 1 1");
+}
+
+// Editor operations need their real effects checked, rather than merely an
+// allow-list result. Both transports run this against a disposable new file.
+export async function checkEditorCommands(request) {
+  const command = text => request({type: "command", command: text});
+  const row = (view, line = 1) => view.screen_rows.find(item => item.role === "file" && item.line === line);
+  const initial = await command("cursor goto 1 1");
+  const originalPath = initial.buffer.path;
+  let view = await request({type: "action", action: "file.create", argument: "Command contract.txt"});
+  const path = view.buffer.path;
+  await request({type: "action", action: "buffer.switch", argument: originalPath});
+  view = await request({type: "action", action: "buffer.switch", argument: path});
+  assert.equal(view.buffer.path, path, "an unsaved new buffer must remain selectable by its tab");
+  assert.equal(view.buffer.lines, 0);
+  const openCount = view.buffers.length;
+  view = await request({type: "action", action: "buffer.switch", argument: "Never opened.txt"});
+  assert.equal(view.buffer.path, path, "buffer.switch must not create an unopened file");
+  assert.equal(view.buffers.length, openCount);
+  assert.match(view.status, /buffer is not open/);
+  await command("input alpha beta");
+  await command("cursor goto 1 1");
+  view = await command("save");
+  assert.equal(view.buffer.dirty, 0, "bare SAVE must save the current workspace file");
+  assert.equal(row(view).t, "alpha beta");
+
+  for (const submit of [command, async text => {
+    await command("cursor cmdline 1");
+    await request({type: "action", action: "edit.undo"}, s => s.command === "");
+    await request({type: "text", text}, s => s.command === text);
+    return request({type: "key", key: "enter"});
+  }]) {
+    view = await submit("right 5");
+    assert.equal(row(view).sc, 5, "RIGHT must scroll the viewport by five columns");
+    view = await submit("left 3");
+    assert.equal(row(view).sc, 2, "LEFT must scroll the viewport back three columns");
+    view = await submit("right 0");
+    assert.equal(row(view).sc, 0, "RIGHT 0 must restore the first column");
+    view = await submit("rgtleft 5");
+    assert.equal(row(view).sc, 5, "RGTLEFT must scroll right from the first column");
+    view = await submit("rgtleft 5");
+    assert.equal(row(view).sc, 0, "RGTLEFT must scroll left when already shifted");
+    assert.equal(view.buffer.dirty, 0, "viewport commands must preserve clean bytes");
+  }
+  await command("cursor goto 1 1");
+  view = await command("cursor right");
+  assert.equal(view.focus.cell, 1, "CURSOR RIGHT moves the caret independently of RIGHT");
+  assert.equal(row(view).sc, 0);
+  await command("cursor goto 1 1");
+  view = await command("search /beta/");
+  assert.equal(view.focus.line, 1);
+  assert.equal(view.focus.cell, 6, "SEARCH must locate the matching string");
+  view = await command("mark line 1 1");
+  assert.equal(view.selection.active, 1, "MARK must create a selection");
+  view = await command("reset block");
+  assert.equal(view.selection.active, 0, "RESET BLOCK must clear a selection");
+  await command("cursor goto 1 6");
+  view = await command("split cursor");
+  assert.equal(view.buffer.lines, 2, "SPLIT must create a second line");
+  assert.equal(row(view, 1).t, "alpha");
+  assert.equal(row(view, 2).t, " beta");
+  await command("cursor goto 1 6");
+  view = await command("join cursor");
+  assert.equal(view.buffer.lines, 1, "JOIN must rejoin the split text");
+  assert.equal(row(view).t, "alpha beta");
+  view = await command("add 1");
+  assert.equal(view.buffer.lines, 2, "ADD must insert a blank line");
+  await command("cursor goto 2 1");
+  await command("replace gamma");
+  view = await command("all /alpha/");
+  assert.ok(row(view, 1), "ALL target must retain matching lines");
+  assert.ok(!row(view, 2), "ALL target must hide nonmatching lines");
+  view = await command("all");
+  assert.equal(row(view, 2).t, "gamma", "ALL without a target must restore hidden lines");
+  await command("cursor goto 1 1");
+  // Exercise SAVE through an actual command field and Enter as well.
+  await command("cursor cmdline 1");
+  await request({type: "action", action: "edit.undo"}, s => s.command === "");
+  await request({type: "text", text: "save"}, s => s.command === "save");
+  view = await request({type: "key", key: "enter"});
+  assert.equal(view.buffer.dirty, 0, "typed SAVE must clear dirty state after saving");
+  await command("cursor goto 1 1");
+  await command("set insertmode on");
+  view = await request({type: "text", text: "DISCARD "}, s => row(s)?.t === "DISCARD alpha beta");
+  assert.equal(view.buffer.dirty, 1);
+  view = await command("quit");
+  assert.equal(view.buffer.path, path, "QUIT must retain a changed file");
+  assert.equal(view.buffer.dirty, 1, "QUIT must preserve its unsaved edits");
+  await command("cursor cmdline 1");
+  await request({type: "action", action: "edit.undo"}, s => s.command === "");
+  await request({type: "text", text: "qquit"}, s => s.command === "qquit");
+  view = await request({type: "key", key: "enter"});
+  assert.equal(view.buffer.path, originalPath, "QQUIT must return to the previous ring file");
+  assert.ok(!view.buffers.some(buffer => buffer.path === path), "QQUIT must remove the discarded buffer");
+  view = await request({type: "action", action: "file.open", argument: path});
+  assert.equal(view.buffer.dirty, 0, "reopening a discarded file must be clean");
+  assert.equal(row(view).t, "alpha beta", "QQUIT must not save discarded text");
+  assert.equal(row(view, 2).t, "gamma");
+  view = await command("quit");
+  assert.equal(view.buffer.path, originalPath, "QUIT must close a clean file");
+  assert.equal(view.buffer.dirty, 0);
 }

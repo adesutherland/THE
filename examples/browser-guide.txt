@@ -1,0 +1,46 @@
+Browser examples (0.10.dev review candidate)
+========================================
+
+Open these files from Files > Open. Missing bundled examples are copied into
+the browser workspace when their runtime is present. Save your edits to keep
+them; the site does not replace an existing workspace file.
+
+Classic Rexx (.rexx)
+--------------------
+RexxRunner.rexx asks for a name in the Program console. RexxWords.rexx lists
+the words in a sentence. RexxLedger.rexx shows a running balance; optionally
+enter an opening balance as the first Program argument. Select a source file
+and choose Run Classic Rexx beside its filename. ClassicDemo.rexx is a parser
+and highlighting example; it is not intended as a runnable program.
+
+Level G (.crexx and .rxbin)
+--------------------------
+LevelGAccumulator.crexx uses a typed class and prints the sum of five squares
+(55). LevelGFibonacci.crexx uses a typed routine and prints terms 0 through 10
+(ending at 55). The .crexx files let you inspect the source. This browser
+bundle does not compile general Level G source. Run the matching PRECOMPILED
+image from the THE command field:
+
+  RX RUN "/workspace/LevelGAccumulator.rxbin"
+  RX RUN "/workspace/LevelGFibonacci.rxbin"
+
+Each image was built with the native compiler matching this bundle's cREXX
+runtime. A different bundle or runtime may require rebuilt images.
+
+MiniBASIC (.bas)
+----------------
+MiniBASIC.bas adds 1 to 10, then asks for one number in the Program console.
+MiniBASICPrimes.bas prints primes through 30. MiniBASICStrings.bas demonstrates
+assigned, copied and quoted strings. The MiniBASIC files appear only in a
+candidate with the MiniBASIC runner and highlighter. To enable Run for .bas:
+
+1. The two RXBIN images are copied into the workspace if absent.
+   If you removed them, use Tools & Profiles to import matching images.
+2. In Files > Profile sources, open MiniBASIC-profile.the. Build profile, then
+   Apply profile. This registers the imported runner and language service.
+3. Open a .bas file and choose Run MiniBASIC beside its filename. For
+   MiniBASIC.bas, enter a number when the Program console asks for input.
+
+No example needs a host shell or access to your computer's files. Browser
+workspace files persist for this origin and browser profile, subject to site
+data retention. Program output is in the Program console.

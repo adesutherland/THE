@@ -56,7 +56,7 @@ shutil.copytree(root / 'syntax', destination / 'syntax', dirs_exist_ok=True)
 if args.minibasic_source:
     shutil.copy2(args.minibasic_source, destination / 'MiniBASIC.bas')
     (destination / 'MiniBASIC-profile.the').write_text(
-        '/* Import the two MiniBASIC RXBIN examples before activating this profile. */\n'
+        '/* New workspaces contain the matching MiniBASIC RXBIN images; import them if absent. */\n'
         'options levelb\naddress the\n'
         "'rx register minibasic runner /workspace/MiniBASIC.rxbin .bas \"MiniBASIC\"';\n"
         "'rx register minibasic-syntax language /workspace/MiniBASICHighlight.rxbin .bas \"MiniBASIC syntax\"';\n"

@@ -111,8 +111,10 @@ export async function minibasicCandidateSmoke({
     await waitFor(() => evaluate(`window.__messages.some(message=>message.type==='tool-imported'&&message.path===${JSON.stringify(`/workspace/${name}`)})`), `${name} browser import`, 30000);
     assert.deepEqual(await durable(`/workspace/${name}`), [...bytes], `${name} durable import bytes`);
   }
-  await importImage("MiniBASIC.rxbin", runner);
-  await importImage("MiniBASICHighlight.rxbin", language);
+  assert.deepEqual(await durable("/workspace/MiniBASIC.rxbin"), [...runner],
+    "candidate runner seeded with exact packaged bytes");
+  assert.deepEqual(await durable("/workspace/MiniBASICHighlight.rxbin"), [...language],
+    "candidate language image seeded with exact packaged bytes");
 
   // Compile a real browser macro from selected .the source. The resulting
   // immutable RXBIN is later declared as this profile's BASIC Build action.

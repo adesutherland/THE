@@ -73,6 +73,23 @@ try {
   `});
   await cdp('Page.navigate', {url: pageUrl});
   await wait(() => evaluate('!!window.__snapshot'), 'Wasm startup');
+  await send({type: 'command', command: 'cursor goto 1 1'});
+  await wait(() => evaluate("window.__snapshot?.status_line?.includes('[W]')"), 'current character in profile status');
+  await frame();
+  assert.equal(await evaluate("document.querySelector('.profile-status')?.textContent.includes('[W]')"), true,
+    'browser paints the editor-owned current character');
+  const fileTextLeft = () => evaluate(`(() => document.querySelector('[aria-label="Prefix line 1"]')?.closest('.screen-row')?.querySelector('.line-text')?.getBoundingClientRect().left)()`);
+  await frame();
+  const unscrolledLeft = await fileTextLeft();
+  await send({type: 'command', command: 'right 5'});
+  await wait(() => evaluate('window.__snapshot?.screen_rows.find(row => row.role === "file" && row.line === 1)?.sc === 5'), 'RIGHT command updates horizontal view');
+  await frame();
+  const scrolledLeft = await fileTextLeft();
+  assert.ok(unscrolledLeft - scrolledLeft > 25, 'RIGHT visibly shifts the file text');
+  await send({type: 'command', command: 'left 5'});
+  await wait(() => evaluate('window.__snapshot?.screen_rows.find(row => row.role === "file" && row.line === 1)?.sc === 0'), 'LEFT command restores horizontal view');
+  await frame();
+  assert.ok(Math.abs((await fileTextLeft()) - unscrolledLeft) < 1, 'LEFT restores the file text position');
   await send({type: 'action', action: 'file.open', argument: '/workspace/ClassicDemo.rexx'});
   await wait(() => evaluate("window.__snapshot?.buffer.path.endsWith('ClassicDemo.rexx') && window.__snapshot.parser?.state==='ready'"), 'actual DSLSH styles');
   await send({type: 'command', command: 'cursor goto 1 4'});

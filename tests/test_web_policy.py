@@ -52,6 +52,7 @@ with tempfile.TemporaryDirectory(prefix='THE workspace policy ') as tmp:
         script = Path(__file__).resolve().parent.parent / 'web/test/policy-smoke.mjs'
         subprocess.run([shutil.which('node'), str(script)], env=env, check=True, timeout=75)
         assert sample.read_text() == sample_text
+        assert (root / 'Command contract.txt').read_text() == 'alpha beta\ngamma\n'
         assert not (root / 'policy-escape.txt').exists()
         assert list(outside.iterdir()) == [outside / 'secret.txt']
         assert (outside / 'secret.txt').read_text() == 'outside\n'

@@ -212,10 +212,11 @@ filesystem. This staging is not an operating-system sandbox.
 The runner must be compiled for the exact configured runtime and available
 providers. A newly built cREXX Level L MiniBASIC image is not qualified merely
 because the generic source-file runner works. The optional browser review
-candidate packages matching MiniBASIC interpreter and DSLSH images as importable
-examples, plus a `.bas` source file; ordinary browser builds do not. Import
-both images into the browser workspace, then place the two registrations above
-in the editable user profile and build/activate it. The candidate also places
+candidate packages matching MiniBASIC interpreter and DSLSH images, plus three
+`.bas` source files; ordinary browser builds do not. Missing images and source
+files are copied from the package without replacing saved workspace copies.
+If an image was removed, import its matching copy. Place the two registrations
+above in the editable user profile and build/activate it. The candidate also places
 `Profile sources/MiniBASIC-profile.the` in the workspace as a complete editable
 example; it is never activated automatically.
 

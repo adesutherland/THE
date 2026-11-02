@@ -18,6 +18,8 @@ const received = [];
 let workbenchGeneration = 0;
 let workbenchPublication = 0;
 let workbenchRuns = 0;
+let holdWorkbenchResult = false;
+let heldWorkbenchResult = null;
 let customFooter = true;
 let presentDiagnostic = false;
 let fixturePanels = [];
@@ -190,9 +192,11 @@ ws.on("connection", (connection) => {
             ? { ...panel, visible: true, reason: "ok" } : panel) };
         connection.send(JSON.stringify(fixturePanelState));
       }
-      connection.send(JSON.stringify({ type: "workbench", operation: "result", requestId: message.requestId,
+      const result = { type: "workbench", operation: "result", requestId: message.requestId,
         state: "complete", code: stale ? "stale-generation" : "ok", rc: stale ? -3 : 0,
-        revision: snapshot.source.revision, message: stale ? "Action generation is stale" : "" }));
+        revision: snapshot.source.revision, message: stale ? "Action generation is stale" : "" };
+      if (holdWorkbenchResult) heldWorkbenchResult = result;
+      else connection.send(JSON.stringify(result));
     } else if (message.type === "workbench" && message.operation === "log.list") {
       const second = message.model === "user.errorlog";
       const continuing = message.cursor !== "0" && fixtureLogExtras.has(message.model);
@@ -443,6 +447,38 @@ try {
   assert.equal(await evaluate("document.querySelectorAll('.dock-entry-command').length"), 2, "Save is not an editor command submission");
   await evaluate("document.querySelector('.input-sink').dispatchEvent(new KeyboardEvent('keydown',{key:'s',code:'KeyS',ctrlKey:true,bubbles:true,cancelable:true}))");
   await wait(() => received.filter((message) => message.type === "action" && message.action === "file.save").length === 2, "Ctrl-S Save action");
+  const originalBuffer = snapshot.buffer, originalSource = snapshot.source;
+  snapshot.last_message_serial++; snapshot.last_message = "Current file error"; publishSnapshot();
+  await wait(() => evaluate("document.querySelector('.latest-response').textContent==='Current file error'"), "current file error response");
+  snapshot.buffer = { path: "/workspace/other.rexx", dirty: 0, lines: 100 };
+  snapshot.source = { id: 2, revision: 1 }; publishSnapshot();
+  await wait(() => evaluate("document.querySelector('.latest-response').hidden && !document.querySelector('.dock-entry')"), "switch hides other file messages");
+  client.send(JSON.stringify({ type: "error", id: received.find(message => message.type === "command").id,
+    message: "Delayed original file refusal" }));
+  await evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
+  assert.equal(await evaluate("document.querySelector('.latest-response').hidden"), true, "late refusal stays with the file that sent the request");
+  snapshot.last_message_serial++; snapshot.last_message = "Other file response"; publishSnapshot();
+  await wait(() => evaluate("document.querySelector('.latest-response').textContent==='Other file response'"), "other file owns new response");
+  await evaluate("document.querySelector('.command-history-toggle').click()");
+  await wait(() => evaluate("!!document.querySelector('.command-history-clear')"), "clear history control");
+  snapshot.status_line = "PROFILE  DEMO error  Line=4";
+  snapshot.status_pmsg = { text: "DEMO error in this record", severity: "ERROR", start: 9, length: 10 };
+  publishSnapshot();
+  await wait(() => evaluate("!!document.querySelector('.status-pmsg')"), "cursor message before clearing history");
+  await evaluate("document.querySelector('.command-history-clear').click()");
+  await wait(() => evaluate("!document.querySelector('.dock-entry') && document.querySelector('.latest-response').hidden"), "clear current file history and latest response");
+  assert.equal(await evaluate("document.querySelector('.command-history-clear').disabled"), true, "empty history cannot be cleared again");
+  assert.equal(await evaluate("document.querySelector('.status-pmsg').textContent"), "DEMO error", "clear history preserves live parser status");
+  snapshot.buffer = originalBuffer; snapshot.source = originalSource;
+  snapshot.status_line = originalStatus; snapshot.status_pmsg = null; publishSnapshot();
+  await wait(() => evaluate("document.querySelector('.latest-response').textContent==='Delayed original file refusal'"), "return restores original file history");
+  assert.equal(await evaluate("[...document.querySelectorAll('.dock-entry code')].some(n=>n.textContent==='Other file response')"), false, "history contains only current file messages");
+  await evaluate("document.querySelector('.command-history-clear').click()");
+  publishSnapshot();
+  await wait(() => evaluate("!document.querySelector('.dock-entry') && document.querySelector('.latest-response').hidden"), "cleared messages stay cleared on refresh");
+  snapshot.last_message_serial++; snapshot.last_message = "Current file error"; publishSnapshot();
+  await wait(() => evaluate("document.querySelectorAll('.dock-entry-response').length===1"), "new response remains visible after clear");
+  await evaluate("document.querySelector('.command-history-toggle').click()");
   await evaluate("document.querySelector('.input-sink').dispatchEvent(new KeyboardEvent('keydown',{key:'F1',bubbles:true,cancelable:true}))");
   await wait(() => received.some((message) => message.type === "key" && message.key === "f1"), "profile function key forwarding");
   await evaluate("document.querySelector('.input-sink').focus();document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'F6',bubbles:true,cancelable:true}))");
@@ -776,10 +812,25 @@ try {
     ["user.item", "user.zitem", "hr", "user.aitem", "user.bounditem"], "equal item order retains definition sequence including separator");
   assert.equal(await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button span').textContent"), poisoned, "profile label is plain text");
   assert.equal(await evaluate("!!document.querySelector('.menu-popover img') || !!window.poisoned"), false, "poisoned label cannot create markup");
+  holdWorkbenchResult = true;
   await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button').click()");
   await wait(() => received.some((message) => message.type === "workbench" && message.operation === "invoke" && message.action === "user.run"), "semantic action invoke");
   assert.equal(received.filter((message) => message.type === "workbench" && message.operation === "invoke" && message.action === "user.run").length, 1, "menu activation runs once");
   assert.equal(workbenchRuns, 1);
+  const pendingFile = { buffer: snapshot.buffer, source: snapshot.source };
+  snapshot.buffer = { path: "/workspace/pending-other.rexx", dirty: 0, lines: 100 };
+  snapshot.source = { id: 891, revision: 1 }; publishSnapshot();
+  await wait(() => evaluate("document.querySelector('.latest-response').hidden"), "pending action file switch");
+  const keysBeforePendingReply = received.filter(message => message.type === "key").length;
+  await evaluate("for(let n=0;n<405;n++)document.querySelector('.input-sink').dispatchEvent(new KeyboardEvent('keydown',{key:'F1',bubbles:true,cancelable:true}))");
+  await wait(() => received.filter(message => message.type === "key").length >= keysBeforePendingReply + 405, "transport ownership window filled");
+  assert(heldWorkbenchResult, "pending workbench result is held");
+  client.send(JSON.stringify({ ...heldWorkbenchResult, code: "policy-denied", rc: -3, message: "Original file pending action refused" }));
+  holdWorkbenchResult = false; heldWorkbenchResult = null;
+  await evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
+  assert.equal(await evaluate("document.querySelector('.latest-response').hidden"), true, "long pending action never reports its error on the newly active file");
+  snapshot.buffer = pendingFile.buffer; snapshot.source = pendingFile.source; publishSnapshot();
+  await wait(() => evaluate("document.querySelector('.latest-response').textContent==='Original file pending action refused'"), "pending action ownership survives more than 400 messages");
   publishWorkbench(3, 25, "Replaced action");
   await evaluate("document.querySelector('.menu-trigger').click()");
   await wait(() => evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button span')?.textContent === 'Replaced action'"), "replaced menu item");

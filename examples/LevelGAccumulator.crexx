@@ -1,0 +1,25 @@
+/* Level G objects: keep a running total of the first five squares. */
+options levelg
+
+total = .RunningTotal()
+do n = 1 to 5
+  updated = total.add(n * n)
+  say 'after' n 'squares:' total.value()
+end
+say 'sum of squares:' total.value()
+return 0
+
+RunningTotal: class
+  amount_ = .int
+
+  *: factory
+    amount_ = 0
+    return
+
+  add: method = .int
+    arg value = .int
+    amount_ = amount_ + value
+    return amount_
+
+  value: method = .int
+    return amount_

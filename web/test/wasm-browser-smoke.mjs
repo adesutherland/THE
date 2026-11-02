@@ -7,6 +7,7 @@ import WebSocket from "ws";
 import { fileFieldSmoke } from "./wasm-file-fields.mjs";
 import { checkNativeToolPolicy } from "./native-tools-policy.mjs";
 import { sourceFileRunnerSmoke } from "./wasm-source-file-runner.mjs";
+import { wasmEditorCommandsSmoke } from "./wasm-editor-commands.mjs";
 import { profileSourcesSmoke, profileActivationStorageFailureSmoke } from "./wasm-profile-sources.mjs";
 import { minibasicCandidateSmoke } from "./wasm-minibasic-candidate.mjs";
 
@@ -200,7 +201,11 @@ try {
   };
   await checkNativeToolPolicy(nativePolicyRequest, "unsupported-host", nativePolicyInspect);
   console.log("PASS rebuilt Wasm native TOOL/action/RUN unsupported-host refusals preserve editor");
-  if (process.env.THE_WASM_PROFILE_SOURCES_ONLY === "1") {
+  if (process.env.THE_WASM_COMMANDS_ONLY === "1") {
+    await waitFor(() => !!workerSession, "editor Worker debugger");
+    await wasmEditorCommandsSmoke({send, snapshot, evaluate, command, waitFor, workerSession});
+    if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
+  } else if (process.env.THE_WASM_PROFILE_SOURCES_ONLY === "1") {
     await profileSourcesSmoke({ send, evaluate, command, waitFor, snapshot, hasCrexx: manifest.capabilities.editor_address });
     if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   } else if (process.env.THE_WASM_MINIBASIC_ONLY === "1") {
@@ -210,6 +215,8 @@ try {
     await fileFieldSmoke({ send, evaluate, command, waitFor, snapshot });
     if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   } else {
+  await waitFor(() => !!workerSession, "editor Worker debugger");
+  await wasmEditorCommandsSmoke({send, snapshot, evaluate, command, waitFor, workerSession});
   await profileSourcesSmoke({ send, evaluate, command, waitFor, snapshot, hasCrexx: manifest.capabilities.editor_address });
   const beforeWorkbench = await snapshot();
   await send({type:'command',command:'workbench begin owner user.browser'});

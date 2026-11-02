@@ -29,6 +29,10 @@ static void llm_runtime_diagnostic_presentation(LlmDriverScreenView *view)
       const char *message = the_parser_diagnostic_display_message(&diagnostic);
       if (!option->name || strcmp((char *)option->name, "PMSG.1")) continue;
       offset = STATAREA_OFFSET + option->select + (option->line ? strlen((char *)option->line) : 0);
+#ifdef USE_UTF8
+      offset = textpos_from_cell((CHARTYPE *)view->status_line,
+         strlen(view->status_line), (int)offset, TEXT_SNAP_BACKWARD).byte_offset;
+#endif
       if (offset >= strlen(view->status_line)) continue;
       limit = strlen(message);
       if (option->save_select && (size_t)option->save_select < limit) limit = option->save_select;

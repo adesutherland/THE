@@ -20,7 +20,8 @@ if not rxc or not Path(rxc).is_file():
     raise SystemExit(77)
 
 
-def run_case(root, source, line, cell, point):
+def run_case(root, source, line, cell, point, *, pmsg_position=15, pmsg_width=38,
+             message_text="THEN", span_length=4):
     sample = root / "error.crexx"
     clean = root / "clean.crexx"
     sample.write_text(source)
@@ -30,7 +31,7 @@ def run_case(root, source, line, cell, point):
         f"command set sdslh rxc {rxc} --syntaxhighlight",
         "command set autocolor *.crexx rxc", "command coloring on auto",
         "command set statusline bottom", "command set statopt off *",
-        "command set statopt on pmsg.1 15 38", "command set clock on",
+        f"command set statopt on pmsg.1 {pmsg_position} {pmsg_width}", "command set clock on",
         "command set hexdisplay on", "command set color cberror white on firebrick",
         "command set color pmsgerror white on firebrick", "command sdslhwait 5000",
         "focus filearea", f"hit filearea {line} 1 {cell}",
@@ -65,14 +66,14 @@ def run_case(root, source, line, cell, point):
         assert snapshot["buffer"]["dirty"] == 0, snapshot
         assert snapshot["focus"]["line"] == line and snapshot["focus"]["cell"] == cell, snapshot
         message = snapshot["status_pmsg"]
-        assert message and message["severity"] == "ERROR" and "THEN" in message["text"], snapshot
+        assert message and message["severity"] == "ERROR" and message_text in message["text"], snapshot
         assert "Copyright" not in snapshot["status_line"], "startup text masked the parser message before the first key"
         assert snapshot["status_line"][message["start"]:message["start"] + message["length"]] == message["text"][:message["length"]]
         assert message["colour"]["background"] == "#B22222", message
         assert snapshot["diagnostic_colours"]["error"]["background"] == "#B22222"
         row = next(row for row in snapshot["screen_rows"] if row["line"] == line and row["role"] == "file")
         assert [row["t"] for row in snapshot["screen_rows"] if row["role"] == "file"] == source.splitlines(), snapshot
-        assert any(start == point and length == 4 and style == "diagnostic-error"
+        assert any(start == point and length == span_length and style == "diagnostic-error"
                    for start, length, style in row.get("s", [])), row
         assert all(a[0] + a[1] <= b[0] for a, b in zip(row["s"], row["s"][1:])), row
     assert away["status_pmsg"] is None, away
@@ -84,6 +85,7 @@ def run_case(root, source, line, cell, point):
     assert repaired["buffer"]["dirty"] == 1, repaired
     assert sample.read_bytes() == original, "diagnostic display or repair saved the source"
     assert clean.read_text() == "say 'ok'\n"
+    return error
 
 
 with tempfile.TemporaryDirectory(prefix="THE parser presentation ") as temporary:
@@ -92,4 +94,10 @@ with tempfile.TemporaryDirectory(prefix="THE parser presentation ") as temporary
     # The wide character precedes the error on the same line: display cells,
     # parser slots and semantic style offsets must not be confused.
     run_case(root, 'say "界"; if then\n', 1, 13, 12)
+    # A short profile PMSG after HEXDISPLAY must still be found and decorated
+    # when the glyph inserts multi-byte UTF-8 and occupies two display cells.
+    unicode_status = run_case(root, 'say "界\n', 1, 5, 4, pmsg_position=74,
+                              pmsg_width=6, message_text="Unmatched", span_length=2)
+    assert '[界]' in unicode_status['status_line'] and 'U+754C' in unicode_status['status_line'], unicode_status
+    assert unicode_status['status_pmsg']['start'] > unicode_status['status_line'].index('[界]'), unicode_status
 print("Parser presentation passed: real errors, Unicode, cursor leave, file switch, repair and unchanged saved bytes")

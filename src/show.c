@@ -2435,6 +2435,56 @@ static int prepare_statarea(CHARTYPE *row, int width, ShowStatusPreview *preview
    return TRUE;
 }
 
+#ifdef USE_UTF8
+/* The physical status painter writes the preview over reserved blank cells.
+ * Semantic drivers need the same preview encoded in their status text. */
+static size_t format_status_preview(CHARTYPE *out, const ShowStatusPreview *preview,
+                                    int max_width)
+{
+   const CHARTYPE *line = preview->status_cluster_line;
+   size_t len = preview->status_cluster_len;
+   TextCluster cluster = preview->status_cluster;
+   TextPos pos = cluster.pos;
+   size_t length = 0;
+   int used = 0, components = 0;
+   int show_markers = !show_utf8_status_cluster_has_zwj(line, len, cluster);
+   uint32_t base = 0;
+
+   if (show_utf8_status_keycap_base(line, len, cluster, &base))
+   {
+      if (max_width >= show_utf8_status_keycap_preview_width())
+      {
+         length += text_utf8_encode(base, out + length);
+         out[length++] = ' ';
+         length += text_utf8_encode(show_utf8_status_keycap_outline_codepoint(), out + length);
+         used = show_utf8_status_keycap_preview_width();
+      }
+   }
+   else while (line != NULL && pos.byte_offset < cluster.end.byte_offset && used < max_width)
+   {
+      TextCodepoint item = textpos_codepoint_at_boundary(line, len, pos);
+      uint32_t display;
+      int width;
+      if (!item.byte_length) break;
+      display = show_utf8_status_component_display_codepoint(item.codepoint, show_markers);
+      width = show_utf8_status_component_width(item.codepoint, show_markers);
+      if (width > 0)
+      {
+         int zero_width = show_utf8_status_component_is_zero_width(item.codepoint, show_markers);
+         int separator = zero_width || components > 0;
+         if (used + width + (!zero_width && separator) > max_width) break;
+         if (separator) out[length++] = ' ';
+         length += text_utf8_encode(display, out + length);
+         used += width + (!zero_width && separator);
+         components++;
+      }
+      pos = show_utf8_advance_codepoint_pos(pos, item);
+   }
+   while (used++ < max_width) out[length++] = ' ';
+   return length;
+}
+#endif
+
 /* Format the editor-owned status text without requiring a physical UI.
  * Native UTF HEXDISPLAY glyph painting remains in show_statarea. */
 int format_statarea(CHARTYPE *out, size_t out_size)
@@ -2449,6 +2499,25 @@ int format_statarea(CHARTYPE *out, size_t out_size)
    out[0] = '\0';
    if (!prepare_statarea(row, width, &preview))
       return FALSE;
+#ifdef USE_UTF8
+   if (preview.draw_status_cluster)
+   {
+      CHARTYPE formatted[THE_MAX_SCREEN_WIDTH + 128];
+      int start = preview.charpos + preview.status_cluster_offset;
+      int cells = min(preview.status_cluster_expanded_width, max(0, width - start));
+      if (start >= 0 && start < width && cells > 0)
+      {
+         memcpy(formatted, row, (size_t)start);
+         length = start + format_status_preview(formatted + start, &preview, cells);
+         memcpy(formatted + length, row + start + cells, (size_t)(width - start - cells));
+         length += width - start - cells;
+         length = textpos_from_byte(formatted, length, min(length, out_size - 1)).byte_offset;
+         memcpy(out, formatted, length);
+         out[length] = '\0';
+         return TRUE;
+      }
+   }
+#endif
    length = min((size_t)width, out_size - 1);
    memcpy(out, row, length);
    out[length] = '\0';

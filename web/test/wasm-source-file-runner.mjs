@@ -41,8 +41,7 @@ export async function sourceFileRunnerSmoke({pageUrl, send, snapshot, evaluate, 
   const completed = await snapshot();
   if (JSON.stringify(completed.buffer) !== JSON.stringify(edited.buffer) || completed.focus.line !== edited.focus.line || completed.focus.cell !== edited.focus.cell)
     throw Error('Source runner completion changed editor state');
-  // The restricted browser deliberately has no QQUIT. Check durable bytes
-  // before restoring the test buffer through allowed editor operations.
+  // A source run and unsaved later edits must leave the saved file unchanged.
   const durable = await evaluate(`new Promise((resolve,reject)=>{const open=indexedDB.open('/workspace');
     open.onerror=()=>reject(open.error);open.onsuccess=()=>{const db=open.result;
     const get=db.transaction('FILE_DATA').objectStore('FILE_DATA').get(${JSON.stringify(path)});
@@ -50,13 +49,8 @@ export async function sourceFileRunnerSmoke({pageUrl, send, snapshot, evaluate, 
     get.onerror=()=>{reject(get.error);db.close();};};})`);
   if (Buffer.from(durable).toString('utf8') !== 'DISK FIRST\n')
     throw Error('Source run or later edits changed saved bytes');
-  await send({type:'command', command:'cursor goto 1 1'});
-  await send({type:'command', command:'replace DISK FIRST'});
-  await waitFor(async () => (await snapshot()).screen_rows.some(r => r.t === 'DISK FIRST'), 'restore DSL source record');
-  await send({type:'action', action:'file.save'});
-  await waitFor(async () => !(await snapshot()).buffer.dirty, 'save restored DSL source');
-  await send({type:'action', action:'file.close'});
-  await waitFor(async () => (await snapshot()).buffer.path !== path, 'close restored DSL source');
+  await send({type:'command', command:'qquit'});
+  await waitFor(async () => (await snapshot()).buffer.path !== path, 'discard unsaved DSL source');
   await send({type:'action', action:'file.open', argument:path});
   await waitFor(async () => (await snapshot()).buffer.path === path && !(await snapshot()).buffer.dirty, 'reopen saved DSL source');
   if (!(await snapshot()).screen_rows.some(r => r.t === 'DISK FIRST')) throw Error('Source run overwrote saved bytes');

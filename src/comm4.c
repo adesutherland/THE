@@ -42,6 +42,11 @@
 #include "thedriver.h"
 #include "workbench.h"
 
+#ifdef THE_WASM
+/* Keep the browser workspace usable when a close removes its last file. */
+extern short the_wasm_prepare_last_close(void);
+#endif
+
 /*man-start*********************************************************************
 COMMAND
      popup - display popup menu
@@ -597,6 +602,12 @@ short Qquit(CHARTYPE *params)
       return(RC_INVALID_OPERAND);
    }
    post_process_line( CURRENT_VIEW, CURRENT_VIEW->focus_line, (LINE *)NULL, TRUE );
+#ifdef THE_WASM
+   {
+      short rc = the_wasm_prepare_last_close();
+      if (rc != RC_OK) { TRACE_RETURN(); return rc; }
+   }
+#endif
    free_view_memory( TRUE, TRUE );
    TRACE_RETURN();
    return(RC_OK);
@@ -741,6 +752,12 @@ short Quit(CHARTYPE *params)
       TRACE_RETURN();
       return(RC_FILE_CHANGED);
    }
+#ifdef THE_WASM
+   {
+      short rc = the_wasm_prepare_last_close();
+      if (rc != RC_OK) { TRACE_RETURN(); return rc; }
+   }
+#endif
    free_view_memory(TRUE,TRUE);
    TRACE_RETURN();
    return(RC_OK);

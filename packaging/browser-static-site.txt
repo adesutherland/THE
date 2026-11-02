@@ -1,0 +1,19 @@
+CRXTHE browser site -- 0.10.dev review candidate
+
+Unzip the archive directly at the root of one static HTTPS origin. For a local
+check, serve this directory with:
+
+  python3 -m http.server 8766 --bind 127.0.0.1
+
+Open http://127.0.0.1:8766/. Deploy the WHOLE directory, including wasm/,
+vm/, compiler/ (when present), examples/, licenses/ and manifest.json. Serve
+.wasm as application/wasm and .mjs/.js as JavaScript. Permit same-origin
+Workers and WebAssembly compilation (wasm-unsafe-eval) in any CSP. IndexedDB
+and Web Locks must be available. Hosting under a URL subdirectory is not
+qualified. No server-side editor process is needed.
+
+Open Examples.txt from Files > Open in the browser workspace. Site data
+belongs to that exact origin and browser profile. Back up important saved
+files before clearing browser data or moving the site to another origin.
+
+This archive is a local candidate, not a release or published website.

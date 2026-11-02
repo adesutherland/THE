@@ -854,6 +854,7 @@ short Mark(CHARTYPE *params)
          case M_LINE:
             CURRENT_VIEW->mark_start_line = num[1];
             CURRENT_VIEW->mark_end_line = num[2];
+            CURRENT_VIEW->marked_line = TRUE;
             CURRENT_VIEW->marked_col = FALSE;
             CURRENT_VIEW->mark_start_col = 1;
             CURRENT_VIEW->mark_end_col = max_line_length;

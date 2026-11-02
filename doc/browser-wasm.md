@@ -308,6 +308,22 @@ compiled RXBIN example directly and as a registered program.
 
 ## Browser workspace
 
+### Examples
+
+The browser workspace receives `Examples.txt` if absent, with the exact Run steps for
+the examples included in that build. The combined candidate includes two
+Classic Rexx programs (`RexxWords.rexx`, `RexxLedger.rexx`), two Level G source
+files with matching precompiled RXBIN images (`LevelGAccumulator` and
+`LevelGFibonacci`), and two additional MiniBASIC programs
+(`MiniBASICPrimes.bas`, `MiniBASICStrings.bas`). The example index names the
+required runtime and expected output. Saved workspace copies are never
+replaced by an updated site. The browser profile compiler builds THE macro and
+profile sources; general Level G source compilation is not part of this bundle.
+
+The [static ZIP candidate instructions](../packaging/README.md#browser-static-site-candidate)
+cover archive validation and local HTTP checks. This package is a review
+candidate, not a release or deployment.
+
 The editor restores `/workspace` from IndexedDB before startup. File/Open lists
 that workspace. New accepts a workspace-relative filename; intermediate
 directories must already exist. THE initially focuses the command line for

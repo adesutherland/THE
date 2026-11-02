@@ -370,11 +370,13 @@ async function start() {
   if (!manifestResponse.ok && manifestResponse.status !== 404)
     throw Error("Browser editor manifest unavailable");
   let revision = "";
+  let packagedFiles: Record<string, { sha256?: string }> = {};
   if (manifestResponse.ok) {
     const source = await manifestResponse.text();
     // Vite serves index.html for an absent manifest in an unpackaged dev site.
     if (!/^\s*<(?:!doctype|html)\b/i.test(source)) {
       const manifest = JSON.parse(source) as { files?: Record<string, { sha256?: string }> };
+      packagedFiles = manifest.files ?? {};
       revision = manifest.files?.["wasm/crxthe_wasm.wasm"]?.sha256 ?? "";
       if (!/^[a-f0-9]{64}$/.test(revision))
         throw Error("Browser editor module checksum unavailable");
@@ -476,8 +478,8 @@ async function start() {
         "Profiles without rebuilding source. Apply retains an immutable copy.\n" +
         "Ordinary .the macros use Build macro and Run macro.\n" +
         (fs.analyzePath("/app/MiniBASIC-profile.the").exists
-          ? "\nMiniBASIC-profile.the is an optional example. Import both MiniBASIC RXBIN\n" +
-            "images in Tools & Profiles, open the example here, then choose Build\n" +
+          ? "\nMiniBASIC-profile.the is an optional example. Missing matching RXBIN\n" +
+            "images are copied into the workspace; import them if removed. Open this source, Build\n" +
             "profile and Apply profile to add a BASIC runner and syntax highlighter.\n"
           : ""));
       changed = true;
@@ -516,6 +518,22 @@ async function start() {
     fs.writeFile("/workspace/MiniBASIC.bas", fs.readFile("/app/MiniBASIC.bas"));
     await sync();
   }
+  let seeded = false;
+  for (const name of ["Examples.txt", "RexxWords.rexx", "RexxLedger.rexx",
+    "LevelGAccumulator.crexx", "LevelGAccumulator.rxbin",
+    "LevelGFibonacci.crexx", "LevelGFibonacci.rxbin",
+    "MiniBASICPrimes.bas", "MiniBASICStrings.bas",
+    "MiniBASIC.rxbin", "MiniBASICHighlight.rxbin"]) {
+    if (!packagedFiles[`examples/${name}`] || fs.analyzePath(`/workspace/${name}`).exists)
+      continue;
+    // The static site is deployed at the origin root. Vite rewrites a dynamic
+    // new URL(..., import.meta.url) expression into an empty asset map here.
+    const response = await fetch(`/examples/${encodeURIComponent(name)}`);
+    if (!response.ok) throw new Error(`Bundled example unavailable: ${name}`);
+    fs.writeFile(`/workspace/${name}`, new Uint8Array(await response.arrayBuffer()));
+    seeded = true;
+  }
+  if (seeded) await sync();
   if (!fs.analyzePath("/workspace/.crxthe-tools").exists)
     fs.mkdir("/workspace/.crxthe-tools");
   fs.chdir("/workspace");

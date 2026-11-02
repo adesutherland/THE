@@ -130,7 +130,11 @@ function pointerCell(event: MouseEvent, startCell: number): number {
   return startCell + Math.max(0, Math.floor((event.clientX - rect.left - padding) / width));
 }
 
-type DockEntry = { id: number; kind: "command" | "response" | "error"; text: string };
+type DockEntry = { id: number; source: string; kind: "command" | "response" | "error"; text: string };
+
+function responseSource(snapshot: Snapshot | null): string {
+  return snapshot?.source ? `source:${snapshot.source.id}` : `path:${snapshot?.buffer?.path ?? ""}`;
+}
 
 function PaneSplitter({ label, orientation, value, minimum, maximum, reverse = false, consoleDivider = false, onChange }: {
   label: string;
@@ -179,7 +183,6 @@ function App() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [connection, setConnection] = useState<"connecting" | "online" | "reconnecting" | "offline">("connecting");
   const [lastError, setLastError] = useState("");
-  const [latestMessage, setLatestMessage] = useState("");
   const [storageState, setStorageState] = useState("");
   const [toolSession,setToolSession]=useState<ToolSession|null>(null);
   const [command, setCommand] = useState("");
@@ -205,7 +208,9 @@ function App() {
   const [auxWidth, setAuxWidth] = useState(400);
   const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [commandHistoryOpen, setCommandHistoryOpen] = useState(false);
-  const [dockEntries, setDockEntries] = useState<DockEntry[]>([]);
+  const [allDockEntries, setAllDockEntries] = useState<DockEntry[]>([]);
+  const currentResponseSource = responseSource(snapshot);
+  const dockEntries = allDockEntries.filter((entry) => entry.source === currentResponseSource);
   const [pathAction, setPathAction] = useState<FrontendActionDefinition | WorkbenchActionDefinition | null>(null);
   const [explorerAction, setExplorerAction] = useState<WorkbenchActionDefinition | null>(null);
   const [pathValue, setPathValue] = useState("");
@@ -225,6 +230,8 @@ function App() {
   const lastFileFocusRef = useRef<Snapshot["focus"] | null>(null);
   const viewportSizeRef = useRef("");
   const messageSerialRef = useRef<number | null>(null);
+  const responseSourcesRef = useRef(new Map<string, string>());
+  const workbenchResponseSourcesRef = useRef(new Map<string, string>());
   const dockIdRef = useRef(0);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -258,16 +265,22 @@ function App() {
   const lastShownJob = useRef(0);
   const lastShownBuild = useRef(0);
 
-  const appendDockEntry = useCallback((kind: DockEntry["kind"], text: string) => {
+  const appendDockEntry = useCallback((kind: DockEntry["kind"], text: string,
+    source = responseSource(snapshotRef.current)) => {
     if (!text.trim()) return;
-    const entry = { id: ++dockIdRef.current, kind, text };
-    setDockEntries((entries) => [...entries.slice(-199), entry]);
+    const entry = { id: ++dockIdRef.current, source, kind, text };
+    setAllDockEntries((entries) => [...entries.slice(-199), entry]);
   }, []);
 
   const send = useCallback((message: Record<string, unknown>) => {
     const socket = socketRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
     const id = nextId.current++;
+    const sources = responseSourcesRef.current;
+    const source = responseSource(snapshotRef.current);
+    sources.set(String(id), source);
+    if (typeof message.requestId === "string") workbenchResponseSourcesRef.current.set(message.requestId, source);
+    while (sources.size > 400) sources.delete(sources.keys().next().value!);
     if (typeof message.requestId === "string") pendingWorkbenchRef.current.add(message.requestId);
     socket.send(JSON.stringify({ v: 1, id, ...message }));
     return id;
@@ -345,6 +358,8 @@ function App() {
         documentViewsRef.current = {};
         documentPendingRef.current.clear();
         pendingWorkbenchRef.current.clear();
+        responseSourcesRef.current.clear();
+        workbenchResponseSourcesRef.current.clear();
         formsRef.current?.reset();
         fileFieldsRef.current?.reset();
         formViewportsRef.current.clear();
@@ -400,10 +415,9 @@ function App() {
             setLastError(message.message ?? "Browser editor could not start");
           } else if ("mode" in message && "screen_rows" in message) {
             const nextSnapshot = message as Snapshot;
-            if (nextSnapshot.last_message?.trim()) setLatestMessage(nextSnapshot.last_message);
             if (typeof nextSnapshot.last_message_serial === "number") {
               if (messageSerialRef.current !== null && messageSerialRef.current !== nextSnapshot.last_message_serial)
-                appendDockEntry("response", nextSnapshot.last_message ?? "");
+                appendDockEntry("response", nextSnapshot.last_message ?? "", responseSource(nextSnapshot));
               messageSerialRef.current = nextSnapshot.last_message_serial;
             }
             if (snapshotRef.current?.buffer?.path !== nextSnapshot.buffer?.path) lastFileFocusRef.current = null;
@@ -531,14 +545,15 @@ function App() {
             }
             if (result.state !== "queued" && result.code && result.code !== "ok") {
               const reason = result.message || result.code;
-              setLastError(reason);
-              appendDockEntry("error", reason);
+              appendDockEntry("error", reason, result.requestId
+                ? workbenchResponseSourcesRef.current.get(result.requestId) : undefined);
             }
+            if (result.state !== "queued" && result.requestId) workbenchResponseSourcesRef.current.delete(result.requestId);
           } else if ("type" in message && message.type === "files") {
             setFiles(message as FileListMessage);
           } else if ("type" in message && message.type === "error") {
-            setLastError(message.message ?? "Driver rejected the input");
-            appendDockEntry("error", message.message ?? "Driver rejected the input");
+            appendDockEntry("error", message.message ?? "Driver rejected the input",
+              message.id === undefined ? undefined : responseSourcesRef.current.get(String(message.id)));
           }
         } catch {
           setLastError("The web driver returned invalid JSON");
@@ -1420,7 +1435,7 @@ function App() {
                     {prefixCursorVisible ? <span class="logical-cursor prefix-cursor" style={{ left: `${prefixCursorCell}ch` }} /> : null}
                   </button>
                   <div class="line-content" onClick={(event) => hitRow(event, row, "filearea")}>
-                    <span class="line-text">{styledText(row.t, row.s)}</span>
+                    <span class="line-text" style={row.role === "file" && row.sc > 0 ? { left: `${-row.sc}ch` } : undefined}>{styledText(row.t, row.s)}</span>
                     {cursorVisible ? <span class="logical-cursor" style={{ left: `${cursorCell}ch` }} /> : null}
                   </div>
                 </div>
@@ -1443,13 +1458,13 @@ function App() {
 
         <footer class="command-area" aria-label="THE commands and responses">
           <div id="command-responses" class="command-responses" hidden={!commandHistoryOpen} ref={responseLogRef}
-            aria-label="THE command and response history" tabIndex={0}
+            aria-label="Current file command and response history" tabIndex={0}
             onScroll={(event) => { const log = event.currentTarget; followingResponsesRef.current = log.scrollHeight - log.scrollTop - log.clientHeight < 24; }}>
             {dockEntries.length ? dockEntries.map((entry) => <div class={`dock-entry dock-entry-${entry.kind}`} key={entry.id}>
               <span>{entry.kind === "command" ? "Command" : entry.kind === "error" ? "Error" : "Response"}</span><code>{entry.text}</code>
-            </div>) : <p>Commands and editor messages appear here.</p>}
+            </div>) : <p>Commands and editor messages for this file appear here.</p>}
           </div>
-          <div class="latest-response" role="status" aria-live="polite" hidden={!lastError && !latestResponse && !latestMessage}>{lastError || latestResponse?.text || latestMessage}</div>
+          <div class="latest-response" role="status" aria-live="polite" hidden={!lastError && !latestResponse}>{lastError || latestResponse?.text}</div>
           {!snapshot?.panel ? <form class="command-form" onSubmit={(event) => { event.preventDefault(); runCommand(command); }}>
             <label class="command-prompt" for="the-command">THE</label>
             <input id="the-command" aria-label="THE command" ref={commandInputRef}
@@ -1462,6 +1477,8 @@ function App() {
             <button type="button" class="command-history-toggle" aria-expanded={commandHistoryOpen} aria-controls="command-responses" onClick={() => setCommandHistoryOpen(!commandHistoryOpen)}>
               {commandHistoryOpen ? "Hide history" : "History"}{dockEntries.length ? ` (${dockEntries.length})` : ""}
             </button>
+            {commandHistoryOpen ? <button type="button" class="command-history-clear" disabled={!dockEntries.length}
+              onClick={() => setAllDockEntries((entries) => entries.filter((entry) => entry.source !== currentResponseSource))}>Clear history</button> : null}
           </form> : null}
         </footer>
         </div>

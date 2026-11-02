@@ -384,6 +384,29 @@ int the_frontend_policy_resolve_path(const char *path, int allow_missing,
    return 1;
 }
 
+static int frontend_policy_path_is_open(const char *path)
+{
+   VIEW_DETAILS *view;
+   char candidate[THE_FRONTEND_POLICY_PATH_MAX + 1];
+   int length;
+
+   for (view = vd_first; view != NULL; view = view->next)
+   {
+      FILE_DETAILS *file = view->file_for_view;
+      if (file == NULL) continue;
+      if (file->fpath != NULL && file->fname != NULL)
+         length = snprintf(candidate, sizeof(candidate), "%s%s",
+                            (char *)file->fpath, (char *)file->fname);
+      else if (file->actualfname != NULL)
+         length = snprintf(candidate, sizeof(candidate), "%s",
+                            (char *)file->actualfname);
+      else continue;
+      if (length >= 0 && (size_t)length < sizeof(candidate)
+      && strcmp(candidate, path) == 0) return 1;
+   }
+   return 0;
+}
+
 int the_frontend_policy_prepare_action(TheFrontendAction *action,
                                        char *error, size_t error_len)
 {
@@ -401,11 +424,21 @@ int the_frontend_policy_prepare_action(TheFrontendAction *action,
       case THE_FRONTEND_ACTION_FILE_OPEN:
       case THE_FRONTEND_ACTION_BUFFER_SWITCH:
       case THE_FRONTEND_ACTION_FILE_CREATE:
-         allow_missing = action->id == THE_FRONTEND_ACTION_FILE_CREATE;
+         allow_missing = action->id == THE_FRONTEND_ACTION_FILE_CREATE
+                      || action->id == THE_FRONTEND_ACTION_BUFFER_SWITCH;
          if (!the_frontend_policy_resolve_path(
                 action->argument, allow_missing, resolved, sizeof(resolved),
                 &readonly, error, error_len))
             return 0;
+         /* New buffers have no filesystem entry until their first save.
+          * A switch may name that missing path only if the exact contained
+          * file is already open; it must never create another buffer. */
+         if (action->id == THE_FRONTEND_ACTION_BUFFER_SWITCH
+         && !frontend_policy_path_is_open(resolved))
+         {
+            frontend_policy_error(error, error_len, "buffer is not open");
+            return 0;
+         }
          if (action->id == THE_FRONTEND_ACTION_FILE_CREATE
          &&  stat(resolved, &info) == 0)
          {
@@ -516,10 +549,12 @@ int the_frontend_policy_builtin_command_allowed(const char *command)
 {
    static const char *const allowed_commands[] =
    {
-      "backward", "bottom", "change", "clocate", "copy", "delete",
-      "down", "duplicate", "find", "forward", "input", "left", "cursor",
-      "locate", "lowercase", "next", "previous", "recover", "replace",
-      "right", "shift", "sort", "sos", "rx", "top", "uppercase", "up", "workbench"
+      "add", "all", "backward", "bottom", "change", "clocate", "copy",
+      "cursor", "delete", "down", "duplicate", "find", "forward", "input",
+      "join", "left", "locate", "lowercase", "mark", "next", "previous",
+      "qquit", "quit", "recover", "replace", "reset", "rgtleft", "right",
+      "search", "shift", "sort", "sos", "split", "rx", "top", "uppercase",
+      "up", "workbench"
    };
    static const char *const allowed_set_operands[] =
    {
@@ -550,6 +585,15 @@ int the_frontend_policy_builtin_command_allowed(const char *command)
    name = frontend_policy_builtin_name(verb, 0, 0);
    if (name == NULL)
       return 0;
+   if (strcmp(name, "save") == 0)
+   {
+      /* SAVE without a filename uses the same save_file durability hook as
+       * the Save action. Alternate destinations still require a separately
+       * validated frontend operation, rather than exposing SAVE filename. */
+      while (isspace((unsigned char)*cursor)) cursor++;
+      return *cursor == '\0'
+          && the_frontend_policy_current_file_writable(NULL, 0);
+   }
    if (strcmp(name, "query") == 0)
       return frontend_policy_word(&cursor, operand, sizeof(operand))
           && (strcmp(operand,"flscreen")==0 || strcmp(operand,"mask")==0
@@ -619,7 +663,7 @@ int the_frontend_policy_synonym_allowed(const char *definition)
       name = frontend_policy_builtin_name(operand,1,0);
       return name && strcmp(name,"synonym") != 0;
    }
-   if (strcmp(name,"locate") == 0)
+   if (strcmp(name,"locate") == 0 || strcmp(name,"search") == 0)
    {
       TARGET target;
       short rc;

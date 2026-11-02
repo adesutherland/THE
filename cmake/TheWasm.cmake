@@ -168,6 +168,18 @@ add_custom_target(the_wasm_bundle ALL DEPENDS "${THE_WASM_SITE}/.build-stamp"
         --utf8-license "${utf8proc_SOURCE_DIR}/LICENSE.md"
         --emscripten-license "${EMSCRIPTEN_ROOT_PATH}/LICENSE" ${THE_WASM_PACKAGE_ARGUMENTS}
     VERBATIM)
+add_custom_target(the_wasm_example_guide
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${THE_WASM_SITE}/examples"
+    COMMAND "${CMAKE_COMMAND}" -E copy
+        "${CMAKE_SOURCE_DIR}/examples/browser-guide.txt"
+        "${THE_WASM_SITE}/examples/Examples.txt"
+    COMMAND "${CMAKE_COMMAND}" -E copy
+        "${CMAKE_SOURCE_DIR}/packaging/browser-static-site.txt"
+        "${THE_WASM_SITE}/HOSTING.txt"
+    DEPENDS "${THE_WASM_SITE}/.build-stamp" "${CMAKE_SOURCE_DIR}/examples/browser-guide.txt"
+        "${CMAKE_SOURCE_DIR}/packaging/browser-static-site.txt"
+    VERBATIM)
+add_dependencies(the_wasm_bundle the_wasm_example_guide)
 if(THE_WASM_HIGHLIGHT)
     add_dependencies(the_wasm_bundle the_wasm_classic_assets)
 endif()
@@ -183,8 +195,14 @@ if(THE_WASM_MINIBASIC_RUNNER)
             "${THE_WASM_SITE}/examples/MiniBASICHighlight.rxbin"
         COMMAND "${CMAKE_COMMAND}" -E copy "${THE_WASM_MINIBASIC_SOURCE}"
             "${THE_WASM_SITE}/examples/MiniBASIC.bas"
+        COMMAND "${CMAKE_COMMAND}" -E copy
+            "${CMAKE_SOURCE_DIR}/examples/MiniBASICPrimes.bas"
+            "${CMAKE_SOURCE_DIR}/examples/MiniBASICStrings.bas"
+            "${THE_WASM_SITE}/examples"
         DEPENDS "${THE_WASM_SITE}/.build-stamp" "${THE_WASM_MINIBASIC_RUNNER}"
             "${THE_WASM_MINIBASIC_HIGHLIGHT}" "${THE_WASM_MINIBASIC_SOURCE}"
+            "${CMAKE_SOURCE_DIR}/examples/MiniBASICPrimes.bas"
+            "${CMAKE_SOURCE_DIR}/examples/MiniBASICStrings.bas"
         VERBATIM)
     add_dependencies(the_wasm_bundle the_wasm_minibasic_assets)
 endif()

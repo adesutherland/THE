@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
-import { checkCommandPolicy } from "./command-policy.mjs";
+import { checkCommandPolicy, checkEditorCommands } from "./command-policy.mjs";
 
 const directory = resolve(process.argv[2] ?? "../build-wasm");
 const { default: createEditor } = await import(pathToFileURL(`${directory}/crxthe_wasm.mjs`));
@@ -118,11 +118,14 @@ send({type:'action',action:'file.close'});
 await until((s) => s.buffer?.path === '/workspace/Welcome.txt' && saveReason() === 'ok', 'Wasm same-revision writable action refresh');
 send({type: 'action', action: 'file.open', argument: 'Policy.txt'});
 await until(s => s.buffer?.path === '/workspace/Policy.txt', 'policy buffer');
-await checkCommandPolicy(async (message, predicate = () => true) => {
+const policyRequest = async (message, predicate = () => true) => {
   const before = snapshots.length;
   send(message);
   return until(s => snapshots.length > before && predicate(s), JSON.stringify(message));
-}, 2);
+};
+await checkCommandPolicy(policyRequest, 2);
+await checkEditorCommands(policyRequest);
+assert.equal(editor.FS.readFile('/workspace/Command contract.txt', {encoding: 'utf8'}), 'alpha beta\ngamma\n');
 assert.equal(editor.FS.readFile('/workspace/Policy.txt', {encoding: 'utf8'}), policyText);
 assert.equal(editor.FS.analyzePath('/workspace/policy-escape.txt').exists, false);
 send({type: 'action', action: 'file.close'});
@@ -181,6 +184,25 @@ send({type: 'key', key: 'F1'});
 await until((s) => s.buffer.path.endsWith('THE_Help.txt'), 'read-only bundled help');
 send({type: 'action', action: 'file.close'});
 await until((s) => s.buffer.path === '/workspace/Welcome.txt', 'return from help');
-send({ type: 'action', action: 'file.close' });
-assert.equal(await Promise.race([run, new Promise((_, reject) => setTimeout(() => reject(new Error('shutdown timeout')), 3000))]), 0);
-console.log(`PASS Wasm core: ${hasCrexx ? 'cREXX profile/ADDRESS/READ' : 'command profile'}, Unicode editing, save callback and clean shutdown`);
+// Closing the final browser file must leave a usable workspace. Choose a
+// fresh pathname even if an Untitled file already exists in browser storage.
+editor.FS.writeFile('/workspace/Untitled-1.txt', 'existing untitled\n');
+await policyRequest({type: 'command', command: 'cursor goto 1 1'});
+await policyRequest({type: 'command', command: 'set insertmode on'});
+await policyRequest({type: 'text', text: 'DISCARD '}, s => s.buffer.dirty);
+const afterLastQquit = await policyRequest({type: 'command', command: 'qquit'});
+assert.equal(afterLastQquit.buffer.path, '/workspace/Untitled-2.txt');
+assert.equal(afterLastQquit.buffer.lines, 0);
+assert.equal(afterLastQquit.buffer.dirty, 0);
+assert.equal(afterLastQquit.buffers.length, 1);
+assert.equal(editor.FS.readFile('/workspace/Welcome.txt', {encoding: 'utf8'}), 'é界initial\n');
+assert.equal(editor.FS.readFile('/workspace/Untitled-1.txt', {encoding: 'utf8'}), 'existing untitled\n');
+await policyRequest({type: 'command', command: 'input usable blank buffer'});
+await policyRequest({type: 'command', command: 'save'}, s => !s.buffer.dirty);
+assert.equal(editor.FS.readFile('/workspace/Untitled-2.txt', {encoding: 'utf8'}), 'usable blank buffer\n');
+const afterLastQuit = await policyRequest({type: 'action', action: 'file.close'});
+assert.equal(afterLastQuit.buffer.path, '/workspace/Untitled-3.txt');
+assert.equal(afterLastQuit.buffer.lines, 0);
+assert.equal(afterLastQuit.buffers.length, 1);
+console.log(`PASS Wasm core: ${hasCrexx ? 'cREXX profile/ADDRESS/READ' : 'command profile'}, Unicode editing, editor commands, durable save and usable last-file close`);
+process.exit(0);

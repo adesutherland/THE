@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <limits.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/stat.h>
 
 #include "the.h"
 #include "proto.h"
@@ -13,6 +15,7 @@
 #include "workbenchdocument.h"
 #include "editorsource.h"
 #include "tools.h"
+#include "frontendpolicy.h"
 void the_tools_wasm_initialise(int);
 #ifdef THE_WASM_HIGHLIGHT
 #include "wasm/highlighter.h"
@@ -59,6 +62,48 @@ EMSCRIPTEN_KEEPALIVE int the_wasm_main(void)
 {
    char *argv[] = {"crxthe", "--driver", "web", "-s", "/workspace/Welcome.txt", NULL};
    return main(5, argv);
+}
+
+short the_wasm_prepare_last_close(void)
+{
+   static unsigned long untitled;
+   char path[THE_FRONTEND_POLICY_PATH_MAX + 1];
+   char current[THE_FRONTEND_POLICY_PATH_MAX + 1];
+   const char *root = the_frontend_policy_root_at(0, NULL);
+   struct stat info;
+   VIEW_DETAILS *closing;
+   short rc;
+   int length, attempts;
+
+   if (number_of_files != 1 || CURRENT_VIEW == NULL) return RC_OK;
+   if (root == NULL) return RC_INVALID_ENVIRON;
+   closing = CURRENT_VIEW;
+   current[0] = '\0';
+   if (CURRENT_FILE->fpath != NULL && CURRENT_FILE->fname != NULL)
+      snprintf(current, sizeof(current), "%s%s", (char *)CURRENT_FILE->fpath,
+               (char *)CURRENT_FILE->fname);
+   else if (CURRENT_FILE->actualfname != NULL)
+      snprintf(current, sizeof(current), "%s", (char *)CURRENT_FILE->actualfname);
+   /* Prepare the replacement first so allocation/open failure retains the
+    * file the user is closing. Never reuse an existing or unsaved pathname. */
+   for (attempts = 0; attempts < 1024; attempts++)
+   {
+      if (untitled == ULONG_MAX) break;
+      length = snprintf(path, sizeof(path), "%s/Untitled-%lu.txt",
+                         root, ++untitled);
+      if (length < 0 || (size_t)length >= sizeof(path)) return RC_INVALID_ENVIRON;
+      if (strcmp(path, current) == 0) continue;
+      errno = 0;
+      if (lstat(path, &info) != 0 && errno == ENOENT)
+      {
+         rc = EditFile((CHARTYPE *)path, FALSE);
+         if (rc != RC_OK) return rc;
+         CURRENT_VIEW = CURRENT_SCREEN.screen_view = closing;
+         return RC_OK;
+      }
+   }
+   display_error(0, (CHARTYPE *)"Unable to prepare a new browser buffer", FALSE);
+   return RC_INVALID_ENVIRON;
 }
 
 EM_JS(void, browser_send, (const char *text), {

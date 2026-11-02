@@ -1,5 +1,5 @@
 import WebSocket from "ws";
-import { checkCommandPolicy } from "./command-policy.mjs";
+import { checkCommandPolicy, checkEditorCommands } from "./command-policy.mjs";
 
 const url = new URL(process.env.THE_WEB_URL);
 url.protocol = "ws:";
@@ -27,6 +27,7 @@ async function request(message, predicate = () => true) {
 try {
   await wait(m => m.screen_rows);
   await checkCommandPolicy(request);
+  await checkEditorCommands(request);
   send({ id: 1, type: "files", root: 0, path: "" });
   const listing = await wait(m => m.type === "files" && m.id === 1);
   if (!listing.entries.some(e => e.name === "sample.txt" && e.type === "file"))

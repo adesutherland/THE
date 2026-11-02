@@ -1,0 +1,19 @@
+/* Level G typed routine: calculate a short Fibonacci table. */
+options levelg
+import rxfnsb
+
+do index = 0 to 10
+  say right(index, 2) ':' fibonacci(index)
+end
+return 0
+
+fibonacci: procedure = .int
+  arg term = .int
+  previous = 0
+  current = 1
+  do step = 1 to term
+    next = previous + current
+    previous = current
+    current = next
+  end
+  return previous

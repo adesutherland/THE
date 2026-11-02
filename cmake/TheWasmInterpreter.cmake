@@ -27,6 +27,22 @@ if(THE_WASM_CREXX)
         COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_BINARY_DIR}/tool-example.rxbin"
             "${THE_WASM_SITE}/examples/ToolHello.rxbin"
         COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxc" -i "${THE_CREXX_HOST_BUILD}/bin"
+            -o "${CMAKE_BINARY_DIR}/level-g-accumulator" "${CMAKE_SOURCE_DIR}/examples/LevelGAccumulator.crexx"
+        COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxas" -o "${CMAKE_BINARY_DIR}/level-g-accumulator"
+            "${CMAKE_BINARY_DIR}/level-g-accumulator"
+        COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_BINARY_DIR}/level-g-accumulator.rxbin"
+            "${THE_WASM_SITE}/examples/LevelGAccumulator.rxbin"
+        COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxc" -i "${THE_CREXX_HOST_BUILD}/bin"
+            -o "${CMAKE_BINARY_DIR}/level-g-fibonacci" "${CMAKE_SOURCE_DIR}/examples/LevelGFibonacci.crexx"
+        COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxas" -o "${CMAKE_BINARY_DIR}/level-g-fibonacci"
+            "${CMAKE_BINARY_DIR}/level-g-fibonacci"
+        COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_BINARY_DIR}/level-g-fibonacci.rxbin"
+            "${THE_WASM_SITE}/examples/LevelGFibonacci.rxbin"
+        COMMAND "${CMAKE_COMMAND}" -E copy
+            "${CMAKE_SOURCE_DIR}/examples/LevelGAccumulator.crexx"
+            "${CMAKE_SOURCE_DIR}/examples/LevelGFibonacci.crexx"
+            "${THE_WASM_SITE}/examples"
+        COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxc" -i "${THE_CREXX_HOST_BUILD}/bin"
             -o "${CMAKE_BINARY_DIR}/source-file-probe" "${CMAKE_SOURCE_DIR}/tests/source-file-runner.crexx"
         COMMAND "${THE_CREXX_HOST_BUILD}/bin/rxas" -o "${CMAKE_BINARY_DIR}/source-file-probe"
             "${CMAKE_BINARY_DIR}/source-file-probe"
@@ -41,8 +57,17 @@ add_custom_target(the_wasm_interpreter_assets
         "${CMAKE_SOURCE_DIR}/web/vm/byte-input.mjs" "${CMAKE_SOURCE_DIR}/web/vm/source-file.mjs" "${THE_WASM_SITE}/vm/runner"
     COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_SOURCE_DIR}/examples/browser-interpreter.rexx"
         "${THE_WASM_SITE}/examples/RexxRunner.rexx"
+    COMMAND "${CMAKE_COMMAND}" -E copy
+        "${CMAKE_SOURCE_DIR}/examples/RexxWords.rexx"
+        "${CMAKE_SOURCE_DIR}/examples/RexxLedger.rexx"
+        "${THE_WASM_SITE}/examples"
     ${THE_WASM_RXBIN_EXAMPLE_COMMANDS}
-    DEPENDS "${THE_WASM_SITE}/.build-stamp" VERBATIM)
+    DEPENDS "${THE_WASM_SITE}/.build-stamp"
+        "${CMAKE_SOURCE_DIR}/examples/RexxWords.rexx"
+        "${CMAKE_SOURCE_DIR}/examples/RexxLedger.rexx"
+        "${CMAKE_SOURCE_DIR}/examples/LevelGAccumulator.crexx"
+        "${CMAKE_SOURCE_DIR}/examples/LevelGFibonacci.crexx"
+    VERBATIM)
 list(APPEND THE_WASM_PACKAGE_ARGUMENTS --interpreter)
 if(THE_WASM_HIGHLIGHT)
     add_dependencies(the_wasm_interpreter_assets the_wasm_classic_assets)
