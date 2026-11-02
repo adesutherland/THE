@@ -463,7 +463,7 @@ async function start() {
         "Browser profile and macro sources\n\n" +
         "These editable copies show the sources bundled with this editor.\n" +
         "browser.the is the bundled stock browser profile (browser.commands in\n" +
-        "an editor without cREXX). MiniBASIC-profile.the is a legacy profile\n" +
+        "an editor without cREXX). MiniBASIC-profile.the is an optional profile\n" +
         "example; the other .the files are bundled macros.\n" +
         "Save keeps your changes in this browser workspace. Reloading or updating\n" +
         "the editor preserves existing copies; they are not refreshed automatically.\n\n" +
@@ -478,9 +478,10 @@ async function start() {
         "Profiles without rebuilding source. Apply retains an immutable copy.\n" +
         "Ordinary .the macros use Build macro and Run macro.\n" +
         (fs.analyzePath("/app/MiniBASIC-profile.the").exists
-          ? "\nMiniBASIC-profile.the is an optional example. Missing matching RXBIN\n" +
-            "images are copied into the workspace; import them if removed. Open this source, Build\n" +
-            "profile and Apply profile to add a BASIC runner and syntax highlighter.\n"
+          ? "\nThe stock browser profile highlights .bas files. To run BASIC, open\n" +
+            "MiniBASIC-profile.the, then Build profile and Apply profile.\n" +
+            "Matching RXBIN images are copied into new workspaces; import them\n" +
+            "if removed. The example also overrides the BASIC highlighter.\n"
           : ""));
       changed = true;
     }
@@ -489,7 +490,14 @@ async function start() {
   if (!fs.analyzePath("/workspace/Welcome.txt").exists) {
     fs.writeFile(
       "/workspace/Welcome.txt",
-      "Welcome to CRXTHE in your browser.\n\nCtrl-S saves to this browser workspace.\nFiles remain here after you reload.\n",
+      "Welcome to CRXTHE in your browser.\n\n" +
+      "Try a cREXX program:\n" +
+      "1. Click Files to open the file list.\n" +
+      "2. Open LevelBSquares.crexx (or another .crexx program).\n" +
+      "3. Above the editor, choose Build source, then Run with cREXX.\n" +
+      "4. Click Console to see the program's output.\n\n" +
+      "After editing a .crexx program, build it again before running it.\n" +
+      "Ctrl-S saves to this browser workspace. Files remain after reload.\n",
     );
     await sync();
   }

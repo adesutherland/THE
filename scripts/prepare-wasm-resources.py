@@ -12,6 +12,8 @@ parser.add_argument('destination', type=Path)
 parser.add_argument('--crexx-bin', type=Path)
 parser.add_argument('--minibasic-source', type=Path)
 args = parser.parse_args()
+if args.minibasic_source and not args.crexx_bin:
+    parser.error('--minibasic-source requires --crexx-bin')
 destination = args.destination.resolve()
 destination.mkdir(parents=True, exist_ok=True)
 # Do not retain generated macros when switching to an editor-only build.
@@ -22,7 +24,11 @@ for name in ['browser', 'quickfind', 'quickopen', 'quickline', 'paneldemo', 'lib
 (destination / 'MiniBASIC-profile.the').unlink(missing_ok=True)
 data = json.loads((root / 'profiles/default-profile.json').read_text())
 commands = [command.format(suffix='') for command in
-            data['commands'] + data.get('web_commands', [])]
+            data['commands'] + data.get('web_commands', []) + data.get('wasm_commands', [])]
+if args.minibasic_source:
+    # CMake supplies this source only with the matching, checksum-checked
+    # runner/highlighter pair. The worker seeds those images before startup.
+    commands += data['wasm_minibasic_commands']
 restricted = ['set impos off', 'set impmacro off', 'set macro off', 'set linend off', 'set synonym on']
 if args.crexx_bin:
     bin_dir = args.crexx_bin.resolve()
@@ -56,7 +62,7 @@ shutil.copytree(root / 'syntax', destination / 'syntax', dirs_exist_ok=True)
 if args.minibasic_source:
     shutil.copy2(args.minibasic_source, destination / 'MiniBASIC.bas')
     (destination / 'MiniBASIC-profile.the').write_text(
-        '/* New workspaces contain the matching MiniBASIC RXBIN images; import them if absent. */\n'
+        '/* Stock browser syntax is enabled. Apply adds the runner and overrides the language service. */\n'
         'options levelb\naddress the\n'
         "'rx register minibasic runner /workspace/MiniBASIC.rxbin .bas \"MiniBASIC\"';\n"
         "'rx register minibasic-syntax language /workspace/MiniBASICHighlight.rxbin .bas \"MiniBASIC syntax\"';\n"

@@ -19,6 +19,8 @@ LevelBSquares.crexx uses cREXX Level B arithmetic and a loop. Select the source
 and choose Build source, then Run with cREXX beside its filename. The Program
 console prints "Level B sum of squares: 55". This uses the browser compiler
 and the isolated program VM; it requires the combined compiler/runtime bundle.
+The stock profile provides Rexx lexical colours for .crexx sources. These
+colours do not provide cREXX compiler diagnostics.
 
 Level G (.crexx and .rxbin)
 --------------------------
@@ -46,12 +48,14 @@ MiniBASIC (.bas)
 MiniBASIC.bas adds 1 to 10, then asks for one number in the Program console.
 MiniBASICPrimes.bas prints primes through 30. MiniBASICStrings.bas demonstrates
 assigned, copied and quoted strings. The MiniBASIC files appear only in a
-candidate with the MiniBASIC runner and highlighter. To enable Run for .bas:
+candidate with the MiniBASIC runner and highlighter. Syntax colours are enabled
+on first open by the stock browser profile. To enable Run for .bas:
 
 1. The two RXBIN images are copied into the workspace if absent.
    If you removed them, use Tools & Profiles to import matching images.
 2. In Files > Profile sources, open MiniBASIC-profile.the. Build profile, then
-   Apply profile. This registers the imported runner and language service.
+   Apply profile. This adds the optional runner and overrides the stock
+   language registration. Replacing it with another profile retains stock syntax.
 3. Open a .bas file and choose Run MiniBASIC beside its filename. For
    MiniBASIC.bas, enter a number when the Program console asks for input.
 

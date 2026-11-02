@@ -115,6 +115,12 @@
     "set msgline on -2 1"
   ],
   "web_commands": [],
+  "wasm_commands": [
+    "set autocolor *.crexx REXX"
+  ],
+  "wasm_minibasic_commands": [
+    "rx register minibasic-syntax language /workspace/MiniBASICHighlight.rxbin .bas \"MiniBASIC syntax\""
+  ],
   "native_commands": [
     "define f10 macro workbenchmenu{suffix}"
   ],

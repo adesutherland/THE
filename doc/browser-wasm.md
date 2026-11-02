@@ -146,8 +146,13 @@ editor. While an edited revision is pending, the browser retains the previous
 lexical paint only for unchanged visible text in the same source/parser
 identity. Changed text receives no cached colours. A completed result replaces
 that paint; a parser/profile restart, refusal or failure clears it. Diagnostic
-severity is never retained from an older result. Other file types retain their
-existing colourers.
+severity is never retained from an older result. The stock browser profile
+maps `.crexx` sources to the built-in Rexx lexical colourer. This gives comments,
+keywords, strings and numbers their syntax colours without compiler diagnostics;
+it does not claim a browser cREXX DSLSH parser. Other file types retain their
+existing colourers. A combined MiniBASIC candidate also registers its bundled
+DSLSH language image for `.bas` by default. Its runner remains opt-in through
+`MiniBASIC-profile.the` or the editable user profile.
 
 The first connection sends complete C-owned logical source snapshots through
 DSLSH's existing eight-hex-byte framing. It coalesces unsent revisions and keeps
@@ -188,6 +193,8 @@ node web/test/wasm-classic-framing.mjs
 node web/test/wasm-classic-core.mjs build-wasm-classic
 python3 -m http.server 8770 --bind 127.0.0.1 --directory build-wasm-classic/site
 THE_WEB_URL=http://127.0.0.1:8770 \
+CHROMIUM_BIN='/path/to/chrome' node web/test/wasm-browser-smoke.mjs
+THE_WEB_URL=http://127.0.0.1:8770 THE_WASM_DEFAULT_SYNTAX_ONLY=1 \
 CHROMIUM_BIN='/path/to/chrome' node web/test/wasm-browser-smoke.mjs
 THE_WEB_URL=http://127.0.0.1:8770 \
 CHROMIUM_BIN='/path/to/chrome' node web/test/wasm-paint-smoke.mjs

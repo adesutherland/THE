@@ -221,10 +221,14 @@ because the generic source-file runner works. The optional browser review
 candidate packages matching MiniBASIC interpreter and DSLSH images, plus three
 `.bas` source files; ordinary browser builds do not. Missing images and source
 files are copied from the package without replacing saved workspace copies.
-If an image was removed, import its matching copy. Place the two registrations
-above in the editable user profile and build/activate it. The candidate also places
+The stock browser profile registers the bundled syntax service, so `.bas`
+files have syntax colours on first open. The runner remains opt-in. If an image
+was removed, import its matching copy. Place the two registrations above in the
+editable user profile and build/apply it. The candidate also places
 `Profile sources/MiniBASIC-profile.the` in the workspace as a complete editable
-example; it is never activated automatically.
+example; it is never applied automatically. Applying a user profile can override
+the stock language definition. Replacing that profile restores the stock syntax
+service and removes its optional runner.
 
 For example:
 

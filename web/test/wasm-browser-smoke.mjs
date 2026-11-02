@@ -12,6 +12,7 @@ import { profileSourcesSmoke, profileActivationStorageFailureSmoke } from "./was
 import { minibasicCandidateSmoke } from "./wasm-minibasic-candidate.mjs";
 import { levelGCandidateSmoke } from "./wasm-level-g-candidate.mjs";
 import { levelBCandidateSmoke } from "./wasm-level-b-candidate.mjs";
+import { defaultSyntaxSmoke } from "./wasm-default-syntax.mjs";
 
 const pageUrl = process.env.THE_WEB_URL;
 const chromium = process.env.CHROMIUM_BIN;
@@ -203,7 +204,10 @@ try {
   };
   await checkNativeToolPolicy(nativePolicyRequest, "unsupported-host", nativePolicyInspect);
   console.log("PASS rebuilt Wasm native TOOL/action/RUN unsupported-host refusals preserve editor");
-  if (process.env.THE_WASM_COMMANDS_ONLY === "1") {
+  if (process.env.THE_WASM_DEFAULT_SYNTAX_ONLY === "1") {
+    await defaultSyntaxSmoke({ pageUrl, manifest, send, snapshot, evaluate, waitFor, openWorkspaceFile });
+    if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
+  } else if (process.env.THE_WASM_COMMANDS_ONLY === "1") {
     await waitFor(() => !!workerSession, "editor Worker debugger");
     await wasmEditorCommandsSmoke({send, snapshot, evaluate, command, waitFor, workerSession});
     if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
