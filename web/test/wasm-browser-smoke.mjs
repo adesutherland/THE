@@ -85,6 +85,16 @@ async function domKey(key, code, ctrlKey = false, shiftKey = false) {
   await evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: ${JSON.stringify(key)}, code: ${JSON.stringify(code)}, ctrlKey: ${ctrlKey}, shiftKey: ${shiftKey}, bubbles: true, cancelable: true}))`);
 }
 async function consoleEnter(text) {
+  await evaluate(`(() => {
+    const consoleButton = document.querySelector('.pane-switcher .console-toggle');
+    if (consoleButton?.getAttribute('aria-pressed') !== 'true') consoleButton?.click();
+  })()`);
+  await waitFor(() => evaluate("document.querySelector('.pane-switcher .console-toggle')?.getAttribute('aria-pressed')==='true'"), 'selected Program console');
+  if (!await evaluate("!!document.querySelector('#rexx-input')?.getClientRects().length")) {
+    await waitFor(() => evaluate("(() => {const button=document.querySelector('.auxiliary-view-controls button');return button?.getClientRects().length && button.textContent==='Expand pane';})()"), 'visible Program console Expand control');
+    await evaluate("document.querySelector('.auxiliary-view-controls button').click()");
+  }
+  await waitFor(() => evaluate("!!document.querySelector('#rexx-input')?.getClientRects().length"), 'visible Program input');
   await evaluate("document.querySelector('#rexx-input').focus()");
   await waitFor(()=>evaluate("document.activeElement?.id==='rexx-input'"),'console input focus');
   await command('Input.insertText',{text});
