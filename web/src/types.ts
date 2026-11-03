@@ -52,6 +52,8 @@ export interface Snapshot {
   diagnostic_colours?: DiagnosticColours;
   status_pmsg?: { text: string; severity: string; start: number; length: number; colour?: PanelColour } | null;
   source?: {id:number; revision:number};
+  selection?: { active: number | boolean; start_line: number; start_cell: number; end_line: number; end_cell: number; };
+  selection_kind?: "cua" | "line" | "stream" | "box" | "column" | "word" | "none";
   parser?: { provider: string; providerId?: string; state: string; id: number; revision: number; applied: number; stale: number };
   viewport?: { rows: number; cols: number; reserved_rows: number; prefix_cols: number; prefix_gap: number };
   panel?: {

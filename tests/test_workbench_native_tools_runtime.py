@@ -99,6 +99,8 @@ with tempfile.TemporaryDirectory(prefix='THE native workbench ') as directory:
 
         assert capability['nativeLimits']['joinedArgvBytes'] == 8191
         assert not any(t['available'] for t in s.send('tools')['catalog'])
+        builtin_action_count = s.query('actions')['total']
+        assert builtin_action_count == 10
         args = ['Mixed Case', '', 'quoted"back\\', 'Zoë😀', '$(touch never); & |']
         s.command('workbench begin owner public.native')
         s.command('workbench tool put public.python role runner adapter native-process '
@@ -118,8 +120,11 @@ with tempfile.TemporaryDirectory(prefix='THE native workbench ') as directory:
         assert tool['id'] == 'public.python' and tool['available'] and tool['reason'] == 'ok'
         assert tool['executable'] == sys.executable and tool['source'] == 'snapshot'
         assert s.query('routes')['total'] == 3
-        actions = s.query('actions')['records']
-        assert next(a for a in actions if a['id'] == 'public.run')['argumentCount'] == len(args)
+        action_page = s.query(f'actions offset {builtin_action_count} limit 8')
+        assert action_page['total'] == builtin_action_count + 1
+        assert len(action_page['records']) == 1
+        assert action_page['records'][0]['id'] == 'public.run'
+        assert action_page['records'][0]['argumentCount'] == len(args)
         assert not marker.exists() and not captured.exists()
 
         # Pending working-record capture, not Save or a disk reread.

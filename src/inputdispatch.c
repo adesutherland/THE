@@ -7,6 +7,7 @@
 #include "vars.h"
 #include "frontendpolicy.h"
 #include "panelui.h"
+#include "editorclipboard.h"
 
 short the_input_dispatch_command(const char *command, int restricted)
 {
@@ -37,6 +38,17 @@ short the_input_dispatch_action(const TheFrontendAction *action)
       display_error(0, (CHARTYPE *)error, FALSE);
       return RC_INVALID_ENVIRON;
    }
+   if (prepared.id==THE_FRONTEND_ACTION_EDIT_SELECT_ALL)
+      return the_editor_clipboard_select_all();
+   if (prepared.id==THE_FRONTEND_ACTION_EDIT_COPY || prepared.id==THE_FRONTEND_ACTION_EDIT_CUT
+   || prepared.id==THE_FRONTEND_ACTION_EDIT_PASTE) {
+      display_error(0,(CHARTYPE *)"Clipboard action requires a host clipboard target",FALSE);
+      return RC_INVALID_ENVIRON;
+   }
+   if (prepared.id==THE_FRONTEND_ACTION_EDIT_UNDO) {
+      int handled=0; short rc=the_editor_clipboard_undo(&handled);
+      if(handled) return rc;
+   }
    if (!the_frontend_action_format_command(&prepared, command,
                                            sizeof(command)))
       return RC_INVALID_OPERAND;
@@ -52,6 +64,15 @@ short the_input_dispatch_action(const TheFrontendAction *action)
          ||  prepared.id == THE_FRONTEND_ACTION_BUFFER_SWITCH)
          {
             rc = command_line_builtin_single((CHARTYPE *)"set coloring on auto");
+            if(rc==RC_OK && prepared.id==THE_FRONTEND_ACTION_FILE_CREATE) {
+               CURRENT_VIEW->previous_window=CURRENT_VIEW->current_window;
+               CURRENT_VIEW->current_window=WINDOW_FILEAREA;
+               the_driver_set_screen_current_role(current_screen,WINDOW_FILEAREA);
+               pre_process_line(CURRENT_VIEW,CURRENT_VIEW->focus_line,NULL);
+               build_screen(current_screen);
+               (void)execute_move_cursor(current_screen,CURRENT_VIEW,0);
+               display_screen(current_screen); cursor_focus_refresh(current_screen,CURRENT_VIEW);
+            }
          }
       }
       return rc;

@@ -94,6 +94,8 @@ creation order. Menus are flat; there is no submenu definition syntax.
 | `file.save` | None |
 | `file.close` | None |
 | `edit.undo` | None |
+| `edit.copy` / `edit.cut` / `edit.paste` | None; the graphical host resolves its focused clipboard target |
+| `edit.select-all` | None |
 
 A builtin binds one typed argument with `ARGUMENT`. Path arguments reject quotes
 and control characters and remain data when LINEND is enabled. A builtin keeps
@@ -186,9 +188,18 @@ authorization check.
 
 Cancellation preserves the caller's pending command and editor caret. Invoking
 an item retains the selected action's normal editing/focus behavior. The default
-native Workbench menu is generated from the [shared profile definition](../profiles/default-profile.json);
-regenerate it with the [profile generator](../scripts/generate-default-profiles.py). The generated popup
-macro remains the fallback for drivers without shared-menu presentation.
+menus are generated from the [shared profile definition](../profiles/default-profile.json);
+regenerate them with the [profile generator](../scripts/generate-default-profiles.py).
+Browser and GTK merge stock File/Edit entries and profile groups into
+File/Edit/View/Tools/Help, preserving custom extensions. Tools & Profiles is
+separate from Program I/O. Host-only Settings/About and pane navigation retain
+the same destination names without becoming editor commands. The generated
+18-entry popup macro remains a legacy terminal fallback.
+
+Copy/Cut/Paste builtins require a host clipboard target. A hostless invocation
+refuses explicitly; it does not guess an OS clipboard. LLM clients can use the
+structured clipboard protocol described in the architecture. Redo is not
+implemented and is not offered as a working action.
 
 ## Inspect and invoke from LLM or Rexx
 

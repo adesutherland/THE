@@ -40,6 +40,7 @@ struct TheInputLogicalTarget;
                                                          /* commutil.c */
 CHARTYPE *get_key_name (int,int *);
 CHARTYPE *get_key_definition (int,int,bool,bool);
+int the_editor_frontend_binding_matches(int,short (*)(CHARTYPE *),const char *,const char *);
 short function_key (int,int,bool);
 bool is_modifier_key (int);
 CHARTYPE *build_default_key_definition (int, CHARTYPE *);

@@ -803,10 +803,17 @@ size_t the_web_format_snapshot(char *out, size_t capacity)
    if (length > 0 && out[length-1] == '}')
    {
       size_t offset = length-1;
+      const char *selection_kind=CURRENT_VIEW->mark_type==M_CUA ? "cua"
+         : CURRENT_VIEW->mark_type==M_LINE ? "line"
+         : CURRENT_VIEW->mark_type==M_STREAM ? "stream"
+         : CURRENT_VIEW->mark_type==M_BOX ? "box"
+         : CURRENT_VIEW->mark_type==M_COLUMN ? "column"
+         : CURRENT_VIEW->mark_type==M_WORD ? "word" : "none";
       if (!web_driver_format_console_colours(console_colours, sizeof(console_colours)))
          return 0;
       int appended = snprintf(out+offset, capacity-offset,
-         ",\"viewport\":{\"rows\":%d,\"cols\":%d,\"reserved_rows\":%d,\"prefix_cols\":%d,\"prefix_gap\":%d},\"console_colours\":{%s}}",
+         ",\"selection_kind\":\"%s\",\"viewport\":{\"rows\":%d,\"cols\":%d,\"reserved_rows\":%d,\"prefix_cols\":%d,\"prefix_gap\":%d},\"console_colours\":{%s}}",
+         selection_kind,
          terminal_lines, terminal_cols,
          terminal_lines-CURRENT_SCREEN.rows[WINDOW_FILEAREA],
          CURRENT_VIEW->prefix ? CURRENT_VIEW->prefix_width-CURRENT_VIEW->prefix_gap : 0,

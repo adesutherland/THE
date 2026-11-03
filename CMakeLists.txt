@@ -1069,6 +1069,10 @@ if(THE_PYTHON_EXECUTABLE)
     add_test(NAME test_release_source COMMAND ${THE_PYTHON_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_release_source.py
         --bash "${THE_BASH_EXECUTABLE}")
+    add_test(NAME test_gui_settings_runtime COMMAND ${THE_PYTHON_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_gui_settings_runtime.py $<TARGET_FILE:the>)
+    set_tests_properties(test_gui_settings_runtime PROPERTIES TIMEOUT 30
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     if(NOT WIN32)
         add_test(NAME test_llm_stack_budget COMMAND ${THE_PYTHON_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_llm_stack_budget.py $<TARGET_FILE:the>)
@@ -1102,10 +1106,14 @@ if(THE_PYTHON_EXECUTABLE)
                 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
             add_test(NAME test_editgroup_runtime_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_editgroup_runtime.py $<TARGET_FILE:the> ${profile_engine})
+            add_test(NAME test_editorclipboard_runtime_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_editorclipboard_runtime.py $<TARGET_FILE:the> ${profile_engine})
             set(THE_EDITGROUP_TEST_ENV ${THE_CTEST_RUNTIME_ENV})
             if(NOT USE_SDSLH)
                 list(APPEND THE_EDITGROUP_TEST_ENV "THE_EDITGROUP_NO_PARSER=1")
             endif()
+            set_tests_properties(test_editorclipboard_runtime_${profile_engine} PROPERTIES TIMEOUT 120
+                ENVIRONMENT "${THE_EDITGROUP_TEST_ENV}")
             set_tests_properties(test_editgroup_runtime_${profile_engine} PROPERTIES TIMEOUT 90
                 ENVIRONMENT "${THE_EDITGROUP_TEST_ENV}")
             add_test(NAME test_workbench_boundaries_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
@@ -1581,6 +1589,11 @@ set_tests_properties(test_frontend_prefix_runtime PROPERTIES
 if(USE_WEB_DRIVER)
     find_program(THE_NATIVE_TOOL_NODE NAMES node)
     if(THE_NATIVE_TOOL_NODE)
+        add_test(NAME test_native_clipboard_web
+            COMMAND ${THE_NATIVE_TOOL_NODE} ${CMAKE_SOURCE_DIR}/web/test/native-clipboard-core.mjs
+                $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR})
+        set_tests_properties(test_native_clipboard_web PROPERTIES TIMEOUT 45
+            ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
         add_test(NAME test_workbench_native_tools_browser
             COMMAND ${THE_PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/test_workbench_native_tools_browser.py
                 $<TARGET_FILE:the> ${THE_WEB_BUILD_DIR})

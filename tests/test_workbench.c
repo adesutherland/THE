@@ -167,9 +167,10 @@ int main(void)
    TheWorkbenchAction a = action("user.action");
    TheWorkbenchMenu m = {0}; TheWorkbenchItem item = {0};
    unsigned long rev, gen; char json[THE_WORKBENCH_JSON_MAX];
+   const size_t builtin_actions = 10;
    native_arguments();
    the_workbench_reset(); rev = the_workbench_revision();
-   check(the_workbench_action_count() == 6,"builtin registry");
+   check(the_workbench_action_count() == builtin_actions,"builtin registry");
    strcpy(m.id,"user.menu"); strcpy(m.label,"Menu");
    strcpy(item.id,"user.item"); strcpy(item.menu,m.id); strcpy(item.action,a.id); strcpy(item.label,"Item");
    check(the_workbench_begin("user.owner") == 0,"begin");
@@ -183,7 +184,7 @@ int main(void)
    check(the_workbench_begin("user.owner") == 0,"replace begin");
    strcpy(a.label,"Replacement"); check(the_workbench_put_action(&a) == 0,"replace");
    check(the_workbench_commit() == 0,"replace commit");
-   check(the_workbench_action_count() == 7,"idempotent count");
+   check(the_workbench_action_count() == builtin_actions + 1,"idempotent count");
    check(the_workbench_action_find(a.id)->generation > gen,"replacement generation");
    rev = the_workbench_revision();
    check(the_workbench_begin("user.owner") == 0,"remove begin");
@@ -219,7 +220,7 @@ int main(void)
    check(the_workbench_remove_menu(m.id) == 0,"menu cascades items");
    check(the_workbench_remove_action("user.action") == 0,"remove unreferenced action");
    check(the_workbench_remove_action("user.absent") == 0,"absent remove idempotent");
-   check(the_workbench_commit() == 0 && the_workbench_item_count() == 5,"atomic removal");
+   check(the_workbench_commit() == 0 && the_workbench_item_count() == 9,"atomic removal");
    check(the_workbench_begin("the.forged") == -3,"builtin owner reserved");
    check(the_workbench_json(json,sizeof(json),"ACTIONS",0,8,0),"bounded action JSON");
    check(strstr(json,"\"schemaVersion\":1") && strstr(json,"\"records\":["),"JSON schema");
@@ -253,13 +254,13 @@ int main(void)
       }
    }
    the_workbench_begin("public.quota");
-   for (gen = 0; gen < THE_WORKBENCH_ACTION_MAX - 6; gen++)
+   for (gen = 0; gen < THE_WORKBENCH_ACTION_MAX - builtin_actions; gen++)
    {
       a = action("public.quota"); snprintf(a.id,sizeof(a.id),"public.quota%lu",gen);
       check(the_workbench_put_action(&a) == 0,"admit action up to quota");
    }
    a = action("public.excess"); check(the_workbench_put_action(&a) == 94,"quota refuses without partial publication"); code("limit-exceeded");
-   check(the_workbench_commit() == -3 && the_workbench_action_count() == 6,"quota cannot publish partial draft");
+   check(the_workbench_commit() == -3 && the_workbench_action_count() == builtin_actions,"quota cannot publish partial draft");
    the_workbench_abort();
    the_workbench_begin("public.invalid"); a = action("public.invalid");
    a.label[0] = (char)0xc0; a.label[1] = (char)0x80; a.label[2] = 0;

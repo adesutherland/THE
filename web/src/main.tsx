@@ -27,6 +27,9 @@ import { WorkbenchForms, type FormView } from "./workbench-forms";
 import { NamedFormPane, type FormViewport } from "./form-pane";
 import { WorkbenchFileFields, type FileFieldView } from "./workbench-file-fields";
 import { FileFieldPane } from "./file-field-pane";
+import { captureEditTarget, ClipboardRequests, performEdit, restoreEditTarget, type ClipboardReply, type EditOperation, type EditTarget } from "./edit-actions";
+import { SettingsDialog } from "./settings";
+import { selectionSegment } from "./selection-presentation";
 
 const keyNames: Record<string, string> = {
   ArrowLeft: "left",
@@ -131,6 +134,9 @@ function pointerCell(event: MouseEvent, startCell: number): number {
   return startCell + Math.max(0, Math.floor((event.clientX - rect.left - padding) / width));
 }
 
+type MenuEntry = { item: { id: string; label: string; separator: boolean }; action?: FrontendActionDefinition | WorkbenchActionDefinition; local?: string; fileAction?: FileToolAction };
+type AppMenu = { id: string; label: string; entries: MenuEntry[] };
+
 type DockEntry = { id: number; source: string; kind: "command" | "response" | "error"; text: string };
 
 function responseSource(snapshot: Snapshot | null): string {
@@ -200,6 +206,11 @@ function App() {
   const [selectedAux, setSelectedAux] = useState("console");
   const [showProgramWithLog, setShowProgramWithLog] = useState(false);
   const [openMenu, setOpenMenu] = useState<"application" | "about" | null>(null);
+  const [menuGroup, setMenuGroup] = useState("File");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [editNotice, setEditNotice] = useState("");
+  const [auxExpanded, setAuxExpanded] = useState(false);
+  const [auxHeight, setAuxHeight] = useState(280);
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [programFocusRequest, setProgramFocusRequest] = useState(0);
@@ -237,7 +248,9 @@ function App() {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const consoleButtonRef = useRef<HTMLButtonElement | null>(null);
-  const mobileConsoleButtonRef = useRef<HTMLButtonElement | null>(null);
+  const menuTargetRef = useRef<EditTarget | null>(null);
+  const clipboardRef = useRef<ClipboardRequests | null>(null);
+  const settingsReturnRef = useRef<HTMLElement | null>(null);
   const menuReturnRef = useRef<HTMLElement | null>(null);
   const pathReturnRef = useRef<HTMLElement | null>(null);
   const pathFocusReturnRef = useRef<HTMLElement | null>(null);
@@ -276,16 +289,36 @@ function App() {
   const send = useCallback((message: Record<string, unknown>) => {
     const socket = socketRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    if (["action", "command", "tool", "key", "text"].includes(String(message.type))) setEditNotice("");
     const id = nextId.current++;
     const sources = responseSourcesRef.current;
     const source = responseSource(snapshotRef.current);
     sources.set(String(id), source);
-    if (typeof message.requestId === "string") workbenchResponseSourcesRef.current.set(message.requestId, source);
+    if (message.type === "workbench" && typeof message.requestId === "string") workbenchResponseSourcesRef.current.set(message.requestId, source);
     while (sources.size > 400) sources.delete(sources.keys().next().value!);
-    if (typeof message.requestId === "string") pendingWorkbenchRef.current.add(message.requestId);
+    if (message.type === "workbench" && typeof message.requestId === "string") pendingWorkbenchRef.current.add(message.requestId);
     socket.send(JSON.stringify({ v: 1, id, ...message }));
     return id;
   }, []);
+
+  if (!clipboardRef.current) clipboardRef.current = new ClipboardRequests(send);
+
+  const runEdit = useCallback((operation: EditOperation, pasteText?: string, target?: EditTarget | null) => {
+    const destination = target === undefined ? (openMenu ? menuTargetRef.current : captureEditTarget()) : target;
+    setOpenMenu(null);
+    setEditNotice("");
+    void performEdit(operation, destination, clipboardRef.current!.request, navigator.clipboard, pasteText)
+      .then(() => {
+        setEditNotice(operation === "copy" ? "Selection copied." : operation === "cut" ? "Selection cut." : operation === "paste" ? "Clipboard pasted." : "All text selected.");
+        if (operation === "copy") restoreEditTarget(destination);
+        else destination?.element.focus({ preventScroll: true });
+      }).catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        setEditNotice(/NotAllowed|denied|permission/i.test(message)
+          ? "Clipboard permission denied. Nothing was changed. Allow clipboard access or use your browser’s Paste command." : message);
+        restoreEditTarget(destination);
+      });
+  }, [openMenu]);
 
   const requestLogPage = useCallback((model: string, generation: string,
     view?: NamedLogView) => {
@@ -379,6 +412,7 @@ function App() {
         window.setTimeout(focusEditor, 0);
       };
       socket.onclose = () => {
+        clipboardRef.current?.reset();
         if (disposed || socketRef.current !== socket) return;
         socketRef.current = null;
         if (browserWasm) {
@@ -401,7 +435,9 @@ function App() {
       socket.onmessage = (event) => {
         try {
           const message = (typeof event.data === 'string' ? JSON.parse(event.data) : event.data) as Snapshot | DriverMessage;
-          if ("type" in message && message.type === "hello") {
+          if ("type" in message && message.type === "clipboard") {
+            clipboardRef.current?.receive(message as ClipboardReply);
+          } else if ("type" in message && message.type === "hello") {
             const hello = message as DriverMessage;
             workbenchSessionRef.current = hello.workbenchSession ?? "";
             workbenchNextRequestRef.current = hello.workbenchNextRequest ?? 1;
@@ -421,7 +457,9 @@ function App() {
                 appendDockEntry("response", nextSnapshot.last_message ?? "", responseSource(nextSnapshot));
               messageSerialRef.current = nextSnapshot.last_message_serial;
             }
-            if (snapshotRef.current?.buffer?.path !== nextSnapshot.buffer?.path) lastFileFocusRef.current = null;
+            if (snapshotRef.current?.buffer?.path !== nextSnapshot.buffer?.path) {
+              lastFileFocusRef.current = null; setEditNotice("");
+            }
             if (nextSnapshot.focus.zone === "filearea") lastFileFocusRef.current = nextSnapshot.focus;
             snapshotRef.current = nextSnapshot;
             setSnapshot(nextSnapshot);
@@ -621,8 +659,8 @@ function App() {
   useLayoutEffect(() => {
     // Each view replaces the previous buttons. Give it a focused action while
     // retaining the original invoking control for Escape.
-    if (openMenu) menuRef.current?.querySelector<HTMLButtonElement>(".menu-popover button:not(:disabled)")?.focus();
-  }, [openMenu]);
+    if (openMenu) menuRef.current?.querySelector<HTMLButtonElement>(".menu-items button:not(:disabled), .about-menu button:not(:disabled)")?.focus();
+  }, [openMenu, menuGroup]);
 
   useLayoutEffect(() => {
     if (!pathAction) return;
@@ -738,6 +776,38 @@ function App() {
     setMobilePane("console");
   }, [sendPanelOperation]);
 
+  const openSettings = useCallback(() => {
+    const active = document.activeElement;
+    settingsReturnRef.current = menuRef.current?.contains(active) ? menuReturnRef.current : active instanceof HTMLElement ? active : null;
+    setOpenMenu(null); setSettingsOpen(true);
+  }, []);
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+    window.requestAnimationFrame(() => {
+      const origin = settingsReturnRef.current;
+      if (origin?.isConnected && origin.getClientRects().length) origin.focus(); else focusEditor();
+    });
+  }, [focusEditor]);
+  const editProfileDefaults = useCallback(() => {
+    setSettingsOpen(false); setOpenMenu(null);
+    if (send({ type: "tool", action: "profile", tool: "", text: "", arguments: "" }) !== undefined)
+      window.setTimeout(focusEditor, 0);
+  }, [focusEditor, send]);
+  const frontendUIAction = useCallback((id: string) => {
+    if (["edit.copy", "edit.cut", "edit.paste", "edit.select-all"].includes(id)) {
+      runEdit(id === "edit.select-all" ? "selectAll" : id.slice(5) as EditOperation); return true;
+    }
+    if (id === "gui.settings") { openSettings(); return true; }
+    if (id === "gui.about") { setOpenMenu("about"); return true; }
+    if (id === "gui.tools-profiles") { selectToolsProfiles(); setOpenMenu(null); return true; }
+    if (id === "gui.program") { selectProgramConsole(); setOpenMenu(null); return true; }
+    if (id === "gui.files") {
+      setExplorerOpen(true); setMobilePane("files"); send({ type: "files", root: 0, path: "" }); setOpenMenu(null); return true;
+    }
+    if (id === "help.keys") { setOpenMenu(null); send({ type: "key", key: "f10" }); focusEditor(); return true; }
+    return false;
+  }, [focusEditor, openSettings, runEdit, selectProgramConsole, selectToolsProfiles, send]);
+
   const sendWorkbenchAction = useCallback((action: WorkbenchActionDefinition, argument?: string,
     restoreFocus = true) => {
     if (!workbenchSessionRef.current) {
@@ -777,6 +847,7 @@ function App() {
 
   const requestAction = useCallback(
     (id: string, argument?: string) => {
+      if (frontendUIAction(id)) return;
       const action = actionById.get(id);
       if (!action) return;
       setOpenMenu(null);
@@ -795,11 +866,12 @@ function App() {
       }
       sendAction(id, argument ?? "");
     },
-    [actionById, rememberPathFocus, requestFiles, sendAction],
+    [actionById, frontendUIAction, rememberPathFocus, requestFiles, sendAction],
   );
 
   const requestWorkbenchAction = useCallback((action: WorkbenchActionDefinition, argument?: string) => {
     if (action.reason !== "ok" && action.reason !== "argument-required") return;
+    if (action.kind === "builtin" && frontendUIAction(action.builtin)) return;
     if (action.kind === "builtin" && action.builtin === "file.open"
         && !action.operand && argument === undefined) {
       setExplorerAction(action);
@@ -820,7 +892,7 @@ function App() {
       return;
     }
     sendWorkbenchAction(action, argument);
-  }, [rememberPathFocus, requestFiles, sendWorkbenchAction]);
+  }, [frontendUIAction, rememberPathFocus, requestFiles, sendWorkbenchAction]);
 
   const footerRows = useMemo(() => snapshot?.panel ? [] :
     (snapshot?.screen_rows ?? []).filter(isFooterRow), [snapshot?.screen_rows, !!snapshot?.panel]);
@@ -876,7 +948,7 @@ function App() {
 
   const onWorkbenchKeyDown = useCallback((event: KeyboardEvent) => {
     // Panels and path dialogs own their keys, including function keys.
-    if (snapshot?.panel || pathAction) return;
+    if (snapshot?.panel || pathAction || settingsOpen) return;
     if (!openMenu && (event.target as HTMLElement).closest(".named-panel-pane")
         && (event.key === "Escape" || event.key === "F6")) {
       event.preventDefault(); event.stopPropagation();
@@ -887,6 +959,13 @@ function App() {
       else if (state?.focused) sendPanelOperation(state.id, state.generation, "return");
       else returnToFile();
       return;
+    }
+    if (!openMenu && (event.ctrlKey || event.metaKey) && ["a", "x", "v"].includes(event.key.toLowerCase())) {
+      const target = captureEditTarget(event.target as Element);
+      if (target?.kind === "output") {
+        event.preventDefault(); event.stopPropagation();
+        runEdit(event.key.toLowerCase() === "a" ? "selectAll" : event.key.toLowerCase() === "x" ? "cut" : "paste", undefined, target); return;
+      }
     }
     if (!openMenu && (event.target as HTMLElement).closest(".named-document-pane")
       && ((!event.ctrlKey && !event.metaKey && event.key.length === 1)
@@ -901,7 +980,7 @@ function App() {
       event.preventDefault(); event.stopPropagation(); return;
     }
     if (!openMenu && event.key === "Tab" && event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey &&
-        (event.target === consoleButtonRef.current || event.target === mobileConsoleButtonRef.current)) {
+        event.target === consoleButtonRef.current) {
       event.preventDefault();
       menuButtonRef.current?.focus();
       return;
@@ -920,11 +999,13 @@ function App() {
       const invokingControl = document.activeElement;
       if ((!openMenu || !menuRef.current?.contains(invokingControl)) && invokingControl instanceof HTMLElement)
         menuReturnRef.current = invokingControl;
+      menuTargetRef.current = captureEditTarget(invokingControl);
+      setMenuGroup("File");
       setOpenMenu("application");
       // The effect handles newly mounted menus; an already open menu also
       // needs a predictable starting point when F10 is pressed again.
       if (openMenu === "application")
-        menuRef.current?.querySelector<HTMLButtonElement>(".menu-popover button:not(:disabled)")?.focus();
+        menuRef.current?.querySelector<HTMLButtonElement>(".menu-items button:not(:disabled)")?.focus();
       return;
     }
     if (!openMenu) return;
@@ -932,13 +1013,20 @@ function App() {
       event.preventDefault();
       event.stopPropagation();
       setOpenMenu(null);
+      restoreEditTarget(menuTargetRef.current);
       const invokingControl = menuReturnRef.current;
       if (invokingControl?.isConnected && !invokingControl.matches(":disabled") && invokingControl.getClientRects().length)
         invokingControl.focus();
       else menuButtonRef.current?.focus();
       return;
     }
-    const menu = menuRef.current?.querySelector<HTMLElement>(".menu-popover");
+    const menu = menuRef.current?.querySelector<HTMLElement>(openMenu === "about" ? ".about-menu" : ".menu-items");
+    if (openMenu === "application" && ["ArrowLeft", "ArrowRight"].includes(event.key)) {
+      event.preventDefault(); event.stopPropagation();
+      const groups = [...menuRef.current!.querySelectorAll<HTMLButtonElement>(".menu-groups button")];
+      const selected = groups.findIndex((button) => button.getAttribute("aria-pressed") === "true");
+      groups[(selected + (event.key === "ArrowRight" ? 1 : -1) + groups.length) % groups.length]?.click(); return;
+    }
     if (!menuRef.current?.contains(event.target as Node) || !menu) return;
     const items = [...menu.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")];
     if (!items.length) return;
@@ -957,7 +1045,7 @@ function App() {
     event.preventDefault();
     event.stopPropagation();
     items[next]?.focus();
-  }, [openMenu, pathAction, returnToFile, sendPanelOperation, snapshot?.panel]);
+  }, [openMenu, pathAction, returnToFile, runEdit, sendPanelOperation, settingsOpen, snapshot?.panel]);
 
   const onEditorKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -966,48 +1054,39 @@ function App() {
         return;
       }
       const commandModifier = event.ctrlKey || event.metaKey;
+      const clipboardKey = toolSession?.editorSettings?.frontendKeys;
+      const stockClipboard = clipboardKey === undefined || clipboardKey.includes(`C-${event.key.toUpperCase()}`);
       if (!snapshot?.panel && event.key === "Tab" && event.shiftKey && !commandModifier && !event.altKey) {
         event.preventDefault();
-        const consoleButton = [consoleButtonRef.current, mobileConsoleButtonRef.current]
-          .find((button) => button?.getClientRects().length);
+        const consoleButton = consoleButtonRef.current;
         (consoleButton ?? menuButtonRef.current)?.focus();
         return;
       }
-      if (!snapshot?.panel && (event.key === "Escape" || event.key === "F6"
-          || (commandModifier && event.key.toLowerCase() === "l"))) {
+      if (!snapshot?.panel && (event.key === "Escape" || event.key === "F6")) {
         event.preventDefault();
         commandInputRef.current?.focus();
         return;
       }
-      if (commandModifier && event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        requestAction("file.save");
+      if (!snapshot?.panel && commandModifier && stockClipboard && ["c", "x", "v"].includes(event.key.toLowerCase())) {
+        // Native clipboard events supply paste data and retain normal browser
+        // shortcuts; their handlers below route the editor target explicitly.
         return;
       }
-      if (commandModifier && event.key.toLowerCase() === "o") {
-        event.preventDefault();
-        requestAction("file.open");
-        return;
+      if (!snapshot?.panel && commandModifier && stockClipboard && event.key.toLowerCase() === "a") {
+        event.preventDefault(); runEdit("selectAll"); return;
       }
-      if (commandModifier && event.key.toLowerCase() === "n") {
-        event.preventDefault();
-        requestAction("file.create");
-        return;
-      }
-      if (commandModifier && event.key.toLowerCase() === "w") {
-        event.preventDefault();
-        requestAction("file.close");
-        return;
-      }
-      if (commandModifier && event.key.toLowerCase() === "z") {
-        event.preventDefault();
-        if (!event.shiftKey) requestAction("edit.undo");
-        return;
-      }
-      if (commandModifier && ["f", "g"].includes(event.key.toLowerCase())) {
-        event.preventDefault();
-        send({ type: "key", key: `C-${event.key.toLowerCase()}` });
-        return;
+      if (commandModifier && !event.altKey && /^[a-z]$/i.test(event.key)) {
+        const key = event.key.toUpperCase();
+        const defaults = toolSession?.editorSettings?.frontendKeys;
+        const friendly = defaults === undefined || defaults.includes(`C-${key}`);
+        const fileActions: Record<string, string> = { S: "file.save", O: "file.open", N: "file.create", W: "file.close", Z: "edit.undo" };
+        if (friendly && key === "Z" && event.shiftKey) {
+          event.preventDefault(); setEditNotice("Redo is unavailable in this editor."); return;
+        }
+        if (friendly && fileActions[key]) {
+          event.preventDefault(); requestAction(fileActions[key]); return;
+        }
+        event.preventDefault(); send({ type: "key", key: `C-${event.key.toLowerCase()}` }); return;
       }
       let key = /^F([1-9]|1[0-9]|2[0-4])$/.test(event.key) ? event.key.toLowerCase() : event.shiftKey && event.key === "Tab" ? "backtab" : keyNames[event.key];
       if (event.shiftKey && key && ["left", "right", "up", "down", "home", "end"].includes(key)) key = `shift-${key}`;
@@ -1016,7 +1095,7 @@ function App() {
         send({ type: "key", key });
       }
     },
-    [requestAction, send, snapshot?.panel],
+    [requestAction, runEdit, send, snapshot?.panel, toolSession?.editorSettings?.frontendKeys],
   );
 
   const rows = useMemo(() => highlightPresentationRef.current.rows(snapshot), [snapshot]);
@@ -1028,26 +1107,62 @@ function App() {
   );
   const prefixCols = snapshot?.viewport?.prefix_cols ?? 7;
   const prefixGap = snapshot?.viewport?.prefix_gap ?? 1;
-  const menus = useMemo(() => {
+  const menus = useMemo<AppMenu[]>(() => {
+    let result: AppMenu[];
     if (workbench) {
       const actionById = new Map(workbench.actions.map((action) => [action.id, action]));
-      return [...workbench.menus]
+      result = [...workbench.menus]
         .sort((a, b) => a.order - b.order)
         .map((menu) => ({ id: menu.id, label: menu.label, entries: [...workbench.items]
           .filter((item) => item.menu === menu.id)
           .sort((a, b) => a.order - b.order)
           .map((item) => ({ item, action: actionById.get(item.action) })) }));
-    }
-    const result = new Map<string, FrontendActionDefinition[]>();
+    } else {
+    const fallback = new Map<string, FrontendActionDefinition[]>();
     for (const action of actions) {
       if (!action.menu) continue;
-      const entries = result.get(action.menu) ?? [];
+      const entries = fallback.get(action.menu) ?? [];
       entries.push(action);
-      result.set(action.menu, entries);
+      fallback.set(action.menu, entries);
     }
-    return [...result.entries()].map(([label, entries]) => ({ id: label, label,
+    result = [...fallback.entries()].map(([label, entries]) => ({ id: `frontend.${label.toLowerCase()}`, label,
       entries: entries.map((action) => ({ item: { id: action.id, label: action.label, separator: false }, action })) }));
-  }, [actions, workbench]);
+    }
+    const standard = new Map<string, AppMenu>();
+    result = result.filter((menu) => {
+      const match = /^(?:the|profile)\.(file|edit|view|tools|help)$/.exec(menu.id);
+      if (!match) return true;
+      const category = match[1];
+      const previous = standard.get(category);
+      if (previous) { previous.entries.push(...menu.entries); return false; }
+      standard.set(category, menu); return true;
+    });
+    const supplied = new Set(result.flatMap((menu) => menu.entries.flatMap(({ action }) => action
+      ? ["generation" in action && action.kind === "builtin" ? action.builtin : action.id] : [])));
+    const local: Array<[string, string, string]> = [
+      ["Edit", "edit.cut", "Cut"], ["Edit", "edit.copy", "Copy"], ["Edit", "edit.paste", "Paste"], ["Edit", "edit.select-all", "Select all"],
+      ["View", "gui.files", "Files"], ["View", "gui.program", "Program console"], ["View", "gui.tools-profiles", "Tools & Profiles"],
+      ["View", "gui.settings", "Settings…"], ["Help", "help.keys", "Key definitions"], ["Help", "gui.about", "About CRXTHE"],
+    ];
+    for (const [label, id, text] of local) {
+      if (supplied.has(id)) continue;
+      let menu = standard.get(label.toLowerCase()) ?? result.find((menu) => menu.id === `frontend.${label.toLowerCase()}`);
+      if (!menu) { menu = { id: `frontend.${label.toLowerCase()}`, label, entries: [] }; result.push(menu); }
+      menu.entries.push({ item: { id, label: text, separator: false }, local: id });
+    }
+    let toolsMenu = standard.get("tools") ?? result.find((menu) => menu.id === "frontend.tools");
+    if (!toolsMenu) { toolsMenu = { id: "frontend.tools", label: "Tools", entries: [] }; result.push(toolsMenu); }
+    for (const action of toolSession?.currentFile?.actions ?? []) {
+      if (!action.enabled && !action.tool) continue;
+      toolsMenu.entries.push({ item: { id: `gui.file-${action.id}`, label: action.label, separator: false }, fileAction: action });
+    }
+    if (!toolsMenu.entries.length) toolsMenu.entries.push({ item: { id: "gui.tools-profiles", label: "Tools & Profiles…", separator: false }, local: "gui.tools-profiles" });
+    const order = ["File", "Edit", "View", "Tools", "Help"];
+    return [...result.filter((menu) => /^(?:the|profile|frontend)\.(file|edit|view|tools|help)$/.test(menu.id))
+      .sort((a, b) => order.indexOf(a.label) - order.indexOf(b.label)),
+      ...result.filter((menu) => !/^(?:the|profile|frontend)\.(file|edit|view|tools|help)$/.test(menu.id))];
+  }, [actions, toolSession?.currentFile, workbench]);
+  const activeMenu = menus.find((menu) => menu.id === menuGroup) ?? menus.find((menu) => menu.label === menuGroup) ?? menus[0];
 
   const hitRow = useCallback(
     (event: MouseEvent, row: ScreenRow, target: "filearea" | "prefix") => {
@@ -1076,6 +1191,8 @@ function App() {
     selectProgramConsole();
     setProgramFocusRequest((request) => request + 1);
   };
+  const lowerLayout = windowSize.width < 1100 || windowSize.height < 620;
+  const lowerPaneHeight = Math.min(auxHeight, Math.max(220, windowSize.height - 400));
   const maximumFilesWidth = Math.max(180, Math.min(400, Math.floor(windowSize.width * .25)));
   const maximumAuxWidth = Math.max(300, Math.min(650, Math.floor(windowSize.width * .36)));
   const visibleNamedPanels = useMemo(() => {
@@ -1175,7 +1292,7 @@ function App() {
     }
     for (const id of [...layoutReportsRef.current.keys()])
       if (!visibleNamedPanels.some((panel) => panel.id === id)) layoutReportsRef.current.delete(id);
-  }, [activeAux, auxWidth, connection, consoleOpen, send, showAux, showProgramWithLog, visibleNamedPanels, windowSize]);
+  }, [activeAux, auxExpanded, auxHeight, auxWidth, connection, consoleOpen, send, showAux, showProgramWithLog, visibleNamedPanels, windowSize]);
 
   useEffect(() => {
     if (!activeNamedPanel || activeNamedPanel.kind !== "log" || !namedLogRef.current) return;
@@ -1200,7 +1317,14 @@ function App() {
   };
 
   return (
-    <main class="app-shell" onKeyDownCapture={onWorkbenchKeyDown} style={{...consoleColourVariables(snapshot?.console_colours), ...diagnosticColourVariables(snapshot?.diagnostic_colours)}}>
+    <main class="app-shell" onKeyDownCapture={onWorkbenchKeyDown}
+      onPasteCapture={(event) => {
+        if (event.target instanceof HTMLInputElement && /[\r\n]/.test(event.clipboardData?.getData("text/plain") ?? "")) {
+          event.preventDefault(); setEditNotice(event.target.id === "rexx-input"
+            ? "Program input accepts one record at a time. Multiline paste was refused; your draft is unchanged."
+            : "This field accepts one line. Multiline paste was refused; your draft is unchanged.");
+        }
+      }} style={{...consoleColourVariables(snapshot?.console_colours), ...diagnosticColourVariables(snapshot?.diagnostic_colours)}}>
       <header class="toolbar">
         <div class="product-mark">CRXTHE</div>
         <div class="menu-root" ref={menuRef}>
@@ -1209,16 +1333,19 @@ function App() {
             onPointerDown={() => {
               const active = document.activeElement;
               menuReturnRef.current = active instanceof HTMLElement ? active : menuButtonRef.current;
+              menuTargetRef.current = captureEditTarget(active);
             }}
             onClick={(event) => {
               if (event.detail === 0) menuReturnRef.current = menuButtonRef.current;
+              if (!openMenu) setMenuGroup("File");
+              else restoreEditTarget(menuTargetRef.current);
               setOpenMenu(openMenu ? null : "application");
             }}><Menu size={16} /> Menu</button>
           {openMenu ? <nav id="application-menu" class={`menu-popover ${openMenu === "about" ? "about-menu" : ""}`} aria-label={openMenu === "about" ? "About CRXTHE" : "Application menu"}>
             {openMenu === "about" ? <>
               <button type="button" onClick={() => setOpenMenu("application")}>← Back to Menu</button>
               <section aria-labelledby="about-title">
-                <h2 id="about-title">CRXTHE</h2>
+                <h2 id="about-title">CRXTHE 0.10.dev</h2>
                 <p>A programmable editor based on THE, with line prefixes, editor commands and Rexx macros.</p>
                 <p>Use the THE command field for editor commands. The Program console has separate input and output for the program you run.</p>
                 <p>Help describes editor commands. Key definitions shows the active profile’s bindings.</p>
@@ -1228,32 +1355,24 @@ function App() {
                 {browserWasm ? <p><a href="/licenses/CRXTHE-GPL-2.0.txt" target="_blank" rel="noreferrer">Editor licence</a> · <a href="/licenses/LICENSE-NOTICE.md" target="_blank" rel="noreferrer">Licence notice</a> · <a href="/licenses/cREXX-MIT.txt" target="_blank" rel="noreferrer">cREXX licence</a></p> : null}
               </section>
             </> : <>
-            {menus.map((menu) => <section key={menu.id} aria-label={menu.label} data-menu-id={menu.id}>
-              <h2>{menu.label}</h2>
-              {menu.entries.map(({ item, action }) => item.separator ? <hr key={item.id} /> : action ? <button
-                key={item.id} type="button" data-item-id={item.id}
-                data-action-id={action.id} data-generation={"generation" in action ? action.generation : undefined}
-                disabled={"generation" in action && action.reason !== "ok" && action.reason !== "argument-required"}
-                title={"generation" in action && action.reason !== "ok" && action.reason !== "argument-required" ? action.reason : undefined}
-                onClick={() => "generation" in action ? requestWorkbenchAction(action) : requestAction(action.id)}>
-                <span>{item.label}</span>
-                <kbd>{("generation" in action ? action.builtin : action.id) === "file.create" ? "Ctrl+N" : ("generation" in action ? action.builtin : action.id) === "file.open" ? "Ctrl+O" : ("generation" in action ? action.builtin : action.id) === "file.save" ? "Ctrl+S" : ("generation" in action ? action.builtin : action.id) === "file.close" ? "Ctrl+W" : ("generation" in action ? action.builtin : action.id) === "edit.undo" ? "Ctrl+Z" : ""}</kbd>
-                {"generation" in action && action.reason !== "ok" && action.reason !== "argument-required"
-                  ? <small class="menu-action-reason">{action.reason.replaceAll("-", " ")}</small> : null}
-              </button> : null)}
-            </section>)}
-            <section aria-label="Workbench"><h2>Workbench</h2>
-              <button type="button" onClick={() => { toggleFiles(); setOpenMenu(null); }}>Files</button>
-              <button type="button" onClick={() => { setConsoleOpen(true); setSelectedAux("console"); setMobilePane("console"); setOpenMenu(null); }}>Program console</button>
-              <button type="button" onClick={() => { selectToolsProfiles(); setOpenMenu(null); }}>Tools & Profiles</button>
-              <button type="button" onClick={() => {
-                setOpenMenu(null);
-                // Keep the existing admitted profile-key route: SHOWKEY is
-                // deliberately unavailable as a typed restricted command.
-                send({ type: "key", key: "f10" }); focusEditor();
-              }}>Key definitions</button>
-            </section>
-            <section aria-label="About"><button type="button" onClick={() => setOpenMenu("about")}>About CRXTHE</button></section>
+            <div class="menu-groups" role="group" aria-label="Menu groups">
+              {menus.map((menu) => <button type="button" key={menu.id} data-group-id={menu.id} aria-pressed={menu === activeMenu}
+                onClick={() => setMenuGroup(menu.id)}>{menu.label}</button>)}
+            </div>
+            {menus.filter((menu) => menu === activeMenu).map((menu) =>
+              <section class="menu-items" key={menu.id} aria-label={menu.label} data-menu-id={menu.id}>
+                {menu.entries.map(({ item, action, local, fileAction }) => item.separator ? <hr key={item.id} /> : action || local || fileAction ? <button
+                  key={item.id} type="button" data-item-id={item.id}
+                  data-action-id={action?.id ?? local ?? item.id} data-generation={action && "generation" in action ? action.generation : undefined}
+                  disabled={fileAction ? !!fileActionReason(toolSession, snapshot, connection === "online", fileAction) : !!action && "generation" in action && action.reason !== "ok" && action.reason !== "argument-required"}
+                  title={action && "generation" in action && action.reason !== "ok" && action.reason !== "argument-required" ? action.reason : undefined}
+                  onClick={() => fileAction ? (currentFileAction(fileAction), setOpenMenu(null)) : local ? frontendUIAction(local) : action && ("generation" in action ? requestWorkbenchAction(action) : requestAction(action.id))}>
+                  <span>{item.label}</span>
+                  <kbd>{({ "file.create": "Ctrl+N", "file.open": "Ctrl+O", "file.save": "Ctrl+S", "file.close": "Ctrl+W", "edit.undo": "Ctrl+Z", "edit.cut": "Ctrl+X", "edit.copy": "Ctrl+C", "edit.paste": "Ctrl+V", "edit.select-all": "Ctrl+A" } as Record<string, string>)[local ?? (action && "generation" in action ? action.builtin : action?.id) ?? ""]}</kbd>
+                  {action && "generation" in action && action.reason !== "ok" && action.reason !== "argument-required"
+                    ? <small class="menu-action-reason">{action.reason.replaceAll("-", " ")}</small> : null}
+                </button> : null)}
+              </section>)}
             </>}
           </nav> : null}
         </div>
@@ -1273,9 +1392,6 @@ function App() {
           </button>
           <button class="icon-button" type="button" title="Undo" aria-label="Undo" onClick={() => requestAction("edit.undo")}>
             <Undo2 size={17} />
-          </button>
-          <button class="icon-button" type="button" title="Refresh" aria-label="Refresh" onClick={() => send({ type: "snapshot" })}>
-            <RefreshCw size={17} />
           </button>
         </div>
         <div class={`connection connection-${connection}`} title={`Web driver: ${connection}`}>
@@ -1304,7 +1420,7 @@ function App() {
         <button type="button" aria-pressed={explorerOpen} onClick={toggleFiles}>Files</button>
         <button type="button" class="console-toggle" ref={consoleButtonRef} aria-pressed={activeAux === "console" && consoleOpen} onClick={() => {
           if (panelStateRef.current?.panels.some((panel) => panel.focused)) selectProgramConsole();
-          else { setConsoleOpen(window.innerWidth < 1100 && activeMobilePane !== "console" ? true : !consoleOpen); setSelectedAux("console"); setMobilePane("console"); }
+          else { setConsoleOpen(activeAux === "console" && consoleOpen && (window.innerWidth >= 1100 || activeMobilePane === "console") ? false : true); setSelectedAux("console"); setMobilePane("console"); }
         }}>
           Console{toolSession?.job.waiting ? " · Input requested" : toolSession?.job.running ? " · Running" : ""}
         </button>
@@ -1319,13 +1435,14 @@ function App() {
       <CurrentFileActions session={toolSession} snapshot={snapshot} online={connection === "online"}
         onAction={currentFileAction} onSetup={selectToolsProfiles} />
       </div>
-      <section class={`workspace mobile-pane-${activeMobilePane} ${explorerOpen ? "files-open" : ""} ${showAux ? "aux-open" : ""} ${activeNamedPanel && activePanelPlacement === "below" ? "aux-below" : ""}`} style={{
-        "--files-width": `${Math.min(filesWidth, maximumFilesWidth)}px`, "--aux-width": `${Math.min(auxWidth, maximumAuxWidth)}px`,
+      <section class={`workspace ${lowerLayout ? "lower-layout" : ""} ${auxExpanded ? "aux-expanded" : ""} mobile-pane-${activeMobilePane} ${explorerOpen ? "files-open" : ""} ${showAux ? "aux-open" : ""} ${activeNamedPanel && activePanelPlacement === "below" ? "aux-below" : ""}`} style={{
+        "--aux-height": `${lowerPaneHeight}px`, "--files-width": `${Math.min(filesWidth, maximumFilesWidth)}px`, "--aux-width": `${Math.min(auxWidth, maximumAuxWidth)}px`,
       }}>
         {explorerOpen ? (
           <aside class="file-explorer" aria-label="Workspace files">
             <div class="explorer-heading">
               <span>Files</span>
+              {lowerLayout ? <button type="button" class="pane-expand" onClick={() => { setAuxExpanded(!auxExpanded); if (auxExpanded) focusEditor(); }}>{auxExpanded ? "Return to editor" : "Expand pane"}</button> : null}
               <button class="icon-button" type="button" title="Close files" aria-label="Close files" onClick={() => { setExplorerOpen(false); focusEditor(); }}><X size={16} /></button>
             </div>
             <div class="root-switcher" aria-label="Workspace roots">
@@ -1422,6 +1539,7 @@ function App() {
           <div class="editor-grid" ref={gridRef} style={{ width: `calc(${snapshot?.viewport?.cols ?? 80}ch + 20px)`, "--prefix-width": `${prefixCols + prefixGap}ch` }}>
             <span class="cell-probe" ref={cellProbeRef} aria-hidden="true">0000000000</span>
             {rows.map((row) => {
+              const selection = selectionSegment(snapshot?.selection, row, snapshot?.selection_kind);
               const cursorVisible = cursorRow === row && snapshot?.focus.zone === "filearea" && !commandFocused;
               const prefixCursorVisible = cursorRow === row && snapshot?.focus.zone === "prefix" && !commandFocused;
               const prefixCursorCell = Math.max(0, Math.min((snapshot?.focus.cell ?? 0), prefixCols - 1));
@@ -1440,6 +1558,10 @@ function App() {
                     {prefixCursorVisible ? <span class="logical-cursor prefix-cursor" style={{ left: `${prefixCursorCell}ch` }} /> : null}
                   </button>
                   <div class="line-content" onClick={(event) => hitRow(event, row, "filearea")}>
+                    {selection ? <span class="logical-selection" aria-hidden="true" data-selection-line={row.line}
+                      data-selection-start={selection.start} data-selection-end={selection.end ?? "newline"}
+                      style={{ left: `calc(10px + ${selection.start}ch)`, ...(selection.end === null
+                        ? { right: "10px" } : { width: `${selection.end - selection.start}ch` }) }} /> : null}
                     <span class="line-text" style={row.role === "file" && row.sc > 0 ? { left: `${-row.sc}ch` } : undefined}>{styledText(row.t, row.s)}</span>
                     {cursorVisible ? <span class="logical-cursor" style={{ left: `${cursorCell}ch` }} /> : null}
                   </div>
@@ -1469,7 +1591,7 @@ function App() {
               <span>{entry.kind === "command" ? "Command" : entry.kind === "error" ? "Error" : "Response"}</span><code>{entry.text}</code>
             </div>) : <p>Commands and editor messages for this file appear here.</p>}
           </div>
-          <div class="latest-response" role="status" aria-live="polite" hidden={!lastError && !latestResponse}>{lastError || latestResponse?.text}</div>
+          <div class={`latest-response${editNotice ? " interaction-notice" : ""}`} role="status" aria-live="polite" hidden={!lastError && !editNotice && !latestResponse}>{lastError || editNotice || latestResponse?.text}</div>
           {!snapshot?.panel ? <form class="command-form" onSubmit={(event) => {
             event.preventDefault();
             runCommand(command, false);
@@ -1492,25 +1614,13 @@ function App() {
         </footer>
         </div>
 
-        <div class="mobile-aux-tabs" role="group" aria-label="Choose auxiliary pane">
-          <button type="button" aria-pressed={activeMobilePane === "files" && explorerOpen} onClick={() => { setExplorerOpen(true); setMobilePane("files"); requestFiles(); }}>Files</button>
-          <button type="button" class="console-toggle" ref={mobileConsoleButtonRef} aria-pressed={activeMobilePane === "console" && activeAux === "console" && consoleOpen} onClick={selectProgramConsole}>Console{toolSession?.job.waiting ? " · Input requested" : ""}</button>
-          <button type="button" class="tools-toggle" aria-pressed={activeMobilePane === "console" && activeAux === "tools" && toolsOpen}
-            onClick={selectToolsProfiles}>Tools & Profiles</button>
-          {workbench?.panels.map((panel) => <button type="button" key={panel.id}
-            data-panel-id={panel.id} aria-pressed={activeMobilePane === "console" && activeAux === panel.id}
-            onPointerDown={rememberPanelFocusOrigin} onClick={() => showOrFocusPanel(panel)}>{panel.title}</button>)}
-        </div>
+        {(showAux || explorerOpen) && lowerLayout ? <PaneSplitter label="Resize lower pane" orientation="horizontal" reverse value={lowerPaneHeight} minimum={220}
+          maximum={Math.max(220, Math.floor(windowSize.height * .7))} onChange={setAuxHeight} /> : null}
         {showAux ? <PaneSplitter label="Resize auxiliary panes" orientation="vertical" reverse consoleDivider={activeAux === "console" && consoleOpen} value={Math.min(auxWidth, maximumAuxWidth)} minimum={300} maximum={maximumAuxWidth} onChange={setAuxWidth} /> : null}
         <div class={`auxiliary-rail ${consoleOpen && showProgramWithLog && activeNamedPanel ? "program-and-log" : ""}`} ref={auxRailRef} hidden={!showAux}>
-        <div class="auxiliary-tabs" role="tablist" aria-label="Auxiliary panes">
-          {consoleOpen ? <button type="button" role="tab" aria-selected={activeAux === "console"}
-            onClick={selectProgramConsole}>Program console</button> : null}
-          {toolsOpen ? <button type="button" role="tab" aria-selected={activeAux === "tools"}
-            onClick={selectToolsProfiles}>Tools & Profiles</button> : null}
-          {visibleNamedPanels.map((panel) => <button type="button" key={panel.id}
-            role="tab" data-panel-id={panel.id} aria-selected={activeAux === panel.id}
-            onPointerDown={rememberPanelFocusOrigin} onClick={() => showOrFocusPanel(panel)}>{panel.title}</button>)}
+        <div class="auxiliary-view-controls">
+          <span>{activeAux === "console" ? "Program console" : activeAux === "tools" ? "Tools & Profiles" : activeNamedPanel?.title}</span>
+          <button type="button" onClick={() => { setAuxExpanded(!auxExpanded); if (auxExpanded) focusEditor(); }}>{auxExpanded ? "Return to editor" : "Expand pane"}</button>
         </div>
         <div class="program-console-pane" hidden={!consoleOpen || activeAux !== "console" && !(showProgramWithLog && activeNamedPanel)}>
           {toolSession ? <RexxConsole send={send} session={toolSession} snapshot={snapshot} focusRequest={programFocusRequest} onClose={() => { setConsoleOpen(false); setShowProgramWithLog(false); focusEditor(); }} focusEditor={focusEditor} />
@@ -1599,9 +1709,13 @@ function App() {
         class="input-sink"
         aria-label="Editor input"
         onKeyDown={onEditorKeyDown}
+        onCopy={(event) => { if (!snapshot?.panel) { event.preventDefault(); runEdit("copy", undefined, captureEditTarget(event.currentTarget)); } }}
+        onCut={(event) => { if (!snapshot?.panel) { event.preventDefault(); runEdit("cut", undefined, captureEditTarget(event.currentTarget)); } }}
+        onPaste={(event) => { if (!snapshot?.panel) { event.preventDefault(); runEdit("paste", event.clipboardData?.getData("text/plain") ?? "", captureEditTarget(event.currentTarget)); } }}
         onInput={(event) => {
           const value = event.currentTarget.value;
-          if (value) send({ type: "text", text: value });
+          if (value && (new TextEncoder().encode(value).length > 128 || /[\r\n]/.test(value))) runEdit("paste", value, captureEditTarget(event.currentTarget));
+          else if (value) send({ type: "text", text: value });
           event.currentTarget.value = "";
         }}
         autoCapitalize="off"
@@ -1609,6 +1723,9 @@ function App() {
         spellcheck={false}
       />
 
+      {settingsOpen ? <SettingsDialog snapshot={snapshot} settings={toolSession?.editorSettings} online={connection === "online"} onClose={closeSettings}
+        onCommand={(value) => runCommand(value, false)} onEditProfile={editProfileDefaults}
+        onTools={() => { setSettingsOpen(false); selectToolsProfiles(); }} /> : null}
       {pathAction ? (
         <div class="dialog-backdrop" role="presentation" onMouseDown={(event) => {
           if (event.currentTarget === event.target) closePathDialog();

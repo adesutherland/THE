@@ -112,6 +112,9 @@ with tempfile.TemporaryDirectory(prefix='THE tools ') as d:
                 'command cursor goto 5 1\ncommand replace do n = 1 to 6\n'
                 'command RX RUN\ntools\nlook full compact',levelg_source)
     built,completed,refused=tools(records)
+    # Compiling a program does not select it as the editable/active profile.
+    assert Path(built['profile']['sourcePath']).resolve()==legacy_source.resolve(),built
+    assert not built['profile']['active']['image'],built
     assert built['profile']['build']['role']=='crexx-source',built
     assert built['profile']['build']['image'].endswith('.rxbin'),built
     assert completed['job']['tool']=='crexx' and completed['job']['state']=='Completed · status 0',completed
@@ -139,6 +142,7 @@ with tempfile.TemporaryDirectory(prefix='THE tools ') as d:
     assert 'profile console proof' in ''.join(c['text'] for c in tools(records)[-1]['build']['chunks']),records
     selected=(config/'active').read_text();assert Path(selected.splitlines()[0]).is_file()
     profile_state=tools(records)[-1]
+    assert Path(profile_state['profile']['sourcePath']).resolve()==profile_source.resolve(),profile_state
     assert profile_state['profile']['build']['role']=='profile-source',profile_state
     assert profile_state['profile']['build']['name']=='User.profile.rxbin',profile_state
     assert selected.splitlines()[0].endswith('.profile.rxbin'),selected

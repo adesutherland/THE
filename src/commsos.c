@@ -41,6 +41,7 @@
 #include "logcursor.h"
 #include "frontendpolicy.h"
 #include "inputdispatch.h"
+#include "editorclipboard.h"
 
 /*#define DEBUG 1*/
 
@@ -3146,6 +3147,8 @@ short Sos_undo(CHARTYPE *params)
       TRACE_RETURN();
       return(RC_INVALID_OPERAND);
    }
+   { int handled=0; short rc=the_editor_clipboard_undo(&handled);
+     if(handled) { TRACE_RETURN(); return rc; } }
    switch (CURRENT_VIEW->current_window)
    {
       case WINDOW_FILEAREA:

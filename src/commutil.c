@@ -1331,21 +1331,44 @@ short command_line_builtin_single(CHARTYPE *cmd_line)
    return rc;
 }
 /***********************************************************************/
+int the_editor_frontend_binding_matches(int key,short (*function)(CHARTYPE *),
+                                       const char *params,const char *alternate)
+{
+   DEFINE *entry,*binding=NULL;
+   /* GUI shortcut projection must not serialize arbitrary command chains
+    * through the legacy shared scratch buffer. Only one stock binding adapts. */
+   for(entry=first_define;entry;entry=entry->next)if(entry->def_funkey==key)
+   { if(binding)return 0;binding=entry; }
+   if(!binding)return 1;
+   if(!function || binding->def_command<0
+   || command[binding->def_command].function!=function)return 0;
+   return binding->def_params && params
+      && (!my_stricmp((const char *)binding->def_params,params)
+       || (alternate && !my_stricmp((const char *)binding->def_params,alternate)));
+}
 int the_editor_document_inspection_key(int key)
 {
    DEFINE *entry,*binding=NULL;
    short index=RC_NOT_COMMAND; size_t i; char text[THE_WORKBENCH_COMMAND_MAX+1];
-   if (!CURRENT_VIEW || CURRENT_VIEW->current_window!=WINDOW_COMMAND
-   || cmd_rec_len<0 || cmd_rec_len>THE_WORKBENCH_COMMAND_MAX) return 0;
+   if (!CURRENT_VIEW) return 0;
    for (entry=first_define;entry;entry=entry->next) if (entry->def_funkey==key)
    { if (binding) return 0; binding=entry; }
    if (binding)
    {
       index=binding->def_command;
+      if(index>=0 && command[index].function==Sos) {
+         const char *p=(const char *)binding->def_params;
+         while(*p==' ' || *p=='\t') p++;
+         if(strlen(p)>=4 && toupper((unsigned char)p[0])=='U' && toupper((unsigned char)p[1])=='N'
+         && toupper((unsigned char)p[2])=='D' && toupper((unsigned char)p[3])=='O') { p+=4; while(*p==' ' || *p=='\t') p++; if(!*p) return 1; }
+      }
       if (index<0 || (binding->def_params[0]
       && !(command[index].function==Enter && !my_stricmp((DEFCHAR *)binding->def_params,"CUA")))) return 0;
    }
    else for (i=0;command[i].text;i++) if (command[i].funkey==key) { index=(short)i; break; }
+   if(index>=0 && command[index].function==Sos_undo) return 1;
+   if(CURRENT_VIEW->current_window!=WINDOW_COMMAND || cmd_rec_len<0
+   || cmd_rec_len>THE_WORKBENCH_COMMAND_MAX) return 0;
    if (index<0 || (command[index].function!=Enter && command[index].function!=Sos_execute)) return 0;
    memcpy(text,cmd_rec,(size_t)cmd_rec_len); text[cmd_rec_len]=0;
    return the_editor_document_inspection_command(text);
@@ -1666,7 +1689,8 @@ fprintf(stderr,"%s %d: Command: [%s] idline: %d\n",__FILE__,__LINE__,command_ent
              * and the possibly stripped parameters.
              */
             if (inspection_scope && *inspection_scope
-            && (command[i].function==Query || command[i].function==Extract
+            && (command[i].function==Query || command[i].function==Extract || command[i].function==Sos_undo || command[i].function==Sdslhwait
+            || (command[i].function==Sos && the_editor_document_inspection_command((const char *)cmd[j]))
             || (command[i].function==Workbench && the_editor_document_inspection_command((const char *)cmd[j]))))
             {
                the_workbench_document_resolving(0);

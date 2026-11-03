@@ -40,6 +40,10 @@
 #include "thedriver.h"
 #include "inputevent.h"
 #include "utfinput.h"
+#include "editorclipboard.h"
+#ifdef USE_SDSLH
+# include "thread_utils.h"
+#endif
 #ifdef USE_UTF8
 # include "textedit.h"
 #endif
@@ -401,27 +405,31 @@ short Sdslhwait(CHARTYPE *params)
       return(RC_INVALID_OPERAND);
    }
 
-   if (!cb_check_parse_complete_event(CURRENT_FILE->cb)
-   &&  !CURRENT_FILE->cb->async_parse_active
-   &&  CURRENT_FILE->cb->transaction_count > 0)
-      process_delta(CURRENT_FILE->cb);
-
    for (;;)
    {
-      if (cb_check_parse_complete_event(CURRENT_FILE->cb))
+      int active, pending;
+      CodeBuffer *cb=CURRENT_FILE->cb;
+
+      if(enter_codeblock_critical_section()!=0)
       {
-         cb_reset_parse_complete_event(CURRENT_FILE->cb);
+         display_error(0,(CHARTYPE *)"Unable to inspect SDSLH parser state",FALSE);
+         TRACE_RETURN();
+         return(RC_INVALID_ENVIRON);
+      }
+      active=cb->async_parse_active;
+      pending=cb->transaction_count>0;
+      if(cb_check_parse_complete_event(cb)) cb_reset_parse_complete_event(cb);
+      exit_codeblock_critical_section();
+
+      /* A completed request can have newer local edits queued behind it.
+       * Wait for those deltas too before exposing parser-derived state. */
+      if(!active && !pending)
+      {
          sdslhwait_refresh_screen();
          TRACE_RETURN();
          return(RC_OK);
       }
-      if (!CURRENT_FILE->cb->async_parse_active
-      &&  CURRENT_FILE->cb->transaction_count == 0)
-      {
-         sdslhwait_refresh_screen();
-         TRACE_RETURN();
-         return(RC_OK);
-      }
+      if(!active && pending) process_delta(cb);
       if (elapsed_ms >= timeout_ms)
       {
          display_error(0,(CHARTYPE *)"SDSLHWAIT timed out waiting for parser",FALSE);
@@ -922,28 +930,36 @@ short Text(CHARTYPE *params)
    &&   CURRENT_FILE->number_lines == 0
    &&   params[0] != '\0' )
    {
-      LINE *first_line;
-      LogicalCursor logical;
-      int zone_row;
-
-      rc = Input((CHARTYPE *)"");
-      if ( rc != RC_OK
-      ||   CURRENT_FILE->number_lines == 0 )
-      {
+      if(CURRENT_VIEW->hex) {
+         /* TEXT's HEX form may contain arbitrary bytes. Bootstrap only the
+          * record here, then retain the established decoder/editing path. */
+         rc=insert_new_line(current_screen,CURRENT_VIEW,(CHARTYPE *)"",0,1,0,
+            TRUE,TRUE,TRUE,CURRENT_VIEW->display_low,TRUE,FALSE);
+         if(rc!=RC_OK) { TRACE_RETURN(); return rc; }
+         CURRENT_VIEW->current_window=WINDOW_FILEAREA;
+         CURRENT_VIEW->focus_line=CURRENT_VIEW->current_line=1;
+         pre_process_line(CURRENT_VIEW,1,NULL);
+         build_screen(current_screen);
+         logical_cursor_state_focus(&CURRENT_VIEW->logical_cursor,
+            logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_FILEAREA,1,
+               get_row_for_focus_line(current_screen,1,CURRENT_VIEW->current_row),
+               rec,(size_t)rec_len,0,TEXT_SNAP_BACKWARD,1));
+         (void)execute_move_cursor(current_screen,CURRENT_VIEW,0);
+         display_screen(current_screen);
+      } else {
+         TheEditorClipboardCapture capture;
+         size_t length=strlen((char *)params),offset;
+         CHARTYPE *typed=(*the_malloc)(length+1);
+         if(!typed) { TRACE_RETURN(); return RC_OUT_OF_MEMORY; }
+         for(offset=0;offset<length;offset++) typed[offset]=params[offset]<128 ? case_translate(params[offset]) : params[offset];
+         typed[length]=0;
+         rc=the_editor_clipboard_capture(0,&capture);
+         if(!rc) rc=the_editor_clipboard_paste(capture.token,typed,length);
+         the_editor_clipboard_release(&capture); (*the_free)(typed);
+         if(rc) display_error(0,(CHARTYPE *)the_editor_clipboard_error_message(),FALSE);
          TRACE_RETURN();
-         return(rc);
+         return rc;
       }
-      first_line = CURRENT_FILE->first_line->next;
-      zone_row = get_row_for_focus_line(current_screen,
-                                        CURRENT_VIEW->focus_line,
-                                        CURRENT_VIEW->current_row);
-      logical = logical_cursor_from_cell(LOGICAL_CURSOR_ZONE_FILEAREA,
-                                         CURRENT_VIEW->focus_line,
-                                         zone_row, first_line->line,
-                                         first_line->length, 0,
-                                         TEXT_SNAP_BACKWARD, 1);
-      logical_cursor_state_focus(&CURRENT_VIEW->logical_cursor, logical);
-      (void)execute_move_cursor(current_screen, CURRENT_VIEW, 0);
    }
    /*
     * If HEX mode is on, convert the hex string...

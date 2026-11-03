@@ -36,7 +36,10 @@ use it instead of assuming a system library or sibling build is selected.
 | Native exact-byte FILE stdin, finite EOF, atomic CREATE, collision/policy/storage failure preservation and open-buffer refusal | `test_workbenchfileio`, `test_workbench_fileio_runtime`; unsupported host/mode admission also uses `test_workbench` |
 | Owner-bound native source tools, candidate references, argv, pending snapshots and process completion | `test_native_process`, `test_workbench_native_tools_runtime`, `test_workbench_native_tools_curses`, `test_inputevent`, `test_workbench_native_tools_browser`; actual ooRexx uses explicit `THE_TEST_OOREXX_EXECUTABLE`; rebuilt Wasm checks host refusal |
 | Typed file actions, no-view startup, owner-polled completion and Program visibility after Build | `test_file_snapshot`, `test_toolhost` |
-| GTK contextual Build/Run/Apply, profile replacement, separate output readers and one stdin record per submission | `test_gtk_input`, `test_gtk_runtime`; the runtime journey requires a working display and a matching native tool bundle |
+| New/first input, Unicode multiline selection replacement, pending export, refusal, complete Undo and exact saved bytes | `test_editorclipboard_runtime_CREXX`, `test_editorclipboard_runtime_REGINA`; real Wasm uses `wasm-editing-clipboard.mjs` through the browser smoke harness |
+| Current-file GUI settings, profile shortcut authority and no byte/caret/dirty mutation | `test_gui_settings_runtime` |
+| Native WebSocket clipboard framing, escaped receipts, large Unicode paste and refusal | `test_native_clipboard_web` when the native web driver is enabled |
+| GTK contextual Build/Run/Apply, profile replacement, clipboard targets, font persistence/metrics, sectioned setup and separate readers/input | `test_gtk_input`, `test_gtk_runtime`; the runtime journey requires a working display and a matching native tool bundle |
 | Panels, protection, submit/cancel, footer/caret restoration and resumed save | `test_panels`, `test_panel_curses`, browser panel tests |
 | Windows console mode before/after quiet shell commands | `test_windows_console_mode_CREXX`, `test_windows_console_mode_REGINA` on Windows |
 | Parser synchronization, diagnostics and buffer identity | `test_sdslh_integration`, `test_sdslh_multifile_lifecycle`, `test_the_llm_parser_diagnostics`, web highlighting tests |

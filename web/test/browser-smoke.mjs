@@ -277,6 +277,7 @@ try {
   await waitFor(() => evaluate("!document.querySelector('.menu-popover') && document.activeElement.classList.contains('input-sink')"), "Menu Escape restores editor focus");
   await evaluate("document.querySelector('.menu-trigger').click()");
   await waitFor(() => evaluate("!!document.querySelector('.menu-popover')"), "application Menu reopened");
+  await evaluate("[...document.querySelectorAll('.menu-groups button')].find(node=>node.textContent==='Help').click()");
   await evaluate("[...document.querySelectorAll('.menu-popover button')].find(node=>node.textContent.trim()==='Key definitions').click()");
   await waitFor(() => evaluate("[...document.querySelectorAll('.line-text')].some(n=>n.textContent.toLowerCase().includes('define '))"), "complete key definitions");
   const keyBuffer = await evaluate("document.querySelector('.buffer-tab-current span').textContent.trim()");
@@ -482,6 +483,8 @@ try {
   await navigationCommand(`workbench item put user.tools user.saveitem label "${poisonedLabel.replaceAll('"', '""')}" action user.save`);
   await navigationCommand('workbench commit');
   await evaluate("document.querySelector('.menu-trigger').click()");
+  await waitFor(() => evaluate("!!document.querySelector('[data-group-id=\"user.tools\"]')"), "profile menu group");
+  await evaluate("document.querySelector('[data-group-id=\"user.tools\"]').click()");
   await waitFor(() => evaluate("!!document.querySelector('[data-menu-id=\"user.tools\"] button')"), "published profile menu in native Chrome");
   if (!await evaluate(`document.querySelector('[data-menu-id="user.tools"] button span').textContent === ${JSON.stringify(poisonedLabel)} && !document.querySelector('.menu-popover img') && !window.poisoned`))
     throw new Error("workbench label changed markup or text");
@@ -493,6 +496,8 @@ try {
   await navigationCommand('workbench item put user.tools user.saveitem label "Replaced Save" action user.save');
   await navigationCommand('workbench commit');
   await evaluate("document.querySelector('.menu-trigger').click()");
+  await waitFor(() => evaluate("!!document.querySelector('[data-group-id=\"user.tools\"]')"), "profile menu group");
+  await evaluate("document.querySelector('[data-group-id=\"user.tools\"]').click()");
   await waitFor(() => evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button span')?.textContent === 'Replaced Save'"), "replaced shared menu");
   const newGeneration = +(await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button').dataset.generation"));
   if (newGeneration <= oldGeneration) throw new Error("replaced action did not advance generation");
@@ -568,7 +573,7 @@ try {
     });
     const logBeforeInput = await evaluate("window.__snapshot");
     if (logBeforeInput.buffer.dirty || !logBeforeInput.focus) throw Error('LOG output changed editor state');
-    await evaluate("[...document.querySelectorAll('.auxiliary-tabs [role=tab]')].find(node=>node.textContent==='Program console').click()");
+    await evaluate("document.querySelector('.pane-switcher .console-toggle').click()");
     await evaluate("document.querySelector('#rexx-input').focus()");
     await command('Input.dispatchKeyEvent', {type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13,text:'\r'});
     await command('Input.dispatchKeyEvent', {type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});

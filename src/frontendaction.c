@@ -12,7 +12,11 @@ static const TheFrontendActionDefinition frontend_actions[] =
    { THE_FRONTEND_ACTION_FILE_CLOSE, "file.close", "File", "Close", 0 },
    { THE_FRONTEND_ACTION_BUFFER_SWITCH, "buffer.switch", NULL,
      "Switch", 1 },
-   { THE_FRONTEND_ACTION_EDIT_UNDO, "edit.undo", "Edit", "Undo", 0 }
+   { THE_FRONTEND_ACTION_EDIT_UNDO, "edit.undo", "Edit", "Undo", 0 },
+   { THE_FRONTEND_ACTION_EDIT_CUT, "edit.cut", "Edit", "Cut", 0 },
+   { THE_FRONTEND_ACTION_EDIT_COPY, "edit.copy", "Edit", "Copy", 0 },
+   { THE_FRONTEND_ACTION_EDIT_PASTE, "edit.paste", "Edit", "Paste", 0 },
+   { THE_FRONTEND_ACTION_EDIT_SELECT_ALL, "edit.select-all", "Edit", "Select All", 0 }
 };
 
 static int frontend_action_argument_is_safe(const char *argument)

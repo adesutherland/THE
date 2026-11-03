@@ -8,6 +8,8 @@ import { tmpdir } from "node:os";
 import { extname, join, resolve } from "node:path";
 import WebSocket, { WebSocketServer } from "ws";
 import "./form-coordinator-smoke.mjs";
+import "./edit-actions-smoke.mjs";
+import "./selection-presentation.mjs";
 import "./file-field-coordinator-smoke.mjs";
 
 const chromium = process.env.CHROMIUM_BIN;
@@ -71,6 +73,8 @@ const snapshot = {
 };
 const tools = {
   type: "tools", version: 1, visible: false, omitted: false, chunks: [],
+  editorSettings: { lineNumbers: true, prefix: true, wordwrap: false, insertMode: true, tabIncrement: 8,
+    scope: "current-file", provenance: "profile-defined-or-unknown", frontendKeys: ["C-S", "C-O", "C-N", "C-W", "C-Z", "C-F", "C-G", "C-C", "C-X", "C-V", "C-A"] },
   job: { id: 0, sourceId: 1, revision: 3, running: false, waiting: false, eof: false, state: "Ready", filename: "/workspace/example.rexx", tool: "classic-rexx" },
   build: { job: { id: 0, sourceId: 0, revision: 0, running: false, waiting: false, eof: false, state: "Ready", filename: "", tool: "" }, omitted: false, chunks: [] },
   currentFile: { sourceId: 1, revision: 3, path: "/workspace/example.rexx", actions: [
@@ -346,6 +350,10 @@ async function setInput(selector, value) {
 async function pane(label) {
   await evaluate(`[...document.querySelectorAll('.pane-switcher button')].find(n=>n.textContent.startsWith(${JSON.stringify(label)})).click()`);
 }
+async function menuGroup(label, id) {
+  if (id) await evaluate(`document.querySelector(${JSON.stringify(`[data-group-id="${id}"]`)}).click()`);
+  else await evaluate(`[...document.querySelectorAll('.menu-groups button')].find(node=>node.textContent===${JSON.stringify(label)}).click()`);
+}
 async function key(key, modifiers = 0) {
   const keyCodes = { F10: 121, F6: 117, Escape: 27, ArrowDown: 40, ArrowUp: 38, Home: 36, End: 35, Enter: 13, Tab: 9 };
   const parameters = { key, code: key, windowsVirtualKeyCode: keyCodes[key], modifiers };
@@ -414,9 +422,9 @@ try {
   for (const [width, height] of [[390, 844], [800, 700]]) {
     await viewport(width, height);
     assert.equal(await evaluate("!document.querySelector('.workspace').matches('.files-open,.aux-open')"), true, "auxiliary panes are hidden");
-    const workspace = await geometry(".workspace"), editor = await geometry(".editor-pane"), controls = await geometry(".mobile-aux-tabs"), surface = await geometry(".editor-scroll");
-    assert(Math.abs(editor.bottom - controls.top) < 1, `closed-pane editor meets controls at ${width}x${height}`);
-    assert(Math.abs(controls.bottom - workspace.bottom) < 1, `closed-pane editor fills remaining workspace at ${width}x${height}`);
+    const workspace = await geometry(".workspace"), editor = await geometry(".editor-pane"), controls = await geometry(".pane-switcher"), surface = await geometry(".editor-scroll");
+    assert(controls.bottom <= editor.top, `pane switches precede the editor at ${width}x${height}`);
+    assert(Math.abs(editor.bottom - workspace.bottom) < 1, `closed-pane editor fills remaining workspace at ${width}x${height}`);
     assert.equal(await evaluate("document.querySelector('.workspace').scrollHeight<=document.querySelector('.workspace').clientHeight+1"), true, "closed panes do not require workspace scrolling");
     closedPaneGeometry.push({ width, height, workspace: workspace.height, editor: editor.height, surface: surface.height, controls: controls.height });
     if (process.env.THE_WORKBENCH_SCREENSHOTS) {
@@ -523,7 +531,7 @@ try {
     await evaluate(`window.menuInvoker=document.querySelector(${JSON.stringify(selector)});window.menuInvoker.focus()`);
     assert.equal(await evaluate("document.activeElement===window.menuInvoker"), true, `focus ${selector}`);
     await key("F10");
-    await wait(() => evaluate("document.activeElement===document.querySelector('.menu-popover button')"), `F10 focuses first action from ${selector}`);
+    await wait(() => evaluate("document.activeElement===document.querySelector('.menu-items button')"), `F10 focuses first action from ${selector}`);
     await key("Escape");
     await wait(() => evaluate("!document.querySelector('.menu-popover') && document.activeElement===window.menuInvoker"), `Escape restores ${selector}`);
   }
@@ -533,26 +541,26 @@ try {
 
   await evaluate("document.querySelector('.input-sink').focus()");
   await key("F10");
-  await wait(() => evaluate("document.activeElement===document.querySelector('.menu-popover button')"), "menu keyboard starting point");
+  await wait(() => evaluate("document.activeElement===document.querySelector('.menu-items button')"), "menu keyboard starting point");
   assert.equal(await evaluate("getComputedStyle(document.activeElement).backgroundColor"), "rgb(38, 79, 120)", "keyboard menu selection uses the shared blue highlight");
   await key("ArrowDown");
   assert.equal(await evaluate("document.activeElement.querySelector('span')?.textContent"), "Save", "Down selects next menu action");
   await key("ArrowUp");
   assert.equal(await evaluate("document.activeElement.querySelector('span')?.textContent"), "Open", "Up selects previous menu action");
   await key("ArrowUp");
-  assert.equal(await evaluate("document.activeElement.textContent"), "About CRXTHE", "Up wraps to the last menu action");
+  assert.equal(await evaluate("document.activeElement.querySelector('span')?.textContent"), "Create", "Up wraps within the File group");
   await key("ArrowDown");
   assert.equal(await evaluate("document.activeElement.querySelector('span')?.textContent"), "Open", "Down wraps to the first menu action");
   await key("End");
-  assert.equal(await evaluate("document.activeElement.textContent"), "About CRXTHE", "End selects last menu action");
+  assert.equal(await evaluate("document.activeElement.querySelector('span')?.textContent"), "Create", "End selects last File action");
   await key("Home");
   assert.equal(await evaluate("document.activeElement.querySelector('span')?.textContent"), "Open", "Home selects first menu action");
   await key("Tab");
   assert.equal(await evaluate("document.activeElement.querySelector('span')?.textContent"), "Save", "Tab traverses ordinary menu buttons");
   await key("Tab", 8);
   await key("Tab", 8);
-  assert.equal(await evaluate("document.activeElement.classList.contains('menu-trigger')"), true, "Shift-Tab can leave menu items for the trigger");
-  await key("Tab");
+  assert.equal(await evaluate("document.activeElement.closest('.menu-groups')!==null"), true, "Shift-Tab reaches the group controls");
+  await key("F10");
   await key("ArrowDown");
   const savesBeforeMenu = received.filter((message) => message.type === "action" && message.action === "file.save").length;
   await key("Enter");
@@ -591,7 +599,7 @@ try {
   // Path dialogs and macro panels retain function-key ownership.
   await evaluate("document.querySelector('.input-sink').focus()");
   await key("F10");
-  await wait(() => evaluate("document.activeElement===document.querySelector('.menu-popover button')"), "menu before path dialog");
+  await wait(() => evaluate("document.activeElement===document.querySelector('.menu-items button')"), "menu before path dialog");
   await key("ArrowDown");
   await key("ArrowDown");
   await key("Enter");
@@ -605,14 +613,14 @@ try {
   await wait(() => evaluate("!document.querySelector('.path-dialog')"), "path prompt closes before next menu");
   await evaluate("document.querySelector('#the-command').focus()");
   await key("F10");
-  await wait(() => evaluate("document.activeElement===document.querySelector('.menu-popover button')"), "command opened menu");
+  await wait(() => evaluate("document.activeElement===document.querySelector('.menu-items button')"), "command opened menu");
   await evaluate("[...document.querySelectorAll('.menu-popover button')].find(node=>node.textContent.trim().startsWith('Create')).click()");
   await wait(() => evaluate("document.activeElement.id==='file-path'"), "command invoked path prompt");
   await key("Escape");
   await wait(() => evaluate("document.activeElement.id==='the-command'"), "Escape returns to command input");
   await evaluate("document.querySelector('#rexx-input').focus()");
   await key("F10");
-  await wait(() => evaluate("document.activeElement===document.querySelector('.menu-popover button')"), "program input opened menu");
+  await wait(() => evaluate("document.activeElement===document.querySelector('.menu-items button')"), "program input opened menu");
   await evaluate("[...document.querySelectorAll('.menu-popover button')].find(node=>node.textContent.trim().startsWith('Create')).click()");
   await wait(() => evaluate("document.activeElement.id==='file-path'"), "program input invoked path prompt");
   await evaluate("document.querySelector('.dialog-actions button[type=button]').click()");
@@ -714,17 +722,17 @@ try {
   await evaluate("document.querySelector('[aria-label=\"Hide program console\"]').click()"); await pane("Console");
   await viewport(390, 844);
   assert.equal(await evaluate("document.documentElement.scrollWidth<=innerWidth"), true, "phone shell has no horizontal overflow");
-  assert.equal((await geometry(".pane-switcher")).visible, false, "phone has one auxiliary selector");
-  assert.equal((await geometry(".mobile-aux-tabs")).visible, true);
+  assert.equal((await geometry(".pane-switcher")).visible, true, "phone uses the same pane switcher");
+  assert.equal(await evaluate("document.querySelectorAll('.pane-switcher').length"), 1);
   assert.equal(await evaluate("!!document.querySelector('.diagnostics, .diagnostic-row')"), false,
     "phone has no Diagnostics pane");
-  assert.equal(await evaluate("[...document.querySelectorAll('.mobile-aux-tabs button')].some(button => button.textContent.startsWith('Diagnostics'))"), false,
+  assert.equal(await evaluate("[...document.querySelectorAll('.pane-switcher button')].some(button => button.textContent.startsWith('Diagnostics'))"), false,
     "phone controls use the same editor/status diagnostic presentation");
   await viewport(390, 844);
-  await evaluate("[...document.querySelectorAll('.mobile-aux-tabs button')].find(n=>n.textContent==='Files').click()");
+  await evaluate("[...document.querySelectorAll('.pane-switcher button')].find(n=>n.textContent==='Files').click()");
   await wait(() => evaluate("document.querySelector('.workspace').classList.contains('mobile-pane-files')"), "phone files selection");
-  assert.equal((await geometry(".mobile-aux-tabs")).visible, true, "selector remains available with Files selected");
-  await evaluate("[...document.querySelectorAll('.mobile-aux-tabs button')].find(n=>n.textContent.startsWith('Console')).click()");
+  assert.equal((await geometry(".pane-switcher")).visible, true, "selector remains available with Files selected");
+  await evaluate("[...document.querySelectorAll('.pane-switcher button')].find(n=>n.textContent.startsWith('Console')).click()");
   await wait(() => evaluate("document.querySelector('.workspace').classList.contains('mobile-pane-console')"), "phone program console selection");
   const editor = await geometry(".editor-pane"), commands = await geometry(".command-area"), programConsole = await geometry(".rexx-dock");
   assert(editor.top < commands.top && commands.bottom <= programConsole.top && programConsole.right <= 390, "phone editor/command/console vertical flow");
@@ -741,12 +749,13 @@ try {
   assert.equal(await evaluate("document.querySelector('.file-action-run').disabled && document.querySelector('.current-file-status').textContent.includes('Program running')"), true, "phone shows running state beside disabled Run");
   await evaluate("document.querySelector('.input-sink').focus()");
   await key("Tab", 8);
-  assert.equal(await evaluate("document.activeElement===document.querySelector('.mobile-aux-tabs .console-toggle')"), true, "phone Shift-Tab reaches visible Console");
+  assert.equal(await evaluate("document.activeElement===document.querySelector('.pane-switcher .console-toggle')"), true, "phone Shift-Tab reaches visible Console");
   await key("Tab", 8);
   assert.equal(await evaluate("document.activeElement===document.querySelector('.menu-trigger')"), true, "phone next Shift-Tab reaches Menu");
   await evaluate("document.querySelector('.input-sink').focus();document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'F10',bubbles:true,cancelable:true}))");
   assert.equal(await evaluate("document.querySelectorAll('.menu-trigger').length"), 1);
   assert((await geometry(".menu-popover")).right <= 390, "phone menu fits");
+  await menuGroup("Help");
   await evaluate("[...document.querySelectorAll('.menu-popover button')].find(n=>n.textContent==='About CRXTHE').click()");
   assert.equal(await evaluate("document.querySelector('.about-menu').getAttribute('aria-label')"), "About CRXTHE");
   assert.equal(await evaluate("document.querySelector('.about-menu').textContent.includes('Program console')"), true);
@@ -756,7 +765,8 @@ try {
   assert((await geometry(".about-menu")).right <= 390, "phone About fits");
   await wait(() => evaluate("document.querySelector('.about-menu').contains(document.activeElement)"), "About keyboard focus");
   await evaluate("document.activeElement.click()");
-  await wait(() => evaluate("!document.querySelector('.about-menu') && document.activeElement===document.querySelector('.menu-popover button')"), "About Back to Menu focus");
+  await wait(() => evaluate("!document.querySelector('.about-menu') && document.activeElement===document.querySelector('.menu-items button')"), "About Back to Menu focus");
+  await menuGroup("Help");
   await evaluate("[...document.querySelectorAll('.menu-popover button')].find(n=>n.textContent==='About CRXTHE').click()");
   await wait(() => evaluate("document.querySelector('.about-menu').contains(document.activeElement)"), "About focus after reopening");
   await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))");
@@ -770,14 +780,20 @@ try {
   assert.equal(await evaluate("document.querySelector('#rexx-input').value"), "unsent input", "phone run retains unsent stdin draft");
   assert.equal(await evaluate("document.querySelector('#the-command').value"), "unsent command", "phone run retains editor command draft");
   await viewport(390, 450);
+  const expand = await geometry(".auxiliary-view-controls button");
+  assert(expand.top >= 0 && expand.bottom <= 451, "short viewport exposes Expand pane: " + JSON.stringify(expand));
+  await evaluate("document.querySelector('.auxiliary-view-controls button').click()");
   await evaluate("document.querySelector('#rexx-input').scrollIntoView({block:'nearest'})");
-  assert((await geometry("#rexx-input")).bottom <= 450, "program input stays reachable in a short phone viewport");
+  const shortInput = await geometry("#rexx-input");
+  assert(shortInput.bottom <= 451, "program input stays reachable in a short phone viewport: " + JSON.stringify({ input: shortInput, workspace: await geometry(".workspace"), rail: await geometry(".auxiliary-rail"), console: await geometry(".program-console-pane"), expand: await geometry(".auxiliary-view-controls") }));
+  await evaluate("document.querySelector('.auxiliary-view-controls button').click()");
+  assert.equal(await evaluate("document.querySelector('#rexx-input').value"), "unsent input", "expanded console preserves draft on return");
   for (const [width, height] of [[390, 844], [800, 700]]) {
     await viewport(width, height);
-    assert.equal(await evaluate("document.querySelector('.workspace').scrollHeight>document.querySelector('.workspace').clientHeight"), true, `open console keeps scrollable workspace at ${width}x${height}`);
+    assert.equal(await evaluate("document.querySelector('.workspace').scrollHeight<=document.querySelector('.workspace').clientHeight+1"), true, `open console fits the split workspace at ${width}x${height}`);
     await evaluate("document.querySelector('#rexx-input').scrollIntoView({block:'nearest'})");
     const input = await geometry("#rexx-input");
-    assert(input.top >= 0 && input.bottom <= height, `open console input remains reachable at ${width}x${height}`);
+    assert(input.top >= -1 && input.bottom <= height + 1, `open console input remains reachable at ${width}x${height}`);
   }
   await viewport(1920, 1080);
   assert.equal(await evaluate("window.originalConsole===document.querySelector('.rexx-dock')"), true, "layout and hiding preserve component identity");
@@ -797,7 +813,8 @@ try {
   const poisoned = 'Check / <img src=x onerror="window.poisoned=true">';
   publishWorkbench(2, 24, poisoned);
   await evaluate("document.querySelector('.input-sink').focus();document.querySelector('.menu-trigger').click()");
-  await wait(() => evaluate("!!document.querySelector('[data-menu-id=\"user.tools\"]')"), "profile menu published");
+  await wait(() => evaluate("!!document.querySelector('[data-group-id=\"user.tools\"]')"), "profile menu published");
+  await menuGroup("Tools", "user.tools");
   client.send(JSON.stringify({ type: "workbench", operation: "list", data: {
     schemaVersion: 1, revision: 2, section: "menus", total: 4, offset: 1, nextOffset: 2,
     records: [{ id: "user.tools", owner: "user.tools", label: "Stale Tools", generation: 24, order: 50 }],
@@ -805,12 +822,12 @@ try {
   const statusBeforeStalePage = snapshot.status_line;
   snapshot.status_line = "STALE_PAGE_BARRIER"; publishSnapshot();
   await wait(() => evaluate("document.querySelector('.profile-status')?.textContent === 'STALE_PAGE_BARRIER'"), "stale page delivery barrier");
-  assert.equal(await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] h2')?.textContent"),
+  assert.equal(await evaluate("document.querySelector('[data-group-id=\"user.tools\"]')?.textContent"),
     "Tools", "unversioned page cannot replace a numbered publication");
   snapshot.status_line = statusBeforeStalePage; publishSnapshot();
-  assert.deepEqual(await evaluate("[...document.querySelectorAll('.menu-popover section[data-menu-id]')].map(node=>node.dataset.menuId)"),
-    ["the.file", "user.tools", "user.zmenu", "user.amenu"], "equal menu order retains definition sequence");
-  assert.deepEqual(await evaluate("[...document.querySelector('[data-menu-id=\"user.tools\"]').children].slice(1).map(node=>node.dataset.itemId||node.tagName.toLowerCase())"),
+  assert.deepEqual(await evaluate("[...document.querySelectorAll('.menu-groups [data-group-id]')].map(node=>node.dataset.groupId).filter(id=>id.startsWith('user.'))"),
+    ["user.tools", "user.zmenu", "user.amenu"], "equal custom menu order retains definition sequence");
+  assert.deepEqual(await evaluate("[...document.querySelector('[data-menu-id=\"user.tools\"]').children].map(node=>node.dataset.itemId||node.tagName.toLowerCase())"),
     ["user.item", "user.zitem", "hr", "user.aitem", "user.bounditem"], "equal item order retains definition sequence including separator");
   assert.equal(await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button span').textContent"), poisoned, "profile label is plain text");
   assert.equal(await evaluate("!!document.querySelector('.menu-popover img') || !!window.poisoned"), false, "poisoned label cannot create markup");
@@ -835,6 +852,7 @@ try {
   await wait(() => evaluate("document.querySelector('.latest-response').textContent==='Original file pending action refused'"), "pending action ownership survives more than 400 messages");
   publishWorkbench(3, 25, "Replaced action");
   await evaluate("document.querySelector('.menu-trigger').click()");
+  await menuGroup("Tools", "user.tools");
   await wait(() => evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button span')?.textContent === 'Replaced action'"), "replaced menu item");
   assert.equal(await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button').dataset.generation"), "25");
   await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button').click()");
@@ -847,6 +865,7 @@ try {
   await wait(() => evaluate("document.querySelector('[data-action-id=\"the.file.save\"]')?.disabled === false"), "same-revision policy recovery refresh");
   const filesBeforeBoundOpen = received.filter((message) => message.type === "files").length;
   const explorerBeforeBoundOpen = await evaluate("!!document.querySelector('.file-explorer')");
+  await menuGroup("Tools", "user.tools");
   await evaluate("document.querySelector('[data-item-id=\"user.bounditem\"]').click()");
   await wait(() => received.some((message) => message.type === "workbench" && message.operation === "invoke" && message.action === "user.boundopen"), "bound Open invokes semantic action");
   assert.equal(received.filter((message) => message.type === "files").length, filesBeforeBoundOpen, "bound Open skips chooser request");
@@ -929,7 +948,7 @@ try {
   await wait(() => evaluate("document.activeElement?.classList.contains('named-log-output')"), "named panel keyboard focus");
   await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))");
   await wait(() => evaluate("document.activeElement?.id==='the-command'"), "named panel returns previous command focus");
-  await evaluate("[...document.querySelectorAll('.auxiliary-tabs [role=tab]')].find(node=>node.textContent==='Program console').click()");
+  await evaluate("document.querySelector('.pane-switcher .console-toggle').click()");
   await evaluate("(() => { const input=document.querySelector('#rexx-input');input.focus();input.setSelectionRange(2,6);document.querySelector('.named-log-toggle').click(); })()");
   await wait(() => evaluate("document.activeElement?.classList.contains('named-log-output')"), "named panel focus from Program input");
   await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))");
@@ -938,7 +957,7 @@ try {
     { value: "unsent input", start: 2, end: 6, visible: true }, "Escape restores Program draft and selection");
   await evaluate("document.querySelector('.named-log-toggle').click()");
   await wait(() => evaluate("document.activeElement?.classList.contains('named-log-output')"), "named panel focus before Program tab");
-  await evaluate("[...document.querySelectorAll('.auxiliary-tabs [role=tab]')].find(node=>node.textContent==='Program console').click()");
+  await evaluate("document.querySelector('.pane-switcher .console-toggle').click()");
   await wait(() => evaluate("document.activeElement?.id==='rexx-input'"), "Program tab returns input focus");
   assert.equal(await evaluate("document.querySelector('.program-console-pane').getClientRects().length>0 && document.querySelector('#rexx-input').selectionStart===2 && document.querySelector('#rexx-input').selectionEnd===6"), true,
     "Program tab restores pane and exact selection");
@@ -1225,6 +1244,100 @@ try {
   publishSnapshot();
   await evaluate(`(() => { const input=document.querySelector('#the-command');const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;setter.call(input,${JSON.stringify(localCommandDraft)});input.dispatchEvent(new Event('input',{bubbles:true})); })()`);
   assert(received.some((message) => message.type === "resize"));
+  // The focused native field/output remains the Edit target after opening a menu.
+  await viewport(820, 720);
+  tools.job.running = true; tools.job.eof = false; tools.job.state = "Waiting"; publishTools();
+  tools.profile.build = { sourceId: snapshot.source.id, revision: snapshot.source.revision, image: "/workspace/Squares.rxbin",
+    state: "ready", role: "crexx-source", sourcePath: "/workspace/Squares.crexx", name: "Squares.rxbin" };
+  publishTools();
+  await pane("Tools & Profiles");
+  await evaluate("[...document.querySelectorAll('.tools-sections button')].find(n=>n.textContent==='Profiles').click()");
+  assert.equal(await evaluate("document.querySelector('.profile-build-state').textContent.includes('Squares')"), false, "a program build is not attributed to the profile");
+  await evaluate("[...document.querySelectorAll('.tools-sections button')].find(n=>n.textContent==='Build results').click()");
+  assert.equal(await evaluate("document.querySelector('.build-artifact').textContent.includes('Squares.rxbin')"), true, "program artifact is available in Build results");
+  await evaluate("[...document.querySelectorAll('.tools-sections button')].find(n=>n.textContent==='Profiles').click()");
+  assert.equal(await evaluate("document.querySelectorAll('.pane-switcher').length"), 1, "one pane switcher at 820x720");
+  assert.equal(await evaluate("document.querySelector('.mobile-aux-tabs,.auxiliary-tabs')===null"), true, "no duplicate auxiliary navigation");
+  assert((await geometry(".tools-profiles-pane")).height >= 220, "lower setup pane has useful height");
+  assert((await geometry(".editor-status")).bottom <= (await geometry(".tools-profiles-pane")).top, "profile footer remains beneath editor");
+  await evaluate("[...document.querySelectorAll('.tools-sections button')].find(n=>n.textContent==='File types & tools').click()");
+  assert((await geometry(".run-setup")).visible && !(await geometry(".profile-setup")).visible, "file types and runners are directly accessible");
+  await setInput("[aria-label='Program arguments']", "retained tools draft");
+  await evaluate("[...document.querySelectorAll('.tools-sections button')].find(n=>n.textContent==='Profiles').click()");
+  assert.equal(await evaluate("document.querySelector('[aria-label=\"Program arguments\"]').value"), "retained tools draft", "internal section switch retains draft");
+  await evaluate("document.querySelector('.auxiliary-view-controls button').click()");
+  assert(!(await geometry(".editor-pane")).visible && (await geometry(".tools-profiles-pane")).height >= 400, "expanded setup view is usable");
+  assert(Math.abs((await geometry(".auxiliary-rail")).width - 820) <= 1, "expanded auxiliary pane uses full viewport width even while Files is open");
+  assert.equal(await evaluate("document.querySelector('.auxiliary-view-controls button').textContent"), "Return to editor");
+  await evaluate("document.querySelector('.auxiliary-view-controls button').click()");
+  assert((await geometry(".editor-pane")).visible, "return restores the editor");
+  assert((await geometry("[aria-label='Resize lower pane']")).visible, "lower resizer is discoverable");
+  await viewport(820, 500);
+  const shortCommand = await geometry("#the-command"), shortExpand = await geometry(".auxiliary-view-controls button");
+  assert(shortCommand.top >= 0 && shortCommand.bottom <= 501 && shortCommand.bottom <= shortExpand.top && shortExpand.bottom <= 501, "820x500 normal mode reserves the complete command row above Expand");
+  assert(!(await geometry(".tools-profiles-pane")).visible, "short normal mode keeps the auxiliary body behind explicit Expand");
+  await evaluate("document.querySelector('.auxiliary-view-controls button').click()");
+  assert((await geometry(".tools-profiles-pane")).visible, "short Expand reveals the auxiliary body");
+  await evaluate("document.querySelector('.auxiliary-view-controls button').click()");
+  await viewport(820, 720);
+  await evaluate("Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.clipboardWritten=text},readText:async()=>window.clipboardText||''}})");
+  await setInput("#the-command", "native command draft");
+  await evaluate("document.querySelector('#the-command').focus();document.querySelector('#the-command').setSelectionRange(7,14)");
+  await key("F10"); await menuGroup("Edit");
+  await evaluate("document.querySelector('[data-action-id=\"edit.copy\"]').click()");
+  await wait(() => evaluate("window.clipboardWritten==='command'"), "Edit Copy uses native command selection");
+  assert.equal(await evaluate("document.querySelectorAll('.interaction-notice').length===1 && document.querySelector('.interaction-notice').closest('.command-area')!==null"), true, "clipboard feedback uses one existing footer route");
+  assert.equal(await evaluate("document.querySelector('#the-command').value"), "native command draft");
+  await evaluate("window.clipboardText='replacement';document.querySelector('#the-command').focus();document.querySelector('#the-command').setSelectionRange(7,14)");
+  await key("F10"); await menuGroup("Edit");
+  await evaluate("document.querySelector('[data-action-id=\"edit.paste\"]').click()");
+  await wait(() => evaluate("document.querySelector('#the-command').value==='native replacement draft'"), "Edit Paste replaces focused native selection");
+  assert.deepEqual(await evaluate("[document.querySelector('#the-command').selectionStart,document.querySelector('#the-command').selectionEnd]"), [18,18], "native Paste retains the caret after inserted text");
+  await key("F10"); await menuGroup("Edit");
+  await evaluate("document.querySelector('[data-action-id=\"edit.select-all\"]').click()");
+  await wait(() => evaluate("document.querySelector('#the-command').selectionStart===0 && document.querySelector('#the-command').selectionEnd===document.querySelector('#the-command').value.length"), "Edit Select All uses focused native field");
+  await evaluate("document.querySelector('#the-command').setSelectionRange(7,18)");
+  await key("F10"); await menuGroup("Edit");
+  await evaluate("document.querySelector('[data-action-id=\"edit.cut\"]').click()");
+  await wait(() => evaluate("document.querySelector('#the-command').value==='native  draft' && window.clipboardWritten==='replacement'"), "Edit Cut writes clipboard then removes native selection");
+  assert.deepEqual(await evaluate("[document.querySelector('#the-command').selectionStart,document.querySelector('#the-command').selectionEnd]"), [7,7], "native Cut retains the caret at removed selection");
+  await setInput("#the-command", "native command draft");
+  await evaluate("navigator.clipboard.writeText=async()=>{throw new DOMException('Clipboard permission denied','NotAllowedError')};document.querySelector('#the-command').focus();document.querySelector('#the-command').setSelectionRange(7,14)");
+  await key("F10"); await menuGroup("Edit");
+  await evaluate("document.querySelector('[data-action-id=\"edit.cut\"]').click()");
+  await wait(() => evaluate("document.querySelector('.interaction-notice').textContent.includes('permission denied')"), "clipboard denial visible");
+  assert.equal(await evaluate("document.querySelector('#the-command').value"), "native command draft", "denied cut retains draft bytes");
+  await evaluate("navigator.clipboard.writeText=async text=>{window.clipboardWritten=text}");
+  await pane("Console");
+  await setInput("#rexx-input", "retained program draft");
+  const inputRequestsBeforePaste = received.filter(message=>message.type==='tool'&&message.action==='input').length;
+  await evaluate("(() => {const input=document.querySelector('#rexx-input');input.focus();const data=new DataTransfer();data.setData('text/plain','first\\nsecond');input.dispatchEvent(new ClipboardEvent('paste',{bubbles:true,cancelable:true,clipboardData:data}));})()");
+  assert.equal(await evaluate("document.querySelector('#rexx-input').value"), "retained program draft", "multiline Program paste retains draft");
+  assert.equal(received.filter(message=>message.type==='tool'&&message.action==='input').length, inputRequestsBeforePaste, "multiline paste never Sends program input");
+  assert.equal(await evaluate("document.querySelector('.interaction-notice').textContent.includes('one record')"), true);
+  await evaluate("(() => {const output=document.querySelector('.console-output');output.focus();const range=document.createRange();range.selectNodeContents(output);const selection=getSelection();selection.removeAllRanges();selection.addRange(range);window.expectedOutputCopy=selection.toString();})()");
+  assert.equal(await evaluate("document.activeElement===document.querySelector('.console-output')"), true, "read-only output owns physical focus before Copy");
+  assert((await evaluate("window.expectedOutputCopy.length")) > 0, "read-only output fixture has selected bytes");
+  await key("F10"); await menuGroup("Edit");
+  await evaluate("document.querySelector('[data-action-id=\"edit.copy\"]').click()");
+  try {
+    await wait(() => evaluate("window.clipboardWritten===window.expectedOutputCopy"), "read-only output Copy retains browser selection through menu");
+  } catch (error) {
+    console.error("Readonly Copy diagnostic", await evaluate("({written:window.clipboardWritten?.slice(0,100),writtenLength:window.clipboardWritten?.length,expected:window.expectedOutputCopy?.slice(0,100),expectedLength:window.expectedOutputCopy?.length,active:document.activeElement?.outerHTML?.slice(0,150),notice:document.querySelector('.latest-response')?.textContent,visible:!!document.querySelector('.console-output').getClientRects().length})"));
+    throw error;
+  }
+  await evaluate("document.querySelector('.input-sink').focus()"); await key("F10"); await menuGroup("View");
+  await evaluate("document.querySelector('[data-action-id=\"gui.settings\"]').click()");
+  assert((await geometry(".settings-dialog")).visible, "Settings opens from View");
+  assert.equal(await evaluate("document.querySelector('.settings-content').textContent.includes('browser zoom')"), true);
+  await evaluate("[...document.querySelectorAll('.settings-nav button')].find(n=>n.textContent==='Editor').click()");
+  const settingsCommandsBefore = received.filter(message=>message.type==='command').length;
+  await evaluate("document.querySelector('.settings-content input[type=checkbox]').click()");
+  await wait(() => received.filter(message=>message.type==='command').length > settingsCommandsBefore, "Settings applies core command");
+  assert.equal(received.filter(message=>message.type==='command').at(-1).command, "SET NUMBER OFF", "Settings uses command authority");
+  assert.equal(await evaluate("document.querySelector('.interaction-notice')===null"), true, "next deliberate command clears clipboard feedback");
+  await key("Escape");
+  assert.equal(await evaluate("document.querySelector('.settings-dialog')===null"), true);
   assert.deepEqual(exceptions, []);
   if (process.env.THE_WORKBENCH_SCREENSHOTS) {
     const destination = resolve(process.env.THE_WORKBENCH_SCREENSHOTS);
@@ -1238,12 +1351,12 @@ try {
       const screenshot = await cdp("Page.captureScreenshot", { format: "png" });
       await writeFile(join(destination, `workbench-${width}.png`), Buffer.from(screenshot.data, "base64"));
       if (width === 390 || width === 1280) {
-        const paneSelector = width === 390 ? ".mobile-aux-tabs" : ".pane-switcher";
+        const paneSelector = width === 390 ? ".pane-switcher" : ".pane-switcher";
         await evaluate(`document.querySelector(${JSON.stringify(paneSelector + " .tools-toggle")}).click()`);
         await wait(() => evaluate("!!document.querySelector('.tools-profiles-pane')?.getClientRects().length"), "screenshot Tools and profiles pane");
         const toolsImage = await cdp("Page.captureScreenshot", { format: "png" });
         await writeFile(join(destination, `workbench-${width}-tools.png`), Buffer.from(toolsImage.data, "base64"));
-        await evaluate("document.querySelector('.mobile-aux-tabs .console-toggle').click()");
+        await evaluate("document.querySelector('.pane-switcher .console-toggle').click()");
         await wait(() => evaluate("!!document.querySelector('.rexx-dock')?.getClientRects().length"), "screenshot Program console pane");
         await evaluate("document.querySelector('#rexx-input').scrollIntoView({block:'nearest'})");
         const consoleImage = await cdp("Page.captureScreenshot", { format: "png" });

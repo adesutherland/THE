@@ -36,7 +36,7 @@ int main(void)
    TheFrontendActionId id = THE_FRONTEND_ACTION_NONE;
    const TheFrontendActionDefinition *definition;
 
-   expect_true("registry count", the_frontend_action_definition_count() == 6);
+   expect_true("registry count", the_frontend_action_definition_count() == 10);
    expect_true("lookup save",
                the_frontend_action_id_from_name("file.save", &id)
                && id == THE_FRONTEND_ACTION_FILE_SAVE);
@@ -54,6 +54,14 @@ int main(void)
    expect_command("save", "file.save", "", "save");
    expect_command("close", "file.close", "", "quit");
    expect_command("undo", "edit.undo", "", "sos undo");
+   expect_true("copy target action", the_frontend_action_from_name("edit.copy","",&action)
+               && action.id==THE_FRONTEND_ACTION_EDIT_COPY);
+   expect_true("cut target action", the_frontend_action_from_name("edit.cut","",&action)
+               && action.id==THE_FRONTEND_ACTION_EDIT_CUT);
+   expect_true("paste target action", the_frontend_action_from_name("edit.paste","",&action)
+               && action.id==THE_FRONTEND_ACTION_EDIT_PASTE);
+   expect_true("select all target action", the_frontend_action_from_name("edit.select-all","",&action)
+               && action.id==THE_FRONTEND_ACTION_EDIT_SELECT_ALL);
 
    expect_true("reject unknown",
                !the_frontend_action_from_name("file.delete", "x", &action));

@@ -39,6 +39,7 @@
 #include "inputevent.h"
 #include "inputdispatch.h"
 #include "editordocument.h"
+#include "editorclipboard.h"
 #ifdef USE_UTF8
 # include "textpos.h"
 #endif
@@ -458,10 +459,17 @@ static int document_process_key(int key, bool mouse_details_present,int *guarded
 
    if (text_event_len > 0)
    {
-      if ( INTERFACEx == INTERFACE_CUA
-      &&  CURRENT_VIEW->mark_type == M_CUA )
+      if ( INTERFACEx == INTERFACE_CUA && CURRENT_VIEW->current_window==WINDOW_FILEAREA
+      && MARK_VIEW==CURRENT_VIEW && CURRENT_VIEW->mark_type==M_CUA
+      && (CURRENT_VIEW->marked_line || CURRENT_VIEW->marked_col) )
       {
-         ResetOrDeleteCUABlock( CUA_DELETE_BLOCK );
+         TheEditorClipboardCapture capture;
+         if(text_event_len==1 && string_key[0]<128) string_key[0]=case_translate(string_key[0]);
+         rc=the_editor_clipboard_capture(0,&capture);
+         if(!rc) rc=the_editor_clipboard_paste(capture.token,string_key,(size_t)text_event_len);
+         the_editor_clipboard_release(&capture);
+         if(rc) display_error(0,(CHARTYPE *)the_editor_clipboard_error_message(),FALSE);
+         goto refresh_after_input;
       }
       (void)Text(string_key);
    }
@@ -478,10 +486,17 @@ static int document_process_key(int key, bool mouse_details_present,int *guarded
           * if the block should be reset or deleted before executing
           * the command.
           */
-         if ( INTERFACEx == INTERFACE_CUA
-         &&  CURRENT_VIEW->mark_type == M_CUA )
+         if ( INTERFACEx == INTERFACE_CUA && CURRENT_VIEW->current_window==WINDOW_FILEAREA
+         && MARK_VIEW==CURRENT_VIEW && CURRENT_VIEW->mark_type==M_CUA
+         && (CURRENT_VIEW->marked_line || CURRENT_VIEW->marked_col) )
          {
-            ResetOrDeleteCUABlock( CUA_DELETE_BLOCK );
+            TheEditorClipboardCapture capture;
+            string_key[0]=case_translate(string_key[0]);
+            rc=the_editor_clipboard_capture(0,&capture);
+            if(!rc) rc=the_editor_clipboard_paste(capture.token,string_key,1);
+            the_editor_clipboard_release(&capture);
+            if(rc) display_error(0,(CHARTYPE *)the_editor_clipboard_error_message(),FALSE);
+            goto refresh_after_input;
          }
          (void)Text(string_key);
       }

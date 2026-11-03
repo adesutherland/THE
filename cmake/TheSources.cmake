@@ -21,6 +21,7 @@ set(THE_SOURCES
     src/editordocument.c
     src/editgroup.c
     src/editorgroup.c
+    src/editorclipboard.c
     src/toolhost.c
     src/tools.c
     src/workbench.c

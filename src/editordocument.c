@@ -69,6 +69,10 @@ int the_editor_document_inspection_command(const char *command)
    if (linend && strchr(p,delimiter)) return 0;
    if(the_editor_edit_group_command(p)) return 1;
    q=p;
+   if(word(&q,"SDSLHWAIT",9)) return 1;
+   q=p;
+   if(word(&q,"SOS",3) && word(&q,"UNDO",4)) { while(*q==' ' || *q=='\t') q++; if(!*q) return 1; }
+   q=p;
    if(word(&q,"WORKBENCH",9)) {
       const char *form=q,*operation=q;
       if(word(&operation,"FILE",4) && word(&operation,"INSPECT",7)) return 1;

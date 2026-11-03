@@ -75,6 +75,31 @@ redirect subsequent typing into the editor. Escape, F6 and deliberate pointer
 or keyboard navigation remain explicit ways to leave an input. This is distinct
 from the core's logical file/prefix/command cursor and from program stdin routing.
 
+### Selection, clipboard and GUI preferences
+
+`src/editorclipboard.c` owns plain-text export, target capture, structural
+replacement and complete Undo transactions. A capture pins document, view,
+revision, logical insertion zone and selection. GUI adapters capture before an
+asynchronous clipboard read and present that token for Paste. Cut requires a
+successful OS clipboard write before the core removes bytes. Stale captures,
+unsupported contexts, invalid text and allocation/limit failures refuse
+without publishing a partial edit. A source change prepares detached records
+and its Undo state before publication; pending records remain part of export.
+
+Browser/Wasm and native WebSocket adapters use version-1 `clipboard` messages
+with correlated `requestId`, operation, token and UTF-8 text. LLM exposes
+`clipboard capture|copy|selectAll|undo`, `clipboard paste TOKEN HEX`, and bounded
+`begin`/`chunk`/`commit` staging for large input. Overflow poisons the staged
+operation, preventing a truncated commit. Drivers own OS permissions, physical
+focus and native entry/output selection. The same editor owner validates bytes
+and publishes changes for every transport.
+
+`TheToolsFileSnapshot.editor_settings` projects live core values and stock
+shortcut eligibility; an explicit profile key definition overrides GUI shortcut
+adaptation. Driver Appearance preferences remain separate. GTK persists only
+its font preference; Editor settings invoke existing core commands and do not
+maintain a second settings store or rewrite profiles.
+
 ### Native alignment boundaries
 
 GTK projects shared menus, logs, documents, forms and editable file fields.

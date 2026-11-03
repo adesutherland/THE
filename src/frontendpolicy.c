@@ -463,6 +463,10 @@ int the_frontend_policy_prepare_action(TheFrontendAction *action,
          return the_frontend_policy_current_file_writable(error, error_len);
       case THE_FRONTEND_ACTION_FILE_CLOSE:
       case THE_FRONTEND_ACTION_EDIT_UNDO:
+      case THE_FRONTEND_ACTION_EDIT_COPY:
+      case THE_FRONTEND_ACTION_EDIT_CUT:
+      case THE_FRONTEND_ACTION_EDIT_PASTE:
+      case THE_FRONTEND_ACTION_EDIT_SELECT_ALL:
          return 1;
       case THE_FRONTEND_ACTION_NONE:
       default:

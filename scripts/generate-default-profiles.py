@@ -48,8 +48,15 @@ def generated():
         # Shared session definitions are data. A successful profile activation
         # publishes this graph; declaring it never invokes the commands.
         workbench = ['workbench begin owner profile.default',
-                     'workbench reset owner profile.default',
-                     'workbench menu put profile.workbench label "Workbench" order 30']
+                     'workbench reset owner profile.default']
+        placements = {}
+        for group in data['native_menu_groups']:
+            workbench.append('workbench menu put ' + group['id'] + ' label "' +
+                             group['label'] + '" order ' + str(group['order']))
+            for index in group['entries']:
+                if index in placements or not 1 <= index <= len(data['native_menu']):
+                    raise ValueError('native_menu_groups contains an invalid or repeated entry')
+                placements[index] = group['id']
         for index, (label, command) in enumerate(data.get('native_menu', []), 1):
             action = 'profile.action.' + str(index)
             item = 'profile.item.' + str(index)
@@ -57,10 +64,15 @@ def generated():
             escaped_command = command.format(suffix=suffix).replace('"', '""')
             builtin = {'save': 'file.save', 'quit': 'file.close', 'sos undo': 'edit.undo'}.get(command)
             invocation = ('builtin ' + builtin) if builtin else ('command "' + escaped_command + '"')
-            workbench += ['workbench action put ' + action + ' label "' + escaped_label +
-                          '" ' + invocation,
-                          'workbench item put profile.workbench ' + item + ' label "' +
-                          escaped_label + '" action ' + action + ' order ' + str(index)]
+            # Keep legacy IDs callable without duplicating builtin File/Edit
+            # rows or exposing profile administration beside every file.
+            workbench.append('workbench action put ' + action + ' label "' + escaped_label +
+                             '" ' + invocation)
+            if index in placements:
+                # Stock extensions follow the builtin File/Edit operations
+                # when a graphical host merges their shared menu groups.
+                workbench.append('workbench item put ' + placements[index] + ' ' + item + ' label "' +
+                                 escaped_label + '" action ' + action + ' order ' + str(100 + index))
         workbench += ['workbench commit']
         shared_lines = [quote(command) + ';' for command in workbench]
         native = [quote(command.format(suffix=suffix)) + ';'

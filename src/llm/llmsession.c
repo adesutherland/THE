@@ -28,6 +28,7 @@
 #include "workbenchdocument.h"
 #include "workbenchform.h"
 #include "workbenchfilefields.h"
+#include "editorclipboard.h"
 #ifdef USE_UTF8
 # include "utfterm.h"
 #endif
@@ -1066,9 +1067,72 @@ static void apply_filefields_protocol(char *args)
    printf(",\"panelGeneration\":\"%lu\",\"requestId\":\"%" PRIu64 "\",\"rc\":%d,\"code\":",request.panel_generation,request.request_id,(int)(valid ? rc : RC_INVALID_OPERAND)); print_json_string(receipt ? receipt->code : result->code);
    printf(",\"draftRevision\":\"%" PRIu64 "\",\"group\":\"%" PRIu64 "\",\"caret\":%d}\n",receipt ? receipt->draft_revision : 0,receipt ? receipt->group : 0,receipt ? receipt->caret : -1); fflush(stdout);
 }
+/* Clipboard payload chunks are transport staging only; no editor mutation
+ * occurs until commit validates the original captured context. */
+static void apply_clipboard_protocol(char *args)
+{
+   static unsigned char *staged;
+   static size_t staged_length;
+   static uint64_t staged_token;
+   static short staged_failure;
+   char *operation=strtok(args," \t"),*token_text=strtok(NULL," \t"),*hex=strtok(NULL," \t");
+   uint64_t token=0; char *reply=NULL; unsigned char *bytes=NULL; size_t length=0,i;
+   int valid=operation!=NULL,transport=0,expected_reply=0; const char *code="ok"; short rc=0;
+   if(token_text && !form_u64(token_text,&token)) valid=0;
+   if(valid && (!strcmp(operation,"begin") || !strcmp(operation,"chunk") || !strcmp(operation,"commit"))) {
+      transport=1;
+      if(!token) valid=0;
+      if(valid && !strcmp(operation,"begin")) {
+         free(staged); staged=malloc(THE_CLIPBOARD_BYTES_MAX+1); staged_length=0; staged_failure=0;
+         staged_token=staged ? token : 0; if(!staged) { rc=94; code="limit-exceeded"; }
+      } else if(valid && (!staged || staged_token!=token)) { rc=-3; code="stale-revision"; }
+      else if(valid && staged_failure) {
+         rc=staged_failure; code=rc==94 ? "limit-exceeded" : "invalid-operand";
+         if(!strcmp(operation,"commit")) { free(staged); staged=NULL; staged_length=0; staged_token=0; staged_failure=0; }
+      }
+      else if(valid && !strcmp(operation,"chunk")) {
+         if(!hex || strlen(hex)%2 || strtok(NULL," \t")) valid=0;
+         else {
+            length=strlen(hex)/2;
+            if(length>THE_CLIPBOARD_BYTES_MAX-staged_length) { rc=94; code="limit-exceeded"; }
+            else for(i=0;i<length;i++) {
+               int hi=form_hex_digit((unsigned char)hex[i*2]),lo=form_hex_digit((unsigned char)hex[i*2+1]);
+               if(hi<0 || lo<0) { valid=0; break; }
+               staged[staged_length+i]=(unsigned char)((hi<<4)|lo);
+            }
+            if(valid && !rc) staged_length+=length;
+         }
+      } else if(valid && !strcmp(operation,"commit")) {
+         expected_reply=1;
+         reply=the_editor_clipboard_json("paste","llm",token,staged,staged_length);
+         free(staged); staged=NULL; staged_length=0; staged_token=0;
+      }
+   } else if(valid) {
+      if(!strcmp(operation,"paste")) {
+         if(!token || !hex || strlen(hex)%2 || strtok(NULL," \t")) valid=0;
+         else {
+            length=strlen(hex)/2; bytes=malloc(length ? length : 1); if(!bytes) valid=0;
+            for(i=0;valid && i<length;i++) {
+               int hi=form_hex_digit((unsigned char)hex[i*2]),lo=form_hex_digit((unsigned char)hex[i*2+1]);
+               if(hi<0 || lo<0) valid=0; else bytes[i]=(unsigned char)((hi<<4)|lo);
+            }
+         }
+      } else if(hex || ((!strcmp(operation,"capture") || !strcmp(operation,"copy")
+         || !strcmp(operation,"selectAll") || !strcmp(operation,"undo")) && token_text)) valid=0;
+      if(valid) { expected_reply=1; reply=the_editor_clipboard_json(operation,"llm",token,bytes,length); }
+   }
+   if(expected_reply && !reply) { rc=94; code="limit-exceeded"; }
+   if(!valid) { rc=5; code="invalid-operand"; if(staged && !operation) staged_failure=5; }
+   if(operation && !strcmp(operation,"chunk") && staged_token==token && rc) staged_failure=rc;
+   if(reply) { puts(reply); free(reply); }
+   else printf("{\"type\":\"clipboard\",\"operation\":\"%s\",\"requestId\":\"llm\",\"rc\":%d,\"code\":\"%s\"}\n",
+      transport && valid ? operation : "invalid",(int)rc,code);
+   free(bytes); llm_session_refresh(); fflush(stdout);
+}
 int llm_session_handle_form_input(char *line)
 {
    char *command=trim(line);
+   if(command && ascii_starts_ci(command,"clipboard ")) { apply_clipboard_protocol(command+10); return 1; }
    if(command && ascii_starts_ci(command,"filefield ")) { apply_filefields_protocol(command+10); return 1; }
    if (!command || !ascii_starts_ci(command,"form ")) return 0;
    apply_form_protocol(command+5);
@@ -1571,12 +1635,13 @@ int llm_session_run_protocol(void)
       char *command;
 
       if (!strchr(line,'\n') && strlen(line)==sizeof(line)-1
-      && (ascii_starts_ci(trim(line),"form ") || ascii_starts_ci(trim(line),"filefield ")))
+      && (ascii_starts_ci(trim(line),"form ") || ascii_starts_ci(trim(line),"filefield ") || ascii_starts_ci(trim(line),"clipboard ")))
       {
          int byte;
          while ((byte=fgetc(stdin))!=EOF && byte!='\n') {}
-         { int fields=ascii_starts_ci(trim(line),"filefield "); line[0]=0;
-           if(fields) apply_filefields_protocol(line); else apply_form_protocol(line); }
+         { int fields=ascii_starts_ci(trim(line),"filefield ");
+           int clipboard=ascii_starts_ci(trim(line),"clipboard "); line[0]=0;
+           if(fields) apply_filefields_protocol(line); else if(clipboard) apply_clipboard_protocol(line); else apply_form_protocol(line); }
          continue;
       }
       line[strcspn(line, "\r\n")] = '\0';

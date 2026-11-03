@@ -10,6 +10,8 @@
 
 #include "headlessdriver.h"
 #include "frontendaction.h"
+#include "editorclipboard.h"
+#include "textpos.h"
 #include "frontendpolicy.h"
 #include "inputevent.h"
 #include "websession.h"
@@ -231,6 +233,89 @@ static int web_driver_workbench_string_field(struct mg_str json,
       }
    }
    return 1;
+}
+
+static int web_driver_json_hex4(const char *text, uint32_t *value)
+{
+   unsigned i;
+   *value=0;
+   for(i=0;i<4;i++)
+   {
+      unsigned char c=(unsigned char)text[i];
+      unsigned digit;
+      if(c>='0' && c<='9')digit=c-'0';
+      else if(c>='a' && c<='f')digit=c-'a'+10;
+      else if(c>='A' && c<='F')digit=c-'A'+10;
+      else return 0;
+      *value=(*value<<4)|digit;
+   }
+   return 1;
+}
+
+/* Mongoose's string helper decodes \uXXXX as one byte. Clipboard data must
+ * instead admit full JSON Unicode, including surrogate pairs, without NUL
+ * truncation or a partially decoded result. All returned storage uses malloc. */
+static char *web_driver_clipboard_string(struct mg_str json,const char *path,size_t limit)
+{
+   int length=0,offset=mg_json_get(json,path,&length);
+   size_t i=1,used=0,end,capacity;
+   const char *token;
+   char *out;
+   TextPos position;
+   if(offset<0 || length<2 || (size_t)offset>json.len
+   || (size_t)length>json.len-(size_t)offset)return NULL;
+   token=json.buf+offset;end=(size_t)length-1;
+   if(token[0]!='"' || token[end]!='"')return NULL;
+   capacity=end-1<limit ? end-1 : limit;
+   out=malloc(capacity+1);if(!out)return NULL;
+   while(i<end)
+   {
+      unsigned char bytes[4];
+      size_t count=1;
+      unsigned char c=(unsigned char)token[i++];
+      if(c<0x20 || c=='"')goto invalid;
+      bytes[0]=c;
+      if(c=='\\')
+      {
+         uint32_t cp,low;
+         if(i>=end)goto invalid;
+         c=(unsigned char)token[i++];
+         switch(c)
+         {
+            case '"':case '\\':case '/':bytes[0]=c;break;
+            case 'b':bytes[0]='\b';break;
+            case 'f':bytes[0]='\f';break;
+            case 'n':bytes[0]='\n';break;
+            case 'r':bytes[0]='\r';break;
+            case 't':bytes[0]='\t';break;
+            case 'u':
+               if(end-i<4 || !web_driver_json_hex4(token+i,&cp))goto invalid;
+               i+=4;
+               if(cp>=0xd800 && cp<=0xdbff)
+               {
+                  if(end-i<6 || token[i]!='\\' || token[i+1]!='u'
+                  || !web_driver_json_hex4(token+i+2,&low) || low<0xdc00 || low>0xdfff)goto invalid;
+                  cp=0x10000+((cp-0xd800)<<10)+(low-0xdc00);i+=6;
+               }
+               if(cp==0 || (cp>=0xdc00 && cp<=0xdfff))goto invalid;
+               count=text_utf8_encode(cp,bytes);if(!count)goto invalid;
+               break;
+            default:goto invalid;
+         }
+      }
+      if(count>capacity-used)goto invalid;
+      memcpy(out+used,bytes,count);used+=count;
+   }
+   memset(&position,0,sizeof(position));
+   while(position.byte_offset<used)
+   {
+      TextCodepoint cp=textpos_codepoint_at_boundary((const CHARTYPE *)out,used,position);
+      if(!cp.valid || !cp.byte_length || cp.codepoint==0)goto invalid;
+      position.byte_offset+=cp.byte_length;
+   }
+   out[used]=0;return out;
+invalid:
+   free(out);return NULL;
 }
 
 static void web_driver_publish_workbench(void)
@@ -502,6 +587,47 @@ static void web_driver_handle_message(struct mg_connection *connection, struct m
    char *value, *argument;
    int queued;
    if (!type) { web_driver_send_status(connection, "error", id, "missing message type"); return; }
+   if (!strcmp(type,"clipboard"))
+   {
+      char *operation=web_driver_clipboard_string(json,"$.operation",24);
+      char *request=web_driver_clipboard_string(json,"$.requestId",128);
+      char *token_text=web_driver_clipboard_string(json,"$.token",20);
+      char *text=NULL,*reply=NULL;
+      uint64_t token=0;
+      const char *code=NULL,*reason=NULL;
+      int valid=mg_json_get_long(json,"$.version",0)==1 && operation && request
+         && strlen(operation)<=24 && strlen(request)<=128
+         && web_driver_workbench_string_field(json,"$.operation",0)
+         && web_driver_workbench_string_field(json,"$.requestId",0);
+      if(valid && (!strcmp(operation,"paste") || !strcmp(operation,"cut")))
+         valid=token_text && web_driver_workbench_string_field(json,"$.token",0)
+            && the_web_parse_u64(token_text,&token);
+      if(valid && !strcmp(operation,"paste"))
+      {
+         if(json.len>THE_CLIPBOARD_BYTES_MAX*6u+4096u)valid=0;
+         else text=web_driver_clipboard_string(json,"$.text",THE_CLIPBOARD_BYTES_MAX);
+         valid=valid && text && strlen(text)<=THE_CLIPBOARD_BYTES_MAX;
+      }
+      if(!valid) { code="invalid-operand";reason="Invalid or oversized clipboard request. No text was changed."; }
+      else if(the_panel_active || in_macro || the_workbench_activation_active() || web_state.inputs.count)
+      { code="busy-document";reason="The editor is processing input. Try the clipboard action again."; }
+      if(code)reply=mg_mprintf("{\"type\":\"clipboard\",\"operation\":%m,\"requestId\":%m,\"rc\":5,\"code\":%m,\"message\":%m}",
+         MG_ESC(operation && strlen(operation)<=24 ? operation : "invalid"),
+         MG_ESC(request && strlen(request)<=128 ? request : ""),MG_ESC(code),MG_ESC(reason));
+      else reply=the_editor_clipboard_json(operation,request,token,(const unsigned char *)text,text ? strlen(text) : 0);
+      if(reply) { web_driver_send(connection,reply,strlen(reply));if(code)mg_free(reply);else free(reply); }
+      else
+      {
+         char failure[2048];
+         int length=mg_snprintf(failure,sizeof(failure),"{\"type\":\"clipboard\",\"operation\":%m,\"requestId\":%m,\"rc\":94,\"code\":\"limit-exceeded\",\"message\":\"Clipboard request could not be completed.\"}",
+            MG_ESC(operation && strlen(operation)<=24 ? operation : "invalid"),
+            MG_ESC(request && strlen(request)<=128 ? request : ""));
+         if(length>0 && (size_t)length<sizeof(failure))web_driver_send(connection,failure,(size_t)length);
+      }
+      free(operation);free(request);free(token_text);free(text);mg_free(type);
+      web_driver_publish_snapshot();
+      return;
+   }
    if (strcmp(type,"snapshot")==0)
    {
       web_driver_publish_snapshot();

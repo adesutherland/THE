@@ -9,6 +9,8 @@ import tempfile
 
 binary = Path(sys.argv[1]).resolve()
 engine = sys.argv[2] if len(sys.argv) > 2 else 'CREXX'
+BASE_ACTIONS = 10
+BASE_ITEMS = 9
 with tempfile.TemporaryDirectory(prefix='THE workbench ') as temporary:
     root = Path(temporary)
     sample = root / 'sample.txt'
@@ -60,7 +62,7 @@ with tempfile.TemporaryDirectory(prefix='THE workbench ') as temporary:
                   'command query workbench\nlook full compact')
     state = query(records)
     assert state['lastResult']['code'] == 'object-in-use' and state['lastResult']['rc'] == -3, state
-    assert state['actions'] == 7 and state['menus'] == 3, state
+    assert state['actions'] == BASE_ACTIONS + 1 and state['menus'] == 3, state
     assert not snapshot(records)['buffer']['dirty'] and sample.read_bytes() == original
     records = run('command workbench begin owner public.probe\n'
                   'command workbench menu put public.tools label "Tools"\n'
@@ -68,19 +70,19 @@ with tempfile.TemporaryDirectory(prefix='THE workbench ') as temporary:
                   'command workbench commit\ncommand query workbench\nlook full compact')
     state = query(records)
     assert state['lastResult']['code'] == 'missing-action' and state['lastResult']['rc'] == 5, state
-    assert state['actions'] == 6 and state['menus'] == 2, state
+    assert state['actions'] == BASE_ACTIONS and state['menus'] == 2, state
 
     records = run(definition + '\ncommand workbench begin owner public.probe\n'
                   'command workbench action put public.add label "Replacement" command "input REPLACED"\n'
                   'command workbench menu put public.tools label "Replacement menu"\ncommand workbench commit\n'
-                  'command query workbench actions\nlook full compact')
+                  f'command query workbench actions offset {BASE_ACTIONS} limit 8\nlook full compact')
     actions = query(records)
-    assert actions['total'] == 7 and actions['records'][-1]['label'] == 'Replacement', actions
+    assert actions['total'] == BASE_ACTIONS + 1 and actions['records'][-1]['label'] == 'Replacement', actions
     records = run(definition + '\ncommand workbench begin owner public.probe\n'
                   'command workbench menu remove public.tools\ncommand workbench action remove public.add\n'
                   'command workbench commit\ncommand query workbench\nlook full compact')
     state = query(records)
-    assert state['actions'] == 6 and state['menus'] == 2 and state['items'] == 5, state
+    assert state['actions'] == BASE_ACTIONS and state['menus'] == 2 and state['items'] == BASE_ITEMS, state
     assert not snapshot(records)['buffer']['dirty'] and sample.read_bytes() == original
 
     # LINEND and a synonym cannot reinterpret quoted declaration data.
@@ -133,12 +135,12 @@ with tempfile.TemporaryDirectory(prefix='THE workbench ') as temporary:
     failed = profile('failed.the', declarations, 7)
     records = run('command query workbench\nlook full compact', failed)
     state = query(records)
-    assert state['actions'] == 6 and state['menus'] == 2 and state['lastResult']['code'] == 'activation-failed', state
+    assert state['actions'] == BASE_ACTIONS and state['menus'] == 2 and state['lastResult']['code'] == 'activation-failed', state
     assert not snapshot(records)['buffer']['dirty'] and sample.read_bytes() == original
     succeeded = profile('success.the', declarations, 0)
     records = run('command query workbench\nlook full compact', succeeded)
     state = query(records)
-    assert state['actions'] == 7 and state['menus'] == 3 and state['revision'] == 2, state
+    assert state['actions'] == BASE_ACTIONS + 1 and state['menus'] == 3 and state['revision'] == 2, state
     assert not snapshot(records)['buffer']['dirty'] and sample.read_bytes() == original
 
     explicit_macro = profile('explicit macro.the', [], 7)
@@ -353,13 +355,13 @@ with tempfile.TemporaryDirectory(prefix='THE workbench ') as temporary:
     bridge = profile('bridge.the', large, 0)
     if engine == 'CREXX':
         extraction = ("workbench = .string[]\n"
-                      "address the 'extract /workbench actions offset 6 limit 8/' expose workbench[];\n"
+                      "address the 'extract /workbench actions offset 10 limit 8/' expose workbench[];\n"
                       "if rc <> 0 then return 81\n"
                       "if workbench[0] <> '1' then return 82\n"
                       "if length(workbench[1]) < 30000 then return 83\n"
                       "'input 'workbench[0]' 'length(workbench[1]);\nreturn 0\n")
     else:
-        extraction = ("'extract /workbench actions offset 6 limit 8/';\n"
+        extraction = ("'extract /workbench actions offset 10 limit 8/';\n"
                       "if rc <> 0 then return 81\n"
                       "if workbench.0 <> 1 then return 82\n"
                       "if length(workbench.1) < 30000 then return 83\n"
@@ -367,7 +369,7 @@ with tempfile.TemporaryDirectory(prefix='THE workbench ') as temporary:
     bridge.write_text(bridge.read_text().replace('return 0\n', extraction))
     records = run('command query workbench\ncommand save\nlook full compact', bridge)
     state = query(records)
-    assert state['actions'] == 14 and state['lastResult']['code'] == 'ok', state
+    assert state['actions'] == BASE_ACTIONS + 8 and state['lastResult']['code'] == 'ok', state
     assert b'1 ' in sample.read_bytes() and snapshot(records)['buffer']['lines'] == 3, sample.read_bytes()
 
 print(f'Workbench real-editor declarations, transactions, invocation, rollback and {engine} EXTRACT passed')

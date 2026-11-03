@@ -560,7 +560,7 @@ button { color: inherit; }
 .dialog-actions .primary-command { border-color: #4e8bb6; background: #356f98; color: #fff; }
 .dialog-actions .primary-command:hover { background: #3e7da8; }
 
-.rexx-dock { display:flex; flex-direction:column; height:100%; min-height:350px; min-width:0; background:var(--console-body-background-color, #1e1e1e); color:var(--console-body-color, #d4d4d4); }
+.rexx-dock { display:flex; flex-direction:column; height:100%; min-height:0; min-width:0; background:var(--console-body-background-color, #1e1e1e); color:var(--console-body-color, #d4d4d4); }
 .console-heading { display:flex; flex:none; align-items:center; flex-wrap:wrap; gap:7px; min-height:38px; padding:5px 10px; border-bottom:1px solid var(--console-divider-color, #6c7b90); }
 .console-heading strong { font-size:12px; color:inherit; font-weight:inherit; }
 .rexx-dock button { min-height:28px; padding:3px 8px; border:1px solid var(--console-divider-color, #6c7b90); border-radius:4px; font-size:11px; cursor:pointer; }
@@ -613,22 +613,28 @@ button { color: inherit; }
   text-decoration:var(--console-error-text-decoration, none); opacity:var(--console-error-opacity, 1);
 }
 
-@media (max-width:1099px) {
-  .workspace, .workspace.files-open, .workspace.aux-open, .workspace.files-open.aux-open { display:flex; flex-direction:column; overflow-y:auto; }
-  .workspace > .pane-splitter, .auxiliary-rail > .pane-splitter { display:none; }
-  .editor-pane { flex:none; order:1; height:auto; min-height:0; grid-template-rows:clamp(220px,45dvh,450px) auto auto; }
-  .workspace:not(.files-open):not(.aux-open) .editor-pane { flex:1 1 0; grid-template-rows:minmax(0,1fr) auto auto; }
-  .file-explorer { flex:none; order:3; height:330px; width:100%; border-right:0; border-top:1px solid #566373; }
-  .auxiliary-rail { display:flex; flex:none; flex-direction:column; order:3; min-height:0; height:auto; border-top:1px solid #566373; }
-  .auxiliary-rail.program-and-log .program-console-pane, .auxiliary-rail.program-and-log .named-panel-pane { height:330px; }
-  .auxiliary-tabs { display:none; }
-  .named-panel-pane { flex:none; height:410px; }
-  .mobile-aux-tabs { display:flex; flex:none; order:2; flex-wrap:wrap; gap:4px; padding:5px 8px; }
-  .program-console-pane, .tools-profiles-pane { flex:none; height:410px; }
-  .workspace:not(.mobile-pane-files) .file-explorer { display:none; }
-  .workspace.mobile-pane-files .auxiliary-rail { display:none; }
-  .connection span { display:none; }
-}
+/* One pane switcher owns both wide and lower layouts. Pane contents stay
+   mounted so setup work retains drafts, output, selections and unread state. */
+.workspace.lower-layout { display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr); overflow:hidden; }
+.workspace.lower-layout.files-open, .workspace.lower-layout.aux-open, .workspace.lower-layout.files-open.aux-open { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(160px,1fr) 8px minmax(220px,var(--aux-height)); }
+.workspace.lower-layout > .splitter-vertical { display:none; }
+.workspace.lower-layout > .splitter-horizontal { display:block; grid-row:2; grid-column:1; min-height:8px; }
+.workspace.lower-layout .editor-pane { grid-row:1; grid-column:1; min-height:0; grid-template-rows:minmax(80px,1fr) auto auto; }
+.workspace.lower-layout .file-explorer { grid-row:3; grid-column:1; min-height:0; width:100%; height:100%; border-right:0; border-top:1px solid #566373; }
+.workspace.lower-layout .auxiliary-rail { grid-row:3; grid-column:1; min-height:0; height:100%; border-top:1px solid #566373; }
+.workspace.lower-layout:not(.mobile-pane-files) .file-explorer { display:none; }
+.workspace.lower-layout.mobile-pane-files.files-open .auxiliary-rail { display:none; }
+.workspace.lower-layout.aux-expanded, .workspace.lower-layout.aux-expanded.files-open, .workspace.lower-layout.aux-expanded.aux-open, .workspace.lower-layout.aux-expanded.files-open.aux-open { grid-template-rows:minmax(0,1fr) auto; }
+.workspace.lower-layout.aux-expanded > .pane-splitter { display:none; }
+.workspace.lower-layout.aux-expanded .auxiliary-rail, .workspace.lower-layout.aux-expanded .file-explorer { grid-row:1; }
+.workspace.aux-expanded:not(.lower-layout) { grid-template-columns:minmax(0,1fr); }
+.workspace.aux-expanded:not(.lower-layout) > .file-explorer, .workspace.aux-expanded:not(.lower-layout) > .pane-splitter { display:none; }
+.workspace.aux-expanded:not(.lower-layout) { grid-template-rows:minmax(0,1fr) auto; }
+.workspace.aux-expanded:not(.lower-layout) .auxiliary-rail { grid-column:1; grid-row:1; }
+.workspace.lower-layout.aux-expanded .editor-pane, .workspace.aux-expanded:not(.lower-layout) .editor-pane { display:contents; }
+.workspace.aux-expanded .editor-scroll, .workspace.aux-expanded .editor-status, .workspace.aux-expanded .command-form, .workspace.aux-expanded .command-responses { display:none; }
+.workspace.aux-expanded .command-area { grid-column:1; grid-row:2; }
+@media (max-width:1099px) { .connection span { display:none; } }
 
 @media (max-width:640px) {
   :root { --toolbar-height:48px; --tabs-height:36px; }
@@ -643,9 +649,8 @@ button { color: inherit; }
   .toolbar-actions .icon-button:nth-child(n+3) { display:none; }
   .connection { margin-left:0; }
   .workbench { grid-template-rows:auto minmax(0,1fr); }
-  .pane-switcher { display:none; }
   .pane-switcher { gap:4px; padding:4px 6px; }
-  .pane-switcher button, .mobile-aux-tabs button { min-height:40px; padding:5px 8px; }
+  .pane-switcher button, .mobile-aux-tabs button { min-height:36px; padding:5px 8px; }
   .pane-switcher button { font-size:11px; }
   .current-file-tools { grid-template-columns:minmax(0,1fr); gap:5px; padding:7px 8px; }
   .current-file-identity { grid-row:auto; flex-wrap:nowrap; }
@@ -656,18 +661,18 @@ button { color: inherit; }
   .current-file-tools button { min-height:44px; padding:6px 9px; }
   .current-file-tools .file-setup-link { margin-left:0; padding-inline:4px; }
   .current-file-status { grid-column:1; }
-  .editor-pane { grid-template-rows:clamp(220px,38dvh,360px) auto auto; }
+
   .command-form { grid-template-columns:auto minmax(0,1fr) auto auto; padding-inline:7px; gap:4px; min-height:44px; }
   .command-prompt { padding-right:2px; }
   .command-form input { height:36px; font-size:16px; }
   .command-form button { min-height:36px; }
   .status-line { gap:3px 10px; padding:4px 8px; }
   .command-responses { max-height:130px; }
-  .program-console-pane, .tools-profiles-pane { height:470px; }
+
   .tools-profiles button, .tools-profiles select { min-height:38px; }
   .run-setup input, .run-setup textarea, .compiled-profile-setup input { font-size:16px; }
   .compiled-profile-setup button { min-height:44px; }
-  .rexx-dock { min-height:420px; }
+
   .rexx-dock button, .rexx-dock select { min-height:38px; }
   .rexx-dock input, .rexx-dock textarea { font-size:16px; }
   .console-input { gap:5px; padding-inline:8px; }
@@ -694,4 +699,66 @@ button { color: inherit; }
 @media (max-width:640px) {
   .file-field-controls button { min-height:40px; }
   .file-field-grid { font-size:16px; }
+}
+
+.menu-popover { width:min(390px,calc(100vw - 24px)); }
+.menu-groups { display:flex; flex-wrap:wrap; gap:2px; padding:3px 5px 7px; border-bottom:1px solid #454b54; }
+.menu-groups button { display:block; width:auto; min-height:30px; padding:4px 8px; }
+.menu-groups [aria-pressed="true"] { background:#304a62; color:#edf5fc; }
+.menu-popover .menu-items { border:0; margin:0; padding-top:4px; }
+.tools-profiles { display:flex; flex-direction:column; height:100%; min-height:0; }
+.tools-heading, .tools-sections { flex:none; }
+.tools-sections { display:flex; flex-wrap:wrap; gap:5px; padding:7px 10px; border-bottom:1px solid #414c59; }
+.tools-sections [aria-pressed="true"] { background:#304a62; border-color:#7297bb; color:#edf5fc; }
+.tools-body { flex:1; min-height:0; overflow:auto; }
+.auxiliary-view-controls { display:flex; gap:8px; align-items:center; justify-content:space-between; padding:4px 8px; min-height:33px; border-bottom:1px solid #414c59; font-size:11px; }
+.auxiliary-view-controls button, .pane-expand { border:1px solid #526277; border-radius:4px; padding:4px 8px; background:#263340; color:#e2ebf5; cursor:pointer; font-size:11px; }
+.explorer-heading .pane-expand { margin-left:auto; }
+.current-file-tools { padding:5px 10px; gap:2px 14px; }
+.current-file-tools button { min-height:30px; padding:4px 10px; }
+.current-file-status { font-size:11px; }
+.current-file-identity strong { font-size:12px; }
+.console-output { flex:1 1 40px; min-height:40px; }
+.console-runtime-controls { padding-block:4px; }
+.settings-dialog { width:min(680px,100%); max-height:calc(100dvh - 40px); overflow:auto; padding:16px; border:1px solid #4b525d; border-radius:6px; background:#23262b; box-shadow:0 18px 54px rgb(0 0 0 /45%); }
+.settings-dialog button { min-height:30px; border:1px solid #526277; border-radius:4px; padding:5px 9px; background:#263340; color:#e2ebf5; cursor:pointer; font-size:12px; }
+.settings-dialog button:disabled { opacity:.55; cursor:default; }
+.settings-body { display:grid; grid-template-columns:160px minmax(0,1fr); gap:20px; }
+.settings-nav { display:flex; flex-direction:column; gap:7px; }
+.settings-nav [aria-pressed="true"] { background:#304a62; border-color:#7297bb; }
+.settings-content { min-width:0; color:#c5d1df; font-size:12px; }
+.settings-content h3 { margin:3px 0 8px; color:#edf2f7; font-size:13px; }
+.settings-content p { line-height:1.5; overflow-wrap:anywhere; }
+.settings-content label { display:flex; gap:7px; align-items:center; margin:12px 0; }
+.settings-content input[type="number"] { width:65px; padding:5px; border:1px solid #526277; border-radius:3px; background:#151b22; color:#e2ebf5; }
+.settings-scope { font-family:var(--editor-font); }
+@media (max-width:640px) {
+  .settings-body { grid-template-columns:minmax(0,1fr); gap:12px; }
+  .settings-nav { flex-direction:row; flex-wrap:wrap; }
+  .current-file-tools { padding:5px 8px; }
+  .pane-switcher { gap:4px; flex-wrap:nowrap; overflow:auto; }
+  .pane-switcher button { flex:none; }
+  .current-file-tools button { min-height:36px; }
+}
+
+.latest-response.interaction-notice { color:#e8ce92; }
+
+.build-artifact { overflow-wrap:anywhere; font:11px/1.5 var(--editor-font); }
+.build-artifact small { display:block; color:#aab8c8; font:inherit; }
+
+.logical-selection { position:absolute; z-index:0; top:0; bottom:0; pointer-events:none; background:rgb(70 132 190 / 48%); box-shadow:inset 0 1px 0 rgb(132 184 228 / 35%),inset 0 -1px 0 rgb(132 184 228 / 35%); }
+
+/* Short windows reserve the complete editor footer. The auxiliary heading
+   remains available, and Expand gives its body the full available view. */
+@media (max-height:600px) {
+  .workspace.lower-layout.aux-open:not(.aux-expanded), .workspace.lower-layout.files-open:not(.aux-expanded),
+  .workspace.lower-layout.files-open.aux-open:not(.aux-expanded) { grid-template-rows:minmax(0,1fr) 8px auto; overflow:hidden; }
+  .workspace.lower-layout:not(.aux-expanded) .editor-pane { grid-template-rows:minmax(40px,1fr) auto auto; overflow:auto; }
+  .workspace.lower-layout:not(.aux-expanded) .auxiliary-rail { grid-template-rows:auto; }
+  .workspace.lower-layout:not(.aux-expanded) .auxiliary-rail > .program-console-pane,
+  .workspace.lower-layout:not(.aux-expanded) .auxiliary-rail > .tools-profiles-pane,
+  .workspace.lower-layout:not(.aux-expanded) .auxiliary-rail > .named-panel-pane { display:none; }
+  .workspace.lower-layout:not(.aux-expanded) .file-explorer .root-switcher,
+  .workspace.lower-layout:not(.aux-expanded) .file-explorer .explorer-path,
+  .workspace.lower-layout:not(.aux-expanded) .file-explorer .file-list { display:none; }
 }

@@ -14,6 +14,7 @@ import { levelGCandidateSmoke } from "./wasm-level-g-candidate.mjs";
 import { levelBCandidateSmoke } from "./wasm-level-b-candidate.mjs";
 import { defaultSyntaxSmoke } from "./wasm-default-syntax.mjs";
 import { publicExamplesSmoke } from "./wasm-public-examples.mjs";
+import { editingClipboardSmoke } from "./wasm-editing-clipboard.mjs";
 import { inputFocusSmoke } from "./wasm-input-focus.mjs";
 
 const pageUrl = process.env.THE_WEB_URL;
@@ -38,6 +39,7 @@ let workerSession;
 let nextId = 1;
 const pending = new Map();
 const exceptions = [];
+const runtimeLogs = [];
 const assetRequests = [];
 let acceptUnsavedDialogs = false;
 
@@ -161,10 +163,14 @@ try {
       workerSession = session;
       void (async () => {
         await command("Network.enable", {}, session);
+        await command("Runtime.enable", {}, session);
         await command("Runtime.runIfWaitingForDebugger", {}, session);
       })().catch(error => exceptions.push(error.message));
     } else if (message.method === "Runtime.exceptionThrown") {
-      exceptions.push(message.params?.exceptionDetails?.text || "browser exception");
+      const detail = message.params?.exceptionDetails;
+      exceptions.push(JSON.stringify({ session: message.sessionId ?? "page", text: detail?.text, description: detail?.exception?.description }));
+    } else if (message.method === "Runtime.consoleAPICalled") {
+      runtimeLogs.push({ session: message.sessionId ?? "page", type: message.params?.type, text: message.params?.args?.map(arg => arg.value ?? arg.description).join(" ") });
     } else if (message.method === "Network.requestWillBeSent") {
       assetRequests.push(message.params.request.url);
     } else if (message.method === "Page.javascriptDialogOpening" && acceptUnsavedDialogs) {
@@ -223,7 +229,10 @@ try {
   };
   await checkNativeToolPolicy(nativePolicyRequest, "unsupported-host", nativePolicyInspect);
   console.log("PASS rebuilt Wasm native TOOL/action/RUN unsupported-host refusals preserve editor");
-  if (process.env.THE_WASM_DEFAULT_SYNTAX_ONLY === "1") {
+  if (process.env.THE_WASM_CLIPBOARD_ONLY === "1") {
+    await editingClipboardSmoke({send, snapshot, evaluate, command, waitFor});
+    if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
+  } else if (process.env.THE_WASM_DEFAULT_SYNTAX_ONLY === "1") {
     // Include enough source rows for the examples' different token kinds;
     // the default headless viewport leaves only four visible file lines.
     await command('Emulation.setDeviceMetricsOverride', {width: 1400, height: 1000, deviceScaleFactor: 1, mobile: false});
@@ -258,7 +267,7 @@ try {
     await fileFieldSmoke({ send, evaluate, command, waitFor, snapshot });
     if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   } else {
-  for (const flag of ['THE_WASM_DEFAULT_SYNTAX_ONLY', 'THE_WASM_PUBLIC_EXAMPLES_ONLY', 'THE_WASM_INPUT_FOCUS_ONLY']) {
+  for (const flag of ['THE_WASM_CLIPBOARD_ONLY', 'THE_WASM_DEFAULT_SYNTAX_ONLY', 'THE_WASM_PUBLIC_EXAMPLES_ONLY', 'THE_WASM_INPUT_FOCUS_ONLY']) {
     const child = spawn(process.execPath, [fileURLToPath(import.meta.url)], {
       env: { ...process.env, [flag]: '1' }, stdio: 'inherit',
     });
@@ -278,6 +287,8 @@ try {
   await send({type:'command',command:'workbench item put user.tools user.saveitem label "Check / <img>" action user.save'});
   await send({type:'command',command:'workbench commit'});
   await evaluate("document.querySelector('.menu-trigger').click()");
+  await waitFor(() => evaluate("!!document.querySelector('[data-group-id=\"user.tools\"]')"), "profile menu group");
+  await evaluate("document.querySelector('[data-group-id=\"user.tools\"]').click()");
   await waitFor(() => evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button span')?.textContent === 'Check / <img>'"), 'Wasm published menu DOM');
   if (await evaluate("!!document.querySelector('.menu-popover img')")) throw Error('Wasm menu label created markup');
   const oldWorkbenchGeneration = +(await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button').dataset.generation"));
@@ -288,6 +299,8 @@ try {
   await send({type:'command',command:'workbench item put user.tools user.saveitem label "Replaced Save" action user.save'});
   await send({type:'command',command:'workbench commit'});
   await evaluate("document.querySelector('.menu-trigger').click()");
+  await waitFor(() => evaluate("!!document.querySelector('[data-group-id=\"user.tools\"]')"), "profile menu group");
+  await evaluate("document.querySelector('[data-group-id=\"user.tools\"]').click()");
   await waitFor(() => evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button span')?.textContent === 'Replaced Save'"), 'Wasm replaced menu DOM');
   if (+(await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button').dataset.generation")) <= oldWorkbenchGeneration) throw Error('Wasm action generation did not advance');
   const staleWorkbenchRequest = await evaluate("(() => { const hello=window.__messages.find(m=>m.type==='hello'); const used=window.__messages.filter(m=>m.type==='workbench'&&m.operation==='result').map(m=>Number(m.requestId?.split('.').at(-1))||0); return hello.workbenchSession+'.'+(Math.max(hello.workbenchNextRequest-1,...used)+1); })()");
@@ -673,6 +686,8 @@ try {
 } catch(error) {
   if (socket?.readyState===WebSocket.OPEN) {
     try {
+      console.error('Browser exceptions/logs:', JSON.stringify({ exceptions, logs: runtimeLogs.slice(-10) }));
+      console.error('Browser semantic failure state:', await evaluate("({snapshot:window.__snapshot&&{buffer:window.__snapshot.buffer,source:window.__snapshot.source,focus:window.__snapshot.focus,selection:window.__snapshot.selection},tools:window.__tools&&{currentFile:window.__tools.currentFile,build:window.__tools.build?.job},messages:window.__messages?.slice(-8).map(m=>m.type==='clipboard'?m:m.screen_rows?{type:'snapshot',buffer:m.buffer,source:m.source,focus:m.focus}: {type:m.type,operation:m.operation})})"));
       console.error('Browser failure state:',await evaluate("({messages:window.__messages?.slice(-10),body:document.body.innerText.slice(-3000),state:document.querySelector('.run-state')?.textContent,active:document.activeElement?.outerHTML?.slice(0,400),input:document.querySelector('#rexx-input')?.value,output:document.querySelector('.console-output')?.textContent.slice(-4000)})"));
     } catch {}
   }

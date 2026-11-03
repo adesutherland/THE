@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory(prefix='THE file snapshot ') as temporary:
     state = next(json.loads(line) for line in result.stdout.splitlines()
                  if line.startswith('{') and json.loads(line).get('type') == 'tools')
     assert state['currentFile'] == {
-        'sourceId': source_id, 'revision': revision, 'path': str(source), 'role': 'other',
+        'sourceId': source_id, 'revision': revision, 'path': str(source), 'role': 'program',
         'actions': [
             {'id': 'build', 'label': 'Snapshot Build', 'enabled': False,
              'reason': 'capability-unavailable', 'tool': 'public.snapshot-build',

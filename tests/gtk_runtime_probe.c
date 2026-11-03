@@ -8,11 +8,14 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <math.h>
 #include "editorsource.h"
 #include "editordocument.h"
 
 static unsigned phase;
-static unsigned preflight;
+static unsigned preflight, polish_phase;
+static char *polish_clipboard;
+static LogicalCursor polish_cursor;
 static int dirty_quit_checked;
 static unsigned workbench_focus_phase;
 static unsigned log_probe_phase;
@@ -294,7 +297,7 @@ static void await_frame(void)
    handler = g_signal_connect(clock, "after-paint", G_CALLBACK(frame_painted), &painted);
    gtk_widget_queue_draw(ui.window);
    deadline = g_get_monotonic_time() + 5000000;
-   while (!painted && g_get_monotonic_time() < deadline)
+   while ((!painted || ui.program_reader.scroll_handler || ui.build_reader.scroll_handler) && g_get_monotonic_time() < deadline)
    {
       while (g_main_context_pending(NULL))
          g_main_context_iteration(NULL, FALSE);
@@ -303,7 +306,7 @@ static void await_frame(void)
    g_signal_handler_disconnect(clock, handler);
    if (!painted) fprintf(stderr, "GTK frame timeout: preflight=%u phase=%u log=%u document=%u\n",
       preflight, phase, log_probe_phase, document_probe_phase);
-   assert(painted);
+   assert(painted && !ui.program_reader.scroll_handler && !ui.build_reader.scroll_handler);
 }
 
 static void screenshot(const char *suffix)
@@ -492,6 +495,18 @@ static void activate_shared_action(const char *id)
    assert(0);
 }
 
+static size_t projected_menu_count(void)
+{
+   size_t i, j, count = 0;
+   for (i = 0; i < the_workbench_menu_count(); i++)
+   {
+      const char *group = menu_group(the_workbench_menu_at(i));
+      for (j = 0; j < i; j++) if (!strcmp(group, menu_group(the_workbench_menu_at(j)))) break;
+      if (j == i) count++;
+   }
+   return count;
+}
+
 static void assert_application_menus(void)
 {
    GMenuModel *bar;
@@ -507,9 +522,12 @@ static void assert_application_menus(void)
    assert(g_application_get_is_registered(G_APPLICATION(ui.application)));
    assert(gtk_window_get_application(GTK_WINDOW(ui.window)) == ui.application);
    sync_menus();
+   assert(g_action_group_has_action(G_ACTION_GROUP(ui.application), "about"));
+   assert(g_action_group_has_action(G_ACTION_GROUP(ui.application), "preferences"));
+   assert(g_action_group_has_action(G_ACTION_GROUP(ui.application), "gui.tools-profiles"));
    bar = gtk_application_get_menubar(ui.application);
-   assert(bar && g_menu_model_get_n_items(bar) == the_workbench_menu_count());
-   for (i = 0; i < the_workbench_menu_count(); i++)
+   assert(bar && (size_t)g_menu_model_get_n_items(bar) == projected_menu_count());
+   for (i = 0; i < projected_menu_count(); i++)
    {
       char *label = NULL;
       GMenuModel *items = g_menu_model_get_item_link(bar, i, G_MENU_LINK_SUBMENU);
@@ -533,10 +551,10 @@ static void assert_application_menus(void)
    assert(!the_workbench_put_item(&item)); assert(!the_workbench_commit());
    assert(g_queue_is_empty(&ui.inputs));
    sync_menus();
-   assert(g_menu_model_get_n_items(bar) == the_workbench_menu_count());
+   assert((size_t)g_menu_model_get_n_items(bar) == projected_menu_count());
    {
       char *label = NULL;
-      assert(g_menu_model_get_item_attribute(bar, the_workbench_menu_count() - 1,
+      assert(g_menu_model_get_item_attribute(bar, projected_menu_count() - 1,
                                            G_MENU_ATTRIBUTE_LABEL, "s", &label));
       assert(!strcmp(label, menu.label)); g_free(label);
    }
@@ -565,7 +583,7 @@ static void assert_application_menus(void)
    assert(!the_workbench_begin("gtk.probe"));
    assert(!the_workbench_remove_menu(menu.id)); assert(!the_workbench_remove_action(action.id));
    assert(!the_workbench_commit()); sync_menus();
-   assert(g_menu_model_get_n_items(bar) == the_workbench_menu_count());
+   assert((size_t)g_menu_model_get_n_items(bar) == projected_menu_count());
    g_action_group_activate_action(G_ACTION_GROUP(ui.application), "quit", NULL);
    assert(pop_input(&queued));
    assert(queued.kind == THE_INPUT_COMMAND && !strcmp(queued.command, "cancel"));
@@ -635,7 +653,7 @@ static void assert_workbench_focus_cycle(void)
    char *draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(ui.input)));
    TheInputEvent tab, expected_tab;
    GdkEventKey key = {0};
-   int build_visible = gtk_widget_get_visible(ui.build_result);
+   int build_visible = gtk_widget_get_visible(ui.setup);
    int auxiliary_page = gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.auxiliary));
    gtk_entry_set_text(GTK_ENTRY(ui.input), "Workbench unsent draft");
    gtk_widget_grab_focus(ui.editor);
@@ -651,13 +669,13 @@ static void assert_workbench_focus_cycle(void)
    assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.editor);
    assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "Workbench unsent draft"));
    gtk_widget_hide(ui.console);
-   gtk_widget_hide(ui.build_result);
+   gtk_widget_hide(ui.setup);
    press_workbench_key(GDK_KEY_ISO_Left_Tab, GDK_SHIFT_MASK);
    assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.first_control);
    press_workbench_key(GDK_KEY_Escape, 0);
    assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.editor);
    gtk_widget_show(ui.console);
-   gtk_widget_set_visible(ui.build_result, build_visible);
+   gtk_widget_set_visible(ui.setup, build_visible);
    ui.syncing_logs++;
    gtk_notebook_set_current_page(GTK_NOTEBOOK(ui.auxiliary), auxiliary_page);
    ui.syncing_logs--;
@@ -1417,7 +1435,7 @@ static void filefields_step(void)
       {
          GString *fixture = g_string_new("!pName: !uGuest     !p LOCK Ω\n");
          unsigned i;
-         for (i = 2; i <= 15; i++) g_string_append_printf(fixture, "!pRow %02u !uvalue%02u   !p locked\n", i, i);
+         for (i = 2; i <= 35; i++) g_string_append_printf(fixture, "!pRow %02u !uvalue%02u   !p locked\n", i, i);
          g_snprintf(filefields_probe_path, sizeof(filefields_probe_path), "%s/filefields.txt", getenv("THE_GTK_PROBE_DIR"));
          assert(g_file_set_contents(filefields_probe_path, fixture->str, fixture->len, NULL)); g_string_free(fixture, TRUE);
          open_file(filefields_probe_path); break;
@@ -1454,7 +1472,7 @@ static void filefields_step(void)
                gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.auxiliary)), gtk_notebook_page_num(GTK_NOTEBOOK(ui.auxiliary), pane->page));
          }
          assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == field->entry);
-         assert(state->records == 15 && pane->filefields->len == 15);
+         assert(state->records == 35 && pane->filefields->len == 35);
          gtk_editable_insert_text(GTK_EDITABLE(field->entry), "界", -1, &position);
          gtk_editable_insert_text(GTK_EDITABLE(field->entry), "é", -1, &position);
          gtk_editable_set_position(GTK_EDITABLE(field->entry), position);
@@ -1466,6 +1484,24 @@ static void filefields_step(void)
          assert(span && span->editable && g_str_has_prefix(span->value, "界ést"));
          assert(state->dirty && !the_editor_buffer_dirty(CURRENT_FILE));
          assert(g_str_has_prefix((const char *)CURRENT_FILE->first_line->next->line, "!pName: !uGuest"));
+         {
+            GtkFileField *field = g_ptr_array_index(pane->filefields, 0);
+            PangoFontDescription *original = pango_font_description_copy(ui.font), *large = pango_font_description_copy(ui.font);
+            GtkAllocation allocation;
+            char *draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(field->entry)));
+            int position = gtk_editable_get_position(GTK_EDITABLE(field->entry)), x, y;
+            pango_font_description_set_size(large, 15 * PANGO_SCALE); apply_font(large); await_frame();
+            gtk_widget_get_allocation(field->entry, &allocation);
+            gtk_container_child_get(GTK_CONTAINER(pane->view), field->entry, "x", &x, "y", &y, NULL);
+            assert(allocation.width == field->width * ui.cell_width && allocation.height == ui.cell_height);
+            assert(x == span->cell * ui.cell_width && y == ((int)span->line - 1) * ui.cell_height);
+            assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(field->entry)), draft));
+            assert(gtk_editable_get_position(GTK_EDITABLE(field->entry)) == position);
+            assert(state->dirty && !the_editor_buffer_dirty(CURRENT_FILE));
+            apply_font(original); await_frame();
+            pango_font_description_free(original); pango_font_description_free(large); g_free(draft);
+            puts("GTK_FONT_FILEFIELD_GEOMETRY_DRAFT_CARET_PRESERVED_PASS");
+         }
          screenshot("filefields-right"); press_workbench_key(GDK_KEY_Escape, 0); break;
       }
       case 9:
@@ -1524,8 +1560,8 @@ static void filefields_step(void)
          }
          assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == filefields_resize_focus);
          g_clear_object(&filefields_resize_focus);
-         for (i = 0; i < 14; i++) press_workbench_key(GDK_KEY_Tab, 0);
-         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ((GtkFileField *)g_ptr_array_index(pane->filefields, 14))->entry);
+         for (i = 1; i < pane->filefields->len; i++) press_workbench_key(GDK_KEY_Tab, 0);
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ((GtkFileField *)g_ptr_array_index(pane->filefields, pane->filefields->len - 1))->entry);
          await_frame();
          assert(gtk_adjustment_get_value(gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(pane->scroller))) > 0);
          screenshot("filefields-below");
@@ -1636,6 +1672,22 @@ static void assert_program_reader(void)
       gtk_text_buffer_get_iter_at_mark(buffer, &insert, gtk_text_buffer_get_insert(buffer));
       assert(gtk_text_iter_get_offset(&anchor) == (i ? tail : tail - 8));
       assert(gtk_text_iter_get_offset(&insert) == (i ? tail - 8 : tail));
+   }
+   {
+      GdkEvent *scroll_event = gdk_event_new(GDK_SCROLL);
+      gboolean handled = FALSE;
+      reader_scroll(&ui.program_reader, G_MAXDOUBLE);
+      assert(ui.program_reader.scroll_handler);
+      scroll_event->scroll.window = g_object_ref(gtk_widget_get_window(ui.program_reader.scroller));
+      scroll_event->scroll.direction = GDK_SCROLL_UP;
+      gdk_event_set_device(scroll_event, gdk_seat_get_pointer(gdk_display_get_default_seat(gtk_widget_get_display(ui.window))));
+      g_signal_emit_by_name(ui.program_reader.scroller, "scroll-event", &scroll_event->scroll, &handled);
+      gdk_event_free(scroll_event);
+      assert(!ui.program_reader.scroll_handler);
+      gtk_adjustment_set_value(adjustment, 80); await_frame();
+      assert(ABS(gtk_adjustment_get_value(adjustment) - 80) <= 1);
+      assert(gtk_text_buffer_get_selection_bounds(buffer, &first, &last));
+      puts("GTK_READER_BOUNDED_RESTORE_MANUAL_SCROLL_CANCEL_SELECTION_PASS");
    }
    g_signal_emit_by_name(ui.program_reader.latest, "clicked"); await_frame();
    assert(!ui.program_reader.unread && reader_at_tail(&ui.program_reader));
@@ -1802,6 +1854,12 @@ static void contextual_step(void)
          GtkTextIter first, last;
          await_lane(1, 1, NULL);
          assert(gtk_widget_get_sensitive(ui.run) && !strcmp(snapshot->profile.build.state, "ready"));
+         assert(!*snapshot->profile.active.image && !*snapshot->profile.active.source_path);
+         assert(strstr(gtk_label_get_text(GTK_LABEL(ui.profile_summary)), "No user profile applied"));
+         assert(!strstr(gtk_label_get_text(GTK_LABEL(ui.profile_summary)), "program.crexx"));
+         assert(strstr(gtk_label_get_text(GTK_LABEL(ui.build_profile)), "Latest build · Program:"));
+         assert(!strcmp(snapshot->profile.source_path, the_tools_profile_path()));
+         puts("GTK_SETUP_CONTRAST_APPLIED_PROFILE_SEPARATE_FROM_PROGRAM_BUILD_PASS");
          assert_contextual_history();
          assert(gtk_text_buffer_get_selection_bounds(buffer, &first, &last) && gtk_text_iter_get_offset(&first) == 3 && gtk_text_iter_get_offset(&last) == 9);
          assert(CURRENT_VIEW->current_window == contextual_window && !memcmp(&contextual_cursor, &CURRENT_VIEW->logical_cursor.current, sizeof(contextual_cursor)));
@@ -1856,7 +1914,7 @@ static void contextual_step(void)
       }
       case 11:
          assert(!strcmp((char *)CURRENT_FILE->fname, "User.profile.the")); assert_source(profile_source);
-         activate_shared_action("profile.action.15"); break;
+         queue_command("rx build"); break;
       case 12:
       {
          char *bytes;
@@ -1885,12 +1943,230 @@ static void contextual_step(void)
          assert(!strcmp(snapshot->profile.active.image, contextual_active)); assert_contextual_history();
          puts("GTK_CONTEXTUAL_CREXX_BUILD_RUN_STALE_FAILED_BUILD_REFUSAL_PASS");
          puts("GTK_CONTEXTUAL_PROFILE_BUILD_APPLY_EDIT_IMPORT_INVALID_RETAIN_PASS");
-         puts("GTK_LEGACY_MENU_BUILD_TERMINAL_STATUS_PROGRAM_SHOW_HIDE_PASS");
+         puts("GTK_PROFILE_BUILD_COMMAND_STATUS_PROGRAM_SHOW_HIDE_PASS");
          open_file(program); queue_command("cursor cmdline"); break;
       case 15:
          assert_source("say 'GTK program ready'\npull name\nsay 'Hello' name\n");
          assert_contextual_history(); g_free(contextual_history); g_free(contextual_draft);
          contextual_history = contextual_draft = NULL; queue_command("nop"); break;
+      default: assert(0);
+   }
+}
+
+static gboolean dismiss_settings_probe(gpointer data)
+{
+   (void)data;
+   assert(ui.settings && GTK_IS_DIALOG(ui.settings));
+   screenshot("settings");
+   gtk_dialog_response(GTK_DIALOG(ui.settings), GTK_RESPONSE_CLOSE);
+   return G_SOURCE_REMOVE;
+}
+
+static gboolean dismiss_clipboard_message(gpointer data)
+{
+   GList *windows = gtk_window_list_toplevels(), *item;
+   (void)data;
+   for (item = windows; item; item = item->next)
+      if (GTK_IS_MESSAGE_DIALOG(item->data)) gtk_dialog_response(GTK_DIALOG(item->data), GTK_RESPONSE_CLOSE);
+   g_list_free(windows);
+   return G_SOURCE_REMOVE;
+}
+
+static void assert_setup_contrast(void)
+{
+   GdkRGBA foreground, background = {0,0,0,0};
+   GtkWidget *ancestor;
+   double light[2]; unsigned i;
+   gtk_style_context_get_color(gtk_widget_get_style_context(ui.profile_summary), GTK_STATE_FLAG_NORMAL, &foreground);
+   for (ancestor = ui.profile_summary; ancestor; ancestor = gtk_widget_get_parent(ancestor))
+   {
+      GdkRGBA *colour = NULL;
+      gtk_style_context_get(gtk_widget_get_style_context(ancestor), GTK_STATE_FLAG_NORMAL, "background-color", &colour, NULL);
+      if (colour) { background = *colour; gdk_rgba_free(colour); }
+      if (background.alpha > .99) break;
+   }
+   assert(background.alpha > .99);
+   for (i = 0; i < 2; i++)
+   {
+      GdkRGBA *colour = i ? &background : &foreground;
+      double r = colour->red, g = colour->green, b = colour->blue;
+      r = r <= .04045 ? r / 12.92 : pow((r + .055) / 1.055, 2.4);
+      g = g <= .04045 ? g / 12.92 : pow((g + .055) / 1.055, 2.4);
+      b = b <= .04045 ? b / 12.92 : pow((b + .055) / 1.055, 2.4);
+      light[i] = .2126 * r + .7152 * g + .0722 * b;
+   }
+   assert((MAX(light[0], light[1]) + .05) / (MIN(light[0], light[1]) + .05) >= 4.5);
+}
+
+static void assert_settings_fonts_setup(void)
+{
+   PangoFontDescription *font = pango_font_description_from_string("Monospace 15");
+   LogicalCursor cursor = CURRENT_VIEW->logical_cursor.current;
+   int window = CURRENT_VIEW->current_window, width = ui.cell_width, height = ui.cell_height;
+   char *path = font_preferences_path(), *directory = g_path_get_dirname(path), *backup = g_strconcat(directory, ".saved", NULL);
+   char *original_output = output_text(ui.output), *copied;
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui.output));
+   GtkTextIter first, last;
+   GList *windows, *item;
+   assert(!g_file_test(path, G_FILE_TEST_EXISTS)); /* Startup never writes preferences. */
+   assert(font_available(font));
+   apply_font(font); await_frame();
+   assert(ui.cell_width > width && ui.cell_height > height);
+   assert(CURRENT_VIEW->current_window == window && !memcmp(&cursor, &CURRENT_VIEW->logical_cursor.current, sizeof(cursor)));
+   assert_source("alpha\nbeta\n"); assert(!the_editor_buffer_dirty(CURRENT_FILE));
+   assert(save_font_preferences());
+   pango_font_description_set_size(font, 10 * PANGO_SCALE); apply_font(font);
+   restore_font_preferences();
+   assert(pango_font_description_get_size(ui.font) == 15 * PANGO_SCALE);
+   assert(!rename(directory, backup));
+   assert(g_file_set_contents(directory, "blocked", -1, NULL));
+   assert(!save_font_preferences()); assert(strstr(ui.font_status, "session only"));
+   assert(!remove(directory)); assert(!rename(backup, directory));
+   pango_font_description_set_size(font, 12 * PANGO_SCALE); apply_font(font); assert(save_font_preferences());
+   pango_font_description_free(font); await_frame();
+   assert(ui.cell_width == width && ui.cell_height == height);
+   gtk_text_buffer_set_text(buffer, "Read-only Ω output", -1);
+   gtk_text_buffer_get_bounds(buffer, &first, &last); gtk_text_buffer_select_range(buffer, &first, &last);
+   assert(clipboard_action("edit.copy", ui.output));
+   copied = gtk_clipboard_wait_for_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
+   assert(copied && !strcmp(copied, "Read-only Ω output")); g_free(copied);
+   {
+      GtkWidget *targets[] = {ui.input, ui.output};
+      unsigned i;
+      int sensitive = gtk_widget_get_sensitive(ui.input);
+      gtk_widget_set_sensitive(ui.input, TRUE);
+      for (i = 0; i < G_N_ELEMENTS(targets); i++)
+      {
+         const TheWorkbenchAction *undo = the_workbench_action_find("the.edit.undo");
+         gtk_widget_grab_focus(targets[i]); sync_menus();
+         assert(!menu_action_enabled(undo)); assert(strstr(menu_action_reason(undo), "native field"));
+#ifdef GDK_WINDOWING_QUARTZ
+         press_workbench_key(GDK_KEY_z, GDK_META_MASK);
+#else
+         press_workbench_key(GDK_KEY_z, GDK_CONTROL_MASK);
+#endif
+         assert(g_queue_is_empty(&ui.inputs));
+      }
+      gtk_widget_set_sensitive(ui.input, sensitive); gtk_widget_grab_focus(ui.editor); sync_menus();
+      puts("GTK_NATIVE_FIELD_READER_UNDO_NEVER_REDIRECTS_TO_EDITOR_PASS");
+   }
+   gtk_text_buffer_set_text(buffer, original_output, -1); g_free(original_output);
+   gtk_entry_set_text(GTK_ENTRY(ui.input), "unsent setup draft");
+   gtk_editable_select_region(GTK_EDITABLE(ui.input), 2, 9);
+   assert(clipboard_write((const unsigned char *)"first\nsecond", strlen("first\nsecond")));
+   g_idle_add(dismiss_clipboard_message, NULL);
+   assert(clipboard_action("edit.paste", ui.input));
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "unsent setup draft"));
+   assert(gtk_editable_get_selection_bounds(GTK_EDITABLE(ui.input), &window, &width) && window == 2 && width == 9);
+   assert(clipboard_write((const unsigned char *)"Ω", strlen("Ω")));
+   assert(clipboard_action("edit.paste", ui.input));
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "unΩtup draft"));
+   gtk_entry_set_text(GTK_ENTRY(ui.input), "unsent setup draft");
+   gtk_editable_select_region(GTK_EDITABLE(ui.input), 2, 9);
+   g_action_group_activate_action(G_ACTION_GROUP(ui.application), "gui.tools-profiles", NULL);
+   assert(gtk_notebook_get_n_pages(GTK_NOTEBOOK(ui.setup_tabs)) == 3);
+   assert(gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.setup_tabs)) == 0);
+   await_frame(); assert_setup_contrast();
+   assert(strstr(gtk_label_get_text(GTK_LABEL(ui.profile_summary)), "No user profile applied"));
+   assert(!strstr(gtk_label_get_text(GTK_LABEL(ui.profile_summary)), "Selection kind"));
+   assert(!strstr(gtk_label_get_text(GTK_LABEL(ui.profile_summary)), "Startup selection"));
+   assert(gtk_tree_model_iter_n_children(gtk_tree_view_get_model(GTK_TREE_VIEW(ui.tools_view)), NULL) == (int)the_tool_count());
+   show_setup(1); assert(gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.setup_tabs)) == 1);
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "unsent setup draft"));
+   assert(gtk_editable_get_selection_bounds(GTK_EDITABLE(ui.input), &window, &width) && window == 2 && width == 9);
+   show_tool_page(ui.console); hide_tool_page(NULL, ui.setup);
+   gtk_entry_set_text(GTK_ENTRY(ui.input), "");
+   g_idle_add(dismiss_settings_probe, NULL);
+   g_action_group_activate_action(G_ACTION_GROUP(ui.application), "preferences", NULL);
+   assert(!ui.settings);
+   g_action_group_activate_action(G_ACTION_GROUP(ui.application), "about", NULL);
+   windows = gtk_window_list_toplevels();
+   for (item = windows; item; item = item->next) if (GTK_IS_ABOUT_DIALOG(item->data))
+   {
+      assert(!strcmp(gtk_about_dialog_get_program_name(GTK_ABOUT_DIALOG(item->data)), "CRXTHE"));
+      assert(gtk_about_dialog_get_authors(GTK_ABOUT_DIALOG(item->data)));
+      gtk_widget_destroy(item->data);
+   }
+   g_list_free(windows);
+   assert_source("alpha\nbeta\n"); assert(!the_editor_buffer_dirty(CURRENT_FILE));
+   g_free(path); g_free(directory); g_free(backup);
+   puts("GTK_SETTINGS_FONT_METRICS_PERSIST_RESTORE_SESSION_FAILURE_SETUP_ABOUT_PASS");
+}
+
+static void polish_step(void)
+{
+   char *text;
+   switch (polish_phase++)
+   {
+      case 0:
+         polish_clipboard = gtk_clipboard_wait_for_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
+         queue_command("cursor goto 1 1"); break;
+      case 1:
+         polish_cursor = CURRENT_VIEW->logical_cursor.current;
+         assert(clipboard_write((const unsigned char *)"Ω\n界", strlen("Ω\n界")));
+         assert(clipboard_action("edit.paste", ui.editor)); break;
+      case 2:
+         assert_source("Ω\n界alpha\nbeta\n");
+         assert(the_editor_buffer_dirty(CURRENT_FILE));
+         assert(CURRENT_VIEW->logical_cursor.current.line_number == 2 && CURRENT_VIEW->logical_cursor.current.text.cell_column == 2);
+         assert_original_saved(); file_action(NULL, "edit.undo"); break;
+      case 3:
+         assert_source("alpha\nbeta\n"); assert(!the_editor_buffer_dirty(CURRENT_FILE));
+         assert(polish_cursor.zone == CURRENT_VIEW->logical_cursor.current.zone);
+         assert(polish_cursor.line_number == CURRENT_VIEW->logical_cursor.current.line_number);
+         assert(polish_cursor.text.byte_offset == CURRENT_VIEW->logical_cursor.current.text.byte_offset);
+         assert(polish_cursor.text.cell_column == CURRENT_VIEW->logical_cursor.current.text.cell_column);
+         assert(polish_cursor.desired_cell == CURRENT_VIEW->logical_cursor.current.desired_cell);
+         assert(polish_cursor.valid == CURRENT_VIEW->logical_cursor.current.valid);
+         assert(clipboard_action("edit.select-all", ui.editor)); break;
+      case 4:
+         assert(clipboard_action("edit.copy", ui.editor)); break;
+      case 5:
+         text = gtk_clipboard_wait_for_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
+         assert(text && !strcmp(text, "alpha\nbeta")); g_free(text);
+         assert(clipboard_action("edit.cut", ui.editor)); break;
+      case 6:
+         assert_source(""); assert(the_editor_buffer_dirty(CURRENT_FILE)); assert_original_saved();
+         file_action(NULL, "edit.undo"); break;
+      case 7:
+         assert_source("alpha\nbeta\n"); assert(!the_editor_buffer_dirty(CURRENT_FILE));
+         queue_command("reset block"); queue_command("save"); break;
+      case 8:
+         assert_original_saved(); assert_settings_fonts_setup(); queue_command("cursor cmdline"); break;
+      case 9:
+         assert_source("alpha\nbeta\n"); assert(!the_editor_buffer_dirty(CURRENT_FILE)); assert_original_saved();
+         if (polish_clipboard) { clipboard_write((const unsigned char *)polish_clipboard, strlen(polish_clipboard)); g_free(polish_clipboard); polish_clipboard = NULL; }
+         puts("GTK_CLIPBOARD_UNICODE_MULTILINE_COPY_CUT_COMPLETE_UNDO_BYTES_CURSOR_DIRTY_SAVE_PASS");
+         queue_command("cursor cmdline"); break;
+      case 10:
+         show_setup(0); gtk_window_resize(GTK_WINDOW(ui.window), 800, 520); await_frame();
+         queue_command("cursor cmdline"); break;
+      case 11:
+      {
+         GtkAllocation editor;
+         gtk_widget_get_allocation(ui.editor, &editor);
+         assert(editor.height >= ui.rows * ui.cell_height);
+         assert(editor.width >= ui.cols * ui.cell_width);
+         assert_profile_guide(); screenshot("setup-short");
+         g_signal_emit_by_name(ui.expand_control, "clicked"); await_frame();
+         { TheInputEvent event; assert(the_input_event_from_command("nop", &event)); assert(queue_event(event)); }
+         break;
+      }
+      case 12:
+         assert(ui.expanded && !gtk_widget_get_visible(ui.editor));
+         screenshot("setup-expanded"); return_editor(NULL, NULL); await_frame();
+         queue_command("cursor cmdline"); break;
+      case 13:
+      {
+         GtkAllocation editor;
+         assert(!ui.expanded && gtk_widget_get_visible(ui.editor));
+         gtk_widget_get_allocation(ui.editor, &editor);
+         assert(editor.height >= ui.rows * ui.cell_height);
+         assert_profile_guide(); screenshot("setup-editor-return");
+         hide_tool_page(NULL, ui.setup); resize_window(900, GTK_ORIENTATION_VERTICAL);
+         puts("GTK_SHORT_EDITOR_GRID_FOOTER_EXPANDED_PANE_RETURN_PASS");
+         queue_command("cursor cmdline"); break;
+      }
       default: assert(0);
    }
 }
@@ -2005,6 +2281,7 @@ static int probe_read_input(TheInputEvent *event)
       }
       return read_input(event);
    }
+   if (polish_phase < 14) { polish_step(); return read_input(event); }
    switch (phase++)
    {
       case 0:
@@ -2112,6 +2389,11 @@ static int probe_read_input(TheInputEvent *event)
          if (filefields_probe_phase < 19) { filefields_step(); --phase; break; }
          if (workbench_focus_phase == 0)
          {
+            /* Removing the last panel and selecting Program can change the
+             * notebook chrome. Admit its normal owner resize before testing
+             * pointer rows or capturing the resulting editor surface. */
+            sync_logs(); await_frame();
+            if (ui.rows != terminal_lines || ui.cols != terminal_cols) { --phase; break; }
             assert_program_input_keeps_focus();
             assert_workbench_focus_cycle();
             workbench_editor_window = CURRENT_VIEW->current_window;

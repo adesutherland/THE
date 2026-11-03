@@ -2387,10 +2387,17 @@ void sdslh_init_file(FILE_DETAILS *fd) {
    fd->sdslh_comm = create_stdio_communication_functions((char *)fd->parser->sdslh_path);
    if (fd->sdslh_comm) {
       char *full_text = NULL;
-      size_t total_len = 0;
+      size_t total_len = 0, number = 0;
+      const void *record_file = NULL;
+      const unsigned char *record_base = NULL, *pending = NULL;
+      size_t record_line = 0, record_base_length = 0, pending_length = 0;
+      int overlay = the_workbench_document_record(&record_file, &record_line,
+         &record_base, &record_base_length, &pending, &pending_length)
+         && record_file == fd && record_line >= 1 && record_line <= (size_t)fd->number_lines;
       LINE *lcurr = fd->first_line->next;
       while (lcurr->next != NULL) {
-         total_len += lcurr->length + 1;
+         size_t length = overlay && ++number == record_line ? pending_length : (size_t)lcurr->length;
+         total_len += length + 1;
          lcurr = lcurr->next;
       }
       full_text = (*the_malloc)(total_len + 1);
@@ -2401,9 +2408,12 @@ void sdslh_init_file(FILE_DETAILS *fd) {
       full_text[0] = '\0';
       char *p = full_text;
       lcurr = fd->first_line->next;
+      number = 0;
       while (lcurr->next != NULL) {
-         if (lcurr->length > 0) memcpy(p, lcurr->line, lcurr->length);
-         p += lcurr->length;
+         int use_pending = overlay && ++number == record_line;
+         size_t length = use_pending ? pending_length : (size_t)lcurr->length;
+         if (length) memcpy(p, use_pending ? pending : lcurr->line, length);
+         p += length;
          *p++ = '\n';
          lcurr = lcurr->next;
       }

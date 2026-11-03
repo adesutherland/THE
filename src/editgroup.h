@@ -62,6 +62,11 @@ typedef struct {
     * final profile publication may capture while writes are activation-blocked. */
    short (*capture_available)(uint64_t document_id);
 } TheEditGroupProvider;
+/* Adopt a fully allocated structural editor transaction. On success the plan
+ * owns prepared; on refusal ownership stays with the caller. */
+short the_edit_group_prepare_owned(TheDocumentWriteToken expected,
+   const TheEditGroupProvider *owner, void *prepared, size_t changed_lines,
+   TheEditGroupPlan **out);
 void the_edit_group_provider(const TheEditGroupProvider *provider);
 void the_edit_group_mutation_enter(void);
 void the_edit_group_mutation_leave(void);

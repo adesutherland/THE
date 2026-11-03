@@ -47,7 +47,7 @@ static unsigned profile_source, profile_revision;
 static char profile_source_path[THE_TOOL_PATH];
 static char profile_active_source_path[THE_TOOL_PATH];
 static char profile_active_identity[THE_TOOL_PATH];
-static int profile_active_compiled;
+static int profile_active_compiled,profile_active_startup_saved;
 static unsigned profile_active_source,profile_active_revision;
 static int profile_activation_role;
 static struct {
@@ -471,6 +471,11 @@ const char *the_tools_profile_path(void) {
    }
    return path;
 }
+static const char *editable_profile_path(void) {
+   FILE *source=*profile_active_source_path ? fopen(profile_active_source_path,"rb") : NULL;
+   if(source) { fclose(source);return profile_active_source_path; }
+   return the_tools_profile_path();
+}
 static int path_suffix(const char *path,const char *suffix) {
    size_t n=path ? strlen(path) : 0,m=strlen(suffix);
    return n>=m && !my_stricmp(path+n-m,suffix);
@@ -590,6 +595,7 @@ static short activate(void) {
       }
 #ifdef __EMSCRIPTEN__
       if (the_wasm_flush_workspace() != 0) {
+         profile_active_startup_saved=0;
          display_error(0, (CHARTYPE *)"Profile applied; browser storage save failed. Retry Activate", FALSE);
          rc=RC_DISK_FULL;goto finished;
       }
@@ -627,6 +633,7 @@ static int profile_selection(void) {
    char path[THE_TOOL_PATH], temporary[THE_TOOL_PATH + 8];
    FILE *f;
    int failed;
+   profile_active_startup_saved=0;
    if (!profile_file(path, sizeof(path), "active"))
       return 0;
    snprintf(temporary, sizeof(temporary), "%s.tmp", path);
@@ -641,6 +648,7 @@ static int profile_selection(void) {
       remove(temporary);
       return 0;
    }
+   profile_active_startup_saved=1;
    return 1;
 }
 void the_tools_restore_metadata(void) {
@@ -694,6 +702,7 @@ int the_tools_profile_restore(void) {
       profile_active_compiled=!strcmp(kind,"compiled-image");
       snprintf(profile_active_identity,sizeof(profile_active_identity),"%s",identity);
       snprintf(profile_active_source_path,sizeof(profile_active_source_path),"%s",profile_active_compiled ? "" : identity);
+      profile_active_startup_saved=1;
       return 1;
    }
    return 0;
@@ -862,7 +871,7 @@ static short apply_profile_image(const char *image) {
       profile_active_source=profile_active_revision=0;
       if(!profile_selection())rc=RC_ACCESS_DENIED;
 #ifdef __EMSCRIPTEN__
-      if(!rc && the_wasm_flush_workspace()!=0)rc=RC_DISK_FULL;
+      if(!rc && the_wasm_flush_workspace()!=0) { profile_active_startup_saved=0;rc=RC_DISK_FULL; }
 #endif
    }
    the_tool_build_capture_end(rc);
@@ -1001,9 +1010,8 @@ static short action(PendingTool *p) {
       FILE *f;
       profile_directory();
       /* Edit the source of the applied profile when it still exists. */
-      f=*profile_active_source_path ? fopen(profile_active_source_path,"rb") : NULL;
-      snprintf(path,sizeof(path),"%s",f ? profile_active_source_path : the_tools_profile_path());
-      if(!f)f = fopen(path, "rb");
+      snprintf(path,sizeof(path),"%s",editable_profile_path());
+      f = fopen(path, "rb");
       if (f)
          fclose(f);
       else {
@@ -1226,6 +1234,22 @@ int the_tools_prepare_lines_bound(const char *a,const char *t,const char *text,c
    return 1;
 }
 
+int the_tools_frontend_key(unsigned char letter) {
+   static const struct { unsigned char letter;short (*function)(CHARTYPE *);const char *params,*alternate; } keys[]={
+      {'A',THEClipboard,"selectall",NULL},{'C',THEClipboard,"copy",NULL},
+      {'X',THEClipboard,"cut",NULL},{'V',THEClipboard,"paste",NULL},
+      {'S',Save,"",NULL},{'N',NULL,NULL,NULL},{'W',Quit,"",NULL},{'Z',Sos,"undo",NULL},
+      {'O',Macro,"quickopen","quickopen_regina"},
+      {'F',Macro,"quickfind","quickfind_regina"},
+      {'G',Macro,"quickline","quickline_regina"}
+   };
+   size_t i;int key;
+   letter=(unsigned char)toupper(letter);
+   for(i=0;i<sizeof(keys)/sizeof(keys[0]) && keys[i].letter!=letter;i++) {}
+   if(i==sizeof(keys)/sizeof(keys[0]))return 0;
+   key=THE_KEY_CTRL_A+letter-'A';
+   return the_editor_frontend_binding_matches(key,keys[i].function,keys[i].params,keys[i].alternate);
+}
 int the_tools_file_snapshot(TheToolsFileSnapshot *out) {
    const TheEditorSource *source;
    const char *reason;
@@ -1239,6 +1263,16 @@ int the_tools_file_snapshot(TheToolsFileSnapshot *out) {
    if(source) { out->source_id=source->id;out->revision=source->revision; }
    if(CURRENT_FILE)snprintf(out->path,sizeof(out->path),"%s%s",CURRENT_FILE->fpath,CURRENT_FILE->fname);
    snprintf(out->role,sizeof(out->role),"%s",the_tools_source_role(out->path));
+   if(!strcmp(out->role,"other"))snprintf(out->role,sizeof(out->role),"%s",
+      the_tool_for_file(out->path,"runner") || the_workbench_file_build(out->path) ? "program" : "text");
+   out->editor_settings.line_numbers=!!CURRENT_VIEW->number;
+   out->editor_settings.prefix=!!(CURRENT_VIEW->prefix & PREFIX_ON);
+   out->editor_settings.wordwrap=!!CURRENT_VIEW->wordwrap;
+   out->editor_settings.insert_mode=!!INSERTMODEx;
+   out->editor_settings.tab_increment=CURRENT_VIEW->tabsinc && CURRENT_VIEW->numtabs>1
+      ? (unsigned)(CURRENT_VIEW->tabs[1]-CURRENT_VIEW->tabs[0]) : 0;
+   { unsigned char letter;for(letter='A';letter<='Z';letter++)
+      if(the_tools_frontend_key(letter))out->editor_settings.frontend_key_mask|=1u<<(letter-'A'); }
    file_actions(source,actions);
    for(i=0;i<THE_TOOLS_FILE_ACTION_COUNT;i++) {
       TheToolsFileActionSnapshot *action=out->actions+i;
@@ -1250,7 +1284,8 @@ int the_tools_file_snapshot(TheToolsFileSnapshot *out) {
       action->enabled=!*actions[i].reason;
       action->generation=actions[i].macro ? actions[i].macro->generation : 0;
    }
-   snprintf(out->profile.source_path,sizeof(out->profile.source_path),"%s",*profile_source_path ? profile_source_path : the_tools_profile_path());
+   /* This is the destination of Edit profile, not the latest compiler input. */
+   snprintf(out->profile.source_path,sizeof(out->profile.source_path),"%s",editable_profile_path());
    out->profile.build.source_id=profile_source;out->profile.build.revision=profile_revision;
    snprintf(out->profile.build.image,sizeof(out->profile.build.image),"%s",profile_ready);
    if(*profile_source_path)the_tools_build_name(profile_source_path,out->profile.build.name,sizeof(out->profile.build.name));
@@ -1260,6 +1295,7 @@ int the_tools_file_snapshot(TheToolsFileSnapshot *out) {
    snprintf(out->profile.active.image,sizeof(out->profile.active.image),"%s",profile_active);
    snprintf(out->profile.active.source_path,sizeof(out->profile.active.source_path),"%s",profile_active_source_path);
    out->profile.active.source_id=profile_active_source;out->profile.active.revision=profile_active_revision;
+   out->profile.active.startup_saved=profile_active_startup_saved;
    snprintf(out->profile.active.kind,sizeof(out->profile.active.kind),"%s",profile_active_compiled ? "compiled-image" : "source");
    reason=apply_image_reason();
    out->profile.apply_image.enabled=!*reason;
@@ -1321,9 +1357,15 @@ size_t the_tools_format_json(char *out,size_t capacity) {
    file_json(&w,",\"sourcePath\":");file_json_string(&w,snapshot.profile.active.source_path);
    file_json(&w,",\"sourceId\":%u,\"revision\":%u,\"kind\":",snapshot.profile.active.source_id,snapshot.profile.active.revision);
    file_json_string(&w,snapshot.profile.active.kind);
+   file_json(&w,",\"startupSaved\":%s",snapshot.profile.active.startup_saved ? "true" : "false");
    file_json(&w,"},\"applyImage\":{\"enabled\":%s,\"reason\":",snapshot.profile.apply_image.enabled ? "true" : "false");file_json_string(&w,snapshot.profile.apply_image.reason);
    file_json(&w,"},\"registry\":{\"replacement\":\"profile-owned\",\"legacyEntries\":%lu,\"legacyProvenance\":\"unknown-preserved\"}",(unsigned long)snapshot.profile.legacy_entries);
-   file_json(&w,"},\"fileResult\":{\"serial\":%u,\"sourceId\":%u,\"revision\":%u,\"rc\":%d,\"action\":",snapshot.result.serial,snapshot.result.source_id,snapshot.result.revision,snapshot.result.rc);
+   file_json(&w,"},\"editorSettings\":{\"scope\":\"current-file\",\"provenance\":\"profile-defined-or-unknown\",\"lineNumbers\":%s,\"prefix\":%s,\"wordwrap\":%s,\"insertMode\":%s,\"tabIncrement\":%u,\"frontendKeys\":[",
+      snapshot.editor_settings.line_numbers ? "true" : "false",snapshot.editor_settings.prefix ? "true" : "false",
+      snapshot.editor_settings.wordwrap ? "true" : "false",snapshot.editor_settings.insert_mode ? "true" : "false",snapshot.editor_settings.tab_increment);
+   { unsigned char letter;int separator=0;for(letter='A';letter<='Z';letter++)
+      if(snapshot.editor_settings.frontend_key_mask & (1u<<(letter-'A'))) { file_json(&w,"%s\"C-%c\"",separator ? "," : "",letter);separator=1; } }
+   file_json(&w,"]},\"fileResult\":{\"serial\":%u,\"sourceId\":%u,\"revision\":%u,\"rc\":%d,\"action\":",snapshot.result.serial,snapshot.result.source_id,snapshot.result.revision,snapshot.result.rc);
    file_json_string(&w,snapshot.result.action);file_json(&w,",\"code\":");file_json_string(&w,snapshot.result.code);
    file_json(&w,",\"message\":");file_json_string(&w,snapshot.result.message);file_json(&w,"}}");
    return w.failed ? 0 : w.used;

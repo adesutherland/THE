@@ -44,9 +44,15 @@ the file, prefix or command area to move focus. Type through GTK's input
 method, use profile-defined editor keys, or choose Command to enter a THE
 command. Physical Ctrl-letter keys reach the profile; macOS Command-letter
 keys map to the same logical Ctrl-letter identities. The native menus add
-no key accelerators that override those definitions. Use the Paste menu or
-button for clipboard text; CRLF, CR and LF become normal Enter input and
-tabs follow the profile's Tab definition. Queued text is limited to 1 MiB.
+no key accelerators that override those definitions. Stock editing shortcuts
+adapt to the focused source, native text field or output reader; explicit
+profile rebindings retain authority. Source Paste accepts plain UTF-8 up to
+1 MiB, normalizes line endings and inserts tabs as data. The core replaces the
+selection atomically, with one Undo restoring bytes, caret and dirty state.
+Copy includes pending edits; Cut deletes only after the OS accepts the copied
+text. Unsupported selection/structural contexts produce an explicit refusal.
+Drag or Shift-click selects source text. Command/prefix clipboard operations
+use their fixed-width field contract; Copy exports the whole field.
 The status and reserved rows are display information, separate from file
 bytes. Clicking them retains the current GTK control's keyboard focus and
 the previous logical insertion point. If the editor already has focus,
@@ -68,8 +74,11 @@ action retains the source/revision/generation shown when clicked; the core
 rejects it if an earlier queued edit changed that source.
 
 New profile sources use `.profile.the`: Build profile, then Apply profile.
-Other `.the` files use Build macro and Run macro. Edit profile opens the user
-profile source; Apply compiled profile opens a native `.profile.rxbin` chooser.
+Other `.the` files use Build macro and Run macro. Tools & Profiles contains
+Profiles, File types & tools, and Build results sections. Profiles shows the
+active selection and startup-persistence result; Edit source opens the normal
+editor. Compiled-only imports explicitly have no editable source. File types &
+tools lists associations, permitted runners and registration controls.
 Profile validation, immutable artifacts, replacement and startup persistence
 use the same native tool host as editor commands. Configure its matching
 bundle as described in [runtime tools](runtime-tools.md).
@@ -83,7 +92,8 @@ unsaved source without saving it. Program shows bounded stdout/stderr and
 completion state, with stderr coloured separately.
 
 Program input submits one stdin record per Enter or Send, including an
-explicitly empty line. Successful submission returns focus to that field;
+explicitly empty line. Multiline paste is refused before changing its draft;
+pasting never submits input. Successful submission returns focus to that field;
 F6 or deliberate navigation leaves it. EOF and Stop act on the running job.
 The editor's command line remains available for editor commands.
 
@@ -149,18 +159,36 @@ typed input without changing editor text or saved bytes.
 ctest --test-dir build/gtk --output-on-failure -R '^test_gtk_'
 ```
 
-This first version provides keyboard editing and point-click focus. Drag
-selection, system clipboard Copy/Cut, drag-and-drop, font/zoom preferences,
-GUI tool registration and platform accessibility integration are not yet
-implemented. Existing keyboard selection and editor commands remain usable.
-On macOS, the current generated File, Edit and Workbench menus use the system
-menu bar when the GTK window is active. GTK uses the same menu model inside
-the window on other desktops. F10 opens a separate popup from that model;
-it does not focus the exported macOS menu bar. Shift-Tab moves from the editor
-to visible controls. About and Settings/Preferences application actions remain
-unimplemented. The macOS application label for this unpackaged
-development executable follows its process name (`the`); a desktop app bundle
-will need its own packaging review.
+## Menus and Settings
+
+One compact toolbar and current-file action row accompany the shared
+File/Edit/View/Tools/Help groups. Ordinary unassociated files have role Text;
+there is no compulsory runner setup. User-defined menu extensions remain.
+On macOS, GTK exports application About, Settings and Quit to the system menu.
+Other desktops use in-window routes. F10 opens a grouped GTK fallback popup,
+not the macOS system menu bar. Shift-Tab moves to visible controls while Tab
+retains its profile editor meaning.
+
+Settings separates driver Appearance from current-file Editor commands.
+Choose an installed monospace font and point size or reset the default. The
+editor, output readers and editable file fields use the same remeasured font;
+ordinary controls retain the native theme. Explicit changes persist in
+`crxthe/gtk-preferences.ini` under GLib's user configuration directory. A failed
+write is visibly session-only and can be retried. Fonts are not stored in Rexx
+profiles. Browser text size belongs to browser zoom and terminal font size to
+the terminal emulator.
+
+Editor settings show live core values and apply existing commands to the
+current file. Edit profile defaults opens source for future-session changes;
+Settings does not rewrite handwritten Rexx. Tools & Profiles links to the same
+setup view. About contains version, licence and capability information.
+
+The development executable's macOS application label follows its process name
+(`the`); distributable app identity requires separate packaging review.
+Drag-and-drop and platform accessibility integration remain unimplemented.
+Native text entries keep native Undo behavior; when no native Undo is available,
+the driver reports that limitation rather than undoing the source document.
+
 The Program console captures the registered tool host's streams; arbitrary
 shell escapes still use the launching process's standard streams. Long
 synchronous macros and shell escapes can hold the GUI event loop.
@@ -168,7 +196,5 @@ synchronous macros and shell escapes can hold the GUI event loop.
 Local macOS GTK checks do not qualify Linux, Windows, GTK distribution,
 installation bundles, signing or a release.
 
-The [graphical workbench usability proposal](roadmap.md#graphical-workbench-usability-proposal)
-defines the next menu, setup, typography and clipboard work. Shared action
-and runtime acceptance does not establish visual or human task-flow parity
-with the browser reference.
+The [graphical qualification scope](roadmap.md#graphical-workbench-qualification)
+keeps task-flow review distinct from source tests and platform packaging.

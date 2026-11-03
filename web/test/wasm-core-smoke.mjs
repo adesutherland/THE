@@ -56,7 +56,17 @@ assert.equal(workbenchHello?.driver, 'wasm');
 assert.match(workbenchHello.workbenchSession, /^[0-9a-f]{24}$/);
 let workbenchSequence = workbenchHello.workbenchNextRequest;
 const nextWorkbenchRequest = () => `${workbenchHello.workbenchSession}.${workbenchSequence++}`;
-const workbenchPage = (section) => messages.filter((m) => m.type === 'workbench' && m.operation === 'list' && m.data?.section === section).at(-1)?.data;
+const workbenchPage = (section) => {
+  const pages = messages.filter((m) => m.type === 'workbench' && m.operation === 'list' && m.data?.section === section);
+  const latest = pages.at(-1)?.data;
+  if (!latest) return;
+  // The builtin catalogue spans multiple pages; inspect the complete current
+  // revision rather than assuming every action fits in the final page.
+  const records = new Map();
+  for (const page of pages) if (page.data.revision === latest.revision)
+    for (const record of page.data.records) records.set(record.id, record);
+  return { ...latest, records: [...records.values()] };
+};
 const workbenchResult = (requestId) => messages.filter((m) => m.type === 'workbench' && m.operation === 'result' && m.requestId === requestId && m.state === 'complete').at(-1);
 assert.ok(workbenchPage('actions')?.records.some((action) => action.id === 'the.file.save'), 'Wasm publishes builtin actions');
 const preservedWorkbenchEditor = { ...initialSnapshot.focus, dirty: initialSnapshot.buffer.dirty };

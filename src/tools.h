@@ -19,6 +19,7 @@ typedef struct {
 typedef struct {
    unsigned source_id,revision;
    char image[THE_TOOL_PATH],source_path[THE_TOOL_PATH],kind[24];
+   int startup_saved;
 } TheToolsActiveProfileSnapshot;
 typedef struct {
    int enabled;
@@ -37,12 +38,22 @@ typedef struct {
    char action[32],code[40],message[256];
 } TheToolsFileResultSnapshot;
 typedef struct {
+   int line_numbers,prefix,wordwrap,insert_mode;
+   unsigned tab_increment,frontend_key_mask;
+} TheToolsEditorSettingsSnapshot;
+typedef struct {
    unsigned source_id,revision;
    char path[THE_TOOL_PATH],role[24];
    TheToolsFileActionSnapshot actions[THE_TOOLS_FILE_ACTION_COUNT];
    TheToolsProfileSnapshot profile;
    TheToolsFileResultSnapshot result;
+   TheToolsEditorSettingsSnapshot editor_settings;
 } TheToolsFileSnapshot;
+
+/* A GUI may adapt a stock shortcut only while its profile definition still
+ * has the stock meaning. Explicit custom/disabled definitions remain owned
+ * by the profile. ASCII letters are accepted in either case. */
+int the_tools_frontend_key(unsigned char letter);
 
 /* Editor-owner projection with owned strings. Preparing the current source
  * includes its pending record; reading never admits asynchronous completion.

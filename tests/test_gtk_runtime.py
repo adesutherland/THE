@@ -34,7 +34,8 @@ def main():
         environment = dict(os.environ, THE_DRIVER_PATH=module,
                            THE_GTK_PROBE_DIR=str(root),
                            THE_GTK_PROBE_SCREENSHOT=screenshot,
-                           THE_TOOL_CONFIG_DIR=str(root / "tool-config"))
+                           THE_TOOL_CONFIG_DIR=str(root / "tool-config"),
+                           XDG_CONFIG_HOME=str(root / "gtk-config"))
         try:
             completed = subprocess.run([binary, "--driver", "gtk", "-w", "16384", str(root / "sample.txt")],
                                        cwd=directory, env=environment, text=True,
@@ -50,6 +51,10 @@ def main():
                        "GTK_DEFAULT_PALETTE_STATUS_RESERVED_TYPE_BACKSPACE_UNDO_SAVE_PASS",
                        "GTK_APPLICATION_NATIVE_MENUS_SAFE_QUEUED_ACTIONS_PASS",
                        "GTK_SHARED_MENU_UTF8_LABEL_REVISION_ID_GENERATION_PASS",
+                       "GTK_SETTINGS_FONT_METRICS_PERSIST_RESTORE_SESSION_FAILURE_SETUP_ABOUT_PASS",
+                       "GTK_NATIVE_FIELD_READER_UNDO_NEVER_REDIRECTS_TO_EDITOR_PASS",
+                       "GTK_SHORT_EDITOR_GRID_FOOTER_EXPANDED_PANE_RETURN_PASS",
+                       "GTK_CLIPBOARD_UNICODE_MULTILINE_COPY_CUT_COMPLETE_UNDO_BYTES_CURSOR_DIRTY_SAVE_PASS",
                        "GTK_WORKBENCH_SHIFT_TAB_ESC_CARET_DRAFT_TAB_PASS",
                        "GTK_PROFILE_GUIDE_VISIBLE_WIDE_AND_NARROW_PASS",
                        "GTK_NATIVE_QUIT_RETAINS_UNSAVED_TEXT_AND_FILE_BYTES_PASS",
@@ -58,9 +63,12 @@ def main():
         if environment.get("THE_GTK_REQUIRE_PROGRAM"):
             for marker in ("GTK_CONTEXTUAL_ACTIONS_DISABLED_SELECTED_PROFILE_STYLE_PASS",
                            "GTK_PROGRAM_READER_SCROLL_SELECTION_UNREAD_LATEST_DRAFT_FOCUS_PASS",
+                           "GTK_READER_BOUNDED_RESTORE_MANUAL_SCROLL_CANCEL_SELECTION_PASS",
+                           "GTK_FONT_FILEFIELD_GEOMETRY_DRAFT_CARET_PRESERVED_PASS",
                            "GTK_READER_TAIL_SELECTION_STREAM_REPLACEMENT_EVICTION_UNREAD_PASS",
-                           "GTK_LEGACY_MENU_BUILD_TERMINAL_STATUS_PROGRAM_SHOW_HIDE_PASS",
+                           "GTK_PROFILE_BUILD_COMMAND_STATUS_PROGRAM_SHOW_HIDE_PASS",
                            "GTK_BUILD_RESULT_PRESERVES_PROGRAM_HISTORY_SELECTION_DRAFT_CURSOR_PASS",
+                           "GTK_SETUP_CONTRAST_APPLIED_PROFILE_SEPARATE_FROM_PROGRAM_BUILD_PASS",
                            "GTK_CONTEXTUAL_CREXX_BUILD_RUN_STALE_FAILED_BUILD_REFUSAL_PASS",
                            "GTK_CONTEXTUAL_PROFILE_BUILD_APPLY_EDIT_IMPORT_INVALID_RETAIN_PASS"):
                 assert marker in completed.stdout, (marker, completed.stdout, completed.stderr)

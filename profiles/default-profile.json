@@ -139,14 +139,21 @@
     ["Run file", "rx menu-run"],
     ["Show or focus Program console", "rx console on"],
     ["Hide program console", "rx console off"],
-    ["Stop program", "rx stop"],
+    ["Stop current task", "rx stop"],
     ["Clear program output", "rx clear"],
     ["End program input", "rx eof"],
     ["Edit profile", "rx profile"],
     ["Build profile", "rx build"],
-    ["Activate profile", "rx activate"],
+    ["Apply profile", "rx activate"],
     ["Key definitions", "showkey all"],
     ["Help (F1)", "help"]
+  ],
+  "native_menu_groups": [
+    {"id": "profile.file", "label": "File", "order": 10, "entries": [7]},
+    {"id": "profile.edit", "label": "Edit", "order": 20, "entries": [5, 6]},
+    {"id": "profile.view", "label": "View", "order": 30, "entries": [9, 10]},
+    {"id": "profile.tools", "label": "Tools", "order": 40, "entries": [8, 11, 12, 13]},
+    {"id": "profile.help", "label": "Help", "order": 50, "entries": [17, 18]}
   ],
   "parsers": [
     {

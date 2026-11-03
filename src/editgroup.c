@@ -111,6 +111,20 @@ short the_edit_group_prepare(TheDocumentWriteToken expected,const TheDocumentLin
    if(mutation_epoch!=expected.write_revision) { the_edit_group_abort(p); return fail("stale-revision",-3); }
    *out=p; problem="ok"; return 0;
 }
+short the_edit_group_prepare_owned(TheDocumentWriteToken expected,
+   const TheEditGroupProvider *owner,void *prepared,size_t changed,TheEditGroupPlan **out)
+{
+   TheDocumentWriteToken current; TheEditGroupPlan *p; short rc;
+   if(!out || !owner || !prepared || !owner->validate || !owner->publish || !owner->destroy)
+      return fail("invalid-operand",5);
+   *out=NULL;
+   if((rc=the_edit_group_token(expected.document_id,&current))) return rc;
+   if(current.write_revision!=expected.write_revision) return fail("stale-revision",-3);
+   if((rc=owner->validate(prepared,0))) return provider_fail(owner,rc);
+   p=calloc(1,sizeof(*p)); if(!p) return fail("limit-exceeded",94);
+   p->expected=expected; p->provider=*owner; p->prepared=prepared; p->changed_lines=changed;
+   *out=p; return 0;
+}
 static void completed(TheEditGroupPlan *p,uint64_t before,int undo,TheEditGroupReceipt *out)
 {
    memset(&receipt,0,sizeof(receipt)); receipt.group=p->group; receipt.document_id=p->expected.document_id;

@@ -14,6 +14,7 @@
 #include "workbenchruntime.h"
 #include "workbenchdocument.h"
 #include "editorsource.h"
+#include "editorclipboard.h"
 #include "tools.h"
 #include "frontendpolicy.h"
 void the_tools_wasm_initialise(int);
@@ -194,6 +195,21 @@ EM_JS(int,browser_workbench_string_valid,(const char *field,int optional),{
  const value=Module.editorRequest[UTF8ToString(field)];
  return value===undefined ? optional : typeof value==='string' && !value.includes('\0');
 });
+EM_JS(void,browser_clipboard_allocation_failed,(),{
+ Module.sendEditorMessage({type:'clipboard',operation:Module.editorRequest.operation,
+   requestId:Module.editorRequest.requestId,rc:94,code:'limit-exceeded',
+   message:'The editor could not allocate the clipboard response. No source was changed.'});
+});
+EM_JS(int,browser_clipboard_text_valid,(),{
+ const value=Module.editorRequest.text;
+ if(typeof value!=='string'||value.includes('\0'))return 0;
+ for(let i=0;i<value.length;i++){
+   const code=value.charCodeAt(i);
+   if(code>=0xd800&&code<=0xdbff){const next=value.charCodeAt(++i);if(!(next>=0xdc00&&next<=0xdfff))return 0;}
+   else if(code>=0xdc00&&code<=0xdfff)return 0;
+ }
+ return 1;
+});
 EM_JS(int,browser_form_value_valid,(),{
  const value=Module.editorRequest.value;
  if(typeof value!=='string'||value.includes('\0'))return 0;
@@ -320,6 +336,32 @@ static int read_input(TheInputEvent *event)
       }
       if (!browser_wait(input_timeout)) return 0;
       if (!browser_string("type", type, sizeof(type))) continue;
+      if (!strcmp(type,"clipboard")) {
+         char operation[32]="",request_id[130]="",token_text[32]; uint64_t token=0;
+         char *payload=NULL,*reply; int valid=browser_integer("version",0)==1
+            && browser_string("operation",operation,sizeof(operation))
+            && browser_string("requestId",request_id,sizeof(request_id))
+            && browser_workbench_string_valid("operation",0)
+            && browser_workbench_string_valid("requestId",0);
+         if(valid && (!strcmp(operation,"paste") || !strcmp(operation,"cut")))
+            valid=browser_string("token",token_text,sizeof(token_text))
+               && the_web_parse_u64(token_text,&token) && token;
+         if(valid && !strcmp(operation,"paste")) {
+            /* The payload is bounded and copied on the heap, never into the
+             * ordinary key queue or a megabyte-sized stack input event. */
+            payload=browser_payload("text",THE_CLIPBOARD_BYTES_MAX+1);
+            valid=browser_clipboard_text_valid() && payload!=NULL;
+         }
+         reply=the_editor_clipboard_json(valid ? operation : "invalid",
+            request_id,token,(const unsigned char *)payload,payload ? strlen(payload) : 0);
+         if(reply) { browser_send(reply); free(reply); }
+         else browser_clipboard_allocation_failed();
+         free(payload);
+         /* Clipboard requests run on this owner without a queued key. NONE
+          * does not reach the ordinary editor refresh/update tail. */
+         publish();
+         *event=the_input_event_none(); return 1;
+      }
       if (strcmp(type,"workbench") == 0) {
          char operation[32], section[32], request_id[THE_WEB_WORKBENCH_REQUEST_ID_MAX + 2];
          int version = browser_integer("version",0);

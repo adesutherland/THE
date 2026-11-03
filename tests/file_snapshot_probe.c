@@ -77,7 +77,7 @@ static int probe_input(TheInputEvent *event)
          assert(!the_workbench_put_action(&build) && !the_workbench_commit());
          cursor=CURRENT_VIEW->logical_cursor;window=CURRENT_VIEW->current_window;
          assert(the_tools_file_snapshot(&snapshot_initial));
-         assert(snapshot_initial.source_id && snapshot_initial.revision && !strcmp(snapshot_initial.role,"other"));
+         assert(snapshot_initial.source_id && snapshot_initial.revision && !strcmp(snapshot_initial.role,"program"));
          assert(!strcmp(snapshot_initial.path,getenv("THE_FILE_SNAPSHOT_SOURCE")));
          assert(!strcmp(snapshot_initial.actions[0].id,"build") && !strcmp(snapshot_initial.actions[0].label,"Snapshot Build"));
          assert(!snapshot_initial.actions[0].enabled && !strcmp(snapshot_initial.actions[0].reason,"capability-unavailable"));

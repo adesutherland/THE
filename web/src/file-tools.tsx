@@ -52,13 +52,13 @@ export function CurrentFileActions({ session, snapshot, online, onAction, onSetu
   const profile = role === "profile-source";
   const macro = role === "macro-source";
   const crexx = role === "crexx-source";
-  const purpose = profile ? "THE profile" : macro ? "THE macro" : "Program";
+  const purpose = profile ? "THE profile" : macro ? "THE macro" : crexx || file?.actions.some((action) => !!action.tool) ? "Program" : "Text";
   const actions = file?.actions ?? [];
   const build = actions.find((action) => action.id === "build");
   const next = actions.find((action) => action.id === (profile ? "activate" : "run"));
   const shown = profile || macro ? [build, next].filter((action): action is FileToolAction => !!action)
     : actions.filter((action) => action.id !== "activate" && (action.enabled || !!action.tool));
-  const configure = !profile && !macro && !shown.length;
+  const configure = crexx && !shown.length;
   const primary = next?.enabled ? next : build?.enabled ? build : shown.find((action) => action.enabled);
   const buildArtifact = session?.profile?.build;
   const buildMatches = !!file && !!buildArtifact?.image && buildArtifact.sourceId === file.sourceId
@@ -83,7 +83,8 @@ export function CurrentFileActions({ session, snapshot, online, onAction, onSetu
     status = `${result.message || readableReason(result.code)} (RC ${result.rc}). See ${result.action === "run" ? "Program console" : "Tools & Profiles"}.`;
     resultState = "error";
   } else if (!status && result && result.code !== "started") {
-    if (result.action === "activate") status = "Profile applied. Settings are saved for future sessions.";
+    if (result.action === "activate") status = session?.profile?.active.startupSaved === false
+      ? "Profile applied for this session. Startup settings were not saved." : "Profile applied. Settings are saved for future sessions.";
     else if (result.action === "build") status = profile
       ? `Built ${buildArtifact?.name || "profile"}. Apply profile saves settings for future sessions.`
       : macro ? "Macro built. Run macro executes it once." : result.message || "Build completed.";
@@ -102,7 +103,7 @@ export function CurrentFileActions({ session, snapshot, online, onAction, onSetu
       else status = nextReason;
     } else status = primary?.id === "build" ? "Build uses the current buffer, including unsaved edits."
       : primary ? "Runs the current buffer, including unsaved edits. Output is in Program console."
-      : nextReason || "File actions unavailable";
+      : nextReason || "Text file · edit with THE commands or your profile’s keys.";
   }
   return <section class="current-file-tools" aria-label="Current file actions" data-file-role={role}>
     <div class="current-file-identity">
@@ -126,7 +127,6 @@ export function CurrentFileActions({ session, snapshot, online, onAction, onSetu
         {configure ? <button type="button" class="file-action-configure file-action-primary"
           aria-describedby="current-file-status" onClick={onSetup}>Configure runner</button> : null}
       </div>
-      {!configure ? <button type="button" class="file-setup-link" onClick={onSetup}>Tools & Profiles</button> : null}
     </div>
     <p id="current-file-status" class={`current-file-status${resultState ? ` current-file-result file-result-${resultState}` : ""}`}
       role="status" aria-live="polite" aria-atomic="true">{status}</p>
@@ -145,6 +145,12 @@ export function ToolsProfiles({ send, session, snapshot, online, argumentsText, 
   onClose: () => void;
   focusEditor: () => void;
 }) {
+  const [section, setSection] = useState<"profiles" | "tools" | "build">("profiles");
+  const lastBuild = useRef(0);
+  useEffect(() => {
+    const id = session.build?.job.id || 0;
+    if (id && id !== lastBuild.current) { lastBuild.current = id; setSection("build"); }
+  }, [session.build?.job.id]);
   const [toolId, setToolId] = useState("");
   const [image, setImage] = useState("");
   const [importState, setImportState] = useState("");
@@ -165,7 +171,8 @@ export function ToolsProfiles({ send, session, snapshot, online, argumentsText, 
   const build = session.build;
   const result = session.fileResult?.action === "build" || session.fileResult?.action === "activate"
     ? session.fileResult : undefined;
-  const artifact = profile?.build;
+  const latestArtifact = profile?.build;
+  const artifact = latestArtifact?.role === "profile-source" ? latestArtifact : undefined;
   const profileResult = profileRequest && session.fileResult?.action === "apply-profile"
     && session.fileResult.serial > profileRequest.serial ? session.fileResult : undefined;
   const applyingProfile = online && !!profileRequest && (session.fileResult?.serial || 0) <= profileRequest.serial;
@@ -177,19 +184,23 @@ export function ToolsProfiles({ send, session, snapshot, online, argumentsText, 
   const profileReceipt = profileResult && profileRequest?.path === profileImage.trim() ? profileResult : undefined;
   useEffect(() => { if (!online) setProfileRequest(null); }, [online]);
   const sameBuildSource = !!artifact?.image && artifact.sourceId === session.currentFile?.sourceId;
-  const buildState = !artifact?.image ? "No artifact built"
+  const buildState = !artifact?.image ? "No profile artifact built"
     : !sameBuildSource ? `Built for ${shortPath(artifact.sourcePath || "another source")}`
     : artifact.revision !== session.currentFile?.revision ? "Source edited · rebuild before use"
     : "Built from the current source";
   return <div class="tools-profiles" aria-label="Tools and profiles">
     <div class="tools-heading"><strong>Tools & Profiles</strong>
       <button type="button" onClick={onClose}>Hide</button></div>
+    <nav class="tools-sections" aria-label="Tools and profile sections">
+      {([['profiles', 'Profiles'], ['tools', 'File types & tools'], ['build', 'Build results']] as const).map(([id, label]) =>
+        <button type="button" key={id} aria-pressed={section === id} onClick={() => setSection(id)}>{label}</button>)}
+    </nav>
     <div class="tools-body">
-      <section class="profile-setup" aria-label="Profile setup">
+      <section class="profile-setup" aria-label="Profile setup" hidden={section !== "profiles"}>
         <h2>Profiles</h2>
         <p>Profiles define editor settings, file associations and workbench actions. Open a .profile.the source to build and apply a profile. Other .the files build and run as macros.</p>
         <dl class="profile-status-list">
-          <dt>Source</dt><dd class="profile-source-path">{profile?.sourcePath || "User profile source"}</dd>
+          <dt>Editable</dt><dd class="profile-source-path">{profile?.sourcePath || "User profile source"}</dd>
           <dt>Build</dt><dd class="profile-build-state">{buildState}{artifact?.image ? <>
             <small>{artifact.name || shortPath(artifact.image)} · {artifact.role === "profile-source" ? "THE profile" : artifact.role === "macro-source" ? "THE macro" : "Program"}</small>
             <small>{artifact.sourcePath || "Source"} · revision {artifact.revision}</small>
@@ -199,11 +210,16 @@ export function ToolsProfiles({ send, session, snapshot, online, argumentsText, 
             ? "Compiled profile · saved copy" : profile?.active.image || "No user profile applied"}
             {profile?.active.kind === "compiled-image" && profile.active.image ? <small>{profile.active.image}</small> : null}
             {profile?.active.sourcePath ? <small>{profile.active.kind === "compiled-image" ? "Compiled profile" : "Source"}: {profile.active.sourcePath}</small> : null}</dd>
+          <dt>Startup</dt><dd class="profile-startup-state">{!profile?.active.image ? "No user profile selected"
+            : profile.active.startupSaved === true ? "Saved for future sessions"
+            : profile?.active.startupSaved === false ? "Session only · startup settings were not saved"
+            : "Profile-defined or unknown"}</dd>
         </dl>
         <button type="button" disabled={!online || busy || !!snapshot?.panel} onClick={() => {
           if (send({ type: "tool", action: "profile", tool: "", text: "", arguments: "" }) !== undefined)
             window.setTimeout(focusEditor, 0);
         }}>Edit profile</button>
+        {profile?.active.kind === "compiled-image" ? <p class="tools-hint">The active imported image has no editable source attached. Edit profile opens your separate user profile source.</p> : null}
         <p class="tools-hint">THE sources use cREXX Level B. Run macro executes a build once. Apply profile applies its settings now and saves the profile for future sessions.</p>
         <div class="compiled-profile-setup">
           <h3>Apply a compiled profile</h3>
@@ -229,22 +245,32 @@ export function ToolsProfiles({ send, session, snapshot, online, argumentsText, 
           <p id="compiled-profile-status" class={`compiled-profile-status${profileReceipt ? ` file-result-${profileReceipt.rc ? "error" : "success"}` : ""}`}
             role="status" aria-live="polite">{profileReceipt ? profileReceipt.rc
               ? `${profileReceipt.message || readableReason(profileReceipt.code)} (RC ${profileReceipt.rc})`
+              : profile?.active.startupSaved === false ? "Compiled profile applied for this session. Startup settings were not saved."
               : "Compiled profile applied. Settings are saved for future sessions."
               : profileApplyReason || "Ready to apply and save this compiled profile."}</p>
         </div>
       </section>
-      <section class="build-results" aria-label="Build results">
+      <section class="build-results" aria-label="Build results" hidden={section !== "build"}>
         <div class="tools-section-heading"><h2>Build results</h2>
           {build?.job.running ? <button type="button" disabled={!online} onClick={() => send({ type: "tool", action: "stop", tool: "", text: "", arguments: "" })}>Stop build</button> : null}
         </div>
         <p class="build-state" role="status">{build?.job.id ? `${build.job.state}${build.job.filename ? ` · ${build.job.filename} · revision ${build.job.revision}` : ""}` : "No compiler build has run in this session."}</p>
+        {latestArtifact?.image ? <p class="build-artifact">Artifact: {latestArtifact.name || shortPath(latestArtifact.image)}
+          <small>{latestArtifact.sourcePath || "Source"} · revision {latestArtifact.revision}</small>
+          <small>{latestArtifact.image}</small></p> : null}
         {result?.serial ? <p class={`file-result ${result.rc ? "file-result-error" : ""}`} role="status">{result.action}: {result.message || readableReason(result.code)}{result.rc ? ` (RC ${result.rc})` : ""}</p> : null}
         {build?.omitted ? <p class="tools-hint">Older build output omitted</p> : null}
         <pre class="build-output" aria-label="Build output" tabIndex={0}>{build?.chunks.map((chunk, index) =>
           <span key={index} class={chunk.fd === 2 ? "console-stderr" : ""} data-stream={chunk.fd === 2 ? "stderr" : "stdout"}>{chunk.text}</span>)}</pre>
       </section>
-      <section class="run-setup" aria-label="Explicit program tool">
-        <h2>Run with a tool</h2>
+      <section class="run-setup" aria-label="Explicit program tool" hidden={section !== "tools"}>
+        <h2>File types & tools</h2>
+        <p>Associations and permitted runners come from profiles. Edit the profile to change defaults.</p>
+        <button type="button" disabled={!online || busy || !!snapshot?.panel} onClick={() => {
+          if (send({ type: "tool", action: "profile", tool: "", text: "", arguments: "" }) !== undefined)
+            window.setTimeout(focusEditor, 0);
+        }}>Edit tool associations in profile</button>
+        <h3>Run with a tool</h3>
         <p>Run uses the selected file’s association. An explicit tool here runs the current buffer with your chosen runner, or runs a prepared RXBIN program.</p>
         <label>Tool<select aria-label="Run tool" value={toolId} disabled={busy} onChange={(event) => setToolId(event.currentTarget.value)}>
           <option value="">Choose a tool…</option>
@@ -293,7 +319,7 @@ export function ToolsProfiles({ send, session, snapshot, online, argumentsText, 
           <p class="tools-hint">Import prepared images for this runtime cohort. File associations are configured in a profile.</p>
         </div> : null}
       </section>
-      <section class="tool-catalog" aria-label="Installed tools">
+      <section class="tool-catalog" aria-label="Installed tools" hidden={section !== "tools"}>
         <h2>Installed tools and associations</h2>
         <ul>{session.catalog.map((candidate) => <li key={candidate.id}>
           <strong>{candidate.label}</strong><span>{candidate.role} · {candidate.available ? "Available" : "Unavailable"}</span>
