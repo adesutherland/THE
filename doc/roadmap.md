@@ -67,6 +67,144 @@ actions and outcomes, preserving cursor, dirty state and exact saved/reopened
 bytes. OS integration and installer qualification remain separate. Terminal
 alignment follows the same contracts after this GTK slice.
 
+### Graphical workbench usability proposal
+
+The browser remains the reference for the guided workbench. GTK now shares
+its file-action and runtime contracts, but its navigation, setup surface and
+visual hierarchy are not yet the same usability baseline. The browser also
+needs the clipboard, New-file and compact-layout corrections recorded in
+[known issues](known-issues.md#workbench-interaction). The following is a design
+proposal for feedback, not implemented UI behavior.
+
+**Review basis.** A single lead UI reviewer inspected the hosted browser
+reference (`e80730a`) and GTK source `88e448e`. The browser was reviewed in a
+separate in-app-browser tab using distinct review filenames; storage isolation
+from previous in-app-browser sessions was not established. GTK was operated
+through a disposable macOS app wrapper around the current executable with
+separate files and configuration;
+the wrapper does not qualify the application's distributable identity.
+Classic Run/input/completion, compiled-source Build/Run and profile
+Edit/Build/Apply were exercised, alongside navigation, narrow layouts and
+clipboard attempts. Source audits separately checked clipboard limits,
+native menu projection and typography. These are expert-review findings,
+not a measured user study or Linux/Windows qualification.
+
+GTK New was inspected but not reliably completed through computer use, so
+this review makes no native New defect claim. Detailed native clipboard and
+keyboard coverage beyond the walked journeys remains an acceptance task.
+
+**Shared structure.** Retain the guided workbench and THE's prefix, command
+line, logical cursor and profile-owned footer beneath the editor. Use one
+application navigation model with File, Edit, View, Tools and Help groups.
+Remove the default 18-entry catch-all Workbench group and duplicate actions.
+The existing registry already supports multiple flat groups; regrouping does
+not require a new menu grammar. Browser and GTK must project equivalent
+actions, availability and refusal reasons from shared identities. Keep
+profile-defined extensions and profile-owned key bindings.
+
+- File: New/Open, Save/Save as, Close and Next file.
+- Edit: Undo/Redo, Cut/Copy/Paste/Select all, Find and Go to line, once their
+  shared action contracts are complete.
+- View: Files, Program console, Tools & Profiles and focus/navigation routes.
+- Tools: current-file actions and Tools & Profiles. Unassociated prose files
+  have role Text, with no forced Configure runner action.
+- Help: command help, key definitions and About, with native placement below.
+
+Keep one compact toolbar for frequent operations and one current-file task
+row. Show Build/Run for applicable source, Build/Apply for profile source,
+and Run for runnable macros or images; do not expose profile administration
+as permanent unrelated buttons beside every file. Prefer a clear next action
+and an accessible prerequisite over a row of disabled controls. Preserve
+source/revision/generation checks when menus or controls queue an action.
+
+**Tools & Profiles.** Provide the same discoverable setup destination in both
+frontends, separate from Program input/output. Split the long browser form
+into Profiles, File types & tools, and Build results sections. Show the active
+profile, editable source when available, compiled artifact and startup
+persistence state. Edit source opens it in the normal editor; Build and Apply
+then use current-file actions. Compiled-only imports explicitly have no source
+to edit. Tool associations and permitted runners must be visible without
+scrolling past an unrelated profile-import form. Program console remains
+program stdin/stdout/stderr and lifecycle controls. Retain build/program
+history, focus, drafts, selection and unread state across setup work.
+
+Use one set of pane switches. At wide sizes, retain a useful editor and right
+auxiliary pane. At narrow/short sizes, offer a properly sized lower or expanded
+auxiliary view, with explicit return to the editor; do not compress setup into
+an unusable sliver. Do not add permanent diagnostic/debug information to the
+main toolbar. Version, capabilities and licences belong in About/details.
+
+**Platform-native placement and Settings.** On macOS, application About,
+Settings and Quit belong in the system application menu; register the missing
+`app.about` and `app.preferences` actions in the existing GtkApplication
+integration. Keep Services/Hide and checked Quit behavior. Other GTK desktops
+use their in-window menus, with Preferences and Help/About routes to the same
+actions. Browser uses Menu/Settings and its existing About route. macOS F10
+currently opens a GTK popup; retain a consistent grouped fallback unless
+native system-menu keyboard focus is demonstrated through supported APIs.
+Do not describe that popup as operation of the macOS menu bar. Proper app
+bundle naming is separate from implementing About and Settings.
+
+Settings provides familiar access while retaining configuration authority:
+
+| Section | Scope and owner |
+| --- | --- |
+| Appearance | GTK-only monospace family and point size, applied consistently to editor, output and file fields. Keep themed UI control fonts. Persist driver preferences separately from editor profiles. Browser text size uses browser zoom; terminal font belongs to the emulator. |
+| Editor | Show current core values and their file/profile scope. Apply live options through existing commands; offer Edit profile defaults for startup behavior. Do not silently maintain a second set of editor preferences or rewrite arbitrary Rexx source. |
+| Tools & Profiles | Navigate to the shared setup view; do not duplicate runner/profile forms in Settings. Profiles/macros remain the source of IDE behavior. |
+| About | Product/development version, credits/licences and capability details; no editable IDE or runtime setup. |
+
+Only show profile provenance when it is known. Arbitrary macro side effects
+can make attribution incomplete; an explicit unknown/profile-defined state is
+better than claiming a particular source line supplied a setting.
+
+GTK font application needs a single driver path for chooser, startup and
+display/style changes: validate installed monospace fonts, remeasure cells,
+update readers/field CSS and pane minimums, then issue the normal owner resize.
+Preserve cursor, dirty state and bytes. Save only explicit preference changes,
+with a visible session-only result if persistence fails. Use logical GTK pixel
+metrics rather than multiplying point size for Retina displays.
+
+**Clipboard and editing acceptance come first.** Resolve clipboard actions
+from the focused target, preserving native entry behavior and read-only copy.
+The editor core owns selected bytes, replacement, structural multiline
+insertion, read-only checks and one complete Undo transaction. Copy includes
+pending edits; Cut writes the clipboard successfully before deleting; Paste
+validates and either commits completely or leaves bytes unchanged. A transport
+must not silently discard a large paste or leave a partially inserted prefix.
+Browser clipboard permissions/user activation are frontend concerns; keyboard
+copy/paste events and menu actions require appropriate supported paths and a
+clear denial result. Multiline Program input must never cause accidental Send.
+
+The bounded implementation order, subject to this proposal's approval, is:
+
+1. Reproduce and repair New/first-input and selection-replacement Undo; provide
+   shared target-aware clipboard actions and bounded atomic paste transport.
+2. Regroup default menus, add missing About/Settings actions and make the
+   browser/GTK task row and Tools & Profiles setup coherent. Remove redundant
+   permanent buttons and correct ordinary-text file classification.
+3. Add GTK font preferences with consistent metrics and persistence; complete
+   narrow/short pane sizing and visual spacing, contrast and focus polish.
+4. Repeat the same human task review on the updated browser and GTK, including
+   both pointer and keyboard journeys. Repair findings before declaring parity.
+   Terminal presentation follows the agreed shared actions after GUI review.
+
+Acceptance includes New→type/paste→Undo→Save/reopen, Unicode/multiline and
+large selection replacement, clipboard denial without mutation, copy from
+read-only output, correct Program/form targets, Classic and compiled-source
+run, profile Edit/Build/Apply/import, menu cancellation with retained caret,
+visible profile footer, and wide/narrow/short layouts. Confirm source bytes,
+dirty state, complete Undo and persisted settings as well as visible pixels.
+Font/DPI and system-menu behavior require native macOS checks; Linux/Windows
+and other browser engines remain separate qualification.
+
+Platform references: [Apple menu-bar guidance](https://developer.apple.com/design/human-interface-guidelines/the-menu-bar),
+[GTK application-menu behavior](https://docs.gtk.org/gtk3/class.ApplicationWindow.html),
+[GTK font chooser filtering](https://docs.gtk.org/gtk3/method.FontChooser.set_filter_func.html)
+and the [W3C clipboard contract](https://www.w3.org/TR/clipboard-apis/).
+
+### Other retained engineering work
+
 - Diagnose and repair the optional F8/F9 helpers. Reproduce each reported
   failure with its matching runtime, then assert compilation artifacts,
   runtime output and failure status through the hosted macro path.

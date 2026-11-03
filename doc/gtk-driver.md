@@ -153,10 +153,12 @@ This first version provides keyboard editing and point-click focus. Drag
 selection, system clipboard Copy/Cut, drag-and-drop, font/zoom preferences,
 GUI tool registration and platform accessibility integration are not yet
 implemented. Existing keyboard selection and editor commands remain usable.
-On macOS, File, Edit, Program and Help use the system menu bar when the GTK
-window is active. GTK uses the same menu model inside the window on other
-desktops. F10 opens the profile's workbench popup; Shift-Tab moves from the
-editor to visible controls. The macOS application label for this unpackaged
+On macOS, the current generated File, Edit and Workbench menus use the system
+menu bar when the GTK window is active. GTK uses the same menu model inside
+the window on other desktops. F10 opens a separate popup from that model;
+it does not focus the exported macOS menu bar. Shift-Tab moves from the editor
+to visible controls. About and Settings/Preferences application actions remain
+unimplemented. The macOS application label for this unpackaged
 development executable follows its process name (`the`); a desktop app bundle
 will need its own packaging review.
 The Program console captures the registered tool host's streams; arbitrary
@@ -165,3 +167,8 @@ synchronous macros and shell escapes can hold the GUI event loop.
 
 Local macOS GTK checks do not qualify Linux, Windows, GTK distribution,
 installation bundles, signing or a release.
+
+The [graphical workbench usability proposal](roadmap.md#graphical-workbench-usability-proposal)
+defines the next menu, setup, typography and clipboard work. Shared action
+and runtime acceptance does not establish visual or human task-flow parity
+with the browser reference.
