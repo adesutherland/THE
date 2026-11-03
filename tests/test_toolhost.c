@@ -250,16 +250,26 @@ int main(void) {
    request.revision = 3;
    assert(the_tool_launch(&request, error, sizeof(error)));
    old = running;
+   assert(!the_tool_console()->displayed && !the_tool_console()->total);
    assert(the_tool_console()->source_id == 7 && the_tool_console()->revision == 3);
    assert(!the_tool_launch(&request, error, sizeof(error)));
    the_tool_output(old, 1, "\xf0\x9f", 2);
+   assert(!the_tool_console()->displayed && !the_tool_console()->bytes);
+   assert(the_tool_console()->total==2);
    the_tool_output(old, 2, "err", 3);
+   assert(the_tool_console()->displayed==3 && the_tool_console()->total==5);
    the_tool_output(old, 1, "\x98\x80\n", 3);
+   assert(the_tool_console()->displayed==8 && the_tool_console()->bytes==8);
+   assert(the_tool_console()->total==8);
    assert(the_tool_console()->count == 2);
    assert(!strcmp(the_tool_console()->chunks[0].text, "err"));
    assert(!strcmp(the_tool_console()->chunks[1].text, "😀\n"));
+   the_tool_output(old,2,"\xff",1);
+   assert(the_tool_console()->displayed==11 && the_tool_console()->total==9);
+   assert(!strcmp(the_tool_console()->chunks[2].text,"\xef\xbf\xbd"));
    assert(the_tool_input("Zoë\n", 5));
    assert(received == 5);
+   assert(the_tool_console()->displayed==20 && the_tool_console()->total==9);
    assert(the_tool_eof());
    assert(!the_tool_input("x", 1));
    the_tool_stop("Stopped");
@@ -267,6 +277,7 @@ int main(void) {
    the_tool_finish(old, 0, "0", NULL, NULL);
    assert(!strcmp(the_tool_console()->state, "Stopped"));
    assert(the_tool_launch(&request, error, sizeof(error)));
+   assert(!the_tool_console()->displayed && !the_tool_console()->total);
    the_tool_output(old, 1, "stale", 5);
    assert(the_tool_console()->bytes == 0);
    the_tool_finish(
@@ -298,15 +309,34 @@ int main(void) {
       free(large);
       assert(the_tool_console()->bytes == THE_TOOL_OUTPUT);
       assert(the_tool_console()->omitted);
+      assert(the_tool_console()->displayed==THE_TOOL_OUTPUT+100);
+      assert(the_tool_console()->displayed-the_tool_console()->bytes==100);
+      the_tool_output(running,2,"\xff",1);
+      assert(the_tool_console()->bytes==THE_TOOL_OUTPUT);
+      assert(the_tool_console()->displayed==THE_TOOL_OUTPUT+103);
+      assert(the_tool_console()->displayed-the_tool_console()->bytes==103);
+      assert(the_tool_console()->total==THE_TOOL_OUTPUT+101);
    }
    the_tool_output(running, 1, "x", THE_TOOL_OUTPUT_LIMIT);
    assert(!strcmp(the_tool_console()->state, "Output limit reached"));
    the_tool_clear();
    assert(the_tool_console()->bytes == 0);
+   assert(!the_tool_console()->displayed);
+   assert(the_tool_console()->total==THE_TOOL_OUTPUT+101);
    /* Compiler jobs and synchronous editor Build macros retain a separate
     * output history; launching the next program does not erase the build. */
    assert(the_tool_launch(&request,error,sizeof(error)));
    the_tool_output(running,1,"program-history",15);
+   assert(the_tool_program_console()->displayed==15);
+   {
+      uint64_t epoch=the_tool_program_console()->history_epoch;
+      unsigned id=the_tool_program_console()->id;
+      the_tool_clear();
+      the_tool_output(running,1,"program-history",15);
+      assert(the_tool_program_console()->id==id && the_tool_program_console()->displayed==15);
+      assert(the_tool_program_console()->history_epoch!=epoch);
+      assert(the_tool_program_console()->bytes==15 && !strcmp(the_tool_program_console()->chunks[0].text,"program-history"));
+   }
    the_tool_finish(running,0,"0",NULL,NULL);
    {
       TheToolRequest compiler=request;
@@ -317,6 +347,7 @@ int main(void) {
       the_tool_finish(running,1,NULL,NULL,NULL);
       assert(!strcmp(the_tool_program_console()->chunks[0].text,"program-history"));
       assert(!strcmp(the_tool_build_console()->chunks[0].text,"compile-error"));
+      assert(the_tool_program_console()->displayed==15 && the_tool_build_console()->displayed==13);
       assert(the_tool_format_json(json,2097152));
       assert(strstr(json,"\"build\":{\"job\":") && strstr(json,"program-history") && strstr(json,"compile-error"));
       assert(the_tool_build_capture_begin("public.build","/work/Lesson.BAS",7,3));
@@ -325,6 +356,7 @@ int main(void) {
       assert(!strcmp(the_tool_build_console()->state,"Failed"));
       assert(!strcmp(the_tool_program_console()->chunks[0].text,"program-history"));
       assert(!strcmp(the_tool_build_console()->chunks[0].text,"macro-build"));
+      assert(the_tool_program_console()->displayed==15 && the_tool_build_console()->displayed==11);
       {
          unsigned program_version=the_tool_program_console()->version;
          unsigned build_version=the_tool_build_console()->version;
@@ -344,11 +376,13 @@ int main(void) {
          program_version=the_tool_program_console()->version;
          the_tool_clear_program();
          assert(the_tool_program_console()->bytes==0);
+         assert(!the_tool_program_console()->displayed && the_tool_build_console()->displayed==11);
          assert(the_tool_program_console()->version>program_version);
          assert(the_tool_build_console()->version==build_version && the_tool_build_console()->id==build_id);
          assert(!strcmp(the_tool_build_console()->chunks[0].text,"macro-build"));
       }
       assert(the_tool_launch(&request,error,sizeof(error)));
+      assert(!the_tool_program_console()->displayed && the_tool_build_console()->displayed==11);
       the_tool_finish(running,0,"0",NULL,NULL);
       assert(!strcmp(the_tool_build_console()->chunks[0].text,"macro-build"));
    }

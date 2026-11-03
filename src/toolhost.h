@@ -70,6 +70,13 @@ typedef struct {
    size_t input_length;
    TheToolChunk chunks[128];
    size_t count, bytes, total;
+   /* Successfully appended display UTF-8 bytes, before bounded eviction.
+    * Includes replacements/echoes/captures; resets on clear or a new job.
+    * Raw output total and its limit are independent of this reader progress. */
+   uint64_t displayed;
+   /* Changes on either lane clear, even if subsequent text is identical.
+    * Preserved with lane history; readers also bind to the job ID. */
+   uint64_t history_epoch;
 } TheToolConsole;
 
 void the_tool_host_reset(void);

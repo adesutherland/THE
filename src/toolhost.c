@@ -75,6 +75,8 @@ void the_tool_clear(void) {
    for (i = 0; i < console.count; i++)
       free(console.chunks[i].text);
    console.count = console.bytes = 0;
+   console.displayed = 0;
+   console.history_epoch++;
    console.omitted = 0;
    changed();
 }
@@ -83,6 +85,8 @@ void the_tool_clear_program(void) {
    size_t i;
    for(i=0;i<program->count;i++)free(program->chunks[i].text);
    program->count=program->bytes=0;program->omitted=0;
+   program->displayed=0;
+   program->history_epoch++;
    lane_changed(program);
 }
 void the_tool_host_reset(void) {
@@ -360,6 +364,7 @@ static void append(int fd, const char *text, size_t length) {
    last->length += length;
    bytes[last->length] = 0;
    console.bytes += length;
+   console.displayed += length;
    while (console.bytes > THE_TOOL_OUTPUT && console.count) {
       TheToolChunk *first = &console.chunks[0];
       size_t trim = console.bytes - THE_TOOL_OUTPUT;
