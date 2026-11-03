@@ -15,6 +15,17 @@ def main():
         (root / "other.txt").write_text("other buffer\n", encoding="utf-8")
         (root / "program.rexx").write_text(
             "say 'GTK program ready'\npull name\nsay 'Hello' name\n", encoding="utf-8")
+        (root / "stdin.rexx").write_text(
+            "say 'GTK_STDIN_READY'\n"
+            "parse pull first\n"
+            "say 'GTK_STDIN_1<' || first || '>'\n"
+            "parse pull second\n"
+            "say 'GTK_STDIN_2<' || second || '>'\n"
+            "parse pull third\n"
+            "say 'GTK_STDIN_3<' || third || '>'\n"
+            "parse pull fourth\n"
+            "say 'GTK_STDIN_4<' || fourth || '>'\n"
+            "say 'GTK_STDIN_DONE'\n", encoding="utf-8")
         environment = dict(os.environ, THE_DRIVER_PATH=module,
                            THE_GTK_PROBE_DIR=directory,
                            THE_GTK_PROBE_SCREENSHOT=screenshot,
@@ -41,6 +52,7 @@ def main():
             assert marker in completed.stdout, (marker, completed.stdout, completed.stderr)
         if environment.get("THE_GTK_REQUIRE_PROGRAM"):
             assert "GTK_PROGRAM_OUTPUT_STDIN_COMPLETION_PASS" in completed.stdout, completed.stdout
+            assert "GTK_STDIN_ONE_RECORD_PER_ENTER_SEND_UNICODE_EMPTY_PASS" in completed.stdout, completed.stdout
             assert "GTK_NAMED_LOG_CONTROL_ESCAPE_SCROLL_FOCUS_PROGRAM_DRAFT_RETURN_PASS" in completed.stdout, completed.stdout
             assert "GTK_LOG_PUT_PLACE_GENERATION_PROGRAM_EDITOR_FOCUS_RETURN_PASS" in completed.stdout, completed.stdout
             assert "GTK_DOCUMENT_READONLY_PAGING_REVISION_BINDING_FOCUS_RETURN_PASS" in completed.stdout, completed.stdout

@@ -346,19 +346,19 @@ static void paste_action(GtkWidget *widget, gpointer data)
 static void send_input(GtkWidget *widget, gpointer data)
 {
    const char *text = gtk_entry_get_text(GTK_ENTRY(ui.input));
-   char *line = g_strconcat(text, "\n", NULL);
    TheInputEvent event;
    (void)widget; (void)data;
    if (the_panel_active || in_macro)
    {
-      g_free(line);
       gtk_widget_error_bell(ui.input);
       return;
    }
-   if (the_tools_prepare_input("input", "", line, 0, NULL, &event)
+   if (the_tools_prepare_input("input", "", text, 0, NULL, &event)
    && queue_event(event))
+   {
       gtk_entry_set_text(GTK_ENTRY(ui.input), "");
-   g_free(line);
+      gtk_widget_grab_focus(ui.input);
+   }
 }
 
 static gboolean close_window(GtkWidget *widget, GdkEvent *event, gpointer data)

@@ -17,6 +17,7 @@ static unsigned log_probe_phase;
 static unsigned document_probe_phase;
 static unsigned form_probe_phase;
 static unsigned filefields_probe_phase;
+static unsigned stdin_probe_phase;
 static char filefields_probe_path[4096];
 static char *filefields_input_draft;
 static int form_origin_window;
@@ -33,8 +34,27 @@ static char *log_input_draft;
 static int workbench_menu_seen;
 static int workbench_editor_window;
 static LogicalCursor workbench_editor_cursor;
-static char sample[4096], other[4096], program[4096];
+static char sample[4096], other[4096], program[4096], stdin_program[4096];
 static const char expected[] = "alpha\nbe\303\251ta\n";
+static const char stdin_source[] =
+   "say 'GTK_STDIN_READY'\n"
+   "parse pull first\n"
+   "say 'GTK_STDIN_1<' || first || '>'\n"
+   "parse pull second\n"
+   "say 'GTK_STDIN_2<' || second || '>'\n"
+   "parse pull third\n"
+   "say 'GTK_STDIN_3<' || third || '>'\n"
+   "parse pull fourth\n"
+   "say 'GTK_STDIN_4<' || fourth || '>'\n"
+   "say 'GTK_STDIN_DONE'\n";
+static const char *const stdin_lines[] = {
+   "GTK_STDIN_READY", "GTK_STDIN_1<alpha>", "GTK_STDIN_2<界Ω>",
+   "GTK_STDIN_3<>", "GTK_STDIN_4<omega>", "GTK_STDIN_DONE"
+};
+static LogicalCursor stdin_cursor;
+static int stdin_window;
+static LINETYPE stdin_focus_line;
+static void activate_shared_action(const char *id);
 static unsigned palette_job, palette_source, palette_revision;
 static char *palette_output;
 static GtkTextBuffer *palette_buffer;
@@ -114,6 +134,133 @@ static void await_console(int finished)
    fprintf(stderr, "GTK console probe timed out: %s\n%s\n",
            the_tool_console()->state, console_text());
    assert(0);
+}
+
+static void assert_stdin_records(const char *text, unsigned count)
+{
+   const char *line = text;
+   unsigned found = 0;
+   while (*line)
+   {
+      const char *end = strchr(line, '\n');
+      size_t length = end ? (size_t)(end - line) : strlen(line);
+      if (length >= strlen("GTK_STDIN_") && !strncmp(line, "GTK_STDIN_", strlen("GTK_STDIN_")))
+      {
+         assert(found < count);
+         assert(length == strlen(stdin_lines[found]));
+         assert(!memcmp(line, stdin_lines[found], length));
+         ++found;
+      }
+      if (!end) break;
+      line = end + 1;
+   }
+   assert(found == count);
+}
+
+static void await_stdin_records(unsigned count, int finished)
+{
+   gint64 deadline = g_get_monotonic_time() + 15000000;
+   while (g_get_monotonic_time() < deadline)
+   {
+      char *text;
+      const TheToolConsole *console;
+      the_tools_native_poll();
+      sync_console();
+      console = the_tool_console();
+      text = console_text();
+      if (strstr(text, stdin_lines[count - 1])
+      && (finished ? !console->running : console->running))
+      {
+         assert_stdin_records(text, count);
+         g_free(text);
+         return;
+      }
+      g_free(text);
+      while (g_main_context_pending(NULL))
+         g_main_context_iteration(NULL, FALSE);
+      g_usleep(5000);
+   }
+   fprintf(stderr, "GTK stdin probe timed out at record %u: %s\n%s\n",
+           count, the_tool_console()->state, console_text());
+   assert(0);
+}
+
+static void assert_stdin_editor_unchanged(void)
+{
+   char *bytes = NULL;
+   gsize length;
+   assert_source(stdin_source);
+   assert(!the_editor_buffer_dirty(CURRENT_FILE));
+   assert(CURRENT_FILE->save_alt == 0);
+   assert(CURRENT_VIEW->current_window == stdin_window);
+   assert(CURRENT_VIEW->focus_line == stdin_focus_line);
+   assert(CURRENT_VIEW->logical_cursor.current.zone == stdin_cursor.zone);
+   assert(CURRENT_VIEW->logical_cursor.current.line_number == stdin_cursor.line_number);
+   assert(CURRENT_VIEW->logical_cursor.current.text.cell_column == stdin_cursor.text.cell_column);
+   assert(g_file_get_contents(stdin_program, &bytes, &length, NULL));
+   assert(length == sizeof(stdin_source) - 1);
+   assert(!memcmp(bytes, stdin_source, length));
+   g_free(bytes);
+}
+
+static void stdin_probe_step(void)
+{
+   switch (stdin_probe_phase++)
+   {
+      case 1:
+         assert(!strcmp((char *)CURRENT_FILE->fname, "stdin.rexx"));
+         assert_source(stdin_source);
+         assert(!the_editor_buffer_dirty(CURRENT_FILE));
+         activate_shared_action("profile.action.8");
+         break;
+      case 2:
+         await_stdin_records(1, 0);
+         stdin_window = CURRENT_VIEW->current_window;
+         stdin_focus_line = CURRENT_VIEW->focus_line;
+         stdin_cursor = CURRENT_VIEW->logical_cursor.current;
+         assert_stdin_editor_unchanged();
+         gtk_entry_set_text(GTK_ENTRY(ui.input), "alpha");
+         gtk_widget_grab_focus(ui.input);
+         g_signal_emit_by_name(ui.input, "activate");
+         assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), ""));
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+         break;
+      case 3:
+         await_stdin_records(2, 0);
+         assert_stdin_editor_unchanged();
+         gtk_entry_set_text(GTK_ENTRY(ui.input), "界Ω");
+         gtk_widget_grab_focus(ui.send);
+         g_signal_emit_by_name(ui.send, "clicked");
+         assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), ""));
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+         break;
+      case 4:
+         await_stdin_records(3, 0);
+         assert_stdin_editor_unchanged();
+         g_signal_emit_by_name(ui.input, "activate");
+         assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), ""));
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+         break;
+      case 5:
+         await_stdin_records(4, 0);
+         assert_stdin_editor_unchanged();
+         gtk_entry_set_text(GTK_ENTRY(ui.input), "omega");
+         gtk_widget_grab_focus(ui.send);
+         g_signal_emit_by_name(ui.send, "clicked");
+         assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), ""));
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+         break;
+      case 6:
+         await_stdin_records(6, 1);
+         assert_stdin_editor_unchanged();
+         puts("GTK_STDIN_ONE_RECORD_PER_ENTER_SEND_UNICODE_EMPTY_PASS");
+         stdin_probe_phase = 0;
+         open_file(program);
+         queue_command("cursor cmdline");
+         break;
+      default:
+         assert(0);
+   }
 }
 
 static void frame_painted(GdkFrameClock *clock, gpointer flag)
@@ -1280,6 +1427,7 @@ static void filefields_step(void)
          assert(state->records == 15 && pane->filefields->len == 15);
          gtk_editable_insert_text(GTK_EDITABLE(field->entry), "界", -1, &position);
          gtk_editable_insert_text(GTK_EDITABLE(field->entry), "é", -1, &position);
+         gtk_editable_set_position(GTK_EDITABLE(field->entry), position);
          break;
       }
       case 8:
@@ -1662,9 +1810,17 @@ static int probe_read_input(TheInputEvent *event)
          assert(CURRENT_FILE->save_alt == 0);
          assert_saved();
          puts("GTK_PROGRAM_OUTPUT_STDIN_COMPLETION_PASS");
-         queue_command("cursor cmdline");
+         g_snprintf(stdin_program, sizeof(stdin_program), "%s/stdin.rexx", directory);
+         stdin_probe_phase = 1;
+         open_file(stdin_program);
          break;
       case 14:
+         if (stdin_probe_phase)
+         {
+            stdin_probe_step();
+            --phase;
+            break;
+         }
          assert(CURRENT_VIEW->current_window == WINDOW_COMMAND);
          resize_window(1366, GTK_ORIENTATION_HORIZONTAL);
          queue_command("cursor cmdline");
