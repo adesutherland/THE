@@ -8,8 +8,9 @@ now separates editor state from physical terminal mechanics.
 
 Desktop and browser are execution hosts for one THE application. Desktop uses
 the native editor/VM and local files; browser uses the Wasm editor/VM, Workers
-and browser storage. Graphical desktop and browser share the workbench UI;
-the terminal driver presents the same editor, console and tool operations.
+and browser storage. The browser is the reference workbench interface; GTK
+uses native widgets and Cairo/Pango, and the terminal uses curses. They share
+the C session/workbench contracts, while their user workflows are being aligned.
 
 ```mermaid
 flowchart TB
@@ -66,6 +67,40 @@ identities. Host adapters implement persistence and explicit import/export.
 Saving acknowledges the backend's successful commit before clearing dirty state.
 Run neither saves nor alters the source buffer. A running job retains its source
 identity/revision even when that buffer changes or closes.
+
+Physical focus belongs to the frontend. Submitting the browser THE command form
+keeps focus in that field; submitting Program input keeps focus there while
+the job accepts input. Output, parser updates and command responses must not
+redirect subsequent typing into the editor. Escape, F6 and deliberate pointer
+or keyboard navigation remain explicit ways to leave an input. This is distinct
+from the core's logical file/prefix/command cursor and from program stdin routing.
+
+### Native alignment boundaries
+
+GTK is the next workbench alignment target. It already projects shared menus,
+logs, documents, forms and editable file fields. Native compiler/assembler and
+profile activation adapters also exist; GTK must expose those shared outcomes
+rather than implement another compiler or classify files independently.
+
+The remaining architectural gaps are concrete:
+
+- GTK adds a newline before the common input path adds one again. Input-line
+  framing belongs to `src/tools.c`; the driver must submit raw entry text.
+- GTK's Program console reads the active console lane. Program and build lanes
+  already exist in the tool host and need distinct native projections.
+- Current-file Build/Run/Apply availability, artifact identity and result state
+  live in `src/tools.c`, but lack a typed native snapshot. GTK's fixed Run button
+  consequently does not expose the browser's contextual workflow.
+- Asynchronous file-result completion currently advances inside
+  `the_tools_format_json()`. Admission belongs in the shared owner update path;
+  JSON and native snapshots should only project the resulting state.
+- Output scroll position, unread indication and focus restoration are driver
+  presentation responsibilities. GTK must retain the reader's position as the
+  browser does, without moving job or buffer policy into widgets.
+
+See the [alignment sequence](roadmap.md#cross-platform-workbench-review) for the
+bounded implementation order. These gaps are review findings, not completed
+GTK work or a claim of cross-platform qualification.
 
 ### Profile and language-tool workflow
 

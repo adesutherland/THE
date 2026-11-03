@@ -88,7 +88,10 @@ export function RexxConsole({ send, session, snapshot, focusRequest, onClose, fo
     <form class="console-input" onSubmit={(event) => {
       event.preventDefault();
       if (!job.running || job.eof) return;
-      if (act("input", input) !== undefined) setInput("");
+      if (act("input", input) !== undefined) {
+        setInput("");
+        entry.current?.focus();
+      }
     }}>
       <label for="rexx-input">{job.waiting ? "Program input requested" : "Program input"}</label>
       <input id="rexx-input" ref={entry} value={input} onInput={(event) => setInput(event.currentTarget.value)}

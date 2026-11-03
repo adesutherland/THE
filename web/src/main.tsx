@@ -667,13 +667,13 @@ function App() {
   }, [dockEntries[dockEntries.length - 1]?.id, commandHistoryOpen]);
 
   const runCommand = useCallback(
-    (value: string) => {
+    (value: string, restoreEditorFocus = true) => {
       const trimmed = value.trim();
       if (!trimmed) return;
       if (send({ type: "command", command: trimmed }) === undefined) return;
       appendDockEntry("command", trimmed);
       setCommand("");
-      window.setTimeout(focusEditor, 0);
+      if (restoreEditorFocus) window.setTimeout(focusEditor, 0);
     },
     [appendDockEntry, focusEditor, send],
   );
@@ -1470,7 +1470,11 @@ function App() {
             </div>) : <p>Commands and editor messages for this file appear here.</p>}
           </div>
           <div class="latest-response" role="status" aria-live="polite" hidden={!lastError && !latestResponse}>{lastError || latestResponse?.text}</div>
-          {!snapshot?.panel ? <form class="command-form" onSubmit={(event) => { event.preventDefault(); runCommand(command); }}>
+          {!snapshot?.panel ? <form class="command-form" onSubmit={(event) => {
+            event.preventDefault();
+            runCommand(command, false);
+            commandInputRef.current?.focus();
+          }}>
             <label class="command-prompt" for="the-command">THE</label>
             <input id="the-command" aria-label="THE command" ref={commandInputRef}
               onFocus={() => setCommandFocused(true)} onBlur={() => setCommandFocused(false)}

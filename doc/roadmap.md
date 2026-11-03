@@ -46,6 +46,26 @@ discovery beyond the `EDIT` prompt, GTK output reading position and unread
 cue, and explicit diagnostics capability states across frontends. Keep editor
 and tool-session state in the C core through the driver boundary.
 
+GTK is the next platform to align to the browser reference, using its existing
+native widgets and shared session model:
+
+1. Correct Program input framing: submit raw entry text once. A real GTK journey
+   must require two submissions for two `PULL`s, including Unicode and an
+   explicitly empty line, while retaining input focus and saved source bytes.
+2. Expose the existing C current-file action/artifact/result state through a
+   typed native snapshot, and advance job completion in the owner update path
+   rather than JSON formatting. Present contextual Build/Run/Apply with the same
+   enabled states, stale-source refusals and profile replacement outcomes as the
+   browser. Use the existing native compiler and profile adapters.
+3. Separate Program output/input from build/profile results, then retain reader
+   scroll position with an unread/latest control. Exercise the stock
+   open/edit/highlight/build/run/profile journey using keyboard and pointer.
+
+The acceptance boundary is a real GTK journey through the same selected-file
+actions and outcomes, preserving cursor, dirty state and exact saved/reopened
+bytes. OS integration and installer qualification remain separate. Terminal
+alignment follows the same contracts after this GTK slice.
+
 - Diagnose and repair the optional F8/F9 helpers. Reproduce each reported
   failure with its matching runtime, then assert compilation artifacts,
   runtime output and failure status through the hosted macro path.

@@ -14,6 +14,7 @@ import { levelGCandidateSmoke } from "./wasm-level-g-candidate.mjs";
 import { levelBCandidateSmoke } from "./wasm-level-b-candidate.mjs";
 import { defaultSyntaxSmoke } from "./wasm-default-syntax.mjs";
 import { publicExamplesSmoke } from "./wasm-public-examples.mjs";
+import { inputFocusSmoke } from "./wasm-input-focus.mjs";
 
 const pageUrl = process.env.THE_WEB_URL;
 const chromium = process.env.CHROMIUM_BIN;
@@ -228,6 +229,9 @@ try {
     await command('Emulation.setDeviceMetricsOverride', {width: 1400, height: 1000, deviceScaleFactor: 1, mobile: false});
     await defaultSyntaxSmoke({ pageUrl, manifest, send, snapshot, evaluate, waitFor, openWorkspaceFile });
     if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
+  } else if (process.env.THE_WASM_INPUT_FOCUS_ONLY === "1") {
+    await inputFocusSmoke({manifest, send, snapshot, evaluate, command, waitFor, runCurrentFile});
+    if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   } else if (process.env.THE_WASM_PUBLIC_EXAMPLES_ONLY === "1") {
     await publicExamplesSmoke({pageUrl, manifest, send, snapshot, evaluate, waitFor, openWorkspaceFile, consoleEnter});
     if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
@@ -254,7 +258,7 @@ try {
     await fileFieldSmoke({ send, evaluate, command, waitFor, snapshot });
     if (exceptions.length) throw new Error(`browser exceptions: ${exceptions.join("; ")}`);
   } else {
-  for (const flag of ['THE_WASM_DEFAULT_SYNTAX_ONLY', 'THE_WASM_PUBLIC_EXAMPLES_ONLY']) {
+  for (const flag of ['THE_WASM_DEFAULT_SYNTAX_ONLY', 'THE_WASM_PUBLIC_EXAMPLES_ONLY', 'THE_WASM_INPUT_FOCUS_ONLY']) {
     const child = spawn(process.execPath, [fileURLToPath(import.meta.url)], {
       env: { ...process.env, [flag]: '1' }, stdio: 'inherit',
     });
