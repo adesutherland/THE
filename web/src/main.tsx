@@ -290,6 +290,8 @@ function App() {
     const socket = socketRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
     if (["action", "command", "tool", "key", "text"].includes(String(message.type))) setEditNotice("");
+    if (message.type === "action" && ["file.open", "file.create", "buffer.switch"].includes(String(message.action))
+        || message.type === "tool" && message.action === "profile") setAuxExpanded(false);
     const id = nextId.current++;
     const sources = responseSourcesRef.current;
     const source = responseSource(snapshotRef.current);
@@ -816,6 +818,7 @@ function App() {
     }
     if (action.kind === "panel" && action.operation === "focus")
       rememberPanelFocusOrigin();
+    if (action.kind === "builtin" && ["file.open", "file.create", "buffer.switch"].includes(action.builtin)) setAuxExpanded(false);
     send({ type: "workbench", version: 1, operation: "invoke",
       requestId: `${workbenchSessionRef.current}.${workbenchNextRequestRef.current++}`, action: action.id,
       expectGeneration: action.generation, ...(argument === undefined ? {} : { argument }) });
