@@ -1308,7 +1308,7 @@ if(USE_GTK_DRIVER)
         if(THE_NATIVE_TOOL_ROOT)
             list(APPEND THE_GTK_TEST_ENV "THE_GTK_REQUIRE_PROGRAM=1")
         endif()
-        set_tests_properties(test_gtk_runtime PROPERTIES TIMEOUT 65
+        set_tests_properties(test_gtk_runtime PROPERTIES TIMEOUT 105
             SKIP_RETURN_CODE 77 ENVIRONMENT "${THE_GTK_TEST_ENV}")
     endif()
 endif()

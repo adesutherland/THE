@@ -1,8 +1,10 @@
 /* Compile the production driver into a test-only module so this probe can
  * exercise its real callbacks without a production automation endpoint. */
 #define the_driver_module_ops gtk_probe_base_operations
+#define the_driver_module_lifecycle gtk_probe_base_lifecycle
 #include "../src/drivers/gtk/gtkdriver.c"
 #undef the_driver_module_ops
+#undef the_driver_module_lifecycle
 
 #include <assert.h>
 #include <stdio.h>
@@ -17,7 +19,18 @@ static unsigned log_probe_phase;
 static unsigned document_probe_phase;
 static unsigned form_probe_phase;
 static unsigned filefields_probe_phase;
-static unsigned stdin_probe_phase;
+static int filefields_below_pending;
+static GtkWidget *filefields_resize_focus;
+static unsigned stdin_probe_phase, contextual_phase;
+static int reader_probe_done;
+static char compiled_program[4096], profile_program[4096], imported_profile[4096];
+static const char compiled_source[] = "options levelb\nsay 'GTK compiled ready'\nreturn 0\n";
+static const char profile_source[] = "options levelb\naddress THE\n'set number on';\nsay 'GTK profile applied'\nreturn 0\n";
+static char *contextual_history, *contextual_draft;
+static unsigned contextual_program_id;
+static char contextual_active[THE_TOOL_PATH];
+static int contextual_window;
+static LogicalCursor contextual_cursor;
 static char filefields_probe_path[4096];
 static char *filefields_input_draft;
 static int form_origin_window;
@@ -120,7 +133,7 @@ static void await_console(int finished)
       int ready;
       the_tools_native_poll();
       sync_console();
-      console = the_tool_console();
+      console = the_tool_program_console();
       text = console_text();
       ready = finished ? !console->running && strstr(text, "Hello ADA") != NULL
                        : console->running && strstr(text, "GTK program ready") != NULL;
@@ -132,7 +145,7 @@ static void await_console(int finished)
       g_usleep(5000);
    }
    fprintf(stderr, "GTK console probe timed out: %s\n%s\n",
-           the_tool_console()->state, console_text());
+           the_tool_program_console()->state, console_text());
    assert(0);
 }
 
@@ -166,7 +179,7 @@ static void await_stdin_records(unsigned count, int finished)
       const TheToolConsole *console;
       the_tools_native_poll();
       sync_console();
-      console = the_tool_console();
+      console = the_tool_program_console();
       text = console_text();
       if (strstr(text, stdin_lines[count - 1])
       && (finished ? !console->running : console->running))
@@ -181,7 +194,7 @@ static void await_stdin_records(unsigned count, int finished)
       g_usleep(5000);
    }
    fprintf(stderr, "GTK stdin probe timed out at record %u: %s\n%s\n",
-           count, the_tool_console()->state, console_text());
+           count, the_tool_program_console()->state, console_text());
    assert(0);
 }
 
@@ -303,6 +316,9 @@ static void screenshot(const char *suffix)
    if (!path || !*path)
       return;
    await_frame();
+   if (ui.rows != terminal_lines || ui.cols != terminal_cols)
+      fprintf(stderr, "GTK screenshot %s phase=%u filefields=%u widget-grid=%dx%d owner-grid=%dx%d\n",
+         suffix ? suffix : "final", phase, filefields_probe_phase, ui.rows, ui.cols, terminal_lines, terminal_cols);
    assert(ui.rows == terminal_lines && ui.cols == terminal_cols);
    gtk_widget_get_allocation(ui.window, &allocation);
    output = suffix ? g_strdup_printf("%.*s-%s.png",
@@ -342,7 +358,7 @@ static void resize_window(int width, GtkOrientation orientation)
          g_main_context_iteration(NULL, FALSE);
       gtk_widget_get_allocation(ui.window, &window);
       bounds_in_split(ui.editor, &editor);
-      bounds_in_split(ui.console, &console);
+      bounds_in_split(ui.auxiliary, &console);
       if (window.width == width
       && gtk_orientable_get_orientation(GTK_ORIENTABLE(ui.split)) == orientation
       && (orientation == GTK_ORIENTATION_HORIZONTAL ? console.x >= editor.x + editor.width
@@ -365,7 +381,7 @@ static void assert_layout(GtkOrientation orientation)
 {
    GtkAllocation editor, console;
    bounds_in_split(ui.editor, &editor);
-   bounds_in_split(ui.console, &console);
+   bounds_in_split(ui.auxiliary, &console);
    assert(gtk_orientable_get_orientation(GTK_ORIENTABLE(ui.split)) == orientation);
    if (orientation == GTK_ORIENTATION_HORIZONTAL)
    {
@@ -619,6 +635,8 @@ static void assert_workbench_focus_cycle(void)
    char *draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(ui.input)));
    TheInputEvent tab, expected_tab;
    GdkEventKey key = {0};
+   int build_visible = gtk_widget_get_visible(ui.build_result);
+   int auxiliary_page = gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.auxiliary));
    gtk_entry_set_text(GTK_ENTRY(ui.input), "Workbench unsent draft");
    gtk_widget_grab_focus(ui.editor);
    press_workbench_key(GDK_KEY_ISO_Left_Tab, GDK_SHIFT_MASK);
@@ -633,11 +651,16 @@ static void assert_workbench_focus_cycle(void)
    assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.editor);
    assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "Workbench unsent draft"));
    gtk_widget_hide(ui.console);
+   gtk_widget_hide(ui.build_result);
    press_workbench_key(GDK_KEY_ISO_Left_Tab, GDK_SHIFT_MASK);
    assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.first_control);
    press_workbench_key(GDK_KEY_Escape, 0);
    assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.editor);
    gtk_widget_show(ui.console);
+   gtk_widget_set_visible(ui.build_result, build_visible);
+   ui.syncing_logs++;
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(ui.auxiliary), auxiliary_page);
+   ui.syncing_logs--;
    assert(g_queue_is_empty(&ui.inputs));
    key.keyval = GDK_KEY_Tab;
    assert(key_pressed(ui.editor, &key, NULL));
@@ -648,7 +671,7 @@ static void assert_workbench_focus_cycle(void)
    assert(!memcmp(&cursor, &CURRENT_VIEW->logical_cursor, sizeof(cursor)));
    assert(CURRENT_VIEW->focus_line == focus_line);
    assert(CURRENT_VIEW->current_window == current_window);
-   assert(!strcmp(gtk_button_get_label(GTK_BUTTON(ui.run)), "Run file"));
+   assert(!strcmp(gtk_button_get_label(GTK_BUTTON(ui.run)), ui.file_snapshot.actions[1].label));
    gtk_entry_set_text(GTK_ENTRY(ui.input), draft);
    g_free(draft);
 }
@@ -809,7 +832,7 @@ static void assert_palette_preserves_job(void)
 {
    GtkTextIter first, last;
    char *text = console_text();
-   const TheToolConsole *console = the_tool_console();
+   const TheToolConsole *console = the_tool_program_console();
    assert(console->id == palette_job && console->running);
    assert(console->source_id == palette_source && console->revision == palette_revision);
    assert(!strcmp(text, palette_output));
@@ -823,7 +846,7 @@ static void assert_palette_preserves_job(void)
 static void change_palette(void)
 {
    GtkTextIter first, last;
-   const TheToolConsole *console = the_tool_console();
+   const TheToolConsole *console = the_tool_program_console();
    size_t i;
    palette_job = console->id;
    palette_source = console->source_id;
@@ -901,7 +924,7 @@ static void named_log_step(void)
          gtk_entry_set_text(GTK_ENTRY(ui.input), "LOG unsent draft");
          gtk_widget_grab_focus(ui.input);
          gtk_editable_select_region(GTK_EDITABLE(ui.input), 11, 3);
-         the_tool_console_visibility(1, 1);
+         the_tool_program_console_visibility(1, 1);
          assert(!the_workbench_begin("gtk.logs"));
          strcpy(value.id, "gtk.logone"); strcpy(value.title, "Named / \"log\" Ω");
          strcpy(value.model, "gtk.stdout"); value.kind = THE_WORKBENCH_PANEL_LOG;
@@ -1106,7 +1129,7 @@ static void document_step(void)
          document_input_draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(ui.input)));
          gtk_entry_set_text(GTK_ENTRY(ui.input), "DOCUMENT unsent draft");
          gtk_widget_grab_focus(ui.input); gtk_editable_select_region(GTK_EDITABLE(ui.input), 11, 3);
-         the_tool_console_visibility(1, 1); sync_logs();
+         the_tool_program_console_visibility(1, 1); sync_logs();
          panel = the_workbench_panel_find("gtk.document"); pane = find_log(panel->id, panel->generation);
          assert(queue_panel(pane, THE_WORKBENCH_PANEL_SHOW));
          break;
@@ -1269,7 +1292,7 @@ static void form_step(void)
          form_origin_window = CURRENT_VIEW->current_window; form_origin_cursor = CURRENT_VIEW->logical_cursor.current;
          form_input_draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(ui.input)));
          gtk_entry_set_text(GTK_ENTRY(ui.input), "FORM Program draft"); gtk_widget_grab_focus(ui.input);
-         gtk_editable_select_region(GTK_EDITABLE(ui.input), 10, 3); the_tool_console_visibility(1, 1);
+         gtk_editable_select_region(GTK_EDITABLE(ui.input), 10, 3); the_tool_program_console_visibility(1, 1);
          assert(queue_panel(pane, THE_WORKBENCH_PANEL_SHOW));
          break;
       }
@@ -1364,7 +1387,7 @@ static void form_step(void)
             GtkWidget *focus = gtk_window_get_focus(GTK_WINDOW(ui.window));
             fprintf(stderr, "Form editor RETURN focus=%s pane=%s origin=%s program=%d\n",
                focus ? gtk_widget_get_name(focus) : "none", ui.focused_log,
-               ui.log_origin ? gtk_widget_get_name(ui.log_origin) : "none", the_tool_console()->focused);
+               ui.log_origin ? gtk_widget_get_name(ui.log_origin) : "none", the_tool_program_console()->focused);
          }
          assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.editor);
          assert(CURRENT_VIEW->current_window == form_origin_window);
@@ -1413,7 +1436,7 @@ static void filefields_step(void)
          panel = the_workbench_panel_find(value.id); pane = find_log(panel->id, panel->generation);
          filefields_input_draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(ui.input)));
          gtk_entry_set_text(GTK_ENTRY(ui.input), "FILEFIELDS Program draft"); gtk_widget_grab_focus(ui.input);
-         gtk_editable_select_region(GTK_EDITABLE(ui.input), 12, 4); the_tool_console_visibility(1, 1);
+         gtk_editable_select_region(GTK_EDITABLE(ui.input), 12, 4); the_tool_program_console_visibility(1, 1);
          assert(queue_panel(pane, THE_WORKBENCH_PANEL_SHOW)); break;
       }
       case 6:
@@ -1423,6 +1446,13 @@ static void filefields_step(void)
       {
          GtkFileField *field = g_ptr_array_index(pane->filefields, 0);
          int position = 0;
+         if (gtk_window_get_focus(GTK_WINDOW(ui.window)) != field->entry)
+         {
+            GtkWidget *actual = gtk_window_get_focus(GTK_WINDOW(ui.window));
+            fprintf(stderr, "GTK filefields initial focus actual=%s retained=%s page=%d expected-page=%d\n",
+               actual ? G_OBJECT_TYPE_NAME(actual) : "none", pane->filefields_focus ? G_OBJECT_TYPE_NAME(pane->filefields_focus) : "none",
+               gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.auxiliary)), gtk_notebook_page_num(GTK_NOTEBOOK(ui.auxiliary), pane->page));
+         }
          assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == field->entry);
          assert(state->records == 15 && pane->filefields->len == 15);
          gtk_editable_insert_text(GTK_EDITABLE(field->entry), "界", -1, &position);
@@ -1449,6 +1479,13 @@ static void filefields_step(void)
       case 10:
       {
          GtkFileField *field = g_ptr_array_index(pane->filefields, 0);
+         if (gtk_window_get_focus(GTK_WINDOW(ui.window)) != field->entry || gtk_editable_get_position(GTK_EDITABLE(field->entry)) != 2)
+         {
+            GtkWidget *actual = gtk_window_get_focus(GTK_WINDOW(ui.window));
+            fprintf(stderr, "GTK filefields return focus actual=%s retained=%s entry-caret=%d saved-caret=%d saved-selected=%d\n",
+               actual ? G_OBJECT_TYPE_NAME(actual) : "none", pane->filefields_focus ? G_OBJECT_TYPE_NAME(pane->filefields_focus) : "none",
+               gtk_editable_get_position(GTK_EDITABLE(field->entry)), field->caret, field->selected);
+         }
          assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == field->entry);
          assert(gtk_editable_get_position(GTK_EDITABLE(field->entry)) == 2);
          g_signal_emit_by_name(pane->form_submit, "clicked"); break;
@@ -1460,7 +1497,33 @@ static void filefields_step(void)
          assert(!state->dirty && the_editor_buffer_dirty(CURRENT_FILE));
          assert(g_str_has_prefix((const char *)CURRENT_FILE->first_line->next->line, "!pName: !u界ést"));
          assert(g_file_get_contents(filefields_probe_path, &saved, NULL, NULL)); assert(g_str_has_prefix(saved, "!pName: !uGuest")); g_free(saved);
-         resize_window(900, GTK_ORIENTATION_VERTICAL);
+         if (!filefields_below_pending)
+         {
+            TheInputEvent event;
+            g_set_object(&filefields_resize_focus, gtk_window_get_focus(GTK_WINDOW(ui.window)));
+            resize_window(900, GTK_ORIENTATION_VERTICAL);
+            await_frame();
+            /* The GTK allocation is ready; let the editor admit the queued
+             * normalized resize before reading its grid or screenshot. */
+            filefields_below_pending = 1; --filefields_probe_phase;
+            assert(the_input_event_from_command("nop", &event) && queue_event(event));
+            break;
+         }
+         filefields_below_pending = 0;
+         if (gtk_window_get_focus(GTK_WINDOW(ui.window)) != filefields_resize_focus)
+         {
+            GtkWidget *actual = gtk_window_get_focus(GTK_WINDOW(ui.window));
+            GtkAllocation allocation;
+            int header_height;
+            gtk_widget_get_allocation(pane->page, &allocation);
+            gtk_widget_get_preferred_height(gtk_widget_get_parent(pane->status), &header_height, NULL);
+            fprintf(stderr, "GTK filefields resize focus actual=%s previous=%s retained=%s scroller-visible=%d pane=%dx%d header=%d rebuild=%d status=%s\n",
+               actual ? G_OBJECT_TYPE_NAME(actual) : "none", filefields_resize_focus ? G_OBJECT_TYPE_NAME(filefields_resize_focus) : "none",
+               pane->filefields_focus ? G_OBJECT_TYPE_NAME(pane->filefields_focus) : "none", gtk_widget_get_visible(pane->scroller),
+               allocation.width, allocation.height, header_height, pane->filefields_rebuild, gtk_label_get_text(GTK_LABEL(pane->status)));
+         }
+         assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == filefields_resize_focus);
+         g_clear_object(&filefields_resize_focus);
          for (i = 0; i < 14; i++) press_workbench_key(GDK_KEY_Tab, 0);
          assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ((GtkFileField *)g_ptr_array_index(pane->filefields, 14))->entry);
          await_frame();
@@ -1501,6 +1564,333 @@ static void filefields_step(void)
          assert_source("say 'GTK program ready'\npull name\nsay 'Hello' name\n");
          puts("GTK_FILEFIELDS_FIXED_CELLS_PROTECTED_APPLY_CANCEL_RELOAD_STALE_RETURN_SCROLL_SAVE_PASS");
          queue_command("nop"); break;
+      default: assert(0);
+   }
+}
+
+static char *output_text(GtkWidget *view)
+{
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
+   GtkTextIter first, last;
+   gtk_text_buffer_get_bounds(buffer, &first, &last);
+   return gtk_text_buffer_get_text(buffer, &first, &last, FALSE);
+}
+
+static void assert_program_reader(void)
+{
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui.output));
+   GtkAdjustment *adjustment = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(ui.program_reader.scroller));
+   GtkTextIter first, last;
+   GString *lines = g_string_new(NULL);
+   const TheToolConsole *program_console = the_tool_program_console();
+   LogicalCursor cursor = CURRENT_VIEW->logical_cursor.current;
+   int window = CURRENT_VIEW->current_window, start, end;
+   int input_selected, input_start, input_end, input_position;
+   int dirty = the_editor_buffer_dirty(CURRENT_FILE);
+   char *draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(ui.input)));
+   double scroll;
+   unsigned i;
+   for (i = 0; i < 100; i++) g_string_append_printf(lines, "GTK retained output line %03u\n", i);
+   the_tool_output(program_console->id, 1, lines->str, lines->len); g_string_free(lines, TRUE);
+   sync_console(); await_frame();
+   gtk_adjustment_set_value(adjustment, 100); await_frame();
+   scroll = gtk_adjustment_get_value(adjustment);
+   assert(scroll > 0 && !reader_at_tail(&ui.program_reader));
+   gtk_entry_set_text(GTK_ENTRY(ui.input), "READER unsent draft");
+   gtk_widget_grab_focus(ui.input); gtk_editable_select_region(GTK_EDITABLE(ui.input), 11, 3);
+   the_tool_output(program_console->id, 2, "GTK unread without selection\n", strlen("GTK unread without selection\n"));
+   sync_console(); await_frame();
+   assert(gtk_adjustment_get_value(adjustment) >= scroll - ui.cell_height && gtk_adjustment_get_value(adjustment) <= scroll + ui.cell_height);
+   assert(ui.program_reader.unread && strstr(gtk_button_get_label(GTK_BUTTON(ui.program_reader.latest)), "new lines"));
+   assert(gtk_editable_get_selection_bounds(GTK_EDITABLE(ui.input), &start, &end) && start == 3 && end == 11);
+   assert(gtk_editable_get_position(GTK_EDITABLE(ui.input)) == 3);
+   gtk_text_buffer_get_iter_at_offset(buffer, &first, 3); gtk_text_buffer_get_iter_at_offset(buffer, &last, 9);
+   gtk_text_buffer_select_range(buffer, &last, &first);
+   /* Selecting output can transfer GTK's primary-selection ownership away
+    * from the Entry. Appends must retain the resulting native Entry state. */
+   await_frame();
+   input_selected = gtk_editable_get_selection_bounds(GTK_EDITABLE(ui.input), &input_start, &input_end);
+   input_position = gtk_editable_get_position(GTK_EDITABLE(ui.input));
+   the_tool_output(program_console->id, 1, "GTK unread with selection\n", strlen("GTK unread with selection\n"));
+   sync_console(); await_frame();
+   assert(gtk_text_buffer_get_selection_bounds(buffer, &first, &last));
+   assert(gtk_text_iter_get_offset(&first) == 3 && gtk_text_iter_get_offset(&last) == 9);
+   assert(gtk_adjustment_get_value(adjustment) >= scroll - ui.cell_height && gtk_adjustment_get_value(adjustment) <= scroll + ui.cell_height);
+   assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "READER unsent draft"));
+   assert(gtk_editable_get_selection_bounds(GTK_EDITABLE(ui.input), &start, &end) == input_selected);
+   if (input_selected) assert(start == input_start && end == input_end);
+   assert(gtk_editable_get_position(GTK_EDITABLE(ui.input)) == input_position);
+   assert(CURRENT_VIEW->current_window == window && !memcmp(&cursor, &CURRENT_VIEW->logical_cursor.current, sizeof(cursor)));
+   assert(the_editor_buffer_dirty(CURRENT_FILE) == dirty);
+   screenshot("program-reader-unread");
+   for (i = 0; i < 2; i++)
+   {
+      int tail = gtk_text_buffer_get_char_count(buffer);
+      GtkTextIter anchor, insert;
+      gtk_text_buffer_get_iter_at_offset(buffer, &first, tail - 8); gtk_text_buffer_get_end_iter(buffer, &last);
+      gtk_text_buffer_select_range(buffer, i ? &first : &last, i ? &last : &first);
+      the_tool_output(program_console->id, 1, "GTK tail append\n", strlen("GTK tail append\n"));
+      sync_console(); await_frame();
+      gtk_text_buffer_get_iter_at_mark(buffer, &anchor, gtk_text_buffer_get_selection_bound(buffer));
+      gtk_text_buffer_get_iter_at_mark(buffer, &insert, gtk_text_buffer_get_insert(buffer));
+      assert(gtk_text_iter_get_offset(&anchor) == (i ? tail : tail - 8));
+      assert(gtk_text_iter_get_offset(&insert) == (i ? tail - 8 : tail));
+   }
+   g_signal_emit_by_name(ui.program_reader.latest, "clicked"); await_frame();
+   assert(!ui.program_reader.unread && reader_at_tail(&ui.program_reader));
+   assert(!gtk_text_buffer_get_has_selection(buffer));
+   assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+   {
+      char *history = console_text(), *repeated = g_malloc(THE_TOOL_OUTPUT);
+      GtkTextTag *stderr_tag = gtk_text_tag_table_lookup(gtk_text_buffer_get_tag_table(buffer), "stderr");
+      GtkTextTag *stdout_tag = gtk_text_tag_table_lookup(gtk_text_buffer_get_tag_table(buffer), "stdout");
+      GdkRectangle record_location;
+      for (i = 0; i < THE_TOOL_OUTPUT; i++) repeated[i] = i % 64 == 63 ? '\n' : 'R';
+      the_tool_clear_program(); the_tool_output(program_console->id, 1, repeated, THE_TOOL_OUTPUT);
+      sync_console(); await_frame();
+      gtk_text_buffer_get_iter_at_offset(buffer, &first, 200); gtk_text_buffer_get_iter_at_offset(buffer, &last, 210);
+      gtk_text_buffer_select_range(buffer, &last, &first);
+      gtk_adjustment_set_value(adjustment, 100); await_frame(); scroll = gtk_adjustment_get_value(adjustment);
+      gtk_text_buffer_get_iter_at_offset(buffer, &first, 64);
+      gtk_text_view_get_iter_location(GTK_TEXT_VIEW(ui.output), &first, &record_location);
+      for (i = 1; i <= 2; i++)
+      {
+         the_tool_output(program_console->id, 1, repeated, 64); sync_console(); await_frame();
+         assert(program_console->omitted && program_console->bytes == THE_TOOL_OUTPUT);
+         assert(gtk_text_buffer_get_selection_bounds(buffer, &first, &last));
+         assert(gtk_text_iter_get_offset(&first) == 200 - (int)i * 64 && gtk_text_iter_get_offset(&last) == 210 - (int)i * 64);
+         assert(ui.program_reader.unread >= i);
+         if (ABS(gtk_adjustment_get_value(adjustment) - MAX(0, scroll - i * record_location.y)) > ui.cell_height)
+            fprintf(stderr, "GTK reader eviction %u scroll=%g expected=%g initial=%g record-y=%d cell-height=%d upper=%g page=%g pending=%lu restore=%g focus=%s\n",
+               i, gtk_adjustment_get_value(adjustment), MAX(0, scroll - i * record_location.y), scroll,
+               record_location.y, ui.cell_height, gtk_adjustment_get_upper(adjustment), gtk_adjustment_get_page_size(adjustment),
+               ui.program_reader.scroll_handler, ui.program_reader.scroll_value,
+               gtk_window_get_focus(GTK_WINDOW(ui.window)) ? G_OBJECT_TYPE_NAME(gtk_window_get_focus(GTK_WINDOW(ui.window))) : "none");
+         assert(ABS(gtk_adjustment_get_value(adjustment) - MAX(0, scroll - i * record_location.y)) <= ui.cell_height);
+      }
+      {
+         uint64_t displayed = program_console->displayed;
+         unsigned unread_before = ui.program_reader.unread;
+         the_tool_output(program_console->id, 1, "\342", 1);
+         the_tool_program_console_visibility(1, 1); sync_console(); await_frame();
+         assert(program_console->displayed == displayed && ui.program_reader.unread == unread_before);
+         assert(gtk_text_buffer_get_selection_bounds(buffer, &first, &last));
+         assert(gtk_text_iter_get_offset(&first) == 72 && gtk_text_iter_get_offset(&last) == 82);
+         the_tool_output(program_console->id, 1, "\202\254", 2); sync_console(); await_frame();
+         assert(program_console->displayed == displayed + 3);
+         assert(gtk_text_buffer_get_selection_bounds(buffer, &first, &last));
+         assert(gtk_text_iter_get_offset(&first) == 69 && gtk_text_iter_get_offset(&last) == 79);
+      }
+      the_tool_clear_program(); the_tool_output(program_console->id, 1, "GTK stream equal\n", strlen("GTK stream equal\n"));
+      sync_console(); await_frame();
+      gtk_text_buffer_get_start_iter(buffer, &first); assert(gtk_text_iter_has_tag(&first, stdout_tag));
+      gtk_text_buffer_get_iter_at_offset(buffer, &first, 1); gtk_text_buffer_get_iter_at_offset(buffer, &last, 5);
+      gtk_text_buffer_select_range(buffer, &last, &first);
+      the_tool_clear_program(); the_tool_output(program_console->id, 2, "GTK stream equal\n", strlen("GTK stream equal\n"));
+      sync_console(); await_frame();
+      gtk_text_buffer_get_start_iter(buffer, &first);
+      assert(gtk_text_iter_has_tag(&first, stderr_tag) && !gtk_text_iter_has_tag(&first, stdout_tag));
+      {
+         uint64_t epoch;
+         gtk_text_buffer_get_iter_at_offset(buffer, &first, 1); gtk_text_buffer_get_iter_at_offset(buffer, &last, 5);
+         gtk_text_buffer_select_range(buffer, &last, &first);
+         the_tool_output(program_console->id, 2, "GTK stream equal\n", strlen("GTK stream equal\n"));
+         sync_console(); await_frame(); assert(ui.program_reader.unread);
+         epoch = program_console->history_epoch;
+         the_tool_clear_program();
+         the_tool_output(program_console->id, 2, "GTK stream equal\nGTK stream equal\n", strlen("GTK stream equal\nGTK stream equal\n"));
+         sync_console(); await_frame();
+         assert(program_console->history_epoch != epoch && ui.program_reader.history_epoch == program_console->history_epoch);
+         assert(!gtk_text_buffer_get_has_selection(buffer) && !ui.program_reader.unread);
+      }
+      the_tool_clear_program(); the_tool_output(program_console->id, 1, history, strlen(history));
+      sync_console(); g_signal_emit_by_name(ui.program_reader.latest, "clicked"); await_frame();
+      assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.input);
+      assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "READER unsent draft"));
+      g_free(history); g_free(repeated);
+   }
+   gtk_entry_set_text(GTK_ENTRY(ui.input), draft); g_free(draft);
+   puts("GTK_PROGRAM_READER_SCROLL_SELECTION_UNREAD_LATEST_DRAFT_FOCUS_PASS");
+   puts("GTK_READER_TAIL_SELECTION_STREAM_REPLACEMENT_EVICTION_UNREAD_PASS");
+}
+
+static void await_lane(int build, int good, const char *expected_text)
+{
+   gint64 deadline = g_get_monotonic_time() + 15000000;
+   while (g_get_monotonic_time() < deadline)
+   {
+      const TheToolConsole *lane;
+      char *text;
+      int success;
+      the_tools_native_poll(); sync_console(); sync_logs();
+      lane = build ? the_tool_build_console() : the_tool_program_console();
+      text = output_text(build ? ui.build_output : ui.output);
+      success = !strncmp(lane->state, "Completed", 9) && !strcmp(lane->status, "0");
+      if (!lane->running && lane->id && success == good && (!expected_text || strstr(text, expected_text)))
+      { g_free(text); return; }
+      g_free(text);
+      while (g_main_context_pending(NULL)) g_main_context_iteration(NULL, FALSE);
+      g_usleep(5000);
+   }
+   fprintf(stderr, "GTK %s lane timeout: %s\n", build ? "build" : "program", build ? the_tool_build_console()->state : the_tool_program_console()->state);
+   assert(0);
+}
+
+static void assert_contextual_styles(void)
+{
+   GtkWidget *widgets[] = {ui.build, ui.run, ui.apply};
+   size_t i;
+   for (i = 0; i < THE_TOOLS_FILE_ACTION_COUNT; i++)
+   {
+      GValue value = G_VALUE_INIT;
+      assert(gtk_widget_get_sensitive(widgets[i]) == ui.file_snapshot.actions[i].enabled);
+      gtk_style_context_get_property(gtk_widget_get_style_context(widgets[i]), "opacity", GTK_STATE_FLAG_INSENSITIVE, &value);
+      assert(G_VALUE_HOLDS_DOUBLE(&value) && g_value_get_double(&value) < .6);
+      g_value_unset(&value);
+      assert_widget_palette(widgets[i], GTK_STATE_FLAG_PRELIGHT, ATTR_CONSOLESELECTED - ATTR_CONSOLEBODY, 0);
+   }
+   puts("GTK_CONTEXTUAL_ACTIONS_DISABLED_SELECTED_PROFILE_STYLE_PASS");
+}
+
+static void assert_contextual_history(void)
+{
+   char *text = console_text();
+   assert(the_tool_program_console()->id == contextual_program_id);
+   assert(!strcmp(text, contextual_history)); g_free(text);
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), contextual_draft));
+}
+
+static void assert_compiled_disk(void)
+{
+   char *bytes;
+   gsize length;
+   assert(g_file_get_contents(compiled_program, &bytes, &length, NULL));
+   assert(length == sizeof(compiled_source) - 1 && !memcmp(bytes, compiled_source, length)); g_free(bytes);
+}
+
+static void contextual_step(void)
+{
+   TheToolsFileSnapshot *snapshot = &ui.file_snapshot;
+   const char *directory = getenv("THE_GTK_PROBE_DIR");
+   sync_console(); sync_logs();
+   switch (contextual_phase++)
+   {
+      case 0:
+      {
+         GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui.output));
+         GtkTextIter first, last;
+         contextual_history = console_text(); contextual_program_id = the_tool_program_console()->id;
+         gtk_entry_set_text(GTK_ENTRY(ui.input), "CONTEXT unsent draft");
+         contextual_draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(ui.input)));
+         gtk_text_buffer_get_iter_at_offset(buffer, &first, 3); gtk_text_buffer_get_iter_at_offset(buffer, &last, 9);
+         gtk_text_buffer_select_range(buffer, &last, &first);
+         g_snprintf(compiled_program, sizeof(compiled_program), "%s/program.crexx", directory);
+         g_snprintf(profile_program, sizeof(profile_program), "%s/User.profile.the", directory);
+         open_file(compiled_program); break;
+      }
+      case 1:
+         assert_source(compiled_source);
+         assert(!strcmp(gtk_button_get_label(GTK_BUTTON(ui.build)), "Build source"));
+         assert(gtk_widget_get_sensitive(ui.build) && !gtk_widget_get_sensitive(ui.run) && !gtk_widget_get_sensitive(ui.apply));
+         assert(strstr(gtk_widget_get_tooltip_text(ui.run), "Build"));
+         contextual_window = CURRENT_VIEW->current_window; contextual_cursor = CURRENT_VIEW->logical_cursor.current;
+         g_signal_emit_by_name(ui.build, "clicked"); break;
+      case 2:
+      {
+         GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui.output));
+         GtkTextIter first, last;
+         await_lane(1, 1, NULL);
+         assert(gtk_widget_get_sensitive(ui.run) && !strcmp(snapshot->profile.build.state, "ready"));
+         assert_contextual_history();
+         assert(gtk_text_buffer_get_selection_bounds(buffer, &first, &last) && gtk_text_iter_get_offset(&first) == 3 && gtk_text_iter_get_offset(&last) == 9);
+         assert(CURRENT_VIEW->current_window == contextual_window && !memcmp(&contextual_cursor, &CURRENT_VIEW->logical_cursor.current, sizeof(contextual_cursor)));
+         screenshot("contextual-build-source");
+         puts("GTK_BUILD_RESULT_PRESERVES_PROGRAM_HISTORY_SELECTION_DRAFT_CURSOR_PASS");
+         g_signal_emit_by_name(ui.run, "clicked"); break;
+      }
+      case 3:
+         await_lane(0, 1, "GTK compiled ready");
+         g_free(contextual_history); contextual_history = console_text(); contextual_program_id = the_tool_program_console()->id;
+         queue_command("cursor goto 2 1"); queue_command("replace say 'GTK compiled edited'");
+         g_signal_emit_by_name(ui.run, "clicked"); break;
+      case 4:
+         assert(!strcmp(snapshot->result.code, "stale-source"));
+         assert_contextual_history(); assert(!gtk_widget_get_sensitive(ui.run));
+         assert(the_editor_buffer_dirty(CURRENT_FILE)); assert_compiled_disk();
+         queue_command("replace this is invalid !!"); break;
+      case 5:
+         assert(gtk_widget_get_sensitive(ui.build)); g_signal_emit_by_name(ui.build, "clicked"); break;
+      case 6:
+         await_lane(1, 0, NULL);
+         assert(!strcmp(snapshot->result.code, "failed") && !gtk_widget_get_sensitive(ui.run));
+         assert_contextual_history(); assert_compiled_disk(); screenshot("contextual-failed-build");
+         queue_command("replace say 'GTK compiled ready'"); queue_command("save"); break;
+      case 7:
+         assert_source(compiled_source); assert(!the_editor_buffer_dirty(CURRENT_FILE)); assert_compiled_disk();
+         open_file(profile_program); break;
+      case 8:
+         assert_source(profile_source);
+         assert(!strcmp(gtk_button_get_label(GTK_BUTTON(ui.build)), "Build profile"));
+         assert(!strcmp(gtk_button_get_label(GTK_BUTTON(ui.apply)), "Apply profile"));
+         assert(gtk_widget_get_sensitive(ui.build) && !gtk_widget_get_sensitive(ui.apply) && !gtk_widget_get_sensitive(ui.run));
+         g_signal_emit_by_name(ui.build, "clicked"); break;
+      case 9:
+         await_lane(1, 1, NULL); assert(gtk_widget_get_sensitive(ui.apply)); assert_contextual_history();
+         g_signal_emit_by_name(ui.apply, "clicked"); break;
+      case 10:
+      {
+         char *text = output_text(ui.build_output);
+         if (strcmp(snapshot->result.code, "activated"))
+            fprintf(stderr, "GTK profile Apply result code=%s rc=%d message=%s source=%s active=%s build-state=%s\n",
+               snapshot->result.code, snapshot->result.rc, snapshot->result.message, snapshot->path,
+               snapshot->profile.active.image, snapshot->profile.build.state);
+         assert(!strcmp(snapshot->result.code, "activated"));
+         assert(g_str_has_suffix(snapshot->profile.active.image, ".profile.rxbin"));
+         if (strcmp(snapshot->profile.active.source_path, profile_program))
+            fprintf(stderr, "GTK profile source binding actual=%s expected=%s active-kind=%s\n",
+               snapshot->profile.active.source_path, profile_program, snapshot->profile.active.kind);
+         assert(!strcmp(snapshot->profile.active.source_path, profile_program));
+         assert(strstr(text, "GTK profile applied")); g_free(text); assert_contextual_history();
+         screenshot("contextual-profile-applied"); g_signal_emit_by_name(ui.edit_profile, "clicked"); break;
+      }
+      case 11:
+         assert(!strcmp((char *)CURRENT_FILE->fname, "User.profile.the")); assert_source(profile_source);
+         activate_shared_action("profile.action.15"); break;
+      case 12:
+      {
+         char *bytes;
+         gsize length;
+         await_lane(1, 1, NULL);
+         assert(!strcmp(gtk_label_get_text(GTK_LABEL(ui.build_state)), the_tool_build_console()->state));
+         assert_contextual_history();
+         activate_shared_action("profile.action.10");
+         g_snprintf(imported_profile, sizeof(imported_profile), "%s/Imported.profile.rxbin", directory);
+         assert(g_file_get_contents(snapshot->profile.active.image, &bytes, &length, NULL));
+         assert(g_file_set_contents(imported_profile, bytes, length, NULL)); g_free(bytes);
+         assert(queue_profile_image(imported_profile)); break;
+      }
+      case 13:
+         assert(!the_tool_program_console()->visible && !gtk_widget_get_visible(ui.console));
+         activate_shared_action("profile.action.9");
+         assert(!strcmp(snapshot->result.code, "applied"));
+         assert(!strcmp(snapshot->profile.active.kind, "compiled-image") && !*snapshot->profile.active.source_path);
+         assert(strcmp(snapshot->profile.active.image, imported_profile));
+         g_strlcpy(contextual_active, snapshot->profile.active.image, sizeof(contextual_active));
+         g_snprintf(imported_profile, sizeof(imported_profile), "%s/Invalid.profile.rxbin", directory);
+         assert(queue_profile_image(imported_profile)); break;
+      case 14:
+         assert(the_tool_program_console()->visible && gtk_widget_get_visible(ui.console));
+         assert(!strcmp(snapshot->result.code, "invalid-image"));
+         assert(!strcmp(snapshot->profile.active.image, contextual_active)); assert_contextual_history();
+         puts("GTK_CONTEXTUAL_CREXX_BUILD_RUN_STALE_FAILED_BUILD_REFUSAL_PASS");
+         puts("GTK_CONTEXTUAL_PROFILE_BUILD_APPLY_EDIT_IMPORT_INVALID_RETAIN_PASS");
+         puts("GTK_LEGACY_MENU_BUILD_TERMINAL_STATUS_PROGRAM_SHOW_HIDE_PASS");
+         open_file(program); queue_command("cursor cmdline"); break;
+      case 15:
+         assert_source("say 'GTK program ready'\npull name\nsay 'Hello' name\n");
+         assert_contextual_history(); g_free(contextual_history); g_free(contextual_draft);
+         contextual_history = contextual_draft = NULL; queue_command("nop"); break;
       default: assert(0);
    }
 }
@@ -1689,7 +2079,12 @@ static int probe_read_input(TheInputEvent *event)
       case 8:
          assert(!strcmp((char *)CURRENT_FILE->fname, "program.rexx"));
          if (the_tools_backend_available())
-            activate_shared_action("profile.action.8");
+         {
+            sync_console();
+            assert(gtk_widget_get_sensitive(ui.run) && !gtk_widget_get_sensitive(ui.build) && !gtk_widget_get_sensitive(ui.apply));
+            assert_contextual_styles();
+            g_signal_emit_by_name(ui.run, "clicked");
+         }
          else
          {
             assert(!getenv("THE_GTK_REQUIRE_PROGRAM"));
@@ -1700,6 +2095,17 @@ static int probe_read_input(TheInputEvent *event)
          break;
       case 9:
          await_console(0);
+         if (!reader_probe_done)
+         {
+            sync_logs(); await_frame();
+            if (ui.rows != terminal_lines || ui.cols != terminal_cols)
+            {
+               TheInputEvent event;
+               assert(the_input_event_from_command("nop", &event) && queue_event(event));
+               --phase; break;
+            }
+            assert_program_reader(); reader_probe_done = 1;
+         }
          if (log_probe_phase < 15) { named_log_step(); --phase; break; }
          if (document_probe_phase < 16) { document_step(); --phase; break; }
          if (form_probe_phase < 13) { form_step(); --phase; break; }
@@ -1821,6 +2227,8 @@ static int probe_read_input(TheInputEvent *event)
             --phase;
             break;
          }
+         if (the_tools_backend_available() && contextual_phase < 16)
+         { contextual_step(); --phase; break; }
          assert(CURRENT_VIEW->current_window == WINDOW_COMMAND);
          resize_window(1366, GTK_ORIENTATION_HORIZONTAL);
          queue_command("cursor cmdline");
@@ -1850,4 +2258,34 @@ const TheDriverOps *the_driver_module_ops(void)
    gtk_probe_base_operations();
    operations.read_input_event = probe_read_input;
    return &operations;
+}
+
+static void probe_native_event(GdkEvent *event, gpointer data)
+{
+   (void)data;
+   /* The probe supplies keys through real driver callbacks. Ignore unrelated
+    * physical input into this temporary window while running on a desktop. */
+   switch (event->type)
+   {
+      case GDK_KEY_PRESS: case GDK_KEY_RELEASE:
+      case GDK_BUTTON_PRESS: case GDK_2BUTTON_PRESS: case GDK_3BUTTON_PRESS: case GDK_BUTTON_RELEASE:
+      case GDK_MOTION_NOTIFY: case GDK_SCROLL: case GDK_ENTER_NOTIFY: case GDK_LEAVE_NOTIFY:
+         return;
+      default: gtk_main_do_event(event); break;
+   }
+}
+
+static int probe_startup(const TheDriverStartupOptions *options, char *error, size_t capacity)
+{
+   int ready = startup(options, error, capacity);
+   if (ready) gdk_event_handler_set(probe_native_event, NULL, NULL);
+   return ready;
+}
+
+const TheDriverModuleLifecycle *the_driver_module_lifecycle(void)
+{
+   static TheDriverModuleLifecycle probe;
+   probe = *gtk_probe_base_lifecycle();
+   probe.start = probe_startup;
+   return &probe;
 }

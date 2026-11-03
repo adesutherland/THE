@@ -66,6 +66,7 @@ typedef struct
    GtkWidget *entry;
    void *pane;
    int width;
+   int caret, selected, selection_start, selection_end;
 } GtkFileField;
 
 typedef struct
@@ -94,10 +95,31 @@ typedef struct
    char filefields_error[96];
 } GtkLogPane;
 
+typedef struct
+{
+   GtkWidget *page, *view, *scroller, *latest, *tab;
+   GString *text;
+   unsigned version, job, unread;
+   size_t bytes;
+   uint64_t displayed, streams, history_epoch;
+   int omitted;
+   GdkFrameClock *scroll_clock;
+   GtkAdjustment *scroll_adjustment;
+   gulong scroll_handler;
+   double scroll_value;
+   int syncing;
+} GtkConsoleReader;
+
 static struct
 {
    GtkWidget *window, *split, *editor, *console, *output, *input, *state;
    GtkWidget *run, *stop, *eof, *send, *header, *first_control, *menu_focus;
+   GtkWidget *build, *apply, *edit_profile, *apply_image;
+   GtkWidget *build_result, *build_output, *build_state, *build_profile, *build_stop;
+   GtkConsoleReader program_reader, build_reader;
+   TheToolsFileSnapshot file_snapshot;
+   unsigned result_serial;
+   int build_hidden;
    GtkApplication *application;
    GtkIMContext *im;
    PangoFontDescription *font;
@@ -107,8 +129,6 @@ static struct
    int active, timeout, cell_width, cell_height, rows, cols;
    int cursor_visible, blink_visible;
    int split_positioned;
-   unsigned console_version;
-   unsigned console_job_id;
    GtkCssProvider *console_css;
    GtkCssProvider *filefields_css;
    TheDriverAttr console_colours[GTK_CONSOLE_COLOURS];
@@ -157,6 +177,7 @@ static GtkLogPane *create_filefields(const TheWorkbenchPanel *panel);
 static gboolean filefields_key(GtkLogPane *pane, GtkWidget *focus, GdkEventKey *key);
 static void focus_filefields(GtkLogPane *pane);
 static void open_native_menu(GtkWidget *focus, GdkEventKey *trigger);
+static void show_tool_page(GtkWidget *page);
 
 static void redraw(void)
 {
@@ -291,12 +312,66 @@ static void command_action(GtkWidget *widget, gpointer command)
 static void tool_action(GtkWidget *widget, gpointer action)
 {
    TheInputEvent event;
-   (void)widget;
    if (the_panel_active || in_macro)
+      return;
+   if ((widget == ui.stop || widget == ui.eof) && !the_tool_program_console()->running)
       return;
    if (the_tools_prepare_input(action, "", "", 0, NULL, &event))
       queue_event(event);
    gtk_widget_grab_focus(ui.editor);
+}
+
+static void current_file_action(GtkWidget *widget, gpointer data)
+{
+   static const char *const names[] = {"file-build", "file-run", "file-activate"};
+   unsigned index = GPOINTER_TO_UINT(data);
+   const TheToolsFileActionSnapshot *action;
+   TheInputEvent event;
+   char generation[32];
+   (void)widget;
+   if (the_panel_active || in_macro || index >= THE_TOOLS_FILE_ACTION_COUNT) return;
+   action = ui.file_snapshot.actions + index;
+   if (!action->enabled) return;
+   g_snprintf(generation, sizeof(generation), "%lu", action->generation);
+   /* Bind to what the user saw. The owner rejects changes queued ahead of
+    * this request rather than silently running a newly selected source. */
+   if (the_tools_prepare_lines_bound(names[index], action->tool, "", "",
+       ui.file_snapshot.source_id, ui.file_snapshot.revision, generation, &event) && queue_event(event))
+   {
+      if (index != 1) ui.build_hidden = 0;
+      show_tool_page(index == 1 ? ui.console : ui.build_result);
+   }
+}
+
+static int queue_profile_image(const char *path)
+{
+   TheInputEvent event;
+   if (!the_tools_prepare_input("apply-profile", "rxbin", path, 0, NULL, &event) || !queue_event(event)) return 0;
+   ui.build_hidden = 0;
+   show_tool_page(ui.build_result);
+   return 1;
+}
+
+static void apply_image_clicked(GtkWidget *widget, gpointer data)
+{
+   GtkWidget *dialog;
+   GtkFileFilter *filter;
+   (void)widget; (void)data;
+   if (the_panel_active || in_macro || !ui.file_snapshot.profile.apply_image.enabled) return;
+   dialog = gtk_file_chooser_dialog_new("Apply compiled profile", GTK_WINDOW(ui.window),
+      GTK_FILE_CHOOSER_ACTION_OPEN, "_Cancel", GTK_RESPONSE_CANCEL, "_Apply", GTK_RESPONSE_ACCEPT, NULL);
+   filter = gtk_file_filter_new();
+   gtk_file_filter_set_name(filter, "Compiled profiles (*.profile.rxbin)");
+   gtk_file_filter_add_pattern(filter, "*.profile.rxbin");
+   gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+   if (CURRENT_FILE) gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), (char *)CURRENT_FILE->fpath);
+   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT)
+   {
+      char *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+      if (!queue_profile_image(path)) message("The profile request could not be queued.");
+      g_free(path);
+   }
+   gtk_widget_destroy(dialog);
 }
 
 static void file_action(GtkWidget *widget, gpointer name)
@@ -353,6 +428,7 @@ static void send_input(GtkWidget *widget, gpointer data)
       gtk_widget_error_bell(ui.input);
       return;
    }
+   if (!the_tool_program_console()->running || the_tool_program_console()->eof) return;
    if (the_tools_prepare_input("input", "", text, 0, NULL, &event)
    && queue_event(event))
    {
@@ -464,9 +540,14 @@ static gboolean workbench_key_pressed(GtkWidget *widget, GdkEventKey *key, gpoin
    {
       /* This moves physical widget focus only. The core retains the exact
        * file/command/prefix caret; ordinary Tab still reaches its profile. */
-      if (focus == ui.editor && gtk_widget_get_visible(ui.console))
-         gtk_widget_grab_focus(gtk_widget_get_sensitive(ui.input) ? ui.input : ui.output);
-      else if (focus == ui.editor || (focus && gtk_widget_is_ancestor(focus, ui.console)))
+      if (focus == ui.editor && gtk_widget_get_visible(ui.auxiliary))
+      {
+         GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(ui.auxiliary), gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.auxiliary)));
+         if (page == ui.build_result && gtk_widget_get_visible(ui.build_result)) gtk_widget_grab_focus(ui.build_output);
+         else if (gtk_widget_get_visible(ui.console)) gtk_widget_grab_focus(gtk_widget_get_sensitive(ui.input) ? ui.input : ui.output);
+         else gtk_widget_grab_focus(ui.first_control);
+      }
+      else if (focus == ui.editor || (focus && gtk_widget_is_ancestor(focus, ui.auxiliary)))
          gtk_widget_grab_focus(ui.first_control);
       else
          gtk_widget_grab_focus(ui.editor);
@@ -746,29 +827,43 @@ static void sync_console_palette(void)
    console_css_rule(css, selector, colours[(role) - ATTR_CONSOLEBODY], border)
    CONSOLE_RULE("#the-editor-console-split, #the-program-console, "
                 "#the-console-output, #the-console-output text, "
+                "#the-build-result, #the-build-output, #the-build-output text, "
                 "#the-workbench-pane, #the-workbench-text, #the-workbench-text text",
                 ATTR_CONSOLEBODY, 0);
    CONSOLE_RULE("#the-program-console .the-console-header, "
-                "#the-program-console .the-console-header label", ATTR_CONSOLEHEADER, 0);
+                "#the-program-console .the-console-header label, "
+                "#the-build-result .the-console-header, #the-build-result .the-console-header label", ATTR_CONSOLEHEADER, 0);
    CONSOLE_RULE("#the-console-input-row, #the-console-input-row label, #the-console-input",
                 ATTR_CONSOLEINPUT, 1);
    CONSOLE_RULE("#the-program-console .the-console-control, "
                 "#the-program-console .the-console-control label, "
-                "#the-program-run, #the-program-run label", ATTR_CONSOLECONTROL, 1);
-   CONSOLE_RULE("#the-console-output text selection, #the-console-input selection, #the-workbench-text text selection, "
+                "#the-build-result .the-console-control, #the-build-result .the-console-control label, "
+                "#the-program-run, #the-program-run label, #the-file-build, #the-file-build label, "
+                "#the-file-apply, #the-file-apply label", ATTR_CONSOLECONTROL, 1);
+   CONSOLE_RULE("#the-console-output text selection, #the-build-output text selection, #the-console-input selection, #the-workbench-text text selection, "
                 "#the-program-console .the-console-control:hover, "
                 "#the-program-console .the-console-control:hover label, "
                 "#the-program-console .the-console-control:focus, "
                 "#the-program-console .the-console-control:focus label, "
                 "#the-program-console .the-console-control:active, "
                 "#the-program-console .the-console-control:active label, "
+                "#the-build-result .the-console-control:hover, #the-build-result .the-console-control:hover label, "
+                "#the-build-result .the-console-control:focus, #the-build-result .the-console-control:focus label, "
+                "#the-build-result .the-console-control:active, #the-build-result .the-console-control:active label, "
                 "#the-program-run:hover, #the-program-run:hover label, "
                 "#the-program-run:focus, #the-program-run:focus label, "
-                "#the-program-run:active, #the-program-run:active label", ATTR_CONSOLESELECTED, 1);
-   CONSOLE_RULE("#the-program-console #the-console-status, #the-workbench-status", ATTR_CONSOLESTATUS, 0);
+                "#the-program-run:active, #the-program-run:active label, "
+                "#the-file-build:hover, #the-file-build:hover label, "
+                "#the-file-build:focus, #the-file-build:focus label, "
+                "#the-file-build:active, #the-file-build:active label, "
+                "#the-file-apply:hover, #the-file-apply:hover label, "
+                "#the-file-apply:focus, #the-file-apply:focus label, "
+                "#the-file-apply:active, #the-file-apply:active label", ATTR_CONSOLESELECTED, 1);
+   CONSOLE_RULE("#the-program-console #the-console-status, #the-build-status, #the-build-profile, #the-workbench-status", ATTR_CONSOLESTATUS, 0);
    CONSOLE_RULE("#the-editor-console-split > separator", ATTR_CONSOLEDIVIDER, 1);
    g_string_append(css,
-      "#the-editor-console-split > separator { border-style: solid; border-width: 1px; }\n");
+      "#the-editor-console-split > separator { border-style: solid; border-width: 1px; }\n"
+      "#the-file-build:disabled, #the-program-run:disabled, #the-file-apply:disabled { opacity: 0.45; }\n");
 #undef CONSOLE_RULE
    if (!gtk_css_provider_load_from_data(ui.console_css, css->str, css->len, &error))
    {
@@ -778,15 +873,18 @@ static void sync_console_palette(void)
       return;
    }
    g_string_free(css, TRUE);
-   error_tag = gtk_text_tag_table_lookup(gtk_text_buffer_get_tag_table(
-      gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui.output))), "stderr");
    style = the_render_attr_style(colours[ATTR_CONSOLEERROR - ATTR_CONSOLEBODY]);
    console_colours(colours[ATTR_CONSOLEERROR - ATTR_CONSOLEBODY], &fg, &bg);
-   g_object_set(error_tag, "foreground-rgba", &fg, "background-rgba", &bg,
-      "weight", style & THE_STYLE_BOLD ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL,
-      "style", style & THE_STYLE_ITALIC ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL,
-      "underline", style & THE_STYLE_UNDERLINE ? PANGO_UNDERLINE_SINGLE : PANGO_UNDERLINE_NONE,
-      "strikethrough", (style & THE_STYLE_STRIKEOUT) != 0, NULL);
+   for (i = 0; i < 2; i++)
+   {
+      error_tag = gtk_text_tag_table_lookup(gtk_text_buffer_get_tag_table(
+         gtk_text_view_get_buffer(GTK_TEXT_VIEW(i ? ui.build_output : ui.output))), "stderr");
+      g_object_set(error_tag, "foreground-rgba", &fg, "background-rgba", &bg,
+         "weight", style & THE_STYLE_BOLD ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL,
+         "style", style & THE_STYLE_ITALIC ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL,
+         "underline", style & THE_STYLE_UNDERLINE ? PANGO_UNDERLINE_SINGLE : PANGO_UNDERLINE_NONE,
+         "strikethrough", (style & THE_STYLE_STRIKEOUT) != 0, NULL);
+   }
    memcpy(ui.console_colours, colours, sizeof(colours));
    ui.console_colours_valid = 1;
 }
@@ -918,60 +1016,309 @@ static gboolean draw_editor(GtkWidget *widget, cairo_t *cr, gpointer data)
    return FALSE;
 }
 
-static void sync_console(void)
+static int reader_selected_page(const GtkConsoleReader *reader)
 {
-   const TheToolConsole *console = the_tool_console();
-   size_t i;
-   GtkTextBuffer *buffer;
-   GtkTextIter end, anchor, insert;
-   int selection = 0, anchor_offset = 0, insert_offset = 0;
-   if (!ui.console)
-      return;
-   /* Colours belong to the active file, independently of a job's version.
-    * Updating CSS/tags alone leaves output, selection and job state intact. */
-   sync_console_palette();
-   if (console->version == ui.console_version)
-      return;
-   ui.console_version = console->version;
-   gtk_widget_set_visible(ui.console, console->visible);
-   gtk_label_set_text(GTK_LABEL(ui.state), console->state[0] ? console->state :
-      the_tools_backend_available() ? "Ready" : "Native RXBIN tool bundle is not configured");
-   gtk_widget_set_sensitive(ui.run, the_tools_backend_available() && !console->running);
-   gtk_widget_set_sensitive(ui.stop, console->running);
-   gtk_widget_set_sensitive(ui.eof, console->running && !console->eof);
-   gtk_widget_set_sensitive(ui.input, console->running && !console->eof);
-   gtk_widget_set_sensitive(ui.send, console->running && !console->eof);
-   buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui.output));
-   selection = console->id == ui.console_job_id && gtk_text_buffer_get_has_selection(buffer);
-   if (selection)
+   return gtk_notebook_get_nth_page(GTK_NOTEBOOK(ui.auxiliary),
+      gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.auxiliary))) == reader->page;
+}
+
+static int reader_at_tail(const GtkConsoleReader *reader)
+{
+   GtkAdjustment *adjustment = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(reader->scroller));
+   return gtk_adjustment_get_value(adjustment) >= gtk_adjustment_get_upper(adjustment)
+      - gtk_adjustment_get_page_size(adjustment) - 2;
+}
+
+static void reader_unread(GtkConsoleReader *reader)
+{
+   char label[64];
+   const char *title = reader == &ui.program_reader ? "Program" : "Build result";
+   if (reader->unread) g_snprintf(label, sizeof(label), "Latest (%u new lines)", reader->unread);
+   else g_strlcpy(label, "Latest", sizeof(label));
+   gtk_button_set_label(GTK_BUTTON(reader->latest), label);
+   if (reader->unread) g_snprintf(label, sizeof(label), "%s (%u unread)", title, reader->unread);
+   else g_strlcpy(label, title, sizeof(label));
+   gtk_label_set_text(GTK_LABEL(reader->tab), label);
+}
+
+static void cancel_reader_scroll(GtkConsoleReader *reader)
+{
+   if (reader->scroll_clock && reader->scroll_handler)
+      g_signal_handler_disconnect(reader->scroll_clock, reader->scroll_handler);
+   reader->scroll_handler = 0;
+   g_clear_object(&reader->scroll_clock); g_clear_object(&reader->scroll_adjustment);
+}
+
+static void reader_scrolled(GtkAdjustment *adjustment, gpointer data)
+{
+   GtkConsoleReader *reader = data;
+   (void)adjustment;
+   if (!reader->syncing && !reader->scroll_handler && reader_selected_page(reader) && reader_at_tail(reader)
+   && !gtk_text_buffer_get_has_selection(gtk_text_view_get_buffer(GTK_TEXT_VIEW(reader->view))))
+   { reader->unread = 0; reader_unread(reader); }
+}
+
+static void reader_scroll_after_paint(GdkFrameClock *clock, gpointer data)
+{
+   GtkConsoleReader *reader = data;
+   (void)clock;
+   reader->syncing++;
+   gtk_adjustment_set_value(reader->scroll_adjustment, reader->scroll_value);
+   cancel_reader_scroll(reader);
+   reader->syncing--;
+}
+
+static void reader_scroll(GtkConsoleReader *reader, double value)
+{
+   GtkAdjustment *adjustment = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(reader->scroller));
+   cancel_reader_scroll(reader); reader->scroll_value = value;
+   reader->scroll_clock = gtk_widget_get_frame_clock(reader->view);
+   if (reader->scroll_clock)
    {
-      gtk_text_buffer_get_iter_at_mark(buffer, &anchor, gtk_text_buffer_get_selection_bound(buffer));
-      gtk_text_buffer_get_iter_at_mark(buffer, &insert, gtk_text_buffer_get_insert(buffer));
-      anchor_offset = gtk_text_iter_get_offset(&anchor);
-      insert_offset = gtk_text_iter_get_offset(&insert);
+      g_object_ref(reader->scroll_clock); reader->scroll_adjustment = g_object_ref(adjustment);
+      reader->scroll_handler = g_signal_connect(reader->scroll_clock, "after-paint", G_CALLBACK(reader_scroll_after_paint), reader);
+      gtk_widget_queue_draw(reader->view);
    }
-   ui.console_job_id = console->id;
-   gtk_text_buffer_set_text(buffer, "", 0);
+   else gtk_adjustment_set_value(adjustment, value);
+}
+
+static void reader_latest(GtkWidget *widget, gpointer data)
+{
+   GtkConsoleReader *reader = data;
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(reader->view));
+   GtkTextIter end;
+   (void)widget;
+   gtk_text_buffer_get_end_iter(buffer, &end);
+   gtk_text_buffer_place_cursor(buffer, &end);
+   reader->unread = 0; reader_unread(reader);
+   reader_scroll(reader, G_MAXDOUBLE);
+}
+
+/* The host bounds each output lane. Find the retained suffix in linear time
+ * so eviction preserves a surviving selection and its viewport like LOG. */
+static size_t reader_overlap(const char *old, size_t old_length, const char *text, size_t length)
+{
+   size_t *prefix, i, matched = 0;
+   if (!old_length || !length) return 0;
+   if (length >= old_length && !memcmp(old, text, old_length)) return old_length;
+   prefix = g_new(size_t, length);
+   prefix[0] = 0;
+   for (i = 1; i < length; i++)
+   {
+      size_t at = prefix[i - 1];
+      while (at && text[i] != text[at]) at = prefix[at - 1];
+      prefix[i] = at + (text[i] == text[at]);
+   }
+   for (i = 0; i < old_length; i++)
+   {
+      while (matched && (matched == length || old[i] != text[matched])) matched = prefix[matched - 1];
+      if (old[i] == text[matched]) matched++;
+   }
+   g_free(prefix);
+   /* TextView offsets are characters; do not retain a partial UTF-8 prefix. */
+   while (matched && ((unsigned char)text[matched] & 0xc0) == 0x80) matched--;
+   return matched;
+}
+
+static void sync_reader(GtkConsoleReader *reader, const TheToolConsole *console)
+{
+   GtkTextBuffer *buffer;
+   GtkTextIter first, end, anchor, insert;
+   GtkAdjustment *adjustment;
+   GString *text;
+   size_t i, overlap, removed, skip, added, maximum, offset = 0;
+   uint64_t progress;
+   uint64_t streams = UINT64_C(1469598103934665603);
+   unsigned lines = 0;
+   int same, cleared, selected, follow, anchor_offset, insert_offset, removed_characters = 0;
+   double scroll, deleted_y = 0;
+   if (reader->version == console->version) return;
+   reader->version = console->version;
+   buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(reader->view));
+   adjustment = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(reader->scroller));
+   text = g_string_new(NULL);
    for (i = 0; i < console->count; i++)
    {
-      char *text = g_utf8_make_valid(console->chunks[i].text, console->chunks[i].length);
-      gtk_text_buffer_get_end_iter(buffer, &end);
-      gtk_text_buffer_insert_with_tags_by_name(buffer, &end, text, -1,
-         console->chunks[i].fd == 2 ? "stderr" : "stdout", NULL);
-      g_free(text);
+      char *valid = g_utf8_make_valid(console->chunks[i].text, console->chunks[i].length);
+      g_string_append(text, valid); g_free(valid);
+      streams = (streams ^ (unsigned)console->chunks[i].fd) * UINT64_C(1099511628211);
+      streams = (streams ^ console->chunks[i].length) * UINT64_C(1099511628211);
    }
-   if (selection)
+   same = reader->job == console->id;
+   reader->job = console->id;
+   cleared = same && (console->history_epoch != reader->history_epoch || console->displayed < reader->displayed);
+   progress = same && !cleared ? console->displayed - reader->displayed : console->displayed;
+   if (same && !cleared && reader->text && text->len == reader->text->len && !memcmp(text->str, reader->text->str, text->len)
+   && streams == reader->streams && console->displayed == reader->displayed && console->bytes == reader->bytes && console->omitted == reader->omitted)
+   { g_string_free(text, TRUE); return; }
+   selected = gtk_text_buffer_get_has_selection(buffer);
+   gtk_text_buffer_get_iter_at_mark(buffer, &anchor, gtk_text_buffer_get_selection_bound(buffer));
+   gtk_text_buffer_get_iter_at_mark(buffer, &insert, gtk_text_buffer_get_insert(buffer));
+   anchor_offset = gtk_text_iter_get_offset(&anchor); insert_offset = gtk_text_iter_get_offset(&insert);
+   scroll = gtk_adjustment_get_value(adjustment);
+   follow = !same || cleared || (!selected && (reader->scroll_handler ? reader->scroll_value == G_MAXDOUBLE : reader_at_tail(reader)));
+   maximum = same && !cleared && reader->text ? reader->text->len : 0;
+   /* Cumulative displayed bytes disambiguate identical retained lines after the
+    * bounded host evicts a prefix. Only use byte offsets when the displayed
+    * UTF-8 has exactly the retained host length. */
+   if (maximum && console->omitted && progress && reader->bytes == maximum && console->bytes == text->len
+   && progress > console->bytes - MIN(console->bytes, reader->bytes))
    {
-      int count = gtk_text_buffer_get_char_count(buffer);
-      gtk_text_buffer_get_iter_at_offset(buffer, &anchor, MIN(anchor_offset, count));
-      gtk_text_buffer_get_iter_at_offset(buffer, &insert, MIN(insert_offset, count));
-      gtk_text_buffer_select_range(buffer, &insert, &anchor);
+      size_t evicted = progress - (console->bytes - MIN(console->bytes, reader->bytes));
+      if (reader->bytes > console->bytes) evicted += reader->bytes - console->bytes;
+      maximum -= MIN(maximum, evicted);
+   }
+   overlap = maximum ? reader_overlap(reader->text->str + reader->text->len - maximum, maximum, text->str, text->len) : 0;
+   removed = same && reader->text ? reader->text->len - overlap : 0;
+   if (!same || cleared || !text->len) reader->unread = 0;
+   added = text->len - overlap;
+   for (i = overlap; i < text->len; i++) if (text->str[i] == '\n') lines++;
+   if (!added && text->len && (progress || streams != reader->streams || console->omitted != reader->omitted))
+   {
+      size_t start = progress ? text->len - MIN(progress, text->len) : 0;
+      for (i = start; i < text->len; i++) if (text->str[i] == '\n') lines++;
+      if (!lines) lines = 1;
+   }
+   if (added && !lines) lines = 1;
+   if (follow && reader_selected_page(reader)) reader->unread = 0;
+   else if (lines) reader->unread = lines > G_MAXUINT - reader->unread ? G_MAXUINT : reader->unread + lines;
+   cancel_reader_scroll(reader); reader->syncing++;
+   if (same && overlap)
+   {
+      if (removed)
+      {
+         GdkRectangle location;
+         gtk_text_buffer_get_start_iter(buffer, &first);
+         removed_characters = (int)g_utf8_strlen(reader->text->str, removed);
+         gtk_text_buffer_get_iter_at_offset(buffer, &end, removed_characters);
+         gtk_text_view_get_iter_location(GTK_TEXT_VIEW(reader->view), &end, &location); deleted_y = location.y;
+         gtk_text_buffer_delete(buffer, &first, &end);
+      }
    }
    else
    {
-      gtk_text_buffer_get_end_iter(buffer, &end);
-      gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(ui.output), &end, 0, FALSE, 0, 1);
+      removed_characters = same && reader->text ? (int)g_utf8_strlen(reader->text->str, -1) : 0;
+      gtk_text_buffer_set_text(buffer, "", 0);
    }
+   skip = overlap;
+   for (i = 0; i < console->count; i++)
+   {
+      char *valid = g_utf8_make_valid(console->chunks[i].text, console->chunks[i].length);
+      size_t length = strlen(valid);
+      if (skip < length)
+      {
+         gtk_text_buffer_get_end_iter(buffer, &end);
+         gtk_text_buffer_insert_with_tags_by_name(buffer, &end, valid + skip, length - skip,
+            console->chunks[i].fd == 2 ? "stderr" : "stdout", NULL);
+         skip = 0;
+      }
+      else skip -= length;
+      g_free(valid);
+   }
+   gtk_text_buffer_get_bounds(buffer, &first, &end);
+   gtk_text_buffer_remove_tag_by_name(buffer, "stdout", &first, &end);
+   gtk_text_buffer_remove_tag_by_name(buffer, "stderr", &first, &end);
+   for (i = 0; i < console->count; i++)
+   {
+      char *valid = g_utf8_make_valid(console->chunks[i].text, console->chunks[i].length);
+      size_t count = g_utf8_strlen(valid, -1);
+      gtk_text_buffer_get_iter_at_offset(buffer, &first, offset);
+      gtk_text_buffer_get_iter_at_offset(buffer, &end, offset + count);
+      gtk_text_buffer_apply_tag_by_name(buffer, console->chunks[i].fd == 2 ? "stderr" : "stdout", &first, &end);
+      offset += count; g_free(valid);
+   }
+   if (same && !cleared && selected)
+   {
+      int count = gtk_text_buffer_get_char_count(buffer);
+      gtk_text_buffer_get_iter_at_offset(buffer, &anchor, CLAMP(anchor_offset - removed_characters, 0, count));
+      gtk_text_buffer_get_iter_at_offset(buffer, &insert, CLAMP(insert_offset - removed_characters, 0, count));
+      gtk_text_buffer_select_range(buffer, &insert, &anchor);
+   }
+   if (reader->text) g_string_free(reader->text, TRUE);
+   reader->text = text;
+   reader->streams = streams; reader->displayed = console->displayed;
+   reader->history_epoch = console->history_epoch;
+   reader->bytes = console->bytes; reader->omitted = console->omitted;
+   reader_unread(reader);
+   reader_scroll(reader, follow ? G_MAXDOUBLE : MAX(0, scroll - deleted_y));
+   reader->syncing--;
+}
+
+static void show_tool_page(GtkWidget *page)
+{
+   GtkWidget *focus = gtk_window_get_focus(GTK_WINDOW(ui.window));
+   gtk_widget_show(page); gtk_widget_show(ui.auxiliary);
+   if (focus && (focus == ui.auxiliary || gtk_widget_is_ancestor(focus, ui.auxiliary))) return;
+   ui.syncing_logs++;
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(ui.auxiliary), gtk_notebook_page_num(GTK_NOTEBOOK(ui.auxiliary), page));
+   ui.syncing_logs--;
+}
+
+static void hide_tool_page(GtkWidget *widget, gpointer data)
+{
+   GtkWidget *page = data;
+   (void)widget;
+   if (page == ui.console) the_tool_program_console_visibility(0, 0);
+   else ui.build_hidden = 1;
+   gtk_widget_hide(page);
+   gtk_widget_grab_focus(ui.editor);
+}
+
+static void sync_file_tools(void)
+{
+   GtkWidget *buttons[] = {ui.build, ui.run, ui.apply};
+   TheToolsFileSnapshot *snapshot = &ui.file_snapshot;
+   char summary[512];
+   size_t i;
+   if (!the_tools_file_snapshot(snapshot)) return;
+   for (i = 0; i < THE_TOOLS_FILE_ACTION_COUNT; i++)
+   {
+      const TheToolsFileActionSnapshot *action = snapshot->actions + i;
+      gtk_button_set_label(GTK_BUTTON(buttons[i]), action->label);
+      gtk_widget_set_sensitive(buttons[i], action->enabled);
+      gtk_widget_set_tooltip_text(buttons[i], action->enabled
+         ? i == 1 ? "Run the current unsaved file snapshot. Output and stdin are in Program."
+           : i == 2 ? "Apply the current built profile and retain its startup selection."
+           : "Build the current unsaved file snapshot. See Build result for output."
+         : action->reason);
+   }
+   gtk_widget_set_sensitive(ui.apply_image, snapshot->profile.apply_image.enabled);
+   gtk_widget_set_tooltip_text(ui.apply_image, snapshot->profile.apply_image.enabled
+      ? "Choose a .profile.rxbin file to apply and retain an immutable startup copy."
+      : snapshot->profile.apply_image.reason);
+   g_snprintf(summary, sizeof(summary), "Build: %s%s%.180s | Active profile: %.180s",
+      snapshot->profile.build.state, *snapshot->profile.build.name ? " · " : "", snapshot->profile.build.name,
+      *snapshot->profile.active.image ? snapshot->profile.active.image : "none");
+   gtk_label_set_text(GTK_LABEL(ui.build_profile), summary);
+   if (snapshot->result.serial != ui.result_serial)
+   {
+      ui.result_serial = snapshot->result.serial;
+      if (snapshot->result.serial) gtk_label_set_text(GTK_LABEL(ui.build_state), snapshot->result.message);
+   }
+}
+
+static void sync_console(void)
+{
+   const TheToolConsole *program = the_tool_program_console();
+   const TheToolConsole *build = the_tool_build_console();
+   unsigned result_serial = ui.result_serial;
+   if (!ui.console) return;
+   sync_console_palette();
+   sync_file_tools();
+   gtk_widget_set_visible(ui.console, program->visible);
+   gtk_label_set_text(GTK_LABEL(ui.state), program->state[0] ? program->state :
+      the_tools_backend_available() ? "Ready" : "Native RXBIN tool bundle is not configured");
+   gtk_widget_set_sensitive(ui.stop, program->running);
+   gtk_widget_set_sensitive(ui.eof, program->running && !program->eof);
+   gtk_widget_set_sensitive(ui.input, program->running && !program->eof);
+   gtk_widget_set_sensitive(ui.send, program->running && !program->eof);
+   gtk_widget_set_sensitive(ui.build_stop, build->running);
+   if (build->running || (build->id && build->version != ui.build_reader.version && result_serial == ui.result_serial))
+      gtk_label_set_text(GTK_LABEL(ui.build_state), build->state);
+   if (build->id != ui.build_reader.job) ui.build_hidden = 0;
+   gtk_widget_set_visible(ui.build_result, !ui.build_hidden && (build->id || ui.result_serial));
+   sync_reader(&ui.program_reader, program);
+   sync_reader(&ui.build_reader, build);
 }
 
 static GtkLogPane *find_log(const char *id, unsigned long generation)
@@ -1019,7 +1366,7 @@ static void remember_log_origin(GtkWidget *focus)
       focus = ui.last_nonlog_focus ? ui.last_nonlog_focus : ui.editor;
    g_clear_object(&ui.log_origin);
    ui.log_origin = g_object_ref(focus ? focus : ui.editor);
-   ui.log_origin_program = the_tool_console()->focused && focus &&
+   ui.log_origin_program = the_tool_program_console()->focused && focus &&
       (focus == ui.console || gtk_widget_is_ancestor(focus, ui.console));
    ui.log_entry_selected = 0;
    if (ui.log_origin == ui.input)
@@ -1035,9 +1382,11 @@ static void restore_log_origin(void)
    GtkWidget *focus = ui.log_origin;
    if (focus && (focus == ui.console || gtk_widget_is_ancestor(focus, ui.console)))
       gtk_notebook_set_current_page(GTK_NOTEBOOK(ui.auxiliary), 0);
+   else if (focus && (focus == ui.build_result || gtk_widget_is_ancestor(focus, ui.build_result)))
+      gtk_notebook_set_current_page(GTK_NOTEBOOK(ui.auxiliary), gtk_notebook_page_num(GTK_NOTEBOOK(ui.auxiliary), ui.build_result));
    if (!focus || !gtk_widget_is_drawable(focus) || !gtk_widget_is_sensitive(focus)) focus = ui.editor;
-   if (ui.log_origin_program && the_tool_console()->visible)
-      the_tool_console_visibility(1, 1);
+   if (ui.log_origin_program && the_tool_program_console()->visible)
+      the_tool_program_console_visibility(1, 1);
    gtk_widget_grab_focus(focus);
    if (focus == ui.input)
    {
@@ -1053,7 +1402,7 @@ static void restore_log_origin(void)
 static void select_program_from_log(GtkLogPane *pane)
 {
    remember_log_origin(gtk_widget_get_sensitive(ui.input) ? ui.input : ui.output);
-   ui.log_origin_program = the_tool_console()->visible;
+   ui.log_origin_program = the_tool_program_console()->visible;
    queue_panel(pane, THE_WORKBENCH_PANEL_RETURN);
 }
 
@@ -1069,6 +1418,8 @@ static void cycle_log(GtkLogPane *pane, int reverse)
       next = gtk_notebook_get_nth_page(GTK_NOTEBOOK(ui.auxiliary), page);
       if (!gtk_widget_get_visible(next)) continue;
       if (next == ui.console) { select_program_from_log(pane); return; }
+      if (next == ui.build_result)
+      { remember_log_origin(ui.build_output); ui.log_origin_program = 0; queue_panel(pane, THE_WORKBENCH_PANEL_RETURN); return; }
       log = log_for_widget(next);
       if (log) { queue_panel(log, THE_WORKBENCH_PANEL_FOCUS); return; }
    }
@@ -1079,16 +1430,37 @@ static void auxiliary_switched(GtkNotebook *notebook, GtkWidget *page, guint num
    GtkLogPane *pane;
    (void)notebook; (void)number; (void)data;
    if (ui.syncing_logs || the_panel_active || in_macro) return;
+   if (page == ui.console || page == ui.build_result)
+   {
+      GtkConsoleReader *reader = page == ui.console ? &ui.program_reader : &ui.build_reader;
+      if (reader->scroller && reader->view && reader_at_tail(reader) && !gtk_text_buffer_get_has_selection(gtk_text_view_get_buffer(GTK_TEXT_VIEW(reader->view))))
+      { reader->unread = 0; reader_unread(reader); }
+   }
    pane = log_for_widget(page);
    if (pane) queue_panel(pane, THE_WORKBENCH_PANEL_FOCUS);
    else if (page == ui.console && ui.focused_log[0])
       select_program_from_log(find_log(ui.focused_log, ui.focused_log_generation));
+   else if (page == ui.build_result && ui.focused_log[0])
+   {
+      GtkLogPane *from = find_log(ui.focused_log, ui.focused_log_generation);
+      remember_log_origin(ui.build_output); ui.log_origin_program = 0;
+      queue_panel(from, THE_WORKBENCH_PANEL_RETURN);
+   }
 }
 
 static void remember_nonlog_focus(GtkWindow *window, GtkWidget *focus, gpointer data)
 {
+   GtkLogPane *pane = log_for_widget(focus);
    (void)window; (void)data;
-   if (!focus || focus == ui.auxiliary || log_for_widget(focus)) return;
+   /* A deliberate focus target must be visible in its notebook. Background
+    * output never reaches this route and must not select another page. */
+   if (ui.console && focus && (focus == ui.console || gtk_widget_is_ancestor(focus, ui.console))
+   && gtk_widget_get_visible(ui.console) && gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.auxiliary)) != 0)
+      gtk_notebook_set_current_page(GTK_NOTEBOOK(ui.auxiliary), 0);
+   /* set-focus also runs when an inactive toplevel cannot deliver native
+    * focus-in-event. Remember the actual field before returning to Program. */
+   if (pane && pane->filefields && !ui.syncing_logs) pane->filefields_focus = focus;
+   if (!focus || focus == ui.auxiliary || pane) return;
    g_clear_object(&ui.last_nonlog_focus); ui.last_nonlog_focus = g_object_ref(focus);
 }
 
@@ -1371,8 +1743,22 @@ static void filefields_reload_clicked(GtkWidget *widget, gpointer data)
 static gboolean filefields_focused(GtkWidget *widget, GdkEventFocus *event, gpointer data)
 {
    GtkLogPane *pane = data;
-   if (event->in) pane->filefields_focus = widget;
+   if (event->in && !ui.syncing_logs && gtk_window_get_focus(GTK_WINDOW(ui.window)) == widget)
+      pane->filefields_focus = widget;
    return FALSE;
+}
+
+static void filefield_cursor_changed(GObject *object, GParamSpec *property, gpointer data)
+{
+   GtkFileField *field = data;
+   GtkLogPane *pane = field->pane;
+   (void)object; (void)property;
+   /* GtkNotebook may select an Entry while changing pages. Save only the
+    * active user's caret, before RETURN, rather than that automatic focus. */
+   if (ui.syncing_logs || strcmp(ui.focused_log, pane->id)
+   || gtk_window_get_focus(GTK_WINDOW(ui.window)) != field->entry) return;
+   field->caret = gtk_editable_get_position(GTK_EDITABLE(field->entry));
+   field->selected = gtk_editable_get_selection_bounds(GTK_EDITABLE(field->entry), &field->selection_start, &field->selection_end);
 }
 
 /* Native entry edits are staged through the same fixed-cell panel operations
@@ -1485,6 +1871,8 @@ static void populate_filefields(GtkLogPane *pane)
          g_signal_connect(widget, "insert-text", G_CALLBACK(filefields_insert), field);
          g_signal_connect(widget, "delete-text", G_CALLBACK(filefields_delete), field);
          g_signal_connect(widget, "focus-in-event", G_CALLBACK(filefields_focused), pane);
+         g_signal_connect(widget, "notify::cursor-position", G_CALLBACK(filefield_cursor_changed), field);
+         g_signal_connect(widget, "notify::selection-bound", G_CALLBACK(filefield_cursor_changed), field);
          g_signal_connect(widget, "button-press-event", G_CALLBACK(log_button_pressed), pane);
          g_ptr_array_add(pane->filefields, field);
       }
@@ -1594,9 +1982,28 @@ static void sync_filefields(GtkLogPane *pane, const TheWorkbenchPanel *panel)
 
 static void focus_filefields(GtkLogPane *pane)
 {
-   if (pane->filefields_focus && gtk_widget_is_drawable(pane->filefields_focus) && gtk_widget_is_sensitive(pane->filefields_focus)) gtk_widget_grab_focus(pane->filefields_focus);
-   else if (pane->filefields->len && gtk_widget_is_drawable(pane->scroller)) gtk_widget_grab_focus(((GtkFileField *)g_ptr_array_index(pane->filefields, 0))->entry);
-   else gtk_widget_grab_focus(pane->filefields_reload);
+   GtkWidget *target = pane->filefields_focus;
+   guint i;
+   if (!target || !gtk_widget_is_drawable(target) || !gtk_widget_is_sensitive(target))
+      target = pane->filefields->len && gtk_widget_is_drawable(pane->scroller)
+         ? ((GtkFileField *)g_ptr_array_index(pane->filefields, 0))->entry : pane->filefields_reload;
+   /* Notebook page changes can focus a container while sync_logs runs. Only
+    * this chosen target becomes the retained field/control for a return. */
+   if (GTK_IS_ENTRY(target))
+   {
+      gtk_entry_grab_focus_without_selecting(GTK_ENTRY(target));
+      for (i = 0; i < pane->filefields->len; i++)
+      {
+         GtkFileField *field = g_ptr_array_index(pane->filefields, i);
+         if (field->entry != target) continue;
+         if (field->selected)
+            gtk_editable_select_region(GTK_EDITABLE(target), field->caret == field->selection_start ? field->selection_end : field->selection_start, field->caret);
+         else gtk_editable_set_position(GTK_EDITABLE(target), field->caret);
+         break;
+      }
+   }
+   else gtk_widget_grab_focus(target);
+   pane->filefields_focus = target;
 }
 
 static gboolean filefields_key(GtkLogPane *pane, GtkWidget *focus, GdkEventKey *key)
@@ -2045,8 +2452,8 @@ static void sync_logs(void)
          if (strcmp(gtk_label_get_text(GTK_LABEL(pane->status)), status)) gtk_label_set_text(GTK_LABEL(pane->status), status);
       }
    }
-   gtk_notebook_set_show_tabs(GTK_NOTEBOOK(ui.auxiliary), visible > 0);
-   gtk_widget_set_visible(ui.auxiliary, visible || the_tool_console()->visible);
+   gtk_notebook_set_show_tabs(GTK_NOTEBOOK(ui.auxiliary), visible > 0 || gtk_widget_get_visible(ui.build_result));
+   gtk_widget_set_visible(ui.auxiliary, visible || the_tool_program_console()->visible || gtk_widget_get_visible(ui.build_result));
    focus = the_workbench_focus_request();
    if (focus && focus->serial != ui.log_focus_serial)
    {
@@ -2057,7 +2464,7 @@ static void sync_logs(void)
          GtkWidget *prior_focus = gtk_window_get_focus(GTK_WINDOW(ui.window));
          if (!ui.focused_log[0] && !ui.log_origin) remember_log_origin(gtk_window_get_focus(GTK_WINDOW(ui.window)));
          strcpy(ui.focused_log, pane->id); ui.focused_log_generation = pane->generation;
-         if (the_tool_console()->focused) the_tool_console_visibility(the_tool_console()->visible, 0);
+         if (the_tool_program_console()->focused) the_tool_program_console_visibility(the_tool_program_console()->visible, 0);
          gtk_notebook_set_current_page(GTK_NOTEBOOK(ui.auxiliary), gtk_notebook_page_num(GTK_NOTEBOOK(ui.auxiliary), pane->page));
          if (pane->filefields) focus_filefields(pane);
          else if (pane->form_fields)
@@ -2095,7 +2502,11 @@ static void sync_logs(void)
       int fits = 1, allowed = 0, controls_height = 0;
       size_t fallback;
       gtk_widget_get_allocation(pane->page, &allocation);
-      gtk_widget_get_preferred_height(gtk_widget_get_parent(pane->status), &controls_height, NULL);
+      /* Wrapped status/form controls need the selected pane's real width.
+       * The width-independent minimum can assume a single FlowBox column
+       * and incorrectly collapse fields that fit in the allocated pane. */
+      gtk_widget_get_preferred_height_for_width(gtk_widget_get_parent(pane->status),
+         MAX(1, allocation.width - 12), &controls_height, NULL);
       if (shown && selected_page && panel && allocation.width > 1 && allocation.height > 1)
          fits = allocation.width - 12 >= panel->mincols * ui.cell_width &&
             allocation.height - 16 - controls_height >= panel->minrows * ui.cell_height;
@@ -2134,7 +2545,7 @@ static gboolean blink(gpointer data)
 }
 
 static GtkWidget *button(GtkWidget *box, const char *label,
-                          GCallback callback, const char *argument)
+                          GCallback callback, gconstpointer argument)
 {
    GtkWidget *widget = gtk_button_new_with_label(label);
    gtk_style_context_add_class(gtk_widget_get_style_context(widget), "the-console-control");
@@ -2348,14 +2759,14 @@ static int activate(void)
    g_queue_init(&ui.inputs);
    ui.timeout = -1;
    ui.cursor_visible = ui.blink_visible = 1;
-   ui.console_version = (unsigned)-1;
+   ui.program_reader.version = ui.build_reader.version = (unsigned)-1;
    headless_driver_reset();
    return 1;
 }
 
 static int startup(const TheDriverStartupOptions *options, char *error, size_t capacity)
 {
-   GtkWidget *root, *toolbar, *scroller, *heading, *controls, *entry;
+   GtkWidget *root, *toolbar, *scroller, *heading, *controls, *entry, *actions;
    GError *application_error = NULL;
    PangoLayout *layout;
    int width, height;
@@ -2414,9 +2825,18 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    button(toolbar, "Paste", G_CALLBACK(paste_action), NULL);
    button(toolbar, "Command", G_CALLBACK(command_action), "cursor cmdline");
    button(toolbar, "Next file", G_CALLBACK(command_action), "next");
-   ui.run = button(toolbar, "Run file", G_CALLBACK(tool_action), "run");
-   gtk_widget_set_tooltip_text(ui.run, "Run the current file, including unsaved edits, in the Program console.");
+   actions = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   gtk_container_set_border_width(GTK_CONTAINER(actions), 6);
+   gtk_box_pack_start(GTK_BOX(root), actions, FALSE, FALSE, 0);
+   ui.build = button(actions, "Build source", G_CALLBACK(current_file_action), GUINT_TO_POINTER(0));
+   ui.run = button(actions, "Run", G_CALLBACK(current_file_action), GUINT_TO_POINTER(1));
+   ui.apply = button(actions, "Apply profile", G_CALLBACK(current_file_action), GUINT_TO_POINTER(2));
+   gtk_widget_set_name(ui.build, "the-file-build");
    gtk_widget_set_name(ui.run, "the-program-run");
+   gtk_widget_set_name(ui.apply, "the-file-apply");
+   ui.edit_profile = button(actions, "Edit profile", G_CALLBACK(tool_action), "profile");
+   gtk_widget_set_tooltip_text(ui.edit_profile, "Open the active profile source, or create a user profile. Build profile, then Apply profile.");
+   ui.apply_image = button(actions, "Apply compiled profile…", G_CALLBACK(apply_image_clicked), NULL);
    ui.split = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
    gtk_widget_set_name(ui.split, "the-editor-console-split");
    g_signal_connect(ui.split, "size-allocate", G_CALLBACK(split_allocated), NULL);
@@ -2458,7 +2878,9 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    ui.console = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
    gtk_widget_set_name(ui.console, "the-program-console");
    gtk_container_set_border_width(GTK_CONTAINER(ui.console), 6);
-   gtk_notebook_append_page(GTK_NOTEBOOK(ui.auxiliary), ui.console, gtk_label_new("Program"));
+   ui.program_reader.page = ui.console;
+   ui.program_reader.tab = gtk_label_new("Program");
+   gtk_notebook_append_page(GTK_NOTEBOOK(ui.auxiliary), ui.console, ui.program_reader.tab);
    heading = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    ui.header = heading;
    gtk_style_context_add_class(gtk_widget_get_style_context(heading), "the-console-header");
@@ -2478,7 +2900,9 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    ui.stop = button(controls, "Stop", G_CALLBACK(tool_action), "stop");
    ui.eof = button(controls, "EOF", G_CALLBACK(tool_action), "eof");
    button(controls, "Clear", G_CALLBACK(tool_action), "clear");
-   button(controls, "Hide", G_CALLBACK(command_action), "rx console off");
+   ui.program_reader.latest = button(controls, "Latest", G_CALLBACK(reader_latest), &ui.program_reader);
+   gtk_widget_set_tooltip_text(ui.program_reader.latest, "Show the latest output and resume following it. New output leaves a scrolled reader or selection in place.");
+   button(controls, "Hide", G_CALLBACK(hide_tool_page), ui.console);
    scroller = gtk_scrolled_window_new(NULL, NULL);
    gtk_widget_set_size_request(scroller, -1, 125);
    gtk_box_pack_start(GTK_BOX(ui.console), scroller, TRUE, TRUE, 0);
@@ -2488,6 +2912,8 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(ui.output), FALSE);
    gtk_text_view_set_monospace(GTK_TEXT_VIEW(ui.output), TRUE);
    gtk_container_add(GTK_CONTAINER(scroller), ui.output);
+   ui.program_reader.view = ui.output; ui.program_reader.scroller = scroller;
+   g_signal_connect(gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(scroller)), "value-changed", G_CALLBACK(reader_scrolled), &ui.program_reader);
    gtk_text_buffer_create_tag(gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui.output)), "stderr", NULL);
    gtk_text_buffer_create_tag(gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui.output)), "stdout", NULL);
    entry = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
@@ -2501,12 +2927,51 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    gtk_box_pack_start(GTK_BOX(entry), ui.input, TRUE, TRUE, 0);
    g_signal_connect(ui.input, "activate", G_CALLBACK(send_input), NULL);
    ui.send = button(entry, "Send", G_CALLBACK(send_input), NULL);
+   ui.build_result = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+   gtk_widget_set_name(ui.build_result, "the-build-result");
+   gtk_container_set_border_width(GTK_CONTAINER(ui.build_result), 6);
+   ui.build_reader.page = ui.build_result;
+   ui.build_reader.tab = gtk_label_new("Build result");
+   gtk_notebook_append_page(GTK_NOTEBOOK(ui.auxiliary), ui.build_result, ui.build_reader.tab);
+   heading = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+   gtk_style_context_add_class(gtk_widget_get_style_context(heading), "the-console-header");
+   gtk_box_pack_start(GTK_BOX(ui.build_result), heading, FALSE, FALSE, 0);
+   controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   gtk_box_pack_start(GTK_BOX(heading), controls, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(controls), gtk_label_new("Build result"), TRUE, TRUE, 0);
+   ui.build_stop = button(controls, "Stop", G_CALLBACK(tool_action), "stop");
+   ui.build_reader.latest = button(controls, "Latest", G_CALLBACK(reader_latest), &ui.build_reader);
+   gtk_widget_set_tooltip_text(ui.build_reader.latest, "Show the latest build output and resume following it.");
+   button(controls, "Hide", G_CALLBACK(hide_tool_page), ui.build_result);
+   ui.build_state = gtk_label_new("Build the current source, then Run or Apply profile.");
+   gtk_widget_set_name(ui.build_state, "the-build-status");
+   gtk_label_set_xalign(GTK_LABEL(ui.build_state), 0);
+   gtk_label_set_line_wrap(GTK_LABEL(ui.build_state), TRUE);
+   gtk_box_pack_start(GTK_BOX(heading), ui.build_state, FALSE, FALSE, 0);
+   ui.build_profile = gtk_label_new("");
+   gtk_widget_set_name(ui.build_profile, "the-build-profile");
+   gtk_label_set_xalign(GTK_LABEL(ui.build_profile), 0);
+   gtk_label_set_line_wrap(GTK_LABEL(ui.build_profile), TRUE);
+   gtk_box_pack_start(GTK_BOX(heading), ui.build_profile, FALSE, FALSE, 0);
+   scroller = gtk_scrolled_window_new(NULL, NULL);
+   gtk_widget_set_size_request(scroller, -1, 125);
+   gtk_box_pack_start(GTK_BOX(ui.build_result), scroller, TRUE, TRUE, 0);
+   ui.build_output = gtk_text_view_new();
+   gtk_widget_set_name(ui.build_output, "the-build-output");
+   gtk_text_view_set_editable(GTK_TEXT_VIEW(ui.build_output), FALSE);
+   gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(ui.build_output), FALSE);
+   gtk_text_view_set_monospace(GTK_TEXT_VIEW(ui.build_output), TRUE);
+   gtk_container_add(GTK_CONTAINER(scroller), ui.build_output);
+   ui.build_reader.view = ui.build_output; ui.build_reader.scroller = scroller;
+   g_signal_connect(gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(scroller)), "value-changed", G_CALLBACK(reader_scrolled), &ui.build_reader);
+   gtk_text_buffer_create_tag(gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui.build_output)), "stderr", NULL);
+   gtk_text_buffer_create_tag(gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui.build_output)), "stdout", NULL);
    ui.console_css = gtk_css_provider_new();
    gtk_style_context_add_provider_for_screen(gtk_widget_get_screen(ui.window),
       GTK_STYLE_PROVIDER(ui.console_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1);
    gtk_widget_show_all(ui.window);
    gtk_widget_grab_focus(ui.editor);
-   the_tool_console_visibility(1, 0);
+   the_tool_program_console_visibility(1, 0);
    sync_console();
    ui.active = 1;
    /* Legacy core spelling for an active interactive display. GTK still
@@ -2679,6 +3144,10 @@ static void shutdown_driver(int prompt)
       g_object_unref(ui.console_css);
       ui.console_css = NULL;
    }
+   cancel_reader_scroll(&ui.program_reader); cancel_reader_scroll(&ui.build_reader);
+   if (ui.program_reader.text) g_string_free(ui.program_reader.text, TRUE);
+   if (ui.build_reader.text) g_string_free(ui.build_reader.text, TRUE);
+   ui.program_reader.text = ui.build_reader.text = NULL;
    if (ui.native_menu) gtk_menu_shell_deactivate(GTK_MENU_SHELL(ui.native_menu));
    g_clear_object(&ui.menu_focus);
    ui.menu_popup = NULL;

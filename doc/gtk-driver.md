@@ -21,6 +21,11 @@ build/gtk/release/the --driver gtk path/to/file.rexx
 Use the usual CMake SDK settings when selecting a particular cREXX cohort.
 `USE_SDSLH=ON` retains the normal profile's syntax services. A graphical
 display is required; `xvfb-run` can supply one for automated Linux testing.
+For compiler-backed syntax services, the selected `rxc` must support
+`--syntaxhighlight`; older SDKs can build programs while lacking this service.
+Select the compiler, assembler, shared runtime, import library and native tool
+bundle from one matching cohort. See [runtime tools](runtime-tools.md) for
+preparing the bundle and selecting `THE_NATIVE_TOOL_ROOT`.
 The runtime module is `the_driver_gtk`; keep it with the executable from the
 same build. Normal installation includes the GTK module when enabled.
 Distributing GTK's shared libraries or creating a signed desktop app package
@@ -53,22 +58,47 @@ platform terminal-calibration system profile, whose cursor/repaint values
 describe terminal emulators. Font fallback and final glyph appearance depend
 on the installed Pango fonts.
 
-## Program console
+## File actions and profiles
 
-The Program menu and Run button use the existing native RXBIN tool host.
-Configure its matching bundle as described in [runtime tools](runtime-tools.md).
-Run captures the current unsaved source without saving it. The console
-shows bounded stdout/stderr and completion state. Its separate Program input
-field sends a line of stdin; EOF and Stop act on the selected job. Stderr is
-coloured separately. The editor's command line remains available for editor
-commands, including profile build and activation.
+The action row follows the current file's shared Build/Run/Apply state. Labels,
+availability and refusal tooltips come from the editor core. A Classic Rexx
+source can Run directly; a `.crexx` source uses Build source, then Run. Editing
+invalidates its previous Run artifact until a successful rebuild. A queued
+action retains the source/revision/generation shown when clicked; the core
+rejects it if an earlier queued edit changed that source.
+
+New profile sources use `.profile.the`: Build profile, then Apply profile.
+Other `.the` files use Build macro and Run macro. Edit profile opens the user
+profile source; Apply compiled profile opens a native `.profile.rxbin` chooser.
+Profile validation, immutable artifacts, replacement and startup persistence
+use the same native tool host as editor commands. Configure its matching
+bundle as described in [runtime tools](runtime-tools.md).
+
+## Program console and build results
+
+Program and Build result are separate auxiliary pages. Build/profile output
+and completion appear in Build result; compiling does not erase Program
+history, its selection or an unsent input draft. Run captures the current
+unsaved source without saving it. Program shows bounded stdout/stderr and
+completion state, with stderr coloured separately.
+
+Program input submits one stdin record per Enter or Send, including an
+explicitly empty line. Successful submission returns focus to that field;
+F6 or deliberate navigation leaves it. EOF and Stop act on the running job.
+The editor's command line remains available for editor commands.
+
+Output follows the latest text while the reader is already at the end.
+Scrolling back or selecting text retains that position as output arrives.
+The tab and Latest control indicate unread output; Latest clears the cue and
+resumes following. Output updates do not select another page or take keyboard
+focus from the editor or a control.
 
 The console appears to the right when the window can fit 80 editor columns,
 the console controls' measured minimum width and the divider. It moves below
 the editor in narrower windows. The font and GTK theme determine the exact
 breakpoint. Resizing within either layout retains a manually adjusted divider.
 
-The active file's profile colours also control the GTK console. A
+The active file's profile colours also control both output pages. A
 `SET COLOR` change repaints it immediately, and switching files applies the
 new file's colours while preserving the running job, output selection and
 unsent Program input.
@@ -97,7 +127,11 @@ driver and drives its real callbacks through the editor. It checks rendered
 file cells, click/cursor mapping, UTF-8 editing, pending dirty state/title,
 Ctrl-S, saved bytes, close/reopen, and command-line focus. With a configured
 native tool bundle it also runs a real Rexx program, checks its output, sends
-stdin and checks completion. It writes `gtk-runtime.png` in the build folder.
+separate ASCII, Unicode and empty stdin records, and checks completion. The
+contextual-action journey builds/runs a `.crexx` source, rejects stale and
+failed builds, and builds/applies a profile through the GTK controls. Reader
+checks cover retained selection, scroll position, unread output and Latest.
+It writes `gtk-runtime.png` in the build folder.
 The probe also changes all eight console colour areas during a running job,
 switches files and checks widget colours, rendered divider pixels, stderr
 styling, job identity, output selection and unsent input. It verifies the

@@ -77,10 +77,10 @@ from the core's logical file/prefix/command cursor and from program stdin routin
 
 ### Native alignment boundaries
 
-GTK is the next workbench alignment target. It already projects shared menus,
-logs, documents, forms and editable file fields. Native compiler/assembler and
-profile activation adapters also exist; GTK must expose those shared outcomes
-rather than implement another compiler or classify files independently.
+GTK projects shared menus, logs, documents, forms and editable file fields.
+Its contextual Build/Run/Apply controls use the shared file-action model and
+native compiler/assembler and profile activation adapters. The driver does not
+classify files or implement its own compiler policy.
 
 `TheToolsFileSnapshot` supplies owned current-file action, artifact, profile and
 result data to native drivers and the browser JSON projection. Action requests
@@ -88,21 +88,20 @@ carry the rendered source/revision/generation and are rechecked on the editor
 owner. Native and Wasm owner updates call `the_tools_poll()` to admit completion;
 reading a typed snapshot or formatting JSON does not complete a job.
 
-The remaining architectural gaps are concrete:
+Input-line framing belongs to `src/tools.c`; GTK submits raw entry text once.
+Program input and output project the Program lane, while build/profile output
+has a separate Build result page. Switching pages does not change the shared
+job or stdin destination. The legacy `RX CONSOLE` route also changes Program
+visibility after a build so stock profile menu actions remain usable.
 
-- GTK adds a newline before the common input path adds one again. Input-line
-  framing belongs to `src/tools.c`; the driver must submit raw entry text.
-- GTK's Program console reads the active console lane. Program and build lanes
-  already exist in the tool host and need distinct native projections.
-- GTK must project the shared current-file Build/Run/Apply availability,
-  artifact identity and result state rather than use a fixed Run button.
-- Output scroll position, unread indication and focus restoration are driver
-  presentation responsibilities. GTK must retain the reader's position as the
-  browser does, without moving job or buffer policy into widgets.
+Output scroll position, directional text selection, unread indication and
+focus restoration are driver presentation responsibilities. GTK retains these
+as output arrives and offers Latest to resume following. Completion and output
+updates do not change the selected auxiliary page or take input focus.
 
-See the [alignment sequence](roadmap.md#cross-platform-workbench-review) for the
-bounded implementation order. These gaps are review findings, not completed
-GTK work or a claim of cross-platform qualification.
+See the [alignment scope](roadmap.md#cross-platform-workbench-review) for
+acceptance and remaining platform work. Local GTK checks do not qualify native
+installers or other operating systems.
 
 ### Profile and language-tool workflow
 

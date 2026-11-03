@@ -10,7 +10,7 @@ import tempfile
 def main():
     binary, module, screenshot = map(lambda value: str(Path(value).resolve()), sys.argv[1:4])
     with tempfile.TemporaryDirectory(prefix="the-gtk-runtime-") as directory:
-        root = Path(directory)
+        root = Path(directory).resolve()
         (root / "sample.txt").write_text("alpha\nbeta\n", encoding="utf-8")
         (root / "other.txt").write_text("other buffer\n", encoding="utf-8")
         (root / "program.rexx").write_text(
@@ -26,14 +26,19 @@ def main():
             "parse pull fourth\n"
             "say 'GTK_STDIN_4<' || fourth || '>'\n"
             "say 'GTK_STDIN_DONE'\n", encoding="utf-8")
+        (root / "program.crexx").write_text(
+            "options levelb\nsay 'GTK compiled ready'\nreturn 0\n", encoding="utf-8")
+        (root / "User.profile.the").write_text(
+            "options levelb\naddress THE\n'set number on';\nsay 'GTK profile applied'\nreturn 0\n", encoding="utf-8")
+        (root / "Invalid.profile.rxbin").write_bytes(b"not RXBIN")
         environment = dict(os.environ, THE_DRIVER_PATH=module,
-                           THE_GTK_PROBE_DIR=directory,
+                           THE_GTK_PROBE_DIR=str(root),
                            THE_GTK_PROBE_SCREENSHOT=screenshot,
                            THE_TOOL_CONFIG_DIR=str(root / "tool-config"))
         try:
             completed = subprocess.run([binary, "--driver", "gtk", "-w", "16384", str(root / "sample.txt")],
                                        cwd=directory, env=environment, text=True,
-                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=55)
+                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90)
         except subprocess.TimeoutExpired as error:
             raise AssertionError((error.stdout, error.stderr)) from error
         if "GTK 3 could not open a display" in completed.stderr + completed.stdout:
@@ -51,6 +56,15 @@ def main():
                        "GTK_VIRTUAL_SURFACES_COMMAND_LINE_PASS"):
             assert marker in completed.stdout, (marker, completed.stdout, completed.stderr)
         if environment.get("THE_GTK_REQUIRE_PROGRAM"):
+            for marker in ("GTK_CONTEXTUAL_ACTIONS_DISABLED_SELECTED_PROFILE_STYLE_PASS",
+                           "GTK_PROGRAM_READER_SCROLL_SELECTION_UNREAD_LATEST_DRAFT_FOCUS_PASS",
+                           "GTK_READER_TAIL_SELECTION_STREAM_REPLACEMENT_EVICTION_UNREAD_PASS",
+                           "GTK_LEGACY_MENU_BUILD_TERMINAL_STATUS_PROGRAM_SHOW_HIDE_PASS",
+                           "GTK_BUILD_RESULT_PRESERVES_PROGRAM_HISTORY_SELECTION_DRAFT_CURSOR_PASS",
+                           "GTK_CONTEXTUAL_CREXX_BUILD_RUN_STALE_FAILED_BUILD_REFUSAL_PASS",
+                           "GTK_CONTEXTUAL_PROFILE_BUILD_APPLY_EDIT_IMPORT_INVALID_RETAIN_PASS"):
+                assert marker in completed.stdout, (marker, completed.stdout, completed.stderr)
+            assert (root / "program.crexx").read_text() == "options levelb\nsay 'GTK compiled ready'\nreturn 0\n"
             assert "GTK_PROGRAM_OUTPUT_STDIN_COMPLETION_PASS" in completed.stdout, completed.stdout
             assert "GTK_STDIN_ONE_RECORD_PER_ENTER_SEND_UNICODE_EMPTY_PASS" in completed.stdout, completed.stdout
             assert "GTK_NAMED_LOG_CONTROL_ESCAPE_SCROLL_FOCUS_PROGRAM_DRAFT_RETURN_PASS" in completed.stdout, completed.stdout

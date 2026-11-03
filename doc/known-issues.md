@@ -36,9 +36,7 @@ the particular mutation path decodes UTF text.
 | --- | --- | --- |
 | Terminal Program console | At 80×24 the bottom dock can show only three output rows at once. | Focus the Program console and use PageUp/PageDown or Home/End for scrollback; expand the terminal for more visible output. |
 | Terminal file opening | Open/create prepares an `EDIT` command but has no file picker or path completion. | Type a path at the prompt, or use `DIRECTORY` to inspect files. |
-| GTK desktop | The unpackaged macOS executable appears as `the` in the system menu bar. GTK output follows new text unless a selection is active; it has no unread-output cue. | Use the native Open/New chooser and scroll the Program output to inspect earlier text. |
-| GTK Program input | The driver and shared input path both append a newline, so one submission can feed an unintended blank second record. | Interactive multi-input programs are not aligned with the browser yet; the next GTK slice removes driver-owned framing and tests two successive inputs. |
-| GTK file/tool workflow | Fixed Run controls do not project the shared current-file Build/Run/Apply model, and the Program console shows the active build/program lane. | Use the explicit commands for currently configured tools; contextual actions and separate build results are the next GTK alignment work. |
+| GTK desktop | The unpackaged macOS executable appears as `the` in the system menu bar. App-bundle identity and native installer checks are separate from the GTK workflow. | Use the native Open/New chooser; build and profile actions are available in the contextual action row. |
 | Browser parser diagnostics | Inline error colours and cursor-local status messages require a configured parser service. The Classic interpreter alone does not provide parser diagnostics. | Check the build's highlighter capability and the Syntax state at the top of the workbench. |
 
 ## Panels and browser
