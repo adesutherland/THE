@@ -47,7 +47,8 @@ typedef struct {
 /* Editor-owner projection with owned strings. Preparing the current source
  * includes its pending record; reading never admits asynchronous completion.
  * Dispatch actions through prepare_lines_bound with these source/generation
- * tokens, which are rechecked on the editor input owner. */
+ * tokens, which are rechecked on the editor input owner. Returns zero with a
+ * zeroed snapshot while no editor view/file exists (including UI startup). */
 int the_tools_file_snapshot(TheToolsFileSnapshot *);
 /* Owner update: poll the host and admit completed file actions exactly once. */
 void the_tools_poll(void);

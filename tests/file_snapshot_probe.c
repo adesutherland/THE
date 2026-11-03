@@ -12,7 +12,7 @@
 #include "editorsource.h"
 #include <assert.h>
 
-static unsigned phase,job_id;
+static unsigned phase,job_id,build_job_id;
 static TheToolsFileSnapshot snapshot_initial;
 static LogicalCursorState cursor;
 static int window;
@@ -38,14 +38,32 @@ static void unchanged(void)
    assert(CURRENT_VIEW->current_window==window);
    assert(!memcmp(&cursor,&CURRENT_VIEW->logical_cursor,sizeof(cursor)));
 }
+static void console_lanes(int visible,int focused)
+{
+   const TheToolConsole *program=the_tool_program_console(),*build=the_tool_build_console();
+   assert(program->visible==visible && program->focused==focused);
+   assert(build->visible==visible && build->focused==focused);
+   assert(program->id==job_id && build->id==build_job_id);
+   assert(program->bytes==12 && !strcmp(program->chunks[0].text,"program-kept"));
+   assert(build->bytes==10 && !strcmp(build->chunks[0].text,"build-kept"));
+   unchanged();
+}
 static int probe_input(TheInputEvent *event)
 {
    switch(phase++) {
       case 0: {
          TheToolAdapter adapter={start,NULL,NULL,NULL,NULL};
          TheToolDefinition runner={0};TheWorkbenchAction build={0};
-         TheToolsFileSnapshot again;
+         TheToolsFileSnapshot again,empty={0};
+         VIEW_DETAILS *saved_view=vd_current;
+         const TheEditorSource *saved_source=the_editor_source_current();
          char generation[32];
+         memset(&again,255,sizeof(again));
+         vd_current=NULL;
+         assert(!the_tools_file_snapshot(&again));
+         vd_current=saved_view;
+         assert(!memcmp(&again,&empty,sizeof(again)));
+         assert(the_editor_source_current()==saved_source);
          the_tools_native_initialise();
          the_tool_host_adapter(&adapter);
          strcpy(runner.id,"snapshot-runner");strcpy(runner.label,"Snapshot runner");
@@ -86,6 +104,7 @@ static int probe_input(TheInputEvent *event)
          assert(the_tools_file_snapshot(&started));
          assert(started.result.serial==1 && !strcmp(started.result.code,"started"));
          /* Completion arrives on the owner. Projection alone must not admit it. */
+         the_tool_output(job_id,1,"program-kept",12);
          the_tool_finish(job_id,0,"0",NULL,NULL);
          assert(the_tools_file_snapshot(&again) && !memcmp(&started.result,&again.result,sizeof(again.result)));
          assert(the_tools_format_json(json,sizeof(json)));
@@ -103,9 +122,25 @@ static int probe_input(TheInputEvent *event)
          unchanged();
          printf("TYPED_FILE_SNAPSHOT %u %u %lu %u %d\n",snapshot_initial.source_id,snapshot_initial.revision,
             snapshot_initial.actions[0].generation,finished.result.serial,finished.result.rc);
+         assert(the_tool_build_capture_begin("snapshot-build","/snapshot/build",snapshot_initial.source_id,snapshot_initial.revision));
+         the_tool_profile_output(1,"build-kept",10);the_tool_build_capture_end(0);
+         build_job_id=the_tool_build_console()->id;
+         the_tool_program_console_visibility(0,0);
+         return the_input_event_from_command("rx console on",event);
+      }
+      case 2:
+         console_lanes(1,1);
+         return the_input_event_from_command("rx console off",event);
+      case 3:
+         console_lanes(0,0);
+         return the_input_event_from_command("rx console",event);
+      case 4:
+         console_lanes(1,1);
+         return the_input_event_from_command("rx console",event);
+      case 5:
+         console_lanes(1,0);
          puts("FILE_SNAPSHOT_OWNER_POLL_AND_PROJECTION_PASS");fflush(stdout);
          return the_input_event_from_command("qquit",event);
-      }
       default: assert(0);return 0;
    }
 }

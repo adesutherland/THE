@@ -1135,13 +1135,17 @@ short Rx(CHARTYPE *parameters) {
       const TheToolConsole *c = the_tool_console();
       if (n == 1) {
          /* Keep the historical focus toggle for typed RX CONSOLE. */
-         the_tool_console_visibility(1, !c->focused);
+         int focused=!c->focused;
+         the_tool_console_visibility(1, focused);
+         if(c!=the_tool_program_console())the_tool_program_console_visibility(1,focused);
          rc = RC_OK;
       } else if (n == 2 && !strcmp(words[1], "on")) {
          the_tool_console_visibility(1, 1);
+         if(c!=the_tool_program_console())the_tool_program_console_visibility(1,1);
          rc = RC_OK;
       } else if (n == 2 && !strcmp(words[1], "off")) {
          the_tool_console_visibility(0, 0);
+         if(c!=the_tool_program_console())the_tool_program_console_visibility(0,0);
          rc = RC_OK;
       } else {
          display_error(1, (CHARTYPE *)(n > 1 ? words[1] : ""), FALSE);
@@ -1228,8 +1232,9 @@ int the_tools_file_snapshot(TheToolsFileSnapshot *out) {
    FileAction actions[THE_TOOLS_FILE_ACTION_COUNT];
    size_t i;
    if(!out)return 0;
-   ensure();
    memset(out,0,sizeof(*out));
+   if(!CURRENT_VIEW || !CURRENT_FILE)return 0;
+   ensure();
    source=the_editor_source_prepare();
    if(source) { out->source_id=source->id;out->revision=source->revision; }
    if(CURRENT_FILE)snprintf(out->path,sizeof(out->path),"%s%s",CURRENT_FILE->fpath,CURRENT_FILE->fname);
